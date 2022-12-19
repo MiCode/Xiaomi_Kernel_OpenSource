@@ -739,6 +739,10 @@ static int ep_pcie_sriov_init(struct ep_pcie_dev_t *dev)
 		reg = readl_relaxed
 			(dbi + ep_pcie_dev.sriov_cap + PCIE20_TOTAL_VFS_INITIAL_VFS_REG);
 		ep_pcie_dev.num_vfs = (reg & 0xFFFF0000) >> 16;
+		EP_PCIE_INFO(&ep_pcie_dev,
+				"PCIe V%d: SR-IOV capability is present\n", ep_pcie_dev.rev);
+		EP_PCIE_INFO(&ep_pcie_dev, "PCIe V%d: Number of VFs: %d, SR-IOV mask: 0x%x\n",
+				ep_pcie_dev.rev, ep_pcie_dev.num_vfs, ep_pcie_dev.sriov_mask);
 	}
 	return 0;
 }
@@ -1057,7 +1061,6 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 	}
 
 	ep_pcie_sriov_init(dev);
-
 	if (!configured) {
 		ep_pcie_config_mmio(dev);
 		ep_pcie_config_inbound_iatu(dev, PCIE_PHYSICAL_DEVICE);
@@ -2809,11 +2812,53 @@ static irqreturn_t ep_pcie_handle_clkreq_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t ep_pcie_handle_sriov_irq(int irq, void *data)
+{
+	struct ep_pcie_dev_t *dev = data;
+	int i;
+	u32 sriov_irq_status, sriov_irq_mask = 0;
+
+	if (!ep_pcie_dev.sriov_cap)
+		goto exit_irq;
+
+	if (dev->sriov_mask) {
+		sriov_irq_status = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_3_STATUS);
+		sriov_irq_mask = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_3_MASK);
+		ep_pcie_write_mask(
+			dev->parf + PCIE20_PARF_INT_ALL_3_CLEAR, 0, sriov_irq_status);
+		sriov_irq_status &= sriov_irq_mask;
+		sriov_irq_status >>= find_first_bit(&dev->sriov_mask, BITS_PER_LONG);
+	} else {
+		sriov_irq_status = readl_relaxed(dev->parf + PCIE20_INT_ALL_VF_BME_STATUS);
+		sriov_irq_mask = readl_relaxed(dev->parf + PCIE20_INT_ALL_VF_BME_MASK);
+		ep_pcie_write_mask(
+			dev->parf + PCIE20_INT_ALL_VF_BME_CLEAR, 0, sriov_irq_status);
+	}
+
+	dev->sriov_irq_counter++;
+	EP_PCIE_DBG(dev,
+		"PCIe V%d: No. %ld SR-IOV IRQ %d received; status:0x%x; mask:0x%x\n",
+		dev->rev, dev->sriov_irq_counter, irq, sriov_irq_status, sriov_irq_mask);
+
+	if (!sriov_irq_status)
+		goto exit_irq;
+
+	for (i = 0; i < ep_pcie_dev.num_vfs; i++) {
+		if ((sriov_irq_status & BIT(i)) && !(dev->sriov_enumerated & BIT(i))) {
+			ep_pcie_notify_vf_bme_event(dev, EP_PCIE_EVENT_LINKUP_VF, i + 1);
+			dev->sriov_enumerated |= BIT(i);
+		}
+	}
+
+exit_irq:
+	return IRQ_HANDLED;
+
+}
+
 static irqreturn_t ep_pcie_handle_global_irq(int irq, void *data)
 {
 	struct ep_pcie_dev_t *dev = data;
 	int i;
-	u32 sriov_irq_status, sriov_irq_mask;
 	u32 status = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_STATUS);
 	u32 mask = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK);
 
@@ -2883,31 +2928,7 @@ static irqreturn_t ep_pcie_handle_global_irq(int irq, void *data)
 	}
 
 sriov_irq:
-	if (dev->sriov_mask) {
-		sriov_irq_status = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_3_STATUS);
-		sriov_irq_mask = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_3_MASK);
-		ep_pcie_write_mask(dev->parf + PCIE20_PARF_INT_ALL_3_CLEAR, 0, sriov_irq_status);
-
-		dev->sriov_irq_counter++;
-		EP_PCIE_DUMP(dev,
-			"PCIe V%d: No. %ld SR-IOV IRQ %d received; status:0x%x; mask:0x%x\n",
-			dev->rev, dev->sriov_irq_counter, irq, sriov_irq_status, sriov_irq_mask);
-
-		sriov_irq_status &= sriov_irq_mask;
-		sriov_irq_status >>= find_first_bit(&dev->sriov_mask, BITS_PER_LONG);
-		if (!sriov_irq_status)
-			goto exit_irq;
-
-		for (i = 0; i < hweight_long(dev->sriov_mask); i++) {
-			if ((sriov_irq_status & BIT(i)) && !(dev->sriov_enumerated & BIT(i))) {
-				ep_pcie_notify_vf_bme_event(dev, EP_PCIE_EVENT_LINKUP_VF, i + 1);
-				dev->sriov_enumerated |= BIT(i);
-			}
-		}
-	}
-
-exit_irq:
-	return IRQ_HANDLED;
+	return ep_pcie_handle_sriov_irq(irq, data);
 }
 
 int32_t ep_pcie_irq_init(struct ep_pcie_dev_t *dev)
@@ -3394,8 +3415,13 @@ int ep_pcie_core_trigger_msi(u32 idx, u32 vf_id)
 		n = vf_id - 1;
 		dbi = ep_pcie_dev.dm_core_vf;
 		msi = ep_pcie_dev.msi_vf;
-		/* Shift idx to the vf postion to generate msi */
-		idx = idx << (8 + (n*4));
+		if (!ep_pcie_dev.parf_msi_vf_indexed) {
+			/* Shift idx to the vf postion to generate msi */
+			idx = idx << (8 + (n*5));
+		}
+
+		/* Update msi virtual-function number field */
+		idx |= n << 6;
 		/* Set bit(5) to activate virtual function usage */
 		idx |= BIT(5);
 	}
@@ -3538,13 +3564,23 @@ int ep_pcie_core_config_db_routing(struct ep_pcie_db_config chdb_cfg,
 				PCIE20_PARF_MHI_IPA_EDB_TARGET_LOWER,
 				erdb_cfg.tgt_addr);
 	} else {
-		ep_pcie_write_reg(ep_pcie_dev.parf, PCIE20_PARF_MHI_IPA_DBS_VF(n), dbs);
-		ep_pcie_write_reg(ep_pcie_dev.parf,
-				PCIE20_PARF_MHI_IPA_CDB_VF_TARGET_LOWER(n),
-				chdb_cfg.tgt_addr);
-		ep_pcie_write_reg(ep_pcie_dev.parf,
-				PCIE20_PARF_MHI_IPA_EDB_VF_TARGET_LOWER(n),
-				erdb_cfg.tgt_addr);
+		if (ep_pcie_dev.db_fwd_off_varied) {
+			ep_pcie_write_reg(ep_pcie_dev.parf, PCIE20_PARF_MHI_IPA_DBS_VF(n), dbs);
+			ep_pcie_write_reg(ep_pcie_dev.parf,
+					PCIE20_PARF_MHI_IPA_CDB_VF_TARGET_LOWER(n),
+					chdb_cfg.tgt_addr);
+			ep_pcie_write_reg(ep_pcie_dev.parf,
+					PCIE20_PARF_MHI_IPA_EDB_VF_TARGET_LOWER(n),
+					erdb_cfg.tgt_addr);
+		} else {
+			ep_pcie_write_reg(ep_pcie_dev.parf, PCIE20_PARF_MHI_IPA_DBS_V1_VF(n), dbs);
+			ep_pcie_write_reg(ep_pcie_dev.parf,
+					PCIE20_PARF_MHI_IPA_CDB_V1_VF_TARGET_LOWER(n),
+					chdb_cfg.tgt_addr);
+			ep_pcie_write_reg(ep_pcie_dev.parf,
+					PCIE20_PARF_MHI_IPA_EDB_V1_VF_TARGET_LOWER(n),
+					erdb_cfg.tgt_addr);
+		}
 	}
 
 	EP_PCIE_DBG(&ep_pcie_dev,
@@ -3785,6 +3821,12 @@ static int ep_pcie_probe(struct platform_device *pdev)
 				"qcom,aoss-rst-clr");
 	EP_PCIE_DBG(&ep_pcie_dev,
 		"PCIe V%d: AOSS reset for perst needed\n", ep_pcie_dev.rev);
+	ep_pcie_dev.parf_msi_vf_indexed = of_property_read_bool((&pdev->dev)->of_node,
+							"qcom,pcie-parf-msi-vf-indexed");
+
+	ep_pcie_dev.db_fwd_off_varied = of_property_read_bool(
+						(&pdev->dev)->of_node,
+						"qcom,db-fwd-off-varied");
 
 	ep_pcie_dev.rev = 1711211;
 	ep_pcie_dev.pdev = pdev;
@@ -3830,14 +3872,9 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	ret = of_property_read_u32((&pdev->dev)->of_node, "qcom,sriov-mask",
 					&sriov_mask);
 	ep_pcie_dev.sriov_mask = (unsigned long)sriov_mask;
-	if (ret)
-		EP_PCIE_INFO(&ep_pcie_dev,
-			"PCIe V%d: SR-IOV not enabled/supported.\n",
-				ep_pcie_dev.rev);
-	else
-		EP_PCIE_INFO(&ep_pcie_dev,
-			"PCIe V%d: SR-IOV enabled, mask:0x%x\n",
-				ep_pcie_dev.rev, sriov_mask);
+	if (!ret)
+		EP_PCIE_INFO(&ep_pcie_dev, "PCIe V%d: SR-IOV mask:0x%x\n",
+			ep_pcie_dev.rev, sriov_mask);
 	ep_pcie_dev.use_iatu_msi = of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,pcie-use-iatu-msi");
 	EP_PCIE_DBG(&ep_pcie_dev,

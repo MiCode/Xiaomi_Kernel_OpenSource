@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_VIDEO_CC_SM8250_H
@@ -18,6 +19,14 @@
 #define VIDEO_CC_PLL1			8
 #define VIDEO_CC_MVS0_DIV_CLK_SRC	9
 #define VIDEO_CC_MVS0_CLK		10
+#define VIDEO_CC_AHB_CLK_SRC		11
+#define VIDEO_CC_MVS1_CLK		12
+#define VIDEO_CC_MVS1_DIV_CLK_SRC	13
+#define VIDEO_CC_SLEEP_CLK		14
+#define VIDEO_CC_SLEEP_CLK_SRC		15
+#define VIDEO_PLL0			16
+#define VIDEO_PLL1			17
+#define VIDEO_CC_XO_CLK_SRC		18
 
 /* VIDEO_CC resets */
 #define VIDEO_CC_CVP_INTERFACE_BCR	0
@@ -27,6 +36,11 @@
 #define VIDEO_CC_CVP_MVS1_BCR		4
 #define VIDEO_CC_MVS1C_CLK_ARES		5
 #define VIDEO_CC_CVP_MVS1C_BCR		6
+#define CVP_VIDEO_CC_INTERFACE_BCR	7
+#define CVP_VIDEO_CC_MVS0_BCR		8
+#define CVP_VIDEO_CC_MVS0C_BCR		9
+#define CVP_VIDEO_CC_MVS1_BCR		10
+#define CVP_VIDEO_CC_MVS1C_BCR		11
 
 #define MVS0C_GDSC			0
 #define MVS1C_GDSC			1

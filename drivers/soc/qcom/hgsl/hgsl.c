@@ -346,7 +346,7 @@ static void hgsl_reg_read(struct reg *reg, unsigned int off,
 	*value = __raw_readl(reg->vaddr + off);
 
 	/* ensure this read finishes before the next one.*/
-	rmb();
+	dma_rmb();
 }
 
 static void hgsl_reg_write(struct reg *reg, unsigned int off,
@@ -364,7 +364,7 @@ static void hgsl_reg_write(struct reg *reg, unsigned int off,
 	 * ensure previous writes post before this one,
 	 * i.e. act like normal writel()
 	 */
-	wmb();
+	dma_wmb();
 	__raw_writel(value, (reg->vaddr + off));
 }
 
@@ -427,7 +427,7 @@ static int db_queue_wait_freewords(struct doorbell_queue *dbq, uint32_t size)
 			HGSL_DBQ_HOST_TO_GVM_HARDRESET_REQ);
 
 		/* ensure read is done before comparison */
-		rmb();
+		dma_rmb();
 
 		if (hard_reset_req == true) {
 			if (db_get_busy_state(dbq->vbase) == true)
@@ -457,7 +457,7 @@ static int db_get_busy_state(void *dbq_base)
 		HGSL_DBQ_GVM_TO_HOST_HARDRESET_DISPATCH_IN_BUSY);
 
 	/* ensure read is done before comparison */
-	rmb();
+	dma_rmb();
 
 	return busy_state;
 }
@@ -471,7 +471,7 @@ static void db_set_busy_state(void *dbq_base, int in_busy)
 		in_busy);
 
 	/* confirm write to memory done */
-	wmb();
+	dma_wmb();
 }
 
 static int db_send_msg(struct hgsl_priv  *priv,
@@ -500,12 +500,12 @@ static int db_send_msg(struct hgsl_priv  *priv,
 	cmds = (struct hgsl_db_cmds *)msg_req->ptr_data;
 	do {
 		hard_reset_req = hgsl_dbq_get_state_info((uint32_t *)dbq->vbase,
-		HGSL_DBQ_METADATA_COOPERATIVE_RESET,
-		HGSL_DBQ_CONTEXT_ANY,
-		HGSL_DBQ_HOST_TO_GVM_HARDRESET_REQ);
+			HGSL_DBQ_METADATA_COOPERATIVE_RESET,
+			HGSL_DBQ_CONTEXT_ANY,
+			HGSL_DBQ_HOST_TO_GVM_HARDRESET_REQ);
 
 		/* ensure read is done before comparison */
-		rmb();
+		dma_rmb();
 
 		if (hard_reset_req) {
 			if (msleep_interruptible(1)) {
@@ -548,6 +548,9 @@ static int db_send_msg(struct hgsl_priv  *priv,
 	dst = dbq->data.vaddr + (wptr << 2);
 	src = msg_req->ptr_data;
 	memcpy(dst, src, (move_dwords << 2));
+
+	/* ensure data is committed before update wptr */
+	dma_wmb();
 
 	wptr = (wptr + msg_size_align) % queue_size_dword;
 	hgsl_dbq_set_state_info((uint32_t *)dbq->vbase,
@@ -709,7 +712,7 @@ static inline uint32_t get_context_retired_ts(struct hgsl_context *ctxt)
 	unsigned int ts = ctxt->shadow_ts->eop;
 
 	/* ensure read is done before comparison */
-	rmb();
+	dma_rmb();
 	return ts;
 }
 
@@ -719,7 +722,7 @@ static inline void set_context_retired_ts(struct hgsl_context *ctxt,
 	ctxt->shadow_ts->eop = ts;
 
 	/* ensure update is done before return */
-	wmb();
+	dma_wmb();
 }
 
 static inline bool _timestamp_retired(struct hgsl_context *ctxt,
@@ -1027,7 +1030,7 @@ static inline void _destroy_context(struct kref *kref)
 	_unmap_shadow(ctxt);
 	ctxt->destroyed = true;
 	/* ensure update is done before return */
-	wmb();
+	dma_wmb();
 }
 
 static struct hgsl_context *hgsl_get_context(struct qcom_hgsl *hgsl,
@@ -1124,7 +1127,7 @@ static int hgsl_read_shadow_timestamp(struct hgsl_context *ctxt,
 			break;
 		}
 		/* ensure read is done before return */
-		rmb();
+		dma_rmb();
 	}
 	LOGD("%d, %u, %u, %u", ret, ctxt->context_id, type, *timestamp);
 	return ret;

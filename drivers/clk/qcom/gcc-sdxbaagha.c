@@ -79,7 +79,7 @@ static struct clk_alpha_pll gpll0 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -129,7 +129,7 @@ static struct clk_alpha_pll gpll2 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -157,7 +157,7 @@ static struct clk_alpha_pll gpll3 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -185,7 +185,7 @@ static struct clk_alpha_pll gpll4 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -541,6 +541,7 @@ static struct clk_rcg2 gcc_pcie_aux_phy_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_pcie_rchng_phy_clk_src[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(83333333, P_GPLL4_OUT_EVEN, 3, 0, 0),
 	F(100000000, P_GPLL0_OUT_EVEN, 3, 0, 0),
 	{ }
@@ -839,6 +840,21 @@ static struct clk_regmap_div gcc_usb20_mock_utmi_postdiv_clk_src = {
 		.num_parents = 1,
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_regmap_div_ro_ops,
+	},
+};
+
+static struct clk_branch gcc_boot_rom_ahb_clk = {
+	.halt_reg = 0x37004,
+	.halt_check = BRANCH_HALT_VOTED,
+	.hwcg_reg = 0x37004,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x7d008,
+		.enable_mask = BIT(26),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_boot_rom_ahb_clk",
+			.ops = &clk_branch2_ops,
+		},
 	},
 };
 
@@ -1496,6 +1512,7 @@ static struct clk_branch gcc_usb_phy_cfg_ahb2phy_clk = {
 };
 
 static struct clk_regmap *gcc_sdxbaagha_clocks[] = {
+	[GCC_BOOT_ROM_AHB_CLK] = &gcc_boot_rom_ahb_clk.clkr,
 	[GCC_EMAC0_AXI_CLK] = &gcc_emac0_axi_clk.clkr,
 	[GCC_EMAC0_PHY_AUX_CLK] = &gcc_emac0_phy_aux_clk.clkr,
 	[GCC_EMAC0_PHY_AUX_CLK_SRC] = &gcc_emac0_phy_aux_clk_src.clkr,

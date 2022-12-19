@@ -61,6 +61,7 @@ static struct clk_debug_mux apss_cc_debug_mux = {
 static const char *const gcc_debug_mux_parent_names[] = {
 	"apss_cc_debug_mux",
 	"gcc_ahb_pcie_link_clk",
+	"gcc_boot_rom_ahb_clk",
 	"gcc_emac0_axi_clk",
 	"gcc_emac0_phy_aux_clk",
 	"gcc_emac0_ptp_clk",
@@ -102,12 +103,16 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"mc_cc_debug_mux",
 	"measure_only_ipa_2x_clk",
 	"measure_only_pcie_pipe_clk",
+	"measure_only_qpic_ahb_clk",
+	"measure_only_qpic_clk",
+	"measure_only_qpic_system_clk",
 	"measure_only_snoc_clk",
 };
 
 static int gcc_debug_mux_sels[] = {
 	0x89,		/* apss_cc_debug_mux */
 	0x71,		/* gcc_ahb_pcie_link_clk */
+	0x59,		/* gcc_boot_rom_ahb_clk */
 	0xE2,		/* gcc_emac0_axi_clk */
 	0xE4,		/* gcc_emac0_phy_aux_clk */
 	0xE5,		/* gcc_emac0_ptp_clk */
@@ -149,6 +154,9 @@ static int gcc_debug_mux_sels[] = {
 	0x77,		/* mc_cc_debug_mux */
 	0xC8,		/* measure_only_ipa_2x_clk */
 	0xA7,		/* measure_only_pcie_pipe_clk */
+	0xFB,		/* measure_only_qpic_ahb_clk */
+	0x109,		/* measure_only_qpic_clk */
+	0xFC,		/* measure_only_qpic_system_clk */
 	0xA,		/* measure_only_snoc_clk */
 };
 
@@ -224,6 +232,30 @@ static struct clk_dummy measure_only_pcie_pipe_clk = {
 	},
 };
 
+static struct clk_dummy measure_only_qpic_ahb_clk = {
+	.rrate = 1000,
+	.hw.init = &(const struct clk_init_data){
+		.name = "measure_only_qpic_ahb_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_qpic_clk = {
+	.rrate = 1000,
+	.hw.init = &(const struct clk_init_data){
+		.name = "measure_only_qpic_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
+static struct clk_dummy measure_only_qpic_system_clk = {
+	.rrate = 1000,
+	.hw.init = &(const struct clk_init_data){
+		.name = "measure_only_qpic_system_clk",
+		.ops = &clk_dummy_ops,
+	},
+};
+
 static struct clk_dummy measure_only_snoc_clk = {
 	.rrate = 1000,
 	.hw.init = &(const struct clk_init_data){
@@ -237,6 +269,9 @@ static struct clk_hw *debugcc_sdxbaagha_hws[] = {
 	&measure_only_ipa_2x_clk.hw,
 	&measure_only_mccc_clk.hw,
 	&measure_only_pcie_pipe_clk.hw,
+	&measure_only_qpic_ahb_clk.hw,
+	&measure_only_qpic_clk.hw,
+	&measure_only_qpic_system_clk.hw,
 	&measure_only_snoc_clk.hw,
 };
 

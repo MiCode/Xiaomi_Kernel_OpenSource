@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2018, 2020 The Linux Foundation. All rights reserved. */
-
+/* Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #ifndef _DT_BINDINGS_CLK_MSM_RPMH_H
 #define _DT_BINDINGS_CLK_MSM_RPMH_H
@@ -35,5 +35,9 @@
 #define RPMH_QLINK_CLK_A			26
 #define RPMH_CXO_PAD_CLK			27
 #define RPMH_CXO_PAD_CLK_A			28
+#define RPMH_RF_CLKD3				29
+#define RPMH_RF_CLKD3_A				30
+#define RPMH_RF_CLKD4				31
+#define RPMH_RF_CLKD4_A				32
 
 #endif

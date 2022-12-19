@@ -609,13 +609,11 @@ struct mhi_dev {
 	bool				use_mhi_dma;
 
 	/* Denotes if the MHI instance is physcial or virtual */
-	bool				is_mhi_virtual;
+	bool				is_mhi_pf;
 
 	bool				is_flashless;
 
 	bool				mhi_has_smmu;
-
-	bool				is_mhi_pf;
 
 	/* iATU is required to map control and data region */
 	bool				config_iatu;
@@ -711,7 +709,9 @@ enum mhi_msg_level {
 extern uint32_t bhi_imgtxdb;
 extern enum mhi_msg_level mhi_msg_lvl;
 extern enum mhi_msg_level mhi_ipc_msg_lvl;
+extern enum mhi_msg_level mhi_ipc_err_msg_lvl;
 extern void *mhi_ipc_log;
+extern void *mhi_ipc_err_log;
 
 #define mhi_log(_msg_lvl, _msg, ...) do { \
 	if (_msg_lvl >= mhi_msg_lvl) { \
@@ -720,7 +720,11 @@ extern void *mhi_ipc_log;
 	} \
 	if (mhi_ipc_log && (_msg_lvl >= mhi_ipc_msg_lvl)) { \
 		ipc_log_string(mhi_ipc_log,                     \
-		"[0x%x %s] " _msg, bhi_imgtxdb, __func__, ##__VA_ARGS__);     \
+		"[0x%x %s] " _msg, bhi_imgtxdb, __func__, ##__VA_ARGS__); \
+	} \
+	if (mhi_ipc_err_log && (_msg_lvl >= mhi_ipc_err_msg_lvl)) { \
+		ipc_log_string(mhi_ipc_err_log,                     \
+		"[0x%x %s] " _msg, bhi_imgtxdb, __func__, ##__VA_ARGS__); \
 	} \
 } while (0)
 

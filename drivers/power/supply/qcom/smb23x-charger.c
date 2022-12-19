@@ -11,6 +11,8 @@
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
+#include <linux/iio/iio.h>
+#include <linux/iio/consumer.h>
 #include <linux/power_supply.h>
 #include <linux/of.h>
 #include <linux/bitops.h>
@@ -18,6 +20,12 @@
 #include <linux/debugfs.h>
 #include <linux/pm_wakeup.h>
 #include <linux/spinlock.h>
+
+#define is_between(left, right, value) \
+	(((left) >= (right) && (left) >= (value) \
+		&& (value) >= (right)) \
+	|| ((left) <= (right) && (left) <= (value) \
+		&& (value) <= (right)))
 
 struct smb23x_chip {
 	struct i2c_client		*client;
@@ -71,10 +79,12 @@ struct smb23x_chip {
 	int				therm_lvl_sel;
 	int				thermal_levels;
 	u32				workaround_flags;
+	int				batt_id_ohm;
 	const char			*bms_psy_name;
 	struct power_supply		*usb_psy;
 	struct power_supply		*bms_psy;
 	struct power_supply		*batt_psy;
+	struct iio_channel		*batt_id_chan;
 	struct mutex			read_write_lock;
 	struct mutex			irq_complete;
 	struct mutex			chg_disable_lock;
@@ -1390,6 +1400,18 @@ static struct irq_handler_info handlers[] = {
 	},
 };
 
+#define DEBUG_BATT_ID_LOW	6000
+#define DEBUG_BATT_ID_HIGH	8500
+static bool is_debug_batt_id(struct smb23x_chip *chip)
+{
+	if (is_between(DEBUG_BATT_ID_LOW, DEBUG_BATT_ID_HIGH,
+						chip->batt_id_ohm))
+		return true;
+
+	return false;
+
+}
+
 #define UPDATE_IRQ_STAT(irq_reg, value) \
 	handlers[irq_reg - IRQ_A_STATUS_REG].prev_val = value
 static int smb23x_determine_initial_status(struct smb23x_chip *chip)
@@ -1413,7 +1435,17 @@ static int smb23x_determine_initial_status(struct smb23x_chip *chip)
 	else if (reg & COLD_SOFT_BIT)
 		chip->batt_cool = true;
 
-	chip->batt_present = true;
+	rc = iio_read_channel_processed(chip->batt_id_chan, &chip->batt_id_ohm);
+	if (rc < 0) {
+		pr_err("Failed to read BATT_ID over ADC, rc=%d\n", rc);
+		return rc;
+	}
+
+	if (!is_debug_batt_id(chip))
+		chip->batt_present = true;
+	else
+		chip->batt_present = false;
+
 	rc = smb23x_read(chip, IRQ_B_STATUS_REG, &reg);
 	if (rc < 0) {
 		pr_err("Read IRQ_B failed, rc=%d\n", rc);
@@ -1635,9 +1667,13 @@ exit:
 }
 
 #define DEFAULT_BATT_CAPACITY	50
+#define DEBUG_BATT_CAPACITY	67
 static int smb23x_get_prop_batt_capacity(struct smb23x_chip *chip)
 {
 	union power_supply_propval ret = {0, };
+
+	if (is_debug_batt_id(chip))
+		return DEBUG_BATT_CAPACITY;
 
 	if (chip->fake_battery_soc != -EINVAL)
 		return chip->fake_battery_soc;
@@ -1647,6 +1683,7 @@ static int smb23x_get_prop_batt_capacity(struct smb23x_chip *chip)
 				POWER_SUPPLY_PROP_CAPACITY, &ret);
 		return ret.intval;
 	}
+
 
 	return DEFAULT_BATT_CAPACITY;
 }
@@ -1759,6 +1796,7 @@ static int smb23x_usb_set_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  const union power_supply_propval *val)
 {
+	int rc = 0;
 	struct smb23x_chip *chip = power_supply_get_drvdata(psy);
 
 	switch (psp) {
@@ -2243,6 +2281,15 @@ static int smb23x_probe(struct i2c_client *client,
 	if (rc < 0) {
 		pr_err("Parse DT nodes failed!\n");
 		goto destroy_mutex;
+	}
+
+	chip->batt_id_chan = devm_iio_channel_get(chip->dev, "batt-id");
+	if (IS_ERR(chip->batt_id_chan)) {
+		rc = PTR_ERR(chip->batt_id_chan);
+		if (rc != -EPROBE_DEFER)
+			dev_err(chip->dev, "batt-id channel unavailable, rc=%d\n", rc);
+		chip->batt_id_chan = NULL;
+		return rc;
 	}
 
 	/*

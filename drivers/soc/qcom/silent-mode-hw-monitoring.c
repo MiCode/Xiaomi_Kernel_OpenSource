@@ -52,10 +52,6 @@ static irqreturn_t silent_mode_irq(int irq, void *priv)
 {
 	struct silent_mode_info *info = priv;
 
-	if (!info) {
-		pr_err("NULL pointer passed\n");
-		return IRQ_HANDLED;
-	}
 	mod_delayed_work(system_wq, &info->work, msecs_to_jiffies(200));
 
 	return IRQ_HANDLED;
@@ -106,8 +102,11 @@ static int silent_mode_init_monitor(struct silent_mode_info *info)
 	info->active_low = gpiod_is_active_low(info->gpiod);
 	info->sirq = gpiod_to_irq(info->gpiod);
 	result = gpiod_set_debounce(info->gpiod, 15000);
-	if (result < 0)
-		dev_info(&info->pdev->dev, "%s: ret %d\n", __func__, result);
+	if (result < 0) {
+		dev_err(&info->pdev->dev, "%s: GPIO debounce ret %d\n",
+			__func__, result);
+		return result;
+	}
 
 	INIT_DELAYED_WORK(&info->work, silent_mode_handler_work_func);
 
@@ -119,7 +118,7 @@ static int silent_mode_init_monitor(struct silent_mode_info *info)
 				info);
 
 	if (result < 0)
-		dev_info(&info->pdev->dev, "IRQ request %d\n", result);
+		dev_err(&info->pdev->dev, "IRQ request %d\n", result);
 
 	return result;
 
@@ -151,13 +150,7 @@ static int silent_mode_disable_monitor(struct silent_mode_info *info)
 
 static int forced_mode_enforced(void)
 {
-
-	char *match = strnstr(saved_command_line,
-						"silent_boot_mode",
-						strlen(saved_command_line));
-
-	if (strnstr(match, "=forcednonsilent", strlen(match)) ||
-			strnstr(match, "=forcedsilent", strlen(match)))
+	if (pm_silentmode_get_mode() < 0)
 		return 1;
 
 	return 0;
@@ -171,11 +164,11 @@ static int silent_mode_probe(struct platform_device *pdev)
 	struct silent_mode_info *info;
 
 	if  (forced_mode_enforced()) {
-		dev_err(&pdev->dev, "forced_mode: No HW State monitoring\n");
+		dev_info(&pdev->dev, "forced_mode: No HW State monitoring\n");
 		return result;
 	}
 
-	dev_err(&pdev->dev, "MODE_SILENT/MODE_NON_SILENT\n");
+	dev_info(&pdev->dev, "MODE_SILENT/MODE_NON_SILENT\n");
 
 	info = devm_kzalloc(&pdev->dev,
 			sizeof(struct silent_mode_info),

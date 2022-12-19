@@ -222,6 +222,7 @@ static struct platform_driver qcom_rimps_driver = {
 	.driver = {
 		.name = "qcom_rimps",
 		.of_match_table = qcom_rimps_of_match,
+		.suppress_bind_attrs = true,
 	},
 };
 

@@ -51,10 +51,13 @@
 #define PCIE20_PARF_INT_ALL_3_CLEAR    0x2D90
 #define PCIE20_PARF_MHI_BASE_ADDR_VFn_LOWER(n)       (((n) * 8) + 0x3088)
 #define PCIE20_PARF_MHI_BASE_ADDR_VFn_UPPER(n)       (((n) * 8)  + 0x308C)
-#define PCIE20_PARF_MHI_IPA_DBS_VF(n)                (((n) * 0x8) + 0x2E9C)
-#define PCIE20_PARF_MHI_IPA_CDB_VF_TARGET_LOWER(n)   (((n) * 0x18) + 0x2E08)
-#define PCIE20_PARF_MHI_IPA_EDB_VF_TARGET_LOWER(n)   (((n) * 0x18) + 0x2E0C)
 
+#define PCIE20_PARF_MHI_IPA_DBS_V1_VF(n)                (((n) * 0x8) + 0x2E9C)
+#define PCIE20_PARF_MHI_IPA_CDB_V1_VF_TARGET_LOWER(n)   (((n) * 0x18) + 0x2E08)
+#define PCIE20_PARF_MHI_IPA_EDB_V1_VF_TARGET_LOWER(n)   (((n) * 0x18) + 0x2E0C)
+#define PCIE20_PARF_MHI_IPA_DBS_VF(n)                (((n) * 0x28) + 0x3124)
+#define PCIE20_PARF_MHI_IPA_CDB_VF_TARGET_LOWER(n)   (((n) * 0x28) + 0x3110)
+#define PCIE20_PARF_MHI_IPA_EDB_VF_TARGET_LOWER(n)   (((n) * 0x28) + 0x3114)
 
 #define PCIE20_PARF_CLKREQ_OVERRIDE	0x2B0
 #define PCIE20_PARF_CLKREQ_IN_OVERRIDE_STS	BIT(5)
@@ -176,6 +179,10 @@
 
 #define PCIE20_AUX_CLK_FREQ_REG        0xB40
 #define PCIE20_GEN3_RELATED_OFF		0x890
+
+#define PCIE20_INT_ALL_VF_BME_STATUS	0xE68
+#define PCIE20_INT_ALL_VF_BME_MASK	0xE6C
+#define PCIE20_INT_ALL_VF_BME_CLEAR	0xE70
 
 #define PERST_TIMEOUT_US_MIN	              1000
 #define PERST_TIMEOUT_US_MAX	              1000
@@ -384,6 +391,8 @@ struct ep_pcie_dev_t {
 	bool                         active_config;
 	bool                         aggregated_irq;
 	bool                         mhi_a7_irq;
+	bool                         db_fwd_off_varied;
+	bool                         parf_msi_vf_indexed;
 	bool                         pcie_edma;
 	bool                         tcsr_not_supported;
 	bool			     m2_autonomous;

@@ -142,6 +142,21 @@ void adsp_segment_dump(struct rproc *rproc, struct rproc_dump_segment *segment,
 {
 	struct qcom_adsp *adsp = rproc->priv;
 	int total_offset;
+	void __iomem *base;
+	int len = strlen("md_dbg_buf");
+
+	if (strnlen(segment->priv, len + 1) == len &&
+		    !strcmp(segment->priv, "md_dbg_buf")) {
+		base = ioremap((unsigned long)le64_to_cpu(segment->da), size);
+		if (!base) {
+			pr_err("failed to map md_dbg_buf region\n");
+			return;
+		}
+
+		memcpy_fromio(dest, base, size);
+		iounmap(base);
+		return;
+	}
 
 	total_offset = segment->da + segment->offset + offset - adsp->mem_phys;
 	if (total_offset < 0 || total_offset + size > adsp->mem_size) {
@@ -1690,6 +1705,58 @@ static const struct adsp_data lemans_adsp_resource = {
 	.ssctl_id = 0x14,
 };
 
+static const struct adsp_data lemans_cdsp_resource = {
+	.crash_reason_smem = 601,
+	.firmware_name = "cdsp0.mdt",
+	.pas_id = 18,
+	.uses_elf64 = true,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "cdsp",
+	.sysmon_name = "cdsp",
+	.qmp_name = "cdsp",
+	.ssctl_id = 0x17,
+};
+
+static const struct adsp_data lemans_cdsp1_resource = {
+	.crash_reason_smem = 633,
+	.firmware_name = "cdsp1.mdt",
+	.pas_id = 30,
+	.uses_elf64 = true,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "cdsp1",
+	.sysmon_name = "cdsp1",
+	.qmp_name = "cdsp1",
+	.ssctl_id = 0x20,
+};
+
+static const struct adsp_data lemans_gpdsp0_resource = {
+	.crash_reason_smem = 640,
+	.firmware_name = "gpdsp0.mdt",
+	.pas_id = 39,
+	.uses_elf64 = true,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "gpdsp0",
+	.sysmon_name = "gpdsp0",
+	.qmp_name = "gpdsp0",
+	.ssctl_id = 0x21,
+};
+
+static const struct adsp_data lemans_gpdsp1_resource = {
+	.crash_reason_smem = 641,
+	.firmware_name = "gpdsp1.mdt",
+	.pas_id = 40,
+	.uses_elf64 = true,
+	.has_aggre2_clk = false,
+	.auto_boot = false,
+	.ssr_name = "gpdsp1",
+	.sysmon_name = "gpdsp1",
+	.qmp_name = "gpdsp1",
+	.ssctl_id = 0x22,
+};
+
 static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,msm8974-adsp-pil", .data = &adsp_resource_init},
 	{ .compatible = "qcom,msm8996-adsp-pil", .data = &adsp_resource_init},
@@ -1736,6 +1803,10 @@ static const struct of_device_id adsp_of_match[] = {
 	{ .compatible = "qcom,monaco-adsp-pas", .data = &monaco_adsp_resource},
 	{ .compatible = "qcom,monaco-modem-pas", .data = &monaco_modem_resource},
 	{ .compatible = "qcom,lemans-adsp-pas", .data = &lemans_adsp_resource},
+	{ .compatible = "qcom,lemans-cdsp-pas", .data = &lemans_cdsp_resource},
+	{ .compatible = "qcom,lemans-cdsp1-pas", .data = &lemans_cdsp1_resource},
+	{ .compatible = "qcom,lemans-gpdsp0-pas", .data = &lemans_gpdsp0_resource},
+	{ .compatible = "qcom,lemans-gpdsp1-pas", .data = &lemans_gpdsp1_resource},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, adsp_of_match);

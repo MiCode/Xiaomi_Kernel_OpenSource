@@ -305,6 +305,9 @@ static void mhi_bl_dl_cb(struct mhi_device *mhi_device,
 				ipc_log_string(arch_info->boot_ipc_log, "%s %s",
 					       DLOG, token);
 		} while (token);
+
+		/* reset buf pointing to start of buffer instead of using strsep updated one */
+		buf = mhi_result->buf_addr;
 	} else {
 		ipc_log_string(arch_info->boot_ipc_log, "%s %s", DLOG, buf);
 	}

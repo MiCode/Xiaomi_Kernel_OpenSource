@@ -411,9 +411,10 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	bool full_window;
 
 	if (wallclock < wrq->latest_clock) {
-		printk_deferred("WALT-BUG CPU%d; wallclock=%llu(0x%llx) is lesser than latest_clock=%llu(0x%llx)",
+		printk_deferred("WALT-BUG CPU%d; wallclock=%llu(0x%llx) is lesser than latest_clock=%llu(0x%llx) walt_clock_suspended=%d sched_clock_last=%llu(0x%llx)",
 				rq->cpu, wallclock, wallclock, wrq->latest_clock,
-				wrq->latest_clock);
+				wrq->latest_clock, walt_clock_suspended,
+				sched_clock_last, sched_clock_last);
 		WALT_PANIC(1);
 	}
 	delta = wallclock - wrq->window_start;

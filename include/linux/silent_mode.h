@@ -14,7 +14,7 @@
 
 /* Silent Modes  */
 enum silent_boot_mode {
-	MODE_NON_SILENT = 0,
+	MODE_NON_SILENT = 1,
 	MODE_SILENT,
 };
 
@@ -43,4 +43,5 @@ extern int  pm_silentmode_status(void);
 extern int register_pm_silentmode_notifier(struct notifier_block *nb);
 extern int unregister_pm_silentmode_notifier(struct notifier_block *nb);
 
+extern int pm_silentmode_get_mode(void);
 #endif /*PM_SILENT_MODE*/

@@ -660,6 +660,7 @@ static int stmmac_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 	u32 ts_master_en = 0;
 	u32 ts_event_en = 0;
 	u32 av_8021asm_en = 0;
+	int ret = 0;
 
 	if (!(priv->dma_cap.time_stamp || priv->adv_ts)) {
 		netdev_alert(priv->dev, "No support for HW time stamping\n");
@@ -825,6 +826,10 @@ static int stmmac_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 	priv->hwts_tx_en = config.tx_type == HWTSTAMP_TX_ON;
 
 	priv->systime_flags = STMMAC_HWTS_ACTIVE;
+
+	ret = stmmac_init_tstamp_counter(priv, STMMAC_HWTS_ACTIVE);
+	if (ret)
+		return ret;
 
 	if (priv->hwts_tx_en || priv->hwts_rx_en) {
 		priv->systime_flags |= tstamp_all | ptp_v2 |
@@ -5278,6 +5283,47 @@ read_again:
 	return failure ? limit : (int)count;
 }
 
+static u16 csum(u16 old_csum)
+{
+	u16 new_checksum = 0;
+
+	new_checksum = ~(~old_csum + (-8) + 0);
+	return new_checksum;
+}
+
+void swap_ip_port(struct sk_buff *skb, unsigned int eth_type)
+{
+	__be32 temp_addr;
+	unsigned char *buf = skb->data;
+	struct icmphdr *icmp_hdr;
+	unsigned char eth_temp[ETH_ALEN] = {};
+	struct ethhdr *eth = (struct ethhdr *)(buf);
+	struct iphdr *ip_header;
+
+	if (eth_type == ETH_P_IP) {
+		ip_header = (struct iphdr *)(buf + sizeof(struct ethhdr));
+		if (ip_header->protocol == IPPROTO_UDP ||
+		    ip_header->protocol ==  IPPROTO_ICMP) {
+			//swap mac address
+			memcpy(eth_temp, eth->h_dest, ETH_ALEN);
+			memcpy(eth->h_dest, eth->h_source, ETH_ALEN);
+			memcpy(eth->h_source, eth_temp, ETH_ALEN);
+			//swap ip address
+			temp_addr = ip_header->daddr;
+			ip_header->daddr = ip_header->saddr;
+			ip_header->saddr = temp_addr;
+
+			icmp_hdr = (struct icmphdr *)(buf
+					+ sizeof(struct ethhdr)
+					+ sizeof(struct iphdr));
+			if (icmp_hdr->type == ICMP_ECHO) {
+				icmp_hdr->type = ICMP_ECHOREPLY;
+				icmp_hdr->checksum = csum(icmp_hdr->checksum);
+			}
+		}
+	}
+}
+
 /**
  * stmmac_rx - manage the receive process
  * @priv: driver private structure
@@ -5299,6 +5345,7 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
 	struct xdp_buff xdp;
 	int xdp_status = 0;
 	int buf_sz;
+	unsigned int eth_type;
 
 	dma_dir = page_pool_get_dma_dir(rx_q->page_pool);
 	buf_sz = DIV_ROUND_UP(priv->dma_buf_sz, PAGE_SIZE) * PAGE_SIZE;
@@ -5510,6 +5557,12 @@ read_again:
 			page_pool_release_page(rx_q->page_pool, buf->sec_page);
 			buf->sec_page = NULL;
 		}
+
+		eth_type = priv->plat->get_eth_type(skb->data);
+
+		if (priv->current_loopback > 0 &&
+		    eth_type == ETH_P_IP)
+			swap_ip_port(skb, eth_type);
 
 drain_data:
 		if (likely(status & rx_not_ls))

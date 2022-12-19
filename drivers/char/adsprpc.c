@@ -1039,6 +1039,12 @@ static inline bool fastrpc_get_persistent_map(size_t len, struct fastrpc_mmap **
 			map->is_persistent && !map->in_use) {
 			*pers_map = map;
 			map->in_use = true;
+			/*
+			 * Incrementing map reference count when getting
+			 * the map to avoid negative reference count when
+			 * freeing the map.
+			 */
+			map->refs++;
 			found = true;
 			break;
 		}
@@ -2872,6 +2878,25 @@ static inline void fastrpc_pm_awake(struct fastrpc_file *fl, int channel_type)
 		pm_wakeup_ws_event(wake_source, fl->ws_timeout, true);
 }
 
+static inline void fastrpc_pm_relax(struct fastrpc_file *fl, int channel_type)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct wakeup_source *wake_source = NULL;
+
+	if (!fl->wake_enable)
+		return;
+
+	if (channel_type == SECURE_CHANNEL)
+		wake_source = me->wake_source_secure;
+	else if (channel_type == NON_SECURE_CHANNEL)
+		wake_source = me->wake_source;
+
+	pr_err("adsprpc: %s: ch type %d, tgid %d\n",
+				__func__, channel_type, fl->tgid);
+	if (wake_source)
+		__pm_relax(wake_source);
+}
+
 static inline int fastrpc_wait_for_response(struct smq_invoke_ctx *ctx,
 						uint32_t kernel)
 {
@@ -3212,6 +3237,10 @@ read_async_job:
 		err = -EBADF;
 		goto bail;
 	}
+	if (fl->exit_async) {
+		err = -EFAULT;
+		goto bail;
+	}
 	VERIFY(err, 0 == (err = interrupted));
 	if (err)
 		goto bail;
@@ -3292,6 +3321,10 @@ read_notif_status:
 				atomic_read(&fl->proc_state_notif.notif_queue_count));
 	if (!fl) {
 		err = -EBADF;
+		goto bail;
+	}
+	if (fl->exit_notif) {
+		err = -EFAULT;
 		goto bail;
 	}
 	VERIFY(err, 0 == (err = interrupted));
@@ -4738,6 +4771,11 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 					}
 					spin_lock_irqsave(&me->hlock, irq_flags);
 					map->in_use = false;
+					/*
+					 * decrementing refcount for persistent mappings
+					 * as incrementing it in fastrpc_get_persistent_map
+					 */
+					map->refs--;
 				}
 				if (map->is_persistent) {
 					match = NULL;
@@ -5470,6 +5508,7 @@ skip_dump_wait:
 		fastrpc_mmap_free(lmap, 1);
 	} while (lmap);
 	mutex_unlock(&fl->map_mutex);
+	fastrpc_pm_relax(fl, gcinfo[fl->cid].secure);
 
 	if (fl->device && is_driver_closed)
 		device_unregister(&fl->device->dev);
@@ -5885,6 +5924,8 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->dsp_process_state = PROCESS_CREATE_DEFAULT;
 	fl->is_unsigned_pd = false;
 	fl->is_compat = false;
+	fl->exit_notif = false;
+	fl->exit_async = false;
 	init_completion(&fl->work);
 	fl->file_close = FASTRPC_PROCESS_DEFAULT_STATE;
 	filp->private_data = fl;
@@ -6094,6 +6135,7 @@ int fastrpc_internal_control(struct fastrpc_file *fl,
 	struct fastrpc_apps *me = &gfa;
 	int sessionid = 0;
 	u32 silver_core_count = me->silvercores.corecount, ii = 0, cpu;
+	unsigned long flags = 0;
 
 	VERIFY(err, !IS_ERR_OR_NULL(fl) && !IS_ERR_OR_NULL(fl->apps));
 	if (err) {
@@ -6193,6 +6235,20 @@ int fastrpc_internal_control(struct fastrpc_file *fl,
 		break;
 	case FASTRPC_CONTROL_SMMU:
 		fl->sharedcb = cp->smmu.sharedcb;
+		break;
+	case FASTRPC_CONTROL_ASYNC_WAKE:
+		fl->exit_async = true;
+		spin_lock_irqsave(&fl->aqlock, flags);
+		atomic_add(1, &fl->async_queue_job_count);
+		wake_up_interruptible(&fl->async_wait_queue);
+		spin_unlock_irqrestore(&fl->aqlock, flags);
+		break;
+	case FASTRPC_CONTROL_NOTIF_WAKE:
+		fl->exit_notif = true;
+		spin_lock_irqsave(&fl->proc_state_notif.nqlock, flags);
+		atomic_add(1, &fl->proc_state_notif.notif_queue_count);
+		wake_up_interruptible(&fl->proc_state_notif.notif_wait_queue);
+		spin_unlock_irqrestore(&fl->proc_state_notif.nqlock, flags);
 		break;
 	default:
 		err = -EBADRQC;
