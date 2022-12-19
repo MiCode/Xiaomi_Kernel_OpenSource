@@ -1075,6 +1075,10 @@ struct fastrpc_file {
 	struct completion work;
 	/* Flag to indicate ram dump collection status*/
 	bool is_ramdump_pend;
+	/* Process kill will wait on bus driver invoke thread to complete its process */
+	struct completion dma_invoke;
+	/* Flag to indicate invoke pending */
+	bool is_dma_invoke_pend;
 	/* Flag to indicate type of process (static, dynamic) */
 	uint32_t proc_flags;
 	/* If set, threads will poll for DSP response instead of glink wait */
