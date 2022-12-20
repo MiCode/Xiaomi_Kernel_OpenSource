@@ -75,7 +75,7 @@ static const struct virtio_clk_init_data lemans_gcc_virtio_clocks[] = {
 				.parent_names = lemans_gcc_parent_names_usb_prim,
 				.num_parents = ARRAY_SIZE(lemans_gcc_parent_names_usb_prim),
 				},
-	[GCC_USB_CLKREF_EN] = {.name = "gcc_usb_clk_ref_en",},
+	[GCC_USB_CLKREF_EN] = {.name = "gcc_usb_clkref_en",},
 	[GCC_USB3_PRIM_PHY_COM_AUX_CLK] = {.name = "gcc_usb3_prim_phy_com_aux_clk",},
 	[GCC_USB30_SEC_MASTER_CLK] = {.name = "gcc_usb30_sec_master_clk",},
 	[GCC_CFG_NOC_USB3_SEC_AXI_CLK] = {.name = "gcc_cfg_noc_usb3_sec_axi_clk",},
