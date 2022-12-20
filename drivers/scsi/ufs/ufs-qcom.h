@@ -472,6 +472,10 @@ struct ufs_qcom_host {
 	u32 clk_next_mode;
 	u32 clk_curr_mode;
 	bool is_clk_scale_enabled;
+	atomic_t hi_pri_en;
+	atomic_t therm_mitigation;
+	cpumask_t perf_mask;
+	cpumask_t def_mask;
 };
 
 static inline u32
