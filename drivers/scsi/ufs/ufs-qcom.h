@@ -476,6 +476,7 @@ struct ufs_qcom_host {
 	atomic_t therm_mitigation;
 	cpumask_t perf_mask;
 	cpumask_t def_mask;
+	bool irq_affinity_support;
 };
 
 static inline u32
