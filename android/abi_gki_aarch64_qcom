@@ -308,6 +308,7 @@
   cpus_read_unlock
   cpu_subsys
   cpu_topology
+  crc32_be
   crc8
   crc8_populate_msb
   crypto_ahash_digest
