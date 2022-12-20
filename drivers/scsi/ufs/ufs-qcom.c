@@ -24,6 +24,7 @@
 #include <trace/hooks/ufshcd.h>
 #include <linux/ipc_logging.h>
 #include <linux/nvmem-consumer.h>
+#include <linux/irq.h>
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
@@ -48,6 +49,9 @@
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
 
 #define	ANDROID_BOOT_DEV_MAX	30
+
+#define	UFS_QCOM_IRQ_PRIME_MASK	0x80
+#define	UFS_QCOM_IRQ_SLVR_MASK	0x0f
 
 /* Max number of log pages */
 #define UFS_QCOM_MAX_LOG_SZ	10
@@ -1314,6 +1318,39 @@ static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host,
 	return ret;
 }
 
+static void ufs_qcom_set_affinity_hint(struct ufs_hba *hba, bool prime)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned int set = 0;
+	unsigned int clear = 0;
+	int ret;
+	cpumask_t *affinity_mask;
+
+	if (prime) {
+		set = IRQ_NO_BALANCING;
+		affinity_mask = &host->perf_mask;
+	} else {
+		clear = IRQ_NO_BALANCING;
+		affinity_mask = &host->def_mask;
+	}
+
+	irq_modify_status(hba->irq, clear, set);
+	ret = irq_set_affinity_hint(hba->irq, affinity_mask);
+	if (ret < 0)
+		dev_err(host->hba->dev, "prime=%d, err=%d\n", prime, ret);
+}
+
+static void ufs_qcom_toggle_pri_affinity(struct ufs_hba *hba, bool on)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (on && atomic_read(&host->therm_mitigation))
+		return;
+
+	atomic_set(&host->hi_pri_en, on);
+	ufs_qcom_set_affinity_hint(hba, on);
+}
+
 static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
 {
 	struct ufs_qcom_host *host = container_of(to_delayed_work(work),
@@ -1325,10 +1362,13 @@ static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
 
 	atomic_set(&host->num_reqs_threshold, 0);
 
-	if (cur_thres > NUM_REQS_HIGH_THRESH && !host->cur_freq_vote)
+	if (cur_thres > NUM_REQS_HIGH_THRESH && !host->cur_freq_vote) {
 		freq_val = host->max_cpu_scale_freq;
-	else if (cur_thres < NUM_REQS_LOW_THRESH && host->cur_freq_vote)
+		ufs_qcom_toggle_pri_affinity(host->hba, true);
+	} else if (cur_thres < NUM_REQS_LOW_THRESH && host->cur_freq_vote) {
 		freq_val = host->min_cpu_scale_freq;
+		ufs_qcom_toggle_pri_affinity(host->hba, false);
+	}
 
 	if (freq_val == -1)
 		goto out;
@@ -3036,6 +3076,29 @@ out_err:
 	host->ufs_qos = NULL;
 }
 
+static void ufs_qcom_parse_irq_affinity(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int mask = 0;
+
+	if (np) {
+		of_property_read_u32(np, "qcom,prime-mask", &mask);
+		host->perf_mask.bits[0] = mask;
+		if (!cpumask_subset(&host->perf_mask, cpu_possible_mask)) {
+			dev_err(dev, "Invalid group prime mask\n");
+			host->perf_mask.bits[0] = UFS_QCOM_IRQ_PRIME_MASK;
+		}
+		mask = 0;
+		of_property_read_u32(np, "qcom,silver-mask", &mask);
+		host->def_mask.bits[0] = mask;
+		if (!cpumask_subset(&host->def_mask, cpu_possible_mask)) {
+			dev_err(dev, "Invalid group silver mask\n");
+			host->def_mask.bits[0] = UFS_QCOM_IRQ_SLVR_MASK;
+		}
+	}
+}
 
 static void ufs_qcom_parse_pm_level(struct ufs_hba *hba)
 {
@@ -3099,6 +3162,8 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 	switch (data) {
 	case UFS_QCOM_LVL_NO_THERM:
 		dev_warn(tcd->devdata, "UFS host thermal mitigation stops\n");
+
+		atomic_set(&host->therm_mitigation, 0);
 		/* Set the default auto-hiberate idle timer to 5 ms */
 		ufshcd_auto_hibern8_update(hba, ufs_qcom_us_to_ahit(5000));
 
@@ -3110,6 +3175,10 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 	case UFS_QCOM_LVL_AGGR_THERM:
 	case UFS_QCOM_LVL_MAX_THERM:
 		dev_warn(tcd->devdata, "Going into UFS host thermal mitigation state, performance may be impacted before UFS host thermal mitigation stops\n");
+
+		/* Stop setting hi-pri to requests and set irq affinity to default value */
+		atomic_set(&host->therm_mitigation, 1);
+		ufs_qcom_toggle_pri_affinity(hba, false);
 		/* Set the default auto-hiberate idle timer to 1 ms */
 		ufshcd_auto_hibern8_update(hba, ufs_qcom_us_to_ahit(1000));
 
@@ -3371,6 +3440,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_save_host_ptr(hba);
 
 	ufs_qcom_qos_init(hba);
+	ufs_qcom_parse_irq_affinity(hba);
 	host->ufs_ipc_log_ctx = ipc_log_context_create(UFS_QCOM_MAX_LOG_SZ,
 							"ufs-qcom", 0);
 	if (!host->ufs_ipc_log_ctx)
@@ -3821,7 +3891,8 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 			return err;
 		if (scale_up) {
 			err = ufs_qcom_clk_scale_up_pre_change(hba);
-			if (!host->cpufreq_dis && !atomic_read(&host->scale_up)) {
+			if (!host->cpufreq_dis && !atomic_read(&host->scale_up) &&
+					!(atomic_read(&host->therm_mitigation))) {
 				atomic_set(&host->num_reqs_threshold, 0);
 				/* ensure that work is queued */
 				mutex_lock(&host->cpufreq_lock);
@@ -4760,14 +4831,17 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	if (lrbp && lrbp->cmd && lrbp->cmd->cmnd[0]) {
-		int sz = lrbp->cmd->request ?
-				blk_rq_sectors(lrbp->cmd->request) : 0;
+		struct request *rq = blk_mq_rq_from_pdu(lrbp->cmd);
+		int sz = rq ? blk_rq_sectors(rq) : 0;
 		ufs_qcom_log_str(host, "<,%x,%d,%x,%d\n",
 				lrbp->cmd->cmnd[0],
 				lrbp->task_tag,
 				ufshcd_readl(hba,
 					REG_UTP_TRANSFER_REQ_DOOR_BELL),
 				sz);
+
+		if (atomic_read(&host->hi_pri_en) && rq)
+			rq->cmd_flags |= REQ_HIPRI;
 	}
 }
 
