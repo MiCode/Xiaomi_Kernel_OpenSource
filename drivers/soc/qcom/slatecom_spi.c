@@ -43,6 +43,7 @@
 #define HED_EVENT_SIZE_LEN (0x02)
 #define HED_EVENT_DATA_STRT_LEN (0x05)
 #define CMA_BFFR_POOL_SIZE (128*1024)
+#define TX_AHB_BUF_SIZE 1024
 
 #define SLATE_OK_SLP_RBSC      BIT(24)
 #define SLATE_OK_SLP_S2R       BIT(25)
@@ -643,9 +644,9 @@ static void slate_irq_tasklet_hndlr_l(void)
 	g_slav_status_reg = slave_status_reg;
 }
 
-static void wakeup_ahb_read(void *handle)
+static int wakeup_ahb_read(void *handle)
 {
-	uint8_t tx_ahb_buf[1024] = {0};
+	uint8_t *tx_ahb_buf = NULL;
 	uint8_t *rx_ahb_buf = fxd_mem_buffer;
 	uint32_t ahb_addr = 0x200E1800;
 	uint32_t txn_len;
@@ -653,6 +654,9 @@ static void wakeup_ahb_read(void *handle)
 	int ret = 0;
 
 	pr_err("slatecom AHB read to resume\n");
+	tx_ahb_buf = kmalloc(TX_AHB_BUF_SIZE, GFP_KERNEL | GFP_ATOMIC);
+	if (!tx_ahb_buf)
+		return -ENOMEM;
 	txn_len = 8;
 	cmnd |= SLATE_SPI_AHB_READ_CMD;
 	memcpy(tx_ahb_buf, &cmnd, sizeof(cmnd));
@@ -661,6 +665,8 @@ static void wakeup_ahb_read(void *handle)
 	ret = slatecom_transfer(handle, tx_ahb_buf, rx_ahb_buf, txn_len, SPI_FREQ_1MHZ, false);
 	if (ret)
 		pr_err("slatecom_transfer fail with error %d\n", ret);
+	kfree(tx_ahb_buf);
+	return ret;
 }
 
 /* Returns 1, if the slate spi is active */
