@@ -11,6 +11,7 @@
 
 enum battery_charger_prop {
 	BATTERY_RESISTANCE,
+	FLASH_ACTIVE,
 	BATTERY_CHARGER_PROP_MAX,
 };
 
@@ -21,12 +22,21 @@ enum bc_hboost_event {
 #if IS_ENABLED(CONFIG_QTI_BATTERY_CHARGER)
 int qti_battery_charger_get_prop(const char *name,
 				enum battery_charger_prop prop_id, int *val);
+int qti_battery_charger_set_prop(const char *name,
+				enum battery_charger_prop prop_id, int val);
 int register_hboost_event_notifier(struct notifier_block *nb);
 int unregister_hboost_event_notifier(struct notifier_block *nb);
 #else
 static inline int
 qti_battery_charger_get_prop(const char *name,
 				enum battery_charger_prop prop_id, int *val)
+{
+	return -EINVAL;
+}
+
+static inline int
+qti_battery_charger_set_prop(const char *name,
+				enum battery_charger_prop prop_id, int val)
 {
 	return -EINVAL;
 }
