@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ */
+
+#ifndef __SCHGM_FLASH_H__
+#define __SCHGM_FLASH_H__
+
+#include <linux/bitops.h>
+
+#define SCHGM_FLASH_BASE			0xA600
+
+#define SCHGM_FLASH_STATUS_3_REG		(SCHGM_FLASH_BASE + 0x08)
+#define FLASH_STATE_MASK			GENMASK(2, 0)
+#define FLASH_ERROR_VAL				0x7
+
+#define SCHGM_FLASH_STATUS_5_REG		(SCHGM_FLASH_BASE + 0x0B)
+
+#define SCHGM_FORCE_BOOST_CONTROL		(SCHGM_FLASH_BASE + 0x41)
+#define FORCE_FLASH_BOOST_5V_BIT		BIT(0)
+
+#define SCHGM_FLASH_S2_LATCH_RESET_CMD_REG	(SCHGM_FLASH_BASE + 0x44)
+#define FLASH_S2_LATCH_RESET_BIT		BIT(0)
+
+#define SCHGM_FLASH_CONTROL_REG			(SCHGM_FLASH_BASE + 0x60)
+#define SOC_LOW_FOR_FLASH_EN_BIT		BIT(7)
+
+#define SCHGM_TORCH_PRIORITY_CONTROL_REG	(SCHGM_FLASH_BASE + 0x63)
+#define TORCH_PRIORITY_CONTROL_BIT		BIT(0)
+
+#define SCHGM_SOC_BASED_FLASH_DERATE_TH_CFG_REG	(SCHGM_FLASH_BASE + 0x67)
+
+#define SCHGM_SOC_BASED_FLASH_DISABLE_TH_CFG_REG \
+						(SCHGM_FLASH_BASE + 0x68)
+
+enum torch_mode {
+	TORCH_BUCK_MODE = 0,
+	TORCH_BOOST_MODE,
+};
+
+#endif /* __SCHGM_FLASH_H__ */
