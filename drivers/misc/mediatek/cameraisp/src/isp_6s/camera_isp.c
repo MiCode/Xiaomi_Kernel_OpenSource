@@ -6720,6 +6720,9 @@ static int ISP_probe(struct platform_device *pDev)
 					return Ret;
 				}
 
+				/* Reset irq ref cnt after request_irq by disable_irq. */
+				disable_irq(isp_devs[dev_idx].irq);
+
 				LOG_INF(
 				"G_u4DevNodeCt=%d, devnode(%s), irq=%d, ISR: %s\n",
 					atomic_read(&G_u4DevNodeCt), pDev->dev.of_node->name,
