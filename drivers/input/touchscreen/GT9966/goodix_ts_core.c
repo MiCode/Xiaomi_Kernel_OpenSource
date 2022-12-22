@@ -1157,8 +1157,6 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 
 	mutex_lock(&dev->mutex);
 
-	pr_info("DEBUG: into report point\n");
-	
 	for (i = 0; i < GOODIX_MAX_TOUCH; i++) {
 		if (touch_data->coords[i].status == TS_TOUCH) {
 			ts_debug("report: id[%d], x %d, y %d, w %d", i,
@@ -1224,8 +1222,6 @@ static irqreturn_t goodix_ts_threadirq_func(int irq, void *data)
 	struct goodix_ts_esd *ts_esd = &core_data->ts_esd;
 	int ret;
 
-	pr_info("DEBUG: into irq func\n");
-	
 	ts_esd->irq_status = true;
 	core_data->irq_trig_cnt++;
 	/* inform external module */
@@ -1244,25 +1240,18 @@ static irqreturn_t goodix_ts_threadirq_func(int irq, void *data)
 
 	/* read touch data from touch device */
 	ret = hw_ops->event_handler(core_data, ts_event);
-	
-	pr_info("DEBUG: read touch data from touch device\n");
-	
 	if (likely(!ret)) {
 		if (ts_event->event_type == EVENT_TOUCH) {
-			/* report touch */
-			pr_info("DEBUG: report finger point\n");
 			goodix_ts_report_finger(core_data->input_dev,
 					&ts_event->touch_data);
 		}
 		if (core_data->board_data.pen_enable &&
 				ts_event->event_type == EVENT_PEN) {
-			pr_info("DEBUG: report pen point\n");
 			goodix_ts_report_pen(core_data->pen_dev,
 					&ts_event->pen_data);
 		}
 		if (ts_event->event_type == EVENT_REQUEST)
 		{
-			pr_info("DEBUG: ts request handler\n");
 			goodix_ts_request_handle(core_data, ts_event);
 		}
 	}
