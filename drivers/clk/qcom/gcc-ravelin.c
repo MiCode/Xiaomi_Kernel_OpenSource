@@ -1746,7 +1746,7 @@ static struct clk_branch gcc_pcie_0_pipe_clk = {
 
 static struct clk_branch gcc_pcie_0_pipe_div2_clk = {
 	.halt_reg = 0x7b094,
-	.halt_check = BRANCH_HALT_VOTED,
+	.halt_check = BRANCH_HALT_SKIP,
 	.clkr = {
 		.enable_reg = 0x62010,
 		.enable_mask = BIT(26),
