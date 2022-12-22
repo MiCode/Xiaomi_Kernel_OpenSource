@@ -1166,6 +1166,8 @@ static int mtk_dsi_set_data_rate(struct mtk_dsi *dsi)
 
 	/* Store DSI data rate in MHz */
 	dsi->data_rate = data_rate;
+	if (dsi->slave_dsi)
+		dsi->slave_dsi->data_rate = data_rate;
 
 	if (dsi->ext && dsi->ext->params->data_rate_khz)
 		mipi_tx_rate = dsi->ext->params->data_rate_khz * 1000;
@@ -1237,19 +1239,19 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 				if (priv->data->mmsys_id == MMSYS_MT6983 ||
 					priv->data->mmsys_id == MMSYS_MT6895) {
 					mtk_mipi_tx_cphy_lane_config_mt6983(dsi->phy, dsi->ext,
-								     !!dsi->slave_dsi);
+								     !dsi->is_slave);
 				} else {
 					mtk_mipi_tx_cphy_lane_config(dsi->phy, dsi->ext,
-								     !!dsi->slave_dsi);
+								     !dsi->is_slave);
 				}
 			else
 				if (priv->data->mmsys_id == MMSYS_MT6983 ||
 					priv->data->mmsys_id == MMSYS_MT6895) {
 					mtk_mipi_tx_dphy_lane_config_mt6983(dsi->phy, dsi->ext,
-								     !!dsi->slave_dsi);
+								     !dsi->is_slave);
 				} else {
 					mtk_mipi_tx_dphy_lane_config(dsi->phy, dsi->ext,
-								     !!dsi->slave_dsi);
+								     !dsi->is_slave);
 				}
 		}
 
@@ -1822,6 +1824,14 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 	dsi->hfp_byte = horizontal_frontporch_byte;
 	dsi->hbp_byte = horizontal_backporch_byte;
 	dsi->hsa_byte = horizontal_sync_active_byte;
+	if (dsi->slave_dsi) {
+		dsi->slave_dsi->vfp = t_vfp;
+		dsi->slave_dsi->vbp = t_vbp;
+		dsi->slave_dsi->vsa = t_vsa;
+		dsi->slave_dsi->hfp_byte = horizontal_frontporch_byte;
+		dsi->slave_dsi->hbp_byte = horizontal_backporch_byte;
+		dsi->slave_dsi->hsa_byte = horizontal_sync_active_byte;
+	}
 }
 
 void DSI_Config_VDO_Timing_with_DSC(struct mtk_dsi *dsi)
@@ -3303,9 +3313,26 @@ static int mtk_preconfig_dsi_enable(struct mtk_dsi *dsi)
 {
 	int ret;
 
+	if (dsi->slave_dsi) {
+		ret = mtk_dsi_poweron(dsi->slave_dsi);
+		if (ret < 0) {
+			DDPINFO("failed to power on dsi1\n");
+			return ret;
+		}
+
+		mtk_dsi_enable(dsi->slave_dsi);
+		mtk_dsi_phy_timconfig(dsi->slave_dsi, NULL);
+
+		mtk_dsi_rxtx_control(dsi->slave_dsi);
+		if (dsi->driver_data->dsi_buffer)
+			mtk_dsi_tx_buf_rw(dsi->slave_dsi);
+		mtk_dsi_cmd_type1_hs(dsi->slave_dsi);
+		mtk_dsi_ps_control_vact(dsi->slave_dsi);
+	}
+
 	ret = mtk_dsi_poweron(dsi);
 	if (ret < 0) {
-		DDPPR_ERR("failed to power on dsi\n");
+		DDPINFO("failed to power on dsi0\n");
 		return ret;
 	}
 
@@ -3319,10 +3346,14 @@ static int mtk_preconfig_dsi_enable(struct mtk_dsi *dsi)
 	mtk_dsi_ps_control_vact(dsi);
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		mtk_dsi_set_vm_cmd(dsi);
+		if (dsi->slave_dsi)
+			mtk_dsi_set_vm_cmd(dsi->slave_dsi);
 		if (is_bdg_supported()) {
 			DSI_Config_VDO_Timing_with_DSC(dsi);
 		} else {
 			mtk_dsi_calc_vdo_timing(dsi);
+			if (dsi->slave_dsi)
+				mtk_dsi_config_vdo_timing(dsi->slave_dsi);
 			mtk_dsi_config_vdo_timing(dsi);
 		}
 	}
@@ -3335,6 +3366,13 @@ static int mtk_preconfig_dsi_enable(struct mtk_dsi *dsi)
 	if (is_bdg_supported())
 		check_stopstate(NULL);
 	mtk_dsi_clk_hs_mode(dsi, 0);
+
+	if (dsi->slave_dsi) {
+		mtk_dsi_cmdq_size_sel(dsi->slave_dsi);
+		mtk_dsi_set_interrupt_enable(dsi->slave_dsi);
+		mtk_dsi_exit_ulps(dsi->slave_dsi);
+		mtk_dsi_clk_hs_mode(dsi->slave_dsi, 0);
+	}
 
 	return 0;
 }
@@ -3498,14 +3536,15 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 			DDPINFO("dsi is initialized\n");
 		return;
 	}
-
-	if (dsi->slave_dsi) {
+	//when esd recovery, slave dsi get parameter are different from master dsi
+	/* if (dsi->slave_dsi) {
 		ret = mtk_preconfig_dsi_enable(dsi->slave_dsi);
 		if (ret < 0) {
 			dev_err(dsi->dev, "config slave dsi fail: %d", ret);
 			return;
 		}
 	}
+	*/
 
 	ret = mtk_preconfig_dsi_enable(dsi);
 	if (ret < 0) {
@@ -5210,6 +5249,8 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 	}
 
 	dsi->data_rate = data_rate;
+	if (dsi->slave_dsi)
+		dsi->slave_dsi->data_rate = dsi->data_rate;
 	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, data_rate);
 
 	/* implicit way for display power state */
@@ -5356,6 +5397,9 @@ static void mtk_dsi_config_slave(struct mtk_dsi *dsi, struct mtk_dsi *slave)
 	dsi->slave_dsi->format = dsi->format;
 	dsi->slave_dsi->mode_flags = dsi->mode_flags;
 	dsi->slave_dsi->master_dsi = dsi;
+	dsi->slave_dsi->ext = dsi->ext;
+	dsi->slave_dsi->panel = dsi->panel;
+	dsi->slave_dsi->bridge = dsi->bridge;
 }
 
 int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate)
@@ -7850,8 +7894,10 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		if (dsi->data_rate == 0) {
 			dsi->data_rate = mtk_dsi_default_rate(dsi);
 			mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, dsi->data_rate);
-			if (dsi->slave_dsi)
+			if (dsi->slave_dsi) {
+				dsi->slave_dsi->data_rate = dsi->data_rate;
 				mtk_mipi_tx_pll_rate_set_adpt(dsi->slave_dsi->phy, dsi->data_rate);
+			}
 
 			if (dsi->data_rate) {
 				mtk_dsi_phy_timconfig(dsi, NULL);
@@ -7918,9 +7964,11 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			if (dsi->data_rate == 0) {
 				dsi->data_rate = mtk_dsi_default_rate(dsi);
 				mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, dsi->data_rate);
-				if (dsi->slave_dsi)
+				if (dsi->slave_dsi) {
+					dsi->slave_dsi->data_rate = dsi->data_rate;
 					mtk_mipi_tx_pll_rate_set_adpt(dsi->slave_dsi->phy,
 						dsi->data_rate);
+				}
 
 				if (dsi->data_rate) {
 					mtk_dsi_phy_timconfig(dsi, NULL);
