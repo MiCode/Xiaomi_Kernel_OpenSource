@@ -159,10 +159,6 @@ static int cooling_state_to_charger_limit_v1(struct charger_cooling_device *chg)
 }
 
 
-static const struct charger_cooling_platform_data mt6370_pdata = {
-	.state_to_charger_limit = cooling_state_to_charger_limit_v1,
-};
-
 static const struct charger_cooling_platform_data mt6360_pdata = {
 	.state_to_charger_limit = cooling_state_to_charger_limit_v1,
 };
@@ -172,10 +168,6 @@ static const struct charger_cooling_platform_data mt6375_pdata = {
 };
 
 static const struct of_device_id charger_cooling_of_match[] = {
-	{
-		.compatible = "mediatek,mt6370-charger-cooler",
-		.data = (void *)&mt6370_pdata,
-	},
 	{
 		.compatible = "mediatek,mt6360-charger-cooler",
 		.data = (void *)&mt6360_pdata,

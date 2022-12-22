@@ -7,7 +7,6 @@
 #include <linux/random.h>
 #include <linux/pm_opp.h>
 #include <linux/energy_model.h>
-#include <linux/thermal.h>
 #ifdef MET_READY
 #include <mt-plat/met_drv.h>
 #endif
@@ -1311,7 +1310,7 @@ static struct freq_attr *_mt_cpufreq_attr[] = {
 };
 
 static struct cpufreq_driver _mt_cpufreq_driver = {
-	.flags = CPUFREQ_ASYNC_NOTIFICATION | CPUFREQ_IS_COOLING_DEV | CPUFREQ_NEED_UPDATE_LIMITS,
+	.flags = CPUFREQ_ASYNC_NOTIFICATION | CPUFREQ_NEED_UPDATE_LIMITS,
 	.verify = _mt_cpufreq_verify,
 	.target = _mt_cpufreq_target,
 	.init = _mt_cpufreq_init,
