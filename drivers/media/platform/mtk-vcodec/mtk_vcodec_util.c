@@ -986,18 +986,24 @@ void mtk_vcodec_get_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
 	if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 		len = strlen(val);
 		if (len < LOG_PROPERTY_SIZE)
-			snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
-				" %s %d", "-mtk_vcodec_dbg", mtk_vcodec_dbg);
+			if (snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
+				" %s %d", "-mtk_vcodec_dbg", mtk_vcodec_dbg) < 0)
+				mtk_v4l2_err("%s cannot append mtk_vcodec_dbg: val: %s, log_index: %d",
+					__func__, val, log_index);
 
 		len = strlen(val);
 		if (len < LOG_PROPERTY_SIZE)
-			snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
-				" %s %d", "-mtk_vcodec_perf", mtk_vcodec_perf);
+			if (snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
+				" %s %d", "-mtk_vcodec_perf", mtk_vcodec_perf) < 0)
+				mtk_v4l2_err("%s cannot append mtk_vcodec_perf: val: %s, log_index: %d",
+					__func__, val, log_index);
 
 		len = strlen(val);
 		if (len < LOG_PROPERTY_SIZE)
-			snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
-				" %s %d", "-mtk_v4l2_dbg_level", mtk_v4l2_dbg_level);
+			if (snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
+				" %s %d", "-mtk_v4l2_dbg_level", mtk_v4l2_dbg_level) < 0)
+				mtk_v4l2_err("%s cannot append mtk_v4l2_dbg_level: val: %s, log_index: %d",
+					__func__, val, log_index);
 	}
 
 	mtk_v4l2_debug(0, "val: %s, log_index: %d", val, log_index);

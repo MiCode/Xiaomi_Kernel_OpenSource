@@ -2996,14 +2996,15 @@ int vcu_get_log(char *val, unsigned int val_len)
 	}
 
 	atomic_set(&vcu_ptr->vdec_log_set, 0);
-
+	memset(val, 0x00, val_len);
 	strncpy(val, (char *)vcu_ptr->vdec_log_info->log_info, val_len);
 
 	// append vcu log
 	len = strlen(val);
 	if (len < val_len)
-		snprintf(val + len, val_len - 1 - len,
-			" %s %d", "-vcu_log", vcu_ptr->enable_vcu_dbg_log);
+		if (snprintf(val + len, val_len - 1 - len,
+			" %s %d", "-vcu_log", vcu_ptr->enable_vcu_dbg_log) < 0)
+			pr_info("[VCU] %s cannot append -vcu_log: %s\n", __func__, val);
 
 	pr_info("[VCU] %s log_info: %s\n", __func__, val);
 	mutex_unlock(&vcu_ptr->log_lock);
