@@ -445,10 +445,9 @@ static int vds_select_cpu(struct tipc_virtio_dev *vds, int32_t cpu_affinity)
 	}
 	preempt_enable();
 
-	dev_dbg(&vds->vdev->dev,
-		"%s: select cpu %d, o:0x%x, u:0x%x, a:0x%x, d:0x%x\n",
-		__func__, cpu, online_cpus, cpu_affinity,
-		atomic_read(&vds->allowed_cpus), vds->default_cpumask);
+	dev_dbg_ratelimited(&vds->vdev->dev, "%s: select cpu %d, o:0x%x, u:0x%x, a:0x%x, d:0x%x\n",
+			    __func__, cpu, online_cpus, cpu_affinity,
+			    atomic_read(&vds->allowed_cpus), vds->default_cpumask);
 
 	return cpu;
 }
@@ -468,8 +467,6 @@ static int vds_chan_queue_txbuf(struct tipc_chan *chan, struct tipc_msg_buf *mb)
 	txvq = vds->txvq[txvq_id];
 
 	tipc_chan_prepared(chan);
-
-	dev_dbg(&vds->vdev->dev, "%s: queue txvq id %d\n", __func__, txvq_id);
 
 	if (vds->state == VDS_ONLINE) {
 		sg_init_one(&sg, mb->buf_va, mb->wpos);
@@ -678,8 +675,8 @@ int tipc_chan_queue_msg(struct tipc_chan *chan, struct tipc_msg_buf *mb)
 	switch (chan->state) {
 	case TIPC_CONNECTED:
 		fill_msg_hdr(mb, chan->local, chan->remote);
-		pr_debug("%s: TIPC-Send local %d remote %d chan %p\n",
-			 __func__, chan->local, chan->remote, chan);
+		pr_debug_ratelimited("%s: TIPC-Send local %d remote %d chan %p\n",
+				     __func__, chan->local, chan->remote, chan);
 		err = vds_chan_queue_txbuf(chan, mb);
 		if (err) {
 			/* this should never happen */
@@ -741,8 +738,8 @@ int tipc_chan_connect(struct tipc_chan *chan, const char *name)
 		strncpy(chan->srv_name, body->name, sizeof(body->name) - 1);
 
 		fill_msg_hdr(txbuf, chan->local, TIPC_CTRL_ADDR);
-		pr_debug("%s: TIPC-Send conn req local %d remote %d chan %p\n",
-			 __func__, chan->local, TIPC_CTRL_ADDR, chan);
+		pr_debug_ratelimited("%s: TIPC-Send conn req local %d remote %d chan %p\n",
+				     __func__, chan->local, TIPC_CTRL_ADDR, chan);
 		err = vds_chan_queue_txbuf(chan, txbuf);
 		if (err) {
 			/* this should never happen */
@@ -816,8 +813,8 @@ int tipc_chan_shutdown(struct tipc_chan *chan)
 		body->target = chan->remote;
 
 		fill_msg_hdr(txbuf, chan->local, TIPC_CTRL_ADDR);
-		pr_debug("%s: TIPC-Send shut down local %d remote %d chan %p\n",
-			 __func__, chan->local, TIPC_CTRL_ADDR, chan);
+		pr_debug_ratelimited("%s: TIPC-Send shut down local %d remote %d chan %p\n",
+				     __func__, chan->local, TIPC_CTRL_ADDR, chan);
 		err = vds_chan_queue_txbuf(chan, txbuf);
 		if (err) {
 			/* this should never happen */
@@ -890,8 +887,8 @@ struct tipc_msg_buf *dn_handle_msg(void *data, struct tipc_msg_buf *rxbuf)
 		if (newbuf) {
 			/* queue an old buffer and return a new one */
 			list_add_tail(&rxbuf->node, &dn->rx_msg_queue);
-			pr_debug("%s: TIPC-Receive chan %p get rx\n", __func__,
-				 dn->chan);
+			pr_debug_ratelimited("%s: TIPC-Receive chan %p get rx\n", __func__,
+					     dn->chan);
 			wake_up_interruptible(&dn->readq);
 		} else {
 			/*
@@ -1327,8 +1324,6 @@ int port_lookup_tid(const char *port, enum tee_id_t *o_tid)
 
 		if (strncmp(last_token, tr_obj->srv_name, MAX_SRV_NAME_LEN) == 0) {
 			*o_tid = tr_obj->tee_id;
-			pr_info("[%s] find last_token %s, tee id %d\n",
-				 __func__, last_token, *o_tid);
 			break;
 		}
 	}
@@ -1590,14 +1585,14 @@ static int _create_cdev_node(struct device *parent,
 	dev_t devt;
 
 	if (!name) {
-		dev_dbg(parent, "%s: cdev name has to be provided\n", __func__);
+		dev_info(parent, "%s: cdev name has to be provided\n", __func__);
 		return -EINVAL;
 	}
 
 	/* allocate minor */
 	ret = idr_alloc(&tipc_devices, cdn, 0, MAX_DEVICES - 1, GFP_KERNEL);
 	if (ret < 0) {
-		dev_dbg(parent, "%s: failed (%d) to get id\n", __func__, ret);
+		dev_info(parent, "%s: failed (%d) to get id\n", __func__, ret);
 		return ret;
 	}
 
@@ -1609,7 +1604,7 @@ static int _create_cdev_node(struct device *parent,
 	devt = MKDEV(tipc_major, cdn->minor);
 	ret = cdev_add(&cdn->cdev, devt, 1);
 	if (ret) {
-		dev_dbg(parent, "%s: cdev_add failed (%d)\n", __func__, ret);
+		dev_info(parent, "%s: cdev_add failed (%d)\n", __func__, ret);
 		goto err_add_cdev;
 	}
 
@@ -1618,7 +1613,7 @@ static int _create_cdev_node(struct device *parent,
 
 	if (IS_ERR(cdn->dev)) {
 		ret = PTR_ERR(cdn->dev);
-		dev_dbg(parent, "%s: device_create failed: %d\n",
+		dev_info(parent, "%s: device_create failed: %d\n",
 			__func__, ret);
 		goto err_device_create;
 	}
@@ -1738,9 +1733,9 @@ static void _handle_conn_rsp(struct tipc_virtio_dev *vds,
 		return;
 	}
 
-	dev_dbg(&vds->vdev->dev,
-		"%s: connection response: for addr 0x%x: status %d remote addr 0x%x\n",
-		__func__, rsp->target, rsp->status, rsp->remote);
+	dev_dbg_ratelimited(&vds->vdev->dev,
+			    "%s: connection response: for addr 0x%x: status %d remote addr 0x%x\n",
+			    __func__, rsp->target, rsp->status, rsp->remote);
 
 	/* Lookup channel */
 	chan = vds_lookup_channel(vds, rsp->target);
@@ -1763,9 +1758,9 @@ static void _handle_conn_rsp(struct tipc_virtio_dev *vds,
 			}
 		}
 		mutex_unlock(&chan->lock);
-		dev_dbg(&vds->vdev->dev,
-		       "%s: TIPC-Receive conn rsp local %d remote %d chan %p\n",
-		       __func__, chan->local, chan->remote, chan);
+		dev_dbg_ratelimited(&vds->vdev->dev,
+				    "%s: TIPC-Receive conn rsp local %d remote %d chan %p\n",
+				    __func__, chan->local, chan->remote, chan);
 		kref_put(&chan->refcount, _free_chan);
 	}
 }
@@ -1781,15 +1776,15 @@ static void _handle_disc_req(struct tipc_virtio_dev *vds,
 		return;
 	}
 
-	dev_dbg(&vds->vdev->dev, "%s: disconnect request: for addr 0x%x\n",
-		__func__, req->target);
+	dev_dbg_ratelimited(&vds->vdev->dev, "%s: disconnect request: for addr 0x%x\n",
+			    __func__, req->target);
 
 	chan = vds_lookup_channel(vds, req->target);
 	if (chan) {
 		tipc_chan_returned(chan);
-		dev_dbg(&vds->vdev->dev,
-		       "%s: TIPC-Receive disc req local %d remote %d chan %p\n",
-		       __func__, chan->local, chan->remote, chan);
+		dev_dbg_ratelimited(&vds->vdev->dev,
+				    "%s: TIPC-Receive disc req local %d remote %d chan %p\n",
+				    __func__, chan->local, chan->remote, chan);
 		mutex_lock(&chan->lock);
 		if (chan->state == TIPC_CONNECTED ||
 		    chan->state == TIPC_CONNECTING) {
@@ -1814,9 +1809,9 @@ static void _handle_ctrl_msg(struct tipc_virtio_dev *vds,
 		return;
 	}
 
-	dev_dbg(&vds->vdev->dev,
-		"%s: Incoming ctrl message: src 0x%x type %d len %d\n",
-		__func__, src, msg->type, msg->body_len);
+	dev_dbg_ratelimited(&vds->vdev->dev,
+			    "%s: Incoming ctrl message: src 0x%x type %d len %d\n",
+			    __func__, src, msg->type, msg->body_len);
 
 	switch (msg->type) {
 	case TIPC_CTRL_MSGTYPE_GO_ONLINE:
@@ -1875,8 +1870,8 @@ static int _handle_rxbuf(struct tipc_virtio_dev *vds,
 		goto drop_it;
 	}
 
-	dev_dbg(dev, "From: %d, To: %d, Len: %d, Flags: 0x%x, Reserved: %d\n",
-		msg->src, msg->dst, msg->len, msg->flags, msg->reserved);
+	dev_dbg_ratelimited(dev, "From: %d, To: %d, Len: %d, Flags: 0x%x, Reserved: %d\n",
+			    msg->src, msg->dst, msg->len, msg->flags, msg->reserved);
 
 	/* message directed to control endpoint is a special case */
 	if (msg->dst == TIPC_CTRL_ADDR) {
@@ -1888,9 +1883,8 @@ static int _handle_rxbuf(struct tipc_virtio_dev *vds,
 		if (chan) {
 			/* handle it */
 			tipc_chan_returned(chan);
-			dev_dbg(dev,
-				"%s: IPC-Receive local %d remote %d chan %p\n",
-				__func__, msg->dst, msg->src, chan);
+			dev_dbg_ratelimited(dev, "%s: TIPC-Receive local %d remote %d chan %p\n",
+					    __func__, msg->dst, msg->src, chan);
 			rxbuf = chan->ops->handle_msg(chan->ops_arg, rxbuf);
 			WARN_ON(!rxbuf);
 			kref_put(&chan->refcount, _free_chan);
