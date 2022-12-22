@@ -5296,6 +5296,7 @@
 		mediatek,vcuid = <0>;
 		mediatek,vcuname = "vcu";
 		mediatek,vcu-off  = <0>;
+		mediatek,iommu-padding;
 		reg = <0 0x16000000 0 0x40000>,	/* VDEC_BASE */
 			 <0 0x17020000 0 0x10000>,	/* VENC_BASE */
 			 <0 0x17820000 0 0x10000>;	/* VENC_C1_BASE */
@@ -5311,7 +5312,7 @@
 			<&iommu0 M4U_PORT_L4_VDEC_AVC_MV_EXT>,
 			<&iommu0 M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
 			<&iommu0 M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
-		//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		mediatek,mailbox-gce = <&gce>;
 		mediatek,dec_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
 		mediatek,enc_gce_th_num = <2>; /* VDEC GCE HW THREAD NUM*/
@@ -5381,6 +5382,7 @@
 			<&iommu0 M4U_PORT_L7_JPGENC_C_RDMA>,
 			<&iommu0 M4U_PORT_L7_JPGENC_Q_TABLE>,
 			<&iommu0 M4U_PORT_L7_JPGENC_BSDMA>;
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 	};
 
 	vdec@16000000 {
@@ -5412,7 +5414,7 @@
 			<&iommu0 M4U_PORT_L4_VDEC_AVC_MV_EXT>,
 			<&iommu0 M4U_PORT_L4_VDEC_RG_CTRL_DMA_EXT>,
 			<&iommu0 M4U_PORT_L4_VDEC_UFO_ENC_EXT>;
-		//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		m4u-ports =
 			<M4U_PORT_L4_VDEC_MC_EXT>,
 			<M4U_PORT_L4_VDEC_UFO_EXT>,
@@ -5547,7 +5549,7 @@
 			<&iommu0 M4U_PORT_L7_JPGENC_C_RDMA>,
 			<&iommu0 M4U_PORT_L7_JPGENC_Q_TABLE>,
 			<&iommu0 M4U_PORT_L7_JPGENC_BSDMA>;
-		//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		mediatek,larbs = <&smi_larb7>;
 		interrupts = <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH 0>;
 		mediatek,vcu = <&vcu>;
@@ -5627,7 +5629,7 @@
 		clock-names = "jpgenc";
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_VENC>;
 		mediatek,larb = <&smi_larb7>;
-		//dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		dma-ranges = <0x1 0x0 0x1 0x0 0x1 0x0>;
 		iommus = <&iommu0  M4U_PORT_L7_JPGENC_Y_RDMA>,
 			 <&iommu0  M4U_PORT_L7_JPGENC_C_RDMA>,
 			 <&iommu0  M4U_PORT_L7_JPGENC_Q_TABLE>,
