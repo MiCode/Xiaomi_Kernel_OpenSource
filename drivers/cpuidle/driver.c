@@ -183,7 +183,11 @@ static void __cpuidle_driver_init(struct cpuidle_driver *drv)
 			s->target_residency_ns = s->target_residency * NSEC_PER_USEC;
 
 		if (s->exit_latency > 0)
+#ifdef CONFIG_ARM64
 			s->exit_latency_ns = s->exit_latency * NSEC_PER_USEC;
+#else
+			s->exit_latency_ns = (u64)s->exit_latency * NSEC_PER_USEC;
+#endif
 	}
 }
 
