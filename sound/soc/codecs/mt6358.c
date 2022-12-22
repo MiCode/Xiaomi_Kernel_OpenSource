@@ -3148,8 +3148,8 @@ static int mt6358_vow_amic_enable(struct mt6358_priv *priv)
 	/* Enable Audio ADC 2nd & 3rd LPW */
 	/* Enable Audio ADC flash Audio ADC flash */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON2,
-			   0x0039, 0x0039);
-	dev_info(priv->dev, "%s(), mt_vow_aud_lpw_enable 0x39\n",
+			   0x0019, 0x0019);
+	dev_info(priv->dev, "%s(), mt_vow_aud_lpw_enable 0x19\n",
 		 __func__);
 	return 0;
 }
@@ -3166,7 +3166,7 @@ static int mt6358_vow_amic_disable(struct mt6358_priv *priv)
 	/* Disable Audio ADC 2nd & 3rd LPW */
 	/* Disable Audio ADC flash Audio ADC flash */
 	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON2,
-			   0x0039, 0x0000);
+			   0x0019, 0x0000);
 	dev_info(priv->dev, "%s(), mt_vow_aud_lpw_disable 0x0\n",
 		 __func__);
 	/* L ADC input sel : off, disable L ADC */
