@@ -2709,10 +2709,23 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 {
 	csi_param->legacy_phy = 0;
 	csi_param->not_fixed_trail_settle = 0;
-	//csi_param->cphy_settle = 0x1b;
-	//csi_param->cphy_settle = 98;
 
-	csi_param->dphy_trail = 76;
+	switch (scenario_id) {
+	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
+	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
+	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
+		csi_param->dphy_trail = 76;
+		break;
+	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
+		csi_param->dphy_trail = 275;
+		csi_param->dphy_data_settle = 59;
+		csi_param->dphy_clk_settle = 59;
+		break;
+	default:
+		//csi_param->dphy_trail = 125;
+		break;
+	}
+
 	return 0;
 }
 
