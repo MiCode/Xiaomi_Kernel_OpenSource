@@ -1,0 +1,8 @@
+
+config MTK_UNCALI_MAGHUB
+	bool "uncali_maghub for MediaTek package"
+	help
+	  MTK sensor hub driver for Magnetic field uncalibrated sensor.
+	  If this option is set,
+	  it will support
+	  uncali_maghub driver.

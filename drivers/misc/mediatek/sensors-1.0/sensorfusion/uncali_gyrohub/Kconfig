@@ -1,0 +1,8 @@
+
+config MTK_UNCALI_GYROHUB
+	bool "uncali_gyrohub for MediaTek package"
+	help
+	  MTK sensor hub driver for Gyroscope uncalibrated sensor.
+	  If this option is set,
+	  it will support
+	  uncali_gyrohub driver.
