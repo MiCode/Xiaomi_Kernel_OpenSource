@@ -602,6 +602,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	}
 
 	val = (*efuse_buf);
+	kfree(efuse_buf);
 
 	turbo_flag = 0;
 	if ((val == 0x80) || (val == 0x01) || (val == 0x40) || (val == 0x02) ||
@@ -631,7 +632,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		return PTR_ERR(efuse_buf);
 	}
 	ptp_val = (*efuse_buf & 0xF0);
-
+	kfree(efuse_buf);
 
 	if (ptp_val <= 0x10 && lv == CPU_LEVEL_0)
 		lv = CPU_LEVEL_3;
