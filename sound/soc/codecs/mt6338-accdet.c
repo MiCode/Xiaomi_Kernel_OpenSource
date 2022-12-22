@@ -2851,48 +2851,32 @@ static inline void accdet_init(void)
 static int typec_headphone_irq_handler(struct notifier_block *nb,
 					   unsigned long state, void *ptr)
 {
+	/*reg17 0x0:No audio accessory, 0x1:dio, 0x2:3-pole-headset, 0x4:CTIA, 0x8:OMTP*/
 	u32 reg17 = ocp96011_get_headset_status();
 
 	pr_info("%s() enter, state = %d, reg17 = %d\n", __func__, state, reg17);
-	switch (reg17) 	{
-		//3hole-headset
-		case 0x2:
-			//cur_eint_state = !cur_eint_state;
-			//queue_work(eint_workqueue, &eint_work);
-			send_accdet_status_event(HEADSET_NO_MIC, state);
-			break;
-		//No audio accessory
-		case 0x0:
-			send_accdet_status_event(NO_DEVICE, state);
-			break;
-		//OMTP
-		case 0x8:
-		//CTIA
-		case 0x4:
-		//dio
-		case 0x1:
-			pr_info("%s:[cur_eint_state = %d] [headset_count = %d]\n", __func__, accdet->cur_eint_state, ocp960_get_headset_count());
-			if (ocp960_get_headset_count() == 2) {
-				accdet->double_head_state = 1;
-				accdet->cur_eint_state = EINT_PIN_PLUG_IN_2;
-				mod_timer(&micbias_timer, (jiffies + MICBIAS_DISABLE_TIMER));
-				queue_work(accdet->eint_workqueue, &accdet->eint_work);
-				break;
-			}
+	pr_info("%s:[cur_eint_state = %d] [headset_count = %d]\n", __func__,
+	accdet->cur_eint_state, ocp960_get_headset_count());
 
-			if ((accdet->cur_eint_state == EINT_PIN_PLUG_OUT) && (accdet->double_head_state == 1)) {
-				accdet->cur_eint_state = EINT_PIN_PLUG_IN;
-				mod_timer(&micbias_timer, (jiffies + MICBIAS_DISABLE_TIMER));
-				accdet->double_head_state = 2;
-			} else if (accdet->cur_eint_state == EINT_PIN_PLUG_IN) {
-				accdet->cur_eint_state = EINT_PIN_PLUG_OUT;
-			} else if (accdet->cur_eint_state == EINT_PIN_PLUG_OUT) {
-				accdet->cur_eint_state = EINT_PIN_PLUG_IN;
-				mod_timer(&micbias_timer, (jiffies + MICBIAS_DISABLE_TIMER));
-			}
-			queue_work(accdet->eint_workqueue, &accdet->eint_work);
-			break;
+	if (ocp960_get_headset_count() == 2) {
+		accdet->double_head_state = 1;
+		accdet->cur_eint_state = EINT_PIN_PLUG_IN_2;
+		mod_timer(&micbias_timer, (jiffies + MICBIAS_DISABLE_TIMER));
+		queue_work(accdet->eint_workqueue, &accdet->eint_work);
+		return 0;
 	}
+
+	if ((accdet->cur_eint_state == EINT_PIN_PLUG_OUT) && (accdet->double_head_state == 1)) {
+		accdet->cur_eint_state = EINT_PIN_PLUG_IN;
+		mod_timer(&micbias_timer, (jiffies + MICBIAS_DISABLE_TIMER));
+		accdet->double_head_state = 2;
+	} else if (accdet->cur_eint_state == EINT_PIN_PLUG_IN) {
+		accdet->cur_eint_state = EINT_PIN_PLUG_OUT;
+	} else if (accdet->cur_eint_state == EINT_PIN_PLUG_OUT) {
+		accdet->cur_eint_state = EINT_PIN_PLUG_IN;
+		mod_timer(&micbias_timer, (jiffies + MICBIAS_DISABLE_TIMER));
+	}
+	queue_work(accdet->eint_workqueue, &accdet->eint_work);
 
 	return 0;
 }
