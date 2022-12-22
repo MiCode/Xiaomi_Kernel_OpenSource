@@ -1110,7 +1110,7 @@ static void __exit cpufreq_mtk_exit(void)
 	cpufreq_unregister_governor(&mtk_gov);
 }
 
-module_init(cpufreq_mtk_init);
+late_initcall(cpufreq_mtk_init);
 module_exit(cpufreq_mtk_exit);
 
 MODULE_LICENSE("GPL");
