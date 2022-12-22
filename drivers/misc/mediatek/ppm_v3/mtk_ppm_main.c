@@ -1084,7 +1084,7 @@ static int __init ppm_main_init(void)
 	struct device_node *d = NULL;
 	int max, min;
 	char name[10];
-	int i = 0;
+	int i = 0, is_doe = 0;
 
 	FUNC_ENTER(FUNC_LV_MODULE);
 
@@ -1123,8 +1123,6 @@ static int __init ppm_main_init(void)
 		goto profile_init_fail;
 	}
 
-	// NO_DOE
-	goto NO_DOE;
 
 	/* DoE */
 	cn = of_find_node_by_path("/cpus");
@@ -1155,16 +1153,18 @@ static int __init ppm_main_init(void)
 		if (!d)
 			goto NO_DOE;
 
-		ret = of_property_read_u32(d, "max", &max);
+		is_doe = of_property_read_u32(d, "max", &max);
 
-		if (ret != 0)
+		if (is_doe != 0) {
+			ppm_info("max is NULL!\n");
 			goto NO_DOE;
+		}
+		is_doe = of_property_read_u32(d, "min", &min);
 
-		ret = of_property_read_u32(d, "min", &min);
-
-		if (ret != 0)
+		if (is_doe != 0) {
+			ppm_info("min is NULL!\n");
 			goto NO_DOE;
-
+		}
 		of_node_put(d);
 		of_node_put(c);
 
