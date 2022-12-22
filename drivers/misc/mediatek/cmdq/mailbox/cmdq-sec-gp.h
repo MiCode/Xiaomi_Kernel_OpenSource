@@ -40,6 +40,9 @@ s32 cmdq_sec_open_session(struct cmdq_sec_tee_context *tee, void *wsm_buffer);
 s32 cmdq_sec_execute_session(struct cmdq_sec_tee_context *tee,
 	u32 cmd, s32 timeout_ms, bool mem_ex1, bool mem_ex2);
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 extern int m4u_sec_init(void);
+#endif
+
 
 #endif	/* __CMDQ_SEC_GP_H__ */

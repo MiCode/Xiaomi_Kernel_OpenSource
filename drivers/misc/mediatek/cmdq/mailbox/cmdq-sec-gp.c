@@ -19,7 +19,9 @@ void cmdq_sec_setup_tee_context(struct cmdq_sec_tee_context *tee)
 }
 
 #include <linux/atomic.h>
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 static atomic_t m4u_init = ATOMIC_INIT(0);
+#endif
 
 s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee)
 {
@@ -49,11 +51,13 @@ s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee)
 
 	cmdq_msg("[SEC][TEE] TEE is ready!");
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 	/* do m4u sec init */
 	if (atomic_cmpxchg(&m4u_init, 0, 1) == 0) {
 		m4u_sec_init();
 		cmdq_msg("[SEC][TEE] M4U_sec_init is called\n");
 	}
+#endif
 
 	status = TEEC_InitializeContext(NULL, &tee->gp_context);
 	if (status != TEEC_SUCCESS)

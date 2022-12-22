@@ -25,7 +25,9 @@
 
 #ifdef CMDQ_GP_SUPPORT
 #include "cmdq-sec-gp.h"
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 static atomic_t m4u_init = ATOMIC_INIT(0);
+#endif
 #endif
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
@@ -1223,11 +1225,13 @@ cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 		}
 
 #ifdef CMDQ_GP_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 		/* do m4u sec init */
 		if (atomic_cmpxchg(&m4u_init, 0, 1) == 0) {
 			m4u_sec_init();
 			cmdq_msg("[SEC][task] M4U_sec_init is called\n");
 		}
+#endif
 #endif
 
 		err = cmdq_sec_irq_notify_start(cmdq);
