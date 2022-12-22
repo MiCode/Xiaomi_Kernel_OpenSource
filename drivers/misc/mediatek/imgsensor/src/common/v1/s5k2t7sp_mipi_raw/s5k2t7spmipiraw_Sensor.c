@@ -332,8 +332,9 @@ static void write_cmos_sensor_8(kal_uint16 addr, kal_uint8 para)
 
 static void set_dummy(void)
 {
-	pr_debug("dummyline = %d, dummypixels = %d\n",
-		imgsensor.dummy_line, imgsensor.dummy_pixel);
+	/* pr_debug("dummyline = %d, dummypixels = %d\n",
+	 *	imgsensor.dummy_line, imgsensor.dummy_pixel);
+	 */
 
 	/* return; //for test */
 	write_cmos_sensor(0x0340, imgsensor.frame_length);
@@ -346,8 +347,9 @@ static void set_max_framerate(UINT16 framerate, kal_bool min_framelength_en)
 
 	kal_uint32 frame_length = imgsensor.frame_length;
 
-	pr_debug("framerate = %d, min framelength should enable %d\n",
-		framerate, min_framelength_en);
+	/* pr_debug("framerate = %d, min framelength should enable %d\n",
+	 *	framerate, min_framelength_en);
+	 */
 
 	frame_length = imgsensor.pclk / framerate * 10 / imgsensor.line_length;
 	spin_lock(&imgsensor_drv_lock);
@@ -409,8 +411,8 @@ static void write_shutter(kal_uint16 shutter)
 	}
 	/* Update Shutter */
 	write_cmos_sensor(0x0202, shutter);
-	pr_debug("shutter =%d, framelength =%d\n",
-		shutter, imgsensor.frame_length);
+	pr_debug("shutter =%d, framelength =%d, dummyline = %d, dummypixels = %d\n",
+		shutter, imgsensor.frame_length, imgsensor.dummy_line, imgsensor.dummy_pixel);
 
 }				/*      write_shutter  */
 
