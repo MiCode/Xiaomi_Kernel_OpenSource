@@ -509,7 +509,8 @@ int audio_freq_hold(void)
 	}
 
 	if (of_device_is_compatible(np, "mediatek,mt6855-usb_boost") ||
-		of_device_is_compatible(np, "mediatek,mt6789-usb_boost")) {
+		of_device_is_compatible(np, "mediatek,mt6789-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6833-usb_boost")) {
 		device_property_read_u32(gdev, "small-core", &(cpu_freq_audio[0]));
 		device_property_read_u32(gdev, "big-core", &(cpu_freq_audio[1]));
 
