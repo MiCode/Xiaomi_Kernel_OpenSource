@@ -1314,6 +1314,8 @@ unsigned int custom_do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
 		struct STRUCT_CAM_CAL_AF_INFO CalAfData;
 		unsigned short AFInf, AFMacro;
 
+		memset(&CalAfData, 0, sizeof(struct STRUCT_CAM_CAL_AF_INFO));
+
 		read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 								start_addr,
 								sizeof(struct STRUCT_CAM_CAL_AF_INFO),
