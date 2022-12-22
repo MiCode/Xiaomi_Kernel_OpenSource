@@ -2707,37 +2707,4 @@ void init_afe_ops(void)
 }
 EXPORT_SYMBOL(init_afe_ops);
 
-static int __init mtk_mt6765_platform_sound_init(void)
-{
-	int ret;
-
-	pr_debug("%s\n", __func__);
-	ret = mtk_i2s0_soc_platform_init();
-	ret = mtk_dl2_soc_platform_init();
-	ret = mtk_soc_voice_md2_bt_platform_init();
-	ret = mtk_soc_voice_md2_platform_init();
-	ret = mtk_soc_voice_platform_init();
-	ret = mtk_soc_voice_bt_platform_init();
-	ret = mtk_voice_usb_driver_init();
-
-	return ret;
-
-}
-module_init(mtk_mt6765_platform_sound_init);
-
-static void __exit mtk_mt6765_platform_sound_exit(void)
-{
-	pr_debug("%s\n", __func__);
-	 mtk_i2s0_soc_platform_exit();
-	 mtk_dl2_soc_platform_exit();
-	 mtk_soc_voice_md2_bt_platform_exit();
-	 mtk_soc_voice_md2_platform_exit();
-	 mtk_soc_voice_platform_exit();
-	 mtk_soc_voice_bt_platform_exit();
-	 mtk_voice_usb_driver_exit();
-
-}
-module_exit(mtk_mt6765_platform_sound_exit);
-
-
 MODULE_LICENSE("GPL v2");

@@ -151,18 +151,3 @@
 #define AUDIO_SRAM_CAPTURE_SIZE (1024 * 32)
 #define AUDIO_DRAM_CAPTURE_SIZE (1024 * 32)
 #endif
-
-int mtk_i2s0_soc_platform_init(void);
-void mtk_i2s0_soc_platform_exit(void);
-int mtk_dl2_soc_platform_init(void);
-void mtk_dl2_soc_platform_exit(void);
-int mtk_soc_voice_md2_bt_platform_init(void);
-void mtk_soc_voice_md2_bt_platform_exit(void);
-int mtk_soc_voice_md2_platform_init(void);
-void mtk_soc_voice_md2_platform_exit(void);
-int mtk_soc_voice_platform_init(void);
-void mtk_soc_voice_platform_exit(void);
-int mtk_soc_voice_bt_platform_init(void);
-void mtk_soc_voice_bt_platform_exit(void);
-int mtk_voice_usb_driver_init(void);
-void mtk_voice_usb_driver_exit(void);
