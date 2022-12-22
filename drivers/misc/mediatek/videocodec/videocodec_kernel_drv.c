@@ -326,7 +326,12 @@ static int vcodec_probe(struct platform_device *pdev)
 		else
 			dev->enc_freq = MIN_VENC_FREQ;
 	}
+	dev->dev = &pdev->dev;
 	gVCodecDev = dev;
+#if IS_ENABLED(CONFIG_PM)
+	dev_set_drvdata(gDrvInitParams->vcodec_device, dev);
+	dev_set_drvdata(gDrvInitParams->vcodec_device2, dev);
+#endif
 	return 0;
 }
 
