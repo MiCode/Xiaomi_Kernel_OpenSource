@@ -46,6 +46,7 @@ obj-$(CONFIG_MTK_SSC_MODULE) += ssc/
 obj-$(CONFIG_MTK_SWPM_MODULE) += swpm/
 obj-$(CONFIG_MTK_PMSR) += pmsr/
 obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/
+obj-$(CONFIG_MTK_IMGSENSOR_ISP4) += imgsensor/src/
 obj-$(CONFIG_MTK_V4L2_IMGSENSOR) += imgsensor/src-v4l2/
 obj-$(CONFIG_MTK_IOMMU_MISC) += iommu/
 obj-$(CONFIG_MTK_COMBO) += connectivity/
