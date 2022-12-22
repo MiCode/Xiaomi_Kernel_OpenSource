@@ -51,4 +51,8 @@ extern u32 spm_vcorefs_get_MD_status(void);
 extern void mdpm_register_md_status_cb(u32 (*get_MD_status)(void));
 #endif
 
+extern void register_spm_resource_req_func(bool (*spm_resource_req_func)(unsigned int user,
+						unsigned int req_mask));
+extern bool spm_resource_req(unsigned int user, unsigned int req_mask);
+
 #endif  /* __MTK_SLEEP_INTERNAL_H__ */
