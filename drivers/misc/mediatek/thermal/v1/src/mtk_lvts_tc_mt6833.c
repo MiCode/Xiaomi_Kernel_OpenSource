@@ -873,6 +873,8 @@ void lvts_thermal_cal_prepare(struct platform_device *dev)
 	__u32  *buf = NULL;
 
 	buf = read_mtk_efuse_cell("e_data1");
+	if (!buf)
+		return;
 	lvts_dbg_printk("%s\n start", __func__);
 	temp[0] = buf[0];
 	temp[1] =  buf[1];
@@ -881,6 +883,8 @@ void lvts_thermal_cal_prepare(struct platform_device *dev)
 	kfree(buf);// free effuse buffer
 	buf = NULL;
 	buf = read_mtk_efuse_cell("e_data2");
+	if (!buf)
+		return;
 	temp[4] =  buf[0];
 	temp[5] =  buf[1];
 	temp[6] =  buf[2];
