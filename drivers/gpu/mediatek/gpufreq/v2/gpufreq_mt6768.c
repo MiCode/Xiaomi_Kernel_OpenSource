@@ -2922,6 +2922,13 @@ static int __gpufreq_init_pmic(struct platform_device *pdev)
 			regulator_is_enabled(g_pmic->reg_vsram_gpu),
 			(regulator_get_voltage(g_pmic->reg_vsram_gpu) / 1000));
 
+	udelay(80);
+
+	if (regulator_disable(g_pmic->reg_vgpu))
+		GPUFREQ_LOGE("disable VGPU failed\n");
+	if (regulator_disable(g_pmic->reg_vsram_gpu))
+		GPUFREQ_LOGE("disable VSRAM_GPU failed\n");
+
 	return ret;
 }
 
