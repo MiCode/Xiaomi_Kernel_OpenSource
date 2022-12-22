@@ -26,7 +26,9 @@
 #define RTC_BBPU_CBUSY         BIT(6)
 #define RTC_BBPU_KEY           (0x43 << 8)
 
+#define RTC_WRTGR_MT6357       0x003a
 #define RTC_WRTGR_MT6358       0x003a
+#define RTC_WRTGR_MT6359P      0x003a
 #define RTC_WRTGR_MT6397       0x003c
 #define RTC_WRTGR_MT6323       RTC_WRTGR_MT6397
 
