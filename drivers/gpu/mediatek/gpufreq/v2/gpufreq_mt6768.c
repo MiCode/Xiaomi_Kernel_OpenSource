@@ -2370,6 +2370,39 @@ static void __gpufreq_resume_dvfs(void)
 	GPUFREQ_TRACE_END();
 }
 
+/* API: fix Freq and Volt of GPU via given Freq and Volt */
+int __gpufreq_fix_freq_volt_gpu(unsigned int freq, unsigned int volt)
+{
+	int ret = GPUFREQ_SUCCESS;
+
+	ret = __gpufreq_power_control(POWER_ON);
+	if (unlikely(ret < 0)) {
+		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_ON, ret);
+		goto done;
+	}
+
+	if (freq == 0 && volt == 0) {
+		ret = GPUFREQ_SUCCESS;
+	} else if (freq > POSDIV_2_MAX_FREQ || freq < POSDIV_8_MIN_FREQ) {
+		GPUFREQ_LOGE("invalid fixed freq: %d\n", freq);
+		ret = GPUFREQ_EINVAL;
+	} else if (volt > VGPU_MAX_VOLT || volt < VGPU_MIN_VOLT) {
+		GPUFREQ_LOGE("invalid fixed volt: %d\n", volt);
+		ret = GPUFREQ_EINVAL;
+	} else {
+		ret = __gpufreq_custom_commit_gpu(freq, volt, DVFS_DISABLE);
+		if (unlikely(ret)) {
+			GPUFREQ_LOGE("fail to custom commit GPU freq: %d, volt: %d (%d)",
+				freq, volt, ret);
+		}
+	}
+
+	__gpufreq_power_control(POWER_OFF);
+
+done:
+	return ret;
+}
+
 /* API: pause dvfs to given freq and volt */
 static int __gpufreq_pause_dvfs(unsigned int oppidx)
 {
@@ -2386,7 +2419,16 @@ static int __gpufreq_pause_dvfs(unsigned int oppidx)
 		goto done_unlock;
 	}
 
-	ret = __gpufreq_generic_commit_gpu(oppidx, DVFS_DISABLE);
+	//if can not find DISABLE_VOLT in working table.
+	if (g_gpu.working_table[oppidx].volt < GPU_DVFS_PTPOD_DISABLE_VOLT) {
+		GPUFREQ_LOGI("Cann't find PTPOD_DISABLE_VOLT in working table, use it directly.");
+		ret =  __gpufreq_fix_freq_volt_gpu(
+					g_gpu.working_table[oppidx].freq,
+					GPU_DVFS_PTPOD_DISABLE_VOLT);
+	} else {
+		//DISABLE_VOLT is in the working table.
+		ret = __gpufreq_generic_commit_gpu(oppidx, DVFS_DISABLE);
+	}
 
 	if (unlikely(ret)) {
 		GPUFREQ_LOGE("fail to commit GPU OPP index: %d (%d)",
