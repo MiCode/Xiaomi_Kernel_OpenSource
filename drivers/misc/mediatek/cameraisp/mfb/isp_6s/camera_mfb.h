@@ -305,7 +305,7 @@ struct MFB_MSSConfig {
 	struct mss_dma dmas[TPIPE_NUM_PER_FRAME];
 	unsigned int update_dma_en[TPIPE_NUM_PER_FRAME];
 	unsigned int tpipe_used;
-	unsigned long qos;
+	uint64_t qos;
 };
 
 struct MFB_MSFConfig {
@@ -317,7 +317,7 @@ struct MFB_MSFConfig {
 	unsigned int MFBDMT_TDRI_OFST[TPIPE_NUM_PER_FRAME];
 	unsigned int MFBDMT_TDRI_XSIZE[TPIPE_NUM_PER_FRAME];
 	unsigned int tpipe_used;
-	unsigned long qos;
+	uint64_t qos;
 };
 
 /******************************************************************************
@@ -404,11 +404,13 @@ struct compat_MFB_REG_IO_STRUCT {
 struct compat_MFB_MSSRequest {
 	unsigned int m_ReqNum;
 	compat_uptr_t m_pMssConfig;
+	enum exec_mode exec;
 };
 
 struct compat_MFB_MSFRequest {
 	unsigned int m_ReqNum;
 	compat_uptr_t m_pMsfConfig;
+	enum exec_mode exec;
 };
 
 struct MFB_MapTable {
