@@ -918,7 +918,10 @@ void mtk_vcodec_set_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
 					return;
 				}
 				memset(vcu_log, 0x00, sizeof(vcu_log));
-				snprintf(vcu_log, sizeof(vcu_log) - 1, "%s %s", argv[i], argv[i+1]);
+				if (snprintf(vcu_log, sizeof(vcu_log) - 1, "%s %s", argv[i],
+					argv[i+1]) < 0)
+					mtk_v4l2_err("%s cannot append vcu_log: vcu_log = %d",
+						__func__, vcu_log);
 				if (set_vcu_vpud_log != NULL)
 					set_vcu_vpud_log(ctx, vcu_log);
 			}
