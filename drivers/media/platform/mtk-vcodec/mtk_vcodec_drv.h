@@ -516,8 +516,8 @@ struct mtk_vcodec_ctx {
 	int decoded_frame_cnt;
 
 	/* for timer to check active state of decoded ctx */
-	unsigned int dec_input_cnt;
-	unsigned int last_dec_input_cnt;
+	unsigned int vcp_action_cnt;
+	unsigned int last_vcp_action_cnt;
 	bool is_vcp_active;
 	struct mutex vcp_active_mutex;
 
