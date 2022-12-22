@@ -103,6 +103,7 @@ struct vcu_v4l2_func {
 	int (*vcu_compare_version)(struct platform_device *pdev,
 				const char *expected_version);
 	void (*vcu_get_task)(struct task_struct **task, int reset);
+	void (*vcu_put_task)(void);
 	int (*vcu_set_v4l2_callback)(struct platform_device *pdev,
 		struct vcu_v4l2_callback_func *call_back);
 	int (*vcu_get_ctx_ipi_binding_lock)(struct platform_device *pdev,
@@ -221,6 +222,7 @@ void *vcu_mapping_dm_addr(struct platform_device *pdev,
  *
  **/
 void vcu_get_task(struct task_struct **task, int reset);
+void vcu_put_task(void);
 int vcu_set_v4l2_callback(struct platform_device *pdev,
 	struct vcu_v4l2_callback_func *call_back);
 int vcu_get_ctx_ipi_binding_lock(struct platform_device *pdev,

@@ -32,15 +32,15 @@
 
 static unsigned int mtk_vdec_max_width = 0;
 static unsigned int mtk_vdec_max_heigh = 0;
-static struct mtk_video_fmt
-	mtk_video_formats[MTK_MAX_DEC_CODECS_SUPPORT] = { {0} };
-static struct mtk_codec_framesizes
+struct mtk_video_fmt
+	mtk_vdec_formats[MTK_MAX_DEC_CODECS_SUPPORT] = { {0} };
+struct mtk_codec_framesizes
 	mtk_vdec_framesizes[MTK_MAX_DEC_CODECS_SUPPORT] = { {0} };
 static unsigned int default_out_fmt_idx;
 static unsigned int default_cap_fmt_idx;
 
 #define NUM_SUPPORTED_FRAMESIZE ARRAY_SIZE(mtk_vdec_framesizes)
-#define NUM_FORMATS ARRAY_SIZE(mtk_video_formats)
+#define NUM_FORMATS ARRAY_SIZE(mtk_vdec_formats)
 static struct vb2_mem_ops vdec_dma_contig_memops;
 static struct vb2_mem_ops vdec_sec_dma_contig_memops;
 
@@ -281,32 +281,32 @@ static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 {
 	unsigned int i;
 
-	if (mtk_video_formats[0].fourcc == 0) {
+	if (mtk_vdec_formats[0].fourcc == 0) {
 		if (vdec_if_get_param(ctx,
 			GET_PARAM_VDEC_CAP_SUPPORTED_FORMATS,
-			&mtk_video_formats)  != 0) {
+			&mtk_vdec_formats)  != 0) {
 			mtk_v4l2_err("Error!! Cannot get supported format");
 			return;
 		}
 
 		for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT; i++) {
-			if (mtk_video_formats[i].fourcc != 0)
+			if (mtk_vdec_formats[i].fourcc != 0)
 				mtk_v4l2_debug(1,
 				  "fmt[%d] fourcc %d type %d planes %d",
-				  i, mtk_video_formats[i].fourcc,
-				  mtk_video_formats[i].type,
-				  mtk_video_formats[i].num_planes);
+				  i, mtk_vdec_formats[i].fourcc,
+				  mtk_vdec_formats[i].type,
+				  mtk_vdec_formats[i].num_planes);
 		}
 		for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT; i++) {
-			if (mtk_video_formats[i].fourcc != 0 &&
-				mtk_video_formats[i].type == MTK_FMT_DEC) {
+			if (mtk_vdec_formats[i].fourcc != 0 &&
+				mtk_vdec_formats[i].type == MTK_FMT_DEC) {
 				default_out_fmt_idx = i;
 				break;
 			}
 		}
 		for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT; i++) {
-			if (mtk_video_formats[i].fourcc != 0 &&
-				mtk_video_formats[i].type == MTK_FMT_FRAME) {
+			if (mtk_vdec_formats[i].fourcc != 0 &&
+				mtk_vdec_formats[i].type == MTK_FMT_FRAME) {
 				default_cap_fmt_idx = i;
 				break;
 			}
@@ -354,10 +354,10 @@ static struct mtk_video_fmt *mtk_vdec_find_format(struct mtk_vcodec_ctx *ctx,
 
 	mtk_v4l2_debug(3, "[%d] fourcc %d", ctx->id, f->fmt.pix_mp.pixelformat);
 	for (k = 0; k < MTK_MAX_DEC_CODECS_SUPPORT &&
-		 mtk_video_formats[k].fourcc != 0; k++) {
-		fmt = &mtk_video_formats[k];
+		 mtk_vdec_formats[k].fourcc != 0; k++) {
+		fmt = &mtk_vdec_formats[k];
 		if (fmt->fourcc == f->fmt.pix_mp.pixelformat &&
-			mtk_video_formats[k].type == t)
+			mtk_vdec_formats[k].type == t)
 			return fmt;
 	}
 
@@ -370,13 +370,13 @@ static struct mtk_video_fmt *mtk_find_fmt_by_pixel(unsigned int pixelformat)
 	unsigned int k;
 
 	for (k = 0; k < NUM_FORMATS; k++) {
-		fmt = &mtk_video_formats[k];
+		fmt = &mtk_vdec_formats[k];
 		if (fmt->fourcc == pixelformat)
 			return fmt;
 	}
 	mtk_v4l2_err("Error!! Cannot find fourcc: %d use default", pixelformat);
 
-	return &mtk_video_formats[default_out_fmt_idx];
+	return &mtk_vdec_formats[default_out_fmt_idx];
 }
 
 static struct mtk_q_data *mtk_vdec_get_q_data(struct mtk_vcodec_ctx *ctx,
@@ -1444,7 +1444,7 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 	q_data->visible_width = DFT_CFG_WIDTH;
 	q_data->visible_height = DFT_CFG_HEIGHT;
 	if (default_out_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT)
-		q_data->fmt = &mtk_video_formats[default_out_fmt_idx];
+		q_data->fmt = &mtk_vdec_formats[default_out_fmt_idx];
 	q_data->field = V4L2_FIELD_NONE;
 
 	q_data->sizeimage[0] = DFT_CFG_WIDTH * DFT_CFG_HEIGHT;
@@ -1457,7 +1457,7 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 	q_data->coded_width = DFT_CFG_WIDTH;
 	q_data->coded_height = DFT_CFG_HEIGHT;
 	if (default_cap_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT)
-		q_data->fmt = &mtk_video_formats[default_cap_fmt_idx];
+		q_data->fmt = &mtk_vdec_formats[default_cap_fmt_idx];
 	q_data->field = V4L2_FIELD_NONE;
 
 	v4l_bound_align_image(&q_data->coded_width,
@@ -1838,7 +1838,7 @@ static int vidioc_try_fmt_vid_cap_mplane(struct file *file, void *priv,
 	fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_FRAME);
 	if (!fmt && default_cap_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT) {
 		f->fmt.pix.pixelformat =
-			mtk_video_formats[default_cap_fmt_idx].fourcc;
+			mtk_vdec_formats[default_cap_fmt_idx].fourcc;
 		fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_FRAME);
 	}
 	if (!fmt)
@@ -1857,7 +1857,7 @@ static int vidioc_try_fmt_vid_out_mplane(struct file *file, void *priv,
 	fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_DEC);
 	if (!fmt && default_out_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT) {
 		f->fmt.pix.pixelformat =
-			mtk_video_formats[default_out_fmt_idx].fourcc;
+			mtk_vdec_formats[default_out_fmt_idx].fourcc;
 		fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_DEC);
 	}
 
@@ -1981,12 +1981,12 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 		if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE
 			&& default_out_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT) {
 			f->fmt.pix.pixelformat =
-				mtk_video_formats[default_out_fmt_idx].fourcc;
+				mtk_vdec_formats[default_out_fmt_idx].fourcc;
 			fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_DEC);
 		} else if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE
 			&& default_cap_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT) {
 			f->fmt.pix.pixelformat =
-				mtk_video_formats[default_cap_fmt_idx].fourcc;
+				mtk_vdec_formats[default_cap_fmt_idx].fourcc;
 			fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_FRAME);
 		}
 	}
@@ -2054,12 +2054,12 @@ static int vidioc_enum_fmt(struct mtk_vcodec_ctx *ctx, struct v4l2_fmtdesc *f,
 	int i, j = 0;
 
 	for (i = 0; i < MTK_MAX_DEC_CODECS_SUPPORT &&
-		 mtk_video_formats[i].fourcc != 0; i++) {
+		 mtk_vdec_formats[i].fourcc != 0; i++) {
 		if ((output_queue == true) &&
-			(mtk_video_formats[i].type != MTK_FMT_DEC))
+			(mtk_vdec_formats[i].type != MTK_FMT_DEC))
 			continue;
 		else if ((output_queue == false) &&
-				 (mtk_video_formats[i].type != MTK_FMT_FRAME))
+				 (mtk_vdec_formats[i].type != MTK_FMT_FRAME))
 			continue;
 
 		if (j == f->index)
@@ -2068,16 +2068,16 @@ static int vidioc_enum_fmt(struct mtk_vcodec_ctx *ctx, struct v4l2_fmtdesc *f,
 	}
 
 	if (i == MTK_MAX_DEC_CODECS_SUPPORT ||
-		mtk_video_formats[i].fourcc == 0)
+		mtk_vdec_formats[i].fourcc == 0)
 		return -EINVAL;
 
-	fmt = &mtk_video_formats[i];
+	fmt = &mtk_vdec_formats[i];
 
 	f->pixelformat = fmt->fourcc;
 	f->flags = 0;
 	memset(f->reserved, 0, sizeof(f->reserved));
 
-	if (mtk_video_formats[i].type != MTK_FMT_DEC)
+	if (mtk_vdec_formats[i].type != MTK_FMT_DEC)
 		f->flags |= V4L2_FMT_FLAG_COMPRESSED;
 
 	v4l_fill_mtk_fmtdesc(f);

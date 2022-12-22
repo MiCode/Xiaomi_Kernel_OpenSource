@@ -77,6 +77,11 @@ struct venc_resolution_change {
 	__u32 resolutionchange;
 };
 
+extern struct mtk_video_fmt
+	mtk_venc_formats[MTK_MAX_ENC_CODECS_SUPPORT];
+extern struct mtk_codec_framesizes
+	mtk_venc_framesizes[MTK_MAX_ENC_CODECS_SUPPORT];
+
 /*
  * venc_if_init - Create the driver handle
  * @ctx: device context
