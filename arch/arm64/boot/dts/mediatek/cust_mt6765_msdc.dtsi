@@ -10,9 +10,11 @@
 &mmc0 {
 	host-index = <0>;
 	status = "okay";
-	pinctrl-names = "default", "state_uhs";
+	pinctrl-names = "default", "state_uhs", "default_3g", "state_uhs_3g";
 	pinctrl-0 = <&mmc0_pins_default>;
 	pinctrl-1 = <&mmc0_pins_uhs>;
+	pinctrl-2 = <&mmc0_pins_default_mux>;
+	pinctrl-3 = <&mmc0_pins_uhs_mux>;
 	bus-width = <8>;
 	max-frequency = <200000000>;
 	ocr-voltage = <0x00030000>;
@@ -81,9 +83,60 @@
 			drive-strength = <4>;
 		};
 	};
+	mmc0_pins_default_mux: mmc0@1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO129__FUNC_MSDC0_DAT0>,
+				 <PINMUX_GPIO127__FUNC_MSDC0_DAT1>,
+				 <PINMUX_GPIO126__FUNC_MSDC0_DAT2>,
+				 <PINMUX_GPIO132__FUNC_AUX2_MSDC0_DAT3>,
+				 <PINMUX_GPIO123__FUNC_MSDC0_DAT4>,
+				 <PINMUX_GPIO125__FUNC_MSDC0_DAT5>,
+				 <PINMUX_GPIO128__FUNC_MSDC0_DAT6>,
+				 <PINMUX_GPIO130__FUNC_AUX2_MSDC0_DAT7>,
+				 <PINMUX_GPIO122__FUNC_AUX2_MSDC0_CMD>;
+			input-enable;
+		};
+		pins_clk {
+			pinmux = <PINMUX_GPIO124__FUNC_AUX2_MSDC0_CLK>;
+		};
+		pins_ds {
+			pinmux = <PINMUX_GPIO131__FUNC_AUX2_MSDC0_DSL>;
+		};
+		pins_rst {
+			pinmux = <PINMUX_GPIO133__FUNC_AUX2_MSDC0_RSTB>;
+		};
+	};
+	mmc0_pins_uhs_mux: mmc0@2{
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO129__FUNC_MSDC0_DAT0>,
+				 <PINMUX_GPIO127__FUNC_MSDC0_DAT1>,
+				 <PINMUX_GPIO126__FUNC_MSDC0_DAT2>,
+				 <PINMUX_GPIO132__FUNC_AUX2_MSDC0_DAT3>,
+				 <PINMUX_GPIO123__FUNC_MSDC0_DAT4>,
+				 <PINMUX_GPIO125__FUNC_MSDC0_DAT5>,
+				 <PINMUX_GPIO128__FUNC_MSDC0_DAT6>,
+				 <PINMUX_GPIO130__FUNC_AUX2_MSDC0_DAT7>,
+				 <PINMUX_GPIO122__FUNC_AUX2_MSDC0_CMD>;
+			input-enable;
+			drive-strength = <4>;
+		};
+		pins_clk {
+			pinmux = <PINMUX_GPIO124__FUNC_AUX2_MSDC0_CLK>;
+			drive-strength = <4>;
+		};
+		pins_ds {
+			pinmux = <PINMUX_GPIO131__FUNC_AUX2_MSDC0_DSL>;
+			drive-strength = <4>;
+		};
+		pins_rst {
+			pinmux = <PINMUX_GPIO133__FUNC_AUX2_MSDC0_RSTB>;
+			drive-strength = <4>;
+		};
+	};
 };
 
 &mmc1 {
+	host-index = <1>;
 	status = "okay";
 	pinctrl-names = "default", "state_uhs";
 	pinctrl-0 = <&mmc1_pins_default>;
