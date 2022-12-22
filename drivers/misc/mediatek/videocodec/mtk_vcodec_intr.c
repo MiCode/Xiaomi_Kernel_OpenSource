@@ -25,7 +25,7 @@ void dec_isr(struct mtk_vcodec_dev *dev)
 	void __iomem *vdec_misc = dev->dec_reg_base[VDEC_BASE] + 0x5000;
 	void __iomem *vdec_misc_addr = vdec_misc + MTK_VDEC_IRQ_CFG_REG;
 
-	u4DecDoneStatus = VDO_HW_READ(vdec_misc_addr + MTK_VDEC_IRQ_CFG_REG);
+	u4DecDoneStatus = VDO_HW_READ(vdec_misc_addr);
 	if ((u4DecDoneStatus & (0x1 << 16)) != 0x10000) {
 		pr_info("[VDEC] DEC ISR, Dec done is not 0x1 (0x%08x)",
 				u4DecDoneStatus);
@@ -52,10 +52,10 @@ void dec_isr(struct mtk_vcodec_dev *dev)
 	}
 
 	/* Clear interrupt */
-	VDO_HW_WRITE(vdec_misc_addr+41*4,
-		VDO_HW_READ(vdec_misc_addr + 41*4) | MTK_VDEC_IRQ_CFG);
-	VDO_HW_WRITE(vdec_misc_addr+41*4,
-		VDO_HW_READ(vdec_misc_addr + 41*4) & ~MTK_VDEC_IRQ_CLR);
+	VDO_HW_WRITE(vdec_misc+41*4,
+		VDO_HW_READ(vdec_misc + 41*4) | MTK_VDEC_IRQ_CFG);
+	VDO_HW_WRITE(vdec_misc+41*4,
+		VDO_HW_READ(vdec_misc + 41*4) & ~MTK_VDEC_IRQ_CLR);
 
 
 	spin_lock_irqsave(&gDrvInitParams->decIsrLock, ulFlags);
