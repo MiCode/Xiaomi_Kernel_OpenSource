@@ -1417,7 +1417,7 @@ static int ul_tinyconn_event(struct snd_soc_dapm_widget *w,
 			rate = (value & AWB2_MODE_MASK_SFT) >> AWB2_MODE_SFT;
 			pr_info("%s, AWB2 rate %d, channel %d\n", __func__, rate, channels);
 			mtk_enable_cm_bypass(afe, CM2, 0x0, 0x0);//na, cm
-			mtk_set_cm(afe, CM2, rate, 0x7, false, channels);
+			mtk_set_cm(afe, CM2, rate, 0xf, false, channels);
 			mtk_enable_cm(afe, CM2, 1);
 		}
 		break;
@@ -1474,7 +1474,7 @@ static int ul_cm1_event(struct snd_soc_dapm_widget *w,
 			pr_info("%s, UL10  rate %d, channel %d\n", __func__, rate, channels);
 			mtk_enable_cm_bypass(afe, CM1, 0x0, 0x1);//cm, bypass
 		}
-		mtk_set_cm(afe, CM1, rate, 0x7, false, channels);
+		mtk_set_cm(afe, CM1, rate, 0xf, false, channels);
 		mtk_enable_cm(afe, CM1, 1);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
