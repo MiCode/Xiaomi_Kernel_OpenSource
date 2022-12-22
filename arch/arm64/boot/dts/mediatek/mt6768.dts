@@ -1849,8 +1849,8 @@ cma=64M transparent_hugepage=never";
 		interrupts = <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH 0>,
 			<GIC_SPI 135 IRQ_TYPE_LEVEL_HIGH 0>,
 			<GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&infracfg_ao CLK_IFR_CQ_DMA>;
-		clock-names = "cqdma";
+		/* clocks = <&infracfg_ao CLK_IFR_CQ_DMA>; */
+		/* clock-names = "cqdma"; */
 		dma-channel-mask = <63>;
 		dma-channels = <3>;
 		dma-requests = <10>;
