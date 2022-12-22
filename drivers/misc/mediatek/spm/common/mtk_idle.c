@@ -170,7 +170,7 @@ static void mtk_idle_init(void)
 			, 0644, &idle_state_fops, NULL);
 }
 
-void __init mtk_cpuidle_framework_init(void)
+void mtk_cpuidle_framework_init(void)
 {
 	struct mtk_idle_init_data pInitData = {0, 0};
 	struct device_node *idle_node = NULL;
