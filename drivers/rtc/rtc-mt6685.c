@@ -580,7 +580,7 @@ exit:
 
 static int mtk_rtc_is_alarm_irq(struct mt6685_rtc *rtc)
 {
-	u32 irqsta = 0, bbpu = 0, sck = 0;
+	u32 irqsta = 0, bbpu = 0, sck = 0, sck_check = 0, irqsta_check = 0;
 	int ret;
 
 	power_on_mclk(rtc);
@@ -590,6 +590,22 @@ static int mtk_rtc_is_alarm_irq(struct mt6685_rtc *rtc)
 	/*clear SCK_TOP rtc interrupt*/
 	rtc_read(rtc, SCK_TOP_INT_STATUS0, &sck);
 	rtc_write(rtc, SCK_TOP_INT_STATUS0, sck);
+
+	rtc_read(rtc, SCK_TOP_INT_STATUS0, &sck_check);
+	if (sck_check) {
+		udelay(70);
+		rtc_write(rtc, SCK_TOP_INT_STATUS0, 1);
+
+		rtc_read(rtc, SCK_TOP_INT_STATUS0, &sck_check);
+		if (sck_check) {
+			dev_notice(rtc->rtc_dev->dev.parent,
+				"%s: TOP INT STA 0x%x\n", __func__, sck_check);
+
+			rtc_read(rtc, rtc->addr_base + RTC_IRQ_STA, &irqsta_check);
+			dev_notice(rtc->rtc_dev->dev.parent,
+				"%s: IRQ STA 0x%x\n", __func__, irqsta_check);
+		}
+	}
 
 	if ((ret == 0) && (irqsta & RTC_IRQ_STA_AL)) {
 		bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN;
