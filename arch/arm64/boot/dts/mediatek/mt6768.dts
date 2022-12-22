@@ -20,8 +20,6 @@
 #include <dt-bindings/power/mt6768-power.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
-#include <dt-bindings/thermal/thermal.h>
-#include <dt-bindings/reset/ti-syscon.h>
 
 / {
 	model = "MT6768";
@@ -1054,13 +1052,6 @@ cma=64M transparent_hugepage=never";
 		reg = <0 0x10001000 0 0x1000>;
 		interrupts = <GIC_SPI 71 IRQ_TYPE_EDGE_RISING 0>;
 		#clock-cells = <1>;
-		infracfg_rst: reset-controller {
-			compatible = "ti,syscon-reset";
-			#reset-cells = <1>;
-			ti,reset-bits = <
-			0x120 0 0x124 0 0 0 (ASSERT_SET | DEASSERT_SET | STATUS_NONE)
-			>;
-		};
 	};
 
 	low_battery_throttling {
@@ -3174,7 +3165,6 @@ cma=64M transparent_hugepage=never";
 
 	consys: consys@18002000 {
 		compatible = "mediatek,mt6768-consys";
-		#thermal-sensor-cells = <0>;
 		#address-cells = <2>;
 		#size-cells = <2>;
 			/*CONN_MCU_CONFIG_BASE */
@@ -4981,6 +4971,7 @@ cma=64M transparent_hugepage=never";
 		mediatek,xo-buf-hwbblpm-mask = <1 0 0 0 0 0 0>;
 		mediatek,xo-buf-hwbblpm-bypass = <0 0 0 0 0 0 0>;
 		pmif = <&pwrap 0>;
+		mediatek,xo-nfc = <0>;
 		mediatek,enable;
 	};
 
