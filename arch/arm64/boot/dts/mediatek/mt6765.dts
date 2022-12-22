@@ -5067,7 +5067,7 @@ initcall_debug=1 pelt=8";
 #include "mediatek/cust_mt6765_msdc.dtsi"
 #include "mediatek/mt6357.dtsi"
 #include "mediatek/bat_setting/mt6765_battery_prop.dtsi"
-#include "mediatek/mt6370.dtsi"
+#include "mediatek/mt6370_65.dtsi"
 #include "mediatek/rt9471.dtsi"
 #include "mediatek/trusty.dtsi"
 
