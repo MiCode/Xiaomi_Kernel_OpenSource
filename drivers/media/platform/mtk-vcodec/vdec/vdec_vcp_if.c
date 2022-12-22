@@ -774,7 +774,7 @@ static struct mtk_vcodec_ctx *get_valid_ctx(struct mtk_vcodec_dev *dev)
 
 	list_for_each_safe(p, q, &dev->ctx_list) {
 		tmp_ctx = list_entry(p, struct mtk_vcodec_ctx, list);
-		if (tmp_ctx != NULL && tmp_ctx->drv_handle != 0 &&
+		if (tmp_ctx != NULL && tmp_ctx->drv_handle != 0 && tmp_ctx->is_vcp_active &&
 		    tmp_ctx->state < MTK_STATE_ABORT && tmp_ctx->state > MTK_STATE_FREE) {
 			return tmp_ctx;
 		}

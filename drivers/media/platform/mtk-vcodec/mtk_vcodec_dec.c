@@ -1358,12 +1358,12 @@ static void mtk_vdec_check_vcp_inactive(struct mtk_vcodec_ctx *ctx, bool from_ti
 			mutex_lock(&ctx->vcp_active_mutex);
 		if (ctx->is_vcp_active) {
 			mtk_v4l2_debug(0, "[%d] vcp inactive", ctx->id);
-			ctx->is_vcp_active = false;
 			if (from_timer)
 				mutex_unlock(&ctx->dev->ctx_mutex);
 			vcp_deregister_feature(VDEC_FEATURE_ID);
 			if (from_timer)
 				mutex_lock(&ctx->dev->ctx_mutex);
+			ctx->is_vcp_active = false;
 		}
 		if (!from_timer)
 			mutex_unlock(&ctx->vcp_active_mutex);
