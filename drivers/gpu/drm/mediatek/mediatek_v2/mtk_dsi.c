@@ -168,6 +168,7 @@
 #define HFP_WC_FLD_REG_HFP_HS_EN REG_FLD_MSB_LSB(31, 31)
 #define HFP_WC_FLD_REG_HFP_HS_VB_PS_WC REG_FLD_MSB_LSB(30, 16)
 #define HFP_WC_FLD_REG_DSI_HFP_WC REG_FLD_MSB_LSB(14, 0)
+#define HFP_WC_MASK 0x7FFF
 
 #define DSI_BLLP_WC 0x5C
 
@@ -5057,7 +5058,6 @@ int mtk_dsi_porch_setting(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum dsi_porch_type type, unsigned int value)
 {
 	int ret = 0;
-	unsigned int hs_vb_ps_wc = 0;
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 
 	DDPINFO("%s set %s: %s to %d\n", __func__, mtk_dump_comp_str(comp),
@@ -5082,17 +5082,7 @@ int mtk_dsi_porch_setting(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_ddp_write_relaxed(comp, value, DSI_VACT_NL, handle);
 		break;
 	case DSI_HFP:
-		//if pre frame lp, need calculate hs_vb_ps_wc too
-		if (dsi->ext && dsi->ext->params->vdo_per_frame_lp_enable) {
-			if (dsi->ext->params->is_cphy)
-				hs_vb_ps_wc = value - (dsi->data_phy_cycle - 1) * 2 * dsi->lanes;
-			else
-				hs_vb_ps_wc = value - dsi->data_phy_cycle * dsi->lanes;
-			value = REG_FLD_VAL(HFP_WC_FLD_REG_HFP_HS_EN, 1)
-				| REG_FLD_VAL(HFP_WC_FLD_REG_HFP_HS_VB_PS_WC, hs_vb_ps_wc)
-				| REG_FLD_VAL(HFP_WC_FLD_REG_DSI_HFP_WC, value);
-		}
-		mtk_ddp_write_relaxed(comp, value, DSI_HFP_WC, handle);
+		mtk_ddp_write_mask(comp, value, DSI_HFP_WC, HFP_WC_MASK, handle);
 		break;
 	case DSI_HSA:
 		mtk_ddp_write_relaxed(comp, value, DSI_HSA_WC, handle);
