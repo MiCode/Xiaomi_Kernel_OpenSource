@@ -302,13 +302,13 @@ static void cmdq_mdp_common_clock_enable(u64 engine_flag)
 static void cmdq_mdp_common_clock_disable(u64 engine_flag)
 {
 	s32 smi_ref = atomic_dec_return(&mdp_ctx.mdp_smi_usage);
-
 	CMDQ_LOG_CLOCK("%s MDP SMI clock disable %d, engine_flag:%llx\n",
 		__func__, smi_ref, engine_flag);
-	cmdq_mdp_get_func()->mdpEnableCommonClock(false, engine_flag);
-
+	if (smi_ref >= 0)
+		cmdq_mdp_get_func()->mdpEnableCommonClock(false, engine_flag);
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
 		MMPROFILE_FLAG_PULSE, smi_ref, 0);
+
 }
 
 static s32 cmdq_mdp_clock_enable(u64 engine_flag)
