@@ -3948,9 +3948,9 @@
 		mediatek,common-id = <1>;
 		init-power-on;
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
-		clocks = <&dispsys_config_clk CLK_MM_SMI_IOMMU>,
-				<&dispsys_config_clk CLK_MM_SMI_IOMMU>,
-				<&dispsys_config_clk CLK_MM_SMI_IOMMU>,
+		clocks = <&dispsys_config_clk CLK_MM_SMI_INFRA>,
+				<&dispsys_config_clk CLK_MM_SMI_COMMON>,
+				<&dispsys_config_clk CLK_MM_SMI_GALS>,
 				<&dispsys_config_clk CLK_MM_SMI_IOMMU>;
 		clock-names = "apb", "smi", "gals0", "gals1";
 	};
@@ -3961,9 +3961,9 @@
 		reg = <0 0x1401c000 0 0x1000>;
 		mediatek,common-id = <2>;
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
-		clocks = <&dispsys_config_clk CLK_MM_SMI_IOMMU>,
-				<&dispsys_config_clk CLK_MM_SMI_IOMMU>,
-				<&dispsys_config_clk CLK_MM_SMI_IOMMU>,
+		clocks = <&dispsys_config_clk CLK_MM_SMI_INFRA>,
+				<&dispsys_config_clk CLK_MM_SMI_COMMON>,
+				<&dispsys_config_clk CLK_MM_SMI_GALS>,
 				<&dispsys_config_clk CLK_MM_SMI_IOMMU>;
 		clock-names = "apb", "smi", "gals0", "gals1";
 	};
@@ -3974,10 +3974,12 @@
 		reg = <0 0x14002000 0 0x1000>;
 		mediatek,smi = <&disp_smi_2x1_sub_common_u0 &disp_smi_2x1_sub_common_u1>;
 		mediatek,common-id = <0>;
+		smi-common;
+		operating-points-v2 = <&opp_table_disp>;
 		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
-		clocks = <&dispsys_config_clk CLK_MM_SMI_IOMMU>,
+		clocks = <&dispsys_config_clk CLK_MM_SMI_INFRA>,
+				<&dispsys_config_clk CLK_MM_SMI_COMMON>,
 				<&dispsys_config_clk CLK_MM_SMI_GALS>,
-				<&dispsys_config_clk CLK_MM_SMI_INFRA>,
 				<&dispsys_config_clk CLK_MM_SMI_IOMMU>;
 		clock-names = "apb", "smi", "gals0", "gals1";
 	};
