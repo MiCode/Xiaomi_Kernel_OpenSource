@@ -6,6 +6,7 @@ f drivers/rtc/nvmem.c
 f drivers/scsi/scsi_lib.c
 f drivers/scsi/scsi_scan.c
 f drivers/scsi/ufs/ufshcd.c
+f drivers/cpuidle/driver.c
 f fs/coredump.c
 f fs/f2fs/node.c
 f fs/f2fs/super.c
