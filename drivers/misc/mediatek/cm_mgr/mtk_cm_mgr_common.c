@@ -196,6 +196,12 @@ int debounce_times_perf_down_get(void)
 }
 EXPORT_SYMBOL_GPL(debounce_times_perf_down_get);
 
+void debounce_times_perf_down_set(int val)
+{
+	debounce_times_perf_down = val;
+}
+EXPORT_SYMBOL_GPL(debounce_times_perf_down_set);
+
 int debounce_times_perf_force_down_get(void)
 {
 	return debounce_times_perf_force_down;

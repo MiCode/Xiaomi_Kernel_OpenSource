@@ -92,6 +92,7 @@ extern int cm_mgr_get_perf_enable(void);
 extern int cm_mgr_get_perf_force_enable(void);
 extern void cm_mgr_set_perf_force_enable(int enable);
 extern int debounce_times_perf_down_get(void);
+extern void debounce_times_perf_down_set(int val);
 extern int debounce_times_perf_force_down_get(void);
 extern int debounce_times_perf_down_local_get(void);
 extern void debounce_times_perf_down_local_set(int num);
