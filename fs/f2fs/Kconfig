@@ -135,3 +135,8 @@ config F2FS_FS_LZORLE
 	default y
 	help
 	  Support LZO-RLE compress algorithm, if unsure, say Y.
+
+config MTK_F2FS_DEBUG
+	bool "mtk F2FS debug patch for userdebug and eng load"
+	help
+	  mtk F2FS debug patch for userdebug and eng load

@@ -1426,6 +1426,9 @@ page_hit:
 			  ofs_of_node(page), cpver_of_node(page),
 			  next_blkaddr_of_node(page));
 		set_sbi_flag(sbi, SBI_NEED_FSCK);
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+		BUG_ON(1);
+#endif
 		err = -EINVAL;
 out_err:
 		ClearPageUptodate(page);
