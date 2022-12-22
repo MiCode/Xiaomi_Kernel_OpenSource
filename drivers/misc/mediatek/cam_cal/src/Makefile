@@ -15,7 +15,7 @@ MTK_PLATFORM_EXT := isp4
 
 ifeq ($(CONFIG_MTK_CAM_CAL), m)
 obj-$(CONFIG_MTK_CAM_CAL) += custom/
-$(foreach platform,$(MTK_PLATFORM_EXT),$(eval obj-$(CONFIG_MTK_IMGSENSOR) += $(platform)/))
+$(foreach platform,$(MTK_PLATFORM_EXT),$(eval obj-$(CONFIG_MTK_CAM_CAL) += $(platform)/))
 else ifeq ($(CONFIG_MTK_CAM_CAL), y)
 # No isp6s driver is built-in.
 obj-$(CONFIG_MTK_CAM_CAL) += isp4/
