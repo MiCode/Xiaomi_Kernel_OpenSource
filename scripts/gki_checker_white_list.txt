@@ -7,6 +7,7 @@ f drivers/scsi/scsi_lib.c
 f drivers/scsi/scsi_scan.c
 f drivers/scsi/ufs/ufshcd.c
 f fs/coredump.c
+f fs/f2fs/node.c
 f fs/f2fs/super.c
 f include/linux/dev_printk.h
 f include/linux/dynamic_debug.h
