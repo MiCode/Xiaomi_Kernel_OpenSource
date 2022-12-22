@@ -3668,6 +3668,7 @@
 				"MDP_IMG_DL_RELAY0_ASYNC0",
 				"MDP_IMG_DL_RELAY1_ASYNC1",
 				"MDP_APB_BUS";
+		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
 		dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 		iommus = <&iommu0 M4U_PORT_L2_MDP_RDMA0>,
 			<&iommu0 M4U_PORT_L2_MDP_RDMA1>,

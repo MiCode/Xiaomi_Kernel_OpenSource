@@ -11,10 +11,7 @@
 		clocks =
 			<&infracfg_ao_clk CLK_IFRAO_PMIC_TMR>,
 			<&infracfg_ao_clk CLK_IFRAO_PMIC_AP>,
-			<&infracfg_ao_clk CLK_IFRAO_GCE>,
-			<&infracfg_ao_clk CLK_IFRAO_GCE2>,
 			<&infracfg_ao_clk CLK_IFRAO_THERM>,
-			<&infracfg_ao_clk CLK_IFRAO_GCE_26M>,
 			<&infracfg_ao_clk CLK_IFRAO_BTIF>,
 			<&infracfg_ao_clk CLK_IFRAO_AUXADC>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF1_AP>,
@@ -23,7 +20,6 @@
 			<&infracfg_ao_clk CLK_IFRAO_CCIF_AP>,
 			<&infracfg_ao_clk CLK_IFRAO_DEBUGSYS>,
 			<&infracfg_ao_clk CLK_IFRAO_CCIF_MD>,
-			<&infracfg_ao_clk CLK_IFRAO_DISP_PWM>,
 			<&infracfg_ao_clk CLK_IFRAO_CLDMA_BCLK>,
 			<&infracfg_ao_clk CLK_IFRAO_UFS_SAP_BCLK>,
 			<&infracfg_ao_clk CLK_IFRAO_CQ_DMA>,
@@ -40,8 +36,5 @@
 			<&infracfg_ao_clk CLK_IFRAO_RG_FLASHIF_SFLASH_CK>;
 	};
 
-	bring-up-pd-disp {
-		compatible = "mediatek,scpsys-bring-up";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
-	};
+
 };
