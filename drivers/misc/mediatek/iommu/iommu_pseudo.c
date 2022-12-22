@@ -255,6 +255,7 @@ EXPORT_SYMBOL_GPL(tmem_type2sec_id);
 static const struct of_device_id mtk_iommu_pseudo_of_ids[] = {
 	{ .compatible = "mediatek,mt6833-iommu-pseudo" },
 	{ .compatible = "mediatek,mt6789-iommu-pseudo" },
+	{ .compatible = "mediatek,mt6765-iommu-pseudo" },
 	{},
 };
 
