@@ -23,22 +23,25 @@ extern "C" {
 
 /* for COBRA algo */
 #define PPM_COBRA_USE_CORE_LIMIT	(1)
-#define PPM_COBRA_RUNTIME_CALC_DELTA	(1)
+#define PPM_COBRA_RUNTIME_CALC_DELTA	(0)
 #ifdef PPM_COBRA_USE_CORE_LIMIT
 #define PPM_COBRA_MAX_FREQ_IDX	(COBRA_OPP_NUM)
 #else
 #define PPM_COBRA_MAX_FREQ_IDX	(COBRA_OPP_NUM-1)
 #endif
 #define COBRA_OPP_NUM	(DVFS_OPP_NUM)
-#define TOTAL_CORE_NUM	(CORE_NUM_LL+CORE_NUM_L)
-#define CORE_NUM_LL	(4)
-#define CORE_NUM_L	(4)
+#define TOTAL_CORE_NUM	(CORE_LL+CORE_L)
+#define CORE_LL	(4)
+#define CORE_L	(4)
 
+#define CORE_NUM_L	CORE_LL
+#define CORE_NUM_B	COREL_L
+
+#ifdef PPM_SSPM_SUPPORT
 #define PPM_COBRA_TBL_SRAM_ADDR	(0x0011B800)
 #define PPM_COBRA_TBL_SRAM_SIZE \
 	(sizeof(struct ppm_cobra_basic_pwr_data) \
-	*TOTAL_CORE_NUM*COBRA_OPP_NUM)
-#ifdef PPM_SSPM_SUPPORT
+	* TOTAL_CORE_NUM * COBRA_OPP_NUM)
 /* online core to SSPM */
 #define PPM_ONLINE_CORE_SRAM_ADDR \
 	(PPM_COBRA_TBL_SRAM_ADDR + PPM_COBRA_TBL_SRAM_SIZE)
@@ -46,23 +49,22 @@ extern "C" {
 
 /* other policy settings */
 #define PTPOD_FREQ_IDX		(8)
+#define PTPOD_FREQ_IDX_LY	(10)
 #define PWRTHRO_BAT_PER_MW	(600)
 #define PWRTHRO_BAT_OC_MW	(600)
 #define PWRTHRO_LOW_BAT_LV1_MW	(600)
 #define PWRTHRO_LOW_BAT_LV2_MW	(600)
 
 #define DVFS_OPP_NUM		(16)
-/* todo: cpufreq by pass */
-#define get_cluster_ptpod_fix_freq_idx(id)	(id + 1)
 #define get_cluster_cpu_core(id)	\
-		(id ? CORE_NUM_LL : CORE_NUM_L)
-
+		(id ? CORE_LL : CORE_L)
 /*==============================================================*/
-/* Enum								*/
+/* Enum                                                         */
 /*==============================================================*/
 enum ppm_cluster {
-	PPM_CLUSTER_L = 0, //PPM_CLUSTER_LL
-	PPM_CLUSTER_B,     //PPM_CLUSTER_L
+	PPM_CLUSTER_L = 0,
+	PPM_CLUSTER_LL,
+
 	NR_PPM_CLUSTERS,
 };
 
@@ -73,20 +75,22 @@ enum ppm_cobra_lookup_type {
 	NR_PPM_COBRA_LOOKUP_TYPE,
 };
 /*==============================================================*/
-/* Data Structures						*/
+/* Data Structures                                              */
 /*==============================================================*/
 struct ppm_cobra_basic_pwr_data {
 	unsigned short perf_idx;
 	unsigned short power_idx;
 };
 
-struct ppm_cobra_delta_data {
+struct ppm_cobra_delta {
 	unsigned int delta_pwr;
 };
 
 struct ppm_cobra_data {
-	struct ppm_cobra_basic_pwr_data
-		basic_pwr_tbl[TOTAL_CORE_NUM][DVFS_OPP_NUM];
+	struct ppm_cobra_basic_pwr_data ptbl[TOTAL_CORE_NUM][DVFS_OPP_NUM];
+#if !PPM_COBRA_RUNTIME_CALC_DELTA
+	struct ppm_cobra_delta delta_tbl[CORE_L+1][CORE_LL+1][COBRA_OPP_NUM];
+#endif
 };
 
 struct ppm_cobra_lookup {
@@ -100,17 +104,15 @@ struct ppm_cobra_lookup {
 /*==============================================================*/
 /* Global Variables						*/
 /*==============================================================*/
-extern struct ppm_cobra_data *cobra_tbl;
+extern struct ppm_cobra_data cobra_tbl;
 extern struct ppm_cobra_lookup cobra_lookup_data;
-extern int cobra_init_done;
 
 /*==============================================================*/
 /* APIs								*/
 /*==============================================================*/
 extern unsigned int ppm_calc_total_power(
-			struct ppm_cluster_status *cluster_status,
-			unsigned int cluster_num,
-			unsigned int percentage);
+	struct ppm_cluster_status *cluster_status,
+	unsigned int cluster_num, unsigned int percentage);
 extern int ppm_platform_init(void);
 
 /* COBRA algo */
@@ -119,16 +121,31 @@ extern void ppm_cobra_update_freq_limit(unsigned int cluster, int limit);
 extern void ppm_cobra_update_limit(void *user_req);
 extern void ppm_cobra_init(void);
 extern void ppm_cobra_dump_tbl(struct seq_file *m);
-extern void ppm_cobra_lookup_get_result(
-		struct seq_file *m, enum ppm_cobra_lookup_type type);
+extern void ppm_cobra_lookup_get_result(struct seq_file *m,
+	enum ppm_cobra_lookup_type type);
 
-unsigned int __attribute__((weak))
-	mt_cpufreq_get_cur_phy_freq_no_lock(unsigned int id)
+/* Weak CPU DVFS API's */
+unsigned int __attribute__((weak)) mt_cpufreq_get_cur_phy_freq_no_lock(
+	unsigned int id)
+{
+	return 0;
+}
+unsigned int __attribute__((weak)) mt_cpufreq_get_cur_volt(
+		unsigned int id)
+{
+	return 0;
+}
+int __attribute__((weak)) mt_spower_get_leakage(
+	int dev, unsigned int voltage, int degree)
+{
+	return 0;
+}
+unsigned int __attribute__((weak)) mt_cpufreq_get_cpu_level()
 {
 	return 0;
 }
 
-static inline int ppm_get_nr_clusters(void) { return NR_PPM_CLUSTERS; }
+unsigned int get_cluster_ptpod_fix_freq_idx(unsigned int id);
 static inline void ppm_get_cl_cpus(struct cpumask *cpu_mask, unsigned int cid)
 {
 	if (cid == 0) {

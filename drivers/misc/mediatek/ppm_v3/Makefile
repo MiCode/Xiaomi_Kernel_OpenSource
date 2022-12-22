@@ -32,7 +32,7 @@ mtk_ppm_v3-objs := mtk_ppm_main.o mtk_ppm_interface.o mtk_ppm_api.o mtk_ppm_prof
 ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6768)),)
 mtk_ppm_v3-objs += mtk_ppm_platform.o mtk_ppm_power_data.o mtk_ppm_cobra_algo.o
 else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6765)),)
-mtk_ppm_v3-objs += mtk_ppm_platform.o mtk_ppm_power_data.o mtk_ppm_cobra_algo.o
+mtk_ppm_v3-objs += mtk_ppm_platform_6765.o mtk_ppm_power_data.o mtk_ppm_cobra_algo_6765.o
 else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6833)),)
 mtk_ppm_v3-objs += mtk_ppm_platform_6833.o mtk_ppm_cobra_algo_6833.o mtk_ppm_power_data_6833.o
 endif

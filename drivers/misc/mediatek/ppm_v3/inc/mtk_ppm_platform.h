@@ -7,7 +7,7 @@
 #define __MT_COMMON_PPM_PLATFORM_H__
 
 #if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6765)
-#include <mtk_ppm_platform_6768.h>
+#include <mtk_ppm_platform_6765.h>
 #elif IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6833)
 #include <mtk_ppm_platform_6833.h>
 #elif IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6768)

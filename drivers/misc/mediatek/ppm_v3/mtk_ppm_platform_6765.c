@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2022 MediaTek Inc.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 #include <linux/slab.h>
@@ -8,46 +8,41 @@
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/cpu.h>
-#include <linux/cpufreq.h>
 #include <linux/cpumask.h>
 #include <linux/notifier.h>
 
+#include "mtk_ppm_platform.h"
 #include "mtk_ppm_internal.h"
 #include "mtk_static_power.h"
+#if IS_ENABLED(CONFIG_MTK_UNIFIED_POWER)
 #include "mtk_unified_power.h"
-
-// todo: thermal by pass
-//#if IS_ENABLED(CONFIG_THERMAL)
+#endif
+#if IS_ENABLED(CONFIG_THERMAL)
 //#include "mach/mtk_thermal.h"
-//#endif
+#endif
 
-
-unsigned int __attribute__((weak)) mt_cpufreq_get_cur_volt(unsigned int id)
-{
-	return 0;
-}
-int __attribute__((weak)) mt_spower_get_leakage(
-	int dev, unsigned int voltage, int degree)
-{
-	return 0;
-}
-
-
+#ifdef PPM_SSPM_SUPPORT
+static void *online_core;
+#endif
 static void ppm_get_cluster_status(struct ppm_cluster_status *cl_status)
 {
+#ifndef NO_SCHEDULE_API
 	struct cpumask cluster_cpu, online_cpu;
+#endif
 	int i;
 
 	for_each_ppm_clusters(i) {
+#ifndef NO_SCHEDULE_API
 		ppm_get_cl_cpus(&cluster_cpu, i);
 		cpumask_and(&online_cpu, &cluster_cpu, cpu_online_mask);
-
 		cl_status[i].core_num = cpumask_weight(&online_cpu);
+#else
+		cl_status[i].core_num = get_cluster_max_cpu_core(i);
+#endif
 		cl_status[i].volt = mt_cpufreq_get_cur_volt(i) / 100;
-		cl_status[i].freq_idx =
-			ppm_main_freq_to_idx(i,
-					mt_cpufreq_get_cur_phy_freq_no_lock(i),
-					CPUFREQ_RELATION_L);
+		cl_status[i].freq_idx = ppm_main_freq_to_idx(i,
+				mt_cpufreq_get_cur_phy_freq_no_lock(i),
+				CPUFREQ_RELATION_L);
 	}
 }
 
@@ -94,10 +89,16 @@ static struct notifier_block ppm_cpu_freq_notifier = {
 static int ppm_cpu_dead(unsigned int cpu)
 {
 	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS] = { {0} };
+#ifdef PPM_SSPM_SUPPORT
+	int i;
+#endif
 
 	ppm_dbg(DLPT, "action = %s\n", __func__);
 	ppm_get_cluster_status(cl_status);
-
+#ifdef PPM_SSPM_SUPPORT
+	for_each_ppm_clusters(i)
+		mt_reg_sync_writel(cl_status[i].core_num, online_core + 4 * i);
+#endif
 	mt_ppm_dlpt_kick_PBM(cl_status, ppm_main_info.cluster_num);
 
 	return 0;
@@ -106,54 +107,80 @@ static int ppm_cpu_dead(unsigned int cpu)
 static int ppm_cpu_up(unsigned int cpu)
 {
 	struct ppm_cluster_status cl_status[NR_PPM_CLUSTERS] = { {0} };
+#ifdef PPM_SSPM_SUPPORT
+	int i;
+#endif
 
 	ppm_dbg(DLPT, "action = %s\n", __func__);
 	ppm_get_cluster_status(cl_status);
-
+#ifdef PPM_SSPM_SUPPORT
+	for_each_ppm_clusters(i)
+		mt_reg_sync_writel(cl_status[i].core_num, online_core + 4 * i);
+#endif
 	mt_ppm_dlpt_kick_PBM(cl_status, ppm_main_info.cluster_num);
 
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_THERMAL)
-static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
+//#if IS_ENABLED(CONFIG_THERMAL)
+//static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
+//{
+//	unsigned int temp = 85;
+
+//	switch (cluster) {
+//	case PPM_CLUSTER_LL:
+//		temp = get_immediate_cpuLL_wrap() / 1000;
+//		break;
+//	case PPM_CLUSTER_L:
+//		temp = get_immediate_cpuL_wrap() / 1000;
+//		break;
+//	default:
+//		ppm_err("@%s: invalid cluster id = %d\n", __func__, cluster);
+//		break;
+//	}
+//
+//	return temp;
+//}
+//#endif
+
+static int ppm_get_spower_devid(enum ppm_cluster cluster)
 {
-	unsigned int temp = 85;
+	int devid = -1;
 
 	switch (cluster) {
-	case PPM_CLUSTER_L:
-		// todo: thermal by pass
-		//temp = get_immediate_cpuL_wrap() / 1000;
+	case PPM_CLUSTER_LL:
+		devid = MTK_SPOWER_CPULL;
 		break;
-	case PPM_CLUSTER_B:
-		// todo: thermal by pass
-		//temp = get_immediate_cpuB_wrap() / 1000;
+	case PPM_CLUSTER_L:
+		devid = MTK_SPOWER_CPUL;
 		break;
 	default:
 		ppm_err("@%s: invalid cluster id = %d\n", __func__, cluster);
 		break;
 	}
 
-	return temp;
-}
-#endif
-
-static int ppm_get_spower_devid(enum ppm_cluster cluster)
-{
-	return 0;
+	return devid;
 }
 
 
 int ppm_platform_init(void)
 {
+#ifdef PPM_SSPM_SUPPORT
+	/* map sram to update online core */
+	online_core = ioremap_nocache(
+		PPM_ONLINE_CORE_SRAM_ADDR, 4 * NR_PPM_CLUSTERS);
+	if (!online_core) {
+		ppm_err("remap online_core failed!\n");
+		WARN_ON(1);
+	}
+#endif
 #if IS_ENABLED(CONFIG_CPU_FREQ)
-	cpufreq_register_notifier(
-		&ppm_cpu_freq_notifier, CPUFREQ_TRANSITION_NOTIFIER);
+	cpufreq_register_notifier(&ppm_cpu_freq_notifier,
+		CPUFREQ_TRANSITION_NOTIFIER);
 #endif
 	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN,
 			"ppm/cpuhp", ppm_cpu_up,
 			ppm_cpu_dead);
-
 	return 0;
 }
 
@@ -167,20 +194,13 @@ int ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
 	unsigned int pwr_idx = 0;
 	int i;
 
-	if (!cobra_init_done) {
-		ppm_warn("@%s: cobra_init_done is 0!\n", __func__);
-		return -1; /* wait cobra init */
-	}
-
 	for_each_ppm_clusters(i) {
 		int core = cluster_status[i].core_num;
 		int opp = cluster_status[i].freq_idx;
 
-#if IS_ENABLED(CONFIG_MTK_UNIFY_POWER)
-		if (core > 0 && opp >= 0 && opp < DVFS_OPP_NUM) {
-			pwr_idx += cobra_tbl->basic_pwr_tbl
-				[CORE_NUM_L*i+core-1][opp].power_idx;
-		}
+#if IS_ENABLED(CONFIG_MTK_UNIFIED_POWER)
+		if (core > 0 && opp >= 0 && opp < DVFS_OPP_NUM)
+			pwr_idx += cobra_tbl.ptbl[4*i+core-1][opp].power_idx;
 #else
 		pwr_idx += 100;
 #endif
@@ -226,7 +246,7 @@ int ppm_get_max_pwr_idx(void)
 }
 
 unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
-	unsigned int cluster_num, unsigned int percentage)
+			unsigned int cluster_num, unsigned int percentage)
 {
 	unsigned int dynamic, lkg, total, budget = 0;
 	int i;
@@ -238,7 +258,7 @@ unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
 
 		if (core != 0 && opp >= 0 && opp < DVFS_OPP_NUM) {
 			now = ktime_get();
-#if IS_ENABLED(CONFIG_MTK_UNIFY_POWER)
+#if IS_ENABLED(CONFIG_MTK_UNIFIED_POWER)
 			dynamic =
 				upower_get_power(i, opp, UPOWER_DYN) / 1000;
 			lkg =
@@ -263,7 +283,7 @@ unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
 			delta = ktime_sub(ktime_get(), now);
 
 			ppm_dbg(DLPT,
-				"(%d):OPP/V/core/Lkg/total = %d/%d/%d/%d/%d(time = %lldus)\n",
+				"%d:OP/V/C/Lkg/TO=%d/%d/%d/%d/%d(t=%lldus)\n",
 				i, opp, cluster_status[i].volt,
 				cluster_status[i].core_num,
 				lkg, total, ktime_to_us(delta));
@@ -295,11 +315,11 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 		for_each_ppm_clusters(i) {
 			if (!cl_status[i].core_num)
 				continue;
-#if IS_ENABLED(CONFIG_THERMAL)
-			temp = ppm_get_cpu_temp((enum ppm_cluster)i);
-#else
+//#if IS_ENABLED(CONFIG_THERMAL)
+//			temp = ppm_get_cpu_temp((enum ppm_cluster)i);
+//#else
 			temp = 85;
-#endif
+//#endif
 			volt = mt_cpufreq_get_cur_volt(i) / 100;
 			dev_id = ppm_get_spower_devid((enum ppm_cluster)i);
 			if (dev_id < 0)
@@ -308,11 +328,11 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 			mw += mt_spower_get_leakage(dev_id, volt, temp);
 		}
 	} else {
-#if IS_ENABLED(CONFIG_THERMAL)
-		temp = ppm_get_cpu_temp((enum ppm_cluster)cluster);
-#else
+//#if IS_ENABLED(CONFIG_THERMAL)
+//		temp = ppm_get_cpu_temp((enum ppm_cluster)cluster);
+//#else
 		temp = 85;
-#endif
+//#endif
 		volt = mt_cpufreq_get_cur_volt(cluster) / 100;
 		dev_id = ppm_get_spower_devid((enum ppm_cluster)cluster);
 		if (dev_id < 0)
@@ -322,4 +342,14 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 	}
 
 	return mw;
+}
+
+unsigned int get_cluster_ptpod_fix_freq_idx(unsigned int id)
+{
+	int val = mt_cpufreq_get_cpu_level();
+
+	if (val == 5 || val >= 8)
+		return PTPOD_FREQ_IDX_LY;
+	else
+		return PTPOD_FREQ_IDX;
 }
