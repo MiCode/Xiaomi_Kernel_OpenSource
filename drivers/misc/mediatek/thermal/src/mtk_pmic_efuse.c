@@ -371,47 +371,35 @@ void mtktspmic_cali_prepare2(void)
 
 }
 
-int mtktspmic_get_from_dts(struct platform_device *pdev)
+
+void mtktspmic_get_from_dts(struct platform_device *pdev)
 {
 	int ret;
 
 	chan_chip_temp = devm_iio_channel_get(&pdev->dev, "pmic_chip_temp");
-	ret = PTR_ERR_OR_ZERO(chan_chip_temp);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			mtktspmic_dprintk(
-				"%s, AUXADC_CHIP_TEMP get fail, ret=%d\n", __func__, ret);
-		return ret;
+	if (IS_ERR(chan_chip_temp)) {
+		ret = PTR_ERR(chan_chip_temp);
+		pr_notice("AUXADC_CHIP_TEMP get fail, ret=%d\n", ret);
 	}
 
 	chan_vcore_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck1_temp");
-	ret = PTR_ERR_OR_ZERO(chan_vcore_temp);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			mtktspmic_dprintk(
-				"%s, AUXADC_VCORE_TEMP get fail, ret=%d\n", __func__, ret);
-		return ret;
+	if (IS_ERR(chan_vcore_temp)) {
+		ret = PTR_ERR(chan_vcore_temp);
+		pr_notice("AUXADC_VCORE_TEMP get fail, ret=%d\n", ret);
 	}
 
 	chan_vproc_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck2_temp");
-	ret = PTR_ERR_OR_ZERO(chan_vproc_temp);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			mtktspmic_dprintk(
-				"%s, AUXADC_VPROC_TEMP get fail, ret=%d\n", __func__, ret);
-		return ret;
+	if (IS_ERR(chan_vproc_temp)) {
+		ret = PTR_ERR(chan_vproc_temp);
+		pr_notice("AUXADC_VPROC_TEMP get fail, ret=%d\n", ret);
 	}
 
 	chan_vgpu_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck3_temp");
-	ret = PTR_ERR_OR_ZERO(chan_vgpu_temp);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			mtktspmic_dprintk(
-				"%s, AUXADC_VGPU_TEMP get fail, ret=%d\n", __func__, ret);
-		return ret;
+	if (IS_ERR(chan_vgpu_temp)) {
+		ret = PTR_ERR(chan_vgpu_temp);
+		pr_notice("AUXADC_VGPU_TEMP get fail, ret=%d\n", ret);
 	}
 
-	return 0;
 }
 
 int mtktspmic_get_hw_temp(void)
