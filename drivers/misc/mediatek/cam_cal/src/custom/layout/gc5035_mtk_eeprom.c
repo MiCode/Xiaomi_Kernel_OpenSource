@@ -189,7 +189,7 @@ unsigned int gc5035_do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
     unsigned short CalR = 1, CalGr = 1, CalGb = 1, CalG = 1, CalB = 1;
     unsigned short FacR = 1, FacGr = 1, FacGb = 1, FacG = 1, FacB = 1;
 
-    int group_id = -1;
+	unsigned int group_id = GROUP_NUM;
     int i;
 #ifdef ENABLE_CHECK_SUM
     unsigned int checkSum;
@@ -232,8 +232,8 @@ unsigned int gc5035_do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
     }
 
     debug_log("[AWB_INFO]group_id : %d",group_id);
-    if(group_id < 0 || group_id >= GROUP_NUM) {
-       error_log("No Valid calibration data found\n");
+	if (group_id >= GROUP_NUM) {
+		error_log("No Valid calibration data found\n");
        return CamCalReturnErr[pCamCalData->Command];
     }
 
