@@ -46,6 +46,11 @@ extern void ccci_set_spm_mdsrc_cb(void (*md_clock_src_cb)(u8 set));
 extern void ccci_set_spm_md_sleep_cb(bool (*spm_md_sleep_cb)(void));
 #endif
 
+extern u32 spm_vcorefs_get_MD_status(void);
+#if IS_ENABLED(CONFIG_MTK_MDPM_LEGACY_V1)
+extern void mdpm_register_md_status_cb(u32 (*get_MD_status)(void));
+#endif
+
 enum gs_flag {
 	GS_PMIC = (0x1 << 0),
 	GS_PMIC_6315 = (0x1 << 1),

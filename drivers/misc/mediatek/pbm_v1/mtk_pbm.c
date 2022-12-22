@@ -21,8 +21,9 @@
 #include "mtk_dynamic_loading_throttling.h"
 #include "mtk_pbm.h"
 #include "mtk_pbm_common.h"
-#if IS_ENABLED(CONFIG_MTK_MDPM_LEGACY)
+#if IS_ENABLED(CONFIG_MTK_MDPM_LEGACY) || IS_ENABLED(CONFIG_MTK_MDPM_LEGACY_V1)
 #include "mtk_mdpm.h"
+#include "mtk_mdpm_api.h"
 #endif
 #if IS_ENABLED(CONFIG_MTK_GPUFREQ_V2)
 #include <mtk_gpufreq.h>
@@ -154,9 +155,8 @@ static unsigned long hpf_get_power_md1(void)
 	struct hpf *hpfmgr = &hpf_ctrl;
 
 	if (hpfmgr->switch_md1) {
-#if IS_ENABLED(CONFIG_MTK_MDPM_LEGACY)
+#if IS_ENABLED(CONFIG_MTK_MDPM_LEGACY) || IS_ENABLED(CONFIG_MTK_MDPM_LEGACY_V1)
 		hpfmgr->loading_md1 = get_md1_power(MAX_POWER, true);
-		hpfmgr->loading_md1 = MAX_MD1_POWER;
 #else
 		hpfmgr->loading_md1 = MAX_MD1_POWER;
 #endif
@@ -422,6 +422,7 @@ static bool pbm_update_table_info(enum pbm_kicker kicker, struct mrp *mrpmgr)
 		WARN_ON_ONCE(1);
 		break;
 	}
+
 	return is_update;
 }
 
@@ -433,6 +434,7 @@ static void mtk_power_budget_manager(enum pbm_kicker kicker, struct mrp *mrpmgr)
 	pbm_enable = pbm_func_enable_check();
 	if (!pbm_enable)
 		return;
+
 	pbm_update = pbm_update_table_info(kicker, mrpmgr);
 	if (pbm_update)
 		g_pbm_update = pbm_update;

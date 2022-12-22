@@ -589,17 +589,18 @@ int get_md1_dBm_power(unsigned int scenario, u32 *share_mem,
 
 		return MAX_DBM_POWER;
 	}
+
 	usedBytes = 0;
 	for (i = 0; i < SHARE_MEM_BLOCK_NUM; i++) {
 		usedBytes += sprintf(log_buffer + usedBytes, "0x%x ",
 			share_mem[i]);
-
 		if ((i + 1) % 10 == 0) {
 			usedBytes = 0;
 			if (mt_mdpm_debug)
 				pr_info("%s\n", log_buffer);
 		}
 	}
+
 	for (i = 0; i < MAX_DBM_FUNC_NUM; i++) {
 		if (mdpm_info[scenario].dbm_power_func[i] == NULL)
 			break;

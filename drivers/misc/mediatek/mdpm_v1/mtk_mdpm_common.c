@@ -40,12 +40,13 @@ u32 *md_share_mem;
 (((unsigned int)-1>>(31-((1)?_bits_)))&~((1U<<((0)?_bits_))-1))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-u32 __attribute__ ((weak))
-spm_vcorefs_get_MD_status(void)
+static u32 (*mdpm_get_MD_status)(void);
+
+void mdpm_register_md_status_cb(u32 (*get_MD_status)(void))
 {
-	pr_notice_ratelimited("%s not ready\n", __func__);
-	return 0;
+	mdpm_get_MD_status = get_MD_status;
 }
+EXPORT_SYMBOL(mdpm_register_md_status_cb);
 
 #if MD_POWER_METER_ENABLE
 void init_md_section_level(enum pbm_kicker kicker, u32 *share_mem)
@@ -53,7 +54,6 @@ void init_md_section_level(enum pbm_kicker kicker, u32 *share_mem)
 	if (share_mem == NULL) {
 		pr_notice("mdpm init md share mem failed\n");
 	}
-
 	if (kicker == KR_MD1) {
 		init_md1_section_level(share_mem);
 		md_share_mem = share_mem;
@@ -71,7 +71,6 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 #if !IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 	return 0;
 #endif
-
 	if (power_type >= POWER_TYPE_NUM ||
 		power_type < 0) {
 		pr_notice("[md1_power] invalid power_type=%d\n",
@@ -87,11 +86,12 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 #else
 	if (!md1_ccci_ready)
 		return MAX_MD1_POWER;
-
-	share_reg = spm_vcorefs_get_MD_status();
+	if (mdpm_get_MD_status)
+		share_reg = mdpm_get_MD_status();
+	else
+		return MAX_MD1_POWER;
 #endif
 	scenario = get_md1_scenario(share_reg, power_type);
-
 	scenario_power = get_md1_scenario_power(scenario, power_type);
 	g_scenario_power[power_type] = scenario_power;
 

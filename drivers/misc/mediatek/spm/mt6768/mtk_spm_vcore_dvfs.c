@@ -57,6 +57,7 @@ u32 spm_vcorefs_get_MD_status(void)
 {
 	return spm_read(MD2SPM_DVFS_CON);
 }
+EXPORT_SYMBOL(spm_vcorefs_get_MD_status);
 
 u32 spm_vcorefs_get_md_srcclkena(void)
 {
