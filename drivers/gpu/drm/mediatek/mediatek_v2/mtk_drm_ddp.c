@@ -13062,9 +13062,8 @@ void mtk_ddp_connect_dual_pipe_path(struct mtk_drm_crtc *mtk_crtc,
 	    output_comp && mtk_ddp_comp_get_type(output_comp->id) == MTK_DP_INTF) {
 		/* can't use DSC1 when panel use 2dsc 4lice */
 		//to do: dp in 6983 4k60 can use merge, only 8k30 must use dsc
-		if (drm_mode_vrefresh(&(&mtk_crtc->base)->state->adjusted_mode) == 60 ||
-		    (priv->ddp_comp[DDP_COMPONENT_DSC0]->mtk_crtc != mtk_crtc &&
-		     priv->ddp_comp[DDP_COMPONENT_DSC1]->mtk_crtc != mtk_crtc))
+		if (drm_mode_vrefresh(&(&mtk_crtc->base)->state->adjusted_mode) == 60 &&
+		     priv->ddp_comp[DDP_COMPONENT_DSC1]->mtk_crtc == mtk_crtc)
 			mtk_ddp_ext_dual_pipe_dsc(mtk_crtc, mutex);
 		else
 			mtk_ddp_ext_insert_dual_pipe(mtk_crtc, mutex);
