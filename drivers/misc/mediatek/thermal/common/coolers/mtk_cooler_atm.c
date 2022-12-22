@@ -28,8 +28,10 @@
 #define CLATM_USE_MIN_CPU_OPP			(0)
 #endif
 #ifdef ATM_USES_PPM
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
 #include "mtk_ppm_api.h"
 #include "mtk_ppm_platform.h"
+#endif
 #else
 #include "mt_cpufreq.h"
 #endif
@@ -451,12 +453,6 @@ print_risky_temps(char *prefix, int offset, int printLevel)
 }
 
 unsigned int __attribute__ ((weak))
-mt_gpufreq_get_cur_freq(void)
-{
-	return 0;
-}
-
-unsigned int __attribute__ ((weak))
 mt_ppm_thermal_get_cur_power(void)
 {
 	return 0;
@@ -468,17 +464,6 @@ mt_ppm_thermal_get_min_power(void)
 	return 0;
 }
 
-
-void  __attribute__ ((weak))
-set_uartlog_status(bool value)
-{
-}
-
-bool  __attribute__ ((weak))
-mt_get_uartlog_status(void)
-{
-	return 0;
-}
 
 #if CLATM_USE_MIN_CPU_OPP
 int  __attribute__ ((weak))
@@ -1098,7 +1083,7 @@ static void catmplus_update_params(void)
 #if PRECISE_HYBRID_POWER_BUDGET
 static int _get_current_gpu_power(void)
 {
-	unsigned int cur_gpu_freq = mt_gpufreq_get_cur_freq();
+	unsigned int cur_gpu_freq = gpufreq_get_cur_freq(TARGET_DEFAULT);
 	unsigned int cur_gpu_power = 0;
 	int i = gpu_max_opp;
 
@@ -1238,7 +1223,7 @@ static int P_adaptive(int total_power, unsigned int gpu_loading)
 			/* int highest_possible_gpu_power_idx = 0; */
 			int i = gpu_max_opp;
 
-			unsigned int cur_gpu_freq = mt_gpufreq_get_cur_freq();
+			unsigned int cur_gpu_freq = gpufreq_get_cur_freq(TARGET_DEFAULT);
 			/* int cur_idx = 0; */
 			unsigned int cur_gpu_power = 0;
 			unsigned int next_lower_gpu_power = 0;

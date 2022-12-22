@@ -217,24 +217,7 @@ static int tscpu_curr_max_ts_temp;
 static __s32 temperature_to_raw_room(__u32 ret, enum thermal_sensor ts_name);
 static void set_tc_trigger_hw_protect
 	(int temperature, int temperature2, int tc_num);
-static __u32 *get_thermal_calibration_data(struct platform_device *pdev);
-
-/*=============================================================
- *Weak functions
- *=============================================================
- */
-void __attribute__ ((weak))
-mt_ptp_lock(unsigned long *flags)
-{
-	pr_notice("[Power/CPU_Thermal]%s doesn't exist\n", __func__);
-}
-
-void __attribute__ ((weak))
-mt_ptp_unlock(unsigned long *flags)
-{
-	pr_notice("[Power/CPU_Thermal]%s doesn't exist\n", __func__);
-}
-/*=============================================================*/
+static int get_thermal_calibration_data(struct platform_device *pdev, __u32 *data);
 
 /* chip dependent */
 int tscpu_thermal_clock_on(void)
@@ -347,37 +330,42 @@ thermal_bank_name ts_bank)
 EXPORT_SYMBOL(get_thermal_slope_intercept);
 
 /* chip dependent */
-static __u32 *get_thermal_calibration_data(struct platform_device *pdev)
+static int get_thermal_calibration_data(struct platform_device *pdev, __u32 *data)
 {
+	char cell_name[25] = "thermal-calibration-data";
 	struct nvmem_cell *cell;
 	size_t len;
-	__u32 *buf, *data;
+	__u32 *buf;
+	int i, index = 0;
 
-	cell = nvmem_cell_get(&pdev->dev, "thermal-calibration-data");
+	cell = nvmem_cell_get(&pdev->dev, cell_name);
 
 	if (IS_ERR(cell)) {
-		pr_err("%s, can't get nvmem_cell_get, ignore it\n", __func__);
-		return 0;
+		tscpu_dprintk("%s, Error: Failed to get nvmem cell %s\n", __func__, cell_name);
+		return PTR_ERR(cell);
 	}
 
 	buf = (__u32 *)nvmem_cell_read(cell, &len);
 	nvmem_cell_put(cell);
 
-	if (IS_ERR(buf)) {
-		pr_err("%s, can't get data, ignore it\n", __func__);
-		return 0;
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+
+	for (i = 0; i < (len / sizeof(__u32)); i++) {
+		if (index >= ADDRESS_EFUSE_NUM) {
+			tscpu_dprintk(
+			"%s, %s Array efuse is going to overflow!\n", __func__, cell_name);
+			kfree(buf);
+			return -EINVAL;
+		}
+
+		data[index] = buf[i];
+		index++;
 	}
 
-	if (len < 15  * sizeof(int)) {
-		pr_err("%s, invalid calibration data\n", __func__);
-		kfree(buf);
-		return 0;
-	}
-
-	data = buf;
 	kfree(buf);
 
-	return data;
+	return 0;
 }
 
 void mtkts_dump_cali_info(void)
@@ -454,19 +442,32 @@ void eDataCorrector(void)
 		g_degc_cali = 40;
 	}
 }
-void tscpu_thermal_cal_prepare(struct platform_device *dev)
+
+void tscpu_thermal_cal_prepare(struct platform_device *pdev)
 {
 	__u32 temp0, temp1, temp2, temp3;
 	__u32  *buf;
+	int ret = 0;
 
-	buf = get_thermal_calibration_data(dev);
+	buf = devm_kcalloc(&pdev->dev, ADDRESS_EFUSE_NUM, sizeof(__u32), GFP_KERNEL);
+	if (!buf)
+		ret = -ENOMEM;
+	else
+		ret = get_thermal_calibration_data(pdev, buf);
 
-	temp0 = buf[ADDRESS_INDEX_0];
-	temp1 = buf[ADDRESS_INDEX_1];
-	temp2 = buf[ADDRESS_INDEX_2];
-	temp3 = buf[ADDRESS_INDEX_3];
+	if (!ret) {
+		temp0 = buf[ADDRESS_INDEX_0];
+		temp1 = buf[ADDRESS_INDEX_1];
+		temp2 = buf[ADDRESS_INDEX_2];
+		temp3 = buf[ADDRESS_INDEX_3];
+	} else {
+		temp0 = 0xFFFFFFFF;
+		temp1 = 0xFFFFFFFF;
+		temp2 = 0xFFFFFFFF;
+		temp3 = 0xFFFFFFFF;
+	}
 
-	pr_notice("[calibration] temp0=0x%x,temp1=0x%x,temp2=0x%x,temp3=0x%x\n",
+	tscpu_dprintk("[calibration] temp0=0x%x,temp1=0x%x,temp2=0x%x,temp3=0x%x\n",
 			temp0, temp1, temp2, temp3);
 
 	g_adc_ge_t = ((temp0 & _BITMASK_(31:22)) >> 22);
@@ -718,6 +719,7 @@ int get_immediate_gpu_wrap(void)
 
 	return curr_temp;
 }
+EXPORT_SYMBOL(get_immediate_gpu_wrap);
 
 int get_immediate_cpuL_wrap(void)
 {

@@ -159,6 +159,7 @@
 #define ADDRESS_INDEX_1	 0
 #define ADDRESS_INDEX_2	 2
 #define ADDRESS_INDEX_3	 14
+#define ADDRESS_EFUSE_NUM 18
 
 #define CLEAR_TEMP 26111
 

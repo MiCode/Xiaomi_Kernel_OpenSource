@@ -25,4 +25,4 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v1/inc/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mdla/1.0
 
-ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
+ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/

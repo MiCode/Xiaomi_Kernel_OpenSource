@@ -44,12 +44,6 @@ force_get_tbat(void)
 	return 30;
 }
 
-unsigned int __attribute__ ((weak))
-mt_gpufreq_get_cur_freq(void)
-{
-	return 0;
-}
-
 /* ************************************ */
 /* Global Variable */
 /* ************************************ */
@@ -464,7 +458,7 @@ int mtk_thermal_get_gpu_info(int *nocores, int **gpufreq, int **gpuloading)
 		*nocores = NO_GPU_CORES;
 
 	if (gpufreq) {
-		gpufreqs[0] = mt_gpufreq_get_cur_freq() / 1000;	/* MHz */
+		gpufreqs[0] = gpufreq_get_cur_freq(TARGET_DEFAULT) / 1000;	/* MHz */
 		*gpufreq = gpufreqs;
 	}
 

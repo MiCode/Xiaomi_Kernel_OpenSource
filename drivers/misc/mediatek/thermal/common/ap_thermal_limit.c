@@ -23,7 +23,7 @@
 #endif
 
 #if defined(ATM_USES_PPM)
-#if IS_ENABLED(CONFIG_MTK_PPM)
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
 #include "mtk_ppm_api.h"
 #endif
 #else
@@ -44,6 +44,8 @@
 #include "mdla_dvfs.h"
 #endif
 #endif
+
+#include "gpufreq_v2.h"
 
 /*=============================================================
  * Local variable definition
@@ -112,13 +114,6 @@ mt_cpufreq_thermal_protect(unsigned int limited_power)
 	pr_notice(TSCPU_LOG_TAG "E_WF: %s doesn't exist\n", __func__);
 }
 #endif
-
-
-void __attribute__ ((weak))
-mt_gpufreq_thermal_protect(unsigned int limited_power)
-{
-	pr_notice(TSCPU_LOG_TAG "E_WF: %s doesn't exist\n", __func__);
-}
 
 
 /*=============================================================
@@ -352,8 +347,9 @@ struct apthermolmt_user *handle, unsigned int limit)
 //#if (CONFIG_THERMAL_AEE_RR_REC == 1)
 //		aee_rr_rec_thermal_ATM_status(ATM_GPULIMIT);
 //#endif
-		mt_gpufreq_thermal_protect((final_limit != 0x7FFFFFFF) ?
-							final_limit : 0);
+		final_limit = (final_limit != 0x7FFFFFFF) ? final_limit : 0;
+		gpufreq_set_limit_by_power(TARGET_DEFAULT, LIMIT_THERMAL_AP,
+				final_limit, GPUPPM_KEEP_IDX);
 	}
 }
 EXPORT_SYMBOL(apthermolmt_set_gpu_power_limit);

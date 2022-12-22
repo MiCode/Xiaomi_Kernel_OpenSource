@@ -192,20 +192,6 @@ static int tt_MD_low = 50;
 static int triggered;
 #endif
 
-unsigned long __attribute__ ((weak))
-ccci_get_md_boot_count(int md_id)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-int __attribute__ ((weak))
-exec_ccci_kern_func_by_md_id(
-int md_id, unsigned int id, char *buf, unsigned int len)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return -316;
-}
 
 #define mtk_cooler_mutt_dprintk_always(fmt, args...) \
 pr_debug("[Thermal/TC/mutt]" fmt, ##args)
@@ -569,7 +555,8 @@ static void mtk_cl_mutt_set_onIMS(int level)
 		cl_mutt_cur_ca_limit = cl_mutt_param_noIMS_ca;
 		cl_mutt_cur_pa_limit = cl_mutt_param_noIMS_pa;
 #endif
-		last_md_boot_cnt = ccci_get_md_boot_count(MD_SYS1);
+		last_md_boot_cnt =
+			exec_ccci_kern_func_by_md_id(MD_SYS1, ID_GET_MD_BOOT_CNT, NULL, 0);
 		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
 			ID_THROTTLING_CFG,
 			(char *) &cl_mutt_cur_limit, 4);
@@ -596,7 +583,8 @@ static void mtk_cl_mutt_set_onIMS(int level)
 			last_md_boot_cnt);
 #endif
 	} else if (cl_mutt_param_noIMS != 0) {
-		unsigned long cur_md_bcnt = ccci_get_md_boot_count(MD_SYS1);
+		unsigned long cur_md_bcnt =
+			exec_ccci_kern_func_by_md_id(MD_SYS1, ID_GET_MD_BOOT_CNT, NULL, 0);
 
 		if (last_md_boot_cnt != cur_md_bcnt) {
 			last_md_boot_cnt = cur_md_bcnt;
@@ -778,7 +766,8 @@ static void mtk_cl_mutt_set_mutt_limit(void)
 #endif
 
 
-		last_md_boot_cnt = ccci_get_md_boot_count(MD_SYS1);
+		last_md_boot_cnt =
+			exec_ccci_kern_func_by_md_id(MD_SYS1, ID_GET_MD_BOOT_CNT, NULL, 0);
 
 		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
 			ID_THROTTLING_CFG,
@@ -811,7 +800,8 @@ static void mtk_cl_mutt_set_mutt_limit(void)
 #else
 	} else if (min_param != 0) {
 #endif
-		unsigned long cur_md_bcnt = ccci_get_md_boot_count(MD_SYS1);
+		unsigned long cur_md_bcnt =
+			exec_ccci_kern_func_by_md_id(MD_SYS1, ID_GET_MD_BOOT_CNT, NULL, 0);
 
 		if (last_md_boot_cnt != cur_md_bcnt) {
 			last_md_boot_cnt = cur_md_bcnt;
@@ -1585,7 +1575,7 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 				&& (mutt_level >= 0) && (mutt_level <= 8)) {
 
 			last_md_tuning_boot_cnt =
-				ccci_get_md_boot_count(MD_SYS1);
+				exec_ccci_kern_func_by_md_id(MD_SYS1, ID_GET_MD_BOOT_CNT, NULL, 0);
 
 			cl_mutt_tuning_param_lv =
 				level_selection(mutt_level);
@@ -1608,7 +1598,7 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 		if ((strncmp(arg_name, "disable_level", 13) == 0)) {
 
 			last_md_tuning_boot_cnt =
-				ccci_get_md_boot_count(MD_SYS1);
+				exec_ccci_kern_func_by_md_id(MD_SYS1, ID_GET_MD_BOOT_CNT, NULL, 0);
 
 			cl_mutt_tuning_param_lv =
 				level_selection(mutt_level);
@@ -1664,7 +1654,8 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 
 
 
-		last_md_tuning_boot_cnt = ccci_get_md_boot_count(MD_SYS1);
+		last_md_tuning_boot_cnt =
+			exec_ccci_kern_func_by_md_id(MD_SYS1, ID_GET_MD_BOOT_CNT, NULL, 0);
 
 		if (mutt_noIMS == 0xFF) {
 			cl_mutt_tuning_param = TMC_THROTTLING_THROT_DISABLE;
