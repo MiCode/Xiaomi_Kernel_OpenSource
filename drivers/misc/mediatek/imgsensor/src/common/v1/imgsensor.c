@@ -736,7 +736,7 @@ MUINT32 Get_Camera_Temperature(
 
 	return ret;
 }
-// EXPORT_SYMBOL(Get_Camera_Temperature);
+EXPORT_SYMBOL(Get_Camera_Temperature);
 
 #if IS_ENABLED(CONFIG_CAM_TEMPERATURE_WORKQUEUE)
 static void cam_temperature_report_wq_routine(

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 # Copyright (C) 2020 MediaTek Inc.
 
-MTK_PLATFORM := isp4 isp6s
+# MTK_PLATFORM := isp4 isp6s
 
 subdir-ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/ \
@@ -10,9 +10,5 @@ subdir-ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/imgsensor/inc \
 	-I$(srctree)/drivers/misc/mediatek/cam_cal/inc \
 
-ifeq ($(CONFIG_MTK_IMGSENSOR), m)
-$(foreach platform,$(MTK_PLATFORM),$(eval obj-$(CONFIG_MTK_IMGSENSOR) += $(platform)/))
-else ifeq ($(CONFIG_MTK_IMGSENSOR), y)
-# No isp6s driver is built-in.
-obj-$(CONFIG_MTK_IMGSENSOR) += isp4/
-endif
+obj-$(CONFIG_MTK_IMGSENSOR_ISP4) += isp4/
+obj-$(CONFIG_MTK_IMGSENSOR) += isp6s/
