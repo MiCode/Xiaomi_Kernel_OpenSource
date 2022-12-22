@@ -69,7 +69,11 @@ static int __init dvfsrc_opp_init(void)
 	return 0;
 }
 
+#if IS_BUILTIN(CONFIG_MTK_DVFSRC_MET_MT6765)
+fs_initcall(dvfsrc_opp_init);
+#else
 subsys_initcall(dvfsrc_opp_init);
+#endif
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("DVFSRC SPMFW INIT");
