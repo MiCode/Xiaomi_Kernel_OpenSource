@@ -322,7 +322,7 @@ enum mc_result mc_malloc_wsm(u32 device_id, u32 align, u32 len, u8 **wsm,
 			     u32 wsm_flags)
 {
 	enum mc_result ret;
-	uintptr_t va;
+	uintptr_t va = 0;
 
 	if (!g_ctx.real_drv)
 		return MC_DRV_ERR_NOT_IMPLEMENTED;
