@@ -3593,7 +3593,7 @@ static void mtk_crtc_frame_buffer_release(struct drm_crtc *crtc,
 	struct drm_device *dev = NULL;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
-	if (priv->data->mmsys_id == MMSYS_MT6768) {
+	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
 		DDPINFO("To do workaround:%s():%d\n", __func__, __LINE__);
 		return;
 	}
