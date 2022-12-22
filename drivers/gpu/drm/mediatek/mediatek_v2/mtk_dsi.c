@@ -708,6 +708,7 @@ CONFIG_REG:
 		hs_prpr = hs_prpr >= 6 ? hs_prpr : 6; //hs_prpr must be more than 6
 		da_hs_exit = (da_hs_exit % 2) ? da_hs_exit : da_hs_exit + 1; //must be odd
 	}
+	dsi->data_phy_cycle = lpx + da_hs_exit + hs_prpr + hs_zero + 2;
 	value = REG_FLD_VAL(FLD_LPX, lpx)
 		| REG_FLD_VAL(FLD_HS_PREP, hs_prpr)
 		| REG_FLD_VAL(FLD_HS_ZERO, hs_zero)
@@ -1996,6 +1997,9 @@ static void mtk_dsi_config_vdo_timing(struct mtk_dsi *dsi)
 				* dsi->lanes;
 
 		DDPDUMP("%s, hs_vb_ps_wc=0x%x\n", __func__, hs_vb_ps_wc);
+		DDPDUMP("%s, dsi->data_phy_cycle=0x%x, hs_vb_ps_wc=0x%x\n", __func__,
+			dsi->data_phy_cycle, ps_wc-dsi->data_phy_cycle * dsi->lanes);
+
 		value = REG_FLD_VAL(HFP_WC_FLD_REG_HFP_HS_EN, 1)
 			| REG_FLD_VAL(HFP_WC_FLD_REG_HFP_HS_VB_PS_WC, hs_vb_ps_wc)
 			| REG_FLD_VAL(HFP_WC_FLD_REG_DSI_HFP_WC, dsi->hfp_byte);
@@ -5053,6 +5057,7 @@ int mtk_dsi_porch_setting(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum dsi_porch_type type, unsigned int value)
 {
 	int ret = 0;
+	unsigned int hs_vb_ps_wc = 0;
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 
 	DDPINFO("%s set %s: %s to %d\n", __func__, mtk_dump_comp_str(comp),
@@ -5077,8 +5082,17 @@ int mtk_dsi_porch_setting(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_ddp_write_relaxed(comp, value, DSI_VACT_NL, handle);
 		break;
 	case DSI_HFP:
-		//mtk_ddp_write_relaxed(comp, value, DSI_HFP_WC, handle);
-		mtk_ddp_write_mask(comp, value, DSI_HFP_WC, 0x7FFF, handle);
+		//if pre frame lp, need calculate hs_vb_ps_wc too
+		if (dsi->ext && dsi->ext->params->vdo_per_frame_lp_enable) {
+			if (dsi->ext->params->is_cphy)
+				hs_vb_ps_wc = value - (dsi->data_phy_cycle - 1) * 2 * dsi->lanes;
+			else
+				hs_vb_ps_wc = value - dsi->data_phy_cycle * dsi->lanes;
+			value = REG_FLD_VAL(HFP_WC_FLD_REG_HFP_HS_EN, 1)
+				| REG_FLD_VAL(HFP_WC_FLD_REG_HFP_HS_VB_PS_WC, hs_vb_ps_wc)
+				| REG_FLD_VAL(HFP_WC_FLD_REG_DSI_HFP_WC, value);
+		}
+		mtk_ddp_write_relaxed(comp, value, DSI_HFP_WC, handle);
 		break;
 	case DSI_HSA:
 		mtk_ddp_write_relaxed(comp, value, DSI_HSA_WC, handle);
