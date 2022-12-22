@@ -1153,6 +1153,8 @@ int audio_ipi_dma_write_region(const uint8_t task,
 		return -ENODATA;
 	}
 
+	mutex_lock(&region_lock);
+
 	region = &g_dma[dsp_id]->region[task][AUDIO_IPI_DMA_AP_TO_DSP];
 	DUMP_REGION(ipi_dbg, "region", region, data_size);
 
@@ -1162,6 +1164,8 @@ int audio_ipi_dma_write_region(const uint8_t task,
 	/* write data */
 	ret = audio_region_write_from_linear(dsp_id,
 					     region, data_buf, data_size);
+
+	mutex_unlock(&region_lock);
 
 	return ret;
 }
