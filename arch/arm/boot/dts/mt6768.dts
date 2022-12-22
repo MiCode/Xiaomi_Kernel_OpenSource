@@ -4879,6 +4879,7 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 		mediatek,xo-buf-hwbblpm-mask = <1 0 0 0 0 0 0>;
 		mediatek,xo-buf-hwbblpm-bypass = <0 0 0 0 0 0 0>;
 		pmif = <&pwrap 0>;
+		mediatek,xo-nfc = <0>;
 		mediatek,enable;
 	};
 
