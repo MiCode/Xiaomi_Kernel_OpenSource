@@ -1042,6 +1042,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		}
 		pfb->status = FB_ST_INIT;
 		dst_buf_info->used = true;
+		ctx->fb_list[pfb->index + 1] = (uintptr_t)pfb;
 		mutex_unlock(&ctx->buf_lock);
 
 		mtk_v4l2_debug(1,
@@ -1105,6 +1106,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		mutex_unlock(&ctx->worker_lock);
 		return;
 	}
+	ctx->bs_list[buf->index + 1] = (uintptr_t)buf;
 
 	ctx->dec_params.timestamp = src_buf_info->vb.vb2_buf.timestamp;
 	mtk_v4l2_debug(1,

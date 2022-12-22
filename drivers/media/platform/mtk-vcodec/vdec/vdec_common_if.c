@@ -31,7 +31,7 @@ static void put_fb_to_free(struct vdec_inst *inst, struct vdec_fb *fb)
 						 fb->fb_base[0].va,
 						 (u64)fb->fb_base[1].dma_addr);
 
-		list->fb_list[list->write_idx].vdec_fb_va = (u64)(uintptr_t)fb;
+		list->fb_list[list->write_idx].vdec_fb_va = (u64)(fb->index + 1);
 		list->write_idx = (list->write_idx == DEC_MAX_FB_NUM - 1U) ?
 						  0U : list->write_idx + 1U;
 		list->count++;
@@ -157,7 +157,6 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	struct vdec_vcu_inst *vcu = &inst->vcu;
 	int ret = 0;
 	unsigned int data[3];
-	uint64_t vdec_fb_va;
 	uint64_t fb_dma[VIDEO_MAX_PLANES] = { 0 };
 	uint32_t num_planes;
 	unsigned int i = 0;
@@ -169,8 +168,6 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 
 	for (i = 0; i < num_planes; i++)
 		fb_dma[i] = (u64)fb->fb_base[i].dma_addr;
-
-	vdec_fb_va = (u64)(uintptr_t)fb;
 
 	mtk_vcodec_debug(inst, "+ [%d] FB y_dma=%llx c_dma=%llx va=%p num_planes %d",
 		inst->num_nalu, fb_dma[0], fb_dma[1], fb, num_planes);
@@ -190,18 +187,18 @@ static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 		(bs_fourcc >> 8) & 0xFF, (bs_fourcc >> 16) & 0xFF,
 		(bs_fourcc >> 24) & 0xFF);
 
-	inst->vsi->dec.vdec_bs_va = (u64)(uintptr_t)bs;
+	inst->vsi->dec.vdec_bs_va = (u64)(bs->index + 1);
 	inst->vsi->dec.bs_dma = (uint64_t)bs->dma_addr;
 
 	for (i = 0; i < num_planes; i++)
 		inst->vsi->dec.fb_dma[i] = fb_dma[i];
 
 	if (inst->vsi->input_driven == NON_INPUT_DRIVEN) {
-	inst->vsi->dec.vdec_fb_va = (u64)(uintptr_t)NULL;
+		inst->vsi->dec.vdec_fb_va = (u64)0;
 		inst->vsi->dec.index = 0xFF;
 	}
 	if (fb != NULL) {
-		inst->vsi->dec.vdec_fb_va = vdec_fb_va;
+		inst->vsi->dec.vdec_fb_va = (u64)(fb->index + 1);
 		inst->vsi->dec.index = fb->index;
 		if (fb->dma_general_buf != 0) {
 			inst->vsi->general_buf_fd = fb->general_buf_fd;
@@ -269,6 +266,7 @@ static void vdec_get_bs(struct vdec_inst *inst,
 						struct ring_bs_list *list,
 						struct mtk_vcodec_mem **out_bs)
 {
+	u64 bs_index;
 	unsigned long vdec_bs_va;
 	struct mtk_vcodec_mem *bs;
 
@@ -278,11 +276,12 @@ static void vdec_get_bs(struct vdec_inst *inst,
 		return;
 	}
 
-	vdec_bs_va = (unsigned long)list->vdec_bs_va_list[list->read_idx];
+	bs_index = list->vdec_bs_va_list[list->read_idx];
+	vdec_bs_va = (unsigned long)inst->ctx->bs_list[bs_index];
 	bs = (struct mtk_vcodec_mem *)vdec_bs_va;
 
 	*out_bs = bs;
-	mtk_vcodec_debug(inst, "[BS] get free bs %lx", vdec_bs_va);
+	mtk_vcodec_debug(inst, "[BS] get free bs %lld %lx", bs_index, vdec_bs_va);
 
 	list->read_idx = (list->read_idx == DEC_MAX_BS_NUM - 1) ?
 					 0 : list->read_idx + 1;
@@ -293,6 +292,7 @@ static void vdec_get_fb(struct vdec_inst *inst,
 	struct ring_fb_list *list,
 	bool disp_list, struct vdec_fb **out_fb)
 {
+	u64 fb_index;
 	unsigned long vdec_fb_va;
 	struct vdec_fb *fb;
 
@@ -303,7 +303,8 @@ static void vdec_get_fb(struct vdec_inst *inst,
 		return;
 	}
 
-	vdec_fb_va = (unsigned long)list->fb_list[list->read_idx].vdec_fb_va;
+	fb_index = (u64)list->fb_list[list->read_idx].vdec_fb_va;
+	vdec_fb_va = (unsigned long)inst->ctx->fb_list[fb_index];
 	fb = (struct vdec_fb *)vdec_fb_va;
 	if (fb == NULL)
 		return;
@@ -320,10 +321,10 @@ static void vdec_get_fb(struct vdec_inst *inst,
 	}
 
 	*out_fb = fb;
-	mtk_vcodec_debug(inst, "[FB] get %s fb st=%x id=%d ts=%llu %llx gbuf fd %d dma %p",
+	mtk_vcodec_debug(inst, "[FB] get %s fb st=%x id=%d ts=%llu %lld %lx gbuf fd %d dma %p",
 		disp_list ? "disp" : "free", fb->status, list->read_idx,
 		list->fb_list[list->read_idx].timestamp,
-		list->fb_list[list->read_idx].vdec_fb_va,
+		list->fb_list[list->read_idx].vdec_fb_va, vdec_fb_va,
 		fb->general_buf_fd, fb->dma_general_buf);
 
 	list->read_idx = (list->read_idx == DEC_MAX_FB_NUM - 1U) ?

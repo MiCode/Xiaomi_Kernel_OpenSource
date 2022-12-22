@@ -146,7 +146,6 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	struct timespec64 t_s, t_e;
 	struct task_struct *task = NULL;
 	struct vdec_vsi *vsi;
-	uint64_t vdec_fb_va;
 	long timeout_jiff;
 	int ret = 0;
 	int i = 0;
@@ -315,9 +314,9 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 			}
 			mtk_vcodec_debug(vcu, "- wait get fm pfb=0x%p\n", pfb);
 
-			vdec_fb_va = (u64)pfb;
-			vsi->dec.vdec_fb_va = vdec_fb_va;
+			vsi->dec.vdec_fb_va = (u64)0;
 			if (pfb != NULL) {
+				vsi->dec.vdec_fb_va = (u64)(pfb->index + 1);
 				vsi->dec.index = pfb->index;
 				for (i = 0; i < pfb->num_planes; i++) {
 					vsi->dec.fb_dma[i] = (u64)
@@ -699,7 +698,7 @@ int vcu_dec_set_frame_buffer(struct vdec_vcu_inst *vcu, void *fb)
 			if (pfb == &dst_buf_info->frame_buffer) {
 				dst_not_get = false;
 			}
-			ipi_fb.vdec_fb_va = (u64)pfb;
+			ipi_fb.vdec_fb_va = (u64)(pfb->index + 1);
 		}
 
 		if (pfb != NULL) {
