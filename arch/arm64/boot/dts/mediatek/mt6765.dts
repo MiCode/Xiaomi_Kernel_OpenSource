@@ -4520,6 +4520,10 @@ initcall_debug=1 pelt=8";
 		};
 	};
 
+	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
+		compatible = "mediatek,mtk_composite_v4l2_1";
+	};
+
 	gps {
 		compatible = "mediatek,gps";
 	};
