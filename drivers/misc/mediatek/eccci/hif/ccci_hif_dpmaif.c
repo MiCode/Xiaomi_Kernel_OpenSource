@@ -3068,6 +3068,8 @@ static void dpmaif_hw_reset(void)
 	ccci_write32(infra_ao_mem, 0, reg_value);
 	CCCI_REPEAT_LOG(md_id, TAG, "%s:set prot:0x%x\n", __func__, reg_value);
 
+	udelay(500);
+
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: AO Domain */
@@ -3075,17 +3077,23 @@ static void dpmaif_hw_reset(void)
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
 			INFRA_RST0_REG_AO, reg_value);
 
+	udelay(500);
+
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 	/* reset dpmaif clr */
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
 			INFRA_RST1_REG_AO, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
 
+	udelay(500);
+
 	/* reset dpmaif hw: PD Domain */
 	reg_value = DPMAIF_PD_RST_MASK;
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
 			INFRA_RST0_REG_PD, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
+
+	udelay(500);
 
 	/* reset dpmaif clr */
 	regmap_write(dpmaif_ctrl->plat_val.infra_ao_base,
