@@ -753,7 +753,7 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 			mtk_v4l2_debug(8, "remove deprecated key: %s, value: %s\n",
 				pram->param_key, pram->param_val);
 			list_del_init(&pram->list);
-			kfree(pram);
+			vfree(pram);
 		} else {
 			param_count++;
 		}
@@ -768,7 +768,7 @@ static void mtk_vcodec_sync_log(struct mtk_vcodec_dev *dev,
 	}
 
 	// cannot find, add new
-	pram = kzalloc(sizeof(*pram), GFP_KERNEL);
+	pram = vzalloc(sizeof(*pram));
 	strncpy(pram->param_key, param_key, LOG_PARAM_INFO_SIZE - 1);
 	strncpy(pram->param_val, param_val, LOG_PARAM_INFO_SIZE - 1);
 	pram->param_val[LOG_PARAM_INFO_SIZE-1] = '\0';
@@ -861,12 +861,12 @@ void mtk_vcodec_set_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
 
 	mtk_v4l2_debug(0, "val: %s, log_index: %d", val, log_index);
 
-	argv = kzalloc(MAX_SUPPORTED_LOG_PARAMS_COUNT * 2 * LOG_PARAM_INFO_SIZE, GFP_KERNEL);
+	argv = vzalloc(MAX_SUPPORTED_LOG_PARAMS_COUNT * 2 * LOG_PARAM_INFO_SIZE);
 	if (!argv)
 		return;
-	log = kzalloc(LOG_PROPERTY_SIZE, GFP_KERNEL);
+	log = vzalloc(LOG_PROPERTY_SIZE);
 	if (!log) {
-		kfree(argv);
+		vfree(argv);
 		return;
 	}
 
@@ -928,8 +928,8 @@ void mtk_vcodec_set_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
 	if (mtk_vcodec_is_vcp(MTK_INST_DECODER) || mtk_vcodec_is_vcp(MTK_INST_ENCODER))
 		mtk_vcodec_build_log_string(dev, log_index);
 
-	kfree(argv);
-	kfree(log);
+	vfree(argv);
+	vfree(log);
 }
 EXPORT_SYMBOL_GPL(mtk_vcodec_set_log);
 

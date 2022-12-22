@@ -24,7 +24,7 @@ struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
 {
 	struct mtk_vcu_queue *vcu_queue = NULL;
 
-	vcu_queue = vmalloc(sizeof(struct mtk_vcu_queue));
+	vcu_queue = vzalloc(sizeof(struct mtk_vcu_queue));
 	if (vcu_queue == NULL) {
 		pr_info("Allocate new vcu queue fail!\n");
 		return NULL;
