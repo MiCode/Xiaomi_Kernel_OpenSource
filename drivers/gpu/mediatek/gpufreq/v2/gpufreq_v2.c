@@ -34,7 +34,7 @@
 #endif
 #include <mtk_gpu_utility.h>
 
-#if IS_ENABLED(CONFIG_MTK_PBM)
+#if IS_ENABLED(CONFIG_MTK_PBM) || IS_ENABLED(CONFIG_MTK_PBM_LEGACY)
 #include <mtk_pbm_gpu_cb.h>
 #endif
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
@@ -1897,7 +1897,7 @@ static void gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_batt_level)
 
 static void gpufreq_init_external_callback(void)
 {
-#if IS_ENABLED(CONFIG_MTK_PBM)
+#if IS_ENABLED(CONFIG_MTK_PBM) || IS_ENABLED(CONFIG_MTK_PBM_LEGACY)
 	struct pbm_gpu_callback_table pbm_cb = {
 		.get_max_pb = gpufreq_get_max_power,
 		.get_min_pb = gpufreq_get_min_power,
@@ -1914,7 +1914,7 @@ static void gpufreq_init_external_callback(void)
 	mtk_get_gpu_cur_oppidx_fp = gpufreq_get_cur_oppidx;
 
 	/* register PBM callback */
-#if IS_ENABLED(CONFIG_MTK_PBM)
+#if IS_ENABLED(CONFIG_MTK_PBM) || IS_ENABLED(CONFIG_MTK_PBM_LEGACY)
 	register_pbm_gpu_notify(&pbm_cb);
 #endif /* CONFIG_MTK_PBM */
 
