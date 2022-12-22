@@ -557,9 +557,50 @@ int mt_cpufreq_dts_map(void)
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_3;
-
+	unsigned int efuse_seg;
+	unsigned int efuse_ly;
+	//struct platform_device *pdev;
+	struct device_node *node;
+	struct nvmem_cell *efuse_cell;
+	size_t efuse_len;
+	unsigned int *efuse_buf;
+	unsigned int *efuse_ly_buf;
 	int val = 0;
 	int val_ly = 0;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-dvfsp");
+
+	if (!node) {
+		tag_pr_info("%s fail to get device node\n", __func__);
+		return 0;
+	}
+
+	efuse_cell = of_nvmem_cell_get(node, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		tag_pr_info("@%s: cannot get efuse_cell, errno %ld\n",
+			__func__, PTR_ERR(efuse_cell));
+		return 0;
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	efuse_seg = *efuse_buf;
+	val = efuse_seg;
+	kfree(efuse_buf);
+
+	/* get efuse ly */
+	efuse_cell = of_nvmem_cell_get(node, "efuse_ly_cell");
+	if (IS_ERR(efuse_cell)) {
+		tag_pr_info("@%s: cannot get efuse_ly_cell, errno %ld\n",
+			__func__, PTR_ERR(efuse_cell));
+		return 0;
+	}
+
+	efuse_ly_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	efuse_ly = *efuse_ly_buf;
+	val_ly = (efuse_ly >> 1) & 0x1;
+	kfree(efuse_ly_buf);
 
 	if ((val == 0x2) || (val == 0x5))
 		lv = CPU_LEVEL_2;
