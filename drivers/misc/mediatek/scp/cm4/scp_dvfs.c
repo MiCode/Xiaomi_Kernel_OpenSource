@@ -127,6 +127,22 @@ int scp_resource_req(unsigned int req_type)
 }
 EXPORT_SYMBOL(scp_resource_req);
 
+void scp_resource_req_ext(unsigned int req_type)
+{
+	if (dvfs->legacy_support_v2)
+		scp_resource_req(req_type);
+	else
+		spm_resource_req(SPM_RESOURCE_USER_SCP, req_type);
+}
+EXPORT_SYMBOL(scp_resource_req_ext);
+
+void scp_register_print_ipi_id_cb(void (*scp_callback)(void))
+{
+	if (!(dvfs->legacy_support_v2))
+		spm_set_scp_ipi_id_cb(scp_callback);
+}
+EXPORT_SYMBOL(scp_register_print_ipi_id_cb);
+
 static int scp_get_sub_feature_idx(enum subsys_enum sys_e,
 		enum sub_feature_enum comp_e)
 {

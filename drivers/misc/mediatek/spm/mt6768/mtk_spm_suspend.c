@@ -87,6 +87,16 @@ int __attribute__ ((weak)) mtk8250_request_to_sleep(void)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+static void (*print_scp_ipi_id_callback)(void);
+
+void spm_set_scp_ipi_id_cb(void (*scp_callback)(void))
+{
+	pr_info("scp register spm call back!\n");
+	print_scp_ipi_id_callback = scp_callback;
+}
+EXPORT_SYMBOL(spm_set_scp_ipi_id_cb);
+#endif
 
 static u32 suspend_pcm_flags = {
 	/* SPM_FLAG_DIS_CPU_PDN | */
@@ -302,8 +312,10 @@ static unsigned int spm_output_wake_reason(unsigned int ex_flag
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
-	if (wakesta->r12 & R12_SCP_SPM_IRQ_B)
-		mt_print_scp_ipi_id();
+	if (wakesta->r12 & R12_SCP_SPM_IRQ_B) {
+		if (print_scp_ipi_id_callback)
+			print_scp_ipi_id_callback();
+	}
 #endif
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
