@@ -1103,6 +1103,43 @@ int is_system_heap_dmabuf(const struct dma_buf *dmabuf)
 }
 EXPORT_SYMBOL_GPL(is_system_heap_dmabuf);
 
+void dmabuf_release_check(const struct dma_buf *dmabuf)
+{
+	dma_addr_t iova = 0x0;
+	const char *device_name = NULL;
+	int attach_cnt = 0;
+	struct dma_buf_attachment *attach_obj;
+
+	if (!dma_resv_trylock(dmabuf->resv)) {
+		/* get lock fail, maybe is using, skip check */
+		return;
+	}
+	/* Don't dump inode number here, it will cause KASAN issue !! */
+	if (WARN(!list_empty(&dmabuf->attachments),
+		 "%s: size:%-8ld dbg_name:%s exp:%s, %s\n", __func__,
+		 dmabuf->size,
+		 dmabuf->name,
+		 dmabuf->exp_name,
+		 "Release dmabuf before detach all attachments, dump attach below:")) {
+		/* dump all attachment info */
+		list_for_each_entry(attach_obj, &dmabuf->attachments, node) {
+			iova = (dma_addr_t)0;
+			attach_cnt++;
+			if (attach_obj->sgt && dev_iommu_fwspec_get(attach_obj->dev))
+				iova = sg_dma_address(attach_obj->sgt->sgl);
+			device_name = dev_name(attach_obj->dev);
+			dmabuf_dump(NULL,
+				    "attach[%d]: iova:0x%-12lx attr:%-4lx dir:%-2d dev:%s\n",
+				    attach_cnt, iova,
+				    attach_obj->dma_map_attrs,
+				    attach_obj->dir,
+				    device_name);
+		}
+		dmabuf_dump(NULL, "Total %d devices attached\n\n", attach_cnt);
+	}
+	dma_resv_unlock(dmabuf->resv);
+}
+EXPORT_SYMBOL_GPL(dmabuf_release_check);
 
 module_init(system_heap_create);
 MODULE_LICENSE("GPL v2");
