@@ -15,7 +15,7 @@
 #include <mtk_spm_internal.h> /* mtk_idle_cond_check */
 #include <mtk_spm_suspend_internal.h>
 #include <mtk_idle_fs/mtk_idle_sysfs.h>
-//#include <mtk_power_gs_api.h>
+#include <mtk_power_gs_api.h>
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>
 #if IS_ENABLED(CONFIG_MTK_SND_SOC_NEW_ARCH)

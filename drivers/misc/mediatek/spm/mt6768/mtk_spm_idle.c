@@ -29,7 +29,7 @@
 
 #if defined(MTK_IDLE_GS_DUMP_READY)
 /* NOTE: Check golden setting dump header file for each project */
-//#include "power_gs_v1/mtk_power_gs_internal.h"
+#include <mtk_power_gs_internal.h>
 #endif
 
 /* FIXME: IT with vcorefs ? */
@@ -101,15 +101,10 @@ static struct pwr_ctrl *get_pwrctrl[IDLE_MODEL_NUM] = {
 static void mtk_idle_gs_dump(int idle_type)
 {
 	#if defined(MTK_IDLE_GS_DUMP_READY)
-	if (idle_type == IDLE_MODEL_SYSPLL) {
-	#ifdef UNGKI
-		//mt_power_gs_dump_dpidle(GS_ALL);
-	#endif
-	} else if (idle_type == IDLE_MODEL_BUS26M || idle_type == IDLE_MODEL_DRAM) {
-	#ifdef UNGKI
-		//mt_power_gs_dump_sodi3(GS_ALL);
-	#endif
-	}
+	if (idle_type == IDLE_MODEL_SYSPLL)
+		mt_power_gs_dump_dpidle(GS_ALL);
+	else if (idle_type == IDLE_MODEL_BUS26M || idle_type == IDLE_MODEL_DRAM)
+		mt_power_gs_dump_sodi3(GS_ALL);
 	#endif
 }
 

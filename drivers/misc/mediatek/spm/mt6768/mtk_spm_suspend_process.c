@@ -21,7 +21,7 @@
 #include <sspm_timesync.h>
 #endif
 
-//#include <mtk_power_gs_api.h>
+#include <mtk_power_gs_api.h>
 #include <mtk_sspm.h>
 
 #define WORLD_CLK_CNTCV_L	(0x10017008)
@@ -116,11 +116,8 @@ void spm_suspend_pre_process(int cmd, struct pwr_ctrl *pwrctrl)
 #endif
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
-	if (slp_dump_golden_setting || --mt_power_gs_dump_suspend_count >= 0) {
-	#ifdef UN_GKI
-		//mt_power_gs_dump_suspend(slp_dump_golden_setting_type);
-	#endif
-	}
+	if (slp_dump_golden_setting || --mt_power_gs_dump_suspend_count >= 0)
+		mt_power_gs_dump_suspend(slp_dump_golden_setting_type);
 #endif
 
 	/* dvfsrc_md_scenario_update(1); */

@@ -8,7 +8,7 @@
 #include <linux/random.h>
 #include <asm/setup.h>
 #include <mtk_spm_internal.h>
-//#include <mtk_power_gs_api.h>
+#include <mtk_power_gs_api.h>
 
 #define WORLD_CLK_CNTCV_L	(0x10017008)
 #define WORLD_CLK_CNTCV_H	(0x1001700C)
@@ -261,12 +261,12 @@ unsigned int __spm_output_wake_reason(
 			spm_read(SPM_SW_RSV_2),
 			spm_read(SPM_SRC_REQ));
 
-		//log_size += scnprintf(log_buf + log_size,
-			//LOG_BUF_OUT_SZ - log_size,
-			//"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
-			//_golden_read_reg(WORLD_CLK_CNTCV_L),
-			//_golden_read_reg(WORLD_CLK_CNTCV_H),
-			//spm_26M_off_pct);
+		log_size += scnprintf(log_buf + log_size,
+			LOG_BUF_OUT_SZ - log_size,
+			"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
+			_golden_read_reg(WORLD_CLK_CNTCV_L),
+			_golden_read_reg(WORLD_CLK_CNTCV_H),
+			spm_26M_off_pct);
 	} else
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,

@@ -31,6 +31,8 @@ ifeq ($(CONFIG_MTK_TINYSYS_SSPM_V1), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcdi/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/power_gs_v1/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/power_gs_v1/mt6768/
 #obj-$(CONFIG_MTK_SPM) += mtk_spm.o
 #obj-$(CONFIG_MTK_SPM) += mtk_spm_twam.o
 #obj-$(CONFIG_MTK_SPM) += mtk_spm_irq.o

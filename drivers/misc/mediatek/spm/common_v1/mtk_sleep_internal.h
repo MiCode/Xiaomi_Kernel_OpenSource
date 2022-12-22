@@ -51,13 +51,4 @@ extern u32 spm_vcorefs_get_MD_status(void);
 extern void mdpm_register_md_status_cb(u32 (*get_MD_status)(void));
 #endif
 
-enum gs_flag {
-	GS_PMIC = (0x1 << 0),
-	GS_PMIC_6315 = (0x1 << 1),
-	GS_CG   = (0x1 << 2),
-	GS_DCM  = (0x1 << 3),
-	/* GS_ALL will need to be modified, if the gs_dump_flag is changed */
-	GS_ALL  = (GS_PMIC | GS_PMIC_6315 | GS_CG | GS_DCM),
-};
-
 #endif  /* __MTK_SLEEP_INTERNAL_H__ */

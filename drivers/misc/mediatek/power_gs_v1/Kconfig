@@ -1,0 +1,7 @@
+config MTK_POWER_GS_LEGACY
+	tristate "MTK power golden setting legacy"
+	help
+	  This kernel config can be used to enable power golden setting.
+	  When enable this option, spm will dump pmic golden setting
+	  for low power tuning.
+	  If unsure, say N.
