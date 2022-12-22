@@ -5290,7 +5290,7 @@ static int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 				idx, param.property, param.processID,
 				param.callerID);
 				ret =  -EFAULT;
-			} else if (restTime == -512) {
+			} else if (restTime == -SIG_ERESTARTSYS) {
 				LOG_NOTICE("be stopped, restime(%d)\n", restTime);
 				ret =  -EFAULT;
 				break;
@@ -5393,7 +5393,7 @@ static int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 				param.callerID, idx);
 			ret =  -EFAULT;
 			return ret;
-		} else if (restTime == -512) {
+		} else if (restTime == -SIG_ERESTARTSYS) {
 			LOG_NOTICE("be stopped, restime(%d)\n", restTime);
 			ret =  -EFAULT;
 			return ret;
@@ -5441,7 +5441,7 @@ static int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 				ret =  -EFAULT;
 				break;
 			}
-			if (restTime == -512) {
+			if (restTime == -SIG_ERESTARTSYS) {
 				LOG_NOTICE("be stopped, restime(%d)\n", restTime);
 				ret =  -EFAULT;
 				break;
@@ -5962,9 +5962,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	}
 
 	/* check if user is interrupted by system signal */
-	if ((Timeout != 0) && (!ISP_GetIRQState(WaitIrq->Type,
-	    WaitIrq->EventInfo.St_type, WaitIrq->EventInfo.UserKey,
-	    WaitIrq->EventInfo.Status))) {
+	if (Timeout == -SIG_ERESTARTSYS) {
 		pr_info("interrupted by system signal,return value(%d),irq Type/User/Sts(0x%x/%d/0x%x)\n",
 			Timeout, WaitIrq->Type, WaitIrq->EventInfo.UserKey,
 			WaitIrq->EventInfo.Status);
