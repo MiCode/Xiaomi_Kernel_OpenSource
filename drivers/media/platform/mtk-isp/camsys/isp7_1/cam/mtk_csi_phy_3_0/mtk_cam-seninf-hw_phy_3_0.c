@@ -346,6 +346,10 @@ static int mtk_cam_seninf_set_top_mux_ctrl(struct seninf_ctx *ctx,
 				    int mux_idx, int seninf_src)
 {
 	void *pSeninf = ctx->reg_if_top;
+	struct seninf_core *core;
+
+	core = dev_get_drvdata(ctx->dev->parent);
+	mutex_lock(&core->mutex);
 
 	switch (mux_idx) {
 	case SENINF_MUX1:
@@ -441,6 +445,9 @@ static int mtk_cam_seninf_set_top_mux_ctrl(struct seninf_ctx *ctx,
 		dev_info(ctx->dev, "invalid mux_idx %d\n", mux_idx);
 		return -EINVAL;
 	}
+
+	mutex_unlock(&core->mutex);
+
 // #if LOG_MORE
 	dev_info(ctx->dev,
 		"TOP_MUX_CTRL_0(0x%x) TOP_MUX_CTRL_1(0x%x) TOP_MUX_CTRL_2(0x%x) TOP_MUX_CTRL_3(0x%x) TOP_MUX_CTRL_4(0x%x) TOP_MUX_CTRL_5(0x%x)\n",
