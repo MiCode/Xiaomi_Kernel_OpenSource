@@ -2593,6 +2593,7 @@
 		clk-dbg-ver = "v1";
 		ccf-fmeter-support;
 		secure_access = "enable"; /* enable: need to secure access scp */
+		legacy-support-v1;
 	};
 
 	firmware: firmware {
