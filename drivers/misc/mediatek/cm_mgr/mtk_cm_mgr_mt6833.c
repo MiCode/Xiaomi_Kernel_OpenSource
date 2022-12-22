@@ -329,10 +329,6 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 
 	/* required-opps */
 	ret = of_count_phandle_with_args(node, "required-opps", NULL);
-	if (ret) {
-		pr_info("[CM_MGR] FAILED TO GET required opps (%d)\n", ret);
-		return ret;
-	}
 	cm_mgr_set_num_perf(ret);
 	pr_info("#@# %s(%d) cm_mgr_num_perf %d\n",
 			__func__, __LINE__, ret);
@@ -359,7 +355,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 				dvfsrc_get_required_opp_peak_bw(node, i);
 		}
 #endif /* CONFIG_MTK_DVFSRC */
-		cm_mgr_set_num_array(ret - 2);
+		cm_mgr_set_num_array(ret - 3);
 	} else
 		cm_mgr_set_num_array(0);
 	pr_info("#@# %s(%d) cm_mgr_num_array %d\n",
