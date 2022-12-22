@@ -20,7 +20,7 @@
 #include <drm/mediatek_drm.h>
 #include <drm/drm_modes.h>
 
-/* move to Platform dependent part? */
+/* Move to Platform dependent part? */
 #define TOTAL_OVL_LAYER_NUM (4 + 3 + 2 + 3)
 
 #define PRIMARY_SESSION_INPUT_LAYER_COUNT (12) /* phy(4+2) + ext(3+3) */
