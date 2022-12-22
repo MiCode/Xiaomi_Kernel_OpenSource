@@ -254,8 +254,14 @@ int scp_resource_req(unsigned int req_type)
 
 	pr_notice("%s(0x%x)\n", __func__, req_type);
 
-	arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL, RESOURCE_REQ,
-		req_type, 0, 0, 0, 0, 0, &res);
+	if (dvfs.legacy_support_v1) {
+		arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL,
+			req_type, 0, 0, 0, 0, 0, 0, &res);
+	} else {
+		arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL, RESOURCE_REQ,
+			req_type, 0, 0, 0, 0, 0, &res);
+	}
+
 	if (!res.a0)
 		scp_resrc_current_req = req_type;
 	else
@@ -2521,6 +2527,9 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		dev_notice(&pdev->dev, "fail to find SCPDVFS node\n");
 		return -ENODEV;
 	}
+
+	/* get legacy enable/disable flag */
+	dvfs.legacy_support_v1 = of_property_read_bool(node, "legacy-support-v1");
 
 	/* used to replace 'SCP_DVFS_INIT_ENABLE' compile flag */
 	is_scp_dvfs_disable = of_property_read_bool(node, "scp-dvfs-disable");

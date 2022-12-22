@@ -257,6 +257,7 @@ struct scp_dvfs_hw {
 	u32 core_nums;
 	unsigned int secure_access_scp;
 	bool bypass_pmic_rg_access;
+	bool legacy_support_v1;
 };
 
 extern int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel);
