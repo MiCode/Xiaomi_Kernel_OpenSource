@@ -784,6 +784,10 @@ unsigned int do_stereo_data(struct EEPROM_DRV_FD_DATA *pdata,
 
 	debug_log("DoCamCal_Stereo_Data sensorID = %x\n", pCamCalData->sensorID);
 	Stereo_Data = kmalloc(1360, GFP_KERNEL);
+	if (!Stereo_Data) {
+		must_log("kmalloc return NULL failed\n", __func__, __LINE__);
+		return CamCalReturnErr[pCamCalData->Command];
+	}
 	read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 			start_addr, block_size, (unsigned char *)Stereo_Data);
 	if (read_data_size > 0)
@@ -1385,6 +1389,11 @@ unsigned int custom_do_single_lsc(struct EEPROM_DRV_FD_DATA *pdata,
 
 #ifdef ENABLE_CHECK_SUM
 	CalLscData = kmalloc(sizeof(struct STRUCT_CAM_CAL_LSC_INFO), GFP_KERNEL);
+	if (!CalLscData) {
+		must_log("kmalloc return NULL failed\n", __func__, __LINE__);
+		return CamCalReturnErr[pCamCalData->Command];
+	}
+
 	read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 							   start_addr,
 							   sizeof(struct STRUCT_CAM_CAL_LSC_INFO),
@@ -1471,6 +1480,11 @@ unsigned int custom_do_pdaf(struct EEPROM_DRV_FD_DATA *pdata,
 	unsigned int checkSum;
 
 	CalPdafData = kmalloc(sizeof(struct STRUCT_CAM_CAL_PDAF_INFO), GFP_KERNEL);
+	if (!CalPdafData) {
+		must_log("kmalloc return NULL failed\n", __func__, __LINE__);
+		return CamCalReturnErr[pCamCalData->Command];
+	}
+
 	read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 							   start_addr,
 							   sizeof(struct STRUCT_CAM_CAL_PDAF_INFO),
