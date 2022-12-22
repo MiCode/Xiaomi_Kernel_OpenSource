@@ -4552,6 +4552,9 @@ link_fail:
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_EP].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_EP].on);
 
+	/* Mask all the interrupts */
+	msm_pcie_write_reg(dev->parf, PCIE20_PARF_INT_ALL_MASK, 0);
+
 	if (dev->phy_power_down_offset)
 		msm_pcie_write_reg(dev->phy, dev->phy_power_down_offset, 0);
 
@@ -4986,6 +4989,14 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 		dev->rc_non_fatal_counter, dev->rc_fatal_counter,
 		dev->ep_corr_counter, dev->ep_non_fatal_counter,
 		dev->ep_fatal_counter);
+
+	/* Avoid reading of DBI/config space if link is not up */
+	if (!dev->enumerated || dev->link_status != MSM_PCIE_LINK_ENABLED) {
+		PCIE_DBG(dev,
+			"PCIe:AER IRQ for RC%d when the link is not enabled\n",
+			dev->rc_idx);
+		return IRQ_HANDLED;
+	}
 
 	uncorr_val = readl_relaxed(dev->dm_core +
 				PCIE20_AER_UNCORR_ERR_STATUS_REG);
