@@ -418,7 +418,7 @@
 			};
 			s2idle: s2idle {
 				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x01011f01>;
+				arm,psci-suspend-param = <0x01010100>;
 				local-timer-stop;
 				entry-latency-us = <500>;
 				exit-latency-us = <1400>;
