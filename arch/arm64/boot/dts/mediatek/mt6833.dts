@@ -3481,13 +3481,14 @@
 				<&dvfsrc_freq_opp3>,
 				<&dvfsrc_freq_opp4>,
 				<&dvfsrc_freq_opp5>,
-				<&dvfsrc_freq_opp6>;
-		cm_mgr,cp_down  = <140 140 50 100 100 100>;
-		cm_mgr,cp_up = <160 160 50 100 100 100>;
-		cm_mgr,dt_down = <3 3 0 0 0 0>;
-		cm_mgr,dt_up = <0 0 0 0 0 0>;
-		cm_mgr,vp_down = <100 100 100 100 100 100>;
-		cm_mgr,vp_up = <100 100 100 100 100 100>;
+				<&dvfsrc_freq_opp6>,
+				<&dvfsrc_freq_opp7>;
+		cm_mgr,cp_down  = <100 100 100 100 100>;
+		cm_mgr,cp_up = <100 120 140 100 100>;
+		cm_mgr,dt_down = <3 0 0 0 0>;
+		cm_mgr,dt_up = <0 0 0 0 0>;
+		cm_mgr,vp_down = <100 100 100 100 100>;
+		cm_mgr,vp_up = <100 100 100 100 100>;
 
 		use_bcpu_weight = "enable";
 		cpu_power_bcpu_weight_max = <200>;
