@@ -221,6 +221,7 @@ void mtkTTimer_cancel_timer(void)
 	}
 	spin_unlock(&tTimer_lock);
 }
+EXPORT_SYMBOL(mtkTTimer_cancel_timer);
 
 void mtkTTimer_start_timer(void)
 {
@@ -234,7 +235,7 @@ void mtkTTimer_start_timer(void)
 	}
 	spin_unlock(&tTimer_lock);
 }
-
+EXPORT_SYMBOL(mtkTTimer_start_timer);
 #if defined(LVTS_CPU_PM_NTFY_CALLBACK)
 static struct cpumask mt_cpu_pdn_mask;
 static DEFINE_SPINLOCK(mt_thermal_timer_locker);

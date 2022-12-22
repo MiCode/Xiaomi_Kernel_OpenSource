@@ -11,7 +11,7 @@
 #include <linux/sched/clock.h>
 #include <linux/module.h>
 #if IS_ENABLED(CONFIG_THERMAL)
-//#include <mtk_thermal.h> /* mtkTTimer_start/cancel_timer */
+#include <mtk_thermal.h> /* mtkTTimer_start/cancel_timer */
 #endif
 #include <mtk_idle_profile.h>
 #include <linux/atomic.h>
@@ -268,7 +268,7 @@ static unsigned int mtk_idle_pre_handler(int idle_type, unsigned long notify)
 
 	#if IS_ENABLED(CONFIG_THERMAL) && !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	/* cancel thermal hrtimer for power saving */
-	//mtkTTimer_cancel_timer();
+	mtkTTimer_cancel_timer();
 	#endif
 
 	/* check ufs */
@@ -285,7 +285,7 @@ static void mtk_idle_post_handler(int idle_type, unsigned long notify)
 {
 	#if IS_ENABLED(CONFIG_THERMAL) && !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	/* restart thermal hrtimer for update temp info */
-	//mtkTTimer_start_timer();
+	mtkTTimer_start_timer();
 	#endif
 
 	ufs_cb_after_idle();

@@ -19,6 +19,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 # Include uart header "mtk_uart_api.h"
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/uart/include/
 # Include teei header teei_client_main.h
+ifeq ($(CONFIG_THERMAL), y)
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/inc/mach/
+endif
 ifneq ($(filter y m,$(CONFIG_MICROTRUST_TEE_SUPPORT)),)
 include $(srctree)/drivers/tee/teei/Makefile.include
 endif
