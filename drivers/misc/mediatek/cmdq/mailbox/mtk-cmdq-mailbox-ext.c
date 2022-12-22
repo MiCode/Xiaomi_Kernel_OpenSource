@@ -252,6 +252,8 @@ void cmdq_dump_usage(void)
 	s32 i, j, usage[CMDQ_THR_MAX_COUNT];
 
 	for (i = 0; i < 2; i++) {
+		if (!g_cmdq[i])
+			continue;
 		cmdq_msg(
 			"%s: hwid:%hu suspend:%d usage:%d mbox_usage:%d wake_lock:%d",
 			__func__, g_cmdq[i]->hwid, g_cmdq[i]->suspended,
