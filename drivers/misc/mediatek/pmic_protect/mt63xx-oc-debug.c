@@ -9,7 +9,9 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
+#endif
 #include <mtk_ccci_common.h>
 
 #define NOTIFY_TIMES_MAX	2
@@ -207,8 +209,11 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 	if (event != REGULATOR_EVENT_OVER_CURRENT)
 		return NOTIFY_OK;
 	reg_oc_dbg->times++;
-	if (reg_oc_dbg->times > NOTIFY_TIMES_MAX)
+	if (reg_oc_dbg->times > NOTIFY_TIMES_MAX) {
+		if (reg_oc_dbg->is_md_reg)
+			md_reg_oc_notify(reg_oc_dbg);
 		return NOTIFY_OK;
+	}
 
 	ret = snprintf(oc_str, 30, "PMIC OC:%s", reg_oc_dbg->name);
 	if (ret < 0)

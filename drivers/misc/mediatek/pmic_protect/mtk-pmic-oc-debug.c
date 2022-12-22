@@ -9,7 +9,9 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aee.h>
+#endif
 #include <mtk_ccci_common.h>
 
 #define NOTIFY_TIMES_MAX	2
@@ -190,21 +192,24 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 
 	oc_dbg = container_of(nb, struct oc_debug_t, nb);
 	oc_dbg->times++;
-	if (oc_dbg->times > NOTIFY_TIMES_MAX)
+	if (oc_dbg->times > NOTIFY_TIMES_MAX) {
+		if (oc_dbg->is_md_reg)
+			md_oc_notify(oc_dbg);
 		return NOTIFY_OK;
+	}
 
 	pr_notice("regulator:%s OC %d times\n",
 		  oc_dbg->name, oc_dbg->times);
 	len += snprintf(oc_str, 30, "PMIC OC:%s", oc_dbg->name);
 	if (oc_dbg->is_md_reg) {
-		aee_kernel_warning(oc_str,
-				   "\nCRDISPATCH_KEY:MD OC\nOC Interrupt: %s",
-				   oc_dbg->name);
+		if (IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
+			aee_kernel_warning(oc_str, "\nCRDISPATCH_KEY:MD OC\nOC Interrupt: %s"
+					   , oc_dbg->name);
 		md_oc_notify(oc_dbg);
 	} else if (oc_dbg->times == NOTIFY_TIMES_MAX) {
-		aee_kernel_warning(oc_str,
-				   "\nCRDISPATCH_KEY:PMIC OC\nOC Interrupt: %s",
-				   oc_dbg->name);
+		if (IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
+			aee_kernel_warning(oc_str, "\nCRDISPATCH_KEY:PMIC OC\nOC Interrupt: %s"
+					   , oc_dbg->name);
 	}
 	return NOTIFY_OK;
 }
