@@ -193,6 +193,7 @@ unsigned int gc5035_do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
     int i;
 #ifdef ENABLE_CHECK_SUM
     unsigned int checkSum;
+	unsigned long long ptr_ofst = 0;
 #endif
 
     must_log("[GC5035_EEPROM]start_addr:0x%x, block_size=%d sensor_id=%x\n", start_addr, block_size, pCamCalData->sensorID);
@@ -238,12 +239,16 @@ unsigned int gc5035_do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
 
 #ifdef ENABLE_CHECK_SUM
         checkSum = CalData[group_id].checksum;
-        if(checkSum != check_otp_sum((unsigned char *)&(CalData[i].module_info.module_id),
-                                     (sizeof(struct STRUCT_GC5035_CAL_DATA_INFO)-2))) {
-            must_log("[AWB_INFO]checkSum failed, checksum: %d, %d\n",
+		ptr_ofst = (unsigned long long)(&CalData[i].module_info) -
+			(unsigned long long)(&CalData[i].flag);
+
+		if (checkSum !=
+			check_otp_sum(((unsigned char *)&CalData[i] + ptr_ofst),
+			(sizeof(struct STRUCT_GC5035_CAL_DATA_INFO)-2))) {
+			must_log("[AWB_INFO]checkSum failed, checksum: %d, %d\n",
                       checkSum,
-                      check_otp_sum((unsigned char *)&(CalData[i].module_info.module_id),
-                                    (sizeof(struct STRUCT_GC5035_CAL_DATA_INFO)-2))
+					check_otp_sum(((unsigned char *)&CalData[i] + ptr_ofst),
+						(sizeof(struct STRUCT_GC5035_CAL_DATA_INFO)-2))
                     );
             return CamCalReturnErr[pCamCalData->Command];
         }
