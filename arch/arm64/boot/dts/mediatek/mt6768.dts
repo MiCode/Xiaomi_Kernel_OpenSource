@@ -1073,7 +1073,6 @@ cma=64M transparent_hugepage=never";
 
 	pbm: pbm {
 		compatible = "mediatek,pbm";
-		status = "disabled";
 	};
 
 	cpu_power_throttling: cpu_power_throttling {
