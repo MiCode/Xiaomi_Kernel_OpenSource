@@ -1159,6 +1159,7 @@ struct scp *init_scp(struct platform_device *pdev,
 	struct resource *res;
 	int i, ret;
 	struct scp *scp;
+	struct device_node *smi_node;
 
 	scp = devm_kzalloc(&pdev->dev, sizeof(*scp), GFP_KERNEL);
 	if (!scp)
@@ -1194,8 +1195,12 @@ struct scp *init_scp(struct platform_device *pdev,
 		return ERR_CAST(scp->infracfg);
 	}
 
-	scp->smi_common = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
-			"smi_comm");
+	smi_node = of_parse_phandle(pdev->dev.of_node, "smi_comm", 0);
+
+	if (smi_node)
+		scp->smi_common = device_node_to_regmap(smi_node);
+	else
+		scp->smi_common = ERR_PTR(-ENODEV);
 
 	if (scp->smi_common == ERR_PTR(-ENODEV)) {
 		scp->smi_common = NULL;
