@@ -2688,12 +2688,16 @@ static int pwrap_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (!HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB))
+	if (!HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB)) {
+		if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB_V2))
+			rdata = pwrap_readl(wrp, PWRAP_WACS2_RDATA) &
+							PWRAP_STATE_INIT_DONE0_V2;
+		else
+			rdata = pwrap_readl(wrp, PWRAP_WACS2_RDATA) &
+							PWRAP_STATE_INIT_DONE0;
+	} else
 		rdata = pwrap_readl(wrp, PWRAP_WACS2_RDATA) &
-				    PWRAP_STATE_INIT_DONE0;
-	else
-		rdata = pwrap_readl(wrp, PWRAP_WACS2_RDATA) &
-				    PWRAP_STATE_INIT_DONE1;
+						PWRAP_STATE_INIT_DONE1;
 	if (!rdata) {
 		dev_notice(wrp->dev, "initialization isn't finished\n");
 		ret = -ENODEV;
