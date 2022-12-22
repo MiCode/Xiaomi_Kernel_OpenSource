@@ -21,6 +21,7 @@
 #include <generated/autoconf.h>
 #include <linux/kobject.h>
 #include <linux/regulator/consumer.h>
+#include "../../../gpu/drm/mediatek/mediatek_v2/mtk_disp_notify.h"
 
 /*debug macros */
 #define TPD_DEBUG_OPEN

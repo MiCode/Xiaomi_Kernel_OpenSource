@@ -340,7 +340,12 @@ static struct platform_driver tpd_driver = {
 };
 static struct tpd_driver_t *g_tpd_drv;
 /* hh: use fb_notifier */
-static struct notifier_block tpd_fb_notifier;
+//static struct notifier_block tpd_fb_notifier;
+
+/* use new api:disp_notifier */
+static struct notifier_block disp_notifier;
+static bool disp_notify_reg_flag;
+
 /* use fb_notifier */
 static void touch_resume_workqueue_callback(struct work_struct *work)
 {
@@ -348,6 +353,43 @@ static void touch_resume_workqueue_callback(struct work_struct *work)
 	g_tpd_drv->resume(NULL);
 	tpd_suspend_flag = 0;
 }
+
+static int gt1151_tcm_disp_notifier_callback(struct notifier_block *nb,
+		unsigned long value, void *v)
+{
+	int err = 0;
+	int *data = (int *)v;
+
+	TPD_DEBUG("%s: value:0x%x, *data:0x%x in\n", __func__, value, *data);
+	if (value == MTK_DISP_EVENT_BLANK) {
+		if (*data == MTK_DISP_BLANK_UNBLANK) {
+			TPD_DEBUG("LCD ON Notify\n");
+			if (g_tpd_drv && tpd_suspend_flag) {
+				err = queue_work(touch_resume_workqueue,
+							&touch_resume_work);
+					if (!err) {
+						TPD_ERR("start resume_workqueue failed\n");
+						return err;
+					}
+				}
+			}
+	} else if (value == MTK_DISP_EARLY_EVENT_BLANK) {
+		if (*data == MTK_DISP_BLANK_POWERDOWN) {
+			TPD_DEBUG("LCD OFF Notify\n");
+			if (g_tpd_drv && !tpd_suspend_flag) {
+				err = cancel_work_sync(&touch_resume_work);
+				if (!err)
+					TPD_ERR("cancel resume_workqueue failed\n");
+				g_tpd_drv->suspend(NULL);
+			}
+			tpd_suspend_flag = 1;
+		}
+	}
+	TPD_DEBUG("%s: disp notifier exit\n", __func__);
+	return 0;
+}
+
+/*
 static int tpd_fb_notifier_callback(
 			struct notifier_block *self,
 			unsigned long event, void *data)
@@ -358,7 +400,9 @@ static int tpd_fb_notifier_callback(
 
 	TPD_DEBUG("%s\n", __func__);
 	evdata = data;
+*/
 	/* If we aren't interested in this event, skip it immediately ... */
+/*
 	if (event != FB_EVENT_BLANK)
 		return 0;
 
@@ -391,6 +435,8 @@ static int tpd_fb_notifier_callback(
 	}
 	return 0;
 }
+*/
+
 /* Add driver: if find TPD_TYPE_CAPACITIVE driver successfully, loading it */
 int tpd_driver_add(struct tpd_driver_t *tpd_drv)
 {
@@ -468,6 +514,7 @@ static int tpd_probe(struct platform_device *pdev)
 {
 	int touch_type = 1;	/* 0:R-touch, 1: Cap-touch */
 	int i = 0;
+	disp_notify_reg_flag = false;
 
 	TPD_DEBUG("enter %s, %d\n", __func__, __LINE__);
 
@@ -519,9 +566,17 @@ static int tpd_probe(struct platform_device *pdev)
 	touch_resume_workqueue = create_singlethread_workqueue("touch_resume");
 	INIT_WORK(&touch_resume_work, touch_resume_workqueue_callback);
 	/* use fb_notifier */
+	/*
 	tpd_fb_notifier.notifier_call = tpd_fb_notifier_callback;
 	if (fb_register_client(&tpd_fb_notifier))
 		TPD_ERR("register fb_notifier fail!\n");
+	*/
+
+	disp_notifier.notifier_call = gt1151_tcm_disp_notifier_callback;
+	if (mtk_disp_notifier_register("Touch", &disp_notifier))
+		TPD_ERR("Failed to register disp notifier\n");
+	else
+		disp_notify_reg_flag = true;
 
 	/* TPD_TYPE_CAPACITIVE handle */
 	if (touch_type == 1) {
@@ -606,7 +661,13 @@ static void __exit tpd_device_exit(void)
 	tpd_log_exit();
 	gt1x_generic_exit();
 	misc_deregister(&tpd_misc_device);
-	fb_unregister_client(&tpd_fb_notifier);
+	//fb_unregister_client(&tpd_fb_notifier);
+	if (disp_notify_reg_flag) {
+		if (mtk_disp_notifier_unregister(&disp_notifier))
+			TPD_ERR("caoyi..Error occurred when unregister disp_notifier\n");
+		else
+			disp_notify_reg_flag = false;
+	}
 	gt1x_driver_exit();
 	cancel_work_sync(&tpd_init_work);
 	destroy_workqueue(tpd_init_workqueue);
