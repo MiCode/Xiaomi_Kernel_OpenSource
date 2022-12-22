@@ -132,7 +132,7 @@ static int gc5035_otp_func_init(struct i2c_client *client)
 unsigned int gc5035_read_region(struct i2c_client *client, unsigned int addr,
                 unsigned char *data, unsigned int size)
 {
-    unsigned int ret = 0;
+	int ret = 0;
     unsigned int i;
 
     if(addr == 0x0) {
@@ -142,7 +142,7 @@ unsigned int gc5035_read_region(struct i2c_client *client, unsigned int addr,
     ret = gc5035_otp_func_init(client);
     if (ret < 0) {
         must_log("[%s,%d] otp_func_init failed ret:%d\n", __func__,__LINE__,ret);
-        return ret;
+		return 0;
     }
 
     must_log("[%s,%d] addr:0x%x, size:%d\n", __func__,__LINE__,addr,size);
