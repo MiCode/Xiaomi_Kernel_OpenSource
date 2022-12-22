@@ -854,7 +854,6 @@ static int mt6358_of_parse_cb(struct device_node *np,
 					   &info->oc_irq_enable_delay_ms);
 		if (ret || !info->oc_irq_enable_delay_ms)
 			info->oc_irq_enable_delay_ms = DEF_OC_IRQ_ENABLE_DELAY_MS;
-		INIT_DELAYED_WORK(&info->oc_work, mt6358_oc_irq_enable_work);
 	}
 	return 0;
 }
@@ -884,6 +883,7 @@ static int mt6358_regulator_probe(struct platform_device *pdev)
 	for (i = 0; i < MT6358_MAX_REGULATOR; i++) {
 		info = &mt6358_regulators[i];
 		info->irq = platform_get_irq_byname_optional(pdev, info->desc.name);
+		info->oc_irq_enable_delay_ms = DEF_OC_IRQ_ENABLE_DELAY_MS;
 		config.driver_data = info;
 
 		if (mt6397->chip_id == 0x58 && mt6358_bypass_register(info))
@@ -901,6 +901,8 @@ static int mt6358_regulator_probe(struct platform_device *pdev)
 
 		if (info->irq <= 0)
 			continue;
+		else
+			INIT_DELAYED_WORK(&info->oc_work, mt6358_oc_irq_enable_work);
 		ret = devm_request_threaded_irq(&pdev->dev, info->irq, NULL,
 						mt6358_oc_irq,
 						IRQF_TRIGGER_HIGH,
