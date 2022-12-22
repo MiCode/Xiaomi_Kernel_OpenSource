@@ -414,15 +414,7 @@ enum hrtimer_restart ged_sw_vsync_check_cb(struct hrtimer *timer)
 				queue_work(g_psNotifyWorkQueue,
 					&psNotify->sWork);
 				timer_switch_locked(false);
-
-			/* update last freq. before timer off */
-				ged_log_perf_trace_counter("gpu_freq",
-				(long long)(ged_get_freq_by_idx(ged_get_min_oppidx()) / 1000),
-				5566, 0, 0);
 			}
-		ged_log_perf_trace_counter("gpu_freq",
-			(long long)(ged_get_freq_by_idx(ged_get_min_oppidx()) / 1000),
-			 5566, 0, 0);
 #ifdef GED_DVFS_DEBUG
 			ged_log_buf_print(ghLogBuf_DVFS,
 				"[GED_K] Timer removed	(ts=%llu) ", temp);
