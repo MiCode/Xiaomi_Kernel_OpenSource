@@ -842,18 +842,16 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		mutex_lock(&dev->ipi_mutex_res);
 		mutex_unlock(&dev->ipi_mutex_res);
 		mutex_unlock(&dev->ipi_mutex);
-		mutex_lock(&dev->ctx_mutex);
 		mtk_vcodec_alive_checker_suspend(dev);
 		// send backup ipi to vcp by one of any instances
+		mutex_lock(&dev->ctx_mutex);
 		ctx = get_valid_ctx(dev);
 		mutex_unlock(&dev->ctx_mutex);
 		if (ctx)
 			vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
 	break;
 	case VCP_EVENT_RESUME:
-		mutex_lock(&dev->ctx_mutex);
 		mtk_vcodec_alive_checker_resume(dev);
-		mutex_unlock(&dev->ctx_mutex);
 	break;
 	}
 	return NOTIFY_DONE;
