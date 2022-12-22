@@ -113,8 +113,18 @@ struct mdw_rv_cmd *mdw_rv_cmd_create(struct mdw_fpriv *mpriv,
 	cb_size = MDW_ALIGN(cb_size, MDW_DEFAULT_ALIGN);
 	cmdbuf_infos_ofs = cb_size;
 	cb_size += (c->num_cmdbufs * sizeof(struct mdw_rv_msg_cb));
+	if (cb_size < (c->num_cmdbufs * sizeof(struct mdw_rv_msg_cb))) {
+		mdw_drv_err("cb_size overflow(%u) cmdbufs(%u*%u)\n",
+			cb_size, c->num_cmdbufs, sizeof(struct mdw_rv_msg_cb));
+		goto free_rc;
+	}
 	exec_infos_ofs = cb_size;
 	cb_size += c->exec_infos->size;
+	if (cb_size < c->exec_infos->size) {
+		mdw_drv_err("cb_size overflow(%u) exec_infos size(%u)\n",
+			cb_size, c->exec_infos->size);
+		goto free_rc;
+	}
 
 	/* allocate communicate buffer */
 	rc->cb = mdw_mem_pool_alloc(&mpriv->cmd_buf_pool, cb_size,
