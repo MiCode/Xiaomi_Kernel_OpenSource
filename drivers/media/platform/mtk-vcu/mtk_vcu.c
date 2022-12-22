@@ -36,7 +36,7 @@
 #include <linux/signal.h>
 #include <trace/events/signal.h>
 #include <linux/string.h>
-#include "cmdq-sec.h"
+#include <mailbox/cmdq-sec.h>
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU)
 #include <linux/iommu.h>
