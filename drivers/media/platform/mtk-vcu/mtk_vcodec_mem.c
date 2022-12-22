@@ -24,7 +24,7 @@ struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
 {
 	struct mtk_vcu_queue *vcu_queue = NULL;
 
-	vcu_queue = kzalloc(sizeof(struct mtk_vcu_queue), GFP_KERNEL);
+	vcu_queue = vmalloc(sizeof(struct mtk_vcu_queue));
 	if (vcu_queue == NULL) {
 		pr_info("Allocate new vcu queue fail!\n");
 		return NULL;
@@ -94,7 +94,7 @@ void mtk_vcu_mem_release(struct mtk_vcu_queue *vcu_queue)
 		kfree(tmp);
 	}
 	mutex_unlock(&vcu_queue->mmap_lock);
-	kfree(vcu_queue);
+	vfree(vcu_queue);
 	vcu_queue = NULL;
 }
 
