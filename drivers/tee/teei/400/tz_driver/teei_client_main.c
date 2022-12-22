@@ -1162,12 +1162,12 @@ static int teei_client_init(void)
 		if (ret || !ret_code) {
 			IMSG_INFO("MICROTRUST device is NOT enable.\n");
 			ret_code = 0;
-			goto class_device_destroy;
+			goto del_cdev;
 		}
 	} else {
 		IMSG_ERROR("teei_probe NOT get the pdev.\n");
 		ret_code = 0;
-		goto class_device_destroy;
+		goto del_cdev;
 	}
 
 	init_teei_switch_comp();
@@ -1321,7 +1321,8 @@ teei_bdrv_destroy:
 
 teei_switch_destroy:
 	kthread_stop(teei_switch_task);
-
+del_cdev:
+	cdev_del(&teei_client_cdev);
 class_device_destroy:
 	device_destroy(driver_class, teei_client_device_no);
 class_destroy:
@@ -1355,6 +1356,8 @@ static void teei_client_exit(void)
 	kthread_stop(teei_log_task);
 	kthread_stop(teei_bdrv_task);
 	kthread_stop(teei_switch_task);
+
+	cdev_del(&teei_client_cdev);
 
 	device_destroy(driver_class, teei_client_device_no);
 	class_destroy(driver_class);
