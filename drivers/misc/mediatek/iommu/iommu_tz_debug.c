@@ -116,6 +116,66 @@ struct iova_buf_list {
 	struct mutex lock;
 };
 
+static const struct mtk_iommu_port iommu_port_mt6765[] = {
+	/*Larb0 */
+	MM_IOMMU_PORT_INIT("L0_DISP_OVL0", 0, 0, 0x0, 0),
+	MM_IOMMU_PORT_INIT("L0_DISP_2L_OVL0_LARB0", 0, 0, 0x0, 1),
+	MM_IOMMU_PORT_INIT("L0_DISP_RDMA0", 0, 0, 0x0, 2),
+	MM_IOMMU_PORT_INIT("L0_DISP_WDMA0", 0, 0, 0x0, 3),
+	MM_IOMMU_PORT_INIT("L0_MDP_RDMA0", 0, 0, 0x0, 4),
+	MM_IOMMU_PORT_INIT("L0_MDP_WDMA0", 0, 0, 0x0, 5),
+	MM_IOMMU_PORT_INIT("L0_MDP_WROT0", 0, 0, 0x0, 6),
+	MM_IOMMU_PORT_INIT("L0_DISP_FAKE0", 0, 0, 0x0, 7),
+	/*Larb1 */
+	MM_IOMMU_PORT_INIT("L1_VENC_RCPU", 0, 1, 0x1, 0),
+	MM_IOMMU_PORT_INIT("L1_VENC_REC", 0, 1, 0x1, 1),
+	MM_IOMMU_PORT_INIT("L1_VENC_BSDMA", 0, 1, 0x1, 2),
+	MM_IOMMU_PORT_INIT("L1_VENC_SV_COMV", 0, 1, 0x1, 3),
+	MM_IOMMU_PORT_INIT("L1_VENC_RD_COMV", 0, 1, 0x1, 4),
+	MM_IOMMU_PORT_INIT("L1_JPGENC_RDMA", 0, 1, 0x1, 5),
+	MM_IOMMU_PORT_INIT("L1_JPGENC_BSDMA", 0, 1, 0x1, 6),
+	MM_IOMMU_PORT_INIT("L1_VENC_CUR_LUMA", 0, 1, 0x1, 7),
+	MM_IOMMU_PORT_INIT("L1_VENC_CUR_CHROMA", 0, 1, 0x1, 8),
+	MM_IOMMU_PORT_INIT("L1_VENC_REF_LUMA", 0, 1, 0x1, 9),
+	MM_IOMMU_PORT_INIT("L1_VENC_REF_CHROMA", 0, 1, 0x1, 10),
+	/*Larb2 */
+	MM_IOMMU_PORT_INIT("L2_CAM_IMGI", 0, 2, 0x2, 0),
+	MM_IOMMU_PORT_INIT("L2_CAM_IMG2O", 0, 2, 0x2, 1),
+	MM_IOMMU_PORT_INIT("L2_CAM_IMG3O", 0, 2, 0x2, 2),
+	MM_IOMMU_PORT_INIT("L2_CAM_VIPI", 0, 2, 0x2, 3),
+	MM_IOMMU_PORT_INIT("L2_CAM_LCEI", 0, 2, 0x2, 4),
+	MM_IOMMU_PORT_INIT("L2_CAM_FD_RP", 0, 2, 0x2, 5),
+	MM_IOMMU_PORT_INIT("L2_CAM_FD_WR", 0, 2, 0x2, 6),
+	MM_IOMMU_PORT_INIT("L2_CAM_FD_RB", 0, 2, 0x2, 7),
+	MM_IOMMU_PORT_INIT("L2_CAM_DPE_RDMA", 0, 2, 0x2, 8),
+	MM_IOMMU_PORT_INIT("L2_CAM_DPE_WDMA", 0, 2, 0x2, 9),
+	MM_IOMMU_PORT_INIT("L2_CAM_RSC_RDMA0", 0, 2, 0x2, 10),
+	MM_IOMMU_PORT_INIT("L2_CAM_RSC_WDMA", 0, 2, 0x2, 11),
+	/*Larb3 */
+	MM_IOMMU_PORT_INIT("L3_CAM_IMGO", 0, 3, 0x3, 0),
+	MM_IOMMU_PORT_INIT("L3_CAM_RRZO", 0, 3, 0x3, 1),
+	MM_IOMMU_PORT_INIT("L3_CAM_AAO", 0, 3, 0x3, 2),
+	MM_IOMMU_PORT_INIT("L3_CAM_AFO", 0, 3, 0x3, 3),
+	MM_IOMMU_PORT_INIT("L3_CAM_LSCI0", 0, 3, 0x3, 4),
+	MM_IOMMU_PORT_INIT("L3_CAM_LSCI1", 0, 3, 0x3, 5),
+	MM_IOMMU_PORT_INIT("L3_CAM_PDO", 0, 3, 0x3, 6),
+	MM_IOMMU_PORT_INIT("L3_CAM_BPCI", 0, 3, 0x3, 7),
+	MM_IOMMU_PORT_INIT("L3_CAM_LCSO", 0, 3, 0x3, 8),
+	MM_IOMMU_PORT_INIT("L3_CAM_RSSO_A", 0, 3, 0x3, 9),
+	MM_IOMMU_PORT_INIT("L3_CAM_RSSO_B", 0, 3, 0x3, 10),
+	MM_IOMMU_PORT_INIT("L3_CAM_UFEO", 0, 3, 0x3, 11),
+	MM_IOMMU_PORT_INIT("L3_CAM_SOCO", 0, 3, 0x3, 12),
+	MM_IOMMU_PORT_INIT("L3_CAM_SOC1", 0, 3, 0x3, 13),
+	MM_IOMMU_PORT_INIT("L3_CAM_SOC2", 0, 3, 0x3, 14),
+	MM_IOMMU_PORT_INIT("L3_CAM_CCUI", 0, 3, 0x3, 15),
+	MM_IOMMU_PORT_INIT("L3_CAM_CCUO", 0, 3, 0x3, 16),
+	MM_IOMMU_PORT_INIT("L3_CAM_CACI", 0, 3, 0x3, 17),
+	MM_IOMMU_PORT_INIT("L3_CAM_RAWI_A", 0, 3, 0x3, 18),
+	MM_IOMMU_PORT_INIT("L3_CAM_RAWI_B", 0, 3, 0x3, 19),
+	MM_IOMMU_PORT_INIT("L3_CAM_CCUG", 0, 3, 0x3, 20),
+	MM_IOMMU_PORT_INIT("UNKNOWN", 0, 0, 0x0, 0)
+};
+
 static const struct mtk_iommu_port iommu_port_mt6768[] = {
 	/*Larb0 */
 	MM_IOMMU_PORT_INIT("L0_DISP_OVL0", 0, 0, 0x0, 0),
@@ -394,12 +454,18 @@ struct device *dev = &pdev->dev;
 	return 0;
 }
 
+static const struct mtk_m4u_plat_data mt6765_data = {
+	.port_list[MM_IOMMU] = iommu_port_mt6765,
+	.port_nr[MM_IOMMU]   = ARRAY_SIZE(iommu_port_mt6765),
+};
+
 static const struct mtk_m4u_plat_data mt6768_data = {
 	.port_list[MM_IOMMU] = iommu_port_mt6768,
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(iommu_port_mt6768),
 };
 
 static const struct of_device_id iommu_tee_dbg_of_ids[] = {
+	{ .compatible = "mediatek,mt6765-iommu-tee-debug", .data = &mt6765_data},
 	{ .compatible = "mediatek,mt6768-iommu-tee-debug", .data = &mt6768_data},
 	{}
 };
