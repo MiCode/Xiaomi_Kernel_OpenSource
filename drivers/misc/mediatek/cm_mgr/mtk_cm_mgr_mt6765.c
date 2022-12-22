@@ -101,6 +101,10 @@ struct timer_list cm_mgr_perf_timeout_timer;
 static struct delayed_work cm_mgr_timeout_work;
 #define CM_MGR_PERF_TIMEOUT_MS	msecs_to_jiffies(100)
 
+static void cm_mgr_timeout_process(struct work_struct *work)
+{
+	icc_set_bw(cm_mgr_get_bw_path(), 0, 0);
+}
 static void cm_mgr_perf_timeout_timer_fn(struct timer_list *timer)
 {
 	if (pm_qos_update_request_status) {
@@ -363,6 +367,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	INIT_DELAYED_WORK(&cm_mgr_timeout_work, cm_mgr_timeout_process);
 	timer_setup(&cm_mgr_perf_timeout_timer, cm_mgr_perf_timeout_timer_fn,
 			0);
 
