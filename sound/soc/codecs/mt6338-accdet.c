@@ -2863,6 +2863,7 @@ static int typec_headphone_irq_handler(struct notifier_block *nb,
 		accdet->cur_eint_state = EINT_PIN_PLUG_IN_2;
 		mod_timer(&micbias_timer, (jiffies + MICBIAS_DISABLE_TIMER));
 		queue_work(accdet->eint_workqueue, &accdet->eint_work);
+		send_accdet_status_event(HEADSET_NO_MIC, 1);
 		return 0;
 	}
 
