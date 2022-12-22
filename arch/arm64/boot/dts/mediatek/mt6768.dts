@@ -5472,10 +5472,6 @@ cma=64M transparent_hugepage=never";
 	regulator-always-on;
 };
 
-&mt_pmic_vgpu_buck_reg {
-	regulator-always-on;
-};
-
 &mt_pmic_vs2_buck_reg {
 	regulator-always-on;
 };
@@ -5497,10 +5493,6 @@ cma=64M transparent_hugepage=never";
 };
 
 &mt_pmic_vsram_others_ldo_reg {
-	regulator-always-on;
-};
-
-&mt_pmic_vsram_gpu_ldo_reg {
 	regulator-always-on;
 };
 
