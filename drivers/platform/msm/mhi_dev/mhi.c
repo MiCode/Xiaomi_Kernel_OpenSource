@@ -182,21 +182,23 @@ static dma_addr_t map_single(struct mhi_dev *mhi, void *virt, size_t size,
 	return dma;
 }
 
-static void free_coherent(struct mhi_dev *mhi, size_t size, void *virt, dma_addr_t phys)
+void free_coherent(struct mhi_dev *mhi, size_t size, void *virt, dma_addr_t phys)
 {
 	if (mhi->use_mhi_dma)
 		mhi_dma_fun_ops->mhi_dma_free_buffer(size, virt, phys);
 	else
 		dma_free_coherent(&mhi->mhi_hw_ctx->pdev->dev, size, virt, phys);
 }
+EXPORT_SYMBOL(free_coherent);
 
-static void *alloc_coherent(struct mhi_dev *mhi, size_t size, dma_addr_t *phys, gfp_t gfp)
+void *alloc_coherent(struct mhi_dev *mhi, size_t size, dma_addr_t *phys, gfp_t gfp)
 {
 	if (mhi->use_mhi_dma)
 		return mhi_dma_fun_ops->mhi_dma_alloc_buffer(size, phys, gfp);
 	else
 		return dma_alloc_coherent(&mhi->mhi_hw_ctx->pdev->dev, size, phys, gfp);
 }
+EXPORT_SYMBOL(alloc_coherent);
 
 static inline struct mhi_dev *mhi_get_dev_ctx(struct mhi_dev_ctx *mhi_hw_ctx, enum mhi_id id)
 {

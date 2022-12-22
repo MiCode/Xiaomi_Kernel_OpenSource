@@ -1208,4 +1208,8 @@ int  mhi_edma_release(void);
 int  mhi_edma_status(void);
 
 int mhi_edma_init(struct device *dev);
+void free_coherent(struct mhi_dev *mhi, size_t size, void *virt,
+		   dma_addr_t phys);
+void *alloc_coherent(struct mhi_dev *mhi, size_t size, dma_addr_t *phys,
+		     gfp_t gfp);
 #endif /* _MHI_H */
