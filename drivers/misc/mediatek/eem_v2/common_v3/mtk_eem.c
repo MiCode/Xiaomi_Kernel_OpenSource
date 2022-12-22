@@ -321,41 +321,43 @@ static int get_devinfo(void)
 	if (!efuse_buf) {
 		safeEfuse = 1;
 		eem_error("No EFUSE , use safe efuse\n");
+	} else {
+	/* FTPGM */
+		val[0] = efuse_buf[0];
+		val[1] = efuse_buf[1];
+		val[2] = efuse_buf[2];
+		val[3] = efuse_buf[3];
+		val[4] = efuse_buf[4];
+		val[5] = efuse_buf[5];
+		val[6] = efuse_buf[6];
+		val[7] = efuse_buf[7];
+		val[8] = efuse_buf[8];
+		val[9] = efuse_buf[9];
+		val[10] = efuse_buf[10];
+		val[11] = efuse_buf[11];
+		val[12] = efuse_buf[12];
+		val[13] = efuse_buf[13];
+		val[14] = efuse_buf[14];
+		val[15] = efuse_buf[15];
+		val[16] = efuse_buf[16];
+		val[17] = efuse_buf[17];
+		val[18] = efuse_buf[21];
+		val[19] = efuse_buf[22];
+		val[20] = efuse_buf[23];
+		val[21] = efuse_buf[24];
+		kfree(efuse_buf);
 	}
 
-	/* FTPGM */
-	val[0] = efuse_buf[0];
-	val[1] = efuse_buf[1];
-	val[2] = efuse_buf[2];
-	val[3] = efuse_buf[3];
-	val[4] = efuse_buf[4];
-	val[5] = efuse_buf[5];
-	val[6] = efuse_buf[6];
-	val[7] = efuse_buf[7];
-	val[8] = efuse_buf[8];
-	val[9] = efuse_buf[9];
-	val[10] = efuse_buf[10];
-	val[11] = efuse_buf[11];
-	val[12] = efuse_buf[12];
-	val[13] = efuse_buf[13];
-	val[14] = efuse_buf[14];
-	val[15] = efuse_buf[15];
-	val[16] = efuse_buf[16];
-	val[17] = efuse_buf[17];
-	val[18] = efuse_buf[21];
-	val[19] = efuse_buf[22];
-	val[20] = efuse_buf[23];
-	val[21] = efuse_buf[24];
-	kfree(efuse_buf);
 	efuse_buf = read_mtk_efuse_cell("ptpod_2_cell");
 	if (!efuse_buf) {
 		safeEfuse = 1;
 		eem_error("No EFUSE , use safe efuse\n");
+	} else {
+		val[22] = efuse_buf[0];
+		val[23] = efuse_buf[2];
+		kfree(efuse_buf);
 	}
 
-	val[22] = efuse_buf[0];
-	val[23] = efuse_buf[2];
-	kfree(efuse_buf);
 #if EEM_FAKE_EFUSE
 	/* for verification */
 	val[0] = DEVINFO_0;
@@ -1425,7 +1427,10 @@ static int eem_hrid_proc_show(struct seq_file *m, void *v)
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	efuse_buf = read_mtk_efuse_cell("ptpod_3_cell");
-
+	if (!efuse_buf) {
+		eem_error("[EFUSE] ptpod_3_cell returned NULL\n %s", __func__);
+		return 0;
+	}
 	for (i = 0; i < 4; i++)
 		seq_printf(m, "%s[HRID][%d]: 0x%08X\n", EEM_TAG, i,
 			efuse_buf[i]);
@@ -1443,8 +1448,10 @@ static int eem_efuse_proc_show(struct seq_file *m, void *v)
 	FUNC_ENTER(FUNC_LV_HELP);
 	efuse_buf = read_mtk_efuse_cell("ptpod_1_cell");
 
-	if (!efuse_buf)
+	if (!efuse_buf) {
+		eem_error("[EFUSE] ptpod_1_cell returned NULL\n %s", __func__);
 		return 0;
+	}
 
 	for (i = 0; i < 25; i++)
 		seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%08X\n", EEM_TAG, i,
@@ -1452,8 +1459,10 @@ static int eem_efuse_proc_show(struct seq_file *m, void *v)
 	kfree(efuse_buf);
 
 	efuse_buf = read_mtk_efuse_cell("ptpod_2_cell");
-	if (!efuse_buf)
+	if (!efuse_buf) {
+		eem_error("[EFUSE] ptpod_2_cell returned NULL\n %s", __func__);
 		return 0;
+	}
 
 	seq_printf(m, "%s[PTP_DUMP] ORIG_RES%d: 0x%08X\n", EEM_TAG, 25,
 		efuse_buf[0]);
@@ -2103,6 +2112,11 @@ static int eem_init(void)
 		sizeof(struct eemsn_devinfo));
 
 	efuse_buf = read_mtk_efuse_cell("efuse_segment_cell");
+	if (!efuse_buf) {
+		eem_error("[EFUSE] efuse_segment_cell returned NULL\n %s", __func__);
+		return 0;
+	}
+
 	eemsn_log->segCode = efuse_buf[0] & 0xFF;
 	kfree(efuse_buf);
 	eem_info("Segment Code : 0x%x", eemsn_log->segCode);
