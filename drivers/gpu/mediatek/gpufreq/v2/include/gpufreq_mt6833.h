@@ -133,7 +133,7 @@ struct gpufreq_core_mask_info g_core_mask_table[] = {
 /**************************************************
  * SRAMRC Setting
  **************************************************/
-#define GPUFREQ_SAFE_VLOGIC             (60000)
+#define GPUFREQ_SAFE_VLOGIC             (55000)
 #define VSRAM_LEVEL_0                   (75000)
 #define VSRAM_LEVEL_1                   (80000)
 #define SRAM_PARK_VOLT                  (75000)
