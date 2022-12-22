@@ -740,13 +740,31 @@ static void mtk_jpeg_dvfs_end(struct mtk_jpeg_ctx *ctx)
 	pr_info("%s  volt: %d --\n", __func__, volt);
 
 }
+
 static int mtk_jpeg_qbuf(struct file *file, void *priv, struct v4l2_buffer *buf)
 {
-	struct v4l2_fh *fh = file->private_data;
-	struct mtk_jpeg_ctx *ctx = mtk_jpeg_fh_to_ctx(priv);
+	struct v4l2_fh *fh;
+	struct mtk_jpeg_ctx *ctx;
 
 
-	if (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+	if (IS_ERR_OR_NULL(file) || IS_ERR_OR_NULL(priv) || IS_ERR_OR_NULL(buf)) {
+		pr_info("%s %d qbuf error, invalid input param\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	fh = file->private_data;
+	ctx = mtk_jpeg_fh_to_ctx(priv);
+
+	if (IS_ERR_OR_NULL(ctx)) {
+		pr_info("%s %d invalid ctx\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	if (buf->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (IS_ERR_OR_NULL(buf->m.planes) || buf->length <= 0) {
+			pr_info("%s %d invalid buffer planes\n", __func__, __LINE__);
+			return -EINVAL;
+		}
 		ctx->dst_offset = buf->m.planes[0].data_offset;
 		pr_info("%s %d data_offset %d\n", __func__, __LINE__, buf->m.planes[0].data_offset);
 	}
