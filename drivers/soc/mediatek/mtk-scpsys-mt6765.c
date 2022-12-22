@@ -120,8 +120,8 @@ static const struct scp_domain_data scp_domain_data_mt6765[] = {
 		.name = "mfg",
 		.sta_mask = BIT(4),
 		.ctl_offs = 0x0338,
-		//.sram_pdn_bits = GENMASK(8, 8),
-		//.sram_pdn_ack_bits = GENMASK(12, 12),
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
 		.basic_clk_name = {"mfg"},
 		.subsys_clk_prefix = "mfg",
 		.bp_table = {
@@ -137,8 +137,8 @@ static const struct scp_domain_data scp_domain_data_mt6765[] = {
 		.name = "mfg_core0",
 		.sta_mask = BIT(7),
 		.ctl_offs = 0x034C,
-		//.sram_pdn_bits = GENMASK(8, 8),
-		//.sram_pdn_ack_bits = GENMASK(12, 12),
+		.sram_pdn_bits = GENMASK(8, 8),
+		.sram_pdn_ack_bits = GENMASK(12, 12),
 		//.caps = MTK_SCPD_BYPASS_INIT_ON | MTK_SCPD_IS_PWR_CON_ON,
 	},
 
