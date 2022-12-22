@@ -73,6 +73,8 @@ static int cm_mgr_check_dram_type(void)
 
 	if (ddr_type == TYPE_LPDDR4X || ddr_type == TYPE_LPDDR4)
 		cm_mgr_idx = CM_MGR_LP4;
+	else if (ddr_type == TYPE_LPDDR3)
+		cm_mgr_idx = CM_MGR_LP3;
 	pr_info("#@# %s(%d) ddr_type 0x%x, ddr_hz %d, cm_mgr_idx 0x%x\n",
 			__func__, __LINE__, ddr_type, ddr_hz, cm_mgr_idx);
 #else

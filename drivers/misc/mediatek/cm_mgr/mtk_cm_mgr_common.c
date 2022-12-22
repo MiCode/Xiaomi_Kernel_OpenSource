@@ -35,7 +35,6 @@
 #include "mtk_disp_notify.h"
 #include <linux/notifier.h>
 #include <linux/interconnect.h>
-
 #include "mtk_cm_mgr_common.h"
 
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
@@ -65,6 +64,10 @@ static int cm_mgr_cpu_to_dram_opp;
 static int cm_sspm_ready;
 int cm_ipi_ackdata;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V1) && defined(USE_CM_MGR_AT_SSPM)
+#include <sspm_define.h>
+#include <sspm_ipi.h>
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V1 && defined(USE_CM_MGR_AT_SSPM) */
 
 static struct kobject *cm_mgr_kobj;
 static struct platform_device *cm_mgr_pdev;
@@ -91,6 +94,9 @@ static int cm_mgr_perf_force_enable;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
 int cm_mgr_sspm_enable = 1;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V1) && defined(USE_CM_MGR_AT_SSPM)
+int cm_mgr_sspm_enable = 1;
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V1 && defined(USE_CM_MGR_AT_SSPM) */
 unsigned int *cpu_power_ratio_down;
 unsigned int *cpu_power_ratio_up;
 unsigned int *vcore_power_ratio_down;
@@ -448,7 +454,56 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 
 	return ret;
 #else
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V1) && defined(USE_CM_MGR_AT_SSPM)
+	unsigned int ret = 0;
+	struct cm_mgr_data cm_mgr_d;
+	int ack_data;
+
+	switch (cmd) {
+	case IPI_CM_MGR_INIT:
+	case IPI_CM_MGR_ENABLE:
+	case IPI_CM_MGR_OPP_ENABLE:
+	case IPI_CM_MGR_SSPM_ENABLE:
+	case IPI_CM_MGR_BLANK:
+	case IPI_CM_MGR_DISABLE_FB:
+	case IPI_CM_MGR_DRAM_TYPE:
+	case IPI_CM_MGR_CPU_POWER_RATIO_UP:
+	case IPI_CM_MGR_CPU_POWER_RATIO_DOWN:
+	case IPI_CM_MGR_VCORE_POWER_RATIO_UP:
+	case IPI_CM_MGR_VCORE_POWER_RATIO_DOWN:
+	case IPI_CM_MGR_DEBOUNCE_UP:
+	case IPI_CM_MGR_DEBOUNCE_DOWN:
+	case IPI_CM_MGR_DEBOUNCE_TIMES_RESET_ADB:
+	case IPI_CM_MGR_DRAM_LEVEL:
+	case IPI_CM_MGR_LIGHT_LOAD_CPS:
+	case IPI_CM_MGR_LOADING_ENABLE:
+	case IPI_CM_MGR_LOADING_LEVEL:
+	case IPI_CM_MGR_EMI_DEMAND_CHECK:
+	case IPI_CM_MGR_BCPU_WEIGHT_MAX_SET:
+	case IPI_CM_MGR_BCPU_WEIGHT_MIN_SET:
+		cm_mgr_d.cmd = cmd;
+		cm_mgr_d.arg = val;
+		ret = sspm_ipi_send_sync(IPI_ID_CM, IPI_OPT_POLLING,
+				&cm_mgr_d, CM_MGR_D_LEN, &ack_data, 1);
+		if (ret != 0) {
+			pr_info("#@# %s(%d) cmd(%d) error, return %d\n",
+					__func__, __LINE__, cmd, ret);
+		} else if (ack_data < 0) {
+			ret = ack_data;
+			pr_info("#@# %s(%d) cmd(%d) return %d\n",
+					__func__, __LINE__, cmd, ret);
+		}
+		break;
+	default:
+		pr_info("#@# %s(%d) wrong cmd(%d)!!!\n",
+				__func__, __LINE__, cmd);
+		break;
+	}
+
+	return ret;
+#else
 	return -1;
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V1 && defined(USE_CM_MGR_AT_SSPM) */
 #endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
 }
 EXPORT_SYMBOL_GPL(cm_mgr_to_sspm_command);
@@ -531,6 +586,9 @@ static ssize_t dbg_cm_mgr_show(struct kobject *kobj,
 #if defined(CONFIG_MTK_TINYSYS_SSPM_V2) && defined(USE_CM_MGR_AT_SSPM)
 	len += cm_mgr_print("cm_mgr_sspm_enable %d\n", cm_mgr_sspm_enable);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V1) && defined(USE_CM_MGR_AT_SSPM)
+	len += cm_mgr_print("cm_mgr_sspm_enable %d\n", cm_mgr_sspm_enable);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V1 && defined(USE_CM_MGR_AT_SSPM) */
 #endif /* CONFIG_MTK_CM_IPI */
 
 	len += cm_mgr_print("cm_mgr_perf_enable %d\n",
@@ -665,6 +723,12 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_SSPM_ENABLE,
 				cm_mgr_sspm_enable);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V1) && defined(USE_CM_MGR_AT_SSPM)
+	} else if (!strcmp(cmd, "cm_mgr_sspm_enable")) {
+		cm_mgr_sspm_enable = val_1;
+		cm_mgr_to_sspm_command(IPI_CM_MGR_SSPM_ENABLE,
+				cm_mgr_sspm_enable);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V1 && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "cm_mgr_perf_enable")) {
 		cm_mgr_perf_enable = val_1;
 	} else if (!strcmp(cmd, "cm_mgr_perf_force_enable")) {
@@ -1192,7 +1256,6 @@ int cm_mgr_common_init(void)
 
 fail_reg_cpu_frequency_entry:
 
-
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 			cm_mgr_enable);
 
@@ -1200,6 +1263,10 @@ fail_reg_cpu_frequency_entry:
 	cm_mgr_to_sspm_command(IPI_CM_MGR_SSPM_ENABLE,
 			cm_mgr_sspm_enable);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_V2 && defined(USE_CM_MGR_AT_SSPM) */
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_V1) && defined(USE_CM_MGR_AT_SSPM)
+	cm_mgr_to_sspm_command(IPI_CM_MGR_SSPM_ENABLE,
+			cm_mgr_sspm_enable);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_V1 && defined(USE_CM_MGR_AT_SSPM) */
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_EMI_DEMAND_CHECK,
 			cm_mgr_emi_demand_check);

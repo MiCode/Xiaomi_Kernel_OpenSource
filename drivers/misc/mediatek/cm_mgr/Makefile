@@ -25,6 +25,10 @@ ifeq ($(CONFIG_MTK_TINYSYS_SSPM_V2),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
 endif
 
+ifeq ($(CONFIG_MTK_TINYSYS_SSPM_V1),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+endif
+
 obj-${CONFIG_MTK_CM_MGR} += mtk_cm_mgr.o
 mtk_cm_mgr-y = mtk_cm_mgr_common.o
 

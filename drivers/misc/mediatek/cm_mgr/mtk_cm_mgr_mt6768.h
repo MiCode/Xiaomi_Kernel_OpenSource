@@ -19,6 +19,7 @@
 
 enum {
 	CM_MGR_LP4 = 0,
+	CM_MGR_LP3,
 	CM_MGR_MAX,
 };
 
