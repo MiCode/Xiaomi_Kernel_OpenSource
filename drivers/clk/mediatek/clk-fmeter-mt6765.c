@@ -331,11 +331,11 @@ static struct fmeter_ops fm_ops = {
 
 static int clk_fmeter_mt6765_probe(struct platform_device *pdev)
 {
-	topck_base = get_base_from_comp("mediatek,topckgen");
+	topck_base = get_base_from_comp("mediatek,mt6765-topckgen");
 	if (IS_ERR(topck_base))
 		goto ERR;
 
-	apmixed_base = get_base_from_comp("mediatek,apmixed");
+	apmixed_base = get_base_from_comp("mediatek,mt6765-apmixedsys");
 	if (IS_ERR(apmixed_base))
 		goto ERR;
 
