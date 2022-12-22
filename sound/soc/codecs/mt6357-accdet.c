@@ -150,15 +150,6 @@ const struct of_device_id accdet_of_match[] = {
 	},
 };
 
-static struct snd_soc_jack_pin accdet_jack_pins[] = {
-	{
-		.pin = "Headset",
-		.mask = SND_JACK_HEADSET |
-			SND_JACK_LINEOUT |
-			SND_JACK_MECHANICAL,
-	},
-};
-
 static struct platform_driver accdet_driver;
 
 static atomic_t accdet_first;
@@ -1969,6 +1960,36 @@ static void delay_init_timerhandler(struct timer_list *t)
 		pr_notice("Error: %s (%d)\n", __func__, ret);
 }
 
+int mt6357_accdet_init(struct snd_soc_component *component,
+			struct snd_soc_card *card)
+{
+	int ret;
+
+	/* Enable Headset and 4 Buttons Jack detection */
+	ret = snd_soc_card_jack_new(card,
+				    "Headset Jack",
+				    SND_JACK_HEADSET |
+				    SND_JACK_LINEOUT |
+				    SND_JACK_MECHANICAL,
+				    &accdet->jack,
+				    NULL, 0);
+	if (ret) {
+		pr_notice("Property 'mediatek,soc-accdet' missing/invalid\n");
+		return ret;
+	}
+
+	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
+
+	snd_soc_component_set_jack(component, &accdet->jack, NULL);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mt6357_accdet_init);
+
 static int accdet_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2014,43 +2035,6 @@ static int accdet_probe(struct platform_device *pdev)
 	mutex_init(&accdet->res_lock);
 
 	platform_set_drvdata(pdev, accdet);
-	snd_soc_card_set_drvdata(&accdet->card, accdet);
-	ret = devm_snd_soc_register_card(&pdev->dev, &accdet->card);
-	if (ret) {
-		dev_dbg(&pdev->dev, "Error: Register card failed (%d)\n",
-				ret);
-		return ret;
-	}
-	accdet->data->snd_card = accdet->card.snd_card;
-	ret = snd_soc_card_jack_new(&accdet->card,
-			accdet_jack_pins[0].pin,
-			accdet_jack_pins[0].mask,
-			&accdet->jack, accdet_jack_pins, 1);
-	if (ret) {
-		dev_dbg(&pdev->dev, "Error: New card jack failed (%d)\n",
-				ret);
-		return ret;
-	}
-	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
-
-	/* Important. must to register */
-	ret = snd_card_register(accdet->card.snd_card);
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	accdet->regmap = dev_get_regmap(pdev->dev.parent, NULL);
-	if (!accdet->regmap) {
-		mt6397_chip =  dev_get_drvdata(pdev->dev.parent);
-		if (!mt6397_chip || !mt6397_chip->regmap) {
-			dev_err(accdet->dev, "failed to get pmic key regmap\n");
-			return -ENODEV;
-		}
-
-		accdet->regmap = mt6397_chip->regmap;
-	}
 
 	accdet->dev = &pdev->dev;
 
@@ -2078,8 +2062,22 @@ static int accdet_probe(struct platform_device *pdev)
 
 	accdet_get_efuse();
 
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	accdet->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	if (!accdet->regmap) {
+		mt6397_chip =  dev_get_drvdata(pdev->dev.parent);
+		if (!mt6397_chip || !mt6397_chip->regmap) {
+			dev_dbg(accdet->dev, "failed to get pmic key regmap\n");
+			return -ENODEV;
+		}
+
+		accdet->regmap = mt6397_chip->regmap;
+	}
+
+
+
 	/* register pmic interrupt */
-	accdet->accdet_irq = platform_get_irq(pdev, 0);
+	accdet->accdet_irq = platform_get_irq_byname(pdev, "ACCDET_IRQ");
 	if (accdet->accdet_irq < 0) {
 		dev_dbg(&pdev->dev,
 			"Error: Get accdet irq failed (%d)\n",
@@ -2098,7 +2096,7 @@ static int accdet_probe(struct platform_device *pdev)
 	}
 
 	if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_EINT0)) {
-		accdet->accdet_eint0 = platform_get_irq(pdev, 1);
+		accdet->accdet_eint0 = platform_get_irq_byname(pdev, "ACCDET_EINT0");
 		if (accdet->accdet_eint0 < 0) {
 			dev_dbg(&pdev->dev,
 				"Error: Get eint0 irq failed (%d)\n",
@@ -2136,7 +2134,7 @@ static int accdet_probe(struct platform_device *pdev)
 			return ret;
 		}
 	} else if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_BI_EINT)) {
-		accdet->accdet_eint0 = platform_get_irq(pdev, 1);
+		accdet->accdet_eint0 = platform_get_irq_byname(pdev, "ACCDET_EINT0");
 		if (accdet->accdet_eint0 < 0) {
 			dev_dbg(&pdev->dev,
 				"Error: Get eint0 irq failed (%d)\n",
@@ -2154,7 +2152,7 @@ static int accdet_probe(struct platform_device *pdev)
 				ret);
 			return ret;
 		}
-		accdet->accdet_eint1 = platform_get_irq(pdev, 2);
+		accdet->accdet_eint1 = platform_get_irq_byname(pdev, "ACCDET_EINT1");
 		if (accdet->accdet_eint1 < 0) {
 			dev_dbg(&pdev->dev,
 				"Error: Get eint1 irq failed (%d)\n",

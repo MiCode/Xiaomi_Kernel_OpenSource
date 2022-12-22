@@ -136,5 +136,6 @@ extern void mt_accdet_remove(void);
 extern void mt_accdet_suspend(void);
 extern void mt_accdet_resume(void);
 extern void accdet_set_debounce(int state, unsigned int debounce);
+extern int mt6357_accdet_init(struct snd_soc_component *component, struct snd_soc_card *card);
 
 #endif
