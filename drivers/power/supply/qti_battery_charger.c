@@ -119,6 +119,7 @@ enum usb_property_id {
 	USB_TYPEC_COMPLIANT,
 	USB_SCOPE,
 	USB_CONNECTOR_TYPE,
+	F_ACTIVE,
 	USB_PROP_MAX,
 };
 
@@ -542,10 +543,9 @@ int qti_battery_charger_get_prop(const char *name,
 		return -ENODEV;
 
 	bcdev = power_supply_get_drvdata(psy);
+	power_supply_put(psy);
 	if (!bcdev)
 		return -ENODEV;
-
-	power_supply_put(psy);
 
 	switch (prop_id) {
 	case BATTERY_RESISTANCE:
@@ -561,6 +561,43 @@ int qti_battery_charger_get_prop(const char *name,
 	return rc;
 }
 EXPORT_SYMBOL(qti_battery_charger_get_prop);
+
+int qti_battery_charger_set_prop(const char *name,
+				enum battery_charger_prop prop_id, int val)
+{
+	struct power_supply *psy;
+	struct battery_chg_dev *bcdev;
+	struct psy_state *pst;
+	int rc = 0;
+
+	if (prop_id >= BATTERY_CHARGER_PROP_MAX)
+		return -EINVAL;
+
+	if (strcmp(name, "battery") && strcmp(name, "usb") &&
+	    strcmp(name, "wireless"))
+		return -EINVAL;
+
+	psy = power_supply_get_by_name(name);
+	if (!psy)
+		return -ENODEV;
+
+	bcdev = power_supply_get_drvdata(psy);
+	power_supply_put(psy);
+	if (!bcdev)
+		return -ENODEV;
+
+	switch (prop_id) {
+	case FLASH_ACTIVE:
+		pst = &bcdev->psy_list[PSY_TYPE_USB];
+		rc = write_property_id(bcdev, pst, F_ACTIVE, val);
+		break;
+	default:
+		break;
+	}
+
+	return rc;
+}
+EXPORT_SYMBOL(qti_battery_charger_set_prop);
 
 static bool validate_message(struct battery_charger_resp_msg *resp_msg,
 				size_t len)
@@ -1900,6 +1937,22 @@ static ssize_t resistance_show(struct class *c,
 }
 static CLASS_ATTR_RO(resistance);
 
+static ssize_t flash_active_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_USB];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, F_ACTIVE);
+	if (rc < 0)
+		return rc;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[F_ACTIVE]);
+}
+static CLASS_ATTR_RO(flash_active);
+
 static ssize_t soh_show(struct class *c, struct class_attribute *attr,
 			char *buf)
 {
@@ -1941,6 +1994,7 @@ static CLASS_ATTR_RW(ship_mode_en);
 static struct attribute *battery_class_attrs[] = {
 	&class_attr_soh.attr,
 	&class_attr_resistance.attr,
+	&class_attr_flash_active.attr,
 	&class_attr_moisture_detection_status.attr,
 	&class_attr_moisture_detection_en.attr,
 	&class_attr_wireless_boost_en.attr,

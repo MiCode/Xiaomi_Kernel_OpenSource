@@ -1824,7 +1824,11 @@ static int qpnp_flash_led_regulator_control(struct led_classdev *led_cdev,
 	if (options & ENABLE_REGULATOR) {
 		if (led->pmic_type == PMI632) {
 			val = 1;
-			rc = qpnp_flash_iio_setprop(led, F_ACTIVE, val);
+			if (led->pdata->use_qti_battery_interface)
+				rc = qti_battery_charger_set_prop("usb", FLASH_ACTIVE, val);
+			else
+				rc = qpnp_flash_iio_setprop(led, F_ACTIVE, val);
+
 			if (rc < 0) {
 				pr_err("Failed to set FLASH_ACTIVE on charger rc=%d\n",
 									rc);
@@ -1843,7 +1847,11 @@ static int qpnp_flash_led_regulator_control(struct led_classdev *led_cdev,
 	if (options & DISABLE_REGULATOR) {
 		if (led->pmic_type == PMI632) {
 			val = 0;
-			rc = qpnp_flash_iio_setprop(led, F_ACTIVE, val);
+			if (led->pdata->use_qti_battery_interface)
+				rc = qti_battery_charger_set_prop("usb", FLASH_ACTIVE, val);
+			else
+				rc = qpnp_flash_iio_setprop(led, F_ACTIVE, val);
+
 			if (rc < 0) {
 				pr_err("Failed to set FLASH_ACTIVE on charger rc=%d\n",
 									rc);
