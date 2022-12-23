@@ -125,7 +125,6 @@ static int qiib_driver_data_init(void)
  */
 static void qiib_driver_data_deinit(void)
 {
-	qiib_cleanup();
 	if (!qiib_info->log_ctx)
 		ipc_log_context_destroy(qiib_info->log_ctx);
 	kfree(qiib_info);
@@ -439,8 +438,10 @@ static void qiib_cleanup(void)
 	}
 	mutex_unlock(&qiib_info->list_lock);
 
-	if (!IS_ERR_OR_NULL(qiib_info->classp))
+	if (!IS_ERR_OR_NULL(qiib_info->classp)) {
 		class_destroy(qiib_info->classp);
+		qiib_info->classp = NULL;
+	}
 
 	unregister_chrdev_region(MAJOR(qiib_info->dev_num), qiib_info->nports);
 }
