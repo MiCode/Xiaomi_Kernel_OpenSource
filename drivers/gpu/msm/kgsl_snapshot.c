@@ -707,10 +707,13 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	/*
 	 * Queue a work item that will save the IB data in snapshot into
 	 * static memory to prevent loss of data due to overwriting of
-	 * memory.
-	 *
+	 * memory. If force panic is enabled, there is no need to move
+	 * ahead and IB data can be dumped inline.
 	 */
-	kgsl_schedule_work(&snapshot->work);
+	if (device->force_panic)
+		kgsl_snapshot_save_frozen_objs(&snapshot->work);
+	else
+		kgsl_schedule_work(&snapshot->work);
 }
 
 /* An attribute for showing snapshot details */
