@@ -1200,6 +1200,7 @@ static void enable_async_hfi(struct adreno_device *adreno_dev)
 
 static int enable_preemption(struct adreno_device *adreno_dev)
 {
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
 	u32 data;
 	int ret;
 
@@ -1219,6 +1220,19 @@ static int enable_preemption(struct adreno_device *adreno_dev)
 			data);
 	if (ret)
 		return ret;
+
+	if (gen7_core->qos_value) {
+		int i;
+
+		for (i = 0; i < KGSL_PRIORITY_MAX_RB_LEVELS; i++) {
+			if (!gen7_core->qos_value[i])
+				continue;
+
+			gen7_hfi_send_set_value(adreno_dev,
+				HFI_VALUE_RB_GPU_QOS, i,
+				gen7_core->qos_value[i]);
+		}
+	}
 
 	/*
 	 * Bits[3:0] contain the preemption timeout enable bit per ringbuffer

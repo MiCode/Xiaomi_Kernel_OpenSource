@@ -2614,7 +2614,7 @@ static int gen7_gpu_boot(struct adreno_device *adreno_dev)
 
 	gen7_start(adreno_dev);
 
-	if (gen7_core->qos_value)
+	if (gen7_core->qos_value && adreno_is_preemption_enabled(adreno_dev))
 		kgsl_regwrite(device, GEN7_RBBM_GBIF_CLIENT_QOS_CNTL,
 			gen7_core->qos_value[adreno_dev->cur_rb->id]);
 
