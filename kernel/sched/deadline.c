@@ -2337,9 +2337,7 @@ static void task_woken_dl(struct rq *rq, struct task_struct *p)
 	}
 }
 
-static void set_cpus_allowed_dl(struct task_struct *p,
-				const struct cpumask *new_mask,
-				u32 flags)
+void set_cpus_allowed_dl(struct task_struct *p, struct affinity_context *ctx)
 {
 	struct root_domain *src_rd;
 	struct rq *rq;
@@ -2354,7 +2352,7 @@ static void set_cpus_allowed_dl(struct task_struct *p,
 	 * update. We already made space for us in the destination
 	 * domain (see cpuset_can_attach()).
 	 */
-	if (!cpumask_intersects(src_rd->span, new_mask)) {
+	if (!cpumask_intersects(src_rd->span, ctx->new_mask)) {
 		struct dl_bw *src_dl_b;
 
 		src_dl_b = dl_bw_of(cpu_of(rq));
@@ -2368,7 +2366,19 @@ static void set_cpus_allowed_dl(struct task_struct *p,
 		raw_spin_unlock(&src_dl_b->lock);
 	}
 
-	set_cpus_allowed_common(p, new_mask, flags);
+	set_cpus_allowed_common(p, ctx);
+}
+
+static void set_cpus_allowed_dl_cb(struct task_struct *p,
+				   const struct cpumask *new_mask,
+				   u32 flags)
+{
+	struct affinity_context ac = {
+		.new_mask  = new_mask,
+		.flags     = flags,
+	};
+	WARN_ONCE(1, "Unexpected use of dl_sched_class::set_cpus_allowed()");
+	set_cpus_allowed_dl(p, &ac);
 }
 
 /* Assumes rq->lock is held */
@@ -2563,7 +2573,7 @@ DEFINE_SCHED_CLASS(dl) = {
 	.pick_task		= pick_task_dl,
 	.select_task_rq		= select_task_rq_dl,
 	.migrate_task_rq	= migrate_task_rq_dl,
-	.set_cpus_allowed       = set_cpus_allowed_dl,
+	.set_cpus_allowed       = set_cpus_allowed_dl_cb,
 	.rq_online              = rq_online_dl,
 	.rq_offline             = rq_offline_dl,
 	.task_woken		= task_woken_dl,

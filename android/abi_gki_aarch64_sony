@@ -2,3 +2,7 @@
 #required by codec module
   snd_soc_component_enable_pin
   snd_soc_component_get_pin_status
+
+#required for mmc debugging
+  __traceiter_block_rq_complete
+  __tracepoint_block_rq_complete
