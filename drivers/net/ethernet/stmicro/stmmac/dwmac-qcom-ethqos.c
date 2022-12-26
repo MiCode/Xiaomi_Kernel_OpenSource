@@ -2883,6 +2883,12 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	/* Read en_wol from device tree */
 	priv->en_wol = of_property_read_bool(np, "enable-wol");
 
+	/* enable safety feature from device tree */
+	if (of_property_read_bool(np, "safety-feat") && priv->dma_cap.asp)
+		priv->dma_cap.asp = 1;
+	else
+		priv->dma_cap.asp = 0;
+
 	if (ethqos->early_eth_enabled) {
 		/* Initialize work*/
 		INIT_WORK(&ethqos->early_eth,
