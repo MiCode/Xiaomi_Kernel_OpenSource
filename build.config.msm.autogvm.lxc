@@ -1,7 +1,7 @@
 ################################################################################
 ## Inheriting configs from ACK
-. ${ROOT_DIR}/common/build.config.common
-. ${ROOT_DIR}/common/build.config.aarch64
+. ${ROOT_DIR}/msm-kernel/build.config.common
+. ${ROOT_DIR}/msm-kernel/build.config.aarch64
 
 ################################################################################
 ## Variant setup
