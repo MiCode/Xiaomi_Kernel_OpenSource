@@ -4291,8 +4291,8 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 			dev->rc_idx);
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 			dev->gpio[MSM_PCIE_GPIO_PERST].on);
-		PCIE_ERR(dev, "PCIe RC%d link initialization failed\n",
-			dev->rc_idx);
+		PCIE_ERR(dev, "PCIe RC%d link initialization failed LTTSM STATE: %s\n",
+			dev->rc_idx, TO_LTSSM_STR((val >> 12) & 0x3f));
 		return MSM_PCIE_ERROR;
 	}
 
