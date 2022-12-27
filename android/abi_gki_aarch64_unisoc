@@ -713,6 +713,7 @@
   page_endio
   page_get_link
   page_mapping
+  PageMovable
   panic
   param_ops_charp
   param_ops_uint
