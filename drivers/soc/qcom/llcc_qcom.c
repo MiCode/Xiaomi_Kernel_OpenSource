@@ -562,9 +562,14 @@ static inline int llcc_spad_check_regmap(void)
 
 static inline int llcc_spad_clk_on_ctrl(void)
 {
+	u32 lpi_reg;
+	u32 lpi_val;
+
 	/* Clear FF_CLK_ON override and override value CSR */
-	return regmap_write(drv_data->spad_or_bcast_regmap,
-			    SPAD_LPI_LB_FF_CLK_ON_CTRL, 0);
+	lpi_reg = SPAD_LPI_LB_FF_CLK_ON_CTRL;
+	regmap_read(drv_data->spad_or_bcast_regmap, lpi_reg, &lpi_val);
+	lpi_val &= ~(FF_CLK_ON_OVERRIDE | FF_CLK_ON_OVERRIDE_VALUE);
+	return regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg, lpi_val);
 }
 
 static int llcc_spad_poll_state(struct llcc_slice_desc *desc, u32 s0, u32 s1)
@@ -680,7 +685,8 @@ static int llcc_spad_init(struct llcc_slice_desc *desc)
 	 * following CSR will be 1
 	 */
 	lpi_reg = SPAD_LPI_LB_FF_CLK_ON_CTRL;
-	lpi_val = FF_CLK_ON_OVERRIDE | FF_CLK_ON_OVERRIDE_VALUE;
+	regmap_read(drv_data->spad_or_bcast_regmap, lpi_reg, &lpi_val);
+	lpi_val |= FF_CLK_ON_OVERRIDE | FF_CLK_ON_OVERRIDE_VALUE;
 	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
 			   lpi_val);
 	if (ret)
