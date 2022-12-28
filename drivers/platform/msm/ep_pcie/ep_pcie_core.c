@@ -1081,7 +1081,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 static void ep_pcie_config_inbound_iatu(struct ep_pcie_dev_t *dev, u32 vf_id)
 {
 	struct resource *mmio = dev->res[EP_PCIE_RES_MMIO].resource;
-	u32 lower, limit, bar, size, vf_num;
+	u32 lower, limit, bar, size, vf_num = 0;
 
 	lower = mmio->start;
 	limit = mmio->end;
