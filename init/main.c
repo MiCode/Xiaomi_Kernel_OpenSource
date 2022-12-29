@@ -1288,14 +1288,34 @@ static inline void do_trace_initcall_finish(initcall_t fn, int ret)
 }
 #endif /* !TRACEPOINTS_ENABLED */
 
+#if IS_ENABLED(CONFIG_MTK_AEE_UT)
+static void (*last_init_name_callback)(const char *str);
+void init_register_callback(void (* fn)(const char *str))
+{
+	last_init_name_callback = fn;
+}
+EXPORT_SYMBOL(init_register_callback);
+#endif
+
 int __init_or_module do_one_initcall(initcall_t fn)
 {
 	int count = preempt_count();
 	char msgbuf[64];
+#if IS_ENABLED(CONFIG_MTK_AEE_UT)
+	char func_name[64];
+#endif
 	int ret;
 
 	if (initcall_blacklisted(fn))
 		return -EPERM;
+
+#if IS_ENABLED(CONFIG_MTK_AEE_UT)
+	memset(func_name, 0, sizeof(func_name));
+	if (fn)
+		scnprintf(func_name, sizeof(func_name), "%ps", fn);
+	if (last_init_name_callback)
+		last_init_name_callback(func_name);
+#endif
 
 	do_trace_initcall_start(fn);
 	ret = fn();

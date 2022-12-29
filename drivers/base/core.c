@@ -4605,12 +4605,25 @@ out:
 }
 EXPORT_SYMBOL_GPL(device_change_owner);
 
+#if IS_ENABLED(CONFIG_MTK_AEE_UT)
+static void (*last_shutdown_device_callback)(const char *str);
+void shutdown_register_callback(void (*fn)(const char *str))
+{
+	last_shutdown_device_callback = fn;
+}
+EXPORT_SYMBOL(shutdown_register_callback);
+#endif
+
 /**
  * device_shutdown - call ->shutdown() on each device to shutdown.
  */
 void device_shutdown(void)
 {
 	struct device *dev, *parent;
+
+#if IS_ENABLED(CONFIG_MTK_AEE_UT)
+	char shutdown_device[64];
+#endif
 
 	wait_for_device_probe();
 	device_block_probing();
@@ -4658,6 +4671,15 @@ void device_shutdown(void)
 		if (dev->bus && dev->bus->shutdown) {
 			if (initcall_debug)
 				dev_info(dev, "shutdown\n");
+#if IS_ENABLED(CONFIG_MTK_AEE_UT)
+			memset(shutdown_device, 0, sizeof(shutdown_device));
+			if (dev->driver && dev->driver->name) {
+				scnprintf(shutdown_device, sizeof(shutdown_device),
+					"%s", dev->driver->name);
+			}
+			if (last_shutdown_device_callback)
+				last_shutdown_device_callback(shutdown_device);
+#endif
 			dev->bus->shutdown(dev);
 		} else if (dev->driver && dev->driver->shutdown) {
 			if (initcall_debug)
