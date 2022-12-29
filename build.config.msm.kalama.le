@@ -34,4 +34,5 @@ KERNEL_VENDOR_CMDLINE+=' bootconfig '
 . ${KERNEL_DIR}/build.config.msm.common
 . ${KERNEL_DIR}/build.config.msm.gki
 
+apply_defconfig_fragment ${KERNEL_DIR}/arch/${ARCH}/configs/kalama_le_gki.fragment
 GKI_GKI_BUILD_CONFIG_FRAGMENT=${KERNEL_DIR}/build.config.msm.gki_fragement.${MSM_ARCH}
