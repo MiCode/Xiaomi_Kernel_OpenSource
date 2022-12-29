@@ -516,6 +516,15 @@ int kgsl_mmu_pagetable_get_context_bank(struct kgsl_pagetable *pagetable,
 	return -ENOENT;
 }
 
+int kgsl_mmu_pagetable_get_asid(struct kgsl_pagetable *pagetable,
+		struct kgsl_context *context)
+{
+	if (PT_OP_VALID(pagetable, get_asid))
+		return pagetable->pt_ops->get_asid(pagetable, context);
+
+	return -ENOENT;
+}
+
 enum kgsl_mmutype kgsl_mmu_get_mmutype(struct kgsl_device *device)
 {
 	return device ? device->mmu.type : KGSL_MMU_TYPE_NONE;

@@ -103,6 +103,9 @@
 /* FSR fields */
 #define KGSL_IOMMU_FSR_SS_SHIFT		30
 
+/* ASID field in TTBR register */
+#define KGSL_IOMMU_ASID_START_BIT	48
+
 /* offset at which a nop command is placed in setstate */
 #define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
 
