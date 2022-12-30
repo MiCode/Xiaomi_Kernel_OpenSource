@@ -4581,6 +4581,20 @@ static int mhi_init(struct mhi_dev *mhi, bool init_state)
 	int rc = 0, i = 0;
 	struct platform_device *pdev = mhi->mhi_hw_ctx->pdev;
 
+	if (mhi->use_edma) {
+		rc = mhi_edma_init(&pdev->dev);
+		if (rc) {
+			pr_err("MHI: mhi edma init failed, rc = %d\n", rc);
+			return rc;
+		}
+
+		rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+		if (rc) {
+			pr_err("Error set MHI DMA mask: rc = %d\n", rc);
+			return rc;
+		}
+	}
+
 	rc = mhi_dev_mmio_init(mhi);
 	if (rc) {
 		mhi_log(MHI_MSG_ERROR,
@@ -5083,22 +5097,6 @@ static int mhi_dev_probe(struct platform_device *pdev)
 
 		mhi_uci_init();
 		mhi_update_state_info(mhi_pf, MHI_STATE_CONFIGURED);
-	}
-
-	if (mhi_pf->use_edma) {
-		rc = mhi_edma_init(&pdev->dev);
-		if (rc) {
-			mhi_log(MHI_MSG_ERROR,
-				"MHI: mhi edma init failed, rc = %d\n", rc);
-			return rc;
-		}
-
-		rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
-		if (rc) {
-			mhi_log(MHI_MSG_ERROR,
-				"Error set MHI DMA mask: rc = %d\n", rc);
-			return rc;
-		}
 	}
 
 	mhi_hw_ctx->phandle = ep_pcie_get_phandle(mhi_hw_ctx->ifc_id);
