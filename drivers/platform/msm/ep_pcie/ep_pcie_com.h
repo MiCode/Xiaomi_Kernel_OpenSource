@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __EP_PCIE_COM_H
@@ -180,9 +180,9 @@
 #define PCIE20_AUX_CLK_FREQ_REG        0xB40
 #define PCIE20_GEN3_RELATED_OFF		0x890
 
-#define PCIE20_INT_ALL_VF_BME_STATUS	0xE68
-#define PCIE20_INT_ALL_VF_BME_MASK	0xE6C
-#define PCIE20_INT_ALL_VF_BME_CLEAR	0xE70
+#define PCIE20_INT_ALL_VF_BME_STATUS	0x2E68
+#define PCIE20_INT_ALL_VF_BME_MASK	0x2E6C
+#define PCIE20_INT_ALL_VF_BME_CLEAR	0x2E70
 
 #define PERST_TIMEOUT_US_MIN	              1000
 #define PERST_TIMEOUT_US_MAX	              1000
