@@ -463,6 +463,29 @@ static bool mhi_sm_is_legal_pcie_event_on_state(enum mhi_dev_state curr_mstate,
 }
 
 /**
+ * check_dev_ready_for_suspend() - Check if link can be suspended for a PF which might
+ * have VFs associated with it. Host has to ensure that all VFs are already in the same
+ * state as the new state of the PF.
+ */
+static bool check_dev_ready_for_suspend(struct mhi_sm_dev *mhi_sm_ctx, enum mhi_dev_state new_state)
+{
+	bool ready_for_suspend = true;
+	int i;
+	u32 num_vfs = mhi_sm_ctx->mhi_dev->mhi_hw_ctx->ep_cap.num_vfs;
+
+	for (i = 1; i <= num_vfs; i++) {
+		if (!mhi_dev_sm_ctx[i])
+			break;
+
+		if (mhi_dev_sm_ctx[i]->mhi_state != new_state) {
+			ready_for_suspend = false;
+			break;
+		}
+	}
+	return ready_for_suspend;
+}
+
+/**
  * mhi_sm_prepare_resume() - switch to M0 state.
  *
  * Switch MHI-device state to M0, if possible according to MHI state machine.
@@ -628,6 +651,7 @@ static int mhi_sm_prepare_suspend(struct mhi_sm_dev *mhi_sm_ctx, enum mhi_dev_st
 	enum mhi_dev_state old_state;
 	struct ep_pcie_inactivity inact_param;
 	int res = 0, rc, wait_timeout = 0;
+	bool ready_for_suspend;
 	struct mhi_dma_function_params mhi_dma_fun_params = mhi_sm_ctx->mhi_dev->mhi_dma_fun_params;
 
 	MHI_SM_DBG("Switching event:%d\n", new_state);
@@ -740,9 +764,17 @@ static int mhi_sm_prepare_suspend(struct mhi_sm_dev *mhi_sm_ctx, enum mhi_dev_st
 	}
 
 	if ((old_state == MHI_DEV_M0_STATE) &&
-			((new_state == MHI_DEV_M2_STATE))) {
+			((new_state == MHI_DEV_M2_STATE)) &&
+			(mhi_sm_ctx->mhi_dev->is_mhi_pf)) {
+
 		if (!mhi_sm_ctx->mhi_dev->enable_m2) {
 			MHI_SM_ERR("M2 autonomous not enabled!!\n");
+			goto exit;
+		}
+
+		ready_for_suspend = check_dev_ready_for_suspend(mhi_sm_ctx, new_state);
+		if (!ready_for_suspend) {
+			MHI_SM_ERR("PF cannot suspend EP as VFs are active\n");
 			goto exit;
 		}
 		/*
