@@ -98,11 +98,6 @@ struct seb_priv {
 static void *seb_drv;
 static struct mutex seb_api_mutex;
 
-struct seb_channel_ops seb_ops = {
-	.glink_channel_state = seb_notify_glink_channel_state,
-	.rx_msg = seb_rx_msg,
-};
-
 /*
  * Register notify cb and manage the list
  */
@@ -611,7 +606,7 @@ static int seb_init(struct seb_priv *dev)
 	INIT_WORK(&dev->slate_notify_work, seb_notify_work);
 	INIT_LIST_HEAD(&dev->rx_list);
 	spin_lock_init(&dev->rx_lock);
-
+	seb_channel_init(&seb_notify_glink_channel_state, &seb_rx_msg);
 	return 0;
 }
 

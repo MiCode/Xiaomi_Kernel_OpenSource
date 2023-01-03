@@ -221,4 +221,6 @@ int slatecom_set_spi_state(enum slatecom_spi_state state);
 
 void slatecom_slatedown_handler(void);
 
+void slatecom_state_init(void (*fn1)(bool), void (*fn2)(bool));
+
 #endif /* SLATECOM_H */

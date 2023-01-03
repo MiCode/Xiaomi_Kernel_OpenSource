@@ -45,11 +45,6 @@ struct slatersb_priv {
 static void *slatersb_drv;
 static int slatersb_enable(struct slatersb_priv *dev, bool enable);
 
-struct rsb_channel_ops rsb_ops = {
-	.glink_channel_state = slatersb_notify_glink_channel_state,
-	.rx_msg = slatersb_rx_msg,
-};
-
 static void slatersb_slatedown_work(struct work_struct *work)
 {
 	struct slatersb_priv *dev = container_of(work, struct slatersb_priv,
@@ -539,6 +534,8 @@ static int slatersb_init(struct slatersb_priv *dev)
 	INIT_WORK(&dev->rsb_calibration_work, slatersb_calibration);
 	INIT_WORK(&dev->bttn_configr_work, slatersb_buttn_configration);
 
+	slatersb_channel_init(&slatersb_notify_glink_channel_state, &slatersb_rx_msg);
+
 	return 0;
 }
 
@@ -553,7 +550,7 @@ static int slate_rsb_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 	/* Add wake lock for PM suspend */
-	wakeup_source_add(&dev->slatersb_ws);
+	wakeup_source_register(&pdev->dev, "slate_rsb");
 	dev->slatersb_current_state = SLATERSB_STATE_UNKNOWN;
 	rc = slatersb_init(dev);
 	if (rc)
@@ -577,7 +574,7 @@ static int slate_rsb_remove(struct platform_device *pdev)
 	struct slatersb_priv *dev = platform_get_drvdata(pdev);
 
 	destroy_workqueue(dev->slatersb_wq);
-	wakeup_source_trash(&dev->slatersb_ws);
+	wakeup_source_unregister(&dev->slatersb_ws);
 	return 0;
 }
 

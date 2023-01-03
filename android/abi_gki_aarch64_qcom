@@ -1200,6 +1200,7 @@
   misc_register
   mmc_cqe_request_done
   mmc_execute_tuning
+  mmc_get_ext_csd
   mmc_of_parse
   __mmc_poll_for_busy
   mmc_prepare_busy_cmd
@@ -1214,6 +1215,7 @@
   mmc_set_bus_width
   mmc_set_clock
   mmc_set_timing
+  mmc_wait_for_cmd
   mmput
   mod_delayed_work_on
   mod_node_page_state
@@ -2306,6 +2308,7 @@
   usb_mon_deregister
   usb_mon_register
   usb_phy_set_charger_current
+  usb_pipe_type_check
   usb_put_function_instance
   usb_register_notify
   usb_remove_phy

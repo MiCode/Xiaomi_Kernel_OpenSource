@@ -491,7 +491,7 @@ int gh_provide_mem(struct gh_vm *vm, phys_addr_t phys,
 	ret = hyp_assign_phys(phys, size, srcVM, 1, destVM, destVMperm, 1);
 	if (ret) {
 		pr_err("failed hyp_assign for %pa address of size %zx - subsys VMid %d rc:%d\n",
-			phys, size, vmid, ret);
+		       &phys, size, vmid, ret);
 		goto err_hyp_assign;
 	}
 

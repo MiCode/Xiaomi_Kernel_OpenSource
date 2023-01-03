@@ -185,5 +185,6 @@
 #define GCC_USB3_PHY_BCR			25
 #define GCC_USB3PHY_PHY_BCR			26
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR		27
+#define GCC_EMAC0_RGMII_CLK_ARES		28
 
 #endif

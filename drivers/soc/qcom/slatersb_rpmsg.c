@@ -11,6 +11,15 @@
 #include "slatersb_rpmsg.h"
 
 static struct slatersb_rpmsg_dev *pdev;
+struct rsb_channel_ops rsb_ops;
+
+
+void slatersb_channel_init(void (*fn1)(bool), void (*fn2)(void *data, int len))
+{
+	rsb_ops.glink_channel_state = fn1;
+	rsb_ops.rx_msg = fn2;
+}
+EXPORT_SYMBOL(slatersb_channel_init);
 
 int slatersb_rpmsg_tx_msg(void  *msg, size_t len)
 {

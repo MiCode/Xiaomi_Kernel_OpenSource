@@ -83,4 +83,12 @@ config QRTR_GENPOOL
 	  memory created and owned by another device, which is shared through
 	  the genpool framework.
 
+config QRTR_BPF_FILTER
+	tristate "IPC Router BPF filter"
+	depends on BPF_SYSCALL && BPF_JIT
+	help
+	  This option is used to allow the support of eBPF filter
+	  functionality in ipc router. It prevents unauthorized users of a
+	  QMI service from accessing it. It also prevents broadcasting local QMI
+	  services to connected SoCs. Say Y here to enable this for auto targets.
 endif # QRTR

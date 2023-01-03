@@ -272,10 +272,11 @@ static const struct pinctrl_pin_desc lemans_pins[] = {
 	PINCTRL_PIN(147, "GPIO_147"),
 	PINCTRL_PIN(148, "GPIO_148"),
 	PINCTRL_PIN(149, "UFS_RESET"),
-	PINCTRL_PIN(150, "SDC1_RCLK"),
-	PINCTRL_PIN(151, "SDC1_CLK"),
-	PINCTRL_PIN(152, "SDC1_CMD"),
-	PINCTRL_PIN(153, "SDC1_DATA"),
+	PINCTRL_PIN(150, "UFS1_RESET"),
+	PINCTRL_PIN(151, "SDC1_RCLK"),
+	PINCTRL_PIN(152, "SDC1_CLK"),
+	PINCTRL_PIN(153, "SDC1_CMD"),
+	PINCTRL_PIN(154, "SDC1_DATA"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -431,10 +432,11 @@ DECLARE_MSM_GPIO_PINS(147);
 DECLARE_MSM_GPIO_PINS(148);
 
 static const unsigned int ufs_reset_pins[] = { 149 };
-static const unsigned int sdc1_rclk_pins[] = { 150 };
-static const unsigned int sdc1_clk_pins[] = { 151 };
-static const unsigned int sdc1_cmd_pins[] = { 152 };
-static const unsigned int sdc1_data_pins[] = { 153 };
+static const unsigned int ufs1_reset_pins[] = { 150 };
+static const unsigned int sdc1_rclk_pins[] = { 151 };
+static const unsigned int sdc1_clk_pins[] = { 152 };
+static const unsigned int sdc1_cmd_pins[] = { 153 };
+static const unsigned int sdc1_data_pins[] = { 154 };
 
 enum lemans_functions {
 	msm_mux_gpio,
@@ -1683,10 +1685,11 @@ static const struct msm_pingroup lemans_groups[] = {
 	[147] = PINGROUP(147, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[148] = PINGROUP(148, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[149] = UFS_RESET(ufs_reset, 0x1a2000),
-	[150] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x199000, 15, 0),
-	[151] = SDC_QDSD_PINGROUP(sdc1_clk, 0x199000, 13, 6),
-	[152] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x199000, 11, 3),
-	[153] = SDC_QDSD_PINGROUP(sdc1_data, 0x199000, 9, 0),
+	[150] = UFS_RESET(ufs1_reset, 0x1a4000),
+	[151] = SDC_QDSD_PINGROUP(sdc1_rclk, 0x199000, 15, 0),
+	[152] = SDC_QDSD_PINGROUP(sdc1_clk, 0x199000, 13, 6),
+	[153] = SDC_QDSD_PINGROUP(sdc1_cmd, 0x199000, 11, 3),
+	[154] = SDC_QDSD_PINGROUP(sdc1_data, 0x199000, 9, 0),
 };
 static struct pinctrl_qup lemans_qup_regs[] = {
 	QUP_I3C(6, QUP_I3C_6_MODE_OFFSET),
@@ -1702,7 +1705,7 @@ static const struct msm_pinctrl_soc_data lemans_pinctrl = {
 	.nfunctions = ARRAY_SIZE(lemans_functions),
 	.groups = lemans_groups,
 	.ngroups = ARRAY_SIZE(lemans_groups),
-	.ngpios = 150,
+	.ngpios = 151,
 	.qup_regs = lemans_qup_regs,
 	.nqup_regs = ARRAY_SIZE(lemans_qup_regs),
 };

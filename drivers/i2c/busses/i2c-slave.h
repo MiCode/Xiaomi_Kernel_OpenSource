@@ -46,7 +46,7 @@
 /* I2C Slave CLK_LOW_TIMEOUT reg fields */
 #define TIMER_MODE			(BIT(30))
 
-#define SLAVE_ADDR			0x37
+#define SLAVE_ADDR			0x30
 #define I2C_SLAVE_MAX_MSG_SIZE		32
 #define I2C_SLAVE_BYTE_DATA		1
 #define I2C_SLAVE_WORD_DATA		2
@@ -58,11 +58,11 @@
 		if (print) { \
 			if (dev) \
 				dev_err((dev), x); \
-		} else { \
-			pr_err(x); \
+			else \
+				pr_err(x); \
+			if (dev) \
+				i2c_slave_trace_log(dev, x); \
 		} \
-		if (dev) \
-			i2c_slave_trace_log(dev, x); \
 	} while (0)
 
 #define I2C_SLAVE_DBG(log_ctx, print, dev, x...) \
@@ -71,11 +71,11 @@
 		if (print) { \
 			if (dev) \
 				dev_info((dev), x); \
-		} else { \
-			pr_debug(x); \
+			else \
+				pr_debug(x); \
+			if (dev) \
+				i2c_slave_trace_log(dev, x); \
 		} \
-		if (dev) \
-			i2c_slave_trace_log(dev, x); \
 	} while (0)
 
 /* I2C_S_IRQ_STATUS fields */

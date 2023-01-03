@@ -3807,12 +3807,25 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 	return err;
 }
 
+/**
+ * Check controller status
+ * Returns true if controller is active, false otherwise
+ */
+static bool is_hba_active(struct ufs_hba *hba)
+{
+	return !!(ufshcd_readl(hba, REG_CONTROLLER_ENABLE) & CONTROLLER_ENABLE);
+}
+
 static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 		bool scale_up, enum ufs_notify_change_status status)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufs_pa_layer_attr *dev_req_params = &host->dev_req_params;
 	int err = 0;
+
+	/* Check if controller is active to send commands, else commands will timeout */
+	if (!is_hba_active(hba))
+		goto out;
 
 	if (status == PRE_CHANGE) {
 		err = ufshcd_uic_hibern8_enter(hba);
@@ -4719,7 +4732,7 @@ static u32 is_bootdevice_ufs = UFS_BOOT_DEVICE;
 
 static int ufs_qcom_read_boot_config(struct platform_device *pdev)
 {
-	u32 *buf;
+	u8 *buf;
 	size_t len;
 	struct nvmem_cell *cell;
 
@@ -4727,7 +4740,7 @@ static int ufs_qcom_read_boot_config(struct platform_device *pdev)
 	if (IS_ERR(cell))
 		return -EINVAL;
 
-	buf = nvmem_cell_read(cell, &len);
+	buf = (u8 *)nvmem_cell_read(cell, &len);
 	if (IS_ERR(buf))
 		return -EINVAL;
 

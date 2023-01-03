@@ -1,5 +1,6 @@
 smp2p.ko
 qcom-apcs-ipc-mailbox.ko
+rproc_qcom_common.ko
 glink_probe.ko
 qcom_glink_rpm.ko
 qcom_glink_smem.ko
@@ -66,3 +67,4 @@ spmi-pmic-arb.ko
 regmap-spmi.ko
 spmi.ko
 nvmem_qcom-spmi-sdam.ko
+rtc-pm8xxx.ko

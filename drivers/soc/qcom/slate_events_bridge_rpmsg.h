@@ -19,4 +19,11 @@ struct seb_rpmsg_dev {
 
 int seb_rpmsg_tx_msg(void  *msg, size_t len);
 
+struct seb_channel_ops {
+	void (*glink_channel_state)(bool state);
+	void (*rx_msg)(void *data, int len);
+};
+
+void seb_channel_init(void (*fn1)(bool), void (*fn2)(void *, int));
+
 #endif /* SEB_RPMSG_H */

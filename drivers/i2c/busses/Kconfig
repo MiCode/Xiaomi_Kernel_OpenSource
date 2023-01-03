@@ -935,7 +935,7 @@ config I2C_MSM_GENI
 
 config I2C_SLAVE_QCOM
 	tristate "Qualcomm Technologies Inc.'s I2C Slave"
-	depends on I2C_MSM_GENI
+	depends on ARCH_QCOM || COMPILE_TEST
 	default n
 	help
 	  This driver supports I2C slave mode on the Qualcomm Technologies,

@@ -19,6 +19,7 @@
 #include "clk-regmap-divider.h"
 #include "common.h"
 #include "vdd-level-monaco.h"
+#include "clk-pm.h"
 
 #define CX_GMU_CBCR_SLEEP_MASK		0xf
 #define CX_GMU_CBCR_SLEEP_SHIFT		4
@@ -44,7 +45,7 @@ static struct pll_vco lucid_evo_vco[] = {
 };
 
 /* 310MHz configuration*/
-static const struct alpha_pll_config gpu_cc_pll0_config = {
+static struct alpha_pll_config gpu_cc_pll0_config = {
 	.l = 0x10,
 	.cal_l = 0x44,
 	.alpha = 0x2555,
@@ -60,6 +61,7 @@ static struct clk_alpha_pll gpu_cc_pll0 = {
 	.vco_table = lucid_evo_vco,
 	.num_vco = ARRAY_SIZE(lucid_evo_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID_EVO],
+	.config = &gpu_cc_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_pll0",
@@ -400,6 +402,11 @@ static struct clk_branch gpu_cc_hlos1_vote_gpu_smmu_clk = {
 	},
 };
 
+/* Always ON clocks GPU_CC_AHB_CLK */
+static struct critical_clk_offset critical_clk_list[] = {
+	{ .offset = 0x4078, .mask = BIT(0) },
+};
+
 static struct clk_regmap *gpu_cc_monaco_clocks[] = {
 	[GPU_CC_CRC_AHB_CLK] = &gpu_cc_crc_ahb_clk.clkr,
 	[GPU_CC_CX_APB_CLK] = &gpu_cc_cx_apb_clk.clkr,
@@ -427,12 +434,14 @@ static const struct regmap_config gpu_cc_monaco_regmap_config = {
 	.fast_io = true,
 };
 
-static const struct qcom_cc_desc gpu_cc_monaco_desc = {
+static struct qcom_cc_desc gpu_cc_monaco_desc = {
 	.config = &gpu_cc_monaco_regmap_config,
 	.clks = gpu_cc_monaco_clocks,
 	.num_clks = ARRAY_SIZE(gpu_cc_monaco_clocks),
 	.clk_regulators = gpu_cc_monaco_regulators,
 	.num_clk_regulators = ARRAY_SIZE(gpu_cc_monaco_regulators),
+	.critical_clk_en = critical_clk_list,
+	.num_critical_clk = ARRAY_SIZE(critical_clk_list),
 };
 
 static const struct of_device_id gpu_cc_monaco_match_table[] = {
@@ -453,18 +462,18 @@ static int gpu_cc_monaco_probe(struct platform_device *pdev)
 
 	clk_lucid_evo_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
 
-       /*
-	* Keep Always ON clocks
-	* GPU_CC_AHB_CLK
-	*/
-	regmap_update_bits(regmap, 0x4078, BIT(0), BIT(0));
-
 	mask = CX_GMU_CBCR_WAKE_MASK << CX_GMU_CBCR_WAKE_SHIFT;
 	mask |= CX_GMU_CBCR_SLEEP_MASK << CX_GMU_CBCR_SLEEP_SHIFT;
 	value = 0xF << CX_GMU_CBCR_WAKE_SHIFT | 0xF << CX_GMU_CBCR_SLEEP_SHIFT;
 	regmap_update_bits(regmap, gpu_cc_cx_gmu_clk.clkr.enable_reg,
 				       mask, value);
 
+	ret = register_qcom_clks_pm(pdev, false, &gpu_cc_monaco_desc);
+	if (ret)
+		dev_err(&pdev->dev, "Failed register gpucc_pm_rt_ops clocks\n");
+
+	/* Enabling always ON clocks */
+	clk_restore_critical_clocks(&pdev->dev);
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_monaco_desc, regmap);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register GPU CC clocks\n");

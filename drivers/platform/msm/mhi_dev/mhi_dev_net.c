@@ -148,6 +148,7 @@ struct mhi_dev_net_ctxt {
 	struct platform_device		*pdev;
 	void (*net_event_notifier)(struct mhi_dev_client_cb_reason *cb);
 	uint32_t num_mhi_instances;
+	uint32_t eth_iface_out_ch; /* outbound channel that uses eth interface */
 };
 
 static struct mhi_dev_net_ctxt mhi_net_ctxt;
@@ -172,8 +173,13 @@ static int mhi_dev_net_init_ch_attributes(struct mhi_dev_net_client *client,
 {
 	client->out_chan_attr = chan_attrib;
 	client->in_chan_attr = ++chan_attrib;
-	mhi_dev_net_log(MHI_INFO, "Write ch attributes dir %d ch_id %d\n",
-			client->out_chan_attr->dir, client->out_chan_attr->chan_id);
+
+	if (mhi_net_ctxt.eth_iface_out_ch == client->out_chan_attr->chan_id)
+		client->eth_iface = true;
+
+	mhi_dev_net_log(MHI_INFO, "Write ch attributes dir %d ch_id %d, %s\n",
+			client->out_chan_attr->dir, client->out_chan_attr->chan_id,
+			client->eth_iface ? "Uses eth i/f":"");
 	mhi_dev_net_log(MHI_INFO, "Read ch attributes dir %d ch_id %d\n",
 			client->in_chan_attr->dir, client->in_chan_attr->chan_id);
 	return 0;
@@ -820,12 +826,6 @@ int mhi_dev_net_interface_init(uint32_t vf_id, uint32_t num_vfs)
 		/* Store mhi instance id for future usage */
 		mhi_net_client[i]->vf_id = vf_id;
 
-		if (mhi_net_ctxt.pdev) {
-			mhi_net_ctxt.client_handles[i]->eth_iface =
-				of_property_read_bool
-				((&mhi_net_ctxt.pdev->dev)->of_node,
-					"qcom,mhi-ethernet-interface");
-		}
 		/*Process pending packet work queue*/
 		mhi_net_client[i]->pending_pckt_wq =
 			alloc_ordered_workqueue("%s", __WQ_LEGACY |
@@ -923,10 +923,19 @@ EXPORT_SYMBOL(mhi_dev_net_exit);
 
 static int mhi_dev_net_probe(struct platform_device *pdev)
 {
+	int ret = 0;
+
 	if (pdev->dev.of_node) {
 		mhi_net_ctxt.pdev = pdev;
-		mhi_dev_net_log(MHI_INFO,
-				"MHI Network probe success");
+
+		ret = of_property_read_u32((&pdev->dev)->of_node,
+				 "qcom,mhi-ethernet-interface-channel",
+				 &mhi_net_ctxt.eth_iface_out_ch);
+		if (!ret)
+			mhi_dev_net_log(MHI_INFO,
+					"Channel %d uses ethernet interface\n",
+					mhi_net_ctxt.eth_iface_out_ch);
+		mhi_dev_net_log(MHI_INFO, "MHI Network probe success");
 	}
 
 	return 0;

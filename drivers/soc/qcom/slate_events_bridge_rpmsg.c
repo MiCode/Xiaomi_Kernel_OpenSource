@@ -11,6 +11,14 @@
 #include "slate_events_bridge_rpmsg.h"
 
 static struct seb_rpmsg_dev *pdev;
+struct seb_channel_ops seb_ops;
+
+void seb_channel_init(void (*fn1)(bool), void (*fn2)(void *data, int len))
+{
+	seb_ops.glink_channel_state = fn1;
+	seb_ops.rx_msg = fn2;
+}
+EXPORT_SYMBOL(seb_channel_init);
 
 int seb_rpmsg_tx_msg(void  *msg, size_t len)
 {
