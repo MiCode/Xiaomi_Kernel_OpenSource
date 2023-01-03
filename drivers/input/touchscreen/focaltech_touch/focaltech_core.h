@@ -193,10 +193,8 @@ enum trusted_touch_tvm_states {
 #ifdef CONFIG_FTS_TRUSTED_TOUCH
 #define TRUSTED_TOUCH_MEM_LABEL 0x7
 
-#define TOUCH_RESET_GPIO_BASE 0xF114000
 #define TOUCH_RESET_GPIO_SIZE 0x1000
 #define TOUCH_RESET_GPIO_OFFSET 0x4
-#define TOUCH_INTR_GPIO_BASE 0xF115000
 #define TOUCH_INTR_GPIO_SIZE 0x1000
 #define TOUCH_INTR_GPIO_OFFSET 0x8
 
@@ -221,6 +219,10 @@ struct trusted_touch_vm_info {
 	u32 iomem_list_size;
 	void *mem_cookie;
 	atomic_t vm_state;
+#ifdef CONFIG_ARCH_QTI_VM
+	u32 reset_gpio_base;
+	u32 intr_gpio_base;
+#endif
 };
 #endif
 
