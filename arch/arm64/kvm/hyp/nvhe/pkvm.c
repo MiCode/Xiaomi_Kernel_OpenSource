@@ -794,6 +794,7 @@ static void teardown_donated_memory(struct kvm_hyp_memcache *mc, void *addr,
 	void *start;
 
 	memset(addr, 0, size);
+	kvm_flush_dcache_to_poc(addr, size);
 
 	for (start = addr; start < addr + size; start += PAGE_SIZE)
 		push_hyp_memcache(mc, start, hyp_virt_to_phys);

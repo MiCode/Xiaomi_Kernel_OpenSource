@@ -44,6 +44,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_readahead_gfp_mask,
 DECLARE_RESTRICTED_HOOK(android_rvh_set_readahead_gfp_mask,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_rmqueue_bulk,
+			TP_PROTO(void *unused),
+			TP_ARGS(unused), 1);
 DECLARE_HOOK(android_vh_meminfo_proc_show,
 	TP_PROTO(struct seq_file *m),
 	TP_ARGS(m));

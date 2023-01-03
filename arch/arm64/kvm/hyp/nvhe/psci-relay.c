@@ -235,7 +235,7 @@ static u64 psci_mem_protect(s64 offset)
 		return cnt;
 
 	if (!cnt || !new)
-		psci_call(PSCI_1_1_FN64_MEM_PROTECT, offset < 0 ? 0 : 1, 0, 0);
+		psci_call(PSCI_1_1_FN_MEM_PROTECT, offset < 0 ? 0 : 1, 0, 0);
 
 	cnt = new;
 	return cnt;
@@ -307,10 +307,8 @@ static unsigned long psci_1_0_handler(u64 func_id, struct kvm_cpu_context *host_
 	case PSCI_1_1_FN64_SYSTEM_RESET2:
 		pkvm_clear_pvmfw_pages();
 		hyp_spin_lock(&mem_protect_lock);
-		if (psci_mem_protect_active()) {
-			return psci_0_2_handler(PSCI_0_2_FN_SYSTEM_RESET,
-						host_ctxt);
-		}
+		if (psci_mem_protect_active())
+			cpu_reg(host_ctxt, 0) = PSCI_0_2_FN_SYSTEM_RESET;
 		fallthrough;
 	case PSCI_1_0_FN_PSCI_FEATURES:
 	case PSCI_1_0_FN_SET_SUSPEND_MODE:
