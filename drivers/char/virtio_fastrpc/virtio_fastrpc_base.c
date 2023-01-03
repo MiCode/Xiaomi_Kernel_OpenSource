@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -53,7 +53,7 @@
  * need to be matched with BE_MINOR_VER. And it will return to 0 when
  * FE_MAJOR_VER is increased.
  */
-#define FE_MINOR_VER 0x1
+#define FE_MINOR_VER 0x2
 #define FE_VERSION (FE_MAJOR_VER << 16 | FE_MINOR_VER)
 #define BE_MAJOR_VER(ver) (((ver) >> 16) & 0xffff)
 
@@ -140,13 +140,13 @@ static ssize_t vfastrpc_debugfs_read(struct file *filp, char __user *buffer,
 			"\n========%s %s %s========\n", title,
 			" LIST OF MAPS ", title);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%-20s|%-20s|%-10s|%-10s|%-10s|%-10s\n\n",
-			"va", "phys", "size", "dma_flags", "attr", "refs");
+			"%-20s|%-20s|%-10s|%-10s|%-10s\n\n",
+			"va", "phys", "size", "attr", "refs");
 		mutex_lock(&fl->map_mutex);
 		hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
 			len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-				"0x%-18lX|0x%-18llX|%-10zu|0x%-10lx|0x%-10x|%-10d\n\n",
-				map->va, map->phys, map->size, map->dma_flags,
+				"0x%-18lX|0x%-18llX|%-10zu|0x%-10x|%-10d\n\n",
+				map->va, map->phys, map->size,
 				map->attr, map->refs);
 		}
 		mutex_unlock(&fl->map_mutex);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/ion.h>
@@ -875,9 +875,7 @@ static int get_args(struct vfastrpc_invoke_ctx *ctx)
 			vmmap->refcount = maps[i]->refs;
 			vmmap->va = maps[i]->va;
 			vmmap->len = maps[i]->len;
-			vmmap->attr = 0;
-			if (maps[i]->dma_flags & ION_FLAG_CACHED)
-				vmmap->attr |= VFASTRPC_MAP_ATTR_CACHED;
+			vmmap->attr = VFASTRPC_MAP_ATTR_CACHED;
 			vmmap->nents = table->nents;
 
 			sgbuf = (struct virt_fastrpc_sgl *)vmmap->sgl;
@@ -918,6 +916,11 @@ static int get_args(struct vfastrpc_invoke_ctx *ctx)
 			calc_compare_crc(ctx, (uint8_t *)payload, (int)rpra[i].payload_len,
 					&(rpra[i].crc), NULL);
 
+			/*
+			 * no need to sync cache even though internal buffers are
+			 * cached, since BE will do SMMU mapping with the same cache
+			 * attribute to enable the IO coherency
+			 */
 			if (i < inbufs && len) {
 				K_COPY_FROM_USER(err, 0, ctx->desc[i].buf->va,
 						lpra[i].buf.pv, len);
@@ -969,9 +972,7 @@ static int get_args(struct vfastrpc_invoke_ctx *ctx)
 			vmmap->refcount = maps[i]->refs;
 			vmmap->va = maps[i]->va;
 			vmmap->len = lpra[i].buf.len;
-			vmmap->attr = 0;
-			if (maps[i]->dma_flags & ION_FLAG_CACHED)
-				vmmap->attr |= VFASTRPC_MAP_ATTR_CACHED;
+			vmmap->attr = VFASTRPC_MAP_ATTR_CACHED;
 			vmmap->nents = table->nents;
 
 			sgbuf = (struct virt_fastrpc_sgl *)vmmap->sgl;
@@ -1750,7 +1751,7 @@ int vfastrpc_internal_mmap(struct vfastrpc_file *vfl,
 		vmmap.refcount = map->refs;
 		vmmap.va = va_to_dsp;
 		vmmap.len = map->size;
-		vmmap.attr = map->dma_flags & ION_FLAG_CACHED ? VFASTRPC_MAP_ATTR_CACHED : 0;
+		vmmap.attr = VFASTRPC_MAP_ATTR_CACHED;
 		vmmap.nents = map->table->nents;
 		VERIFY(err, 0 == virt_fastrpc_mmap(vfl, ud->flags,
 					map->table->sgl, &raddr, &vmmap));
