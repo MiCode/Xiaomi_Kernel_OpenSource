@@ -3,7 +3,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm SDHCI Platform driver
  *
  * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -469,7 +469,7 @@ struct sdhci_msm_host {
 #ifdef CONFIG_MMC_CRYPTO
 	void __iomem *ice_mem;	/* MSM ICE mapped address (if available) */
 #endif
-#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+#if (IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER) || IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER_V1))
 	void __iomem *ice_hwkm_mem;
 #endif
 	int pwr_irq;		/* power irq */
@@ -2974,7 +2974,7 @@ static int sdhci_msm_ice_init(struct sdhci_msm_host *msm_host,
 	struct mmc_host *mmc = msm_host->mmc;
 	struct device *dev = mmc_dev(mmc);
 	struct resource *ice_base_res;
-#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+#if (IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER) || IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER_V1))
 	struct resource *ice_hwkm_res;
 #endif
 	int err;
@@ -3002,7 +3002,7 @@ static int sdhci_msm_ice_init(struct sdhci_msm_host *msm_host,
 	}
 	cq_host->ice_mmio = msm_host->ice_mem;
 
-#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+#if (IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER) || IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER_V1))
 	ice_hwkm_res = platform_get_resource_byname(msm_host->pdev,
 						    IORESOURCE_MEM,
 						    "cqhci_ice_hwkm");
