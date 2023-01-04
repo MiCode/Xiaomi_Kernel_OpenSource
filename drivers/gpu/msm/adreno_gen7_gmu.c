@@ -2311,7 +2311,8 @@ void gen7_gmu_remove(struct kgsl_device *device)
 	gen7_free_gmu_globals(gmu);
 
 	vfree(gmu->itcm_shadow);
-	kobject_put(&gmu->log_kobj);
+	if (gmu->log_kobj.state_initialized)
+		kobject_put(&gmu->log_kobj);
 }
 
 static int gen7_gmu_iommu_fault_handler(struct iommu_domain *domain,
@@ -3105,8 +3106,10 @@ int gen7_gmu_device_probe(struct platform_device *pdev,
 		return ret;
 
 	ret = adreno_dispatcher_init(adreno_dev);
-	if (ret)
+	if (ret) {
+		dev_err(&pdev->dev, "adreno_dispatcher_init failed ret %d\n", ret);
 		return ret;
+	}
 
 	device = KGSL_DEVICE(adreno_dev);
 

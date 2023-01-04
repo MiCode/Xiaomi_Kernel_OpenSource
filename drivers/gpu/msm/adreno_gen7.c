@@ -1343,7 +1343,7 @@ u64 gen7_read_alwayson(struct adreno_device *adreno_dev)
 
 static void gen7_remove(struct adreno_device *adreno_dev)
 {
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+	if (adreno_is_preemption_enabled(adreno_dev))
 		del_timer(&adreno_dev->preempt.timer);
 }
 
