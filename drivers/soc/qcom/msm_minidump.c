@@ -1066,7 +1066,11 @@ static int msm_minidump_driver_probe(struct platform_device *pdev)
 
 	/* All updates above should be visible, before init completes */
 	smp_store_release(&md_init_done, true);
+
+#if IS_MODULE(CONFIG_QCOM_MINIDUMP)
 	msm_minidump_log_init();
+#endif
+
 	pr_info("Enabled with max number of regions %d\n",
 		CONFIG_MINIDUMP_MAX_ENTRIES);
 
