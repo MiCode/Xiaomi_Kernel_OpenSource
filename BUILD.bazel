@@ -573,3 +573,72 @@ ddk_headers(
     includes = [],
     visibility = ["//visibility:private"],
 )
+
+
+# MTK
+load("//build/kernel/kleaf:constants.bzl",
+    "DEFAULT_GKI_OUTS",
+)
+
+mgk_module_outs = [
+    "drivers/firmware/arm_ffa/ffa-module.ko",
+    "drivers/gpu/drm/display/drm_display_helper.ko",
+    "drivers/gpu/drm/drm_dma_helper.ko",
+    "drivers/iio/buffer/industrialio-triggered-buffer.ko",
+    "drivers/iio/buffer/kfifo_buf.ko",
+    "drivers/leds/leds-pwm.ko",
+    "drivers/media/v4l2-core/v4l2-async.ko",
+    "drivers/media/v4l2-core/v4l2-flash-led-class.ko",
+    "drivers/media/v4l2-core/v4l2-fwnode.ko",
+    "drivers/perf/arm_dsu_pmu.ko",
+    "drivers/phy/mediatek/phy-mtk-mipi-dsi-drv.ko",
+    "drivers/power/reset/reboot-mode.ko",
+    "drivers/power/reset/syscon-reboot-mode.ko",
+    "drivers/tee/tee.ko",
+    "drivers/thermal/thermal-generic-adc.ko",
+    "fs/pstore/pstore_blk.ko",
+    "fs/pstore/pstore_zone.ko",
+]
+
+kernel_build(
+    name = "kernel_aarch64.eng",
+    srcs = [
+        ":kernel_aarch64_sources",
+        "//kernel_device_modules-6.1:mgk_configs",
+    ],
+    build_config = "//kernel_device_modules-6.1:build_config.eng",
+    kconfig_ext = "//kernel_device_modules-6.1:Kconfig.ext",
+    outs = DEFAULT_GKI_OUTS,
+    module_outs = COMMON_GKI_MODULES_LIST + mgk_module_outs,
+    base_kernel = None,
+    trim_nonlisted_kmi = False,
+)
+
+kernel_build(
+    name = "kernel_aarch64.userdebug",
+    srcs = [
+        ":kernel_aarch64_sources",
+        "//kernel_device_modules-6.1:mgk_configs",
+    ],
+    build_config = "//kernel_device_modules-6.1:build_config.userdebug",
+    kconfig_ext = "//kernel_device_modules-6.1:Kconfig.ext",
+    outs = DEFAULT_GKI_OUTS,
+    module_outs = COMMON_GKI_MODULES_LIST + mgk_module_outs,
+    base_kernel = None,
+    trim_nonlisted_kmi = False,
+)
+
+kernel_build(
+    name = "kernel_aarch64.user",
+    srcs = [
+        ":kernel_aarch64_sources",
+        "//kernel_device_modules-6.1:mgk_configs",
+    ],
+    build_config = "//kernel_device_modules-6.1:build_config.user",
+    kconfig_ext = "//kernel_device_modules-6.1:Kconfig.ext",
+    outs = DEFAULT_GKI_OUTS,
+    module_outs = COMMON_GKI_MODULES_LIST + mgk_module_outs,
+    base_kernel = None,
+    trim_nonlisted_kmi = False,
+)
+
