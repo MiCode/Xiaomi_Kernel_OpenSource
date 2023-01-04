@@ -1697,6 +1697,7 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 		} else if (!solver_config &&
 			   !of_find_property(dn, "qcom,hw-channel", NULL)) {
 			drv[i].rsc_pm.notifier_call = rpmh_rsc_cpu_pm_callback;
+			drv[i].rsc_pm.priority = INT_MAX;
 			cpu_pm_register_notifier(&drv[i].rsc_pm);
 		} else if (solver_config) {
 			drv[i].client.flags = SOLVER_PRESENT;
