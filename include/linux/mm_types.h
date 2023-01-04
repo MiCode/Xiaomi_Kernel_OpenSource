@@ -419,6 +419,11 @@ struct vm_area_struct {
 #endif
 	struct vm_userfaultfd_ctx vm_userfaultfd_ctx;
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	/*
+	 * The name does not reflect the usage and is not renamed to keep
+	 * the ABI intact.
+	 * This is used to refcount VMA in get_vma/put_vma.
+	 */
 	atomic_t file_ref_count;
 #endif
 
@@ -691,19 +696,20 @@ void lru_gen_migrate_mm(struct mm_struct *mm);
 static inline void lru_gen_init_mm(struct mm_struct *mm)
 {
 	INIT_LIST_HEAD(&mm->lru_gen.list);
+	nodes_clear(mm->lru_gen.nodes);
 #ifdef CONFIG_MEMCG
 	mm->lru_gen.memcg = NULL;
 #endif
-	nodes_clear(mm->lru_gen.nodes);
 }
 
 static inline void lru_gen_use_mm(struct mm_struct *mm)
 {
-	/* unlikely but not a bug when racing with lru_gen_migrate_mm() */
-	VM_WARN_ON(list_empty(&mm->lru_gen.list));
-
-	if (!(current->flags & PF_KTHREAD) && !nodes_full(mm->lru_gen.nodes))
-		nodes_setall(mm->lru_gen.nodes);
+	/*
+	 * When the bitmap is set, page reclaim knows this mm_struct has been
+	 * used since the last time it cleared the bitmap. So it might be worth
+	 * walking the page tables of this mm_struct to clear the accessed bit.
+	 */
+	nodes_setall(mm->lru_gen.nodes);
 }
 
 #else /* !CONFIG_LRU_GEN */

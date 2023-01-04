@@ -760,20 +760,36 @@ void __kfree_skb(struct sk_buff *skb)
 EXPORT_SYMBOL(__kfree_skb);
 
 /**
- *	kfree_skb - free an sk_buff
+ *	kfree_skb_reason - free an sk_buff with special reason
  *	@skb: buffer to free
+ *	@reason: reason why this skb is dropped
  *
  *	Drop a reference to the buffer and free it if the usage count has
- *	hit zero.
+ *	hit zero. Meanwhile, pass the drop reason to 'kfree_skb'
+ *	tracepoint.
  */
-void kfree_skb(struct sk_buff *skb)
+void kfree_skb_reason(struct sk_buff *skb, enum skb_drop_reason reason)
 {
 	if (!skb_unref(skb))
 		return;
 
 	trace_android_vh_kfree_skb(skb);
-	trace_kfree_skb(skb, __builtin_return_address(0));
+	trace_kfree_skb(skb, __builtin_return_address(0), reason);
 	__kfree_skb(skb);
+}
+EXPORT_SYMBOL(kfree_skb_reason);
+
+/**
+ *	kfree_skb - free an sk_buff with 'NOT_SPECIFIED' reason
+ *	@skb: buffer to free
+ */
+void kfree_skb(struct sk_buff *skb)
+{
+	/* ANDROID: only still present to preserve the ABI, this went away in
+	 * mainline and LTS releases, to be replaced with an inline version
+	 * instead.
+	 */
+	kfree_skb_reason(skb, SKB_DROP_REASON_NOT_SPECIFIED);
 }
 EXPORT_SYMBOL(kfree_skb);
 
@@ -4188,9 +4204,8 @@ normal:
 				SKB_GSO_CB(nskb)->csum_start =
 					skb_headroom(nskb) + doffset;
 			} else {
-				skb_copy_bits(head_skb, offset,
-					      skb_put(nskb, len),
-					      len);
+				if (skb_copy_bits(head_skb, offset, skb_put(nskb, len), len))
+					goto err;
 			}
 			continue;
 		}
@@ -4892,7 +4907,7 @@ static bool skb_may_tx_timestamp(struct sock *sk, bool tsonly)
 {
 	bool ret;
 
-	if (likely(sysctl_tstamp_allow_data || tsonly))
+	if (likely(READ_ONCE(sysctl_tstamp_allow_data) || tsonly))
 		return true;
 
 	read_lock_bh(&sk->sk_callback_lock);

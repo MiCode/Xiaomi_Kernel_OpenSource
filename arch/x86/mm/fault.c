@@ -1227,7 +1227,6 @@ void do_user_addr_fault(struct pt_regs *regs,
 	vm_fault_t fault;
 	unsigned int flags = FAULT_FLAG_DEFAULT;
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
-	struct vm_area_struct pvma;
 	unsigned long seq;
 #endif
 
@@ -1341,29 +1340,30 @@ void do_user_addr_fault(struct pt_regs *regs,
 		count_vm_spf_event(SPF_ABORT_ODD);
 		goto spf_abort;
 	}
-	rcu_read_lock();
-	vma = __find_vma(mm, address);
-	if (!vma || vma->vm_start > address) {
-		rcu_read_unlock();
+	vma = get_vma(mm, address);
+	if (!vma) {
 		count_vm_spf_event(SPF_ABORT_UNMAPPED);
 		goto spf_abort;
 	}
+
 	if (!vma_can_speculate(vma, flags)) {
-		rcu_read_unlock();
+		put_vma(vma);
 		count_vm_spf_event(SPF_ABORT_NO_SPECULATE);
 		goto spf_abort;
 	}
-	pvma = *vma;
-	rcu_read_unlock();
-	if (!mmap_seq_read_check(mm, seq, SPF_ABORT_VMA_COPY))
+
+	if (!mmap_seq_read_check(mm, seq, SPF_ABORT_VMA_COPY)) {
+		put_vma(vma);
 		goto spf_abort;
-	vma = &pvma;
+	}
 	if (unlikely(access_error(error_code, vma))) {
+		put_vma(vma);
 		count_vm_spf_event(SPF_ABORT_ACCESS_ERROR);
 		goto spf_abort;
 	}
 	fault = do_handle_mm_fault(vma, address,
-				   flags | FAULT_FLAG_SPECULATIVE, seq, regs);
+			flags | FAULT_FLAG_SPECULATIVE, seq, regs);
+	put_vma(vma);
 
 	if (!(fault & VM_FAULT_RETRY))
 		goto done;

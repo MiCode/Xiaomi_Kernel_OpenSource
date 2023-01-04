@@ -134,6 +134,7 @@
   init_wait_entry
   __init_waitqueue_head
   io_schedule
+  iov_iter_advance
   ip6_local_out
   ip6_route_me_harder
   ip_local_deliver
