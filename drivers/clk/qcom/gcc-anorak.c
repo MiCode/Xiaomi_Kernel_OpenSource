@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -1920,7 +1920,7 @@ static struct clk_branch gcc_ddrss_gpu_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(const struct clk_init_data){
 			.name = "gcc_ddrss_gpu_axi_clk",
-			.ops = &clk_branch2_aon_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };

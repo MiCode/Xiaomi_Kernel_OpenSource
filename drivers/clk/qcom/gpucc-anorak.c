@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -378,7 +378,7 @@ static struct clk_branch gpu_cc_cx_gmu_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
-			.ops = &clk_branch2_aon_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -499,7 +499,7 @@ static struct clk_branch gpu_cc_hub_cx_int_clk = {
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
-			.ops = &clk_branch2_aon_ops,
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
