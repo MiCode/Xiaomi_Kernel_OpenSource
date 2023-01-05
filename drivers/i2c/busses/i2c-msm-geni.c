@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -168,6 +168,9 @@ struct geni_i2c_dev {
 	bool is_i2c_rtl_based; /* doing pending cancel only for rtl based SE's */
 	bool bus_recovery_enable; //To be enabled by client if needed
 	atomic_t is_xfer_in_progress;
+	struct notifier_block panic_nb; //panic notfier call back
+	bool panic_dump_collect; //panic dumps collection with dt based flag
+	bool clocks_on; //To check whether clocks were on/off
 };
 
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
@@ -1576,6 +1579,166 @@ static const struct i2c_algorithm geni_i2c_algo = {
 	.functionality	= geni_i2c_func,
 };
 
+/*
+ * geni_i2c_dump_regs - dumps i2c debug registers
+ *
+ * @gi2c: Pointer to i2c dev
+ *
+ * Return: none
+ */
+void geni_i2c_dump_regs(struct geni_i2c_dev *gi2c)
+{
+	int i;
+	unsigned int offset;
+	unsigned int se_offsets_1[40] = { 0x50, 0x60, 0x64, 0x68, 0x6C, 0x70, 0x74,
+		0x78, 0x7C, 0x80, 0x88, 0x600, 0x604, 0x610, 0x614, 0x624,
+		0x628, 0x630, 0x634, 0x640, 0x644, 0x660, 0x664, 0x670, 0xFFFF };
+	unsigned int se_offsets_2[40] = { 0x800, 0x804, 0x808, 0x80C, 0x810, 0x814,
+		0x900, 0x908, 0x910, 0x914, 0x920, 0x924, 0x930, 0x940, 0x944,
+		0x948, 0x950, 0x954, 0x958, 0x960, 0x964, 0xFFFF };
+
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev, "%s\n", __func__);
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "INIT_CFG_REVISION: 0x%x\n", geni_read_reg(gi2c->base, 0x0));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "S_INIT_CFG_REVISION: 0x%x\n", geni_read_reg(gi2c->base, 0x4));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "GENI_GENERAL_CFG: 0x%x\n", geni_read_reg(gi2c->base, 0x10));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "GENI_OUTPUT_CTRL: 0x%x\n", geni_read_reg(gi2c->base, 0x24));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "GENI_CGC_CTR: 0x%x\n", geni_read_reg(gi2c->base, 0x28));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "GENI_CHAR_CFG: 0x%x\n", geni_read_reg(gi2c->base, 0x2c));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "GENI_CHAR_DATA_0: 0x%x\n", geni_read_reg(gi2c->base, 0x30));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "GENI_CHAR_DATA_1: 0x%x\n", geni_read_reg(gi2c->base, 0x34));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "GENI_CHAR_DLY: 0x%x\n", geni_read_reg(gi2c->base, 0x3c));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "GENI_STATUS: 0x%x\n", geni_read_reg(gi2c->base, 0x40));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "GENI_TEST_BUS_CTR: 0x%x\n", geni_read_reg(gi2c->base, 0x44));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "SER_M_CLK_CGF: 0x%x\n", geni_read_reg(gi2c->base, 0x48));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "SER_S_CLK_CGF: 0x%x\n", geni_read_reg(gi2c->base, 0x4C));
+
+	for (i = 0; i < 40; i++) {
+		if (se_offsets_1[i] == 0xFFFF)
+			break;
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			    "Reg addr:0x%x->val:0x%x\n", se_offsets_1[i],
+			    geni_read_reg(gi2c->base, se_offsets_1[i]));
+	}
+
+	/* 0x780 to 0x7bc */
+	offset = 0x780;
+	for (i = 0; i < 16; i++, offset += 4)
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			    "Reg addr:0x%x->val:0x%x\n", offset,
+			    geni_read_reg(gi2c->base, offset));
+
+	for (i = 0; i < 40; i++) {
+		if (se_offsets_2[i] == 0xFFFF)
+			break;
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			    "Reg addr:0x%x->val:0x%x\n", se_offsets_2[i],
+			    geni_read_reg(gi2c->base, se_offsets_2[i]));
+	}
+
+	/* 0xb00 to 0xb14 */
+	offset = 0xb00;
+	for (i = 0; i < 6; i++, offset += 4)
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			    "Reg addr:0x%x->val:0x%x\n", offset,
+			    geni_read_reg(gi2c->base, offset));
+
+	/* 0x200 to 0x214 */
+	offset = 0x200;
+	for (i = 0; i < 6; i++, offset += 4)
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			    "Reg addr:0x%x->val:0x%x\n", offset,
+			    geni_read_reg(gi2c->base, offset));
+
+	/* 0x230 to 0x238 */
+	offset = 0x230;
+	for (i = 0; i < 3; i++, offset += 4)
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			    "Reg addr:0x%x->val:0x%x\n", offset,
+			    geni_read_reg(gi2c->base, offset));
+
+	/* 0x240 to 0x244 */
+	offset = 0x240;
+	for (i = 0; i < 2; i++, offset += 4)
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			    "Reg addr:0x%x->val:0x%x\n", offset,
+			    geni_read_reg(gi2c->base, offset));
+
+	/* 0x254 to 0x27c */
+	offset = 0x254;
+	for (i = 0; i < 11; i++, offset += 4)
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			    "Reg addr:0x%x->val:0x%x\n", offset,
+			    geni_read_reg(gi2c->base, offset));
+
+	/* 0x284 to 0x2B0 */
+	offset = 0x284;
+	for (i = 0; i < 11; i++, offset += 4)
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			    "Reg addr:0x%x->val:0x%x\n", offset,
+			    geni_read_reg(gi2c->base, offset));
+
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "Reg addr:0x2b0->val:0x%x\n",
+		    geni_read_reg(gi2c->base, 0x2b0));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "Reg addr:0x2c0->val:0x%x\n",
+		    geni_read_reg(gi2c->base, 0x2c0));
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+		    "Reg addr:0x2c4->val:0x%x\n",
+		    geni_read_reg(gi2c->base, 0x2c4));
+}
+
+/*
+ * geni_i2c_panic_notifier_callback - Callback notifier called by the panic handler
+ *
+ * @nb: pointer to notifier block
+ *
+ * @action: notifier action
+ *
+ * @unused: unused pointer
+ *
+ * Return: returns NOTIFY_OK
+ */
+static int
+geni_i2c_panic_notifier_callback(struct notifier_block *nb, unsigned long action,
+				 void *unused)
+{
+	struct geni_i2c_dev *gi2c = container_of(nb, struct geni_i2c_dev,
+						 panic_nb);
+	int ret;
+
+	I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev, "%s\n", __func__);
+	if (!gi2c->clocks_on) {
+		ret = se_geni_clks_on(&gi2c->i2c_rsc);
+		if (ret) {
+			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
+				    "%s clocks on failed ret=%d\n",
+				    __func__, ret);
+			return NOTIFY_OK;
+		}
+	}
+	geni_i2c_dump_regs(gi2c);
+	if (gi2c->se_mode == GSI_ONLY) {
+		I2C_LOG_DBG(gi2c->ipcl, true, gi2c->dev,
+			    "%s Dump GSI Regs\n", __func__);
+		gpi_dump_for_geni(gi2c->tx_c);
+	}
+	return NOTIFY_OK;
+}
+
 static int geni_i2c_probe(struct platform_device *pdev)
 {
 	struct geni_i2c_dev *gi2c;
@@ -1623,6 +1786,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		gi2c->first_resume = true;
 		dev_info(&pdev->dev, "LE-VM usecase\n");
 	}
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,panic-dump-collect"))
+		gi2c->panic_dump_collect = true;
 
 	gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
 	gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
@@ -1754,6 +1920,12 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	}
 
 	atomic_set(&gi2c->is_xfer_in_progress, 0);
+	if (!gi2c->is_le_vm && gi2c->panic_dump_collect) {
+		gi2c->panic_nb.notifier_call = geni_i2c_panic_notifier_callback;
+		gi2c->panic_nb.priority = 1;
+		atomic_notifier_chain_register(&panic_notifier_list,
+					       &gi2c->panic_nb);
+	}
 	dev_info(gi2c->dev, "I2C probed\n");
 	return 0;
 }
@@ -1873,8 +2045,10 @@ static int geni_i2c_runtime_suspend(struct device *dev)
 	} else if (gi2c->is_shared) {
 		/* Do not unconfigure GPIOs if shared se */
 		se_geni_clks_off(&gi2c->i2c_rsc);
+		gi2c->clocks_on = false;
 	} else {
 		se_geni_resources_off(&gi2c->i2c_rsc);
+		gi2c->clocks_on = false;
 	}
 	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev, "%s\n", __func__);
 	return 0;
@@ -1898,6 +2072,7 @@ static int geni_i2c_runtime_resume(struct device *dev)
 
 		if (ret)
 			return ret;
+		gi2c->clocks_on = true;
 
 		ret = geni_i2c_prepare(gi2c);
 		if (ret) {
