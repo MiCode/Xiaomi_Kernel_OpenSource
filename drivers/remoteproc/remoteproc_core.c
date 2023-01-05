@@ -1907,6 +1907,13 @@ out:
  * Return: 0 on success, and an appropriate error value otherwise
  */
 int rproc_boot(struct rproc *rproc)
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+{
+	return rproc_bootx(rproc, RPROC_UID_MAX+1);
+}
+
+int rproc_bootx(struct rproc *rproc, unsigned int uid)
+#endif
 {
 	const struct firmware *firmware_p;
 	struct device *dev;
@@ -1919,8 +1926,16 @@ int rproc_boot(struct rproc *rproc)
 
 	dev = &rproc->dev;
 
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+	if (uid < RPROC_UID_MAX)
+		atomic_inc(&(rproc->bootcnt[uid][0]));
+#endif
 	ret = mutex_lock_interruptible(&rproc->lock);
 	if (ret) {
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		if (uid < RPROC_UID_MAX)
+			atomic_inc(&(rproc->bootcnt[uid][1]));
+#endif
 		dev_err(dev, "can't lock rproc %s: %d\n", rproc->name, ret);
 		return ret;
 	}
@@ -1959,11 +1974,19 @@ int rproc_boot(struct rproc *rproc)
 downref_rproc:
 	if (ret)
 		atomic_dec(&rproc->power);
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+	if ((ret) && (uid < RPROC_UID_MAX))
+		atomic_inc(&(rproc->bootcnt[uid][2]));
+#endif
+
 unlock_mutex:
 	mutex_unlock(&rproc->lock);
 	return ret;
 }
 EXPORT_SYMBOL(rproc_boot);
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+EXPORT_SYMBOL(rproc_bootx);
+#endif
 
 /**
  * rproc_shutdown() - power off the remote processor
@@ -1987,6 +2010,13 @@ EXPORT_SYMBOL(rproc_boot);
  * Return: 0 on success, and an appropriate error value otherwise
  */
 int rproc_shutdown(struct rproc *rproc)
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+{
+	return rproc_shutdownx(rproc, RPROC_UID_MAX+1);
+}
+
+int rproc_shutdownx(struct rproc *rproc, unsigned int uid)
+#endif
 {
 	struct device *dev = &rproc->dev;
 	int ret = 0;
@@ -1994,6 +2024,10 @@ int rproc_shutdown(struct rproc *rproc)
 	ret = mutex_lock_interruptible(&rproc->lock);
 	if (ret) {
 		dev_err(dev, "can't lock rproc %s: %d\n", rproc->name, ret);
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		if (uid < RPROC_UID_MAX)
+			atomic_inc(&(rproc->bootcnt[uid][3]));
+#endif
 		return ret;
 	}
 
@@ -2003,6 +2037,10 @@ int rproc_shutdown(struct rproc *rproc)
 		goto out;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+	if (uid < RPROC_UID_MAX)
+		atomic_dec(&(rproc->bootcnt[uid][0]));
+#endif
 	/* if the remote proc is still needed, bail out */
 	if (!atomic_dec_and_test(&rproc->power))
 		goto out;
@@ -2010,6 +2048,10 @@ int rproc_shutdown(struct rproc *rproc)
 	ret = rproc_stop(rproc, false);
 	if (ret) {
 		atomic_inc(&rproc->power);
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		if (uid < RPROC_UID_MAX)
+			atomic_inc(&(rproc->bootcnt[uid][4]));
+#endif
 		goto out;
 	}
 
@@ -2030,6 +2072,9 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(rproc_shutdown);
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+EXPORT_SYMBOL(rproc_shutdownx);
+#endif
 
 /**
  * rproc_detach() - Detach the remote processor from the
