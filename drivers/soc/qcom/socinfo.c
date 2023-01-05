@@ -1111,6 +1111,7 @@ static const struct soc_id soc_id[] = {
 	{ 600, "SG_KALAMA"},
 	{ 601, "SG_KALAMAP"},
 	{ 603, "QCS_KALAMAP"},
+	{ 604, "QCM_KALAMA"},
 };
 
 static struct qcom_socinfo *qsocinfo;
