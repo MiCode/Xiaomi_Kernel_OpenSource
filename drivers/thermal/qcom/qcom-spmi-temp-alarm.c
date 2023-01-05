@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2011-2015, 2017, 2020-2021, The Linux Foundation.
  * All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/bitops.h>
@@ -907,6 +907,7 @@ static const struct dev_pm_ops qpnp_tm_pm_ops = {
 	.restore = qpnp_tm_restore,
 	.suspend = qpnp_tm_suspend,
 	.resume = qpnp_tm_resume,
+	.thaw = qpnp_tm_restore,
 };
 
 static const struct of_device_id qpnp_tm_match_table[] = {
