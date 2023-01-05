@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __KGSL_SHAREDMEM_H
 #define __KGSL_SHAREDMEM_H
@@ -401,6 +402,7 @@ struct kgsl_sharedmem_bind_op {
 	void (*callback)(struct kgsl_sharedmem_bind_op *op);
 	void *data;
 	struct work_struct work;
+	struct completion comp;
 	struct kref ref;
 };
 

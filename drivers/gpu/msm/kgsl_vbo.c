@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/file.h>
@@ -434,6 +435,7 @@ kgsl_sharedmem_create_bind_op(struct kgsl_process_private *private,
 		ranges += ranges_size;
 	}
 
+	init_completion(&op->comp);
 	kref_init(&op->ref);
 
 	return op;
@@ -478,6 +480,9 @@ static void kgsl_sharedmem_bind_worker(struct work_struct *work)
 	/* Release the reference on the target entry */
 	kgsl_mem_entry_put(op->target);
 	op->target = NULL;
+
+	/* Wake up any threads waiting for the bind operation */
+	complete_all(&op->comp);
 
 	if (op->callback)
 		op->callback(op);
@@ -572,18 +577,9 @@ kgsl_sharedmem_bind_fence(struct kgsl_sharedmem_bind_op *op)
 	return fence;
 }
 
-static void
-kgsl_sharedmem_bind_async_callback(struct kgsl_sharedmem_bind_op *op)
-{
-	struct completion *comp = op->data;
-
-	complete(comp);
-}
-
 long kgsl_ioctl_gpumem_bind_ranges(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)
 {
-	DECLARE_COMPLETION_ONSTACK(sync);
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_gpumem_bind_ranges *param = data;
 	struct kgsl_sharedmem_bind_op *op;
@@ -630,19 +626,13 @@ long kgsl_ioctl_gpumem_bind_ranges(struct kgsl_device_private *dev_priv,
 		return 0;
 	}
 
-	/* For synchronous operations add a completion to wait on */
-	op->callback = kgsl_sharedmem_bind_async_callback;
-	op->data = &sync;
-
-	init_completion(&sync);
-
 	/*
 	 * Schedule the work. All the resources will be released after
 	 * the bind operation is done
 	 */
 	kgsl_sharedmem_bind_ranges(op);
 
-	ret = wait_for_completion_interruptible(&sync);
+	ret = wait_for_completion_interruptible(&op->comp);
 	kgsl_sharedmem_put_bind_op(op);
 
 	return ret;
