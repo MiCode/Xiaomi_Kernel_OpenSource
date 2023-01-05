@@ -1269,6 +1269,19 @@ static void kgsl_iommu_set_ttbr0(struct kgsl_iommu_context *context,
 	kgsl_iommu_disable_clk(mmu);
 }
 
+static int kgsl_iommu_get_asid(struct kgsl_pagetable *pt, struct kgsl_context *context)
+{
+	struct kgsl_iommu *iommu = to_kgsl_iommu(pt);
+	struct iommu_domain *domain;
+
+	if (kgsl_context_is_lpac(context))
+		domain = to_iommu_domain(&iommu->lpac_context);
+	else
+		domain = to_iommu_domain(&iommu->user_context);
+
+	return qcom_iommu_get_asid_nr(domain);
+}
+
 static int kgsl_iommu_get_context_bank(struct kgsl_pagetable *pt, struct kgsl_context *context)
 {
 	struct kgsl_iommu *iommu = to_kgsl_iommu(pt);
@@ -2627,6 +2640,7 @@ static const struct kgsl_mmu_pt_ops iopgtbl_pt_ops = {
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,
 	.get_ttbr0 = kgsl_iommu_get_ttbr0,
 	.get_context_bank = kgsl_iommu_get_context_bank,
+	.get_asid = kgsl_iommu_get_asid,
 	.get_gpuaddr = kgsl_iommu_get_gpuaddr,
 	.put_gpuaddr = kgsl_iommu_put_gpuaddr,
 	.set_svm_region = kgsl_iommu_set_svm_region,
@@ -2640,6 +2654,7 @@ static const struct kgsl_mmu_pt_ops secure_pt_ops = {
 	.mmu_unmap = kgsl_iommu_secure_unmap,
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,
 	.get_context_bank = kgsl_iommu_get_context_bank,
+	.get_asid = kgsl_iommu_get_asid,
 	.get_gpuaddr = kgsl_iommu_get_gpuaddr,
 	.put_gpuaddr = kgsl_iommu_put_gpuaddr,
 	.addr_in_range = kgsl_iommu_addr_in_range,
@@ -2651,6 +2666,7 @@ static const struct kgsl_mmu_pt_ops default_pt_ops = {
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_default_pagetable,
 	.get_ttbr0 = kgsl_iommu_get_ttbr0,
 	.get_context_bank = kgsl_iommu_get_context_bank,
+	.get_asid = kgsl_iommu_get_asid,
 	.get_gpuaddr = kgsl_iommu_get_gpuaddr,
 	.put_gpuaddr = kgsl_iommu_put_gpuaddr,
 	.addr_in_range = kgsl_iommu_addr_in_range,

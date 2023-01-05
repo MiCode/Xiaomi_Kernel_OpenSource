@@ -1781,7 +1781,10 @@ static int send_context_register(struct adreno_device *adreno_dev,
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
 	struct hfi_register_ctxt_cmd cmd;
 	struct kgsl_pagetable *pt = context->proc_priv->pagetable;
-	int ret;
+	int ret, asid = kgsl_mmu_pagetable_get_asid(pt, context);
+
+	if (asid < 0)
+		return asid;
 
 	ret = CMD_MSG_HDR(cmd, H2F_MSG_REGISTER_CONTEXT);
 	if (ret)
@@ -1793,7 +1796,15 @@ static int send_context_register(struct adreno_device *adreno_dev,
 
 	cmd.ctxt_id = context->id;
 	cmd.flags = HFI_CTXT_FLAG_NOTIFY | context->flags;
-	cmd.pt_addr = kgsl_mmu_pagetable_get_ttbr0(pt);
+
+	/*
+	 * HLOS SMMU driver programs context bank to look up ASID from TTBR0 during a page
+	 * table walk. So the TLB entries are tagged with the ASID from TTBR0. TLBIASID
+	 * invalidates TLB entries whose ASID matches the value that was written to the
+	 * CBn_TLBIASID register. Set ASID along with PT address.
+	 */
+	cmd.pt_addr = kgsl_mmu_pagetable_get_ttbr0(pt) |
+		FIELD_PREP(GENMASK_ULL(63, KGSL_IOMMU_ASID_START_BIT), asid);
 	cmd.ctxt_idr = context->id;
 	cmd.ctxt_bank = kgsl_mmu_pagetable_get_context_bank(pt, context);
 
