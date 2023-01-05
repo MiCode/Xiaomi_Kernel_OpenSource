@@ -332,6 +332,8 @@ struct ep_pcie_phy_info_t {
 struct ep_pcie_dev_t {
 	struct platform_device       *pdev;
 	struct regulator             *gdsc;
+	/* Optional phy GDSC present only in few targets */
+	struct regulator             *gdsc_phy;
 	struct ep_pcie_vreg_info_t   vreg[EP_PCIE_MAX_VREG];
 	struct ep_pcie_gpio_info_t   gpio[EP_PCIE_MAX_GPIO];
 	struct ep_pcie_clk_info_t    clk[EP_PCIE_MAX_CLK];
