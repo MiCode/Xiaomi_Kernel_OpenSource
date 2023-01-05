@@ -616,8 +616,13 @@
   drm_bridge_chain_enable
   drm_bridge_chain_post_disable
   drm_bridge_chain_pre_enable
+  drm_client_buffer_vmap
+  drm_client_framebuffer_create
+  drm_client_framebuffer_delete
   drm_client_init
+  drm_client_modeset_commit
   drm_client_modeset_commit_locked
+  drm_client_modeset_probe
   drm_client_register
   drm_connector_list_update
   drm_crtc_vblank_reset
@@ -656,6 +661,7 @@
   drm_mode_convert_umode
   drm_mode_create_dp_colorspace_property
   drm_mode_create_tile_group
+  drm_mode_destroy
   drm_mode_is_420_only
   drm_mode_match
   drm_mode_prune_invalid
