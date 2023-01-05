@@ -46,3 +46,5 @@ dispcc-sm8250.ko
 debugcc-sm8250.ko
 pinctrl-msm.ko
 pinctrl-kona.ko
+nvme-core.ko
+nvme.ko
