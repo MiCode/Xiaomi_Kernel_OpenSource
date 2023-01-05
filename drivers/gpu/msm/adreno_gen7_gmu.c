@@ -2038,6 +2038,8 @@ static int gen7_gmu_bus_set(struct adreno_device *adreno_dev, int buslevel,
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int ret = 0;
 
+	kgsl_icc_set_tag(pwr, buslevel);
+
 	if (buslevel != pwr->cur_buslevel) {
 		ret = gen7_gmu_dcvs_set(adreno_dev, INVALID_DCVS_IDX, buslevel);
 		if (ret)
