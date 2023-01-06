@@ -154,7 +154,7 @@ static void nb7vpq904m_vdd_enable(struct nb7vpq904m_redriver *redriver, bool on)
 {
 	int l, v, s;
 
-	if (!redriver->vdd || redriver->op_mode != OP_MODE_NONE) {
+	if (!redriver->vdd) {
 		dev_dbg(redriver->dev, "no vdd regulator operation\n");
 		return;
 	}
@@ -544,6 +544,8 @@ static int nb7vpq904m_release_usb_lanes(struct usb_redriver *r, int ort, int num
 		redriver->op_mode = OP_MODE_DP;
 	else if (num == LANES_DP_AND_USB)
 		redriver->op_mode = OP_MODE_USB_AND_DP;
+
+	nb7vpq904m_vdd_enable(redriver, true);
 
 	/* in case it need aux function from redriver and the first call is release lane */
 	orientation_set(redriver, ort);

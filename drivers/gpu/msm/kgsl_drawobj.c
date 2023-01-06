@@ -745,6 +745,9 @@ int kgsl_drawobj_sync_add_sync(struct kgsl_device *device,
 {
 	struct kgsl_drawobj *drawobj = DRAWOBJ(syncobj);
 
+	if (sync->type != KGSL_CMD_SYNCPOINT_TYPE_FENCE)
+		syncobj->flags |= KGSL_SYNCOBJ_SW;
+
 	if (sync->type == KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP)
 		return drawobj_add_sync_timestamp_from_user(device,
 			syncobj, sync->priv, sync->size);

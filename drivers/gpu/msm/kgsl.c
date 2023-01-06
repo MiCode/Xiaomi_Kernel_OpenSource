@@ -1925,6 +1925,9 @@ long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 				param->synclist, param->numsyncs);
 		if (result)
 			goto done;
+
+		if (!(syncobj->flags & KGSL_SYNCOBJ_SW))
+			syncobj->flags |= KGSL_SYNCOBJ_HW;
 	}
 
 	if (type & (CMDOBJ_TYPE | MARKEROBJ_TYPE)) {
@@ -2009,6 +2012,9 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 				param->syncsize, param->numsyncs);
 		if (result)
 			goto done;
+
+		if (!(syncobj->flags & KGSL_SYNCOBJ_SW))
+			syncobj->flags |= KGSL_SYNCOBJ_HW;
 	}
 
 	if (type & (CMDOBJ_TYPE | MARKEROBJ_TYPE)) {
@@ -4751,6 +4757,9 @@ static void _unregister_device(struct kgsl_device *device)
 {
 	int minor;
 
+	if (device->gpu_sysfs_kobj.state_initialized)
+		kobject_del(&device->gpu_sysfs_kobj);
+
 	mutex_lock(&kgsl_driver.devlock);
 	for (minor = 0; minor < ARRAY_SIZE(kgsl_driver.devp); minor++) {
 		if (device == kgsl_driver.devp[minor]) {
@@ -4976,9 +4985,6 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 	}
 
 	kgsl_device_snapshot_close(device);
-
-	if (device->gpu_sysfs_kobj.state_initialized)
-		kobject_del(&device->gpu_sysfs_kobj);
 
 	idr_destroy(&device->context_idr);
 	idr_destroy(&device->timelines);

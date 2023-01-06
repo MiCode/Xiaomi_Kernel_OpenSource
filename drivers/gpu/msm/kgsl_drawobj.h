@@ -90,6 +90,11 @@ struct kgsl_drawobj_cmd {
 	u32 requeue_cnt;
 };
 
+/* This sync object cannot be sent to hardware */
+#define KGSL_SYNCOBJ_SW BIT(0)
+/* This sync object can be sent to hardware */
+#define KGSL_SYNCOBJ_HW BIT(1)
+
 /**
  * struct kgsl_drawobj_sync - KGSL sync object
  * @base: Base kgsl_drawobj, this needs to be the first entry
@@ -108,6 +113,10 @@ struct kgsl_drawobj_sync {
 	unsigned long pending;
 	struct timer_list timer;
 	unsigned long timeout_jiffies;
+	/** @flags: sync object internal flags */
+	u32 flags;
+	/** @num_hw_fence: number of hw fences in this syncobj */
+	u32 num_hw_fence;
 };
 
 #define KGSL_BINDOBJ_STATE_START 0

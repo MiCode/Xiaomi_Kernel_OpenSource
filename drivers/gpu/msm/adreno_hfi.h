@@ -100,6 +100,8 @@
 #define HFI_VALUE_LOG_STREAM_ENABLE	119
 #define HFI_VALUE_PREEMPT_COUNT		120
 #define HFI_VALUE_CONTEXT_QUEUE		121
+#define HFI_VALUE_RB_GPU_QOS		123
+#define HFI_VALUE_RB_IB_RULE		124
 
 #define HFI_VALUE_GLOBAL_TOKEN		0xFFFFFFFF
 
@@ -440,6 +442,7 @@ struct hfi_queue_table {
 #define H2F_MSG_ISSUE_RECURRING_CMD	141
 #define F2H_MSG_CONTEXT_BAD		150
 #define H2F_MSG_HW_FENCE_INFO		151
+#define H2F_MSG_ISSUE_SYNCOBJ		152
 
 enum gmu_ret_type {
 	GMU_SUCCESS = 0,
@@ -741,6 +744,11 @@ struct hfi_ts_notify_cmd {
 #define CMDBATCH_RECURRING_STOP   BIT(19)
 
 
+/* This indicates that the SYNCOBJ is kgsl output fence */
+#define GMU_SYNCOBJ_KGSL_FENCE  BIT(0)
+/* This indicates that the SYNCOBJ is already retired */
+#define GMU_SYNCOBJ_RETIRED     BIT(1)
+
 /* F2H */
 struct hfi_ts_retire_cmd {
 	u32 hdr;
@@ -814,6 +822,20 @@ struct hfi_submit_cmd {
 	u32 profile_gpuaddr_hi;
 	u32 numibs;
 	u32 big_ib_gmu_va;
+} __packed;
+
+struct hfi_syncobj {
+	u64 ctxt_id;
+	u64 seq_no;
+	u64 flags;
+} __packed;
+
+struct hfi_submit_syncobj {
+	u32 hdr;
+	u32 version;
+	u32 flags;
+	u32 timestamp;
+	u32 num_syncobj;
 } __packed;
 
 struct hfi_log_block {

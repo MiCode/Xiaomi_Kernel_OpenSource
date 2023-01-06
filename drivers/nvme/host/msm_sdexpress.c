@@ -590,6 +590,11 @@ static void msm_sdexpress_gpiod_request_cd_irq(struct msm_sdexpress_info *info)
 	}
 
 	info->cd_irq = irq;
+	/* Enable wake capability for card detect irq */
+	ret = enable_irq_wake(info->cd_irq);
+	if (ret)
+		dev_err(dev, "failed to enable wake capability for cd-gpio(%d)\n",
+			ret);
 }
 
 /*

@@ -1848,11 +1848,5 @@ static int __init qcom_bwmon_init(void)
 }
 module_init(qcom_bwmon_init);
 
-static __exit void qcom_bwmon_exit(void)
-{
-	platform_driver_unregister(&qcom_bwmon_driver);
-}
-module_exit(qcom_bwmon_exit);
-
 MODULE_DESCRIPTION("QCOM BWMON driver");
 MODULE_LICENSE("GPL v2");

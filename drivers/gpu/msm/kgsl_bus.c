@@ -39,9 +39,7 @@ int kgsl_bus_update(struct kgsl_device *device,
 			 enum kgsl_bus_vote vote_state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	/* FIXME: this might be wrong? */
-	int cur = pwr->pwrlevels[pwr->active_pwrlevel].bus_freq;
-	int buslevel = 0;
+	int buslevel;
 	u32 ab;
 
 	/* the bus should be ON to update the active frequency */
@@ -52,25 +50,51 @@ int kgsl_bus_update(struct kgsl_device *device,
 	 * If the bus should remain on calculate our request and submit it,
 	 * otherwise request bus level 0, off.
 	 */
-	if (vote_state == KGSL_BUS_VOTE_ON) {
+	switch (vote_state) {
+	case KGSL_BUS_VOTE_OFF:
+		/* If the bus is being turned off, reset to default level */
+		pwr->cur_dcvs_buslevel = 0;
+		pwr->bus_mod = 0;
+		pwr->bus_percent_ab = 0;
+		pwr->bus_ab_mbytes = 0;
+		ab = 0;
+		break;
+	case KGSL_BUS_VOTE_ON:
+		{
+		/* FIXME: this might be wrong? */
+		int cur = pwr->pwrlevels[pwr->active_pwrlevel].bus_freq;
+
 		buslevel = min_t(int, pwr->pwrlevels[0].bus_max,
 				cur + pwr->bus_mod);
 		buslevel = max_t(int, buslevel, 1);
-	} else if (vote_state == KGSL_BUS_VOTE_MINIMUM) {
+		pwr->cur_dcvs_buslevel = buslevel;
+		ab = _ab_buslevel_update(pwr, pwr->ddr_table[buslevel]);
+		break;
+		}
+	case KGSL_BUS_VOTE_MINIMUM:
 		/* Request bus level 1, minimum non-zero value */
-		buslevel = 1;
+		pwr->cur_dcvs_buslevel = 1;
 		pwr->bus_mod = 0;
 		pwr->bus_percent_ab = 0;
 		pwr->bus_ab_mbytes = 0;
-	} else if (vote_state == KGSL_BUS_VOTE_OFF) {
-		/* If the bus is being turned off, reset to default level */
-		pwr->bus_mod = 0;
-		pwr->bus_percent_ab = 0;
-		pwr->bus_ab_mbytes = 0;
+		ab = _ab_buslevel_update(pwr,
+			pwr->ddr_table[pwr->cur_dcvs_buslevel]);
+		break;
+	case KGSL_BUS_VOTE_RT_HINT_ON:
+		pwr->rt_bus_hint_active = true;
+		/* Only update IB during bus hint */
+		ab = pwr->cur_ab;
+		break;
+	case KGSL_BUS_VOTE_RT_HINT_OFF:
+		pwr->rt_bus_hint_active = false;
+		/* Only update IB during bus hint */
+		ab = pwr->cur_ab;
+		break;
 	}
 
-	/* buslevel is the IB vote, update the AB */
-	ab = _ab_buslevel_update(pwr, pwr->ddr_table[buslevel]);
+	buslevel = pwr->rt_bus_hint_active ?
+		max(pwr->cur_dcvs_buslevel, pwr->rt_bus_hint) :
+		pwr->cur_dcvs_buslevel;
 
 	if (buslevel == pwr->pwrlevels[0].bus_max)
 		icc_set_tag(pwr->icc_path, ACTIVE_ONLY_TAG | PERF_MODE_TAG);
@@ -184,4 +208,5 @@ void kgsl_bus_close(struct kgsl_device *device)
 	kfree(device->pwrctrl.ddr_table);
 	device->pwrctrl.ddr_table = NULL;
 	icc_put(device->pwrctrl.icc_path);
+	device->pwrctrl.icc_path = NULL;
 }

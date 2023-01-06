@@ -1220,6 +1220,7 @@ int gen7_probe_common(struct platform_device *pdev,
 	struct adreno_device *adreno_dev, u32 chipid,
 	const struct adreno_gpu_core *gpucore)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	const struct adreno_gpudev *gpudev = gpucore->gpudev;
 	const struct adreno_gen7_core *gen7_core = container_of(gpucore,
 			struct adreno_gen7_core, base);
@@ -1236,6 +1237,7 @@ int gen7_probe_common(struct platform_device *pdev,
 	adreno_dev->preempt.skipsaverestore = true;
 	adreno_dev->preempt.usesgmem = true;
 
+	device->pwrctrl.rt_bus_hint = gen7_core->rt_bus_hint;
 	kgsl_pwrscale_fast_bus_hint(gen7_core->fast_bus_hint);
 
 	return adreno_device_probe(pdev, adreno_dev);

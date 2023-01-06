@@ -110,6 +110,8 @@ void kgsl_syncsource_put(struct kgsl_syncsource *syncsource);
 void kgsl_syncsource_process_release_syncsources(
 		struct kgsl_process_private *private);
 
+bool is_kgsl_fence(struct dma_fence *f);
+
 #else
 static inline int kgsl_add_fence_event(struct kgsl_device *device,
 	u32 context_id, u32 timestamp, void __user *data, int len,
@@ -180,6 +182,11 @@ static inline void kgsl_syncsource_put(struct kgsl_syncsource *syncsource)
 
 static inline void kgsl_syncsource_process_release_syncsources(
 		struct kgsl_process_private *private)
+{
+
+}
+
+bool is_kgsl_fence(struct dma_fence *f)
 {
 
 }

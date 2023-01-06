@@ -204,7 +204,8 @@ static void convert_ibat_to_adc_val(int *val, int scaling_factor)
 	 * So the scaling factor is half in those cases.
 	 */
 	if (ibat_use_qg_adc)
-		*val = (int)div_s64(*val * 2000 * 2, scaling_factor);
+		*val = (int)div_s64(*val * 2000 * 2 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0],
+				scaling_factor);
 	else if (no_bit_shift)
 		*val = (int)div_s64(*val * 1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0],
 				scaling_factor);
@@ -218,7 +219,8 @@ static void convert_adc_to_ibat_val(int *val, int scaling_factor)
 {
 	/* Scaling factor will be half if ibat_use_qg_adc is true */
 	if (ibat_use_qg_adc)
-		*val = (int)div_s64(*val * scaling_factor, 2 * 1000);
+		*val = (int)div_s64(*val * scaling_factor,
+				2 * 1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0]);
 	else
 		*val = (int)div_s64(*val * scaling_factor,
 				1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0]);

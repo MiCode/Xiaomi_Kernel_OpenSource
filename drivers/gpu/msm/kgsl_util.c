@@ -277,10 +277,13 @@ static int kgsl_add_driver_data_to_va_minidump(struct kgsl_device *device)
 	if (ret)
 		return ret;
 
-	ret = kgsl_add_va_to_minidump(device->dev, KGSL_SCRATCH_ENTRY,
-			device->scratch->hostptr, device->scratch->size);
-	if (ret)
-		return ret;
+	/* hwsched path may not have scratch entry */
+	if (device->scratch) {
+		ret = kgsl_add_va_to_minidump(device->dev, KGSL_SCRATCH_ENTRY,
+				device->scratch->hostptr, device->scratch->size);
+		if (ret)
+			return ret;
+	}
 
 	ret = kgsl_add_va_to_minidump(device->dev, KGSL_MEMSTORE_ENTRY,
 			device->memstore->hostptr, device->memstore->size);
