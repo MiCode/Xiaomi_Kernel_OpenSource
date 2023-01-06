@@ -450,6 +450,8 @@ static void mhi_dev_net_ether_setup(struct net_device *dev)
 {
 	dev->netdev_ops = &mhi_dev_net_ops_ip;
 	ether_setup(dev);
+	dev->min_mtu = ETH_MIN_MTU;
+	dev->max_mtu = ETH_MAX_MTU;
 	mhi_dev_net_log(MHI_INFO,
 			"mhi_dev_net Ethernet setup\n");
 }
