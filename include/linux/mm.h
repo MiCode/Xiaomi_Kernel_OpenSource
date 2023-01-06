@@ -3380,8 +3380,6 @@ madvise_set_anon_name(struct mm_struct *mm, unsigned long start,
 
 #ifdef CONFIG_MMU
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
-extern wait_queue_head_t vma_users_wait;
-extern atomic_t vma_user_waiters;
 
 bool __pte_map_lock(struct vm_fault *vmf);
 
