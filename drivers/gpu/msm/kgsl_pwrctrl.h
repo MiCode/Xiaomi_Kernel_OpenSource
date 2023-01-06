@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2010-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __KGSL_PWRCTRL_H
 #define __KGSL_PWRCTRL_H
@@ -12,7 +12,7 @@
 /*****************************************************************************
  * power flags
  ****************************************************************************/
-#define KGSL_MAX_CLKS 18
+#define KGSL_MAX_CLKS 19
 
 #define KGSL_MAX_PWRLEVELS 16
 
