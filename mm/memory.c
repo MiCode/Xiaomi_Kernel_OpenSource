@@ -217,6 +217,23 @@ struct vm_area_struct *get_vma(struct mm_struct *mm, unsigned long addr)
 
 	rcu_read_lock();
 	vma = find_vma_from_tree(mm, addr);
+
+	/*
+	 * atomic_inc_unless_negative() also protects from races with
+	 * fast mremap.
+	 *
+	 * If there is a concurrent fast mremap, bail out since the entire
+	 * PMD/PUD subtree may have been remapped.
+	 *
+	 * This is usually safe for conventional mremap since it takes the
+	 * PTE locks as does SPF. However fast mremap only takes the lock
+	 * at the PMD/PUD level which is ok as it is done with the mmap
+	 * write lock held. But since SPF, as the term implies forgoes,
+	 * taking the mmap read lock and also cannot take PTL lock at the
+	 * larger PMD/PUD granualrity, since it would introduce huge
+	 * contention in the page fault path; fall back to regular fault
+	 * handling.
+	 */
 	if (vma) {
 		if (vma->vm_start > addr ||
 		    !atomic_inc_unless_negative(&vma->file_ref_count))
