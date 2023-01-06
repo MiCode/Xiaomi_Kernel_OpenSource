@@ -22,6 +22,8 @@ static const struct msm_pinctrl_soc_data cinder_pinctrl = {
 	.ngpios = 151,
 	.qup_regs = cinder_qup_regs,
 	.nqup_regs = ARRAY_SIZE(cinder_qup_regs),
+	.wakeirq_map = cinder_pdc_map,
+	.nwakeirq_map = ARRAY_SIZE(cinder_pdc_map),
 };
 
 static int cinder_pinctrl_probe(struct platform_device *pdev)
