@@ -19,6 +19,7 @@
   __alloc_percpu
   __alloc_skb
   alloc_skb_with_frags
+  alloc_swapdev_block
   alloc_workqueue
   amba_bustype
   amba_driver_register
@@ -1905,6 +1906,7 @@
   smp_call_function
   smp_call_function_single
   smp_call_function_single_async
+  snapshot_get_image_size
   snd_info_create_module_entry
   snd_info_free_entry
   snd_info_register
@@ -2152,6 +2154,7 @@
   __traceiter_android_vh_cpuidle_psci_exit
   __traceiter_android_vh_disable_thermal_cooling_stats
   __traceiter_android_vh_do_wake_up_sync
+  __traceiter_android_vh_encrypt_page
   __traceiter_android_vh_ftrace_dump_buffer
   __traceiter_android_vh_ftrace_format_check
   __traceiter_android_vh_ftrace_oops_enter
@@ -2160,6 +2163,7 @@
   __traceiter_android_vh_gic_resume
   __traceiter_android_vh_gic_v2_resume
   __traceiter_android_vh_handle_tlb_conf
+  __traceiter_android_vh_init_aes_encrypt
   __traceiter_android_vh_ipi_stop
   __traceiter_android_vh_jiffies_update
   __traceiter_android_vh_kswapd_per_node
@@ -2168,6 +2172,7 @@
   __traceiter_android_vh_madvise_cold_or_pageout
   __traceiter_android_vh_mmc_sdio_pm_flag_set
   __traceiter_android_vh_mmc_sd_update_cmdline_timing
+  __traceiter_android_vh_post_image_save
   __traceiter_android_vh_printk_hotplug
   __traceiter_android_vh_rproc_recovery
   __traceiter_android_vh_rproc_recovery_set
@@ -2176,6 +2181,7 @@
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_show_resume_epoch_val
   __traceiter_android_vh_show_suspend_epoch_val
+  __traceiter_android_vh_skip_swap_map_write
   __traceiter_android_vh_timer_calc_index
   __traceiter_android_vh_ufs_check_int_errors
   __traceiter_android_vh_ufs_clock_scaling
@@ -2265,6 +2271,7 @@
   __tracepoint_android_vh_cpuidle_psci_exit
   __tracepoint_android_vh_disable_thermal_cooling_stats
   __tracepoint_android_vh_do_wake_up_sync
+  __tracepoint_android_vh_encrypt_page
   __tracepoint_android_vh_ftrace_dump_buffer
   __tracepoint_android_vh_ftrace_format_check
   __tracepoint_android_vh_ftrace_oops_enter
@@ -2273,6 +2280,7 @@
   __tracepoint_android_vh_gic_resume
   __tracepoint_android_vh_gic_v2_resume
   __tracepoint_android_vh_handle_tlb_conf
+  __tracepoint_android_vh_init_aes_encrypt
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_kswapd_per_node
@@ -2281,6 +2289,7 @@
   __tracepoint_android_vh_madvise_cold_or_pageout
   __tracepoint_android_vh_mmc_sdio_pm_flag_set
   __tracepoint_android_vh_mmc_sd_update_cmdline_timing
+  __tracepoint_android_vh_post_image_save
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_rproc_recovery
   __tracepoint_android_vh_rproc_recovery_set
@@ -2289,6 +2298,7 @@
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
+  __tracepoint_android_vh_skip_swap_map_write
   __tracepoint_android_vh_timer_calc_index
   __tracepoint_android_vh_ufs_check_int_errors
   __tracepoint_android_vh_ufs_clock_scaling
