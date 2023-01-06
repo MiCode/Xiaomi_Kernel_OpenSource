@@ -19,6 +19,10 @@
 #define MMU_DEFAULT_TTBR0(_d) \
 	(kgsl_mmu_pagetable_get_ttbr0((_d)->mmu.defaultpagetable))
 
+/* Mask ASID fields to match 48bit ptbase address*/
+#define MMU_SW_PT_BASE(_ttbr0) \
+	(_ttbr0 & (BIT_ULL(KGSL_IOMMU_ASID_START_BIT) - 1))
+
 #define KGSL_MMU_DEVICE(_mmu) \
 	container_of((_mmu), struct kgsl_device, mmu)
 

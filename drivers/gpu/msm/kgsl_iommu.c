@@ -925,7 +925,7 @@ static struct kgsl_process_private *kgsl_iommu_get_process(u64 ptbase)
 
 	list_for_each_entry(p, &kgsl_driver.process_list, list) {
 		iommu_pt = to_iommu_pt(p->pagetable);
-		if (iommu_pt->ttbr0 == ptbase) {
+		if (iommu_pt->ttbr0 == MMU_SW_PT_BASE(ptbase)) {
 			if (!kgsl_process_private_get(p))
 				p = NULL;
 
@@ -2342,9 +2342,11 @@ static int iommu_probe_user_context(struct kgsl_device *device,
 		dev_err(&iommu->user_context.pdev->dev,
 				"Unable to create device link to gpu device\n");
 
-	/* LPAC is optional so don't worry if it returns error */
-	kgsl_iommu_setup_context(mmu, node, &iommu->lpac_context,
-		"gfx3d_lpac", kgsl_iommu_lpac_fault_handler);
+	ret = kgsl_iommu_setup_context(mmu, node, &iommu->lpac_context,
+			"gfx3d_lpac", kgsl_iommu_lpac_fault_handler);
+	/* LPAC is optional, ignore setup failures in absence of LPAC feature */
+	if ((ret < 0) && ADRENO_FEATURE(adreno_dev, ADRENO_LPAC))
+		goto err;
 
 	/*
 	 * FIXME: If adreno_smmu->cookie wasn't initialized then we can't do
@@ -2369,10 +2371,21 @@ static int iommu_probe_user_context(struct kgsl_device *device,
 
 	kgsl_iommu_set_ttbr0(&iommu->lpac_context, mmu, &pt->info.cfg);
 
-	if (adreno_dev->lpac_enabled)
-		set_smmu_lpac_aperture(device, &iommu->lpac_context);
+	ret = set_smmu_lpac_aperture(device, &iommu->lpac_context);
+	/* LPAC is optional, ignore setup failures in absence of LPAC feature */
+	if ((ret < 0) && ADRENO_FEATURE(adreno_dev, ADRENO_LPAC)) {
+		kgsl_iommu_detach_context(&iommu->lpac_context);
+		goto err;
+	}
 
 	return 0;
+
+err:
+	kgsl_mmu_putpagetable(mmu->defaultpagetable);
+	mmu->defaultpagetable = NULL;
+	kgsl_iommu_detach_context(&iommu->user_context);
+
+	return ret;
 }
 
 static int iommu_probe_secure_context(struct kgsl_device *device,

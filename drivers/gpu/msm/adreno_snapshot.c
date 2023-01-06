@@ -887,7 +887,7 @@ static struct kgsl_process_private *setup_fault_process(struct kgsl_device *devi
 			u64 pt_ttbr0;
 
 			pt_ttbr0 = kgsl_mmu_pagetable_get_ttbr0(tmp->pagetable);
-			if ((pt_ttbr0 == hw_ptbase)
+			if ((pt_ttbr0 == MMU_SW_PT_BASE(hw_ptbase))
 			    && kgsl_process_private_get(tmp)) {
 				process = tmp;
 				break;
