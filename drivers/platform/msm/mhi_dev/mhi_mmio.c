@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015, 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -779,9 +779,9 @@ int mhi_dev_dump_mmio(struct mhi_dev *dev)
 
 		mhi_dev_mmio_read(dev, offset+0xC, &r4);
 
-		offset += 0x10;
-		pr_debug("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+		mhi_log(MHI_MSG_ERROR, "0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
 				offset, r1, r2, r3, r4);
+		offset += 0x10;
 	}
 
 	return 0;

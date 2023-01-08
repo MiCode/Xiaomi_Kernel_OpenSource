@@ -4135,6 +4135,24 @@ static int mhi_dev_recover(struct mhi_dev *mhi)
 			mhi_log(MHI_MSG_VERBOSE, "Host failed to set reset\n");
 			return -EINVAL;
 		}
+
+		mhi_dev_mmio_masked_read(mhi, MHISTATUS, MHISTATUS_MHISTATE_MASK,
+					MHISTATUS_MHISTATE_SHIFT, &state);
+		/*
+		 * In warm reboot path, boot loaders doesn't clear error state
+		 * in MHI-STATUS. So if MHI reset is set by, update status also
+		 * to RESET state.
+		 */
+		if (mhi->vf_id && state == MHI_DEV_SYSERR_STATE) {
+			mhi_log(MHI_MSG_DBG,
+				"Set MHISTATE in MHISTATUS to Reset state for vf=%d\n",
+				mhi->vf_id);
+			mhi_dev_mmio_masked_write(mhi, MHISTATUS,
+					MHISTATUS_MHISTATE_MASK,
+					MHISTATUS_MHISTATE_SHIFT,
+					MHI_DEV_RESET_STATE);
+		}
+
 	}
 	/*
 	 * Now mask the interrupts so that the state machine moves
