@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/atomic.h>
@@ -2642,10 +2643,26 @@ static int gpi_deep_sleep_exit_config(struct dma_chan *chan,
 {
 	struct gpii_chan *gpii_chan = to_gpii_chan(chan);
 	struct gpii *gpii = gpii_chan->gpii;
+	struct gpi_ring *ring_ch = NULL;
+	struct gpi_ring *ring_ev = NULL;
 	int i = 0;
 	int ret = 0;
 
 	GPII_INFO(gpii, gpii_chan->chid, "enter\n");
+
+	/* Reset the ring channel for TX,RX to the base address */
+	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+		gpii_chan = &gpii->gpii_chan[i];
+
+		ring_ch = &gpii_chan->ch_ring;
+		ring_ch->wp = ring_ch->base;
+		ring_ch->rp = ring_ch->base;
+	}
+
+	/* Reset Event ring to the base address */
+	ring_ev = &gpii->ev_ring;
+	ring_ev->wp = ring_ev->base;
+	ring_ev->rp = ring_ev->base;
 
 	ret = gpi_config_interrupts(gpii, DEFAULT_IRQ_SETTINGS, 0);
 	if (ret) {
