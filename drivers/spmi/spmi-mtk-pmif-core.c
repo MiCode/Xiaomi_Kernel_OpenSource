@@ -6,6 +6,7 @@
 #include <linux/iopoll.h>
 #include <linux/interrupt.h>
 #include <linux/irqdomain.h>
+#include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
@@ -59,6 +60,9 @@ struct pmif_irq_desc {
 enum pmif_regs {
 	PMIF_INIT_DONE,
 	PMIF_INF_EN,
+	MD_AUXADC_RDATA_0_ADDR,
+	MD_AUXADC_RDATA_1_ADDR,
+	MD_AUXADC_RDATA_2_ADDR,
 	PMIF_ARB_EN,
 	PMIF_CMDISSUE_EN,
 	PMIF_TIMER_CTRL,
@@ -102,10 +106,18 @@ enum pmif_regs {
 	PMIF_SWINF_3_RDATA_31_0,
 	PMIF_SWINF_3_ACC,
 	PMIF_SWINF_3_VLD_CLR,
+	PMIF_PMIC_SWINF_0_PER,
+	PMIF_PMIC_SWINF_1_PER,
+	PMIF_ACC_VIO_INFO_0,
+	PMIF_ACC_VIO_INFO_1,
+	PMIF_ACC_VIO_INFO_2,
 };
 static const u32 mt6xxx_regs[] = {
 	[PMIF_INIT_DONE] =			0x0000,
 	[PMIF_INF_EN] =				0x0024,
+	[MD_AUXADC_RDATA_0_ADDR] =		0x0080,
+	[MD_AUXADC_RDATA_1_ADDR] =		0x0084,
+	[MD_AUXADC_RDATA_2_ADDR] =		0x0088,
 	[PMIF_ARB_EN] =				0x0150,
 	[PMIF_CMDISSUE_EN] =			0x03B8,
 	[PMIF_TIMER_CTRL] =			0x03E4,
@@ -149,6 +161,11 @@ static const u32 mt6xxx_regs[] = {
 	[PMIF_SWINF_3_RDATA_31_0] =		0x08D4,
 	[PMIF_SWINF_3_VLD_CLR] =		0x08E4,
 	[PMIF_SWINF_3_STA] =			0x08E8,
+	[PMIF_PMIC_SWINF_0_PER] =		0x093C,
+	[PMIF_PMIC_SWINF_1_PER] =		0x0940,
+	[PMIF_ACC_VIO_INFO_0] =			0x0980,
+	[PMIF_ACC_VIO_INFO_1] =			0x0984,
+	[PMIF_ACC_VIO_INFO_2] =			0x0988,
 };
 
 static const u32 mt6853_regs[] = {
@@ -316,6 +333,14 @@ enum {
 	IRQ_HW_MONITOR_V4 = 29,
 	IRQ_WDT_V4 = 30,
 	IRQ_ALL_PMIC_MPU_VIO_V4 = 31,
+	/* MT6985 */
+	IRQ_PMIF_ACC_VIO_V3 = 27,
+	IRQ_PMIF_SWINF_ACC_ERR_0 = 3,
+	IRQ_PMIF_SWINF_ACC_ERR_1 = 4,
+	IRQ_PMIF_SWINF_ACC_ERR_2 = 5,
+	IRQ_PMIF_SWINF_ACC_ERR_3 = 6,
+	IRQ_PMIF_SWINF_ACC_ERR_4 = 7,
+	IRQ_PMIF_SWINF_ACC_ERR_5 = 8,
 };
 
 static u32 pmif_readl(struct pmif *arb, enum pmif_regs reg)
@@ -385,7 +410,6 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	u32 data = 0;
 	u8 bc = len - 1;
 	unsigned long flags;
-
 	/* Check for argument validation. */
 	if (sid & ~(0xf))
 		return -EINVAL;
@@ -444,7 +468,6 @@ static int pmif_spmi_read_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	memcpy(buf, &data, (bc & 3) + 1);
 	pmif_writel(arb, 1, inf_reg->ch_rdy);
 	raw_spin_unlock_irqrestore(&arb->lock, flags);
-
 	return 0;
 }
 
@@ -457,7 +480,6 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 	u32 data = 0;
 	u8 bc = len - 1;
 	unsigned long flags = 0;
-
 	/* Check for argument validation. */
 	if (sid & ~(0xf))
 		return -EINVAL;
@@ -504,7 +526,6 @@ static int pmif_spmi_write_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid,
 		    (opc << 30) | BIT(29) | (sid << 24) | (bc << 16) | addr,
 		    inf_reg->ch_send);
 	raw_spin_unlock_irqrestore(&arb->lock, flags);
-
 	return 0;
 }
 
@@ -582,10 +603,12 @@ static void pmif_pmic_acc_vio_irq_handler(int irq, void *data)
 	pr_notice("[PMIF]:pmic_acc_vio\n");
 }
 
-static void pmif_lat_limit_reached_irq_handler(int irq, void *data)
+static void pmif_acc_vio_irq_handler(int irq, void *data)
 {
-	spmi_dump_pmif_busy_reg();
-	spmi_dump_pmif_record_reg();
+	pr_notice("[PMIF]:PMIF ACC violation\n");
+	pr_notice("[PMIF]:PMIF_ACC_VIO_INFO_0 = 0x%x\n", pmif_readl(data, PMIF_ACC_VIO_INFO_0));
+	pr_notice("[PMIF]:PMIF_ACC_VIO_INFO_1 = 0x%x\n", pmif_readl(data, PMIF_ACC_VIO_INFO_1));
+	pr_notice("[PMIF]:PMIF_ACC_VIO_INFO_2 = 0x%x\n", pmif_readl(data, PMIF_ACC_VIO_INFO_2));
 }
 
 static void pmif_hw_monitor_irq_handler(int irq, void *data)
@@ -602,6 +625,38 @@ static void pmif_wdt_irq_handler(int irq, void *data)
 	spmi_dump_pmif_busy_reg();
 	spmi_dump_pmif_record_reg();
 	spmi_dump_wdt_reg();
+	/* No need to clr wdt irq */
+	pr_notice("[PMIF]:WDT IRQ HANDLER DONE\n");
+}
+
+static void pmif_swinf_acc_err_0_irq_handler(int irq, void *data)
+{
+	pr_notice("[PMIF]:SWINF_ACC_ERR_0\n");
+}
+
+static void pmif_swinf_acc_err_1_irq_handler(int irq, void *data)
+{
+	pr_notice("[PMIF]:SWINF_ACC_ERR_1\n");
+}
+
+static void pmif_swinf_acc_err_2_irq_handler(int irq, void *data)
+{
+	pr_notice("[PMIF]:SWINF_ACC_ERR_2\n");
+}
+
+static void pmif_swinf_acc_err_3_irq_handler(int irq, void *data)
+{
+	pr_notice("[PMIF]:SWINF_ACC_ERR_3\n");
+}
+
+static void pmif_swinf_acc_err_4_irq_handler(int irq, void *data)
+{
+	pr_notice("[PMIF]:SWINF_ACC_ERR_4\n");
+}
+
+static void pmif_swinf_acc_err_5_irq_handler(int irq, void *data)
+{
+	pr_notice("[PMIF]:SWINF_ACC_ERR_5\n");
 }
 
 static irqreturn_t pmif_event_0_irq_handler(int irq, void *data)
@@ -621,6 +676,9 @@ static irqreturn_t pmif_event_0_irq_handler(int irq, void *data)
 	for (idx = 0; idx < 32; idx++) {
 		if ((irq_f & (0x1 << idx)) != 0) {
 			switch (idx) {
+			case IRQ_PMIF_ACC_VIO_V3:
+				pmif_acc_vio_irq_handler(irq, data);
+			break;
 			case IRQ_WDT_V4:
 				pmif_wdt_irq_handler(irq, data);
 			break;
@@ -736,15 +794,28 @@ static irqreturn_t pmif_event_3_irq_handler(int irq, void *data)
 	for (idx = 0; idx < 32; idx++) {
 		if ((irq_f & (0x1 << idx)) != 0) {
 			switch (idx) {
-			case IRQ_LAT_LIMIT_REACHED:
-				pmif_lat_limit_reached_irq_handler(irq, data);
+			case IRQ_PMIF_SWINF_ACC_ERR_0:
+				pmif_swinf_acc_err_0_irq_handler(irq, data);
 			break;
-			case IRQ_HW_MONITOR:
+			case IRQ_PMIF_SWINF_ACC_ERR_1:
+				pmif_swinf_acc_err_1_irq_handler(irq, data);
+			break;
+			case IRQ_PMIF_SWINF_ACC_ERR_2:
+				pmif_swinf_acc_err_2_irq_handler(irq, data);
+			break;
+			case IRQ_PMIF_SWINF_ACC_ERR_3:
+				pmif_swinf_acc_err_3_irq_handler(irq, data);
+			break;
+			case IRQ_PMIF_SWINF_ACC_ERR_4:
+				pmif_swinf_acc_err_4_irq_handler(irq, data);
+			break;
+			case IRQ_PMIF_SWINF_ACC_ERR_5:
+				pmif_swinf_acc_err_5_irq_handler(irq, data);
+			break;
 			case IRQ_HW_MONITOR_V2:
 			case IRQ_HW_MONITOR_V3:
 				pmif_hw_monitor_irq_handler(irq, data);
 			break;
-			case IRQ_WDT:
 			case IRQ_WDT_V2:
 			case IRQ_WDT_V3:
 				pmif_wdt_irq_handler(irq, data);
