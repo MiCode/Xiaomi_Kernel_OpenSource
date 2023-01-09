@@ -2796,7 +2796,10 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 			cmdq_pkt_destroy(cmdq_handle);
 		}
 	} else {
-		mtk_dsi_wait_cmd_frame_done(dsi, force_lcm_update);
+		if (mtk_crtc->path_data->is_discrete_path)
+			mtk_dsi_wait_idle(dsi, CMD_DONE_INT_FLAG, 2000, NULL);
+		else
+			mtk_dsi_wait_cmd_frame_done(dsi, force_lcm_update);
 	}
 
 SKIP_WAIT_FRAME_DONE:

@@ -551,8 +551,14 @@ static void mtk_plane_atomic_update(struct drm_plane *plane,
 	if (mtk_plane_state->pending.enable)
 		atomic_set(&mtk_crtc->already_config, 1);
 
-	if (mtk_plane_state->pending.format == DRM_FORMAT_RGB332)
+	if (mtk_plane_state->pending.format == DRM_FORMAT_RGB332) {
 		skip_update = 1;
+		/* workaround for skip plane update and trigger hwc set crtc in discrete*/
+		if (mtk_crtc->path_data->is_discrete_path) {
+			mtk_crtc->skip_frame = true;
+			DDPMSG("skip setcrtc trigger\n");
+		}
+	}
 	/* workaround for skip plane update when hwc set crtc */
 	if (skip_update == 0)
 		mtk_drm_crtc_plane_update(crtc, plane, mtk_plane_state);

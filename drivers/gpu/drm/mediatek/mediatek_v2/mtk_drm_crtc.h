@@ -946,6 +946,8 @@ struct mtk_drm_crtc {
 
 	//discrete
 	struct cmdq_pkt *pending_handle;
+
+	bool skip_frame;
 };
 
 struct mtk_crtc_state {

@@ -9566,7 +9566,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 10. set dirty for cmd mode */
 	if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 		!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
-		!mtk_state->doze_changed)
+		!mtk_state->doze_changed && !mtk_crtc->skip_frame)
 		mtk_crtc_set_dirty(mtk_crtc);
 
 	/* 11. set vblank*/
@@ -9664,6 +9664,9 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 
 	/* hold wakelock */
 	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
+
+	if (mtk_crtc->path_data->is_discrete_path)
+		mtk_crtc->skip_frame = true;
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT) && index < MAX_CRTC) {
 		if (priv->usage[index] == DISP_ENABLE || priv->usage[index] == DISP_OPENING) {
@@ -12274,8 +12277,8 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
 	} else if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 					mtk_crtc_with_trigger_loop(crtc)) {
-		if (mtk_crtc->is_mml && is_from_dal) {
-			/* skip trigger when racing with mml */
+		if ((mtk_crtc->is_mml && is_from_dal) ||
+				mtk_crtc->skip_frame) {
 		} else {
 			/* DL with trigger loop */
 			cmdq_pkt_set_event(cmdq_handle,
@@ -12299,6 +12302,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 #endif
 	}
 
+	mtk_crtc->skip_frame = false;
 #ifdef MTK_DRM_CMDQ_ASYNC
 #ifdef MTK_DRM_ASYNC_HANDLE
 	if (gce_cb) {
