@@ -92,7 +92,6 @@
 			};
 			imix_r {
 				channel = <AUXADC_IMIX_R>;
-				val = <90>;
 			};
 		};
 
