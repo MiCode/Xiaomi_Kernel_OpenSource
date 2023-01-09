@@ -8633,6 +8633,14 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mtk_dsi_get_panels_info(dsi, panel_ctx);
 	}
 		break;
+	case GET_CRTC0_CONNECTOR_ID:
+	{
+		unsigned int *crtc0_conn_id = (unsigned int *)params;
+
+		if (dsi)
+			*crtc0_conn_id = dsi->conn.base.id;
+	}
+		break;
 	case DSI_CHANGE_MODE:
 	{
 		struct mtk_dsi *dsi =

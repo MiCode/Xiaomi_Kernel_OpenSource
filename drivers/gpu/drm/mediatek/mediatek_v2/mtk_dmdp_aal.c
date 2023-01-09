@@ -85,6 +85,9 @@ struct mtk_disp_mdp_aal_tile_overhead {
 
 struct mtk_disp_mdp_aal_tile_overhead disp_mdp_aal_tile_overhead = { 0 };
 
+static struct mtk_ddp_comp *default_comp;
+static struct mtk_ddp_comp *default_comp1;
+
 static inline struct mtk_dmdp_aal *comp_to_dmdp_aal(struct mtk_ddp_comp *comp)
 {
 	return container_of(comp, struct mtk_dmdp_aal, ddp_comp);
@@ -580,6 +583,38 @@ void mtk_dmdp_aal_dump(struct mtk_ddp_comp *comp)
 	mtk_cust_dump_reg(baddr, 0x4ec, 0x4f0, 0x528, 0x52c);
 }
 
+void mtk_dmdp_aal_regdump(void)
+{
+	void __iomem *baddr = default_comp->regs;
+	int k;
+
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(default_comp),
+			default_comp->regs_pa);
+	DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(default_comp));
+	for (k = 0; k <= 0x600; k += 16) {
+		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+			readl(baddr + k),
+			readl(baddr + k + 0x4),
+			readl(baddr + k + 0x8),
+			readl(baddr + k + 0xc));
+	}
+	DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(default_comp));
+	if (default_comp->mtk_crtc->is_dual_pipe && default_comp1) {
+		baddr = default_comp1->regs;
+		DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(default_comp1),
+				default_comp1->regs_pa);
+		DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(default_comp1));
+		for (k = 0; k <= 0x600; k += 16) {
+			DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+				readl(baddr + k),
+				readl(baddr + k + 0x4),
+				readl(baddr + k + 0x8),
+				readl(baddr + k + 0xc));
+		}
+		DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(default_comp1));
+	}
+}
+
 static int mtk_dmdp_aal_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -625,6 +660,10 @@ static int mtk_dmdp_aal_probe(struct platform_device *pdev)
 		DDPMSG("Failed to add component: %d\n", ret);
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
+	if (!default_comp && comp_id == DDP_COMPONENT_DMDP_AAL0)
+		default_comp = &priv->ddp_comp;
+	if (!default_comp1 && comp_id == DDP_COMPONENT_DMDP_AAL1)
+		default_comp1 = &priv->ddp_comp;
 
 	return ret;
 }

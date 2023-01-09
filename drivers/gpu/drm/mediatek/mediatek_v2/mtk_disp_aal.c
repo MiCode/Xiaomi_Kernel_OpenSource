@@ -74,6 +74,7 @@ static struct DISP_AAL_HIST g_aal_hist_db;
 //static ddp_module_notify g_ddp_notify;
 static atomic_t g_aal0_hist_available = ATOMIC_INIT(0);
 static atomic_t g_aal1_hist_available = ATOMIC_INIT(0);
+static atomic_t g_aal_hist_wait_dualpipe = ATOMIC_INIT(0);
 static atomic_t g_aal0_dre20_hist_is_ready = ATOMIC_INIT(0);
 static atomic_t g_aal1_dre20_hist_is_ready = ATOMIC_INIT(0);
 static atomic_t g_aal_sof_irq_available = ATOMIC_INIT(0);
@@ -485,6 +486,28 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 }
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+static bool is_led_need_aal(int connector_id)
+{
+	unsigned int crtc0_connector_id = 0;
+	struct mtk_ddp_comp *output_comp = NULL;
+
+	if (connector_id <= 0) {
+		AALFLOW_LOG("%s: invalid connector id\n", __func__);
+		return true;
+	}
+	if (default_comp == NULL || default_comp->mtk_crtc == NULL) {
+		AALERR("%s: null pointer!\n", __func__);
+		return false;
+	}
+	output_comp = mtk_ddp_comp_request_output(default_comp->mtk_crtc);
+	if (output_comp == NULL) {
+		AALERR("%s: output_comp is null!\n", __func__);
+		return false;
+	}
+	mtk_ddp_comp_io_cmd(output_comp, NULL, GET_CRTC0_CONNECTOR_ID, &crtc0_connector_id);
+	return (connector_id == crtc0_connector_id);
+}
+
 int led_brightness_changed_event_to_aal(struct notifier_block *nb, unsigned long event,
 	void *v)
 {
@@ -495,6 +518,11 @@ int led_brightness_changed_event_to_aal(struct notifier_block *nb, unsigned long
 
 	switch (event) {
 	case LED_BRIGHTNESS_CHANGED:
+		if (!is_led_need_aal(led_conf->connector_id)) {
+			AALFLOW_LOG("connector id %d no need aal\n", led_conf->connector_id);
+			led_conf->aal_enable = 0;
+			break;
+		}
 		if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS] &&
 			(atomic_read(&g_aal_force_relay) != 1)) {
 			trans_level = led_conf->cdev.brightness;
@@ -882,12 +910,15 @@ static void disp_aal_wait_hist(void)
 
 	if (isDualPQ) {
 		if ((atomic_read(&g_aal0_hist_available) == 0) ||
-				(atomic_read(&g_aal1_hist_available) == 0))
+				(atomic_read(&g_aal1_hist_available) == 0)) {
+			atomic_set(&g_aal_hist_wait_dualpipe, 1);
 			ret = wait_event_interruptible(g_aal_hist_wq,
 					(atomic_read(&g_aal0_hist_available) == 1) &&
 					(atomic_read(&g_aal1_hist_available) == 1));
+		}
 		AALFLOW_LOG("aal0 and aal1 hist_available = 1, waken up, ret = %d", ret);
 	} else if (atomic_read(&g_aal0_hist_available) == 0) {
+		atomic_set(&g_aal_hist_wait_dualpipe, 0);
 		AALFLOW_LOG("wait_event_interruptible\n");
 		ret = wait_event_interruptible(g_aal_hist_wq,
 				atomic_read(&g_aal0_hist_available) == 1);
@@ -1061,9 +1092,11 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 	g_aal_hist.dre_enable = g_aal_dre_en;
 
 	if (isDualPQ) {
+		g_aal_hist.pipeLineNum = 2;
 		g_aal_hist.srcWidth = g_dual_aal_size.width;
 		g_aal_hist.srcHeight = g_dual_aal_size.height;
 	} else {
+		g_aal_hist.pipeLineNum = 1;
 		g_aal_hist.srcWidth = g_aal_size.width;
 		g_aal_hist.srcHeight = g_aal_size.height;
 	}
@@ -2015,8 +2048,11 @@ static void disp_aal_update_dre3_sram(struct mtk_ddp_comp *comp,
 					atomic_set(&g_aal0_hist_available, 1);
 				else if (comp->id == DDP_COMPONENT_AAL1)
 					atomic_set(&g_aal1_hist_available, 1);
-			} else
+			} else {
 				atomic_set(&g_aal0_hist_available, 1);
+				if (atomic_read(&g_aal_hist_wait_dualpipe) == 1)
+					atomic_set(&g_aal1_hist_available, 1);
+			}
 		}
 		spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 		if (result) {
@@ -3620,6 +3656,38 @@ void mtk_aal_dump(struct mtk_ddp_comp *comp)
 	mtk_cust_dump_reg(baddr, 0x24, 0x28, 0x200, 0x10);
 }
 
+void mtk_aal_regdump(void)
+{
+	void __iomem  *baddr = default_comp->regs;
+	int k;
+
+	DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(default_comp),
+			default_comp->regs_pa);
+	DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(default_comp));
+	for (k = 0; k <= 0x580; k += 16) {
+		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+			readl(baddr + k),
+			readl(baddr + k + 0x4),
+			readl(baddr + k + 0x8),
+			readl(baddr + k + 0xc));
+	}
+	DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(default_comp));
+	if (isDualPQ && aal1_default_comp) {
+		baddr = aal1_default_comp->regs;
+		DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(aal1_default_comp),
+				aal1_default_comp->regs_pa);
+		DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(aal1_default_comp));
+		for (k = 0; k <= 0x580; k += 16) {
+			DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+				readl(baddr + k),
+				readl(baddr + k + 0x4),
+				readl(baddr + k + 0x8),
+				readl(baddr + k + 0xc));
+		}
+		DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(aal1_default_comp));
+	}
+}
+
 void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 {
 	//For 120Hz rotation issue
@@ -3763,6 +3831,8 @@ void disp_aal_on_start_of_frame(void)
 		} else {
 			if (atomic_read(&g_aal0_dre20_hist_is_ready)) {
 				atomic_set(&g_aal0_hist_available, 1);
+				if (atomic_read(&g_aal_hist_wait_dualpipe) == 1)
+					atomic_set(&g_aal1_hist_available, 1);
 				wake_up_interruptible(&g_aal_hist_wq);
 			}
 		}

@@ -68,6 +68,7 @@ static atomic_t g_dither_is_clock_on[4] = {
 static DEFINE_SPINLOCK(g_dither_clock_lock);
 // It's a work around for no comp assigned in functions.
 static struct mtk_ddp_comp *default_comp;
+static struct mtk_ddp_comp *default_comp1;
 static struct workqueue_struct *dither_pure_detect_wq;
 static struct work_struct dither_pure_detect_task;
 static unsigned int g_dither_mode = 1;
@@ -346,6 +347,27 @@ static void mtk_disp_dither_config_overhead(struct mtk_ddp_comp *comp,
 	}
 }
 
+static unsigned int conv_to_pipe0_index(unsigned int id)
+{
+	unsigned int index;
+	struct mtk_disp_dither *dither = comp_to_dither(default_comp);
+	int disp_dither_num = dither->data->single_pipe_dither_num;
+
+	if (!default_comp->mtk_crtc->is_dual_pipe)
+		index = id;
+	else if (disp_dither_num == 1 && id == 1)
+		index = 0;
+	else if (disp_dither_num == 2 && id == 2)
+		index = 0;
+	else if (disp_dither_num == 2 && id == 3)
+		index = 1;
+	else
+		index = id;
+
+	DDPINFO("%s, ccorr index:%u\n", __func__, index);
+	return index;
+}
+
 static void mtk_dither_config(struct mtk_ddp_comp *comp,
 			      struct mtk_ddp_config *cfg,
 			      struct cmdq_pkt *handle)
@@ -485,10 +507,13 @@ static void mtk_dither_config(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_DITHER_EN, enable, ~0);
 
+	/* to avoid different show of dual pipe, pipe1 use pipe0's config data */
+	index = conv_to_pipe0_index(index);
+
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_REG_DITHER_CFG,
 		enable << 1 |
-		g_dither_relay_value[index_of_dither(comp->id)], 0x3);
+		g_dither_relay_value[index], 0x3);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_REG_DITHER_SIZE,
@@ -891,6 +916,38 @@ void mtk_dither_dump(struct mtk_ddp_comp *comp)
 	mtk_cust_dump_reg(baddr, 0x24, 0x28, -1, -1);
 }
 
+void mtk_dither_regdump(void)
+{
+	void __iomem *baddr = default_comp->regs;
+	int k;
+
+	DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(default_comp),
+			default_comp->regs_pa);
+	DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(default_comp));
+	for (k = 0; k <= 0x164; k += 16) {
+		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+			readl(baddr + k),
+			readl(baddr + k + 0x4),
+			readl(baddr + k + 0x8),
+			readl(baddr + k + 0xc));
+	}
+	DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(default_comp));
+	if (default_comp->mtk_crtc->is_dual_pipe && default_comp1) {
+		baddr = default_comp1->regs;
+		DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(default_comp1),
+				default_comp1->regs_pa);
+		DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(default_comp1));
+		for (k = 0; k <= 0x164; k += 16) {
+			DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+				readl(baddr + k),
+				readl(baddr + k + 0x4),
+				readl(baddr + k + 0x8),
+				readl(baddr + k + 0xc));
+		}
+		DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(default_comp1));
+	}
+}
+
 static void mtk_disp_dither_dts_parse(const struct device_node *np,
 	enum mtk_ddp_comp_id comp_id)
 {
@@ -940,8 +997,10 @@ static int mtk_disp_dither_probe(struct platform_device *pdev)
 		return comp_id;
 	}
 
-	if (!default_comp)
+	if (!default_comp && comp_id == DDP_COMPONENT_DITHER0)
 		default_comp = &priv->ddp_comp;
+	if (!default_comp1 && comp_id == DDP_COMPONENT_DITHER1)
+		default_comp1 = &priv->ddp_comp;
 
 	ret = mtk_ddp_comp_init(dev, dev->of_node, &priv->ddp_comp, comp_id,
 				&mtk_disp_dither_funcs);

@@ -22,7 +22,7 @@ static struct mtk_ddp_comp *tdshp1_default_comp;
 			((module == DDP_COMPONENT_TDSHP2) ? 2 : 3)))
 #define DISP_TDSHP_HW_ENGINE_NUM (4)
 static unsigned int g_tdshp_relay_value[DISP_TDSHP_HW_ENGINE_NUM] = { 0, 0, 0, 0};
-static struct DISP_TDSHP_REG *g_disp_tdshp_regs[DISP_TDSHP_HW_ENGINE_NUM] = { NULL };
+static struct DISP_TDSHP_REG *g_disp_tdshp_regs;
 
 static atomic_t g_tdshp_is_clock_on[DISP_TDSHP_HW_ENGINE_NUM] = { ATOMIC_INIT(0),
 	ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0)};
@@ -60,18 +60,41 @@ static inline struct mtk_disp_tdshp *comp_to_disp_tdshp(struct mtk_ddp_comp *com
 	return container_of(comp, struct mtk_disp_tdshp, ddp_comp);
 }
 
+static unsigned int conv_to_pipe0_index(unsigned int id)
+{
+	unsigned int index;
+	struct mtk_disp_tdshp *tdshp = comp_to_disp_tdshp(default_comp);
+	int disp_tdshp_number = tdshp->data->single_pipe_tdshp_num;
+
+	if (!default_comp->mtk_crtc->is_dual_pipe)
+		index = id;
+	else if (disp_tdshp_number == 1 && id == 1)
+		index = 0;
+	else if (disp_tdshp_number == 2 && id == 2)
+		index = 0;
+	else if (disp_tdshp_number == 2 && id == 3)
+		index = 1;
+	else
+		index = id;
+
+	DDPINFO("%s, tdshp index:%u\n", __func__, index);
+	return index;
+}
+
 static int mtk_disp_tdshp_write_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, int lock)
 {
 	struct DISP_TDSHP_REG *disp_tdshp_regs;
 
 	int ret = 0;
-	int id = index_of_tdshp(comp->id);
+	unsigned int id = index_of_tdshp(comp->id);
 
 	if (lock)
 		mutex_lock(&g_tdshp_global_lock);
 
-	disp_tdshp_regs = g_disp_tdshp_regs[id];
+	/* to avoid different show of dual pipe, pipe1 use pipe0's config data */
+	id = conv_to_pipe0_index(id);
+	disp_tdshp_regs = g_disp_tdshp_regs;
 	if (disp_tdshp_regs == NULL) {
 		DDPINFO("%s: table [%d] not initialized\n", __func__, id);
 		ret = -EFAULT;
@@ -348,8 +371,8 @@ static int mtk_disp_tdshp_set_reg(struct mtk_ddp_comp *comp,
 		if (id >= 0 && id < DISP_TDSHP_HW_ENGINE_NUM) {
 			mutex_lock(&g_tdshp_global_lock);
 
-			old_tdshp_regs = g_disp_tdshp_regs[id];
-			g_disp_tdshp_regs[id] = tdshp_regs;
+			old_tdshp_regs = g_disp_tdshp_regs;
+			g_disp_tdshp_regs = tdshp_regs;
 
 			pr_notice("%s: Set module(%d) lut\n", __func__, comp->id);
 			ret = mtk_disp_tdshp_write_reg(comp, handle, 0);
@@ -779,6 +802,38 @@ void mtk_disp_tdshp_dump(struct mtk_ddp_comp *comp)
 	mtk_cust_dump_reg(baddr, 0x644, 0x648, 0x64C, 0x650);
 	mtk_cust_dump_reg(baddr, 0x654, 0x658, 0x65C, 0x660);
 	mtk_cust_dump_reg(baddr, 0x664, 0x668, 0x66C, 0x670);
+}
+
+void mtk_disp_tdshp_regdump(void)
+{
+	void __iomem *baddr = default_comp->regs;
+	int k;
+
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(default_comp),
+			default_comp->regs_pa);
+	DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(default_comp));
+	for (k = 0; k <= 0x67c; k += 16) {
+		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+			readl(baddr + k),
+			readl(baddr + k + 0x4),
+			readl(baddr + k + 0x8),
+			readl(baddr + k + 0xc));
+	}
+	DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(default_comp));
+	if (default_comp->mtk_crtc->is_dual_pipe && tdshp1_default_comp) {
+		baddr = tdshp1_default_comp->regs;
+		DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(tdshp1_default_comp),
+				tdshp1_default_comp->regs_pa);
+		DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(tdshp1_default_comp));
+		for (k = 0; k <= 0x67c; k += 16) {
+			DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+				readl(baddr + k),
+				readl(baddr + k + 0x4),
+				readl(baddr + k + 0x8),
+				readl(baddr + k + 0xc));
+		}
+		DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(tdshp1_default_comp));
+	}
 }
 
 static int mtk_disp_tdshp_probe(struct platform_device *pdev)

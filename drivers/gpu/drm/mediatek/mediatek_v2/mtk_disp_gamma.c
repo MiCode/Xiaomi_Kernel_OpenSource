@@ -62,10 +62,11 @@
 #define DISP_GAMMA_BLOCK_SIZE 256
 #define DISP_GAMMA_GAIN_SIZE 3
 
-static unsigned int g_gamma_relay_value[DISP_GAMMA_TOTAL];
+static unsigned int g_gamma_relay_value;
 #define index_of_gamma(module) ((module == DDP_COMPONENT_GAMMA0) ? 0 : 1)
 // It's a work around for no comp assigned in functions.
 static struct mtk_ddp_comp *default_comp;
+static struct mtk_ddp_comp *default_comp1;
 
 unsigned int g_gamma_data_mode;
 
@@ -84,8 +85,8 @@ struct gamma_color_protect_mode {
 	unsigned int white_support;
 };
 
-static struct DISP_GAMMA_LUT_T *g_disp_gamma_lut[DISP_GAMMA_TOTAL] = { NULL };
-static struct DISP_GAMMA_12BIT_LUT_T *g_disp_gamma_12bit_lut[DISP_GAMMA_TOTAL] = { NULL };
+static struct DISP_GAMMA_LUT_T *g_disp_gamma_lut;
+static struct DISP_GAMMA_12BIT_LUT_T *g_disp_gamma_12bit_lut;
 static struct DISP_GAMMA_LUT_T g_disp_gamma_lut_db;
 static struct DISP_GAMMA_12BIT_LUT_T g_disp_gamma_12bit_lut_db;
 
@@ -231,13 +232,12 @@ static int mtk_gamma_write_lut_reg(struct mtk_ddp_comp *comp,
 	struct DISP_GAMMA_LUT_T *gamma_lut;
 	int i;
 	int ret = 0;
-	int id = index_of_gamma(comp->id);
 
 	if (lock)
 		mutex_lock(&g_gamma_global_lock);
-	gamma_lut = g_disp_gamma_lut[id];
+	gamma_lut = g_disp_gamma_lut;
 	if (gamma_lut == NULL) {
-		DDPINFO("%s: table [%d] not initialized\n", __func__, id);
+		DDPINFO("%s: table not initialized\n", __func__);
 		ret = -EFAULT;
 		goto gamma_write_lut_unlock;
 	}
@@ -271,7 +271,7 @@ static int mtk_gamma_write_lut_reg(struct mtk_ddp_comp *comp,
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_GAMMA_CFG,
-			0x2 | g_gamma_relay_value[id], 0x3);
+			0x2 | g_gamma_relay_value, 0x3);
 
 gamma_write_lut_unlock:
 	if (lock)
@@ -296,14 +296,13 @@ static int mtk_gamma_write_12bit_lut_reg(struct mtk_ddp_comp *comp,
 	struct DISP_GAMMA_12BIT_LUT_T *gamma_lut;
 	int i, j, block_num;
 	int ret = 0;
-	int id = index_of_gamma(comp->id);
 	unsigned int table_config_sel, table_out_sel;
 
 	if (lock)
 		mutex_lock(&g_gamma_global_lock);
-	gamma_lut = g_disp_gamma_12bit_lut[id];
+	gamma_lut = g_disp_gamma_12bit_lut;
 	if (gamma_lut == NULL) {
-		DDPINFO("%s: table [%d] not initialized\n", __func__, id);
+		DDPINFO("%s: table not initialized\n", __func__);
 		ret = -EFAULT;
 		goto gamma_write_lut_unlock;
 	}
@@ -353,7 +352,7 @@ static int mtk_gamma_write_12bit_lut_reg(struct mtk_ddp_comp *comp,
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_GAMMA_CFG,
-			0x2 | g_gamma_relay_value[id], 0x3);
+			0x2 | g_gamma_relay_value, 0x3);
 
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_GAMMA_SHADOW_SRAM,
@@ -435,8 +434,8 @@ static int mtk_gamma_set_lut(struct mtk_ddp_comp *comp,
 		if (id >= 0 && id < DISP_GAMMA_TOTAL) {
 			mutex_lock(&g_gamma_global_lock);
 
-			old_lut = g_disp_gamma_lut[id];
-			g_disp_gamma_lut[id] = gamma_lut;
+			old_lut = g_disp_gamma_lut;
+			g_disp_gamma_lut = gamma_lut;
 
 			DDPINFO("%s: Set module(%d) lut\n", __func__, comp->id);
 			ret = mtk_gamma_write_lut_reg(comp, handle, 0);
@@ -486,8 +485,8 @@ static int mtk_gamma_12bit_set_lut(struct mtk_ddp_comp *comp,
 		if (id >= 0 && id < DISP_GAMMA_TOTAL) {
 			mutex_lock(&g_gamma_global_lock);
 
-			old_lut = g_disp_gamma_12bit_lut[id];
-			g_disp_gamma_12bit_lut[id] = gamma_lut;
+			old_lut = g_disp_gamma_12bit_lut;
+			g_disp_gamma_12bit_lut = gamma_lut;
 
 			DDPINFO("%s: Set module(%d) lut\n", __func__, comp->id);
 			ret = mtk_gamma_write_12bit_lut_reg(comp, handle, 0);
@@ -662,7 +661,7 @@ static void mtk_gamma_bypass(struct mtk_ddp_comp *comp, int bypass,
 	DDPINFO("%s\n", __func__);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_GAMMA_CFG, bypass, 0x1);
-	g_gamma_relay_value[index_of_gamma(comp->id)] = bypass;
+	g_gamma_relay_value = bypass;
 
 }
 
@@ -1031,6 +1030,38 @@ void mtk_gamma_dump(struct mtk_ddp_comp *comp)
 	mtk_cust_dump_reg(baddr, 0x14, 0x20, 0x700, 0xb00);
 }
 
+void mtk_gamma_regdump(void)
+{
+	void __iomem  *baddr = default_comp->regs;
+	int k;
+
+	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(default_comp),
+			default_comp->regs_pa);
+	DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(default_comp));
+	for (k = 0; k <= 0xff0; k += 16) {
+		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+			readl(baddr + k),
+			readl(baddr + k + 0x4),
+			readl(baddr + k + 0x8),
+			readl(baddr + k + 0xc));
+	}
+	DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(default_comp));
+	if (default_comp->mtk_crtc->is_dual_pipe && default_comp1) {
+		baddr = default_comp1->regs;
+		DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(default_comp1),
+				default_comp1->regs_pa);
+		DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(default_comp1));
+		for (k = 0; k <= 0xff0; k += 16) {
+			DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+				readl(baddr + k),
+				readl(baddr + k + 0x4),
+				readl(baddr + k + 0x8),
+				readl(baddr + k + 0xc));
+		}
+		DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(default_comp1));
+	}
+}
+
 static void mtk_disp_gamma_dts_parse(const struct device_node *np,
 	enum mtk_ddp_comp_id comp_id)
 {
@@ -1123,8 +1154,10 @@ static int mtk_disp_gamma_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	if (!default_comp)
+	if (!default_comp && comp_id == DDP_COMPONENT_GAMMA0)
 		default_comp = &priv->ddp_comp;
+	if (!default_comp1 && comp_id == DDP_COMPONENT_GAMMA1)
+		default_comp1 = &priv->ddp_comp;
 
 	platform_set_drvdata(pdev, priv);
 

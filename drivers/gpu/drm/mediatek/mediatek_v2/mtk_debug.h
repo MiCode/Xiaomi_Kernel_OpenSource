@@ -31,6 +31,14 @@ extern void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
 extern void disp_dither_set_color_detect(struct drm_crtc *crtc, int enable);
 extern void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 	unsigned int gain[3], unsigned int bl, void *param);
+extern void mtk_aal_regdump(void);
+extern void mtk_c3d_regdump(void);
+extern void mtk_ccorr_regdump(void);
+extern void mtk_color_regdump(void);
+extern void mtk_dither_regdump(void);
+extern void mtk_disp_tdshp_regdump(void);
+extern void mtk_dmdp_aal_regdump(void);
+extern void mtk_gamma_regdump(void);
 
 extern unsigned int m_new_pq_persist_property[32];
 extern unsigned int g_gamma_data_mode;

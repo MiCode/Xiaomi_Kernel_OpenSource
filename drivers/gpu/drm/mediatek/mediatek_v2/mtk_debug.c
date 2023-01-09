@@ -3667,6 +3667,33 @@ static void process_dbg_opt(const char *opt)
 		val = *(unsigned int *)(cmdq_buf->va_base + DISP_SLOT_TE1_EN);
 		DDPMSG("[reg_dbg] gce_rd: addr(0x%x) = 0x%x\n", addr, val);
 #endif
+	} else if (strncmp(opt, "pq_dump", 7) == 0) {
+		unsigned int dump_flag = 0;
+		int ret;
+
+		ret = sscanf(opt, "pq_dump:%x\n", &dump_flag);
+		if (ret != 1) {
+			DDPPR_ERR("%d error to parse cmd %s\n", __LINE__, opt);
+			return;
+		}
+
+		DDPMSG("pq start dump, dump flag:0x%x\n", dump_flag);
+		if (dump_flag & 0x1)
+			mtk_aal_regdump();
+		if (dump_flag & 0x2)
+			mtk_c3d_regdump();
+		if (dump_flag & 0x4)
+			mtk_ccorr_regdump();
+		if (dump_flag & 0x8)
+			mtk_color_regdump();
+		if (dump_flag & 0x10)
+			mtk_dither_regdump();
+		if (dump_flag & 0x20)
+			mtk_disp_tdshp_regdump();
+		if (dump_flag & 0x40)
+			mtk_dmdp_aal_regdump();
+		if (dump_flag & 0x80)
+			mtk_gamma_regdump();
 	} else if (strncmp(opt, "esd_check", 9) == 0) {
 		unsigned int esd_check_en = 0;
 		struct drm_crtc *crtc;

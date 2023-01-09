@@ -177,6 +177,8 @@ static DEFINE_MUTEX(g_ccorr_global_lock);
 // It's a work around for no comp assigned in functions.
 static struct mtk_ddp_comp *default_comp;
 static struct mtk_ddp_comp *ccorr1_default_comp;
+static struct mtk_ddp_comp *ccorr2_default_comp;
+static struct mtk_ddp_comp *ccorr3_default_comp;
 
 static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, int lock);
@@ -317,6 +319,25 @@ static int disp_ccorr_color_matrix_to_dispsys(struct drm_device *dev)
 	return ret;
 }
 
+static unsigned int conv_to_pipe0_index(unsigned int id)
+{
+	unsigned int index;
+
+	if (!default_comp->mtk_crtc->is_dual_pipe)
+		index = id;
+	else if (disp_ccorr_number == 1 && id == 1)
+		index = 0;
+	else if (disp_ccorr_number == 2 && id == 2)
+		index = 0;
+	else if (disp_ccorr_number == 2 && id == 3)
+		index = 1;
+	else
+		index = id;
+
+	DDPINFO("%s, ccorr index:%u\n", __func__, index);
+	return index;
+}
+
 static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, int lock)
 {
@@ -330,9 +351,11 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	if (lock)
 		mutex_lock(&g_ccorr_global_lock);
 
-	ccorr = g_disp_ccorr_coef[id];
 	DDPINFO("%s:ccorr id:%d,aosp ccorr:%d,nonlinear:%d\n", __func__, id,
 		disp_aosp_ccorr, g_disp_ccorr_without_gamma);
+	/* to avoid different show of dual pipe, pipe1 use pipe0's config data */
+	id = conv_to_pipe0_index(id);
+	ccorr = g_disp_ccorr_coef[id];
 	if (ccorr == NULL) {
 		DDPINFO("%s: [%d] is not initialized\n", __func__, id);
 		ret = -EFAULT;
@@ -406,7 +429,7 @@ static int disp_ccorr_write_coef_reg(struct mtk_ddp_comp *comp,
 	} else {
 		/* use CMDQ to write */
 
-		cfg_val = 0x2 | g_ccorr_relay_value[index_of_ccorr(comp->id)] |
+		cfg_val = 0x2 | g_ccorr_relay_value[id] |
 				(g_disp_ccorr_without_gamma << 2 |
 				(g_ccorr_8bit_switch[id] << 10));
 
@@ -1025,6 +1048,28 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 }
 
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
+static bool is_led_need_ccorr(int connector_id)
+{
+	unsigned int crtc0_connector_id = 0;
+	struct mtk_ddp_comp *output_comp = NULL;
+
+	if (connector_id <= 0) {
+		DDPINFO("%s: invalid connector id\n", __func__);
+		return true;
+	}
+	if (default_comp == NULL || default_comp->mtk_crtc == NULL) {
+		DDPPR_ERR("%s: null pointer!\n", __func__);
+		return false;
+	}
+	output_comp = mtk_ddp_comp_request_output(default_comp->mtk_crtc);
+	if (output_comp == NULL) {
+		DDPPR_ERR("%s: output_comp is null!\n", __func__);
+		return false;
+	}
+	mtk_ddp_comp_io_cmd(output_comp, NULL, GET_CRTC0_CONNECTOR_ID, &crtc0_connector_id);
+	return (connector_id == crtc0_connector_id);
+}
+
 int led_brightness_changed_event_to_pq(struct notifier_block *nb, unsigned long event,
 	void *v)
 {
@@ -1035,6 +1080,11 @@ int led_brightness_changed_event_to_pq(struct notifier_block *nb, unsigned long 
 
 	switch (event) {
 	case LED_BRIGHTNESS_CHANGED:
+		if (!is_led_need_ccorr(led_conf->connector_id)) {
+			DDPINFO("connector id %d no need aal\n", led_conf->connector_id);
+			led_conf->aal_enable = 0;
+			break;
+		}
 		trans_level = led_conf->cdev.brightness;
 
 		disp_pq_notify_backlight_changed(trans_level);
@@ -1433,10 +1483,12 @@ static void ddp_ccorr_restore(struct mtk_ddp_comp *comp)
 {
 	unsigned int index = index_of_ccorr(comp->id);
 
-	writel(g_ccorr_backup[index].REG_CCORR_CFG,
-			comp->regs + DISP_REG_CCORR_CFG);
 	writel(g_ccorr_backup[index].REG_CCORR_INTEN,
 			comp->regs + DISP_REG_CCORR_INTEN);
+	/* to avoid different show of dual pipe, pipe1 use pipe0's config data */
+	index = conv_to_pipe0_index(index);
+	writel(g_ccorr_backup[index].REG_CCORR_CFG,
+			comp->regs + DISP_REG_CCORR_CFG);
 }
 
 static void mtk_ccorr_prepare(struct mtk_ddp_comp *comp)
@@ -1653,9 +1705,12 @@ static int mtk_disp_ccorr_probe(struct platform_device *pdev)
 
 	if (!default_comp && comp_id == DDP_COMPONENT_CCORR0)
 		default_comp = &priv->ddp_comp;
-	if (!ccorr1_default_comp &&
-		comp_id == DDP_COMPONENT_CCORR1)
+	if (!ccorr1_default_comp && comp_id == DDP_COMPONENT_CCORR1)
 		ccorr1_default_comp = &priv->ddp_comp;
+	if (!ccorr2_default_comp && comp_id == DDP_COMPONENT_CCORR2)
+		ccorr2_default_comp = &priv->ddp_comp;
+	if (!ccorr3_default_comp && comp_id == DDP_COMPONENT_CCORR3)
+		ccorr3_default_comp = &priv->ddp_comp;
 
 	ret = mtk_ddp_comp_init(dev, dev->of_node, &priv->ddp_comp, comp_id,
 				&mtk_disp_ccorr_funcs);
@@ -1821,4 +1876,65 @@ void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_CCORR, &bypass);
 
 	DDPINFO("%s : ret = %d", __func__, ret);
+}
+
+void mtk_ccorr_regdump(void)
+{
+	void __iomem *baddr = default_comp->regs;
+	bool isDualPQ = default_comp->mtk_crtc->is_dual_pipe;
+	int k;
+
+	DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(default_comp),
+			default_comp->regs_pa);
+	DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(default_comp));
+	for (k = 0; k <= 0x110; k += 16) {
+		DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+			readl(baddr + k),
+			readl(baddr + k + 0x4),
+			readl(baddr + k + 0x8),
+			readl(baddr + k + 0xc));
+	}
+	DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(default_comp));
+	if ((disp_ccorr_number == 2 || isDualPQ) && ccorr1_default_comp) {
+		baddr = ccorr1_default_comp->regs;
+		DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(ccorr1_default_comp),
+				ccorr1_default_comp->regs_pa);
+		DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(ccorr1_default_comp));
+		for (k = 0; k < 0x110; k += 16) {
+			DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+				readl(baddr + k),
+				readl(baddr + k + 0x4),
+				readl(baddr + k + 0x8),
+				readl(baddr + k + 0xc));
+		}
+		DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(ccorr1_default_comp));
+	}
+	if (isDualPQ && disp_ccorr_number == 2 && ccorr2_default_comp) {
+		baddr = ccorr2_default_comp->regs;
+		DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(ccorr2_default_comp),
+				ccorr2_default_comp->regs_pa);
+		DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(ccorr2_default_comp));
+		for (k = 0; k < 0x110; k += 16) {
+			DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+				readl(baddr + k),
+				readl(baddr + k + 0x4),
+				readl(baddr + k + 0x8),
+				readl(baddr + k + 0xc));
+		}
+		DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(ccorr2_default_comp));
+	}
+	if (isDualPQ && disp_ccorr_number == 2 && ccorr3_default_comp) {
+		baddr = ccorr3_default_comp->regs;
+		DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(ccorr3_default_comp),
+				ccorr3_default_comp->regs_pa);
+		DDPDUMP("[%s REGS Start Dump]\n", mtk_dump_comp_str(ccorr3_default_comp));
+		for (k = 0; k < 0x110; k += 16) {
+			DDPDUMP("0x%04x: 0x%08x 0x%08x 0x%08x 0x%08x\n", k,
+				readl(baddr + k),
+				readl(baddr + k + 0x4),
+				readl(baddr + k + 0x8),
+				readl(baddr + k + 0xc));
+		}
+		DDPDUMP("[%s REGS End Dump]\n", mtk_dump_comp_str(ccorr3_default_comp));
+	}
 }
