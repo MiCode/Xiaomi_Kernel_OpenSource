@@ -14381,19 +14381,19 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 				path_data->path_len[i][j];
 			mtk_crtc->ddp_ctx[i].ddp_comp[j] = devm_kmalloc_array(
 				dev, path_data->path_len[i][j],
-				sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
+				sizeof(struct mtk_ddp_comp *), GFP_KERNEL | __GFP_ZERO);
 			mtk_crtc->ddp_ctx[i].ovl_comp_nr[j] =
 				path_data->ovl_path_len[i][j];
 			mtk_crtc->ddp_ctx[i].ovl_comp[j] = devm_kmalloc_array(
 				dev, path_data->ovl_path_len[i][j],
-				sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
+				sizeof(struct mtk_ddp_comp *), GFP_KERNEL | __GFP_ZERO);
 			mtk_crtc->ddp_ctx[i].req_hrt[j] =
 				path_data->path_req_hrt[i][j];
 		}
 		mtk_crtc->ddp_ctx[i].wb_comp_nr = path_data->wb_path_len[i];
 		mtk_crtc->ddp_ctx[i].wb_comp = devm_kmalloc_array(
 			dev, path_data->wb_path_len[i],
-			sizeof(struct mtk_ddp_comp *), GFP_KERNEL);
+			sizeof(struct mtk_ddp_comp *), GFP_KERNEL | __GFP_ZERO);
 	}
 
 	ret = disp_mutex_dispatch(priv, mtk_crtc, path_data, pipe);
