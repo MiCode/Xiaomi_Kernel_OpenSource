@@ -8139,6 +8139,7 @@ int mtk_cam_sv_dev_config(struct mtk_cam_ctx *ctx)
 			config_param.sv_input[0][i].tag_id = i;
 			config_param.sv_input[0][i].tag_order =
 				ctx->sv_dev->tag_info[i].tag_order;
+			config_param.sv_input[0][i].is_first_frame = 1;
 			config_param.sv_input[0][i].input =
 				ctx->sv_dev->tag_info[i].cfg_in_param;
 		}
