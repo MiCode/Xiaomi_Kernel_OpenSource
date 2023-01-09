@@ -891,6 +891,9 @@ static struct mtk_panel_params ext_params = {
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
+		.cmd = 0xAB, .count = 2, .para_list[0] = 0x00,
+	},
+	.lcm_esd_check_table[1] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
 	.is_cphy = 1,

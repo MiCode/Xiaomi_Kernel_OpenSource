@@ -3316,7 +3316,7 @@ static int mtk_dsi_trigger(struct mtk_ddp_comp *comp, void *handle)
 }
 
 int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
-			struct DSI_T0_INS *t0, int i, void *ptr)
+			struct DSI_T0_INS *t0, struct DSI_T0_INS *t1, int i, void *ptr)
 {
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)ptr;
@@ -3334,10 +3334,11 @@ int mtk_dsi_read_gce(struct mtk_ddp_comp *comp, void *handle,
 	}
 
 	index = drm_crtc_index(&mtk_crtc->base);
+
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq0_ofs,
-		0x00013700, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq1_ofs,
 		AS_UINT32(t0), ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + dsi->driver_data->reg_cmdq1_ofs,
+		AS_UINT32(t1), ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_CMDQ_SIZE,
 		0x2, CMDQ_SIZE);
 
@@ -3378,6 +3379,7 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 {
 	int i;
 	struct DSI_T0_INS t0;
+	struct DSI_T0_INS t1;
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct mtk_panel_params *params;
 
@@ -3391,14 +3393,19 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 		if (params->lcm_esd_check_table[i].cmd == 0)
 			break;
 
-		t0.CONFG = 0x04;
-		t0.Data0 = params->lcm_esd_check_table[i].cmd;
-		t0.Data_ID = (t0.Data0 < 0xB0)
-				     ? DSI_DCS_READ_PACKET_ID
-				     : DSI_GERNERIC_READ_LONG_PACKET_ID;
+		t0.CONFG = 0x00;
+		t0.Data_ID = 0x37;
+		t0.Data0 = params->lcm_esd_check_table[i].count;
 		t0.Data1 = 0;
 
-		mtk_dsi_read_gce(comp, handle, &t0, i, ptr);
+		t1.CONFG = 0x04;
+		t1.Data0 = params->lcm_esd_check_table[i].cmd;
+		t1.Data_ID = (t1.Data0 < 0xB0)
+				     ? DSI_DCS_READ_PACKET_ID
+				     : DSI_GERNERIC_READ_LONG_PACKET_ID;
+		t1.Data1 = 0;
+
+		mtk_dsi_read_gce(comp, handle, &t0, &t1, i, ptr);
 	}
 
 	return 0;
@@ -3406,8 +3413,8 @@ int mtk_dsi_esd_read(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 
 int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 {
-	int i, ret = 0;
-	u32 tmp0, tmp1, chk_val;
+	int i, j, ret = 0;
+	u32 tmp0, tmp1, chk_val[4] = {0};
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	struct esd_check_item *lcm_esd_tb;
 	struct mtk_panel_params *params;
@@ -3434,21 +3441,33 @@ int mtk_dsi_esd_cmp(struct mtk_ddp_comp *comp, void *handle, void *ptr)
 
 		lcm_esd_tb = &params->lcm_esd_check_table[i];
 
-		if ((tmp0 & 0xff) == 0x1C)
-			chk_val = tmp1 & 0xff;
-		else
-			chk_val = (tmp0 >> 8) & 0xff;
-
-		if (lcm_esd_tb->mask_list[0])
-			chk_val = chk_val & lcm_esd_tb->mask_list[0];
-
-		if (chk_val == lcm_esd_tb->para_list[0]) {
-			ret = 0;
+		if ((tmp0 & 0xff) == 0x1C) {
+			for (j = 0; j < lcm_esd_tb->count && j < 4; j++) {
+				chk_val[j] = tmp1 & 0xff;
+				tmp1 = tmp1 >> 8;
+			}
 		} else {
-			DDPPR_ERR("[DSI]cmp fail:read(0x%x)!=expect(0x%x)\n",
-				  chk_val, lcm_esd_tb->para_list[0]);
-			ret = -1;
-			break;
+			tmp0 = tmp0 >> 8;
+			tmp1 = tmp1 & 0xff;
+			tmp0 = (tmp1 << 24) + tmp0;
+			for (j = 0; j < lcm_esd_tb->count && j < 4; j++) {
+				chk_val[j] = tmp0 & 0xff;
+				tmp0 = tmp0 >> 8;
+			}
+		}
+
+		for (j = 0; j < lcm_esd_tb->count && j < 4; j++) {
+			if (lcm_esd_tb->mask_list[j])
+				chk_val[j] = chk_val[j] & lcm_esd_tb->mask_list[j];
+
+			if (chk_val[j] == lcm_esd_tb->para_list[j]) {
+				ret = 0;
+			} else {
+				DDPPR_ERR("[DSI]cmp fail:read(0x%x)!=expect(0x%x)\n",
+					  chk_val[j], lcm_esd_tb->para_list[j]);
+				ret = -1;
+				return ret;
+			}
 		}
 	}
 
