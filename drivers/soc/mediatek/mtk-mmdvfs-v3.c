@@ -843,6 +843,7 @@ static int mmdvfs_vcp_notifier_callback(struct notifier_block *nb, unsigned long
 		mmdvfs_vcp_cb_ready = true;
 		break;
 	case VCP_EVENT_STOP:
+	case VCP_EVENT_SUSPEND:
 		mmdvfs_vcp_cb_ready = false;
 		break;
 	}
