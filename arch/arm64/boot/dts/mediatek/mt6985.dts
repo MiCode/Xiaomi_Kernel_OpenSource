@@ -6887,13 +6887,17 @@
 					"bt_combo_uart_tx_aux",
 					"bt_combo_uart_rx_aux",
 					"bt_rst_on",
-					"bt_rst_off";
+					"bt_rst_off",
+					"bt-find-my-phone-high",
+					"bt-find-my-phone-low";
 			pinctrl-0 = <&bt_combo_gpio_init>;
 			pinctrl-1 = <&bt_combo_gpio_pre_on>;
 			pinctrl-2 = <&bt_combo_uart_tx_aux>;
 			pinctrl-3 = <&bt_combo_uart_rx_aux>;
 			pinctrl-4 = <&bt_rst_on>;
 			pinctrl-5 = <&bt_rst_off>;
+			pinctrl-6 = <&bt_find_my_phone_high>;
+			pinctrl-7 = <&bt_find_my_phone_low>;
 		};
 
 		wifi: wifi@18000000 {
@@ -15789,6 +15793,18 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 	};
 	bt_rst_off: bt_rst_off {
 		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO240__FUNC_GPIO240>;
+			output-low;
+		};
+	};
+	bt_find_my_phone_high: bt-find-my-phone-high {
+		pins-cmd1-dat {
+			pinmux = <PINMUX_GPIO240__FUNC_GPIO240>;
+			output-high;
+		};
+	};
+	bt_find_my_phone_low: bt-find-my-phone-low {
+		pins-cmd1-dat {
 			pinmux = <PINMUX_GPIO240__FUNC_GPIO240>;
 			output-low;
 		};
