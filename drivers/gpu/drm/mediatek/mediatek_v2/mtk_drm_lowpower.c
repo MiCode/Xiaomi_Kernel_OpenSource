@@ -104,13 +104,13 @@ static void mtk_drm_cmd_mode_leave_idle(struct drm_crtc *crtc)
 
 static void mtk_drm_idlemgr_enter_idle_nolock(struct drm_crtc *crtc)
 {
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *output_comp;
 	int index = drm_crtc_index(crtc);
 	unsigned int idle_interval;
 	bool mode;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	output_comp = priv->ddp_comp[DDP_COMPONENT_DSI0];
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 
 	if (!output_comp)
 		return;
@@ -129,12 +129,12 @@ static void mtk_drm_idlemgr_enter_idle_nolock(struct drm_crtc *crtc)
 
 static void mtk_drm_idlemgr_leave_idle_nolock(struct drm_crtc *crtc)
 {
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *output_comp;
 	int index = drm_crtc_index(crtc);
 	bool mode;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	output_comp = priv->ddp_comp[DDP_COMPONENT_DSI0];
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 
 	if (!output_comp)
 		return;

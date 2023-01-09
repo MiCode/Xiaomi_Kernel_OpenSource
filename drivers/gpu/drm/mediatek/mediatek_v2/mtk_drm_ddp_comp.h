@@ -992,7 +992,9 @@ int mtk_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp);
 void mtk_ddp_comp_unregister(struct drm_device *drm, struct mtk_ddp_comp *comp);
 int mtk_ddp_comp_get_type(enum mtk_ddp_comp_id comp_id);
 bool mtk_dsi_is_cmd_mode(struct mtk_ddp_comp *comp);
+enum mtk_ddp_comp_id mtk_dsi_get_comp_id(struct drm_connector *c);
 bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp);
+bool mtk_ddp_comp_is_output_by_id(enum mtk_ddp_comp_id id);
 void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len);
 int mtk_ovl_layer_num(struct mtk_ddp_comp *comp);
 void mtk_ddp_write(struct mtk_ddp_comp *comp, unsigned int value,

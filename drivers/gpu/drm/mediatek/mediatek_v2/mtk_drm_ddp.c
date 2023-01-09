@@ -568,6 +568,7 @@
 	#define DISP_WDMA0_SEL_IN_FROM_DISP_SPR0      0x2
 
 #define MT6983_DISP_MAIN0_SEL_IN	0xF78
+	#define DISP_MAIN0_SEL_IN_FROM_DISP_DLI_ASYNC1            0x0
 	#define DISP_MAIN0_SEL_IN_FROM_DISP_PQ0_SOUT_SEL	  0x1
 	#define DISP_MAIN0_SEL_IN_FROM_DISP_MERGE0_MOUT_EN	  0x2
 	#define DISP_MAIN0_SEL_IN_FROM_DISP_DSC_WRAP0_MOUT_EN	0x3
@@ -9861,6 +9862,18 @@ static int mtk_ddp_sel_in_MT6983(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_MAIN1_VIRTUAL)) {
 		*addr = MT6983_DISP_MAIN0_SEL_IN;
 		value = DISP_MAIN0_SEL_IN_FROM_DISP_MERGE0_MOUT_EN;
+	} else if ((cur == DDP_COMPONENT_DLI_ASYNC1 &&
+		next == DDP_COMPONENT_MAIN0_VIRTUAL) ||
+		(cur == DDP_COMPONENT_DLI_ASYNC5 &&
+		next == DDP_COMPONENT_MAIN1_VIRTUAL)) {
+		*addr = MT6983_DISP_MAIN0_SEL_IN;
+		value = DISP_MAIN0_SEL_IN_FROM_DISP_DLI_ASYNC1;
+	} else if ((cur == DDP_COMPONENT_PQ0_VIRTUAL &&
+		next == DDP_COMPONENT_DSC0) ||
+		(cur == DDP_COMPONENT_PQ1_VIRTUAL &&
+		next == DDP_COMPONENT_DSC1)) {
+		*addr = MT6983_DISP_DSC_WRAP0_L_SEL_IN;
+		value = DISP_DSC_WRAP0_L_SEL_IN_FROM_DISP_PQ0_SOUT_SEL;
 	} else if ((cur == DDP_COMPONENT_PWM0 && /* Wired path */
 		next == DDP_COMPONENT_CHIST0) || (cur == DDP_COMPONENT_PWM1 &&
 		next == DDP_COMPONENT_CHIST2)) {
@@ -10001,6 +10014,12 @@ static int mtk_ddp_sout_sel_MT6983(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_DLO_ASYNC4)) {
 		*addr = MT6983_DISP_PQ0_SOUT_SEL;
 		value = DISP_PQ0_SOUT_SEL_TO_DISP_DLO_RELAY0;
+	} else if ((cur == DDP_COMPONENT_PQ0_VIRTUAL &&
+		next == DDP_COMPONENT_DSC0) ||
+		(cur == DDP_COMPONENT_PQ1_VIRTUAL &&
+		next == DDP_COMPONENT_DSC1)) {
+		*addr = MT6983_DISP_PQ0_SOUT_SEL;
+		value = DISP_PQ0_SOUT_SEL_TO_DISP_DSC_WRAP0_L_SEL_IN;
 	} else if ((cur == DDP_COMPONENT_MAIN0_VIRTUAL &&
 		next == DDP_COMPONENT_DSI0) ||
 		(cur == DDP_COMPONENT_MAIN1_VIRTUAL &&
@@ -12293,6 +12312,12 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 		if (value >= 0)
 			writel_relaxed(value, config_regs + addr);
 
+		if (cur == DDP_COMPONENT_DSC0) {
+			if (next == DDP_COMPONENT_DLO_ASYNC1)
+				mtk_crtc->is_dsc_output_swap = true;
+			else
+				mtk_crtc->is_dsc_output_swap = false;
+		}
 		break;
 
 	case MMSYS_MT6985:
@@ -12626,6 +12651,12 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 				config_regs_pa
 				+ addr, value, ~0);
+		if (cur == DDP_COMPONENT_DSC0) {
+			if (next == DDP_COMPONENT_DLO_ASYNC1)
+				mtk_crtc->is_dsc_output_swap = true;
+			else
+				mtk_crtc->is_dsc_output_swap = false;
+		}
 		break;
 
 	case MMSYS_MT6985:

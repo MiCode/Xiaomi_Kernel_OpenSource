@@ -660,6 +660,14 @@ bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
 	return mtk_ddp_matches[comp->id].is_output;
 }
 
+bool mtk_ddp_comp_is_output_by_id(enum mtk_ddp_comp_id id)
+{
+	if (id < 0 || id >= DDP_COMPONENT_ID_MAX)
+		return false;
+
+	return mtk_ddp_matches[id].is_output;
+}
+
 void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 {
 	int r;

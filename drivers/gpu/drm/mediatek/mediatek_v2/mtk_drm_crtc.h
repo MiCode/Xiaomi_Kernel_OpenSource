@@ -498,7 +498,7 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_WDMA1_EOF,
 	EVENT_STREAM_BLOCK,
 	EVENT_CABC_EOF,
-	EVENT_DSI0_SOF,
+	EVENT_DSI_SOF,
 	/*Msync 2.0*/
 	EVENT_SYNC_TOKEN_VFP_PERIOD,
 	EVENT_GPIO_TE0,
@@ -948,6 +948,7 @@ struct mtk_drm_crtc {
 	struct cmdq_pkt *pending_handle;
 
 	bool skip_frame;
+	bool is_dsc_output_swap;
 };
 
 struct mtk_crtc_state {
@@ -1254,4 +1255,5 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level,
 			unsigned int panel_ext_param, unsigned int cfg_flag);
 int mtk_drm_setbacklight_grp(struct drm_crtc *crtc, unsigned int level,
 			unsigned int panel_ext_param, unsigned int cfg_flag);
+void mtk_crtc_update_gce_event(struct mtk_drm_crtc *mtk_crtc);
 #endif /* MTK_DRM_CRTC_H */
