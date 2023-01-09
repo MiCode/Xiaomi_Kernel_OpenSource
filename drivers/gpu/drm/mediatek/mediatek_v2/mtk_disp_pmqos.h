@@ -19,6 +19,7 @@ enum DISP_QOS_BW_MODE {
 #define NO_PENDING_HRT (0xFFFF)
 #define OVL_REQ_HRT (0x1)
 #define RDMA_REQ_HRT (0x2)
+#define MDP_RDMA_REQ_HRT (0x3)
 
 struct drm_crtc;
 struct mtk_drm_crtc;

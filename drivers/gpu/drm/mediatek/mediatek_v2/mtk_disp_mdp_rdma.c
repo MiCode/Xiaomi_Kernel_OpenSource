@@ -558,17 +558,33 @@ static void mtk_mdp_rdma_layer_config(struct mtk_ddp_comp *comp,
 static int mtk_mdp_rdma_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd cmd, void *params)
 {
+	int ret = 0;
+	struct mtk_drm_private *priv =
+		comp->mtk_crtc->base.dev->dev_private;
+
 	switch (cmd) {
 	case MDP_RDMA_FILL_FRAME:
 	{
 		mtk_mdp_rdma_fill_frame(comp, handle);
 	}
 		break;
+	case PMQOS_SET_HRT_BW:
+	{
+		u32 bw_val = *(unsigned int *)params;
+
+		if (priv && !mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_MMQOS_SUPPORT))
+			break;
+
+		__mtk_disp_set_module_hrt(comp->hrt_qos_req, bw_val);
+		ret = MDP_RDMA_REQ_HRT;
+	}
+		break;
 	default:
 		break;
 	}
 
-	return 0;
+	return ret;
 }
 
 static const struct mtk_ddp_comp_funcs mtk_disp_mdp_rdma_funcs = {
@@ -586,14 +602,24 @@ static int mtk_disp_mdp_rdma_bind(struct device *dev, struct device *master,
 {
 	struct mtk_disp_mdp_rdma *priv = dev_get_drvdata(dev);
 	struct drm_device *drm_dev = data;
+	struct mtk_drm_private *private = drm_dev->dev_private;
 	int ret;
+	char buf[50];
 
-	DDPINFO("mdp_rdma id:%d bind\n", __func__, priv->ddp_comp.id);
 	ret = mtk_ddp_comp_register(drm_dev, &priv->ddp_comp);
 	if (ret < 0) {
 		dev_err(dev, "Failed to register component %s: %d\n",
 			dev->of_node->full_name, ret);
 		return ret;
+	}
+
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT)) {
+		mtk_disp_pmqos_get_icc_path_name(buf, sizeof(buf),
+						&priv->ddp_comp, "hrt_qos");
+		priv->ddp_comp.hrt_qos_req = of_mtk_icc_get(dev, buf);
+		if (!IS_ERR(priv->ddp_comp.hrt_qos_req))
+			DDPMSG("%s, %s create success, dev:%s\n", __func__, buf, dev_name(dev));
 	}
 
 	return 0;

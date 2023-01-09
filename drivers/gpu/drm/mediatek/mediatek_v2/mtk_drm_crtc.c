@@ -3879,6 +3879,13 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 		return;
 	}
 
+	if (mtk_crtc->path_data->is_discrete_path) {
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_MMQOS_SUPPORT))
+			mtk_disp_set_hrt_bw(mtk_crtc, bw);
+		return;
+	}
+
 	DDPINFO("%s bw=%d, last_hrt_req=%d, overlap=%d\n",
 			__func__, bw, mtk_crtc->qos_ctx->last_hrt_req, frame_weight);
 
@@ -5226,7 +5233,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 		}
 	}
 	/*set_hrt_bw for pan display ,set 4 for two RGB layer*/
-	if (index == 0 && hrt_valid == false) {
+	if ((index == 0 || mtk_crtc->path_data->is_discrete_path) && hrt_valid == false) {
 		if (mtk_drm_helper_get_opt(mtk_drm->helper_opt, MTK_DRM_OPT_HRT))
 			DDPMSG("%s frame:%u correct invalid hrt to:%u, mode:%u->%u\n",
 				__func__, prop_lye_idx, pan_disp_frame_weight,

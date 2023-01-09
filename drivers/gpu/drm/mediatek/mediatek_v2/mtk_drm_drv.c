@@ -3757,6 +3757,7 @@ static const struct mtk_crtc_path_data mt6985_mtk_secondary_path_data = {
 static const struct mtk_crtc_path_data mt6985_mtk_discrete_path_data = {
 	.path[DDP_MAJOR][0] = mt6985_mtk_ddp_discrete_chip,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6985_mtk_ddp_discrete_chip),
+	.path_req_hrt[DDP_MAJOR][0] = true,
 	.dual_path[0] = mt6985_mtk_ddp_dual_discrete_chip,
 	.dual_path_len[0] = ARRAY_SIZE(mt6985_mtk_ddp_dual_discrete_chip),
 	.addon_data = mt6983_addon_discrete_path,
