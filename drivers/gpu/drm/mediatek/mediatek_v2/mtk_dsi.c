@@ -120,6 +120,7 @@
 #define DSI_PSCTRL 0x1c
 #define DSI_PS_WC	REG_FLD_MSB_LSB(14, 0)
 #define DSI_PS_SEL	REG_FLD_MSB_LSB(19, 16)
+#define RG_DSI_DCS_30BIT_FORMAT BIT(20)
 #define RG_XY_SWAP  REG_FLD_MSB_LSB(21, 21)
 #define CUSTOM_HEADER_EN REG_FLD_MSB_LSB(23, 23)
 #define CUSTOM_HEADER REG_FLD_MSB_LSB(31, 26)
@@ -1382,6 +1383,13 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 				break;
 			}
 			ps_wc = width * dsi_buf_bpp;
+			/* set DSI 10bit out */
+			if (dsc_params->bit_per_pixel == 10) {
+				value = RG_DSI_DCS_30BIT_FORMAT;
+				mask = RG_DSI_DCS_30BIT_FORMAT;
+				SET_VAL_MASK(value, mask, 4, DSI_PS_SEL);
+				ps_wc = width * 30 / 8;
+			}
 			SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
 		}
 		size = (height << 16) + width;
