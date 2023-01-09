@@ -6452,6 +6452,29 @@ void mtk_cam_m2m_enter_cq_state(struct mtk_camsys_ctrl_state *ctrl_state)
 {
 	state_transition(ctrl_state, E_STATE_SENSOR, E_STATE_CQ);
 }
+static bool mtk_cam_extisp_all_sof_coming(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_raw_device *raw_dev = NULL;
+	struct mtk_camsv_device *sv_dev = NULL;
+	bool res = false;
+
+	if (ctx->sv_dev)
+		sv_dev = ctx->sv_dev;
+
+	if (ctx->pipe)
+		raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
+
+	if (raw_dev && sv_dev) {
+		if (sv_dev->tg_cnt >= raw_dev->tg_count &&
+			sv_dev->tg_cnt < raw_dev->tg_count + 5)
+			res = true;
+		else
+			dev_info(ctx->cam->dev, "[%s] tgcnt: sv/raw:%d/%d\n",
+				__func__, sv_dev->tg_cnt, raw_dev->tg_count);
+	}
+
+	return res;
+}
 
 void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 				       struct mtk_camsys_irq_info *irq_info)
@@ -6471,7 +6494,8 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 
 	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
 	/* touch watchdog */
-	mtk_ctx_watchdog_kick(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
+	if (mtk_cam_extisp_all_sof_coming(ctx))
+		mtk_ctx_watchdog_kick(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
 	/*update sof time for sensor*/
 	if (sensor_ctrl->extisp_sof_source == EXTISP_SOF_SOURCE_META) {
 		mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
@@ -6510,6 +6534,10 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 				__func__, stream_data->state.loss_raw_cq_key,
 				stream_data->frame_seq_no, state_temp->estate);
 				stream_data->state.loss_raw_cq_key = 0;
+			} else if (raw_dev->vf_reset_cnt > 0) {
+				dev_info(ctx->cam->dev, "[%s] vf_reset_cnt:%d\n",
+					__func__, raw_dev->vf_reset_cnt);
+				raw_dev->vf_reset_cnt--;
 			} else {
 				state_sensor = state_temp;
 			}
@@ -6588,6 +6616,7 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 				buf_entry->sub_cq_desc_offset);
 			state_transition(state_out, E_STATE_EXTISP_SV_OUTER,
 				 E_STATE_EXTISP_CQ);
+			raw_dev->vf_reset_cnt = 0;
 		}
 		dev_dbg(cam->dev, "[%s] ctx:%d/req:%d state:0x%x\n", __func__,
 			ctx->stream_id, stream_data->frame_seq_no, state_out->estate);
@@ -6611,6 +6640,8 @@ int mtk_camsys_extisp_state_handle(struct mtk_raw_device *raw_dev,
 	u64 time_boot = ktime_get_boottime_ns();
 	u64 time_mono = ktime_get_ns();
 
+	if (raw_dev->tg_count < 3)
+		dev_info(ctx->cam->dev, "[%s] FHO fbc_cnt:%d\n", __func__, irq_info->fbc_cnt);
 	/* List state-queue status*/
 	spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 	list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,
@@ -6789,7 +6820,8 @@ void mtk_camsys_extisp_raw_frame_start(struct mtk_raw_device *raw_dev,
 	int dequeued_frame_seq_no = irq_info->frame_idx_inner;
 
 	/*touch watchdog*/
-	mtk_ctx_watchdog_kick(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
+	if (mtk_cam_extisp_all_sof_coming(ctx))
+		mtk_ctx_watchdog_kick(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
 	/* inner register dequeue number */
 	if (!(mtk_cam_ctx_has_raw(ctx) && mtk_cam_scen_is_sensor_stagger(&ctx->pipe->scen_active)))
 		ctx->dequeued_frame_seq_no = dequeued_frame_seq_no;
@@ -6950,6 +6982,48 @@ void mtk_cam_extisp_handle_raw_tstamp(struct mtk_cam_ctx *ctx,
 		stream_data->preisp_meta_ts[1],
 		stream_data->preisp_meta_ts[2]);
 }
+static void mtk_cam_extisp_vf_reset_correct(struct mtk_cam_ctx *ctx,
+	struct mtk_raw_device *raw_dev)
+{
+	struct mtk_cam_working_buf_entry *buf_entry;
+	unsigned int fbc_fho_ctl;
+	int fbc_cnt;
+
+	spin_lock(&ctx->composed_buffer_list.lock);
+	if (list_empty(&ctx->composed_buffer_list.list)) {
+		dev_info(ctx->cam->dev,
+			"SOF_INT_ST, no buffer update, composed_no:%d\n",
+			ctx->composed_frame_seq_no);
+		spin_unlock(&ctx->composed_buffer_list.lock);
+		return;
+	}
+	buf_entry = list_first_entry(&ctx->composed_buffer_list.list,
+				     struct mtk_cam_working_buf_entry,
+				     list_entry);
+	if (buf_entry->s_data->state.sof_cnt_key > 0) {
+		list_del(&buf_entry->list_entry);
+		ctx->composed_buffer_list.cnt--;
+		spin_unlock(&ctx->composed_buffer_list.lock);
+		spin_lock(&ctx->processing_buffer_list.lock);
+		list_add_tail(&buf_entry->list_entry,
+			      &ctx->processing_buffer_list.list);
+		ctx->processing_buffer_list.cnt++;
+		spin_unlock(&ctx->processing_buffer_list.lock);
+		dev_info(ctx->cam->dev,
+		"[%s] CQ buffer:%d clist->plist (key:%d, state:0x%x)\n",
+		__func__, buf_entry->s_data->frame_seq_no,
+		buf_entry->s_data->state.sof_cnt_key, buf_entry->s_data->state.estate);
+	} else {
+		spin_unlock(&ctx->composed_buffer_list.lock);
+	}
+	fbc_fho_ctl =
+		readl_relaxed(REG_FBC_CTL2(raw_dev->base + FBC_R1A_BASE, 1));
+	fbc_cnt = ((fbc_fho_ctl & CNT_BIT_MASK) >> 16) - 1;
+
+	raw_dev->vf_reset_cnt = fbc_cnt >= 0 ? fbc_cnt : 0;
+	dev_info(raw_dev->dev, "[%s] vf_reset_cnt:%d, fho_fbc_ctrl2:0x%x",
+		__func__, raw_dev->vf_reset_cnt, fbc_fho_ctl);
+}
 void mtk_cam_extisp_vf_reset(struct mtk_raw_pipeline *pipe)
 {
 	struct mtk_raw_device *raw_dev = NULL;
@@ -6966,6 +7040,7 @@ void mtk_cam_extisp_vf_reset(struct mtk_raw_pipeline *pipe)
 	if (raw_dev) {
 		ctx = mtk_cam_find_ctx(raw_dev->cam, &pipe->subdev.entity);
 		if (ctx) {
+			mtk_cam_extisp_vf_reset_correct(ctx, raw_dev);
 			cam = ctx->cam;
 			mtk_cam_raw_vf_reset(ctx, raw_dev);
 			raw_dev->sof_count = 0;

@@ -403,6 +403,7 @@
 #define WCNT_BIT_MASK				0xFF00
 #define CNT_BIT_MASK				0xFF0000
 #define TG_FULLSEL_BIT_MASK			0x8000
+#define FBC_RESET				BIT(8)
 /* ORIDMA */
 /* CAMSYS_RAW 0x1a03 */
 #define REG_IMGO_R1_BASE       0x4760

@@ -1631,6 +1631,9 @@ void mtk_cam_sv_vf_reset(struct mtk_cam_ctx *ctx,
 			CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
 		mtk_cam_sv_toggle_tg_db(dev);
 		dev_info(dev->dev, "preisp sv_vf_reset vf_en off");
+		/* disable dma dcm before do dma reset */
+		CAMSV_WRITE_REG(dev->base + REG_CAMSVCENTRAL_DCM_DIS, 1);
+		sv_reset(dev);
 		CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
 			CAMSVCENTRAL_VF_CON, VFDATA_EN, 1);
 		mtk_cam_sv_toggle_tg_db(dev);

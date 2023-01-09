@@ -3633,7 +3633,6 @@ int mtk_cam_raw_select(struct mtk_cam_ctx *ctx,
 
 	return 0;
 }
-
 void mtk_cam_raw_vf_reset(struct mtk_cam_ctx *ctx,
 	struct mtk_raw_device *dev)
 {
@@ -3652,6 +3651,7 @@ void mtk_cam_raw_vf_reset(struct mtk_cam_ctx *ctx,
 		dev_info(dev->dev, "%s: wait vf off timeout: TG_VF_CON 0x%x\n",
 				 __func__, chk_val);
 	}
+	reset_dma_fbc(dev->dev, dev->base, dev->yuv_base);
 	enable_tg_db(dev, 1);
 	dev_info(dev->dev, "preisp raw_vf_reset vf_en off");
 

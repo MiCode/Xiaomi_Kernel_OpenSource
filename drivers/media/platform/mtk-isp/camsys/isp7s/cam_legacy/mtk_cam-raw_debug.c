@@ -4,6 +4,7 @@
 
 #include <linux/device.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 
 #include "mtk_cam-regs.h"
 #include "mtk_cam-raw_debug.h"
@@ -155,6 +156,45 @@ void mtk_cam_log_push(struct buffered_logger *log, const char *fmt, ...)
 	if (len == LOGGER_BUFSIZE)
 		dev_info(log->dev, "log buffer size not enough: %d\n",
 			 LOGGER_BUFSIZE);
+}
+void reset_dma_fbc(struct device *dev,
+			  void __iomem *base, void __iomem *yuvbase)
+{
+	u32 fbc_r1_ctl[ARRAY_SIZE(fbc_r1_list)];
+	u32 fbc_r1_ctl2[ARRAY_SIZE(fbc_r1_list)];
+	u32 fbc_r2_ctl[ARRAY_SIZE(fbc_r2_list)];
+	u32 fbc_r2_ctl2[ARRAY_SIZE(fbc_r2_list)];
+	u32 i;
+	u32 fbc_ctl;
+
+	for (i = 0; i < ARRAY_SIZE(fbc_r1_list); i++) {
+		fbc_r1_ctl[i] = readl_relaxed(base + REG_FBC_CTL1(FBC_R1A_BASE, i));
+		fbc_r1_ctl2[i] = readl_relaxed(base + REG_FBC_CTL2(FBC_R1A_BASE, i));
+		if (fbc_r1_ctl2[i] & 0xffffff) {
+			dev_info(dev, "%s:RAW FBC:%s: ctl/ctl2:0x%08x/0x%08x\n", __func__,
+				fbc_r1_list[i], fbc_r1_ctl[i], fbc_r1_ctl2[i]);
+			writel_relaxed(fbc_r1_ctl[i] | FBC_RESET,
+				base + REG_FBC_CTL1(FBC_R1A_BASE, i));
+			readx_poll_timeout(readl, base + REG_FBC_CTL1(FBC_R1A_BASE, i), fbc_ctl,
+				 (fbc_ctl & FBC_RESET) == 0,
+				 2 /* delay, us */, 30 /* timeout, us */);
+			writel_relaxed(fbc_r1_ctl[i], base + REG_FBC_CTL1(FBC_R1A_BASE, i));
+		}
+	}
+	for (i = 0; i < ARRAY_SIZE(fbc_r2_list); i++) {
+		fbc_r2_ctl[i] = readl_relaxed(yuvbase + REG_FBC_CTL1(FBC_R2A_BASE, i));
+		fbc_r2_ctl2[i] = readl_relaxed(yuvbase + REG_FBC_CTL2(FBC_R2A_BASE, i));
+		if (fbc_r2_ctl2[i] & 0xffffff) {
+			dev_info(dev, "%s:YUV FBC:%s: ctl/ctl2:0x%08x/0x%08x\n", __func__,
+				fbc_r2_list[i], fbc_r2_ctl[i], fbc_r2_ctl2[i]);
+			writel_relaxed(fbc_r2_ctl[i] | FBC_RESET,
+				yuvbase + REG_FBC_CTL1(FBC_R2A_BASE, i));
+			readx_poll_timeout(readl, yuvbase + REG_FBC_CTL1(FBC_R2A_BASE, i), fbc_ctl,
+				 (fbc_ctl & FBC_RESET) == 0,
+				 2 /* delay, us */, 30 /* timeout, us */);
+			writel_relaxed(fbc_r2_ctl[i], yuvbase + REG_FBC_CTL1(FBC_R2A_BASE, i));
+		}
+	}
 }
 
 void debug_dma_fbc(struct device *dev,

@@ -10059,8 +10059,14 @@ static void mtk_cam_ctx_watchdog_worker(struct work_struct *work)
 			}
 			atomic_set(&watchdog_data->watchdog_dumped, 1); // fixme
 			atomic_set(&watchdog_data->watchdog_cnt, 0);
-			if (mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no, true))
-				mtk_cam_event_esd_recovery(ctx->pipe, ctx->dequeued_frame_seq_no);
+			if (mtk_cam_seninf_dump(seninf, dequeued_frame_seq_no, true)) {
+				if (is_raw_subdev(pipe_id))
+					mtk_cam_event_esd_recovery(ctx->pipe,
+						ctx->dequeued_frame_seq_no);
+				else
+					dev_info(ctx->cam->dev,
+						"[ExtISP error case] pipeid:%d\n", pipe_id);
+			}
 			/* both reset are required */
 			atomic_set(&watchdog_data->watchdog_cnt, 0);
 			atomic_inc(&watchdog_data->watchdog_dump_cnt);
