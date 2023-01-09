@@ -57,8 +57,6 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 		mtk_ddp_comp_io_cmd(comp, handle, DSI_LFR_SET, &en);
 	}
 
-	mtk_sodi_ddren(crtc, handle, false);
-
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);
 }
@@ -93,8 +91,6 @@ static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
 		mtk_ddp_comp_io_cmd(comp, handle, DSI_VFP_DEFAULT_MODE, NULL);
 		mtk_ddp_comp_io_cmd(comp, handle, DSI_LFR_SET, &en);
 	}
-
-	mtk_sodi_ddren(crtc, handle, true);
 
 	cmdq_pkt_flush(handle);
 	cmdq_pkt_destroy(handle);

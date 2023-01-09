@@ -5575,6 +5575,16 @@ exit0:
 	return ret;
 }
 
+void mtk_drm_mmlsys_ddren_cb(struct cmdq_pkt *pkt, bool enable, void *ddren_param)
+{
+	struct drm_crtc *crtc = (struct drm_crtc *)ddren_param;
+
+	if (crtc == NULL)
+		return;
+
+	mtk_sodi_ddren(crtc, pkt, enable);
+}
+
 void mtk_drm_mmlsys_submit_done_cb(void *cb_param)
 {
 	struct mtk_mml_cb_para *cb_para = (struct mtk_mml_cb_para *)cb_param;
@@ -5631,6 +5641,8 @@ struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,
 	disp_param.racing_height = 64;
 	disp_param.vdo_mode =  (!mtk_crtc_is_frame_trigger_mode(crtc));
 	disp_param.submit_cb = mtk_drm_mmlsys_submit_done_cb;
+	disp_param.ddren_cb = mtk_drm_mmlsys_ddren_cb;
+	disp_param.ddren_param = (void *)crtc;
 
 	mml_ctx = mml_drm_get_context(mml_pdev, &disp_param);
 	if (!mml_ctx) {
