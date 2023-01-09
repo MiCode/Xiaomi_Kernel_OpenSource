@@ -8,6 +8,8 @@ int g_stagger_info(struct adaptor_ctx *ctx,
 				   int scenario,
 				   struct mtk_stagger_info *info);
 
+u32 g_scenario_exposure_cnt(struct adaptor_ctx *ctx, int scenario);
+
 int g_stagger_scenario(struct adaptor_ctx *ctx,
 					   int scenario,
 					   struct mtk_stagger_target_scenario *info);

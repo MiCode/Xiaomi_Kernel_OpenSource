@@ -217,6 +217,7 @@ static int cammux_tag_2_fsync_target_id(struct seninf_ctx *ctx, int cammux, int 
 {
 	int cammux_factor = 8;
 	int fsync_camsv_start_id = 5;
+	int fsync_pdp_start_id = 56;
 	struct seninf_core *core = ctx->core;
 	enum CAM_TYPE_ENUM type = cammux2camtype(ctx, cammux);
 	int ret = 0xff;
@@ -232,6 +233,8 @@ static int cammux_tag_2_fsync_target_id(struct seninf_ctx *ctx, int cammux, int 
 			+ fsync_camsv_start_id + tag;
 	} else if (type == TYPE_RAW) {
 		ret = 1 + (cammux - core->cammux_range[TYPE_RAW].first);
+	} else if (type == TYPE_PDP) {
+		ret = fsync_pdp_start_id + (cammux - core->cammux_range[TYPE_PDP].first);
 	}
 
 	dev_dbg(ctx->dev, "[%s] cammux = %d, tag = %d, target_id = %d\n",
@@ -247,6 +250,13 @@ static void setup_fsync_vsync_src_pad(struct seninf_ctx *ctx,
 		((fsync_ext_vsync_pad_code >> PAD_SRC_RAW_EXT0) & (u64)1);
 	const unsigned int has_general_embedded = (unsigned int)
 		((fsync_ext_vsync_pad_code >> PAD_SRC_GENERAL0) & (u64)1);
+	const unsigned int has_pdaf_0 = (unsigned int)
+		((fsync_ext_vsync_pad_code >> PAD_SRC_PDAF0) & (u64)1);
+	const unsigned int has_pdaf_1 = (unsigned int)
+		((fsync_ext_vsync_pad_code >> PAD_SRC_PDAF1) & (u64)1);
+	const unsigned int has_pdaf_2 = (unsigned int)
+		((fsync_ext_vsync_pad_code >> PAD_SRC_PDAF2) & (u64)1);
+	const bool has_multi_expo = has_multiple_expo_mode(ctx);
 
 	/* default using raw0 vsync signal */
 	ctx->fsync_vsync_src_pad = PAD_SRC_RAW0;
@@ -254,27 +264,43 @@ static void setup_fsync_vsync_src_pad(struct seninf_ctx *ctx,
 	/* check case to overwrite */
 	/* --- if pre-isp case */
 	if (has_processed_data) {
-		if (has_general_embedded) {
+		if (has_multi_expo && has_pdaf_0)
+			ctx->fsync_vsync_src_pad = PAD_SRC_PDAF0;
+		else if (has_multi_expo && has_pdaf_1)
+			ctx->fsync_vsync_src_pad = PAD_SRC_PDAF1;
+		else if (has_multi_expo && has_pdaf_2)
+			ctx->fsync_vsync_src_pad = PAD_SRC_PDAF2;
+		else if (has_general_embedded)
 			ctx->fsync_vsync_src_pad = PAD_SRC_GENERAL0;
-
-			dev_info(ctx->dev,
-				"[%s] NOTICE: set fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0), fsync_ext_vsync_pad_code:%#llx(processed_data:%u/general_embedded:%u)\n",
-				__func__,
-				ctx->fsync_vsync_src_pad,
-				PAD_SRC_RAW0, PAD_SRC_GENERAL0,
-				fsync_ext_vsync_pad_code,
-				has_processed_data, has_general_embedded);
-		} else {
+		else {
 			ctx->fsync_vsync_src_pad = PAD_SRC_RAW0;
 
 			dev_info(ctx->dev,
-				"[%s] WARNING: fsync_ext_vsync_pad_code:%#llx, has processed_data:%u, but general_embedded:%u, force set fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0)\n",
+				"[%s] WARNING: fsync_ext_vsync_pad_code:%#llx, has processed_data:%u, but pdaf(0:%u/1:%u/2:%u), general_embedded:%u, force set fsync_vsync_src_pad:%d(RAW0:%d/pdaf(0:%d/1:%d/2:%d)/GENERAL0:%d)\n",
 				__func__,
 				fsync_ext_vsync_pad_code,
-				has_processed_data, has_general_embedded,
+				has_processed_data,
+				has_pdaf_0, has_pdaf_1, has_pdaf_2,
+				has_general_embedded,
 				ctx->fsync_vsync_src_pad,
-				PAD_SRC_RAW0, PAD_SRC_GENERAL0);
+				PAD_SRC_RAW0,
+				PAD_SRC_PDAF0, PAD_SRC_PDAF1, PAD_SRC_PDAF2,
+				PAD_SRC_GENERAL0);
+
+			return;
 		}
+
+		dev_info(ctx->dev,
+			"[%s] NOTICE: set fsync_vsync_src_pad:%d(RAW0:%d/pdaf(0:%d/1:%d/2:%d)/GENERAL0:%d), fsync_ext_vsync_pad_code:%#llx(processed_data:%u/pdaf(0:%u/1:%u/2:%u)/general_embedded:%u)\n",
+			__func__,
+			ctx->fsync_vsync_src_pad,
+			PAD_SRC_RAW0,
+			PAD_SRC_PDAF0, PAD_SRC_PDAF1, PAD_SRC_PDAF2,
+			PAD_SRC_GENERAL0,
+			fsync_ext_vsync_pad_code,
+			has_processed_data,
+			has_pdaf_0, has_pdaf_1, has_pdaf_2,
+			has_general_embedded);
 	}
 }
 
@@ -288,23 +314,29 @@ static void chk_is_fsync_vsync_src(struct seninf_ctx *ctx, const int pad_id)
 	if (vsync_src_pad == PAD_SRC_RAW0) {
 		// notify vc->cam
 		notify_fsync_listen_target_with_kthread(ctx, 0);
-	} else if (vsync_src_pad == PAD_SRC_GENERAL0) {
+	} else if (vsync_src_pad == PAD_SRC_PDAF0
+		|| vsync_src_pad == PAD_SRC_PDAF1
+		|| vsync_src_pad == PAD_SRC_PDAF2
+		|| vsync_src_pad == PAD_SRC_GENERAL0) {
+
 		dev_info(ctx->dev,
-			"[%s] NOTICE: pad_id:%d, fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0), fsync listen 3A-meta(general-embedded) vsync signal\n",
+			"[%s] NOTICE: pad_id:%d, fsync_vsync_src_pad:%d(RAW0:%d/pdaf(0:%d/1:%d/2:%d)/GENERAL0:%d), fsync listen extra vsync signal\n",
 			__func__,
 			pad_id,
 			vsync_src_pad,
 			PAD_SRC_RAW0,
+			PAD_SRC_PDAF0, PAD_SRC_PDAF1, PAD_SRC_PDAF2,
 			PAD_SRC_GENERAL0);
 
 		notify_fsync_listen_target_with_kthread(ctx, 0);
 	} else {
 		/* unexpected case */
 		dev_info(ctx->dev,
-			"[%s] ERROR: unknown fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0) type, pad_id:%d\n",
+			"[%s] ERROR: unknown fsync_vsync_src_pad:%d(RAW0:%d/pdaf(0:%d/1:%d/2:%d)/GENERAL0:%d) type, pad_id:%d\n",
 			__func__,
 			vsync_src_pad,
 			PAD_SRC_RAW0,
+			PAD_SRC_PDAF0, PAD_SRC_PDAF1, PAD_SRC_PDAF2,
 			PAD_SRC_GENERAL0,
 			pad_id);
 	}
@@ -734,14 +766,26 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		case VC_PDAF_STATS:
 			vc->feature = VC_PDAF_STATS;
 			vc->out_pad = PAD_SRC_PDAF0;
+
+			/* for determin fsync vsync signal src (pre-isp) */
+			fsync_ext_vsync_pad_code |=
+				((u64)1 << PAD_SRC_PDAF0);
 			break;
 		case VC_PDAF_STATS_PIX_1:
 			vc->feature = VC_PDAF_STATS_PIX_1;
 			vc->out_pad = PAD_SRC_PDAF1;
+
+			/* for determin fsync vsync signal src (pre-isp) */
+			fsync_ext_vsync_pad_code |=
+				((u64)1 << PAD_SRC_PDAF1);
 			break;
 		case VC_PDAF_STATS_PIX_2:
 			vc->feature = VC_PDAF_STATS_PIX_2;
 			vc->out_pad = PAD_SRC_PDAF2;
+
+			/* for determin fsync vsync signal src (pre-isp) */
+			fsync_ext_vsync_pad_code |=
+				((u64)1 << PAD_SRC_PDAF2);
 			break;
 		case VC_PDAF_STATS_ME_PIX_1:
 			vc->feature = VC_PDAF_STATS_ME_PIX_1;
@@ -1596,15 +1640,16 @@ static int mtk_cam_seninf_get_fsync_vsync_src_cam_info(struct seninf_ctx *ctx)
 		vc = &vcinfo->vc[i];
 
 		if (vc->out_pad == ctx->fsync_vsync_src_pad) {
-			/* vsync_src_pad must be first-raw or general-embedded */
+			/* vsync_src_pad must be first-raw or NE PDAF type or general-embedded */
 			target_id = cammux_tag_2_fsync_target_id(ctx,
 					vc->dest[0].cam, vc->dest[0].tag);
 
 			dev_info(ctx->dev,
-				"[%s] fsync_vsync_src_pad:%d(%d:RAW0/%d:GENERAL0) => vc->cam:%d, vc->tag:%d => target_id:%d\n",
+				"[%s] fsync_vsync_src_pad:%d(RAW0:%d/pdaf(0:%d/1:%d/2:%d)/GENERAL0:%d) => vc->cam:%d, vc->tag:%d => target_id:%d\n",
 				__func__,
 				ctx->fsync_vsync_src_pad,
 				PAD_SRC_RAW0,
+				PAD_SRC_PDAF0, PAD_SRC_PDAF1, PAD_SRC_PDAF2,
 				PAD_SRC_GENERAL0,
 				vc->dest[0].cam,
 				vc->dest[0].tag,
@@ -1851,6 +1896,56 @@ void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx,
 					msecs_to_jiffies(mdelay));
 		}
 	}
+}
+
+bool has_multiple_expo_mode(struct seninf_ctx *ctx)
+{
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct mtk_sensor_mode_config_info info;
+	bool ret = false;
+	int i;
+
+	if (sensor_sd &&
+	    sensor_sd->ops &&
+	    sensor_sd->ops->core &&
+	    sensor_sd->ops->core->command) {
+
+		sensor_sd->ops->core->command(sensor_sd,
+			V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, &info);
+
+		dev_info(ctx->dev, "info.cur_mode = %u, info.count = %u\n",
+			 info.current_scenario_id, info.count);
+
+		for (i = 0; i < info.count; i++) {
+			dev_info(ctx->dev, "mode[%d] mode id = %u, exp_num = %u\n",
+				 i,
+				 info.seamless_scenario_infos[i].scenario_id,
+				 info.seamless_scenario_infos[i].mode_exposure_num);
+
+			if (info.seamless_scenario_infos[i].mode_exposure_num > 1) {
+				ret = true;
+				break;
+			}
+		}
+	}
+
+	dev_info(ctx->dev, "%s , ret = %d\n", __func__, ret);
+
+	return ret;
+}
+
+bool is_fsync_listening_on_pd(struct v4l2_subdev *sd)
+{
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	bool ret = false;
+
+	if (ctx->fsync_vsync_src_pad >= PAD_SRC_PDAF0 &&
+	    ctx->fsync_vsync_src_pad <= PAD_SRC_PDAF6)
+		ret = true;
+
+	dev_info(ctx->dev, "%s , ret = %d\n", __func__, ret);
+
+	return ret;
 }
 
 #if AOV_GET_PARAM

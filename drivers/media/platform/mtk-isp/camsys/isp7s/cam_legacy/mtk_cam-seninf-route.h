@@ -38,6 +38,8 @@ int mux_vr2mux(struct seninf_ctx *ctx, int mux_vr);
 enum CAM_TYPE_ENUM cammux2camtype(struct seninf_ctx *ctx, int cammux);
 #endif
 
+bool has_multiple_expo_mode(struct seninf_ctx *ctx);
+
 int aov_switch_i2c_bus_scl_aux(struct seninf_ctx *ctx,
 	enum mtk_cam_sensor_i2c_bus_scl aux);
 int aov_switch_i2c_bus_sda_aux(struct seninf_ctx *ctx,

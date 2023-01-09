@@ -429,6 +429,17 @@ struct mtk_fine_integ_line {
 	__u32 fine_integ_line;
 };
 
+struct mtk_sensor_mode_info {
+	__u32 scenario_id;
+	__u32 mode_exposure_num;
+};
+
+struct mtk_sensor_mode_config_info {
+	__u32 current_scenario_id;
+	__u32 count;
+	struct mtk_sensor_mode_info seamless_scenario_infos[SENSOR_SCENARIO_ID_MAX];
+};
+
 /* GET */
 
 #define VIDIOC_MTK_G_DEF_FPS_BY_SCENARIO \
