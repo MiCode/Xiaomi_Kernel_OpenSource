@@ -3722,13 +3722,15 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 		mutex_lock(&ctx->dev->dec_dvfs_mutex);
 		if (ctx->dev->vdec_reg == 0 && ctx->dev->vdec_mmdvfs_clk == 0) {
-			mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] start ctrl DVFS in UP (freq %d)",
-				ctx->id, ctx->dev->vdec_dvfs_params.target_freq);
 			if (!mtk_vdec_dvfs_is_pw_always_on(ctx))
 				mtk_vcodec_dec_pw_on(&ctx->dev->pm);
 			mtk_vdec_prepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
 			vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
 			mtk_vdec_dvfs_sync_vsi_data(ctx);
+			mtk_v4l2_debug(0, "[VDVFS][%d(%d)] start DVFS(UP): freq:%d, h_l:%d, op:%d",
+				ctx->id, ctx->state, ctx->dev->vdec_dvfs_params.target_freq,
+				ctx->dev->vdec_dvfs_params.high_loading_scenario,
+				ctx->dec_params.operating_rate);
 			if (!mtk_vdec_dvfs_is_pw_always_on(ctx))
 				mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 		} else {
@@ -3884,10 +3886,12 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 		mtk_vdec_unprepare_vcp_dvfs_data(ctx, vcp_dvfs_data);
 		vdec_if_set_param(ctx, SET_PARAM_MMDVFS, vcp_dvfs_data);
 		mtk_vdec_dvfs_sync_vsi_data(ctx);
+		mtk_v4l2_debug(0, "[VDVFS][%d(%d)] stop DVFS (UP): freq: %d, h_l: %d, op: %d",
+			ctx->id, ctx->state, ctx->dev->vdec_dvfs_params.target_freq,
+			ctx->dev->vdec_dvfs_params.high_loading_scenario,
+			ctx->dec_params.operating_rate);
 		if (!mtk_vdec_dvfs_is_pw_always_on(ctx))
 			mtk_vcodec_dec_pw_off(&ctx->dev->pm);
-		mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] stop ctrl DVFS in UP (freq %d)",
-			ctx->id, ctx->dev->vdec_dvfs_params.target_freq);
 	} else {
 		mtk_v4l2_debug(0, "[%d][VDVFS][VDEC] stop ctrl DVFS in AP", ctx->id);
 		mtk_vdec_dvfs_end_inst(ctx);

@@ -654,7 +654,8 @@ void mtk_vcodec_alive_checker_suspend(struct mtk_vcodec_dev *dev)
 	/* Only support vdec check alive now */
 	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
 		if (!list_empty(&dev->ctx_list) && dev->vdec_dvfs_params.has_timer) {
-			mtk_v4l2_debug(0, "[VDVFS][VDEC] suspend vdec alive checker...");
+			mtk_v4l2_debug(0, "[VDVFS][VDEC] suspend vdec alive checker (freq %d)..",
+				dev->vdec_dvfs_params.target_freq);
 			del_timer_sync(&dev->vdec_dvfs_params.vdec_active_checker);
 			flush_workqueue(dev->check_alive_workqueue);
 			dev->vdec_dvfs_params.has_timer = 0;
@@ -671,7 +672,8 @@ void mtk_vcodec_alive_checker_resume(struct mtk_vcodec_dev *dev)
 	/* Only support vdec check alive now */
 	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
 		if (!list_empty(&dev->ctx_list) && !dev->vdec_dvfs_params.has_timer) {
-			mtk_v4l2_debug(0, "[VDVFS][VDEC] resume vdec alive checker...");
+			mtk_v4l2_debug(0, "[VDVFS][VDEC] resume vdec alive checker (freq %d)..",
+				dev->vdec_dvfs_params.target_freq);
 			timer_setup(&dev->vdec_dvfs_params.vdec_active_checker,
 				mtk_vcodec_check_alive, 0);
 			dev->vdec_dvfs_params.vdec_active_checker.expires =
