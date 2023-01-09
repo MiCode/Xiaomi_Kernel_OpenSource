@@ -323,7 +323,7 @@ static void mtk_unreference_work(struct work_struct *work)
 	spin_unlock_irqrestore(&mtk_drm->unreference.lock, flags);
 }
 
-static void mtk_atomic_schedule(struct mtk_drm_private *private,
+static void __always_unused mtk_atomic_schedule(struct mtk_drm_private *private,
 				struct drm_atomic_state *state)
 {
 	private->commit.state = state;
@@ -1841,10 +1841,13 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	drm_atomic_state_get(state);
 	mtk_atomic_check_res_switch(private, state);
 
+#ifdef IF_ZERO /*TODO: use async atomic_commit would occur crtc_state and crtc race condition */
 	if (async)
 		mtk_atomic_schedule(private, state);
 	else
 		mtk_atomic_complete(private, state);
+#endif
+	mtk_atomic_complete(private, state);
 
 	mutex_nested_time_end = sched_clock();
 	mutex_nested_time_period =
