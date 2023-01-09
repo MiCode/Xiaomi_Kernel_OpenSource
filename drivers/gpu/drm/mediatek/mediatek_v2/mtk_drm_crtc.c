@@ -9673,6 +9673,51 @@ static int mtk_drm_crtc_update_ddp_mode(
 	return DDP_MAJOR;
 }
 
+static void mtk_drm_crtc_fix_conn_mode(struct drm_crtc *crtc, struct drm_display_mode *timing,
+			struct mtk_ddp_comp *output_comp)
+{
+	struct mtk_drm_crtc *mtk_crtc;
+	struct drm_display_mode *mode;
+	struct mtk_crtc_state *mtk_state;
+
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	if (!crtc->state) {
+		DDPPR_ERR("%s invalid CRTC state\n", __func__);
+		return;
+	}
+
+	mtk_state = to_mtk_crtc_state(crtc->state);
+
+	crtc->mode.hdisplay = timing->hdisplay;
+	crtc->mode.vdisplay = timing->vdisplay;
+	crtc->state->adjusted_mode.clock	= timing->clock;
+	crtc->state->adjusted_mode.hdisplay	= timing->hdisplay;
+	crtc->state->adjusted_mode.hsync_start	= timing->hsync_start;
+	crtc->state->adjusted_mode.hsync_end	= timing->hsync_end;
+	crtc->state->adjusted_mode.htotal	= timing->htotal;
+	crtc->state->adjusted_mode.hskew	= timing->hskew;
+	crtc->state->adjusted_mode.vdisplay	= timing->vdisplay;
+	crtc->state->adjusted_mode.vsync_start	= timing->vsync_start;
+	crtc->state->adjusted_mode.vsync_end	= timing->vsync_end;
+	crtc->state->adjusted_mode.vtotal	= timing->vtotal;
+	crtc->state->adjusted_mode.vscan	= timing->vscan;
+	vfree(mtk_crtc->avail_modes);
+	mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_SET_CRTC_AVAIL_MODES, mtk_crtc);
+
+	/* Update mode & adjusted_mode in CRTC */
+	mode = mtk_drm_crtc_avail_disp_mode(crtc,
+		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
+
+	copy_drm_disp_mode(mode, &crtc->state->mode);
+	crtc->state->mode.hskew = mode->hskew;
+	drm_mode_set_crtcinfo(&crtc->state->mode, 0);
+
+	copy_drm_disp_mode(mode, &crtc->state->adjusted_mode);
+	crtc->state->adjusted_mode.hskew = mode->hskew;
+	drm_mode_set_crtcinfo(&crtc->state->adjusted_mode, 0);
+}
+
 static void mtk_drm_crtc_update_interface(struct drm_crtc *crtc,
 	struct drm_atomic_state *state)
 {
@@ -9682,6 +9727,7 @@ static void mtk_drm_crtc_update_interface(struct drm_crtc *crtc,
 	struct drm_connector_state *new_conn_state;
 	struct mtk_ddp_comp *output_comp = NULL;
 	enum mtk_ddp_comp_id comp_id = 0;
+	struct drm_display_mode *timing = NULL;
 
 	mtk_crtc = to_mtk_crtc(crtc);
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
@@ -9703,10 +9749,28 @@ static void mtk_drm_crtc_update_interface(struct drm_crtc *crtc,
 
 				/*update mtk_crtc->panel_ext*/
 				output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-				if (output_comp)
-					mtk_ddp_comp_io_cmd(output_comp, NULL, REQ_PANEL_EXT,
-							    &mtk_crtc->panel_ext);
+				if (!output_comp)
+					continue;
+				mtk_ddp_comp_io_cmd(output_comp, NULL, REQ_PANEL_EXT,
+						    &mtk_crtc->panel_ext);
+				mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_GET_TIMING, &timing);
+
+				mtk_drm_crtc_fix_conn_mode(crtc, timing, output_comp);
 			}
+		}
+	}
+	if (timing == NULL) {
+		mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_GET_TIMING, &timing);
+		if (timing == NULL) {
+			DDPPR_ERR("%s %d fail to get default timing\n",
+				__func__, __LINE__);
+			return;
+		}
+
+		if (crtc->mode.hdisplay != timing->hdisplay ||
+				crtc->mode.vdisplay != timing->vdisplay) {
+			DDPMSG("crtc mode different from connector state, change mode\n");
+			mtk_drm_crtc_fix_conn_mode(crtc, timing, output_comp);
 		}
 	}
 }
