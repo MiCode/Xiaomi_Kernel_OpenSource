@@ -19,8 +19,6 @@ struct cmdq_pkt;
 #define MML_DEFAULT_PANEL_PX	(1080 * 2412)
 #define MML_HRT_FPS		120
 
-extern int mml_align_width;
-
 enum mml_query_mode_reason {
 	mml_query_default,
 	mml_query_userdc,

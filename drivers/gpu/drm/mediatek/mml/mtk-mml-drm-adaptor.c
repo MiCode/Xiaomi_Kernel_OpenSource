@@ -35,10 +35,6 @@ module_param(mml_max_cache_task, int, 0644);
 int mml_max_cache_cfg = 2;
 module_param(mml_max_cache_cfg, int, 0644);
 
-int mml_align_width = 1;
-EXPORT_SYMBOL(mml_align_width);
-module_param(mml_align_width, int, 0644);
-
 struct mml_drm_ctx {
 	struct list_head configs;
 	u32 config_cnt;
@@ -1438,13 +1434,6 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 	u8 lrtb[4] = {0};
 	u32 i;
 
-	mml_msg("split in %u %u out %u %u crop %u %u %u %u compose %u %u",
-		info->src.width, info->src.height,
-		info->dest[0].data.width, info->dest[0].data.height,
-		info->dest[0].crop.r.left, info->dest[0].crop.r.top,
-		info->dest[0].crop.r.width, info->dest[0].crop.r.height,
-		info->dest[0].compose.width, info->dest[0].compose.height);
-
 	/* display layer pixel */
 	if (!submit->layer.width || !submit->layer.height) {
 		submit->layer.width = dest->compose.width;
@@ -1548,7 +1537,7 @@ void mml_drm_split_info(struct mml_submit *submit, struct mml_submit *submit_pq)
 	/* for better wrot burst 16 bytes performance,
 	 * always align output width to 16 pixel
 	 */
-	if (mml_align_width && dest->data.y_stride & 0xf &&
+	if (dest->data.y_stride & 0xf &&
 		(dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270)) {
 		u32 align_w = align_up(dest->data.width, 16);
 
