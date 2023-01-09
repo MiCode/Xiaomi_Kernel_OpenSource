@@ -654,6 +654,22 @@ static ssize_t cpu_atc_show(struct kobject *kobj, struct kobj_attribute *attr,
 	return len;
 }
 
+static ssize_t cpu_atc20_show(struct kobject *kobj, struct kobj_attribute *attr,
+	char *buf)
+{
+	int i, len = 0, val;
+
+	for (i = 0; i < CPU_ATC20_NUM - 1; i++) {
+		val = therm_intf_read_csram_s32(CPU_ATC20_OFFSET + i * 0x4);
+		len += snprintf(buf + len, PAGE_SIZE - len, "%d,", val);
+	}
+
+	val = therm_intf_read_csram_s32(CPU_ATC20_OFFSET + i * 0x4);
+	len += snprintf(buf + len, PAGE_SIZE - len, "%d\n", val);
+
+	return len;
+}
+
 static ssize_t gpu_atc_show(struct kobject *kobj, struct kobj_attribute *attr,
 	char *buf)
 {
@@ -1113,6 +1129,7 @@ static struct kobj_attribute frs_info_attr = __ATTR_RW(frs_info);
 static struct kobj_attribute cpu_temp_attr = __ATTR_RO(cpu_temp);
 static struct kobj_attribute headroom_info_attr = __ATTR_RO(headroom_info);
 static struct kobj_attribute cpu_atc_attr = __ATTR_RO(cpu_atc);
+static struct kobj_attribute cpu_atc20_attr = __ATTR_RO(cpu_atc20);
 static struct kobj_attribute gpu_atc_attr = __ATTR_RO(gpu_atc);
 static struct kobj_attribute apu_atc_attr = __ATTR_RO(apu_atc);
 static struct kobj_attribute target_tpcb_attr = __ATTR_RW(target_tpcb);
@@ -1143,6 +1160,7 @@ static struct attribute *thermal_attrs[] = {
 	&cpu_temp_attr.attr,
 	&headroom_info_attr.attr,
 	&cpu_atc_attr.attr,
+	&cpu_atc20_attr.attr,
 	&gpu_atc_attr.attr,
 	&apu_atc_attr.attr,
 	&target_tpcb_attr.attr,
