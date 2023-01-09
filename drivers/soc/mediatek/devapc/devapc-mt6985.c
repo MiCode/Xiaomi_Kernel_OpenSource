@@ -259,7 +259,8 @@ static const char *mt6985_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 				return mminfra_domain[domain];
 
 		/* VENC/VDEC slave*/
-		} else if ((vio_addr >= CODEC_START_ADDR) && (vio_addr <= CODEC_END_ADDR)) {
+		} else if (((vio_addr >= VDEC_START_ADDR) && (vio_addr <= VDEC_END_ADDR)) ||
+			((vio_addr >= VENC_START_ADDR) && (vio_addr <= VENC_END_ADDR))) {
 			if ((bus_id & 0x1) == 0x0)
 				return "MMUP";
 			else if ((bus_id & 0xf) == 0x1)
