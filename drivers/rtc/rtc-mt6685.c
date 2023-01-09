@@ -271,9 +271,6 @@ static void mtk_rtc_enable_k_eosc(struct device *dev)
 		return;
 	}
 
-	/* Truning on eosc cali mode clock */
-	rtc_update_bits(rtc, TOP_RTC_EOSC32_CK_PDN, TOP_RTC_EOSC32_CK_PDN_MASK, 0);
-
 	if (rtc_eosc_cali_td) {
 		dev_notice(dev, "%s: rtc_eosc_cali_td = %d\n",
 				__func__, rtc_eosc_cali_td);
