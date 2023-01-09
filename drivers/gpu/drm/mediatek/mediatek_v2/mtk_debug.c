@@ -451,7 +451,8 @@ int mtkfb_set_backlight_level(unsigned int level, unsigned int panel_ext_param,
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
 
-int mtk_drm_set_conn_backlight_level(unsigned int conn_id, unsigned int level)
+int mtk_drm_set_conn_backlight_level(unsigned int conn_id, unsigned int level,
+				unsigned int panel_ext_param, unsigned int cfg_flag)
 {
 	struct drm_crtc *crtc;
 	struct drm_connector *conn;
@@ -490,7 +491,7 @@ int mtk_drm_set_conn_backlight_level(unsigned int conn_id, unsigned int level)
 		goto out;
 	}
 
-	ret = mtk_drm_setbacklight(crtc, level, 0, 0);
+	ret = mtk_drm_setbacklight(crtc, level, panel_ext_param, cfg_flag);
 out:
 	drm_connector_put(conn);
 	mutex_unlock(&priv->commit.lock);
@@ -2770,7 +2771,7 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
-		mtk_drm_set_conn_backlight_level(conn_id, level);
+		mtk_drm_set_conn_backlight_level(conn_id, level, 0, 0x1<<SET_BACKLIGHT_LEVEL);
 	} else if (strncmp(opt, "elvss:", 6) == 0) {
 		unsigned int level;
 		int ret;
