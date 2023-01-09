@@ -469,6 +469,7 @@ struct venc_enc_param {
  */
 struct venc_frm_buf {
 	struct mtk_vcodec_mem fb_addr[MTK_VCODEC_MAX_PLANES];
+	u32 index;
 	unsigned int num_planes;
 	u64 timestamp;
 	bool has_meta;
@@ -594,6 +595,8 @@ struct mtk_vcodec_ctx {
 	const struct vdec_common_if *dec_if;
 	const struct venc_common_if *enc_if;
 	unsigned long drv_handle;
+	uintptr_t bs_list[VB2_MAX_FRAME+1];
+	uintptr_t fb_list[VB2_MAX_FRAME+1];
 
 	struct vdec_pic_info picinfo;
 	int dpb_size;

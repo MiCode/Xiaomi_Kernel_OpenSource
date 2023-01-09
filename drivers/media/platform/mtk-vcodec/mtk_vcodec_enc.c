@@ -2491,6 +2491,8 @@ static int mtk_venc_encode_header(void *priv)
 	bs_buf->dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
 	bs_buf->size = (size_t)dst_buf->planes[0].length;
 	bs_buf->dmabuf = dst_buf->planes[0].dbuf;
+	bs_buf->index = dst_buf->index;
+	ctx->bs_list[bs_buf->index + 1] = (uintptr_t)bs_buf;
 
 	mtk_v4l2_debug(1,
 		       "[%d] buf id=%d va=0x%p dma_addr=0x%llx size=%zu",
@@ -2924,6 +2926,8 @@ static void mtk_venc_worker(struct work_struct *work)
 	pbs_buf->dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
 	pbs_buf->size = (size_t)dst_buf->planes[0].length;
 	pbs_buf->dmabuf = dst_buf->planes[0].dbuf;
+	pbs_buf->index = dst_buf->index;
+	ctx->bs_list[pbs_buf->index + 1] = (uintptr_t)pbs_buf;
 
 	if (src_buf_info->lastframe == EOS) {
 		src_buf_info->lastframe = NON_EOS;
@@ -3044,10 +3048,13 @@ static void mtk_venc_worker(struct work_struct *work)
 	}
 	pfrm_buf->num_planes = src_buf->num_planes;
 	pfrm_buf->timestamp = src_vb2_v4l2->vb2_buf.timestamp;
+	pfrm_buf->index = src_buf->index;
+	ctx->fb_list[pfrm_buf->index + 1] = (uintptr_t)pfrm_buf;
 	length = q_data_src->coded_width * q_data_src->coded_height;
 
 	mtk_v4l2_debug(2,
-			"Framebuf VA=%p PA=%llx Size=0x%zx Offset=%d;VA=%p PA=0x%llx Size=0x%zx Offset=%d;VA=%p PA=0x%llx Size=%zu Offset=%d",
+			"Framebuf %d VA=%p PA=%llx Size=0x%zx Offset=%d;VA=%p PA=0x%llx Size=0x%zx Offset=%d;VA=%p PA=0x%llx Size=%zu Offset=%d",
+			pfrm_buf->index,
 			pfrm_buf->fb_addr[0].va,
 			(u64)pfrm_buf->fb_addr[0].dma_addr,
 			pfrm_buf->fb_addr[0].size,
