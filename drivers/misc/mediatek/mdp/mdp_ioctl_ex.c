@@ -668,6 +668,11 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 	handle->pkt->priority = user_job->priority;
 	handle->user_debug_str = NULL;
 
+	if (!handle->engineFlag) {
+		CMDQ_ERR("%s: engineFlag 0x%x\n", __func__, handle->engineFlag);
+		return -EINVAL;
+	}
+
 	if (desc_private)
 		handle->node_private = desc_private->node_private_data;
 
