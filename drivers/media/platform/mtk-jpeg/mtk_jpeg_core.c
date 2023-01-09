@@ -1139,8 +1139,8 @@ static void mtk_jpeg_enc_device_run(void *priv)
 	 * Resetting the hardware every frame is to ensure that all the
 	 * registers are cleared. This is a hardware requirement.
 	 */
-	if (jpeg->gcon_base != NULL)
-		mtk_jpeg_enc_set_34bits(jpeg->gcon_base, jpeg->fake34bits);
+	if (jpeg->gcon_base != NULL && jpeg->fake34bits)
+		mtk_jpeg_enc_set_34bits(ctx, jpeg->gcon_base, &dst_buf->vb2_buf);
 	mtk_jpeg_enc_reset(jpeg->reg_base);
 	mtk_jpeg_set_enc_src(ctx, jpeg->reg_base, &src_buf->vb2_buf);
 	mtk_jpeg_set_enc_dst(ctx, jpeg->reg_base, &dst_buf->vb2_buf);

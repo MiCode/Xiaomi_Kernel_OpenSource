@@ -30,8 +30,15 @@ static const struct mtk_jpeg_enc_qlt mtk_jpeg_enc_quality[] = {
 	{.quality_param = 97, .hardware_value = JPEG_ENC_QUALITY_Q97},
 };
 
-void mtk_jpeg_enc_set_34bits(void __iomem *base, u32 value)
+void mtk_jpeg_enc_set_34bits(struct mtk_jpeg_ctx *ctx, void __iomem *base,
+				struct vb2_buffer *dst_buf)
 {
+	dma_addr_t dma_addr;
+	u32 value = 0;
+
+	dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
+	dma_addr += ctx->dst_offset;
+	value = (dma_addr >> 32);
 	writel(value << 1, base + 0x108);
 }
 
