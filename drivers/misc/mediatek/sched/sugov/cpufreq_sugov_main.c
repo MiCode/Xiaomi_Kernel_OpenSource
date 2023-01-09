@@ -335,7 +335,7 @@ static void sugov_get_util(struct sugov_cpu *sg_cpu)
 	sg_cpu->max = max;
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
-	util_rq_sugov.util_cfs = cpu_util_cfs(rq);
+	util_rq_sugov.util_cfs = mtk_cpu_util_cfs(rq);
 	util_rq_sugov.base = 1;
 	sg_cpu->util = mtk_cpu_util(sg_cpu->cpu, &util_rq_sugov, max, FREQUENCY_UTIL,
 							(struct task_struct *)UINTPTR_MAX,

@@ -976,7 +976,8 @@ inline unsigned long get_turn_point_freq(int gearid)
 {
 	int idx;
 	struct pd_capacity_info *pd_info;
-
+	if (turn_point_util[gearid] == 0)
+		return 0;
 	pd_info = &pd_capacity_tbl[gearid];
 	idx = map_util_idx_by_tbl(pd_info, turn_point_util[gearid]);
 	idx = pd_info->util_opp_map[idx];
@@ -994,7 +995,8 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 	gearid = per_cpu(gear_id, cpu);
 	if (turn_point_util[gearid] &&
 		util > turn_point_util[gearid])
-		util = max(turn_point_util[gearid], orig_util * target_margin[gearid]);
+		util = max(turn_point_util[gearid], orig_util * target_margin[gearid]
+					>> SCHED_CAPACITY_SHIFT);
 
 	*next_freq = pd_get_util_freq(cpu, util);
 	if (data != NULL) {
