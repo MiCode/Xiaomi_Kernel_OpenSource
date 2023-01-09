@@ -615,7 +615,8 @@ static kal_uint32 streaming_control(kal_bool enable)
 			mDELAY(5);
 			framecnt = read_cmos_sensor_16_8(0x0005);
 			if (framecnt == 0xFF) {
-				pr_debug(" Stream Off OK at i=%d.\n", i);
+				if (i != 0)
+					pr_debug(" Stream Off OK at i=%d.\n", i);
 				return ERROR_NONE;
 			}
 		}
@@ -4202,11 +4203,6 @@ static kal_uint32 open(void)
 	kal_uint8 retry = 2;
 	kal_uint16 sensor_id = 0;
 
-	pr_debug("PLATFORM:MT6750,MIPI 4LANE\n");
-	pr_debug("preview 1280*960@30fps,864Mbps/lane;");
-	pr_debug("video 1280*960@30fps,864Mbps/lane;");
-	pr_debug("capture 5M@30fps,864Mbps/lane\n");
-
 	while (imgsensor_info.i2c_addr_table[i] != 0xff) {
 		spin_lock(&imgsensor_drv_lock);
 		imgsensor.i2c_write_id = imgsensor_info.i2c_addr_table[i];
@@ -4781,8 +4777,6 @@ static kal_uint32 set_max_framerate_by_scenario(
 static kal_uint32 get_default_framerate_by_scenario(
 	enum MSDK_SCENARIO_ID_ENUM scenario_id, MUINT32 *framerate)
 {
-	pr_debug("scenario_id = %d\n", scenario_id);
-
 	switch (scenario_id) {
 	case MSDK_SCENARIO_ID_CAMERA_PREVIEW:
 		*framerate = imgsensor_info.pre.max_framerate;
