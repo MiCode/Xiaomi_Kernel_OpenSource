@@ -401,6 +401,22 @@ s32 mt_set_pwm_con_oldmode_hal(u32 pwm_no, u32 val)
 	return 0;
 }
 
+void mt_set_pwm_udf_hal(u32 pwm_no)
+{                              /* only low 16 bits are valid */
+	unsigned long reg_udf;
+
+	reg_udf = (unsigned long)pwm_base + 0x8;
+	OUTREG32(reg_udf, 0xF);
+}
+
+u32 mt_get_pwm_udf_hal(u32 pwm_no)
+{                              /* only low 16 bits are valid */
+	unsigned long reg_udf;
+
+	reg_udf = (unsigned long)pwm_base + 0x10;
+	return INREG32(reg_udf);
+}
+
 void mt_set_pwm_HiDur_hal(u32 pwm_no, uint16_t DurVal)
 {				/* only low 16 bits are valid */
 	unsigned long reg_HiDur;

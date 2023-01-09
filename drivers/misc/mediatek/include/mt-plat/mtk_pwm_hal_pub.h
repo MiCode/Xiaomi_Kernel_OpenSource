@@ -50,6 +50,8 @@ int32_t mt_set_pwm_con_guardval_hal(uint32_t pwm_no, uint16_t val);
 void mt_set_pwm_con_stpbit_hal(uint32_t pwm_no, uint32_t stpbit,
 		uint32_t srcsel);
 int32_t mt_set_pwm_con_oldmode_hal(uint32_t pwm_no, uint32_t val);
+void mt_set_pwm_udf_hal(uint32_t pwm_no);
+uint32_t mt_get_pwm_udf_hal(uint32_t pwm_no);
 void mt_set_pwm_HiDur_hal(uint32_t pwm_no, uint16_t DurVal);
 void mt_set_pwm_LowDur_hal(uint32_t pwm_no, uint16_t DurVal);
 void mt_set_pwm_GuardDur_hal(uint32_t pwm_no, uint16_t DurVal);

@@ -1778,72 +1778,171 @@ static ssize_t pwm_debug_store(struct device *dev,
 		pr_debug(T "[PWM%d] TEST: 3DLCM test: not implement===>\n",
 				pwm_no);
 	} else if (cmd == 9) {
-		int i = 0;
-		struct pwm_spec_config conf;
-		#define PWM_MEM_DMA_SIZE  256
-	#if LARGE_8G_DRAM_TEST
-		#define PWM_DMA_TYPE unsigned long long
-		/* dma_addr_t  phys; */
-		PWM_DMA_TYPE  phys;
-		PWM_DMA_TYPE *virt = NULL;
-		PWM_DMA_TYPE *membuff = NULL;
-	#else/* 4G address */
-		#define PWM_DMA_TYPE  unsigned int
-		/* dma_addr_t  phys; */
-		PWM_DMA_TYPE phys;
-		PWM_DMA_TYPE *virt = NULL;
-		PWM_DMA_TYPE *membuff = NULL;
-	#endif
+		if (sub_cmd == 1) {
+			int i = 0;
+			struct pwm_spec_config conf;
+			#define PWM_MEM_DMA_SIZE  256
+		#if LARGE_8G_DRAM_TEST
+			#define PWM_DMA_TYPE unsigned long long
+			/* dma_addr_t  phys; */
+			PWM_DMA_TYPE  phys;
+			PWM_DMA_TYPE *virt = NULL;
+			PWM_DMA_TYPE *membuff = NULL;
+		#else/* 4G address */
+			#define PWM_DMA_TYPE  unsigned int
+			/* dma_addr_t  phys; */
+			PWM_DMA_TYPE phys;
+			PWM_DMA_TYPE *virt = NULL;
+			PWM_DMA_TYPE *membuff = NULL;
+		#endif
 
-		pr_debug(T "[PWM%d] TEST: MEMO/DMA ===>\n", pwm_no);
-		conf.mode = PWM_MODE_MEMORY;
-		conf.pwm_no = pwm_no;
-		conf.clk_div = CLK_DIV8;
-		conf.clk_src = PWM_CLK_NEW_MODE_BLOCK;
-		conf.PWM_MODE_MEMORY_REGS.IDLE_VALUE = IDLE_FALSE;
-		conf.PWM_MODE_MEMORY_REGS.GUARD_VALUE = GUARD_FALSE;
-		conf.PWM_MODE_MEMORY_REGS.HDURATION = 119;
-		conf.PWM_MODE_MEMORY_REGS.LDURATION = 119;
-		conf.PWM_MODE_MEMORY_REGS.GDURATION = 0;
-		conf.PWM_MODE_MEMORY_REGS.WAVE_NUM = 0;
-		conf.PWM_MODE_MEMORY_REGS.STOP_BITPOS_VALUE = 30;
+			pr_debug(T "[PWM%d] TEST: MEMO/DMA ===>\n", pwm_no);
+			conf.mode = PWM_MODE_MEMORY;
+			conf.pwm_no = pwm_no;
+			conf.clk_div = CLK_DIV8;
+			conf.clk_src = PWM_CLK_NEW_MODE_BLOCK;
+			conf.PWM_MODE_MEMORY_REGS.IDLE_VALUE = IDLE_FALSE;
+			conf.PWM_MODE_MEMORY_REGS.GUARD_VALUE = GUARD_FALSE;
+			conf.PWM_MODE_MEMORY_REGS.HDURATION = 119;
+			conf.PWM_MODE_MEMORY_REGS.LDURATION = 119;
+			conf.PWM_MODE_MEMORY_REGS.GDURATION = 0;
+			conf.PWM_MODE_MEMORY_REGS.WAVE_NUM = 0;
+			conf.PWM_MODE_MEMORY_REGS.STOP_BITPOS_VALUE = 30;
 
-#if LARGE_8G_DRAM_TEST
-		if (dma_set_coherent_mask(dev, DMA_BIT_MASK(36))) {
-			pr_debug(T "[PWM] dma alloc fail, dma_mask:0x%llx",
-					DMA_BIT_MASK(36));
-			return count;
-		}
-		pr_debug(T "[PWM]set dma_mask:0x%llx ", DMA_BIT_MASK(36));
+		#if LARGE_8G_DRAM_TEST
+			if (dma_set_coherent_mask(dev, DMA_BIT_MASK(36))) {
+				pr_debug(T "[PWM] dma alloc fail, dma_mask:0x%llx",
+						DMA_BIT_MASK(36));
+				return count;
+			}
+			pr_debug(T "[PWM]set dma_mask:0x%llx ", DMA_BIT_MASK(36));
 
-#endif
-		virt = dma_alloc_coherent(dev,
-			PWM_MEM_DMA_SIZE, (dma_addr_t *)&phys, GFP_KERNEL);
-		if (virt == NULL)
-			return count;
+		#endif
+			virt = dma_alloc_coherent(dev,
+				PWM_MEM_DMA_SIZE, (dma_addr_t *)&phys, GFP_KERNEL);
+			if (virt == NULL)
+				return count;
 
-	#if LARGE_8G_DRAM_TEST
-		pr_debug(T "[PWM] DMA get virt_addr:0x%p, phys_addr:0x%llx\n",
-					virt, phys);
-	#else
-		pr_debug(T "[PWM] DMA get virt_addr:0x%p, phys_addr:0x%x\n",
-					virt, phys);
-	#endif
+		#if LARGE_8G_DRAM_TEST
+			pr_debug(T "[PWM] DMA get virt_addr:0x%p, phys_addr:0x%llx\n",
+						virt, phys);
+		#else
+			pr_debug(T "[PWM] DMA get virt_addr:0x%p, phys_addr:0x%x\n",
+						virt, phys);
+		#endif
 
-		membuff = virt;
-		for (i = 0; i < (PWM_MEM_DMA_SIZE/(sizeof(PWM_DMA_TYPE)));
-					i += (sizeof(PWM_DMA_TYPE))) {
-			membuff[i] = 0xaaaaaaaa;
-			membuff[i+1] = 0xffff0000;
-		}
-		conf.PWM_MODE_MEMORY_REGS.BUF0_SIZE = PWM_MEM_DMA_SIZE;
-		conf.PWM_MODE_MEMORY_REGS.BUF0_BASE_ADDR = phys;
+			membuff = virt;
+			for (i = 0; i < (PWM_MEM_DMA_SIZE/(sizeof(PWM_DMA_TYPE)));
+						i += (sizeof(PWM_DMA_TYPE))) {
+				membuff[i] = 0xaaaaaaaa;
+				membuff[i+1] = 0xffff0000;
+			}
+			conf.PWM_MODE_MEMORY_REGS.BUF0_SIZE = PWM_MEM_DMA_SIZE;
+			conf.PWM_MODE_MEMORY_REGS.BUF0_BASE_ADDR = phys;
 
-		if (!test_bit(pwm_no, &(pwm_dev->power_flag)))
-			mt_pwm_power_on(pwm_no, 0);
-		ret = pwm_set_spec_config(&conf);
-		if (ret != RSUCCESS)
-			pr_debug(T "[PWM%d] TEST:CONFIG err:%d\n", pwm_no, ret);
+			if (!test_bit(pwm_no, &(pwm_dev->power_flag)))
+				mt_pwm_power_on(pwm_no, 0);
+			ret = pwm_set_spec_config(&conf);
+			if (ret != RSUCCESS)
+				pr_debug(T "[PWM%d] TEST:CONFIG err:%d\n", pwm_no, ret);
+		} else if (sub_cmd == 2) {
+			/* pwm underflow stress */
+			int i = 0;
+			struct pwm_spec_config conf;
+			u32 udf_reg;
+			#define PWM_MEM_DMA_SIZE  65532
+		#if LARGE_8G_DRAM_TEST
+			#define PWM_DMA_TYPE unsigned long long
+			/* dma_addr_t  phys; */
+			PWM_DMA_TYPE  phys;
+			PWM_DMA_TYPE *virt = NULL;
+			PWM_DMA_TYPE *membuff = NULL;
+		#else/* 4G address */
+			#define PWM_DMA_TYPE  unsigned int
+			/* dma_addr_t  phys; */
+			PWM_DMA_TYPE phys;
+			PWM_DMA_TYPE *virt = NULL;
+			PWM_DMA_TYPE *membuff = NULL;
+		#endif
+
+			pr_debug(T "[PWM%d] TEST: MEMO/DMA ===>\n", pwm_no);
+			conf.mode = PWM_MODE_MEMORY;
+			conf.pwm_no = pwm_no;
+			conf.clk_div = CLK_DIV1;
+			conf.clk_src = PWM_CLK_NEW_MODE_BLOCK;
+			conf.PWM_MODE_MEMORY_REGS.IDLE_VALUE = IDLE_FALSE;
+			conf.PWM_MODE_MEMORY_REGS.GUARD_VALUE = GUARD_FALSE;
+			conf.PWM_MODE_MEMORY_REGS.HDURATION = 1;
+			conf.PWM_MODE_MEMORY_REGS.LDURATION = 1;
+			conf.PWM_MODE_MEMORY_REGS.GDURATION = 0;
+			conf.PWM_MODE_MEMORY_REGS.WAVE_NUM = 1;
+			conf.PWM_MODE_MEMORY_REGS.STOP_BITPOS_VALUE = 30;
+
+		#if LARGE_8G_DRAM_TEST
+			if (dma_set_coherent_mask(dev, DMA_BIT_MASK(36))) {
+				pr_debug(T "[PWM] dma alloc fail, dma_mask:0x%llx",
+						DMA_BIT_MASK(36));
+				return count;
+			}
+			pr_debug(T "[PWM]set dma_mask:0x%llx ", DMA_BIT_MASK(36));
+
+		#endif
+			virt = dma_alloc_coherent(dev,
+				PWM_MEM_DMA_SIZE, (dma_addr_t *)&phys, GFP_KERNEL);
+			if (virt == NULL)
+				return count;
+
+		#if LARGE_8G_DRAM_TEST
+			pr_debug(T "[PWM] DMA get virt_addr:0x%p, phys_addr:0x%llx\n",
+						virt, phys);
+		#else
+			pr_debug(T "[PWM] DMA get virt_addr:0x%p, phys_addr:0x%x\n",
+						virt, phys);
+		#endif
+
+			membuff = virt;
+			for (i = 0; i < (PWM_MEM_DMA_SIZE/(sizeof(PWM_DMA_TYPE)));
+						i += (sizeof(PWM_DMA_TYPE))) {
+				membuff[i] = 0xaaaaaaaa;
+				membuff[i+1] = 0xffff0000;
+			}
+			conf.PWM_MODE_MEMORY_REGS.BUF0_SIZE = PWM_MEM_DMA_SIZE;
+			conf.PWM_MODE_MEMORY_REGS.BUF0_BASE_ADDR = phys;
+
+			do {
+				if (!test_bit(pwm_no, &(pwm_dev->power_flag)))
+					mt_pwm_power_on(pwm_no, 0);
+
+				pr_debug("[PWM%d] before unserflow config value 0x%x\n",
+					pwm_no, INREG32(((unsigned long)pwm_base+0x8)));
+				mt_set_pwm_udf_hal(pwm_no);
+				pr_debug("[PWM%d] unserflow config value 0x%x\n",
+					pwm_no, INREG32(((unsigned long)pwm_base+0x8)));
+				/* set to 26MHz */
+				mt_pwm_clk_sel_hal(pwm_no, CLK_26M);
+
+				ret = pwm_set_spec_config(&conf);
+				if (ret != RSUCCESS)
+					pr_debug("[PWM%d] TEST:CONFIG err:%d\n", pwm_no, ret);
+
+				/* delay 3s for HD/LD = 100T, 26MHz, size 65532 = 2s waveform */
+				mdelay(3000);
+
+				udf_reg = mt_get_pwm_udf_hal(pwm_no);
+				if (udf_reg & 0xF) {
+					pr_debug("[PWM%d] unserflow happened value 0x%x\n",
+						pwm_no, udf_reg);
+					break;
+				}
+
+				if (test_bit(pwm_no, &(pwm_dev->power_flag)))
+					mt_pwm_disable(pwm_no, false);
+				pr_debug("[PWM%d] poweroff\n", pwm_no);
+			} while (1);
+		} else {
+			pr_debug(T "[PWM%d] TEST: Invalid sub_cmd:%d ===>\n",
+					pwm_no, sub_cmd);
+		} /* end sub cmd */
 	} else {
 		pr_debug(T "[PWM%d] TEST: Invalid cmd:%d\n", pwm_no, cmd);
 	}
