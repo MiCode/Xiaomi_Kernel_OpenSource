@@ -117,7 +117,7 @@ int imgsys_queue_disable(struct imgsys_queue *que)
 {
 	int ret;
 
-	if ((!que) || IS_ERR(que->task))
+	if ((!que) || IS_ERR_OR_NULL(que->task))
 		return -1;
 
 	ret = wait_event_interruptible_timeout(que->dis_wq, !atomic_read(&que->nr),
@@ -130,13 +130,15 @@ int imgsys_queue_disable(struct imgsys_queue *que)
 	mutex_lock(&que->task_lock);
 
 	atomic_set(&que->disable, 1);
-	ret = kthread_stop(que->task);
-	if (ret)
-		dev_info(que->dev, "%s: kthread_stop failed %d\n",
-						__func__, ret);
+	if (que->task != NULL) {
+		ret = kthread_stop(que->task);
+		if (ret)
+			dev_info(que->dev, "%s: kthread_stop failed %d\n",
+							__func__, ret);
+		put_task_struct(que->task);
+		que->task = NULL;
+	}
 
-	put_task_struct(que->task);
-	que->task = NULL;
 
 	dev_info(que->dev, "%s: kthread(%s) queue peak(%d)\n",
 		__func__, que->name, que->peak);
