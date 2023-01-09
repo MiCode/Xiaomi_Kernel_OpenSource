@@ -54,6 +54,7 @@ enum RPC_OP_ID {
 	IPC_RPC_QUERY_CARD_TYPE = 0x4013,
 	IPC_RPC_AMMS_DRDI_CONTROL = 0x4014,
 	IPC_RPC_SAVE_MD_CAPID = 0x4015,
+	IPC_RPC_RF_ECID_DATA_OP = 0X4016,
 	IPC_RPC_IT_OP = 0x4321,
 };
 
@@ -68,6 +69,23 @@ struct rpc_buffer {
 	u32 para_num;
 	u8 buffer[0];
 } __packed;
+
+struct rpc_fe_vpa_public_ecid_info {
+	u8 mipi_port;
+	u8 new_usid;
+	u8 vpa_type_name[32];
+	u16 vpa_type_id;
+	u16 ecid_x_pox;
+	u16 ecid_y_pox;
+};
+
+struct rpc_ecid_info {
+	char sub6_rf_name[32];
+	u32 sub6_rf_ecid_i;
+	u32 sub6_rf_ecid_h;
+	u32 vpa_info_num;
+	struct rpc_fe_vpa_public_ecid_info rpc_vpa_public_info[10];
+};
 
 /* hardcode, becarefull with data size, should not exceed tmp_data[]
  * in ccci_rpc_work_helper()
