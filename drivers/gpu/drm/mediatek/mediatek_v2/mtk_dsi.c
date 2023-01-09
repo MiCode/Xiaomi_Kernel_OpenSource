@@ -2377,7 +2377,8 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 				dsi->panel, doze_enabled);
 
 		if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
-			writel(0x0001023c, dsi->regs + DSI_TXRX_CTRL);
+			mtk_dsi_mask(dsi, DSI_TXRX_CTRL, (EXT_TE_EN | HSTX_CKLP_EN),
+							(EXT_TE_EN | HSTX_CKLP_EN));
 
 		mtk_dsi_set_mode(dsi);
 		mtk_dsi_clk_hs_mode(dsi, 1);
@@ -2674,14 +2675,15 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	 * lcm initialize.
 	 */
 	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
-		writel(0x0001023c, dsi->regs + DSI_TXRX_CTRL);
+		mtk_dsi_mask(dsi, DSI_TXRX_CTRL, (EXT_TE_EN | HSTX_CKLP_EN),
+							(EXT_TE_EN | HSTX_CKLP_EN));
 
 	mtk_dsi_set_mode(dsi);
 	mtk_dsi_clk_hs_mode(dsi, 1);
 	if (dsi->slave_dsi) {
 		if (mtk_dsi_is_cmd_mode(&dsi->slave_dsi->ddp_comp))
-			writel(0x0001023c,
-			       dsi->slave_dsi->regs + DSI_TXRX_CTRL);
+			mtk_dsi_mask(dsi, DSI_TXRX_CTRL, (EXT_TE_EN | HSTX_CKLP_EN),
+								(EXT_TE_EN | HSTX_CKLP_EN));
 
 		mtk_dsi_set_mode(dsi->slave_dsi);
 		mtk_dsi_clk_hs_mode(dsi->slave_dsi, 1);
@@ -4177,7 +4179,8 @@ static void mtk_dsi_leave_idle(struct mtk_dsi *dsi)
 	 * lcm initialize.
 	 */
 	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp))
-		writel(0x0001023c, dsi->regs + DSI_TXRX_CTRL);
+		mtk_dsi_mask(dsi, DSI_TXRX_CTRL, (EXT_TE_EN | HSTX_CKLP_EN),
+							(EXT_TE_EN | HSTX_CKLP_EN));
 
 	mtk_dsi_set_mode(dsi);
 	mtk_dsi_clk_hs_mode(dsi, 1);
