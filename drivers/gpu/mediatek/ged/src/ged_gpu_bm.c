@@ -11,6 +11,7 @@
 
 #include <ged_gpu_bm.h>
 #include <ged_base.h>
+#include <ged_type.h>
 
 #if defined(MTK_GPU_BM_2)
 #include <gpu_bm.h>
@@ -150,7 +151,10 @@ void mtk_bandwidth_update_info(int pid, int frame_nr, int job_id)
 	v1->frame = (u32)frame_nr;
 	v1->job = (u32)job_id;
 
-	MTKGPUQoS_mode();
+	if (ged_get_segment_id() == MT6985W_TCZA_SEGMENT)
+		MTKGPUQoS_mode(1);
+	else
+		MTKGPUQoS_mode(0);
 }
 
 void mtk_bandwidth_check_SF(int pid, int isSF)

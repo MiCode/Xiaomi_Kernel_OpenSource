@@ -196,19 +196,21 @@ static void _MTKGPUQoS_setupFW(phys_addr_t phyaddr, size_t size)
 	schedule_delayed_work(&g_setupfw_work, 1);
 }
 
-void MTKGPUQoS_mode(void)
+void MTKGPUQoS_mode(int seg_flag)
 {
-	unsigned int loading, idx, min_idx, high_idx;
+	unsigned int loading, idx, min_idx, high_idx, low_idx;
 
 	mtk_get_gpu_loading(&loading);
 #if defined(CONFIG_MTK_GPUFREQ_V2)
 	idx = gpufreq_get_cur_oppidx(TARGET_DEFAULT);
 	min_idx = gpufreq_get_opp_num(TARGET_DEFAULT) - 1;
 	high_idx = (gpufreq_get_opp_num(TARGET_DEFAULT) - 1) / 4 + 1;
+	low_idx = (gpufreq_get_opp_num(TARGET_DEFAULT) - 1) / 3 * 2 + 1;
 #else
 	idx = mt_gpufreq_get_cur_freq_index();
 	min_idx = mt_gpufreq_get_dvfs_table_num() - 1;
-	high_idx = (mt_gpufreq_get_dvfs_table_num()-1) / 4 + 1;
+	high_idx = (mt_gpufreq_get_dvfs_table_num() - 1) / 4 + 1;
+	low_idx = (mt_gpufreq_get_dvfs_table_num() - 1) / 3 * 2 + 1;
 #endif
 
 	/* sport mode */
@@ -224,9 +226,11 @@ void MTKGPUQoS_mode(void)
 				gpu_info_buf->freq = 0;
 			else if (g_mode == GPU_BW_NO_PRED_MODE)
 				gpu_info_buf->freq = 2000;
+		return;
+	}
 
 	/* default prediction  */
-	} else if (g_mode == GPU_BW_DEFAULT_MODE) {
+	if (g_mode == GPU_BW_DEFAULT_MODE) {
 		/*
 		 * if gpu loading < 40% and gpu freq is lowest,
 		 * don't do GPU QoS prediction.
@@ -234,18 +238,24 @@ void MTKGPUQoS_mode(void)
 		if ((idx == min_idx) && (loading < 40))
 			gpu_info_buf->freq = GPU_BW_NO_PRED_MODE;
 		else {
-			gpu_info_buf->freq = 0;
+			if (seg_flag && idx >= low_idx)
+				gpu_info_buf->freq = GPU_BW_LP_MODE;
+			else
+				gpu_info_buf->freq = 0;
 			if (g_value >= GPU_BW_RATIO_FLOOR && g_value <= GPU_BW_RATIO_CEIL)
 				/* apply a ratio for bw prediction */
 				gpu_info_buf->freq = g_value;
 		}
+		return;
+	}
 
 	/* no bw prediction */
-	} else if (g_mode == GPU_BW_NO_PRED_MODE) {
+	if (g_mode == GPU_BW_NO_PRED_MODE) {
 		gpu_info_buf->freq = GPU_BW_NO_PRED_MODE;
 		if (g_value >= GPU_BW_NO_PRED_RATIO_FLOOR && g_value <= GPU_BW_NO_PRED_RATIO_CEIL)
 			/* apply a ratio for bw prediction */
 			gpu_info_buf->freq = g_value;
+		return;
 	}
 
 }
@@ -260,11 +270,9 @@ static void bw_v1_gpu_power_change_notify(int power_on)
 		gpu_info_buf->ctx = 0; // ctx
 		return;
 	}
-
 	gpu_info_buf->ctx = ctx;
 
-	MTKGPUQoS_mode();
-
+	MTKGPUQoS_mode(0);
 }
 
 static void _MTKGPUQoS_init(void)

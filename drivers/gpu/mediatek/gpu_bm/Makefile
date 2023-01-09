@@ -14,6 +14,7 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/qos/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/ged/include/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/
 
 ifeq ($(CONFIG_MTK_GPU_SUPPORT),y)
