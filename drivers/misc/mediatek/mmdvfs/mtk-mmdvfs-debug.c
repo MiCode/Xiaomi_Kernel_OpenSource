@@ -335,6 +335,11 @@ static int mmdvfs_v3_dbg_ftrace_thread(void *data)
 	int retry = 0;
 	s32 i, j;
 
+	if (!g_mmdvfs->use_v3_pwr) {
+		ftrace_v3_ena = false;
+		return 0;
+	}
+
 	while (!mmdvfs_is_init_done()) {
 		if (++retry > 100) {
 			ftrace_v3_ena = false;
