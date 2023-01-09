@@ -2199,7 +2199,8 @@ static int set_soft_fps_level(struct fps_level level)
 {
 	mutex_lock(&fstb_lock);
 
-	if (level.end > level.start)
+	if (level.end > level.start ||
+		level.start <= 0 || level.end <= 0)
 		goto set_fps_level_err;
 
 	fps_global_level.start = level.start;
