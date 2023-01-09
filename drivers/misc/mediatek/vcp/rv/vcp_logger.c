@@ -830,15 +830,15 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 
 			if ((retrytimes % 500) == 0)
 				pr_debug("[VCP] %s: ipi ret=%d\n", __func__, ret);
-			if (ret == IPI_ACTION_DONE)
+			if (ret == IPI_ACTION_DONE) {
+				pr_debug("[VCP] %s: id=%u, ap_time %llu flag %x\n",
+					 __func__, vcp_ipi_id, ap_time, sws->flags);
 				break;
+			}
 		}
 		retrytimes--;
 		udelay(1000);
 	} while (retrytimes > 0 && vcp_A_logger_inited);
-
-	pr_debug("[VCP] %s: id=%u, ap_time %llu flag %x\n",
-		__func__, vcp_ipi_id, ap_time, sws->flags);
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 	udelay(1000);
