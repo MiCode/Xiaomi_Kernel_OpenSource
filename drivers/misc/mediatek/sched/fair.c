@@ -581,7 +581,7 @@ int mtk_find_energy_efficient_cpu_in_interrupt(struct task_struct *p, bool laten
 			 * Find the CPU with the maximum spare capacity in
 			 * the performance domain
 			 */
-			if (spare_cap > max_spare_cap_cpu_per_gear) {
+			if (spare_cap > max_spare_cap_per_gear) {
 				max_spare_cap_per_gear = spare_cap;
 				max_spare_cap_cpu_per_gear = cpu;
 			}
