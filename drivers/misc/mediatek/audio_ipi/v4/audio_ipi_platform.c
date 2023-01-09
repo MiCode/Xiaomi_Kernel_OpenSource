@@ -56,6 +56,7 @@ uint32_t audio_get_dsp_id(const uint8_t task)
 	case TASK_SCENE_CALL_FINAL:
 	case TASK_SCENE_MUSIC:
 	case TASK_SCENE_FAST:
+	case TASK_SCENE_SPATIALIZER:
 	case TASK_SCENE_FM_ADSP:
 	case TASK_SCENE_BLECALLDL:
 	case TASK_SCENE_VOIP:

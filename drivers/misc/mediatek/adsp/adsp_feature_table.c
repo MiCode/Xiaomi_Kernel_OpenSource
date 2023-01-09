@@ -43,6 +43,7 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 	[CAPTURE_FEATURE_ID]          = {.name = "capture"},
 	[CALL_FINAL_FEATURE_ID]       = {.name = "call_final"},
 	[FAST_FEATURE_ID]             = {.name = "fast"},
+	[SPATIALIZER_FEATURE_ID]      = {.name = "spatializer"},
 	[KTV_FEATURE_ID]              = {.name = "ktv"},
 	[CAPTURE_RAW_FEATURE_ID]      = {.name = "capture_raw"},
 	[FM_ADSP_FEATURE_ID]          = {.name = "fm_adsp"},

@@ -41,11 +41,15 @@ enum {
 	TASK_SCENE_UL_PROCESS           = 28,
 	TASK_SCENE_ECHO_REF_UL          = 29,
 	TASK_SCENE_ECHO_REF_DL          = 30,
-	TASK_SCENE_USB_DL               = 31,
-	TASK_SCENE_USB_UL               = 32,
-	TASK_SCENE_MD_DL                = 33,
-	TASK_SCENE_MD_UL                = 34,
-	TASK_SCENE_RV_SPK_PROCESS       = 35,
+	TASK_SCENE_SPATIALIZER          = 31,
+	/* dtoa_flag only support unsigned long (32bit) currently. */
+	/* so source tasks need to put in 0~31 */
+
+	TASK_SCENE_USB_DL               = 32,
+	TASK_SCENE_USB_UL               = 33,
+	TASK_SCENE_MD_DL                = 34,
+	TASK_SCENE_MD_UL                = 35,
+	TASK_SCENE_RV_SPK_PROCESS       = 36,
 
 	/* control for driver */
 	TASK_SCENE_AUDIO_CONTROLLER_HIFI3_A,

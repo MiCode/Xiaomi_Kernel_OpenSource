@@ -56,6 +56,7 @@ static char *dsp_task_name[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_USBUL_ID]        = "usbul",
 	[AUDIO_TASK_MDDL_ID]         = "mddl",
 	[AUDIO_TASK_MDUL_ID]         = "mdul",
+	[AUDIO_TASK_SPATIALIZER_ID]  = "spatializer",
 };
 
 static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
@@ -84,6 +85,7 @@ static int dsp_task_scence[AUDIO_TASK_DAI_NUM] = {
 	[AUDIO_TASK_USBUL_ID]       = TASK_SCENE_USB_UL,
 	[AUDIO_TASK_MDDL_ID]        = TASK_SCENE_MD_DL,
 	[AUDIO_TASK_MDUL_ID]        = TASK_SCENE_MD_UL,
+	[AUDIO_TASK_SPATIALIZER_ID] = TASK_SCENE_SPATIALIZER,
 };
 
 int audio_set_dsp_afe(struct mtk_base_afe *afe)
