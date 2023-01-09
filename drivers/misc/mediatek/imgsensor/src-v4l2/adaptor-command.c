@@ -78,6 +78,27 @@ static int g_cmd_sensor_mode_config_info(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+static int g_cmd_sensor_in_reset(struct adaptor_ctx *ctx, void *arg)
+{
+	int ret = 0;
+	bool *in_reset = NULL;
+
+	/* error handling (unexpected case) */
+	if (unlikely(arg == NULL)) {
+		ret = -ENOIOCTLCMD;
+		adaptor_logi(ctx,
+			"ERROR: V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, idx:%d, input arg is nullptr, return:%d\n",
+			ctx->idx);
+		return ret;
+	}
+
+	in_reset = arg;
+
+	*in_reset = !!(ctx->is_sensor_reset_stream_off);
+
+	return ret;
+}
+
 /* SET */
 static int s_cmd_fsync_sync_frame_start_end(struct adaptor_ctx *ctx, void *arg)
 {
@@ -118,6 +139,7 @@ struct command_entry {
 static const struct command_entry command_list[] = {
 	/* GET */
 	{V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, g_cmd_sensor_mode_config_info},
+	{V4L2_CMD_SENSOR_IN_RESET, g_cmd_sensor_in_reset},
 
 	/* SET */
 	{V4L2_CMD_FSYNC_SYNC_FRAME_START_END, s_cmd_fsync_sync_frame_start_end},

@@ -742,6 +742,9 @@ enum mtk_cam_sensor_pm_ops {
 #define V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO \
 	(V4L2_CMD_USER_MTK_SENSOR_BASE + 2)
 
+#define V4L2_CMD_SENSOR_IN_RESET \
+	(V4L2_CMD_USER_MTK_SENSOR_BASE + 3)
+
 
 /* S E N I N F */
 #define V4L2_CID_MTK_SENINF_S_STREAM \
