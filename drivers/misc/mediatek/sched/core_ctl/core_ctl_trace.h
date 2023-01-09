@@ -137,6 +137,39 @@ TRACE_EVENT(core_ctl_update_nr_over_thres,
 		__entry->need_spread_cpus[2])
 );
 
+TRACE_EVENT(core_ctl_periodic_debug_handler,
+
+	TP_PROTO(
+		unsigned int enable_policy,
+		unsigned int *max_cpus,
+		unsigned int *min_cpus,
+		unsigned int active,
+		unsigned int paused),
+	TP_ARGS(enable_policy, max_cpus, min_cpus, active, paused),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, enable_policy)
+		__array(unsigned int, max_cpus, 3)
+		__array(unsigned int, min_cpus, 3)
+		__field(unsigned int, active)
+		__field(unsigned int, paused)
+	),
+
+	TP_fast_assign(
+		__entry->enable_policy = enable_policy;
+		memcpy(__entry->max_cpus, max_cpus, sizeof(unsigned int)*3);
+		memcpy(__entry->min_cpus, min_cpus, sizeof(unsigned int)*3);
+		__entry->active = active;
+		__entry->paused = paused;
+	),
+
+	TP_printk("enable_policy=%u, max_cpu=%u|%u|%u, min_cpu=%u|%u|%u, active=%x, paused=%x",
+		__entry->enable_policy,
+		__entry->max_cpus[0], __entry->max_cpus[1], __entry->max_cpus[2],
+		__entry->min_cpus[0], __entry->min_cpus[1], __entry->min_cpus[2],
+		__entry->active, __entry->paused)
+);
+
 #endif /*_CORE_CTL_TRACE_H */
 
 #undef TRACE_INCLUDE_PATH

@@ -5,44 +5,6 @@
 #ifndef _CORE_CTL_H
 #define _CORE_CTL_H
 
-static noinline void tracing_mark_write(char *fmt, ...)
-{
-	char log[256];
-	va_list args;
-	int len;
-
-	memset(log, ' ', sizeof(log));
-	va_start(args, fmt);
-	len = vsnprintf(log, sizeof(log), fmt, args);
-	va_end(args);
-
-	if (unlikely(len < 0))
-		return;
-	else if (unlikely(len == 256))
-		log[255] = '\0';
-	trace_printk(log);
-}
-
-#define CORE_CTL_TRACE_BEGIN(fmt, args...) do { \
-	preempt_disable(); \
-	tracing_mark_write( \
-		"B|%d|"fmt"\n", 7788, ##args); \
-	preempt_enable();\
-} while (0)
-
-#define CORE_CTL_TRACE_END() do { \
-	preempt_disable(); \
-	tracing_mark_write("E|7788\n"); \
-	preempt_enable(); \
-} while (0)
-
-#define CORE_CTL_TRACE_CNT(cnt, fmt, args...) do { \
-	preempt_disable(); \
-	tracing_mark_write( \
-		"C|%d|"fmt"|%d\n", 7788, ##args, cnt); \
-	preempt_enable();\
-} while (0)
-
 struct _CORE_CTL_PACKAGE {
 	union {
 		__u32 cid;

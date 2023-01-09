@@ -1600,55 +1600,23 @@ static struct cluster_data *find_cluster_by_first_cpu(unsigned int first_cpu)
 	return NULL;
 }
 
-static inline void core_ctl_status(int level)
-{
-	unsigned int index = 0;
-	int cpu;
-	bool active;
-	struct cluster_data *cluster;
-	char cpu_active[255] = {0};
-	char cpu_status[255] = {0};
-	char *p1, *p2;
-
-	// policy
-	CORE_CTL_TRACE_CNT(enable_policy, "policy");
-
-	// cluster's status
-	for_each_cluster(cluster, index) {
-		CORE_CTL_TRACE_CNT(cluster->max_cpus, "_c%d_max", index);
-		if (level == DEBUG_DETAIL)
-			CORE_CTL_TRACE_CNT(cluster->min_cpus, "_c%d_min", index);
-	}
-
-	// cpu's state
-	if (nr_cpu_ids < 1)
-		return;
-	p1 = cpu_active;
-	p2 = cpu_status;
-	for (cpu = 0; cpu < nr_cpu_ids; cpu++) {
-		struct cpu_data *c;
-
-		c = &per_cpu(cpu_state, cpu);
-		active = is_active(c);
-		p1 += sprintf(p1, "%d-", active);
-		CORE_CTL_TRACE_CNT(active, "c%d", cpu);
-		p2 += sprintf(p2, "%d-", ((c->force_paused)<<1)|(c->paused_by_cc));
-	}
-	*(--p1) = '\0';
-	*(--p2) = '\0';
-
-	CORE_CTL_TRACE_BEGIN("active:%s      status:%s", cpu_active, cpu_status);
-	usleep_range(3000, 4000);
-	CORE_CTL_TRACE_END();
-}
-
 static void periodic_debug_handler(struct work_struct *work)
 {
+	struct cluster_data *cluster;
+	unsigned int index = 0;
+	unsigned int max_cpus[MAX_CLUSTERS];
+	unsigned int min_cpus[MAX_CLUSTERS];
 
 	if (periodic_debug_enable == DISABLE_DEBUG)
 		return;
 
-	core_ctl_status(periodic_debug_enable);
+	for_each_cluster(cluster, index) {
+		max_cpus[index] = cluster->max_cpus;
+		min_cpus[index] = cluster->min_cpus;
+	}
+
+	trace_core_ctl_periodic_debug_handler(enable_policy, max_cpus, min_cpus,
+			cpumask_bits(cpu_online_mask)[0], cpumask_bits(cpu_pause_mask)[0]);
 	mod_delayed_work(system_power_efficient_wq,
 			&periodic_debug, msecs_to_jiffies(periodic_debug_delay));
 }
