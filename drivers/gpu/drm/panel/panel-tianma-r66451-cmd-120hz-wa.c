@@ -871,11 +871,17 @@ static const struct drm_panel_funcs tianma_drm_funcs = {
 static int tianma_probe(struct mipi_dsi_device *dsi)
 {
 	struct device *dev = &dsi->dev;
+	struct device_node *dsi_node;
 	struct tianma *ctx;
 	struct device_node *backlight;
-	int ret;
+	int ret, i;
+	unsigned int lane_swap[6] = {0};
+	unsigned int pn_swap[6] = {0};
 
 	pr_info("%s+\n", __func__);
+
+	dsi_node = of_get_parent(dev->of_node);
+
 	ctx = devm_kzalloc(dev, sizeof(struct tianma), GFP_KERNEL);
 
 	if (!ctx)
@@ -910,6 +916,38 @@ static int tianma_probe(struct mipi_dsi_device *dsi)
 	devm_gpiod_put(dev, ctx->reset_gpio);
 	ctx->prepared = true;
 	ctx->enabled = true;
+
+	if (of_property_read_bool(dev->of_node, "swap-from-dts")) {
+		ret = of_property_read_u32_array(dev->of_node, "lane-swap-setting", lane_swap, 6);
+		if (ret == 0) {
+			pr_info("r66451 dsi node:%s set Lane Swap from dts\n",
+						dsi_node->full_name);
+			ext_params.lane_swap_en = 1;
+			ext_params_mode_1.lane_swap_en = 1;
+			ext_params_mode_2.lane_swap_en = 1;
+			for (i = 0; i < 6; i++) {
+				ext_params.lane_swap[0][i] = lane_swap[i];
+				ext_params.lane_swap[1][i] = lane_swap[i];
+				ext_params_mode_1.lane_swap[0][i] = lane_swap[i];
+				ext_params_mode_1.lane_swap[1][i] = lane_swap[i];
+				ext_params_mode_2.lane_swap[0][i] = lane_swap[i];
+				ext_params_mode_2.lane_swap[1][i] = lane_swap[i];
+			}
+		}
+		ret = of_property_read_u32_array(dev->of_node, "pn-swap-setting", pn_swap, 6);
+		if (ret == 0) {
+			pr_info("r66451 dsi node:%s set PN Swap from dts\n",
+						dsi_node->full_name);
+			for (i = 0; i < 6; i++) {
+				ext_params.pn_swap[0][i] = pn_swap[i];
+				ext_params.pn_swap[1][i] = pn_swap[i];
+				ext_params_mode_1.pn_swap[0][i] = pn_swap[i];
+				ext_params_mode_1.pn_swap[1][i] = pn_swap[i];
+				ext_params_mode_2.pn_swap[0][i] = pn_swap[i];
+				ext_params_mode_2.pn_swap[1][i] = pn_swap[i];
+			}
+		}
+	}
 
 	drm_panel_init(&ctx->panel, dev, &tianma_drm_funcs,
 								DRM_MODE_CONNECTOR_DSI);

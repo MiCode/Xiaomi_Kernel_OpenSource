@@ -729,7 +729,9 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	struct lcm *ctx;
 	struct device_node *backlight;
 	unsigned int value;
-	int ret;
+	unsigned int lane_swap[6] = {0};
+	unsigned int pn_swap[6] = {0};
+	int ret, i;
 
 	pr_info("%s+\n", __func__);
 
@@ -805,6 +807,28 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 
 	ctx->prepared = true;
 	ctx->enabled = true;
+
+	if (of_property_read_bool(dev->of_node, "swap-from-dts")) {
+		ret = of_property_read_u32_array(dev->of_node, "lane-swap-setting", lane_swap, 6);
+		if (ret == 0) {
+			pr_info("td4330 dsi node:%s set Lane Swap from dts\n",
+						dsi_node->full_name);
+			ext_params.lane_swap_en = 1;
+			for (i = 0; i < 6; i++) {
+				ext_params.lane_swap[0][i] = lane_swap[i];
+				ext_params.lane_swap[1][i] = lane_swap[i];
+			}
+		}
+		ret = of_property_read_u32_array(dev->of_node, "pn-swap-setting", pn_swap, 6);
+		if (ret == 0) {
+			pr_info("td4330 dsi node:%s set PN Swap from dts\n",
+						dsi_node->full_name);
+			for (i = 0; i < 6; i++) {
+				ext_params.pn_swap[0][i] = pn_swap[i];
+				ext_params.pn_swap[1][i] = pn_swap[i];
+			}
+		}
+	}
 
 	drm_panel_init(&ctx->panel, dev, &lcm_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 
