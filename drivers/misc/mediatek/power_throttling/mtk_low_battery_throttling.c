@@ -347,7 +347,16 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, priv);
 
 	vol_l_size = of_property_count_elems_of_size(np, "thd-volts-l", sizeof(u32));
+	if (vol_l_size < 0) {
+		dev_notice(&pdev->dev, "[%s] No thd-volts-l\n", __func__);
+		vol_l_size = 0;
+	}
 	vol_h_size = of_property_count_elems_of_size(np, "thd-volts-h", sizeof(u32));
+	if (vol_h_size < 0) {
+		dev_notice(&pdev->dev, "[%s] No thd-volts-h\n", __func__);
+		vol_h_size = 0;
+	}
+
 	if (vol_l_size > 0 && vol_h_size > 0)
 		priv->thd_volts_size = vol_l_size + vol_h_size;
 
@@ -378,7 +387,7 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 			dev_notice(&pdev->dev,
 				   "[%s] failed to get correct thd-volt ret=%d\n", __func__, ret);
 			priv->thd_volts_size = LOW_BATTERY_LEVEL_NUM;
-			priv->thd_volts = krealloc_array(priv->thd_volts, priv->thd_volts_size,
+			priv->thd_volts = devm_kmalloc_array(&pdev->dev, priv->thd_volts_size,
 						sizeof(u32), GFP_KERNEL);
 
 			if (!priv->thd_volts)
@@ -391,8 +400,13 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 		} else {
 			vol_t_size = rearrange_volt(priv->lbat_intr_info,
 				volt_l_thd, volt_h_thd, vol_l_size);
-			priv->thd_volts_size = vol_t_size;
 
+			if (vol_t_size <= 0) {
+				dev_notice(&pdev->dev, "[%s] Failed to rearrange_volt\n", __func__);
+				return -ENODATA;
+			}
+
+			priv->thd_volts_size = vol_t_size;
 			priv->thd_volts = devm_kmalloc_array(&pdev->dev, priv->thd_volts_size,
 						sizeof(u32), GFP_KERNEL);
 			if (!priv->thd_volts)
