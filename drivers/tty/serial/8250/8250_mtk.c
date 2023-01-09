@@ -1050,6 +1050,9 @@ static void mtk8250_dma_rx_complete(void *param)
 	unsigned char *ptr;
 	unsigned long flags;
 	unsigned int idx = 0, polling_cnt = TTY_BUF_POLLING_COUNT;
+#ifdef CONFIG_UART_DATA_RECORD
+	bool is_exceed_buf_size = false;
+#endif
 
 	if (data->rx_status == DMA_RX_SHUTDOWN)
 		return;
@@ -1115,8 +1118,7 @@ static void mtk8250_dma_rx_complete(void *param)
 		if (total <= UART_DUMP_BUF_LEN)
 			memcpy(rx_record.rec[idx].rec_buf + cnt, ptr, total - cnt);
 		else
-			pr_info("[%s] total = %d, cnt = %d, exceeds buf size:%d\n",
-				__func__, total, cnt, UART_DUMP_BUF_LEN);
+			is_exceed_buf_size = true;
 	}
 #endif
 		cnt = total - cnt;
@@ -1138,6 +1140,11 @@ static void mtk8250_dma_rx_complete(void *param)
 	mtk8250_rx_dma(up);
 
 	spin_unlock_irqrestore(&up->port.lock, flags);
+#ifdef CONFIG_UART_DATA_RECORD
+	if (is_exceed_buf_size)
+		pr_info("[%s] total = %d, cnt = %d, exceeds buf size:%d\n",
+			__func__, total, cnt, UART_DUMP_BUF_LEN);
+#endif
 }
 
 static void mtk8250_rx_dma(struct uart_8250_port *up)
