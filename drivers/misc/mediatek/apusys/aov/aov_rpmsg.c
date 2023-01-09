@@ -15,6 +15,9 @@
 #include <linux/delay.h>
 #include <linux/completion.h>
 #include <linux/kthread.h>
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+#include <linux/pm_wakeup.h>
+#endif
 
 #include "apusys_core.h"
 #include "aov_rpmsg.h"
@@ -38,6 +41,9 @@ struct aov_rpmsg_ctx {
 	atomic_t ack;
 	struct completion notify_tx_scp;
 	struct task_struct *scp_tx_worker;
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	struct wakeup_source *ws;
+#endif
 };
 
 static struct aov_rpmsg_ctx *rpmsg_ctx;
@@ -85,27 +91,27 @@ static int apu_tx_thread(void *data)
 	pr_info("%s start +++\n", __func__);
 
 	while (!kthread_should_stop()) {
-		int ret = 0, retry_cnt = 20;
+		int ret = 0, retry_cnt = 50;
 		uint32_t param = 0;
 
 		wait_for_completion_interruptible_timeout(&ctx->notify_tx_apu, timeout);
 
 		/* If apu is recovering, skip sending to apu */
 		if (get_aov_recovery_state() == AOV_APU_RECOVERING) {
-			do {
-				send_msg.cmd = NPU_SCP_NP_MDW;
-				send_msg.act = NPU_SCP_NP_MDW_ACK;
-				send_msg.arg = MDW_SCP_IPI_BUSY;
+			send_msg.cmd = NPU_SCP_NP_MDW;
+			send_msg.act = NPU_SCP_NP_MDW_ACK;
+			send_msg.arg = MDW_SCP_IPI_BUSY;
 
-				ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
-				if (ret)
-					pr_info("%s Failed to send to scp, ret %d, retry_cnt %d\n",
-						__func__, ret, retry_cnt);
-			} while (ret != 0 && retry_cnt-- > 0);
+			ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
+			if (ret)
+				pr_info("%s Failed to send to scp, ret %d\n", __func__, ret);
 
 			continue;
 		}
 
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+		__pm_stay_awake(ctx->ws);
+#endif
 		param = atomic_read(&ctx->param);
 
 		do {
@@ -115,30 +121,31 @@ static int apu_tx_thread(void *data)
 			if (ret == -EBUSY || ret == -EAGAIN) {
 				pr_info("%s: re-send ipi(retry_cnt = %d)\n", __func__, retry_cnt);
 
-				if (ret == -EAGAIN && retry_cnt > 15)
+				if (ret == -EAGAIN && retry_cnt > 40)
 					usleep_range(200, 500);
-				else if (ret == -EAGAIN && retry_cnt > 10)
+				else if (ret == -EAGAIN && retry_cnt > 30)
 					usleep_range(1000, 2000);
-				else
+				else if (ret == -EAGAIN && retry_cnt > 20)
 					usleep_range(10000, 11000);
+				else
+					usleep_range(20000, 25000);
 			}
 		} while ((ret == -EBUSY || ret == -EAGAIN) && retry_cnt-- > 0);
 
 		if (ret) {
 			pr_info("%s Failed to send ipi to apu, ret %d\n", __func__, ret);
+			send_msg.cmd = NPU_SCP_NP_MDW;
+			send_msg.act = NPU_SCP_NP_MDW_TO_SCP;
+			send_msg.arg = MDW_SCP_IPI_BUSY;
 
-			retry_cnt = 20;
-			do {
-				send_msg.cmd = NPU_SCP_NP_MDW;
-				send_msg.act = NPU_SCP_NP_MDW_TO_SCP;
-				send_msg.arg = MDW_SCP_IPI_BUSY;
-
-				ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
-				if (ret)
-					pr_info("%s Failed to notify scp, ret %d, retry_cnt %d\n",
-						__func__, ret, retry_cnt);
-			} while (ret != 0 && retry_cnt-- > 0);
+			ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
+			if (ret)
+				pr_info("%s Failed to notify scp, ret %d\n", __func__, ret);
 		}
+
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+		__pm_relax(ctx->ws);
+#endif
 	}
 
 	pr_info("%s end ---\n", __func__);
@@ -154,22 +161,18 @@ static int scp_tx_thread(void *data)
 	pr_info("%s start +++\n", __func__);
 
 	while (!kthread_should_stop()) {
-		int ret = 0, retry_cnt = 10;
+		int ret = 0;
 		struct npu_scp_ipi_param send_msg = { 0, 0, 0, 0 };
 
 		wait_for_completion_interruptible_timeout(&ctx->notify_tx_scp, timeout);
 
-		do {
-			send_msg.cmd = NPU_SCP_NP_MDW;
-			send_msg.act = NPU_SCP_NP_MDW_TO_SCP;
-			send_msg.arg = 0;
+		send_msg.cmd = NPU_SCP_NP_MDW;
+		send_msg.act = NPU_SCP_NP_MDW_TO_SCP;
+		send_msg.arg = 0;
 
-			ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
-			pr_debug_ratelimited("%s scp ipi, ret %d\n", __func__, ret);
-			if (ret)
-				pr_info("%s Failed to send to scp, ret %d, retry_cnt %d\n",
-					__func__, ret, retry_cnt);
-		} while (ret != 0 && retry_cnt-- > 0);
+		ret = npu_scp_ipi_send(&send_msg, NULL, MDW_TIMEOUT_MS);
+		if (ret)
+			pr_info("%s Failed to send to scp, ret %d\n", __func__, ret);
 	}
 
 	pr_info("%s end ---\n", __func__);
@@ -191,6 +194,10 @@ static int aov_rpmsg_probe(struct rpmsg_device *rpdev)
 	rpmsg_ctx->rpdev = rpdev;
 	atomic_set(&rpmsg_ctx->param, 0);
 	init_completion(&rpmsg_ctx->notify_tx_apu);
+
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	rpmsg_ctx->ws = wakeup_source_register(NULL, "aov_apu_np_wakelock");
+#endif
 
 	/* create a kthread for sending to apu  */
 	rpmsg_ctx->apu_tx_worker = kthread_create(apu_tx_thread, (void *)rpmsg_ctx,
@@ -265,6 +272,10 @@ static void aov_rpmsg_remove(struct rpmsg_device *rpdev)
 
 	complete_all(&rpmsg_ctx->notify_tx_scp);
 	kthread_stop(rpmsg_ctx->scp_tx_worker);
+
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	wakeup_source_unregister(rpmsg_ctx->ws);
+#endif
 
 	kfree(rpmsg_ctx);
 

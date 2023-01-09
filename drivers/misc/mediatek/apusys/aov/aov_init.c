@@ -448,20 +448,18 @@ static int apusys_aov_suspend_late(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct apusys_aov_ctx *ctx = platform_get_drvdata(pdev);
 	struct npu_scp_ipi_param send_msg = { 0, 0, 0, 0 };
-	int ret, retry_cnt = 10;
+	int ret;
 
 	if (!atomic_read(&ctx->aov_enabled)) {
 		dev_dbg(ctx->dev, "%s aov is disabled\n", __func__);
 		return 0;
 	}
 
-	do {
-		send_msg.cmd = NPU_SCP_STATE_CHANGE;
-		send_msg.act = NPU_SCP_STATE_CHANGE_TO_SUSPEND;
-		ret = npu_scp_ipi_send(&send_msg, NULL, STATE_TIMEOUT_MS);
-		if (ret)
-			dev_info(ctx->dev, "%s failed to send scp ipi, ret %d\n", __func__, ret);
-	} while (ret != 0 && retry_cnt-- > 0);
+	send_msg.cmd = NPU_SCP_STATE_CHANGE;
+	send_msg.act = NPU_SCP_STATE_CHANGE_TO_SUSPEND;
+	ret = npu_scp_ipi_send(&send_msg, NULL, STATE_TIMEOUT_MS);
+	if (ret)
+		dev_info(ctx->dev, "%s failed to send scp ipi, ret %d\n", __func__, ret);
 
 	dev_info(ctx->dev, "%s send suspend done\n", __func__);
 
@@ -473,29 +471,27 @@ static int apusys_aov_resume_early(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct apusys_aov_ctx *ctx = platform_get_drvdata(pdev);
 	struct npu_scp_ipi_param send_msg = { 0, 0, 0, 0 };
-	int ret, retry_cnt = 10;
+	int ret;
 
 	if (!atomic_read(&ctx->aov_enabled)) {
 		dev_dbg(ctx->dev, "%s aov is disabled\n", __func__);
 		return 0;
 	}
 
-	do {
-		send_msg.cmd = NPU_SCP_STATE_CHANGE;
-		send_msg.act = NPU_SCP_STATE_CHANGE_TO_RESUME;
-		ret = npu_scp_ipi_send(&send_msg, NULL, STATE_TIMEOUT_MS);
-		if (ret)
-			dev_info(ctx->dev, "%s failed to send scp ipi, ret %d\n", __func__, ret);
-	} while (ret != 0 && retry_cnt-- > 0);
+	send_msg.cmd = NPU_SCP_STATE_CHANGE;
+	send_msg.act = NPU_SCP_STATE_CHANGE_TO_RESUME;
+	ret = npu_scp_ipi_send(&send_msg, NULL, STATE_TIMEOUT_MS);
 
 	if (ret) {
-		// If SCP is not responding, then release SLB anyway.
+		// If SCP is not responding, release SLB anyway.
 		int slb_ref = 0;
 		struct slbc_data slb_data = {
 			.uid = UID_AOV_APU,
 			.type = TP_BUFFER,
 			.timeout = 10,
 		};
+
+		dev_info(ctx->dev, "%s failed to send scp ipi, ret %d\n", __func__, ret);
 
 		slb_ref = slbc_status(&slb_data);
 		if (slb_ref > 0) {

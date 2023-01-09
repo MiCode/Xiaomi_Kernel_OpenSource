@@ -123,7 +123,7 @@ static int scp_tx_thread(void *data)
 
 	while (!kthread_should_stop()) {
 		int status;
-		int ret = 0, retry_cnt = 10;
+		int ret = 0;
 		struct npu_scp_ipi_param send_msg = { 0, 0, 0, 0 };
 
 		wait_for_completion_interruptible_timeout(&ctx->notify_tx_scp, timeout);
@@ -138,8 +138,7 @@ static int scp_tx_thread(void *data)
 
 			ret = npu_scp_ipi_send(&send_msg, NULL, RECOVERY_TIMEOUT_MS);
 			if (ret)
-				pr_info("%s Failed to send to scp, ret %d, retry_cnt %d\n",
-					__func__, ret, retry_cnt);
+				pr_info("%s Failed to send to scp, ret %d\n", __func__, ret);
 
 			atomic_set(&recovery_ctx->apu_status, AOV_APU_INIT);
 		}
@@ -151,14 +150,9 @@ static int scp_tx_thread(void *data)
 			send_msg.ret = status;
 
 			pr_info("%s send NPU_SCP_RECOVERY_ACK\n", __func__); //debug
-
-			do {
-
-				ret = npu_scp_ipi_send(&send_msg, NULL, RECOVERY_TIMEOUT_MS);
-				if (ret)
-					pr_info("%s Failed to send to scp, ret %d, retry_cnt %d\n",
-						__func__, ret, retry_cnt);
-			} while (ret != 0 && retry_cnt-- > 0);
+			ret = npu_scp_ipi_send(&send_msg, NULL, RECOVERY_TIMEOUT_MS);
+			if (ret)
+				pr_info("%s Failed to send to scp, ret %d\n", __func__, ret);
 
 			atomic_set(&recovery_ctx->ack_to_scp, 0);
 		}
