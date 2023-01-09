@@ -514,14 +514,23 @@ static int mt6985_apu_power_off(struct mtk_apu *apu)
 	struct device *dev = apu->dev;
 	int ret, timeout, i;
 
-	ret = pm_runtime_put_sync(apu->dev);
-	if (ret) {
-		dev_info(dev,
-			 "%s: call to put_sync(dev) failed, ret=%d\n",
-			 __func__, ret);
-		apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_ERROR");
-		return ret;
-	}
+	i = 0;
+	do {
+		ret = pm_runtime_put_sync(apu->dev);
+		if (ret == 0)
+			break;
+
+		/*retry 3000 times for apu dev pm_runtime not ready */
+		if (i > 2999) {
+			dev_info(dev,
+				 "%s: call to put_sync(dev) failed, ret=%d\n",
+				 __func__, ret);
+			apusys_rv_aee_warn("APUSYS_RV", "APUSYS_RV_RPM_PUT_ERROR");
+			return ret;
+		}
+		i++;
+		usleep_range(1000, 2000);//sleep 1ms for polling status
+	} while (ret < 0);
 
 	/* to notify IOMMU power off */
 	/* workaround possible nested disable issue */
