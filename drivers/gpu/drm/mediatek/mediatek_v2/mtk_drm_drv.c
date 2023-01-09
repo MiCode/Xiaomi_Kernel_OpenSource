@@ -1827,7 +1827,7 @@ static int mtk_atomic_commit(struct drm_device *drm,
 
 		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock, i);
 		DDP_MUTEX_LOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);
-		CRTC_MMP_EVENT_START(drm_crtc_index(crtc), atomic_commit, 0, 0);
+		CRTC_MMP_EVENT_START((int)drm_crtc_index(crtc), atomic_commit, 0, 0);
 	}
 	mutex_nested_time_start = sched_clock();
 
@@ -1863,7 +1863,7 @@ mutex_unlock:
 		crtc = private->crtc[i];
 		mtk_crtc = to_mtk_crtc(crtc);
 
-		CRTC_MMP_EVENT_END(drm_crtc_index(crtc), atomic_commit, 0, 0);
+		CRTC_MMP_EVENT_END((int)drm_crtc_index(crtc), atomic_commit, 0, 0);
 		DDP_MUTEX_UNLOCK_NESTED(&mtk_crtc->lock, i, __func__, __LINE__);
 		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock, i + (1 << 8));
 	}

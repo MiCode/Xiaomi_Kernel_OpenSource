@@ -4047,7 +4047,7 @@ __get_scaling_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
 {
 	static struct golden_setting_context scaling_gs_ctx[MAX_CRTC];
 	struct drm_crtc *crtc = &mtk_crtc->base;
-	int idx = drm_crtc_index(&mtk_crtc->base);
+	unsigned int idx = drm_crtc_index(&mtk_crtc->base);
 	struct drm_display_mode *mode;
 	struct golden_setting_context *ctx = __get_golden_setting_context(mtk_crtc);
 

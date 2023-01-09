@@ -7265,7 +7265,8 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 
 		if (to_info.is_support) {
 			DDPDBG("%s cmd mode bw %d\n", __func__, bw_base);
-			bw_base *= (mtk_crtc->base.state->adjusted_mode.hdisplay +
+			bw_base *= (unsigned long long)
+				(mtk_crtc->base.state->adjusted_mode.hdisplay +
 				to_info.left_overhead + to_info.right_overhead)
 				* 1000 / mtk_crtc->base.state->adjusted_mode.hdisplay;
 			bw_base /= 1000;
@@ -7380,7 +7381,8 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 
 		if (to_info.is_support) {
 			DDPDBG("%s cmd mode bw %d\n", __func__, bw_base);
-			bw_base *= (mtk_crtc->base.state->adjusted_mode.hdisplay +
+			bw_base *= (unsigned long long)
+				(mtk_crtc->base.state->adjusted_mode.hdisplay +
 				to_info.left_overhead + to_info.right_overhead)
 				* 1000 / mtk_crtc->base.state->adjusted_mode.hdisplay;
 			bw_base /= 1000;
