@@ -25,7 +25,7 @@ struct mtk_aov;
 
 struct buffer {
 	struct list_head entry;
-	struct aov_event data;
+	struct ndd_event data;
 };
 
 struct aov_core {
@@ -56,6 +56,8 @@ struct aov_core {
 	struct buffer *event_data;
 	struct list_head event_list;
 	spinlock_t event_lock;
+
+	struct aov_notify *notify;
 
 	wait_queue_head_t ack_wq[AOV_SCP_CMD_MAX];
 	atomic_t ack_cmd[AOV_SCP_CMD_MAX];

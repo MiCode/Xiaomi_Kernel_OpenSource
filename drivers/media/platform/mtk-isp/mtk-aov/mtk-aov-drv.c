@@ -246,8 +246,6 @@ static const struct file_operations aov_fops = {
 #endif
 };
 
-
-
 static int mtk_aov_probe(struct platform_device *pdev)
 {
 	struct mtk_aov *aov_dev;

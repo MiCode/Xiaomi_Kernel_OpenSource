@@ -46,7 +46,8 @@
 #define AOV_DISP_MODE_OFF         (0)
 #define AOV_DiSP_MODE_ON          (1)
 
-#define AOV_MAX_EVENT_COUNT       (1)
+#define AOV_MAX_BASE_EVENT        (2)
+#define AOV_MAX_NDD_EVENT         (1)
 
 #define AOV_MAX_USER_SIZE         (offsetof(struct aov_user, aaa_size))
 #define AOV_MAX_SENIF_SIZE        (2 * 1024)
@@ -122,7 +123,9 @@ struct aov_dqevent {
 	void *awb_output;
 };
 
-struct aov_event {
+struct base_event {
+	uint32_t event_id;
+
 	uint32_t session;
 	uint32_t frame_id;
 	uint32_t frame_width;
@@ -149,6 +152,10 @@ struct aov_event {
 	uint32_t yuvo2_format;
 	uint32_t yuvo2_stride;
 	uint8_t yuvo2_output[AOV_MAX_YUVO2_OUTPUT];
+} __aligned(4);
+
+struct ndd_event {
+	struct base_event base;
 
 	// for NDD debug mode
 	uint32_t imgo_width;
@@ -275,10 +282,14 @@ struct aov_start {
 	struct aie_start aie_info;
 
 	// aov event
-	struct aov_event aov_event[AOV_MAX_EVENT_COUNT];
+	union {
+		struct base_event base_event[AOV_MAX_BASE_EVENT];
+		struct ndd_event ndd_event[AOV_MAX_NDD_EVENT];
+	};
 };
 
-#define AOV_NOTIFY_AIE_AVAIL  (1)
+#define AOV_NOTIFY_AIE_AVAIL    (1)
+#define AOV_NOTIFY_EVT_AVAIL    (2)
 
 struct aov_notify {
 	uint32_t notify;
