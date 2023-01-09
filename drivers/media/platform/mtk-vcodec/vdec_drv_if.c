@@ -218,6 +218,8 @@ void vdec_decode_prepare(void *ctx_prepare,
 	mutex_lock(&ctx->hw_status);
 	ret = mtk_vdec_lock(ctx, hw_id);
 	mtk_vcodec_set_curr_ctx(ctx->dev, ctx, hw_id);
+
+	mutex_lock(&ctx->dev->dec_always_on_mutex);
 	if (ctx->dev->dec_always_on[hw_id] == 0)
 		mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
@@ -231,6 +233,7 @@ void vdec_decode_prepare(void *ctx_prepare,
 		}
 	}
 #endif
+	mutex_unlock(&ctx->dev->dec_always_on_mutex);
 
 	if (ret == 0 && !mtk_vcodec_is_vcp(MTK_INST_DECODER) &&
 	    ctx->power_type[hw_id] != VDEC_POWER_RELEASE)
@@ -270,6 +273,8 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	if (!mtk_vcodec_is_vcp(MTK_INST_DECODER) &&
 	    ctx->power_type[hw_id] != VDEC_POWER_RELEASE)
 		disable_irq(ctx->dev->dec_irq[hw_id]);
+
+	mutex_lock(&ctx->dev->dec_always_on_mutex);
 	if (ctx->power_type[hw_id] == VDEC_POWER_RELEASE) {
 		mtk_v4l2_debug(0, "[%d] hw_id %d power type %d off always on %d", ctx->id,
 			hw_id, ctx->power_type[hw_id], ctx->dev->dec_always_on[hw_id]);
@@ -279,6 +284,8 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	if (ctx->dev->dec_always_on[hw_id] == 0 && !ctx->dev->dec_is_suspend_off &&
 	    ctx == mtk_vcodec_get_curr_ctx(ctx->dev, hw_id))
 		mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
+	mutex_unlock(&ctx->dev->dec_always_on_mutex);
+
 	mtk_vcodec_set_curr_ctx(ctx->dev, NULL, hw_id);
 	mtk_vdec_unlock(ctx, hw_id);
 	mutex_unlock(&ctx->hw_status);
@@ -349,6 +356,11 @@ void vdec_suspend_power(struct mtk_vcodec_dev *dev)
 {
 	int hw_id;
 
+	mutex_lock(&dev->dec_always_on_mutex);
+	if (dev->dec_is_suspend_off) {
+		mutex_unlock(&dev->dec_always_on_mutex);
+		return;
+	}
 	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
 		if (dev->dec_always_on[hw_id] > 0) {
 			mtk_vcodec_dec_clock_off(&dev->pm, hw_id);
@@ -357,12 +369,18 @@ void vdec_suspend_power(struct mtk_vcodec_dev *dev)
 		}
 	}
 	dev->dec_is_suspend_off = true;
+	mutex_unlock(&dev->dec_always_on_mutex);
 }
 
 void vdec_resume_power(struct mtk_vcodec_dev *dev)
 {
 	int hw_id;
 
+	mutex_lock(&dev->dec_always_on_mutex);
+	if (dev->dec_is_suspend_off == false) {
+		mutex_unlock(&dev->dec_always_on_mutex);
+		return;
+	}
 	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
 		if (dev->dec_always_on[hw_id] > 0) {
 			mtk_vcodec_dec_clock_on(&dev->pm, hw_id);
@@ -371,5 +389,6 @@ void vdec_resume_power(struct mtk_vcodec_dev *dev)
 		}
 	}
 	dev->dec_is_suspend_off = false;
+	mutex_unlock(&dev->dec_always_on_mutex);
 }
 

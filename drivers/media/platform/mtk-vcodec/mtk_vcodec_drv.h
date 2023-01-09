@@ -776,6 +776,7 @@ struct mtk_vcodec_dev {
 	struct semaphore enc_sem[MTK_VENC_HW_NUM];
 	unsigned int dec_always_on[MTK_VDEC_HW_NUM]; // ref count
 	bool dec_is_suspend_off;
+	struct mutex dec_always_on_mutex;
 
 	struct mutex dec_dvfs_mutex;
 	struct mutex enc_dvfs_mutex;
