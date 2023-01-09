@@ -2603,7 +2603,7 @@ static void mtk_oddmr_dmr_timing_chg_dual(struct mtk_oddmr_timing *timing, struc
 {
 	int prev_table_idx, table_idx;
 	uint32_t dbv, dbv_gain;
-	struct mtk_oddmr_dmr_fps_gain fps_weight;
+	struct mtk_oddmr_dmr_fps_gain fps_weight = {0};
 
 	ODDMRAPI_LOG("+\n");
 	if (g_oddmr_priv->dmr_state >= ODDMR_INIT_DONE) {
@@ -4133,9 +4133,9 @@ static void mtk_oddmr_config_trigger(struct mtk_ddp_comp *comp,
 		DDPPR_ERR("%s oddmr comp not configure CRTC yet\n", __func__);
 		return;
 	}
-
-	if (mtk_crtc->base.dev)
-		priv = mtk_crtc->base.dev->dev_private;
+	if (!mtk_crtc->base.dev)
+		return;
+	priv = mtk_crtc->base.dev->dev_private;
 	ODDMRFLOW_LOG("%d\n", flag);
 	switch (flag) {
 	case MTK_TRIG_FLAG_EOF:
