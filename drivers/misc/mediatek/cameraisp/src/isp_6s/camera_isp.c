@@ -40,9 +40,9 @@
 /* MET: define to enable MET */
 /* GKI: not support MET yet */
 // #define ISP_MET_READY
-
+#include <mt-plat/mtk_printk_ctrl.h>
 /* GKI: no need to adjust upper bound of kernel log count due to no supported related API. */
-#define EP_NO_K_LOG_ADJUST
+//#define EP_NO_K_LOG_ADJUST
 
 /* #define EP_STAGE */
 #ifdef EP_STAGE
