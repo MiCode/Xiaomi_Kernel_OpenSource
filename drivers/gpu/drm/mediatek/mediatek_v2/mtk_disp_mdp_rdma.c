@@ -17,6 +17,7 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_rect.h"
 #include "mtk_drm_drv.h"
+#include "mtk_drm_graphics_base.h"
 
 #define DISP_REG_MDP_RDMA_EN 0x000
 #define ROT_ENABLE BIT(0)
@@ -46,6 +47,8 @@
 #define DISP_REG_MDP_RDMA_SF_BKGD_SIZE_IN_BYTE 0x090
 #define DISP_REG_MDP_RDMA_TRANSFORM_0 0x200
 #define TRANS_EN BIT(16)
+#define BT601F_TO_RGB (0x4 << 23)
+#define BT709F_TO_RGB (0x5 << 23)
 #define BT601_TO_RGB (0x6 << 23)
 #define BT709_TO_RGB (0x7 << 23)
 
@@ -220,6 +223,41 @@ static unsigned int mdp_rdma_fmt_convert(unsigned int fmt)
 		DDPPR_ERR("[discrete] not support fmt:0x%x\n", fmt);
 		return 0;
 	}
+}
+
+static int mtk_mdp_rdma_yuv_convert(enum mtk_drm_dataspace plane_ds)
+{
+	int ret = 0;
+
+	switch (plane_ds & MTK_DRM_DATASPACE_STANDARD_MASK) {
+	case MTK_DRM_DATASPACE_STANDARD_BT601_625:
+	case MTK_DRM_DATASPACE_STANDARD_BT601_625_UNADJUSTED:
+	case MTK_DRM_DATASPACE_STANDARD_BT601_525:
+	case MTK_DRM_DATASPACE_STANDARD_BT601_525_UNADJUSTED:
+		switch (plane_ds & MTK_DRM_DATASPACE_RANGE_MASK) {
+		case MTK_DRM_DATASPACE_RANGE_FULL:
+			ret = BT601F_TO_RGB;
+			break;
+		default:
+			ret = BT601_TO_RGB;
+			break;
+		}
+		break;
+
+	case MTK_DRM_DATASPACE_STANDARD_BT709:
+	case MTK_DRM_DATASPACE_STANDARD_DCI_P3:
+	case MTK_DRM_DATASPACE_STANDARD_BT2020:
+		ret = BT709_TO_RGB;
+		break;
+
+	default:
+		ret = BT709_TO_RGB;
+		break;
+	}
+
+	ret |= TRANS_EN;
+
+	return ret;
 }
 
 static void mtk_mdp_rdma_fill_config(struct mtk_ddp_comp *comp,
@@ -442,12 +480,16 @@ static void _mtk_mdp_rdma_layer_config(struct mtk_ddp_comp *comp,
 	if (fmt == DRM_FORMAT_P010 ||
 		fmt == DRM_FORMAT_NV12 ||
 		fmt == DRM_FORMAT_NV21) {
+		unsigned int dataspace = pending->prop_val[PLANE_PROP_DATASPACE];
+		int trans_value;
+
 		//UV plane
 		uv_offset = fb->offsets[1];
 		uv_addr = addr + uv_offset;
 		//x-axis in yuv420 has sub-sample, so src_x needs to be divided by 2
 		offset = (src_x / 2) * mtk_drm_format_plane_cpp(fmt, 1);
-		DDPINFO("[discrete][dual] src_x=%d, offset=0x%x\n", src_x, offset);
+		DDPINFO("[discrete][dual] src_x=%d, offset=0x%x, ds=%lld\n",
+			src_x, offset, dataspace);
 		uv_pitch = fb->pitches[1];
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_MDP_RDMA_SRC_BASE_1,
@@ -463,9 +505,10 @@ static void _mtk_mdp_rdma_layer_config(struct mtk_ddp_comp *comp,
 			uv_pitch, ~0);
 
 		//6. transform
+		trans_value = mtk_mdp_rdma_yuv_convert((enum mtk_drm_dataspace)dataspace);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_MDP_RDMA_TRANSFORM_0,
-			(TRANS_EN | BT709_TO_RGB), ~0);
+			trans_value, ~0);
 	} else {
 		//6. transform
 		cmdq_pkt_write(handle, comp->cmdq_base,
