@@ -3191,10 +3191,11 @@ Reget:
 	fte->note = note;
 	fte->state = state;
 	fte->pid = data;
+	fte->addr = 0;
 }
 
 static void fstb_buffer_record_waking_timer(int cpu, int event,
-	int data, int note, unsigned long long ts)
+	int data, int note, unsigned long long ts, unsigned long long addr)
 {
 	int index;
 	struct fpsgo_trace_event *fte;
@@ -3229,6 +3230,7 @@ Reget:
 	fte->note = note;
 	fte->pid = data;
 	fte->state = 0;
+	fte->addr = addr;
 }
 
 static void xgf_irq_handler_entry_tracer(void *ignore,
@@ -3320,7 +3322,7 @@ static void xgf_sched_waking_tracer(void *ignore, struct task_struct *p)
 	xgf_buffer_record_irq_waking_switch(c_wake_cpu, SCHED_WAKING,
 		p_pid, c_pid, 512, ts);
 	fstb_buffer_record_waking_timer(c_wake_cpu, SCHED_WAKING,
-		p_pid, c_pid, ts);
+		p_pid, c_pid, ts, 0);
 }
 
 static void xgf_hrtimer_expire_entry_tracer(void *ignore,
@@ -3329,10 +3331,10 @@ static void xgf_hrtimer_expire_entry_tracer(void *ignore,
 	unsigned long long ts = xgf_get_time();
 	int c_wake_cpu = xgf_get_task_wake_cpu(current);
 	int c_pid = xgf_get_task_pid(current);
+	unsigned long long timer_addr = (unsigned long long)hrtimer;
 
 	fstb_buffer_record_waking_timer(c_wake_cpu, HRTIMER_ENTRY,
-		0, c_pid, ts);
-
+		0, c_pid, ts, timer_addr);
 }
 
 static void xgf_hrtimer_expire_exit_tracer(void *ignore, struct hrtimer *hrtimer)
@@ -3340,9 +3342,10 @@ static void xgf_hrtimer_expire_exit_tracer(void *ignore, struct hrtimer *hrtimer
 	unsigned long long ts = xgf_get_time();
 	int c_wake_cpu = xgf_get_task_wake_cpu(current);
 	int c_pid = xgf_get_task_pid(current);
+	unsigned long long timer_addr = (unsigned long long)hrtimer;
 
 	fstb_buffer_record_waking_timer(c_wake_cpu, HRTIMER_EXIT,
-		0, c_pid, ts);
+		0, c_pid, ts, timer_addr);
 }
 
 struct tracepoints_table {

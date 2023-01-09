@@ -242,6 +242,7 @@ struct fpsgo_trace_event {
 	int note;
 	int state;
 	int pid;
+	unsigned long long addr;
 };
 
 extern int (*xgf_est_runtime_fp)(
