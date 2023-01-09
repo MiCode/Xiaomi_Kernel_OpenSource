@@ -10,6 +10,8 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/sched/clock.h>
+#include <linux/sched/mm.h>
 #include <linux/spmi.h>
 #include <linux/irq.h>
 #include "spmi-mtk.h"
@@ -343,6 +345,15 @@ enum {
 	IRQ_PMIF_SWINF_ACC_ERR_5 = 8,
 };
 
+unsigned long long get_current_time_ms(void)
+{
+	unsigned long long cur_ts;
+
+	cur_ts = sched_clock();
+	do_div(cur_ts, 1000000);
+	return cur_ts;
+}
+
 static u32 pmif_readl(struct pmif *arb, enum pmif_regs reg)
 {
 	return readl(arb->base + arb->regs[reg]);
@@ -625,37 +636,49 @@ static void pmif_wdt_irq_handler(int irq, void *data)
 	spmi_dump_pmif_busy_reg();
 	spmi_dump_pmif_record_reg();
 	spmi_dump_wdt_reg();
-	/* No need to clr wdt irq */
+	pmif_writel(data, 0x40000000, PMIF_IRQ_CLR_0);
 	pr_notice("[PMIF]:WDT IRQ HANDLER DONE\n");
 }
 
 static void pmif_swinf_acc_err_0_irq_handler(int irq, void *data)
 {
+	pmif_writel(data, 0x0, MD_AUXADC_RDATA_0_ADDR);
+	pmif_writel(data, (u32)get_current_time_ms(), MD_AUXADC_RDATA_1_ADDR);
 	pr_notice("[PMIF]:SWINF_ACC_ERR_0\n");
 }
 
 static void pmif_swinf_acc_err_1_irq_handler(int irq, void *data)
 {
+	pmif_writel(data, 0x1, MD_AUXADC_RDATA_0_ADDR);
+	pmif_writel(data, (u32)get_current_time_ms(), MD_AUXADC_RDATA_1_ADDR);
 	pr_notice("[PMIF]:SWINF_ACC_ERR_1\n");
 }
 
 static void pmif_swinf_acc_err_2_irq_handler(int irq, void *data)
 {
+	pmif_writel(data, 0x2, MD_AUXADC_RDATA_0_ADDR);
+	pmif_writel(data, (u32)get_current_time_ms(), MD_AUXADC_RDATA_1_ADDR);
 	pr_notice("[PMIF]:SWINF_ACC_ERR_2\n");
 }
 
 static void pmif_swinf_acc_err_3_irq_handler(int irq, void *data)
 {
+	pmif_writel(data, 0x3, MD_AUXADC_RDATA_0_ADDR);
+	pmif_writel(data, (u32)get_current_time_ms(), MD_AUXADC_RDATA_1_ADDR);
 	pr_notice("[PMIF]:SWINF_ACC_ERR_3\n");
 }
 
 static void pmif_swinf_acc_err_4_irq_handler(int irq, void *data)
 {
+	pmif_writel(data, 0x4, MD_AUXADC_RDATA_0_ADDR);
+	pmif_writel(data, (u32)get_current_time_ms(), MD_AUXADC_RDATA_1_ADDR);
 	pr_notice("[PMIF]:SWINF_ACC_ERR_4\n");
 }
 
 static void pmif_swinf_acc_err_5_irq_handler(int irq, void *data)
 {
+	pmif_writel(data, 0x5, MD_AUXADC_RDATA_0_ADDR);
+	pmif_writel(data, (u32)get_current_time_ms(), MD_AUXADC_RDATA_1_ADDR);
 	pr_notice("[PMIF]:SWINF_ACC_ERR_5\n");
 }
 
