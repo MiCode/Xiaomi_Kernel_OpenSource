@@ -109,10 +109,6 @@ int fbt_cpu_set_bhr_opp(int new_opp);
 int fbt_cpu_set_rescue_opp_c(int new_opp);
 int fbt_cpu_set_rescue_opp_f(int new_opp);
 int fbt_cpu_set_rescue_percent(int percent);
-int fbt_cpu_set_variance(int var);
-int fbt_cpu_set_floor_bound(int bound);
-int fbt_cpu_set_floor_kmin(int k);
-int fbt_cpu_set_floor_opp(int new_opp);
 
 int fbt_cpu_get_bhr(void);
 int fbt_cpu_get_bhr_opp(void);
@@ -161,10 +157,6 @@ static inline int fbt_cpu_set_bhr_opp(int new_opp) { return 0; }
 static inline int fbt_cpu_set_rescue_opp_c(int new_opp) { return 0; }
 static inline int fbt_cpu_set_rescue_opp_f(int new_opp) { return 0; }
 static inline int fbt_cpu_set_rescue_percent(int percent) { return 0; }
-static inline int fbt_cpu_set_variance(int var) { return 0; }
-static inline int fbt_cpu_set_floor_bound(int bound) { return 0; }
-static inline int fbt_cpu_set_floor_kmin(int k) { return 0; }
-static inline int fbt_cpu_set_floor_opp(int new_opp) { return 0; }
 #endif
 
 #if defined(CONFIG_MTK_FPSGO_V3)

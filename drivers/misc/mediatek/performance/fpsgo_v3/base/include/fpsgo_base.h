@@ -55,11 +55,7 @@ struct fbt_proc {
 };
 
 struct fbt_frame_info {
-	int target_fps;
-	int mips_diff;
-	long mips;
 	unsigned long long running_time;
-	int count;
 };
 
 struct fbt_loading_info {
@@ -110,6 +106,8 @@ struct fbt_boost_info {
 	int hit_cnt;
 	int deb_cnt;
 	int hit_cluster;
+	struct fbt_frame_info frame_info[WINDOW];
+	int f_iter;
 
 	/* SeparateCap */
 	long *cl_loading;
@@ -117,13 +115,6 @@ struct fbt_boost_info {
 	/* rescue*/
 	struct fbt_proc proc;
 	int cur_stage;
-
-	/* variance control */
-	struct fbt_frame_info frame_info[WINDOW];
-	unsigned int floor;
-	int floor_count;
-	int reset_floor_bound;
-	int f_iter;
 
 	/* filter heavy frames */
 	struct fbt_loading_info filter_loading[FBT_FILTER_MAX_WINDOW];
