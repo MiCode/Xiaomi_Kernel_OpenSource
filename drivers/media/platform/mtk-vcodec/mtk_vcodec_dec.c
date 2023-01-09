@@ -4711,8 +4711,13 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	src_vq->lock            = &ctx->q_mutex;
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	src_vq->dev		= vcp_get_io_device(VCP_IOMMU_VDEC_512MB1);
-	mtk_v4l2_debug(4, "use VCP_IOMMU_VDEC_512MB1 domain");
+	if (ctx->dev->dec_cnt & 1) {
+		src_vq->dev		= vcp_get_io_device(VCP_IOMMU_VENC_512MB2);
+		mtk_v4l2_debug(4, "use VCP_IOMMU_VENC_512MB2 domain");
+	} else {
+		src_vq->dev		= vcp_get_io_device(VCP_IOMMU_VDEC_512MB1);
+		mtk_v4l2_debug(4, "use VCP_IOMMU_VDEC_512MB1 domain");
+	}
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	if (!src_vq->dev) {
 		src_vq->dev = &ctx->dev->plat_dev->dev;

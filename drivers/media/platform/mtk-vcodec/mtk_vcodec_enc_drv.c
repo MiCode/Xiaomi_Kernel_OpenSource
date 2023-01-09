@@ -156,8 +156,8 @@ static int fops_vcodec_open(struct file *file)
 	dev->enc_cnt++;
 
 	mutex_unlock(&dev->dev_mutex);
-	mtk_v4l2_debug(0, "%s encoder [%d]", dev_name(&dev->plat_dev->dev),
-				   ctx->id);
+	mtk_v4l2_debug(0, "%s encoder [%d][%d]", dev_name(&dev->plat_dev->dev),
+				   ctx->id, dev->enc_cnt);
 	return ret;
 
 	/* Deinit when failure occurred */
@@ -186,7 +186,7 @@ static int fops_vcodec_release(struct file *file)
 	int ret = 0;
 #endif
 
-	mtk_v4l2_debug(0, "[%d] encoder", ctx->id);
+	mtk_v4l2_debug(0, "[%d][%d] encoder", ctx->id, dev->enc_cnt);
 	mutex_lock(&dev->dev_mutex);
 
 	/*

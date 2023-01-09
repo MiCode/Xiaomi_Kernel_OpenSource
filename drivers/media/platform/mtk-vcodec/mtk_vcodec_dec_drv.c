@@ -161,8 +161,8 @@ static int fops_vcodec_open(struct file *file)
 	dev->dec_cnt++;
 
 	mutex_unlock(&dev->dev_mutex);
-	mtk_v4l2_debug(0, "%s decoder [%d]", dev_name(&dev->plat_dev->dev),
-				   ctx->id);
+	mtk_v4l2_debug(0, "%s decoder [%d][%d]", dev_name(&dev->plat_dev->dev),
+				   ctx->id, dev->dec_cnt);
 
 #if ENABLE_FENCE
 	ctx->p_timeline_obj = timeline_create("Vdec-timeline");
@@ -209,7 +209,7 @@ static int fops_vcodec_release(struct file *file)
 	int ret;
 #endif
 
-	mtk_v4l2_debug(0, "[%d] decoder", ctx->id);
+	mtk_v4l2_debug(0, "[%d][%d] decoder", ctx->id, dev->dec_cnt);
 	mutex_lock(&dev->dev_mutex);
 
 	/*
