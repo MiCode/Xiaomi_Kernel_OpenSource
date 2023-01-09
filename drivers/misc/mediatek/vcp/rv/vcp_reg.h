@@ -131,12 +131,14 @@
 #define CURRENT_FREQ_REG         VCP_A_GENERAL_REG4
 /*VCP_GPR_CM4_A_REBOOT*/
 #define VCP_A_GENERAL_REG5		(vcpreg.cfg_core0 + 0x0054)
-#define VCP_GPR_CORE0_REBOOT		VCP_A_GENERAL_REG5
+#define VCP_GPR_C0_H0_REBOOT		VCP_A_GENERAL_REG5
 	#define CORE_RDY_TO_REBOOT	0x34
 	#define CORE_REBOOT_OK		0x1
-#define VCP_GPR_CORE1_REBOOT		(vcpreg.cfg_core1 + 0x0054)
+#define VCP_GPR_C1_H0_REBOOT		(vcpreg.cfg_core1 + 0x0054)
 
 #define VCP_A_GENERAL_REG6		(vcpreg.cfg_core0 + 0x0058)
+#define VCP_GPR_C0_H1_REBOOT		VCP_A_GENERAL_REG6
+#define VCP_GPR_C1_H1_REBOOT		(vcpreg.cfg_core1 + 0x0058)
 #define VCP_A_GENERAL_REG7		(vcpreg.cfg_core0 + 0x005C)
 
 /* bus tracker reg */

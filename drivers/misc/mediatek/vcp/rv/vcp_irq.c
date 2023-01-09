@@ -24,24 +24,34 @@ static inline void vcp_wdt_clear(uint32_t coreid)
 void wait_vcp_ready_to_reboot(void)
 {
 	int retry = 0;
-	unsigned long c0, c1;
+	unsigned long C0_H0 = CORE_RDY_TO_REBOOT;
+	unsigned long C0_H1 = CORE_RDY_TO_REBOOT;
+	unsigned long C1_H0 = CORE_RDY_TO_REBOOT;
+	unsigned long C1_H1 = CORE_RDY_TO_REBOOT;
 
 	/* clr after VCP side INT trigger,
 	 * or VCP may lost INT max wait = 200ms
 	 */
 	for (retry = VCP_AWAKE_TIMEOUT; retry > 0; retry--) {
-		c0 = readl(VCP_GPR_CORE0_REBOOT);
-		c1 = vcpreg.core_nums == 2 ? readl(VCP_GPR_CORE1_REBOOT) :
-			CORE_RDY_TO_REBOOT;
+		C0_H0 = readl(VCP_GPR_C0_H0_REBOOT);
+		if (vcpreg.twohart)
+			C0_H1 = readl(VCP_GPR_C0_H1_REBOOT);
 
-		if ((c0 == CORE_RDY_TO_REBOOT) && (c1 == CORE_RDY_TO_REBOOT))
+		if (vcpreg.core_nums == 2) {
+			C1_H0 = readl(VCP_GPR_C1_H0_REBOOT);
+			if (vcpreg.twohart)
+				C1_H1 = readl(VCP_GPR_C1_H1_REBOOT);
+		}
+
+		if ((C0_H0 == CORE_RDY_TO_REBOOT) && (C0_H1 == CORE_RDY_TO_REBOOT)
+			&& (C1_H0 == CORE_RDY_TO_REBOOT) && (C1_H1 == CORE_RDY_TO_REBOOT))
 			break;
 		udelay(1);
 	}
 
 	if (retry == 0)
-		pr_notice("[VCP] VCP wakeup timeout c0:0x%x c1:0x%x, Status: 0x%x\n",
-			c0, c1, readl(R_CORE0_STATUS));
+		pr_notice("[VCP] wakeup timeout C0 H0:0x%x H1:0x%x C1 H0:0x%x H1:0x%x Status: 0x%x\n",
+			C0_H0, C0_H1, C1_H0, C1_H1, readl(R_CORE0_STATUS));
 
 	udelay(10);
 }

@@ -785,13 +785,23 @@ uint32_t vcp_wait_ready_sync(enum feature_id id)
 {
 	int i = 0;
 	int j = 0;
-	unsigned long c0, c1 = CORE_RDY_TO_REBOOT;
+	unsigned long C0_H0 = CORE_RDY_TO_REBOOT;
+	unsigned long C0_H1 = CORE_RDY_TO_REBOOT;
+	unsigned long C1_H0 = CORE_RDY_TO_REBOOT;
+	unsigned long C1_H1 = CORE_RDY_TO_REBOOT;
 
-	c0 = readl(VCP_GPR_CORE0_REBOOT);
-	if (vcpreg.core_nums == 2)
-		c1 = readl(VCP_GPR_CORE1_REBOOT);
+	C0_H0 = readl(VCP_GPR_C0_H0_REBOOT);
+	if (vcpreg.twohart)
+		C0_H1 = readl(VCP_GPR_C0_H1_REBOOT);
 
-	if ((c0 == CORE_RDY_TO_REBOOT) && (c1 == CORE_RDY_TO_REBOOT))
+	if (vcpreg.core_nums == 2) {
+		C1_H0 = readl(VCP_GPR_C1_H0_REBOOT);
+		if (vcpreg.twohart)
+			C1_H1 = readl(VCP_GPR_C1_H1_REBOOT);
+	}
+
+	if ((C0_H0 == CORE_RDY_TO_REBOOT) && (C0_H1 == CORE_RDY_TO_REBOOT)
+		&& (C1_H0 == CORE_RDY_TO_REBOOT) && (C1_H1 == CORE_RDY_TO_REBOOT))
 		return 0;
 
 	while (!is_vcp_ready(VCP_A_ID)) {
