@@ -3446,7 +3446,8 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 {
 	int rm_idx, new_idx, first_idx;
 	int gcc_fps_margin_final = attr->gcc_fps_margin_by_pid;
-	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin_final * 10);
+	int target_fpks_final = max(1, target_fpks + gcc_fps_margin_final * 10);
+	long long target_time = div64_s64(1000000000, target_fpks_final);
 	int window_cnt;
 	int s32_t_Q2Q = nsec_to_usec(t_Q2Q_ns);
 	int s32_t_enq_len = nsec_to_usec(t_enq_len_ns);
@@ -3469,10 +3470,10 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		target_time = max(target_time, (long long)vsync_duration_us_144);
 
 	gcc_window_size = clamp(gcc_window_size, 0, 100);
-
 	s32_target_time = target_time;
 	window_cnt = target_fps * gcc_window_size;
 	do_div(window_cnt, 100);
+	window_cnt = max(1, window_cnt);
 
 	if (target_fps != boost_info->quota_fps && !cooler_on) {
 		boost_info->quota_cur_idx = -1;
@@ -3623,7 +3624,8 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		int pid, struct fpsgo_boost_attr *attr)
 {
 	int gcc_fps_margin_final = attr->gcc_fps_margin_by_pid;
-	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin_final * 10);
+	int target_fpks_final = max(1, target_fpks + gcc_fps_margin_final * 10);
+	long long target_time = div64_s64(1000000000, target_fpks_final);
 	int gcc_down_window, gcc_up_window;
 	int quota = INT_MAX;
 	int weight_t_gpu = boost_info->quantile_gpu_time > 0 ?
