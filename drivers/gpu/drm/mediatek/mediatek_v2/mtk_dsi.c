@@ -2870,6 +2870,10 @@ static void mtk_dsi_mode_set(struct mtk_dsi *dsi,
 	if (mtk_crtc->scaling_ctx.scaling_en)
 		adjusted = mtk_crtc_get_display_mode_by_comp(__func__,
 						&mtk_crtc->base, comp, false);
+	if (adjusted == NULL) {
+		DDPPR_ERR("%s display_mode is NULL\n", __func__);
+		return;
+	}
 
 	dsi->vm.pixelclock = adjusted->clock;
 	dsi->vm.hactive = adjusted->hdisplay;
@@ -6816,6 +6820,10 @@ void mtk_dsi_set_mmclk_by_datarate_V1(struct mtk_dsi *dsi,
 		(&dsi->master_dsi->ddp_comp) : (&dsi->ddp_comp);
 
 	mode = mtk_crtc_get_display_mode_by_comp(__func__, &mtk_crtc->base, comp, false);
+	if (mode == NULL) {
+		DDPPR_ERR("%s display_mode is NULL\n", __func__);
+		return;
+	}
 	hact = mode->hdisplay;
 	htotal = mode->htotal;
 	vtotal = mode->vtotal;
@@ -6925,6 +6933,10 @@ void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 			to_info.is_support, to_info.left_in_width, to_info.right_in_width);
 
 	mode = mtk_crtc_get_display_mode_by_comp(__func__, &mtk_crtc->base, comp, false);
+	if (mode == NULL) {
+		DDPPR_ERR("%s display_mode is NULL\n", __func__);
+		return;
+	}
 	hact = mode->hdisplay;
 	htotal = mode->htotal;
 	vtotal = mode->vtotal;
@@ -7449,6 +7461,10 @@ static void mtk_dsi_cmd_timing_change(struct mtk_dsi *dsi,
 		cmdq_pkt_destroy(cmdq_handle);
 	} else {
 		mode = mtk_crtc_get_display_mode_by_comp(__func__, &mtk_crtc->base, comp, false);
+		if (mode == NULL) {
+			DDPPR_ERR("%s display_mode is NULL\n", __func__);
+			return;
+		}
 		drm_display_mode_to_videomode(mode, &dsi->vm);
 	}
 

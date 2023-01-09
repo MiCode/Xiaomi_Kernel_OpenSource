@@ -4059,6 +4059,12 @@ __get_scaling_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
 		mode = mtk_crtc_get_display_mode_by_comp(__func__, crtc, NULL, true);
 		scaling_gs_ctx[idx].is_vdo_mode =
 				mtk_crtc_is_frame_trigger_mode(crtc) ? 0 : 1;
+
+		if (mode == NULL) {
+			DDPPR_ERR("display_mode is NULL\n");
+			break;
+		}
+
 		scaling_gs_ctx[idx].dst_width = mode->hdisplay;
 		scaling_gs_ctx[idx].dst_height = mode->vdisplay;
 
