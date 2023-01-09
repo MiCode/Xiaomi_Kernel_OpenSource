@@ -378,7 +378,8 @@ struct mtk_vcu {
 	atomic_t gce_job_cnt[VCU_CODEC_MAX][GCE_THNUM_MAX];
 	struct vcu_v4l2_callback_func cbf;
 	unsigned long flags[VCU_CODEC_MAX];
-	int open_cnt;
+	atomic_t open_cnt;
+	struct mutex vcu_dev_mutex;
 	bool abort;
 	struct semaphore vpud_killed;
 	bool is_entering_suspend;
@@ -593,7 +594,7 @@ int vcu_ipi_send(struct platform_device *pdev,
 
 	mutex_lock(&vcu->vcu_mutex[i]);
 	if (vcu_ptr->abort) {
-		if (vcu_ptr->open_cnt > 0) {
+		if (atomic_read(&vcu_ptr->open_cnt) > 0) {
 			dev_info(vcu->dev, "wait for vpud killed %d\n",
 				vcu_ptr->vpud_killed.count);
 			ret = down_timeout(&vcu_ptr->vpud_killed, timeout);
@@ -625,11 +626,13 @@ int vcu_ipi_send(struct platform_device *pdev,
 
 	if (vcu_ptr->abort || ret == 0) {
 		dev_info(&pdev->dev, "vcu ipi %d ack time out !%d", id, ret);
-		if (!vcu_ptr->abort) {
+		mutex_lock(&vpud_task_mutex);
+		if (!vcu_ptr->abort && vcud_task) {
 			send_sig(SIGTERM, vcud_task, 0);
 			send_sig(SIGKILL, vcud_task, 0);
 		}
-		if (vcu_ptr->open_cnt > 0) {
+		mutex_unlock(&vpud_task_mutex);
+		if (atomic_read(&vcu_ptr->open_cnt) > 0) {
 			dev_info(vcu->dev, "wait for vpud killed %d\n",
 				vcu_ptr->vpud_killed.count);
 			ret = down_timeout(&vcu_ptr->vpud_killed, timeout);
@@ -1563,13 +1566,23 @@ void vcu_get_task(struct task_struct **task, int reset)
 
 	if (reset == 1)
 		vcud_task = NULL;
+	else if (reset == 2 && current == vcud_task)
+		vcud_task = NULL;
 
 	if (task)
 		*task = vcud_task;
 
-	mutex_unlock(&vpud_task_mutex);
+	if (reset)
+		mutex_unlock(&vpud_task_mutex);
 }
 EXPORT_SYMBOL_GPL(vcu_get_task);
+
+/* need to put task for unlock mutex when get task reset == 0 */
+void vcu_put_task(void)
+{
+	mutex_unlock(&vpud_task_mutex);
+}
+EXPORT_SYMBOL_GPL(vcu_put_task);
 
 static int vcu_ipi_handler(struct mtk_vcu *vcu, struct share_obj *rcv_obj)
 {
@@ -1697,6 +1710,8 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	int vcuid = 0;
 	struct mtk_vcu_queue *vcu_queue;
 
+	mutex_lock(&vcu_ptr->vcu_dev_mutex);
+
 	if (strcmp(current->comm, "camd") == 0)
 		vcuid = 2;
 	else if (strcmp(current->comm, "mdpd") == 0)
@@ -1707,6 +1722,7 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 			(current->tgid != vcud_task->tgid ||
 			current->group_leader != vcud_task->group_leader)) {
 			mutex_unlock(&vpud_task_mutex);
+			mutex_unlock(&vcu_ptr->vcu_dev_mutex);
 			return -EACCES;
 		}
 		vcud_task = current->group_leader;
@@ -1730,6 +1746,7 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	}
 
 	if (vcu_queue == NULL) {
+		mutex_unlock(&vcu_ptr->vcu_dev_mutex);
 		pr_info("Allocate new vcu queue fail!\n");
 		return -ENOMEM;
 	}
@@ -1737,13 +1754,15 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	vcu_queue->enable_vcu_dbg_log = vcu_ptr->enable_vcu_dbg_log;
 	file->private_data = vcu_queue;
 	vcu_ptr->vpud_killed.count = 0;
-	vcu_ptr->open_cnt++;
+	atomic_inc(&vcu_ptr->open_cnt);
 	vcu_ptr->abort = false;
 	vcu_ptr->vpud_is_going_down = 0;
 
 	pr_info("[VCU] %s name: %s pid %d tgid %d open_cnt %d current %p group_leader %p\n",
 		__func__, current->comm, current->pid, current->tgid,
-		vcu_ptr->open_cnt, current, current->group_leader);
+		atomic_read(&vcu_ptr->open_cnt), current, current->group_leader);
+
+	mutex_unlock(&vcu_ptr->vcu_dev_mutex);
 
 	return 0;
 }
@@ -1752,12 +1771,13 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 {
 	unsigned long flags;
 
+	mutex_lock(&vcu_ptr->vcu_dev_mutex);
+
 	if (file->private_data)
 		mtk_vcu_mem_release((struct mtk_vcu_queue *)file->private_data);
 	pr_info("[VCU] %s name: %s pid %d open_cnt %d\n", __func__,
-		current->comm, current->tgid, vcu_ptr->open_cnt);
-	vcu_ptr->open_cnt--;
-	if (vcu_ptr->open_cnt == 0) {
+		current->comm, current->tgid, atomic_read(&vcu_ptr->open_cnt));
+	if (atomic_dec_and_test(&vcu_ptr->open_cnt)) {
 		/* reset vpud due to abnormal situations. */
 		vcu_ptr->abort = true;
 		vcu_get_task(NULL, 1);
@@ -1771,7 +1791,10 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 
 		if (vcu_ptr->curr_ctx[VCU_VDEC])
 			vcu_ptr->cbf.vdec_realease_lock(vcu_ptr->curr_ctx[VCU_VDEC]);
-	}
+	} else
+		vcu_get_task(NULL, 2);
+
+	mutex_unlock(&vcu_ptr->vcu_dev_mutex);
 
 	return 0;
 }
@@ -2738,6 +2761,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		for (j = 0; j < (int)GCE_PENDING_CNT; j++)
 			INIT_LIST_HEAD(&vcu->gce_info[i].used_pages[j].list);
 	}
+	atomic_set(&vcu->open_cnt, 0);
+	mutex_init(&vcu->vcu_dev_mutex);
 
 	/* init character device */
 	ret = alloc_chrdev_region(&vcu_mtkdev[vcuid]->vcu_devno, 0, 1,
@@ -2864,6 +2889,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	vcu_func.vcu_load_firmware = vcu_load_firmware;
 	vcu_func.vcu_compare_version = vcu_compare_version;
 	vcu_func.vcu_get_task = vcu_get_task;
+	vcu_func.vcu_put_task = vcu_put_task;
 	vcu_func.vcu_set_v4l2_callback = vcu_set_v4l2_callback;
 	vcu_func.vcu_get_ctx_ipi_binding_lock = vcu_get_ctx_ipi_binding_lock;
 	vcu_func.vcu_clear_codec_ctx = vcu_clear_codec_ctx;

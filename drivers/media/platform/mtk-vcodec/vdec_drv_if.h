@@ -39,6 +39,11 @@ struct vdec_fb_node {
 	struct vdec_fb *fb;
 };
 
+extern struct mtk_video_fmt
+	mtk_vdec_formats[MTK_MAX_DEC_CODECS_SUPPORT];
+extern struct mtk_codec_framesizes
+	mtk_vdec_framesizes[MTK_MAX_DEC_CODECS_SUPPORT];
+
 /**
  * vdec_if_init() - initialize decode driver
  * @ctx : [in] v4l2 context
