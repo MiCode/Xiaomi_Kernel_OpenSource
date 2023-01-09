@@ -5494,8 +5494,25 @@ static int mtk_camsys_event_handle_mraw(struct mtk_cam_device *cam,
 		mtk_camsys_frame_done(ctx, seq, stream_id);
 	}
 	/* mraw's SOF */
-	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START))
+	if (irq_info->irq_type & (1 << CAMSYS_IRQ_FRAME_START)) {
+		/* extisp - sof source from PD mraw case */
+		/*update sof time for sensor*/
+		if (mtk_cam_scen_is_ext_isp(&ctx->pipe->scen_active) &&
+			ctx->sensor_ctrl.extisp_sof_source == EXTISP_SOF_SOURCE_PD_MRAW) {
+			mtk_cam_event_frame_sync(ctx->pipe, irq_info->frame_idx_inner);
+			ctx->sensor_ctrl.sof_time = irq_info->ts_ns / 1000000;
+			/* Trigger high resolution timer to try sensor setting */
+			if (ctx->sensor)
+				mtk_cam_sof_timer_setup(ctx);
+			else
+				mtk_cam_state_add_wo_sensor(ctx);
+			dev_info(mraw_dev->dev,
+				"[EXT-ISP PD sof] ts:%lu, (in/out:%d/%d)\n",
+				irq_info->ts_ns / 1000,
+				irq_info->frame_idx_inner, irq_info->frame_idx);
+		}
 		mtk_camsys_mraw_frame_start(mraw_dev, ctx, irq_info);
+	}
 	/* mraw's CQ done */
 	if (irq_info->irq_type & (1 << CAMSYS_IRQ_SETTING_DONE)) {
 		if (mtk_camsys_is_all_cq_done(ctx, stream_id)) {
@@ -6343,6 +6360,16 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 			SENSOR_SET_EXTISP_DEADLINE_MS;
 		camsys_sensor_ctrl->timer_req_sensor =
 			SENSOR_SET_EXTISP_RESERVED_MS;
+		if (is_fsync_listening_on_pd(ctx->seninf)) {
+			camsys_sensor_ctrl->extisp_sof_source =
+				EXTISP_SOF_SOURCE_PD_MRAW;
+		} else {
+			camsys_sensor_ctrl->extisp_sof_source =
+				EXTISP_SOF_SOURCE_META;
+		}
+		dev_info(ctx->cam->dev, "[%s:extisp] ctx:%d/raw_dev:0x%x extisp_sof_source:%d\n",
+		__func__, ctx->stream_id, ctx->used_raw_dev,
+		camsys_sensor_ctrl->extisp_sof_source);
 	}
 	INIT_LIST_HEAD(&camsys_sensor_ctrl->camsys_state_list);
 	spin_lock_init(&camsys_sensor_ctrl->camsys_state_lock);
@@ -6443,18 +6470,18 @@ void mtk_cam_extisp_sv_frame_start(struct mtk_cam_ctx *ctx,
 	u64 time_threadedirq_delay = 0;
 
 	raw_dev = get_master_raw_dev(ctx->cam, ctx->pipe);
-
-	mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
 	/* touch watchdog */
 	mtk_ctx_watchdog_kick(ctx, raw_dev->id + MTKCAM_SUBDEV_RAW_START);
 	/*update sof time for sensor*/
-	sensor_ctrl->sof_time = irq_info->ts_ns / 1000000;
-	/* Trigger high resolution timer to try sensor setting */
-	if (ctx->sensor)
-		mtk_cam_sof_timer_setup(ctx);
-	else
-		mtk_cam_state_add_wo_sensor(ctx);
-
+	if (sensor_ctrl->extisp_sof_source == EXTISP_SOF_SOURCE_META) {
+		mtk_cam_event_frame_sync(ctx->pipe, dequeued_frame_seq_no);
+		sensor_ctrl->sof_time = irq_info->ts_ns / 1000000;
+		/* Trigger high resolution timer to try sensor setting */
+		if (ctx->sensor)
+			mtk_cam_sof_timer_setup(ctx);
+		else
+			mtk_cam_state_add_wo_sensor(ctx);
+	}
 	/* List state-queue status*/
 	spin_lock_irqsave(&sensor_ctrl->camsys_state_lock, flags);
 	list_for_each_entry(state_temp, &sensor_ctrl->camsys_state_list,

@@ -142,6 +142,14 @@ struct mtk_camsys_sensor_ctrl {
 	/* link change ctrl */
 	struct mtk_camsys_link_ctrl link_ctrl;
 	struct mtk_cam_request *link_change_req;
+	/* ext isp case sof source from PD */
+	u32 extisp_sof_source;
+};
+
+enum {
+	EXTISP_SOF_SOURCE_META = 0,
+	EXTISP_SOF_SOURCE_PD_MRAW,
+	EXTISP_SOF_SOURCE_PD_CAMSV,
 };
 
 enum {
