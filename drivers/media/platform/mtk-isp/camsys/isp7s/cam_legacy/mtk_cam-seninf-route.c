@@ -1533,6 +1533,20 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 					__func__);
 				break;
 			}
+			/* make sure aov cammux is set */
+			g_seninf_ops->_set_cammux_src(ctx,
+						g_aov_param.vc.dest[0].mux_vr,
+						g_aov_param.vc.dest[0].cam,
+						g_aov_param.vc.exp_hsize,
+						g_aov_param.vc.exp_vsize,
+						g_aov_param.vc.dt);
+			dev_info(ctx->dev,
+				"make sure aov cammux %d src %d exp_h 0x%x exp_v 0x%x dt 0x%x\n",
+				g_aov_param.vc.dest[0].mux_vr,
+				g_aov_param.vc.dest[0].cam,
+				g_aov_param.vc.exp_hsize,
+				g_aov_param.vc.exp_vsize,
+				g_aov_param.vc.dt);
 		}
 
 		if (!vc->dest_cnt) {
