@@ -14,12 +14,12 @@
 #include "mtk_low_battery_throttling.h"
 #include "pmic_lbat_service.h"
 
+#define LBCB_MAX_NUM 16
 #define POWER_INT0_VOLT 3400
 #define POWER_INT1_VOLT 3250
 #define POWER_INT2_VOLT 3100
 #define POWER_INT3_VOLT 2700
 
-static int isThreeLevel;
 
 struct lbat_intr_tbl {
 	unsigned int volt_thd;
@@ -42,7 +42,14 @@ struct low_bat_thl_priv {
 	struct lbat_intr_tbl *lbat_intr_info;
 };
 
+struct low_battery_callback_table {
+	void (*lbcb)(enum LOW_BATTERY_LEVEL_TAG);
+};
+
+static int isThreeLevel;
 static unsigned int *volt_l_thd, *volt_h_thd;
+static struct low_bat_thl_priv *low_bat_thl_data;
+static struct low_battery_callback_table lbcb_tb[LBCB_MAX_NUM] = { {0} };
 
 static int rearrange_volt(struct lbat_intr_tbl *intr_info, unsigned int *volt_l,
 	unsigned int *volt_h, unsigned int num)
@@ -98,15 +105,6 @@ static int rearrange_volt(struct lbat_intr_tbl *intr_info, unsigned int *volt_l,
 	return idx_t;
 }
 
-static struct low_bat_thl_priv *low_bat_thl_data;
-
-struct low_battery_callback_table {
-	void (*lbcb)(enum LOW_BATTERY_LEVEL_TAG);
-};
-
-#define LBCB_MAX_NUM 16
-static struct low_battery_callback_table lbcb_tb[LBCB_MAX_NUM] = { {0} };
-
 int register_low_battery_notify(low_battery_callback lb_cb,
 				enum LOW_BATTERY_PRIO_TAG prio_val)
 {
@@ -131,6 +129,18 @@ int register_low_battery_notify(low_battery_callback lb_cb,
 	return ret;
 }
 EXPORT_SYMBOL(register_low_battery_notify);
+
+void exec_low_battery_throttle(unsigned int level)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(lbcb_tb); i++) {
+		if (lbcb_tb[i].lbcb)
+			lbcb_tb[i].lbcb(level);
+	}
+
+	pr_info("[%s] low_battery_level = %d\n", __func__, level);
+}
 
 void exec_low_battery_callback(unsigned int thd)
 {
@@ -166,10 +176,7 @@ void exec_low_battery_callback(unsigned int thd)
 		if (cur_lv == low_bat_thl_data->low_bat_thl_level)
 			return;
 
-		for (i = 0; i < ARRAY_SIZE(lbcb_tb); i++) {
-			if (lbcb_tb[i].lbcb)
-				lbcb_tb[i].lbcb(low_bat_thl_data->low_bat_thl_level);
-		}
+		exec_low_battery_throttle(low_bat_thl_data->low_bat_thl_level);
 
 		pr_info("[%s] thd=%d cl=%d pl=%d, ht[%d %d] lt[%d %d] new_l=%d\n",
 			__func__, thd, cur_lv, i, info->ht_en, info->ht_lv,
@@ -186,14 +193,8 @@ void exec_low_battery_callback(unsigned int thd)
 			return;
 		}
 
-		for (i = 0; i < ARRAY_SIZE(lbcb_tb); i++) {
-			if (lbcb_tb[i].lbcb)
-				lbcb_tb[i].lbcb(low_bat_thl_data->low_bat_thl_level);
-		}
-
+		exec_low_battery_throttle(low_bat_thl_data->low_bat_thl_level);
 	}
-	pr_info("[%s] low_battery_level=%d\n", __func__,
-		low_bat_thl_data->low_bat_thl_level);
 }
 
 /*****************************************************************************
@@ -213,7 +214,6 @@ static ssize_t low_battery_protect_ut_store(
 		const char *buf, size_t size)
 {
 	unsigned int val = 0;
-	unsigned int thd = 0;
 	char cmd[21];
 
 	if (sscanf(buf, "%20s %u\n", cmd, &val) != 2) {
@@ -224,25 +224,21 @@ static ssize_t low_battery_protect_ut_store(
 	if (strncmp(cmd, "Utest", 5))
 		return -EINVAL;
 
-	if (low_bat_thl_data->thd_volts_size > 0) {
-		if (val < low_bat_thl_data->thd_volts_size) {
-			thd = low_bat_thl_data->thd_volts[val];
-			exec_low_battery_callback(thd);
-			dev_info(dev, "your input is %d(%d)\n", val, thd);
-		} else
+	if (isThreeLevel) {
+		if (val > LOW_BATTERY_LEVEL_3) {
 			dev_info(dev, "wrong number (%d)\n", val);
-	} else if (val <= LOW_BATTERY_LEVEL_NUM) {
-		if (val == LOW_BATTERY_LEVEL_0)
-			thd = low_bat_thl_data->hv_thd_volt;
-		else if (val == LOW_BATTERY_LEVEL_1)
-			thd = low_bat_thl_data->lv1_thd_volt;
-		else if (val == LOW_BATTERY_LEVEL_2)
-			thd = low_bat_thl_data->lv2_thd_volt;
-		exec_low_battery_callback(thd);
-		dev_info(dev, "your input is %d(%d)\n", val, thd);
+			return size;
+		}
 	} else {
-		dev_info(dev, "wrong number (%d)\n", val);
+		if (val > LOW_BATTERY_LEVEL_2) {
+			dev_info(dev, "wrong number (%d)\n", val);
+			return size;
+		}
 	}
+
+	low_bat_thl_data->low_bat_thl_level = val;
+	dev_info(dev, "your input is %d\n", val);
+	exec_low_battery_throttle(val);
 	return size;
 }
 
@@ -322,6 +318,21 @@ static void dump_thd_volts(struct device *dev, unsigned int *thd_volts, unsigned
 	dev_notice(dev, "%s Done\n", str);
 }
 
+static int check_duplicate(unsigned int *volt_thd)
+{
+	int i, j;
+
+	for (i = 0; i < LOW_BATTERY_LEVEL_NUM - 1; i++) {
+		for (j = i + 1; j < LOW_BATTERY_LEVEL_NUM - 1; j++) {
+			if (volt_thd[i] == volt_thd[j]) {
+				pr_notice("[%s] volt_thd duplicate = %d\n", __func__, volt_thd[i]);
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
+
 static int low_battery_throttling_probe(struct platform_device *pdev)
 {
 	int ret, i;
@@ -357,10 +368,27 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 						 vol_l_size);
 		ret |= of_property_read_u32_array(np, "thd-volts-h", volt_h_thd,
 						 vol_h_size);
+		ret |= check_duplicate(volt_l_thd);
+		ret |= check_duplicate(volt_h_thd);
 
 		if (vol_l_size != vol_h_size)
 			ret = -1;
-		else {
+
+		if (ret) {
+			dev_notice(&pdev->dev,
+				   "[%s] failed to get correct thd-volt ret=%d\n", __func__, ret);
+			priv->thd_volts_size = LOW_BATTERY_LEVEL_NUM;
+			priv->thd_volts = krealloc_array(priv->thd_volts, priv->thd_volts_size,
+						sizeof(u32), GFP_KERNEL);
+
+			if (!priv->thd_volts)
+				return -ENOMEM;
+
+			priv->thd_volts[0] = POWER_INT0_VOLT;
+			priv->thd_volts[1] = POWER_INT1_VOLT;
+			priv->thd_volts[2] = POWER_INT2_VOLT;
+			priv->thd_volts[3] = POWER_INT3_VOLT;
+		} else {
 			vol_t_size = rearrange_volt(priv->lbat_intr_info,
 				volt_l_thd, volt_h_thd, vol_l_size);
 			priv->thd_volts_size = vol_t_size;
@@ -374,17 +402,6 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 				priv->thd_volts[i] = priv->lbat_intr_info[i].volt_thd;
 		}
 
-		if (ret) {
-			priv->thd_volts_size = LOW_BATTERY_LEVEL_NUM;
-			priv->thd_volts = krealloc_array(priv->thd_volts, priv->thd_volts_size,
-							 sizeof(u32), GFP_KERNEL);
-			if (!priv->thd_volts)
-				return -ENOMEM;
-			priv->thd_volts[0] = POWER_INT0_VOLT;
-			priv->thd_volts[1] = POWER_INT1_VOLT;
-			priv->thd_volts[2] = POWER_INT2_VOLT;
-			priv->thd_volts[3] = POWER_INT3_VOLT;
-		}
 		priv->lbat_pt = lbat_user_register_ext("power throttling", priv->thd_volts,
 						       priv->thd_volts_size,
 						       exec_low_battery_callback);
