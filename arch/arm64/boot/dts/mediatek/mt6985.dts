@@ -52,7 +52,7 @@
 		i2c13 = &i2c13;
 		scp_i2c1 = &scp_i2c1;
 		y2r0 = &disp_y2r0;
-		y2r2 = &disp1_y2r0;
+		y2r1 = &disp1_y2r0;
 		y2r4 = &ovl_y2r0;
 		y2r5 = &ovl_y2r1;
 		y2r6 = &ovl1_y2r0;
@@ -9720,7 +9720,9 @@
 			"disp_ovlsys_wdma0_eof0",
 			"disp_token_disp_v_idle_power_on0",
 			"disp_token_disp_check_trigger_merge0",
-			"disp_ovlsys_wdma1_eof0";
+			"disp_ovlsys_wdma1_eof0",
+			"disp_mdp_rdma0_eof3",
+			"disp_mdp_rdma1_eof3";
 
 		gce-events =
 			<&gce CMDQ_EVENT_OVLSYS_STREAM_DONE_ENG_EVENT_0>,
@@ -9765,8 +9767,9 @@
 			<&gce CMDQ_EVENT_OVLSYS_DISP_WDMA0_FRAME_DONE>,
 			<&gce CMDQ_SYNC_TOKEN_VIDLE_POWER_ON>,
 			<&gce CMDQ_SYNC_TOKEN_CHECK_TRIGGER_MERGE>,
-			<&gce CMDQ_EVENT_OVLSYS_DISP_WDMA2_FRAME_DONE>;
-
+			<&gce CMDQ_EVENT_OVLSYS_DISP_WDMA2_FRAME_DONE>,
+			<&gce CMDQ_EVENT_DISPSYS_DISP_MDP_RDMA0_FRAME_DONE>,
+			<&gce CMDQ_EVENT_DISPSYS1_DISP_MDP_RDMA0_FRAME_DONE>;
 
 		helper-name = "MTK_DRM_OPT_STAGE",
 			"MTK_DRM_OPT_USE_CMDQ",
@@ -11549,13 +11552,12 @@
 
 	disp_mdp_rdma0: disp-mdp-rdma0@14010000 {
 		compatible = "mediatek,disp_mdp_rdma0",
-					"mediatek,mt6985-disp-rdma";
+					"mediatek,mt6985-disp-mdp-rdma";
 		reg = <0 0x14010000 0 0x1000>;
 		interrupts = <GIC_SPI 371 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys_config_clk CLK_MM_MDP_RDMA0>;
-//		mediatek,larb = <&smi_larb32>;
-		mediatek,smi-id = <32>;
-		iommus = <&disp_iommu M4U_PORT_L2_MDP_RDMA0>;
+		mediatek,larb = <&smi_larb32 M4U_PORT_L32_DISP_MDP_RDMA0>;
+		iommus = <&disp_iommu M4U_PORT_L32_DISP_MDP_RDMA0>;
 //		interconnects =
 //			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_RDMA0)
 //					&mmqos SLAVE_COMMON(0)>,
@@ -11567,13 +11569,12 @@
 
 	disp1_mdp_rdma0: disp1-mdp-rdma0@14210000 {
 		compatible = "mediatek,disp1_mdp_rdma0",
-					"mediatek,mt6985-disp-rdma";
+					"mediatek,mt6985-disp-mdp-rdma";
 		reg = <0 0x14210000 0 0x1000>;
 		interrupts = <GIC_SPI 415 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks = <&dispsys1_config_clk CLK_MM1_MDP_RDMA0>;
-//		mediatek,larb = <&smi_larb33>;
-		mediatek,smi-id = <33>;
-		iommus = <&disp_iommu M4U_PORT_L3_MDP_RDMA0>;
+		mediatek,larb = <&smi_larb33 M4U_PORT_L33_DISP_MDP_RDMA0>;
+		iommus = <&disp_iommu M4U_PORT_L33_DISP_MDP_RDMA0>;
 //		interconnects =
 //			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_RDMA0)
 //					&mmqos SLAVE_COMMON(0)>,
