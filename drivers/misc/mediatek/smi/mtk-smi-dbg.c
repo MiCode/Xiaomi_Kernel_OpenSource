@@ -418,15 +418,20 @@ static void mtk_smi_dbg_print(struct mtk_smi_dbg *smi, const bool larb,
 			if (ret)
 				dev_info(node.dev, "===== %s%u rpm:%d =====\n"
 					, name, id, ret);
-		} else
-			dev_info(node.dev, "===== %s%u =====\n", name, id);
+		}
 		if (ret <= 0 || rsi) {
 			if (of_property_read_u32(node.dev->of_node,
 				"mediatek,dump-with-comm", &comm_id))
 				return;
 			if (pm_runtime_get_if_in_use(smi->comm[comm_id].dev) <= 0)
 				return;
+
 			dump_with = true;
+			if (rsi)
+				dev_info(node.dev, "===== %s%u =====\n", name, id);
+			else
+				dev_info(node.dev, "===== %s%u rpm:%d =====\n"
+					, name, id, ret);
 		}
 	} else {
 		dev_info(node.dev, "===== %s%u rpm:skip =====\n"
