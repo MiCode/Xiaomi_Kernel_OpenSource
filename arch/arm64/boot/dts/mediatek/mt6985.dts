@@ -8548,6 +8548,7 @@
 			firmware_idle_hytseresis_time_ms = <0>;
 			sleep-mode-enable = <0>;
 			pending-submission-mode = <1>;
+			default-glb-pwroff-timeout-us = <300>;
 		};
 
 		gpu_mali_opp: opp-table0 {
@@ -8940,6 +8941,8 @@
 		ged: ged {
 			compatible = "mediatek,ged";
 			gpufreq-supply = <&gpufreq>;
+			nvmem-cells = <&efuse_segment>;
+			nvmem-cell-names = "mt6985_efuse_segment_cell";
 		};
 
 		srclken_rc: srclken-rc@1c00d000 {
