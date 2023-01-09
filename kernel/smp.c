@@ -575,7 +575,7 @@ static void flush_smp_call_function_queue(bool warn_cpu_offline)
 		do { a; } while (0); \
 		end = sched_clock(); \
 		delta = end - start; \
-		if (delta > 50000000ULL) \
+		if (delta > 5000000ULL) \
 			pr_info("irq_monitor: %s:%ps, duration:%llu, from %llu to %llu\n",\
 				__func__, func, delta, start, end); \
 	} while (0)
