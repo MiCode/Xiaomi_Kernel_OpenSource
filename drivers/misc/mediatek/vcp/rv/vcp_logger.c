@@ -15,6 +15,7 @@
 #include <linux/spinlock.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/sched/clock.h>
 //#include <mt-plat/sync_write.h>
 #include "vcp_helper.h"
 #include "vcp_ipi_pin.h"
@@ -814,18 +815,16 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 	dma_addr = vcp_get_reserve_mem_phys(VCP_A_LOGGER_MEM_ID);
 	msg.u.init.addr = (uint32_t)(VCP_PACK_IOVA(dma_addr));
 	msg.u.init.size = vcp_get_reserve_mem_size(VCP_A_LOGGER_MEM_ID);
-	ap_time = (unsigned long long)ktime_to_ns(ktime_get());
-	msg.u.init.ap_time_l = (unsigned int)(ap_time & 0xFFFFFFFF);
-	msg.u.init.ap_time_h = (unsigned int)((ap_time >> 32) & 0xFFFFFFFF);
 
-	pr_debug("[VCP] %s: id=%u, ap_time %llu flag %x\n",
-		__func__, vcp_ipi_id, ap_time, sws->flags);
 	/*
 	 *send ipi to invoke vcp logger
 	 */
 	retrytimes = VCP_IPI_RETRY_TIMES;
 	do {
 		if (is_vcp_ready(VCP_A_ID)) {
+			ap_time = local_clock();
+			msg.u.init.ap_time_l = (unsigned int)(ap_time & 0xFFFFFFFF);
+			msg.u.init.ap_time_h = (unsigned int)((ap_time >> 32) & 0xFFFFFFFF);
 			ret = mtk_ipi_send(&vcp_ipidev, vcp_ipi_id, 0, &msg,
 					   sizeof(msg)/MBOX_SLOT_SIZE, 0);
 
@@ -837,6 +836,9 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 		retrytimes--;
 		udelay(1000);
 	} while (retrytimes > 0 && vcp_A_logger_inited);
+
+	pr_debug("[VCP] %s: id=%u, ap_time %llu flag %x\n",
+		__func__, vcp_ipi_id, ap_time, sws->flags);
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
 	udelay(1000);
