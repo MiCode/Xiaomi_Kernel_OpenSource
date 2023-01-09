@@ -461,8 +461,6 @@ static int qcom_cpufreq_hw_read_lut(struct platform_device *pdev,
 		src = FIELD_GET(LUT_SRC, data);
 		lval = FIELD_GET(LUT_L_VAL, data);
 		core_count = FIELD_GET(LUT_CORE_COUNT, data);
-		if (of_device_is_compatible(dev->of_node, "qcom,cpufreq-hw-epss"))
-			core_count = FIELD_GET(GENMASK(19, 16), data);
 
 		if (of_device_is_compatible(dev->of_node, "qcom,cpufreq-hw-epss"))
 			core_count = FIELD_GET(GENMASK(19, 16), data);
