@@ -227,13 +227,6 @@ enum REQUEST_TE_OPERATE {
 	ENABLE_REQUSET_TE,
 };
 
-enum SET_BL_EXT_TYPE {
-	SET_BACKLIGHT_LEVEL,
-	SET_ELVSS_PN,
-	ENABLE_DYN_ELVSS,
-	DISABLE_DYN_ELVSS,
-};
-
 struct spr_color_params {
 	enum SPR_COLOR_PARAMS_TYPE spr_color_params_type;
 	unsigned int count;
