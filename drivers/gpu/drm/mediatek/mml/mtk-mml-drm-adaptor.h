@@ -46,6 +46,12 @@ struct mml_drm_param {
 	/* submit done callback api */
 	void (*submit_cb)(void *cb_param);
 
+	/* ddren callback api */
+	void (*ddren_cb)(struct cmdq_pkt *pkt, bool enable, void *ddren_param);
+
+	/* parameter send back to ddren_cb */
+	void *ddren_param;
+
 	/* [out]The height of racing mode for each output tile in pixel. */
 	u8 racing_height;
 };

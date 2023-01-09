@@ -181,6 +181,7 @@ struct mml_task_ops {
 	s32 (*dup_task)(struct mml_task *task, u32 pipe);
 	struct mml_tile_cache *(*get_tile_cache)(struct mml_task *task, u32 pipe);
 	void (*kt_setsched)(void *adaptor_ctx);
+	void (*ddren)(struct mml_task *task, struct cmdq_pkt *pkt, bool enable);
 };
 
 struct mml_config_ops {

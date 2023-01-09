@@ -56,6 +56,8 @@ struct mml_drm_ctx {
 	bool disp_vdo;
 	bool racing_begin;
 	void (*submit_cb)(void *cb_param);
+	void (*ddren_cb)(struct cmdq_pkt *pkt, bool enable, void *ddren_param);
+	void *ddren_param;
 	struct mml_tile_cache tile_cache[MML_PIPE_CNT];
 };
 
@@ -1157,6 +1159,16 @@ static void kt_setsched(void *adaptor_ctx)
 	ctx->kt_priority = true;
 }
 
+static void task_ddren(struct mml_task *task, struct cmdq_pkt *pkt, bool enable)
+{
+	struct mml_drm_ctx *ctx = task->ctx;
+
+	if (!ctx->ddren_cb)
+		return;
+
+	ctx->ddren_cb(pkt, enable, ctx->ddren_param);
+}
+
 static const struct mml_task_ops drm_task_ops = {
 	.queue = task_queue,
 	.submit_done = task_submit_done,
@@ -1164,6 +1176,7 @@ static const struct mml_task_ops drm_task_ops = {
 	.dup_task = dup_task,
 	.get_tile_cache = task_get_tile_cache,
 	.kt_setsched = kt_setsched,
+	.ddren = task_ddren,
 };
 
 static void config_get(struct mml_frame_config *cfg)
@@ -1210,6 +1223,8 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 	ctx->disp_dual = disp->dual;
 	ctx->disp_vdo = disp->vdo_mode;
 	ctx->submit_cb = disp->submit_cb;
+	ctx->ddren_cb = disp->ddren_cb;
+	ctx->ddren_param = disp->ddren_param;
 	ctx->panel_pixel = MML_DEFAULT_PANEL_PX;
 	ctx->wq_config[0] = alloc_ordered_workqueue("mml_work0", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 	ctx->wq_config[1] = alloc_ordered_workqueue("mml_work1", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);

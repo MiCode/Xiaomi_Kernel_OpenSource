@@ -1256,6 +1256,10 @@ static s32 rdma_config_frame(struct mml_comp *comp, struct mml_task *task,
 
 	mml_msg("use config %p rdma %p", cfg, rdma);
 
+	/* before everything start, make sure ddr enable */
+	if (ccfg->pipe == 0)
+		task->config->task_ops->ddren(task, pkt, true);
+
 	if (!write_sec) {
 		/* Enable engine */
 		cmdq_pkt_write(pkt, NULL, base_pa + RDMA_EN, 0x1, 0x00000001);
@@ -1877,6 +1881,11 @@ static s32 rdma_post(struct mml_comp *comp, struct mml_task *task,
 		}
 	}
 #endif
+
+	/* after rdma stops read, call ddren to sleep */
+	if (ccfg->pipe == 0)
+		task->config->task_ops->ddren(task, task->pkts[0], false);
+
 	return 0;
 }
 
