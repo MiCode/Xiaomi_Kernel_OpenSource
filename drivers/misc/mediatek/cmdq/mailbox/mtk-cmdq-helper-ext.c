@@ -2629,14 +2629,9 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 			mod = "CMDQ";
 
 		/* no inst available */
-		if (aee == CMDQ_AEE_EXCEPTION)
-			cmdq_util_aee_ex(aee, mod,
-				"DISPATCH:%s(%s) unknown instruction thread:%d",
-				mod, cmdq_util_helper->hw_name(client->chan), thread_id);
-		else
-			cmdq_util_aee_ex(CMDQ_AEE_WARN, mod,
-				"DISPATCH:%s(%s) unknown instruction thread:%d",
-				mod, cmdq_util_helper->hw_name(client->chan), thread_id);
+		cmdq_util_aee_ex(aee, mod,
+			"DISPATCH:%s(%s) unknown instruction thread:%d",
+			mod, cmdq_util_helper->hw_name(client->chan), thread_id);
 	}
 #ifdef CMDQ_SECURE_SUPPORT
 done:
