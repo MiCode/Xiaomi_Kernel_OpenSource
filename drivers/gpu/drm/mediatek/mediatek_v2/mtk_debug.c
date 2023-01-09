@@ -2579,11 +2579,18 @@ static void process_dbg_opt(const char *opt)
 		struct lcm_sample_cust_data *cust_data =
 				kzalloc(sizeof(struct lcm_sample_cust_data), GFP_KERNEL);
 
+		if (IS_ERR_OR_NULL(cust_data)) {
+			DDPMSG("%s, %d, failed to allocate buffer\n",
+				__func__, __LINE__);
+			return;
+		}
+
 		/* this debug cmd only for crtc0 */
 		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
 					typeof(*crtc), head);
 		if (IS_ERR_OR_NULL(crtc)) {
 			DDPPR_ERR("find crtc fail\n");
+			kfree(cust_data);
 			return;
 		}
 
@@ -2591,12 +2598,6 @@ static void process_dbg_opt(const char *opt)
 		comp = mtk_ddp_comp_request_output(mtk_crtc);
 		if (!comp || !comp->funcs || !comp->funcs->io_cmd) {
 			DDPINFO("cannot find output component\n");
-			kfree(cust_data);
-			return;
-		}
-		if (IS_ERR_OR_NULL(cust_data)) {
-			DDPMSG("%s, %d, failed to allocate buffer\n",
-				__func__, __LINE__);
 			kfree(cust_data);
 			return;
 		}
@@ -2623,7 +2624,7 @@ static void process_dbg_opt(const char *opt)
 			__func__, __LINE__);
 		cust_data->cmd = 2;
 		comp->funcs->io_cmd(comp, NULL, LCM_CUST_FUNC, (void *)cust_data);
-		kfree(cust_data->name);
+
 		kfree(cust_data);
 	} else if (strncmp(opt, "lcm0_reset", 10) == 0) {
 		struct mtk_ddp_comp *comp;
