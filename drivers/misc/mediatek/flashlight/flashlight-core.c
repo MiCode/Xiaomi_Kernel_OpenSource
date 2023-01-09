@@ -52,6 +52,8 @@ static int pt_low_vol = LOW_BATTERY_LEVEL_0;
 static int pt_low_bat = BATTERY_PERCENT_LEVEL_0;
 static int pt_over_cur = BATTERY_OC_LEVEL_0;
 
+static int max_pt_low_vol = LOW_BATTERY_LEVEL_2;
+
 #ifdef CONFIG_MTK_FLASHLIGHT_PT_STRICT
 static int pt_strict = 1;
 #else
@@ -545,7 +547,7 @@ EXPORT_SYMBOL(flashlight_pt_is_low);
 static int pt_arg_verify(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 {
 	if (pt_low_vol < LOW_BATTERY_LEVEL_0 ||
-			pt_low_vol > LOW_BATTERY_LEVEL_2) {
+			pt_low_vol > LOW_BATTERY_LEVEL_3) {
 		pr_info("PT low voltage (%d) is not valid\n", pt_low_vol);
 		return -1;
 	}
@@ -567,8 +569,21 @@ static int pt_is_low(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 {
 	int is_low = 0;
 
+	if (max_pt_low_vol == LOW_BATTERY_LEVEL_3) {
+		if (pt_low_vol == LOW_BATTERY_LEVEL_2 ||
+			pt_low_vol == LOW_BATTERY_LEVEL_3) {
+			is_low = 1;
+			if (pt_strict)
+				is_low = 2;
+		}
+	} else {
+		if (pt_low_vol != LOW_BATTERY_LEVEL_0) {
+			is_low = 1;
+			if (pt_strict)
+				is_low = 2;
+		}
+	}
 	if (pt_low_bat != BATTERY_PERCENT_LEVEL_0
-			|| pt_low_vol != LOW_BATTERY_LEVEL_0
 			|| pt_over_cur != BATTERY_OC_LEVEL_0) {
 		is_low = 1;
 		if (pt_strict)
@@ -613,9 +628,13 @@ static void pt_low_vol_callback(enum LOW_BATTERY_LEVEL_TAG level)
 		pt_low_vol = LOW_BATTERY_LEVEL_0;
 	} else if (level == LOW_BATTERY_LEVEL_1) {
 		pt_low_vol = LOW_BATTERY_LEVEL_1;
-		pt_trigger();
+		if (max_pt_low_vol == LOW_BATTERY_LEVEL_2)
+			pt_trigger();
 	} else if (level == LOW_BATTERY_LEVEL_2) {
 		pt_low_vol = LOW_BATTERY_LEVEL_2;
+		pt_trigger();
+	} else if (level == LOW_BATTERY_LEVEL_3) {
+		pt_low_vol = LOW_BATTERY_LEVEL_3;
 		pt_trigger();
 	} else {
 		/* unlimited cpu and gpu */
@@ -1922,8 +1941,10 @@ static int __init flashlight_init(void)
 	}
 
 #ifdef CONFIG_MTK_FLASHLIGHT_PT
-	register_low_battery_notify(
+	ret = register_low_battery_notify(
 			&pt_low_vol_callback, LOW_BATTERY_PRIO_FLASHLIGHT);
+	if (ret == LOW_BATTERY_LEVEL_3)
+		max_pt_low_vol = ret;
 	register_bp_thl_notify(
 			&pt_low_bat_callback, BATTERY_PERCENT_PRIO_FLASHLIGHT);
 	register_battery_oc_notify(
