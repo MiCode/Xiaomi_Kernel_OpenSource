@@ -2603,7 +2603,9 @@ static int scpsys_probe(struct platform_device *pdev)
 	if (IS_ERR(scp))
 		return PTR_ERR(scp);
 
-	mtk_register_power_domains(pdev, scp, soc->num_domains);
+	ret = mtk_register_power_domains(pdev, scp, soc->num_domains);
+	if (ret)
+		return ret;
 
 	pd_data = &scp->pd_data;
 
