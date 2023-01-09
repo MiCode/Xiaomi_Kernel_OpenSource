@@ -265,6 +265,11 @@ struct mtk_drm_disp_sec_cb {
 				struct dma_buf *buf_hnd);
 };
 
+struct mtk_aod_scp_cb {
+	int (*send_ipi)(int value);
+	void (*module_backup)(struct mtk_ddp_config *cfg);
+};
+
 enum DISP_SEC_SIGNAL {
 	DISP_SEC_START = 0,
 	DISP_SEC_STOP,
@@ -362,6 +367,7 @@ extern struct platform_driver mtk_disp_inlinerotate_driver;
 extern struct platform_driver mtk_mmlsys_bypass_driver;
 extern struct platform_driver mtk_disp_postalign_driver;
 extern struct mtk_drm_disp_sec_cb disp_sec_cb;
+extern struct mtk_aod_scp_cb aod_scp_ipi;
 
 /* For overlay bandwidth monitor */
 extern struct layer_compress_ratio_data
@@ -409,7 +415,7 @@ int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,
 	struct drm_crtc *crtc);
 void mtk_drm_wait_mml_submit_done(struct mtk_mml_cb_para *cb_para);
-void **mtk_aod_scp_ipi_init(void);
+void mtk_aod_scp_ipi_init(struct mtk_aod_scp_cb *cb);
 void mtk_free_mml_submit(struct mml_submit *temp);
 int copy_mml_submit(struct mml_submit *src, struct mml_submit *dst);
 void **mtk_drm_disp_sec_cb_init(void);

@@ -4713,6 +4713,10 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
+	if (mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
+		if (aod_scp_ipi.module_backup && mode_chg_index)
+			aod_scp_ipi.module_backup(&cfg);
+
 	CRTC_MMP_EVENT_END((int) drm_crtc_index(crtc), mode_switch, fps_src, fps_dst);
 	DDPMSG("%s--\n", __func__);
 }

@@ -119,15 +119,18 @@ void *test_va;
 dma_addr_t test_pa;
 #endif
 
-struct aod_scp_send_ipi_msg {
-	int (*send_ipi)(int value);
-};
+struct mtk_aod_scp_cb aod_scp_ipi;
 
-static struct aod_scp_send_ipi_msg aod_scp_ipi;
-
-void **mtk_aod_scp_ipi_init(void)
+void mtk_aod_scp_ipi_init(struct mtk_aod_scp_cb *cb)
 {
-	return (void **)&aod_scp_ipi.send_ipi;
+	if (!aod_scp_flag) {
+		aod_scp_ipi.send_ipi = NULL;
+		aod_scp_ipi.module_backup = NULL;
+		return;
+	}
+
+	aod_scp_ipi.send_ipi = cb->send_ipi;
+	aod_scp_ipi.module_backup = cb->module_backup;
 }
 EXPORT_SYMBOL(mtk_aod_scp_ipi_init);
 
@@ -818,43 +821,18 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 
 static void mtk_atomic_aod_scp_ipi(struct drm_crtc *crtc, bool prepare)
 {
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_crtc_state *mtk_state;
-	bool need_modeset;
 
 	if (!aod_scp_flag || !aod_scp_ipi.send_ipi)
 		return;
 
 	mtk_state = to_mtk_crtc_state(crtc->state);
-	if (!mtk_state->doze_changed || !mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
+	if (!mtk_state->doze_changed || prepare)
 		return;
 
-	if (mtk_drm_helper_get_opt(priv->helper_opt,
-			MTK_DRM_OPT_MMQOS_SUPPORT)) {
-		//bw for dual pipe 2 layers.
-		mtk_disp_set_hrt_bw(mtk_crtc, 3360);
-	}
-
-	//TODO: After the power control implementation in SCP is completed,
-	//it only needs to judge prepare==1 to send IPI to SCP
-	need_modeset = drm_atomic_crtc_needs_modeset(crtc->state);
-	if (!need_modeset || (need_modeset && !crtc->state->active)) {
-		//needs_modeset:0
-		//needs_modeset:1 on->off
-		if (prepare) {
-			aod_scp_ipi.send_ipi(0);
-			DDPMSG("mtk_aod_scp_ipi_send sent IPI to SCP in prepare done\n");
-			mdelay(10000);
-		}
-	} else if (need_modeset && crtc->state->active) {
-		//needs_modeset:1 off->on
-		if (!prepare) {
-			aod_scp_ipi.send_ipi(0);
-			DDPMSG("mtk_aod_scp_ipi_send sent IPI to SCP in !prepare done\n");
-			mdelay(10000);
-		}
-	}
+	DDPMSG("%s: update AOD-SCP doze state (%d), idle=%d\n", __func__,
+			mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE], mtk_drm_is_idle(crtc));
+	aod_scp_ipi.send_ipi(mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
 }
 
 static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
