@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+/* Trustonic Mobilecore real driver */
+&mobicore{
+	trustonic,real-drv = <1>;
+};
