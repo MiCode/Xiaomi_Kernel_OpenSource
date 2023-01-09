@@ -2565,7 +2565,7 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT)) {
 		crtc_idx = drm_crtc_index(crtc);
-		if (priv && priv->usage[crtc_idx] == DISP_OPENING) {
+		if (priv && crtc_idx < MAX_CRTC && priv->usage[crtc_idx] == DISP_OPENING) {
 			DDPINFO("%s %d skip due to still opening\n", __func__, crtc_idx);
 			return;
 		}
@@ -2765,6 +2765,7 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 	struct drm_crtc *crtc = dsi->encoder.crtc;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	unsigned int crtc_idx = 0;
 
 	DDPINFO("%s+ doze_enabled:%d\n", __func__, new_doze_state);
 	if (!dsi->output_en)
@@ -2780,8 +2781,9 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi, struct cmdq_pkt *cmdq_ha
 		}
 	}
 
-	if (priv && mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT) &&
-			priv->usage[drm_crtc_index(crtc)] == DISP_OPENING) {
+	crtc_idx = drm_crtc_index(crtc);
+	if (priv && mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT)
+			&& crtc_idx < MAX_CRTC && priv->usage[crtc_idx] == DISP_OPENING) {
 		DDPINFO("%s %d wait for opening\n", __func__, drm_crtc_index(crtc));
 		if (cmdq_handle)
 			cmdq_pkt_destroy(cmdq_handle);

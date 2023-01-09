@@ -10373,7 +10373,9 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 	mtk_crtc_release_lye_idx(crtc);
 #endif
 	atomic_set(&mtk_crtc->already_config, 0);
-	priv->usage[index] = DISP_DISABLE;
+
+	if (index >= 0 && index < MAX_CRTC)
+		priv->usage[index] = DISP_DISABLE;
 
 	/* release wakelock */
 	mtk_drm_crtc_wk_lock(crtc, 0, __func__, __LINE__);
@@ -11366,7 +11368,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 	if (mtk_crtc->event && mtk_crtc_state->base.event)
 		DRM_ERROR("new event while there is still a pending event\n");
 
-	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT)) {
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT) && crtc_idx < MAX_CRTC) {
 		if (priv->usage[crtc_idx] == DISP_OPENING) {
 			DDPINFO("%s %d skip due to still opening\n", __func__, crtc_idx);
 			CRTC_MMP_MARK(index, atomic_begin, 0, 0xF);
@@ -12863,7 +12865,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	}
 
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SPHRT) &&
-			priv->usage[index] == DISP_OPENING) {
+			index < MAX_CRTC && priv->usage[index] == DISP_OPENING) {
 		DDPINFO("%s: %d skip in opening\n", __func__, index);
 		CRTC_MMP_MARK((int) index, atomic_flush, 0, __LINE__);
 		/* release all fence when opening CRTC */
