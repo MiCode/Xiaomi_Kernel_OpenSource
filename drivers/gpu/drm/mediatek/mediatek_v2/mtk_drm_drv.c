@@ -1635,7 +1635,7 @@ static void mtk_atomic_check_res_switch(struct mtk_drm_private *private,
 	struct drm_display_mode *mode = NULL;
 	struct drm_display_mode *old_mode = NULL;
 	int j, o_i, o_j;
-	struct mtk_ddp_config cfg;
+	struct mtk_ddp_config cfg = {0};
 	struct mtk_ddp_config scaling_cfg = {0};
 	struct mtk_ddp_comp *comp;
 

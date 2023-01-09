@@ -4175,7 +4175,7 @@ void mtk_crtc_mode_switch_on_ap_config(struct mtk_drm_crtc *mtk_crtc,
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct cmdq_pkt *cevent_cmdq_handle, *cmdq_handle, *sevent_cmdq_handle;
-	struct mtk_ddp_config cfg;
+	struct mtk_ddp_config cfg = {0};
 	struct mtk_ddp_config scaling_cfg = {0};
 	struct mtk_ddp_comp *comp;
 	struct mtk_ddp_comp *output_comp;
@@ -4403,7 +4403,7 @@ void mtk_crtc_mode_switch_config(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_panel_params *panel_ext = mtk_drm_get_lcm_ext_params(crtc);
 	struct cmdq_pkt *cevent_cmdq_handle, *cmdq_handle, *sevent_cmdq_handle;
-	struct mtk_ddp_config cfg;
+	struct mtk_ddp_config cfg = {0};
 	struct mtk_ddp_comp *comp;
 	struct mtk_ddp_comp *output_comp;
 
@@ -11546,7 +11546,7 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 	int right_bg = w/2;
 	int roi_w = w;
 	struct mtk_crtc_state *crtc_state = NULL;
-	struct total_tile_overhead to_info;
+	struct total_tile_overhead to_info = {0};
 
 	if (mtk_crtc)
 		to_info = mtk_crtc_get_total_overhead(mtk_crtc);
