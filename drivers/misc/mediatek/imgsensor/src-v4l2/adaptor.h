@@ -167,6 +167,8 @@ struct adaptor_ctx {
 	struct wakeup_source *sensor_ws;
 	unsigned int aov_pm_ops_flag;	/* flag for aov pm ops */
 	unsigned int aov_mclk_ulposc_flag;	/* flag for aov switch mclk to ulposc */
+	unsigned int aov_i2c_bus_scl_switch_en;	/* flag for aov switch i2c bus scl */
+	unsigned int aov_i2c_bus_sda_switch_en;	/* flag for aov switch i2c bus sda */
 };
 
 #endif

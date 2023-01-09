@@ -1030,9 +1030,13 @@ static int imgsensor_get_temp(void *data, int *temperature)
 #else
 	*temperature = 0;
 #endif
-	if (ctx->is_streaming)
-		subdrv_call(ctx, get_temp, temperature);
-	else
+	if (ctx->is_streaming) {
+		if (ctx->aov_i2c_bus_scl_switch_en == 1 ||
+			ctx->aov_i2c_bus_sda_switch_en == 1)
+			*temperature = THERMAL_TEMP_INVALID;
+		else
+			subdrv_call(ctx, get_temp, temperature);
+	} else
 		*temperature = THERMAL_TEMP_INVALID;
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK

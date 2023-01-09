@@ -487,7 +487,8 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 
 	// aux as aux function number corresponding to gpio table.
 	switch (aux) {
-	case SDA4:
+	case SCL4:
+	{
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SCL_AP]);
 		if (ret < 0) {
 			dev_info(ctx->dev,
@@ -498,8 +499,11 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 		dev_info(ctx->dev,
 			"[%s] select(%s)(correct)\n",
 			__func__, state_names[STATE_SCL_AP]);
+		ctx->aov_i2c_bus_scl_switch_en = 0;
+	}
 		break;
 	case SCL7:
+	{
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SCL_SCP]);
 		if (ret < 0) {
 			dev_info(ctx->dev,
@@ -510,6 +514,8 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 		dev_info(ctx->dev,
 			"[%s] select(%s)(correct)\n",
 			__func__, state_names[STATE_SCL_SCP]);
+		ctx->aov_i2c_bus_scl_switch_en = 1;
+	}
 		break;
 	default:
 		dev_info(ctx->dev,
@@ -531,28 +537,34 @@ static int _aov_switch_i2c_bus_sda_aux(struct v4l2_ctrl *ctrl)
 	// aux as aux function number corresponding to gpio table.
 	switch (aux) {
 	case SDA4:
+	{
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SDA_AP]);
 		if (ret < 0) {
 			dev_info(ctx->dev,
 				"[%s] select(%s)(fail)\n",
 				__func__, state_names[STATE_SDA_AP]);
 			return ret;
-		} else
-			dev_info(ctx->dev,
-				"[%s] select(%s)(correct)\n",
-				__func__, state_names[STATE_SDA_AP]);
+		}
+		dev_info(ctx->dev,
+			"[%s] select(%s)(correct)\n",
+			__func__, state_names[STATE_SDA_AP]);
+		ctx->aov_i2c_bus_sda_switch_en = 0;
+	}
 		break;
 	case SDA7:
+	{
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SDA_SCP]);
 		if (ret < 0) {
 			dev_info(ctx->dev,
 				"[%s] select(%s)(fail)\n",
 				__func__, state_names[STATE_SDA_SCP]);
 			return ret;
-		} else
-			dev_info(ctx->dev,
-				"[%s] select(%s)(correct)\n",
-				__func__, state_names[STATE_SDA_SCP]);
+		}
+		dev_info(ctx->dev,
+			"[%s] select(%s)(correct)\n",
+			__func__, state_names[STATE_SDA_SCP]);
+		ctx->aov_i2c_bus_sda_switch_en = 1;
+	}
 		break;
 	default:
 		dev_info(ctx->dev,
