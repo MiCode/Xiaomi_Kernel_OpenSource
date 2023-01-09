@@ -21,6 +21,9 @@
 #include <linux/cpufreq.h>
 #include <linux/pm_qos.h>
 #include <linux/sort.h>
+
+#define CREATE_TRACE_POINTS
+#include "powerhal_trace_event.h"
 //#include "mtk_perfmgr_internal.h"
 /* PROCFS */
 #define PROC_FOPS_RW(name) \
@@ -64,12 +67,6 @@ static struct _cpufreq freq_to_set[CLUSTER_MAX];
 struct freq_qos_request *freq_min_request;
 struct freq_qos_request *freq_max_request;
 
-static noinline int tracing_mark_write(const char *buf)
-{
-	trace_printk(buf);
-	return 0;
-}
-
 static void _cpu_ctrl_systrace(int val, const char *fmt, ...)
 {
 	char log[256];
@@ -93,7 +90,7 @@ static void _cpu_ctrl_systrace(int val, const char *fmt, ...)
 	else if (unlikely(len == 256))
 		buf[255] = '\0';
 
-	tracing_mark_write(buf);
+	trace_powerhal_cpu_freq_user_setting(buf);
 }
 
 char *perfmgr_copy_from_user_for_proc(const char __user *buffer, size_t count)

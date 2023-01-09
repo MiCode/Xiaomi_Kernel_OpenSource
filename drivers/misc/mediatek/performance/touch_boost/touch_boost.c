@@ -27,6 +27,9 @@
 #include "perf_ioctl.h"
 #include "touch_boost.h"
 
+#define CREATE_TRACE_POINTS
+#include "touch_boost_trace_event.h"
+
 #define PROC_FOPS_RW(name) \
 static const struct proc_ops perfmgr_ ## name ## _proc_fops = { \
 	.proc_read	= perfmgr_ ## name ## _proc_show, \
@@ -74,12 +77,6 @@ static long long boost_duration = TOUCH_TIMEOUT_MS;
 static struct hrtimer hrt1;
 static int my_tid = -1;
 
-static noinline int tracing_mark_write(const char *buf)
-{
-	trace_printk(buf);
-	return 0;
-}
-
 static void _cpu_ctrl_systrace(int val, const char *fmt, ...)
 {
 	char log[256];
@@ -103,7 +100,7 @@ static void _cpu_ctrl_systrace(int val, const char *fmt, ...)
 	else if (unlikely(len == 256))
 		buf[255] = '\0';
 
-	tracing_mark_write(buf);
+	trace_touch_boost(buf);
 }
 
 struct k_list {
