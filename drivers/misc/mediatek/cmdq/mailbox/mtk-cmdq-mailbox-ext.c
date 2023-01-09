@@ -1056,6 +1056,8 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	dma_addr_t curr_pa, task_end_pa;
 	s32 err = 0;
 	unsigned long flags;
+	u64 debug_end[4] = {0};
+	u32 debug_cnt = 0;
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	u64 start = sched_clock(), end[4];
 	u32 end_cnt = 0;
@@ -1179,9 +1181,14 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 					"remove task that not ending pkt:0x%p %pa to %pa",
 					curr_task->pkt, &curr_pa, &task_end_pa);
 			}
+			debug_cnt = 0;
+			debug_end[debug_cnt++] = sched_clock();
 			cmdq_task_exec_done(task, 0);
+			debug_end[debug_cnt++] = sched_clock();
 			spin_lock_irqsave(&cmdq->irq_removes_lock, flags);
+			debug_end[debug_cnt++] = sched_clock();
 			list_add_tail(&task->list_entry, &cmdq->irq_removes);
+			debug_end[debug_cnt++] = sched_clock();
 			spin_unlock_irqrestore(&cmdq->irq_removes_lock, flags);
 		} else if (err) {
 			cmdq_err("pkt:0x%p thread:%u err:%d",
@@ -1217,9 +1224,12 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	end[end_cnt] = sched_clock();
 	if (end[end_cnt] - start >= 1000000 && !time) /* 1ms */
 		cmdq_util_err(
-			"IRQ_LONG:%llu reg:%llu loop:%llu list:%llu dis:%llu",
+			"IRQ_LONG:%llu reg:%llu loop:%llu list:%llu dis:%llu done:%llu lock:%llu addlist:%llu",
 			end[end_cnt] - start, end[0] - start,
-			end[1] - end[0], end[2] - end[1], end[3] - end[2]);
+			end[1] - end[0], end[2] - end[1], end[3] - end[2],
+			debug_end[1] - debug_end[0],
+			debug_end[2] - debug_end[1],
+			debug_end[3] - debug_end[2]);
 	if (end[end_cnt] - start >= 1000000)
 		time += 1;
 #endif
