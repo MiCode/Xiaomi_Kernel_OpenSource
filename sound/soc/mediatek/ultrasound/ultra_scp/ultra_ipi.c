@@ -103,8 +103,6 @@ static int ultra_ipi_ack_handler(unsigned int id,
 	ipi_ack_return = ipi_info->msg_need_ack;
 	ipi_ack_id = ipi_info->msg_id;
 	ipi_ack_data = ipi_info->msg_data;
-	pr_info("%s(), ipi_ack_return(%d), ipi_ack_id(%d)\n",
-		__func__, ipi_ack_return, ipi_ack_id);
 	return 0;
 }
 #endif
