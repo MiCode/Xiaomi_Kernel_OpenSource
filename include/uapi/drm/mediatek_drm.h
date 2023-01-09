@@ -1716,6 +1716,7 @@ struct DISP_AAL_HIST {
 	unsigned int aal1_clarity[MDP_AAL_CLARITY_READBACK_NUM];
 	unsigned int tdshp0_clarity[DISP_TDSHP_CLARITY_READBACK_NUM];
 	unsigned int tdshp1_clarity[DISP_TDSHP_CLARITY_READBACK_NUM];
+	int pipeLineNum;
 };
 
 struct DISP_AAL_ESS20_SPECT_PARAM {
