@@ -94,6 +94,8 @@ static atomic_t g_force_delay_check_trig = ATOMIC_INIT(0);
 static struct workqueue_struct *aal_flip_wq;
 static struct workqueue_struct *aal_refresh_wq;
 
+static int g_aal_backlight_set;
+
 enum AAL_UPDATE_HIST {
 	UPDATE_NONE = 0,
 	UPDATE_SINGLE,
@@ -461,6 +463,7 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 		service_flags = AAL_SERVICE_FORCE_UPDATE;
 
 	if (trans_backlight == 0) {
+		g_aal_backlight_set = trans_backlight;
 		mtk_leds_brightness_set("lcd-backlight", 0, 0, (0X1<<SET_BACKLIGHT_LEVEL));
 		/* set backlight = 0 may be not from AAL, */
 		/* we have to let AALService can turn on backlight */
@@ -1756,7 +1759,7 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
 	struct drm_crtc *crtc = private->crtc[0];
-	int backlight_value = 0;
+	int prev_backlight = 0;
 	struct DISP_AAL_PARAM *param = (struct DISP_AAL_PARAM *) data;
 	bool delay_refresh = false;
 
@@ -1767,7 +1770,9 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	/* Not need to protect g_aal_param, */
 	/* since only AALService can set AAL parameters. */
 	memcpy(&g_aal_param, param, sizeof(*param));
-	backlight_value = g_aal_param.FinalBacklight;
+
+	prev_backlight = g_aal_backlight_set;
+	g_aal_backlight_set = g_aal_param.FinalBacklight;
 
 	mutex_lock(&g_aal_sram_lock);
 	ret = mtk_crtc_user_cmd(crtc, comp, SET_PARAM, data);
@@ -1776,26 +1781,36 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	atomic_set(&g_aal_allowPartial, g_aal_param.allowPartial);
 
 	if (atomic_read(&g_aal_backlight_notified) == 0)
-		backlight_value = 0;
+		g_aal_backlight_set = 0;
+
+	if (prev_backlight == g_aal_backlight_set)
+		g_aal_ess20_spect_param.flag &= (~(1 << SET_BACKLIGHT_LEVEL));
+	else
+		g_aal_ess20_spect_param.flag |= (1 << SET_BACKLIGHT_LEVEL);
 
 	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS]) {
 		if (g_aal_param.silky_bright_flag == 0) {
-			AALAPI_LOG("backlight_value = %d, silky_bright_flag = %d",
-				backlight_value, g_aal_param.silky_bright_flag);
-			mtk_leds_brightness_set("lcd-backlight", backlight_value,
+			AALAPI_LOG("bl = %d, silky_bright_flag = %d, ELVSSPN = %u, flag = %u",
+				g_aal_backlight_set, g_aal_param.silky_bright_flag,
+				g_aal_ess20_spect_param.ELVSSPN, g_aal_ess20_spect_param.flag);
+
+			mtk_leds_brightness_set("lcd-backlight", g_aal_backlight_set,
 					g_aal_ess20_spect_param.ELVSSPN,
 					g_aal_ess20_spect_param.flag);
 		}
 	} else if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS]) {
 		//if (pre_bl != cur_bl)
-		AALAPI_LOG("gian = %d, backlight = %d",
-			g_aal_param.silky_bright_gain[0], backlight_value);
+		AALAPI_LOG("gian = %u, backlight = %d, ELVSSPN = %u, flag = %u",
+			g_aal_param.silky_bright_gain[0], g_aal_backlight_set,
+			g_aal_ess20_spect_param.ELVSSPN, g_aal_ess20_spect_param.flag);
+
 		mtk_trans_gain_to_gamma(crtc, &g_aal_param.silky_bright_gain[0],
-			backlight_value, (void *)&g_aal_ess20_spect_param);
+			g_aal_backlight_set, (void *)&g_aal_ess20_spect_param);
 	} else {
-		AALAPI_LOG("bl=%d,pn=%d,flag=%d", backlight_value, g_aal_ess20_spect_param.ELVSSPN,
-			g_aal_ess20_spect_param.flag);
-		mtk_leds_brightness_set("lcd-backlight", backlight_value,
+
+		AALAPI_LOG("pre_bl=%d, bl=%d, pn=%u, flag=%u", prev_backlight, g_aal_backlight_set,
+			g_aal_ess20_spect_param.ELVSSPN, g_aal_ess20_spect_param.flag);
+		mtk_leds_brightness_set("lcd-backlight", g_aal_backlight_set,
 					g_aal_ess20_spect_param.ELVSSPN,
 					g_aal_ess20_spect_param.flag);
 	}
