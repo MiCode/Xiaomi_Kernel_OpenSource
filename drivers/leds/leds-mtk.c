@@ -110,7 +110,23 @@ static ssize_t led_mode_show(struct device *dev,
 	return sprintf(buf, "%u\n", led_conf->mode);
 }
 static DEVICE_ATTR_RO(led_mode);
+static ssize_t connector_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_conf_info *led_conf =
+		container_of(led_cdev, struct led_conf_info, cdev);
 
+
+	if (led_conf->connector_id <= 0) {
+		struct mt_led_data *led_dat =
+			container_of(led_conf, struct mt_led_data, conf);
+		led_dat->mtk_conn_id_get(led_dat, led_dat->desp.index);
+	}
+
+	return sprintf(buf, "%u\n", led_conf->connector_id);
+}
+static DEVICE_ATTR_RO(connector_id);
 
 #ifdef CONFIG_LEDS_MT_BRIGHTNESS_HW_CHANGED
 static ssize_t mt_brightness_hw_changed_show(struct device *dev,
@@ -252,7 +268,8 @@ static int mtk_set_hw_brightness(struct mt_led_data *led_dat, int brightness,
 
 	if (brightness == led_dat->hw_brightness && params_flag == (1 << SET_BACKLIGHT_LEVEL))
 		return 0;
-
+	pr_debug("set hw brightness(%s): %d -> %d",
+		led_dat->conf.cdev.name, led_dat->hw_brightness, brightness);
 	ret = led_dat->mtk_hw_brightness_set(led_dat, brightness, params, params_flag);
 	if (ret >= 0) {
 		if (brightness != led_dat->hw_brightness &&
@@ -306,6 +323,12 @@ static int mtk_set_brightness(struct led_classdev *led_cdev,
 		container_of(led_cdev, struct led_conf_info, cdev);
 	struct mt_led_data *led_dat =
 		container_of(led_conf, struct mt_led_data, conf);
+
+	if (led_conf->connector_id <= 0) {
+		struct mt_led_data *led_dat =
+			container_of(led_conf, struct mt_led_data, conf);
+		led_dat->mtk_conn_id_get(led_dat, led_dat->desp.index);
+	}
 
 	if (led_dat->last_brightness == brightness)
 		return 0;
@@ -434,6 +457,8 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 		sizeof(mdev->desp.name));
 	mdev->desp.index = leds_info->lens;
 
+	mdev->conf.connector_id = -1;
+
 	nleds_info = krealloc(leds_info, sizeof(struct mt_leds_desp_info) +
 		sizeof(struct led_desp *) * (leds_info->lens + 1),
 		GFP_KERNEL);
@@ -451,6 +476,7 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	pr_info("parse led: %s, num: %d, max: %d, min: %d, max_hw: %d, min_hw: %d, brightness: %d",
 		mdev->conf.cdev.name,
 		leds_info->lens,
+		mdev->conf.connector_id,
 		mdev->conf.cdev.max_brightness,
 		mdev->conf.min_brightness,
 		mdev->conf.max_hw_brightness,
@@ -467,6 +493,7 @@ static struct attribute *led_class_attrs[] = {
 	&dev_attr_max_hw_brightness.attr,
 	&dev_attr_min_hw_brightness.attr,
 	&dev_attr_led_mode.attr,
+	&dev_attr_connector_id.attr,
 	NULL,
 };
 

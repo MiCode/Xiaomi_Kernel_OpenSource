@@ -26,6 +26,7 @@ struct led_conf_info {
 	struct led_classdev cdev;
 	int flags;
 	enum led_mode mode;
+	int connector_id;
 #define LED_MT_BRIGHTNESS_HW_CHANGED	BIT(1)
 #define LED_MT_BRIGHTNESS_CHANGED	BIT(2)
 

@@ -35,6 +35,14 @@ struct mt_leds_pwm {
 	struct led_pwm_data leds[];
 };
 
+static int __maybe_unused led_pwm_get_conn_id(struct mt_led_data *mdev,
+		       int flag)
+{
+	mdev->conf.connector_id = mtk_drm_get_conn_obj_id_from_idx(mdev->desp.index, flag);
+	pr_info("disp_id: %d, get connector id %d", mdev->desp.index, mdev->conf.connector_id);
+	return 0;
+}
+
 static int led_pwm_set(struct mt_led_data *mdev,
 		int brightness, unsigned int params, unsigned int params_flag)
 {
@@ -104,6 +112,7 @@ static int led_pwm_create_fwnode(struct device *dev, struct mt_leds_pwm *priv)
 		led.name = led_data->m_led.conf.cdev.name;
 		led.max_brightness = led_data->m_led.conf.cdev.max_brightness;
 		led_data->m_led.mtk_hw_brightness_set = led_pwm_set;
+		led_data->m_led.mtk_conn_id_get = led_pwm_get_conn_id;
 
 		ret = led_pwm_add(dev, priv, &led, fwnode);
 		priv->num_leds++;
