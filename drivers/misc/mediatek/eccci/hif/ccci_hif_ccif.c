@@ -1676,14 +1676,6 @@ static void ccif_set_clk_off(unsigned char hif_id)
 		/* write 1 clear register */
 		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
 			0xBF0, 0xF7FF);
-		spin_lock_irqsave(&devapc_flag_lock, flags);
-		devapc_check_flag = 0;
-		spin_unlock_irqrestore(&devapc_flag_lock, flags);
-		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
-			if (ccif_clk_table[idx].clk_ref == NULL)
-				continue;
-			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
-		}
 	} else if (ccif_ctrl->plat_val.md_gen <= 6297) {
 		/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
 		if (!IS_ERR(ccif_ctrl->pericfg_base)) {
@@ -1691,37 +1683,30 @@ static void ccif_set_clk_off(unsigned char hif_id)
 				__func__, ccif_ctrl->pericfg_base);
 			regmap_write(ccif_ctrl->pericfg_base, 0x30c, 0x0);
 		}
-
-		for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
-			if (ccif_clk_table[idx].clk_ref == NULL)
-				continue;
-			if (strcmp(ccif_clk_table[idx].clk_name,
-				"infra-ccif4-md") == 0
-				&& ccif_ctrl->md_ccif4_base) {
-				udelay(1000);
-				CCCI_NORMAL_LOG(0, TAG,
-					"ccif4 %s: after 1ms, set 0x%llx + 0x14 = 0xFF\n",
-					__func__,
-					(u64)ccif_ctrl->md_ccif4_base);
-				ccci_write32(ccif_ctrl->md_ccif4_base, 0x14,
-					0xFF); /* special use ccci_write32 */
-			}
-			if (strcmp(ccif_clk_table[idx].clk_name,
-				"infra-ccif5-md") == 0
-				&& ccif_ctrl->md_ccif5_base) {
-				udelay(1000);
-				CCCI_NORMAL_LOG(0, TAG,
-					"ccif5 %s: after 1ms, set 0x%llx + 0x14 = 0xFF\n",
-					__func__,
-					(u64)ccif_ctrl->md_ccif5_base);
-				ccci_write32(ccif_ctrl->md_ccif5_base, 0x14,
-					0xFF); /* special use ccci_write32 */
-			}
-			spin_lock_irqsave(&devapc_flag_lock, flags);
-			devapc_check_flag = 0;
-			spin_unlock_irqrestore(&devapc_flag_lock, flags);
-			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
+	}
+	for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
+		if (ccif_clk_table[idx].clk_ref == NULL)
+			continue;
+		if (strcmp(ccif_clk_table[idx].clk_name, "infra-ccif4-md") == 0
+			&& ccif_ctrl->md_ccif4_base) {
+			udelay(1000);
+			CCCI_NORMAL_LOG(0, TAG,
+				"%s: after 1ms, set md_ccif4_base + 0x14 = 0xFF\n", __func__);
+			ccci_write32(ccif_ctrl->md_ccif4_base, 0x14, 0xFF);
+			/* special use ccci_write32 */
 		}
+		if (strcmp(ccif_clk_table[idx].clk_name, "infra-ccif5-md") == 0
+			&& ccif_ctrl->md_ccif5_base) {
+			udelay(1000);
+			CCCI_NORMAL_LOG(0, TAG,
+				"%s: after 1ms, set md_ccif5_base + 0x14 = 0xFF\n", __func__);
+			ccci_write32(ccif_ctrl->md_ccif5_base, 0x14, 0xFF);
+			/* special use ccci_write32 */
+		}
+		spin_lock_irqsave(&devapc_flag_lock, flags);
+		devapc_check_flag = 0;
+		spin_unlock_irqrestore(&devapc_flag_lock, flags);
+		clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
 	}
 
 	CCCI_NORMAL_LOG(0, TAG, "%s at the end...\n", __func__);
