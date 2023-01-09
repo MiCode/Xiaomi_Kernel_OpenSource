@@ -63,6 +63,8 @@ u32 mtk_pcie_dump_link_info(int port);
 #define PCIE_BASIC_STATUS		0x18
 
 #define PCIE_SETTING_REG		0x80
+#define PCIE_CFGCTRL			0x84
+#define PCIE_DISABLE_LTSSM		BIT(2)
 #define PCIE_PCI_IDS_1			0x9c
 #define PCI_CLASS(class)		(class << 8)
 #define PCIE_RC_MODE			BIT(0)
@@ -185,6 +187,9 @@ u32 mtk_pcie_dump_link_info(int port);
 #define PCIE_VLP_AXI_PROTECT_STA	0x240
 #define PCIE_MAC0_SLP_READY_MASK	BIT(11)
 #define PCIE_PHY0_SLP_READY_MASK	BIT(13)
+#define PCIE_MAC_SLP_READY_MASK(port)	BIT(11 - port)
+#define PCIE_PHY_SLP_READY_MASK(port)	BIT(13 - port)
+#define SRCLKEN_SPM_REQ_STA		0x1114
 #define SRCLKEN_RC_REQ_STA		0x1130
 
 enum mtk_pcie_suspend_link_state {
@@ -1408,6 +1413,65 @@ u32 mtk_pcie_dump_link_info(int port)
 	return ret_val;
 }
 EXPORT_SYMBOL(mtk_pcie_dump_link_info);
+
+/**
+ * mtk_pcie_disable_data_trans - Block pcie
+ * and do not accept any data packet transmission.
+ * @port: The port number which EP use
+ */
+int mtk_pcie_disable_data_trans(int port)
+{
+	struct device_node *pcie_node;
+	struct platform_device *pdev;
+	struct mtk_pcie_port *pcie_port;
+	u32 val;
+
+	pcie_node = mtk_pcie_find_node_by_port(port);
+	if (!pcie_node) {
+		pr_info("PCIe device node not found!\n");
+		return -ENODEV;
+	}
+
+	pdev = of_find_device_by_node(pcie_node);
+	if (!pdev) {
+		pr_info("PCIe platform device not found!\n");
+		return -ENODEV;
+	}
+
+	pcie_port = platform_get_drvdata(pdev);
+	if (!pcie_port) {
+		pr_info("PCIe port not found!\n");
+		return -ENODEV;
+	}
+
+	/* Check the sleep protect ready */
+	val = readl_relaxed(pcie_port->vlpcfg_base + PCIE_VLP_AXI_PROTECT_STA);
+	val &= (PCIE_MAC_SLP_READY_MASK(pcie_port->port_num) |
+	       PCIE_PHY_SLP_READY_MASK(pcie_port->port_num));
+	if (val) {
+		pr_info("PCIe sleep protect is not ready=%#x\n", val);
+		return -EPERM;
+	}
+
+	val = readl_relaxed(pcie_port->base + PCIE_RST_CTRL_REG);
+	val |= PCIE_MAC_RSTB;
+	writel_relaxed(val, pcie_port->base + PCIE_RST_CTRL_REG);
+
+	val = readl_relaxed(pcie_port->base + PCIE_CFGCTRL);
+	val |= PCIE_DISABLE_LTSSM;
+	writel_relaxed(val, pcie_port->base + PCIE_CFGCTRL);
+
+	val = readl_relaxed(pcie_port->base + PCIE_RST_CTRL_REG);
+	val &= ~PCIE_MAC_RSTB;
+	writel_relaxed(val, pcie_port->base + PCIE_RST_CTRL_REG);
+
+	pr_info("reset control signal(0x148)=%#x, IP config control(0x84)=%#x\n",
+		readl_relaxed(pcie_port->base + PCIE_RST_CTRL_REG),
+		readl_relaxed(pcie_port->base + PCIE_CFGCTRL));
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_pcie_disable_data_trans);
 
 /**
  * mtk_msi_unmask_to_other_mcu() - Unmask msi dispatch to other mcu
