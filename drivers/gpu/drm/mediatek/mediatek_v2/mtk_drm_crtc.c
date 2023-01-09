@@ -6553,7 +6553,7 @@ static void mtk_disp_signal_fence_worker_signal(struct drm_crtc *crtc, struct cm
 		return;
 	}
 
-	cb_data_s = kzalloc(sizeof(struct cb_data_store), GFP_ATOMIC);
+	cb_data_s = cb_data->store_cb_data;
 	if (!cb_data_s)
 		DDPMSG("create cb_data_s fail\n");
 	else {
@@ -12301,13 +12301,21 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 
 #ifdef MTK_DRM_CMDQ_ASYNC
 #ifdef MTK_DRM_ASYNC_HANDLE
-	if (cmdq_pkt_flush_async(cmdq_handle,
-		gce_cb, cb_data) < 0)
+	((struct mtk_cmdq_cb_data *)cb_data)->store_cb_data
+		= kzalloc(sizeof(struct cb_data_store), GFP_KERNEL);
+	if (!((struct mtk_cmdq_cb_data *)cb_data)->store_cb_data) {
+		DDPPR_ERR("store_cb_data alloc fail\n");
+		cmdq_pkt_destroy(cmdq_handle);
+		kfree(cb_data);
+		return -EINVAL;
+	}
+
+	if (cmdq_pkt_flush_async(cmdq_handle, gce_cb, cb_data) < 0)
+		DDPPR_ERR("failed to flush gce_cb async\n");
 #else
-	if (cmdq_pkt_flush_threaded(cmdq_handle,
-		gce_cb, cb_data) < 0)
+	if (cmdq_pkt_flush_threaded(cmdq_handle, gce_cb, cb_data) < 0)
+		DDPPR_ERR("failed to flush gce_cb threaded\n");
 #endif
-		DDPPR_ERR("failed to flush gce_cb\n");
 #else
 	cmdq_pkt_flush(cmdq_handle);
 #endif

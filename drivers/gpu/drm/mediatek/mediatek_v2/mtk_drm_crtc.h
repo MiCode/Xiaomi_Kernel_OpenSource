@@ -991,6 +991,7 @@ struct mtk_cmdq_cb_data {
 	unsigned int hrt_idx;
 	struct mtk_lcm_dsi_cmd_packet *ddic_packet;
 	ktime_t signal_ts;
+	struct cb_data_store *store_cb_data;
 };
 #define TIGGER_INTERVAL_S(x) ((unsigned long long)x*1000*1000*1000)
 extern unsigned int disp_spr_bypass;
