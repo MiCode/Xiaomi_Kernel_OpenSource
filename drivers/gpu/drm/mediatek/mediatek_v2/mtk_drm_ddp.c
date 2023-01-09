@@ -2825,9 +2825,7 @@ static const unsigned int mt6985_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 	[DDP_COMPONENT_DP_INTF0] = MT6985_MUTEX_MOD0_DISP_DP_INTF0,
 	[DDP_COMPONENT_DP_INTF1] = MT6985_MUTEX_MOD0_DISP_DP_INTF0,
 		[DDP_COMPONENT_DSC0] = MT6985_MUTEX_MOD0_DISP_DSC0,
-		[DDP_COMPONENT_DSC1] = MT6985_MUTEX_MOD0_DISP_DSC1,
-	[DDP_COMPONENT_DSC2] = MT6985_MUTEX_MOD0_DISP_DSC0,
-	[DDP_COMPONENT_DSC3] = MT6985_MUTEX_MOD0_DISP_DSC1,
+	[DDP_COMPONENT_DSC1] = MT6985_MUTEX_MOD0_DISP_DSC0,
 		[DDP_COMPONENT_DSI0] = MT6985_MUTEX_MOD0_DISP_DSI0,
 	[DDP_COMPONENT_DSI1] = MT6985_MUTEX_MOD0_DISP_DSI0,
 		[DDP_COMPONENT_GAMMA0] = MT6985_MUTEX_MOD0_DISP_GAMMA0,
@@ -3222,9 +3220,7 @@ static const unsigned int mt6985_dispsys_map[DDP_COMPONENT_ID_MAX] = {
 		[DDP_COMPONENT_DLO_ASYNC2] = DISPSYS1,
 		[DDP_COMPONENT_DLO_ASYNC3] = DISPSYS1,
 			[DDP_COMPONENT_DSC0] = DISPSYS0,
-			[DDP_COMPONENT_DSC1] = DISPSYS0,
-		[DDP_COMPONENT_DSC2] = DISPSYS1,
-		[DDP_COMPONENT_DSC3] = DISPSYS1,
+		[DDP_COMPONENT_DSC1] = DISPSYS1,
 			[DDP_COMPONENT_DSI0] = DISPSYS0,
 		[DDP_COMPONENT_DSI1] = DISPSYS1,
 			[DDP_COMPONENT_GAMMA0] = DISPSYS0,
@@ -14472,6 +14468,28 @@ void mtk_ddp_remove_dsc_prim_MT6983(struct mtk_drm_crtc *mtk_crtc,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 }
 
+void mtk_ddp_insert_dsc_ext_MT6985(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle)
+{
+	unsigned int addr, value;
+	void __iomem *side_config_regs = mtk_crtc->side_config_regs;
+
+	//DISPSYS1
+	/* DDP_COMPONENT_PANEL1_COMP_OUT_CB3 -> DISP_PQ_OUT_CROSSBAR3_TO_DSC_0 */
+	addr = MT6985_PANEL_COMP_OUT_CROSSBAR3_MOUT_EN;
+	value = DISP_PQ_OUT_CROSSBAR3_TO_DSC_0;
+	writel_relaxed(value, side_config_regs + addr);
+
+	/* DISP_PQ_OUT_CROSSBAR3_TO_DSC_0 -> DISP_DSC_0_TO_MERGE_OUT_CROSSBAR3 */
+	addr = MT6985_COMP_OUT_CROSSBAR1_MOUT_EN;
+	value = DISP_DSC_0_TO_MERGE_OUT_CROSSBAR3;
+	writel_relaxed(value, side_config_regs + addr);
+
+	addr = MT6985_COMP_OUT_CROSSBAR5_MOUT_EN;
+	value = 0;
+	writel_relaxed(value, side_config_regs + addr);
+}
+
 void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	struct cmdq_pkt *handle)
 {
@@ -14520,6 +14538,11 @@ void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       mtk_crtc->config_regs_pa + addr, value, ~0);
 
+}
+
+void mtk_ddp_remove_dsc_ext_MT6985(struct mtk_drm_crtc *mtk_crtc,
+	struct cmdq_pkt *handle)
+{
 }
 
 void mtk_ddp_remove_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,

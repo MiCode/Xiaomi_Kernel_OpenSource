@@ -5909,7 +5909,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 			|| private->data->fourth_path_data_discrete) {
 			DDPMSG("CRTC3 Path\n");
 			if (of_property_read_bool(private->mmsys_dev->of_node,
-				"enable_secondary_path"))
+				"enable-secondary-path"))
 				ret = mtk_drm_crtc_create(drm,
 					private->data->fourth_path_data_secondary);
 			if (ret < 0)
