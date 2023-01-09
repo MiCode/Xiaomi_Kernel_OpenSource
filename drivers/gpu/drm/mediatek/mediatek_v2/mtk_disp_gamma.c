@@ -779,6 +779,8 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 			mtk_crtc_user_cmd(crtc, default_comp,
 				SET_GAMMAGAIN, (void *)&g_sb_param);
 		}
+		DDPINFO("[aal_kernel]ELVSSPN = %d, flag = %d",
+			ess20_spect_param->ELVSSPN, ess20_spect_param->flag);
 		mtk_leds_brightness_set("lcd-backlight", bl, ess20_spect_param->ELVSSPN,
 					ess20_spect_param->flag);
 
@@ -789,11 +791,12 @@ void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 		DDPINFO("%s : gain = %d, backlight = %d",
 			__func__, g_sb_param.gain[gain_r], bl);
 	} else {
-		if ((g_sb_param.bl != bl) || (ess20_spect_param->flag & SET_ELVSS_PN)) {
+		if ((g_sb_param.bl != bl) || (ess20_spect_param->flag & (1 << SET_ELVSS_PN))) {
 			g_sb_param.bl = bl;
 			mtk_leds_brightness_set("lcd-backlight", bl, ess20_spect_param->ELVSSPN,
 						ess20_spect_param->flag);
-			DDPINFO("%s : backlight = %d", __func__, bl);
+			DDPINFO("%s : backlight = %d, flag = %d, elvss = %d", __func__, bl,
+				ess20_spect_param->flag, ess20_spect_param->ELVSSPN);
 		}
 	}
 }
