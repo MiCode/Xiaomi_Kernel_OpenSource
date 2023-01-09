@@ -230,6 +230,7 @@ enum dvfsrc_regs {
 	DVFSRC_INT_CLR,
 	DVFSRC_DEFAULT_OPP_2,
 	DVFSRC_DEFAULT_OPP_1,
+	DVFSRC_HALT_CONTROL,
 };
 
 static const int mt8183_regs[] = {
@@ -274,6 +275,7 @@ static const int mt6983_regs[] = {
 	[DVFSRC_INT_CLR] =		0xD0,
 	[DVFSRC_DEFAULT_OPP_2] =	0x230,
 	[DVFSRC_DEFAULT_OPP_1] =	0x22C,
+	[DVFSRC_HALT_CONTROL]  =        0xC4,
 };
 
 static const struct dvfsrc_opp *get_current_opp(struct mtk_dvfsrc *dvfsrc)
@@ -586,26 +588,22 @@ static void mt6985_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 	spin_lock_irqsave(&dvfsrc->force_lock, flags);
 	if (level > dvfsrc->curr_opps->num_opp - 1) {
 		if (dvfsrc->opp_forced) {
-			dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 1, 0x1, 14);
+			dvfsrc_rmw(dvfsrc, DVFSRC_HALT_CONTROL, 1, 0x1, 1);
+			udelay(STARTUP_TIME);
+			dvfsrc_wait_for_idle(dvfsrc);
 			dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_2, 1);
 			dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_1, 0);
 			dvfsrc_write(dvfsrc, DVFSRC_SW_REQ2, 0x0);
-			dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 0, 0x1, 14);
+			dvfsrc_rmw(dvfsrc, DVFSRC_HALT_CONTROL, 0, 0x1, 1);
 			dvfsrc->opp_forced = false;
 		}
 		goto out;
 	}
-
-	if (!dvfsrc->opp_forced) {
-		dvfsrc_write(dvfsrc, DVFSRC_SW_REQ2, 0xFFFFFFFF);
-		udelay(STARTUP_TIME);
-		dvfsrc_wait_for_idle(dvfsrc);
-		udelay(STARTUP_TIME);
-		dvfsrc_wait_for_idle(dvfsrc);
-	}
-
 	dvfsrc->opp_forced = true;
-	dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 1, 0x1, 14);
+	dvfsrc_rmw(dvfsrc, DVFSRC_HALT_CONTROL, 1, 0x1, 1);
+	udelay(STARTUP_TIME);
+	dvfsrc_wait_for_idle(dvfsrc);
+	dvfsrc_write(dvfsrc, DVFSRC_SW_REQ2, 0xFFFFFFFF);
 	if (level >= 32) {
 		dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_1, 1 << (level - 32));
 		dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_2, 0);
@@ -613,7 +611,7 @@ static void mt6985_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 		dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_2, 1 << level);
 		dvfsrc_write(dvfsrc, DVFSRC_DEFAULT_OPP_1, 0);
 	}
-	dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 0, 0x1, 14);
+	dvfsrc_rmw(dvfsrc, DVFSRC_HALT_CONTROL, 0, 0x1, 1);
 	ret = readl_poll_timeout_atomic(
 			dvfsrc->regs + dvfsrc->dvd->regs[DVFSRC_LEVEL],
 			val, (val & 0x3f) == level, STARTUP_TIME, POLL_TIMEOUT);
