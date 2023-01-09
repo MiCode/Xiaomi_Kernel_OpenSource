@@ -1969,6 +1969,10 @@ void pd_dpm_inform_alert(struct pd_port *pd_port)
 	uint32_t *data = pd_get_msg_data_payload(pd_port);
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
+	if (data == NULL) {
+		PD_ERR("%s data is NULL\n", __func__);
+		return;
+	}
 	DPM_INFO("inform_alert:0x%08x\n", data[0]);
 
 	pd_port->pe_data.pd_traffic_idle = false;
