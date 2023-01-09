@@ -2637,13 +2637,13 @@ static int vcp_device_probe(struct platform_device *pdev)
 		vcp_mbox_info[i].mbdev = &vcp_mboxdev;
 		ret = mtk_mbox_probe(pdev, vcp_mbox_info[i].mbdev, i);
 		if (ret < 0 || vcp_mboxdev.info_table[i].irq_num < 0) {
-			pr_notice("[VCP] mbox%d probe fail\n", i, ret);
+			pr_notice("[VCP] mbox%d probe fail %d\n", i, ret);
 			continue;
 		}
 
 		ret = enable_irq_wake(vcp_mboxdev.info_table[i].irq_num);
 		if (ret < 0) {
-			pr_notice("[VCP]mbox%d enable irq fail\n", i, ret);
+			pr_notice("[VCP]mbox%d enable irq fail %d\n", i, ret);
 			continue;
 		}
 		mbox_setup_pin_table(i);
