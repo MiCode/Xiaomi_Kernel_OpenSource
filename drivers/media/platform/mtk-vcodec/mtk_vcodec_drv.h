@@ -657,6 +657,7 @@ struct mtk_vcodec_ctx {
 	struct mutex q_mutex;
 	int use_slbc;
 	unsigned int slbc_addr;
+	int sysram_enable;
 #if ENABLE_FENCE
 	struct sync_timeline *p_timeline_obj;
 #endif

@@ -468,6 +468,7 @@ struct venc_vcu_config {
 	__u32 temporal_layer_bcount;
 	__u32 max_ltr_num;
 	__u32 slice_header_spacing;
+	__u32 sysram_enable;
 	__u32 reserved;
 	struct mtk_color_desc color_desc;
 	struct mtk_venc_multi_ref multi_ref;

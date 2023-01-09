@@ -423,6 +423,7 @@ int vcp_enc_ipi_handler(void *arg)
 	struct venc_vcu_ipi_msg_common *msg = NULL;
 	struct venc_inst *inst = NULL;
 	struct venc_vcu_inst *vcu;
+	struct venc_vsi *vsi = NULL;
 	struct mtk_vcodec_ctx *ctx;
 	int ret = 0;
 	struct mtk_vcodec_msg_node *mq_node;
@@ -530,6 +531,7 @@ int vcp_enc_ipi_handler(void *arg)
 
 		ctx = vcu->ctx;
 		msg->ctx_id = ctx->id;
+		vsi = (struct venc_vsi *)vcu->vsi;
 		switch (msg->msg_id) {
 		case VCU_IPIMSG_ENC_INIT_DONE:
 			handle_enc_init_msg(vcu, (void *)obj->share_buf);
@@ -589,11 +591,13 @@ int vcp_enc_ipi_handler(void *arg)
 			venc_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 			break;
 		case VCU_IPIMSG_ENC_POWER_ON:
+			ctx->sysram_enable = vsi->config.sysram_enable;
 			venc_encode_prepare(ctx, msg->status, &flags);
 			msg->msg_id = AP_IPIMSG_ENC_POWER_ON_DONE;
 			venc_vcp_ipi_send(inst, msg, sizeof(*msg), 1);
 			break;
 		case VCU_IPIMSG_ENC_POWER_OFF:
+			ctx->sysram_enable = vsi->config.sysram_enable;
 			venc_encode_unprepare(ctx, msg->status, &flags);
 			msg->msg_id = AP_IPIMSG_ENC_POWER_OFF_DONE;
 			venc_vcp_ipi_send(inst, msg, sizeof(*msg), 1);

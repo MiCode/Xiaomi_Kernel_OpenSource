@@ -288,7 +288,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	dev->enc_is_power_on[core_id] = true;
 	spin_unlock_irqrestore(&dev->enc_power_lock[core_id], flags);
 
-	if (ctx->use_slbc == 1) {
+	if (ctx->sysram_enable == 1) {
 		time_check_start(MTK_FMT_ENC, core_id);
 		ret = slbc_power_on(&ctx->sram_data);
 		time_check_end(MTK_FMT_ENC, core_id, 50);
@@ -307,7 +307,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	}
 
 	//enable slbc port configs
-	if (pm->larbvencs[core_id] && ctx->use_slbc == 1) {
+	if (pm->larbvencs[core_id] && ctx->sysram_enable == 1) {
 		for (i = 0; i < larb_port_num; i++) {
 			if (dev->venc_ports[core_id].ram_type[i] == 1) {
 				ret = smi_sysram_enable(pm->larbvencs[core_id],
@@ -482,7 +482,7 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 	if (core_id == MTK_VENC_CORE_0)
 		mtk_venc_hw_break(dev);
 
-	if (ctx->use_slbc == 1)
+	if (ctx->sysram_enable == 1)
 		slbc_power_off(&ctx->sram_data);
 
 #ifndef FPGA_PWRCLK_API_DISABLE

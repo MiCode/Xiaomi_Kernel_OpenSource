@@ -142,6 +142,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)priv;
 	struct venc_vcu_ipi_msg_common *msg = data;
 	struct venc_vcu_inst *vcu;
+	struct venc_vsi *vsi = NULL;
 	struct venc_inst *inst = NULL;
 	struct mtk_vcodec_ctx *ctx;
 	int ret = 0;
@@ -209,6 +210,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		return -EINVAL;
 
 	ctx = vcu->ctx;
+	vsi = (struct venc_vsi *)vcu->vsi;
 	switch (msg->msg_id) {
 	case VCU_IPIMSG_ENC_INIT_DONE:
 		handle_enc_init_msg(vcu, data);
@@ -223,12 +225,14 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		break;
 	case VCU_IPIMSG_ENC_POWER_ON:
 		/*use status to store core ID*/
+		ctx->sysram_enable = vsi->config.sysram_enable;
 		venc_encode_prepare(ctx, msg->status, &flags);
 		msg->status = VENC_IPI_MSG_STATUS_OK;
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_POWER_OFF:
 		/*use status to store core ID*/
+		ctx->sysram_enable = vsi->config.sysram_enable;
 		venc_encode_unprepare(ctx, msg->status, &flags);
 		msg->status = VENC_IPI_MSG_STATUS_OK;
 		ret = 1;
