@@ -4,6 +4,7 @@
  */
 
 #include "ged_base.h"
+#include "ged_global.h"
 #include <asm/page.h>
 #include <linux/version.h>
 #include <linux/vmalloc.h>
@@ -81,3 +82,8 @@ unsigned long long ged_get_time(void)
 	return temp;
 }
 
+unsigned int ged_get_segment_id(void)
+{
+	return g_ged_segment_id;
+}
+EXPORT_SYMBOL(ged_get_segment_id);

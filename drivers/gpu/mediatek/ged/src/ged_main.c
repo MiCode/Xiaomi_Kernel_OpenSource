@@ -27,6 +27,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/nvmem-consumer.h>
 
 #ifdef GED_DEBUG_FS
 #include "ged_debugFS.h"
@@ -43,6 +44,7 @@
 #include "ged_gpu_tuner.h"
 #include "ged_eb.h"
 #include "ged_global.h"
+#include "ged_type.h"
 #include "ged_dcs.h"
 #include "mtk_drm_arr.h"
 #if defined(CONFIG_MTK_GPUFREQ_V2)
@@ -136,6 +138,8 @@ unsigned int g_fastdvfs_mode;
 unsigned int g_fastdvfs_margin;
 #define GED_TARGET_UNLIMITED_FPS 240
 unsigned int vGed_Tmp;
+unsigned int g_ged_segment_id;
+unsigned int g_ged_efuse_id;
 
 /******************************************************************************
  * GED File operations
@@ -486,6 +490,52 @@ GED_ERROR check_eb_config(void)
 /******************************************************************************
  * Module related
  *****************************************************************************/
+static int ged_segment_id_init(struct platform_device *pdev)
+{
+	int ret = GED_OK;
+
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+
+	efuse_cell = nvmem_cell_get(&pdev->dev, "mt6985_efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		GED_LOGE("fail to get mt6985_efuse_segment_cell (%ld)", PTR_ERR(efuse_cell));
+		//ret = PTR_ERR(efuse_cell);
+		g_ged_segment_id = NO_SEGMENT;
+		goto done;
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		GED_LOGE("fail to get efuse_buf (%ld)", PTR_ERR(efuse_buf));
+		ret = PTR_ERR(efuse_buf);
+		goto done;
+	}
+
+	g_ged_efuse_id = (*efuse_buf & 0xFF);
+	kfree(efuse_buf);
+
+	switch (g_ged_efuse_id) {
+	case 0x1:
+		g_ged_segment_id = MT6985W_CZA_SEGMENT;
+		break;
+	case 0x3:
+		g_ged_segment_id = MT6985W_TCZA_SEGMENT;
+		break;
+	default:
+		g_ged_segment_id = MT6985W_CZA_SEGMENT;
+		break;
+	}
+
+done:
+	GED_LOGI("efuse_id: 0x%x, segment_id: %d", g_ged_efuse_id, g_ged_segment_id);
+
+	return ret;
+}
+
+
 /*
  * ged driver probe
  */
@@ -552,6 +602,12 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 		goto ERROR;
 	}
 #endif
+
+	err = ged_segment_id_init(pdev);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to init segment id!\n");
+		goto ERROR;
+	}
 
 	err = ged_gpufreq_init();
 	if (unlikely(err != GED_OK)) {
