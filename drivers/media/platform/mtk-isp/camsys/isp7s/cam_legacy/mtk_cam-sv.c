@@ -2464,6 +2464,7 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 		camsv_dev->tg_cnt = tg_cnt + BIT(8);
 	else
 		camsv_dev->tg_cnt = tg_cnt;
+	irq_info.tg_cnt = camsv_dev->tg_cnt;
 	camsv_dev->sof_timestamp = ktime_get_boottime_ns();
 	irq_flag = irq_info.irq_type;
 	if (irq_flag && push_msgfifo(camsv_dev, &irq_info) == 0)

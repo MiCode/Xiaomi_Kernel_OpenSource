@@ -2785,6 +2785,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		else
 			raw_dev->tg_count = tg_cnt;
 		raw_dev->last_sof_time_ns = irq_info.ts_ns;
+		irq_info.tg_cnt = raw_dev->tg_count;
 		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 16;
 	}

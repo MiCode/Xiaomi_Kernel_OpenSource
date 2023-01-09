@@ -55,6 +55,7 @@ struct mtk_camsys_irq_info {
 	unsigned int sof_tags;
 	unsigned int done_groups;
 	unsigned int err_tags;
+	int tg_cnt;
 	union {
 		struct mtk_camsys_irq_normal_data	n;
 		struct mtk_camsys_irq_error_data	e;
