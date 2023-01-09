@@ -41,6 +41,7 @@
 #include "mtk_dp_debug.h"
 #include "mtk_drm_arr.h"
 #include "mtk_drm_graphics_base.h"
+#include "mtk_dsi.h"
 
 #define DISP_REG_CONFIG_MMSYS_CG_SET(idx) (0x104 + 0x10 * (idx))
 #define DISP_REG_CONFIG_MMSYS_CG_CLR(idx) (0x108 + 0x10 * (idx))
@@ -449,6 +450,84 @@ int mtkfb_set_backlight_level(unsigned int level, unsigned int panel_ext_param,
 	return __mtkfb_set_backlight_level(level, panel_ext_param, cfg_flag, false);
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
+
+int mtk_drm_set_conn_backlight_level(unsigned int conn_id, unsigned int level)
+{
+	struct drm_crtc *crtc;
+	struct drm_connector *conn;
+	struct mtk_drm_private *priv;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_dsi *mtk_dsi;
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(drm_dev)) {
+		DDPPR_ERR("%s, invalid drm dev\n", __func__);
+		return -EINVAL;
+	}
+
+	priv = drm_dev->dev_private;
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPPR_ERR("%s, invalid priv\n", __func__);
+		return -EINVAL;
+	}
+
+	/* connector obj ref count add 1 after lookup */
+	conn = drm_connector_lookup(drm_dev, NULL, conn_id);
+	if (IS_ERR_OR_NULL(conn)) {
+		DDPPR_ERR("%s, invalid conn_id %u\n", __func__, conn_id);
+		return -EINVAL;
+	}
+
+	mtk_dsi = container_of(conn, struct mtk_dsi, conn);
+
+	mutex_lock(&priv->commit.lock);
+	mtk_crtc = mtk_dsi->ddp_comp.mtk_crtc;
+	crtc = (mtk_crtc) ? &mtk_crtc->base : NULL;
+
+	if (IS_ERR_OR_NULL(crtc)) {
+		DDPPR_ERR("%s, invalid crtc\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	ret = mtk_drm_setbacklight(crtc, level, 0, 0);
+out:
+	drm_connector_put(conn);
+	mutex_unlock(&priv->commit.lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(mtk_drm_set_conn_backlight_level);
+
+int mtk_drm_get_conn_obj_id_from_idx(unsigned int disp_idx, int flag)
+{
+	struct drm_encoder *encoder;
+	unsigned int i = 0;
+	int conn_obj_id = 0;
+
+	if (IS_ERR_OR_NULL(drm_dev)) {
+		DDPPR_ERR("%s, invalid drm dev\n", __func__);
+		return -EINVAL;
+	}
+
+	drm_for_each_encoder(encoder, drm_dev) {
+		struct mtk_dsi *mtk_dsi;
+
+		if (encoder->encoder_type != DRM_MODE_ENCODER_DSI)
+			continue;
+
+		mtk_dsi = container_of(encoder, struct mtk_dsi, encoder);
+
+		/* there's not strong binding to disp_idx and DSI connector_obj_id */
+		if (mtk_dsi && disp_idx == i)
+			conn_obj_id = mtk_dsi->conn.base.id;
+
+		++i;
+	}
+
+	return conn_obj_id;
+}
+EXPORT_SYMBOL(mtk_drm_get_conn_obj_id_from_idx);
 
 int mtkfb_set_aod_backlight_level(unsigned int level)
 {
@@ -2679,6 +2758,19 @@ static void process_dbg_opt(const char *opt)
 
 		__mtkfb_set_backlight_level(level, 0,
 				(0x1 << SET_BACKLIGHT_LEVEL) | (0x1 << SET_ELVSS_PN), false);
+	} else if (strncmp(opt, "conn_backlight:", 15) == 0) {
+		unsigned int level;
+		unsigned int conn_id;
+		int ret;
+
+		ret = sscanf(opt, "conn_backlight:%u,%u\n", &conn_id, &level);
+		if (ret != 2) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+				__LINE__, opt);
+			return;
+		}
+
+		mtk_drm_set_conn_backlight_level(conn_id, level);
 	} else if (strncmp(opt, "elvss:", 6) == 0) {
 		unsigned int level;
 		int ret;
@@ -3838,6 +3930,18 @@ static void process_dbg_opt(const char *opt)
 	} else if (strncmp(opt, "clear_errdump", 13) == 0) {
 		memset(err_buffer[0], 0, ERROR_BUFFER_COUNT * LOGGER_BUFFER_SIZE);
 		memset(dump_buffer[0], 0, DUMP_BUFFER_COUNT * LOGGER_BUFFER_SIZE);
+	} else if (strncmp(opt, "conn_obj_id", 11) == 0) {
+		unsigned int value;
+		int ret;
+
+		ret = sscanf(opt, "conn_obj_id:%u\n", &value);
+		if (ret != 1) {
+			DDPPR_ERR("conn_obj_id scan fail, ret=%d\n", ret);
+			return;
+		}
+
+		ret = mtk_drm_get_conn_obj_id_from_idx(value, 0);
+		DDPINFO("disp_idx %u, conn_obj_id %d\n", value, ret);
 	}
 
 
