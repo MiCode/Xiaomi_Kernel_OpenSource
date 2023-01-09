@@ -565,6 +565,11 @@ static ssize_t max_speed_store(struct device *dev,
 
 	dev_info(dev, "store speed %s\n", buf);
 
+	if (!mtu->is_u3_ip && (speed > USB_SPEED_HIGH)) {
+		dev_info(dev, "not u3 ip, set max_speed to high speed\n");
+		speed = USB_SPEED_HIGH;
+	}
+
 	mtu->max_speed = speed;
 	mtu->g.max_speed = speed;
 

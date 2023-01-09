@@ -917,6 +917,10 @@ static int mtu3_hw_init(struct mtu3 *mtu)
 
 	value = mtu3_readl(mtu->ippc_base, U3D_SSUSB_IP_DEV_CAP);
 	mtu->is_u3_ip = !!SSUSB_IP_DEV_U3_PORT_NUM(value);
+	if (mtu->ssusb->u2_ip) {
+		dev_info(mtu->dev, "set as u2 ip\n");
+		mtu->is_u3_ip = false;
+	}
 
 	dev_info(mtu->dev, "IP version 0x%x(%s IP)\n", mtu->hw_version,
 		mtu->is_u3_ip ? "U3" : "U2");

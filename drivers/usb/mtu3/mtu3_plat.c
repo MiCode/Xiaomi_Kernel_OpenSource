@@ -656,6 +656,7 @@ get_phy:
 		of_property_read_bool(node, "mediatek,noise-still-tr");
 	ssusb->gen1_txdeemph =
 		of_property_read_bool(node, "mediatek,gen1-txdeemph");
+	ssusb->u2_ip = of_property_read_bool(node, "mediatek,u2-ip");
 	if (of_property_read_u32(node, "mediatek,hwrscs-vers",
 			     &ssusb->hwrscs_vers)) {
 		/* compatible to devie tree setting */
