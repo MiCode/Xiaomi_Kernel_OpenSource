@@ -477,6 +477,11 @@ void mtk_tick_entry(void *data, struct rq *rq)
 	ts[2] = sched_clock();
 #endif
 	opp_ceiling = ioread32(base + offset);
+	if ((opp_ceiling < 0) || (opp_ceiling > pd->nr_perf_states - 1)) {
+		pr_info("ERROR: invalid value from thermal, cpu = %d, opp_ceiling = %d, nr_perf_states = %d\n",
+			this_cpu, opp_ceiling, pd->nr_perf_states);
+		WARN_ON(1);
+	}
 	opp_idx = pd->nr_perf_states - opp_ceiling - 1;
 	freq_thermal = pd->table[opp_idx].frequency;
 
