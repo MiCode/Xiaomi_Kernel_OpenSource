@@ -2447,6 +2447,9 @@ static signed int fdvt_dump_reg(void)
 		(unsigned int)FDVT_RD32(FDVT_RESULT_0_REG));
 	log_inf("[0x%08X %08X]\n", (unsigned int)(FDVT_RESULT_1_HW),
 		(unsigned int)FDVT_RD32(FDVT_RESULT_1_REG));
+	log_inf("[0x%08X %08X]\n", (unsigned long long)(FDVT_DMA_CTL_REG),
+		(unsigned int)FDVT_RD32(FDVT_DMA_CTL_REG));
+
 #if CHECK_SERVICE_IF_0
 	log_inf("FDVT:hw_process_idx:%d, write_idx:%d, read_idx:%d\n",
 		*hw_process_idx,
