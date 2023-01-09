@@ -3028,10 +3028,16 @@ static int cgroup_update_dfl_csses(struct cgroup *cgrp)
 	struct cgroup_subsys_state *d_css;
 	struct cgroup *dsct;
 	struct css_set *src_cset;
+#if !IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
 	bool has_tasks;
+#endif
 	int ret;
 
 	lockdep_assert_held(&cgroup_mutex);
+
+#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
+	percpu_down_write(&cgroup_threadgroup_rwsem);
+#endif
 
 	/* look up all csses currently attached to @cgrp's subtree */
 	spin_lock_irq(&css_set_lock);
@@ -3043,6 +3049,7 @@ static int cgroup_update_dfl_csses(struct cgroup *cgrp)
 	}
 	spin_unlock_irq(&css_set_lock);
 
+#if !IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
 	/*
 	 * We need to write-lock threadgroup_rwsem while migrating tasks.
 	 * However, if there are no source csets for @cgrp, changing its
@@ -3050,10 +3057,6 @@ static int cgroup_update_dfl_csses(struct cgroup *cgrp)
 	 * write-locking can be skipped safely.
 	 */
 	has_tasks = !list_empty(&mgctx.preloaded_src_csets);
-#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
-	if (has_tasks)
-		percpu_down_write(&cgroup_threadgroup_rwsem);
-#else
 	cgroup_attach_lock(has_tasks);
 #endif
 
@@ -3077,8 +3080,7 @@ static int cgroup_update_dfl_csses(struct cgroup *cgrp)
 out_finish:
 	cgroup_migrate_finish(&mgctx);
 #if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
-	if (has_tasks)
-		percpu_up_write(&cgroup_threadgroup_rwsem);
+	percpu_up_write(&cgroup_threadgroup_rwsem);
 #else
 	cgroup_attach_unlock(has_tasks);
 #endif
