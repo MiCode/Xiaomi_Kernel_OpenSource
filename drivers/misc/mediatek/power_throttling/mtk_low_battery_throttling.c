@@ -19,6 +19,16 @@
 #define POWER_INT2_VOLT 3100
 #define POWER_INT3_VOLT 2700
 
+static int isThreeLevel;
+
+struct lbat_intr_tbl {
+	unsigned int volt_thd;
+	unsigned int lt_en;
+	unsigned int lt_lv;
+	unsigned int ht_en;
+	unsigned int ht_lv;
+};
+
 struct low_bat_thl_priv {
 	unsigned int hv_thd_volt;
 	unsigned int lv1_thd_volt;
@@ -26,9 +36,67 @@ struct low_bat_thl_priv {
 	unsigned int *thd_volts;
 	int thd_volts_size;
 	int low_bat_thl_level;
+	int low_bat_thl_pmic_lv;
 	int low_bat_thl_stop;
 	struct lbat_user *lbat_pt;
+	struct lbat_intr_tbl *lbat_intr_info;
 };
+
+static unsigned int *volt_l_thd, *volt_h_thd;
+
+static int rearrange_volt(struct lbat_intr_tbl *intr_info, unsigned int *volt_l,
+	unsigned int *volt_h, unsigned int num)
+{
+
+	unsigned int idx_l = 0, idx_h = 0, idx_t = 0, i;
+	unsigned int volt_l_next, volt_h_next;
+
+	for (i = 0; i < num - 1; i++) {
+		if (volt_l[i] < volt_l[i+1] || volt_h[i] < volt_h[i+1]) {
+			pr_notice("[%s] i=%d volt_l(%d, %d) volt_h(%d, %d) error\n",
+				__func__, volt_l[i], volt_l[i+1], volt_h[i], volt_h[i+1]);
+			return -EINVAL;
+		}
+	}
+
+	for (i = 0; i < num * 2; i++) {
+		volt_l_next = (idx_l < num) ? volt_l[idx_l] : 0;
+		volt_h_next = (idx_h < num) ? volt_h[idx_h] : 0;
+
+		if (volt_l_next > volt_h_next && volt_l_next > 0) {
+			intr_info[idx_t].volt_thd = volt_l_next;
+			intr_info[idx_t].lt_en = 1;
+			intr_info[idx_t].lt_lv = idx_l + 1;
+			idx_l++;
+			idx_t++;
+		} else if (volt_l_next == volt_h_next && volt_l_next > 0) {
+			intr_info[idx_t].volt_thd = volt_l_next;
+			intr_info[idx_t].lt_en = 1;
+			intr_info[idx_t].lt_lv = idx_l + 1;
+			intr_info[idx_t].ht_en = 1;
+			intr_info[idx_t].ht_lv = idx_h;
+			idx_l++;
+			idx_h++;
+			idx_t++;
+		} else if (volt_h_next > 0) {
+			intr_info[idx_t].volt_thd = volt_h_next;
+			intr_info[idx_t].ht_en = 1;
+			intr_info[idx_t].ht_lv = idx_h;
+			idx_h++;
+			idx_t++;
+		} else
+			break;
+
+	}
+
+	for (i = 0; i < idx_t; i++) {
+		pr_info("[%s] intr_info[%d] = (%d, trig l[%d %d] h[%d %d])\n",
+				__func__, i, intr_info[i].volt_thd, intr_info[i].lt_en,
+				intr_info[i].lt_lv, intr_info[i].ht_en, intr_info[i].ht_lv);
+	}
+
+	return idx_t;
+}
 
 static struct low_bat_thl_priv *low_bat_thl_data;
 
@@ -42,20 +110,32 @@ static struct low_battery_callback_table lbcb_tb[LBCB_MAX_NUM] = { {0} };
 int register_low_battery_notify(low_battery_callback lb_cb,
 				enum LOW_BATTERY_PRIO_TAG prio_val)
 {
+	int ret = 2;
+
+	if (isThreeLevel)
+		ret = 3;
+
 	if (prio_val >= LBCB_MAX_NUM) {
 		pr_notice("[%s] prio_val=%d, out of boundary\n",
 			  __func__, prio_val);
 		return -EINVAL;
 	}
 	lbcb_tb[prio_val].lbcb = lb_cb;
+
+	if (low_bat_thl_data->low_bat_thl_level && lbcb_tb[prio_val].lbcb) {
+		lbcb_tb[prio_val].lbcb(low_bat_thl_data->low_bat_thl_level);
+		pr_info("[%s] notify lv=%d\n", __func__, low_bat_thl_data->low_bat_thl_level);
+	}
+
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(register_low_battery_notify);
 
 void exec_low_battery_callback(unsigned int thd)
 {
-	int i = 0;
+	int i = 0, cur_lv = 0;
+	struct lbat_intr_tbl *info;
 
 	if (!low_bat_thl_data)
 		return;
@@ -65,9 +145,16 @@ void exec_low_battery_callback(unsigned int thd)
 		return;
 	}
 	if (low_bat_thl_data->thd_volts_size > 0) {
+		cur_lv = low_bat_thl_data->low_bat_thl_level;
 		for (i = 0; i < low_bat_thl_data->thd_volts_size; i++) {
 			if (thd == low_bat_thl_data->thd_volts[i]) {
-				low_bat_thl_data->low_bat_thl_level = i;
+				low_bat_thl_data->low_bat_thl_pmic_lv = i;
+				info = &(low_bat_thl_data->lbat_intr_info[i]);
+				if (info->ht_en == 1 && cur_lv > info->ht_lv)
+					low_bat_thl_data->low_bat_thl_level = info->ht_lv;
+				else if (info->lt_en == 1 && cur_lv < info->lt_lv)
+					low_bat_thl_data->low_bat_thl_level = info->lt_lv;
+
 				break;
 			}
 		}
@@ -75,6 +162,18 @@ void exec_low_battery_callback(unsigned int thd)
 			pr_notice("[%s] wrong threshold=%d\n", __func__, thd);
 			return;
 		}
+
+		if (cur_lv == low_bat_thl_data->low_bat_thl_level)
+			return;
+
+		for (i = 0; i < ARRAY_SIZE(lbcb_tb); i++) {
+			if (lbcb_tb[i].lbcb)
+				lbcb_tb[i].lbcb(low_bat_thl_data->low_bat_thl_level);
+		}
+
+		pr_info("[%s] thd=%d cl=%d pl=%d, ht[%d %d] lt[%d %d] new_l=%d\n",
+			__func__, thd, cur_lv, i, info->ht_en, info->ht_lv,
+			info->lt_en, info->lt_lv, low_bat_thl_data->low_bat_thl_level);
 	} else {
 		if (thd == low_bat_thl_data->hv_thd_volt)
 			low_bat_thl_data->low_bat_thl_level = LOW_BATTERY_LEVEL_0;
@@ -86,11 +185,12 @@ void exec_low_battery_callback(unsigned int thd)
 			pr_notice("[%s] wrong threshold=%d\n", __func__, thd);
 			return;
 		}
-	}
 
-	for (i = 0; i < ARRAY_SIZE(lbcb_tb); i++) {
-		if (lbcb_tb[i].lbcb)
-			lbcb_tb[i].lbcb(low_bat_thl_data->low_bat_thl_level);
+		for (i = 0; i < ARRAY_SIZE(lbcb_tb); i++) {
+			if (lbcb_tb[i].lbcb)
+				lbcb_tb[i].lbcb(low_bat_thl_data->low_bat_thl_level);
+		}
+
 	}
 	pr_info("[%s] low_battery_level=%d\n", __func__,
 		low_bat_thl_data->low_bat_thl_level);
@@ -124,17 +224,20 @@ static ssize_t low_battery_protect_ut_store(
 	if (strncmp(cmd, "Utest", 5))
 		return -EINVAL;
 
-	if (val <= LOW_BATTERY_LEVEL_NUM) {
-		if (low_bat_thl_data->thd_volts_size > 0)
+	if (low_bat_thl_data->thd_volts_size > 0) {
+		if (val < low_bat_thl_data->thd_volts_size) {
 			thd = low_bat_thl_data->thd_volts[val];
-		else {
-			if (val == LOW_BATTERY_LEVEL_0)
-				thd = low_bat_thl_data->hv_thd_volt;
-			else if (val == LOW_BATTERY_LEVEL_1)
-				thd = low_bat_thl_data->lv1_thd_volt;
-			else if (val == LOW_BATTERY_LEVEL_2)
-				thd = low_bat_thl_data->lv2_thd_volt;
-		}
+			exec_low_battery_callback(thd);
+			dev_info(dev, "your input is %d(%d)\n", val, thd);
+		} else
+			dev_info(dev, "wrong number (%d)\n", val);
+	} else if (val <= LOW_BATTERY_LEVEL_NUM) {
+		if (val == LOW_BATTERY_LEVEL_0)
+			thd = low_bat_thl_data->hv_thd_volt;
+		else if (val == LOW_BATTERY_LEVEL_1)
+			thd = low_bat_thl_data->lv1_thd_volt;
+		else if (val == LOW_BATTERY_LEVEL_2)
+			thd = low_bat_thl_data->lv2_thd_volt;
 		exec_low_battery_callback(thd);
 		dev_info(dev, "your input is %d(%d)\n", val, thd);
 	} else {
@@ -221,9 +324,10 @@ static void dump_thd_volts(struct device *dev, unsigned int *thd_volts, unsigned
 
 static int low_battery_throttling_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret, i;
 	struct low_bat_thl_priv *priv;
 	struct device_node *np = pdev->dev.of_node;
+	int vol_l_size, vol_h_size, vol_t_size;
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -231,14 +335,45 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 	low_bat_thl_data = priv;
 	dev_set_drvdata(&pdev->dev, priv);
 
-	priv->thd_volts_size = of_property_count_elems_of_size(np, "thd-volts", sizeof(u32));
+	vol_l_size = of_property_count_elems_of_size(np, "thd-volts-l", sizeof(u32));
+	vol_h_size = of_property_count_elems_of_size(np, "thd-volts-h", sizeof(u32));
+	if (vol_l_size > 0 && vol_h_size > 0)
+		priv->thd_volts_size = vol_l_size + vol_h_size;
+
 	if (priv->thd_volts_size > 0) {
-		priv->thd_volts = devm_kmalloc_array(&pdev->dev, priv->thd_volts_size,
-						     sizeof(u32), GFP_KERNEL);
-		if (!priv->thd_volts)
+		isThreeLevel = 1;
+		priv->lbat_intr_info = devm_kmalloc_array(&pdev->dev, priv->thd_volts_size,
+			sizeof(struct lbat_intr_tbl), GFP_KERNEL);
+
+		if (!priv->lbat_intr_info)
 			return -ENOMEM;
-		ret = of_property_read_u32_array(np, "thd-volts", priv->thd_volts,
-						 priv->thd_volts_size);
+
+		volt_l_thd = devm_kmalloc_array(&pdev->dev, priv->thd_volts_size,
+						     sizeof(u32), GFP_KERNEL);
+		volt_h_thd = devm_kmalloc_array(&pdev->dev, priv->thd_volts_size,
+						     sizeof(u32), GFP_KERNEL);
+
+		ret = of_property_read_u32_array(np, "thd-volts-l", volt_l_thd,
+						 vol_l_size);
+		ret |= of_property_read_u32_array(np, "thd-volts-h", volt_h_thd,
+						 vol_h_size);
+
+		if (vol_l_size != vol_h_size)
+			ret = -1;
+		else {
+			vol_t_size = rearrange_volt(priv->lbat_intr_info,
+				volt_l_thd, volt_h_thd, vol_l_size);
+			priv->thd_volts_size = vol_t_size;
+
+			priv->thd_volts = devm_kmalloc_array(&pdev->dev, priv->thd_volts_size,
+						sizeof(u32), GFP_KERNEL);
+			if (!priv->thd_volts)
+				return -ENOMEM;
+
+			for (i = 0; i < vol_t_size; i++)
+				priv->thd_volts[i] = priv->lbat_intr_info[i].volt_thd;
+		}
+
 		if (ret) {
 			priv->thd_volts_size = LOW_BATTERY_LEVEL_NUM;
 			priv->thd_volts = krealloc_array(priv->thd_volts, priv->thd_volts_size,
@@ -254,6 +389,7 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 						       priv->thd_volts_size,
 						       exec_low_battery_callback);
 	} else {
+		isThreeLevel = 0;
 		ret = of_property_read_u32(np, "hv-thd-volt", &priv->hv_thd_volt);
 		if (ret)
 			priv->hv_thd_volt = POWER_INT0_VOLT;

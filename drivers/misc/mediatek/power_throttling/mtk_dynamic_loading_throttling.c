@@ -29,6 +29,8 @@
 #define DLPT_NOTIFY_FAST_UISOC		30
 #define	DLPT_VOLT_MIN			3100
 
+static int isThreeLevel;
+
 struct reg_t {
 	unsigned int addr;
 	unsigned int mask;
@@ -253,8 +255,12 @@ static int dlpt_check_power_off(void)
 {
 	int ret = 0;
 	static int dlpt_power_off_cnt;
+	enum LOW_BATTERY_LEVEL_TAG dlpt_power_off_lv = LOW_BATTERY_LEVEL_2;
 
-	if (dlpt.lbat_level == LOW_BATTERY_LEVEL_2 && dlpt.tag->bootmode != 8) {
+	if (isThreeLevel)
+		dlpt_power_off_lv = LOW_BATTERY_LEVEL_3;
+
+	if (dlpt.lbat_level == dlpt_power_off_lv && dlpt.tag->bootmode != 8) {
 		if (dlpt_power_off_cnt == 0)
 			ret = 0; /* 1st time get VBAT < 3.1V, record it */
 		else
@@ -487,6 +493,7 @@ static void dlpt_timer_func(struct timer_list *t)
 
 static void dlpt_notify_init(void)
 {
+	int ret = 0;
 	unsigned long dlpt_notify_interval;
 
 	dlpt_notify_interval = HZ * 30;
@@ -504,8 +511,10 @@ static void dlpt_notify_init(void)
 		pr_notice("Failed to create dlpt_notify_thread\n");
 
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
-	register_low_battery_notify(&dlpt_low_battery_cb,
+	ret = register_low_battery_notify(&dlpt_low_battery_cb,
 				    LOW_BATTERY_PRIO_DLPT);
+	if (ret == 3)
+		isThreeLevel = 1;
 #endif
 }
 

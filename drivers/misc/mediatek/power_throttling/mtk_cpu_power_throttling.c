@@ -23,23 +23,27 @@ struct cpu_pt_priv {
 };
 
 static LIST_HEAD(pt_policy_list);
+int isThreeLevel;
 
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 static void cpu_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 {
 	struct cpu_pt_policy *pt_policy;
-	s32 freq_limit;
+	s32 freq_limit = FREQ_QOS_MAX_DEFAULT_VALUE;
 
-	if (level <= LOW_BATTERY_LEVEL_2) {
-		list_for_each_entry(pt_policy, &pt_policy_list, cpu_pt_list) {
-			if (pt_policy->pt_type == LBAT_POWER_THROTTLING) {
+	list_for_each_entry(pt_policy, &pt_policy_list, cpu_pt_list) {
+		if (pt_policy->pt_type == LBAT_POWER_THROTTLING) {
+			if (isThreeLevel) {
+				if (level != LOW_BATTERY_LEVEL_0 && level != LOW_BATTERY_LEVEL_1)
+					freq_limit = pt_policy->cpu_limit;
+			} else {
 				if (level != LOW_BATTERY_LEVEL_0)
 					freq_limit = pt_policy->cpu_limit;
-				else
-					freq_limit = FREQ_QOS_MAX_DEFAULT_VALUE;
-
-				freq_qos_update_request(&pt_policy->qos_req, freq_limit);
 			}
+
+			pr_notice("%s: pt_policy->cpu = %d, freq_limit = %d\n", __func__,
+				pt_policy->cpu, freq_limit);
+			freq_qos_update_request(&pt_policy->qos_req, freq_limit);
 		}
 	}
 }
@@ -124,7 +128,9 @@ static int mtk_cpu_power_throttling_probe(struct platform_device *pdev)
 	}
 
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
-	register_low_battery_notify(&cpu_pt_low_battery_cb, LOW_BATTERY_PRIO_CPU_B);
+	ret = register_low_battery_notify(&cpu_pt_low_battery_cb, LOW_BATTERY_PRIO_CPU_B);
+	if (ret == 3)
+		isThreeLevel = 1;
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)

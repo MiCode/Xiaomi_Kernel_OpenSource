@@ -20,27 +20,27 @@ struct md_priv {
 };
 
 static struct md_priv md_priv;
+static int isThreeLevel;
 
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 static void md_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 {
 	unsigned int md_throttle_cmd;
-	int ret, intensity;
+	int ret, intensity = 0;
 
-	if (level <= LOW_BATTERY_LEVEL_2) {
+	if (isThreeLevel) {
+		if (level != LOW_BATTERY_LEVEL_0 && level != LOW_BATTERY_LEVEL_1)
+			intensity = md_priv.lbat_md_reduce_tx;
+	} else {
 		if (level != LOW_BATTERY_LEVEL_0)
 			intensity = md_priv.lbat_md_reduce_tx;
-		else
-			intensity = 0;
-
-		md_throttle_cmd = TMC_CTRL_CMD_TX_POWER | level << 8 |
-			PT_LOW_BATTERY_VOLTAGE << 16 | intensity << 24;
-		ret = exec_ccci_kern_func(ID_THROTTLING_CFG,
-			(char *)&md_throttle_cmd, 4);
-		if (ret)
-			pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
-				md_throttle_cmd, level);
 	}
+	md_throttle_cmd = TMC_CTRL_CMD_TX_POWER | level << 8 |
+				PT_LOW_BATTERY_VOLTAGE << 16 | intensity << 24;
+	ret = exec_ccci_kern_func(ID_THROTTLING_CFG, (char *)&md_throttle_cmd, 4);
+	if (ret)
+		pr_notice("%s: error, ret=%d, cmd=0x%x l=%d\n", __func__, ret,
+			md_throttle_cmd, level);
 }
 #endif
 
@@ -84,7 +84,9 @@ static int mtk_md_power_throttling_probe(struct platform_device *pdev)
 		pr_notice("get oc md tx reduce fail  ret=%d\n", ret);
 
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
-		register_low_battery_notify(&md_pt_low_battery_cb, LOW_BATTERY_PRIO_MD);
+		ret = register_low_battery_notify(&md_pt_low_battery_cb, LOW_BATTERY_PRIO_MD);
+		if (ret == 3)
+			isThreeLevel = 1;
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
