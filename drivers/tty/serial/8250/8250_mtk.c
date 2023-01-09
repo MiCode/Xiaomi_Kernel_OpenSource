@@ -1177,10 +1177,11 @@ static void mtk8250_dma_enable(struct uart_8250_port *up)
 	dma->txconf.dst_port_window_size	= UART_XMIT_SIZE;
 	dma->txconf.dst_addr				= dma->tx_addr;
 
-	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO | UART_FCR_CLEAR_RCVR |
-		UART_FCR_CLEAR_XMIT);
+	serial_out(up, UART_FCR, 0);
 	serial_out(up, MTK_UART_DMA_EN,
 		   MTK_UART_DMA_EN_RX | MTK_UART_DMA_EN_TX);
+	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO | UART_FCR_CLEAR_RCVR |
+		UART_FCR_CLEAR_XMIT);
 
 	serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
 	serial_out(up, MTK_UART_EFR, UART_EFR_ECB);
