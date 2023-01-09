@@ -1964,6 +1964,7 @@ static int proc_dump_pmif_busy_reg_open(struct inode *inode, struct file *file)
 static const struct file_operations dump_pmif_busy_reg_proc_fops = {
 	.open = proc_dump_pmif_busy_reg_open,
 	.read = seq_read,
+	.release = single_release,
 };
 
 /*
@@ -1987,6 +1988,7 @@ static int proc_dump_pmif_swinf_open(struct inode *inode, struct file *file)
 static const struct file_operations dump_pmif_swinf_proc_fops = {
 	.open = proc_dump_pmif_swinf_open,
 	.read = seq_read,
+	.release = single_release,
 };
 
 /*
@@ -2009,6 +2011,7 @@ static int proc_dump_pmif_all_reg_open(struct inode *inode, struct file *file)
 static const struct file_operations dump_pmif_all_reg_proc_fops = {
 	.open = proc_dump_pmif_all_reg_open,
 	.read = seq_read,
+	.release = single_release,
 };
 
 /*
@@ -2032,6 +2035,7 @@ static int proc_dump_pmif_record_reg_open(struct inode *inode,
 static const struct file_operations dump_pmif_record_reg_proc_fops = {
 	.open = proc_dump_pmif_record_reg_open,
 	.read = seq_read,
+	.release = single_release,
 };
 
 /*
@@ -2055,6 +2059,7 @@ static int proc_dump_spmimst_all_reg_open(struct inode *inode,
 static const struct file_operations dump_spmimst_all_reg_proc_fops = {
 	.open = proc_dump_spmimst_all_reg_open,
 	.read = seq_read,
+	.release = single_release,
 };
 
 static u32 gpmif_of;
