@@ -258,7 +258,6 @@ EXPORT_SYMBOL(gpufreq_set_ocl_timestamp);
 void gpufreq_dump_infra_status(void)
 {
 	gpueb_dump_footprint();
-	gpufreq_set_mfgsys_config(CONFIG_PTP3, FEAT_DISABLE);
 	gpufreq_dump_dvfs_status();
 
 	/* implement on AP */
