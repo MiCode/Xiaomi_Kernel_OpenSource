@@ -2436,7 +2436,8 @@ static void cmdq_flush_async_cb(struct cmdq_cb_data data)
 
 	if (data.err == -EINVAL) {
 		cmdq_pkt_err_irq_dump(pkt);
-		BUG_ON(1);
+		if (!error_irq_no_reboot)
+			BUG_ON(1);
 	}
 
 	if (item->cb)

@@ -103,6 +103,7 @@ extern int gce_shift_bit;
 extern int gce_mminfra;
 extern bool gce_in_vcp;
 extern bool cpr_not_support_cookie;
+extern bool error_irq_no_reboot;
 extern bool skip_poll_sleep;
 extern bool append_by_event;
 

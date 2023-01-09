@@ -129,6 +129,9 @@ EXPORT_SYMBOL(gce_in_vcp);
 bool cpr_not_support_cookie;
 EXPORT_SYMBOL(cpr_not_support_cookie);
 
+bool error_irq_no_reboot;
+EXPORT_SYMBOL(error_irq_no_reboot);
+
 bool append_by_event;
 EXPORT_SYMBOL(append_by_event);
 
@@ -2329,6 +2332,9 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(dev->of_node, "cpr-not-support-cookie"))
 		cpr_not_support_cookie = true;
+
+	if (of_property_read_bool(dev->of_node, "error-irq-no-reboot"))
+		error_irq_no_reboot = true;
 
 	if (of_property_read_bool(dev->of_node, "append-by-event"))
 		append_by_event = true;
