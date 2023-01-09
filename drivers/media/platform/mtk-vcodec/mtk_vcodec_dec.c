@@ -1510,6 +1510,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	struct timespec64 worktvstart;
 	struct timespec64 worktvstart1;
 	struct timespec64 vputvend;
+	struct timespec64 ts_delta;
 	struct mtk_video_dec_buf *dst_buf_info = NULL, *src_buf_info = NULL;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	unsigned int dpbsize = 0;
@@ -1668,9 +1669,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 	mtk_vdec_do_gettimeofday(&worktvstart1);
 	ret = vdec_if_decode(ctx, buf, pfb, &src_chg);
 	mtk_vdec_do_gettimeofday(&vputvend);
-	mtk_vcodec_perf_log("vpud:%ld",
-		(vputvend.tv_sec - worktvstart1.tv_sec) * 1000000 +
-		(vputvend.tv_nsec - worktvstart1.tv_nsec));
+	ts_delta = timespec64_sub(vputvend, worktvstart1);
+	mtk_vcodec_perf_log("vpud:%lld (ns)", timespec64_to_ns(&ts_delta));
 
 	res_chg = ((src_chg & VDEC_RES_CHANGE) != 0U) ? true : false;
 	need_more_output =
@@ -1821,9 +1821,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 	v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
 	mtk_vdec_do_gettimeofday(&vputvend);
-	mtk_vcodec_perf_log("worker:%ld",
-		(vputvend.tv_sec - worktvstart.tv_sec) * 1000000 +
-		(vputvend.tv_nsec - worktvstart.tv_nsec));
+	ts_delta = timespec64_sub(vputvend, worktvstart);
+	mtk_vcodec_perf_log("worker:%lld (ns)", timespec64_to_ns(&ts_delta));
 
 	mutex_unlock(&ctx->worker_lock);
 }
