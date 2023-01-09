@@ -12301,13 +12301,15 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 
 #ifdef MTK_DRM_CMDQ_ASYNC
 #ifdef MTK_DRM_ASYNC_HANDLE
-	((struct mtk_cmdq_cb_data *)cb_data)->store_cb_data
-		= kzalloc(sizeof(struct cb_data_store), GFP_KERNEL);
-	if (!((struct mtk_cmdq_cb_data *)cb_data)->store_cb_data) {
-		DDPPR_ERR("store_cb_data alloc fail\n");
-		cmdq_pkt_destroy(cmdq_handle);
-		kfree(cb_data);
-		return -EINVAL;
+	if (gce_cb) {
+		((struct mtk_cmdq_cb_data *)cb_data)->store_cb_data
+			= kzalloc(sizeof(struct cb_data_store), GFP_KERNEL);
+		if (!((struct mtk_cmdq_cb_data *)cb_data)->store_cb_data) {
+			DDPPR_ERR("store_cb_data alloc fail\n");
+			cmdq_pkt_destroy(cmdq_handle);
+			kfree(cb_data);
+			return -EINVAL;
+		}
 	}
 
 	if (cmdq_pkt_flush_async(cmdq_handle, gce_cb, cb_data) < 0)
