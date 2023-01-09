@@ -660,7 +660,9 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 #endif
 
 	/* 5. start trigger loop first to keep gce alive */
-	if (crtc_id == 0) {
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (!IS_ERR_OR_NULL(output_comp) &&
+		mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI) {
 		if (mtk_crtc_with_sodi_loop(crtc) &&
 			(!mtk_crtc_is_frame_trigger_mode(crtc)))
 			mtk_crtc_start_sodi_loop(crtc);
@@ -699,7 +701,6 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 
 	/* 12. Request MMClock */
 	mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
-	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (output_comp)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);

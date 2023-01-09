@@ -4011,6 +4011,7 @@ __get_golden_setting_context(struct mtk_drm_crtc *mtk_crtc)
 	/* primary_display */
 	switch (idx) {
 	case 0:
+	case 3:
 		gs_ctx[idx].is_vdo_mode =
 				mtk_crtc_is_frame_trigger_mode(crtc) ? 0 : 1;
 		gs_ctx[idx].dst_width = crtc->state->adjusted_mode.hdisplay;
@@ -14587,7 +14588,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 
 	mtk_crtc->vblank_en = 1;
 	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_IDLE_MGR) &&
-	    drm_crtc_index(&mtk_crtc->base) == 0) {
+	    !IS_ERR_OR_NULL(output_comp) &&
+	    mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI) {
 		char name[50];
 
 		mtk_drm_idlemgr_init(&mtk_crtc->base,
