@@ -397,14 +397,14 @@ void set_venc_opp(struct mtk_vcodec_dev *dev, u32 freq)
 				mtk_v4l2_err("[VENC] Failed to set mmdvfs rate %lu\n",
 						freq_64);
 			}
-			mtk_v4l2_debug(4, "[VENC] freq %lu, find_freq %lu", freq, freq_64);
+			mtk_v4l2_debug(8, "[VENC] freq %lu, find_freq %lu", freq, freq_64);
 		} else if (dev->venc_reg) {
 			ret = regulator_set_voltage(dev->venc_reg, volt, INT_MAX);
 			if (ret) {
 				mtk_v4l2_err("[VENC] Failed to set regulator voltage %d\n",
 						volt);
 			}
-			mtk_v4l2_debug(4, "[VENC] freq %lu, voltage %lu", freq, volt);
+			mtk_v4l2_debug(8, "[VENC] freq %lu, voltage %lu", freq, volt);
 		}
 	}
 }
