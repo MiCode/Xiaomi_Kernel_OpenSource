@@ -130,10 +130,20 @@ struct vcp_logger_ctrl_msg msg_vcp_logger_ctrl;
  * @param data: IPI data
  * @param len:  IPI data length
  */
-static int vcp_logger_wakeup_handler(unsigned int id, void *prdata, void *data,
+int vcp_logger_wakeup_handler(unsigned int id, void *prdata, void *data,
 				      unsigned int len)
 {
-	pr_debug("[VCP]wakeup by VCP logger\n");
+
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_DEBUG_SUPPORT)
+	if (!driver_init_done || !VCP_A_log_ctl->enable)
+		return 0;
+
+	/* wake up the process if wait queue is active */
+	if (waitqueue_active(&vcp_A_logwait)) {
+		wake_up_interruptible(&vcp_A_logwait);
+		pr_debug("[VCP] wakeup vcp_A_logwait\n");
+	}
+#endif
 
 	return 0;
 }
@@ -397,9 +407,12 @@ static unsigned int vcp_A_log_if_poll(struct file *file, poll_table *wait)
 	if (!(file->f_mode & FMODE_READ))
 		return ret;
 
-	/*poll_wait(file, &vcp_A_logwait, wait);*/
-
 	ret = vcp_A_log_poll();
+
+	if (ret == 0) {
+		poll_wait(file, &vcp_A_logwait, wait);
+		pr_debug("[VCP] logger in poll_wait\n");
+	}
 
 	return ret;
 }
@@ -915,6 +928,7 @@ void vcp_logger_uninit(void)
 {
 	char *tmp = vcp_A_last_log;
 
+	vcp_logger_wakeup_handler(0, NULL, NULL, 0);
 	vcp_A_logger_inited = 0;
 	vcp_A_last_log = NULL;
 	if (tmp)

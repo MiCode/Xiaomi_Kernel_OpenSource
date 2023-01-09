@@ -191,6 +191,8 @@ extern struct bin_attribute bin_attr_vcp_dump;
 /* vcp loggger */
 extern int vcp_logger_init(phys_addr_t start, phys_addr_t limit);
 extern void vcp_logger_uninit(void);
+extern int vcp_logger_wakeup_handler(unsigned int id,
+	void *prdata, void *data, unsigned int len);
 
 extern void vcp_logger_stop(void);
 extern void vcp_logger_cleanup(void);
