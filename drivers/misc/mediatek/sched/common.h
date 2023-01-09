@@ -7,6 +7,7 @@
 
 /* Task Vendor Data */
 #define T_SBB_FLG 5
+#define T_TASK_IDLE_PREFER_FLAG 7
 
 /* Task Group Vendor Data */
 #define TG_SBB_FLG 0

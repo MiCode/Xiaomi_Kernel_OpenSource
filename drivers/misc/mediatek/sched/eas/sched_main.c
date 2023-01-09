@@ -358,6 +358,14 @@ static long eas_ioctl_impl(struct file *filp,
 			return -1;
 		set_util_est_ctrl(val);
 		break;
+	case EAS_SET_TASK_IDLE_PREFER:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		if (val > 0)
+			set_task_idle_prefer(val, 1);
+		else if (val < 0)
+			set_task_idle_prefer(val * -1, 0);
+		break;
 	default:
 		pr_debug(TAG "%s %d: unknown cmd %x\n",
 			__FILE__, __LINE__, cmd);

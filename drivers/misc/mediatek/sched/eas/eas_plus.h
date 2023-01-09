@@ -113,6 +113,7 @@ extern void get_most_powerful_pd_and_util_Th(void);
 #define EAS_SBB_TASK_SET			_IOW('g', 16,  unsigned int)
 #define EAS_SBB_TASK_UNSET			_IOW('g', 17,  unsigned int)
 #define EAS_SBB_ACTIVE_RATIO		_IOW('g', 18,  unsigned int)
+#define EAS_SET_TASK_IDLE_PREFER	_IOW('g', 19,  unsigned int)
 #define EAS_UTIL_EST_CONTROL		_IOW('g', 20,  unsigned int)
 #define EAS_TURN_POINT_UTIL_C0		_IOW('g', 21,  unsigned int)
 #define EAS_TARGET_MARGIN_C0		_IOW('g', 22,  unsigned int)
@@ -120,7 +121,6 @@ extern void get_most_powerful_pd_and_util_Th(void);
 #define EAS_TARGET_MARGIN_C1		_IOW('g', 24,  unsigned int)
 #define EAS_TURN_POINT_UTIL_C2		_IOW('g', 25,  unsigned int)
 #define EAS_TARGET_MARGIN_C2		_IOW('g', 26,  unsigned int)
-
 
 #if IS_ENABLED(CONFIG_MTK_NEWIDLE_BALANCE)
 extern void mtk_sched_newidle_balance(void *data, struct rq *this_rq,
@@ -165,5 +165,8 @@ extern void sched_pause_init(void);
 extern int set_target_margin(int gearid, int margin);
 extern int set_turn_point_freq(int gearid, unsigned long turn_freq);
 extern int set_util_est_ctrl(bool enable);
+extern int set_task_idle_prefer(int pid, bool prefer);
+extern bool get_task_idle_prefer_by_pid(int pid);
+extern bool get_task_idle_prefer_by_task(struct task_struct *task);
 
 #endif

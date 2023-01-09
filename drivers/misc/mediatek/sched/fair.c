@@ -788,6 +788,9 @@ void mtk_find_energy_efficient_cpu(void *data, struct task_struct *p, int prev_c
 					uclamp_latency_sensitive(p);
 	}
 
+	if (!latency_sensitive)
+		latency_sensitive = get_task_idle_prefer_by_task(p);
+
 	pd = rcu_dereference(rd->pd);
 	if (!pd || READ_ONCE(rd->overutilized)) {
 		select_reason = LB_FAIL;
@@ -1023,6 +1026,9 @@ static struct task_struct *detach_a_hint_task(struct rq *src_rq, int dst_cpu)
 					uclamp_latency_sensitive(p);
 		}
 
+		if (!latency_sensitive)
+			latency_sensitive = get_task_idle_prefer_by_task(p);
+
 		if (latency_sensitive && !cpumask_test_cpu(dst_cpu, &system_cpumask))
 			continue;
 
@@ -1056,6 +1062,9 @@ inline bool is_task_latency_sensitive(struct task_struct *p)
 		latency_sensitive = (p->uclamp_req[UCLAMP_MIN].value > 0 ? 1 : 0) ||
 					uclamp_latency_sensitive(p);
 	}
+	if (!latency_sensitive)
+		latency_sensitive = get_task_idle_prefer_by_task(p);
+
 	rcu_read_unlock();
 
 	return latency_sensitive;

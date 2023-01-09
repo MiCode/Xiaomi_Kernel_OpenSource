@@ -1347,3 +1347,46 @@ int set_util_est_ctrl(bool enable)
 	sysctl_util_est = enable;
 	return 0;
 }
+
+int set_task_idle_prefer(int pid, bool prefer)
+{
+	struct task_struct *task = NULL;
+
+	rcu_read_lock();
+	task = find_task_by_vpid(pid);
+	if (!task) {
+		rcu_read_unlock();
+		return -ESRCH;
+	}
+	get_task_struct(task);
+	task->android_vendor_data1[T_TASK_IDLE_PREFER_FLAG] = prefer;
+	rcu_read_unlock();
+	put_task_struct(task);
+
+	return 0;
+}
+
+bool get_task_idle_prefer_by_pid(int pid)
+{
+	struct task_struct *task = NULL;
+	bool rslt = false;
+
+	rcu_read_lock();
+	task = find_task_by_vpid(pid);
+	if (!task) {
+		rcu_read_unlock();
+		return false;
+	}
+	get_task_struct(task);
+
+	rslt = task->android_vendor_data1[T_TASK_IDLE_PREFER_FLAG];
+	rcu_read_unlock();
+	put_task_struct(task);
+	return rslt;
+}
+
+inline bool get_task_idle_prefer_by_task(struct task_struct *task)
+{
+	return task->android_vendor_data1[T_TASK_IDLE_PREFER_FLAG];
+}
+
