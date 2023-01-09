@@ -1040,29 +1040,17 @@ enum ipi_debug_opt {
 	IPI_TRACKING_OFF,
 	IPI_TRACKING_ON,
 	IPIMON_SHOW,
+	IPI_TEST,
 };
-
-static inline ssize_t scp_ipi_test_show(struct device *kobj
-			, struct device_attribute *attr, char *buf)
-{
-	unsigned int value = 0x5A5A;
-	int ret;
-
-	if (scp_ready[SCP_A_ID]) {
-		ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_TEST_0, 0, &value,
-				   PIN_OUT_SIZE_TEST_0, 0);
-		return scnprintf(buf, PAGE_SIZE
-			, "SCP A ipi send ret=%d\n", ret);
-	} else
-		return scnprintf(buf, PAGE_SIZE, "SCP A is not ready\n");
-}
 
 static inline ssize_t scp_ipi_test_store(struct device *kobj
 		, struct device_attribute *attr, const char *buf, size_t n)
 {
 	unsigned int opt;
+	unsigned int value = 0x5A5A;
+	int ret, magic;
 
-	if (kstrtouint(buf, 10, &opt) != 0)
+	if (sscanf(buf, "%d %d", &magic, &opt) != 2)
 		return -EINVAL;
 
 	switch (opt) {
@@ -1073,6 +1061,16 @@ static inline ssize_t scp_ipi_test_store(struct device *kobj
 	case IPIMON_SHOW:
 		ipi_monitor_dump(&scp_ipidev);
 		break;
+	case IPI_TEST:
+		if (magic != 666)
+			return -EINVAL;
+
+		if (scp_ready[SCP_A_ID]) {
+			ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_TEST_0, 0, &value,
+				PIN_OUT_SIZE_TEST_0, 0);
+		} else
+			return -EPERM;
+		break;
 	default:
 		pr_info("cmd '%d' is not supported.\n", opt);
 		break;
@@ -1081,7 +1079,7 @@ static inline ssize_t scp_ipi_test_store(struct device *kobj
 	return n;
 }
 
-DEVICE_ATTR_RW(scp_ipi_test);
+DEVICE_ATTR_WO(scp_ipi_test);
 
 #endif
 
