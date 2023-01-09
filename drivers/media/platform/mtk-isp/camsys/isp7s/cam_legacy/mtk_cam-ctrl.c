@@ -6875,8 +6875,10 @@ int mtk_cam_extisp_prepare_meta(struct mtk_cam_ctx *ctx,
 			img_fmt = &ctx->pipe->vdev_nodes[
 				MTK_RAW_META_SV_OUT_0 - MTK_RAW_SINK_NUM]
 				.active_fmt;
-			img_fmt->fmt.pix_mp.width = result.exp_hsize;
-			img_fmt->fmt.pix_mp.height = result.exp_vsize;
+			if (result.exp_hsize != 0 && result.exp_vsize != 0) {
+				img_fmt->fmt.pix_mp.width = result.exp_hsize;
+				img_fmt->fmt.pix_mp.height = result.exp_vsize;
+			}
 			dev_info(ctx->cam->dev, "[%s] vdev_nodes:%d, w/h/size:%d/%d/%d\n",
 				__func__, MTK_RAW_META_SV_OUT_0 - MTK_RAW_SINK_NUM,
 				img_fmt->fmt.pix_mp.width,
