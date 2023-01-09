@@ -133,14 +133,14 @@ const char *scp_dvfs_hw_chip_ver[MAX_SCP_DVFS_CHIP_HW] __initconst = {
 struct ulposc_cali_regs cali_regs[MAX_ULPOSC_VERSION] __initdata = {
 	[ULPOSC_VER_1] = {
 		REG_DEFINE(con0, 0x2C0, REG_MAX_MASK, 0)
-		REG_DEFINE(cali, 0x2C0, GENMASK(CAL_BITS, 0), 0)
+		REG_DEFINE(cali, 0x2C0, GENMASK(CAL_BITS - 1, 0), 0)
 		REG_DEFINE(con1, 0x2C4, REG_MAX_MASK, 0)
 		REG_DEFINE(con2, 0x2C8, REG_MAX_MASK, 0)
 	},
 	[ULPOSC_VER_2] = { /* Suppose VLP_CKSYS is from 0x1C013000 */
 		REG_DEFINE(con0, 0x210, REG_MAX_MASK, 0)
-		REG_DEFINE(cali_ext, 0x210, GENMASK(CAL_EXT_BITS, 0), 7)
-		REG_DEFINE_WITH_INIT(cali, 0x210, GENMASK(CAL_BITS, 0), 0, 0x40, 0)
+		REG_DEFINE(cali_ext, 0x210, GENMASK(CAL_EXT_BITS - 1, 0), 7)
+		REG_DEFINE_WITH_INIT(cali, 0x210, GENMASK(CAL_BITS - 1, 0), 0, 0x40, 0)
 		REG_DEFINE(con1, 0x214, REG_MAX_MASK, 0)
 		REG_DEFINE(con2, 0x218, REG_MAX_MASK, 0)
 	},
