@@ -123,12 +123,11 @@ static int n3d_power_on(void)
 #endif
 
 		n3d_clk_open(&pn3d->clk);
-		enable_irq(pn3d->irq_id);
 	}
 
 	LOG_D("%s need_power_on: %d\n", __func__, need_power_on);
 
-	return 0;
+	return need_power_on;
 }
 
 /**
@@ -238,6 +237,7 @@ static int start_sync(void)
 	struct SENINF_N3D *pn3d = &gn3d;
 	unsigned int i, sync_num;
 	unsigned int sync_idx[SYNC_NUM];
+	int first_poweron = 0;
 
 	for (i = 0, sync_num = 0;
 	     (i < ARRAY_SIZE(pn3d->sync_sensors)) && (sync_num < SYNC_NUM);
@@ -249,16 +249,18 @@ static int start_sync(void)
 	}
 
 	if (sync_num == SYNC_NUM) {
-		n3d_power_on();
 		reset_recorder(pn3d->sync_sensors[sync_idx[0]]->cammux_id,
 			       pn3d->sync_sensors[sync_idx[1]]->cammux_id);
-		set_n3d_source(&pn3d->regs,
-			       pn3d->sync_sensors[sync_idx[0]],
-			       pn3d->sync_sensors[sync_idx[1]]);
 		if (pn3d->fsync_mgr != NULL) {
 			pn3d->fsync_mgr->fs_set_sync(sync_idx[0], 1);
 			pn3d->fsync_mgr->fs_set_sync(sync_idx[1], 1);
 		}
+		first_poweron = n3d_power_on();
+		set_n3d_source(&pn3d->regs,
+			       pn3d->sync_sensors[sync_idx[0]],
+			       pn3d->sync_sensors[sync_idx[1]]);
+		if (first_poweron)
+			enable_irq(pn3d->irq_id);
 	} else {
 		LOG_D("skip to start sync due to sync_num is %d\n",
 		      sync_num);
