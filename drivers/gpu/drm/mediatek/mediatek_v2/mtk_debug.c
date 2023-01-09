@@ -2734,6 +2734,44 @@ static void process_dbg_opt(const char *opt)
 		msleep(20);
 		enable = 1;
 		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
+	} else if (strncmp(opt, "lcm1_reset", 10) == 0) {
+		struct mtk_ddp_comp *comp;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		struct mtk_drm_private *priv = (drm_dev) ? drm_dev->dev_private : NULL;
+		int enable, i;
+
+		if (IS_ERR_OR_NULL(priv)) {
+			DDPPR_ERR("%s:%d invalid priv\n", __func__, __LINE__);
+			return;
+		}
+
+		/* debug_cmd lcm0_reset handle crtc0 already */
+		for (i = 1 ; i < MAX_CRTC ; ++i) {
+			crtc = priv->crtc[i];
+			if (!crtc) {
+				DDPPR_ERR("find crtc fail\n");
+				return;
+			}
+
+			mtk_crtc = to_mtk_crtc(crtc);
+			comp = mtk_ddp_comp_request_output(mtk_crtc);
+			if (comp && mtk_ddp_comp_get_type(comp->id) == MTK_DSI)
+				break;
+		}
+
+		if (!comp || !comp->funcs || !comp->funcs->io_cmd) {
+			DDPINFO("cannot find output component\n");
+			return;
+		}
+		enable = 1;
+		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
+		msleep(20);
+		enable = 0;
+		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
+		msleep(20);
+		enable = 1;
+		comp->funcs->io_cmd(comp, NULL, LCM_RESET, &enable);
 	} else if (strncmp(opt, "backlight:", 10) == 0) {
 		unsigned int level;
 		int ret;

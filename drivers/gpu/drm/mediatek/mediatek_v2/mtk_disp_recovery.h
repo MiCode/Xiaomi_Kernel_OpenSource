@@ -25,6 +25,7 @@ struct mtk_drm_esd_ctx {
 	u32 chk_mode;
 	u32 chk_sta;
 	u32 chk_en;
+	int need_release_eint;
 };
 int mtk_drm_esd_testing_process(struct drm_crtc *crtc, bool need_lock);
 

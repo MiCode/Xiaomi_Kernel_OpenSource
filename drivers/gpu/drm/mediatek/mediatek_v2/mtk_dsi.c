@@ -8074,8 +8074,10 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case REQ_ESD_EINT_COMPAT:
 		out_params = (void **)params;
-
-		*out_params = (void *)dsi->driver_data->esd_eint_compat;
+		if (comp->id == DDP_COMPONENT_DSI0)
+			*out_params = (void *)dsi->driver_data->esd_eint_compat;
+		else
+			*out_params = "mediatek, DSI1_TE-int";
 		break;
 	case COMP_REG_START:
 		mtk_dsi_trigger(comp, handle);
