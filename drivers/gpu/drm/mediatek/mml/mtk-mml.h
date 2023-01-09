@@ -126,6 +126,7 @@ struct mml_pq_param {
 	struct mml_pq_video_param video_param;
 	uint32_t user_info;
 	uint32_t app_hint;
+	uint32_t connector_id;
 };
 
 struct mml_frame_data {
