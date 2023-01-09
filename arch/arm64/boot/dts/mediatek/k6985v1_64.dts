@@ -161,6 +161,9 @@ androidboot.hardware=mt6985 \
 		pm-enable-gpios = <&pio 68 0>;
 		reset-gpios = <&pio 75 0>;
 		gate-ic = <4831>;
+//		swap-from-dts;
+		lane-swap-setting = <1 2 0 3 4 2>;
+		pn-swap-setting = <1 1 1 1 1 1>;
 		pinctrl-names = "default";
 		port {
 			panel21_in: endpoint {
@@ -200,6 +203,9 @@ androidboot.hardware=mt6985 \
 		pm-enable-gpios = <&pio 68 0>;
 		reset-gpios = <&pio 86 0>;
 		gate-ic = <4831>;
+//		swap-from-dts;
+		lane-swap-setting = <1 2 0 3 4 2>;
+		pn-swap-setting = <1 1 1 1 1 1>;
 		pinctrl-names = "default";
 		port {
 			panel_in2: endpoint {
