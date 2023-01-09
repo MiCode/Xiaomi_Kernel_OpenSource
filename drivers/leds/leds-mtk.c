@@ -89,6 +89,17 @@ static ssize_t max_hw_brightness_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(max_hw_brightness);
 
+static ssize_t min_hw_brightness_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	struct led_conf_info *led_conf =
+		container_of(led_cdev, struct led_conf_info, cdev);
+
+	return sprintf(buf, "%u\n", led_conf->min_hw_brightness);
+}
+static DEVICE_ATTR_RO(min_hw_brightness);
+
 static ssize_t led_mode_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -375,17 +386,19 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	}
 
 	ret = fwnode_property_read_u32(fwnode,
-		"max-brightness", &(mdev->conf.cdev.max_brightness));
-	if (ret) {
-		pr_info("No max-brightness, use default value 255");
-			mdev->conf.cdev.max_brightness = 255;
-	}
-	ret = fwnode_property_read_u32(fwnode,
 		"max-hw-brightness", &(mdev->conf.max_hw_brightness));
 	if (ret) {
-		pr_info("No max-hw-brightness, use default value 1023");
-		mdev->conf.max_hw_brightness = 1023;
+		pr_info("No max-hw-brightness, use default value 2047");
+		mdev->conf.max_hw_brightness = 2047;
 	}
+
+	ret = fwnode_property_read_u32(fwnode,
+		"max-brightness", &(mdev->conf.cdev.max_brightness));
+	if (ret) {
+		pr_info("No max-brightness, use max_hw_brightness");
+		mdev->conf.cdev.max_brightness = mdev->conf.max_hw_brightness;
+	}
+
 	ret = fwnode_property_read_u32(fwnode,
 		"min-hw-brightness", &(mdev->conf.min_hw_brightness));
 	if (ret) {
@@ -395,8 +408,8 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	ret = fwnode_property_read_u32(fwnode,
 		"min-brightness", &(mdev->conf.min_brightness));
 	if (ret) {
-		pr_info("No min-brightness, use default value 1");
-		mdev->conf.min_brightness = 1;
+		pr_info("No min-brightness, use min_hw_brightness");
+		mdev->conf.min_brightness = mdev->conf.min_hw_brightness;
 	}
 	ret = fwnode_property_read_u32(fwnode,
 		"led_mode", &(mdev->conf.mode));
@@ -452,6 +465,7 @@ EXPORT_SYMBOL_GPL(mt_leds_parse_dt);
 static struct attribute *led_class_attrs[] = {
 	&dev_attr_min_brightness.attr,
 	&dev_attr_max_hw_brightness.attr,
+	&dev_attr_min_hw_brightness.attr,
 	&dev_attr_led_mode.attr,
 	NULL,
 };
