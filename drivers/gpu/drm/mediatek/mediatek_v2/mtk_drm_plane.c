@@ -31,6 +31,7 @@ static const u32 formats[] = {
 	DRM_FORMAT_UYVY,     DRM_FORMAT_VYUY,     DRM_FORMAT_ABGR2101010,
 	DRM_FORMAT_ABGR16161616F,
 	DRM_FORMAT_RGB332, // for skip_update
+	DRM_FORMAT_P010,
 };
 
 unsigned int to_crtc_plane_index(unsigned int plane_index)

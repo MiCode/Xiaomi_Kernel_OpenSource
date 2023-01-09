@@ -2364,9 +2364,8 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_secondary_dp[] = {
 };
 
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_discrete_chip[] = {
-	DDP_COMPONENT_OVL7_2L,
-	DDP_COMPONENT_OVLSYS_DLO_ASYNC12,
-	DDP_COMPONENT_DLI_ASYNC8,
+	DDP_COMPONENT_MDP_RDMA1,
+	DDP_COMPONENT_Y2R1,
 	DDP_COMPONENT_PQ1_OUT_CB4,
 	DDP_COMPONENT_PANEL1_COMP_OUT_CB3,
 	DDP_COMPONENT_COMP1_OUT_CB5,
@@ -2377,12 +2376,13 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_discrete_chip[] = {
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_dual_discrete_chip[] = {
 	DDP_COMPONENT_MDP_RDMA0,
 	DDP_COMPONENT_Y2R0,
-	DDP_COMPONENT_PQ0_IN_CB4,
 	DDP_COMPONENT_PQ0_OUT_CB4,
 	DDP_COMPONENT_PANEL0_COMP_OUT_CB3,
 	DDP_COMPONENT_COMP0_OUT_CB5,
 	DDP_COMPONENT_MERGE0_OUT_CB3,
 	DDP_COMPONENT_DLO_ASYNC1,
+	DDP_COMPONENT_DLI_ASYNC11,
+	DDP_COMPONENT_MERGE2,
 };
 
 static const enum mtk_ddp_comp_id mt6983_mtk_ddp_dual_main[] = {
@@ -3654,10 +3654,11 @@ static const struct mtk_crtc_path_data mt6985_mtk_secondary_path_data = {
 static const struct mtk_crtc_path_data mt6985_mtk_discrete_path_data = {
 	.path[DDP_MAJOR][0] = mt6985_mtk_ddp_discrete_chip,
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6985_mtk_ddp_discrete_chip),
-//	.dual_path[0] = mt6985_mtk_ddp_dual_discrete_chip,
-//	.dual_path_len[0] = ARRAY_SIZE(mt6985_mtk_ddp_dual_discrete_chip),
+	.dual_path[0] = mt6985_mtk_ddp_dual_discrete_chip,
+	.dual_path_len[0] = ARRAY_SIZE(mt6985_mtk_ddp_dual_discrete_chip),
 	.addon_data = mt6983_addon_discrete_path,
 //	.addon_data_dual = mt6985_addon_discrete_path_dual,
+	.is_discrete_path = true,
 };
 
 static const struct mtk_crtc_path_data mt6895_mtk_main_path_data = {
@@ -5821,7 +5822,7 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 				goto err_component_unbind;
 
 			if (of_property_read_bool(private->mmsys_dev->of_node,
-				"enable_discrete_path"))
+				"enable-discrete-path"))
 				ret = mtk_drm_crtc_create(drm,
 					private->data->fourth_path_data_discrete);
 			if (ret < 0)
@@ -6309,6 +6310,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_RDMA},
 	{.compatible = "mediatek,mt6886-disp-rdma",
 	 .data = (void *)MTK_DISP_RDMA},
+	{.compatible = "mediatek,mt6985-disp-mdp-rdma",
+	 .data = (void *)MTK_DISP_MDP_RDMA},
 	{.compatible = "mediatek,mt8173-disp-wdma",
 	 .data = (void *)MTK_DISP_WDMA},
 	{.compatible = "mediatek,mt6779-disp-wdma",
@@ -7158,8 +7161,9 @@ SKIP_OVLSYS_CONFIG:
 		 */
 		if (comp_type == MTK_DISP_OVL ||
 		    comp_type == MTK_DISP_MERGE ||
-		    comp_type == MTK_DISP_RDMA || comp_type == MTK_DISP_WDMA ||
-		    comp_type == MTK_DISP_RSZ || comp_type == MTK_DISP_MDP_RSZ ||
+		    comp_type == MTK_DISP_RDMA || comp_type == MTK_DISP_MDP_RDMA
+		    || comp_type == MTK_DISP_WDMA || comp_type == MTK_DISP_RSZ
+		    || comp_type == MTK_DISP_MDP_RSZ ||
 		    comp_type == MTK_DISP_POSTMASK || comp_type == MTK_DSI
 		    || comp_type == MTK_DISP_DSC || comp_type == MTK_DPI
 #ifndef DRM_BYPASS_PQ
@@ -7429,6 +7433,7 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_disp_chist_driver,
 	&mtk_disp_ovl_driver,
 	&mtk_disp_rdma_driver,
+	&mtk_disp_mdp_rdma_driver,
 	&mtk_disp_wdma_driver,
 	&mtk_disp_rsz_driver,
 	&mtk_mipi_tx_driver,

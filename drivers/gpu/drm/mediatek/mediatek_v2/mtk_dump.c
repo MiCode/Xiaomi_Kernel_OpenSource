@@ -56,6 +56,10 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_RDMA5:
 		mtk_rdma_dump(comp);
 		break;
+	case DDP_COMPONENT_MDP_RDMA0:
+	case DDP_COMPONENT_MDP_RDMA1:
+		mtk_mdp_rdma_dump(comp);
+		break;
 	case DDP_COMPONENT_WDMA0:
 	case DDP_COMPONENT_WDMA1:
 	case DDP_COMPONENT_WDMA2:
@@ -139,6 +143,8 @@ int mtk_dump_reg(struct mtk_ddp_comp *comp)
 		break;
 	case DDP_COMPONENT_MERGE0:
 	case DDP_COMPONENT_MERGE1:
+	case DDP_COMPONENT_MERGE2:
+	case DDP_COMPONENT_MERGE3:
 		mtk_merge_dump(comp);
 		break;
 	case DDP_COMPONENT_CHIST0:
@@ -202,6 +208,10 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 	case DDP_COMPONENT_RDMA5:
 		mtk_rdma_analysis(comp);
 		break;
+	case DDP_COMPONENT_MDP_RDMA0:
+	case DDP_COMPONENT_MDP_RDMA1:
+		mtk_mdp_rdma_analysis(comp);
+		break;
 	case DDP_COMPONENT_WDMA0:
 	case DDP_COMPONENT_WDMA1:
 	case DDP_COMPONENT_WDMA2:
@@ -245,6 +255,8 @@ int mtk_dump_analysis(struct mtk_ddp_comp *comp)
 		break;
 	case DDP_COMPONENT_MERGE0:
 	case DDP_COMPONENT_MERGE1:
+	case DDP_COMPONENT_MERGE2:
+	case DDP_COMPONENT_MERGE3:
 		mtk_merge_analysis(comp);
 		break;
 	case DDP_COMPONENT_CHIST0:

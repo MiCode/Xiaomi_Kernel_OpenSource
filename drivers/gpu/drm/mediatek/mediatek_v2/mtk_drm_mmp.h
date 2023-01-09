@@ -10,7 +10,7 @@
 #include "mmprofile_function.h"
 #include "mtk_drm_ddp.h"
 
-#define MMP_CRTC_NUM 3
+#define MMP_CRTC_NUM 4
 
 /* if changed, need to update init_drm_mmp_event() */
 struct DRM_MMP_Events {
@@ -33,6 +33,9 @@ struct DRM_MMP_Events {
 	mmp_event rdma3;
 	mmp_event rdma4;
 	mmp_event rdma5;
+	mmp_event mdp_rdma;
+	mmp_event mdp_rdma0;
+	mmp_event mdp_rdma1;
 	mmp_event wdma;
 	mmp_event wdma0;
 	mmp_event wdma1;
@@ -114,6 +117,8 @@ struct CRTC_MMP_Events {
 	mmp_event wb_dump;
 	mmp_event cwbBmpDump;
 	mmp_event cwb_dump;
+	mmp_event discrete;
+	mmp_event discrete_fill;
 	/*Msync 2.0 mmp start*/
 	mmp_event ovl_status_err;
 	mmp_event vfp_period;

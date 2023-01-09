@@ -1742,6 +1742,7 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 	struct mtk_panel_params *panel_ext =
 		mtk_drm_get_lcm_ext_params(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	if ((drm_crtc_index(crtc) == 0) &&
 		panel_ext &&
@@ -1757,6 +1758,10 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 			return true;
 		}
 	}
+
+	if (drm_crtc_index(crtc) == 3 &&
+		mtk_crtc && mtk_crtc->path_data->is_discrete_path)
+		return true;
 
 	if ((drm_crtc_index(crtc) == 0) &&
 		mtk_drm_helper_get_opt(priv->helper_opt,
@@ -3640,6 +3645,9 @@ static unsigned int dual_comp_map_mt6985(unsigned int comp_id)
 	case DDP_COMPONENT_WDMA0:
 		ret = DDP_COMPONENT_WDMA1;
 		break;
+	case DDP_COMPONENT_MDP_RDMA1:
+		ret = DDP_COMPONENT_MDP_RDMA0;
+		break;
 	case DDP_COMPONENT_OVLSYS_WDMA0:
 		ret = DDP_COMPONENT_OVLSYS_WDMA2;
 		break;
@@ -5399,6 +5407,33 @@ bool mtk_crtc_is_mem_mode(struct drm_crtc *crtc)
 	return false;
 }
 
+int get_comp_wait_event(struct mtk_drm_crtc *mtk_crtc,
+			struct mtk_ddp_comp *comp)
+{
+	if (comp->id == DDP_COMPONENT_DSI0 || comp->id == DDP_COMPONENT_DSI1) {
+		if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
+			return mtk_crtc->gce_obj.event[EVENT_STREAM_EOF];
+		else
+			return mtk_crtc->gce_obj.event[EVENT_CMD_EOF];
+
+	} else if (comp->id == DDP_COMPONENT_DP_INTF0) {
+		return mtk_crtc->gce_obj.event[EVENT_VDO_EOF];
+	} else if (comp->id == DDP_COMPONENT_WDMA0) {
+		return mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF];
+	} else if (comp->id == DDP_COMPONENT_WDMA1) {
+		return mtk_crtc->gce_obj.event[EVENT_WDMA1_EOF];
+	} else if (comp->id == DDP_COMPONENT_OVLSYS_WDMA2) {
+		return mtk_crtc->gce_obj.event[EVENT_OVLSYS1_WDMA0_EOF];
+	} else if (comp->id == DDP_COMPONENT_MDP_RDMA0) {
+		return mtk_crtc->gce_obj.event[EVENT_MDP_RDMA0_EOF];
+	} else if (comp->id == DDP_COMPONENT_MDP_RDMA1) {
+		return mtk_crtc->gce_obj.event[EVENT_MDP_RDMA1_EOF];
+	}
+
+	DDPPR_ERR("The component has not frame done event\n");
+	return -EINVAL;
+}
+
 int get_path_wait_event(struct mtk_drm_crtc *mtk_crtc,
 			enum CRTC_DDP_PATH ddp_path)
 {
@@ -5421,24 +5456,41 @@ int get_path_wait_event(struct mtk_drm_crtc *mtk_crtc,
 		return -EINVAL;
 	}
 
-	if (comp->id == DDP_COMPONENT_DSI0 || comp->id == DDP_COMPONENT_DSI1) {
-		if (mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base))
-			return mtk_crtc->gce_obj.event[EVENT_STREAM_EOF];
-		else
-			return mtk_crtc->gce_obj.event[EVENT_CMD_EOF];
+	return get_comp_wait_event(mtk_crtc, comp);
+}
 
-	} else if (comp->id == DDP_COMPONENT_DP_INTF0) {
-		return mtk_crtc->gce_obj.event[EVENT_VDO_EOF];
-	} else if (comp->id == DDP_COMPONENT_WDMA0) {
-		return mtk_crtc->gce_obj.event[EVENT_WDMA0_EOF];
-	} else if (comp->id == DDP_COMPONENT_WDMA1) {
-		return mtk_crtc->gce_obj.event[EVENT_WDMA1_EOF];
-	} else if (comp->id == DDP_COMPONENT_OVLSYS_WDMA2) {
-		return mtk_crtc->gce_obj.event[EVENT_OVLSYS1_WDMA0_EOF];
-	}
+void mtk_crtc_clr_comp_done(struct mtk_drm_crtc *mtk_crtc,
+			      struct cmdq_pkt *cmdq_handle,
+			      struct mtk_ddp_comp *comp,
+			      int clear_event)
+{
+	int gce_event;
 
-	DDPPR_ERR("The output component has not frame done event\n");
-	return -EINVAL;
+	gce_event = get_comp_wait_event(mtk_crtc, comp);
+	if (gce_event < 0)
+		return;
+	if (gce_event == mtk_crtc->gce_obj.event[EVENT_MDP_RDMA0_EOF] ||
+		gce_event == mtk_crtc->gce_obj.event[EVENT_MDP_RDMA1_EOF])
+		cmdq_pkt_clear_event(cmdq_handle, gce_event);
+	else
+		DDPPR_ERR("The component has not frame done event\n");
+}
+
+void mtk_crtc_wait_comp_done(struct mtk_drm_crtc *mtk_crtc,
+			      struct cmdq_pkt *cmdq_handle,
+			      struct mtk_ddp_comp *comp,
+			      int clear_event)
+{
+	int gce_event;
+
+	gce_event = get_comp_wait_event(mtk_crtc, comp);
+	if (gce_event < 0)
+		return;
+	if (gce_event == mtk_crtc->gce_obj.event[EVENT_MDP_RDMA0_EOF] ||
+		gce_event == mtk_crtc->gce_obj.event[EVENT_MDP_RDMA1_EOF])
+		cmdq_pkt_wfe(cmdq_handle, gce_event);
+	else
+		DDPPR_ERR("The component has not frame done event\n");
 }
 
 void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
@@ -8454,6 +8506,12 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 
 	if (drm_crtc_index(crtc) == 1)
 		mtk_crtc_init_plane_setting(mtk_crtc);
+
+	//discrete mdp_rdma do not restore
+	if (mtk_crtc->path_data->is_discrete_path) {
+		cmdq_pkt_destroy(cmdq_handle);
+		return;
+	}
 
 	for (i = 0; i < mtk_crtc->layer_nr; i++) {
 		struct drm_plane *plane = &mtk_crtc->planes[i].base;
@@ -11756,6 +11814,12 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 			mtk_ddp_comp_layer_config(comp, plane_index, plane_state,
 						  cmdq_handle);
 		}
+		//discrete path need re-trigger by itself after plane 0
+		if (mtk_crtc->path_data->is_discrete_path &&
+			plane_index != 0 && mtk_crtc->pending_handle) {
+			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[1],
+				mtk_crtc->pending_handle, mtk_crtc->gce_obj.base);
+		}
 #ifndef DRM_CMDQ_DISABLE
 		mtk_wb_atomic_commit(mtk_crtc, v, h, state->cmdq_handle);
 #else
@@ -12096,6 +12160,18 @@ static void mtk_crtc_dl_config_color_matrix(struct drm_crtc *crtc,
 		DDPPR_ERR("Cannot not find DDP_COMPONENT_CCORR0\n");
 }
 
+static void mtk_drm_discrete_cb(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_cb_data *cb_data = data.data;
+	int crtc_index = drm_crtc_index(cb_data->crtc);
+
+	DDPINFO("[discrete] destroy hnd:0x%x\n", cb_data->cmdq_handle);
+	CRTC_MMP_MARK(crtc_index, discrete, 0,
+			(unsigned long)cb_data->cmdq_handle);
+	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	kfree(cb_data);
+}
+
 static void mtk_drm_wb_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;
@@ -12127,6 +12203,10 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	struct cmdq_pkt *handle;
 	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 	struct mtk_cmdq_cb_data *wb_cb_data;
+	struct mtk_cmdq_cb_data *discrete_cb_data;
+	unsigned int r_comp_id;
+	struct mtk_ddp_comp *first_comp, *r_comp;
+	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 
 	if (!cmdq_handle) {
 		DDPPR_ERR("%s:%d NULL cmdq handle\n", __func__, __LINE__);
@@ -12158,6 +12238,20 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	if (drm_crtc_index(crtc) == 0 && (!mtk_crtc_is_dc_mode(crtc)))
 		mtk_crtc_dl_config_color_matrix(crtc, ccorr_config,
 						cmdq_handle);
+
+	//discrete mdp_rdma need fill full frame
+	if (mtk_crtc->path_data->is_discrete_path) {
+		first_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, 0, 0);
+		mtk_ddp_comp_io_cmd(first_comp, cmdq_handle,
+			MDP_RDMA_FILL_FRAME, NULL);
+		if (mtk_crtc->is_dual_pipe) {
+			r_comp_id = dual_pipe_comp_mapping(
+				priv->data->mmsys_id, first_comp->id);
+			r_comp = priv->ddp_comp[r_comp_id];
+			mtk_ddp_comp_io_cmd(r_comp, cmdq_handle,
+				MDP_RDMA_FILL_FRAME, NULL);
+		}
+	}
 
 	if (mtk_crtc_is_dc_mode(crtc) ||
 		(state->prop_val[CRTC_PROP_OUTPUT_ENABLE] && crtc_index != 0)) {
@@ -12217,6 +12311,25 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 #else
 	cmdq_pkt_flush(cmdq_handle);
 #endif
+
+	//discrete flush pending job
+	if (mtk_crtc->path_data->is_discrete_path &&
+		mtk_crtc->pending_handle) {
+		struct cmdq_pkt *pending_handle;
+
+		pending_handle = mtk_crtc->pending_handle;
+		mtk_crtc->pending_handle = NULL;
+		discrete_cb_data = kmalloc(sizeof(*discrete_cb_data), GFP_KERNEL);
+		discrete_cb_data->cmdq_handle = pending_handle;
+		discrete_cb_data->crtc = crtc;
+
+		DDPINFO("[discrete] flush pending hnd:0x%x\n",
+			pending_handle);
+		CRTC_MMP_MARK(crtc_index, discrete, 0,
+			(unsigned long)pending_handle);
+		cmdq_pkt_flush_threaded(pending_handle,
+			mtk_drm_discrete_cb, discrete_cb_data);
+	}
 
 	/* For DL write-back path */
 	/* wait WDMA frame done and disconnect immediately */
@@ -13332,6 +13445,14 @@ static void mtk_crtc_get_event_name(struct mtk_drm_crtc *mtk_crtc, char *buf,
 		len = snprintf(buf, buf_len, "disp_ovlsys_wdma1_eof%d",
 			       drm_crtc_index(&mtk_crtc->base));
 		break;
+	case EVENT_MDP_RDMA0_EOF:
+		len = snprintf(buf, buf_len, "disp_mdp_rdma0_eof%d",
+			       drm_crtc_index(&mtk_crtc->base));
+		break;
+	case EVENT_MDP_RDMA1_EOF:
+		len = snprintf(buf, buf_len, "disp_mdp_rdma1_eof%d",
+			       drm_crtc_index(&mtk_crtc->base));
+		break;
 	default:
 		DDPPR_ERR("%s invalid event_id:%d\n", __func__, event_id);
 		memset(output_comp, 0, sizeof(output_comp));
@@ -13943,6 +14064,10 @@ static int disp_mutex_dispatch(struct mtk_drm_private *priv, struct mtk_drm_crtc
 			max_path = cur;
 	}
 	ddp->mtk_crtc[pipe] = mtk_crtc;
+
+	if (path_data->is_discrete_path)
+		max_path++;
+
 	for (i = 0, cur = 0 ; i < 10 ; ++i) {
 		struct mtk_disp_mutex *mutex;
 
@@ -16552,6 +16677,9 @@ int mtk_drm_format_plane_cpp(uint32_t format, unsigned int plane)
 	info = drm_format_info(format);
 	if (!info || plane >= info->num_planes)
 		return 0;
+
+	if (info->cpp[plane] == 0)
+		return info->char_per_block[plane];
 
 	return info->cpp[plane];
 }

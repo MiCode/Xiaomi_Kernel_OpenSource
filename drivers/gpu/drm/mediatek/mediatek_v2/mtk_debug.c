@@ -1790,7 +1790,7 @@ bool mtk_drm_set_cwb_roi(struct mtk_rect rect)
 
 }
 
-void mtk_wakeup_pf_wq(void)
+void mtk_wakeup_pf_wq(unsigned int m_id)
 {
 	struct drm_crtc *crtc;
 	struct mtk_drm_crtc *mtk_crtc;
@@ -1803,8 +1803,15 @@ void mtk_wakeup_pf_wq(void)
 		return;
 	}
 
-	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
-				typeof(*crtc), head);
+	if (m_id == 3) {
+		drm_for_each_crtc(crtc, drm_dev)
+			if (drm_crtc_index(crtc) == 3)
+				break;
+	} else {
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+	}
+
 	if (IS_ERR_OR_NULL(crtc)) {
 		DDPPR_ERR("find crtc fail\n");
 		return;

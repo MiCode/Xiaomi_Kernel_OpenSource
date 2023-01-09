@@ -513,6 +513,8 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_SYNC_TOKEN_VIDLE_POWER_ON,
 	EVENT_SYNC_TOKEN_CHECK_TRIGGER_MERGE,
 	EVENT_OVLSYS_WDMA1_EOF,
+	EVENT_MDP_RDMA0_EOF,
+	EVENT_MDP_RDMA1_EOF,
 	EVENT_TYPE_MAX,
 };
 
@@ -563,6 +565,7 @@ enum SLBC_STATE {
 
 struct mtk_crtc_path_data {
 	bool is_fake_path;
+	bool is_discrete_path;
 	const enum mtk_ddp_comp_id *ovl_path[DDP_MODE_NR][DDP_PATH_NR];
 	unsigned int ovl_path_len[DDP_MODE_NR][DDP_PATH_NR];
 	const enum mtk_ddp_comp_id *path[DDP_MODE_NR][DDP_PATH_NR];
@@ -940,6 +943,9 @@ struct mtk_drm_crtc {
 	atomic_t force_high_step;
 	int force_high_enabled;
 	struct total_tile_overhead tile_overhead;
+
+	//discrete
+	struct cmdq_pkt *pending_handle;
 };
 
 struct mtk_crtc_state {
@@ -1013,6 +1019,14 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc);
 void mtk_drm_crtc_mini_analysis(struct drm_crtc *crtc);
 void mtk_drm_crtc_analysis(struct drm_crtc *crtc);
 bool mtk_crtc_is_frame_trigger_mode(struct drm_crtc *crtc);
+void mtk_crtc_clr_comp_done(struct mtk_drm_crtc *mtk_crtc,
+			      struct cmdq_pkt *cmdq_handle,
+			      struct mtk_ddp_comp *comp,
+			      int clear_event);
+void mtk_crtc_wait_comp_done(struct mtk_drm_crtc *mtk_crtc,
+			      struct cmdq_pkt *cmdq_handle,
+			      struct mtk_ddp_comp *comp,
+			      int clear_event);
 void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 			      struct cmdq_pkt *cmdq_handle,
 			      enum CRTC_DDP_PATH ddp_path,

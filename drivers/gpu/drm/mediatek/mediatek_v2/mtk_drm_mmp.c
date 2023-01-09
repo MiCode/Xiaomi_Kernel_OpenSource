@@ -59,6 +59,12 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA4");
 	g_DRM_MMP_Events.rdma5 =
 		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA5");
+	g_DRM_MMP_Events.mdp_rdma =
+		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "MDP_RDMA");
+	g_DRM_MMP_Events.mdp_rdma0 =
+		mmprofile_register_event(g_DRM_MMP_Events.mdp_rdma, "MDP_RDMA0");
+	g_DRM_MMP_Events.mdp_rdma1 =
+		mmprofile_register_event(g_DRM_MMP_Events.mdp_rdma, "MDP_RDMA1");
 	g_DRM_MMP_Events.wdma =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "WDMA");
 	g_DRM_MMP_Events.wdma0 =
@@ -273,6 +279,10 @@ void init_crtc_mmp_event(void)
 					mmprofile_register_event(
 					g_CRTC_MMP_Events[i].cwbBmpDump,
 					"cwb_dump");
+		g_CRTC_MMP_Events[i].discrete =
+			mmprofile_register_event(crtc_mmp_root, "discrete");
+		g_CRTC_MMP_Events[i].discrete_fill =
+			mmprofile_register_event(crtc_mmp_root, "discrete_fill");
 		/*Msync 2.0 mmp start*/
 		g_CRTC_MMP_Events[i].ovl_status_err =
 			mmprofile_register_event(crtc_mmp_root, "ovl_status_err");

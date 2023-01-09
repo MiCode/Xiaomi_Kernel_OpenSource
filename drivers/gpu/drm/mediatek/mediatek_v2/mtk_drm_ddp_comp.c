@@ -771,7 +771,7 @@ static void mtk_ddp_comp_set_larb(struct device *dev, struct device_node *node,
 
 	/* check if this module need larb_dev */
 	if (type != MTK_DISP_OVL && type != MTK_DISP_RDMA && type != MTK_DISP_WDMA &&
-		type != MTK_DISP_POSTMASK)
+		type != MTK_DISP_POSTMASK && type != MTK_DISP_MDP_RDMA)
 		return;
 
 	count = of_property_count_u32_elems(node, "mediatek,larb");

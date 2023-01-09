@@ -10,6 +10,7 @@
 
 int mtk_ovl_dump(struct mtk_ddp_comp *comp);
 int mtk_rdma_dump(struct mtk_ddp_comp *comp);
+void mtk_mdp_rdma_dump(struct mtk_ddp_comp *comp);
 int mtk_wdma_dump(struct mtk_ddp_comp *comp);
 int mtk_rsz_dump(struct mtk_ddp_comp *comp);
 int mtk_mdp_rsz_dump(struct mtk_ddp_comp *comp);
@@ -38,6 +39,7 @@ void mtk_oddmr_dump(struct mtk_ddp_comp *comp);
 
 int mtk_ovl_analysis(struct mtk_ddp_comp *comp);
 int mtk_rdma_analysis(struct mtk_ddp_comp *comp);
+int mtk_mdp_rdma_analysis(struct mtk_ddp_comp *comp);
 int mtk_wdma_analysis(struct mtk_ddp_comp *comp);
 int mtk_rsz_analysis(struct mtk_ddp_comp *comp);
 int mtk_mdp_rsz_analysis(struct mtk_ddp_comp *comp);

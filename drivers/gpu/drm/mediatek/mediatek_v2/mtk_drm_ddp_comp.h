@@ -628,6 +628,7 @@ enum mtk_ddp_io_cmd {
 	DSI_PLL_SWITCH_REFERENCE_CNT_CTL,
 	DSI_PLL_SWITCH_REFERENCE_CNT_GET,
 	DSI_PLL_SWITCH_ON_OFF,
+	MDP_RDMA_FILL_FRAME,
 };
 
 enum mtk_ddp_comp_apsrc_crtc_id {
