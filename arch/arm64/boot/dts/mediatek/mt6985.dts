@@ -11565,13 +11565,10 @@
 		clocks = <&dispsys_config_clk CLK_MM_MDP_RDMA0>;
 		mediatek,larb = <&smi_larb32 M4U_PORT_L32_DISP_MDP_RDMA0>;
 		iommus = <&disp_iommu M4U_PORT_L32_DISP_MDP_RDMA0>;
-//		interconnects =
-//			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_RDMA0)
-//					&mmqos SLAVE_COMMON(0)>,
-//			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_RDMA0)
-//					&mmqos SLAVE_COMMON(0)>;
-//		interconnect-names = "DDP_COMPONENT_RDMA0_qos",
-//					"DDP_COMPONENT_RDMA0_hrt_qos";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L32_DISP_MDP_RDMA0)
+					&mmqos SLAVE_COMMON(1)>;
+		interconnect-names = "DDP_COMPONENT_MDP_RDMA0_hrt_qos";
 	};
 
 	disp1_mdp_rdma0: disp1-mdp-rdma0@14210000 {
@@ -11582,13 +11579,10 @@
 		clocks = <&dispsys1_config_clk CLK_MM1_MDP_RDMA0>;
 		mediatek,larb = <&smi_larb33 M4U_PORT_L33_DISP_MDP_RDMA0>;
 		iommus = <&disp_iommu M4U_PORT_L33_DISP_MDP_RDMA0>;
-//		interconnects =
-//			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_RDMA0)
-//					&mmqos SLAVE_COMMON(0)>,
-//			<&mmqos MASTER_LARB_PORT(M4U_PORT_L0_DISP_RDMA0)
-//					&mmqos SLAVE_COMMON(0)>;
-//		interconnect-names = "DDP_COMPONENT_RDMA0_qos",
-//					"DDP_COMPONENT_RDMA0_hrt_qos";
+		interconnects =
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_L33_DISP_MDP_RDMA0)
+					&mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "DDP_COMPONENT_MDP_RDMA1_hrt_qos";
 	};
 
 	disp_tdshp0_0: disp_tdshp@14018000 {
