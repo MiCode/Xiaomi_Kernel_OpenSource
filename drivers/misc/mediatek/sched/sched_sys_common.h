@@ -30,5 +30,6 @@ extern int set_target_margin(int gearid, int margin);
 extern unsigned int get_target_margin(int gearid);
 extern struct kobj_attribute sched_turn_point_freq_attr;
 extern struct kobj_attribute sched_target_margin_attr;
+extern int set_util_est_ctrl(bool enable);
 
 #endif

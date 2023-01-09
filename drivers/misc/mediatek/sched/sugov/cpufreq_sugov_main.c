@@ -55,6 +55,15 @@ struct sugov_cpu {
 
 static DEFINE_PER_CPU(struct sugov_cpu, sugov_cpu);
 
+/*
+ * dynamic control util_est
+ * 0:disable 1:enable
+ */
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
+bool sysctl_util_est = true;
+EXPORT_SYMBOL(sysctl_util_est);
+#endif
+
 /************************ Governor internals ***********************/
 
 static bool sugov_should_update_freq(struct sugov_policy *sg_policy, u64 time)

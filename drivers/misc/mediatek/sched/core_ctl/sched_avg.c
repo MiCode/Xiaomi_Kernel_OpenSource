@@ -63,6 +63,19 @@ static int init_thres_table(void);
 static unsigned int over_thres[OVER_THRES_SIZE] = {80, 70};
 static struct cluster_over_thres_stats cluster_over_thres_table[MAX_CLUSTER_NR];
 
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
+extern bool sysctl_util_est;
+#endif
+
+bool is_util_est_enable(void)
+{
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
+	return sysctl_util_est;
+#else
+	return true;
+#endif
+}
+
 void sched_max_util_task(int *util)
 {
 	int cpu;
@@ -112,7 +125,7 @@ unsigned int get_cpu_util_pct(unsigned int cpu, bool orig)
 	cfs_rq = &cpu_rq(cpu)->cfs;
 	util = READ_ONCE(cfs_rq->avg.util_avg);
 
-	if (sched_feat(UTIL_EST))
+	if (sched_feat(UTIL_EST) && is_util_est_enable())
 		util = max_t(unsigned long, util,
 			READ_ONCE(cfs_rq->avg.util_est.enqueued));
 

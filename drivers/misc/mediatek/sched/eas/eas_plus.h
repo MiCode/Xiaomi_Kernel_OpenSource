@@ -113,7 +113,7 @@ extern void get_most_powerful_pd_and_util_Th(void);
 #define EAS_SBB_TASK_SET			_IOW('g', 16,  unsigned int)
 #define EAS_SBB_TASK_UNSET			_IOW('g', 17,  unsigned int)
 #define EAS_SBB_ACTIVE_RATIO		_IOW('g', 18,  unsigned int)
-
+#define EAS_UTIL_EST_CONTROL		_IOW('g', 20,  unsigned int)
 #define EAS_TURN_POINT_UTIL_C0		_IOW('g', 21,  unsigned int)
 #define EAS_TARGET_MARGIN_C0		_IOW('g', 22,  unsigned int)
 #define EAS_TURN_POINT_UTIL_C1		_IOW('g', 23,  unsigned int)
@@ -164,5 +164,6 @@ extern void sched_pause_init(void);
 
 extern int set_target_margin(int gearid, int margin);
 extern int set_turn_point_freq(int gearid, unsigned long turn_freq);
+extern int set_util_est_ctrl(bool enable);
 
 #endif

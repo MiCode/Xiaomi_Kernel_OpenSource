@@ -64,4 +64,29 @@ static inline int rt_rq_throttled(struct rt_rq *rt_rq)
 extern int set_target_margin(int gearid, int margin);
 extern int set_turn_point_freq(int gearid, unsigned long freq);
 
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
+extern bool sysctl_util_est;
+#endif
+
+static inline bool is_util_est_enable(void)
+{
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
+	return sysctl_util_est;
+#else
+	return true;
+#endif
+}
+
+static inline unsigned long mtk_cpu_util_cfs(struct rq *rq)
+{
+	unsigned long util = READ_ONCE(rq->cfs.avg.util_avg);
+
+	if (sched_feat(UTIL_EST) && is_util_est_enable()) {
+		util = max_t(unsigned long, util,
+			     READ_ONCE(rq->cfs.avg.util_est.enqueued));
+	}
+
+	return util;
+}
+
 #endif /* _SCHED_COMMON_H */

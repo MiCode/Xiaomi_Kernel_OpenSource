@@ -127,7 +127,34 @@ const char __user *buf, size_t cnt)
 	return cnt;
 }
 
+extern bool sysctl_util_est;
+ssize_t store_sched_util_est_ctrl(struct kobject *kobj, struct kobj_attribute *attr,
+const char __user *buf, size_t cnt)
+{
+	int enable;
+
+	if (kstrtouint(buf, 10, &enable))
+		return -EINVAL;
+
+	set_util_est_ctrl(enable);
+	return cnt;
+}
+
+ssize_t show_sched_util_est_ctrl(struct kobject *kobj,
+struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+
+	len += snprintf(buf+len, max_len-len,
+			"%d\n", sysctl_util_est);
+
+	return len;
+}
+
 struct kobj_attribute sched_turn_point_freq_attr =
 __ATTR(sched_turn_point_freq, 0644, show_sched_turn_point_freq, store_sched_turn_point_freq);
 struct kobj_attribute sched_target_margin_attr =
 __ATTR(sched_target_margin, 0644, show_sched_target_margin, store_sched_target_margin);
+struct kobj_attribute sched_util_est_ctrl =
+__ATTR(sched_util_est_ctrl, 0644, show_sched_util_est_ctrl, store_sched_util_est_ctrl);

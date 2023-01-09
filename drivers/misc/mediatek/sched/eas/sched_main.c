@@ -353,6 +353,11 @@ static long eas_ioctl_impl(struct file *filp,
 			return -1;
 		set_target_margin(2, val);
 		break;
+	case EAS_UTIL_EST_CONTROL:
+		if (easctl_copy_from_user(&val, (void *)arg, sizeof(unsigned int)))
+			return -1;
+		set_util_est_ctrl(val);
+		break;
 	default:
 		pr_debug(TAG "%s %d: unknown cmd %x\n",
 			__FILE__, __LINE__, cmd);

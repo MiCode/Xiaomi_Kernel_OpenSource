@@ -69,7 +69,9 @@ static inline unsigned long _task_util_est(struct task_struct *p)
 
 static inline unsigned long task_util_est(struct task_struct *p)
 {
-	return max(task_util(p), _task_util_est(p));
+	if (sched_feat(UTIL_EST) && is_util_est_enable())
+		return max(task_util(p), _task_util_est(p));
+	return task_util(p);
 }
 
 #ifdef CONFIG_UCLAMP_TASK
@@ -105,7 +107,7 @@ unsigned long cpu_util(int cpu)
 	cfs_rq = &cpu_rq(cpu)->cfs;
 	util = READ_ONCE(cfs_rq->avg.util_avg);
 
-	if (sched_feat(UTIL_EST))
+	if (sched_feat(UTIL_EST) && is_util_est_enable())
 		util = max(util, READ_ONCE(cfs_rq->avg.util_est.enqueued));
 
 	return min_t(unsigned long, util, capacity_orig_of(cpu));
@@ -132,7 +134,7 @@ static unsigned long cpu_util_next(int cpu, struct task_struct *p, int dst_cpu)
 	else if (task_cpu(p) != cpu && dst_cpu == cpu)
 		util += task_util(p);
 
-	if (sched_feat(UTIL_EST)) {
+	if (sched_feat(UTIL_EST) && is_util_est_enable()) {
 		util_est = READ_ONCE(cfs_rq->avg.util_est.enqueued);
 
 		/*
@@ -174,7 +176,7 @@ static unsigned long mtk_cpu_util_next(int cpu, struct task_struct *p, int dst_c
 	else if (task_cpu(p) != cpu && dst_cpu == cpu)
 		util_freq += task_util(p);
 
-	if (sched_feat(UTIL_EST)) {
+	if (sched_feat(UTIL_EST) && is_util_est_enable()) {
 
 		/*
 		 * During wake-up, the task isn't enqueued yet and doesn't
@@ -234,7 +236,7 @@ mtk_compute_energy(struct task_struct *p, int dst_cpu, struct perf_domain *pd,
 		struct util_rq util_rq_energy, util_rq_freq;
 #endif
 
-		if (sched_feat(UTIL_EST))
+		if (sched_feat(UTIL_EST) && is_util_est_enable())
 			util_est = READ_ONCE(cfs_rq->avg.util_est.enqueued);
 
 		util_freq_base = mtk_cpu_util_next(cpu, p, -1, util_freq, util_est);

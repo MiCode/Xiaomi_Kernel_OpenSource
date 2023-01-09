@@ -1341,3 +1341,9 @@ out:
 #endif
 	return;
 }
+
+int set_util_est_ctrl(bool enable)
+{
+	sysctl_util_est = enable;
+	return 0;
+}

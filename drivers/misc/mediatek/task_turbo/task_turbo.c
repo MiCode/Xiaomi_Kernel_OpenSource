@@ -148,6 +148,18 @@ static inline unsigned long cpu_util(int cpu);
 static inline unsigned long task_util(struct task_struct *p);
 static inline unsigned long _task_util_est(struct task_struct *p);
 
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
+extern bool sysctl_util_est;
+#endif
+
+bool is_util_est_enable(void)
+{
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
+	return sysctl_util_est;
+#else
+	return true;
+#endif
+}
 
 static void probe_android_rvh_prepare_prio_fork(void *ignore, struct task_struct *p)
 {
@@ -438,7 +450,7 @@ static unsigned long cpu_util_without(int cpu, struct task_struct *p)
 	 * covered by the following code when estimated utilization is
 	 * enabled.
 	 */
-	if (sched_feat(UTIL_EST)) {
+	if (sched_feat(UTIL_EST) && is_util_est_enable()) {
 		unsigned int estimated =
 			READ_ONCE(cfs_rq->avg.util_est.enqueued);
 
@@ -481,7 +493,7 @@ static inline unsigned long cpu_util(int cpu)
 	cfs_rq = &cpu_rq(cpu)->cfs;
 	util = READ_ONCE(cfs_rq->avg.util_avg);
 
-	if (sched_feat(UTIL_EST))
+	if (sched_feat(UTIL_EST) && is_util_est_enable())
 		util = max(util, READ_ONCE(cfs_rq->avg.util_est.enqueued));
 
 	return min_t(unsigned long, util, capacity_orig_of(cpu));
