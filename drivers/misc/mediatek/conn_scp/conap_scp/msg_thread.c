@@ -140,6 +140,10 @@ int msg_evt_put_op_to_active(struct msg_thread_ctx *ctx, struct msg_op *op)
 			break;
 		}
 
+		mutex_lock(&op->lock);
+		op->in_use = true;
+		mutex_unlock(&op->lock);
+
 		signal = &op->signal;
 		if (signal->timeoutValue) {
 			op->result = -9;
@@ -181,6 +185,10 @@ int msg_evt_put_op_to_active(struct msg_thread_ctx *ctx, struct msg_op *op)
 		else if (op->result)
 			pr_info("opId(%d) result:%d\n",
 					op->op.op_id, op->result);
+
+		mutex_lock(&op->lock);
+		op->in_use = false;
+		mutex_unlock(&op->lock);
 
 		/* op completes, check result */
 		ret = op->result;
@@ -417,9 +425,15 @@ static int msg_evt_thread(void *pvData)
 
 		/* TODO: save op history */
 		//msg_op_history_save(&ctx->op_history, op);
-		msg_evt_set_current_op(ctx, op);
-		ret = msg_evt_opid_handler(ctx, &op->op);
-		msg_evt_set_current_op(ctx, NULL);
+
+		mutex_lock(&op->lock);
+		if (op->in_use == true) {
+			msg_evt_set_current_op(ctx, op);
+			ret = msg_evt_opid_handler(ctx, &op->op);
+			msg_evt_set_current_op(ctx, NULL);
+		} else
+			pr_notice("[%s] op not in_use, give up", __func__);
+		mutex_unlock(&op->lock);
 
 		if (ret)
 			pr_warn("opid (0x%x) failed, ret(%d)\n",
@@ -472,6 +486,7 @@ int msg_thread_init(struct msg_thread_ctx *ctx, const char *name,
 	/* Put all to free Q */
 	for (i = 0; i < MSG_THREAD_OP_BUF_SIZE; i++) {
 		init_completion(&(ctx->op_q_inst[i].signal.comp));
+		mutex_init(&(ctx->op_q_inst[i].lock));
 		msg_evt_put_op_to_free_queue(ctx, &(ctx->op_q_inst[i]));
 	}
 

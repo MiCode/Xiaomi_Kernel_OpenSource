@@ -29,6 +29,8 @@ struct msg_op {
 	struct msg_op_signal signal;
 	int result;
 	atomic_t ref_count;
+	struct mutex lock;
+	bool in_use;
 };
 
 struct msg_op_q {
