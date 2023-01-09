@@ -4,7 +4,7 @@
 #
 
 obj-$(CONFIG_CRYPTO) += crypto.o
-crypto-y := api.o cipher.o compress.o memneq.o
+crypto-y := api.o cipher.o compress.o
 
 obj-$(CONFIG_CRYPTO_ENGINE) += crypto_engine.o
 obj-$(CONFIG_CRYPTO_FIPS) += fips.o
@@ -83,7 +83,6 @@ obj-$(CONFIG_CRYPTO_STREEBOG) += streebog_generic.o
 obj-$(CONFIG_CRYPTO_WP512) += wp512.o
 CFLAGS_wp512.o := $(call cc-option,-fno-schedule-insns)  # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=79149
 obj-$(CONFIG_CRYPTO_BLAKE2B) += blake2b_generic.o
-obj-$(CONFIG_CRYPTO_BLAKE2S) += blake2s_generic.o
 obj-$(CONFIG_CRYPTO_GF128MUL) += gf128mul.o
 obj-$(CONFIG_CRYPTO_ECB) += ecb.o
 obj-$(CONFIG_CRYPTO_CBC) += cbc.o
@@ -215,7 +214,7 @@ UBSAN_SANITIZE_jitterentropy-fips.o = n
 # module that is in scope for FIPS 140-2 certification
 #
 crypto-fips-objs := drbg.o ecb.o cbc.o ctr.o cts.o gcm.o xts.o hmac.o cmac.o \
-		    memneq.o gf128mul.o aes_generic.o lib-crypto-aes.o \
+		    gf128mul.o aes_generic.o lib-crypto-aes.o \
 		    jitterentropy.o jitterentropy-kcapi.o \
 		    sha1_generic.o sha256_generic.o sha512_generic.o \
 		    lib-sha1.o lib-crypto-sha256.o

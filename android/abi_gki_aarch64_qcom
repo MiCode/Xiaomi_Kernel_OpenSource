@@ -72,6 +72,8 @@
   blk_freeze_queue_start
   blk_get_queue
   blk_get_request
+  blk_ksm_get_slot_idx
+  blk_ksm_register
   blk_mark_disk_dead
   blk_mq_alloc_request
   blk_mq_alloc_request_hctx
@@ -2013,6 +2015,7 @@
   syscon_regmap_lookup_by_phandle
   sysctl_sched_features
   sysctl_vals
+  sysctl_vals_new
   sysfs_add_file_to_group
   sysfs_add_link_to_group
   sysfs_create_bin_file
@@ -2142,6 +2145,7 @@
   __traceiter_android_vh_check_hibernation_swap
   __traceiter_android_vh_check_uninterruptible_tasks
   __traceiter_android_vh_check_uninterruptible_tasks_dn
+  __traceiter_android_vh_cma_alloc_retry
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
   __traceiter_android_vh_cpuidle_psci_enter
@@ -2254,6 +2258,7 @@
   __tracepoint_android_vh_check_hibernation_swap
   __tracepoint_android_vh_check_uninterruptible_tasks
   __tracepoint_android_vh_check_uninterruptible_tasks_dn
+  __tracepoint_android_vh_cma_alloc_retry
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_cpuidle_psci_enter

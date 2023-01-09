@@ -420,11 +420,13 @@ void unlink_anon_vmas(struct vm_area_struct *vma)
 	if (vma->anon_vma) {
 		vma->anon_vma->degree--;
 
+#ifndef CONFIG_SPECULATIVE_PAGE_FAULT
 		/*
 		 * vma would still be needed after unlink, and anon_vma will be prepared
 		 * when handle fault.
 		 */
 		vma->anon_vma = NULL;
+#endif
 	}
 	unlock_anon_vma_root(root);
 

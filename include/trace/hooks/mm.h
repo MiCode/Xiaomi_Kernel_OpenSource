@@ -44,6 +44,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_readahead_gfp_mask,
 DECLARE_RESTRICTED_HOOK(android_rvh_set_readahead_gfp_mask,
 			TP_PROTO(gfp_t *flags),
 			TP_ARGS(flags), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_rmqueue_bulk,
+			TP_PROTO(void *unused),
+			TP_ARGS(unused), 1);
 DECLARE_HOOK(android_vh_meminfo_proc_show,
 	TP_PROTO(struct seq_file *m),
 	TP_ARGS(m));
@@ -82,6 +85,9 @@ DECLARE_HOOK(android_vh_mmap_region,
 DECLARE_HOOK(android_vh_try_to_unmap_one,
 	TP_PROTO(struct vm_area_struct *vma, struct page *page, unsigned long addr, bool ret),
 	TP_ARGS(vma, page, addr, ret));
+DECLARE_HOOK(android_vh_cma_alloc_retry,
+	TP_PROTO(char *name, int *retry),
+	TP_ARGS(name, retry));
 struct mem_cgroup;
 DECLARE_HOOK(android_vh_mem_cgroup_alloc,
 	TP_PROTO(struct mem_cgroup *memcg),

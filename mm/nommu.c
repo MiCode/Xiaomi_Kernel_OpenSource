@@ -659,6 +659,22 @@ static void delete_vma(struct mm_struct *mm, struct vm_area_struct *vma)
 	vm_area_free(vma);
 }
 
+struct vm_area_struct *find_vma_from_tree(struct mm_struct *mm, unsigned long addr)
+{
+	struct vm_area_struct *vma;
+
+	/* trawl the list (there may be multiple mappings in which addr
+	 * resides) */
+	for (vma = mm->mmap; vma; vma = vma->vm_next) {
+		if (vma->vm_start > addr)
+			return NULL;
+		if (vma->vm_end > addr)
+			return vma;
+	}
+
+	return NULL;
+}
+
 /*
  * look up the first VMA in which addr resides, NULL if none
  * - should be called with mm->mmap_lock at least held readlocked
@@ -667,23 +683,16 @@ struct vm_area_struct *__find_vma(struct mm_struct *mm, unsigned long addr)
 {
 	struct vm_area_struct *vma;
 
-	/* check the cache first */
+	/* Check the cache first. */
 	vma = vmacache_find(mm, addr);
 	if (likely(vma))
 		return vma;
 
-	/* trawl the list (there may be multiple mappings in which addr
-	 * resides) */
-	for (vma = mm->mmap; vma; vma = vma->vm_next) {
-		if (vma->vm_start > addr)
-			return NULL;
-		if (vma->vm_end > addr) {
-			vmacache_update(addr, vma);
-			return vma;
-		}
-	}
+	vma = find_vma_from_tree(mm, addr);
 
-	return NULL;
+	if (vma)
+		vmacache_update(addr, vma);
+	return vma;
 }
 EXPORT_SYMBOL(__find_vma);
 

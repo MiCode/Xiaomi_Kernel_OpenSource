@@ -559,7 +559,6 @@ crypto/lz4.c
 crypto/lzo.c
 crypto/lzo-rle.c
 crypto/md5.c
-crypto/memneq.c
 crypto/nhpoly1305.c
 crypto/poly1305_generic.c
 crypto/polyval-generic.c
@@ -1287,6 +1286,7 @@ drivers/net/usb/cdc_eem.c
 drivers/net/usb/cdc_ether.c
 drivers/net/usb/cdc_ncm.c
 drivers/net/usb/r8152.c
+drivers/net/usb/r8153_ecm.c
 drivers/net/usb/rtl8150.c
 drivers/net/usb/usbnet.c
 drivers/net/veth.c
@@ -3058,6 +3058,7 @@ include/linux/mm_types_task.h
 include/linux/mmu_context.h
 include/linux/mmu_notifier.h
 include/linux/mmzone.h
+include/linux/mnt_idmapping.h
 include/linux/mnt_namespace.h
 include/linux/mod_devicetable.h
 include/linux/module.h
@@ -4018,7 +4019,6 @@ include/trace/events/power.h
 include/trace/events/printk.h
 include/trace/events/pwm.h
 include/trace/events/qdisc.h
-include/trace/events/random.h
 include/trace/events/rcu.h
 include/trace/events/regulator.h
 include/trace/events/rpm.h
@@ -4889,6 +4889,8 @@ kernel/trace/blktrace.c
 kernel/trace/bpf_trace.c
 kernel/trace/bpf_trace.h
 kernel/trace/error_report-traces.c
+kernel/trace/pid_list.c
+kernel/trace/pid_list.h
 kernel/tracepoint.c
 kernel/trace/power-traces.c
 kernel/trace/ring_buffer.c
@@ -5044,6 +5046,7 @@ lib/math/lcm.c
 lib/math/rational.c
 lib/math/reciprocal_div.c
 lib/memcat_p.c
+lib/memneq.c
 lib/memregion.c
 lib/memweight.c
 lib/mpi/ec.c
