@@ -270,6 +270,12 @@
 #define MIPITX_PHY_SEL3 (0x004CUL)
 #define FLD_MIPI_TX_PHY3_HSDATA_SEL (0xf << 0)
 
+#define MIPITX_D2_DIG_PN_SWAP_EN (0x158UL)
+#define MIPITX_D0_DIG_PN_SWAP_EN (0x258UL)
+#define MIPITX_CK_DIG_PN_SWAP_EN (0x358UL)
+#define MIPITX_D1_DIG_PN_SWAP_EN (0x458UL)
+#define MIPITX_D3_DIG_PN_SWAP_EN (0x558UL)
+
 #define MIPITX_D2P_RTCODE0_MT6886 (0x0100UL)
 #define MIPITX_D2N_RTCODE0_MT6886 (0x0108UL)
 #define MIPITX_D2P_RT_DEM_CODE_MT6886 (0x01C4UL)
@@ -824,6 +830,8 @@ int mtk_mipi_tx_dphy_lane_config_mt6983(struct phy *phy,
 	enum MIPITX_PAD_VALUE pad_mapping[MIPITX_PHY_LANE_NUM] = {
 		PAD_D0P_T0C, PAD_D1P_T2A, PAD_D2P_T0A,
 		PAD_D3P_T2C, PAD_CKP_T1B, PAD_CKP_T1B};
+	bool *pn_swap_base;
+	int lane_p, lane_n, tmp;
 
 	if (!mtk_panel->params->lane_swap_en) {
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_CK_CKMODE_EN_MT6983,
@@ -836,6 +844,12 @@ int mtk_mipi_tx_dphy_lane_config_mt6983(struct phy *phy,
 		swap_base = params->lane_swap[MIPITX_PHY_PORT_0];
 	else
 		swap_base = params->lane_swap[MIPITX_PHY_PORT_1];
+
+	if (is_master)
+		pn_swap_base = params->pn_swap[MIPITX_PHY_PORT_0];
+	else
+		pn_swap_base = params->pn_swap[MIPITX_PHY_PORT_1];
+
 	DDPDBG("MIPITX Lane Swap Enabled for DSI Port %d\n", i);
 	DDPDBG("MIPITX Lane Swap mapping: %d|%d|%d|%d|%d|%d\n",
 			swap_base[MIPITX_PHY_LANE_0],
@@ -844,6 +858,13 @@ int mtk_mipi_tx_dphy_lane_config_mt6983(struct phy *phy,
 			swap_base[MIPITX_PHY_LANE_3],
 			swap_base[MIPITX_PHY_LANE_CK],
 			swap_base[MIPITX_PHY_LANE_RX]);
+	DDPDBG("MIPITX PN Swap mapping: %d|%d|%d|%d|%d|%d\n",
+			pn_swap_base[MIPITX_PHY_LANE_0],
+			pn_swap_base[MIPITX_PHY_LANE_1],
+			pn_swap_base[MIPITX_PHY_LANE_2],
+			pn_swap_base[MIPITX_PHY_LANE_3],
+			pn_swap_base[MIPITX_PHY_LANE_CK],
+			pn_swap_base[MIPITX_PHY_LANE_RX]);
 
 	for (j = MIPITX_PHY_LANE_0; j < MIPITX_PHY_LANE_CK; j++) {
 		if (swap_base[j] == MIPITX_PHY_LANE_CK)
@@ -875,52 +896,88 @@ int mtk_mipi_tx_dphy_lane_config_mt6983(struct phy *phy,
 	}
 
 	/* LANE_0 */
+	lane_p = pad_mapping[swap_base[MIPITX_PHY_LANE_0]];
+	lane_n = pad_mapping[swap_base[MIPITX_PHY_LANE_0]] + 1;
+	/* PN swap need change PN value */
+	if (pn_swap_base[MIPITX_PHY_LANE_0]) {
+		writel(0x1, mipi_tx->regs + MIPITX_D0_DIG_PN_SWAP_EN);
+		tmp = lane_p;
+		lane_p = lane_n;
+		lane_n = tmp;
+	}
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL0_MT6983,
-		FLD_MIPI_TX_PHY0_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_0]]) << 8);
+		FLD_MIPI_TX_PHY0_SEL_MT6983, lane_p << 8);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL0_MT6983,
-		FLD_MIPI_TX_PHY1AB_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_0]] + 1) << 12);
+		FLD_MIPI_TX_PHY1AB_SEL_MT6983, lane_n << 12);
 
 	/* LANE_1 */
+	lane_p = pad_mapping[swap_base[MIPITX_PHY_LANE_1]];
+	lane_n = pad_mapping[swap_base[MIPITX_PHY_LANE_1]] + 1;
+	if (pn_swap_base[MIPITX_PHY_LANE_1]) {
+		writel(0x1, mipi_tx->regs + MIPITX_D1_DIG_PN_SWAP_EN);
+		tmp = lane_p;
+		lane_p = lane_n;
+		lane_n = tmp;
+	}
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL0_MT6983,
-		FLD_MIPI_TX_PHY1_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_1]]) << 24);
+		FLD_MIPI_TX_PHY1_SEL_MT6983, lane_p << 24);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL0_MT6983,
-		FLD_MIPI_TX_PHY2BC_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_1]] + 1) << 28);
+		FLD_MIPI_TX_PHY2BC_SEL_MT6983, lane_n << 28);
 
 	/* LANE_2 */
+	lane_p = pad_mapping[swap_base[MIPITX_PHY_LANE_2]];
+	lane_n = pad_mapping[swap_base[MIPITX_PHY_LANE_2]] + 1;
+	if (pn_swap_base[MIPITX_PHY_LANE_2]) {
+		writel(0x1, mipi_tx->regs + MIPITX_D2_DIG_PN_SWAP_EN);
+		tmp = lane_p;
+		lane_p = lane_n;
+		lane_n = tmp;
+	}
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL0_MT6983,
-		FLD_MIPI_TX_PHY2_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_2]]) << 0);
+		FLD_MIPI_TX_PHY2_SEL_MT6983, lane_p << 0);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL0_MT6983,
-		FLD_MIPI_TX_CPHY0BC_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_2]] + 1) << 4);
+		FLD_MIPI_TX_CPHY0BC_SEL_MT6983, lane_n << 4);
 
 	/* LANE_3 */
+	lane_p = pad_mapping[swap_base[MIPITX_PHY_LANE_3]];
+	lane_n = pad_mapping[swap_base[MIPITX_PHY_LANE_3]] + 1;
+	if (pn_swap_base[MIPITX_PHY_LANE_3]) {
+		writel(0x1, mipi_tx->regs + MIPITX_D3_DIG_PN_SWAP_EN);
+		tmp = lane_p;
+		lane_p = lane_n;
+		lane_n = tmp;
+	}
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL1_MT6983,
-		FLD_MIPI_TX_PHY3_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_3]]) << 0);
+		FLD_MIPI_TX_PHY3_SEL_MT6983, lane_p << 0);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL1_MT6983,
-		FLD_MIPI_TX_CPHYXXX_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_3]] + 1) << 4);
+		FLD_MIPI_TX_CPHYXXX_SEL_MT6983, lane_n << 4);
 
 	/* CK_LANE */
+	lane_p = pad_mapping[swap_base[MIPITX_PHY_LANE_CK]];
+	lane_n = pad_mapping[swap_base[MIPITX_PHY_LANE_CK]] + 1;
+	if (pn_swap_base[MIPITX_PHY_LANE_CK]) {
+		writel(0x1, mipi_tx->regs + MIPITX_CK_DIG_PN_SWAP_EN);
+		tmp = lane_p;
+		lane_p = lane_n;
+		lane_n = tmp;
+	}
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL0_MT6983,
-		FLD_MIPI_TX_PHYC_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_CK]]) << 16);
+		FLD_MIPI_TX_PHYC_SEL_MT6983, lane_p << 16);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL0_MT6983,
-		FLD_MIPI_TX_CPHY1CA_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_CK]] + 1) << 20);
+		FLD_MIPI_TX_CPHY1CA_SEL_MT6983, lane_n << 20);
 
 	/* LPRX SETTING */
+	lane_p = pad_mapping[swap_base[MIPITX_PHY_LANE_RX]];
+	lane_n = pad_mapping[swap_base[MIPITX_PHY_LANE_RX]] + 1;
+	if (pn_swap_base[MIPITX_PHY_LANE_RX]) {
+		tmp = lane_p;
+		lane_p = lane_n;
+		lane_n = tmp;
+	}
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL1_MT6983,
-		FLD_MIPI_TX_LPRX0AB_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_RX]]) << 12);
+		FLD_MIPI_TX_LPRX0AB_SEL_MT6983, lane_p << 12);
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL1_MT6983,
-		FLD_MIPI_TX_LPRX0BC_SEL_MT6983,
-		(pad_mapping[swap_base[MIPITX_PHY_LANE_RX]] + 1) << 16);
+		FLD_MIPI_TX_LPRX0BC_SEL_MT6983, lane_n << 16);
 
 	/* HS_DATA_SETTING */
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PHY_SEL2_MT6983,

@@ -481,6 +481,7 @@ struct mtk_panel_params {
 	unsigned int is_cphy;
 	enum MIPITX_PHY_LANE_SWAP
 		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
+	bool pn_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
 	struct mtk_panel_dsc_params dsc_params;
 	unsigned int output_mode;
 	unsigned int spr_output_mode;
