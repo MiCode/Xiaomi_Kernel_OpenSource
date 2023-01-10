@@ -490,6 +490,7 @@
   dev_pm_opp_of_cpumask_remove_table
   dev_pm_opp_of_find_icc_paths
   dev_pm_opp_of_register_em
+  dev_pm_opp_remove
   dev_pm_opp_of_remove_table
   dev_pm_opp_put
   dev_pm_opp_put_clkname
@@ -1251,10 +1252,13 @@
   mmc_cqe_request_done
   mmc_execute_tuning
   mmc_get_ext_csd
+  mmc_get_card
   mmc_hs200_tuning
+  mmc_issue_type
   mmc_of_parse
   __mmc_poll_for_busy
   mmc_prepare_busy_cmd
+  mmc_put_card
   mmc_regulator_get_supply
   mmc_regulator_set_ocr
   mmc_regulator_set_vqmmc
@@ -1266,6 +1270,7 @@
   mmc_select_hs400
   mmc_select_hs_ddr
   mmc_select_timing
+  mmc_send_status
   mmc_send_tuning
   mmc_set_bus_mode
   mmc_set_bus_width
