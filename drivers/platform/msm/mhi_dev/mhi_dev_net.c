@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -287,18 +287,16 @@ static void mhi_dev_net_read_completion_cb(void *req)
 	struct mhi_req *mreq = (struct mhi_req *)req;
 	struct mhi_dev_net_client *net_handle =
 			chan_to_net_client(mreq->vf_id, mreq->chan);
-
 	struct sk_buff *skb = mreq->context;
 	unsigned long   flags;
 
-	skb->len = mreq->transfer_len;
+	skb_put(skb, mreq->transfer_len);
 
 	if (net_handle->eth_iface)
 		skb->protocol = eth_type_trans(skb, net_handle->dev);
 	else
 		skb->protocol = mhi_dev_net_eth_type_trans(skb);
 
-	skb_put(skb, mreq->transfer_len);
 	net_handle->dev->stats.rx_packets++;
 	skb->dev = net_handle->dev;
 	netif_rx(skb);
