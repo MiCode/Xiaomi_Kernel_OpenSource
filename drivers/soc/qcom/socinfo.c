@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2009-2017, 2021 The Linux Foundation. All rights reserved.
  * Copyright (c) 2017-2019, Linaro Ltd.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -1066,6 +1066,7 @@ static const struct soc_id soc_id[] = {
 	{ 350, "SDA632" },
 	{ 351, "SDA450" },
 	{ 352, "QCS405" },
+	{ 411, "QCS407" },
 	{ 356, "SM8250" },
 	{ 362, "SA8155" },
 	{ 367, "SA8155P" },
