@@ -33,16 +33,14 @@
 #include "slatecom_rpmsg.h"
 
 #define SLATECOM "slate_com_dev"
-
 #define SLATEDAEMON_LDO09_LPM_VTG 0
 #define SLATEDAEMON_LDO09_NPM_VTG 10000
-
 #define SLATEDAEMON_LDO03_LPM_VTG 0
 #define SLATEDAEMON_LDO03_NPM_VTG 10000
-
 #define MPPS_DOWN_EVENT_TO_SLATE_TIMEOUT 3000
 #define ADSP_DOWN_EVENT_TO_SLATE_TIMEOUT 3000
 #define MAX_APP_NAME_SIZE 100
+#define COMPAT_PTR(val) ((void *)((uint64_t)val & 0xffffffffUL))
 
 /*pil_slate_intf.h*/
 #define RESULT_SUCCESS 0
@@ -531,13 +529,10 @@ static int send_time_sync(struct slate_ui_data *tui_obj_msg)
 {
 	int ret = 0;
 	void *write_buf;
+	size_t len;
 
-	write_buf = kmalloc_array(tui_obj_msg->num_of_words, sizeof(uint32_t),
-							GFP_KERNEL);
-	if (write_buf == NULL)
-		return -ENOMEM;
-	write_buf = memdup_user(tui_obj_msg->buffer,
-					tui_obj_msg->num_of_words * sizeof(uint32_t));
+	len = tui_obj_msg->num_of_words * sizeof(uint32_t);
+	write_buf = memdup_user((COMPAT_PTR(tui_obj_msg->buffer)), len);
 	if (IS_ERR(write_buf)) {
 		ret = PTR_ERR(write_buf);
 		kfree(write_buf);
@@ -548,6 +543,7 @@ static int send_time_sync(struct slate_ui_data *tui_obj_msg)
 		pr_err("send_time_data cmd failed\n");
 	else
 		pr_info("send_time_data cmd success\n");
+	kfree(write_buf);
 return ret;
 }
 
