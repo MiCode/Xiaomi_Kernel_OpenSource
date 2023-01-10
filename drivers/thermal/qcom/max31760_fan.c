@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -14,6 +14,10 @@
 #define MAX31760_CTRL_REG2		0x01
 #define MAX31760_CTRL_REG3		0x02
 #define MAX31760_DUTY_CYCLE_CTRL_REG	0x50
+#define MAX31760_TC1H_REG		0x52
+#define MAX31760_TC1L_REG		0x53
+#define MAX31760_TC2H_REG		0x54
+#define MAX31760_TC2L_REG		0x55
 
 #define VDD_MAX_UV	3300000
 #define VDD_MIN_UV	3300000
@@ -22,14 +26,11 @@
 #define VCCA_MIN_UV	1800000
 #define VCCA_LOAD_UA	600000
 
-enum {
-	FAN_SPEED_LEVEL0 = 0,
-	FAN_SPEED_LEVEL1,
-	FAN_SPEED_LEVEL2,
-	FAN_SPEED_LEVEL3,
-	FAN_SPEED_LEVEL4,
-	FAN_SPEED_MAX,
-};
+#define FAN_SPEED_LEVEL0	0
+#define FAN_SPEED_MAX		100
+#define SPEED_CAL_CONST		(60 * 100000)
+#define MSB_CONVERT_DEC		(256)
+#define PWM_FACTOR		39
 
 struct max31760_data {
 	struct device *dev;
@@ -38,12 +39,28 @@ struct max31760_data {
 	struct mutex update_lock;
 	struct regulator *vdd_reg;
 	struct regulator *vcca_reg;
+	u32 fan_num;
 	u32 pwr_en_gpio;
 	unsigned int cur_state;
 	atomic_t in_suspend;
 };
 
-static int max31760_speed_map[FAN_SPEED_MAX] = {0x00, 0x30, 0x85, 0xCF, 0xFF};
+static int max31760_read_byte(struct max31760_data *pdata, u8 reg, u8 *val)
+{
+	int ret;
+
+	struct i2c_client *client = pdata->i2c_client;
+
+	ret = i2c_smbus_read_byte_data(client, reg);
+	if (ret < 0)
+		dev_err(pdata->dev, "%s failed read reg 0x%02x failure, ret:%d\n", reg, ret);
+
+	*val = (u8)ret;
+
+	dev_dbg(pdata->dev, "success read reg 0x%x=0x%x\n", reg, *val);
+
+	return ret;
+}
 
 static int max31760_write_byte(struct max31760_data *pdata, u8 reg, u8 val)
 {
@@ -69,17 +86,15 @@ static void max31760_enable_gpio(struct max31760_data *pdata, int on)
 
 static void max31760_speed_control(struct max31760_data *pdata, unsigned long level)
 {
-	max31760_write_byte(pdata, MAX31760_DUTY_CYCLE_CTRL_REG, max31760_speed_map[level]);
+	unsigned long data;
+
+	data = level * 255 / 100;
+	max31760_write_byte(pdata, MAX31760_DUTY_CYCLE_CTRL_REG, data);
 }
 
 static void max31760_set_cur_state_common(struct max31760_data *pdata,
 				unsigned long state)
 {
-	if (state > FAN_SPEED_LEVEL4)
-		state = FAN_SPEED_LEVEL4;
-	if (state < FAN_SPEED_LEVEL0)
-		state = FAN_SPEED_LEVEL0;
-
 	if (!atomic_read(&pdata->in_suspend))
 		max31760_speed_control(pdata, state);
 	pdata->cur_state = state;
@@ -88,7 +103,7 @@ static void max31760_set_cur_state_common(struct max31760_data *pdata,
 static int max31760_get_max_state(struct thermal_cooling_device *cdev,
 				unsigned long *state)
 {
-	*state = FAN_SPEED_LEVEL4;
+	*state = FAN_SPEED_MAX;
 	return 0;
 }
 
@@ -108,6 +123,11 @@ static int max31760_set_cur_state(struct thermal_cooling_device *cdev,
 				unsigned long state)
 {
 	struct max31760_data *data = cdev->devdata;
+
+	if (state > FAN_SPEED_MAX) {
+		dev_err(data->dev, "fail to set current state\n");
+		return -EINVAL;
+	}
 
 	mutex_lock(&data->update_lock);
 	max31760_set_cur_state_common(data, state);
@@ -149,26 +169,128 @@ static ssize_t speed_control_store(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&data->update_lock);
-	if (value == 0x0)
-		max31760_set_cur_state_common(data, FAN_SPEED_LEVEL0);
-	else if (value == 0x1)
-		max31760_set_cur_state_common(data, FAN_SPEED_LEVEL1);
-	else if (value == 0x2)
-		max31760_set_cur_state_common(data, FAN_SPEED_LEVEL2);
-	else if (value == 0x3)
-		max31760_set_cur_state_common(data, FAN_SPEED_LEVEL3);
-	else if (value == 0x4)
-		max31760_set_cur_state_common(data, FAN_SPEED_LEVEL4);
+	max31760_set_cur_state_common(data, value);
 	mutex_unlock(&data->update_lock);
 
 	return count;
 }
 
+static int max31760_read_speed(struct max31760_data *data,
+				u8 index, u32 *speed)
+{
+	u8 tch = 0, tcl = 0;
+	u8 value = 0;
+	int ret = 0;
+
+	if (index == 1) {
+		ret = max31760_read_byte(data, MAX31760_TC1H_REG, &value);
+		if (ret < 0)
+			return ret;
+		tch = value;
+
+		ret = max31760_read_byte(data, MAX31760_TC1L_REG, &value);
+		if (ret < 0)
+			return ret;
+		tcl = value;
+	} else if (index == 2) {
+		ret = max31760_read_byte(data, MAX31760_TC2H_REG, &value);
+		if (ret < 0)
+			return ret;
+		tch = value;
+
+		ret = max31760_read_byte(data, MAX31760_TC2L_REG, &value);
+		if (ret < 0)
+			return ret;
+		tcl = value;
+	}
+
+	*speed = SPEED_CAL_CONST / (tch * MSB_CONVERT_DEC + tcl) / 2;
+
+	return 0;
+}
+
+static ssize_t speed_tc1_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct max31760_data *data = dev_get_drvdata(dev);
+	u32 speed;
+	int ret;
+
+	if (!data) {
+		pr_err("invalid driver pointer\n");
+		return -ENODEV;
+	}
+
+	ret = max31760_read_speed(data, 1, &speed);
+	if (ret < 0) {
+		dev_err(data->dev, "can not read fan speed\n");
+		return -EINVAL;
+	}
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", speed);
+	dev_dbg(data->dev, "TC1 current speed is %d\n", speed);
+
+	return ret;
+}
+
+static ssize_t speed_tc2_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct max31760_data *data = dev_get_drvdata(dev);
+	u32 speed;
+	int ret;
+
+	if (!data) {
+		pr_err("invalid driver pointer\n");
+		return -ENODEV;
+	}
+
+	ret = max31760_read_speed(data, 2, &speed);
+	if (ret < 0) {
+		dev_err(data->dev, "can not read fan speed\n");
+		return -EINVAL;
+	}
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", speed);
+	dev_dbg(data->dev, "TC2 current speed is %d\n", speed);
+
+	return ret;
+}
+
+static ssize_t pwm_duty_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct max31760_data *data = dev_get_drvdata(dev);
+	u32 duty;
+	u8 value = 0;
+	int ret;
+
+	if (!data) {
+		pr_err("invalid driver pointer\n");
+		return -ENODEV;
+	}
+
+	ret = max31760_read_byte(data, MAX31760_DUTY_CYCLE_CTRL_REG, &value);
+	if (ret < 0)
+		return ret;
+
+	duty = value * PWM_FACTOR;
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", duty);
+
+	return ret;
+}
+
 static DEVICE_ATTR_RW(speed_control);
+static DEVICE_ATTR_RO(speed_tc1);
+static DEVICE_ATTR_RO(speed_tc2);
+static DEVICE_ATTR_RO(pwm_duty);
 
 static struct attribute *max31760_sysfs_attrs[] = {
 	&dev_attr_speed_control.attr,
-	NULL
+	&dev_attr_speed_tc1.attr,
+	&dev_attr_speed_tc2.attr,
+	&dev_attr_pwm_duty.attr,
+	NULL,
 };
 
 static int max31760_register_cdev(struct max31760_data *pdata)
@@ -182,12 +304,12 @@ static int max31760_register_cdev(struct max31760_data *pdata)
 						pdata, &max31760_cooling_ops);
 	if (IS_ERR(pdata->cdev)) {
 		ret = PTR_ERR(pdata->cdev);
-		dev_err(pdata->dev, "register failed for %s, ret:%d\n", cdev_name, ret);
+		dev_err(pdata->dev, "Cooling register failed for %s, ret:%d\n", cdev_name, ret);
 		pdata->cdev = NULL;
 		return ret;
 	}
 
-	dev_dbg(pdata->dev, "register success for %s\n", cdev_name);
+	dev_dbg(pdata->dev, "Cooling register success for %s\n", cdev_name);
 	return 0;
 }
 
@@ -195,7 +317,10 @@ static void max31760_hw_init(struct max31760_data *pdata)
 {
 	max31760_write_byte(pdata, MAX31760_CTRL_REG1, 0x19);
 	max31760_write_byte(pdata, MAX31760_CTRL_REG2, 0x11);
-	max31760_write_byte(pdata, MAX31760_CTRL_REG3, 0x31);
+	if (pdata->fan_num == 1)
+		max31760_write_byte(pdata, MAX31760_CTRL_REG3, 0x31);
+	else if (pdata->fan_num == 2)
+		max31760_write_byte(pdata, MAX31760_CTRL_REG3, 0x33);
 	mutex_lock(&pdata->update_lock);
 	max31760_speed_control(pdata, FAN_SPEED_LEVEL0);
 	pdata->cur_state = FAN_SPEED_LEVEL0;
@@ -213,6 +338,12 @@ static int max31760_parse_dt(struct max31760_data *pdata)
 		pr_err("device tree info missing\n");
 		return -EINVAL;
 	}
+
+	ret = of_property_read_u32(node, "maxim,fan-num", &pdata->fan_num);
+	if (ret)
+		pdata->fan_num = 1;
+	if (pdata->fan_num > 2)
+		pdata->fan_num = 2;
 
 	pdata->pwr_en_gpio = of_get_named_gpio(node, "maxim,pwr-en-gpio", 0);
 	if (!gpio_is_valid(pdata->pwr_en_gpio)) {
@@ -236,7 +367,7 @@ error:
 }
 
 static struct attribute_group max31760_attribute_group = {
-	.attrs = max31760_sysfs_attrs
+	.attrs = max31760_sysfs_attrs,
 };
 
 static int max31760_enable_vregs(struct max31760_data *pdata)
