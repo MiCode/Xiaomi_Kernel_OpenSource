@@ -1251,6 +1251,7 @@
   mmc_cqe_request_done
   mmc_execute_tuning
   mmc_get_ext_csd
+  mmc_hs200_tuning
   mmc_of_parse
   __mmc_poll_for_busy
   mmc_prepare_busy_cmd
@@ -1260,10 +1261,16 @@
   mmc_retune_hold
   mmc_retune_release
   mmc_select_card
+  mmc_select_bus_width
+  mmc_select_hs
+  mmc_select_hs400
+  mmc_select_hs_ddr
+  mmc_select_timing
   mmc_send_tuning
   mmc_set_bus_mode
   mmc_set_bus_width
   mmc_set_clock
+  mmc_set_initial_state
   mmc_set_timing
   mmc_wait_for_cmd
   mmput
