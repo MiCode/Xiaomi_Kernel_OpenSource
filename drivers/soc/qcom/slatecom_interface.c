@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(msg) "slatecom_dev:" msg
 
@@ -1126,14 +1126,14 @@ static struct service_info service_data[3] = {
 	},
 	{
 		.name = "SSR_MODEM",
-		.ssr_domains = "modem",
+		.ssr_domains = "mpss",
 		.domain_id = SSR_DOMAIN_MODEM,
 		.nb = &ssr_modem_nb,
 		.handle = NULL,
 	},
 	{
 		.name = "SSR_ADSP",
-		.ssr_domains = "adsp",
+		.ssr_domains = "lpass",
 		.domain_id = SSR_DOMAIN_ADSP,
 		.nb = &ssr_adsp_nb,
 		.handle = NULL,
