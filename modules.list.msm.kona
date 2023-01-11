@@ -48,3 +48,8 @@ pinctrl-msm.ko
 pinctrl-kona.ko
 nvme-core.ko
 nvme.ko
+spmi-pmic-arb.ko
+regmap-spmi.ko
+qcom-spmi-pmic.ko
+nvmem_qcom-spmi-sdam.ko
+rtc-pm8xxx.ko
