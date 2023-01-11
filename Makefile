@@ -488,7 +488,9 @@ ifeq ($(shell $(srctree)/scripts/clang-android.sh $(CC) $(CLANG_FLAGS)), y)
 $(error "Clang with Android --target detected. Did you specify CLANG_TRIPLE?")
 endif
 GCC_TOOLCHAIN_DIR := $(dir $(shell which $(CROSS_COMPILE)elfedit))
-CLANG_FLAGS	+= --prefix=$(GCC_TOOLCHAIN_DIR)
+CLANG_FLAGS	+= --prefix=$(GCC_TOOLCHAIN_DIR)$(notdir $(CROSS_COMPILE)) # In Clang version 12 and up, there has been a change in Clang's handling of cross-compiling
+								           # and since then, when specifying a Clang-based toolchain, it will output an error which states that "-EL"
+									   # is unsupported. fix from kdrag0n/proton-clang readme
 GCC_TOOLCHAIN	:= $(realpath $(GCC_TOOLCHAIN_DIR)/..)
 endif
 ifneq ($(GCC_TOOLCHAIN),)
@@ -684,6 +686,15 @@ ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS   += -Os
 else
 KBUILD_CFLAGS   += -O2
+endif
+
+# -fstack-protector compatibility when building with Clang-based toolchains. fix from kdrag0n/proton-clang readme
+# May have some potential performance gains for dedicated architecture optimization flags.
+ifeq ($(cc-name),gcc)
+KBUILD_CFLAGS	+= -mcpu=cortex-a75.cortex-a55 -mtune=cortex-a75.cortex-a55
+endif
+ifeq ($(cc-name),clang)
+KBUILD_CFLAGS	+= -mcpu=cortex-a55 -mtune=cortex-a55
 endif
 
 # Tell gcc to never replace conditional load with a non-conditional one
