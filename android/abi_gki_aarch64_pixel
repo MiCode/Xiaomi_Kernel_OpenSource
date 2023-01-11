@@ -720,6 +720,7 @@
   _find_next_bit
   find_pid_ns
   find_task_by_vpid
+  find_vm_area
   __find_vma
   finish_wait
   flush_dcache_page
