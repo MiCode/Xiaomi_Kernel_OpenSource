@@ -418,6 +418,7 @@
   devm_gpio_request_one
   devm_hwspin_lock_register
   devm_iio_channel_get
+  devm_iio_channel_get_all
   devm_iio_device_alloc
   __devm_iio_device_register
   devm_input_allocate_device
@@ -929,16 +930,25 @@
   idr_preload
   idr_remove
   idr_replace
+  iio_alloc_pollfunc
   iio_buffer_init
   iio_buffer_put
   iio_channel_get
+  iio_channel_get_all
   iio_channel_release
+  iio_channel_release_all
+  iio_dealloc_pollfunc
   iio_device_attach_buffer
   iio_device_claim_direct_mode
+  iio_device_id
   iio_device_release_direct_mode
   iio_push_event
   iio_push_to_buffers
   iio_read_channel_processed
+  iio_read_channel_raw
+  iio_read_const_attr
+  iio_update_buffers
+  iio_validate_scan_mask_onehot
   iio_write_channel_raw
   import_iovec
   in4_pton
@@ -973,6 +983,8 @@
   input_register_handler
   input_set_abs_params
   input_set_capability
+  input_set_poll_interval
+  input_setup_polling
   input_unregister_handle
   input_unregister_handler
   interval_tree_insert
