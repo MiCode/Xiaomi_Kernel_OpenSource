@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "phy-qcom-ufs-qmp-v4-khaje.h"
@@ -14,6 +14,7 @@ static int ufs_qcom_phy_qmp_v4_phy_calibrate(struct phy *generic_phy)
 {
 	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
 	bool is_g4, is_rate_B;
+	int err = 0;
 
 	is_g4 = !!ufs_qcom_phy->submode;
 	is_rate_B = (ufs_qcom_phy->mode == PHY_MODE_UFS_HS_B) ? true : false;
@@ -50,8 +51,10 @@ static int ufs_qcom_phy_qmp_v4_phy_calibrate(struct phy *generic_phy)
 	writel_relaxed(0x00, ufs_qcom_phy->mmio + UFS_PHY_SW_RESET);
 	/* flush buffered writes */
 	wmb();
+	ufs_qcom_phy_qmp_v4_start_serdes(ufs_qcom_phy);
+	err = ufs_qcom_phy_qmp_v4_is_pcs_ready(ufs_qcom_phy);
 
-	return 0;
+	return err;
 }
 
 static int ufs_qcom_phy_qmp_v4_init(struct phy *generic_phy)
