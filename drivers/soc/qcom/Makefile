@@ -103,11 +103,13 @@ obj-$(CONFIG_QCOM_WDT_CORE) += qcom_wdt_core.o
 obj-$(CONFIG_QCOM_SOC_WATCHDOG) += qcom_soc_wdt.o
 obj-$(CONFIG_MSM_HAB) += hab/
 obj-$(CONFIG_QCOM_HGSL) += hgsl/
+obj-$(CONFIG_SDX_EXT_IPC) += sdx_ext_ipc.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
 obj-$(CONFIG_QTI_SYS_PM_VX) += sys_pm_vx.o
 obj-$(CONFIG_ICNSS2) += icnss2/
+obj-$(CONFIG_DEBUG_POLICY_STATUS) += dp_status.o
 obj-$(CONFIG_QTI_PLH_SCMI_CLIENT) += plh_scmi.o
 obj-$(CONFIG_QCOM_SYSMON_SUBSYSTEM_STATS) += sysmon_subsystem_stats.o
 obj-$(CONFIG_QTI_HW_MEMLAT_SCMI_CLIENT)	+= memlat_scmi.o

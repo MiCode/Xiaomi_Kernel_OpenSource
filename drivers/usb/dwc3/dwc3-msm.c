@@ -2,6 +2,9 @@
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  */
+#ifdef CONFIG_FACTORY_BUILD
+#define DEBUG
+#endif
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -44,6 +47,7 @@
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/role.h>
 #include <linux/usb/redriver.h>
+#include <linux/dma-iommu.h>
 #ifdef CONFIG_QGKI_MSM_BOOT_TIME_MARKER
 #include <soc/qcom/boot_stats.h>
 #endif
@@ -2612,13 +2616,19 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc,
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_CLEAR_DB\n");
 		if (mdwc->gsi_reg) {
 			dwc3_msm_write_reg_field(mdwc->base,
-				GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
-				BLOCK_GSI_WR_GO_MASK, true);
+			GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
+			BLOCK_GSI_WR_GO_MASK, true);
 			dwc3_msm_write_reg_field(mdwc->base,
-				GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
-				GSI_EN_MASK, 0);
+			GSI_GENERAL_CFG_REG(mdwc->gsi_reg),
+			GSI_EN_MASK, 0);
 		}
 		break;
+#ifndef CONFIG_FACTORY_BUILD
+	case DWC3_USB_RESTART_EVENT:
+		dev_dbg(mdwc->dev, "DWC3_USB_RESTART_EVENT\n");
+		schedule_work(&mdwc->restart_usb_work);
+		break;
+#endif
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
 		break;
@@ -3282,7 +3292,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 		dbg_event(0xFF, "pend evt", 0);
 
 	/* disable power event irq, hs and ss phy irq is used as wake up src */
-	disable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
+	disable_irq_nosync(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 
 	dwc3_set_phy_speed_flags(mdwc);
 	/* Suspend HS PHY */
@@ -3344,6 +3354,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 	/* make sure above writes are completed before turning off clocks */
 	wmb();
 
+	atomic_set(&dwc->in_lpm, 1);
+
 	/* Disable clocks */
 	clk_disable_unprepare(mdwc->bus_aggr_clk);
 	clk_disable_unprepare(mdwc->utmi_clk);
@@ -3389,7 +3401,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 		}
 	}
 
-	atomic_set(&dwc->in_lpm, 1);
 
 	/*
 	 * with the core in power collapse, we dont require wakeup
@@ -4245,6 +4256,7 @@ static int dwc3_msm_usb_set_role(struct device *dev, enum usb_role role)
 	 * previous role value to allow resetting USB controller and
 	 * PHYs.
 	 */
+
 	if (mdwc->drd_state != DRD_STATE_UNDEFINED && cur_role == role) {
 		dbg_log_string("no USB role change");
 		return 0;
@@ -4574,7 +4586,7 @@ static void dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 	dwc3_ext_event_notify(mdwc);
 	dbg_event(0xFF, "flush_work", 0);
 	flush_work(&mdwc->resume_work);
-	drain_workqueue(mdwc->sm_usb_wq);
+	flush_workqueue(mdwc->sm_usb_wq);
 	if (start)
 		dbg_log_string("host mode started");
 	else
@@ -4598,7 +4610,7 @@ static void dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 	dwc3_ext_event_notify(mdwc);
 	dbg_event(0xFF, "flush_work", 0);
 	flush_work(&mdwc->resume_work);
-	drain_workqueue(mdwc->sm_usb_wq);
+	flush_workqueue(mdwc->sm_usb_wq);
 	if (start)
 		dbg_log_string("device mode restarted");
 	else
@@ -4634,7 +4646,7 @@ int dwc3_msm_release_ss_lane(struct device *dev, bool usb_dp_concurrent_mode)
 	dbg_event(0xFF, "ss_lane_release", 0);
 	/* flush any pending work */
 	flush_work(&mdwc->resume_work);
-	drain_workqueue(mdwc->sm_usb_wq);
+	flush_workqueue(mdwc->sm_usb_wq);
 
 	redriver_release_usb_lanes(mdwc->ss_redriver_node);
 
@@ -4802,6 +4814,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->use_pdc_interrupts = of_property_read_bool(node,
 				"qcom,use-pdc-interrupts");
 	dwc3_set_notifier(&dwc3_msm_notify_event);
+
+	if (of_property_read_bool(node, "qcom,iommu-best-fit-algo"))
+		iommu_dma_enable_best_fit_algo(dev);
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
 		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
@@ -5681,6 +5696,9 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned int mA)
 	if (mdwc->apsd_source == IIO && chg_type != POWER_SUPPLY_TYPE_USB)
 		return 0;
 
+	if (mA < 100)
+		return 0;
+
 	/* Set max current limit in uA */
 	pval.intval = 1000 * mA;
 
@@ -5738,10 +5756,10 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		if (test_bit(ID, &mdwc->inputs) &&
 				!test_bit(B_SESS_VLD, &mdwc->inputs)) {
 			dbg_event(0xFF, "undef_id_!bsv", 0);
+			dwc3_msm_resume(mdwc);
 			pm_runtime_set_active(mdwc->dev);
 			pm_runtime_enable(mdwc->dev);
 			pm_runtime_get_noresume(mdwc->dev);
-			dwc3_msm_resume(mdwc);
 			pm_runtime_put_sync(mdwc->dev);
 			dbg_event(0xFF, "Undef NoUSB",
 				atomic_read(&mdwc->dev->power.usage_count));

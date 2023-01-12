@@ -45,7 +45,7 @@ do {									     \
 	if (ch->glink) {						     \
 		ipc_log_string(ch->glink->ilc, "%s[%d:%d] %s: "x, ch->name,  \
 			       ch->lcid, ch->rcid, __func__, ##__VA_ARGS__); \
-		dev_err(ch->glink->dev, "[%s]: "x, __func__, ##__VA_ARGS__); \
+		dev_err_ratelimited(ch->glink->dev, "[%s]: "x, __func__, ##__VA_ARGS__); \
 	}								     \
 } while (0)
 
@@ -1044,6 +1044,7 @@ static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
 			dev_err(glink->dev,
 				"no intent found for channel %s intent %d",
 				channel->name, liid);
+			ret = -ENOENT;
 			goto advance_rx;
 		}
 	}
@@ -1069,7 +1070,7 @@ static int qcom_glink_rx_data(struct qcom_glink *glink, size_t avail)
 					channel->ept.priv,
 					RPMSG_ADDR_ANY);
 
-			if (ret < 0) {
+			if (ret < 0 && ret != -ENODEV) {
 				CH_ERR(channel,
 					"callback error ret = %d\n", ret);
 				ret = 0;
@@ -1251,6 +1252,7 @@ static int qcom_glink_handle_signals(struct qcom_glink *glink,
 
 static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 {
+	int handle_count = 0;
 	struct qcom_glink *glink = data;
 	struct glink_msg msg;
 	unsigned int param1;
@@ -1328,8 +1330,14 @@ static irqreturn_t qcom_glink_native_intr(int irq, void *data)
 			break;
 		}
 
-		if (ret)
-			break;
+		if (ret) {
+			ipc_log_string(glink->ilc, "cmd: 0x%x, ret: 0x%x\n", cmd, ret);
+			if (ret == -ENODEV && handle_count++ > 10) {
+				//if received ENODEV packets more than 10, then break the loop
+				break;
+			} else if (ret != -ENODEV)
+				break;
+		}
 	}
 
 	return IRQ_HANDLED;
@@ -2154,8 +2162,8 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 		dev_err(dev, "failed to register early notif %d\n", ret);
 
 	snprintf(glink->irqname, 32, "glink-native-%s", glink->name);
-
 	irq = of_irq_get(dev->of_node, 0);
+
 	ret = devm_request_irq(dev, irq,
 			       qcom_glink_native_intr,
 			       IRQF_NO_SUSPEND | IRQF_SHARED,

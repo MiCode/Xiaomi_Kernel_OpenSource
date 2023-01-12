@@ -298,7 +298,7 @@ static long madvise_willneed(struct vm_area_struct *vma,
 	get_file(file);
 	offset = (loff_t)(start - vma->vm_start)
 			+ ((loff_t)vma->vm_pgoff << PAGE_SHIFT);
-	up_read(&current->mm->mmap_sem);
+	up_read(&mm->mmap_sem);
 	vfs_fadvise(file, offset, end - start, POSIX_FADV_WILLNEED);
 	fput(file);
 	down_read(&mm->mmap_sem);

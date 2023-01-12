@@ -135,6 +135,10 @@ struct ipa_core_data {
 		void *user_data3);
 
 	int (*ipa_unregister_rmnet_ll_cb)(void);
+	int (*ipa_register_notifier)(void *fn_ptr);
+	int (*ipa_unregister_notifier)(void *fn_ptr);
+	int (*ipa_add_socksv5_conn)(struct ipa_socksv5_info *info);
+	int (*ipa_del_socksv5_conn)(uint32_t handle);
 };
 
 struct ipa_usb_data {
@@ -327,10 +331,6 @@ struct ipa_eth_data {
 
 	int (*ipa_eth_client_set_perf_profile)(struct ipa_eth_client *client,
 		struct ipa_eth_perf_profile *profile);
-
-	int (*ipa_eth_client_conn_evt)(struct ipa_ecm_msg *msg);
-
-	int (*ipa_eth_client_disconn_evt)(struct ipa_ecm_msg *msg);
 
 	enum ipa_client_type (*ipa_eth_get_ipa_client_type_from_eth_type)(
 		enum ipa_eth_client_type eth_client_type,

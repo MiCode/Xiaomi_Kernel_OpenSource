@@ -614,6 +614,7 @@
   kmalloc_order_trace
   kvfree
   kvmalloc_node
+  memdup_user
   mutex_trylock
   sg_alloc_table
   __sg_alloc_table_from_pages
@@ -790,6 +791,7 @@
   net_ratelimit
   nf_conntrack_destroy
   __num_online_cpus
+  __pskb_pull_tail
   _raw_spin_trylock
   sched_clock
   skb_add_rx_frag
@@ -857,6 +859,7 @@
   proto_unregister
   _raw_write_lock_bh
   _raw_write_unlock_bh
+  security_sk_clone
   security_sock_graft
   sk_alloc
   sock_init_data

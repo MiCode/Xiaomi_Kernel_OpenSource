@@ -2073,7 +2073,7 @@ cleanup:
 
 	err = brcmf_pcie_probe(pdev, NULL);
 	if (err)
-		brcmf_err(bus, "probe after resume failed, err=%d\n", err);
+		__brcmf_err(NULL, __func__, "probe after resume failed, err=%d\n", err);
 
 	return err;
 }
@@ -2137,15 +2137,10 @@ static struct pci_driver brcmf_pciedrvr = {
 };
 
 
-void brcmf_pcie_register(void)
+int brcmf_pcie_register(void)
 {
-	int err;
-
 	brcmf_dbg(PCIE, "Enter\n");
-	err = pci_register_driver(&brcmf_pciedrvr);
-	if (err)
-		brcmf_err(NULL, "PCIE driver registration failed, err=%d\n",
-			  err);
+	return pci_register_driver(&brcmf_pciedrvr);
 }
 
 

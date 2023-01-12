@@ -229,6 +229,7 @@ static int soc_sleep_stats_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, drv);
+
 	return 0;
 }
 

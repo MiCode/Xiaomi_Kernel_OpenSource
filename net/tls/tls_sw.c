@@ -37,6 +37,7 @@
 
 #include <linux/sched/signal.h>
 #include <linux/module.h>
+#include <linux/splice.h>
 #include <crypto/aead.h>
 
 #include <net/strparser.h>
@@ -1149,7 +1150,7 @@ static int tls_sw_do_sendpage(struct sock *sk, struct page *page,
 	int ret = 0;
 	bool eor;
 
-	eor = !(flags & (MSG_MORE | MSG_SENDPAGE_NOTLAST));
+	eor = !(flags & MSG_SENDPAGE_NOTLAST);
 	sk_clear_bit(SOCKWQ_ASYNC_NOSPACE, sk);
 
 	/* Call the sk_stream functions to manage the sndbuf mem. */
@@ -1278,7 +1279,7 @@ int tls_sw_sendpage(struct sock *sk, struct page *page,
 }
 
 static struct sk_buff *tls_wait_data(struct sock *sk, struct sk_psock *psock,
-				     int flags, long timeo, int *err)
+				     bool nonblock, long timeo, int *err)
 {
 	struct tls_context *tls_ctx = tls_get_ctx(sk);
 	struct tls_sw_context_rx *ctx = tls_sw_ctx_rx(tls_ctx);
@@ -1303,7 +1304,7 @@ static struct sk_buff *tls_wait_data(struct sock *sk, struct sk_psock *psock,
 		if (sock_flag(sk, SOCK_DONE))
 			return NULL;
 
-		if ((flags & MSG_DONTWAIT) || !timeo) {
+		if (nonblock || !timeo) {
 			*err = -EAGAIN;
 			return NULL;
 		}
@@ -1781,7 +1782,7 @@ int tls_sw_recvmsg(struct sock *sk,
 		bool async_capable;
 		bool async = false;
 
-		skb = tls_wait_data(sk, psock, flags, timeo, &err);
+		skb = tls_wait_data(sk, psock, flags & MSG_DONTWAIT, timeo, &err);
 		if (!skb) {
 			if (psock) {
 				int ret = __tcp_bpf_recvmsg(sk, psock,
@@ -1985,9 +1986,9 @@ ssize_t tls_sw_splice_read(struct socket *sock,  loff_t *ppos,
 
 	lock_sock(sk);
 
-	timeo = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
+	timeo = sock_rcvtimeo(sk, flags & SPLICE_F_NONBLOCK);
 
-	skb = tls_wait_data(sk, NULL, flags, timeo, &err);
+	skb = tls_wait_data(sk, NULL, flags & SPLICE_F_NONBLOCK, timeo, &err);
 	if (!skb)
 		goto splice_read_end;
 

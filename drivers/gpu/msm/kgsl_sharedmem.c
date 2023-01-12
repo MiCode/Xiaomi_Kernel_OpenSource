@@ -160,6 +160,7 @@ gpumem_mapped_show(struct kgsl_process_private *priv,
 				int type, char *buf)
 {
 	return scnprintf(buf, PAGE_SIZE, "%lld\n",
+
 			atomic64_read(&priv->gpumem_mapped));
 }
 
@@ -476,6 +477,8 @@ static vm_fault_t kgsl_paged_vmfault(struct kgsl_memdesc *memdesc,
 		return VM_FAULT_SIGBUS;
 
 	pgoff = offset >> PAGE_SHIFT;
+	if( !memdesc->pages)
+		return VM_FAULT_NOPAGE;
 
 	return vmf_insert_page(vma, vmf->address, memdesc->pages[pgoff]);
 }
@@ -1170,6 +1173,7 @@ static int kgsl_alloc_secure_pages(struct kgsl_device *device,
 	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
 	if (!sgt) {
 		kgsl_pool_free_pages(pages, count);
+		kvfree(pages);
 		return -ENOMEM;
 	}
 
@@ -1177,6 +1181,7 @@ static int kgsl_alloc_secure_pages(struct kgsl_device *device,
 	if (ret) {
 		kfree(sgt);
 		kgsl_pool_free_pages(pages, count);
+		kvfree(pages);
 		return ret;
 	}
 

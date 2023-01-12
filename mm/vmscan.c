@@ -57,7 +57,11 @@
 
 #include <linux/swapops.h>
 #include <linux/balloon_compaction.h>
-
+#ifdef CONFIG_RTMM
+#include <linux/rtmm.h>
+#endif
+#include <linux/mi_reclaim.h>
+#include <linux/cam_reclaim.h>
 #include "internal.h"
 
 #define CREATE_TRACE_POINTS
@@ -89,9 +93,12 @@ struct scan_control {
 	unsigned int may_swap:1;
 
 	/*
-	 * Cgroups are not reclaimed below their configured memory.low,
-	 * unless we threaten to OOM. If any cgroups are skipped due to
-	 * memory.low and nothing was reclaimed, go back for memory.low.
+	 * Cgroup memory below memory.low is protected as long as we
+	 * don't threaten to OOM. If any cgroup is reclaimed at
+	 * reduced force or passed over entirely due to its memory.low
+	 * setting (memcg_low_skipped), and nothing is reclaimed as a
+	 * result, then go back for one more cycle that reclaims the protected
+	 * memory (memcg_low_reclaim) to avert OOM.
 	 */
 	unsigned int memcg_low_reclaim:1;
 	unsigned int memcg_low_skipped:1;
@@ -2385,6 +2392,17 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
 		goto out;
 	}
 
+#ifdef CONFIG_RTMM
+	if (unlikely(rtmm_reclaim(current->comm))) {
+		swappiness = rtmm_reclaim_swappiness();
+	}
+#endif
+
+	#ifdef CONFIG_MI_RECLAIM
+	if (mi_st()) {
+		swappiness = mi_reclaim_swappiness();
+	}
+	#endif
 	/*
 	 * Global reclaim will swap to prevent OOM even with no
 	 * swappiness, but memcg users want to use this knob to
@@ -2460,7 +2478,11 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
 	 */
 	if (!IS_ENABLED(CONFIG_BALANCE_ANON_FILE_RECLAIM) &&
 	    !inactive_list_is_low(lruvec, true, sc, false) &&
+#ifdef CONFIG_RTMM
+	    lruvec_lru_size(lruvec, LRU_INACTIVE_FILE, sc->reclaim_idx) >> sc->priority && (swappiness != 200)) {
+#else
 	    lruvec_lru_size(lruvec, LRU_INACTIVE_FILE, sc->reclaim_idx) >> sc->priority) {
+#endif
 		scan_balance = SCAN_FILE;
 		goto out;
 	}
@@ -2518,18 +2540,30 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
 	fraction[1] = fp;
 	denominator = ap + fp + 1;
 out:
+	#ifdef CONFIG_MI_RECLAIM
+	if (mi_reclaim(current->comm)) {
+		scan_balance = SCAN_ANON;
+	}
+	#endif
+
+	#ifdef CONFIG_CAM_RECLAIM
+	if (cam_reclaim(current->comm) && cam_reclaim_anonprivate() == 0) {
+		scan_balance = SCAN_ANON;
+	}
+	#endif
+
 	*lru_pages = 0;
 	for_each_evictable_lru(lru) {
 		int file = is_file_lru(lru);
 		unsigned long lruvec_size;
+		unsigned long low, min;
 		unsigned long scan;
-		unsigned long protection;
 
 		lruvec_size = lruvec_lru_size(lruvec, lru, sc->reclaim_idx);
-		protection = mem_cgroup_protection(memcg,
-						   sc->memcg_low_reclaim);
+		mem_cgroup_protection(sc->target_mem_cgroup, memcg,
+				      &min, &low);
 
-		if (protection) {
+		if (min || low) {
 			/*
 			 * Scale a cgroup's reclaim pressure by proportioning
 			 * its current usage to its memory.low or memory.min
@@ -2560,6 +2594,15 @@ out:
 			 * hard protection.
 			 */
 			unsigned long cgroup_size = mem_cgroup_size(memcg);
+			unsigned long protection;
+
+			/* memory.low scaling, make sure we retry before OOM */
+			if (!sc->memcg_low_reclaim && low > min) {
+				protection = low;
+				sc->memcg_low_skipped = 1;
+			} else {
+				protection = min;
+			}
 
 			/* Avoid TOCTOU with earlier protection check */
 			cgroup_size = max(cgroup_size, protection);
@@ -3085,9 +3128,19 @@ static void shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 			 * and balancing, not for a memcg's limit.
 			 */
 			nr_soft_scanned = 0;
-			nr_soft_reclaimed = mem_cgroup_soft_limit_reclaim(zone->zone_pgdat,
+			#ifdef CONFIG_CAM_RECLAIM
+			if (!cam_reclaim(current->comm)) {
+				nr_soft_reclaimed = mem_cgroup_soft_limit_reclaim(zone->zone_pgdat,
 						sc->order, sc->gfp_mask,
 						&nr_soft_scanned);
+			} else {
+				nr_soft_reclaimed = 0;
+			}
+			#else
+				nr_soft_reclaimed = mem_cgroup_soft_limit_reclaim(zone->zone_pgdat,
+						sc->order, sc->gfp_mask,
+						&nr_soft_scanned);
+			#endif
 			sc->nr_reclaimed += nr_soft_reclaimed;
 			sc->nr_scanned += nr_soft_scanned;
 			/* need some check for avoid more shrink_zone() */
@@ -4094,6 +4147,96 @@ void wakeup_kswapd(struct zone *zone, gfp_t gfp_flags, int order,
 	wake_up_interruptible(&pgdat->kswapd_wait);
 }
 
+#ifdef CONFIG_COMPACTION
+static long reclaim_setcpuaffinity(struct task_struct *task, struct cpumask *newmask, struct cpumask *prevmask)
+{
+	long rc = -1;
+
+	if (prevmask) {
+		if (sched_getaffinity(task->pid, prevmask))
+			return rc;
+	}
+
+	if (newmask && !cpumask_equal(newmask, &task->cpus_mask)) {
+		cpumask_t cpumask_temp;
+		cpumask_and(&cpumask_temp, newmask, cpu_online_mask);
+		if (0 == cpumask_weight(&cpumask_temp))
+			return rc;
+		rc = sched_setaffinity(task->pid, newmask);
+		if (rc != 0)
+			pr_err("%s sched_setaffinity() failed", __func__);
+	}
+	return rc;
+}
+
+/*
+ * Try to free `nr_to_reclaim' of memory, system-wide, and return the number of
+ * freed pages.
+ *
+ * Rather than trying to age LRUs the aim is to preserve the overall
+ * LRU order by reclaiming preferentially
+ * inactive > active > active referenced > active mapped
+ */
+unsigned long reclaim_all_pages(unsigned long nr_to_reclaim)
+{
+	DECLARE_BITMAP(cpu_bitmap, NR_CPUS);
+	struct cpumask prevmask = {0};
+	long rc = 0;
+
+	struct scan_control sc = {
+		.nr_to_reclaim = nr_to_reclaim,
+		.gfp_mask = GFP_HIGHUSER_MOVABLE,
+		.reclaim_idx = MAX_NR_ZONES - 1,
+		.priority = DEF_PRIORITY,
+		.may_writepage = 1,
+		.may_unmap = 1,
+		.may_swap = 1,
+	};
+	struct zonelist *zonelist = node_zonelist(numa_node_id(), sc.gfp_mask);
+	unsigned long nr_reclaimed;
+	unsigned int noreclaim_flag;
+
+	fs_reclaim_acquire(sc.gfp_mask);
+	noreclaim_flag = memalloc_noreclaim_save();
+	set_task_reclaim_state(current, &sc.reclaim_state);
+
+	cpu_bitmap[0] = 15;  // 0-3
+	rc = reclaim_setcpuaffinity(current, to_cpumask(cpu_bitmap), &prevmask);
+	nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
+	if (rc == 0) {
+		reclaim_setcpuaffinity(current, &prevmask, NULL);
+	}
+
+	set_task_reclaim_state(current, NULL);
+	memalloc_noreclaim_restore(noreclaim_flag);
+	fs_reclaim_release(sc.gfp_mask);
+
+	return nr_reclaimed;
+}
+
+/* The written value is actually unused, the number of pages is reclaimed */
+unsigned long sysctl_reclaim_pages;
+
+/*
+ * This is the entry point for compacting all nodes via
+ * /proc/sys/vm/reclaim_pages
+ */
+int sysctl_reclaim_pages_handler(struct ctl_table *table, int write,
+			void __user *buffer, size_t *length, loff_t *ppos)
+{
+	int ret;
+	unsigned long nr_reclaimed;
+
+	ret = proc_doulongvec_minmax(table, write, buffer, length, ppos);
+	if (!ret && write) {
+		nr_reclaimed = reclaim_all_pages(sysctl_reclaim_pages);
+		pr_err("%s (%d): reclaim_pages: %ld %ld\n", current->comm, task_pid_nr(current), sysctl_reclaim_pages, nr_reclaimed);
+	}
+
+	return ret;
+}
+#endif
+
 #ifdef CONFIG_HIBERNATION
 /*
  * Try to free `nr_to_reclaim' of memory, system-wide, and return the number of
@@ -4240,6 +4383,43 @@ static void multi_kswapd_cpu_online(pg_data_t *pgdat,
 
 	for (hid = 1; hid < nr_threads; hid++)
 		set_cpus_allowed_ptr(pgdat->mkswapd[hid], mask);
+}
+#endif
+#ifdef CONFIG_RTMM
+/*
+  * reclaim anon/file pages from global lru
+  *
+  * TODO: merge with shrink_all_memory()??
+  */
+unsigned long reclaim_global(unsigned long nr_to_reclaim)
+{
+	struct reclaim_state reclaim_state;
+	struct scan_control sc = {
+		.nr_to_reclaim = max(nr_to_reclaim, SWAP_CLUSTER_MAX),
+		.gfp_mask = GFP_HIGHUSER_MOVABLE,
+		.reclaim_idx = MAX_NR_ZONES - 1,
+		.order = 0,
+		.priority = DEF_PRIORITY,
+		.may_writepage = 1,
+		.may_unmap = 1,
+		.may_swap = 1,
+	};
+	struct zonelist *zonelist = node_zonelist(numa_node_id(), sc.gfp_mask);
+	struct task_struct *p = current;
+	unsigned long nr_reclaimed;
+
+	p->flags |= PF_MEMALLOC;
+	fs_reclaim_acquire(sc.gfp_mask);
+	reclaim_state.reclaimed_slab = 0;
+	p->reclaim_state = &reclaim_state;
+
+	nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
+
+	p->reclaim_state = NULL;
+	fs_reclaim_release(sc.gfp_mask);
+	p->flags &= ~PF_MEMALLOC;
+
+	return nr_reclaimed;
 }
 #endif
 
@@ -4573,3 +4753,69 @@ void check_move_unevictable_pages(struct pagevec *pvec)
 	}
 }
 EXPORT_SYMBOL_GPL(check_move_unevictable_pages);
+
+#ifdef CONFIG_MI_RECLAIM
+unsigned long mi_reclaim_global(unsigned long nr_to_reclaim, int reclaim_type)
+{
+	struct reclaim_state reclaim_state;
+	struct scan_control sc = {
+		.nr_to_reclaim = min(nr_to_reclaim, SWAP_CLUSTER_MAX),
+		.gfp_mask = GFP_HIGHUSER_MOVABLE,
+		.reclaim_idx = MAX_NR_ZONES - 1,
+		.order = 0,
+		.priority = DEF_PRIORITY,
+		.may_writepage = !!(reclaim_type & 4),
+		.may_unmap = !!(reclaim_type & 1),
+		.may_swap = !!(reclaim_type & 2),
+		.target_mem_cgroup = NULL,
+		.nodemask = NULL,
+	};
+	struct zonelist *zonelist = node_zonelist(numa_node_id(), sc.gfp_mask);
+	struct task_struct *p = current;
+	unsigned long nr_reclaimed;
+
+	fs_reclaim_acquire(sc.gfp_mask);
+	reclaim_state.reclaimed_slab = 0;
+	p->reclaim_state = &reclaim_state;
+
+	nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
+
+	p->reclaim_state = NULL;
+	fs_reclaim_release(sc.gfp_mask);
+
+	return nr_reclaimed;
+}
+#endif
+
+#ifdef CONFIG_CAM_RECLAIM
+unsigned long cam_reclaim_global(unsigned long nr_to_reclaim, int reclaim_type)
+{
+        struct reclaim_state reclaim_state;
+        struct scan_control sc = {
+                .nr_to_reclaim = max(nr_to_reclaim, SWAP_CLUSTER_MAX),
+                .gfp_mask = GFP_HIGHUSER_MOVABLE,
+                .reclaim_idx = MAX_NR_ZONES - 1,
+                .order = 0,
+                .priority = DEF_PRIORITY,
+                .may_writepage = !!(reclaim_type & 4),
+                .may_unmap = !!(reclaim_type & 1),
+                .may_swap = !!(reclaim_type & 2),
+                .target_mem_cgroup = NULL,
+                .nodemask = NULL,
+        };
+        struct zonelist *zonelist = node_zonelist(numa_node_id(), sc.gfp_mask);
+        struct task_struct *p = current;
+        unsigned long nr_reclaimed;
+
+        fs_reclaim_acquire(sc.gfp_mask);
+        reclaim_state.reclaimed_slab = 0;
+        p->reclaim_state = &reclaim_state;
+
+        nr_reclaimed = do_try_to_free_pages(zonelist, &sc);
+
+        p->reclaim_state = NULL;
+        fs_reclaim_release(sc.gfp_mask);
+
+        return nr_reclaimed;
+}
+#endif

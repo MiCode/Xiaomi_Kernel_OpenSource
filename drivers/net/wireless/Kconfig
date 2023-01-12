@@ -149,4 +149,6 @@ source "drivers/net/wireless/cnss_utils/Kconfig"
 source "drivers/net/wireless/cnss_genl/Kconfig"
 source "drivers/net/wireless/cnss_prealloc/Kconfig"
 
+source "drivers/net/wireless/mi_cnss_statistic/Kconfig"
+
 endif # WLAN

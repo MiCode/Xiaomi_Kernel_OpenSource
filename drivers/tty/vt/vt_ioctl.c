@@ -484,16 +484,19 @@ int vt_ioctl(struct tty_struct *tty,
 			ret = -EINVAL;
 			goto out;
 		}
-		/* FIXME: this needs the console lock extending */
-		if (vc->vc_mode == (unsigned char) arg)
+		console_lock();
+		if (vc->vc_mode == (unsigned char) arg) {
+			console_unlock();
 			break;
+		}
 		vc->vc_mode = (unsigned char) arg;
-		if (console != fg_console)
+		if (console != fg_console) {
+			console_unlock();
 			break;
+		}
 		/*
 		 * explicitly blank/unblank the screen if switching modes
 		 */
-		console_lock();
 		if (arg == KD_TEXT)
 			do_unblank_screen(1);
 		else
@@ -895,17 +898,17 @@ int vt_ioctl(struct tty_struct *tty,
 			if (vcp) {
 				int ret;
 				int save_scan_lines = vcp->vc_scan_lines;
-				int save_font_height = vcp->vc_font.height;
+				int save_cell_height = vcp->vc_cell_height;
 
 				if (v.v_vlin)
 					vcp->vc_scan_lines = v.v_vlin;
 				if (v.v_clin)
-					vcp->vc_font.height = v.v_clin;
+					vcp->vc_cell_height = v.v_clin;
 				vcp->vc_resize_user = 1;
 				ret = vc_resize(vcp, v.v_cols, v.v_rows);
 				if (ret) {
 					vcp->vc_scan_lines = save_scan_lines;
-					vcp->vc_font.height = save_font_height;
+					vcp->vc_cell_height = save_cell_height;
 					console_unlock();
 					return ret;
 				}

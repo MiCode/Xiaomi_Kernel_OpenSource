@@ -48,7 +48,7 @@ struct oom_control {
 	/* Used by oom implementation, do not set */
 	unsigned long totalpages;
 	struct task_struct *chosen;
-	unsigned long chosen_points;
+	long chosen_points;
 #ifdef CONFIG_PRIORITIZE_OOM_TASKS
 	short min_kill_adj;
 #endif
@@ -111,7 +111,7 @@ static inline vm_fault_t check_stable_address_space(struct mm_struct *mm)
 
 bool __oom_reap_task_mm(struct mm_struct *mm);
 
-extern unsigned long oom_badness(struct task_struct *p,
+long oom_badness(struct task_struct *p,
 		unsigned long totalpages);
 
 extern bool out_of_memory(struct oom_control *oc);
@@ -136,4 +136,5 @@ extern int sysctl_reap_mem_on_sigkill;
 extern void add_to_oom_reaper(struct task_struct *p);
 extern void check_panic_on_foreground_kill(struct task_struct *p);
 #define ULMK_MAGIC "lmkd"
+#define PRE_KILL "PreKillActionT"
 #endif /* _INCLUDE_LINUX_OOM_H */

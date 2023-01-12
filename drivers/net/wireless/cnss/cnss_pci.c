@@ -1535,6 +1535,8 @@ int cnss_msm_pcie_recover_config(struct pci_dev *dev)
 		pci_load_saved_state(dev, penv->default_state);
 
 	pci_restore_state(dev);
+
+	return 0;
 }
 
 int cnss_msm_pcie_register_event(struct msm_pcie_register_event *reg)

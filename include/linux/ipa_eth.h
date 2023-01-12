@@ -41,6 +41,7 @@ enum ipa_eth_client_type {
 	IPA_ETH_CLIENT_RTK8125B,
 	IPA_ETH_CLIENT_NTN,
 	IPA_ETH_CLIENT_EMAC,
+	IPA_ETH_CLIENT_NTN3,
 	IPA_ETH_CLIENT_MAX,
 };
 
@@ -195,13 +196,13 @@ struct ipa_eth_client_pipe_info {
  * provided by offload client
  * @client_type: ethernet client type
  * @inst_id: instance id for dual NIC support
+ * @net_dev: network device client belongs to
  * @traffic_type: traffic type
  * @pipe_list: list of pipes with same traffic type
  * @priv: private data for client
  * @test: is test client
  */
 struct ipa_eth_client {
-	/* vendor driver */
 	enum ipa_eth_client_type client_type;
 	u8 inst_id;
 
@@ -212,6 +213,9 @@ struct ipa_eth_client {
 	/* client specific priv data*/
 	void *priv;
 	bool test;
+
+	/* vendor driver */
+	struct net_device *net_dev;
 };
 
 /**
@@ -242,18 +246,18 @@ struct ipa_eth_hdr_info {
  * struct ipa_eth_intf_info - parameters for ipa offload
  *	interface registration
  *
- * @netdev_name: network interface name
- * @hdr: hdr for ipv4/ipv6
- * @pipe_hdl_list_size: number of pipes prop needed for this interface
- * @pipe_hdl_list: array of pipes used for this interface
+ * @client: ipa ethernet client associated with the interface
+ * @is_conn_evt: whether or not trigger periph conn/disconn event
+ * @net_dev: network device
  */
 struct ipa_eth_intf_info {
-	const char *netdev_name;
-	struct ipa_eth_hdr_info hdr[IPA_IP_MAX];
+	struct ipa_eth_client *client;
 
-	/* tx/rx pipes for same netdev */
-	int pipe_hdl_list_size;
-	ipa_eth_hdl_t *pipe_hdl_list;
+	/* trigger iface peripheral event */
+	bool is_conn_evt;
+
+	/* IPA internal fields */
+	struct net_device *net_dev;
 };
 
 int ipa_eth_register_ready_cb(struct ipa_eth_ready *ready_info);
@@ -264,8 +268,6 @@ int ipa_eth_client_reg_intf(struct ipa_eth_intf_info *intf);
 int ipa_eth_client_unreg_intf(struct ipa_eth_intf_info *intf);
 int ipa_eth_client_set_perf_profile(struct ipa_eth_client *client,
 	struct ipa_eth_perf_profile *profile);
-int ipa_eth_client_conn_evt(struct ipa_ecm_msg *msg);
-int ipa_eth_client_disconn_evt(struct ipa_ecm_msg *msg);
 enum ipa_client_type ipa_eth_get_ipa_client_type_from_eth_type(
 	enum ipa_eth_client_type eth_client_type, enum ipa_eth_pipe_direction dir);
 bool ipa_eth_client_exist(

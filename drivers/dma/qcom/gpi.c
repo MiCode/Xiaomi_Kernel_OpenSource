@@ -852,6 +852,15 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 	GPII_ERR(gpii, GPI_DBG_COMMON, "Global IRQ handling Exit\n");
 }
 
+void gpi_dump_for_geni(struct dma_chan *chan)
+{
+	struct gpii_chan *gpii_chan = to_gpii_chan(chan);
+	struct gpii *gpii = gpii_chan->gpii;
+
+	gpi_dump_debug_reg(gpii);
+}
+EXPORT_SYMBOL(gpi_dump_for_geni);
+
 static void gpi_disable_interrupts(struct gpii *gpii)
 {
 	struct {

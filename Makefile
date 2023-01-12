@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 5
 PATCHLEVEL = 4
-SUBLEVEL = 86
+SUBLEVEL = 147
 EXTRAVERSION =
 NAME = Kleptomaniac Octopus
 
@@ -343,6 +343,28 @@ export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
 
 include scripts/subarch.include
 
+# Make sure the kernel could be compiled successfully
+RTMM_FILE := $(abspath $(srctree))/drivers/staging/rtmm \
+		$(abspath $(srctree))/drivers/staging/ktrace \
+		$(abspath $(srctree))/include/linux/rtmm.h \
+		$(abspath $(srctree))/include/linux/ktrace.h
+
+LINK_DUM :=$(shell if [ -e $(abspath $(srctree))/../../miui/kernel/memory/rtmm ]; then \
+		rm -rf $(RTMM_FILE); \
+		ln -s -f $(abspath $(srctree))/../../miui/kernel/memory/rtmm/include/linux/rtmm.h $(abspath $(srctree))/include/linux/rtmm.h; \
+		ln -s -f $(abspath $(srctree))/../../miui/kernel/trace/ktrace/include/linux/ktrace.h $(abspath $(srctree))/include/linux/ktrace.h; \
+		ln -s -f $(abspath $(srctree))/../../miui/kernel/memory/rtmm $(abspath $(srctree))/drivers/staging/rtmm; \
+		ln -s -f $(abspath $(srctree))/../../miui/kernel/trace/ktrace $(abspath $(srctree))/drivers/staging/ktrace; else \
+		rm -rf $(RTMM_FILE); \
+		ln -s -f $(abspath $(srctree))/include/dum/rtmm.h $(abspath $(srctree))/include/linux/rtmm.h; \
+		ln -s -f $(abspath $(srctree))/include/dum/ktrace.h $(abspath $(srctree))/include/linux/ktrace.h; \
+		mkdir -p $(abspath $(srctree))/drivers/staging/rtmm; \
+		ln -s -f $(abspath $(srctree))/drivers/staging/dum/Kconfig $(abspath $(srctree))/drivers/staging/rtmm/Kconfig; \
+		touch $(abspath $(srctree))/drivers/staging/rtmm/Makefile; \
+		mkdir -p $(abspath $(srctree))/drivers/staging/ktrace; \
+		ln -s -f $(abspath $(srctree))/drivers/staging/dum/Kconfig $(abspath $(srctree))/drivers/staging/ktrace/Kconfig; \
+		touch $(abspath $(srctree))/drivers/staging/ktrace/Makefile; fi;)
+
 # Cross compiling and selecting different set of gcc/bin-utils
 # ---------------------------------------------------------------------------
 #
@@ -440,7 +462,7 @@ LEX		= flex
 YACC		= bison
 AWK		= awk
 INSTALLKERNEL  := installkernel
-DEPMOD		= /sbin/depmod
+DEPMOD		= depmod
 PERL		= perl
 PYTHON		= python
 PYTHON3		= python3
@@ -492,7 +514,7 @@ KBUILD_AFLAGS   := -D__ASSEMBLY__ -fno-PIE
 KBUILD_CFLAGS   := -Wall -Wundef -Werror=strict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common -fshort-wchar -fno-PIE \
 		   -Werror=implicit-function-declaration -Werror=implicit-int \
-		   -Wno-format-security \
+		   -Werror=return-type -Wno-format-security \
 		   -std=gnu89
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
@@ -795,15 +817,15 @@ KBUILD_CFLAGS += $(call cc-disable-warning, undefined-optimized)
 KBUILD_CFLAGS += -fno-builtin
 else
 
-# These warnings generated too much noise in a regular build.
-# Use make W=1 to enable them (see scripts/Makefile.extrawarn)
-KBUILD_CFLAGS += -Wno-unused-but-set-variable
-
 # Warn about unmarked fall-throughs in switch statement.
 # Disabled for clang while comment to attribute conversion happens and
 # https://github.com/ClangBuiltLinux/linux/issues/636 is discussed.
 KBUILD_CFLAGS += $(call cc-option,-Wimplicit-fallthrough,)
 endif
+
+# These warnings generated too much noise in a regular build.
+# Use make W=1 to enable them (see scripts/Makefile.extrawarn)
+KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)
 ifdef CONFIG_FRAME_POINTER
@@ -1009,12 +1031,6 @@ KBUILD_CFLAGS   += $(call cc-option,-Werror=designated-init)
 # change __FILE__ to the relative path from the srctree
 KBUILD_CFLAGS	+= $(call cc-option,-fmacro-prefix-map=$(srctree)/=)
 
-# ensure -fcf-protection is disabled when using retpoline as it is
-# incompatible with -mindirect-branch=thunk-extern
-ifdef CONFIG_RETPOLINE
-KBUILD_CFLAGS += $(call cc-option,-fcf-protection=none)
-endif
-
 include scripts/Makefile.kasan
 include scripts/Makefile.extrawarn
 include scripts/Makefile.ubsan
@@ -1032,7 +1048,7 @@ LDFLAGS_vmlinux	+= $(call ld-option, -X,)
 endif
 
 ifeq ($(CONFIG_RELR),y)
-LDFLAGS_vmlinux	+= --pack-dyn-relocs=relr
+LDFLAGS_vmlinux	+= --pack-dyn-relocs=relr --use-android-relr-tags
 endif
 
 # make the checker run with the right architecture
@@ -1279,11 +1295,19 @@ define filechk_utsrelease.h
 endef
 
 define filechk_version.h
-	echo \#define LINUX_VERSION_CODE $(shell                         \
-	expr $(VERSION) \* 65536 + 0$(PATCHLEVEL) \* 256 + 0$(SUBLEVEL)); \
-	echo '#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))'
+	if [ $(SUBLEVEL) -gt 255 ]; then                                 \
+		echo \#define LINUX_VERSION_CODE $(shell                 \
+		expr $(VERSION) \* 65536 + $(PATCHLEVEL) \* 256 + 255); \
+	else                                                             \
+		echo \#define LINUX_VERSION_CODE $(shell                 \
+		expr $(VERSION) \* 65536 + $(PATCHLEVEL) \* 256 + $(SUBLEVEL)); \
+	fi;                                                              \
+	echo '#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) +  \
+	((c) > 255 ? 255 : (c)))'
 endef
 
+$(version_h): PATCHLEVEL := $(if $(PATCHLEVEL), $(PATCHLEVEL), 0)
+$(version_h): SUBLEVEL := $(if $(SUBLEVEL), $(SUBLEVEL), 0)
 $(version_h): FORCE
 	$(call filechk,version.h)
 	$(Q)rm -f $(old_version_h)
@@ -1317,6 +1341,8 @@ PHONY += archheaders archscripts
 hdr-inst := -f $(srctree)/scripts/Makefile.headersinst obj
 
 techpack-dirs := $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type d -not -name ".*")
+techpack-dirs := $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type d -not -name ".*" -not -name "camera-venus" -not -name "camera-odin" -not -name "camera-haydn" -not -name "camera-qcom" -not -name "camera-lisa" -not -name "camera-vili")
+techpack-dirs += $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type l -name camera)
 techpack-dirs := $(subst $(srctree)/,,$(techpack-dirs))
 
 PHONY += headers

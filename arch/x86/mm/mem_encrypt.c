@@ -229,7 +229,7 @@ static void __init __set_clr_pte_enc(pte_t *kpte, int level, bool enc)
 	if (pgprot_val(old_prot) == pgprot_val(new_prot))
 		return;
 
-	pa = pfn << page_level_shift(level);
+	pa = pfn << PAGE_SHIFT;
 	size = page_level_size(level);
 
 	/*
@@ -375,6 +375,7 @@ bool force_dma_unencrypted(struct device *dev)
 
 	return false;
 }
+EXPORT_SYMBOL_GPL(sev_active);
 
 /* Architecture __weak replacement functions */
 void __init mem_encrypt_free_decrypted_mem(void)

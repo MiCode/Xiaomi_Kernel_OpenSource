@@ -19,7 +19,8 @@
 /* Init section thermal table */
 extern struct thermal_governor *__governor_thermal_table[];
 extern struct thermal_governor *__governor_thermal_table_end[];
-
+extern struct class thermal_class;
+extern struct device thermal_message_dev;
 #define THERMAL_TABLE_ENTRY(table, name)			\
 	static typeof(name) *__thermal_table_entry_##name	\
 	__used __section(__##table##_thermal_table) = &name

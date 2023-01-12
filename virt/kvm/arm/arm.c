@@ -373,11 +373,17 @@ void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	cpu_data = this_cpu_ptr(&kvm_host_data);
 
 	/*
+	 * We guarantee that both TLBs and I-cache are private to each
+	 * vcpu. If detecting that a vcpu from the same VM has
+	 * previously run on the same physical CPU, call into the
+	 * hypervisor code to nuke the relevant contexts.
+	 *
+         * We might get preempted before the vCPU actually runs, but
 	 * We might get preempted before the vCPU actually runs, but
 	 * over-invalidation doesn't affect correctness.
 	 */
 	if (*last_ran != vcpu->vcpu_id) {
-		kvm_call_hyp(__kvm_tlb_flush_local_vmid, vcpu);
+		kvm_call_hyp(__kvm_flush_cpu_context, vcpu);
 		*last_ran = vcpu->vcpu_id;
 	}
 
@@ -572,6 +578,8 @@ static int kvm_vcpu_first_run_init(struct kvm_vcpu *vcpu)
 		return -EPERM;
 
 	vcpu->arch.has_run_once = true;
+
+	kvm_arm_vcpu_init_debug(vcpu);
 
 	if (likely(irqchip_in_kernel(kvm))) {
 		/*

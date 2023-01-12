@@ -3359,6 +3359,18 @@ out:
 	if (ret || truncated) {
 		u64 start, end;
 
+		/*
+		 * If we failed to finish this ordered extent for any reason we
+		 * need to make sure BTRFS_ORDERED_IOERR is set on the ordered
+		 * extent, and mark the inode with the error if it wasn't
+		 * already set.  Any error during writeback would have already
+		 * set the mapping error, so we need to set it if we're the ones
+		 * marking this ordered extent as failed.
+		 */
+		if (ret && !test_and_set_bit(BTRFS_ORDERED_IOERR,
+					     &ordered_extent->flags))
+			mapping_set_error(ordered_extent->inode->i_mapping, -EIO);
+
 		if (truncated)
 			start = ordered_extent->file_offset + logical_len;
 		else
@@ -3571,6 +3583,7 @@ void btrfs_run_delayed_iputs(struct btrfs_fs_info *fs_info)
 		inode = list_first_entry(&fs_info->delayed_iputs,
 				struct btrfs_inode, delayed_iput);
 		run_delayed_iput_locked(fs_info, inode);
+		cond_resched_lock(&fs_info->delayed_iput_lock);
 	}
 	spin_unlock(&fs_info->delayed_iput_lock);
 }
@@ -6362,7 +6375,7 @@ static int btrfs_dirty_inode(struct inode *inode)
 		return PTR_ERR(trans);
 
 	ret = btrfs_update_inode(trans, root, inode);
-	if (ret && ret == -ENOSPC) {
+	if (ret && (ret == -ENOSPC || ret == -EDQUOT)) {
 		/* whoops, lets try again with the full transaction */
 		btrfs_end_transaction(trans);
 		trans = btrfs_start_transaction(root, 1);
@@ -6979,7 +6992,6 @@ static int btrfs_link(struct dentry *old_dentry, struct inode *dir,
 		drop_inode = 1;
 	} else {
 		struct dentry *parent = dentry->d_parent;
-		int ret;
 
 		err = btrfs_update_inode(trans, root, inode);
 		if (err)
@@ -6994,12 +7006,7 @@ static int btrfs_link(struct dentry *old_dentry, struct inode *dir,
 				goto fail;
 		}
 		d_instantiate(dentry, inode);
-		ret = btrfs_log_new_name(trans, BTRFS_I(inode), NULL, parent,
-					 true, NULL);
-		if (ret == BTRFS_NEED_TRANS_COMMIT) {
-			err = btrfs_commit_transaction(trans);
-			trans = NULL;
-		}
+		btrfs_log_new_name(trans, BTRFS_I(inode), NULL, parent);
 	}
 
 fail:
@@ -9243,9 +9250,7 @@ again:
 	set_page_dirty(page);
 	SetPageUptodate(page);
 
-	BTRFS_I(inode)->last_trans = fs_info->generation;
-	BTRFS_I(inode)->last_sub_trans = BTRFS_I(inode)->root->log_transid;
-	BTRFS_I(inode)->last_log_commit = BTRFS_I(inode)->root->last_log_commit;
+	btrfs_set_inode_last_sub_trans(BTRFS_I(inode));
 
 	unlock_extent_cached(io_tree, page_start, page_end, &cached_state);
 
@@ -9628,7 +9633,7 @@ int __init btrfs_init_cachep(void)
 
 	btrfs_free_space_bitmap_cachep = kmem_cache_create("btrfs_free_space_bitmap",
 							PAGE_SIZE, PAGE_SIZE,
-							SLAB_RED_ZONE, NULL);
+							SLAB_MEM_SPREAD, NULL);
 	if (!btrfs_free_space_bitmap_cachep)
 		goto fail;
 
@@ -9686,26 +9691,24 @@ static int btrfs_rename_exchange(struct inode *old_dir,
 	struct inode *new_inode = new_dentry->d_inode;
 	struct inode *old_inode = old_dentry->d_inode;
 	struct timespec64 ctime = current_time(old_inode);
-	struct dentry *parent;
 	u64 old_ino = btrfs_ino(BTRFS_I(old_inode));
 	u64 new_ino = btrfs_ino(BTRFS_I(new_inode));
 	u64 old_idx = 0;
 	u64 new_idx = 0;
 	int ret;
+	int ret2;
 	bool root_log_pinned = false;
 	bool dest_log_pinned = false;
-	struct btrfs_log_ctx ctx_root;
-	struct btrfs_log_ctx ctx_dest;
-	bool sync_log_root = false;
-	bool sync_log_dest = false;
-	bool commit_transaction = false;
 
-	/* we only allow rename subvolume link between subvolumes */
-	if (old_ino != BTRFS_FIRST_FREE_OBJECTID && root != dest)
+	/*
+	 * For non-subvolumes allow exchange only within one subvolume, in the
+	 * same inode namespace. Two subvolumes (represented as directory) can
+	 * be exchanged as they're a logical link and have a fixed inode number.
+	 */
+	if (root != dest &&
+	    (old_ino != BTRFS_FIRST_FREE_OBJECTID ||
+	     new_ino != BTRFS_FIRST_FREE_OBJECTID))
 		return -EXDEV;
-
-	btrfs_init_log_ctx(&ctx_root, old_inode);
-	btrfs_init_log_ctx(&ctx_dest, new_inode);
 
 	/* close the race window with snapshot create/destroy ioctl */
 	if (old_ino == BTRFS_FIRST_FREE_OBJECTID ||
@@ -9848,30 +9851,14 @@ static int btrfs_rename_exchange(struct inode *old_dir,
 		BTRFS_I(new_inode)->dir_index = new_idx;
 
 	if (root_log_pinned) {
-		parent = new_dentry->d_parent;
-		ret = btrfs_log_new_name(trans, BTRFS_I(old_inode),
-					 BTRFS_I(old_dir), parent,
-					 false, &ctx_root);
-		if (ret == BTRFS_NEED_LOG_SYNC)
-			sync_log_root = true;
-		else if (ret == BTRFS_NEED_TRANS_COMMIT)
-			commit_transaction = true;
-		ret = 0;
+		btrfs_log_new_name(trans, BTRFS_I(old_inode), BTRFS_I(old_dir),
+				   new_dentry->d_parent);
 		btrfs_end_log_trans(root);
 		root_log_pinned = false;
 	}
 	if (dest_log_pinned) {
-		if (!commit_transaction) {
-			parent = old_dentry->d_parent;
-			ret = btrfs_log_new_name(trans, BTRFS_I(new_inode),
-						 BTRFS_I(new_dir), parent,
-						 false, &ctx_dest);
-			if (ret == BTRFS_NEED_LOG_SYNC)
-				sync_log_dest = true;
-			else if (ret == BTRFS_NEED_TRANS_COMMIT)
-				commit_transaction = true;
-			ret = 0;
-		}
+		btrfs_log_new_name(trans, BTRFS_I(new_inode), BTRFS_I(new_dir),
+				   old_dentry->d_parent);
 		btrfs_end_log_trans(dest);
 		dest_log_pinned = false;
 	}
@@ -9904,45 +9891,12 @@ out_fail:
 			dest_log_pinned = false;
 		}
 	}
-	if (!ret && sync_log_root && !commit_transaction) {
-		ret = btrfs_sync_log(trans, BTRFS_I(old_inode)->root,
-				     &ctx_root);
-		if (ret)
-			commit_transaction = true;
-	}
-	if (!ret && sync_log_dest && !commit_transaction) {
-		ret = btrfs_sync_log(trans, BTRFS_I(new_inode)->root,
-				     &ctx_dest);
-		if (ret)
-			commit_transaction = true;
-	}
-	if (commit_transaction) {
-		/*
-		 * We may have set commit_transaction when logging the new name
-		 * in the destination root, in which case we left the source
-		 * root context in the list of log contextes. So make sure we
-		 * remove it to avoid invalid memory accesses, since the context
-		 * was allocated in our stack frame.
-		 */
-		if (sync_log_root) {
-			mutex_lock(&root->log_mutex);
-			list_del_init(&ctx_root.list);
-			mutex_unlock(&root->log_mutex);
-		}
-		ret = btrfs_commit_transaction(trans);
-	} else {
-		int ret2;
-
-		ret2 = btrfs_end_transaction(trans);
-		ret = ret ? ret : ret2;
-	}
+	ret2 = btrfs_end_transaction(trans);
+	ret = ret ? ret : ret2;
 out_notrans:
 	if (new_ino == BTRFS_FIRST_FREE_OBJECTID ||
 	    old_ino == BTRFS_FIRST_FREE_OBJECTID)
 		up_read(&fs_info->subvol_sem);
-
-	ASSERT(list_empty(&ctx_root.list));
-	ASSERT(list_empty(&ctx_dest.list));
 
 	return ret;
 }
@@ -10011,11 +9965,9 @@ static int btrfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct inode *old_inode = d_inode(old_dentry);
 	u64 index = 0;
 	int ret;
+	int ret2;
 	u64 old_ino = btrfs_ino(BTRFS_I(old_inode));
 	bool log_pinned = false;
-	struct btrfs_log_ctx ctx;
-	bool sync_log = false;
-	bool commit_transaction = false;
 
 	if (btrfs_ino(BTRFS_I(new_dir)) == BTRFS_EMPTY_SUBVOL_DIR_OBJECTID)
 		return -EPERM;
@@ -10165,17 +10117,8 @@ static int btrfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		BTRFS_I(old_inode)->dir_index = index;
 
 	if (log_pinned) {
-		struct dentry *parent = new_dentry->d_parent;
-
-		btrfs_init_log_ctx(&ctx, old_inode);
-		ret = btrfs_log_new_name(trans, BTRFS_I(old_inode),
-					 BTRFS_I(old_dir), parent,
-					 false, &ctx);
-		if (ret == BTRFS_NEED_LOG_SYNC)
-			sync_log = true;
-		else if (ret == BTRFS_NEED_TRANS_COMMIT)
-			commit_transaction = true;
-		ret = 0;
+		btrfs_log_new_name(trans, BTRFS_I(old_inode), BTRFS_I(old_dir),
+				   new_dentry->d_parent);
 		btrfs_end_log_trans(root);
 		log_pinned = false;
 	}
@@ -10212,23 +10155,8 @@ out_fail:
 		btrfs_end_log_trans(root);
 		log_pinned = false;
 	}
-	if (!ret && sync_log) {
-		ret = btrfs_sync_log(trans, BTRFS_I(old_inode)->root, &ctx);
-		if (ret)
-			commit_transaction = true;
-	} else if (sync_log) {
-		mutex_lock(&root->log_mutex);
-		list_del(&ctx.list);
-		mutex_unlock(&root->log_mutex);
-	}
-	if (commit_transaction) {
-		ret = btrfs_commit_transaction(trans);
-	} else {
-		int ret2;
-
-		ret2 = btrfs_end_transaction(trans);
-		ret = ret ? ret : ret2;
-	}
+	ret2 = btrfs_end_transaction(trans);
+	ret = ret ? ret : ret2;
 out_notrans:
 	if (old_ino == BTRFS_FIRST_FREE_OBJECTID)
 		up_read(&fs_info->subvol_sem);

@@ -16,6 +16,9 @@
 #define MHI_SM_DBG(fmt, args...) \
 	mhi_log(MHI_MSG_DBG, fmt, ##args)
 
+#define MHI_SM_CONSOLE_DBG(fmt, args...) \
+	mhi_log(MHI_MSG_CRITICAL, fmt, ##args)
+
 #define MHI_SM_ERR(fmt, args...) \
 	mhi_log(MHI_MSG_ERROR, fmt, ##args)
 
@@ -867,10 +870,10 @@ static void mhi_sm_dev_event_manager(struct work_struct *work)
 	MHI_SM_FUNC_ENTRY();
 
 	mutex_lock(&mhi_sm_ctx->mhi_state_lock);
-	MHI_SM_DBG("Start handling %s event, current states: %s & %s\n",
-		mhi_sm_dev_event_str(chg_event->event),
-		mhi_sm_mstate_str(mhi_sm_ctx->mhi_state),
-		mhi_sm_dstate_str(mhi_sm_ctx->d_state));
+	MHI_SM_CONSOLE_DBG("Handling %s event, current states: %s & %s\n",
+			mhi_sm_dev_event_str(chg_event->event),
+			mhi_sm_mstate_str(mhi_sm_ctx->mhi_state),
+			mhi_sm_dstate_str(mhi_sm_ctx->d_state));
 
 	if (mhi_sm_ctx->syserr_occurred) {
 		MHI_SM_DBG("syserr occurred, Ignoring %s\n",
@@ -952,10 +955,10 @@ static void mhi_sm_pcie_event_manager(struct work_struct *work)
 	mutex_lock(&mhi_sm_ctx->mhi_state_lock);
 	old_dstate = mhi_sm_ctx->d_state;
 
-	MHI_SM_DBG("Start handling %s event, current MHI state %s and %s\n",
-		mhi_sm_pcie_event_str(chg_event->event),
-		mhi_sm_mstate_str(mhi_sm_ctx->mhi_state),
-		mhi_sm_dstate_str(old_dstate));
+	MHI_SM_CONSOLE_DBG("Handling %s event, current states: %s and %s\n",
+			mhi_sm_pcie_event_str(chg_event->event),
+			mhi_sm_mstate_str(mhi_sm_ctx->mhi_state),
+			mhi_sm_dstate_str(old_dstate));
 
 	if (mhi_sm_ctx->syserr_occurred &&
 			pcie_event != EP_PCIE_EVENT_LINKDOWN) {
@@ -1407,7 +1410,18 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 		mhi_sm_ctx->stats.rst_deast_event_cnt++;
 		MHI_SM_DBG("Hold wake for perst deassert event\n");
 		pm_stay_awake(mhi->dev);
-		break;
+
+		atomic_inc(&mhi_sm_ctx->pending_pcie_events);
+		dstate_change_evt->event = event;
+		INIT_WORK(&dstate_change_evt->work, mhi_sm_pcie_event_manager);
+		/*
+		 * Link init has to be completed as quicly as possible.
+		 * Since this gets inovked from threaded IRQ context, do
+		 * all processing in the same context, so that we don't run
+		 * into any scheduling letencies.
+		 */
+		mhi_sm_pcie_event_manager(&dstate_change_evt->work);
+		goto exit;
 	case EP_PCIE_EVENT_PM_D0:
 		mhi_sm_ctx->stats.d0_event_cnt++;
 
@@ -1455,7 +1469,7 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 
 	dstate_change_evt->event = event;
 	INIT_WORK(&dstate_change_evt->work, mhi_sm_pcie_event_manager);
-	queue_work(system_highpri_wq, &dstate_change_evt->work);
+	queue_work(mhi_sm_ctx->mhi_sm_wq, &dstate_change_evt->work);
 	atomic_inc(&mhi_sm_ctx->pending_pcie_events);
 
 exit:

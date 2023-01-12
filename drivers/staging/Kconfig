@@ -78,6 +78,10 @@ source "drivers/staging/gs_fpgaboot/Kconfig"
 
 source "drivers/staging/unisys/Kconfig"
 
+source "drivers/staging/rtmm/Kconfig"
+
+source "drivers/staging/ktrace/Kconfig"
+
 source "drivers/staging/clocking-wizard/Kconfig"
 
 source "drivers/staging/fbtft/Kconfig"
@@ -122,5 +126,9 @@ source "drivers/staging/wusbcore/Kconfig"
 source "drivers/staging/uwb/Kconfig"
 
 source "drivers/staging/qlge/Kconfig"
+
+source "drivers/staging/mi-reclaim/Kconfig"
+
+source "drivers/staging/cam-reclaim/Kconfig"
 
 endif # STAGING

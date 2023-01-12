@@ -23,7 +23,6 @@
 #include <linux/threads.h>
 
 static DEFINE_SPINLOCK(task_time_in_state_lock); /* task->time_in_state */
-
 /**
  * struct cpu_freqs - per-cpu frequency information
  * @offset: start of these freqs' stats in task time_in_state array

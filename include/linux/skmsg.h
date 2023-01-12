@@ -355,13 +355,17 @@ static inline void sk_psock_update_proto(struct sock *sk,
 static inline void sk_psock_restore_proto(struct sock *sk,
 					  struct sk_psock *psock)
 {
-	sk->sk_prot->unhash = psock->saved_unhash;
-
 	if (psock->sk_proto) {
 		struct inet_connection_sock *icsk = inet_csk(sk);
 		bool has_ulp = !!icsk->icsk_ulp_data;
 
 		if (has_ulp) {
+			/* TLS does not have an unhash proto in SW cases, but we need
+			 * to ensure we stop using the sock_map unhash routine because
+			 * the associated psock is being removed. So use the original
+			 * unhash handler.
+			 */
+			WRITE_ONCE(sk->sk_prot->unhash, psock->saved_unhash);
 			tcp_update_ulp(sk, psock->sk_proto,
 				       psock->saved_write_space);
 		} else {

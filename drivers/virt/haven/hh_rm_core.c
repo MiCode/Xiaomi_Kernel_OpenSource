@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  */
 
@@ -90,18 +90,25 @@ hh_rm_init_connection_buff(struct hh_rm_connection *connection,
 				size_t payload_size)
 {
 	struct hh_rm_rpc_hdr *hdr = recv_buff;
+	size_t max_buf_size;
 
 	/* Some of the 'reply' types doesn't contain any payload */
 	if (!payload_size)
 		return 0;
 
+	max_buf_size = (HH_MSGQ_MAX_MSG_SIZE_BYTES - hdr_size) *
+			(hdr->fragments + 1);
+
+	if (payload_size > max_buf_size) {
+		pr_err("%s: Payload size exceeds max buff size\n", __func__);
+		return -EINVAL;
+	}
+
 	/* If the data is split into multiple fragments, allocate a large
 	 * enough buffer to hold the payloads for all the fragments.
 	 */
 	connection->recv_buff = connection->current_recv_buff =
-		kzalloc((HH_MSGQ_MAX_MSG_SIZE_BYTES - hdr_size) *
-			(hdr->fragments + 1),
-			GFP_KERNEL);
+				kzalloc(max_buf_size, GFP_KERNEL);
 	if (!connection->recv_buff)
 		return -ENOMEM;
 
@@ -485,7 +492,7 @@ static int hh_rm_send_request(u32 message_id,
 	const void *req_buff_curr = req_buff;
 	struct hh_rm_rpc_hdr *hdr;
 	unsigned long tx_flags;
-	u8 num_fragments = 0;
+	u32 num_fragments = 0;
 	size_t payload_size;
 	void *send_buff;
 	int i, ret;

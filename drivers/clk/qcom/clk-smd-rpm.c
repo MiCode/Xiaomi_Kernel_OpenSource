@@ -1134,6 +1134,10 @@ static int rpm_smd_clk_probe(struct platform_device *pdev)
 		/* Hold an active set vote for the snoc_keepalive_a_clk */
 		clk_prepare_enable(holi_snoc_a_clk.hw.clk);
 		clk_set_rate(holi_snoc_a_clk.hw.clk, 19200000);
+
+		/* Hold an active set vote for qup clock */
+		clk_prepare_enable(holi_qup_a_clk.hw.clk);
+		clk_set_rate(holi_qup_a_clk.hw.clk, 19200000);
 	}
 
 	if (is_sdxnightjar) {

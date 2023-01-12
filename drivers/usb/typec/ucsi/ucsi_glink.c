@@ -14,6 +14,7 @@
 #include <linux/soc/qcom/pmic_glink.h>
 #include <linux/usb/typec.h>
 #include <linux/usb/ucsi_glink.h>
+#include <linux/delay.h>
 
 #include "ucsi.h"
 
@@ -26,6 +27,10 @@
 #define UC_UCSI_READ_BUF_REQ		0x11
 #define UC_UCSI_WRITE_BUF_REQ		0x12
 #define UC_UCSI_USBC_NOTIFY_IND		0x13
+#define UC_UCSI_NOTIFY_SWAP_ROLE	0x14
+
+static u64 pr_cmd;
+static u64 dr_cmd;
 
 /* Generic definitions */
 #define CMD_PENDING			1
@@ -85,6 +90,7 @@ struct ucsi_dev {
 	struct ucsi_glink_constat_info	constat_info;
 	struct work_struct		notify_work;
 	struct work_struct		setup_work;
+	struct work_struct		swap_role_work;
 	atomic_t			state;
 };
 
@@ -240,6 +246,60 @@ static int handle_ucsi_notify(struct ucsi_dev *udev, void *data, size_t len)
 	return 0;
 }
 
+static int handle_ucsi_notify_swap_role(struct ucsi_dev *udev, void *data, size_t len)
+{
+	struct ucsi_notify_ind_msg *msg_ptr;
+	u32 cmd;
+	int target_pr = 0;
+	int target_dr = 0;
+
+	if (len != sizeof(*msg_ptr)) {
+		pr_err("Incorrect received length %zu expected %u\n", len, sizeof(*msg_ptr));
+		return -EINVAL;
+	}
+
+	msg_ptr = data;
+	cmd = msg_ptr->notification;
+
+	target_pr = UCSI_CMD_PR(cmd);
+	pr_cmd = UCSI_SET_PDR | UCSI_CONNECTOR_NUMBER(1);
+	pr_cmd |= UCSI_SET_PDR_ROLE(target_pr);
+	pr_cmd |= UCSI_SET_PDR_ACCEPT_ROLE_SWAPS;
+
+	target_dr = UCSI_CMD_DR(cmd);
+	dr_cmd = UCSI_SET_UOR | UCSI_CONNECTOR_NUMBER(1);
+	dr_cmd |= UCSI_SET_UOR_ROLE(target_dr);
+	dr_cmd |= UCSI_SET_UOR_ACCEPT_ROLE_SWAPS;
+
+	pr_info("MI SMART INTERCHG, cmd = 0x%08x, target_pr = %d, target_dr = %d\n", cmd, target_pr, target_dr);
+	schedule_work(&udev->swap_role_work);
+
+	return 0;
+}
+
+static void swap_role_work_func(struct work_struct *work)
+{
+	struct ucsi_dev *udev = container_of(work, struct ucsi_dev, swap_role_work);
+	int ret = 0;
+
+	if (!udev || !udev->ucsi)
+		return;
+
+	ret = ucsi_send_command(udev->ucsi, pr_cmd, NULL, 0);
+	if (ret)
+		return;
+	else
+		pr_info("MI SMART INTERCHG, sucess to swap power role to sink\n");
+
+	msleep(100);
+
+	ret = ucsi_send_command(udev->ucsi, dr_cmd, NULL, 0);
+	if (ret)
+		return;
+	else
+		pr_info("MI SMART INTERCHG, sucess to swap data role to device\n");
+}
+
 static int ucsi_callback(void *priv, void *data, size_t len)
 {
 	struct pmic_glink_hdr *hdr = data;
@@ -254,6 +314,8 @@ static int ucsi_callback(void *priv, void *data, size_t len)
 		handle_ucsi_write_ack(udev, data, len);
 	else if (hdr->opcode == UC_UCSI_USBC_NOTIFY_IND)
 		handle_ucsi_notify(udev, data, len);
+	else if (hdr->opcode == UC_UCSI_NOTIFY_SWAP_ROLE)
+		handle_ucsi_notify_swap_role(udev, data, len);
 	else
 		pr_err("Unknown message opcode: %d\n", hdr->opcode);
 
@@ -574,6 +636,7 @@ static int ucsi_probe(struct platform_device *pdev)
 	if (!udev)
 		return -ENOMEM;
 
+	INIT_WORK(&udev->swap_role_work, swap_role_work_func);
 	INIT_WORK(&udev->notify_work, ucsi_qti_notify_work);
 	INIT_WORK(&udev->setup_work, ucsi_qti_setup_work);
 	mutex_init(&udev->read_lock);
@@ -625,6 +688,7 @@ static int ucsi_remove(struct platform_device *pdev)
 	int rc;
 
 	cancel_work_sync(&udev->notify_work);
+	cancel_work_sync(&udev->swap_role_work);
 	ucsi_unregister(udev->ucsi);
 	ucsi_destroy(udev->ucsi);
 

@@ -207,11 +207,11 @@ static struct f_gsi *get_connected_gsi(void)
 	int i;
 
 	for (i = 0; i < IPA_USB_MAX_TETH_PROT_SIZE; i++) {
-		if (inst_status[i].opts)
+		if (inst_status[i].opts) {
 			connected_gsi = inst_status[i].opts->gsi;
-
-		if (connected_gsi && atomic_read(&connected_gsi->connected))
-			return connected_gsi;
+			if (connected_gsi && atomic_read(&connected_gsi->connected))
+				return connected_gsi;
+		}
 	}
 
 	return NULL;
@@ -3213,7 +3213,7 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		gsi->d_port.in_aggr_size = GSI_IN_MBIM_AGGR_SIZE;
 		info.in_req_buf_len = GSI_IN_MBIM_AGGR_SIZE;
 		info.in_req_num_buf = GSI_NUM_IN_BUFFERS;
-		gsi->d_port.out_aggr_size = GSI_OUT_AGGR_SIZE;
+		gsi->d_port.out_aggr_size = GSI_OUT_MBIM_AGGR_SIZE;
 		info.out_req_buf_len = GSI_OUT_MBIM_BUF_LEN;
 		info.out_req_num_buf = GSI_NUM_OUT_BUFFERS;
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
@@ -3428,6 +3428,8 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	mbim_gsi_string_defs[0].id  = 0;
 	qdss_gsi_string_defs[0].id  = 0;
 	gsi->func_wakeup_pending = false;
+	atomic_set(&gsi->connected, 0);
+
 	if (gsi->prot_id == IPA_USB_RNDIS) {
 		gsi->d_port.sm_state = STATE_UNINITIALIZED;
 		rndis_deregister(gsi->params);

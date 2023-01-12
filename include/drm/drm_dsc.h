@@ -247,6 +247,10 @@ struct drm_dsc_config {
 	 */
 	u8 dsc_version_major;
 	/**
+	 * @dsc_panel_id: panel vendor
+	 */
+	u64 dsc_panel_id;
+	/**
 	 * @native_422: True if Native 4:2:2 supported, else false
 	 */
 	bool native_422;

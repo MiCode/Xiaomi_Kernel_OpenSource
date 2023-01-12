@@ -490,6 +490,7 @@ int commit_creds(struct cred *new)
 		atomic_dec(&old->user->processes);
 	alter_cred_subscribers(old, -2);
 
+
 	/* send notifications */
 	if (!uid_eq(new->uid,   old->uid)  ||
 	    !uid_eq(new->euid,  old->euid) ||

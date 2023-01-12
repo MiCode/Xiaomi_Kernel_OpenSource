@@ -927,6 +927,7 @@ static int mlx5e_create_ttc_table_groups(struct mlx5e_ttc_table *ttc,
 	in = kvzalloc(inlen, GFP_KERNEL);
 	if (!in) {
 		kfree(ft->g);
+		ft->g = NULL;
 		return -ENOMEM;
 	}
 
@@ -1067,6 +1068,7 @@ static int mlx5e_create_inner_ttc_table_groups(struct mlx5e_ttc_table *ttc)
 	in = kvzalloc(inlen, GFP_KERNEL);
 	if (!in) {
 		kfree(ft->g);
+		ft->g = NULL;
 		return -ENOMEM;
 	}
 
@@ -1121,7 +1123,7 @@ void mlx5e_set_ttc_basic_params(struct mlx5e_priv *priv,
 	ttc_params->inner_ttc = &priv->fs.inner_ttc;
 }
 
-void mlx5e_set_inner_ttc_ft_params(struct ttc_params *ttc_params)
+static void mlx5e_set_inner_ttc_ft_params(struct ttc_params *ttc_params)
 {
 	struct mlx5_flow_table_attr *ft_attr = &ttc_params->ft_attr;
 
@@ -1140,8 +1142,8 @@ void mlx5e_set_ttc_ft_params(struct ttc_params *ttc_params)
 	ft_attr->prio = MLX5E_NIC_PRIO;
 }
 
-int mlx5e_create_inner_ttc_table(struct mlx5e_priv *priv, struct ttc_params *params,
-				 struct mlx5e_ttc_table *ttc)
+static int mlx5e_create_inner_ttc_table(struct mlx5e_priv *priv, struct ttc_params *params,
+					struct mlx5e_ttc_table *ttc)
 {
 	struct mlx5e_flow_table *ft = &ttc->ft;
 	int err;
@@ -1171,8 +1173,8 @@ err:
 	return err;
 }
 
-void mlx5e_destroy_inner_ttc_table(struct mlx5e_priv *priv,
-				   struct mlx5e_ttc_table *ttc)
+static void mlx5e_destroy_inner_ttc_table(struct mlx5e_priv *priv,
+					  struct mlx5e_ttc_table *ttc)
 {
 	if (!mlx5e_tunnel_inner_ft_supported(priv->mdev))
 		return;
@@ -1346,6 +1348,7 @@ err_destroy_groups:
 	ft->g[ft->num_groups] = NULL;
 	mlx5e_destroy_groups(ft);
 	kvfree(in);
+	kfree(ft->g);
 
 	return err;
 }

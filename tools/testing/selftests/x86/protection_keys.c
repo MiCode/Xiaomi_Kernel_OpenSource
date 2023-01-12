@@ -613,7 +613,6 @@ int alloc_random_pkey(void)
 	int nr_alloced = 0;
 	int random_index;
 	memset(alloced_pkeys, 0, sizeof(alloced_pkeys));
-	srand((unsigned int)time(NULL));
 
 	/* allocate every possible key and make a note of which ones we got */
 	max_nr_pkey_allocs = NR_PKEYS;
@@ -1478,6 +1477,8 @@ void pkey_setup_shadow(void)
 int main(void)
 {
 	int nr_iterations = 22;
+
+	srand((unsigned int)time(NULL));
 
 	setup_handlers();
 

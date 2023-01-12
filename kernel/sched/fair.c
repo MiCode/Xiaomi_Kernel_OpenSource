@@ -576,12 +576,40 @@ static void update_min_vruntime(struct cfs_rq *cfs_rq)
 
 	/* ensure we never gain time by being placed backwards. */
 	cfs_rq->min_vruntime = max_vruntime(cfs_rq->min_vruntime, vruntime);
+#ifdef CONFIG_PERF_HUMANTASK
+	cfs_rq->min_vruntimex = min_vruntime(cfs_rq->min_vruntime, vruntime);
+#endif
 #ifndef CONFIG_64BIT
 	smp_wmb();
 	cfs_rq->min_vruntime_copy = cfs_rq->min_vruntime;
 #endif
 }
 
+#ifdef CONFIG_PERF_HUMANTASK
+static inline bool jump_queue(struct task_struct *tsk, struct rb_node *root)
+{
+	bool jump = false ;
+	if (tsk && tsk->human_task && root) { //0,1-3,4...
+
+		if (tsk->human_task > MAX_LEVER) {
+			jump = true;
+			goto out;
+		}
+
+		if (tsk->human_task  <  MAX_LEVER)
+			jump  = true;//66%
+
+		tsk->human_task = jump ? ++tsk->human_task : 1;
+
+	}
+out:
+	if (jump) {
+		trace_sched_debug_einfo(tsk, "jumper", "boostx", tsk->human_task, sched_boost(),1,1,0);
+	}
+
+	return jump;
+}
+#endif
 /*
  * Enqueue an entity into the rb-tree:
  */
@@ -591,6 +619,20 @@ static void __enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 	struct rb_node *parent = NULL;
 	struct sched_entity *entry;
 	bool leftmost = true;
+	int left = 0;
+	int right = 0;
+#ifdef CONFIG_PERF_HUMANTASK
+	bool  speed = false;
+	struct task_struct *tsk = NULL;
+	if (entity_is_task(se)) {
+		tsk = task_of(se);
+		speed = jump_queue(tsk, *link);
+	}
+	//CONFIG_HZ_300 *  jiffies_64; 100 = 1ms  < 10 ms ,50,100,200
+	if (speed) {
+		se->vruntime =  tsk->human_task * 1000000;
+	}
+#endif
 
 	/*
 	 * Find the right place in the rbtree:
@@ -604,15 +646,22 @@ static void __enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 		 */
 		if (entity_before(se, entry)) {
 			link = &parent->rb_left;
+			left++;
 		} else {
 			link = &parent->rb_right;
 			leftmost = false;
+			right++;
 		}
 	}
-
+#ifdef CONFIG_PERF_HUMANTASK
+	if (speed) {
+		//trace_sched_debug_einfo(tsk,"jumper left","right",left,right,se->vruntime,entry->vruntime,cfs_rq->min_vruntimex);
+		se->vruntime = entry->vruntime - 1;
+	}
+#endif
 	rb_link_node(&se->run_node, parent, link);
 	rb_insert_color_cached(&se->run_node,
-			       &cfs_rq->tasks_timeline, leftmost);
+				&cfs_rq->tasks_timeline, leftmost);
 }
 
 static void __dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
@@ -2951,7 +3000,7 @@ void reweight_task(struct task_struct *p, int prio)
  *
  *                     tg->weight * grq->load.weight
  *   ge->load.weight = -----------------------------               (1)
- *			  \Sum grq->load.weight
+ *                       \Sum grq->load.weight
  *
  * Now, because computing that sum is prohibitively expensive to compute (been
  * there, done that) we approximate it with this average stuff. The average
@@ -2965,7 +3014,7 @@ void reweight_task(struct task_struct *p, int prio)
  *
  *                     tg->weight * grq->avg.load_avg
  *   ge->load.weight = ------------------------------              (3)
- *				tg->load_avg
+ *                             tg->load_avg
  *
  * Where: tg->load_avg ~= \Sum grq->avg.load_avg
  *
@@ -2981,7 +3030,7 @@ void reweight_task(struct task_struct *p, int prio)
  *
  *                     tg->weight * grq->load.weight
  *   ge->load.weight = ----------------------------- = tg->weight   (4)
- *			    grp->load.weight
+ *                         grp->load.weight
  *
  * That is, the sum collapses because all other CPUs are idle; the UP scenario.
  *
@@ -3000,7 +3049,7 @@ void reweight_task(struct task_struct *p, int prio)
  *
  *                     tg->weight * grq->load.weight
  *   ge->load.weight = -----------------------------		   (6)
- *				tg_load_avg'
+ *                             tg_load_avg'
  *
  * Where:
  *
@@ -4000,7 +4049,7 @@ static inline void update_misfit_status(struct task_struct *p, struct rq *rq)
 	if (!static_branch_unlikely(&sched_asym_cpucapacity))
 		return;
 
-	if (!p) {
+	if (!p || p->nr_cpus_allowed == 1) {
 		rq->misfit_task_load = 0;
 		return;
 	}
@@ -4991,7 +5040,7 @@ static const u64 cfs_bandwidth_slack_period = 5 * NSEC_PER_MSEC;
 static int runtime_refresh_within(struct cfs_bandwidth *cfs_b, u64 min_expire)
 {
 	struct hrtimer *refresh_timer = &cfs_b->period_timer;
-	u64 remaining;
+	s64 remaining;
 
 	/* if the call-back is running a quota refresh is already occurring */
 	if (hrtimer_callback_running(refresh_timer))
@@ -4999,7 +5048,7 @@ static int runtime_refresh_within(struct cfs_bandwidth *cfs_b, u64 min_expire)
 
 	/* is a quota refresh about to occur? */
 	remaining = ktime_to_ns(hrtimer_expires_remaining(refresh_timer));
-	if (remaining < min_expire)
+	if (remaining < (s64)min_expire)
 		return 1;
 
 	return 0;
@@ -6704,6 +6753,10 @@ static void walt_find_best_target(struct sched_domain *sd, cpumask_t *cpus,
 
 			if (fbt_env->skip_cpu == i)
 				continue;
+			#ifdef CONFIG_PERF_HUMANTASK
+			if (p->human_task > MAX_LEVER)
+				break;
+			#endif
 
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
@@ -7139,6 +7192,10 @@ int find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 		fbt_env.fastpath = SYNC_WAKEUP;
 		goto done;
 	}
+	#ifdef CONFIG_PERF_HUMANTASK
+	if (p->human_task > MAX_LEVER)
+		goto done;
+	#endif
 
 	rcu_read_lock();
 	pd = rcu_dereference(rd->pd);
@@ -7366,6 +7423,7 @@ fail:
 	return -EPERM;
 }
 #endif
+
 /*
  * select_task_rq_fair: Select target runqueue for the waking task in domains
  * that have the 'sd_flag' flag set. In practice, this is SD_BALANCE_WAKE,
@@ -8238,6 +8296,10 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		return 0;
 #endif
 
+	/* Disregard pcpu kthreads; they are where they need to be. */
+	if (kthread_is_per_cpu(p))
+		return 0;
+
 	if (!cpumask_test_cpu(env->dst_cpu, p->cpus_ptr)) {
 		int cpu;
 
@@ -8452,6 +8514,10 @@ redo:
 			env->flags |= LBF_NEED_BREAK;
 			break;
 		}
+		#ifdef CONFIG_PERF_HUMANTASK
+		if (p->human_task > MAX_LEVER)
+			goto next;
+		#endif
 
 		if (!can_migrate_task(p, env))
 			goto next;
@@ -8700,7 +8766,7 @@ static bool __update_blocked_fair(struct rq *rq, bool *done)
 		/* Propagate pending load changes to the parent, if any: */
 		se = cfs_rq->tg->se[cpu];
 		if (se && !skip_blocked_update(se))
-			update_load_avg(cfs_rq_of(se), se, 0);
+			update_load_avg(cfs_rq_of(se), se, UPDATE_TG);
 
 		/*
 		 * There can be a lot of idle CPU cgroups.  Don't let fully
@@ -11799,16 +11865,22 @@ static void propagate_entity_cfs_rq(struct sched_entity *se)
 {
 	struct cfs_rq *cfs_rq;
 
+	list_add_leaf_cfs_rq(cfs_rq_of(se));
+
 	/* Start to propagate at parent */
 	se = se->parent;
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
 
-		if (cfs_rq_throttled(cfs_rq))
-			break;
+		if (!cfs_rq_throttled(cfs_rq)){
+			update_load_avg(cfs_rq, se, UPDATE_TG);
+			list_add_leaf_cfs_rq(cfs_rq);
+			continue;
+		}
 
-		update_load_avg(cfs_rq, se, UPDATE_TG);
+		if (list_add_leaf_cfs_rq(cfs_rq))
+			break;
 	}
 }
 #else

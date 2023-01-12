@@ -33,7 +33,6 @@
 #include <linux/sysfs.h>
 #include <linux/debugfs.h>
 #include <linux/cpuhotplug.h>
-
 #include "zram_drv.h"
 
 static DEFINE_IDR(zram_index_idr);
@@ -692,6 +691,10 @@ static ssize_t writeback_store(struct device *dev,
 		if (mode == HUGE_WRITEBACK &&
 			  !zram_test_flag(zram, index, ZRAM_HUGE))
 			goto next;
+#ifdef CONFIG_MI_ZRAM_WRITEBACK_CONTROL
+		if (zram_test_flag(zram, index, ZRAM_IMPORTANT))
+			goto next;
+#endif
 		/*
 		 * Clearing ZRAM_UNDER_WB is duty of caller.
 		 * IOW, zram_free_page never clear it.
@@ -725,6 +728,10 @@ static ssize_t writeback_store(struct device *dev,
 			zram_clear_flag(zram, index, ZRAM_UNDER_WB);
 			zram_clear_flag(zram, index, ZRAM_IDLE);
 			zram_slot_unlock(zram, index);
+			/*
+			 * Return last IO error unless every IO were
+			 * not suceeded.
+			 */
 			continue;
 		}
 
@@ -1064,6 +1071,20 @@ static ssize_t mm_stat_show(struct device *dev,
 	orig_size = atomic64_read(&zram->stats.pages_stored);
 	max_used = atomic_long_read(&zram->stats.max_used_pages);
 
+#ifdef CONFIG_MI_ZRAM_WRITEBACK_CONTROL
+	ret = scnprintf(buf, PAGE_SIZE,
+			"%8llu %8llu %8llu %8lu %8ld %8llu %8lu %8llu %8llu %8llu\n",
+			orig_size << PAGE_SHIFT,
+			(u64)atomic64_read(&zram->stats.compr_data_size),
+			mem_used << PAGE_SHIFT,
+			zram->limit_pages << PAGE_SHIFT,
+			max_used << PAGE_SHIFT,
+			(u64)atomic64_read(&zram->stats.same_pages),
+			atomic_long_read(&pool_stats.pages_compacted),
+			(u64)atomic64_read(&zram->stats.huge_pages),
+			(u64)atomic64_read(&zram->stats.important_pages),
+			(u64)atomic64_read(&zram->stats.important_compr_data_size) / 4096);
+#else
 	ret = scnprintf(buf, PAGE_SIZE,
 			"%8llu %8llu %8llu %8lu %8ld %8llu %8lu %8llu\n",
 			orig_size << PAGE_SHIFT,
@@ -1072,8 +1093,9 @@ static ssize_t mm_stat_show(struct device *dev,
 			zram->limit_pages << PAGE_SHIFT,
 			max_used << PAGE_SHIFT,
 			(u64)atomic64_read(&zram->stats.same_pages),
-			pool_stats.pages_compacted,
+			atomic_long_read(&pool_stats.pages_compacted),
 			(u64)atomic64_read(&zram->stats.huge_pages));
+#endif
 	up_read(&zram->init_lock);
 
 	return ret;
@@ -1176,6 +1198,14 @@ static void zram_free_page(struct zram *zram, size_t index)
 		zram_clear_flag(zram, index, ZRAM_HUGE);
 		atomic64_dec(&zram->stats.huge_pages);
 	}
+
+#ifdef CONFIG_MI_ZRAM_WRITEBACK_CONTROL
+	if (zram_test_flag(zram, index, ZRAM_IMPORTANT)) {
+		zram_clear_flag(zram, index, ZRAM_IMPORTANT);
+		atomic64_dec(&zram->stats.important_pages);
+		atomic64_sub(zram_get_obj_size(zram, index), &zram->stats.important_compr_data_size);
+	}
+#endif
 
 	if (zram_test_flag(zram, index, ZRAM_WB)) {
 		zram_clear_flag(zram, index, ZRAM_WB);
@@ -1315,6 +1345,9 @@ static int __zram_bvec_write(struct zram *zram, struct bio_vec *bvec,
 	struct page *page = bvec->bv_page;
 	unsigned long element = 0;
 	enum zram_pageflags flags = 0;
+#ifdef CONFIG_MI_ZRAM_WRITEBACK_CONTROL
+	struct mem_cgroup *memcg = page_memcg(page);
+#endif
 
 	mem = kmap_atomic(page);
 	if (page_same_filled(mem, &element)) {
@@ -1415,6 +1448,15 @@ out:
 		zram_set_handle(zram, index, handle);
 		zram_set_obj_size(zram, index, comp_len);
 	}
+
+#ifdef CONFIG_MI_ZRAM_WRITEBACK_CONTROL
+	if ((memcg != NULL) && READ_ONCE(memcg->zram_writeback_disable)) {
+		zram_set_flag(zram, index, ZRAM_IMPORTANT);
+		atomic64_inc(&zram->stats.important_pages);
+		atomic64_add(comp_len, &zram->stats.important_compr_data_size);
+	}
+#endif
+
 	zram_slot_unlock(zram, index);
 
 	/* Update stats */

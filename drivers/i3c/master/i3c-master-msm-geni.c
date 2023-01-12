@@ -695,7 +695,7 @@ static int i3c_geni_runtime_get_mutex_lock(struct geni_i3c_dev *gi3c)
 static void i3c_geni_runtime_put_mutex_unlock(struct geni_i3c_dev *gi3c)
 {
 	pm_runtime_mark_last_busy(gi3c->se.dev);
-	pm_runtime_put_autosuspend(gi3c->se.dev);
+	pm_runtime_put_sync_suspend(gi3c->se.dev);
 	mutex_unlock(&gi3c->lock);
 }
 

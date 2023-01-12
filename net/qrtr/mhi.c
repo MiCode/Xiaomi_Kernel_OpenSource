@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved. */
 
 #include <linux/module.h>
 #include <linux/skbuff.h>
@@ -176,7 +176,7 @@ static int qcom_mhi_qrtr_probe(struct mhi_device *mhi_dev,
 
 	dev_set_drvdata(&mhi_dev->dev, qdev);
 
-	rc = qrtr_endpoint_register(&qdev->ep, net_id, rt);
+	rc = qrtr_endpoint_register(&qdev->ep, net_id, rt, NULL);
 	if (rc)
 		return rc;
 

@@ -243,18 +243,9 @@ struct npu_device {
 	uint32_t hw_version;
 };
 
-struct npu_kevent {
-	struct list_head list;
-	struct msm_npu_event evt;
-	uint64_t reserved[4];
-};
-
 struct npu_client {
 	struct npu_device *npu_dev;
-	wait_queue_head_t wait;
-
 	struct mutex list_lock;
-	struct list_head evt_list;
 	struct list_head mapped_buffer_list;
 };
 

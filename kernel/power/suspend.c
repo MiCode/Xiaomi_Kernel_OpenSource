@@ -31,7 +31,6 @@
 #include <linux/compiler.h>
 #include <linux/moduleparam.h>
 #include <linux/wakeup_reason.h>
-
 #include "power.h"
 
 const char * const pm_labels[] = {
@@ -617,6 +616,7 @@ static int enter_state(suspend_state_t state)
  * Check if the value of @state represents one of the supported states,
  * execute enter_state() and update system suspend statistics.
  */
+
 int pm_suspend(suspend_state_t state)
 {
 	int error;

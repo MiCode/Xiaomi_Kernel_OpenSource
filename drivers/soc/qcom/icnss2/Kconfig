@@ -28,6 +28,15 @@ config ICNSS2_QMI
 	  and configurations. It also send WLAN on/off control message to FW
 	  over QMI channel.
 
+config ICNSS2_RESTART_LEVEL_NOTIF
+	bool "Enable Restart level change notification"
+	depends on ICNSS2
+	help
+	  Say 'Y' here to enable ICNSS2_RESTART_LEVEL_NOTIF support.
+	  This will be needed to register notifier and get notification for
+	  restart_level change of WLAN Sub system. On receiving notification
+	  ICNSS2 enable/disable M3 SSR. This is only enabled for QGKI config.
+
 config CNSS_QCA6750
 	bool "Enable ICNSS QCA6750 chipset specific changes"
 	depends on ICNSS2

@@ -7,7 +7,6 @@
 #include <linux/refcount.h>
 #include <linux/ratelimit.h>
 #include <linux/android_kabi.h>
-
 /*
  * Some day this will be a full-fledged user tracking system..
  */

@@ -790,7 +790,7 @@ struct msm_pcie_dev_t {
 
 	enum msm_pcie_link_status link_status;
 	bool user_suspend;
-	bool disable_pc;
+	uint32_t disable_pc;
 
 	struct pci_saved_state *default_state;
 	struct pci_saved_state *saved_state;
@@ -5031,13 +5031,13 @@ EXPORT_SYMBOL(msm_pcie_enumerate);
 static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 					enum msm_pcie_event event)
 {
-	struct msm_pcie_register_event *reg_itr;
+	struct msm_pcie_register_event *reg_itr, *temp;
 	struct msm_pcie_notify *notify;
 	struct msm_pcie_notify client_notify;
 	unsigned long flags;
 
 	spin_lock_irqsave(&dev->evt_reg_list_lock, flags);
-	list_for_each_entry(reg_itr, &dev->event_reg_list, node) {
+	list_for_each_entry_safe(reg_itr, temp, &dev->event_reg_list, node) {
 		if ((reg_itr->events & event) && reg_itr->callback) {
 			notify = &reg_itr->notify;
 			client_notify.event = event;
@@ -5046,8 +5046,19 @@ static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 			client_notify.options = notify->options;
 			PCIE_DUMP(dev, "PCIe: callback RC%d for event %d\n",
 				  dev->rc_idx, event);
+
+			/* Release spinlock before notifying client driver
+			 * and acquire it once done because once host notifies
+			 * client driver with an event, client can schedule an
+			 * recovery in same context before returning and
+			 * expects an new event which could cause an race
+			 * condition if spinlock is acquired.
+			 */
+			spin_unlock_irqrestore(&dev->evt_reg_list_lock, flags);
+
 			reg_itr->callback(&client_notify);
 
+			spin_lock_irqsave(&dev->evt_reg_list_lock, flags);
 			if ((reg_itr->options & MSM_PCIE_CONFIG_NO_RECOVERY) &&
 					(event == MSM_PCIE_EVENT_LINKDOWN)) {
 				dev->user_suspend = true;
@@ -7381,7 +7392,7 @@ static void msm_pcie_fixup_suspend(struct pci_dev *dev)
 
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
-DECLARE_PCI_FIXUP_SUSPEND(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
+DECLARE_PCI_FIXUP_SUSPEND_LATE(PCIE_VENDOR_ID_QCOM, PCI_ANY_ID,
 			  msm_pcie_fixup_suspend);
 
 /* Resume the PCIe link */
@@ -7962,8 +7973,8 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 		break;
 	case MSM_PCIE_DISABLE_PC:
 		PCIE_DBG(pcie_dev,
-			 "User of RC%d requests to keep the link always alive.\n",
-			 pcie_dev->rc_idx);
+			 "User of RC%d with vendor_id:0x%x device_id:0x%x requests to keep the link always alive.\n",
+			 pcie_dev->rc_idx, pcidev->vendor, pcidev->device);
 		spin_lock_irqsave(&pcie_dev->cfg_lock, pcie_dev->irqsave_flags);
 		if (pcie_dev->suspending) {
 			PCIE_ERR(pcie_dev,
@@ -7971,17 +7982,20 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 				 pcie_dev->rc_idx);
 			ret = MSM_PCIE_ERROR;
 		} else {
-			pcie_dev->disable_pc = true;
+			pcie_dev->disable_pc++;
 		}
 		spin_unlock_irqrestore(&pcie_dev->cfg_lock,
 				       pcie_dev->irqsave_flags);
 		break;
 	case MSM_PCIE_ENABLE_PC:
 		PCIE_DBG(pcie_dev,
-			 "User of RC%d cancels the request of alive link.\n",
-			 pcie_dev->rc_idx);
+			 "User of RC%d with vendor_id:0x%x device_id:0x%x cancels the request of alive link.\n",
+			 pcie_dev->rc_idx, pcidev->vendor, pcidev->device);
 		spin_lock_irqsave(&pcie_dev->cfg_lock, pcie_dev->irqsave_flags);
-		pcie_dev->disable_pc = false;
+		if (pcie_dev->disable_pc > 0)
+			pcie_dev->disable_pc--;
+		else
+			PCIE_ERR(pcie_dev, "PCIe:RC%d cannot call ENABLE_PC", pcie_dev->rc_idx);
 		spin_unlock_irqrestore(&pcie_dev->cfg_lock,
 				       pcie_dev->irqsave_flags);
 		break;
@@ -8050,7 +8064,7 @@ int msm_pcie_register_event(struct msm_pcie_register_event *reg)
 {
 	int ret = 0;
 	struct msm_pcie_dev_t *pcie_dev;
-	struct msm_pcie_register_event *reg_itr;
+	struct msm_pcie_register_event *reg_itr, *temp;
 	struct pci_dev *pcidev;
 	unsigned long flags;
 
@@ -8074,7 +8088,9 @@ int msm_pcie_register_event(struct msm_pcie_register_event *reg)
 	pcidev = (struct pci_dev *)reg->user;
 
 	spin_lock_irqsave(&pcie_dev->evt_reg_list_lock, flags);
-	list_for_each_entry(reg_itr, &pcie_dev->event_reg_list, node) {
+	list_for_each_entry_safe(reg_itr, temp,
+				 &pcie_dev->event_reg_list, node) {
+
 		if (reg_itr->user == reg->user) {
 			PCIE_ERR(pcie_dev,
 				 "PCIe: RC%d: EP BDF 0x%4x already registered\n",

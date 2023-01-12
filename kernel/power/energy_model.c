@@ -55,6 +55,11 @@ static void em_debug_create_pd(struct em_perf_domain *pd, int cpu)
 	char name[8];
 	int i;
 
+	if (!rootdir) {
+		pr_err("Power domains created prior to em_debug_init\n");
+		return;
+	}
+
 	snprintf(name, sizeof(name), "pd%d", cpu);
 
 	/* Create the directory of the performance domain */
@@ -69,12 +74,37 @@ static void em_debug_create_pd(struct em_perf_domain *pd, int cpu)
 
 static int __init em_debug_init(void)
 {
+	int cpu;
+	struct em_perf_domain *pd;
+	cpumask_t span;
+
+	cpumask_copy(&span, cpu_possible_mask);
+
 	/* Create /sys/kernel/debug/energy_model directory */
 	rootdir = debugfs_create_dir("energy_model", NULL);
 
+	for_each_cpu(cpu, &span) {
+		char name[8];
+
+		pd = em_cpu_get(cpu);
+		if (!pd) {
+			pr_info("Power domains not created yet\n");
+			break;
+		}
+
+		snprintf(name, sizeof(name), "pd%d", cpu);
+		if (debugfs_lookup(name, rootdir)) {
+			pr_info("Power domains already created\n");
+			break;
+		}
+
+		em_debug_create_pd(pd, cpu);
+		cpumask_andnot(&span, &span, to_cpumask(pd->cpus));
+	}
+
 	return 0;
 }
-core_initcall(em_debug_init);
+fs_initcall(em_debug_init);
 #else /* CONFIG_DEBUG_FS */
 static void em_debug_create_pd(struct em_perf_domain *pd, int cpu) {}
 #endif
@@ -149,7 +179,9 @@ static struct em_perf_domain *em_create_pd(cpumask_t *span, int nr_states,
 	/* Compute the cost of each capacity_state. */
 	fmax = (u64) table[nr_states - 1].frequency;
 	for (i = 0; i < nr_states; i++) {
-		table[i].cost = div64_u64(fmax * table[i].power,
+		unsigned long power_res = em_scale_power(table[i].power);
+
+		table[i].cost = div64_u64(fmax * power_res,
 					  table[i].frequency);
 		if (i > 0 && (table[i].cost < table[i - 1].cost) &&
 				(table[i].power > table[i - 1].power)) {

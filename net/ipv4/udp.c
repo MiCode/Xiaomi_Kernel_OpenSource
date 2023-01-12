@@ -985,6 +985,10 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	int (*getfrag)(void *, char *, int, int, int, struct sk_buff *);
 	struct sk_buff *skb;
 	struct ip_options_data opt_copy;
+	// xiaomi add by zhoulei8 --start
+	__be16 tmp_dport;
+	__be32 tmp_daddr;
+	// xiaomi add by zhoulei8 --end
 
 	if (len > 0xFFFF)
 		return -EMSGSIZE;
@@ -1029,6 +1033,15 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 
 		daddr = usin->sin_addr.s_addr;
 		dport = usin->sin_port;
+		// xiaomi add by zhoulei8 --start
+		tmp_dport = sk->sk_dport;
+		tmp_daddr = sk->sk_daddr;
+		sk->sk_dport = dport;
+		sk->sk_daddr = daddr;
+		udp_state_bpf(sk);
+		sk->sk_dport = tmp_dport;
+		sk->sk_daddr = tmp_daddr;
+		// xiaomi add by zhoulei8 --end
 		if (dport == 0)
 			return -EINVAL;
 	} else {
@@ -1043,7 +1056,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	}
 
 	ipcm_init_sk(&ipc, inet);
-	ipc.gso_size = up->gso_size;
+	ipc.gso_size = READ_ONCE(up->gso_size);
 
 	if (msg->msg_controllen) {
 		err = udp_cmsg_send(sk, msg, &ipc.gso_size);
@@ -2495,7 +2508,8 @@ int udp_v4_early_demux(struct sk_buff *skb)
 		 */
 		if (!inet_sk(sk)->inet_daddr && in_dev)
 			return ip_mc_validate_source(skb, iph->daddr,
-						     iph->saddr, iph->tos,
+						     iph->saddr,
+						     iph->tos & IPTOS_RT_MASK,
 						     skb->dev, in_dev, &itag);
 	}
 	return 0;
@@ -2589,14 +2603,17 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
 	case UDP_SEGMENT:
 		if (val < 0 || val > USHRT_MAX)
 			return -EINVAL;
-		up->gso_size = val;
+		WRITE_ONCE(up->gso_size, val);
 		break;
 
 	case UDP_GRO:
 		lock_sock(sk);
+
+		/* when enabling GRO, accept the related GSO packet type */
 		if (valbool)
 			udp_tunnel_encap_enable(sk->sk_socket);
 		up->gro_enabled = valbool;
+		up->accept_udp_l4 = valbool;
 		release_sock(sk);
 		break;
 
@@ -2691,7 +2708,11 @@ int udp_lib_getsockopt(struct sock *sk, int level, int optname,
 		break;
 
 	case UDP_SEGMENT:
-		val = up->gso_size;
+		val = READ_ONCE(up->gso_size);
+		break;
+
+	case UDP_GRO:
+		val = up->gro_enabled;
 		break;
 
 	/* The following two cannot be changed on UDP sockets, the return is

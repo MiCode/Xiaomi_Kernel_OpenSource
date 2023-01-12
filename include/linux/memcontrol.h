@@ -36,8 +36,22 @@ enum memcg_stat_item {
 	MEMCG_SOCK,
 	/* XXX: why are these zone and not node counters? */
 	MEMCG_KERNEL_STACK_KB,
+#ifdef CONFIG_MIMISC_MC
+	MEMCG_ION,
+	MEMCG_GPU,
+	MEMCG_MISC,
+#endif
 	MEMCG_NR_STAT,
 };
+
+#ifdef CONFIG_MIMISC_MC
+enum memcg_misc_type {
+	MEMCG_ION_TYPE,
+	MEMCG_GPU_TYPE,
+	MEMCG_MISC_TYPE,
+	MEMCG_NR_MISC_TYPE,
+};
+#endif
 
 enum memcg_memory_event {
 	MEMCG_LOW,
@@ -220,6 +234,11 @@ struct mem_cgroup {
 	struct page_counter kmem;
 	struct page_counter tcpmem;
 
+#ifdef CONFIG_MIMISC_MC
+	/* XIAOMI special kernel misc counters */
+	struct page_counter misc[MEMCG_NR_MISC_TYPE];
+#endif
+
 	/* Upper bound of normal memory consumption range */
 	unsigned long high;
 
@@ -273,6 +292,11 @@ struct mem_cgroup {
 	 * mem_cgroup ? And what type of charges should we move ?
 	 */
 	unsigned long move_charge_at_immigrate;
+
+#ifdef CONFIG_MI_ZRAM_WRITEBACK_CONTROL
+	unsigned long zram_writeback_disable;
+#endif
+
 	/* taken only while moving_account > 0 */
 	spinlock_t		move_lock;
 	unsigned long		move_lock_flags;
@@ -356,17 +380,54 @@ static inline bool mem_cgroup_disabled(void)
 	return !cgroup_subsys_enabled(memory_cgrp_subsys);
 }
 
-static inline unsigned long mem_cgroup_protection(struct mem_cgroup *memcg,
-						  bool in_low_reclaim)
+static inline void mem_cgroup_protection(struct mem_cgroup *root,
+					 struct mem_cgroup *memcg,
+					 unsigned long *min,
+					 unsigned long *low)
 {
+	*min = *low = 0;
+
 	if (mem_cgroup_disabled())
-		return 0;
+		return;
 
-	if (in_low_reclaim)
-		return READ_ONCE(memcg->memory.emin);
+	/*
+	 * There is no reclaim protection applied to a targeted reclaim.
+	 * We are special casing this specific case here because
+	 * mem_cgroup_protected calculation is not robust enough to keep
+	 * the protection invariant for calculated effective values for
+	 * parallel reclaimers with different reclaim target. This is
+	 * especially a problem for tail memcgs (as they have pages on LRU)
+	 * which would want to have effective values 0 for targeted reclaim
+	 * but a different value for external reclaim.
+	 *
+	 * Example
+	 * Let's have global and A's reclaim in parallel:
+	 *  |
+	 *  A (low=2G, usage = 3G, max = 3G, children_low_usage = 1.5G)
+	 *  |\
+	 *  | C (low = 1G, usage = 2.5G)
+	 *  B (low = 1G, usage = 0.5G)
+	 *
+	 * For the global reclaim
+	 * A.elow = A.low
+	 * B.elow = min(B.usage, B.low) because children_low_usage <= A.elow
+	 * C.elow = min(C.usage, C.low)
+	 *
+	 * With the effective values resetting we have A reclaim
+	 * A.elow = 0
+	 * B.elow = B.low
+	 * C.elow = C.low
+	 *
+	 * If the global reclaim races with A's reclaim then
+	 * B.elow = C.elow = 0 because children_low_usage > A.elow)
+	 * is possible and reclaiming B would be violating the protection.
+	 *
+	 */
+	if (root == memcg)
+		return;
 
-	return max(READ_ONCE(memcg->memory.emin),
-		   READ_ONCE(memcg->memory.elow));
+	*min = READ_ONCE(memcg->memory.emin);
+	*low = READ_ONCE(memcg->memory.elow);
 }
 
 enum mem_cgroup_protection mem_cgroup_protected(struct mem_cgroup *root,
@@ -847,10 +908,12 @@ static inline void memcg_memory_event_mm(struct mm_struct *mm,
 {
 }
 
-static inline unsigned long mem_cgroup_protection(struct mem_cgroup *memcg,
-						  bool in_low_reclaim)
+static inline void mem_cgroup_protection(struct mem_cgroup *root,
+					 struct mem_cgroup *memcg,
+					 unsigned long *min,
+					 unsigned long *low)
 {
-	return 0;
+	*min = *low = 0;
 }
 
 static inline enum mem_cgroup_protection mem_cgroup_protected(
@@ -1488,5 +1551,67 @@ static inline struct mem_cgroup *mem_cgroup_from_obj(void *p)
 }
 
 #endif /* CONFIG_MEMCG_KMEM */
+
+
+#ifdef CONFIG_MIMISC_MC
+int __memcg_misc_charge(struct page *page, gfp_t gfp, unsigned int nr_pages,
+				enum memcg_misc_type type);
+void __memcg_misc_uncharge(struct page *page, unsigned int nr_pages,
+				enum memcg_misc_type type);
+int __memcg_misc_charge_memcg(struct page *page, gfp_t gfp, unsigned int nr_pages,
+				struct mem_cgroup *memcg,enum memcg_misc_type type);
+void __memcg_misc_uncharge_memcg(struct mem_cgroup *memcg,unsigned int nr_pages,
+				enum memcg_misc_type type);
+int __memcg_misc_charge_id(struct page *page, gfp_t gfp, unsigned int nr_pages,
+				enum memcg_misc_type type, unsigned int id);
+
+extern struct static_key_false memcg_misc_enabled_key;
+
+static inline bool memcg_misc_enabled(void)
+{
+	return static_branch_unlikely(&memcg_misc_enabled_key);
+}
+
+static inline int memcg_misc_charge(struct page *page, gfp_t gfp,
+					unsigned int nr_pages, enum memcg_misc_type type)
+{
+	if (memcg_misc_enabled())
+		return __memcg_misc_charge(page, gfp, nr_pages, type);
+	return 0;
+}
+
+static inline void memcg_misc_uncharge(struct page *page, unsigned int nr_pages,
+					enum memcg_misc_type type)
+{
+	if (memcg_misc_enabled())
+		__memcg_misc_uncharge(page, nr_pages, type);
+}
+
+static inline int memcg_misc_charge_memcg(struct page *page, gfp_t gfp,
+					unsigned int nr_pages, struct mem_cgroup *memcg,
+					enum memcg_misc_type type)
+{
+	if (memcg_misc_enabled())
+		return __memcg_misc_charge_memcg(page, gfp, nr_pages, memcg, type);
+	return 0;
+}
+
+static inline void memcg_misc_uncharge_memcg(struct page *page,
+					unsigned int nr_pages, struct mem_cgroup *memcg,
+					enum memcg_misc_type type)
+{
+	if (memcg_misc_enabled())
+		__memcg_misc_uncharge_memcg(memcg, nr_pages, type);
+}
+
+static inline int memcg_misc_charge_id(struct page *page, gfp_t gfp,
+					unsigned int nr_pages, enum memcg_misc_type type, unsigned int id)
+{
+	if (memcg_misc_enabled())
+		return __memcg_misc_charge_id(page, gfp, nr_pages, type, id);
+	return 0;
+}
+
+#endif /* CONFIG_MIMISC_MC */
 
 #endif /* _LINUX_MEMCONTROL_H */

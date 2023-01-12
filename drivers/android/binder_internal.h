@@ -62,6 +62,8 @@ struct binderfs_mount_opts {
  * @device_count:   The current number of allocated binder devices.
  * @proc_log_dir:   Pointer to the directory dentry containing process-specific
  *                  logs.
+ * @proc_transaction_log_dir:   Pointer to the directory dentry containing miui binder
+ *                  logs.
  */
 struct binderfs_info {
 	struct ipc_namespace *ipc_ns;
@@ -71,6 +73,9 @@ struct binderfs_info {
 	struct binderfs_mount_opts mount_opts;
 	int device_count;
 	struct dentry *proc_log_dir;
+	//MIUI ADD:
+	struct dentry *proc_transaction_log_dir;
+	//END
 };
 
 extern const struct file_operations binder_fops;
@@ -410,6 +415,8 @@ struct binder_priority {
  * @default_priority:     default scheduler priority
  *                        (invariant after initialized)
  * @debugfs_entry:        debugfs node
+ * @debugfs_transaction_entry: miui debugfs node
+ * @binderfs_transaction_entry: miui process binderfs log file
  * @alloc:                binder allocator bookkeeping
  * @context:              binder_context for this proc
  *                        (invariant after initialized)
@@ -442,12 +449,39 @@ struct binder_proc {
 	int tmp_ref;
 	struct binder_priority default_priority;
 	struct dentry *debugfs_entry;
+	//MIUI ADD:
+	struct dentry *debugfs_transaction_entry;
+	struct dentry *binderfs_transaction_entry;
+	//END
 	struct binder_alloc alloc;
 	struct binder_context *context;
 	spinlock_t inner_lock;
 	spinlock_t outer_lock;
 	struct dentry *binderfs_entry;
 };
+
+/**
+ * struct binder_proc_ext - binder process bookkeeping
+ * @proc:            element for binder_procs list
+ * @cred                  struct cred associated with the `struct file`
+ *                        in binder_open()
+ *                        (invariant after initialized)
+ *
+ * Extended binder_proc -- needed to add the "cred" field without
+ * changing the KMI for binder_proc.
+ */
+struct binder_proc_ext {
+	struct binder_proc proc;
+	const struct cred *cred;
+};
+
+static inline const struct cred *binder_get_cred(struct binder_proc *proc)
+{
+	struct binder_proc_ext *eproc;
+
+	eproc = container_of(proc, struct binder_proc_ext, proc);
+	return eproc->cred;
+}
 
 /**
  * struct binder_thread - binder thread bookkeeping
@@ -526,6 +560,11 @@ struct binder_transaction {
 	int debug_id;
 	struct binder_work work;
 	struct binder_thread *from;
+	//MIUI ADD:
+	int async_from_pid;
+	int async_from_tid;
+	u64 timesRecord;
+	//END
 	struct binder_transaction *from_parent;
 	struct binder_proc *to_proc;
 	struct binder_thread *to_thread;

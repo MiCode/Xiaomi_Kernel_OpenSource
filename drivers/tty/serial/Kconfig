@@ -1594,6 +1594,14 @@ config SERIAL_MILBEAUT_USIO_CONSOLE
 	  receives all kernel messages and warnings and which allows logins in
 	  single user mode).
 
+config FASTBOOT_CMD_CTRL_UART
+	bool "support fastboot oem uart-enable cmd"
+	depends on SERIAL_EARLYCON && SERIAL_MSM_GENI_CONSOLE && !CONSOLE_POLL
+	default n
+	help
+	  Say 'Y' here if you wish to use 'fastboot oem uart-enable' cmd to
+	  enable console in user build
+
 endmenu
 
 config SERIAL_MCTRL_GPIO

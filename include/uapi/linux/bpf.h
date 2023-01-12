@@ -2266,7 +2266,7 @@ union bpf_attr {
  * int bpf_sk_select_reuseport(struct sk_reuseport_md *reuse, struct bpf_map *map, void *key, u64 flags)
  *	Description
  *		Select a **SO_REUSEPORT** socket from a
- *		**BPF_MAP_TYPE_REUSEPORT_ARRAY** *map*.
+ *		**BPF_MAP_TYPE_REUSEPORT_SOCKARRAY** *map*.
  *		It checks the selected socket is matching the incoming
  *		request in the socket buffer.
  *	Return
@@ -3380,6 +3380,11 @@ struct bpf_sock_ops {
 	__u64 bytes_received;
 	__u64 bytes_acked;
 	__bpf_md_ptr(struct bpf_sock *, sk);
+	// XIAOMI: Add by zhoulei8 --start
+	__u32 sk_uid;
+	__u32 voip_daddr;
+	__u32 voip_dport;
+	// XIAOMI: Add by zhoulei8 --end
 };
 
 /* Definitions for bpf_sock_ops_cb_flags */
@@ -3444,6 +3449,8 @@ enum {
 					 */
 	BPF_SOCK_OPS_RTT_CB,		/* Called on every RTT.
 					 */
+	// XIAOMI: Add by zhoulei8
+	BPF_SOCK_OPS_VOIP_CB,		/* Called on every udp states. */
 };
 
 /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect

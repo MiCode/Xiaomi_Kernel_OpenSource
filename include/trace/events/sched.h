@@ -9,6 +9,7 @@
 #include <linux/tracepoint.h>
 #include <linux/binfmts.h>
 #include <linux/sched/idle.h>
+#include <linux/delayacct.h>
 
 /*
  * Tracepoint for calling kthread_stop, performed to end a kthread:
@@ -30,6 +31,25 @@ TRACE_EVENT(sched_kthread_stop,
 	),
 
 	TP_printk("comm=%s pid=%d", __entry->comm, __entry->pid)
+);
+
+TRACE_EVENT(sched_setaffinity,
+
+	TP_PROTO(pid_t pid, const struct cpumask *in_mask),
+
+	TP_ARGS(pid, in_mask),
+
+	TP_STRUCT__entry(
+		__field(pid_t, pid)
+		__field(unsigned long, cpu_mask)
+	),
+
+	TP_fast_assign(
+		__entry->pid	     = pid;
+		__entry->cpu_mask  = cpumask_bits(in_mask)[0];
+	),
+
+	TP_printk(" pid=%d affine=%#lx", __entry->pid, __entry->cpu_mask)
 );
 
 /*
@@ -642,7 +662,6 @@ DEFINE_EVENT_SCHEDSTAT(sched_stat_template, sched_stat_iowait,
 DEFINE_EVENT_SCHEDSTAT(sched_stat_template, sched_stat_blocked,
 	     TP_PROTO(struct task_struct *tsk, u64 delay),
 	     TP_ARGS(tsk, delay));
-
 /*
  * Tracepoint for recording the cause of uninterruptible sleep.
  */
@@ -656,15 +675,21 @@ TRACE_EVENT(sched_blocked_reason,
 		__field( pid_t,	pid	)
 		__field( void*, caller	)
 		__field( bool, io_wait	)
+		__field( int, swapin  )
 	),
 
 	TP_fast_assign(
 		__entry->pid	= tsk->pid;
-		__entry->caller = (void *)get_wchan(tsk);
+		__entry->caller = (void*)get_wchan(tsk);
 		__entry->io_wait = tsk->in_iowait;
+#ifdef CONFIG_TASK_DELAY_ACCT
+		__entry->swapin = (tsk->delays->flags & DELAYACCT_PF_SWAPIN);
+#else
+		__entry->swapin = 0;
+#endif
 	),
 
-	TP_printk("pid=%d iowait=%d caller=%pS", __entry->pid, __entry->io_wait, __entry->caller)
+	TP_printk("pid=%d iowait=%d caller=%pS__%dinswapin", __entry->pid, __entry->io_wait, __entry->caller, __entry->swapin)
 );
 
 /*
@@ -700,6 +725,45 @@ DECLARE_EVENT_CLASS(sched_stat_runtime,
 DEFINE_EVENT(sched_stat_runtime, sched_stat_runtime,
 	     TP_PROTO(struct task_struct *tsk, u64 runtime, u64 vruntime),
 	     TP_ARGS(tsk, runtime, vruntime));
+
+/* debug sched event of EAS for tracer: nop  */
+TRACE_EVENT(sched_debug_einfo,
+		TP_PROTO(struct task_struct *tsk, const char *flag1, const char *flag2, unsigned int param1, unsigned int param2, u64 se_vr, u64 en_vr, u64 cfq_min_vr),
+		TP_ARGS(tsk, flag1, flag2, param1, param2, se_vr, en_vr, cfq_min_vr),
+		TP_STRUCT__entry(
+			__array(char, comm, TASK_COMM_LEN)
+			__field(pid_t, pid)
+			__array(char, flag1, TASK_COMM_LEN)
+			__array(char, flag2, TASK_COMM_LEN)
+			__field(unsigned int, param1)
+			__field(unsigned int, param2)
+			__field(u64, se_vr)
+			__field(u64, en_vr)
+			__field(u64, cfq_min_vr)
+			),
+
+		TP_fast_assign(
+			memcpy(__entry->comm, tsk->comm, TASK_COMM_LEN);
+			__entry->pid		= tsk->pid;
+			memcpy(__entry->flag1, flag1, TASK_COMM_LEN);
+			memcpy(__entry->flag2, flag2, TASK_COMM_LEN);
+			__entry->param1 = param1;
+			__entry->param2 = param2;
+			__entry->se_vr  = se_vr;
+			__entry->en_vr = en_vr;
+			__entry->cfq_min_vr = cfq_min_vr;
+			),
+
+		TP_printk("comm=%s pid=%d,  %s=%d  %s=%d ,  sv=%Lu [ns] ev=%Lu [ns] cv=%Lu [ns]", __entry->comm, __entry->pid,
+				__entry->flag1,
+				__entry->param1,
+				__entry->flag2,
+				__entry->param2,
+				(unsigned long long)__entry->se_vr,
+				(unsigned long long)__entry->en_vr,
+				(unsigned long long)__entry->cfq_min_vr)
+		);
+
 
 /*
  * Tracepoint for showing priority inheritance modifying a tasks

@@ -30,7 +30,7 @@ struct byte_cntr {
 	struct mutex		usb_bypass_lock;
 	struct mutex		byte_cntr_lock;
 	struct coresight_csr		*csr;
-	unsigned long		offset;
+	loff_t		offset;
 	u32			pcie_out_chan;
 	struct mhi_dev_client	*out_handle;
 	struct work_struct	pcie_open_work;

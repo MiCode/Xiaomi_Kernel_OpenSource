@@ -1078,9 +1078,10 @@ static const struct a6xx_protected_regs a620_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 32, 0x0fc00, 0x11bff, 0 },
 	{ A6XX_CP_PROTECT_REG + 33, 0x18400, 0x1a3ff, 1 },
 	{ A6XX_CP_PROTECT_REG + 34, 0x1a800, 0x1c7ff, 1 },
-	{ A6XX_CP_PROTECT_REG + 35, 0x1f400, 0x1f843, 1 },
-	{ A6XX_CP_PROTECT_REG + 36, 0x1f844, 0x1f8bf, 0 },
-	{ A6XX_CP_PROTECT_REG + 37, 0x1f887, 0x1f8a2, 1 },
+	{ A6XX_CP_PROTECT_REG + 35, 0x1c800, 0x1e7ff, 1 },
+	{ A6XX_CP_PROTECT_REG + 36, 0x1f400, 0x1f843, 1 },
+	{ A6XX_CP_PROTECT_REG + 37, 0x1f844, 0x1f8bf, 0 },
+	{ A6XX_CP_PROTECT_REG + 38, 0x1f887, 0x1f8a2, 1 },
 	{ A6XX_CP_PROTECT_REG + 47, 0x1f8c0, 0x1f8c0, 1 },
 	{ 0 },
 };
@@ -1609,10 +1610,11 @@ static const struct a6xx_protected_regs a660_protected_regs[] = {
 	{ A6XX_CP_PROTECT_REG + 33, 0x0fc00, 0x11bff, 0 },
 	{ A6XX_CP_PROTECT_REG + 34, 0x18400, 0x1a3ff, 1 },
 	{ A6XX_CP_PROTECT_REG + 35, 0x1a400, 0x1c3ff, 1 },
-	{ A6XX_CP_PROTECT_REG + 36, 0x1f400, 0x1f843, 1 },
-	{ A6XX_CP_PROTECT_REG + 37, 0x1f844, 0x1f8bf, 0 },
-	{ A6XX_CP_PROTECT_REG + 38, 0x1f860, 0x1f860, 1 },
-	{ A6XX_CP_PROTECT_REG + 39, 0x1f887, 0x1f8a2, 1 },
+	{ A6XX_CP_PROTECT_REG + 36, 0x1c400, 0x1e3ff, 1 },
+	{ A6XX_CP_PROTECT_REG + 37, 0x1f400, 0x1f843, 1 },
+	{ A6XX_CP_PROTECT_REG + 38, 0x1f844, 0x1f8bf, 0 },
+	{ A6XX_CP_PROTECT_REG + 39, 0x1f860, 0x1f860, 1 },
+	{ A6XX_CP_PROTECT_REG + 40, 0x1f887, 0x1f8a2, 1 },
 	{ A6XX_CP_PROTECT_REG + 47, 0x1f8c0, 0x1f8c0, 1 },
 	{ 0 },
 };
@@ -1717,6 +1719,39 @@ static const struct adreno_a6xx_core adreno_gpu_core_a642l = {
 	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_A642, ANY_ID, ANY_ID, ANY_ID, ANY_ID),
 		.compatible = "qcom,adreno-gpu-a642l",
+		.features = ADRENO_RPMH | ADRENO_GPMU | ADRENO_APRIV |
+				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
+				ADRENO_PREEMPTION | ADRENO_IFPC | ADRENO_BCL |
+				ADRENO_ACD,
+		.gpudev = &adreno_a6xx_gmu_gpudev,
+		.perfcounters = &adreno_a6xx_perfcounters,
+		.gmem_size = SZ_512K,
+		.bus_width = 32,
+		.snapshot_size = SZ_2M,
+	},
+	.prim_fifo_threshold = 0x00200000,
+	.gmu_major = 2,
+	.gmu_minor = 0,
+	.sqefw_name = "a660_sqe.fw",
+	.gmufw_name = "a660_gmu.bin",
+	.zap_name = "a660_zap",
+	.hwcg = a660_hwcg_regs,
+	.hwcg_count = ARRAY_SIZE(a660_hwcg_regs),
+	.vbif = a650_gbif_regs,
+	.vbif_count = ARRAY_SIZE(a650_gbif_regs),
+	.hang_detect_cycles = 0x3ffff,
+	.veto_fal10 = true,
+	.protected_regs = a660_protected_regs,
+	.disable_tseskip = true,
+	.highest_bank_bit = 15,
+	.pdc_in_aop = true,
+	.ctxt_record_size = 2496 * 1024,
+};
+
+static const struct adreno_a6xx_core adreno_gpu_core_a643 = {
+	.base = {
+		DEFINE_ADRENO_REV(ADRENO_REV_A643, ANY_ID, ANY_ID, ANY_ID, ANY_ID),
+		.compatible = "qcom,adreno-gpu-a643",
 		.features = ADRENO_RPMH | ADRENO_GPMU | ADRENO_APRIV |
 				ADRENO_IOCOHERENT | ADRENO_CONTENT_PROTECTION |
 				ADRENO_PREEMPTION | ADRENO_IFPC | ADRENO_BCL |
@@ -1863,5 +1898,6 @@ static const struct adreno_gpu_core *adreno_gpulist[] = {
 	&adreno_gpu_core_a610.base,
 	&adreno_gpu_core_a642.base,
 	&adreno_gpu_core_a642l.base,
+	&adreno_gpu_core_a643.base,
 	&adreno_gpu_core_a702.base,
 };

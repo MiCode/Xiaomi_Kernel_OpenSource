@@ -308,6 +308,7 @@ config USB_CONFIGFS_NCM
 	depends on NET
 	select USB_U_ETHER
 	select USB_F_NCM
+	select CRC32
 	help
 	  NCM is an advanced protocol for Ethernet encapsulation, allows
 	  grouping of several ethernet frames into one USB transfer and
@@ -357,6 +358,7 @@ config USB_CONFIGFS_EEM
 	depends on NET
 	select USB_U_ETHER
 	select USB_F_EEM
+	select CRC32
 	help
 	  CDC EEM is a newer USB standard that is somewhat simpler than CDC ECM
 	  and therefore can be supported by more hardware.  Technically ECM and
@@ -596,6 +598,16 @@ config USB_CONFIGFS_F_GSI
 	  over GSI. This driver provides USB RMNET/RNDIS/ECM/MBIM/DPL
 	  related functionalities using GSI hardware accelerated data
 	  path and control path.
+
+config USB_F_DTP
+	tristate "Usb DTP"
+	depends on USB_CONFIGFS
+	default n
+	help
+	  The XiaoMi File/Data Transfer Protocol (DTP) function mounts USB gadget
+	  as a file/data device but unlike Mass Storage Gadget, DTP operates
+	  at the file/data level. Thus exposing the relevant content but hiding
+	  the system/restricted files.
 
 config USB_LOW_MEM_VARIANT
 	bool "USB Memory optimization"

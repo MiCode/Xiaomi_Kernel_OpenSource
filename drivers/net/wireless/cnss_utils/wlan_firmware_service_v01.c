@@ -1766,6 +1766,26 @@ struct qmi_elem_info wlfw_cap_resp_msg_v01_ei[] = {
 		.ei_array      = wlfw_dev_mem_info_s_v01_ei,
 	},
 	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x1D,
+		.offset         = offsetof(struct
+					   wlfw_cap_resp_msg_v01,
+					   foundry_name_valid),
+	},
+	{
+		.data_type      = QMI_STRING,
+		.elem_len       = QMI_WLFW_MAX_STR_LEN_V01 + 1,
+		.elem_size      = sizeof(char),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x1D,
+		.offset         = offsetof(struct
+					   wlfw_cap_resp_msg_v01,
+					   foundry_name),
+	},
+	{
 		.data_type      = QMI_EOTI,
 		.array_type       = NO_ARRAY,
 		.tlv_type       = QMI_COMMON_TLV_TYPE,
@@ -5476,6 +5496,55 @@ struct qmi_elem_info wlfw_m3_dump_upload_segments_req_ind_msg_v01_ei[] = {
 	},
 };
 EXPORT_SYMBOL(wlfw_m3_dump_upload_segments_req_ind_msg_v01_ei);
+
+struct qmi_elem_info wlfw_subsys_restart_level_req_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_OPT_FLAG,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct
+					   wlfw_subsys_restart_level_req_msg_v01,
+					   restart_level_type_valid),
+	},
+	{
+		.data_type      = QMI_UNSIGNED_1_BYTE,
+		.elem_len       = 1,
+		.elem_size      = sizeof(u8),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x10,
+		.offset         = offsetof(struct
+					   wlfw_subsys_restart_level_req_msg_v01,
+					   restart_level_type),
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.array_type       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+EXPORT_SYMBOL(wlfw_subsys_restart_level_req_msg_v01_ei);
+
+struct qmi_elem_info wlfw_subsys_restart_level_resp_msg_v01_ei[] = {
+	{
+		.data_type      = QMI_STRUCT,
+		.elem_len       = 1,
+		.elem_size      = sizeof(struct qmi_response_type_v01),
+		.array_type       = NO_ARRAY,
+		.tlv_type       = 0x02,
+		.offset         = offsetof(struct
+					   wlfw_subsys_restart_level_resp_msg_v01,
+					   resp),
+		.ei_array      = qmi_response_type_v01_ei,
+	},
+	{
+		.data_type      = QMI_EOTI,
+		.array_type       = NO_ARRAY,
+		.tlv_type       = QMI_COMMON_TLV_TYPE,
+	},
+};
+EXPORT_SYMBOL(wlfw_subsys_restart_level_resp_msg_v01_ei);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("WLAN FW QMI service");

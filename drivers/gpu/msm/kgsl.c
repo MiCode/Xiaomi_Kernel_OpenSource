@@ -20,6 +20,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/security.h>
 #include <linux/sort.h>
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+#include <linux/memcontrol.h>
+#endif
 #include <soc/qcom/boot_stats.h>
 
 #include "kgsl_compat.h"
@@ -80,7 +83,7 @@ static inline struct kgsl_pagetable *_get_memdesc_pagetable(
 
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry);
 
-static const struct file_operations kgsl_fops;
+static const struct vm_operations_struct kgsl_gpumem_vm_ops;
 
 /*
  * The memfree list contains the last N blocks of memory that have been freed.
@@ -1034,6 +1037,11 @@ static void process_release_memory(struct kgsl_process_private *private)
 		if (!entry->pending_free) {
 			entry->pending_free = 1;
 			spin_unlock(&private->mem_lock);
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+			if (likely(entry->memdesc.page_count))
+				memcg_misc_uncharge(&(entry->memdesc.memgroup),
+					entry->memdesc.page_count, MEMCG_GPU_TYPE);
+#endif
 			kgsl_mem_entry_put(entry);
 		} else {
 			spin_unlock(&private->mem_lock);
@@ -1299,9 +1307,9 @@ kgsl_sharedmem_find(struct kgsl_process_private *private, uint64_t gpuaddr)
 	if (!private)
 		return NULL;
 
-	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, gpuaddr) &&
+	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, gpuaddr, 0) &&
 		!kgsl_mmu_gpuaddr_in_range(
-			private->pagetable->mmu->securepagetable, gpuaddr))
+			private->pagetable->mmu->securepagetable, gpuaddr,0))
 		return NULL;
 
 	spin_lock(&private->mem_lock);
@@ -2025,20 +2033,14 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 	u32 queued, count;
 	int i, index = 0;
 	long ret;
+	struct kgsl_gpu_aux_command_generic generic;
 
-	/* Aux commands don't make sense without commands */
-	if (!param->numcmds)
+	/* We support only one aux command */
+	if (param->numcmds != 1)
 		return -EINVAL;
 
 	if (!(param->flags &
 		(KGSL_GPU_AUX_COMMAND_TIMELINE)))
-		return -EINVAL;
-
-	/*
-	 * Make sure we don't overflow count. Couple of drawobjs are reserved:
-	 * One drawobj for timestamp sync and another for aux command sync.
-	 */
-	if (param->numcmds > (UINT_MAX - 2))
 		return -EINVAL;
 
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
@@ -2046,13 +2048,12 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 		return -EINVAL;
 
 	/*
-	 * We have one drawobj for the timestamp sync plus one for all of the
-	 * commands
+	 * param->numcmds is always one and we have one additional drawobj
+	 * for the timestamp sync if KGSL_GPU_AUX_COMMAND_SYNC flag is passed.
+	 * On top of that we make an implicit sync object for the last queued
+	 * timestamp on this context.
 	 */
-	count = param->numcmds + 1;
-
-	if (param->flags & KGSL_GPU_AUX_COMMAND_SYNC)
-		count++;
+	count = (param->flags & KGSL_GPU_AUX_COMMAND_SYNC) ? 3 : 2;
 
 	drawobjs = kvcalloc(count, sizeof(*drawobjs), GFP_KERNEL);
 
@@ -2100,39 +2101,34 @@ long kgsl_ioctl_gpu_aux_command(struct kgsl_device_private *dev_priv,
 
 	cmdlist = u64_to_user_ptr(param->cmdlist);
 
-	/* Create a draw object for each command */
-	for (i = 0; i < param->numcmds; i++) {
-		struct kgsl_gpu_aux_command_generic generic;
+	 /* Create a draw object for KGSL_GPU_AUX_COMMAND_TIMELINE */
+	if (copy_struct_from_user(&generic, sizeof(generic),
+		cmdlist, param->cmdsize)) {
+		ret = -EFAULT;
+		goto err;
+	}
 
-		if (copy_struct_from_user(&generic, sizeof(generic),
-			cmdlist, param->cmdsize)) {
-			ret = -EFAULT;
+	if (generic.type == KGSL_GPU_AUX_COMMAND_TIMELINE) {
+		struct kgsl_drawobj_timeline *timelineobj;
+
+		timelineobj = kgsl_drawobj_timeline_create(device,
+			context);
+
+		if (IS_ERR(timelineobj)) {
+			ret = PTR_ERR(timelineobj);
 			goto err;
 		}
 
-		if (generic.type == KGSL_GPU_AUX_COMMAND_TIMELINE) {
-			struct kgsl_drawobj_timeline *timelineobj;
+		drawobjs[index++] = DRAWOBJ(timelineobj);
 
-			timelineobj = kgsl_drawobj_timeline_create(device,
-				context);
-
-			if (IS_ERR(timelineobj)) {
-				ret = PTR_ERR(timelineobj);
-				goto err;
-			}
-
-			drawobjs[index++] = DRAWOBJ(timelineobj);
-
-			ret = kgsl_drawobj_add_timeline(dev_priv, timelineobj,
-				u64_to_user_ptr(generic.priv), generic.size);
-			if (ret)
-				goto err;
-		} else {
-			ret = -EINVAL;
+		ret = kgsl_drawobj_add_timeline(dev_priv, timelineobj,
+			u64_to_user_ptr(generic.priv), generic.size);
+		if (ret)
 			goto err;
-		}
 
-		cmdlist += param->cmdsize;
+	} else {
+		ret = -EINVAL;
+		goto err;
 	}
 
 	ret = device->ftbl->queue_cmds(dev_priv, context,
@@ -2221,6 +2217,12 @@ long gpumem_free_entry(struct kgsl_mem_entry *entry)
 	if (!kgsl_mem_entry_set_pend(entry))
 		return -EBUSY;
 
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+	if (likely(entry->memdesc.page_count))
+		memcg_misc_uncharge(&(entry->memdesc.memgroup),
+				entry->memdesc.page_count, MEMCG_GPU_TYPE);
+#endif
+
 	trace_kgsl_mem_free(entry);
 	kgsl_memfree_add(pid_nr(entry->priv->pid),
 			entry->memdesc.pagetable ?
@@ -2239,6 +2241,12 @@ static void gpumem_free_func(struct kgsl_device *device,
 	struct kgsl_context *context = group->context;
 	struct kgsl_mem_entry *entry = priv;
 	unsigned int timestamp;
+
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+	if (likely(entry->memdesc.page_count))
+		memcg_misc_uncharge(&(entry->memdesc.memgroup),
+				entry->memdesc.page_count, MEMCG_GPU_TYPE);
+#endif
 
 	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED, &timestamp);
 
@@ -2343,6 +2351,12 @@ static long gpuobj_free_on_timestamp(struct kgsl_device_private *dev_priv,
 static bool gpuobj_free_fence_func(void *priv)
 {
 	struct kgsl_mem_entry *entry = priv;
+
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+	if (likely(entry->memdesc.page_count))
+		memcg_misc_uncharge(&(entry->memdesc.memgroup),
+				entry->memdesc.page_count, MEMCG_GPU_TYPE);
+#endif
 
 	trace_kgsl_mem_free(entry);
 	kgsl_memfree_add(pid_nr(entry->priv->pid),
@@ -2477,7 +2491,7 @@ static int check_vma(unsigned long hostptr, u64 size)
 			return false;
 
 		/* Don't remap memory that we already own */
-		if (vma->vm_file && vma->vm_file->f_op == &kgsl_fops)
+		if (vma->vm_file && vma->vm_ops == &kgsl_gpumem_vm_ops)
 			return false;
 
 		cur = vma->vm_end;
@@ -2640,7 +2654,7 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 		 * Check to see that this isn't our own memory that we have
 		 * already mapped
 		 */
-		if (vma->vm_file->f_op == &kgsl_fops) {
+		if (vma->vm_ops == &kgsl_gpumem_vm_ops) {
 			up_read(&current->mm->mmap_sem);
 			return -EFAULT;
 		}
@@ -3615,6 +3629,13 @@ struct kgsl_mem_entry *gpumem_alloc_entry(
 	trace_kgsl_mem_alloc(entry);
 
 	kgsl_mem_entry_commit_process(entry);
+
+#if IS_ENABLED(CONFIG_MIMISC_MC)
+	if (likely(entry->memdesc.page_count))
+		memcg_misc_charge(&(entry->memdesc.memgroup), 0,
+				entry->memdesc.page_count, MEMCG_GPU_TYPE);
+#endif
+
 	return entry;
 err:
 	kfree(entry);
@@ -4183,12 +4204,13 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 
 static int kgsl_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	unsigned int ret, cache;
+	unsigned int cache;
 	unsigned long vma_offset = vma->vm_pgoff << PAGE_SHIFT;
 	struct kgsl_device_private *dev_priv = file->private_data;
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_mem_entry *entry = NULL;
 	struct kgsl_device *device = dev_priv->device;
+	int ret;
 
 	/* Handle leagacy behavior for memstore */
 

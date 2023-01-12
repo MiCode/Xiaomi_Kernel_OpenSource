@@ -627,6 +627,9 @@ struct walt_task_struct {
 	u64				cpu_cycles;
 	cpumask_t			cpus_requested;
 	bool				iowaited;
+	#ifdef CONFIG_RTMM
+	u64				proc_load;
+	#endif
 };
 
 #else
@@ -1355,7 +1358,16 @@ struct task_struct {
 	 */
 	u64				timer_slack_ns;
 	u64				default_timer_slack_ns;
-
+#ifdef CONFIG_PERF_CRITICAL_RT_TASK
+	unsigned int    		critical_rt_task;
+#endif
+#ifdef CONFIG_SF_BINDER
+	unsigned int			sf_binder_task;
+#endif
+#ifdef CONFIG_PERF_HUMANTASK
+	unsigned int			human_task;
+	unsigned int                    inherit_task;
+#endif
 #ifdef CONFIG_KASAN
 	unsigned int			kasan_depth;
 #endif
@@ -1462,7 +1474,6 @@ struct task_struct {
 #endif
 
 	ANDROID_VENDOR_DATA_ARRAY(1, 3);
-
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
@@ -2195,10 +2206,10 @@ static inline void rseq_syscall(struct pt_regs *regs)
 #endif
 
 const struct sched_avg *sched_trace_cfs_rq_avg(struct cfs_rq *cfs_rq);
-char *sched_trace_cfs_rq_path(struct cfs_rq *cfs_rq, char *str, int len);
-int sched_trace_cfs_rq_cpu(struct cfs_rq *cfs_rq);
+extern char *sched_trace_cfs_rq_path(struct cfs_rq *cfs_rq, char *str, int len);
+extern int sched_trace_cfs_rq_cpu(struct cfs_rq *cfs_rq);
 
-const struct sched_avg *sched_trace_rq_avg_rt(struct rq *rq);
+extern const struct sched_avg *sched_trace_rq_avg_rt(struct rq *rq);
 const struct sched_avg *sched_trace_rq_avg_dl(struct rq *rq);
 const struct sched_avg *sched_trace_rq_avg_irq(struct rq *rq);
 

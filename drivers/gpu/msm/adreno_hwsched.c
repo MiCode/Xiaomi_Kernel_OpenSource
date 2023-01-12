@@ -657,7 +657,8 @@ static inline bool _verify_ib(struct kgsl_device_private *dev_priv,
 	}
 
 	/* Make sure that the address is mapped */
-	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, ib->gpuaddr)) {
+	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, ib->gpuaddr,
+		ib->size)) {
 		pr_context(device, context, "ctxt %d invalid ib gpuaddr %llX\n",
 			context->id, ib->gpuaddr);
 		return false;
@@ -1423,6 +1424,14 @@ void adreno_hwsched_parse_fault_cmdobj(struct adreno_device *adreno_dev,
 {
 	struct adreno_hwsched *hwsched = to_hwsched(adreno_dev);
 	struct cmd_list_obj *obj, *tmp;
+
+	/*
+	 * During IB parse, vmalloc is called which can sleep and
+	 * should not be called from atomic context. Since IBs are not
+	 * dumped during atomic snapshot, there is no need to parse it.
+	 */
+	if (adreno_dev->dev.snapshot_atomic)
+		return;
 
 	list_for_each_entry_safe(obj, tmp, &hwsched->cmd_list, node) {
 		struct kgsl_drawobj_cmd *cmdobj = obj->cmdobj;
