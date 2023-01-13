@@ -2842,7 +2842,6 @@ static void haptics_set_gain(struct input_dev *dev, u16 gain)
 	if (gain > 0x7fff)
 		gain = 0x7fff;
 
-	cancel_work_sync(&chip->set_gain_work);
 	atomic_set(&play->gain, gain);
 	schedule_work(&chip->set_gain_work);
 	dev_dbg(chip->dev, "Set gain: %#x\n", gain);
