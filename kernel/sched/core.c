@@ -5859,6 +5859,9 @@ static noinline void __schedule_bug(struct task_struct *prev)
 
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 }
 
 /*
@@ -5880,6 +5883,9 @@ static inline void schedule_debug(struct task_struct *prev, bool preempt)
 			prev->comm, prev->pid, prev->non_block_count);
 		dump_stack();
 		add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+		BUG();
+#endif
 	}
 #endif
 
@@ -10037,6 +10043,9 @@ void __might_resched(const char *file, int line, unsigned int offsets)
 
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 }
 EXPORT_SYMBOL(__might_resched);
 
@@ -10065,6 +10074,9 @@ void __cant_sleep(const char *file, int line, int preempt_offset)
 	debug_show_held_locks(current);
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 }
 EXPORT_SYMBOL_GPL(__cant_sleep);
 
@@ -10097,6 +10109,9 @@ void __cant_migrate(const char *file, int line)
 	debug_show_held_locks(current);
 	dump_stack();
 	add_taint(TAINT_WARN, LOCKDEP_STILL_OK);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 }
 EXPORT_SYMBOL_GPL(__cant_migrate);
 #endif

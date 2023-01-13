@@ -51,6 +51,9 @@
 #include <linux/sched/isolation.h>
 #include <linux/nmi.h>
 #include <linux/kvm_para.h>
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+#include <linux/sched/debug.h>
+#endif
 
 #include "workqueue_internal.h"
 
@@ -2306,6 +2309,9 @@ __acquires(&pool->lock)
 		       worker->current_func);
 		debug_show_held_locks(current);
 		dump_stack();
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+		BUG();
+#endif
 	}
 
 	/*
@@ -5838,6 +5844,11 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 	unsigned long now = jiffies;
 	struct worker_pool *pool;
 	int pi;
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	struct worker *worker;
+	work_func_t lockup_func = NULL;
+	int bkt;
+#endif
 
 	if (!thresh)
 		return;
@@ -5876,6 +5887,14 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 			pr_cont(" stuck for %us!\n",
 				jiffies_to_msecs(now - pool_ts) / 1000);
 			trace_android_vh_wq_lockup_pool(pool->cpu, pool_ts);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+			hash_for_each(pool->busy_hash, bkt, worker, hentry) {
+				if (worker->pool != pool)
+					continue;
+				lockup_func = worker->current_func;
+				show_stack(worker->task, NULL, KERN_INFO);
+			}
+#endif
 		}
 	}
 
@@ -5883,7 +5902,11 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 
 	if (lockup_detected)
 		show_all_workqueues();
-
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	if (lockup_detected && lockup_func) {
+		pr_err("WQ_lockup: [<%px>] %pS\n", lockup_func, lockup_func);
+	}
+#endif
 	wq_watchdog_reset_touched();
 	mod_timer(&wq_watchdog_timer, jiffies + thresh);
 }

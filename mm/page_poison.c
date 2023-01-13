@@ -72,6 +72,9 @@ static void check_poison_mem(struct page *page, unsigned char *mem, size_t bytes
 			end - start + 1, 1);
 	dump_stack();
 	dump_page(page, "pagealloc: corrupted page details");
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	BUG();
+#endif
 }
 
 static void unpoison_page(struct page *page)
