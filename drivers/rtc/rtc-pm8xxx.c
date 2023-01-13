@@ -29,6 +29,10 @@
 
 #define RTC_SEC_TO_MSEC(s)	((s) * 1000ULL)
 
+/* Values used for conversion to milli-seconds */
+#define RTC_MS_TICKS_MAX		1023
+#define RTC_MS_TIME_MAX			999
+
 /**
  * struct pm8xxx_rtc_regs - describe RTC registers per PMIC versions
  * @ctrl: base address of control register
@@ -375,7 +379,7 @@ static ssize_t rtc_ms_val_show(struct device *dev,
 {
 	int rc;
 	u8 value[NUM_8_BIT_RTC_REGS], value_ms[2];
-	unsigned long secs = 0, msecs = 0, rtc_ms_total = 0;
+	unsigned long secs = 0, mticks = 0, msecs = 0, rtc_ms_total = 0;
 	unsigned int reg;
 	struct pm8xxx_rtc *rtc_dd = dev_get_drvdata(dev->parent);
 	const struct pm8xxx_rtc_regs *regs = rtc_dd->regs;
@@ -415,7 +419,10 @@ static ssize_t rtc_ms_val_show(struct device *dev,
 		return rc;
 	}
 
-	msecs = value_ms[0] | (value_ms[1] << 8);
+	mticks = value_ms[0] | (value_ms[1] << 8);
+
+	/* Mapping 1023 ticks to 999 milli-seconds */
+	msecs = (mticks * RTC_MS_TIME_MAX)/RTC_MS_TICKS_MAX;
 
 	rtc_ms_total = RTC_SEC_TO_MSEC(secs) + msecs;
 
