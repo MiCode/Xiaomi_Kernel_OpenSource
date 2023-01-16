@@ -84,6 +84,7 @@
   __tracepoint_android_vh_ufs_mcq_has_oustanding_reqs
   __tracepoint_android_vh_dm_update_clone_bio
   __tracepoint_android_vh_direct_io_update_bio
+  __tracepoint_android_vh_loop_prepare_cmd
   __traceiter_android_vh_ufs_mcq_handler
   __traceiter_android_vh_ufs_mcq_print_trs
   __traceiter_android_vh_ufs_mcq_config
@@ -101,6 +102,7 @@
   __traceiter_android_vh_ufs_mcq_has_oustanding_reqs
   __traceiter_android_vh_dm_update_clone_bio
   __traceiter_android_vh_direct_io_update_bio
+  __traceiter_android_vh_loop_prepare_cmd
 
 #required by cs35l41 module
   regmap_raw_write_async
