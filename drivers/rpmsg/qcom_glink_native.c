@@ -78,6 +78,8 @@ do {									\
 static int should_wake;
 #if defined(CONFIG_DEEPSLEEP) && defined(CONFIG_RPMSG_QCOM_GLINK_RPM)
 static int quickboot;
+atomic_t qb_comp;
+wait_queue_head_t quickboot_complete;
 #endif
 int glink_resume_pkt;
 
@@ -1986,6 +1988,8 @@ static int qcom_glink_rx_open(struct qcom_glink *glink, unsigned int rcid,
 		if (quickboot && ret) {
 			qcom_smd_rpm_quickboot(rpdev, 1);
 			quickboot = 0;
+			atomic_inc(&qb_comp);
+			wake_up(&quickboot_complete);
 		}
 #endif
 		channel->rpdev = rpdev;
@@ -2278,6 +2282,13 @@ struct qcom_glink *qcom_glink_native_probe(struct device *dev,
 	if (ret < 0)
 		glink->name = dev->of_node->name;
 
+#if defined(CONFIG_DEEPSLEEP) && defined(CONFIG_RPMSG_QCOM_GLINK_RPM)
+	if (!strcmp(glink->name, "rpm-glink")) {
+		atomic_set(&qb_comp, 0);
+		init_waitqueue_head(&quickboot_complete);
+	}
+#endif
+
 	glink->mbox_client.dev = dev;
 	glink->mbox_client.knows_txdone = true;
 	glink->mbox_chan = mbox_request_channel(&glink->mbox_client, 0);
@@ -2423,14 +2434,23 @@ static int qcom_glink_suspend_no_irq(struct device *dev)
 
 static int qcom_glink_resume_no_irq(struct device *dev)
 {
+	int ret = 0;
 	should_wake = false;
 #if defined(CONFIG_DEEPSLEEP) && defined(CONFIG_RPMSG_QCOM_GLINK_RPM)
 	if (mem_sleep_current == PM_SUSPEND_MEM) {
 		quickboot = 1;
 		glink_rpm_resume_noirq(dev);
+
+		ret = wait_event_timeout(quickboot_complete,
+					 atomic_read(&qb_comp), 10 * HZ);
+		if (!ret) {
+			pr_err("glink: channel open request from rpm timed out\n");
+			ret = -ETIMEDOUT;
+		}
 	}
+
 #endif
-	return 0;
+	return ret;
 }
 
 const struct dev_pm_ops glink_native_pm_ops = {
