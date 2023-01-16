@@ -108,6 +108,7 @@
 #include <trace/hooks/bl_hib.h>
 #include <trace/hooks/dm.h>
 #include <trace/hooks/direct_io.h>
+#include <trace/hooks/loop.h>
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
  * associated with them) to allow external modules to probe them.
@@ -415,6 +416,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_post_image_save);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dm_update_clone_bio);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_ctl_dirty_rate);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_direct_io_update_bio);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_loop_prepare_cmd);
 /*
  * For type visibility
  */
