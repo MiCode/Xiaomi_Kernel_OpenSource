@@ -31,7 +31,7 @@
 
 #define MHI_NET_DRIVER_NAME  "mhi_dev_net_drv"
 #define MHI_NET_DEV_NAME     "mhi_swip%d"
-#define MHI_NET_DEFAULT_MTU   8192
+#define MHI_NET_DEFAULT_MTU   16384
 #define MHI_NET_IPC_PAGES     (100)
 #define MHI_MAX_RX_REQ        (128)
 #define MHI_MAX_TX_REQ        (128)
