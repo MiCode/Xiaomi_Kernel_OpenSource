@@ -1419,6 +1419,7 @@
   perf_trace_run_bpf_submit
   pfn_is_map_memory
   phy_attached_info
+  phy_basic_features
   phy_connect
   phy_disconnect
   phy_do_ioctl_running
@@ -1426,6 +1427,7 @@
   phy_ethtool_nway_reset
   phy_ethtool_set_link_ksettings
   phy_exit
+  phy_gbit_features
   phy_get
   phy_init
   phy_loopback
