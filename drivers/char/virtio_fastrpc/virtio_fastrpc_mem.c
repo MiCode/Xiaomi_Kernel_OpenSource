@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
-#include <linux/ion.h>
 #include "virtio_fastrpc_mem.h"
 
 #define MAX_CACHE_BUF_SIZE		(8*1024*1024)
@@ -382,11 +381,6 @@ int vfastrpc_mmap_create(struct vfastrpc_file *vfl, int fd,
 	map->vfl = vfl;
 	map->fd = fd;
 	map->attr = attr;
-	/*
-	 * By default as cached, because get_flags is not implemented
-	 * on kernel 5.15. And client can only allocate cached buffer.
-	 */
-	map->dma_flags = ION_FLAG_CACHED;
 	if (mflags == ADSP_MMAP_HEAP_ADDR ||
 			mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		dev_err(me->dev, "%s ADSP_MMAP_HEAP_ADDR is not supported\n",
@@ -404,11 +398,6 @@ int vfastrpc_mmap_create(struct vfastrpc_file *vfl, int fd,
 			dev_err(me->dev, "can't get dma buf fd %d\n", fd);
 			goto bail;
 		}
-		VERIFY(err, !dma_buf_get_flags(map->buf, &map->dma_flags));
-		if (err) {
-			dev_err(me->dev, "can't get dma buf flags %d\n", fd);
-			goto bail;
-		}
 
 		VERIFY(err, !IS_ERR_OR_NULL(map->attach =
 					dma_buf_attach(map->buf, me->dev)));
@@ -417,8 +406,11 @@ int vfastrpc_mmap_create(struct vfastrpc_file *vfl, int fd,
 			goto bail;
 		}
 
-		if (!(map->dma_flags & ION_FLAG_CACHED))
-			map->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+		/*
+		 * no need to sync cache even for cached buffers, depending on
+		 * IO coherency
+		 */
+		map->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 		VERIFY(err, !IS_ERR_OR_NULL(map->table =
 					dma_buf_map_attachment(map->attach,
 					DMA_BIDIRECTIONAL)));
