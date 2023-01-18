@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -18,11 +19,20 @@
 #include "clk-regmap.h"
 #include "reset.h"
 #include "gdsc.h"
+#include "vdd-level.h"
 
 #define CX_GMU_CBCR_SLEEP_MASK		0xf
 #define CX_GMU_CBCR_SLEEP_SHIFT		4
 #define CX_GMU_CBCR_WAKE_MASK		0xf
 #define CX_GMU_CBCR_WAKE_SHIFT		8
+
+static DEFINE_VDD_REGULATORS(vdd_cx, VDD_HIGH_L1 + 1, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_mx, VDD_HIGH + 1, 1, vdd_corner);
+
+static struct clk_vdd_class *gpu_cc_sm8250_regulators[] = {
+	&vdd_cx,
+	&vdd_mx,
+};
 
 enum {
 	P_BI_TCXO,
@@ -32,16 +42,17 @@ enum {
 	P_GPU_CC_PLL1_OUT_MAIN,
 };
 
-static struct pll_vco lucid_vco[] = {
+static const struct pll_vco lucid_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
 static const struct alpha_pll_config gpu_cc_pll1_config = {
-	.l = 0x1a,
-	.alpha = 0xaaa,
+	.l = 0x1A,
+	.cal_l = 0x44,
+	.alpha = 0xAAA,
 	.config_ctl_val = 0x20485699,
 	.config_ctl_hi_val = 0x00002261,
-	.config_ctl_hi1_val = 0x029a699c,
+	.config_ctl_hi1_val = 0x329A699C,
 	.user_ctl_val = 0x00000000,
 	.user_ctl_hi_val = 0x00000805,
 	.user_ctl_hi1_val = 0x00000000,
@@ -53,13 +64,23 @@ static struct clk_alpha_pll gpu_cc_pll1 = {
 	.num_vco = ARRAY_SIZE(lucid_vco),
 	.regs = clk_alpha_pll_regs[CLK_ALPHA_PLL_TYPE_LUCID],
 	.clkr = {
-		.hw.init = &(struct clk_init_data){
+		.hw.init = &(const struct clk_init_data){
 			.name = "gpu_cc_pll1",
-			.parent_data =  &(const struct clk_parent_data){
+			.parent_data = &(const struct clk_parent_data){
 				.fw_name = "bi_tcxo",
 			},
 			.num_parents = 1,
 			.ops = &clk_alpha_pll_lucid_ops,
+		},
+		.vdd_data = {
+			.vdd_class = &vdd_mx,
+			.num_rate_max = VDD_NUM,
+			.rate_max = (unsigned long[VDD_NUM]) {
+				[VDD_MIN] = 615000000,
+				[VDD_LOW] = 1066000000,
+				[VDD_LOW_L1] = 1500000000,
+				[VDD_NOMINAL] = 1750000000,
+				[VDD_HIGH] = 2000000000},
 		},
 	},
 };
@@ -91,25 +112,21 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 	.hid_width = 5,
 	.parent_map = gpu_cc_parent_map_0,
 	.freq_tbl = ftbl_gpu_cc_gmu_clk_src,
-	.clkr.hw.init = &(struct clk_init_data){
+	.enable_safe_config = true,
+	.flags = HW_CLK_CTRL_MODE,
+	.clkr.hw.init = &(const struct clk_init_data){
 		.name = "gpu_cc_gmu_clk_src",
 		.parent_data = gpu_cc_parent_data_0,
 		.num_parents = ARRAY_SIZE(gpu_cc_parent_data_0),
 		.flags = CLK_SET_RATE_PARENT,
 		.ops = &clk_rcg2_ops,
 	},
-};
-
-static struct clk_branch gpu_cc_ahb_clk = {
-	.halt_reg = 0x1078,
-	.halt_check = BRANCH_HALT_DELAY,
-	.clkr = {
-		.enable_reg = 0x1078,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpu_cc_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
+	.clkr.vdd_data = {
+		.vdd_class = &vdd_cx,
+		.num_rate_max = VDD_NUM,
+		.rate_max = (unsigned long[VDD_NUM]) {
+			[VDD_MIN] = 200000000,
+			[VDD_LOW] = 500000000},
 	},
 };
 
@@ -119,21 +136,8 @@ static struct clk_branch gpu_cc_crc_ahb_clk = {
 	.clkr = {
 		.enable_reg = 0x107c,
 		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
+		.hw.init = &(const struct clk_init_data){
 			.name = "gpu_cc_crc_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gpu_cc_cx_apb_clk = {
-	.halt_reg = 0x1088,
-	.halt_check = BRANCH_HALT_VOTED,
-	.clkr = {
-		.enable_reg = 0x1088,
-		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			.name = "gpu_cc_cx_apb_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -145,7 +149,7 @@ static struct clk_branch gpu_cc_cx_gmu_clk = {
 	.clkr = {
 		.enable_reg = 0x1098,
 		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
+		.hw.init = &(const struct clk_init_data){
 			.name = "gpu_cc_cx_gmu_clk",
 			.parent_hws = (const struct clk_hw*[]){
 				&gpu_cc_gmu_clk_src.clkr.hw,
@@ -163,7 +167,7 @@ static struct clk_branch gpu_cc_cx_snoc_dvm_clk = {
 	.clkr = {
 		.enable_reg = 0x108c,
 		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
+		.hw.init = &(const struct clk_init_data){
 			.name = "gpu_cc_cx_snoc_dvm_clk",
 			.ops = &clk_branch2_ops,
 		},
@@ -176,7 +180,7 @@ static struct clk_branch gpu_cc_cxo_aon_clk = {
 	.clkr = {
 		.enable_reg = 0x1004,
 		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
+		.hw.init = &(const struct clk_init_data){
 			.name = "gpu_cc_cxo_aon_clk",
 			.ops = &clk_branch2_ops,
 		},
@@ -189,8 +193,9 @@ static struct clk_branch gpu_cc_cxo_clk = {
 	.clkr = {
 		.enable_reg = 0x109c,
 		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
+		.hw.init = &(const struct clk_init_data){
 			.name = "gpu_cc_cxo_clk",
+			.flags = CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -202,7 +207,7 @@ static struct clk_branch gpu_cc_gx_gmu_clk = {
 	.clkr = {
 		.enable_reg = 0x1064,
 		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
+		.hw.init = &(const struct clk_init_data){
 			.name = "gpu_cc_gx_gmu_clk",
 			.parent_hws = (const struct clk_hw*[]){
 				&gpu_cc_gmu_clk_src.clkr.hw,
@@ -214,15 +219,41 @@ static struct clk_branch gpu_cc_gx_gmu_clk = {
 	},
 };
 
+static struct clk_branch gpu_cc_gx_vsense_clk = {
+	.halt_reg = 0x1058,
+	.halt_check = BRANCH_HALT_VOTED,
+	.clkr = {
+		.enable_reg = 0x1058,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gpu_cc_gx_vsense_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
 static struct clk_branch gpu_cc_hlos1_vote_gpu_smmu_clk = {
 	.halt_reg = 0x5000,
-	.halt_check = BRANCH_VOTED,
+	.halt_check = BRANCH_HALT,
 	.clkr = {
 		.enable_reg = 0x5000,
 		.enable_mask = BIT(0),
-		.hw.init = &(struct clk_init_data){
-			 .name = "gpu_cc_hlos1_vote_gpu_smmu_clk",
-			 .ops = &clk_branch2_ops,
+		.hw.init = &(const struct clk_init_data){
+			.name = "gpu_cc_hlos1_vote_gpu_smmu_clk",
+			.ops = &clk_branch2_ops,
+		},
+	},
+};
+
+static struct clk_branch gpu_cc_sleep_clk = {
+	.halt_reg = 0x1090,
+	.halt_check = BRANCH_HALT_VOTED,
+	.clkr = {
+		.enable_reg = 0x1090,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gpu_cc_sleep_clk",
+			.ops = &clk_branch2_ops,
 		},
 	},
 };
@@ -249,17 +280,17 @@ static struct gdsc gpu_gx_gdsc = {
 };
 
 static struct clk_regmap *gpu_cc_sm8250_clocks[] = {
-	[GPU_CC_AHB_CLK] = &gpu_cc_ahb_clk.clkr,
 	[GPU_CC_CRC_AHB_CLK] = &gpu_cc_crc_ahb_clk.clkr,
-	[GPU_CC_CX_APB_CLK] = &gpu_cc_cx_apb_clk.clkr,
 	[GPU_CC_CX_GMU_CLK] = &gpu_cc_cx_gmu_clk.clkr,
 	[GPU_CC_CX_SNOC_DVM_CLK] = &gpu_cc_cx_snoc_dvm_clk.clkr,
 	[GPU_CC_CXO_AON_CLK] = &gpu_cc_cxo_aon_clk.clkr,
 	[GPU_CC_CXO_CLK] = &gpu_cc_cxo_clk.clkr,
 	[GPU_CC_GMU_CLK_SRC] = &gpu_cc_gmu_clk_src.clkr,
 	[GPU_CC_GX_GMU_CLK] = &gpu_cc_gx_gmu_clk.clkr,
-	[GPU_CC_PLL1] = &gpu_cc_pll1.clkr,
+	[GPU_CC_GX_VSENSE_CLK] = &gpu_cc_gx_vsense_clk.clkr,
 	[GPU_CC_HLOS1_VOTE_GPU_SMMU_CLK] = &gpu_cc_hlos1_vote_gpu_smmu_clk.clkr,
+	[GPU_CC_PLL1] = &gpu_cc_pll1.clkr,
+	[GPU_CC_SLEEP_CLK] = &gpu_cc_sleep_clk.clkr,
 };
 
 static const struct qcom_reset_map gpu_cc_sm8250_resets[] = {
@@ -292,6 +323,8 @@ static const struct qcom_cc_desc gpu_cc_sm8250_desc = {
 	.num_resets = ARRAY_SIZE(gpu_cc_sm8250_resets),
 	.gdscs = gpu_cc_sm8250_gdscs,
 	.num_gdscs = ARRAY_SIZE(gpu_cc_sm8250_gdscs),
+	.clk_regulators = gpu_cc_sm8250_regulators,
+	.num_clk_regulators = ARRAY_SIZE(gpu_cc_sm8250_regulators),
 };
 
 static const struct of_device_id gpu_cc_sm8250_match_table[] = {
@@ -304,6 +337,7 @@ static int gpu_cc_sm8250_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	unsigned int value, mask;
+	int ret;
 
 	regmap = qcom_cc_map(pdev, &gpu_cc_sm8250_desc);
 	if (IS_ERR(regmap))
@@ -320,7 +354,20 @@ static int gpu_cc_sm8250_probe(struct platform_device *pdev)
 	value = 0xf << CX_GMU_CBCR_WAKE_SHIFT | 0xf << CX_GMU_CBCR_SLEEP_SHIFT;
 	regmap_update_bits(regmap, 0x1098, mask, value);
 
-	return qcom_cc_really_probe(pdev, &gpu_cc_sm8250_desc, regmap);
+	ret = qcom_cc_really_probe(pdev, &gpu_cc_sm8250_desc, regmap);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register GPU CC clocks\n");
+		return ret;
+	}
+
+	dev_info(&pdev->dev, "Registered GPU CC clocks\n");
+
+	return ret;
+}
+
+static void gpu_cc_sm8250_sync_state(struct device *dev)
+{
+	qcom_cc_sync_state(dev, &gpu_cc_sm8250_desc);
 }
 
 static struct platform_driver gpu_cc_sm8250_driver = {
@@ -328,6 +375,7 @@ static struct platform_driver gpu_cc_sm8250_driver = {
 	.driver = {
 		.name = "sm8250-gpucc",
 		.of_match_table = gpu_cc_sm8250_match_table,
+		.sync_state = gpu_cc_sm8250_sync_state,
 	},
 };
 
