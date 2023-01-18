@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2011 Google, Inc
  * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/highmem.h>
@@ -520,6 +521,10 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 	switch (secure_vmid) {
 	case VMID_TZ:
 		return "VMID_TZ";
+	case VMID_SSC_Q6:
+		return "VMID_SSC_Q6";
+	case VMID_ADSP_Q6:
+		return "VMID_ADSP_Q6";
 	case VMID_HLOS:
 		return "VMID_HLOS";
 	case VMID_CP_TOUCH:
