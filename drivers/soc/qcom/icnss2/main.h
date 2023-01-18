@@ -44,6 +44,10 @@ struct icnss_control_params {
 	unsigned long quirks;
 	unsigned int qmi_timeout;
 	unsigned int bdf_type;
+	unsigned int recovery_timeout;
+	unsigned int soc_wake_timeout;
+	unsigned int cal_timeout;
+	unsigned int wpss_ssr_timeout;
 };
 
 enum icnss_driver_event_type {

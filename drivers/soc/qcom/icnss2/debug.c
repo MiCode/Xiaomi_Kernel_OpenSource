@@ -751,6 +751,14 @@ static ssize_t icnss_control_params_debug_write(struct file *fp,
 
 	if (strcmp(cmd, "qmi_timeout") == 0)
 		priv->ctrl_params.qmi_timeout = msecs_to_jiffies(val);
+	else if (strcmp(cmd, "recovery_timeout") == 0)
+		priv->ctrl_params.recovery_timeout = msecs_to_jiffies(val);
+	else if (strcmp(cmd, "soc_wake_timeout") == 0)
+		priv->ctrl_params.soc_wake_timeout = msecs_to_jiffies(val);
+	else if (strcmp(cmd, "cal_timeout") == 0)
+		priv->ctrl_params.cal_timeout = msecs_to_jiffies(val);
+	else if (strcmp(cmd, "wpss_ssr_timeout") == 0)
+		priv->ctrl_params.wpss_ssr_timeout = msecs_to_jiffies(val);
 	else
 		return -EINVAL;
 
@@ -768,6 +776,14 @@ static int icnss_control_params_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "\nCurrent value:\n");
 
 	seq_printf(s, "qmi_timeout: %u\n", jiffies_to_msecs(priv->ctrl_params.qmi_timeout));
+	seq_printf(s, "recovery_timeout: %u\n",
+		   jiffies_to_msecs(priv->ctrl_params.recovery_timeout));
+	seq_printf(s, "soc_wake_timeout: %u\n",
+		   jiffies_to_msecs(priv->ctrl_params.soc_wake_timeout));
+	seq_printf(s, "cal_timeout: %u\n",
+		   jiffies_to_msecs(priv->ctrl_params.cal_timeout));
+	seq_printf(s, "wpss_ssr_timeout: %u\n",
+		   jiffies_to_msecs(priv->ctrl_params.wpss_ssr_timeout));
 
 	return 0;
 }
