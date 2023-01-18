@@ -332,6 +332,8 @@ enum mhi_cmd_type {
 #define MHI_RSCTRE_DATA_DWORD0(cookie) (cpu_to_le32(cookie))
 #define MHI_RSCTRE_DATA_DWORD1 (cpu_to_le32(MHI_PKT_TYPE_COALESCING << 16))
 
+#define MHI_RSCTRE_MIN_CREDITS (8)
+
 enum mhi_pkt_type {
 	MHI_PKT_TYPE_INVALID = 0x0,
 	MHI_PKT_TYPE_NOOP_CMD = 0x1,
@@ -581,6 +583,9 @@ struct mhi_chan {
 	bool offload_ch;
 	bool pre_alloc;
 	bool wake_capable;
+
+	/* stats */
+	u32 mode_change;
 };
 
 /* Default MHI timeout */
