@@ -22,8 +22,11 @@
 #include <linux/slab.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/ipc_logging.h>
+#include <linux/sched/clock.h>
+#include "qti_bcl_stats.h"
 
 #define BCL_DRIVER_NAME       "bcl_pmic5"
+#define MAX_BCL_NAME_LENGTH   40
 #define BCL_MONITOR_EN        0x46
 #define BCL_IRQ_STATUS        0x08
 #define BCL_REVISION1         0x0
@@ -70,8 +73,10 @@
 
 #define BCL_TRIGGER_THRESHOLD 1
 #define MAX_PERPH_COUNT       2
-#define IPC_LOGPAGES          2
+#define MAX_BCL_LVL_COUNT     3
+#define IPC_LOGPAGES          10
 
+#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
 #define BCL_IPC(dev, msg, args...)      do { \
 			if ((dev) && (dev)->ipc_log) { \
 				ipc_log_string((dev)->ipc_log, \
@@ -143,6 +148,7 @@ struct bcl_device {
 	bool				ibat_ccm_enabled;
 	uint32_t			ibat_ext_range_factor;
 	struct bcl_peripheral_data	param[BCL_TYPE_MAX];
+	struct bcl_lvl_stats		stats[MAX_BCL_LVL_COUNT];
 };
 
 static struct bcl_device *bcl_devices[MAX_PERPH_COUNT];
@@ -485,8 +491,10 @@ static int bcl_get_trend(void *data, int trip, enum thermal_trend *trend)
 
 static int bcl_set_lbat(void *data, int low, int high)
 {
+	int bcl_lvl = 0;
 	struct bcl_peripheral_data *bat_data =
 		(struct bcl_peripheral_data *)data;
+	struct bcl_device *bcl_perph = bat_data->dev;
 
 	mutex_lock(&bat_data->state_trans_lock);
 
@@ -495,17 +503,25 @@ static int bcl_set_lbat(void *data, int low, int high)
 		disable_irq_nosync(bat_data->irq_num);
 		disable_irq_wake(bat_data->irq_num);
 		bat_data->irq_enabled = false;
-		pr_debug("lbat[%d]: disable irq:%d\n",
+		pr_debug("lbat[%d]: disable irq:%d low: %d high: %d\n",
 				bat_data->type,
-				bat_data->irq_num);
+				bat_data->irq_num, low, high);
 	} else if (high == BCL_TRIGGER_THRESHOLD &&
 		bat_data->irq_num && !bat_data->irq_enabled) {
+		bcl_lvl = bat_data->type - BCL_LVL0;
+		bcl_update_clear_stats(&bcl_perph->stats[bcl_lvl]);
 		enable_irq(bat_data->irq_num);
 		enable_irq_wake(bat_data->irq_num);
 		bat_data->irq_enabled = true;
-		pr_debug("lbat[%d]: enable irq:%d\n",
+		pr_debug("lbat[%d]: enable irq:%d low : %d, high: %d\n",
 				bat_data->type,
-				bat_data->irq_num);
+				bat_data->irq_num,
+				low, high);
+		BCL_IPC(bcl_perph,
+		"Irq %d cleared for bcl type %s.Rearm irq.low: %d, high: %d, irq_count: %d\n",
+				bat_data->irq_num,
+				bcl_int_names[bat_data->type],
+				low, high, bcl_perph->stats[bcl_lvl].counter);
 	}
 
 	mutex_unlock(&bat_data->state_trans_lock);
@@ -542,14 +558,14 @@ static int bcl_read_lbat(void *data, int *adc_value)
 		goto bcl_read_exit;
 	}
 	bat_data->last_val = *adc_value;
-	pr_debug("lbat:%d val:%d\n", bat_data->type,
-			bat_data->last_val);
+	pr_debug("lbat:%d irq_status:%d lvl_val:%d\n", bat_data->type,
+			val, bat_data->last_val);
 	if (bcl_perph->param[BCL_IBAT_LVL0].tz_dev)
 		bcl_read_ibat(&bcl_perph->param[BCL_IBAT_LVL0], &ibat);
 	if (bcl_perph->param[BCL_VBAT_LVL0].tz_dev)
 		bcl_read_vbat_tz(bcl_perph->param[BCL_VBAT_LVL0].tz_dev, &vbat);
-	BCL_IPC(bcl_perph, "LVLbat:%d val:%d\n", bat_data->type,
-			bat_data->last_val);
+	BCL_IPC(bcl_perph, "LVLbat:%d irq_status:%d val:%d\n", bat_data->type,
+			val, bat_data->last_val);
 
 bcl_read_exit:
 	return ret;
@@ -560,11 +576,13 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 	struct bcl_peripheral_data *perph_data =
 		(struct bcl_peripheral_data *)data;
 	unsigned int irq_status = 0;
-	int ibat = 0, vbat = 0;
+	unsigned long long start_ts = 0, end_ts = 0;
+	int ibat = 0, vbat = 0, bcl_lvl = 0;
 	struct bcl_device *bcl_perph;
 
 	if (!perph_data->tz_dev)
 		return IRQ_HANDLED;
+
 	bcl_perph = perph_data->dev;
 	bcl_read_register(bcl_perph, BCL_IRQ_STATUS, &irq_status);
 	if (bcl_perph->param[BCL_IBAT_LVL0].tz_dev)
@@ -572,17 +590,34 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 	if (bcl_perph->param[BCL_VBAT_LVL0].tz_dev)
 		bcl_read_vbat_tz(bcl_perph->param[BCL_VBAT_LVL0].tz_dev, &vbat);
 
+	bcl_lvl = perph_data->type - BCL_LVL0;
 	if (irq_status & perph_data->status_bit_idx) {
+		bcl_update_trigger_stats(&bcl_perph->stats[bcl_lvl], ibat, vbat);
 		pr_debug(
-		"Irq:%d triggered for bcl type:%s. status:%u ibat=%d vbat=%d\n",
+		"Irq:%d triggered for bcl type:%s. status:%u ibat=%d vbat=%d. irq_count=%d\n",
 			irq, bcl_int_names[perph_data->type],
-			irq_status, ibat, vbat);
+			irq_status, ibat, vbat,
+			bcl_perph->stats[bcl_lvl].counter + 1);
 		BCL_IPC(bcl_perph,
-		"Irq:%d triggered for bcl type:%s. status:%u ibat=%d vbat=%d\n",
+		"Irq:%d triggered for bcl type:%s. status:%u ibat=%d vbat=%d. irq_count=%d\n",
 			irq, bcl_int_names[perph_data->type],
-			irq_status, ibat, vbat);
+			irq_status, ibat, vbat,
+			bcl_perph->stats[bcl_lvl].counter + 1);
+
+		start_ts = sched_clock();
 		thermal_zone_device_update(perph_data->tz_dev,
 				THERMAL_TRIP_VIOLATED);
+		end_ts = sched_clock();
+		if (bcl_perph->stats[bcl_lvl].max_mitig_latency <
+							(end_ts - start_ts)) {
+			bcl_perph->stats[bcl_lvl].max_mitig_latency = end_ts - start_ts;
+			bcl_perph->stats[bcl_lvl].max_mitig_ts = start_ts;
+		}
+		if (perph_data->irq_enabled)
+			++bcl_perph->stats[bcl_lvl].self_cleared_counter;
+
+	} else {
+		++bcl_perph->stats[bcl_lvl].self_cleared_counter;
 	}
 
 	return IRQ_HANDLED;
@@ -905,7 +940,7 @@ static int bcl_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, bcl_perph);
 
-	snprintf(bcl_name, sizeof(bcl_name), "bcl_0x%04x_%d",
+	snprintf(bcl_name, MAX_BCL_NAME_LENGTH, "bcl_0x%04x_%d",
 					bcl_perph->fg_bcl_addr,
 					bcl_device_ct - 1);
 
@@ -914,6 +949,7 @@ static int bcl_probe(struct platform_device *pdev)
 	if (!bcl_perph->ipc_log)
 		pr_err("%s: unable to create IPC Logging for %s\n",
 					__func__, bcl_name);
+	bcl_stats_init(bcl_name, bcl_perph->stats, MAX_BCL_LVL_COUNT);
 
 	return 0;
 }
