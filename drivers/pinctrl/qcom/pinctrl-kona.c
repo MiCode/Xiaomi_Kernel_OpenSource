@@ -309,10 +309,10 @@ static const struct pinctrl_pin_desc kona_pins[] = {
 	PINCTRL_PIN(177, "GPIO_177"),
 	PINCTRL_PIN(178, "GPIO_178"),
 	PINCTRL_PIN(179, "GPIO_179"),
-	PINCTRL_PIN(180, "SDC2_CLK"),
-	PINCTRL_PIN(181, "SDC2_CMD"),
-	PINCTRL_PIN(182, "SDC2_DATA"),
-	PINCTRL_PIN(183, "UFS_RESET"),
+	PINCTRL_PIN(180, "UFS_RESET"),
+	PINCTRL_PIN(181, "SDC2_CLK"),
+	PINCTRL_PIN(182, "SDC2_CMD"),
+	PINCTRL_PIN(183, "SDC2_DATA"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -498,10 +498,10 @@ DECLARE_MSM_GPIO_PINS(177);
 DECLARE_MSM_GPIO_PINS(178);
 DECLARE_MSM_GPIO_PINS(179);
 
-static const unsigned int sdc2_clk_pins[] = { 180 };
-static const unsigned int sdc2_cmd_pins[] = { 181 };
-static const unsigned int sdc2_data_pins[] = { 182 };
-static const unsigned int ufs_reset_pins[] = { 183 };
+static const unsigned int ufs_reset_pins[] = { 180 };
+static const unsigned int sdc2_clk_pins[] = { 181 };
+static const unsigned int sdc2_cmd_pins[] = { 182 };
+static const unsigned int sdc2_data_pins[] = { 183 };
 
 enum kona_functions {
 	msm_mux_tsif1_data,
@@ -1766,10 +1766,10 @@ static const struct msm_pingroup kona_groups[] = {
 	[178] = PINGROUP(178, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA, 0, -1),
 	[179] = PINGROUP(179, WEST, NA, NA, NA, NA, NA, NA, NA, NA, NA,
 			 0xB4000, 18),
-	[180] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9b7000, 14, 6),
-	[181] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b7000, 11, 3),
-	[182] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b7000, 9, 0),
-	[183] = UFS_RESET(ufs_reset, 0x5b8000),
+	[180] = UFS_RESET(ufs_reset, 0x5b8000),
+	[181] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9b7000, 14, 6),
+	[182] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b7000, 11, 3),
+	[183] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b7000, 9, 0),
 };
 
 static struct pinctrl_qup kona_qup_regs[] = {
@@ -1786,7 +1786,7 @@ static const struct msm_pinctrl_soc_data kona_pinctrl = {
 	.nfunctions = ARRAY_SIZE(kona_functions),
 	.groups = kona_groups,
 	.ngroups = ARRAY_SIZE(kona_groups),
-	.ngpios = 180,
+	.ngpios = 181,
 	.qup_regs = kona_qup_regs,
 	.nqup_regs = ARRAY_SIZE(kona_qup_regs),
 };

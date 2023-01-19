@@ -730,6 +730,7 @@ static struct clk_rcg2 gcc_emac0_ptp_clk_src = {
 };
 
 static const struct freq_tbl ftbl_gcc_emac0_rgmii_clk_src[] = {
+	F(5000000, P_GPLL0_OUT_EVEN, 10, 1, 6),
 	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
 	F(125000000, P_GPLL4_OUT_MAIN, 4, 0, 0),
 	F(250000000, P_GPLL4_OUT_MAIN, 2, 0, 0),
@@ -1945,10 +1946,10 @@ static struct clk_branch gcc_emac_0_clkref_en = {
 };
 
 static struct clk_branch gcc_emac_1_clkref_en = {
-	.halt_reg = 0x98108,
+	.halt_reg = 0x9810c,
 	.halt_check = BRANCH_HALT_INVERT,
 	.clkr = {
-		.enable_reg = 0x98108,
+		.enable_reg = 0x9810c,
 		.enable_mask = BIT(0),
 		.hw.init = &(const struct clk_init_data){
 			.name = "gcc_emac_1_clkref_en",

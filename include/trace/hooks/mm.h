@@ -151,6 +151,9 @@ DECLARE_HOOK(android_vh_rmqueue,
 DECLARE_HOOK(android_vh_kmalloc_slab,
 	TP_PROTO(unsigned int index, gfp_t flags, struct kmem_cache **s),
 	TP_ARGS(index, flags, s));
+DECLARE_HOOK(android_vh_madvise_cold_or_pageout,
+	TP_PROTO(struct vm_area_struct *vma, bool *allow_shared),
+	TP_ARGS(vma, allow_shared));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */

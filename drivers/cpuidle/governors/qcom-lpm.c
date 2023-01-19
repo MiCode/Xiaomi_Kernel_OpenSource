@@ -531,6 +531,14 @@ static int start_prediction_timer(struct lpm_cpu *cpu_gov, int duration_us)
 	return htime;
 }
 
+void unregister_cluster_governor_ops(struct cluster_governor *ops)
+{
+	if (ops != cluster_gov_ops)
+		return;
+
+	cluster_gov_ops = NULL;
+}
+
 void register_cluster_governor_ops(struct cluster_governor *ops)
 {
 	if (!ops)

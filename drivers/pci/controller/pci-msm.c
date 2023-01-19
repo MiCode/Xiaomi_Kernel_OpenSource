@@ -1198,6 +1198,18 @@ msm_pcie_linkdown_reset_info[MAX_RC_NUM][MSM_PCIE_MAX_LINKDOWN_RESET] = {
 		{NULL, "pcie_1_link_down_reset", false},
 		{NULL, "pcie_1_phy_nocsr_com_phy_reset", false},
 	},
+	{
+		{NULL, "pcie_2_link_down_reset", false},
+		{NULL, "pcie_2_phy_nocsr_com_phy_reset", false},
+	},
+	{
+		{NULL, "pcie_3_link_down_reset", false},
+		{NULL, "pcie_3_phy_nocsr_com_phy_reset", false},
+	},
+	{
+		{NULL, "pcie_4_link_down_reset", false},
+		{NULL, "pcie_4_phy_nocsr_com_phy_reset", false},
+	},
 };
 
 /* resources */
@@ -5676,6 +5688,7 @@ static void msm_handle_error_source(struct pci_dev *dev,
 {
 	int aer = dev->aer_cap;
 	struct msm_pcie_dev_t *rdev = info->rdev;
+	u32 status, sev;
 
 	if (!rdev->aer_dump && !rdev->suspending &&
 		rdev->link_status == MSM_PCIE_LINK_ENABLED) {
@@ -5701,8 +5714,21 @@ static void msm_handle_error_source(struct pci_dev *dev,
 						   PCI_EXP_DEVSTA_CED |
 						   PCI_EXP_DEVSTA_NFED |
 						   PCI_EXP_DEVSTA_FED);
+	} else if (info->severity == AER_NONFATAL) {
+		if (aer) {
+			/* Clear status bits for ERR_NONFATAL errors only */
+			pci_read_config_dword(dev, aer + PCI_ERR_UNCOR_STATUS, &status);
+			pci_read_config_dword(dev, aer + PCI_ERR_UNCOR_SEVER, &sev);
+			status &= ~sev;
+			if (status)
+				pci_write_config_dword(dev, aer + PCI_ERR_UNCOR_STATUS, status);
+		}
+		pcie_capability_clear_and_set_word(dev, PCI_EXP_DEVSTA, 0,
+					PCI_EXP_DEVSTA_CED |
+					PCI_EXP_DEVSTA_NFED |
+					PCI_EXP_DEVSTA_FED);
 	} else {
-		/* AER_NONFATAL || AER_FATAL */
+		/* AER_FATAL */
 		panic("AER error severity %d\n", info->severity);
 	}
 

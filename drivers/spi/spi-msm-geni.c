@@ -21,6 +21,7 @@
 #include <linux/spi/spi.h>
 #include <linux/pinctrl/consumer.h>
 #include <soc/qcom/boot_stats.h>
+#include <linux/suspend.h>
 
 #define SPI_NUM_CHIPSELECT	(4)
 #define SPI_XFER_TIMEOUT_MS	(250)
@@ -225,6 +226,7 @@ struct spi_geni_master {
 	bool use_fixed_timeout;
 	bool slave_cross_connected;
 	bool master_cross_connect;
+	bool is_deep_sleep; /* For deep sleep restore the config similar to the probe. */
 };
 
 /**
@@ -2290,6 +2292,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,master-cross-connect"))
 		geni_mas->master_cross_connect = true;
 
+	geni_mas->is_deep_sleep = false;
 	geni_mas->slave_cross_connected =
 		of_property_read_bool(pdev->dev.of_node, "slv-cross-connected");
 	spi->mode_bits = (SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH);
@@ -2371,23 +2374,60 @@ static int spi_geni_remove(struct platform_device *pdev)
 	spi_unregister_master(master);
 	pm_runtime_put_noidle(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
-	return 0;
+	return ret;
 }
 
 #if IS_ENABLED(CONFIG_PM)
+static int spi_geni_gpi_suspend_resume(struct spi_geni_master *geni_mas, bool is_suspend)
+{
+	int tx_ret = 0;
+
+	/* Do dma operations only for tx channel here, as it takes care of rx channel
+	 * also internally from the GPI driver functions. if we call for both channels,
+	 * will see channels in wrong state due to double operations.
+	 */
+	if (geni_mas->tx) {
+		if (is_suspend) {
+			tx_ret = dmaengine_pause(geni_mas->tx);
+		} else {
+			/* For deep sleep need to restore the config similar to the probe,
+			 * hence using MSM_GPI_DEEP_SLEEP_INIT flag, in gpi_resume it wil
+			 * do similar to the probe. After this we should set this flag to
+			 * MSM_GPI_DEFAULT, means gpi probe state is restored.
+			 */
+			if (geni_mas->is_deep_sleep)
+				geni_mas->tx_event.cmd = MSM_GPI_DEEP_SLEEP_INIT;
+
+			tx_ret = dmaengine_resume(geni_mas->tx);
+			if (geni_mas->is_deep_sleep) {
+				geni_mas->tx_event.cmd = MSM_GPI_DEFAULT;
+				geni_mas->is_deep_sleep = false;
+			}
+		}
+
+		if (tx_ret) {
+			SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
+				    "%s failed: tx:%d status:%d\n",
+				__func__, tx_ret, is_suspend);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 static int spi_geni_runtime_suspend(struct device *dev)
 {
 	int ret = 0;
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
+	SPI_LOG_DBG(geni_mas->ipc, false, geni_mas->dev, "%s: %d\n", __func__, ret);
+
 	disable_irq(geni_mas->irq);
 	if (geni_mas->is_le_vm) {
 		spi_geni_unlock_bus(spi);
 		return 0;
 	}
-
-	SPI_LOG_DBG(geni_mas->ipc, false, geni_mas->dev, "%s: %d\n", __func__, ret);
 
 	if (geni_mas->shared_se) {
 		if (geni_mas->tx != NULL) {
@@ -2429,33 +2469,57 @@ exit_rt_suspend:
 	return ret;
 }
 
+static int spi_geni_levm_resume_proc(struct spi_geni_master *geni_mas, struct spi_master *spi)
+{
+	int ret = 0;
+
+	if (geni_mas->gsi_mode) {
+		/* Required after spi_geni_mas_setup for each LE VM suspend/resume.
+		 * Very first time not required when master setup is not completed
+		 * as basic HW initialization is pending. This flag is set by the
+		 * spi_geni_mas_setup() function only.
+		 */
+		ret = spi_geni_gpi_suspend_resume(geni_mas, false);
+		if (ret) {
+			SPI_LOG_ERR(geni_mas->ipc, false, geni_mas->dev,
+				    "%s:\n", __func__);
+			return ret;
+		}
+	}
+
+	if (!geni_mas->setup) {
+		/* It will take care of all GPI /DMA initialization and generic SW/HW
+		 * initializations required for a spi transfer. Gets called once per
+		 * Bootup session.
+		 */
+		ret = spi_geni_mas_setup(spi);
+		if (ret) {
+			SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
+				    "%s mas_setup failed: %d\n", __func__, ret);
+			return ret;
+		}
+	}
+
+	ret = spi_geni_lock_bus(spi);
+	if (ret) {
+		SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
+			    "%s lock_bus failed: %d\n", __func__, ret);
+		return ret;
+	}
+	/* Return here as LE VM doesn't need resourc/clock management */
+	return ret;
+}
+
 static int spi_geni_runtime_resume(struct device *dev)
 {
 	int ret = 0;
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
-	if (geni_mas->is_le_vm) {
-		if (!geni_mas->setup) {
-			ret = spi_geni_mas_setup(spi);
-			if (ret) {
-				SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
-				"%s mas_setup failed: %d\n", __func__, ret);
-				return ret;
-			}
-		}
-
-		ret = spi_geni_lock_bus(spi);
-		if (ret) {
-			SPI_LOG_ERR(geni_mas->ipc, true, geni_mas->dev,
-				"%s lock_bus failed: %d\n", __func__, ret);
-			return ret;
-		}
-		/* Return here as LE VM doesn't need resourc/clock management */
-		return ret;
-	}
-
 	SPI_LOG_DBG(geni_mas->ipc, false, geni_mas->dev, "%s: %d\n", __func__, ret);
+
+	if (geni_mas->is_le_vm)
+		return spi_geni_levm_resume_proc(geni_mas, spi);
 
 	if (geni_mas->shared_se) {
 		/* very first time mas->tx channel is not getting updated */
@@ -2541,6 +2605,14 @@ static int spi_geni_suspend(struct device *dev)
 			ret = -EBUSY;
 		}
 	}
+
+#ifdef CONFIG_DEEPSLEEP
+	if (pm_suspend_via_firmware()) {
+		SPI_LOG_ERR(geni_mas->ipc, true, dev,
+			    "%s:DEEP SLEEP EXIT", __func__);
+		geni_mas->is_deep_sleep = true;
+	}
+#endif
 	return ret;
 }
 #else

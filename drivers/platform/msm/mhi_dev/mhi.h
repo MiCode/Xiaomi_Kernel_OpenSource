@@ -456,6 +456,7 @@ struct event_req {
 	void			(*msi_cb)(void *req);
 	struct list_head	list;
 	u32			flush_num;
+	u32			snd_cmpl;
 	bool		is_cmd_cpl;
 	bool		is_stale;
 };
@@ -514,6 +515,7 @@ struct mhi_dev_channel {
 	uint32_t			pend_wr_count;
 	uint32_t			msi_cnt;
 	uint32_t			flush_req_cnt;
+	uint32_t			snd_cmpl_cnt;
 	uint32_t			pend_flush_cnt;
 	bool				skip_td;
 	bool				db_pending;
@@ -1206,4 +1208,8 @@ int  mhi_edma_release(void);
 int  mhi_edma_status(void);
 
 int mhi_edma_init(struct device *dev);
+void free_coherent(struct mhi_dev *mhi, size_t size, void *virt,
+		   dma_addr_t phys);
+void *alloc_coherent(struct mhi_dev *mhi, size_t size, dma_addr_t *phys,
+		     gfp_t gfp);
 #endif /* _MHI_H */
