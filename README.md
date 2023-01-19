@@ -156,7 +156,6 @@
 | zijin-s-oss | Xiaomi Civi 1S | Android S | LA.UM.9.14.r1-18300.05-LAHAINA.QSSI12.0-1 | [zijin-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zijin-s-oss) |
 | ziyi-s-oss | Xiaomi Civi s | Android S | LA.VENDOR.1.0.r1-13100-r1.0.r1_00037.0 | [ziyi-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ziyi-s-oss) |
 | munch-s-oss | Redmi K40S | Android S | LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1 | [munch-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/munch-s-oss) |
-| xaga-s-oss | Redmi Note 11T Pro | Android S | alps-release-s0.mp1.tc8sp2-mt6983 | [xaga-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/xaga-s-oss) |
 | rubens-s-oss | Redmi K50 | Android S | alps-release-s0.mp1.tc8sp2-mt6983 | [rubens-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/rubens-s-oss) |
 | yunluo-s-oss | Redmi Pad | Android S | alps-release-s0.mp1.tc8sp2-cs1-xm-V1 | [yunluo-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/yunluo-s-oss) |
 公告： 小米内核组招聘（官方）
