@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
@@ -803,6 +803,7 @@ void gen7_gmu_version_info(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	const struct adreno_gen7_core *gen7_core = to_gen7_core(adreno_dev);
 
 	/* GMU version info is at a fixed offset in the DTCM */
 	gmu_core_regread(device, GEN7_GMU_CM3_DTCM_START + 0xff8,
@@ -815,6 +816,12 @@ void gen7_gmu_version_info(struct adreno_device *adreno_dev)
 			&gmu->ver.pwr_dev);
 	gmu_core_regread(device, GEN7_GMU_CM3_DTCM_START + 0xffc,
 			&gmu->ver.hfi);
+
+	/* Check gmu fw on device is up to date with minimum required version */
+	if (gmu->ver.core < gen7_core->gmu_fw_version)
+		dev_err(&gmu->pdev->dev,
+			"GMU FW version 0x%x does not satisfy the required minimum (0x%x)\n",
+			gmu->ver.core, gen7_core->gmu_fw_version);
 }
 
 int gen7_gmu_itcm_shadow(struct adreno_device *adreno_dev)
