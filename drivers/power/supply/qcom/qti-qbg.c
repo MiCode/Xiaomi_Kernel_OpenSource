@@ -2840,7 +2840,7 @@ static int qbg_restore(struct device *dev)
 static int qbg_suspend(struct device *dev)
 {
 #ifdef CONFIG_DEEPSLEEP
-	if (mem_sleep_current == PM_SUSPEND_MEM)
+	if (pm_suspend_via_firmware())
 		return qbg_freeze(dev);
 #endif
 	return 0;
@@ -2849,7 +2849,7 @@ static int qbg_suspend(struct device *dev)
 static int qbg_resume(struct device *dev)
 {
 #ifdef CONFIG_DEEPSLEEP
-	if (mem_sleep_current == PM_SUSPEND_MEM)
+	if (pm_suspend_via_firmware())
 		return qbg_restore(dev);
 #endif
 	return 0;
