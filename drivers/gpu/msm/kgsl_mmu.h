@@ -19,6 +19,10 @@
 #define MMU_DEFAULT_TTBR0(_d) \
 	(kgsl_mmu_pagetable_get_ttbr0((_d)->mmu.defaultpagetable))
 
+/* Mask ASID fields to match 48bit ptbase address*/
+#define MMU_SW_PT_BASE(_ttbr0) \
+	(_ttbr0 & (BIT_ULL(KGSL_IOMMU_ASID_START_BIT) - 1))
+
 #define KGSL_MMU_DEVICE(_mmu) \
 	container_of((_mmu), struct kgsl_device, mmu)
 
@@ -128,6 +132,7 @@ struct kgsl_mmu_pt_ops {
 	void (*mmu_destroy_pagetable)(struct kgsl_pagetable *pt);
 	u64 (*get_ttbr0)(struct kgsl_pagetable *pt);
 	int (*get_context_bank)(struct kgsl_pagetable *pt, struct kgsl_context *context);
+	int (*get_asid)(struct kgsl_pagetable *pt, struct kgsl_context *context);
 	int (*get_gpuaddr)(struct kgsl_pagetable *pt,
 				struct kgsl_memdesc *memdesc);
 	void (*put_gpuaddr)(struct kgsl_memdesc *memdesc);
@@ -392,6 +397,19 @@ void kgsl_mmu_map_global(struct kgsl_device *device,
  */
 int kgsl_mmu_pagetable_get_context_bank(struct kgsl_pagetable *pagetable,
 			struct kgsl_context *context);
+
+/**
+ * kgsl_mmu_pagetable_get_asid - Return the ASID number
+ * @pagetable: A handle to a given pagetable
+ * @context: LPAC or GC context
+ *
+ * This function will find the ASID number of the given pagetable
+
+ * Return: The ASID number the pagetable is attached to or
+ * negative error on failure.
+ */
+int kgsl_mmu_pagetable_get_asid(struct kgsl_pagetable *pagetable,
+		struct kgsl_context *context);
 
 void kgsl_mmu_pagetable_init(struct kgsl_mmu *mmu,
 		struct kgsl_pagetable *pagetable, u32 name);

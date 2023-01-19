@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -216,7 +217,7 @@ static const struct alpha_pll_config cam_cc_pll2_config = {
 	.alpha = 0x0,
 	.config_ctl_val = 0x90008820,
 	.config_ctl_hi_val = 0x00890263,
-	.config_ctl_hi1_val = 0x00000217,
+	.config_ctl_hi1_val = 0x00000247,
 	.user_ctl_val = 0x00000001,
 };
 

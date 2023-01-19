@@ -925,7 +925,7 @@ static struct kgsl_process_private *kgsl_iommu_get_process(u64 ptbase)
 
 	list_for_each_entry(p, &kgsl_driver.process_list, list) {
 		iommu_pt = to_iommu_pt(p->pagetable);
-		if (iommu_pt->ttbr0 == ptbase) {
+		if (iommu_pt->ttbr0 == MMU_SW_PT_BASE(ptbase)) {
 			if (!kgsl_process_private_get(p))
 				p = NULL;
 
@@ -1267,6 +1267,19 @@ static void kgsl_iommu_set_ttbr0(struct kgsl_iommu_context *context,
 	kgsl_iommu_enable_clk(mmu);
 	adreno_smmu->set_ttbr0_cfg(adreno_smmu->cookie, pgtbl_cfg);
 	kgsl_iommu_disable_clk(mmu);
+}
+
+static int kgsl_iommu_get_asid(struct kgsl_pagetable *pt, struct kgsl_context *context)
+{
+	struct kgsl_iommu *iommu = to_kgsl_iommu(pt);
+	struct iommu_domain *domain;
+
+	if (kgsl_context_is_lpac(context))
+		domain = to_iommu_domain(&iommu->lpac_context);
+	else
+		domain = to_iommu_domain(&iommu->user_context);
+
+	return qcom_iommu_get_asid_nr(domain);
 }
 
 static int kgsl_iommu_get_context_bank(struct kgsl_pagetable *pt, struct kgsl_context *context)
@@ -2329,9 +2342,11 @@ static int iommu_probe_user_context(struct kgsl_device *device,
 		dev_err(&iommu->user_context.pdev->dev,
 				"Unable to create device link to gpu device\n");
 
-	/* LPAC is optional so don't worry if it returns error */
-	kgsl_iommu_setup_context(mmu, node, &iommu->lpac_context,
-		"gfx3d_lpac", kgsl_iommu_lpac_fault_handler);
+	ret = kgsl_iommu_setup_context(mmu, node, &iommu->lpac_context,
+			"gfx3d_lpac", kgsl_iommu_lpac_fault_handler);
+	/* LPAC is optional, ignore setup failures in absence of LPAC feature */
+	if ((ret < 0) && ADRENO_FEATURE(adreno_dev, ADRENO_LPAC))
+		goto err;
 
 	/*
 	 * FIXME: If adreno_smmu->cookie wasn't initialized then we can't do
@@ -2356,10 +2371,21 @@ static int iommu_probe_user_context(struct kgsl_device *device,
 
 	kgsl_iommu_set_ttbr0(&iommu->lpac_context, mmu, &pt->info.cfg);
 
-	if (adreno_dev->lpac_enabled)
-		set_smmu_lpac_aperture(device, &iommu->lpac_context);
+	ret = set_smmu_lpac_aperture(device, &iommu->lpac_context);
+	/* LPAC is optional, ignore setup failures in absence of LPAC feature */
+	if ((ret < 0) && ADRENO_FEATURE(adreno_dev, ADRENO_LPAC)) {
+		kgsl_iommu_detach_context(&iommu->lpac_context);
+		goto err;
+	}
 
 	return 0;
+
+err:
+	kgsl_mmu_putpagetable(mmu->defaultpagetable);
+	mmu->defaultpagetable = NULL;
+	kgsl_iommu_detach_context(&iommu->user_context);
+
+	return ret;
 }
 
 static int iommu_probe_secure_context(struct kgsl_device *device,
@@ -2627,6 +2653,7 @@ static const struct kgsl_mmu_pt_ops iopgtbl_pt_ops = {
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,
 	.get_ttbr0 = kgsl_iommu_get_ttbr0,
 	.get_context_bank = kgsl_iommu_get_context_bank,
+	.get_asid = kgsl_iommu_get_asid,
 	.get_gpuaddr = kgsl_iommu_get_gpuaddr,
 	.put_gpuaddr = kgsl_iommu_put_gpuaddr,
 	.set_svm_region = kgsl_iommu_set_svm_region,
@@ -2640,6 +2667,7 @@ static const struct kgsl_mmu_pt_ops secure_pt_ops = {
 	.mmu_unmap = kgsl_iommu_secure_unmap,
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,
 	.get_context_bank = kgsl_iommu_get_context_bank,
+	.get_asid = kgsl_iommu_get_asid,
 	.get_gpuaddr = kgsl_iommu_get_gpuaddr,
 	.put_gpuaddr = kgsl_iommu_put_gpuaddr,
 	.addr_in_range = kgsl_iommu_addr_in_range,
@@ -2651,6 +2679,7 @@ static const struct kgsl_mmu_pt_ops default_pt_ops = {
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_default_pagetable,
 	.get_ttbr0 = kgsl_iommu_get_ttbr0,
 	.get_context_bank = kgsl_iommu_get_context_bank,
+	.get_asid = kgsl_iommu_get_asid,
 	.get_gpuaddr = kgsl_iommu_get_gpuaddr,
 	.put_gpuaddr = kgsl_iommu_put_gpuaddr,
 	.addr_in_range = kgsl_iommu_addr_in_range,

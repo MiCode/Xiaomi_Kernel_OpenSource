@@ -229,7 +229,7 @@ kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu, u64 pt_base,
 
 	spin_lock(&kgsl_driver.ptlock);
 	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
-		if (kgsl_mmu_pagetable_get_ttbr0(pt) == pt_base) {
+		if (kgsl_mmu_pagetable_get_ttbr0(pt) == MMU_SW_PT_BASE(pt_base)) {
 			if ((addr & ~(PAGE_SIZE-1)) == pt->fault_addr) {
 				ret = 1;
 				break;
@@ -512,6 +512,15 @@ int kgsl_mmu_pagetable_get_context_bank(struct kgsl_pagetable *pagetable,
 {
 	if (PT_OP_VALID(pagetable, get_context_bank))
 		return pagetable->pt_ops->get_context_bank(pagetable, context);
+
+	return -ENOENT;
+}
+
+int kgsl_mmu_pagetable_get_asid(struct kgsl_pagetable *pagetable,
+		struct kgsl_context *context)
+{
+	if (PT_OP_VALID(pagetable, get_asid))
+		return pagetable->pt_ops->get_asid(pagetable, context);
 
 	return -ENOENT;
 }

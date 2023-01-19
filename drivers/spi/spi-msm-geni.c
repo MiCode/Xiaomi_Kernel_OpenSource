@@ -203,7 +203,7 @@ struct spi_geni_master {
 	u32 miso_sampling_ctrl_val;
 	bool gpi_reset; /* GPI channel reset*/
 	bool disable_dma;
-	bool use_fixed_timeout;
+	u32 xfer_timeout_offset;
 };
 
 static struct spi_master *get_spi_master(struct device *dev)
@@ -1573,14 +1573,15 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		return -EACCES;
 	}
 
-	if (mas->use_fixed_timeout)
-		xfer_timeout = msecs_to_jiffies(SPI_XFER_TIMEOUT_MS);
+	xfer_timeout = (1000 * xfer->len * BITS_PER_BYTE) / xfer->speed_hz;
+	if (mas->xfer_timeout_offset)
+		xfer_timeout += mas->xfer_timeout_offset;
 	else
-		xfer_timeout =
-			100 * msecs_to_jiffies(DIV_ROUND_UP(xfer->len * 8,
-			DIV_ROUND_UP(xfer->speed_hz, MSEC_PER_SEC)));
+		xfer_timeout += SPI_XFER_TIMEOUT_OFFSET;
+
 	SPI_LOG_ERR(mas->ipc, false, mas->dev,
 		    "current xfer_timeout:%lu ms.\n", xfer_timeout);
+	xfer_timeout = msecs_to_jiffies(xfer_timeout);
 
 	if (mas->cur_xfer_mode != GSI_DMA) {
 		reinit_completion(&mas->xfer_done);
@@ -2019,9 +2020,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 	geni_mas->dis_autosuspend =
 		of_property_read_bool(pdev->dev.of_node,
 				"qcom,disable-autosuspend");
-	geni_mas->use_fixed_timeout =
-		of_property_read_bool(pdev->dev.of_node,
-				"qcom,use-fixed-timeout");
 	/*
 	 * shared_se property is set when spi is being used simultaneously
 	 * from two Execution Environments.
@@ -2062,6 +2060,11 @@ static int spi_geni_probe(struct platform_device *pdev)
 	geni_mas->disable_dma = of_property_read_bool(pdev->dev.of_node,
 		"qcom,disable-dma");
 
+	of_property_read_u32(pdev->dev.of_node, "qcom,xfer-timeout-offset",
+			     &geni_mas->xfer_timeout_offset);
+	if (geni_mas->xfer_timeout_offset)
+		dev_info(&pdev->dev, "%s: DT based xfer timeout offset: %d\n",
+			 __func__, geni_mas->xfer_timeout_offset);
 
 	spi->mode_bits = (SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH);
 	spi->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
