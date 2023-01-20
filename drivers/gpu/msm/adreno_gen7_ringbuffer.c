@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "adreno.h"
@@ -461,6 +461,7 @@ static int gen7_drawctxt_switch(struct adreno_device *adreno_dev,
 		struct adreno_context *drawctxt)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int ret;
 
 	if (rb->drawctxt_active == drawctxt)
 		return 0;
@@ -471,9 +472,13 @@ static int gen7_drawctxt_switch(struct adreno_device *adreno_dev,
 	if (!_kgsl_context_get(&drawctxt->base))
 		return -ENOENT;
 
-	trace_adreno_drawctxt_switch(rb, drawctxt);
+	ret = gen7_rb_context_switch(adreno_dev, rb, drawctxt);
+	if (ret) {
+		kgsl_context_put(&drawctxt->base);
+		return ret;
+	}
 
-	gen7_rb_context_switch(adreno_dev, rb, drawctxt);
+	trace_adreno_drawctxt_switch(rb, drawctxt);
 
 	/* Release the current drawctxt as soon as the new one is switched */
 	adreno_put_drawctxt_on_timestamp(device, rb->drawctxt_active,
