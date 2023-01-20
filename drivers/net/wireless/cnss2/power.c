@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -1440,6 +1440,7 @@ void cnss_power_misc_params_init(struct cnss_plat_data *plat_priv)
 {
 	struct device *dev = &plat_priv->plat_dev->dev;
 	int ret;
+	u32 cfg_arr_size = 0, *cfg_arr = NULL;
 
 	/* common DT Entries */
 	plat_priv->pdc_init_table_len =
@@ -1508,6 +1509,24 @@ void cnss_power_misc_params_init(struct cnss_plat_data *plat_priv)
 					      &plat_priv->vreg_ipa);
 		if (ret)
 			cnss_pr_dbg("VReg for QCA6490 Int Power Amp not configured\n");
+	}
+
+	ret = of_property_count_u32_elems(plat_priv->plat_dev->dev.of_node,
+					  "qcom,on-chip-pmic-support");
+	if (ret > 0) {
+		cfg_arr_size = ret;
+		cfg_arr = kcalloc(cfg_arr_size, sizeof(*cfg_arr), GFP_KERNEL);
+
+		ret =
+		of_property_read_u32_array(plat_priv->plat_dev->dev.of_node,
+					   "qcom,on-chip-pmic-support",
+					   cfg_arr, cfg_arr_size);
+		if (!ret) {
+			plat_priv->on_chip_pmic_devices_count = cfg_arr_size;
+			plat_priv->on_chip_pmic_board_ids = cfg_arr;
+		}
+	} else {
+		cnss_pr_dbg("On chip PMIC device ids not configured\n");
 	}
 }
 

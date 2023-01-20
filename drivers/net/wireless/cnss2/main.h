@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CNSS_MAIN_H
@@ -543,6 +543,8 @@ struct cnss_plat_data {
 	u8 hwid_bitmap;
 	enum cnss_driver_mode driver_mode;
 	u32 num_shadow_regs_v3;
+	u32 on_chip_pmic_devices_count;
+	u32 *on_chip_pmic_board_ids;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)

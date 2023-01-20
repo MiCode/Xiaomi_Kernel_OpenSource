@@ -551,6 +551,22 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	if (resp->ol_cpr_cfg_valid)
 		cnss_aop_ol_cpr_cfg_setup(plat_priv, &resp->ol_cpr_cfg);
 
+	/* Disable WLAN PDC in AOP firmware for boards which support on chip PMIC
+	 * so AOP will ignore SW_CTRL changes and do not update regulator votes.
+	 **/
+	for (i = 0; i < plat_priv->on_chip_pmic_devices_count; i++) {
+		if (plat_priv->board_info.board_id ==
+		    plat_priv->on_chip_pmic_board_ids[i]) {
+			cnss_pr_dbg("Disabling WLAN PDC for board_id: %02x\n",
+				    plat_priv->board_info.board_id);
+			ret = cnss_aop_send_msg(plat_priv,
+						"{class: wlan_pdc, ss: rf, res: pdc, enable: 0}");
+			if (ret < 0)
+				cnss_pr_dbg("Failed to Send AOP Msg");
+			break;
+		}
+	}
+
 	cnss_pr_dbg("Target capability: chip_id: 0x%x, chip_family: 0x%x, board_id: 0x%x, soc_id: 0x%x, otp_version: 0x%x\n",
 		    plat_priv->chip_info.chip_id,
 		    plat_priv->chip_info.chip_family,
