@@ -296,6 +296,16 @@ config REGULATOR_CPCAP
 	  Say y here for CPCAP regulator found on some Motorola phones
 	  and tablets such as Droid 4.
 
+config REGULATOR_CPR
+	bool "RBCPR regulator driver for APC"
+	depends on OF && QCOM_SCM
+	help
+	  Compile in RBCPR (RapidBridge Core Power Reduction) driver to support
+	  corner vote for APC power rail. The driver takes PTE process voltage
+	  suggestions in efuse as initial settings. It converts corner vote
+	  to voltage value before writing to a voltage regulator API, such as
+	  that provided by spm-regulator driver.
+
 config REGULATOR_CROS_EC
 	tristate "ChromeOS EC regulators"
 	depends on CROS_EC && OF
