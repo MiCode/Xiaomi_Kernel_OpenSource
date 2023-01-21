@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -2917,6 +2917,8 @@ static const struct qcom_reset_map gcc_ravelin_resets[] = {
 	[GCC_VENUS_BCR] = { 0xb601c },
 	[GCC_VIDEO_BCR] = { 0x42000 },
 	[GCC_VIDEO_VENUS_BCR] = { 0xb6000 },
+	[GCC_VENUS_CTL_AXI_CLK_ARES] = { 0x4201c, 2 },
+	[GCC_VIDEO_VENUS_CTL_CLK_ARES] = { 0xb6038, 2 },
 };
 
 
