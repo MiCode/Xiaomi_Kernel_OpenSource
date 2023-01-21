@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define ANY_ID (~0)
@@ -2202,6 +2202,7 @@ static const struct adreno_gen7_core adreno_gpu_core_gen7_6_0 = {
 	.bcl_data = 1,
 	.gen7_snapshot_block_list = &gen7_6_0_snapshot_block_list,
 	.qos_value = gen7_6_0_gbif_client_qos_values,
+	.ctxt_record_size = (4192 * SZ_1K),
 };
 
 static const struct adreno_gpu_core *adreno_gpulist[] = {
