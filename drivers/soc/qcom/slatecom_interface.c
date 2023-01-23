@@ -617,26 +617,26 @@ static long slate_com_ioctl(struct file *filp,
 		if (ret < 0)
 			pr_err("slatechar_write_cmd failed\n");
 		break;
-	case SET_SPI_FREE:
+	case SLATECOM_SET_SPI_FREE:
 		ret = slatecom_set_spi_state(SLATECOM_SPI_FREE);
 		break;
-	case SET_SPI_BUSY:
+	case SLATECOM_SET_SPI_BUSY:
 		ret = slatecom_set_spi_state(SLATECOM_SPI_BUSY);
 		break;
-	case SLATE_SOFT_RESET:
+	case SLATECOM_SOFT_RESET:
 		ret = slate_soft_reset();
 		break;
-	case SLATE_MODEM_DOWN2_SLATE_DONE:
+	case SLATECOM_MODEM_DOWN2_SLATE:
 		ret = modem_down2_slate();
 		break;
-	case SLATE_ADSP_DOWN2_SLATE_DONE:
+	case SLATECOM_ADSP_DOWN2_SLATE:
 		ret = adsp_down2_slate();
 		break;
-	case SLATE_TWM_EXIT:
+	case SLATECOM_TWM_EXIT:
 		twm_exit = true;
 		ret = 0;
 		break;
-	case SLATE_APP_RUNNING:
+	case SLATECOM_SLATE_APP_RUNNING:
 		slate_app_running = true;
 		ret = 0;
 		break;
@@ -653,7 +653,7 @@ static long slate_com_ioctl(struct file *filp,
 		slatecom_fw_unload(dev);
 		ret = 0;
 		break;
-	case DEVICE_STATE_TRANSITION:
+	case SLATECOM_DEVICE_STATE_TRANSITION:
 		if (dev->slatecom_current_state != SLATECOM_STATE_GLINK_OPEN) {
 			pr_err("driver not ready, glink is not open\n");
 			return -ENODEV;
@@ -667,7 +667,7 @@ static long slate_com_ioctl(struct file *filp,
 		if (ret < 0)
 			pr_err("device_state_transition cmd failed\n");
 		break;
-	case SEND_TIME_DATA:
+	case SLATE_SEND_TIME_DATA:
 		if (dev->slatecom_current_state != SLATECOM_STATE_GLINK_OPEN) {
 			pr_err("%s: driver not ready, current state: %d\n",
 			__func__, dev->slatecom_current_state);
@@ -682,7 +682,7 @@ static long slate_com_ioctl(struct file *filp,
 		if (ret < 0)
 			pr_err("send_time_data cmd failed\n");
 		break;
-	case SEND_DEBUG_CONFIG:
+	case SLATECOM_SEND_DEBUG_CONFIG:
 		if (dev->slatecom_current_state != SLATECOM_STATE_GLINK_OPEN) {
 			pr_err("%s: driver not ready, current state: %d\n",
 			__func__, dev->slatecom_current_state);
