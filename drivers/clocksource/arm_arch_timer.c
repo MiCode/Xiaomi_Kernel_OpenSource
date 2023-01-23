@@ -478,6 +478,13 @@ static const struct arch_timer_erratum_workaround ool_workarounds[] = {
 		.read_cntpct_el0 = arm64_858921_read_cntpct_el0,
 		.read_cntvct_el0 = arm64_858921_read_cntvct_el0,
 	},
+	{
+		.match_type = ate_match_dt,
+		.id = "qcom,erratum-858921",
+		.desc = "erratum 858921",
+		.read_cntpct_el0 = arm64_858921_read_cntpct_el0,
+		.read_cntvct_el0 = arm64_858921_read_cntvct_el0,
+	},
 #endif
 #ifdef CONFIG_SUN50I_ERRATUM_UNKNOWN1
 	{
