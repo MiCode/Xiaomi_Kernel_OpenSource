@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/ipa_fmwk.h>
@@ -619,7 +619,7 @@ bool ipa_is_ready(void)
 }
 EXPORT_SYMBOL(ipa_is_ready);
 
-#ifdef CONFIG_DEEPSLEEP
+#if IS_ENABLED(CONFIG_DEEPSLEEP) || IS_ENABLED(CONFIG_HIBERNATION)
 int ipa_fmwk_deepsleep_entry_ipa(void)
 {
 	if (!ipa_fmwk_ctx) {
