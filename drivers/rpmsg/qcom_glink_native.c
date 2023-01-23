@@ -2437,7 +2437,7 @@ static int qcom_glink_resume_no_irq(struct device *dev)
 	int ret = 0;
 	should_wake = false;
 #if defined(CONFIG_DEEPSLEEP) && defined(CONFIG_RPMSG_QCOM_GLINK_RPM)
-	if (mem_sleep_current == PM_SUSPEND_MEM) {
+	if (pm_suspend_via_firmware()) {
 		quickboot = 1;
 		glink_rpm_resume_noirq(dev);
 
