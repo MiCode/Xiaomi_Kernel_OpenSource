@@ -1558,6 +1558,25 @@ static int sdhci_msm_dt_parse_vreg_info(struct device *dev,
 	vreg->msm_host = msm_host;
 	vreg->name = vreg_name;
 
+	/*
+	 * To support FR84471 for chipsets where PMIC doesn't support
+	 * PBS ram sequence to turn OFF regulators automatically on
+	 * multicard tray removal, parse and use new regulator resources
+	 * which are exposed by PMIC team for enabling/disabling
+	 * conditions only and its old design for voltage/load.
+	 */
+	if (mmc_card_is_removable(host->mmc) &&
+			!vreg->multi_card_tray_wa_needed) {
+		snprintf(prop_name, MAX_PROP_SIZE, "%s-en-dis", vreg_name);
+		strlcpy(vreg->en_dis_name, prop_name, sizeof(vreg->en_dis_name));
+
+		snprintf(prop_name, MAX_PROP_SIZE, "%s-supply", vreg->en_dis_name);
+		if (of_parse_phandle(np, prop_name, 0)) {
+			dev_info(dev, "Multi card tray WA needed\n");
+			vreg->multi_card_tray_wa_needed = true;
+		}
+	}
+
 	snprintf(prop_name, MAX_PROP_SIZE,
 			"qcom,%s-always-on", vreg_name);
 	if (of_get_property(np, prop_name, NULL))
@@ -2000,6 +2019,16 @@ static int sdhci_msm_vreg_init_reg(struct device *dev,
 		goto out;
 	}
 
+	if (vreg->multi_card_tray_wa_needed) {
+		vreg->reg_en_dis = devm_regulator_get(dev, vreg->en_dis_name);
+		if (IS_ERR(vreg->reg_en_dis)) {
+			ret = PTR_ERR(vreg->reg_en_dis);
+			pr_err("%s: devm_regulator_get(%s) failed. ret=%d\n",
+				__func__, vreg->en_dis_name, ret);
+			goto out;
+		}
+	}
+
 	if (regulator_count_voltages(vreg->reg) > 0) {
 		vreg->set_voltage_sup = true;
 		/* sanity check */
@@ -2063,6 +2092,8 @@ static int sdhci_msm_vreg_set_voltage(struct sdhci_msm_reg_data *vreg,
 static int sdhci_msm_vreg_enable(struct sdhci_msm_reg_data *vreg)
 {
 	int ret = 0;
+	bool wa_needed = vreg->multi_card_tray_wa_needed;
+	const char *reg_name = wa_needed ? vreg->en_dis_name : vreg->name;
 
 	/* Put regulator in HPM (high power mode) */
 	ret = sdhci_msm_vreg_set_optimum_mode(vreg, vreg->hpm_uA);
@@ -2076,10 +2107,14 @@ static int sdhci_msm_vreg_enable(struct sdhci_msm_reg_data *vreg)
 		if (ret)
 			return ret;
 	}
-	ret = regulator_enable(vreg->reg);
+	if (wa_needed)
+		ret = regulator_enable(vreg->reg_en_dis);
+	else
+		ret = regulator_enable(vreg->reg);
+
 	if (ret) {
 		pr_err("%s: regulator_enable(%s) failed. ret=%d\n",
-				__func__, vreg->name, ret);
+				__func__, reg_name, ret);
 		return ret;
 	}
 	vreg->is_enabled = true;
@@ -2089,13 +2124,19 @@ static int sdhci_msm_vreg_enable(struct sdhci_msm_reg_data *vreg)
 static int sdhci_msm_vreg_disable(struct sdhci_msm_reg_data *vreg)
 {
 	int ret = 0;
+	bool wa_needed = vreg->multi_card_tray_wa_needed;
+	const char *reg_name = wa_needed ? vreg->en_dis_name : vreg->name;
 
 	/* Never disable regulator marked as always_on */
 	if (vreg->is_enabled && !vreg->is_always_on) {
-		ret = regulator_disable(vreg->reg);
+
+		if (vreg->multi_card_tray_wa_needed)
+			ret = regulator_disable(vreg->reg_en_dis);
+		else
+			ret = regulator_disable(vreg->reg);
 		if (ret) {
 			pr_err("%s: regulator_disable(%s) failed. ret=%d\n",
-				__func__, vreg->name, ret);
+				__func__, reg_name, ret);
 			goto out;
 		}
 		vreg->is_enabled = false;
