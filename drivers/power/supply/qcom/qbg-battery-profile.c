@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"QBG-K: %s: " fmt, __func__
@@ -63,6 +63,7 @@ static long qbg_battery_data_ioctl(struct file *file, unsigned int cmd,
 
 	switch (cmd) {
 	case BPIOCXBP:
+	case QBG_BPIOCXBP:
 		profile_user = (struct battery_config __user *)arg;
 
 		if (copy_to_user(profile_user, &battery->bp, sizeof(battery->bp))) {
@@ -72,6 +73,7 @@ static long qbg_battery_data_ioctl(struct file *file, unsigned int cmd,
 
 		break;
 	case BPIOCXBPTABLE:
+	case QBG_BPIOCXBPTABLE:
 		bp_table_user = (struct battery_profile_table __user *)arg;
 
 		if (copy_from_user(&bp_table, bp_table_user, sizeof(bp_table))) {
@@ -113,6 +115,12 @@ static long qbg_battery_data_ioctl(struct file *file, unsigned int cmd,
 	return rc;
 }
 
+static long qbg_battery_data_compat_ioctl(struct file *file, unsigned int cmd,
+								unsigned long arg)
+{
+	return qbg_battery_data_ioctl(file, _IOC_NR(cmd), arg);
+}
+
 static int qbg_battery_data_release(struct inode *inode, struct file *file)
 {
 	pr_debug("battery_data device closed\n");
@@ -124,7 +132,7 @@ static const struct file_operations qbg_battery_data_fops = {
 	.owner = THIS_MODULE,
 	.open = qbg_battery_data_open,
 	.unlocked_ioctl = qbg_battery_data_ioctl,
-	.compat_ioctl = qbg_battery_data_ioctl,
+	.compat_ioctl = qbg_battery_data_compat_ioctl,
 	.release = qbg_battery_data_release,
 };
 
