@@ -51,6 +51,18 @@ config QCOM_BWMON
 	  to identify memory bandwidth bound workloads and vote for DCVS HW
 	  (memory) frequencies through the QCOM DCVS framework.
 
+config QCOM_BWPROF
+	tristate "QCOM BWPROF Driver"
+	depends on ARCH_QCOM
+	default n
+	help
+	  This enables the QCOM BWPROF driver which monitors bandwidth counters
+	  and provides them to userspace clients at modest time intervals for
+	  the intention of bandwidth profiling and DDR frequency monitoring. The
+	  purpose of the driver is to enable the monitoring of the bandwidth usage
+	  at regular intervals, providing the userspace clients with a detailed
+	  view of the current state of the system.
+
 config QTI_HW_MEMLAT_SCMI_CLIENT
 	tristate "Qualcomm Technologies Inc. SCMI client driver for HW MEMLAT"
 	depends on QCOM_MEMLAT && QTI_SCMI_MEMLAT_PROTOCOL
