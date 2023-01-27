@@ -286,6 +286,14 @@ config ARCH_MONACO_AUTO
 	  MONACO_AUTO chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
 
+config ARCH_QCS405
+	bool "Enable Support for Qualcomm Technologies, Inc. QCS405"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  QCS405 chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
+
 config ARCH_CINDER
 	bool "Enable Support for Qualcomm Technologies, Inc. CINDER"
 	depends on ARCH_QCOM
