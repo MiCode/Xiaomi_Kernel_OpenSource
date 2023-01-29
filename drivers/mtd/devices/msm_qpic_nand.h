@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
@@ -312,6 +312,8 @@ struct flash_identification {
 	uint32_t oobsize;
 	uint32_t ecc_correctability;
 	uint32_t ecc_capability; /* Set based on the ECC capability selected. */
+	/* Flag to distinguish b/w ONFI and NON-ONFI properties */
+	bool is_onfi_compliant;
 };
 
 struct msm_bus_vectors {
