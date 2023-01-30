@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef SLATECOMRPMSG_H
 #define SLATECOMRPMSG_H
 
 #include <linux/rpmsg.h>
-#include "slatecom_interface.h"
+#include <linux/soc/qcom/slatecom_interface.h>
 
 #define TIMEOUT_MS 5000
 

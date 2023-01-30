@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(msg) "slatecom: %s: " msg, __func__
@@ -23,7 +23,7 @@
 #include <linux/suspend.h>
 #include <linux/ipc_logging.h>
 #include "slatecom.h"
-#include "slatecom_interface.h"
+#include <linux/soc/qcom/slatecom_interface.h>
 
 #define SLATE_SPI_WORD_SIZE (0x04)
 #define SLATE_SPI_READ_LEN (0x04)
