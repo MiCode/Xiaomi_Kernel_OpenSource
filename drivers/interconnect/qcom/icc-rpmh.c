@@ -46,6 +46,10 @@ void qcom_icc_pre_aggregate(struct icc_node *node)
 }
 EXPORT_SYMBOL_GPL(qcom_icc_pre_aggregate);
 
+static void qcom_icc_pre_aggregate_stub(struct icc_node *node)
+{
+}
+
 /**
  * qcom_icc_aggregate - aggregate bw for buckets indicated by tag
  * @node: node to aggregate
@@ -398,7 +402,7 @@ int qcom_icc_rpmh_probe(struct platform_device *pdev)
 	provider = &qp->provider;
 	provider->dev = dev;
 	provider->set = qcom_icc_set_stub;
-	provider->pre_aggregate = qcom_icc_pre_aggregate;
+	provider->pre_aggregate = qcom_icc_pre_aggregate_stub;
 	provider->aggregate = qcom_icc_aggregate_stub;
 	provider->xlate_extended = qcom_icc_xlate_extended;
 	INIT_LIST_HEAD(&provider->nodes);
@@ -477,6 +481,7 @@ int qcom_icc_rpmh_probe(struct platform_device *pdev)
 
 	if (!qp->stub) {
 		provider->set = qcom_icc_set;
+		provider->pre_aggregate = qcom_icc_pre_aggregate;
 		provider->aggregate = qcom_icc_aggregate;
 	}
 
