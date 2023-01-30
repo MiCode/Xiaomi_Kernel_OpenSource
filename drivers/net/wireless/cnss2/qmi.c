@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -349,6 +349,12 @@ int cnss_wlfw_respond_mem_send_sync(struct cnss_plat_data *plat_priv)
 	if (!resp) {
 		kfree(req);
 		return -ENOMEM;
+	}
+
+	if (plat_priv->fw_mem_seg_len > QMI_WLFW_MAX_NUM_MEM_SEG_V01) {
+		cnss_pr_err("Invalid seg len %u\n", plat_priv->fw_mem_seg_len);
+		ret = -EINVAL;
+		goto out;
 	}
 
 	req->mem_seg_len = plat_priv->fw_mem_seg_len;
@@ -2067,6 +2073,12 @@ int cnss_wlfw_qdss_trace_mem_info_send_sync(struct cnss_plat_data *plat_priv)
 		return -ENOMEM;
 	}
 
+	if (plat_priv->qdss_mem_seg_len > QMI_WLFW_MAX_NUM_MEM_SEG_V01) {
+		cnss_pr_err("Invalid seg len %u\n", plat_priv->qdss_mem_seg_len);
+		ret = -EINVAL;
+		goto out;
+	}
+
 	req->mem_seg_len = plat_priv->qdss_mem_seg_len;
 	for (i = 0; i < req->mem_seg_len; i++) {
 		cnss_pr_dbg("Memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx, type: %u\n",
@@ -2435,6 +2447,11 @@ static void cnss_wlfw_request_mem_ind_cb(struct qmi_handle *qmi_wlfw,
 		return;
 	}
 
+	if (ind_msg->mem_seg_len > QMI_WLFW_MAX_NUM_MEM_SEG_V01) {
+		cnss_pr_err("Invalid seg len %u\n", ind_msg->mem_seg_len);
+		return;
+	}
+
 	plat_priv->fw_mem_seg_len = ind_msg->mem_seg_len;
 	for (i = 0; i < plat_priv->fw_mem_seg_len; i++) {
 		cnss_pr_dbg("FW requests for memory, size: 0x%x, type: %u\n",
@@ -2646,6 +2663,11 @@ static void cnss_wlfw_qdss_trace_req_mem_ind_cb(struct qmi_handle *qmi_wlfw,
 	if (plat_priv->qdss_mem_seg_len) {
 		cnss_pr_err("Ignore double allocation for QDSS trace, current len %u\n",
 			    plat_priv->qdss_mem_seg_len);
+		return;
+	}
+
+	if (ind_msg->mem_seg_len > QMI_WLFW_MAX_NUM_MEM_SEG_V01) {
+		cnss_pr_err("Invalid seg len %u\n", ind_msg->mem_seg_len);
 		return;
 	}
 
