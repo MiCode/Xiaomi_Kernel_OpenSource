@@ -64,6 +64,7 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
+#include <soc/qcom/socinfo.h>
 
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
@@ -2807,33 +2808,23 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 }
 
 /*
- * fastrpc_get_dsp_status - Reads the property string from device node
- *                          and updates the cdsp device avialbility status
- *                          if the node belongs to cdsp device.
+ * fastrpc_get_cdsp_status - Reads the property string from soc_info
+			    denoted for cdsp part, and updates
+ *                          the cdsp device avialbility status
+ *                          if the cdsp is not defective.
  * @me  : pointer to fastrpc_apps.
  */
 
-static void fastrpc_get_dsp_status(struct fastrpc_apps *me)
+static void fastrpc_get_cdsp_status(struct fastrpc_apps *me)
 {
-	int ret = -1;
-	struct device_node *node = NULL;
-	const char *name = NULL;
-
-	do {
-		node = of_find_compatible_node(node, NULL, "qcom,pil-tz-generic");
-		if (node) {
-			ret = of_property_read_string(node, "qcom,firmware-name", &name);
-			if (!strcmp(name, "cdsp")) {
-				ret =  of_device_is_available(node);
-				me->remote_cdsp_status = ret;
-				ADSPRPC_INFO("cdsp node found with ret:%x\n", ret);
-				break;
-			}
-		} else {
-			ADSPRPC_ERR("cdsp node not found\n");
-			break;
-		}
-	} while (1);
+	if (socinfo_get_part_info(PART_COMP)) {
+		me->remote_cdsp_status = 0;
+		ADSPRPC_ERR(
+			"cdsp part defective with status:%x\n", me->remote_cdsp_status);
+	} else {
+		me->remote_cdsp_status = 1;
+		ADSPRPC_INFO("cdsp available with status: %x\n", me->remote_cdsp_status);
+	}
 }
 
 static void fastrpc_init(struct fastrpc_apps *me)
@@ -8344,7 +8335,7 @@ static int __init fastrpc_device_init(void)
 	}
 	memset(me, 0, sizeof(*me));
 	fastrpc_init(me);
-	fastrpc_get_dsp_status(me);
+	fastrpc_get_cdsp_status(me);
 	me->dev = NULL;
 	me->legacy_remote_heap = false;
 	err = bus_register(&fastrpc_bus_type);
