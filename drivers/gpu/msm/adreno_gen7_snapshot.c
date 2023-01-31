@@ -325,6 +325,8 @@ static void gen7_snapshot_shader(struct kgsl_device *device,
 	size_t (*func)(struct kgsl_device *device, u8 *buf, size_t remain,
 		void *priv) = gen7_legacy_snapshot_shader;
 
+	kgsl_regrmw(device, GEN7_SP_DBG_CNTL, GENMASK(1, 0), BIT(0) | BIT(1));
+
 	if (CD_SCRIPT_CHECK(device)) {
 		for (i = 0; i < num_shader_blocks; i++) {
 			struct gen7_shader_block *block = &shader_blocks[i];
@@ -344,7 +346,8 @@ static void gen7_snapshot_shader(struct kgsl_device *device,
 				}
 			}
 		}
-		return;
+
+		goto done;
 	}
 
 	for (i = 0; i < num_shader_blocks; i++) {
@@ -390,6 +393,9 @@ static void gen7_snapshot_shader(struct kgsl_device *device,
 			}
 		}
 	}
+
+done:
+	kgsl_regrmw(device, GEN7_SP_DBG_CNTL, GENMASK(1, 0), 0x0);
 }
 
 static void gen7_snapshot_mempool(struct kgsl_device *device,
