@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -139,6 +139,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_sdcc2_ahb_clk",
 	"gcc_sdcc2_apps_clk",
 	"gcc_sys_noc_mvmss_clk",
+	"gcc_tlmm_125_clk",
 	"gcc_usb30_master_clk",
 	"gcc_usb30_mock_utmi_clk",
 	"gcc_usb30_mstr_axi_clk",
@@ -249,6 +250,7 @@ static int gcc_debug_mux_sels[] = {
 	0x42,		/* gcc_sdcc2_ahb_clk */
 	0x41,		/* gcc_sdcc2_apps_clk */
 	0x19,		/* gcc_sys_noc_mvmss_clk */
+	0x11E,		/* gcc_tlmm_125_clk */
 	0x35,		/* gcc_usb30_master_clk */
 	0x39,		/* gcc_usb30_mock_utmi_clk */
 	0x36,		/* gcc_usb30_mstr_axi_clk */
