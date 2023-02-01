@@ -33,6 +33,8 @@
 /* auto-bind range */
 #define QRTR_MIN_EPH_SOCKET 0x4000
 #define QRTR_MAX_EPH_SOCKET 0x7fff
+#define QRTR_EPH_PORT_RANGE \
+		XA_LIMIT(QRTR_MIN_EPH_SOCKET, QRTR_MAX_EPH_SOCKET)
 
 #define QRTR_PORT_CTRL_LEGACY 0xffff
 
@@ -130,8 +132,7 @@ static LIST_HEAD(qrtr_all_epts);
 static DECLARE_RWSEM(qrtr_epts_lock);
 
 /* local port allocation management */
-static DEFINE_IDR(qrtr_ports);
-static DEFINE_SPINLOCK(qrtr_port_lock);
+static DEFINE_XARRAY_ALLOC(qrtr_ports);
 
 /* backup buffers */
 #define QRTR_BACKUP_HI_NUM	5
@@ -1375,16 +1376,13 @@ EXPORT_SYMBOL_GPL(qrtr_endpoint_unregister);
 static struct qrtr_sock *qrtr_port_lookup(int port)
 {
 	struct qrtr_sock *ipc;
-	unsigned long flags;
 
 	if (port == QRTR_PORT_CTRL)
 		port = 0;
 
-	spin_lock_irqsave(&qrtr_port_lock, flags);
-	ipc = idr_find(&qrtr_ports, port);
+	ipc = xa_load(&qrtr_ports, port);
 	if (ipc)
 		sock_hold(&ipc->sk);
-	spin_unlock_irqrestore(&qrtr_port_lock, flags);
 
 	return ipc;
 }
@@ -1449,7 +1447,6 @@ exit:
 static void qrtr_port_remove(struct qrtr_sock *ipc)
 {
 	int port = ipc->us.sq_port;
-	unsigned long flags;
 
 	qrtr_send_del_client(ipc);
 	if (port == QRTR_PORT_CTRL)
@@ -1457,9 +1454,7 @@ static void qrtr_port_remove(struct qrtr_sock *ipc)
 
 	__sock_put(&ipc->sk);
 
-	spin_lock_irqsave(&qrtr_port_lock, flags);
-	idr_remove(&qrtr_ports, port);
-	spin_unlock_irqrestore(&qrtr_port_lock, flags);
+	xa_erase(&qrtr_ports, port);
 }
 
 /* Assign port number to socket.
@@ -1477,25 +1472,20 @@ static int qrtr_port_assign(struct qrtr_sock *ipc, int *port)
 	int rc;
 
 	if (!*port) {
-		rc = idr_alloc_cyclic(&qrtr_ports, ipc, QRTR_MIN_EPH_SOCKET,
-				      QRTR_MAX_EPH_SOCKET + 1, GFP_ATOMIC);
-		if (rc >= 0)
-			*port = rc;
+		rc = xa_alloc(&qrtr_ports, port, ipc, QRTR_EPH_PORT_RANGE,
+				GFP_KERNEL);
 	} else if (*port < QRTR_MIN_EPH_SOCKET &&
 		   !(capable(CAP_NET_ADMIN) ||
 		   in_egroup_p(AID_VENDOR_QRTR) ||
 		   in_egroup_p(GLOBAL_ROOT_GID))) {
 		rc = -EACCES;
 	} else if (*port == QRTR_PORT_CTRL) {
-		rc = idr_alloc(&qrtr_ports, ipc, 0, 1, GFP_ATOMIC);
+		rc = xa_insert(&qrtr_ports, 0, ipc, GFP_KERNEL);
 	} else {
-		rc = idr_alloc_cyclic(&qrtr_ports, ipc, *port, *port + 1,
-				      GFP_ATOMIC);
-		if (rc >= 0)
-			*port = rc;
+		rc = xa_insert(&qrtr_ports, *port, ipc, GFP_KERNEL);
 	}
 
-	if (rc == -ENOSPC)
+	if (rc == -EBUSY)
 		return -EADDRINUSE;
 	else if (rc < 0)
 		return rc;
@@ -1509,19 +1499,17 @@ static int qrtr_port_assign(struct qrtr_sock *ipc, int *port)
 static void qrtr_reset_ports(void)
 {
 	struct qrtr_sock *ipc;
-	int id;
+	unsigned long index;
 
-	idr_for_each_entry(&qrtr_ports, ipc, id) {
-		/* Don't reset control port */
-		if (id == 0)
-			continue;
-
+	rcu_read_lock();
+	xa_for_each_start(&qrtr_ports, index, ipc, 1) {
 		sock_hold(&ipc->sk);
 		ipc->sk.sk_err = ENETRESET;
 		if (ipc->sk.sk_error_report)
 			ipc->sk.sk_error_report(&ipc->sk);
 		sock_put(&ipc->sk);
 	}
+	rcu_read_unlock();
 }
 
 /* Bind socket to address.
@@ -1533,7 +1521,6 @@ static int __qrtr_bind(struct socket *sock,
 {
 	struct qrtr_sock *ipc = qrtr_sk(sock->sk);
 	struct sock *sk = sock->sk;
-	unsigned long flags;
 	int port;
 	int rc;
 
@@ -1541,17 +1528,14 @@ static int __qrtr_bind(struct socket *sock,
 	if (!zapped && addr->sq_port == ipc->us.sq_port)
 		return 0;
 
-	spin_lock_irqsave(&qrtr_port_lock, flags);
 	port = addr->sq_port;
 	rc = qrtr_port_assign(ipc, &port);
 	if (rc) {
-		spin_unlock_irqrestore(&qrtr_port_lock, flags);
 		return rc;
 	}
 	/* Notify all open ports about the new controller */
 	if (port == QRTR_PORT_CTRL)
 		qrtr_reset_ports();
-	spin_unlock_irqrestore(&qrtr_port_lock, flags);
 
 	/* unbind previous, if any */
 	if (!zapped)
