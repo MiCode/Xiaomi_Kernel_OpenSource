@@ -339,6 +339,8 @@ static int rpmb_cal_hmac(struct rpmb_frame *frame, int blk_cnt,
 	u8 *buf, *buf_start;
 
 	buf = buf_start = kzalloc(RPMB_SZ_CAL_HMAC * blk_cnt, 0);
+	if (!buf_start)
+		return -ENOMEM;
 
 	for (i = 0; i < blk_cnt; i++) {
 		memcpy(buf, frame[i].data, RPMB_SZ_CAL_HMAC);
@@ -715,6 +717,10 @@ static int rpmb_req_write_data_ufs(u8 *frame, u32 blk_cnt)
 
 #ifdef __RPMB_MTK_DEBUG_HMAC_VERIFY
 	key_mac = kzalloc(RPMB_SZ_MAC, 0);
+	if (!key_mac) {
+		kfree(rpmbdata.ocmd.frames);
+		return -ENOMEM;
+	}
 
 	rpmb_cal_hmac((struct rpmb_frame *)frame, blk_cnt, g_rpmb_key, key_mac);
 
@@ -749,14 +755,12 @@ static int rpmb_req_write_data_ufs(u8 *frame, u32 blk_cnt)
 	MSG(DBG_INFO, "%s: result 0x%x\n", __func__,
 		rpmbdata.ocmd.frames->result);
 
-	kfree(rpmbdata.ocmd.frames);
-
 	MSG(DBG_INFO, "%s: ret 0x%x\n", __func__, ret);
 
 #ifdef __RPMB_MTK_DEBUG_HMAC_VERIFY
 out:
 #endif
-
+	kfree(rpmbdata.ocmd.frames);
 	return ret;
 }
 
@@ -2689,7 +2693,7 @@ static int rpmb_mtk_snd_msg(void *pbuf, u16 len)
 		MSG(ERR, "%s nlmsg_put failure\n", __func__);
 		ret = -ENOBUFS;
 		nlmsg_free(skb);
-		goto send_fail_skb;
+		goto send_fail;
 	}
 
 	memcpy(nlmsg_data(nlh), pbuf, len);
@@ -2698,14 +2702,14 @@ static int rpmb_mtk_snd_msg(void *pbuf, u16 len)
 	if (ret < 0) {
 		MSG(ERR, "%s send failed ret=%d, pid=%d\n",
 			__func__, ret, nl_pid);
-		goto send_fail;
+		goto send_fail_skb;
 	}
 
+	kfree_skb(skb);
 	return 0;
 
 send_fail_skb:
 	kfree_skb(skb);
-
 send_fail:
 	return ret;
 }
@@ -2808,6 +2812,9 @@ static int dt_get_boot_type(void)
 int mmc_rpmb_register(struct mmc_host *mmc)
 {
 	int ret = 0;
+
+	if (!mmc)
+		return -EINVAL;
 
 	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		mtk_mmc_host[0] = mmc;
