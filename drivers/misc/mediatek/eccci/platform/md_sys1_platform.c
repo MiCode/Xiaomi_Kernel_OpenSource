@@ -54,6 +54,7 @@
 #define MDTOP_CLKSW_LENGTH	(0x1000)
 
 unsigned int ap_plat_info;
+static struct regulator *vcore_reg_ref;
 
 struct ccci_md_regulator {
 	struct regulator *reg_ref;
@@ -1223,7 +1224,6 @@ int md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
 {
 	static int is_hold;
 	int volt_cnt, volt, ret;
-	struct regulator *reg_ref;
 	struct ccci_modem *md;
 
 	md = ccci_md_get_modem_by_id(0);
@@ -1232,27 +1232,26 @@ int md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
 	if (md_cd_plat_val_ptr.md_gen >= 6295)
 		return 0;
 
-	reg_ref = devm_regulator_get(&md->plat_dev->dev, "dvfsrc-vcore");
-	if (IS_ERR(reg_ref)) {
-		pr_notice("%s: get regulator fail(%d)\n", __func__, PTR_ERR(reg_ref));
-		return PTR_ERR(reg_ref);
-	}
-
 	CCCI_BOOTUP_LOG(0, TAG,
 		"[POWER ON]%s: is_hold=%d, hold_req=%d\n", __func__, is_hold, hold_req);
 	if (hold_req && is_hold == 0) {
-		volt_cnt = regulator_count_voltages(reg_ref);
+		vcore_reg_ref = devm_regulator_get(&md->plat_dev->dev, "dvfsrc-vcore");
+		if (IS_ERR(vcore_reg_ref)) {
+			pr_notice("%s: get regulator fail(%d)\n", __func__, PTR_ERR(vcore_reg_ref));
+			return PTR_ERR(vcore_reg_ref);
+		}
+		volt_cnt = regulator_count_voltages(vcore_reg_ref);
 		if (volt_cnt <= 0) {
 			CCCI_NORMAL_LOG(0, TAG, "%s: regulator_count_voltages fail(%d)\n",
 				__func__, volt_cnt);
 			return -EINVAL;
 		}
-		volt = regulator_list_voltage(reg_ref, volt_cnt - 1);
+		volt = regulator_list_voltage(vcore_reg_ref, volt_cnt - 1);
 
 		CCCI_NORMAL_LOG(0, TAG, "[POWER ON]%s: set vcore voltage(%d)\n", __func__, volt);
 		CCCI_BOOTUP_LOG(0, TAG, "[POWER ON]%s: set vcore voltage(%d)\n", __func__, volt);
-		regulator_set_voltage(reg_ref, volt, INT_MAX);
-		ret = regulator_get_voltage(reg_ref);
+		regulator_set_voltage(vcore_reg_ref, volt, INT_MAX);
+		ret = regulator_get_voltage(vcore_reg_ref);
 		if (ret < 0)
 			CCCI_BOOTUP_LOG(0, TAG, "[POWER ON]%s: get voltage fail, ret:%d\n",
 					__func__, ret);
@@ -1260,6 +1259,10 @@ int md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
 
 		is_hold = 1;
 	} else if (hold_req == 0 && is_hold) {
+		if (!IS_ERR(vcore_reg_ref)) {
+			regulator_put(vcore_reg_ref);
+			vcore_reg_ref = NULL;
+		}
 		is_hold = 0;
 
 
