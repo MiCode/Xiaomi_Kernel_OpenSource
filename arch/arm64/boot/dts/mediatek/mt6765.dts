@@ -686,8 +686,8 @@ initcall_debug=1 pelt=8";
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
-			//cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
-			//	<&SODI &SODI3 &DPIDLE &SUSPEND>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu1: cpu@001 {
@@ -1125,6 +1125,11 @@ initcall_debug=1 pelt=8";
 	mcdi@00110100 {
 		compatible = "mediatek,mt6765-mcdi";
 		reg = <0 0x00110100 0 0x800>;
+	};
+
+	power_gs {
+		compatible = "mediatek,power_gs";
+		pmic = <&main_pmic>;
 	};
 
 	scpsys: power-controller@10006000 {
