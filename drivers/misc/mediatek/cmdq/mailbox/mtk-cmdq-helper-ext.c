@@ -2334,8 +2334,9 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	} else {
 		/* no inst available */
 		cmdq_util_aee(mod,
-			"%s(%s) instruction not available pc:%#llx thread:%d",
-			mod, cmdq_util_helper->hw_name(client->chan), pc, thread_id);
+			"%s(%s) instruction not available pc:%lx thread:%d",
+			mod, cmdq_util_helper->hw_name(client->chan), (unsigned long)pc,
+			thread_id);
 	}
 
 	cmdq_util_helper->error_disable();
