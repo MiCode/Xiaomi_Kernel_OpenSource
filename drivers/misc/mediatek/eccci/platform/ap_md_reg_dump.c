@@ -1212,7 +1212,7 @@ void md_dump_reg(struct ccci_modem *md)
 	if ((res.a0 & 0xffff0000) != 0) {
 		CCCI_NORMAL_LOG(-1, TAG, "[%s] go kernel md reg dump\n", __func__);
 		CCCI_NORMAL_LOG(-1, TAG, "[%s] md_gen\n", __func__, md_cd_plat_val_ptr.md_gen);
-		if (ap_plat_info == 6768)
+		if (ap_plat_info == 6768 || ap_plat_info == 6765)
 			md_dump_register_for_6768(md);
 		else
 			internal_md_dump_debug_register(md->index);

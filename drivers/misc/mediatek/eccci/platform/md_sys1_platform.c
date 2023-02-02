@@ -679,7 +679,7 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 		"[POWER OFF] MD MTCMOS OFF start\n");
 	CCCI_NORMAL_LOG(md->index, TAG,
 		"[POWER OFF] MD MTCMOS OFF start\n");
-#if IS_ENABLED(CONFIG_COMMON_CLK_PG_LEGACY)
+#if IS_ENABLED(CONFIG_COMMON_CLK_PG_LEGACY_V1) || IS_ENABLED(CONFIG_COMMON_CLK_PG_LEGACY)
 	clk_disable_unprepare(clk_table[0].clk_ref);
 #else
 	ret = pm_runtime_put_sync(&md->plat_dev->dev);
@@ -690,8 +690,7 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 		"[POWER OFF] MD MTCMOS OFF end: ret = %d\n", ret);
 
 	/* 1. power off srclkena for gen97 */
-	if (md_cd_plat_val_ptr.md_gen == 6297 &&
-	    (md_cd_plat_val_ptr.power_flow_config & (1 << SRCCLKENA_SETTING_BIT))) {
+	if (md_cd_plat_val_ptr.power_flow_config & (1 << SRCCLKENA_SETTING_BIT)) {
 		ret = regmap_read(md->hw_info->plat_val->infra_ao_base,
 			INFRA_AO_MD_SRCCLKENA, &reg_value);
 		if (ret) {
@@ -1169,7 +1168,13 @@ void md1_pll_init(struct ccci_modem *md)
 
 	/* Default md_srclkena_ack settle time = 147T 32K */
 	ccci_write32(md_pll->md_top_Pll, 0x4, 0x02020E93);
-
+	if (ap_plat_info == 6765) {
+		/* Default md_srclkena_ack settle time = 136T 32K */
+		ccci_write32(md_pll->md_top_Pll, 0x4, 0x02020E88);
+	} else {
+		/* Default md_srclkena_ack settle time = 147T 32K */
+		ccci_write32(md_pll->md_top_Pll, 0x4, 0x02020E93);
+	}
 	/* PLL init */
 	ccci_write32(md_pll->md_top_Pll, 0x60, 0x801713B1);
 	ccci_write32(md_pll->md_top_Pll, 0x58, 0x80171400);
@@ -1319,7 +1324,7 @@ static int md_cd_power_on(struct ccci_modem *md)
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
 	flight_mode_set_by_atf(md, false);
 
-#if IS_ENABLED(CONFIG_COMMON_CLK_PG_LEGACY)
+#if IS_ENABLED(CONFIG_COMMON_CLK_PG_LEGACY_V1) || IS_ENABLED(CONFIG_COMMON_CLK_PG_LEGACY)
 	ret = clk_prepare_enable(clk_table[0].clk_ref);
 #else
 	ret = pm_runtime_get_sync(&md->plat_dev->dev);
