@@ -6680,8 +6680,18 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						CAM_UNI_REG_B_TOP_PATH_SEL(
 							ISP_UNI_A_IDX))) & 0x3);
 					pr_info("CAM_B viewFinder is ON\n");
-					cam_dmao = ISP_RD32(CAM_REG_CTL_DMA_EN(
+
+					if (sec_on) {
+						cam_dmao =
+							lock_reg.CAM_REG_CTL_DMA_EN
+						    [ISP_CAM_B_IDX];
+					} else {
+						cam_dmao =
+							ISP_RD32(
+							CAM_REG_CTL_DMA_EN(
 							ISP_CAM_B_IDX));
+					}
+
 					pr_info("CAM_B:[DMA_EN]:0x%x\n",
 						cam_dmao);
 					vf = ISP_RD32(CAM_REG_TG_VF_CON(
