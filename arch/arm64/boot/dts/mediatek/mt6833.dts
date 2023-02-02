@@ -57,6 +57,7 @@
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram \
 			8250.nr_uarts=4 \
+			rcupdate.rcu_expedited=1 \
 			vmalloc=400M swiotlb=noforce \
 			firmware_class.path=/vendor/firmware \
 			androidboot.hardware=mt6833 \
