@@ -74,7 +74,7 @@ subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/mt6765
 subdir-ccflags-y += -Wno-incompatible-pointer-types
 endif
 # Update pmic built flow to avoid codec init later than codec probe
-obj-$(CONFIG_SND_SOC_MT6765) += codec/
-obj-$(CONFIG_SND_SOC_MT6765) += common_int/
+obj-$(CONFIG_MTK_SND_SOC_NEW_ARCH_COMMON) += codec/
+obj-$(CONFIG_MTK_SND_SOC_NEW_ARCH_COMMON) += common_int/
 obj-$(CONFIG_SND_SOC_MT6765) += mt6765/
 endif

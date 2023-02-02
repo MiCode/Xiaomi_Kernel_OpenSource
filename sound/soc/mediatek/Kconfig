@@ -437,6 +437,14 @@ config MTK_SND_SOC_NEW_ARCH
 	  If new chip after mt6757, we will enable this config.
 	  Audio driver refactor to common folder and platform folder.
 
+config MTK_SND_SOC_NEW_ARCH_COMMON
+	tristate "ASoc support for common drivers"
+	help
+	  This adds support for common drivers
+	  that can be used if MTK_SND_SOC_NEW_ARCH is enabled.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
 config SND_SOC_CODEC_MT6357
 	tristate "ASoc Audio driver for MT6357 codec"
 	help
