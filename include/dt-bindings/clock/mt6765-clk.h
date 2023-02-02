@@ -332,4 +332,11 @@
 #define CLK_CAM_CCU			8
 #define CLK_CAM_NR_CLK			9
 
+
+
+/* SCP_SYS */
+
+#define SCP_SYS_MD1		0
+#define SCP_NR_SYSS		1
+
 #endif /* _DT_BINDINGS_CLK_MT6765_H */
