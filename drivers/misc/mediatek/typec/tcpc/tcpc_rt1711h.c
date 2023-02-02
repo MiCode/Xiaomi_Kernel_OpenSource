@@ -669,9 +669,6 @@ static int rt1711_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	if (chip->chip_id == RT1711H_DID_A) {
 		rt1711_i2c_write8(tcpc, TCPC_V10_REG_FAULT_CTRL,
 			TCPC_V10_REG_FAULT_CTRL_DIS_VCONN_OV);
-	} else if (chip->chip_id == SC2150A_DID) {
-		rt1711_i2c_write8(tcpc, TCPC_V10_REG_COMMAND,
-					TCPM_CMD_ENABLE_VBUS_DETECT);
 	}
 
 	/*
@@ -819,7 +816,6 @@ static int rt1711_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2)
 {
 	int status, role_ctrl, cc_role;
 	bool act_as_sink, act_as_drp;
-	struct rt1711_chip *chip = tcpc_get_dev_data(tcpc);
 
 	status = rt1711_i2c_read8(tcpc, TCPC_V10_REG_CC_STATUS);
 	if (status < 0)
@@ -858,16 +854,6 @@ static int rt1711_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2)
 	 * enum tcpc_cc_voltage_status.
 	 */
 
-	if (chip->chip_id == SC2150A_DID && act_as_drp &&
-			act_as_sink) {
-		if ((*cc1 + *cc2) > (2 * TYPEC_CC_VOLT_RA)) {
-			if (*cc1 == TYPEC_CC_VOLT_RA)
-				*cc1 = TYPEC_CC_VOLT_OPEN;
-			if (*cc2 == TYPEC_CC_VOLT_RA)
-				*cc2 = TYPEC_CC_VOLT_OPEN;
-		}
-	}
-
 	if (*cc1 != TYPEC_CC_VOLT_OPEN)
 		*cc1 |= (act_as_sink << 2);
 
@@ -883,13 +869,8 @@ static int rt1711_get_cc(struct tcpc_device *tcpc, int *cc1, int *cc2)
 static int rt1711_enable_vsafe0v_detect(
 	struct tcpc_device *tcpc, bool enable)
 {
-	int ret = 0;
-	struct rt1711_chip *chip = tcpc_get_dev_data(tcpc);
+	int ret = rt1711_i2c_read8(tcpc, RT1711H_REG_RT_MASK);
 
-	if (chip->chip_id == SC2150A_DID)
-		enable = true;
-
-	ret = rt1711_i2c_read8(tcpc, RT1711H_REG_RT_MASK);
 	if (ret < 0)
 		return ret;
 
@@ -903,23 +884,18 @@ static int rt1711_enable_vsafe0v_detect(
 
 static int rt1711_set_cc(struct tcpc_device *tcpc, int pull)
 {
-	int ret = 0;
-	uint8_t data = 0, old_data = 0;
+	int ret;
+	uint8_t data;
 	int rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull), pull1, pull2;
-	struct rt1711_chip *chip = tcpc_get_dev_data(tcpc);
 
 	RT1711_INFO("pull = 0x%02X\n", pull);
 	pull = TYPEC_CC_PULL_GET_RES(pull);
-	if (chip->chip_id == SC2150A_DID)
-		old_data = rt1711_i2c_read8(tcpc, TCPC_V10_REG_ROLE_CTRL);
 	if (pull == TYPEC_CC_DRP) {
 		data = TCPC_V10_REG_ROLE_CTRL_RES_SET(
 				1, rp_lvl, TYPEC_CC_RD, TYPEC_CC_RD);
 
-		if (chip->chip_id != SC2150A_DID || old_data != data) {
-			ret = rt1711_i2c_write8(
-				tcpc, TCPC_V10_REG_ROLE_CTRL, data);
-		}
+		ret = rt1711_i2c_write8(
+			tcpc, TCPC_V10_REG_ROLE_CTRL, data);
 
 		if (ret == 0) {
 			rt1711_enable_vsafe0v_detect(tcpc, false);
@@ -940,9 +916,7 @@ static int rt1711_set_cc(struct tcpc_device *tcpc, int pull)
 				pull2 = TYPEC_CC_OPEN;
 		}
 		data = TCPC_V10_REG_ROLE_CTRL_RES_SET(0, rp_lvl, pull1, pull2);
-		if (chip->chip_id != SC2150A_DID || old_data != data)
-			ret = rt1711_i2c_write8(tcpc,
-						TCPC_V10_REG_ROLE_CTRL, data);
+		ret = rt1711_i2c_write8(tcpc, TCPC_V10_REG_ROLE_CTRL, data);
 	}
 
 	return 0;
@@ -1056,7 +1030,9 @@ int rt1711h_set_intrst(struct tcpc_device *tcpc, bool en)
 
 static int rt1711_tcpc_deinit(struct tcpc_device *tcpc)
 {
+#if IS_ENABLED(CONFIG_RT_REGMAP)
 	struct rt1711_chip *chip = tcpc_get_dev_data(tcpc);
+#endif /* CONFIG_RT_REGMAP */
 
 #if CONFIG_TCPC_SHUTDOWN_CC_DETACH
 	rt1711_set_cc(tcpc, TYPEC_CC_DRP);
@@ -1069,9 +1045,6 @@ static int rt1711_tcpc_deinit(struct tcpc_device *tcpc)
 	rt1711_i2c_write8(tcpc,
 		RT1711H_REG_INTRST_CTRL,
 		RT1711H_REG_INTRST_SET(true, 0));
-
-	if (chip->chip_id == SC2150A_DID)
-		rt1711_i2c_write8(tcpc, RT1711H_REG_SWRESET, 1);
 #else
 	rt1711_i2c_write8(tcpc, RT1711H_REG_SWRESET, 1);
 #endif	/* CONFIG_TCPC_SHUTDOWN_CC_DETACH */
@@ -1117,15 +1090,6 @@ static int rt1711_set_rx_enable(struct tcpc_device *tcpc, uint8_t enable)
 	}
 
 	return ret;
-}
-
-static int rt1711_get_chip_id(struct tcpc_device *tcpc, uint32_t *chip_id)
-{
-	struct rt1711_chip *chip = tcpc_get_dev_data(tcpc);
-
-	*chip_id = chip->chip_id;
-
-	return 0;
 }
 
 static int rt1711_get_message(struct tcpc_device *tcpc, uint32_t *payload,
@@ -1194,9 +1158,6 @@ static int rt1711_transmit(struct tcpc_device *tcpc,
 		if (data_cnt > 0)
 			memcpy(packet.data, (uint8_t *) data, data_cnt);
 
-		if (chip->chip_id == SC2150A_DID)
-			packet.cnt += 4;
-
 		rv = rt1711_block_write(chip->client,
 				TCPC_V10_REG_TX_BYTE_CNT,
 				packet.cnt+1, (uint8_t *) &packet);
@@ -1239,7 +1200,6 @@ static struct tcpc_ops rt1711_tcpc_ops = {
 	.set_low_rp_duty = rt1711_set_low_rp_duty,
 	.set_vconn = rt1711_set_vconn,
 	.deinit = rt1711_tcpc_deinit,
-	.get_chip_id = rt1711_get_chip_id,
 
 #if CONFIG_TCPC_LOW_POWER_MODE
 	.is_low_power_mode = rt1711_is_low_power_mode,
@@ -1424,7 +1384,7 @@ static int rt1711_tcpcdev_init(struct rt1711_chip *chip, struct device *dev)
 #endif  /* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
 #if CONFIG_USB_PD_REV30
-	if (chip->chip_id >= RT1715_DID_D || chip->chip_id == SC2150A_DID)
+	if (chip->chip_id >= RT1715_DID_D)
 		chip->tcpc->tcpc_flags |= TCPC_FLAGS_PD_REV30;
 
 	if (chip->tcpc->tcpc_flags & TCPC_FLAGS_PD_REV30)
@@ -1439,8 +1399,6 @@ static int rt1711_tcpcdev_init(struct rt1711_chip *chip, struct device *dev)
 
 #define RICHTEK_1711_VID	0x29cf
 #define RICHTEK_1711_PID	0x1711
-#define SC2150A_VID             0x311C
-#define SC2150A_PID             0x2150
 
 static inline int rt1711h_check_revision(struct i2c_client *client)
 {
@@ -1454,7 +1412,7 @@ static inline int rt1711h_check_revision(struct i2c_client *client)
 		return -EIO;
 	}
 
-	if (vid != RICHTEK_1711_VID && vid != SC2150A_VID) {
+	if (vid != RICHTEK_1711_VID) {
 		pr_info("%s failed, VID=0x%04x\n", __func__, vid);
 		return -ENODEV;
 	}
@@ -1465,7 +1423,7 @@ static inline int rt1711h_check_revision(struct i2c_client *client)
 		return -EIO;
 	}
 
-	if (pid != RICHTEK_1711_PID && pid != SC2150A_PID) {
+	if (pid != RICHTEK_1711_PID) {
 		pr_info("%s failed, PID=0x%04x\n", __func__, pid);
 		return -ENODEV;
 	}

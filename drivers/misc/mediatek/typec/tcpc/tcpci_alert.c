@@ -24,18 +24,9 @@
  * [BLOCK] TCPCI IRQ Handler
  */
 
-static int tcpci_alert_power_status_changed(struct tcpc_device *tcpc);
 static int tcpci_alert_cc_changed(struct tcpc_device *tcpc)
 {
-	int ret = 0;
-	int retval = 0;
-	uint32_t chip_id = 0;
-
-	ret = tcpc_typec_handle_cc_change(tcpc);
-	retval = tcpci_get_chip_id(tcpc, &chip_id);
-	if (!retval && (chip_id == SC2150A_DID))
-		tcpci_alert_power_status_changed(tcpc);
-	return ret;
+	return tcpc_typec_handle_cc_change(tcpc);
 }
 
 #if CONFIG_TCPC_VSAFE0V_DETECT_IC
@@ -351,20 +342,12 @@ static int tcpci_alert_vendor_defined(struct tcpc_device *tcpc)
 	return 0;
 }
 
-#define VCONN_OCP_FAULT		(1 << 1)
 static int tcpci_alert_fault(struct tcpc_device *tcpc)
 {
 	uint8_t status = 0;
-	uint32_t chip_id = 0;
-	int retval = 0;
 
-	retval = tcpci_get_chip_id(tcpc, &chip_id);
 	tcpci_get_fault_status(tcpc, &status);
 	TCPC_INFO("FaultAlert=0x%x\n", status);
-	if (!retval && (chip_id == SC2150A_DID)) {
-		if (status & VCONN_OCP_FAULT)
-			tcpci_set_vconn(tcpc, false);
-	}
 	tcpci_fault_status_clear(tcpc, status);
 	return 0;
 }
@@ -464,9 +447,8 @@ int tcpci_alert(struct tcpc_device *tcpc)
 	int i;
 #endif /* CONFIG_USB_PD_DBG_SKIP_ALERT_HANDLER */
 	int rv;
-	uint32_t alert_status = 0;
-	uint32_t alert_mask = 0;
-	uint32_t chip_id;
+	uint32_t alert_status;
+	uint32_t alert_mask;
 
 	rv = tcpci_get_alert_status(tcpc, &alert_status);
 	if (rv)
@@ -487,9 +469,7 @@ int tcpci_alert(struct tcpc_device *tcpc)
 			  alert_status, alert_mask);
 #endif /* CONFIG_USB_PD_DBG_ALERT_STATUS */
 
-	rv = tcpci_get_chip_id(tcpc, &chip_id);
-	if (rv || SC2150A_DID != chip_id)
-		alert_status &= alert_mask;
+	alert_status &= alert_mask;
 
 	tcpci_alert_status_clear(tcpc,
 		alert_status & (~TCPC_REG_ALERT_RX_MASK));

@@ -25,8 +25,6 @@
 #include "pd_core.h"
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#define SC2150A_DID		0x0000
-
 #define PE_STATE_FULL_NAME	0
 
 #define TCPC_LOW_RP_DUTY		(100)		/* 10 % */
@@ -63,7 +61,6 @@ static inline int tcpci_check_vbus_valid(struct tcpc_device *tcpc)
 	return tcpc->vbus_level >= TCPC_VBUS_VALID;
 }
 
-int tcpci_get_chip_id(struct tcpc_device *tcpc, uint32_t *chip_id);
 int tcpci_check_vbus_valid_from_ic(struct tcpc_device *tcpc);
 int tcpci_check_vsafe0v(struct tcpc_device *tcpc, bool detect_en);
 int tcpci_alert_status_clear(struct tcpc_device *tcpc, uint32_t mask);
