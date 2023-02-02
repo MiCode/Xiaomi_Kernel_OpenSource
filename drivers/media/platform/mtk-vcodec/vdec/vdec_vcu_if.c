@@ -725,7 +725,10 @@ int vcu_dec_set_frame_buffer(struct vdec_vcu_inst *vcu, void *fb)
 			if (pfb == &dst_buf_info->frame_buffer) {
 				dst_not_get = false;
 			}
-			ipi_fb.vdec_fb_va = (u64)(pfb->index + 1);
+			if (pfb != NULL)
+				ipi_fb.vdec_fb_va = (u64)(pfb->index + 1);
+			else
+				ipi_fb.vdec_fb_va = (u64)0;
 		}
 
 		if (pfb != NULL) {
