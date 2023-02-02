@@ -966,6 +966,9 @@ config LEDS_ACER_A500
 comment "Flash and Torch LED drivers"
 source "drivers/leds/flash/Kconfig"
 
+comment "RGB LED drivers"
+source "drivers/leds/rgb/Kconfig"
+
 config LEDS_MTK
 	tristate "Mediatek COMMON LED support"
 	depends on LEDS_CLASS
