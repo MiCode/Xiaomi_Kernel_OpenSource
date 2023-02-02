@@ -29,6 +29,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
 # camera_isp_4_t.o for mt6768 series; camera_isp_4_c.o for mt6765 series.
 ifeq ($(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT), m)
     obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT) += camera_isp_4_t.o
+    obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT) += camera_isp_4_c.o
     obj-$(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT) += cam_qos_4.o
 
 else ifeq ($(CONFIG_MTK_CAMERA_ISP_RAW_SUPPORT), y)

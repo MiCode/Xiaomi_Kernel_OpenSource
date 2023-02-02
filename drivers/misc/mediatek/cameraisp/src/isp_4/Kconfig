@@ -5,3 +5,11 @@ config MTK_CAMERA_ISP_RAW_SUPPORT_ISP4_T
 	  processes and enhances the image raw data
 	  from the imgsensor.
 	  Disable if it is not supported or not wanted.
+
+config MTK_CAMERA_ISP_RAW_SUPPORT_ISP4_C
+	tristate "[ISP] Image Signal Processor - mt6765"
+	help
+	  Enable to build mt6765 camera isp driver which
+	  processes and enhances the image raw data
+	  from the imgsensor.
+	  Disable if it is not supported or not wanted.
