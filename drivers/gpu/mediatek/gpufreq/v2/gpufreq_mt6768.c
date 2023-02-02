@@ -426,7 +426,7 @@ struct gpufreq_debug_opp_info __gpufreq_get_debug_opp_info_gpu(void)
 /* This is usually for ptpod use. */
 unsigned int __gpufreq_get_ptpod_opp_idx(unsigned int idx)
 {
-	if (idx < PTPOD_OPP_GPU_NUM && idx >= 0)
+	if (idx < PTPOD_OPP_GPU_NUM)
 		return g_ptpod_opp_idx_table[idx];
 	else
 		return idx;
@@ -611,7 +611,7 @@ EXPORT_SYMBOL(mt_gpufreq_get_ori_opp_idx);
 /* API : get voltage via OPP table real index */
 unsigned int mt_gpufreq_get_volt_by_real_idx(unsigned int idx)
 {
-	if (idx >= 0 && idx < g_gpu.signed_opp_num)
+	if (idx < g_gpu.signed_opp_num)
 		return g_gpu.signed_table[idx].volt;
 	else
 		return 0;
@@ -1754,7 +1754,7 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 
 	GPUFREQ_TRACE_START("freq_old=%d, freq_new=%d", freq_old, freq_new);
 
-	GPUFREQ_LOGI("begin to scale Fgpu: (%d->%d)", freq_old, freq_new);
+	GPUFREQ_LOGD("begin to scale Fgpu: (%d->%d)", freq_old, freq_new);
 
 	/*
 	 * MFGPLL_CON1[31:31]: MFGPLL_SDM_PCW_CHG
@@ -1780,7 +1780,7 @@ static int __gpufreq_freq_scale_gpu(unsigned int freq_old, unsigned int freq_new
 #else
 	/* force parking if FHCTL isn't ready */
 	parking = true;
-	GPUFREQ_LOGI("Fgpu: %d, PCW: 0x%x, CON1: 0x%08x", g_gpu.cur_freq, pcw, pll);
+	GPUFREQ_LOGD("Fgpu: %d, PCW: 0x%x, CON1: 0x%08x", g_gpu.cur_freq, pcw, pll);
 #endif
 
 	if (parking) {
@@ -1978,7 +1978,7 @@ static unsigned int __gpufreq_get_real_fgpu(void)
 	unsigned int freq = 0;
 	unsigned int pcw = 0;
 
-	GPUFREQ_LOGE("MFGPLL_CON1 = 0x%x", MFGPLL_CON1);
+	GPUFREQ_LOGD("MFGPLL_CON1 = 0x%x", MFGPLL_CON1);
 
 	mfgpll = readl(MFGPLL_CON1);
 
