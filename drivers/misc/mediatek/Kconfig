@@ -50,6 +50,7 @@ config MTK_PLAT_POWER_MT6768
 
 config MTK_PLAT_POWER_MT6765
 	tristate "Platform power specified macro"
+	select SCP_DVFS_NOT_READY
 	help
 	  This macro is used to distinguish the platform dependent parts
 	  from those power related features.

@@ -41,3 +41,10 @@ config MTK_TINYSYS_SCP_DEBUG_SUPPORT
 	  Set N to disable this feature.
 	  If unsure, Set N to disable it.
 
+config SCP_DVFS_NOT_READY
+	bool "SCP DVFS Disable"
+	help
+	  This config is used to disable SCP DVFS
+	  Set Y to enable this feature.
+	  Set N to disable this feature.
+	  If unsure, Set N to disable it.
