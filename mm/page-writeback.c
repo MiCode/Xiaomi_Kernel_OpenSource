@@ -1886,6 +1886,8 @@ void balance_dirty_pages_ratelimited(struct address_space *mapping)
 	if (!(bdi->capabilities & BDI_CAP_WRITEBACK))
 		return;
 
+	trace_android_rvh_ctl_dirty_rate(NULL);
+
 	if (inode_cgwb_enabled(inode))
 		wb = wb_get_create_current(bdi, GFP_KERNEL);
 	if (!wb)

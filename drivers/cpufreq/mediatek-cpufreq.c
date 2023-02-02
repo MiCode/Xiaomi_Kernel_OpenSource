@@ -15,6 +15,10 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/thermal.h>
+#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
+#include <linux/device.h>
+#include <trace/hooks/cpufreq.h>
+#endif
 
 #define MIN_VOLT_SHIFT		(100000)
 #define MAX_VOLT_SHIFT		(200000)
@@ -462,6 +466,13 @@ static int mtk_cpufreq_exit(struct cpufreq_policy *policy)
 	return 0;
 }
 
+#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
+static void mtk_cpufreq_suppress(void *data, struct device *dev, int val)
+{
+	dev_set_uevent_suppress(dev, val);
+}
+#endif
+
 static struct cpufreq_driver mtk_cpufreq_driver = {
 	.flags = CPUFREQ_NEED_INITIAL_FREQ_CHECK |
 		 CPUFREQ_HAVE_GOVERNOR_PER_POLICY |
@@ -508,6 +519,10 @@ static int mtk_cpufreq_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to register mtk cpufreq driver\n");
 		goto release_dvfs_info_list;
 	}
+
+#if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
+	ret = register_trace_android_vh_cpufreq_offline(mtk_cpufreq_suppress, NULL);
+#endif
 
 	return 0;
 
