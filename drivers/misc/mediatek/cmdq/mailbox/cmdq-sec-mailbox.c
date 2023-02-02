@@ -203,13 +203,28 @@ cmdq_sec_setup_tee_context_base(struct cmdq_sec_context *context)
 #endif
 }
 
+extern u32 gce_thread_nr;
+bool is_cmdq_gp_support = true;
 static inline s32
 cmdq_sec_init_context_base(struct cmdq_sec_context *context)
 {
 	s32 status = 0;
 
 #ifdef CMDQ_GP_SUPPORT
-	status = cmdq_sec_init_context(&context->tee);
+	if (gce_thread_nr == 16) { /*gce_plat_v2*/
+		struct device_node *dt_node_svp_mtee = of_find_node_by_name(NULL, "MTEE");
+		struct device_node *dt_node_svp = of_find_node_by_name(NULL, "SecureVideoPath");
+
+		cmdq_msg("[SEC] svp:%p, mtee:%p", dt_node_svp, dt_node_svp_mtee);
+
+		if (dt_node_svp && !dt_node_svp_mtee)
+			status = cmdq_sec_init_context(&context->tee);
+		else
+			is_cmdq_gp_support = false;
+	} else {
+		status = cmdq_sec_init_context(&context->tee);
+	}
+
 	if (status < 0)
 		return status;
 #endif
@@ -792,26 +807,28 @@ static s32 cmdq_sec_session_init(struct cmdq_sec_context *context)
 		context->state = IWC_CONTEXT_INITED;
 	case IWC_CONTEXT_INITED:
 #ifdef CMDQ_GP_SUPPORT
-		if (!context->iwc_msg) {
-			err = cmdq_sec_allocate_wsm(&context->tee,
-				&context->iwc_msg, CMDQ_IWC_MSG,
-				sizeof(struct iwcCmdqMessage_t));
-			if (err)
-				break;
-		}
-		if (!context->iwc_ex1) {
-			err = cmdq_sec_allocate_wsm(&context->tee,
-				&context->iwc_ex1, CMDQ_IWC_MSG1,
-				sizeof(struct iwcCmdqMessageEx_t));
-			if (err)
-				break;
-		}
-		if (!context->iwc_ex2) {
-			err = cmdq_sec_allocate_wsm(&context->tee,
-				&context->iwc_ex2, CMDQ_IWC_MSG2,
-				sizeof(struct iwcCmdqMessageEx2_t));
-			if (err)
-				break;
+		if (is_cmdq_gp_support) {
+			if (!context->iwc_msg) {
+				err = cmdq_sec_allocate_wsm(&context->tee,
+					&context->iwc_msg, CMDQ_IWC_MSG,
+					sizeof(struct iwcCmdqMessage_t));
+				if (err)
+					break;
+			}
+			if (!context->iwc_ex1) {
+				err = cmdq_sec_allocate_wsm(&context->tee,
+					&context->iwc_ex1, CMDQ_IWC_MSG1,
+					sizeof(struct iwcCmdqMessageEx_t));
+				if (err)
+					break;
+			}
+			if (!context->iwc_ex2) {
+				err = cmdq_sec_allocate_wsm(&context->tee,
+					&context->iwc_ex2, CMDQ_IWC_MSG2,
+					sizeof(struct iwcCmdqMessageEx2_t));
+				if (err)
+					break;
+			}
 		}
 #endif
 
@@ -833,9 +850,11 @@ static s32 cmdq_sec_session_init(struct cmdq_sec_context *context)
 		context->state = IWC_WSM_ALLOCATED;
 	case IWC_WSM_ALLOCATED:
 #ifdef CMDQ_GP_SUPPORT
-		err = cmdq_sec_open_session(&context->tee, context->iwc_msg);
-		if (err)
-			break;
+		if (is_cmdq_gp_support) {
+			err = cmdq_sec_open_session(&context->tee, context->iwc_msg);
+			if (err)
+				break;
+		}
 #endif
 		context->state = IWC_SES_OPENED;
 	default:
