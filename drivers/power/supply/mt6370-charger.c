@@ -658,13 +658,14 @@ static inline int mt6370_chg_field_get(struct mt6370_priv *priv,
 {
 	int ret;
 	unsigned int reg_val;
+	u32 idx = fd;
 
-	ret = regmap_field_read(priv->rmap_fields[fd], &reg_val);
+	ret = regmap_field_read(priv->rmap_fields[idx], &reg_val);
 	if (ret)
 		return ret;
 
-	if (mt6370_chg_fields[fd].range)
-		return linear_range_get_value(mt6370_chg_fields[fd].range,
+	if (mt6370_chg_fields[idx].range)
+		return linear_range_get_value(mt6370_chg_fields[idx].range,
 					       reg_val, val);
 
 	*val = reg_val;
@@ -721,9 +722,10 @@ static inline int mt6370_chg_field_set(struct mt6370_priv *priv,
 	int ret;
 	bool f;
 	const struct linear_range *r;
+	u32 idx = fd;
 
-	if (mt6370_chg_fields[fd].range) {
-		r = mt6370_chg_fields[fd].range;
+	if (mt6370_chg_fields[idx].range) {
+		r = mt6370_chg_fields[idx].range;
 
 		if (fd == F_VMIVR) {
 			ret = mt6370_linear_range_get_selector_high(r, val, &val, &f);
@@ -734,7 +736,7 @@ static inline int mt6370_chg_field_set(struct mt6370_priv *priv,
 		}
 	}
 
-	return regmap_field_write(priv->rmap_fields[fd], val);
+	return regmap_field_write(priv->rmap_fields[idx], val);
 }
 
 enum {
@@ -1355,6 +1357,8 @@ static int mt6370_chg_get_property(struct power_supply *psy,
 {
 	struct mt6370_priv *priv = power_supply_get_drvdata(psy);
 
+	if (!priv)
+		return -ENODEV;
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		return mt6370_chg_get_online(priv, val);
@@ -1397,6 +1401,8 @@ static int mt6370_chg_set_property(struct power_supply *psy,
 {
 	struct mt6370_priv *priv = power_supply_get_drvdata(psy);
 
+	if (!priv)
+		return -ENODEV;
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		return mt6370_chg_set_online(priv, val);
