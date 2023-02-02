@@ -24,6 +24,28 @@
 #include <dt-bindings/power/mt6765-power.h>
 
 
+//for MT6765
+#define MT6765_TOP_AXI_PROT_EN_INFRA_1_MD1	(BIT(7))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_2_MD1	(BIT(3) | BIT(4))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_3_MD1	(BIT(6))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_CONN	(BIT(13))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_CONN_2ND	(BIT(18))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_1_CONN	(BIT(14))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_1_CONN_2ND	(BIT(21))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_DPY	(BIT(0) | BIT(23) | BIT(26))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_DPY_2ND    (BIT(10) | BIT(11) | BIT(12) | BIT(13) |\
+						BIT(14) | BIT(15) | BIT(16) | BIT(17))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_2_DPY      (BIT(1) | BIT(2) | BIT(3) | BIT(4) | \
+						BIT(10) | BIT(11) | BIT(21) | BIT(22))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_MM_DIS     (BIT(1) | BIT(2) | BIT(10) | BIT(11))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_MM_2_DIS   (BIT(16) | BIT(17))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_MFG        (BIT(25))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_MFG_2ND    (BIT(21) | BIT(22))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_0_CAM      (BIT(19) | BIT(21))
+#define MT6765_TOP_AXI_PROT_EN_SMI_CAM          (BIT(20))
+#define MT6765_TOP_AXI_PROT_EN_INFRA_2_CAM      (BIT(3))
+
+
 /*
  * MT6765 power domain support
  */
@@ -146,11 +168,13 @@ static const struct scp_domain_data scp_domain_data_mt6765[] = {
 		.name = "cam",
 		.sta_mask = BIT(25),
 		.ctl_offs = 0x0344,
-		.sram_pdn_bits = GENMASK(8, 8),
-		.sram_pdn_ack_bits = GENMASK(12, 12),
+		.sram_pdn_bits = GENMASK(9, 8),
+		.sram_pdn_ack_bits = GENMASK(13, 12),
 		.bp_table = {
 			BUS_PROT_IGN(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
-				MT6765_TOP_AXI_PROT_EN_INFRA_1_CAM),
+				MT6765_TOP_AXI_PROT_EN_INFRA_0_CAM),
+			BUS_PROT_IGN(SMI_TYPE, 0x03C4, 0x03C8, 0x03C0, 0x03C0,
+				MT6765_TOP_AXI_PROT_EN_SMI_CAM),
 			BUS_PROT_IGN(IFR_TYPE, 0x02A0, 0x02A4, 0x0220, 0x0228,
 				MT6765_TOP_AXI_PROT_EN_INFRA_2_CAM),
 		},
