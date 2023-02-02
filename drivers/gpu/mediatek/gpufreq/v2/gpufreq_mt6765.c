@@ -31,6 +31,12 @@
 #include <gpuppm.h>
 #include <gpufreq_common.h>
 #include <mtk_gpu_utility.h>
+
+
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_BATTERY_OC_POWER_THROTTLING)
 #include <mtk_battery_oc_throttling.h>
 #endif
@@ -2480,7 +2486,11 @@ static void __exit __gpufreq_exit(void)
 {
 	platform_driver_unregister(&g_gpufreq_pdrv);
 }
+#if IS_BUILTIN(CONFIG_MTK_GPU_MT6765_SUPPORT)
+rootfs_initcall(__gpufreq_init);
+#else
 module_init(__gpufreq_init);
+#endif
 module_exit(__gpufreq_exit);
 MODULE_DEVICE_TABLE(of, g_gpufreq_of_match);
 MODULE_DESCRIPTION("MediaTek GPU-DVFS platform driver");
