@@ -1490,12 +1490,12 @@ static long vcodec_get_mva_free(struct device *dev, unsigned long arg)
 	}
 	fd = rMemObj.shared_fd;
 	cnt = rMemObj.cnt;
+	mutex_lock(&DmaAllocLock);
 	if (dma_buf_info[cnt].attach != NULL && dma_buf_info[cnt].sgt != NULL)
 		dma_buf_unmap_attachment(dma_buf_info[cnt].attach, dma_buf_info[cnt].sgt,
 			DMA_BIDIRECTIONAL);
 	if (dma_buf_info[cnt].dbuf != NULL && dma_buf_info[cnt].attach != NULL)
 		dma_buf_detach(dma_buf_info[cnt].dbuf, dma_buf_info[cnt].attach);
-	mutex_lock(&DmaAllocLock);
 	dma_buf_info[cnt].attach = NULL;
 	dma_buf_info[cnt].sgt = NULL;
 	dma_buf_info[cnt].dbuf = NULL;
