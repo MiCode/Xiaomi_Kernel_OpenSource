@@ -4180,7 +4180,8 @@ static void fbt_frame_start(struct render_info *thr, unsigned long long ts)
 	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id,
 		loading, "compute_loading");
 
-	thr->avg_freq = loading / nsec_to_100usec(thr->Q2Q_time);
+	if (nsec_to_100usec(thr->Q2Q_time))
+		thr->avg_freq = loading / nsec_to_100usec(thr->Q2Q_time);
 
 	/* unreliable targetfps */
 	if (targetfps == -1) {
