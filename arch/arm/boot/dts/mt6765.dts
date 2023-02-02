@@ -2399,6 +2399,48 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 			"mbox2",
 			"mbox3",
 			"mbox4";
+		sspm_mem_key = "mediatek,reserve-memory-sspm_share";
+		sspm_mem_tbl = <0 0x100400>, /* logger header + 1M log buffer */
+			<1 0x300>,	/* PWRAP 768bytes*/
+			<2 0xc00>,	/* PMIC 3K */
+			<3 0x1800>,	/* UPD 6K */
+			<4 0x1000>,	/* QOS 4K*/
+			<5 0xc00>,	/* SWPM 6K*/
+			<6 0x400000>,	/* MET 4M */
+			<7 0x0>;	/* SMI 36K */
+
+		sspm_ipi_send_pin_tbl = < 3 0 1 0 0 >,
+					/* PINS_SIZE_PLATFORM, mbox, retdata, lock, polling */
+			< 4 0 1 1 1 >,	/* PINS_SIZE_CPU_DVFS, mbox, retdata, lock, polling */
+			< 4 0 1 1 1 >,	/* PINS_SIZE_QOS, mbox, retdata, lock, polling */
+			< 4 0 1 0 0 >,	/* PINS_SIZE_TST1, mbox, retdata, lock, polling */
+			< 9 0 1 1 1 >,	/* PINS_SIZE_FHCTL, mbox, retdata, lock, polling */
+			< 2 1 1 1 1 >,	/* PINS_SIZE_MCDI, mbox, retdata, lock, polling */
+			< 8 1 1 1 1 >,	/* PINS_SIZE_SPM_SUSPEND, mbox, retdata, lock, polling */
+			< 5 1 1 1 1 >,	/* PINS_SIZE_PMIC, mbox, retdata, lock, polling */
+			< 7 1 1 1 1 >,	/* PINS_SIZE_PPM, mbox, retdata, lock, polling */
+			< 4 1 1 0 0 >,	/* PINS_SIZE_THERMAL, mbox, retdata, lock, polling */
+			< 4 1 1 1 1 >,	/* PINS_SIZE_UPOWER, mbox, retdata, lock, polling */
+			< 0 0 0 0 0 >;
+			/* PINS_SIZE_UNUSED/PINS_SIZE_CM, mbox, retdata, lock, polling */
+
+		mbox_tbl = < 4 >, /* end index of pin table: mbox 0 */
+			< 10 >,  /* end index of pin table: mbox 1 */
+			< 3 >,  /* end index of pin table: mbox 2 */
+			< 0 >; /* end index of pin table: mbox 3 */
+
+		pin_name_tbl = "PLATFORM",
+			"CPU_DVFS",
+			"QOS",
+			"TST1",
+			"FHCTL",
+			"MCDI",
+			"SPM_SUSPEND",
+			"PMIC",
+			"PPM",
+			"Thermal",
+			"UPower",
+			"UN_USED";
 	};
 
 	gic500@0c000000 {
