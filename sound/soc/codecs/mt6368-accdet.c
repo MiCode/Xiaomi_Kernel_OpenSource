@@ -1092,6 +1092,9 @@ static u32 adjust_eint_analog_setting(void)
 			/* enable RG_EINT0CONFIGACCDET */
 			accdet_update_bit(RG_EINT0CONFIGACCDET_ADDR,
 				RG_EINT0CONFIGACCDET_SFT);
+			/*select 500k, use internal resistor */
+			accdet_update_bit(RG_EINT0HIRENB_ADDR,
+				RG_EINT0HIRENB_SFT);
 		} else if (HAS_CAP(accdet->data->caps,
 				ACCDET_PMIC_EINT1)) {
 			/* enable RG_EINT1CONFIGACCDET */
