@@ -46,6 +46,11 @@ static struct sspm_reserve_mblock sspm_reserve_mblock[NUMS_MEM_ID] = {
 		.size = 0x400000, /* 4M */
 	},
 #endif
+	{
+		.num = SMI_MEM_ID,
+		.size = 0x0,
+	},
+
 	/* TO align 64K, total is 1M+64K. The remaining size = 0xB900. */
 };
 #endif

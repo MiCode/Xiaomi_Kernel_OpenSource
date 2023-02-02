@@ -31,6 +31,8 @@
 #include "sspm_common.h"
 #include "sspm_reservedmem.h"
 #include "sspm_reservedmem_define.h"
+#define MEMORY_TBL_ELEM_NUM (2)
+
 #if IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 #include <linux/of_reserved_mem.h>
 
@@ -87,7 +89,7 @@ RESERVEDMEM_OF_DECLARE(sspm_reservedmem, SSPM_MEM_RESERVED_KEY,
 
 phys_addr_t sspm_reserve_mem_get_phys(unsigned int id)
 {
-	if (id >= NUMS_MEM_ID) {
+	if (id >= NUMS_MEM_ID || sspm_reserve_mblock[id].size == 0) {
 		pr_err("[SSPM] no reserve memory for 0x%x", id);
 		return 0;
 	} else
@@ -97,7 +99,7 @@ EXPORT_SYMBOL_GPL(sspm_reserve_mem_get_phys);
 
 phys_addr_t sspm_reserve_mem_get_virt(unsigned int id)
 {
-	if (id >= NUMS_MEM_ID) {
+	if (id >= NUMS_MEM_ID || sspm_reserve_mblock[id].size == 0) {
 		pr_err("[SSPM] no reserve memory for 0x%x", id);
 		return 0;
 	} else
@@ -107,7 +109,7 @@ EXPORT_SYMBOL_GPL(sspm_reserve_mem_get_virt);
 
 phys_addr_t sspm_reserve_mem_get_size(unsigned int id)
 {
-	if (id >= NUMS_MEM_ID) {
+	if (id >= NUMS_MEM_ID || sspm_reserve_mblock[id].size == 0) {
 		pr_err("[SSPM] no reserve memory for 0x%x", id);
 		return 0;
 	} else
@@ -115,9 +117,13 @@ phys_addr_t sspm_reserve_mem_get_size(unsigned int id)
 }
 EXPORT_SYMBOL_GPL(sspm_reserve_mem_get_size);
 
-int sspm_reserve_memory_init(void)
+int sspm_reserve_memory_init(struct platform_device *pdev)
 {
 	unsigned int id;
+	unsigned int sspm_mem_num = 0;
+	unsigned int i, m_idx, m_size;
+	int ret;
+	const char *mem_key;
 	phys_addr_t accumlate_memory_size;
 
 	if (NUMS_MEM_ID == 0)
@@ -130,13 +136,67 @@ int sspm_reserve_memory_init(void)
 	if (!sspm_mem_base_phys)
 		return -1;
 
+	/* Read from DTS, the reserved memory details*/
+	ret = of_property_read_string(pdev->dev.of_node, "sspm_mem_key",
+			&mem_key);
+
+	if (ret) {
+		pr_info("[SSPM] cannot find property\n");
+		return -EINVAL;
+	}
+
+	/* Set reserved memory table */
+	sspm_mem_num = of_property_count_u32_elems(
+				pdev->dev.of_node,
+				"sspm_mem_tbl")
+				/ MEMORY_TBL_ELEM_NUM;
+	if (sspm_mem_num <= 0) {
+		pr_info("[SSPM] SSPM_mem_tbl not found\n");
+		sspm_mem_num = 0;
+	}
+	for (i = 0; i < sspm_mem_num; i++) {
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"sspm_mem_tbl",
+				i * MEMORY_TBL_ELEM_NUM,
+				&m_idx);
+		if (ret) {
+			pr_info("Cannot get memory index(%d)\n", i);
+			return -1;
+		}
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"sspm_mem_tbl",
+				(i * MEMORY_TBL_ELEM_NUM) + 1,
+				&m_size);
+		if (ret) {
+			pr_info("Cannot get memory size(%d)\n", i);
+			return -1;
+		}
+
+		pr_debug("m_idx: (%d) ", m_idx);
+		pr_debug("m_size: (%d)", m_size);
+
+		if (m_idx >= NUMS_MEM_ID) {
+			pr_notice("[SSPM] skip unexpected index, %d\n", m_idx);
+			continue;
+		}
+
+		sspm_reserve_mblock[i].num = m_idx;
+		sspm_reserve_mblock[i].size = m_size;
+		pr_debug("sspm_reserve_mblock[i].num: (%d)", sspm_reserve_mblock[i].num);
+		pr_debug("sspm_reserve_mblock[i].size: (%d)", sspm_reserve_mblock[i].size);
+
+	}
+	/* Read from DTS, the reserved memory details*/
+
+
     /* Phy memory */
 	accumlate_memory_size = 0;
 	for (id = 0; id < NUMS_MEM_ID; id++) {
-		sspm_reserve_mblock[id].start_phys = sspm_mem_base_phys +
-							accumlate_memory_size;
-
-		accumlate_memory_size += sspm_reserve_mblock[id].size;
+		if (sspm_reserve_mblock[id].size != 0) {
+			sspm_reserve_mblock[id].start_phys = sspm_mem_base_phys +
+								accumlate_memory_size;
+			accumlate_memory_size += sspm_reserve_mblock[id].size;
+		}
 	}
 
     /* Virt memory */
@@ -152,9 +212,11 @@ int sspm_reserve_memory_init(void)
 #endif
 
 	for (id = 0; id < NUMS_MEM_ID; id++) {
-		sspm_reserve_mblock[id].start_virt = sspm_mem_base_virt +
-							accumlate_memory_size;
-		accumlate_memory_size += sspm_reserve_mblock[id].size;
+		if (sspm_reserve_mblock[id].size != 0) {
+			sspm_reserve_mblock[id].start_virt = sspm_mem_base_virt +
+								accumlate_memory_size;
+			accumlate_memory_size += sspm_reserve_mblock[id].size;
+		}
 	}
 	/* the reserved memory should be larger then expected memory
 	 * or sspm_reserve_mblock does not match dts

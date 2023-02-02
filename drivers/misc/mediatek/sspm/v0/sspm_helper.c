@@ -44,7 +44,7 @@
 static struct workqueue_struct *sspm_workqueue;
 static atomic_t sspm_inited = ATOMIC_INIT(0);
 
-static int __init sspm_module_init(void)
+static int __init sspm_module_init(struct platform_device *pdev)
 {
 	if (atomic_inc_return(&sspm_inited) != 1)
 		return 0;
@@ -61,7 +61,7 @@ static int __init sspm_module_init(void)
 		goto error;
 	}
 #if IS_ENABLED(CONFIG_OF_RESERVED_MEM)
-	if (sspm_reserve_memory_init()) {
+	if (sspm_reserve_memory_init(pdev)) {
 		pr_err("[SSPM] Reserved Memory Failed\n");
 		goto error;
 	}
@@ -74,7 +74,7 @@ static int __init sspm_module_init(void)
 		return -1;
 	}
 
-	if (sspm_ipi_init()) {
+	if (sspm_ipi_init(pdev)) {
 		pr_err("[SSPM] IPI Init Failed\n");
 		return -1;
 	}
@@ -136,16 +136,9 @@ static int __init sspm_probe(struct platform_device *pdev)
 
 	sspm_pdev = pdev;
 
-//	mbox_table = mbox_table;
-//	send_pintable = send_pintable;
-//	recv_pintable = recv_pintable;
-//	pin_name = pin_name;
-
-//	sspm_reserve_mblock = sspm_reserve_mblock;
-
 	pr_info("[SSPM] %s Done.\n", __func__);
 
-	sspm_module_init();
+	sspm_module_init(pdev);
 
 	return 0;
 }

@@ -10,6 +10,7 @@
 #include <linux/atomic.h>
 #include <linux/io.h>
 #include <linux/sched/clock.h>
+#include <linux/miscdevice.h>   /* needed by miscdevice* */
 
 #include "sspm_define.h"
 #include "sspm_common.h"
@@ -25,6 +26,8 @@
 
 #define IPI_MONITOR
 #define TIMEOUT_COMPLETE msecs_to_jiffies(2000)
+#define SEND_TBL_ELEM_NUM (5)
+#define MBOX_TBL_ELEM_NUM (1)
 
 /* #define GET_IPI_TIMESTAMP */
 #ifdef GET_IPI_TIMESTAMP
@@ -264,10 +267,154 @@ static int sspm_ipi_inited;
 static unsigned int ipi_isr_cb(unsigned int mbox, void __iomem *base,
 	unsigned int irq);
 
-int sspm_ipi_init(void)
+bool sspm_prepare_ipi_mbox_context(struct platform_device *pdev)
+{
+	u32 i, ret;
+	u32 send_count, mbox_count, pin_name_count;
+	u32 pins_size, mbox_id, m_retdata, m_lock, m_polling;
+	u32 mbox_table_end_index;
+	u32 pin_mbox0_used, pin_mbox1_used;
+	const char *pin_name_pt;
+
+	send_count = of_property_count_u32_elems(
+				pdev->dev.of_node, "sspm_ipi_send_pin_tbl")
+				/ SEND_TBL_ELEM_NUM;
+	if (send_count <= 0) {
+		pr_debug("[SSPM] sspm_ipi_send_pin_tbl is not found, send_count: = (%d)\n",
+			send_count);
+		return false;
+	}
+
+	mbox_count = of_property_count_u32_elems(
+				pdev->dev.of_node, "mbox_tbl")
+				/ MBOX_TBL_ELEM_NUM;
+	if (mbox_count <= 0) {
+		pr_debug("[SSPM] mbox_tbl is not found, mbox_count: = (%d)\n", mbox_count);
+		return false;
+	}
+
+	pin_name_count = of_property_count_strings(pdev->dev.of_node, "pin_name_tbl");
+	if (pin_name_count <= 0) {
+		pr_debug("[SSPM] pin_name_tbl is not found, pin_name_count: = (%d)\n",
+			pin_name_count);
+		return false;
+	}
+
+	/* Pin Send table */
+	for (i = 0; i < send_count; ++i) {
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"sspm_ipi_send_pin_tbl",
+				i * SEND_TBL_ELEM_NUM,
+				&pins_size);
+		if (ret) {
+			pr_debug("[SSPM]%s:Cannot get pins_size(%d):%d\n", __func__, i, __LINE__);
+			return false;
+		}
+		pr_debug("[SSPM] sspm_ipi_send_pin_tbl, pins_size: = (%d)\n", pins_size);
+
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"sspm_ipi_send_pin_tbl",
+				i * SEND_TBL_ELEM_NUM + 1,
+				&mbox_id);
+		if (ret) {
+			pr_debug("[SSPM]%s:Cannot get mbox_id (%d):%d\n", __func__, i, __LINE__);
+			return false;
+		}
+		pr_debug("[SSPM] sspm_ipi_send_pin_tbl, mbox_id: = (%d)\n", mbox_id);
+
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"sspm_ipi_send_pin_tbl",
+				i * SEND_TBL_ELEM_NUM + 2,
+				&m_retdata);
+		if (ret) {
+			pr_debug("[SSPM]%s:Cannot get m_retdata (%d):%d\n", __func__, i, __LINE__);
+			return false;
+		}
+		pr_debug("[SSPM] sspm_ipi_send_pin_tbl, m_retdata: = (%d)\n", m_retdata);
+
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"sspm_ipi_send_pin_tbl",
+				i * SEND_TBL_ELEM_NUM + 3,
+				&m_lock);
+		if (ret) {
+			pr_debug("[SSPM]%s:Cannot get m_lock (%d):%d\n", __func__, i, __LINE__);
+			return false;
+		}
+		pr_debug("[SSPM] sspm_ipi_send_pin_tbl, m_lock: = (%d)\n", m_retdata);
+
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"sspm_ipi_send_pin_tbl",
+				i * SEND_TBL_ELEM_NUM + 4,
+				&m_polling);
+		if (ret) {
+			pr_debug("[SSPM]%s:Cannot get m_polling (%d):%d\n", __func__, i, __LINE__);
+			return false;
+		}
+		pr_debug("[SSPM] sspm_ipi_send_pin_tbl, m_polling: = (%d)\n", m_polling);
+
+		send_pintable[i].mbox = mbox_id;
+		send_pintable[i].size = pins_size;
+		if (i == 0 || i == IPI_MBOX0_USERS) {
+			send_pintable[i].slot = 0;
+			if (i == IPI_MBOX0_USERS)
+				pin_mbox0_used = send_pintable[i-1].size + send_pintable[i-1].slot;
+		} else
+			send_pintable[i].slot = send_pintable[i-1].size + send_pintable[i-1].slot;
+
+		pr_debug("[SSPM] sspm_ipi_send_pin_tbl, pins_offset: = (%d)\n",
+			send_pintable[i].slot);
+		send_pintable[i].retdata = m_retdata;
+		send_pintable[i].lock = m_lock;
+		send_pintable[i].polling = m_polling;
+	}
+	pin_mbox1_used = send_pintable[i-1].size + send_pintable[i-1].slot;
+	/* Pin Send table */
+
+	/* Mbox table */
+	mbox_table[0].used_slot = pin_mbox0_used;
+	mbox_table[1].used_slot = pin_mbox1_used;
+	for (i = 0; i < mbox_count; ++i) {
+		ret = of_property_read_u32_index(pdev->dev.of_node,
+				"mbox_tbl",
+				i * MBOX_TBL_ELEM_NUM,
+				&mbox_table_end_index);
+		if (ret) {
+			pr_debug("[SSPM]%s:Cannot get mbox_table_end_index(%d):%d\n", __func__, i,
+				 __LINE__);
+			return false;
+		}
+		pr_debug("[SSPM] mbox_tbl, mbox_table_end_index: = (%d)\n", pins_size);
+		mbox_table[i].end = mbox_table_end_index;
+	}
+	/* Mbox table */
+
+	/* Pin name table */
+	for (i = 0; i < pin_name_count; ++i) {
+		ret = of_property_read_string_index(pdev->dev.of_node, "pin_name_tbl", i,
+						    &pin_name_pt);
+		if (ret < 0) {
+			pr_debug("[SSPM]%s:Cannot get pin_name_pt (%d):%d\n", __func__, i,
+				 __LINE__);
+			return false;
+		}
+		pr_debug("[SSPM] pin_name_tbl, pin_name_pt : = (%d)\n", pin_name_pt);
+		pin_name[i] = pin_name_pt;
+		pr_debug("[SSPM] pin_name[%d] : = (%s)\n", i, &pin_name[i]);
+	}
+	/* Pin name table */
+
+	return true;
+}
+
+int sspm_ipi_init(struct platform_device *pdev)
 {
 	int i, ret;
 	struct _pin_send *pin;
+
+	if (!sspm_prepare_ipi_mbox_context(pdev)) {
+		pr_err("Error while preparing ipi mbox table\n");
+		return -1;
+	}
 
 #ifdef IPI_MONITOR
 	spin_lock_init(&lock_monitor);

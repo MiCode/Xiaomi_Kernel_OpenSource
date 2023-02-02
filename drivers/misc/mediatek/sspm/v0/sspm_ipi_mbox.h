@@ -13,6 +13,7 @@
 #include <linux/mutex.h>
 
 #define IPI_MBOX_TOTAL  4
+#define IPI_MBOX0_USERS  5
 
 #define IPI_MBOX0_64D   0
 #define IPI_MBOX1_64D   0

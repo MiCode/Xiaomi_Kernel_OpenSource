@@ -10,6 +10,11 @@
 #include <linux/io.h>
 #include <linux/semaphore.h>
 #include <linux/completion.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/of_fdt.h>
 
 #include "sspm_ipi_pin.h"
 
@@ -39,7 +44,6 @@ struct ipi_action {
 #define IPI_USED_IN_WAIT    -7
 #define IPI_PIN_MISUES      -8
 
-extern int sspm_ipi_init(void);
 
 /* definition for opts arguments (new) */
 #define IPI_OPT_WAIT          0
@@ -68,5 +72,6 @@ extern int sspm_ipi_send_async(int mid, int opts, void *buffer, int slot);
 extern int sspm_ipi_send_async_wait(int mid, int opts, void *retbuf);
 extern int sspm_ipi_send_async_wait_ex(int mid, int opts, void *retbuf,
 	int retslot);
+extern int sspm_ipi_init(struct platform_device *pdev);
 
 #endif /* __SSPM_IPI_H__ */
