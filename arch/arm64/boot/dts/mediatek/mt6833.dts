@@ -2913,9 +2913,11 @@
 			<0 0x10001000 0 0x1000>,  /* INFRACFG_AO */
 			<0 0x10023000 0 0x1000>,  /* INFRA_AO_DEBUG_CTRL */
 			<0 0x1002b000 0 0x1000>,  /* INFRA_AO1_DEBUG_CTRL */
+			<0 0x10000000 0 0x1000>,  /* TOPCKGEN */
 			<0 0x11c10000 0 0x1000>,  /* EFUSE */
 			<0 0x13fb9c00 0 0x100>,   /* MFG_CPE_CONTROL */
-			<0 0x13fb6000 0 0x1000>;  /* MFG_CPE_SENSOR */
+			<0 0x13fb6000 0 0x1000>,  /* MFG_CPE_SENSOR */
+			<0 0x10215000 0 0x1000>;  /* infra_bcrm */
 		reg-names =
 			"mfg_top_config",
 			"mfg_pll",
@@ -2927,19 +2929,24 @@
 			"infracfg_ao",
 			"infra_ao_debug_ctrl",
 			"infra_ao1_debug_ctrl",
+			"topckgen",
 			"efuse",
 			"mfg_cpe_control",
-			"mfg_cpe_sensor";
+			"mfg_cpe_sensor",
+			"infra_bcrm";
 		clocks =
 			<&topckgen_clk CLK_TOP_MFG_PLL_SEL>,
+			<&topckgen_clk CLK_TOP_MFG_REF_SEL>,
 			<&topckgen_clk CLK_TOP_MFGPLL>,
 			<&topckgen_clk CLK_TOP_MFG_REF_SEL_CK>,
 			<&mfg_top_config_clk CLK_MFGCFG_BG3D>;
 		clock-names =
 			"clk_mux",
+			"clk_ref_mux",
 			"clk_main_parent",
 			"clk_sub_parent",
 			"subsys_bg3d";
+#if 0
 		power-domains =
 			<&scpsys MT6833_POWER_DOMAIN_MFG0>,
 			<&scpsys MT6833_POWER_DOMAIN_MFG1>,
@@ -2950,6 +2957,7 @@
 			"pd_mfg1",
 			"pd_mfg2",
 			"pd_mfg3";
+#endif
 		_vgpu-supply = <&mt6359p_vproc1_reg>;
 		_vsram_gpu-supply = <&mt6359p_vsram_md_reg>;
 		fhctl-supply = <&fhctl>;
@@ -3670,7 +3678,6 @@
 				"MDP_IMG_DL_RELAY0_ASYNC0",
 				"MDP_IMG_DL_RELAY1_ASYNC1",
 				"MDP_APB_BUS";
-		power-domains = <&scpsys MT6833_POWER_DOMAIN_DISP>;
 		dma-ranges = <0x2 0x0 0x2 0x0 0x1 0x0>;
 		iommus = <&iommu0 M4U_PORT_L2_MDP_RDMA0>,
 			<&iommu0 M4U_PORT_L2_MDP_RDMA1>,
