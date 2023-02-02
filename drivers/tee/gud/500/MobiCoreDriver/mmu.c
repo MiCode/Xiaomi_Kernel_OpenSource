@@ -223,10 +223,13 @@ static void tee_mmu_delete(struct tee_mmu *mmu)
 		mmu->pages_created--;
 	}
 
-	if (mmu->pages_created || mmu->pages_locked)
+	if (mmu->pages_created || mmu->pages_locked) {
 		mc_dev_err(-EUCLEAN,
 			   "leak detected: still in use %d, still locked %d",
 			   mmu->pages_created, mmu->pages_locked);
+		/* Do not free the mmu, so the error can be spotted */
+		return;
+	}
 
 	if (mmu->deleter)
 		mmu->deleter->delete(mmu->deleter->object);
