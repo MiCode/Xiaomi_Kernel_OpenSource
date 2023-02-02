@@ -31,6 +31,8 @@ extern "C" {
 	#define UPOWER_USE_QOS_IPI         (0)
 #endif
 
+#define UPOWER_USE_QOS_IPI_IGNORE
+
 /* FIX ME */
 /* #define EARLY_PORTING_EEM */
 /* #define EARLY_PORTING_SPOWER */

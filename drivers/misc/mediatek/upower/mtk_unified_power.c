@@ -61,7 +61,7 @@ static int upower_qos_ipi_to_sspm(void *buffer, int slot)
 {
 	int ack_data = 0;
 
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#if !defined(UPOWER_USE_QOS_IPI_IGNORE) && IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	return sspm_ipi_send_sync(IPI_ID_QOS, IPI_OPT_POLLING,
 				buffer, slot, &ack_data, 1);
 #else
