@@ -1211,6 +1211,8 @@ cma=64M transparent_hugepage=never";
 		gpio-mode-reg = <0x430 0x7 8 1>;
 
 		dvfsrc-vscp-supply = <&dvfsrc_vscp>;
+		sshub-vcore-supply = <&mt_pmic_vcore_buck_reg>;
+		sshub-vsram-supply = <&mt_pmic_vsram_others_ldo_reg>;
 		legacy_support_v1;
 
 	};
