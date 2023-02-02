@@ -298,7 +298,7 @@ struct logstore_tag_bootmode {
 };
 #define NORMAL_BOOT_MODE 0
 
-unsigned int get_boot_mode_from_dts(void)
+static unsigned int get_boot_mode_from_dts(void)
 {
 	struct device_node *np_chosen = NULL;
 	struct logstore_tag_bootmode *tag = NULL;
@@ -402,7 +402,7 @@ void store_printk_buff(void)
 		return;
 	}
 	buff = log_buf_addr_get();
-	log_buf = __virt_to_phys_nodebug(buff);
+	log_buf = __virt_to_phys_nodebug((unsigned long)buff);
 	size = log_buf_len_get();
 	/* support 32/64 bits */
 #ifdef CONFIG_PHYS_ADDR_T_64BIT
