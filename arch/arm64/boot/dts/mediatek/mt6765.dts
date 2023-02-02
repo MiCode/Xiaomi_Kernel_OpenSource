@@ -3537,8 +3537,18 @@ initcall_debug=1 pelt=8";
 		compatible = "mediatek,dpe";
 		reg = <0 0x15028000 0 0x1000>;
 		interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH 0>;
+		dve_frame_done = <CMDQ_EVENT_DVE_EOF>;
+		wmfe_frame_done = <CMDQ_EVENT_WMF_EOF>;
+		power-domains =
+			<&scpsys MT6765_POWER_DOMAIN_DIS>,
+			<&scpsys MT6765_POWER_DOMAIN_ISP>;
 		clocks = <&imgsys CLK_IMG_DPE>;
 		clock-names = "DPE_CG_IMG_DPE";
+		mboxes = <&gce_mbox 13 0 CMDQ_THR_PRIO_1>;
+		iommus =
+			<&iommu M4U_PORT_CAM_DPE_RDMA>,
+			<&iommu M4U_PORT_CAM_DPE_WDMA>;
+		mediatek,larb = <&smi_larb2>;
 	};
 
 	smi_larb0: smi_larb0@14003000 {
