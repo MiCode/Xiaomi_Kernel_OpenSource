@@ -1239,23 +1239,21 @@ initcall_debug=1 pelt=8";
 	pio: pinctrl@1000b000 {
 		compatible = "mediatek,mt6765-pinctrl";
 		reg = <0 0x10005000 0 0x1000>,
-		      <0 0x10002400 0 0x200>,
-		      <0 0x10002200 0 0x200>,
-		      <0 0x10002a00 0 0x200>,
-		      <0 0x10002600 0 0x200>,
 		      <0 0x10002000 0 0x200>,
+		      <0 0x10002200 0 0x200>,
+		      <0 0x10002400 0 0x200>,
+		      <0 0x10002600 0 0x200>,
 		      <0 0x10002800 0 0x200>,
-		      <0 0x10002c00 0 0x200>,
-		      <0 0x10002e00 0 0x200>;
+		      <0 0x10002a00 0 0x200>,
+		      <0 0x10002c00 0 0x200>;
 		reg-names = "gpio",
-				"iocfg_lb",
-				"iocfg_lm",
-				"iocfg_rb",
-				"iocfg_bl",
 				"iocfg_lt",
-				"iocfg_rm",
-				"iocfg_rt",
-				"iocfg_tl";
+				"iocfg_lm",
+				"iocfg_lb",
+				"iocfg_bl",
+				"iocfg_rr",
+				"iocfg_rb",
+				"iocfg_rt";
 		gpio-controller;
 		#gpio-cells = <2>;
 		gpio-ranges = <&pio 0 0 179>;
