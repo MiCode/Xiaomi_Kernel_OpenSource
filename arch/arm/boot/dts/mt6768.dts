@@ -2898,7 +2898,6 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
-		ch_offset_i2c = <0x100>;
 	};
 
 	i2c3: i2c@1100f000 {
@@ -2910,7 +2909,6 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
-		ch_offset_i2c = <0x100>;
 	};
 
 	i2c4: i2c@11011000 {
@@ -2922,7 +2920,6 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
-		ch_offset_i2c = <0x100>;
 	};
 
 	i2c5: i2c@11016000 {
