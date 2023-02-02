@@ -1611,6 +1611,11 @@ static int ccu_probe(struct platform_device *pdev)
 	struct device_node *node1;
 	phandle ccu1_phandle;
 	struct platform_device *pdev1;
+#ifdef CCU_QOS_SUPPORT_ENABLE
+	int fi = 0;
+	unsigned long freq = 0;
+	struct dev_pm_opp *opp = NULL;
+#endif
 
 	node = pdev->dev.of_node;
 	g_ccu_device->dev = &pdev->dev;
@@ -1718,6 +1723,26 @@ static int ccu_probe(struct platform_device *pdev)
 		g_ccu_device->smi_dev = &smi_pdev->dev;
 
 #ifdef CCU_QOS_SUPPORT_ENABLE
+		/*Call pm_qos_add_request when initialize module or driver prob*/
+		dev_pm_opp_of_add_table(g_ccu_device->dev);
+		_ccu_qos_request = devm_regulator_get(g_ccu_device->dev,
+			"dvfsrc-vcore");
+
+		/*Call mmdvfs_qos_get_freq_steps to get supported frequency*/
+		_step_size = dev_pm_opp_get_opp_count(g_ccu_device->dev);
+		_g_freq_steps = kcalloc(_step_size, sizeof(u64), GFP_KERNEL);
+
+		while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(g_ccu_device->dev,
+			&freq))) {
+			_g_freq_steps[fi] = freq;
+			freq++;
+			fi++;
+			dev_pm_opp_put(opp);
+		}
+
+		if (fi == 0)
+			LOG_ERR("get MMDVFS freq steps failed\n");
+
 		g_ccu_device->path_ccuo = of_mtk_icc_get(g_ccu_device->dev, "ccu_o");
 		g_ccu_device->path_ccui = of_mtk_icc_get(g_ccu_device->dev, "ccu_i");
 		g_ccu_device->path_ccug = of_mtk_icc_get(g_ccu_device->dev, "ccu_g");
@@ -1936,13 +1961,6 @@ static int ccu1_resume(struct platform_device *pdev)
  *****************************************************************************/
 static int __init CCU_INIT(void)
 {
-	int ret = 0;
-	int result = 0;
-#ifdef CCU_QOS_SUPPORT_ENABLE
-	int i = 0;
-	unsigned long freq = 0;
-	struct dev_pm_opp *opp = NULL;
-#endif
 	/*struct device_node *node = NULL;*/
 
 	g_ccu_device = kzalloc(sizeof(struct ccu_device_s), GFP_KERNEL);
@@ -1970,29 +1988,7 @@ static int __init CCU_INIT(void)
 		return -ENODEV;
 	}
 
-#ifdef CCU_QOS_SUPPORT_ENABLE
-	/*Call pm_qos_add_request when initialize module or driver prob*/
-	dev_pm_opp_of_add_table(g_ccu_device->dev);
-	_ccu_qos_request = devm_regulator_get(g_ccu_device->dev,
-		"dvfsrc-vcore");
-
-	/*Call mmdvfs_qos_get_freq_steps to get supported frequency*/
-	_step_size = dev_pm_opp_get_opp_count(g_ccu_device->dev);
-	_g_freq_steps = kzalloc(sizeof(u64) * _step_size, GFP_KERNEL);
-
-	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(g_ccu_device->dev,
-		&freq))) {
-		_g_freq_steps[i] = freq;
-		freq++;
-		i++;
-		dev_pm_opp_put(opp);
-	}
-#endif
-
-	if (result < 0)
-		LOG_ERR("get MMDVFS freq steps failed, result: %d\n", result);
-
-	return ret;
+	return 0;
 }
 
 
