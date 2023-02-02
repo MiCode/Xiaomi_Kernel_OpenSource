@@ -108,8 +108,8 @@ aliases {
 #endif
 			power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>;
 			operating-points-v2 = <&opp_table_mm>;
-			//dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-			interconnects = <&mmqos SLAVE_LARB(21) &mmqos SLAVE_COMMON(0)>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+			interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
 			interconnect-names = "disp_hrt_qos";
 
 			/* define threads, see mt6765-gce.h */
