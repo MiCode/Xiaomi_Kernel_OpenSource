@@ -1605,11 +1605,15 @@ static int tscpu_thermal_resume_noirq(struct device *dev)
 static int tscpu_thermal_resume(struct platform_device *dev)
 #endif
 {
+	int ret = -1;
 #if !defined(CFG_THERM_NO_AUXADC)
 	int temp = 0;
 	int cnt = 0;
 #endif
-	clk_prepare_enable(auxadc_main);
+	ret = clk_prepare_enable(auxadc_main);
+	if (ret)
+		tscpu_printk("%s, Cannot enable auxadc clock.\n", __func__);
+
 	tscpu_printk("%s, %d\n", __func__, talking_flag);
 
 	g_is_temp_valid = 0;
@@ -2490,7 +2494,7 @@ static void tscpu_create_fs(void)
 /*must wait until AUXADC initial ready*/
 static int tscpu_thermal_probe(struct platform_device *dev)
 {
-	int err = 0;
+	int err = 0, ret = -1;
 
 	tscpu_printk("thermal_prob\n");
 
@@ -2517,7 +2521,9 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 		return PTR_ERR(auxadc_main);
 	}
 	tscpu_dprintk("auxadc_main Ptr=%p", auxadc_main);
-	clk_prepare_enable(auxadc_main);
+	ret = clk_prepare_enable(auxadc_main);
+	if (ret)
+		tscpu_printk("%s, Cannot enable auxadc clock.\n", __func__);
 #endif
 
 #if CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR
