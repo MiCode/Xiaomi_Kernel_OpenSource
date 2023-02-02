@@ -101,13 +101,7 @@ static DEFINE_MUTEX(apthermolmt_cpu_mutex);
  * Weak functions
  *=============================================================
  */
-#if defined(ATM_USES_PPM)
-void __attribute__ ((weak))
-mt_ppm_cpu_thermal_protect(unsigned int limited_power)
-{
-	pr_notice(TSCPU_LOG_TAG "E_WF: %s doesn't exist\n", __func__);
-}
-#else
+#if !defined(ATM_USES_PPM)
 void __attribute__ ((weak))
 mt_cpufreq_thermal_protect(unsigned int limited_power)
 {

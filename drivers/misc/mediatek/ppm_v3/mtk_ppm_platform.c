@@ -17,12 +17,6 @@
 #include "mtk_static_power.h"
 #include "mtk_unified_power.h"
 
-// todo: thermal by pass
-//#if IS_ENABLED(CONFIG_THERMAL)
-//#include "mach/mtk_thermal.h"
-//#endif
-
-
 unsigned int __attribute__((weak)) mt_cpufreq_get_cur_volt(unsigned int id)
 {
 	return 0;
@@ -32,6 +26,16 @@ int __attribute__((weak)) mt_spower_get_leakage(
 {
 	return 0;
 }
+
+static int (*s_ppm_thermal_cpuL_temp_cb)(void);
+static int (*s_ppm_thermal_cpuB_temp_cb)(void);
+void mt_ppm_thermal_get_cpu_cluster_temp_cb(
+	int (*ppm_thermal_cpuL_temp_cb)(void), int (*ppm_thermal_cpuB_temp_cb)(void))
+{
+	s_ppm_thermal_cpuL_temp_cb = ppm_thermal_cpuL_temp_cb;
+	s_ppm_thermal_cpuB_temp_cb = ppm_thermal_cpuB_temp_cb;
+}
+EXPORT_SYMBOL(mt_ppm_thermal_get_cpu_cluster_temp_cb);
 
 
 static void ppm_get_cluster_status(struct ppm_cluster_status *cl_status)
@@ -117,19 +121,23 @@ static int ppm_cpu_up(unsigned int cpu)
 }
 
 
-#if IS_ENABLED(CONFIG_THERMAL)
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
 static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
 {
 	unsigned int temp = 85;
 
 	switch (cluster) {
 	case PPM_CLUSTER_L:
-		// todo: thermal by pass
-		//temp = get_immediate_cpuL_wrap() / 1000;
+		if (s_ppm_thermal_cpuL_temp_cb)
+			temp = s_ppm_thermal_cpuL_temp_cb() / 1000;
+		else
+			pr_info("%s, s_ppm_thermal_cpuL_temp_cb not init!", __func__);
 		break;
 	case PPM_CLUSTER_B:
-		// todo: thermal by pass
-		//temp = get_immediate_cpuB_wrap() / 1000;
+		if (s_ppm_thermal_cpuB_temp_cb)
+			temp = s_ppm_thermal_cpuB_temp_cb() / 1000;
+		else
+			pr_info("%s, s_ppm_thermal_cpuB_temp_cb not init!", __func__);
 		break;
 	default:
 		ppm_err("@%s: invalid cluster id = %d\n", __func__, cluster);
@@ -308,7 +316,7 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 		for_each_ppm_clusters(i) {
 			if (!cl_status[i].core_num)
 				continue;
-#if IS_ENABLED(CONFIG_THERMAL)
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
 			temp = ppm_get_cpu_temp((enum ppm_cluster)i);
 #else
 			temp = 85;
@@ -321,7 +329,7 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 			mw += mt_spower_get_leakage(dev_id, volt, temp);
 		}
 	} else {
-#if IS_ENABLED(CONFIG_THERMAL)
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
 		temp = ppm_get_cpu_temp((enum ppm_cluster)cluster);
 #else
 		temp = 85;

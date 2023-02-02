@@ -452,27 +452,6 @@ print_risky_temps(char *prefix, int offset, int printLevel)
 
 }
 
-unsigned int __attribute__ ((weak))
-mt_ppm_thermal_get_cur_power(void)
-{
-	return 0;
-}
-
-unsigned int __attribute__ ((weak))
-mt_ppm_thermal_get_min_power(void)
-{
-	return 0;
-}
-
-
-#if CLATM_USE_MIN_CPU_OPP
-int  __attribute__ ((weak))
-ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
-{
-	return 0;
-}
-#endif
-
 /*=============================================================*/
 
 /*

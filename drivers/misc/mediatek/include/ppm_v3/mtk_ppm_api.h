@@ -131,6 +131,8 @@ extern unsigned int mt_ppm_thermal_get_max_power(void);
 extern unsigned int mt_ppm_thermal_get_power_big_max_opp(unsigned int opp);
 extern unsigned int mt_ppm_thermal_get_cur_power(void);
 extern int ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status);
+extern void mt_ppm_thermal_get_cpu_cluster_temp_cb(
+	int (*ppm_thermal_cpuL_temp_cb)(void), int (*ppm_thermal_cpuB_temp_cb)(void));
 
 /* User limit policy */
 extern unsigned int mt_ppm_userlimit_cpu_core(unsigned int cluster_num,

@@ -12,6 +12,7 @@
 #
 
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/ppm_v3/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
@@ -30,7 +31,6 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mdla/1.0
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 
 include $(srctree)/drivers/misc/mediatek/thermal/common/thermal_zones/Makefile
-
 
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/cpufreq_v2/inc/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/ppm_v3/inc/

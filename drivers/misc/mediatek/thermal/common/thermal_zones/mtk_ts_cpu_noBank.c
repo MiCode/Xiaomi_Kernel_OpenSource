@@ -2540,6 +2540,11 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 	tscpu_pdev = dev;
 	init_thermal(dev);
 
+#ifdef ATM_USES_PPM
+	mt_ppm_thermal_get_cpu_cluster_temp_cb(
+		&get_immediate_cpuL_wrap, &get_immediate_cpuB_wrap);
+#endif
+
 #if MTK_TS_CPU_RT
 	{
 		tscpu_dprintk("tscpu_register_thermal creates kthermp\n");
