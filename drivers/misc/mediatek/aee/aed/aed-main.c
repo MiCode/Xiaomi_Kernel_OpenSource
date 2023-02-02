@@ -65,6 +65,7 @@ static int aee_force_exp = AEE_FORCE_EXP_NOT_SET;
 
 /* use ke_log_available to control aed_ke_poll */
 static int ke_log_available = 1;
+static int have_32bit_aedv;
 
 static struct proc_dir_entry *aed_proc_dir;
 
@@ -651,20 +652,11 @@ static void ke_destroy_log(void)
 
 static int ke_log_avail(void)
 {
-	if (aed_dev.kerec.lastlog != NULL) {
-#ifdef __aarch64__
-		if (is_compat_task() !=
-			((aed_dev.kerec.lastlog->dump_option & DB_OPT_AARCH64)
-			== 0))
+
+	if (aed_dev.kerec.lastlog) {
+		/* skip case: 32bit aedv is ready & 64bit aedv polling */
+		if (have_32bit_aedv && !is_compat_task())
 			return 0;
-#endif
-		/* remove the log to reduce risk of dead loop:
-		 * cpux keep moving log from buffer to console and can not
-		 * process debuggerd work flow, meanwhile aed keep calling poll
-		 * which produce more log into buffer and cpux stucked whith
-		 * these log.
-		 * LOGI("AEE api log available\n");
-		 */
 		return 1;
 	}
 
@@ -1252,6 +1244,9 @@ static int aed_ke_open(struct inode *inode, struct file *filp)
 
 	if (compare_cmdline() != 0)
 		return -1;
+
+	if (strcmp(current->comm, "aee_aedv") == 0)
+		have_32bit_aedv = 1;
 
 	major = MAJOR(inode->i_rdev);
 	minor = MINOR(inode->i_rdev);
@@ -2309,10 +2304,6 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 		oops->detail = (char *)(oops->backtrace);
 		oops->detail_len = strlen(oops->backtrace) + 1;
 		oops->dump_option = db_opt;
-#ifdef __aarch64__
-	if ((db_opt & DB_OPT_NATIVE_BACKTRACE)  && !is_compat_task())
-		oops->dump_option |= DB_OPT_AARCH64;
-#endif
 
 		pr_debug("%s,%s,%s,0x%x\n", __func__, module, msg, db_opt);
 		ke_queue_request(oops);
