@@ -19,8 +19,6 @@
 #include <dt-bindings/power/mt6765-power.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
-#include <dt-bindings/thermal/thermal.h>
-#include <dt-bindings/reset/ti-syscon.h>
 
 /dts-v1/;
 
@@ -685,7 +683,6 @@ initcall_debug=1 pelt=8";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -699,7 +696,6 @@ initcall_debug=1 pelt=8";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -713,7 +709,6 @@ initcall_debug=1 pelt=8";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -727,7 +722,6 @@ initcall_debug=1 pelt=8";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -741,7 +735,6 @@ initcall_debug=1 pelt=8";
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <801>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -755,7 +748,6 @@ initcall_debug=1 pelt=8";
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <801>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -769,7 +761,6 @@ initcall_debug=1 pelt=8";
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <801>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -783,7 +774,6 @@ initcall_debug=1 pelt=8";
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <801>;
-			#cooling-cells = <2>;
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
@@ -1078,13 +1068,6 @@ initcall_debug=1 pelt=8";
 		reg = <0 0x10001000 0 0x1000>;
 		interrupts = <GIC_SPI 147 IRQ_TYPE_EDGE_RISING 0>;
 		#clock-cells = <1>;
-		infracfg_rst: reset-controller {
-			compatible = "ti,syscon-reset";
-			#reset-cells = <1>;
-			ti,reset-bits = <
-			0x120 0 0x124 0 0 0 (ASSERT_SET | DEASSERT_SET | STATUS_NONE)
-			>;
-		};
 	};
 
 	low_battery_throttling {
@@ -2922,8 +2905,8 @@ initcall_debug=1 pelt=8";
 		compatible = "mediatek,therm_ctrl";
 		reg = <0 0x1100b000 0 0x1000>;
 		interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&infracfg_ao CLK_IFR_THERM>;
-		clock-names = "therm-main";
+		clocks = <&infracfg_ao CLK_IFR_THERM>,<&infracfg_ao CLK_IFR_AUXADC>;
+		clock-names = "therm-main","auxadc-main";
 		nvmem = <&efuse>;
 		nvmem-names = "mtk_efuse";
 		nvmem-cells = <&cpu_freq_segment>,
@@ -2976,7 +2959,6 @@ initcall_debug=1 pelt=8";
 
 	consys: consys@18002000 {
 		compatible = "mediatek,mt6765-consys";
-		#thermal-sensor-cells = <0>;
 		#address-cells = <2>;
 		#size-cells = <2>;
 			/*CONN_MCU_CONFIG_BASE */
@@ -3370,7 +3352,6 @@ initcall_debug=1 pelt=8";
 		interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH 0>;
 		interrupt-names = "RGX";
 		clock-frequency = <570000000>;
-		#cooling-cells = <2>;
 		ged-supply = <&ged>;
 	};
 
