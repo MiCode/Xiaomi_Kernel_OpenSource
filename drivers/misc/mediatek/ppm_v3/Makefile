@@ -21,7 +21,8 @@ ccflags-y += \
 	-I$(srctree)/drivers/gpu/mediatek/gpufreq/			\
 	-I$(srctree)/drivers/misc/mediatek/thermal/inc/			\
 	-I$(srctree)/drivers/misc/mediatek/include/leakage_table_v2	\
-	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/inc
+	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/inc \
+	-I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
 

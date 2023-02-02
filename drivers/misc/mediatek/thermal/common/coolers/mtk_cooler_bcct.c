@@ -16,8 +16,9 @@
 #include "mt-plat/mtk_thermal_monitor.h"
 #include <linux/uidgid.h>
 #include <linux/notifier.h>
-#include <linux/fb.h>
 #include "mach/mtk_thermal.h"
+#include "mtk_disp_notify.h"
+#include <linux/fb.h>
 
 
 #define CONFIG_MTK_GAUGE_VERSION 30
@@ -1097,6 +1098,7 @@ struct notifier_block *self, unsigned long event, void *data)
 	if (!chrlmt_lcmoff_policy_enable)
 		return 0;
 
+	pr_info("enter bcct lcmoff fb!\n");
 	blank = *(int *)evdata->data;
 	mtk_cooler_bcct_dprintk("%s: blank = %d, event = %lu\n", __func__,
 								blank, event);
@@ -1113,7 +1115,7 @@ struct notifier_block *self, unsigned long event, void *data)
 	default:
 		break;
 	}
-
+	pr_info("exit bcct lcmoff fb!\n");
 	return 0;
 }
 
@@ -1205,7 +1207,7 @@ static int __init mtk_cooler_bcct_init(void)
 	if (err)
 		goto err_unreg;
 
-	if (fb_register_client(&bcct_lcmoff_fb_notifier)) {
+	if (mtk_disp_notifier_register("thernal_bcct", &bcct_lcmoff_fb_notifier)) {
 		mtk_cooler_bcct_dprintk_always(
 					"%s: register FB client failed!\n",
 					__func__);
@@ -1291,7 +1293,7 @@ static void __exit mtk_cooler_bcct_exit(void)
 	mtk_cooler_abcct_unregister_ltf();
 	mtk_cooler_abcct_lcmoff_unregister_ltf();
 
-	fb_unregister_client(&bcct_lcmoff_fb_notifier);
+	mtk_disp_notifier_unregister(&bcct_lcmoff_fb_notifier);
 }
 module_init(mtk_cooler_bcct_init);
 module_exit(mtk_cooler_bcct_exit);

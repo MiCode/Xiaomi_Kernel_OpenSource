@@ -7,10 +7,10 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/notifier.h>
+
 #include <linux/fb.h>
-
 #include "mtk_ppm_internal.h"
-
+#include "mtk_disp_notify.h"
 
 static void ppm_lcmoff_update_limit_cb(void);
 static void ppm_lcmoff_status_change_cb(bool enable);
@@ -112,7 +112,7 @@ static int ppm_lcmoff_fb_notifier_callback(struct notifier_block *self,
 	int blank;
 
 	FUNC_ENTER(FUNC_LV_POLICY);
-
+	pr_info("enter ppm lcmoff fb!\n");
 	/* skip if it's not a blank event */
 	if (event != FB_EVENT_BLANK)
 		return 0;
@@ -132,7 +132,7 @@ static int ppm_lcmoff_fb_notifier_callback(struct notifier_block *self,
 	default:
 		break;
 	}
-
+	pr_info("exit ppm lcmoff fb!\n");
 	FUNC_EXIT(FUNC_LV_POLICY);
 
 	return 0;
@@ -194,8 +194,7 @@ int ppm_lcmoff_policy_init(void)
 			goto out;
 		}
 	}
-
-	if (fb_register_client(&ppm_lcmoff_fb_notifier)) {
+	if (mtk_disp_notifier_register("ppm_v3", &ppm_lcmoff_fb_notifier)) {
 		ppm_err("@%s: lcmoff policy register FB client failed!\n",
 			__func__);
 		ret = -EINVAL;
@@ -226,7 +225,7 @@ void ppm_lcmoff_policy_exit(void)
 {
 	FUNC_ENTER(FUNC_LV_POLICY);
 
-	fb_unregister_client(&ppm_lcmoff_fb_notifier);
+	mtk_disp_notifier_unregister(&ppm_lcmoff_fb_notifier);
 
 	ppm_main_unregister_policy(&lcmoff_policy);
 
