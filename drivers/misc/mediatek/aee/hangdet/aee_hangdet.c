@@ -452,7 +452,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	} else if ((g_hang_detected == 0) &&
 		    ((local_bit & get_check_bit()) != get_check_bit()) &&
 		    (sched_clock() - wk_lasthpg_t[cpu] >
-		     curInterval * 1000)) {
+		     curInterval * 1000UL)) {
 		g_hang_detected = 1;
 		dump_timeout = 1;
 	}
@@ -466,7 +466,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	wk_tsk_kick_time[cpu] = sched_clock();
 
 	snprintf(msg_buf, WK_MAX_MSG_SIZE,
-	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%x,%ld,%ld,%ld,%ld,[%lld,%ld] %d\n",
+	 "[wdk-c] cpu=%d o_k=%d lbit=0x%x cbit=0x%x,%x,%d,%d,%lld,%x,%ld,%ld,%ld,%lld,[%lld,%ld] %d\n",
 	 cpu, original_kicker, local_bit, get_check_bit(),
 	 (local_bit ^ get_check_bit()) & get_check_bit(), lasthpg_cpu,
 	 lasthpg_act, lasthpg_t, atomic_read(&plug_mask), lastsuspend_t_tmp,
