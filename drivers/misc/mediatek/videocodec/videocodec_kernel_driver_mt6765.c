@@ -2824,7 +2824,6 @@ static int vcodec_mmap(struct file *file, struct vm_area_struct *vma)
 	unsigned long pa_start = vma->vm_pgoff << PAGE_SHIFT;
 	unsigned long pfn;
 	unsigned long start = vma->vm_start;
-	unsigned long pos = 0;
 
 	pr_info("%s vma->start 0x%lx, vma->end 0x%lx, vma->pgoff 0x%lx, pa_start 0x%lx\n", __func__,
 			(unsigned long)vma->vm_start,
@@ -2844,24 +2843,9 @@ static int vcodec_mmap(struct file *file, struct vm_area_struct *vma)
 			PAGE_SIZE, vma->vm_page_prot) == true)
 			return -EAGAIN;
 	} else {
-		while (length > 0) {
-			vma->vm_pgoff = iommu_iova_to_phys(gVCodecDev->io_domain, pa_start + pos);
-			if (vma->vm_pgoff == 0) {
-				pr_info("iommu_iova_to_phys fail pa_start = 0x%lx\n",
-					pa_start);
-				return -EINVAL;
-			}
-			vma->vm_pgoff >>= PAGE_SHIFT;
-			if (remap_pfn_range(vma, start, vma->vm_pgoff,
-				PAGE_SIZE, vma->vm_page_prot) == true)
-				return -EAGAIN;
-			start += PAGE_SIZE;
-			pos += PAGE_SIZE;
-			if (length > PAGE_SIZE)
-				length -= PAGE_SIZE;
-			else
-				length = 0;
-		}
+		pr_info("mmap region error: Len(0x%lx),pfn(0x%lx)",
+			(unsigned long)length, pfn);
+		return -EAGAIN;
 	}
 	vma->vm_ops = &vcodec_remap_vm_ops;
 	vcodec_vma_open(vma);
