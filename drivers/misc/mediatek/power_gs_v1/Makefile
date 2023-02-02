@@ -29,7 +29,7 @@ endif
 
 ifneq ($(strip $(CONFIG_MTK_POWER_GS_LEGACY_V2)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/power_gs_v1/common_v2/
-obj-m += mtk_power_gs_v2.o
+obj-$(CONFIG_MTK_POWER_GS_LEGACY_V2) += mtk_power_gs_v2.o
 mtk_power_gs_v2-y += mtk_power_gs.o
 mtk_power_gs_v2-y += mtk_power_gs_api.o
 mtk_power_gs_v2-y += common_v2/mtk_power_gs_6355_array.o
