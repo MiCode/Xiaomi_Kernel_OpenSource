@@ -3493,22 +3493,20 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 			<&topckgen CLK_TOP_MFG_SEL>,	   /* clk_mux */
 			<&topckgen CLK_TOP_MFGPLL>,        /* gpupll  */
 			<&topckgen CLK_TOP_SYSPLL_D3>,     /* syspll_d3, 364Mhz */
-			<&mfg_cfg CLK_MFGCFG_BG3D>;
+			<&mfg_cfg CLK_MFGCFG_BG3D>,
+			<&scpsys_clk SCP_SYS_MFG_ASYNC>,
+			<&scpsys_clk SCP_SYS_MFG>,
+			<&scpsys_clk SCP_SYS_MFG_CORE0>,
+			<&scpsys_clk SCP_SYS_MFG_CORE1>;
 		clock-names =
 			"clk_mux",
 			"clk_main_parent",
 			"clk_sub_parent",
-			"subsys_mfg_cg";
-		power-domains =
-			<&scpsys MT6768_POWER_DOMAIN_MFG>,
-			<&scpsys MT6768_POWER_DOMAIN_MFG_ASYNC>,
-			<&scpsys MT6768_POWER_DOMAIN_MFG_CORE0>,
-			<&scpsys MT6768_POWER_DOMAIN_MFG_CORE1>;
-		power-domain-names =
-			"pd_mfg",
-			"pd_mfg_async",
-			"pd_mfg_core0",
-			"pd_mfg_core1";
+			"subsys_mfg_cg",
+			"mtcmos_mfg_async",
+			"mtcmos_mfg",
+			"mtcmos_mfg_core0",
+			"mtcmos_mfg_core1";
 
 		nvmem-cells = <&efuse_segment>;
 		nvmem-cell-names = "efuse_segment_cell";
