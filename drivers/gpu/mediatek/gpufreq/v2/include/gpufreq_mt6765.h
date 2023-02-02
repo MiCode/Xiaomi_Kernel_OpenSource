@@ -22,6 +22,8 @@
 #define GPUFREQ_DVFS_ENABLE             (1)
 #define GPUFREQ_CUST_INIT_ENABLE        (0)
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
+#define PBM_RAEDY                       (0)
+#define MT_GPUFREQ_STATIC_PWR_READY2USE
 /**************************************************
  * Clock Setting
  **************************************************/
@@ -43,16 +45,7 @@
 //#define MFGPLL_FH_PLL                   (6) // used hardcoded 3 in code
 //#define MFGPLL_CON0				        (g_apmixed_base + 0x24C)
 #define MFGPLL_CON1				        (g_apmixed_base + 0x250)
-//TODO:GKI
-#if 0
-#define CLK_MUX_OFS                     (0x1034)
-#define CKMUX_SEL_REF_CORE              (4)
-#define CKMUX_SEL_REF_PARK              (5)
-#define CKMUX_SEL_REF_STACK             (7)
-#define CKMUX_SEL_REF_STACK_PARK        (8)
-#define GPUPLL_ID                       (0x0)
-#define STACKPLL_ID                     (0x3)
-#endif
+
 /**************************************************
  * Frequency Hopping Setting
  **************************************************/
@@ -63,17 +56,7 @@
  * Power Domain Setting
  **************************************************/
 #define GPUFREQ_CHECK_MTCMOS_PWR_STATUS (0)
-//TODO:GKI
-#if 0
-#define PWR_STATUS_OFS                  (0xF3C)
-#define PWR_STATUS_2ND_OFS              (0xF40)
-#define MFG_0_1_PWR_MASK                (0x6)           /* 0000 0110 */
-#define MFG_0_3_PWR_MASK                (0x1E)          /* 0001 1110 */
-#define MFG_0_4_PWR_MASK                (0x3E)          /* 0011 1110 */
-#define MFG_0_5_PWR_MASK                (0x7E)          /* 0111 1110 */
-#define MFG_1_5_PWR_MASK                (0x7C)          /* 0111 1100 */
-#define MFG_2_5_PWR_MASK                (0x78)          /* 0111 1000 */
-#endif
+
 /**************************************************
  * Reference Power Setting MT6765
  **************************************************/
@@ -116,17 +99,9 @@
  * SRAMRC Setting
  **************************************************/
 #define GPUFREQ_SAFE_VLOGIC             (60000)
-//TODO:GKI
-#if 0
-#define VSRAM_LEVEL_0                   (75000)
-#define VSRAM_LEVEL_1                   (80000)
-#define SRAM_PARK_VOLT                  (75000)
-#endif
 /**************************************************
  * Power Throttling Setting
  **************************************************/
-//TODO:GKI
-//over current and lot battery disabled so OC freq / Low batt freq dont matter
 #define GPUFREQ_BATT_OC_ENABLE          (0)
 #define GPUFREQ_BATT_PERCENT_ENABLE     (0)
 #define GPUFREQ_LOW_BATT_ENABLE         (0)
@@ -156,12 +131,9 @@ struct g_clk_info {
 	struct clk *clk_sub_parent; /* sub clock for mfg trans parent setting*/
 };
 struct g_pmic_info {
-	//struct regulator *reg_vgpu;
-	//struct regulator *reg_vsram_gpu;
 	struct regulator *reg_vcore;
 	struct regulator *mtk_pm_vgpu;
 };
-//TODO:GKI
 struct gpufreq_mtcmos_info {
 	struct device *pd_mfg;
 	struct device *pd_mfg_async;
@@ -194,6 +166,11 @@ struct gpufreq_status {
 	unsigned int cur_volt;
 	unsigned int cur_vsram;
 };
+struct mt_gpufreq_power_table_info {
+	unsigned int gpufreq_khz;
+	unsigned int gpufreq_volt;
+	unsigned int gpufreq_power;
+};
 /**************************************************
  * GPU Platform OPP Table Definition
  **************************************************/
@@ -206,44 +183,6 @@ struct gpufreq_status {
 		.vaging = _vaging,             \
 		.power = _power                \
 	}
-#if 0
-#define SIGNED_OPP_GPU_NUM              ARRAY_SIZE(g_default_gpu)
-//TODO:GKI check aging
-struct gpufreq_opp_info g_default_gpu[] = {
-	GPUOP(1000000, 95000, 105000, POSDIV_POWER_2, 1875, 0), /*  0 sign off */
-	GPUOP(975000, 92500, 102500, POSDIV_POWER_2, 1875, 0), /*  1 */
-	GPUOP(950000, 90000, 100000, POSDIV_POWER_2, 1875, 0), /*  2 */
-	GPUOP(925000, 87500, 97500, POSDIV_POWER_2, 1875, 0), /*  3 */
-	GPUOP(900000, 85000, 95000, POSDIV_POWER_2, 1875, 0), /*  4 */
-	GPUOP(875000, 82500, 92500, POSDIV_POWER_2, 1875, 0), /*  5 */
-	GPUOP(850000, 80000, 90000, POSDIV_POWER_2, 1875, 0), /*  6 */
-	GPUOP(823000, 79375, 89375, POSDIV_POWER_2, 1875, 0), /*  7 */
-	GPUOP(796000, 78125, 88125, POSDIV_POWER_2, 1875, 0), /*  8 sign off */
-	GPUOP(769000,  76875, 86875, POSDIV_POWER_2, 1875, 0), /*  9 */
-	GPUOP(743000,  75625, 85625, POSDIV_POWER_2, 1875, 0), /* 10 */
-	GPUOP(716000,  75000, 85000, POSDIV_POWER_2, 1875, 0), /* 11 */
-	GPUOP(690000,  73750, 85000, POSDIV_POWER_4, 1875, 0), /* 12 */
-	GPUOP(663000,  72500, 85000, POSDIV_POWER_4, 1875, 0), /* 13 */
-	GPUOP(637000,  71250, 85000, POSDIV_POWER_4, 1875, 0), /* 14 */
-	GPUOP(611000,  70625, 85000, POSDIV_POWER_4, 1875, 0), /* 15 */
-	GPUOP(586000,  70000, 85000, POSDIV_POWER_4, 1875, 0), /* 16 sign off*/
-	GPUOP(560000,  69375, 85000, POSDIV_POWER_4, 1875, 0), /* 17 */
-	GPUOP(535000,  68750, 85000, POSDIV_POWER_4, 1875, 0), /* 18 */
-	GPUOP(509000,  68125, 85000, POSDIV_POWER_4, 1875, 0), /* 19 */
-	GPUOP(484000,  66875, 85000, POSDIV_POWER_4, 1250, 0), /* 20 */
-	GPUOP(467000,  66875, 85000, POSDIV_POWER_4, 1250, 0), /* 21 */
-	GPUOP(450000,  66250, 85000, POSDIV_POWER_4, 1250, 0), /* 22 */
-	GPUOP(434000,  65625, 85000, POSDIV_POWER_4, 1250, 0), /* 23 */
-	GPUOP(417000,  65000, 85000, POSDIV_POWER_4, 1250, 0), /* 24 */
-	GPUOP(400000,  64375, 85000, POSDIV_POWER_4, 1250, 0), /* 25 */
-	GPUOP(383000,  64375, 85000, POSDIV_POWER_4, 1250, 0), /* 26 */
-	GPUOP(366000,  63750, 85000, POSDIV_POWER_4, 1250, 0), /* 27 */
-	GPUOP(349000,  63125, 85000, POSDIV_POWER_4, 1250, 0), /* 28 */
-	GPUOP(332000,  62500, 85000, POSDIV_POWER_4, 1250, 0), /* 29 */
-	GPUOP(315000,  61875, 85000, POSDIV_POWER_4, 1250, 0), /* 30 */
-	GPUOP(299000,  61250, 85000, POSDIV_POWER_4, 1250, 0), /* 31 */
-};
-#endif
 //TODO: GKI
 /* OPP table based on segment : followed from legacy
  * Freq , Volt , Vsram required --> Fetched from opp table
@@ -286,108 +225,4 @@ struct gpufreq_opp_info g_default_gpu_segment5[] = {
 		.vsram = _vsram,               \
 		.vaging = _vaging,             \
 	}
-//TODO:GKI
-#if 0
-#define SEGMENT_ADJ_NUM                 ARRAY_SIZE(g_segment_adj)
-struct gpufreq_adj_info g_segment_adj[] = {
-	ADJOP(25, 0, 65000, 0, 0), /* sign off */
-	ADJOP(26, 0, 64375, 0, 0),
-	ADJOP(27, 0, 64375, 0, 0),
-	ADJOP(28, 0, 63750, 0, 0),
-	ADJOP(29, 0, 63750, 0, 0),
-	ADJOP(30, 0, 63125, 0, 0),
-	ADJOP(31, 0, 63125, 0, 0),
-	ADJOP(32, 0, 62500, 0, 0),
-	ADJOP(33, 0, 62500, 0, 0),
-	ADJOP(34, 0, 61875, 0, 0),
-	ADJOP(35, 0, 61875, 0, 0),
-	ADJOP(36, 0, 61250, 0, 0),
-	ADJOP(37, 0, 61250, 0, 0),
-	ADJOP(38, 0, 60625, 0, 0),
-	ADJOP(39, 0, 60625, 0, 0),
-	ADJOP(40, 0, 60000, 0, 0), /* sign off */
-};
-/* MCL50 flavor load */
-#define MCL50_ADJ_NUM                   ARRAY_SIZE(g_mcl50_adj)
-struct gpufreq_adj_info g_mcl50_adj[] = {
-	ADJOP(0,  0, 68750, VSRAM_LEVEL_0, 0), /*  0 sign off */
-	ADJOP(1,  0, 68750, VSRAM_LEVEL_0, 0),
-	ADJOP(2,  0, 68125, VSRAM_LEVEL_0, 0),
-	ADJOP(3,  0, 67500, VSRAM_LEVEL_0, 0),
-	ADJOP(4,  0, 66875, VSRAM_LEVEL_0, 0),
-	ADJOP(5,  0, 66250, VSRAM_LEVEL_0, 0),
-	ADJOP(6,  0, 65625, VSRAM_LEVEL_0, 0),
-	ADJOP(7,  0, 65000, VSRAM_LEVEL_0, 0),
-	ADJOP(8,  0, 64375, 0,             0), /*  8 sign off */
-	ADJOP(9,  0, 64375, 0,             0),
-	ADJOP(10, 0, 63750, 0,             0),
-	ADJOP(11, 0, 63125, 0,             0),
-	ADJOP(12, 0, 62500, 0,             0),
-	ADJOP(13, 0, 62500, 0,             0),
-	ADJOP(14, 0, 61875, 0,             0),
-	ADJOP(15, 0, 61250, 0,             0),
-	ADJOP(16, 0, 60625, 0,             0), /* 16 sign off */
-	ADJOP(17, 0, 60625, 0,             0),
-	ADJOP(18, 0, 60000, 0,             0),
-	ADJOP(19, 0, 59375, 0,             0),
-	ADJOP(20, 0, 58750, 0,             0),
-	ADJOP(21, 0, 58750, 0,             0),
-	ADJOP(22, 0, 58125, 0,             0),
-	ADJOP(23, 0, 57500, 0,             0),
-	ADJOP(24, 0, 56875, 0,             0),
-	ADJOP(25, 0, 56875, 0,             0),
-	ADJOP(26, 0, 56875, 0,             0),
-	ADJOP(27, 0, 56875, 0,             0),
-	ADJOP(28, 0, 56250, 0,             0),
-	ADJOP(29, 0, 56250, 0,             0),
-	ADJOP(30, 0, 56250, 0,             0),
-	ADJOP(31, 0, 56250, 0,             0),
-	ADJOP(32, 0, 55625, 0,             0), /* 32 sign off */
-	ADJOP(33, 0, 55625, 0,             0),
-	ADJOP(34, 0, 55625, 0,             0),
-	ADJOP(35, 0, 55625, 0,             0),
-	ADJOP(36, 0, 55000, 0,             0),
-	ADJOP(37, 0, 55000, 0,             0),
-	ADJOP(38, 0, 55000, 0,             0),
-	ADJOP(39, 0, 55000, 0,             0),
-	ADJOP(40, 0, 54375, 0,             0), /* 40 sign off */
-};
-/**************************************************
- * Aging Adjustment
- **************************************************/
-/*
- * todo: Need to check correct table for applying aging
- */
-unsigned int g_aging_table[][SIGNED_OPP_GPU_NUM] = {
-	{ /* aging table 0 */
-		1875, 1875, 1875, 1875, 1875, 1875, 1875, 1875, 1875, 1875, /* OPP 0~9   */
-		1875, 1875, 1875, 1875, 1875, 1250, 1250, 1250, 1250, 1250, /* OPP 10~19 */
-		1250, 1250, 1250, 1250, 1250, 1250, 1250, 1250, 1250, 625,  /* OPP 20~29 */
-		625,  625,  625,  625,  625,  625,  625,  625,  625,  625,  /* OPP 30~39 */
-		625,  625,  625,  625,  625,                                /* OPP 40~44 */
-	},
-	{ /* aging table 1 */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 0~9   */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 10~19 */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 20~29 */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 30~39 */
-		0, 0, 0, 0, 0,                /* OPP 40~44 */
-	},
-	{ /* aging table 2 */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 0~9   */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 10~19 */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 20~29 */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 30~39 */
-		0, 0, 0, 0, 0,                /* OPP 40~44 */
-	},
-	{ /* aging table 3 */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 0~9   */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 10~19 */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 20~29 */
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* OPP 30~39 */
-		0, 0, 0, 0, 0,                /* OPP 40~44 */
-	},
-};
-//TODO:GKI
-#endif
 #endif /* __GPUFREQ_MT6765_H__ */
