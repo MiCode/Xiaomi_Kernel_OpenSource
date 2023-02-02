@@ -10,6 +10,7 @@
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
 #include <linux/cpumask.h>
+#include <linux/module.h>
 #include <linux/notifier.h>
 #include <linux/io.h>
 #include <mt-plat/sync_write.h>
@@ -20,7 +21,6 @@
 #if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
 #include "mach/mtk_thermal.h"
 #endif
-
 
 static unsigned int (*mt_cpufreq_get_cur_volt_cb)(unsigned int);
 
@@ -34,6 +34,16 @@ static unsigned int mt_cpufreq_get_cur_volt_get(i)
 {
 	return mt_cpufreq_get_cur_volt_cb ? mt_cpufreq_get_cur_volt_cb(i) : 0;
 }
+
+static int (*s_ppm_thermal_cpuL_temp_cb)(void);
+static int (*s_ppm_thermal_cpuB_temp_cb)(void);
+void mt_ppm_thermal_get_cpu_cluster_temp_cb(
+	int (*ppm_thermal_cpuL_temp_cb)(void), int (*ppm_thermal_cpuB_temp_cb)(void))
+{
+	s_ppm_thermal_cpuL_temp_cb = ppm_thermal_cpuL_temp_cb;
+	s_ppm_thermal_cpuB_temp_cb = ppm_thermal_cpuB_temp_cb;
+}
+EXPORT_SYMBOL(mt_ppm_thermal_get_cpu_cluster_temp_cb);
 
 #ifdef PPM_SSPM_SUPPORT
 static void *online_core;
@@ -139,15 +149,22 @@ static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
 
 	switch (cluster) {
 	case PPM_CLUSTER_L:
-		temp = get_immediate_cpuL_wrap() / 1000;
+		if (s_ppm_thermal_cpuL_temp_cb)
+			temp = s_ppm_thermal_cpuL_temp_cb() / 1000;
+		else
+			pr_info("%s, s_ppm_thermal_cpuL_temp_cb not init!", __func__);
 		break;
 	case PPM_CLUSTER_B:
-		temp = get_immediate_cpuB_wrap() / 1000;
+		if (s_ppm_thermal_cpuB_temp_cb)
+			temp = s_ppm_thermal_cpuB_temp_cb() / 1000;
+		else
+			pr_info("%s, s_ppm_thermal_cpuB_temp_cb not init!", __func__);
 		break;
 	default:
 		ppm_err("@%s: invalid cluster id = %d\n", __func__, cluster);
 		break;
 	}
+
 	return temp;
 }
 #endif
@@ -221,6 +238,7 @@ int ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
 
 	return pwr_idx;
 }
+EXPORT_SYMBOL(ppm_find_pwr_idx);
 
 int ppm_get_min_pwr_idx(void)
 {
@@ -347,3 +365,4 @@ unsigned int mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
 
 	return mw;
 }
+EXPORT_SYMBOL(mt_ppm_get_leakage_mw);
