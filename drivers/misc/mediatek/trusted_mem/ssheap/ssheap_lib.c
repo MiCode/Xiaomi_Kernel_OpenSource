@@ -121,7 +121,7 @@ static int hyp_pmm_disable_cma(void)
 
 static void ssmr_zone_offline(void)
 {
-	unsigned long long start, end, tmp;
+	unsigned long long start, end, duration;
 	int retry = 0;
 	uint64_t size;
 	void *kaddr;
@@ -148,11 +148,9 @@ retry:
 
 	/* get end time */
 	end = sched_clock();
-	tmp = end - start;
-	end = tmp;
-	start = do_div(end, 1000000);
-	//pr_info("%s: duration: %d ns (%d ms)\n", __func__, end - start, (end - start) / 1000000);
-	pr_info("%s: duration: %d ns (%d ms)\n", __func__, tmp, end);
+	duration = end - start;
+	do_div(duration, 1000000);
+	pr_info("%s: duration: %d ns (%d ms)\n", __func__, end - start, duration);
 
 	if (cma_page == NULL) {
 		pr_warn("%s: cma_alloc failed retry:%d\n", __func__, retry);
@@ -588,8 +586,8 @@ unsigned long mtee_unassign_buffer(struct ssheap_buf_info *info,
 	count = info->elems;
 	pmm_attr = PGLIST_SET_ATTR(paddr, mem_type);
 	pr_debug("pmm_msg_page paddr=%pa\n", &paddr);
-	arm_smccc_smc(HYP_PMM_UNASSIGN_BUFFER, lower_32_bits(paddr),
-		      upper_32_bits(paddr), count, 0, 0, 0, 0, &smc_res);
+	arm_smccc_smc(HYP_PMM_UNASSIGN_BUFFER, lower_32_bits(pmm_attr),
+		      upper_32_bits(pmm_attr), count, 0, 0, 0, 0, &smc_res);
 	pr_debug("smc_res.a0=%x\n", smc_res.a0);
 	return smc_res.a0;
 }
