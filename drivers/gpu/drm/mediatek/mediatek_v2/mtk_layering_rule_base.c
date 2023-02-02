@@ -2410,7 +2410,7 @@ static bool same_ratio_limitation(struct drm_crtc *crtc,
 
 #define UNIT 32768
 #define TILE_LOSS 4
-static int check_cross_pipe_rpo(
+static int check_cross_pipe_rpo(struct mtk_rsz_param param[2],
 	unsigned int src_x, unsigned int src_w,
 	unsigned int dst_x, unsigned int dst_w,
 	unsigned int disp_w)
@@ -2429,7 +2429,6 @@ static int check_cross_pipe_rpo(
 	u32 out_x[2] = {0};
 	bool is_dual = true;
 	int width = disp_w;
-	struct mtk_rsz_param param[2];
 
 	if (right < width / 2)
 		tile_idx = 0;
@@ -2577,6 +2576,8 @@ static int RPO_rule(struct drm_crtc *crtc,
 
 	for (i = 0; i < disp_info->layer_num[disp_idx] &&
 						i < DISP_RSZ_LAYER_NUM; i++) {
+		struct mtk_rsz_param param[2] = {0};
+
 		c = &disp_info->input_config[disp_idx][i];
 
 		/*if (i == 0 && c->src_fmt == MTK_DRM_FORMAT_DIM)
@@ -2629,14 +2630,21 @@ static int RPO_rule(struct drm_crtc *crtc,
 			break;
 
 		if (mtk_crtc->is_dual_pipe &&
-			check_cross_pipe_rpo(src_roi.x, src_roi.width,
+		    check_cross_pipe_rpo(param, src_roi.x, src_roi.width,
 						dst_roi.x, dst_roi.width, disp_w))
 			break;
 
 		/* Check the tile length and in max height of RSZ */
-		if (src_roi.width > private->rsz_in_max[0] ||
-		    src_roi.height > private->rsz_in_max[1])
-			break;
+		if (mtk_crtc->is_dual_pipe) {
+			if (param[0].in_len > private->rsz_in_max[0] ||
+			    param[1].in_len > private->rsz_in_max[0] ||
+			    src_roi.height > private->rsz_in_max[1])
+				break;
+		} else {
+			if (src_roi.width > private->rsz_in_max[0] ||
+			    src_roi.height > private->rsz_in_max[1])
+				break;
+		}
 
 		c->layer_caps |= MTK_DISP_RSZ_LAYER;
 		rsz_idx = i;

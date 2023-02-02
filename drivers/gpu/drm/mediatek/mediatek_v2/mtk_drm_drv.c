@@ -4069,6 +4069,8 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 		caps_info->disp_feature_flag |= DRM_DISP_FEATURE_RPO;
 		caps_info->rsz_in_max[0] = private->rsz_in_max[0];
 		caps_info->rsz_in_max[1] = private->rsz_in_max[1];
+		if (mtk_crtc_is_dual_pipe(private->crtc[0]))
+			caps_info->rsz_in_max[0] *= 2;
 	}
 	caps_info->disp_feature_flag |= DRM_DISP_FEATURE_FBDC;
 

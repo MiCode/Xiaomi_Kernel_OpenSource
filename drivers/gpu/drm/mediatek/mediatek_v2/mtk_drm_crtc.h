@@ -1056,6 +1056,7 @@ void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_ddp_comp *comp, unsigned int idx,
 		struct mtk_plane_state *plane_state, struct cmdq_pkt *cmdq_handle);
 unsigned int dual_pipe_comp_mapping(unsigned int mmsys_id, unsigned int comp_id);
+bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc);
 
 int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en);
 int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en);
