@@ -3454,6 +3454,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 	vcu_func.vcu_set_codec_ctx = vcu_set_codec_ctx;
 	vcu_func.vcu_get_log = vcu_get_log;
 	vcu_func.vcu_set_log = vcu_set_log;
+	vcu_func.vcu_get_gce_lock = vcu_get_gce_lock;
+	vcu_func.vcu_put_gce_lock = vcu_put_gce_lock;
 
 	dev_dbg(dev, "[VCU] initialization completed\n");
 	return 0;

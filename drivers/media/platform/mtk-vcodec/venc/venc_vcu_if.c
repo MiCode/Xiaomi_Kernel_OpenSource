@@ -203,26 +203,26 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		break;
 	case VCU_IPIMSG_ENC_POWER_ON:
 		/*use status to store core ID*/
-		vcu_get_gce_lock(vcu->dev, VCU_VENC);
+		VCU_FPTR(vcu_get_gce_lock)(vcu->dev, VCU_VENC);
 		while (lock != 0) {
 			lock = venc_lock(ctx, 0, true);
 			if (lock != 0) {
-				vcu_put_gce_lock(vcu->dev, VCU_VENC);
+				VCU_FPTR(vcu_put_gce_lock)(vcu->dev, VCU_VENC);
 				usleep_range(1000, 2000);
-				vcu_get_gce_lock(vcu->dev, VCU_VENC);
+				VCU_FPTR(vcu_get_gce_lock)(vcu->dev, VCU_VENC);
 			}
 		}
 		venc_encode_prepare(ctx, msg->status, &flags);
-		vcu_put_gce_lock(vcu->dev, VCU_VENC);
+		VCU_FPTR(vcu_put_gce_lock)(vcu->dev, VCU_VENC);
 		msg->status = VENC_IPI_MSG_STATUS_OK;
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_POWER_OFF:
 		/*use status to store core ID*/
-		vcu_get_gce_lock(vcu->dev, VCU_VENC);
+		VCU_FPTR(vcu_get_gce_lock)(vcu->dev, VCU_VENC);
 		venc_encode_unprepare(ctx, msg->status, &flags);
 		venc_unlock(ctx, 0);
-		vcu_put_gce_lock(vcu->dev, VCU_VENC);
+		VCU_FPTR(vcu_put_gce_lock)(vcu->dev, VCU_VENC);
 		msg->status = VENC_IPI_MSG_STATUS_OK;
 		ret = 1;
 		break;

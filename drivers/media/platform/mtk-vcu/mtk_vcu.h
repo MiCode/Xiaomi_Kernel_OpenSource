@@ -123,6 +123,8 @@ struct vcu_v4l2_func {
 			 unsigned int len, void *priv);
 	int (*vcu_set_log)(const char *val);
 	int (*vcu_get_log)(char *val, unsigned int val_len);
+	void (*vcu_get_gce_lock)(struct platform_device *pdev, unsigned long codec_type);
+	void (*vcu_put_gce_lock)(struct platform_device *pdev, unsigned long codec_type);
 };
 extern struct vcu_v4l2_func vcu_func;
 
