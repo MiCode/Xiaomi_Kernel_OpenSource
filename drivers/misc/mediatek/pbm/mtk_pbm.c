@@ -674,7 +674,7 @@ static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
 	}
 }
 
-void tracepoint_cleanup(void)
+void pbm_tracepoint_cleanup(void)
 {
 	int i;
 
@@ -944,7 +944,7 @@ static int pbm_probe(struct platform_device *pdev)
 	FOR_EACH_INTEREST(i) {
 		if (pbm_tracepoints[i].tp == NULL) {
 			pr_info("pbm Error, %s not found\n", pbm_tracepoints[i].name);
-			tracepoint_cleanup();
+			pbm_tracepoint_cleanup();
 			return -1;
 		}
 	}
