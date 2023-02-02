@@ -2046,6 +2046,12 @@ cma=64M transparent_hugepage=never";
 			"infra-ccif2-md";
 	};
 
+	md1_sim1_hot_plug_eint:MD1_SIM1_HOT_PLUG_EINT {
+	};
+
+	md1_sim2_hot_plug_eint:MD1_SIM2_HOT_PLUG_EINT {
+	};
+
 	bpi_bsi_slv0@1021e000 {
 		compatible = "mediatek,bpi_bsi_slv0";
 		reg = <0 0x1021e000 0 0x1000>;
@@ -5002,12 +5008,6 @@ cma=64M transparent_hugepage=never";
 
 	gpio_usage_mapping:gpio {
 		compatible = "mediatek,gpio_usage_mapping";
-	};
-
-	md1_sim1_hot_plug_eint: md1_sim1_hot_plug_eint {
-	};
-
-	md1_sim2_hot_plug_eint: md1_sim2_hot_plug_eint {
 	};
 
 	drm_wv: drm_wv {
