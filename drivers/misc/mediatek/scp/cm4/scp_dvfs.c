@@ -1299,12 +1299,14 @@ static void mt_pmic_sshub_init_for_legacy_v1(void)
 	val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]);
 
 	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_BUCK_VCORE_SSHUB_CON1, 0x7f, 24);
-	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_BUCK_VCORE_SSHUB_CON1, 0x7f, 1);
-	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_BUCK_VCORE_SSHUB_CON0, 0x1, 0);
+	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_BUCK_VCORE_SSHUB_CON1, 0x7f00, 6144);
+	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_BUCK_VCORE_SSHUB_CON0, 0x1, 1);
+	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_BUCK_VCORE_SSHUB_CON0, 0x2, 0);
 
 	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_LDO_VSRAM_OTHERS_SSHUB_CON1, 0x7f, 64);
-	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_LDO_VSRAM_OTHERS_SSHUB_CON1, 0x7f, 1);
-	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_LDO_VSRAM_OTHERS_SSHUB_CON0, 0x1, 0);
+	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_LDO_VSRAM_OTHERS_SSHUB_CON1, 0x7f00, 16384);
+	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_LDO_VSRAM_OTHERS_SSHUB_CON0, 0x1, 1);
+	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_LDO_VSRAM_OTHERS_SSHUB_CON0, 0x2, 0);
 
 	regmap_read(sd[SYS_PMIC].regmap, MT6358_BUCK_VCORE_SSHUB_CON0, val);
 	regmap_read(sd[SYS_PMIC].regmap, MT6358_BUCK_VCORE_SSHUB_CON1, val+1);
@@ -1319,7 +1321,7 @@ static void mt_pmic_sshub_init_for_legacy_v1(void)
 	val[0], val[1], val[2], val[3], val[4], val[5], val[6], val[7]);
 
 	/*  Workaround once force BUCK in NML mode */
-	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_TOP_CLK_CON0, 0x1, 1);
+	regmap_update_bits(sd[SYS_PMIC].regmap, MT6358_TOP_CLK_CON0, 0x10, 0x10);
 #endif
 }
 
