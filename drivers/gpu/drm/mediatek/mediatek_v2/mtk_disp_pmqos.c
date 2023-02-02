@@ -197,18 +197,34 @@ void mtk_disp_hrt_mmclk_request_mt6768(struct mtk_drm_crtc *mtk_crtc, unsigned i
 	int ret;
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+#if IS_ENABLED(CONFIG_MTK_MT6382_BDG)
+	struct hrt_mmclk_request req_level[] = { /* 18:9 */
+		{20, 700000},
+		{40, 700000},
+		{45, 800000},
+	};
+#else
 	struct hrt_mmclk_request req_level[] = { /* 18:9 */
 		{35, 650000},
 		{60, 700000},
 		{70, 800000},
 	};
+#endif
 
 	layer_num = bw*10 / mtk_drm_primary_frame_bw(crtc);
+#if IS_ENABLED(CONFIG_MTK_MT6382_BDG)
+	if ((mtk_crtc->base.mode.vdisplay) / mtk_crtc->base.mode.hdisplay > 18 / 9) {
+		req_level[0].layer_num = 20;
+		req_level[1].layer_num = 30;
+		req_level[2].layer_num = 40;
+	}
+#else
 	if ((mtk_crtc->base.mode.vdisplay) / mtk_crtc->base.mode.hdisplay > 18 / 9) {
 		req_level[0].layer_num = 30;
 		req_level[1].layer_num = 50;
 		req_level[2].layer_num = 60;
 	}
+#endif
 	if (layer_num <= req_level[0].layer_num) {
 		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL2]);
 		ret = regulator_set_voltage(mm_freq_request, req_level[0].volt, INT_MAX);
