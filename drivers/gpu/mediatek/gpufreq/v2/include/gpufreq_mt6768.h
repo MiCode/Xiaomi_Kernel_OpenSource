@@ -185,17 +185,14 @@ struct g_clk_info {
 	struct clk *clk_main_parent;	/* substitution clock for mfg transient mux setting */
 	struct clk *clk_sub_parent;	/* substitution clock for mfg transient parent setting */
 	struct clk *subsys_mfg_cg;	/* clock gating */
+	struct clk *mtcmos_mfg_async;	/* */
+	struct clk *mtcmos_mfg;		/* dependent on mtcmos_mfg_async */
+	struct clk *mtcmos_mfg_core0;	/* dependent on mtcmos_mfg */
+	struct clk *mtcmos_mfg_core1;	/* dependent on mtcmos_mfg */
 };
 struct g_pmic_info {
 	struct regulator *reg_vgpu;
 	struct regulator *reg_vsram_gpu;
-};
-
-struct gpufreq_mtcmos_info {
-	struct device *pd_mfg;
-	struct device *pd_mfg_async;
-	struct device *pd_mfg_core0;
-	struct device *pd_mfg_core1;
 };
 
 struct gpufreq_adj_info {
