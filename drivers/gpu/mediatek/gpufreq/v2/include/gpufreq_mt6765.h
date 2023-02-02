@@ -24,6 +24,9 @@
 #define GPUFREQ_CUST_INIT_OPPIDX        (0)
 #define PBM_RAEDY                       (0)
 #define MT_GPUFREQ_STATIC_PWR_READY2USE
+//For IMG Mfgsys
+#define BUCK_ON 1
+#define BUCK_OFF 0
 /**************************************************
  * Clock Setting
  **************************************************/
