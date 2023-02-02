@@ -355,7 +355,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 				dvfsrc_get_required_opp_peak_bw(node, i);
 		}
 #endif /* CONFIG_MTK_DVFSRC */
-		cm_mgr_set_num_array(ret - 2);
+		cm_mgr_set_num_array(ret - 1);
 	} else
 		cm_mgr_set_num_array(0);
 	pr_info("#@# %s(%d) cm_mgr_num_array %d\n",
