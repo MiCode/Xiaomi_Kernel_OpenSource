@@ -1125,7 +1125,7 @@ struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap,
 	rcu_read_unlock();
 	cur_ts2 = sched_clock();
 	if (dmabuf_rb_check)
-		dmabuf_dump(s, "%s: time:%lu max:%d count:%d\n", __func__,
+		dmabuf_dump(s, "%s: time:%llu max:%d count:%d\n", __func__,
 			    cur_ts2 - cur_ts1, pid_max, pid_count);
 
 	while (pid_count) {
@@ -1291,7 +1291,7 @@ void dmabuf_rbtree_dump_all(struct dma_heap *heap, unsigned long flag,
 	if (!(flag & HEAP_DUMP_STATS)) {
 		dmabuf_dump(s, "allocated for debug dump: %lu KB\n", debug_alloc_sz / 1024);
 		dmabuf_dump(s, "freed     for debug dump: %lu KB\n", free_size / 1024);
-		dmabuf_dump(s, "start:%lums add_done:%lums dump_done:%lums end:%lums\n",
+		dmabuf_dump(s, "start:%llums add_done:%llums dump_done:%llums end:%llums\n",
 			    time1, time2, time3, get_current_time_ms());
 	}
 }
@@ -1376,7 +1376,7 @@ static void mtk_dmabuf_dump_heap(struct dma_heap *heap,
 		dmabuf_dump(s, "freelist: %lu KB\n", get_freelist_nr_pages() * 4);
 		dmabuf_sz = get_dma_heap_buffer_total(heap);
 		dmabuf_dump(s, "dmabuf buffer total:%ld KB\n", (dmabuf_sz * 4) / PAGE_SIZE);
-		dmabuf_dump(s, "\t|-normal dma_heap buffer total:%ld KB\n\n",
+		dmabuf_dump(s, "\t|-normal dma_heap buffer total:%lld KB\n\n",
 			    (atomic64_read(&dma_heap_normal_total) * 4) / PAGE_SIZE);
 
 		//dump all heaps

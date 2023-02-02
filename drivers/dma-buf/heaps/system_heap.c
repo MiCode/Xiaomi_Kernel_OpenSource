@@ -914,7 +914,7 @@ static int system_buf_priv_dump(const struct dma_buf *dmabuf,
 	int i = 0, j = 0;
 	struct system_heap_buffer *buf = dmabuf->priv;
 
-	dmabuf_dump(s, "\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%luus\n",
+	dmabuf_dump(s, "\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%lluus\n",
 		    !!buf->uncached,
 		    buf->pid, buf->pid_name,
 		    buf->tid, buf->tid_name,

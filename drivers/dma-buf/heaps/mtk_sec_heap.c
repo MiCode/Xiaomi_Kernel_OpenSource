@@ -1223,7 +1223,7 @@ static int sec_buf_priv_dump(const struct dma_buf *dmabuf,
 	struct mtk_sec_heap_buffer *buf = dmabuf->priv;
 	u32 sec_handle = 0;
 
-	dmabuf_dump(s, "\t\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%luus\n",
+	dmabuf_dump(s, "\t\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%lluus\n",
 		    !!buf->uncached,
 		    buf->pid, buf->pid_name,
 		    buf->tid, buf->tid_name,
