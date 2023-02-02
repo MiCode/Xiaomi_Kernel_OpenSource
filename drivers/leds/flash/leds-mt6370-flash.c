@@ -126,8 +126,9 @@ static int mt6370_torch_brightness_set(struct led_classdev *lcdev,
 	flashlight_kicker_pbm(1);
 #endif
 #ifdef CONFIG_MTK_FLASHLIGHT_PT
-	if (flashlight_pt_is_low()) {
+	if (flashlight_pt_is_low() && level) {
 		dev_info(lcdev->dev, "pt is low\n");
+		mutex_unlock(&priv->lock);
 		return 0;
 	}
 #endif
@@ -250,6 +251,7 @@ static int mt6370_strobe_set(struct led_classdev_flash *fl_cdev, bool state)
 #ifdef CONFIG_MTK_FLASHLIGHT_PT
 	if (flashlight_pt_is_low()) {
 		dev_info(lcdev->dev, "pt is low\n");
+		mutex_unlock(&priv->lock);
 		return 0;
 	}
 #endif
