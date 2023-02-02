@@ -15,7 +15,7 @@
 
 void sspm_set_emi_mpu(phys_addr_t base, phys_addr_t size)
 {
-	struct emimpu_region_t sspm_region;
+	struct emimpu_region_t sspm_region = {0};
 	int ret = 0;
 
 	ret = mtk_emimpu_init_region(&sspm_region, SSPM_MPU_REGION_ID);
