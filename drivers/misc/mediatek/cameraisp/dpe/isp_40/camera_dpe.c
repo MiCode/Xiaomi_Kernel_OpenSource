@@ -3080,6 +3080,7 @@ return -EFAULT;
 		if (g_u4EnableClockCount == 0) {
 			LOG_ERR("RESET: DPE CLK Not Opened!\n");
 			Ret = -EFAULT;
+			goto EXIT;
 		}
 		spin_lock(&(DPEInfo.SpinLockDPE));
 		DPE_Reset();
@@ -3093,6 +3094,7 @@ return -EFAULT;
 		if (g_u4EnableClockCount == 0) {
 			LOG_ERR("DUMP_REG: DPE CLK Not Opened!\n");
 			Ret = -EFAULT;
+			goto EXIT;
 		}
 		Ret = DPE_DumpReg();
 		break;
@@ -3120,6 +3122,7 @@ return -EFAULT;
 		if (g_u4EnableClockCount == 0) {
 			LOG_ERR("READ_REGISTER: DPE CLK Not Opened!\n");
 			Ret = -EFAULT;
+			goto EXIT;
 		}
 		if (copy_from_user(&RegIo, (void *)Param,
 			sizeof(struct DPE_REG_IO_STRUCT)) == 0) {
@@ -3137,6 +3140,7 @@ return -EFAULT;
 		if (g_u4EnableClockCount == 0) {
 			LOG_ERR("WRITE_REGISTER: DPE CLK Not Opened!\n");
 			Ret = -EFAULT;
+			goto EXIT;
 		}
 		if (copy_from_user(&RegIo, (void *)Param,
 			sizeof(struct DPE_REG_IO_STRUCT)) == 0) {
@@ -3245,6 +3249,7 @@ return -EFAULT;
 	if (g_u4EnableClockCount == 0) {
 		LOG_ERR("DVE_ENQUE_REQ: DPE CLK Not Opened!\n");
 		Ret = -EFAULT;
+		goto EXIT;
 	}
 	if (copy_from_user(&dpe_DveReq, (void *)Param,
 		sizeof(struct DPE_DVERequest)) == 0) {
@@ -3343,6 +3348,7 @@ return -EFAULT;
 	if (g_u4EnableClockCount == 0) {
 		LOG_ERR("DVE_DEQUE_REQ: DPE CLK Not Opened!\n");
 		Ret = -EFAULT;
+		goto EXIT;
 	}
 
 	if (copy_from_user(&dpe_DveReq,
@@ -3431,6 +3437,7 @@ LOG_INF("DEQ_NUM No Buf!,ReadIdx(%d),ReqSta(%d),FrameRDIdx(%d),enqReqNum(%d)\n",
 	if (g_u4EnableClockCount == 0) {
 		LOG_ERR("WMFE_ENQUE_REQ: DPE CLK Not Opened!\n");
 		Ret = -EFAULT;
+		goto EXIT;
 	}
 
 	if (copy_from_user(&dpe_WmfeReq, (void *)Param,
@@ -3530,6 +3537,7 @@ LOG_INF("DEQ_NUM No Buf!,ReadIdx(%d),ReqSta(%d),FrameRDIdx(%d),enqReqNum(%d)\n",
 	if (g_u4EnableClockCount == 0) {
 		LOG_ERR("WMFE_DEQUE_REG: DPE CLK Not Opened!\n");
 		Ret = -EFAULT;
+		goto EXIT;
 	}
 
 	if (copy_from_user
