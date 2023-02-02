@@ -105,9 +105,11 @@ static int uether_tx_profile;
 module_param(uether_tx_profile, uint, 0644);
 MODULE_PARM_DESC(uether_tx_profile, "Profile TX XMIT");
 
+#if IS_ENABLED(CONFIG_64BIT)
 static bool tx_profile_start;
 static ktime_t starttime;
 static unsigned long long rec_data_len;
+#endif
 
 /* for dual-speed hardware, use deeper queues at high/super speed */
 static inline int qlen(struct usb_gadget *gadget, unsigned qmult)
@@ -763,10 +765,12 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	static DEFINE_RATELIMIT_STATE(ratelimit2, 1 * HZ, 2);
 	static DEFINE_RATELIMIT_STATE(ratelimit3, 1 * HZ, 2);
 	struct iphdr *iph;
+	#if IS_ENABLED(CONFIG_64BIT)
 	ktime_t endtime, deltatime;
 	unsigned long long duration;
 	struct netdev_queue *dev_queue = NULL;
 	struct Qdisc *qdisc;
+	#endif
 	struct skb_shared_info *pinfo;
 	skb_frag_t *frag;
 	unsigned int frag_cnt = 0, frag_idx = 0, frag_data_len = 0, frag_total_len = 0;
