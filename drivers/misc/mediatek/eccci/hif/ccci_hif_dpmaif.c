@@ -136,6 +136,21 @@ TRACE_EVENT(ccci_skb_rx,
 );
 #endif
 #endif
+
+static void dpmaif_init_fail_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
+{
+	/* dpmaif init fail dump register */
+	CCCI_BUF_LOG_TAG(hif_ctrl->md_id, buf_type, TAG,
+		"dump AP DPMAIF init fail register 0x1022D100~0x1022D1FC\n");
+	ccci_util_mem_dump(hif_ctrl->md_id, buf_type,
+		hif_ctrl->dpmaif_pd_dl_base, 0xFC);
+
+	CCCI_BUF_LOG_TAG(hif_ctrl->md_id, buf_type, TAG,
+		"dump AP DPMAIF init fail register 0x10014410~0x1001442C\n");
+	ccci_util_mem_dump(hif_ctrl->md_id, buf_type,
+		hif_ctrl->dpmaif_ao_dl_base + 0x10, 0x1C);
+}
+
 static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 {
 	if (hif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWROFF
@@ -430,6 +445,9 @@ static int dpmaif_dump_status(unsigned char hif_id,
 		dpmaif_dump_rxq_history(hif_ctrl, DPMAIF_RXQ_NUM, 1);
 		dpmaif_dump_rxq_remain(hif_ctrl, DPMAIF_RXQ_NUM, 1);
 	}
+
+	if (flag & DUMP_FLAG_INIT_FAIL)
+		dpmaif_init_fail_dump_register(hif_ctrl, CCCI_DUMP_REGISTER);
 
 	if (flag & DUMP_FLAG_REG)
 		dpmaif_dump_register(hif_ctrl, CCCI_DUMP_REGISTER);

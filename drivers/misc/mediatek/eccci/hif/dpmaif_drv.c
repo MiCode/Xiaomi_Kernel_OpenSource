@@ -302,7 +302,7 @@ int drv_dpmaif_dl_add_bat_cnt(unsigned char q_num,
 			CCCI_ERROR_LOG(0, TAG,
 				"%s cost too long\n", __func__);
 			dpmaif_ctrl->ops->dump_status(
-				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+				DPMAIF_HIF_ID, DUMP_FLAG_REG|DUMP_FLAG_INIT_FAIL, NULL, -1);
 			return HW_REG_TIME_OUT;
 		}
 	}
@@ -752,7 +752,7 @@ int drv_dpmaif_dl_bat_init_done(unsigned char q_num, bool frg_en)
 			CCCI_ERROR_LOG(0, TAG,
 				"%s 1s fail\n", __func__);
 			dpmaif_ctrl->ops->dump_status(
-				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+				DPMAIF_HIF_ID, DUMP_FLAG_REG|DUMP_FLAG_INIT_FAIL, NULL, -1);
 			return HW_REG_TIME_OUT;
 		}
 	}
@@ -764,7 +764,7 @@ int drv_dpmaif_dl_bat_init_done(unsigned char q_num, bool frg_en)
 			CCCI_ERROR_LOG(0, TAG,
 				"%s 2nd fail\n", __func__);
 			dpmaif_ctrl->ops->dump_status(
-				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+				DPMAIF_HIF_ID, DUMP_FLAG_REG|DUMP_FLAG_INIT_FAIL, NULL, -1);
 			return HW_REG_TIME_OUT;
 		}
 	}
@@ -789,7 +789,7 @@ void drv_dpmaif_dl_pit_init_done(unsigned char q_num)
 			CCCI_ERROR_LOG(0, TAG,
 				"%s 1st fail\n", __func__);
 			dpmaif_ctrl->ops->dump_status(
-				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+				DPMAIF_HIF_ID, DUMP_FLAG_REG|DUMP_FLAG_INIT_FAIL, NULL, -1);
 			return;
 		}
 	}
@@ -801,7 +801,7 @@ void drv_dpmaif_dl_pit_init_done(unsigned char q_num)
 			CCCI_ERROR_LOG(0, TAG,
 				"%s 2nd fail\n", __func__);
 			dpmaif_ctrl->ops->dump_status(
-				DPMAIF_HIF_ID, DUMP_FLAG_REG, NULL, -1);
+				DPMAIF_HIF_ID, DUMP_FLAG_REG|DUMP_FLAG_INIT_FAIL, NULL, -1);
 			return;
 		}
 	}

@@ -58,6 +58,7 @@ enum MODEM_DUMP_FLAG {
 	DUMP_FLAG_PCCIF_REG = (1 << 16),
 	DUMP_FLAG_TOGGLE_NET_SPD = (1 << 17),
 	DUMP_FLAG_GET_TRAFFIC = (1 << 18),
+	DUMP_FLAG_INIT_FAIL = (1 << 19),
 };
 
 enum {
