@@ -16,6 +16,12 @@ MTK_PERF_IOCTL_SRC = $(MTK_PERF_IOCTL)
 obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += mtk_perf_ioctl.o
 mtk_perf_ioctl-objs += $(MTK_PERF_IOCTL_SRC)
 
+# mtk_perf_ioctl_magt
+MTK_PERF_IOCTL_MAGT = $(mtk_perf_ioctl_magt_objs:%.o=perf_ioctl/%.o)
+MTK_PERF_IOCTL_MAGT_SRC = $(MTK_PERF_IOCTL_MAGT)
+obj-$(CONFIG_MTK_PERF_IOCTL_MAGT) += mtk_perf_ioctl_magt.o
+mtk_perf_ioctl_magt-objs += $(MTK_PERF_IOCTL_MAGT_SRC)
+
 #Generic subdir build
 obj-$(CONFIG_MTK_FPSGO_V3) += fpsgo_v3/
 obj-$(CONFIG_MTK_FRS) += frs/
