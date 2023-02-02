@@ -3695,17 +3695,17 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 						 crtc_mask,
 						 lyeblob_ids->ref_cnt);
 				}
-				if (!lyeblob_ids->ref_cnt) {
-					mtk_crtc_frame_buffer_release(crtc, index,
-						lyeblob_ids->hrt_valid);
-					DDPINFO("free lyeblob:(%d,%d)\n",
-						lyeblob_ids->lye_idx,
-						prop_lye_idx);
-					mtk_crtc_free_lyeblob_ids(crtc,
-							lyeblob_ids);
-					mtk_crtc_free_ddpblob_ids(crtc,
-							lyeblob_ids);
-				}
+			}
+			if (!lyeblob_ids->ref_cnt) {
+				mtk_crtc_frame_buffer_release(crtc, index,
+					lyeblob_ids->hrt_valid);
+				DDPINFO("free lyeblob:(%d,%d)\n",
+					lyeblob_ids->lye_idx,
+					prop_lye_idx);
+				mtk_crtc_free_lyeblob_ids(crtc,
+						lyeblob_ids);
+				mtk_crtc_free_ddpblob_ids(crtc,
+						lyeblob_ids);
 			}
 		}
 	}
@@ -3778,15 +3778,15 @@ static void mtk_crtc_release_lye_idx(struct drm_crtc *crtc)
 					crtc_mask,
 					lyeblob_ids->ref_cnt);
 			}
-			if (!lyeblob_ids->ref_cnt) {
-				DDPINFO("%s:%d free lyeblob:%d\n",
-					__func__, __LINE__,
-					lyeblob_ids->lye_idx);
-				mtk_crtc_free_lyeblob_ids(crtc,
-					lyeblob_ids);
-				mtk_crtc_free_ddpblob_ids(crtc,
-					lyeblob_ids);
-			}
+		}
+		if (!lyeblob_ids->ref_cnt) {
+			DDPINFO("%s:%d free lyeblob:%d\n",
+				__func__, __LINE__,
+				lyeblob_ids->lye_idx);
+			mtk_crtc_free_lyeblob_ids(crtc,
+				lyeblob_ids);
+			mtk_crtc_free_ddpblob_ids(crtc,
+				lyeblob_ids);
 		}
 	}
 	mutex_unlock(&mtk_drm->lyeblob_list_mutex);
