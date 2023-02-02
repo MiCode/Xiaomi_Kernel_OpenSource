@@ -1084,34 +1084,31 @@ void mt6768_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	bool en = *((bool *)data);
 
 	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
-		if (!en)
-			return;
-
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					0, SODI_REQ_SEL_ALL);
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					0, SODI_REQ_VAL_ALL);
-
-		/* apply sodi hrt with rdma fifo*/
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					1, SODI_HRT_FIFO_SEL_DISP0_PD_MODE);
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					1, SODI_HRT_FIFO_SEL_DISP0_CG_MODE);
-
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					1, SODI_REQ_SEL_RDMA0_PD_MODE);
-		SET_VAL_MASK(sodi_req_val, sodi_req_mask,
-					1, SODI_REQ_VAL_RDMA0_PD_MODE);
-
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0xFF, MT6768_HRT_URGENT_CTL_SEL_ALL);
-		SET_VAL_MASK(emi_req_val, emi_req_mask,
-					0, MT6768_HRT_URGENT_CTL_VAL_ALL);
+		if (en == 1) {
+			SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+						1, SODI_REQ_SEL_ALL);
+			SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+						1, SODI_REQ_VAL_ALL);
+		} else {
+			SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+						0, SODI_REQ_SEL_ALL);
+			SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+						0x0f, SODI_REQ_VAL_ALL);
+		}
 	} else if (id == DDP_COMPONENT_RDMA0) {
+		if (en == 1) {
+			SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+				1, SODI_REQ_SEL_ALL);
+			SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+						1, SODI_REQ_VAL_ALL);
+		} else {
+			SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+				0, SODI_REQ_SEL_ALL);
+			SET_VAL_MASK(sodi_req_val, sodi_req_mask,
+						0xf, SODI_REQ_VAL_ALL);
+		}
 		SET_VAL_MASK(sodi_req_val, sodi_req_mask, (!en),
 					SODI_REQ_SEL_RDMA0_CG_MODE);
-		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
-					MT6768_HRT_URGENT_CTL_SEL_RDMA0);
 	} else if (id == DDP_COMPONENT_WDMA0) {
 		SET_VAL_MASK(emi_req_val, emi_req_mask, (!en),
 					MT6768_HRT_URGENT_CTL_SEL_WDMA0);
