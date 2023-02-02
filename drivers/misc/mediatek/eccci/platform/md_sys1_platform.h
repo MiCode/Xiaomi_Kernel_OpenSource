@@ -55,7 +55,6 @@ struct ccci_plat_ops {
 
 struct md_hw_info {
 	/* HW info - Register Address */
-	unsigned long md_rgu_base;
 	unsigned long md_boot_slave_Vector;
 	unsigned long md_boot_slave_Key;
 	unsigned int sram_size;

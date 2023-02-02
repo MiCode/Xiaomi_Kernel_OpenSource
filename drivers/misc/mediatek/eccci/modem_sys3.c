@@ -46,15 +46,6 @@ static irqreturn_t md_cd_wdt_isr(int irq, void *data)
 {
 	struct ccci_modem *md = (struct ccci_modem *)data;
 
-	/*1. disable MD WDT */
-#ifdef ENABLE_MD_WDT_DBG
-	unsigned int state;
-
-	state = ccif_read32(md->md_rgu_base, C2K_WDT_MD_STA);
-	ccif_write32(md->md_rgu_base, C2K_WDT_MD_MODE, C2K_WDT_MD_MODE_KEY);
-	CCCI_NORMAL_LOG(md->index, TAG,
-		"WDT IRQ disabled for debug, state=%X\n", state);
-#endif
 	CCCI_NORMAL_LOG(md->index, TAG, "MD WDT IRQ\n");
 	ccci_event_log("md%d: MD WDT IRQ\n", md->index);
 
