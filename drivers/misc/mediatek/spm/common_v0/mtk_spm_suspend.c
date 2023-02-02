@@ -57,12 +57,6 @@ u8 spm_snapshot_golden_setting;
 struct wake_status spm_wakesta; /* record last wakesta */
 unsigned int spm_sleep_count;
 
-int __attribute__ ((weak)) mtk_enter_idle_state(int idx)
-{
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
-	return -1;
-}
-
 int __attribute__ ((weak)) vcorefs_get_curr_ddr(void)
 {
 	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
@@ -574,7 +568,5 @@ int  spm_logger_init(void)
 
 	return 0;
 }
-
-//late_initcall_sync(spm_logger_init);
 
 MODULE_DESCRIPTION("SPM-Sleep Driver v0.1");

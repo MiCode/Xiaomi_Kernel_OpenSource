@@ -10,7 +10,7 @@
 #include <mtk_spm_internal.h>
 #include <linux/time64.h>
 #include <linux/timekeeping.h>
-//#include <mtk_power_gs_api.h>
+#include <power_gs_v1/mtk_power_gs_api.h>
 
 #define WORLD_CLK_CNTCV_L        (0x10017008)
 #define WORLD_CLK_CNTCV_H        (0x1001700C)
@@ -155,21 +155,19 @@ void __spm_get_wakeup_status(struct wake_status *wakesta)
 	wakesta->isr = spm_read(SPM_IRQ_STA);
 }
 
+#define LOG_BUF_OUT_SZ	768
 unsigned int __spm_output_wake_reason(
 	const struct wake_status *wakesta, bool suspend, const char *scenario)
 {
-	#define LOG_BUF_OUT_SZ	768
 	char *buf;
 	char *log_buf;
 	int i;
-	//char buf[LOG_BUF_SIZE] = { 0 };
-	//char log_buf[LOG_BUF_OUT_SZ] = { 0 };
 	char *local_ptr;
 	int log_size = 0;
 	unsigned int wr = WR_UNKNOWN;
 	unsigned int spm_26M_off_pct = 0;
 
-		log_buf = vmalloc(LOG_BUF_OUT_SZ);
+	log_buf = vmalloc(LOG_BUF_OUT_SZ);
 	if (!log_buf)
 		return -1;
 	buf = vmalloc(LOG_BUF_SIZE);
@@ -263,12 +261,12 @@ unsigned int __spm_output_wake_reason(
 			spm_read(SPM_SW_RSV_2),
 			spm_read(SPM_SRC_REQ));
 
-		/*log_size += scnprintf(log_buf + log_size,
+		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,
 			"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
 			_golden_read_reg(WORLD_CLK_CNTCV_L),
 			_golden_read_reg(WORLD_CLK_CNTCV_H),
-			spm_26M_off_pct);*/
+			spm_26M_off_pct);
 	} else
 		log_size += scnprintf(log_buf + log_size,
 			LOG_BUF_OUT_SZ - log_size,

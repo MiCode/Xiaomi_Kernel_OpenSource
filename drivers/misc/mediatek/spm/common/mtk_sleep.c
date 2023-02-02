@@ -14,7 +14,7 @@
 #include <mtk_spm_internal.h> /* mtk_idle_cond_check */
 #include <mtk_spm_suspend_internal.h>
 #include <mtk_idle_fs/mtk_idle_sysfs.h>
-//#include <mtk_power_gs_api.h>
+#include <power_gs_v1/mtk_power_gs_api.h>
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>
 #if IS_ENABLED(CONFIG_MTK_SND_SOC_NEW_ARCH)
@@ -26,7 +26,7 @@
 #define ConditionEnterSuspend mtk_audio_condition_enter_suspend
 #endif /* CONFIG_SND_SOC_MTK_SMART_PHONE */
 
-//#include <mtk_mcdi_api.h>
+#include <mtk_mcdi_api.h>
 
 #include <mtk_lp_dts.h>
 static DEFINE_SPINLOCK(slp_lock);
@@ -39,7 +39,7 @@ static bool slp_ck26m_on;
 
 bool slp_dump_gpio;
 bool slp_dump_golden_setting;
-//int slp_dump_golden_setting_type = GS_PMIC;
+int slp_dump_golden_setting_type = GS_PMIC;
 
 static int slp_suspend_ops_valid(suspend_state_t state)
 {
@@ -67,11 +67,7 @@ static int slp_suspend_ops_prepare(void)
 
 #if IS_ENABLED(CONFIG_MTK_SND_SOC_NEW_ARCH) \
 || IS_ENABLED(CONFIG_SND_SOC_MTK_SMART_PHONE)
-bool __attribute__ ((weak)) ConditionEnterSuspend(void)
-{
-	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
-	return true;
-}
+bool  ConditionEnterSuspend(void);
 #endif /* MTK_SUSPEND_AUDIO_SUPPORT */
 
 #if IS_ENABLED(CONFIG_MTK_SYSTRACKER)
@@ -99,38 +95,8 @@ void __attribute__((weak)) pll_if_on(void)
 }
 
 void __attribute__((weak))
-gpio_dump_regs(void)
-{
-
-}
-
-void __attribute__((weak))
-spm_output_sleep_option(void)
-{
-
-}
-
-int __attribute__((weak))
-spm_set_sleep_wakesrc(u32 wakesrc, bool enable, bool replace)
-{
-	return 0;
-}
-
-bool __attribute__((weak)) spm_is_enable_sleep(void)
-{
-	pr_info("NO %s !!!\n", __func__);
-	return false;
-}
-
-void __attribute__((weak))
 mtk_suspend_cond_info(void)
 {
-}
-
-unsigned int __attribute__((weak))
-spm_go_to_sleep(void)
-{
-	return 0;
 }
 
 bool __attribute__((weak))
@@ -161,7 +127,7 @@ static int slp_suspend_ops_enter(suspend_state_t state)
 	else
 		fm_radio_is_playing = 1;
 #endif /* CONFIG_MTK_SND_SOC_NEW_ARCH || CONFIG_SND_SOC_MTK_SMART_PHONE */
-#endif
+#endif /* SLP_SLEEP_DPIDLE_EN */
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	if (slp_dump_gpio)
@@ -195,7 +161,7 @@ static int slp_suspend_ops_enter(suspend_state_t state)
 	}
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
-	//mcdi_task_pause(true);
+	mcdi_task_pause(true);
 
 	mtk_idle_cond_update_state();
 
@@ -217,7 +183,7 @@ static int slp_suspend_ops_enter(suspend_state_t state)
 		slp_wake_reason = spm_go_to_sleep();
 	}
 
-	//mcdi_task_pause(false);
+	mcdi_task_pause(false);
 
 LEAVE_SLEEP:
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
@@ -266,9 +232,8 @@ int slp_set_wakesrc(u32 wakesrc, bool enable, bool ck26m_on)
 	int r;
 	unsigned long flags;
 
-	//printk_deferred("[name:spm&][SLP] wakesrc = 0x%x, enable = %u, ck26m_on = %u\n",
-		//wakesrc, enable, ck26m_on);
-		//wakesrc, enable, ck26m_on);
+	pr_info("[name:spm&][SLP] wakesrc = 0x%x, enable = %u, ck26m_on = %u\n",
+		wakesrc, enable, ck26m_on);
 
 #if SLP_REPLACE_DEF_WAKESRC
 	if (wakesrc & WAKE_SRC_CFG_KEY)
@@ -403,9 +368,8 @@ void slp_module_init(void)
 }
 
 module_param(slp_ck26m_on, bool, 0644);
-
 module_param(slp_dump_gpio, bool, 0644);
-//module_param(slp_dump_golden_setting, bool, 0644);
-//module_param(slp_dump_golden_setting_type, int, 0644);
+module_param(slp_dump_golden_setting, bool, 0644);
+module_param(slp_dump_golden_setting_type, int, 0644);
 
 MODULE_DESCRIPTION("Sleep Driver v0.1");

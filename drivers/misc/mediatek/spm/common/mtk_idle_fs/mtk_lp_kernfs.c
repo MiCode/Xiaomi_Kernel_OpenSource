@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
+
 /*
- * Copyright (c) 2017 MediaTek Inc.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/mutex.h>
 #include <linux/slab.h>
-#include <linux/kobject.h>
+#include <linux/module.h>
+
 #include "mtk_lp_kernfs.h"
 #include "mtk_lp_sysfs.h"
 
@@ -15,14 +17,14 @@
 #define LP_SYSFS_STATUS_READY			(1<<0)
 #define LP_SYSFS_STATUS_READ_MORE		(1<<1)
 #define LP_SYSFS_STATUS_IDIO_TYPE		(1<<2)
-
+#ifdef UN_KKI
 struct mtk_lp_kernfs_info {
 	int status;
 	struct mutex locker;
 };
 
 #define MTK_LP_INFO_SZ	sizeof(struct mtk_lp_kernfs_info)
-/*
+
 static const struct sysfs_ops *mtk_lp_file_ops(struct kernfs_node *kn)
 {
 	struct kobject *kobj = kn->parent->priv;
@@ -71,7 +73,8 @@ static int __mtk_lp_kernfs_seq_show(struct seq_file *sf,
 
 	return 0;
 }
-*/
+
+
 void *mtk_lp_kernfs_seq_start(struct seq_file *sf, loff_t *ppos)
 {
 	void *bRet = NULL;
@@ -106,19 +109,19 @@ void *mtk_lp_kernfs_seq_next(struct seq_file *sf, void *v, loff_t *ppos)
 
 	return bRet;
 }
-/*
+
 static int mtk_lp_kernfs_seq_show(struct seq_file *sf, void *v)
 {
 	return __mtk_lp_kernfs_seq_show(sf,
 			(struct mtk_lp_kernfs_info *)v);
 }
-*/
+
 void mtk_lp_kernfs_seq_stop(struct seq_file *sf, void *v)
 {
 	kfree(v);
 	v = NULL;
 }
-/*
+
 static ssize_t mtk_lp_kernfs_write(struct kernfs_open_file *of, char *buf,
 			      size_t count, loff_t pos)
 {
@@ -170,47 +173,38 @@ static struct kernfs_ops mtk_lp_kernfs_kfops_idiotype = {
 	.seq_stop = mtk_lp_kernfs_seq_stop,
 	.write = mtk_lp_kernfs_idio_write,
 };
-*/
+
 int mtk_lp_kernfs_create_file(struct kernfs_node *parent,
 				  struct kernfs_node **node,
 				  unsigned int flag,
 				  const char *name, umode_t mode,
 				  void *attr)
 {
-	/*
-	struct kernfs_node *kn=NULL;
+	struct kernfs_node *kn;
 	struct kernfs_ops *ops;
 
 	if (flag & MTK_LP_KERNFS_IDIOTYPE)
 		ops = &mtk_lp_kernfs_kfops_idiotype;
 	else
 		ops = &mtk_lp_kernfs_kfops_rw;
-*/
-/* FIXME
- *	kn = __kernfs_create_file(parent, attr->name
- *				, attr->mode & 0755, 4096
- *				, &mtk_lp_kernfs_kfops_rw
- *				, (void *)attr, NULL, NULL);
- */
 
-	/*kn = __kernfs_create_file(parent, name,
-				  mode & 0755,
-				  GLOBAL_ROOT_UID, GLOBAL_ROOT_GID,
-				  4096, ops,
-				  (void *)attr, NULL, NULL);
+	kn = __kernfs_create_file(parent, name,
+				mode & 0755,
+				GLOBAL_ROOT_UID, GLOBAL_ROOT_GID,
+				4096, ops,
+				(void *)attr, NULL, NULL);
 
 	if (IS_ERR(kn))
 		return PTR_ERR(kn);
 
 	if (node)
 		*node = kn;
-	*/
 	return 0;
 }
 
 int mtk_lp_kernfs_remove_file(struct kernfs_node *node)
 {
-	//kernfs_remove(node);
+	kernfs_remove(node);
 	return 0;
 }
 EXPORT_SYMBOL(mtk_lp_kernfs_remove_file);
@@ -219,13 +213,13 @@ struct kernfs_node *
 mtk_lp_kernfs_create_dir(struct kobject *kobj,
 			      const char *name, umode_t mode)
 {
-	return NULL; //kernfs_create_dir(kobj->sd, name, mode, kobj);
+	return kernfs_create_dir(kobj->sd, name, mode, kobj);
 }
 
 int mtk_lp_kernfs_create_group(struct kobject *kobj
 						, struct attribute_group *grp)
 {
-	/*struct kernfs_node *kn;
+	struct kernfs_node *kn;
 	struct attribute *const *attr;
 	int error = 0, i;
 
@@ -242,14 +236,13 @@ int mtk_lp_kernfs_create_group(struct kobject *kobj
 						  (void *)*attr);
 	}
 	kernfs_put(kn);
-	*/
 	return 0;
 }
-EXPORT_SYMBOL(mtk_lp_kernfs_create_group);
-
+#endif
 size_t get_mtk_lp_kernfs_bufsz_max(void)
 {
 	return MTK_LP_SYSFS_POWER_BUFFER_SZ;
 }
-EXPORT_SYMBOL(get_mtk_lp_kernfs_bufsz_max);
+
+MODULE_LICENSE("GPL");
 

@@ -239,4 +239,7 @@ extern void dvfsrc_md_scenario_update(bool suspend);
 extern int mtk8250_request_to_sleep(void);
 extern int mtk8250_request_to_wakeup(void);
 
+/* register cpu notifier */
+extern int mtk_idle_hotplug_cb_init(void);
+
 #endif /* __MTK_IDLE_INTERNAL_H__ */

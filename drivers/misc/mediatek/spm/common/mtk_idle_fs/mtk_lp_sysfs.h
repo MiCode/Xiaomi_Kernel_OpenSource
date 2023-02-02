@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016 MediaTek Inc.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #ifndef __MTK_LP_SYSFS__
@@ -11,7 +11,6 @@
 #define MTK_LP_SYSFS_ENTRY_NAME		"mtk_lpm"
 #define MTK_LP_SYSFS_BUF_READSZ		8192
 #define MTK_LP_SYSFS_BUF_WRITESZ	512
-
 
 typedef ssize_t (*f_mtk_idle_sysfs_show)(char *ToUserBuf
 			, size_t sz, void *priv);
@@ -113,5 +112,22 @@ int mtk_lp_sysfs_entry_func_group_create(const char *name
 
 int mtk_lp_sysfs_get_path(struct mtk_lp_sysfs_handle *handle
 		, char *name, int namelen);
+
+int mtk_lp_sysfs_entry_create_plat(const char *name,
+		int mode, struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle);
+
+int mtk_lp_sysfs_entry_group_create_plat(const char *name,
+		int mode, struct mtk_lp_sysfs_group *_group,
+		struct mtk_lp_sysfs_handle *parent,
+		struct mtk_lp_sysfs_handle *handle);
+
+int mtk_lp_sysfs_entry_node_add_plat(const char *name
+		, int mode, const struct mtk_lp_sysfs_op *op
+		, struct mtk_lp_sysfs_handle *parent
+		, struct mtk_lp_sysfs_handle *handle);
+
+int mtk_lp_sysfs_entry_node_remove_plat(
+		struct mtk_lp_sysfs_handle *node);
 
 #endif

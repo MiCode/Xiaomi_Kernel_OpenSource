@@ -1,11 +1,13 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
-*/
+ */
 
 #include <linux/kernel.h>
 #include <linux/sysfs.h>
 #include <linux/kobject.h>
+#include <linux/module.h>
 #include "mtk_idle_sysfs.h"
 
 #define MTK_IDLE_SYS_FS_NAME	"cpuidle"
@@ -36,12 +38,14 @@ int mtk_idle_sysfs_entry_node_add(const char *name
 	return mtk_lp_sysfs_entry_func_node_add(name
 			, mode, op, &mtk_idle_fs_root, handle);
 }
+EXPORT_SYMBOL(mtk_idle_sysfs_entry_node_add);
 
 int mtk_idle_sysfs_entry_node_remove(
 		struct mtk_lp_sysfs_handle *handle)
 {
 	return mtk_lp_sysfs_entry_func_node_remove(handle);
 }
+EXPORT_SYMBOL(mtk_idle_sysfs_entry_node_remove);
 
 int mtk_idle_sysfs_root_entry_create(void)
 {
@@ -54,6 +58,7 @@ int mtk_idle_sysfs_root_entry_create(void)
 	}
 	return bRet;
 }
+EXPORT_SYMBOL(mtk_idle_sysfs_root_entry_create);
 
 int mtk_idle_sysfs_entry_root_get(struct mtk_lp_sysfs_handle **handle)
 {
@@ -64,14 +69,14 @@ int mtk_idle_sysfs_entry_root_get(struct mtk_lp_sysfs_handle **handle)
 	*handle = &mtk_idle_fs_root;
 	return 0;
 }
-
+EXPORT_SYMBOL(mtk_idle_sysfs_entry_root_get);
 int mtk_idle_sysfs_power_create_group(struct attribute_group *grp)
 {
-	return 0;
-  //mtk_lp_kernfs_create_group(power_kobj, grp);
+	return sysfs_create_group(kernel_kobj, grp);
 }
 size_t get_mtk_idle_sysfs_power_bufsz_max(void)
 {
 	return get_mtk_lp_kernfs_bufsz_max();
 }
 
+MODULE_LICENSE("GPL");

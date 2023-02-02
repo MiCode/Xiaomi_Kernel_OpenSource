@@ -29,13 +29,6 @@ static unsigned int sodi3_flag = MTK_IDLE_LOG_REDUCE;
 
 unsigned long so3_cnt[NR_CPUS] = {0};
 static unsigned long so3_block_cnt[NR_REASONS] = {0};
-/* [ByChip] Internal weak functions: implemented in mtk_idle_cond_check.c */
-void __attribute__((weak)) mtk_idle_cg_monitor(int sel) {}
-bool __attribute__((weak)) mtk_idle_cond_check(int idle_type) {return false; }
-void __attribute__((weak)) mtk_idle_cond_update_mask(
-	int idle_type, unsigned int reg, unsigned int mask) {}
-int __attribute__((weak)) mtk_idle_cond_append_info(
-	bool short_log, int idle_type, char *logptr, unsigned int logsize);
 
 bool mtk_sodi_enabled(void)
 {
@@ -94,8 +87,7 @@ int soidle_enter(int cpu)
 	unsigned int op_cond = 0;
 
 	mtk_idle_enter(IDLE_TYPE_SO, cpu, op_cond, sodi_flag);
-    ktime_get_ts64(&pre_dpidle_time);
-	//do_gettimeofday(&pre_dpidle_time);
+	ktime_get_ts64(&pre_dpidle_time);
 
 	return CPUIDLE_STATE_SO;
 }
@@ -196,10 +188,10 @@ bool sodi3_can_enter(int reason)
 	}
 
 	/* pwm clock uses ulposc ? */
-	if (!disp_pwm_is_osc() && !sodi3_bypass_pwm_check) {
-		reason = BY_PWM;
-		goto out;
-	}
+//	if (!disp_pwm_is_osc() && !sodi3_bypass_pwm_check) {
+//		reason = BY_PWM;
+//		goto out;
+//	}
 
 	reason = NR_REASONS;
 
@@ -212,14 +204,13 @@ int soidle3_enter(int cpu)
 	unsigned int op_cond = 0;
 
 	op_cond |= sodi3_force_vcore_lp_mode;
-
 	mtk_idle_enter(IDLE_TYPE_SO3, cpu, op_cond, sodi3_flag);
-    ktime_get_ts64(&pre_dpidle_time);
-	//do_gettimeofday(&pre_dpidle_time);
+	ktime_get_ts64(&pre_dpidle_time);
 
 	return CPUIDLE_STATE_SO3;
 }
 EXPORT_SYMBOL(soidle3_enter);
+
 static ssize_t soidle3_state_read(char *ToUserBuf, size_t sz, void *priv)
 {
 	int i;

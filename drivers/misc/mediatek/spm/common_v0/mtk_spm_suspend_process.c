@@ -20,7 +20,7 @@
 #include <sspm_timesync.h>
 #endif
 
-//#include <mtk_power_gs_api.h>
+#include <power_gs_v1/mtk_power_gs_api.h>
 #include <mtk_sspm.h>
 
 #define WORLD_CLK_CNTCV_L        (0x10017008)
@@ -28,15 +28,15 @@
 
 void spm_dump_world_clk_cntcv(void)
 {
-	//u32 wlk_cntcv_l;
-	//u32 wlk_cntcv_h;
+	u32 wlk_cntcv_l;
+	u32 wlk_cntcv_h;
 
 	/* SYS_TIMER counter value low and high */
-	/*wlk_cntcv_l = _golden_read_reg(WORLD_CLK_CNTCV_L);
+	wlk_cntcv_l = _golden_read_reg(WORLD_CLK_CNTCV_L);
 	wlk_cntcv_h = _golden_read_reg(WORLD_CLK_CNTCV_H);
 
 	printk_deferred("[name:spm&][SPM] wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x\n",
-		wlk_cntcv_l, wlk_cntcv_h);*/
+		wlk_cntcv_l, wlk_cntcv_h);
 }
 
 void spm_set_sysclk_settle(void)
@@ -54,7 +54,7 @@ void spm_set_sysclk_settle(void)
 }
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
-//static int mt_power_gs_dump_suspend_count = 2;
+static int mt_power_gs_dump_suspend_count = 2;
 #endif
 void spm_suspend_pre_process(struct pwr_ctrl *pwrctrl)
 {
@@ -84,8 +84,8 @@ void spm_suspend_pre_process(struct pwr_ctrl *pwrctrl)
 #endif
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
-	//if (slp_dump_golden_setting || --mt_power_gs_dump_suspend_count >= 0)
-		//mt_power_gs_dump_suspend(slp_dump_golden_setting_type);
+	if (slp_dump_golden_setting || --mt_power_gs_dump_suspend_count >= 0)
+		mt_power_gs_dump_suspend(slp_dump_golden_setting_type);
 #endif
 }
 
@@ -113,4 +113,3 @@ void spm_suspend_post_process(struct pwr_ctrl *pwrctrl)
 	}
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 }
-

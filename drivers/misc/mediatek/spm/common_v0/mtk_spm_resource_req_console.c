@@ -118,4 +118,3 @@ int spm_get_resource_req_console_status(unsigned int *res_bitmask)
 
 	return 0;
 }
-

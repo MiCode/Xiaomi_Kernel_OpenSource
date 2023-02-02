@@ -8,8 +8,6 @@
 
 //#include <trace/events/mtk_idle_event.h> /* trace header */
 
-//#include <mtk_mcdi_governor.h> /* idle_refcnt_inc/dec */
-
 /* add/remove_cpu_to/from_perfer_schedule_domain */
 //#include <linux/irqchip/mtk-gic-extend.h>
 
@@ -23,12 +21,7 @@
 /* Change sodi3 */
 bool mtk_idle_screen_off_sodi3 = MTK_IDLE_ADJUST_CHECK_ORDER ? 1 : 0;
 struct timespec64 pre_dpidle_time;
-/* [ByChip] Internal weak functions: implemented in mtk_idle_cond_check.c */
-void __attribute__((weak)) mtk_idle_cg_monitor(int sel) {}
 
-/* External weak functions: implemented in mcdi driver */
-//void __attribute__((weak)) idle_refcnt_inc(void) {}
-//void __attribute__((weak)) idle_refcnt_dec(void) {}
 
 bool __attribute__((weak)) mtk_spm_arch_type_get(void) { return false; }
 void __attribute__((weak)) mtk_spm_arch_type_set(bool type) {}
@@ -45,7 +38,6 @@ bool mtk_dpidle_is_active(void)
  struct timespec64 current_time;
 	long diff;
 	ktime_get_ts64(&current_time);
-	//do_gettimeofday(&current_time);
 	diff = (long)(current_time.tv_sec - pre_dpidle_time.tv_sec);
 
 	if (diff > DPIDLE_ACTIVE_TIME)
@@ -177,7 +169,6 @@ void mtk_cpuidle_framework_init(void)
 
 	/* Get dts of cpu's idle-state*/
 	idle_node = GET_MTK_IDLE_STATES_DTS_NODE();
-
 	if (idle_node) {
 		int state = 0;
 
@@ -199,7 +190,6 @@ void mtk_cpuidle_framework_init(void)
 		of_node_put(idle_node);
 	}
 	mtk_idle_sysfs_entry_create();
-
 	mtk_idle_init();
 	mtk_dpidle_init(&pInitData);
 	mtk_sodi_init(&pInitData);

@@ -28,9 +28,6 @@
 		(x) = ((t.tv_sec & 0xFFF) * 1000000 + t.tv_usec);\
 	} while (0)
 
-/* [ByChip] Internal weak function: implemented in mtk_idle_cond_check.c */
-int __attribute__((weak)) mtk_idle_cond_append_info(
-	bool short_log, int idle_type, char *logptr, unsigned int logsize);
 
 /* idle ratio */
 static bool idle_ratio_en;
@@ -42,13 +39,6 @@ static unsigned long long idle_block_log_prev_time;
 static unsigned int idle_block_log_time_criteria = 5000;    /* 5 sec */
 static unsigned long long idle_cnt_dump_prev_time;
 static unsigned int idle_cnt_dump_criteria = 5000;          /* 5 sec */
-
-/*External weak functions: implemented in mtk_cpufreq_api.c*/
-unsigned int __attribute__((weak))
-	mt_cpufreq_get_cur_freq(unsigned int id)
-{
-	return 0;
-}
 
 #define IDLE_LOG_BUF_LEN 4096
 struct mtk_idle_buf {
@@ -134,6 +124,7 @@ unsigned long long idle_get_current_time_ms(void)
 
 	return idle_current_time;
 }
+EXPORT_SYMBOL(idle_get_current_time_ms);
 
 void mtk_idle_ratio_calc_start(int type, int cpu)
 {

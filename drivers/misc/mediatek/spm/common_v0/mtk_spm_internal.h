@@ -340,5 +340,15 @@ int is_spm_enabled(void);
  ***********************************************************/
 extern struct spm_lp_scen __spm_suspend;
 
+/***********************************************************
+ * mtk_spm.c
+ ***********************************************************/
+extern ssize_t get_spmfw_version(char *ToUserBuf, size_t sz, void *priv);
+extern int spm_fs_init(void);
+
+/***********************************************************
+ * mtk_spm_suspend.c
+ ***********************************************************/
+extern int mtk_enter_idle_state(int idx);
 
 #endif /* __MTK_SPM_INTERNAL_H__ */

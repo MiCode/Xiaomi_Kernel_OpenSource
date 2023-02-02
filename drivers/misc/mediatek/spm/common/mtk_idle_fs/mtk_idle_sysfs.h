@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Copyright (c) 2016 MediaTek Inc.
+/* SPDX-License-Identifier: GPL-2.0
+ *
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #ifndef __MTK_IDLE_SYSFS__
@@ -8,7 +8,6 @@
 
 #include "mtk_lp_sysfs.h"
 #include "mtk_lp_kernfs.h"
-#include <linux/kobject.h>
 
 /* For legacy definition*/
 #define mtk_idle_sysfs_handle	mtk_lp_sysfs_handle
@@ -18,7 +17,6 @@
 #define mtk_idle_sysfs_entry_func_node_add	mtk_lp_sysfs_entry_func_node_add
 #define mtk_idle_sysfs_entry_create		mtk_idle_sysfs_root_entry_create
 
-extern struct kobject *power_kobj;
 
 /*Get the mtk idle system fs root entry handle*/
 int mtk_idle_sysfs_entry_root_get(struct mtk_lp_sysfs_handle **handle);
@@ -40,5 +38,7 @@ int mtk_idle_sysfs_root_entry_create(void);
 
 int mtk_idle_sysfs_power_create_group(struct attribute_group *grp);
 size_t get_mtk_idle_sysfs_power_bufsz_max(void);
-
+#ifdef UN_GKI
+extern struct kobject *power_kobj;
+#endif
 #endif

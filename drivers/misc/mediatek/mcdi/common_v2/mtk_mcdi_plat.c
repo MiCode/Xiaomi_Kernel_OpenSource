@@ -11,10 +11,8 @@
 #include "mcdi_v1/mtk_mcdi_util.h"
 #include "mtk_mcdi_plat.h"
 
-void __iomem *cpc_base;
-
-static unsigned int dt_init_sta;
 static const char mcdi_node_name[] = "mediatek,mt6765-mcdi";
+static int dts_mcdi_enabled = 1;
 
 static int cluster_idx_map[NF_CPU] = {
 	0,
@@ -103,8 +101,7 @@ int cpu_type_idx_get(int cpu)
 
 void mcdi_status_init(void)
 {
-	if (cpc_base)
-		set_mcdi_enable_status(!!dt_init_sta);
+	set_mcdi_enable_status(dts_mcdi_enabled);
 }
 
 void mcdi_of_init(void **base)
@@ -117,27 +114,16 @@ void mcdi_of_init(void **base)
 	/* MCDI sysram base */
 	node = of_find_compatible_node(NULL, NULL, mcdi_node_name);
 
-	if (!node) {
+	if (!node)
 		pr_info("node '%s' not found!\n", mcdi_node_name);
-		cpc_base = NULL;
-		return;
-	}
 
 	*base = of_iomap(node, 0);
 
-	if (!*base)
+	if (*base)
 		pr_info("node '%s' can not iomap!\n", mcdi_node_name);
 
-	cpc_base = of_iomap(node, 1);
-
-	if (!cpc_base)
-		pr_info("node cpc_base can not iomap!\n");
-
-	pr_info("mcdi_sysram_base = %p, cpc_base = %p\n",
-			*base,
-			cpc_base);
+	pr_info("mcdi_sysram_base = %p\n", *base);
 
 	/* The state value is modified only if the property exists */
-	of_property_read_u32(node, "mediatek,enabled", &dt_init_sta);
-
+	of_property_read_u32(node, "enabled", &dts_mcdi_enabled);
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
+
 /*
- * Copyright (c) 2017 MediaTek Inc.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/kernel.h>
@@ -11,39 +12,8 @@
 
 #include "mtk_lp_sysfs.h"
 
-#ifndef __weak
-#define __weak __attribute__((weak))
-#endif
 
 DEFINE_MUTEX(mtk_lp_sysfs_locker);
-
-int __weak mtk_lp_sysfs_entry_create_plat(const char *name
-		, int mode, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *handle)
-{
-	return 0;
-}
-int __weak mtk_lp_sysfs_entry_node_add_plat(const char *name
-		, int mode, const struct mtk_lp_sysfs_op *op
-		, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *handle)
-{
-	return 0;
-}
-
-int __weak mtk_lp_sysfs_entry_node_remove_plat(
-		struct mtk_lp_sysfs_handle *node)
-{
-	return 0;
-}
-
-int __weak mtk_lp_sysfs_entry_group_create_plat(const char *name
-		, int mode, struct mtk_lp_sysfs_group *_group
-		, struct mtk_lp_sysfs_handle *parent
-		, struct mtk_lp_sysfs_handle *handle)
-{
-	return 0;
-}
 
 int mtk_lp_sysfs_entry_func_create(const char *name
 		, int mode, struct mtk_lp_sysfs_handle *parent
@@ -57,6 +27,7 @@ int mtk_lp_sysfs_entry_func_create(const char *name
 	mutex_unlock(&mtk_lp_sysfs_locker);
 	return bRet;
 }
+EXPORT_SYMBOL(mtk_lp_sysfs_entry_func_create);
 
 int mtk_lp_sysfs_entry_func_node_add(const char *name
 		, int mode, const struct mtk_lp_sysfs_op *op
@@ -71,6 +42,7 @@ int mtk_lp_sysfs_entry_func_node_add(const char *name
 	mutex_unlock(&mtk_lp_sysfs_locker);
 	return bRet;
 }
+EXPORT_SYMBOL(mtk_lp_sysfs_entry_func_node_add);
 
 int mtk_lp_sysfs_entry_func_node_remove(
 		struct mtk_lp_sysfs_handle *node)
@@ -96,4 +68,6 @@ int mtk_lp_sysfs_entry_func_group_create(const char *name
 	mutex_unlock(&mtk_lp_sysfs_locker);
 	return bRet;
 }
+
+MODULE_LICENSE("GPL");
 

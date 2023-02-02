@@ -22,14 +22,7 @@ static bool dpidle_force_vcore_lp_mode;
 unsigned long dp_cnt[NR_CPUS] = {0};
 static unsigned long dp_block_cnt[NR_REASONS] = {0};
 static unsigned int dpidle_flag = MTK_IDLE_LOG_REDUCE;
-//struct timespec64 pre_dpidle_time;
-/* [ByChip] Internal weak functions: implemented in mtk_idle_cond_check.c */
-void __attribute__((weak)) mtk_idle_cg_monitor(int sel) {}
-bool __attribute__((weak)) mtk_idle_cond_check(int idle_type) {return false; }
-void __attribute__((weak)) mtk_idle_cond_update_mask(
-	int idle_type, unsigned int reg, unsigned int mask) {}
-int __attribute__((weak)) mtk_idle_cond_append_info(
-	bool short_log, int idle_type, char *logptr, unsigned int logsize);
+
 
 bool mtk_dpidle_enabled(void)
 {
@@ -69,7 +62,6 @@ int dpidle_enter(int cpu)
 		op_cond |= MTK_IDLE_OPT_VCORE_LP_MODE;
 	mtk_idle_enter(IDLE_TYPE_DP, cpu, op_cond, dpidle_flag);
 	ktime_get_ts64(&pre_dpidle_time);
-	//do_gettimeofday(&pre_dpidle_time);
 
 	return CPUIDLE_STATE_RG;
 }

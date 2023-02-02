@@ -19,7 +19,6 @@
 #include <linux/time64.h>
 #include <linux/timekeeping.h>
 
-#include <mtk_cpuidle.h>	/* mtk_cpuidle_init */
 #include <mtk_sleep.h>	    /* slp_module_init */
 #include <mt-plat/aee.h>	/* aee_xxx */
 
@@ -29,63 +28,6 @@
 
 #include <mtk_idle_fs/mtk_idle_sysfs.h>
 DEFINE_SPINLOCK(__spm_lock);
-/*
-void __attribute__ ((weak)) mtk_idle_cond_check_init(void)
-{
-	aee_sram_printk("NO %s !!!\n", __func__);
-	pr_info("[SPM] NO %s !!!\n", __func__);
-}
-*/
-
-/* Note: implemented in mtk_spm_dram.c */
-int __attribute__ ((weak)) spm_get_spmfw_idx(void)
-{
-	aee_sram_printk("NO %s !!!\n", __func__);
-	pr_info("[SPM] NO %s !!!\n", __func__);
-	return 1;
-}
-
-/* Note: implemented in mtk_spm_irq.c */
-int __attribute__ ((weak)) mtk_spm_irq_register(unsigned int spmirq0)
-{
-	aee_sram_printk("NO %s !!!\n", __func__);
-	pr_info("[SPM] NO %s !!!\n", __func__);
-	return 0;
-}
-
-/* Note: implemented in mtk_cpuidle.c */
-int __attribute__ ((weak)) mtk_cpuidle_init(void) { return -EOPNOTSUPP; }
-
-/* Note: implemented in mtk_spm_dram.c */
-void __attribute__((weak)) spm_do_dram_config_check(void)
-{
-	aee_sram_printk("NO %s !!!\n", __func__);
-	pr_info("[SPM] NO %s !!!\n", __func__);
-}
-
-/* Note: implemented in mtk_spm_fs.c */
-int __attribute__((weak)) spm_fs_init(void)
-{
-	aee_sram_printk("NO %s !!!\n", __func__);
-	pr_info("[SPM] NO %s !!!\n", __func__);
-	return 0;
-}
-
-/* Note: implemented in mtk_spm_utils.c */
-ssize_t __attribute__((weak)) get_spm_last_wakeup_src(
-	char *ToUserBuf, size_t sz, void *priv) { return 0; }
-
-/* Note: implemented in mtk_spm_utils.c */
-ssize_t __attribute__((weak)) get_spm_sleep_count(
-	char *ToUserBuf, size_t sz, void *priv) { return 0; }
-
-/* Note: implemented in mtk_spm_utils.c */
-ssize_t __attribute__((weak)) get_spm_last_debug_flag(
-	char *ToUserBuf, size_t sz, void *priv) { return 0; }
-
-/* Note: implemented in mtk_spm_utils.c */
-ssize_t __attribute__((weak)) get_spmfw_version(
-	char *ToUserBuf, size_t sz, void *priv) { return 0; }
 
 void __iomem *spm_base;
 void __iomem *sleep_reg_md_base;
@@ -307,7 +249,6 @@ int mtk_spm_init(void)
 {
 	int ret;
 
-	mtk_cpuidle_init();
 	ret = spm_module_init();
 
 	return ret;

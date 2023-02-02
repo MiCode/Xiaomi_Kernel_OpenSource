@@ -1,8 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
-/*
- * Copyright (c) 2017 MediaTek Inc.
- */
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/spinlock.h>
@@ -459,4 +454,3 @@ void mtk_idle_cond_check_exit(void)
 {
 }
 
-//late_initcall(mtk_idle_cond_check_init);

@@ -31,7 +31,7 @@
 
 #ifdef MTK_IDLE_GS_DUMP_READY
 /* NOTE: Check golden setting dump header file for each project */
-//#include "power_gs_v1/mtk_power_gs_internal.h"
+#include "power_gs_v1/mtk_power_gs_internal.h"
 #endif
 
 /* FIXME: IT with vcorefs ? */
@@ -111,10 +111,10 @@ static struct pwr_ctrl *get_pwrctrl(int idle_type)
 static void mtk_idle_gs_dump(int idle_type)
 {
 	#if defined(MTK_IDLE_GS_DUMP_READY)
-	//if (idle_type == IDLE_TYPE_DP)
-		//mt_power_gs_dump_dpidle(GS_ALL);
-	//else if (idle_type == IDLE_TYPE_SO3 || idle_type == IDLE_TYPE_SO)
-		//mt_power_gs_dump_sodi3(GS_ALL);
+	if (idle_type == IDLE_TYPE_DP)
+		mt_power_gs_dump_dpidle(GS_ALL);
+	else if (idle_type == IDLE_TYPE_SO3 || idle_type == IDLE_TYPE_SO)
+		mt_power_gs_dump_sodi3(GS_ALL);
 	#endif
 }
 

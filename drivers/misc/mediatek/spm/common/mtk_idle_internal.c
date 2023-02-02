@@ -70,20 +70,7 @@ static idle_footprint_t fp[NR_IDLE_TYPES] = {
  * Weak functions for chip dependent flow.
  ************************************************************/
 /* [ByChip] Internal weak functions: implemented in mtk_spm_idle.c */
-int __attribute__((weak)) mtk_idle_trigger_wfi(
-	int idle_type, unsigned int idle_flag, int cpu)
-{
-	printk_deferred("[name:spm&]Power/swap %s is not implemented!\n"
-			, __func__);
 
-	do {
-		isb();
-		mb();	/* memory barrier */
-		__asm__ __volatile__("wfi" : : : "memory");
-	} while (0);
-
-	return 0;
-}
 
 bool __attribute__((weak)) mtk_idle_resource_pre_process(void)
 {
@@ -95,25 +82,6 @@ void __attribute__((weak)) mtk_idle_pre_process_by_chip(
 
 void __attribute__((weak)) mtk_idle_post_process_by_chip(
 	int idle_type, int cpu, unsigned int op_cond, unsigned int idle_flag) {}
-
-bool __attribute__((weak)) mtk_idle_cond_vcore_lp_mode(int idle_type)
-{
-	return false;
-}
-
-/* [ByChip] internal weak functions: implmented in mtk_spm_power.c */
-void __attribute__((weak)) mtk_idle_power_pre_process(
-	int idle_type, unsigned int op_cond) {}
-
-void __attribute__((weak)) mtk_idle_power_pre_process_async_wait(
-	int idle_type, unsigned int op_cond) {}
-
-void __attribute__((weak)) mtk_idle_power_post_process(
-	int idle_type, unsigned int op_cond) {}
-
-void __attribute__((weak)) mtk_idle_power_post_process_async_wait(
-	int idle_type, unsigned int op_cond) {}
-
 
 /* External weak functions: implemented in clkbuf and thermal module */
 uint32_t __attribute__((weak)) clk_buf_bblpm_enter_cond(void) { return -1; }

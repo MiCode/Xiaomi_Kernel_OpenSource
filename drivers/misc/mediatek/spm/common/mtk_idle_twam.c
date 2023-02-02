@@ -17,20 +17,6 @@
 #define GET_EVENT_RATIO_SPEED(x)    ((x)/(WINDOW_LEN_SPEED/1000))
 #define GET_EVENT_RATIO_NORMAL(x)   ((x)/(WINDOW_LEN_NORMAL/1000))
 
-
-/********************************************************************
- * Weak functions for chip dependent flow.
- *******************************************************************/
-
-/* [ByChip] Internal weak functions: implemented in mtk_spm_irq.c */
-void __attribute__((weak)) spm_twam_register_handler(twam_handler_t handler) {}
-
-void __attribute__((weak)) spm_twam_enable_monitor(bool en_monitor,
-bool debug_signal, twam_handler_t cb_handler);
-void __attribute__((weak)) spm_twam_disable_monitor(void) {}
-void __attribute__((weak)) spm_twam_set_idle_select(unsigned int sel) {}
-void __attribute__((weak)) spm_twam_set_window_length(unsigned int len) {}
-
 struct twam_cfg twamsig = {};
 
 static struct mtk_idle_twam idle_twam = {

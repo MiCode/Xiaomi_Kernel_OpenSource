@@ -7,7 +7,7 @@
 #include <linux/seq_file.h>
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
-#include <linux/module.h>
+
 #include <mtk_spm_resource_req.h>
 #include <mtk_spm_resource_req_internal.h>
 #include <mtk_idle_fs/mtk_idle_sysfs.h>
@@ -45,30 +45,6 @@ int __attribute__((weak))
 	return -1;
 }
 
-int __attribute__((weak))
-	spm_resource_req_console(unsigned int req, unsigned int res_bitmask)
-{
-	return -1;
-}
-
-int __attribute__((weak)) spm_resource_req_console_by_id(
-			int id, unsigned int req, unsigned int res_bitmask)
-{
-	return -1;
-}
-
-/* Method for spm resource requirement status.
- * This function's implementation depend on platform
- */
-int __attribute__((weak))
-	spm_get_resource_req_console_status(unsigned int *res_bitmask)
-{
-	if (!res_bitmask)
-		return -1;
-
-	*res_bitmask = 0;
-	return 0;
-}
 static int spm_resource_in_use(int resource)
 {
 	int i;
@@ -340,4 +316,3 @@ void spm_resource_req_block_dump(void)
 
 	spin_unlock_irqrestore(&spm_resource_desc_update_lock, flags);
 }
-

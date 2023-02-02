@@ -19,12 +19,6 @@
 #include <mtk_idle_internal.h>
 #include <mtk_spm_internal.h> /* mtk_idle_cond_update_state */
 
-
-/* [ByChip] Internal weak functions: implemented in mtk_spm.c */
-int __attribute__((weak)) spm_load_firmware_status(void) { return -1; }
-/* [ByChip] Internal weak functions: implemented in mtk_idle_cond_check.c */
-void __attribute__((weak)) mtk_idle_cond_update_state(void) {}
-
 /* [ByChip] Internal weak functions:
  * If platform need to blocked idle task by specific define.
  * Please implement it in platform folder
@@ -76,14 +70,11 @@ static struct notifier_block mtk_idle_cpu_notifier = {
 	.priority   = INT_MAX,
 };
 
-int __init mtk_idle_hotplug_cb_init(void)
+int mtk_idle_hotplug_cb_init(void)
 {
 	register_cpu_notifier(&mtk_idle_cpu_notifier);
-
 	return 0;
 }
-
-late_initcall(mtk_idle_hotplug_cb_init);
 
 static void __go_to_wfi(int cpu)
 {
@@ -227,13 +218,13 @@ int mtk_idle_select(int cpu)
 	#endif
 
 	/* 4. tee is ready ? */
-	#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && \
-		defined(CONFIG_MICROTRUST_TEE_SUPPORT)
-	if (!is_teei_ready()) {
-		reason = BY_TEE;
-		goto get_idle_idx;
-	}
-	#endif
+//	#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && \
+//		IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+//	if (!is_teei_ready()) {
+//		reason = BY_TEE;
+//		goto get_idle_idx;
+//	}
+//	#endif
 
 	/* Update current idle condition state for later check */
 	mtk_idle_cond_update_state();
