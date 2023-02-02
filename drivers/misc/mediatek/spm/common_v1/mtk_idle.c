@@ -6,7 +6,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-
+#include <mtk_idle_event.h> /* trace header */
 //#include <mtk_mcdi_governor.h> /* idle_refcnt_inc/dec */
 
 /* add/remove_cpu_to/from_perfer_schedule_domain */

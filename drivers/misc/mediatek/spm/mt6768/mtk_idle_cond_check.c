@@ -12,7 +12,7 @@
 #include <linux/of_address.h>
 #include <linux/io.h>
 #include "mtk_spm_internal.h"
-//#include <trace/events/mtk_idle_event.h>
+#include <mtk_idle_event.h>
 
 #include <mtk_idle.h> /* IDLE_TYPE_xxx */
 #include <mtk_idle_internal.h>
@@ -295,8 +295,8 @@ void mtk_idle_cg_monitor(int sel)
 }
 
 
-//#define TRACE_CGMON(_g, _n, _cond)\
-	//trace_idle_cg(_g * 32 + _n, ((1 << _n) & _cond) ? 1 : 0)
+#define TRACE_CGMON(_g, _n, _cond)\
+	trace_idle_cg(_g * 32 + _n, ((1 << _n) & _cond) ? 1 : 0)
 
 static void mtk_idle_cgmon_trace_log(void)
 {
@@ -317,11 +317,8 @@ static void mtk_idle_cgmon_trace_log(void)
 			if (diff) {
 				cgmon_sta[g] = block;
 				for (n = 0; n < 32; n++)
-					if (diff & (1U << n)) {
-					#ifdef UN_GKI
+					if (diff & (1U << n))
 						TRACE_CGMON(g, n, cgmon_sta[g]);
-					#endif
-					}
 			}
 		}
 	}

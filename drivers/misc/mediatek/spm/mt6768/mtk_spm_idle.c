@@ -10,8 +10,8 @@
 #include <mtk_spm_internal.h>
 #include <mt-plat/mtk_ccci_common.h> /* exec_ccci_kern_func_by_md_id */
 //#include <mt-plat/mtk_wd_api.h> /* ap wdt related definitons */
-
-//#include <trace/events/mtk_idle_event.h>
+#define CREATE_TRACE_POINTS
+#include <mtk_idle_event.h>
 
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>
@@ -31,6 +31,7 @@
 /* NOTE: Check golden setting dump header file for each project */
 #include <mtk_power_gs_internal.h>
 #endif
+
 
 /* FIXME: IT with vcorefs ? */
 void __attribute__((weak)) dvfsrc_md_scenario_update(bool suspend) {}
@@ -117,13 +118,13 @@ static void print_ftrace_tag(int idle_type, int cpu, int enter)
 #if MTK_IDLE_TRACE_TAG_ENABLE
 	switch (idle_type) {
 	case IDLE_MODEL_BUS26M:
-		//trace_sodi3_rcuidle(cpu, enter);
+		trace_sodi3(cpu, enter);
 		break;
 	case IDLE_MODEL_SYSPLL:
-		//trace_dpidle_rcuidle(cpu, enter);
+		trace_dpidle(cpu, enter);
 		break;
 	case IDLE_MODEL_DRAM:
-		//trace_sodi_rcuidle(cpu, enter);
+		trace_sodi(cpu, enter);
 		break;
 	default:
 		break;
