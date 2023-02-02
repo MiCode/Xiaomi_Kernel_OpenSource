@@ -1270,21 +1270,21 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 	pio: pinctrl {
 		compatible = "mediatek,mt6768-pinctrl";
 		reg = <0 0x10005000 0 0x1000>,
-			  <0 0x10002400 0 0x200>,
-			  <0 0x10002200 0 0x200>,
-			  <0 0x10002a00 0 0x200>,
-			  <0 0x10002600 0 0x200>,
 			  <0 0x10002000 0 0x200>,
+			  <0 0x10002200 0 0x200>,
+			  <0 0x10002400 0 0x200>,
+			  <0 0x10002600 0 0x200>,
 			  <0 0x10002800 0 0x200>,
+			  <0 0x10002a00 0 0x200>,
 			  <0 0x10002c00 0 0x200>,
 			  <0 0x10002e00 0 0x200>;
 		reg-names = "gpio",
-				"iocfg_lb",
-				"iocfg_lm",
-				"iocfg_rb",
-				"iocfg_bl",
 				"iocfg_lt",
+				"iocfg_lm",
+				"iocfg_lb",
+				"iocfg_bl",
 				"iocfg_rm",
+				"iocfg_rb",
 				"iocfg_rt",
 				"iocfg_tl";
 		gpio-controller;
