@@ -6851,10 +6851,6 @@
 	regulator-always-on;
 };
 
-&mt6359p_vsram_md_reg {
-	regulator-always-on;
-};
-
 &mt6359p_vgpu11_reg {
 	regulator-always-on;
 };
@@ -6875,23 +6871,7 @@
 	regulator-always-on;
 };
 
-&mt6359p_vbbck_reg {
-	regulator-always-on;
-};
-
-&mt6359p_vrfck_reg {
-	regulator-always-on;
-};
-
-&mt6359p_vemc_reg {
-	regulator-always-on;
-};
-
 &mt6359p_vufs_reg {
-	regulator-always-on;
-};
-
-&mt6359p_vproc1_reg {
 	regulator-always-on;
 };
 
