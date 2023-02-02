@@ -722,6 +722,12 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 				"[ESD%u]esd recover %d times failed, max:%d, disable esd check, ret:%d\n",
 				crtc_idx, i, ESD_TRY_CNT, ret);
 			mtk_disp_esd_check_switch(crtc, false);
+			/*
+			 * disable ESD check might release TE pin to GPIO mode when connector
+			 * switch enabled, need restore TE pin back to TE mode.
+			 */
+			if (esd_ctx->need_release_eint == 1)
+				mtk_drm_request_eint(crtc);
 			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 			mutex_unlock(&private->commit.lock);
 			break;
