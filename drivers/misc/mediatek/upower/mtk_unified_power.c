@@ -499,7 +499,7 @@ void get_LL_pwr_efficiency(void)
 #else
 		tbl->row[i].pwr_efficiency =
 			div64_u64(LL_CORE_NUM * LL_pwr + CCI_pwr,
-			(unsigned long long)(LL_CORE_NUM * tbl->row[i].cap))
+			(unsigned long long)(LL_CORE_NUM * tbl->row[i].cap));
 #endif
 
 		upower_debug("LL[%d] eff = %d dyn = %d lkg = %d cap = %d\n",
