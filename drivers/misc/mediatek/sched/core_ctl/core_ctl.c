@@ -1853,7 +1853,7 @@ static void __exit core_ctl_exit(void)
 	tracepoint_synchronize_unregister();
 }
 
-module_init(core_ctl_init);
+late_initcall_sync(core_ctl_init);
 module_exit(core_ctl_exit);
 
 MODULE_LICENSE("GPL");

@@ -230,7 +230,7 @@ static void __exit mtk_scheduler_exit(void)
 	cleanup_sched_common_sysfs();
 }
 
-module_init(mtk_scheduler_init);
+late_initcall_sync(mtk_scheduler_init);
 module_exit(mtk_scheduler_exit);
 
 MODULE_LICENSE("GPL");

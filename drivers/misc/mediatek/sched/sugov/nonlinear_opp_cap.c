@@ -18,6 +18,7 @@ static struct pd_capacity_info *pd_capacity_tbl;
 static int pd_count;
 static int entry_count;
 static struct eas_info eas_node;
+static bool initialized;
 
 unsigned long pd_get_opp_capacity(int cpu, int opp)
 {
@@ -274,7 +275,7 @@ int init_opp_cap_info(struct proc_dir_entry *dir)
 	ret = init_capacity_table();
 	if (ret)
 		return ret;
-
+	initialized = true;
 	entry = proc_create("pd_capacity_tbl", 0644, dir, &pd_capacity_tbl_ops);
 	if (!entry)
 		pr_info("mtk_scheduler/pd_capacity_tbl entry create failed\n");
@@ -295,6 +296,9 @@ void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 	int opp;
 	unsigned long cap, max_cap;
 	struct cpufreq_policy *policy;
+
+	if (unlikely(!initialized))
+		return;
 
 	policy = cpufreq_cpu_get(cpu);
 	if (!policy)
@@ -343,6 +347,9 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 	int i, j, cap;
 	struct pd_capacity_info *info;
 	unsigned long temp_util;
+
+	if (unlikely(!initialized))
+		return;
 
 	temp_util = util;
 	util = (util * util_scale) >> SCHED_CAPACITY_SHIFT;
