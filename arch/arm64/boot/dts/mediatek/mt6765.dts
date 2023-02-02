@@ -4322,6 +4322,16 @@ initcall_debug=1 pelt=8";
 			"MT_CG_VDEC",
 			"MT_CG_VENC";
 		mediatek,larbs = <&smi_larb1>;
+		iommus = <&iommu M4U_PORT_VENC_RCPU>,
+			<&iommu M4U_PORT_VENC_REC>,
+			<&iommu M4U_PORT_VENC_BSDMA>,
+			<&iommu M4U_PORT_VENC_SV_COMV>,
+			<&iommu M4U_PORT_VENC_RD_COMV>,
+			<&iommu M4U_PORT_JPGENC_RDMA>,
+			<&iommu M4U_PORT_JPGENC_BSDMA>,
+			<&iommu M4U_PORT_VENC_CUR_CHROMA>,
+			<&iommu M4U_PORT_VENC_REF_LUMA>,
+			<&iommu M4U_PORT_VENC_REF_CHROMA>;
 		power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>,
 				<&scpsys MT6765_POWER_DOMAIN_VCODEC>;
 		operating-points-v2 = <&opp_table_mm>;
