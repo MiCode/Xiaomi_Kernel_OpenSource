@@ -597,7 +597,7 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 
 		if (cur_chr_type == POWER_SUPPLY_TYPE_UNKNOWN) {
 			if (gm->chr_type != POWER_SUPPLY_TYPE_UNKNOWN)
-				bm_err("%s chr plug out\n");
+				bm_err("%s chr plug out\n", __func__);
 		} else {
 			if (gm->chr_type == POWER_SUPPLY_TYPE_UNKNOWN)
 				wakeup_fg_algo(gm, FG_INTR_CHARGER_IN);
