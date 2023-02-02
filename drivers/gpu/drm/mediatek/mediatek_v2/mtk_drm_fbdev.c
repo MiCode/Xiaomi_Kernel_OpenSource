@@ -400,7 +400,7 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	info->fix.smem_start = fb_base;
 	debug_info = info;
 
-#if !defined(CONFIG_DRM_MTK_DISABLE_AEE_LAYER)
+#if !IS_ENABLED(CONFIG_DRM_MTK_DISABLE_AEE_LAYER)
 	mtk_drm_assert_fb_init(dev,
 			       sizes->surface_width, sizes->surface_height);
 #endif

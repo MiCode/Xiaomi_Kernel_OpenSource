@@ -16,7 +16,7 @@
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 /*
-#if defined(CONFIG_MTK_DRAMC)
+#if IS_ENABLED(CONFIG_MTK_DRAMC)
 #include "mtk_dramc.h"
 #endif
 */
