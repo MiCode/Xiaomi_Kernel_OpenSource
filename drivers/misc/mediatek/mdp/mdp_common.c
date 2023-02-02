@@ -1473,26 +1473,51 @@ void cmdq_mdp_cmdqSecIspMeta_fd_to_handle(struct cmdqSecIspMeta *ispMeta)
 
 	if (ispMeta->BpciHandle) {
 		buf = dma_buf_get(ispMeta->BpciHandle);
+		if (IS_ERR(buf)) {
+			CMDQ_ERR("%s: fail to get dma_buf:%ld, ispMeta->BpciHandle:%d\n",
+				__func__, PTR_ERR(buf), ispMeta->BpciHandle);
+			return;
+		}
 		ispMeta->BpciHandle = dmabuf_to_secure_handle(buf);
 		dma_buf_put(buf);
 	}
 	if (ispMeta->LsciHandle) {
 		buf = dma_buf_get(ispMeta->LsciHandle);
+		if (IS_ERR(buf)) {
+			CMDQ_ERR("%s: fail to get dma_buf:%ld, ispMeta->LsciHandle:%d\n",
+				__func__, PTR_ERR(buf), ispMeta->LsciHandle);
+			return;
+		}
 		ispMeta->LsciHandle = dmabuf_to_secure_handle(buf);
 		dma_buf_put(buf);
 	}
 	if (ispMeta->LceiHandle) {
 		buf = dma_buf_get(ispMeta->LceiHandle);
+		if (IS_ERR(buf)) {
+			CMDQ_ERR("%s: fail to get dma_buf:%ld, ispMeta->LceiHandle:%d\n",
+				__func__, PTR_ERR(buf), ispMeta->LceiHandle);
+			return;
+		}
 		ispMeta->LceiHandle = dmabuf_to_secure_handle(buf);
 		dma_buf_put(buf);
 	}
 	if (ispMeta->DepiHandle) {
 		buf = dma_buf_get(ispMeta->DepiHandle);
+		if (IS_ERR(buf)) {
+			CMDQ_ERR("%s: fail to get dma_buf:%ld, ispMeta->DepiHandle:%d\n",
+				__func__, PTR_ERR(buf), ispMeta->DepiHandle);
+			return;
+		}
 		ispMeta->DepiHandle = dmabuf_to_secure_handle(buf);
 		dma_buf_put(buf);
 	}
 	if (ispMeta->DmgiHandle) {
 		buf = dma_buf_get(ispMeta->DmgiHandle);
+		if (IS_ERR(buf)) {
+			CMDQ_ERR("%s: fail to get dma_buf:%ld, ispMeta->DmgiHandle:%d\n",
+				__func__, PTR_ERR(buf), ispMeta->DmgiHandle);
+			return;
+		}
 		ispMeta->DmgiHandle = dmabuf_to_secure_handle(buf);
 		dma_buf_put(buf);
 	}
@@ -3816,7 +3841,7 @@ int cmdq_mdp_loop_reset(u32 engine,
 			      MMPROFILE_FLAG_END, resetReg, resetStateReg);
 		CMDQ_PROF_END(current->pid, __func__);
 
-		/* retrun failed if loop failed */
+		/* return failed if loop failed */
 		if ((resetStatus < 0) || (initStatus < 0)) {
 			CMDQ_ERR(
 				"Reset MDP %d failed, resetStatus:%d, initStatus:%d\n",
@@ -3860,7 +3885,7 @@ void cmdq_mdp_loop_off(u32 engine,
 
 		cmdq_mdp_get_func()->enableMdpClock(false, engine);
 
-		/* retrun failed if loop failed */
+		/* return failed if loop failed */
 		if (resetStatus < 0 || initStatus < 0) {
 			CMDQ_AEE("MDP",
 				"Disable 0x%lx engine failed resetStatus:%d initStatus:%d\n",

@@ -608,6 +608,11 @@ static s32 translate_meta(struct op_meta *meta,
 
 		/* secure fd -> secure handle */
 		buf = dma_buf_get(meta->fd);
+		if (IS_ERR(buf)) {
+			CMDQ_ERR("%s: fail to get dma_buf:%ld, meta->fd:%d\n",
+				__func__, PTR_ERR(buf), meta->fd);
+			return -EINVAL;
+		}
 		meta->sec_handle = dmabuf_to_secure_handle(buf);
 		CMDQ_MSG("CMDQ_MOP_WRITE_SEC_FD: translate fd %d to sec_handle %d\n",
 			meta->fd, meta->sec_handle);
