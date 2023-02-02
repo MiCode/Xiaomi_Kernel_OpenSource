@@ -1285,7 +1285,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		compatible = "arm,sec-rng";
 	};
 
-	mobicore {
+	mobicore: mobicore {
 		compatible = "trustonic,mobicore";
 		interrupts = <GIC_SPI 271 IRQ_TYPE_EDGE_RISING 0>;
 	};
