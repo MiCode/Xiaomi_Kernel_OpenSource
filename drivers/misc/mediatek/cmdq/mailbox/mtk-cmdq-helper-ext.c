@@ -2593,8 +2593,13 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 	pkt->cb.cb = cmdq_flush_async_cb;
 	pkt->cb.data = pkt;
 
-	item->err_cb = pkt->err_cb.cb;
-	item->err_data = pkt->err_cb.data;
+	if (pkt->err_cb.cb == cmdq_pkt_err_dump_cb) {
+		item->err_cb = NULL;
+		item->err_data = NULL;
+	} else {
+		item->err_cb = pkt->err_cb.cb;
+		item->err_data = pkt->err_cb.data;
+	}
 	pkt->err_cb.cb = cmdq_pkt_err_dump_cb;
 	pkt->err_cb.data = pkt;
 
