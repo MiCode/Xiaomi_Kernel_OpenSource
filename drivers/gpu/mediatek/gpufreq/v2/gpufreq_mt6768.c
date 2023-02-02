@@ -487,10 +487,15 @@ void mt_gpufreq_disable_by_ptpod(void)
 {
 	int i = 0;
 	int target_idx = g_gpu.max_oppidx;
+	int ret = GPUFREQ_SUCCESS;
 
 	mutex_lock(&ptpod_lock);
 
-	__gpufreq_power_control(POWER_ON);
+	ret = __gpufreq_power_control(POWER_ON);
+	if (unlikely(ret < 0)) {
+		GPUFREQ_LOGE("fail to control power state: %d (%d)", POWER_ON, ret);
+		return;
+	}
 
 	/* Fix GPU @ 0.8V */
 	for (i = 0; i < g_gpu.opp_num; i++) {
