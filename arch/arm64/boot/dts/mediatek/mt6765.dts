@@ -3668,8 +3668,16 @@ initcall_debug=1 pelt=8";
 		compatible = "mediatek,fdvt";
 		reg = <0 0x1502b000 0 0x1000>;
 		interrupts = <GIC_SPI 258 IRQ_TYPE_LEVEL_HIGH 0>;
+		power-domains =
+			<&scpsys MT6765_POWER_DOMAIN_DIS>,
+			<&scpsys MT6765_POWER_DOMAIN_ISP>;
 		clocks = <&imgsys CLK_IMG_FDVT>;
 		clock-names = "FD_CLK_IMG_FDVT";
+		mboxes = <&gce_mbox 14 0 CMDQ_THR_PRIO_1>;
+		iommus = <&iommu M4U_PORT_CAM_FD_RP>,
+				 <&iommu M4U_PORT_CAM_FD_WR>,
+				 <&iommu M4U_PORT_CAM_FD_RB>;
+		mediatek,larb = <&smi_larb2>;
 	};
 
 	vcodecsys: vcodecsys@17000000 {
