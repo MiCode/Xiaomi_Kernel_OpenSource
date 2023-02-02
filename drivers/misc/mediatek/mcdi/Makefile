@@ -43,11 +43,13 @@ mcdi-y += mtk_mcdi_api.o
 
 ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6768)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcdi/mt6768/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/spm/common_v1/
 mcdi-y += mt6768/mtk_mcdi_plat.o
 mcdi-y += mt6768/mtk_mcdi_state.o
 
 else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6765)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcdi/common_v2/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/spm/common/
 mcdi-y += common_v2/mtk_mcdi_plat.o
 mcdi-y += common_v2/mtk_mcdi_state.o
 endif

@@ -78,7 +78,7 @@ unsigned long long idle_get_current_time_ms(void)
 	do_div(idle_current_time, 1000000);
 	return idle_current_time;
 }
-
+EXPORT_SYMBOL(idle_get_current_time_ms);
 
 bool mtk_idle_get_ratio_status(void)
 {
