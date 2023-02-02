@@ -353,3 +353,4 @@ unsigned int get_cluster_ptpod_fix_freq_idx(unsigned int id)
 	else
 		return PTPOD_FREQ_IDX;
 }
+EXPORT_SYMBOL(get_cluster_ptpod_fix_freq_idx);

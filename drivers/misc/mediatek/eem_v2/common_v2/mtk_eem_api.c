@@ -1,7 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
-*/
+ * Copyright (c) 2016 MediaTek Inc.
+ */
 
 /**
  * @file	mtk_eem_api.
@@ -15,9 +15,8 @@
 #include "mtk_eem_internal_ap.h"
 #include "mtk_eem_internal.h"
 
-/* unsigned int drcc_offset_done; */
+unsigned int drcc_offset_done;
 
-#if 0
 static struct eem_det *id_to_eem_det(enum eem_det_id id)
 {
 	if (likely(id < NR_EEM_DET))
@@ -28,7 +27,7 @@ static struct eem_det *id_to_eem_det(enum eem_det_id id)
 
 void drcc_offset_set(void)
 {
-	enum eem_det_id id = EEM_DET_B;
+	enum eem_det_id id = EEM_DET_L;
 	struct eem_det *det = id_to_eem_det(id);
 	int i;
 
@@ -38,7 +37,7 @@ void drcc_offset_set(void)
 
 void drcc_fail_composite(void)
 {
-	enum eem_det_id id = EEM_DET_B;
+	enum eem_det_id id = EEM_DET_L;
 	struct eem_det *det = id_to_eem_det(id);
 
 	if (!drcc_offset_done) {
@@ -48,5 +47,4 @@ void drcc_fail_composite(void)
 	}
 }
 EXPORT_SYMBOL(drcc_fail_composite);
-#endif
 #undef __MTK_EEM_API_C__

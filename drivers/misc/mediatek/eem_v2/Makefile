@@ -12,19 +12,20 @@
 #
 
 ccflags-y += \
-	-I$(srctree)/drivers/misc/mediatek/include/				\
+	-I$(srctree)/drivers/misc/mediatek/include/			\
 	-I$(srctree)/drivers/misc/mediatek/include/ppm_v3/		\
+	-I$(srctree)/drivers/misc/mediatek/ppm_v3/inc/			\
 	-I$(srctree)/drivers/misc/mediatek/include/upower/		\
 	-I$(srctree)/drivers/misc/mediatek/include/spm/			\
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/		\
-	-I$(srctree)/include/linux/								\
+	-I$(srctree)/include/linux/					\
 	-I$(srctree)/drivers/misc/mediatek/mcdi/include/		\
 	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/inc/		\
-	-I$(srctree)/drivers/gpu/mediatek/gpufreq/				\
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/			\
 	-I$(srctree)/drivers/misc/mediatek/thermal/inc/			\
 	-I$(srctree)/drivers/misc/mediatek/mcupm/include/		\
 	-I$(srctree)/drivers/misc/mediatek/mcdi/include/		\
-	-I$(srctree)/include/linux/soc/mediatek/				\
+	-I$(srctree)/include/linux/soc/mediatek/			\
 	-I$(srctree)/drivers/gpu/mediatek/gpufreq/v2/include/
 
 

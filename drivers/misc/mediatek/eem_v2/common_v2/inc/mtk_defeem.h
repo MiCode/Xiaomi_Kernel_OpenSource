@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
-*/
+ * Copyright (c) 2016 MediaTek Inc.
+ */
 
 #ifndef _MTK_DEFEEM_
 #define _MTK_DEFEEM_
@@ -117,6 +117,5 @@ extern void __iomem *eem_base;
 #define EEMSPARE2		(EEM_BASEADDR + 0xF28)
 #define EEMSPARE3		(EEM_BASEADDR + 0xF2C)
 #define EEM_THSLPEVEB		(EEM_BASEADDR + 0xF30)
-#define EEM_THERMAL		(EEM_BASEADDR + 0x848)
 
 #endif

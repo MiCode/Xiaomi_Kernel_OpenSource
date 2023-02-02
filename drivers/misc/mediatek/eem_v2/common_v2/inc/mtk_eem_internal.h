@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
-*/
+ * Copyright (c) 2016 MediaTek Inc.
+ */
 
 #ifndef _MTK_EEM_INTERNAL_H_
 #define _MTK_EEM_INTERNAL_H_
@@ -29,25 +29,27 @@
 /* BITS(MSB:LSB, value) => Set value at MSB:LSB  */
 #define BITS(r, val)	((val << LSB(r)) & BITMASK(r))
 
-#define GET_BITS_VAL(_bits_, _val_) \
+#define GET_BITS_VAL(_bits_, _val_)	\
 	(((_val_) & (BITMASK(_bits_))) >> ((0) ? _bits_))
-
 /*
  * LOG
  */
+
+// #define EEM_DEBUG_LOG
+
 #define EEM_TAG	 "[xxxxEEM] "
-#if 1
+#ifndef EEM_DEBUG_LOG
 	#define eem_error(fmt, args...)		pr_notice(EEM_TAG fmt, ##args)
 	#define eem_warning(fmt, args...)
 	#define eem_notice(fmt, args...)
 	#define eem_info(fmt, args...)
 	#define eem_debug(fmt, args...)
 #else
-	#define eem_error(fmt, args...)	 pr_debug(EEM_TAG fmt, ##args)
-	#define eem_warning(fmt, args...)   pr_debug(EEM_TAG fmt, ##args)
-	#define eem_notice(fmt, args...)   pr_debug(EEM_TAG fmt, ##args)
-	#define eem_info(fmt, args...)   pr_debug(EEM_TAG fmt, ##args)
-	#define eem_debug(fmt, args...)   pr_debug(EEM_TAG fmt, ##args)
+	#define eem_error(fmt, args...)	 pr_notice(EEM_TAG fmt, ##args)
+	#define eem_warning(fmt, args...)   pr_notice(EEM_TAG fmt, ##args)
+	#define eem_notice(fmt, args...)   pr_notice(EEM_TAG fmt, ##args)
+	#define eem_info(fmt, args...)   pr_notice(EEM_TAG fmt, ##args)
+	#define eem_debug(fmt, args...)   pr_notice(EEM_TAG fmt, ##args)
 #endif
 
 #if EN_ISR_LOG /* For Interrupt use */
@@ -56,16 +58,12 @@
 	#define eem_isr_info(fmt, args...)
 #endif
 
-/* module, platform driver interface */
-#define FUNC_LV_MODULE		  BIT(0)
-/* cpufreq driver interface		  */
-#define FUNC_LV_CPUFREQ		 BIT(1)
-/* mt_cpufreq driver global function */
-#define FUNC_LV_API			 BIT(2)
-/* mt_cpufreq driver lcaol function  */
-#define FUNC_LV_LOCAL		   BIT(3)
-/* mt_cpufreq driver help function   */
-#define FUNC_LV_HELP			BIT(4)
+
+#define FUNC_LV_MODULE BIT(0)  /* module, platform driver interface */
+#define FUNC_LV_CPUFREQ BIT(1)  /* cpufreq driver interface */
+#define FUNC_LV_API BIT(2)  /* mt_cpufreq driver global function */
+#define FUNC_LV_LOCAL BIT(3)  /* mt_cpufreq driver lcaol function  */
+#define FUNC_LV_HELP BIT(4)  /* mt_cpufreq driver help function   */
 
 
 #if CONFIG_EEM_SHOWLOG
@@ -77,13 +75,11 @@
 		FUNC_LV_HELP
 		);
 	#define FUNC_ENTER(lv)	\
-		do { if ((lv) & func_lv_mask) \
-			eem_debug(">> %s()\n", \
-				__func__); } while (0)
+		do { if ((lv) & func_lv_mask)	\
+		eem_debug(">> %s()\n", __func__); } while (0)
 	#define FUNC_EXIT(lv)	\
-		do { if ((lv) & func_lv_mask) \
-			eem_debug("<< %s():%d\n", \
-				__func__, __LINE__); } while (0)
+		do { if ((lv) & func_lv_mask)	\
+		eem_debug("<< %s():%d\n", __func__, __LINE__); } while (0)
 #else
 	#define FUNC_ENTER(lv)
 	#define FUNC_EXIT(lv)
@@ -126,10 +122,8 @@
  * iterate over list of detectors
  * @det:	the detector * to use as a loop cursor.
  */
-#define for_each_det(det) \
-		for (det = eem_detectors; \
-		det < (eem_detectors + ARRAY_SIZE(eem_detectors)); \
-		det++)
+#define for_each_det(det) for (det = eem_detectors; \
+	det < (eem_detectors + ARRAY_SIZE(eem_detectors)); det++)
 
 /**
  * iterate over list of detectors and its controller
@@ -137,20 +131,18 @@
  * @ctrl:	the eem_ctrl * to use as ctrl pointer of current det.
  */
 #define for_each_det_ctrl(det, ctrl)				\
-		for (det = eem_detectors,				\
-		ctrl = id_to_eem_ctrl(det->ctrl_id);		\
-		det < (eem_detectors + ARRAY_SIZE(eem_detectors)); \
-		det++,						\
-		ctrl = id_to_eem_ctrl(det->ctrl_id))
+	for (det = eem_detectors,				\
+		 ctrl = id_to_eem_ctrl(det->ctrl_id);		\
+		 det < (eem_detectors + ARRAY_SIZE(eem_detectors)); \
+		 det++,						\
+		 ctrl = id_to_eem_ctrl(det->ctrl_id))
 
 /**
  * iterate over list of controllers
  * @pos:	the eem_ctrl * to use as a loop cursor.
  */
-#define for_each_ctrl(ctrl) \
-		for (ctrl = eem_ctrls; \
-		ctrl < (eem_ctrls + ARRAY_SIZE(eem_ctrls)); \
-		ctrl++)
+#define for_each_ctrl(ctrl) for (ctrl = eem_ctrls; \
+	ctrl < (eem_ctrls + ARRAY_SIZE(eem_ctrls)); ctrl++)
 
 /**
  * Given a eem_det * in eem_detectors. Return the id.
@@ -172,7 +164,7 @@
 #define HAS_FEATURE(det, feature)	((det)->features & feature)
 
 #define PERCENT(numerator, denominator)	\
-	((unsigned char)(((numerator) * 100 + (denominator) - 1) / (denominator)))
+(unsigned char)(((numerator) * 100 + (denominator) - 1) / (denominator))
 
 struct eem_ctrl {
 	const char *name;
@@ -190,13 +182,10 @@ struct eem_ctrl {
 /* define main structures in mtk_eem_internal.c */
 extern struct eem_ctrl eem_ctrls[NR_EEM_CTRL];
 extern struct eem_det eem_detectors[NR_EEM_DET];
-#if ENABLE_LOO
-extern struct eem_det eem_detector_cci;
-#endif
 extern struct eem_det_ops eem_det_base_ops;
 
 /* define common operations in mtk_eem_internal.c */
-extern int base_ops_volt_2_pmic(struct eem_det *det, int volt);
+extern int base_ops_volt_2_pmic(struct eem_det *det, int volt); /* PMIC */
 extern int base_ops_volt_2_eem(struct eem_det *det, int volt);
 extern int base_ops_pmic_2_volt(struct eem_det *det, int pmic_val);
 extern int base_ops_eem_2_pmic(struct eem_det *det, int eev_val);
