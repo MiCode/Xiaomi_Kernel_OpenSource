@@ -430,7 +430,7 @@ slub_debug=OFZPU page_owner=on \
 swiotlb=noforce androidboot.hardware=mt6765 \
 maxcpus=8 loop.max_part=7 \
 firmware_class.path=/vendor/firmware \
-initcall_debug=1 pelt=8";
+initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		kaslr-seed = <0 0>;
 	};
 
@@ -666,21 +666,21 @@ initcall_debug=1 pelt=8";
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x000>;
-			enable-method = "psci";
+			//enable-method = "psci";
 			clock-frequency = <2301000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
 			#cooling-cells = <2>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
-				<&SODI &SODI3 &DPIDLE &SUSPEND>;
+			//cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			//	<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu1: cpu@001 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x001>;
-			enable-method = "psci";
+			//enable-method = "psci";
 			clock-frequency = <2301000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
@@ -694,7 +694,7 @@ initcall_debug=1 pelt=8";
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x002>;
-			enable-method = "psci";
+			//enable-method = "psci";
 			clock-frequency = <2301000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
@@ -708,7 +708,7 @@ initcall_debug=1 pelt=8";
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x003>;
-			enable-method = "psci";
+			//enable-method = "psci";
 			clock-frequency = <2301000000>;
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
@@ -722,7 +722,7 @@ initcall_debug=1 pelt=8";
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x100>;
-			enable-method = "psci";
+			//enable-method = "psci";
 			clock-frequency = <1800000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <85>;
@@ -736,7 +736,7 @@ initcall_debug=1 pelt=8";
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x101>;
-			enable-method = "psci";
+			//enable-method = "psci";
 			clock-frequency = <1800000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <85>;
@@ -750,7 +750,7 @@ initcall_debug=1 pelt=8";
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x102>;
-			enable-method = "psci";
+			//enable-method = "psci";
 			clock-frequency = <1800000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <85>;
@@ -764,7 +764,7 @@ initcall_debug=1 pelt=8";
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x103>;
-			enable-method = "psci";
+			//enable-method = "psci";
 			clock-frequency = <1800000000>;
 			operating-points-v2 = <&cluster1_opp>;
 			dynamic-power-coefficient = <85>;
@@ -4523,6 +4523,10 @@ initcall_debug=1 pelt=8";
 		};
 	};
 
+	mtk_composite_v4l2_1: mtk_composite_v4l2_1 {
+		compatible = "mediatek,mtk_composite_v4l2_1";
+	};
+
 	gps {
 		compatible = "mediatek,gps";
 	};
@@ -4998,7 +5002,7 @@ initcall_debug=1 pelt=8";
 #include "cust_mt6765_msdc.dtsi"
 #include "mt6357.dtsi"
 #include "bat_setting/mt6765_battery_prop.dtsi"
-#include "mediatek/mt6370_65.dtsi"
+#include "mt6370_65.dtsi"
 #include "rt9471.dtsi"
 #include "trusty.dtsi"
 
