@@ -4987,7 +4987,11 @@ static int cmp_uint(const void *a, const void *b)
 }
 #endif
 
+#if !IS_ENABLED(CONFIG_ARM64)
+void fbt_update_pwd_tbl(void)
+#else
 static void fbt_update_pwd_tbl(void)
+#endif
 {
 	unsigned long long max_cap = 0ULL, min_cap = UINT_MAX;
 	int cluster = 0;

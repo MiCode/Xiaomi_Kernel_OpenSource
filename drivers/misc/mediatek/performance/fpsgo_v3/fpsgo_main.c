@@ -78,6 +78,10 @@ static int perfserv_ta;
 
 int powerhal_tid;
 
+#if !IS_ENABLED(CONFIG_ARM64)
+int cap_ready;
+#endif
+
 void (*rsu_cpufreq_notifier_fp)(int cluster_id, unsigned long freq);
 
 /* TODO: event register & dispatch */
@@ -358,6 +362,12 @@ void fpsgo_notify_qudeq(int qudeq,
 	vpPush->identifier = id;
 
 	fpsgo_queue_work(vpPush);
+#if !IS_ENABLED(CONFIG_ARM64)
+	if (!cap_ready) {
+		fbt_update_pwd_tbl();
+		cap_ready = 1;
+	}
+#endif
 }
 void fpsgo_notify_connect(int pid,
 		int connectedAPI, unsigned long long id)
@@ -808,6 +818,10 @@ static int __init fpsgo_init(void)
 {
 	int i;
 	int ret;
+
+#if !IS_ENABLED(CONFIG_ARM64)
+	cap_ready = 0;
+#endif
 
 	FPSGO_LOGI("[FPSGO_CTRL] init\n");
 

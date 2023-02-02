@@ -49,6 +49,10 @@ void __exit fbt_cpu_exit(void);
 int fpsgo_ctrl2fbt_switch_fbt(int enable);
 int fbt_switch_ceiling(int value);
 
+#if !IS_ENABLED(CONFIG_ARM64)
+void fbt_update_pwd_tbl(void);
+#endif
+
 #else
 static inline void fpsgo_ctrl2fbt_dfrc_fps(int fps_limit) { }
 static inline void fpsgo_ctrl2fbt_cpufreq_cb(int cid,
