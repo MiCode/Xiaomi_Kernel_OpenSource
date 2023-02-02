@@ -233,6 +233,8 @@ struct ufs_mtk_host {
 	bool boot_device;
 	struct ufs_vreg *vcc;
 
+	struct completion luns_added;
+
 	struct semaphore rpmb_sem;
 #if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature ufsf;
