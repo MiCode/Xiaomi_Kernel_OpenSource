@@ -539,6 +539,9 @@ static void change_drm_disp_mode_params(struct drm_display_mode *mode)
 		mode->hsync_end = fake_width + HFP + HSA;
 		mode->htotal = fake_width + HFP + HSA + HBP;
 	}
+	//calculate clock, ref drm_mode_vrefresh function
+	if (fake_heigh == 1440 && fake_width == 720)
+		mode->clock = 69678;
 }
 
 #if defined(CONFIG_MTK_PANEL_EXT)
