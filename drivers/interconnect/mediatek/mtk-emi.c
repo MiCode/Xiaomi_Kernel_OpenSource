@@ -13,10 +13,9 @@
 #include <dt-bindings/interconnect/mtk,mt8183-emi.h>
 #include <dt-bindings/interconnect/mtk,mt6873-emi.h>
 
-#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
-#define CREATE_TRACE_POINTS
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 #include "../internal.h"
-#include "mtk-dvfsrc-icc-trace.h"
+#include <trace/events/mtk_qos_trace.h>
 #endif
 
 enum mtk_icc_name {
@@ -205,7 +204,7 @@ static const struct of_device_id emi_icc_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, emi_icc_of_match);
 
-#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 static void emi_icc_trace_bw_consumers(struct icc_node *n, bool is_hrt)
 {
 	struct icc_req *r;
@@ -253,7 +252,7 @@ static int emi_icc_set(struct icc_node *src, struct icc_node *dst)
 		mtk_dvfsrc_send_request(src->provider->dev,
 					MTK_DVFSRC_CMD_BW_REQUEST,
 					node->sum_avg);
-#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 		trace_mtk_pm_qos_update_request(30, src->avg_bw / 1000, src->name);
 		trace_mtk_pm_qos_update_request(40, src->peak_bw / 1000, src->name);
 		if (strcmp(src->name, "dbgif") == 0)
@@ -263,7 +262,7 @@ static int emi_icc_set(struct icc_node *src, struct icc_node *dst)
 		mtk_dvfsrc_send_request(src->provider->dev,
 					MTK_DVFSRC_CMD_HRTBW_REQUEST,
 					node->sum_avg);
-#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER)
+#if IS_ENABLED(CONFIG_MTK_DVFSRC)
 		trace_mtk_pm_qos_update_request(50, src->avg_bw / 1000, src->name);
 		if (strcmp(src->name, "hrt_dbgif") == 0)
 			emi_icc_trace_bw_consumers(dst, true);

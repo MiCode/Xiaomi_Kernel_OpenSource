@@ -20,6 +20,9 @@
 #define DVFSRC_FORCE_OPP_SUPPORT
 #define DVFSRC_DEBUG_ENHANCE
 #define DVFSRC_PROPERTY_ENABLE
+#define CREATE_TRACE_POINTS
+#include <trace/events/mtk_qos_trace.h>
+EXPORT_TRACEPOINT_SYMBOL_GPL(mtk_pm_qos_update_request);
 /* End */
 
 #define DVFSRC_IDLE     0x00
@@ -259,9 +262,9 @@ static const int mt6983_regs[] = {
 };
 
 static const int mt6768_regs[] = {
-	[DVFSRC_SW_REQ] =			0x4,
-	[DVFSRC_LEVEL] =				0xDC,
-	[DVFSRC_SW_BW] =			0x16C,
+	[DVFSRC_SW_REQ] =		0x4,
+	[DVFSRC_LEVEL] =		0xDC,
+	[DVFSRC_SW_BW] =		0x16C,
 	[DVFSRC_SW_PEAK_BW] =		0x160,
 	[DVFSRC_VCORE_REQUEST] =	0x48,
 	[DVFSRC_BASIC_CONTROL] =	0x0,
@@ -269,9 +272,9 @@ static const int mt6768_regs[] = {
 };
 
 static const int mt6765_regs[] = {
-	[DVFSRC_SW_REQ] =			0x4,
-	[DVFSRC_LEVEL] =				0xDC,
-	[DVFSRC_SW_BW] =			0x16C,
+	[DVFSRC_SW_REQ] =		0x4,
+	[DVFSRC_LEVEL] =		0xDC,
+	[DVFSRC_SW_BW] =		0x16C,
 	[DVFSRC_SW_PEAK_BW] =		0x160,
 	[DVFSRC_VCORE_REQUEST] =	0x48,
 	[DVFSRC_BASIC_CONTROL] =	0x0,

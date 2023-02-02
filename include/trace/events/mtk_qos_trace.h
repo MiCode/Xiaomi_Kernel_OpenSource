@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (c) 2022 MediaTek Inc.
  */
 
 #undef TRACE_SYSTEM
-#define TRACE_SYSTEM mtk_pm_qos_regulator
+#define TRACE_SYSTEM mtk_qos_trace
 
-#if !defined(_TRACE_MTK_QOS_REGULATOR_H) || defined(TRACE_HEADER_MULTI_READ)
-#define _TRACE_MTK_QOS_REGULATOR_H
+#if !defined(_TRACE_MTK_QOS_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
+#define _TRACE_MTK_QOS_TRACE_H
 
 #include <linux/ktime.h>
 #include <linux/tracepoint.h>
@@ -15,7 +15,7 @@
 
 #define TPS(x)  tracepoint_string(x)
 
-DECLARE_EVENT_CLASS(mtk_pm_qos_request_regulator,
+DECLARE_EVENT_CLASS(mtk_pm_qos_request,
 
 	TP_PROTO(int mtk_pm_qos_class, s32 value, const char *owner),
 
@@ -39,20 +39,12 @@ DECLARE_EVENT_CLASS(mtk_pm_qos_request_regulator,
 		   __entry->owner)
 );
 
-DEFINE_EVENT(mtk_pm_qos_request_regulator, mtk_pm_qos_update_request_regulator,
+DEFINE_EVENT(mtk_pm_qos_request, mtk_pm_qos_update_request,
 
 	TP_PROTO(int mtk_pm_qos_class, s32 value, const char *owner),
 
 	TP_ARGS(mtk_pm_qos_class, value, owner)
 );
 
-#endif /* _TRACE_MTK_QOS_REGULATOR_H */
-/* This part must be outside protection */
-#undef TRACE_INCLUDE_PATH
-#define TRACE_INCLUDE_PATH .
-
-#undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_FILE mtk-dvfsrc-regulator-trace
-
-/* This part must be outside protection */
+#endif /* _TRACE_MTK_QOS_TRACE_H */
 #include <trace/define_trace.h>
