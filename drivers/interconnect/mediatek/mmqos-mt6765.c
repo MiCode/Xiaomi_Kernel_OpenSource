@@ -22,6 +22,7 @@ static const struct mtk_node_desc node_descs_mt6765[] = {
 	DEFINE_MNODE(larb2, SLAVE_LARB(2), 0, false, 0x0, MASTER_COMMON_PORT(0, 2)),
 	DEFINE_MNODE(larb3, SLAVE_LARB(3), 0, false, 0x0, MASTER_COMMON_PORT(0, 3)),
 	DEFINE_MNODE(larb21, SLAVE_LARB(21), 0, false, 0x0, MASTER_COMMON_PORT(0, 4)),
+	DEFINE_MNODE(larb5, SLAVE_LARB(5), 0, false, 0x0, MASTER_COMMON_PORT(0, 5)),
 	/*Larb 0*/
 	DEFINE_MNODE(l0_disp_ovl0,
 		MASTER_LARB_PORT(M4U_PORT_DISP_OVL0), 8, false, 0x0, SLAVE_LARB(0)),
