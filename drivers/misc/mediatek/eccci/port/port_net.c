@@ -554,7 +554,7 @@ static void port_net_queue_state_notify(struct port_t *port, int dir,
 			return;
 		}
 	}
-	if (state == TX_FULL) {
+	if ((port_md_gen > 6293) && (state == TX_FULL)) {
 		if (ccci_dpmaif_empty_query(qno) > 0) {
 			if (dir == OUT)
 				spin_unlock_irqrestore(&port->flag_lock, flags);
