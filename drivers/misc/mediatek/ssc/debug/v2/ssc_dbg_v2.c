@@ -133,6 +133,9 @@ static int __init ssc_v2_init(void)
 {
 	int ret;
 
+	if (!ssc_kobj)
+		ssc_kobj = kobject_create_and_add("ssc", kernel_kobj);
+
 	ret = sysfs_create_file(ssc_kobj, __ATTR_OF(ssc_ctrl));
 	ret = sysfs_create_file(ssc_kobj, __ATTR_OF(ssc_sw_req));
 

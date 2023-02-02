@@ -305,6 +305,31 @@ static int mt_ssc_pdrv_probe(struct platform_device *pdev)
 #if IS_ENABLED(CONFIG_ARM_SCMI_PROTOCOL)
 	struct scmi_tinysys_info_st *tinfo = NULL;
 #endif
+
+	ssc_node = of_find_compatible_node(NULL, NULL, MTK_SSC_DTS_COMPATIBLE);
+
+	if (ssc_node) {
+		ret = of_property_read_u32(ssc_node,
+				MTK_SSC_SAFE_VLOGIC_STRING,
+				&safe_vlogic_uV);
+
+		pr_info("[SSC] safe_vlogic_uV = %d uV", safe_vlogic_uV);
+		/* This property is not defined*/
+		if (ret)
+			safe_vlogic_uV = 0xFFFFFFFF;
+
+		ret = of_property_read_u32(ssc_node,
+				"ssc_disable",
+				&ssc_disable);
+
+		if (!ret && ssc_disable == 1) {
+			pr_info("[SSC] disabled\n");
+			return 0;
+		}
+
+		of_node_put(ssc_node);
+	}
+
 	/* scmi interface initialization */
 #if IS_ENABLED(CONFIG_ARM_SCMI_PROTOCOL)
 	tinfo = get_scmi_tinysys_info();
@@ -341,31 +366,6 @@ static int mt_ssc_pdrv_probe(struct platform_device *pdev)
 	}
 
 	spin_lock_irqsave(&ssc_locker, flags);
-
-	ssc_node = of_find_compatible_node(NULL, NULL, MTK_SSC_DTS_COMPATIBLE);
-
-	if (ssc_node) {
-		ret = of_property_read_u32(ssc_node,
-				MTK_SSC_SAFE_VLOGIC_STRING,
-				&safe_vlogic_uV);
-
-		pr_info("[SSC] safe_vlogic_uV = %d uV", safe_vlogic_uV);
-		/* This property is not defined*/
-		if (ret)
-			safe_vlogic_uV = 0xFFFFFFFF;
-
-		ret = of_property_read_u32(ssc_node,
-				"ssc_disable",
-				&ssc_disable);
-
-		if (!ret && ssc_disable == 1) {
-			spin_unlock_irqrestore(&ssc_locker, flags);
-			pr_info("[SSC] disabled\n");
-			return 0;
-		}
-
-		of_node_put(ssc_node);
-	}
 
 	/* set gpu vlogic bound 0.6V if gpueb not ready */
 #if IS_ENABLED(CONFIG_GPU_SUPPORT)
