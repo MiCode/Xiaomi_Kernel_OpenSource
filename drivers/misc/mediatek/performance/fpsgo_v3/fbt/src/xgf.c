@@ -1628,6 +1628,7 @@ static int xgf_get_render(pid_t rpid, unsigned long long bufID,
 		iter->queue.end_ts = 0;
 		iter->deque.start_ts = 0;
 		iter->deque.end_ts = 0;
+		iter->raw_runtime = 0;
 		iter->ema_runtime = 0;
 		iter->pre_u_runtime = 0;
 		iter->u_avg_runtime = 0;
@@ -3056,7 +3057,7 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 				*run_time = r->ema_runtime;
 			}
 		}
-
+		r->raw_runtime = raw_runtime;
 		fpsgo_systrace_c_fbt(rpid, bufID, raw_runtime, "raw_t_cpu");
 		if (xgf_ema2_enable && !xgf_camera_flag && (r->hwui_flag == 2))
 			fpsgo_systrace_c_fbt(rpid, bufID, tmp_runtime, "ema2_t_cpu");
@@ -3677,6 +3678,30 @@ static ssize_t deplist_show(struct kobject *kobj,
 		}
 	}
 
+	xgf_unlock(__func__);
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+
+static ssize_t runtime_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	struct xgf_render *r_iter;
+	struct hlist_node *r_tmp;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	int pos = 0;
+	int length;
+
+	xgf_lock(__func__);
+	hlist_for_each_entry_safe(r_iter, r_tmp, &xgf_renders, hlist) {
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"rtid:%d bid:0x%llx cpu_runtime:%d (%d)\n",
+			r_iter->render, r_iter->bufID,
+			r_iter->ema_runtime,
+			r_iter->raw_runtime);
+		pos += length;
+	}
 	xgf_unlock(__func__);
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
@@ -4377,6 +4402,7 @@ int __init init_xgf_ko(void)
 }
 
 static KOBJ_ATTR_RO(deplist);
+static KOBJ_ATTR_RO(runtime);
 
 int __init init_xgf_mm(void)
 {
@@ -4433,6 +4459,7 @@ int __init init_xgf(void)
 
 	if (!fpsgo_sysfs_create_dir(NULL, "xgf", &xgf_kobj)) {
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_deplist);
+		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_runtime);
 		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_xgf_spid_list);
 		fpsgo_sysfs_create_file(xgf_kobj,
 			&kobj_attr_xgf_trace_enable);

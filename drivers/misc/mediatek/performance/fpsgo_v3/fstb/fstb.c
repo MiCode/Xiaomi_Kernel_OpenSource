@@ -3261,7 +3261,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 	}
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-	"tid\tbufID\t\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tFPS_margin_GPU\tFPS_margin_thrs\tsbe_state\tHWUI\tVIDEO\n");
+	"tid\tbufID\t\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tFPS_margin_GPU\tFPS_margin_thrs\tsbe_state\tHWUI\tt_gpu\tVIDEO\n");
 	pos += length;
 
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
@@ -3271,7 +3271,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 				(iter->video_flag == RENDER_INFO_VIDEO_TYPE) ||
 				!fstb_self_ctrl_fps_enable) {
 				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t%d\n",
+						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t%lld\t%d\n",
 						iter->pid,
 						iter->bufid,
 						iter->proc_name,
@@ -3283,10 +3283,11 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 						iter->target_fps_margin2,
 						iter->sbe_state,
 						iter->hwui_flag,
+						iter->gpu_time,
 						iter->video_flag);
 			} else {
 				length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t-1\t\t%d\t\t%d\t\t%d\t%d\n",
+						"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t-1\t\t%d\t\t%d\t\t%d\t%lld\t%d\n",
 						iter->pid,
 						iter->bufid,
 						iter->proc_name,
@@ -3297,6 +3298,7 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 						iter->target_fps_margin_v2,
 						iter->sbe_state,
 						iter->hwui_flag,
+						iter->gpu_time,
 						iter->video_flag);
 			}
 			pos += length;

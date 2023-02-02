@@ -149,6 +149,7 @@ struct xgf_render {
 	struct xgf_sub_sect deque;
 	struct xgf_sub_sect queue;
 
+	unsigned long long raw_runtime;
 	unsigned long long ema_runtime;
 	unsigned long long pre_u_runtime;
 	unsigned long long u_runtime[XGF_MAX_UFRMAES];
