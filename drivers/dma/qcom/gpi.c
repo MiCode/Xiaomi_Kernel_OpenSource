@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/atomic.h>
@@ -744,8 +745,11 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 
 	/* log gpii cntxt */
 	reg_info = dbg_reg_table->gpii_cntxt;
-	for (; reg_info->name; reg_info++)
+	for (; reg_info->name; reg_info++) {
 		reg_info->val = readl_relaxed(gpii->regs + reg_info->offset);
+		GPII_ERR(gpii, GPI_DBG_COMMON, "GPI_cntxt Reg:%s addr:0x%x->val:0x%x\n",
+			 reg_info->name, reg_info->offset, reg_info->val);
+	}
 
 	if (!dbg_reg_table->ev_cntxt_info) {
 		dbg_reg_table->ev_cntxt_info =
@@ -758,9 +762,12 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 
 	/* log ev cntxt */
 	reg_info = dbg_reg_table->ev_cntxt_info;
-	for (; reg_info->name; reg_info++)
+	for (; reg_info->name; reg_info++) {
 		reg_info->val = readl_relaxed(gpii->ev_cntxt_base_reg +
 					      reg_info->offset);
+		GPII_ERR(gpii, GPI_DBG_COMMON, "GPI_ev_cntxt Reg:%s addr:0x%x->val:0x%x\n",
+			 reg_info->name, reg_info->offset, reg_info->val);
+	}
 
 	/* dump channel cntxt registers */
 	for (chan = 0; chan < MAX_CHANNELS_PER_GPII; chan++) {
@@ -774,11 +781,16 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 				sizeof(gpi_debug_ch_cntxt));
 		}
 		reg_info = dbg_reg_table->chan[chan];
-		for (; reg_info->name; reg_info++)
+		for (; reg_info->name; reg_info++) {
 			reg_info->val =
 			readl_relaxed(
 			gpii->gpii_chan[chan].ch_cntxt_base_reg +
 							reg_info->offset);
+			GPII_ERR(gpii, GPI_DBG_COMMON,
+				 "GPI_ch%d Reg:%s addr:0x%x->val:0x%x\n",
+				 chan, reg_info->name, reg_info->offset,
+				 reg_info->val);
+		}
 	}
 
 	if (!dbg_reg_table->gpi_debug_regs) {
@@ -792,9 +804,12 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 
 	/* log debug register */
 	reg_info = dbg_reg_table->gpi_debug_regs;
-	for (; reg_info->name; reg_info++)
+	for (; reg_info->name; reg_info++) {
 		reg_info->val = readl_relaxed(gpii->gpi_dev->regs +
 					reg_info->offset);
+		GPII_ERR(gpii, GPI_DBG_COMMON, "GPI_dbg Reg:%s addr:0x%x->val:0x%x\n",
+			 reg_info->name, reg_info->offset, reg_info->val);
+	}
 
 	if (!dbg_reg_table->gpi_debug_qsb_regs) {
 		dbg_reg_table->gpi_debug_qsb_regs =
@@ -808,17 +823,28 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 
 	/* log QSB register */
 	reg_info = dbg_reg_table->gpi_debug_qsb_regs;
-	for (; reg_info->name; reg_info++)
+	for (; reg_info->name; reg_info++) {
 		reg_info->val = readl_relaxed(gpii->gpi_dev->regs +
 					reg_info->offset);
+		GPII_ERR(gpii, GPI_DBG_COMMON, "GPI_qsb Reg:%s addr:0x%x->val:0x%x\n",
+			 reg_info->name, reg_info->offset, reg_info->val);
+	}
 
 	/* dump scratch registers */
 	dbg_reg_table->ev_scratch_0 = readl_relaxed(gpii->regs +
 			GPI_GPII_n_CNTXT_SCRATCH_0_OFFS(gpii->gpii_id));
-	for (chan = 0; chan < MAX_CHANNELS_PER_GPII; chan++)
+	GPII_ERR(gpii, GPI_DBG_COMMON, "GPI_ev_scratch Reg addr:0x%x->val:0x%x\n",
+		 GPI_GPII_n_CNTXT_SCRATCH_0_OFFS(gpii->gpii_id),
+		 dbg_reg_table->ev_scratch_0);
+	for (chan = 0; chan < MAX_CHANNELS_PER_GPII; chan++) {
 		dbg_reg_table->ch_scratch_0[chan] = readl_relaxed(gpii->regs +
 				GPI_GPII_n_CH_k_SCRATCH_0_OFFS(gpii->gpii_id,
 						gpii->gpii_chan[chan].chid));
+		GPII_ERR(gpii, GPI_DBG_COMMON, "GPI_ch_scratch Reg addr:0x%x->val:0x%x\n",
+			 GPI_GPII_n_CH_k_SCRATCH_0_OFFS(gpii->gpii_id,
+			 gpii->gpii_chan[chan].chid),
+			 dbg_reg_table->ch_scratch_0[chan]);
+	}
 
 	/* Copy the ev ring */
 	if (!dbg_reg_table->ev_ring) {
@@ -850,6 +876,8 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 
 	dbg_reg_table->error_log = readl_relaxed(gpii->regs +
 				GPI_GPII_n_ERROR_LOG_OFFS(gpii->gpii_id));
+	GPII_ERR(gpii, GPI_DBG_COMMON, "GPI Error log Reg addr:0x%x->val:0x%x\n",
+		 GPI_GPII_n_ERROR_LOG_OFFS(gpii->gpii_id), dbg_reg_table->error_log);
 
 	GPII_ERR(gpii, GPI_DBG_COMMON, "Global IRQ handling Exit\n");
 }

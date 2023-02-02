@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * Qualcomm Technologies, Inc. SPSS Peripheral Image Loader
  *
  */
@@ -28,7 +28,7 @@
 #define ERR_READY	0
 #define PBL_DONE	1
 #define SPSS_WDOG_ERR	0x44554d50
-#define SPSS_POLL_RETRIES_NUM	10
+#define SPSS_POLL_RETRIES_NUM	20
 #define SPSS_POLL_TIMEOUT_MS	500
 #define SPSS_WAIT_TIMEOUT	(SPSS_POLL_TIMEOUT_MS * SPSS_POLL_RETRIES_NUM)
 

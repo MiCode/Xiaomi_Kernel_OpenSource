@@ -516,11 +516,13 @@ static int cntr_fltr_select(const char *buf, struct llcc_perfmon_private *llcc_p
 	unsigned long long cntr;
 
 	token = strsep((char **)&buf, delim);
-	/* For FEAC, if no counter not configured can be supported by filter enable
-	 * using PROFILING TAG.
+
+	/*
+	 * For special cases where counter reservation is not needed and multiple filters are
+	 * required on a given port
 	 */
-	if (token == NULL && ports == (1 << EVENT_PORT_FEAC)) {
-		pr_info("FEAC Filter configuration for profiling tag usage\n");
+	if (token == NULL) {
+		pr_info("Selected filter configuration without counters reservation\n");
 		ret = 0;
 	}
 
@@ -848,7 +850,6 @@ static ssize_t perfmon_filter_remove_store(struct device *dev,
 		/* Updating bit field for filtered port */
 		port_filter_en |= 1 << port;
 	}
-	llcc_priv->port_filter_sel[filter_idx] &= ~port_filter_en;
 
 	for (i = 0; i < MAX_NUMBER_OF_PORTS; i++) {
 		if (!(port_filter_en & (1 << i)))
@@ -865,9 +866,15 @@ static ssize_t perfmon_filter_remove_store(struct device *dev,
 		for (j = 0; j < MAX_FILTERS; j++)
 			if (llcc_priv->filters_applied[i][j][filter_idx])
 				break;
-		/* Clearing the port filter en bit if all filter fields are UNKNOWN for port */
-		if (j == MAX_FILTERS)
+
+		/*
+		 * Clearing the port filter en bit if all filter fields are UNKNOWN for port
+		 * same will be used to clear the global filter flag in llcc_priv
+		 */
+		if (j == MAX_FILTERS) {
 			port_filter_en &= ~(1 << i);
+			llcc_priv->port_filter_sel[filter_idx] &= ~(1 << i);
+		}
 	}
 
 	reset_flags(llcc_priv);

@@ -1922,30 +1922,28 @@ int gen7_gmu_context_queue_write(struct adreno_device *adreno_dev,
 {
 	struct gmu_context_queue_header *hdr = drawctxt->gmu_context_queue.hostptr;
 	u32 *queue = drawctxt->gmu_context_queue.hostptr + sizeof(*hdr);
-	u32 i, write, empty_space;
+	u32 i, empty_space, write_idx = hdr->write_index, read_idx = hdr->read_index;
 	u32 size = MSG_HDR_GET_SIZE(*msg);
 	u32 align_size = ALIGN(size, SZ_4);
 	u32 id = MSG_HDR_GET_ID(*msg);
 	struct kgsl_drawobj_cmd *cmdobj = NULL;
 
-	empty_space = (hdr->write_index >= hdr->read_index) ?
-			(hdr->queue_size - (hdr->write_index - hdr->read_index))
-			: (hdr->read_index - hdr->write_index);
+	empty_space = (write_idx >= read_idx) ?
+			(hdr->queue_size - (write_idx - read_idx))
+			: (read_idx - write_idx);
 
 	if (empty_space <= align_size)
 		return -ENOSPC;
 
-	write = hdr->write_index;
-
 	for (i = 0; i < size; i++) {
-		queue[write] = msg[i];
-		write = (write + 1) % hdr->queue_size;
+		queue[write_idx] = msg[i];
+		write_idx = (write_idx + 1) % hdr->queue_size;
 	}
 
 	/* Cookify any non used data at the end of the write buffer */
 	for (; i < align_size; i++) {
-		queue[write] = 0xfafafafa;
-		write = (write + 1) % hdr->queue_size;
+		queue[write_idx] = 0xfafafafa;
+		write_idx = (write_idx + 1) % hdr->queue_size;
 	}
 
 	/* Ensure packet is written out before proceeding */
@@ -1974,7 +1972,7 @@ int gen7_gmu_context_queue_write(struct adreno_device *adreno_dev,
 done:
 	trace_kgsl_hfi_send(id, size, MSG_HDR_GET_SEQNUM(*msg));
 
-	hfi_update_write_idx(&hdr->write_index, write);
+	hfi_update_write_idx(&hdr->write_index, write_idx);
 
 	return 0;
 }
