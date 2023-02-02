@@ -665,6 +665,11 @@ static struct mtk_panel_params ext_params = {
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.rotate = 1,
+	.phy_timcon = {
+		.clk_hs_post = 0x24,
+	},
+	.ssc_enable = 1,
+	.lp_perline_en = 0,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
@@ -788,9 +793,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	ctx->dev = dev;
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	dsi->mode_flags = MIPI_DSI_MODE_VIDEO
-			| MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_EOT_PACKET
-			 | MIPI_DSI_CLOCK_NON_CONTINUOUS;
+	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE;
 
 	ret = of_property_read_u32(dev->of_node, "gate-ic", &value);
 	if (ret < 0)

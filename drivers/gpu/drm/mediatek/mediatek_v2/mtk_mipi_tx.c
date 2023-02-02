@@ -27,6 +27,13 @@
 #define RG_DSI_DSICLK_FREQ_SEL BIT(10)
 #define RG_DSI_LPTX_CLMP_EN BIT(11)
 
+#define MIPITX_PLL_CON2 (0x0034UL)
+#define RG_DSI_PLL_SDM_SSC_EN BIT(1)
+#define FLD_RG_DSI_PLL_SDM_SSC_PRD (0xffff << 16)
+#define MIPITX_PLL_CON3 (0x0038UL)
+#define FLD_RG_DSI_PLL_SDM_SSC_DELTA1 (0xffff << 0)
+#define FLD_RG_DSI_PLL_SDM_SSC_DELTA (0xffff << 16)
+
 #define MIPITX_DSI_CLOCK_LANE 0x04
 #define MIPITX_DSI_DATA_LANE0 0x08
 #define MIPITX_DSI_DATA_LANE1 0x0c
@@ -887,6 +894,53 @@ int mtk_mipi_tx_ssc_en_N6(struct phy *phy, struct mtk_panel_ext *mtk_panel)
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON2_MT6983,
 						FLD_RG_DSI_PLL_SDM_SSC_PRD_MT6983, ssc_prd << 16);
 		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_CON2_MT6983,
+						mipi_tx->driver_data->dsi_ssc_en);
+
+		DDPINFO("set ssc enabled\n");
+	}
+	return 0;
+}
+
+int mtk_mipi_tx_ssc_en_mt6768(struct phy *phy, struct mtk_panel_ext *mtk_panel)
+{
+	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
+	unsigned int data_rate;
+	u16 pdelta1, ssc_prd;
+	u8 txdiv;
+	unsigned int delta1 = 2; /* Delta1 is SSC range, default is 0%~-5% */
+
+	DDPINFO("%s+\n", __func__);
+	if (mtk_panel->params->ssc_enable) {
+		data_rate = mtk_panel->params->data_rate;
+
+		if (data_rate >= 2000)
+			txdiv = 1;
+		else if (data_rate >= 1000)
+			txdiv = 2;
+		else if (data_rate >= 500)
+			txdiv = 4;
+		else if (data_rate > 250)
+			txdiv = 8;
+		else if (data_rate >= 125)
+			txdiv = 16;
+		else
+			return -EINVAL;
+
+		delta1 = (mtk_panel->params->ssc_range == 0) ?
+			delta1 : mtk_panel->params->ssc_range;
+
+		pdelta1 = (delta1 * (data_rate / 2) * txdiv * 262144 + 281664) / 563329;
+		DDPINFO("delta1=%d,pdelta1=0x%x\n", delta1, pdelta1);
+
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3,
+						FLD_RG_DSI_PLL_SDM_SSC_DELTA1, pdelta1);
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON3,
+						FLD_RG_DSI_PLL_SDM_SSC_DELTA, pdelta1 << 16);
+
+		ssc_prd = 0x1b1;
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON2,
+						FLD_RG_DSI_PLL_SDM_SSC_PRD, ssc_prd << 16);
+		mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_CON2,
 						mipi_tx->driver_data->dsi_ssc_en);
 
 		DDPINFO("set ssc enabled\n");
@@ -3672,6 +3726,7 @@ const struct mtk_mipitx_data mt6768_mipitx_data = {
 	.mppll_preserve = (0 << 8),
 	.dsi_pll_sdm_pcw_chg = RG_DSI_PLL_SDM_PCW_CHG,
 	.dsi_pll_en = RG_DSI_PLL_EN,
+	.dsi_ssc_en = RG_DSI_PLL_SDM_SSC_EN,
 	.ck_sw_ctl_en = MIPITX_CK_SW_CTL_EN,
 	.d0_sw_ctl_en = MIPITX_D0_SW_CTL_EN,
 	.d1_sw_ctl_en = MIPITX_D1_SW_CTL_EN,
@@ -3692,6 +3747,7 @@ const struct mtk_mipitx_data mt6768_mipitx_data = {
 	.dsi_get_pcw = _dsi_get_pcw,
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
+	.mipi_tx_ssc_en = mtk_mipi_tx_ssc_en_mt6768,
 };
 
 static const struct mtk_mipitx_data mt6779_mipitx_data = {

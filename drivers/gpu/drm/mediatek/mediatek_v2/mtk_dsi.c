@@ -554,7 +554,11 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 	u32 cont_det = 0;
 	u32 ui = 0, cycle_time = 0;
 	u32 value = 0;
+	u32 hs_trail_m = 1, hs_trail_n = 0;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	struct mtk_drm_private *priv = dsi->is_slave ?
+		dsi->master_dsi->ddp_comp.mtk_crtc->base.dev->dev_private
+		: dsi->ddp_comp.mtk_crtc->base.dev->dev_private;
 
 	DDPINFO("%s, line: %d, data rate=%d\n", __func__, __LINE__, dsi->data_rate);
 
@@ -630,52 +634,86 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 
 		data_phy_cycle = (da_hs_exit + 1) + lpx + hs_prpr + hs_zero + 1;
 	} else {
-		ui = (1000 / dsi->data_rate > 0) ? 1000 / dsi->data_rate : 1;
-		cycle_time = 8000 / dsi->data_rate;
+		switch (priv->data->mmsys_id) {
+		case MMSYS_MT6768:
+			ui = 1000 / dsi->data_rate + 1;
+			cycle_time = 8000 / dsi->data_rate + 1;
 
-		/* spec. lpx > 50ns */
-		lpx = NS_TO_CYCLE(75, cycle_time) + 1;
-		/* spec.  40ns+4ui < hs_prpr < 85ns+6ui */
-		hs_prpr = NS_TO_CYCLE((64 + 5 * ui), cycle_time) + 1;
-		/* spec.  hs_zero+hs_prpr > 145ns+10ui */
-		hs_zero = NS_TO_CYCLE((200 + 10 * ui), cycle_time);
-		hs_zero = hs_zero > hs_prpr ? hs_zero - hs_prpr : hs_zero;
+			hs_prpr = NS_TO_CYCLE((64 + 5 * ui), cycle_time) + 1;
+			hs_zero = NS_TO_CYCLE((200 + 10 * ui), cycle_time);
+			hs_zero = hs_zero > hs_prpr ? hs_zero - hs_prpr : hs_zero;
 
-		/* spec.  hs_trail > max(8ui, 60ns+4ui) */
-		if (dsi->driver_data->dsi_new_trail)
-			hs_trail = (65 * dsi->data_rate + 4000) / 8000 + 5;
-		else
-			hs_trail = NS_TO_CYCLE((9 * ui), cycle_time)
-			> NS_TO_CYCLE((80 + 5 * ui), cycle_time)
-			? NS_TO_CYCLE((9 * ui), cycle_time)
-			: NS_TO_CYCLE((80 + 5 * ui), cycle_time);
+			lpx = NS_TO_CYCLE(dsi->data_rate * 75, 8000) + 1;
+			hs_trail_n = NS_TO_CYCLE(((hs_trail_m * 4 * ui) + 80) * dsi->data_rate,
+					8000) + 1;
+			hs_trail = (hs_trail_m > hs_trail_n) ? hs_trail_m : hs_trail_n;
 
-		/* spec. ta_get = 5*lpx */
-		ta_get = 5 * lpx;
-		/* spec. ta_sure = 1.5*lpx */
-		ta_sure = 3 * lpx / 2;
-		/* spec. ta_go = 4*lpx */
-		ta_go = 4 * lpx;
-		/* spec. da_hs_exit > 100ns */
-		da_hs_exit = NS_TO_CYCLE(125, cycle_time) + 1;
+			ta_get = 5 * lpx;
+			ta_sure = 3 * lpx / 2;
+			ta_go = 4 * lpx;
+			da_hs_exit = 2 * lpx;
 
-		/* spec. 38ns < clk_hs_prpr < 95ns */
-		clk_hs_prpr = NS_TO_CYCLE(64, cycle_time);
-		/* spec. clk_zero+clk_hs_prpr > 300ns */
-		clk_zero = NS_TO_CYCLE(350, cycle_time);
-		clk_zero = clk_zero > clk_hs_prpr ? clk_zero - clk_hs_prpr : clk_zero;
-		/* spec. clk_trail > 60ns */
-		if (dsi->driver_data->dsi_new_trail)
-			clk_trail = (80 * dsi->data_rate + 5000) / 8000 + 5;
-		else
-			clk_trail = NS_TO_CYCLE(80, cycle_time);
-		da_hs_sync = 1;
-		cont_det = 3;
+			da_hs_sync = 1;
 
-		/* spec. clk_hs_exit > 100ns */
-		clk_hs_exit = NS_TO_CYCLE(125, cycle_time) + 1;
-		/* spec. clk_hs_post > 60ns+52ui */
-		clk_hs_post = NS_TO_CYCLE(90 + 52 * ui, cycle_time);
+			clk_hs_prpr = NS_TO_CYCLE(80 * dsi->data_rate, 8000);
+			if (clk_hs_prpr < 1)
+				clk_hs_prpr = 1;
+			clk_zero = NS_TO_CYCLE(400, cycle_time);
+			clk_trail = NS_TO_CYCLE(100 * dsi->data_rate, 8000) + 1;
+			if (clk_trail < 2)
+				clk_trail = 2;
+
+			clk_hs_exit = 2 * lpx;
+			clk_hs_post = NS_TO_CYCLE((96 + 52 * ui), cycle_time);
+			break;
+		default:
+			ui = (1000 / dsi->data_rate > 0) ? 1000 / dsi->data_rate : 1;
+			cycle_time = 8000 / dsi->data_rate;
+
+			/* spec. lpx > 50ns */
+			lpx = NS_TO_CYCLE(75, cycle_time) + 1;
+			/* spec.  40ns+4ui < hs_prpr < 85ns+6ui */
+			hs_prpr = NS_TO_CYCLE((64 + 5 * ui), cycle_time) + 1;
+			/* spec.  hs_zero+hs_prpr > 145ns+10ui */
+			hs_zero = NS_TO_CYCLE((200 + 10 * ui), cycle_time);
+			hs_zero = hs_zero > hs_prpr ? hs_zero - hs_prpr : hs_zero;
+
+			/* spec.  hs_trail > max(8ui, 60ns+4ui) */
+			if (dsi->driver_data->dsi_new_trail)
+				hs_trail = (65 * dsi->data_rate + 4000) / 8000 + 5;
+			else
+				hs_trail = NS_TO_CYCLE((9 * ui), cycle_time)
+				> NS_TO_CYCLE((80 + 5 * ui), cycle_time)
+				? NS_TO_CYCLE((9 * ui), cycle_time)
+				: NS_TO_CYCLE((80 + 5 * ui), cycle_time);
+
+			/* spec. ta_get = 5*lpx */
+			ta_get = 5 * lpx;
+			/* spec. ta_sure = 1.5*lpx */
+			ta_sure = 3 * lpx / 2;
+			/* spec. ta_go = 4*lpx */
+			ta_go = 4 * lpx;
+			/* spec. da_hs_exit > 100ns */
+			da_hs_exit = NS_TO_CYCLE(125, cycle_time) + 1;
+
+			/* spec. 38ns < clk_hs_prpr < 95ns */
+			clk_hs_prpr = NS_TO_CYCLE(64, cycle_time);
+			/* spec. clk_zero+clk_hs_prpr > 300ns */
+			clk_zero = NS_TO_CYCLE(350, cycle_time);
+			clk_zero = clk_zero > clk_hs_prpr ? clk_zero - clk_hs_prpr : clk_zero;
+			/* spec. clk_trail > 60ns */
+			if (dsi->driver_data->dsi_new_trail)
+				clk_trail = (80 * dsi->data_rate + 5000) / 8000 + 5;
+			else
+				clk_trail = NS_TO_CYCLE(80, cycle_time);
+			da_hs_sync = 1;
+			cont_det = 3;
+
+			/* spec. clk_hs_exit > 100ns */
+			clk_hs_exit = NS_TO_CYCLE(125, cycle_time) + 1;
+			/* spec. clk_hs_post > 60ns+52ui */
+			clk_hs_post = NS_TO_CYCLE(90 + 52 * ui, cycle_time);
+		}
 	}
 
 	if (!(dsi->ext && dsi->ext->params))
@@ -703,11 +741,16 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 
 CONFIG_REG:
 	if (!is_bdg_supported()) {
-		//N4/5 must add this constraint, N6 is option, so we use the same
-		lpx = (lpx % 2) ? lpx + 1 : lpx; //lpx must be even
-		hs_prpr = (hs_prpr % 2) ? hs_prpr + 1 : hs_prpr; //hs_prpr must be even
-		hs_prpr = hs_prpr >= 6 ? hs_prpr : 6; //hs_prpr must be more than 6
-		da_hs_exit = (da_hs_exit % 2) ? da_hs_exit : da_hs_exit + 1; //must be odd
+		switch (priv->data->mmsys_id) {
+		case MMSYS_MT6768:
+			break;
+		default:
+			//N4/5 must add this constraint, N6 is option, so we use the same
+			lpx = (lpx % 2) ? lpx + 1 : lpx; //lpx must be even
+			hs_prpr = (hs_prpr % 2) ? hs_prpr + 1 : hs_prpr; //hs_prpr must be even
+			hs_prpr = hs_prpr >= 6 ? hs_prpr : 6; //hs_prpr must be more than 6
+			da_hs_exit = (da_hs_exit % 2) ? da_hs_exit : da_hs_exit + 1; //must be odd
+		}
 	}
 	dsi->data_phy_cycle = lpx + da_hs_exit + hs_prpr + hs_zero + 2;
 	value = REG_FLD_VAL(FLD_LPX, lpx)
