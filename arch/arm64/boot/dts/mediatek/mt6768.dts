@@ -1463,7 +1463,7 @@ cma=64M transparent_hugepage=never";
 						"pmic_bif_voltage",
 						"pmic_ptim_voltage",
 						"pmic_ptim_r";
-				/*nvmem-cells = <&fg_init>, <&fg_soc>;*/
+				nvmem-cells = <&fg_init>, <&fg_soc>;
 				nvmem-cell-names = "initialization", "state-of-charge";
 
 			};
@@ -2489,10 +2489,6 @@ cma=64M transparent_hugepage=never";
 		min-limit = <15>;
 		max-limit = <15000>;
 		vib-supply = <&mt_pmic_vibr_ldo_reg>;
-	};
-
-	gauge_timer {
-		compatible = "mediatek,gauge_timer_service";
 	};
 
 	md_ccif3@1023f000 {
