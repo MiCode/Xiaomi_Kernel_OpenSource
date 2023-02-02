@@ -15,10 +15,16 @@ void sspm_set_emi_mpu(unsigned int id, phys_addr_t base, phys_addr_t size)
 	unsigned long long start = base;
 	unsigned long long end = base + size - 1;
 
-	struct emimpu_region_t rg_info;
-	int ret;
+	struct emimpu_region_t rg_info = {0};
+	int ret = 0;
 
-	mtk_emimpu_init_region(&rg_info, id);
+	ret = mtk_emimpu_init_region(&rg_info, id);
+
+	if (ret) {
+		pr_info("%s fail to init emimpu region\n", __func__);
+		return;
+	}
+
 	mtk_emimpu_set_addr(&rg_info, start, end);
 
 	mtk_emimpu_set_apc(&rg_info, 0, MTK_EMIMPU_NO_PROTECTION);

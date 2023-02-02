@@ -21,9 +21,15 @@ void __init sspm_set_emi_mpu(phys_addr_t base, phys_addr_t size)
 
 static int __init post_sspm_set_emi_mpu(void)
 {
-	struct emimpu_region_t rg_info;
+	struct emimpu_region_t rg_info = {0};
+	int ret = 0;
 
-	mtk_emimpu_init_region(&rg_info, SSPM_MPU_REGION_ID);
+	ret = mtk_emimpu_init_region(&rg_info, SSPM_MPU_REGION_ID);
+
+	if (ret) {
+		pr_info("%s fail to init emimpu region\n", __func__);
+		return ret;
+	}
 
 	mtk_emimpu_set_addr(&rg_info, sspm_start, sspm_end);
 

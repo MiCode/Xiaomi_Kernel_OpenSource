@@ -19,8 +19,10 @@ void sspm_set_emi_mpu(phys_addr_t base, phys_addr_t size)
 	int ret = 0;
 
 	ret = mtk_emimpu_init_region(&sspm_region, SSPM_MPU_REGION_ID);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_info("%s fail to init emimpu region\n", __func__);
+		return;
+	}
 	mtk_emimpu_set_addr(&sspm_region, base, (base + size - 0x1));
 	mtk_emimpu_set_apc(&sspm_region, SSPM_MPU_PROCT_D0,
 		MTK_EMIMPU_NO_PROTECTION);
