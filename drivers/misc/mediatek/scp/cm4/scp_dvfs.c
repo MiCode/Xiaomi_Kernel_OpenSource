@@ -129,6 +129,10 @@ EXPORT_SYMBOL(scp_resource_req);
 
 void scp_resource_req_ext(unsigned int req_type)
 {
+	if (!dvfs) {
+		pr_debug("scp dvfs not ready\n");
+		return;
+	}
 	if (dvfs->legacy_support_v2)
 		scp_resource_req(req_type);
 	else
@@ -138,6 +142,10 @@ EXPORT_SYMBOL(scp_resource_req_ext);
 
 void scp_register_print_ipi_id_cb(void (*scp_callback)(void))
 {
+	if (!dvfs) {
+		pr_debug("scp dvfs not ready\n");
+		return;
+	}
 	if (!(dvfs->legacy_support_v2))
 		spm_set_scp_ipi_id_cb(scp_callback);
 }
