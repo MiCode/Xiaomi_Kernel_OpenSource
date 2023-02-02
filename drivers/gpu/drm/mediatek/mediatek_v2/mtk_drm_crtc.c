@@ -905,7 +905,8 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level)
 
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
 
-	if (m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] &&
+	/* SILKY BRIGHTNESS control flow only support CRTC0 */
+	if (index == 0 && m_new_pq_persist_property[DISP_PQ_CCORR_SILKY_BRIGHTNESS] &&
 		sb_cmdq_handle != NULL) {
 		cmdq_handle = sb_cmdq_handle;
 		sb_cmdq_handle = NULL;
