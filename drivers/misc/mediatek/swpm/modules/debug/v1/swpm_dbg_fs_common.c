@@ -53,10 +53,17 @@ static ssize_t gpu_debug_read(char *ToUser, size_t sz, void *priv)
 static ssize_t gpu_debug_write(char *FromUser, size_t sz, void *priv)
 {
 	int enable_time;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
 	if (!kstrtouint(FromUser, 0, &enable_time)) {
 		if (enable_time > 0) {
 			mtk_gpueb_power_modle_cmd(1);
@@ -66,9 +73,11 @@ static ssize_t gpu_debug_write(char *FromUser, size_t sz, void *priv)
 			mtk_ltr_gpu_pmu_stop();
 		}
 		swpm_gpu_debug = (enable_time) ? true : false;
+		ret = sz;
 	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op gpu_debug_fops = {
@@ -96,14 +105,24 @@ static ssize_t swpm_arm_dsu_pmu_read(char *ToUser, size_t sz, void *priv)
 static ssize_t swpm_arm_dsu_pmu_write(char *FromUser, size_t sz, void *priv)
 {
 	int enable;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
-	if (!kstrtouint(FromUser, 0, &enable))
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
+	if (!kstrtouint(FromUser, 0, &enable)) {
 		swpm_arm_dsu_pmu_enable(enable);
+		ret = sz;
+	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op swpm_arm_dsu_pmu_fops = {
@@ -148,14 +167,24 @@ static ssize_t swpm_arm_pmu_read(char *ToUser, size_t sz, void *priv)
 static ssize_t swpm_arm_pmu_write(char *FromUser, size_t sz, void *priv)
 {
 	int enable;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
-	if (!kstrtouint(FromUser, 0, &enable))
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
+	if (!kstrtouint(FromUser, 0, &enable)) {
 		swpm_arm_pmu_enable_all(enable);
+		ret = sz;
+	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op swpm_arm_pmu_fops = {

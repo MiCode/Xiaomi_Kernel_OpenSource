@@ -52,19 +52,28 @@ static ssize_t enable_read(char *ToUser, size_t sz, void *priv)
 static ssize_t enable_write(char *FromUser, size_t sz, void *priv)
 {
 	int type, enable;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
 	if (sscanf(FromUser, "%d %d", &type, &enable) == 2) {
 		swpm_lock(&swpm_mutex);
 		swpm_set_enable(type, enable);
 		if (swpm_status)
 			swpm_set_periodic(swpm_status);
 		swpm_unlock(&swpm_mutex);
+		ret = sz;
 	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op enable_fops = {
@@ -143,19 +152,28 @@ static ssize_t pmu_ms_mode_read(char *ToUser, size_t sz, void *priv)
 static ssize_t pmu_ms_mode_write(char *FromUser, size_t sz, void *priv)
 {
 	unsigned int enable = 0;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
 	if (!kstrtouint(FromUser, 0, &enable)) {
 		pmu_ms_mode = enable;
 
 		/* TODO: remove this path after qos commander ready */
 		swpm_set_update_cnt(0, (0x1 << SWPM_CODE_USER_BIT) |
 				    pmu_ms_mode);
+		ret = sz;
 	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op pmu_ms_mode_fops = {
@@ -180,18 +198,27 @@ static ssize_t swpm_pmsr_en_read(char *ToUser, size_t sz, void *priv)
 static ssize_t swpm_pmsr_en_write(char *FromUser, size_t sz, void *priv)
 {
 	unsigned int enable = 0;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
 	if (!kstrtouint(FromUser, 0, &enable)) {
 		if (!enable) {
 			swpm_pmsr_en = enable;
 			swpm_set_update_cnt(0, 9696 << SWPM_CODE_USER_BIT);
 		}
+		ret = sz;
 	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op swpm_pmsr_en_fops = {
@@ -216,19 +243,28 @@ static ssize_t swpm_pmsr_trigger_read(char *ToUser, size_t sz, void *priv)
 static ssize_t swpm_pmsr_trigger_write(char *FromUser, size_t sz, void *priv)
 {
 	unsigned int mode = 0;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
 	if (!kstrtouint(FromUser, 0, &mode)) {
 		if (mode < 4) {
 			swpm_pmsr_trigger = mode;
 			swpm_set_update_cnt(0, 0x2 << SWPM_CODE_USER_BIT |
 					    swpm_pmsr_trigger);
 		}
+		ret = sz;
 	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op swpm_pmsr_trigger_fops = {
