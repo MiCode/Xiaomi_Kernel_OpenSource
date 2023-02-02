@@ -1754,7 +1754,7 @@ static void ut_init()
 
 static void destroy_ut_task(struct mml_task *task)
 {
-	mml_pq_log("destroy mml_task for PQ UT [%lu.%lu]",
+	mml_pq_log("destroy mml_task for PQ UT [%lld.%lu]",
 		task->end_time.tv_sec, task->end_time.tv_nsec);
 	mutex_lock(&ut_mutex);
 	list_del(&task->entry);
@@ -1770,7 +1770,7 @@ static int run_ut_task_threaded(void *data)
 	struct mml_task *task_check = mml_core_create_task();
 	s32 ret;
 
-	mml_pq_log("start run mml_task for PQ UT [%lu.%lu]\n",
+	mml_pq_log("start run mml_task for PQ UT [%lld.%lu]\n",
 		task->end_time.tv_sec, task->end_time.tv_nsec);
 
 	if (memcmp(task, task_check, sizeof(struct mml_task)))
@@ -1807,7 +1807,7 @@ static void create_ut_task(const char *case_name)
 	ut_task_cnt++;
 	mutex_unlock(&ut_mutex);
 
-	mml_pq_log("[mml] created mml_task for PQ UT [%lu.%lu]\n",
+	mml_pq_log("[mml] created mml_task for PQ UT [%lld.%lu]\n",
 		task->end_time.tv_sec, task->end_time.tv_nsec);
 	thr = kthread_run(run_ut_task_threaded, task, case_name);
 	if (IS_ERR(thr)) {
@@ -1859,7 +1859,7 @@ static s32 ut_get(char *buf, const struct kernel_param *kp)
 			"current UT task count: %d\n", ut_task_cnt);
 		list_for_each_entry(task, &ut_mml_tasks, entry) {
 			length += snprintf(buf + length, PAGE_SIZE - length,
-				"  - [%d] task submit time: %lu.%lu\n", i,
+				"  - [%d] task submit time: %lld.%lu\n", i,
 				task->end_time.tv_sec, task->end_time.tv_nsec);
 		}
 		mutex_unlock(&ut_mutex);
