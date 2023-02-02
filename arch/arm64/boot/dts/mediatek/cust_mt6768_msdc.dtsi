@@ -181,6 +181,7 @@
 				<PINMUX_GPIO170__FUNC_MSDC1_CMD>;
 			input-enable;
 			drive-strength = <3>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
 		};
 
 		pins_clk {
