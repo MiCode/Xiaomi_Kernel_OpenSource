@@ -6583,6 +6583,13 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
 
+	/* connector seemless switch's resume frame not update screen */
+	if (output_comp && mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI) {
+		struct mtk_dsi *dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+
+		mtk_crtc->resume_frame = !dsi->pending_switch;
+	}
+
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 		/* 1. power on mtcmos */
 		mtk_drm_top_clk_prepare_enable(crtc->dev);
@@ -6656,7 +6663,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd)
 	/* 10. set dirty for cmd mode */
 	if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 		!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
-		!mtk_state->doze_changed)
+		!mtk_state->doze_changed && !mtk_crtc->resume_frame)
 		mtk_crtc_set_dirty(mtk_crtc);
 
 	/* 11. set vblank*/
@@ -6885,7 +6892,6 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 	/* hold wakelock */
 	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
 
-	mtk_crtc->resume_frame = true;
 	/*update interface when connector is changed*/
 	if (of_property_read_bool(priv->mmsys_dev->of_node, "enable_output_int_switch"))
 		mtk_drm_crtc_update_interface(crtc, old_crtc_state->state);
@@ -9251,7 +9257,7 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 					mtk_crtc_with_trigger_loop(crtc)) {
 		if (mtk_crtc->is_mml && is_from_dal) {
 			/* skip trigger when racing with mml */
-		} else {
+		} else if (mtk_crtc->resume_frame == false) {
 			/* DL with trigger loop */
 			cmdq_pkt_set_event(cmdq_handle,
 					mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
