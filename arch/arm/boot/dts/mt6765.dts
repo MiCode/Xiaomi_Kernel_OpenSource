@@ -1474,13 +1474,13 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 			"clk_pll_5",
 			"clk_pll_6";
 
-		dvfsrc-opp-num = <4>;
+		dvfsrc-opp-num = <3>;
 		dvfs-opp =
-		/*	vcore	vsram	uv	dvfsrc	spm	freq	mux */
-		<	650000	900000	0xff	0x0	0x0	250	0>,
-		<	650000	900000	0xff	0x0	0x0	273	3>,
-		<	700000	900000	0xff	0x2	0x8	330	5>,
-		<	800000	900000	0xff	0x3	0xC	416	6>;
+		/*	vcore	vsram	uv	dvfsrc	    spm	  freq	mux */
+		<	0xff	0xff	0xff	0x0	    0x0	  250	0>,
+		<	0xff	0xff	0xff	0x0	    0x0	  273	3>,
+		<	0xff	0xff	0xff	0x2	    0x8	  330	5>,
+		<	0xff	0xff	0xff	0x3	    0xc	  416	6>;
 
 		pmic = <&main_pmic>;
 		pmic-feature = "pmic-vow-lp", "pmic-pmrc";
