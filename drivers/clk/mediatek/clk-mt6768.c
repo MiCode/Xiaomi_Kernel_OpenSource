@@ -1085,12 +1085,6 @@ static const struct mtk_mux top_muxes[] = {
 #endif
 };
 
-int __attribute__((weak)) get_sw_req_vcore_opp(void)
-{
-	return -1;
-}
-
-
 static const struct mtk_gate_regs top0_cg_regs = {
 	.set_ofs = 0x0,
 	.clr_ofs = 0x0,
@@ -2168,7 +2162,12 @@ static int mtk_clk_rate_change(struct notifier_block *nb,
 	struct clk_hw *hw = __clk_get_hw(ndata->clk);
 	const char *clk_name = __clk_get_name(hw->clk);
 
-	int vcore_opp = get_sw_req_vcore_opp();
+	int vcore_opp = VCORE_NULL;
+	#if IS_ENABLED(CONFIG_MTK_DVFSRC_HELPER) && CHECK_VCORE_FREQ
+		vcore_opp = get_sw_req_vcore_opp();
+	#endif
+	if (vcore_opp == VCORE_NULL)
+		return -EINVAL;
 
 	if (flags == PRE_RATE_CHANGE) {
 		warn_vcore(vcore_opp, clk_name,

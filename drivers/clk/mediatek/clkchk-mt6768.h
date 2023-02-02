@@ -29,10 +29,6 @@ enum chk_sys_id {
 	chk_sys_num,
 };
 
-#ifdef CONFIG_MTK_DVFSRC_HELPER
-extern int get_sw_req_vcore_opp(void);
-#endif
-
 extern void print_subsys_reg_mt6768(enum chk_sys_id id);
 #endif	/* __DRV_CLKCHK_MT6833_H */
 
