@@ -2949,11 +2949,11 @@ static void mtk_venc_worker(struct work_struct *work)
 	} else if (!ctx->async_mode)
 		mtk_enc_put_buf(ctx);
 
-	v4l2_m2m_job_finish(ctx->dev->m2m_dev_enc, ctx->m2m_ctx);
-
 	mtk_v4l2_debug(1, "<=== src_buf[%d] dst_buf[%d] venc_if_encode ret=%d Size=%u===>",
 			src_buf->index, dst_buf->index, ret,
 			enc_result.bs_size);
+
+	v4l2_m2m_job_finish(ctx->dev->m2m_dev_enc, ctx->m2m_ctx);
 
 	mutex_unlock(&ctx->worker_lock);
 }
