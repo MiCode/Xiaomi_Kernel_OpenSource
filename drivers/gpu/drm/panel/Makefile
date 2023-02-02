@@ -24,6 +24,7 @@ obj-$(CONFIG_DRM_PANEL_NOVATEK_NT35510) += panel-novatek-nt35510.o
 obj-$(CONFIG_DRM_PANEL_NOVATEK_NT35695B_VDO) += panel-nt35695b-auo-vdo.o
 obj-$(CONFIG_DRM_PANEL_NOVATEK_NT35695B_CMD) += panel-nt35695b-auo-cmd.o
 obj-$(CONFIG_DRM_PANEL_NOVATEK_NT36672A_VDO) += panel-nt36672a-rt4801-vdo.o
+obj-$(CONFIG_DRM_PANEL_NOVATEK_NT36672_VDO_LANESWAP) += panel-nt36672-auo-vdo-laneswap.o
 obj-$(CONFIG_DRM_PANEL_NOVATEK_NT39016) += panel-novatek-nt39016.o
 obj-$(CONFIG_DRM_PANEL_MANTIX_MLAF057WE51) += panel-mantix-mlaf057we51.o
 obj-$(CONFIG_DRM_PANEL_OLIMEX_LCD_OLINUXINO) += panel-olimex-lcd-olinuxino.o
