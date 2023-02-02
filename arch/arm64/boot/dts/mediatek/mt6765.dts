@@ -1617,7 +1617,7 @@ initcall_debug=1 pelt=8";
 
 	qos@00110b80 {
 		compatible = "mediatek,mt6765-qos";
-		reg = <0 0x10006000 0 0x1000>;
+		reg = <0 0x00110b80 0 0x80>;
 	};
 
 	mbist_ao@10013000 {
