@@ -11417,6 +11417,8 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		break;
 
 	case MMSYS_MT6765:
+		if (priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode)
+			break;
 		value = mtk_ddp_mout_en_MT6765(mtk_crtc->mmsys_reg_data,
 				cur, next, &addr);
 		if (value >= 0)
@@ -11845,6 +11847,8 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		break;
 
 	case MMSYS_MT6765:
+		if (priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode)
+			break;
 		value = mtk_ddp_mout_en_MT6765(mtk_crtc->mmsys_reg_data,
 					cur, next, &addr);
 		if (value >= 0)

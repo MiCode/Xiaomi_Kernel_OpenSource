@@ -537,7 +537,8 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 
 			/* Non-hwc, direct access to display during shutdown charging may */
 			/* result in the Hdisplay or vdisplay value being 0. */
-			if ((priv->data->mmsys_id == MMSYS_MT6768) &&
+			if ((priv->data->mmsys_id == MMSYS_MT6768 ||
+				priv->data->mmsys_id == MMSYS_MT6765) &&
 				(crtc->state->adjusted_mode.hdisplay == 0 ||
 				crtc->state->adjusted_mode.vdisplay == 0)){
 				struct drm_display_mode *timing = NULL;
