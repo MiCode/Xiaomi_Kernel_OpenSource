@@ -649,6 +649,8 @@ static void mtk_jpeg_prepare_bw_request(struct mtk_jpeg_dev *jpeg)
 
 static void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx)
 {
+	int ret;
+	u32 port_num = 0;
 	/* limiting FPS, Upper Bound FPS = 20 */
 	unsigned int target_fps = 30;
 
@@ -656,24 +658,37 @@ static void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx)
 	unsigned int emi_bw = 0;
 	unsigned int picSize = 0;
 	struct mtk_jpeg_dev *jpeg = ctx->jpeg;
-
-	picSize = (ctx->out_q.pix_mp.width * ctx->out_q.pix_mp.height) / 1000;
-	emi_bw = picSize * target_fps;
-	emi_bw = emi_bw * 4/3;
-	pr_info("Width %d Height %d emi_bw %d\n",
-		 ctx->out_q.pix_mp.width, ctx->out_q.pix_mp.height, emi_bw);
-
-	if (ctx->out_q.fmt->fourcc == V4L2_PIX_FMT_YUYV ||
-		ctx->out_q.fmt->fourcc == V4L2_PIX_FMT_YVYU) {
-		mtk_icc_set_bw(jpeg->path_y_rdma, kBps_to_icc(emi_bw*2), kBps_to_icc(emi_bw*2));
-		mtk_icc_set_bw(jpeg->path_c_rdma, kBps_to_icc(emi_bw), kBps_to_icc(emi_bw));
+	ret = of_property_read_u32(jpeg->dev->of_node, "interconnect-num", &port_num);
+	pr_info("%s  ret: %d\n", __func__, ret);
+	if (ret >= 0)
+		pr_info("%s  port_num: %u\n", __func__, port_num);
+	if (port_num == 1) {
+		picSize = (ctx->out_q.pix_mp.width * ctx->out_q.pix_mp.height) / 1000000;
+		picSize = ((picSize * 3/2) * 8/5) + 1;
+		emi_bw = picSize * 20;
+		emi_bw = emi_bw * 4/3;
+		mtk_icc_set_bw(jpeg->path_bsdma, MBps_to_icc(emi_bw), MBps_to_icc(emi_bw));
+		pr_info("port_num == 1 Width %d Height %d emi_bw %d\n",
+		ctx->out_q.pix_mp.width, ctx->out_q.pix_mp.height, emi_bw);
 	} else {
-		mtk_icc_set_bw(jpeg->path_y_rdma, kBps_to_icc(emi_bw), kBps_to_icc(emi_bw));
-		mtk_icc_set_bw(jpeg->path_c_rdma,
+		picSize = (ctx->out_q.pix_mp.width * ctx->out_q.pix_mp.height) / 1000;
+		emi_bw = picSize * target_fps;
+		emi_bw = emi_bw * 4/3;
+		pr_info("Width %d Height %d emi_bw %d\n",
+		ctx->out_q.pix_mp.width, ctx->out_q.pix_mp.height, emi_bw);
+		if (ctx->out_q.fmt->fourcc == V4L2_PIX_FMT_YUYV ||
+			ctx->out_q.fmt->fourcc == V4L2_PIX_FMT_YVYU) {
+			mtk_icc_set_bw(jpeg->path_y_rdma, kBps_to_icc(emi_bw*2),
+				kBps_to_icc(emi_bw*2));
+			mtk_icc_set_bw(jpeg->path_c_rdma, kBps_to_icc(emi_bw), kBps_to_icc(emi_bw));
+		} else {
+			mtk_icc_set_bw(jpeg->path_y_rdma, kBps_to_icc(emi_bw), kBps_to_icc(emi_bw));
+			mtk_icc_set_bw(jpeg->path_c_rdma,
 				kBps_to_icc(emi_bw * 1/2), kBps_to_icc(emi_bw*1/2));
+		}
+		mtk_icc_set_bw(jpeg->path_qtbl, kBps_to_icc(emi_bw), kBps_to_icc(emi_bw));
+		mtk_icc_set_bw(jpeg->path_bsdma, kBps_to_icc(emi_bw), kBps_to_icc(emi_bw));
 	}
-	mtk_icc_set_bw(jpeg->path_qtbl, kBps_to_icc(emi_bw), kBps_to_icc(emi_bw));
-	mtk_icc_set_bw(jpeg->path_bsdma, kBps_to_icc(emi_bw), kBps_to_icc(emi_bw));
 }
 
 static void mtk_jpeg_end_bw_request(struct mtk_jpeg_ctx *ctx)
