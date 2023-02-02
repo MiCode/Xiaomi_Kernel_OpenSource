@@ -6797,6 +6797,9 @@ static void mtk_drm_crtc_update_interface(struct drm_crtc *crtc,
 	struct mtk_ddp_comp *output_comp = NULL;
 	enum mtk_ddp_comp_id comp_id = 0;
 	struct drm_display_mode *timing = NULL;
+	struct drm_crtc_state *crtc_state;
+	struct mtk_crtc_state *mtk_crtc_state;
+	unsigned int crtc_index;
 
 	mtk_crtc = to_mtk_crtc(crtc);
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
@@ -6816,6 +6819,13 @@ static void mtk_drm_crtc_update_interface(struct drm_crtc *crtc,
 
 				mtk_crtc_update_gce_event(mtk_crtc);
 
+				crtc_state = drm_atomic_get_crtc_state(state, crtc);
+				mtk_crtc_state = (crtc_state) ?
+						to_mtk_crtc_state(crtc_state) : NULL;
+				if (mtk_crtc_state) {
+					crtc_index = drm_crtc_index(crtc);
+					mtk_crtc_state->lye_state.scn[crtc_index] = NONE;
+				}
 				/*update mtk_crtc->panel_ext*/
 				output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 				if (!output_comp)
