@@ -212,6 +212,14 @@ static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 	if (status == PRE_CHANGE) {
 		if (host->unipro_lpm) {
 			hba->vps->hba_enable_delay_us = 0;
+			/*
+			 * UFS may need recovery in suspned error state.
+			 * Force host reset or recovery may fail.
+			 */
+			if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL) {
+				hba->vps->hba_enable_delay_us = 600;
+				ufs_mtk_host_reset(hba);
+			}
 		} else {
 			hba->vps->hba_enable_delay_us = 600;
 			ufs_mtk_host_reset(hba);
