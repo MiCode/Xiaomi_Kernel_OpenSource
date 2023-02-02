@@ -112,9 +112,11 @@ aliases {
 			reg = <0 0x1100e000 0 0x1000>;
 			interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH 0>;
 			#pwm-cells = <2>;
+			pwm_src_base = <&sleep>;
+			pwm_src_addr = <0x458>;
 			clocks = <&infracfg_ao CLK_IFR_DISP_PWM>,
 				<&topckgen CLK_TOP_DISP_PWM_SEL>,
-				<&topckgen CLK_TOP_UNIVPLL2_D4>;
+				<&topckgen CLK_TOP_ULPOSC1_D8>;
 				clock-names = "main", "mm", "pwm_src";
 		};
 
@@ -245,7 +247,7 @@ aliases {
 				<1>, /*MTK_DRM_OPT_MMQOS_SUPPORT*/
 				<1>, /*MTK_DRM_OPT_MMDVFS_SUPPORT*/
 				<0>, /*MTK_DRM_OPT_SODI_SUPPORT*/
-				<0>, /*MTK_DRM_OPT_IDLE_MGR*/
+				<1>, /*MTK_DRM_OPT_IDLE_MGR*/
 				<0>, /*MTK_DRM_OPT_IDLEMGR_SWTCH_DECOUPLE*/
 				<1>, /*MTK_DRM_OPT_IDLEMGR_BY_REPAINT*/
 				<0>, /*MTK_DRM_OPT_IDLEMGR_ENTER_ULPS*/
@@ -1351,11 +1353,16 @@ cma=64M transparent_hugepage=never";
 			clock-frequency = <13000000>;
 		};
 
-
 		clk32k: clk32k {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
 			clock-frequency = <32000>;
+		};
+
+		ulposc1: ulposc1 {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <250000000>;
 		};
 	};
 
