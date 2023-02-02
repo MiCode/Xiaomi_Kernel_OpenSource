@@ -114,7 +114,7 @@ static void lcm_panel_get_data(struct lcm *ctx)
 }
 #endif
 
-#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
+#if IS_ENABLED(CONFIG_RT5081_PMU_DSV) || IS_ENABLED(CONFIG_REGULATOR_MT6370)
 static struct regulator *disp_bias_pos;
 static struct regulator *disp_bias_neg;
 
@@ -790,7 +790,7 @@ static int lcm_unprepare(struct drm_panel *panel)
 
 	ctx->error = 0;
 	ctx->prepared = false;
-#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
+#if IS_ENABLED(CONFIG_RT5081_PMU_DSV) || IS_ENABLED(CONFIG_REGULATOR_MT6370)
 	lcm_panel_bias_disable();
 #else
 	ctx->reset_gpio =
@@ -839,7 +839,7 @@ static int lcm_prepare(struct drm_panel *panel)
 	if (ctx->prepared)
 		return 0;
 
-#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
+#if IS_ENABLED(CONFIG_RT5081_PMU_DSV) || IS_ENABLED(CONFIG_REGULATOR_MT6370)
 	lcm_panel_bias_enable();
 #else
 	ctx->bias_pos = devm_gpiod_get_index(ctx->dev,
@@ -913,7 +913,7 @@ static u32 fake_width = 1080;
 static bool need_fake_resolution;
 
 static struct drm_display_mode default_mode = {
-	.clock = 138345,
+	.clock = 139200,
 	.hdisplay = HAC,
 	.hsync_start = HAC + HFP,
 	.hsync_end = HAC + HFP + HSA,
@@ -1056,6 +1056,7 @@ static void change_drm_disp_mode_params(struct drm_display_mode *mode)
 		mode->hsync_end = fake_width + HFP + HSA;
 		mode->htotal = fake_width + HFP + HSA + HBP;
 	}
+	mode->clock = 72960;
 }
 
 static int lcm_get_modes(struct drm_panel *panel, struct drm_connector *connector)
@@ -1162,6 +1163,10 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	}
 	devm_gpiod_put(dev, ctx->reset_gpio);
 
+#ifndef CONFIG_RT4831A_I2C
+#if IS_ENABLED(CONFIG_RT5081_PMU_DSV) || IS_ENABLED(CONFIG_REGULATOR_MT6370)
+	lcm_panel_bias_enable();
+#else
 	ctx->bias_pos = devm_gpiod_get_index(dev, "bias", 0, GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->bias_pos)) {
 		dev_info(dev, "%s: cannot get bias-pos 0 %ld\n",
@@ -1177,7 +1182,8 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 		return PTR_ERR(ctx->bias_neg);
 	}
 	devm_gpiod_put(dev, ctx->bias_neg);
-
+#endif
+#endif
 	ctx->prepared = true;
 	ctx->enabled = true;
 
