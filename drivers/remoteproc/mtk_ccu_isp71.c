@@ -422,6 +422,7 @@ static int mtk_ccu_stop(struct rproc *rproc)
 	ret = mtk_ccu_rproc_ipc_send(ccu->pdev, MTK_CCU_FEATURE_SYSCTRL,
 		3, NULL, 0);
 
+	mtk_ccu_rproc_ipc_uninit(ccu);
 	mtk_ccu_sw_hw_reset(ccu);
 
 	ccu->disirq = true;

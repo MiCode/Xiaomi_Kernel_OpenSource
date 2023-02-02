@@ -279,6 +279,14 @@ void mtk_ccu_rproc_ipc_init(struct mtk_ccu *ccu)
 	LOG_DBG_IPI("IPC max size %d bytes", ccu->ccu_ipc.ipcDataSize);
 }
 
+void mtk_ccu_rproc_ipc_uninit(struct mtk_ccu *ccu)
+{
+	if (!ccu)
+		return;
+
+	ccu->ccu_ipc.is_initialized = false;
+}
+
 int mtk_ccu_ipc_register(struct platform_device *pdev,
 	enum mtk_ccu_to_ap_msg_id id,
 	mtk_ccu_ipc_handle_t handle, void *priv)

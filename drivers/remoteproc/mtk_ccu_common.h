@@ -169,6 +169,7 @@ struct mtk_ccu_mem_info *mtk_ccu_get_meminfo(struct mtk_ccu *ccu,
 /*  IPI FUNCTIONS                                                            */
 /*---------------------------------------------------------------------------*/
 void mtk_ccu_rproc_ipc_init(struct mtk_ccu *ccu);
+void mtk_ccu_rproc_ipc_uninit(struct mtk_ccu *ccu);
 irqreturn_t mtk_ccu_isr_handler(int irq, void *priv);
 
 /*---------------------------------------------------------------------------*/
