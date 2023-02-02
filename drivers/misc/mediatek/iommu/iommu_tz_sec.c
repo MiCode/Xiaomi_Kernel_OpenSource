@@ -22,6 +22,7 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/pm_runtime.h>
 #include "iommu_tz_sec.h"
+#include "../../../gpu/drm/mediatek/mediatek_v2/mtk_disp_notify.h"
 
 /* M4U related SMC call */
 #define MTK_M4U_DEBUG_DUMP \
@@ -414,33 +415,26 @@ static void m4u_late_resume(void)
 	pr_info("%s -\n", __func__);
 }
 
-static struct notifier_block m4u_fb_notifier;
-static int m4u_fb_notifier_callback(
+static struct notifier_block m4u_display_notifier;
+static int m4u_display_notifier_callback(
 	struct notifier_block *self, unsigned long event, void *data)
 {
-	struct fb_event *evdata = data;
-	int blank;
+	int *disp_status = (int *)data;
 
-	pr_info("%s %ld, %d\n", __func__, event, FB_EVENT_BLANK);
+	pr_info("%s %ld", __func__, event);
 
-	if (event != FB_EVENT_BLANK)
-		return 0;
-
-	blank = *(int *)evdata->data;
-
-	switch (blank) {
-	case FB_BLANK_UNBLANK:
-	case FB_BLANK_NORMAL:
-		m4u_late_resume();
-		break;
-	case FB_BLANK_VSYNC_SUSPEND:
-	case FB_BLANK_HSYNC_SUSPEND:
-		break;
-	case FB_BLANK_POWERDOWN:
-		m4u_early_suspend();
-		break;
-	default:
+	if (!disp_status)
 		return -EINVAL;
+
+	if (event == MTK_DISP_EVENT_BLANK && *disp_status == MTK_DISP_BLANK_UNBLANK) {
+		pr_info("%s(%d) SCREEN ON +\n", __func__, __LINE__);
+		m4u_late_resume();
+		pr_info("%s(%d) SCREEN ON -\n", __func__, __LINE__);
+	} else if (event == MTK_DISP_EARLY_EVENT_BLANK
+		       && *disp_status == MTK_DISP_BLANK_POWERDOWN) {
+		pr_info("%s(%d) SCREEN OFF +\n", __func__, __LINE__);
+		m4u_early_suspend();
+		pr_info("%s(%d) SCREEN OFF -\n", __func__, __LINE__);
 	}
 
 	return 0;
@@ -605,8 +599,8 @@ static int m4u_probe(struct platform_device *pdev)
 
 #if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
-	m4u_fb_notifier.notifier_call = m4u_fb_notifier_callback;
-	ret = fb_register_client(&m4u_fb_notifier);
+	m4u_display_notifier.notifier_call = m4u_display_notifier_callback;
+	ret = mtk_disp_notifier_register("iommu_tz_sec", &m4u_display_notifier);
 	if (ret)
 		dev_err(m4u_dev->dev, "register fb_notifier failed!\n");
 	else
