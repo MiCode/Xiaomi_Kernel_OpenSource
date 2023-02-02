@@ -310,7 +310,7 @@ static int mt6370_init_alert(struct mt6370_tcpc_data *ddata)
 int mt6370_alert_status_clear(struct tcpc_device *tcpc, u32 mask)
 {
 	struct mt6370_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
-	int ret;
+	int ret = 0;
 	u16 mask_t1;
 
 #if CONFIG_TCPC_VSAFE0V_DETECT_IC
