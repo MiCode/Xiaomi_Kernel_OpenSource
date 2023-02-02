@@ -14,6 +14,10 @@
 
 #include "mtk_vcodec_pm.h"
 #define MFV_IOC_MAGIC    'M'
+#include <linux/dma-buf.h>
+#include <linux/dma-heap.h>
+#include <linux/dma-direction.h>
+#include <linux/scatterlist.h>
 
 /* below is control message */
 #define MFV_TEST_CMD			_IO(MFV_IOC_MAGIC, 0x00)
@@ -86,11 +90,18 @@
 /* VAL_BOOL_T * */
 #define VCODEC_SET_LOG_COUNT		_IOW(MFV_IOC_MAGIC, 0x35, unsigned int)
 /* VAL_BOOL_T * */
-#define VCODEC_SET_AV_TASK_GROUP       _IOW(MFV_IOC_MAGIC, 0x36, unsigned int)
+#define VCODEC_SET_AV_TASK_GROUP	_IOW(MFV_IOC_MAGIC, 0x36, unsigned int)
 /* VAL_BOOL_T * */
-#define VCODEC_SET_FRAME_INFO          _IOW(MFV_IOC_MAGIC, 0x37, unsigned int)
+#define VCODEC_SET_FRAME_INFO		_IOW(MFV_IOC_MAGIC, 0x37, unsigned int)
 /* VAL_FRAME_INFO_T * */
-
+#define VCODEC_MVA_ALLOCATION		_IOWR(MFV_IOC_MAGIC, 0x38, unsigned int)
+/* VAL_MEM_INFO_T * */
+#define VCODEC_MVA_FREE			_IOWR(MFV_IOC_MAGIC, 0x39, unsigned int)
+/* VAL_MEM_INFO_T * */
+#define VCODEC_CACHE_FLUSH_BUFF		_IOWR(MFV_IOC_MAGIC, 0x40, unsigned int)
+/* VAL_MEM_INFO_T * */
+#define VCODEC_CACHE_INVALIDATE_BUFF	_IOWR(MFV_IOC_MAGIC, 0x41, unsigned int)
+/* VAL_MEM_INFO_T * */
 extern const struct file_operations vcodec_fops;
 #if IS_ENABLED(CONFIG_PM)
 extern struct dev_pm_domain mt_vdec_pm_domain;

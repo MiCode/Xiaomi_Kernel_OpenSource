@@ -31,6 +31,7 @@ enum mtk_instance_type {
 
 struct mtk_vcodec_dev {
 	struct platform_device *plat_dev;
+	struct iommu_domain *io_domain;
 	struct device *dev;
 	unsigned int dec_irq;
 	unsigned int enc_irq;

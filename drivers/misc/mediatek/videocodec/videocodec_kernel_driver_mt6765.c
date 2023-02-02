@@ -31,12 +31,21 @@
 #include <linux/sched.h>
 #include <linux/suspend.h>
 #include <linux/pm_wakeup.h>
-
+#include <linux/dma-buf.h>
+#include <linux/dma-heap.h>
+#include <uapi/linux/dma-heap.h>
+#include <linux/dma-direction.h>
+#include <linux/scatterlist.h>
 #if IS_ENABLED(CONFIG_MTK_CLKMGR)
 #include "mach/mt_clkmgr.h"
 #else
 #include <linux/clk.h>
 #endif
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU)
+#include <linux/iommu.h>
+#endif
+
 
 #if IS_ENABLED(CONFIG_MTK_HIBERNATION)
 #include <mtk_hibernate_dpm.h>
@@ -60,6 +69,7 @@
 #include "mtk_vcodec_pm_plat.h"
 #include <linux/slab.h>
 #include "dvfs_v2.h"
+#include "mtk_heap.h"
 
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -132,6 +142,18 @@ static unsigned int gVDECFrmTRMP2_4[5] = {16, 20, 32, 50, 16};
 static unsigned int gVENCFrmTRAVC[3] = {6, 12, 6};
 #endif
 
+struct dmabuf_info {
+	struct dma_buf *dbuf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+};
+
+static unsigned int allocate_count;
+DEFINE_MUTEX(DmaAllocLock);
+#define CODEC_MAX_BUFFER 5000U
+struct dmabuf_info dma_buf_info[CODEC_MAX_BUFFER];
+#define CODEC_ALLOCATE_MAX_BUFFER_SIZE 0x10000000UL /*256MB*/
+
 
 /* TODO: Check register for shared vdec/venc */
 void vdec_polling_status(void)
@@ -182,6 +204,7 @@ void vdec_polling_status(void)
 void vdec_power_on(struct mtk_vcodec_dev *dev)
 {
 	int ret = 0;
+	pr_debug("%s +\n", __func__);
 
 	mutex_lock(&gDrvInitParams->vdecPWRLock);
 	gDrvInitParams->u4VdecPWRCounter++;
@@ -192,12 +215,12 @@ void vdec_power_on(struct mtk_vcodec_dev *dev)
 		/* GF14 type SRAM  power on config */
 		VDO_HW_WRITE(KVA_MBIST_BASE, 0x93CEB);
 	}
-
+	pr_debug("%s -\n", __func__);
 }
 
 void vdec_power_off(struct mtk_vcodec_dev *dev)
 {
-
+	pr_debug("%s +\n", __func__);
 	mutex_lock(&gDrvInitParams->vdecPWRLock);
 	if (gDrvInitParams->u4VdecPWRCounter == 0) {
 		pr_debug("[VCODEC] gDrvInitParams->u4VdecPWRCounter = 0\n");
@@ -222,6 +245,7 @@ void vdec_power_off(struct mtk_vcodec_dev *dev)
 		set_vdec_opp(gVCodecDev, 0);
 	}
 	mutex_unlock(&DecPMQoSLock);
+	pr_debug("%s -\n", __func__);
 }
 
 void venc_power_on(struct mtk_vcodec_dev *dev)
@@ -1215,8 +1239,6 @@ static long vcodec_waitisr(unsigned long arg)
 	long ret;
 	enum VAL_RESULT_T eValRet;
 
-	/* pr_debug("VCODEC_WAITISR + tid = %d\n", current->pid); */
-
 	user_data_addr = (unsigned char *)arg;
 	ret = copy_from_user(&val_isr, user_data_addr,
 				sizeof(struct VAL_ISR_T));
@@ -1319,9 +1341,169 @@ static long vcodec_waitisr(unsigned long arg)
 		pr_info("[WARNING] VCODEC_WAITISR Unknown instance\n");
 		return -EFAULT;
 	}
+	return 0;
+}
 
-	/* pr_debug("VCODEC_WAITISR - tid = %d\n", current->pid); */
+static long vcodec_get_mva_allocation(struct device *dev, unsigned long arg)
+{
+	unsigned char *user_data_addr;
+	long ret;
+	int fd;
+	struct VAL_MEM_INFO_T rMemObj;
+	struct dma_buf *dmabuf = NULL;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	struct dma_heap *dma_heap;
 
+	pr_debug("%s +\n", __func__);
+	user_data_addr = (unsigned char *)arg;
+	ret = copy_from_user(&rMemObj, user_data_addr,
+				sizeof(struct VAL_MEM_INFO_T));
+	if (ret) {
+		pr_debug("%s, copy_from_user failed: %lu\n",
+			__func__, ret);
+		return -EFAULT;
+	}
+
+	pr_info("%s, [b]rMemObj.shared_fd: %d, len: %d\n", __func__,
+		rMemObj.shared_fd, rMemObj.len);
+	if (rMemObj.shared_fd == 0) {
+		pr_debug("%s,rMemObj.fd == 0\n", __func__);
+		dma_heap = dma_heap_find("mtk_mm");
+		if (!dma_heap) {
+			pr_info("[%s] dma heap find fail\n", __func__);
+			return -EINVAL;
+		}
+		dmabuf = dma_heap_buffer_alloc(dma_heap, rMemObj.len,
+			O_RDWR | O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
+		if (IS_ERR_OR_NULL(dmabuf)) {
+			pr_info("dma_buf_get fail: %ld\n", PTR_ERR(dmabuf));
+			return -EFAULT;
+		}
+		fd = dma_buf_fd(dmabuf, O_RDWR | O_CLOEXEC);
+		rMemObj.shared_fd = fd;
+		pr_info("%s, shared_fd: %d\n", __func__, rMemObj.shared_fd);
+		dma_heap_put(dma_heap);
+		if (IS_ERR(dmabuf)) {
+			pr_info("[%s] dma heap buffer alloc fail\n", __func__);
+			return -EINVAL;
+		}
+
+	} else {
+		pr_debug("%s,rMemObj.fd != 0\n", __func__);
+		dmabuf = dma_buf_get(rMemObj.shared_fd);
+	}
+	attach = dma_buf_attach(dmabuf, dev);
+	if (IS_ERR(attach)) {
+		pr_info("[%s] attach fail, return\n", __func__);
+		return -EFAULT;
+	}
+	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+
+	if (IS_ERR(sgt)) {
+		pr_info("map failed, detach and return\n");
+		dma_buf_detach(dmabuf, attach);
+		return -EFAULT;
+	}
+	rMemObj.iova = sg_dma_address(sgt->sgl);
+	mutex_lock(&DmaAllocLock);
+	rMemObj.cnt = allocate_count;
+	if (rMemObj.len > CODEC_ALLOCATE_MAX_BUFFER_SIZE ||
+		rMemObj.len == 0U || allocate_count >= CODEC_MAX_BUFFER) {
+		pr_info("Set buffer fail: buffer len = %u allocate_count = %d !!\n",
+			rMemObj.len, allocate_count);
+		mutex_unlock(&DmaAllocLock);
+		return -EINVAL;
+	}
+	dma_buf_info[allocate_count].attach = attach;
+	dma_buf_info[allocate_count].sgt = sgt;
+	dma_buf_info[allocate_count].dbuf = dmabuf;
+	allocate_count++;
+	mutex_unlock(&DmaAllocLock);
+	if (copy_to_user((void *)arg, &rMemObj, sizeof(struct VAL_MEM_INFO_T))) {
+		pr_info("Copy to user error\n");
+		return -EFAULT;
+	}
+	pr_info("[%s] iova = %llx, attach: %p, sgt: %p, cnt = %d, allocate_count : %d-\n",
+		__func__, rMemObj.iova, attach, sgt, rMemObj.cnt, allocate_count);
+	return 0;
+}
+
+static long vcodec_cache_flush_buff(struct device *dev, unsigned long arg, unsigned int op)
+{
+	unsigned char *user_data_addr;
+	long ret;
+	struct VAL_MEM_INFO_T rMemObj;
+	struct dma_buf *dmabuf = NULL;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+
+	pr_debug("%s +\n", __func__);
+	user_data_addr = (unsigned char *)arg;
+	ret = copy_from_user(&rMemObj, user_data_addr,
+				sizeof(struct VAL_MEM_INFO_T));
+	if (ret) {
+		pr_debug("%s, copy_from_user failed: %lu\n",
+			__func__, ret);
+		return -EFAULT;
+	}
+	if (rMemObj.shared_fd == 0) {
+		pr_info("%s, shared_fd: %d can't be 0, please check\n",
+		__func__, rMemObj.shared_fd);
+		return -1;
+	}
+	dmabuf = dma_buf_get(rMemObj.shared_fd);
+	attach = dma_buf_attach(dmabuf, dev);
+	if (IS_ERR(attach)) {
+		pr_info("[%s] attach fail, return\n", __func__);
+		return -EFAULT;
+	}
+	sgt = dma_buf_map_attachment(attach, op);
+	if (IS_ERR(sgt)) {
+		pr_info("map failed, detach and return\n");
+		dma_buf_detach(dmabuf, attach);
+		return -EFAULT;
+	}
+	dma_sync_sg_for_device(dev, sgt->sgl, sgt->orig_nents, op);
+	dma_buf_unmap_attachment(attach, sgt, op);
+	dma_buf_detach(dmabuf, attach);
+	pr_debug("%s -\n", __func__);
+	return 0;
+}
+
+static long vcodec_get_mva_free(struct device *dev, unsigned long arg)
+{
+	unsigned char *user_data_addr;
+	long ret;
+	struct VAL_MEM_INFO_T rMemObj;
+	int fd;
+	int cnt;
+
+	pr_debug("%s +\n", __func__);
+	user_data_addr = (unsigned char *)arg;
+	ret = copy_from_user(&rMemObj, user_data_addr,
+				sizeof(struct VAL_MEM_INFO_T));
+	if (ret) {
+		pr_debug("%s, copy_from_user failed: %lu\n",
+			__func__, ret);
+		return -EFAULT;
+	}
+	fd = rMemObj.shared_fd;
+	cnt = rMemObj.cnt;
+	if (dma_buf_info[cnt].attach != NULL && dma_buf_info[cnt].sgt != NULL)
+		dma_buf_unmap_attachment(dma_buf_info[cnt].attach, dma_buf_info[cnt].sgt,
+			DMA_BIDIRECTIONAL);
+	if (dma_buf_info[cnt].dbuf != NULL && dma_buf_info[cnt].attach != NULL)
+		dma_buf_detach(dma_buf_info[cnt].dbuf, dma_buf_info[cnt].attach);
+	mutex_lock(&DmaAllocLock);
+	dma_buf_info[cnt].attach = NULL;
+	dma_buf_info[cnt].sgt = NULL;
+	dma_buf_info[cnt].dbuf = NULL;
+	if (allocate_count > 0)
+		allocate_count--;
+	mutex_unlock(&DmaAllocLock);
+	pr_info("%s, cnt: %d, shared_fd: %d, len: %d, free memory iova %lx -\n",
+		__func__, cnt, fd, rMemObj.len, rMemObj.iova);
 	return 0;
 }
 
@@ -1471,8 +1653,9 @@ static long vcodec_unlocked_ioctl(struct file *file, unsigned int cmd,
 	unsigned char *user_data_addr;
 	int temp_nr_cpu_ids;
 	char rIncLogCount;
+	unsigned int flush_dma_direction;
 
-
+	pr_debug("%s %u +\n", __func__, cmd);
 	switch (cmd) {
 	case VCODEC_SET_THREAD_ID:
 	{
@@ -1751,12 +1934,45 @@ static long vcodec_unlocked_ioctl(struct file *file, unsigned int cmd,
 		}
 	}
 	break;
+
+	case VCODEC_MVA_ALLOCATION:
+	{
+		ret = vcodec_get_mva_allocation(gVCodecDev->dev, arg);
+		if (ret) {
+			pr_debug("[ERROR] VCODEC_MVA_ALLOCATION failed! %lu\n",
+				ret);
+			return ret;
+		}
+	}
+	break;
+	case VCODEC_MVA_FREE:
+	{
+		ret = vcodec_get_mva_free(gVCodecDev->dev, arg);
+		if (ret) {
+			pr_debug("[ERROR] VCODEC_MVA_FREE failed! %lu\n",
+				ret);
+			return ret;
+		}
+	}
+	break;
+	case VCODEC_CACHE_FLUSH_BUFF:
+	case VCODEC_CACHE_INVALIDATE_BUFF:
+	{
+		flush_dma_direction =
+			((cmd == VCODEC_CACHE_FLUSH_BUFF) ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+		ret = vcodec_cache_flush_buff(gVCodecDev->dev, arg, flush_dma_direction);
+		if (ret) {
+			pr_debug("[ERROR] VCODEC_CACHE_FLUSH_BUFF failed! %lu\n",
+				ret);
+			return ret;
+		}
+	}
+	break;
 	default:
 	{
 		pr_info("[ERROR] vcodec_ioctl default case %u\n", cmd);
 	}
 	break;
-
 	}
 	return 0xFF;
 }
@@ -1768,7 +1984,8 @@ enum STRUCT_TYPE {
 	VAL_POWER_TYPE,
 	VAL_ISR_TYPE,
 	VAL_MEMORY_TYPE,
-	VAL_FRAME_INFO_TYPE
+	VAL_FRAME_INFO_TYPE,
+	VAL_MEM_OBJ_TYPE
 };
 
 enum COPY_DIRECTION {
@@ -1867,6 +2084,14 @@ struct COMPAT_VAL_FRAME_INFO_T {
 	compat_uint_t frame_height;
 	compat_uint_t frame_type;
 	compat_uint_t is_compressed;
+};
+
+
+struct COMPAT_VAL_MEM_OBJ {
+	compat_u64 iova;
+	compat_ulong_t len;
+	compat_uint_t shared_fd;
+	compat_uint_t cnt;
 };
 
 
@@ -2152,6 +2377,38 @@ static int compat_copy_struct(
 		}
 	}
 	break;
+	case VAL_MEM_OBJ_TYPE:
+	{
+		if (eDirection == COPY_FROM_USER) {
+			struct COMPAT_VAL_MEM_OBJ __user *from32 =
+				(struct COMPAT_VAL_MEM_OBJ *)data32;
+			struct VAL_MEM_INFO_T __user *to =
+				(struct VAL_MEM_INFO_T *)data;
+
+			err |= get_user(u, &(from32->iova));
+			err |= put_user(u, &(to->iova));
+			err |= get_user(u, &(from32->len));
+			err |= put_user(u, &(to->len));
+			err |= get_user(u, &(from32->shared_fd));
+			err |= put_user(u, &(to->shared_fd));
+			err |= get_user(u, &(from32->cnt));
+			err |= put_user(u, &(to->cnt));
+		} else {
+			struct COMPAT_VAL_MEM_OBJ __user *to32 =
+				(struct COMPAT_VAL_MEM_OBJ *)data32;
+			struct VAL_MEM_INFO_T __user *from =
+				(struct VAL_MEM_INFO_T *)data;
+			err |= get_user(u, &(from->iova));
+			err |= put_user(u, &(to32->iova));
+			err |= get_user(u, &(from->len));
+			err |= put_user(u, &(to32->len));
+			err |= get_user(u, &(from->shared_fd));
+			err |= put_user(u, &(to32->shared_fd));
+			err |= get_user(u, &(from->cnt));
+			err |= put_user(u, &(to32->cnt));
+		}
+	}
+	break;
 	default:
 	break;
 	}
@@ -2164,7 +2421,8 @@ static long vcodec_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 					unsigned long arg)
 {
 	long ret = 0;
-	/* pr_debug("vcodec_unlocked_compat_ioctl: 0x%x\n", cmd); */
+
+	pr_debug("%s: %u\n", __func__, cmd);
 	switch (cmd) {
 	case VCODEC_ALLOC_NON_CACHE_BUFFER:
 	case VCODEC_FREE_NON_CACHE_BUFFER:
@@ -2306,6 +2564,89 @@ static long vcodec_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 		if (err)
 			return err;
 	}
+	break;
+
+	case VCODEC_MVA_ALLOCATION:
+	{
+		struct COMPAT_VAL_MEM_OBJ __user *data32;
+		struct VAL_MEM_INFO_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_MEM_INFO_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE,
+				COPY_FROM_USER, (void *)data32, (void *)data);
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, VCODEC_MVA_ALLOCATION,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+	}
+	break;
+
+	case VCODEC_MVA_FREE:
+	{
+		struct COMPAT_VAL_MEM_OBJ __user *data32;
+		struct VAL_MEM_INFO_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_MEM_INFO_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE,
+				COPY_FROM_USER, (void *)data32, (void *)data);
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, VCODEC_MVA_FREE,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+	}
+	break;
+
+	case VCODEC_CACHE_FLUSH_BUFF:
+	case VCODEC_CACHE_INVALIDATE_BUFF:
+	{
+		struct COMPAT_VAL_MEM_OBJ __user *data32;
+		struct VAL_MEM_INFO_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_MEM_INFO_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE,
+				COPY_FROM_USER, (void *)data32, (void *)data);
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, VCODEC_CACHE_FLUSH_BUFF,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+	}
+	break;
 
 	default:
 		return vcodec_unlocked_ioctl(file, cmd, arg);
@@ -2350,6 +2691,11 @@ static int vcodec_release(struct inode *inode, struct file *file)
 	pr_info("%s pid = %d, gDrvInitParams->drvOpenCount %d\n",
 			__func__, current->pid, gDrvInitParams->drvOpenCount);
 	gDrvInitParams->drvOpenCount--;
+	mutex_lock(&DmaAllocLock);
+	allocate_count = 0;
+	pr_info("%s  allocate_count %d\n", __func__,
+		allocate_count);
+	mutex_unlock(&DmaAllocLock);
 
 	if (gDrvInitParams->drvOpenCount == 0) {
 		mutex_lock(&gDrvInitParams->hwLock);
@@ -2474,56 +2820,51 @@ static const struct vm_operations_struct vcodec_remap_vm_ops = {
 
 static int vcodec_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	unsigned int u4I = 0;
-	unsigned long length;
+	unsigned long length = vma->vm_end - vma->vm_start;
+	unsigned long pa_start = vma->vm_pgoff << PAGE_SHIFT;
 	unsigned long pfn;
+	unsigned long start = vma->vm_start;
+	unsigned long pos = 0;
 
+	pr_info("%s vma->start 0x%lx, vma->end 0x%lx, vma->pgoff 0x%lx, pa_start 0x%lx\n", __func__,
+			(unsigned long)vma->vm_start,
+			(unsigned long)vma->vm_end,
+			(unsigned long)vma->vm_pgoff,
+			(unsigned long)pa_start);
 	length = vma->vm_end - vma->vm_start;
 	pfn = vma->vm_pgoff<<PAGE_SHIFT;
 
-	if (((length > VENC_REGION) || (pfn < VENC_BASE) ||
-		(pfn > VENC_BASE+VENC_REGION)) &&
-		((length > VDEC_REGION) || (pfn < VDEC_BASE_PHY) ||
-			(pfn > VDEC_BASE_PHY+VDEC_REGION)) &&
-		((length > HW_REGION) || (pfn < HW_BASE) ||
-			(pfn > HW_BASE+HW_REGION)) &&
-		((length > INFO_REGION) || (pfn < INFO_BASE) ||
-			(pfn > INFO_BASE+INFO_REGION))) {
-		unsigned long ulAddr, ulSize;
-
-		for (u4I = 0; u4I < VCODEC_INST_NUM_x_10; u4I++) {
-			if ((ncache_mem_list[u4I].ulKVA != -1L) &&
-				(ncache_mem_list[u4I].ulKPA != -1L)) {
-				ulAddr = ncache_mem_list[u4I].ulKPA;
-				ulSize = (ncache_mem_list[u4I].ulSize +
-						0x1000 - 1) & ~(0x1000 - 1);
-				if ((length == ulSize) && (pfn == ulAddr)) {
-					pr_debug("[VCODEC] cache idx %d\n",
-							u4I);
-					break;
-				}
-			}
-		}
-
-		if (u4I == VCODEC_INST_NUM_x_10) {
-			pr_info("mmap region error: Len(0x%lx),pfn(0x%lx)",
-				 (unsigned long)length, pfn);
+	if ((length <  VDEC_REGION && (pa_start >= VDEC_BASE_PHY &&
+		pa_start < VDEC_BASE_PHY + VDEC_REGION)) ||
+		(length <  VENC_REGION && (pa_start >= VENC_BASE &&
+		pa_start < VENC_BASE + VENC_REGION))) {
+		vma->vm_pgoff = pa_start >> PAGE_SHIFT;
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+		if (remap_pfn_range(vma, start, vma->vm_pgoff,
+			PAGE_SIZE, vma->vm_page_prot) == true)
 			return -EAGAIN;
+	} else {
+		while (length > 0) {
+			vma->vm_pgoff = iommu_iova_to_phys(gVCodecDev->io_domain, pa_start + pos);
+			if (vma->vm_pgoff == 0) {
+				pr_info("iommu_iova_to_phys fail pa_start = 0x%lx\n",
+					pa_start);
+				return -EINVAL;
+			}
+			vma->vm_pgoff >>= PAGE_SHIFT;
+			if (remap_pfn_range(vma, start, vma->vm_pgoff,
+				PAGE_SIZE, vma->vm_page_prot) == true)
+				return -EAGAIN;
+			start += PAGE_SIZE;
+			pos += PAGE_SIZE;
+			if (length > PAGE_SIZE)
+				length -= PAGE_SIZE;
+			else
+				length = 0;
 		}
 	}
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	pr_debug("mmap vma->start 0x%lx, vma->end 0x%lx, vma->pgoff 0x%lx\n",
-			(unsigned long)vma->vm_start,
-			(unsigned long)vma->vm_end,
-			(unsigned long)vma->vm_pgoff);
-	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-		vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
-		return -EAGAIN;
-	}
-
 	vma->vm_ops = &vcodec_remap_vm_ops;
 	vcodec_vma_open(vma);
-
 	return 0;
 }
 

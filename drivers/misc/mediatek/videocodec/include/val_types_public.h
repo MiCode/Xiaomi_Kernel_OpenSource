@@ -652,4 +652,11 @@ struct VAL_FRAME_INFO_T {
 	unsigned int is_compressed; /* is output buffer compressed */
 };
 
+struct VAL_MEM_INFO_T {
+	VAL_UINT64_T iova;
+	VAL_ULONG_T len;
+	int shared_fd;
+	unsigned int cnt;
+};
+
 #endif /* #ifndef _VAL_TYPES_PUBLIC_H_ */

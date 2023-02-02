@@ -32,4 +32,7 @@ ccflags-y += \
     -I$(srctree)/drivers/misc/mediatek/videocodec/include   \
     -I$(srctree)/drivers/misc/mediatek/videocodec   \
     -I$(srctree)/drivers/misc/mediatek/videocodec/include/kernel   \
-    -I$(srctree)/drivers/misc/mediatek/mtk-interconnect
+    -I$(srctree)/drivers/misc/mediatek/mtk-interconnect   \
+    -I$(srctree)/drivers/iommu \
+    -I$(srctree)/drivers/misc/mediatek/iommu/ \
+    -I$(srctree)/drivers/dma-buf/heaps

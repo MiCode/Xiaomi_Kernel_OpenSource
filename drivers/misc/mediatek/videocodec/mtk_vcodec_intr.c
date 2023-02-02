@@ -195,7 +195,7 @@ irqreturn_t video_intr_dlr2(int irq, void *priv)
 int mtk_vcodec_irq_setup(struct platform_device *pdev, struct mtk_vcodec_dev *dev)
 {
 	if (request_irq(dev->dec_irq, (irq_handler_t)video_intr_dlr,
-			IRQF_TRIGGER_HIGH, VCODEC_DEVNAME, NULL) < 0) {
+			IRQF_TRIGGER_HIGH, VCODEC_DEVNAME, dev) < 0) {
 		/* Add one line comment for avoid kernel coding style,
 		 * WARNING:BRACES:
 		 */
@@ -206,7 +206,7 @@ int mtk_vcodec_irq_setup(struct platform_device *pdev, struct mtk_vcodec_dev *de
 	}
 
 	if (request_irq(dev->enc_irq, (irq_handler_t)video_intr_dlr2,
-			IRQF_TRIGGER_HIGH, VCODEC_DEVNAME, NULL) < 0) {
+			IRQF_TRIGGER_HIGH, VCODEC_DEVNAME, dev) < 0) {
 		/* Add one line comment for avoid kernel coding style,
 		 * WARNING:BRACES:
 		 */

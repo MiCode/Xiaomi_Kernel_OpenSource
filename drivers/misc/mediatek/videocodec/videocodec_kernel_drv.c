@@ -30,7 +30,7 @@
 #include <linux/sched.h>
 #include <linux/suspend.h>
 #include <linux/pm_wakeup.h>
-
+#include <linux/iommu.h>
 #if IS_ENABLED(CONFIG_MTK_CLKMGR)
 #include "mach/mt_clkmgr.h"
 #else
@@ -285,6 +285,32 @@ static int vcodec_probe(struct platform_device *pdev)
 	pm_runtime_enable(gDrvInitParams->vcodec_device);
 	pm_runtime_enable(gDrvInitParams->vcodec_device2);
 #endif
+
+	dev->io_domain = iommu_get_domain_for_dev(&pdev->dev);
+	if (dev->io_domain == NULL) {
+		pr_info("[VCODEC] Failed to get io_domain\n");
+		return -EPROBE_DEFER;
+	}
+	pr_info("io_domain: %p", dev->io_domain);
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+	dev_info(&pdev->dev, "64-bit DMA enable\n");
+	if (ret) {
+		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+		if (ret) {
+			pr_info("64-bit DMA enable failed\n");
+			return ret;
+		}
+	}
+
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+			devm_kzalloc(&pdev->dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(&pdev->dev, (unsigned int)DMA_BIT_MASK(34));
+		if (ret)
+			pr_info("Failed to set DMA segment size\n");
+	}
 	dev->dec_irq = VDEC_IRQ_ID;
 	dev->enc_irq = VENC_IRQ_ID;
 	dev->dec_reg_base[VDEC_BASE] = KVA_VDEC_BASE;
