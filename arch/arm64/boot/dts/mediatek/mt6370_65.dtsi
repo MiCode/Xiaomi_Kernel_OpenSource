@@ -38,13 +38,11 @@
 				regulator-name = "dsv_pos";
 				regulator-min-microvolt = <4000000>;
 				regulator-max-microvolt = <6000000>;
-				regulator-always-on;
 			};
 			dsvneg {
 				regulator-name = "dsv_neg";
 				regulator-min-microvolt = <4000000>;
 				regulator-max-microvolt = <6000000>;
-				regulator-always-on;
 			};
 			vibldo {
 				regulator-name = "mt6370-vib-ldo";
