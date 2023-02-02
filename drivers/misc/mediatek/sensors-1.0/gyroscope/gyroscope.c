@@ -21,8 +21,6 @@ static int64_t getCurNS(void)
 	ns = ktime_get_boottime_ns();
 
 	return ns;
-
-	return ns;
 }
 
 static void initTimer(struct hrtimer *timer,
