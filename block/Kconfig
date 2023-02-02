@@ -243,3 +243,12 @@ config BLK_PM
 	def_bool BLOCK && PM
 
 source "block/Kconfig.iosched"
+
+config MTK_BLK_IO_BOOST
+	bool "block IO boost for low-end devices"
+	depends on BLOCK
+	help
+	  Enable this feature for non GKI project.
+	  It is available only for non GKI project,
+	  which revert block io request merge to
+	  improve IO performance.
