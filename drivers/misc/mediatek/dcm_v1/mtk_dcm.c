@@ -10,8 +10,14 @@
 #include <linux/io.h>
 #include <linux/ratelimit.h>
 
+#if IS_ENABLED(CONFIG_MEDIATEK_DCM_V1)
+#include <dcm_v1_internal.h>
+#include <dcm_v1_autogen.h>
+#else
 #include <mt6768_dcm_internal.h>
 #include <mt6768_dcm_autogen.h>
+#endif
+
 #include <mtk_dcm.h>
 
 DEFINE_MUTEX(dcm_lock);

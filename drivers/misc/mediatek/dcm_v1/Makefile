@@ -20,3 +20,8 @@ obj-$(CONFIG_MEDIATEK_DCM_MT6768) += mediatek_dcm.o
 mediatek_dcm-y += mtk_dcm.o
 mediatek_dcm-y += mt6768_dcm_autogen.o
 mediatek_dcm-y += mt6768_dcm_internal.o
+
+obj-$(CONFIG_MEDIATEK_DCM_V1) += mediatek_dcm_v1.o
+mediatek_dcm_v1-y += mtk_dcm.o
+mediatek_dcm_v1-y += dcm_v1_autogen.o
+mediatek_dcm_v1-y += dcm_v1_internal.o
