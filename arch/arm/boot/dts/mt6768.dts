@@ -1042,7 +1042,6 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 		hv_thd_volt = <3400>;
 		lv1_thd_volt = <3250>;
 		lv2_thd_volt = <3100>;
-		status = "disabled";
 	};
 
 	pbm: pbm {
@@ -1051,21 +1050,18 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 
 	cpu_power_throttling: cpu_power_throttling {
 		compatible = "mediatek,cpu-power-throttling";
-		status = "disabled";
 		lbat_cpu_limit = <900000 900000 1300000>;
 		oc_cpu_limit = <900000 900000 1300000>;
 	};
 
 	md_power_throttling: md_power_throttling {
 		compatible = "mediatek,md-power-throttling";
-		status = "disabled";
 		lbat_md_reduce_tx = <6>;
 		oc_md_reduce_tx = <6>;
 	};
 
 	bp_thl: bp_thl {
 		compatible = "mediatek,mtk-bp-thl";
-		status = "disabled";
 		soc_limit = <15>;
 		soc_limit_ext = <20>;
 		soc_limit_ext_release = <25>;
