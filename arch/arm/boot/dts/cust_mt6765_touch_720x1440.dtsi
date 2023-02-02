@@ -28,7 +28,7 @@
 
 &touch {
 	tpd-resolution = <1080 1920>;
-	lcm-resolution = <1080 1920>;
+	lcm-resolution = <720 1440>;
 	tpd-cfg-version = "config17";
 	tpd-max-touch-num = <10>;
 	interrupt-parent = <&pio>;
