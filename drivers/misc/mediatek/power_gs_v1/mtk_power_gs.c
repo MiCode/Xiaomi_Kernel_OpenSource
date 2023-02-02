@@ -235,7 +235,7 @@ static int __init mt_power_gs_init(void)
 	ret = platform_driver_register(&mt_power_gs_pdrv);
 	if (ret) {
 		pr_info("fail to register power gs driver @ %s()\n", __func__);
-		platform_device_register(&mt_power_gs_pdev);
+		platform_device_unregister(&mt_power_gs_pdev);
 		return -1;
 	}
 	mt_golden_setting_init();
