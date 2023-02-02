@@ -1053,8 +1053,14 @@ static void print_dep(const char *func,
 		if (strlen(dep_str) + strlen(temp) < MAIN_LOG_SIZE)
 			strncat(dep_str, temp, strlen(temp));
 	}
+#if IS_ENABLED(CONFIG_ARM64)
 	xgf_trace("%s %s %s %d %d size:%d dep-list %s",
 			__func__, func, tag, pid, buffer_id, size, dep_str);
+#else
+	xgf_trace("%s %s %s %d %d size:%d",
+			 __func__, func, tag, pid, buffer_id, size);
+	xgf_trace("dep-list %s", dep_str);
+#endif
 	kfree(dep_str);
 }
 
