@@ -12,17 +12,30 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/power_gs_v1/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/power_gs_v1/mt6768/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 
 obj-$(CONFIG_MTK_POWER_GS_LEGACY) += mtk_power_gs_v1.o
 mtk_power_gs_v1-y += mtk_power_gs.o
 mtk_power_gs_v1-y += mtk_power_gs_api.o
 ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6768)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/power_gs_v1/mt6768/
 mtk_power_gs_v1-y += mt6768/mtk_power_gs_6358_array.o
 mtk_power_gs_v1-y += mt6768/mtk_cg_array.o
 mtk_power_gs_v1-y += mt6768/mtk_dcm_array.o
 mtk_power_gs_v1-y += mt6768/mtk_power_gs_sp.o
 mtk_power_gs_v1-y += mt6768/mtk_power_gs_compare.o
 mtk_power_gs_v1-y += mt6768/mtk_power_gs_dump_pmic.o
+endif
+
+ifneq ($(strip $(CONFIG_MTK_POWER_GS_LEGACY_V2)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/power_gs_v1/common_v2/
+obj-m += mtk_power_gs_v2.o
+mtk_power_gs_v2-y += mtk_power_gs.o
+mtk_power_gs_v2-y += mtk_power_gs_api.o
+mtk_power_gs_v2-y += common_v2/mtk_power_gs_6355_array.o
+mtk_power_gs_v2-y += common_v2/mtk_cg_array.o
+mtk_power_gs_v2-y += common_v2/mtk_dcm_array.o
+mtk_power_gs_v2-y += common_v2/mtk_power_gs_sp.o
+mtk_power_gs_v2-y += common_v2/mtk_power_gs_compare.o
+mtk_power_gs_v2-y += common_v2/mtk_power_gs_dump_pmic.o
 endif

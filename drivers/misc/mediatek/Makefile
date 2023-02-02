@@ -121,6 +121,7 @@ obj-$(CONFIG_MTK_PPM_V3) += ppm_v3/
 obj-$(CONFIG_MTK_SPM) += spm/
 obj-$(CONFIG_MTK_SPM_V0) += spm/
 obj-$(CONFIG_MTK_POWER_GS_LEGACY) += power_gs_v1/
+obj-$(CONFIG_MTK_POWER_GS_LEGACY_V2) += power_gs_v1/
 obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += videocodec/
 obj-$(CONFIG_MTK_LEGACY_THERMAL) += thermal/
 obj-$(CONFIG_MTK_MT6382_BDG) += spi_slave_drv/

@@ -39,19 +39,6 @@ bool slp_chk_golden_dpidle = true;
 bool slp_chk_golden_sodi3 = true;
 bool slp_chk_golden_diff_mode = true;
 
-void __weak mt_power_gs_suspend_compare(unsigned int dump_flag)
-{
-	pr_info("Power_gs: %s does not implement\n", __func__);
-}
-void __weak mt_power_gs_dpidle_compare(unsigned int dump_flag)
-{
-	pr_info("Power_gs: %s does not implement\n", __func__);
-}
-void __weak mt_power_gs_sodi_compare(unsigned int dump_flag)
-{
-	pr_info("Power_gs: %s does not implement\n", __func__);
-}
-
 /* deprecated, temp used for api argument transfer */
 void mt_power_gs_f_dump_suspend(unsigned int dump_flag)
 {
