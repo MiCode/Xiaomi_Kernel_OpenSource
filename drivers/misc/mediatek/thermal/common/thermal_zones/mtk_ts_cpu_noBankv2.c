@@ -315,12 +315,6 @@ mt_gpufreq_get_dvfs_table_num(void)
 	return 0;
 }
 
-	unsigned int __attribute__ ((weak))
-mt_ppm_thermal_get_max_power(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
 /*=============================================================*/
 long long thermal_get_current_time_us(void)
 {
@@ -2587,6 +2581,10 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 
 	tscpu_thermal_clock_on();
 	init_thermal(dev);
+#ifdef ATM_USES_PPM
+	mt_ppm_thermal_get_cpu_cluster_temp_cb(
+		&get_immediate_cpuL_wrap, &get_immediate_cpuB_wrap);
+#endif
 
 #if MTK_TS_CPU_RT
 	{
