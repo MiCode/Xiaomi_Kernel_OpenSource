@@ -306,40 +306,72 @@ void mtktspmic_cali_prepare2(void)
 		g_tsbuck3_slope1, g_tsbuck3_slope2, g_tsbuck3_intercept, vbe_t);
 }
 #if defined(THERMAL_USE_IIO_CHANNEL)
-void mtktspmic_get_from_dts(struct platform_device *pdev)
+int  mtktspmic_get_from_dts(struct platform_device *pdev)
 {
-	int ret;
+	int ret, error = 0;
 
 	chan_chip_temp = devm_iio_channel_get(&pdev->dev, "pmic_chip_temp");
 	if (IS_ERR(chan_chip_temp)) {
 		ret = PTR_ERR(chan_chip_temp);
-		pr_notice("AUXADC_CHIP_TEMP get fail, ret=%d\n", ret);
+		if (ret) {
+			if (ret != -EPROBE_DEFER)
+				pr_notice(
+					"%s, AUXADC_CHIP_TEMP  get fail, ret=%d\n", __func__, ret);
+			error = ret;
+			}
 	}
 	chan_vcore_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck1_temp");
 	if (IS_ERR(chan_vcore_temp)) {
 		ret = PTR_ERR(chan_vcore_temp);
-		pr_notice("AUXADC_VCORE_TEMP get fail, ret=%d\n", ret);
+		if (ret) {
+			if (ret != -EPROBE_DEFER)
+				pr_notice(
+					"%s, AUXADC_VCORE_TEMP  get fail, ret=%d\n", __func__, ret);
+			error = ret;
+		}
 	}
 	chan_vproc_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck2_temp");
 	if (IS_ERR(chan_vproc_temp)) {
 		ret = PTR_ERR(chan_vproc_temp);
-		pr_notice("AUXADC_VPROC_TEMP get fail, ret=%d\n", ret);
+		if (ret) {
+			if (ret != -EPROBE_DEFER)
+				pr_notice(
+				"	%s, AUXADC_VPROC_TEMP   get fail, ret=%d\n", __func__, ret);
+			error = ret;
+		}
 	}
 	chan_vgpu_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck3_temp");
 	if (IS_ERR(chan_vgpu_temp)) {
 		ret = PTR_ERR(chan_vgpu_temp);
-		pr_notice("AUXADC_VGPU_TEMP get fail, ret=%d\n", ret);
+		if (ret) {
+			if (ret != -EPROBE_DEFER)
+				pr_notice(
+					"%s, AUXADC_VGPU_TEMP  get fail, ret=%d\n", __func__, ret);
+			error = ret;
+		}
 	}
 	chan_tsx_temp = devm_iio_channel_get(&pdev->dev, "pmic_tsx_temp");
 	if (IS_ERR(chan_tsx_temp)) {
 		ret = PTR_ERR(chan_tsx_temp);
-		pr_notice("AUXADC_TSX_TEMP get fail, ret=%d\n", ret);
+		if (ret) {
+			if (ret != -EPROBE_DEFER)
+				pr_notice(
+					"%s, AUXADC_TSX_TEMP   get fail, ret=%d\n", __func__, ret);
+			error = ret;
+		}
 	}
 	chan_dcxo_temp = devm_iio_channel_get(&pdev->dev, "pmic_dcxo_temp");
 	if (IS_ERR(chan_dcxo_temp)) {
 		ret = PTR_ERR(chan_dcxo_temp);
-		pr_notice("AUXADC_DCXO_TEMP get fail, ret=%d\n", ret);
+		if (ret) {
+			if (ret != -EPROBE_DEFER)
+				pr_notice(
+					"%s, AUXADC_DCXO_TEMP   get fail, ret=%d\n", __func__, ret);
+			error = ret;
+		}
 	}
+
+	return error;
 }
 #endif
 int mtktspmic_get_hw_temp(void)

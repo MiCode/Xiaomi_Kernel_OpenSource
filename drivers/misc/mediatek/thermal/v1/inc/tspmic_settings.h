@@ -30,7 +30,7 @@ do {									\
 extern int mtktspmic_debug_log;
 extern void mtktspmic_cali_prepare(struct regmap *pmic_map);
 extern void mtktspmic_cali_prepare2(void);
-extern void mtktspmic_get_from_dts(struct platform_device *pdev);
+extern int mtktspmic_get_from_dts(struct platform_device *pdev);
 extern int mtktspmic_get_hw_temp(void);
 //extern int mt6358tsbuck1_get_hw_temp(void);
 //extern int mt6358tsbuck2_get_hw_temp(void);
