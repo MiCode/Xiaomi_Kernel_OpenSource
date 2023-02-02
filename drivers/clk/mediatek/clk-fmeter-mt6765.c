@@ -173,11 +173,15 @@ static unsigned int check_mux_pdn(unsigned int ID)
 /* need implement ckgen&abist api here */
 
 /* implement done */
-unsigned int mt_get_ckgen_freq(unsigned int ID)
+static unsigned int mt6765_get_ckgen_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
 
+	if (check_mux_pdn(ID)) {
+		pr_notice("ID-%d: MUX PDN, return 0.\n", ID);
+		return 0;
+	}
 	clk_dbg_cfg = clk_readl(CLK_DBG_CFG);
 	clk_writel(CLK_DBG_CFG, (clk_dbg_cfg & 0xFFFFC0FC)|(ID << 8)|(0x1));
 
@@ -210,7 +214,7 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 
 }
 
-unsigned int mt_get_abist_freq(unsigned int ID)
+static unsigned int mt6765_get_abist_freq(unsigned int ID)
 {
 	int output = 0, i = 0;
 	unsigned int temp, clk_dbg_cfg, clk_misc_cfg_0, clk26cali_1 = 0;
@@ -247,23 +251,6 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 		return (output * 2);
 }
 
-
-
-
-static unsigned int mt6765_get_ckgen_freq(unsigned int ID)
-{
-	if (check_mux_pdn(ID)) {
-		pr_notice("ID-%d: MUX PDN, return 0.\n", ID);
-		return 0;
-	}
-	return mt_get_ckgen_freq(ID);
-
-}
-
-static unsigned int mt6765_get_abist_freq(unsigned int ID)
-{
-	return mt_get_abist_freq(ID);
-}
 
 static unsigned int mt6765_get_abist2_freq(unsigned int ID)
 {
