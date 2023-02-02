@@ -4763,7 +4763,7 @@ cma=64M transparent_hugepage=never";
 
 	pe: pe {
 		compatible = "mediatek,charger,pe";
-
+		gauge = <&mtk_gauge>;
 		ta_12v_support;
 		ta_9v_support;
 
@@ -4780,7 +4780,7 @@ cma=64M transparent_hugepage=never";
 	};
 	pe2: pe2 {
 		compatible = "mediatek,charger,pe2";
-
+		gauge = <&mtk_gauge>;
 		/* PE 2.0 */
 		pe20_ichg_level_threshold = <1000000>; /* uA */
 		ta_start_battery_soc = <0>;
@@ -4807,7 +4807,7 @@ cma=64M transparent_hugepage=never";
 
 	pdc: pdc {
 		compatible = "mediatek,charger,pd";
-
+		gauge = <&mtk_gauge>;
 		min_charger_voltage = <4600000>;
 		pd_vbus_low_bound = <5000000>;
 		pd_vbus_upper_bound = <5000000>;
