@@ -115,11 +115,6 @@ static irqreturn_t ccu_isr_callback_xxx(int irq, void *device_id)
 	return IRQ_HANDLED;
 }
 
-#if (CCU_QOS_SUPPORT_ENABLE)
-static struct regulator *_ccu_qos_request;
-static u64 *_g_freq_steps;
-static u32 _step_size;
-#endif
 static int ccu_probe(struct platform_device *dev);
 
 static int ccu_remove(struct platform_device *dev);
@@ -1616,13 +1611,6 @@ static int ccu_resume(struct platform_device *pdev)
  **************************************************************************/
 static int __init CCU_INIT(void)
 {
-	int ret = 0;
-	int result = 0;
-#if (CCU_QOS_SUPPORT_ENABLE)
-	int i = 0;
-	unsigned long freq = 0;
-	struct dev_pm_opp *opp = NULL;
-#endif
 	/*struct device_node *node = NULL;*/
 
 	g_ccu_device = kzalloc(sizeof(struct ccu_device_s), GFP_KERNEL);
@@ -1644,31 +1632,9 @@ static int __init CCU_INIT(void)
 		return -ENODEV;
 	}
 
-#if (CCU_QOS_SUPPORT_ENABLE)
-	/*Call pm_qos_add_request when initialize module or driver prob*/
-	dev_pm_opp_of_add_table(g_ccu_device->dev);
-	_ccu_qos_request = devm_regulator_get(g_ccu_device->dev,
-		"dvfsrc-vcore");
-
-	/*Call mmdvfs_qos_get_freq_steps to get supported frequency*/
-	_step_size = dev_pm_opp_get_opp_count(g_ccu_device->dev);
-	_g_freq_steps = kcalloc(1, sizeof(u64) * _step_size, GFP_KERNEL);
-
-	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(g_ccu_device->dev,
-		&freq))) {
-		_g_freq_steps[i] = freq;
-		freq++;
-		i++;
-		dev_pm_opp_put(opp);
-	}
-#endif
-
-	if (result < 0)
-		LOG_ERR("get MMDVFS freq steps failed, result: %d\n", result);
-
 	LOG_DBG("platform_driver_register finsish\n");
 
-	return ret;
+	return 0;
 }
 
 
@@ -1677,7 +1643,6 @@ static void __exit CCU_EXIT(void)
 #if (CCU_QOS_SUPPORT_ENABLE)
 	//Call pm_qos_remove_request when
 	//de-initialize module or driver remove
-	kfree(_g_freq_steps);
 #endif
 	platform_driver_unregister(&ccu_driver);
 
