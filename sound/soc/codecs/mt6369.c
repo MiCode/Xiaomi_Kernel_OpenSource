@@ -2280,7 +2280,10 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 		/* Enable Audio ADC 2nd & 3rd LPW */
 		/* Enable Audio ADC flash Audio ADC flash */
 		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON4,
-				   0x0039, 0x0039);
+				   0x19, 0x19);
+		/* Audio ADC 1st Stage Idd adjust bits */
+		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON5,
+				   0x3, 0x3);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* Disable audio uplink LPW mode */
@@ -2288,7 +2291,10 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 		/* Disable Audio ADC 2nd & 3rd LPW */
 		/* Disable Audio ADC flash Audio ADC flash */
 		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON4,
-				   0x39, 0x0);
+				   0x19, 0x0);
+		/* Audio ADC 1st Stage Idd adjust bits */
+		regmap_update_bits(priv->regmap, MT6369_AUDENC_ANA_CON5,
+				   0x3, 0x0);
 		break;
 	default:
 		break;
