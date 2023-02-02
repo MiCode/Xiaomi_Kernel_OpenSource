@@ -246,14 +246,8 @@ static int mtktscharger2_unbind(struct thermal_zone_device *thermal,
 	return 0;
 }
 
-static int mtktscharger2_get_mode(
-struct thermal_zone_device *thermal, enum thermal_device_mode *mode)
-{
-	*mode = (kernelmode) ? THERMAL_DEVICE_ENABLED : THERMAL_DEVICE_DISABLED;
-	return 0;
-}
 
-static int mtktscharger2_set_mode(
+static int mtktscharger2_change_mode(
 struct thermal_zone_device *thermal, enum thermal_device_mode mode)
 {
 	kernelmode = mode;
@@ -287,8 +281,7 @@ static struct thermal_zone_device_ops mtktscharger2_dev_ops = {
 	.bind = mtktscharger2_bind,
 	.unbind = mtktscharger2_unbind,
 	.get_temp = mtktscharger2_get_temp,
-	.get_mode = mtktscharger2_get_mode,
-	.set_mode = mtktscharger2_set_mode,
+	.change_mode = mtktscharger2_change_mode,
 	.get_trip_type = mtktscharger2_get_trip_type,
 	.get_trip_temp = mtktscharger2_get_trip_temp,
 	.get_crit_temp = mtktscharger2_get_crit_temp,
@@ -343,7 +336,7 @@ struct thermal_cooling_device *cdev, unsigned long state)
 		/* To trigger data abort to reset the system
 		 * for thermal protection.
 		 */
-		BUG_ON(1);
+		//BUG_ON(1);
 	}
 
 	return 0;
@@ -558,13 +551,12 @@ static int mtktscharger2_open(struct inode *inode, struct file *file)
 	return single_open(file, mtktscharger2_read, NULL);
 }
 
-static const struct file_operations mtktscharger2_fops = {
-	.owner = THIS_MODULE,
-	.open = mtktscharger2_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = mtktscharger2_write,
-	.release = single_release,
+static const struct proc_ops mtktscharger2_fops = {
+	.proc_open = mtktscharger2_open,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_write = mtktscharger2_write,
+	.proc_release = single_release,
 };
 
 static int mtktscharger2_pdrv_probe(struct platform_device *pdev)
@@ -620,7 +612,7 @@ static struct platform_driver mtktscharger2_driver = {
 		   },
 };
 
-static int __init mtktscharger2_init(void)
+int  mtktscharger2_init(void)
 {
 	int err = 0;
 	/* Move this segment to probe function
@@ -670,15 +662,15 @@ err_unreg:
 	return err;
 }
 
-static void __exit mtktscharger2_exit(void)
+void  mtktscharger2_exit(void)
 {
 	mtktscharger2_dprintk("%s\n", __func__);
 	mtktscharger2_unregister_thermal();
 	mtktscharger2_unregister_cooler();
 }
 
-late_initcall(mtktscharger2_init);
-module_exit(mtktscharger2_exit);
+//late_initcall(mtktscharger2_init);
+//module_exit(mtktscharger2_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("MediaTek Inc.");
 
