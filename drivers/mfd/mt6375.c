@@ -245,7 +245,7 @@ static irqreturn_t mt6375_irq_handler(int irq, void *data)
 static irqreturn_t mt6375_irq_thread(int irq, void *data)
 {
 	struct mt6375_data *ddata = data;
-	u8 evt[MT6375_IRQ_REGS];
+	u8 evt[MT6375_IRQ_REGS] = {0};
 	bool handled = false;
 	int i, j, ret;
 
@@ -346,7 +346,7 @@ static void mt6375_del_irq_chip(struct mt6375_data *ddata)
 static int mt6375_check_devid(struct mt6375_data *ddata)
 {
 	int ret;
-	u8 vid;
+	u8 vid = 0;
 	u32 val;
 
 	ret = regmap_read(ddata->rmap, MT6375_REG_DEV_INFO, &val);
