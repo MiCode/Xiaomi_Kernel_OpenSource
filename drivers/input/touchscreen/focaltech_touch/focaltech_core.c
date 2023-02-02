@@ -647,6 +647,13 @@ static void fts_ts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_data *fts_dat
 		return;
 	}
 
+	/*
+	 * Acquire the transition lock before disabling the IRQ to avoid the race
+	 * condition with fts_irq_handler. For SVM, it is acquired here and, for PVM,
+	 * in fts_ts_trusted_touch_pvm_vm_mode_enable().
+	 */
+	mutex_lock(&fts_data->transition_lock);
+
 	fts_irq_disable();
 	fts_ts_trusted_touch_set_vm_state(fts_data, TVM_INTERRUPT_DISABLED);
 
@@ -680,9 +687,11 @@ static void fts_ts_trusted_touch_tvm_vm_mode_disable(struct fts_ts_data *fts_dat
 	}
 	fts_ts_trusted_touch_set_vm_state(fts_data, TRUSTED_TOUCH_TVM_INIT);
 	atomic_set(&fts_data->trusted_touch_enabled, 0);
+	mutex_unlock(&fts_data->transition_lock);
 	pr_info("trusted touch disabled\n");
 	return;
 error:
+	mutex_unlock(&fts_data->transition_lock);
 	fts_ts_trusted_touch_abort_handler(fts_data,
 			TRUSTED_TOUCH_EVENT_RELEASE_FAILURE);
 }
