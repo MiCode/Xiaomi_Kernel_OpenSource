@@ -159,6 +159,9 @@ extern void scp_enable_sram(void);
 extern int scp_sys_full_reset(void);
 extern void scp_reset_awake_counts(void);
 extern void scp_awake_init(void);
+extern void mt_print_scp_ipi_id(void);
+extern void scp_resource_req_ext(unsigned int req_type);
+extern void scp_register_print_ipi_id_cb(void (*scp_callback)(void));
 #if SCP_RECOVERY_SUPPORT
 extern phys_addr_t scp_loader_base_virt;
 extern unsigned int scp_reset_by_cmd;

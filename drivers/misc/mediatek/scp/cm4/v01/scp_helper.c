@@ -35,7 +35,7 @@
 #include "scp_excep.h"
 #include "scp_feature_define.h"
 #include "scp_scpctl.h"
-//#include "mtk_spm_resource_req.h"
+#include "mtk_spm_resource_req.h"
 
 #if IS_ENABLED(CONFIG_OF_RESERVED_MEM)
 #include <linux/of_reserved_mem.h>
@@ -130,34 +130,6 @@ DEFINE_SPINLOCK(scp_awake_spinlock);
 /* set flag after driver initial done */
 static bool driver_init_done;
 
-enum {
-	SPM_RESOURCE_RELEASE = 0,
-	SPM_RESOURCE_MAINPLL = 1 << 0,
-	SPM_RESOURCE_DRAM    = 1 << 1,
-	SPM_RESOURCE_CK_26M  = 1 << 2,
-	SPM_RESOURCE_AXI_BUS = 1 << 3,
-	SPM_RESOURCE_CPU     = 1 << 4,
-	NF_SPM_RESOURCE = 5,
-
-	SPM_RESOURCE_ALL = (1 << NF_SPM_RESOURCE) - 1
-};
-
-enum {
-	SPM_RESOURCE_USER_SPM = 0,
-	SPM_RESOURCE_USER_UFS,
-	SPM_RESOURCE_USER_SSUSB,
-	SPM_RESOURCE_USER_AUDIO,
-	SPM_RESOURCE_USER_UART,
-	SPM_RESOURCE_USER_CONN,
-	SPM_RESOURCE_USER_MSDC,
-	SPM_RESOURCE_USER_SCP,
-	NF_SPM_RESOURCE_USER
-};
-#if IS_BUILTIN(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
-static bool spm_resource_req(unsigned int user, unsigned int req_mask) {return true; }
-#else
-bool spm_resource_req(unsigned int user, unsigned int req_mask) {return true; }
-#endif
 /*
  * memory copy to scp sram
  * @param trg: trg address
@@ -395,7 +367,7 @@ static void scp_A_notify_ws(struct work_struct *ws)
 	/*clear reset status and unlock wake lock*/
 	pr_debug("[SCP] clear scp reset flag and unlock\n");
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
-	spm_resource_req(SPM_RESOURCE_USER_SCP, SPM_RESOURCE_RELEASE);
+	scp_resource_req_ext(SPM_RESOURCE_RELEASE);
 #endif  // CONFIG_FPGA_EARLY_PORTING
 	/* register scp dvfs*/
 	msleep(2000);
@@ -1521,7 +1493,7 @@ void scp_sys_reset_ws(struct work_struct *ws)
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	/* keep 26Mhz */
-	spm_resource_req(SPM_RESOURCE_USER_SCP, SPM_RESOURCE_CK_26M);
+	scp_resource_req_ext(SPM_RESOURCE_CK_26M);
 #endif  // CONFIG_FPGA_EARLY_PORTING
 	/*request pll clock before turn off scp */
 	pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
@@ -1921,9 +1893,10 @@ static int __init scp_init(void)
 	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
 #endif
 
+	scp_register_print_ipi_id_cb(&mt_print_scp_ipi_id);
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	/* keep 26Mhz */
-	spm_resource_req(SPM_RESOURCE_USER_SCP, SPM_RESOURCE_CK_26M);
+	scp_resource_req_ext(SPM_RESOURCE_CK_26M);
 #endif  // CONFIG_FPGA_EARLY_PORTING
 
 	if (platform_driver_register(&mtk_scp_device)) {

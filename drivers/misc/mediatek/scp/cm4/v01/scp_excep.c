@@ -565,7 +565,7 @@ static void scp_prepare_aed_dump(char *aed_str,
  */
 void scp_aed(enum scp_excep_id type, enum scp_core_id id)
 {
-	struct scp_aed_cfg aed;
+	struct scp_aed_cfg aed = {0};
 	char *scp_aed_title;
 
 	mutex_lock(&scp_excep_mutex);

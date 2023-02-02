@@ -97,7 +97,7 @@ int scp_awake_lock(enum scp_core_id scp_id)
 		udelay(10);
 	}
 	/* clear status */
-	writel(readl(INFRA_IRQ_SET), INFRA_IRQ_CLEAR);
+	writel(0xA0 | (1 << AP_AWAKE_LOCK), INFRA_IRQ_CLEAR);
 
 	/* scp lock awake success*/
 	if (ret != -1)
@@ -175,7 +175,7 @@ int scp_awake_unlock(enum scp_core_id scp_id)
 		udelay(10);
 	}
 	/* clear status */
-	writel(readl(INFRA_IRQ_SET), INFRA_IRQ_CLEAR);
+	writel(0xA0 | (1 << AP_AWAKE_UNLOCK), INFRA_IRQ_CLEAR);
 
 	/* scp unlock awake success*/
 	if (ret != -1) {
