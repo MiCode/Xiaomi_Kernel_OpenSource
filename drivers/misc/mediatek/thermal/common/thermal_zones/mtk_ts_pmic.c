@@ -688,7 +688,9 @@ static int mtk_ts_pmic_probe(struct platform_device *pdev)
 	mtktspmic_cali_prepare2();
 
 #if defined(THERMAL_USE_IIO_CHANNEL)
-	mtktspmic_get_from_dts(pdev);
+	err = mtktspmic_get_from_dts(pdev);
+	if (err)
+		return err;
 #endif
 
 	err = mtktspmic_register_cooler();
