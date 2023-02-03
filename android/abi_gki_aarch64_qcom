@@ -1,6 +1,7 @@
 
 [abi_symbol_list]
   access_process_vm
+  ack_all_badblocks
   activate_task
   add_cpu
   add_device_randomness
@@ -15,6 +16,7 @@
   alloc_anon_inode
   alloc_chrdev_region
   alloc_io_pgtable_ops
+  alloc_page_buffers
   __alloc_pages
   __alloc_percpu
   __alloc_skb
@@ -42,6 +44,7 @@
   __arm_smccc_sve_check
   async_schedule_node
   async_synchronize_cookie
+  _atomic_dec_and_lock
   atomic_notifier_call_chain
   atomic_notifier_chain_register
   atomic_notifier_chain_unregister
@@ -49,11 +52,29 @@
   available_idle_cpu
   backlight_device_get_by_type
   backlight_device_set_brightness
+  badblocks_clear
+  badblocks_exit
+  badblocks_init
+  badblocks_set
+  badblocks_show
+  badblocks_store
   __balance_callbacks
   balance_push_callback
+  bdev_check_media_change
+  bdevname
+  bdev_read_only
+  bd_link_disk_holder
+  bd_unlink_disk_holder
+  bio_add_page
   bio_associate_blkg
+  bio_clone_fast
   bio_endio
   bio_end_io_acct_remapped
+  bio_init
+  bio_put
+  bioset_exit
+  bioset_init
+  bio_split
   bio_start_io_acct
   bitmap_allocate_region
   __bitmap_and
@@ -69,7 +90,10 @@
   blk_cleanup_disk
   blk_cleanup_queue
   blkdev_get_by_dev
+  __blkdev_issue_discard
+  blkdev_put
   blk_execute_rq_nowait
+  blk_finish_plug
   blk_freeze_queue_start
   blk_get_queue
   blk_get_request
@@ -105,17 +129,22 @@
   blk_queue_io_opt
   blk_queue_logical_block_size
   blk_queue_max_discard_sectors
+  blk_queue_max_write_same_sectors
   blk_queue_max_write_zeroes_sectors
   blk_queue_physical_block_size
+  blk_queue_split
   blk_queue_virt_boundary
   blk_rq_map_user
   blk_rq_map_user_iov
   blk_rq_unmap_user
+  blk_set_stacking_limits
+  blk_start_plug
   blk_sync_queue
   blkdev_compat_ptr_ioctl
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
+  bmap
   bpf_trace_run1
   bpf_trace_run10
   bpf_trace_run11
@@ -461,6 +490,7 @@
   dev_pm_opp_of_cpumask_remove_table
   dev_pm_opp_of_find_icc_paths
   dev_pm_opp_of_register_em
+  dev_pm_opp_remove
   dev_pm_opp_of_remove_table
   dev_pm_opp_put
   dev_pm_opp_put_clkname
@@ -487,6 +517,7 @@
   disable_irq_nosync
   disable_percpu_irq
   disk_end_io_acct
+  disk_stack_limits
   disk_start_io_acct
   divider_get_val
   divider_recalc_rate
@@ -678,6 +709,7 @@
   __fdget
   fd_install
   fget
+  file_path
   _find_first_bit
   _find_first_zero_bit
   _find_next_bit
@@ -693,9 +725,11 @@
   flush_dcache_page
   flush_delayed_fput
   flush_delayed_work
+  flush_signals
   flush_work
   flush_workqueue
   fput
+  free_buffer_head
   free_io_pgtable_ops
   free_irq
   __free_pages
@@ -944,7 +978,9 @@
   interval_tree_iter_first
   interval_tree_iter_next
   interval_tree_remove
+  int_pow
   int_sqrt
+  invalidate_bdev
   iomem_resource
   iommu_alloc_resv_region
   iommu_attach_device
@@ -1216,19 +1252,30 @@
   mmc_cqe_request_done
   mmc_execute_tuning
   mmc_get_ext_csd
+  mmc_get_card
+  mmc_hs200_tuning
+  mmc_issue_type
   mmc_of_parse
   __mmc_poll_for_busy
   mmc_prepare_busy_cmd
+  mmc_put_card
   mmc_regulator_get_supply
   mmc_regulator_set_ocr
   mmc_regulator_set_vqmmc
   mmc_retune_hold
   mmc_retune_release
   mmc_select_card
+  mmc_select_bus_width
+  mmc_select_hs
+  mmc_select_hs400
+  mmc_select_hs_ddr
+  mmc_select_timing
+  mmc_send_status
   mmc_send_tuning
   mmc_set_bus_mode
   mmc_set_bus_width
   mmc_set_clock
+  mmc_set_initial_state
   mmc_set_timing
   mmc_wait_for_cmd
   mmput
@@ -1429,6 +1476,11 @@
   __percpu_init_rwsem
   __per_cpu_offset
   per_cpu_ptr_to_phys
+  percpu_ref_exit
+  percpu_ref_init
+  percpu_ref_is_zero
+  percpu_ref_switch_to_atomic_sync
+  percpu_ref_switch_to_percpu
   percpu_up_write
   perf_aux_output_begin
   perf_aux_output_end
@@ -1849,6 +1901,7 @@
   sdhci_setup_host
   select_fallback_rq
   seq_buf_printf
+  seq_file_path
   seq_lseek
   seq_printf
   seq_putc
@@ -2012,9 +2065,12 @@
   strreplace
   strscpy
   strsep
+  submit_bio_noacct
+  submit_bio_wait
   __sw_hweight32
   __sw_hweight64
   __sw_hweight8
+  sync_blockdev
   synchronize_irq
   synchronize_rcu
   synchronize_rcu_expedited
@@ -2204,6 +2260,7 @@
   __traceiter_android_vh_ufs_update_sdev
   __traceiter_android_vh_update_topology_flags_workfn
   __traceiter_binder_transaction_received
+  __traceiter_block_bio_remap
   __traceiter_cpu_frequency_limits
   __traceiter_cpu_idle
   __traceiter_ipi_entry
@@ -2322,6 +2379,7 @@
   __tracepoint_android_vh_ufs_update_sdev
   __tracepoint_android_vh_update_topology_flags_workfn
   __tracepoint_binder_transaction_received
+  __tracepoint_block_bio_remap
   __tracepoint_cpu_frequency_limits
   __tracepoint_cpu_idle
   __tracepoint_ipi_entry
@@ -2486,6 +2544,7 @@
   vchan_tx_desc_free
   vchan_tx_submit
   vfree
+  vfs_fsync
   vhost_add_used_and_signal
   vhost_dev_check_owner
   vhost_dev_cleanup

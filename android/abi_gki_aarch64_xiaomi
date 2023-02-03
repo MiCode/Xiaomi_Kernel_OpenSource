@@ -82,6 +82,9 @@
   __tracepoint_android_vh_ufs_mcq_send_command
   __tracepoint_android_vh_ufs_mcq_set_sqid
   __tracepoint_android_vh_ufs_mcq_has_oustanding_reqs
+  __tracepoint_android_vh_dm_update_clone_bio
+  __tracepoint_android_vh_direct_io_update_bio
+  __tracepoint_android_vh_loop_prepare_cmd
   __traceiter_android_vh_ufs_mcq_handler
   __traceiter_android_vh_ufs_mcq_print_trs
   __traceiter_android_vh_ufs_mcq_config
@@ -97,6 +100,9 @@
   __traceiter_android_vh_ufs_mcq_send_command
   __traceiter_android_vh_ufs_mcq_set_sqid
   __traceiter_android_vh_ufs_mcq_has_oustanding_reqs
+  __traceiter_android_vh_dm_update_clone_bio
+  __traceiter_android_vh_direct_io_update_bio
+  __traceiter_android_vh_loop_prepare_cmd
 
 #required by cs35l41 module
   regmap_raw_write_async
@@ -508,3 +514,12 @@
   ZSTD_initCStream
   ZSTD_initDStream
   ZSTD_maxCLevel
+
+#required by cache module
+  __mod_lruvec_state
+  __mod_zone_page_state
+  d_delete
+  mem_cgroup_update_lru_size
+
+  __traceiter_android_rvh_ctl_dirty_rate
+  __tracepoint_android_rvh_ctl_dirty_rate
