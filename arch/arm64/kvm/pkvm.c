@@ -502,12 +502,17 @@ int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_cap *cap)
 #ifdef CONFIG_MODULES
 static int __init early_pkvm_enable_modules(char *arg)
 {
-	kvm_nvhe_sym(__pkvm_modules_enabled) = true;
+	extern unsigned long kvm_nvhe_sym(pkvm_priv_hcall_limit);
+
+	/*
+	 * Move the limit to allow module loading HVCs. It will be moved back to
+	 * its original position in __pkvm_close_module_registration().
+	 */
+	kvm_nvhe_sym(pkvm_priv_hcall_limit) = __KVM_HOST_SMCCC_FUNC___pkvm_alloc_module_va;
 
 	return 0;
 }
 early_param("kvm-arm.protected_modules", early_pkvm_enable_modules);
-#endif
 
 struct pkvm_mod_sec_mapping {
 	struct pkvm_module_section *sec;
@@ -584,9 +589,9 @@ static int __pkvm_cmp_mod_sec(const void *p1, const void *p2)
 	return s1->sec->start < s2->sec->start ? -1 : s1->sec->start > s2->sec->start;
 }
 
-int __pkvm_load_el2_module(struct pkvm_el2_module *mod, struct module *this,
-			   unsigned long *token)
+int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 {
+	struct pkvm_el2_module *mod = &this->arch.hyp;
 	struct pkvm_mod_sec_mapping secs_map[] = {
 		{ &mod->text, KVM_PGTABLE_PROT_R | KVM_PGTABLE_PROT_X },
 		{ &mod->bss, KVM_PGTABLE_PROT_R | KVM_PGTABLE_PROT_W },
@@ -616,7 +621,7 @@ int __pkvm_load_el2_module(struct pkvm_el2_module *mod, struct module *this,
 	sort(secs_map, ARRAY_SIZE(secs_map), sizeof(secs_map[0]), __pkvm_cmp_mod_sec, NULL);
 	start = secs_map[0].sec->start;
 	end = secs_map[ARRAY_SIZE(secs_map) - 1].sec->end;
-	size = PAGE_ALIGN(end - start);
+	size = end - start;
 
 	hyp_va = (void *)kvm_call_hyp_nvhe(__pkvm_alloc_module_va, size >> PAGE_SHIFT);
 	if (!hyp_va) {
@@ -656,17 +661,9 @@ int __pkvm_load_el2_module(struct pkvm_el2_module *mod, struct module *this,
 }
 EXPORT_SYMBOL_GPL(__pkvm_load_el2_module);
 
-int __pkvm_register_el2_call(dyn_hcall_t hfn, unsigned long token,
-			     unsigned long hyp_text_kern_va)
+int __pkvm_register_el2_call(unsigned long hfn_hyp_va)
 {
-	unsigned long hfn_hyp_va, offset, text_hyp_va = token;
-	int ret;
-
-	offset = (unsigned long)hfn - hyp_text_kern_va;
-	hfn_hyp_va = text_hyp_va + offset;
-
-	ret = kvm_call_hyp_nvhe(__pkvm_register_hcall,
-				(unsigned long)hfn_hyp_va);
-	return ret;
+	return kvm_call_hyp_nvhe(__pkvm_register_hcall, hfn_hyp_va);
 }
 EXPORT_SYMBOL_GPL(__pkvm_register_el2_call);
+#endif /* CONFIG_MODULES */
