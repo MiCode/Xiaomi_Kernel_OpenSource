@@ -699,13 +699,21 @@ skip_buf_cache:
 			goto bail;
 		}
 		vmid = fl->apps->channel[cid].vmid;
-		if ((vmid) && (fl->apps->channel[cid].in_hib == 0)) {
+		if (((vmid) || (cid == MDSP_DOMAIN_ID && fl->apps->channel[cid].rhvm.vmid)) &&
+				(fl->apps->channel[cid].in_hib == 0)) {
 			int srcVM[2] = {VMID_HLOS, vmid};
 			int hyp_err = 0;
+			if (vmid) {
+				hyp_err = hyp_assign_phys(buf->phys,
+						buf_page_size(buf->size),
+						srcVM, 2, destVM, destVMperm, 1);
+			} else {
+				hyp_err = hyp_assign_phys(buf->phys, buf_page_size(buf->size),
+						fl->apps->channel[cid].rhvm.vmid,
+						fl->apps->channel[cid].rhvm.vmcount,
+						hlosvm, hlosvmperm, 1);
+			}
 
-			hyp_err = hyp_assign_phys(buf->phys,
-				buf_page_size(buf->size),
-				srcVM, 2, destVM, destVMperm, 1);
 			if (hyp_err) {
 				ADSPRPC_ERR(
 					"rh hyp unassign failed with %d for phys 0x%llx, size %zu\n",
@@ -1003,13 +1011,22 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			sess = fl->sctx;
 
 		vmid = fl->apps->channel[cid].vmid;
-		if (vmid && map->phys && (me->channel[cid].in_hib == 0)) {
+		if (((vmid && map->phys) || ((cid == MDSP_DOMAIN_ID) &&
+						fl->apps->channel[cid].rhvm.vmid)) &&
+				(me->channel[cid].in_hib == 0)) {
 			int hyp_err = 0;
 			int srcVM[2] = {VMID_HLOS, vmid};
-
-			hyp_err = hyp_assign_phys(map->phys,
-				buf_page_size(map->size),
-				srcVM, 2, destVM, destVMperm, 1);
+			if (vmid) {
+				hyp_err = hyp_assign_phys(map->phys,
+						buf_page_size(map->size),
+						srcVM, 2, destVM, destVMperm, 1);
+			} else {
+				hyp_err = hyp_assign_phys(map->phys,
+						buf_page_size(map->size),
+						fl->apps->channel[cid].rhvm.vmid,
+						fl->apps->channel[cid].rhvm.vmcount,
+						hlosvm, hlosvmperm, 1);
+			}
 			if (hyp_err) {
 				ADSPRPC_ERR(
 					"rh hyp unassign failed with %d for phys 0x%llx, size %zu\n",
@@ -1303,15 +1320,23 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 		}
 
 		vmid = fl->apps->channel[cid].vmid;
-		if (vmid) {
+		if (vmid  || (cid == MDSP_DOMAIN_ID && me->channel[cid].rhvm.vmid)) {
 			int srcVM[1] = {VMID_HLOS};
 			int destVM[2] = {VMID_HLOS, vmid};
 			int destVMperm[2] = {PERM_READ | PERM_WRITE,
 					PERM_READ | PERM_WRITE | PERM_EXEC};
+			if (vmid) {
+				err = hyp_assign_phys(map->phys,
+						buf_page_size(map->size),
+						srcVM, 1, destVM, destVMperm, 2);
+			} else {
+				err = hyp_assign_phys(map->phys,
+						buf_page_size(map->size),
+						hlosvm, 1, me->channel[cid].rhvm.vmid,
+						me->channel[cid].rhvm.vmperm,
+						me->channel[cid].rhvm.vmcount);
+			}
 
-			err = hyp_assign_phys(map->phys,
-					buf_page_size(map->size),
-					srcVM, 1, destVM, destVMperm, 2);
 			if (err) {
 				ADSPRPC_ERR(
 					"rh hyp assign failed with %d for phys 0x%llx, size %zu\n",
@@ -1478,14 +1503,23 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 		dma_attr, (int)rflags);
 
 	vmid = fl->apps->channel[cid].vmid;
-	if (vmid) {
+	if (vmid || (cid == MDSP_DOMAIN_ID && me->channel[cid].rhvm.vmid)) {
 		int srcVM[1] = {VMID_HLOS};
 		int destVM[2] = {VMID_HLOS, vmid};
 		int destVMperm[2] = {PERM_READ | PERM_WRITE,
 					PERM_READ | PERM_WRITE | PERM_EXEC};
 
-		err = hyp_assign_phys(buf->phys, buf_page_size(size),
-			srcVM, 1, destVM, destVMperm, 2);
+		if (vmid) {
+			err = hyp_assign_phys(buf->phys, buf_page_size(size),
+					srcVM, 1, destVM, destVMperm, 2);
+		} else {
+
+			err = hyp_assign_phys(buf->phys, buf_page_size(size),
+					hlosvm, 1, me->channel[cid].rhvm.vmid,
+					me->channel[cid].rhvm.vmperm,
+					me->channel[cid].rhvm.vmcount);
+		}
+
 		if (err) {
 			ADSPRPC_DEBUG(
 				"rh hyp assign failed with %d for phys 0x%llx, size %zu\n",
@@ -7404,6 +7438,7 @@ static const struct of_device_id fastrpc_match_table[] = {
 	{ .compatible = "qcom,msm-fastrpc-compute", },
 	{ .compatible = "qcom,msm-fastrpc-compute-cb", },
 	{ .compatible = "qcom,msm-adsprpc-mem-region", },
+	{ .compatible = "qcom,msm-mdsprpc-mem-region", },
 	{}
 };
 
@@ -7830,6 +7865,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 		}
 		init_secure_vmid_list(dev, "qcom,adsp-remoteheap-vmid",
 							&gcinfo[0].rhvm);
+		init_secure_vmid_list(dev, "qcom,mdsp-remoteheap-vmid",
+							&gcinfo[1].rhvm);
 		fastrpc_init_privileged_gids(dev, "qcom,fastrpc-gids",
 					&me->gidlist);
 		init_qos_cores_list(dev, "qcom,qos-cores",
@@ -7862,6 +7899,15 @@ static int fastrpc_probe(struct platform_device *pdev)
 		}
 		goto bail;
 	}
+	if (of_device_is_compatible(dev->of_node,
+					"qcom,msm-mdsprpc-mem-region")) {
+		ret = of_reserved_mem_device_init_by_idx(dev, dev->of_node, 0);
+		if (ret) {
+			pr_err("adsprpc: Error: %s: initialization of memory region mdsp_mem failed with %d\n",
+				__func__, ret);
+		}
+	}
+
 	me->legacy_remote_heap = of_property_read_bool(dev->of_node,
 					"qcom,fastrpc-legacy-remote-heap");
 
