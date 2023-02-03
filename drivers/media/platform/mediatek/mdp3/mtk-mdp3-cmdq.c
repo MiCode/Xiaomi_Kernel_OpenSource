@@ -252,9 +252,10 @@ static int mdp_cmdq_pkt_create(struct cmdq_client *client, struct cmdq_pkt *pkt,
 	dma_addr_t dma_addr;
 
 	pkt->va_base = kzalloc(size, GFP_KERNEL);
-	if (!pkt->va_base)
+	if (!pkt->va_base) {
+		kfree(pkt);
 		return -ENOMEM;
-
+	}
 	pkt->buf_size = size;
 	pkt->cl = (void *)client;
 
@@ -367,30 +368,25 @@ int mdp_cmdq_send(struct mdp_dev *mdp, struct mdp_cmdq_param *param)
 	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
 	if (!cmd) {
 		ret = -ENOMEM;
-		goto err_cancel_job;
+		goto err_cmdq_data;
 	}
 
-	ret = mdp_cmdq_pkt_create(mdp->cmdq_clt, &cmd->pkt, SZ_16K);
-	if (ret)
-		goto err_free_cmd;
+	if (mdp_cmdq_pkt_create(mdp->cmdq_clt, &cmd->pkt, SZ_16K)) {
+		ret = -ENOMEM;
+		goto err_cmdq_data;
+	}
 
 	comps = kcalloc(param->config->num_components, sizeof(*comps),
 			GFP_KERNEL);
 	if (!comps) {
 		ret = -ENOMEM;
-		goto err_destroy_pkt;
+		goto err_cmdq_data;
 	}
 
 	path = kzalloc(sizeof(*path), GFP_KERNEL);
 	if (!path) {
 		ret = -ENOMEM;
-		goto err_free_comps;
-	}
-
-	ret = mtk_mutex_prepare(mdp->mdp_mutex[MDP_PIPE_RDMA0]);
-	if (ret) {
-		dev_err(dev, "Fail to enable mutex clk\n");
-		goto err_free_path;
+		goto err_cmdq_data;
 	}
 
 	path->mdp_dev = mdp;
@@ -410,13 +406,15 @@ int mdp_cmdq_send(struct mdp_dev *mdp, struct mdp_cmdq_param *param)
 	ret = mdp_path_ctx_init(mdp, path);
 	if (ret) {
 		dev_err(dev, "mdp_path_ctx_init error\n");
-		goto err_free_path;
+		goto err_cmdq_data;
 	}
+
+	mtk_mutex_prepare(mdp->mdp_mutex[MDP_PIPE_RDMA0]);
 
 	ret = mdp_path_config(mdp, cmd, path);
 	if (ret) {
 		dev_err(dev, "mdp_path_config error\n");
-		goto err_free_path;
+		goto err_cmdq_data;
 	}
 	cmdq_pkt_finalize(&cmd->pkt);
 
@@ -433,8 +431,10 @@ int mdp_cmdq_send(struct mdp_dev *mdp, struct mdp_cmdq_param *param)
 	cmd->mdp_ctx = param->mdp_ctx;
 
 	ret = mdp_comp_clocks_on(&mdp->pdev->dev, cmd->comps, cmd->num_comps);
-	if (ret)
-		goto err_free_path;
+	if (ret) {
+		dev_err(dev, "comp %d failed to enable clock!\n", ret);
+		goto err_clock_off;
+	}
 
 	dma_sync_single_for_device(mdp->cmdq_clt->chan->mbox->dev,
 				   cmd->pkt.pa_base, cmd->pkt.cmd_buf_size,
@@ -450,20 +450,17 @@ int mdp_cmdq_send(struct mdp_dev *mdp, struct mdp_cmdq_param *param)
 	return 0;
 
 err_clock_off:
+	mtk_mutex_unprepare(mdp->mdp_mutex[MDP_PIPE_RDMA0]);
 	mdp_comp_clocks_off(&mdp->pdev->dev, cmd->comps,
 			    cmd->num_comps);
-err_free_path:
-	mtk_mutex_unprepare(mdp->mdp_mutex[MDP_PIPE_RDMA0]);
+err_cmdq_data:
 	kfree(path);
-err_free_comps:
-	kfree(comps);
-err_destroy_pkt:
-	mdp_cmdq_pkt_destroy(&cmd->pkt);
-err_free_cmd:
-	kfree(cmd);
-err_cancel_job:
 	atomic_dec(&mdp->job_count);
-
+	wake_up(&mdp->callback_wq);
+	if (cmd && cmd->pkt.buf_size > 0)
+		mdp_cmdq_pkt_destroy(&cmd->pkt);
+	kfree(comps);
+	kfree(cmd);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mdp_cmdq_send);

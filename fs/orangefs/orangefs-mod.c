@@ -141,7 +141,7 @@ static int __init orangefs_init(void)
 		gossip_err("%s: could not initialize device subsystem %d!\n",
 			   __func__,
 			   ret);
-		goto cleanup_sysfs;
+		goto cleanup_device;
 	}
 
 	ret = register_filesystem(&orangefs_fs_type);
@@ -152,10 +152,10 @@ static int __init orangefs_init(void)
 		goto out;
 	}
 
-	orangefs_dev_cleanup();
-
-cleanup_sysfs:
 	orangefs_sysfs_exit();
+
+cleanup_device:
+	orangefs_dev_cleanup();
 
 sysfs_init_failed:
 	orangefs_debugfs_cleanup();

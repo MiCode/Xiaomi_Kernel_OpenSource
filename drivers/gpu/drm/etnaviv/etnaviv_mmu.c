@@ -135,19 +135,6 @@ static void etnaviv_iommu_remove_mapping(struct etnaviv_iommu_context *context,
 	drm_mm_remove_node(&mapping->vram_node);
 }
 
-void etnaviv_iommu_reap_mapping(struct etnaviv_vram_mapping *mapping)
-{
-	struct etnaviv_iommu_context *context = mapping->context;
-
-	lockdep_assert_held(&context->lock);
-	WARN_ON(mapping->use);
-
-	etnaviv_iommu_remove_mapping(context, mapping);
-	etnaviv_iommu_context_put(mapping->context);
-	mapping->context = NULL;
-	list_del_init(&mapping->mmu_node);
-}
-
 static int etnaviv_iommu_find_iova(struct etnaviv_iommu_context *context,
 				   struct drm_mm_node *node, size_t size)
 {
@@ -215,7 +202,10 @@ static int etnaviv_iommu_find_iova(struct etnaviv_iommu_context *context,
 		 * this mapping.
 		 */
 		list_for_each_entry_safe(m, n, &list, scan_node) {
-			etnaviv_iommu_reap_mapping(m);
+			etnaviv_iommu_remove_mapping(context, m);
+			etnaviv_iommu_context_put(m->context);
+			m->context = NULL;
+			list_del_init(&m->mmu_node);
 			list_del_init(&m->scan_node);
 		}
 
@@ -267,7 +257,10 @@ static int etnaviv_iommu_insert_exact(struct etnaviv_iommu_context *context,
 	}
 
 	list_for_each_entry_safe(m, n, &scan_list, scan_node) {
-		etnaviv_iommu_reap_mapping(m);
+		etnaviv_iommu_remove_mapping(context, m);
+		etnaviv_iommu_context_put(m->context);
+		m->context = NULL;
+		list_del_init(&m->mmu_node);
 		list_del_init(&m->scan_node);
 	}
 

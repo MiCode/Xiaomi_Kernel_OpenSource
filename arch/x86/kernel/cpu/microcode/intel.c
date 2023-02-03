@@ -621,6 +621,7 @@ void load_ucode_intel_ap(void)
 	else
 		iup = &intel_ucode_patch;
 
+reget:
 	if (!*iup) {
 		patch = __load_ucode_intel(&uci);
 		if (!patch)
@@ -631,7 +632,12 @@ void load_ucode_intel_ap(void)
 
 	uci.mc = *iup;
 
-	apply_microcode_early(&uci, true);
+	if (apply_microcode_early(&uci, true)) {
+		/* Mixed-silicon system? Try to refetch the proper patch: */
+		*iup = NULL;
+
+		goto reget;
+	}
 }
 
 static struct microcode_intel *find_patch(struct ucode_cpu_info *uci)

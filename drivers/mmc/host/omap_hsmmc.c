@@ -1946,9 +1946,7 @@ static int omap_hsmmc_probe(struct platform_device *pdev)
 	if (!ret)
 		mmc->caps |= MMC_CAP_SDIO_IRQ;
 
-	ret = mmc_add_host(mmc);
-	if (ret)
-		goto err_irq;
+	mmc_add_host(mmc);
 
 	if (mmc_pdata(host)->name != NULL) {
 		ret = device_create_file(&mmc->class_dev, &dev_attr_slot_name);

@@ -1529,13 +1529,7 @@ static void blk_mq_rq_timed_out(struct request *req)
 	blk_add_timer(req);
 }
 
-struct blk_expired_data {
-	bool has_timedout_rq;
-	unsigned long next;
-	unsigned long timeout_start;
-};
-
-static bool blk_mq_req_expired(struct request *rq, struct blk_expired_data *expired)
+static bool blk_mq_req_expired(struct request *rq, unsigned long *next)
 {
 	unsigned long deadline;
 
@@ -1545,13 +1539,13 @@ static bool blk_mq_req_expired(struct request *rq, struct blk_expired_data *expi
 		return false;
 
 	deadline = READ_ONCE(rq->deadline);
-	if (time_after_eq(expired->timeout_start, deadline))
+	if (time_after_eq(jiffies, deadline))
 		return true;
 
-	if (expired->next == 0)
-		expired->next = deadline;
-	else if (time_after(expired->next, deadline))
-		expired->next = deadline;
+	if (*next == 0)
+		*next = deadline;
+	else if (time_after(*next, deadline))
+		*next = deadline;
 	return false;
 }
 
@@ -1567,7 +1561,7 @@ void blk_mq_put_rq_ref(struct request *rq)
 
 static bool blk_mq_check_expired(struct request *rq, void *priv)
 {
-	struct blk_expired_data *expired = priv;
+	unsigned long *next = priv;
 
 	/*
 	 * blk_mq_queue_tag_busy_iter() has locked the request, so it cannot
@@ -1576,18 +1570,7 @@ static bool blk_mq_check_expired(struct request *rq, void *priv)
 	 * it was completed and reallocated as a new request after returning
 	 * from blk_mq_check_expired().
 	 */
-	if (blk_mq_req_expired(rq, expired)) {
-		expired->has_timedout_rq = true;
-		return false;
-	}
-	return true;
-}
-
-static bool blk_mq_handle_expired(struct request *rq, void *priv)
-{
-	struct blk_expired_data *expired = priv;
-
-	if (blk_mq_req_expired(rq, expired))
+	if (blk_mq_req_expired(rq, next))
 		blk_mq_rq_timed_out(rq);
 	return true;
 }
@@ -1596,9 +1579,7 @@ static void blk_mq_timeout_work(struct work_struct *work)
 {
 	struct request_queue *q =
 		container_of(work, struct request_queue, timeout_work);
-	struct blk_expired_data expired = {
-		.timeout_start = jiffies,
-	};
+	unsigned long next = 0;
 	struct blk_mq_hw_ctx *hctx;
 	unsigned long i;
 
@@ -1618,23 +1599,10 @@ static void blk_mq_timeout_work(struct work_struct *work)
 	if (!percpu_ref_tryget(&q->q_usage_counter))
 		return;
 
-	/* check if there is any timed-out request */
-	blk_mq_queue_tag_busy_iter(q, blk_mq_check_expired, &expired);
-	if (expired.has_timedout_rq) {
-		/*
-		 * Before walking tags, we must ensure any submit started
-		 * before the current time has finished. Since the submit
-		 * uses srcu or rcu, wait for a synchronization point to
-		 * ensure all running submits have finished
-		 */
-		blk_mq_wait_quiesce_done(q);
+	blk_mq_queue_tag_busy_iter(q, blk_mq_check_expired, &next);
 
-		expired.next = 0;
-		blk_mq_queue_tag_busy_iter(q, blk_mq_handle_expired, &expired);
-	}
-
-	if (expired.next != 0) {
-		mod_timer(&q->timeout, expired.next);
+	if (next != 0) {
+		mod_timer(&q->timeout, next);
 	} else {
 		/*
 		 * Request timeouts are handled as a forward rolling timer. If
@@ -2919,11 +2887,8 @@ void blk_mq_submit_bio(struct bio *bio)
 	blk_status_t ret;
 
 	bio = blk_queue_bounce(bio, q);
-	if (bio_may_exceed_limits(bio, &q->limits)) {
+	if (bio_may_exceed_limits(bio, &q->limits))
 		bio = __bio_split_to_limits(bio, &q->limits, &nr_segs);
-		if (!bio)
-			return;
-	}
 
 	if (!bio_integrity_prep(bio))
 		return;

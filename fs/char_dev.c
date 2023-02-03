@@ -547,7 +547,7 @@ int cdev_device_add(struct cdev *cdev, struct device *dev)
 	}
 
 	rc = device_add(dev);
-	if (rc && dev->devt)
+	if (rc)
 		cdev_del(cdev);
 
 	return rc;

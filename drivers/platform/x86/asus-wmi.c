@@ -2436,9 +2436,6 @@ static int fan_curve_check_present(struct asus_wmi *asus, bool *available,
 
 	*available = false;
 
-	if (asus->fan_type == FAN_TYPE_NONE)
-		return 0;
-
 	err = fan_curve_get_factory_default(asus, fan_dev);
 	if (err) {
 		return 0;

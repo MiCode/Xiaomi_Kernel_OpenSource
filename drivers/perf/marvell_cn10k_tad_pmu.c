@@ -408,11 +408,7 @@ static int __init tad_pmu_init(void)
 	if (ret < 0)
 		return ret;
 	tad_pmu_cpuhp_state = ret;
-	ret = platform_driver_register(&tad_pmu_driver);
-	if (ret)
-		cpuhp_remove_multi_state(tad_pmu_cpuhp_state);
-
-	return ret;
+	return platform_driver_register(&tad_pmu_driver);
 }
 
 static void __exit tad_pmu_exit(void)

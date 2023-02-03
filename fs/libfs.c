@@ -995,8 +995,8 @@ out:
 EXPORT_SYMBOL_GPL(simple_attr_read);
 
 /* interpret the buffer as a number to call the set function with */
-static ssize_t simple_attr_write_xsigned(struct file *file, const char __user *buf,
-			  size_t len, loff_t *ppos, bool is_signed)
+ssize_t simple_attr_write(struct file *file, const char __user *buf,
+			  size_t len, loff_t *ppos)
 {
 	struct simple_attr *attr;
 	unsigned long long val;
@@ -1017,10 +1017,7 @@ static ssize_t simple_attr_write_xsigned(struct file *file, const char __user *b
 		goto out;
 
 	attr->set_buf[size] = '\0';
-	if (is_signed)
-		ret = kstrtoll(attr->set_buf, 0, &val);
-	else
-		ret = kstrtoull(attr->set_buf, 0, &val);
+	ret = kstrtoull(attr->set_buf, 0, &val);
 	if (ret)
 		goto out;
 	ret = attr->set(attr->data, val);
@@ -1030,20 +1027,7 @@ out:
 	mutex_unlock(&attr->mutex);
 	return ret;
 }
-
-ssize_t simple_attr_write(struct file *file, const char __user *buf,
-			  size_t len, loff_t *ppos)
-{
-	return simple_attr_write_xsigned(file, buf, len, ppos, false);
-}
 EXPORT_SYMBOL_GPL(simple_attr_write);
-
-ssize_t simple_attr_write_signed(struct file *file, const char __user *buf,
-			  size_t len, loff_t *ppos)
-{
-	return simple_attr_write_xsigned(file, buf, len, ppos, true);
-}
-EXPORT_SYMBOL_GPL(simple_attr_write_signed);
 
 /**
  * generic_fh_to_dentry - generic helper for the fh_to_dentry export operation

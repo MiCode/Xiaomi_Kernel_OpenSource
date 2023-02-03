@@ -1151,9 +1151,7 @@ static int via_sd_probe(struct pci_dev *pcidev,
 	    pcidev->subsystem_device == 0x3891)
 		sdhost->quirks = VIA_CRDR_QUIRK_300MS_PWRDELAY;
 
-	ret = mmc_add_host(mmc);
-	if (ret)
-		goto unmap;
+	mmc_add_host(mmc);
 
 	return 0;
 

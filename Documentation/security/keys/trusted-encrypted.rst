@@ -350,8 +350,7 @@ Load an encrypted key "evm" from saved blob::
 
 Instantiate an encrypted key "evm" using user-provided decrypted data::
 
-    $ evmkey=$(dd if=/dev/urandom bs=1 count=32 | xxd -c32 -p)
-    $ keyctl add encrypted evm "new default user:kmk 32 $evmkey" @u
+    $ keyctl add encrypted evm "new default user:kmk 32 `cat evm_decrypted_data.blob`" @u
     794890253
 
     $ keyctl print 794890253

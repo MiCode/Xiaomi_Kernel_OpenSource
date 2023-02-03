@@ -14,7 +14,6 @@
  */
 
 #include <linux/linkage.h>
-#include <linux/cfi_types.h>
 #include <asm/frame.h>
 
 #define rRIP         (%rip)
@@ -283,7 +282,7 @@ SYM_FUNC_END(__sm4_crypt_blk16)
  *                                   const u8 *src, u8 *iv)
  */
 .align 8
-SYM_TYPED_FUNC_START(sm4_aesni_avx2_ctr_enc_blk16)
+SYM_FUNC_START(sm4_aesni_avx2_ctr_enc_blk16)
 	/* input:
 	 *	%rdi: round key array, CTX
 	 *	%rsi: dst (16 blocks)
@@ -396,7 +395,7 @@ SYM_FUNC_END(sm4_aesni_avx2_ctr_enc_blk16)
  *                                   const u8 *src, u8 *iv)
  */
 .align 8
-SYM_TYPED_FUNC_START(sm4_aesni_avx2_cbc_dec_blk16)
+SYM_FUNC_START(sm4_aesni_avx2_cbc_dec_blk16)
 	/* input:
 	 *	%rdi: round key array, CTX
 	 *	%rsi: dst (16 blocks)
@@ -450,7 +449,7 @@ SYM_FUNC_END(sm4_aesni_avx2_cbc_dec_blk16)
  *                                   const u8 *src, u8 *iv)
  */
 .align 8
-SYM_TYPED_FUNC_START(sm4_aesni_avx2_cfb_dec_blk16)
+SYM_FUNC_START(sm4_aesni_avx2_cfb_dec_blk16)
 	/* input:
 	 *	%rdi: round key array, CTX
 	 *	%rsi: dst (16 blocks)

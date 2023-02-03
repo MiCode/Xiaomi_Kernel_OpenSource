@@ -341,16 +341,6 @@ static int emit_no_arbitration(struct i915_request *rq)
 	return 0;
 }
 
-static int max_pte_pkt_size(struct i915_request *rq, int pkt)
-{
-	struct intel_ring *ring = rq->ring;
-
-	pkt = min_t(int, pkt, (ring->space - rq->reserved_space) / sizeof(u32) + 5);
-	pkt = min_t(int, pkt, (ring->size - ring->emit) / sizeof(u32) + 5);
-
-	return pkt;
-}
-
 static int emit_pte(struct i915_request *rq,
 		    struct sgt_dma *it,
 		    enum i915_cache_level cache_level,
@@ -397,7 +387,8 @@ static int emit_pte(struct i915_request *rq,
 		return PTR_ERR(cs);
 
 	/* Pack as many PTE updates as possible into a single MI command */
-	pkt = max_pte_pkt_size(rq, dword_length);
+	pkt = min_t(int, dword_length, ring->space / sizeof(u32) + 5);
+	pkt = min_t(int, pkt, (ring->size - ring->emit) / sizeof(u32) + 5);
 
 	hdr = cs;
 	*cs++ = MI_STORE_DATA_IMM | REG_BIT(21); /* as qword elements */
@@ -430,7 +421,8 @@ static int emit_pte(struct i915_request *rq,
 				}
 			}
 
-			pkt = max_pte_pkt_size(rq, dword_rem);
+			pkt = min_t(int, dword_rem, ring->space / sizeof(u32) + 5);
+			pkt = min_t(int, pkt, (ring->size - ring->emit) / sizeof(u32) + 5);
 
 			hdr = cs;
 			*cs++ = MI_STORE_DATA_IMM | REG_BIT(21);

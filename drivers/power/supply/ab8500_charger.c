@@ -3719,14 +3719,7 @@ static int __init ab8500_charger_init(void)
 	if (ret)
 		return ret;
 
-	ret = platform_driver_register(&ab8500_charger_driver);
-	if (ret) {
-		platform_unregister_drivers(ab8500_charger_component_drivers,
-				ARRAY_SIZE(ab8500_charger_component_drivers));
-		return ret;
-	}
-
-	return 0;
+	return platform_driver_register(&ab8500_charger_driver);
 }
 
 static void __exit ab8500_charger_exit(void)

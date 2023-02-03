@@ -564,13 +564,13 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 	ret = netif_set_real_num_tx_queues(ndev, common->tx_ch_num);
 	if (ret) {
 		dev_err(common->dev, "cannot set real number of tx queues\n");
-		goto runtime_put;
+		return ret;
 	}
 
 	ret = netif_set_real_num_rx_queues(ndev, AM65_CPSW_MAX_RX_QUEUES);
 	if (ret) {
 		dev_err(common->dev, "cannot set real number of rx queues\n");
-		goto runtime_put;
+		return ret;
 	}
 
 	for (i = 0; i < common->tx_ch_num; i++)
@@ -578,7 +578,7 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 
 	ret = am65_cpsw_nuss_common_open(common);
 	if (ret)
-		goto runtime_put;
+		return ret;
 
 	common->usage_count++;
 
@@ -605,10 +605,6 @@ static int am65_cpsw_nuss_ndo_slave_open(struct net_device *ndev)
 
 error_cleanup:
 	am65_cpsw_nuss_ndo_slave_stop(ndev);
-	return ret;
-
-runtime_put:
-	pm_runtime_put(common->dev);
 	return ret;
 }
 

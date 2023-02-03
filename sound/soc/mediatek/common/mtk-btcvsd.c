@@ -1038,9 +1038,11 @@ static int mtk_pcm_btcvsd_copy(struct snd_soc_component *component,
 	struct mtk_btcvsd_snd *bt = snd_soc_component_get_drvdata(component);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-		return mtk_btcvsd_snd_write(bt, buf, count);
+		mtk_btcvsd_snd_write(bt, buf, count);
 	else
-		return mtk_btcvsd_snd_read(bt, buf, count);
+		mtk_btcvsd_snd_read(bt, buf, count);
+
+	return 0;
 }
 
 /* kcontrol */

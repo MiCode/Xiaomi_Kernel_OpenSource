@@ -219,17 +219,6 @@ static int btf_dump_resize(struct btf_dump *d)
 	return 0;
 }
 
-static void btf_dump_free_names(struct hashmap *map)
-{
-	size_t bkt;
-	struct hashmap_entry *cur;
-
-	hashmap__for_each_entry(map, cur, bkt)
-		free((void *)cur->key);
-
-	hashmap__free(map);
-}
-
 void btf_dump__free(struct btf_dump *d)
 {
 	int i;
@@ -248,8 +237,8 @@ void btf_dump__free(struct btf_dump *d)
 	free(d->cached_names);
 	free(d->emit_queue);
 	free(d->decl_stack);
-	btf_dump_free_names(d->type_names);
-	btf_dump_free_names(d->ident_names);
+	hashmap__free(d->type_names);
+	hashmap__free(d->ident_names);
 
 	free(d);
 }
@@ -1531,23 +1520,11 @@ static void btf_dump_emit_type_cast(struct btf_dump *d, __u32 id,
 static size_t btf_dump_name_dups(struct btf_dump *d, struct hashmap *name_map,
 				 const char *orig_name)
 {
-	char *old_name, *new_name;
 	size_t dup_cnt = 0;
-	int err;
-
-	new_name = strdup(orig_name);
-	if (!new_name)
-		return 1;
 
 	hashmap__find(name_map, orig_name, (void **)&dup_cnt);
 	dup_cnt++;
-
-	err = hashmap__set(name_map, new_name, (void *)dup_cnt,
-			   (const void **)&old_name, NULL);
-	if (err)
-		free(new_name);
-
-	free(old_name);
+	hashmap__set(name_map, orig_name, (void *)dup_cnt, NULL, NULL);
 
 	return dup_cnt;
 }
@@ -1986,7 +1963,7 @@ static int btf_dump_struct_data(struct btf_dump *d,
 {
 	const struct btf_member *m = btf_members(t);
 	__u16 n = btf_vlen(t);
-	int i, err = 0;
+	int i, err;
 
 	/* note that we increment depth before calling btf_dump_print() below;
 	 * this is intentional.  btf_dump_data_newline() will not print a

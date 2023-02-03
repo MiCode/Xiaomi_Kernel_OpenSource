@@ -223,6 +223,6 @@ int dt_init_idle_driver(struct cpuidle_driver *drv,
 	 * also be 0 on platforms with missing DT idle states or legacy DT
 	 * configuration predating the DT idle states bindings.
 	 */
-	return state_idx - start_idx;
+	return i;
 }
 EXPORT_SYMBOL_GPL(dt_init_idle_driver);

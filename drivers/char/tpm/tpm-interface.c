@@ -412,9 +412,7 @@ int tpm_pm_suspend(struct device *dev)
 	}
 
 suspended:
-	if (rc)
-		dev_err(dev, "Ignoring error %d while suspending\n", rc);
-	return 0;
+	return rc;
 }
 EXPORT_SYMBOL_GPL(tpm_pm_suspend);
 

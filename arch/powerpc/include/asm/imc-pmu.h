@@ -137,7 +137,7 @@ struct imc_pmu {
  * are inited.
  */
 struct imc_pmu_ref {
-	spinlock_t lock;
+	struct mutex lock;
 	unsigned int id;
 	int refc;
 };

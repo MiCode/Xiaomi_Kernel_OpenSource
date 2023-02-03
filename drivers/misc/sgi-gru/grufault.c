@@ -648,7 +648,6 @@ int gru_handle_user_call_os(unsigned long cb)
 	if ((cb & (GRU_HANDLE_STRIDE - 1)) || ucbnum >= GRU_NUM_CB)
 		return -EINVAL;
 
-again:
 	gts = gru_find_lock_gts(cb);
 	if (!gts)
 		return -EINVAL;
@@ -657,11 +656,7 @@ again:
 	if (ucbnum >= gts->ts_cbr_au_count * GRU_CBR_AU_SIZE)
 		goto exit;
 
-	if (gru_check_context_placement(gts)) {
-		gru_unlock_gts(gts);
-		gru_unload_context(gts, 1);
-		goto again;
-	}
+	gru_check_context_placement(gts);
 
 	/*
 	 * CCH may contain stale data if ts_force_cch_reload is set.
@@ -879,11 +874,7 @@ int gru_set_context_option(unsigned long arg)
 		} else {
 			gts->ts_user_blade_id = req.val1;
 			gts->ts_user_chiplet_id = req.val0;
-			if (gru_check_context_placement(gts)) {
-				gru_unlock_gts(gts);
-				gru_unload_context(gts, 1);
-				return ret;
-			}
+			gru_check_context_placement(gts);
 		}
 		break;
 	case sco_gseg_owner:

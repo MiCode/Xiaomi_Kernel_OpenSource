@@ -1832,8 +1832,7 @@ static enum dbg_status qed_find_nvram_image(struct qed_hwfn *p_hwfn,
 					    struct qed_ptt *p_ptt,
 					    u32 image_type,
 					    u32 *nvram_offset_bytes,
-					    u32 *nvram_size_bytes,
-					    bool b_can_sleep)
+					    u32 *nvram_size_bytes)
 {
 	u32 ret_mcp_resp, ret_mcp_param, ret_txn_size;
 	struct mcp_file_att file_att;
@@ -1847,8 +1846,7 @@ static enum dbg_status qed_find_nvram_image(struct qed_hwfn *p_hwfn,
 					&ret_mcp_resp,
 					&ret_mcp_param,
 					&ret_txn_size,
-					(u32 *)&file_att,
-					b_can_sleep);
+					(u32 *)&file_att, false);
 
 	/* Check response */
 	if (nvm_result || (ret_mcp_resp & FW_MSG_CODE_MASK) !=
@@ -1875,9 +1873,7 @@ static enum dbg_status qed_find_nvram_image(struct qed_hwfn *p_hwfn,
 static enum dbg_status qed_nvram_read(struct qed_hwfn *p_hwfn,
 				      struct qed_ptt *p_ptt,
 				      u32 nvram_offset_bytes,
-				      u32 nvram_size_bytes,
-				      u32 *ret_buf,
-				      bool b_can_sleep)
+				      u32 nvram_size_bytes, u32 *ret_buf)
 {
 	u32 ret_mcp_resp, ret_mcp_param, ret_read_size, bytes_to_copy;
 	s32 bytes_left = nvram_size_bytes;
@@ -1903,7 +1899,7 @@ static enum dbg_status qed_nvram_read(struct qed_hwfn *p_hwfn,
 				       &ret_mcp_resp,
 				       &ret_mcp_param, &ret_read_size,
 				       (u32 *)((u8 *)ret_buf + read_offset),
-				       b_can_sleep))
+				       false))
 			return DBG_STATUS_NVRAM_READ_FAILED;
 
 		/* Check response */
@@ -1976,10 +1972,9 @@ static u32 qed_grc_dump_addr_range(struct qed_hwfn *p_hwfn,
 				   u8 split_id)
 {
 	struct dbg_tools_data *dev_data = &p_hwfn->dbg_info;
-	u8 port_id = 0, pf_id = 0, vf_id = 0;
+	u8 port_id = 0, pf_id = 0, vf_id = 0, fid = 0;
 	bool read_using_dmae = false;
 	u32 thresh;
-	u16 fid;
 
 	if (!dump)
 		return len;
@@ -3384,8 +3379,7 @@ static u32 qed_grc_dump_mcp_hw_dump(struct qed_hwfn *p_hwfn,
 				      p_ptt,
 				      NVM_TYPE_HW_DUMP_OUT,
 				      &hw_dump_offset_bytes,
-				      &hw_dump_size_bytes,
-				      false);
+				      &hw_dump_size_bytes);
 	if (status != DBG_STATUS_OK)
 		return 0;
 
@@ -3402,9 +3396,7 @@ static u32 qed_grc_dump_mcp_hw_dump(struct qed_hwfn *p_hwfn,
 		status = qed_nvram_read(p_hwfn,
 					p_ptt,
 					hw_dump_offset_bytes,
-					hw_dump_size_bytes,
-					dump_buf + offset,
-					false);
+					hw_dump_size_bytes, dump_buf + offset);
 		if (status != DBG_STATUS_OK) {
 			DP_NOTICE(p_hwfn,
 				  "Failed to read MCP HW Dump image from NVRAM\n");
@@ -4130,9 +4122,7 @@ static enum dbg_status qed_mcp_trace_get_meta_info(struct qed_hwfn *p_hwfn,
 	return qed_find_nvram_image(p_hwfn,
 				    p_ptt,
 				    nvram_image_type,
-				    trace_meta_offset,
-				    trace_meta_size,
-				    true);
+				    trace_meta_offset, trace_meta_size);
 }
 
 /* Reads the MCP Trace meta data from NVRAM into the specified buffer */
@@ -4148,10 +4138,7 @@ static enum dbg_status qed_mcp_trace_read_meta(struct qed_hwfn *p_hwfn,
 	/* Read meta data from NVRAM */
 	status = qed_nvram_read(p_hwfn,
 				p_ptt,
-				nvram_offset_in_bytes,
-				size_in_bytes,
-				buf,
-				true);
+				nvram_offset_in_bytes, size_in_bytes, buf);
 	if (status != DBG_STATUS_OK)
 		return status;
 

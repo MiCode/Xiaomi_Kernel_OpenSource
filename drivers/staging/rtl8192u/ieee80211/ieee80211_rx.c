@@ -951,11 +951,9 @@ int ieee80211_rx(struct ieee80211_device *ieee, struct sk_buff *skb,
 #endif
 
 	if (ieee->iw_mode == IW_MODE_MONITOR) {
-		unsigned int len = skb->len;
-
 		ieee80211_monitor_rx(ieee, skb, rx_stats);
 		stats->rx_packets++;
-		stats->rx_bytes += len;
+		stats->rx_bytes += skb->len;
 		return 1;
 	}
 

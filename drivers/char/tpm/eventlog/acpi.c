@@ -90,21 +90,16 @@ int tpm_read_log_acpi(struct tpm_chip *chip)
 			return -ENODEV;
 
 		if (tbl->header.length <
-				sizeof(*tbl) + sizeof(struct acpi_tpm2_phy)) {
-			acpi_put_table((struct acpi_table_header *)tbl);
+				sizeof(*tbl) + sizeof(struct acpi_tpm2_phy))
 			return -ENODEV;
-		}
 
 		tpm2_phy = (void *)tbl + sizeof(*tbl);
 		len = tpm2_phy->log_area_minimum_length;
 
 		start = tpm2_phy->log_area_start_address;
-		if (!start || !len) {
-			acpi_put_table((struct acpi_table_header *)tbl);
+		if (!start || !len)
 			return -ENODEV;
-		}
 
-		acpi_put_table((struct acpi_table_header *)tbl);
 		format = EFI_TCG2_EVENT_LOG_FORMAT_TCG_2;
 	} else {
 		/* Find TCPA entry in RSDT (ACPI_LOGICAL_ADDRESSING) */
@@ -125,10 +120,8 @@ int tpm_read_log_acpi(struct tpm_chip *chip)
 			break;
 		}
 
-		acpi_put_table((struct acpi_table_header *)buff);
 		format = EFI_TCG2_EVENT_LOG_FORMAT_TCG_1_2;
 	}
-
 	if (!len) {
 		dev_warn(&chip->dev, "%s: TCPA log area empty\n", __func__);
 		return -EIO;
@@ -163,4 +156,5 @@ err:
 	kfree(log->bios_event_log);
 	log->bios_event_log = NULL;
 	return ret;
+
 }

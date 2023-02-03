@@ -2531,21 +2531,12 @@ static int bond_slave_info_query(struct net_device *bond_dev, struct ifslave *in
 /* called with rcu_read_lock() */
 static int bond_miimon_inspect(struct bonding *bond)
 {
-	bool ignore_updelay = false;
 	int link_state, commit = 0;
 	struct list_head *iter;
 	struct slave *slave;
+	bool ignore_updelay;
 
-	if (BOND_MODE(bond) == BOND_MODE_ACTIVEBACKUP) {
-		ignore_updelay = !rcu_dereference(bond->curr_active_slave);
-	} else {
-		struct bond_up_slave *usable_slaves;
-
-		usable_slaves = rcu_dereference(bond->usable_slaves);
-
-		if (usable_slaves && usable_slaves->count == 0)
-			ignore_updelay = true;
-	}
+	ignore_updelay = !rcu_dereference(bond->curr_active_slave);
 
 	bond_for_each_slave_rcu(bond, slave, iter) {
 		bond_propose_link_state(slave, BOND_LINK_NOCHANGE);
@@ -2653,11 +2644,8 @@ static void bond_miimon_link_change(struct bonding *bond,
 
 static void bond_miimon_commit(struct bonding *bond)
 {
-	struct slave *slave, *primary, *active;
-	bool do_failover = false;
 	struct list_head *iter;
-
-	ASSERT_RTNL();
+	struct slave *slave, *primary;
 
 	bond_for_each_slave(bond, slave, iter) {
 		switch (slave->link_new_state) {
@@ -2701,9 +2689,8 @@ static void bond_miimon_commit(struct bonding *bond)
 
 			bond_miimon_link_change(bond, slave, BOND_LINK_UP);
 
-			active = rtnl_dereference(bond->curr_active_slave);
-			if (!active || slave == primary || slave->prio > active->prio)
-				do_failover = true;
+			if (!bond->curr_active_slave || slave == primary)
+				goto do_failover;
 
 			continue;
 
@@ -2724,7 +2711,7 @@ static void bond_miimon_commit(struct bonding *bond)
 			bond_miimon_link_change(bond, slave, BOND_LINK_DOWN);
 
 			if (slave == rcu_access_pointer(bond->curr_active_slave))
-				do_failover = true;
+				goto do_failover;
 
 			continue;
 
@@ -2735,9 +2722,8 @@ static void bond_miimon_commit(struct bonding *bond)
 
 			continue;
 		}
-	}
 
-	if (do_failover) {
+do_failover:
 		block_netpoll_tx();
 		bond_select_active_slave(bond);
 		unblock_netpoll_tx();
@@ -3535,7 +3521,6 @@ static int bond_ab_arp_inspect(struct bonding *bond)
  */
 static void bond_ab_arp_commit(struct bonding *bond)
 {
-	bool do_failover = false;
 	struct list_head *iter;
 	unsigned long last_tx;
 	struct slave *slave;
@@ -3565,9 +3550,8 @@ static void bond_ab_arp_commit(struct bonding *bond)
 				slave_info(bond->dev, slave->dev, "link status definitely up\n");
 
 				if (!rtnl_dereference(bond->curr_active_slave) ||
-				    slave == rtnl_dereference(bond->primary_slave) ||
-				    slave->prio > rtnl_dereference(bond->curr_active_slave)->prio)
-					do_failover = true;
+				    slave == rtnl_dereference(bond->primary_slave))
+					goto do_failover;
 
 			}
 
@@ -3586,7 +3570,7 @@ static void bond_ab_arp_commit(struct bonding *bond)
 
 			if (slave == rtnl_dereference(bond->curr_active_slave)) {
 				RCU_INIT_POINTER(bond->current_arp_slave, NULL);
-				do_failover = true;
+				goto do_failover;
 			}
 
 			continue;
@@ -3610,9 +3594,8 @@ static void bond_ab_arp_commit(struct bonding *bond)
 				  slave->link_new_state);
 			continue;
 		}
-	}
 
-	if (do_failover) {
+do_failover:
 		block_netpoll_tx();
 		bond_select_active_slave(bond);
 		unblock_netpoll_tx();

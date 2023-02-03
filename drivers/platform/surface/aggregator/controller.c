@@ -1700,10 +1700,8 @@ int ssam_request_sync(struct ssam_controller *ctrl,
 		return status;
 
 	status = ssam_request_sync_init(rqst, spec->flags);
-	if (status) {
-		ssam_request_sync_free(rqst);
+	if (status)
 		return status;
-	}
 
 	ssam_request_sync_set_resp(rqst, rsp);
 

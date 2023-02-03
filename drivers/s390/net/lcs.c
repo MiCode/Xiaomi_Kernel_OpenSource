@@ -1519,8 +1519,9 @@ lcs_txbuffer_cb(struct lcs_channel *channel, struct lcs_buffer *buffer)
 /*
  * Packet transmit function called by network stack
  */
-static netdev_tx_t __lcs_start_xmit(struct lcs_card *card, struct sk_buff *skb,
-				    struct net_device *dev)
+static int
+__lcs_start_xmit(struct lcs_card *card, struct sk_buff *skb,
+		 struct net_device *dev)
 {
 	struct lcs_header *header;
 	int rc = NETDEV_TX_OK;
@@ -1581,7 +1582,8 @@ out:
 	return rc;
 }
 
-static netdev_tx_t lcs_start_xmit(struct sk_buff *skb, struct net_device *dev)
+static int
+lcs_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct lcs_card *card;
 	int rc;

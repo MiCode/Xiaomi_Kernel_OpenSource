@@ -336,10 +336,8 @@ static int mxc_rtc_probe(struct platform_device *pdev)
 	}
 
 	pdata->rtc = devm_rtc_allocate_device(&pdev->dev);
-	if (IS_ERR(pdata->rtc)) {
-		clk_disable_unprepare(pdata->clk);
+	if (IS_ERR(pdata->rtc))
 		return PTR_ERR(pdata->rtc);
-	}
 
 	pdata->rtc->ops = &mxc_rtc_ops;
 	pdata->rtc->range_max = U32_MAX;

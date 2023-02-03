@@ -628,7 +628,7 @@
 	};
 
 	wcd_intr_default: wcd-intr-default {
-		pins = "gpio54";
+		pins = "goui54";
 		function = "gpio";
 		input-enable;
 		bias-pull-down;

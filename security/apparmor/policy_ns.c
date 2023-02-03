@@ -134,7 +134,7 @@ static struct aa_ns *alloc_ns(const char *prefix, const char *name)
 	return ns;
 
 fail_unconfined:
-	aa_policy_destroy(&ns->base);
+	kfree_sensitive(ns->base.hname);
 fail_ns:
 	kfree_sensitive(ns);
 	return NULL;

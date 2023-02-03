@@ -397,7 +397,7 @@ static int insert_state(struct extent_io_tree *tree,
 			u32 bits, struct extent_changeset *changeset)
 {
 	struct rb_node **node;
-	struct rb_node *parent = NULL;
+	struct rb_node *parent;
 	const u64 end = state->end;
 
 	set_state_bits(tree, state, bits, changeset);
@@ -572,7 +572,7 @@ int __clear_extent_bit(struct extent_io_tree *tree, u64 start, u64 end,
 	if (bits & (EXTENT_LOCKED | EXTENT_BOUNDARY))
 		clear = 1;
 again:
-	if (!prealloc) {
+	if (!prealloc && gfpflags_allow_blocking(mask)) {
 		/*
 		 * Don't care for allocation failure here because we might end
 		 * up not needing the pre-allocated extent state at all, which
@@ -636,8 +636,7 @@ hit_next:
 
 	if (state->start < start) {
 		prealloc = alloc_extent_state_atomic(prealloc);
-		if (!prealloc)
-			goto search_again;
+		BUG_ON(!prealloc);
 		err = split_state(tree, state, prealloc, start);
 		if (err)
 			extent_io_tree_panic(tree, err);
@@ -658,8 +657,7 @@ hit_next:
 	 */
 	if (state->start <= end && state->end > end) {
 		prealloc = alloc_extent_state_atomic(prealloc);
-		if (!prealloc)
-			goto search_again;
+		BUG_ON(!prealloc);
 		err = split_state(tree, state, prealloc, end + 1);
 		if (err)
 			extent_io_tree_panic(tree, err);
@@ -968,7 +966,7 @@ static int __set_extent_bit(struct extent_io_tree *tree, u64 start, u64 end,
 	else
 		ASSERT(failed_start == NULL);
 again:
-	if (!prealloc) {
+	if (!prealloc && gfpflags_allow_blocking(mask)) {
 		/*
 		 * Don't care for allocation failure here because we might end
 		 * up not needing the pre-allocated extent state at all, which
@@ -993,8 +991,7 @@ again:
 	state = tree_search_for_insert(tree, start, &p, &parent);
 	if (!state) {
 		prealloc = alloc_extent_state_atomic(prealloc);
-		if (!prealloc)
-			goto search_again;
+		BUG_ON(!prealloc);
 		prealloc->start = start;
 		prealloc->end = end;
 		insert_state_fast(tree, prealloc, p, parent, bits, changeset);
@@ -1065,8 +1062,7 @@ hit_next:
 		}
 
 		prealloc = alloc_extent_state_atomic(prealloc);
-		if (!prealloc)
-			goto search_again;
+		BUG_ON(!prealloc);
 		err = split_state(tree, state, prealloc, start);
 		if (err)
 			extent_io_tree_panic(tree, err);
@@ -1103,8 +1099,7 @@ hit_next:
 			this_end = last_start - 1;
 
 		prealloc = alloc_extent_state_atomic(prealloc);
-		if (!prealloc)
-			goto search_again;
+		BUG_ON(!prealloc);
 
 		/*
 		 * Avoid to free 'prealloc' if it can be merged with the later
@@ -1135,8 +1130,7 @@ hit_next:
 		}
 
 		prealloc = alloc_extent_state_atomic(prealloc);
-		if (!prealloc)
-			goto search_again;
+		BUG_ON(!prealloc);
 		err = split_state(tree, state, prealloc, end + 1);
 		if (err)
 			extent_io_tree_panic(tree, err);
@@ -1507,7 +1501,7 @@ u64 count_range_bits(struct extent_io_tree *tree,
 	u64 last = 0;
 	int found = 0;
 
-	if (WARN_ON(search_end < cur_start))
+	if (WARN_ON(search_end <= cur_start))
 		return 0;
 
 	spin_lock(&tree->lock);

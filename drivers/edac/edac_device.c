@@ -394,16 +394,17 @@ static void edac_device_workq_teardown(struct edac_device_ctl_info *edac_dev)
  *	Then restart the workq on the new delay
  */
 void edac_device_reset_delay_period(struct edac_device_ctl_info *edac_dev,
-				    unsigned long msec)
+					unsigned long value)
 {
-	edac_dev->poll_msec = msec;
-	edac_dev->delay	    = msecs_to_jiffies(msec);
+	unsigned long jiffs = msecs_to_jiffies(value);
 
-	/* See comment in edac_device_workq_setup() above */
-	if (edac_dev->poll_msec == 1000)
-		edac_mod_work(&edac_dev->work, round_jiffies_relative(edac_dev->delay));
-	else
-		edac_mod_work(&edac_dev->work, edac_dev->delay);
+	if (value == 1000)
+		jiffs = round_jiffies_relative(value);
+
+	edac_dev->poll_msec = value;
+	edac_dev->delay	    = jiffs;
+
+	edac_mod_work(&edac_dev->work, jiffs);
 }
 
 int edac_device_alloc_index(void)

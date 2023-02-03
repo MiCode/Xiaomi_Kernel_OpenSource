@@ -1751,7 +1751,6 @@ static int tsi148_dma_list_add(struct vme_dma_list *list,
 	return 0;
 
 err_dma:
-	list_del(&entry->list);
 err_dest:
 err_source:
 err_align:

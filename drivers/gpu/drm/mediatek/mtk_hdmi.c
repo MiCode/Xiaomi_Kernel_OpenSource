@@ -1202,10 +1202,9 @@ static enum drm_connector_status mtk_hdmi_detect(struct mtk_hdmi *hdmi)
 	return mtk_hdmi_update_plugged_status(hdmi);
 }
 
-static enum drm_mode_status
-mtk_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
-			   const struct drm_display_info *info,
-			   const struct drm_display_mode *mode)
+static int mtk_hdmi_bridge_mode_valid(struct drm_bridge *bridge,
+				      const struct drm_display_info *info,
+				      const struct drm_display_mode *mode)
 {
 	struct mtk_hdmi *hdmi = hdmi_ctx_from_bridge(bridge);
 	struct drm_bridge *next_bridge;

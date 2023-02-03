@@ -295,13 +295,11 @@ void iova_bitmap_free(struct iova_bitmap *bitmap)
  */
 static unsigned long iova_bitmap_mapped_remaining(struct iova_bitmap *bitmap)
 {
-	unsigned long remaining, bytes;
-
-	bytes = (bitmap->mapped.npages << PAGE_SHIFT) - bitmap->mapped.pgoff;
+	unsigned long remaining;
 
 	remaining = bitmap->mapped_total_index - bitmap->mapped_base_index;
 	remaining = min_t(unsigned long, remaining,
-			  bytes / sizeof(*bitmap->bitmap));
+	      (bitmap->mapped.npages << PAGE_SHIFT) / sizeof(*bitmap->bitmap));
 
 	return remaining;
 }
@@ -396,27 +394,29 @@ int iova_bitmap_for_each(struct iova_bitmap *bitmap, void *opaque,
  * Set the bits corresponding to the range [iova .. iova+length-1] in
  * the user bitmap.
  *
+ * Return: The number of bits set.
  */
 void iova_bitmap_set(struct iova_bitmap *bitmap,
 		     unsigned long iova, size_t length)
 {
 	struct iova_bitmap_map *mapped = &bitmap->mapped;
-	unsigned long cur_bit = ((iova - mapped->iova) >>
-			mapped->pgshift) + mapped->pgoff * BITS_PER_BYTE;
-	unsigned long last_bit = (((iova + length - 1) - mapped->iova) >>
-			mapped->pgshift) + mapped->pgoff * BITS_PER_BYTE;
+	unsigned long offset = (iova - mapped->iova) >> mapped->pgshift;
+	unsigned long nbits = max_t(unsigned long, 1, length >> mapped->pgshift);
+	unsigned long page_idx = offset / BITS_PER_PAGE;
+	unsigned long page_offset = mapped->pgoff;
+	void *kaddr;
+
+	offset = offset % BITS_PER_PAGE;
 
 	do {
-		unsigned int page_idx = cur_bit / BITS_PER_PAGE;
-		unsigned int offset = cur_bit % BITS_PER_PAGE;
-		unsigned int nbits = min(BITS_PER_PAGE - offset,
-					 last_bit - cur_bit + 1);
-		void *kaddr;
+		unsigned long size = min(BITS_PER_PAGE - offset, nbits);
 
 		kaddr = kmap_local_page(mapped->pages[page_idx]);
-		bitmap_set(kaddr, offset, nbits);
+		bitmap_set(kaddr + page_offset, offset, size);
 		kunmap_local(kaddr);
-		cur_bit += nbits;
-	} while (cur_bit <= last_bit);
+		page_offset = offset = 0;
+		nbits -= size;
+		page_idx++;
+	} while (nbits > 0);
 }
 EXPORT_SYMBOL_GPL(iova_bitmap_set);

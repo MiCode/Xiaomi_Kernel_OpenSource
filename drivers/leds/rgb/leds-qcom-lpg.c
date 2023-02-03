@@ -602,8 +602,8 @@ static void lpg_brightness_set(struct lpg_led *led, struct led_classdev *cdev,
 		lpg_lut_sync(lpg, lut_mask);
 }
 
-static int lpg_brightness_single_set(struct led_classdev *cdev,
-				     enum led_brightness value)
+static void lpg_brightness_single_set(struct led_classdev *cdev,
+				      enum led_brightness value)
 {
 	struct lpg_led *led = container_of(cdev, struct lpg_led, cdev);
 	struct mc_subled info;
@@ -614,12 +614,10 @@ static int lpg_brightness_single_set(struct led_classdev *cdev,
 	lpg_brightness_set(led, cdev, &info);
 
 	mutex_unlock(&led->lpg->lock);
-
-	return 0;
 }
 
-static int lpg_brightness_mc_set(struct led_classdev *cdev,
-				 enum led_brightness value)
+static void lpg_brightness_mc_set(struct led_classdev *cdev,
+				  enum led_brightness value)
 {
 	struct led_classdev_mc *mc = lcdev_to_mccdev(cdev);
 	struct lpg_led *led = container_of(mc, struct lpg_led, mcdev);
@@ -630,8 +628,6 @@ static int lpg_brightness_mc_set(struct led_classdev *cdev,
 	lpg_brightness_set(led, cdev, mc->subled_info);
 
 	mutex_unlock(&led->lpg->lock);
-
-	return 0;
 }
 
 static int lpg_blink_set(struct lpg_led *led,
@@ -1122,7 +1118,7 @@ static int lpg_add_led(struct lpg *lpg, struct device_node *np)
 		led->mcdev.num_colors = num_channels;
 
 		cdev = &led->mcdev.led_cdev;
-		cdev->brightness_set_blocking = lpg_brightness_mc_set;
+		cdev->brightness_set = lpg_brightness_mc_set;
 		cdev->blink_set = lpg_blink_mc_set;
 
 		/* Register pattern accessors only if we have a LUT block */
@@ -1136,7 +1132,7 @@ static int lpg_add_led(struct lpg *lpg, struct device_node *np)
 			return ret;
 
 		cdev = &led->cdev;
-		cdev->brightness_set_blocking = lpg_brightness_single_set;
+		cdev->brightness_set = lpg_brightness_single_set;
 		cdev->blink_set = lpg_blink_single_set;
 
 		/* Register pattern accessors only if we have a LUT block */
@@ -1155,7 +1151,7 @@ static int lpg_add_led(struct lpg *lpg, struct device_node *np)
 	else
 		cdev->brightness = LED_OFF;
 
-	cdev->brightness_set_blocking(cdev, cdev->brightness);
+	cdev->brightness_set(cdev, cdev->brightness);
 
 	init_data.fwnode = of_fwnode_handle(np);
 

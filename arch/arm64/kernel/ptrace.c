@@ -1364,7 +1364,7 @@ enum aarch64_regset {
 #ifdef CONFIG_ARM64_SVE
 	REGSET_SVE,
 #endif
-#ifdef CONFIG_ARM64_SME
+#ifdef CONFIG_ARM64_SVE
 	REGSET_SSVE,
 	REGSET_ZA,
 #endif

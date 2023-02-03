@@ -45,7 +45,7 @@ static irqreturn_t lmh_handle_irq(int hw_irq, void *data)
 	if (irq)
 		generic_handle_irq(irq);
 
-	return IRQ_HANDLED;
+	return 0;
 }
 
 static void lmh_enable_interrupt(struct irq_data *d)

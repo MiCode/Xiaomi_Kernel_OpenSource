@@ -134,7 +134,7 @@ int typec_altmode_exit(struct typec_altmode *adev)
 	if (!adev || !adev->active)
 		return 0;
 
-	if (!pdev->ops || !pdev->ops->exit)
+	if (!pdev->ops || !pdev->ops->enter)
 		return -EOPNOTSUPP;
 
 	/* Moving to USB Safe State */

@@ -562,19 +562,16 @@ static int cifs_query_path_info(const unsigned int xid, struct cifs_tcon *tcon,
 	if ((rc == -EOPNOTSUPP) || (rc == -EINVAL)) {
 		rc = SMBQueryInformation(xid, tcon, full_path, &fi, cifs_sb->local_nls,
 					 cifs_remap(cifs_sb));
+		if (!rc)
+			move_cifs_info_to_smb2(&data->fi, &fi);
 		*adjustTZ = true;
 	}
 
-	if (!rc) {
+	if (!rc && (le32_to_cpu(fi.Attributes) & ATTR_REPARSE)) {
 		int tmprc;
 		int oplock = 0;
 		struct cifs_fid fid;
 		struct cifs_open_parms oparms;
-
-		move_cifs_info_to_smb2(&data->fi, &fi);
-
-		if (!(le32_to_cpu(fi.Attributes) & ATTR_REPARSE))
-			return 0;
 
 		oparms.tcon = tcon;
 		oparms.cifs_sb = cifs_sb;
@@ -719,25 +716,17 @@ cifs_mkdir_setinfo(struct inode *inode, const char *full_path,
 static int cifs_open_file(const unsigned int xid, struct cifs_open_parms *oparms, __u32 *oplock,
 			  void *buf)
 {
-	struct cifs_open_info_data *data = buf;
-	FILE_ALL_INFO fi = {};
-	int rc;
+	FILE_ALL_INFO *fi = buf;
 
 	if (!(oparms->tcon->ses->capabilities & CAP_NT_SMBS))
-		rc = SMBLegacyOpen(xid, oparms->tcon, oparms->path,
-				   oparms->disposition,
-				   oparms->desired_access,
-				   oparms->create_options,
-				   &oparms->fid->netfid, oplock, &fi,
-				   oparms->cifs_sb->local_nls,
-				   cifs_remap(oparms->cifs_sb));
-	else
-		rc = CIFS_open(xid, oparms, oplock, &fi);
-
-	if (!rc && data)
-		move_cifs_info_to_smb2(&data->fi, &fi);
-
-	return rc;
+		return SMBLegacyOpen(xid, oparms->tcon, oparms->path,
+				     oparms->disposition,
+				     oparms->desired_access,
+				     oparms->create_options,
+				     &oparms->fid->netfid, oplock, fi,
+				     oparms->cifs_sb->local_nls,
+				     cifs_remap(oparms->cifs_sb));
+	return CIFS_open(xid, oparms, oplock, fi);
 }
 
 static void
@@ -1061,7 +1050,7 @@ cifs_make_node(unsigned int xid, struct inode *inode,
 	struct cifs_sb_info *cifs_sb = CIFS_SB(inode->i_sb);
 	struct inode *newinode = NULL;
 	int rc = -EPERM;
-	struct cifs_open_info_data buf = {};
+	FILE_ALL_INFO *buf = NULL;
 	struct cifs_io_parms io_parms;
 	__u32 oplock = 0;
 	struct cifs_fid fid;
@@ -1093,14 +1082,14 @@ cifs_make_node(unsigned int xid, struct inode *inode,
 					    cifs_sb->local_nls,
 					    cifs_remap(cifs_sb));
 		if (rc)
-			return rc;
+			goto out;
 
 		rc = cifs_get_inode_info_unix(&newinode, full_path,
 					      inode->i_sb, xid);
 
 		if (rc == 0)
 			d_instantiate(dentry, newinode);
-		return rc;
+		goto out;
 	}
 
 	/*
@@ -1108,12 +1097,18 @@ cifs_make_node(unsigned int xid, struct inode *inode,
 	 * support block and char device (no socket & fifo)
 	 */
 	if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_UNX_EMUL))
-		return rc;
+		goto out;
 
 	if (!S_ISCHR(mode) && !S_ISBLK(mode))
-		return rc;
+		goto out;
 
 	cifs_dbg(FYI, "sfu compat create special file\n");
+
+	buf = kmalloc(sizeof(FILE_ALL_INFO), GFP_KERNEL);
+	if (buf == NULL) {
+		rc = -ENOMEM;
+		goto out;
+	}
 
 	oparms.tcon = tcon;
 	oparms.cifs_sb = cifs_sb;
@@ -1129,21 +1124,21 @@ cifs_make_node(unsigned int xid, struct inode *inode,
 		oplock = REQ_OPLOCK;
 	else
 		oplock = 0;
-	rc = tcon->ses->server->ops->open(xid, &oparms, &oplock, &buf);
+	rc = tcon->ses->server->ops->open(xid, &oparms, &oplock, buf);
 	if (rc)
-		return rc;
+		goto out;
 
 	/*
 	 * BB Do not bother to decode buf since no local inode yet to put
 	 * timestamps in, but we can reuse it safely.
 	 */
 
-	pdev = (struct win_dev *)&buf.fi;
+	pdev = (struct win_dev *)buf;
 	io_parms.pid = current->tgid;
 	io_parms.tcon = tcon;
 	io_parms.offset = 0;
 	io_parms.length = sizeof(struct win_dev);
-	iov[1].iov_base = &buf.fi;
+	iov[1].iov_base = buf;
 	iov[1].iov_len = sizeof(struct win_dev);
 	if (S_ISCHR(mode)) {
 		memcpy(pdev->type, "IntxCHR", 8);
@@ -1162,8 +1157,8 @@ cifs_make_node(unsigned int xid, struct inode *inode,
 	d_drop(dentry);
 
 	/* FIXME: add code here to set EAs */
-
-	cifs_free_open_info(&buf);
+out:
+	kfree(buf);
 	return rc;
 }
 

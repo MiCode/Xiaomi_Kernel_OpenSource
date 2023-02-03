@@ -4215,11 +4215,10 @@ static void ath11k_sta_rc_update_wk(struct work_struct *wk)
 	const u8 *ht_mcs_mask;
 	const u16 *vht_mcs_mask;
 	const u16 *he_mcs_mask;
-	u32 changed, bw, nss, smps, bw_prev;
+	u32 changed, bw, nss, smps;
 	int err, num_vht_rates, num_he_rates;
 	const struct cfg80211_bitrate_mask *mask;
 	struct peer_assoc_params peer_arg;
-	enum wmi_phy_mode peer_phymode;
 
 	arsta = container_of(wk, struct ath11k_sta, update_wk);
 	sta = container_of((void *)arsta, struct ieee80211_sta, drv_priv);
@@ -4240,7 +4239,6 @@ static void ath11k_sta_rc_update_wk(struct work_struct *wk)
 	arsta->changed = 0;
 
 	bw = arsta->bw;
-	bw_prev = arsta->bw_prev;
 	nss = arsta->nss;
 	smps = arsta->smps;
 
@@ -4254,57 +4252,26 @@ static void ath11k_sta_rc_update_wk(struct work_struct *wk)
 			   ath11k_mac_max_he_nss(he_mcs_mask)));
 
 	if (changed & IEEE80211_RC_BW_CHANGED) {
-		/* Get the peer phymode */
-		ath11k_peer_assoc_h_phymode(ar, arvif->vif, sta, &peer_arg);
-		peer_phymode = peer_arg.peer_phymode;
+		/* Send peer assoc command before set peer bandwidth param to
+		 * avoid the mismatch between the peer phymode and the peer
+		 * bandwidth.
+		 */
+		ath11k_peer_assoc_prepare(ar, arvif->vif, sta, &peer_arg, true);
 
-		ath11k_dbg(ar->ab, ATH11K_DBG_MAC, "mac update sta %pM peer bw %d phymode %d\n",
-			   sta->addr, bw, peer_phymode);
-
-		if (bw > bw_prev) {
-			/* BW is upgraded. In this case we send WMI_PEER_PHYMODE
-			 * followed by WMI_PEER_CHWIDTH
-			 */
-			ath11k_dbg(ar->ab, ATH11K_DBG_MAC, "mac BW upgrade for sta %pM new BW %d, old BW %d\n",
-				   sta->addr, bw, bw_prev);
-
-			err = ath11k_wmi_set_peer_param(ar, sta->addr, arvif->vdev_id,
-							WMI_PEER_PHYMODE, peer_phymode);
-
-			if (err) {
-				ath11k_warn(ar->ab, "failed to update STA %pM peer phymode %d: %d\n",
-					    sta->addr, peer_phymode, err);
-				goto err_rc_bw_changed;
-			}
-
+		peer_arg.is_assoc = false;
+		err = ath11k_wmi_send_peer_assoc_cmd(ar, &peer_arg);
+		if (err) {
+			ath11k_warn(ar->ab, "failed to send peer assoc for STA %pM vdev %i: %d\n",
+				    sta->addr, arvif->vdev_id, err);
+		} else if (wait_for_completion_timeout(&ar->peer_assoc_done, 1 * HZ)) {
 			err = ath11k_wmi_set_peer_param(ar, sta->addr, arvif->vdev_id,
 							WMI_PEER_CHWIDTH, bw);
-
 			if (err)
 				ath11k_warn(ar->ab, "failed to update STA %pM peer bw %d: %d\n",
 					    sta->addr, bw, err);
 		} else {
-			/* BW is downgraded. In this case we send WMI_PEER_CHWIDTH
-			 * followed by WMI_PEER_PHYMODE
-			 */
-			ath11k_dbg(ar->ab, ATH11K_DBG_MAC, "mac BW downgrade for sta %pM new BW %d,old BW %d\n",
-				   sta->addr, bw, bw_prev);
-
-			err = ath11k_wmi_set_peer_param(ar, sta->addr, arvif->vdev_id,
-							WMI_PEER_CHWIDTH, bw);
-
-			if (err) {
-				ath11k_warn(ar->ab, "failed to update STA %pM peer bw %d: %d\n",
-					    sta->addr, bw, err);
-				goto err_rc_bw_changed;
-			}
-
-			err = ath11k_wmi_set_peer_param(ar, sta->addr, arvif->vdev_id,
-							WMI_PEER_PHYMODE, peer_phymode);
-
-			if (err)
-				ath11k_warn(ar->ab, "failed to update STA %pM peer phymode %d: %d\n",
-					    sta->addr, peer_phymode, err);
+			ath11k_warn(ar->ab, "failed to get peer assoc conf event for %pM vdev %i\n",
+				    sta->addr, arvif->vdev_id);
 		}
 	}
 
@@ -4385,7 +4352,6 @@ static void ath11k_sta_rc_update_wk(struct work_struct *wk)
 		}
 	}
 
-err_rc_bw_changed:
 	mutex_unlock(&ar->conf_mutex);
 }
 
@@ -4539,34 +4505,6 @@ exit:
 	return ret;
 }
 
-static u32 ath11k_mac_ieee80211_sta_bw_to_wmi(struct ath11k *ar,
-					      struct ieee80211_sta *sta)
-{
-	u32 bw = WMI_PEER_CHWIDTH_20MHZ;
-
-	switch (sta->deflink.bandwidth) {
-	case IEEE80211_STA_RX_BW_20:
-		bw = WMI_PEER_CHWIDTH_20MHZ;
-		break;
-	case IEEE80211_STA_RX_BW_40:
-		bw = WMI_PEER_CHWIDTH_40MHZ;
-		break;
-	case IEEE80211_STA_RX_BW_80:
-		bw = WMI_PEER_CHWIDTH_80MHZ;
-		break;
-	case IEEE80211_STA_RX_BW_160:
-		bw = WMI_PEER_CHWIDTH_160MHZ;
-		break;
-	default:
-		ath11k_warn(ar->ab, "Invalid bandwidth %d for %pM\n",
-			    sta->deflink.bandwidth, sta->addr);
-		bw = WMI_PEER_CHWIDTH_20MHZ;
-		break;
-	}
-
-	return bw;
-}
-
 static int ath11k_mac_op_sta_state(struct ieee80211_hw *hw,
 				   struct ieee80211_vif *vif,
 				   struct ieee80211_sta *sta,
@@ -4652,12 +4590,6 @@ static int ath11k_mac_op_sta_state(struct ieee80211_hw *hw,
 		if (ret)
 			ath11k_warn(ar->ab, "Failed to associate station: %pM\n",
 				    sta->addr);
-
-		spin_lock_bh(&ar->data_lock);
-		/* Set arsta bw and prev bw */
-		arsta->bw = ath11k_mac_ieee80211_sta_bw_to_wmi(ar, sta);
-		arsta->bw_prev = arsta->bw;
-		spin_unlock_bh(&ar->data_lock);
 	} else if (old_state == IEEE80211_STA_ASSOC &&
 		   new_state == IEEE80211_STA_AUTHORIZED) {
 		spin_lock_bh(&ar->ab->base_lock);
@@ -4781,8 +4713,28 @@ static void ath11k_mac_op_sta_rc_update(struct ieee80211_hw *hw,
 	spin_lock_bh(&ar->data_lock);
 
 	if (changed & IEEE80211_RC_BW_CHANGED) {
-		bw = ath11k_mac_ieee80211_sta_bw_to_wmi(ar, sta);
-		arsta->bw_prev = arsta->bw;
+		bw = WMI_PEER_CHWIDTH_20MHZ;
+
+		switch (sta->deflink.bandwidth) {
+		case IEEE80211_STA_RX_BW_20:
+			bw = WMI_PEER_CHWIDTH_20MHZ;
+			break;
+		case IEEE80211_STA_RX_BW_40:
+			bw = WMI_PEER_CHWIDTH_40MHZ;
+			break;
+		case IEEE80211_STA_RX_BW_80:
+			bw = WMI_PEER_CHWIDTH_80MHZ;
+			break;
+		case IEEE80211_STA_RX_BW_160:
+			bw = WMI_PEER_CHWIDTH_160MHZ;
+			break;
+		default:
+			ath11k_warn(ar->ab, "Invalid bandwidth %d in rc update for %pM\n",
+				    sta->deflink.bandwidth, sta->addr);
+			bw = WMI_PEER_CHWIDTH_20MHZ;
+			break;
+		}
+
 		arsta->bw = bw;
 	}
 

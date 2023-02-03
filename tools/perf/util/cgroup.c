@@ -224,19 +224,6 @@ static int add_cgroup_name(const char *fpath, const struct stat *sb __maybe_unus
 	return 0;
 }
 
-static int check_and_add_cgroup_name(const char *fpath)
-{
-	struct cgroup_name *cn;
-
-	list_for_each_entry(cn, &cgroup_list, list) {
-		if (!strcmp(cn->name, fpath))
-			return 0;
-	}
-
-	/* pretend if it's added by ftw() */
-	return add_cgroup_name(fpath, NULL, FTW_D, NULL);
-}
-
 static void release_cgroup_list(void)
 {
 	struct cgroup_name *cn;
@@ -255,7 +242,7 @@ static int list_cgroups(const char *str)
 	struct cgroup_name *cn;
 	char *s;
 
-	/* use given name as is when no regex is given */
+	/* use given name as is - for testing purpose */
 	for (;;) {
 		p = strchr(str, ',');
 		e = p ? p : eos;
@@ -266,13 +253,13 @@ static int list_cgroups(const char *str)
 			s = strndup(str, e - str);
 			if (!s)
 				return -1;
-
-			ret = check_and_add_cgroup_name(s);
+			/* pretend if it's added by ftw() */
+			ret = add_cgroup_name(s, NULL, FTW_D, NULL);
 			free(s);
-			if (ret < 0)
+			if (ret)
 				return -1;
 		} else {
-			if (check_and_add_cgroup_name("/") < 0)
+			if (add_cgroup_name("", NULL, FTW_D, NULL) < 0)
 				return -1;
 		}
 

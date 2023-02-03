@@ -842,7 +842,7 @@ static void axp20x_power_off(void)
 		     AXP20X_OFF);
 
 	/* Give capacitors etc. time to drain to avoid kernel panic msg. */
-	mdelay(500);
+	msleep(500);
 }
 
 int axp20x_match_device(struct axp20x_dev *axp20x)

@@ -16,7 +16,6 @@ struct sock_reuseport {
 	u16			max_socks;		/* length of socks */
 	u16			num_socks;		/* elements in socks */
 	u16			num_closed_socks;	/* closed elements in socks */
-	u16			incoming_cpu;
 	/* The last synq overflow event timestamp of this
 	 * reuse->socks[] group.
 	 */
@@ -59,6 +58,5 @@ static inline bool reuseport_has_conns(struct sock *sk)
 }
 
 void reuseport_has_conns_set(struct sock *sk);
-void reuseport_update_incoming_cpu(struct sock *sk, int val);
 
 #endif  /* _SOCK_REUSEPORT_H */

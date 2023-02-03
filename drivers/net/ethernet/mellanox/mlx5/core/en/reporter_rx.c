@@ -459,11 +459,7 @@ static int mlx5e_rx_reporter_diagnose(struct devlink_health_reporter *reporter,
 		goto unlock;
 
 	for (i = 0; i < priv->channels.num; i++) {
-		struct mlx5e_channel *c = priv->channels.c[i];
-		struct mlx5e_rq *rq;
-
-		rq = test_bit(MLX5E_CHANNEL_STATE_XSK, c->state) ?
-			&c->xskrq : &c->rq;
+		struct mlx5e_rq *rq = &priv->channels.c[i]->rq;
 
 		err = mlx5e_rx_reporter_build_diagnose_output(rq, fmsg);
 		if (err)

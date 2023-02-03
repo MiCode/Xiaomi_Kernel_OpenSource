@@ -366,7 +366,7 @@
 		spi-max-frequency = <20000000>;
 		spi-rx-bus-width = <2>;
 		label = "bmc";
-		partitions {
+		partitions@80000000 {
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;

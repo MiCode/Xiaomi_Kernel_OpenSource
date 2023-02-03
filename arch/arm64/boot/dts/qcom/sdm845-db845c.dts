@@ -1123,10 +1123,7 @@
 
 /* PINCTRL - additions to nodes defined in sdm845.dtsi */
 &qup_spi2_default {
-	pinconf {
-		pins = "gpio27", "gpio28", "gpio29", "gpio30";
-		drive-strength = <16>;
-	};
+	drive-strength = <16>;
 };
 
 &qup_uart3_default{

@@ -446,10 +446,9 @@ void iwl_mei_host_associated(const struct iwl_mei_conn_info *conn_info,
 void iwl_mei_host_disassociated(void);
 
 /**
- * iwl_mei_device_state() - must be called when the device changes up/down state
- * @up: true if the device is up, false otherwise.
+ * iwl_mei_device_down() - must be called when the device is down
  */
-void iwl_mei_device_state(bool up);
+void iwl_mei_device_down(void);
 
 #else
 
@@ -498,7 +497,7 @@ static inline void iwl_mei_host_associated(const struct iwl_mei_conn_info *conn_
 static inline void iwl_mei_host_disassociated(void)
 {}
 
-static inline void iwl_mei_device_state(bool up)
+static inline void iwl_mei_device_down(void)
 {}
 
 #endif /* CONFIG_IWLMEI */

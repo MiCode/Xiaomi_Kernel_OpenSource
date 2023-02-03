@@ -1525,9 +1525,9 @@ bpt_cmds(void)
 	cmd = inchar();
 
 	switch (cmd) {
-	case 'd': {	/* bd - hardware data breakpoint */
-		static const char badaddr[] = "Only kernel addresses are permitted for breakpoints\n";
-		int mode;
+	static const char badaddr[] = "Only kernel addresses are permitted for breakpoints\n";
+	int mode;
+	case 'd':	/* bd - hardware data breakpoint */
 		if (xmon_is_ro) {
 			printf(xmon_ro_msg);
 			break;
@@ -1560,7 +1560,6 @@ bpt_cmds(void)
 
 		force_enable_xmon();
 		break;
-	}
 
 	case 'i':	/* bi - hardware instr breakpoint */
 		if (xmon_is_ro) {

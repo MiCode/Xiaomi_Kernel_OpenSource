@@ -2450,8 +2450,7 @@ err_out:
 
 	if (userfont) {
 		p->userfont = old_userfont;
-		if (--REFCOUNT(data) == 0)
-			kfree(data - FONT_EXTRA_WORDS * sizeof(int));
+		REFCOUNT(data)--;
 	}
 
 	vc->vc_font.width = old_width;

@@ -77,7 +77,6 @@
 #include <linux/ptrace.h>
 #include <linux/vmalloc.h>
 #include <linux/sched/sysctl.h>
-#include <linux/set_memory.h>
 
 #include <trace/events/kmem.h>
 
@@ -5852,13 +5851,3 @@ void ptlock_free(struct page *page)
 	kmem_cache_free(page_ptl_cachep, page->ptl);
 }
 #endif
-
-int set_direct_map_range_uncached(unsigned long addr, unsigned long numpages)
-{
-#ifdef CONFIG_ARM64
-	return arch_set_direct_map_range_uncached(addr, numpages);
-#else
-	return -EOPNOTSUPP;
-#endif
-}
-EXPORT_SYMBOL_GPL(set_direct_map_range_uncached);

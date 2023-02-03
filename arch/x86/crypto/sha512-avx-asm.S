@@ -48,7 +48,6 @@
 ########################################################################
 
 #include <linux/linkage.h>
-#include <linux/cfi_types.h>
 
 .text
 
@@ -274,7 +273,7 @@ frame_size = frame_WK + WK_SIZE
 # of SHA512 message blocks.
 # "blocks" is the message length in SHA512 blocks
 ########################################################################
-SYM_TYPED_FUNC_START(sha512_transform_avx)
+SYM_FUNC_START(sha512_transform_avx)
 	test msglen, msglen
 	je nowork
 

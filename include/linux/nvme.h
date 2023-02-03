@@ -7,7 +7,6 @@
 #ifndef _LINUX_NVME_H
 #define _LINUX_NVME_H
 
-#include <linux/bits.h>
 #include <linux/types.h>
 #include <linux/uuid.h>
 
@@ -640,7 +639,7 @@ enum {
 	NVME_CMD_EFFECTS_NCC		= 1 << 2,
 	NVME_CMD_EFFECTS_NIC		= 1 << 3,
 	NVME_CMD_EFFECTS_CCC		= 1 << 4,
-	NVME_CMD_EFFECTS_CSE_MASK	= GENMASK(18, 16),
+	NVME_CMD_EFFECTS_CSE_MASK	= 3 << 16,
 	NVME_CMD_EFFECTS_UUID_SEL	= 1 << 19,
 };
 

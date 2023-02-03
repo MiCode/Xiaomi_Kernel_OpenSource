@@ -144,16 +144,11 @@ static int ovl_dentry_revalidate_common(struct dentry *dentry,
 					unsigned int flags, bool weak)
 {
 	struct ovl_entry *oe = dentry->d_fsdata;
-	struct inode *inode = d_inode_rcu(dentry);
 	struct dentry *upper;
 	unsigned int i;
 	int ret = 1;
 
-	/* Careful in RCU mode */
-	if (!inode)
-		return -ECHILD;
-
-	upper = ovl_i_dentry_upper(inode);
+	upper = ovl_dentry_upper(dentry);
 	if (upper)
 		ret = ovl_revalidate_real(upper, flags, weak);
 

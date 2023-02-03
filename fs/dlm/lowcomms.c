@@ -1543,11 +1543,7 @@ static void process_recv_sockets(struct work_struct *work)
 
 static void process_listen_recv_socket(struct work_struct *work)
 {
-	int ret;
-
-	do {
-		ret = accept_from_sock(&listen_con);
-	} while (!ret);
+	accept_from_sock(&listen_con);
 }
 
 static void dlm_connect(struct connection *con)
@@ -1824,7 +1820,7 @@ static int dlm_listen_for_all(void)
 	result = sock->ops->listen(sock, 5);
 	if (result < 0) {
 		dlm_close_sock(&listen_con.sock);
-		return result;
+		goto out;
 	}
 
 	return 0;
@@ -2027,6 +2023,7 @@ fail_listen:
 	dlm_proto_ops = NULL;
 fail_proto_ops:
 	dlm_allow_conn = 0;
+	dlm_close_sock(&listen_con.sock);
 	work_stop();
 fail_local:
 	deinit_local();

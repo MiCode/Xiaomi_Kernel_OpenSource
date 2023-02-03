@@ -356,7 +356,7 @@ static const struct qcom_cc_desc lpass_audio_hm_sc7180_desc = {
 	.num_gdscs = ARRAY_SIZE(lpass_audio_hm_sc7180_gdscs),
 };
 
-static int lpass_setup_runtime_pm(struct platform_device *pdev)
+static int lpass_create_pm_clks(struct platform_device *pdev)
 {
 	int ret;
 
@@ -375,7 +375,7 @@ static int lpass_setup_runtime_pm(struct platform_device *pdev)
 	if (ret < 0)
 		dev_err(&pdev->dev, "failed to acquire iface clock\n");
 
-	return pm_runtime_resume_and_get(&pdev->dev);
+	return ret;
 }
 
 static int lpass_core_cc_sc7180_probe(struct platform_device *pdev)
@@ -384,7 +384,7 @@ static int lpass_core_cc_sc7180_probe(struct platform_device *pdev)
 	struct regmap *regmap;
 	int ret;
 
-	ret = lpass_setup_runtime_pm(pdev);
+	ret = lpass_create_pm_clks(pdev);
 	if (ret)
 		return ret;
 
@@ -392,14 +392,12 @@ static int lpass_core_cc_sc7180_probe(struct platform_device *pdev)
 	desc = &lpass_audio_hm_sc7180_desc;
 	ret = qcom_cc_probe_by_index(pdev, 1, desc);
 	if (ret)
-		goto exit;
+		return ret;
 
 	lpass_core_cc_sc7180_regmap_config.name = "lpass_core_cc";
 	regmap = qcom_cc_map(pdev, &lpass_core_cc_sc7180_desc);
-	if (IS_ERR(regmap)) {
-		ret = PTR_ERR(regmap);
-		goto exit;
-	}
+	if (IS_ERR(regmap))
+		return PTR_ERR(regmap);
 
 	/*
 	 * Keep the CLK always-ON
@@ -417,7 +415,6 @@ static int lpass_core_cc_sc7180_probe(struct platform_device *pdev)
 	ret = qcom_cc_really_probe(pdev, &lpass_core_cc_sc7180_desc, regmap);
 
 	pm_runtime_mark_last_busy(&pdev->dev);
-exit:
 	pm_runtime_put_autosuspend(&pdev->dev);
 
 	return ret;
@@ -428,19 +425,14 @@ static int lpass_hm_core_probe(struct platform_device *pdev)
 	const struct qcom_cc_desc *desc;
 	int ret;
 
-	ret = lpass_setup_runtime_pm(pdev);
+	ret = lpass_create_pm_clks(pdev);
 	if (ret)
 		return ret;
 
 	lpass_core_cc_sc7180_regmap_config.name = "lpass_hm_core";
 	desc = &lpass_core_hm_sc7180_desc;
 
-	ret = qcom_cc_probe_by_index(pdev, 0, desc);
-
-	pm_runtime_mark_last_busy(&pdev->dev);
-	pm_runtime_put_autosuspend(&pdev->dev);
-
-	return ret;
+	return qcom_cc_probe_by_index(pdev, 0, desc);
 }
 
 static const struct of_device_id lpass_hm_sc7180_match_table[] = {

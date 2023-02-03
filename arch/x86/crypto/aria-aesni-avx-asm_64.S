@@ -7,7 +7,6 @@
  */
 
 #include <linux/linkage.h>
-#include <linux/cfi_types.h>
 #include <asm/frame.h>
 
 /* struct aria_ctx: */
@@ -914,7 +913,7 @@ SYM_FUNC_START_LOCAL(__aria_aesni_avx_crypt_16way)
 	RET;
 SYM_FUNC_END(__aria_aesni_avx_crypt_16way)
 
-SYM_TYPED_FUNC_START(aria_aesni_avx_encrypt_16way)
+SYM_FUNC_START(aria_aesni_avx_encrypt_16way)
 	/* input:
 	*      %rdi: ctx, CTX
 	*      %rsi: dst
@@ -939,7 +938,7 @@ SYM_TYPED_FUNC_START(aria_aesni_avx_encrypt_16way)
 	RET;
 SYM_FUNC_END(aria_aesni_avx_encrypt_16way)
 
-SYM_TYPED_FUNC_START(aria_aesni_avx_decrypt_16way)
+SYM_FUNC_START(aria_aesni_avx_decrypt_16way)
 	/* input:
 	*      %rdi: ctx, CTX
 	*      %rsi: dst
@@ -1040,7 +1039,7 @@ SYM_FUNC_START_LOCAL(__aria_aesni_avx_ctr_gen_keystream_16way)
 	RET;
 SYM_FUNC_END(__aria_aesni_avx_ctr_gen_keystream_16way)
 
-SYM_TYPED_FUNC_START(aria_aesni_avx_ctr_crypt_16way)
+SYM_FUNC_START(aria_aesni_avx_ctr_crypt_16way)
 	/* input:
 	*      %rdi: ctx
 	*      %rsi: dst
@@ -1209,7 +1208,7 @@ SYM_FUNC_START_LOCAL(__aria_aesni_avx_gfni_crypt_16way)
 	RET;
 SYM_FUNC_END(__aria_aesni_avx_gfni_crypt_16way)
 
-SYM_TYPED_FUNC_START(aria_aesni_avx_gfni_encrypt_16way)
+SYM_FUNC_START(aria_aesni_avx_gfni_encrypt_16way)
 	/* input:
 	*      %rdi: ctx, CTX
 	*      %rsi: dst
@@ -1234,7 +1233,7 @@ SYM_TYPED_FUNC_START(aria_aesni_avx_gfni_encrypt_16way)
 	RET;
 SYM_FUNC_END(aria_aesni_avx_gfni_encrypt_16way)
 
-SYM_TYPED_FUNC_START(aria_aesni_avx_gfni_decrypt_16way)
+SYM_FUNC_START(aria_aesni_avx_gfni_decrypt_16way)
 	/* input:
 	*      %rdi: ctx, CTX
 	*      %rsi: dst
@@ -1259,7 +1258,7 @@ SYM_TYPED_FUNC_START(aria_aesni_avx_gfni_decrypt_16way)
 	RET;
 SYM_FUNC_END(aria_aesni_avx_gfni_decrypt_16way)
 
-SYM_TYPED_FUNC_START(aria_aesni_avx_gfni_ctr_crypt_16way)
+SYM_FUNC_START(aria_aesni_avx_gfni_ctr_crypt_16way)
 	/* input:
 	*      %rdi: ctx
 	*      %rsi: dst

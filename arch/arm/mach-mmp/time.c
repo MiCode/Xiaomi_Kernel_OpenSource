@@ -43,21 +43,18 @@
 static void __iomem *mmp_timer_base = TIMERS_VIRT_BASE;
 
 /*
- * Read the timer through the CVWR register. Delay is required after requesting
- * a read. The CR register cannot be directly read due to metastability issues
- * documented in the PXA168 software manual.
+ * FIXME: the timer needs some delay to stablize the counter capture
  */
 static inline uint32_t timer_read(void)
 {
-	uint32_t val;
-	int delay = 3;
+	int delay = 100;
 
 	__raw_writel(1, mmp_timer_base + TMR_CVWR(1));
 
 	while (delay--)
-		val = __raw_readl(mmp_timer_base + TMR_CVWR(1));
+		cpu_relax();
 
-	return val;
+	return __raw_readl(mmp_timer_base + TMR_CVWR(1));
 }
 
 static u64 notrace mmp_read_sched_clock(void)

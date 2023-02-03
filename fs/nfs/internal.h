@@ -739,10 +739,12 @@ unsigned long nfs_io_size(unsigned long iosize, enum xprt_transports proto)
 		iosize = NFS_DEF_FILE_IO_SIZE;
 	else if (iosize >= NFS_MAX_FILE_IO_SIZE)
 		iosize = NFS_MAX_FILE_IO_SIZE;
+	else
+		iosize = iosize & PAGE_MASK;
 
-	if (proto == XPRT_TRANSPORT_UDP || iosize < PAGE_SIZE)
+	if (proto == XPRT_TRANSPORT_UDP)
 		return nfs_block_bits(iosize, NULL);
-	return iosize & PAGE_MASK;
+	return iosize;
 }
 
 /*

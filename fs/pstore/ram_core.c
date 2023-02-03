@@ -439,11 +439,7 @@ static void *persistent_ram_vmap(phys_addr_t start, size_t size,
 		phys_addr_t addr = page_start + i * PAGE_SIZE;
 		pages[i] = pfn_to_page(addr >> PAGE_SHIFT);
 	}
-	/*
-	 * VM_IOREMAP used here to bypass this region during vread()
-	 * and kmap_atomic() (i.e. kcore) to avoid __va() failures.
-	 */
-	vaddr = vmap(pages, page_count, VM_MAP | VM_IOREMAP, prot);
+	vaddr = vmap(pages, page_count, VM_MAP, prot);
 	kfree(pages);
 
 	/*

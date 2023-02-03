@@ -597,7 +597,7 @@ struct elf_state {
 	size_t shstrndx; /* section index for section name strings */
 	size_t strtabidx;
 	struct elf_sec_desc *secs;
-	size_t sec_cnt;
+	int sec_cnt;
 	int btf_maps_shndx;
 	__u32 btf_maps_sec_btf_id;
 	int text_shndx;
@@ -1408,10 +1408,6 @@ static int bpf_object__check_endianness(struct bpf_object *obj)
 static int
 bpf_object__init_license(struct bpf_object *obj, void *data, size_t size)
 {
-	if (!data) {
-		pr_warn("invalid license section in %s\n", obj->path);
-		return -LIBBPF_ERRNO__FORMAT;
-	}
 	/* libbpf_strlcpy() only copies first N - 1 bytes, so size + 1 won't
 	 * go over allowed ELF data section buffer
 	 */
@@ -1425,7 +1421,7 @@ bpf_object__init_kversion(struct bpf_object *obj, void *data, size_t size)
 {
 	__u32 kver;
 
-	if (!data || size != sizeof(kver)) {
+	if (size != sizeof(kver)) {
 		pr_warn("invalid kver section in %s\n", obj->path);
 		return -LIBBPF_ERRNO__FORMAT;
 	}
@@ -3316,15 +3312,10 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 	Elf64_Shdr *sh;
 
 	/* ELF section indices are 0-based, but sec #0 is special "invalid"
-	 * section. Since section count retrieved by elf_getshdrnum() does
-	 * include sec #0, it is already the necessary size of an array to keep
-	 * all the sections.
+	 * section. e_shnum does include sec #0, so e_shnum is the necessary
+	 * size of an array to keep all the sections.
 	 */
-	if (elf_getshdrnum(obj->efile.elf, &obj->efile.sec_cnt)) {
-		pr_warn("elf: failed to get the number of sections for %s: %s\n",
-			obj->path, elf_errmsg(-1));
-		return -LIBBPF_ERRNO__FORMAT;
-	}
+	obj->efile.sec_cnt = obj->efile.ehdr->e_shnum;
 	obj->efile.secs = calloc(obj->efile.sec_cnt, sizeof(*obj->efile.secs));
 	if (!obj->efile.secs)
 		return -ENOMEM;
@@ -4114,9 +4105,6 @@ static struct bpf_program *find_prog_by_sec_insn(const struct bpf_object *obj,
 {
 	int l = 0, r = obj->nr_programs - 1, m;
 	struct bpf_program *prog;
-
-	if (!obj->nr_programs)
-		return NULL;
 
 	while (l < r) {
 		m = l + (r - l + 1) / 2;

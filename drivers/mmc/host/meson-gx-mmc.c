@@ -1335,9 +1335,7 @@ static int meson_mmc_probe(struct platform_device *pdev)
 	}
 
 	mmc->ops = &meson_mmc_ops;
-	ret = mmc_add_host(mmc);
-	if (ret)
-		goto err_free_irq;
+	mmc_add_host(mmc);
 
 	return 0;
 

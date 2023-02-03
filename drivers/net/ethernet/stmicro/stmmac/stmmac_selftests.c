@@ -1654,16 +1654,12 @@ static int stmmac_test_arpoffload(struct stmmac_priv *priv)
 	}
 
 	ret = stmmac_set_arp_offload(priv, priv->hw, true, ip_addr);
-	if (ret) {
-		kfree_skb(skb);
+	if (ret)
 		goto cleanup;
-	}
 
 	ret = dev_set_promiscuity(priv->dev, 1);
-	if (ret) {
-		kfree_skb(skb);
+	if (ret)
 		goto cleanup;
-	}
 
 	ret = dev_direct_xmit(skb, 0);
 	if (ret)

@@ -192,7 +192,6 @@ struct sys_stat_struct {
 __asm__ (".section .text\n"
     ".weak __start\n"
     ".set nomips16\n"
-    ".set push\n"
     ".set    noreorder\n"
     ".option pic0\n"
     ".ent __start\n"
@@ -211,7 +210,6 @@ __asm__ (".section .text\n"
     "li $v0, 4001\n"              // NR_exit == 4001
     "syscall\n"
     ".end __start\n"
-    ".set pop\n"
     "");
 
 #endif // _NOLIBC_ARCH_MIPS_H

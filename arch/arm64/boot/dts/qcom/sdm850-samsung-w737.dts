@@ -415,10 +415,8 @@
 };
 
 &qup_i2c12_default {
-	pinmux {
-		drive-strength = <2>;
-		bias-disable;
-	};
+	drive-strength = <2>;
+	bias-disable;
 };
 
 &qup_uart6_default {

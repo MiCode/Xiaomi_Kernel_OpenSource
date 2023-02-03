@@ -350,8 +350,6 @@ static comp_t encode_comp_t(unsigned long value)
 		exp++;
 	}
 
-	if (exp > (((comp_t) ~0U) >> MANTSIZE))
-		return (comp_t) ~0U;
 	/*
 	 * Clean it up and polish it off.
 	 */

@@ -1162,11 +1162,7 @@ static int __driver_attach(struct device *dev, void *data)
 		return 0;
 	} else if (ret < 0) {
 		dev_dbg(dev, "Bus failed to match device: %d\n", ret);
-		/*
-		 * Driver could not match with device, but may match with
-		 * another device on the bus.
-		 */
-		return 0;
+		return ret;
 	} /* ret > 0 means positive match */
 
 	if (driver_allows_async_probing(drv)) {

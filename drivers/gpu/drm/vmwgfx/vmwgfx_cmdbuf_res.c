@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 OR MIT
 /**************************************************************************
  *
- * Copyright 2014-2022 VMware, Inc., Palo Alto, CA., USA
+ * Copyright 2014-2015 VMware, Inc., Palo Alto, CA., USA
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
@@ -27,8 +27,6 @@
 
 #include "vmwgfx_drv.h"
 #include "vmwgfx_resource_priv.h"
-
-#include <linux/hashtable.h>
 
 #define VMW_CMDBUF_RES_MAN_HT_ORDER 12
 
@@ -61,7 +59,7 @@ struct vmw_cmdbuf_res {
  * @resources and @list are protected by the cmdbuf mutex for now.
  */
 struct vmw_cmdbuf_res_manager {
-	DECLARE_HASHTABLE(resources, VMW_CMDBUF_RES_MAN_HT_ORDER);
+	struct vmwgfx_open_hash resources;
 	struct list_head list;
 	struct vmw_private *dev_priv;
 };
@@ -84,13 +82,14 @@ vmw_cmdbuf_res_lookup(struct vmw_cmdbuf_res_manager *man,
 		      u32 user_key)
 {
 	struct vmwgfx_hash_item *hash;
+	int ret;
 	unsigned long key = user_key | (res_type << 24);
 
-	hash_for_each_possible_rcu(man->resources, hash, head, key) {
-		if (hash->key == key)
-			return hlist_entry(hash, struct vmw_cmdbuf_res, hash)->res;
-	}
-	return ERR_PTR(-EINVAL);
+	ret = vmwgfx_ht_find_item(&man->resources, key, &hash);
+	if (unlikely(ret != 0))
+		return ERR_PTR(ret);
+
+	return drm_hash_entry(hash, struct vmw_cmdbuf_res, hash)->res;
 }
 
 /**
@@ -106,7 +105,7 @@ static void vmw_cmdbuf_res_free(struct vmw_cmdbuf_res_manager *man,
 				struct vmw_cmdbuf_res *entry)
 {
 	list_del(&entry->head);
-	hash_del_rcu(&entry->hash.head);
+	WARN_ON(vmwgfx_ht_remove_item(&man->resources, &entry->hash));
 	vmw_resource_unreference(&entry->res);
 	kfree(entry);
 }
@@ -160,6 +159,7 @@ void vmw_cmdbuf_res_commit(struct list_head *list)
 void vmw_cmdbuf_res_revert(struct list_head *list)
 {
 	struct vmw_cmdbuf_res *entry, *next;
+	int ret;
 
 	list_for_each_entry_safe(entry, next, list, head) {
 		switch (entry->state) {
@@ -167,8 +167,8 @@ void vmw_cmdbuf_res_revert(struct list_head *list)
 			vmw_cmdbuf_res_free(entry->man, entry);
 			break;
 		case VMW_CMDBUF_RES_DEL:
-			hash_add_rcu(entry->man->resources, &entry->hash.head,
-						entry->hash.key);
+			ret = vmwgfx_ht_insert_item(&entry->man->resources, &entry->hash);
+			BUG_ON(ret);
 			list_move_tail(&entry->head, &entry->man->list);
 			entry->state = VMW_CMDBUF_RES_COMMITTED;
 			break;
@@ -199,20 +199,26 @@ int vmw_cmdbuf_res_add(struct vmw_cmdbuf_res_manager *man,
 		       struct list_head *list)
 {
 	struct vmw_cmdbuf_res *cres;
+	int ret;
 
 	cres = kzalloc(sizeof(*cres), GFP_KERNEL);
 	if (unlikely(!cres))
 		return -ENOMEM;
 
 	cres->hash.key = user_key | (res_type << 24);
-	hash_add_rcu(man->resources, &cres->hash.head, cres->hash.key);
+	ret = vmwgfx_ht_insert_item(&man->resources, &cres->hash);
+	if (unlikely(ret != 0)) {
+		kfree(cres);
+		goto out_invalid_key;
+	}
 
 	cres->state = VMW_CMDBUF_RES_ADD;
 	cres->res = vmw_resource_reference(res);
 	cres->man = man;
 	list_add_tail(&cres->head, list);
 
-	return 0;
+out_invalid_key:
+	return ret;
 }
 
 /**
@@ -237,18 +243,16 @@ int vmw_cmdbuf_res_remove(struct vmw_cmdbuf_res_manager *man,
 			  struct list_head *list,
 			  struct vmw_resource **res_p)
 {
-	struct vmw_cmdbuf_res *entry = NULL;
+	struct vmw_cmdbuf_res *entry;
 	struct vmwgfx_hash_item *hash;
-	unsigned long key = user_key | (res_type << 24);
+	int ret;
 
-	hash_for_each_possible_rcu(man->resources, hash, head, key) {
-		if (hash->key == key) {
-			entry = hlist_entry(hash, struct vmw_cmdbuf_res, hash);
-			break;
-		}
-	}
-	if (unlikely(!entry))
+	ret = vmwgfx_ht_find_item(&man->resources, user_key | (res_type << 24),
+			       &hash);
+	if (likely(ret != 0))
 		return -EINVAL;
+
+	entry = drm_hash_entry(hash, struct vmw_cmdbuf_res, hash);
 
 	switch (entry->state) {
 	case VMW_CMDBUF_RES_ADD:
@@ -256,7 +260,7 @@ int vmw_cmdbuf_res_remove(struct vmw_cmdbuf_res_manager *man,
 		*res_p = NULL;
 		break;
 	case VMW_CMDBUF_RES_COMMITTED:
-		hash_del_rcu(&entry->hash.head);
+		(void) vmwgfx_ht_remove_item(&man->resources, &entry->hash);
 		list_del(&entry->head);
 		entry->state = VMW_CMDBUF_RES_DEL;
 		list_add_tail(&entry->head, list);
@@ -283,6 +287,7 @@ struct vmw_cmdbuf_res_manager *
 vmw_cmdbuf_res_man_create(struct vmw_private *dev_priv)
 {
 	struct vmw_cmdbuf_res_manager *man;
+	int ret;
 
 	man = kzalloc(sizeof(*man), GFP_KERNEL);
 	if (!man)
@@ -290,8 +295,12 @@ vmw_cmdbuf_res_man_create(struct vmw_private *dev_priv)
 
 	man->dev_priv = dev_priv;
 	INIT_LIST_HEAD(&man->list);
-	hash_init(man->resources);
-	return man;
+	ret = vmwgfx_ht_create(&man->resources, VMW_CMDBUF_RES_MAN_HT_ORDER);
+	if (ret == 0)
+		return man;
+
+	kfree(man);
+	return ERR_PTR(ret);
 }
 
 /**
@@ -311,6 +320,7 @@ void vmw_cmdbuf_res_man_destroy(struct vmw_cmdbuf_res_manager *man)
 	list_for_each_entry_safe(entry, next, &man->list, head)
 		vmw_cmdbuf_res_free(man, entry);
 
+	vmwgfx_ht_remove(&man->resources);
 	kfree(man);
 }
 

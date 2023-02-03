@@ -679,7 +679,7 @@ int ext2_empty_dir (struct inode * inode)
 		page = ext2_get_page(inode, i, 0, &page_addr);
 
 		if (IS_ERR(page))
-			return 0;
+			goto not_empty;
 
 		kaddr = page_addr;
 		de = (ext2_dirent *)kaddr;

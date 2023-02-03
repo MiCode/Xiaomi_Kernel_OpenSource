@@ -4311,10 +4311,8 @@ static int __init regulatory_init_db(void)
 		return -EINVAL;
 
 	err = load_builtin_regdb_keys();
-	if (err) {
-		platform_device_unregister(reg_pdev);
+	if (err)
 		return err;
-	}
 
 	/* We always try to get an update for the static regdomain */
 	err = regulatory_hint_core(cfg80211_world_regdom->alpha2);

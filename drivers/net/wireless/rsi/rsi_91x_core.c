@@ -466,9 +466,7 @@ void rsi_core_xmit(struct rsi_common *common, struct sk_buff *skb)
 							      tid, 0);
 			}
 		}
-
-		if (IEEE80211_SKB_CB(skb)->control.flags &
-		    IEEE80211_TX_CTRL_PORT_CTRL_PROTO) {
+		if (skb->protocol == cpu_to_be16(ETH_P_PAE)) {
 			q_num = MGMT_SOFT_Q;
 			skb->priority = q_num;
 		}

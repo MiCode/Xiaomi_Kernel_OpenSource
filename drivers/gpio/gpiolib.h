@@ -15,7 +15,6 @@
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/cdev.h>
-#include <linux/rwsem.h>
 
 #define GPIOCHIP_NAME	"gpiochip"
 
@@ -40,9 +39,6 @@
  * @list: links gpio_device:s together for traversal
  * @notifier: used to notify subscribers about lines being requested, released
  *            or reconfigured
- * @sem: protects the structure from a NULL-pointer dereference of @chip by
- *       user-space operations when the device gets unregistered during
- *       a hot-unplug event
  * @pin_ranges: range of pins served by the GPIO driver
  *
  * This state container holds most of the runtime variable data
@@ -64,7 +60,6 @@ struct gpio_device {
 	void			*data;
 	struct list_head        list;
 	struct blocking_notifier_head notifier;
-	struct rw_semaphore	sem;
 
 #ifdef CONFIG_PINCTRL
 	/*

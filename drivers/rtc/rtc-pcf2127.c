@@ -885,17 +885,9 @@ static const struct regmap_bus pcf2127_i2c_regmap = {
 
 static struct i2c_driver pcf2127_i2c_driver;
 
-static const struct i2c_device_id pcf2127_i2c_id[] = {
-	{ "pcf2127", 1 },
-	{ "pcf2129", 0 },
-	{ "pca2129", 0 },
-	{ }
-};
-MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
-
-static int pcf2127_i2c_probe(struct i2c_client *client)
+static int pcf2127_i2c_probe(struct i2c_client *client,
+				const struct i2c_device_id *id)
 {
-	const struct i2c_device_id *id = i2c_match_id(pcf2127_i2c_id, client);
 	struct regmap *regmap;
 	static const struct regmap_config config = {
 		.reg_bits = 8,
@@ -918,12 +910,20 @@ static int pcf2127_i2c_probe(struct i2c_client *client)
 			     pcf2127_i2c_driver.driver.name, id->driver_data);
 }
 
+static const struct i2c_device_id pcf2127_i2c_id[] = {
+	{ "pcf2127", 1 },
+	{ "pcf2129", 0 },
+	{ "pca2129", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(i2c, pcf2127_i2c_id);
+
 static struct i2c_driver pcf2127_i2c_driver = {
 	.driver		= {
 		.name	= "rtc-pcf2127-i2c",
 		.of_match_table = of_match_ptr(pcf2127_of_match),
 	},
-	.probe_new	= pcf2127_i2c_probe,
+	.probe		= pcf2127_i2c_probe,
 	.id_table	= pcf2127_i2c_id,
 };
 

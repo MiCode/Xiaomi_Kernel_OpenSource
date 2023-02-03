@@ -327,18 +327,18 @@ static int ad5820_probe(struct i2c_client *client,
 
 	ret = media_entity_pads_init(&coil->subdev.entity, 0, NULL);
 	if (ret < 0)
-		goto clean_mutex;
+		goto cleanup2;
 
 	ret = v4l2_async_register_subdev(&coil->subdev);
 	if (ret < 0)
-		goto clean_entity;
+		goto cleanup;
 
 	return ret;
 
-clean_entity:
-	media_entity_cleanup(&coil->subdev.entity);
-clean_mutex:
+cleanup2:
 	mutex_destroy(&coil->power_lock);
+cleanup:
+	media_entity_cleanup(&coil->subdev.entity);
 	return ret;
 }
 

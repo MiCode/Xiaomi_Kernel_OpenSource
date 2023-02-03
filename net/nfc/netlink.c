@@ -1497,7 +1497,6 @@ static int nfc_genl_se_io(struct sk_buff *skb, struct genl_info *info)
 	u32 dev_idx, se_idx;
 	u8 *apdu;
 	size_t apdu_len;
-	int rc;
 
 	if (!info->attrs[NFC_ATTR_DEVICE_INDEX] ||
 	    !info->attrs[NFC_ATTR_SE_INDEX] ||
@@ -1511,37 +1510,25 @@ static int nfc_genl_se_io(struct sk_buff *skb, struct genl_info *info)
 	if (!dev)
 		return -ENODEV;
 
-	if (!dev->ops || !dev->ops->se_io) {
-		rc = -EOPNOTSUPP;
-		goto put_dev;
-	}
+	if (!dev->ops || !dev->ops->se_io)
+		return -ENOTSUPP;
 
 	apdu_len = nla_len(info->attrs[NFC_ATTR_SE_APDU]);
-	if (apdu_len == 0) {
-		rc = -EINVAL;
-		goto put_dev;
-	}
+	if (apdu_len == 0)
+		return -EINVAL;
 
 	apdu = nla_data(info->attrs[NFC_ATTR_SE_APDU]);
-	if (!apdu) {
-		rc = -EINVAL;
-		goto put_dev;
-	}
+	if (!apdu)
+		return -EINVAL;
 
 	ctx = kzalloc(sizeof(struct se_io_ctx), GFP_KERNEL);
-	if (!ctx) {
-		rc = -ENOMEM;
-		goto put_dev;
-	}
+	if (!ctx)
+		return -ENOMEM;
 
 	ctx->dev_idx = dev_idx;
 	ctx->se_idx = se_idx;
 
-	rc = nfc_se_io(dev, se_idx, apdu, apdu_len, se_io_cb, ctx);
-
-put_dev:
-	nfc_put_device(dev);
-	return rc;
+	return nfc_se_io(dev, se_idx, apdu, apdu_len, se_io_cb, ctx);
 }
 
 static int nfc_genl_vendor_cmd(struct sk_buff *skb,
@@ -1564,21 +1551,14 @@ static int nfc_genl_vendor_cmd(struct sk_buff *skb,
 	subcmd = nla_get_u32(info->attrs[NFC_ATTR_VENDOR_SUBCMD]);
 
 	dev = nfc_get_device(dev_idx);
-	if (!dev)
+	if (!dev || !dev->vendor_cmds || !dev->n_vendor_cmds)
 		return -ENODEV;
-
-	if (!dev->vendor_cmds || !dev->n_vendor_cmds) {
-		err = -ENODEV;
-		goto put_dev;
-	}
 
 	if (info->attrs[NFC_ATTR_VENDOR_DATA]) {
 		data = nla_data(info->attrs[NFC_ATTR_VENDOR_DATA]);
 		data_len = nla_len(info->attrs[NFC_ATTR_VENDOR_DATA]);
-		if (data_len == 0) {
-			err = -EINVAL;
-			goto put_dev;
-		}
+		if (data_len == 0)
+			return -EINVAL;
 	} else {
 		data = NULL;
 		data_len = 0;
@@ -1593,14 +1573,10 @@ static int nfc_genl_vendor_cmd(struct sk_buff *skb,
 		dev->cur_cmd_info = info;
 		err = cmd->doit(dev, data, data_len);
 		dev->cur_cmd_info = NULL;
-		goto put_dev;
+		return err;
 	}
 
-	err = -EOPNOTSUPP;
-
-put_dev:
-	nfc_put_device(dev);
-	return err;
+	return -EOPNOTSUPP;
 }
 
 /* message building helper */

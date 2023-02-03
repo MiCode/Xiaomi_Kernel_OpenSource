@@ -716,10 +716,9 @@ static int gru_check_chiplet_assignment(struct gru_state *gru,
  * chiplet. Misassignment can occur if the process migrates to a different
  * blade or if the user changes the selected blade/chiplet.
  */
-int gru_check_context_placement(struct gru_thread_state *gts)
+void gru_check_context_placement(struct gru_thread_state *gts)
 {
 	struct gru_state *gru;
-	int ret = 0;
 
 	/*
 	 * If the current task is the context owner, verify that the
@@ -727,23 +726,15 @@ int gru_check_context_placement(struct gru_thread_state *gts)
 	 * references. Pthread apps use non-owner references to the CBRs.
 	 */
 	gru = gts->ts_gru;
-	/*
-	 * If gru or gts->ts_tgid_owner isn't initialized properly, return
-	 * success to indicate that the caller does not need to unload the
-	 * gru context.The caller is responsible for their inspection and
-	 * reinitialization if needed.
-	 */
 	if (!gru || gts->ts_tgid_owner != current->tgid)
-		return ret;
+		return;
 
 	if (!gru_check_chiplet_assignment(gru, gts)) {
 		STAT(check_context_unload);
-		ret = -EINVAL;
+		gru_unload_context(gts, 1);
 	} else if (gru_retarget_intr(gts)) {
 		STAT(check_context_retarget_intr);
 	}
-
-	return ret;
 }
 
 
@@ -943,12 +934,7 @@ again:
 	mutex_lock(&gts->ts_ctxlock);
 	preempt_disable();
 
-	if (gru_check_context_placement(gts)) {
-		preempt_enable();
-		mutex_unlock(&gts->ts_ctxlock);
-		gru_unload_context(gts, 1);
-		return VM_FAULT_NOPAGE;
-	}
+	gru_check_context_placement(gts);
 
 	if (!gts->ts_gru) {
 		STAT(load_user_context);

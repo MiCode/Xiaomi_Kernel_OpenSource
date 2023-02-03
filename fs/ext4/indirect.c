@@ -148,7 +148,6 @@ static Indirect *ext4_get_branch(struct inode *inode, int depth,
 	struct super_block *sb = inode->i_sb;
 	Indirect *p = chain;
 	struct buffer_head *bh;
-	unsigned int key;
 	int ret = -EIO;
 
 	*err = 0;
@@ -157,13 +156,7 @@ static Indirect *ext4_get_branch(struct inode *inode, int depth,
 	if (!p->key)
 		goto no_block;
 	while (--depth) {
-		key = le32_to_cpu(p->key);
-		if (key > ext4_blocks_count(EXT4_SB(sb)->s_es)) {
-			/* the block was out of range */
-			ret = -EFSCORRUPTED;
-			goto failure;
-		}
-		bh = sb_getblk(sb, key);
+		bh = sb_getblk(sb, le32_to_cpu(p->key));
 		if (unlikely(!bh)) {
 			ret = -ENOMEM;
 			goto failure;

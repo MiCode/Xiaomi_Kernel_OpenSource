@@ -270,19 +270,23 @@ EXPORT_SYMBOL_NS(adis_debugfs_reg_access, IIO_ADISLIB);
 #endif
 
 /**
- * __adis_enable_irq() - Enable or disable data ready IRQ (unlocked)
+ * adis_enable_irq() - Enable or disable data ready IRQ
  * @adis: The adis device
  * @enable: Whether to enable the IRQ
  *
  * Returns 0 on success, negative error code otherwise
  */
-int __adis_enable_irq(struct adis *adis, bool enable)
+int adis_enable_irq(struct adis *adis, bool enable)
 {
-	int ret;
+	int ret = 0;
 	u16 msc;
 
-	if (adis->data->enable_irq)
-		return adis->data->enable_irq(adis, enable);
+	mutex_lock(&adis->state_lock);
+
+	if (adis->data->enable_irq) {
+		ret = adis->data->enable_irq(adis, enable);
+		goto out_unlock;
+	}
 
 	if (adis->data->unmasked_drdy) {
 		if (enable)
@@ -290,12 +294,12 @@ int __adis_enable_irq(struct adis *adis, bool enable)
 		else
 			disable_irq(adis->spi->irq);
 
-		return 0;
+		goto out_unlock;
 	}
 
 	ret = __adis_read_reg_16(adis, adis->data->msc_ctrl_reg, &msc);
 	if (ret)
-		return ret;
+		goto out_unlock;
 
 	msc |= ADIS_MSC_CTRL_DATA_RDY_POL_HIGH;
 	msc &= ~ADIS_MSC_CTRL_DATA_RDY_DIO2;
@@ -304,9 +308,13 @@ int __adis_enable_irq(struct adis *adis, bool enable)
 	else
 		msc &= ~ADIS_MSC_CTRL_DATA_RDY_EN;
 
-	return __adis_write_reg_16(adis, adis->data->msc_ctrl_reg, msc);
+	ret = __adis_write_reg_16(adis, adis->data->msc_ctrl_reg, msc);
+
+out_unlock:
+	mutex_unlock(&adis->state_lock);
+	return ret;
 }
-EXPORT_SYMBOL_NS(__adis_enable_irq, IIO_ADISLIB);
+EXPORT_SYMBOL_NS(adis_enable_irq, IIO_ADISLIB);
 
 /**
  * __adis_check_status() - Check the device for error conditions (unlocked)
@@ -437,7 +445,7 @@ int __adis_initial_startup(struct adis *adis)
 	 * with 'IRQF_NO_AUTOEN' anyways.
 	 */
 	if (!adis->data->unmasked_drdy)
-		__adis_enable_irq(adis, false);
+		adis_enable_irq(adis, false);
 
 	if (!adis->data->prod_id_reg)
 		return 0;

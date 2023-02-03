@@ -225,9 +225,11 @@ static inline srb_t *
 qla2x00_get_sp(scsi_qla_host_t *vha, fc_port_t *fcport, gfp_t flag)
 {
 	srb_t *sp = NULL;
+	uint8_t bail;
 	struct qla_qpair *qpair;
 
-	if (unlikely(qla_vha_mark_busy(vha)))
+	QLA_VHA_MARK_BUSY(vha, bail);
+	if (unlikely(bail))
 		return NULL;
 
 	qpair = vha->hw->base_qpair;

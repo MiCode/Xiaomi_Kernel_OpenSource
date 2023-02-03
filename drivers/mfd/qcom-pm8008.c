@@ -215,8 +215,8 @@ static int pm8008_probe(struct i2c_client *client)
 
 	dev = &client->dev;
 	regmap = devm_regmap_init_i2c(client, &qcom_mfd_regmap_cfg);
-	if (IS_ERR(regmap))
-		return PTR_ERR(regmap);
+	if (!regmap)
+		return -ENODEV;
 
 	i2c_set_clientdata(client, regmap);
 

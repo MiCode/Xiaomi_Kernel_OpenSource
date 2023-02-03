@@ -263,11 +263,12 @@ ret_from_exception:
 #endif
 	bnez s0, resume_kernel
 
+resume_userspace:
 	/* Interrupts must be disabled here so flags are checked atomically */
 	REG_L s0, TASK_TI_FLAGS(tp) /* current_thread_info->flags */
 	andi s1, s0, _TIF_WORK_MASK
-	bnez s1, resume_userspace_slow
-resume_userspace:
+	bnez s1, work_pending
+
 #ifdef CONFIG_CONTEXT_TRACKING_USER
 	call user_enter_callable
 #endif
@@ -367,12 +368,19 @@ resume_kernel:
 	j restore_all
 #endif
 
-resume_userspace_slow:
+work_pending:
 	/* Enter slow path for supplementary processing */
+	la ra, ret_from_exception
+	andi s1, s0, _TIF_NEED_RESCHED
+	bnez s1, work_resched
+work_notifysig:
+	/* Handle pending signals and notify-resume requests */
+	csrs CSR_STATUS, SR_IE /* Enable interrupts for do_notify_resume() */
 	move a0, sp /* pt_regs */
 	move a1, s0 /* current_thread_info->flags */
-	call do_work_pending
-	j resume_userspace
+	tail do_notify_resume
+work_resched:
+	tail schedule
 
 /* Slow paths for ptrace. */
 handle_syscall_trace_enter:

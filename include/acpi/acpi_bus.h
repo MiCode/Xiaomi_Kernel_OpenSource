@@ -230,8 +230,7 @@ struct acpi_pnp_type {
 	u32 hardware_id:1;
 	u32 bus_address:1;
 	u32 platform_id:1;
-	u32 backlight:1;
-	u32 reserved:28;
+	u32 reserved:29;
 };
 
 struct acpi_device_pnp {

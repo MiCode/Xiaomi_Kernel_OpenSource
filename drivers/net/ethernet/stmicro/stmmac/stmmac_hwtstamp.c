@@ -47,8 +47,7 @@ static void config_sub_second_increment(void __iomem *ioaddr,
 	if (!(value & PTP_TCR_TSCTRLSSR))
 		data = (data * 1000) / 465;
 
-	if (data > PTP_SSIR_SSINC_MAX)
-		data = PTP_SSIR_SSINC_MAX;
+	data &= PTP_SSIR_SSINC_MASK;
 
 	reg_value = data;
 	if (gmac4)

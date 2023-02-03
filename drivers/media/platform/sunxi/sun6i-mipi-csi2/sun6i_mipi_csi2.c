@@ -498,7 +498,6 @@ static int sun6i_mipi_csi2_bridge_setup(struct sun6i_mipi_csi2_device *csi2_dev)
 	struct v4l2_async_notifier *notifier = &bridge->notifier;
 	struct media_pad *pads = bridge->pads;
 	struct device *dev = csi2_dev->dev;
-	bool notifier_registered = false;
 	int ret;
 
 	mutex_init(&bridge->lock);
@@ -520,10 +519,8 @@ static int sun6i_mipi_csi2_bridge_setup(struct sun6i_mipi_csi2_device *csi2_dev)
 
 	/* Media Pads */
 
-	pads[SUN6I_MIPI_CSI2_PAD_SINK].flags = MEDIA_PAD_FL_SINK |
-					       MEDIA_PAD_FL_MUST_CONNECT;
-	pads[SUN6I_MIPI_CSI2_PAD_SOURCE].flags = MEDIA_PAD_FL_SOURCE |
-						 MEDIA_PAD_FL_MUST_CONNECT;
+	pads[SUN6I_MIPI_CSI2_PAD_SINK].flags = MEDIA_PAD_FL_SINK;
+	pads[SUN6I_MIPI_CSI2_PAD_SOURCE].flags = MEDIA_PAD_FL_SOURCE;
 
 	ret = media_entity_pads_init(&subdev->entity, SUN6I_MIPI_CSI2_PAD_COUNT,
 				     pads);
@@ -536,17 +533,12 @@ static int sun6i_mipi_csi2_bridge_setup(struct sun6i_mipi_csi2_device *csi2_dev)
 	notifier->ops = &sun6i_mipi_csi2_notifier_ops;
 
 	ret = sun6i_mipi_csi2_bridge_source_setup(csi2_dev);
-	if (ret && ret != -ENODEV)
+	if (ret)
 		goto error_v4l2_notifier_cleanup;
 
-	/* Only register the notifier when a sensor is connected. */
-	if (ret != -ENODEV) {
-		ret = v4l2_async_subdev_nf_register(subdev, notifier);
-		if (ret < 0)
-			goto error_v4l2_notifier_cleanup;
-
-		notifier_registered = true;
-	}
+	ret = v4l2_async_subdev_nf_register(subdev, notifier);
+	if (ret < 0)
+		goto error_v4l2_notifier_cleanup;
 
 	/* V4L2 Subdev */
 
@@ -557,8 +549,7 @@ static int sun6i_mipi_csi2_bridge_setup(struct sun6i_mipi_csi2_device *csi2_dev)
 	return 0;
 
 error_v4l2_notifier_unregister:
-	if (notifier_registered)
-		v4l2_async_nf_unregister(notifier);
+	v4l2_async_nf_unregister(notifier);
 
 error_v4l2_notifier_cleanup:
 	v4l2_async_nf_cleanup(notifier);

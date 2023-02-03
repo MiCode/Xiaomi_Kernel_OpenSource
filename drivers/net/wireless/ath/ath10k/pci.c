@@ -3792,22 +3792,18 @@ static struct pci_driver ath10k_pci_driver = {
 
 static int __init ath10k_pci_init(void)
 {
-	int ret1, ret2;
+	int ret;
 
-	ret1 = pci_register_driver(&ath10k_pci_driver);
-	if (ret1)
+	ret = pci_register_driver(&ath10k_pci_driver);
+	if (ret)
 		printk(KERN_ERR "failed to register ath10k pci driver: %d\n",
-		       ret1);
+		       ret);
 
-	ret2 = ath10k_ahb_init();
-	if (ret2)
-		printk(KERN_ERR "ahb init failed: %d\n", ret2);
+	ret = ath10k_ahb_init();
+	if (ret)
+		printk(KERN_ERR "ahb init failed: %d\n", ret);
 
-	if (ret1 && ret2)
-		return ret1;
-
-	/* registered to at least one bus */
-	return 0;
+	return ret;
 }
 module_init(ath10k_pci_init);
 

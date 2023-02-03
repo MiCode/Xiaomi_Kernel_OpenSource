@@ -143,7 +143,7 @@ next_port:
 
 fail:
 	spin_unlock(&ping_table.lock);
-	return -EADDRINUSE;
+	return 1;
 }
 EXPORT_SYMBOL_GPL(ping_get_port);
 

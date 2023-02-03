@@ -397,13 +397,7 @@ static int __init ftpm_mod_init(void)
 	if (rc)
 		return rc;
 
-	rc = driver_register(&ftpm_tee_driver.driver);
-	if (rc) {
-		platform_driver_unregister(&ftpm_tee_plat_driver);
-		return rc;
-	}
-
-	return 0;
+	return driver_register(&ftpm_tee_driver.driver);
 }
 
 static void __exit ftpm_mod_exit(void)

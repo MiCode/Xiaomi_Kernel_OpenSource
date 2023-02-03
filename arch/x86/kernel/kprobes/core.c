@@ -37,7 +37,6 @@
 #include <linux/extable.h>
 #include <linux/kdebug.h>
 #include <linux/kallsyms.h>
-#include <linux/kgdb.h>
 #include <linux/ftrace.h>
 #include <linux/kasan.h>
 #include <linux/moduleloader.h>
@@ -282,15 +281,12 @@ static int can_probe(unsigned long paddr)
 		if (ret < 0)
 			return 0;
 
-#ifdef CONFIG_KGDB
 		/*
-		 * If there is a dynamically installed kgdb sw breakpoint,
-		 * this function should not be probed.
+		 * Another debugging subsystem might insert this breakpoint.
+		 * In that case, we can't recover it.
 		 */
-		if (insn.opcode.bytes[0] == INT3_INSN_OPCODE &&
-		    kgdb_has_hit_break(addr))
+		if (insn.opcode.bytes[0] == INT3_INSN_OPCODE)
 			return 0;
-#endif
 		addr += insn.length;
 	}
 

@@ -30,9 +30,7 @@ properties:
     maxItems: 1
 
   "#pwm-cells":
-    enum: [2, 3]
-    description:
-      The only flag supported by the controller is PWM_POLARITY_INVERTED.
+    const: 2
 
   microchip,sync-update-mask:
     description: |

@@ -8925,7 +8925,7 @@ clean1:	/* wq/aer/h */
 		destroy_workqueue(h->monitor_ctlr_wq);
 		h->monitor_ctlr_wq = NULL;
 	}
-	hpda_free_ctlr_info(h);
+	kfree(h);
 	return rc;
 }
 
@@ -9786,8 +9786,7 @@ static int hpsa_add_sas_host(struct ctlr_info *h)
 	return 0;
 
 free_sas_phy:
-	sas_phy_free(hpsa_sas_phy->phy);
-	kfree(hpsa_sas_phy);
+	hpsa_free_sas_phy(hpsa_sas_phy);
 free_sas_port:
 	hpsa_free_sas_port(hpsa_sas_port);
 free_sas_node:
@@ -9823,12 +9822,10 @@ static int hpsa_add_sas_device(struct hpsa_sas_node *hpsa_sas_node,
 
 	rc = hpsa_sas_port_add_rphy(hpsa_sas_port, rphy);
 	if (rc)
-		goto free_sas_rphy;
+		goto free_sas_port;
 
 	return 0;
 
-free_sas_rphy:
-	sas_rphy_free(rphy);
 free_sas_port:
 	hpsa_free_sas_port(hpsa_sas_port);
 	device->sas_port = NULL;

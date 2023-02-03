@@ -381,15 +381,6 @@ static const struct psp_vdata pspv3 = {
 	.inten_reg		= 0x10690,
 	.intsts_reg		= 0x10694,
 };
-
-static const struct psp_vdata pspv4 = {
-	.sev			= &sevv2,
-	.tee			= &teev1,
-	.feature_reg		= 0x109fc,
-	.inten_reg		= 0x10690,
-	.intsts_reg		= 0x10694,
-};
-
 #endif
 
 static const struct sp_dev_vdata dev_vdata[] = {
@@ -435,7 +426,7 @@ static const struct sp_dev_vdata dev_vdata[] = {
 	{	/* 5 */
 		.bar = 2,
 #ifdef CONFIG_CRYPTO_DEV_SP_PSP
-		.psp_vdata = &pspv4,
+		.psp_vdata = &pspv2,
 #endif
 	},
 	{	/* 6 */

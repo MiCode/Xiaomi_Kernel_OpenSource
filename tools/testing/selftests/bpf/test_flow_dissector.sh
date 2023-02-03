@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: GPL-2.0
 #
 # Load BPF flow dissector and verify it correctly dissects traffic
-
-BPF_FILE="bpf_flow.bpf.o"
 export TESTNAME=test_flow_dissector
 unmount=0
 
@@ -24,7 +22,7 @@ if [[ -z $(ip netns identify $$) ]]; then
 	if bpftool="$(which bpftool)"; then
 		echo "Testing global flow dissector..."
 
-		$bpftool prog loadall $BPF_FILE /sys/fs/bpf/flow \
+		$bpftool prog loadall ./bpf_flow.o /sys/fs/bpf/flow \
 			type flow_dissector
 
 		if ! unshare --net $bpftool prog attach pinned \
@@ -97,7 +95,7 @@ else
 fi
 
 # Attach BPF program
-./flow_dissector_load -p $BPF_FILE -s _dissect
+./flow_dissector_load -p bpf_flow.o -s _dissect
 
 # Setup
 tc qdisc add dev lo ingress

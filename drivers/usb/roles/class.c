@@ -106,13 +106,10 @@ usb_role_switch_is_parent(struct fwnode_handle *fwnode)
 	struct fwnode_handle *parent = fwnode_get_parent(fwnode);
 	struct device *dev;
 
-	if (!fwnode_property_present(parent, "usb-role-switch")) {
-		fwnode_handle_put(parent);
+	if (!parent || !fwnode_property_present(parent, "usb-role-switch"))
 		return NULL;
-	}
 
 	dev = class_find_device_by_fwnode(role_class, parent);
-	fwnode_handle_put(parent);
 	return dev ? to_role_switch(dev) : ERR_PTR(-EPROBE_DEFER);
 }
 

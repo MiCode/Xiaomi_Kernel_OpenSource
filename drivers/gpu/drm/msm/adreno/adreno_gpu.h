@@ -29,9 +29,11 @@ enum {
 	ADRENO_FW_MAX,
 };
 
-#define ADRENO_QUIRK_TWO_PASS_USE_WFI		BIT(0)
-#define ADRENO_QUIRK_FAULT_DETECT_MASK		BIT(1)
-#define ADRENO_QUIRK_LMLOADKILL_DISABLE		BIT(2)
+enum adreno_quirks {
+	ADRENO_QUIRK_TWO_PASS_USE_WFI = 1,
+	ADRENO_QUIRK_FAULT_DETECT_MASK = 2,
+	ADRENO_QUIRK_LMLOADKILL_DISABLE = 3,
+};
 
 struct adreno_rev {
 	uint8_t  core;
@@ -63,7 +65,7 @@ struct adreno_info {
 	const char *name;
 	const char *fw[ADRENO_FW_MAX];
 	uint32_t gmem;
-	u64 quirks;
+	enum adreno_quirks quirks;
 	struct msm_gpu *(*init)(struct drm_device *dev);
 	const char *zapfw;
 	u32 inactive_period;

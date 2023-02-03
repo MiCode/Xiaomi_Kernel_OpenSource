@@ -115,12 +115,7 @@ int thermal_zone_get_temp(struct thermal_zone_device *tz, int *temp)
 	int ret;
 
 	mutex_lock(&tz->lock);
-
-	if (device_is_registered(&tz->device))
-		ret = __thermal_zone_get_temp(tz, temp);
-	else
-		ret = -ENODEV;
-
+	ret = __thermal_zone_get_temp(tz, temp);
 	mutex_unlock(&tz->lock);
 
 	return ret;

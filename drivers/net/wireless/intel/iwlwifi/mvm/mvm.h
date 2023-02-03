@@ -2201,10 +2201,10 @@ static inline void iwl_mvm_mei_host_disassociated(struct iwl_mvm *mvm)
 		iwl_mei_host_disassociated();
 }
 
-static inline void iwl_mvm_mei_device_state(struct iwl_mvm *mvm, bool up)
+static inline void iwl_mvm_mei_device_down(struct iwl_mvm *mvm)
 {
 	if (mvm->mei_registered)
-		iwl_mei_device_state(up);
+		iwl_mei_device_down();
 }
 
 static inline void iwl_mvm_mei_set_sw_rfkill_state(struct iwl_mvm *mvm)

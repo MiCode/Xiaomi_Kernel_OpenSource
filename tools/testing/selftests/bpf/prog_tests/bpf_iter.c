@@ -1498,6 +1498,7 @@ static noinline int trigger_func(int arg)
 static void test_task_vma_offset_common(struct bpf_iter_attach_opts *opts, bool one_proc)
 {
 	struct bpf_iter_vma_offset *skel;
+	struct bpf_link *link;
 	char buf[16] = {};
 	int iter_fd, len;
 	int pgsz, shift;
@@ -1512,11 +1513,11 @@ static void test_task_vma_offset_common(struct bpf_iter_attach_opts *opts, bool 
 		;
 	skel->bss->page_shift = shift;
 
-	skel->links.get_vma_offset = bpf_program__attach_iter(skel->progs.get_vma_offset, opts);
-	if (!ASSERT_OK_PTR(skel->links.get_vma_offset, "attach_iter"))
-		goto exit;
+	link = bpf_program__attach_iter(skel->progs.get_vma_offset, opts);
+	if (!ASSERT_OK_PTR(link, "attach_iter"))
+		return;
 
-	iter_fd = bpf_iter_create(bpf_link__fd(skel->links.get_vma_offset));
+	iter_fd = bpf_iter_create(bpf_link__fd(link));
 	if (!ASSERT_GT(iter_fd, 0, "create_iter"))
 		goto exit;
 
@@ -1534,7 +1535,7 @@ static void test_task_vma_offset_common(struct bpf_iter_attach_opts *opts, bool 
 	close(iter_fd);
 
 exit:
-	bpf_iter_vma_offset__destroy(skel);
+	bpf_link__destroy(link);
 }
 
 static void test_task_vma_offset(void)

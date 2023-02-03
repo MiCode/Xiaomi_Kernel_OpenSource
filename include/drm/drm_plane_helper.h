@@ -26,7 +26,6 @@
 
 #include <linux/types.h>
 
-struct drm_atomic_state;
 struct drm_crtc;
 struct drm_framebuffer;
 struct drm_modeset_acquire_ctx;

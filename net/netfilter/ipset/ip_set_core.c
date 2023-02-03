@@ -1698,10 +1698,9 @@ call_ad(struct net *net, struct sock *ctnl, struct sk_buff *skb,
 		ret = set->variant->uadt(set, tb, adt, &lineno, flags, retried);
 		ip_set_unlock(set);
 		retried = true;
-	} while (ret == -ERANGE ||
-		 (ret == -EAGAIN &&
-		  set->variant->resize &&
-		  (ret = set->variant->resize(set, retried)) == 0));
+	} while (ret == -EAGAIN &&
+		 set->variant->resize &&
+		 (ret = set->variant->resize(set, retried)) == 0);
 
 	if (!ret || (ret == -IPSET_ERR_EXIST && eexist))
 		return 0;
