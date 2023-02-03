@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -1513,6 +1513,7 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 
 		atomic_inc(&mhi_sm_ctx->pending_pcie_events);
 		dstate_change_evt->event = event;
+		dstate_change_evt->mhi_sm_ctx = mhi_sm_ctx;
 		INIT_WORK(&dstate_change_evt->work, mhi_sm_pcie_event_manager);
 		/*
 		 * Link init has to be completed as quicly as possible.
