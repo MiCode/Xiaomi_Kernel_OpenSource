@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)    "%s: " fmt, __func__
@@ -464,6 +464,7 @@ static void helios_coredump(struct rproc *rproc)
 					__func__, helios->cmd_status);
 			goto exit;
 		}
+		dma_sync_single_for_cpu(helios->dev, start_addr, size, DMA_FROM_DEVICE);
 		memcpy(full_ramdump_buffer + buffer_size, region, size);
 		buffer_size += size;
 	} while (helios->cmd_status == HELIOS_APP_PARTIAL_RAMDUMP);
