@@ -18,7 +18,7 @@
 #include <linux/kobject.h>
 #include "slatecom.h"
 #include "linux/slatecom_interface.h"
-#include "slatecom_interface.h"
+#include <linux/soc/qcom/slatecom_interface.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
