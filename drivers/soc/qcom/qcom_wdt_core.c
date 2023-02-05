@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/irqdomain.h>
 #include <linux/delay.h>
@@ -265,9 +265,11 @@ static void compute_irq_stat(struct work_struct *work) { }
 static int qcom_wdt_hibernation_notifier(struct notifier_block *nb,
 				unsigned long event, void *dummy)
 {
-	if (event == PM_HIBERNATION_PREPARE)
+	if (event == PM_HIBERNATION_PREPARE || ((event == PM_SUSPEND_PREPARE)
+				&& pm_suspend_via_firmware()))
 		wdog_data->hibernate = true;
-	else if (event == PM_POST_HIBERNATION)
+	else if (event == PM_POST_HIBERNATION || ((event == PM_POST_SUSPEND)
+				&& pm_suspend_via_firmware()))
 		wdog_data->hibernate = false;
 	return NOTIFY_OK;
 }
@@ -353,6 +355,8 @@ int qcom_wdt_pet_resume(struct device *dev)
 	spin_unlock(&wdog_data->freeze_lock);
 	if (wdog_data->wakeup_irq_enable) {
 		if (wdog_data->hibernate) {
+			wdog_data->ops->set_bark_time(wdog_data->bark_time, wdog_data);
+			wdog_data->ops->set_bite_time(wdog_data->bark_time + 3 * 1000, wdog_data);
 			val |= BIT(UNMASKED_INT_EN);
 			wdog_data->ops->enable_wdt(val, wdog_data);
 			wdog_data->enabled = true;
