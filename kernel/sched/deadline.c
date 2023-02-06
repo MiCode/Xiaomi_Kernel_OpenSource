@@ -2341,7 +2341,8 @@ static void task_woken_dl(struct rq *rq, struct task_struct *p)
 	}
 }
 
-void set_cpus_allowed_dl(struct task_struct *p, struct affinity_context *ctx)
+static void set_cpus_allowed_dl(struct task_struct *p,
+				struct affinity_context *ctx)
 {
 	struct root_domain *src_rd;
 	struct rq *rq;
@@ -2371,18 +2372,6 @@ void set_cpus_allowed_dl(struct task_struct *p, struct affinity_context *ctx)
 	}
 
 	set_cpus_allowed_common(p, ctx);
-}
-
-static void set_cpus_allowed_dl_cb(struct task_struct *p,
-				   const struct cpumask *new_mask,
-				   u32 flags)
-{
-	struct affinity_context ac = {
-		.new_mask  = new_mask,
-		.flags     = flags,
-	};
-	WARN_ONCE(1, "Unexpected use of dl_sched_class::set_cpus_allowed()");
-	set_cpus_allowed_dl(p, &ac);
 }
 
 /* Assumes rq->lock is held */
@@ -2577,7 +2566,7 @@ DEFINE_SCHED_CLASS(dl) = {
 	.pick_task		= pick_task_dl,
 	.select_task_rq		= select_task_rq_dl,
 	.migrate_task_rq	= migrate_task_rq_dl,
-	.set_cpus_allowed       = set_cpus_allowed_dl_cb,
+	.set_cpus_allowed       = set_cpus_allowed_dl,
 	.rq_online              = rq_online_dl,
 	.rq_offline             = rq_offline_dl,
 	.task_woken		= task_woken_dl,
