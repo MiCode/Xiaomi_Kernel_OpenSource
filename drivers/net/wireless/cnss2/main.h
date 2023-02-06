@@ -554,6 +554,8 @@ struct cnss_plat_data {
 	u8 hwid_bitmap;
 	enum cnss_driver_mode driver_mode;
 	u32 num_shadow_regs_v3;
+	u32 on_chip_pmic_devices_count;
+	u32 *on_chip_pmic_board_ids;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)

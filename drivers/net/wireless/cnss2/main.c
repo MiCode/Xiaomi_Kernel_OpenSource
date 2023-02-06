@@ -3532,6 +3532,7 @@ static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 	wakeup_source_unregister(plat_priv->recovery_ws);
 	cnss_deinit_sol_gpio(plat_priv);
 	kfree(plat_priv->sram_dump);
+	kfree(plat_priv->on_chip_pmic_board_ids);
 }
 
 static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
