@@ -2521,13 +2521,6 @@ void set_cpus_allowed_common(struct task_struct *p, struct affinity_context *ctx
 
 	cpumask_copy(&p->cpus_mask, ctx->new_mask);
 	p->nr_cpus_allowed = cpumask_weight(ctx->new_mask);
-
-	/*
-	 * Swap in a new user_cpus_ptr if SCA_USER flag set
-	 */
-	if (ctx->flags & SCA_USER)
-		swap(p->user_cpus_ptr, ctx->user_mask);
-
 	trace_android_rvh_set_cpus_allowed_comm(p, ctx->new_mask);
 }
 
@@ -2589,8 +2582,6 @@ void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
 int dup_user_cpus_ptr(struct task_struct *dst, struct task_struct *src,
 		      int node)
 {
-	unsigned long flags;
-
 	if (!src->user_cpus_ptr)
 		return 0;
 
@@ -2598,10 +2589,7 @@ int dup_user_cpus_ptr(struct task_struct *dst, struct task_struct *src,
 	if (!dst->user_cpus_ptr)
 		return -ENOMEM;
 
-	/* Use pi_lock to protect content of user_cpus_ptr */
-	raw_spin_lock_irqsave(&src->pi_lock, flags);
 	cpumask_copy(dst->user_cpus_ptr, src->user_cpus_ptr);
-	raw_spin_unlock_irqrestore(&src->pi_lock, flags);
 	return 0;
 }
 
@@ -2850,6 +2838,7 @@ static int __set_cpus_allowed_ptr_locked(struct task_struct *p,
 	const struct cpumask *cpu_allowed_mask = task_cpu_possible_mask(p);
 	const struct cpumask *cpu_valid_mask = cpu_active_mask;
 	bool kthread = p->flags & PF_KTHREAD;
+	struct cpumask *user_mask = NULL;
 	unsigned int dest_cpu;
 	int ret = 0;
 
@@ -2911,7 +2900,14 @@ static int __set_cpus_allowed_ptr_locked(struct task_struct *p,
 
 	__do_set_cpus_allowed(p, ctx);
 
-	return affine_move_task(rq, p, rf, dest_cpu, ctx->flags);
+	if (ctx->flags & SCA_USER)
+		user_mask = clear_user_cpus_ptr(p);
+
+	ret = affine_move_task(rq, p, rf, dest_cpu, ctx->flags);
+
+	kfree(user_mask);
+
+	return ret;
 
 out:
 	task_rq_unlock(rq, p, rf);
@@ -2951,10 +2947,8 @@ EXPORT_SYMBOL_GPL(set_cpus_allowed_ptr);
 
 /*
  * Change a given task's CPU affinity to the intersection of its current
- * affinity mask and @subset_mask, writing the resulting mask to @new_mask.
- * If user_cpus_ptr is defined, use it as the basis for restricting CPU
- * affinity or use cpu_online_mask instead.
- *
+ * affinity mask and @subset_mask, writing the resulting mask to @new_mask
+ * and pointing @p->user_cpus_ptr to a copy of the old mask.
  * If the resulting mask is empty, leave the affinity unchanged and return
  * -EINVAL.
  */
@@ -2962,13 +2956,17 @@ static int restrict_cpus_allowed_ptr(struct task_struct *p,
 				     struct cpumask *new_mask,
 				     const struct cpumask *subset_mask)
 {
-	struct affinity_context ac = {
-		.new_mask  = new_mask,
-		.flags     = 0,
-	};
+	struct cpumask *user_mask = NULL;
+	struct affinity_context ac;
 	struct rq_flags rf;
 	struct rq *rq;
 	int err;
+
+	if (!p->user_cpus_ptr) {
+		user_mask = kmalloc(cpumask_size(), GFP_KERNEL);
+		if (!user_mask)
+			return -ENOMEM;
+	}
 
 	rq = task_rq_lock(p, &rf);
 
@@ -2982,15 +2980,29 @@ static int restrict_cpus_allowed_ptr(struct task_struct *p,
 		goto err_unlock;
 	}
 
-	if (!cpumask_and(new_mask, task_user_cpus(p), subset_mask)) {
+	if (!cpumask_and(new_mask, &p->cpus_mask, subset_mask)) {
 		err = -EINVAL;
 		goto err_unlock;
 	}
+
+	/*
+	 * We're about to butcher the task affinity, so keep track of what
+	 * the user asked for in case we're able to restore it later on.
+	 */
+	if (user_mask) {
+		cpumask_copy(user_mask, p->cpus_ptr);
+		p->user_cpus_ptr = user_mask;
+	}
+
+	ac = (struct affinity_context){
+		.new_mask = new_mask,
+	};
 
 	return __set_cpus_allowed_ptr_locked(p, &ac, rq, &rf);
 
 err_unlock:
 	task_rq_unlock(rq, p, &rf);
+	kfree(user_mask);
 	return err;
 }
 
@@ -3046,25 +3058,33 @@ __sched_setaffinity(struct task_struct *p, struct affinity_context *ctx);
 
 /*
  * Restore the affinity of a task @p which was previously restricted by a
- * call to force_compatible_cpus_allowed_ptr().
+ * call to force_compatible_cpus_allowed_ptr(). This will clear (and free)
+ * @p->user_cpus_ptr.
  *
  * It is the caller's responsibility to serialise this with any calls to
  * force_compatible_cpus_allowed_ptr(@p).
  */
 void relax_compatible_cpus_allowed_ptr(struct task_struct *p)
 {
+	struct cpumask *user_mask = p->user_cpus_ptr;
 	struct affinity_context ac = {
-		.new_mask  = task_user_cpus(p),
-		.flags     = 0,
+		.new_mask  = user_mask,
 	};
-	int ret;
+	unsigned long flags;
 
 	/*
-	 * Try to restore the old affinity mask with __sched_setaffinity().
-	 * Cpuset masking will be done there too.
+	 * Try to restore the old affinity mask. If this fails, then
+	 * we free the mask explicitly to avoid it being inherited across
+	 * a subsequent fork().
 	 */
-	ret = __sched_setaffinity(p, &ac);
-	WARN_ON_ONCE(ret);
+	if (!user_mask || !__sched_setaffinity(p, &ac))
+		return;
+
+	raw_spin_lock_irqsave(&p->pi_lock, flags);
+	user_mask = clear_user_cpus_ptr(p);
+	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+
+	kfree(user_mask);
 }
 
 void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
@@ -8152,7 +8172,7 @@ __sched_setaffinity(struct task_struct *p, struct affinity_context *ctx)
 	retval = dl_task_check_affinity(p, new_mask);
 	if (retval)
 		goto out_free_new_mask;
-
+again:
 	retval = __set_cpus_allowed_ptr(p, ctx);
 	if (retval)
 		goto out_free_new_mask;
@@ -8164,24 +8184,7 @@ __sched_setaffinity(struct task_struct *p, struct affinity_context *ctx)
 		 * Just reset the cpumask to the cpuset's cpus_allowed.
 		 */
 		cpumask_copy(new_mask, cpus_allowed);
-
-		/*
-		 * If SCA_USER is set, a 2nd call to __set_cpus_allowed_ptr()
-		 * will restore the previous user_cpus_ptr value.
-		 *
-		 * In the unlikely event a previous user_cpus_ptr exists,
-		 * we need to further restrict the mask to what is allowed
-		 * by that old user_cpus_ptr.
-		 */
-		if (unlikely((ctx->flags & SCA_USER) && ctx->user_mask)) {
-			bool empty = !cpumask_and(new_mask, new_mask,
-						  ctx->user_mask);
-
-			if (WARN_ON_ONCE(empty))
-				cpumask_copy(new_mask, cpus_allowed);
-		}
-		__set_cpus_allowed_ptr(p, ctx);
-		retval = -EINVAL;
+		goto again;
 	}
 
 out_free_new_mask:
@@ -8193,8 +8196,9 @@ out_free_cpus_allowed:
 
 long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 {
-	struct affinity_context ac;
-	struct cpumask *user_mask;
+	struct affinity_context ac = {
+		.new_mask = in_mask,
+	};
 	struct task_struct *p;
 	int retval = 0;
 	int skip = 0;
@@ -8233,21 +8237,8 @@ long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 	if (retval)
 		goto out_put_task;
 
-	user_mask = kmalloc(cpumask_size(), GFP_KERNEL);
-	if (!user_mask) {
-		retval = -ENOMEM;
-		goto out_put_task;
-	}
-	cpumask_copy(user_mask, in_mask);
-	ac = (struct affinity_context){
-		.new_mask  = in_mask,
-		.user_mask = user_mask,
-		.flags     = SCA_USER,
-	};
-
 	retval = __sched_setaffinity(p, &ac);
 	trace_android_rvh_sched_setaffinity(p, ac.new_mask, &retval);
-	kfree(ac.user_mask);
 
 out_put_task:
 	put_task_struct(p);
