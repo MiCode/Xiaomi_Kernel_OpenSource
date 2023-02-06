@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,7 +45,7 @@ cqhci_host_from_ksm(struct blk_keyslot_manager *ksm)
 static void get_mmio_data(struct ice_mmio_data *data, struct cqhci_host *host)
 {
 	data->ice_base_mmio = host->ice_mmio;
-#if IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER)
+#if (IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER) || IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER_V1))
 	data->ice_hwkm_mmio = host->ice_hwkm_mmio;
 #endif
 }

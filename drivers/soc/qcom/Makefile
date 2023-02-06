@@ -96,6 +96,7 @@ obj-$(CONFIG_GH_TLMM_VM_MEM_ACCESS) += gh_tlmm_vm_mem_access.o
 obj-$(CONFIG_QTI_CRYPTO_COMMON) += crypto-qti-common.o
 obj-$(CONFIG_QTI_CRYPTO_TZ) += crypto-qti-tz.o
 obj-$(CONFIG_QTI_HW_KEY_MANAGER) += hwkm.o crypto-qti-hwkm.o
+obj-$(CONFIG_QTI_HW_KEY_MANAGER_V1) += hwkm_v1.o crypto-qti-hwkm.o
 obj-$(CONFIG_SPS) += sps/
 obj-$(CONFIG_QCOM_HGSL) += hgsl/
 obj-$(CONFIG_MSM_HAB) += hab/
