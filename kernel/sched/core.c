@@ -2568,18 +2568,7 @@ __do_set_cpus_allowed(struct task_struct *p, struct affinity_context *ctx)
 	if (running)
 		put_prev_task(rq, p);
 
-	/*
-	 * XXX: ANDROID: we can't use sched_class::set_cpus_allowed() here
-	 * because it doesn't take a struct affinity_context as parameter for
-	 * GKI KMI stability reason -- see b/254812379. To avoid the problem,
-	 * let's hardcode the indirection here and hope for the best. The only
-	 * other potential users of p->set_cpus_allowed() will be in vendor
-	 * modules.
-	 */
-	if (likely(p->sched_class != &dl_sched_class))
-		set_cpus_allowed_common(p, ctx);
-	else
-		set_cpus_allowed_dl(p, ctx);
+	p->sched_class->set_cpus_allowed(p, ctx);
 
 	if (queued)
 		enqueue_task(rq, p, ENQUEUE_RESTORE | ENQUEUE_NOCLOCK);
