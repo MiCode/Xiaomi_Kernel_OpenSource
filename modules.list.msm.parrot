@@ -62,6 +62,7 @@ socinfo.ko
 stub-regulator.ko
 msm-geni-se.ko
 nvmem_qfprom.ko
+sdhci-msm-scaling.ko
 cqhci.ko
 sdhci-msm.ko
 phy-qcom-ufs.ko
