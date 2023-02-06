@@ -2152,18 +2152,14 @@ EXPORT_SYMBOL_GPL(check_preempt_curr);
 #ifdef CONFIG_SMP
 
 static void
-__do_set_cpus_allowed(struct task_struct *p, struct affinity_context *ctx);
+__do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask, u32 flags);
 
 static int __set_cpus_allowed_ptr(struct task_struct *p,
-				  struct affinity_context *ctx);
+				  const struct cpumask *new_mask,
+				  u32 flags);
 
 static void migrate_disable_switch(struct rq *rq, struct task_struct *p)
 {
-	struct affinity_context ac = {
-		.new_mask  = cpumask_of(rq->cpu),
-		.flags     = SCA_MIGRATE_DISABLE,
-	};
-
 	if (likely(!p->migration_disabled))
 		return;
 
@@ -2173,7 +2169,7 @@ static void migrate_disable_switch(struct rq *rq, struct task_struct *p)
 	/*
 	 * Violates locking rules! see comment in __do_set_cpus_allowed().
 	 */
-	__do_set_cpus_allowed(p, &ac);
+	__do_set_cpus_allowed(p, cpumask_of(rq->cpu), SCA_MIGRATE_DISABLE);
 }
 
 void migrate_disable(void)
@@ -2195,10 +2191,6 @@ EXPORT_SYMBOL_GPL(migrate_disable);
 void migrate_enable(void)
 {
 	struct task_struct *p = current;
-	struct affinity_context ac = {
-		.new_mask  = &p->cpus_mask,
-		.flags     = SCA_MIGRATE_ENABLE,
-	};
 
 	if (p->migration_disabled > 1) {
 		p->migration_disabled--;
@@ -2211,7 +2203,7 @@ void migrate_enable(void)
 	 */
 	preempt_disable();
 	if (p->cpus_ptr != &p->cpus_mask)
-		__set_cpus_allowed_ptr(p, &ac);
+		__set_cpus_allowed_ptr(p, &p->cpus_mask, SCA_MIGRATE_ENABLE);
 	/*
 	 * Mustn't clear migration_disabled() until cpus_ptr points back at the
 	 * regular cpus_mask, otherwise things that race (eg.
@@ -2512,20 +2504,20 @@ out_unlock:
  * sched_class::set_cpus_allowed must do the below, but is not required to
  * actually call this function.
  */
-void set_cpus_allowed_common(struct task_struct *p, struct affinity_context *ctx)
+void set_cpus_allowed_common(struct task_struct *p, const struct cpumask *new_mask, u32 flags)
 {
-	if (ctx->flags & (SCA_MIGRATE_ENABLE | SCA_MIGRATE_DISABLE)) {
-		p->cpus_ptr = ctx->new_mask;
+	if (flags & (SCA_MIGRATE_ENABLE | SCA_MIGRATE_DISABLE)) {
+		p->cpus_ptr = new_mask;
 		return;
 	}
 
-	cpumask_copy(&p->cpus_mask, ctx->new_mask);
-	p->nr_cpus_allowed = cpumask_weight(ctx->new_mask);
-	trace_android_rvh_set_cpus_allowed_comm(p, ctx->new_mask);
+	cpumask_copy(&p->cpus_mask, new_mask);
+	p->nr_cpus_allowed = cpumask_weight(new_mask);
+	trace_android_rvh_set_cpus_allowed_comm(p, new_mask);
 }
 
 static void
-__do_set_cpus_allowed(struct task_struct *p, struct affinity_context *ctx)
+__do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask, u32 flags)
 {
 	struct rq *rq = task_rq(p);
 	bool queued, running;
@@ -2542,7 +2534,7 @@ __do_set_cpus_allowed(struct task_struct *p, struct affinity_context *ctx)
 	 *
 	 * XXX do further audits, this smells like something putrid.
 	 */
-	if (ctx->flags & SCA_MIGRATE_DISABLE)
+	if (flags & SCA_MIGRATE_DISABLE)
 		SCHED_WARN_ON(!p->on_cpu);
 	else
 		lockdep_assert_held(&p->pi_lock);
@@ -2561,7 +2553,7 @@ __do_set_cpus_allowed(struct task_struct *p, struct affinity_context *ctx)
 	if (running)
 		put_prev_task(rq, p);
 
-	p->sched_class->set_cpus_allowed(p, ctx);
+	p->sched_class->set_cpus_allowed(p, new_mask, flags);
 
 	if (queued)
 		enqueue_task(rq, p, ENQUEUE_RESTORE | ENQUEUE_NOCLOCK);
@@ -2571,12 +2563,7 @@ __do_set_cpus_allowed(struct task_struct *p, struct affinity_context *ctx)
 
 void do_set_cpus_allowed(struct task_struct *p, const struct cpumask *new_mask)
 {
-	struct affinity_context ac = {
-		.new_mask  = new_mask,
-		.flags     = 0,
-	};
-
-	__do_set_cpus_allowed(p, &ac);
+	__do_set_cpus_allowed(p, new_mask, 0);
 }
 
 int dup_user_cpus_ptr(struct task_struct *dst, struct task_struct *src,
@@ -2829,7 +2816,8 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
  * Called with both p->pi_lock and rq->lock held; drops both before returning.
  */
 static int __set_cpus_allowed_ptr_locked(struct task_struct *p,
-					 struct affinity_context *ctx,
+					 const struct cpumask *new_mask,
+					 u32 flags,
 					 struct rq *rq,
 					 struct rq_flags *rf)
 	__releases(rq->lock)
@@ -2858,7 +2846,7 @@ static int __set_cpus_allowed_ptr_locked(struct task_struct *p,
 		cpu_valid_mask = cpu_online_mask;
 	}
 
-	if (!kthread && !cpumask_subset(ctx->new_mask, cpu_allowed_mask)) {
+	if (!kthread && !cpumask_subset(new_mask, cpu_allowed_mask)) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -2867,18 +2855,18 @@ static int __set_cpus_allowed_ptr_locked(struct task_struct *p,
 	 * Must re-check here, to close a race against __kthread_bind(),
 	 * sched_setaffinity() is not guaranteed to observe the flag.
 	 */
-	if ((ctx->flags & SCA_CHECK) && (p->flags & PF_NO_SETAFFINITY)) {
+	if ((flags & SCA_CHECK) && (p->flags & PF_NO_SETAFFINITY)) {
 		ret = -EINVAL;
 		goto out;
 	}
 
-	if (!(ctx->flags & SCA_MIGRATE_ENABLE)) {
-		if (cpumask_equal(&p->cpus_mask, ctx->new_mask))
+	if (!(flags & SCA_MIGRATE_ENABLE)) {
+		if (cpumask_equal(&p->cpus_mask, new_mask))
 			goto out;
 
 		if (WARN_ON_ONCE(p == current &&
 				 is_migration_disabled(p) &&
-				 !cpumask_test_cpu(task_cpu(p), ctx->new_mask))) {
+				 !cpumask_test_cpu(task_cpu(p), new_mask))) {
 			ret = -EBUSY;
 			goto out;
 		}
@@ -2889,21 +2877,21 @@ static int __set_cpus_allowed_ptr_locked(struct task_struct *p,
 	 * for groups of tasks (ie. cpuset), so that load balancing is not
 	 * immediately required to distribute the tasks within their new mask.
 	 */
-	dest_cpu = cpumask_any_and_distribute(cpu_valid_mask, ctx->new_mask);
-	trace_android_rvh_set_cpus_allowed_ptr_locked(cpu_valid_mask, ctx->new_mask, &dest_cpu);
-	trace_android_rvh_set_cpus_allowed_by_task(cpu_valid_mask, ctx->new_mask, p, &dest_cpu);
+	dest_cpu = cpumask_any_and_distribute(cpu_valid_mask, new_mask);
+	trace_android_rvh_set_cpus_allowed_ptr_locked(cpu_valid_mask, new_mask, &dest_cpu);
+	trace_android_rvh_set_cpus_allowed_by_task(cpu_valid_mask, new_mask, p, &dest_cpu);
 
 	if (dest_cpu >= nr_cpu_ids) {
 		ret = -EINVAL;
 		goto out;
 	}
 
-	__do_set_cpus_allowed(p, ctx);
+	__do_set_cpus_allowed(p, new_mask, flags);
 
-	if (ctx->flags & SCA_USER)
+	if (flags & SCA_USER)
 		user_mask = clear_user_cpus_ptr(p);
 
-	ret = affine_move_task(rq, p, rf, dest_cpu, ctx->flags);
+	ret = affine_move_task(rq, p, rf, dest_cpu, flags);
 
 	kfree(user_mask);
 
@@ -2925,23 +2913,18 @@ out:
  * call is not atomic; no spinlocks may be held.
  */
 static int __set_cpus_allowed_ptr(struct task_struct *p,
-				  struct affinity_context *ctx)
+				  const struct cpumask *new_mask, u32 flags)
 {
 	struct rq_flags rf;
 	struct rq *rq;
 
 	rq = task_rq_lock(p, &rf);
-	return __set_cpus_allowed_ptr_locked(p, ctx, rq, &rf);
+	return __set_cpus_allowed_ptr_locked(p, new_mask, flags, rq, &rf);
 }
 
 int set_cpus_allowed_ptr(struct task_struct *p, const struct cpumask *new_mask)
 {
-	struct affinity_context ac = {
-		.new_mask  = new_mask,
-		.flags     = 0,
-	};
-
-	return __set_cpus_allowed_ptr(p, &ac);
+	return __set_cpus_allowed_ptr(p, new_mask, 0);
 }
 EXPORT_SYMBOL_GPL(set_cpus_allowed_ptr);
 
@@ -2957,7 +2940,6 @@ static int restrict_cpus_allowed_ptr(struct task_struct *p,
 				     const struct cpumask *subset_mask)
 {
 	struct cpumask *user_mask = NULL;
-	struct affinity_context ac;
 	struct rq_flags rf;
 	struct rq *rq;
 	int err;
@@ -2994,11 +2976,7 @@ static int restrict_cpus_allowed_ptr(struct task_struct *p,
 		p->user_cpus_ptr = user_mask;
 	}
 
-	ac = (struct affinity_context){
-		.new_mask = new_mask,
-	};
-
-	return __set_cpus_allowed_ptr_locked(p, &ac, rq, &rf);
+	return __set_cpus_allowed_ptr_locked(p, new_mask, 0, rq, &rf);
 
 err_unlock:
 	task_rq_unlock(rq, p, &rf);
@@ -3054,7 +3032,7 @@ out_free_mask:
 }
 
 static int
-__sched_setaffinity(struct task_struct *p, struct affinity_context *ctx);
+__sched_setaffinity(struct task_struct *p, const struct cpumask *mask);
 
 /*
  * Restore the affinity of a task @p which was previously restricted by a
@@ -3067,9 +3045,6 @@ __sched_setaffinity(struct task_struct *p, struct affinity_context *ctx);
 void relax_compatible_cpus_allowed_ptr(struct task_struct *p)
 {
 	struct cpumask *user_mask = p->user_cpus_ptr;
-	struct affinity_context ac = {
-		.new_mask  = user_mask,
-	};
 	unsigned long flags;
 
 	/*
@@ -3077,7 +3052,7 @@ void relax_compatible_cpus_allowed_ptr(struct task_struct *p)
 	 * we free the mask explicitly to avoid it being inherited across
 	 * a subsequent fork().
 	 */
-	if (!user_mask || !__sched_setaffinity(p, &ac))
+	if (!user_mask || !__sched_setaffinity(p, user_mask))
 		return;
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
@@ -3568,9 +3543,10 @@ void sched_set_stop_task(int cpu, struct task_struct *stop)
 #else /* CONFIG_SMP */
 
 static inline int __set_cpus_allowed_ptr(struct task_struct *p,
-					 struct affinity_context *ctx)
+					 const struct cpumask *new_mask,
+					 u32 flags)
 {
-	return set_cpus_allowed_ptr(p, ctx->new_mask);
+	return set_cpus_allowed_ptr(p, new_mask);
 }
 
 static inline void migrate_disable_switch(struct rq *rq, struct task_struct *p) { }
@@ -8150,7 +8126,7 @@ int dl_task_check_affinity(struct task_struct *p, const struct cpumask *mask)
 #endif
 
 static int
-__sched_setaffinity(struct task_struct *p, struct affinity_context *ctx)
+__sched_setaffinity(struct task_struct *p, const struct cpumask *mask)
 {
 	int retval;
 	cpumask_var_t cpus_allowed, new_mask;
@@ -8164,16 +8140,13 @@ __sched_setaffinity(struct task_struct *p, struct affinity_context *ctx)
 	}
 
 	cpuset_cpus_allowed(p, cpus_allowed);
-	cpumask_and(new_mask, ctx->new_mask, cpus_allowed);
-
-	ctx->new_mask = new_mask;
-	ctx->flags |= SCA_CHECK;
+	cpumask_and(new_mask, mask, cpus_allowed);
 
 	retval = dl_task_check_affinity(p, new_mask);
 	if (retval)
 		goto out_free_new_mask;
 again:
-	retval = __set_cpus_allowed_ptr(p, ctx);
+	retval = __set_cpus_allowed_ptr(p, new_mask, SCA_CHECK | SCA_USER);
 	if (retval)
 		goto out_free_new_mask;
 
@@ -8196,9 +8169,6 @@ out_free_cpus_allowed:
 
 long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 {
-	struct affinity_context ac = {
-		.new_mask = in_mask,
-	};
 	struct task_struct *p;
 	int retval = 0;
 	int skip = 0;
@@ -8237,8 +8207,8 @@ long sched_setaffinity(pid_t pid, const struct cpumask *in_mask)
 	if (retval)
 		goto out_put_task;
 
-	retval = __sched_setaffinity(p, &ac);
-	trace_android_rvh_sched_setaffinity(p, ac.new_mask, &retval);
+	retval = __sched_setaffinity(p, in_mask);
+	trace_android_rvh_sched_setaffinity(p, in_mask, &retval);
 
 out_put_task:
 	put_task_struct(p);
@@ -8841,12 +8811,6 @@ void show_state_filter(unsigned int state_filter)
  */
 void __init init_idle(struct task_struct *idle, int cpu)
 {
-#ifdef CONFIG_SMP
-	struct affinity_context ac = (struct affinity_context) {
-		.new_mask  = cpumask_of(cpu),
-		.flags     = 0,
-	};
-#endif
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags;
 
@@ -8879,7 +8843,7 @@ void __init init_idle(struct task_struct *idle, int cpu)
 	 *
 	 * And since this is boot we can forgo the serialization.
 	 */
-	set_cpus_allowed_common(idle, &ac);
+	set_cpus_allowed_common(idle, cpumask_of(cpu), 0);
 #endif
 	/*
 	 * We're having a chicken and egg problem, even though we are
