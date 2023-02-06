@@ -58,9 +58,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_stat_blocked);
 DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
 EXPORT_SYMBOL_GPL(runqueues);
 
-/* Scratch cpumask to be temporarily used under rq_lock */
-DEFINE_PER_CPU(cpumask_var_t, scratch_mask);
-
 #ifdef CONFIG_SCHED_DEBUG
 /*
  * Debugging: various feature bits
@@ -2975,20 +2972,18 @@ out:
 static int __set_cpus_allowed_ptr(struct task_struct *p,
 				  struct affinity_context *ctx)
 {
-	struct cpumask *cpus;
 	struct rq_flags rf;
 	struct rq *rq;
 
 	rq = task_rq_lock(p, &rf);
-	cpus = per_cpu(scratch_mask, rq->cpu);
 	/*
 	 * Masking should be skipped if SCA_USER or any of the SCA_MIGRATE_*
 	 * flags are set.
 	 */
 	if (p->user_cpus_ptr &&
 	    !(ctx->flags & (SCA_USER | SCA_MIGRATE_ENABLE | SCA_MIGRATE_DISABLE)) &&
-	    cpumask_and(cpus, ctx->new_mask, p->user_cpus_ptr))
-		ctx->new_mask = cpus;
+	    cpumask_and(rq->scratch_mask, ctx->new_mask, p->user_cpus_ptr))
+		ctx->new_mask = rq->scratch_mask;
 
 	return __set_cpus_allowed_ptr_locked(p, ctx, rq, &rf);
 }
@@ -9655,8 +9650,6 @@ void __init sched_init(void)
 			cpumask_size(), GFP_KERNEL, cpu_to_node(i));
 		per_cpu(select_idle_mask, i) = (cpumask_var_t)kzalloc_node(
 			cpumask_size(), GFP_KERNEL, cpu_to_node(i));
-		per_cpu(scratch_mask, i) = (cpumask_var_t)kzalloc_node(
-			cpumask_size(), GFP_KERNEL, cpu_to_node(i));
 	}
 #endif /* CONFIG_CPUMASK_OFFSTACK */
 
@@ -9762,6 +9755,7 @@ void __init sched_init(void)
 
 		rq->core_cookie = 0UL;
 #endif
+		zalloc_cpumask_var_node(&rq->scratch_mask, GFP_KERNEL, cpu_to_node(i));
 	}
 
 	set_load_weight(&init_task, false);
