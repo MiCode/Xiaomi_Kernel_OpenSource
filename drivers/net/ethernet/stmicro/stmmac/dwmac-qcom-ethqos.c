@@ -2,7 +2,7 @@
 
 // Copyright (c) 2018-19, Linaro Limited
 // Copyright (c) 2021, The Linux Foundation. All rights reserved.
-// Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+// Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 
 #include <linux/module.h>
 #include <linux/of.h>
@@ -3052,7 +3052,7 @@ static int qcom_ethqos_suspend(struct device *dev)
 	priv = netdev_priv(ndev);
 	plat = priv->plat;
 
-	if (!ndev || !netif_running(ndev))
+	if (!ndev)
 		return -EINVAL;
 	if (ethqos->current_phy_mode == DISABLE_PHY_AT_SUSPEND_ONLY ||
 	    ethqos->current_phy_mode == DISABLE_PHY_SUSPEND_ENABLE_RESUME) {
@@ -3097,7 +3097,7 @@ static int qcom_ethqos_resume(struct device *dev)
 	ndev = dev_get_drvdata(dev);
 	priv = netdev_priv(ndev);
 
-	if (!ndev || !netif_running(ndev)) {
+	if (!ndev) {
 		ETHQOSERR(" Resume not possible\n");
 		return -EINVAL;
 	}
