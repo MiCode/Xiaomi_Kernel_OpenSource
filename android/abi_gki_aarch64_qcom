@@ -2282,6 +2282,8 @@
   __traceiter_ipi_raise
   __traceiter_irq_handler_entry
   __traceiter_map
+  __traceiter_rwmmio_read
+  __traceiter_rwmmio_write
   __traceiter_sched_overutilized_tp
   __traceiter_sched_switch
   __traceiter_suspend_resume
@@ -2405,6 +2407,8 @@
   tracepoint_probe_register
   tracepoint_probe_register_prio
   tracepoint_probe_unregister
+  __tracepoint_rwmmio_read
+  __tracepoint_rwmmio_write
   __tracepoint_sched_overutilized_tp
   __tracepoint_sched_switch
   __tracepoint_suspend_resume
