@@ -935,7 +935,7 @@ static const struct io_op_def io_op_defs[] = {
 		.needs_file		= 1,
 		.hash_reg_file		= 1,
 		.unbound_nonreg_file	= 1,
-		.work_flags		= IO_WQ_WORK_BLKCG,
+		.work_flags		= IO_WQ_WORK_BLKCG | IO_WQ_WORK_FILES,
 	},
 	[IORING_OP_PROVIDE_BUFFERS] = {},
 	[IORING_OP_REMOVE_BUFFERS] = {},
@@ -9029,7 +9029,7 @@ static int io_sqpoll_wait_sq(struct io_ring_ctx *ctx)
 
 		if (unlikely(ctx->sqo_dead)) {
 			ret = -EOWNERDEAD;
-			goto out;
+			break;
 		}
 
 		if (!io_sqring_full(ctx))
@@ -9039,7 +9039,6 @@ static int io_sqpoll_wait_sq(struct io_ring_ctx *ctx)
 	} while (!signal_pending(current));
 
 	finish_wait(&ctx->sqo_sq_wait, &wait);
-out:
 	return ret;
 }
 
