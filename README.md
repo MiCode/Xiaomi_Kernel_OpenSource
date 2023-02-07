@@ -108,7 +108,7 @@
 | psyche-r-oss | Mi 12X | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [psyche-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/psyche-r-oss) |
 | pyxis-p-oss | MI CC 9, MI CC 9 Meitu Edition | Android P | LA.UM.7.8.r1-04400-SDM710.0 | [pyxis-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pyxis-p-oss) |
 | raphael-p-oss | Redmi K20 Pro | Android P | LA.UM.7.1.r1-12100-sm8150.0 | [raphael-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/raphael-p-oss) |
-| redwood-s-oss | Redmi Note 12 Pro Speed | Android S | LA.UM.9.14.r1-18200-LAHAINA.QSSI12.0 | [redwood-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/redwood-s-oss) |
+| redwood-s-oss | Redmi Note 12 Pro Speed, POCO X5 Pro 5G | Android S | LA.UM.9.14.r1-18200-LAHAINA.QSSI12.0 | [redwood-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/redwood-s-oss) |
 | riva-n-oss | Redmi 4A, Redmi 5, Redmi 5A | Android N | LA.UM.5.6.r1-05900-89xx.0 | [riva-n-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/riva-n-oss) |
 | riva-o-oss | Redmi 5, Redmi 5A | Android O | LA.UM.6.6.r1-09900-89xx.0 | [riva-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/riva-o-oss) |
 | rosemary-r-oss | Redmi Note 10S | Android R | MTK | [rosemary-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/rosemary-r-oss) |   
