@@ -89,6 +89,7 @@
   __blk_alloc_disk
   blk_cleanup_disk
   blk_cleanup_queue
+  blkdev_compat_ptr_ioctl
   blkdev_get_by_dev
   __blkdev_issue_discard
   blkdev_put
@@ -140,7 +141,6 @@
   blk_set_stacking_limits
   blk_start_plug
   blk_sync_queue
-  blkdev_compat_ptr_ioctl
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
@@ -492,10 +492,10 @@
   dev_pm_opp_of_cpumask_remove_table
   dev_pm_opp_of_find_icc_paths
   dev_pm_opp_of_register_em
-  dev_pm_opp_remove
   dev_pm_opp_of_remove_table
   dev_pm_opp_put
   dev_pm_opp_put_clkname
+  dev_pm_opp_remove
   dev_pm_opp_remove_all_dynamic
   dev_pm_opp_set_clkname
   dev_pm_opp_set_opp
@@ -1264,8 +1264,8 @@
   misc_register
   mmc_cqe_request_done
   mmc_execute_tuning
-  mmc_get_ext_csd
   mmc_get_card
+  mmc_get_ext_csd
   mmc_hs200_tuning
   mmc_issue_type
   mmc_of_parse
@@ -1277,8 +1277,8 @@
   mmc_regulator_set_vqmmc
   mmc_retune_hold
   mmc_retune_release
-  mmc_select_card
   mmc_select_bus_width
+  mmc_select_card
   mmc_select_hs
   mmc_select_hs400
   mmc_select_hs_ddr
@@ -2261,6 +2261,7 @@
   __traceiter_android_vh_save_cpu_resume
   __traceiter_android_vh_save_hib_resume_bdev
   __traceiter_android_vh_scheduler_tick
+  __traceiter_android_vh_sd_update_bus_speed_mode
   __traceiter_android_vh_show_resume_epoch_val
   __traceiter_android_vh_show_suspend_epoch_val
   __traceiter_android_vh_skip_swap_map_write
@@ -2380,6 +2381,7 @@
   __tracepoint_android_vh_save_cpu_resume
   __tracepoint_android_vh_save_hib_resume_bdev
   __tracepoint_android_vh_scheduler_tick
+  __tracepoint_android_vh_sd_update_bus_speed_mode
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
   __tracepoint_android_vh_skip_swap_map_write
