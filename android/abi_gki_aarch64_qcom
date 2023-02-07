@@ -1826,6 +1826,7 @@
   rpmsg_get_signals
   rpmsg_poll
   rpmsg_register_device
+  rpmsg_rx_done
   rpmsg_send
   rpmsg_set_signals
   rpmsg_trysend
@@ -2642,3 +2643,4 @@
   xsk_tx_peek_desc
   xsk_tx_release
   xsk_uses_need_wakeup
+  zap_vma_ptes
