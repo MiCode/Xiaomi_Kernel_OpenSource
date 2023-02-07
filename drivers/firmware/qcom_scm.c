@@ -949,11 +949,9 @@ void qcom_scm_halt_spmi_pmic_arbiter(void)
 		.arginfo = QCOM_SCM_ARGS(1),
 	};
 
-	pr_crit("Calling SCM to disable SPMI PMIC arbiter\n");
-
 	ret = qcom_scm_call_atomic(__scm->dev, &desc, NULL);
 	if (ret)
-		pr_err("Failed to halt_spmi_pmic_arbiter=0x%x\n", ret);
+		pr_debug("Failed to halt_spmi_pmic_arbiter=0x%x\n", ret);
 }
 EXPORT_SYMBOL(qcom_scm_halt_spmi_pmic_arbiter);
 
