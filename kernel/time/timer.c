@@ -56,6 +56,11 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/timer.h>
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/timer.h>
+
+EXPORT_TRACEPOINT_SYMBOL_GPL(hrtimer_expire_entry);
+EXPORT_TRACEPOINT_SYMBOL_GPL(hrtimer_expire_exit);
 
 __visible u64 jiffies_64 __cacheline_aligned_in_smp = INITIAL_JIFFIES;
 
@@ -525,6 +530,7 @@ static inline unsigned calc_index(unsigned long expires, unsigned lvl,
 	 *
 	 * Round up with level granularity to prevent this.
 	 */
+	trace_android_vh_timer_calc_index(lvl, &expires);
 	expires = (expires >> LVL_SHIFT(lvl)) + 1;
 	*bucket_expiry = expires << LVL_SHIFT(lvl);
 	return LVL_OFFS(lvl) + (expires & LVL_MASK);
