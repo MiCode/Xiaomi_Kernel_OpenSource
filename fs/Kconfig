@@ -34,6 +34,10 @@ source "fs/btrfs/Kconfig"
 source "fs/nilfs2/Kconfig"
 source "fs/f2fs/Kconfig"
 
+# C3T code for HQ-219000 by liunianliang at 2022/07/27 start
+source "fs/exfat/Kconfig"
+# C3T code for HQ-219000 by liunianliang at 2022/07/27 end
+
 config FS_DAX
 	bool "Direct Access (DAX) support"
 	depends on MMU

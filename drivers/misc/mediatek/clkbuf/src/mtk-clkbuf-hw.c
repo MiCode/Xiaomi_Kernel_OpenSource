@@ -1417,7 +1417,9 @@ static void _clk_buf_set_bringup_sta(bool enable)
 
 static void _clk_buf_xo_init(void)
 {
+        /* C3T code for HQ-218913 by lukuan at 2022.8.2 start */
 	int val = 0;
+        int val_nfc = 0;
 	int i = 0;
 
 	/* set disable flag to unused external hw */
@@ -1438,7 +1440,10 @@ static void _clk_buf_xo_init(void)
 	}
 
 	clkbuf_read(PWRAP_DCXO_EN, 0, &val);
+        clkbuf_read(PWRAP_NFC_EN, 0, &val_nfc);
+        pr_info("%s:##forrest##pwrap dcxo en = 0x%x, pwrap nfc en = 0x%x\n", __func__, val, val_nfc);
 	pwrap_dcxo_en_init = val;
+        /* C3T code for HQ-218913 by lukuan at 2022.8.2 end */
 }
 
 static struct clk_buf_op clkbuf_ctrl_ops = {

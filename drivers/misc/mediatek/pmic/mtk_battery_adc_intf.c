@@ -40,8 +40,10 @@ int pmic_get_battery_voltage(void)
 	return bat;
 }
 
+/* C3T code for HQHW-2826 by tongjiacheng at 2022/09/26 start*/
 bool pmic_is_battery_exist(void)
 {
+#if 0
 	int temp;
 	bool is_bat_exist;
 	int hw_id = pmic_get_register_value(PMIC_HWCID);
@@ -85,9 +87,17 @@ bool pmic_is_battery_exist(void)
 		}
 	}
 	return is_bat_exist;
+#endif
+	bool is_bat_exist;
 
+	if (pmic_get_battery_voltage() > 0)
+		is_bat_exist = true;
+	else
+		is_bat_exist = false;
+
+	return is_bat_exist;
 }
-
+/* C3T code for HQHW-2826 by tongjiacheng at 2022/09/26 end*/
 
 int pmic_get_vbus(void)
 {

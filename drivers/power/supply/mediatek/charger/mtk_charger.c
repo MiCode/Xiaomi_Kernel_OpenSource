@@ -77,6 +77,98 @@ struct tag_bootmode {
 	u32 boottype;
 };
 
+/* C3T code for HQ-236445 by tongjiacheng at 2022/08/29 start */
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 start */
+/* C3T code for HQ-223913 by tongjiacheng at 2022/09/26 start */
+/* C3T code for HQHW-3100 by zhaohan at 2022/10/12 start */
+static int thermal_mitigation_dcp[] = {
+	1000000,1800000,1600000,1400000,1200000,1000000,
+	800000,800000,800000,500000,500000,                   /*亮屏Normal*/
+	1800000,1600000, 1400000,1400000,1200000,
+	1200000,1200000,1000000,1000000,800000,                /*亮屏game*/
+	1800000,1600000,1400000,1200000,1000000,
+	1000000,800000,800000,500000,500000,                   /*亮屏Vedio*/
+	1800000,1600000,1400000,1400000,1200000,1200000,       
+	1200000,1000000,1000000,800000,                        /*亮屏class0*/
+	1800000,1600000,1400000,1400000,1200000,
+	1200000,1200000,1000000,1000000,800000,                 /*亮屏camera*/
+	1800000,1600000,1400000,1200000,1000000,
+	800000,800000,800000,500000,500000                     /*灭屏normal*/
+	};
+
+static int thermal_mitigation_dcp_india[] = {
+	1000000,1800000,1600000,1400000,1200000,1000000,
+	800000,800000,800000,500000,500000,                    /*亮屏Normal*/
+	1800000,1600000,1400000,1200000,1200000,
+	1100000,1000000,1000000,800000,800000,                 /*亮屏game*/
+	1800000,1600000,1400000,1200000,1000000,
+	1000000,800000,800000,500000,500000,                   /*亮屏Vedio*/
+	1800000,1600000,1400000,1200000,1200000,
+	1100000,1000000,1000000,800000,800000,                 /*亮屏class0*/
+	1800000,1600000,1400000,1200000,1200000,
+	1100000,1000000,1000000,800000,800000,                  /*亮屏camera*/
+	1800000,1600000,1400000,1200000,1000000,
+	800000,800000,800000,500000,500000                     /*灭屏normal*/
+	};
+/* C3T code for HQHW-3100 by zhaohan at 2022/10/12 end */
+/* C3T code for HQ-223913 by tongjiacheng at 2022/09/26 end*/
+/* C3T code for HQ-236445 by tongjiacheng at 2022/08/29 end */
+
+static bool is_india;
+static int __init hqsys_pcba_get_board_type(char *str)
+{
+	char pcba[20+1];
+
+	strlcpy(pcba, str, sizeof(pcba));
+
+	if (!strstr(pcba, "IN"))
+		is_india = 0;
+	else
+		is_india = 1;
+
+	pr_info("pcba config = %s, is_india = %d\n", pcba, is_india);
+
+	return 0;
+}
+early_param("final_pcba", hqsys_pcba_get_board_type);
+
+int charger_manager_get_system_temp_level(void)
+{
+	if (!pinfo) {
+		pr_err("%s: failed to read charger info\n");
+		return PTR_ERR(pinfo);
+	}
+
+	return pinfo->temp_level;
+}
+
+void charger_manager_set_system_temp_level(int temp_level)
+{
+	int thermal_icl_ua;
+	struct charger_data *pdata;
+
+	int thermal_max = sizeof(thermal_mitigation_dcp) / sizeof(thermal_mitigation_dcp[0]);
+
+	if (temp_level > (thermal_max - 1))
+		pinfo->temp_level = thermal_max - 1;
+	else
+		pinfo->temp_level = temp_level;
+
+
+	thermal_icl_ua = is_india ? thermal_mitigation_dcp_india[pinfo->temp_level] :
+                              thermal_mitigation_dcp[pinfo->temp_level];
+
+	if (pinfo->temp_level == 0)
+		thermal_icl_ua = -1;
+
+	pr_info("%s: temp level = %d, thermal icl = %d(ua)\n", __func__,
+		pinfo->temp_level, thermal_icl_ua);
+
+	pdata = &pinfo->chg1_data;
+	pdata->thermal_input_current_limit = thermal_icl_ua;
+}
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 end */
+
 bool mtk_is_TA_support_pd_pps(struct charger_manager *pinfo)
 {
 	if (pinfo->enable_pe_4 == false && pinfo->enable_pe_5 == false)
@@ -933,7 +1025,9 @@ void sw_jeita_state_machine_init(struct charger_manager *info)
 
 		if (info->battery_temp >= info->data.temp_t4_thres)
 			sw_jeita->sm = TEMP_ABOVE_T4;
-		else if (info->battery_temp > info->data.temp_t3_thres)
+		/*C3T code for HQHW-2818 by gengyifei at 2022/9/7 start*/
+		else if (info->battery_temp >= info->data.temp_t3_thres)
+		/*C3T code for HQHW-2818 by gengyifei at 2022/9/7 end*/
 			sw_jeita->sm = TEMP_T3_TO_T4;
 		else if (info->battery_temp >= info->data.temp_t2_thres)
 			sw_jeita->sm = TEMP_T2_TO_T3;
@@ -964,7 +1058,9 @@ void do_sw_jeita_state_machine(struct charger_manager *info)
 
 		sw_jeita->sm = TEMP_ABOVE_T4;
 		sw_jeita->charging = false;
-	} else if (info->battery_temp > info->data.temp_t3_thres) {
+	/*C3T code for HQHW-2818 by gengyifei at 2022/9/7 start*/
+	} else if (info->battery_temp >= info->data.temp_t3_thres) {
+	/*C3T code for HQHW-2818 by gengyifei at 2022/9/7 end*/
 		/* control 45 degree to normal behavior */
 		if ((sw_jeita->sm == TEMP_ABOVE_T4)
 		    && (info->battery_temp
@@ -1040,27 +1136,34 @@ void do_sw_jeita_state_machine(struct charger_manager *info)
 		sw_jeita->sm = TEMP_BELOW_T0;
 		sw_jeita->charging = false;
 	}
-
+/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 start */
 	/* set CV after temperature changed */
 	/* In normal range, we adjust CV dynamically */
-	if (sw_jeita->sm != TEMP_T2_TO_T3) {
-		if (sw_jeita->sm == TEMP_ABOVE_T4)
-			sw_jeita->cv = info->data.jeita_temp_above_t4_cv;
-		else if (sw_jeita->sm == TEMP_T3_TO_T4)
-			sw_jeita->cv = info->data.jeita_temp_t3_to_t4_cv;
-		else if (sw_jeita->sm == TEMP_T2_TO_T3)
-			sw_jeita->cv = 0;
-		else if (sw_jeita->sm == TEMP_T1_TO_T2)
-			sw_jeita->cv = info->data.jeita_temp_t1_to_t2_cv;
-		else if (sw_jeita->sm == TEMP_T0_TO_T1)
-			sw_jeita->cv = info->data.jeita_temp_t0_to_t1_cv;
-		else if (sw_jeita->sm == TEMP_BELOW_T0)
-			sw_jeita->cv = info->data.jeita_temp_below_t0_cv;
-		else
-			sw_jeita->cv = info->data.battery_cv;
-	} else {
-		sw_jeita->cv = 0;
+	if (sw_jeita->sm == TEMP_ABOVE_T4) {
+		sw_jeita->cv = info->data.jeita_temp_above_t4_cv;
+		sw_jeita->cc = 0;
 	}
+	else if (sw_jeita->sm == TEMP_T3_TO_T4) {
+		sw_jeita->cv = info->data.jeita_temp_t3_to_t4_cv;
+		sw_jeita->cc = info->data.jeita_temp_t3_to_t4_cc;
+	}
+	else if (sw_jeita->sm == TEMP_T2_TO_T3) {
+		sw_jeita->cv = info->data.jeita_temp_t2_to_t3_cv;
+		sw_jeita->cc = info->data.jeita_temp_t2_to_t3_cc;
+	}
+	else if (sw_jeita->sm == TEMP_T1_TO_T2) {
+		sw_jeita->cv = info->data.jeita_temp_t1_to_t2_cv;
+		sw_jeita->cc = info->data.jeita_temp_t1_to_t2_cc;
+	}
+	else if (sw_jeita->sm == TEMP_T0_TO_T1) {
+		sw_jeita->cv = info->data.jeita_temp_t0_to_t1_cv;
+		sw_jeita->cc = info->data.jeita_temp_t0_to_t1_cc;
+	}
+	else if (sw_jeita->sm == TEMP_BELOW_T0) {
+		sw_jeita->cv = info->data.jeita_temp_below_t0_cv;
+		sw_jeita->cc = 0;
+	}
+/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 end */
 
 	chr_err("[SW_JEITA]preState:%d newState:%d tmp:%d cv:%d\n",
 		sw_jeita->pre_sm, sw_jeita->sm, info->battery_temp,
@@ -1322,7 +1425,7 @@ int charger_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 void mtk_charger_int_handler(void)
 {
 	chr_err("%s\n", __func__);
-
+/*C3T code for HQ-228593 by tongjiacheng at 2022/08/04 start*/
 	if (pinfo == NULL) {
 		chr_err("charger is not rdy ,skip1\n");
 		return;
@@ -1332,6 +1435,7 @@ void mtk_charger_int_handler(void)
 		chr_err("charger is not rdy ,skip2\n");
 		return;
 	}
+/*C3T code for HQ-228593 by tongjiacheng at 2022/08/04 end*/
 
 	if (mt_get_charger_type() == CHARGER_UNKNOWN) {
 		mutex_lock(&pinfo->cable_out_lock);
@@ -1341,6 +1445,16 @@ void mtk_charger_int_handler(void)
 		charger_manager_notifier(pinfo, CHARGER_NOTIFY_STOP_CHARGING);
 	} else
 		charger_manager_notifier(pinfo, CHARGER_NOTIFY_START_CHARGING);
+
+/* C3T code for HQHW-2797 by tongjiacheng at 2022/09/13 start*/
+	if (charger_device_get_hiz_mode(pinfo->chg1_dev)) {
+		charger_dev_set_input_current(pinfo->chg1_dev, 0);
+		charger_manager_notifier(pinfo, CHARGER_NOTIFY_STOP_CHARGING);
+		pinfo->disable_charger = true;
+		pinfo->is_suspend = true;
+		return;
+	}
+/* C3T code for HQHW-2797 by tongjiacheng at 2022/09/13 end*/
 
 	chr_err("wake_up_charger\n");
 	_wake_up_charger(pinfo);
@@ -1621,21 +1735,28 @@ static void check_dynamic_mivr(struct charger_manager *info)
 			!mtk_pdc_check_charger(info)) {
 
 			vbat = battery_get_bat_voltage();
-			if (vbat <
-				info->data.min_charger_voltage_2 / 1000 - 200)
+			/* C3T code for HQ-249742 by tongjiacheng at 2022/09/27 start*/
+			if (vbat < info->data.min_charger_voltage_3 / 1000 - 200)
+				charger_dev_set_mivr(info->chg1_dev,
+					info->data.min_charger_voltage_3);
+			/* C3T code for HQ-249742 by tongjiacheng at 2022/09/27 end*/
+                  	/* C3T code for HQHW-3442 by tongjiacheng at 2022/11/02 start */
+                  	/* C3T code for HQ-258572 by tongjiacheng at 2022/11/06 start */
+			else if (vbat < 4200)
 				charger_dev_set_mivr(info->chg1_dev,
 					info->data.min_charger_voltage_2);
-			else if (vbat <
-				info->data.min_charger_voltage_1 / 1000 - 200)
-				charger_dev_set_mivr(info->chg1_dev,
-					info->data.min_charger_voltage_1);
-			else
-				charger_dev_set_mivr(info->chg1_dev,
-					info->data.min_charger_voltage);
+			else {
+				if (mt_get_charger_type() == CHARGING_HOST || mt_get_charger_type() == NONSTANDARD_CHARGER)
+					charger_dev_set_mivr(info->chg1_dev, 4800000);
+				else
+					charger_dev_set_mivr(info->chg1_dev,
+						info->data.min_charger_voltage_1);
+			}
+                  	/* C3T code for HQ-258572 by tongjiacheng at 2022/11/06 end */
 		}
 	}
 }
-
+			/* C3T code for HQHW-3442 by tongjiacheng at 2022/11/02 end */
 static void mtk_chg_get_tchg(struct charger_manager *info)
 {
 	int ret;
@@ -1831,8 +1952,17 @@ static void kpoc_power_off_check(struct charger_manager *info)
 				chr_err("Unplug Charger/USB in KPOC mode, shutdown\n");
 				chr_err("%s: system_state=%d\n", __func__,
 					system_state);
-				if (system_state != SYSTEM_POWER_OFF)
+				/* C3T code for HQ-253549 by tongjiacheng at 2022/10/10 start*/
+				if (system_state != SYSTEM_POWER_OFF) {
+					msleep(4000);
+				/* C3T code for HQ-259695 by tongjiacheng at 2022/10/31 start */
+					vbus = battery_get_vbus();
+					if (vbus > 2500)
+						return;
+				/* C3T code for HQ-259695 by tongjiacheng at 2022/10/31 end*/
 					kernel_power_off();
+				}
+				/* C3T code for HQ-253549 by tongjiacheng at 2022/10/10 end*/
 			}
 		}
 	}
@@ -2042,6 +2172,9 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 	info->enable_dynamic_mivr =
 			of_property_read_bool(np, "enable_dynamic_mivr");
 	info->disable_pd_dual = of_property_read_bool(np, "disable_pd_dual");
+	/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 start */
+	info->enable_sw_fcc = of_property_read_bool(np, "enable_sw_fcc");
+	/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 end*/
 
 	info->enable_hv_charging = true;
 
@@ -2052,6 +2185,21 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 		chr_err("use default BATTERY_CV:%d\n", BATTERY_CV);
 		info->data.battery_cv = BATTERY_CV;
 	}
+/* C3T code for HQ-HQ-218837 by tongjiacheng at 2022/08/26 start */
+	if (of_property_read_u32(np, "recharger_soc_limit_1", &val) >= 0)
+		info->data.recharger_soc_limit_1 = val;
+	else {
+		chr_err("use default RECHARGER_VOLT:%d\n", RECHARGER_SOC);
+		info->data.recharger_soc_limit_1 = RECHARGER_SOC;
+	}
+
+	if (of_property_read_u32(np, "recharger_soc_limit_2", &val) >= 0)
+		info->data.recharger_soc_limit_2 = val;
+	else {
+		chr_err("use default RECHARGER_VOLT:%d\n", RECHARGER_SOC);
+		info->data.recharger_soc_limit_2 = RECHARGER_SOC;
+	}
+/* C3T code for HQ-HQ-218837 by tongjiacheng at 2022/08/26 end*/
 
 	if (of_property_read_u32(np, "max_charger_voltage", &val) >= 0)
 		info->data.max_charger_voltage = val;
@@ -2082,6 +2230,14 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 		chr_err("use default V_CHARGER_MIN_2:%d\n", V_CHARGER_MIN_2);
 		info->data.min_charger_voltage_2 = V_CHARGER_MIN_2;
 	}
+	/* C3T code for HQ-249742 by tongjiacheng at 2022/09/27 start*/
+	if (of_property_read_u32(np, "min_charger_voltage_3", &val) >= 0)
+		info->data.min_charger_voltage_3 = val;
+	else {
+		chr_err("use default V_CHARGER_MIN_2:%d\n", V_CHARGER_MIN_2);
+		info->data.min_charger_voltage_3 = V_CHARGER_MIN_2;
+	}
+	/* C3T code for HQ-249742 by tongjiacheng at 2022/09/27 end*/
 
 	if (of_property_read_u32(np, "max_dmivr_charger_current", &val) >= 0)
 		info->data.max_dmivr_charger_current = val;
@@ -2251,6 +2407,39 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 			JEITA_TEMP_BELOW_T0_CV);
 		info->data.jeita_temp_below_t0_cv = JEITA_TEMP_BELOW_T0_CV;
 	}
+/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 start */
+	if (of_property_read_u32(np, "jeita_temp_t0_to_t1_cc", &val) >= 0)
+		info->data.jeita_temp_t0_to_t1_cc = val;
+	else {
+		chr_err("use default JEITA_TEMP_T0_TO_T1_CC:%d\n",
+			JEITA_TEMP_T0_TO_T1_CC);
+		info->data.jeita_temp_t0_to_t1_cc = JEITA_TEMP_T0_TO_T1_CC;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t1_to_t2_cc", &val) >= 0)
+		info->data.jeita_temp_t1_to_t2_cc = val;
+	else {
+		chr_err("use default JEITA_TEMP_T1_TO_T2_CC:%d\n",
+			JEITA_TEMP_T1_TO_T2_CC);
+		info->data.jeita_temp_t1_to_t2_cc = JEITA_TEMP_T1_TO_T2_CC;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t2_to_t3_cc", &val) >= 0)
+		info->data.jeita_temp_t2_to_t3_cc = val;
+	else {
+		chr_err("use default JEITA_TEMP_T2_TO_T3_CC:%d\n",
+			JEITA_TEMP_T2_TO_T3_CC);
+		info->data.jeita_temp_t2_to_t3_cc = JEITA_TEMP_T2_TO_T3_CC;
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t3_to_t4_cc", &val) >= 0)
+		info->data.jeita_temp_t3_to_t4_cc = val;
+	else {
+		chr_err("use default JEITA_TEMP_T3_TO_T4_CC:%d\n",
+			JEITA_TEMP_T3_TO_T4_CC);
+		info->data.jeita_temp_t3_to_t4_cc = JEITA_TEMP_T3_TO_T4_CC;
+	}
+/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 end */
 
 	if (of_property_read_u32(np, "temp_t4_thres", &val) >= 0)
 		info->data.temp_t4_thres = val;
@@ -2754,6 +2943,64 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 		info->sc.current_limit = SC_CURRENT_LIMIT;
 	}
 
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 start */
+	/* cycle count*/
+	if (of_property_read_u32(np, "ffc_cv_1", &val) >= 0)
+		info->data.ffc_cv_1 = val;
+	else {
+		chr_err("use default ffc_cv_1:%d\n",
+			FFC_CV_1);
+		info->data.ffc_cv_1 = FFC_CV_1;
+	}
+
+	if (of_property_read_u32(np, "ffc_cv_2", &val) >= 0)
+		info->data.ffc_cv_2 = val;
+	else {
+		chr_err("use default ffc_cv_2:%d\n",
+			FFC_CV_2);
+		info->data.ffc_cv_2 = FFC_CV_2;
+	}
+
+	if (of_property_read_u32(np, "ffc_cv_3", &val) >= 0)
+		info->data.ffc_cv_3 = val;
+	else {
+		chr_err("use default ffc_cv_3:%d\n",
+			FFC_CV_3);
+		info->data.ffc_cv_3 = FFC_CV_3;
+	}
+
+	if (of_property_read_u32(np, "ffc_cv_4", &val) >= 0)
+		info->data.ffc_cv_4 = val;
+	else {
+		chr_err("use default ffc_cv_4:%d\n",
+			FFC_CV_4);
+		info->data.ffc_cv_4 = FFC_CV_4;
+	}
+
+	if (of_property_read_u32(np, "chg_cycle_count_level1", &val) >= 0)
+		info->data.cycle_count_level1 = val;
+	else {
+		chr_err("use default cycle_count_level1:%d\n",
+			CHG_CYCLE_COUNT_LEVEL1);
+		info->data.cycle_count_level1 = CHG_CYCLE_COUNT_LEVEL1;
+	}
+
+	if (of_property_read_u32(np, "chg_cycle_count_level2", &val) >= 0)
+		info->data.cycle_count_level2 = val;
+	else {
+		chr_err("use default chg_cycle_count_level2:%d\n",
+			CHG_CYCLE_COUNT_LEVEL2);
+		info->data.cycle_count_level2 = CHG_CYCLE_COUNT_LEVEL2;
+	}
+
+	if (of_property_read_u32(np, "chg_cycle_count_level3", &val) >= 0)
+		info->data.cycle_count_level3 = val;
+	else {
+		chr_err("use default chg_cycle_count_level2:%d\n",
+			CHG_CYCLE_COUNT_LEVEL3);
+		info->data.cycle_count_level3 = CHG_CYCLE_COUNT_LEVEL3;
+	}
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 end */
 	chr_err("algorithm name:%s\n", info->algorithm_name);
 
 	return 0;
@@ -3885,6 +4132,9 @@ static ssize_t store_sc_test(
 static DEVICE_ATTR(sc_test, 0664,
 	show_sc_test, store_sc_test);
 
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+struct charger_manager *_pinfo;
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
 static int mtk_charger_probe(struct platform_device *pdev)
 {
 	struct charger_manager *info = NULL;
@@ -4055,6 +4305,10 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->init_done = true;
 	_wake_up_charger(info);
 
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+	_pinfo = info;
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
+
 	return 0;
 }
 
@@ -4107,7 +4361,9 @@ static int __init mtk_charger_init(void)
 {
 	return platform_driver_register(&charger_driver);
 }
-late_initcall(mtk_charger_init);
+/*C3T code for HQ-228593 by tongjiacheng at 2022/08/04 start*/
+late_initcall_sync(mtk_charger_init);
+/*C3T code for HQ-228593 by tongjiacheng at 2022/08/04 end*/
 
 static void __exit mtk_charger_exit(void)
 {

@@ -42,7 +42,9 @@ static struct device_attribute power_supply_attrs[];
 
 static const char * const power_supply_type_text[] = {
 	"Unknown", "Battery", "UPS", "Mains", "USB",
-	"USB_DCP", "USB_CDP", "USB_ACA", "USB_C",
+	/* C3T code for HQHW-2797 by tongjiacheng at 2022/09/13 start */
+	"USB_DCP", "USB_CDP", "USB_FLOAT", "USB_ACA", "USB_C",
+	/* C3T code for HQHW-2797 by tongjiacheng at 2022/09/13 end */
 	"USB_PD", "USB_PD_DRP", "BrickID",
 	"USB_HVDCP", "USB_HVDCP_3", "USB_HVDCP_3P5", "Wireless", "USB_FLOAT",
 	"BMS", "Parallel", "Main", "USB_C_UFP", "USB_C_DFP",
@@ -76,6 +78,12 @@ static const char * const power_supply_technology_text[] = {
 static const char * const power_supply_capacity_level_text[] = {
 	"Unknown", "Critical", "Low", "Normal", "High", "Full"
 };
+
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 start*/
+static const char * const power_supply_battery_vendor_text[] = {
+	"SWD_200K", "NVT_150K", "NVT_68K", "COSMX_100K", "Unknow"
+};
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 end*/
 
 static const char * const power_supply_scope_text[] = {
 	"Unknown", "System", "Device"
@@ -195,6 +203,12 @@ static ssize_t power_supply_show_property(struct device *dev,
 						 psy->desc->num_usb_types,
 						 &value, buf);
 		break;
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 start*/
+	case POWER_SUPPLY_PROP_BATTERY_VENDOR:
+		ret = sprintf(buf, "%s\n",
+			      power_supply_battery_vendor_text[value.intval]);
+		break;
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 end*/
 	case POWER_SUPPLY_PROP_SCOPE:
 		ret = sprintf(buf, "%s\n",
 			      power_supply_scope_text[value.intval]);
@@ -362,6 +376,17 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(capacity_raw),
 	POWER_SUPPLY_ATTR(battery_charging_enabled),
 	POWER_SUPPLY_ATTR(charging_enabled),
+/*C3T HQ-219117 add battery id node by zhaohan at 2022/07/22 start*/
+	POWER_SUPPLY_ATTR(battery_id),
+	POWER_SUPPLY_ATTR(battery_id_voltage),
+	POWER_SUPPLY_ATTR(battery_vendor),
+/*C3T HQ-219117 add battery id node by zhaohan at 2022/07/22 end*/
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 start */
+	POWER_SUPPLY_ATTR(shutdown_delay),
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 end */
+/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 start*/
+	POWER_SUPPLY_ATTR(mtbf),
+/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 end*/
 	POWER_SUPPLY_ATTR(step_charging_enabled),
 	POWER_SUPPLY_ATTR(step_charging_step),
 	POWER_SUPPLY_ATTR(pin_enabled),

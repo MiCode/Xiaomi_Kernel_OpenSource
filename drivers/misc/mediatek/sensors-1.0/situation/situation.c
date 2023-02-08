@@ -6,7 +6,9 @@
 #define pr_fmt(fmt) "<SITUATION> " fmt
 
 #include "situation.h"
-
+/*C3T code for HQ-218639 by huitianpu at 2022/9/9 start*/
+#include <linux/vmalloc.h>
+/*C3T code for HQ-218639 by huitianpu at 2022/9/9 end*/
 static struct situation_context *situation_context_obj;
 
 static struct situation_init_info *
@@ -72,6 +74,14 @@ static int handle_to_index(int handle)
 	case ID_SAR:
 		index = sar;
 		break;
+	/*C3T code for HQ-218639 by huitianpu at 2022/8/21 start*/
+	case ID_SAR_ALGO:
+		index = saralgo;
+		break;
+	case ID_SAR_ALGO_TOP:
+		index = saralgo_top;
+		break;
+	/*C3T code for HQ-218639 by huitianpu at 2022/8/21 end*/
 	default:
 		index = -1;
 		pr_err("%s invalid handle:%d,index:%d\n", __func__,
@@ -136,6 +146,34 @@ int sar_data_report_t(int32_t value[3], int64_t time_stamp)
 		__pm_wakeup_event(cxt->ws[index], 250);
 	return err;
 }
+/*C3T code for HQ-227922 by huitianpu at 2022/8/2 start*/
+int sar_cal_report_t(int32_t value[3], int64_t time_stamp){
+	int err = 0, index = -1;
+	struct sensor_event event;
+	struct situation_context *cxt = situation_context_obj;
+
+	memset(&event, 0, sizeof(struct sensor_event));
+
+	index = handle_to_index(ID_SAR);
+	if (index < 0) {
+		pr_err("[%s] invalid index\n", __func__);
+		return -1;
+	}
+	event.time_stamp = time_stamp;
+	event.handle = ID_SAR;
+	event.flush_action = CALI_ACTION;
+	event.word[0] = value[0];
+	event.word[1] = value[1];
+	event.word[2] = value[2];
+	err = sensor_input_event(situation_context_obj->mdev.minor, &event);
+	if (cxt->ctl_context[index].situation_ctl.open_report_data != NULL &&
+		cxt->ctl_context[index].situation_ctl.is_support_wake_lock)
+		__pm_wakeup_event(cxt->ws[index], 250);
+
+	pr_debug("i did sar cal offset: %d  %d",value[0],value[1]);
+	return err;
+}
+/*C3T code for HQ-227922 by huitianpu at 2022/8/2 end*/
 int sar_data_report(int32_t value[3])
 {
 	return sar_data_report_t(value, 0);
@@ -288,6 +326,38 @@ err_out:
 }
 
 /*----------------------------------------------------------------------------*/
+/*C3T code for HQ-218639 by huitianpu at 2022/9/9 start*/
+static ssize_t sarstep_show(struct device *dev,
+	struct device_attribute *attr, char *buf){
+		return snprintf(buf, PAGE_SIZE, "%d\n", 0);
+	}
+
+static ssize_t sarstep_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count){
+		
+		struct situation_context *cxt = NULL;
+		int err = 0;
+		uint8_t *cali_buf = NULL;
+		
+		cali_buf = vzalloc(count);
+		if (cali_buf == NULL)
+			return -EFAULT;
+		memcpy(cali_buf, buf, count);
+
+		
+		mutex_lock(&situation_context_obj->situation_op_mutex);
+		cxt = situation_context_obj;
+		if (cxt->ctl_context[saralgo].situation_ctl.set_cali != NULL)
+			err = cxt->ctl_context[saralgo].situation_ctl.set_cali(cali_buf, count);
+		else
+			pr_err("DON'T SUPPORT SARALGO COMMONVERSION FLUSH\n");
+		if (err < 0)
+			pr_err("saralgo set step err %d\n", err);
+		mutex_unlock(&situation_context_obj->situation_op_mutex);
+		vfree(cali_buf);
+		return count;
+	}
+/*C3T code for HQ-218639 by huitianpu at 2022/9/9 end*/
 static ssize_t situactive_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -508,20 +578,22 @@ static int situation_misc_init(struct situation_context *cxt)
 
 	return err;
 }
-
+/*C3T code for HQ-218639 by huitianpu at 2022/9/9 start*/
 DEVICE_ATTR_RW(situactive);
 DEVICE_ATTR_RW(situbatch);
 DEVICE_ATTR_RW(situflush);
 DEVICE_ATTR_RO(situdevnum);
+DEVICE_ATTR_RW(sarstep);
 
 static struct attribute *situation_attributes[] = {
 	&dev_attr_situactive.attr,
 	&dev_attr_situbatch.attr,
 	&dev_attr_situflush.attr,
 	&dev_attr_situdevnum.attr,
+	&dev_attr_sarstep.attr,
 	NULL
 };
-
+/*C3T code for HQ-218639 by huitianpu at 2022/9/9 end*/
 static struct attribute_group situation_attribute_group = {
 	.attrs = situation_attributes
 };
@@ -570,6 +642,9 @@ int situation_register_control_path(struct situation_control_path *ctl,
 		ctl->open_report_data;
 	cxt->ctl_context[index].situation_ctl.batch = ctl->batch;
 	cxt->ctl_context[index].situation_ctl.flush = ctl->flush;
+/*C3T code for HQ-218639 by huitianpu at 2022/9/9 start*/
+	cxt->ctl_context[index].situation_ctl.set_cali = ctl->set_cali;
+/*C3T code for HQ-218639 by huitianpu at 2022/9/9 end*/
 	cxt->ctl_context[index].situation_ctl.is_support_wake_lock =
 		ctl->is_support_wake_lock;
 	cxt->ctl_context[index].situation_ctl.is_support_batch =

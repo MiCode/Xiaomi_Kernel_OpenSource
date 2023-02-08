@@ -139,7 +139,9 @@ static int EEPROM_get_cmd_info(unsigned int sensorID,
 				if (cmdInfo->readCMDFunc == Common_read_region
 				    && cmdInfo->maxEepromSize == 0) {
 					cmdInfo->maxEepromSize =
-						DEFAULT_MAX_EEPROM_SIZE_8K;
+					/* code at 2022/10/26 start */
+						DEFAULT_MAX_EEPROM_SIZE_16K;
+					/* code at 2022/10/26 end */
 				}
 
 				return 1;

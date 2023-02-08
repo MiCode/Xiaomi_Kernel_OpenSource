@@ -32,6 +32,11 @@
 #include <linux/platform_device.h>	/* platform device */
 #include <linux/time.h>
 
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 start*/
+#include <linux/of_platform.h>
+#include <linux/iio/consumer.h>
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 end*/
+
 #include <linux/netlink.h>	/* netlink */
 #include <linux/kernel.h>
 #include <linux/socket.h>	/* netlink */
@@ -599,7 +604,9 @@ bool __attribute__ ((weak)) mt_usb_is_device(void)
 void fgauge_get_profile_id(void)
 {
 	int id_volt = 0;
-	int id = 0;
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 start*/
+	//int id = 0;
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 end*/
 	int ret = 0;
 	int auxadc_voltage = 0;
 	struct iio_channel *channel;
@@ -636,28 +643,31 @@ void fgauge_get_profile_id(void)
 	}
 
 	bm_err("[%s]auxadc_voltage is %d\n", __func__, auxadc_voltage);
-	id_volt = auxadc_voltage * 1500 / 4096;
+/*C3T code for HQ-223762 by gengyifei at 2022/8/11 start*/
+	id_volt = auxadc_voltage * 1000;
+	bm_err("[%s]battery_id_voltage is %d\n", __func__, id_volt);
+	
+	gm.battery_id_voltage = id_volt;
 	bm_err("[%s]battery_id_voltage is %d\n", __func__, id_volt);
 
-	if ((sizeof(g_battery_id_voltage) /
-		sizeof(int)) != TOTAL_BATTERY_NUMBER) {
-		bm_debug("[%s]error! voltage range incorrect!\n",
-			__func__);
-		return;
+	if (id_volt >= COSMX_MIN_VOLTAGE && id_volt <=COSMX_MAX_VOLTAGE) {
+		gm.battery_id = 3;
 	}
-
-	for (id = 0; id < TOTAL_BATTERY_NUMBER; id++) {
-		if (id_volt < g_battery_id_voltage[id]) {
-			gm.battery_id = id;
-			break;
-		} else if (g_battery_id_voltage[id] == -1) {
-			gm.battery_id = TOTAL_BATTERY_NUMBER - 1;
-		}
+	else if(id_volt >= NVT_MIN_VOLTAGE && id_volt <=NVT_MAX_VOLTAGE){
+		gm.battery_id = 2;
 	}
+	else if(id_volt >= NVT1_MIN_VOLTAGE && id_volt <=NVT1_MAX_VOLTAGE){
+		gm.battery_id = 1;
+	}
+	else if(id_volt >= SWD_MIN_VOLTAGE && id_volt <=SWD_MAX_VOLTAGE){
+		gm.battery_id = 0;
+	}
+	else {
+		gm.battery_id = 4;
+	}
+	bm_err("[%s]Battery id (%d)\n", __func__, gm.battery_id);
+/*C3T code for HQ-223762 by gengyifei at 2022/8/11 end*/
 
-	bm_debug("[%s]Battery id (%d)\n",
-		__func__,
-		gm.battery_id);
 }
 #elif defined(MTK_GET_BATTERY_ID_BY_GPIO)
 void fgauge_get_profile_id(void)
@@ -2011,11 +2021,15 @@ void notify_fg_dlpt_sd(void)
 	wakeup_fg_algo(FG_INTR_DLPT_SD);
 }
 
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 start */
+bool enable_notify_shutdown;
 void notify_fg_shutdown(void)
 {
 	bm_err("[%s]\n", __func__);
-	wakeup_fg_algo(FG_INTR_SHUTDOWN);
+	//wakeup_fg_algo(FG_INTR_SHUTDOWN);
+	enable_notify_shutdown = true;
 }
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 end */
 
 void notify_fg_chr_full(void)
 {
@@ -2771,10 +2785,24 @@ void fg_drv_update_hw_status(void)
 	int fg_current_iavg;
 	bool valid = false;
 	static unsigned int cnt;
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 start*/
+	signed int gain_error = 0, gain_add = 0;
+	int ret = 0;
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 end*/
 	ktime_t ktime = ktime_set(60, 0);
 
 	bm_debug("[%s]=>\n", __func__);
 
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 start*/
+	ret = pmic_read_interface((MT6358_FGADC_ANA_ELR0), (&gain_error),
+				  (PMIC_RG_FGADC_GAINERROR_CAL_MASK),
+				  (PMIC_RG_FGADC_GAINERROR_CAL_SHIFT));
+
+	ret = pmic_read_interface((MT6358_FGADC_GAIN_CON0), (&gain_add),
+				  (PMIC_FG_GAIN_MASK), (PMIC_FG_GAIN_SHIFT));
+
+	bm_debug("[%s]type: 0x%x 0x%x!\n", __func__, gain_error, gain_add);
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 end*/
 
 	if (gauge_get_hw_version() >= GAUGE_HW_V1000 &&
 	gauge_get_hw_version() < GAUGE_HW_V2000)

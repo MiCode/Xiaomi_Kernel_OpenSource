@@ -770,6 +770,9 @@ struct mtk_battery {
 	struct mutex notify_mutex;
 	struct srcu_notifier_head gm_notify;
 
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 start*/
+	int battery_id_voltage;
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 end*/
 /*pmic device related */
 	struct device_node *pdev_node;
 	struct platform_device *pdevice;
@@ -778,7 +781,9 @@ struct mtk_battery {
 
 /*custom related*/
 	int battery_id;
-
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 start */
+	bool shutdown_delay;
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 end */
 	struct zcv_filter zcvf;
 
 /*boot mode*/

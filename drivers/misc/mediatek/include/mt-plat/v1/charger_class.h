@@ -169,6 +169,10 @@ struct charger_ops {
 	int (*enable_hz)(struct charger_device *dev, bool en);
 
 	int (*enable_bleed_discharge)(struct charger_device *dev, bool en);
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+	int (*set_hiz_mode)(struct charger_device *chg_dev, bool en);
+	int (*get_hiz_mode)(struct charger_device *chg_dev);
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
 };
 
 static inline void *charger_dev_get_drvdata(
@@ -352,6 +356,9 @@ extern int unregister_charger_device_notifier(
 				struct notifier_block *nb);
 extern int charger_dev_notify(
 	struct charger_device *charger_dev, int event);
-
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+extern int charger_device_set_hiz_mode(struct charger_device *chg_dev, bool en);
+extern int charger_device_get_hiz_mode(struct charger_device *chg_dev);
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
 
 #endif /*LINUX_POWER_CHARGER_CLASS_H*/

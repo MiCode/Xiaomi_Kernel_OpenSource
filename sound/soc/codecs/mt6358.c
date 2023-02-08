@@ -40,6 +40,9 @@
 
 #include "mt6358.h"
 
+/*#include "fs15xx/fs15xx.h"*/
+#include "fs15xx/fs15xx.h"
+/*End of this file, DO NOT ADD ANYTHING HERE*/
 enum {
 	AUDIO_ANALOG_VOLUME_HSOUTL,
 	AUDIO_ANALOG_VOLUME_HSOUTR,
@@ -7119,6 +7122,13 @@ static int mt6358_codec_init_reg(struct mt6358_priv *priv)
 			   RG_EINTCOMPVTH_MASK_SFT,
 			   0x1 << RG_EINTCOMPVTH_SFT);
 
+	/* C3T code for HQ-235448 by zhangbing at 2022/08/25 start */
+	/* Set HP_EINT High R to 500k */
+	regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON11,
+			   RG_EINTHIRENB_MASK_SFT,
+			   0x1 << RG_EINTHIRENB_SFT);
+	/* C3T code for HQ-235448 by zhangbing at 2022/08/25 end */
+
 	/* gpio miso driving set to 4mA */
 	regmap_write(priv->regmap, MT6358_DRV_CON3, 0x8888);
 
@@ -7203,6 +7213,7 @@ static int get_hp_current_calibrate_val(struct mt6358_priv *priv)
 	return value;
 }
 
+/* C3T code for HQ-223290 by zhangkaiming at 2022/07/24 start */
 static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 {
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
@@ -7222,6 +7233,7 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 	snd_soc_add_component_controls(cmpnt,
 				       mt6358_snd_vow_controls,
 				       ARRAY_SIZE(mt6358_snd_vow_controls));
+	fs15xx_add_codec_kcontrol(cmpnt);
 
 	mt6358_codec_init_reg(priv);
 
@@ -7236,6 +7248,7 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 
 	return 0;
 }
+/* C3T code for HQ-223290 by zhangkaiming at 2022/07/24 end */
 
 static struct snd_soc_component_driver mt6358_soc_component_driver = {
 	.name = CODEC_MT6358_NAME,

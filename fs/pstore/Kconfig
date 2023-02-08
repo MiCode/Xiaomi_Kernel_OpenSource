@@ -153,3 +153,13 @@ config PSTORE_RAM
 	  "ramoops.ko".
 
 	  For more information, see Documentation/admin-guide/ramoops.rst.
+
+# C3T code for HQ-219114 by liunianliang at 22/08/11 start
+config PSTORE_LAST_KMSG
+       bool "export /proc/last_kmsg"
+       default y
+       depends on PSTORE
+       help
+         When the option is enabled, pstore will export a proc filesystem
+         interface /proc/last_kmsg.
+# C3T code for HQ-219114 by liunianliang at 22/08/11 end

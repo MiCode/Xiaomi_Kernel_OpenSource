@@ -539,6 +539,11 @@ static int __init ppm_sysboost_policy_init(void)
 		case BOOST_BY_BOOT_TIME_OPT:
 			sysboost_data[i].user_name = "BOOT_TIME_OPT";
 			break;
+		/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+		case BOOST_BY_XM_THERMAL:
+			sysboost_data[i].user_name = "XM_THERM";
+			break;
+		/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 		case BOOST_BY_UT:
 		default:
 			sysboost_data[i].user_name = "UT";
@@ -564,7 +569,9 @@ static int __init ppm_sysboost_policy_init(void)
 	ppm_info("@%s: register %s done!\n", __func__, sysboost_policy.name);
 
 out:
-	sysboost_policy.is_enabled = false;
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+	sysboost_policy.is_enabled = true;
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 	FUNC_EXIT(FUNC_LV_POLICY);
 
 	return ret;

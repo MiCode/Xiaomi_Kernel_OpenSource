@@ -221,5 +221,10 @@ struct compat_biometric_threshold {
 #define COMPAT_SAR_IOCTL_GET_CALI _IOR(SAR, 0x03, struct SENSOR_DATA)
 #define COMPAT_SAR_IOCTL_ENABLE_CALI _IO(SAR, 0x04)
 #endif
-
+/*C3T code for HQ-218639 by huitianpu at 2022/9/4 start*/
+#define SARALGO 0x92
+#define SARALGO_IOCTL_INIT _IOW(SARALGO, 0x01, int)
+#define SARALGO_IOCTL_READ_SENSORDATA _IOR(SARALGO, 0x02, int)
+#define SARALGO_IOCTL_STEP _IOW(SARALGO, 0x03, int)
+/*C3T code for HQ-218639 by huitianpu at 2022/9/4 end*/
 #endif

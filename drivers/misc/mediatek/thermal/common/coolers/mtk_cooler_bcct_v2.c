@@ -362,13 +362,11 @@ static void chrlmt_set_limit_handler(struct work_struct *work)
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 		/* idx: 0 for main charger*/
-		charger_manager_set_input_current_limit(pthermal_consumer, 0,
-				((chrlmt_chr_input_curr_limit != -1) ?
-				chrlmt_chr_input_curr_limit * 1000 : -1));
+		/* C3T code for HQ-235975 by tongjiacheng at 2022/09/01 start */
+		charger_manager_set_input_current_limit(pthermal_consumer, 0, -1);
 
-		charger_manager_set_charging_current_limit(pthermal_consumer, 0,
-				((chrlmt_bat_chr_curr_limit != -1) ?
-				chrlmt_bat_chr_curr_limit * 1000 : -1));
+		charger_manager_set_charging_current_limit(pthermal_consumer, 0, -1);
+		/* C3T code for HQ-235975 by tongjiacheng at 2022/09/01 end */
 
 		/* High Voltage (Vbus) control*/
 		if (chrlmt_bat_chr_curr_limit == 0)
@@ -449,8 +447,12 @@ int pep30_input_curr_limit)
 		chrlmt_bat_chr_curr_limit = min_bat_char_curr_limit;
 		chrlmt_pep30_input_curr_limit = min_pep30_input_curr_limit;
 
+/* C3T code for HQHW-3006 by tongjiacheng at 2022/09/21 start */
+#if 0
 		if (bcct_chrlmt_queue)
 			queue_work(bcct_chrlmt_queue, &bcct_chrlmt_work);
+#endif
+/* C3T code for HQHW-3006 by tongjiacheng at 2022/09/21 end */
 
 		mtk_cooler_bcct_dprintk_always("%s %p %d %d %d\n", __func__
 					, handle, chrlmt_chr_input_curr_limit

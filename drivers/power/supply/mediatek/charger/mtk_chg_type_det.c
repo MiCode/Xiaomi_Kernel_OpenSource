@@ -74,31 +74,6 @@ void __attribute__((weak)) fg_charger_in_handler(void)
 	pr_notice("%s not defined\n", __func__);
 }
 
-struct chg_type_info {
-	struct device *dev;
-	struct charger_consumer *chg_consumer;
-	struct tcpc_device *tcpc;
-	struct notifier_block pd_nb;
-	bool tcpc_kpoc;
-	/* Charger Detection */
-	struct mutex chgdet_lock;
-	bool chgdet_en;
-	atomic_t chgdet_cnt;
-	wait_queue_head_t waitq;
-	struct task_struct *chgdet_task;
-	struct workqueue_struct *pwr_off_wq;
-	struct work_struct pwr_off_work;
-	struct workqueue_struct *chg_in_wq;
-	struct work_struct chg_in_work;
-	bool ignore_usb;
-	bool plugin;
-	bool bypass_chgdet;
-#ifdef CONFIG_MACH_MT6771
-	struct power_supply *chr_psy;
-	struct notifier_block psy_nb;
-#endif
-};
-
 #ifdef CONFIG_FPGA_EARLY_PORTING
 /*  FPGA */
 int hw_charging_get_charger_type(void)
@@ -142,26 +117,6 @@ static void dump_charger_name(enum charger_type type)
 	}
 }
 
-/* Power Supply */
-struct mt_charger {
-	struct device *dev;
-	struct power_supply_desc chg_desc;
-	struct power_supply_config chg_cfg;
-	struct power_supply *chg_psy;
-	struct power_supply_desc ac_desc;
-	struct power_supply_config ac_cfg;
-	struct power_supply *ac_psy;
-	struct power_supply_desc usb_desc;
-	struct power_supply_config usb_cfg;
-	struct power_supply *usb_psy;
-	struct chg_type_info *cti;
-	#ifdef CONFIG_EXTCON_USB_CHG
-	struct usb_extcon_info *extcon_info;
-	struct delayed_work extcon_work;
-	#endif
-	bool chg_online; /* Has charger in or not */
-	enum charger_type chg_type;
-};
 
 static int mt_charger_online(struct mt_charger *mtk_chg)
 {
@@ -170,6 +125,18 @@ static int mt_charger_online(struct mt_charger *mtk_chg)
 	struct device_node *boot_node = NULL;
 	struct tag_bootmode *tag = NULL;
 	int boot_mode = 11;//UNKNOWN_BOOT
+	/* C3T code for HQ-253549 by tongjiacheng at 2022/10/10 start*/
+	struct power_supply *bat_psy;
+  	/* C3T code for HQ-259695 by tongjiacheng at 2022/11/01 start*/
+	int vbus;
+  	/* C3T code for HQ-259695 by tongjiacheng at 2022/11/01 end*/
+
+	bat_psy = power_supply_get_by_name("battery");
+	if (!bat_psy) {
+		pr_err("%s: failed to get battery psy\n", __func__);
+		return PTR_ERR(bat_psy);
+	}
+	/* C3T code for HQ-253549 by tongjiacheng at 2022/10/10 end*/
 	dev = mtk_chg->dev;
 	if (dev != NULL){
 		boot_node = of_parse_phandle(dev->of_node, "bootmode", 0);
@@ -192,11 +159,23 @@ static int mt_charger_online(struct mt_charger *mtk_chg)
 		//boot_mode = get_boot_mode();
 		if (boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT ||
 		    boot_mode == LOW_POWER_OFF_CHARGING_BOOT) {
+			/* C3T code for HQ-253549 by tongjiacheng at 2022/10/10 start*/
+			power_supply_changed(mtk_chg->ac_psy);
+			power_supply_changed(mtk_chg->usb_psy);
+			power_supply_changed(bat_psy);
 			pr_notice("%s: Unplug Charger/USB\n", __func__);
 			pr_notice("%s: system_state=%d\n", __func__,
 				system_state);
-			if (system_state != SYSTEM_POWER_OFF)
+			if (system_state != SYSTEM_POWER_OFF) {
+				msleep(4000);
+			/* C3T code for HQ-259695 by tongjiacheng at 2022/10/31 start */
+				vbus = battery_get_vbus();
+				if (vbus > 2500)
+						return -1;
+			/* C3T code for HQ-259695 by tongjiacheng at 2022/10/31 end*/
 				kernel_power_off();
+			}
+			/* C3T code for HQ-253549 by tongjiacheng at 2022/10/10 end*/
 		}
 	}
 
@@ -208,7 +187,13 @@ static int mt_charger_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
 	struct mt_charger *mtk_chg = power_supply_get_drvdata(psy);
-
+/*C3T code for HQ-234626 by zhaohan at 2022/8/24 start*/
+	struct charger_device *chg_dev = get_charger_by_name("primary_chg");
+	if(!chg_dev){
+		pr_err("%s: failed to get charger device\n",  __func__);
+		return PTR_ERR(chg_dev);
+		}
+/*C3T code for HQ-234626 by zhaohan at 2022/8/24 end*/
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = 0;
@@ -244,6 +229,27 @@ static int mt_charger_get_property(struct power_supply *psy,
 		default:
 		break;
 	}
+		break;
+	/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 start*/
+	case POWER_SUPPLY_PROP_MTBF:
+/*C3T code for HQ-223437 by zhaohan at 2022/10/17 start*/
+	val->intval = mtk_chg->mtbf_current;
+/*C3T code for HQ-223437 by zhaohan at 2022/10/17 end*/
+		pr_info("const_current_limit is %d\n ",val->intval);
+		break;
+	/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 end*/
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 start*/
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		val->intval = mtk_chg->const_current_limit;
+		pr_info("const_current_limit is %d\n ",val->intval);
+		break;
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 end*/
+
+/*C3T code for HQ-234626 by zhaohan at 2022/8/24 start*/
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		return charger_dev_get_input_current(chg_dev, (u32 *)val);
+		break;
+/*C3T code for HQ-234626 by zhaohan at 2022/8/24 end*/
 	default:
 		return -EINVAL;
 	}
@@ -269,12 +275,19 @@ static void usb_extcon_detect_cable(struct work_struct *work)
 static int mt_charger_set_property(struct power_supply *psy,
 	enum power_supply_property psp, const union power_supply_propval *val)
 {
+
 	struct mt_charger *mtk_chg = power_supply_get_drvdata(psy);
 	struct chg_type_info *cti = NULL;
 	#ifdef CONFIG_EXTCON_USB_CHG
 	struct usb_extcon_info *info;
 	#endif
-
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 start*/
+	struct charger_device *charger_dev = get_charger_by_name("primary_chg");
+	if (!charger_dev) {
+		pr_err("%s: failed to get primary charger\n", __func__);
+		return PTR_ERR(charger_dev);
+	}
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 end*/
 	pr_info("%s\n", __func__);
 
 	if (!mtk_chg) {
@@ -301,6 +314,25 @@ static int mt_charger_set_property(struct power_supply *psy,
 			charger_manager_force_disable_power_path(
 				cti->chg_consumer, MAIN_CHARGER, true);
 		break;
+	/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 start*/
+	/*C3T code for HQ-223437 by zhaohan at 2022/10/17 start*/
+	case POWER_SUPPLY_PROP_MTBF:
+		mtk_chg->mtbf_current = val->intval;
+
+		break;
+	/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 end*/
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 start*/
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		mtk_chg->const_current_limit = val->intval;
+
+		break;
+	/*C3T code for HQ-223437 by zhaohan at 2022/10/17 end*/
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 end*/
+/*C3T code for HQ-234626 by zhaohan at 2022/8/24 start*/
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		return charger_dev_set_input_current(charger_dev, (u32)val->intval);
+		break;
+/*C3T code for HQ-234626 by zhaohan at 2022/8/24 end*/
 	default:
 		return -EINVAL;
 	}
@@ -340,6 +372,31 @@ static int mt_charger_set_property(struct power_supply *psy,
 	return 0;
 }
 
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 start*/
+static int mt_charger_is_writable(struct power_supply *psy,
+				     enum power_supply_property psp)
+{
+	int res;
+
+	switch (psp) {
+/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 start*/
+		case POWER_SUPPLY_PROP_MTBF:
+/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 end*/
+		case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+/*C3T code for HQ-234626 by zhaohan at 2022/8/24 start*/
+        	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+/*C3T code for HQ-234626 by zhaohan at 2022/8/24 end*/
+        		res = 1;
+			break;
+		default:
+			res = 0;
+			break;
+	}
+
+	return res;
+}
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 end*/
+
 static int mt_ac_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
@@ -349,8 +406,10 @@ static int mt_ac_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = 0;
 		/* Force to 1 in all charger type */
-		if (mtk_chg->chg_type != CHARGER_UNKNOWN)
+		/* C3T code for HQ-253549 by tongjiacheng at 2022/10/10 start*/
+		if (mtk_chg->chg_type != CHARGER_UNKNOWN && mtk_chg->chg_online)
 			val->intval = 1;
+		/* C3T code for HQ-253549 by tongjiacheng at 2022/10/10 end*/
 		/* Reset to 0 if charger type is USB */
 		if ((mtk_chg->chg_type == STANDARD_HOST) ||
 			(mtk_chg->chg_type == CHARGING_HOST))
@@ -362,7 +421,9 @@ static int mt_ac_get_property(struct power_supply *psy,
 
 	return 0;
 }
-
+/*C3T code for HQ-223303 by gengyifei at 2022/7/25 start*/
+extern int usb_otg;
+/*C3T code for HQ-223303 by gengyifei at 2022/7/25 end*/
 static int mt_usb_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
@@ -370,9 +431,11 @@ static int mt_usb_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		if ((mtk_chg->chg_type == STANDARD_HOST) ||
-			(mtk_chg->chg_type == CHARGING_HOST))
+	/* C3T code for HQ-253549 by tongjiacheng at 2022/10/10 start*/
+		if (((mtk_chg->chg_type == STANDARD_HOST) ||
+			(mtk_chg->chg_type == CHARGING_HOST)) && mtk_chg->chg_online)
 			val->intval = 1;
+		/* C3T code for HQ-253549 by tongjiacheng at 2022/10/10 end*/
 		else
 			val->intval = 0;
 		break;
@@ -382,6 +445,40 @@ static int mt_usb_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = 5000000;
 		break;
+/*C3T code for HQ-223303 by gengyifei at 2022/7/25 start*/
+	case POWER_SUPPLY_PROP_USB_OTG:
+		val->intval = usb_otg;
+		break;
+	case POWER_SUPPLY_PROP_REAL_TYPE:
+		switch (mtk_chg->chg_type) {
+		case STANDARD_HOST:
+			val->intval = POWER_SUPPLY_TYPE_USB;
+			break;
+		case NONSTANDARD_CHARGER:
+		/* C3T code for HQHW-2797 by tongjiacheng at 2022/09/13 start*/
+			val->intval = POWER_SUPPLY_TYPE_USB_NON_STAND;
+		/* C3T code for HQHW-2797 by tongjiacheng at 2022/09/13 end*/
+			break;
+		case CHARGING_HOST:
+			val->intval = POWER_SUPPLY_TYPE_USB_CDP;
+			break;
+		case STANDARD_CHARGER:
+			val->intval = POWER_SUPPLY_TYPE_USB_DCP;
+			break;
+		case CHARGER_UNKNOWN:
+			val->intval = POWER_SUPPLY_TYPE_UNKNOWN;
+			break;
+		default:
+		/* C3T code for HQHW-2797 by tongjiacheng at 2022/09/13 start*/
+			val->intval = POWER_SUPPLY_TYPE_USB_NON_STAND;
+		/* C3T code for HQHW-2797 by tongjiacheng at 2022/09/13 end*/
+			break;
+		}
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		val->intval = battery_get_vbus();
+		break;
+/*C3T code for HQ-223303 by gengyifei at 2022/7/25 end*/
 	default:
 		return -EINVAL;
 	}
@@ -391,6 +488,15 @@ static int mt_usb_get_property(struct power_supply *psy,
 
 static enum power_supply_property mt_charger_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
+/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 start*/
+	POWER_SUPPLY_PROP_MTBF,
+/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 end*/
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 start*/
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 end*/
+/*C3T code for HQ-234626 by zhaohan at 2022/8/24 start*/
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
+/*C3T code for HQ-234626 by zhaohan at 2022/8/24 end*/
 };
 
 static enum power_supply_property mt_ac_properties[] = {
@@ -401,6 +507,11 @@ static enum power_supply_property mt_usb_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+/*C3T code for HQ-223303 by gengyifei at 2022/7/25 start*/
+	POWER_SUPPLY_PROP_USB_OTG,
+	POWER_SUPPLY_PROP_REAL_TYPE,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+/*C3T code for HQ-223303 by gengyifei at 2022/7/25 end*/
 };
 
 static void tcpc_power_off_work_handler(struct work_struct *work)
@@ -721,6 +832,10 @@ static int mt_charger_probe(struct platform_device *pdev)
 	if (!mt_chg)
 		return -ENOMEM;
 
+/* C3T code for HQ-259048 by tongjiacheng at 2022/10/28 start*/
+	mt_chg->init_done = false;
+/* C3T code for HQ-259048 by tongjiacheng at 2022/10/28 end*/
+
 	mt_chg->dev = &pdev->dev;
 	mt_chg->chg_online = false;
 	mt_chg->chg_type = CHARGER_UNKNOWN;
@@ -731,6 +846,9 @@ static int mt_charger_probe(struct platform_device *pdev)
 	mt_chg->chg_desc.num_properties = ARRAY_SIZE(mt_charger_properties);
 	mt_chg->chg_desc.set_property = mt_charger_set_property;
 	mt_chg->chg_desc.get_property = mt_charger_get_property;
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 start*/
+	mt_chg->chg_desc.property_is_writeable = mt_charger_is_writable;
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 end*/
 	mt_chg->chg_cfg.drv_data = mt_chg;
 
 	mt_chg->ac_desc.name = "ac";
@@ -854,6 +972,10 @@ static int mt_charger_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&mt_chg->extcon_work, init_extcon_work);
 	schedule_delayed_work(&mt_chg->extcon_work, 0);
 	#endif
+
+/* C3T code for HQ-259048 by tongjiacheng at 2022/10/28 start*/
+	mt_chg->init_done = true;
+/* C3T code for HQ-259048 by tongjiacheng at 2022/10/28 end*/
 
 	pr_info("%s done\n", __func__);
 	return 0;
@@ -994,8 +1116,9 @@ static void __exit mt_charger_det_exit(void)
 {
 	platform_driver_unregister(&mt_charger_driver);
 }
-
-device_initcall(mt_charger_det_init);
+/*C3T code for HQ-228593 by tongjiacheng at 2022/08/04 start*/
+late_initcall(mt_charger_det_init);
+/*C3T code for HQ-228593 by tongjiacheng at 2022/08/04 end*/
 module_exit(mt_charger_det_exit);
 
 #ifdef CONFIG_TCPC_CLASS

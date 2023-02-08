@@ -119,6 +119,12 @@ static unsigned int gPresentFenceIndex;
 unsigned int gTriggerDispMode;
 static unsigned int g_keep;
 static unsigned int g_skip;
+/* C3T code for HQ-219022 by jiangyue at 2022/08/22 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+extern atomic_t lcm_ready;
+extern atomic_t lcm_valid_irq;
+#endif
+/* C3T code for HQ-219022 by jiangyue at 2022/08/22 end */
 #if 0 //def CONFIG_TRUSTONIC_TRUSTED_UI
 static struct switch_dev disp_switch_data;
 #endif
@@ -4709,6 +4715,12 @@ int primary_display_suspend(void)
 #endif
 
 	DISPCHECK("%s begin\n", __func__);
+/* C3T code for HQ-219022 by jiangyue at 2022/08/22 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+	atomic_set(&lcm_ready, 0);
+	DISPERR("[ESD] atomic_set(&lcm_ready, 0)\n");
+#endif
+/* C3T code for HQ-219022 by jiangyue at 2022/08/22 end */
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 		MMPROFILE_FLAG_START, 0, 0);
 	primary_display_idlemgr_kick(__func__, 1);
@@ -4923,11 +4935,18 @@ done:
 	return ret;
 }
 
-int primary_display_get_lcm_index(void)
+/* C3T code for HQ-224100 by sunfeiting at 2022/09/08 start */
+int primary_display_get_lcm_index(unsigned long arg)
 {
 	int index = 0;
-
+	int ret = 0;
+	void __user *argp = (void __user *)arg;
 	DISPFUNC();
+
+	if (copy_from_user(&index, argp, sizeof(int))) {
+  		DISPERR("[FB]: copy_from_user failed! line:%d\n", __LINE__);
+  		ret = -EFAULT;
+  	}
 
 	if (pgc->plcm == NULL) {
 		DISPERR("lcm handle is null\n");
@@ -4935,9 +4954,16 @@ int primary_display_get_lcm_index(void)
 	}
 
 	index = pgc->plcm->index;
-	DISPDBG("lcm index = %d\n", index);
-	return index;
+
+	DISPERR("lcm index = %d\n", index);
+	if (copy_to_user(argp, &index, sizeof(int))) {
+  		DISPERR("[FB]: copy_to_user failed! line:%d\n", __LINE__);
+  		ret = -EFAULT;
+  	}
+
+	return ret;
 }
+/* C3T code for HQ-224100 by sunfeiting at 2022/09/08 end */
 
 static int check_switch_lcm_mode_for_debug(void)
 {
@@ -5017,6 +5043,8 @@ int primary_display_lcm_power_on_state(int alive)
 	return skip_update;
 }
 
+
+extern unsigned int _need_do_esd_check(void);
 int primary_display_resume(void)
 {
 	enum DISP_STATUS ret = DISP_STATUS_OK;
@@ -5029,6 +5057,11 @@ int primary_display_resume(void)
 	unsigned int out_fps = 60;
 #endif
 	DISPCHECK("%s begin\n", __func__);
+/* C3T code for HQ-219022 by jiangyue at 2022/08/22 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+	atomic_set(&lcm_valid_irq, 1);
+#endif
+/* C3T code for HQ-219022 by jiangyue at 2022/08/22 end */
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 		MMPROFILE_FLAG_START, 0, 0);
 	_primary_path_lock(__func__);
@@ -5428,6 +5461,14 @@ done:
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 		MMPROFILE_FLAG_END, 0, 0);
 	ddp_clk_check();
+/* C3T code for HQ-219022 by jiangyue at 2022/08/22 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+	if (_need_do_esd_check()){
+		atomic_set(&lcm_ready, 1);
+		DISPERR("[ESD] atomic_set(&lcm_ready, 1)\n");
+	}
+#endif
+/* C3T code for HQ-219022 by jiangyue at 2022/08/22 end */
 	return ret;
 }
 

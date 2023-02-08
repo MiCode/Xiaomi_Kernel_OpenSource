@@ -30,6 +30,10 @@ enum situation_index_table {
 	tilt_detector,
 	flat,
 	sar,
+	/*C3T code for HQ-218639 by huitianpu at 2022/8/21 start*/
+	saralgo,
+	saralgo_top,
+	/*C3T code for HQ-218639 by huitianpu at 2022/8/21 end*/
 	max_situation_support,
 };
 
@@ -38,6 +42,9 @@ struct situation_control_path {
 	int (*batch)(int flag, int64_t samplingPeriodNs,
 		int64_t maxBatchReportLatencyNs);
 	int (*flush)(void);
+/*C3T code for HQ-218639 by huitianpu at 2022/9/9 start*/
+	int (*set_cali)(uint8_t *data, uint8_t count);
+/*C3T code for HQ-218639 by huitianpu at 2022/9/9 end*/
 	bool is_support_wake_lock;
 	bool is_support_batch;
 };
@@ -86,4 +93,7 @@ extern int situation_register_data_path(struct situation_data_path *data,
 	int handle);
 extern int sar_data_report(int32_t value[3]);
 extern int sar_data_report_t(int32_t value[3], int64_t time_stamp);
+/*C3T code for HQ-227922 by huitianpu at 2022/8/2 start*/
+extern int sar_cal_report_t(int32_t value[3], int64_t time_stamp);
+/*C3T code for HQ-227922 by huitianpu at 2022/8/2 end*/
 #endif

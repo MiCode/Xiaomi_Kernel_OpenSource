@@ -212,6 +212,14 @@ config CHARGER_SGM41511
 	  and config MTK_SWCHR_SUPPORT
 	  Set to Yes if SGM41511 is used.
 
+config CHARGER_SGM4151X
+	bool "CHARGER_SGM4151X"
+	help
+	  This is to enable MediaTek supports to SGM4151X.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if SGM4151X is used.
+
 config LOAD_SWITCH_RT9750
 	bool "Load Switch Driver for Richtek RT9750"
 	depends on MTK_CHARGER
@@ -227,3 +235,19 @@ config CHARGER_MM8013
 	  Say Y to enable
 	  mm8013 driver.
 	  Set to Yes if MM8013 is used.
+
+config CHARGER_ETA696X
+	bool "CHARGER_ETA696X"
+	help
+	  This is to enable MediaTek supports to ETA696X.
+	  It depends on config MTK_CHARGER_FRAMWORK
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if ETA696X is used.
+
+config CHARGER_SC8960X
+	bool "CHARGER_SC8960X"
+	help
+	  This is to enable MediaTek supports to SC8960X.
+	  It depends on config MTK_CHARGER_FRAMWORK
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if SC8960X is used.

@@ -387,18 +387,20 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 				if (IS_ENABLED(
 					LOW_TEMP_DISABLE_LOW_BAT_SHUTDOWN)) {
 					if (tmp >= LOW_TEMP_THRESHOLD) {
-						down_to_low_bat = 1;
+				/* C3T code for HQ-234410 by gengyifei at 2022/08/23 start */
+						//down_to_low_bat = 1;
 						bm_err("normal tmp, battery voltage is low shutdown\n");
 						notify_fg_shutdown();
 					} else if (sdd->avgvbat <=
 						LOW_TMP_BAT_VOLTAGE_LOW_BOUND) {
-						down_to_low_bat = 1;
+						//down_to_low_bat = 1;
 						bm_err("cold tmp, battery voltage is low shutdown\n");
 						notify_fg_shutdown();
 					} else
 						bm_err("low temp disable low battery sd\n");
 				} else {
-					down_to_low_bat = 1;
+					//down_to_low_bat = 1;
+				/* C3T code for HQ-234410 by gengyifei at 2022/08/23 end */
 					bm_err("[%s]avg vbat is low to shutdown\n",
 						__func__);
 					notify_fg_shutdown();

@@ -16,6 +16,13 @@ config MTK_FINGERPRINT_SUPPORT
 config MTK_FINGERPRINT_SELECT
 	string "sensor type"
 	default "GF318M"
-
+#C3T code for HQ-224157 by zhoumengxuan at 22.7.30 start
+config FPC_FINGERPRINT
+	bool "FPC Fingerprint"
+	default y
+	help
+	  FPC fingerprint FPC's 102x/104x device.
+#C3T code for HQ-224157 by zhoumengxuan at 22.7.30 end
+source "drivers/input/fingerprint/silead/Kconfig"
 
 endmenu

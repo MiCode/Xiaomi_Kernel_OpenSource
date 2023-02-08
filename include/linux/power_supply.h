@@ -245,6 +245,17 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_CAPACITY_RAW,
 	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+	/*C3T HQ-219117 add battery id node by zhaohan at 2022/07/22 start*/
+	POWER_SUPPLY_PROP_BATTERY_ID,
+	POWER_SUPPLY_PROP_BATTERY_ID_VOLTAGE,
+	POWER_SUPPLY_PROP_BATTERY_VENDOR,
+	/*C3T HQ-219117 add battery id node by zhaohan at 2022/07/22 end*/
+	/* C3T code for HQ-234410 by gengyifei at 2022/08/23 start */
+	POWER_SUPPLY_PROP_SHUTDOWN_DELAY,
+	/* C3T code for HQ-234410 by gengyifei at 2022/08/23 end */
+	/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 start*/
+	POWER_SUPPLY_PROP_MTBF,
+	/* C3T code for HQ-252263 by tongjiacheng at 2022/10/08 end*/
 	POWER_SUPPLY_PROP_STEP_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_STEP_CHARGING_STEP,
 	POWER_SUPPLY_PROP_PIN_ENABLED,
@@ -417,6 +428,9 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB,			/* Standard Downstream Port */
 	POWER_SUPPLY_TYPE_USB_DCP,		/* Dedicated Charging Port */
 	POWER_SUPPLY_TYPE_USB_CDP,		/* Charging Downstream Port */
+	/* C3T code for HQHW-2797 by tongjiacheng at 2022/09/13 start*/
+	POWER_SUPPLY_TYPE_USB_NON_STAND,	/* Non Stand Charging Downstream Port */
+	/* C3T code for HQHW-2797 by tongjiacheng at 2022/09/13 end */
 	POWER_SUPPLY_TYPE_USB_ACA,		/* Accessory Charger Adapters */
 	POWER_SUPPLY_TYPE_USB_TYPE_C,		/* Type C Port */
 	POWER_SUPPLY_TYPE_USB_PD,		/* Power Delivery Port */

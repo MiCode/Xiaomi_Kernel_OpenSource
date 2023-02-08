@@ -1388,11 +1388,17 @@ static void process_dbg_opt(const char *opt)
 		msleep(20);
 		mt_set_gpio_out(GPIO106 | 0x80000000, GPIO_OUT_ONE);
 #else
+/* C3T code for HQ-219022 by jiangyue at 2022/08/22 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+		primary_display_esd_recovery();
+#else
 		ret = disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_RST_OUT1);
 		msleep(20);
 		ret |= disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_RST_OUT0);
 		msleep(20);
 		ret |= disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_RST_OUT1);
+#endif
+/* C3T code for HQ-219022 by jiangyue at 2022/08/22 end */
 #endif
 #endif
 	} else if (strncmp(opt, "lcm0_reset0", 11) == 0) {

@@ -45,7 +45,6 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
-
 #include <linux/uaccess.h>
 
 #include "mtk_mmc_block.h"
@@ -2378,7 +2377,9 @@ static int mmc_blk_swcq_issue_rw_rq(struct mmc_queue *mq,
 	mq->mqrq[index].req = req;
 	atomic_set(&mqrq->index, index + 1);
 	atomic_set(&mq->mqrq[index].index, index + 1);
-	atomic_inc(&card->host->areq_cnt);
+        /*C3T code for HQ-255018 by hongwei at 2022/10/31 start*/
+	// atomic_inc(&card->host->areq_cnt);
+        /*C3T code for HQ-255018 by hongwei at 2022/10/31 end*/
 
 	mmc_blk_rw_rq_prep(mqrq, mq->card, 0, mq);
 
@@ -3130,13 +3131,11 @@ static int mmc_blk_probe(struct mmc_card *card)
 {
 	struct mmc_blk_data *md, *part_md;
 	char cap_str[10];
-
 	/*
 	 * Check that the card supports the command class(es) we need.
 	 */
 	if (!(card->csd.cmdclass & CCC_BLOCK_READ))
 		return -ENODEV;
-
 	mmc_fixup_device(card, mmc_blk_fixups);
 
 	card->complete_wq = alloc_workqueue("mmc_complete",
@@ -3145,7 +3144,6 @@ static int mmc_blk_probe(struct mmc_card *card)
 		pr_err("Failed to create mmc completion workqueue");
 		return -ENOMEM;
 	}
-
 	md = mmc_blk_alloc(card);
 	if (IS_ERR(md))
 		return PTR_ERR(md);

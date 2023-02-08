@@ -1,16 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * linux/drivers/staging/erofs/namei.c
- *
  * Copyright (C) 2017-2018 HUAWEI, Inc.
- *             http://www.huawei.com/
- * Created by Gao Xiang <gaoxiang25@huawei.com>
- *
- * This file is subject to the terms and conditions of the GNU General Public
- * License.  See the file COPYING in the main directory of the Linux
- * distribution for more details.
+ *             https://www.huawei.com/
  */
-#include "internal.h"
 #include "xattr.h"
 
 #include <trace/events/erofs.h>
@@ -21,9 +13,9 @@ struct erofs_qstr {
 };
 
 /* based on the end of qn is accurate and it must have the trailing '\0' */
-static inline int dirnamecmp(const struct erofs_qstr *qn,
-			     const struct erofs_qstr *qd,
-			     unsigned int *matched)
+static inline int erofs_dirnamecmp(const struct erofs_qstr *qn,
+				   const struct erofs_qstr *qd,
+				   unsigned int *matched)
 {
 	unsigned int i = *matched;
 
@@ -71,16 +63,16 @@ static struct erofs_dirent *find_target_dirent(struct erofs_qstr *name,
 		unsigned int matched = min(startprfx, endprfx);
 		struct erofs_qstr dname = {
 			.name = data + nameoff,
-			.end = unlikely(mid >= ndirents - 1) ?
+			.end = mid >= ndirents - 1 ?
 				data + dirblksize :
 				data + nameoff_from_disk(de[mid + 1].nameoff,
 							 dirblksize)
 		};
 
 		/* string comparison without already matched prefix */
-		int ret = dirnamecmp(name, &dname, &matched);
+		int ret = erofs_dirnamecmp(name, &dname, &matched);
 
-		if (unlikely(!ret)) {
+		if (!ret) {
 			return de + mid;
 		} else if (ret > 0) {
 			head = mid + 1;
@@ -105,7 +97,7 @@ static struct page *find_target_block_classic(struct inode *dir,
 
 	startprfx = endprfx = 0;
 	head = 0;
-	back = inode_datablocks(dir) - 1;
+	back = erofs_inode_datablocks(dir) - 1;
 
 	while (head <= back) {
 		const int mid = head + (back - head) / 2;
@@ -120,11 +112,14 @@ static struct page *find_target_block_classic(struct inode *dir,
 			unsigned int matched;
 			struct erofs_qstr dname;
 
-			if (unlikely(!ndirents)) {
-				DBG_BUGON(1);
+			if (!ndirents) {
 				kunmap_atomic(de);
 				put_page(page);
-				page = ERR_PTR(-EIO);
+				erofs_err(dir->i_sb,
+					  "corrupted dir block %d @ nid %llu",
+					  mid, EROFS_I(dir)->nid);
+				DBG_BUGON(1);
+				page = ERR_PTR(-EFSCORRUPTED);
 				goto out;
 			}
 
@@ -139,17 +134,17 @@ static struct page *find_target_block_classic(struct inode *dir,
 							  EROFS_BLKSIZ);
 
 			/* string comparison without already matched prefix */
-			diff = dirnamecmp(name, &dname, &matched);
+			diff = erofs_dirnamecmp(name, &dname, &matched);
 			kunmap_atomic(de);
 
-			if (unlikely(!diff)) {
+			if (!diff) {
 				*_ndirents = 0;
 				goto out;
 			} else if (diff > 0) {
 				head = mid + 1;
 				startprfx = matched;
 
-				if (likely(!IS_ERR(candidate)))
+				if (!IS_ERR(candidate))
 					put_page(candidate);
 				candidate = page;
 				*_ndirents = ndirents;
@@ -179,7 +174,7 @@ int erofs_namei(struct inode *dir,
 	struct erofs_dirent *de;
 	struct erofs_qstr qn;
 
-	if (unlikely(!dir->i_size))
+	if (!dir->i_size)
 		return -ENOENT;
 
 	qn.name = name->name;
@@ -188,7 +183,7 @@ int erofs_namei(struct inode *dir,
 	ndirents = 0;
 	page = find_target_block_classic(dir, &qn, &ndirents);
 
-	if (unlikely(IS_ERR(page)))
+	if (IS_ERR(page))
 		return PTR_ERR(page);
 
 	data = kmap_atomic(page);
@@ -198,7 +193,7 @@ int erofs_namei(struct inode *dir,
 	else
 		de = (struct erofs_dirent *)data;
 
-	if (likely(!IS_ERR(de))) {
+	if (!IS_ERR(de)) {
 		*nid = le64_to_cpu(de->nid);
 		*d_type = de->file_type;
 	}
@@ -211,11 +206,12 @@ int erofs_namei(struct inode *dir,
 
 /* NOTE: i_mutex is already held by vfs */
 static struct dentry *erofs_lookup(struct inode *dir,
-	struct dentry *dentry, unsigned int flags)
+				   struct dentry *dentry,
+				   unsigned int flags)
 {
 	int err;
 	erofs_nid_t nid;
-	unsigned d_type;
+	unsigned int d_type;
 	struct inode *inode;
 
 	DBG_BUGON(!d_really_is_negative(dentry));
@@ -225,7 +221,7 @@ static struct dentry *erofs_lookup(struct inode *dir,
 	trace_erofs_lookup(dir, dentry, flags);
 
 	/* file name exceeds fs limit */
-	if (unlikely(dentry->d_name.len > EROFS_NAME_LEN))
+	if (dentry->d_name.len > EROFS_NAME_LEN)
 		return ERR_PTR(-ENAMETOOLONG);
 
 	/* false uninitialized warnings on gcc 4.8.x */
@@ -234,29 +230,19 @@ static struct dentry *erofs_lookup(struct inode *dir,
 	if (err == -ENOENT) {
 		/* negative dentry */
 		inode = NULL;
-		goto negative_out;
-	} else if (unlikely(err))
-		return ERR_PTR(err);
-
-	debugln("%s, %s (nid %llu) found, d_type %u", __func__,
-		dentry->d_name.name, nid, d_type);
-
-	inode = erofs_iget(dir->i_sb, nid, d_type == EROFS_FT_DIR);
-	if (IS_ERR(inode))
-		return ERR_CAST(inode);
-
-negative_out:
+	} else if (err) {
+		inode = ERR_PTR(err);
+	} else {
+		erofs_dbg("%s, %pd (nid %llu) found, d_type %u", __func__,
+			  dentry, nid, d_type);
+		inode = erofs_iget(dir->i_sb, nid, d_type == EROFS_FT_DIR);
+	}
 	return d_splice_alias(inode, dentry);
 }
 
 const struct inode_operations erofs_dir_iops = {
 	.lookup = erofs_lookup,
-};
-
-const struct inode_operations erofs_dir_xattr_iops = {
-	.lookup = erofs_lookup,
-#ifdef CONFIG_EROFS_FS_XATTR
+	.getattr = erofs_getattr,
 	.listxattr = erofs_listxattr,
-#endif
+	.get_acl = erofs_get_acl,
 };
-

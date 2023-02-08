@@ -165,6 +165,12 @@ obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
+
+# C3T code for HQ-223914 by liunianliang at 2022/08/03 start
+obj-$(CONFIG_THERMAL) += mtk_cooler_gpu_cus.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_md_cus.o mtk_cooler_mutt_gen97.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_char_curr_cus.o
+# C3T code for HQ-223914 by liunianliang at 2022/08/03 end
 endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6853" "mt6873" "mt6785"))
@@ -207,6 +213,7 @@ else
 		obj-$(CONFIG_THERMAL) += mtk_cooler_bcct.o
 	endif
 endif
+
 obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o

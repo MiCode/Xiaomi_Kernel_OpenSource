@@ -224,6 +224,10 @@ obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
+# C3T code for HQ-223914 by liunianliang at 2022/08/03 start
+obj-$(CONFIG_THERMAL) += mtk_ts_blk_ntc.o
+# C3T code for HQ-223914 by liunianliang at 2022/08/03 end
+
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
     obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o
 endif
@@ -277,7 +281,6 @@ obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
 obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
-
 
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
     obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o

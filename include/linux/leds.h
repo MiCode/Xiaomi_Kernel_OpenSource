@@ -25,14 +25,14 @@ struct device;
 /*
  * LED Core
  */
-
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 start*/
 enum led_brightness {
 	LED_OFF		= 0,
 	LED_ON		= 1,
-	LED_HALF	= 127,
-	LED_FULL	= 255,
+	LED_HALF	= 1023,
+	LED_FULL	= 2047,
 };
-
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 end*/
 struct led_classdev {
 	const char		*name;
 	enum led_brightness	 brightness;

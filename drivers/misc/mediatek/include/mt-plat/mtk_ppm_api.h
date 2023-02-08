@@ -41,6 +41,9 @@ enum ppm_sysboost_user {
 	BOOST_BY_DEBUGD_64,
 	BOOST_BY_BOOT_TIME_OPT,
 
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+	BOOST_BY_XM_THERMAL,
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 	NR_PPM_SYSBOOST_USER,
 };
 

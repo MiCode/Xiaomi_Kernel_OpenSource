@@ -23,6 +23,13 @@ else
 obj-$(CONFIG_MTK_POWER_THROTTLING_COMMON) += power_throttling/
 endif
 
+# code at 2022/07/29 start
+obj-$(CONFIG_GC6133C_HLT_I) += imgsensor/src/common/v1/gc6133c_hlt_i/
+obj-$(CONFIG_GC6133C_HLT_I) += imgsensor/src/common/v1/gc6133c_hlt_i_i2c4/
+obj-$(CONFIG_BF30A2_OFILM_II) += imgsensor/src/common/v1/bf30a2_ofilm_ii/
+obj-$(CONFIG_BF30A2_OFILM_II) += imgsensor/src/common/v1/bf30a2_ofilm_ii_i2c4/
+# code at 2022/07/29 end
+
 obj-$(CONFIG_MTK_RTC)	+= rtc/
 obj-$(CONFIG_MTK_ACCDET) += accdet/
 obj-$(CONFIG_MTK_AUXADC) += auxadc/

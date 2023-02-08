@@ -73,18 +73,31 @@ static int pickup_gesture_batch(int flag,
 	return sensor_batch_to_hub(ID_PICK_UP_GESTURE,
 		flag, samplingPeriodNs, maxBatchReportLatencyNs);
 }
+
+/*C3T code for HQ-268600 by chenjian at 2022/9/22 start*/
+static int pickup_gesture_flush(void)
+{
+	return sensor_flush_to_hub(ID_PICK_UP_GESTURE);
+}
+/*C3T code for HQ-268600 by chenjian at 2022/9/22 end*/
+
+/*C3T code for HQ-219034 by baoguangxiu at 2022/8/24 start*/
 static int pickup_gesture_recv_data(struct data_unit_t *event,
 	void *reserved)
 {
 	int err = 0;
 
 	if (event->flush_action == FLUSH_ACTION)
-		pr_debug("pickup_gesture do not support flush\n");
+/*C3T code for HQ-268600 by chenjian at 2022/9/22 start*/
+        err = situation_flush_report(ID_PICK_UP_GESTURE);
+/*C3T code for HQ-268600 by chenjian at 2022/9/22 end*/
 	else if (event->flush_action == DATA_ACTION)
-		err = situation_notify_t(ID_PICK_UP_GESTURE,
-				(int64_t)event->time_stamp);
+		err = situation_data_report_t(ID_PICK_UP_GESTURE,
+				(uint32_t)event->data[0], (int64_t)event->time_stamp);
+	pr_notice("pickup_gesture = %d\n",event->data[0]);
 	return err;
 }
+/*C3T code for HQ-219034 by baoguangxiu at 2022/8/24 end*/
 
 static int pkuphub_local_init(void)
 {
@@ -94,6 +107,9 @@ static int pkuphub_local_init(void)
 
 	ctl.open_report_data = pickup_gesture_open_report_data;
 	ctl.batch = pickup_gesture_batch;
+/*C3T code for HQ-268600 by chenjian at 2022/9/22 start*/
+	ctl.flush = pickup_gesture_flush;
+/*C3T code for HQ-268600 by chenjian at 2022/9/22 end*/
 	ctl.is_support_wake_lock = true;
 	err = situation_register_control_path(&ctl, ID_PICK_UP_GESTURE);
 	if (err) {

@@ -226,4 +226,9 @@ source "drivers/slimbus/Kconfig"
 source "drivers/interconnect/Kconfig"
 
 source "drivers/energy_model/Kconfig"
+
+#C3T code for HQ-226020 by zhangbing at 2022/07/28 start
+source "drivers/switch/Kconfig"
+#C3T code for HQ-226020 by zhangbing at 2022/07/28 end
+
 endmenu

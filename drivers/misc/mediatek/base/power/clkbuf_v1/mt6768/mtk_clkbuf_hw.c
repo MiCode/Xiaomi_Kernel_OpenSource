@@ -771,10 +771,12 @@ EXPORT_SYMBOL(clk_buf_ctrl);
 
 void clk_buf_disp_ctrl(bool onoff)
 {
-	int pwrap_dcxo_en;
+        /* C3T code for HQ-218913 by lukuan at 2022.8.2 start */
+	//int pwrap_dcxo_en;
 
-	pwrap_dcxo_en = clkbuf_readl(DCXO_ENABLE) & ~DCXO_NFC_ENABLE;
-	clkbuf_writel(DCXO_ENABLE, pwrap_dcxo_en);
+	//pwrap_dcxo_en = clkbuf_readl(DCXO_ENABLE) & ~DCXO_NFC_ENABLE;
+	//clkbuf_writel(DCXO_ENABLE, pwrap_dcxo_en);
+        /* C3T code for HQ-218913 by lukuan at 2022.8.2 end */
 	if (onoff) {
 		pmic_config_interface(PMIC_DCXO_CW00_CLR_ADDR,
 			PMIC_XO_EXTBUF3_MODE_MASK,
@@ -1617,8 +1619,10 @@ void clk_buf_post_init(void)
 #endif
 #ifndef CONFIG_NFC_CHIP_SUPPORT
 	/* no need to use XO_NFC if no NFC */
-	clk_buf_ctrl_internal(CLK_BUF_NFC, CLK_BUF_FORCE_OFF);
-	CLK_BUF3_STATUS = CLOCK_BUFFER_DISABLE;
+        /* C3T code for HQ-218913 by lukuan at 2022.8.2 start */
+	//clk_buf_ctrl_internal(CLK_BUF_NFC, CLK_BUF_FORCE_OFF);
+	//CLK_BUF3_STATUS = CLOCK_BUFFER_DISABLE;
+        /* C3T code for HQ-218913 by lukuan at 2022.8.2 end */
 #endif
 #ifdef CLKBUF_USE_BBLPM
 	if (bblpm_switch == 2) {

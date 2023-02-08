@@ -429,6 +429,9 @@ static inline void cpufreq_resume(void) {}
 /* Policy Notifiers  */
 #define CPUFREQ_ADJUST			(0)
 #define CPUFREQ_NOTIFY			(1)
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+#define CPUFREQ_THERMAL			(2)
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 
 #ifdef CONFIG_CPU_FREQ
 int cpufreq_register_notifier(struct notifier_block *nb, unsigned int list);

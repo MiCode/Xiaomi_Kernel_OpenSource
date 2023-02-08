@@ -11,7 +11,9 @@
 #include <imsg_log.h>
 
 #define TZ_LOG_SIZE           (PAGE_SIZE * 64)
-#define TZ_LINE_BUFFER_SIZE   256
+/*C3T code for HQ-223307 by xiongwei at 22.8.25 start*/
+#define TZ_LINE_BUFFER_SIZE   512
+/*C3T code for HQ-223307 by xiongwei at 22.8.25 end*/
 
 #define TZ_LOG_RATELIMIT_INTERVAL	(1 * HZ)
 #define TZ_LOG_RATELIMIT_BURST		200

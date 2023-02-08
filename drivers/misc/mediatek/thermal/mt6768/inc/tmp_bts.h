@@ -37,6 +37,11 @@
 
 #define BTSMDPA_RAP_ADC_CHANNEL		AUX_IN1_NTC /* default is 1 */
 
+#define BTS_BLKNTC_RAP_PULL_UP_R	100000 /* PULL UP resister */
+#define BTS_BLKNTC_TAP_OVER_CRITICAL_LOW 4397119 /* 40 DEG */
+#define BTS_BLKNTC_RAP_PULL_UP_VOLTAGE	1800 /* PULL UP VOLTAGE */
+#define BTS_BLKNTC_RAP_NTC_TABLE	7 /* default is ncp 15wf104f03rc 100k */
+
 extern int IMM_GetOneChannelValue(int dwChannel, int data[4], int *rawdata);
 extern int IMM_IsAdcInitReady(void);
 

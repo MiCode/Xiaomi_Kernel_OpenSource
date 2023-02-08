@@ -736,17 +736,54 @@ static int ps_open_report_data(int open)
 	return 0;
 }
 
+int ps_send_touch_event(int32_t data){
+	int32_t touch_event = data;
+	int err = sensor_cfg_to_hub(ID_PROXIMITY,(uint8_t *)&touch_event,sizeof(touch_event));
+	pr_err("ps_send_touch_event = %d",touch_event);
+	if (err < 0)
+		pr_err("sensor_cfg_to_hub fail\n");
+	return err;
+}
+EXPORT_SYMBOL_GPL(ps_send_touch_event);
+
+extern int tp_proximity(void);
+extern int32_t nvt_set_proximity_switch(uint8_t proximity_switch);
+extern int fts_set_proximity_switch(int proximity_switch);
+extern int cts_set_prox_en(unsigned int enable);
+
 static int ps_enable_nodata(int en)
 {
 	int res = 0;
+	int tp_verison = 0;
 	struct alspshub_ipi_data *obj = obj_ipi_data;
 
 	pr_debug("obj_ipi_data als enable value = %d\n", en);
-	if (en == true)
+	tp_verison = tp_proximity();
+	if (en == true) {
 		WRITE_ONCE(obj->ps_android_enable, true);
-	else
-		WRITE_ONCE(obj->ps_android_enable, false);
+		if(tp_verison == 1){
+			nvt_set_proximity_switch(1);
+		}
+		else if(tp_verison == 2){
+			fts_set_proximity_switch(1);
+		}
+		else if(tp_verison == 3){
+			cts_set_prox_en(1);
+		}
+	}
 
+	else {
+		WRITE_ONCE(obj->ps_android_enable, false);
+		if(tp_verison == 1){
+			nvt_set_proximity_switch(0);
+		}
+		else if(tp_verison == 2){
+			fts_set_proximity_switch(0);
+		}
+		else if(tp_verison == 3){
+			cts_set_prox_en(0);
+		}
+	}
 	res = sensor_enable_to_hub(ID_PROXIMITY, en);
 	if (res < 0) {
 		pr_err("als_enable_nodata is failed!!\n");

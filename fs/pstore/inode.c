@@ -37,6 +37,11 @@
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
 
+/* C3T code for HQ-219114 by liunianliang at 22/08/11 start */
+#ifdef CONFIG_PSTORE_LAST_KMSG
+#include <linux/proc_fs.h>
+#endif
+/* C3T code for HQ-219114 by liunianliang at 22/08/11 end */
 #include "internal.h"
 
 #define	PSTORE_NAMELEN	64
@@ -297,6 +302,25 @@ bool pstore_is_mounted(void)
 	return pstore_sb != NULL;
 }
 
+/* C3T code for HQ-219114 by liunianliang at 22/08/11 start */
+#ifdef CONFIG_PSTORE_LAST_KMSG
+static char *console_buffer;
+static ssize_t console_bufsize;
+static ssize_t last_kmsg_read(struct file *file, char __user *buf,
+		size_t len, loff_t *offset)
+{
+	return simple_read_from_buffer(buf, len, offset,
+			console_buffer, console_bufsize);
+}
+
+static const struct file_operations last_kmsg_fops = {
+	.owner          = THIS_MODULE,
+	.read           = last_kmsg_read,
+	.llseek         = default_llseek,
+};
+#endif
+/* C3T code for HQ-219114 by liunianliang at 22/08/11 end */
+
 /*
  * Make a regular file in the root directory of our file system.
  * Load it up with "size" bytes of data from "buf".
@@ -403,6 +427,14 @@ int pstore_mkfile(struct dentry *root, struct pstore_record *record)
 	list_add(&private->list, &allpstore);
 	spin_unlock_irqrestore(&allpstore_lock, flags);
 
+	/* C3T code for HQ-219114 by liunianliang at 22/08/11 start */
+	#ifdef CONFIG_PSTORE_LAST_KMSG
+	if (record->type == PSTORE_TYPE_CONSOLE) {
+		console_buffer = record->buf;
+		console_bufsize = size;
+	}
+	#endif
+	/* C3T code for HQ-219114 by liunianliang at 22/08/11 end */
 	return 0;
 
 fail_private:
@@ -489,6 +521,12 @@ int __init pstore_init_fs(void)
 {
 	int err;
 
+	/* C3T code for HQ-219114 by liunianliang at 22/08/11 start */
+	#ifdef CONFIG_PSTORE_LAST_KMSG
+	struct proc_dir_entry *last_kmsg_entry = NULL;
+	#endif
+	/* C3T code for HQ-219114 by liunianliang at 22/08/11 end */
+
 	/* Create a convenient mount point for people to access pstore */
 	err = sysfs_create_mount_point(fs_kobj, "pstore");
 	if (err)
@@ -497,6 +535,16 @@ int __init pstore_init_fs(void)
 	err = register_filesystem(&pstore_fs_type);
 	if (err < 0)
 		sysfs_remove_mount_point(fs_kobj, "pstore");
+
+	/* C3T code for HQ-219114 by liunianliang at 22/08/11 start */
+	#ifdef CONFIG_PSTORE_LAST_KMSG
+	last_kmsg_entry = proc_create_data("last_kmsg", S_IFREG | S_IRUGO,
+		NULL, &last_kmsg_fops, NULL);
+	if (!last_kmsg_entry) {
+		pr_err("Failed to create last_kmsg\n");
+	}
+	#endif
+	/* C3T code for HQ-219114 by liunianliang at 22/08/11 end */
 
 out:
 	return err;

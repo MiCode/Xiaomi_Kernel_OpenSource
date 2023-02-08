@@ -64,6 +64,9 @@
 #include <mt-plat/upmu_common.h>
 #include <pmic_lbat_service.h>
 
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 start */
+#include <../charger/mtk_charger_intf.h>
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 end */
 
 
 /* ============================================================ */
@@ -95,6 +98,10 @@ static int adc_cali_major;
 static dev_t adc_cali_devno;
 static struct cdev *adc_cali_cdev;
 
+/* C3T code for HQ-253567 by tongjiacheng at 2022/10/10 start */
+static struct delayed_work shutdown_dwork;
+/* C3T code for HQ-253567 by tongjiacheng at 2022/10/10 end*/
+
 static int adc_cali_slop[14] = {
 	1000, 1000, 1000, 1000, 1000, 1000,
 	1000, 1000, 1000, 1000, 1000, 1000,
@@ -119,9 +126,32 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_TEMP,
+/*C3T code for HQ-219032 by gengyifei at 2022/8/30 start*/
+	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+/*C3T code for HQ-219032 by gengyifei at 2022/8/30 end*/
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
+/*C3T HQ-219117 add battery id node by zhaohan at 2022/07/22 start*/
+	POWER_SUPPLY_PROP_BATTERY_ID,
+	POWER_SUPPLY_PROP_BATTERY_ID_VOLTAGE,
+	POWER_SUPPLY_PROP_BATTERY_VENDOR,
+/*C3T HQ-219117 add battery id node by zhaohan at 2022/07/22 end*/
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 start */
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 end */
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 start */
+	POWER_SUPPLY_PROP_SHUTDOWN_DELAY,
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 end */
+/* C3T code for HQ-218837 by tongjiacheng at 2022/08/26 start */
+	POWER_SUPPLY_PROP_BATT_SOC,
+/* C3T code for HQ-218837 by tongjiacheng at 2022/08/26 end */
+/*C3T code for HQ-234628 by zhaohan at 2022/8/30 start*/
+	POWER_SUPPLY_PROP_RESISTANCE,
+/*C3T code for HQ-234628 by zhaohan at 2022/8/30 end*/
 };
 
 /* boot mode */
@@ -447,6 +477,73 @@ void battery_update_psd(struct battery_data *bat_data)
 	bat_data->BAT_batt_temp = battery_get_bat_temperature();
 }
 
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+static int battery_set_property(struct power_supply *psy,
+	enum power_supply_property psp,
+	const union power_supply_propval *val)
+{
+	int ret = 0;
+/*	struct battery_data *data =
+		container_of(psy->desc, struct battery_data ,psd);
+*/
+	struct charger_device *chg_dev = get_charger_by_name("primary_chg");
+	if (!chg_dev) {
+		pr_err("%s: failed to get charger device\n",  __func__);
+		return PTR_ERR(chg_dev);
+	}
+
+	switch (psp) {
+/*C3T code for HQ-219032 by gengyifei at 2022/8/30 start*/
+		case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+/*C3T code for HQ-219032 by gengyifei at 2022/8/30 end*/
+		case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+			ret = charger_device_set_hiz_mode(chg_dev, val->intval);
+			break;
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 start */
+		case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+			charger_manager_set_system_temp_level(val->intval);
+			break;
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 end */
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 start */
+		case POWER_SUPPLY_PROP_CYCLE_COUNT:
+			gm.bat_cycle = val->intval;
+			break;
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 end */
+		default:
+			return -EINVAL;
+			break;
+	}
+
+	return ret;
+}
+static int battery_is_writable(struct power_supply *psy,
+				     enum power_supply_property psp)
+{
+	int res;
+
+	switch (psp) {
+/*C3T code for HQ-219032 by gengyifei at 2022/8/30 start*/
+		case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+/*C3T code for HQ-219032 by gengyifei at 2022/8/30 end*/
+		case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 start */
+		case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 end */
+			res = 1;
+			break;
+		default:
+			res = 0;
+			break;
+	}
+
+	return res;
+}
+
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 start */
+#define SHUTDOWN_DELAY_VOL	3400
+extern bool enable_notify_shutdown;
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 end */
 static int battery_get_property(struct power_supply *psy,
 	enum power_supply_property psp,
 	union power_supply_propval *val)
@@ -454,9 +551,12 @@ static int battery_get_property(struct power_supply *psy,
 	int ret = 0;
 	int fgcurrent = 0;
 	bool b_ischarging = 0;
-
 	struct battery_data *data =
 		container_of(psy->desc, struct battery_data, psd);
+
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+	struct charger_device *chg_dev;
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
@@ -499,14 +599,16 @@ static int battery_get_property(struct power_supply *psy,
 		val->intval = battery_get_bat_avg_current() * 100;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		val->intval =
-			fg_table_cust_data.fg_profile[gm.battery_id].q_max
-			* 1000;
+/*C3T code for HQ-237367 by gengyifei at 2022/8/31 start*/
+		pr_err("gm.algo_qmax:%d gm.aging_factor:%d\n", gm.algo_qmax, gm.aging_factor);
+		val->intval = gm.algo_qmax * gm.aging_factor / 100;
+/*C3T code for HQ-237367 by gengyifei at 2022/8/31 end*/
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
+/*C3T code for HQ-254870 by gengyifei at 2022/10/10 start*/
 		val->intval = gm.ui_soc *
-			fg_table_cust_data.fg_profile[gm.battery_id].q_max
-			* 1000 / 100;
+			gm.algo_qmax / 100 * gm.aging_factor / 100;
+/*C3T code for HQ-254870 by gengyifei at 2022/10/10 end*/
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = data->BAT_batt_vol * 1000;
@@ -514,6 +616,32 @@ static int battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = gm.tbat_precise;
 		break;
+/*C3T code for HQ-219032 by gengyifei at 2022/8/30 start*/
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+/*C3T code for HQ-219032 by gengyifei at 2022/8/30 end*/
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+        	chg_dev = get_charger_by_name("primary_chg");
+		if (!chg_dev) {
+			pr_err("%s: failed to get charger device\n",  __func__);
+			return PTR_ERR(chg_dev);
+		}
+		val->intval = charger_device_get_hiz_mode(chg_dev);
+		break;
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 start*/
+/*C3T HQ-219117 add battery id node by zhaohan at 2022/07/22 start*/
+	case POWER_SUPPLY_PROP_BATTERY_ID:
+		val->intval = gm.battery_id;
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_ID_VOLTAGE:
+		val->intval = gm.battery_id_voltage;
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_VENDOR:
+		val->intval = gm.battery_id;
+		break;
+/*C3T HQ-219117 add battery id node by zhaohan at 2022/07/22 end*/
+/*C3T code for HQ-223762 by gengyifei at 2022/8/10 end*/
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 		val->intval = check_cap_level(data->BAT_CAPACITY);
 		break;
@@ -544,28 +672,30 @@ static int battery_get_property(struct power_supply *psy,
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		if (check_cap_level(data->BAT_CAPACITY) ==
-			POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN)
-			val->intval = 0;
-		else {
-			int q_max_mah = 0;
-			int q_max_uah = 0;
-
-			q_max_mah =
-				fg_table_cust_data.fg_profile[
-				gm.battery_id].q_max / 10;
-
-			q_max_uah = q_max_mah * 1000;
-			if (q_max_uah <= 100000) {
-				bm_debug("%s q_max_mah:%d q_max_uah:%d\n",
-					__func__, q_max_mah, q_max_uah);
-				q_max_uah = 100001;
-			}
-			val->intval = q_max_uah;
-		}
+/* C3T code for HQ-234347 by gengyifei at 2022/08/23 start */
+		val->intval = 5000000;
+/* C3T code for HQ-234347 by gengyifei at 2022/08/23 end */
 		break;
-
-
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 start */
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		val->intval = charger_manager_get_system_temp_level();
+		break;
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 end */
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 start */
+	case POWER_SUPPLY_PROP_SHUTDOWN_DELAY:
+		val->intval= gm.shutdown_delay;
+		break;
+/* C3T code for HQ-234410 by gengyifei at 2022/08/23 end*/
+/* C3T code for HQ-HQ-218837 by tongjiacheng at 2022/08/26 start */
+	case POWER_SUPPLY_PROP_BATT_SOC:
+		val->intval = battery_get_soc();
+		break;
+/* C3T code for HQ-HQ-218837 by tongjiacheng at 2022/08/26  end */
+/* C3T code for HQ-234628 by zhaohan at 2022/08/30 start */
+	case POWER_SUPPLY_PROP_RESISTANCE:
+		val->intval = 75000;
+		break;
+/* C3T code for HQ-234628 by zhaohan at 2022/08/30 end */
 	default:
 		ret = -EINVAL;
 		break;
@@ -573,6 +703,55 @@ static int battery_get_property(struct power_supply *psy,
 
 	return ret;
 }
+
+/* C3T code for HQ-253567 by tongjiacheng at 2022/10/10 start */
+static void battery_shutdown_dwork_handler(struct work_struct *work)
+{
+	static bool shutdown_delay_cancel;
+	static bool last_shutdown_delay = 0 ;
+	bool mtk_shutdown_delay_enable = 1;
+	char shutdown_string[64];
+	char *envp[] = {shutdown_string, NULL};
+
+	if (enable_notify_shutdown) {
+		if (battery_main.BAT_STATUS == POWER_SUPPLY_STATUS_CHARGING)
+			enable_notify_shutdown = false;
+	}
+
+	if (mtk_shutdown_delay_enable) {
+		if (battery_main.BAT_CAPACITY <= 1) {
+			if (battery_main.BAT_batt_vol <= SHUTDOWN_DELAY_VOL  &&
+				battery_main.BAT_STATUS != POWER_SUPPLY_STATUS_CHARGING) {
+					gm.shutdown_delay = true;
+					battery_main.BAT_CAPACITY = 1;
+			}
+			else if (battery_main.BAT_STATUS == POWER_SUPPLY_STATUS_CHARGING && gm.shutdown_delay) {
+				gm.shutdown_delay = false;
+				shutdown_delay_cancel = true;
+				battery_main.BAT_CAPACITY = 1;
+			}
+			else {
+				gm.shutdown_delay = false;
+				if (shutdown_delay_cancel)
+					battery_main.BAT_CAPACITY = 1;
+			}
+		}
+		else {
+			gm.shutdown_delay = false;
+			shutdown_delay_cancel = false;
+		}
+
+		if (last_shutdown_delay != gm.shutdown_delay) {
+			last_shutdown_delay = gm.shutdown_delay;
+			sprintf(shutdown_string, "POWER_SUPPLY_PROP_SHUTDOWN_DELAY=%d", gm.shutdown_delay);
+			kobject_uevent_env(&battery_main.psy->dev.kobj, KOBJ_CHANGE, envp);
+			pr_err("last_shutdown_delay:%d,gm.shutdown_delay:%d\n",last_shutdown_delay,gm.shutdown_delay);
+		}
+	}
+
+	mod_delayed_work(system_wq, &shutdown_dwork, msecs_to_jiffies(2000));
+}
+/* C3T code for HQ-253567 by tongjiacheng at 2022/10/10 end*/
 
 /* battery_data initialization */
 struct battery_data battery_main = {
@@ -582,12 +761,18 @@ struct battery_data battery_main = {
 		.properties = battery_props,
 		.num_properties = ARRAY_SIZE(battery_props),
 		.get_property = battery_get_property,
+	/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+		.set_property = battery_set_property,
+		.property_is_writeable =  battery_is_writable,
+	/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
 		},
 
 	.BAT_STATUS = POWER_SUPPLY_STATUS_DISCHARGING,
 	.BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD,
 	.BAT_PRESENT = 1,
-	.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION,
+	/*C3T code for HQ-234343 by gengyifei at 2022/8/23 start*/
+	.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO,
+	/*C3T code for HQ-234343 by gengyifei at 2022/8/23 end*/
 	.BAT_CAPACITY = -1,
 	.BAT_batt_vol = 0,
 	.BAT_batt_temp = 0,
@@ -598,7 +783,9 @@ void evb_battery_init(void)
 	battery_main.BAT_STATUS = POWER_SUPPLY_STATUS_FULL;
 	battery_main.BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD;
 	battery_main.BAT_PRESENT = 1;
-	battery_main.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION;
+/*C3T code for HQ-234343 by gengyifei at 2022/8/23 start*/
+	battery_main.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO;
+/*C3T code for HQ-234343 by gengyifei at 2022/8/23 end*/
 	battery_main.BAT_CAPACITY = 100;
 	battery_main.BAT_batt_vol = 4200;
 	battery_main.BAT_batt_temp = 22;
@@ -656,7 +843,9 @@ void battery_update(struct battery_data *bat_data)
 	struct power_supply *bat_psy = bat_data->psy;
 
 	battery_update_psd(&battery_main);
-	bat_data->BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION;
+/*C3T code for HQ-234343 by gengyifei at 2022/8/23 start*/
+	bat_data->BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO;
+/*C3T code for HQ-234343 by gengyifei at 2022/8/23 end*/
 	bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD;
 	bat_data->BAT_PRESENT = 1;
 
@@ -1402,15 +1591,20 @@ unsigned int TempConverBattThermistor(int temp)
 	int i;
 	unsigned int TBatt_R_Value = 0xffff;
 
-	if (temp >= Fg_Temperature_Table[20].BatteryTemp) {
-		TBatt_R_Value = Fg_Temperature_Table[20].TemperatureR;
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 start */
+	if (temp >= Fg_Temperature_Table[26].BatteryTemp) {
+		TBatt_R_Value = Fg_Temperature_Table[26].TemperatureR;
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 end*/
+
 	} else if (temp <= Fg_Temperature_Table[0].BatteryTemp) {
 		TBatt_R_Value = Fg_Temperature_Table[0].TemperatureR;
 	} else {
 		RES1 = Fg_Temperature_Table[0].TemperatureR;
 		TMP1 = Fg_Temperature_Table[0].BatteryTemp;
 
-		for (i = 0; i <= 20; i++) {
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 start */
+		for (i = 0; i <= 26; i++) {
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 end */
 			if (temp <= Fg_Temperature_Table[i].BatteryTemp) {
 				RES2 = Fg_Temperature_Table[i].TemperatureR;
 				TMP2 = Fg_Temperature_Table[i].BatteryTemp;
@@ -1443,13 +1637,17 @@ int BattThermistorConverTemp(int Res)
 
 	if (Res >= Fg_Temperature_Table[0].TemperatureR) {
 		TBatt_Value = -400;
-	} else if (Res <= Fg_Temperature_Table[20].TemperatureR) {
-		TBatt_Value = 600;
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 start */
+	} else if (Res <= Fg_Temperature_Table[26].TemperatureR) {
+		TBatt_Value = 900;
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 end */
 	} else {
 		RES1 = Fg_Temperature_Table[0].TemperatureR;
 		TMP1 = Fg_Temperature_Table[0].BatteryTemp;
 
-		for (i = 0; i <= 20; i++) {
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 start */
+		for (i = 0; i <= 26; i++) {
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 end */
 			if (Res >= Fg_Temperature_Table[i].TemperatureR) {
 				RES2 = Fg_Temperature_Table[i].TemperatureR;
 				TMP2 = Fg_Temperature_Table[i].BatteryTemp;
@@ -3983,6 +4181,12 @@ static int battery_callback(
 		{
 /* CHARGING FULL */
 			notify_fg_chr_full();
+                  	/* C3T code for HQHW-3590 by wangtingting at 2022/10/18 start*/
+			battery_main.BAT_CAPACITY =100;
+			/* C3T code for HQHW-3590 by wangtingting at 2022/10/18 end*/
+			battery_main.BAT_STATUS = POWER_SUPPLY_STATUS_FULL;
+			battery_update(&battery_main);
+			/* C3T code for HQ-253634 by tongjiacheng at 2022/10/09 end*/
 		}
 		break;
 	case CHARGER_NOTIFY_START_CHARGING:
@@ -4567,6 +4771,10 @@ static int __init battery_probe(struct platform_device *dev)
 
 	mtk_battery_last_init(dev);
 
+	/* C3T code for HQ-253567 by tongjiacheng at 2022/10/10 start */
+	INIT_DELAYED_WORK(&shutdown_dwork, battery_shutdown_dwork_handler);
+	schedule_delayed_work(&shutdown_dwork, msecs_to_jiffies(2000));
+	/* C3T code for HQ-253567 by tongjiacheng at 2022/10/10 end*/
 
 	gm.is_probe_done = true;
 

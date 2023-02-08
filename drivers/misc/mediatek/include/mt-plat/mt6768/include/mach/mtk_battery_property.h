@@ -11,7 +11,9 @@
 #define MTK_CHR_EXIST 1
 #define KEEP_100_PERCENT 1
 #define R_FG_VALUE	5				/* mOhm */
-#define EMBEDDED_SEL 0
+/*C3T code for HQ-241185 by gengyifei at 2022/09/27 start*/
+#define EMBEDDED_SEL 1
+/*C3T code for HQ-241185 by gengyifei at 2022/09/27 end*/
 #define PMIC_SHUTDOWN_CURRENT 20	/* 0.01 mA */
 #define FG_METER_RESISTANCE	100
 #define CAR_TUNE_VALUE	100 /*1.00 */
@@ -76,7 +78,9 @@
 #define DISCHARGE_TRACKING_TIME 10
 #define CHARGE_TRACKING_TIME 60
 #define DIFFERENCE_FULLOCV_VTH	1000	/* 0.1mV */
-#define CHARGE_PSEUDO_FULL_LEVEL 8000
+/*C3T code for HQ-250430 by wangtingting at 2022/9/30 start*/
+#define CHARGE_PSEUDO_FULL_LEVEL 10000
+/*C3T code for HQ-250430 by wangtingting at 2022/9/30 end*/
 #define FULL_TRACKING_BAT_INT2_MULTIPLY 6
 
 /* pre tracking */

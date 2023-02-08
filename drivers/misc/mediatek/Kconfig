@@ -526,6 +526,17 @@ config MTK_MT6382_BDG
 	  Normal project will disable it first
 	  If you are not sure about this, do not set it to y
 
+# cod at 2022/07/29 start
+config GC6133C_HLT_I
+        bool "camera QVGA module 1"
+        help
+          Used for camera QVGA module 1
+config BF30A2_OFILM_II
+        bool "camera QVGA module 2"
+        help
+          Used for camera QVGA module 2
+# code at 2022/07/29 end
+
 source "drivers/misc/mediatek/met_drv/Kconfig"
 source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/aee/Kconfig"

@@ -190,6 +190,127 @@ static int _parse_tag_videolfb(void);
 static void mtkfb_late_resume(void);
 static void mtkfb_early_suspend(void);
 
+/*C3T code for HQ-223643 by jiangyue at 2022/08/04 start*/
+/*C3T code for HQ-240920 by sunfeiting at 2022/09/05 start*/
+static ssize_t mtkfb_get_panel_info(struct device *dev,struct device_attribute *attr, char *buf)
+{
+	int ret;
+
+	if (strncmp(mtkfb_lcm_name, "dsi_panel_c3t_43_02_0a_dsc_vdo", 30) == 0) {
+//		ret = sprintf(buf, "incell,vendor:truly,IC:nt36525b(novatek)\n");
+	/*C3T code for HQ-242542 by zhangkexin at 2022/09/05 start*/
+		ret = sprintf(buf, "panel_name=dsi_panel_c3t_43_02_0a_dsc_vdo_lcm_drv\n");
+	}else if (strncmp(mtkfb_lcm_name, "dsi_panel_c3t_31_03_0b_dsc_vdo", 30) == 0) {
+//		ret = sprintf(buf, "incell,vendor:dji,IC:ft8057(focaltech)\n");
+		ret = sprintf(buf, "panel_name=dsi_panel_c3t_31_03_0b_dsc_vdo_lcm_drv\n");
+	}else if (strncmp(mtkfb_lcm_name, "dsi_panel_c3t_36_0f_0c_dsc_vdo", 30) == 0) {
+		ret = sprintf(buf, "panel_name=dsi_panel_c3t_36_0f_0c_dsc_vdo_lcm_drv\n");
+	/*C3T code for HQ-242542 by zhangkexin at 2022/09/05 end*/
+	}
+	return ret;
+}
+/*C3T code for HQ-240920 by sunfeiting at 2022/09/05 end*/
+
+static ssize_t mtkfb_get_disp_param(struct device *dev,struct device_attribute *attr, char *buf)
+{
+       int ret;
+       printk("[%s] \n", __func__);
+       return ret;
+}
+
+static ssize_t mtkfb_set_disp_param(struct device *dev,struct device_attribute *attr,const char *buf, size_t count)
+{
+       int ret;
+       printk("[%s] \n", __func__);
+       return ret;
+}
+
+static DEVICE_ATTR(panel_info, 0644, mtkfb_get_panel_info, NULL);
+static DEVICE_ATTR(disp_param, 0644, mtkfb_get_disp_param, mtkfb_set_disp_param);
+
+/*C3T code for HQ-224087 by sunfeiting at 2022/08/09 start*/
+struct fb_lcd_wp_para lcd_wp_para = {0};
+bool set_white_point_x = true;
+static int __init mtkfb_get_white_point(char *p)
+{
+	char wpoint[10];
+	strlcpy(wpoint, p, sizeof(wpoint));
+	printk("[%s]: white_point = %s\n", __func__, wpoint);
+	pr_err("mtkfb_get_white_point come in !!!\n");
+	lcd_wp_para.white_point_x = (wpoint[0]-'0') * 100
+		+ (wpoint[1]-'0') * 10 + (wpoint[2]-'0');
+	lcd_wp_para.white_point_y = (wpoint[3]-'0') * 100
+		+ (wpoint[4]-'0') * 10 + (wpoint[5]-'0');
+	lcd_wp_para.white_point_l = (wpoint[6]-'0') * 100
+		+ (wpoint[7]-'0') * 10 + (wpoint[8]-'0');
+	return 0;
+}
+early_param("ro.boot.lcm_white_point", mtkfb_get_white_point);
+
+static ssize_t mtkfb_get_wpoint_level(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%3d\n", lcd_wp_para.white_point_l);
+	return ret;
+}
+static ssize_t mtkfb_set_wpoint_level(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	sscanf(buf, "%3d", &lcd_wp_para.white_point_l);
+	return len;
+}
+
+static ssize_t mtkfb_get_wpoint(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	ret = scnprintf(buf, PAGE_SIZE, "%3d%3d\n",
+			lcd_wp_para.white_point_x, lcd_wp_para.white_point_y);
+	return ret;
+}
+static ssize_t mtkfb_set_wpoint(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	if (set_white_point_x) {
+		sscanf(buf, "%3d", &lcd_wp_para.white_point_x);
+		set_white_point_x = false;
+	} else {
+		sscanf(buf, "%3d", &lcd_wp_para.white_point_y);
+		set_white_point_x = true;
+	}
+ 		return len;
+}
+static DEVICE_ATTR(mtkfb_dispwpoint, 0644, mtkfb_get_wpoint, mtkfb_set_wpoint);
+static DEVICE_ATTR(mtkfb_dispwpoint_level, 0644, mtkfb_get_wpoint_level, mtkfb_set_wpoint_level);
+
+/*C3T code for HQ-218828 by sunfeiting at 2022/08/15 start*/
+extern ssize_t lcm_mipi_reg_write(char *buf, size_t count);
+extern ssize_t lcm_mipi_reg_read(char *buf);
+static ssize_t mipi_reg_show(struct device *dev,struct device_attribute *attr,char *buf)
+{
+	return lcm_mipi_reg_read(buf);
+}
+static ssize_t mipi_reg_store(struct device *dev,struct device_attribute *attr,const char *buf, size_t count)
+{
+	int rc = 0;
+	rc = lcm_mipi_reg_write((char *)buf, count);
+	return rc;
+}
+static DEVICE_ATTR_RW(mipi_reg);
+
+static struct attribute *mtk_fb_attrs[] = {
+	&dev_attr_panel_info.attr,
+	&dev_attr_disp_param.attr,
+	&dev_attr_mtkfb_dispwpoint.attr,
+	&dev_attr_mtkfb_dispwpoint_level.attr,
+	&dev_attr_mipi_reg.attr,
+	NULL,
+};
+/*C3T code for HQ-218828 by sunfeiting at 2022/08/15 end*/
+/*C3T code for HQ-224087 by sunfeiting at 2022/08/09 end*/
+
+static struct attribute_group mtk_fb_attr_group = {
+	.attrs = mtk_fb_attrs,
+};
+
+/*C3T code for HQ-223643 by jiangyue at 2022/08/04 end*/
 
 void mtkfb_log_enable(int enable)
 {
@@ -2650,7 +2771,13 @@ static int mtkfb_probe(struct platform_device *pdev)
 			MD_DISPLAY_DYNAMIC_MIPI, mipi_clk_change);
 #endif
 	}
-
+/*C3T code for HQ-224087 by sunfeiting at 2022/08/09 start*/
+/*C3T code for HQ-223643 by jiangyue at 2022/08/04 start*/
+	r = sysfs_create_group(&fbi->dev->kobj, &mtk_fb_attr_group);//fb0
+/*C3T code for HQ-223643 by jiangyue at 2022/08/04 end*/
+	if (r)
+		pr_err("sysfs group creat failed, rc = %d\n", r);
+/*C3T code for HQ-224087 by sunfeiting at 2022/08/09 end*/
 	MSG_FUNC_LEAVE();
 	pr_info("disp driver(2) %s end\n", __func__);
 	return 0;
@@ -2674,6 +2801,9 @@ static int mtkfb_remove(struct platform_device *pdev)
 	fbdev->state = MTKFB_DISABLED;
 	mtkfb_free_resources(fbdev, saved_state);
 
+/*C3T code for HQ-223643 by jiangyue at 2022/08/04 start*/
+	sysfs_remove_group(&fbdev->fb_info->dev->kobj, &mtk_fb_attr_group);
+/*C3T code for HQ-223643 by jiangyue at 2022/08/04 end*/
 	MSG_FUNC_LEAVE();
 	return 0;
 }

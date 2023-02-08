@@ -871,11 +871,13 @@ page_owner=on loop.max_part=7";
 		mediatek,boot_mode = <1>;
 	};
 
-	mrdump_ext_rst: mrdump_ext_rst {
+	/* LC3T-2 code for HQ-223278 by feiwen at 2022/7/14 start */
+	/*mrdump_ext_rst: mrdump_ext_rst {
 		compatible = "mediatek, mrdump_ext_rst-eint";
 		mode = "IRQ";
 		status = "okay";
-	};
+	};*/
+	/* LC3T-2 code for HQ-223278 by feiwen at 2022/7/14 end */
 
 	topmisc@10011000 {
 		compatible = "mediatek,topmisc";
@@ -1680,6 +1682,32 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		compatible = "mediatek,goodix-fp";
 	};
 
+	silead_fp: silead_fp {
+		compatible = "sil,silead_fp-pins";
+	};
+/*C3T code for HQ-224157 by zhoumengxuan at 22.7.30 start*/
+	silead_fp_platform {
+		compatible = "sil,silead_fp";
+	};
+
+	fpsensor_fp_eint:fpsensor_fp_eint {
+		compatible = "mediatek,fpsensor_fp_eint";
+		int-gpios = <&pio 8 0>;
+		rst-gpios = <&pio 31 0>;
+	};
+
+	fpsensor_finger:fpsensor_finger{
+		compatible = "mediatek,fingerprint";
+		fpc,enable-wakeup;
+	};
+/*C3T code for HQ-224157 by zhoumengxuan at 22.7.30 end*/
+
+/*C3T code for HQ-229719 by zhoumengxuan at 22.8.26 start*/
+	chipone_fp:chipone_fp {
+		compatible = "mediatek,chipone_fp";
+	};
+/*C3T code for HQ-229719 by zhoumengxuan at 22.8.26 end*/
+
 	accdet: accdet {
 		compatible = "mediatek,pmic-accdet";
 	};
@@ -2320,7 +2348,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 	spi0:spi0@1100a000 {
 		compatible = "mediatek,mt6765-spi";
-		mediatek,pad-select = <0>;
+		mediatek,pad-select = <0>,<1>;
 		reg = <0 0x1100a000 0 0x1000>;
 		interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_LOW>;
 		clocks = <&topckgen CLK_TOP_SYSPLL3_D2>,
@@ -2733,6 +2761,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		mediatek,pwrap-regmap = <&pwrap>;
 	};
 
+	/* C3T code for HQ-223290 by zhangkaiming at 2022/07/24 start */
 	sound: sound {
 		compatible = "mediatek,mt6768-mt6358-sound";
 		mediatek,audio-codec = <&mt6358_snd>;
@@ -2740,10 +2769,8 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		mtk_spk_i2s_out = <3>;
 		mtk_spk_i2s_in = <0>;
 		/* mtk_spk_i2s_mck = <3>; */
-		mediatek,speaker-codec {
-			sound-dai = <&speaker_amp>;
-		};
 	};
+	/* C3T code for HQ-223290 by zhangkaiming at 2022/07/24 end */
 
 	snd_scp_spk: snd_scp_spk {
 		compatible = "mediatek,snd_scp_spk";
@@ -3074,6 +3101,10 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		compatible = "mediatek,mtkfb";
 	};
 
+	panel: panel@0 {
+		compatible = "mediatek,panel";
+	};
+
 	dispsys {
 		compatible = "mediatek,dispsys";
 		mediatek,larb = <&smi_larb0>;
@@ -3136,6 +3167,13 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		compatible = "mediatek, dsi_te-eint";
 		status = "disabled";
 	};
+
+/* C3T code for HQ-219022 by jiangyue at 2022/09/08 start */
+	dsi_err_flag: dsi_err_flag {
+		compatible = "mediatek, dsi_err-flag";
+		status = "disabled";
+	};
+/* C3T code for HQ-219022 by jiangyue at 2022/09/08 end */
 
 	mm_mutex@14016000 {
 		compatible = "mediatek,mm_mutex";
@@ -3668,7 +3706,13 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			part = <0>;
 		};
 	};
-
+/* code at 2022/08/01 start */
+	flashlights_led191: flashlights_led191 {
+		compatible = "awinic,aw3641e";
+		flash-en-gpio = <&pio 152 0>;
+		flash-sel-gpio = <&pio 153 0>;
+};
+/* code at 2022/08/01 end */
 	camsv1@1a050000 {
 		compatible = "mediatek,camsv1";
 		reg = <0 0x1a050000 0 0x1000>;
@@ -3723,18 +3767,47 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		/* reserved for overlay by odm */
 	};
 
+	/* C3T code for HQ-223394 by yangjinnhao at 2022/07/11 start */
+	board_id: board_id {
+		compatible = "hq,board_id";
+	};
+	/* C3T code for HQ-223394 by yangjinhao at 2022/07/11 end */
+
+	/* C3T code for HQ-223874 by liunianliang at 2022/07/19 start */
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio = <&pio 46 0>;
+	};
+	/* C3T code for HQ-223874 by liunianliang at 2022/07/19 end */
+
+	/* C3T code for HQ-223663 by liunianliang at 2022/07/19 start */
+	swtp: swtp {
+		compatible = "mediatek, swtp-eint";
+		swtp-gpio = <&pio 75 0>;
+	};
+	/* C3T code for HQ-223663 by liunianliang at 2022/07/19 end */
+
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+	blk_thermal: blk_thermal {
+		compatible = "mediatek,blk_thermal_ntc";
+		io-channels = <&auxadc 4>;
+		io-channel-names = "blk_thermal-channel";
+		status = "okay";
+	};
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
+
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
 		svp-region-based-size = <0 0x10000000>;
-		iris-recognition-size = <0 0x10000000>;
+		iris-recognition-size = <0 0>;
 		2d_fr-size = <0 0>;
-		tui-size = <0 0x4000000>;
-		wfd-size = <0 0x5000000>;
-		prot-region-based-size = <0 0x8000000>;
-		ta-elf-size = <0 0x1000000>;
-		ta-stack-heap-size = <0 0x6000000>;
-		sdsp-tee-sharedmem-size = <0 0x1000000>;
-		sdsp-firmware-size = <0 0x1000000>;
+		tui-size = <0 0>;
+		wfd-size = <0 0x4000000>;
+		prot-region-based-size = <0 0>;
+		ta-elf-size = <0 0>;
+		ta-stack-heap-size = <0 0>;
+		sdsp-tee-sharedmem-size = <0 0>;
+		sdsp-firmware-size = <0 0>;
 	};
 
 	ssmr {
@@ -3764,41 +3837,68 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 		/* charging current */
 		usb_charger_current = <500000>;
-		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
+                /*C3T code for HQ-242612 by gengyifei at 2022/9/16 start*/
+		ac_charger_current = <2100000>;
+                /*C3T code for HQ-242612 by gengyifei at 2022/9/16 end*/
+           /* C3T code for HQ-235504 by tongjiacheng at 2022/08/26 start */
+		ac_charger_input_current = <2050000>;
+           /* C3T code for HQ-235504 by tongjiacheng at 2022/08/26 end */
+		/*C3T code for HQ-242612 by gengyifei at 2022/9/16 start*/
+		non_std_ac_charger_current = <1000000>;
+                /*C3T code for HQ-242612 by gengyifei at 2022/9/16 end*/
 		charging_host_charger_current = <1500000>;
 		ta_ac_charger_current = <3000000>;
 		pd_charger_current = <500000>;
 
 		/* battery temperature protection */
-		temp_t4_threshold = <50>;
-		temp_t3_threshold = <45>;
+		/*C3T code for HQ-262161 by gengyifei at 2022/11/8 start*/
+		temp_t5_threshold = <58>;
+		temp_t4_threshold = <45>;
+		temp_t3_threshold = <15>;
+		temp_t2_threshold = <10>;
+		/*C3T code for HQ-262161 by gengyifei at 2022/11/8 end*/
 		temp_t1_threshold = <0>;
 	};
 
 	charger: charger {
 		compatible = "mediatek,charger";
 		algorithm_name = "SwitchCharging";
-		/* enable_sw_jeita; */
+		/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 start */
+		enable_sw_jeita;
+		/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 end */
 		/* enable_pe_plus; */
 		/* enable_pe_2; */
 		/* enable_pe_3; */
 		/* enable_pe_4; */
-		enable_type_c;
+		/* enable_type_c; */
 		power_path_support;
 		enable_dynamic_mivr;
 		disable_pd_dual;
 		bootmode = <&chosen>;
 
 		/* common */
-		battery_cv = <4350000>;
+		/*C3T code for HQ-223425 by  tongjiacheng at 2022/8/2 start*/
+		battery_cv = <4400000>;
+		/*C3T code for HQ-223425 by  tongjiacheng at 2022/8/2 end*/
+		/* C3T code for HQ-HQ-218837 by tongjiacheng at 2022/08/26 start */
+		recharger_soc_limit_1 = <98>;
+		recharger_soc_limit_2 = <99>;
+		/* C3T code for HQ-HQ-218837 by tongjiacheng at 2022/08/26 end */
 		max_charger_voltage = <6500000>;
-		min_charger_voltage = <4600000>;
+                /* C3T code for HQHW-3442 by tongjiacheng at 2022/11/02 start */
+		min_charger_voltage = <4700000>;
+                /* C3T code for HQHW-3442 by tongjiacheng at 2022/11/02 end */
 
 		/* dynamic mivr */
-		min_charger_voltage_1 = <4400000>;
-		min_charger_voltage_2 = <4200000>;
+                /*C3T code for HQ-231364 by gengyifei at 2022/8/11 start*/
+                /* C3T code for HQHW-3442 by tongjiacheng at 2022/11/02 start */
+		min_charger_voltage_1 = <4700000>;
+		min_charger_voltage_2 = <4500000>;
+                /* C3T code for HQHW-3442 by tongjiacheng at 2022/11/02 end */
+		/* C3T code for HQ-249742 by tongjiacheng at 2022/09/27 start */
+		min_charger_voltage_3 = <4200000>;
+		/* C3T code for HQ-249742 by tongjiacheng at 2022/09/27 end */
+                /*C3T code for HQ-231364 by gengyifei at 2022/8/11 end*/
 		max_dmivr_charger_current = <1400000>;
 
 		/* charging current */
@@ -3806,29 +3906,47 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		usb_charger_current_unconfigured = <70000>;
 		usb_charger_current_configured = <500000>;
 		usb_charger_current = <500000>;
-		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
+		/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 start */
+                /*C3T code for HQ-242612 by gengyifei at 2022/9/16 start*/
+                /* C3T code for HQHW-3442 by tongjiacheng at 2022/11/02 start */
+		ac_charger_current = <2000000>;
+                /*C3T code for HQ-242612 by gengyifei at 2022/9/16 end*/
+		ac_charger_input_current = <1900000>;
+                /* C3T code for HQHW-3442 by tongjiacheng at 2022/11/02 end */
+		/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 end */
+		/* C3T code for HQ-218940 by gengyifei at 2022/08/30 start */
+		non_std_ac_charger_current = <1000000>;
+		/* C3T code for HQ-218940 by gengyifei at 2022/08/30 end */
 		charging_host_charger_current = <1500000>;
 		apple_1_0a_charger_current = <650000>;
 		apple_2_1a_charger_current = <800000>;
 		ta_ac_charger_current = <3000000>;
 
 		/* sw jeita */
-		jeita_temp_above_t4_cv = <4240000>;
-		jeita_temp_t3_to_t4_cv = <4240000>;
-		jeita_temp_t2_to_t3_cv = <4340000>;
-		jeita_temp_t1_to_t2_cv = <4240000>;
-		jeita_temp_t0_to_t1_cv = <4040000>;
-		jeita_temp_below_t0_cv = <4040000>;
-		temp_t4_thres = <50>;
-		temp_t4_thres_minus_x_degree = <47>;
+		/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 start */
+		/*C3T code for HQHW-2818 by gengyifei at 2022/9/7 start*/
+		jeita_temp_above_t4_cv = <4096000>;
+		jeita_temp_t3_to_t4_cv = <4096000>;
+		/*C3T code for HQHW-2818 by gengyifei at 2022/9/7 end*/
+		jeita_temp_t2_to_t3_cv = <4400000>;
+		jeita_temp_t1_to_t2_cv = <4400000>;
+		jeita_temp_t0_to_t1_cv = <4400000>;
+		jeita_temp_below_t0_cv = <4400000>;
+		jeita_temp_t3_to_t4_cc = <2050000>;
+		jeita_temp_t2_to_t3_cc = <2050000>;
+		jeita_temp_t1_to_t2_cc = <1470000>;
+            /* C3T code for HQ-235504 by tongjiacheng at 2022/08/30 start */
+		jeita_temp_t0_to_t1_cc = <420000>;
+            /* C3T code for HQ-235504 by tongjiacheng at 2022/08/30 end */
+		temp_t4_thres = <58>;
+		temp_t4_thres_minus_x_degree = <58>;
 		temp_t3_thres = <45>;
-		temp_t3_thres_minus_x_degree = <39>;
-		temp_t2_thres = <10>;
-		temp_t2_thres_plus_x_degree = <16>;
-		temp_t1_thres = <0>;
-		temp_t1_thres_plus_x_degree = <6>;
+		temp_t3_thres_minus_x_degree = <45>;
+		temp_t2_thres = <15>;
+		temp_t2_thres_plus_x_degree = <15>;
+		temp_t1_thres = <10>;
+		temp_t1_thres_plus_x_degree = <10>;
+		/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 end */
 		temp_t0_thres = <0>;
 		temp_t0_thres_plus_x_degree = <0>;
 		temp_neg_10_thres = <0>;
@@ -3837,8 +3955,22 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		enable_min_charge_temp;
 		min_charge_temp = <0>;
 		min_charge_temp_plus_x_degree = <6>;
-		max_charge_temp = <50>;
-		max_charge_temp_minus_x_degree = <47>;
+                /* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 start */
+		max_charge_temp = <58>;
+		max_charge_temp_minus_x_degree = <55>;
+                /* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 end */
+
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 start */
+		/* cycle count */
+		enable_sw_fcc;
+		ffc_cv_1 = <4400000>;
+		ffc_cv_2 = <4392000>;
+		ffc_cv_3 = <4384000>;
+		ffc_cv_4 = <4376000>;
+		chg_cycle_count_level1 = <100>;
+		chg_cycle_count_level2 = <200>;
+		chg_cycle_count_level3 = <300>;
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 end */
 
 		/* PE */
 		ta_12v_support;
@@ -3906,7 +4038,8 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
-		charger = <&mt6370_chg>;
+		/* charger = <&mt6370_chg>; */
+		id-gpios = <&pio 41 0>;
 		dev-conn = <&usb>;
 		mediatek,bypss-typec-sink = <1>;
 	};
@@ -3939,8 +4072,16 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	};
 
 	touch: touch {
-		compatible = "goodix,touch";
+		compatible = "novatek,NVT-ts-spi";
 	};
+
+	/* C3T code for HQ-218848 by chenzimo at 2022/08/23 start */
+	xiaomi_touch {
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
+	};
+	/* C3T code for HQ-218848 by chenzimo at 2022/08/23 end */
 
 	nfc:nfc {
 		compatible = "mediatek,nfc-gpio-v2";
@@ -4172,7 +4313,91 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	};
 };
 
+/* seprater charger start */
+&i2c7 {
+	eta6953: eta6953@6B {
+		compatible = "eta,eta6953";
+		reg = <0x6B>;
+		status = "okay";
 
+		interrupt-parent = <&pio>;
+		interrupts = <20 IRQ_TYPE_EDGE_FALLING 20 0>;
+		charger_name = "primary_chg";
+
+		eta6953,charge-detect-enable;
+		eta6953,usb-vlim = <4600>;
+		eta6953,usb-ilim = <500>;
+		eta6953,usb-vreg = <4400>;
+		eta6953,usb-ichg = <500>;
+
+/*C3T code for HQ-223293 by  tongjiacheng at 2022/7/28 start*/
+		eta6953,precharge-current = <240>;
+/*C3T code for HQ-223425 by  tongjiacheng at 2022/8/2 start*/
+		eta6953,termination-current = <240>;
+/*C3T code for HQ-223425 by  tongjiacheng at 2022/8/2 end*/
+/*C3T code for HQ-223293 by  tongjiacheng at 2022/7/28 end*/
+		eta6953,boost-voltage = <4998>;
+		eta6953,boost-current = <1200>;
+		eta6953,enable_term;
+		eta6953,stat-pin-ctrl = <3>;
+		eta6953,vac-ovp-threshold = <6500>;
+	};
+
+	sgm41511: sgm41511@1A {
+		compatible = "sgm,sgm41511";
+		reg = <0x1A>;
+		status = "okay";
+
+		interrupt-parent = <&pio>;
+		interrupts = <20 IRQ_TYPE_EDGE_FALLING 20 0>;
+		charger_name = "primary_chg";
+
+		sgm41511,charge-detect-enable;
+		sgm41511,usb-vlim = <4600>;
+		sgm41511,usb-ilim = <500>;
+		sgm41511,usb-vreg = <4400>;
+		sgm41511,usb-ichg = <500>;
+
+/*C3T code for HQ-223293 by  tongjiacheng at 2022/7/28 start*/
+		sgm41511,precharge-current = <240>;
+/*C3T code for HQ-223425 by  tongjiacheng at 2022/8/2 start*/
+		sgm41511,termination-current = <240>;
+/*C3T code for HQ-223425 by  tongjiacheng at 2022/8/2 end*/
+/*C3T code for HQ-223293 by  tongjiacheng at 2022/7/28 end*/
+		sgm41511,boost-voltage = <4998>;
+		sgm41511,boost-current = <1200>;
+		sgm41511,enable_term;
+		sgm41511,stat-pin-ctrl = <3>;
+		sgm41511,vac-ovp-threshold = <6500>;
+	};
+
+/*C3T code for HQ-223293 by gengyifei at 2022/8/10 start*/
+	sc8960x@6A {
+		compatible = "sc,sc89601d";
+		reg = <0x6A>;
+		interrupt-parent = <&pio>;
+		interrupts = <20 IRQ_TYPE_EDGE_FALLING 20 0>;
+		charger_name = "primary_chg";
+
+		sc,sc8960x,charge-detect-enable;
+		sc,sc8960x,usb-vlim = <4600>;
+		sc,sc8960x,usb-ilim = <500>;
+		sc,sc8960x,usb-vreg = <4400>;
+		sc,sc8960x,usb-ichg = <500>;
+
+		sc,sc8960x,precharge-current = <240>;
+		sc,sc8960x,termination-current = <240>;
+		sc,sc8960x,boost-voltage = <4998>;
+		sc,sc8960x,boost-current = <1200>;
+		sc,sc8960x,enable_term;
+		sc,sc8960x,stat-pin-ctrl = <3>;
+		sc,sc8960x,vac-ovp-threshold = <6500>;
+	};
+/*C3T code for HQ-223293 by gengyifei at 2022/8/10 end*/
+};
+/* seprater charger end */
+
+#include "mediatek/cust_earth_fingerprint.dtsi"
 #include "mediatek/mt6358.dtsi"
 #include "mediatek/cust_mt6768_msdc.dtsi"
 #include "mediatek/mt6370.dtsi"

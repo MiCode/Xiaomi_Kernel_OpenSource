@@ -858,10 +858,12 @@ static void SCP_sensorHub_init_sensor_state(void)
 	mSensorState[SENSOR_TYPE_GLANCE_GESTURE].rate = SENSOR_RATE_ONESHOT;
 	mSensorState[SENSOR_TYPE_GLANCE_GESTURE].timestamp_filter = false;
 
+	/*C3T code for HQ-219034 by baoguangxiu at 2022/8/24 start*/
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].sensorType =
 		SENSOR_TYPE_PICK_UP_GESTURE;
-	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONESHOT;
+	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONCHANGE;
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].timestamp_filter = false;
+	/*C3T code for HQ-219034 by baoguangxiu at 2022/8/24 end*/
 
 	mSensorState[SENSOR_TYPE_WAKE_GESTURE].sensorType =
 		SENSOR_TYPE_WAKE_GESTURE;
@@ -907,6 +909,15 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_SAR].sensorType = SENSOR_TYPE_SAR;
 	mSensorState[SENSOR_TYPE_SAR].timestamp_filter = false;
+	/*C3T code for HQ-218639 by huitianpu at 2022/8/21 start*/
+	mSensorState[SENSOR_TYPE_SAR_ALGO].sensorType = SENSOR_TYPE_SAR_ALGO;
+	mSensorState[SENSOR_TYPE_SAR_ALGO].rate = SENSOR_RATE_ONCHANGE;
+	mSensorState[SENSOR_TYPE_SAR_ALGO].timestamp_filter = false;
+
+	mSensorState[SENSOR_TYPE_SAR_ALGO_TOP].sensorType = SENSOR_TYPE_SAR_ALGO_TOP;
+	mSensorState[SENSOR_TYPE_SAR_ALGO_TOP].rate = SENSOR_RATE_ONCHANGE;
+	mSensorState[SENSOR_TYPE_SAR_ALGO_TOP].timestamp_filter = false;
+	/*C3T code for HQ-218639 by huitianpu at 2022/8/21 end*/
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
@@ -1736,6 +1747,18 @@ int sensor_get_data_from_hub(uint8_t sensorType,
 		data->sar_event.data[1] = data_t->sar_event.data[1];
 		data->sar_event.data[2] = data_t->sar_event.data[2];
 		break;
+/*C3T code for HQ-218639 by huitianpu at 2022/9/4 start*/
+	case ID_SAR_ALGO:
+		data->time_stamp = data_t->time_stamp;
+		data->data[0] = data_t->data[0];
+		pr_err("HTP saralgo status %d \n",data->data[0]);
+		break;
+	case ID_SAR_ALGO_TOP:
+		data->time_stamp = data_t->time_stamp;
+		data->data[0] = data_t->data[0];
+		pr_err("HTP saralgo status %d \n",data->data[0]);
+		break;
+/*C3T code for HQ-218639 by huitianpu at 2022/9/4 end*/
 	default:
 		err = -1;
 		break;

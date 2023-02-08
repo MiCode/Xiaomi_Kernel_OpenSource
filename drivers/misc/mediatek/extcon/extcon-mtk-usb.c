@@ -21,6 +21,7 @@
 #include <linux/workqueue.h>
 
 #include "extcon-mtk-usb.h"
+#include "mtk_charger_intf.h"
 
 #ifdef CONFIG_TCPC_CLASS
 #include "tcpm.h"
@@ -138,9 +139,20 @@ static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
 	struct mtk_extcon_info *extcon = container_of(nb,
 					struct mtk_extcon_info, psy_nb);
 	union power_supply_propval pval;
-	union power_supply_propval ival;
-	union power_supply_propval tval;
+	//union power_supply_propval ival;
+	//union power_supply_propval tval;
+	enum charger_type chg_type; 
 	int ret;
+	/* C3T code for HQ-249792 by tongjiacheng at 2022/09/29 start*/
+	int id;
+
+	id = extcon->id_gpiod ?
+		gpiod_get_value_cansleep(extcon->id_gpiod) : 1;
+	if (!id) {
+		pr_err("%s: in host mode, return\n", __func__);
+		return -1;
+	}
+	/* C3T code for HQ-249792 by tongjiacheng at 2022/09/29 end*/
 
 	if (event != PSY_EVENT_PROP_CHANGED || psy != extcon->usb_psy)
 		return NOTIFY_DONE;
@@ -152,15 +164,16 @@ static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
 		return NOTIFY_DONE;
 	}
 
-	ret = power_supply_get_property(psy,
+	chg_type = mt_get_charger_type();
+	/*ret = power_supply_get_property(psy,
 				POWER_SUPPLY_PROP_AUTHENTIC, &ival);
 	if (ret < 0) {
 		dev_info(extcon->dev, "failed to get authentic prop\n");
 		ival.intval = 0;
-	}
+	}*/
 
-	ret = power_supply_get_property(psy,
-				POWER_SUPPLY_PROP_TYPE, &tval);
+	/*ret = power_supply_get_property(psy,
+				POWER_SUPPLY_PROP_USB_TYPE, &tval);
 	if (ret < 0) {
 		dev_info(extcon->dev, "failed to get usb type\n");
 		return NOTIFY_DONE;
@@ -171,15 +184,15 @@ static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
 
 	if (ival.intval)
 		return NOTIFY_DONE;
-
+*/
 #ifdef CONFIG_TCPC_CLASS
 	if (extcon->c_role == DUAL_PROP_DR_NONE && pval.intval &&
 			(tval.intval == POWER_SUPPLY_TYPE_USB ||
 			tval.intval == POWER_SUPPLY_TYPE_USB_CDP))
 		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
 #else
-	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
-			tval.intval == POWER_SUPPLY_TYPE_USB_CDP))
+	if (pval.intval && (chg_type == STANDARD_HOST ||
+			chg_type == CHARGING_HOST))
 		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
 	else
 		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
@@ -192,10 +205,12 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	int ret = 0;
 	struct device *dev = extcon->dev;
 	union power_supply_propval pval;
-	union power_supply_propval ival;
-	union power_supply_propval tval;
+	//union power_supply_propval ival;
+	//union power_supply_propval tval;
+	enum charger_type chg_type; 
 
-	extcon->usb_psy = devm_power_supply_get_by_phandle(dev, "charger");
+	//extcon->usb_psy = devm_power_supply_get_by_phandle(dev, "charger");
+	extcon->usb_psy = power_supply_get_by_name("charger");
 	if (IS_ERR_OR_NULL(extcon->usb_psy)) {
 		dev_err(dev, "fail to get usb_psy\n");
 		extcon->usb_psy = NULL;
@@ -215,15 +230,16 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 		dev_info(extcon->dev, "failed to get online prop\n");
 		return 0;
 	}
-
-	ret = power_supply_get_property(extcon->usb_psy,
+	dev_err(extcon->dev, "onlie = %d\n", pval.intval);
+	
+/*	ret = power_supply_get_property(extcon->usb_psy,
 				POWER_SUPPLY_PROP_AUTHENTIC, &ival);
 	if (ret < 0) {
 		dev_info(extcon->dev, "failed to get authentic prop\n");
 		ival.intval = 0;
 	}
-
-	ret = power_supply_get_property(extcon->usb_psy,
+*/
+/*	ret = power_supply_get_property(extcon->usb_psy,
 				POWER_SUPPLY_PROP_USB_TYPE, &tval);
 	if (ret < 0) {
 		dev_info(extcon->dev, "failed to get usb type\n");
@@ -235,9 +251,10 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 
 	if (ival.intval)
 		return 0;
-
-	if (pval.intval && (tval.intval == POWER_SUPPLY_USB_TYPE_SDP ||
-			tval.intval == POWER_SUPPLY_USB_TYPE_CDP))
+*/
+	chg_type = mt_get_charger_type();
+	if (pval.intval && (chg_type == STANDARD_HOST ||
+			chg_type == CHARGING_HOST))
 		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
 
 	return 0;
@@ -246,8 +263,11 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 #if defined ADAPT_CHARGER_V1
 #include <mt-plat/v1/charger_class.h>
 static struct charger_device *primary_charger;
-
+/*C3T code for HQ-223303 by gengyifei at 2022/7/25 start*/
+int usb_otg;
+/*C3T code for HQ-223303 by gengyifei at 2022/7/25 end*/
 static int mtk_usb_extcon_set_vbus_v1(bool is_on) {
+	
 	if (!primary_charger) {
 		primary_charger = get_charger_by_name("primary_chg");
 		if (!primary_charger) {
@@ -259,8 +279,10 @@ static int mtk_usb_extcon_set_vbus_v1(bool is_on) {
 	pr_info("%s: is_on=%d\n", __func__, is_on);
 	if (is_on) {
 		charger_dev_enable_otg(primary_charger, true);
+	/* C3T code for HQ-239245 by tongjiacheng at 2022/09/08 start*/
 		charger_dev_set_boost_current_limit(primary_charger,
-			1500000);
+			1200000);
+	/* C3T code for HQ-239245 by tongjiacheng at 2022/09/08 end*/
 		#if 0
 		{// # workaround
 			charger_dev_kick_wdt(primary_charger);
@@ -283,7 +305,14 @@ static int mtk_usb_extcon_set_vbus_v1(bool is_on) {
 		charger_dev_enable_otg(primary_charger, false);
 	}
 #endif
-		return 0;
+/*C3T code for HQ-223303 by gengyifei at 2022/7/25 start*/
+	if (is_on)
+		usb_otg = 1;
+	else
+		usb_otg = 0;
+/*C3T code for HQ-223303 by gengyifei at 2022/7/25 end*/
+
+	return 0;
 }
 #endif //ADAPT_CHARGER_V1
 
@@ -508,11 +537,10 @@ static int mtk_usb_extcon_id_pin_init(struct mtk_extcon_info *extcon)
 	// get id pin value when boot on
 	id = extcon->id_gpiod ?	gpiod_get_value_cansleep(extcon->id_gpiod) : 1;
 	dev_info(extcon->dev, "id value : %d\n", id);
-	if (!id) {
-		mtk_usb_extcon_set_vbus(extcon, true);
-		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
-	}
-
+	if (!id)
+        /* C3T code for HQ-239168 by tongjiacheng at 2022/09/09 start */
+		queue_delayed_work(system_power_efficient_wq, &extcon->wq_detcable, msecs_to_jiffies(5000));
+       /* C3T code for HQ-239168 by tongjiacheng at 2022/09/09 end */
 	return 0;
 }
 
@@ -701,7 +729,9 @@ static int __init mtk_usb_extcon_init(void)
 {
 	return platform_driver_register(&mtk_usb_extcon_driver);
 }
-late_initcall(mtk_usb_extcon_init);
+/*C3T code for HQ-228593 by tongjiacheng at 2022/08/04 start*/
+late_initcall_sync(mtk_usb_extcon_init);
+/*C3T code for HQ-228593 by tongjiacheng at 2022/08/04 end*/
 
 static void __exit mtk_usb_extcon_exit(void)
 {

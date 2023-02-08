@@ -9,6 +9,10 @@
 #define THERMAL_GENL_VERSION                    0x01
 #define THERMAL_GENL_MCAST_GROUP_NAME           "thermal_mc_grp"
 
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+#define THERMAL_AVAILABLE_STATE_LENGTH	512
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
+
 /* Events supported by Thermal Netlink */
 enum events {
 	THERMAL_AUX0,

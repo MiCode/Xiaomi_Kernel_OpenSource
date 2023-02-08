@@ -1595,7 +1595,9 @@ long mtk_disp_mgr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 	case DISP_IOCTL_GET_LCMINDEX:
 		{
-			return primary_display_get_lcm_index();
+			/* C3T code for HQ-224100 by sunfeiting at 2022/09/08 start */
+			return primary_display_get_lcm_index(arg);
+			/* C3T code for HQ-224100 by sunfeiting at 2022/09/08 end */
 		}
 	case DISP_IOCTL_QUERY_VALID_LAYER:
 		{

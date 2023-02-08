@@ -132,3 +132,7 @@ obj-y				+= exofs/ # Multiple modules
 obj-$(CONFIG_CEPH_FS)		+= ceph/
 obj-$(CONFIG_PSTORE)		+= pstore/
 obj-$(CONFIG_EFIVAR_FS)		+= efivarfs/
+
+# C3T code for HQ-219000 by liunianliang at 2022/07/27 start
+obj-$(CONFIG_EXFAT_FS)		+= exfat/
+# C3T code for HQ-219000 by liunianliang at 2022/07/27 end

@@ -14,6 +14,9 @@
 #include <linux/device.h>
 #include <linux/sched/clock.h>
 #include <linux/irq.h>
+/* C3T code for HQ-226020 by zhangbing at 2022/07/28 start */
+#include <linux/switch.h>
+/* C3T code for HQ-226020 by zhangbing at 2022/07/28 end */
 #include "reg_accdet.h"
 #if defined CONFIG_MTK_PMIC_NEW_ARCH
 #include <upmu_common.h>
@@ -74,6 +77,11 @@
 #define EINT_PIN_MOISTURE_DETECTED (2)
 #define EINT_PIN_THING_IN	(3)
 #define ANALOG_FASTDISCHARGE_SUPPORT
+
+/*C3T code for HQ-223791 by yinxiang at 2022-08-10 start*/
+#define MEDIA_PREVIOUS_SCAN_CODE 257
+#define MEDIA_NEXT_SCAN_CODE 258
+/*C3T code for HQ-223791 by yinxiang at 2022-08-10 end*/
 
 #ifdef CONFIG_ACCDET_EINT_IRQ
 enum pmic_eint_ID {
@@ -203,7 +211,9 @@ static int moisture_eint_offset;
 static int moisture_int_r = 47000;
 /* unit is ohm */
 static int moisture_ext_r = 470000;
-
+/* C3T code for HQ-226020 by zhangbing at 2022/07/28 start */
+static struct switch_dev accdet_data;
+/* C3T code for HQ-226020 by zhangbing at 2022/07/28 start */
 static bool debug_thread_en;
 static bool dump_reg;
 static struct task_struct *thread;
@@ -891,17 +901,18 @@ static u32 key_check(u32 v)
 }
 #endif
 
+/*C3T code for HQ-223791 by yinxiang at 2022-08-10 start*/
 #if PMIC_ACCDET_KERNEL
 static void send_key_event(u32 keycode, u32 flag)
 {
 	switch (keycode) {
 	case DW_KEY:
-		input_report_key(accdet_input_dev, KEY_VOLUMEDOWN, flag);
+		input_report_key(accdet_input_dev, MEDIA_NEXT_SCAN_CODE, flag);
 		input_sync(accdet_input_dev);
 		pr_debug("accdet KEY_VOLUMEDOWN %d\n", flag);
 		break;
 	case UP_KEY:
-		input_report_key(accdet_input_dev, KEY_VOLUMEUP, flag);
+		input_report_key(accdet_input_dev, MEDIA_PREVIOUS_SCAN_CODE, flag);
 		input_sync(accdet_input_dev);
 		pr_debug("accdet KEY_VOLUMEUP %d\n", flag);
 		break;
@@ -917,6 +928,7 @@ static void send_key_event(u32 keycode, u32 flag)
 		break;
 	}
 }
+/*C3T code for HQ-223791 by yinxiang at 2022-08-10 end*/
 
 static void send_accdet_status_event(u32 cable_type, u32 status)
 {
@@ -935,6 +947,9 @@ static void send_accdet_status_event(u32 cable_type, u32 status)
 		input_sync(accdet_input_dev);
 		pr_info("%s HEADPHONE(3-pole) %s\n", __func__,
 			status ? "PlugIn" : "PlugOut");
+		/* C3T code for HQ-226020 by zhangbing at 2022/07/28 start */
+		switch_set_state(&accdet_data, status == 0 ? EINT_PIN_PLUG_OUT : EINT_PIN_PLUG_IN);
+		/* C3T code for HQ-226020 by zhangbing at 2022/07/28 end */
 		break;
 	case HEADSET_MIC:
 		/* when plug 4-pole out, 3-pole plug out should also be
@@ -954,6 +969,9 @@ static void send_accdet_status_event(u32 cable_type, u32 status)
 		 * it check AB=00(because keep to press key) then disable
 		 * micbias, it will cause key no response
 		 */
+		 /* C3T code for HQ-226020 by zhangbing at 2022/07/28 start */
+		 switch_set_state(&accdet_data, status == 0 ? EINT_PIN_PLUG_OUT : EINT_PIN_PLUG_IN);
+		 /* C3T code for HQ-226020 by zhangbing at 2022/07/28 end */
 		del_timer_sync(&micbias_timer);
 		break;
 	case LINE_OUT_DEVICE:
@@ -962,6 +980,9 @@ static void send_accdet_status_event(u32 cable_type, u32 status)
 		input_sync(accdet_input_dev);
 		pr_info("%s LineOut %s\n", __func__,
 			status ? "PlugIn" : "PlugOut");
+		/* C3T code for HQ-226020 by zhangbing at 2022/07/28 start */
+		switch_set_state(&accdet_data, status == 0 ? EINT_PIN_PLUG_OUT : EINT_PIN_PLUG_IN);
+		/* C3T code for HQ-226020 by zhangbing at 2022/07/28 end */
 		break;
 	default:
 		pr_info("%s Invalid cableType\n", __func__);
@@ -2314,7 +2335,16 @@ int mt_accdet_probe(struct platform_device *dev)
 	struct platform_driver accdet_driver_hal = accdet_driver_func();
 
 	pr_info("%s() begin!\n", __func__);
-
+	/* C3T code for HQ-226020 by zhangbing at 2022/07/28 start */
+	accdet_data.name = "h2w";
+	accdet_data.index = 0;
+	accdet_data.state = 0;
+	ret = switch_dev_register(&accdet_data);
+	if (ret) {
+		pr_notice("%s switch_dev_register fail:%d!\n", __func__, ret);
+		return -1;
+	}
+	/* C3T code for HQ-226020 by zhangbing at 2022/07/28 end */
 	/* register char device number, Create normal device for auido use */
 	ret = alloc_chrdev_region(&accdet_devno, 0, 1, ACCDET_DEVNAME);
 	if (ret) {
@@ -2362,6 +2392,11 @@ int mt_accdet_probe(struct platform_device *dev)
 	}
 
 	__set_bit(EV_KEY, accdet_input_dev->evbit);
+	/*C3T code for HQ-223791 by yinxiang at 2022-08-10 start*/
+	__set_bit(KEY_MEDIA, accdet_input_dev->keybit);
+	__set_bit(MEDIA_NEXT_SCAN_CODE, accdet_input_dev->keybit);
+	__set_bit(MEDIA_PREVIOUS_SCAN_CODE, accdet_input_dev->keybit);
+	/*C3T code for HQ-223791 by yinxiang at 2022-08-10 end*/
 	__set_bit(KEY_PLAYPAUSE, accdet_input_dev->keybit);
 	__set_bit(KEY_VOLUMEDOWN, accdet_input_dev->keybit);
 	__set_bit(KEY_VOLUMEUP, accdet_input_dev->keybit);
@@ -2505,6 +2540,9 @@ err_class_create:
 err_cdev_add:
 	unregister_chrdev_region(accdet_devno, 1);
 err_chrdevregion:
+	/* C3T code for HQ-226020 by zhangbing at 2022/07/28 start */
+	switch_dev_unregister(&accdet_data);
+	/* C3T code for HQ-226020 by zhangbing at 2022/07/28 end */
 	pr_notice("%s error. now exit.!\n", __func__);
 	return ret;
 }
@@ -2525,6 +2563,9 @@ void mt_accdet_remove(void)
 	class_destroy(accdet_class);
 	cdev_del(accdet_cdev);
 	unregister_chrdev_region(accdet_devno, 1);
+	/* C3T code for HQ-226020 by zhangbing at 2022/07/28 start */
+	switch_dev_unregister(&accdet_data);
+	/* C3T code for HQ-226020 by zhangbing at 2022/07/28 end */
 	pr_debug("%s done!\n", __func__);
 }
 #endif /* end of #if PMIC_ACCDET_KERNEL */

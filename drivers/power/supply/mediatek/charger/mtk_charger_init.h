@@ -7,6 +7,9 @@
 #define __MTK_CHARGER_INIT_H__
 
 #define BATTERY_CV 4350000
+/* C3T code for HQ-HQ-218837 by tongjiacheng at 2022/08/26 start */
+#define RECHARGER_SOC 98
+/* C3T code for HQ-HQ-218837 by tongjiacheng at 2022/08/26 end*/
 #define V_CHARGER_MAX 6500000 /* 6.5 V */
 #define V_CHARGER_MIN 4600000 /* 4.6 V */
 
@@ -28,21 +31,26 @@
 #define V_CHARGER_MIN_2 4200000 /* 4.2 V */
 #define MAX_DMIVR_CHARGER_CURRENT 1400000 /* 1.4 A */
 
+/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 start */
 /* sw jeita */
-#define JEITA_TEMP_ABOVE_T4_CV	4240000
-#define JEITA_TEMP_T3_TO_T4_CV	4240000
-#define JEITA_TEMP_T2_TO_T3_CV	4340000
-#define JEITA_TEMP_T1_TO_T2_CV	4240000
-#define JEITA_TEMP_T0_TO_T1_CV	4040000
-#define JEITA_TEMP_BELOW_T0_CV	4040000
-#define TEMP_T4_THRES  50
-#define TEMP_T4_THRES_MINUS_X_DEGREE 47
+#define JEITA_TEMP_ABOVE_T4_CV	4100000
+#define JEITA_TEMP_T3_TO_T4_CV	4100000
+#define JEITA_TEMP_T2_TO_T3_CV	4400000
+#define JEITA_TEMP_T1_TO_T2_CV	4400000
+#define JEITA_TEMP_T0_TO_T1_CV	4400000
+#define JEITA_TEMP_BELOW_T0_CV	4400000
+#define JEITA_TEMP_T3_TO_T4_CC	2000000
+#define JEITA_TEMP_T2_TO_T3_CC	2000000
+#define JEITA_TEMP_T1_TO_T2_CC	1470000
+#define JEITA_TEMP_T0_TO_T1_CC	490000
+#define TEMP_T4_THRES  58
+#define TEMP_T4_THRES_MINUS_X_DEGREE 58
 #define TEMP_T3_THRES  45
-#define TEMP_T3_THRES_MINUS_X_DEGREE 39
-#define TEMP_T2_THRES  10
-#define TEMP_T2_THRES_PLUS_X_DEGREE 16
-#define TEMP_T1_THRES  0
-#define TEMP_T1_THRES_PLUS_X_DEGREE 6
+#define TEMP_T3_THRES_MINUS_X_DEGREE 45
+#define TEMP_T2_THRES  15
+#define TEMP_T2_THRES_PLUS_X_DEGREE 15
+#define TEMP_T1_THRES  10
+#define TEMP_T1_THRES_PLUS_X_DEGREE 10
 #define TEMP_T0_THRES  0
 #define TEMP_T0_THRES_PLUS_X_DEGREE  0
 #define TEMP_NEG_10_THRES 0
@@ -50,8 +58,20 @@
 /* Battery Temperature Protection */
 #define MIN_CHARGE_TEMP  0
 #define MIN_CHARGE_TEMP_PLUS_X_DEGREE	6
-#define MAX_CHARGE_TEMP  50
-#define MAX_CHARGE_TEMP_MINUS_X_DEGREE	47
+#define MAX_CHARGE_TEMP  58
+#define MAX_CHARGE_TEMP_MINUS_X_DEGREE	55
+/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 end */
+
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 start */
+/* cycle count */
+#define FFC_CV_1    4400000
+#define FFC_CV_2    4392000
+#define FFC_CV_3    4384000
+#define FFC_CV_4    4376000
+#define CHG_CYCLE_COUNT_LEVEL1  100
+#define CHG_CYCLE_COUNT_LEVEL2  200
+#define CHG_CYCLE_COUNT_LEVEL3  300
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 end*/
 
 /* pe */
 #define PE_ICHG_LEAVE_THRESHOLD 1000000 /* uA */

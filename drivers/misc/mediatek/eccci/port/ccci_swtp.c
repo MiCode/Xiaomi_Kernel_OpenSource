@@ -21,22 +21,20 @@
 #include "ccci_swtp.h"
 #include "ccci_fsm.h"
 
+/* C3T code for HQ-223663 by liunianliang at 2022/07/19 start */
+#include <linux/proc_fs.h>
+#include <linux/input/mt.h>
+#include <linux/input.h>
+/* C3T code for HQ-223663 by liunianliang at 2022/07/19 end */
+
 /* must keep ARRAY_SIZE(swtp_of_match) = ARRAY_SIZE(irq_name) */
 const struct of_device_id swtp_of_match[] = {
 	{ .compatible = SWTP_COMPATIBLE_DEVICE_ID, },
-	{ .compatible = SWTP1_COMPATIBLE_DEVICE_ID,},
-	{ .compatible = SWTP2_COMPATIBLE_DEVICE_ID,},
-	{ .compatible = SWTP3_COMPATIBLE_DEVICE_ID,},
-	{ .compatible = SWTP4_COMPATIBLE_DEVICE_ID,},
 	{},
 };
 
 static const char irq_name[][16] = {
 	"swtp0-eint",
-	"swtp1-eint",
-	"swtp2-eint",
-	"swtp3-eint",
-	"swtp4-eint",
 	"",
 };
 
@@ -44,6 +42,34 @@ static const char irq_name[][16] = {
 struct swtp_t swtp_data[SWTP_MAX_SUPPORT_MD];
 static const char rf_name[] = "RF_cable";
 #define MAX_RETRY_CNT 30
+
+/* C3T code for HQ-223663 by liunianliang at 2022/07/19 start */
+static struct input_dev *swtp_input_dev;
+#define SWTP_GPIO_STATUS "gpio_status"
+
+int get_swtp_state = -1;
+int get_swtp_gpio = -1;
+static struct proc_dir_entry  *swtp_gpio_status;
+
+static int swtp_gpio_proc_show(struct seq_file *file, void *data)
+{
+	get_swtp_state = gpio_get_value(get_swtp_gpio);
+	seq_printf(file, "%d\n", get_swtp_state);
+
+	return 0;
+}
+
+static int swtp_gpio_proc_open (struct inode *inode, struct file *file)
+{
+	return single_open(file, swtp_gpio_proc_show, inode->i_private);
+}
+
+static const struct file_operations swtp_gpio_status_ops = {
+	.owner = THIS_MODULE,
+	.open = swtp_gpio_proc_open,
+	.read = seq_read,
+};
+/* C3T code for HQ-223663 by liunianliang at 2022/07/19 end */
 
 static int swtp_send_tx_power(struct swtp_t *swtp)
 {
@@ -92,13 +118,29 @@ static int swtp_switch_state(int irq, struct swtp_t *swtp)
 		return -1;
 	}
 
+	/* C3T code for HQ-223663 by liunianliang at 2022/07/19 start */
 	if (swtp->eint_type[i] == IRQ_TYPE_LEVEL_LOW) {
 		irq_set_irq_type(swtp->irq[i], IRQ_TYPE_LEVEL_HIGH);
 		swtp->eint_type[i] = IRQ_TYPE_LEVEL_HIGH;
+		if (swtp_input_dev != NULL) {
+			input_report_key(swtp_input_dev, KEY_TABLE0, 1);
+			input_sync(swtp_input_dev);
+			input_report_key(swtp_input_dev, KEY_TABLE0, 0);
+			input_sync(swtp_input_dev);
+			printk("[swtp]input keycode = %d", KEY_TABLE0);
+		}
 	} else {
 		irq_set_irq_type(swtp->irq[i], IRQ_TYPE_LEVEL_LOW);
 		swtp->eint_type[i] = IRQ_TYPE_LEVEL_LOW;
+		if (swtp_input_dev != NULL) {
+			input_report_key(swtp_input_dev, KEY_TABLE1, 1);
+			input_sync(swtp_input_dev);
+			input_report_key(swtp_input_dev, KEY_TABLE1, 0);
+			input_sync(swtp_input_dev);
+			printk("[swtp]input keycode = %d", KEY_TABLE1);
+		}
 	}
+	/* C3T code for HQ-223663 by liunianliang at 2022/07/19 end */
 
 	if (swtp->gpio_state[i] == SWTP_EINT_PIN_PLUG_IN)
 		swtp->gpio_state[i] = SWTP_EINT_PIN_PLUG_OUT;
@@ -107,14 +149,23 @@ static int swtp_switch_state(int irq, struct swtp_t *swtp)
 
 	swtp->tx_power_mode = SWTP_NO_TX_POWER;
 	for (i = 0; i < MAX_PIN_NUM; i++) {
-		if (swtp->gpio_state[i] == SWTP_EINT_PIN_PLUG_IN) {
+		/* C3T code for HQ-223663 by liunianliang at 2022/07/19 start */
+		if (swtp->gpio_state[i] == SWTP_EINT_PIN_PLUG_OUT) {
 			swtp->tx_power_mode = SWTP_DO_TX_POWER;
+			CCCI_LEGACY_ERR_LOG(-1, SYS,
+				"%s:swtp send DO\n", __func__);
 			break;
 		}
+		/* C3T code for HQ-223663 by liunianliang at 2022/07/19 end */
 	}
 
 	inject_pin_status_event(swtp->curr_mode, rf_name);
 	spin_unlock_irqrestore(&swtp->spinlock, flags);
+
+	/* C3T code for HQ-223663 by liunianliang at 2022/07/19 start */
+	CCCI_LEGACY_ERR_LOG(-1, SYS,
+			"%s:swtp send %d\n", __func__ , swtp->tx_power_mode);
+	/* C3T code for HQ-223663 by liunianliang at 2022/07/19 end */
 
 	return swtp->tx_power_mode;
 }
@@ -197,7 +248,9 @@ static void swtp_init_delayed_work(struct work_struct *work)
 	struct swtp_t *swtp = container_of(to_delayed_work(work),
 		struct swtp_t, init_delayed_work);
 	int md_id;
-	int i, ret = 0;
+	/* C3T code for HQ-223663 by liunianliang at 2022/07/19 start */
+	int i, ret, ret1 = 0;
+	/* C3T code for HQ-223663 by liunianliang at 2022/07/19 end */
 #ifdef CONFIG_MTK_EIC
 	u32 ints[2] = { 0, 0 };
 #else
@@ -265,9 +318,11 @@ static void swtp_init_delayed_work(struct work_struct *work)
 			swtp_data[md_id].eint_type[i] = ints1[1];
 			swtp_data[md_id].irq[i] = irq_of_parse_and_map(node, 0);
 
+			/* C3T code for HQ-223663 by liunianliang at 2022/07/19 start */
 			ret = request_irq(swtp_data[md_id].irq[i],
-				swtp_irq_handler, IRQF_TRIGGER_NONE,
+				swtp_irq_handler, IRQF_TRIGGER_LOW,
 				irq_name[i], &swtp_data[md_id]);
+			/* C3T code for HQ-223663 by liunianliang at 2022/07/19 end */
 			if (ret) {
 				CCCI_LEGACY_ERR_LOG(md_id, SYS,
 					"swtp%d-eint IRQ LINE NOT AVAILABLE\n",
@@ -283,6 +338,29 @@ static void swtp_init_delayed_work(struct work_struct *work)
 	}
 	register_ccci_sys_call_back(md_id, MD_SW_MD1_TX_POWER_REQ,
 		swtp_md_tx_power_req_hdlr);
+
+	/* C3T code for HQ-223663 by liunianliang at 2022/07/19 start */
+	get_swtp_gpio = of_get_named_gpio(node, "swtp-gpio", 0);
+	ret1 =  gpio_request(get_swtp_gpio, "swtp-gpio");
+	if (ret1) {
+		pr_err("gpio_request_one get_swtp_gpio(%d)=%d\n",get_swtp_gpio, ret1);
+	}
+	swtp_gpio_status = proc_create(SWTP_GPIO_STATUS, 0644, NULL, &swtp_gpio_status_ops);
+	if (swtp_gpio_status == NULL) {
+		printk("tpd, create_proc_entry swtp_gpio_status_ops failed\n");
+	}
+
+	swtp_input_dev = input_allocate_device();
+	swtp_input_dev->name = "swtp";
+	__set_bit(EV_KEY, swtp_input_dev->evbit);
+
+	input_set_capability(swtp_input_dev, EV_KEY, KEY_TABLE0);
+	input_set_capability(swtp_input_dev, EV_KEY, KEY_TABLE1);
+	ret = input_register_device(swtp_input_dev);
+	if (ret) {
+		printk("[SWTP]input device register fail \n");
+	}
+	/* C3T code for HQ-223663 by liunianliang at 2022/07/19 end */
 
 SWTP_INIT_END:
 	CCCI_BOOTUP_LOG(md_id, SYS, "%s end: ret = %d\n", __func__, ret);

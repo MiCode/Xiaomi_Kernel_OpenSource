@@ -22,7 +22,13 @@
 #define GET_R2L_SEGNO(free_i, segno)	((segno) + (free_i)->start_segno)
 
 #define IS_DATASEG(t)	((t) <= CURSEG_COLD_DATA)
-#define IS_NODESEG(t)	((t) >= CURSEG_HOT_NODE)
+#define IS_NODESEG(t)	((t) >= CURSEG_HOT_NODE && (t) <= CURSEG_COLD_NODE)
+
+static inline void sanity_check_seg_type(struct f2fs_sb_info *sbi,
+						unsigned short seg_type)
+{
+	f2fs_bug_on(sbi, seg_type >= NR_PERSISTENT_LOG);
+}
 
 #define IS_HOT(t)	((t) == CURSEG_HOT_NODE || (t) == CURSEG_HOT_DATA)
 #define IS_WARM(t)	((t) == CURSEG_WARM_NODE || (t) == CURSEG_WARM_DATA)
@@ -34,7 +40,9 @@
 	 ((seg) == CURSEG_I(sbi, CURSEG_COLD_DATA)->segno) ||	\
 	 ((seg) == CURSEG_I(sbi, CURSEG_HOT_NODE)->segno) ||	\
 	 ((seg) == CURSEG_I(sbi, CURSEG_WARM_NODE)->segno) ||	\
-	 ((seg) == CURSEG_I(sbi, CURSEG_COLD_NODE)->segno))
+	 ((seg) == CURSEG_I(sbi, CURSEG_COLD_NODE)->segno) ||	\
+	 ((seg) == CURSEG_I(sbi, CURSEG_COLD_DATA_PINNED)->segno) ||	\
+	 ((seg) == CURSEG_I(sbi, CURSEG_ALL_DATA_ATGC)->segno))
 
 #define IS_CURSEC(sbi, secno)						\
 	(((secno) == CURSEG_I(sbi, CURSEG_HOT_DATA)->segno /		\
@@ -48,7 +56,11 @@
 	 ((secno) == CURSEG_I(sbi, CURSEG_WARM_NODE)->segno /		\
 	  (sbi)->segs_per_sec) ||	\
 	 ((secno) == CURSEG_I(sbi, CURSEG_COLD_NODE)->segno /		\
-	  (sbi)->segs_per_sec))	\
+	  (sbi)->segs_per_sec) ||	\
+	 ((secno) == CURSEG_I(sbi, CURSEG_COLD_DATA_PINNED)->segno /	\
+	 (sbi)->segs_per_sec) ||	\
+	 ((secno) == CURSEG_I(sbi, CURSEG_ALL_DATA_ATGC)->segno /	\
+	  (sbi)->segs_per_sec))
 
 #define MAIN_BLKADDR(sbi)						\
 	(SM_I(sbi) ? SM_I(sbi)->main_blkaddr : 				\
@@ -132,20 +144,25 @@ enum {
  * In the victim_sel_policy->alloc_mode, there are two block allocation modes.
  * LFS writes data sequentially with cleaning operations.
  * SSR (Slack Space Recycle) reuses obsolete space without cleaning operations.
+ * AT_SSR (Age Threshold based Slack Space Recycle) merges fragments into
+ * fragmented segment which has similar aging degree.
  */
 enum {
 	LFS = 0,
-	SSR
+	SSR,
+	AT_SSR,
 };
 
 /*
  * In the victim_sel_policy->gc_mode, there are two gc, aka cleaning, modes.
  * GC_CB is based on cost-benefit algorithm.
  * GC_GREEDY is based on greedy algorithm.
+ * GC_AT is based on age-threshold algorithm.
  */
 enum {
 	GC_CB = 0,
 	GC_GREEDY,
+	GC_AT,
 	ALLOC_NEXT,
 	FLUSH_DEVICE,
 	MAX_GC_POLICY,
@@ -171,7 +188,10 @@ struct victim_sel_policy {
 	unsigned int offset;		/* last scanned bitmap offset */
 	unsigned int ofs_unit;		/* bitmap search unit */
 	unsigned int min_cost;		/* minimum cost */
+	unsigned long long oldest_age;	/* oldest age of segments having the same min cost */
 	unsigned int min_segno;		/* segment # having min. cost */
+	unsigned long long age;		/* mtime of GCed section*/
+	unsigned long long age_threshold;/* age threshold */
 };
 
 struct seg_entry {
@@ -237,6 +257,8 @@ struct sit_info {
 	unsigned long long mounted_time;	/* mount time */
 	unsigned long long min_mtime;		/* min. modification time */
 	unsigned long long max_mtime;		/* max. modification time */
+	unsigned long long dirty_min_mtime;	/* rerange candidates in GC_AT */
+	unsigned long long dirty_max_mtime;	/* rerange candidates in GC_AT */
 
 	unsigned int last_victim[MAX_GC_POLICY]; /* last victim segment # */
 };
@@ -274,7 +296,7 @@ struct dirty_seglist_info {
 /* victim selection function for cleaning and SSR */
 struct victim_selection {
 	int (*get_victim)(struct f2fs_sb_info *, unsigned int *,
-							int, int, char);
+					int, int, char, unsigned long long);
 };
 
 /* for active log information */
@@ -284,10 +306,12 @@ struct curseg_info {
 	struct rw_semaphore journal_rwsem;	/* protect journal area */
 	struct f2fs_journal *journal;		/* cached journal info */
 	unsigned char alloc_type;		/* current allocation type */
+	unsigned short seg_type;		/* segment type like CURSEG_XXX_TYPE */
 	unsigned int segno;			/* current segment number */
 	unsigned short next_blkoff;		/* next block offset to write */
 	unsigned int zone;			/* current zone number */
 	unsigned int next_segno;		/* preallocated segment */
+	bool inited;				/* indicate inmem log is inited */
 };
 
 struct sit_entry_set {
@@ -301,8 +325,6 @@ struct sit_entry_set {
  */
 static inline struct curseg_info *CURSEG_I(struct f2fs_sb_info *sbi, int type)
 {
-	if (type == CURSEG_COLD_DATA_PINNED)
-		type = CURSEG_COLD_DATA;
 	return (struct curseg_info *)(SM_I(sbi)->curseg_array + type);
 }
 
@@ -434,7 +456,7 @@ static inline void __set_inuse(struct f2fs_sb_info *sbi,
 }
 
 static inline void __set_test_and_free(struct f2fs_sb_info *sbi,
-		unsigned int segno)
+		unsigned int segno, bool inmem)
 {
 	struct free_segmap_info *free_i = FREE_I(sbi);
 	unsigned int secno = GET_SEC_FROM_SEG(sbi, segno);
@@ -445,7 +467,7 @@ static inline void __set_test_and_free(struct f2fs_sb_info *sbi,
 	if (test_and_clear_bit(segno, free_i->free_segmap)) {
 		free_i->free_segments++;
 
-		if (IS_CURSEC(sbi, secno))
+		if (!inmem && IS_CURSEC(sbi, secno))
 			goto skip_free;
 		next = find_next_bit(free_i->free_segmap,
 				start_segno + sbi->segs_per_sec, start_segno);

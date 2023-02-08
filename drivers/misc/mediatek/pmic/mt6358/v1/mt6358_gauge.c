@@ -499,6 +499,12 @@ static signed int fg_get_current_iavg(
 
 void enable_dwa(bool enable)
 {
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 start*/
+	int dwa_rst_sw = 0, dwa_rst_mode = 0;
+	dwa_rst_sw = pmic_get_register_value(PMIC_FG_DWA_RST_SW);
+	dwa_rst_mode = pmic_get_register_value(PMIC_FG_DWA_RST_MODE);
+	bm_debug("[%s] Before enable dwa_rst_sw %d dwa_rst_mode %d ", __func__, dwa_rst_sw, dwa_rst_mode);
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 end*/
 	if (enable == true) {
 		pmic_set_register_value(PMIC_FG_DWA_RST_SW, 0);
 		pmic_set_register_value(PMIC_FG_DWA_RST_MODE, 0);
@@ -508,8 +514,13 @@ void enable_dwa(bool enable)
 		pmic_set_register_value(PMIC_FG_DWA_RST_SW, 1);
 		pmic_set_register_value(PMIC_FG_DWA_RST_MODE, 1);
 		pmic_config_interface(PMIC_RG_SPARE_ADDR, 0x0001, 0x0001, 0x5);
-
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 start*/
+		pmic_config_interface(PMIC_RG_SPARE_ADDR, 0x0001, 0x0001, 0x8);
 	}
+	dwa_rst_sw = pmic_get_register_value(PMIC_FG_DWA_RST_SW);
+	dwa_rst_mode = pmic_get_register_value(PMIC_FG_DWA_RST_MODE);
+	bm_debug("[%s] After enable dwa_rst_sw %d dwa_rst_mode %d ", __func__, dwa_rst_sw, dwa_rst_mode);
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 end*/
 }
 
 static signed int convert_current(
@@ -572,7 +583,17 @@ void iavg_check(struct gauge_device *gauge_dev,
 	int valid_bit;
 
 	int iavg;
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 start*/
+	unsigned short iavg_check;
 
+	iavg_check = pmic_get_register_value(PMIC_FG_CIC2);
+	fg_iavg_reg_27_16 = pmic_get_register_value(PMIC_FG_IAVG_27_16);
+
+	fg_iavg_reg_15_00 = pmic_get_register_value(PMIC_FG_IAVG_15_00);
+	offset_reg = pmic_get_register_value(PMIC_FG_OFFSET);
+	bm_debug("[%s] iavg check %d offset_reg %d iavg 27_16 %d iavg 15_00 %d \n",
+		__func__, iavg_check, offset_reg, fg_iavg_reg_27_16, fg_iavg_reg_15_00);
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 end*/
 	/* Read HW Raw Data
 	 *(1)	 Set READ command
 	 */
@@ -3276,6 +3297,10 @@ void iavg_workaround(struct gauge_device *gauge_dev,
 	enum gauge_event evt)
 {
 	int iavg_less, offset_less;
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 start*/
+	int gain_error = 0,gain_add = 0;
+	int ret = 0;
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 end*/
 
 	iavg_check(gauge_dev, &offset_less, &iavg_less);
 
@@ -3301,7 +3326,24 @@ void iavg_workaround(struct gauge_device *gauge_dev,
 		upmu_get_reg_value(MT6358_FGADC_ANA_CON0)
 		);
 
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 start*/
+	ret = pmic_read_interface((MT6358_FGADC_ANA_ELR0), (&gain_error),
+		(PMIC_RG_FGADC_GAINERROR_CAL_MASK),
+		(PMIC_RG_FGADC_GAINERROR_CAL_SHIFT));
 
+	ret = pmic_read_interface((MT6358_FGADC_GAIN_CON0), (&gain_add),
+		(PMIC_FG_GAIN_MASK),
+		(PMIC_FG_GAIN_SHIFT));
+
+	if (gain_error != gain_add) {
+		ret = pmic_config_interface((MT6358_FGADC_GAIN_CON0),(gain_error),
+			(PMIC_FG_GAIN_MASK),
+			(PMIC_FG_GAIN_SHIFT));
+		bm_err(
+			"[%s]type: 0x%x 0x%x!\n",
+			__func__, gain_error, gain_add);
+        }
+	/*C3T code for HQ-242438 by gengyifei at 2022/11/11 end*/
 }
 
 

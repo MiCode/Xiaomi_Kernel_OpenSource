@@ -41,7 +41,9 @@ typedef int (*cust_set_brightness) (int level);
 /* 10bit backlight level */
 #define LED_INCREASE_LED_LEVEL_MTKPATCH
 #ifdef LED_INCREASE_LED_LEVEL_MTKPATCH
-#define MT_LED_INTERNAL_LEVEL_BIT_CNT 10
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 start*/
+#define MT_LED_INTERNAL_LEVEL_BIT_CNT 11
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 end*/
 #endif
 
 /******************************************************************************

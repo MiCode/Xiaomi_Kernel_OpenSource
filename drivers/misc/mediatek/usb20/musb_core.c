@@ -250,6 +250,27 @@ static inline struct musb *dev_to_musb(struct device *dev)
 }
 
 /*-------------------------------------------------------------------------*/
+/* C3T code for HQHW-3513 by tongjiacheng at 2022/10/18 start*/
+void hq_musb_pullup(struct musb *musb, int is_on)
+{
+	u8 power;
+
+	DBG(0,
+		"MUSB: gadget pull up %d start, musb->power:%d\n"
+		, is_on, musb->power);
+	if (musb->power) {
+		power = musb_readb(musb->mregs, MUSB_POWER);
+		if (is_on)
+			power |= (MUSB_POWER_SOFTCONN | MUSB_POWER_ENSUSPEND);
+		else
+			power &= ~(MUSB_POWER_SOFTCONN | MUSB_POWER_ENSUSPEND);
+		musb_writeb(musb->mregs, MUSB_POWER, power);
+	}
+	DBG(0, "MUSB: gadget pull up %d end\n", is_on);
+}
+EXPORT_SYMBOL_GPL(hq_musb_pullup);
+/* C3T code for HQHW-3513 by tongjiacheng at 2022/10/18 end*/
+
 int musb_get_id(struct device *dev, gfp_t gfp_mask)
 {
 	int ret;

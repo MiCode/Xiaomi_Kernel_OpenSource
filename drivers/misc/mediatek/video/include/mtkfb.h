@@ -309,6 +309,14 @@ struct fb_post_video_buffer {
 	unsigned int width, height;
 };
 
+/*C3T code for HQ-224087 by sunfeiting at 2022/08/09 start*/
+struct fb_lcd_wp_para {
+	int white_point_x;
+	int white_point_y;
+	int white_point_l;
+};
+/*C3T code for HQ-224087 by sunfeiting at 2022/08/09 end*/
+
 #if defined(CONFIG_MACH_MT6735) || defined(CONFIG_MACH_MT6735M)\
 	|| defined(CONFIG_MACH_MT6753) || defined(CONFIG_MACH_MT8167)
 extern unsigned int EnableVSyncLog;

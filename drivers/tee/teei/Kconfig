@@ -46,7 +46,7 @@ config MICROTRUST_TZ_DRIVER
 config MICROTRUST_DYNAMIC_CORE
 	tristate "Microtrust TEEI Dynamic Core"
 	depends on MICROTRUST_TEE_SUPPORT
-	default y
+	default n
 	help
 	  Enables the support of Microtrust trustzone linux driver.
 	  This driver in charge of all initial process, creating

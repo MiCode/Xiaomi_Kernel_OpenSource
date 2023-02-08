@@ -136,6 +136,9 @@ struct thermal_cooling_device_ops {
 	int (*get_max_state) (struct thermal_cooling_device *, unsigned long *);
 	int (*get_cur_state) (struct thermal_cooling_device *, unsigned long *);
 	int (*set_cur_state) (struct thermal_cooling_device *, unsigned long);
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+	int (*get_available) (struct thermal_cooling_device *, char *);
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 	int (*set_min_state)(struct thermal_cooling_device *cdev,
 				unsigned long target);
 	int (*get_min_state)(struct thermal_cooling_device *cdev,

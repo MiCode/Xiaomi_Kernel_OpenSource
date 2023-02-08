@@ -128,6 +128,10 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 DW9718AF_Release, DW9718AF_GetFileName, NULL},
 	{1, AFDRV_GT9764AF, GT9764AF_SetI2Cclient, GT9764AF_Ioctl,
 	GT9764AF_Release, GT9764AF_GetFileName, NULL},
+  /* code at 2022/08/18 start */
+	{1, AFDRV_GT9764SUNAF, GT9764SUNAF_SetI2Cclient, GT9764SUNAF_Ioctl,
+	GT9764SUNAF_Release, GT9764SUNAF_GetFileName, NULL},
+  /* code at 2022/08/18 end */
 //#ifdef SUPPORT_GT9768AF
 	{1, AFDRV_GT9768AF, GT9768AF_SetI2Cclient, GT9768AF_Ioctl,
 	GT9768AF_Release, GT9768AF_GetFileName, NULL},

@@ -63,8 +63,11 @@ static int mtkts_btsnrpa_debug_log;
 static int kernelmode;
 static int g_THERMAL_TRIP[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-static int num_trip;
-static char g_bind0[20] = {"mtk-cl-shutdown03"};
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+static int num_trip = 1;
+static char g_bind0[20] = "mtk-cl-kshutdown01";
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
+
 static char g_bind1[20] = { 0 };
 static char g_bind2[20] = { 0 };
 static char g_bind3[20] = { 0 };

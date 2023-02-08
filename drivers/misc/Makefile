@@ -60,3 +60,16 @@ obj-$(CONFIG_OCXL)		+= ocxl/
 obj-$(CONFIG_MISC_RTSX)		+= cardreader/
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
 obj-y				+= mediatek/
+# C3T code for C3T-6 by liunianliang at 2022/07/11 start
+obj-$(CONFIG_HQ_SYSFS_SUPPORT) 	+= hqsysfs/
+# C3T code for C3T-6 by liunianliang at 2022/07/11 end
+# C3T code for HQ-223874 by liunianliang at 2022/07/19 start
+obj-$(CONFIG_SIMTRAY_STATUS) 	+= simtray/
+# C3T code for HQ-223874 by liunianliang at 2022/07/19 end
+
+# C3T code for HQ-219156 by liunianliang at 2022/07/26 start
+obj-$(CONFIG_CPUMAXFREQ) 	+= cpufreq/
+# C3T code for HQ-219156 by liunianliang at 2022/07/26 end
+# C3T code for HQ-223831 by wangmingyu at 2022/09/09 start
+obj-$(CONFIG_DEBUG_POLICY) += debug_policy.o
+# C3T code for HQ-223831 by wangmingyu at 2022/09/09 end

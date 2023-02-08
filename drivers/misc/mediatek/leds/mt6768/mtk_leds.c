@@ -875,19 +875,20 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 		level = 1;
 	else
 		level = (level * CONFIG_LIGHTNESS_MAPPING_VALUE) / 255;
-
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 start*/
 	backlight_debug_log(led_data->level, level);
 	disp_pq_notify_backlight_changed((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
-					    - 1) * level + 127) / 255);
+					    - 1) * level + 127) / 2047);
 #ifdef CONFIG_MTK_AAL_SUPPORT
 	disp_aal_notify_backlight_changed((((1 <<
 					MT_LED_INTERNAL_LEVEL_BIT_CNT)
-					    - 1) * level + 127) / 255);
+					    - 1) * level + 127) / 2047);
 #else
 	if (led_data->cust.mode == MT65XX_LED_MODE_CUST_BLS_PWM)
 		mt_mt65xx_led_set_cust(&led_data->cust,
 			((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
-				- 1) * level + 127) / 255));
+				- 1) * level + 127) / 2047));
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 end*/
 	else
 		mt_mt65xx_led_set_cust(&led_data->cust, level);
 #endif

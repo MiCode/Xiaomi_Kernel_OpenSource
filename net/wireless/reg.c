@@ -1048,6 +1048,7 @@ static void regdb_fw_cb(const struct firmware *fw, void *context)
 	release_firmware(fw);
 }
 
+/* C3T code for HQ-247987 by yangjinhao at 2022/10/12 start */
 static int query_regdb_file(const char *alpha2)
 {
 	ASSERT_RTNL();
@@ -1059,10 +1060,12 @@ static int query_regdb_file(const char *alpha2)
 	if (!alpha2)
 		return -ENOMEM;
 
-	return request_firmware_nowait(THIS_MODULE, true, "regulatory.db",
+	return 0;
+	/*request_firmware_nowait(THIS_MODULE, true, "regulatory.db",
 				       &reg_pdev->dev, GFP_KERNEL,
-				       (void *)alpha2, regdb_fw_cb);
+				       (void *)alpha2, regdb_fw_cb);*/
 }
+/* C3T code for HQ-247987 by yangjinhao at 2022/10/12 end */
 
 int reg_reload_regdb(void)
 {

@@ -68,8 +68,12 @@
 #define SENSOR_TYPE_RGBW                               70
 #define SENSOR_TYPE_GYRO_TEMPERATURE                   71
 #define SENSOR_TYPE_SAR                                72
+/*C3T code for HQ-218639 by huitianpu at 2022/8/21 start*/
+#define SENSOR_TYPE_SAR_ALGO                           73
+#define SENSOR_TYPE_SAR_ALGO_TOP                       74
 /* end sensor type */
-#define SENSOR_TYPE_MAX_NUM                            SENSOR_TYPE_SAR
+#define SENSOR_TYPE_MAX_NUM                            SENSOR_TYPE_SAR_ALGO_TOP
+/*C3T code for HQ-218639 by huitianpu at 2022/8/21 end*/
 #define SENSOR_TYPE_MAX_NUM_PLUS_ONE                   (SENSOR_TYPE_MAX_NUM + 1)
 
 /*---------------------------------------------------------------------------*/
@@ -141,8 +145,12 @@
 #define ID_RGBW                 (ID_BASE + SENSOR_TYPE_RGBW - 1)
 #define ID_GYRO_TEMPERATURE     (ID_BASE + SENSOR_TYPE_GYRO_TEMPERATURE - 1)
 #define ID_SAR                  (ID_BASE + SENSOR_TYPE_SAR - 1)
+/*C3T code for HQ-218639 by huitianpu at 2022/8/21 start*/
+#define ID_SAR_ALGO             (ID_BASE + SENSOR_TYPE_SAR_ALGO - 1)
+#define ID_SAR_ALGO_TOP         (ID_BASE + SENSOR_TYPE_SAR_ALGO_TOP - 1)
 /* end sensor ID */
-#define ID_SENSOR_MAX_HANDLE    (ID_SAR)
+#define ID_SENSOR_MAX_HANDLE    (ID_SAR_ALGO_TOP)
+/*C3T code for HQ-218639 by huitianpu at 2022/8/21 end*/
 #define ID_SENSOR_MAX_HANDLE_PLUS_ONE    (ID_SENSOR_MAX_HANDLE + 1)
 
 #if (ID_SENSOR_MAX_HANDLE_PLUS_ONE != SENSOR_TYPE_MAX_NUM)

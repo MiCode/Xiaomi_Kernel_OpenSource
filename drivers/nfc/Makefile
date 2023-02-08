@@ -17,3 +17,6 @@ obj-$(CONFIG_NFC_ST_NCI)	+= st-nci/
 obj-$(CONFIG_NFC_NXP_NCI)	+= nxp-nci/
 obj-$(CONFIG_NFC_S3FWRN5)	+= s3fwrn5/
 obj-$(CONFIG_NFC_ST95HF)	+= st95hf/
+# C3T code for HQ-218913 by zoujiarong at 2022.7.20 start
+obj-$(CONFIG_NFC_PN553_DEVICES)    += pn557/
+# C3T code for HQ-218913 by zoujiarong at 2022.7.20 end

@@ -1,0 +1,6 @@
+config TOUCHSCREEN_CHIPONE
+    bool "Chipone Touchscreen"
+    default n
+    help
+      Say Y here if you have chipone touch panel.
+      If unsure, say N.

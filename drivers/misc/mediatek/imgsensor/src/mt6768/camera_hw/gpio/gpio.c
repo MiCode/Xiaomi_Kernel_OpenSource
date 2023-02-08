@@ -17,6 +17,10 @@ struct GPIO_PINCTRL gpio_pinctrl_list_cam[GPIO_CTRL_STATE_MAX_NUM_CAM] = {
 	{"vcamd_off"},
 	{"vcamio_on"},
 	{"vcamio_off"},
+/* code at 2022/07/25 start */	
+	{"vcamaf_on"},
+	{"vcamaf_off"},
+/* code at 2022/07/25 end */
 };
 
 #ifdef MIPI_SWITCH

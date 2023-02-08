@@ -51,6 +51,9 @@ mainaf-y  += common/dw9719taf/DW9719TAF.o
 mainaf-y  += common/dw9763af/DW9763AF.o
 mainaf-y  += common/dw9839af/DW9839AF.o
 mainaf-y  += common/gt9764af/GT9764AF.o
+# code at 2022/08/18 start
+mainaf-y  += common/gt9764sunaf/GT9764SUNAF.o
+# code at 2022/08/18 end
 mainaf-y  += common/lc898212af/LC898212AF.o
 mainaf-y  += common/lc898212xdaf/LC898212XDAF.o
 mainaf-y  += common/lc898212xdaf/AfInter.o

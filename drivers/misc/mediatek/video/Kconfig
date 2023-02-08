@@ -183,3 +183,11 @@ config MTK_MT6382_CMD_MODE
 	  BridgeIC 6382 can support VESA-1.2 DSC, compressing display framedata
 	  Normal project will disable it first
 	  If you are not sure about this, do not set it to y
+
+# C3T code for HQ-219022 by jiangyue at 2022/08/22 start
+config MI_ERRFLAG_ESD_CHECK_ENABLE
+	bool "err flag pin to do esd check"
+	default n
+	help
+	  do esd check with err flag pin
+# C3T code for HQ-219022 by jiangyue at 2022/08/22 end

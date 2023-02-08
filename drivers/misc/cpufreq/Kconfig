@@ -1,0 +1,4 @@
+config CPUMAXFREQ
+	bool "Enable CPUMAXFREQ Proc Interface"
+	help
+	Provide a interface for getting the maximum frequency supported by cpu core

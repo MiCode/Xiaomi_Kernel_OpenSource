@@ -224,7 +224,6 @@ EXPORT_SYMBOL(mmc_request_done);
 static void __mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 {
 	int err;
-
 	/* Assumes host controller has been runtime resumed by mmc_claim_host */
 	err = mmc_retune(host);
 	if (err) {
@@ -361,6 +360,9 @@ static void mmc_enqueue_queue(struct mmc_host *host, struct mmc_request *mrq)
 	} else {
 
 		spin_lock_irqsave(&host->cmd_que_lock, flags);
+                /*C3T code for HQ-255018 by hongwei at 2022/10/31 start*/
+		atomic_inc(&host->areq_cnt);
+                /*C3T code for HQ-255018 by hongwei at 2022/10/31 end*/
 		if (mrq->flags)
 			list_add(&mrq->link, &host->cmd_que);
 		else
@@ -899,6 +901,13 @@ int mmc_run_queue_thread(void *data)
 	bool is_done = false;
 	int err;
 	u64 chk_time = 0;
+        /*C3T code for HQ-255018 by hongwei at 2022/10/31 start*/
+	struct sched_param scheduler_params = {0};
+
+	/* Set as RT priority */
+	scheduler_params.sched_priority = 1;
+	sched_setscheduler(current, SCHED_FIFO, &scheduler_params);
+        /*C3T code for HQ-255018 by hongwei at 2022/10/31 end*/
 
 	pr_info("[CQ] start cmdq thread\n");
 	mt_bio_queue_alloc(current, NULL, false);
@@ -1102,6 +1111,11 @@ int mmc_run_queue_thread(void *data)
 			schedule();
 
 		set_current_state(TASK_RUNNING);
+
+                /*C3T code for HQ-255018 by hongwei at 2022/10/31 start*/
+		if (kthread_should_stop())
+			break;
+                /*C3T code for HQ-255018 by hongwei at 2022/10/31 end*/
 	}
 	mt_bio_queue_free(current);
 	return 0;
@@ -1111,7 +1125,6 @@ int mmc_run_queue_thread(void *data)
 int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 {
 	int err;
-
 	init_completion(&mrq->cmd_completion);
 
 	mmc_retune_hold(host);
@@ -1146,7 +1159,6 @@ int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 #endif
 	led_trigger_event(host->led, LED_FULL);
 	__mmc_start_request(host, mrq);
-
 	return 0;
 }
 EXPORT_SYMBOL(mmc_start_request);

@@ -33,7 +33,7 @@ static unsigned int g_cl_id[BACKLIGHT_COOLER_NR];
 static unsigned int g_backlight_level;
 static unsigned int g_backlight_last_level;
 
-
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 start*/
 static void mtk_cl_backlight_set_max_brightness_limit(void)
 {
 	if (g_backlight_last_level != g_backlight_level) {
@@ -53,7 +53,7 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 				  defined(CONFIG_LEDS_MTK_I2C)
 			setMaxBrightness("lcd-backlight", 100, 0);
 			#else
-			setMaxbrightness(255, 0);
+			setMaxbrightness(2047, 0);
 			#endif
 			break;
 		case 1:
@@ -68,7 +68,7 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 				  defined(CONFIG_LEDS_MTK_I2C)
 			setMaxBrightness("lcd-backlight", 70, 0);
 			#else
-			setMaxbrightness(178, 1);
+			setMaxbrightness(1432, 1);
 			#endif
 			break;
 		case 2:
@@ -83,7 +83,7 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 				  defined(CONFIG_LEDS_MTK_I2C)
 			setMaxBrightness("lcd-backlight", 40, 1);
 			#else
-			setMaxbrightness(102, 1);
+			setMaxbrightness(818, 1);
 			#endif
 			break;
 		case 3:
@@ -98,7 +98,7 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 				  defined(CONFIG_LEDS_MTK_I2C)
 			setMaxBrightness("lcd-backlight", 10, 1);
 			#else
-			setMaxbrightness(25, 1);
+			setMaxbrightness(204, 1);
 			#endif
 			break;
 		default:
@@ -112,12 +112,13 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 				  defined(CONFIG_LEDS_MTK_I2C)
 			setMaxBrightness("lcd-backlight", 100, 0);
 			#else
-			setMaxbrightness(255, 0);
+			setMaxbrightness(2047, 0);
 			#endif
 			break;
 		}
 	}
 }
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 end*/
 
 	static int mtk_cl_backlight_get_max_state
 (struct thermal_cooling_device *cdev, unsigned long *state)

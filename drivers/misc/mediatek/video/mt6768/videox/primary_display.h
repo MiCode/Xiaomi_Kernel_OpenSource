@@ -413,7 +413,9 @@ void *data1, void *data2, void *data3, void *data4);
 int primary_display_pause(PRIMARY_DISPLAY_CALLBACK callback,
 	unsigned int user_data);
 int primary_display_switch_dst_mode(int mode);
-int primary_display_get_lcm_index(void);
+/* C3T code for HQ-224100 by sunfeiting at 2022/09/08 start */
+int primary_display_get_lcm_index(unsigned long arg);
+/* C3T code for HQ-224100 by sunfeiting at 2022/09/08 end */
 int primary_display_force_set_fps(unsigned int keep, unsigned int skip);
 int primary_display_set_fps(int fps);
 int primary_display_get_lcm_max_refresh_rate(void);

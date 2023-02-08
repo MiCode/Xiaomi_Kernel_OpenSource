@@ -18,6 +18,9 @@
 #include "sensor_list.h"
 #include "SCP_power_monitor.h"
 #include "hwmsensor.h"
+/*C3T code for HQ-234413 by baoguangxiu at 2022/08/23 start*/
+#include <linux/hqsysfs.h>
+/*C3T code for HQ-234413 by baoguangxiu at 2022/08/23 end*/
 
 struct sensorlist_info_t {
 	char name[16];
@@ -132,6 +135,12 @@ static void sensorlist_get_deviceinfo(struct work_struct *work)
 		strlcpy(sensorlist_info[handle].name,
 			devinfo.name,
 			sizeof(sensorlist_info[handle].name));
+		/*C3T code for HQ-234413 by baoguangxiu at 2022/08/23 start*/
+		if(handle == sar)
+		{
+			hq_regiser_hw_info(HWID_SAR,sensorlist_info[handle].name);
+		}
+		/*C3T code for HQ-234413 by baoguangxiu at 2022/08/23 end*/
 		spin_unlock(&sensorlist_info_lock);
 	}
 }

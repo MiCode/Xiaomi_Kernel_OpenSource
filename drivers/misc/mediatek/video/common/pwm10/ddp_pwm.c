@@ -81,8 +81,10 @@ static atomic_t g_pwm_backlight[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 static atomic_t g_pwm_en[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 start*/
 static atomic_t g_pwm_max_backlight[PWM_TOTAL_MODULE_NUM] = {
-	ATOMIC_INIT(1023), ATOMIC_INIT(1023) };
+	ATOMIC_INIT(2047), ATOMIC_INIT(2047) };
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 end*/
 static atomic_t g_pwm_is_power_on[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(0), ATOMIC_INIT(0) };
 static atomic_t g_pwm_value_before_power_off[PWM_TOTAL_MODULE_NUM] = {
@@ -100,8 +102,10 @@ static atomic_t g_pwm_is_change_state[PWM_TOTAL_MODULE_NUM] = {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 static atomic_t g_pwm_backlight[PWM_TOTAL_MODULE_NUM] = { ATOMIC_INIT(-1) };
 static atomic_t g_pwm_en[PWM_TOTAL_MODULE_NUM] = { ATOMIC_INIT(-1) };
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 start*/
 static atomic_t g_pwm_max_backlight[PWM_TOTAL_MODULE_NUM] = {
-	ATOMIC_INIT(1023) };
+	ATOMIC_INIT(2047) };
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 end*/
 static atomic_t g_pwm_is_power_on[PWM_TOTAL_MODULE_NUM] = { ATOMIC_INIT(0) };
 static atomic_t g_pwm_value_before_power_off[PWM_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(0) };
@@ -311,7 +315,9 @@ static int disp_pwm_config_init(enum DISP_MODULE_ENUM module,
 	(0x3ff << 16));
 
 	/* 1024 levels */
-	DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF, 1023, 0x3ff);
+	/* C3T code for HQ-241616 by jiangyue at 2022/09/27 start */
+	DISP_REG_MASK(cmdq, reg_base + DISP_PWM_CON_1_OFF, 2047, 0x7ff);
+	/* C3T code for HQ-241616 by jiangyue at 2022/09/27 end */
 	/* We don't init the backlight here until AAL/Android give */
 #endif
 	return 0;
@@ -527,7 +533,9 @@ int disp_pwm_get_max_backlight(enum disp_pwm_id_t id)
 
 	return atomic_read(&g_pwm_max_backlight[index]);
 #else
-	return 1023;
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 start*/
+	return 2047;
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 end*/
 #endif
 }
 
@@ -584,9 +592,10 @@ int disp_pwm_set_backlight_cmdq(enum disp_pwm_id_t id,
 		if (abs_diff < 0)
 			abs_diff = -abs_diff;
 
+/* C3T code for HQ-249469 by sunfeiting at 2022/09/22 start */
 		/* To be printed in UART log */
-		disp_pwm_log(level_1024, MSG_LOG);
-
+		disp_pwm_log(level_1024, NOTICE_LOG);
+/* C3T code for HQ-249469 by sunfeiting at 2022/09/22 end */
 		if ((old_pwm == 0 || level_1024 == 0 || abs_diff > 64) &&
 			old_pwm != level_1024) {
 			/* Print information if backlight is changed */
@@ -600,7 +609,14 @@ int disp_pwm_set_backlight_cmdq(enum disp_pwm_id_t id,
 		else if (level_1024 < 0)
 			level_1024 = 0;
 
+/* C3T code for HQ-241616 by jiangyue at 2022/09/27 start */
+		printk(" level_1024 = %d, max_level_1024 = %d\n", level_1024, max_level_1024);
 		level_1024 = disp_pwm_level_remap(id, level_1024);
+		if(2047 == level_1024)
+			level_1024 = 1792;
+		else
+			level_1024 = level_1024 * 1438 / 2046;
+/* C3T code for HQ-241616 by jiangyue at 2022/09/27 end */
 
 		reg_base = pwm_get_reg_base(id);
 

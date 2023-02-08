@@ -49,3 +49,6 @@ obj-$(CONFIG_CHARGER_MT6362) += mt6362-chg.o
 obj-$(CONFIG_CHARGER_BQ25890) += bq2589x_charger.o
 obj-$(CONFIG_CHARGER_SGM41511) += sgm4151x.o
 obj-$(CONFIG_CHARGER_MM8013) += mm8013.o
+obj-$(CONFIG_CHARGER_ETA696X) += eta696x_charger.o
+obj-$(CONFIG_CHARGER_SGM4151X) += sgm41511_charger.o
+obj-$(CONFIG_CHARGER_SC8960X) += sc8960x_charger.o

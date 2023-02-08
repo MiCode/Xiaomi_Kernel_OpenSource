@@ -21,6 +21,9 @@
 #include <mtk_gauge_time_service.h>
 
 #include <mt-plat/v1/charger_class.h>
+/* C3T code for HQ-259048 by tongjiacheng at 2022/10/28 start*/
+#include <linux/power_supply.h>
+/* C3T code for HQ-259048 by tongjiacheng at 2022/10/28 end*/
 
 struct charger_manager;
 struct charger_data;
@@ -130,6 +133,9 @@ struct sw_jeita_data {
 	int sm;
 	int pre_sm;
 	int cv;
+/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 start */
+	int cc;
+/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 end */
 	bool charging;
 	bool error_recovery_flag;
 };
@@ -173,6 +179,9 @@ struct charger_custom_data {
 	/* dynamic mivr */
 	int min_charger_voltage_1;
 	int min_charger_voltage_2;
+	/* C3T code for HQ-249742 by tongjiacheng at 2022/09/27 start*/
+	int min_charger_voltage_3;
+	/* C3T code for HQ-249742 by tongjiacheng at 2022/09/27 end*/
 	int max_dmivr_charger_current;
 
 	/* sw jeita */
@@ -182,6 +191,12 @@ struct charger_custom_data {
 	int jeita_temp_t1_to_t2_cv;
 	int jeita_temp_t0_to_t1_cv;
 	int jeita_temp_below_t0_cv;
+/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 start */
+	int jeita_temp_t3_to_t4_cc;
+	int jeita_temp_t2_to_t3_cc;
+	int jeita_temp_t1_to_t2_cc;
+	int jeita_temp_t0_to_t1_cc;
+/* C3T code for HQ-219166 by tongjiacheng at 2022/08/12 end*/
 	int temp_t4_thres;
 	int temp_t4_thres_minus_x_degree;
 	int temp_t3_thres;
@@ -267,6 +282,21 @@ struct charger_custom_data {
 
 	int vsys_watt;
 	int ibus_err;
+/* C3T code for HQ-HQ-218837 by tongjiacheng at 2022/08/26 start */
+	int recharger_soc_limit_1;
+	int recharger_soc_limit_2;
+/* C3T code for HQ-HQ-218837 by tongjiacheng at 2022/08/26 end */
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 start */
+/* cycyle count*/
+	int ffc_cv_1;
+	int ffc_cv_2;
+	int ffc_cv_3;
+	int ffc_cv_4;
+
+	int cycle_count_level1;
+	int cycle_count_level2;
+	int cycle_count_level3;
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 end*/
 };
 
 struct charger_data {
@@ -427,7 +457,72 @@ struct charger_manager {
 	bool force_disable_pp[TOTAL_CHARGER];
 	bool enable_pp[TOTAL_CHARGER];
 	struct mutex pp_lock[TOTAL_CHARGER];
+
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 start */
+	int temp_level;
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 end */
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 start */
+	bool enable_sw_fcc;
+/* C3T code for HQ-223445 by tongjiacheng at 2022/08/30 end*/
+/* C3T code for HQ-256470 by tongjiacheng at 2022/10/31 start */
+	bool chg_error;
+/* C3T code for HQ-256470 by tongjiacheng at 2022/10/31 end*/
 };
+
+/* C3T code for HQ-259048 by tongjiacheng at 2022/10/28 start*/
+struct chg_type_info {
+	struct device *dev;
+	struct charger_consumer *chg_consumer;
+	struct tcpc_device *tcpc;
+	struct notifier_block pd_nb;
+	bool tcpc_kpoc;
+	/* Charger Detection */
+	struct mutex chgdet_lock;
+	bool chgdet_en;
+	atomic_t chgdet_cnt;
+	wait_queue_head_t waitq;
+	struct task_struct *chgdet_task;
+	struct workqueue_struct *pwr_off_wq;
+	struct work_struct pwr_off_work;
+	struct workqueue_struct *chg_in_wq;
+	struct work_struct chg_in_work;
+	bool ignore_usb;
+	bool plugin;
+	bool bypass_chgdet;
+#ifdef CONFIG_MACH_MT6771
+	struct power_supply *chr_psy;
+	struct notifier_block psy_nb;
+#endif
+};
+
+/* Power Supply */
+struct mt_charger {
+	struct device *dev;
+	struct power_supply_desc chg_desc;
+	struct power_supply_config chg_cfg;
+	struct power_supply *chg_psy;
+	struct power_supply_desc ac_desc;
+	struct power_supply_config ac_cfg;
+	struct power_supply *ac_psy;
+	struct power_supply_desc usb_desc;
+	struct power_supply_config usb_cfg;
+	struct power_supply *usb_psy;
+	struct chg_type_info *cti;
+	#ifdef CONFIG_EXTCON_USB_CHG
+	struct usb_extcon_info *extcon_info;
+	struct delayed_work extcon_work;
+	#endif
+	bool chg_online; /* Has charger in or not */
+	enum charger_type chg_type;
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 start*/
+	int const_current_limit;
+/*C3T code for HQ-234455 by zhaohan at 2022/8/22 end*/
+/*C3T code for HQ-223437 by zhaohan at 2022/10/17 start*/
+	int mtbf_current;
+/*C3T code for HQ-223437 by zhaohan at 2022/10/17 end*/
+	bool init_done;
+};
+/* C3T code for HQ-259048 by tongjiacheng at 2022/10/28 end*/
 
 /* charger related module interface */
 extern int charger_manager_notifier(struct charger_manager *info, int event);
@@ -450,6 +545,11 @@ extern int pmic_get_bif_battery_voltage(int *vbat);
 extern int pmic_is_bif_exist(void);
 extern int pmic_enable_hw_vbus_ovp(bool enable);
 extern bool pmic_is_battery_exist(void);
+
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 start */
+extern void charger_manager_set_system_temp_level(int temp_level);
+extern int charger_manager_get_system_temp_level(void);
+/* C3T code for HQ-231370 by tongjiacheng at 2022/08/12 end */
 
 
 extern void notify_adapter_event(enum adapter_type type, enum adapter_event evt,

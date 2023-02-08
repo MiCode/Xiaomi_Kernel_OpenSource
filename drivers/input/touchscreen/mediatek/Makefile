@@ -11,7 +11,7 @@ obj-y   +=  tpd_default.o
 obj-y   +=  tpd_misc.o
 obj-y   +=  tpd_setting.o
 obj-$(CONFIG_TOUCHSCREEN_MTK_SOLOMON)	+=  SOLOMON/
-obj-$(CONFIG_TOUCHSCREEN_FTS)	+=  focaltech_touch/
+#obj-$(CONFIG_TOUCHSCREEN_FTS)	+=  focaltech_touch/
 obj-$(CONFIG_TOUCHSCREEN_MTK_GT1151)	+=  GT1151/
 obj-$(CONFIG_TOUCHSCREEN_MTK_GT911)	+=  GT911/
 obj-$(CONFIG_TOUCHSCREEN_MTK_GSLX680)	+=  gslX680/
@@ -25,3 +25,11 @@ obj-$(CONFIG_TOUCHSCREEN_MTK_GT9157)    +=  GT9157/
 obj-$(CONFIG_TOUCHSCREEN_HIMAX_CHIPSET_8789P1_8185P3)    +=  hxchipset_8789p1_8185p3/
 obj-$(CONFIG_TOUCHSCREEN_HIMAX_CHIPSET) += hxchipset_hx83102p/
 obj-$(CONFIG_TOUCHSCREEN_GOODIX_BRL) += goodix_berlin_driver/
+obj-$(CONFIG_TOUCHSCREEN_NT36xxx_HOSTDL_SPI) += nt36525b_spi/
+obj-$(CONFIG_TOUCHSCREEN_FTS) += ft8057/
+#C3T code for HQ-218848 by chenzimo at 2022/08/23 start
+obj-$(CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE)  += xiaomi/
+#C3T code for HQ-218848 by chenzimo at 2022/08/23 end
+# C3T code for chipone_icnl9916 tp bring up by jishen at 2022/09/26 start 
+obj-$(CONFIG_TOUCHSCREEN_CHIPONE) += chipone_ICNL_9916/
+# C3T code for chipone_icnl9916 tp bring up by jishen at 2022/09/26 end

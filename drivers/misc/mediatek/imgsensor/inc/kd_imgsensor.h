@@ -379,9 +379,33 @@
 #define OV16A10_SENSOR_ID                       0x561641
 #define GC02M1B_SENSOR_ID                       0x02e0
 
+
+/* code at 2022/07/21 start */
+#define S5KJNS_ACC_MAIN_SENSOR_ID               0x38ee
+#define S5KJNS_SUNNY_MAIN_SENSOR_ID             0x38ef
+#define S5KJNS_OFILM_MAIN_SENSOR_ID             0x38f0
+#define S5KJN1_ACC_MAIN_SENSOR_ID               0x38e1
+#define HI556_OFILM_FRONT_SENSOR_ID             0x0556
+#define S5K5E9_SUNNY_FRONT_SENSOR_ID   	        0x559b
+#define SC500CS_TRULY_FRONT_SENSOR_ID           0xee27
+/* code at 2022/07/21 end */
+
 /* CAMERA DRIVER NAME */
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"
 /* SENSOR DEVICE DRIVER NAME */
+
+/* code at 2022/07/21 start */
+#define SENSOR_DRVNAME_S5KJNS_ACC_MAIN_MIPI_RAW         "s5kjns_acc_main_mipi_raw"
+#define SENSOR_DRVNAME_S5KJNS_SUNNY_MAIN_MIPI_RAW        "s5kjns_sunny_main_mipi_raw"
+#define SENSOR_DRVNAME_S5KJNS_OFILM_MAIN_MIPI_RAW       "s5kjns_ofilm_main_mipi_raw"
+#define SENSOR_DRVNAME_S5KJN1_ACC_MAIN_MIPI_RAW         "s5kjn1_acc_main_mipi_raw"
+#define SENSOR_DRVNAME_HI556_OFILM_FRONT_MIPI_RAW       "hi556_ofilm_front_mipi_raw"
+#define SENSOR_DRVNAME_S5K5E9_SUNNY_FRONT_MIPI_RAW	"s5k5e9_sunny_front_mipi_raw"
+#define SENSOR_DRVNAME_SC500CS_TRULY_FRONT_MIPI_RAW     "sc500cs_truly_front_mipi_raw"
+/* code at 2022/07/21 end */
+
+
+
 /*IMX*/
 #define SENSOR_DRVNAME_IMX499_MIPI_RAW          "imx499_mipi_raw"
 #define SENSOR_DRVNAME_IMX499_MIPI_RAW_13M      "imx499_mipi_raw_13m"

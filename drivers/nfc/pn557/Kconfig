@@ -1,0 +1,13 @@
+#
+# Nxp Nci protocol (I2C) devices
+#
+
+config NFC_PN553_DEVICES
+	tristate "Nxp pn553 NCI protocol driver (I2C) devices"
+	default y
+	help
+	  You'll have to say Y if your computer contains an I2C device that
+	  you want to use under Linux.
+
+	  You can say N here if you don't have any SPI connected to your computer.
+

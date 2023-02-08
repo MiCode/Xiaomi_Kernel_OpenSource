@@ -167,6 +167,13 @@ static int sar_recv_data(struct data_unit_t *event, void *reserved)
 		value[2] = event->sar_event.data[2];
 		err = sar_data_report_t(value, (int64_t)event->time_stamp);
 	} else if (event->flush_action == CALI_ACTION) {
+		/*C3T code for HQ-227922 by huitianpu at 2022/8/2 start*/
+        value[0] = event->sar_event.x_bias;
+		value[1] = event->sar_event.y_bias;
+		value[2] = event->sar_event.z_bias;
+		pr_debug("offset %d  %d",value[0],value[1]);
+		/*C3T code for HQ-227922 by huitianpu at 2022/8/2 end*/
+		err = sar_cal_report_t(value, (int64_t)event->time_stamp);
 		spin_lock(&calibration_lock);
 		obj->cali_data[0] =
 			event->sar_event.x_bias;

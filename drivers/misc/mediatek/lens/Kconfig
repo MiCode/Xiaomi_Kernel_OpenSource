@@ -277,3 +277,34 @@ config MTK_LENS_WV511AAF_SUPPORT
 	  This config is used to enable the corresponding
 	  lens driver for the camera sensor module
 	  Set as y if the driver is used in this project
+
+config MTK_LENS_GT9764AF_SUPPORT
+	tristate "GT9764AF Lens Driver"
+        depends on MTK_LENS
+	help
+	  GT9764AF Lens Driver
+	  This config is used to enable the corresponding
+	  lens driver for the camera sensor module
+	  Set as y if the driver is used in this project
+
+# code at 2022/08/18 start 
+config MTK_LENS_GT9764SUNAF_SUPPORT
+	tristate "GT9764SUNAF Lens Driver"
+        depends on MTK_LENS
+	help
+	  GT9764SUNAF Lens Driver
+	  This config is used to enable the corresponding
+	  lens driver for the camera sensor module
+	  Set as y if the driver is used in this project
+# code at 2022/08/18 end 
+
+# code at 2022/9/7 start 
+config MTK_LENS_DW9800WAF_SUPPORT
+	tristate "DW9800WAF Lens Driver"
+        depends on MTK_LENS
+	help
+	  DW9800WAF Lens Driver
+	  This config is used to enable the corresponding
+	  lens driver for the camera sensor module
+	  Set as y if the driver is used in this project
+# code at 2022/9/7 end 

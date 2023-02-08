@@ -46,6 +46,26 @@ static int charger_resume(struct device *dev)
 }
 */
 
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 start*/
+int charger_device_set_hiz_mode(struct charger_device *chg_dev, bool en)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->set_hiz_mode != NULL)
+		return chg_dev->ops->set_hiz_mode(chg_dev, en);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(charger_device_set_hiz_mode);
+
+int charger_device_get_hiz_mode(struct charger_device *chg_dev)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->get_hiz_mode != NULL)
+		return chg_dev->ops->get_hiz_mode(chg_dev);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(charger_device_get_hiz_mode);
+/*C3T code for HQ-223303 by gengyifei at 2022/7/28 end*/
+
 static void charger_device_release(struct device *dev)
 {
 	struct charger_device *chg_dev = to_charger_device(dev);

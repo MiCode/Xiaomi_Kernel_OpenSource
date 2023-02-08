@@ -722,17 +722,42 @@ cur_state_store(struct device *dev, struct device_attribute *attr,
 	return result ? result : count;
 }
 
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+static ssize_t available_show(struct device *dev, struct device_attribute *attr,
+			      char *buf)
+{
+	printk("mi_thermal %s\n", __func__);
+	struct thermal_cooling_device *cdev = to_cooling_device(dev);
+	char available_state[THERMAL_AVAILABLE_STATE_LENGTH];
+	int ret = -1;
+
+	if (cdev->ops->get_available == NULL) {
+		printk("mi_thermal %s， cdev->ops->get_available is NULL !\n", __func__);
+		return ret;
+	}
+
+	ret = cdev->ops->get_available(cdev, available_state);
+	if (ret)
+		return ret;
+	return sprintf(buf, "%s\n", available_state);
+}
+
 static struct device_attribute
 dev_attr_cdev_type = __ATTR(type, 0444, cdev_type_show, NULL);
 static DEVICE_ATTR_RO(max_state);
 static DEVICE_ATTR_RW(cur_state);
 
+static struct device_attribute
+dev_attr_available = __ATTR(available, 0444, available_show, NULL);
+
 static struct attribute *cooling_device_attrs[] = {
 	&dev_attr_cdev_type.attr,
 	&dev_attr_max_state.attr,
 	&dev_attr_cur_state.attr,
+	&dev_attr_available.attr,
 	NULL,
 };
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 
 static const struct attribute_group cooling_device_attr_group = {
 	.attrs = cooling_device_attrs,

@@ -527,7 +527,12 @@ config UID_SYS_STATS_DEBUG
 	default n
 	help
 	  Per TASK based io statistics exported to /proc/uid_io
-
+# C3T code for HQ-223831 by wangmingyu at 2022/09/09 start
+config DEBUG_POLICY
+	bool "Enable DebugPolicy Proc Interface"
+	help
+	Provide a interface for reading debug policy status
+# C3T code for HQ-223831 by wangmingyu at 2022/09/09 end
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -543,4 +548,14 @@ source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/mediatek/Kconfig"
+# C3T code for C3T-6 by liunianliang at 2022/07/11 start
+source "drivers/misc/hqsysfs/Kconfig"
+# C3T code for C3T-6 by liunianliang at 2022/07/11 end
+# C3T code for HQ-223874 by liunianliang at 2022/07/19 start
+source "drivers/misc/simtray/Kconfig"
+# C3T code for HQ-223874 by liunianliang at 2022/07/19 end
+
+# C3T code for HQ-219156 by liunianliang at 2022/07/26 start
+source "drivers/misc/cpufreq/Kconfig"
+# C3T code for HQ-219156 by liunianliang at 2022/07/26 end
 endmenu

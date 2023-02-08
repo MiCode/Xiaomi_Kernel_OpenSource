@@ -1,0 +1,337 @@
+/* FINGERPRINT start */
+&spi2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+/*C3T code for HQ-229719 by zhoumengxuan at 22.8.26 start*/
+	/delete-property/mediatek,pad-select;
+	mediatek,pad-select = <0>,<0>,<0>,<0>;
+	cs-gpios = <0>,<0>,<0>,<0>;
+/*C3T code for HQ-229719 by zhoumengxuan at 22.8.26 end*/
+	status = "okay";
+/*C3T code for HQ-224157 by zhoumengxuan at 22.7.30 start*/
+	fpc_tee@0 {
+		compatible = "fpc,fpc_spi";
+		reg = <0>;
+		fpc,enable-wakeup;
+		spi-max-frequency = <10000000>;
+		netlink-event = <31>;
+/*C3T code for HQ-224157 by zhoumengxuan at 22.7.30 end*/
+		status = "okay";
+	};
+/*C3T code for HQ-229719 by zhoumengxuan at 22.8.26 start*/
+	chipone_fpsensor@1 {
+		compatible = "mediatek,chipone-sidefp";
+		reg = <1>;
+		spi-max-frequency = <10000000>;
+		status = "okay";
+	};
+/*C3T code for HQ-229719 by zhoumengxuan at 22.8.26 end*/
+};
+
+&silead_fp {
+	/*C3T code for HQ-223309 by zhoumengxuan at 22.9.2 start*/
+	pinctrl-names = "default", "rst-low", "rst-high" ,
+	                "irq-init", "spi-default", "irq_rst-low", "irq_rst-high", "avdd-enable", "avdd-disable";
+	/*C3T code for HQ-223309 by zhoumengxuan at 22.9.2 end*/
+	pinctrl-0 = <&silfp_default>;
+	pinctrl-1 = <&silfp_rst_low>;
+	pinctrl-2 = <&silfp_rst_high>;
+	pinctrl-3 = <&silfp_irq>;
+	pinctrl-4 = <&fingerprint_pins_default>;
+	pinctrl-5 = <&silfp_irq_rst_low>;
+	pinctrl-6 = <&silfp_irq_rst_high>;
+	pinctrl-7 = <&silfp_avdd_high>;
+	/*C3T code for HQ-223309 by zhoumengxuan at 22.9.2 start*/
+	pinctrl-8 = <&silfp_avdd_low>;
+	/*C3T code for HQ-223309 by zhoumengxuan at 22.9.2 end*/
+	//interrupt-parent = <&pio>;
+	//interrupts = <8 IRQ_TYPE_EDGE_RISING 8 0>;
+	int_gpio = <&pio 8 0>;
+	status = "okay";
+};
+
+&pio {
+	silfp_default: silfpdefault {
+    };
+
+	silfp_rst_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	silfp_rst_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	silfp_irq: fp_eint@8 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			slew-rate = <0>;
+			bias-pull-down = <00>;
+		};
+	};
+
+	silfp_irq_rst_high: state_irq_to_reset_high {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+            slew-rate = <1>;
+            output-high;
+        };
+    };
+
+    silfp_irq_rst_low: state_irq_to_reset_low {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+            slew-rate = <1>;
+            output-low;
+        };
+    };
+
+	silfp_avdd_high: state_avdd_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO160__FUNC_GPIO160>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	/*C3T code for HQ-223309 by zhoumengxuan at 22.9.2 start*/
+	silfp_avdd_low: state_avdd_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO160__FUNC_GPIO160>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	/*C3T code for HQ-223309 by zhoumengxuan at 22.9.2 end*/
+};
+
+&pio{
+	fingerprint_pins_default: fp_default {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO25__FUNC_SPI2_CSB>;
+            slew-rate = <1>;
+            bias-pull-up;
+        };
+
+        pins_cmd2_dat {
+            pinmux = <PINMUX_GPIO27__FUNC_SPI2_CLK>;
+            slew-rate = <1>;
+            drive-strength = <2>;
+            bias-pull-down;
+        };
+
+        pins_cmd3_dat {
+            pinmux = <PINMUX_GPIO28__FUNC_SPI2_MI>;
+            slew-rate = <0>;
+            bias-pull-down;
+        };
+
+        pins_cmd4_dat {
+            pinmux = <PINMUX_GPIO26__FUNC_SPI2_MO>;
+            slew-rate = <1>;
+            bias-pull-down;
+        };
+    };
+};
+/*C3T code for HQ-224157 by zhoumengxuan at 22.7.30 start*/
+&fpsensor_finger {
+	pinctrl-names = "fpsensor_fpc_rst_low", "fpsensor_fpc_rst_high",
+					"fpsensor_fp_power_high";
+	pinctrl-0 = <&fpsensor_fpc_rst_low>;
+	pinctrl-1 = <&fpsensor_fpc_rst_high>;
+	pinctrl-2 = <&fpsensor_fp_power_high>;
+	status = "okay";
+};
+
+&pio {
+	fpsensor_fpc_rst_low: fpsensor_fpc_rst_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	fpsensor_fpc_rst_high: fpsensor_fpc_rst_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	fpsensor_fp_power_high: fpsensor_fp_power_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO160__FUNC_GPIO160>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+};
+/*C3T code for HQ-224157 by zhoumengxuan at 22.7.30 end*/
+
+/*C3T code for HQ-229719 by zhoumengxuan at 22.8.26 start*/
+&chipone_fp {
+	pinctrl-names = "fpsensor_spi_default", "fpsensor_spi_cs_low","fpsensor_spi_cs_high","fpsensor_spi_mi_low","fpsensor_spi_mi_high",
+					"fpsensor_spi_mo_low","fpsensor_spi_mo_high","fpsensor_spi_mclk_low","fpsensor_spi_mclk_high",
+					"fpsensor_finger_rst_low","fpsensor_finger_rst_high","fpsensor_finger_power_low","fpsensor_finger_power_high",
+					"fpsensor_eint","fpsensor_eint_in_low","fpsensor_eint_in_float","fpsensor_finger_cs_low","fpsensor_finger_cs_high";
+	pinctrl-0 = <&fpsensor_spi_default>;
+	pinctrl-1 = <&fpsensor_spi_cs_en0>;
+	pinctrl-2 = <&fpsensor_spi_cs_en1>;
+	pinctrl-3 = <&fpsensor_spi_mi_mode_en0>;
+	pinctrl-4 = <&fpsensor_spi_mi_mode_en1>;
+	pinctrl-5 = <&fpsensor_spi_mo_mode_en0>;
+	pinctrl-6 = <&fpsensor_spi_mo_mode_en1>;
+	pinctrl-7 = <&fpsensor_spi_mclk_mode_en0>;
+	pinctrl-8 = <&fpsensor_spi_mclk_mode_en1>;
+	pinctrl-9 = <&fpsensor_finger_rst_mode_en0>;
+	pinctrl-10 = <&fpsensor_finger_rst_mode_en1>;
+	pinctrl-11 = <&fpsensor_finger_power_en0>;
+	pinctrl-12 = <&fpsensor_finger_power_en1>;
+	pinctrl-13 = <&fpsensor_fp_eint_as_int>;
+	pinctrl-14 = <&fpsensor_fp_eint_in_low>;
+	pinctrl-15 = <&fpsensor_fp_eint_in_float>;
+	pinctrl-16 = <&fpsensor_finger_cs_mode_en0>;
+	pinctrl-17 = <&fpsensor_finger_cs_mode_en1>;
+
+	//interrupt-parent = <&pio>;
+	//interrupts = <8 IRQ_TYPE_EDGE_RISING>;
+	int_fpgpio = <&pio 8 0>;
+	debounce = <8 0>;
+
+	status = "okay";
+};
+
+&pio {
+	fpsensor_spi_default: fpsensor_spi_default {
+	};
+
+	fpsensor_spi_cs_en0: fpsensor_spi_cs_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO25__FUNC_SPI2_CSB>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fpsensor_spi_cs_en1: fpsensor_spi_cs_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO25__FUNC_SPI2_CSB>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fpsensor_spi_mi_mode_en0: fpsensor_spi_mi_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_SPI2_MI>;
+			slew-rate = <0>;
+			bias-pull-up = <00>;
+		};
+	};
+	fpsensor_spi_mi_mode_en1: fpsensor_spi_mi_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_SPI2_MI>;
+			bias-disable;
+		};
+	};
+	fpsensor_spi_mo_mode_en0: fpsensor_spi_mo_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO26__FUNC_SPI2_MO>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fpsensor_spi_mo_mode_en1: fpsensor_spi_mo_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO26__FUNC_SPI2_MO>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fpsensor_spi_mclk_mode_en0: fpsensor_spi_mclk_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO27__FUNC_SPI2_CLK>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fpsensor_spi_mclk_mode_en1: fpsensor_spi_mclk_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO27__FUNC_SPI2_CLK>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fpsensor_finger_rst_mode_en0: fpsensor_finger_rst_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fpsensor_finger_rst_mode_en1: fpsensor_finger_rst_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO31__FUNC_GPIO31>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fpsensor_finger_power_en0: fpsensor_finger_power_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO160__FUNC_GPIO160>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fpsensor_finger_power_en1: fpsensor_finger_power_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO160__FUNC_GPIO160>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fpsensor_fp_eint_as_int: fpsensor_eint_as_int {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+	fpsensor_fp_eint_in_low: fpsensor_eint_in_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			slew-rate = <0>;
+			bias-pull-down = <00>;
+		};
+	};
+	fpsensor_fp_eint_in_float: fpsensor_eint_in_float {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+	fpsensor_finger_cs_mode_en0: fpsensor_finger_cs_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO25__FUNC_SPI2_CSB>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	fpsensor_finger_cs_mode_en1: fpsensor_finger_cs_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO25__FUNC_SPI2_CSB>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+};
+/*C3T code for HQ-229719 by zhoumengxuan at 22.8.26 end*/
+/* FINGERPRINT end */

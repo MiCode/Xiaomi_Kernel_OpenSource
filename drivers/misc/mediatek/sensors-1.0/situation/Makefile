@@ -14,3 +14,7 @@ obj-$(CONFIG_MTK_MOTION_DETECT_HUB)			+=	motion_detect/
 obj-$(CONFIG_MTK_TILTDETECTHUB)				+=	tilt_detector/
 obj-$(CONFIG_MTK_FLAT_HUB)				+=	flat/
 obj-$(CONFIG_MTK_SAR_HUB)				+=	sar/
+# C3T code for HQ-218639 by huitianpu at 2022/8/21 start
+obj-$(CONFIG_MTK_SAR_ALGO_HUB)				+=	sar_algo/
+obj-$(CONFIG_MTK_SAR_ALGO_HUB)				+=	sar_algo_top/
+# C3T code for HQ-218639 by huitianpu at 2022/8/21 end

@@ -48,14 +48,24 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/
 
+# C3T code for HQ-223914 by liunianliang at 2022/08/03 start
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/flashlight/
+# C3T code for HQ-223914 by liunianliang at 2022/08/03 end
+
 obj-y += mtk_thermal_monitor.o
 obj-y += mtk_cooler_shutdown.o
 ifeq ($(CONFIG_MTK_LEDS), y)
     # setMaxbrightness() defined in mediatek/kernel/drivers/leds/leds_drv.c only built when CONFIG_MTK_LEDS is set
-    obj-y += mtk_cooler_backlight.o
+    # C3T code for HQ-223914 by liunianliang at 2022/08/03 start
+    obj-y += mtk_cooler_backlight_cus.o
+    # C3T code for HQ-223914 by liunianliang at 2022/08/03 end
 endif
 obj-y += mtk_cooler_kshutdown.o
 obj-y += mtk_cooler_cam.o
+
+# C3T code for HQ-223914 by liunianliang at 2022/08/03 start
+obj-$(CONFIG_THERMAL) += mtk_cooler_flashlight_cus.o
+# C3T code for HQ-223914 by liunianliang at 2022/08/03 end
 
 ifeq (,$(filter $(CONFIG_ARCH_MT8173) $(CONFIG_ARCH_MT8163) $(CONFIG_MACH_MT2701) $(CONFIG_ARCH_MT7623) $(CONFIG_ARCH_MT8127) $(CONFIG_MACH_MT8167), y))
 obj-y += common/

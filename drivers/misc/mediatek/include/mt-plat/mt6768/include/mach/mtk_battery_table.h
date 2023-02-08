@@ -23,8 +23,18 @@
 #define Q_MAX_H_CURRENT 10000
 
 /* multiple battery profile compile options */
-/*#define MTK_GET_BATTERY_ID_BY_AUXADC*/
+/*C3T code for HQ-223762 by gengyifei at 2022/8/11 start*/
+#define MTK_GET_BATTERY_ID_BY_AUXADC
 
+#define COSMX_MIN_VOLTAGE 846450
+#define COSMX_MAX_VOLTAGE 935550
+#define NVT_MIN_VOLTAGE 687800
+#define NVT_MAX_VOLTAGE 760200
+#define NVT1_MIN_VOLTAGE 1014600
+#define NVT1_MAX_VOLTAGE 1121400
+#define SWD_MIN_VOLTAGE 1128600
+#define SWD_MAX_VOLTAGE 1247400
+/*C3T code for HQ-223762 by gengyifei at 2022/8/11 end*/
 
 /* if ACTIVE_TABLE == 0 && MULTI_BATTERY == 0
  * load g_FG_PSEUDO100_Tx from dtsi
@@ -94,11 +104,21 @@ int g_FG_PSEUDO1[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 };
 
 int g_FG_PSEUDO100[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
+/*C3T code for HQ-242556 by tongjiacheng at 2022/09/20 start*/
+/*C3T code for HQ-251539 by tongjiacheng at 2022/09/29 start*/
 	/*bat1,   bat2,   bat3,    bat4*/
-	{ 100, 100, 100, 100},/*T0*/
-	{ 100, 100, 100, 100},/*T1*/
-	{ 100, 100, 100, 100},/*T2*/
-	{ 100, 100, 100, 100},/*T3*/
+/*C3T code for HQ-255040 by wangtingting at 2022/10/13 start*/
+	{ 97, 97, 97, 97},/*T0*/
+	{ 97, 97, 97, 97},/*T1*/
+/*C3T code for HQ-255040 by wangtingting at 2022/10/13 end*/
+/*C3T code for HQ-251539 by tongjiacheng at 2022/09/29 end*/
+/*C3T code for HQ-242556 by tongjiacheng at 2022/09/22 start*/
+/* C3T code for HQHW-3610 by tongjiacheng at 2022/10/19 start*/
+	{ 96, 96, 96, 96},/*T2*/
+	{ 96, 96, 96, 96},/*T3*/
+/* C3T code for HQHW-3610 by tongjiacheng at 2022/10/19 end*/
+/*C3T code for HQ-242556 by tongjiacheng at 2022/09/22 end*/
+/*C3T code for HQ-242556 by tongjiacheng at 2022/09/20 end*/
 	{ 100, 100, 100, 100},/*T4*/
 	{ 100, 100, 100, 100},/*T5*/
 	{ 100, 100, 100, 100},/*T6*/
@@ -158,12 +178,28 @@ int g_PON_SYS_IBOOT[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 /* Q_MAX_SYS_VOLTAGE by temp ,control by MULTI_TEMP_GAUGE0=1, */
 int g_QMAX_SYS_VOL[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{33500, 33500, 33500, 33500},/*T0*/
-	{33500, 33500, 33500, 33500},/*T1*/
-	{33500, 33500, 33500, 33500},/*T2*/
-	{32900, 32900, 32900, 32900},/*T3*/
-	{32800, 32800, 32800, 32800},/*T4*/
-	{33500, 33500, 33500, 33500},/*T5*/
+/*C3T code for HQHW-3296 by gengyifei at 2022/10/10 start*/
+	{32850, 32850, 32850, 32850},/*T0*/
+	{32850, 32850, 32850, 32850},/*T1*/
+/*C3T code for HQHW-3296 by gengyifei at 2022/10/10 end*/
+/*C3T code for HQHW-3318 by wangtingting at 2022/10/10 start*/
+/*C3T code for HQHW-3759 by zhaohan at 2022/11/07 start*/
+/*C3T code for  HQ-253402 by zhaohan at 2022/11/09 start*/
+	{31850, 31850, 31850, 31850},/*T2*/
+/*C3T code for  HQ-253402 by zhaohan at 2022/11/09 end*/
+/*C3T code for HQHW-3759 by zhaohan at 2022/11/07 end*/
+/*C3T code for HQHW-3318 by wangtingting at 2022/10/10 end*/
+/*C3T code for HQHW-2879 by gengyifei at 2022/09/28 start*/
+/*C3T code for HQHW-2879 by zhaohan at 2022/11/07 start*/
+/*C3T code for  HQ-253402 by zhaohan at 2022/11/09 start*/         
+	{33200, 33200, 33200, 33200},/*T3*/
+/*C3T code for HQ-255928 by zhaohan at 2022/10/31 start*/
+	{33100, 33100, 33100, 33100},/*T4*/
+/*C3T code for HQ-255928 by zhaohan at 2022/10/31 end*/
+/*C3T code for HQHW-2879 by gengyifei at 2022/09/28 end*/
+	{33750, 33750, 33750, 33750},/*T5*/
+/*C3T code for  HQ-253402 by zhaohan at 2022/11/09 end*/      
+/*C3T code for HQHW-2879 by zhaohan at 2022/11/07 end*/
 	{33500, 33500, 33500, 33500},/*T6*/
 	{33500, 33500, 33500, 33500},/*T7*/
 	{33500, 33500, 33500, 33500},/*T8*/
@@ -187,9 +223,11 @@ int g_temperature[MAX_TABLE] = {
 	-45/*TEMPERATURE_T9*/
 };
 
-
-#define BAT_NTC_10 1
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 start */
+#define BAT_NTC_10 0
 #define BAT_NTC_47 0
+#define BAT_NTC_100 1
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 end */
 
 #if (BAT_NTC_10 == 1)
 #define RBAT_PULL_UP_R             24000
@@ -198,6 +236,12 @@ int g_temperature[MAX_TABLE] = {
 #if (BAT_NTC_47 == 1)
 #define RBAT_PULL_UP_R             61900
 #endif
+
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 start */
+#if (BAT_NTC_100 == 1)
+#define RBAT_PULL_UP_R             24000
+#endif
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 end */
 
 #define RBAT_PULL_UP_VOLT          2800
 
@@ -255,6 +299,39 @@ struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[21] = {
 };
 #endif
 
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 start */
+#if (BAT_NTC_100 == 1)
+struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[27] = {
+	{-40, 4251000},
+	{-35, 3005000},
+	{-30, 2149000},
+	{-25, 1554000},
+	{-20, 1135000},
+	{-15, 837800},
+	{-10, 624100},
+	{-5, 469100},
+	{0, 355600},
+	{5, 271800},
+	{10, 209400},
+	{15, 162500},
+	{20, 127000},
+	{25, 100000},
+	{30, 79230},
+	{35, 63180},
+	{40, 50680},
+	{45, 40900},
+	{50, 33190},
+	{55, 27090},
+	{60, 22220},
+	{65, 18320},
+	{70, 15180},
+	{75, 12640},
+	{80, 10580},
+	{85, 8887},
+	{90, 7500}
+};
+#endif
+/*  C3T code for  HQ-219166  by tongjiacheng at 2022/08/10 end */
 
 
 /* ============================================================

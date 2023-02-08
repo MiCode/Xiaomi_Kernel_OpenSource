@@ -61,14 +61,17 @@ static int I2C_SET_FOR_BACKLIGHT  = 350;
 #ifndef CONTROL_BL_TEMPERATURE
 #define CONTROL_BL_TEMPERATURE
 #endif
-
-#define MT_LED_INTERNAL_LEVEL_BIT_CNT 10
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 start*/
+#define MT_LED_INTERNAL_LEVEL_BIT_CNT 11
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 end*/
 
 /******************************************************************************
  * for DISP backlight High resolution
  *****************************************************************************/
 #ifdef LED_INCREASE_LED_LEVEL_MTKPATCH
-#define LED_INTERNAL_LEVEL_BIT_CNT 10
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 start*/
+#define LED_INTERNAL_LEVEL_BIT_CNT 11
+/*C3T code for HQ-223880 by jiangyue at 2022/08/09 end*/
 #endif
 /* Fix dependency if CONFIG_MTK_LCM not ready */
 void __weak disp_aal_notify_backlight_changed(int bl_1024) {};
@@ -100,7 +103,8 @@ static DEFINE_MUTEX(bl_level_limit_mutex);
  ***************************************************************************/
 int setMaxbrightness(int max_level, int enable)
 {
-#if !defined(CONFIG_MTK_AAL_SUPPORT)
+/* C3T code for HQ-256479 by jiangyue at 2022.10/27 start */
+#if 0
 	struct cust_mt65xx_led *cust_led_list = mt_get_cust_led_list();
 
 	mutex_lock(&bl_level_limit_mutex);
@@ -134,12 +138,13 @@ int setMaxbrightness(int max_level, int enable)
 
 		}
 	}
-#else
+#endif
 	pr_info("Set max brightness go through AAL\n");
 	disp_bls_set_max_backlight(((((1 << LED_INTERNAL_LEVEL_BIT_CNT) -
 				      1) * max_level + 127) / 255));
-#endif				/* endif CONFIG_MTK_AAL_SUPPORT */
+				/* endif CONFIG_MTK_AAL_SUPPORT */
 	return 0;
+/* C3T code for HQ-256479 by jiangyue at 2022.10/27 end */
 }
 EXPORT_SYMBOL(setMaxbrightness);
 #endif

@@ -104,6 +104,16 @@ static int fl_set_level(struct flashlight_dev *fdev, int level)
 		}
 #endif
 
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+	if (fdev->need_cooler) {
+		if (fdev->cooler_level >= 0 && level > fdev->cooler_level) {
+			level = fdev->cooler_level;
+			pr_info("Set level to (%d) since thermal need cooler\n",
+					level);
+		}
+	}
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
+
 	/* ioctl */
 	fl_dev_arg.channel = fdev->dev_id.channel;
 	fl_dev_arg.arg = level;
@@ -113,9 +123,10 @@ static int fl_set_level(struct flashlight_dev *fdev, int level)
 		return -EFAULT;
 	}
 
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
 	/* update device status */
-	fdev->level = level;
-
+	//fdev->level = level;
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 	return 0;
 }
 
@@ -383,6 +394,10 @@ int flashlight_dev_register(
 			fdev->ops = dev_ops;
 			fdev->dev_id = flashlight_id[i];
 			fdev->low_pt_level = -1;
+			/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+			fdev->need_cooler = 0;
+			fdev->cooler_level = -1;
+			/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 			fdev->charger_status = FLASHLIGHT_CHARGER_READY;
 			list_add_tail(&fdev->node, &flashlight_list);
 			mutex_unlock(&fl_mutex);
@@ -466,6 +481,10 @@ int flashlight_dev_register_by_device_id(
 	fdev->ops = dev_ops;
 	fdev->dev_id = *dev_id;
 	fdev->low_pt_level = -1;
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+	fdev->need_cooler = 0;
+	fdev->cooler_level = -1;
+	/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 	fdev->charger_status = FLASHLIGHT_CHARGER_READY;
 	list_add_tail(&fdev->node, &flashlight_list);
 	mutex_unlock(&fl_mutex);
@@ -502,6 +521,60 @@ int flashlight_dev_unregister_by_device_id(struct flashlight_device_id *dev_id)
 }
 EXPORT_SYMBOL(flashlight_dev_unregister_by_device_id);
 
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+int flashlight_get_max_duty(void)
+{
+	struct flashlight_dev *fdev;
+	struct flashlight_dev_arg fl_dev_arg;
+	int duty_num = -1;
+	mutex_lock(&fl_mutex);
+	list_for_each_entry(fdev, &flashlight_list, node) {
+		if (!fdev->ops)
+			continue;
+		fdev->ops->flashlight_open();
+		fdev->ops->flashlight_set_driver(1);
+		fl_dev_arg.channel = fdev->dev_id.channel;
+		fdev->ops->flashlight_ioctl(
+				FLASH_IOC_GET_DUTY_NUMBER,
+				(unsigned long)&fl_dev_arg);
+		if (fl_dev_arg.arg > duty_num)
+			duty_num = fl_dev_arg.arg;
+		fdev->ops->flashlight_set_driver(0);
+		fdev->ops->flashlight_release();
+	}
+	mutex_unlock(&fl_mutex);
+	pr_info("get max duty:%d\n", duty_num - 1);
+	return duty_num - 1;
+}
+EXPORT_SYMBOL(flashlight_get_max_duty);
+int flashlight_set_cooler_level(int level)
+{
+	struct flashlight_dev *fdev;
+	if (level < 0) {
+		pr_info("Failed to set level:%d\n", level);
+		return -1;
+	}
+	pr_info("cooler level:%d\n", level);
+	mutex_lock(&fl_mutex);
+	list_for_each_entry(fdev, &flashlight_list, node) {
+		if (!fdev->ops)
+			continue;
+		fdev->ops->flashlight_open();
+		fdev->ops->flashlight_set_driver(1);
+		fdev->need_cooler = 1;
+		fdev->cooler_level = level;
+		if (fdev->enable && (fdev->level > fdev->cooler_level))
+			fl_set_level(fdev, fdev->cooler_level);
+		else if (fdev->enable && (fdev->level <= fdev->cooler_level))
+			fl_set_level(fdev, fdev->level);
+		fdev->ops->flashlight_set_driver(0);
+		fdev->ops->flashlight_release();
+	}
+	mutex_unlock(&fl_mutex);
+	return 0;
+}
+EXPORT_SYMBOL(flashlight_set_cooler_level);
+/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 
 /******************************************************************************
  * Vsync IRQ
@@ -823,6 +896,9 @@ static long _flashlight_ioctl(
 		pr_debug("FLASH_IOC_SET_DUTY(%d,%d,%d): %d\n",
 				type, ct, part, fl_arg.arg);
 		mutex_lock(&fl_mutex);
+		/* C3T code for HQ-223914 by liunianliang at 2022/08/03 start */
+		fdev->level = fl_arg.arg;
+		/* C3T code for HQ-223914 by liunianliang at 2022/08/03 end */
 		ret = fl_set_level(fdev, fl_arg.arg);
 		mutex_unlock(&fl_mutex);
 		break;
