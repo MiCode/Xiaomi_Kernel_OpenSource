@@ -300,13 +300,6 @@ static void swsusp_mte_restore_tags(void)
 		unsigned long pfn = xa_state.xa_index;
 		struct page *page = pfn_to_online_page(pfn);
 
-#if IS_ENABLED(CONFIG_MTK_KASAN_DEBUG)
-		/*
-		 * It is not required to invoke page_kasan_tag_reset(page)
-		 * at this point since the tags stored in page->flags are
-		 * already restored.
-		 */
-#endif  // CONFIG_MTK_KASAN_DEBUG
 		mte_restore_page_tags(page_address(page), tags);
 
 		mte_free_tag_storage(tags);

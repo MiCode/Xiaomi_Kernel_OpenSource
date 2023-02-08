@@ -53,25 +53,12 @@ bool mte_restore_tags(swp_entry_t entry, struct page *page)
 	if (!tags)
 		return false;
 
-#if IS_ENABLED(CONFIG_MTK_KASAN_DEBUG)
-	page_kasan_tag_reset(page);
-	/*
-	 * We need smp_wmb() in between setting the flags and clearing the
-	 * tags because if another thread reads page->flags and builds a
-	 * tagged address out of it, there is an actual dependency to the
-	 * memory access, but on the current thread we do not guarantee that
-	 * the new page->flags are visible before the tags were updated.
-	 */
-	smp_wmb();
-	mte_restore_page_tags(page_address(page), tags);
-#else  // CONFIG_MTK_KASAN_DEBUG
 	/*
 	 * Test PG_mte_tagged again in case it was racing with another
 	 * set_pte_at().
 	 */
 	if (!test_and_set_bit(PG_mte_tagged, &page->flags))
 		mte_restore_page_tags(page_address(page), tags);
-#endif  // CONFIG_MTK_KASAN_DEBUG
 
 	return true;
 }
