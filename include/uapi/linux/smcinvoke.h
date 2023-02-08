@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef _UAPI_SMCINVOKE_H_
 #define _UAPI_SMCINVOKE_H_
@@ -9,6 +10,7 @@
 #include <linux/ioctl.h>
 
 #define SMCINVOKE_USERSPACE_OBJ_NULL	-1
+#define DEFAULT_CB_OBJ_THREAD_CNT	4
 
 struct smcinvoke_buf {
 	__u64 addr;
