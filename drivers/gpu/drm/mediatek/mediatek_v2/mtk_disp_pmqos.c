@@ -148,7 +148,7 @@ static bool mtk_disp_check_segment(struct mtk_drm_crtc *mtk_crtc,
 	vrefresh = drm_mode_vrefresh(&mtk_crtc->base.state->adjusted_mode);
 	bpc = mtk_crtc->bpc;
 
-	if (priv->seg_id == 2) {
+	if (priv->seg_id == 1) {
 		if (hact <= 720 && vact <= 1600 && bpc <= 8 && vrefresh < 95)
 			ret = true;
 		else
@@ -174,6 +174,14 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 	int i, j, ret = 0;
 
 	tmp = bw;
+
+	if (priv->data->mmsys_id == MMSYS_MT6835) {
+		if (mtk_disp_check_segment(mtk_crtc, priv) == false) {
+			mtk_icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(1));
+			DRM_MMP_MARK(hrt_bw, 0, 1);
+			return 0;
+		}
+	}
 
 	for (i = 0; i < DDP_PATH_NR; i++) {
 		if (!(mtk_crtc->ddp_ctx[mtk_crtc->ddp_mode].req_hrt[i]))
@@ -202,11 +210,6 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 
 	for (i = 0; i < MAX_CRTC; ++i)
 		total += priv->req_hrt[i];
-
-	if (priv->data->mmsys_id == MMSYS_MT6835) {
-		if (mtk_disp_check_segment(mtk_crtc, priv) == false)
-			tmp = 1;
-	}
 
 	mtk_icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(total));
 	DRM_MMP_MARK(hrt_bw, 0, tmp);
