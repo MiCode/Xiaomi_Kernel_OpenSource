@@ -26,6 +26,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/interconnect.h>
 #include <linux/interrupt.h>
 #include <linux/reset.h>
 
@@ -545,6 +546,9 @@ struct msdc_host {
 	u32 ocr_volt;
 	struct regulator *dvfsrc_vcore_power;
 	struct pm_qos_request pm_qos_req;
+	bool qos_enable;
+	struct icc_path *bw_path;
+	unsigned int peak_bw;
 };
 
 #endif  /* _MTK_MMC_H_ */

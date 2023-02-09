@@ -40,6 +40,7 @@
 #include "rpmb-mtk.h"
 #include <linux/arm-smccc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <mt-plat/dvfsrc-exp.h>
 #include <mt-plat/mtk_blocktag.h>
 
 
@@ -2636,6 +2637,21 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 		host->cqhci = true;
 	else
 		host->cqhci = false;
+
+	if (of_property_read_bool(pdev->dev.of_node, "mediatek,mmc-qos"))
+		host->qos_enable = true;
+	else
+		host->qos_enable = false;
+
+	if (host->qos_enable) {
+		host->bw_path = of_icc_get(&pdev->dev, "msdc-perf-bw");
+		if (IS_ERR(host->bw_path)) {
+			pr_info("mmc%d:failed to get icc path\n", host->id);
+			host->bw_path = NULL;
+		}
+		host->peak_bw =
+		    dvfsrc_get_required_opp_peak_bw(pdev->dev.of_node, 0);
+	}
 }
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
@@ -3108,6 +3124,8 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 	}
 	cpu_latency_qos_update_request(&host->pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
+
+	set_mmc_perf_mode(mmc, false);
 
 	return 0;
 }
