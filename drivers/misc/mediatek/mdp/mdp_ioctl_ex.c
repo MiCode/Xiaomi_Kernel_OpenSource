@@ -669,7 +669,7 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 	handle->user_debug_str = NULL;
 
 	if (!handle->engineFlag) {
-		CMDQ_ERR("%s: engineFlag 0x%x\n", __func__, handle->engineFlag);
+		CMDQ_ERR("%s: engineFlag %#llx\n", __func__, handle->engineFlag);
 		return -EINVAL;
 	}
 
