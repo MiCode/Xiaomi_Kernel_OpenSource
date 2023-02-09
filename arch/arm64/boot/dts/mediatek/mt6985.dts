@@ -4051,6 +4051,11 @@
 			status = "disabled";
 		};
 
+		dsi1_te: dsi1-te {
+			compatible = "mediatek, dsi1_te-int";
+			status = "disabled";
+		};
+
 		ap-ccif0@10209000 {
 			compatible = "mediatek,ap_ccif0";
 			reg = <0 0x10209000 0 0x1000>;
@@ -9718,6 +9723,7 @@
 			"disp_mutex2_eof",
 			"disp_ovlsys_wdma2_eof2",
 			"disp_dsi0_sof0",
+			"disp_dsi1_sof0",
 			"disp_token_vfp_period0",
 			"disp_token_disp_va_start0",
 			"disp_token_disp_va_end0",
@@ -9765,6 +9771,7 @@
 			<&gce CMDQ_EVENT_DISPSYS1_DISP_DP_INTF0_FRAME_DONE>,
 			<&gce CMDQ_EVENT_OVLSYS1_DISP_WDMA0_FRAME_DONE>,
 			<&gce CMDQ_EVENT_DISPSYS_DISP_DSI0_SOF>,
+			<&gce CMDQ_EVENT_DISPSYS1_DISP_DSI0_SOF>,
 			<&gce CMDQ_SYNC_TOKEN_VFP_PERIOD>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_START>,
 			<&gce CMDQ_SYNC_TOKEN_DISP_VA_END>,
