@@ -23,7 +23,7 @@
 
 void lock_system_sleep(void)
 {
-	freezer_do_not_count();
+	current->flags |= PF_FREEZER_SKIP;
 	mutex_lock(&system_transition_mutex);
 }
 EXPORT_SYMBOL_GPL(lock_system_sleep);

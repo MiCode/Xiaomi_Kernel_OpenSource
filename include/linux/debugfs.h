@@ -91,8 +91,6 @@ struct dentry *debugfs_create_automount(const char *name,
 void debugfs_remove(struct dentry *dentry);
 #define debugfs_remove_recursive debugfs_remove
 
-void debugfs_lookup_and_remove(const char *name, struct dentry *parent);
-
 const struct file_operations *debugfs_real_fops(const struct file *filp);
 
 int debugfs_file_get(struct dentry *dentry);
@@ -225,10 +223,6 @@ static inline void debugfs_remove(struct dentry *dentry)
 { }
 
 static inline void debugfs_remove_recursive(struct dentry *dentry)
-{ }
-
-static inline void debugfs_lookup_and_remove(const char *name,
-					     struct dentry *parent)
 { }
 
 const struct file_operations *debugfs_real_fops(const struct file *filp);

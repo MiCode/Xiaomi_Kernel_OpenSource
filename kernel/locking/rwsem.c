@@ -598,11 +598,6 @@ static inline bool rwsem_try_write_lock(struct rw_semaphore *sem,
 		new = count;
 
 		if (count & RWSEM_LOCK_MASK) {
-			/*
-			 * A waiter (first or not) can set the handoff bit
-			 * if it is an RT task or wait in the wait queue
-			 * for too long.
-			 */
 			if (has_handoff || (!rt_task(waiter->task) &&
 					    !time_after(jiffies, waiter->timeout)))
 				return false;
@@ -618,13 +613,11 @@ static inline bool rwsem_try_write_lock(struct rw_semaphore *sem,
 	} while (!atomic_long_try_cmpxchg_acquire(&sem->count, &count, new));
 
 	/*
-	 * We have either acquired the lock with handoff bit cleared or set
-	 * the handoff bit. Only the first waiter can have its handoff_set
-	 * set here to enable optimistic spinning in slowpath loop.
+	 * We have either acquired the lock with handoff bit cleared or
+	 * set the handoff bit.
 	 */
 	if (new & RWSEM_FLAG_HANDOFF) {
-		if (first)
-			waiter->handoff_set = true;
+		waiter->handoff_set = true;
 		lockevent_inc(rwsem_wlock_handoff);
 		return false;
 	}
@@ -1088,7 +1081,6 @@ rwsem_down_write_slowpath(struct rw_semaphore *sem, int state)
 {
 	long count;
 	struct rwsem_waiter waiter;
-	int null_owner_retries;
 	DEFINE_WAKE_Q(wake_q);
 	bool already_on_list = false;
 
@@ -1154,7 +1146,7 @@ wait:
 	/* wait until we successfully acquire the lock */
 	trace_android_vh_rwsem_write_wait_start(sem);
 	set_current_state(state);
-	for (null_owner_retries = 0;;) {
+	for (;;) {
 		if (rwsem_try_write_lock(sem, &waiter)) {
 			/* rwsem_try_write_lock() implies ACQUIRE on success */
 			break;
@@ -1180,21 +1172,8 @@ wait:
 			owner_state = rwsem_spin_on_owner(sem);
 			preempt_enable();
 
-			/*
-			 * owner is NULL doesn't guarantee the lock is free.
-			 * An incoming reader will temporarily increment the
-			 * reader count without changing owner and the
-			 * rwsem_try_write_lock() will fails if the reader
-			 * is not able to decrement it in time. Allow 8
-			 * trylock attempts when hitting a NULL owner before
-			 * going to sleep.
-			 */
-			if ((owner_state == OWNER_NULL) &&
-			    (null_owner_retries < 8)) {
-				null_owner_retries++;
+			if (owner_state == OWNER_NULL)
 				goto trylock_again;
-			}
-			null_owner_retries = 0;
 		}
 
 		schedule();

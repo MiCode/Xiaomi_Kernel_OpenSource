@@ -188,6 +188,7 @@ static void message_kill(struct message *m, mempool_t *pool)
 {
 	m->bio->bi_status = BLK_STS_IOERR;
 	bio_endio(m->bio);
+	bio_put(m->bio);
 	mempool_free(m, pool);
 }
 
@@ -988,6 +989,7 @@ finish_bio:
 	 */
 	WARN_ON(bio_size(c->cur_from_user->bio) != 0);
 	bio_endio(c->cur_from_user->bio);
+	bio_put(c->cur_from_user->bio);
 
 	/*
 	 * We don't actually need to take the target lock here, as all
@@ -1225,6 +1227,7 @@ static int user_map(struct dm_target *ti, struct bio *bio)
 		return DM_MAPIO_REQUEUE;
 	}
 
+	bio_get(bio);
 	entry->msg.type = bio_type_to_user_type(bio);
 	entry->msg.flags = bio_flags_to_user_flags(bio);
 	entry->msg.sector = bio->bi_iter.bi_sector;

@@ -475,9 +475,18 @@ static inline int rdev_assoc(struct cfg80211_registered_device *rdev,
 			     struct net_device *dev,
 			     struct cfg80211_assoc_request *req)
 {
+	const struct cfg80211_bss_ies *bss_ies;
 	int ret;
 
-	trace_rdev_assoc(&rdev->wiphy, dev, req);
+	/*
+	 * Note: we might trace not exactly the data that's processed,
+	 * due to races and the driver/mac80211 getting a newer copy.
+	 */
+	rcu_read_lock();
+	bss_ies = rcu_dereference(req->bss->ies);
+	trace_rdev_assoc(&rdev->wiphy, dev, req, bss_ies);
+	rcu_read_unlock();
+
 	ret = rdev->ops->assoc(&rdev->wiphy, dev, req);
 	trace_rdev_return_int(&rdev->wiphy, ret);
 	return ret;
@@ -752,14 +761,13 @@ static inline int rdev_tx_control_port(struct cfg80211_registered_device *rdev,
 				       struct net_device *dev,
 				       const void *buf, size_t len,
 				       const u8 *dest, __be16 proto,
-				       const bool noencrypt, int link,
-				       u64 *cookie)
+				       const bool noencrypt, u64 *cookie)
 {
 	int ret;
 	trace_rdev_tx_control_port(&rdev->wiphy, dev, buf, len,
-				   dest, proto, noencrypt, link);
+				   dest, proto, noencrypt);
 	ret = rdev->ops->tx_control_port(&rdev->wiphy, dev, buf, len,
-					 dest, proto, noencrypt, link, cookie);
+					 dest, proto, noencrypt, cookie);
 	if (cookie)
 		trace_rdev_return_int_cookie(&rdev->wiphy, ret, *cookie);
 	else

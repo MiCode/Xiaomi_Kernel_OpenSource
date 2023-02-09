@@ -330,7 +330,7 @@ TRACE_EVENT(f2fs_unlink_enter,
 		__field(ino_t,	ino)
 		__field(loff_t,	size)
 		__field(blkcnt_t, blocks)
-		__string(name,  dentry->d_name.name)
+		__field(const char *,	name)
 	),
 
 	TP_fast_assign(
@@ -338,7 +338,7 @@ TRACE_EVENT(f2fs_unlink_enter,
 		__entry->ino	= dir->i_ino;
 		__entry->size	= dir->i_size;
 		__entry->blocks	= dir->i_blocks;
-		__assign_str(name, dentry->d_name.name);
+		__entry->name	= dentry->d_name.name;
 	),
 
 	TP_printk("dev = (%d,%d), dir ino = %lu, i_size = %lld, "
@@ -346,7 +346,7 @@ TRACE_EVENT(f2fs_unlink_enter,
 		show_dev_ino(__entry),
 		__entry->size,
 		(unsigned long long)__entry->blocks,
-		__get_str(name))
+		__entry->name)
 );
 
 DEFINE_EVENT(f2fs__inode_exit, f2fs_unlink_exit,
@@ -943,32 +943,26 @@ TRACE_EVENT(f2fs_direct_IO_enter,
 	TP_STRUCT__entry(
 		__field(dev_t,	dev)
 		__field(ino_t,	ino)
-		__field(loff_t,	ki_pos)
-		__field(int,	ki_flags)
-		__field(u16,	ki_hint)
-		__field(u16,	ki_ioprio)
+		__field(struct kiocb *,	iocb)
 		__field(unsigned long,	len)
 		__field(int,	rw)
 	),
 
 	TP_fast_assign(
-		__entry->dev		= inode->i_sb->s_dev;
-		__entry->ino		= inode->i_ino;
-		__entry->ki_pos		= iocb->ki_pos;
-		__entry->ki_flags	= iocb->ki_flags;
-		__entry->ki_hint	= iocb->ki_hint;
-		__entry->ki_ioprio	= iocb->ki_ioprio;
-		__entry->len		= len;
-		__entry->rw		= rw;
+		__entry->dev	= inode->i_sb->s_dev;
+		__entry->ino	= inode->i_ino;
+		__entry->iocb	= iocb;
+		__entry->len	= len;
+		__entry->rw	= rw;
 	),
 
 	TP_printk("dev = (%d,%d), ino = %lu pos = %lld len = %lu ki_flags = %x ki_hint = %x ki_ioprio = %x rw = %d",
 		show_dev_ino(__entry),
-		__entry->ki_pos,
+		__entry->iocb->ki_pos,
 		__entry->len,
-		__entry->ki_flags,
-		__entry->ki_hint,
-		__entry->ki_ioprio,
+		__entry->iocb->ki_flags,
+		__entry->iocb->ki_hint,
+		__entry->iocb->ki_ioprio,
 		__entry->rw)
 );
 
@@ -1428,26 +1422,26 @@ TRACE_EVENT(f2fs_readpages,
 
 TRACE_EVENT(f2fs_write_checkpoint,
 
-	TP_PROTO(struct super_block *sb, int reason, const char *msg),
+	TP_PROTO(struct super_block *sb, int reason, char *msg),
 
 	TP_ARGS(sb, reason, msg),
 
 	TP_STRUCT__entry(
 		__field(dev_t,	dev)
 		__field(int,	reason)
-		__string(dest_msg, msg)
+		__field(char *,	msg)
 	),
 
 	TP_fast_assign(
 		__entry->dev		= sb->s_dev;
 		__entry->reason		= reason;
-		__assign_str(dest_msg, msg);
+		__entry->msg		= msg;
 	),
 
 	TP_printk("dev = (%d,%d), checkpoint for %s, state = %s",
 		show_dev(__entry->dev),
 		show_cpreason(__entry->reason),
-		__get_str(dest_msg))
+		__entry->msg)
 );
 
 DECLARE_EVENT_CLASS(f2fs_discard,

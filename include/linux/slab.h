@@ -343,8 +343,6 @@ enum kmalloc_cache_type {
 extern struct kmem_cache *
 kmalloc_caches[NR_KMALLOC_TYPES][KMALLOC_SHIFT_HIGH + 1];
 
-extern bool android_kmalloc_64_create;
-
 /*
  * Define gfp bits that should not be set for KMALLOC_NORMAL.
  */
@@ -395,9 +393,6 @@ static __always_inline unsigned int __kmalloc_index(size_t size,
 {
 	if (!size)
 		return 0;
-
-	if (android_kmalloc_64_create && size <= 64)
-		return 6;
 
 	if (size <= KMALLOC_MIN_SIZE)
 		return KMALLOC_SHIFT_LOW;

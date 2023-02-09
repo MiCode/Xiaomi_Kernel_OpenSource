@@ -338,10 +338,6 @@
 			connected to one of 16 gameports
 			Format: <type1>,<type2>,..<type16>
 
-	android_kmalloc_64_create [MM]
-			Creates all kmalloc variants of the 64-byte slab cache,
-			if the hardware supports it.
-
 	apc=		[HW,SPARC]
 			Power management functions (SPARCstation-4/5 + deriv.)
 			Format: noidle

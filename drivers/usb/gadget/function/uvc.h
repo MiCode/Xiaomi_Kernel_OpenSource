@@ -69,8 +69,6 @@ extern unsigned int uvc_gadget_trace_param;
 #define UVC_MAX_REQUEST_SIZE			64
 #define UVC_MAX_EVENTS				4
 
-#define UVCG_REQUEST_HEADER_LEN			2
-
 /* ------------------------------------------------------------------------
  * Structures
  */
@@ -79,8 +77,7 @@ struct uvc_request {
 	u8 *req_buffer;
 	struct uvc_video *video;
 	struct sg_table sgt;
-	u8 header[UVCG_REQUEST_HEADER_LEN];
-	struct uvc_buffer *last_buf;
+	u8 header[2];
 };
 
 struct uvc_video {

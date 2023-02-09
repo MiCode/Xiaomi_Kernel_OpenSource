@@ -302,7 +302,6 @@ int uvcg_queue_enable(struct uvc_video_queue *queue, int enable)
 
 		queue->sequence = 0;
 		queue->buf_used = 0;
-		queue->flags &= ~UVC_QUEUE_DROP_INCOMPLETE;
 	} else {
 		ret = vb2_streamoff(&queue->queue, queue->queue.type);
 		if (ret < 0)
@@ -325,16 +324,24 @@ int uvcg_queue_enable(struct uvc_video_queue *queue, int enable)
 }
 
 /* called with &queue_irqlock held.. */
-void uvcg_complete_buffer(struct uvc_video_queue *queue,
+struct uvc_buffer *uvcg_queue_next_buffer(struct uvc_video_queue *queue,
 					  struct uvc_buffer *buf)
 {
-	if (queue->flags & UVC_QUEUE_DROP_INCOMPLETE) {
-		queue->flags &= ~UVC_QUEUE_DROP_INCOMPLETE;
-		buf->state = UVC_BUF_STATE_ERROR;
+	struct uvc_buffer *nextbuf;
+
+	if ((queue->flags & UVC_QUEUE_DROP_INCOMPLETE) &&
+	     buf->length != buf->bytesused) {
+		buf->state = UVC_BUF_STATE_QUEUED;
 		vb2_set_plane_payload(&buf->buf.vb2_buf, 0, 0);
-		vb2_buffer_done(&buf->buf.vb2_buf, VB2_BUF_STATE_ERROR);
-		return;
+		return buf;
 	}
+
+	list_del(&buf->queue);
+	if (!list_empty(&queue->irqqueue))
+		nextbuf = list_first_entry(&queue->irqqueue, struct uvc_buffer,
+					   queue);
+	else
+		nextbuf = NULL;
 
 	buf->buf.field = V4L2_FIELD_NONE;
 	buf->buf.sequence = queue->sequence++;
@@ -342,6 +349,8 @@ void uvcg_complete_buffer(struct uvc_video_queue *queue,
 
 	vb2_set_plane_payload(&buf->buf.vb2_buf, 0, buf->bytesused);
 	vb2_buffer_done(&buf->buf.vb2_buf, VB2_BUF_STATE_DONE);
+
+	return nextbuf;
 }
 
 struct uvc_buffer *uvcg_queue_head(struct uvc_video_queue *queue)
