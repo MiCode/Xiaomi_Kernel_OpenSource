@@ -4158,7 +4158,7 @@ void mtk_drm_crtc_mode_check(struct drm_crtc *crtc,
 		return;
 
 	/*connector is changed , update mode_idx to new one*/
-	if (of_property_read_bool(priv->mmsys_dev->of_node, "enable_output_int_switch")
+	if (of_property_read_bool(priv->mmsys_dev->of_node, "enable-output-int-switch")
 		&& old_state->connectors_changed) {
 		DDPMSG("%s++ from %u to %u when connectors changed\n", __func__,
 		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
@@ -9876,7 +9876,7 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 	}
 
 	/*update interface when connector is changed*/
-	if (of_property_read_bool(priv->mmsys_dev->of_node, "enable_output_int_switch"))
+	if (of_property_read_bool(priv->mmsys_dev->of_node, "enable-output-int-switch"))
 		mtk_drm_crtc_update_interface(crtc, atomic_state);
 
 	mtk_drm_crtc_enable(crtc);
@@ -14348,7 +14348,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		node = priv->comp_node[comp_id];
 		if (!node) {
 			if (!of_property_read_bool(priv->mmsys_dev->of_node,
-				"enable_output_int_switch")
+				"enable-output-int-switch")
 				&& mtk_ddp_comp_is_output_by_id(comp_id)
 				&& pipe == 0 && p_mode == DDP_MINOR) {
 				DDPMSG("skip this error because %d is not enabled.\n", comp_id);
@@ -14451,7 +14451,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 					[j - mtk_crtc->ddp_ctx[p_mode].ovl_comp_nr[i]] = comp;
 			continue;
 		}
-		if (!of_property_read_bool(priv->mmsys_dev->of_node, "enable_output_int_switch")
+		if (!of_property_read_bool(priv->mmsys_dev->of_node, "enable-output-int-switch")
 			&& mtk_ddp_comp_is_output_by_id(comp_id)
 			&& pipe == 0 && p_mode == DDP_MINOR) {
 			DDPMSG("skip this component because %d is not enabled.\n", comp_id);

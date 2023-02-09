@@ -132,7 +132,7 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 		private->session_mode, session_mode);
 
 	if (of_property_read_bool(private->mmsys_dev->of_node,
-				"enable_output_int_switch")) {
+				"enable-output-int-switch")) {
 		DDPMSG("%s ignore set mode because of output switch\n", __func__);
 		private->session_mode = session_mode;
 		goto success;
