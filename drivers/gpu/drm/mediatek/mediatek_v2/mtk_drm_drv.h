@@ -217,6 +217,7 @@ struct mtk_drm_private {
 
 	struct mml_drm_ctx *mml_ctx;
 	atomic_t need_recover;
+	unsigned int seg_id;
 };
 
 struct mtk_drm_property {
