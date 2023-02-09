@@ -12450,14 +12450,16 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 	//discrete mdp_rdma need fill full frame
 	if (mtk_crtc->path_data->is_discrete_path) {
 		first_comp = mtk_crtc_get_comp(crtc, mtk_crtc->ddp_mode, 0, 0);
-		mtk_ddp_comp_io_cmd(first_comp, cmdq_handle,
-			MDP_RDMA_FILL_FRAME, NULL);
-		if (mtk_crtc->is_dual_pipe) {
-			r_comp_id = dual_pipe_comp_mapping(
-				priv->data->mmsys_id, first_comp->id);
-			r_comp = priv->ddp_comp[r_comp_id];
-			mtk_ddp_comp_io_cmd(r_comp, cmdq_handle,
-				MDP_RDMA_FILL_FRAME, NULL);
+		if (first_comp != NULL) {
+			mtk_ddp_comp_io_cmd(first_comp, cmdq_handle,
+					MDP_RDMA_FILL_FRAME, NULL);
+			if (mtk_crtc->is_dual_pipe) {
+				r_comp_id = dual_pipe_comp_mapping(
+						priv->data->mmsys_id, first_comp->id);
+				r_comp = priv->ddp_comp[r_comp_id];
+				mtk_ddp_comp_io_cmd(r_comp, cmdq_handle,
+						MDP_RDMA_FILL_FRAME, NULL);
+			}
 		}
 	}
 
@@ -12539,15 +12541,17 @@ int mtk_crtc_gce_flush(struct drm_crtc *crtc, void *gce_cb,
 		pending_handle = mtk_crtc->pending_handle;
 		mtk_crtc->pending_handle = NULL;
 		discrete_cb_data = kmalloc(sizeof(*discrete_cb_data), GFP_KERNEL);
-		discrete_cb_data->cmdq_handle = pending_handle;
-		discrete_cb_data->crtc = crtc;
+		if (discrete_cb_data != NULL) {
+			discrete_cb_data->cmdq_handle = pending_handle;
+			discrete_cb_data->crtc = crtc;
 
-		DDPINFO("[discrete] flush pending hnd:0x%x\n",
-			pending_handle);
-		CRTC_MMP_MARK(crtc_index, discrete, 0,
-			(unsigned long)pending_handle);
-		cmdq_pkt_flush_threaded(pending_handle,
-			mtk_drm_discrete_cb, discrete_cb_data);
+			DDPINFO("[discrete] flush pending hnd:0x%x\n",
+					pending_handle);
+			CRTC_MMP_MARK(crtc_index, discrete, 0,
+					(unsigned long)pending_handle);
+			cmdq_pkt_flush_threaded(pending_handle,
+					mtk_drm_discrete_cb, discrete_cb_data);
+		}
 	}
 
 	/* For DL write-back path */
