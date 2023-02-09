@@ -52,10 +52,17 @@ static ssize_t enable_read(char *ToUser, size_t sz, void *priv)
 static ssize_t enable_write(char *FromUser, size_t sz, void *priv)
 {
 	int type, enable;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
 	if (sscanf(FromUser, "%d %d", &type, &enable) == 2) {
 		swpm_lock(&swpm_mutex);
 		swpm_set_enable(type, enable);
@@ -65,9 +72,11 @@ static ssize_t enable_write(char *FromUser, size_t sz, void *priv)
 		else
 			del_timer(&swpm_timer);
 		swpm_unlock(&swpm_mutex);
+		ret = sz;
 	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op enable_fops = {
@@ -124,18 +133,26 @@ static ssize_t swpm_pmsr_en_read(char *ToUser, size_t sz, void *priv)
 static ssize_t swpm_pmsr_en_write(char *FromUser, size_t sz, void *priv)
 {
 	unsigned int enable = 0;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
 	if (!kstrtouint(FromUser, 0, &enable)) {
 		swpm_pmsr_en = !!enable;
 		swpm_set_only_cmd(0, swpm_pmsr_en,
 				  PMSR_SET_EN, PMSR_CMD_TYPE);
-
+		ret = sz;
 	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op swpm_pmsr_en_fops = {

@@ -46,17 +46,25 @@ static ssize_t pmu_ms_mode_read(char *ToUser, size_t sz, void *priv)
 static ssize_t pmu_ms_mode_write(char *FromUser, size_t sz, void *priv)
 {
 	unsigned int enable = 0;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
 	if (!kstrtouint(FromUser, 0, &enable)) {
 		pmu_ms_mode = enable;
-
 		swpm_set_only_cmd(0, pmu_ms_mode, CPU_SET_PMU_MS, CPU_CMD_TYPE);
+		ret = sz;
 	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op pmu_ms_mode_fops = {

@@ -46,19 +46,28 @@ static ssize_t core_static_replace_read(char *ToUser, size_t sz, void *priv)
 static ssize_t core_static_replace_write(char *FromUser, size_t sz, void *priv)
 {
 	unsigned int val = 0;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
 	if (!kstrtouint(FromUser, 0, &val)) {
 		core_static_data_tmp = (val < 1000) ? val : 0;
 
 		/* reset core static power data */
 		swpm_core_static_replaced_data_set(core_static_data_tmp);
 		swpm_core_static_data_init();
+		ret = sz;
 	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op core_static_replace_fops = {

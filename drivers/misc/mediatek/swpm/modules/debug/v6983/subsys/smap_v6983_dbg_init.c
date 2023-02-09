@@ -53,10 +53,17 @@ static ssize_t smap_config_read(char *ToUser, size_t sz, void *priv)
 static ssize_t smap_config_write(char *FromUser, size_t sz, void *priv)
 {
 	unsigned int type, val, type_idx;
+	int ret;
+
+	ret = -EINVAL;
 
 	if (!FromUser)
-		return -EINVAL;
+		goto out;
 
+	if (sz >= MTK_SWPM_SYSFS_BUF_WRITESZ)
+		goto out;
+
+	ret = -EPERM;
 	if (sscanf(FromUser, "%x %x", &type, &val) == 2) {
 		/* record config history */
 		if ((type & 0xFFFF) < MAX_SMAP_CONFIG_HISTORY) {
@@ -67,9 +74,11 @@ static ssize_t smap_config_write(char *FromUser, size_t sz, void *priv)
 
 		/* TODO: independent SCMI call in after project */
 		swpm_set_only_cmd(type, val, SMAP_SET_CFG, SMAP_CMD_TYPE);
+		ret = sz;
 	}
 
-	return sz;
+out:
+	return ret;
 }
 
 static const struct mtk_swpm_sysfs_op config_fops = {
