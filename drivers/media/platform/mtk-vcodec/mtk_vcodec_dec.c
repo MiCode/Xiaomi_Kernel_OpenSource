@@ -220,6 +220,15 @@ static void update_dst_cnt(struct mtk_vcodec_ctx *ctx)
 		(*ctx->dst_cnt) = v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx);
 }
 
+static int mtk_vdec_get_align_limit(struct mtk_vcodec_ctx *ctx)
+{
+	if (mtk_vdec_align_limit > 0)
+		return mtk_vdec_align_limit;
+	if (ctx->dec_params.svp_mode || ctx->picinfo.buf_w * ctx->picinfo.buf_h > MTK_VDEC_4K_WH)
+		return MIN(ctx->dpb_size - 6, 2);
+	return MIN(ctx->dpb_size - 6, 4);
+}
+
 static struct mtk_video_fmt *mtk_vdec_find_format(struct mtk_vcodec_ctx *ctx,
 	struct v4l2_format *f, unsigned int t)
 {
@@ -1516,7 +1525,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 	unsigned int dpbsize = 0;
 	struct mtk_color_desc color_desc = {.is_hdr = 0};
 	struct vdec_fb drain_fb;
-	unsigned int pair_cnt;
+	unsigned int pair_cnt, limit_cnt;
 
 	mutex_lock(&ctx->worker_lock);
 	if (ctx->state != MTK_STATE_HEADER) {
@@ -1806,6 +1815,16 @@ static void mtk_vdec_worker(struct work_struct *work)
 			if (ctx->align_start_cnt == 0) {
 				atomic_cmpxchg(&ctx->align_type, VDEC_ALIGN_FULL, VDEC_ALIGN_WAIT);
 				(*ctx->wait_align) = true;
+
+				limit_cnt = mtk_vdec_get_align_limit(ctx);
+				if (pair_cnt >= limit_cnt) {
+					mtk_v4l2_debug(2, "[%d] pair cnt %d(%d,%d) >= %d when align mode, need to set align_type(%d)",
+						ctx->id, pair_cnt,
+						(*ctx->src_cnt), (*ctx->dst_cnt),
+						limit_cnt, atomic_read(&ctx->align_type));
+					atomic_cmpxchg(&ctx->align_type,
+						VDEC_ALIGN_WAIT, VDEC_ALIGN_FULL); // 0->1
+				}
 			}
 		} else if (pair_cnt == 0) {
 			if (atomic_cmpxchg(&ctx->align_type,
@@ -3202,15 +3221,6 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 	return 0;
 }
 
-static int mtk_vdec_get_align_limit(struct mtk_vcodec_ctx *ctx)
-{
-	if (mtk_vdec_align_limit > 0)
-		return mtk_vdec_align_limit;
-	if (ctx->dec_params.svp_mode || ctx->picinfo.buf_w * ctx->picinfo.buf_h > MTK_VDEC_4K_WH)
-		return MIN(ctx->dpb_size - 6, 2);
-	return MIN(ctx->dpb_size - 6, 4);
-}
-
 static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 {
 	struct vb2_buffer *src_buf;
@@ -3914,29 +3924,30 @@ static void m2mops_vdec_device_run(void *priv)
 static int m2mops_vdec_job_ready(void *m2m_priv)
 {
 	struct mtk_vcodec_ctx *ctx = m2m_priv;
-
-	mtk_v4l2_debug(4, "[%d]", ctx->id);
+	int ret = 1;
 
 	if (ctx->state == MTK_STATE_ABORT)
-		return 0;
+		ret = 0;
 
 	if ((ctx->last_decoded_picinfo.pic_w != ctx->picinfo.pic_w) ||
 		(ctx->last_decoded_picinfo.pic_h != ctx->picinfo.pic_h) ||
 		(ctx->last_dpb_size != ctx->dpb_size) ||
 		(ctx->last_is_hdr != ctx->is_hdr))
-		return 0;
+		ret = 0;
 
 	if (ctx->state != MTK_STATE_HEADER)
-		return 0;
+		ret = 0;
 
 	if (ctx->input_driven != NON_INPUT_DRIVEN && (*ctx->ipi_blocked))
-		return 0;
+		ret = 0;
 
 	if (ctx->input_driven == NON_INPUT_DRIVEN && ctx->align_mode &&
 		atomic_read(&ctx->align_type) == VDEC_ALIGN_WAIT && (*ctx->wait_align))
-		return 0;
+		ret = 0;
 
-	return 1;
+	mtk_v4l2_debug(4, "[%d] ret %d", ctx->id, ret);
+
+	return ret;
 }
 
 static void m2mops_vdec_job_abort(void *priv)
