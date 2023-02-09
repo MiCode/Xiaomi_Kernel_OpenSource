@@ -14,6 +14,7 @@
 #define KERNEL_mtk_uart_get_apdma_rpt	mtk_uart_get_apdma_rpt
 #define KERNEL_mtk_uart_set_res_status	mtk_uart_set_res_status
 #define KERNEL_mtk_uart_get_res_status	mtk_uart_get_res_status
+#define KERNEL_mtk_uart_apdma_polling_rx_finish mtk_uart_apdma_polling_rx_finish
 
 void mtk_save_uart_apdma_reg(struct dma_chan *chan, unsigned int *reg_buf);
 void mtk_uart_apdma_data_dump(struct dma_chan *chan);
@@ -23,6 +24,7 @@ void mtk_uart_apdma_end_record(struct dma_chan *chan);
 void mtk_uart_get_apdma_rpt(struct dma_chan *chan, unsigned int *rpt);
 void mtk_uart_set_res_status(unsigned int status);
 unsigned int mtk_uart_get_res_status(void);
+void mtk_uart_apdma_polling_rx_finish(struct dma_chan *chan);
 
 
 #endif /* MTK_UART_APDMA_H */

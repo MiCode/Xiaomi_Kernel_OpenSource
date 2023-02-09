@@ -275,41 +275,69 @@ static void mtk8250_reset_peri(struct uart_8250_port *up)
 		iounmap(peri_remap_reset_clr);
 }
 
-static void mtk8250_clear_fifo(struct tty_struct *tty)
+/*
+ * uart disable dma --> avoid new apdma request occurred
+ * checking apdma transaction status
+ * polling to finish if necessary --> make sure existed apdma request be done
+ * uart disable fifo --> clear FIFO
+ * uart enable dma --> enable DMA
+ * uart enable fifo --> enable fifo after DMA mode enabled
+ */
+static int mtk8250_clear_fifo(struct tty_struct *tty)
 {
+	int ret = 0;
 	struct uart_state *state = NULL;
 	struct uart_port *port = NULL;
 	struct uart_8250_port *up = NULL;
 
 	if (tty == NULL) {
 		pr_info("[%s] para error. tty is NULL\n", __func__);
+		ret = -EINVAL;
 		goto exit;
 	}
 
 	state = tty->driver_data;
 	if (state == NULL) {
 		pr_info("[%s] para error. state is NULL\n", __func__);
+		ret = -EINVAL;
 		goto exit;
 	}
 
 	port = state->uart_port;
 	if (port == NULL) {
 		pr_info("[%s] para error. port is NULL\n", __func__);
+		ret = -EINVAL;
 		goto exit;
 	}
 
 	up = up_to_u8250p(port);
 	if (up == NULL) {
 		pr_info("[%s] para error. up is NULL\n", __func__);
+		ret = -EINVAL;
 		goto exit;
 	}
 
-	/*clear fifo*/
-	serial_out(up, UART_FCR, UART_FCR_ENABLE_FIFO | UART_FCR_CLEAR_RCVR |
-		UART_FCR_CLEAR_XMIT);
+   //disable DMA mode
+	serial_out(up, MTK_UART_DMA_EN, 0);
+
+	//polling existed apdma request util finish
+	#if defined(KERNEL_mtk_uart_apdma_polling_rx_finish)
+	KERNEL_mtk_uart_apdma_polling_rx_finish(up->dma->rxchan);
+	#endif
+
+	//disable UART FIFO
+	serial_out(up, UART_FCR, serial_in(up, UART_FCR) & (~UART_FCR_ENABLE_FIFO));
+
+	//enable DMA mode
+	serial_out(up, MTK_UART_DMA_EN,
+		MTK_UART_DMA_EN_RX | MTK_UART_DMA_EN_TX);
+
+	//enable UART FIFO
+	serial_out(up, UART_FCR,
+		(serial_in(up, UART_FCR) & (~UART_FCR_ENABLE_FIFO)) | UART_FCR_ENABLE_FIFO);
 
 exit:
-	return;
+	return ret;
 
 }
 
@@ -818,7 +846,6 @@ int mtk8250_uart_hub_dev0_set_tx_request(struct tty_struct *tty)
 {
 	#if defined(KERNEL_UARTHUB_dev0_set_tx_request)
 		int ret  = 0;
-		unsigned int old_res_status = 0;
 
 		ret = KERNEL_UARTHUB_dev0_set_tx_request();
 		if (ret) {
@@ -829,18 +856,8 @@ int mtk8250_uart_hub_dev0_set_tx_request(struct tty_struct *tty)
 
 	#if defined(KERNEL_mtk_uart_set_res_status)
 		KERNEL_mtk_uart_set_res_status(1);
-		pr_info("%s: old:%d, set res status as 1\n",
-			__func__, old_res_status);
+		pr_info("%s: set res status as 1\n", __func__);
 	#endif
-
-		/*dump fifo status*/
-		//mtk8250_uart_start_record(tty);
-		/*clear uart fifo*/
-		old_res_status = KERNEL_mtk_uart_get_res_status();
-		if (!old_res_status)
-			mtk8250_clear_fifo(tty);
-		/*dump fifo status*/
-		//mtk8250_uart_end_record(tty);
 
 exit:
 		return ret;
@@ -877,6 +894,12 @@ int mtk8250_uart_hub_dev0_clear_rx_request(struct tty_struct *tty)
 	/*clear ap uart*/
 	mtk8250_clear_wakeup();
 
+	/*polling tx fifo empty*/
+	mtk8250_polling_tx_fifo_empty(tty);
+
+	/*clear fifo*/
+	mtk8250_clear_fifo(tty);
+
 	ret = KERNEL_UARTHUB_dev0_clear_rx_request();
 	if (ret) {
 		pr_info("%s failed\n", __func__);
@@ -887,18 +910,6 @@ int mtk8250_uart_hub_dev0_clear_rx_request(struct tty_struct *tty)
 	KERNEL_mtk_uart_set_res_status(0);
 	pr_info("%s: set res status as 0\n", __func__);
 #endif
-
-	/*dump fifo status*/
-	//mtk8250_uart_start_record(tty);
-
-	/*polling tx fifo empty*/
-	mtk8250_polling_tx_fifo_empty(tty);
-
-	/*clear fifo*/
-	mtk8250_clear_fifo(tty);
-
-	/*dump fifo status*/
-	//mtk8250_uart_end_record(tty);
 
 exit:
 	return ret;

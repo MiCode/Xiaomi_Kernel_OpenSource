@@ -48,6 +48,7 @@
 #define VFF_4G_SUPPORT_CLR_B	0
 #define VFF_ORI_ADDR_BITS_NUM    32
 #define VFF_RX_FLOWCTL_THRE_SIZE 0xc00
+#define VFF_RX_TRANS_FINISH_MASK 0x7F  /*bit 0~7*/
 /*
  * interrupt trigger level for tx
  * if threshold is n, no polling is required to start tx.
@@ -375,6 +376,23 @@ void mtk_uart_get_apdma_rpt(struct dma_chan *chan, unsigned int *rpt)
 	c->rec_info[idx].copy_wpt_reg = mtk_uart_apdma_read(c, VFF_WPT);
 }
 EXPORT_SYMBOL(mtk_uart_get_apdma_rpt);
+
+void mtk_uart_apdma_polling_rx_finish(struct mtk_chan *chan)
+{
+	unsigned int rx_status = 0, poll_cnt = MAX_POLL_CNT_RX;
+
+	rx_status = mtk_uart_apdma_read(chan, VFF_DEBUG_STATUS);
+	while ((rx_status & VFF_RX_TRANS_FINISH_MASK) && poll_cnt) {
+		udelay(1);
+		rx_status = mtk_uart_apdma_read(chan, VFF_DEBUG_STATUS);
+		poll_cnt--;
+	}
+
+	rx_status = mtk_uart_apdma_read(chan, VFF_DEBUG_STATUS);
+	if (!poll_cnt && (rx_status & VFF_RX_TRANS_FINISH_MASK))
+		pr_info("[WARN]poll cnt is exhausted, DEBUG_STATUS:0x%x\n", rx_status);
+}
+EXPORT_SYMBOL(mtk_uart_apdma_polling_rx_finish);
 
 static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
 {
