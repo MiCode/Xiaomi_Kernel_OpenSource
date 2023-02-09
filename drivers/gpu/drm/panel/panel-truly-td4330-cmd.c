@@ -808,6 +808,13 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	ctx->prepared = true;
 	ctx->enabled = true;
 
+	if (of_property_read_bool(dsi_node, "init-panel-off")) {
+		ctx->prepared = false;
+		ctx->enabled = false;
+		pr_info("td4330 dsi_node:%s set prepared = enabled = false\n",
+					dsi_node->full_name);
+	}
+
 	if (of_property_read_bool(dev->of_node, "swap-from-dts")) {
 		ret = of_property_read_u32_array(dev->of_node, "lane-swap-setting", lane_swap, 6);
 		if (ret == 0) {

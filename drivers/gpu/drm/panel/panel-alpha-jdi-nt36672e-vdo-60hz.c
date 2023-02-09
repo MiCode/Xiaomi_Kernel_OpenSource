@@ -1043,6 +1043,14 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	}
 	ctx->prepared = true;
 	ctx->enabled = true;
+
+	if (of_property_read_bool(dsi_node, "init-panel-off")) {
+		ctx->prepared = false;
+		ctx->enabled = false;
+		pr_info("nt36672e,60hz dsi_node:%s set prepared = enabled = false\n",
+					dsi_node->full_name);
+	}
+
 	drm_panel_init(&ctx->panel, dev, &jdi_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 
 	drm_panel_add(&ctx->panel);
