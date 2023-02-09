@@ -3058,6 +3058,8 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
 
+	camsv_dev->is_clk_en = 0;
+
 	return 0;
 }
 
@@ -3084,6 +3086,7 @@ static int mtk_camsv_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
+	camsv_dev->is_clk_en = 1;
 	sv_reset_by_camsys_top(camsv_dev);
 
 	for (i = 0; i < CAMSV_IRQ_NUM; i++) {

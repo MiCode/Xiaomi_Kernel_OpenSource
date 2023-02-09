@@ -1059,7 +1059,7 @@ mtk_cam_is_nonimmediate_switch_req(struct mtk_cam_request *req,
 static inline
 void mtk_cam_disable_sv_vf(struct mtk_cam_ctx *ctx)
 {
-	if (ctx && ctx->sv_dev)
+	if (ctx && ctx->sv_dev && ctx->sv_dev->is_clk_en)
 		mtk_cam_sv_vf_disable(ctx->sv_dev);
 }
 

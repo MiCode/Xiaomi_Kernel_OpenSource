@@ -232,6 +232,7 @@ struct mtk_camsv_device {
 	unsigned int first_tag;
 	unsigned int last_tag;
 	unsigned int ufo_en_tags;
+	unsigned int is_clk_en;
 
 	int fifo_size;
 	void *msg_buffer;
