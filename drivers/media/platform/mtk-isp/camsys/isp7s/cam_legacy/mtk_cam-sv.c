@@ -1591,10 +1591,12 @@ int mtk_cam_sv_fbc_pertag_enable(
 
 int mtk_cam_sv_vf_disable(struct mtk_camsv_device *dev)
 {
+#if SV_VF_OFF_IN_RAW_RESET
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
 		 CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
 
 	mtk_cam_sv_toggle_tg_db(dev);
+#endif
 	return 0;
 }
 
