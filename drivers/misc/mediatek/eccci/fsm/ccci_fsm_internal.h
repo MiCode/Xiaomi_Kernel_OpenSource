@@ -167,10 +167,18 @@ enum ccci_ipi_op_id {
 #define CCCI_AED_DUMP_EX_PKT		(1<<3)
 #define MD_EX_MPU_STR_LEN (512)
 #define MD_EX_START_TIME_LEN (128)
+#define SCP_MSG_CHECK_A 0xABCDDCBA
+#define SCP_MSG_CHECK_B 0xAABBCCDD
 
 /************ structures ************/
 
-struct ccci_ipi_msg {
+struct ccci_ipi_msg_out {
+	u16 md_id; //compatibility member
+	u16 op_id;
+	u32 data[3];
+} __packed;
+
+struct ccci_ipi_msg_in {
 	u16 md_id; //compatibility member
 	u16 op_id;
 	u32 data[1];

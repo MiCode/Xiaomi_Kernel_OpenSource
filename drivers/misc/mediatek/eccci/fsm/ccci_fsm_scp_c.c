@@ -51,16 +51,22 @@ unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
 #endif
 
 static atomic_t scp_state = ATOMIC_INIT(SCP_CCCI_STATE_INVALID);
-static struct ccci_ipi_msg scp_ipi_tx_msg;
+static struct ccci_ipi_msg_out scp_ipi_tx_msg;
+#if (MD_GENERATION >= 6297)
+static struct ccci_ipi_msg_in scp_ipi_rx_msg;
+#endif
 static struct mutex scp_ipi_tx_mutex;
 static struct work_struct scp_ipi_rx_work;
 static wait_queue_head_t scp_ipi_rx_wq;
 static struct ccci_skb_queue scp_ipi_rx_skb_list;
 static unsigned int init_work_done;
 static unsigned int scp_clk_last_state;
-#if (MD_GENERATION >= 6297)
-static struct ccci_ipi_msg scp_ipi_rx_msg;
-#endif
+
+static inline void ccci_scp_ipi_msg_add_magic(struct ccci_ipi_msg_out *ipi_msg)
+{
+	ipi_msg->data[1] = SCP_MSG_CHECK_A;
+	ipi_msg->data[2] = SCP_MSG_CHECK_B;
+}
 
 static int ccci_scp_ipi_send(int op_id, void *data)
 {
@@ -82,10 +88,12 @@ static int ccci_scp_ipi_send(int op_id, void *data)
 	scp_ipi_tx_msg.md_id = 0;
 	scp_ipi_tx_msg.op_id = op_id;
 	scp_ipi_tx_msg.data[0] = *((u32 *)data);
+	ccci_scp_ipi_msg_add_magic(&scp_ipi_tx_msg);
 	CCCI_NORMAL_LOG(0, FSM,
-		"IPI send op_id=%d/data=0x%x, size=%d\n",
-		scp_ipi_tx_msg.op_id, scp_ipi_tx_msg.data[0],
-		(int)sizeof(struct ccci_ipi_msg));
+		"IPI send op_id=%d/data0=0x%x,data1=0x%x,data2=0x%x size=%d\n",
+		scp_ipi_tx_msg.op_id,
+		scp_ipi_tx_msg.data[0], scp_ipi_tx_msg.data[1], scp_ipi_tx_msg.data[2],
+		(int)sizeof(struct ccci_ipi_msg_out));
 #if (MD_GENERATION >= 6297)
 	while (1) {
 		ipi_status = mtk_ipi_send(&scp_ipidev, IPI_OUT_APCCCI_0,
@@ -100,7 +108,7 @@ static int ccci_scp_ipi_send(int op_id, void *data)
 		}
 	}
 	if (ipi_status != IPI_ACTION_DONE) {
-		CCCI_ERROR_LOG(0, FSM, "IPI send fail!\n");
+		CCCI_ERROR_LOG(0, FSM, "IPI send fail, ipi_status = %d!\n", ipi_status);
 		ret = -CCCI_ERR_MD_NOT_READY;
 	}
 #else
@@ -238,7 +246,7 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 
 static void ccci_scp_ipi_rx_work(struct work_struct *work)
 {
-	struct ccci_ipi_msg *ipi_msg_ptr = NULL;
+	struct ccci_ipi_msg_in *ipi_msg_ptr = NULL;
 	struct sk_buff *skb = NULL;
 	int data, ret;
 	struct ccci_fsm_ctl *ctl = fsm_get_entity();
@@ -250,7 +258,7 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 				"ccci_skb_dequeue fail\n");
 			return;
 		}
-		ipi_msg_ptr = (struct ccci_ipi_msg *)skb->data;
+		ipi_msg_ptr = (struct ccci_ipi_msg_in *)skb->data;
 		if (!get_modem_is_enabled()) {
 			CCCI_ERROR_LOG(0, CORE, "MD not exist\n");
 			return;
@@ -319,10 +327,10 @@ static int ccci_scp_ipi_handler(unsigned int id, void *prdata, void *data,
 {
 	struct sk_buff *skb = NULL;
 
-	if (len != sizeof(struct ccci_ipi_msg)) {
+	if (len != sizeof(struct ccci_ipi_msg_in)) {
 		CCCI_ERROR_LOG(-1, CORE,
-		"IPI handler, data length wrong %d vs. %d\n",
-		len, (int)sizeof(struct ccci_ipi_msg));
+			"IPI handler, data length wrong %d vs. %d\n",
+			len, (int)sizeof(struct ccci_ipi_msg_in));
 		return -1;
 	}
 
@@ -344,8 +352,8 @@ static void ccci_scp_ipi_handler(int id, void *data, unsigned int len)
 
 	if (len != sizeof(struct ccci_ipi_msg)) {
 		CCCI_ERROR_LOG(-1, CORE,
-		"IPI handler, data length wrong %d vs. %d\n",
-		len, (int)sizeof(struct ccci_ipi_msg));
+			"IPI handler, data length wrong %d vs. %d\n",
+			len, (int)sizeof(struct ccci_ipi_msg));
 		return;
 	}
 	CCCI_NORMAL_LOG(0, CORE, "IPI handler %d/0x%x, %d\n",
