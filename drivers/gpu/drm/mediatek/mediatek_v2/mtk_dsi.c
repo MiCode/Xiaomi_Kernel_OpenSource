@@ -3001,7 +3001,32 @@ void set_value_to_arr(unsigned char *arr, unsigned int count, unsigned int value
 	}
 }
 
-extern unsigned int bg_tx_data_phy_cycle;
+static void mtk_dsi_phy_timconfig_6382(struct mtk_dsi *dsi,
+				unsigned char *value0,
+				unsigned char *value1,
+				struct cmdq_pkt *handle)
+{
+	/* 0x00021110 = 0x0000000 */
+	unsigned char bdg_timcon0[8] = {
+			0x10, 0x11, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+	/* 0x0002114 = 0x0000000 */
+	unsigned char bdg_timcon1[8] = {
+			0x14, 0x11, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+	bdg_timcon0[4] = value0[0];
+	bdg_timcon0[5] = value0[1];
+	bdg_timcon0[6] = value0[2];
+	bdg_timcon0[7] = value0[3];
+	mipi_dsi_write_6382(dsi, handle, bdg_timcon0, 8);
+
+	bdg_timcon1[4] = value1[0];
+	bdg_timcon1[5] = value1[1];
+	bdg_timcon1[6] = value1[2];
+	bdg_timcon1[7] = value1[3];
+	mipi_dsi_write_6382(dsi, handle, bdg_timcon1, 8);
+}
+
 static void mtk_dsi_porch_setting_6382(struct mtk_dsi *dsi, struct cmdq_pkt *handle)
 {
 	/* 0x00021058 = 0x0000000 */
@@ -3015,6 +3040,9 @@ static void mtk_dsi_porch_setting_6382(struct mtk_dsi *dsi, struct cmdq_pkt *han
 	struct dynamic_mipi_params *dyn = NULL;
 	struct videomode *vm = &dsi->vm;
 	u32 value = 0;
+	unsigned int bdg_tx_data_phy_cycle = 0;
+	unsigned char bdg_timcon0[4] = {0};
+	unsigned char bdg_timcon1[4] = {0};
 
 	if (ext && ext->params)
 		dyn = &ext->params->dyn;
@@ -3029,17 +3057,17 @@ static void mtk_dsi_porch_setting_6382(struct mtk_dsi *dsi, struct cmdq_pkt *han
 		return;
 	}
 
-	t_hfp = (dsi->mipi_hopping_sta) ?
+	t_hfp = (dsi->bdg_mipi_hopping_sta) ?
 			((dyn && !!dyn->hfp) ?
 			 dyn->hfp : vm->hfront_porch) :
 			vm->hfront_porch;
 
-	t_hbp = (dsi->mipi_hopping_sta) ?
+	t_hbp = (dsi->bdg_mipi_hopping_sta) ?
 			((dyn && !!dyn->hbp) ?
 			 dyn->hbp : vm->hback_porch) :
 			vm->hback_porch;
 
-	t_hsa = (dsi->mipi_hopping_sta) ?
+	t_hsa = (dsi->bdg_mipi_hopping_sta) ?
 			((dyn && !!dyn->hsa) ?
 			 dyn->hsa : vm->hsync_len) :
 			vm->hsync_len;
@@ -3052,10 +3080,10 @@ static void mtk_dsi_porch_setting_6382(struct mtk_dsi *dsi, struct cmdq_pkt *han
 	if (dsi->ext->params->is_cphy) {
 		DDPMSG("C-PHY mode, need check!!!\n");
 	} else {
-		if (bg_tx_data_phy_cycle == 0)
-			bdg_tx_data_phy_cycle_calc(dsi);
+		bdg_tx_data_phy_cycle_calc(dsi, bdg_timcon0, bdg_timcon1, &bdg_tx_data_phy_cycle);
+		mtk_dsi_phy_timconfig_6382(dsi, bdg_timcon0, bdg_timcon1, handle);
 
-		data_init_byte = bg_tx_data_phy_cycle * dsi->lanes;
+		data_init_byte = bdg_tx_data_phy_cycle * dsi->lanes;
 
 		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
 			if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
@@ -3203,7 +3231,7 @@ static void mtk_dsi_clk_change_6382(struct mtk_dsi *dsi, int en)
 
 	index = drm_crtc_index(crtc);
 
-	dsi->mipi_hopping_sta = en;
+	dsi->bdg_mipi_hopping_sta = en;
 
 	if (!(ext && ext->params &&
 			ext->params->dyn.switch_en == 1))
@@ -5870,7 +5898,7 @@ void mipi_dsi_dcs_write_gce(struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 		break;
 	}
 
-	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) || is_bdg_supported()) {
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
 		mtk_dsi_poll_for_idle(dsi, handle);
 		mtk_dsi_cmdq_gce(dsi, handle, &msg);
 		if (dsi->slave_dsi) {
@@ -8705,7 +8733,10 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			return;
 		}
 
-		if (dsi->mipi_hopping_sta && dsi->ext) {
+		if (dsi && dsi->ext && dsi->ext->params
+			&& (dsi->mipi_hopping_sta
+			|| (is_bdg_supported() && dsi->bdg_mipi_hopping_sta)
+			) && dsi->ext->params->dyn.vfp) {
 			DDPINFO("%s,mipi_clk_change_sta\n", __func__);
 			vfp = dsi->ext->params->dyn.vfp;
 		} else
@@ -9100,8 +9131,8 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	{
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 
-		if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
-			&& panel_ext->params->dyn.vfp_lp_dyn)
+		if ((dsi->mipi_hopping_sta || (is_bdg_supported() && dsi->bdg_mipi_hopping_sta))
+			&& panel_ext && panel_ext->params && panel_ext->params->dyn.vfp_lp_dyn)
 			vfp_low_power = panel_ext->params->dyn.vfp_lp_dyn;
 		else if (panel_ext && panel_ext->params
 			&& panel_ext->params->vfp_low_power)
@@ -9135,7 +9166,8 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 
-		if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
+		if ((dsi->mipi_hopping_sta || (is_bdg_supported() && dsi->bdg_mipi_hopping_sta))
+			&& panel_ext && panel_ext->params
 			&& panel_ext->params->dyn.vfp)
 			vfront_porch = panel_ext->params->dyn.vfp;
 		else

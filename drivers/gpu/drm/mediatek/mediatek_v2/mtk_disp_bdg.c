@@ -1213,12 +1213,22 @@ int bdg_mipi_tx_dphy_clk_setting(enum DISP_BDG_ENUM module,
 
 	return 0;
 }
-int bdg_tx_data_phy_cycle_calc(struct mtk_dsi *dsi)
+int bdg_tx_data_phy_cycle_calc(struct mtk_dsi *dsi,
+				unsigned char *bdg_timcon0,
+				unsigned char *bdg_timcon1,
+				unsigned int *bdg_tx_data_phy_cycle)
 {
 	u32 ui, cycle_time;
+	struct mtk_panel_ext *ext = dsi->ext;
 
-	dsi->bdg_data_rate = mtk_dsi_default_rate(dsi);
-	tx_data_rate = dsi->bdg_data_rate;
+	if (dsi->bdg_mipi_hopping_sta) {
+		tx_data_rate = !!ext->params->dyn.data_rate ?
+				ext->params->dyn.data_rate :
+				ext->params->dyn.pll_clk * 2;
+	} else {
+		dsi->bdg_data_rate = mtk_dsi_default_rate(dsi);
+		tx_data_rate = dsi->bdg_data_rate;
+	}
 	if (tx_data_rate == 0) {
 		DDPMSG("[error]%s, tx_data_rate == 0\n", __func__);
 		return 0;
@@ -1258,6 +1268,18 @@ int bdg_tx_data_phy_cycle_calc(struct mtk_dsi *dsi)
 	DDPINFO("%s,bg_tx_data_phy_cycle=%d,LPX=%d,HS_PRPR=%d,HS_ZERO=%d,DA_HS_EXIT=%d\n",
 		__func__, bg_tx_data_phy_cycle, timcon0.LPX, timcon0.HS_PRPR,
 		 timcon0.HS_ZERO, timcon1.DA_HS_EXIT);
+
+	bdg_timcon0[0] = timcon0.LPX;
+	bdg_timcon0[1] = timcon0.HS_PRPR;
+	bdg_timcon0[2] = timcon0.HS_ZERO;
+	bdg_timcon0[3] = timcon0.HS_TRAIL;
+
+	bdg_timcon1[0] = timcon1.TA_GO;
+	bdg_timcon1[1] = timcon1.TA_SURE;
+	bdg_timcon1[2] = timcon1.TA_GET;
+	bdg_timcon1[3] = timcon1.DA_HS_EXIT;
+
+	*bdg_tx_data_phy_cycle = bg_tx_data_phy_cycle;
 	return 0;
 }
 
