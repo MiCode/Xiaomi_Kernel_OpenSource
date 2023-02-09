@@ -466,7 +466,7 @@ static int icnss_stats_show(struct seq_file *s, void *data)
 	ICNSS_STATS_DUMP(s, priv, pm_stay_awake);
 	ICNSS_STATS_DUMP(s, priv, pm_relax);
 
-	if (priv->device_id != WCN6750_DEVICE_ID) {
+	if (priv->device_id == ADRASTEA_DEVICE_ID) {
 		seq_puts(s, "\n<------------------ MSA stats ------------------->\n");
 		ICNSS_STATS_DUMP(s, priv, msa_info_req);
 		ICNSS_STATS_DUMP(s, priv, msa_info_resp);

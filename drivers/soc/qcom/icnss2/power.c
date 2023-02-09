@@ -30,6 +30,13 @@ static struct icnss_vreg_cfg icnss_adrestea_vreg_list[] = {
 	{"vdd-3.3-ch0", 3312000, 3312000, 0, 0, 0, false, true},
 };
 
+static struct icnss_vreg_cfg icnss_wcn6450_vreg_list[] = {
+	{"vdd-cx-mx", 824000, 952000, 0, 0, 0, false, true},
+	{"vdd-1.8-xo", 1872000, 1872000, 0, 0, 0, false, true},
+	{"vdd-1.3-rfa", 1256000, 1352000, 0, 0, 0, false, true},
+	{"vdd-aon", 1256000, 1352000, 0, 0, 0, false, true},
+};
+
 static struct icnss_clk_cfg icnss_clk_list[] = {
 	{"rf_clk", 0, 0},
 };
@@ -40,6 +47,7 @@ static struct icnss_clk_cfg icnss_adrestea_clk_list[] = {
 
 #define ICNSS_VREG_LIST_SIZE		ARRAY_SIZE(icnss_wcn6750_vreg_list)
 #define ICNSS_VREG_ADRESTEA_LIST_SIZE	ARRAY_SIZE(icnss_adrestea_vreg_list)
+#define ICNSS_VREG_EVROS_LIST_SIZE	ARRAY_SIZE(icnss_wcn6450_vreg_list)
 #define ICNSS_CLK_LIST_SIZE		ARRAY_SIZE(icnss_clk_list)
 #define ICNSS_CLK_ADRESTEA_LIST_SIZE	ARRAY_SIZE(icnss_adrestea_clk_list)
 
@@ -306,6 +314,10 @@ static struct icnss_vreg_cfg *get_vreg_list(u32 *vreg_list_size,
 		*vreg_list_size = ICNSS_VREG_ADRESTEA_LIST_SIZE;
 		return icnss_adrestea_vreg_list;
 
+	case WCN6450_DEVICE_ID:
+		*vreg_list_size = ICNSS_VREG_EVROS_LIST_SIZE;
+		return icnss_wcn6450_vreg_list;
+
 	default:
 		icnss_pr_err("Unsupported device_id 0x%x\n", device_id);
 		*vreg_list_size = 0;
@@ -519,7 +531,8 @@ int icnss_get_clk(struct icnss_priv *priv)
 	if (priv->device_id == ADRASTEA_DEVICE_ID) {
 		clk_cfg = icnss_adrestea_clk_list;
 		clk_list_size = ICNSS_CLK_ADRESTEA_LIST_SIZE;
-	} else if (priv->device_id == WCN6750_DEVICE_ID) {
+	} else if (priv->device_id == WCN6750_DEVICE_ID ||
+		   priv->device_id == WCN6450_DEVICE_ID) {
 		clk_cfg = icnss_clk_list;
 		clk_list_size = ICNSS_CLK_LIST_SIZE;
 	}
