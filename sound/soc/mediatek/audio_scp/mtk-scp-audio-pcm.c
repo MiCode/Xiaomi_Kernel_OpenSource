@@ -1452,6 +1452,10 @@ static snd_pcm_uframes_t mtk_scp_audio_pcm_pointer_ul
 	struct scp_aud_task_base *task_base = get_taskbase_by_daiid(id);
 	int ptr_bytes;
 
+	if (!task_base) {
+		pr_info("%s(), task base NULL!\n", __func__);
+		return SNDRV_PCM_POS_XRUN;
+	}
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_s(__func__, &task_base->ring_buf);
 #endif
@@ -1473,6 +1477,10 @@ static snd_pcm_uframes_t mtk_scp_audio_pcm_pointer_dl
 	spinlock_t *ringbuf_lock = &task_base->ringbuf_lock;
 	unsigned long flags = 0;
 
+	if (!task_base) {
+		pr_info("%s(), task base NULL!\n", __func__);
+		return SNDRV_PCM_POS_XRUN;
+	}
 #ifdef DEBUG_VERBOSE
 	dump_rbuf_s("-mtk_scphw_pcm_pointer_dl", &task_base->ring_buf);
 #endif
