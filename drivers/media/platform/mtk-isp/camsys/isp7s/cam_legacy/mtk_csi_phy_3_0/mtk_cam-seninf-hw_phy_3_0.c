@@ -25,8 +25,8 @@
 #define SENINF_CK 242000000
 #define CYCLE_MARGIN 1
 #define RESYNC_DMY_CNT 4
-#define DPHY_SETTLE 0x1C
-#define CPHY_SETTLE 0x16 //60~80ns
+#define DPHY_SETTLE_DEF 100  // ns
+#define CPHY_SETTLE_DEF 70 //60~80ns
 #define DPHY_TRAIL_SPEC 224
 
 #define DEBUG_CAM_MUX_SWITCH 0
@@ -92,6 +92,19 @@ static struct mtk_cam_seninf_ops *_seninf_ops = &mtk_csi_phy_3_0;
 #define SHOW(buf, len, fmt, ...) { \
 	len += snprintf(buf + len, PAGE_SIZE - len, fmt, ##__VA_ARGS__); \
 }
+
+static u64 settle_formula(u64 settle_ns, u64 seninf_ck)
+{
+	u64 _val = (settle_ns * seninf_ck);
+
+	if (_val % 1000000000)
+		_val = 1 + (_val / 1000000000) - 3;
+	else
+		_val = (_val / 1000000000) - 3;
+
+	return _val;
+}
+
 
 static int mtk_cam_seninf_init_iomem(struct seninf_ctx *ctx,
 			      void __iomem *if_base, void __iomem *ana_base)
@@ -1708,9 +1721,13 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 					: ctx->cphy_settle_delay_dt;
 		} else {
 			settle_delay_dt = ctx->csi_param.cphy_settle;
-			if (settle_delay_dt == 0)
-				settle_delay_dt = CPHY_SETTLE;
-			else {
+			if (settle_delay_dt == 0) {
+				settle_delay_dt =
+					settle_formula(CPHY_SETTLE_DEF, SENINF_CK);
+				dev_info(ctx->dev,
+					 "cphy settle val: (%u, %u) => %llu\n",
+					 CPHY_SETTLE_DEF, SENINF_CK, settle_delay_dt);
+			} else {
 				u64 temp = SENINF_CK * settle_delay_dt;
 
 				if (temp % 1000000000)
@@ -1722,8 +1739,12 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		settle_delay_ck = settle_delay_dt;
 	} else {
 		if (!ctx->csi_param.not_fixed_dphy_settle) {
-			settle_delay_dt = settle_delay_ck = DPHY_SETTLE;
+			settle_delay_dt = settle_delay_ck =
+				settle_formula(DPHY_SETTLE_DEF, SENINF_CK);
 			settle_delay_ck = 0;
+			dev_info(ctx->dev,
+				 "dphy settle val: (%u, %u) => %llu\n",
+				 DPHY_SETTLE_DEF, SENINF_CK, settle_delay_dt);
 		} else {
 			if (ctx->csi_param.not_fixed_trail_settle) {
 				settle_delay_dt = ctx->csi_param.dphy_data_settle
@@ -1734,9 +1755,13 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 						: ctx->settle_delay_ck;
 			} else {
 				settle_delay_dt = ctx->csi_param.dphy_data_settle;
-				if (settle_delay_dt == 0)
-					settle_delay_dt = DPHY_SETTLE;
-				else {
+				if (settle_delay_dt == 0) {
+					settle_delay_dt =
+						settle_formula(DPHY_SETTLE_DEF, SENINF_CK);
+					dev_info(ctx->dev,
+						 "dphy settle val: (%u, %u) => %llu\n",
+						 DPHY_SETTLE_DEF, SENINF_CK, settle_delay_dt);
+				} else {
 					u64 temp = SENINF_CK * settle_delay_dt;
 
 					if (temp % 1000000000)
@@ -1745,9 +1770,13 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 						settle_delay_dt = (temp / 1000000000);
 				}
 				settle_delay_ck = ctx->csi_param.dphy_clk_settle;
-				if (settle_delay_ck == 0)
-					settle_delay_ck = DPHY_SETTLE;
-				else {
+				if (settle_delay_ck == 0) {
+					settle_delay_ck =
+						settle_formula(DPHY_SETTLE_DEF, SENINF_CK);
+					dev_info(ctx->dev,
+						 "dphy settle val: (%u, %u) => %llu\n",
+						 DPHY_SETTLE_DEF, SENINF_CK, settle_delay_dt);
+				} else {
 					u64 temp = SENINF_CK * settle_delay_ck;
 
 					if (temp % 1000000000)
