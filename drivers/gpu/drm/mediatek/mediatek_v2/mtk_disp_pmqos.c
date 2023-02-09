@@ -149,7 +149,7 @@ static bool mtk_disp_check_segment(struct mtk_drm_crtc *mtk_crtc,
 	bpc = mtk_crtc->bpc;
 
 	if (priv->seg_id == 1) {
-		if (hact <= 720 && vact <= 1600 && bpc <= 8 && vrefresh < 95)
+		if (hact <= 800 && vact <= 1700 && bpc <= 8)
 			ret = true;
 		else
 			ret = false;
