@@ -595,6 +595,13 @@ void fpsgo_reset_pid_attr(struct fpsgo_boost_attr *boost_attr)
 		boost_attr->gcc_enq_bound_quota_by_pid = BY_PID_DEFAULT_VAL;
 		boost_attr->gcc_deq_bound_quota_by_pid = BY_PID_DEFAULT_VAL;
 		boost_attr->blc_boost_by_pid = BY_PID_DEFAULT_VAL;
+
+		boost_attr->reset_taskmask = BY_PID_DEFAULT_VAL;
+
+		boost_attr->limit_cfreq2cap = BY_PID_DEFAULT_VAL;
+		boost_attr->limit_rfreq2cap = BY_PID_DEFAULT_VAL;
+		boost_attr->limit_cfreq2cap_m = BY_PID_DEFAULT_VAL;
+		boost_attr->limit_rfreq2cap_m = BY_PID_DEFAULT_VAL;
 	}
 }
 
@@ -843,7 +850,12 @@ int is_to_delete_fpsgo_attr(struct fpsgo_attr_by_pid *fpsgo_attr)
 			boost_attr.gcc_reserved_down_quota_pct_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.gcc_reserved_up_quota_pct_by_pid == BY_PID_DEFAULT_VAL &&
 			boost_attr.gcc_up_sec_pct_by_pid == BY_PID_DEFAULT_VAL &&
-			boost_attr.gcc_up_step_by_pid == BY_PID_DEFAULT_VAL) {
+			boost_attr.gcc_up_step_by_pid == BY_PID_DEFAULT_VAL &&
+			boost_attr.reset_taskmask == BY_PID_DEFAULT_VAL &&
+			boost_attr.limit_cfreq2cap == BY_PID_DEFAULT_VAL &&
+			boost_attr.limit_rfreq2cap == BY_PID_DEFAULT_VAL &&
+			boost_attr.limit_cfreq2cap_m == BY_PID_DEFAULT_VAL &&
+			boost_attr.limit_rfreq2cap_m == BY_PID_DEFAULT_VAL) {
 		return 1;
 	}
 	if (boost_attr.rescue_second_enable_by_pid == BY_PID_DELETE_VAL ||
@@ -881,7 +893,12 @@ int is_to_delete_fpsgo_attr(struct fpsgo_attr_by_pid *fpsgo_attr)
 			boost_attr.gcc_reserved_down_quota_pct_by_pid == BY_PID_DELETE_VAL ||
 			boost_attr.gcc_reserved_up_quota_pct_by_pid == BY_PID_DELETE_VAL ||
 			boost_attr.gcc_up_sec_pct_by_pid == BY_PID_DELETE_VAL ||
-			boost_attr.gcc_up_step_by_pid == BY_PID_DELETE_VAL) {
+			boost_attr.gcc_up_step_by_pid == BY_PID_DELETE_VAL ||
+			boost_attr.reset_taskmask == BY_PID_DELETE_VAL ||
+			boost_attr.limit_cfreq2cap == BY_PID_DELETE_VAL ||
+			boost_attr.limit_rfreq2cap == BY_PID_DELETE_VAL ||
+			boost_attr.limit_cfreq2cap_m == BY_PID_DELETE_VAL ||
+			boost_attr.limit_rfreq2cap_m == BY_PID_DELETE_VAL) {
 		return 1;
 	}
 	return 0;
@@ -1762,6 +1779,9 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 				" gcc_enq_bound_thrs, gcc_enq_bound_quota, gcc_deq_bound_thrs, gcc_deq_bound_quota\n");
 	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			" reset_taskmask, limit_cfreq2cap, limit_rfreq2cap, limit_cfreq2cap_m, limit_rfreq2cap_m\n");
+	pos += length;
 
 	fpsgo_render_tree_lock(__func__);
 	rcu_read_lock();
@@ -1856,6 +1876,15 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 				attr_item.gcc_deq_bound_quota_by_pid);
 			pos += length;
 
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d, %4d\n",
+				attr_item.reset_taskmask,
+				attr_item.limit_cfreq2cap,
+				attr_item.limit_rfreq2cap,
+				attr_item.limit_cfreq2cap_m,
+				attr_item.limit_rfreq2cap_m);
+			pos += length;
+
 			put_task_struct(tsk);
 		}
 	}
@@ -1921,6 +1950,9 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 	pos += length;
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
 				" gcc_enq_bound_thrs, gcc_enq_bound_quota, gcc_deq_bound_thrs, gcc_deq_bound_quota\n");
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			" reset_taskmask, limit_cfreq2cap, limit_rfreq2cap, limit_cfreq2cap_m, limit_rfreq2cap_m\n");
 	pos += length;
 
 	fpsgo_render_tree_lock(__func__);
@@ -2003,6 +2035,15 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 			attr_item.gcc_enq_bound_quota_by_pid,
 			attr_item.gcc_deq_bound_thrs_by_pid,
 			attr_item.gcc_deq_bound_quota_by_pid);
+		pos += length;
+
+		length = scnprintf(temp + pos,
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d, %4d, %4d\n",
+			attr_item.reset_taskmask,
+			attr_item.limit_cfreq2cap,
+			attr_item.limit_rfreq2cap,
+			attr_item.limit_cfreq2cap_m,
+			attr_item.limit_rfreq2cap_m);
 		pos += length;
 	}
 

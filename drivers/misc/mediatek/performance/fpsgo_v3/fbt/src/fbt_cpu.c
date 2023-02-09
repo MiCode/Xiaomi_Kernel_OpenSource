@@ -1493,6 +1493,28 @@ static int fbt_get_opp_by_normalized_cap(unsigned int cap, int cluster)
 	return tgt_opp;
 }
 
+static int fbt_get_opp_by_freq(int cluster, unsigned int freq)
+{
+	int opp;
+
+	if (cluster < 0 || cluster >= cluster_num)
+		return INVALID_NUM;
+
+	for (opp = (nr_freq_cpu - 1); opp > 0; opp--) {
+		if (cpu_dvfs[cluster].power[opp] == freq)
+			break;
+
+		if (cpu_dvfs[cluster].power[opp] > freq) {
+			opp++;
+			break;
+		}
+	}
+
+	opp = clamp(opp, 0, nr_freq_cpu - 1);
+
+	return opp;
+}
+
 int fbt_get_max_cap(int floor, int bhr_opp_local,
 	int bhr_local, int pid, unsigned long long buffer_id)
 {
@@ -1597,6 +1619,9 @@ static void fbt_cal_min_max_cap(struct render_info *thr,
 	int separate_aa_final, boost_affinity_final, separate_pct_b_final,
 		separate_pct_m_final, limit_uclamp_final, limit_ruclamp_final,
 		limit_uclamp_m_final, limit_ruclamp_m_final;
+	int limit_cfreq2cap_final, limit_rfreq2cap_final,
+		limit_cfreq2cap_m_final, limit_rfreq2cap_m_final;
+	int cluster, opp, limit_max_cap = 100;
 
 	separate_aa_final = thr->attr.separate_aa_by_pid;
 	boost_affinity_final = thr->attr.boost_affinity_by_pid;
@@ -1606,6 +1631,10 @@ static void fbt_cal_min_max_cap(struct render_info *thr,
 	limit_ruclamp_final = thr->attr.limit_ruclamp_by_pid;
 	limit_uclamp_m_final = thr->attr.limit_uclamp_m_by_pid;
 	limit_ruclamp_m_final = thr->attr.limit_ruclamp_m_by_pid;
+	limit_cfreq2cap_final = thr->attr.limit_cfreq2cap;
+	limit_rfreq2cap_final = thr->attr.limit_rfreq2cap;
+	limit_cfreq2cap_m_final = thr->attr.limit_cfreq2cap_m;
+	limit_rfreq2cap_m_final = thr->attr.limit_rfreq2cap_m;
 
 	// Calculate bhr/bhr_opp
 	if (jerk == FPSGO_JERK_INACTIVE) {
@@ -1645,6 +1674,45 @@ static void fbt_cal_min_max_cap(struct render_info *thr,
 						bhr_local, pid, buffer_id);
 		max_cap_m = fbt_get_max_cap(min_cap_m, bhr_opp_local,
 						bhr_local, pid, buffer_id);
+	}
+
+	// limit frequency 2 capacity
+	cluster = max_cap_cluster;
+	if (cluster < cluster_num && cluster >= 0) {
+		if (jerk == FPSGO_JERK_INACTIVE && limit_cfreq2cap_final) {
+			opp = fbt_get_opp_by_freq(cluster, limit_cfreq2cap_final);
+			limit_max_cap = cpu_dvfs[cluster].capacity_ratio[opp];
+		} else if (jerk == FPSGO_JERK_FIRST && limit_rfreq2cap_final) {
+			opp = fbt_get_opp_by_freq(cluster, limit_rfreq2cap_final);
+			limit_max_cap = cpu_dvfs[cluster].capacity_ratio[opp];
+		}
+		if (limit_max_cap < 100) {
+			max_cap = MIN(max_cap, limit_max_cap);
+			min_cap = (min_cap > max_cap) ? max_cap : min_cap;
+			if (separate_aa_final && boost_affinity_final) {
+				max_cap_b = MIN(max_cap_b, limit_max_cap);
+				min_cap_b = (min_cap_b > max_cap_b) ? max_cap_b : min_cap_b;
+			}
+		}
+	}
+
+	limit_max_cap = 100;
+	cluster = (max_cap_cluster > min_cap_cluster) ?
+		max_cap_cluster - 1 : min_cap_cluster - 1;
+	if (cluster < cluster_num && cluster >= 0) {
+		if (jerk == FPSGO_JERK_INACTIVE && limit_cfreq2cap_m_final) {
+			opp = fbt_get_opp_by_freq(cluster, limit_cfreq2cap_m_final);
+			limit_max_cap = cpu_dvfs[cluster].capacity_ratio[opp];
+		} else if (jerk == FPSGO_JERK_FIRST && limit_rfreq2cap_m_final) {
+			opp = fbt_get_opp_by_freq(cluster, limit_rfreq2cap_m_final);
+			limit_max_cap = cpu_dvfs[cluster].capacity_ratio[opp];
+		}
+		if (limit_max_cap < 100) {
+			if (separate_aa_final && boost_affinity_final) {
+				max_cap_m = MIN(max_cap_m, limit_max_cap);
+				min_cap_m = (min_cap_m > max_cap_m) ? max_cap_m : min_cap_m;
+			}
+		}
 	}
 
 	// limit_uclamp
@@ -2049,6 +2117,11 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 	render_attr->gcc_deq_bound_quota_by_pid = gcc_deq_bound_quota;
 	render_attr->reset_taskmask = 0;
 
+	render_attr->limit_cfreq2cap = 0;
+	render_attr->limit_rfreq2cap = 0;
+	render_attr->limit_cfreq2cap_m = 0;
+	render_attr->limit_rfreq2cap_m = 0;
+
 #if FPSGO_MW
 	fpsgo_attr = fpsgo_find_attr_by_pid(thr->tgid, 0);
 	if (!fpsgo_attr)
@@ -2164,6 +2237,14 @@ void fbt_set_render_boost_attr(struct render_info *thr)
 			pid_attr.gcc_deq_bound_quota_by_pid;
 	if (pid_attr.reset_taskmask != BY_PID_DEFAULT_VAL)
 		render_attr->reset_taskmask = pid_attr.reset_taskmask;
+	if (pid_attr.limit_cfreq2cap != BY_PID_DEFAULT_VAL)
+		render_attr->limit_cfreq2cap = pid_attr.limit_cfreq2cap;
+	if (pid_attr.limit_rfreq2cap != BY_PID_DEFAULT_VAL)
+		render_attr->limit_rfreq2cap = pid_attr.limit_rfreq2cap;
+	if (pid_attr.limit_cfreq2cap_m != BY_PID_DEFAULT_VAL)
+		render_attr->limit_cfreq2cap_m = pid_attr.limit_cfreq2cap_m;
+	if (pid_attr.limit_rfreq2cap_m != BY_PID_DEFAULT_VAL)
+		render_attr->limit_rfreq2cap_m = pid_attr.limit_rfreq2cap_m;
 #endif  // FPSGO_MW
 }
 
@@ -5371,28 +5452,6 @@ void fpsgo_base2fbt_stop_boost(struct render_info *thr)
 	fbt_reset_boost(thr);
 }
 
-static int fbt_get_opp_by_freq(int cluster, unsigned int freq)
-{
-	int opp;
-
-	if (cluster < 0 || cluster >= cluster_num)
-		return INVALID_NUM;
-
-	for (opp = (nr_freq_cpu - 1); opp > 0; opp--) {
-		if (cpu_dvfs[cluster].power[opp] == freq)
-			break;
-
-		if (cpu_dvfs[cluster].power[opp] > freq) {
-			opp++;
-			break;
-		}
-	}
-
-	opp = clamp(opp, 0, nr_freq_cpu - 1);
-
-	return opp;
-}
-
 static int check_limit_cap(int is_rescue)
 {
 	int cap = 0, opp, cluster;
@@ -6623,6 +6682,26 @@ static ssize_t fbt_attr_by_pid_store(struct kobject *kobj,
 			boost_attr->reset_taskmask = val;
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->reset_taskmask = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "limit_cfreq2cap")) {
+		if ((val > 0) && action == 's')
+			boost_attr->limit_cfreq2cap = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->limit_cfreq2cap = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "limit_rfreq2cap")) {
+		if ((val > 0) && action == 's')
+			boost_attr->limit_rfreq2cap = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->limit_rfreq2cap = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "limit_cfreq2cap_m")) {
+		if ((val > 0) && action == 's')
+			boost_attr->limit_cfreq2cap_m = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->limit_cfreq2cap_m = BY_PID_DEFAULT_VAL;
+	} else if (!strcmp(cmd, "limit_rfreq2cap_m")) {
+		if ((val > 0) && action == 's')
+			boost_attr->limit_rfreq2cap_m = val;
+		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
+			boost_attr->limit_rfreq2cap_m = BY_PID_DEFAULT_VAL;
 	}
 
 delete_pid:

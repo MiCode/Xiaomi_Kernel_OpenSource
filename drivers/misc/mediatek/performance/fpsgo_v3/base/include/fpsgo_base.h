@@ -213,6 +213,12 @@ struct fpsgo_boost_attr {
 
 	/* Reset taskmask */
 	int reset_taskmask;
+
+	/* limit freq 2 cap */
+	int limit_cfreq2cap;
+	int limit_rfreq2cap;
+	int limit_cfreq2cap_m;
+	int limit_rfreq2cap_m;
 };
 
 struct render_info {
