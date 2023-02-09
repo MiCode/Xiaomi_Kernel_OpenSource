@@ -260,6 +260,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 
 int mminfra_scmi_test(const char *val, const struct kernel_param *kp)
 {
+#ifdef MMINFRA_DEBUG
 	int ret, arg0;
 	unsigned int test_case;
 	void __iomem *test_base = ioremap(0x1e800280, 4);
@@ -285,7 +286,7 @@ int mminfra_scmi_test(const char *val, const struct kernel_param *kp)
 	}
 
 	iounmap(test_base);
-
+#endif
 	return 0;
 }
 
