@@ -31,6 +31,9 @@
 #include "mtk_drm_assert.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_trace.h"
+#include "mtk_dump.h"
+#include "mtk_disp_bdg.h"
+#include "mtk_dsi.h"
 
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
@@ -144,6 +147,7 @@ static void esd_cmdq_timeout_cb(struct cmdq_cb_data data)
 	struct drm_crtc *crtc = data.data;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+	struct mtk_ddp_comp *output_comp = NULL;
 
 	if (!crtc) {
 		DDPMSG("%s find crtc fail\n", __func__);
@@ -152,8 +156,20 @@ static void esd_cmdq_timeout_cb(struct cmdq_cb_data data)
 
 	DDPMSG("read flush fail\n");
 	esd_ctx->chk_sta = 0xff;
-	mtk_drm_crtc_analysis(crtc);
-	mtk_drm_crtc_dump(crtc);
+
+	if (is_bdg_supported()) {
+		if (mtk_crtc) {
+			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+			if (output_comp) {
+				mtk_dump_analysis(output_comp);
+				mtk_dump_reg(output_comp);
+			}
+		}
+		bdg_dsi_dump_reg(DISP_BDG_DSI0);
+	} else {
+		mtk_drm_crtc_analysis(crtc);
+		mtk_drm_crtc_dump(crtc);
+	}
 }
 
 
@@ -486,6 +502,7 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *output_comp;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	int ret = 0;
+	struct mtk_dsi *dsi = NULL;
 	struct cmdq_pkt *cmdq_handle = NULL;
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_recovery, 0, 0);
@@ -511,6 +528,9 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	}
 
 	mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, CONNECTOR_PANEL_DISABLE, NULL);
+	if (is_bdg_supported())
+		bdg_common_deinit(DISP_BDG_DSI0, NULL);
+
 
 	mtk_drm_crtc_disable(crtc, true);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 2);
@@ -527,7 +547,10 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	if (mtk_crtc->is_mml)
 		mtk_crtc_mml_racing_resubmit(crtc, NULL);
-
+	if (is_bdg_supported()) {
+		dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+		mtk_output_bdg_enable(dsi, false);
+	}
 	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_PANEL_ENABLE, NULL);
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 4);

@@ -17,6 +17,10 @@
 #include "mtk_dump.h"
 #include "mtk_mipi_tx.h"
 #include "platform/mtk_drm_platform.h"
+#include "mtk_disp_bdg.h"
+#include "mtk_dsi.h"
+#include "mtk_reg_disp_bdg.h"
+
 
 #define MIPITX_DSI_CON 0x00
 #define RG_DSI_LDOCORE_EN BIT(0)
@@ -1331,7 +1335,7 @@ bool mtk_is_mipi_tx_enable(struct clk_hw *hw)
 	return ((tmp & mipi_tx->driver_data->dsi_pll_en) > 0);
 }
 
-static unsigned int _dsi_get_pcw_mt6983(unsigned long data_rate,
+unsigned int _dsi_get_pcw_mt6983(unsigned long data_rate,
 	unsigned int pcw_ratio)
 {
 	unsigned int pcw, tmp, pcw_floor, fbksel, div3 = 0;
@@ -3725,7 +3729,11 @@ void mtk_mipi_tx_pll_rate_switch_cphy_gce_mt6983(struct phy *phy,
 static long mtk_mipi_tx_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 				       unsigned long *prate)
 {
-	return clamp_val(rate, 50000000, 3000000000);
+	if (is_bdg_supported()) {
+		return clamp_val(rate, 50000000, 2300000000);
+	} else {
+		return clamp_val(rate, 50000000, 3000000000);
+	}
 }
 
 static int mtk_mipi_tx_pll_set_rate(struct clk_hw *hw, unsigned long rate,

@@ -87,6 +87,7 @@ obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO_NO_DSC) += panel-alpha-jdi-nt
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO_WO_DSC_60HZ) += panel-alpha-jdi-nt36672e-cphy-vdo-wo-dsc-60hz.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_CPHY_VDO_WO_DSC_HFP) += panel-alpha-jdi-nt36672e-cphy-vdo-wo-dsc-hfp.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_120HZ) += panel-alpha-jdi-nt36672e-vdo-120hz.o
+obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_120HZ_6382) += panel-alpha-jdi-nt36672e-vdo-120hz-6382.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_144HZ) += panel-alpha-jdi-nt36672e-vdo-144hz.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_60HZ) += panel-alpha-jdi-nt36672e-vdo-60hz.o
 obj-$(CONFIG_DRM_PANEL_ALPHA_JDI_NT36672E_VDO_120HZ_HFP) += panel-alpha-jdi-nt36672e-vdo-120hz-hfp.o

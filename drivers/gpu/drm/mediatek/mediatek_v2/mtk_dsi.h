@@ -79,6 +79,7 @@ struct mtk_dsi {
 
 	u32 data_rate;
 	u32 d_rate;
+	u32 bdg_data_rate;
 
 	unsigned long mode_flags;
 	enum mipi_dsi_pixel_format format;
@@ -115,7 +116,8 @@ struct mtk_dsi {
 	unsigned int hsa_byte;
 	unsigned int hbp_byte;
 	unsigned int hfp_byte;
-
+	/* for 6382 mipi hopping */
+	bool bdg_mipi_hopping_sta;
 	bool mipi_hopping_sta;
 	bool panel_osc_hopping_sta;
 	unsigned int data_phy_cycle;
@@ -123,11 +125,23 @@ struct mtk_dsi {
 	struct mipi_dsi_device *dev_for_PM;
 };
 
+enum dsi_porch_type;
+
 s32 mtk_dsi_poll_for_idle(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
 irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id);
 void mtk_dsi_set_mmclk_by_datarate_V1(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, unsigned int en);
 void mtk_dsi_set_mmclk_by_datarate_V2(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, unsigned int en);
+int mtk_dsi_get_virtual_width(struct mtk_dsi *dsi,
+	struct drm_crtc *crtc);
+int mtk_dsi_get_virtual_heigh(struct mtk_dsi *dsi,
+	struct drm_crtc *crtc);
+unsigned int mtk_dsi_default_rate(struct mtk_dsi *dsi);
+void mtk_output_bdg_enable(struct mtk_dsi *dsi, int force_lcm_update);
+int mtk_dsi_porch_setting(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+			  enum dsi_porch_type type, unsigned int value);
+void mtk_dsi_porch_config(struct mtk_dsi *dsi, struct cmdq_pkt *handle);
+int mtk_dsi_trigger(struct mtk_ddp_comp *comp, void *handle);
 
 #endif

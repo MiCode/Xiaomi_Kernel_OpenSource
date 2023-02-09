@@ -44,3 +44,11 @@ config MTK_DISP_DEBUG
 	help
 	  Used to debug for display module, only needed by developers.
 	  The function sould be disabled in user load for security.
+
+config MTK_MT6382_BDG
+	tristate "Support Bridge IC 6382"
+	help
+	  This config decide if device with BridgeIC 6382
+	  BridgeIC 6382 can support VESA-1.2 DSC, compressing display framedata
+	  Normal project will disable it first
+	  If you are not sure about this, do not set it to y

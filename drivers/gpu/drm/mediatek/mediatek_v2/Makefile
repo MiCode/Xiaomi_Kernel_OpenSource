@@ -71,6 +71,9 @@ mediatek-drm-y += mtk_dp_intf.o \
 	mtk_dp_hal.o \
 	mtk_dp_debug.o
 
+#for 6382 bridge
+mediatek-drm-y += mtk_disp_bdg.o
+
 ifeq (yy, $(CONFIG_MTK_TEE_GP_SUPPORT)$(CONFIG_TRUSTONIC_TEE_SUPPORT))
 obj-y += ca/
 ccflags-y += -DDPTX_HDCP_ENABLE
@@ -100,6 +103,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/smi/			\
              -I$(srctree)/drivers/misc/mediatek/mmp/			\
+	     -I$(srctree)/drivers/misc/mediatek/spi_slave_drv/          \
+	     -I$(srctree)/drivers/misc/mediatek/base/power/include/     \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/			\
              -I$(srctree)/drivers/misc/mediatek/pmic/			\
              -I$(srctree)/drivers/iommu/				\
