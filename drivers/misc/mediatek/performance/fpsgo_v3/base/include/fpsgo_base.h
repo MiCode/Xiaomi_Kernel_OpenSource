@@ -14,7 +14,7 @@
 #include <linux/sched/task.h>
 #include <linux/sched.h>
 
-#define MAX_DEP_NUM 50
+#define MAX_DEP_NUM 100
 #define WINDOW 20
 #define RESCUE_TIMER_NUM 5
 #define QUOTA_MAX_SIZE 300

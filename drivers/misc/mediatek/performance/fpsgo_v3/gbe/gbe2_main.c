@@ -25,7 +25,7 @@
 #include "gbe_sysfs.h"
 #include "fpsgo_base.h"
 
-#define MAX_DEP_NUM 50
+#define MAX_DEP_NUM 100
 #define MAIN_LOG_SIZE 256
 #define DEFAULT_TIMER1_MS 100
 #define DEFAULT_TIMER2_MS 1000

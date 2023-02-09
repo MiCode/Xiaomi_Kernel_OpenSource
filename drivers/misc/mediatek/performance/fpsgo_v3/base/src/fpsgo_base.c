@@ -1739,7 +1739,7 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		" boost_affinity, boost_LR\n");
+		" boost_affinity, boost_LR, reset_taskmask\n");
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
@@ -1802,9 +1802,9 @@ static ssize_t render_info_params_show(struct kobject *kobj,
 			pos += length;
 
 			length = scnprintf(temp + pos,
-				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d\n",
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d\n",
 				attr_item.boost_affinity_by_pid,
-				attr_item.boost_lr_by_pid);
+				attr_item.boost_lr_by_pid, attr_item.reset_taskmask);
 			pos += length;
 
 			length = scnprintf(temp + pos,
@@ -1899,7 +1899,7 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-		" boost_affinity, boost_LR,\n");
+		" boost_affinity, boost_LR, reset_taskmask\n");
 	pos += length;
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
@@ -1951,9 +1951,9 @@ static ssize_t render_attr_params_show(struct kobject *kobj,
 		pos += length;
 
 		length = scnprintf(temp + pos,
-			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d,\n",
+			FPSGO_SYSFS_MAX_BUFF_SIZE - pos, " %4d, %4d, %4d\n",
 			attr_item.boost_affinity_by_pid,
-			attr_item.boost_lr_by_pid);
+			attr_item.boost_lr_by_pid, attr_item.reset_taskmask);
 		pos += length;
 
 		length = scnprintf(temp + pos,
