@@ -1462,30 +1462,60 @@ EXPORT_SYMBOL(release_working_buffer_helper);
 int mtk_hcp_allocate_working_buffer(struct platform_device *pdev, unsigned int mode)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	if (hcp_dev == NULL) {
+		pr_info("%s hcp device in not ready\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
+	if (hcp_dev->is_mem_alloc) {
+		dev_info(&pdev->dev, "%s:alloc at wrong state\n", __func__);
+		return -1;
+	}
 
 	if ((hcp_dev == NULL)
 		|| (hcp_dev->data == NULL)
 		|| (hcp_dev->data->allocate == NULL)) {
 		dev_info(&pdev->dev, "%s:allocate not supported\n", __func__);
-		return allocate_working_buffer_helper(pdev);
+		ret = allocate_working_buffer_helper(pdev);
+	} else {
+		ret = hcp_dev->data->allocate(hcp_dev, mode);
 	}
 
-	return hcp_dev->data->allocate(hcp_dev, mode);
+	hcp_dev->is_mem_alloc = (ret == 0);
+
+	return ret;
 }
 EXPORT_SYMBOL(mtk_hcp_allocate_working_buffer);
 
 int mtk_hcp_release_working_buffer(struct platform_device *pdev)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	if (hcp_dev == NULL) {
+		pr_info("%s hcp device in not ready\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
+	if (!hcp_dev->is_mem_alloc) {
+		dev_info(&pdev->dev, "%s:release at wrong state\n", __func__);
+		return -1;
+	}
 
 	if ((hcp_dev == NULL)
 		|| (hcp_dev->data == NULL)
-		|| (hcp_dev->data->allocate == NULL)) {
+		|| (hcp_dev->data->release == NULL)) {
 		dev_info(&pdev->dev, "%s:release not supported\n", __func__);
-		return release_working_buffer_helper(pdev);
+		ret = release_working_buffer_helper(pdev);
+	} else {
+		ret = hcp_dev->data->release(hcp_dev);
 	}
 
-	return hcp_dev->data->release(hcp_dev);
+	hcp_dev->is_mem_alloc = (ret == 0) ? false : true;
+
+	return ret;
 }
 EXPORT_SYMBOL(mtk_hcp_release_working_buffer);
 
@@ -1646,6 +1676,8 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	hcp_aee_init(hcp_mtkdev);
 	dev_dbg(&pdev->dev, "hcp aee init done\n");
 	dev_dbg(&pdev->dev, "- X. hcp driver probe success.\n");
+
+	hcp_dev->is_mem_alloc = false;
 
 #if HCP_RESERVED_MEM
 	/* allocate reserved memory */
