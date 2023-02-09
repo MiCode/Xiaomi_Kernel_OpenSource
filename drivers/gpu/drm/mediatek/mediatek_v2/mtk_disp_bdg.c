@@ -914,7 +914,7 @@ int dsi_get_pcw(int data_rate, int pcw_ratio)
 int bdg_mipi_tx_dphy_clk_setting(enum DISP_BDG_ENUM module,
 				 void *cmdq, struct mtk_dsi *dsi)
 {
-	int i = 0;
+	unsigned int i = 0;
 	unsigned int j = 0;
 	unsigned int data_Rate;
 	unsigned int pcw_ratio = 0;
@@ -1219,6 +1219,10 @@ int bdg_tx_data_phy_cycle_calc(struct mtk_dsi *dsi)
 
 	dsi->bdg_data_rate = mtk_dsi_default_rate(dsi);
 	tx_data_rate = dsi->bdg_data_rate;
+	if (tx_data_rate == 0) {
+		DDPMSG("[error]%s, tx_data_rate == 0\n", __func__);
+		return 0;
+	}
 	ui = 1000 / tx_data_rate;
 	cycle_time = 8000 / tx_data_rate;
 
@@ -1260,7 +1264,7 @@ int bdg_tx_data_phy_cycle_calc(struct mtk_dsi *dsi)
 int bdg_tx_phy_config(enum DISP_BDG_ENUM module,
 			void *cmdq, struct mtk_dsi *dsi)
 {
-	int i;
+	unsigned int i;
 	u32 ui, cycle_time;
 	unsigned int hs_trail;
 
@@ -1410,7 +1414,7 @@ int bdg_tx_phy_config(enum DISP_BDG_ENUM module,
 int bdg_tx_txrx_ctrl(enum DISP_BDG_ENUM module,
 			void *cmdq, struct mtk_dsi *dsi)
 {
-	int i;
+	unsigned int i;
 	int lane_num = dsi->lanes;
 	bool hstx_cklp_en = false;
 	bool dis_eotp_en = dsi->ext->params->is_cphy ? true : false;
@@ -1457,7 +1461,7 @@ int bdg_tx_txrx_ctrl(enum DISP_BDG_ENUM module,
 int bdg_tx_ps_ctrl(enum DISP_BDG_ENUM module,
 			void *cmdq, struct mtk_dsi *dsi)
 {
-	int i;
+	unsigned int i;
 	unsigned int ps_wc, bpp, ps_sel;
 	u32 width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
 	u32 height = mtk_dsi_get_virtual_heigh(dsi, dsi->encoder.crtc);
@@ -1519,7 +1523,7 @@ int bdg_tx_ps_ctrl(enum DISP_BDG_ENUM module,
 int bdg_tx_vdo_timing_set(enum DISP_BDG_ENUM module,
 			void *cmdq, struct mtk_dsi *dsi)
 {
-	int i;
+	unsigned int i;
 	u32 dsi_buf_bpp, data_init_byte = 0;
 	struct videomode *vm = &dsi->vm;
 	u32 t_vfp = vm->vfront_porch;
@@ -1604,7 +1608,7 @@ int bdg_tx_vdo_timing_set(enum DISP_BDG_ENUM module,
 int bdg_tx_buf_rw_set(enum DISP_BDG_ENUM module,
 			void *cmdq, struct mtk_dsi *dsi)
 {
-	int i;
+	unsigned int i;
 	unsigned int width, height, rw_times, tmp;
 
 	tmp = (mtk_spi_read((unsigned long)
@@ -1645,7 +1649,7 @@ int bdg_tx_buf_rw_set(enum DISP_BDG_ENUM module,
 int bdg_tx_enable_hs_clk(enum DISP_BDG_ENUM module,
 				void *cmdq, bool enable)
 {
-	int i;
+	unsigned int i;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		if (enable)
@@ -1693,7 +1697,7 @@ int dsi_set_fps(lcm_dsi_params *dsi_params, enum dsi_fps_enum fps)
 int bdg_tx_set_mode(enum DISP_BDG_ENUM module,
 				void *cmdq, struct mtk_dsi *dsi)
 {
-	int i = 0;
+	unsigned int i = 0;
 	u32 vid_mode = CMD_MODE;
 
 	if (dsi && (dsi->mode_flags & MIPI_DSI_MODE_VIDEO)) {
@@ -1724,7 +1728,7 @@ int bdg_tx_bist_pattern(enum DISP_BDG_ENUM module,
 				unsigned int red, unsigned int green,
 				unsigned int blue)
 {
-	int i;
+	unsigned int i;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		if (enable) {
@@ -1756,7 +1760,7 @@ int bdg_tx_bist_pattern(enum DISP_BDG_ENUM module,
 
 int bdg_tx_start(enum DISP_BDG_ENUM module, void *cmdq)
 {
-	int i;
+	unsigned int i;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		BDG_OUTREGBIT(cmdq, struct DSI_TX_START_REG,
@@ -1786,7 +1790,7 @@ int bdg_set_dcs_read_cmd(bool enable, void *cmdq)
 
 int bdg_tx_stop(enum DISP_BDG_ENUM module, void *cmdq)
 {
-	int i;
+	unsigned int i;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++)
 		BDG_OUTREGBIT(cmdq, struct DSI_TX_START_REG,
@@ -1797,7 +1801,7 @@ int bdg_tx_stop(enum DISP_BDG_ENUM module, void *cmdq)
 
 int bdg_tx_reset(enum DISP_BDG_ENUM module, void *cmdq)
 {
-	int i;
+	unsigned int i;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		BDG_OUTREGBIT(cmdq, struct DSI_TX_COM_CON_REG,
@@ -1821,7 +1825,7 @@ void bdg_rx_reset(void *cmdq)
 int bdg_vm_mode_set(enum DISP_BDG_ENUM module, bool enable,
 			unsigned int long_pkt, void *cmdq)
 {
-	int i;
+	unsigned int i;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		if (enable) {
@@ -1841,7 +1845,7 @@ int bdg_vm_mode_set(enum DISP_BDG_ENUM module, bool enable,
 
 int bdg_tx_cmd_mode(enum DISP_BDG_ENUM module, void *cmdq)
 {
-	int i;
+	unsigned int i;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		BDG_OUTREG32(cmdq, TX_REG[i]->DSI_TX_MEM_CONTI, 0x3c);
@@ -1934,7 +1938,7 @@ int bdg_dsi_dump_reg(enum DISP_BDG_ENUM module)
 
 int bdg_tx_wait_for_idle(enum DISP_BDG_ENUM module)
 {
-	int i;
+	unsigned int i;
 	unsigned int timeout = 5000; /* unit: usec */
 	unsigned int status;
 
@@ -3578,7 +3582,7 @@ int bdg_tx_init(enum DISP_BDG_ENUM module,
 
 int bdg_tx_deinit(enum DISP_BDG_ENUM module, void *cmdq)
 {
-	int i;
+	unsigned int i;
 
 	bdg_tx_enable_hs_clk(module, cmdq, false);
 	bdg_tx_set_mode(module, cmdq, NULL);
@@ -5732,6 +5736,11 @@ void bdg_dsi_porch_setting(enum DISP_BDG_ENUM module, void *handle,
 	u32 hbp = 0, hfp = 0;
 	struct dynamic_mipi_params *dyn = &dsi->ext->params->dyn;
 	struct videomode *vm = &dsi->vm;
+
+	if (!dyn) {
+		DDPMSG("[error]%s, the dyn is null\n", __func__);
+		return;
+	}
 
 	if (!dyn->hfp && !dyn->hbp && !dyn->hsa) {
 		DDPMSG("[error]%s, the dyn h porch is null\n", __func__);
