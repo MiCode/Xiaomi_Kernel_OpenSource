@@ -15785,7 +15785,7 @@ static irqreturn_t mtk_disp_mutex_irq_handler(int irq, void *dev_id)
 		}
 	}
 
-	if (((sched_clock() - irq_debug[0]) > 850000) &&
+	if (((sched_clock() - irq_debug[0]) > 5000000) &&
 			__ratelimit(&irq_ratelimit)) {
 		DDPMSG("%s > 850 us, %llu %llu %llu %llu %llu %llu %llu\n",
 			__func__,
