@@ -111,9 +111,13 @@ static int vcorefs_hold(struct act_arg_obj *arg)
 {
 	USB_BOOST_DBG("\n");
 
-	/* disable dram boost */
-	/* if (usb_icc_path) */
-	/*	icc_set_bw(usb_icc_path, 0, peak_bw); */
+	/* enable dram boost */
+	if (usb_icc_path) {
+		struct device_node *np = gdev->of_node;
+
+		if (of_device_is_compatible(np, "mediatek,mt6835-usb_boost"))
+			icc_set_bw(usb_icc_path, 0, peak_bw);
+	}
 
 	return 0;
 }
@@ -123,8 +127,12 @@ static int vcorefs_release(struct act_arg_obj *arg)
 	USB_BOOST_DBG("\n");
 
 	/* disable dram boost */
-	/* if (usb_icc_path) */
-	/*	icc_set_bw(usb_icc_path, 0, 0); */
+	if (usb_icc_path) {
+		struct device_node *np = gdev->of_node;
+
+		if (of_device_is_compatible(np, "mediatek,mt6835-usb_boost"))
+			icc_set_bw(usb_icc_path, 0, 0);
+	}
 
 	return 0;
 }
