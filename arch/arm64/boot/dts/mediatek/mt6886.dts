@@ -6920,7 +6920,7 @@
 			interrupt-names = "rcs_irq", "pmif_irq";
 			interrupt-controller;
 			#interrupt-cells = <1>;
-			irq_event_en = <0x80000000 0x0 0x0 0x0 0x0>;
+			irq_event_en = <0x80000000 0x0 0x0 0x1f8 0x0>;
 			swinf_ch_start = <11>;
 			ap_swinf_no = <2>;
 			#address-cells = <2>;
