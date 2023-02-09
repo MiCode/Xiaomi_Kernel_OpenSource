@@ -78,6 +78,8 @@ struct mtk_spi_slave_data {
 	u8 low_speed_tick_delay;
 	u8 high_speed_early_trans;
 	u8 low_speed_early_trans;
+	u8 high_speed_autok_state;
+	u8 low_speed_autok_state;
 	/* mutex for SPI Slave IO */
 	struct mutex	spislv_mutex;
 	u8 tx_nbits:3;
@@ -134,6 +136,7 @@ static int spislv_sync_sub(u32 addr, void *val, u32 len, bool is_read)
 		cmd_config[1 + i] = (addr & (0xff << (i * 8))) >> (i * 8);
 		cmd_config[5 + i] = ((len - 1) & (0xff << (i * 8))) >> (i * 8);
 	}
+
 	x[0].tx_buf	= cmd_config;
 	x[0].len	= ARRAY_SIZE(cmd_config);
 	x[0].tx_nbits	= slv_data.tx_nbits;
@@ -147,7 +150,7 @@ static int spislv_sync_sub(u32 addr, void *val, u32 len, bool is_read)
 	spi_message_add_tail(&RS_TRANSFER, &msg);
 	ret = spi_sync(slv_data.spi, &msg);
 	if (ret)
-		goto tail;
+		goto fail;
 	status = rx_cmd_read_sta[1];
 	/* ignore status for set early transfer bit */
 	if (addr == SPISLV_CTRL && !is_read)
@@ -156,14 +159,14 @@ static int spislv_sync_sub(u32 addr, void *val, u32 len, bool is_read)
 		pr_notice("SPI config %s but status error: 0x%x, latched by %dHZ, err addr: 0x%x\n",
 				is_read ? "read" : "write", status, slv_data.rx_speed_hz, addr);
 		ret = SPI_READ_STA_ERR_RET;
-		goto tail;
+		goto fail;
 	}
 	/* RD or WD */
 	if (len > MTK_SPI_BUFSIZ - 1) {
 		local_buf = kzalloc(len + 1, GFP_KERNEL);
 		if (!local_buf) {
 			ret = -ENOMEM;
-			goto tail;
+			goto fail;
 		}
 	} else {
 		local_buf = mtk_spi_buffer;
@@ -191,7 +194,7 @@ static int spislv_sync_sub(u32 addr, void *val, u32 len, bool is_read)
 	spi_message_add_tail(&RS_TRANSFER, &msg);
 	ret = spi_sync(slv_data.spi, &msg);
 	if (ret)
-		goto tail;
+		goto fail;
 	status = rx_cmd_read_sta[1];
 	/* ignore status for set early transfer bit */
 	if (addr == SPISLV_CTRL && !is_read)
@@ -211,7 +214,7 @@ static int spislv_sync_sub(u32 addr, void *val, u32 len, bool is_read)
 		spi_message_add_tail(&x[2], &msg);
 		ret = spi_sync(slv_data.spi, &msg);
 		if (ret)
-			goto tail;
+			goto fail;
 		ret = SPI_READ_STA_ERR_RET;
 	} else {
 		while (((status & SR_RDWR_FINISH) != SR_RDWR_FINISH)) {
@@ -220,7 +223,7 @@ static int spislv_sync_sub(u32 addr, void *val, u32 len, bool is_read)
 				status, slv_data.rx_speed_hz, addr, retry);
 			if (retry++ >= MAX_SPI_TRY_CNT) {
 				ret = SPI_READ_STA_ERR_RET;
-				goto tail;
+				goto fail;
 			}
 			mdelay(1);
 			/* RS */
@@ -229,11 +232,11 @@ static int spislv_sync_sub(u32 addr, void *val, u32 len, bool is_read)
 			spi_message_add_tail(&RS_TRANSFER, &msg);
 			ret = spi_sync(slv_data.spi, &msg);
 			if (ret)
-				goto tail;
+				goto fail;
 			status = rx_cmd_read_sta[1];
 		}
 	}
-tail:
+fail:
 	/* Only for successful read */
 	if (is_read && !ret)
 		memcpy(val, ((u8 *)x[1].rx_buf + 1), len);
@@ -258,7 +261,7 @@ static int spislv_sync(u32 addr, void *val, u32 len, bool is_read)
 			pr_notice("spi slave error, addr: 0x%x, ret(%d), retry: %d\n",
 				addr_local, ret, try);
 			if (try++ == MAX_SPI_TRY_CNT)
-				goto tail;
+				goto fail;
 			ret = spislv_sync_sub(addr_local, val_local,
 				MAX_SPI_XFER_SIZE_ONCE, is_read);
 		}
@@ -273,13 +276,159 @@ transfer_drect:
 		pr_notice("spi slave error, addr: 0x%x, ret(%d), retry: %d\n",
 			addr_local, ret, try);
 		if (try++ == MAX_SPI_TRY_CNT)
-			goto tail;
+			goto fail;
 		ret = spislv_sync_sub(addr_local, val_local, len_local, is_read);
 	}
-tail:
+fail:
 	mutex_unlock(&slv_data.spislv_mutex);
 	return ret;
 }
+
+static u8 tick_window_early_0[8];
+static u8 tick_window_early_0_len;
+static u8 tick_window_early_1[8];
+static u8 tick_window_early_1_len;
+static u8 spislv_select_tick_delay(u8 *tick_delay_window, u8 win_len)
+{
+	u8 index = 0, win_start = 0, tick_delay = 0;
+
+	for (index = 0; index < 8; index++) {
+		if (tick_delay_window[index] == 1) {
+			win_start = index;
+			break;
+		}
+	}
+
+	if (win_len % 2)
+		tick_delay = win_start + (win_len-1)/2;
+	else
+		tick_delay = win_start + win_len/2;
+
+	if (tick_delay_window[tick_delay] == 1)
+		return tick_delay;
+	else
+		return win_start;
+}
+
+
+static u32 spislv_test(u32 tx_speed_hz, u32 rx_speed_hz, u32 tick_delay)
+{
+	int i, ret = 0;
+	u32 addr = 0x00002000;
+	u32 len = 4;
+	u8 cmd_config[] = {
+		CMD_CR, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,};
+	//debug
+	u8 cmd_config_status[] = {
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,};
+	u8 read_status;
+	struct spi_transfer x[2];
+	struct spi_message msg;
+
+	memset(x, 0, sizeof(x));
+	for (i = 0; i < 4; i++) {
+		cmd_config[1 + i] = (addr & (0xff << (i * 8))) >> (i * 8);
+		cmd_config[5 + i] = ((len - 1) & (0xff << (i * 8))) >> (i * 8);
+	}
+	x[0].tx_buf    = cmd_config;
+	x[0].rx_buf    = cmd_config_status;
+	x[0].len    = ARRAY_SIZE(cmd_config);
+	x[0].tx_nbits	= slv_data.tx_nbits;
+	x[0].rx_nbits	= slv_data.rx_nbits;
+	x[0].speed_hz    = tx_speed_hz;
+	x[0].cs_change = 1;
+	spislv_chip_info.tick_delay = tick_delay;
+	spi_message_init(&msg);
+	spi_message_add_tail(&x[0], &msg);
+
+	rx_cmd_read_sta[1] = 0;
+	RS_TRANSFER.speed_hz    = rx_speed_hz;
+	spi_message_add_tail(&RS_TRANSFER, &msg);
+
+	ret = spi_sync(slv_data.spi, &msg);
+
+	if (ret)
+		goto fail;
+	read_status = rx_cmd_read_sta[1];
+	pr_info("spi read_cmd: %x, cmd_sta[0]: %x, cmd_sta[1]: %x\n",
+			tx_cmd_read_sta[0], rx_cmd_read_sta[0],  rx_cmd_read_sta[1]);
+
+	if ((read_status & CONFIG_READY) != CONFIG_READY)
+		return 0;
+	else
+		return 1;
+fail:
+	if (ret)
+		pr_notice("error: spi sync err: %d\n", ret);
+
+	return 0;
+}
+
+static void spislv_autok(u32 tx_speed_hz, u32 rx_speed_hz)
+{
+	u32 index;
+	u8 early_trans, tick_delay;
+
+	tick_window_early_0_len = 0;
+	tick_window_early_1_len = 0;
+
+	pr_info("[spislv] write: %dHz, read: %dHz, autok window:\n",
+			tx_speed_hz, rx_speed_hz);
+
+	/* set early_trans: 0 */
+	spislv_write_register(SPISLV_CTRL, (0x40 & (~(EARLY_TRANS_MASK)))
+			| ((0 << 16) & (EARLY_TRANS_MASK)));
+	/* scan window */
+	for (index = 0; index < 8; index++) {
+		if (spislv_test(tx_speed_hz, rx_speed_hz, index)) {
+			tick_window_early_0[index] = 1;
+			tick_window_early_0_len++;
+		} else
+			tick_window_early_0[index] = 0;
+	}
+	for (index = 0; index < 8; index++) {
+		pr_info("[spislv] autok: early_trans: 0, tick_delay: %d, window: %s\n",
+				index, tick_window_early_0[index] == 1 ? "O" : "X");
+	}
+	/* set early_trans: 1 */
+	spislv_write_register(SPISLV_CTRL, (0x40 & (~(EARLY_TRANS_MASK)))
+			| ((1 << 16) & (EARLY_TRANS_MASK)));
+	/* scan window */
+	for (index = 0; index < 8; index++) {
+		if (spislv_test(SPI_TX_LOW_SPEED_HZ, SPI_RX_LOW_SPEED_HZ,
+					index)) {
+			tick_window_early_1[index] = 1;
+			tick_window_early_1_len++;
+		} else
+			tick_window_early_1[index] = 0;
+	}
+	for (index = 0; index < 8; index++) {
+		pr_info("[spislv] autok: early_trans: 1, tick_delay: %d, window: %s\n",
+				index, tick_window_early_1[index] == 1 ? "O" : "X");
+	}
+
+	if (tick_window_early_0_len > tick_window_early_1_len) {
+		early_trans = 0;
+		tick_delay = spislv_select_tick_delay
+			(tick_window_early_0, tick_window_early_0_len);
+	} else {
+		early_trans = 1;
+		tick_delay = spislv_select_tick_delay
+			(tick_window_early_1, tick_window_early_1_len);
+	}
+	if (rx_speed_hz >= SPI_RX_MAX_SPEED_HZ) {
+		slv_data.high_speed_early_trans = early_trans;
+		slv_data.high_speed_tick_delay = tick_delay;
+		pr_info("[spislv] autok result: high_speed_early_trans: %d, high_speed_tick_delay: %d\n",
+				slv_data.high_speed_early_trans, slv_data.high_speed_tick_delay);
+	} else {
+		slv_data.low_speed_early_trans = early_trans;
+		slv_data.low_speed_tick_delay = tick_delay;
+		pr_info("[spislv] autok  low_speed_early_trans: %d, low_speed_tick_delay: %d\n",
+			slv_data.low_speed_early_trans, slv_data.low_speed_tick_delay);
+	}
+}
+
 int spislv_init(void)
 {
 	struct spi_message msg;
@@ -294,6 +443,11 @@ int spislv_init(void)
 	ret = spi_sync(slv_data.spi, &msg);
 	if (ret)
 		return ret;
+
+	if (slv_data.low_speed_autok_state == 0) {
+		spislv_autok(SPI_TX_LOW_SPEED_HZ, SPI_RX_LOW_SPEED_HZ);
+		slv_data.low_speed_autok_state = 1;
+	}
 	ret = spislv_write_register(SPISLV_CTRL, (0x40 & (~(EARLY_TRANS_MASK)))
 		| ((slv_data.low_speed_early_trans << 16) & (EARLY_TRANS_MASK)));
 	if (ret)
@@ -308,14 +462,20 @@ int spislv_switch_speed_hz(u32 tx_speed_hz, u32 rx_speed_hz)
 	int ret = 0;
 
 	if (rx_speed_hz >= SPI_RX_MAX_SPEED_HZ) {
+		if (slv_data.high_speed_autok_state == 0) {
+			spislv_autok(tx_speed_hz, rx_speed_hz);
+			slv_data.high_speed_autok_state = 1;
+		}
 		ret = spislv_write_register(SPISLV_CTRL, (0x40 & (~(EARLY_TRANS_MASK)))
 			| ((slv_data.high_speed_early_trans << 16) & (EARLY_TRANS_MASK)));
 		spislv_chip_info.tick_delay = slv_data.high_speed_tick_delay;
+
 	} else {
 		ret = spislv_write_register(SPISLV_CTRL, (0x40 & (~(EARLY_TRANS_MASK)))
 			| ((slv_data.low_speed_early_trans << 16) & (EARLY_TRANS_MASK)));
 		spislv_chip_info.tick_delay = slv_data.low_speed_tick_delay;
 	}
+
 	slv_data.tx_speed_hz =
 		(tx_speed_hz > SPI_TX_MAX_SPEED_HZ ? SPI_TX_MAX_SPEED_HZ : tx_speed_hz);
 	slv_data.rx_speed_hz =
@@ -369,26 +529,7 @@ static int spi_slave_probe(struct spi_device *spi)
 		pr_info("slave-drive-strength isn't setting!\n");
 	else
 		pr_info("slave-drive-strength = %d\n", slv_data.slave_drive_strength);
-	ret = of_property_read_u8(nc, "high-speed-tick-delay", &(slv_data.high_speed_tick_delay));
-	if (ret)
-		pr_info("high-speed-tick-delay isn't setting!\n");
-	else
-		pr_info("high-speed-tick-delay = %d\n", slv_data.high_speed_tick_delay);
-	ret = of_property_read_u8(nc, "low-speed-tick-delay", &(slv_data.low_speed_tick_delay));
-	if (ret)
-		pr_info("low-speed-tick-delay isn't setting!\n");
-	else
-		pr_info("low-speed-tick-delay = %d\n", slv_data.low_speed_tick_delay);
-	ret = of_property_read_u8(nc, "high-speed-early-trans", &(slv_data.high_speed_early_trans));
-	if (ret)
-		pr_info("high-speed-early-trans isn't setting!\n");
-	else
-		pr_info("high-speed-early-trans = %d\n", slv_data.high_speed_early_trans);
-	ret = of_property_read_u8(nc, "low-speed-early-trans", &(slv_data.low_speed_early_trans));
-	if (ret)
-		pr_info("low-speed-early-trans isn't setting!\n");
-	else
-		pr_info("low-speed-early-trans = %d\n", slv_data.low_speed_early_trans);
+
 	if (spi->mode & SPI_TX_DUAL)
 		slv_data.tx_nbits = SPI_NBITS_DUAL;
 	else if (spi->mode & SPI_TX_QUAD)
@@ -431,6 +572,8 @@ static int spi_slave_probe(struct spi_device *spi)
 	spi->bits_per_word = 8;
 	spi->controller_data = (void *)&spislv_chip_info;
 	spislv_chip_info.tick_delay = slv_data.low_speed_tick_delay;
+	slv_data.high_speed_autok_state = 0;
+	slv_data.low_speed_autok_state = 0;
 	mutex_init(&slv_data.spislv_mutex);
 	return 0;
 }
