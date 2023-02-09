@@ -551,7 +551,7 @@ int mtk_drm_ioctl_set_12bit_gammalut(struct drm_device *dev, void *data,
 	atomic_set(&g_gamma_sof_filp, 1);
 	if (g_gamma_flip_comp[0]->mtk_crtc != NULL) {
 		mtk_drm_idlemgr_kick(__func__, &g_gamma_flip_comp[0]->mtk_crtc->base, 1);
-		mtk_crtc_check_trigger(g_gamma_flip_comp[0]->mtk_crtc, true, false);
+		mtk_crtc_check_trigger(g_gamma_flip_comp[0]->mtk_crtc, true, true);
 	}
 	DDPINFO("%s:update IOCTL g_gamma_sof_filp to 1\n", __func__);
 	CRTC_MMP_EVENT_END(0, gamma_ioctl, 0, 1);
