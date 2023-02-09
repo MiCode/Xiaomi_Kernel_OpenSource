@@ -29,6 +29,7 @@
 
 #include "ccci_dpmaif_bat.h"
 #include "ccci_dpmaif_resv_mem.h"
+#include "ccci_dpmaif_com.h"
 
 #define BAT_ALLOC_NO_PAUSED  0
 #define BAT_ALLOC_IS_PAUSED  1
@@ -99,14 +100,22 @@ static inline int skb_alloc(
 		unsigned long long *p_base_addr,
 		unsigned int pkt_buf_sz)
 {
-	(*ppskb) = __dev_alloc_skb(pkt_buf_sz, GFP_KERNEL);
-
-	if (unlikely(!(*ppskb))) {
-		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: alloc skb fail. (%u)\n",
-			__func__, pkt_buf_sz);
-
-		return LOW_MEMORY_SKB;
+	/* use GFP_ATOMIC apply skb for low power */
+	if (g_skb_gfp_mask) {
+		while (1) {
+			(*ppskb) = __dev_alloc_skb(pkt_buf_sz, GFP_ATOMIC);
+			if (*ppskb)
+				break;
+			msleep(20);
+		}
+	} else {
+		(*ppskb) = __dev_alloc_skb(pkt_buf_sz, GFP_KERNEL);
+		if (unlikely(!(*ppskb))) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] error: GFP_KERNEL alloc skb fail. (%u)\n",
+				__func__, pkt_buf_sz);
+			return LOW_MEMORY_SKB;
+		}
 	}
 
 	(*p_base_addr) = dma_map_single(
@@ -424,22 +433,16 @@ static int dpmaif_alloc_bat_req(int update_bat_cnt, atomic_t *paused)
 	bat_wr_idx = atomic_read(&bat_req->bat_wr_idx);
 
 	while (((!paused) || (!atomic_read(paused))) && (total_cnt < request_cnt)) {
-		bat_skb = (struct dpmaif_bat_skb *)bat_req->bat_pkt_addr
-					+ bat_wr_idx;
+		bat_skb = (struct dpmaif_bat_skb *)bat_req->bat_pkt_addr + bat_wr_idx;
 		if (bat_skb->skb)
 			break;
 
-		next_wr_idx = get_ringbuf_next_idx(
-						bat_req->bat_cnt, bat_wr_idx, 1);
-
-		next_skb = (struct dpmaif_bat_skb *)bat_req->bat_pkt_addr
-					+ next_wr_idx;
+		next_wr_idx = get_ringbuf_next_idx(bat_req->bat_cnt, bat_wr_idx, 1);
+		next_skb = (struct dpmaif_bat_skb *)bat_req->bat_pkt_addr + next_wr_idx;
 		if (next_skb->skb)
 			break;
 
-		cur_bat = (struct dpmaif_bat_base *)bat_req->bat_base
-					+ bat_wr_idx;
-
+		cur_bat = (struct dpmaif_bat_base *)bat_req->bat_base + bat_wr_idx;
 		ret = alloc_bat_skb(bat_req->pkt_buf_sz, bat_skb, cur_bat);
 		if (ret)
 			goto alloc_end;
@@ -1009,12 +1012,15 @@ int ccci_dpmaif_bat_start(void)
 
 	dpmaif_bat_hw_init();
 
+	/* dpmaif bat start skb count should >1000 */
+#define MIN_SKB_ALLOC_CNT (1000)
+
 	skb_cnt = dpmaif_alloc_bat_req(0, NULL);
-	if (skb_cnt <= 0) {
+	if (skb_cnt <= MIN_SKB_ALLOC_CNT) {
 		CCCI_ERROR_LOG(-1, TAG,
 			"[%s] dpmaif_alloc_bat_req fail: %d\n",
 			__func__, skb_cnt);
-		ret = skb_cnt;
+		ret = -1;
 		goto start_err;
 	}
 

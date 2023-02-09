@@ -64,6 +64,7 @@ unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
 
 unsigned int            g_dpmf_ver;
 unsigned int            g_plat_inf;
+int            g_skb_gfp_mask;
 
 struct dpmaif_ctrl     *g_dpmaif_ctl;
 
@@ -3076,9 +3077,13 @@ static int dpmaif_probe(struct platform_device *pdev)
 			"mediatek,plat-info", &g_plat_inf))
 		g_plat_inf = DEFAULT_PLAT_INF;
 
+	if (of_property_read_u32(pdev->dev.of_node,
+			"mediatek,skb-gfp-mask", &g_skb_gfp_mask))
+		g_skb_gfp_mask = 0;
+
 	CCCI_NORMAL_LOG(0, TAG,
-		"[%s] g_dpmf_ver: %u; g_plat_inf: %u\n",
-		__func__, g_dpmf_ver, g_plat_inf);
+		"[%s] g_dpmf_ver: %u; g_plat_inf: %u; g_skb_gfp_mask=%x\n",
+		__func__, g_dpmf_ver, g_plat_inf, g_skb_gfp_mask);
 
 	if (dpmaif_init_com(&pdev->dev))
 		return -1;

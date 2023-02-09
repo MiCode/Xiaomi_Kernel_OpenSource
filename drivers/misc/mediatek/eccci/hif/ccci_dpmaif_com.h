@@ -510,6 +510,7 @@ struct dpmaif_clk_node {
 
 
 extern unsigned int            g_plat_inf;
+extern int g_skb_gfp_mask;
 extern struct dpmaif_plat_ops  g_plt_ops;
 
 
