@@ -194,18 +194,6 @@ static void mminfra_cg_check(bool on)
 				|| (con1_val & GCE26M_CG_BIT))
 				cmdq_dump_usage();
 		}
-	} else {
-		/* SMI CG still on */
-		if (!(con0_val & (SMI_CG_BIT)) || !(con0_val & GCEM_CG_BIT)
-			|| !(con0_val & GCED_CG_BIT) || !(con1_val & GCE26M_CG_BIT)) {
-			pr_notice("%s Scg still on, CG_CON0:0x%x CG_CON1:0x%x\n",
-						__func__, con0_val, con1_val);
-			if (!(con0_val & (SMI_CG_BIT)))
-				mtk_smi_dbg_cg_status();
-			if (!(con0_val & GCEM_CG_BIT) || !(con0_val & GCED_CG_BIT)
-				|| !(con1_val & GCE26M_CG_BIT))
-				cmdq_dump_usage();
-		}
 	}
 }
 
@@ -243,10 +231,10 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 			BUG_ON(1);
 		}
 		iounmap(test_base);
-		pr_notice("%s: enable clk ref_cnt=%d\n", __func__, count);
 		writel(0x20002, dbg->gce_base + GCE_GCTL_VALUE);
-		pr_notice("%s: enable gce apsrc: %#x=%#x\n",
-			__func__, GCE_BASE + GCE_GCTL_VALUE, readl(dbg->gce_base + GCE_GCTL_VALUE));
+		pr_notice("%s: enable clk ref_cnt=%d, enable gce apsrc: %#x=%#x\n",
+			__func__, count, GCE_BASE + GCE_GCTL_VALUE,
+			readl(dbg->gce_base + GCE_GCTL_VALUE));
 	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
 		writel(0, dbg->gce_base + GCE_GCTL_VALUE);
 		pr_notice("%s: disable gce apsrc: %#x=%#x\n",
