@@ -1544,6 +1544,8 @@ static int mtk_scp_audio_probe(struct snd_soc_component *component)
 	ret = snd_soc_add_component_controls(component,
 				      scp_audio_platform_kcontrols,
 				      ARRAY_SIZE(scp_audio_platform_kcontrols));
+	if (ret)
+		pr_info("%s add controls err ret = %d\n", __func__, ret);
 
 	for (id = 0; id < SCP_AUD_TASK_DAI_NUM; id++) {
 		task_base = get_taskbase_by_daiid(id);
