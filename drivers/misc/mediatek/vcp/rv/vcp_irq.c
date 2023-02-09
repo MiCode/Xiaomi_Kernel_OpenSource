@@ -9,6 +9,7 @@
 #include <mt-plat/aee.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <soc/mediatek/smi.h>
 //#include <mt-plat/sync_write.h>
 #include "vcp_ipi_pin.h"
 #include "vcp_helper.h"
@@ -67,6 +68,9 @@ static void vcp_A_wdt_handler(struct tasklet_struct *t)
 	unsigned int reg1 = vcpreg.core_nums == 2 ? readl(R_CORE1_WDT_IRQ) : 0;
 
 	pr_notice("[VCP] %s\n", __func__);
+
+	/*trigger smi dump to get more info.*/
+	mtk_smi_dbg_hang_detect("VCP WDT");
 
 	wait_vcp_ready_to_reboot();
 	/* Wakeup mobile_log_d after vcp flush the log */
