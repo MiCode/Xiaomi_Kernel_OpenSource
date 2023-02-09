@@ -871,8 +871,6 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 
 	xhci_mtk_procfs_init(mtk);
 
-	WARN_ON(register_trace_android_vh_audio_usb_offload_synctype(usb_offload_synctype, NULL));
-
 	device_enable_async_suspend(dev);
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_autosuspend(dev);
@@ -1092,6 +1090,7 @@ static int __init xhci_mtk_init(void)
 {
 	int ret;
 
+	WARN_ON(register_trace_android_vh_audio_usb_offload_synctype(usb_offload_synctype, NULL));
 	xhci_init_driver_(&xhci_mtk_hc_driver, &xhci_mtk_overrides);
 	ret = platform_driver_register(&mtk_xhci_p1_driver);
 	if (ret < 0)
@@ -1102,6 +1101,7 @@ module_init(xhci_mtk_init);
 
 static void __exit xhci_mtk_exit(void)
 {
+	WARN_ON(unregister_trace_android_vh_audio_usb_offload_synctype(usb_offload_synctype, NULL));
 	platform_driver_unregister(&mtk_xhci_p1_driver);
 	platform_driver_unregister(&mtk_xhci_driver);
 }
