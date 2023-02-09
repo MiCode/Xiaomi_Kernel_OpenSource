@@ -826,14 +826,13 @@ static void mtk_chist_dual_pipe_size(struct mtk_ddp_comp *comp,
 static void mtk_chist_config_channel_size(struct mtk_ddp_comp *comp,
 		struct mtk_ddp_config *cfg, struct cmdq_pkt *handle, int index)
 {
-	int roi_start_x, roi_end_x;
+	int roi_start_x = 0, roi_end_x = 0;
 	int roi_end_y = g_frame_height[index] - 1;
 	int i = 0;
 
 	switch (comp->id) {
 	case DDP_COMPONENT_CHIST0:
 	case DDP_COMPONENT_CHIST1:
-		roi_start_x = 0;
 		roi_end_x = g_pipe_width[index] - 1;
 		break;
 	case DDP_COMPONENT_CHIST2:
