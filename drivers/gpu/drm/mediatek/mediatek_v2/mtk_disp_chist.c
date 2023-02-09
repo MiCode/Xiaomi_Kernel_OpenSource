@@ -203,6 +203,10 @@ int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 	struct drm_crtc *crtc = private->crtc[0];
 	int i = 0;
 
+	if (comp == NULL) {
+		DDPPR_ERR("%s, null pointer!\n", __func__);
+		return -EINVAL;
+	}
 	if (config->config_channel_count == 0 ||
 			config->config_channel_count > DISP_CHIST_CHANNEL_COUNT) {
 		DDPPR_ERR("%s, invalid config channel count:%u\n",
@@ -260,6 +264,10 @@ static int disp_chist_copy_hist_to_user(struct drm_device *dev,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
 
+	if (comp == NULL) {
+		DDPPR_ERR("%s, null pointer!\n", __func__);
+		return -1;
+	}
 	if (comp_to_chist(comp)->data->module_count > 1
 		&& hist->caller == MTK_DRM_CHIST_CALLER_PQ
 		&& (hist->device_id & 0xffff))
