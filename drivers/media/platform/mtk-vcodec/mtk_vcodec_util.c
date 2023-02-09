@@ -913,6 +913,7 @@ void mtk_vcodec_set_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
 	long temp_val = 0;
 	char *log = NULL;
 	char vcu_log[128] = {0};
+	int ret;
 
 	if (dev == NULL || val == NULL || strlen(val) == 0)
 		return;
@@ -975,7 +976,11 @@ void mtk_vcodec_set_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
 					return;
 				}
 				memset(vcu_log, 0x00, sizeof(vcu_log));
-				snprintf(vcu_log, sizeof(vcu_log) - 1, "%s %s", argv[i], argv[i+1]);
+				ret = snprintf(vcu_log, sizeof(vcu_log) - 1, "%s %s",
+						argv[i], argv[i+1]);
+				if (ret < 0)
+					mtk_v4l2_err("Error in snprintf at %s line: %d ret %d",
+							__func__, __LINE__, ret);
 				if (set_vcu_vpud_log != NULL)
 					set_vcu_vpud_log(ctx, vcu_log);
 			}
@@ -996,6 +1001,7 @@ void mtk_vcodec_get_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
 	void (*get_vcu_vpud_log)(struct mtk_vcodec_ctx *ctx, void *out))
 {
 	int len = 0;
+	int ret = 0;
 
 	if (!dev || !val) {
 		mtk_v4l2_err("Invalid arguments, dev=0x%x, val=0x%x", dev, val);
@@ -1043,19 +1049,29 @@ void mtk_vcodec_get_log(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_dev *dev,
 	// join kernel log level
 	if (log_index == MTK_VCODEC_LOG_INDEX_LOG) {
 		len = strlen(val);
-		if (len < LOG_PROPERTY_SIZE)
-			snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
-				" %s %d", "-mtk_vcodec_dbg", mtk_vcodec_dbg);
-
+		if (len < LOG_PROPERTY_SIZE) {
+			ret = snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
+					" %s %d", "-mtk_vcodec_dbg", mtk_vcodec_dbg);
+			if (ret < 0)
+				mtk_v4l2_err("Error in snprintf at %s line: %d ret %d",
+						__func__, __LINE__, ret);
+		}
 		len = strlen(val);
-		if (len < LOG_PROPERTY_SIZE)
-			snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
-				" %s %d", "-mtk_vcodec_perf", mtk_vcodec_perf);
-
+		if (len < LOG_PROPERTY_SIZE) {
+			ret = snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
+					" %s %d", "-mtk_vcodec_perf", mtk_vcodec_perf);
+			if (ret < 0)
+				mtk_v4l2_err("Error in snprintf at %s line: %d ret %d",
+						__func__, __LINE__, ret);
+		}
 		len = strlen(val);
-		if (len < LOG_PROPERTY_SIZE)
-			snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
-				" %s %d", "-mtk_v4l2_dbg_level", mtk_v4l2_dbg_level);
+		if (len < LOG_PROPERTY_SIZE) {
+			ret = snprintf(val + len, LOG_PROPERTY_SIZE - 1 - len,
+					" %s %d", "-mtk_v4l2_dbg_level", mtk_v4l2_dbg_level);
+			if (ret < 0)
+				mtk_v4l2_err("Error in snprintf at %s line: %d ret %d",
+						__func__, __LINE__, ret);
+		}
 	}
 
 	mtk_v4l2_debug(0, "val: %s, log_index: %d", val, log_index);
