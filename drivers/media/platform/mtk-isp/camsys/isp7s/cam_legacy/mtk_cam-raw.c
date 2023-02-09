@@ -4305,15 +4305,16 @@ void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
 				   const struct v4l2_format *imgo_fmt)
 {
 	unsigned int sink_ipi_fmt;
-	bool is_ufo = is_raw_ufo(imgo_fmt->fmt.pix_mp.pixelformat);
+	bool is_bayer = (imgo_fmt->fmt.pix_mp.pixelformat != 0) &&
+		(!is_raw_ufo(imgo_fmt->fmt.pix_mp.pixelformat));
 
 	img_fmt->fmt.pix_mp.width = width;
 	img_fmt->fmt.pix_mp.height = height;
 	img_fmt->fmt.pix_mp.pixelformat =
-		mtk_cam_get_rawi_sensor_pixel_fmt(code, is_ufo || debug_working_buf_fmt_sel);
-	dev_dbg(dev, "%s: sink pixelformat %x (imgo_ufo:%d, wbuf fmt sel %d)\n",
+		mtk_cam_get_rawi_sensor_pixel_fmt(code, !is_bayer && debug_working_buf_fmt_sel);
+	dev_dbg(dev, "%s: sink pixelformat %x (is_bayer:%d, wbuf fmt sel %d)\n",
 			 __func__, img_fmt->fmt.pix_mp.pixelformat,
-			is_ufo, debug_working_buf_fmt_sel);
+			is_bayer, debug_working_buf_fmt_sel);
 
 	if (is_raw_ufo(img_fmt->fmt.pix_mp.pixelformat)) {
 		cal_image_pix_mp(MTK_RAW_MAIN_STREAM_OUT, &img_fmt->fmt.pix_mp, 3);
@@ -4382,19 +4383,32 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 		struct v4l2_format *img_fmt;
 
 		if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
+			struct v4l2_format empty_fmt;
+			struct v4l2_format *imgo_fmt;
+
+			if (pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM].enabled)
+				imgo_fmt = &pipe->vdev_nodes
+					[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
+					.pending_fmt;
+			else
+				imgo_fmt = &empty_fmt;
+
 			img_fmt = &pipe->img_fmt_sink_pad;
 			mtk_raw_set_dcif_rawi_fmt(raw->cam_dev,
-						img_fmt, mf->width,
-						mf->height, mf->code,
-						&pipe->vdev_nodes
-							[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
-							.pending_fmt);
+					  img_fmt, mf->width,
+					  mf->height, mf->code,
+					  imgo_fmt);
 			dev_dbg(raw->cam_dev,
 				"%s: sd:%s update sink pad format %dx%d code 0x%x\n",
 				__func__, sd->name,
 				img_fmt->fmt.pix_mp.width,
 				img_fmt->fmt.pix_mp.height,
 				mf->code);
+			dev_dbg(raw->cam_dev,
+				"%s: sd:%s is_imgo_enabled %d\n",
+				__func__, sd->name,
+				pipe->vdev_nodes
+					[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM].enabled);
 		}
 
 		source_mf = mtk_raw_pipeline_get_fmt(pipe, state,

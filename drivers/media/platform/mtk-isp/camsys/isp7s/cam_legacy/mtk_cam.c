@@ -7096,9 +7096,6 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 		 req->flags, req->ctx_link_update, stream_id,
 		 scen_first_req->id);
 
-	/* stop the camsv */
-	mtk_cam_sv_dev_stream_on(ctx, 0);
-
 	/* stop the raw */
 	if (ctx->used_raw_num) {
 #ifdef MTK_CAM_HSF_SUPPORT
@@ -7144,6 +7141,9 @@ void mtk_cam_sensor_switch_stop_reinit_hw(struct mtk_cam_ctx *ctx,
 			}
 		}
 	}
+
+	/* stop the camsv */
+	mtk_cam_sv_dev_stream_on(ctx, 0);
 
 	if (ctx->sv_dev) {
 		for (i = SVTAG_START; i < SVTAG_END; i++) {
@@ -8508,7 +8508,7 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 		ctx->sv_dev->enabled_tags |= idle_tags;
 		ctx->sv_dev->used_tag_cnt += req_amount;
 	} else if (config_pipe && !mtk_cam_scen_is_mstream(scen_active) &&
-		!mtk_cam_scen_is_mstream_m2m(scen_active) &&
+		!mtk_cam_scen_is_m2m(scen_active) &&
 		!mtk_cam_scen_is_subsample(scen_active) &&
 		!mtk_cam_is_hsf(ctx)) {
 #if PURE_RAW_WITH_SV
