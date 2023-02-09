@@ -1136,29 +1136,6 @@ static void fbt_reset_task_setting(struct fpsgo_loading *fl, int reset_boost)
 	fbt_set_task_policy(fl, FPSGO_TPOLICY_NONE, FPSGO_PREFER_NONE, 0);
 }
 
-static void fbt_dep_list_filter(struct fpsgo_loading *arr, int size)
-{
-	struct task_struct *tsk;
-	int i;
-
-	rcu_read_lock();
-
-	for (i = 0; i < size; i++) {
-		tsk = find_task_by_vpid(arr[i].pid);
-		if (!tsk) {
-			arr[i].pid = 0;
-			continue;
-		}
-
-		get_task_struct(tsk);
-		if ((tsk->flags & PF_KTHREAD) || rt_task(tsk) || dl_task(tsk))
-			arr[i].pid = 0;
-		put_task_struct(tsk);
-	}
-
-	rcu_read_unlock();
-}
-
 static int __cmp1(const void *a, const void *b)
 {
 	return (((struct fpsgo_loading *)a)->pid)
@@ -1237,7 +1214,6 @@ static int fbt_get_dep_list(struct render_info *thr)
 		goto EXIT;
 	}
 
-	fbt_dep_list_filter(dep_new, count);
 	sort(dep_new, count, sizeof(struct fpsgo_loading), __cmp1, NULL);
 
 	dep_a_except_b(

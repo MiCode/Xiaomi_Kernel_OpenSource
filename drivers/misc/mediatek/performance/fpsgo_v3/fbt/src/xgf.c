@@ -16,6 +16,7 @@
 #include <linux/tracepoint.h>
 #include <linux/sched/task.h>
 #include <linux/kernel.h>
+#include <sched/sched.h>
 #include <trace/trace.h>
 #include <trace/events/sched.h>
 #include <trace/events/ipi.h>
@@ -1437,6 +1438,29 @@ int has_xgf_dep(pid_t tid)
 	return ret;
 }
 
+static int xgf_filter_dep_task(int tid)
+{
+	int ret = 0;
+	struct task_struct *tsk = NULL;
+
+	rcu_read_lock();
+
+	tsk = find_task_by_vpid(tid);
+	if (!tsk) {
+		ret = 1;
+		goto out;
+	}
+
+	get_task_struct(tsk);
+	if ((tsk->flags & PF_KTHREAD) || rt_task(tsk) || dl_task(tsk))
+		ret = 1;
+	put_task_struct(tsk);
+
+out:
+	rcu_read_unlock();
+	return ret;
+}
+
 int gbe2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 {
 	struct xgf_render *render_iter;
@@ -1548,15 +1572,16 @@ int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 			pre_iter = rb_entry(pre_rbn, struct xgf_dep, rb_node);
 
 			if (out_iter->tid < pre_iter->tid) {
-				if (out_iter->render_dep)
+				if (out_iter->render_dep && !xgf_filter_dep_task(out_iter->tid))
 					counts++;
 				out_rbn = rb_next(out_rbn);
 			} else if (out_iter->tid > pre_iter->tid) {
-				if (pre_iter->render_dep)
+				if (pre_iter->render_dep && !xgf_filter_dep_task(pre_iter->tid))
 					counts++;
 				pre_rbn = rb_next(pre_rbn);
 			} else {
-				if ((out_iter->render_dep || pre_iter->render_dep))
+				if ((out_iter->render_dep || pre_iter->render_dep) &&
+					!xgf_filter_dep_task(out_iter->tid))
 					counts++;
 				out_rbn = rb_next(out_rbn);
 				pre_rbn = rb_next(pre_rbn);
@@ -1565,14 +1590,14 @@ int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 
 		while (out_rbn != NULL) {
 			out_iter = rb_entry(out_rbn, struct xgf_dep, rb_node);
-			if (out_iter->render_dep)
+			if (out_iter->render_dep && !xgf_filter_dep_task(out_iter->tid))
 				counts++;
 			out_rbn = rb_next(out_rbn);
 		}
 
 		while (pre_rbn != NULL) {
 			pre_iter = rb_entry(pre_rbn, struct xgf_dep, rb_node);
-			if (pre_iter->render_dep)
+			if (pre_iter->render_dep && !xgf_filter_dep_task(pre_iter->tid))
 				counts++;
 			pre_rbn = rb_next(pre_rbn);
 		}
@@ -1707,14 +1732,16 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 			pre_iter = rb_entry(pre_rbn, struct xgf_dep, rb_node);
 
 			if (out_iter->tid < pre_iter->tid) {
-				if (out_iter->render_dep && index < count) {
+				if (out_iter->render_dep && index < count &&
+					!xgf_filter_dep_task(out_iter->tid)) {
 					arr[index].pid = out_iter->tid;
 					arr[index].action = out_iter->action;
 					index++;
 				}
 				out_rbn = rb_next(out_rbn);
 			} else if (out_iter->tid > pre_iter->tid) {
-				if (pre_iter->render_dep && index < count) {
+				if (pre_iter->render_dep && index < count &&
+					!xgf_filter_dep_task(pre_iter->tid)) {
 					arr[index].pid = pre_iter->tid;
 					arr[index].action = pre_iter->action;
 					index++;
@@ -1722,7 +1749,8 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 				pre_rbn = rb_next(pre_rbn);
 			} else {
 				if ((out_iter->render_dep || pre_iter->render_dep)
-					&& index < count) {
+					&& index < count &&
+					!xgf_filter_dep_task(out_iter->tid)) {
 					arr[index].pid = out_iter->tid;
 					arr[index].action = out_iter->action;
 					index++;
@@ -1734,7 +1762,8 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 
 		while (out_rbn != NULL) {
 			out_iter = rb_entry(out_rbn, struct xgf_dep, rb_node);
-			if (out_iter->render_dep && index < count) {
+			if (out_iter->render_dep && index < count &&
+				!xgf_filter_dep_task(out_iter->tid)) {
 				arr[index].pid = out_iter->tid;
 				arr[index].action = out_iter->action;
 				index++;
@@ -1744,7 +1773,8 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 
 		while (pre_rbn != NULL) {
 			pre_iter = rb_entry(pre_rbn, struct xgf_dep, rb_node);
-			if (pre_iter->render_dep && index < count) {
+			if (pre_iter->render_dep && index < count &&
+				!xgf_filter_dep_task(pre_iter->tid)) {
 				arr[index].pid = pre_iter->tid;
 				arr[index].action = pre_iter->action;
 				index++;
