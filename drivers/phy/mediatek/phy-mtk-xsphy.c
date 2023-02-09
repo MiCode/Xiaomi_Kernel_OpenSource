@@ -344,6 +344,7 @@ struct xsphy_instance {
 	int tx_lctxc0;
 	int tx_lctxcp1;
 	struct proc_dir_entry *phy_root;
+	struct work_struct procfs_work;
 };
 
 struct mtk_xsphy {
@@ -354,6 +355,7 @@ struct mtk_xsphy {
 	int src_ref_clk; /* MHZ, reference clock for slew rate calibrate */
 	int src_coef;    /* coefficient for slew rate calibrate */
 	struct proc_dir_entry *root;
+	struct workqueue_struct *wq;
 };
 
 static void u2_phy_props_set(struct mtk_xsphy *xsphy,
@@ -1146,27 +1148,34 @@ static int u2_phy_procfs_exit(struct xsphy_instance *inst)
 	return 0;
 }
 
-static int mtk_xsphy_procfs_init(struct mtk_xsphy *xsphy)
+static void mtk_xsphy_procfs_init_worker(struct work_struct *data)
 {
-	struct device_node *np = xsphy->dev->of_node;
-	struct proc_dir_entry *root = NULL;
+	struct xsphy_instance *inst = container_of(data,
+		struct xsphy_instance, procfs_work);
+	struct device *dev = &inst->phy->dev;
+	struct mtk_xsphy *xsphy = dev_get_drvdata(dev->parent);
 
 	if (!usb_root) {
 		usb_root = proc_mkdir(MTK_USB_STR, NULL);
 		if (!usb_root) {
 			dev_info(xsphy->dev, "failed to create usb_root\n");
-			return -ENOMEM;
+			return;
 		}
 	}
 
-	root = proc_mkdir(np->name, usb_root);
-	if (!root) {
-		dev_info(xsphy->dev, "failed to create xphy root\n");
-		return -ENOMEM;
+	if (!xsphy->root) {
+		xsphy->root = proc_mkdir(dev->of_node->name, usb_root);
+		if (!xsphy->root) {
+			dev_info(xsphy->dev, "failed to create xphy root\n");
+			return;
+		}
 	}
 
-	xsphy->root = root;
-	return 0;
+	if (inst->type == PHY_TYPE_USB2)
+		u2_phy_procfs_init(xsphy, inst);
+
+	if (inst->type == PHY_TYPE_USB3)
+		u3_phy_procfs_init(xsphy, inst);
 }
 
 static int mtk_xsphy_procfs_exit(struct mtk_xsphy *xsphy)
@@ -1950,7 +1959,7 @@ static int mtk_phy_init(struct phy *phy)
 	case PHY_TYPE_USB2:
 		u2_phy_instance_init(xsphy, inst);
 		u2_phy_props_set(xsphy, inst);
-		u2_phy_procfs_init(xsphy, inst);
+		queue_work(xsphy->wq, &inst->procfs_work);
 		/* show default u2 driving setting */
 		dev_info(xsphy->dev, "device src:%d vrt:%d term:%d rev6:%d\n",
 			inst->eye_src, inst->eye_vrt,
@@ -1966,7 +1975,7 @@ static int mtk_phy_init(struct phy *phy)
 		break;
 	case PHY_TYPE_USB3:
 		u3_phy_props_set(xsphy, inst);
-		u3_phy_procfs_init(xsphy, inst);
+		queue_work(xsphy->wq, &inst->procfs_work);
 		/* show default u3 driving setting */
 		dev_info(xsphy->dev, "u3_intr:%d, tx-imp:%d, rx-imp:%d\n",
 			inst->efuse_intr, inst->efuse_tx_imp,
@@ -2309,6 +2318,10 @@ static int mtk_xsphy_probe(struct platform_device *pdev)
 	device_property_read_u32(dev, "mediatek,src-ref-clk-mhz",
 				 &xsphy->src_ref_clk);
 	device_property_read_u32(dev, "mediatek,src-coef", &xsphy->src_coef);
+	/* create phy workqueue */
+	xsphy->wq = create_singlethread_workqueue("xsphy");
+	if (!xsphy->wq)
+		return -ENOMEM;
 
 	port = 0;
 	for_each_child_of_node(np, child_np) {
@@ -2380,6 +2393,8 @@ static int mtk_xsphy_probe(struct platform_device *pdev)
 		phy_set_drvdata(phy, inst);
 		port++;
 
+		INIT_WORK(&inst->procfs_work, mtk_xsphy_procfs_init_worker);
+
 		inst->ref_clk = devm_clk_get(&phy->dev, "ref");
 		if (IS_ERR(inst->ref_clk)) {
 			dev_err(dev, "failed to get ref_clk(id-%d)\n", port);
@@ -2387,8 +2402,6 @@ static int mtk_xsphy_probe(struct platform_device *pdev)
 			goto put_child;
 		}
 	}
-
-	mtk_xsphy_procfs_init(xsphy);
 
 	provider = devm_of_phy_provider_register(dev, mtk_phy_xlate);
 	return PTR_ERR_OR_ZERO(provider);
