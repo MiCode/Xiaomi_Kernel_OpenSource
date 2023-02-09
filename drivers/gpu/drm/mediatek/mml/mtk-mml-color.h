@@ -179,11 +179,13 @@ static inline u32 mml_color_get_min_uv_stride(enum mml_color c, u32 width)
 
 	if (MML_FMT_PLANE(c) == 1)
 		return 0;
-	min_stride = mml_color_get_min_y_stride(c, width) >>
-		MML_FMT_H_SUBSAMPLE(c);
+
+	min_stride = mml_color_get_min_y_stride(c, width);
+
 	if (MML_FMT_UV_COPLANE(c) && !MML_FMT_BLOCK(c))
-		min_stride = min_stride * 2;
-	return min_stride;
+		return min_stride;
+
+	return min_stride >> MML_FMT_H_SUBSAMPLE(c);
 }
 
 /* Minimum Y plane size that is necessary in buffer */

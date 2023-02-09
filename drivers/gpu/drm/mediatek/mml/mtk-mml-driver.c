@@ -74,6 +74,11 @@ struct mml_record {
 #endif
 #define MML_RECORD_NUM_MASK	(MML_RECORD_NUM - 1)
 
+int mml_pipe0_dest_crc;
+module_param(mml_pipe0_dest_crc, int, 0644);
+int mml_pipe1_dest_crc;
+module_param(mml_pipe1_dest_crc, int, 0644);
+
 struct mml_dev {
 	struct platform_device *pdev;
 	struct mml_comp *comps[MML_MAX_COMPONENTS];
@@ -991,6 +996,10 @@ void mml_record_track(struct mml_dev *mml, struct mml_task *task)
 		record->src_crc[i] = task->src_crc[i];
 		record->dest_crc[i] = task->dest_crc[i];
 	}
+
+	mml_pipe0_dest_crc = task->dest_crc[0];
+	if (MML_PIPE_CNT > 1)
+		mml_pipe1_dest_crc = task->dest_crc[1];
 
 	mml->record_idx = (mml->record_idx + 1) & MML_RECORD_NUM_MASK;
 

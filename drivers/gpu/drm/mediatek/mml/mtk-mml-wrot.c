@@ -374,8 +374,15 @@ static void wrot_config_left(struct mml_frame_dest *dest,
 	wrot_frm->out_crop.left = 0;
 	wrot_frm->out_crop.width = wrot_frm->out_w >> 1;
 
-	if (MML_FMT_10BIT_PACKED(dest->data.format) &&
-	    wrot_frm->out_crop.width & 3) {
+	if (MML_FMT_ARGB_COMPRESS(dest->data.format) &&
+	    wrot_frm->out_crop.width & 31) {
+		wrot_frm->out_crop.width =
+			(wrot_frm->out_crop.width & ~31) + 32;
+		if (is_change_wx(dest->rotate, dest->flip))
+			wrot_frm->out_crop.width = wrot_frm->out_w -
+						   wrot_frm->out_crop.width;
+	} else if (MML_FMT_10BIT_PACKED(dest->data.format) &&
+		 wrot_frm->out_crop.width & 3) {
 		wrot_frm->out_crop.width = (wrot_frm->out_crop.width & ~3) + 4;
 		if (is_change_wx(dest->rotate, dest->flip))
 			wrot_frm->out_crop.width = wrot_frm->out_w -
@@ -391,7 +398,14 @@ static void wrot_config_right(struct mml_frame_dest *dest,
 	wrot_frm->en_x_crop = true;
 	wrot_frm->out_crop.left = wrot_frm->out_w >> 1;
 
-	if (MML_FMT_10BIT_PACKED(dest->data.format) &&
+	if (MML_FMT_ARGB_COMPRESS(dest->data.format) &&
+	    wrot_frm->out_crop.left & 31) {
+		wrot_frm->out_crop.left =
+			(wrot_frm->out_crop.left & ~31) + 32;
+		if (is_change_wx(dest->rotate, dest->flip))
+			wrot_frm->out_crop.left = wrot_frm->out_w -
+						   wrot_frm->out_crop.left;
+	} else if (MML_FMT_10BIT_PACKED(dest->data.format) &&
 	    wrot_frm->out_crop.left & 3) {
 		wrot_frm->out_crop.left = (wrot_frm->out_crop.left & ~3) + 4;
 		if (is_change_wx(dest->rotate, dest->flip))
@@ -1639,6 +1653,16 @@ static void wrot_check_buf(const struct mml_frame_dest *dest,
 		buf->uv_buf_check = 0;
 	} else {
 		buf->uv_buf_check = 1;
+	}
+
+	if (dest->rotate == MML_ROT_90 || dest->rotate == MML_ROT_270) {
+		if (dest->data.format == MML_FMT_NV12_10P ||
+		    dest->data.format == MML_FMT_NV21_10P) {
+			if (setting->main_buf_line_num > 32)
+				setting->main_buf_line_num = 64;
+			else
+				setting->main_buf_line_num = 32;
+		}
 	}
 }
 

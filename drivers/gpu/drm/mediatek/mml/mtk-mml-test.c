@@ -56,6 +56,8 @@ struct mml_test_case {
 	uint32_t size_out;
 	int32_t fd_out1;
 	uint32_t size_out1;
+
+	uint32_t dump_dest;
 };
 
 /* kernel level test case struct */
@@ -135,6 +137,18 @@ module_param(mml_test_crop_width, int, 0644);
 int mml_test_crop_height = 1088;
 module_param(mml_test_crop_height, int, 0644);
 
+int mml_test_comp_left;
+module_param(mml_test_comp_left, int, 0644);
+
+int mml_test_comp_top;
+module_param(mml_test_comp_top, int, 0644);
+
+int mml_test_comp_width = 1920;
+module_param(mml_test_comp_width, int, 0644);
+
+int mml_test_comp_height = 1088;
+module_param(mml_test_comp_height, int, 0644);
+
 int mml_test_rot;
 module_param(mml_test_rot, int, 0644);
 
@@ -149,6 +163,9 @@ module_param(mml_test_in_fmt, int, 0644);
 
 int mml_test_out_fmt = MML_FMT_RGB888;
 module_param(mml_test_out_fmt, int, 0644);
+
+int mml_test_dump_dest = 1;
+module_param(mml_test_dump_dest, int, 0644);
 
 struct mml_test {
 	struct platform_device *pdev;
@@ -430,9 +447,9 @@ static void case_general_submit(struct mml_test *test,
 	}
 
 	kfree(fences);
-	for (i = 0; i < 5 && !mml_drm_ctx_idle(mml_ctx); i++) {
+	for (i = 0; i < 5000 && !mml_drm_ctx_idle(mml_ctx); i++) {
 		mml_log("[test]wait for ctx idle...");
-		msleep_interruptible(1000);	/* make sure mml stops */
+		msleep_interruptible(1);	/* make sure mml stops */
 	}
 
 err_done:
@@ -1262,11 +1279,11 @@ static void case_config_rgb_down2(void)
 	the_case.cfg_dest_h = mml_test_h / 2;
 }
 
-/* case_config_blk_manual
- * test format blk scale manual
+/* case_config_manual
+ * test format scale manual
  *
- * format in: blk
- * format out: YUYV crop
+ * format in: manual
+ * format out: manual crop
  */
 static void case_config_crop_manual(void)
 {
@@ -1284,15 +1301,22 @@ static void setup_crop_manual(struct mml_submit *task, struct mml_ut *cur)
 	task->info.dest[0].crop.r.top = mml_test_crop_top;
 	task->info.dest[0].crop.r.width = mml_test_crop_width;
 	task->info.dest[0].crop.r.height = mml_test_crop_height;
+	task->info.dest[0].compose.left = mml_test_comp_left;
+	task->info.dest[0].compose.top = mml_test_comp_top;
+	task->info.dest[0].compose.width = mml_test_comp_width;
+	task->info.dest[0].compose.height = mml_test_comp_height;
 	task->info.dest[0].rotate = mml_test_rot;
 	task->info.dest[0].flip = mml_test_flip;
 
 	/* check dest 0 with 2 plane size */
-	if (task->buffer.dest[0].size[0] + task->buffer.dest[0].size[1] !=
-		cur->size_out)
-		mml_err("[test]%s case %d dest size total %u plane %u %u",
+	if (task->buffer.dest[0].size[0] +
+	    task->buffer.dest[0].size[1] +
+	    task->buffer.dest[0].size[2] !=
+	    cur->size_out)
+		mml_err("[test]%s case %d dest size total %u plane %u %u %u",
 			__func__, mml_case, cur->size_out,
-			task->buffer.dest[0].size[0], task->buffer.dest[0].size[1]);
+			task->buffer.dest[0].size[0], task->buffer.dest[0].size[1],
+			task->buffer.dest[0].size[2]);
 }
 
 static void case_run_crop_manual(struct mml_test *test, struct mml_ut *cur)
@@ -1387,7 +1411,7 @@ enum mml_ut_case {
 	MML_UT_WR_SRAM,			/* 17 */
 	MML_UT_RESIZE_UP1_5,		/* 18 */
 	MML_UT_RGB_DOWN2,		/* 19 */
-	MML_UT_BLK_MANUAL,		/* 20 */
+	MML_UT_MANUAL,			/* 20 */
 	MML_UT_YUV_AFBC_TO_RGB,		/* 21 */
 	MML_UT_YUV_AFBC_10_TO_RGB,	/* 22 */
 	MML_UT_2IN_2OUT,		/* 23 */
@@ -1476,7 +1500,7 @@ static struct test_case_op cases[MML_UT_TOTAL] = {
 		.config = case_config_rgb_down2,
 		.run = case_run_general,
 	},
-	[MML_UT_BLK_MANUAL] = {
+	[MML_UT_MANUAL] = {
 		.config = case_config_crop_manual,
 		.run = case_run_crop_manual,
 	},
@@ -1534,6 +1558,7 @@ static ssize_t test_read(struct file *filep, char __user *buf, size_t size,
 	user_case.size_out = the_case.size_out;
 	user_case.fd_out1 = the_case.fd_out1;
 	user_case.size_out1 = the_case.size_out1;
+	user_case.dump_dest = mml_test_dump_dest;
 
 	ret = copy_to_user(buf, &user_case, len);
 	if (ret) {
