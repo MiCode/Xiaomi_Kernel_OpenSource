@@ -40,7 +40,7 @@
 		pid = <8>;
 	};
 
-	wlan7305c: wlan7305c {
+	wlan7209c: wlan7209c {
 		vid = <2>;
 		pid = <9>;
 	};
@@ -85,7 +85,7 @@
 			<0x10 0xcc 0>;	/* ANTSEL 0x10 <-> PIN #0xC: 5G WF1 SEL3 */
 	};
 
-	wlan7305h_wlan7305c {
+	wlan7305h_wlan7209c {
 		mapping = <0x0 0x3 0>,	/* ANTSEL 0x00 <-> PIN #0x3: 2G WF0 C0 */
 			<0x01 0x02 0>,	/* ANTSEL 0x01 <-> PIN #0x2: 2G WF0 C1 */
 			<0x02 0x04 0>,	/* ANTSEL 0x02 <-> PIN #0x4: 2G WF0 C2 */
