@@ -6285,8 +6285,8 @@ static long DIP_ioctl(
 		if (copy_from_user(&ion_mem_info,
 			(void *)Param,
 			sizeof(struct DIP_ION_MEM_INFO)) == 0) {
-			if (ion_mem_info.buf_fd == 0) {
-				LOG_ERR("buf fd equal 0\n");
+			if (ion_mem_info.buf_fd <= 0) {
+				LOG_ERR("buf fd equal 0 or less than 0\n");
 				Ret = -EFAULT;
 				goto EXIT;
 			}
@@ -6294,6 +6294,13 @@ static long DIP_ioctl(
 
 			dip_ion_list = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
 			dip_ion_entry = kzalloc(sizeof(struct dip_fd_list_template), GFP_KERNEL);
+
+			if (dip_ion_list == NULL || dip_ion_entry == NULL) {
+				LOG_ERR("dip_ion_list or dip_ion_entry is NULL\n");
+				Ret = -EFAULT;
+				goto EXIT;
+			}
+
 			if (ion_mem_info.check_flag == 1) {
 				list_for_each(pos, &dip_fd_head) {
 					dip_ion_entry = list_entry(pos,
