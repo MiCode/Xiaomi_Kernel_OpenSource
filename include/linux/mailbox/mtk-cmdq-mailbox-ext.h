@@ -349,4 +349,6 @@ void cmdq_chan_dump_dbg(void *chan);
 void cmdq_get_mminfra_cb(cmdq_mminfra_power cb);
 void cmdq_get_mminfra_gce_cg_cb(cmdq_mminfra_gce_cg cb);
 void cmdq_dump_usage(void);
+u8 cmdq_get_irq_long_times(void *chan);
+
 #endif /* __MTK_CMDQ_MAILBOX_H__ */

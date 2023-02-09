@@ -259,6 +259,7 @@ struct cmdq {
 	struct cmdq_client	*prebuilt_clt;
 	struct cmdq_client	*hw_trace_clt;
 	struct mutex mbox_mutex;
+	u8			irq_long_times;
 };
 
 struct gce_plat {
@@ -274,6 +275,14 @@ struct gce_plat {
 #endif
 
 static struct cmdq *g_cmdq[2];
+
+u8 cmdq_get_irq_long_times(void *chan)
+{
+	struct cmdq *cmdq = container_of(((struct mbox_chan *)chan)->mbox,
+		typeof(*cmdq), mbox);
+	return cmdq->irq_long_times;
+}
+EXPORT_SYMBOL(cmdq_get_irq_long_times);
 
 void cmdq_dump_usage(void)
 {
@@ -1064,7 +1073,6 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	u64 start = sched_clock(), end[4];
 	u32 end_cnt = 0;
-	static u8 time;
 #endif
 
 	if (atomic_read(&cmdq->usage) <= 0) {
@@ -1225,7 +1233,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	}
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end[end_cnt] = sched_clock();
-	if (end[end_cnt] - start >= 1000000 && !time) /* 1ms */
+	if (end[end_cnt] - start >= 1000000 && !cmdq->irq_long_times) /* 1ms */
 		cmdq_util_err(
 			"IRQ_LONG:%llu reg:%llu loop:%llu list:%llu dis:%llu done:%llu lock:%llu addlist:%llu",
 			end[end_cnt] - start, end[0] - start,
@@ -1233,8 +1241,6 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 			debug_end[1] - debug_end[0],
 			debug_end[2] - debug_end[1],
 			debug_end[3] - debug_end[2]);
-	if (end[end_cnt] - start >= 1000000)
-		time += 1;
 #endif
 }
 
@@ -1248,7 +1254,6 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	u64 start = sched_clock(), end[4];
 	u32 end_cnt = 0;
-	static u8 time;
 #endif
 
 	if (atomic_read(&cmdq->usage) == -1)
@@ -1311,7 +1316,7 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 	wake_up_interruptible(&cmdq->err_irq_wq);
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end[end_cnt] = sched_clock();
-	if (end[end_cnt] - start >= 5000000 && !time) { /* 5ms */
+	if (end[end_cnt] - start >= 5000000 && !cmdq->irq_long_times) { /* 5ms */
 		cmdq_util_err(
 			"IRQ_LONG:%llu atomic:%llu readl:%llu bit:%llu wakeup:%llu",
 			end[end_cnt] - start, end[0] - start,
@@ -1340,8 +1345,8 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 		}
 	}
 
-	if (end[end_cnt] - start >= 1000000)
-		time += 1;
+	if (end[end_cnt] - start >= 5000000)
+		cmdq->irq_long_times += 1;
 #endif
 	return secure_irq ? IRQ_NONE : IRQ_HANDLED;
 }
