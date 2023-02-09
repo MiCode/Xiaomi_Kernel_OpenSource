@@ -743,9 +743,12 @@ static void mt6360_init_v4l2_flash_config(
 	struct led_flash_setting *torch_intensity = &config->intensity;
 	struct led_classdev *led_cdev = &(mtfled_cdev->fl_cdev.led_cdev);
 	s32 val;
+	int ret;
 
-	snprintf(config->dev_name, sizeof(config->dev_name),
+	ret = snprintf(config->dev_name, sizeof(config->dev_name),
 		 "%s", mtfled_cdev->fl_cdev.led_cdev.name);
+	if (ret < 0 || ret >= sizeof(config->dev_name))
+		return;
 	torch_intensity->min = MT6360_TORCHCUR_MIN;
 	torch_intensity->step = MT6360_TORCHCUR_STEP;
 	val = MT6360_TORCHCUR_MIN;
@@ -981,6 +984,8 @@ static ssize_t mt6360_strobe_store(struct flashlight_arg arg)
 	struct led_classdev_flash *flcdev;
 	struct led_classdev *lcdev;
 
+	if (arg.channel < 0)
+		return 0;
 	flcdev = mt6360_flash_class[arg.channel];
 	lcdev = &flcdev->led_cdev;
 	mt6360_fled_brightness_set(lcdev, 1);
@@ -1107,8 +1112,10 @@ static int mt6360_fled_parse_dt(struct device *dev,
 		of_property_read_u32(child, "type", &mtfled_cdev->dev_id.type);
 		of_property_read_u32(child, "ct", &mtfled_cdev->dev_id.ct);
 		of_property_read_u32(child, "part", &mtfled_cdev->dev_id.part);
-		snprintf(mtfled_cdev->dev_id.name, FLASHLIGHT_NAME_SIZE,
+		ret = snprintf(mtfled_cdev->dev_id.name, FLASHLIGHT_NAME_SIZE,
 				mtfled_cdev->fl_cdev.led_cdev.name);
+		if (ret < 0 || ret >= FLASHLIGHT_NAME_SIZE)
+			return -EINVAL;
 		mtfled_cdev->dev_id.channel = reg;
 		mt6360_flash_class[reg] = &mtfled_cdev->fl_cdev;
 		mtfled_cdev->dev_id.decouple = 0;
