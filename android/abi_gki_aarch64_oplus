@@ -29,6 +29,7 @@
   blkdev_issue_flush
   blkdev_put
   blk_finish_plug
+  blk_mq_queue_inflight
   blk_queue_flag_clear
   blk_queue_flag_set
   blk_queue_io_min
@@ -74,6 +75,7 @@
   del_timer
   del_timer_sync
   destroy_workqueue
+  dev_get_by_index_rcu
   device_add_disk
   devres_destroy
   disk_end_io_acct
@@ -212,7 +214,9 @@
   mutex_unlock
   nf_ct_attach
   nf_ct_delete
+  nf_register_net_hook
   nf_register_net_hooks
+  nf_unregister_net_hook
   nf_unregister_net_hooks
   nla_find
   nla_memcpy
@@ -230,6 +234,7 @@
   __page_mapcount
   page_mapping
   param_ops_uint
+  page_to_lruvec
   __per_cpu_offset
   platform_device_add
   platform_device_alloc
@@ -260,6 +265,7 @@
   radix_tree_next_chunk
   radix_tree_preload
   radix_tree_replace_slot
+  rtc_read_alarm
   _raw_read_lock
   _raw_read_unlock
   _raw_spin_lock
@@ -278,6 +284,7 @@
   register_sysctl_table
   register_tcf_proto_ops
   remove_proc_subtree
+  __rtnl_link_unregister
   sched_clock
   sched_setscheduler_nocheck
   sched_show_task

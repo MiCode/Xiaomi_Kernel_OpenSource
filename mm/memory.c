@@ -217,6 +217,16 @@ static void free_pte_range(struct mmu_gather *tlb, pmd_t *pmd,
 			   unsigned long addr)
 {
 	pgtable_t token = pmd_pgtable(*pmd);
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	/*
+	 * Ensure page table destruction is blocked if __pte_map_lock managed
+	 * to take this lock. Without this barrier tlb_remove_table_rcu can
+	 * destroy ptl after __pte_map_lock locked it and during unlock would
+	 * cause a use-after-free.
+	 */
+	spinlock_t *ptl = pmd_lock(tlb->mm, pmd);
+	spin_unlock(ptl);
+#endif
 	pmd_clear(pmd);
 	pte_free_tlb(tlb, token, addr);
 	mm_dec_nr_ptes(tlb->mm);
@@ -2741,9 +2751,7 @@ EXPORT_SYMBOL_GPL(apply_to_existing_page_range);
 
 bool __pte_map_lock(struct vm_fault *vmf)
 {
-#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	pmd_t pmdval;
-#endif
 	pte_t *pte = vmf->pte;
 	spinlock_t *ptl;
 
@@ -2764,20 +2772,20 @@ bool __pte_map_lock(struct vm_fault *vmf)
 	 * tables are still valid at that point, and
 	 * speculative_page_walk_begin() ensures that they stay around.
 	 */
-#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	/*
 	 * We check if the pmd value is still the same to ensure that there
 	 * is not a huge collapse operation in progress in our back.
+	 * It also ensures that pmd was not cleared by pmd_clear in
+	 * free_pte_range and ptl is still valid.
 	 */
 	pmdval = READ_ONCE(*vmf->pmd);
 	if (!pmd_same(pmdval, vmf->orig_pmd)) {
 		count_vm_spf_event(SPF_ABORT_PTE_MAP_LOCK_PMD);
 		goto fail;
 	}
-#endif
-	ptl = pte_lockptr(vmf->vma->vm_mm, vmf->pmd);
+	ptl = pte_lockptr(vmf->vma->vm_mm, &pmdval);
 	if (!pte)
-		pte = pte_offset_map(vmf->pmd, vmf->address);
+		pte = pte_offset_map(&pmdval, vmf->address);
 	/*
 	 * Try locking the page table.
 	 *
@@ -2794,6 +2802,10 @@ bool __pte_map_lock(struct vm_fault *vmf)
 		count_vm_spf_event(SPF_ABORT_PTE_MAP_LOCK_PTL);
 		goto fail;
 	}
+	/*
+	 * The check below will fail if __pte_map_lock passed its ptl barrier
+	 * before we took the ptl lock.
+	 */
 	if (!mmap_seq_read_check(vmf->vma->vm_mm, vmf->seq,
 				 SPF_ABORT_PTE_MAP_LOCK_SEQ2))
 		goto unlock_fail;

@@ -240,6 +240,8 @@
   crypto_unregister_shash
   crypto_unregister_skcipher
   __crypto_xor
+  csum_ipv6_magic
+  csum_partial
   _ctype
   current_time
   current_umask
@@ -272,6 +274,7 @@
   dev_fwnode
   __dev_get_by_index
   dev_get_by_index
+  dev_get_by_name
   dev_get_regmap
   device_add
   device_add_disk
@@ -308,6 +311,7 @@
   devm_clk_put
   devm_clk_register
   devm_extcon_dev_allocate
+  devm_extcon_dev_register
   devm_free_irq
   devm_gpiod_get
   devm_gpiod_get_index
@@ -338,6 +342,7 @@
   devm_platform_ioremap_resource_byname
   devm_pwm_get
   devm_regmap_field_alloc
+  __devm_regmap_init_i2c
   __devm_regmap_init_mmio_clk
   devm_regulator_get
   devm_regulator_get_optional
@@ -452,6 +457,7 @@
   d_obtain_alias
   do_SAK
   do_trace_netlink_extack
+  do_traversal_all_lruvec
   down
   downgrade_write
   down_interruptible
@@ -460,6 +466,7 @@
   down_trylock
   down_write
   down_write_trylock
+  d_path
   dput
   dql_completed
   dql_reset
@@ -507,6 +514,7 @@
   drm_atomic_set_mode_for_crtc
   drm_atomic_set_mode_prop_for_crtc
   drm_atomic_state_alloc
+  drm_atomic_state_clear
   __drm_atomic_state_free
   drm_compat_ioctl
   drm_connector_attach_content_protection_property
@@ -523,6 +531,7 @@
   drm_connector_update_edid_property
   drm_crtc_accurate_vblank_count
   drm_crtc_add_crc_entry
+  drm_crtc_arm_vblank_event
   drm_crtc_cleanup
   __drm_crtc_commit_free
   drm_crtc_enable_color_mgmt
@@ -530,6 +539,7 @@
   drm_crtc_handle_vblank
   drm_crtc_init_with_planes
   drm_crtc_send_vblank_event
+  drm_crtc_vblank_get
   drm_crtc_vblank_helper_get_vblank_timestamp
   drm_crtc_vblank_off
   drm_crtc_vblank_on
@@ -545,6 +555,7 @@
   drm_format_info
   drm_framebuffer_cleanup
   drm_framebuffer_init
+  drm_framebuffer_lookup
   drm_gem_cma_vm_ops
   drm_gem_create_mmap_offset
   drm_gem_free_mmap_offset
@@ -566,6 +577,7 @@
   drm_helper_mode_fill_fb_struct
   drm_helper_probe_single_connector_modes
   drm_ioctl
+  drm_kms_helper_hotplug_event
   drm_kms_helper_poll_disable
   drm_kms_helper_poll_enable
   drm_kms_helper_poll_fini
@@ -581,7 +593,11 @@
   drm_mode_object_find
   drm_mode_object_put
   drm_mode_probed_add
+  drm_modeset_acquire_fini
+  drm_modeset_acquire_init
+  drm_modeset_backoff
   drm_mode_set_crtcinfo
+  drm_modeset_drop_locks
   drm_modeset_lock
   drm_modeset_lock_all
   drm_modeset_unlock
@@ -605,6 +621,8 @@
   drm_property_create_enum
   drm_property_create_range
   drm_property_destroy
+  drm_property_lookup_blob
+  drm_property_replace_blob
   drm_read
   drm_release
   drm_self_refresh_helper_update_avg_times
@@ -639,6 +657,7 @@
   event_triggers_call
   extcon_dev_register
   extcon_set_state
+  extcon_set_state_sync
   fasync_helper
   fault_in_iov_iter_readable
   __fdget
@@ -659,6 +678,7 @@
   _find_last_bit
   _find_next_bit
   __find_vma
+  find_vpid
   finish_wait
   flow_block_cb_setup_simple
   flow_rule_match_basic
@@ -722,6 +742,8 @@
   gen_pool_virt_to_phys
   __getblk_gfp
   get_cpu_device
+  get_cpu_idle_time_us
+  get_cpu_iowait_time_us
   get_device
   get_device_system_crosststamp
   __get_free_pages
@@ -747,6 +769,7 @@
   gpiod_get
   gpiod_get_index
   gpiod_get_raw_value
+  gpiod_get_raw_value_cansleep
   gpiod_get_value
   gpiod_get_value_cansleep
   gpiod_put
@@ -889,6 +912,7 @@
   jiffies_to_usecs
   kasan_flag_enabled
   kasprintf
+  kernel_cpustat
   kernel_neon_begin
   kernel_neon_end
   kernel_param_lock
@@ -901,6 +925,7 @@
   keyring_alloc
   __kfifo_alloc
   __kfifo_free
+  __kfifo_from_user
   __kfifo_in
   __kfifo_init
   __kfifo_in_r
@@ -916,6 +941,7 @@
   kill_anon_super
   kill_block_super
   kill_fasync
+  kill_pid
   kimage_voffset
   __kmalloc
   kmalloc_caches
@@ -980,6 +1006,7 @@
   loops_per_jiffy
   mac_pton
   make_bad_inode
+  mangle_path
   mark_buffer_dirty
   __mark_inode_dirty
   mbox_chan_received_data
@@ -1100,6 +1127,7 @@
   nla_put
   nla_put_nohdr
   nla_reserve
+  nla_strscpy
   __nla_validate
   __nlmsg_put
   no_llseek
@@ -1181,6 +1209,7 @@
   pagecache_write_begin
   pagecache_write_end
   page_endio
+  __page_mapcount
   page_mapping
   page_pool_alloc_pages
   page_pool_create
@@ -1310,13 +1339,16 @@
   preempt_schedule
   preempt_schedule_notrace
   prepare_to_wait_event
+  print_hex_dump
   _printk
   __printk_ratelimit
   proc_create
   proc_create_data
   proc_dointvec
   proc_mkdir
+  proc_mkdir_data
   proc_remove
+  __pskb_copy_fclone
   pskb_expand_head
   __pskb_pull_tail
   ___pskb_trim
@@ -1356,7 +1388,9 @@
   _raw_spin_unlock_irq
   _raw_spin_unlock_irqrestore
   _raw_write_lock
+  _raw_write_lock_irqsave
   _raw_write_unlock
+  _raw_write_unlock_irqrestore
   rb_erase
   rb_first
   rb_insert_color
@@ -1369,6 +1403,7 @@
   __rcu_read_unlock
   rdev_get_drvdata
   read_cache_page
+  read_sanitised_ftr_reg
   refcount_warn_saturate
   __refrigerator
   regcache_sync
@@ -1392,9 +1427,11 @@
   register_shrinker
   register_syscore_ops
   register_sysctl_table
+  register_wide_hw_breakpoint
   regmap_field_read
   regmap_field_update_bits_base
   regmap_multi_reg_write
+  regmap_raw_write
   regmap_read
   regmap_update_bits_base
   regmap_write
@@ -1451,6 +1488,7 @@
   sb_set_blocksize
   scatterwalk_map_and_copy
   sched_clock
+  sched_setattr_nocheck
   sched_set_fifo_low
   sched_set_normal
   sched_setscheduler
@@ -1460,6 +1498,7 @@
   schedule_timeout
   schedule_timeout_interruptible
   scnprintf
+  sdio_align_size
   sdio_claim_host
   sdio_claim_irq
   sdio_disable_func
@@ -1518,6 +1557,7 @@
   __sg_page_iter_next
   __sg_page_iter_start
   show_class_attr_string
+  show_regs
   simple_attr_open
   simple_attr_read
   simple_attr_release
@@ -1554,6 +1594,7 @@
   skb_tstamp_tx
   skip_spaces
   smp_call_function
+  smp_call_function_single
   snd_ctl_add
   snd_ctl_boolean_mono_info
   snd_ctl_enum_info
@@ -1570,11 +1611,17 @@
   snd_pcm_lib_preallocate_pages
   snd_pcm_period_elapsed
   snd_pcm_rate_to_rate_bit
+  snd_pcm_stop
   snd_pcm_stop_xrun
+  _snd_pcm_stream_lock_irqsave
+  snd_pcm_stream_unlock_irqrestore
   snd_soc_add_card_controls
   snd_soc_add_dai_controls
   snd_soc_bytes_info_ext
+  snd_soc_bytes_tlv_callback
+  snd_soc_card_jack_new
   snd_soc_component_read
+  snd_soc_component_update_bits
   snd_soc_component_write
   snd_soc_daifmt_clock_provider_from_bitmap
   snd_soc_daifmt_parse_clock_provider_raw
@@ -1585,8 +1632,12 @@
   snd_soc_dapm_get_enum_double
   snd_soc_dapm_put_enum_double
   snd_soc_get_volsw
+  snd_soc_get_volsw_range
   snd_soc_info_enum_double
   snd_soc_info_volsw
+  snd_soc_info_volsw_range
+  snd_soc_jack_free_gpios
+  snd_soc_jack_report
   snd_soc_of_get_dai_link_codecs
   snd_soc_of_get_dai_name
   snd_soc_of_get_slot_mask
@@ -1596,6 +1647,8 @@
   snd_soc_of_parse_tdm_slot
   snd_soc_pm_ops
   snd_soc_put_volsw
+  snd_soc_put_volsw_range
+  snd_soc_register_component
   snd_soc_set_runtime_hwparams
   snd_soc_unregister_component
   snprintf
@@ -1643,6 +1696,7 @@
   strncpy_from_user
   strnlen
   strnstr
+  strpbrk
   strrchr
   strscpy
   strsep
@@ -1686,6 +1740,7 @@
   system_power_efficient_wq
   system_wq
   sys_tz
+  __tasklet_hi_schedule
   tasklet_init
   tasklet_kill
   __tasklet_schedule
@@ -1708,9 +1763,11 @@
   trace_handle_return
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
+  __traceiter_android_vh_do_traversal_lruvec
   __traceiter_android_vh_dump_throttled_rt_tasks
   __traceiter_android_vh_mmc_sd_update_cmdline_timing
   __traceiter_android_vh_mmc_sd_update_dataline_timing
+  __traceiter_android_vh_rmqueue
   __traceiter_android_vh_sched_show_task
   __traceiter_gpu_mem_total
   __traceiter_irq_handler_entry
@@ -1722,9 +1779,11 @@
   trace_output_call
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
+  __tracepoint_android_vh_do_traversal_lruvec
   __tracepoint_android_vh_dump_throttled_rt_tasks
   __tracepoint_android_vh_mmc_sd_update_cmdline_timing
   __tracepoint_android_vh_mmc_sd_update_dataline_timing
+  __tracepoint_android_vh_rmqueue
   __tracepoint_android_vh_sched_show_task
   __tracepoint_gpu_mem_total
   __tracepoint_irq_handler_entry
@@ -1733,6 +1792,7 @@
   __tracepoint_mmap_lock_released
   __tracepoint_mmap_lock_start_locking
   tracepoint_probe_register
+  tracepoint_probe_unregister
   __tracepoint_xdp_exception
   trace_print_array_seq
   trace_print_flags_seq
@@ -1786,6 +1846,7 @@
   unregister_reboot_notifier
   unregister_shrinker
   unregister_sysctl_table
+  unregister_wide_hw_breakpoint
   up
   up_read
   up_write
@@ -1881,6 +1942,7 @@
   vmalloc_user
   vmap
   vmf_insert_pfn_prot
+  vm_insert_page
   vm_unmap_aliases
   vm_zone_stat
   vprintk
@@ -1932,6 +1994,7 @@
   xsk_tx_peek_desc
   xsk_tx_release
   xsk_uses_need_wakeup
+  yield
   zs_compact
   zs_create_pool
   zs_destroy_pool

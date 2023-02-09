@@ -1279,6 +1279,16 @@ struct lruvec *lock_page_lruvec_irqsave(struct page *page, unsigned long *flags)
 	return lruvec;
 }
 
+struct lruvec *page_to_lruvec(struct page *page, pg_data_t *pgdat)
+{
+	struct lruvec *lruvec;
+
+	lruvec = mem_cgroup_page_lruvec(page);
+
+	return lruvec;
+}
+EXPORT_SYMBOL_GPL(page_to_lruvec);
+
 void do_traversal_all_lruvec(void)
 {
 	pg_data_t *pgdat;

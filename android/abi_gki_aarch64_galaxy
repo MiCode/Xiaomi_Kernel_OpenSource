@@ -61,6 +61,7 @@
   kmsg_dump_get_line
   kstrtos16
   kthread_blkcg
+  log_suspend_abort_reason
   name_to_dev_t
   netlink_ack
   of_css
