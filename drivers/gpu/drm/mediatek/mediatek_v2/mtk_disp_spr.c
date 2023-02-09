@@ -1024,7 +1024,6 @@ static void mtk_disp_spr_config_overhead(struct mtk_ddp_comp *comp,
 
 	spr_params = &comp->mtk_crtc->panel_ext->params->spr_params;
 
-	DDPMSG("line: %d\n", __LINE__);
 	g_left_pipe_overhead[0] = cfg->tile_overhead.left_overhead;
 	g_right_pipe_overhead[0] = cfg->tile_overhead.right_overhead;
 	if (cfg->tile_overhead.is_support && spr->data && spr->data->version == MTK_SPR_V2) {
@@ -1078,7 +1077,7 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 	unsigned int crop_hoffset = 0;
 	unsigned int crop_out_hsize = 0;
 
-	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
+	if (!comp || !comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
 		return;
 
 	if (comp->id == DDP_COMPONENT_SPR0) {
@@ -1093,6 +1092,7 @@ static void mtk_spr_config_V2(struct mtk_ddp_comp *comp,
 
 	if (comp->mtk_crtc->is_dual_pipe == true) {
 		postalign_width = cfg->w / 2;
+		width = cfg->w / 2;
 		if (cfg->tile_overhead.is_support) {
 			if (comp->id == DDP_COMPONENT_SPR0) {
 				width = spr_tile_overhead.left_in_width;
