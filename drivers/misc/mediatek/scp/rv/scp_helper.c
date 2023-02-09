@@ -847,8 +847,10 @@ int reset_scp(int reset)
 		dsb(SY); /* may take lot of time */
 		}
 #if SCP_BOOT_TIME_OUT_MONITOR
-		scp_ready_timer[SCP_A_ID].tl.expires = jiffies + SCP_READY_TIMEOUT;
-		add_timer(&scp_ready_timer[SCP_A_ID].tl);
+		/* modify timer invoke api, since there is a BUG_ON case that fuzzer
+		 * re-entry reset_scp() may add an already pending timer.
+		 */
+		mod_timer(&scp_ready_timer[SCP_A_ID].tl, jiffies + SCP_READY_TIMEOUT);
 #endif
 	}
 	pr_debug("[SCP] %s: done\n", __func__);
@@ -861,16 +863,18 @@ int reset_scp(int reset)
 static int scp_pm_event(struct notifier_block *notifier
 			, unsigned long pm_event, void *unused)
 {
-	int retval;
+//	int retval;
 
 	switch (pm_event) {
 	case PM_POST_HIBERNATION:
+		/* currently no scenario
 		pr_debug("[SCP] %s: reboot\n", __func__);
 		retval = reset_scp(SCP_ALL_REBOOT);
 		if (retval < 0) {
 			retval = -EINVAL;
 			pr_debug("[SCP] %s: reboot fail\n", __func__);
 		}
+		*/
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
