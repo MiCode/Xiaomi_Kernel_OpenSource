@@ -481,7 +481,6 @@ struct mtk_panel_params {
 	unsigned int physical_height_um;
 	unsigned int lane_swap_en;
 	unsigned int bdg_lane_swap_en;
-	unsigned int bdg_default_vfp;
 	unsigned int ap_tx_keep_hs_during_vact;
 	unsigned int is_cphy;
 	enum MIPITX_PHY_LANE_SWAP

@@ -3091,16 +3091,16 @@ static void mtk_dsi_porch_setting_6382(struct mtk_dsi *dsi, struct cmdq_pkt *han
 	mipi_dsi_write_6382(dsi, handle, setporch, 8);
 }
 
-//static void mtk_dsi_vfp_porch_setting_6382(struct mtk_dsi *dsi,
-//					unsigned int value, struct cmdq_pkt *handle)
-//{
-//	/* 0x00021028 = 0x0000000 */
-//	unsigned char setvfpporch[8] = {
-//			0x28, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
-//
-//	set_value_to_arr(setvfpporch, 8, value);
-//	mipi_dsi_write_6382(dsi, handle, setvfpporch, 8);
-//}
+static void mtk_dsi_vfp_porch_setting_6382(struct mtk_dsi *dsi,
+					unsigned int value, struct cmdq_pkt *handle)
+{
+	/* 0x00021028 = 0x0000000 */
+	unsigned char setvfpporch[8] = {
+			0x28, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
+
+	set_value_to_arr(setvfpporch, 8, value);
+	mipi_dsi_write_6382(dsi, handle, setvfpporch, 8);
+}
 
 #define MIPI_TX_PLL_CON1_ADDR 0x22030
 #define FLD_RG_BDG_PLL_POSDIV (0x7 << 8)
@@ -4186,113 +4186,33 @@ static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 	return 0;
 }
 
-static int mtk_dsi_stop_vdo_mode_wobdg(struct mtk_dsi *dsi, void *handle)
-{
-	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
-	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
-	int need_create_hnd = 0, index = 0;
-	struct cmdq_pkt *cmdq_handle;
-	if (!mtk_crtc) {
-		DDPPR_ERR("%s, mtk_crtc is NULL\n", __func__);
-		return 1;
-	}
-
-	index = drm_crtc_index(&mtk_crtc->base);
-	CRTC_MMP_MARK(index, esd_check, 3, 0);
-	/* Add blocking flush for waiting dsi idle in other gce client */
-	if (handle) {
-		struct cmdq_pkt *cmdq_handle1 = (struct cmdq_pkt *)handle;
-
-		if (cmdq_handle1->cl !=
-				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]) {
-			mtk_crtc_pkt_create(&cmdq_handle,
-				&mtk_crtc->base,
-				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
-			cmdq_pkt_flush(cmdq_handle);
-			cmdq_pkt_destroy(cmdq_handle);
-		}
-	} else {
-		mtk_crtc_pkt_create(&cmdq_handle,
-			&mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
-		cmdq_pkt_flush(cmdq_handle);
-		cmdq_pkt_destroy(cmdq_handle);
-	}
-	CRTC_MMP_MARK(index, esd_check, 3, 1);
-	if (!handle)
-		need_create_hnd = 1;
-	if (need_create_hnd) {
-		mtk_crtc_pkt_create((struct cmdq_pkt **)&handle,
-			&mtk_crtc->base,
-			mtk_crtc->gce_obj.client[CLIENT_CFG]);
-
-		/* wait frame done */
-		cmdq_pkt_wait_no_clear(handle,
-		   mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
-	}
-	/* stop vdo mode */
-	_mtk_dsi_set_mode(&dsi->ddp_comp, handle, CMD_MODE);
-	if (dsi->slave_dsi)
-		_mtk_dsi_set_mode(&dsi->slave_dsi->ddp_comp, handle, CMD_MODE);
-	cmdq_pkt_write(handle, dsi->ddp_comp.cmdq_base,
-		dsi->ddp_comp.regs_pa + DSI_START, 0, ~0);
-	CRTC_MMP_MARK(index, esd_check, 3, 2);
-	mtk_dsi_poll_for_idle(dsi, handle);
-	CRTC_MMP_MARK(index, esd_check, 3, 3);
-	if (need_create_hnd) {
-		cmdq_pkt_flush(handle);
-		cmdq_pkt_destroy(handle);
-	}
-	return 0;
-}
-
 int mtk_dsi_start_vdo_mode(struct mtk_ddp_comp *comp, void *handle)
 {
 	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 	u32 vid_mode = CMD_MODE;
-	unsigned char setvdo[] = {0x14, 0x10, 0x02, 0x00, 0x03, 0x00, 0x00, 0x00}; //ID 0x14
+	unsigned char setvdo[] = {0x14, 0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00}; //ID 0x14
 	unsigned char stopdsi[] = {0x00, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x00
 	unsigned char startdsi[] = {0x00, 0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00}; //ID 0x00
 	unsigned char setrxvdo[] = {0x70, 0x31, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00};
+
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
+			vid_mode = BURST_MODE;
+			setvdo[4] = 0x03;
+		} else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
+			vid_mode = SYNC_PULSE_MODE;
+			setvdo[4] = 0x01;
+		} else {
+			vid_mode = SYNC_EVENT_MODE;
+			setvdo[4] = 0x02;
+		}
+	}
 
 	if (is_bdg_supported()) {
 		mipi_dsi_write_6382(dsi, handle, setvdo, 8);
 		mipi_dsi_write_6382(dsi, handle, setrxvdo, 8);
 		mipi_dsi_write_6382(dsi, handle, stopdsi, 8);
 		mipi_dsi_write_6382(dsi, handle, startdsi, 8);
-	}
-
-	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
-		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
-			vid_mode = BURST_MODE;
-		else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE)
-			vid_mode = SYNC_PULSE_MODE;
-		else
-			vid_mode = SYNC_EVENT_MODE;
-	}
-
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START, 0,
-		       ~0);
-
-	_mtk_dsi_set_mode(comp, handle, vid_mode);
-	if (dsi->slave_dsi)
-		_mtk_dsi_set_mode(&dsi->slave_dsi->ddp_comp, handle, vid_mode);
-
-	return 0;
-}
-
-int mtk_dsi_start_vdo_mode_wobdg(struct mtk_ddp_comp *comp, void *handle)
-{
-	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
-	u32 vid_mode = CMD_MODE;
-
-	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
-		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST)
-			vid_mode = BURST_MODE;
-		else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE)
-			vid_mode = SYNC_PULSE_MODE;
-		else
-			vid_mode = SYNC_EVENT_MODE;
 	}
 
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DSI_START, 0,
@@ -8755,7 +8675,7 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		if (is_bdg_supported()) {
 			CRTC_MMP_MARK(index, mode_switch, 2, 0);
 			cmdq_pkt_wfe(handle, mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
-			mtk_dsi_stop_vdo_mode_wobdg(dsi, handle);
+			mtk_dsi_stop_vdo_mode(dsi, handle);
 		} else {
 			cmdq_pkt_wait_no_clear(handle,
 				mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
@@ -8805,8 +8725,8 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP, vfp);
 
 		if (is_bdg_supported()) {
-			//mtk_dsi_vfp_porch_setting_6382(dsi, vfp, handle);
-			mtk_dsi_start_vdo_mode_wobdg(comp, handle);
+			mtk_dsi_vfp_porch_setting_6382(dsi, vfp, handle);
+			mtk_dsi_start_vdo_mode(comp, handle);
 			mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
 			mtk_dsi_trigger(comp, handle);
 		}
@@ -9172,15 +9092,15 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		if (vfp_low_power) {
 			DDPINFO("vfp_low_power=%d\n", vfp_low_power);
 			if (is_bdg_supported())
-				mtk_dsi_stop_vdo_mode_wobdg(dsi, handle);
+				mtk_dsi_stop_vdo_mode(dsi, handle);
 			mtk_dsi_porch_setting(comp, handle, DSI_VFP,
 					vfp_low_power);
 			if (dsi->slave_dsi)
 				mtk_dsi_porch_setting(&dsi->slave_dsi->ddp_comp, handle, DSI_VFP,
 					vfp_low_power);
 			if (is_bdg_supported()) {
-				//mtk_dsi_vfp_porch_setting_6382(dsi, vfp_low_power, handle);
-				mtk_dsi_start_vdo_mode_wobdg(comp, handle);
+				mtk_dsi_vfp_porch_setting_6382(dsi, vfp_low_power, handle);
+				mtk_dsi_start_vdo_mode(comp, handle);
 				mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
 				mtk_dsi_trigger(comp, handle);
 			}
@@ -9231,15 +9151,15 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 				crtc->gce_obj.event[EVENT_DSI_SOF]);
 		}
 		if (is_bdg_supported())
-			mtk_dsi_stop_vdo_mode_wobdg(dsi, handle);
+			mtk_dsi_stop_vdo_mode(dsi, handle);
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP,
 					vfront_porch);
 		if (dsi->slave_dsi)
 			mtk_dsi_porch_setting(&dsi->slave_dsi->ddp_comp, handle, DSI_VFP,
 					vfront_porch);
 		if (is_bdg_supported()) {
-			//mtk_dsi_vfp_porch_setting_6382(dsi, vfront_porch, handle);
-			mtk_dsi_start_vdo_mode_wobdg(comp, handle);
+			mtk_dsi_vfp_porch_setting_6382(dsi, vfront_porch, handle);
+			mtk_dsi_start_vdo_mode(comp, handle);
 			mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], handle);
 			mtk_dsi_trigger(comp, handle);
 		}

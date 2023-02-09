@@ -1522,8 +1522,7 @@ int bdg_tx_vdo_timing_set(enum DISP_BDG_ENUM module,
 	int i;
 	u32 dsi_buf_bpp, data_init_byte = 0;
 	struct videomode *vm = &dsi->vm;
-	//u32 t_vfp = vm->vfront_porch;
-	u32 t_vfp = dsi->ext->params->bdg_default_vfp; //6382 default vfp
+	u32 t_vfp = vm->vfront_porch;
 	u32 t_vbp = vm->vback_porch;
 	u32 t_vsa = vm->vsync_len;
 	u32 t_hfp = vm->hfront_porch;
