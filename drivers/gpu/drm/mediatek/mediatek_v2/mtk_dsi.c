@@ -358,7 +358,6 @@
 #define DSI_GERNERIC_READ_LONG_PACKET_ID 0x14
 
 struct phy;
-unsigned int line_back_to_LP = 1;
 
 unsigned int data_phy_cycle;
 struct mtk_dsi;
@@ -1497,7 +1496,7 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 				break;
 			}
 			ps_wc = width * dsi_buf_bpp;
-			SET_VAL_MASK(value, mask, ps_wc * line_back_to_LP, DSI_PS_WC);
+			SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
 			SET_VAL_MASK(value, mask, spr_params->rg_xy_swap, RG_XY_SWAP);
 			SET_VAL_MASK(value, mask, spr_params->custom_header_en, CUSTOM_HEADER_EN);
 			SET_VAL_MASK(value, mask, spr_params->custom_header, CUSTOM_HEADER);
@@ -1524,9 +1523,9 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 				SET_VAL_MASK(value, mask, 4, DSI_PS_SEL);
 				ps_wc = width * 30 / 8;
 			}
-			SET_VAL_MASK(value, mask, ps_wc * line_back_to_LP, DSI_PS_WC);
+			SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
 		}
-		size = ((height / line_back_to_LP) << 16) + (width * line_back_to_LP);
+		size = (height << 16) + width;
 	} else {
 		ps_wc = dsc_params->chunk_size * (dsc_params->slice_mode + 1);
 		SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
@@ -1535,7 +1534,7 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 		size = (height << 16) + ((ps_wc + dsi_buf_bpp - 1) / dsi_buf_bpp);
 	}
 
-	writel(height / line_back_to_LP, dsi->regs + DSI_VACT_NL);
+	writel(height, dsi->regs + DSI_VACT_NL);
 
 	val = readl(dsi->regs + DSI_PSCTRL);
 	val = (val & ~mask) | (value & mask);
@@ -1863,6 +1862,7 @@ void DSI_Config_VDO_Timing_with_DSC(struct mtk_dsi *dsi)
 	u32 t_hsa = vm->hsync_len;
 	u32 width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
 	u32 height = mtk_dsi_get_virtual_heigh(dsi, dsi->encoder.crtc);
+	u32 t_hfp_hs_vb_ps_wc = 0;
 
 	if (dsi->ext && dsi->ext->params)
 		dyn = &dsi->ext->params->dyn;
@@ -1902,63 +1902,112 @@ void DSI_Config_VDO_Timing_with_DSC(struct mtk_dsi *dsi)
 		(get_bdg_line_cycle() * lanes * bdg_rxtx_ratio + 99) / 100;
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
-		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
-			ap_tx_total_word_cnt_no_hfp_wc =
-				4 +	/* hss packet */
-				(4 + t_hbp + 2) +		/* hbp packet */
-				(4 + ps_wc + 2) +		/* rgb packet */
-				(4 + 2) +			/* hfp packet */
-				(4 + t_hbllp + 2) +		/* bllp packet*/
-				data_phy_cycle * lanes;
-		} else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
-			ap_tx_total_word_cnt_no_hfp_wc =
-				4 +	/* hss packet */
-				(4 + t_hsa + 2) +		/* hsa packet */
-				4 +				/* hse packet */
-				(4 + t_hbp + 2) +		/* hbp packet */
-				(4 + ps_wc + 2) +		/* rgb packet */
-				(4 + 2) +			/* hfp packet */
-				data_phy_cycle * lanes;
-		} else
-			ap_tx_total_word_cnt_no_hfp_wc =
-				4 +	/* hss packet */
-				(4 + t_hbp + 2) +		/* hbp packet */
-				(4 + ps_wc + 2) +		/* rgb packet */
-				(4 + 2) +			/* hfp packet */
-				data_phy_cycle * lanes;
+		if (dsi->ext->params->ap_tx_keep_hs_during_vact == 0) {
+			if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
+				ap_tx_total_word_cnt_no_hfp_wc =
+					4 +	/* hss packet */
+					(4 + t_hbp + 2) +		/* hbp packet */
+					(4 + ps_wc + 2) +		/* rgb packet */
+					(4 + 2) +			/* hfp packet */
+					(4 + t_hbllp + 2) +		/* bllp packet*/
+					data_phy_cycle * lanes;
+			} else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
+				ap_tx_total_word_cnt_no_hfp_wc =
+					4 +	/* hss packet */
+					(4 + t_hsa + 2) +		/* hsa packet */
+					4 +				/* hse packet */
+					(4 + t_hbp + 2) +		/* hbp packet */
+					(4 + ps_wc + 2) +		/* rgb packet */
+					(4 + 2) +			/* hfp packet */
+					data_phy_cycle * lanes;
+			} else
+				ap_tx_total_word_cnt_no_hfp_wc =
+					4 +	/* hss packet */
+					(4 + t_hbp + 2) +		/* hbp packet */
+					(4 + ps_wc + 2) +		/* rgb packet */
+					(4 + 2) +			/* hfp packet */
+					data_phy_cycle * lanes;
+		} else if (dsi->ext->params->ap_tx_keep_hs_during_vact == 1) {
+			if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
+				ap_tx_total_word_cnt_no_hfp_wc =
+					4 +	/* hss packet */
+					(4 + t_hbp + 2) +		/* hbp packet */
+					(4 + ps_wc + 2) +		/* rgb packet */
+					(4 + 2) +			/* hfp packet */
+					(4 + t_hbllp + 2);		/* bllp packet*/
+			} else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
+				ap_tx_total_word_cnt_no_hfp_wc =
+					4 +	/* hss packet */
+					(4 + t_hsa + 2) +		/* hsa packet */
+					4 +				/* hse packet */
+					(4 + t_hbp + 2) +		/* hbp packet */
+					(4 + ps_wc + 2) +		/* rgb packet */
+					(4 + 2);			/* hfp packet */
+			} else
+				ap_tx_total_word_cnt_no_hfp_wc =
+					4 +	/* hss packet */
+					(4 + t_hbp + 2) +		/* hbp packet */
+					(4 + ps_wc + 2) +		/* rgb packet */
+					(4 + 2);			/* hfp packet */
+		}
 	}
 
 	t_hfp = ap_tx_total_word_cnt - ap_tx_total_word_cnt_no_hfp_wc;
+	t_hfp_hs_vb_ps_wc = ps_wc - data_phy_cycle*lanes;
 	DDPINFO(
 	"[DISP]-kernel-%s, ps_wc=%d, get_bdg_line_cycle=%d, ap_tx_total_word_cnt=%d, data_phy_cycle=%d, ap_tx_total_word_cnt_no_hfp_wc=%d\n",
 	__func__, ps_wc, get_bdg_line_cycle(), ap_tx_total_word_cnt,
 	data_phy_cycle, ap_tx_total_word_cnt_no_hfp_wc);
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
-		if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
-			ap_tx_total_word_cnt =
-				4 +	/* hss packet */
-				(4 + t_hbp + 2) +	/* hbp packet */
-				(4 + ps_wc + 2) +	/* rgb packet */
-				(4 + t_hbllp + 2) +	/* bllp packet*/
-				(4 + t_hfp + 2) +	/* hfp packet */
-				data_phy_cycle * lanes;
-		} else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
-			ap_tx_total_word_cnt =
-				4 +	/* hss packet */
-				(4 + t_hsa + 2) +	/* hsa packet */
-				4 +			/* hse packet */
-				(4 + t_hbp + 2) +	/* hbp packet */
-				(4 + ps_wc + 2) +	/* rgb packet */
-				(4 + t_hfp + 2) +	/* hfp packet */
-				data_phy_cycle * lanes;
-		} else
-			ap_tx_total_word_cnt =
-				4 +	/* hss packet */
-				(4 + t_hbp + 2) +	/* hbp packet */
-				(4 + ps_wc + 2) +	/* rgb packet */
-				(4 + t_hfp + 2) +	/* hfp packet */
-				data_phy_cycle * lanes;
+		if (dsi->ext->params->ap_tx_keep_hs_during_vact == 0) {
+			if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
+				ap_tx_total_word_cnt =
+					4 +	/* hss packet */
+					(4 + t_hbp + 2) +	/* hbp packet */
+					(4 + ps_wc + 2) +	/* rgb packet */
+					(4 + t_hbllp + 2) +	/* bllp packet*/
+					(4 + t_hfp + 2) +	/* hfp packet */
+					data_phy_cycle * lanes;
+			} else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
+				ap_tx_total_word_cnt =
+					4 +	/* hss packet */
+					(4 + t_hsa + 2) +	/* hsa packet */
+					4 +			/* hse packet */
+					(4 + t_hbp + 2) +	/* hbp packet */
+					(4 + ps_wc + 2) +	/* rgb packet */
+					(4 + t_hfp + 2) +	/* hfp packet */
+					data_phy_cycle * lanes;
+			} else
+				ap_tx_total_word_cnt =
+					4 +	/* hss packet */
+					(4 + t_hbp + 2) +	/* hbp packet */
+					(4 + ps_wc + 2) +	/* rgb packet */
+					(4 + t_hfp + 2) +	/* hfp packet */
+					data_phy_cycle * lanes;
+		} else if (dsi->ext->params->ap_tx_keep_hs_during_vact == 1) {
+			if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
+				ap_tx_total_word_cnt =
+					4 +	/* hss packet */
+					(4 + t_hbp + 2) +	/* hbp packet */
+					(4 + ps_wc + 2) +	/* rgb packet */
+					(4 + t_hbllp + 2) +	/* bllp packet*/
+					(4 + t_hfp + 2);	/* hfp packet */
+			} else if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_SYNC_PULSE) {
+				ap_tx_total_word_cnt =
+					4 +	/* hss packet */
+					(4 + t_hsa + 2) +	/* hsa packet */
+					4 +			/* hse packet */
+					(4 + t_hbp + 2) +	/* hbp packet */
+					(4 + ps_wc + 2) +	/* rgb packet */
+					(4 + t_hfp + 2);	/* hfp packet */
+			} else
+				ap_tx_total_word_cnt =
+					4 +	/* hss packet */
+					(4 + t_hbp + 2) +	/* hbp packet */
+					(4 + ps_wc + 2) +	/* rgb packet */
+					(4 + t_hfp + 2);	/* hfp packet */
+		}
 	}
 
 	ap_tx_line_cycle = (ap_tx_total_word_cnt + (lanes - 1)) / lanes;
@@ -1971,7 +2020,11 @@ void DSI_Config_VDO_Timing_with_DSC(struct mtk_dsi *dsi)
 
 	writel(ALIGN_TO((t_hsa), 4), dsi->regs + DSI_HSA_WC);
 	writel(ALIGN_TO((t_hbp), 4), dsi->regs + DSI_HBP_WC);
-	writel(ALIGN_TO((t_hfp), 4), dsi->regs + DSI_HFP_WC);
+	if (dsi->ext->params->ap_tx_keep_hs_during_vact == 0)
+		writel(ALIGN_TO((t_hfp), 4), dsi->regs + DSI_HFP_WC);
+	else if (dsi->ext->params->ap_tx_keep_hs_during_vact == 1)
+		writel(ALIGN_TO((t_hfp | (t_hfp_hs_vb_ps_wc<<16) | (1<<31)), 4),
+		dsi->regs + DSI_HFP_WC);
 	writel(ALIGN_TO((t_hbllp), 4), dsi->regs + DSI_BLLP_WC);
 }
 
@@ -10475,8 +10528,8 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 
 	if (is_bdg_supported()) {
 		if ((dsi->mode_flags & MIPI_DSI_MODE_VIDEO) == 0) {
-			bdg_rxtx_ratio = 300;
-			line_back_to_LP = 6;
+			//bdg_rxtx_ratio = 300;
+			bdg_rxtx_ratio = 229;
 		}
 	}
 	dsi->engine_clk = devm_clk_get(dev, "engine");

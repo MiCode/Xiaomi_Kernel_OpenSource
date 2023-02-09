@@ -240,6 +240,10 @@ static void jdi_dcs_write(struct jdi *ctx, const void *data, size_t len)
 		return;
 
 	addr = (char *)data;
+
+	if (len > 1)
+		udelay(100);
+
 	if ((int)*addr < 0xB0)
 		ret = mipi_dsi_dcs_write_buffer(dsi, data, len);
 	else
@@ -878,45 +882,45 @@ static int jdi_enable(struct drm_panel *panel)
 }
 
 static const struct drm_display_mode default_mode = {
-	.clock = 390802,
+	.clock = 378672,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 198,//HFP
-	.hsync_end = 1080 + 198 + 10,//HSA
-	.htotal = 1080 + 198 + 10 + 10,//HBP
+	.hsync_start = 1080 + 194,//HFP
+	.hsync_end = 1080 + 194 + 7,//HSA
+	.htotal = 1080 + 194 + 7 + 7,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 2598,//VFP
-	.vsync_end = 2400 + 2598 + 10,//VSA
-	.vtotal = 2400 + 2598 + 10 + 10,//VBP
+	.vsync_start = 2400 + 2480,//VFP
+	.vsync_end = 2400 + 2480 + 10,//VSA
+	.vtotal = 2400 + 2480 + 10 + 10,//VBP
 };
 
 static const struct drm_display_mode performance_mode_90hz = {
-	.clock = 384337,
+	.clock = 379058,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 198,//HFP
-	.hsync_end = 1080 + 198 + 10,//HSA
-	.htotal = 1080 + 198 + 10 + 10,//HBP
+	.hsync_start = 1080 + 194,//HFP
+	.hsync_end = 1080 + 194 + 7,//HSA
+	.htotal = 1080 + 194 + 7 + 7,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 870,//VFP
-	.vsync_end = 2400 + 870 + 10,//VSA
-	.vtotal = 2400 + 870 + 10 + 10,//VBP
+	.vsync_start = 2400 + 850,//VFP
+	.vsync_end = 2400 + 850 + 10,//VSA
+	.vtotal = 2400 + 850 + 10 + 10,//VBP
 };
 
 static const struct drm_display_mode performance_mode_120hz = {
-	.clock = 385350,
+	.clock = 378672,
 	.hdisplay = 1080,
-	.hsync_start = 1080 + 198,//HFP
-	.hsync_end = 1080 + 198 + 10,//HSA
-	.htotal = 1080 + 198 + 10 + 10,//HBP
+	.hsync_start = 1080 + 194,//HFP
+	.hsync_end = 1080 + 194 + 7,//HSA
+	.htotal = 1080 + 194 + 7 + 7,//HBP
 	.vdisplay = 2400,
-	.vsync_start = 2400 + 54,//VFP
-	.vsync_end = 2400 + 54 + 10,//VSA
-	.vtotal = 2400 + 54 + 10 + 10,//VBP
+	.vsync_start = 2400 + 30,//VFP
+	.vsync_end = 2400 + 30 + 10,//VSA
+	.vtotal = 2400 + 30 + 10 + 10,//VBP
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 500,
-	.vfp_low_power = 2598,
+	.pll_clk = 502,
+	.vfp_low_power = 2480,
 	.cust_esd_check = 0,
 	.esd_check_enable = 0,
 	.lcm_degree = PROBE_FROM_DTS,
@@ -927,6 +931,8 @@ static struct mtk_panel_params ext_params = {
 	.bdg_ssc_enable = 0,
 	.lane_swap_en = 0,
 	.bdg_lane_swap_en = 1,
+	.bdg_default_vfp = 30,
+	.ap_tx_keep_hs_during_vact = 1,
 	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
 	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
 	.lane_swap[0][MIPITX_PHY_LANE_2] = MIPITX_PHY_LANE_3,
@@ -975,7 +981,7 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1000,
+	.data_rate = 1004,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
@@ -999,8 +1005,8 @@ static struct mtk_panel_params ext_params = {
 };
 
 static struct mtk_panel_params ext_params_90hz = {
-	.pll_clk = 500,
-	.vfp_low_power = 2598, //60hz
+	.pll_clk = 502,
+	.vfp_low_power = 2480, //60hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 0,
 	.lcm_degree = PROBE_FROM_DTS,
@@ -1011,6 +1017,8 @@ static struct mtk_panel_params ext_params_90hz = {
 	.bdg_ssc_enable = 0,
 	.lane_swap_en = 0,
 	.bdg_lane_swap_en = 1,
+	.bdg_default_vfp = 30,
+	.ap_tx_keep_hs_during_vact = 1,
 	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
 	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
 	.lane_swap[0][MIPITX_PHY_LANE_2] = MIPITX_PHY_LANE_3,
@@ -1059,7 +1067,7 @@ static struct mtk_panel_params ext_params_90hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1000,
+	.data_rate = 1004,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
@@ -1083,8 +1091,8 @@ static struct mtk_panel_params ext_params_90hz = {
 };
 
 static struct mtk_panel_params ext_params_120hz = {
-	.pll_clk = 500,
-	.vfp_low_power = 2528,
+	.pll_clk = 502,
+	.vfp_low_power = 2480,
 	.cust_esd_check = 0,
 	.esd_check_enable = 0,
 	.lcm_degree = PROBE_FROM_DTS,
@@ -1095,6 +1103,8 @@ static struct mtk_panel_params ext_params_120hz = {
 	.bdg_ssc_enable = 0,
 	.lane_swap_en = 0,
 	.bdg_lane_swap_en = 1,
+	.bdg_default_vfp = 30,
+	.ap_tx_keep_hs_during_vact = 1,
 	.lane_swap[0][MIPITX_PHY_LANE_0] = MIPITX_PHY_LANE_0,
 	.lane_swap[0][MIPITX_PHY_LANE_1] = MIPITX_PHY_LANE_1,
 	.lane_swap[0][MIPITX_PHY_LANE_2] = MIPITX_PHY_LANE_3,
@@ -1143,7 +1153,7 @@ static struct mtk_panel_params ext_params_120hz = {
 		.rc_tgt_offset_hi = 3,
 		.rc_tgt_offset_lo = 3,
 		},
-	.data_rate = 1000,
+	.data_rate = 1004,
 	.lfr_enable = 0,
 	.lfr_minimum_fps = 60,
 	.dyn_fps = {
@@ -1450,8 +1460,7 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
-			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET |
-			MIPI_DSI_CLOCK_NON_CONTINUOUS;
+			MIPI_DSI_MODE_LPM | MIPI_DSI_MODE_NO_EOT_PACKET;
 
 	ret = of_property_read_u32(dev->of_node, "gate-ic", &value);
 	if (ret < 0)

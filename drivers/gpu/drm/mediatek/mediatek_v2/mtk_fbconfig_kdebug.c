@@ -252,7 +252,7 @@ static long fbconfig_ioctl(struct file *file, unsigned int cmd,
 		if (is_bdg_supported()) {
 			qos_info.bdg_rxtx_ratio = 229;
 			if ((qos_info.mode & MIPI_DSI_MODE_VIDEO) == 0)
-				qos_info.bdg_rxtx_ratio = 300;
+				qos_info.bdg_rxtx_ratio = 229;
 		}
 		return copy_to_user(argp, &qos_info,
 			sizeof(qos_info)) ? -EFAULT : 0;

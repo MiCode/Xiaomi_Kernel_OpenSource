@@ -1482,21 +1482,21 @@ int bdg_tx_ps_ctrl(enum DISP_BDG_ENUM module,
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		BDG_OUTREGBIT(cmdq, struct DSI_TX_VACT_NL_REG,
 				TX_REG[i]->DSI_TX_VACT_NL, VACT_NL,
-				height / line_back_to_LP);
+				height);
 
 		BDG_OUTREGBIT(cmdq, struct DSI_TX_PSCON_REG,
 				TX_REG[i]->DSI_TX_PSCON, CUSTOM_HEADER, 0);
 		BDG_OUTREGBIT(cmdq, struct DSI_TX_PSCON_REG,
-				TX_REG[i]->DSI_TX_PSCON, DSI_PS_WC, ps_wc * line_back_to_LP);
+				TX_REG[i]->DSI_TX_PSCON, DSI_PS_WC, ps_wc);
 		BDG_OUTREGBIT(cmdq, struct DSI_TX_PSCON_REG,
 				TX_REG[i]->DSI_TX_PSCON, DSI_PS_SEL, ps_sel);
 
 		BDG_OUTREGBIT(cmdq, struct DSI_TX_SIZE_CON_REG,
 				TX_REG[i]->DSI_TX_SIZE_CON, DSI_WIDTH,
-				width * line_back_to_LP);
+				width);
 		BDG_OUTREGBIT(cmdq, struct DSI_TX_SIZE_CON_REG,
 				TX_REG[i]->DSI_TX_SIZE_CON, DSI_HEIGHT,
-				height / line_back_to_LP);
+				height);
 	}
 
 	return 0;
@@ -1509,7 +1509,7 @@ int bdg_tx_vdo_timing_set(enum DISP_BDG_ENUM module,
 	u32 dsi_buf_bpp, data_init_byte = 0;
 	struct videomode *vm = &dsi->vm;
 	//u32 t_vfp = vm->vfront_porch;
-	u32 t_vfp = 54; //120hz vfp
+	u32 t_vfp = dsi->ext->params->bdg_default_vfp; //6382 default vfp
 	u32 t_vbp = vm->vback_porch;
 	u32 t_vsa = vm->vsync_len;
 	u32 t_hfp = vm->hfront_porch;

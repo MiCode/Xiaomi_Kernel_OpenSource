@@ -22,7 +22,6 @@
 
 extern unsigned int need_6382_init;
 //extern atomic_t bdg_eint_wakeup;
-extern unsigned int line_back_to_LP;
 extern unsigned int bdg_rxtx_ratio;
 extern unsigned int bdg_rx_v12;
 
