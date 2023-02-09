@@ -10455,7 +10455,7 @@ static void mtk_ctx_m2m_watchdog(struct timer_list *t)
 	struct mtk_cam_m2m_watchdog *m2m_watchdog;
 	struct mtk_cam_watchdog_data *watchdog_data;
 	struct mtk_cam_request_stream_data *s_data;
-	u64 current_time_ns = ktime_get_boottime_ns();
+	u64 current_time_ns, raw_last_sof_time_ns;
 	u64 cost_time_ms, timer_expires_ms;
 	int watchdog_dump_cnt, watchdog_timeout_cnt;
 	bool is_timeout;
@@ -10498,10 +10498,11 @@ static void mtk_ctx_m2m_watchdog(struct timer_list *t)
 	/* no VF */
 	watchdog_data = &ctx->m2m_watchdog.data;
 	watchdog_timeout_cnt = atomic_read(&watchdog_data->watchdog_timeout_cnt);
+	raw_last_sof_time_ns = raw->last_sof_time_ns;
+	current_time_ns = ktime_get_boottime_ns();
 	watchdog_data->watchdog_time_diff_ns =
-		current_time_ns - raw->last_sof_time_ns;
+		current_time_ns - raw_last_sof_time_ns;
 	watchdog_dump_cnt = atomic_read(&watchdog_data->watchdog_dump_cnt);
-
 	is_timeout = watchdog_data->watchdog_time_diff_ns >
 		(u64)watchdog_timeout_cnt * MTK_CAM_CTX_WATCHDOG_INTERVAL * 1000000;
 
@@ -10592,24 +10593,42 @@ void mtk_ctx_m2m_watchdog_start(struct mtk_cam_ctx *ctx, int timeout_cnt)
 {
 	struct mtk_cam_watchdog_data *watchdog_data;
 	struct mtk_raw_pipeline *pipe;
+	struct mtk_cam_device *cam;
+	struct mtk_raw_device *raw;
 
 	if (!ctx) {
 		pr_info("%s: get ctx failed", __func__);
 		return;
 	}
 
-	pipe = ctx->pipe;
-	if (!pipe) {
-		pr_info("%s: get pipe failed", __func__);
+	cam = ctx->cam;
+	if (!cam) {
+		pr_info("%s:ctx(%d): get cam failed", __func__, ctx->stream_id);
 		return;
 	}
 
+	pipe = ctx->pipe;
+	if (!pipe) {
+		pr_info("%s:ctx(%d): get pipe failed", __func__, ctx->stream_id);
+		return;
+	}
+
+	raw = get_master_raw_dev(cam, pipe);
+	if (!raw) {
+		dev_info(ctx->cam->dev,
+			 "%s:ctx(%d): get raw failed\n",
+			 __func__, ctx->stream_id);
+		return;
+	}
+
+	raw->last_sof_time_ns = ktime_get_boottime_ns();  // initial value
 	watchdog_data = &ctx->m2m_watchdog.data;
 
 	dev_info(ctx->cam->dev,
-		"%s:ctx/pipe_id(%d/%d):start the watchdog, timeout setting(%d)\n",
+		"%s:ctx/pipe_id(%d/%d):start the watchdog, timeout setting(%d), ts(%lld ns)\n",
 		__func__, ctx->stream_id, pipe->id,
-		MTK_CAM_CTX_WATCHDOG_INTERVAL * timeout_cnt);
+		MTK_CAM_CTX_WATCHDOG_INTERVAL * timeout_cnt,
+		raw->last_sof_time_ns);
 
 	atomic_set(&watchdog_data->watchdog_timeout_cnt, timeout_cnt);
 	atomic_set(&watchdog_data->watchdog_cnt, 0);

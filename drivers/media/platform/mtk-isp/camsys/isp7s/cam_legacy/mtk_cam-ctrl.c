@@ -3206,8 +3206,10 @@ static void mtk_camsys_raw_frame_start(struct mtk_raw_device *raw_dev,
 			"SOF[ctx:%d-#%d], CQ isn't updated [composed_frame_deq (%d) ts:%lu]\n",
 			ctx->stream_id, dequeued_frame_seq_no,
 			ctx->composed_frame_seq_no, irq_info->ts_ns / 1000);
-		req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
-		atomic_set(&ctx->composed_delay_seq_no, req_stream_data->frame_seq_no);
+		if (current_state) {
+			req_stream_data = mtk_cam_ctrl_state_to_req_s_data(current_state);
+			atomic_set(&ctx->composed_delay_seq_no, req_stream_data->frame_seq_no);
+		}
 		ctx->composed_delay_sof_tsns = irq_info->ts_ns;
 		return;
 	}
