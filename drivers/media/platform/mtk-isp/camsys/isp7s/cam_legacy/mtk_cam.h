@@ -111,6 +111,9 @@ struct mtk_raw_pipeline;
 
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 
+/* minimum stride of camsv UFO */
+#define UFBC_TABLE_STRIDE_ALIGNMENT		16
+
 struct mtk_cam_working_buf {
 	void *va;
 	dma_addr_t iova;
@@ -414,6 +417,7 @@ struct mtk_cam_img_working_buf_pool {
 	struct mtk_cam_ctx *ctx;
 	struct dma_buf *working_img_buf_dmabuf;
 	void *working_img_buf_va;
+	int working_img_buf_fd;
 	dma_addr_t working_img_buf_iova;
 	int working_img_buf_size;
 	struct mtk_cam_img_working_buf_entry img_working_buf[CAM_IMG_BUF_NUM];
@@ -1050,6 +1054,38 @@ mtk_cam_is_nonimmediate_switch_req(struct mtk_cam_request *req,
 		return true;
 	else
 		return false;
+}
+
+static inline
+void mtk_cam_disable_sv_vf(struct mtk_cam_ctx *ctx)
+{
+	if (ctx && ctx->sv_dev)
+		mtk_cam_sv_vf_disable(ctx->sv_dev);
+}
+
+static inline __u32 mtk_cam_get_rawi_stride(const struct v4l2_format *cfg_fmt)
+{
+	if (is_raw_ufo(cfg_fmt->fmt.pix_mp.pixelformat)) {
+		__u32 aligned_width = 0;
+		__u32 stride = 0;
+		const struct mtk_format_info *info = mtk_format_info(
+			cfg_fmt->fmt.pix_mp.pixelformat);
+
+		if (!info) {
+			pr_info("%s: failed to find format_info for 0x%x",
+					__func__, cfg_fmt->fmt.pix_mp.pixelformat);
+
+			goto END;
+		}
+
+		aligned_width = ALIGN(cfg_fmt->fmt.pix_mp.width, 64);
+		stride = aligned_width * info->bit_r_num / info->bit_r_den;
+
+		return stride;
+	}
+
+END:
+	return cfg_fmt->fmt.pix_mp.plane_fmt[0].bytesperline;
 }
 
 //TODO: with spinlock or not? depends on how request works [TBD]

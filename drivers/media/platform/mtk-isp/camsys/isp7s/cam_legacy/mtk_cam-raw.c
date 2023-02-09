@@ -648,7 +648,10 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 		mtk_raw_set_dcif_rawi_fmt(dev, &img_fmt,
 					  res_user->sensor_res.width,
 					  res_user->sensor_res.height,
-					  res_user->sensor_res.code);
+					  res_user->sensor_res.code,
+					  &pipeline->vdev_nodes
+					  [MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
+					  .pending_fmt);
 		res_user->raw_res.img_wbuf_size = img_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
 	} else {
 		img_fmt.fmt.pix_mp.width = 0;
@@ -1673,6 +1676,13 @@ void reset(struct mtk_raw_device *dev)
 		goto RESET_FAILURE;
 	}
 
+	if (dev->cam && dev->pipeline && dev->pipeline->enabled_sv_tags) {
+		struct mtk_cam_ctx *ctx;
+
+		ctx = mtk_cam_find_ctx(dev->cam, &dev->pipeline->subdev.entity);
+		mtk_cam_disable_sv_vf(ctx);
+	}
+
 	/* do hw rst */
 	writel(4, dev->base + REG_CTL_SW_CTL);
 	writel(0, dev->base + REG_CTL_SW_CTL);
@@ -2688,10 +2698,11 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 	}
 
 	if (err_status & INT_ST_MASK_CAM_DBG) {
-		dev_info(raw_dev->dev, "%s: err_status:0x%x statx:0x%x cq period:0x%x\n",
+		dev_info(raw_dev->dev, "%s: err_status:0x%x statx:0x%x cq period:0x%x trig time:0x%x\n",
 			__func__, err_status,
 			readl_relaxed(raw_dev->base + REG_CTL_RAW_INT_STATX),
-			readl_relaxed(raw_dev->base + REG_SCQ_START_PERIOD));
+			readl_relaxed(raw_dev->base + REG_SCQ_START_PERIOD),
+			readl_relaxed(raw_dev->base + REG_CAMCQ_SCQ_TRIG_TIME));
 	}
 
 }
@@ -4223,7 +4234,7 @@ int mtk_raw_try_pad_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt)
+static unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt)
 {
 	// return V4L2_PIX_FMT_MTISP for matching
 	// length returned by mtk_cam_get_pixel_bits()
@@ -4269,9 +4280,11 @@ unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt)
 }
 
 void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
-			       int width, int height, unsigned int code)
+				   int width, int height, unsigned int code,
+				   const struct v4l2_format *imgo_fmt)
 {
 	unsigned int sink_ipi_fmt;
+	bool is_ufo = is_raw_ufo(imgo_fmt->fmt.pix_mp.pixelformat);
 
 	img_fmt->fmt.pix_mp.width = width;
 	img_fmt->fmt.pix_mp.height = height;
@@ -4282,11 +4295,18 @@ void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
 		sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_BAYER14;
 	}
 
-	img_fmt->fmt.pix_mp.pixelformat =
-		mtk_cam_get_rawi_sensor_pixel_fmt(code);
+	if (is_ufo) {
+		img_fmt->fmt.pix_mp.pixelformat =
+			imgo_fmt->fmt.pix_mp.pixelformat;
+		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+			mtk_cam_get_rawi_stride(img_fmt);
+	} else {
+		img_fmt->fmt.pix_mp.pixelformat =
+			mtk_cam_get_rawi_sensor_pixel_fmt(code);
+		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+			mtk_cam_dmao_xsize(width, sink_ipi_fmt, 3);
+	}
 
-	img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
-		mtk_cam_dmao_xsize(width, sink_ipi_fmt, 3);
 	img_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
 		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline *
 		img_fmt->fmt.pix_mp.height;
@@ -4338,8 +4358,11 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 		if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
 			img_fmt = &pipe->img_fmt_sink_pad;
 			mtk_raw_set_dcif_rawi_fmt(raw->cam_dev,
-						  img_fmt, mf->width,
-						  mf->height, mf->code);
+						img_fmt, mf->width,
+						mf->height, mf->code,
+						&pipe->vdev_nodes
+							[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
+							.pending_fmt);
 			dev_dbg(raw->cam_dev,
 				"%s: sd:%s update sink pad format %dx%d code 0x%x\n",
 				__func__, sd->name,

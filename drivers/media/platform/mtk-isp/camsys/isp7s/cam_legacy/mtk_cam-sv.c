@@ -1537,6 +1537,15 @@ int mtk_cam_sv_fbc_pertag_enable(
 	return ret;
 }
 
+int mtk_cam_sv_vf_disable(struct mtk_camsv_device *dev)
+{
+	CAMSV_WRITE_BITS(dev->base + REG_CAMSVCENTRAL_VF_CON,
+		 CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
+
+	mtk_cam_sv_toggle_tg_db(dev);
+	return 0;
+}
+
 int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *dev)
 {
 	int ret = 0, i;

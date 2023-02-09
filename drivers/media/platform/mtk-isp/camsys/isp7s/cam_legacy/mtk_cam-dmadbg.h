@@ -24,6 +24,16 @@ static __maybe_unused struct dma_debug_item dbg_RAWI_R2[] = {
 	{0x000000C1, "rawi_r2_smi_port / plane-0 / maddr_min record"},
 };
 
+static __maybe_unused struct dma_debug_item dbg_UFDI_R5[] = {
+	{0x0000000E, "ufdi_r5 32(hex) 0000"},
+	{0x0000010E, "ufdi_r5 state_checksum"},
+	{0x0000020E, "ufdi_r5 line_pix_cnt_tmp"},
+	{0x0000030E, "ufdi_r5 line_pix_cnt"},
+	{0x0000050E, "ufdi_r5 smi_debug_data (case 0)"},
+	{0x0001060E, "ufdi_r5 aff(fifo)_debug_data (case 1)"},
+	{0x0003060E, "ufdi_r5 aff(fifo)_debug_data (case 3)"},
+};
+
 static __maybe_unused struct dma_debug_item dbg_RAWI_R2_UFD[] = {
 	{0x00000001, "rawi_r2 ufd 32(hex) 0000"},
 	{0x00000101, "rawi_r2 ufd state_checksum"},
@@ -48,19 +58,18 @@ static __maybe_unused struct dma_debug_item dbg_RAWI_R3[] = {
 };
 
 static __maybe_unused struct dma_debug_item dbg_RAWI_R5[] = {
-	{0x00000007, "rawi_r5 32(hex) 0000"},
-	{0x00000107, "rawi_r5 state_checksum"},
-	{0x00000207, "rawi_r5 line_pix_cnt_tmp"},
-	{0x00000307, "rawi_r5 line_pix_cnt"},
-	{0x00000507, "rawi_r5 smi_debug_data (case 0)"},
-	{0x00010607, "rawi_r5 aff(fifo)_debug_data (case 1)"},
-	{0x00030607, "rawi_r5 aff(fifo)_debug_data (case 3)"},
-	{0x01000047, "rawi_r5_smi_port / plane-0 / data-crc"},
-	{0x01000065, "rawi_r5_smi_port / plane-0 / addr-crc"},
-	{0x00000085, "rawi_r5_smi_port / smi_latency_mon output"},
-	{0x000000A5, "rawi_r5_smi_port / plane-0 / { len-cnt, dle-cnt }"},
-	{0x000005C0, "rawi_r5_smi_port / plane-0 / maddr_max record"},
-	{0x000005C1, "rawi_r5_smi_port / plane-0 / maddr_min record"},
+	{0x0000000C, "rawi_r5 32(hex) 0000"},
+	{0x0000010C, "rawi_r5 state_checksum"},
+	{0x0000020C, "rawi_r5 line_pix_cnt_tmp"},
+	{0x0000030C, "rawi_r5 line_pix_cnt"},
+	{0x0000050C, "rawi_r5 smi_debug_data (case 0)"},
+	{0x0001060C, "rawi_r5 aff(fifo)_debug_data (case 1)"},
+	{0x0003060C, "rawi_r5 aff(fifo)_debug_data (case 3)"},
+
+	{0x0000000D, "rawi_r5(ufd-cmd) 32(hex) 0000"},
+	{0x0000010D, "rawi_r5(ufd-cmd) state_checksum"},
+	{0x0000020D, "rawi_r5(ufd-cmd) line_pix_cnt_tmp"},
+	{0x0000030D, "rawi_r5(ufd-cmd) line_pix_cnt"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_IMGO_R1[] = {
@@ -531,29 +540,19 @@ static __maybe_unused struct dma_debug_item dbg_ulc_cmd_cnt[] = {
 };
 
 static __maybe_unused struct dma_debug_item dbg_ori_cmd_cnt[] = {
-	{0x000000A0, "rawi_r2_smi_port / plane-0 (i.e. rawi_r2) / { len-cnt, dle-cnt }"},
-	{0x000000A1, "ufdi_r2_smi_port / plane-0 (i.e. ufdi_r2) / { len-cnt, dle-cnt }"},
-	{0x000000A2, "rawi_r3_smi_port / plane-0 (i.e. rawi_r3) / { len-cnt, dle-cnt }"},
-	{0x000000A3, "ufdi_r3_smi_port / plane-0 (i.e. ufdi_r3) / { len-cnt, dle-cnt }"},
-	{0x000000A4, "rawi_r4_smi_port / plane-0 (i.e. rawi_r4) / { len-cnt, dle-cnt }"},
-	{0x000000A5, "rawi_r5_smi_port / plane-0 (i.e. rawi_r5) / { len-cnt, dle-cnt }"},
-	{0x000000A6, "cqi_r1_smi_port / plane-0 (i.e. cqi_r1) / { len-cnt, dle-cnt }"},
-	{0x000000A7, "cqi_r1_smi_port / plane-1 (i.e. cqi_r3) / { len-cnt, dle-cnt }"},
-	{0x000000A8, "cqi_r2_smi_port / plane-0 (i.e. cqi_r2) / { len-cnt, dle-cnt }"},
-	{0x000000A9, "cqi_r2_smi_port / plane-1 (i.e. cqi_r4) / { len-cnt, dle-cnt }"},
-	{0x000000AA, "lsci_r1_smi_port / plane-0 (i.e. lsci_r1) / { len-cnt, dle-cnt }"},
-	{0x000000AB, "imgo_r1_smi_port / plane-0 (i.e. imgo_r1) / { len-cnt, dle-cnt }"},
-	{0x000000AC, "imgo_r1_smi_port / plane-0 (i.e. imgo_r1) / { load_com-cnt, bvalid-cnt }"},
-	{0x000000AD, "fho_r1_smi_port / plane-0 (i.e. fho_r1) / { len-cnt, dle-cnt }"},
-	{0x000000AE, "fho_r1_smi_port / plane-0 (i.e. fho_r1) / { load_com-cnt, bvalid-cnt }"},
-	{0x000000AF, "fho_r1_smi_port / plane-1 (i.e. aaho_r1) / { len-cnt, dle-cnt }"},
-	{0x000000B0, "fho_r1_smi_port / plane-1 (i.e. aaho_r1) / { load_com-cnt, bvalid-cnt }"},
-	{0x000000B1, "fho_r1_smi_port / plane-2 (i.e. pdo_r1) / { len-cnt, dle-cnt }"},
-	{0x000000B2, "fho_r1_smi_port / plane-2 (i.e. pdo_r1) / { load_com-cnt, bvalid-cnt }"},
-	{0x000000B3, "aao_r1_smi_port / plane-0 (i.e. aao_r1) / { len-cnt, dle-cnt }"},
-	{0x000000B4, "aao_r1_smi_port / plane-0 (i.e. aao_r1) / { load_com-cnt, bvalid-cnt }"},
-	{0x000000B5, "aao_r1_smi_port / plane-1 (i.e. afo_r1) / { len-cnt, dle-cnt }"},
-	{0x000000B6, "aao_r1_smi_port / plane-1 (i.e. afo_r1) / { load_com-cnt, bvalid-cnt }"},
-	{0x000000B7, "ufdi_r5_smi_port / plane-0 (i.e. ufdi_r5) / { len-cnt, dle-cnt }"},
+	{0x000000A0, "cqi_r1_smi_port / plane-0 (i.e. cqi_r1) / { len-cnt, dle-cnt }"},
+	{0x000000A1, "cqi_r2_smi_port / plane-0 (i.e. cqi_r2) / { len-cnt, dle-cnt }"},
+	{0x000000A2, "cqi_r3_smi_port / plane-0 (i.e. cqi_r3) / { len-cnt, dle-cnt }"},
+	{0x000000A3, "cqi_r4_smi_port / plane-0 (i.e. cqi_r4) / { len-cnt, dle-cnt }"},
+	{0x000000A4, "rawi_r2_smi_port / plane-0 (i.e. rawi_r2) / { len-cnt, dle-cnt }"},
+	{0x000000A5, "ufdi_r2_smi_port / plane-0 (i.e. ufdi_r2) / { len-cnt, dle-cnt }"},
+	{0x000000A6, "rawi_r3_smi_port / plane-0 (i.e. rawi_r3) / { len-cnt, dle-cnt }"},
+	{0x000000A7, "ufdi_r3_smi_port / plane-0 (i.e. ufdi_r3) / { len-cnt, dle-cnt }"},
+	{0x000000A8, "rawi_r5_smi_port / plane-0 (i.e. rawi_r5) / { len-cnt, dle-cnt }"},
+	{0x000000A9, "ufdi_r5_smi_port / plane-0 (i.e. ufdi_r5) / { len-cnt, dle-cnt }"},
+	{0x000000AA, "imgo_r1_smi_port / plane-0 (i.e. imgo_r1) / { len-cnt, dle-cnt }"},
+	{0x000000AB, "imgo_r1_smi_port / plane-0 (i.e. imgo_r1) / { load_com-cnt, bvalid-cnt }"},
+	{0x000000AC, "fho_r1_smi_port / plane-0 (i.e. fho_r1) / { len-cnt, dle-cnt }"},
+	{0x000000AD, "fho_r1_smi_port / plane-0 (i.e. fho_r1) / { load_com-cnt, bvalid-cnt }"},
 };
 #endif /*__MTK_CAM_RAW_DMADBG_H*/

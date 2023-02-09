@@ -333,6 +333,7 @@ int mtk_cam_sv_print_fbc_status(struct mtk_camsv_device *dev);
 int mtk_cam_sv_toggle_tg_db(struct mtk_camsv_device *dev);
 int mtk_cam_sv_toggle_db(struct mtk_camsv_device *dev);
 int mtk_cam_sv_central_common_enable(struct mtk_camsv_device *dev);
+int mtk_cam_sv_vf_disable(struct mtk_camsv_device *dev);
 int mtk_cam_sv_fbc_disable(struct mtk_camsv_device *dev, unsigned int tag_idx);
 int mtk_cam_sv_enquehwbuf(struct mtk_camsv_device *dev,
 	dma_addr_t ba, unsigned int seq_no, unsigned int tag);

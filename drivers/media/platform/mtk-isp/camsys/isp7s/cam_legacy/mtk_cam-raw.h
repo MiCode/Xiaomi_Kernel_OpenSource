@@ -519,7 +519,8 @@ bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 			   s64 pixel_rate, int res_plan,
 			   int in_w, int in_h, int *out_w, int *out_h);
 void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
-			       int width, int height, unsigned int code);
+			       int width, int height, unsigned int code,
+			       const struct v4l2_format *imgo_fmt);
 
 int mtk_cam_update_pd_meta_cfg_info(struct mtk_raw_pipeline *pipeline,
 							enum mtk_cam_ctrl_type ctrl_type);

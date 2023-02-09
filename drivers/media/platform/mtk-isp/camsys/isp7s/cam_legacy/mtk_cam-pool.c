@@ -395,6 +395,7 @@ int mtk_cam_user_img_working_buf_pool_init(struct mtk_cam_ctx *ctx,
 			 ctx->img_buf_pool.pre_alloc_img_buf.size,
 			 &ctx->img_buf_pool.pre_alloc_img_buf.daddr);
 
+		ctx->img_buf_pool.working_img_buf_fd = ctx->pipe->pre_alloc_mem.bufs[0].fd;
 		ret = mtk_cam_img_working_buf_pool_init(ctx, buf_num,
 							working_buf_size,
 							ctx->img_buf_pool.pre_alloc_img_buf.daddr,
@@ -420,6 +421,7 @@ mtk_cam_internal_img_working_buf_pool_init(struct mtk_cam_ctx *ctx,
 	struct mtk_ccd *ccd;
 	void *mem_priv;
 	struct dma_buf *dbuf;
+	int dmabuf_fd;
 
 	smem.len =  buf_num * working_buf_size;
 	dev_info(ctx->cam->dev, "%s:ctx(%d) smem.len(%d)\n",
@@ -429,10 +431,12 @@ mtk_cam_internal_img_working_buf_pool_init(struct mtk_cam_ctx *ctx,
 	if (IS_ERR(mem_priv))
 		return PTR_ERR(mem_priv);
 
+	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)
 		mtk_dma_buf_set_name(dbuf, "CAM_MEM_IMG_ID");
 
+	ctx->img_buf_pool.working_img_buf_fd = dmabuf_fd;
 	return mtk_cam_img_working_buf_pool_init(ctx, buf_num, working_buf_size,
 						 smem.iova, smem.len, smem.va);
 }

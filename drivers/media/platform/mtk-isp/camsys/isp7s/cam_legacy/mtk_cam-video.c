@@ -1448,8 +1448,14 @@ int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
 				if (stride > plane->bytesperline)
 					plane->bytesperline = stride;
 				plane->sizeimage = stride * height;
-				plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
+				plane->sizeimage += ALIGN((aligned_width / 64),
+						UFBC_TABLE_STRIDE_ALIGNMENT) * height;
 				plane->sizeimage += sizeof(struct UfbcBufferHeader);
+				pr_debug("%s UFO stride(%d) sizeimage(%d) header size(%d) imgo size(%d) ufeo size(%d)\n",
+					__func__, plane->bytesperline, plane->sizeimage,
+					sizeof(struct UfbcBufferHeader),
+					stride * height, ALIGN((aligned_width / 64),
+						UFBC_TABLE_STRIDE_ALIGNMENT) * height);
 			} else if (is_4_plane_rgb(pixelformat)) {
 				/* width should be bus_size align */
 				aligned_width = ALIGN(DIV_ROUND_UP(width / 2

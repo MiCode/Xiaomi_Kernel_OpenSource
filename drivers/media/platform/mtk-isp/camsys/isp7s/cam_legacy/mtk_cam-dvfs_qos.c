@@ -915,9 +915,21 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 			PBW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
 						(vblank + height) * pixel_bits *
 						plane_factor / 8 / 100;
-			ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
-						vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
-						plane_factor / 8 / 100;
+			if (is_raw_ufo(vdev->active_fmt.fmt.pix_mp.pixelformat)) {
+				//bitstream: apply compression ratio 0.7
+				ABW_MB_s = (vdev->active_fmt.fmt.pix_mp.width * fps *
+					vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
+					plane_factor / 8 / 100) * 7 / 10;
+				//table
+				ABW_MB_s += DIV_ROUND_UP(vdev->active_fmt.fmt.pix_mp.width, 64) *
+					fps * vdev->active_fmt.fmt.pix_mp.height *
+					plane_factor / 100;
+			} else {
+				ABW_MB_s = vdev->active_fmt.fmt.pix_mp.width * fps *
+					vdev->active_fmt.fmt.pix_mp.height * pixel_bits *
+					plane_factor / 8 / 100;
+			}
+
 			for (j = 0; j < ctx->cam->num_raw_drivers; j++) {
 				if (!(enabled_raw & 1 << j))
 					continue;
