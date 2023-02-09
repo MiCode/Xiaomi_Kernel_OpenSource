@@ -469,7 +469,6 @@ struct lbat_user *lbat_user_register_ext(const char *name, unsigned int *thd_vol
 		goto out;
 	}
 	INIT_LIST_HEAD(&user->thd_list);
-	thd = lbat_thd_init(thd_volt_arr[0], user);
 	for (i = 0; i < thd_volt_size; i++) {
 		thd = lbat_thd_init(thd_volt_arr[i], user);
 		list_add_tail(&thd->list, &user->thd_list);
