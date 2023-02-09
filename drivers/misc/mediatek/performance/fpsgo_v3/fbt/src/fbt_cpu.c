@@ -6683,22 +6683,22 @@ static ssize_t fbt_attr_by_pid_store(struct kobject *kobj,
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->reset_taskmask = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "limit_cfreq2cap")) {
-		if ((val > 0) && action == 's')
+		if ((val >= 0) && action == 's')
 			boost_attr->limit_cfreq2cap = val;
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->limit_cfreq2cap = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "limit_rfreq2cap")) {
-		if ((val > 0) && action == 's')
+		if ((val >= 0) && action == 's')
 			boost_attr->limit_rfreq2cap = val;
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->limit_rfreq2cap = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "limit_cfreq2cap_m")) {
-		if ((val > 0) && action == 's')
+		if ((val >= 0) && action == 's')
 			boost_attr->limit_cfreq2cap_m = val;
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->limit_cfreq2cap_m = BY_PID_DEFAULT_VAL;
 	} else if (!strcmp(cmd, "limit_rfreq2cap_m")) {
-		if ((val > 0) && action == 's')
+		if ((val >= 0) && action == 's')
 			boost_attr->limit_rfreq2cap_m = val;
 		else if (val == BY_PID_DEFAULT_VAL && action == 'u')
 			boost_attr->limit_rfreq2cap_m = BY_PID_DEFAULT_VAL;
