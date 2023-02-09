@@ -1356,13 +1356,6 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 		}
 		queue_deinit(&(core_info->queue));
 
-		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
-			core_info->sensor_id, DEINIT_ABNORMAL_USR_FD_KILL);
-		mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id,
-			DEINIT_ABNORMAL_USR_FD_KILL);
-		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
-			core_info->sensor_id, DEINIT_ABNORMAL_USR_FD_KILL);
-
 		dev_info(aov_dev->dev, "%s: force aov deinit-: (%d)", __func__, ret);
 
 		atomic_set(&(core_info->aov_ready), 0);
