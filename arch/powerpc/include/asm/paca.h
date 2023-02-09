@@ -12,6 +12,7 @@
 
 #ifdef CONFIG_PPC64
 
+#include <linux/cache.h>
 #include <linux/string.h>
 #include <asm/types.h>
 #include <asm/lppaca.h>
@@ -263,7 +264,6 @@ struct paca_struct {
 	u64 l1d_flush_size;
 #endif
 #ifdef CONFIG_PPC_PSERIES
-	struct rtas_args *rtas_args_reentrant;
 	u8 *mce_data_buf;		/* buffer to hold per cpu rtas errlog */
 #endif /* CONFIG_PPC_PSERIES */
 

@@ -435,7 +435,9 @@
   set_capacity_and_notify
   __SetPageMovable
   sg_alloc_table
+  sg_alloc_table_chained
   sg_free_table
+  sg_free_table_chained
   sg_init_one
   sg_init_table
   sg_miter_next

@@ -24,12 +24,13 @@ following subsections.
 
 Kill switch
 -----------
-``enable`` accepts different values to enable or disable the following
-components. Its default value depends on ``CONFIG_LRU_GEN_ENABLED``.
-All the components should be enabled unless some of them have
-unforeseen side effects. Writing to ``enable`` has no effect when a
-component is not supported by the hardware, and valid values will be
-accepted even when the main switch is off.
+``enabled`` accepts different values to enable or disable the
+following components. Its default value depends on
+``CONFIG_LRU_GEN_ENABLED``. All the components should be enabled
+unless some of them have unforeseen side effects. Writing to
+``enabled`` has no effect when a component is not supported by the
+hardware, and valid values will be accepted even when the main switch
+is off.
 
 ====== ===============================================================
 Values Components
@@ -39,7 +40,9 @@ Values Components
        batches, when MMU sets it (e.g., on x86). This behavior can
        theoretically worsen lock contention (mmap_lock). If it is
        disabled, the multi-gen LRU will suffer a minor performance
-       degradation.
+       degradation for workloads that contiguously map hot pages,
+       whose accessed bits can be otherwise cleared by fewer larger
+       batches.
 0x0004 Clearing the accessed bit in non-leaf page table entries as
        well, when MMU sets it (e.g., on x86). This behavior was not
        verified on x86 varieties other than Intel and AMD. If it is
@@ -90,18 +93,19 @@ evicted generations in this file.
 
 Working set estimation
 ----------------------
-Working set estimation measures how much memory an application
-requires in a given time interval, and it is usually done with little
-impact on the performance of the application. E.g., data centers want
-to optimize job scheduling (bin packing) to improve memory
-utilizations. When a new job comes in, the job scheduler needs to find
-out whether each server it manages can allocate a certain amount of
-memory for this new job before it can pick a candidate. To do so, this
-job scheduler needs to estimate the working sets of the existing jobs.
+Working set estimation measures how much memory an application needs
+in a given time interval, and it is usually done with little impact on
+the performance of the application. E.g., data centers want to
+optimize job scheduling (bin packing) to improve memory utilizations.
+When a new job comes in, the job scheduler needs to find out whether
+each server it manages can allocate a certain amount of memory for
+this new job before it can pick a candidate. To do so, the job
+scheduler needs to estimate the working sets of the existing jobs.
 
 When it is read, ``lru_gen`` returns a histogram of numbers of pages
 accessed over different time intervals for each memcg and node.
-``MAX_NR_GENS`` decides the number of bins for each histogram.
+``MAX_NR_GENS`` decides the number of bins for each histogram. The
+histograms are noncumulative.
 ::
 
     memcg  memcg_id  memcg_path
@@ -110,43 +114,49 @@ accessed over different time intervals for each memcg and node.
            ...
            max_gen_nr  age_in_ms  nr_anon_pages  nr_file_pages
 
-Each generation contains an estimated number of pages that have been
-accessed within ``age_in_ms`` non-cumulatively. E.g., ``min_gen_nr``
-contains the coldest pages and ``max_gen_nr`` contains the hottest
-pages, since ``age_in_ms`` of the former is the largest and that of
-the latter is the smallest.
+Each bin contains an estimated number of pages that have been accessed
+within ``age_in_ms``. E.g., ``min_gen_nr`` contains the coldest pages
+and ``max_gen_nr`` contains the hottest pages, since ``age_in_ms`` of
+the former is the largest and that of the latter is the smallest.
 
-Users can write ``+ memcg_id node_id max_gen_nr
-[can_swap[full_scan]]`` to ``lru_gen`` to create a new generation
-``max_gen_nr+1``. ``can_swap`` defaults to the swap setting and, if it
-is set to ``1``, it forces the scan of anon pages when swap is off.
-``full_scan`` defaults to ``1`` and, if it is set to ``0``, it reduces
-the overhead as well as the coverage when scanning page tables.
+Users can write the following command to ``lru_gen`` to create a new
+generation ``max_gen_nr+1``:
 
-A typical use case is that a job scheduler writes to ``lru_gen`` at a
+    ``+ memcg_id node_id max_gen_nr [can_swap [force_scan]]``
+
+``can_swap`` defaults to the swap setting and, if it is set to ``1``,
+it forces the scan of anon pages when swap is off, and vice versa.
+``force_scan`` defaults to ``1`` and, if it is set to ``0``, it
+employs heuristics to reduce the overhead, which is likely to reduce
+the coverage as well.
+
+A typical use case is that a job scheduler runs this command at a
 certain time interval to create new generations, and it ranks the
-servers it manages based on the sizes of their cold memory defined by
+servers it manages based on the sizes of their cold pages defined by
 this time interval.
 
 Proactive reclaim
 -----------------
-Proactive reclaim induces memory reclaim when there is no memory
-pressure and usually targets cold memory only. E.g., when a new job
-comes in, the job scheduler wants to proactively reclaim memory on the
-server it has selected to improve the chance of successfully landing
+Proactive reclaim induces page reclaim when there is no memory
+pressure. It usually targets cold pages only. E.g., when a new job
+comes in, the job scheduler wants to proactively reclaim cold pages on
+the server it selected, to improve the chance of successfully landing
 this new job.
 
-Users can write ``- memcg_id node_id min_gen_nr [swappiness
-[nr_to_reclaim]]`` to ``lru_gen`` to evict generations less than or
-equal to ``min_gen_nr``. Note that ``min_gen_nr`` should be less than
-``max_gen_nr-1`` as ``max_gen_nr`` and ``max_gen_nr-1`` are not fully
-aged and therefore cannot be evicted. ``swappiness`` overrides the
-default value in ``/proc/sys/vm/swappiness``. ``nr_to_reclaim`` limits
-the number of pages to evict.
+Users can write the following command to ``lru_gen`` to evict
+generations less than or equal to ``min_gen_nr``.
 
-A typical use case is that a job scheduler writes to ``lru_gen``
-before it tries to land a new job on a server, and if it fails to
-materialize the cold memory without impacting the existing jobs on
-this server, it retries on the next server according to the ranking
-result obtained from the working set estimation step described
-earlier.
+    ``- memcg_id node_id min_gen_nr [swappiness [nr_to_reclaim]]``
+
+``min_gen_nr`` should be less than ``max_gen_nr-1``, since
+``max_gen_nr`` and ``max_gen_nr-1`` are not fully aged (equivalent to
+the active list) and therefore cannot be evicted. ``swappiness``
+overrides the default value in ``/proc/sys/vm/swappiness``.
+``nr_to_reclaim`` limits the number of pages to evict.
+
+A typical use case is that a job scheduler runs this command before it
+tries to land a new job on a server. If it fails to materialize enough
+cold pages because of the overestimation, it retries on the next
+server according to the ranking result obtained from the working set
+estimation step. This less forceful approach limits the impacts on the
+existing jobs.
