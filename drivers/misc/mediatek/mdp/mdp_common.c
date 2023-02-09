@@ -1360,7 +1360,7 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 
 	/* set secure data */
 	handle->secStatus = NULL;
-	if (!secData || !secData->is_secure || cmdq_mdp_get_func()->mdpIsMtee(handle))
+	if (!secData || !secData->is_secure || !cmdq_mdp_get_func()->mdpIsMtee(handle))
 		return 0;
 
 	is_sec_meta_data_support =
