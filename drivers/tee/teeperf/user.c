@@ -75,13 +75,14 @@ static void teeperf_set_cpu_group_to_high_freq(enum teeperf_cpu_group group,
 				teeperf_set_cpu_to_high_freq(cpu, high_freq, 0);
 		}
 	} else if (group == CPU_LITTLE_GROUP) {
-		freq_level_index = LITTLE_CPU_FREQ_LEVEL_INDEX;
 		if (map == CPU_4_3_1_MAP) {
+			freq_level_index = LITTLE_CPU_FREQ_LEVEL_INDEX_4_3_1;
 			teeperf_set_cpu_to_high_freq(0, high_freq, freq_level_index);
 			teeperf_set_cpu_to_high_freq(1, high_freq, freq_level_index);
 			teeperf_set_cpu_to_high_freq(2, high_freq, freq_level_index);
 			teeperf_set_cpu_to_high_freq(3, high_freq, freq_level_index);
 		} else if (map == CPU_6_2_MAP) {
+			freq_level_index = LITTLE_CPU_FREQ_LEVEL_INDEX_6_2;
 			teeperf_set_cpu_to_high_freq(0, high_freq, freq_level_index);
 			teeperf_set_cpu_to_high_freq(1, high_freq, freq_level_index);
 			teeperf_set_cpu_to_high_freq(2, high_freq, freq_level_index);
