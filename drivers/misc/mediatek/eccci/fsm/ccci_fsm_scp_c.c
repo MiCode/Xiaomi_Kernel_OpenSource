@@ -241,6 +241,7 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 	struct ccci_ipi_msg *ipi_msg_ptr = NULL;
 	struct sk_buff *skb = NULL;
 	int data, ret;
+	struct ccci_fsm_ctl *ctl = fsm_get_entity();
 
 	while (!skb_queue_empty(&scp_ipi_rx_skb_list.skb_list)) {
 		skb = ccci_skb_dequeue(&scp_ipi_rx_skb_list);
@@ -280,12 +281,18 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 				ccci_scp_ipi_send(CCCI_OP_MD_STATE, &data);
 				break;
 			case SCP_CCCI_STATE_STOP:
-				CCCI_NORMAL_LOG(0, FSM,
+				if (ctl->md_state != READY) {
+					CCCI_NORMAL_LOG(0, FSM,
 						"MD INVALID,scp send ack to ap\n");
-				ret = scp_set_clk_cg(0);
-				if (ret)
-					CCCI_ERROR_LOG(0, FSM,
-						"fail to set scp clk, ret = %d\n", ret);
+					ret = scp_set_clk_cg(0);
+					if (ret)
+						CCCI_ERROR_LOG(0, FSM,
+							"fail to set scp clk, ret = %d\n", ret);
+				} else {
+					CCCI_NORMAL_LOG(0, FSM,
+						"md_state=%d, shouldn't off ccif2\n",
+						ctl->md_state);
+				}
 				break;
 			default:
 				break;
