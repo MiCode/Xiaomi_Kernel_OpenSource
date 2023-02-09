@@ -8554,7 +8554,7 @@
 			#cooling-cells = <2>;
 			ged-supply = <&ged>;
 			firmware_idle_hytseresis_time_ms = <0>;
-			sleep-mode-enable = <0>;
+			sleep-mode-enable = <0xff>;
 			pending-submission-mode = <1>;
 			default-glb-pwroff-timeout-us = <300>;
 		};
