@@ -73,7 +73,7 @@ int fstb_no_stable_thr = 5;
 EXPORT_SYMBOL(fstb_no_stable_thr);
 int fstb_can_update_thr = 60;
 EXPORT_SYMBOL(fstb_can_update_thr);
-int fstb_target_fps_margin_low_fps = 3;
+int fstb_target_fps_margin_low_fps = 5;
 EXPORT_SYMBOL(fstb_target_fps_margin_low_fps);
 int fstb_target_fps_margin_high_fps = 5;
 EXPORT_SYMBOL(fstb_target_fps_margin_high_fps);
