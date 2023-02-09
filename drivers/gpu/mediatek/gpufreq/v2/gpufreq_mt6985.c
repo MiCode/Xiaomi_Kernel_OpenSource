@@ -1114,9 +1114,6 @@ void __gpufreq_dump_infra_status(void)
 		return;
 
 	GPUFREQ_LOGI("== [GPUFREQ INFRA STATUS] ==");
-	GPUFREQ_LOGI("[Regulator] Vgpu: %d, Vstack: %d, Vsram: %d",
-		__gpufreq_get_real_vgpu(), __gpufreq_get_real_vstack(),
-		__gpufreq_get_real_vsram());
 	GPUFREQ_LOGI("[Clk] MFG_PLL: %d, MFG_SEL: 0x%x, MFGSC_PLL: %d, MFGSC_SEL: 0x%x",
 		__gpufreq_get_real_fgpu(), readl(TOPCK_CLK_CFG_30) & MFG_INT0_SEL_MASK,
 		__gpufreq_get_real_fstack(), readl(TOPCK_CLK_CFG_30) & MFGSC_INT1_SEL_MASK);
