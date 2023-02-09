@@ -1279,6 +1279,9 @@ out:
 static enum mc_result rpmb_gp_execute_ufs(u32 cmdId)
 {
 	int ret;
+	struct rpmb_dev *rawdev_ufs_rpmb = ufs_mtk_rpmb_get_raw_dev();
+	struct device *dev = rawdev_ufs_rpmb->dev.parent;
+	struct ufs_hba *hba = dev_get_drvdata(dev);
 
 	switch (cmdId) {
 
@@ -1312,9 +1315,11 @@ static enum mc_result rpmb_gp_execute_ufs(u32 cmdId)
 		MSG(INFO, "%s: DCI_RPMB_CMD_PROGRAM_KEY.\n", __func__);
 		rpmb_dump_frame(rpmb_gp_dci->request.frame);
 
-		/* program both region 0 and region 1 key */
-		ret = rpmb_req_program_key_ufs(rpmb_gp_dci->request.frame,
-			1, 1);
+		/* program both region 1 (ver > 3.0) and region 0 key */
+		if (hba->dev_info.wspecversion >= 0x0300) {
+			ret = rpmb_req_program_key_ufs(
+				rpmb_gp_dci->request.frame, 1, 1);
+		}
 		ret = rpmb_req_program_key_ufs(rpmb_gp_dci->request.frame,
 			1, 0);
 
