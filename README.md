@@ -159,6 +159,7 @@
 | munch-s-oss | Redmi K40S | Android S | LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1 | [munch-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/munch-s-oss) |
 | rubens-s-oss | Redmi K50 | Android S | alps-release-s0.mp1.tc8sp2-mt6983 | [rubens-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/rubens-s-oss) |
 | yunluo-s-oss | Redmi Pad | Android S | alps-release-s0.mp1.tc8sp2-cs1-xm-V1 | [yunluo-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/yunluo-s-oss) |
+| xaga-s-oss | Redmi Note11T Pro | Android S | alps-release-s0.mp1.tc8sp2-mt6983 | [xaga-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/xaga-s-oss) |
 公告： 小米内核组招聘（官方）
 ![image](https://user-images.githubusercontent.com/58464055/186303598-ad1363e1-c426-4ed7-9d78-ad4c1030bbd1.png)
 
