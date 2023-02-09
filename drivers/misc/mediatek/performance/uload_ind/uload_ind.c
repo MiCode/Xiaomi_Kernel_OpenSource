@@ -98,13 +98,16 @@ static void init_cpu_loading_value(void)
 
 void perfmgr_trace_printk(char *module, char *string)
 {
+#if IS_ENABLED(CONFIG_MTK_LOAD_TRACKER_DEBUG)
 	preempt_disable();
 	trace_cpu_loading(module, string);
 	preempt_enable();
+#endif
 }
 
 void perfmgr_trace_log(char *module, const char *fmt, ...)
 {
+#if IS_ENABLED(CONFIG_MTK_LOAD_TRACKER_DEBUG)
 	char log[256];
 	va_list args;
 	int len;
@@ -116,6 +119,7 @@ void perfmgr_trace_log(char *module, const char *fmt, ...)
 		log[255] = '\0';
 	va_end(args);
 	trace_cpu_loading(module, log);
+#endif
 }
 
 static bool sentuevent(const char *src)
