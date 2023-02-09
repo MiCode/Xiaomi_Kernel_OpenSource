@@ -248,6 +248,9 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 		pr_notice("%s: enable gce apsrc: %#x=%#x\n",
 			__func__, GCE_BASE + GCE_GCTL_VALUE, readl(dbg->gce_base + GCE_GCTL_VALUE));
 	} else if (flags == GENPD_NOTIFY_PRE_OFF) {
+		writel(0, dbg->gce_base + GCE_GCTL_VALUE);
+		pr_notice("%s: disable gce apsrc: %#x=%#x\n",
+			__func__, GCE_BASE + GCE_GCTL_VALUE, readl(dbg->gce_base + GCE_GCTL_VALUE));
 		test_base = ioremap(bkrs_reg_pa, 4);
 		bk_val = readl_relaxed(test_base);
 		if (mminfra_bkrs)
