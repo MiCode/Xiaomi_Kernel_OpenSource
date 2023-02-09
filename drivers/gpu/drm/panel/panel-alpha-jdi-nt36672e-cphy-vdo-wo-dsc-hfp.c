@@ -884,32 +884,32 @@ static u32 fake_width = 1080;
 static bool need_fake_resolution;
 
 static struct drm_display_mode default_mode = {
-	.clock = 316806, //h_total * v_total * fps
+	.clock = 310211, //h_total * v_total * fps
 	.hdisplay = HAC,
-	.hsync_start = HAC + 996,//HFP
-	.hsync_end = HAC + 996 + 20,//HSA
-	.htotal = HAC + 996 + 20 + 22,//HBP
+	.hsync_start = HAC + 946,//HFP
+	.hsync_end = HAC + 946 + 20,//HSA
+	.htotal = HAC + 946 + 20 + 22,//HBP
 	.vdisplay = VAC,
-	.vsync_start = VAC + 54,//VFP
-	.vsync_end = VAC + 54 + 10,//VSA
-	.vtotal = VAC + 54 + 10 + 10,//VBP
+	.vsync_start = VAC + 66,//VFP
+	.vsync_end = VAC + 66 + 10,//VSA
+	.vtotal = VAC + 66 + 10 + 10,//VBP
 };
 
 static struct drm_display_mode performance_mode_90hz = {
-	.clock = 266746, //h_total * v_total * fps
+	.clock = 269053, //h_total * v_total * fps
 	.hdisplay = HAC,
 	.hsync_start = HAC + 76,//HFP
 	.hsync_end = HAC + 76 + 20,//HSA
 	.htotal = HAC + 76 + 20 + 22,//HBP
 	.vdisplay = VAC,
-	.vsync_start = VAC + 54,//VFP
-	.vsync_end = VAC + 54 + 10,//VSA
-	.vtotal = VAC + 54 + 10 + 10,//VBP
+	.vsync_start = VAC + 66,//VFP
+	.vsync_end = VAC + 66 + 10,//VSA
+	.vtotal = VAC + 66 + 10 + 10,//VBP
 };
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 555,
+	.pll_clk = 544,
 	.vfp_low_power = 876, //45HZ
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
@@ -920,7 +920,7 @@ static struct mtk_panel_params ext_params = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
 	.is_cphy = 1,
-	.data_rate = 1110,
+	.data_rate = 1088,
 	.lfr_enable = 1,
 	.lfr_minimum_fps = 45,
 	.dyn_fps = {
@@ -935,16 +935,16 @@ static struct mtk_panel_params ext_params = {
 	},
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 560,
-		.vfp_lp_dyn = 906,
-		.hfp = 1004,
-		.vfp = 76,
+		.pll_clk = 546,
+		.vfp_lp_dyn = 890,
+		.hfp = 946,
+		.vfp = 75,
 	},
 };
 
 static struct mtk_panel_params ext_params_90hz = {
-	.pll_clk = 555,
-	.vfp_low_power = 1350, //60HZ
+	.pll_clk = 544,
+	.vfp_low_power = 1300, //60HZ
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
@@ -954,7 +954,7 @@ static struct mtk_panel_params ext_params_90hz = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
 	.is_cphy = 1,
-	.data_rate = 1110,
+	.data_rate = 1088,
 	.lfr_enable = 1,
 	.lfr_minimum_fps = 45,
 	.dyn_fps = {
@@ -969,10 +969,10 @@ static struct mtk_panel_params ext_params_90hz = {
 	},
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 560,
-		.vfp_lp_dyn = 1394,
+		.pll_clk = 546,
+		.vfp_lp_dyn = 1316,
 		.hfp = 76,
-		.vfp = 78,
+		.vfp = 75,
 	},
 };
 

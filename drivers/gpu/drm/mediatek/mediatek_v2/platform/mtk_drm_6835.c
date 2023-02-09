@@ -37,6 +37,9 @@
 
 static void mt6835_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			struct cmdq_pkt *handle, void *data);
+static void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
+	struct mtk_drm_crtc *mtk_crtc, unsigned int en);
+
 
 // overlay
 static const struct compress_info compr_info_mt6835  = {
@@ -204,7 +207,7 @@ const struct mtk_dsi_driver_data mt6835_dsi_driver_data = {
 	.buffer_unit = 18,
 	.sram_unit = 18,
 	.max_vfp = 0x1194,
-	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate,
 };
 
 // ddp
@@ -1166,6 +1169,97 @@ void mmsys_config_dump_analysis_mt6835(void __iomem *config_regs)
 
 #define MT6835_FLD_OVL0_RDMA_ULTRA_SEL            REG_FLD_MSB_LSB(5, 2)
 #define MT6835_FLD_OVL1_2L_RDMA_ULTRA_SEL         REG_FLD_MSB_LSB(13, 10)
+
+/******************************************************************************
+ * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
+ * In Video Mode , Using the Formula below:
+ * MM Clock
+ * DSC on:  vact x hact x vrefresh x  (vtotal / vact)
+ * DSC off: vact x hact x vrefresh x (vtotal x htotal) / (vact x hact)
+
+ * In Command Mode Using the Formula below:
+ * Type     | MM Clock (unit: Pixel)
+ * CPHY     | data_rate x (16/7) x lane_num x compress_ratio / bpp
+ * DPHY     | data_rate x lane_num x compress_ratio / bpp
+ ******************************************************************************/
+void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
+	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
+{
+	struct mtk_panel_ext *ext = dsi->ext;
+	unsigned int data_rate;
+	unsigned int pixclk = 0;
+	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
+	unsigned int pixclk_min = 0;
+	unsigned int hact = 0;
+	unsigned int htotal = 0;
+	unsigned int vtotal = 0;
+	unsigned int vact = 0;
+	unsigned int vrefresh = 0;
+	struct drm_display_mode *mode;
+	struct mtk_ddp_comp *comp = dsi->is_slave ?
+		(&dsi->master_dsi->ddp_comp) : (&dsi->ddp_comp);
+
+	mode = mtk_crtc_get_display_mode_by_comp(__func__, &mtk_crtc->base, comp, false);
+	if (mode == NULL) {
+		DDPPR_ERR("%s display_mode is NULL\n", __func__);
+		return;
+	}
+	hact = mode->hdisplay;
+	htotal = mode->htotal;
+	vtotal = mode->vtotal;
+	vact = mode->vdisplay;
+	vrefresh = drm_mode_vrefresh(mode);
+
+	if (!en) {
+		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
+					__func__);
+		return;
+	}
+	//for FPS change,update dsi->ext
+	dsi->ext = find_panel_ext(dsi->panel);
+	data_rate = mtk_dsi_default_rate(dsi);
+
+	if (!dsi->ext) {
+		DDPPR_ERR("DSI panel ext is NULL\n");
+		return;
+	}
+
+	if (!data_rate) {
+		DDPPR_ERR("DSI data_rate is NULL\n");
+		return;
+	}
+	//If DSI mode is vdo mode
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		if (ext->params->is_cphy)
+			pixclk_min = data_rate * dsi->lanes * 2 / 7 / 3;
+		else
+			pixclk_min = data_rate * dsi->lanes / 8 / 3;
+
+		pixclk = vact * hact * vrefresh / 1000;
+		if (ext->params->dsc_params.enable)
+			pixclk = pixclk * vtotal / vact;
+		else
+			pixclk = pixclk * (vtotal * htotal * 100 /
+				(vact * hact)) / 100;
+		pixclk = (unsigned int)(pixclk / 1000);
+		if (mtk_crtc->is_dual_pipe)
+			pixclk /= 2;
+
+		pixclk = (pixclk_min > pixclk) ? pixclk_min : pixclk;
+	} else {
+		pixclk = data_rate * dsi->lanes;
+		if (data_rate && ext->params->is_cphy)
+			pixclk = pixclk * 16 / 7;
+		pixclk = pixclk / bpp / 100;
+		if (mtk_crtc->is_dual_pipe)
+			pixclk /= 2;
+	}
+
+	DDPMSG("%s, data_rate =%d, mmclk=%u pixclk_min=%d, dual=%u\n", __func__,
+			data_rate, pixclk, pixclk_min, mtk_crtc->is_dual_pipe);
+	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
+}
+
 
 static void mt6835_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			struct cmdq_pkt *handle, void *data)
