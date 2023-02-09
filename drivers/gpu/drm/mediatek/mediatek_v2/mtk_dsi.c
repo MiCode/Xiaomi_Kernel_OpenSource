@@ -3790,7 +3790,7 @@ static void mtk_dsi_encoder_disable(struct drm_encoder *encoder)
 
 	mtk_output_dsi_disable(dsi, NULL, false);
 	if (is_bdg_supported())
-		bdg_common_deinit(DISP_BDG_DSI0, NULL);
+		bdg_common_deinit(DISP_BDG_DSI0, NULL, dsi);
 
 	if (comp->id == DDP_COMPONENT_DSI0)
 		mtk_disp_notifier_call_chain(MTK_DISP_EVENT_BLANK,

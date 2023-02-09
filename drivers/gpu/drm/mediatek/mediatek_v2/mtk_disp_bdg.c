@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/gpio/consumer.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/kthread.h>
 #include <linux/sched.h>
@@ -96,23 +97,36 @@ static unsigned int g_mode_enable = 1; /* _G_MODE_EN_ */
 unsigned int bdg_rxtx_ratio = 229;
 unsigned int bdg_rx_v12 = RX_V12; /* RX_V12 */
 
-//static void clk_buf_disp_ctrl(bool enable)
-//{
-//	unsigned int pin_mux = 149;
-//	if (enable){
-//		mt_set_gpio_mode(pin_mux, 1);
-//		mt_set_gpio_dir(pin_mux, GPIO_DIR_IN);
-////		mt_set_gpio_out(pin_mux, GPIO_IN_ONE);
-//		mt_set_gpio_pull_enable(pin_mux, GPIO_PULL_ENABLE);
-//		mt_set_gpio_pull_select(pin_mux, GPIO_PULL_UP);
-//	} else {
-//		mt_set_gpio_mode(pin_mux, 1);
-//		mt_set_gpio_dir(pin_mux, GPIO_DIR_IN);
-////		mt_set_gpio_out(pin_mux, GPIO_IN_ONE);
-//		mt_set_gpio_pull_enable(pin_mux, GPIO_PULL_ENABLE);
-//		mt_set_gpio_pull_select(pin_mux, GPIO_PULL_UP);
-//	}
-//}
+
+static void clk_buf_disp_ctrl(bool enable, struct mtk_dsi *dsi)
+{
+	struct pinctrl *pinctrll;
+	struct device *dev = dsi->host.dev;
+	struct pinctrl_state *pState_pull_down = 0;
+	struct pinctrl_state *pState_pull_up = 0;
+
+	pinctrll = devm_pinctrl_get(dev);
+	if (IS_ERR(pinctrll)) {
+		DDPMSG("get pmic 26m gpios for bdg fail %d\n", pinctrll);
+		return;
+	}
+	if (enable) {
+		pState_pull_up = pinctrl_lookup_state(pinctrll, "6382-pmic-26m-gpio-ctl1");
+		if (IS_ERR(pState_pull_up)) {
+			DDPMSG("get pmic 26m gpios state error %d\n", pState_pull_up);
+			return;
+		}
+		pinctrl_select_state(pinctrll, pState_pull_up);
+	} else {
+		pState_pull_down = pinctrl_lookup_state(pinctrll, "6382-pmic-26m-gpio-ctl0");
+		if (IS_ERR(pState_pull_down)) {
+			DDPMSG("get pmic 26m gpios state error %d\n", pState_pull_down);
+			return;
+		}
+		pinctrl_select_state(pinctrll, pState_pull_down);
+	}
+	devm_pinctrl_put(pinctrll);
+}
 
 static void bdg_config_init(struct device_node *node)
 {
@@ -5370,7 +5384,7 @@ int bdg_common_init(enum DISP_BDG_ENUM module,
 	TX_CMDQ_REG[0] = (struct DSI_TX_CMDQ_REGS *)(DISPSYS_BDG_TX_DSI0_BASE + 0xd00);
 
 	/* open 26m clk */
-	//clk_buf_disp_ctrl(true);
+	clk_buf_disp_ctrl(true, dsi);
 	bdg_tx_pull_6382_reset_pin(dsi);
 
 	/* spi init & set low speed */
@@ -5478,7 +5492,7 @@ int bdg_common_init(enum DISP_BDG_ENUM module,
 	return ret;
 }
 
-int bdg_common_deinit(enum DISP_BDG_ENUM module, void *cmdq)
+int bdg_common_deinit(enum DISP_BDG_ENUM module, void *cmdq, struct mtk_dsi *dsi)
 {
 	int ret = 0;
 
@@ -5497,7 +5511,7 @@ int bdg_common_deinit(enum DISP_BDG_ENUM module, void *cmdq)
 	set_mtcmos_off(cmdq);
 	set_LDO_off(cmdq);
 	need_6382_init = 1;
-	//clk_buf_disp_ctrl(false);
+	clk_buf_disp_ctrl(false, dsi);
 
 	return ret;
 }

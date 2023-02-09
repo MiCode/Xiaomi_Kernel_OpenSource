@@ -528,9 +528,10 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	}
 
 	mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, CONNECTOR_PANEL_DISABLE, NULL);
-	if (is_bdg_supported())
-		bdg_common_deinit(DISP_BDG_DSI0, NULL);
-
+	if (is_bdg_supported()) {
+		dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+		bdg_common_deinit(DISP_BDG_DSI0, NULL, dsi);
+	}
 
 	mtk_drm_crtc_disable(crtc, true);
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 2);

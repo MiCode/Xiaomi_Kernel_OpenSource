@@ -86,7 +86,7 @@ int bdg_tx_init(enum DISP_BDG_ENUM module,
 int bdg_tx_deinit(enum DISP_BDG_ENUM module, void *cmdq);
 int bdg_common_init(enum DISP_BDG_ENUM module,
 			struct mtk_dsi *dsi, void *cmdq);
-int bdg_common_deinit(enum DISP_BDG_ENUM module, void *cmdq);
+int bdg_common_deinit(enum DISP_BDG_ENUM module, void *cmdq, struct mtk_dsi *dsi);
 int bdg_common_init_for_rx_pat(enum DISP_BDG_ENUM module,
 			struct mtk_dsi *dsi, void *cmdq);
 int mipi_dsi_rx_mac_init(enum DISP_BDG_ENUM module,
