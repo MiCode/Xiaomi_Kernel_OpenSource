@@ -115,9 +115,6 @@ struct connect_api_info *fpsgo_com_search_and_add_connect_api_info(int pid,
 	tmp->buffer_id = buffer_id;
 	tmp->buffer_key = buffer_key;
 
-	mtk_composer_dprintk_always("Connect API! pid=%d, tgid=%d, buffer_id=%llu",
-		pid, tgid, buffer_id);
-
 	rb_link_node(&tmp->rb_node, parent, p);
 	rb_insert_color(&tmp->rb_node, &connect_api_tree);
 
@@ -759,12 +756,10 @@ void fpsgo_ctrl2comp_disconnect_api(
 		fpsgo_render_tree_unlock(__func__);
 		return;
 	}
-	mtk_composer_dprintk_always("[Disconnect] Success %d: %llu, %llu\n",
-		pid, buffer_id, identifier);
+
 	fpsgo_com_clear_connect_api_render_list(connect_api);
 	rb_erase(&connect_api->rb_node, &connect_api_tree);
 	kfree(connect_api);
-
 
 	fpsgo_render_tree_unlock(__func__);
 }

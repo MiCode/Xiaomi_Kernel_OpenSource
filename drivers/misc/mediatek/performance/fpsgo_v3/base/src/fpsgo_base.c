@@ -1159,28 +1159,23 @@ int fpsgo_get_all_fps_control_pid_info(struct fps_control_pid_info *arr)
 static void fpsgo_check_BQid_status(void)
 {
 	struct rb_node *n;
-	struct rb_node *next;
 	struct BQ_id *pos;
 	int tgid = 0;
-	int count = 0;
 
 	fpsgo_lockprove(__func__);
 
-	for (n = rb_first(&BQ_id_list); n; n = next) {
-		next = rb_next(n);
-
+	n = rb_first(&BQ_id_list);
+	while (n) {
 		pos = rb_entry(n, struct BQ_id, entry);
 		tgid = fpsgo_get_tgid(pos->pid);
-		if (tgid) {
-			count++;
-			continue;
+		if (!tgid) {
+			rb_erase(&pos->entry, &BQ_id_list);
+			n = rb_first(&BQ_id_list);
+			kfree(pos);
+		} else {
+			n = rb_next(n);
 		}
-
-		rb_erase(n, &BQ_id_list);
-		kfree(pos);
 	}
-
-	mtk_base_dprintk_always("[%s] BQ rb_tree_size=%d", __func__, count);
 }
 
 void fpsgo_clear_llf_cpu_policy(void)
