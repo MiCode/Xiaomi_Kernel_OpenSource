@@ -920,7 +920,7 @@ static const struct drm_display_mode performance_mode_120hz = {
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 502,
-	.vfp_low_power = 2480,
+	.vfp_low_power = 4130, //45hz
 	.cust_esd_check = 0,
 	.esd_check_enable = 0,
 	.lcm_degree = PROBE_FROM_DTS,
@@ -1536,6 +1536,9 @@ static int jdi_remove(struct mipi_dsi_device *dsi)
 #if defined(CONFIG_MTK_PANEL_EXT)
 	struct mtk_panel_ctx *ext_ctx = find_panel_ctx(&ctx->panel);
 #endif
+
+	if (ext_ctx == NULL)
+		return 0;
 
 	mipi_dsi_detach(dsi);
 	drm_panel_remove(&ctx->panel);
