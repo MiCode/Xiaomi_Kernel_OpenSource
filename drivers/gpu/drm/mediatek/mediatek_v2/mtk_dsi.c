@@ -864,7 +864,10 @@ static void mtk_dsi_enable(struct mtk_dsi *dsi)
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	struct mtk_drm_private *priv = NULL;
 
-	if (dsi && dsi->ddp_comp.mtk_crtc)
+	if (dsi == NULL)
+		return;
+
+	if (dsi->ddp_comp.mtk_crtc)
 		mtk_crtc = dsi->ddp_comp.mtk_crtc;
 
 	if (mtk_crtc && mtk_crtc->base.dev && mtk_crtc->base.dev->dev_private)
@@ -1902,7 +1905,8 @@ void DSI_Config_VDO_Timing_with_DSC(struct mtk_dsi *dsi)
 		(get_bdg_line_cycle() * lanes * bdg_rxtx_ratio + 99) / 100;
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
-		if (dsi->ext->params->ap_tx_keep_hs_during_vact == 0) {
+		if (dsi->ext && dsi->ext->params &&
+			dsi->ext->params->ap_tx_keep_hs_during_vact == 0) {
 			if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
 				ap_tx_total_word_cnt_no_hfp_wc =
 					4 +	/* hss packet */
@@ -1927,7 +1931,8 @@ void DSI_Config_VDO_Timing_with_DSC(struct mtk_dsi *dsi)
 					(4 + ps_wc + 2) +		/* rgb packet */
 					(4 + 2) +			/* hfp packet */
 					data_phy_cycle * lanes;
-		} else if (dsi->ext->params->ap_tx_keep_hs_during_vact == 1) {
+		} else if (dsi->ext && dsi->ext->params &&
+				dsi->ext->params->ap_tx_keep_hs_during_vact == 1) {
 			if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
 				ap_tx_total_word_cnt_no_hfp_wc =
 					4 +	/* hss packet */
@@ -1960,7 +1965,8 @@ void DSI_Config_VDO_Timing_with_DSC(struct mtk_dsi *dsi)
 	data_phy_cycle, ap_tx_total_word_cnt_no_hfp_wc);
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
-		if (dsi->ext->params->ap_tx_keep_hs_during_vact == 0) {
+		if (dsi->ext && dsi->ext->params &&
+			dsi->ext->params->ap_tx_keep_hs_during_vact == 0) {
 			if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
 				ap_tx_total_word_cnt =
 					4 +	/* hss packet */
@@ -1985,7 +1991,8 @@ void DSI_Config_VDO_Timing_with_DSC(struct mtk_dsi *dsi)
 					(4 + ps_wc + 2) +	/* rgb packet */
 					(4 + t_hfp + 2) +	/* hfp packet */
 					data_phy_cycle * lanes;
-		} else if (dsi->ext->params->ap_tx_keep_hs_during_vact == 1) {
+		} else if (dsi->ext && dsi->ext->params &&
+			dsi->ext->params->ap_tx_keep_hs_during_vact == 1) {
 			if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO_BURST) {
 				ap_tx_total_word_cnt =
 					4 +	/* hss packet */
@@ -2020,9 +2027,11 @@ void DSI_Config_VDO_Timing_with_DSC(struct mtk_dsi *dsi)
 
 	writel(ALIGN_TO((t_hsa), 4), dsi->regs + DSI_HSA_WC);
 	writel(ALIGN_TO((t_hbp), 4), dsi->regs + DSI_HBP_WC);
-	if (dsi->ext->params->ap_tx_keep_hs_during_vact == 0)
+	if (dsi->ext && dsi->ext->params &&
+		dsi->ext->params->ap_tx_keep_hs_during_vact == 0)
 		writel(ALIGN_TO((t_hfp), 4), dsi->regs + DSI_HFP_WC);
-	else if (dsi->ext->params->ap_tx_keep_hs_during_vact == 1)
+	else if (dsi->ext && dsi->ext->params &&
+		dsi->ext->params->ap_tx_keep_hs_during_vact == 1)
 		writel(ALIGN_TO((t_hfp | (t_hfp_hs_vb_ps_wc<<16) | (1<<31)), 4),
 		dsi->regs + DSI_HFP_WC);
 	writel(ALIGN_TO((t_hbllp), 4), dsi->regs + DSI_BLLP_WC);
@@ -2357,8 +2366,8 @@ irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				mtk_drm_crtc_dump(dsi->encoder.crtc);
 				dsi_underrun_trigger = 0;
 				if (!dsi->driver_data->smi_dbg_disable ||
-				     mtk_drm_helper_get_opt(priv->helper_opt,
-				     MTK_DRM_OPT_DSI_UNDERRUN_AEE))
+				     (priv && mtk_drm_helper_get_opt(priv->helper_opt,
+				     MTK_DRM_OPT_DSI_UNDERRUN_AEE)))
 					mtk_smi_dbg_hang_detect("dsi-underrun");
 				mtk_crtc->last_aee_trigger_ts = aee_now_ts;
 			}
@@ -5145,9 +5154,11 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 		cmdq_pkt_wait_no_clear(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
 
-		mtk_dsi_phy_timconfig(dsi, cmdq_handle);
-		if (dsi->slave_dsi)
-			mtk_dsi_phy_timconfig(dsi->slave_dsi, cmdq_handle);
+		if (dsi->data_rate != 0) {
+			mtk_dsi_phy_timconfig(dsi, cmdq_handle);
+			if (dsi->slave_dsi)
+				mtk_dsi_phy_timconfig(dsi->slave_dsi, cmdq_handle);
+		}
 
 		if (mod_hfp) {
 			mtk_dsi_porch_setting(comp, cmdq_handle, DSI_HFP,
@@ -7696,6 +7707,9 @@ unsigned int mtk_dsi_get_line_time(struct mtk_drm_crtc *mtk_crtc,
 	dsi->ext = find_panel_ext(dsi->panel);
 	data_rate = mtk_dsi_default_rate(dsi);
 
+	if (data_rate == 0)
+		return 0;
+
 	if (dsi->ext->params->is_cphy) {
 		/* CPHY */
 		ui = (1000 / data_rate > 0) ? 1000 / data_rate : 1;
@@ -8209,7 +8223,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 			to_info.is_support, to_info.left_in_width, to_info.right_in_width);
 
 	dsi->ext = find_panel_ext(dsi->panel);
-	if (dsi->ext->params->dsc_params.enable)
+	if (dsi->ext && dsi->ext->params && dsi->ext->params->dsc_params.enable)
 		bpp = dsi->ext->params->dsc_params.bit_per_channel * 3;
 
 	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
@@ -8239,7 +8253,7 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 			if (dsi->is_slave || dsi->slave_dsi)
 				hact /= 2;
 
-			if (dsi->ext->params->dsc_params.enable == 0)
+			if (dsi->ext && dsi->ext->params->dsc_params.enable == 0)
 				ps_wc = hact * bpp / 8;
 			else
 				ps_wc = dsi->ext->params->dsc_params.chunk_size *
@@ -8252,7 +8266,8 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 
 			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc);
 
-			bw_base = bw_base * image_time / line_time;
+			if (line_time)
+				bw_base = bw_base * image_time / line_time;
 
 			DDPINFO("%s, image_time=%d, line_time=%d\n",
 				__func__, image_time, line_time);
@@ -8370,7 +8385,8 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 
 			line_time = mtk_dsi_get_line_time(mtk_crtc, dsi, ps_wc);
 
-			bw_base = bw_base * image_time / line_time;
+			if (line_time)
+				bw_base = bw_base * image_time / line_time;
 
 			DDPINFO("%s, image_time=%d, line_time=%d\n",
 				__func__, image_time, line_time);
@@ -8644,7 +8660,8 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			dsi->data_rate = mtk_dsi_default_rate(dsi);
 			mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, dsi->data_rate);
 
-			mtk_dsi_phy_timconfig(dsi, NULL);
+			if (dsi->data_rate != 0)
+				mtk_dsi_phy_timconfig(dsi, NULL);
 		}
 		if (dsi->mipi_hopping_sta) {
 			DDPINFO("%s,mipi_clk_change_sta\n", __func__);

@@ -662,7 +662,7 @@ bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
 
 bool mtk_ddp_comp_is_output_by_id(enum mtk_ddp_comp_id id)
 {
-	if (id < 0 || id >= DDP_COMPONENT_ID_MAX)
+	if (id >= DDP_COMPONENT_ID_MAX)
 		return false;
 
 	return mtk_ddp_matches[id].is_output;
@@ -2418,8 +2418,9 @@ void mt6985_mtk_sodi_apsrc_config(struct drm_crtc *crtc,
 			struct mtk_drm_crtc *mtk_crtc_local = to_mtk_crtc(crtc_local);
 			unsigned int crtc_id = drm_crtc_index(&mtk_crtc_local->base);
 
-			mt6985_mtk_sodi_apsrc_enable(crtc,
-				_cmdq_handle, crtc_id, mtk_crtc_local->enabled);
+			if (crtc_id < MAX_CRTC)
+				mt6985_mtk_sodi_apsrc_enable(crtc,
+					_cmdq_handle, crtc_id, mtk_crtc_local->enabled);
 		}
 	} else if (!reset)
 		mt6985_mtk_sodi_apsrc_enable(crtc, _cmdq_handle, crtc_id, enable);
