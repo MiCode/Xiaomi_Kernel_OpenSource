@@ -937,6 +937,7 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 		/*in alph.dts file, pin avdd controls two gpio pins*/
 			/*{AVDD1, Vol_1800, 0},*/
 			{AVDD1_GPIO, Vol_High, 1},
+			{AFVDD, Vol_2800, 1},
 			{DVDD, Vol_1100, 0},
 			{DOVDD, Vol_1800, 1},
 			{SensorMCLK, Vol_High, 1},
@@ -953,6 +954,7 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 		/*in alph.dts file, pin avdd controls two gpio pins*/
 			/*{AVDD1, Vol_1800, 0},*/
 			{AVDD1_GPIO, Vol_High, 1},
+			{AFVDD, Vol_2800, 1},
 			{DVDD, Vol_1100, 0},
 			{DOVDD, Vol_1800, 1},
 			{SensorMCLK, Vol_High, 1},
