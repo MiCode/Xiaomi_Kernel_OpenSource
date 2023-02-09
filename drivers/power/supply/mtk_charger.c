@@ -1445,7 +1445,7 @@ int smart_charging(struct mtk_charger *info)
 				info->sc.current_limit);
 
 			if (time_to_full_default_current < time_to_target &&
-				info->sc.current_limit != -1 &&
+				info->sc.current_limit > 0 &&
 				sc_charger_current > info->sc.current_limit) {
 				time_to_full_default_current_limit =
 					info->sc.battery_size / 10000 *

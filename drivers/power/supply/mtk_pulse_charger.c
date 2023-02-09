@@ -333,7 +333,8 @@ static int mtk_linear_chr_topoff(struct mtk_charger *info)
 {
 	ktime_t ktime_now, ktime_diff;
 	struct pcharger_data *algo_data = info->algo.algo_data;
-	struct timespec64 charging_time, topoff_time;
+	struct timespec64 charging_time = {0};
+	struct timespec64 topoff_time = {0};
 
 
 	pr_notice("%s time:%d %d %d %d\n", __func__,
