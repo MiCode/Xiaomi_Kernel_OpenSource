@@ -52,6 +52,12 @@ struct mml_drm_param {
 	/* parameter send back to ddren_cb */
 	void *ddren_param;
 
+	/* dispen callback api, helps mml driver turn on dispsys clock */
+	void (*dispen_cb)(bool enable, void *dispen_param);
+
+	/* parameter send back to ddren_cb */
+	void *dispen_param;
+
 	/* [out]The height of racing mode for each output tile in pixel. */
 	u8 racing_height;
 };

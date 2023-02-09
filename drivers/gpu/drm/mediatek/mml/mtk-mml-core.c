@@ -604,6 +604,10 @@ static s32 core_enable(struct mml_task *task, u32 pipe)
 	cmdq_util_prebuilt_init(CMDQ_PREBUILT_MML);
 #endif
 
+	/* callback disp for later config ddren in dispsys */
+	if (pipe == 0)
+		task->config->task_ops->dispen(task, true);
+
 	task->pipe[pipe].en.clk = true;
 	mml_clock_unlock(task->config->mml);
 
@@ -646,6 +650,10 @@ static s32 core_disable(struct mml_task *task, u32 pipe)
 	mml_trace_ex_begin("%s_%s_%u", __func__, "cmdq", pipe);
 	cmdq_mbox_disable(((struct cmdq_client *)task->pkts[pipe]->cl)->chan);
 	mml_trace_ex_end();
+
+	/* callback disp to turn off dispsys */
+	if (pipe == 0)
+		task->config->task_ops->dispen(task, false);
 
 	/* reset back to disabled */
 	task->pipe[pipe].en.clk = false;

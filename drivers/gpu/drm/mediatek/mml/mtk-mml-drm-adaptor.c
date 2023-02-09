@@ -58,6 +58,8 @@ struct mml_drm_ctx {
 	void (*submit_cb)(void *cb_param);
 	void (*ddren_cb)(struct cmdq_pkt *pkt, bool enable, void *ddren_param);
 	void *ddren_param;
+	void (*dispen_cb)(bool enable, void *dispen_param);
+	void *dispen_param;
 	struct mml_tile_cache tile_cache[MML_PIPE_CNT];
 };
 
@@ -1166,7 +1168,25 @@ static void task_ddren(struct mml_task *task, struct cmdq_pkt *pkt, bool enable)
 	if (!ctx->ddren_cb)
 		return;
 
+	/* no need ddren for srt case */
+	if (task->config->info.mode == MML_MODE_MML_DECOUPLE)
+		return;
+
 	ctx->ddren_cb(pkt, enable, ctx->ddren_param);
+}
+
+static void task_dispen(struct mml_task *task, bool enable)
+{
+	struct mml_drm_ctx *ctx = task->ctx;
+
+	if (!ctx->dispen_cb)
+		return;
+
+	/* no need ddren so no dispen */
+	if (task->config->info.mode == MML_MODE_MML_DECOUPLE)
+		return;
+
+	ctx->dispen_cb(enable, ctx->dispen_param);
 }
 
 static const struct mml_task_ops drm_task_ops = {
@@ -1177,6 +1197,7 @@ static const struct mml_task_ops drm_task_ops = {
 	.get_tile_cache = task_get_tile_cache,
 	.kt_setsched = kt_setsched,
 	.ddren = task_ddren,
+	.dispen = task_dispen,
 };
 
 static void config_get(struct mml_frame_config *cfg)
@@ -1225,6 +1246,8 @@ static struct mml_drm_ctx *drm_ctx_create(struct mml_dev *mml,
 	ctx->submit_cb = disp->submit_cb;
 	ctx->ddren_cb = disp->ddren_cb;
 	ctx->ddren_param = disp->ddren_param;
+	ctx->dispen_cb = disp->dispen_cb;
+	ctx->dispen_param = disp->dispen_param;
 	ctx->panel_pixel = MML_DEFAULT_PANEL_PX;
 	ctx->wq_config[0] = alloc_ordered_workqueue("mml_work0", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 	ctx->wq_config[1] = alloc_ordered_workqueue("mml_work1", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
