@@ -10418,8 +10418,9 @@ void mtk_ctx_watchdog_stop(struct mtk_cam_ctx *ctx, int pipe_id, int ctx_streamo
 		__func__, ctx->stream_id, pipe_id);
 
 	/* Prevent from ctx stopping in the middle of last watchdog worker */
+	/* should be modified to flush or atomic later (wrong completion) */
 	if (ctx_streamoff && wait_for_completion_timeout(&watchdog_data->watchdog_complete,
-					msecs_to_jiffies(10)) == 0)
+					msecs_to_jiffies(2)) == 0)
 		dev_info(ctx->cam->dev,
 			"%s:ctx/pipe_id(%d/%d): complete timeout\n",
 			__func__, ctx->stream_id, pipe_id);
