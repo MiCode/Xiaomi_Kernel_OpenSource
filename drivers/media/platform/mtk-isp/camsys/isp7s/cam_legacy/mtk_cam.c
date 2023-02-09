@@ -1663,6 +1663,25 @@ static void mtk_cam_fill_sv_frame_param(struct mtk_cam_ctx *ctx,
 	out_fmt->uid.pipe_id = ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
 	out_fmt->fmt = fmt;
 	out_fmt->buf[0][0].iova = iova;
+
+	/*
+	 * Camsv ufo should be enabeld by user cfg. fmt when streaming on,
+	 * and should not be modify per frame in ISP7S.
+	 */
+	switch (fmt.format) {
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER8:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER10:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER12:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER14:
+		if (!(ctx->sv_dev->ufo_en_tags & (1 << tag_idx))) {
+			ctx->sv_dev->ufo_en_tags |= (1 << tag_idx);
+			dev_info(ctx->cam->dev, "Enable ufo sv_tag(%d)\n", tag_idx);
+		}
+		break;
+	}
+
+	if (ctx->sv_dev->ufo_en_tags & (1 << tag_idx))
+		frame_param->camsv_param[0][tag_idx].is_ufo_set = 1;
 }
 
 static void config_img_in_fmt_stagger(struct mtk_cam_device *cam,
@@ -4417,15 +4436,20 @@ static int mtk_cam_config_sv_img_out_imgo(struct mtk_cam_request_stream_data *s_
 		fmt.s.w = node->active_fmt.fmt.pix_mp.width;
 		fmt.s.h = node->active_fmt.fmt.pix_mp.height;
 		fmt.stride[0] = node->active_fmt.fmt.pix_mp.plane_fmt[0].bytesperline;
-		iova = ((((buf->daddr + GET_PLAT_V4L2(meta_sv_ext_size)) + 15) >> 4) << 4);
 
-		/* update meta header */
-		vaddr = vb2_plane_vaddr(vb, 0);
-		info.width = fmt.s.w;
-		info.height = fmt.s.h;
-		info.stride = fmt.stride[0];
-		CALL_PLAT_V4L2(
-			set_sv_meta_stats_info, node->desc.dma_port, vaddr, &info);
+		if (is_raw_ufo(node->active_fmt.fmt.pix_mp.pixelformat)) {
+			iova = buf->daddr;
+		} else {
+			iova = ((((buf->daddr + GET_PLAT_V4L2(meta_sv_ext_size)) + 15) >> 4) << 4);
+
+			/* update meta header */
+			vaddr = vb2_plane_vaddr(vb, 0);
+			info.width = fmt.s.w;
+			info.height = fmt.s.h;
+			info.stride = fmt.stride[0];
+			CALL_PLAT_V4L2(
+				set_sv_meta_stats_info, node->desc.dma_port, vaddr, &info);
+		}
 
 		/* update camsv's frame parameter */
 		mtk_cam_fill_sv_frame_param(ctx, frame_param, tag_idx, fmt, iova);
@@ -8024,6 +8048,8 @@ int mtk_cam_s_data_dev_config(struct mtk_cam_request_stream_data *s_data,
 				(req->ctx_link_update & 1 << ctx->stream_id) ? 1 : 0;
 			config_param.sv_input[0][i].input =
 				arr_tag[i].cfg_in_param;
+			if (ctx->sv_dev->ufo_en_tags & (1 << i))
+				config_param.sv_input[0][i].is_ufo_set = 1;
 		}
 	}
 
@@ -8231,6 +8257,8 @@ int mtk_cam_sv_dev_config(struct mtk_cam_ctx *ctx)
 			config_param.sv_input[0][i].is_first_frame = 1;
 			config_param.sv_input[0][i].input =
 				ctx->sv_dev->tag_info[i].cfg_in_param;
+			if (ctx->sv_dev->ufo_en_tags & (1 << i))
+				config_param.sv_input[0][i].is_ufo_set = 1;
 		}
 	}
 
@@ -8555,6 +8583,8 @@ int mtk_cam_dev_config(struct mtk_cam_ctx *ctx, bool streaming, bool config_pipe
 			config_param.sv_input[0][i].is_first_frame = 1;
 			config_param.sv_input[0][i].input =
 				ctx->sv_dev->tag_info[i].cfg_in_param;
+			if (ctx->sv_dev->ufo_en_tags & (1 << i))
+				config_param.sv_input[0][i].is_ufo_set = 1;
 		}
 	}
 
@@ -9098,6 +9128,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	if (ctx->sv_dev) {
 		ctx->sv_dev->used_tag_cnt = 0;
 		ctx->sv_dev->enabled_tags = 0;
+		ctx->sv_dev->ufo_en_tags = 0;
 		mtk_cam_sv_reset_tag_info(ctx->sv_dev->tag_info);
 		ctx->sv_dev = NULL;
 	}

@@ -2503,8 +2503,10 @@ int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
 
 	ret = mtk_cam_video_s_fmt_common(node, f, "try_fmt");
 
-	if (is_camsv_subdev(node->uid.pipe_id))
+	if (is_camsv_subdev(node->uid.pipe_id) &&
+		!is_raw_ufo(f->fmt.pix_mp.pixelformat)) {
 		ret |= mtk_cam_sv_update_image_size(node, f);
+	}
 
 	return ret;
 }

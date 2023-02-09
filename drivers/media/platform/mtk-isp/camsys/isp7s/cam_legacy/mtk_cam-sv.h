@@ -231,6 +231,7 @@ struct mtk_camsv_device {
 	unsigned int active_group_info[MAX_SV_HW_GROUPS];
 	unsigned int first_tag;
 	unsigned int last_tag;
+	unsigned int ufo_en_tags;
 
 	int fifo_size;
 	void *msg_buffer;

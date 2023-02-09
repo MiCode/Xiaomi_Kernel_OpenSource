@@ -1140,9 +1140,20 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx,
 				(vblank + cfg_in_param->in_crop.s.h) * pixel_bits *
 				plane_factor / 8 / 100;
 		}
-		ABW_MB_s = cfg_in_param->in_crop.s.w * fps *
-					cfg_in_param->in_crop.s.h * pixel_bits *
-					plane_factor / 8 / 100;
+		if (is_raw_ufo(ctx->sv_dev->tag_info[i].img_fmt.fmt.pix_mp.pixelformat)) {
+			/* bitstream: apply compression ratio 0.7 */
+			ABW_MB_s = cfg_in_param->in_crop.s.w * fps *
+						cfg_in_param->in_crop.s.h * pixel_bits *
+						plane_factor / 8 / 100 * 7 / 10;
+			/* table */
+			ABW_MB_s += DIV_ROUND_UP(cfg_in_param->in_crop.s.w, 64) *
+						fps * cfg_in_param->in_crop.s.h *
+						plane_factor / 100;
+		} else {
+			ABW_MB_s = cfg_in_param->in_crop.s.w * fps *
+						cfg_in_param->in_crop.s.h * pixel_bits *
+						plane_factor / 8 / 100;
+		}
 		sv_qos_bw_peak[qos_port_id] += PBW_MB_s;
 		sv_qos_bw_avg[qos_port_id] += ABW_MB_s;
 		if (unlikely(debug_mmqos))

@@ -112,6 +112,7 @@ struct mtkcam_ipi_sv_input_param {
 	__u8	tag_id;
 	__u8	tag_order;
 	__u32	is_first_frame;
+	__u8	is_ufo_set;
 	struct mtkcam_ipi_input_param input;
 } __packed;
 
@@ -151,6 +152,7 @@ struct mtkcam_ipi_camsv_frame_param {
 	__u32	pipe_id;
 	__u8	tag_id;
 	__u32	hardware_scenario;
+	__u8	is_ufo_set;
 
 	struct mtkcam_ipi_img_output camsv_img_outputs[CAMSV_MAX_IMAGE_OUTPUT];
 } __packed;

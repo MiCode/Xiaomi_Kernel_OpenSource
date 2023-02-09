@@ -768,6 +768,38 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.num_planes = 1,
 		},
 	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_BAYER8_UFBC,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_BAYER10_UFBC,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_BAYER12_UFBC,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_BAYER14_UFBC,
+			.num_planes = 1,
+		},
+	},
 };
 
 #define MTK_CAMSV_TOTAL_CAPTURE_QUEUES 2
@@ -1366,6 +1398,11 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *dev)
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON2_IMG, 0x15580402);
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON1_IMG, 0x12AC0156);
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON4_IMG, 0x81560000);
+		/* ufeo */
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON3_LEN, 0x804D0040);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON2_LEN, 0x10340027);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON1_LEN, 0x101A000D);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON4_LEN, 0x800D0000);
 		break;
 	case CAMSV_1:
 		/* imgo */
@@ -1373,6 +1410,11 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *dev)
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON2_IMG, 0x139C02B5);
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON1_IMG, 0x11CE00E7);
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON4_IMG, 0x80E70000);
+		/* ufeo */
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON3_LEN, 0x804D0040);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON2_LEN, 0x10340027);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON1_LEN, 0x101A000D);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON4_LEN, 0x800D0000);
 		break;
 	case CAMSV_2:
 		/* imgo */
@@ -1380,6 +1422,11 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *dev)
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON2_IMG, 0x13340267);
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON1_IMG, 0x119A00CD);
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON4_IMG, 0x80CD0000);
+		/* ufeo */
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON3_LEN, 0x80270020);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON2_LEN, 0x101A0014);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON1_LEN, 0x100D0007);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON4_LEN, 0x80070000);
 		break;
 	case CAMSV_3:
 		/* imgo */
@@ -1387,6 +1434,11 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *dev)
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON2_IMG, 0x12000180);
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON1_IMG, 0x11000080);
 		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON4_IMG, 0x80800000);
+		/* ufeo */
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON3_LEN, 0x80270020);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON2_LEN, 0x101A0014);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON1_LEN, 0x100D0007);
+		CAMSV_WRITE_REG(dev->base_dma + REG_CAMSVDMATOP_CON4_LEN, 0x80070000);
 		break;
 	case CAMSV_4:
 		/* imgo */
