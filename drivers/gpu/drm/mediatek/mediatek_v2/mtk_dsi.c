@@ -272,6 +272,8 @@
 #define DSI_SCRAMBLE_CON 0x1D8
 #define DATA_SCRAMBLE_EN BIT(31)
 
+#define DSI_ROLLBACK_REG 0x1DC
+
 #define DSI_TARGET_NL 0x300
 #define TARGET_NL REG_FLD_MSB_LSB(14, 0)
 #define TARGET_NL_EN BIT(16)
@@ -765,7 +767,20 @@ static void mtk_dsi_dual_enable(struct mtk_dsi *dsi, bool enable)
 
 static void mtk_dsi_enable(struct mtk_dsi *dsi)
 {
+	struct mtk_drm_crtc *mtk_crtc = NULL;
+	struct mtk_drm_private *priv = NULL;
+
+	if (dsi && dsi->ddp_comp.mtk_crtc)
+		mtk_crtc = dsi->ddp_comp.mtk_crtc;
+
+	if (mtk_crtc && mtk_crtc->base.dev && mtk_crtc->base.dev->dev_private)
+		priv = mtk_crtc->base.dev->dev_private;
+
+	if (priv && priv->data && priv->data->mmsys_id == MMSYS_MT6835)
+		mtk_dsi_mask(dsi, DSI_ROLLBACK_REG, 0xffffffff, 0x1f0);
+
 	mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_EN, DSI_EN);
+
 	if (dsi->driver_data->need_wait_fifo)
 		mtk_dsi_mask(dsi, DSI_CON_CTRL, DSI_CM_WAIT_FIFO_FULL_EN,
 			DSI_CM_WAIT_FIFO_FULL_EN);
