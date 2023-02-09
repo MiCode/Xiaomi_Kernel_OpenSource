@@ -29,7 +29,8 @@ extern void cm_mgr_perf_set_status(int enable);
 
 void fbt_set_boost_value(unsigned int base_blc);
 void fbt_clear_boost_value(void);
-void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc);
+void fbt_set_per_task_cap(int pid, unsigned int min_blc,
+	unsigned int max_blc, unsigned int max_util);
 int fbt_get_L_min_ceiling(void);
 void fbt_notify_CM_limit(int reach_limit);
 void fbt_reg_dram_request(int reg);

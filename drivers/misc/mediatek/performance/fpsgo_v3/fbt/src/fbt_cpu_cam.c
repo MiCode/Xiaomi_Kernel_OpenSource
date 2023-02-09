@@ -324,7 +324,7 @@ static void fbt_cam_blc_wt_reset(int group_id)
 
 	if (clear_list_num > 0) {
 		for (i = 0; i < clear_list_num; i++) {
-			fbt_set_per_task_cap(clear_list[i], 0, 100);
+			fbt_set_per_task_cap(clear_list[i], 0, 100, 1024);
 			fpsgo_systrace_c_fbt_debug(clear_list[i], group_id, 1, "clear_uclamp_flag");
 			fpsgo_systrace_c_fbt_debug(clear_list[i], group_id, 0, "clear_uclamp_flag");
 		}
@@ -350,7 +350,7 @@ static void fbt_cam_all_blc_wt_reset(void)
 			iter2 = rb_entry(rbn2, struct fbt_cam_group, rb_node);
 			iter2->blc_wt = 0;
 		}
-		fbt_set_per_task_cap(iter1->tid, 0, 100);
+		fbt_set_per_task_cap(iter1->tid, 0, 100, 1024);
 	}
 
 	mutex_unlock(&fbt_cam_tree_lock);
@@ -548,7 +548,7 @@ static void fbt_cam_set_min_cap(struct fbt_cam_frame *iter, int min_cap, int jer
 		char temp[MAX_PID_DIGIT] = {"\0"};
 
 		if (fbt_cam_blc_wt_arb(iter->dep_list[i], iter->group_id, min_cap))
-			fbt_set_per_task_cap(iter->dep_list[i], min_cap, max_cap);
+			fbt_set_per_task_cap(iter->dep_list[i], min_cap, max_cap, 1024);
 
 		if (strlen(dep_str) == 0)
 			snprintf(temp, sizeof(temp), "%d", iter->dep_list[i]);

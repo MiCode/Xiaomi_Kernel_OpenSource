@@ -133,7 +133,8 @@ void fbt_clear_boost_value(void)
 	fbt_boost_dram(0);
 }
 
-void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
+void fbt_set_per_task_cap(int pid, unsigned int min_blc,
+			unsigned int max_blc, unsigned int max_util)
 {
 	int ret = -1;
 	unsigned int min_blc_1024;
@@ -148,7 +149,7 @@ void fbt_set_per_task_cap(int pid, unsigned int min_blc, unsigned int max_blc)
 	min_blc_1024 = (min_blc << 10) / 100U;
 	min_blc_1024 = clamp(min_blc_1024, 1U, 1024U);
 
-	max_blc_1024 = (max_blc << 10) / 100U;
+	max_blc_1024 = (max_util != 1024U) ? max_util : ((max_blc << 10) / 100U);
 	max_blc_1024 = clamp(max_blc_1024, 1U, 1024U);
 
 	attr.sched_policy = -1;
