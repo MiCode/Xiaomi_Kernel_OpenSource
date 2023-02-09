@@ -1850,7 +1850,7 @@ static ssize_t pwm_debug_store(struct device *dev,
 			int i = 0;
 			struct pwm_spec_config conf;
 			u32 udf_reg;
-			#define PWM_MEM_DMA_SIZE  65532
+			#define PWM_MEM_DMA_SIZE_UF  65532
 		#if LARGE_8G_DRAM_TEST
 			#define PWM_DMA_TYPE unsigned long long
 			/* dma_addr_t  phys; */
@@ -1888,7 +1888,7 @@ static ssize_t pwm_debug_store(struct device *dev,
 
 		#endif
 			virt = dma_alloc_coherent(dev,
-				PWM_MEM_DMA_SIZE, (dma_addr_t *)&phys, GFP_KERNEL);
+				PWM_MEM_DMA_SIZE_UF, (dma_addr_t *)&phys, GFP_KERNEL);
 			if (virt == NULL)
 				return count;
 
@@ -1901,12 +1901,12 @@ static ssize_t pwm_debug_store(struct device *dev,
 		#endif
 
 			membuff = virt;
-			for (i = 0; i < (PWM_MEM_DMA_SIZE/(sizeof(PWM_DMA_TYPE)));
+			for (i = 0; i < (PWM_MEM_DMA_SIZE_UF/(sizeof(PWM_DMA_TYPE)));
 						i += (sizeof(PWM_DMA_TYPE))) {
 				membuff[i] = 0xaaaaaaaa;
 				membuff[i+1] = 0xffff0000;
 			}
-			conf.PWM_MODE_MEMORY_REGS.BUF0_SIZE = PWM_MEM_DMA_SIZE;
+			conf.PWM_MODE_MEMORY_REGS.BUF0_SIZE = PWM_MEM_DMA_SIZE_UF;
 			conf.PWM_MODE_MEMORY_REGS.BUF0_BASE_ADDR = phys;
 
 			do {
