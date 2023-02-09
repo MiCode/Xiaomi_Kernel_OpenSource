@@ -2416,9 +2416,3 @@ config ARCH_HAS_SYSCALL_WRAPPER
 	def_bool n
 
 source "init/Kconfig.gki"
-
-config MTK_FIX_CGROUP_USE_AFTER_FREE
-	bool "fix cgroup use-after-free issue"
-	help
-	  This is a temporary config used for mtk userdebug and eng load to fix
-	  the ALPS07658848 use-after-free issue.

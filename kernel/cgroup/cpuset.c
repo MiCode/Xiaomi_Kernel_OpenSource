@@ -2264,11 +2264,7 @@ static void cpuset_attach(struct cgroup_taskset *tset)
 	cgroup_taskset_first(tset, &css);
 	cs = css_cs(css);
 
-#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
-	cpus_read_lock();
-#else
 	lockdep_assert_cpus_held();	/* see cgroup_attach_lock() */
-#endif
 	percpu_down_write(&cpuset_rwsem);
 
 	guarantee_online_mems(cs, &cpuset_attach_nodemask_to);
@@ -2322,9 +2318,6 @@ static void cpuset_attach(struct cgroup_taskset *tset)
 		wake_up(&cpuset_attach_wq);
 
 	percpu_up_write(&cpuset_rwsem);
-#if IS_ENABLED(CONFIG_MTK_FIX_CGROUP_USE_AFTER_FREE)
-	cpus_read_unlock();
-#endif
 }
 
 /* The various types of files and directories in a cpuset file system */
