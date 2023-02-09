@@ -228,6 +228,7 @@ static void mtk8250_reset_peri(struct uart_8250_port *up)
 	void __iomem *peri_remap_reset_set = NULL;
 	void __iomem *peri_remap_reset_clr = NULL;
 	unsigned int debug_reg = 0;
+	unsigned int peri_reset_begin = 0;
 
 	peri_remap_reset = ioremap(peri_reset.addr, 0x10);
 	if (!peri_remap_reset) {
@@ -257,13 +258,13 @@ static void mtk8250_reset_peri(struct uart_8250_port *up)
 	UART_REG_WRITE(peri_remap_reset_set,
 		((UART_REG_READ(peri_remap_reset)
 			& (~peri_reset.mask_set)) | peri_reset.val_set));
-	pr_info("%s peri_reset begin:0x%x\n", __func__, (UART_REG_READ(peri_remap_reset)));
+	peri_reset_begin = UART_REG_READ(peri_remap_reset);
 
 	UART_REG_WRITE(peri_remap_reset_clr,
 		((UART_REG_READ(peri_remap_reset)
 			& (~peri_reset.mask_clr)) | peri_reset.val_clr));
-	pr_info("%s peri_reset end:0x%x, 0x64 = [0x%x]\n", __func__,
-		(UART_REG_READ(peri_remap_reset)), debug_reg);
+	pr_info("%s  peri_reset begin:0x%x, peri_reset end:0x%x, 0x64 = [0x%x]\n", __func__,
+		peri_reset_begin, (UART_REG_READ(peri_remap_reset)), debug_reg);
 
 	if (peri_remap_reset)
 		iounmap(peri_remap_reset);
@@ -1547,7 +1548,7 @@ static int __maybe_unused mtk8250_runtime_suspend(struct device *dev)
 	struct uart_8250_port *up = serial8250_get_port(data->line);
 
 	if (data->support_hub) {
-		pr_info("[%s]:clock count is[%d] support_hub, skip disable clock\n",
+		dev_dbg(dev, "[%s]:clock count is[%d] support_hub, skip disable clock\n",
 		 __func__, data->clk_count);
 	} else {
 		if (data->clk_count == 0U) {
@@ -1571,7 +1572,7 @@ static int __maybe_unused mtk8250_runtime_resume(struct device *dev)
 
 	if (data->clk_count > 0U) {
 		if (data->support_hub)
-			pr_info("[%s]: data->line[%d] clock count is %d\n", __func__,
+			dev_dbg(dev, "[%s]: data->line[%d] clock count is %d\n", __func__,
 				data->line, data->clk_count);
 	} else {
 		err = clk_prepare_enable(data->bus_clk);
