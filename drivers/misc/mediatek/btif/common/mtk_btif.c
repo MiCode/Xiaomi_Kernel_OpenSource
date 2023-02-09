@@ -245,11 +245,101 @@ struct platform_driver mtk_btif_dev_drv = {
 
 static int btif_probed;
 
+static int g_btif_debug_num;
+static u32 *g_btif_debug_paddr;
+static void __iomem **g_btif_debug_vaddr;
+
 #define BTIF_STATE_RELEASE(x) _btif_state_release(x)
 
 /*-----------End of Platform bus related structures----------------*/
 
 /*-----------platform bus related operation APIs----------------*/
+
+static void mtk_btif_dump_debug_reg(void)
+{
+	int i;
+
+	if (g_btif_debug_num <= 0)
+		return;
+
+	for (i = 0; i < g_btif_debug_num; i++)
+		BTIF_INFO_FUNC("Debug [0x%llx]=0x%lx\n",
+			g_btif_debug_paddr[i],
+			BTIF_READ32(g_btif_debug_vaddr[i]));
+
+}
+
+static void mtk_btif_clear_debug_register(void)
+{
+	int i;
+
+	for (i = 0; i < g_btif_debug_num; i++) {
+		if (g_btif_debug_vaddr[i] != NULL)
+			iounmap(g_btif_debug_vaddr[i]);
+	}
+
+	if (g_btif_debug_vaddr) {
+		kvfree(g_btif_debug_vaddr);
+		g_btif_debug_vaddr = NULL;
+	}
+
+	if (g_btif_debug_paddr) {
+		kvfree(g_btif_debug_paddr);
+		g_btif_debug_paddr = NULL;
+	}
+
+	g_btif_debug_num = 0;
+}
+
+static int mtk_btif_set_debug_register(struct platform_device *pdev)
+{
+	int num;
+	struct device_node *np;
+	int ret;
+	int i;
+
+	np = pdev->dev.of_node;
+	num = of_property_count_elems_of_size(np, "debug-reg", sizeof(u32));
+	BTIF_INFO_FUNC("debug-reg num %d\n", num);
+	if (num <= 0)
+		return num;
+
+	g_btif_debug_num = num;
+
+	g_btif_debug_paddr = kvmalloc(sizeof(u32) * num, GFP_KERNEL);
+	if (g_btif_debug_paddr == NULL) {
+		BTIF_INFO_FUNC("failed to alloc mem for g_btif_debug_paddr\n");
+		goto fail;
+	}
+
+	g_btif_debug_vaddr = kvmalloc(sizeof(void __iomem *) * num, GFP_KERNEL);
+	if (g_btif_debug_vaddr == NULL) {
+		BTIF_INFO_FUNC("failed to alloc mem for g_btif_debug_vaddr\n");
+		goto fail;
+	}
+
+	ret = of_property_read_u32_array(np, "debug-reg", g_btif_debug_paddr, num);
+	if (ret < 0) {
+		BTIF_INFO_FUNC("failed to read u64 array, ret = %d\n", ret);
+		goto fail;
+	}
+
+	for (i = 0; i < num; i++) {
+		BTIF_INFO_FUNC("debug reg [%d] 0x%llx\n", i, g_btif_debug_paddr[i]);
+		if (g_btif_debug_paddr[i] == 0)
+			goto fail;
+
+		g_btif_debug_vaddr[i] = ioremap(g_btif_debug_paddr[i], 0x4);
+		if (g_btif_debug_vaddr[i] == NULL) {
+			BTIF_INFO_FUNC("failed to ioremap for 0x%llx\n", g_btif_debug_paddr[i]);
+			goto fail;
+		}
+	}
+	return 0;
+fail:
+	mtk_btif_clear_debug_register();
+	return -1;
+}
 
 static int mtk_btif_probe(struct platform_device *pdev)
 {
@@ -262,6 +352,7 @@ static int mtk_btif_probe(struct platform_device *pdev)
 #if !defined(CONFIG_MTK_CLKMGR)
 	hal_btif_clk_get_and_prepare(pdev);
 #endif
+	mtk_btif_set_debug_register(pdev);
 
 	btif_probed = 1;
 
@@ -272,6 +363,7 @@ static int mtk_btif_remove(struct platform_device *pdev)
 {
 /*Chaozhong: ToDo: to be implement*/
 	BTIF_INFO_FUNC("DO BTIF REMOVE\n");
+	mtk_btif_clear_debug_register();
 	platform_set_drvdata(pdev, NULL);
 	g_btif[0].private_data = NULL;
 	return 0;
@@ -2907,6 +2999,9 @@ int btif_dump_reg(struct _mtk_btif_ *p_btif, enum _ENUM_BTIF_REG_ID_ flag)
 	}
 /*dump APDMA register*/
 	hal_dma_dump_clk_reg();
+
+	mtk_btif_dump_debug_reg();
+
 
 /*dump BTIF register*/
 	hal_btif_dump_reg(p_btif->p_btif_info, flag);
