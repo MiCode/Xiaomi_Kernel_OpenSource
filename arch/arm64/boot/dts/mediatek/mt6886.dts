@@ -10130,7 +10130,7 @@
 	< 6 2  1>,/* IPI_OUT_TEST_0 */
 	//<11 2  6>,/* IPI_OUT_SCP_MPOOL_0 */
 	<33 2 16>,/* IPI_OUT_SCP_CONNSYS */
-	< 3 3  2>,/* IPI_OUT_APCCCI_0 */
+	< 3 3  4>,/* IPI_OUT_APCCCI_0 */
 	<37 3  1>,/* IPI_OUT_SCP_AOD */
 	<26 3  9>,/* IPI_OUT_AUDIO_ULTRA_SND_0 */
 	<35 3  2>,/* IPI_OUT_C_SCP_HWVOTER_DEBUG */
