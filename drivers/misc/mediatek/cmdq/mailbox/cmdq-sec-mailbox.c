@@ -991,8 +991,11 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	u64 cost;
 	struct iwcCmdqMessage_t *iwc_msg = NULL;
 
-	if (!mtee)
-		iwc_msg = (struct iwcCmdqMessage_t *)context->iwc_msg;
+	if (!mtee) {
+		cmdq_err("thread:%u task:%lx mtee:%d",
+			thrd_idx, (unsigned long)task, mtee);
+		return -EFAULT;
+	}
 #ifdef CMDQ_SECURE_MTEE_SUPPORT
 	else
 		iwc_msg = (struct iwcCmdqMessage_t *)context->mtee_iwc_msg;
