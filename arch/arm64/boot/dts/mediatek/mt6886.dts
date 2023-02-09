@@ -5836,13 +5836,13 @@
 
 		camsys_power: camsys-power {
 			compatible = "mediatek,vmm_notifier";
-
+			pd-id = <2>;
 			power-domains = <&scpsys MT6886_POWER_DOMAIN_CAM_VCORE>;
 		};
 
 		imgsys_power: imgsys-power {
 			compatible = "mediatek,vmm_notifier";
-
+			pd-id = <3>;
 			power-domains = <&scpsys MT6886_POWER_DOMAIN_ISP_VCORE>;
 		};
 
