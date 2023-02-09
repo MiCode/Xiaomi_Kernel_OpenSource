@@ -732,9 +732,9 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 	wake_up(&fd->flushing_waitq);
 }
 
-static void mtk_aie_job_wait_finish(struct mtk_aie_dev *fd)
+static int mtk_aie_job_wait_finish(struct mtk_aie_dev *fd)
 {
-	wait_for_completion_timeout(&fd->fd_job_finished, msecs_to_jiffies(3000));
+	return wait_for_completion_timeout(&fd->fd_job_finished, msecs_to_jiffies(1000));
 }
 
 static void mtk_aie_vb2_stop_streaming(struct vb2_queue *vq)
@@ -744,10 +744,14 @@ static void mtk_aie_vb2_stop_streaming(struct vb2_queue *vq)
 	struct vb2_v4l2_buffer *vb;
 	struct v4l2_m2m_ctx *m2m_ctx = ctx->fh.m2m_ctx;
 	struct v4l2_m2m_queue_ctx *queue_ctx;
+	int ret;
 
 	dev_info(fd->dev, "STREAM STOP\n");
 
-	mtk_aie_job_wait_finish(fd);
+	ret = mtk_aie_job_wait_finish(fd);
+	if (!ret)
+		dev_info(fd->dev, "wait job finish timeout\n");
+
 	queue_ctx = V4L2_TYPE_IS_OUTPUT(vq->type) ? &m2m_ctx->out_q_ctx
 						  : &m2m_ctx->cap_q_ctx;
 	while ((vb = v4l2_m2m_buf_remove(queue_ctx)))
@@ -1102,11 +1106,26 @@ static int mtk_vfd_release(struct file *filp)
 	return 0;
 }
 
+static __poll_t mtk_vfd_fop_poll(struct file *file, poll_table *wait)
+{
+	struct mtk_aie_ctx *ctx =
+		container_of(file->private_data, struct mtk_aie_ctx, fh);
+	int ret;
+
+	ret = mtk_aie_job_wait_finish(ctx->fd_dev);
+	if (!ret) {
+		dev_info(ctx->dev, "wait job finish timeout\n");
+		return EPOLLERR;
+	}
+
+	return v4l2_m2m_fop_poll(file, wait);
+}
+
 static const struct v4l2_file_operations fd_video_fops = {
 	.owner = THIS_MODULE,
 	.open = mtk_vfd_open,
 	.release = mtk_vfd_release,
-	.poll = v4l2_m2m_fop_poll,
+	.poll = mtk_vfd_fop_poll,
 	.unlocked_ioctl = video_ioctl2,
 	.mmap = v4l2_m2m_fop_mmap,
 #ifdef CONFIG_COMPAT
