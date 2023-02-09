@@ -612,9 +612,9 @@ struct mtk_vcodec_ctx {
 	unsigned int eos_type;
 	u64 early_eos_ts;
 
-	int int_cond[MTK_VDEC_HW_NUM];
+	int int_cond[MTK_VDEC_IRQ_NUM];
 	int int_type;
-	wait_queue_head_t queue[MTK_VDEC_HW_NUM];
+	wait_queue_head_t queue[MTK_VDEC_IRQ_NUM];
 	unsigned int irq_status;
 
 	struct v4l2_ctrl_handler ctrl_hdl;
@@ -772,7 +772,7 @@ struct mtk_vcodec_dev {
 	struct mutex ipi_mutex_res;
 	struct mtk_vcodec_msgq mq;
 
-	int dec_irq[MTK_VDEC_HW_NUM];
+	int dec_irq[MTK_VDEC_IRQ_NUM];
 	int enc_irq[MTK_VENC_HW_NUM];
 	int enc_lt_irq;
 

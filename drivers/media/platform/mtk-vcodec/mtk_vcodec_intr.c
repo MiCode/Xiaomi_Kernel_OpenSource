@@ -11,11 +11,11 @@
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcodec_util.h"
 
-int g_dec_irq[MTK_VDEC_HW_NUM] = { 0 };
+int g_dec_irq[MTK_VDEC_IRQ_NUM] = { 0 };
 
 enum mtk_vdec_hw_id mtk_vdec_map_irq_to_hwid(int irq)
 {
-	enum mtk_vdec_hw_id core_id = MTK_VDEC_HW_NUM;
+	enum mtk_vdec_hw_id core_id = MTK_VDEC_IRQ_NUM;
 
 	if (irq == g_dec_irq[MTK_VDEC_CORE])
 		core_id = MTK_VDEC_CORE;
@@ -44,8 +44,7 @@ int mtk_vcodec_wait_for_done_ctx(struct mtk_vcodec_ctx  *ctx,
 		return -1;
 	}
 
-	if (core_id >= MTK_VDEC_HW_NUM ||
-		core_id < 0) {
+	if (core_id >= MTK_VDEC_IRQ_NUM || core_id < 0) {
 		mtk_v4l2_err("ctx %d, invalid core_id=%d", ctx->id, core_id);
 		return -1;
 	}
@@ -415,7 +414,7 @@ int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 		return -1;
 	}
 
-	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
+	for (i = 0; i < MTK_VDEC_IRQ_NUM; i++) {
 		dev->dec_irq[i] = platform_get_irq(pdev, i);
 		g_dec_irq[i] = dev->dec_irq[i];
 		if ((i == MTK_VDEC_CORE) || (i == MTK_VDEC_CORE1))

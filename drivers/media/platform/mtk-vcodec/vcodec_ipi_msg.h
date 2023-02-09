@@ -37,8 +37,9 @@ enum mtk_vdec_hw_id {
 	MTK_VDEC_LAT = 1,
 	MTK_VDEC_CORE1 = 2,
 	MTK_VDEC_LAT1 = 3,
+	MTK_VDEC_HW_NUM = 4,
 	MTK_VDEC_LINE_COUNT = 4,
-	MTK_VDEC_HW_NUM = 5,
+	MTK_VDEC_IRQ_NUM = 5,
 };
 
 enum mtk_fmt_type {

@@ -444,6 +444,11 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	struct mtk_vdec_clks_data *clks_data;
 	unsigned long flags;
 
+	if (hw_id < 0 || hw_id >= MTK_VDEC_HW_NUM) {
+		mtk_v4l2_err("invalid hw_id %d", hw_id);
+		return;
+	}
+
 	time_check_start(MTK_FMT_DEC, hw_id);
 
 	clks_data = &pm->vdec_clks_data;
@@ -462,15 +467,13 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 				clk_id, clks_data->main_clks[j].clk_name, ret);
 	}
 
-	if (hw_id < MTK_VDEC_HW_NUM) {
-		// enable soc clocks
-		for (j = 0; j < clks_data->soc_clks_len; j++) {
-			clk_id = clks_data->soc_clks[j].clk_id;
-			ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
-			if (ret)
-				mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
-					clk_id, clks_data->soc_clks[j].clk_name, ret);
-		}
+	// enable soc clocks
+	for (j = 0; j < clks_data->soc_clks_len; j++) {
+		clk_id = clks_data->soc_clks[j].clk_id;
+		ret = clk_prepare_enable(pm->vdec_clks[clk_id]);
+		if (ret)
+			mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
+				clk_id, clks_data->soc_clks[j].clk_name, ret);
 	}
 	if (hw_id == MTK_VDEC_CORE || hw_id == MTK_VDEC_CORE1) {
 		// enable core clocks
@@ -490,11 +493,8 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 				mtk_v4l2_err("clk_prepare_enable id: %d, name: %s fail %d",
 					clk_id, clks_data->lat_clks[j].clk_name, ret);
 		}
-	} else {
+	} else
 		mtk_v4l2_err("invalid hw_id %d", hw_id);
-		time_check_end(MTK_FMT_DEC, hw_id, 50);
-		return;
-	}
 
 	if (!ret) {
 		spin_lock_irqsave(&dev->dec_power_lock[hw_id], flags);
@@ -563,6 +563,11 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 	struct mtk_vdec_clks_data *clks_data;
 	unsigned long flags;
 
+	if (hw_id < 0 || hw_id >= MTK_VDEC_HW_NUM) {
+		mtk_v4l2_err("invalid hw_id %d", hw_id);
+		return;
+	}
+
 	clks_data = &pm->vdec_clks_data;
 
 	dev = container_of(pm, struct mtk_vcodec_dev, pm);
@@ -589,13 +594,11 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 	dev->dec_is_power_on[hw_id] = false;
 	spin_unlock_irqrestore(&dev->dec_power_lock[hw_id], flags);
 
-	if (hw_id < MTK_VDEC_HW_NUM) {
-		// disable soc clocks
-		if (clks_data->soc_clks_len > 0) {
-			for (i = clks_data->soc_clks_len - 1; i >= 0; i--) {
-				clk_id = clks_data->soc_clks[i].clk_id;
-				clk_disable_unprepare(pm->vdec_clks[clk_id]);
-			}
+	// disable soc clocks
+	if (clks_data->soc_clks_len > 0) {
+		for (i = clks_data->soc_clks_len - 1; i >= 0; i--) {
+			clk_id = clks_data->soc_clks[i].clk_id;
+			clk_disable_unprepare(pm->vdec_clks[clk_id]);
 		}
 	}
 	if (hw_id == MTK_VDEC_CORE || hw_id == MTK_VDEC_CORE1) {
