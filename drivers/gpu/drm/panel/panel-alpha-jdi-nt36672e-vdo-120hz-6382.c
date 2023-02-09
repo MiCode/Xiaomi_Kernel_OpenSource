@@ -921,8 +921,8 @@ static const struct drm_display_mode performance_mode_120hz = {
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 502,
 	.vfp_low_power = 4130, //45hz
-	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.cust_esd_check = 1,
+	.esd_check_enable = 1,
 	.lcm_degree = PROBE_FROM_DTS,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
@@ -1006,8 +1006,8 @@ static struct mtk_panel_params ext_params = {
 static struct mtk_panel_params ext_params_90hz = {
 	.pll_clk = 502,
 	.vfp_low_power = 2480, //60hz
-	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.cust_esd_check = 1,
+	.esd_check_enable = 1,
 	.lcm_degree = PROBE_FROM_DTS,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
@@ -1091,8 +1091,8 @@ static struct mtk_panel_params ext_params_90hz = {
 static struct mtk_panel_params ext_params_120hz = {
 	.pll_clk = 502,
 	.vfp_low_power = 2480,
-	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.cust_esd_check = 1,
+	.esd_check_enable = 1,
 	.lcm_degree = PROBE_FROM_DTS,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,

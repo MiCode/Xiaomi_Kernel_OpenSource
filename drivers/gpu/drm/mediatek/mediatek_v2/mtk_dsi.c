@@ -6819,7 +6819,7 @@ int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 		mtk_dsi_stop_vdo_mode(dsi, cmdq_handle);
 
 		if (is_bdg_supported())
-			_mtk_dsi_read_ddic_by6382(dsi, cmdq_handle, &msg, 0, 0x00);
+			_mtk_dsi_read_ddic_by6382(dsi, cmdq_handle, &msg, 0, mtk_crtc);
 		else
 			_mtk_mipi_dsi_read_gce(dsi, cmdq_handle, &msg);
 
