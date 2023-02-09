@@ -263,7 +263,7 @@ static void mtk_btif_dump_debug_reg(void)
 		return;
 
 	for (i = 0; i < g_btif_debug_num; i++)
-		BTIF_INFO_FUNC("Debug [0x%llx]=0x%lx\n",
+		BTIF_INFO_FUNC("Debug [0x%x]=0x%x\n",
 			g_btif_debug_paddr[i],
 			BTIF_READ32(g_btif_debug_vaddr[i]));
 
@@ -325,13 +325,13 @@ static int mtk_btif_set_debug_register(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < num; i++) {
-		BTIF_INFO_FUNC("debug reg [%d] 0x%llx\n", i, g_btif_debug_paddr[i]);
+		BTIF_INFO_FUNC("debug reg [%d] 0x%x\n", i, g_btif_debug_paddr[i]);
 		if (g_btif_debug_paddr[i] == 0)
 			goto fail;
 
 		g_btif_debug_vaddr[i] = ioremap(g_btif_debug_paddr[i], 0x4);
 		if (g_btif_debug_vaddr[i] == NULL) {
-			BTIF_INFO_FUNC("failed to ioremap for 0x%llx\n", g_btif_debug_paddr[i]);
+			BTIF_INFO_FUNC("failed to ioremap for 0x%x\n", g_btif_debug_paddr[i]);
 			goto fail;
 		}
 	}
