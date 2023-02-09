@@ -77,6 +77,9 @@ static const unsigned int md_img_capability_map[] = { /* At check header */
 	/* 14 - NLWCG = N + Lf + Lt + W + C + G */
 	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE|MD_CAP_WCDMA
 	|MD_CAP_CDMA2000|MD_CAP_GSM),
+
+	/* 15 - NL = N + Lf + Lt */
+	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE),
 };
 
 static const unsigned int md_rat_map[] = { /* Options supplied by MD */
@@ -146,6 +149,9 @@ static const unsigned int md_rat_map[] = { /* Options supplied by MD */
 	/* unltctg - 26 */
 	(MD_CAP_NR|MD_CAP_TDD_LTE|MD_CAP_CDMA2000
 	|MD_CAP_TDS_CDMA|MD_CAP_GSM),
+
+	/* unl - 27 */
+	(MD_CAP_NR|MD_CAP_FDD_LTE|MD_CAP_TDD_LTE),
 };
 
 static unsigned int get_bit_set_num(unsigned int bitmap)
