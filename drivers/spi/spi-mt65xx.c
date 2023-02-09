@@ -454,23 +454,6 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 	spi_debug("cpha:%d cpol:%d. chip_config as below\n", cpha, cpol);
 	spi_dump_config(master, msg);
 
-	/*set tick delay*/
-	if (mdata->dev_comp->enhance_timing) {
-		if (mdata->dev_comp->ipm_design) {
-			reg_val = readl(mdata->base + SPI_CMD_REG);
-			reg_val &= ~SPI_CMD_GET_TICKDLY_MASK;
-			reg_val |= (chip_config->tick_delay & 0x7)
-				   << SPI_CMD_GET_TICKDLY_OFFSET;
-			writel(reg_val, mdata->base + SPI_CMD_REG);
-		} else {
-			reg_val = readl(mdata->base + SPI_CFG1_REG);
-			reg_val &= ~SPI_CFG1_GET_TICK_DLY_MASK;
-			reg_val |= (chip_config->tick_delay & 0x7)
-				   << SPI_CFG1_GET_TICK_DLY_OFFSET;
-			writel(reg_val, mdata->base + SPI_CFG1_REG);
-		}
-	}
-
 	reg_val = readl(mdata->base + SPI_CMD_REG);
 	if (mdata->dev_comp->ipm_design) {
 		/* SPI transfer without idle time until packet length done */
@@ -545,17 +528,27 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 		       mdata->base + SPI_PAD_SEL_REG);
 
 	/* tick delay */
-	reg_val = readl(mdata->base + SPI_CFG1_REG);
 	if (mdata->dev_comp->enhance_timing) {
-		reg_val &= ~SPI_CFG1_GET_TICK_DLY_MASK;
-		reg_val |= ((chip_config->tick_delay & 0x7)
-			    << SPI_CFG1_GET_TICK_DLY_OFFSET);
+		if (mdata->dev_comp->ipm_design) {
+			reg_val = readl(mdata->base + SPI_CMD_REG);
+			reg_val &= ~SPI_CMD_GET_TICKDLY_MASK;
+			reg_val |= ((chip_config->tick_delay & 0x7)
+				    << SPI_CMD_GET_TICKDLY_OFFSET);
+			writel(reg_val, mdata->base + SPI_CMD_REG);
+		} else {
+			reg_val = readl(mdata->base + SPI_CFG1_REG);
+			reg_val &= ~SPI_CFG1_GET_TICK_DLY_MASK;
+			reg_val |= ((chip_config->tick_delay & 0x7)
+				    << SPI_CFG1_GET_TICK_DLY_OFFSET);
+			writel(reg_val, mdata->base + SPI_CFG1_REG);
+		}
 	} else {
+		reg_val = readl(mdata->base + SPI_CFG1_REG);
 		reg_val &= ~SPI_CFG1_GET_TICK_DLY_MASK_V1;
 		reg_val |= ((chip_config->tick_delay & 0x3)
 			    << SPI_CFG1_GET_TICK_DLY_OFFSET_V1);
+		writel(reg_val, mdata->base + SPI_CFG1_REG);
 	}
-	writel(reg_val, mdata->base + SPI_CFG1_REG);
 
 	/* set hw cs timing */
 	mtk_spi_set_hw_cs_timing(spi);
