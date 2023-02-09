@@ -22,6 +22,7 @@ enum MD_REG_ID {
 enum md_reg_id {
 	MD_REG_DUMP_START = 0,
 	MD_REG_DUMP_STAGE,
+	MD_REG_GET_DUMP_ADDRESS,
 };
 
 /* res.a2 in MD_REG_DUMP_STAGE OP */

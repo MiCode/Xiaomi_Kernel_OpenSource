@@ -105,7 +105,7 @@ static int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 	unsigned long long buf_addr, buf_size;
 
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_DEBUG_DUMP,
-		MD_REG_DUMP_START, MD_REG_DUMP_MAGIC, 0, 0, 0, 0, &res);
+		MD_REG_GET_DUMP_ADDRESS, MD_REG_DUMP_MAGIC, 0, 0, 0, 0, &res);
 
 	buf_addr = res.a1;
 	buf_size = res.a2;
