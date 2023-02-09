@@ -180,6 +180,8 @@ static int slatecom_reg_read_internal(void *handle, uint8_t reg_start_addr,
 static int slatecom_force_resume(void *handle);
 
 struct subsys_state_ops state_ops;
+static irqreturn_t slate_irq_tasklet_hndlr(int irq, void *device);
+static int req_irq_flag = 1;
 
 static struct spi_device *get_spi_device(void)
 {
@@ -231,6 +233,41 @@ int slatecom_set_spi_state(enum slatecom_spi_state state)
 	ktime_t time_start, delta;
 	s64 time_elapsed;
 	struct slate_context clnt_handle;
+	int ret = 0, irq_gpio = 0;
+	struct device_node *node;
+
+	if (req_irq_flag) {
+		/* SLATECOM Interrupt probe */
+		node = slate_spi->spi->dev.of_node;
+		irq_gpio = of_get_named_gpio(node, "qcom,irq-gpio", 0);
+		if (!gpio_is_valid(irq_gpio)) {
+			pr_err("gpio %d found is not valid\n", irq_gpio);
+			goto err_ret;
+		}
+		ret = gpio_request(irq_gpio, "slatecom_gpio");
+		if (ret) {
+			pr_err("gpio %d request failed\n", irq_gpio);
+			goto err_ret;
+		}
+		ret = gpio_direction_input(irq_gpio);
+		if (ret) {
+			pr_err("gpio_direction_input not set: %d\n", ret);
+			goto err_ret;
+		}
+		slate_irq = gpio_to_irq(irq_gpio);
+		ret = request_threaded_irq(slate_irq, NULL, slate_irq_tasklet_hndlr,
+		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom-slate_spi", slate_spi);
+		if (ret) {
+			pr_err("qcom-slate_spi: failed to register IRQ:%d\n", ret);
+			goto err_ret;
+		}
+		ret = irq_set_irq_wake(slate_irq, true);
+		if (ret) {
+			pr_err("irq set as wakeup return: %d\n", ret);
+			goto err_ret;
+		}
+		req_irq_flag = 0;
+	}
 
 	clnt_handle.slate_spi = slate_spi;
 
@@ -270,6 +307,10 @@ int slatecom_set_spi_state(enum slatecom_spi_state state)
 	}
 
 	return 0;
+err_ret:
+	if (gpio_is_valid(irq_gpio))
+		gpio_free(irq_gpio);
+	return -EINVAL;
 }
 EXPORT_SYMBOL(slatecom_set_spi_state);
 
@@ -1528,8 +1569,6 @@ static struct notifier_block slatecom_pm_nb = {
 static int slate_spi_probe(struct spi_device *spi)
 {
 	struct slate_spi_priv *slate_spi;
-	struct device_node *node;
-	int irq_gpio = 0;
 	int ret = 0;
 
 	slate_spi = devm_kzalloc(&spi->dev, sizeof(*slate_spi),
@@ -1542,40 +1581,6 @@ static int slate_spi_probe(struct spi_device *spi)
 	slate_spi->spi = spi;
 	spi_set_drvdata(spi, slate_spi);
 	slate_spi_init(slate_spi);
-
-	/* SLATECOM Interrupt probe */
-	node = spi->dev.of_node;
-	irq_gpio = of_get_named_gpio(node, "qcom,irq-gpio", 0);
-	if (!gpio_is_valid(irq_gpio)) {
-		pr_err("gpio %d found is not valid\n", irq_gpio);
-		goto err_ret;
-	}
-
-	ret = gpio_request(irq_gpio, "slatecom_gpio");
-	if (ret) {
-		pr_err("gpio %d request failed\n", irq_gpio);
-		goto err_ret;
-	}
-
-	ret = gpio_direction_input(irq_gpio);
-	if (ret) {
-		pr_err("gpio_direction_input not set: %d\n", ret);
-		goto err_ret;
-	}
-
-	slate_irq = gpio_to_irq(irq_gpio);
-	ret = request_threaded_irq(slate_irq, NULL, slate_irq_tasklet_hndlr,
-		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom-slate_spi", slate_spi);
-
-	if (ret)
-		goto err_ret;
-
-	ret = irq_set_irq_wake(slate_irq, true);
-	if (ret) {
-		pr_err("irq set as wakeup return: %d\n", ret);
-		goto err_ret;
-	}
-
 	atomic_set(&slate_is_spi_active, 1);
 	dma_set_coherent_mask(&spi->dev, 0);
 
