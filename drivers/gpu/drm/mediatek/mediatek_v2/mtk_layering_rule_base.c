@@ -4378,8 +4378,12 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 		scn_decision_flag |= SCN_IDLE;
 		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
 		layering_info.hrt_weight = 400;
+
+		if (l_rule_info->dal_enable)
+			layering_info.hrt_weight += 200;
+
 		if (get_layering_opt(LYE_OPT_OVL_BW_MONITOR))
-			sum_overlap_w_of_bwm = 400;
+			sum_overlap_w_of_bwm = layering_info.hrt_weight;
 	}
 	check_gles_change(&dbg_gles, __LINE__, false);
 
