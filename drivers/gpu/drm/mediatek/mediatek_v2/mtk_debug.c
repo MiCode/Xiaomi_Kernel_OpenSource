@@ -2732,7 +2732,7 @@ static void process_dbg_opt(const char *opt)
 		struct lcm_sample_cust_data *cust_data =
 				kzalloc(sizeof(struct lcm_sample_cust_data), GFP_KERNEL);
 
-		if (IS_ERR_OR_NULL(cust_data)) {
+		if (cust_data == NULL) {
 			DDPMSG("%s, %d, failed to allocate buffer\n",
 				__func__, __LINE__);
 			return;
