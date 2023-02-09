@@ -55,6 +55,7 @@
 | haydn-r-oss | Redmi K40 Pro | Android R | LA.UM.9.14.r1-11500-LAHAINA.0 | [haydn-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/haydn-r-oss) |
 | hydrogen-m-oss | Mi Max, Mi Max Pro | Android M | LA.BR.1.3.4-05310-8976.0 | [hydrogen-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/hydrogen-m-oss) |
 | ido-l-oss | Redmi 2, Redmi 3 | Android L | LA.BR.1.2.4-04410-8x16.0 | [ido-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ido-l-oss) |
+| ingres-s-oss | Redmi K50G | Android S | LA.VENDOR.1.0.r1-09100-r1.0.r1_000011.0 | [ingres-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ingres-s-oss) |
 | jasmine-o-oss| Mi A2 | Android O | LA.UM.6.2.r1-06100-sdm660.0-1.151426.0.156675.1 | [jasmine-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jasmine-o-oss) |
 | jasmine-p-oss| Mi A2 | Android P | LA.UM.7.2.r1-04900-sdm660.0 | [jasmine-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jasmine-p-oss) |
 | jasmine-q-oss| Mi A2 | Android Q | LA.UM.8.2.r1-04300-sdm660.0 | [jasmine-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/jasmine-q-oss) |
