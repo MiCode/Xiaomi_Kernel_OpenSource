@@ -18,6 +18,11 @@
 #define ROUNDUP(a, b)		        (((a) + ((b)-1)) & ~((b)-1))
 #define VCP_SYNC_TIMEOUT_MS		(100)
 
+/* vcp dram shared memory */
+#define DRAM_VDEC_VSI_BUF_LEN		(480 * 1024)
+#define DRAM_VENC_VSI_BUF_LEN		(32 * 1024)
+#define DRAM_LOG_BUF_LEN		(1 * 1024 * 1024)
+
 /* vcp config reg. definition*/
 #define VCP_TCM_SIZE		(vcpreg.total_tcmsize)
 #define VCP_A_TCM_SIZE		(vcpreg.vcp_tcmsize)

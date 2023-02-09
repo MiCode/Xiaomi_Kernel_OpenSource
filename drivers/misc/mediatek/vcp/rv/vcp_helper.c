@@ -60,6 +60,10 @@
 #include "soc/mediatek/emi.h"
 #endif
 
+#if VCP_LOGGER_ENABLE
+#include <mt-plat/mrdump.h>
+#endif
+
 /* vcp mbox/ipi related */
 #include <linux/soc/mediatek/mtk-mbox.h>
 #include "vcp_ipi.h"
@@ -1642,21 +1646,57 @@ RESERVEDMEM_OF_DECLARE(vcp_reserve_mem_init
 
 phys_addr_t vcp_get_reserve_mem_phys(enum vcp_reserve_mem_id_t id)
 {
+	phys_addr_t base_addr = 0, offset = 0;
+
 	if (id >= NUMS_MEM_ID) {
 		pr_notice("[VCP] no reserve memory for %d", id);
 		return 0;
-	} else
-		return vcp_reserve_mblock[id].start_phys;
+	} else {
+		if (id == VDEC_MEM_ID) {
+			base_addr = vcp_reserve_mblock[VCP_A_LOGGER_MEM_ID].start_phys;
+			offset = 0;
+		} else if (id == VENC_MEM_ID) {
+			base_addr = vcp_reserve_mblock[VCP_A_LOGGER_MEM_ID].start_phys;
+			offset = vcp_reserve_mblock[VDEC_MEM_ID].size;
+		} else if (id == VCP_A_LOGGER_MEM_ID) {
+			base_addr = vcp_reserve_mblock[VCP_A_LOGGER_MEM_ID].start_phys;
+			offset = vcp_reserve_mblock[VDEC_MEM_ID].size +
+					 vcp_reserve_mblock[VENC_MEM_ID].size;
+		} else {
+			base_addr = vcp_reserve_mblock[id].start_phys;
+			offset = 0;
+		}
+
+		return base_addr + offset;
+	}
 }
 EXPORT_SYMBOL_GPL(vcp_get_reserve_mem_phys);
 
 phys_addr_t vcp_get_reserve_mem_virt(enum vcp_reserve_mem_id_t id)
 {
+	phys_addr_t base_addr = 0, offset = 0;
+
 	if (id >= NUMS_MEM_ID) {
 		pr_notice("[VCP] no reserve memory for %d", id);
 		return 0;
-	} else
-		return vcp_reserve_mblock[id].start_virt;
+	} else {
+		if (id == VDEC_MEM_ID) {
+			base_addr = vcp_reserve_mblock[VCP_A_LOGGER_MEM_ID].start_virt;
+			offset = 0;
+		} else if (id == VENC_MEM_ID) {
+			base_addr = vcp_reserve_mblock[VCP_A_LOGGER_MEM_ID].start_virt;
+			offset = vcp_reserve_mblock[VDEC_MEM_ID].size;
+		} else if (id == VCP_A_LOGGER_MEM_ID) {
+			base_addr = vcp_reserve_mblock[VCP_A_LOGGER_MEM_ID].start_virt;
+			offset = vcp_reserve_mblock[VDEC_MEM_ID].size +
+					 vcp_reserve_mblock[VENC_MEM_ID].size;
+		} else {
+			base_addr = vcp_reserve_mblock[id].start_virt;
+			offset = 0;
+		}
+
+		return base_addr + offset;
+	}
 }
 EXPORT_SYMBOL_GPL(vcp_get_reserve_mem_virt);
 
@@ -1680,6 +1720,7 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 	phys_addr_t accumlate_memory_size = 0;
 	unsigned int vcp_mem_num = 0;
 	unsigned int i = 0, m_idx = 0, m_size = 0;
+	unsigned int alloc_mem_size = 0;
 	int ret;
 	uint64_t iova_upper = 0;
 	uint64_t iova_lower = 0xFFFFFFFFFFFFFFFF;
@@ -1818,11 +1859,21 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 			vcp_reserve_mblock[id].start_phys = vcp_sec_dump_base_phys;
 			vcp_reserve_mblock[id].start_virt = vcp_sec_dump_base_virt;
 		} else {
+			if (id == VDEC_MEM_ID || id == VENC_MEM_ID)
+				continue;
+			else if (id == VCP_A_LOGGER_MEM_ID)
+				alloc_mem_size =
+					vcp_reserve_mblock[VDEC_MEM_ID].size +
+					vcp_reserve_mblock[VENC_MEM_ID].size +
+					vcp_reserve_mblock[VCP_A_LOGGER_MEM_ID].size;
+			else
+				alloc_mem_size = vcp_reserve_mblock[id].size;
+
 			vcp_reserve_mblock[id].start_virt =
-				(__u64)dma_alloc_coherent(&pdev->dev, vcp_reserve_mblock[id].size,
+				(__u64)dma_alloc_coherent(&pdev->dev, alloc_mem_size,
 					&vcp_reserve_mblock[id].start_phys,
 					GFP_KERNEL);
-			accumlate_memory_size += vcp_reserve_mblock[id].size;
+			accumlate_memory_size += alloc_mem_size;
 
 			if (vcp_reserve_mblock[id].start_phys < iova_lower)
 				iova_lower = vcp_reserve_mblock[id].start_phys;
@@ -1830,6 +1881,17 @@ static int vcp_reserve_memory_ioremap(struct platform_device *pdev)
 				> iova_upper)
 				iova_upper = vcp_reserve_mblock[id].start_phys +
 					vcp_reserve_mblock[id].size;
+
+			if (id == VCP_A_LOGGER_MEM_ID) {
+				mrdump_mini_add_extra_file(
+					vcp_reserve_mblock[id].start_virt,  0,
+					DRAM_VDEC_VSI_BUF_LEN + DRAM_VENC_VSI_BUF_LEN +
+						DRAM_LOG_BUF_LEN,
+					"VCP_VSI_LAST_LOG");
+				pr_notice("[VCP] add vsi and log buffer to mrdump iova:0x%llx, virt:0x%llx\n",
+						  (uint64_t)vcp_reserve_mblock[id].start_phys,
+						  (uint64_t)vcp_reserve_mblock[id].start_virt);
+			}
 		}
 
 		pr_notice("[VCP] [%d] iova:0x%llx, virt:0x%llx, len:0x%llx\n",
