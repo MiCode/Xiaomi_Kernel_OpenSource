@@ -151,6 +151,9 @@ struct mtk_format_info {
 	u8 pixel_id;
 };
 
+void cal_image_pix_mp(unsigned int node_id,
+			     struct v4l2_pix_format_mplane *mp,
+			     unsigned int pixel_mode);
 int mtk_cam_dmao_xsize(int w, unsigned int ipi_fmt, int pixel_mode_shift);
 int mtk_cam_fmt_get_raw_feature(struct v4l2_pix_format_mplane *fmt_mp);
 void mtk_cam_fmt_set_raw_feature(struct v4l2_pix_format_mplane *fmt_mp, int raw_feature);

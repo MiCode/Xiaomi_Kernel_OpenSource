@@ -2165,7 +2165,6 @@ static void check_stagger_buffer(struct mtk_cam_device *cam,
 					      node->uid.pipe_id, fmt_for_rawi))
 				return;
 
-
 			in_fmt_w = NULL;
 			if (is_rgbw) {
 				switch (input_node) {
@@ -2991,6 +2990,13 @@ static int mtk_cam_req_update_ctrl(struct mtk_raw_pipeline *raw_pipe,
 			buf_size = ctx->pipe->vdev_nodes
 				[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM].
 				active_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
+
+			if (mtk_cam_hw_mode_is_dc(ctx->pipe->hw_mode_pending)) {
+				struct v4l2_format *fmt = &ctx->pipe->img_fmt_sink_pad;
+
+				buf_size =
+					fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
+			}
 
 			buf_require =
 				mtk_cam_get_internl_buf_num(ctx->pipe->dynamic_exposure_num_max,
@@ -9232,9 +9238,9 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 		buf_size = ctx->pipe->vdev_nodes
 			[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM].
 			active_fmt.fmt.pix_mp.plane_fmt[0].sizeimage;
-		if (mtk_cam_hw_is_dc(ctx) &&
-		    ctx->pipe->img_fmt_sink_pad.fmt.pix_mp.plane_fmt[0].sizeimage > buf_size)
-			buf_size = ctx->pipe->img_fmt_sink_pad.fmt.pix_mp.plane_fmt[0].sizeimage;
+		if (mtk_cam_hw_is_dc(ctx))
+			buf_size =
+				ctx->pipe->img_fmt_sink_pad.fmt.pix_mp.plane_fmt[0].sizeimage;
 
 #ifdef MTK_CAM_USER_WBUF_TEST
 		if (ctx->pipe &&

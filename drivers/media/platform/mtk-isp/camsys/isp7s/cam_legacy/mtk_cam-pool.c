@@ -388,12 +388,13 @@ int mtk_cam_user_img_working_buf_pool_init(struct mtk_cam_ctx *ctx,
 					 &ctx->pipe->pre_alloc_mem.bufs[0],
 					 &ctx->img_buf_pool.pre_alloc_img_buf)) {
 		dev_info(ctx->cam->dev,
-			 "%s:ctx(%d): attached/mapped user memory(%d,%d), sz(%zu), daddr(%pad)\n",
+			 "%s:ctx(%d): attached/mapped user memory(%d,%d), sz(%zu), daddr(%pad) wbuf size(%d)\n",
 			 __func__, ctx->stream_id,
 			 ctx->pipe->pre_alloc_mem.bufs[0].fd,
 			 ctx->pipe->pre_alloc_mem.bufs[0].length,
 			 ctx->img_buf_pool.pre_alloc_img_buf.size,
-			 &ctx->img_buf_pool.pre_alloc_img_buf.daddr);
+			 &ctx->img_buf_pool.pre_alloc_img_buf.daddr,
+			 working_buf_size);
 
 		ctx->img_buf_pool.working_img_buf_fd = ctx->pipe->pre_alloc_mem.bufs[0].fd;
 		ret = mtk_cam_img_working_buf_pool_init(ctx, buf_num,

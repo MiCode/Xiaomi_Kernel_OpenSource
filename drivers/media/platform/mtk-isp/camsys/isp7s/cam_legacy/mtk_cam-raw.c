@@ -78,6 +78,10 @@ static int debug_user_must_raws;
 module_param(debug_user_must_raws, int, 0644);
 MODULE_PARM_DESC(debug_user_must_raws, "debug: user must raws");
 
+static int debug_working_buf_fmt_sel = 1;
+module_param(debug_working_buf_fmt_sel, int, 0644);
+MODULE_PARM_DESC(debug_working_buf_fmt_sel, "debug: default working buf fmt: 1=UFO, 0=bayer");
+
 static int debug_cam_raw;
 module_param(debug_cam_raw, int, 0644);
 
@@ -4234,7 +4238,7 @@ int mtk_raw_try_pad_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt)
+static unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt, bool select_ufo)
 {
 	// return V4L2_PIX_FMT_MTISP for matching
 	// length returned by mtk_cam_get_pixel_bits()
@@ -4242,41 +4246,58 @@ static unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt)
 
 	switch (fmt & SENSOR_FMT_MASK) {
 	case MEDIA_BUS_FMT_SBGGR8_1X8:
-		return V4L2_PIX_FMT_SBGGR8;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER8_UFBC : V4L2_PIX_FMT_SBGGR8;
 	case MEDIA_BUS_FMT_SGBRG8_1X8:
-		return V4L2_PIX_FMT_SGBRG8;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER8_UFBC : V4L2_PIX_FMT_SGBRG8;
 	case MEDIA_BUS_FMT_SGRBG8_1X8:
-		return V4L2_PIX_FMT_SGRBG8;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER8_UFBC : V4L2_PIX_FMT_SGRBG8;
 	case MEDIA_BUS_FMT_SRGGB8_1X8:
-		return V4L2_PIX_FMT_SRGGB8;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER8_UFBC : V4L2_PIX_FMT_SRGGB8;
 	case MEDIA_BUS_FMT_SBGGR10_1X10:
-		return V4L2_PIX_FMT_MTISP_SBGGR10;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER10_UFBC : V4L2_PIX_FMT_MTISP_SBGGR10;
 	case MEDIA_BUS_FMT_SGBRG10_1X10:
-		return V4L2_PIX_FMT_MTISP_SGBRG10;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER10_UFBC : V4L2_PIX_FMT_MTISP_SGBRG10;
 	case MEDIA_BUS_FMT_SGRBG10_1X10:
-		return V4L2_PIX_FMT_MTISP_SGRBG10;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER10_UFBC : V4L2_PIX_FMT_MTISP_SGRBG10;
 	case MEDIA_BUS_FMT_SRGGB10_1X10:
-		return V4L2_PIX_FMT_MTISP_SGRBG10;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER10_UFBC : V4L2_PIX_FMT_MTISP_SGRBG10;
 	case MEDIA_BUS_FMT_SBGGR12_1X12:
-		return V4L2_PIX_FMT_MTISP_SBGGR12;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER12_UFBC : V4L2_PIX_FMT_MTISP_SBGGR12;
 	case MEDIA_BUS_FMT_SGBRG12_1X12:
-		return V4L2_PIX_FMT_MTISP_SGBRG12;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER12_UFBC : V4L2_PIX_FMT_MTISP_SGBRG12;
 	case MEDIA_BUS_FMT_SGRBG12_1X12:
-		return V4L2_PIX_FMT_MTISP_SGRBG12;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER12_UFBC : V4L2_PIX_FMT_MTISP_SGRBG12;
 	case MEDIA_BUS_FMT_SRGGB12_1X12:
-		return V4L2_PIX_FMT_MTISP_SRGGB12;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER12_UFBC : V4L2_PIX_FMT_MTISP_SRGGB12;
 	case MEDIA_BUS_FMT_SBGGR14_1X14:
-		return V4L2_PIX_FMT_MTISP_SBGGR14;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER14_UFBC : V4L2_PIX_FMT_MTISP_SBGGR14;
 	case MEDIA_BUS_FMT_SGBRG14_1X14:
-		return V4L2_PIX_FMT_MTISP_SGBRG14;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER14_UFBC : V4L2_PIX_FMT_MTISP_SGBRG14;
 	case MEDIA_BUS_FMT_SGRBG14_1X14:
-		return V4L2_PIX_FMT_MTISP_SGRBG14;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER14_UFBC : V4L2_PIX_FMT_MTISP_SGRBG14;
 	case MEDIA_BUS_FMT_SRGGB14_1X14:
-		return V4L2_PIX_FMT_MTISP_SRGGB14;
+		return (select_ufo) ?
+			V4L2_PIX_FMT_MTISP_BAYER14_UFBC : V4L2_PIX_FMT_MTISP_SRGGB14;
 	default:
 		break;
 	}
-	return V4L2_PIX_FMT_MTISP_SBGGR14;
+	return (select_ufo) ?
+		V4L2_PIX_FMT_MTISP_BAYER14_UFBC : V4L2_PIX_FMT_MTISP_SRGGB14;
 }
 
 void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
@@ -4288,28 +4309,33 @@ void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
 
 	img_fmt->fmt.pix_mp.width = width;
 	img_fmt->fmt.pix_mp.height = height;
-	sink_ipi_fmt = mtk_cam_get_sensor_fmt(code);
-	if (sink_ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
-		dev_info(dev, "%s: sink_ipi_fmt not found\n");
+	img_fmt->fmt.pix_mp.pixelformat =
+		mtk_cam_get_rawi_sensor_pixel_fmt(code, is_ufo || debug_working_buf_fmt_sel);
+	dev_dbg(dev, "%s: sink pixelformat %x (imgo_ufo:%d, wbuf fmt sel %d)\n",
+			 __func__, img_fmt->fmt.pix_mp.pixelformat,
+			is_ufo, debug_working_buf_fmt_sel);
 
-		sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_BAYER14;
-	}
+	if (is_raw_ufo(img_fmt->fmt.pix_mp.pixelformat)) {
+		cal_image_pix_mp(MTK_RAW_MAIN_STREAM_OUT, &img_fmt->fmt.pix_mp, 3);
 
-	if (is_ufo) {
-		img_fmt->fmt.pix_mp.pixelformat =
-			imgo_fmt->fmt.pix_mp.pixelformat;
 		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
 			mtk_cam_get_rawi_stride(img_fmt);
 	} else {
-		img_fmt->fmt.pix_mp.pixelformat =
-			mtk_cam_get_rawi_sensor_pixel_fmt(code);
+		sink_ipi_fmt = mtk_cam_get_sensor_fmt(code);
+		if (sink_ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
+			dev_info(dev, "%s: sink_ipi_fmt not found\n");
+
+			sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_BAYER14;
+		}
+
 		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
 			mtk_cam_dmao_xsize(width, sink_ipi_fmt, 3);
+
+		img_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
+			img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline *
+			img_fmt->fmt.pix_mp.height;
 	}
 
-	img_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
-		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline *
-		img_fmt->fmt.pix_mp.height;
 }
 
 static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
