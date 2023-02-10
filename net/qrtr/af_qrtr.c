@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2015, Sony Mobile Communications Inc.
  * Copyright (c) 2013, 2018-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/kthread.h>
 #include <linux/module.h>
@@ -133,6 +133,7 @@ static DECLARE_RWSEM(qrtr_epts_lock);
 
 /* local port allocation management */
 static DEFINE_XARRAY_ALLOC(qrtr_ports);
+static DEFINE_SPINLOCK(qrtr_port_lock);
 
 /* backup buffers */
 #define QRTR_BACKUP_HI_NUM	5
@@ -1376,13 +1377,16 @@ EXPORT_SYMBOL_GPL(qrtr_endpoint_unregister);
 static struct qrtr_sock *qrtr_port_lookup(int port)
 {
 	struct qrtr_sock *ipc;
+	unsigned long flags;
 
 	if (port == QRTR_PORT_CTRL)
 		port = 0;
 
+	spin_lock_irqsave(&qrtr_port_lock, flags);
 	ipc = xa_load(&qrtr_ports, port);
 	if (ipc)
 		sock_hold(&ipc->sk);
+	spin_unlock_irqrestore(&qrtr_port_lock, flags);
 
 	return ipc;
 }
@@ -1447,6 +1451,7 @@ exit:
 static void qrtr_port_remove(struct qrtr_sock *ipc)
 {
 	int port = ipc->us.sq_port;
+	unsigned long flags;
 
 	qrtr_send_del_client(ipc);
 	if (port == QRTR_PORT_CTRL)
@@ -1454,7 +1459,9 @@ static void qrtr_port_remove(struct qrtr_sock *ipc)
 
 	__sock_put(&ipc->sk);
 
+	spin_lock_irqsave(&qrtr_port_lock, flags);
 	xa_erase(&qrtr_ports, port);
+	spin_unlock_irqrestore(&qrtr_port_lock, flags);
 }
 
 /* Assign port number to socket.
@@ -1521,6 +1528,7 @@ static int __qrtr_bind(struct socket *sock,
 {
 	struct qrtr_sock *ipc = qrtr_sk(sock->sk);
 	struct sock *sk = sock->sk;
+	unsigned long flags;
 	int port;
 	int rc;
 
@@ -1528,14 +1536,17 @@ static int __qrtr_bind(struct socket *sock,
 	if (!zapped && addr->sq_port == ipc->us.sq_port)
 		return 0;
 
+	spin_lock_irqsave(&qrtr_port_lock, flags);
 	port = addr->sq_port;
 	rc = qrtr_port_assign(ipc, &port);
 	if (rc) {
+		spin_unlock_irqrestore(&qrtr_port_lock, flags);
 		return rc;
 	}
 	/* Notify all open ports about the new controller */
 	if (port == QRTR_PORT_CTRL)
 		qrtr_reset_ports();
+	spin_unlock_irqrestore(&qrtr_port_lock, flags);
 
 	/* unbind previous, if any */
 	if (!zapped)
