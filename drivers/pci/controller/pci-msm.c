@@ -1002,6 +1002,7 @@ struct msm_pcie_dev_t {
 	uint32_t link_speed_override;
 	bool lpi_enable;
 	bool linkdown_recovery_enable;
+	bool gdsc_clk_drv_ss_nonvotable;
 
 	uint32_t rc_idx;
 	uint32_t phy_ver;
@@ -7079,6 +7080,11 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		PCIE_DBG(pcie_dev, "RC%d: wr-halt-size: 0x%x.\n",
 			pcie_dev->rc_idx, pcie_dev->wr_halt_size);
 
+	pcie_dev->gdsc_clk_drv_ss_nonvotable = of_property_read_bool(of_node,
+							"qcom,gdsc-clk-drv-ss-nonvotable");
+	PCIE_DBG(pcie_dev, "Gdsc clk is %s votable during drv hand over.\n",
+			pcie_dev->gdsc_clk_drv_ss_nonvotable ? "not" : "");
+
 	pcie_dev->slv_addr_space_size = SZ_16M;
 	of_property_read_u32(of_node, "qcom,slv-addr-space-size",
 				&pcie_dev->slv_addr_space_size);
@@ -8722,11 +8728,13 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 
 	PCIE_DBG(pcie_dev, "PCIe: RC%d:enable gdsc-core\n", pcie_dev->rc_idx);
 
-	ret = regulator_enable(pcie_dev->gdsc_core);
-	if (ret)
-		PCIE_ERR(pcie_dev,
-			"PCIe: RC%d: failed to enable GDSC: ret %d\n",
-			pcie_dev->rc_idx, ret);
+	if (!pcie_dev->gdsc_clk_drv_ss_nonvotable) {
+		ret = regulator_enable(pcie_dev->gdsc_core);
+		if (ret)
+			PCIE_ERR(pcie_dev,
+				"PCIe: RC%d: failed to enable GDSC: ret %d\n",
+				pcie_dev->rc_idx, ret);
+	}
 
 	PCIE_DBG(pcie_dev, "PCIe: RC%d:set ICC path vote\n", pcie_dev->rc_idx);
 
@@ -8930,7 +8938,8 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 				pcie_dev->rc_idx, ret);
 	}
 
-	regulator_disable(pcie_dev->gdsc_core);
+	if (!pcie_dev->gdsc_clk_drv_ss_nonvotable)
+		regulator_disable(pcie_dev->gdsc_core);
 
 	msm_pcie_vreg_deinit(pcie_dev);
 
