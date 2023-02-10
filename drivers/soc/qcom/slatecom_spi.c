@@ -1565,7 +1565,7 @@ static int slate_spi_probe(struct spi_device *spi)
 
 	slate_irq = gpio_to_irq(irq_gpio);
 	ret = request_threaded_irq(slate_irq, NULL, slate_irq_tasklet_hndlr,
-		IRQF_TRIGGER_HIGH | IRQF_ONESHOT | IRQF_NO_SUSPEND, "qcom-slate_spi", slate_spi);
+		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "qcom-slate_spi", slate_spi);
 
 	if (ret)
 		goto err_ret;
