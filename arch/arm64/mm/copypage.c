@@ -23,6 +23,10 @@ void copy_highpage(struct page *to, struct page *from)
 
 	if (system_supports_mte() && test_bit(PG_mte_tagged, &from->flags)) {
 		set_bit(PG_mte_tagged, &to->flags);
+#if IS_ENABLED(CONFIG_MTK_KASAN_DEBUG)
+		if (kasan_hw_tags_enabled())
+			page_kasan_tag_set(to, page_kasan_tag(from));
+#endif // CONFIG_MTK_KASAN_DEBUG
 		mte_copy_page_tags(kto, kfrom);
 	}
 }
