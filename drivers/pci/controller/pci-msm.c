@@ -5063,7 +5063,6 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 			dev->link_status == MSM_PCIE_LINK_ENABLED) {
 			/* Print the dumps only once */
 			dev->aer_dump = true;
-			msm_pcie_clk_dump(dev);
 			pcie_parf_dump(dev);
 			pcie_dm_core_dump(dev);
 			pcie_phy_dump(dev);
@@ -5201,7 +5200,6 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 
 		if (dev->drv_supported && !dev->suspending &&
 		    dev->link_status == MSM_PCIE_LINK_ENABLED) {
-			msm_pcie_clk_dump(dev);
 			pcie_phy_dump(dev);
 			pcie_parf_dump(dev);
 			pcie_dm_core_dump(dev);
@@ -5227,7 +5225,6 @@ static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 		PCIE_DUMP(dev,
 			"PCIe:Linkdown IRQ for RC%d Dumping PCIe registers\n",
 			dev->rc_idx);
-		msm_pcie_clk_dump(dev);
 		pcie_phy_dump(dev);
 		pcie_parf_dump(dev);
 		pcie_dm_core_dump(dev);
