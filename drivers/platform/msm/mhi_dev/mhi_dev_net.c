@@ -334,7 +334,7 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 				struct mhi_req, list);
 		list_del_init(&req->list);
 		spin_unlock_irqrestore(&mhi_handle->rd_lock, flags);
-		skb = alloc_skb(MHI_NET_DEFAULT_MTU, GFP_KERNEL);
+		skb = alloc_skb(mhi_handle->dev->mtu, GFP_KERNEL);
 		if (skb == NULL) {
 			mhi_dev_net_log(mhi_handle->vf_id, MHI_ERROR, "skb alloc failed\n");
 			spin_lock_irqsave(&mhi_handle->rd_lock, flags);
@@ -348,7 +348,7 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 		req->vf_id = mhi_handle->vf_id;
 		req->chan = chan;
 		req->buf = skb->data;
-		req->len = MHI_NET_DEFAULT_MTU;
+		req->len = mhi_handle->dev->mtu;
 		req->context = skb;
 		req->mode = DMA_ASYNC;
 		req->snd_cmpl = 0;
