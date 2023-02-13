@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/thermal.h>
@@ -31,7 +31,12 @@ struct virtual_sensor_data {
 	int32_t			   last_reading;
 	enum aggr_logic		   logic;
 	int				sensor_id;
+	struct sensor_names *sensors_name;
 	struct thermal_zone_device	*tz[0];
+};
+
+struct sensor_names {
+	const char *sensor_name;
 };
 
 static int virtual_sensor_read(void *data, int *temp)
@@ -45,12 +50,12 @@ static int virtual_sensor_read(void *data, int *temp)
 		int sens_temp = 0;
 
 		ret = thermal_zone_get_temp(vs_sens->tz[idx], &sens_temp);
-
 		if (ret) {
 			pr_err("virtual zone: sensor[%s] read error:%d\n",
 					vs_sens->tz[idx]->type, ret);
 			return ret;
 		}
+
 		switch (vs_sens->logic) {
 		case VIRT_MINIMUM:
 			curr_temp = MIN(curr_temp, sens_temp);
@@ -75,19 +80,21 @@ static int virtual_sensor_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = pdev->dev.of_node;
-	struct device_node *dev_phandle, *subsys_np = NULL;
+	struct device_node *subsys_np = NULL;
 	struct virtual_sensor_data *vs_sens;
 	struct thermal_zone_device *tzd;
-	int ret, sensors = 0, idx = 0, sens_id = 0;
+	int ret, sensors_cnt = 0, idx = 0, sens_id = 0;
 	u32 res;
 
 	for_each_available_child_of_node(np, subsys_np) {
-		sensors = of_count_phandle_with_args(subsys_np, "qcom,sensors", NULL);
+		ret = of_property_count_strings(subsys_np, "sensor-names");
+		if (ret < 0) {
+			dev_err(dev, "Couldn't get sensor names. %d\n", ret);
+			return ret;
+		}
 
-		if (sensors <= 0)
-			return 0;
-
-		vs_sens = devm_kzalloc(dev, struct_size(vs_sens, tz, sensors), GFP_KERNEL);
+		sensors_cnt = ret;
+		vs_sens = devm_kzalloc(dev, struct_size(vs_sens, tz, sensors_cnt), GFP_KERNEL);
 		if (!vs_sens)
 			return -ENOMEM;
 
@@ -96,27 +103,38 @@ static int virtual_sensor_probe(struct platform_device *pdev)
 			return ret;
 
 		vs_sens->logic = res;
-		vs_sens->num_sensors = sensors;
+		vs_sens->num_sensors = sensors_cnt;
 		vs_sens->dev = dev;
 		vs_sens->sensor_id = sens_id;
+		vs_sens->sensors_name = devm_kcalloc(dev, sensors_cnt + 1,
+							sizeof(*vs_sens->sensors_name), GFP_KERNEL);
+		if (!vs_sens->sensors_name)
+			return -ENOMEM;
 
-		for (idx = 0; idx < sensors; idx++) {
-			dev_phandle = of_parse_phandle(subsys_np, "qcom,sensors", idx);
+		for (idx = 0; idx < vs_sens->num_sensors; idx++) {
+			ret = of_property_read_string_index(subsys_np,
+							"sensor-names",
+							idx,
+							&vs_sens->sensors_name[idx].sensor_name);
+			if (ret < 0) {
+				dev_err(dev, "Couldn't get sensor name index: %d. %d\n",
+								idx, ret);
+			}
 
-			if (!dev_phandle)
-				break;
-
-			tzd = thermal_zone_get_zone_by_name(dev_phandle->name);
+			tzd = thermal_zone_get_zone_by_name(vs_sens->sensors_name[idx].sensor_name);
 			if (IS_ERR(tzd)) {
 				ret = PTR_ERR(tzd);
 				pr_err("No thermal zone found for sensor:%s. err:%d\n",
-								dev_phandle->name, ret);
+							vs_sens->sensors_name[idx].sensor_name,
+							ret);
 				return ret;
 			}
 			vs_sens->tz[idx] = tzd;
 		}
 		vs_sens->tz_dev = devm_thermal_zone_of_sensor_register(&pdev->dev,
-						vs_sens->sensor_id, vs_sens, &virtual_sensor_ops);
+							vs_sens->sensor_id,
+							vs_sens,
+							&virtual_sensor_ops);
 		if (IS_ERR(vs_sens->tz_dev)) {
 			ret = IS_ERR(vs_sens->tz_dev);
 			if (ret != -ENODEV)
