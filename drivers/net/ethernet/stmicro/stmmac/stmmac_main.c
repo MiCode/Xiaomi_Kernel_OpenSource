@@ -1240,7 +1240,7 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 		stmmac_fpe_link_state_handle(priv, true);
 
 #ifdef CONFIG_MSM_BOOT_TIME_MARKER
-	if (phy->link == 1 && !priv->boot_kpi) {
+	if (!priv->boot_kpi) {
 		place_marker("M - Ethernet is Ready.Link is UP");
 		priv->boot_kpi = true;
 	}
