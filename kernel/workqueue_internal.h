@@ -58,6 +58,14 @@ struct worker {
 
 	/* used by the scheduler to determine a worker's last known identity */
 	work_func_t		last_func;
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	int			trigger;	/* start accumulate the worker running time */
+	unsigned long		start_run_work;	/* time just b4 process_one_work*/
+	unsigned long		end_run_work;	/* time just finish process_one_work*/
+	unsigned long		wakeup_time;	/* last time the worker wakeup */
+	unsigned long		sleep_time;	/* last time the worker sleep */
+	unsigned long		accumulate_time;/* total running time for each work */
+#endif
 };
 
 /**

@@ -879,6 +879,9 @@ void wq_worker_running(struct task_struct *task)
 	if (!worker->sleeping)
 		return;
 
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	worker->wakeup_time = jiffies;
+#endif
 	/*
 	 * If preempted by unbind_workers() between the WORKER_NOT_RUNNING check
 	 * and the nr_running increment below, we may ruin the nr_running reset
@@ -912,6 +915,16 @@ void wq_worker_sleeping(struct task_struct *task)
 	if (worker->flags & WORKER_NOT_RUNNING)
 		return;
 
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	worker->sleep_time = jiffies;
+	if (worker->trigger) {
+		if (worker->start_run_work > worker->wakeup_time)
+			worker->accumulate_time = worker->sleep_time - worker->start_run_work;
+		else
+			worker->accumulate_time =
+				worker->accumulate_time + worker->sleep_time - worker->wakeup_time;
+	}
+#endif
 	pool = worker->pool;
 
 	/* Return if preempted before wq_worker_running() was reached */
@@ -2197,6 +2210,13 @@ __acquires(&pool->lock)
 	bool cpu_intensive = pwq->wq->flags & WQ_CPU_INTENSIVE;
 	unsigned long work_data;
 	struct worker *collision;
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	work_func_t toolong_func = work->func;
+	unsigned long start_time = 0;
+	unsigned long end_time = 0;
+	unsigned int diff = 0;
+	unsigned int accumute = 0;
+#endif
 #ifdef CONFIG_LOCKDEP
 	/*
 	 * It is permissible to free the struct work_struct from
@@ -2296,7 +2316,27 @@ __acquires(&pool->lock)
 	 */
 	lockdep_invariant_state(true);
 	trace_workqueue_execute_start(work);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	worker->start_run_work = start_time = jiffies;
+	worker->trigger = 1;
+	worker->accumulate_time = 0;
+#endif
 	worker->current_func(work);
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	worker->end_run_work = end_time = jiffies;
+	worker->trigger = 0;
+	if (worker->start_run_work > worker->wakeup_time)
+		worker->accumulate_time = worker->end_run_work - worker->start_run_work;
+	else
+		worker->accumulate_time =
+			worker->accumulate_time + worker->end_run_work - worker->wakeup_time;
+	diff = jiffies_to_msecs(end_time - start_time);
+	accumute = jiffies_to_msecs(worker->accumulate_time);
+	if (diff > 13000)
+		pr_info("[wqto]:[<0x%lx>]%pS, ID=%d, poolID=%d, dur=%u, run=%u, str=%lu, end=%lu.\n",
+			(unsigned long)toolong_func, toolong_func, worker->id, worker->pool->id,
+			diff, accumute, start_time, end_time);
+#endif
 	/*
 	 * While we must be careful to not use "work" after this, the trace
 	 * point will only record its address.
@@ -4760,8 +4800,31 @@ static void show_pwq(struct pool_workqueue *pwq)
 	if (has_in_flight) {
 		bool comma = false;
 
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+		unsigned long lockuptime = jiffies;
+		unsigned long tmpacc;
+#endif
 		pr_info("    in-flight:");
 		hash_for_each(pool->busy_hash, bkt, worker, hentry) {
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+			if (!worker->sleeping) {
+				if (worker->start_run_work > worker->wakeup_time)
+					tmpacc = lockuptime - worker->start_run_work;
+				else
+					tmpacc = worker->accumulate_time +
+						lockuptime - worker->wakeup_time;
+			} else
+				tmpacc = worker->accumulate_time;
+
+			pr_cont("[wqto]:[<0x%lx>]%pS, lastf:[<0x%lx>]%pS, ID=%d, poolID=%d, ",
+				(unsigned long)(worker->current_func), worker->current_func,
+				(unsigned long)(worker->last_func), worker->last_func,
+				worker->id, worker->pool->id);
+			pr_cont("dur=%u, run=%u, str=%lu, end=%lu, curr=%lu.\n",
+				jiffies_to_msecs(lockuptime - worker->start_run_work),
+				tmpacc == 0 ? 0 : jiffies_to_msecs(tmpacc), worker->start_run_work,
+				worker->end_run_work, lockuptime);
+#endif
 			if (worker->current_pwq != pwq)
 				continue;
 
@@ -5850,6 +5913,7 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 #if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
 	struct worker *worker;
 	work_func_t lockup_func = NULL;
+	work_func_t lockup_func_last = NULL;
 	int bkt;
 #endif
 
@@ -5895,6 +5959,7 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 				if (worker->pool != pool)
 					continue;
 				lockup_func = worker->current_func;
+				lockup_func_last = worker->last_func;
 				show_stack(worker->task, NULL, KERN_INFO);
 			}
 #endif
@@ -5907,6 +5972,8 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 		show_all_workqueues();
 #if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
 	if (lockup_detected && lockup_func) {
+		pr_info("WQ_lockup lastfn: [<0x%lx> %pS]\n",
+			(unsigned long)lockup_func_last, lockup_func_last);
 		pr_err("WQ_lockup: [<%px>] %pS\n", lockup_func, lockup_func);
 	}
 #endif
