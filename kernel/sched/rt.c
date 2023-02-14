@@ -2066,8 +2066,21 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 	int tries;
 	int cpu;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	for (tries = 0; tries < RT_MAX_TRIES; tries++) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 		cpu = find_lowest_rq(task);
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 
 		if ((cpu == -1) || (cpu == rq->cpu))
 			break;
@@ -2086,6 +2099,10 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 
 		/* if the prio of this runqueue changed, try again */
 		if (double_lock_balance(rq, lowest_rq)) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			if (mtk_irq_log_store)
+				mtk_irq_log_store(__func__, __LINE__);
+#endif
 			/*
 			 * We had to unlock the run queue. In
 			 * the mean time, task could have
@@ -2100,6 +2117,10 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 
 				double_unlock_balance(rq, lowest_rq);
 				lowest_rq = NULL;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+				if (mtk_irq_log_store)
+					mtk_irq_log_store(__func__, __LINE__);
+#endif
 				break;
 			}
 		}
@@ -2111,7 +2132,16 @@ static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)
 		/* try again */
 		double_unlock_balance(rq, lowest_rq);
 		lowest_rq = NULL;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 	}
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 
 	return lowest_rq;
 }
@@ -2150,11 +2180,24 @@ static int push_rt_task(struct rq *rq, bool pull)
 	if (!rq->rt.overloaded)
 		return 0;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	next_task = pick_next_pushable_task(rq);
-	if (!next_task)
+	if (!next_task) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 		return 0;
+	}
 
 retry:
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	/*
 	 * It's possible that the next_task slipped in of
 	 * higher priority than current. If that's the case
@@ -2184,10 +2227,17 @@ retry:
 		if (rq->curr->sched_class != &rt_sched_class)
 			return 0;
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 		cpu = find_lowest_rq(rq->curr);
 		if (cpu == -1 || cpu == rq->cpu)
 			return 0;
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 		/*
 		 * Given we found a CPU with lower priority than @next_task,
 		 * therefore it should be running. However we cannot migrate it
@@ -2195,13 +2245,28 @@ retry:
 		 * running task on this CPU away.
 		 */
 		push_task = get_push_task(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 		if (push_task) {
 			raw_spin_rq_unlock(rq);
 			stop_one_cpu_nowait(rq->cpu, push_cpu_stop,
 					    push_task, &rq->push_work);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			if (mtk_irq_log_store)
+				mtk_irq_log_store(__func__, __LINE__);
+#endif
 			raw_spin_rq_lock(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+			if (mtk_irq_log_store)
+				mtk_irq_log_store(__func__, __LINE__);
+#endif
 		}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 		return 0;
 	}
 
@@ -2210,9 +2275,16 @@ retry:
 
 	/* We might release rq lock */
 	get_task_struct(next_task);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	/* find_lock_lowest_rq locks the rq if found */
 	lowest_rq = find_lock_lowest_rq(next_task, rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	if (!lowest_rq) {
 		struct task_struct *task;
 		/*
@@ -2224,6 +2296,10 @@ retry:
 		 * pushing.
 		 */
 		task = pick_next_pushable_task(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 		if (task == next_task) {
 			/*
 			 * The task hasn't migrated, and is still the next
@@ -2243,27 +2319,61 @@ retry:
 		 */
 		put_task_struct(next_task);
 		next_task = task;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 		goto retry;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	deactivate_task(rq, next_task, 0);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	set_task_cpu(next_task, lowest_rq->cpu);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	activate_task(lowest_rq, next_task, 0);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	resched_curr(lowest_rq);
 	ret = 1;
 
 	double_unlock_balance(rq, lowest_rq);
 out:
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	put_task_struct(next_task);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	return ret;
 }
 
 static void push_rt_tasks(struct rq *rq)
 {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 	/* push_rt_task will return true if it moved an RT */
 	while (push_rt_task(rq, false))
 		;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (mtk_irq_log_store)
+		mtk_irq_log_store(__func__, __LINE__);
+#endif
 }
 
 #ifdef HAVE_RT_PUSH_IPI
@@ -2411,16 +2521,31 @@ void rto_push_irq_work_func(struct irq_work *work)
 	int cpu;
 
 	rq = this_rq();
-
 	/*
 	 * We do not need to grab the lock to check for has_pushable_tasks.
 	 * When it gets updated, a check is made if a push is possible.
 	 */
 	if (has_pushable_tasks(rq)) {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 		raw_spin_rq_lock(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 		while (push_rt_task(rq, true))
 			;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 		raw_spin_rq_unlock(rq);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (mtk_irq_log_store)
+			mtk_irq_log_store(__func__, __LINE__);
+#endif
 	}
 
 	raw_spin_lock(&rd->rto_lock);

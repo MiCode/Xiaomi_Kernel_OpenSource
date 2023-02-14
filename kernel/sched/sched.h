@@ -3253,4 +3253,9 @@ static inline void update_current_exec_runtime(struct task_struct *curr,
 	cgroup_account_cputime(curr, delta_exec);
 }
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+extern void (*mtk_irq_log_store)(const char *, int);
+extern void mtk_register_irq_log_store(void (*fn)(const char*, int));
+#endif
+
 #endif /* _KERNEL_SCHED_SCHED_H */
