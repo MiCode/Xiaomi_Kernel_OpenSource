@@ -103,9 +103,7 @@ void ufshcd_mcq_config_mac(struct ufs_hba *hba, u32 max_active_cmds)
 	val |= FIELD_PREP(MCQ_CFG_MAC_MASK, max_active_cmds);
 	ufshcd_writel(hba, val, REG_UFS_MCQ_CFG);
 }
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 EXPORT_SYMBOL_GPL(ufshcd_mcq_config_mac);
-#endif
 
 /**
  * ufshcd_mcq_req_to_hwq - find the hardware queue on which the
@@ -272,9 +270,7 @@ u32 ufshcd_mcq_read_cqis(struct ufs_hba *hba, int i)
 {
 	return readl(mcq_opr_base(hba, OPR_CQIS, i) + REG_CQIS);
 }
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 EXPORT_SYMBOL_GPL(ufshcd_mcq_read_cqis);
-#endif
 
 void ufshcd_mcq_write_cqis(struct ufs_hba *hba, u32 val, int i)
 {
@@ -428,9 +424,7 @@ void ufshcd_mcq_make_queues_operational(struct ufs_hba *hba)
 			      MCQ_CFG_n(REG_SQATTR, i));
 	}
 }
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 EXPORT_SYMBOL_GPL(ufshcd_mcq_make_queues_operational);
-#endif
 
 void ufshcd_mcq_enable_esi(struct ufs_hba *hba)
 {
