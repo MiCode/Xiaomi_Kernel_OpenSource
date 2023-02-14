@@ -501,6 +501,8 @@ static void mhi_dev_net_rawip_setup(struct net_device *dev)
 	dev->header_ops = NULL;
 	dev->type = ARPHRD_RAWIP;
 	dev->hard_header_len = 0;
+	dev->min_mtu = ETH_MIN_MTU;
+	dev->max_mtu = ETH_MAX_MTU;
 	dev->mtu = MHI_NET_DEFAULT_MTU;
 	dev->addr_len = 0;
 	dev->flags &= ~(IFF_BROADCAST | IFF_MULTICAST);
