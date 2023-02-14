@@ -11,6 +11,7 @@ qcom-scm.ko
 smem.ko
 secure_buffer.ko
 qcom-cpufreq-hw.ko
+qcom_cpu_vendor_hooks.ko
 sched-walt.ko
 qti-regmap-debugfs.ko
 qcom_hwspinlock.ko
