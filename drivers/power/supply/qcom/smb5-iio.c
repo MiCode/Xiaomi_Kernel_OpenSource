@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -83,6 +83,14 @@ int smb5_iio_get_prop(struct smb_charger *chg, int channel, int *val)
 		break;
 	case PSY_IIO_PD_VOLTAGE_MIN:
 		*val = chg->voltage_min_uv;
+		break;
+	case PSY_IIO_VOLTAGE_QNOVO:
+		*val = get_client_vote_locked(chg->fv_votable,
+				QNOVO_VOTER);
+		break;
+	case PSY_IIO_CURRENT_QNOVO:
+		*val = get_client_vote_locked(chg->fcc_votable,
+				QNOVO_VOTER);
 		break;
 	case PSY_IIO_CONNECTOR_TYPE:
 		*val = chg->connector_type;
@@ -321,6 +329,28 @@ int smb5_iio_set_prop(struct smb_charger *chg, int channel, int val)
 	case PSY_IIO_PD_VOLTAGE_MIN:
 		rc = smblib_set_prop_pd_voltage_min(chg, val);
 		break;
+	case PSY_IIO_VOLTAGE_QNOVO:
+		if (val == -EINVAL) {
+			vote(chg->fv_votable, BATT_PROFILE_VOTER, true,
+					chg->batt_profile_fv_uv);
+			vote(chg->fv_votable, QNOVO_VOTER, false, 0);
+		} else {
+			vote(chg->fv_votable, QNOVO_VOTER, true, val);
+			vote(chg->fv_votable, BATT_PROFILE_VOTER, false, 0);
+		}
+		break;
+	case PSY_IIO_CURRENT_QNOVO:
+		vote(chg->pl_disable_votable, PL_QNOVO_VOTER,
+			val != -EINVAL && val < 2000000, 0);
+		if (val == -EINVAL) {
+			vote(chg->fcc_votable, BATT_PROFILE_VOTER,
+					true, chg->batt_profile_fcc_ua);
+			vote(chg->fcc_votable, QNOVO_VOTER, false, 0);
+		} else {
+			vote(chg->fcc_votable, QNOVO_VOTER, true, val);
+			vote(chg->fcc_votable, BATT_PROFILE_VOTER, false, 0);
+		}
+		break;
 	case PSY_IIO_CONNECTOR_HEALTH:
 		chg->connector_health = val;
 		if (chg->usb_psy)
@@ -419,9 +449,11 @@ int smb5_iio_set_prop(struct smb_charger *chg, int channel, int val)
 			real_chg_type == QTI_POWER_SUPPLY_TYPE_USB_HVDCP_3P5)
 			rerun_election(chg->fcc_votable);
 		break;
+#ifdef CONFIG_QPNP_SMB5
 	case PSY_IIO_COMP_CLAMP_LEVEL:
 		rc = smb5_set_prop_comp_clamp_level(chg, val);
 		break;
+#endif
 	case PSY_IIO_HOT_TEMP:
 		rc = smblib_set_prop_thermal_overheat(chg, val);
 		break;
