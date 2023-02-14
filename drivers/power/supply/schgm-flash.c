@@ -36,7 +36,14 @@ struct schgm_flash_dev {
 
 static int smblib_read(struct schgm_flash_dev *chg, u16 addr, u8 *val)
 {
-	return regmap_read(chg->regmap, addr, (unsigned int *) val);
+	unsigned int value;
+	int rc = 0;
+
+	rc = regmap_read(chg->regmap, addr, &value);
+	if (rc >= 0)
+		*val = (u8)value;
+
+	return rc;
 }
 
 static int smblib_write(struct schgm_flash_dev *chg, u16 addr, u8 val)
