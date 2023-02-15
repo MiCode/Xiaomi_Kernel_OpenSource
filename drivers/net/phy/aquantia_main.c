@@ -22,6 +22,7 @@
 #define PHY_ID_AQR107	0x03a1b4e0
 #define PHY_ID_AQCS109	0x03a1b5c2
 #define PHY_ID_AQR405	0x03a1b4b0
+#define PHY_ID_AQR115C	0x31c31c33
 
 #define MDIO_PHYXS_VEND_IF_STATUS		0xe812
 #define MDIO_PHYXS_VEND_IF_STATUS_TYPE_MASK	GENMASK(7, 3)
@@ -562,6 +563,27 @@ static int aqcs109_config_init(struct phy_device *phydev)
 	return aqr107_set_downshift(phydev, MDIO_AN_VEND_PROV_DOWNSHIFT_DFLT);
 }
 
+static int aqr115C_config_init(struct phy_device *phydev)
+{
+	/* Check that the PHY interface type is compatible */
+	if (phydev->interface != PHY_INTERFACE_MODE_SGMII &&
+	    phydev->interface != PHY_INTERFACE_MODE_2500BASEX &&
+	    phydev->interface != PHY_INTERFACE_MODE_XGMII &&
+	    phydev->interface != PHY_INTERFACE_MODE_USXGMII &&
+	    phydev->interface != PHY_INTERFACE_MODE_10GKR &&
+	    phydev->interface != PHY_INTERFACE_MODE_10GBASER)
+		return -ENODEV;
+
+	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
+		/* setting linkmode for 10M Full duplex */
+		linkmode_mod_bit(1, phydev->supported, 1);
+
+		phy_set_max_speed(phydev, SPEED_2500);
+	}
+
+	return 0;
+}
+
 static void aqr107_link_change_notify(struct phy_device *phydev)
 {
 	u8 fw_major, fw_minor;
@@ -744,6 +766,22 @@ static struct phy_driver aqr_driver[] = {
 	.handle_interrupt = aqr_handle_interrupt,
 	.read_status	= aqr_read_status,
 },
+	{
+		PHY_ID_MATCH_MODEL(PHY_ID_AQR115C),
+		.name		= "Aquantia AQR115c",
+		.probe		= aqr107_probe,
+		.config_init	= aqr115C_config_init,
+		.config_aneg	= aqr_config_aneg,
+		.config_intr	= aqr_config_intr,
+		.handle_interrupt = aqr_handle_interrupt,
+		.read_status	= aqr107_read_status,
+		.get_tunable	= aqr107_get_tunable,
+		.set_tunable	= aqr107_set_tunable,
+		.get_sset_count = aqr107_get_sset_count,
+		.get_strings	= aqr107_get_strings,
+		.get_stats	= aqr107_get_stats,
+		.link_change_notify = aqr107_link_change_notify,
+		},
 };
 
 module_phy_driver(aqr_driver);
@@ -756,6 +794,7 @@ static struct mdio_device_id __maybe_unused aqr_tbl[] = {
 	{ PHY_ID_MATCH_MODEL(PHY_ID_AQR107) },
 	{ PHY_ID_MATCH_MODEL(PHY_ID_AQCS109) },
 	{ PHY_ID_MATCH_MODEL(PHY_ID_AQR405) },
+	{ PHY_ID_MATCH_MODEL(PHY_ID_AQR115C) },
 	{ }
 };
 
