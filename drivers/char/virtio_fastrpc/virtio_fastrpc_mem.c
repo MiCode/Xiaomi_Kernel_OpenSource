@@ -119,12 +119,12 @@ void vfastrpc_buf_free(struct vfastrpc_buf *buf, int cache)
 		spin_lock(&fl->hlock);
 		if (fl->num_cached_buf > MAX_CACHED_BUFS) {
 			spin_unlock(&fl->hlock);
-			dev_dbg(fl->apps->dev, "num_cached_buf reaches upper limit\n");
+			dev_dbg(vfl->apps->dev, "num_cached_buf reaches upper limit\n");
 			goto skip_buf_cache;
 		}
 		hlist_add_head(&buf->hn, &fl->cached_bufs);
 		fl->num_cached_buf++;
-		dev_dbg(fl->apps->dev, "%d buf is cached, size = 0x%lx",
+		dev_dbg(vfl->apps->dev, "%d buf is cached, size = 0x%lx",
 				fl->num_cached_buf, buf->size);
 		spin_unlock(&fl->hlock);
 		return;
@@ -264,7 +264,7 @@ int vfastrpc_mmap_remove_fd(struct vfastrpc_file *vfl, int fd, u32 *entries)
 			(*entries)++;
 			match = map;
 			if (match->refs > 1) {
-				dev_err(fl->apps->dev,
+				dev_err(vfl->apps->dev,
 						"%s map refs = %d is abnormal\n",
 						__func__, match->refs);
 				err = -ETOOMANYREFS;
