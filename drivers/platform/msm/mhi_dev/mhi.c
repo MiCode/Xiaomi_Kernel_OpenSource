@@ -2325,7 +2325,6 @@ static void mhi_dev_process_ring_pending(struct work_struct *work)
 		if (rc) {
 			mhi_log(MHI_MSG_ERROR,
 			"error enabling chdb interrupt for %d\n", ch->ch_id);
-			mutex_unlock(&ch->ch_lock);
 			goto exit;
 		}
 	}
