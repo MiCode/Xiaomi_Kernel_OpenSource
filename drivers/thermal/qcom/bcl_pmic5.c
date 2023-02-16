@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -68,6 +68,7 @@
 #define BCL_IBAT_CCM_LSB      100
 #define BCL_IBAT_CCM_MAX_VAL  14
 
+#define BCL_TRIGGER_THRESHOLD 1
 #define MAX_PERPH_COUNT       2
 #define IPC_LOGPAGES          2
 
@@ -489,7 +490,7 @@ static int bcl_set_lbat(void *data, int low, int high)
 
 	mutex_lock(&bat_data->state_trans_lock);
 
-	if (high == INT_MAX &&
+	if (high != BCL_TRIGGER_THRESHOLD &&
 		bat_data->irq_num && bat_data->irq_enabled) {
 		disable_irq_nosync(bat_data->irq_num);
 		disable_irq_wake(bat_data->irq_num);
@@ -497,7 +498,7 @@ static int bcl_set_lbat(void *data, int low, int high)
 		pr_debug("lbat[%d]: disable irq:%d\n",
 				bat_data->type,
 				bat_data->irq_num);
-	} else if (high != INT_MAX &&
+	} else if (high == BCL_TRIGGER_THRESHOLD &&
 		bat_data->irq_num && !bat_data->irq_enabled) {
 		enable_irq(bat_data->irq_num);
 		enable_irq_wake(bat_data->irq_num);
