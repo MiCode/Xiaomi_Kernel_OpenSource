@@ -2112,7 +2112,7 @@ static void fastrpc_ramdump_collection(int cid)
 		hlist_del_init(&buf->hn_init);
 		if (fl) {
 			spin_lock_irqsave(&me->hlock, irq_flags);
-			if (fl->file_close && !fl->is_dma_invoke_pend)
+			if (fl->file_close)
 				complete(&fl->work);
 			fl->is_ramdump_pend = false;
 			spin_unlock_irqrestore(&me->hlock, irq_flags);
@@ -5454,20 +5454,20 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 
 	spin_lock_irqsave(&fl->apps->hlock, irq_flags);
 	is_locked = true;
-	if (!fl->is_ramdump_pend && !fl->is_dma_invoke_pend)
-		goto skip_wait;
+	if (!fl->is_ramdump_pend) {
+		goto skip_dump_wait;
+	}
 	is_locked = false;
 	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 	wait_for_completion(&fl->work);
 
-skip_wait:
+skip_dump_wait:
 	if (!is_locked) {
 		spin_lock_irqsave(&fl->apps->hlock, irq_flags);
 		is_locked = true;
 	}
 	hlist_del_init(&fl->hn);
 	fl->is_ramdump_pend = false;
-	fl->is_dma_invoke_pend = false;
 	fl->dsp_process_state = PROCESS_CREATE_DEFAULT;
 	is_locked = false;
 	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
@@ -5497,7 +5497,6 @@ skip_wait:
 		kfree(fl->hdr_bufs);
 	if (!IS_ERR_OR_NULL(fl->pers_hdr_buf))
 		fastrpc_buf_free(fl->pers_hdr_buf, 0);
-	mutex_lock(&fl->internal_map_mutex);
 	mutex_lock(&fl->map_mutex);
 	do {
 		lmap = NULL;
@@ -5509,7 +5508,6 @@ skip_wait:
 		fastrpc_mmap_free(lmap, 1);
 	} while (lmap);
 	mutex_unlock(&fl->map_mutex);
-	mutex_unlock(&fl->internal_map_mutex);
 	fastrpc_pm_relax(fl, gcinfo[fl->cid].secure);
 
 	if (fl->device && is_driver_closed)
@@ -8011,7 +8009,8 @@ union fastrpc_dev_param {
 	struct fastrpc_dev_unmap_dma *unmap;
 };
 
-long fastrpc_dev_map_dma(struct fastrpc_device *dev, unsigned long invoke_param)
+long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
+								unsigned long invoke_param)
 {
 	int err = 0;
 	union fastrpc_dev_param p;
@@ -8021,138 +8020,86 @@ long fastrpc_dev_map_dma(struct fastrpc_device *dev, unsigned long invoke_param)
 	uintptr_t raddr = 0;
 	unsigned long irq_flags = 0;
 
-	p.map = (struct fastrpc_dev_map_dma *)invoke_param;
-	spin_lock_irqsave(&me->hlock, irq_flags);
-	/* Verify if fastrpc device is closed*/
-	VERIFY(err, dev && !dev->dev_close);
-	if (err) {
-		err = -ESRCH;
-		spin_unlock_irqrestore(&me->hlock, irq_flags);
-		return err;
-	}
-	fl = dev->fl;
-	/* Verify if fastrpc file is not NULL*/
-	if (!fl) {
-		err = -EBADF;
-		spin_unlock_irqrestore(&me->hlock, irq_flags);
-		return err;
-	}
-	spin_unlock_irqrestore(&me->hlock, irq_flags);
-	mutex_lock(&fl->internal_map_mutex);
-	spin_lock_irqsave(&me->hlock, irq_flags);
-	/* Verify if fastrpc file is being closed, holding device lock*/
-	if (fl->file_close) {
-		err = -ESRCH;
-		spin_unlock_irqrestore(&me->hlock, irq_flags);
-		goto bail;
-	}
-	fl->is_dma_invoke_pend = true;
-	spin_unlock_irqrestore(&me->hlock, irq_flags);
-	mutex_lock(&fl->map_mutex);
-	/* Map DMA buffer on SMMU device*/
-	err = fastrpc_mmap_create(fl, -1, p.map->buf,
-				p.map->attrs, 0, p.map->size,
-				ADSP_MMAP_DMA_BUFFER, &map);
-	mutex_unlock(&fl->map_mutex);
-	if (err)
-		goto bail;
-	/* Map DMA buffer on DSP*/
-	VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl,
-		map->flags, 0, map->phys, map->size, map->refs, &raddr)));
-	if (err)
-		goto bail;
-	map->raddr = raddr;
-	p.map->v_dsp_addr = raddr;
-bail:
-	if (err && map) {
-		mutex_lock(&fl->map_mutex);
-		fastrpc_mmap_free(map, 0);
-		mutex_unlock(&fl->map_mutex);
-	}
-	if (fl) {
-		spin_lock_irqsave(&me->hlock, irq_flags);
-		if (fl->file_close && !fl->is_ramdump_pend && fl->is_dma_invoke_pend)
-			complete(&fl->work);
-		fl->is_dma_invoke_pend = false;
-		spin_unlock_irqrestore(&me->hlock, irq_flags);
-	}
-	mutex_unlock(&fl->internal_map_mutex);
-	return err;
-}
-
-long fastrpc_dev_unmap_dma(struct fastrpc_device *dev, unsigned long invoke_param)
-{
-	int err = 0;
-	union fastrpc_dev_param p;
-	struct fastrpc_file *fl = NULL;
-	struct fastrpc_mmap *map = NULL;
-	struct fastrpc_apps *me = &gfa;
-	unsigned long irq_flags = 0;
-
-	p.unmap = (struct fastrpc_dev_unmap_dma *)invoke_param;
-	spin_lock_irqsave(&me->hlock, irq_flags);
-	/* Verify if fastrpc device is closed*/
-	VERIFY(err, dev && !dev->dev_close);
-	if (err) {
-		err = -ESRCH;
-		spin_unlock_irqrestore(&me->hlock, irq_flags);
-		return err;
-	}
-	fl = dev->fl;
-	/* Verify if fastrpc file is not NULL*/
-	if (!fl) {
-		err = -EBADF;
-		spin_unlock_irqrestore(&me->hlock, irq_flags);
-		return err;
-	}
-	spin_unlock_irqrestore(&me->hlock, irq_flags);
-	mutex_lock(&fl->internal_map_mutex);
-	spin_lock_irqsave(&me->hlock, irq_flags);
-	/* Verify if fastrpc file is being closed, holding device lock*/
-	if (fl->file_close) {
-		err = -ESRCH;
-		spin_unlock_irqrestore(&me->hlock, irq_flags);
-		goto bail;
-	}
-	fl->is_dma_invoke_pend = true;
-	spin_unlock_irqrestore(&me->hlock, irq_flags);
-	mutex_lock(&fl->map_mutex);
-	if (!fastrpc_mmap_find(fl, -1, p.unmap->buf, 0, 0, ADSP_MMAP_DMA_BUFFER, 0, &map)) {
-		mutex_unlock(&fl->map_mutex);
-		if (err)
-			goto bail;
-		/* Un-map DMA buffer on DSP*/
-		VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
-			map->phys, map->size, map->flags)));
-		if (err)
-			goto bail;
-		mutex_lock(&fl->map_mutex);
-		fastrpc_mmap_free(map, 0);
-	}
-	mutex_unlock(&fl->map_mutex);
-bail:
-	if (fl) {
-		spin_lock_irqsave(&me->hlock, irq_flags);
-		if (fl->file_close && !fl->is_ramdump_pend && fl->is_dma_invoke_pend)
-			complete(&fl->work);
-		fl->is_dma_invoke_pend = false;
-		spin_unlock_irqrestore(&me->hlock, irq_flags);
-	}
-	mutex_unlock(&fl->internal_map_mutex);
-	return err;
-}
-
-long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
-								unsigned long invoke_param)
-{
-	int err = 0;
-
 	switch (invoke_num) {
 	case FASTRPC_DEV_MAP_DMA:
-		err = fastrpc_dev_map_dma(dev, invoke_param);
+		p.map = (struct fastrpc_dev_map_dma *)invoke_param;
+		spin_lock_irqsave(&me->hlock, irq_flags);
+		/* Verify if fastrpc device is closed*/
+		VERIFY(err, dev && !dev->dev_close);
+		if (err) {
+			err = -ESRCH;
+			spin_unlock_irqrestore(&me->hlock, irq_flags);
+			break;
+		}
+		fl = dev->fl;
+		spin_lock(&fl->hlock);
+		/* Verify if fastrpc file is being closed, holding device lock*/
+		if (fl->file_close) {
+			err = -ESRCH;
+			spin_unlock(&fl->hlock);
+			spin_unlock_irqrestore(&me->hlock, irq_flags);
+			break;
+		}
+		spin_unlock(&fl->hlock);
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
+		mutex_lock(&fl->internal_map_mutex);
+		mutex_lock(&fl->map_mutex);
+		/* Map DMA buffer on SMMU device*/
+		err = fastrpc_mmap_create(fl, -1, p.map->buf,
+					p.map->attrs, 0, p.map->size,
+					ADSP_MMAP_DMA_BUFFER, &map);
+		mutex_unlock(&fl->map_mutex);
+		if (err) {
+			mutex_unlock(&fl->internal_map_mutex);
+			break;
+		}
+		/* Map DMA buffer on DSP*/
+		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl,
+			map->flags, 0, map->phys, map->size, map->refs, &raddr)));
+		if (err) {
+			mutex_unlock(&fl->internal_map_mutex);
+			break;
+		}
+		map->raddr = raddr;
+		mutex_unlock(&fl->internal_map_mutex);
+		p.map->v_dsp_addr = raddr;
 		break;
 	case FASTRPC_DEV_UNMAP_DMA:
-		err = fastrpc_dev_unmap_dma(dev, invoke_param);
+		p.unmap = (struct fastrpc_dev_unmap_dma *)invoke_param;
+		spin_lock_irqsave(&me->hlock, irq_flags);
+		/* Verify if fastrpc device is closed*/
+		VERIFY(err, dev && !dev->dev_close);
+		if (err) {
+			err = -ESRCH;
+			spin_unlock_irqrestore(&me->hlock, irq_flags);
+			break;
+		}
+		fl = dev->fl;
+		spin_lock(&fl->hlock);
+		/* Verify if fastrpc file is being closed, holding device lock*/
+		if (fl->file_close) {
+			err = -ESRCH;
+			spin_unlock(&fl->hlock);
+			spin_unlock_irqrestore(&me->hlock, irq_flags);
+			break;
+		}
+		spin_unlock(&fl->hlock);
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
+		mutex_lock(&fl->internal_map_mutex);
+		mutex_lock(&fl->map_mutex);
+		if (!fastrpc_mmap_find(fl, -1, p.unmap->buf, 0, 0, ADSP_MMAP_DMA_BUFFER, 0, &map)) {
+			/* Un-map DMA buffer on DSP*/
+			mutex_unlock(&fl->map_mutex);
+			VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
+				map->phys, map->size, map->flags)));
+			if (err) {
+				mutex_unlock(&fl->internal_map_mutex);
+				break;
+			}
+			fastrpc_mmap_free(map, 0);
+		}
+		mutex_unlock(&fl->map_mutex);
+		mutex_unlock(&fl->internal_map_mutex);
 		break;
 	default:
 		err = -ENOTTY;
