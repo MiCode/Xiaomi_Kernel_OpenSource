@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _ADRENO_A6XX_H_
@@ -351,19 +351,6 @@ bool a6xx_hw_isidle(struct adreno_device *adreno_dev);
 void a6xx_spin_idle_debug(struct adreno_device *adreno_dev,
 	const char *str);
 
-/**
- * a6xx_counter_enable - Configure a performance counter for a countable
- * @adreno_dev -  Adreno device to configure
- * @group - Desired performance counter group
- * @counter - Desired performance counter in the group
- * @countable - Desired countable
- *
- * Physically set up a counter within a group with the desired countable
- * Return 0 on success else error code
- */
-int a6xx_counter_enable(struct adreno_device *adreno_dev,
-		const struct adreno_perfcount_group *group,
-		unsigned int counter, unsigned int countable);
 /**
  * a6xx_perfcounter_update - Update the IFPC perfcounter list
  * @adreno_dev: An Adreno GPU handle

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "adreno.h"
 #include "adreno_gen7.h"
+#include "adreno_gen7_hwsched_hfi.h"
 #include "adreno_perfcounter.h"
 #include "adreno_pm4types.h"
 #include "kgsl_device.h"
@@ -160,6 +162,16 @@ static int gen7_counter_inline_enable(struct adreno_device *adreno_dev,
 		reg->value = 0;
 
 	return ret;
+}
+
+static int gen7_hwsched_counter_enable(struct adreno_device *adreno_dev,
+		const struct adreno_perfcount_group *group,
+		u32 counter, u32 countable)
+{
+	if (!(KGSL_DEVICE(adreno_dev)->state == KGSL_STATE_ACTIVE))
+		return gen7_counter_enable(adreno_dev, group, counter, countable);
+
+	return gen7_hwsched_counter_inline_enable(adreno_dev, group, counter, countable);
 }
 
 static u64 gen7_counter_read(struct adreno_device *adreno_dev,
@@ -1000,13 +1012,13 @@ static struct adreno_perfcount_register gen7_perfcounters_alwayson[] = {
 	GEN7_BV_PERFCOUNTER_GROUP(offset, name, \
 		gen7_counter_enable, gen7_counter_read)
 
-static const struct adreno_perfcount_group gen7_6_0_perfcounter_groups
+static const struct adreno_perfcount_group gen7_hwsched_perfcounter_groups
 				[KGSL_PERFCOUNTER_GROUP_MAX] = {
 	GEN7_REGULAR_PERFCOUNTER_GROUP(CP, cp),
 	GEN7_PERFCOUNTER_GROUP_FLAGS(gen7, RBBM, rbbm, 0,
 		gen7_counter_enable, gen7_counter_read),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(PC, pc),
-	GEN7_REGULAR_PERFCOUNTER_GROUP(VFD, vfd),
+	GEN7_PERFCOUNTER_GROUP(VFD, vfd, gen7_hwsched_counter_enable, gen7_counter_read),
 	GEN7_PERFCOUNTER_GROUP(HLSQ, hlsq, gen7_counter_br_enable, gen7_counter_read),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(VPC, vpc),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(CCU, ccu),
@@ -1015,8 +1027,8 @@ static const struct adreno_perfcount_group gen7_6_0_perfcounter_groups
 	GEN7_PERFCOUNTER_GROUP(RAS, ras, gen7_counter_br_enable, gen7_counter_read),
 	GEN7_PERFCOUNTER_GROUP(LRZ, lrz, gen7_counter_br_enable, gen7_counter_read),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(UCHE, gen7_6_0_uche),
-	GEN7_REGULAR_PERFCOUNTER_GROUP(TP, tp),
-	GEN7_REGULAR_PERFCOUNTER_GROUP(SP, sp),
+	GEN7_PERFCOUNTER_GROUP(TP, tp, gen7_hwsched_counter_enable, gen7_counter_read),
+	GEN7_PERFCOUNTER_GROUP(SP, sp, gen7_hwsched_counter_enable, gen7_counter_read),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(RB, rb),
 	GEN7_REGULAR_PERFCOUNTER_GROUP(VSC, vsc),
 	GEN7_PERFCOUNTER_GROUP_FLAGS(gen7, VBIF, gbif, 0,
@@ -1099,7 +1111,7 @@ const struct adreno_perfcounters adreno_gen7_perfcounters = {
 	ARRAY_SIZE(gen7_perfcounter_groups),
 };
 
-const struct adreno_perfcounters adreno_gen7_6_0_perfcounters = {
-	gen7_6_0_perfcounter_groups,
-	ARRAY_SIZE(gen7_6_0_perfcounter_groups),
+const struct adreno_perfcounters adreno_gen7_hwsched_perfcounters = {
+	gen7_hwsched_perfcounter_groups,
+	ARRAY_SIZE(gen7_hwsched_perfcounter_groups),
 };
