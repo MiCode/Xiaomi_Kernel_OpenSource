@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _GEN7_REG_H
@@ -1210,6 +1210,12 @@
 #define GEN7_RSCC_TCS1_DRV0_STATUS			0x003ee
 #define GEN7_RSCC_TCS2_DRV0_STATUS			0x00496
 #define GEN7_RSCC_TCS3_DRV0_STATUS			0x0053e
+#define GEN7_RSCC_TCS4_DRV0_STATUS          0x005e6
+#define GEN7_RSCC_TCS5_DRV0_STATUS          0x0068e
+#define GEN7_RSCC_TCS6_DRV0_STATUS          0x00736
+#define GEN7_RSCC_TCS7_DRV0_STATUS          0x007de
+#define GEN7_RSCC_TCS8_DRV0_STATUS          0x00886
+#define GEN7_RSCC_TCS9_DRV0_STATUS          0x0092e
 
 /* Device-specific RSCC registers */
 #define GEN7_6_0_RSCC_SEQ_MEM_0_DRV0			0x00154
@@ -1217,6 +1223,12 @@
 #define GEN7_6_0_RSCC_TCS1_DRV0_STATUS			0x003f2
 #define GEN7_6_0_RSCC_TCS2_DRV0_STATUS			0x0049a
 #define GEN7_6_0_RSCC_TCS3_DRV0_STATUS			0x00542
+#define GEN7_6_0_RSCC_TCS4_DRV0_STATUS			0x005EA
+#define GEN7_6_0_RSCC_TCS5_DRV0_STATUS			0x00692
+#define GEN7_6_0_RSCC_TCS6_DRV0_STATUS			0x0073A
+#define GEN7_6_0_RSCC_TCS7_DRV0_STATUS			0x007E2
+#define GEN7_6_0_RSCC_TCS8_DRV0_STATUS			0x0088A
+#define GEN7_6_0_RSCC_TCS9_DRV0_STATUS			0x00932
 
 /* GPU PDC sequencer registers in AOSS.RPMh domain */
 #define GEN7_PDC_GPU_ENABLE_PDC				0x1140
