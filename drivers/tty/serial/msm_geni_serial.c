@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2022, The Linux Foundation. All rights reserved.
  */
 
@@ -26,6 +26,7 @@
 #include <linux/serial.h>
 #include <linux/serial_core.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/ioctl.h>
@@ -2383,6 +2384,7 @@ static void msm_geni_serial_set_manual_flow(bool enable,
 		UART_LOG_DBG(port->ipc_log_misc, port->uport.dev,
 			"%s: Manual Flow Enabled, HW Flow OFF rfr = 0x%x\n",
 			__func__, uart_manual_rfr);
+		msm_geni_update_uart_error_code(port, UART_ERROR_FLOW_OFF);
 	} else {
 		geni_write_reg(0, port->uport.membase,
 						SE_UART_MANUAL_RFR);
@@ -2393,6 +2395,8 @@ static void msm_geni_serial_set_manual_flow(bool enable,
 		UART_LOG_DBG(port->ipc_log_misc, port->uport.dev,
 			"%s: Manual Flow Disabled, HW Flow ON rfr = 0x%x\n",
 						__func__, uart_manual_rfr);
+		if (port->uart_error == UART_ERROR_FLOW_OFF)
+			msm_geni_update_uart_error_code(port, UART_ERROR_DEFAULT);
 	}
 }
 
@@ -4897,6 +4901,39 @@ static int msm_geni_serial_sys_suspend(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_DEEPSLEEP
+static int msm_geni_serial_sys_hib_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
+	struct uart_port *uport = &port->uport;
+
+	if (uart_console(uport)) {
+		uart_resume_port((struct uart_driver *)uport->private_data, uport);
+		/*
+		 * For hibernation usecase clients for
+		 * console UART won't call port setup during restore.
+		 * Hence call port setup for console uart.
+		 */
+		msm_geni_serial_port_setup(uport);
+	} else {
+		/*
+		 * Peripheral register settings are lost during hibernation.
+		 * Update setup flag such that port setup happens again
+		 * during next session. Clients of HS-UART will close and
+		 * open the port during hibernation.
+		 */
+		port->port_setup = false;
+	}
+	return 0;
+}
+#else
+static int msm_geni_serial_sys_hib_resume(struct device *dev)
+{
+	return 0;
+}
+#endif
+
 static int msm_geni_serial_sys_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -4930,32 +4967,6 @@ static int msm_geni_serial_sys_resume(struct device *dev)
 	return 0;
 }
 
-static int msm_geni_serial_sys_hib_resume(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct msm_geni_serial_port *port = platform_get_drvdata(pdev);
-	struct uart_port *uport = &port->uport;
-
-	if (uart_console(uport)) {
-		uart_resume_port((struct uart_driver *)uport->private_data,
-									uport);
-		/*
-		 * For hibernation usecase clients for
-		 * console UART won't call port setup during restore.
-		 * Hence call port setup for console uart.
-		 */
-		msm_geni_serial_port_setup(uport);
-	} else {
-		/*
-		 * Peripheral register settings are lost during hibernation.
-		 * Update setup flag such that port setup happens again
-		 * during next session. Clients of HS-UART will close and
-		 * open the port during hibernation.
-		 */
-		port->port_setup = false;
-	}
-	return 0;
-}
 #else
 static int msm_geni_serial_runtime_suspend(struct device *dev)
 {
@@ -4973,11 +4984,6 @@ static int msm_geni_serial_sys_suspend(struct device *dev)
 }
 
 static int msm_geni_serial_sys_resume(struct device *dev)
-{
-	return 0;
-}
-
-static int msm_geni_serial_sys_hib_resume(struct device *dev)
 {
 	return 0;
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1475,6 +1475,9 @@ static int enable_audio_stream(struct snd_usb_substream *subs,
 	_snd_pcm_hw_param_set(&params, SNDRV_PCM_HW_PARAM_RATE,
 			cur_rate, 0);
 
+	if (!chip->intf[0])
+		return -ENODEV;
+
 	pm_runtime_barrier(&chip->intf[0]->dev);
 	snd_usb_autoresume(chip);
 
@@ -1506,7 +1509,7 @@ static int enable_audio_stream(struct snd_usb_substream *subs,
 
 		if (fmt->sync_ep) {
 			subs->sync_endpoint = snd_usb_endpoint_open(chip,
-					fmt, &params, false);
+					fmt, &params, true);
 			if (!subs->sync_endpoint) {
 				uaudio_err("failed to open sync endpoint\n");
 				return -EINVAL;

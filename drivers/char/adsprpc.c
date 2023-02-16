@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /* Uncomment this block to log an error on every VERIFY failure */
@@ -227,6 +227,13 @@ enum fastrpc_proc_attr {
 	FASTRPC_MODE_SYSTEM_PROCESS		= 1 << 5,
 	/* Macro for Prvileged Process */
 	FASTRPC_MODE_PRIVILEGED      = (1 << 6),
+};
+
+/* FastRPC remote subsystem state*/
+enum fastrpc_remote_subsys_state {
+	SUBSYSTEM_RESTARTING = 0,
+	SUBSYSTEM_DOWN,
+	SUBSYSTEM_UP,
 };
 
 #define PERF_END ((void)0)
@@ -4343,7 +4350,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	if (err)
 		goto bail;
 
-	VERIFY(err, fl->apps->channel[cid].issubsystemup == 1);
+	VERIFY(err, fl->apps->channel[cid].subsystemstate != SUBSYSTEM_RESTARTING);
 	if (err) {
 		wait_for_completion(&fl->shutdown);
 		err = -ECONNRESET;
@@ -5454,9 +5461,10 @@ static int fastrpc_file_free(struct fastrpc_file *fl)
 
 	spin_lock_irqsave(&fl->apps->hlock, irq_flags);
 	is_locked = true;
-	if (!fl->is_ramdump_pend) {
+	if (fl->is_dma_invoke_pend)
+		wait_for_completion(&fl->dma_invoke);
+	if (!fl->is_ramdump_pend)
 		goto skip_dump_wait;
-	}
 	is_locked = false;
 	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
 	wait_for_completion(&fl->work);
@@ -5468,6 +5476,7 @@ skip_dump_wait:
 	}
 	hlist_del_init(&fl->hn);
 	fl->is_ramdump_pend = false;
+	fl->is_dma_invoke_pend = false;
 	fl->dsp_process_state = PROCESS_CREATE_DEFAULT;
 	is_locked = false;
 	spin_unlock_irqrestore(&fl->apps->hlock, irq_flags);
@@ -5497,6 +5506,7 @@ skip_dump_wait:
 		kfree(fl->hdr_bufs);
 	if (!IS_ERR_OR_NULL(fl->pers_hdr_buf))
 		fastrpc_buf_free(fl->pers_hdr_buf, 0);
+	mutex_lock(&fl->internal_map_mutex);
 	mutex_lock(&fl->map_mutex);
 	do {
 		lmap = NULL;
@@ -5508,6 +5518,7 @@ skip_dump_wait:
 		fastrpc_mmap_free(lmap, 1);
 	} while (lmap);
 	mutex_unlock(&fl->map_mutex);
+	mutex_unlock(&fl->internal_map_mutex);
 	fastrpc_pm_relax(fl, gcinfo[fl->cid].secure);
 
 	if (fl->device && is_driver_closed)
@@ -5582,8 +5593,8 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"\n%s %s %s\n", title, " CHANNEL INFO ", title);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
-			"%-7s|%-10s|%-14s|%-9s|%-13s\n",
-			"subsys", "sesscount", "issubsystemup",
+			"%-7s|%-10s|%-15s|%-9s|%-13s\n",
+			"subsys", "sesscount", "subsystemstate",
 			"ssrcount", "session_used");
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"-%s%s%s%s-\n", single_line, single_line,
@@ -5597,8 +5608,8 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 				DEBUGFS_SIZE - len, "|%-10u",
 				chan->sesscount);
 			len += scnprintf(fileinfo + len,
-				DEBUGFS_SIZE - len, "|%-14d",
-				chan->issubsystemup);
+				DEBUGFS_SIZE - len, "|%-15d",
+				chan->subsystemstate);
 			len += scnprintf(fileinfo + len,
 				DEBUGFS_SIZE - len, "|%-9u",
 				chan->ssrcount);
@@ -5829,7 +5840,7 @@ static int fastrpc_channel_open(struct fastrpc_file *fl, uint32_t flags)
 	mutex_lock(&me->channel[cid].smd_mutex);
 	if (me->channel[cid].ssrcount !=
 				 me->channel[cid].prevssrcount) {
-		if (!me->channel[cid].issubsystemup) {
+		if (me->channel[cid].subsystemstate != SUBSYSTEM_UP) {
 			err = -ECONNREFUSED;
 			mutex_unlock(&me->channel[cid].smd_mutex);
 			goto bail;
@@ -5927,6 +5938,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	fl->exit_notif = false;
 	fl->exit_async = false;
 	init_completion(&fl->work);
+	init_completion(&fl->dma_invoke);
 	fl->file_close = FASTRPC_PROCESS_DEFAULT_STATE;
 	filp->private_data = fl;
 	mutex_init(&fl->internal_map_mutex);
@@ -7280,7 +7292,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 			__func__, gcinfo[cid].subsys);
 		mutex_lock(&me->channel[cid].smd_mutex);
 		ctx->ssrcount++;
-		ctx->issubsystemup = 0;
+		ctx->subsystemstate = SUBSYSTEM_RESTARTING;
 		mutex_unlock(&me->channel[cid].smd_mutex);
 		if (cid == RH_CID)
 			me->staticpd_flags = 0;
@@ -7295,6 +7307,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 			complete(&fl->shutdown);
 		}
 		spin_unlock(&me->hlock);
+		ctx->subsystemstate = SUBSYSTEM_DOWN;
 		pr_info("adsprpc: %s: received RAMDUMP notification for %s\n",
 			__func__, gcinfo[cid].subsys);
 		break;
@@ -7325,7 +7338,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 			"QCOM_SSR_AFTER_POWERUP", "fastrpc_restart_notifier-enter");
 		pr_info("adsprpc: %s: %s subsystem is up\n",
 			__func__, gcinfo[cid].subsys);
-		ctx->issubsystemup = 1;
+		ctx->subsystemstate = SUBSYSTEM_UP;
 		break;
 	default:
 		break;
@@ -8009,8 +8022,7 @@ union fastrpc_dev_param {
 	struct fastrpc_dev_unmap_dma *unmap;
 };
 
-long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
-								unsigned long invoke_param)
+long fastrpc_dev_map_dma(struct fastrpc_device *dev, unsigned long invoke_param)
 {
 	int err = 0;
 	union fastrpc_dev_param p;
@@ -8020,86 +8032,138 @@ long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
 	uintptr_t raddr = 0;
 	unsigned long irq_flags = 0;
 
+	p.map = (struct fastrpc_dev_map_dma *)invoke_param;
+	spin_lock_irqsave(&me->hlock, irq_flags);
+	/* Verify if fastrpc device is closed*/
+	VERIFY(err, dev && !dev->dev_close);
+	if (err) {
+		err = -ESRCH;
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
+		return err;
+	}
+	fl = dev->fl;
+	/* Verify if fastrpc file is not NULL*/
+	if (!fl) {
+		err = -EBADF;
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
+		return err;
+	}
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
+	mutex_lock(&fl->internal_map_mutex);
+	spin_lock_irqsave(&me->hlock, irq_flags);
+	/* Verify if fastrpc file is being closed, holding device lock*/
+	if (fl->file_close) {
+		err = -ESRCH;
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
+		goto bail;
+	}
+	fl->is_dma_invoke_pend = true;
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
+	mutex_lock(&fl->map_mutex);
+	/* Map DMA buffer on SMMU device*/
+	err = fastrpc_mmap_create(fl, -1, p.map->buf,
+				p.map->attrs, 0, p.map->size,
+				ADSP_MMAP_DMA_BUFFER, &map);
+	mutex_unlock(&fl->map_mutex);
+	if (err)
+		goto bail;
+	/* Map DMA buffer on DSP*/
+	VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl,
+		map->flags, 0, map->phys, map->size, map->refs, &raddr)));
+	if (err)
+		goto bail;
+	map->raddr = raddr;
+	p.map->v_dsp_addr = raddr;
+bail:
+	if (err && map) {
+		mutex_lock(&fl->map_mutex);
+		fastrpc_mmap_free(map, 0);
+		mutex_unlock(&fl->map_mutex);
+	}
+	if (fl) {
+		spin_lock_irqsave(&me->hlock, irq_flags);
+		if (fl->file_close && fl->is_dma_invoke_pend)
+			complete(&fl->dma_invoke);
+		fl->is_dma_invoke_pend = false;
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
+	}
+	mutex_unlock(&fl->internal_map_mutex);
+	return err;
+}
+
+long fastrpc_dev_unmap_dma(struct fastrpc_device *dev, unsigned long invoke_param)
+{
+	int err = 0;
+	union fastrpc_dev_param p;
+	struct fastrpc_file *fl = NULL;
+	struct fastrpc_mmap *map = NULL;
+	struct fastrpc_apps *me = &gfa;
+	unsigned long irq_flags = 0;
+
+	p.unmap = (struct fastrpc_dev_unmap_dma *)invoke_param;
+	spin_lock_irqsave(&me->hlock, irq_flags);
+	/* Verify if fastrpc device is closed*/
+	VERIFY(err, dev && !dev->dev_close);
+	if (err) {
+		err = -ESRCH;
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
+		return err;
+	}
+	fl = dev->fl;
+	/* Verify if fastrpc file is not NULL*/
+	if (!fl) {
+		err = -EBADF;
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
+		return err;
+	}
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
+	mutex_lock(&fl->internal_map_mutex);
+	spin_lock_irqsave(&me->hlock, irq_flags);
+	/* Verify if fastrpc file is being closed, holding device lock*/
+	if (fl->file_close) {
+		err = -ESRCH;
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
+		goto bail;
+	}
+	fl->is_dma_invoke_pend = true;
+	spin_unlock_irqrestore(&me->hlock, irq_flags);
+	mutex_lock(&fl->map_mutex);
+	if (!fastrpc_mmap_find(fl, -1, p.unmap->buf, 0, 0, ADSP_MMAP_DMA_BUFFER, 0, &map)) {
+		mutex_unlock(&fl->map_mutex);
+		if (err)
+			goto bail;
+		/* Un-map DMA buffer on DSP*/
+		VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
+			map->phys, map->size, map->flags)));
+		if (err)
+			goto bail;
+		mutex_lock(&fl->map_mutex);
+		fastrpc_mmap_free(map, 0);
+	}
+	mutex_unlock(&fl->map_mutex);
+bail:
+	if (fl) {
+		spin_lock_irqsave(&me->hlock, irq_flags);
+		if (fl->file_close && fl->is_dma_invoke_pend)
+			complete(&fl->dma_invoke);
+		fl->is_dma_invoke_pend = false;
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
+	}
+	mutex_unlock(&fl->internal_map_mutex);
+	return err;
+}
+
+long fastrpc_driver_invoke(struct fastrpc_device *dev, unsigned int invoke_num,
+								unsigned long invoke_param)
+{
+	int err = 0;
+
 	switch (invoke_num) {
 	case FASTRPC_DEV_MAP_DMA:
-		p.map = (struct fastrpc_dev_map_dma *)invoke_param;
-		spin_lock_irqsave(&me->hlock, irq_flags);
-		/* Verify if fastrpc device is closed*/
-		VERIFY(err, dev && !dev->dev_close);
-		if (err) {
-			err = -ESRCH;
-			spin_unlock_irqrestore(&me->hlock, irq_flags);
-			break;
-		}
-		fl = dev->fl;
-		spin_lock(&fl->hlock);
-		/* Verify if fastrpc file is being closed, holding device lock*/
-		if (fl->file_close) {
-			err = -ESRCH;
-			spin_unlock(&fl->hlock);
-			spin_unlock_irqrestore(&me->hlock, irq_flags);
-			break;
-		}
-		spin_unlock(&fl->hlock);
-		spin_unlock_irqrestore(&me->hlock, irq_flags);
-		mutex_lock(&fl->internal_map_mutex);
-		mutex_lock(&fl->map_mutex);
-		/* Map DMA buffer on SMMU device*/
-		err = fastrpc_mmap_create(fl, -1, p.map->buf,
-					p.map->attrs, 0, p.map->size,
-					ADSP_MMAP_DMA_BUFFER, &map);
-		mutex_unlock(&fl->map_mutex);
-		if (err) {
-			mutex_unlock(&fl->internal_map_mutex);
-			break;
-		}
-		/* Map DMA buffer on DSP*/
-		VERIFY(err, 0 == (err = fastrpc_mmap_on_dsp(fl,
-			map->flags, 0, map->phys, map->size, map->refs, &raddr)));
-		if (err) {
-			mutex_unlock(&fl->internal_map_mutex);
-			break;
-		}
-		map->raddr = raddr;
-		mutex_unlock(&fl->internal_map_mutex);
-		p.map->v_dsp_addr = raddr;
+		err = fastrpc_dev_map_dma(dev, invoke_param);
 		break;
 	case FASTRPC_DEV_UNMAP_DMA:
-		p.unmap = (struct fastrpc_dev_unmap_dma *)invoke_param;
-		spin_lock_irqsave(&me->hlock, irq_flags);
-		/* Verify if fastrpc device is closed*/
-		VERIFY(err, dev && !dev->dev_close);
-		if (err) {
-			err = -ESRCH;
-			spin_unlock_irqrestore(&me->hlock, irq_flags);
-			break;
-		}
-		fl = dev->fl;
-		spin_lock(&fl->hlock);
-		/* Verify if fastrpc file is being closed, holding device lock*/
-		if (fl->file_close) {
-			err = -ESRCH;
-			spin_unlock(&fl->hlock);
-			spin_unlock_irqrestore(&me->hlock, irq_flags);
-			break;
-		}
-		spin_unlock(&fl->hlock);
-		spin_unlock_irqrestore(&me->hlock, irq_flags);
-		mutex_lock(&fl->internal_map_mutex);
-		mutex_lock(&fl->map_mutex);
-		if (!fastrpc_mmap_find(fl, -1, p.unmap->buf, 0, 0, ADSP_MMAP_DMA_BUFFER, 0, &map)) {
-			/* Un-map DMA buffer on DSP*/
-			mutex_unlock(&fl->map_mutex);
-			VERIFY(err, !(err = fastrpc_munmap_on_dsp(fl, map->raddr,
-				map->phys, map->size, map->flags)));
-			if (err) {
-				mutex_unlock(&fl->internal_map_mutex);
-				break;
-			}
-			fastrpc_mmap_free(map, 0);
-		}
-		mutex_unlock(&fl->map_mutex);
-		mutex_unlock(&fl->internal_map_mutex);
+		err = fastrpc_dev_unmap_dma(dev, invoke_param);
 		break;
 	default:
 		err = -ENOTTY;
@@ -8342,7 +8406,7 @@ static int __init fastrpc_device_init(void)
 		me->channel[i].ssrcount = 0;
 		me->channel[i].in_hib = 0;
 		me->channel[i].prevssrcount = 0;
-		me->channel[i].issubsystemup = 1;
+		me->channel[i].subsystemstate = SUBSYSTEM_UP;
 		me->channel[i].rh_dump_dev = NULL;
 		me->channel[i].nb.notifier_call = fastrpc_restart_notifier_cb;
 		me->channel[i].handle = qcom_register_ssr_notifier(

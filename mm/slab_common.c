@@ -716,7 +716,7 @@ kmalloc_caches[NR_KMALLOC_TYPES][KMALLOC_SHIFT_HIGH + 1] __ro_after_init =
 EXPORT_SYMBOL(kmalloc_caches);
 
 bool android_kmalloc_64_create __ro_after_init;
-EXPORT_SYMBOL_GPL(android_kmalloc_64_create);
+EXPORT_SYMBOL(android_kmalloc_64_create);
 
 /*
  * Conversion table for small slabs sizes / 8 to the index in the

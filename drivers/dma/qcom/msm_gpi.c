@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/atomic.h>
@@ -2342,6 +2343,7 @@ static int gpi_pause(struct dma_chan *chan)
 	int i, ret, idx = 0;
 	u32 offset1, offset2, type1, type2;
 	struct gpi_ring *ev_ring = &gpii->ev_ring;
+	struct msm_gpi_ctrl *gpi_ctrl = chan->private;
 	phys_addr_t cntxt_rp, local_rp;
 	void *rp, *rp1;
 	union gpi_event *gpi_event;
@@ -2415,20 +2417,56 @@ static int gpi_pause(struct dma_chan *chan)
 		}
 	}
 
-	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
-		gpii_chan = &gpii->gpii_chan[i];
-		gpi_noop_tre(gpii_chan);
-	}
+	if (gpi_ctrl->cmd == MSM_GPI_DEEP_SLEEP_INIT) {
+		GPII_INFO(gpii, gpii_chan->chid, "deep sleep config\n");
+		/* Resetting the channels */
+		for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+			gpii_chan = &gpii->gpii_chan[i];
+			ret = gpi_send_cmd(gpii, gpii_chan, GPI_CH_CMD_RESET);
+			if (ret) {
+				GPII_ERR(gpii, gpii->gpii_chan[i].chid,
+					 "Error resetting chan, ret:%d\n", ret);
+				mutex_unlock(&gpii->ctrl_lock);
+				return -ECONNRESET;
+			}
+		}
 
-	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
-		gpii_chan = &gpii->gpii_chan[i];
+		/* Dealloc the channels */
+		for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+			gpii_chan = &gpii->gpii_chan[i];
+			ret = gpi_reset_chan(gpii_chan, GPI_CH_CMD_DE_ALLOC);
+			if (ret) {
+				GPII_ERR(gpii, gpii->gpii_chan[i].chid,
+					 "Error chan deallocating, ret:%d\n", ret);
+				mutex_unlock(&gpii->ctrl_lock);
+				return -ECONNRESET;
+			}
+		}
 
-		ret = gpi_start_chan(gpii_chan);
+		/* Dealloc Event Ring */
+		ret = gpi_send_cmd(gpii, NULL, GPI_EV_CMD_DEALLOC);
 		if (ret) {
-			GPII_ERR(gpii, gpii_chan->chid,
-				 "Error Starting Channel ret:%d\n", ret);
+			GPII_ERR(gpii, GPI_DBG_COMMON, "error with cmd:%s ret:%d\n",
+				 TO_GPI_CMD_STR(GPI_EV_CMD_DEALLOC), ret);
 			mutex_unlock(&gpii->ctrl_lock);
-			return -ECONNRESET;
+			return ret;
+		}
+	} else {
+		for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+			gpii_chan = &gpii->gpii_chan[i];
+			gpi_noop_tre(gpii_chan);
+		}
+
+		for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+			gpii_chan = &gpii->gpii_chan[i];
+
+			ret = gpi_start_chan(gpii_chan);
+			if (ret) {
+				GPII_ERR(gpii, gpii_chan->chid,
+					 "Error Starting Channel ret:%d\n", ret);
+				mutex_unlock(&gpii->ctrl_lock);
+				return -ECONNRESET;
+			}
 		}
 	}
 
@@ -2642,10 +2680,26 @@ static int gpi_deep_sleep_exit_config(struct dma_chan *chan,
 {
 	struct gpii_chan *gpii_chan = to_gpii_chan(chan);
 	struct gpii *gpii = gpii_chan->gpii;
+	struct gpi_ring *ring_ch = NULL;
+	struct gpi_ring *ring_ev = NULL;
 	int i = 0;
 	int ret = 0;
 
 	GPII_INFO(gpii, gpii_chan->chid, "enter\n");
+
+	/* Reset the ring channel for TX,RX to the base address */
+	for (i = 0; i < MAX_CHANNELS_PER_GPII; i++) {
+		gpii_chan = &gpii->gpii_chan[i];
+
+		ring_ch = &gpii_chan->ch_ring;
+		ring_ch->wp = ring_ch->base;
+		ring_ch->rp = ring_ch->base;
+	}
+
+	/* Reset Event ring to the base address */
+	ring_ev = &gpii->ev_ring;
+	ring_ev->wp = ring_ev->base;
+	ring_ev->rp = ring_ev->base;
 
 	ret = gpi_config_interrupts(gpii, DEFAULT_IRQ_SETTINGS, 0);
 	if (ret) {

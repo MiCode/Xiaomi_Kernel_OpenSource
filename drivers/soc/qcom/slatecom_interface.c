@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(msg) "slatecom_dev:" msg
 
@@ -18,7 +18,7 @@
 #include <linux/kobject.h>
 #include "slatecom.h"
 #include "linux/slatecom_interface.h"
-#include "slatecom_interface.h"
+#include <linux/soc/qcom/slatecom_interface.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
@@ -33,16 +33,14 @@
 #include "slatecom_rpmsg.h"
 
 #define SLATECOM "slate_com_dev"
-
 #define SLATEDAEMON_LDO09_LPM_VTG 0
 #define SLATEDAEMON_LDO09_NPM_VTG 10000
-
 #define SLATEDAEMON_LDO03_LPM_VTG 0
 #define SLATEDAEMON_LDO03_NPM_VTG 10000
-
 #define MPPS_DOWN_EVENT_TO_SLATE_TIMEOUT 3000
 #define ADSP_DOWN_EVENT_TO_SLATE_TIMEOUT 3000
 #define MAX_APP_NAME_SIZE 100
+#define COMPAT_PTR(val) ((void *)((uint64_t)val & 0xffffffffUL))
 
 /*pil_slate_intf.h*/
 #define RESULT_SUCCESS 0
@@ -531,13 +529,10 @@ static int send_time_sync(struct slate_ui_data *tui_obj_msg)
 {
 	int ret = 0;
 	void *write_buf;
+	size_t len;
 
-	write_buf = kmalloc_array(tui_obj_msg->num_of_words, sizeof(uint32_t),
-							GFP_KERNEL);
-	if (write_buf == NULL)
-		return -ENOMEM;
-	write_buf = memdup_user(tui_obj_msg->buffer,
-					tui_obj_msg->num_of_words * sizeof(uint32_t));
+	len = tui_obj_msg->num_of_words * sizeof(uint32_t);
+	write_buf = memdup_user((COMPAT_PTR(tui_obj_msg->buffer)), len);
 	if (IS_ERR(write_buf)) {
 		ret = PTR_ERR(write_buf);
 		kfree(write_buf);
@@ -548,6 +543,7 @@ static int send_time_sync(struct slate_ui_data *tui_obj_msg)
 		pr_err("send_time_data cmd failed\n");
 	else
 		pr_info("send_time_data cmd success\n");
+	kfree(write_buf);
 return ret;
 }
 
@@ -617,26 +613,26 @@ static long slate_com_ioctl(struct file *filp,
 		if (ret < 0)
 			pr_err("slatechar_write_cmd failed\n");
 		break;
-	case SET_SPI_FREE:
+	case SLATECOM_SET_SPI_FREE:
 		ret = slatecom_set_spi_state(SLATECOM_SPI_FREE);
 		break;
-	case SET_SPI_BUSY:
+	case SLATECOM_SET_SPI_BUSY:
 		ret = slatecom_set_spi_state(SLATECOM_SPI_BUSY);
 		break;
-	case SLATE_SOFT_RESET:
+	case SLATECOM_SOFT_RESET:
 		ret = slate_soft_reset();
 		break;
-	case SLATE_MODEM_DOWN2_SLATE_DONE:
+	case SLATECOM_MODEM_DOWN2_SLATE:
 		ret = modem_down2_slate();
 		break;
-	case SLATE_ADSP_DOWN2_SLATE_DONE:
+	case SLATECOM_ADSP_DOWN2_SLATE:
 		ret = adsp_down2_slate();
 		break;
-	case SLATE_TWM_EXIT:
+	case SLATECOM_TWM_EXIT:
 		twm_exit = true;
 		ret = 0;
 		break;
-	case SLATE_APP_RUNNING:
+	case SLATECOM_SLATE_APP_RUNNING:
 		slate_app_running = true;
 		ret = 0;
 		break;
@@ -653,7 +649,7 @@ static long slate_com_ioctl(struct file *filp,
 		slatecom_fw_unload(dev);
 		ret = 0;
 		break;
-	case DEVICE_STATE_TRANSITION:
+	case SLATECOM_DEVICE_STATE_TRANSITION:
 		if (dev->slatecom_current_state != SLATECOM_STATE_GLINK_OPEN) {
 			pr_err("driver not ready, glink is not open\n");
 			return -ENODEV;
@@ -667,7 +663,7 @@ static long slate_com_ioctl(struct file *filp,
 		if (ret < 0)
 			pr_err("device_state_transition cmd failed\n");
 		break;
-	case SEND_TIME_DATA:
+	case SLATE_SEND_TIME_DATA:
 		if (dev->slatecom_current_state != SLATECOM_STATE_GLINK_OPEN) {
 			pr_err("%s: driver not ready, current state: %d\n",
 			__func__, dev->slatecom_current_state);
@@ -682,7 +678,7 @@ static long slate_com_ioctl(struct file *filp,
 		if (ret < 0)
 			pr_err("send_time_data cmd failed\n");
 		break;
-	case SEND_DEBUG_CONFIG:
+	case SLATECOM_SEND_DEBUG_CONFIG:
 		if (dev->slatecom_current_state != SLATECOM_STATE_GLINK_OPEN) {
 			pr_err("%s: driver not ready, current state: %d\n",
 			__func__, dev->slatecom_current_state);
@@ -1126,14 +1122,14 @@ static struct service_info service_data[3] = {
 	},
 	{
 		.name = "SSR_MODEM",
-		.ssr_domains = "modem",
+		.ssr_domains = "mpss",
 		.domain_id = SSR_DOMAIN_MODEM,
 		.nb = &ssr_modem_nb,
 		.handle = NULL,
 	},
 	{
 		.name = "SSR_ADSP",
-		.ssr_domains = "adsp",
+		.ssr_domains = "lpass",
 		.domain_id = SSR_DOMAIN_ADSP,
 		.nb = &ssr_adsp_nb,
 		.handle = NULL,

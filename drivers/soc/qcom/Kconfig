@@ -307,6 +307,7 @@ config QCOM_RPMHPD
 
 config QCOM_RPMPD
 	tristate "Qualcomm RPM Power domain driver"
+	depends on PM
 	depends on QCOM_SMD_RPM
 	help
 	  QCOM RPM Power domain driver to support power-domains with
@@ -1051,6 +1052,15 @@ config QTI_HW_KEY_MANAGER
 	default n
 	help
 	 Say 'Y' to enable the hardware key manager driver used to operate
+	 and access key manager hardware block. This is used to interface with
+	 HWKM hardware to perform key operations from the kernel which will
+	 be used for storage encryption.
+
+config QTI_HW_KEY_MANAGER_V1
+	tristate "Enable QTI Hardware Key Manager v1 for storage encryption"
+	default n
+	help
+	 Say 'Y' to enable the hardware key manager v1 driver used to operate
 	 and access key manager hardware block. This is used to interface with
 	 HWKM hardware to perform key operations from the kernel which will
 	 be used for storage encryption.

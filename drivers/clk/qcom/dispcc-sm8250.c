@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, 2022, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -185,8 +185,8 @@ static const struct parent_map disp_cc_parent_map_3[] = {
 
 static const struct clk_parent_data disp_cc_parent_data_3[] = {
 	{ .fw_name = "bi_tcxo" },
-	{ .fw_name = "disp_cc_pll1" },
-	{ .fw_name = "disp_cc_pll1_out_even" },
+	{ .hw = &disp_cc_pll1.clkr.hw },
+	{ .hw = &disp_cc_pll1.clkr.hw },
 };
 
 static const struct parent_map disp_cc_parent_map_4[] = {
@@ -1070,6 +1070,7 @@ static struct clk_regmap_div disp_cc_mdss_dp_link_div_clk_src = {
 	},
 };
 
+/* CLK_DONT_HOLD_STATE flag is needed due to sync_state */
 static struct clk_branch disp_cc_mdss_ahb_clk = {
 	.halt_reg = 0x2080,
 	.halt_check = BRANCH_HALT,
@@ -1082,7 +1083,7 @@ static struct clk_branch disp_cc_mdss_ahb_clk = {
 				&disp_cc_mdss_ahb_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1358,6 +1359,7 @@ static struct clk_branch disp_cc_mdss_esc1_clk = {
 	},
 };
 
+/* CLK_DONT_HOLD_STATE flag is needed due to sync_state */
 static struct clk_branch disp_cc_mdss_mdp_clk = {
 	.halt_reg = 0x200c,
 	.halt_check = BRANCH_HALT,
@@ -1394,6 +1396,7 @@ static struct clk_branch disp_cc_mdss_mdp_lut_clk = {
 	},
 };
 
+/* CLK_DONT_HOLD_STATE flag is needed due to sync_state */
 static struct clk_branch disp_cc_mdss_non_gdsc_ahb_clk = {
 	.halt_reg = 0x4004,
 	.halt_check = BRANCH_HALT_VOTED,
@@ -1406,7 +1409,7 @@ static struct clk_branch disp_cc_mdss_non_gdsc_ahb_clk = {
 				&disp_cc_mdss_ahb_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1466,6 +1469,7 @@ static struct clk_branch disp_cc_mdss_rot_clk = {
 	},
 };
 
+/* CLK_DONT_HOLD_STATE flag is needed due to sync_state */
 static struct clk_branch disp_cc_mdss_rscc_ahb_clk = {
 	.halt_reg = 0x400c,
 	.halt_check = BRANCH_HALT,
@@ -1478,7 +1482,7 @@ static struct clk_branch disp_cc_mdss_rscc_ahb_clk = {
 				&disp_cc_mdss_ahb_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_DONT_HOLD_STATE,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -1725,20 +1729,13 @@ static int disp_cc_sm8250_probe(struct platform_device *pdev)
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	ret = qcom_cc_runtime_init(pdev, &disp_cc_sm8250_desc);
-	if (ret)
-		return ret;
-
-	ret = pm_runtime_get_sync(&pdev->dev);
-	if (ret)
-		return ret;
 
 	ret = disp_cc_sm8250_fixup(pdev, regmap);
 	if (ret)
 		return ret;
 
-	clk_lucid_pll_configure(&disp_cc_pll0, regmap, &disp_cc_pll0_config);
-	clk_lucid_pll_configure(&disp_cc_pll1, regmap, &disp_cc_pll1_config);
+	clk_lucid_pll_configure(&disp_cc_pll0, regmap, disp_cc_pll0.config);
+	clk_lucid_pll_configure(&disp_cc_pll1, regmap, disp_cc_pll1.config);
 
 	/* Enable clock gating for MDP clocks */
 	regmap_update_bits(regmap, 0x8000, 0x10, 0x10);
@@ -1770,19 +1767,12 @@ static void disp_cc_sm8250_sync_state(struct device *dev)
 	qcom_cc_sync_state(dev, &disp_cc_sm8250_desc);
 }
 
-static const struct dev_pm_ops disp_cc_sm8250_pm_ops = {
-	SET_RUNTIME_PM_OPS(qcom_cc_runtime_suspend, qcom_cc_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
-};
-
 static struct platform_driver disp_cc_sm8250_driver = {
 	.probe = disp_cc_sm8250_probe,
 	.driver = {
 		.name = "disp_cc-sm8250",
 		.of_match_table = disp_cc_sm8250_match_table,
 		.sync_state = disp_cc_sm8250_sync_state,
-		.pm = &disp_cc_sm8250_pm_ops,
 	},
 };
 

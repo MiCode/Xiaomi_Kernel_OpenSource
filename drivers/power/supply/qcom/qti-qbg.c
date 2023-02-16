@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"QBG_K: %s: " fmt, __func__
@@ -2188,6 +2188,7 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 
 	switch (cmd) {
 	case QBGIOCXCFG:
+	case QBG_QBGIOCXCFG:
 		config_user = (struct qbg_config __user *)arg;
 
 		rc = qbg_get_sample_time_us(chip);
@@ -2244,6 +2245,7 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 
 		break;
 	case QBGIOCXEPR:
+	case QBG_QBGIOCXEPR:
 		params_user = (struct qbg_essential_params __user *)arg;
 		rc = qbg_sdam_get_essential_params(chip,
 				(u8 *)&chip->essential_params);
@@ -2260,6 +2262,7 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 
 		break;
 	case QBGIOCXEPW:
+	case QBG_QBGIOCXEPW:
 		params_user = (struct qbg_essential_params __user *)arg;
 		if (copy_from_user((void *)&chip->essential_params, params_user,
 					sizeof(chip->essential_params))) {
@@ -2280,6 +2283,7 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 
 		break;
 	case QBGIOCXSTEPCHGCFG:
+	case QBG_QBGIOCXSTEPCHGCFG:
 		step_chg_params_user = (struct qbg_step_chg_jeita_params __user *)arg;
 
 		if (copy_to_user(step_chg_params_user, (void *)chip->step_chg_jeita_params,
@@ -2302,6 +2306,12 @@ static long qbg_device_ioctl(struct file *file, unsigned int cmd,
 	return rc;
 }
 
+static long qbg_device_compat_ioctl(struct file *file, unsigned int cmd,
+							unsigned long arg)
+{
+	return qbg_device_ioctl(file, _IOC_NR(cmd), arg);
+}
+
 static const struct file_operations qbg_fops = {
 	.owner		= THIS_MODULE,
 	.open		= qbg_device_open,
@@ -2310,7 +2320,7 @@ static const struct file_operations qbg_fops = {
 	.write		= qbg_device_write,
 	.poll		= qbg_device_poll,
 	.unlocked_ioctl	= qbg_device_ioctl,
-	.compat_ioctl	= qbg_device_ioctl,
+	.compat_ioctl	= qbg_device_compat_ioctl,
 };
 
 static int qbg_register_device(struct qti_qbg *chip)
@@ -2830,7 +2840,7 @@ static int qbg_restore(struct device *dev)
 static int qbg_suspend(struct device *dev)
 {
 #ifdef CONFIG_DEEPSLEEP
-	if (mem_sleep_current == PM_SUSPEND_MEM)
+	if (pm_suspend_via_firmware())
 		return qbg_freeze(dev);
 #endif
 	return 0;
@@ -2839,7 +2849,7 @@ static int qbg_suspend(struct device *dev)
 static int qbg_resume(struct device *dev)
 {
 #ifdef CONFIG_DEEPSLEEP
-	if (mem_sleep_current == PM_SUSPEND_MEM)
+	if (pm_suspend_via_firmware())
 		return qbg_restore(dev);
 #endif
 	return 0;

@@ -16,6 +16,7 @@
 #include <linux/panic_notifier.h>
 #include <linux/qcom_scm.h>
 #include <soc/qcom/minidump.h>
+#include <linux/syscore_ops.h>
 
 enum qcom_download_dest {
 	QCOM_DOWNLOAD_DEST_UNKNOWN = -1,
@@ -250,6 +251,15 @@ static struct attribute_group qcom_dload_attr_group = {
 	.attrs = qcom_dload_attrs,
 };
 
+static void qcom_dload_syscore_resume(void)
+{
+	msm_enable_dump_mode(enable_dump);
+}
+
+static struct syscore_ops qcom_dload_syscore_ops = {
+	.resume = qcom_dload_syscore_resume,
+};
+
 static int qcom_dload_panic(struct notifier_block *this, unsigned long event,
 			      void *ptr)
 {
@@ -341,6 +351,7 @@ static int qcom_dload_probe(struct platform_device *pdev)
 	poweroff->reboot_nb.notifier_call = qcom_dload_reboot;
 	poweroff->reboot_nb.priority = 255;
 	register_reboot_notifier(&poweroff->reboot_nb);
+	register_syscore_ops(&qcom_dload_syscore_ops);
 
 	platform_set_drvdata(pdev, poweroff);
 

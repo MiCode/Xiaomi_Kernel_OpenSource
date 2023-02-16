@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"flashv2: %s: " fmt, __func__
@@ -219,7 +219,8 @@ enum {
 enum pmic_type {
 	PM6150L,
 	PMI632,
-	PM660L
+	PM660L,
+	PM8150L
 };
 
 enum strobe_type {
@@ -3198,6 +3199,7 @@ static const struct dev_pm_ops qpnp_flash_led_pm_ops = {
 const struct of_device_id qpnp_flash_led_match_table[] = {
 	{ .compatible = "qcom,pm6150l-flash-led-v2", .data = (void *)PM6150L},
 	{ .compatible = "qcom,pmi632-flash-led-v2", .data = (void *)PMI632},
+	{ .compatible = "qcom,qpnp-flash-led-v2", .data = (void *)PM8150L},
 	{ },
 };
 

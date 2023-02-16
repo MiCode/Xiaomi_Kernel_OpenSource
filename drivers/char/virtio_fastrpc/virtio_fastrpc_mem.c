@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
-#include <linux/ion.h>
 #include "virtio_fastrpc_mem.h"
 
 #define MAX_CACHE_BUF_SIZE		(8*1024*1024)
+/* Maximum buffers cached in cached buffer list */
+#define MAX_CACHED_BUFS		32
 
 static inline void vfastrpc_free_pages(struct page **pages, int count)
 {
@@ -116,11 +117,20 @@ void vfastrpc_buf_free(struct vfastrpc_buf *buf, int cache)
 
 	if (cache && buf->size < MAX_CACHE_BUF_SIZE) {
 		spin_lock(&fl->hlock);
+		if (fl->num_cached_buf > MAX_CACHED_BUFS) {
+			spin_unlock(&fl->hlock);
+			dev_dbg(fl->apps->dev, "num_cached_buf reaches upper limit\n");
+			goto skip_buf_cache;
+		}
 		hlist_add_head(&buf->hn, &fl->cached_bufs);
+		fl->num_cached_buf++;
+		dev_dbg(fl->apps->dev, "%d buf is cached, size = 0x%lx",
+				fl->num_cached_buf, buf->size);
 		spin_unlock(&fl->hlock);
 		return;
 	}
 
+skip_buf_cache:
 	if (buf->remote) {
 		spin_lock(&fl->hlock);
 		hlist_del_init(&buf->hn_rem);
@@ -155,8 +165,10 @@ int vfastrpc_buf_alloc(struct vfastrpc_file *vfl, size_t size,
 			if (buf->size >= size && (!fr || fr->size > buf->size))
 				fr = buf;
 		}
-		if (fr)
+		if (fr) {
 			hlist_del_init(&fr->hn);
+			fl->num_cached_buf--;
+		}
 		spin_unlock(&fl->hlock);
 		if (fr) {
 			*obuf = fr;
@@ -171,6 +183,7 @@ int vfastrpc_buf_alloc(struct vfastrpc_file *vfl, size_t size,
 	buf->size = size;
 	buf->va = NULL;
 	buf->dma_attr = dma_attr;
+	buf->map_attr = 0;
 	buf->flags = rflags;
 	buf->raddr = 0;
 	buf->remote = 0;
@@ -237,8 +250,33 @@ int vfastrpc_mmap_remove(struct vfastrpc_file *vfl, uintptr_t va,
 	return -ETOOMANYREFS;
 }
 
+int vfastrpc_mmap_remove_fd(struct vfastrpc_file *vfl, int fd, u32 *entries)
+{
+	struct vfastrpc_mmap *match = NULL, *map = NULL;
+	struct fastrpc_file *fl = to_fastrpc_file(vfl);
+	struct hlist_node *n;
+	int err = 0;
+
+	*entries = 0;
+	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
+		if ((map->fd == fd) &&
+				(map->attr & FASTRPC_ATTR_KEEP_MAP)) {
+			(*entries)++;
+			match = map;
+			if (match->refs > 1) {
+				dev_err(fl->apps->dev,
+						"%s map refs = %d is abnormal\n",
+						__func__, match->refs);
+				err = -ETOOMANYREFS;
+			}
+			vfastrpc_mmap_free(vfl, match, 0);
+		}
+	}
+	return err;
+}
+
 void vfastrpc_mmap_free(struct vfastrpc_file *vfl,
-		struct vfastrpc_mmap *map, uint32_t flags)
+		struct vfastrpc_mmap *map, uint32_t force_free)
 {
 	struct vfastrpc_apps *me = vfl->apps;
 
@@ -250,21 +288,37 @@ void vfastrpc_mmap_free(struct vfastrpc_file *vfl,
 		dev_err(me->dev, "%s ADSP_MMAP_HEAP_ADDR is not supported\n",
 				__func__);
 	} else {
-		map->refs--;
-		if (!map->refs)
-			hlist_del_init(&map->hn);
-		if (map->refs > 0 && !flags)
+		if (map->refs <= 0) {
+			dev_warn(me->dev, "map refcnt = %d is abnormal\n", map->refs);
 			return;
-	}
-	if (!IS_ERR_OR_NULL(map->table))
-		dma_buf_unmap_attachment(map->attach, map->table,
-				DMA_BIDIRECTIONAL);
-	if (!IS_ERR_OR_NULL(map->attach))
-		dma_buf_detach(map->buf, map->attach);
-	if (!IS_ERR_OR_NULL(map->buf))
-		dma_buf_put(map->buf);
+		}
 
-	kfree(map);
+		map->refs--;
+		if (map->refs && force_free) {
+			dev_warn(me->dev, "force free map, but refs = %d\n", map->refs);
+			map->refs = 0;
+		}
+
+		if (!map->refs) {
+			hlist_del_init(&map->hn);
+			if (!IS_ERR_OR_NULL(map->table)) {
+				dma_buf_unmap_attachment(map->attach, map->table,
+						DMA_BIDIRECTIONAL);
+				map->table = NULL;
+			}
+
+			if (!IS_ERR_OR_NULL(map->attach)) {
+				dma_buf_detach(map->buf, map->attach);
+				map->attach = NULL;
+			}
+
+			if (!IS_ERR_OR_NULL(map->buf)) {
+				dma_buf_put(map->buf);
+				map->buf = NULL;
+			}
+			kfree(map);
+		}
+	}
 }
 
 int vfastrpc_mmap_find(struct vfastrpc_file *vfl, int fd,
@@ -305,7 +359,8 @@ int vfastrpc_mmap_find(struct vfastrpc_file *vfl, int fd,
 }
 
 int vfastrpc_mmap_create(struct vfastrpc_file *vfl, int fd,
-	uintptr_t va, size_t len, int mflags, struct vfastrpc_mmap **ppmap)
+	unsigned int attr, uintptr_t va, size_t len, int mflags,
+	struct vfastrpc_mmap **ppmap)
 {
 	struct vfastrpc_apps *me = vfl->apps;
 	struct vfastrpc_mmap *map = NULL;
@@ -325,6 +380,7 @@ int vfastrpc_mmap_create(struct vfastrpc_file *vfl, int fd,
 	map->refs = 1;
 	map->vfl = vfl;
 	map->fd = fd;
+	map->attr = attr;
 	if (mflags == ADSP_MMAP_HEAP_ADDR ||
 			mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		dev_err(me->dev, "%s ADSP_MMAP_HEAP_ADDR is not supported\n",
@@ -332,14 +388,14 @@ int vfastrpc_mmap_create(struct vfastrpc_file *vfl, int fd,
 		err = -EINVAL;
 		goto bail;
 	} else {
+		if (map->attr && (map->attr & FASTRPC_ATTR_KEEP_MAP)) {
+			map->refs = 2;
+			dev_dbg(me->dev, "KEE_MAP is set for fd = %d\n", map->fd);
+		}
+
 		VERIFY(err, !IS_ERR_OR_NULL(map->buf = dma_buf_get(fd)));
 		if (err) {
 			dev_err(me->dev, "can't get dma buf fd %d\n", fd);
-			goto bail;
-		}
-		VERIFY(err, !dma_buf_get_flags(map->buf, &map->dma_flags));
-		if (err) {
-			dev_err(me->dev, "can't get dma buf flags %d\n", fd);
 			goto bail;
 		}
 
@@ -350,8 +406,11 @@ int vfastrpc_mmap_create(struct vfastrpc_file *vfl, int fd,
 			goto bail;
 		}
 
-		if (!(map->dma_flags & ION_FLAG_CACHED))
-			map->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
+		/*
+		 * no need to sync cache even for cached buffers, depending on
+		 * IO coherency
+		 */
+		map->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 		VERIFY(err, !IS_ERR_OR_NULL(map->table =
 					dma_buf_map_attachment(map->attach,
 					DMA_BIDIRECTIONAL)));

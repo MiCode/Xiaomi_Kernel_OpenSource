@@ -240,6 +240,14 @@ config ARCH_KAKA
 	  KAKA chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
 
+config ARCH_CROW
+	bool "Enable Support for Qualcomm Technologies, Inc. CROW"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  CROW chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
+
 config ARCH_KONA
 	bool "Enable Support for Qualcomm Technologies, Inc. KONA"
 	depends on ARCH_QCOM
@@ -284,6 +292,14 @@ config ARCH_MONACO_AUTO
 	help
 	  This enables support for the Qualcomm Technologies, Inc.'s
 	  MONACO_AUTO chipset. If you do not wish to build a kernel that
+	  runs on this chipset or if you are unsure, say 'N' here.
+
+config ARCH_QCS405
+	bool "Enable Support for Qualcomm Technologies, Inc. QCS405"
+	depends on ARCH_QCOM
+	help
+	  This enables support for the Qualcomm Technologies, Inc.'s
+	  QCS405 chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
 
 config ARCH_CINDER
@@ -405,6 +421,7 @@ config ARCH_INTEL_SOCFPGA
 
 config ARCH_SYNQUACER
 	bool "Socionext SynQuacer SoC Family"
+	select IRQ_FASTEOI_HIERARCHY_HANDLERS
 
 config ARCH_TEGRA
 	bool "NVIDIA Tegra SoC Family"

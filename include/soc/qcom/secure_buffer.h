@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __QCOM_SECURE_BUFFER_H__
@@ -17,6 +18,8 @@
 enum vmid {
 	VMID_TZ = 0x1,
 	VMID_HLOS = 0x3,
+	VMID_SSC_Q6 = 0x5,
+	VMID_ADSP_Q6 = 0x6,
 	VMID_CP_TOUCH = 0x8,
 	VMID_CP_BITSTREAM = 0x9,
 	VMID_CP_PIXEL = 0xA,

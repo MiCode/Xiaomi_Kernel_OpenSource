@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)    "%s: " fmt, __func__
@@ -150,6 +150,19 @@ struct qcom_slate {
 
 static irqreturn_t slate_status_change(int irq, void *dev_id);
 struct mutex cmdsync_lock;
+
+static ssize_t txn_id_show(struct device *dev, struct device_attribute *attr,
+				char *buf)
+{
+	struct platform_device *pdev = container_of(dev,
+						struct platform_device, dev);
+	struct qcom_slate *slate_data =
+			(struct qcom_slate *)platform_get_drvdata(pdev);
+
+	return sysfs_emit(buf, "%zu\n",
+			qcom_sysmon_get_txn_id(slate_data->sysmon));
+}
+static DEVICE_ATTR_RO(txn_id);
 
 /**
  * get_cmd_rsp_buffers() - Function sets cmd & rsp buffer pointers and
@@ -515,6 +528,9 @@ static int slate_start(struct rproc *rproc)
 		return -EINVAL;
 	}
 
+	/* Enable err fetal irq */
+	enable_irq(slate_data->status_irq);
+
 	slate_data->address_fw = slate_data->region_start;
 	slate_data->size_fw = slate_data->region_end - slate_data->region_start;
 	pr_debug("SLATE PIL loads firmware blobs at 0x%x with size 0x%x\n",
@@ -548,6 +564,20 @@ static int slate_start(struct rproc *rproc)
 }
 
 /**
+* slate_coredump() - Called by SSR framework to save dump of SLATE internal
+* memory, SLATE PIL allocates region from dynamic memory and pass this
+* region to tz to dump memory content of SLATE.
+* @rproc: remoteproc handle for slate.
+*
+* Return: 0 on success. Error code on failure.
+*/
+
+static void slate_coredump(struct rproc *rproc)
+{
+	pr_err("Setup for Coredump.\n");
+}
+
+/**
  * slate_prepare() - Called by rproc_boot. This loads tz app.
  * @rproc: struct caontaining private slate data.
  *
@@ -574,8 +604,6 @@ static int slate_prepare(struct rproc *rproc)
 	}
 	pr_debug("slateapp loaded\n");
 
-	/* Enable status and err fetal irqs */
-	enable_irq(slate_data->status_irq);
 	return ret;
 }
 
@@ -809,9 +837,10 @@ static const struct rproc_ops slate_ops = {
 	.load = slate_load,
 	.start = slate_start,
 	.stop = slate_stop,
+	.coredump = slate_coredump,
 };
 
-static int slate_reboot_notify(struct notifier_block *nb,
+static int slate_app_reboot_notify(struct notifier_block *nb,
 		unsigned long action, void *data)
 {
 	struct qcom_slate *slate_data = container_of(nb,
@@ -871,12 +900,30 @@ static int rproc_slate_driver_probe(struct platform_device *pdev)
 	rproc->recovery_disabled = true;
 	rproc->auto_boot = false;
 	slate->rproc = rproc;
-	slate->sysmon_name = "slale";
-	slate->ssctl_id = 0x1d;
+	slate->sysmon_name = "slatefw";
+	slate->ssr_name = "slatefw";
+	slate->ssctl_id = -EINVAL;
 	platform_set_drvdata(pdev, slate);
 
+	/* Register SSR subdev to rproc*/
+	qcom_add_ssr_subdev(rproc, &slate->ssr_subdev, slate->ssr_name);
+	qcom_add_glink_subdev(rproc, &slate->glink_subdev, slate->ssr_name);
+
+	slate->sysmon = qcom_add_sysmon_subdev(rproc, slate->sysmon_name,
+			slate->ssctl_id);
+	if (IS_ERR(slate->sysmon)) {
+		ret = PTR_ERR(slate->sysmon);
+		dev_err(slate->dev, "%s: Error while adding sysmon subdevice:[%d]\n",
+				__func__, ret);
+		goto free_rproc;
+	}
+
+	ret = device_create_file(slate->dev, &dev_attr_txn_id);
+	if (ret)
+		goto remove_subdev;
+
 	/* Register callback for handling reboot */
-	slate->reboot_nb.notifier_call = slate_reboot_notify;
+	slate->reboot_nb.notifier_call = slate_app_reboot_notify;
 	register_reboot_notifier(&slate->reboot_nb);
 
 	slate->slate_queue = alloc_workqueue("slate_queue", 0, 0);
@@ -901,6 +948,8 @@ destroy_wq:
 	destroy_workqueue(slate_reset_wq);
 unregister_notify:
 	unregister_reboot_notifier(&slate->reboot_nb);
+remove_subdev:
+	qcom_remove_sysmon_subdev(slate->sysmon);
 free_rproc:
 	rproc_free(rproc);
 	mutex_destroy(&cmdsync_lock);
@@ -914,6 +963,10 @@ static int rproc_slate_driver_remove(struct platform_device *pdev)
 
 	if (slate_reset_wq)
 		destroy_workqueue(slate_reset_wq);
+	device_remove_file(slate->dev, &dev_attr_txn_id);
+	qcom_remove_glink_subdev(slate->rproc, &slate->glink_subdev);
+	qcom_remove_sysmon_subdev(slate->sysmon);
+	qcom_remove_ssr_subdev(slate->rproc, &slate->ssr_subdev);
 	unregister_reboot_notifier(&slate->reboot_nb);
 	rproc_del(slate->rproc);
 	rproc_free(slate->rproc);

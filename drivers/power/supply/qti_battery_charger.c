@@ -976,10 +976,15 @@ static int usb_psy_set_icl(struct battery_chg_dev *bcdev, u32 prop_id, int val)
 		return rc;
 	}
 
-	/* Allow this only for SDP or USB_PD and not for other charger types */
-	if (pst->prop[USB_ADAP_TYPE] != POWER_SUPPLY_USB_TYPE_SDP &&
-	    pst->prop[USB_ADAP_TYPE] != POWER_SUPPLY_USB_TYPE_PD)
+	/* Allow this only for SDP, CDP or USB_PD and not for other charger types */
+	switch (pst->prop[USB_ADAP_TYPE]) {
+	case POWER_SUPPLY_USB_TYPE_SDP:
+	case POWER_SUPPLY_USB_TYPE_PD:
+	case POWER_SUPPLY_USB_TYPE_CDP:
+		break;
+	default:
 		return -EINVAL;
+	}
 
 	/*
 	 * Input current limit (ICL) can be set by different clients. E.g. USB

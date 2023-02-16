@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only
  *
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __VIRTIO_FASTRPC_MEM_H__
@@ -16,7 +16,6 @@ struct vfastrpc_mmap {
 	struct vfastrpc_file *vfl;
 	int fd;
 	uint32_t flags;
-	unsigned long dma_flags;
 	struct dma_buf *buf;
 	struct sg_table *table;
 	struct dma_buf_attachment *attach;
@@ -26,6 +25,11 @@ struct vfastrpc_mmap {
 	size_t len;
 	uintptr_t raddr;
 	int refs;
+	/*
+	 * Used to store attributes of the fastrpc_mmap when it's created,
+	 * such as FASTRPC_ATTR_KEEP_MAP.
+	 */
+	unsigned int attr;
 };
 
 struct vfastrpc_buf {
@@ -37,6 +41,11 @@ struct vfastrpc_buf {
 	struct page **pages;
 	void *va;
 	unsigned long dma_attr;
+	/*
+	 * Indicate cacheability of the map, set to 0 for uncached buf,
+	 * set to FASTRPC_MAP_ATTR_CACHED for cached buf.
+	 */
+	u32 map_attr;
 	uintptr_t raddr;
 	uint32_t flags;
 	int remote;
@@ -53,7 +62,8 @@ struct vfastrpc_buf_desc {
 	struct vfastrpc_buf *buf;
 };
 
-int vfastrpc_mmap_create(struct vfastrpc_file *vfl, int fd,
+/* vfastrpc_mmap_* APIs are not thread-safe, caller needs to take fl->map_mutex */
+int vfastrpc_mmap_create(struct vfastrpc_file *vfl, int fd, unsigned int attr,
 	uintptr_t va, size_t len, int mflags, struct vfastrpc_mmap **ppmap);
 
 int vfastrpc_mmap_find(struct vfastrpc_file *vfl, int fd,
@@ -61,7 +71,9 @@ int vfastrpc_mmap_find(struct vfastrpc_file *vfl, int fd,
 		struct vfastrpc_mmap **ppmap);
 
 void vfastrpc_mmap_free(struct vfastrpc_file *vfl,
-		struct vfastrpc_mmap *map, uint32_t flags);
+		struct vfastrpc_mmap *map, uint32_t force_free);
+
+int vfastrpc_mmap_remove_fd(struct vfastrpc_file *vfl, int fd, u32 *entries);
 
 int vfastrpc_mmap_remove(struct vfastrpc_file *vfl, uintptr_t va,
 		size_t len, struct vfastrpc_mmap **ppmap);

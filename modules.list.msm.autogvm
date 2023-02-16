@@ -12,3 +12,11 @@ qcom_dma_heaps.ko
 rename_devices.ko
 gh_msgq.ko
 gh_rm_drv.ko
+boot_stats.ko
+virtio_clk_lemans.ko
+virtio_clk_direwolf.ko
+virtio_clk_sa8195p.ko
+virtio_clk_sm8150.ko
+virtio_clk.ko
+debug-regulator.ko
+virtio_regulator.ko

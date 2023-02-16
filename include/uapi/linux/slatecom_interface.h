@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef LINUX_SLATECOM_INTERFACE_H
 #define LINUX_SLATECOM_INTERFACE_H
@@ -33,7 +33,7 @@ struct slate_ui_data {
 	__u32  cmd;
 	__u32  num_of_words;
 	__u8 __user *buffer;
-};
+} __attribute__ ((packed));
 
 enum slate_event_type {
 	SLATE_BEFORE_POWER_DOWN = 1,

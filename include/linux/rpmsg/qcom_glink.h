@@ -7,11 +7,21 @@
 
 struct qcom_glink;
 struct glink_spi;
+struct qcom_glink_mem_entry;
 
 #if IS_ENABLED(CONFIG_RPMSG_QCOM_GLINK)
 void qcom_glink_ssr_notify(const char *ssr_name);
+struct qcom_glink_mem_entry *
+qcom_glink_mem_entry_init(struct device *dev, void *va, dma_addr_t dma, size_t len, u32 da);
+void qcom_glink_mem_entry_free(struct qcom_glink_mem_entry *mem);
 #else
 static inline void qcom_glink_ssr_notify(const char *ssr_name) {}
+static inline struct qcom_glink_mem_entry *
+qcom_glink_mem_entry_init(struct device *dev, void *va, dma_addr_t dma, size_t len, u32 da)
+{
+	return NULL;
+}
+static inline void qcom_glink_mem_entry_free(struct qcom_glink_mem_entry *mem) {}
 #endif
 
 #if IS_ENABLED(CONFIG_RPMSG_QCOM_GLINK_SMEM)
@@ -33,7 +43,6 @@ qcom_glink_smem_register(struct device *parent,
 }
 
 static inline void qcom_glink_smem_unregister(struct qcom_glink *glink) {}
-static inline void qcom_glink_ssr_notify(const char *ssr_name) {}
 static inline void qcom_glink_early_ssr_notify(void *data) {}
 
 int qcom_glink_smem_start(struct qcom_glink *glink)

@@ -410,8 +410,8 @@ stmmac_ethtool_set_link_ksettings(struct net_device *dev,
 		return -ENODEV;
 	}
 
-	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
-	    priv->hw->pcs & STMMAC_PCS_SGMII) {
+	if  (!priv->plat->has_gmac4 && (priv->hw->pcs & STMMAC_PCS_RGMII ||
+					priv->hw->pcs & STMMAC_PCS_SGMII)) {
 		u32 mask = ADVERTISED_Autoneg | ADVERTISED_Pause;
 
 		/* Only support ANE */
@@ -879,14 +879,6 @@ static int stmmac_ethtool_op_set_eee(struct net_device *dev,
 	if (priv->tx_lpi_enabled != edata->tx_lpi_enabled)
 		netdev_warn(priv->dev,
 			    "Setting EEE tx-lpi is not supported\n");
-
-	if (priv->hw->xpcs) {
-		ret = xpcs_config_eee(priv->hw->xpcs,
-				      priv->plat->mult_fact_100ns,
-				      edata->eee_enabled);
-		if (ret)
-			return ret;
-	}
 
 	if (!edata->eee_enabled)
 		stmmac_disable_eee_mode(priv);

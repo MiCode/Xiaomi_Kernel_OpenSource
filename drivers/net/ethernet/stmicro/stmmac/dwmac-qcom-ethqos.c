@@ -2,7 +2,7 @@
 
 // Copyright (c) 2018-19, Linaro Limited
 // Copyright (c) 2021, The Linux Foundation. All rights reserved.
-// Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+// Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 
 #include <linux/module.h>
 #include <linux/of.h>
@@ -1080,6 +1080,8 @@ int ethqos_configure_sgmii_v3_1(struct qcom_ethqos *ethqos)
 		value |= BIT(15);
 		value &= ~BIT(14);
 		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+		rgmii_updatel(ethqos, GENMASK(18, 10), BIT(10) |
+			      GENMASK(15, 14), RGMII_IO_MACRO_CONFIG);
 	break;
 
 	default:
@@ -3050,7 +3052,7 @@ static int qcom_ethqos_suspend(struct device *dev)
 	priv = netdev_priv(ndev);
 	plat = priv->plat;
 
-	if (!ndev || !netif_running(ndev))
+	if (!ndev)
 		return -EINVAL;
 	if (ethqos->current_phy_mode == DISABLE_PHY_AT_SUSPEND_ONLY ||
 	    ethqos->current_phy_mode == DISABLE_PHY_SUSPEND_ENABLE_RESUME) {
@@ -3095,7 +3097,7 @@ static int qcom_ethqos_resume(struct device *dev)
 	ndev = dev_get_drvdata(dev);
 	priv = netdev_priv(ndev);
 
-	if (!ndev || !netif_running(ndev)) {
+	if (!ndev) {
 		ETHQOSERR(" Resume not possible\n");
 		return -EINVAL;
 	}

@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2011 Google, Inc
  * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/highmem.h>
@@ -446,6 +447,14 @@ int hyp_assign_table(struct sg_table *table,
 
 	/* Save stacktrace & hyp_assign parameters */
 	track = alloc_debug_tracking(dest_vmids, dest_perms, dest_nelems);
+#ifdef CONFIG_HYP_ASSIGN_DEBUG
+	if (!track) {
+		ret = -ENOMEM;
+		dma_unmap_single(qcom_secure_buffer_dev, dest_dma_addr,
+				 dest_vm_copy_size, DMA_TO_DEVICE);
+		goto out_free_dest;
+	}
+#endif /* CONFIG_HYP_ASSIGN_DEBUG */
 
 	trace_hyp_assign_info(source_vm_list, source_nelems, dest_vmids,
 			      dest_perms, dest_nelems);
@@ -512,6 +521,10 @@ const char *msm_secure_vmid_to_string(int secure_vmid)
 	switch (secure_vmid) {
 	case VMID_TZ:
 		return "VMID_TZ";
+	case VMID_SSC_Q6:
+		return "VMID_SSC_Q6";
+	case VMID_ADSP_Q6:
+		return "VMID_ADSP_Q6";
 	case VMID_HLOS:
 		return "VMID_HLOS";
 	case VMID_CP_TOUCH:

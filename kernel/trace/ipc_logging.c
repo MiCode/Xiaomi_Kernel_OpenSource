@@ -137,8 +137,7 @@ static void register_minidump(u64 vaddr, u64 size,
 	struct md_region md_entry;
 	int ret;
 
-	if (msm_minidump_enabled()
-	    && (minidump_buf_cnt < MAX_MINIDUMP_BUFFERS)) {
+	if (minidump_buf_cnt < MAX_MINIDUMP_BUFFERS) {
 		scnprintf(md_entry.name, sizeof(md_entry.name), "%s_%d",
 			  buf_name, index);
 		md_entry.virt_addr = vaddr;

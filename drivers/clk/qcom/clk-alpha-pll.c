@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015, 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -1067,19 +1067,6 @@ static void clk_trion_pll_disable(struct clk_hw *hw)
 	regmap_update_bits(regmap, PLL_MODE(pll), PLL_RESET_N, PLL_RESET_N);
 }
 
-static unsigned long alpha_pll_adjust_calc_rate(u64 prate, u32 l, u32 frac,
-		u32 alpha_width)
-{
-	uint64_t tmp;
-
-	frac = 100 - DIV_ROUND_UP_ULL((frac * 100), BIT(alpha_width));
-
-	tmp = frac * prate;
-	do_div(tmp, 100);
-
-	return (l * prate) - tmp;
-}
-
 static unsigned long
 clk_trion_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
@@ -1089,11 +1076,7 @@ clk_trion_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 	regmap_read(pll->clkr.regmap, PLL_L_VAL(pll), &l);
 	regmap_read(pll->clkr.regmap, PLL_ALPHA_VAL(pll), &frac);
 
-	if (frac & BIT(15))
-		return alpha_pll_adjust_calc_rate(parent_rate, l, frac,
-				alpha_width);
-	else
-		return alpha_pll_calc_rate(parent_rate, l, frac, alpha_width);
+	return alpha_pll_calc_rate(parent_rate, l, frac, alpha_width);
 }
 
 static void clk_alpha_pll_list_registers(struct seq_file *f, struct clk_hw *hw)
@@ -1971,7 +1954,7 @@ const struct clk_ops clk_alpha_pll_postdiv_fabia_ops = {
 EXPORT_SYMBOL_GPL(clk_alpha_pll_postdiv_fabia_ops);
 
 /**
- * clk_lucid_pll_configure - configure the lucid pll
+ * clk_trion_pll_configure - configure the trion pll
  *
  * @pll: clk alpha pll
  * @regmap: register map
@@ -2697,20 +2680,33 @@ static int clk_zonda_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static unsigned long alpha_pll_adjust_calc_rate(u64 prate, u32 l, u32 frac,
+		u32 alpha_width)
+{
+	uint64_t tmp;
+
+	frac = 100 - DIV_ROUND_UP_ULL((frac * 100), BIT(alpha_width));
+
+	tmp = frac * prate;
+	do_div(tmp, 100);
+
+	return (l * prate) - tmp;
+}
+
 static unsigned long
 clk_zonda_pll_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct clk_alpha_pll *pll = to_clk_alpha_pll(hw);
-	u32 l, frac;
+	u32 l, frac, alpha_width = pll_alpha_width(pll);
 
 	regmap_read(pll->clkr.regmap, PLL_L_VAL(pll), &l);
 	regmap_read(pll->clkr.regmap, PLL_ALPHA_VAL(pll), &frac);
 
 	if (frac & BIT(15))
 		return alpha_pll_adjust_calc_rate(parent_rate, l, frac,
-								ALPHA_BITWIDTH);
+								alpha_width);
 	else
-		return alpha_pll_calc_rate(parent_rate, l, frac, ALPHA_BITWIDTH);
+		return alpha_pll_calc_rate(parent_rate, l, frac, alpha_width);
 }
 
 static void clk_alpha_pll_zonda_list_registers(struct seq_file *f,
@@ -2780,7 +2776,7 @@ const struct clk_ops clk_alpha_pll_zonda_ops = {
 	.enable = clk_zonda_pll_enable,
 	.disable = clk_zonda_pll_disable,
 	.is_enabled = clk_trion_pll_is_enabled,
-	.recalc_rate = clk_trion_pll_recalc_rate,
+	.recalc_rate = clk_zonda_pll_recalc_rate,
 	.round_rate = clk_alpha_pll_round_rate,
 	.set_rate = clk_zonda_pll_set_rate,
 	.debug_init = clk_common_debug_init,

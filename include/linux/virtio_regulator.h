@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
-/* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved. */
+/* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #ifndef _LINUX_VIRTIO_REGULATOR_H
 #define _LINUX_VIRTIO_REGULATOR_H
@@ -17,8 +17,11 @@ struct virtio_regulator_msg {
 	__virtio32 data[4];
 };
 
-/* Virtio ID of regulator */
-#define VIRTIO_ID_REGULATOR    31
+/* Virtio ID of regulator : 0xC001 */
+#define VIRTIO_ID_REGULATOR	49153
+
+/* Virtio ID of regulator for Backward compatibility : 0x1F */
+#define VIRTIO_ID_REGULATOR_BC	31
 
 /* Request type */
 #define VIRTIO_REGULATOR_T_ENABLE	0

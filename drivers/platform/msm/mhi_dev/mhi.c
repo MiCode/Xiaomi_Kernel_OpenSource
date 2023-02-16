@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -2768,7 +2768,7 @@ static int mhi_dev_abort(struct mhi_dev *mhi)
 
 	mhi_log(MHI_MSG_INFO,
 			"Register a PCIe callback during re-init\n");
-	mhi->mhi_hw_ctx->event_reg.events = EP_PCIE_EVENT_LINKUP;
+	mhi->mhi_hw_ctx->event_reg.events = EP_PCIE_EVENT_LINKUP | EP_PCIE_EVENT_LINKUP_VF;
 	mhi->mhi_hw_ctx->event_reg.user = mhi->mhi_hw_ctx;
 	mhi->mhi_hw_ctx->event_reg.mode = EP_PCIE_TRIGGER_CALLBACK;
 	mhi->mhi_hw_ctx->event_reg.callback = mhi_dev_resume_init_with_link_up;
@@ -4135,6 +4135,24 @@ static int mhi_dev_recover(struct mhi_dev *mhi)
 			mhi_log(MHI_MSG_VERBOSE, "Host failed to set reset\n");
 			return -EINVAL;
 		}
+
+		mhi_dev_mmio_masked_read(mhi, MHISTATUS, MHISTATUS_MHISTATE_MASK,
+					MHISTATUS_MHISTATE_SHIFT, &state);
+		/*
+		 * In warm reboot path, boot loaders doesn't clear error state
+		 * in MHI-STATUS. So if MHI reset is set by, update status also
+		 * to RESET state.
+		 */
+		if (mhi->vf_id && state == MHI_DEV_SYSERR_STATE) {
+			mhi_log(MHI_MSG_DBG,
+				"Set MHISTATE in MHISTATUS to Reset state for vf=%d\n",
+				mhi->vf_id);
+			mhi_dev_mmio_masked_write(mhi, MHISTATUS,
+					MHISTATUS_MHISTATE_MASK,
+					MHISTATUS_MHISTATE_SHIFT,
+					MHI_DEV_RESET_STATE);
+		}
+
 	}
 	/*
 	 * Now mask the interrupts so that the state machine moves
@@ -4691,6 +4709,30 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 		goto fail;
 	}
 
+	if (mhi_ctx->use_mhi_dma) {
+		/*
+		 * In case of MHI VF, mhi_ring_int_cb() is not called as MHI DMA ready
+		 * event is registered/handled by PF. Involking mhi_dev_enable()
+		 * is necessary for enabling MHI IRQ.
+		 */
+		if (mhi_ctx->mhi_dma_ready || !mhi_ctx->is_mhi_pf)
+			queue_work(mhi_ctx->ring_init_wq, &mhi_ctx->ring_init_cb_work);
+	}
+
+	/* Invoke MHI SM when device is in RESET state */
+	rc = mhi_dev_sm_init(mhi_ctx);
+	if (rc) {
+		mhi_log(MHI_MSG_ERROR, "Error during SM init\n");
+		goto fail;
+	}
+
+	/* set the env before setting the ready bit */
+	rc = mhi_dev_mmio_set_env(mhi_ctx, MHI_ENV_VALUE);
+	if (rc) {
+		mhi_log(MHI_MSG_ERROR, "env setting failed\n");
+		goto fail;
+	}
+
 	if (mhi_ctx->is_mhi_pf) {
 		mhi_ctx->mhi_hw_ctx->event_reg.events = EP_PCIE_EVENT_PM_D3_HOT |
 			EP_PCIE_EVENT_PM_D3_COLD |
@@ -4713,29 +4755,6 @@ static int mhi_dev_resume_mmio_mhi_reinit(struct mhi_dev *mhi_ctx)
 				"Failed to register for events from PCIe\n");
 			goto fail;
 		}
-	}
-
-	if (mhi_ctx->use_mhi_dma) {
-		/*
-		 * In case of MHI VF, mhi_ring_int_cb() is not called as MHI DMA ready
-		 * event is registered/handled by PF. Involking mhi_dev_enable()
-		 * is necessary for enabling MHI IRQ.
-		 */
-		if (mhi_ctx->mhi_dma_ready || !mhi_ctx->is_mhi_pf)
-			queue_work(mhi_ctx->ring_init_wq, &mhi_ctx->ring_init_cb_work);
-	}
-	/* Invoke MHI SM when device is in RESET state */
-	rc = mhi_dev_sm_init(mhi_ctx);
-	if (rc) {
-		mhi_log(MHI_MSG_ERROR, "Error during SM init\n");
-		goto fail;
-	}
-
-	/* set the env before setting the ready bit */
-	rc = mhi_dev_mmio_set_env(mhi_ctx, MHI_ENV_VALUE);
-	if (rc) {
-		mhi_log(MHI_MSG_ERROR, "env setting failed\n");
-		goto fail;
 	}
 
 	/* All set, notify the host */
@@ -4882,6 +4901,29 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
 	}
+
+	/*
+	 * Invoke MHI SM when device is in RESET state.
+	 * Also make sure sm-init is completed before registering for any
+	 * PCIe events as in warm-reboot path, linkup event for VFs can get
+	 * raised immediately once event is registered. To handle this
+	 * sm_init should be completed.
+	 */
+	rc = mhi_dev_sm_init(mhi_ctx);
+	if (rc) {
+		mhi_log(MHI_MSG_ERROR, "Error during SM init\n");
+		mutex_unlock(&mhi_ctx->mhi_lock);
+		return rc;
+	}
+
+	/* set the env before setting the ready bit */
+	rc = mhi_dev_mmio_set_env(mhi_ctx, MHI_ENV_VALUE);
+	if (rc) {
+		mhi_log(MHI_MSG_ERROR, "env setting failed\n");
+		mutex_unlock(&mhi_ctx->mhi_lock);
+		return rc;
+	}
+
 	if (mhi_ctx->is_mhi_pf) {
 		mhi_ctx->mhi_hw_ctx->event_reg.events = EP_PCIE_EVENT_PM_D3_HOT |
 			EP_PCIE_EVENT_PM_D3_COLD |
@@ -4903,22 +4945,6 @@ static int mhi_dev_resume_mmio_mhi_init(struct mhi_dev *mhi_ctx)
 	if (rc) {
 		mhi_log(MHI_MSG_ERROR,
 			"Failed to register for events from PCIe\n");
-		mutex_unlock(&mhi_ctx->mhi_lock);
-		return rc;
-	}
-
-	/* Invoke MHI SM when device is in RESET state */
-	rc = mhi_dev_sm_init(mhi_ctx);
-	if (rc) {
-		mhi_log(MHI_MSG_ERROR, "Error during SM init\n");
-		mutex_unlock(&mhi_ctx->mhi_lock);
-		return rc;
-	}
-
-	/* set the env before setting the ready bit */
-	rc = mhi_dev_mmio_set_env(mhi_ctx, MHI_ENV_VALUE);
-	if (rc) {
-		mhi_log(MHI_MSG_ERROR, "env setting failed\n");
 		mutex_unlock(&mhi_ctx->mhi_lock);
 		return rc;
 	}

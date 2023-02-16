@@ -14,7 +14,7 @@
  *	- Context fault reporting
  *	- Extended Stream ID (16 bit)
  *
- * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "arm-smmu: " fmt
@@ -2824,6 +2824,22 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	reg = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_sGFSR);
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_sGFSR, reg);
 
+#if defined CONFIG_QTI_QUIN_GVM
+	/*
+	 * Reset stream mapping groups for unused sme's: Initial values mark all SMRn as
+	 * invalid and all S2CRn as bypass unless overridden.
+	 */
+	for (i = 0; i < smmu->num_mapping_groups; ++i)
+		if (!smmu->s2crs[i].pinned)
+			arm_smmu_write_sme(smmu, i);
+
+	/* Make sure only unpinned context banks are disabled and clear CB_FSR  */
+	for (i = 0; i < smmu->num_context_banks; ++i)
+		if (!smmu->s2crs[i].pinned) {
+			arm_smmu_write_context_bank(smmu, i);
+			arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, ARM_SMMU_FSR_FAULT);
+		}
+#else
 	/*
 	 * Reset stream mapping groups: Initial values mark all SMRn as
 	 * invalid and all S2CRn as bypass unless overridden.
@@ -2836,6 +2852,7 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 		arm_smmu_write_context_bank(smmu, i);
 		arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, ARM_SMMU_FSR_FAULT);
 	}
+#endif
 
 	/* Invalidate the TLB, just in case */
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_TLBIALLH, QCOM_DUMMY_VAL);
@@ -3455,13 +3472,10 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return -EINVAL;
-	ioaddr = res->start;
-	smmu->base = devm_ioremap_resource(dev, res);
+	smmu->base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
 	if (IS_ERR(smmu->base))
 		return PTR_ERR(smmu->base);
+	ioaddr = res->start;
 	/*
 	 * The resource size should effectively match the value of SMMU_TOP;
 	 * stash that temporarily until we know PAGESIZE to validate it with.
@@ -3675,7 +3689,7 @@ static int __maybe_unused arm_smmu_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
+static int __maybe_unused arm_smmu_pm_resume_common(struct device *dev)
 {
 	int ret;
 	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
@@ -3699,23 +3713,6 @@ static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
 	 * runtime_resume to avoid latency.
 	 */
 	arm_smmu_device_reset(smmu);
-	return ret;
-}
-
-static int __maybe_unused arm_smmu_pm_suspend(struct device *dev)
-{
-	int ret = 0;
-	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
-
-	if (pm_runtime_suspended(dev))
-		goto clk_unprepare;
-
-	ret = arm_smmu_runtime_suspend(dev);
-	if (ret)
-		return ret;
-
-clk_unprepare:
-	clk_bulk_unprepare(smmu->num_clks, smmu->clks);
 	return ret;
 }
 
@@ -3751,7 +3748,7 @@ static int __maybe_unused arm_smmu_pm_restore_early(struct device *dev)
 		smmu_domain->pgtbl_ops = pgtbl_ops;
 		arm_smmu_init_context_bank(smmu_domain, pgtbl_cfg);
 	}
-	arm_smmu_pm_resume(dev);
+	arm_smmu_pm_resume_common(dev);
 	ret = arm_smmu_runtime_suspend(dev);
 	if (ret) {
 		dev_err(dev, "Failed to suspend\n");
@@ -3797,6 +3794,34 @@ static int arm_smmu_pm_prepare(struct device *dev)
 		return 0;
 
 	return (atomic_read(&dev->power.usage_count) == 1) ? -EINPROGRESS : 0;
+}
+
+static int __maybe_unused arm_smmu_pm_suspend(struct device *dev)
+{
+	int ret = 0;
+	struct arm_smmu_device *smmu = dev_get_drvdata(dev);
+
+	if (pm_suspend_via_firmware())
+		arm_smmu_pm_freeze_late(dev);
+
+	if (pm_runtime_suspended(dev))
+		goto clk_unprepare;
+
+	ret = arm_smmu_runtime_suspend(dev);
+	if (ret)
+		return ret;
+
+clk_unprepare:
+	clk_bulk_unprepare(smmu->num_clks, smmu->clks);
+	return ret;
+}
+
+static int __maybe_unused arm_smmu_pm_resume(struct device *dev)
+{
+	if (pm_suspend_via_firmware())
+		return arm_smmu_pm_restore_early(dev);
+	else
+		return arm_smmu_pm_resume_common(dev);
 }
 
 static const struct dev_pm_ops arm_smmu_pm_ops = {

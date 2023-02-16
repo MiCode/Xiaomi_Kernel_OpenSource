@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
@@ -604,6 +604,7 @@ static void virtio_regulator_remove(struct virtio_device *vdev)
 
 static const struct virtio_device_id id_table[] = {
 	{ VIRTIO_ID_REGULATOR, VIRTIO_DEV_ANY_ID },
+	{ VIRTIO_ID_REGULATOR_BC, VIRTIO_DEV_ANY_ID },
 	{ 0 },
 };
 

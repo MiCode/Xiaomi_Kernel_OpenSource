@@ -18,6 +18,20 @@
 
 #define UFS_PHY_DEFAULT_LANES_PER_DIRECTION	1
 
+/**
+ * struct ufs_qcom_phy_regs - record the info of ufs qcom phy register domain.
+ * @list_head: the list to find all ufs phy register domins.
+ * @prefix: the name of this register domain.
+ * @ptr: the pointer to memory address which save the register value.
+ * @len: the size of this register domain.
+ */
+struct ufs_qcom_phy_regs {
+	struct list_head list;
+	const char *prefix;
+	u32 *ptr;
+	size_t len;
+};
+
 static int ufs_qcom_phy_start_serdes(struct ufs_qcom_phy *ufs_qcom_phy);
 static int ufs_qcom_phy_is_pcs_ready(struct ufs_qcom_phy *ufs_qcom_phy);
 
@@ -184,6 +198,12 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 			pr_err("Failed to register buffer UFS_QC_PHY in Minidump ret %d\n", ret);
 	}
 
+	/*
+	 * Init PHY register domain list. We use it to manage the memory space which be used
+	 * to save UFS PHY register value.
+	 */
+	INIT_LIST_HEAD(&common_cfg->regs_list_head);
+
 out:
 	return generic_phy;
 }
@@ -296,6 +316,15 @@ skip_txrx_clk:
 				   &phy_common->rx_sym1_phy_clk, false);
 	 __ufs_qcom_phy_clk_get(phy_common->dev, "tx_sym0_phy_clk",
 				   &phy_common->tx_sym0_phy_clk, false);
+
+	if (!phy_common->rx_sym0_mux_clk ||
+		!phy_common->rx_sym1_mux_clk ||
+		!phy_common->tx_sym0_mux_clk ||
+		!phy_common->ref_clk_src ||
+		!phy_common->rx_sym0_phy_clk ||
+		!phy_common->rx_sym1_phy_clk ||
+		!phy_common->tx_sym0_phy_clk)
+		dev_err(phy_common->dev, "%s: null clock\n", __func__);
 out:
 	return err;
 }
@@ -670,11 +699,8 @@ void ufs_qcom_phy_set_src_clk_h8_enter(struct phy *generic_phy)
 	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
 
 	if (!ufs_qcom_phy->rx_sym0_mux_clk || !ufs_qcom_phy->rx_sym1_mux_clk ||
-		!ufs_qcom_phy->tx_sym0_mux_clk || !ufs_qcom_phy->ref_clk_src) {
-		dev_err(ufs_qcom_phy->dev, "%s: null clock\n", __func__);
+		!ufs_qcom_phy->tx_sym0_mux_clk || !ufs_qcom_phy->ref_clk_src)
 		return;
-	}
-
 	/*
 	 * Before entering hibernate, select xo as source of symbol
 	 * clocks according to the UFS Host Controller Hardware
@@ -695,10 +721,8 @@ void ufs_qcom_phy_set_src_clk_h8_exit(struct phy *generic_phy)
 		!ufs_qcom_phy->tx_sym0_mux_clk ||
 		!ufs_qcom_phy->rx_sym0_phy_clk ||
 		!ufs_qcom_phy->rx_sym1_phy_clk ||
-		!ufs_qcom_phy->tx_sym0_phy_clk) {
-		dev_err(ufs_qcom_phy->dev, "%s: null clock\n", __func__);
+		!ufs_qcom_phy->tx_sym0_phy_clk)
 		return;
-	}
 
 	/*
 	 * Refer to the UFS Host Controller Hardware Programming Guide's
@@ -857,6 +881,58 @@ int ufs_qcom_phy_dump_regs(struct ufs_qcom_phy *phy, int offset,
 }
 EXPORT_SYMBOL(ufs_qcom_phy_dump_regs);
 
+/**
+ * ufs_qcom_phy_save_regs - save specified domain of ufs phy registers to memory
+ * @phy - pointer to ufs qcom phy
+ * @offset - register address offest
+ * @len - size of this domain
+ * @prefix - name of this domain
+ */
+int ufs_qcom_phy_save_regs(struct ufs_qcom_phy *phy, int offset,
+		int len, char *prefix)
+{
+	struct ufs_qcom_phy_regs *regs = NULL;
+	struct list_head *head = &phy->regs_list_head;
+	size_t pos;
+	unsigned int noio_flag;
+
+	if (offset % 4 != 0 || len % 4 != 0)
+		return -EINVAL;
+
+	/* find the node if this register domain has been saved before */
+	list_for_each_entry(regs, head, list)
+		if (regs->prefix && !strcmp(regs->prefix, prefix))
+			break;
+
+	/* create a new node and add it to list if this domain never been written */
+	if (&regs->list == head) {
+		/*
+		 * use memalloc_noio_save() here as GFP_ATOMIC should not be invoked
+		 * in an IO error context
+		 */
+		noio_flag = memalloc_noio_save();
+		regs = devm_kzalloc(phy->dev, sizeof(*regs), GFP_ATOMIC);
+		if (!regs)
+			goto out;
+		regs->ptr = devm_kzalloc(phy->dev, len, GFP_ATOMIC);
+		if (!regs->ptr)
+			goto out;
+		memalloc_noio_restore(noio_flag);
+		regs->prefix = prefix;
+		regs->len = len;
+		list_add_tail(&regs->list, &phy->regs_list_head);
+	}
+
+	for (pos = 0; pos < len; pos += 4)
+		regs->ptr[pos / 4] = readl_relaxed(phy->mmio + offset + pos);
+	return 0;
+
+out:
+	memalloc_noio_restore(noio_flag);
+	return -ENOMEM;
+}
+EXPORT_SYMBOL(ufs_qcom_phy_save_regs);
+
 void ufs_qcom_phy_dbg_register_dump(struct phy *generic_phy)
 {
 	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
@@ -865,6 +941,16 @@ void ufs_qcom_phy_dbg_register_dump(struct phy *generic_phy)
 		ufs_qcom_phy->phy_spec_ops->dbg_register_dump(ufs_qcom_phy);
 }
 EXPORT_SYMBOL(ufs_qcom_phy_dbg_register_dump);
+
+void ufs_qcom_phy_dbg_register_save(struct phy *generic_phy)
+{
+	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
+
+	if (ufs_qcom_phy->phy_spec_ops->dbg_register_dump)
+		ufs_qcom_phy->phy_spec_ops->dbg_register_save(ufs_qcom_phy);
+
+}
+EXPORT_SYMBOL(ufs_qcom_phy_dbg_register_save);
 
 MODULE_DESCRIPTION("Universal Flash Storage (UFS) QCOM PHY");
 MODULE_LICENSE("GPL v2");

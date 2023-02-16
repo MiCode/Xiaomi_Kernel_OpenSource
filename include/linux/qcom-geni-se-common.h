@@ -43,12 +43,10 @@ if (print) { \
 
 /* In KHz */
 #define DEFAULT_SE_CLK	19200
-#define SPI_CORE2X_VOTE	100000
+#define SPI_CORE2X_VOTE	51000
 #define I2C_CORE2X_VOTE	19200
 #define I3C_CORE2X_VOTE	19200
-#define UART_CORE2X_VOTE	100000
-#define UART_CONSOLE_CORE2X_VOTE	19200
-#define APPS_PROC_TO_QUP_VOTE	1190000
+#define APPS_PROC_TO_QUP_VOTE	590000
 /* SE_DMA_GENERAL_CFG */
 #define SE_DMA_DEBUG_REG0		(0xE40)
 
@@ -71,6 +69,8 @@ if (print) { \
 #define SE_DMA_RX_IRQ_EN_SET	(0xD4C)
 #define SE_DMA_RX_IRQ_EN_CLR	(0xD50)
 
+#define SE_HW_PARAM_2                   (0xE2C)
+
 #define TX_GENI_CANCEL_IRQ		(BIT(14))
 
 /* DMA DEBUG Register fields */
@@ -92,6 +92,9 @@ if (print) { \
 #define GENI_CFG_REG80		0x240
 #define GENI_IO_MUX_0_EN	BIT(0)
 #define GENI_IO_MUX_1_EN	BIT(1)
+
+/* SE_HW_PARAM_2 fields */
+#define GEN_HW_FSM_I2C			(BIT(15))
 
 /* GENI_CFG_REG80 fields */
 #define IO1_SEL_TX		BIT(2)

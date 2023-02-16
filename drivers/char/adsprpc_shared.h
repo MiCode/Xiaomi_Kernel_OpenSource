@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef ADSPRPC_SHARED_H
 #define ADSPRPC_SHARED_H
@@ -891,7 +891,7 @@ struct fastrpc_channel_ctx {
 	int in_hib;
 	void *handle;
 	uint64_t prevssrcount;
-	int issubsystemup;
+	int subsystemstate;
 	int vmid;
 	struct secure_vm rhvm;
 	void *rh_dump_dev;
@@ -1075,6 +1075,10 @@ struct fastrpc_file {
 	struct completion work;
 	/* Flag to indicate ram dump collection status*/
 	bool is_ramdump_pend;
+	/* Process kill will wait on bus driver invoke thread to complete its process */
+	struct completion dma_invoke;
+	/* Flag to indicate invoke pending */
+	bool is_dma_invoke_pend;
 	/* Flag to indicate type of process (static, dynamic) */
 	uint32_t proc_flags;
 	/* If set, threads will poll for DSP response instead of glink wait */

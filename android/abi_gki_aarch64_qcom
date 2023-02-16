@@ -19,6 +19,7 @@
   __alloc_percpu
   __alloc_skb
   alloc_skb_with_frags
+  alloc_swapdev_block
   alloc_workqueue
   amba_bustype
   amba_driver_register
@@ -72,6 +73,8 @@
   blk_freeze_queue_start
   blk_get_queue
   blk_get_request
+  blk_ksm_get_slot_idx
+  blk_ksm_register
   blk_mark_disk_dead
   blk_mq_alloc_request
   blk_mq_alloc_request_hctx
@@ -109,6 +112,7 @@
   blk_rq_map_user_iov
   blk_rq_unmap_user
   blk_sync_queue
+  blkdev_compat_ptr_ioctl
   blocking_notifier_call_chain
   blocking_notifier_chain_register
   blocking_notifier_chain_unregister
@@ -768,6 +772,9 @@
   get_unused_fd_flags
   get_user_ifreq
   get_zeroed_page
+  gic_cpu_init
+  gic_dist_init
+  gic_dist_wait_for_rwp
   gic_nonsecure_priorities
   gic_resume
   gic_v2_resume
@@ -1118,6 +1125,7 @@
   kthread_should_stop
   kthread_stop
   kthread_worker_fn
+  ktime_add_safe
   ktime_get
   ktime_get_mono_fast_ns
   ktime_get_real_ts64
@@ -1903,6 +1911,7 @@
   smp_call_function
   smp_call_function_single
   smp_call_function_single_async
+  snapshot_get_image_size
   snd_info_create_module_entry
   snd_info_free_entry
   snd_info_register
@@ -2013,6 +2022,7 @@
   syscon_regmap_lookup_by_phandle
   sysctl_sched_features
   sysctl_vals
+  sysctl_vals_new
   sysfs_add_file_to_group
   sysfs_add_link_to_group
   sysfs_create_bin_file
@@ -2142,20 +2152,24 @@
   __traceiter_android_vh_check_hibernation_swap
   __traceiter_android_vh_check_uninterruptible_tasks
   __traceiter_android_vh_check_uninterruptible_tasks_dn
+  __traceiter_android_vh_cma_alloc_retry
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
   __traceiter_android_vh_cpuidle_psci_enter
   __traceiter_android_vh_cpuidle_psci_exit
   __traceiter_android_vh_disable_thermal_cooling_stats
   __traceiter_android_vh_do_wake_up_sync
+  __traceiter_android_vh_encrypt_page
   __traceiter_android_vh_ftrace_dump_buffer
   __traceiter_android_vh_ftrace_format_check
   __traceiter_android_vh_ftrace_oops_enter
   __traceiter_android_vh_ftrace_oops_exit
   __traceiter_android_vh_ftrace_size_check
   __traceiter_android_vh_gic_resume
+  __traceiter_android_vh_gic_suspend
   __traceiter_android_vh_gic_v2_resume
   __traceiter_android_vh_handle_tlb_conf
+  __traceiter_android_vh_init_aes_encrypt
   __traceiter_android_vh_ipi_stop
   __traceiter_android_vh_jiffies_update
   __traceiter_android_vh_kswapd_per_node
@@ -2164,6 +2178,7 @@
   __traceiter_android_vh_madvise_cold_or_pageout
   __traceiter_android_vh_mmc_sdio_pm_flag_set
   __traceiter_android_vh_mmc_sd_update_cmdline_timing
+  __traceiter_android_vh_post_image_save
   __traceiter_android_vh_printk_hotplug
   __traceiter_android_vh_rproc_recovery
   __traceiter_android_vh_rproc_recovery_set
@@ -2172,6 +2187,7 @@
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_show_resume_epoch_val
   __traceiter_android_vh_show_suspend_epoch_val
+  __traceiter_android_vh_skip_swap_map_write
   __traceiter_android_vh_timer_calc_index
   __traceiter_android_vh_ufs_check_int_errors
   __traceiter_android_vh_ufs_clock_scaling
@@ -2254,20 +2270,24 @@
   __tracepoint_android_vh_check_hibernation_swap
   __tracepoint_android_vh_check_uninterruptible_tasks
   __tracepoint_android_vh_check_uninterruptible_tasks_dn
+  __tracepoint_android_vh_cma_alloc_retry
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_cpuidle_psci_enter
   __tracepoint_android_vh_cpuidle_psci_exit
   __tracepoint_android_vh_disable_thermal_cooling_stats
   __tracepoint_android_vh_do_wake_up_sync
+  __tracepoint_android_vh_encrypt_page
   __tracepoint_android_vh_ftrace_dump_buffer
   __tracepoint_android_vh_ftrace_format_check
   __tracepoint_android_vh_ftrace_oops_enter
   __tracepoint_android_vh_ftrace_oops_exit
   __tracepoint_android_vh_ftrace_size_check
   __tracepoint_android_vh_gic_resume
+  __tracepoint_android_vh_gic_suspend
   __tracepoint_android_vh_gic_v2_resume
   __tracepoint_android_vh_handle_tlb_conf
+  __tracepoint_android_vh_init_aes_encrypt
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_jiffies_update
   __tracepoint_android_vh_kswapd_per_node
@@ -2276,6 +2296,7 @@
   __tracepoint_android_vh_madvise_cold_or_pageout
   __tracepoint_android_vh_mmc_sdio_pm_flag_set
   __tracepoint_android_vh_mmc_sd_update_cmdline_timing
+  __tracepoint_android_vh_post_image_save
   __tracepoint_android_vh_printk_hotplug
   __tracepoint_android_vh_rproc_recovery
   __tracepoint_android_vh_rproc_recovery_set
@@ -2284,6 +2305,7 @@
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
+  __tracepoint_android_vh_skip_swap_map_write
   __tracepoint_android_vh_timer_calc_index
   __tracepoint_android_vh_ufs_check_int_errors
   __tracepoint_android_vh_ufs_clock_scaling

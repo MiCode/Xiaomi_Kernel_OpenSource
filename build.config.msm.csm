@@ -1,19 +1,20 @@
 ################################################################################
 # Common MSM configuration for building non-GKI-based kernels
 DEFCONFIG="generic_csm_defconfig"
- OPENSSL_DIR=${KERNEL_DIR}/../build/build-tools/path/linux-x86/openssl
+OPENSSL_DIR=${KERNEL_DIR}/../build/build-tools/path/linux-x86
+OPENSSL_BIN=${KERNEL_DIR}/../build/build-tools/path/linux-x86/openssl
 # Configuration options to build images for MSM targets
 # Must be included AFTER build.config.msm.<target>
 
  append_cmd POST_DEFCONFIG_CMDS 'update_signing_keys_config'
 
 function update_signing_keys_config() {
-	if test -f "${OPENSSL_DIR}"; then
-		${OPENSSL_DIR} req -new -nodes -utf8 -newkey rsa:1024 -days 36500 \
+	if test -f "${OPENSSL_BIN}"; then
+		${OPENSSL_BIN} req -new -nodes -utf8 -newkey rsa:1024 -days 36500 \
 		             -batch -x509 -config ${KERNEL_DIR}/certs/qcom_x509.genkey \
 		             -outform PEM -out ${OUT_DIR}/verity_cert.pem -keyout ${OUT_DIR}/verity_key.pem
 
-		${OPENSSL_DIR} req -new -nodes -utf8 -sha256 -days 36500 \
+		${OPENSSL_BIN} req -new -nodes -utf8 -sha256 -days 36500 \
 		             -batch -x509 -config ${KERNEL_DIR}/certs/qcom_x509.genkey \
 		             -outform PEM -out ${OUT_DIR}/signing_key.pem -keyout ${OUT_DIR}/signing_key.pem
 

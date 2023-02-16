@@ -121,6 +121,11 @@ config INDIRECT_IOMEM_FALLBACK
 	  mmio accesses when the IO memory address is not a registered
 	  emulated region.
 
+source "lib/crypto/Kconfig"
+
+config LIB_MEMNEQ
+	bool
+
 config TRACE_MMIO_ACCESS
 	bool "Register read/write tracing"
 	depends on TRACING && ARCH_HAVE_TRACE_MMIO_ACCESS

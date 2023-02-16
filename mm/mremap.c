@@ -219,7 +219,11 @@ static inline bool arch_supports_page_table_move(void)
 }
 #endif
 
-#ifdef CONFIG_HAVE_MOVE_PMD
+/*
+ * Speculative page fault handlers will not detect page table changes done
+ * without ptl locking.
+ */
+#if defined(CONFIG_HAVE_MOVE_PMD) && !defined(CONFIG_SPECULATIVE_PAGE_FAULT)
 static bool move_normal_pmd(struct vm_area_struct *vma, unsigned long old_addr,
 		  unsigned long new_addr, pmd_t *old_pmd, pmd_t *new_pmd)
 {
@@ -287,7 +291,12 @@ static inline bool move_normal_pmd(struct vm_area_struct *vma,
 }
 #endif
 
-#if CONFIG_PGTABLE_LEVELS > 2 && defined(CONFIG_HAVE_MOVE_PUD)
+/*
+ * Speculative page fault handlers will not detect page table changes done
+ * without ptl locking.
+ */
+#if CONFIG_PGTABLE_LEVELS > 2 && defined(CONFIG_HAVE_MOVE_PUD) && \
+		!defined(CONFIG_SPECULATIVE_PAGE_FAULT)
 static bool move_normal_pud(struct vm_area_struct *vma, unsigned long old_addr,
 		  unsigned long new_addr, pud_t *old_pud, pud_t *new_pud)
 {
@@ -674,6 +683,7 @@ static unsigned long move_vma(struct vm_area_struct *vma,
 		/* We always clear VM_LOCKED[ONFAULT] on the old vma */
 		vma->vm_flags &= VM_LOCKED_CLEAR_MASK;
 
+#ifndef CONFIG_SPECULATIVE_PAGE_FAULT
 		/*
 		 * anon_vma links of the old vma is no longer needed after its page
 		 * table has been moved.
@@ -681,6 +691,7 @@ static unsigned long move_vma(struct vm_area_struct *vma,
 		if (new_vma != vma && vma->vm_start == old_addr &&
 			vma->vm_end == (old_addr + old_len))
 			unlink_anon_vmas(vma);
+#endif
 
 		/* Because we won't unmap we don't need to touch locked_vm */
 		return new_addr;

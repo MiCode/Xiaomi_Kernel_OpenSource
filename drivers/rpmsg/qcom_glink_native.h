@@ -42,4 +42,7 @@ int qcom_glink_native_start(struct qcom_glink *glink);
 void qcom_glink_native_remove(struct qcom_glink *glink);
 
 void qcom_glink_native_unregister(struct qcom_glink *glink);
+
+void *qcom_glink_prepare_da_for_cpu(u64 da, size_t len);
+
 #endif

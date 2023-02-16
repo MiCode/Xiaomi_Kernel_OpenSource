@@ -27,6 +27,8 @@
 #define SPI_XFER_TIMEOUT_MS	(250)
 #define SPI_AUTO_SUSPEND_DELAY	(250)
 #define SPI_XFER_TIMEOUT_OFFSET	(250)
+#define SPI_SLAVE_SYNC_XFER_TIMEOUT_OFFSET	(50)
+
 /* SPI SE specific registers */
 #define SE_SPI_CPHA		(0x224)
 #define SE_SPI_LOOPBACK		(0x22C)
@@ -223,10 +225,10 @@ struct spi_geni_master {
 	bool disable_dma;
 	bool slave_setup;
 	bool slave_state;
-	bool use_fixed_timeout;
 	bool slave_cross_connected;
 	bool master_cross_connect;
 	bool is_deep_sleep; /* For deep sleep restore the config similar to the probe. */
+	u32 xfer_timeout_offset;
 };
 
 /**
@@ -1775,15 +1777,20 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		return -EACCES;
 	}
 
-	if (mas->use_fixed_timeout)
-		xfer_timeout = msecs_to_jiffies(SPI_XFER_TIMEOUT_MS);
-	else
-		xfer_timeout =
-			100 * msecs_to_jiffies(DIV_ROUND_UP(xfer->len * 8,
-			DIV_ROUND_UP(xfer->speed_hz, MSEC_PER_SEC)));
+	xfer_timeout = (1000 * xfer->len * BITS_PER_BYTE) / xfer->speed_hz;
+	if (mas->xfer_timeout_offset) {
+		xfer_timeout += mas->xfer_timeout_offset;
+	} else {
+		/* Master <-> slave sync will be valid for smaller time */
+		if (spi->slave)
+			xfer_timeout += SPI_SLAVE_SYNC_XFER_TIMEOUT_OFFSET;
+		else
+			xfer_timeout += SPI_XFER_TIMEOUT_OFFSET;
+	}
+
 	SPI_LOG_ERR(mas->ipc, false, mas->dev,
 			"current xfer_timeout:%lu ms.\n", xfer_timeout);
-
+	xfer_timeout = msecs_to_jiffies(xfer_timeout);
 
 	if (mas->cur_xfer_mode != GENI_GPI_DMA) {
 		reinit_completion(&mas->xfer_done);
@@ -2065,13 +2072,73 @@ exit_geni_spi_irq:
 	return IRQ_HANDLED;
 }
 
+/**
+ * spi_get_dt_property: To read DTSI property.
+ * @pdev: structure to platform driver.
+ * @geni_mas: structure to spi geni.
+ * @spi: structure to spi master.
+ *
+ * This function will read SPI DTSI property.
+ *
+ * return: None.
+ */
+static void spi_get_dt_property(struct platform_device *pdev,
+				struct spi_geni_master *geni_mas,
+				struct spi_master *spi)
+{
+	geni_mas->set_miso_sampling =
+	of_property_read_bool(pdev->dev.of_node, "qcom,set-miso-sampling");
+	if (geni_mas->set_miso_sampling) {
+		if (!of_property_read_u32(pdev->dev.of_node, "qcom,miso-sampling-ctrl-val",
+					  &geni_mas->miso_sampling_ctrl_val))
+			dev_info(&pdev->dev, "MISO_SAMPLING_SET: %d\n",
+				 geni_mas->miso_sampling_ctrl_val);
+	}
+
+	geni_mas->disable_dma =
+	of_property_read_bool(pdev->dev.of_node, "qcom,disable-dma");
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,master-cross-connect"))
+		geni_mas->master_cross_connect = true;
+
+	of_property_read_u32(pdev->dev.of_node, "qcom,xfer-timeout-offset",
+			     &geni_mas->xfer_timeout_offset);
+	if (geni_mas->xfer_timeout_offset)
+		dev_info(&pdev->dev, "%s: DT based xfer timeout offset: %d\n",
+			 __func__, geni_mas->xfer_timeout_offset);
+
+	spi->rt = of_property_read_bool(pdev->dev.of_node, "qcom,rt");
+
+	geni_mas->dis_autosuspend =
+	of_property_read_bool(pdev->dev.of_node, "qcom,disable-autosuspend");
+
+	/*
+	 * shared_se property is set when spi is being used simultaneously
+	 * from two Execution Environments.
+	 */
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,shared_se")) {
+		geni_mas->shared_se = true;
+		geni_mas->shared_ee = true;
+	} else {
+		/*
+		 * shared_ee property will be set when spi is being used from
+		 * dual Execution Environments unlike gsi_mode flag
+		 * which is set if SE is in GSI mode.
+		 */
+		geni_mas->shared_ee =
+		of_property_read_bool(pdev->dev.of_node, "qcom,shared_ee");
+	}
+
+	geni_mas->slave_cross_connected =
+	of_property_read_bool(pdev->dev.of_node, "slv-cross-connected");
+}
 static int spi_geni_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct spi_master *spi;
 	struct spi_geni_master *geni_mas;
 	struct resource *res;
-	bool rt_pri, slave_en;
+	bool slave_en;
 	struct device *dev = &pdev->dev;
 	struct geni_se *spi_rsc;
 	char boot_marker[40];
@@ -2241,42 +2308,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 		goto spi_geni_probe_err;
 	}
 
-	rt_pri = of_property_read_bool(pdev->dev.of_node, "qcom,rt");
-	if (rt_pri)
-		spi->rt = true;
-	geni_mas->dis_autosuspend =
-		of_property_read_bool(pdev->dev.of_node,
-				"qcom,disable-autosuspend");
-	geni_mas->use_fixed_timeout =
-		of_property_read_bool(pdev->dev.of_node,
-				"qcom,use-fixed-timeout");
-	/*
-	 * shared_se property is set when spi is being used simultaneously
-	 * from two Execution Environments.
-	 */
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,shared_se")) {
-		geni_mas->shared_se = true;
-		geni_mas->shared_ee = true;
-	} else {
-
-		/*
-		 * shared_ee property will be set when spi is being used from
-		 * dual Execution Environments unlike gsi_mode flag
-		 * which is set if SE is in GSI mode.
-		 */
-		geni_mas->shared_ee =
-		of_property_read_bool(pdev->dev.of_node, "qcom,shared_ee");
-	}
-
-	geni_mas->set_miso_sampling = of_property_read_bool(pdev->dev.of_node,
-				"qcom,set-miso-sampling");
-	if (geni_mas->set_miso_sampling) {
-		if (!of_property_read_u32(pdev->dev.of_node,
-				"qcom,miso-sampling-ctrl-val",
-				&geni_mas->miso_sampling_ctrl_val))
-			dev_info(&pdev->dev, "MISO_SAMPLING_SET: %d\n",
-				geni_mas->miso_sampling_ctrl_val);
-	}
+	spi_get_dt_property(pdev, geni_mas, spi);
 	geni_mas->phys_addr = res->start;
 	geni_mas->size = resource_size(res);
 	geni_mas->base = devm_ioremap(&pdev->dev, res->start,
@@ -2288,15 +2320,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 	}
 	geni_mas->spi_rsc.base = geni_mas->base;
 
-	geni_mas->disable_dma = of_property_read_bool(pdev->dev.of_node,
-		"qcom,disable-dma");
-
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,master-cross-connect"))
-		geni_mas->master_cross_connect = true;
-
-	geni_mas->is_deep_sleep = false;
-	geni_mas->slave_cross_connected =
-		of_property_read_bool(pdev->dev.of_node, "slv-cross-connected");
 	spi->mode_bits = (SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH);
 	spi->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
 	spi->num_chipselect = SPI_NUM_CHIPSELECT;
@@ -2390,6 +2413,13 @@ static int spi_geni_gpi_suspend_resume(struct spi_geni_master *geni_mas, bool is
 	 */
 	if (geni_mas->tx) {
 		if (is_suspend) {
+			/* For deep sleep need to restore the config similar to the probe,
+			 * hence using MSM_GPI_DEEP_SLEEP_INIT flag, in gpi_resume it wil
+			 * do similar to the probe. After this we should set this flag to
+			 * MSM_GPI_DEFAULT, means gpi probe state is restored.
+			 */
+			if (geni_mas->is_deep_sleep)
+				geni_mas->tx_event.cmd = MSM_GPI_DEEP_SLEEP_INIT;
 			tx_ret = dmaengine_pause(geni_mas->tx);
 		} else {
 			/* For deep sleep need to restore the config similar to the probe,
@@ -2589,6 +2619,13 @@ static int spi_geni_suspend(struct device *dev)
 			    __func__, ret);
 		return ret;
 	}
+#ifdef CONFIG_DEEPSLEEP
+	if (pm_suspend_via_firmware()) {
+		SPI_LOG_ERR(geni_mas->ipc, true, dev,
+			    "%s:DEEP SLEEP EXIT", __func__);
+		geni_mas->is_deep_sleep = true;
+	}
+#endif
 
 	if (!pm_runtime_status_suspended(dev)) {
 		if (list_empty(&spi->queue) && !spi->cur_msg) {
@@ -2608,13 +2645,6 @@ static int spi_geni_suspend(struct device *dev)
 		}
 	}
 
-#ifdef CONFIG_DEEPSLEEP
-	if (pm_suspend_via_firmware()) {
-		SPI_LOG_ERR(geni_mas->ipc, true, dev,
-			    "%s:DEEP SLEEP EXIT", __func__);
-		geni_mas->is_deep_sleep = true;
-	}
-#endif
 	return ret;
 }
 #else

@@ -1,14 +1,21 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __QBG_H__
 #define __QBG_H__
 
+#include <linux/types.h>
+
 #define MAX_FIFO_COUNT			36
 #define QBG_MAX_STEP_CHG_ENTRIES	6
+
+#define QBG_QBGIOCXCFG			0x01
+#define QBG_QBGIOCXEPR			0x02
+#define QBG_QBGIOCXEPW			0x03
+#define QBG_QBGIOCXSTEPCHGCFG		0x04
 
 enum QBG_STATE {
 	QBG_LPM,
@@ -122,10 +129,10 @@ struct qbg_config {
 	unsigned int	vph_min_mv;
 	unsigned int	iterm_ma;
 	unsigned int	rconn_mohm;
-	unsigned long	current_time;
+	__u64		current_time;
 	unsigned int	sdam_batt_id;
 	unsigned int	essential_param_revid;
-	unsigned long	sample_time_us[QBG_STATE_MAX];
+	__u64		sample_time_us[QBG_STATE_MAX];
 } __attribute__ ((__packed__));
 
 struct qbg_param {

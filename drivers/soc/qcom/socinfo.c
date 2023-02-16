@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2009-2017, 2021 The Linux Foundation. All rights reserved.
  * Copyright (c) 2017-2019, Linaro Ltd.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -140,6 +140,7 @@ enum {
 	HW_PLATFORM_ATP = 33,
 	HW_PLATFORM_IDP = 34,
 	HW_PLATFORM_X100 = 39,
+	HW_PLATFORM_WDP = 36,
 	HW_PLATFORM_INVALID
 };
 
@@ -166,6 +167,7 @@ static const char * const hw_platform[] = {
 	[HW_PLATFORM_ATP] = "ATP",
 	[HW_PLATFORM_IDP] = "IDP",
 	[HW_PLATFORM_X100] = "X100",
+	[HW_PLATFORM_WDP] = "WDP",
 };
 
 enum {
@@ -1065,6 +1067,8 @@ static const struct soc_id soc_id[] = {
 	{ 349, "SDM632" },
 	{ 350, "SDA632" },
 	{ 351, "SDA450" },
+	{ 352, "QCS405" },
+	{ 411, "QCS407" },
 	{ 356, "SM8250" },
 	{ 362, "SA8155" },
 	{ 367, "SA8155P" },
@@ -1087,6 +1091,7 @@ static const struct soc_id soc_id[] = {
 	{ 481, "KONA-IOT" },
 	{ 482, "WAIPIOP" },
 	{ 486, "MONACO" },
+	{ 496, "QRB5165N" },
 	{ 517, "MONACOP" },
 	{ 518, "KHAJE" },
 	{ 548, "KONA-7230-IOT" },
@@ -1112,6 +1117,7 @@ static const struct soc_id soc_id[] = {
 	{ 601, "SG_KALAMAP"},
 	{ 603, "QCS_KALAMAP"},
 	{ 604, "QCM_KALAMA"},
+	{ 608, "CROW" },
 };
 
 static struct qcom_socinfo *qsocinfo;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(msg) "power_state: " msg
 
@@ -29,6 +29,7 @@
 #include <linux/time.h>
 #include <linux/ktime.h>
 #include <linux/pm_wakeup.h>
+#include <linux/compat.h>
 #include "linux/power_state.h"
 
 #define POWER_STATE "power_state"
@@ -243,6 +244,7 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 	switch (ui_power_state_cmd) {
 
 	case LPM_ACTIVE:
+	case POWER_STATE_LPM_ACTIVE:
 		pr_debug("%s: Changed to Active\n", __func__);
 		if (pm_suspend_via_firmware()) {
 			pm_suspend_clear_flags();
@@ -253,16 +255,19 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 		break;
 
 	case ENTER_DEEPSLEEP:
+	case POWER_STATE_ENTER_DEEPSLEEP:
 		pr_debug("%s: Enter Deep Sleep\n", __func__);
 		current_state = DEEPSLEEP;
 		break;
 
 	case ENTER_HIBERNATE:
+	case POWER_STATE_ENTER_HIBERNATE:
 		pr_debug("%s: Enter Hibernate\n", __func__);
 		current_state = HIBERNATE;
 		break;
 
 	case MODEM_SUSPEND:
+	case POWER_STATE_MODEM_SUSPEND:
 		pr_debug("%s: Initiating Modem Shutdown\n", __func__);
 		if (copy_from_user(&ui_obj_msg, (void __user *)arg,
 					sizeof(ui_obj_msg))) {
@@ -279,6 +284,7 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 		break;
 
 	case ADSP_SUSPEND:
+	case POWER_STATE_ADSP_SUSPEND:
 		pr_debug("%s: Initiating ADSP Shutdown\n", __func__);
 		if (copy_from_user(&ui_obj_msg, (void __user *)arg,
 					sizeof(ui_obj_msg))) {
@@ -295,6 +301,7 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 		break;
 
 	case MODEM_EXIT:
+	case POWER_STATE_MODEM_EXIT:
 		pr_debug("%s: Loading Modem Subsystem\n", __func__);
 		if (copy_from_user(&ui_obj_msg, (void __user *)arg,
 					sizeof(ui_obj_msg))) {
@@ -312,6 +319,7 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 		break;
 
 	case ADSP_EXIT:
+	case POWER_STATE_ADSP_EXIT:
 		pr_debug("%s: Loading ADSP Subsystem\n", __func__);
 		if (copy_from_user(&ui_obj_msg, (void __user *)arg,
 					sizeof(ui_obj_msg))) {
@@ -336,11 +344,19 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 	return ret;
 }
 
+static long compat_ps_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	unsigned int nr = 0;
+
+	nr = _IOC_NR(cmd);
+	return (long)ps_ioctl(file, nr, arg);
+}
 static const struct file_operations ps_fops = {
 	.owner = THIS_MODULE,
 	.open = ps_open,
 	.release = ps_release,
 	.unlocked_ioctl = ps_ioctl,
+	.compat_ioctl = compat_ps_ioctl,
 };
 
 static int __init init_power_state_func(void)
