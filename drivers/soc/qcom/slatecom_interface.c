@@ -16,9 +16,6 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/kobject.h>
-#include "slatecom.h"
-#include "linux/slatecom_interface.h"
-#include <linux/soc/qcom/slatecom_interface.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
@@ -30,7 +27,13 @@
 #include <linux/remoteproc.h>
 #include <linux/remoteproc/qcom_rproc.h>
 #include <linux/compat.h>
+#include <linux/soc/qcom/slatecom_interface.h>
+
+#include <uapi/linux/slatecom_interface.h>
+
+#include "slatecom.h"
 #include "slatecom_rpmsg.h"
+
 
 #define SLATECOM "slate_com_dev"
 #define SLATEDAEMON_LDO09_LPM_VTG 0
@@ -52,6 +55,8 @@
 static char btss_state[BUF_SIZE] = "offline";
 static char dspss_state[BUF_SIZE] = "offline";
 static void ssr_register(void);
+static int setup_pmic_gpio15(void);
+static unsigned int pmic_gpio15 = -1;
 
 /* tzapp command list.*/
 enum slate_tz_commands {
@@ -349,6 +354,8 @@ static int slatechar_read_cmd(struct slate_ui_data *fui_obj_msg,
 		pr_err("copy to user failed\n");
 		ret = -EFAULT;
 	}
+	if (ret < 0)
+		pr_err("%s failed\n", __func__);
 	kfree(read_buf);
 	return ret;
 }
@@ -384,6 +391,8 @@ static int slatechar_write_cmd(struct slate_ui_data *fui_obj_msg, unsigned int t
 				write_buf);
 		break;
 	}
+	if (ret < 0)
+		pr_err("%s failed\n", __func__);
 	kfree(write_buf);
 	return ret;
 }
@@ -427,7 +436,6 @@ static int slatecom_fw_load(struct slatedaemon_priv *priv)
 			goto fail;
 		}
 	}
-
 	ret = rproc_boot(priv->pil_h);
 	if (ret) {
 		pr_err("%s: rproc boot failed, err: %d\n",
@@ -455,6 +463,7 @@ static void slatecom_fw_unload(struct slatedaemon_priv *priv)
 		rproc_shutdown(priv->pil_h);
 		priv->pil_h = NULL;
 	}
+
 }
 
 int slate_soft_reset(void)
@@ -580,11 +589,35 @@ static int send_debug_config(struct slate_ui_data *tui_obj_msg)
 	return ret;
 }
 
+int set_slate_boot_mode(uint32_t mode)
+{
+	gpio_direction_output(pmic_gpio15, 0);
+	gpio_set_value(pmic_gpio15, mode);
+	/*get back pmic gpio*/
+	if (gpio_get_value(pmic_gpio15) == mode)
+		return RESULT_SUCCESS;
+	return RESULT_FAILURE;
+}
+EXPORT_SYMBOL(set_slate_boot_mode);
+
+int get_slate_boot_mode(void)
+{
+	int mode = -1;
+
+	if (gpio_direction_input(pmic_gpio15) < 0)
+		return RESULT_FAILURE;
+	mode = gpio_get_value(pmic_gpio15);
+
+	return mode;
+}
+EXPORT_SYMBOL(get_slate_boot_mode);
+
 static long slate_com_ioctl(struct file *filp,
 		unsigned int ui_slatecom_cmd, unsigned long arg)
 {
 	int ret = 0;
 	struct slate_ui_data ui_obj_msg;
+	uint32_t slate_boot_mode = 0;
 
 	if (filp == NULL)
 		return -EINVAL;
@@ -599,8 +632,6 @@ static long slate_com_ioctl(struct file *filp,
 		}
 		ret = slatechar_read_cmd(&ui_obj_msg,
 				ui_slatecom_cmd);
-		if (ret < 0)
-			pr_err("slatechar_read_cmd failed\n");
 		break;
 	case SLATECOM_AHB_WRITE:
 	case SLATECOM_REG_WRITE:
@@ -610,8 +641,6 @@ static long slate_com_ioctl(struct file *filp,
 			ret = -EFAULT;
 		}
 		ret = slatechar_write_cmd(&ui_obj_msg, ui_slatecom_cmd);
-		if (ret < 0)
-			pr_err("slatechar_write_cmd failed\n");
 		break;
 	case SLATECOM_SET_SPI_FREE:
 		ret = slatecom_set_spi_state(SLATECOM_SPI_FREE);
@@ -649,6 +678,14 @@ static long slate_com_ioctl(struct file *filp,
 		slatecom_fw_unload(dev);
 		ret = 0;
 		break;
+	case SLATECOM_SET_BOOT_MODE:
+		if (copy_from_user(&slate_boot_mode, (uint32_t *) arg, sizeof(slate_boot_mode)))
+			pr_err("copy from user is failed..!\n");
+		ret = set_slate_boot_mode(slate_boot_mode);
+		break;
+	case SLATECOM_GET_BOOT_MODE:
+		ret = get_slate_boot_mode();
+		break;
 	case SLATECOM_DEVICE_STATE_TRANSITION:
 		if (dev->slatecom_current_state != SLATECOM_STATE_GLINK_OPEN) {
 			pr_err("driver not ready, glink is not open\n");
@@ -660,8 +697,6 @@ static long slate_com_ioctl(struct file *filp,
 			ret = -EFAULT;
 		}
 		ret = send_state_change_cmd(&ui_obj_msg);
-		if (ret < 0)
-			pr_err("device_state_transition cmd failed\n");
 		break;
 	case SLATE_SEND_TIME_DATA:
 		if (dev->slatecom_current_state != SLATECOM_STATE_GLINK_OPEN) {
@@ -675,8 +710,6 @@ static long slate_com_ioctl(struct file *filp,
 			ret = -EFAULT;
 		}
 		ret = send_time_sync(&ui_obj_msg);
-		if (ret < 0)
-			pr_err("send_time_data cmd failed\n");
 		break;
 	case SLATECOM_SEND_DEBUG_CONFIG:
 		if (dev->slatecom_current_state != SLATECOM_STATE_GLINK_OPEN) {
@@ -690,8 +723,6 @@ static long slate_com_ioctl(struct file *filp,
 			ret = -EFAULT;
 		}
 		ret = send_debug_config(&ui_obj_msg);
-		if (ret < 0)
-			pr_err("send_time_data cmd failed\n");
 		break;
 	default:
 		ret = -ENOIOCTLCMD;
@@ -857,7 +888,7 @@ static int slate_daemon_probe(struct platform_device *pdev)
 	dev->platform_dev = &pdev->dev;
 	pr_info("%s success\n", __func__);
 	slate_pdev = pdev;
-
+	setup_pmic_gpio15();
 	ssr_register();
 
 	return 0;
@@ -1168,6 +1199,25 @@ static void ssr_register(void)
 
 }
 
+static int setup_pmic_gpio15(void)
+{
+	int val = 0;
+
+	val = of_get_named_gpio(slate_pdev->dev.of_node, "qcom,platform-reset-gpio", 0);
+	if (val < 0) {
+		pr_err("pmic gpio is not found, error=%d\n", val);
+		return -EINVAL;
+	}
+	pmic_gpio15 = val;
+	if (gpio_request(pmic_gpio15, "SLATE_EFLASH_STATUS")) {
+		dev_err(&slate_pdev->dev,
+			"%s Failed to configure SLATE_EFLASH_STATUS gpio\n",
+				__func__);
+		return -EINVAL;
+	}
+	return RESULT_SUCCESS;
+}
+
 static int __init init_slate_com_dev(void)
 {
 	int ret, i = 0;
@@ -1234,6 +1284,7 @@ static void __exit exit_slate_com_dev(void)
 	cdev_del(&slate_cdev);
 	unregister_chrdev_region(slate_dev, 1);
 	platform_driver_unregister(&slate_daemon_driver);
+	gpio_free(pmic_gpio15);
 }
 
 module_init(init_slate_com_dev);
