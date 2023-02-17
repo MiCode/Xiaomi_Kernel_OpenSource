@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CNSS_PCI_H
@@ -283,4 +283,7 @@ int cnss_pci_update_time_sync_period(struct cnss_pci_data *pci_priv,
 void cnss_pci_handle_linkdown(struct cnss_pci_data *pci_priv);
 
 bool cnss_pci_is_smmu_s1_enabled(struct cnss_pci_data *pci_priv);
+int cnss_pci_set_therm_cdev_state(struct cnss_pci_data *pci_priv,
+				  unsigned long thermal_state,
+				  int tcdev_id);
 #endif /* _CNSS_PCI_H */

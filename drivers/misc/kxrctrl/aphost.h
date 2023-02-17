@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __APHOST_H__
@@ -110,6 +110,7 @@ typedef enum _requestType_t
 	getRightJoyStickProductNameRequest,
 	getLeftJoyStickFwVersionRequest,
 	getRightJoyStickFwVersionRequest,
+	setControllerSleepMode = 12,
 	invalidRequest,
 } requestType_t;
 

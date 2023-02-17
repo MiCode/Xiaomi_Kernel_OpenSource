@@ -1982,23 +1982,20 @@ static int geni_i2c_resume_early(struct device *device)
 	return 0;
 }
 
-static int geni_i2c_gpi_pause_resume(struct geni_i2c_dev *gi2c, bool flag)
+static int geni_i2c_gpi_pause_resume(struct geni_i2c_dev *gi2c, bool is_suspend)
 {
-	int tx_ret = 0, rx_ret = 0;
+	int tx_ret = 0;
 
-	if ((gi2c->tx_c != NULL) && (gi2c->rx_c != NULL)) {
-		if (flag) {
+	if (gi2c->tx_c) {
+		if (is_suspend)
 			tx_ret = dmaengine_pause(gi2c->tx_c);
-			rx_ret = dmaengine_pause(gi2c->rx_c);
-		} else {
+		else
 			tx_ret = dmaengine_resume(gi2c->tx_c);
-			rx_ret = dmaengine_resume(gi2c->rx_c);
-		}
 
-		if (tx_ret || rx_ret) {
+		if (tx_ret) {
 			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
-			"%s failed: tx:%d rx:%d flag:%d\n",
-			__func__, tx_ret, rx_ret, flag);
+				"%s failed: tx:%d status:%d\n",
+				__func__, tx_ret, is_suspend);
 			return -EINVAL;
 		}
 	}

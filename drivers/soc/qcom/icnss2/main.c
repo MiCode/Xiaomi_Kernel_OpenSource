@@ -138,16 +138,29 @@ struct icnss_priv *icnss_get_plat_priv(void)
 	return penv;
 }
 
+static inline void icnss_wpss_unload(struct icnss_priv *priv)
+{
+	if (priv && priv->rproc) {
+		rproc_shutdown(priv->rproc);
+		rproc_put(priv->rproc);
+		priv->rproc = NULL;
+	}
+}
+
 static ssize_t icnss_sysfs_store(struct kobject *kobj,
 				 struct kobj_attribute *attr,
 				 const char *buf, size_t count)
 {
 	struct icnss_priv *priv = icnss_get_plat_priv();
 
-	if (priv)
-		atomic_set(&priv->is_shutdown, true);
+	if (!priv)
+		return count;
 
 	icnss_pr_dbg("Received shutdown indication");
+
+	atomic_set(&priv->is_shutdown, true);
+	if (priv->wpss_supported && priv->device_id == ADRASTEA_DEVICE_ID)
+		icnss_wpss_unload(priv);
 
 	return count;
 }
@@ -499,7 +512,7 @@ static int icnss_send_smp2p(struct icnss_priv *priv,
 		    msg_id == ICNSS_SOC_WAKE_REL) {
 			if (!wait_for_completion_timeout(
 					&priv->smp2p_soc_wake_wait,
-					msecs_to_jiffies(SMP2P_SOC_WAKE_TIMEOUT))) {
+					priv->ctrl_params.soc_wake_timeout)) {
 				icnss_pr_err("SMP2P Soc Wake timeout msg %d, %s\n", msg_id,
 					     icnss_smp2p_str[smp2p_entry]);
 				if (!test_bit(ICNSS_FW_DOWN, &priv->state))
@@ -535,7 +548,7 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 	if (priv) {
 		if (priv->wpss_self_recovery_enabled)
 			mod_timer(&priv->wpss_ssr_timer,
-				   jiffies + msecs_to_jiffies(ICNSS_WPSS_SSR_TIMEOUT));
+				   jiffies + priv->ctrl_params.wpss_ssr_timeout);
 
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
@@ -1169,7 +1182,7 @@ static int icnss_driver_event_fw_init_done(struct icnss_priv *priv, void *data)
 
 	if (test_bit(ICNSS_COLD_BOOT_CAL, &priv->state)) {
 		mod_timer(&priv->recovery_timer,
-			  jiffies + msecs_to_jiffies(ICNSS_CAL_TIMEOUT));
+			  jiffies + priv->ctrl_params.cal_timeout);
 		ret = wlfw_wlan_mode_send_sync_msg(priv,
 			(enum wlfw_driver_mode_enum_v01)ICNSS_CALIBRATION);
 	} else {
@@ -2082,14 +2095,16 @@ static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 	icnss_pr_info("WPSS went down, state: 0x%lx, crashed: %d\n",
 		      priv->state, notif->crashed);
 
+	if (priv->device_id == ADRASTEA_DEVICE_ID)
+		icnss_update_state_send_modem_shutdown(priv, data);
+
 	set_bit(ICNSS_FW_DOWN, &priv->state);
+	icnss_ignore_fw_timeout(true);
 
 	if (notif->crashed)
 		priv->stats.recovery.root_pd_crash++;
 	else
 		priv->stats.recovery.root_pd_shutdown++;
-
-	icnss_ignore_fw_timeout(true);
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 
@@ -2111,7 +2126,7 @@ static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 
 	if (notif->crashed)
 		mod_timer(&priv->recovery_timer,
-			  jiffies + msecs_to_jiffies(ICNSS_RECOVERY_TIMEOUT));
+			  jiffies + priv->ctrl_params.recovery_timeout);
 out:
 	icnss_pr_vdbg("Exit %s,state: 0x%lx\n", __func__, priv->state);
 	return NOTIFY_OK;
@@ -2192,7 +2207,7 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 
 	if (notif->crashed)
 		mod_timer(&priv->recovery_timer,
-			  jiffies + msecs_to_jiffies(ICNSS_RECOVERY_TIMEOUT));
+			  jiffies + priv->ctrl_params.recovery_timeout);
 out:
 	icnss_pr_vdbg("Exit %s,state: 0x%lx\n", __func__, priv->state);
 	return NOTIFY_OK;
@@ -2353,7 +2368,7 @@ static void icnss_pdr_notifier_cb(int state, char *service_path, void *priv_cb)
 		if (event_data->crashed)
 			mod_timer(&priv->recovery_timer,
 				  jiffies +
-				  msecs_to_jiffies(ICNSS_RECOVERY_TIMEOUT));
+				  priv->ctrl_params.recovery_timeout);
 
 		icnss_driver_event_post(priv, ICNSS_DRIVER_EVENT_PD_SERVICE_DOWN,
 					ICNSS_EVENT_SYNC, event_data);
@@ -3765,15 +3780,6 @@ static void icnss_wpss_load(struct work_struct *wpss_load_work)
 	}
 }
 
-static inline void icnss_wpss_unload(struct icnss_priv *priv)
-{
-	if (priv && priv->rproc) {
-		rproc_shutdown(priv->rproc);
-		rproc_put(priv->rproc);
-		priv->rproc = NULL;
-	}
-}
-
 static ssize_t wpss_boot_store(struct device *dev,
 			       struct device_attribute *attr,
 			       const char *buf, size_t count)
@@ -4275,6 +4281,10 @@ MODULE_DEVICE_TABLE(of, icnss_dt_match);
 static void icnss_init_control_params(struct icnss_priv *priv)
 {
 	priv->ctrl_params.qmi_timeout = WLFW_TIMEOUT;
+	priv->ctrl_params.recovery_timeout = msecs_to_jiffies(ICNSS_RECOVERY_TIMEOUT);
+	priv->ctrl_params.soc_wake_timeout = msecs_to_jiffies(SMP2P_SOC_WAKE_TIMEOUT);
+	priv->ctrl_params.cal_timeout = msecs_to_jiffies(ICNSS_CAL_TIMEOUT);
+	priv->ctrl_params.wpss_ssr_timeout = msecs_to_jiffies(ICNSS_WPSS_SSR_TIMEOUT);
 	priv->ctrl_params.quirks = ICNSS_QUIRKS_DEFAULT;
 	priv->ctrl_params.bdf_type = ICNSS_BDF_TYPE_DEFAULT;
 
