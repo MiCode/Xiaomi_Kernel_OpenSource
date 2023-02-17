@@ -3316,6 +3316,52 @@ int ep_pcie_core_msix_db_val(u32 idx, u32 vf_id)
 	return idx;
 }
 
+int ep_pcie_core_get_msix_config(struct ep_pcie_msi_config *cfg, u32 vf_id)
+{
+	u32 lower;
+	u32 data = 0, ctrl_reg;
+	u32 cap = ep_pcie_dev.msix_cap;
+	void __iomem *dbi = ep_pcie_dev.dm_core;
+
+	/*
+	 * We can only use the upper region of 40th bit for MSIX doorbell writes
+	 * as ECPRI doesn't have access in the NOC connectivity to PCIE memory.
+	 * Since the upper region is usually used for host DDR memory transactions
+	 * BAR address is chosen consciously to avoid creation of any memory
+	 * hole in the host addressable memory region.
+	 */
+	lower = readl_relaxed(ep_pcie_dev.dm_core + PCIE20_BAR0);
+	/* Bar address is between 4-31 bits, masking 0-3 bits */
+	lower &= ~(0xf);
+	cfg->lower = lower;
+
+	/* Set 40th bit in upper address */
+	cfg->upper = 0x100;
+
+	lower |= PCIE20_MSIX_ADDRESS_MATCH_EN;
+	ep_pcie_write_reg(dbi, cap + PCIE20_MSIX_ADDRESS_MATCH_LOW_OFF, lower);
+	/*
+	 * Make sure 40th bit is not set in upper address match register
+	 * The PCIE EP controller is configured to flip 40th bit during
+	 * transactions. While a MSIX generation happens from MHI driver
+	 * or ECPRI/IPA DMA engiene to the BAR address with 40th bit set
+	 * the controller will flip 40th bit and match it with the
+	 * MSIX_ADDRESS_MATCH LOW,HIGH registers. So HIGH register has to
+	 * have 40th bit unset so that the ADDRESS matches and the
+	 * transaction is treated as a write to generate MSIX to host.
+	 */
+	ep_pcie_write_reg(dbi, cap + PCIE20_MSIX_ADDRESS_MATCH_UPPER_OFF, 0x0);
+
+	data = ep_pcie_core_msix_db_val(data, vf_id);
+	/* Read max num of MSI-X vector support */
+	ctrl_reg = readl_relaxed(dbi + cap);
+	cfg->msg_num = (ctrl_reg >> 16) & 0x7FF;
+
+	cfg->data = data;
+
+	return 0;
+}
+
 int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg, u32 vf_id)
 {
 	u32 cap, lower, upper, data, ctrl_reg;
@@ -3324,6 +3370,7 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg, u32 vf_id)
 	void __iomem *dbi;
 	struct resource *msi;
 	struct ep_pcie_msi_config *msi_cfg = &ep_pcie_dev.msi_cfg[vf_id];
+	u32 msix_cap = ep_pcie_dev.msix_cap;
 
 	if (!vf_id) {
 		dbi = ep_pcie_dev.dm_core;
@@ -3342,6 +3389,14 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg, u32 vf_id)
 		return EP_PCIE_ERROR;
 	}
 
+	if (msix_cap) {
+		ctrl_reg = readl_relaxed(dbi + msix_cap + PCIE20_MSIX_CAP_ID_NEXT_CTRL_REG(n));
+		if (ctrl_reg & BIT(31)) {
+			cfg->msi_type = MSIX;
+			return ep_pcie_core_get_msix_config(cfg, vf_id);
+		}
+	}
+
 	cap = readl_relaxed(dbi + PCIE20_MSI_CAP_ID_NEXT_CTRL(n));
 	EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: MSI CAP:0x%x\n",
 			ep_pcie_dev.rev, cap);
@@ -3352,6 +3407,8 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg, u32 vf_id)
 			ep_pcie_dev.rev);
 		return EP_PCIE_ERROR;
 	}
+
+	cfg->msi_type = MSI;
 
 	lower = readl_relaxed(dbi + PCIE20_MSI_LOWER(n));
 	upper = readl_relaxed(dbi + PCIE20_MSI_UPPER(n));
