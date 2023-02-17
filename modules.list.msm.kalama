@@ -49,6 +49,7 @@ mem_buf.ko
 memory_dump_v2.ko
 minidump.ko
 msm_dma_iommu_mapping.ko
+pinctrl-crow.ko
 pinctrl-kalama.ko
 qnoc-kalama.ko
 msm_rtb.ko
