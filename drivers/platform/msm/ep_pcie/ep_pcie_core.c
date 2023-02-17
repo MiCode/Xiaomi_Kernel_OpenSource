@@ -3367,6 +3367,8 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg, u32 vf_id)
 		}
 		cfg->data = data;
 		cfg->msg_num = (cap >> 20) & 0x7;
+		/* Total number of MSI vectors supported {0 to ((2^n)-1)} */
+		cfg->msg_num = ((1 << cfg->msg_num) - 1);
 		if (ep_pcie_dev.use_iatu_msi) {
 			if ((lower != msi_cfg->lower)
 				|| (upper != msi_cfg->upper)
@@ -3385,7 +3387,6 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg, u32 vf_id)
 				msi_cfg->lower = lower;
 				msi_cfg->upper = upper;
 				msi_cfg->data = data;
-				msi_cfg->msg_num = cfg->msg_num;
 				ep_pcie_dev.conf_ipa_msi_iatu[vf_id] = false;
 			}
 			/*
