@@ -20,3 +20,5 @@ virtio_clk_sm8150.ko
 virtio_clk.ko
 debug-regulator.ko
 virtio_regulator.ko
+crypto-qti-virt.ko
+virtio_blk_qti_crypto.ko
