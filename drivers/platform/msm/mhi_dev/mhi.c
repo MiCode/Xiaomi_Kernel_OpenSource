@@ -1650,7 +1650,7 @@ static int mhi_hwc_init(struct mhi_dev *mhi_ctx)
 	mhi_init_dma_params.msi.addr_hi = cfg.upper;
 	mhi_init_dma_params.msi.addr_low = cfg.lower;
 	mhi_init_dma_params.msi.data = cfg.data;
-	mhi_init_dma_params.msi.mask = ((1 << cfg.msg_num) - 1);
+	mhi_init_dma_params.msi.mask = cfg.msg_num;
 	mhi_init_dma_params.first_er_idx = mhi_ctx->cfg.event_rings -
 						(mhi_ctx->cfg.hw_event_rings);
 	mhi_init_dma_params.first_ch_idx = mhi_ctx->mhi_chan_hw_base;
