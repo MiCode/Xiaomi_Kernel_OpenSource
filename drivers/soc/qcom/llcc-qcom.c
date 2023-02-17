@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -544,12 +544,12 @@ static const struct qcom_llcc_config cinder_cfg[] = {
 		.size		= ARRAY_SIZE(cinder_data_4ch),
 	},
 	{
-		.sct_data	= cinder_data_2ch,
-		.size		= ARRAY_SIZE(cinder_data_2ch),
-	},
-	{
 		.sct_data	= cinder_data_4ch,
 		.size		= ARRAY_SIZE(cinder_data_4ch),
+	},
+	{
+		.sct_data	= cinder_data_2ch,
+		.size		= ARRAY_SIZE(cinder_data_2ch),
 	},
 };
 
