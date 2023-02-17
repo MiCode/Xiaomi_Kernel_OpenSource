@@ -661,7 +661,6 @@ err_find_desc:
 
 static const struct virtio_device_id id_table[] = {
 	{ VIRTIO_ID_CLOCK, VIRTIO_DEV_ANY_ID },
-	{ VIRTIO_ID_CLOCK_BC, VIRTIO_DEV_ANY_ID },
 	{ 0 },
 };
 
