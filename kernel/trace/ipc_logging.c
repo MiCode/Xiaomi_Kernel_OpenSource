@@ -32,7 +32,7 @@
 #define FEATURE_MASK 0x10000
 
 static int minidump_buf_cnt;
-static LIST_HEAD(ipc_log_context_list);
+static struct list_head *ipc_log_context_list;
 static DEFINE_RWLOCK(context_list_lock_lha1);
 static void *get_deserialization_func(struct ipc_log_context *ilctxt,
 				      int type);
@@ -830,9 +830,24 @@ void *ipc_log_context_create(int max_num_pages,
 	unsigned long flags;
 	int enable_minidump;
 
+	write_lock_irqsave(&context_list_lock_lha1, flags);
+	if (!ipc_log_context_list) {
+		ipc_log_context_list = kzalloc(sizeof(struct list_head), GFP_ATOMIC);
+		if (!ipc_log_context_list) {
+			write_unlock_irqrestore(&context_list_lock_lha1, flags);
+			pr_err("Failed to allocate memory for ipc_log_context_list\n");
+			return NULL;
+		}
+		INIT_LIST_HEAD(ipc_log_context_list);
+
+		register_minidump((u64)ipc_log_context_list, sizeof(struct list_head),
+				"ipc_log_ctxt_list", minidump_buf_cnt);
+	}
+	write_unlock_irqrestore(&context_list_lock_lha1, flags);
+
 	/* check if ipc ctxt already exists */
 	read_lock_irq(&context_list_lock_lha1);
-	list_for_each_entry(tmp, &ipc_log_context_list, list)
+	list_for_each_entry(tmp, ipc_log_context_list, list)
 		if (!strcmp(tmp->name, mod_name)) {
 			ctxt = tmp;
 			break;
@@ -904,9 +919,9 @@ void *ipc_log_context_create(int max_num_pages,
 
 	write_lock_irqsave(&context_list_lock_lha1, flags);
 	if (enable_minidump  && (minidump_buf_cnt < MAX_MINIDUMP_BUFFERS))
-		list_add(&ctxt->list, &ipc_log_context_list);
+		list_add(&ctxt->list, ipc_log_context_list);
 	else
-		list_add_tail(&ctxt->list, &ipc_log_context_list);
+		list_add_tail(&ctxt->list, ipc_log_context_list);
 	write_unlock_irqrestore(&context_list_lock_lha1, flags);
 
 	return (void *)ctxt;
@@ -976,13 +991,16 @@ static int __init ipc_logging_init(void)
 {
 	check_and_create_debugfs();
 
-	register_minidump((u64)&ipc_log_context_list, sizeof(struct list_head),
-			  "ipc_log_ctxt_list", minidump_buf_cnt);
-
 	return 0;
 }
 
+static void __exit ipc_logging_exit(void)
+{
+	kfree(ipc_log_context_list);
+}
+
 module_init(ipc_logging_init);
+module_exit(ipc_logging_exit);
 
 MODULE_DESCRIPTION("ipc logging");
 MODULE_LICENSE("GPL v2");
