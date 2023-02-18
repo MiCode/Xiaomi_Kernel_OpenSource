@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/cdev.h>
@@ -39,7 +39,7 @@
 /* indicates multi-buffer per command is supported */
 #define VIRTIO_NPU_F_MULTI_BUF	1
 
-#define VIRTIO_ID_NPU           35
+#define VIRTIO_ID_NPU           0xC005
 
 #define NPU_MAX_STATS_BUF_SIZE	16384
 #define NPU_MAX_PATCH_NUM       160
@@ -471,7 +471,7 @@ static struct virt_npu_msg *virt_alloc_msg(struct npu_device *npu_dev,
 
 	buf = get_tx_buf(npu_dev, &buf_num);
 	if (!buf) {
-		NPU_ERR("can't get tx buffer\n");
+		NPU_ERR("can't get tx  buffer\n");
 		kfree(msg);
 		return NULL;
 	}
