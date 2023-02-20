@@ -892,6 +892,9 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 			goto fail;
 	}
 
+	if (priv->device_id == WCN6450_DEVICE_ID)
+		icnss_hw_power_off(priv);
+
 	ret = wlfw_cap_send_sync_msg(priv);
 	if (ret < 0) {
 		ignore_assert = true;
@@ -3334,7 +3337,7 @@ int icnss_wlan_enable(struct device *dev, struct icnss_wlan_enable_cfg *config,
 		      const char *host_version)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
-	int temp = 0;
+	int temp = 0, ret = 0;
 
 	if (test_bit(ICNSS_FW_DOWN, &priv->state) ||
 	    !test_bit(ICNSS_FW_READY, &priv->state)) {
@@ -3361,7 +3364,15 @@ int icnss_wlan_enable(struct device *dev, struct icnss_wlan_enable_cfg *config,
 		}
 	}
 
-	return icnss_send_wlan_enable_to_fw(priv, config, mode, host_version);
+	if (priv->device_id == WCN6450_DEVICE_ID)
+		icnss_hw_power_off(priv);
+
+	ret = icnss_send_wlan_enable_to_fw(priv, config, mode, host_version);
+
+	if (priv->device_id == WCN6450_DEVICE_ID)
+		icnss_hw_power_on(priv);
+
+	return ret;
 }
 EXPORT_SYMBOL(icnss_wlan_enable);
 
