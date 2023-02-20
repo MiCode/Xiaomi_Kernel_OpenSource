@@ -83,6 +83,9 @@ struct mhi_dev_net_client {
 	bool eth_iface;
 	struct mhi_dev_client *out_handle;
 	struct mhi_dev_client *in_handle;
+	/* TX and RX Reqs  */
+	u32 tx_reqs;
+	u32 rx_reqs;
 	/*process pendig packets */
 	struct workqueue_struct *pending_pckt_wq;
 	struct work_struct       xmit_work;
@@ -340,7 +343,7 @@ static int mhi_dev_net_alloc_write_reqs(struct mhi_dev_net_client *client)
 	int nreq = 0, rc = 0;
 	struct mhi_req *wreq;
 
-	while (nreq < MHI_MAX_TX_REQ) {
+	while (nreq < client->tx_reqs) {
 		wreq = kzalloc(sizeof(struct mhi_req), GFP_ATOMIC);
 		if (!wreq)
 			return -ENOMEM;
@@ -359,7 +362,7 @@ static int mhi_dev_net_alloc_read_reqs(struct mhi_dev_net_client *client)
 	int nreq = 0, rc = 0;
 	struct mhi_req *mreq;
 
-	while (nreq < MHI_MAX_RX_REQ) {
+	while (nreq < client->rx_reqs) {
 		mreq = kzalloc(sizeof(struct mhi_req), GFP_ATOMIC);
 		if (!mreq)
 			return -ENOMEM;
@@ -701,6 +704,7 @@ int mhi_dev_net_interface_init(struct mhi_dev_ops *dev_ops)
 {
 	int ret_val = 0, index = 0;
 	uint32_t info_out_ch = 0;
+	uint32_t reqs = 0;
 	struct mhi_dev_net_client *mhi_net_client = NULL;
 
 	if (mhi_net_ctxt.client_handle) {
@@ -723,11 +727,22 @@ int mhi_dev_net_interface_init(struct mhi_dev_ops *dev_ops)
 	}
 	mhi_net_ctxt.client_handle = mhi_net_client;
 
-	if (mhi_net_ctxt.pdev)
+	if (mhi_net_ctxt.pdev) {
 		mhi_net_ctxt.client_handle->eth_iface =
 			of_property_read_bool
 			((&mhi_net_ctxt.pdev->dev)->of_node,
 				"qcom,mhi-ethernet-interface");
+		ret_val = of_property_read_u32
+				((&mhi_net_ctxt.pdev->dev)->of_node,
+				 "qcom,tx_rx_reqs", &reqs);
+		if (ret_val < 0) {
+			mhi_net_client->tx_reqs = MHI_MAX_TX_REQ;
+			mhi_net_client->rx_reqs = MHI_MAX_RX_REQ;
+		} else {
+			mhi_net_client->tx_reqs = reqs;
+			mhi_net_client->rx_reqs = reqs;
+		}
+	}
 
 	/*Process pending packet work queue*/
 	mhi_net_client->pending_pckt_wq =
