@@ -121,6 +121,9 @@
 #define PCIE20_DEVICE_CAPABILITIES     0x74
 #define PCIE20_MSIX_TABLE_OFFSET_REG   0xB4
 #define PCIE20_MSIX_PBA_OFFSET_REG	0xB8
+#define PCIE20_MSIX_CAP_ID_NEXT_CTRL_REG(n) (0x200*n)
+#define PCIE20_MSIX_DOORBELL_OFF_REG	0x898 /* Offset from MSI-X capability base */
+#define PCIE20_MSIX_DB_VF_ACTIVE	BIT(15)
 #define PCIE20_MASK_EP_L1_ACCPT_LATENCY 0xE00
 #define PCIE20_MASK_EP_L0S_ACCPT_LATENCY 0x1C0
 #define PCIE20_LINK_CAPABILITIES       0x7C
@@ -440,6 +443,7 @@ struct ep_pcie_dev_t {
 	ulong                        perst_deast_counter;
 	ulong                        wake_counter;
 	ulong                        msi_counter;
+	ulong                        msix_counter;
 	ulong                        global_irq_counter;
 	ulong                        sriov_irq_counter;
 	ulong                        perst_ast_in_enum_counter;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -623,17 +623,9 @@ static void ep_pcie_pipe_clk_deinit(struct ep_pcie_dev_t *dev)
 				dev->pipeclk[i].hdl);
 }
 
-static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
+static void ep_pcie_msix_init(struct ep_pcie_dev_t *dev)
 {
-	struct resource *res = dev->res[EP_PCIE_RES_MMIO].resource;
-	u32 mask = resource_size(res);
-	u32 msix_mask = 0x7FFF; //32KB size
-	u32 properties = 0x4; /* 64 bit Non-prefetchable memory */
-	bool msix_cap = false;
 	int ret;
-
-	EP_PCIE_DBG(dev, "PCIe V%d: BAR mask to program is 0x%x\n",
-			dev->rev, mask);
 
 	/* MSI-X capable */
 	ret = ep_pcie_find_capability(dev, PCI_CAP_ID_MSIX);
@@ -646,10 +638,20 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 		 */
 		ep_pcie_write_reg(dev->dm_core, PCIE20_TRGT_MAP_CTRL_OFF,
 				0x00001DFB);
-		msix_cap = true;
-
+		dev->msix_cap = ret;
 		EP_PCIE_DBG(dev, "PCIe V%d: MSI-X capable\n", dev->rev);
 	}
+}
+
+static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
+{
+	struct resource *res = dev->res[EP_PCIE_RES_MMIO].resource;
+	u32 mask = resource_size(res);
+	u32 msix_mask = 0x7FFF; //32KB size
+	u32 properties = 0x4; /* 64 bit Non-prefetchable memory */
+
+	EP_PCIE_DBG(dev, "PCIe V%d: BAR mask to program is 0x%x\n",
+			dev->rev, mask);
 
 	/* Configure BAR mask via CS2 */
 	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, 0, BIT(0));
@@ -660,7 +662,7 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x4, 0);
 
 	/* enable BAR2 with BAR size 8K for MSI-X */
-	if (msix_cap)
+	if (dev->msix_cap)
 		ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, msix_mask);
 	else
 		ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, 0);
@@ -676,7 +678,7 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, properties);
 
-	if (msix_cap) {
+	if (dev->msix_cap) {
 		ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, properties);
 
 		/* Set the BIR value 2 for MSIX table and PBA table via CS2 */
@@ -928,6 +930,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 		readl_relaxed(dev->dm_core + PCIE20_CLASS_CODE_REVISION_ID),
 		readl_relaxed(dev->dm_core + PCIE20_BIST_HDR_TYPE),
 		readl_relaxed(dev->dm_core + PCIE20_LINK_CAPABILITIES));
+
+	/* Configure BAR2 usage for MSI-X */
+	ep_pcie_msix_init(dev);
 
 	if (!configured) {
 		int pos;
@@ -3297,6 +3302,20 @@ int ep_pcie_core_config_outbound_iatu(struct ep_pcie_iatu entries[],
 	return 0;
 }
 
+int ep_pcie_core_msix_db_val(u32 idx, u32 vf_id)
+{
+	u32 n = 0;
+
+	if (vf_id) {
+		n = vf_id - 1;
+		/* Shift idx to the vf postion to generate msi */
+		idx = idx | (n << 16);
+		/* Set bit(15) to activate virtual function usage */
+		idx |= PCIE20_MSIX_DB_VF_ACTIVE;
+	}
+	return idx;
+}
+
 int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg, u32 vf_id)
 {
 	u32 cap, lower, upper, data, ctrl_reg;
@@ -3417,6 +3436,21 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg, u32 vf_id)
 	return EP_PCIE_ERROR;
 }
 
+int ep_pcie_core_trigger_msix(u32 idx, u32 vf_id)
+{
+	ep_pcie_dev.msix_counter++;
+	EP_PCIE_DUMP(&ep_pcie_dev,
+		"PCIe V%d: No. %ld MSIx fired for IRQ %d vf_id:%d ;active-config is %s enabled\n",
+		ep_pcie_dev.rev, ep_pcie_dev.msix_counter,
+		idx, vf_id,
+		ep_pcie_dev.active_config ? "" : "not");
+
+	idx = ep_pcie_core_msix_db_val(idx, vf_id);
+	ep_pcie_write_reg(ep_pcie_dev.dm_core,
+			ep_pcie_dev.msix_cap + PCIE20_MSIX_DOORBELL_OFF_REG, idx);
+	return 0;
+}
+
 int ep_pcie_core_trigger_msi(u32 idx, u32 vf_id)
 {
 	u32 addr, data, ctrl_reg;
@@ -3424,6 +3458,7 @@ int ep_pcie_core_trigger_msi(u32 idx, u32 vf_id)
 	void __iomem *dbi = ep_pcie_dev.dm_core;
 	void __iomem *msi = ep_pcie_dev.msi;
 	u32 n = 0;
+	u32 msix_cap = ep_pcie_dev.msix_cap;
 	int max_poll = MSI_EXIT_L1SS_WAIT_MAX_COUNT;
 
 	if (ep_pcie_dev.link_status == EP_PCIE_LINK_DISABLED) {
@@ -3436,6 +3471,17 @@ int ep_pcie_core_trigger_msi(u32 idx, u32 vf_id)
 	if (vf_id) {
 		n = vf_id - 1;
 		dbi = ep_pcie_dev.dm_core_vf;
+	}
+
+	if (msix_cap) {
+		ctrl_reg = readl_relaxed(dbi + msix_cap + PCIE20_MSIX_CAP_ID_NEXT_CTRL_REG(n));
+		if (ctrl_reg & BIT(31))
+			return ep_pcie_core_trigger_msix(idx, vf_id);
+		EP_PCIE_DUMP(&ep_pcie_dev,
+			"PCIe V%d: MSIx capable , but not enabled\n", ep_pcie_dev.rev);
+	}
+
+	if (vf_id) {
 		msi = ep_pcie_dev.msi_vf;
 		if (!ep_pcie_dev.parf_msi_vf_indexed) {
 			/* Shift idx to the vf postion to generate msi */
