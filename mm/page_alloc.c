@@ -2497,7 +2497,11 @@ inline void post_alloc_hook(struct page *page, unsigned int order,
 	bool init = !want_init_on_free() && want_init_on_alloc(gfp_flags) &&
 			!should_skip_init(gfp_flags);
 	bool zero_tags = init && (gfp_flags & __GFP_ZEROTAGS);
+#if IS_ENABLED(CONFIG_MTK_KASAN_DEBUG)
+	bool reset_tags = true;
+#else
 	bool reset_tags = !zero_tags;
+#endif
 	int i;
 
 	set_page_private(page, 0);
