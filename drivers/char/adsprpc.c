@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /* Uncomment this block to log an error on every VERIFY failure */
@@ -2480,10 +2480,6 @@ static void fastrpc_ramdump_collection(int cid)
 			spin_unlock_irqrestore(&me->hlock, irq_flags);
 		}
 	}
-	spin_lock(&fl->hlock);
-	if (chan->buf)
-		memset(chan->buf->virt, 0, MINI_DUMP_DBG_SIZE);
-	spin_unlock(&fl->hlock);
 }
 
 static void fastrpc_notify_drivers(struct fastrpc_apps *me, int cid)
