@@ -945,6 +945,13 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 			goto device_info_failure;
 	}
 
+	if (priv->device_id == WCN6450_DEVICE_ID) {
+		ret = icnss_wlfw_qdss_dnld_send_sync(priv);
+		if (ret < 0)
+			icnss_pr_info("Failed to download qdss config file for WCN6450, ret = %d\n",
+				      ret);
+	}
+
 	if (priv->device_id == WCN6750_DEVICE_ID ||
 	    priv->device_id == WCN6450_DEVICE_ID) {
 		if (!priv->fw_soc_wake_ack_irq)
@@ -1181,8 +1188,12 @@ static int icnss_driver_event_fw_init_done(struct icnss_priv *priv, void *data)
 
 	icnss_pr_info("WLAN FW Initialization done: 0x%lx\n", priv->state);
 
-	if (icnss_wlfw_qdss_dnld_send_sync(priv))
-		icnss_pr_info("Failed to download qdss configuration file");
+	if (priv->device_id == WCN6750_DEVICE_ID) {
+		ret = icnss_wlfw_qdss_dnld_send_sync(priv);
+		if (ret < 0)
+			icnss_pr_info("Failed to download qdss config file for WCN6750, ret = %d\n",
+				      ret);
+	}
 
 	if (test_bit(ICNSS_COLD_BOOT_CAL, &priv->state)) {
 		mod_timer(&priv->recovery_timer,
