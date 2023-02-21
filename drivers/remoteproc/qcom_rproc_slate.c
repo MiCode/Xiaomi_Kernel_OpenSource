@@ -30,13 +30,15 @@
 
 #define SECURE_APP		"slateapp"
 #define INVALID_GPIO		-1
-#define NUM_GPIOS		4
+#define NUM_GPIOS		3
 
 #define RESULT_SUCCESS		0
 #define RESULT_FAILURE		-1
 
 /* Slate Ramdump Size 4 MB */
 #define SLATE_RAMDUMP_SZ SZ_4M
+
+#define SLATE_CRASH_IN_TWM	-2
 
 #define segment_is_hash(flag) (((flag) & (0x7 << 24)) == (0x2 << 24))
 
@@ -53,8 +55,6 @@ enum slate_tz_commands {
 	SLATE_RPROC_SHUTDOWN,
 	SLATE_RPROC_DUMPINFO,
 	SLATE_RPROC_UP_INFO,
-	SLATE_RPROC_RESTART,
-	SLATE_RPROC_POWERDOWN,
 };
 
 /* tzapp bg request.*/
@@ -278,33 +278,17 @@ end:
 static void slate_restart_work(struct work_struct *work)
 {
 
-	struct qcom_slate *drvdata =
+	struct qcom_slate *slate_data =
 		container_of(work, struct qcom_slate, restart_work);
-	struct rproc *slate_rproc = drvdata->rproc;
-	bool recovery_status = slate_rproc->recovery_disabled;
+	struct rproc *slate_rproc = slate_data->rproc;
 
-	pr_debug("Handle restart\n");
+	/* Trigger  apps crash if recovery is disabled */
+	BUG_ON(slate_rproc->recovery_disabled);
 
-	/* Disable revoery to trigger shutdown sequence to power off Slate */
-	mutex_lock(&slate_rproc->lock);
-	if (slate_rproc->state == RPROC_CRASHED ||
-			slate_rproc->state == RPROC_OFFLINE) {
-		mutex_unlock(&slate_rproc->lock);
-		return;
-	}
-	slate_rproc->recovery_disabled = true;
-	mutex_unlock(&slate_rproc->lock);
+	/* If recovery is enabled, go for recovery path */
+	pr_debug("Slate is crashed! Starting recovery...\n");
+	rproc_report_crash(slate_rproc, RPROC_FATAL_ERROR);
 
-	/* Shutdown slate */
-	rproc_shutdown(slate_rproc);
-
-	/* Power up and load image again in slate */
-	rproc_boot(slate_rproc);
-
-	/*restore the recovery value */
-	mutex_lock(&slate_rproc->lock);
-	slate_rproc->recovery_disabled = recovery_status;
-	mutex_unlock(&slate_rproc->lock);
 }
 
 static irqreturn_t slate_status_change(int irq, void *dev_id)
@@ -478,6 +462,12 @@ static int slate_auth_and_xfer(struct qcom_slate *slate_data)
 	slate_tz_req.size_fw = slate_data->size_fw;
 
 	ret = slate_tzapp_comm(slate_data, &slate_tz_req);
+
+	if (slate_data->cmd_status == SLATE_CRASH_IN_TWM) {
+		slate_tz_req.tzapp_slate_cmd = SLATE_RPROC_DLOAD_CONT;
+		ret = slate_tzapp_comm(slate_data, &slate_tz_req);
+	}
+
 	if (ret || slate_data->cmd_status) {
 		dev_err(slate_data->dev,
 				"%s: Firmware image authentication failed\n",
