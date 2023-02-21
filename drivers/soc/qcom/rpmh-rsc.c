@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2018, 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
@@ -24,7 +24,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
-#include <linux/syscore_ops.h>
 #include <linux/wait.h>
 
 #include <soc/qcom/cmd-db.h>
@@ -1417,36 +1416,6 @@ const struct device *rpmh_rsc_get_device(const char *name, u32 drv_id)
 	return ERR_PTR(-ENODEV);
 }
 
-static int rpmh_rsc_syscore_suspend(void)
-{
-	struct rsc_drv_top *rsc_top = rpmh_rsc_get_top_device("apps_rsc");
-	int i, ch, ret = 0;
-
-	if (IS_ERR(rsc_top))
-		return ret;
-
-	for (i = 0; i < rsc_top->drv_count; i++) {
-		if (rsc_top->drv[i].initialized) {
-			ch = rpmh_rsc_get_channel(&rsc_top->drv[i]);
-			if (ch < 0)
-				return -EBUSY;
-
-			ret =  _rpmh_flush(&rsc_top->drv[i].client, ch);
-		}
-	}
-
-	return ret;
-}
-
-static void rpmh_rsc_syscore_resume(void)
-{
-}
-
-static struct syscore_ops rpmh_rsc_syscore_ops = {
-	.suspend = rpmh_rsc_syscore_suspend,
-	.resume = rpmh_rsc_syscore_resume,
-};
-
 static int rpmh_probe_channel_tcs_config(struct device_node *np,
 					 struct rsc_drv *drv,
 					 u32 max_tcs, u32 ncpt, int ch)
@@ -1693,7 +1662,6 @@ static int rpmh_rsc_probe(struct platform_device *pdev)
 			ret = rpmh_rsc_pd_attach(&drv[i]);
 			if (ret)
 				return ret;
-			register_syscore_ops(&rpmh_rsc_syscore_ops);
 		} else if (!solver_config &&
 			   !of_find_property(dn, "qcom,hw-channel", NULL)) {
 			drv[i].rsc_pm.notifier_call = rpmh_rsc_cpu_pm_callback;
