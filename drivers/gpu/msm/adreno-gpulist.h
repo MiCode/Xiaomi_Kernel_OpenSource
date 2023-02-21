@@ -1783,8 +1783,7 @@ static const struct adreno_a6xx_core adreno_gpu_core_gen6_3_26_0 = {
 	.base = {
 		DEFINE_ADRENO_REV(ADRENO_REV_GEN6_3_26_0, ANY_ID, ANY_ID, ANY_ID, ANY_ID),
 		.compatible = "qcom,adreno-gpu-gen6-3-26-0",
-		.features = ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
-			ADRENO_PREEMPTION,
+		.features = ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT,
 		.gpudev = &adreno_a6xx_gpudev,
 		.perfcounters = &adreno_a6xx_legacy_perfcounters,
 		.uche_gmem_alignment = SZ_1M,
