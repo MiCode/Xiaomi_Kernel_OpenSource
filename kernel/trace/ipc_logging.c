@@ -138,8 +138,8 @@ static void register_minidump(u64 vaddr, u64 size,
 	int ret;
 
 	if (minidump_buf_cnt < MAX_MINIDUMP_BUFFERS) {
-		scnprintf(md_entry.name, sizeof(md_entry.name), "%s_%d",
-			  buf_name, index);
+		scnprintf(md_entry.name, sizeof(md_entry.name), "%d_%s",
+			  index, buf_name);
 		md_entry.virt_addr = vaddr;
 		md_entry.phys_addr = virt_to_phys((void *)vaddr);
 		md_entry.size = size;
