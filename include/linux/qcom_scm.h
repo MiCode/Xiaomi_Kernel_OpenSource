@@ -79,6 +79,14 @@ enum qcom_scm_ice_cipher {
 	QCOM_SCM_ICE_CIPHER_AES_256_CBC = 4,
 };
 
+enum qcom_scm_custom_reset_type {
+	QCOM_SCM_RST_NONE,
+	QCOM_SCM_RST_SHUTDOWN_TO_RTC_MODE = 0x80000005,
+	QCOM_SCM_RST_SHUTDOWN_TO_TWM_MODE,
+	QCOM_SCM_RST_MAX
+};
+extern enum qcom_scm_custom_reset_type qcom_scm_custom_reset_type;
+
 #define QCOM_SCM_VMID_HLOS       0x3
 #define QCOM_SCM_VMID_MSS_MSA    0xF
 #define QCOM_SCM_VMID_WLAN       0x18
