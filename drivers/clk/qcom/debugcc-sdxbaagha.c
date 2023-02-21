@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -39,7 +39,7 @@ static int apss_cc_debug_mux_pre_divs[] = {
 
 static struct clk_debug_mux apss_cc_debug_mux = {
 	.priv = &debug_mux_priv,
-	.debug_offset = 0xc,
+	.debug_offset = 0x1c,
 	.post_div_offset = 0x0,
 	.cbcr_offset = 0x0,
 	.src_sel_mask = 0x38,
@@ -308,6 +308,9 @@ static int clk_debug_sdxbaagha_probe(struct platform_device *pdev)
 				return ret;
 		}
 	}
+
+	/* Update the mux_sel value of apss_cc_debug_mux  */
+	regmap_write(mux_list[0].mux->regmap, 0x1c, 0x18);
 
 	for (i = 0; i < ARRAY_SIZE(debugcc_sdxbaagha_hws); i++) {
 		clk = devm_clk_register(&pdev->dev, debugcc_sdxbaagha_hws[i]);
