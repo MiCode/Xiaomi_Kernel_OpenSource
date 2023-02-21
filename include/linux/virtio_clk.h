@@ -18,8 +18,6 @@
 
 /* Virtio ID of clock : 0xC000 */
 #define VIRTIO_ID_CLOCK		49152
-/* Virtio ID of clock for Backward compatibility : 0x1E */
-#define VIRTIO_ID_CLOCK_BC	30
 
 /* Feature bits */
 #define VIRTIO_CLK_F_RESET	1	/* Support reset */

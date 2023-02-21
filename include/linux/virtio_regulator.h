@@ -20,9 +20,6 @@ struct virtio_regulator_msg {
 /* Virtio ID of regulator : 0xC001 */
 #define VIRTIO_ID_REGULATOR	49153
 
-/* Virtio ID of regulator for Backward compatibility : 0x1F */
-#define VIRTIO_ID_REGULATOR_BC	31
-
 /* Request type */
 #define VIRTIO_REGULATOR_T_ENABLE	0
 #define VIRTIO_REGULATOR_T_DISABLE	1

@@ -24,8 +24,6 @@
 
 /* Virtio ID of SPMI : 0xC003 */
 #define VIRTIO_ID_SPMI			49155
-/* Virtio ID of SPMI for Backward compatibility : 0x21 */
-#define VIRTIO_ID_SPMI_BC		33
 
 /* Mapping Table */
 #define PMIC_ARB_MAX_PPID		BIT(12) /* PPID is 12bit */
@@ -859,7 +857,6 @@ static unsigned int features[] = {
 
 static struct virtio_device_id id_table[] = {
 	{ VIRTIO_ID_SPMI, VIRTIO_DEV_ANY_ID },
-	{ VIRTIO_ID_SPMI_BC, VIRTIO_DEV_ANY_ID },
 	{ 0 },
 };
 
