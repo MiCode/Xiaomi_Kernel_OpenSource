@@ -592,6 +592,21 @@ out:
 	return ret;
 }
 
+static char *cnss_bdf_type_to_str(enum cnss_bdf_type bdf_type)
+{
+	switch (bdf_type) {
+	case CNSS_BDF_BIN:
+	case CNSS_BDF_ELF:
+		return "BDF";
+	case CNSS_BDF_REGDB:
+		return "REGDB";
+	case CNSS_BDF_HDS:
+		return "HDS";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 				  u32 bdf_type, char *filename,
 				  u32 filename_len)
@@ -820,8 +835,8 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 	unsigned int remaining;
 	int ret = 0;
 
-	cnss_pr_dbg("Sending BDF download message, state: 0x%lx, type: %d\n",
-		    plat_priv->driver_state, bdf_type);
+	cnss_pr_dbg("Sending QMI_WLFW_BDF_DOWNLOAD_REQ_V01 message for bdf_type: %d (%s), state: 0x%lx\n",
+		    bdf_type, cnss_bdf_type_to_str(bdf_type), plat_priv->driver_state);
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
@@ -846,14 +861,16 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 					      &plat_priv->plat_dev->dev);
 
 	if (ret) {
-		cnss_pr_err("Failed to load BDF: %s, ret: %d\n", filename, ret);
+		cnss_pr_err("Failed to load %s: %s, ret: %d\n",
+			    cnss_bdf_type_to_str(bdf_type), filename, ret);
 		goto err_req_fw;
 	}
 
 	temp = fw_entry->data;
 	remaining = fw_entry->size;
 
-	cnss_pr_dbg("Downloading BDF: %s, size: %u\n", filename, remaining);
+	cnss_pr_dbg("Downloading %s: %s, size: %u\n",
+		    cnss_bdf_type_to_str(bdf_type), filename, remaining);
 
 	while (remaining) {
 		req->valid = 1;
@@ -879,8 +896,8 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 		ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 				   wlfw_bdf_download_resp_msg_v01_ei, resp);
 		if (ret < 0) {
-			cnss_pr_err("Failed to initialize txn for BDF download request, err: %d\n",
-				    ret);
+			cnss_pr_err("Failed to initialize txn for QMI_WLFW_BDF_DOWNLOAD_REQ_V01 request for %s, error: %d\n",
+				    cnss_bdf_type_to_str(bdf_type), ret);
 			goto err_send;
 		}
 
@@ -891,21 +908,22 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 			 wlfw_bdf_download_req_msg_v01_ei, req);
 		if (ret < 0) {
 			qmi_txn_cancel(&txn);
-			cnss_pr_err("Failed to send respond BDF download request, err: %d\n",
-				    ret);
+			cnss_pr_err("Failed to send QMI_WLFW_BDF_DOWNLOAD_REQ_V01 request for %s, error: %d\n",
+				    cnss_bdf_type_to_str(bdf_type), ret);
 			goto err_send;
 		}
 
 		ret = qmi_txn_wait(&txn, QMI_WLFW_TIMEOUT_JF);
 		if (ret < 0) {
-			cnss_pr_err("Failed to wait for response of BDF download request, err: %d\n",
-				    ret);
+			cnss_pr_err("Timeout while waiting for FW response for QMI_WLFW_BDF_DOWNLOAD_REQ_V01 request for %s, err: %d\n",
+				    cnss_bdf_type_to_str(bdf_type), ret);
 			goto err_send;
 		}
 
 		if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-			cnss_pr_err("BDF download request failed, result: %d, err: %d\n",
-				    resp->resp.result, resp->resp.error);
+			cnss_pr_err("FW response for QMI_WLFW_BDF_DOWNLOAD_REQ_V01 request for %s failed, result: %d, err: %d\n",
+				    cnss_bdf_type_to_str(bdf_type), resp->resp.result,
+				    resp->resp.error);
 			ret = -resp->resp.result;
 			goto err_send;
 		}
