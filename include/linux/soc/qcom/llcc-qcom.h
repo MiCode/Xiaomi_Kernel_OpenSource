@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/platform_device.h>
@@ -237,7 +237,7 @@ static inline int llcc_slice_deactivate(struct llcc_slice_desc *desc)
 {
 	return -EINVAL;
 }
-static int llcc_configure_staling_mode(struct llcc_slice_desc *desc,
+static inline int llcc_configure_staling_mode(struct llcc_slice_desc *desc,
 				       struct llcc_staling_mode_params *p)
 {
 	return -EINVAL;
