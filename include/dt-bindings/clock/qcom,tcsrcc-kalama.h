@@ -13,5 +13,6 @@
 #define TCSR_UFS_PAD_CLKREF_EN					3
 #define TCSR_USB2_CLKREF_EN					4
 #define TCSR_USB3_CLKREF_EN					5
+#define TCSR_QLINK_CLKREF_EN					6
 
 #endif
