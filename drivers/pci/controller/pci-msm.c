@@ -1195,7 +1195,7 @@ static void msm_pcie_write_reg(void __iomem *base, u32 offset, u32 value)
 static void msm_pcie_write_reg_field(void __iomem *base, u32 offset,
 	const u32 mask, u32 val)
 {
-	u32 shift = __ffs(mask);
+	u32 shift = (u32)__ffs(mask);
 	u32 tmp = readl_relaxed(base + offset);
 
 	tmp &= ~mask; /* clear written bits */
@@ -1878,7 +1878,7 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 	}
 
 	pdev = PCIE_BUS_PRIV_DATA(dev->bus);
-	rc_sel = BIT(pdev->rc_idx);
+	rc_sel = (u32)BIT(pdev->rc_idx);
 
 	msm_pcie_sel_debug_testcase(pdev, option);
 
@@ -3869,7 +3869,7 @@ static int msm_pcie_get_bw_scale(struct msm_pcie_dev_t *pcie_dev)
 		of_property_read_u32_array(pdev->dev.of_node, "qcom,bw-scale",
 				(u32 *)pcie_dev->bw_scale, size / sizeof(u32));
 
-		pcie_dev->bw_gen_max = size / sizeof(*pcie_dev->bw_scale);
+		pcie_dev->bw_gen_max = (u32)(size / sizeof(*pcie_dev->bw_scale));
 	} else {
 		PCIE_DBG(pcie_dev, "RC%d: bandwidth scaling is not supported\n",
 			pcie_dev->rc_idx);
@@ -3895,7 +3895,7 @@ static int msm_pcie_get_phy(struct msm_pcie_dev_t *pcie_dev)
 	if (!pcie_dev->phy_sequence)
 		return -ENOMEM;
 
-	pcie_dev->phy_len = size / sizeof(*pcie_dev->phy_sequence);
+	pcie_dev->phy_len = (u32)(size / sizeof(*pcie_dev->phy_sequence));
 
 	ret = of_property_read_u32_array(pdev->dev.of_node,
 				"qcom,phy-sequence",
@@ -4053,7 +4053,7 @@ static int msm_pcie_get_iommu_map(struct msm_pcie_dev_t *pcie_dev)
 	of_property_read_u32_array(pdev->dev.of_node,
 		"iommu-map", (u32 *)map, size / sizeof(u32));
 
-	pcie_dev->sid_info_len = size / (sizeof(*map));
+	pcie_dev->sid_info_len = (u32)(size / (sizeof(*map)));
 	pcie_dev->sid_info = devm_kcalloc(&pdev->dev, pcie_dev->sid_info_len,
 				sizeof(*pcie_dev->sid_info), GFP_KERNEL);
 	if (!pcie_dev->sid_info) {
@@ -7397,9 +7397,9 @@ static void __msm_pcie_l1ss_timeout_enable(struct msm_pcie_dev_t *pcie_dev)
 	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_DEBUG_INT_EN, 0,
 			    PCIE20_PARF_DEBUG_INT_EN_L1SUB_TIMEOUT_BIT);
 
-	val = PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER_RESET |
+	val = (u32)(PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER_RESET |
 	      L1SS_TIMEOUT_US_TO_TICKS(L1SS_TIMEOUT_US,
-				       pcie_dev->aux_clk_freq);
+				       pcie_dev->aux_clk_freq));
 
 	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER,
 			   val);
@@ -7745,9 +7745,9 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	PCIE_DBG(pcie_dev, "PCIe: RC%d:turn on unsuppressible clks Done.\n",
 		pcie_dev->rc_idx);
 
-	clkreq_override_en = readl_relaxed(pcie_dev->parf +
+	clkreq_override_en = (u32)(readl_relaxed(pcie_dev->parf +
 				PCIE20_PARF_CLKREQ_OVERRIDE) &
-				PCIE20_PARF_CLKREQ_IN_ENABLE;
+				PCIE20_PARF_CLKREQ_IN_ENABLE);
 	if (clkreq_override_en)
 		PCIE_DBG(pcie_dev,
 			"PCIe: RC%d: CLKREQ Override detected\n",
