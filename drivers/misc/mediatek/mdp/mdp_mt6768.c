@@ -1466,6 +1466,7 @@ void cmdq_mdp_platform_function_setting(void)
 	/* feature support about mdp */
 	pFunc->mdpIsCaminSupport = mdp_check_camin_support_virtual;
 	pFunc->mdpSvpSupportMetaData = mdp_svp_support_meta_data;
+	pFunc->cmdqMdpSetResourceCallback = cmdq_mdp_set_resource_callback;
 
 }
 MODULE_LICENSE("GPL");

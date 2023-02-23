@@ -111,4 +111,14 @@ const char *cmdq_core_query_first_err_mod(void)
 }
 EXPORT_SYMBOL(cmdq_core_query_first_err_mod);
 
+void mdp_set_resource_callback(enum cmdq_event res_event,
+	CmdqResourceAvailableCB res_available,
+	CmdqResourceReleaseCB res_release)
+{
+	if (cmdq_mdp_get_func_priv()->cmdqMdpSetResourceCallback)
+		cmdq_mdp_get_func_priv()->cmdqMdpSetResourceCallback(res_event,
+				res_available, res_release);
+}
+EXPORT_SYMBOL(mdp_set_resource_callback);
+
 MODULE_LICENSE("GPL");

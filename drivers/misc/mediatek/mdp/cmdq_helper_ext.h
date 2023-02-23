@@ -1016,5 +1016,8 @@ void cmdq_helper_ext_deinit(void);
 struct cmdqSecSharedMemoryStruct *cmdq_core_get_secure_shared_memory(void);
 void cmdq_core_attach_error_handle(const struct cmdqRecStruct *handle,
 	s32 thread);
+void mdp_set_resource_callback(enum cmdq_event res_event,
+	CmdqResourceAvailableCB res_available,
+	CmdqResourceReleaseCB res_release);
 
 #endif

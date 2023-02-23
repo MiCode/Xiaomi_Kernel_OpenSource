@@ -159,6 +159,11 @@ typedef u16 (*MdpGetReadbackEventLock) (void);
 typedef u16 (*MdpGetReadbackEventUnlock) (void);
 typedef u32 (*MdpGetPollGpr) (u16 engine, u32 reg_addr);
 
+typedef void (*CmdqMdpSetResourceCallback) (enum cmdq_event res_event,
+	CmdqResourceAvailableCB res_available,
+	CmdqResourceReleaseCB res_release);
+
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqGetRequest getRequest;
@@ -227,6 +232,7 @@ struct cmdqMDPFuncStruct {
 	MdpGetReadbackEventLock mdpGetReadbackEventLock;
 	MdpGetReadbackEventUnlock mdpGetReadbackEventUnlock;
 	MdpGetPollGpr mdpGetPollGpr;
+	CmdqMdpSetResourceCallback cmdqMdpSetResourceCallback;
 };
 
 struct mdp_pmqos_record {
