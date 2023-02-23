@@ -1802,6 +1802,10 @@ static int FDVT_release(struct inode *inode, struct file *file)
 
 	mt_fdvt_clk_ctrl(0);
 
+#ifdef CMDQ_MAIL_BOX
+	cmdq_mbox_disable(fdvt_clt->chan);
+#endif
+
 	spin_lock(&g_spinLock);
 	g_drvOpened = 0;
 	spin_unlock(&g_spinLock);
