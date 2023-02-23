@@ -41,12 +41,12 @@ static unsigned int met_vcorefs_src[SRC_MAX];
 
 static char *met_src_name[SRC_MAX] = {
 	"MD2SPM",
-	"DDR_SW_REQ1_PMQOS",
-	"DDR_SW_REQ2_CM",
-	"DDR_QOS_BW",
-	"VCORE_SW_REQ1_PMQOS",
-	"VCORE_SW_REQ2_CM",
-	"VCORE_SCP",
+	"DDR__SW_REQ1_PMQOS",
+	"DDR__SW_REQ2_CM",
+	"DDR__QOS_BW",
+	"VCORE__SW_REQ1_PMQOS",
+	"VCORE__SW_REQ2_CM",
+	"VCORE__SCP",
 	"PMQOS_TOTAL",
 	"PMQOS_PEAK",
 	"PMQOS_BW1",
