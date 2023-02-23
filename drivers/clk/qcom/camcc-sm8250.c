@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -202,6 +202,7 @@ static struct clk_alpha_pll_postdiv cam_cc_pll1_out_even = {
 
 static const struct alpha_pll_config cam_cc_pll2_config = {
 	.l = 0x4B,
+	.cal_l = 0x4B,
 	.alpha = 0x0,
 	.config_ctl_val = 0x08200920,
 	.config_ctl_hi_val = 0x05002015,
@@ -408,8 +409,8 @@ static const struct parent_map cam_cc_parent_map_1[] = {
 
 static const struct clk_parent_data cam_cc_parent_data_1[] = {
 	{ .fw_name = "bi_tcxo" },
-	{ .fw_name = "cam_cc_pll2_out_aux2" },
-	{ .fw_name = "cam_cc_pll2" },
+	{ .hw = &cam_cc_pll2.clkr.hw },
+	{ .hw = &cam_cc_pll2.clkr.hw },
 };
 
 static const struct parent_map cam_cc_parent_map_2[] = {
@@ -455,7 +456,7 @@ static const struct parent_map cam_cc_parent_map_6[] = {
 };
 
 static const struct clk_parent_data cam_cc_parent_data_6_ao[] = {
-	{ .fw_name = "bi_tcxo" },
+	{ .fw_name = "bi_tcxo_ao" },
 };
 
 static const struct freq_tbl ftbl_cam_cc_bps_clk_src[] = {
@@ -849,7 +850,7 @@ static const struct freq_tbl ftbl_cam_cc_ife_0_clk_src[] = {
 	F(350000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	F(475000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	F(576000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
-	F(720000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
+	F(680000000, P_CAM_CC_PLL3_OUT_EVEN, 1, 0, 0),
 	{ }
 };
 
