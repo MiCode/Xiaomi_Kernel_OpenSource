@@ -387,7 +387,7 @@ aliases {
 			reg = <0 0x14012000 0 0x1000>;
 			interrupts = <GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmsys_config CLK_MM_DISP_GAMMA0>;
-			gamma_data_mode = <2>;
+			gamma_data_mode = <0>;
 			color_protect_red = <0>;
 			color_protect_green = <0>;
 			color_protect_blue = <0>;
