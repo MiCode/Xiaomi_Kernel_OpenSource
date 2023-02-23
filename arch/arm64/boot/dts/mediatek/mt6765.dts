@@ -2321,7 +2321,6 @@ initcall_debug=1 pelt=8";
 		clocks = <&infracfg_ao CLK_IFR_GCE>,
 			<&infracfg_ao CLK_IFR_GCE_26M>;
 		clock-names = "GCE", "GCE_TIMER";
-		power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>;
 		mediatek,mailbox-gce = <&gce_mbox>;
 		mboxes = <&gce_mbox_sec 10 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 11 0 CMDQ_THR_PRIO_1>,
@@ -2360,6 +2359,7 @@ initcall_debug=1 pelt=8";
 		clocks = <&infracfg_ao CLK_IFR_GCE>,
 			<&infracfg_ao CLK_IFR_GCE_26M>;
 		clock-names = "gce", "gce-timer";
+		power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>;
 		skip-poll-sleep;
 		cpr-not-support-cookie;
 	};
