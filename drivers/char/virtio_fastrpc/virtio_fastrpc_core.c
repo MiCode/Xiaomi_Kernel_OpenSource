@@ -606,7 +606,7 @@ static int context_alloc(struct vfastrpc_file *vfl,
 	ctx->fds = (int *)(&ctx->lpra[bufs]);
 	ctx->attrs = (unsigned int *)(&ctx->fds[bufs]);
 
-	K_COPY_FROM_USER(err, 0, (void *)ctx->lpra, invoke->pra,
+	K_COPY_FROM_USER(err, fl->is_compat, (void *)ctx->lpra, invoke->pra,
 			bufs * sizeof(*ctx->lpra));
 	if (err)
 		goto bail;
