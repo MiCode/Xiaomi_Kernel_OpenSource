@@ -3821,6 +3821,32 @@ initcall_debug=1 pelt=8";
 		#clock-cells = <1>;
 	};
 
+	cam_qos_legacy {
+		/* non-v4l2 legacy camera */
+		compatible = "mediatek,cam_qos_legacy";
+		operating-points-v2 = <&opp_table_mm>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		mediatek,platform = "mt6765";
+
+		l3_cam_imgo = <M4U_PORT_CAM_IMGO>;
+		l3_cam_rrzo = <M4U_PORT_CAM_RRZO>;
+		l3_cam_aao = <M4U_PORT_CAM_AAO>;
+		l3_cam_afo = <M4U_PORT_CAM_AFO>;
+		l3_cam_lsci0 = <M4U_PORT_CAM_LSCI0>;
+		l3_cam_lsci1 = <M4U_PORT_CAM_LSCI1>;
+		l3_cam_pdo = <M4U_PORT_CAM_PDO>;
+		l3_cam_bpci = <M4U_PORT_CAM_BPCI>;
+		l3_cam_lcso = <M4U_PORT_CAM_LCSO>;
+		l3_cam_rsso_a = <M4U_PORT_CAM_RSSO_A>;
+		l3_cam_rsso_b = <M4U_PORT_CAM_RSSO_B>;
+		l3_cam_ufeo = <M4U_PORT_CAM_UFEO>;
+		l3_cam_soc0 = <M4U_PORT_CAM_SOC0>;
+		l3_cam_soc1 = <M4U_PORT_CAM_SOC1>;
+		l3_cam_soc2 = <M4U_PORT_CAM_SOC2>;
+		l3_cam_rawi_a = <M4U_PORT_CAM_RAWI_A>;
+		l3_cam_rawi_b = <M4U_PORT_CAM_RAWI_B>;
+	};
+
 	cam_mem {
 		compatible = "mediatek,cam_mem";
 		mediatek,platform = "mt6765";
