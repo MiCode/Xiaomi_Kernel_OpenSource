@@ -32,6 +32,7 @@
 #include <mt-plat/mtk_thermal_platform.h>
 #include <linux/uidgid.h>
 #include <mtk_thermal_platform_init.h>
+#include <thermal_core.h>
 
 /* ************************************ */
 /* Definition */
@@ -1721,6 +1722,7 @@ static int mtk_cooling_wrapper_set_cur_state
 	struct mtk_thermal_cooler_data *mcdata;
 	int ret = 0;
 	unsigned long cur_state = 0;
+	struct thermal_instance *instance;
 
 	mutex_lock(&MTM_COOLER_LOCK);
 
@@ -1815,6 +1817,14 @@ static int mtk_cooling_wrapper_set_cur_state
 						"[.set_cur_state]not exit yet tz_type:%s cdev_type:%s trip:%d state:%lu\n",
 						mcdata->tz->type, cdev->type,
 						mcdata->trip, state);
+
+					list_for_each_entry(instance, &cdev->thermal_instances,
+							cdev_node) {
+						if (instance->target == THERMAL_NO_TARGET)
+							continue;
+
+						instance->target = cur_state;
+					}
 
 					state = cur_state;
 				}

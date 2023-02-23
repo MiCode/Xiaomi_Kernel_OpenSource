@@ -11,6 +11,7 @@
 # GNU General Public License for more details.
 #
 
+ccflags-y  += -I$(srctree)/drivers/thermal/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/ppm_v3/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
