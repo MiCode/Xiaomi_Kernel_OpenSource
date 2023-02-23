@@ -4282,11 +4282,13 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
+	u32 reg = *(u32 *)data;
 	bool ber_th_exceeded = false;
+	bool evt_valid = true;
 
 	switch (evt) {
 	case UFS_EVT_PA_ERR:
-		ber_th_exceeded = ufs_qcom_update_ber_event(host, *(u32 *)data,
+		ber_th_exceeded = ufs_qcom_update_ber_event(host, reg,
 								hba->pwr_info.gear_rx);
 
 		if (ber_th_exceeded) {
@@ -4304,9 +4306,16 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 			dev_err(hba->dev, "Warning: BER exceed threshlod !!!\n");
 
 		break;
+	case UFS_EVT_DL_ERR:
+		if (reg == UIC_DATA_LINK_LAYER_EC_PA_ERROR_IND_RECEIVED)
+			evt_valid = false;
+		break;
 	default:
 		break;
 	}
+
+	if (evt_valid)
+		host->valid_evt_cnt[evt]++;
 }
 
 void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba,
@@ -4840,8 +4849,9 @@ static DEVICE_ATTR_RO(clk_status);
 static unsigned int ufs_qcom_gec(struct ufs_hba *hba, u32 id,
 				 char *err_name)
 {
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	unsigned long flags;
-	int i, cnt_err = 0;
+	int i;
 	struct ufs_event_hist *e;
 
 	if (id >= UFS_EVT_CNT)
@@ -4858,11 +4868,10 @@ static unsigned int ufs_qcom_gec(struct ufs_hba *hba, u32 id,
 		ufs_qcom_msg(ERR, hba->dev, "%s[%d] = 0x%x at %lld us\n", err_name, p,
 			e->val[p], ktime_to_us(e->tstamp[p]));
 
-		++cnt_err;
 	}
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-	return cnt_err;
+	return host->valid_evt_cnt[id];
 }
 
 static ssize_t err_count_show(struct device *dev,

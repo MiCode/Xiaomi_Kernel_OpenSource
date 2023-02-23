@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef UFS_QCOM_H_
@@ -258,6 +258,9 @@ enum ufs_qcom_phy_init_type {
  * Enable this quirk to give an additional TX_HS_SYNC_LENGTH.
  */
 #define UFS_DEVICE_QUIRK_PA_TX_HSG1_SYNC_LENGTH (1 << 16)
+
+/* UECPA - Host UIC Error Code Data Link Layer */
+#define UIC_DATA_LINK_LAYER_EC_PA_ERROR_IND_RECEIVED	0x4000
 
 static inline void
 ufs_qcom_get_controller_revision(struct ufs_hba *hba,
@@ -603,6 +606,7 @@ struct ufs_qcom_host {
 	struct ufs_qcom_ber_hist ber_hist[UFS_QCOM_BER_MODE_MAX];
 	struct list_head regs_list_head;
 	bool ber_th_exceeded;
+	u32 valid_evt_cnt[UFS_EVT_CNT];
 };
 
 static inline u32
