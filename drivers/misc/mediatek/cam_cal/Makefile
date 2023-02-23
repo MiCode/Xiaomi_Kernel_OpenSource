@@ -13,3 +13,4 @@
 
 
 obj-$(CONFIG_MTK_CAM_CAL) += src/
+obj-$(CONFIG_MTK_CAM_CAL_ISP4_C) += src/
