@@ -28,9 +28,7 @@ void gpufreq_config_dfd(unsigned int enable);
 /**************************************************
  * MTK GPUFREQ API
  **************************************************/
-extern unsigned int mt_gpufreq_target(unsigned int idx);
-extern void mt_gpufreq_enable_MTCMOS(bool bEnableHWAPM);
-extern void mt_gpufreq_disable_MTCMOS(bool bEnableHWAPM);
+extern void mt_gpufreq_set_hwapm_state(bool bEnableHWAPM);
 extern unsigned int mt_gpufreq_voltage_enable_set(unsigned int enable);
 extern unsigned int mt_gpufreq_get_thermal_limit_index(void);
 extern unsigned int mt_gpufreq_get_thermal_limit_freq(void);

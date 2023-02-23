@@ -63,6 +63,14 @@
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
 #include <linux/nvmem-consumer.h>
 #endif
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
+#include "mtk_thermal.h"
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_PBM)
+#include "mtk_pbm.h"
+#endif
+
 /**
  * ===============================================
  * Local Function Declaration
@@ -97,7 +105,7 @@ static enum gpufreq_posdiv __gpufreq_get_real_posdiv_gpu(void);
 static enum gpufreq_posdiv __gpufreq_get_posdiv_by_fgpu(unsigned int freq);
 /* power control function */
 static int __gpufreq_clock_control(enum gpufreq_power_state power);
-static int __gpufreq_mtcmos_control(enum gpufreq_power_state power, bool bEnableHWAPM);
+static int __gpufreq_mtcmos_control(enum gpufreq_power_state power);
 static int __gpufreq_buck_control(enum gpufreq_power_state power);
 /* init function */
 static void __gpufreq_init_shader_present(void);
@@ -118,8 +126,7 @@ static int __gpufreq_pdrv_remove(struct platform_device *pdev);
 /*low power*/
 static void __gpufreq_kick_pbm(int enable);
 /*external function*/
-//#if IS_ENABLED(CONFIG_MTK_PBM)
-#if PBM_RAEDY
+#if IS_ENABLED(CONFIG_MTK_PBM)
 extern void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage);
 #endif
 //thermal
@@ -156,6 +163,7 @@ static unsigned int g_shader_present;
 static unsigned int g_stress_test_enable;
 static struct gpufreq_status g_gpu;
 static bool g_volt_enable_state;
+static bool g_EnableHWAPM_state;
 static struct gpufreq_mtcmos_info *g_mtcmos;
 static enum gpufreq_dvfs_state g_dvfs_state;
 
@@ -383,61 +391,13 @@ unsigned int mt_gpufreq_get_power_table_num(void)
 }
 EXPORT_SYMBOL(mt_gpufreq_get_power_table_num);
 
-/* API: mt_gpufreq_target */
-unsigned int mt_gpufreq_target(unsigned int idx)
+/* API: mt_gpufreq_set_hwapm_state */
+void mt_gpufreq_set_hwapm_state(bool bEnableHWAPM)
 {
-	int ret = GPUFREQ_SUCCESS;
-
-	ret = __gpufreq_fix_target_oppidx_gpu(idx);
-	return ret;
+	g_EnableHWAPM_state = bEnableHWAPM;
+	GPUFREQ_LOGD("@%s: g_EnableHWAPM_state updated = %d\n", __func__, bEnableHWAPM);
 }
-EXPORT_SYMBOL(mt_gpufreq_target);
-
-/* API: mt_gpufreq_enable_MTCMOS */
-void mt_gpufreq_enable_MTCMOS(bool bEnableHWAPM)
-{
-	int ret = 0;
-
-	GPUFREQ_TRACE_START("bEnableHWAPM =%d", bEnableHWAPM);
-	ret = __gpufreq_clock_control(POWER_ON);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to control CLOCK: On (%d)", ret);
-		ret = GPUFREQ_EINVAL;
-		goto done_unlock;
-	}
-	ret = __gpufreq_mtcmos_control(POWER_ON, bEnableHWAPM);
-	if (unlikely(ret < 0)) {
-		GPUFREQ_LOGE("fail to control MTCMOS: On (%d)", ret);
-		ret = GPUFREQ_EINVAL;
-		goto done_unlock;
-	}
-done_unlock:
-	GPUFREQ_TRACE_END();
-}
-EXPORT_SYMBOL(mt_gpufreq_enable_MTCMOS);
-
-/* API: mt_gpufreq_disable_MTCMOS */
-void mt_gpufreq_disable_MTCMOS(bool bEnableHWAPM)
-{
-	int ret = 0;
-
-	GPUFREQ_TRACE_START("bEnableHWAPM =%d", bEnableHWAPM);
-	ret = __gpufreq_mtcmos_control(POWER_OFF, bEnableHWAPM);
-	if (unlikely(ret < 0)) {
-		GPUFREQ_LOGE("fail to control MTCMOS: Off (%d)", ret);
-		ret = GPUFREQ_EINVAL;
-		goto done_unlock;
-	}
-	ret = __gpufreq_clock_control(POWER_OFF);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to control CLOCK: Off (%d)", ret);
-		ret = GPUFREQ_EINVAL;
-		goto done_unlock;
-	}
-done_unlock:
-	GPUFREQ_TRACE_END();
-}
-EXPORT_SYMBOL(mt_gpufreq_disable_MTCMOS);
+EXPORT_SYMBOL(mt_gpufreq_set_hwapm_state);
 
 /* API: mt_gpufreq_voltage_enable_set */
 unsigned int mt_gpufreq_voltage_enable_set(unsigned int enable)
@@ -599,7 +559,7 @@ static void __gpufreq_calculate_power(unsigned int idx, unsigned int freq,
 
 #ifdef CONFIG_MTK_STATIC_POWER
 	p_leakage = mt_spower_get_leakage(MTK_SPOWER_GPU, (volt / 100), temp);
-	if (!(regulator_is_enabled(g_pmic->reg_vcore)) || p_leakage < 0)
+	if (!(regulator_is_enabled(g_pmic->mtk_pm_vgpu)) || p_leakage < 0)
 		p_leakage = 0;
 #else
 	p_leakage = 71;
@@ -627,7 +587,7 @@ static void __gpufreq_setup_opp_power_table(int num)
 	if (g_power_table == NULL)
 		return;
 
-#ifdef CONFIG_MTK_LEGACY_THERMAL
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
 	temp = get_immediate_gpu_wrap() / 1000;
 #else
 	temp = 40;
@@ -652,7 +612,7 @@ static void __gpufreq_setup_opp_power_table(int num)
 				g_power_table[i].gpufreq_volt,
 				g_power_table[i].gpufreq_power);
 	}
-#ifdef CONFIG_MTK_LEGACY_THERMAL
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
 	mtk_gpufreq_register(g_power_table, num);
 #endif /* CONFIG_MTK_LEGACY_THERMAL */
 }
@@ -666,7 +626,7 @@ static void __gpufreq_update_power_table(void)
 	unsigned int freq = 0;
 	unsigned int volt = 0;
 
-#ifdef CONFIG_MTK_LEGACY_THERMAL
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
 	temp = get_immediate_gpu_wrap() / 1000;
 #else
 	temp = 40;
@@ -804,8 +764,7 @@ unsigned int __gpufreq_get_dyn_pgpu(unsigned int freq, unsigned int volt)
  */
 static void __gpufreq_kick_pbm(int enable)
 {
-//#if IS_ENABLED(CONFIG_MTK_PBM)
-#if PBM_RAEDY
+#if IS_ENABLED(CONFIG_MTK_PBM)
 	unsigned int power;
 	unsigned int cur_freq;
 	unsigned int cur_volt;
@@ -908,7 +867,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		}
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_03);
 		/* control MTCMOS */
-		ret = __gpufreq_mtcmos_control(POWER_ON, false);
+		ret = __gpufreq_mtcmos_control(POWER_ON);
 		if (unlikely(ret < 0)) {
 			GPUFREQ_LOGE("fail to control MTCMOS: On (%d)", ret);
 			ret = GPUFREQ_EINVAL;
@@ -925,7 +884,7 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		g_dvfs_state |= DVFS_POWEROFF;
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_06);
 		/* control MTCMOS */
-		ret = __gpufreq_mtcmos_control(POWER_OFF, false);
+		ret = __gpufreq_mtcmos_control(POWER_OFF);
 		if (unlikely(ret < 0)) {
 			GPUFREQ_LOGE("fail to control MTCMOS: Off (%d)", ret);
 			ret = GPUFREQ_EINVAL;
@@ -1510,7 +1469,7 @@ static int __gpufreq_volt_scale_gpu(
 	GPUFREQ_LOGD("begin to scale Vgpu: (%d->%d), Vsram_gpu: (%d->%d)",
 		vgpu_old, vgpu_new, vsram_old, vsram_new);
 		ret = regulator_set_voltage(
-				g_pmic->reg_vcore,
+				g_pmic->mtk_pm_vgpu,
 				vgpu_new * 10,
 				VGPU_MAX_VOLT * 10 + 125);
 		if (unlikely(ret)) {
@@ -1578,7 +1537,7 @@ static unsigned int __gpufreq_get_real_vgpu(void)
 {
 	unsigned int volt = 0;
 
-	if (regulator_is_enabled(g_pmic->reg_vcore))
+	if (regulator_is_enabled(g_pmic->mtk_pm_vgpu))
 		/* regulator_get_voltage return volt with uV */
 		volt = regulator_get_voltage(g_pmic->reg_vcore) / 10;
 	GPUFREQ_LOGD("@%s: voltage = %d mV", __func__, volt);
@@ -1613,12 +1572,12 @@ done:
 	GPUFREQ_TRACE_END();
 	return ret;
 }
-static int __gpufreq_mtcmos_control(enum gpufreq_power_state power, bool bEnableHWAPM)
+static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 {
 	int ret = GPUFREQ_SUCCESS;
 	u32 val = 0;
 
-	GPUFREQ_TRACE_START("power=%d, bEnableHWAPM = %d", power, bEnableHWAPM);
+	GPUFREQ_TRACE_START("power=%d", power);
 	if (power == POWER_ON) {
 #ifdef MT_GPUFREQ_SRAM_DEBUG
 		aee_rr_rec_gpu_dvfs_status(0x70 | (aee_rr_curr_gpu_dvfs_status() & 0x0F));
@@ -1636,7 +1595,7 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power, bool bEnable
 				"fail to enable pd_mfg (%d)", ret);
 			goto done;
 		}
-		if (!bEnableHWAPM) {
+		if (!g_EnableHWAPM_state) {
 			ret = pm_runtime_get_sync(g_mtcmos->pd_mfg_core0);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -1653,7 +1612,7 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power, bool bEnable
 #ifdef MT_GPUFREQ_SRAM_DEBUG
 		aee_rr_rec_gpu_dvfs_status(0x90 | (aee_rr_curr_gpu_dvfs_status() & 0x0F));
 #endif
-		if (!bEnableHWAPM) {
+		if (!g_EnableHWAPM_state) {
 			ret = pm_runtime_put_sync(g_mtcmos->pd_mfg_core0);
 			if (unlikely(ret < 0)) {
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -1695,7 +1654,7 @@ static int __gpufreq_buck_control(enum gpufreq_power_state power)
 	GPUFREQ_TRACE_START("power=%d", power);
 	/* power on */
 	if (power == POWER_ON) {
-		ret = regulator_enable(g_pmic->reg_vcore);
+		ret = regulator_enable(g_pmic->mtk_pm_vgpu);
 		if (unlikely(ret)) {
 			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to enable VCORE (%d)",
 			ret);
@@ -1704,7 +1663,7 @@ static int __gpufreq_buck_control(enum gpufreq_power_state power)
 		g_gpu.buck_count++;
 	/* power off */
 	} else {
-		ret = regulator_disable(g_pmic->reg_vcore);
+		ret = regulator_disable(g_pmic->mtk_pm_vgpu);
 		if (unlikely(ret)) {
 			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to disable VCORE (%d)", ret);
 			goto done;
@@ -2190,9 +2149,9 @@ static int __gpufreq_init_pmic(struct platform_device *pdev)
 		GPUFREQ_LOGE("@%s: cannot get VCORE\n", __func__);
 		return PTR_ERR(g_pmic->reg_vcore);
 	}
-	regulator_set_voltage(g_pmic->reg_vcore, VGPU_MAX_VOLT * 10, VGPU_MAX_VOLT * 10 + 125);
+	regulator_set_voltage(g_pmic->mtk_pm_vgpu, VGPU_MAX_VOLT * 10, VGPU_MAX_VOLT * 10 + 125);
 	GPUFREQ_LOGE("@%s: set VCORE to %d\n", __func__, VGPU_MAX_VOLT * 10);
-	if (regulator_enable(g_pmic->reg_vcore))
+	if (regulator_enable(g_pmic->mtk_pm_vgpu))
 		GPUFREQ_LOGE("@%s: enable VCORE failed\n", __func__);
 	else
 		GPUFREQ_LOGE("@%s: enable VCORE success and vore volt = %d\n",
@@ -2286,6 +2245,8 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 		GPUFREQ_LOGE("fail to init segment id (%d)", ret);
 		goto done;
 	}
+	/*before power ON , set the hwapm state first*/
+	mt_gpufreq_set_hwapm_state(false);
 
 	/* power on to init first OPP index */
 	ret = __gpufreq_power_control(POWER_ON);
