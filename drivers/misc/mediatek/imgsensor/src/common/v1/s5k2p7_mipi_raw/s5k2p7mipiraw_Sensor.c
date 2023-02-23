@@ -349,6 +349,10 @@ static kal_uint16 table_write_cmos_sensor(kal_uint16 *para, kal_uint32 len)
 	tosend = 0;
 	IDX = 0;
 	puSendCmd = kmalloc(I2C_BUFFER_LEN, GFP_KERNEL);
+	if (puSendCmd == NULL) {
+		pr_info("Error! allocate table failed\n");
+		return 0;
+	}
 
 	while (len > IDX) {
 		addr = para[IDX];
