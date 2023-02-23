@@ -345,7 +345,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 				ret * sizeof(u32),
 				GFP_KERNEL);
 
-		if (!ret) {
+		if (!cm_mgr_perfs) {
 			ret = -ENOMEM;
 			goto ERROR;
 		}
