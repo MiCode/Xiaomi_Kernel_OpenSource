@@ -109,9 +109,7 @@
 #endif
 
 #include <archcounter_timesync.h>
-#ifdef CCU_HELP
 #include <ccu_inc.h>
-#endif
 
 /*  */
 #ifndef MTRUE
@@ -708,52 +706,6 @@ static atomic_t G_u4DevNodeCt;
 
 int pr_detect_count;
 
-/*save ion fd*/
-#define ENABLE_KEEP_ION_HANDLE
-
-#ifdef ENABLE_KEEP_ION_HANDLE
-#define _ion_keep_max_   (64)/*32*/
-#ifdef ISP_HELP
-#include "ion_drv.h" /*g_ion_device*/
-
-static struct ion_client *pIon_client;
-#endif
-static signed int G_WRDMA_IonCt[2][_dma_max_wr_*_ion_keep_max_] = { {0}, {0} };
-static signed int G_WRDMA_IonFd[2][_dma_max_wr_*_ion_keep_max_] = { {0}, {0} };
-static struct ion_handle *G_WRDMA_IonHnd[2][_dma_max_wr_*_ion_keep_max_]
-			= { {NULL}, {NULL} };
-/* protect G_WRDMA_IonHnd & G_WRDMA_IonFd */
-static spinlock_t SpinLock_IonHnd[2][_dma_max_wr_];
-
-struct T_ION_TBL {
-	enum ISP_DEV_NODE_ENUM node;
-	signed int *pIonCt;
-	signed int *pIonFd;
-	struct ion_handle **pIonHnd;
-	spinlock_t *pLock;
-};
-
-static struct T_ION_TBL gION_TBL[ISP_DEV_NODE_NUM] = {
-	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
-	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
-	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
-	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
-	{ISP_CAM_A_IDX, (signed int *)G_WRDMA_IonCt[0],
-	 (signed int *)G_WRDMA_IonFd[0],
-	 (struct ion_handle **)G_WRDMA_IonHnd[0],
-	 (spinlock_t *)SpinLock_IonHnd[0]},
-	{ISP_CAM_B_IDX, (signed int *)G_WRDMA_IonCt[1],
-	 (signed int *)G_WRDMA_IonFd[1],
-	 (struct ion_handle **)G_WRDMA_IonHnd[1],
-	 (spinlock_t *)SpinLock_IonHnd[1]},
-	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
-	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
-	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
-	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
-	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL},
-	{ISP_DEV_NODE_NUM, NULL, NULL, NULL, NULL}
-};
-#endif
 /******************************************************************************
  *
  *****************************************************************************/
@@ -2398,13 +2350,6 @@ static struct _isp_bk_reg_t g_BkReg[ISP_IRQ_TYPE_AMOUNT];
 	_regVal;\
 })
 
-#if ISP_NOT_WORK
-/******************************************************************************
- * file shrink
- *****************************************************************************/
-#include "camera_isp_reg.c"
-#include "camera_isp_isr.c"
-#endif
 
 /******************************************************************************
  *
@@ -2714,504 +2659,6 @@ static signed int ISP_DumpReg(void)
 {
 	signed int Ret = 0;
 
-#if ISP_NOT_WORK
-	/*  */
-	/* spin_lock_irqsave(&(IspInfo.SpinLock), flags); */
-
-	/* tile tool parse range */
-	/* #define ISP_ADDR_START  0x15004000 */
-	/* #define ISP_ADDR_END    0x15006000 */
-	/*  */
-	/* N3D control */
-	ISP_WR32((ISP_ADDR + 0x40c0), 0x746);
-	pr_info("[0x%08X %08X] [0x%08X %08X]",
-		(unsigned int)(ISP_TPIPE_ADDR + 0x40c0),
-		(unsigned int)ISP_RD32(ISP_ADDR + 0x40c0),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x40d8),
-		(unsigned int)ISP_RD32(ISP_ADDR + 0x40d8));
-	ISP_WR32((ISP_ADDR + 0x40c0), 0x946);
-	pr_info("[0x%08X %08X] [0x%08X %08X]",
-		(unsigned int)(ISP_TPIPE_ADDR + 0x40c0),
-		(unsigned int)ISP_RD32(ISP_ADDR + 0x40c0),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x40d8),
-		(unsigned int)ISP_RD32(ISP_ADDR + 0x40d8));
-
-	/* isp top */
-	RegDump(0x0, 0x200);
-	/* dump p1 dma reg */
-	RegDump(0x3200, 0x3570);
-	/* dump all isp dma reg */
-	RegDump(0x3300, 0x3400);
-	/* dump all isp dma err reg */
-	RegDump(0x3560, 0x35e0);
-	/* TG1 */
-	RegDump(0x410, 0x4a0);
-	/* TG2 */
-	RegDump(0x2410, 0x2450);
-	/* hbin */
-	pr_info("[%s] [0x%08X %08X],[0x%08X %08X]",
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4f0),
-		(unsigned int)ISP_RD32(ISP_ADDR + 0x534),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4f4),
-		(unsigned int)ISP_RD32(ISP_ADDR + 0x538));
-	/* LSC */
-	RegDump(0x530, 0x550);
-	/* awb win */
-	RegDump(0x5b0, 0x5d0);
-	/* ae win */
-	RegDump(0x650, 0x690);
-	/* af win */
-	RegDump(0x6b0, 0x700);
-	/* flk */
-	RegDump(0x770, 0x780);
-	/* rrz */
-	RegDump(0x7a0, 0x7d0);
-	/* eis */
-	RegDump(0xdc0, 0xdf0);
-	/* dmx/rmx/bmx */
-	RegDump(0xe00, 0xe30);
-	/* Mipi source */
-	pr_info("[0x%08X %08X],[0x%08X %08X]", (unsigned int)(0x10217000),
-		(unsigned int)ISP_RD32(ISP_MIPI_ANA_ADDR),
-		(unsigned int)(0x10217004),
-		(unsigned int)ISP_RD32(ISP_MIPI_ANA_ADDR + 0x4));
-	pr_info("[0x%08X %08X],[0x%08X %08X]", (unsigned int)(0x10217008),
-		(unsigned int)ISP_RD32(ISP_MIPI_ANA_ADDR + 0x8),
-		(unsigned int)(0x1021700c),
-		(unsigned int)ISP_RD32(ISP_MIPI_ANA_ADDR + 0xc));
-	pr_info("[0x%08X %08X],[0x%08X %08X]", (unsigned int)(0x10217030),
-		(unsigned int)ISP_RD32(ISP_MIPI_ANA_ADDR + 0x30),
-		(unsigned int)(0x10219030),
-		(unsigned int)ISP_RD32(ISP_MIPI_ANA_ADDR + 0x2030));
-
-	/* NSCI2 1 debug */
-	ISP_WR32((ISP_ADDR + 0x43B8), 0x02);
-	pr_info("[0x%08X %08X]", (unsigned int)(ISP_TPIPE_ADDR + 0x43B8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x43B8));
-	pr_info("[0x%08X %08X]", (unsigned int)(ISP_TPIPE_ADDR + 0x43BC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x43BC));
-	ISP_WR32((ISP_ADDR + 0x43B8), 0x12);
-	pr_info("[0x%08X %08X]", (unsigned int)(ISP_TPIPE_ADDR + 0x43B8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x43B8));
-	pr_info("[0x%08X %08X]", (unsigned int)(ISP_TPIPE_ADDR + 0x43BC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x43BC));
-	/* NSCI2 3 debug */
-	ISP_WR32((ISP_ADDR + 0x4BB8), 0x02);
-	pr_info("[0x%08X %08X]", (unsigned int)(ISP_TPIPE_ADDR + 0x4BB8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BB8));
-	pr_info("[0x%08X %08X]", (unsigned int)(ISP_TPIPE_ADDR + 0x4BBC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x43BC));
-	ISP_WR32((ISP_ADDR + 0x4BB8), 0x12);
-	pr_info("[0x%08X %08X]", (unsigned int)(ISP_TPIPE_ADDR + 0x43B8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BB8));
-	pr_info("[0x%08X %08X]", (unsigned int)(ISP_TPIPE_ADDR + 0x4BBC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BBC));
-
-	/* seninf1 */
-	pr_info("[0x%08X %08X],[0x%08X %08X]",
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4008),
-		(unsigned int)ISP_RD32(ISP_ADDR + 0x4008),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4100),
-		(unsigned int)ISP_RD32(ISP_ADDR + 0x4100));
-	RegDump(0x4120, 0x4160);
-	RegDump(0x4360, 0x43f0)
-	/* seninf2 */
-	pr_info("[0x%08X %08X],[0x%08X %08X]",
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4008),
-		(unsigned int)ISP_RD32(ISP_ADDR + 0x4008),
-		(unsigned int)(ISP_TPIPE_ADDR + 0x4100),
-		(unsigned int)ISP_RD32(ISP_ADDR + 0x4100));
-	RegDump(0x4520, 0x4560);
-	RegDump(0x4600, 0x4610);
-	RegDump(0x4760, 0x47f0);
-	/* LSC_D */
-	RegDump(0x2530, 0x2550);
-	/* awb_d */
-	RegDump(0x25b0, 0x25d0);
-	/* ae_d */
-	RegDump(0x2650, 0x2690);
-	/* af_d */
-	RegDump(0x26b0, 0x2700);
-	/* rrz_d */
-	RegDump(0x27a0, 0x27d0);
-	/* rmx_d/bmx_d/dmx_d */
-	RegDump(0x2e00, 0x2e30);
-
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x800),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x800));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x880),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x880));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x884),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x884));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x888),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x888));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x8A0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x8A0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x920),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x920));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x924),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x924));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x928),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x928));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x92C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x92C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x930),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x930));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x934),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x934));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x938),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x938));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x93C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x93C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x960),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x960));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x9C4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x9C4));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x9E4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x9E4));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x9E8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x9E8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x9EC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x9EC));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xA00),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xA00));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xA04),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xA04));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xA08),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xA08));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xA0C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xA0C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xA10),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xA10));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xA14),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xA14));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xA20),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xA20));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xAA0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xAA0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xACC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xACC));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB00),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB00));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB04),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB04));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB08),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB08));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB0C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB0C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB10),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB10));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB14),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB14));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB18),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB18));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB1C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB1C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB20),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB20));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB44),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB44));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB48),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB48));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB4C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB4C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB50),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB50));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB54),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB54));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB58),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB58));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB5C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB5C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xB60),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xB60));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xBA0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xBA0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xBA4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xBA4));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xBA8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xBA8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xBAC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xBAC));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xBB0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xBB0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xBB4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xBB4));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xBB8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xBB8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xBBC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xBBC));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xBC0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xBC0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xC20),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xC20));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xCC0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xCC0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xCE4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xCE4));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xCE8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xCE8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xCEC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xCEC));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xCF0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xCF0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xCF4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xCF4));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xCF8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xCF8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xCFC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xCFC));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD24),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD24));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD28),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD28));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD2C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD2c));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD40),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD40));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD64),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD64));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD68),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD68));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD6C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD6c));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD70),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD70));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD74),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD74));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD78),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD78));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xD7C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xD7C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xDA4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xDA4));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xDA8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xDA8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0xDAC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xDAC));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x2410),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x2410));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x2414),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x2414));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x2418),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x2418));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x241C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x241C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x2420),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x2420));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x243C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x243C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x2440),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x2440));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x2444),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x2444));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x2448),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x2448));
-
-	/* seninf3 */
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4900),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4900));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4920),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4920));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4924),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4924));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4928),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4928));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x492C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x492C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4930),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4930));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4934),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4934));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4938),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4938));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BA0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BA0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BA4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BA4));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BA8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BA8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BAC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BAC));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BB0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BB0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BB4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BB4));
-	ISP_WR32((ISP_ADDR + 0x4BB8), 0x10);
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BB8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BB8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BBC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BBC));
-	ISP_WR32((ISP_ADDR + 0x4BB8), 0x11);
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BB8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BB8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BBC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BBC));
-	ISP_WR32((ISP_ADDR + 0x4BB8), 0x12);
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BB8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BB8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4BBC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4BBC));
-	/* seninf4 */
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4D00),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4D00));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4D20),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4D20));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4D24),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4D24));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4D28),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4D28));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4D2C),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4D2C));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4D30),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4D30));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4D34),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4D34));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4D38),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4D38));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FA0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FA0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FA4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FA4));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FA8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FA8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FAC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FAC));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FB0),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FB0));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FB4),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FB4));
-	ISP_WR32((ISP_ADDR + 0x4FB8), 0x10);
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FB8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FB8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FBC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FBC));
-	ISP_WR32((ISP_ADDR + 0x4FB8), 0x11);
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FB8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FB8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FBC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FBC));
-	ISP_WR32((ISP_ADDR + 0x4FB8), 0x12);
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FB8),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FB8));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x4FBC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x4FBC));
-
-	pr_info("0x%08X %08X", (unsigned int)(ISP_TPIPE_ADDR + 0x35FC),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x35FC));
-	pr_info("end MT6593");
-
-	/*  */
-	pr_info("0x%08X %08X ", (unsigned int)ISP_ADDR_CAMINF,
-	(unsigned int)ISP_RD32(ISP_ADDR_CAMINF));
-	pr_info("0x%08X %08X ", (unsigned int)(ISP_TPIPE_ADDR + 0x150),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0x150));
-	/*  */
-	/* debug msg for direct link */
-
-
-	/* mdp crop */
-	pr_info("MDPCROP Related");
-	pr_info("0x%08X %08X", (unsigned int)(ISP_ADDR + 0xd10),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xd10));
-	pr_info("0x%08X %08X", (unsigned int)(ISP_ADDR + 0xd20),
-	(unsigned int)ISP_RD32(ISP_ADDR + 0xd20));
-	/* cq */
-	pr_info("CQ Related");
-	ISP_WR32(ISP_IMGSYS_BASE + 0x4160, 0x6000);
-	pr_info("0x%08X %08X (0x15004160=6000)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	ISP_WR32(ISP_IMGSYS_BASE + 0x4160, 0x7000);
-	pr_info("0x%08X %08X (0x15004160=7000)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	ISP_WR32(ISP_IMGSYS_BASE + 0x4160, 0x8000);
-	pr_info("0x%08X %08X (0x15004160=8000)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	/* imgi_debug */
-	pr_info("IMGI_DEBUG Related");
-	ISP_WR32(ISP_IMGSYS_BASE + 0x75f4, 0x001e);
-	pr_info("0x%08X %08X (0x150075f4=001e)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	ISP_WR32(ISP_IMGSYS_BASE + 0x75f4, 0x011e);
-	pr_info("0x%08X %08X (0x150075f4=011e)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	ISP_WR32(ISP_IMGSYS_BASE + 0x75f4, 0x021e);
-	pr_info("0x%08X %08X (0x150075f4=021e)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	ISP_WR32(ISP_IMGSYS_BASE + 0x75f4, 0x031e);
-	pr_info("0x%08X %08X (0x150075f4=031e)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	/* yuv */
-	pr_info("yuv-mdp crop Related");
-	ISP_WR32(ISP_IMGSYS_BASE + 0x4160, 0x3014);
-	pr_info("0x%08X %08X (0x15004160=3014)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	pr_info("yuv-c24b out Related");
-	ISP_WR32(ISP_IMGSYS_BASE + 0x4160, 0x301e);
-	pr_info("0x%08X %08X (0x15004160=301e)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	ISP_WR32(ISP_IMGSYS_BASE + 0x4160, 0x301f);
-	pr_info("0x%08X %08X (0x15004160=301f)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	ISP_WR32(ISP_IMGSYS_BASE + 0x4160, 0x3020);
-	pr_info("0x%08X %08X (0x15004160=3020)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-	ISP_WR32(ISP_IMGSYS_BASE + 0x4160, 0x3021);
-	pr_info("0x%08X %08X (0x15004160=3021)",
-	(unsigned int)(ISP_IMGSYS_BASE + 0x4164),
-	(unsigned int)ISP_RD32(ISP_IMGSYS_BASE + 0x4164));
-
-
-#if ISP_NOT_WORK /* _mt6593fpga_dvt_use_ */
-	{
-		int tpipePA = ISP_RD32(ISP_ADDR + 0x204);
-		int ctlStart = ISP_RD32(ISP_ADDR + 0x000);
-		int ctlTcm = ISP_RD32(ISP_ADDR + 0x054);
-		int map_va = 0, map_size;
-		int i;
-		int *pMapVa;
-#define TPIPE_DUMP_SIZE    200
-
-		if ((ctlStart & 0x01) && (tpipePA) && (ctlTcm & 0x80000000)) {
-			map_va = 0;
-			m4u_mva_map_kernel(tpipePA, TPIPE_DUMP_SIZE, 0,
-						&map_va, &map_size);
-			pMapVa = map_va;
-			pr_info("pMapVa(0x%x),map_size(0x%x)",
-				pMapVa, map_size);
-			pr_info("ctlStart(0x%x),tpipePA(0x%x),ctlTcm(0x%x)",
-				ctlStart, tpipePA, ctlTcm);
-			if (pMapVa) {
-				for (i = 0; i < TPIPE_DUMP_SIZE; i += 10) {
-					pr_info(
-					"[idx(%d)]%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X",
-					i,
-					pMapVa[i], pMapVa[i + 1],
-					pMapVa[i + 2], pMapVa[i + 3],
-					pMapVa[i + 4], pMapVa[i + 5],
-					pMapVa[i + 6], pMapVa[i + 7],
-					pMapVa[i + 8], pMapVa[i + 9]);
-				}
-			}
-			m4u_mva_unmap_kernel(tpipePA, map_size, map_va);
-		}
-	}
-#endif
-
-	/* spin_unlock_irqrestore(&(IspInfo.SpinLock), flags); */
-	/*  */
-#endif
 	pr_info("- X.");
 	/*  */
 	return Ret;
@@ -4028,17 +3475,6 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret < 0)
 		LOG_INF("cannot pm runtime get ISP_IMGSYS_CONFIG_IDX mtcmos\n");
 
-
-#ifdef ISP_HELP
-	#ifndef EP_MARK_SMI
-	/* enable through smi API */
-	/* pr_info("enable CG/MTCMOS through SMI CLK API\n"); */
-	smi_bus_prepare_enable(SMI_LARB3, ISP_DEV_NAME);
-
-	smi_bus_prepare_enable(SMI_LARB2, ISP_DEV_NAME);
-
-	#endif
-#endif
 	ret = clk_prepare_enable(isp_clk.ISP_IMG_DIP);
 	if (ret)
 		LOG_INF("cannot pre-en ISP_IMG_DIP clock\n");
@@ -4082,100 +3518,13 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMTG);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
 	clk_disable_unprepare(isp_clk.ISP_IMG_DIP);
-#ifdef ISP_HELP
-	#ifndef EP_MARK_SMI
-	/* pr_info("disable CG/MTCMOS through SMI CLK API\n"); */
-	smi_bus_disable_unprepare(SMI_LARB2, ISP_DEV_NAME);
-	smi_bus_disable_unprepare(SMI_LARB3, ISP_DEV_NAME);
-	#endif
-#endif
 
 	ret = pm_runtime_put_sync(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev);
 	if (ret < 0)
 		LOG_INF("cannot pm runtime put ISP_IMGSYS_CONFIG_IDX mtcmos\n");
 }
-
-/* only for suspend/resume, disable isp cg but no MTCMOS*/
-static inline void Prepare_Enable_cg_clock(void)
-{
-	int ret;
-#ifdef ISP_HELP
-	#ifndef EP_MARK_SMI
-	pr_info("enable CG through SMI CLK API\n");
-	smi_bus_prepare_enable(SMI_LARB3, ISP_DEV_NAME);
-	#endif
 #endif
 
-	ret = clk_prepare_enable(isp_clk.ISP_IMG_DIP);
-	if (ret)
-		LOG_INF("cannot pre-en ISP_IMG_DIP clock\n");
-
-	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSYS);
-	if (ret)
-		LOG_INF("cannot pre-en ISP_CAM_CAMSYS clock\n");
-
-/*	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMTG);
- *	if (ret)
- *		LOG_INF("cannot pre-en ISP_CAM_CAMTG clock\n");
- *
- *	ret = clk_prepare_enable(isp_clk.ISP_CAM_SENINF);
- *	if (ret)
- *		LOG_INF("cannot pre-en ISP_CAM_SENINF clock\n");
- */
-
-	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV0);
-	if (ret)
-		LOG_INF("cannot pre-en ISP_CAM_CAMSV0 clock\n");
-
-	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV1);
-	if (ret)
-		LOG_INF("cannot pre-en ISP_CAM_CAMSV1 clock\n");
-
-	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV2);
-	if (ret)
-		LOG_INF("cannot pre-en ISP_CAM_CAMSV2 clock\n");
-
-}
-
-static inline void Disable_Unprepare_cg_clock(void)
-{
-	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV2);
-	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV1);
-	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV0);
-	/*
-	 * clk_disable_unprepare(isp_clk.ISP_CAM_SENINF);
-	 * clk_disable_unprepare(isp_clk.ISP_CAM_CAMTG);
-	 */
-	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
-	clk_disable_unprepare(isp_clk.ISP_IMG_DIP);
-#ifdef ISP_HELP
-	#ifndef EP_MARK_SMI
-	pr_info("disable CG through SMI CLK API\n");
-	smi_bus_disable_unprepare(SMI_LARB3, ISP_DEV_NAME);
-	#endif
-	#endif
-}
-
-#endif
-
-/******************************************************************************
- *
- *****************************************************************************/
-#ifdef ISP_HELP
-void ISP_Halt_Mask(unsigned int isphaltMask)
-{
-	unsigned int setReg;
-
-	setReg = ISP_RD32(ISP_CAMSYS_CONFIG_BASE + 0x120) &
-		~((unsigned int)(1 << (isphaltMask)));
-
-	ISP_WR32(ISP_CAMSYS_CONFIG_BASE + 0x120, setReg);
-
-	pr_info("ISP halt_en for dvfs:0x%x\n",
-		ISP_RD32(ISP_CAMSYS_CONFIG_BASE + 0x120));
-}
-EXPORT_SYMBOL(ISP_Halt_Mask);
-#endif
 /******************************************************************************
  *
  *****************************************************************************/
@@ -4231,9 +3580,6 @@ static void ISP_EnableClock(bool En)
 		Prepare_Enable_ccf_clock(); /* can't be used in spinlock! */
 #endif
 	/* Disable CAMSYS_HALT1_EN: LSCI&BPCI, To avoid ISP halt keep arise */
-		#if ISP_NOT_WORK/* TBD */
-	ISP_WR32(ISP_CAMSYS_CONFIG_BASE + 0x120, 0xFFFFFF4F);
-		#endif
 	} else {                /* Disable clock. */
 #if defined(EP_NO_CLKMGR) || defined(CONFIG_MTK_CLKMGR)
 		spin_lock(&(IspInfo.SpinLockClock));
@@ -4314,12 +3660,9 @@ static inline void ISP_Reset(signed int module)
 		/* Reset CAM flow */
 		ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x2);
 		ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x1);
-#if ISP_NOT_WORK
-		while (ISP_RD32(CAM_REG_CTL_SW_CTL(module)) != 0x2)
-			pr_info("CAM resetting... module:%d\n", module);
-#else
+
 		mdelay(1);
-#endif
+
 		ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x4);
 		ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x0);
 
@@ -4349,12 +3692,9 @@ static inline void ISP_Reset(signed int module)
 		ISP_WR32(CAM_UNI_REG_TOP_SW_CTL(module), 0x111);
 		ISP_WR32(CAM_UNI_REG_B_TOP_SW_CTL(module), 0x222);
 		ISP_WR32(CAM_UNI_REG_B_TOP_SW_CTL(module), 0x222);
-#if ISP_NOT_WORK
-		while (ISP_RD32(CAM_UNI_REG_TOP_SW_CTL(module)) != 0x222)
-			pr_info("UNI resetting... module:%d\n", module);
-#else
+
 		mdelay(1);
-#endif
+
 		ISP_WR32(CAM_UNI_REG_TOP_SW_CTL(module), 0x0444);
 		ISP_WR32(CAM_UNI_REG_TOP_SW_CTL(module), 0x0);
 		ISP_WR32(CAM_UNI_REG_B_TOP_SW_CTL(module), 0x0444);
@@ -6426,11 +5766,10 @@ static signed int ISP_MARK_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 			&(IspInfo.SpinLockIrq[irqinfo->Type]), flags);
 
 		/* 2. record mark time */
-		#ifdef ISP_HELP
 		sec = cpu_clock(0);     /* ns */
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
-		#endif
+
 		spin_lock_irqsave(&(IspInfo.SpinLockIrq[irqinfo->Type]), flags);
 		IspInfo.IrqInfo.MarkedTime_usec[irqinfo->Type][idx]
 			[irqinfo->EventInfo.UserKey] = (unsigned int)usec;
@@ -6466,118 +5805,8 @@ static signed int ISP_MARK_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 static signed int ISP_GET_MARKtoQEURY_TIME(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 {
 	signed int Ret = 0;
-	/*    unsigned int flags;*/
-	/*    struct timeval time_getrequest;*/
-	/*    struct timeval time_ready2return;*/
-
-	/*    unsigned long long  sec = 0;*/
-	/*    unsigned long       usec = 0;*/
-
-#if ISP_NOT_WORK
-	if (irqinfo->EventInfo.St_type == SIGNAL_INT) {
-
-
-		/* do_gettimeofday(&time_ready2return); */
-		#ifdef ISP_HELP
-		sec = cpu_clock(0);     /* ns */
-		do_div(sec, 1000);    /* usec */
-		usec = do_div(sec, 1000000);    /* sec and usec */
-		#endif
-		time_ready2return.tv_usec = usec;
-		time_ready2return.tv_sec = sec;
-
-		unsigned int idx = my_get_pow_idx(irqinfo->EventInfo.Status);
-
-
-		spin_lock_irqsave(&(IspInfo.SpinLockIrq[irqinfo->Type]), flags);
-		if (irqinfo->EventInfo.Status & IspInfo.IrqInfo.MarkedFlag
-		    [irqinfo->Type][irqinfo->EventInfo.UserKey]) {
-			/*  */
-			irqinfo->EventInfo.TimeInfo.passedbySigcnt =
-			IspInfo.IrqInfo.PassedBySigCnt[irqinfo->Type][idx]
-						[irqinfo->EventInfo.UserKey];
-			/*  */
-			irqinfo->EventInfo.TimeInfo.tMark2WaitSig_usec =
-			(time_ready2return.tv_usec -
-			IspInfo.IrqInfo.MarkedTime_usec[irqinfo->Type]
-					[idx][irqinfo->EventInfo.UserKey]);
-			irqinfo->EventInfo.TimeInfo.tMark2WaitSig_sec =
-			(time_ready2return.tv_sec -
-			IspInfo.IrqInfo.MarkedTime_sec[irqinfo->Type][idx]
-						[irqinfo->EventInfo.UserKey]);
-			if ((int)(irqinfo->EventInfo.TimeInfo.tMark2WaitSig_usec) < 0) {
-				irqinfo->EventInfo.TimeInfo.tMark2WaitSig_sec =
-				irqinfo->EventInfo.TimeInfo.tMark2WaitSig_sec
-				- 1;
-				if ((int)(irqinfo->EventInfo.TimeInfo.tMark2WaitSig_sec) < 0)
-					irqinfo->EventInfo.TimeInfo.tMark2WaitSig_sec = 0;
-
-				irqinfo->EventInfo.TimeInfo.tMark2WaitSig_usec =
-				1 * 1000000 +
-				irqinfo->EventInfo.TimeInfo.tMark2WaitSig_usec;
-			}
-			/*  */
-			if (irqinfo->EventInfo.TimeInfo.passedbySigcnt > 0) {
-				irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_usec
-				= (time_ready2return.tv_usec -
-				   IspInfo.IrqInfo.LastestSigTime_usec
-					[irqinfo->Type][idx]);
-				irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_sec
-				= (time_ready2return.tv_sec -
-				   IspInfo.IrqInfo.LastestSigTime_sec
-					[irqinfo->Type][idx]);
-				if ((int)(irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_usec) <
-					0) {
-					irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_sec =
-						irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_sec - 1;
-					if ((int)(irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_sec) <
-						0)
-						irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_sec = 0;
-
-					irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_usec
-						= 1 * 1000000 +
-						irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_usec;
-				}
-			} else {
-				irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_usec
-									= 0;
-				irqinfo->EventInfo.TimeInfo.tLastSig2GetSig_sec
-									= 0;
-			}
-		} else {
-			LOG_INF(
-				"plz mark irq first, userKey/Type/Status (%d/%d/0x%x)",
-				irqinfo->EventInfo.UserKey, irqinfo->Type,
-				irqinfo->EventInfo.Status);
-			Ret = -EFAULT;
-		}
-		spin_unlock_irqrestore(
-			&(IspInfo.SpinLockIrq[irqinfo->Type]), flags);
-		pr_debug(
-			"MKtoQT:u/t/i(%d/%d/%d) (%d/%d) (%d/%d) (%d/%d) sig(%d)\n",
-			irqinfo->EventInfo.UserKey, irqinfo->Type, idx,
-			IspInfo.IrqInfo.MarkedTime_sec
-			    [irqinfo->Type][idx][irqinfo->EventInfo.UserKey],
-			IspInfo.IrqInfo.MarkedTime_usec
-			    [irqinfo->Type][idx][irqinfo->EventInfo.UserKey],
-			IspInfo.IrqInfo.LastestSigTime_sec[irqinfo->Type][idx],
-			IspInfo.IrqInfo.LastestSigTime_usec[irqinfo->Type][idx],
-			(int)time_ready2return.tv_sec,
-			(int)time_ready2return.tv_usec,
-			IspInfo.IrqInfo.PassedBySigCnt
-			    [irqinfo->Type][idx][irqinfo->EventInfo.UserKey]);
-		return Ret;
-	}
-	{
-		LOG_INF(
-			"Not support DMA interrupt type(%d), Only support signal interrupt!!!",
-			irqinfo->EventInfo.St_type);
-		Ret = -EFAULT;
-	}
-#endif
 
 	return Ret;
-
 }
 
 /******************************************************************************
@@ -6981,141 +6210,6 @@ EXIT:
 	return Ret;
 }
 
-#ifdef ISP_HELP
-#ifdef ENABLE_KEEP_ION_HANDLE
-/******************************************************************************
- *
- *****************************************************************************/
-static void ISP_ion_init(void)
-{
-	if (!pIon_client && g_ion_device)
-		pIon_client = ion_client_create(g_ion_device, "camera_isp");
-
-	if (!pIon_client) {
-		LOG_INF("invalid ion client!\n");
-		return;
-	}
-
-	if (IspInfo.DebugMask & ISP_DBG_ION_CTRL)
-		pr_info("create ion client 0x%p\n", pIon_client);
-}
-#endif
-/******************************************************************************
- *
- *****************************************************************************/
-#ifdef ISP_HELP
-static void ISP_ion_uninit(void)
-{
-	if (!pIon_client) {
-		LOG_INF("invalid ion client!\n");
-		return;
-	}
-
-	if (IspInfo.DebugMask & ISP_DBG_ION_CTRL)
-		pr_info("destroy ion client 0x%p\n", pIon_client);
-
-	ion_client_destroy(pIon_client);
-
-	pIon_client = NULL;
-}
-#endif
-/******************************************************************************
- *
- *****************************************************************************/
-#ifdef ISP_HELP
-static struct ion_handle *ISP_ion_import_handle(struct ion_client *client,
-						int fd)
-{
-	struct ion_handle *handle = NULL;
-
-	if (!client) {
-		LOG_INF("invalid ion client!\n");
-		return handle;
-	}
-	if (fd == -1) {
-		LOG_INF("invalid ion fd!\n");
-		return handle;
-	}
-
-	handle = ion_import_dma_buf_fd(client, fd);
-
-	if (IS_ERR(handle)) {
-		LOG_INF("import ion handle failed!\n");
-		return NULL;
-	}
-
-	if (IspInfo.DebugMask & ISP_DBG_ION_CTRL)
-		pr_info("[ion_import_hd] Hd(0x%p)\n", handle);
-	return handle;
-}
-#endif
-/******************************************************************************
- *
- *****************************************************************************/
-#ifdef ISP_HELP
-static void ISP_ion_free_handle(struct ion_client *client,
-				struct ion_handle *handle)
-{
-	if (!client) {
-		LOG_INF("invalid ion client!\n");
-		return;
-	}
-	if (!handle)
-		return;
-
-	if (IspInfo.DebugMask & ISP_DBG_ION_CTRL)
-		pr_info("[ion_free_hd] Hd(0x%p)\n", handle);
-
-	ion_free(client, handle);
-
-}
-#endif
-/******************************************************************************
- *
- *****************************************************************************/
-#ifdef ISP_HELP
-static void ISP_ion_free_handle_by_module(unsigned int module)
-{
-	int i, j;
-	signed int nFd;
-	struct ion_handle *p_IonHnd;
-	struct T_ION_TBL *ptbl = &gION_TBL[module];
-
-	if (IspInfo.DebugMask & ISP_DBG_ION_CTRL)
-		pr_info("[ion_free_hd_by_module]%d\n", module);
-
-	for (i = 0; i < _dma_max_wr_; i++) {
-		unsigned int jump = i*_ion_keep_max_;
-
-		for (j = 0; j < _ion_keep_max_ ; j++) {
-			spin_lock(&(ptbl->pLock[i]));
-			/* */
-			if (ptbl->pIonFd[jump + j] == 0) {
-				spin_unlock(&(ptbl->pLock[i]));
-				continue;
-			}
-			nFd = ptbl->pIonFd[jump + j];
-			p_IonHnd = ptbl->pIonHnd[jump + j];
-			/* */
-			ptbl->pIonFd[jump + j] = 0;
-			ptbl->pIonHnd[jump + j] = NULL;
-			ptbl->pIonCt[jump + j] = 0;
-			spin_unlock(&(ptbl->pLock[i]));
-			/* */
-			if (IspInfo.DebugMask & ISP_DBG_ION_CTRL) {
-				pr_info(
-					"ion_free: dev(%d)dma(%d)j(%d)fd(%d)Hnd(0x%p)\n",
-					module, i, j, nFd, p_IonHnd);
-			}
-			/*can't in spin_lock*/
-			ISP_ion_free_handle(pIon_client, p_IonHnd);
-		}
-	}
-}
-#endif
-#endif
-
-
 /******************************************************************************
  *
  *****************************************************************************/
@@ -7141,13 +6235,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	int userKey =  -1;
 
 	int i;
-	#ifdef ISP_HELP
-	#ifdef ENABLE_KEEP_ION_HANDLE
-	struct ISP_DEV_ION_NODE_STRUCT IonNode;
-	struct ion_handle *handle;
-	struct ion_handle *p_IonHnd;
-	#endif
-	#endif
 
 	/*  */
 	if (pFile->private_data == NULL) {
@@ -7282,30 +6369,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			LOG_INF("get cur sof from user fail\n");
 			Ret = -EFAULT;
 		} else {
-#if ISP_NOT_WORK
-			switch (DebugFlag[0]) {
-			case ISP_IRQ_TYPE_INT_CAM_A_ST:
-				DebugFlag[1] = ISP_RD32_TG_CAM_FRM_CNT(
-				  ISP_IRQ_TYPE_INT_CAM_A_ST, ISP_CAM_A_IDX);
-				break;
-			case ISP_IRQ_TYPE_INT_CAM_B_ST:
-				DebugFlag[1] = ISP_RD32_TG_CAM_FRM_CNT(
-				  ISP_IRQ_TYPE_INT_CAM_B_ST, ISP_CAM_B_IDX));
-				break;
-			case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
-				DebugFlag[1] = ISP_RD32_TG_CAM_FRM_CNT(
-				  ISP_IRQ_TYPE_INT_CAMSV_0_ST, ISP_CAMSV0_IDX);
-				break;
-			case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-				DebugFlag[1] =  ISP_RD32_TG_CAM_FRM_CNT(
-				  ISP_IRQ_TYPE_INT_CAMSV_1_ST, ISP_CAMSV1_IDX);
-				break;
-			default:
-				LOG_INF("err TG(0x%x)\n", DebugFlag[0]);
-				Ret = -EFAULT;
-				break;
-			}
-#else
 			if (DebugFlag[0] >= ISP_IRQ_TYPE_AMOUNT) {
 				LOG_INF("cursof: error type(%d)\n",
 					DebugFlag[0]);
@@ -7313,7 +6376,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				break;
 			}
 			DebugFlag[1] = sof_count[DebugFlag[0]];
-#endif
 		}
 		if (copy_to_user((void *)Param, &DebugFlag[1],
 		    sizeof(unsigned int)) != 0) {
@@ -7611,31 +6673,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		break;
 	/*  */
 	case ISP_UPDATE_BURSTQNUM:
-#if ISP_NOT_WORK /* QQ, remove later*/
-		if (copy_from_user(&burstQNum, (void *)Param,
-		    sizeof(signed int)) == 0) {
-			spin_lock(&SpinLockRegScen);
-			P2_Support_BurstQNum = burstQNum;
-			spin_unlock(&SpinLockRegScen);
-			pr_info("new BurstQNum(%d)", P2_Support_BurstQNum);
-		} else {
-			LOG_INF("copy_from_user failed");
-			Ret = -EFAULT;
-		}
-#endif
 		break;
 	case ISP_QUERY_BURSTQNUM:
-#if ISP_NOT_WORK /* QQ, remove later*/
-		spin_lock(&SpinLockRegScen);
-		burstQNum = P2_Support_BurstQNum;
-		spin_unlock(&SpinLockRegScen);
-		/*  */
-		if (copy_to_user((void *)Param, &burstQNum,
-		    sizeof(unsigned int)) != 0) {
-			LOG_INF("copy_to_user failed");
-			Ret = -EFAULT;
-		}
-#endif
 		break;
 	/*  */
 	case ISP_DUMP_REG:
@@ -8178,10 +7217,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			unsigned long long reg_trans_Time;
 			unsigned long long sum;
 
-			#ifdef CCU_HELP
 			ccu_get_timestamp(&hwTickCnt_ccu_direct[0],
 				&hwTickCnt_ccu_direct[1]);
-			#endif
 
 			pr_debug("hwTickCnt_ccu_direct[0]:%u,hwTickCnt_ccu_direct[1]:%u",
 				hwTickCnt_ccu_direct[0],
@@ -8330,256 +7367,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case ISP_RESET_VSYNC_CNT:
 		Vsync_cnt[0] = Vsync_cnt[1] = 0;
 		break;
-	#ifdef ENABLE_KEEP_ION_HANDLE
-	#ifdef ISP_HELP
-	case ISP_ION_IMPORT:
-		if (copy_from_user(&IonNode, (void *)Param,
-		    sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
-			struct T_ION_TBL *ptbl = NULL;
-			unsigned int jump;
-
-			if (!pIon_client) {
-				LOG_INF("ion_import: invalid ion client!\n");
-				Ret = -EFAULT;
-				break;
-			}
-
-			if (IonNode.devNode >= ISP_DEV_NODE_NUM) {
-				LOG_INF(
-					"[ISP_ION_IMPORT]devNode should be smaller than ISP_DEV_NODE_NUM");
-				Ret = -EFAULT;
-				break;
-			}
-
-			ptbl = &gION_TBL[IonNode.devNode];
-			if (ptbl->node != IonNode.devNode) {
-				LOG_INF("ion_import: devNode not support(%d)!\n",
-					IonNode.devNode);
-				Ret = -EFAULT;
-				break;
-			}
-			if (IonNode.dmaPort < 0 ||
-			    IonNode.dmaPort >= _dma_max_wr_) {
-				LOG_INF("ion_import: dmaport error:%d(0~%d)\n",
-					IonNode.dmaPort, _dma_max_wr_);
-				Ret = -EFAULT;
-				break;
-			}
-			jump = IonNode.dmaPort*_ion_keep_max_;
-			if (IonNode.memID <= 0) {
-				LOG_INF(
-					"ion_import: dma(%d)invalid ion fd(%d)\n",
-					IonNode.dmaPort, IonNode.memID);
-				Ret = -EFAULT;
-				break;
-			}
-			spin_lock(&(ptbl->pLock[IonNode.dmaPort]));
-			/* */
-			/* check if memID is exist */
-			for (i = 0; i < _ion_keep_max_; i++) {
-				if (ptbl->pIonFd[jump + i] == IonNode.memID)
-					break;
-			}
-			spin_unlock(&(ptbl->pLock[IonNode.dmaPort]));
-			/* */
-			if (i < _ion_keep_max_) {
-				if (IspInfo.DebugMask & ISP_DBG_ION_CTRL) {
-					pr_info(
-						"ion_import: already exist: dev(%d)dma(%d)i(%d)fd(%d)Hnd(0x%p)\n",
-						IonNode.devNode,
-						IonNode.dmaPort, i,
-						IonNode.memID,
-						ptbl->pIonHnd[jump + i]);
-				}
-				/* User might allocate a big memory
-				 * and divid it into many buffers,
-				 * the ion FD of these buffers is the same,
-				 * so we must check there has no users take
-				 * this memory
-				 */
-				ptbl->pIonCt[jump + i]++;
-
-				break;
-			}
-			/* */
-			handle = ISP_ion_import_handle(
-					pIon_client, IonNode.memID);
-
-			if (!handle) {
-				Ret = -EFAULT;
-				break;
-			}
-			/* */
-			spin_lock(&(ptbl->pLock[IonNode.dmaPort]));
-			/* User might allocate a big memory
-			 * and divid it into many buffers,
-			 * the ion FD of these buffers is the same,
-			 * so we must check there has no users take this memory
-			 */
-			for (i = 0; i < _ion_keep_max_; i++) {
-				if (ptbl->pIonFd[jump + i] == 0) {
-					ptbl->pIonFd[jump + i] = IonNode.memID;
-					ptbl->pIonHnd[jump + i] = handle;
-					ptbl->pIonCt[jump + i]++;//
-
-					if (IspInfo.DebugMask &
-					    ISP_DBG_ION_CTRL) {
-						pr_info(
-							"ion_import: dev(%d)dma(%d)i(%d)fd(%d)Hnd(0x%p)\n",
-							IonNode.devNode,
-							IonNode.dmaPort, i,
-							IonNode.memID, handle);
-					}
-					break;
-				}
-			}
-			spin_unlock(&(ptbl->pLock[IonNode.dmaPort]));
-			/* */
-			if (i == _ion_keep_max_) {
-				LOG_INF(
-					"ion_import: dma(%d)no empty space in list(%d_%d)\n",
-					IonNode.dmaPort, IonNode.memID,
-					_ion_keep_max_);
-				/*can't in spin_lock*/
-				ISP_ion_free_handle(pIon_client, handle);
-				Ret = -EFAULT;
-			}
-		} else {
-			LOG_INF("[ion import]copy_from_user failed\n");
-			Ret = -EFAULT;
-		}
-		break;
-	case ISP_ION_FREE:
-		if (copy_from_user(&IonNode, (void *)Param,
-		    sizeof(struct ISP_DEV_ION_NODE_STRUCT)) == 0) {
-			struct T_ION_TBL *ptbl = NULL;
-			unsigned int jump;
-
-			if (!pIon_client) {
-				LOG_INF("ion_free: invalid ion client!\n");
-				Ret = -EFAULT;
-				break;
-			}
-
-			if (IonNode.devNode >= ISP_DEV_NODE_NUM) {
-				LOG_INF(
-					"[ISP_ION_FREE]devNode should be smaller than ISP_DEV_NODE_NUM");
-				Ret = -EFAULT;
-				break;
-			}
-
-			ptbl = &gION_TBL[IonNode.devNode];
-			if (ptbl->node != IonNode.devNode) {
-				LOG_INF("ion_free: devNode not support(%d)!\n",
-					IonNode.devNode);
-				Ret = -EFAULT;
-				break;
-			}
-			if (IonNode.dmaPort < 0 ||
-			    IonNode.dmaPort >= _dma_max_wr_) {
-				LOG_INF("ion_free: dmaport error:%d(0~%d)\n",
-					IonNode.dmaPort, _dma_max_wr_);
-				Ret = -EFAULT;
-				break;
-			}
-			jump = IonNode.dmaPort*_ion_keep_max_;
-			if (IonNode.memID <= 0) {
-				LOG_INF("ion_free: invalid ion fd(%d)\n",
-					IonNode.memID);
-				Ret = -EFAULT;
-				break;
-			}
-
-			/* check if memID is exist */
-			spin_lock(&(ptbl->pLock[IonNode.dmaPort]));
-			for (i = 0; i < _ion_keep_max_; i++) {
-				if (ptbl->pIonFd[jump + i] == IonNode.memID)
-					break;
-			}
-			if (i == _ion_keep_max_) {
-				spin_unlock(&(ptbl->pLock[IonNode.dmaPort]));
-				LOG_INF(
-					"ion_free: can't find ion: dev(%d)dma(%d)fd(%d) in list\n",
-					IonNode.devNode, IonNode.dmaPort,
-					IonNode.memID);
-				Ret = -EFAULT;
-
-				break;
-			}
-			/* User might allocate a big memory
-			 * and divid it into many buffers,
-			 * the ion FD of these buffers is the same,
-			 * so we must check there has no users take this memory.
-			 */
-			if (--ptbl->pIonCt[jump + i] > 0) {
-				spin_unlock(&(ptbl->pLock[IonNode.dmaPort]));
-				if (IspInfo.DebugMask & ISP_DBG_ION_CTRL) {
-					pr_info(
-						"ion_free: user ct(%d): dev(%d)dma(%d)i(%d)fd(%d)\n",
-						ptbl->pIonCt[jump + i],
-						IonNode.devNode,
-						IonNode.dmaPort, i,
-						IonNode.memID);
-				}
-				break;
-			} else if (ptbl->pIonCt[jump + i] < 0) {
-				spin_unlock(&(ptbl->pLock[IonNode.dmaPort]));
-				LOG_INF(
-					"ion_free: free more than import (%d):dev(%d)dma(%d)i(%d)fd(%d)\n",
-						ptbl->pIonCt[jump + i],
-						IonNode.devNode,
-						IonNode.dmaPort, i,
-						IonNode.memID);
-				Ret = -EFAULT;
-				break;
-			}
-
-			if (IspInfo.DebugMask & ISP_DBG_ION_CTRL) {
-				pr_info(
-					"ion_free: dev(%d)dma(%d)i(%d)fd(%d)Hnd(0x%p)Ct(%d)\n",
-					IonNode.devNode, IonNode.dmaPort, i,
-					IonNode.memID,
-					ptbl->pIonHnd[jump + i],
-					ptbl->pIonCt[jump + i]);
-			}
-
-			p_IonHnd = ptbl->pIonHnd[jump + i];
-			ptbl->pIonFd[jump + i] = 0;
-			ptbl->pIonHnd[jump + i] = NULL;
-			spin_unlock(&(ptbl->pLock[IonNode.dmaPort]));
-			#ifdef ISP_HELP
-			/* can't in spin_lock*/
-			ISP_ion_free_handle(pIon_client, p_IonHnd);
-			#endif
-		} else {
-			LOG_INF("[ion free]copy_from_user failed\n");
-			Ret = -EFAULT;
-		}
-		break;
-	#endif
-	case ISP_ION_FREE_BY_HWMODULE:
-		if (copy_from_user(&module, (void *)Param,
-		    sizeof(unsigned int)) == 0) {
-			if (module >= ISP_DEV_NODE_NUM) {
-				LOG_INF(
-					"[ISP_ION_FREE_BY_HWMODULE]module should be smaller than ISP_DEV_NODE_NUM");
-				Ret = -EFAULT;
-				break;
-			}
-			if (gION_TBL[module].node != module) {
-				LOG_INF("module error(%d)\n", module);
-				Ret = -EFAULT;
-				break;
-			}
-			#ifdef ISP_HELP
-			ISP_ion_free_handle_by_module(module);
-			#endif
-		} else {
-			LOG_INF("[ion free by module]copy_from_user failed\n");
-			Ret = -EFAULT;
-		}
-		break;
-	#endif
 	case ISP_CQ_SW_PATCH: {
 			static unsigned int Addr[2] = {0, 0};
 
@@ -8921,41 +7708,6 @@ static int compat_get_isp_mem_info(
 	return err;
 }
 
-#if ISP_NOT_WORK
-static int compat_get_isp_register_userkey_struct_data(
-	compat_ISP_REGISTER_USERKEY_STRUCT __user *data32,
-	struct ISP_REGISTER_USERKEY_STRUCT __user *data)
-{
-	compat_uint_t tmp;
-	compat_uptr_t uptr;
-	int err = 0;
-
-	err = get_user(tmp, &data32->userKey);
-	err |= put_user(tmp, &data->userKey);
-	err |= get_user(uptr, &data32->userName);
-	/* err |= put_user(compat_ptr(uptr), &data->userName); */
-
-	return err;
-}
-
-static int compat_put_isp_register_userkey_struct_data(
-	compat_ISP_REGISTER_USERKEY_STRUCT __user *data32,
-	struct ISP_REGISTER_USERKEY_STRUCT __user *data)
-{
-	compat_uint_t tmp;
-	/*      compat_uptr_t uptr;*/
-	int err = 0;
-
-	err = get_user(tmp, &data->userKey);
-	err |= put_user(tmp, &data32->userKey);
-	/* Assume data pointer is unchanged. */
-	/* err |= get_user(uptr, &data->userName); */
-	/* err |= put_user(uptr, &data32->userName); */
-
-	return err;
-}
-#endif
-
 static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 			unsigned long arg)
 {
@@ -9065,33 +7817,6 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 		}
 		return ret;
 	}
-#if ISP_NOT_WORK
-	case COMPAT_ISP_REGISTER_IRQ_USER_KEY: {
-		compat_ISP_REGISTER_USERKEY_STRUCT __user *data32;
-		struct ISP_REGISTER_USERKEY_STRUCT __user *data;
-
-		int err = 0;
-
-		data32 = compat_ptr(arg);
-		data = compat_alloc_user_space(sizeof(*data));
-		if (data == NULL)
-			return -EFAULT;
-
-		err = compat_get_isp_register_userkey_struct_data(data32, data);
-		if (err) {
-			pr_info("compat_get_isp_register_userkey error!!!\n");
-			return err;
-		}
-		ret = filp->f_op->unlocked_ioctl(filp,
-				ISP_REGISTER_IRQ_USER_KEY, (unsigned long)data);
-		err = compat_put_isp_register_userkey_struct_data(data32, data);
-		if (err) {
-			pr_info("compat_put_isp_register_userkey error!!!\n");
-			return err;
-		}
-		return ret;
-	}
-#endif
 	case COMPAT_ISP_DEBUG_FLAG: {
 		/* compat_ptr(arg) will convert the arg */
 		ret = filp->f_op->unlocked_ioctl(filp, ISP_DEBUG_FLAG,
@@ -9192,14 +7917,6 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 			(unsigned long)data);
 		return ret;
 	}
-	#ifdef ISP_HELP
-	case COMPAT_ISP_TRANSFOR_CCU_REG: {
-		ret =
-			filp->f_op->unlocked_ioctl(filp, ISP_TRANSFOR_CCU_REG,
-					   (unsigned long)compat_ptr(arg));
-		return ret;
-	}
-	#endif
 	case ISP_GET_DUMP_INFO:
 	case ISP_WAIT_IRQ:
 	case ISP_CLEAR_IRQ: /* structure (no pointer) */
@@ -9420,12 +8137,6 @@ pr_info("- E. register IRQ: done\n");
 	}
 	/* reset backup regs*/
 	memset(g_BkReg, 0, sizeof(struct _isp_bk_reg_t) * ISP_IRQ_TYPE_AMOUNT);
-#ifdef ISP_HELP
-#ifdef ENABLE_KEEP_ION_HANDLE
-	/* create ion client*/
-	ISP_ion_init();
-#endif
-#endif
 
 #ifdef KERNEL_LOG
 	IspInfo.DebugMask = (ISP_DBG_INT);
@@ -9725,24 +8436,9 @@ static signed int ISP_release(
 	ISP_StopHW(ISP_CAM_A_IDX);
 	ISP_StopHW(ISP_CAM_B_IDX);
 
-#ifdef ISP_HELP
-#ifdef ENABLE_KEEP_ION_HANDLE
-	/* free keep ion handles, then destroy ion client*/
-	for (i = 0; i < ISP_DEV_NODE_NUM; i++) {
-		if (gION_TBL[i].node != ISP_DEV_NODE_NUM)
-			ISP_ion_free_handle_by_module(i);
-	}
-
-	ISP_ion_uninit();
-#endif
-#endif
 	/*  */
 	/* pr_info("Before spm_enable_sodi()."); */
 	/* Enable sodi (Multi-Core Deep Idle). */
-
-#if ISP_NOT_WORK /* _mt6593fpga_dvt_use_ */
-	spm_enable_sodi();
-#endif
 
 	/* Disable clock.
 	 * 1. clkmgr: G_u4EnableClockCount=0, call clk_enable/disable
@@ -10160,14 +8856,6 @@ static signed int ISP_probe(struct platform_device *pDev)
 		spin_lock_init(&(SpinLock_P2FrameList));
 		spin_lock_init(&(SpinLockRegScen));
 		spin_lock_init(&(SpinLock_UserKey));
-		#ifdef ENABLE_KEEP_ION_HANDLE
-		for (i = 0; i < ISP_DEV_NODE_NUM; i++) {
-			if (gION_TBL[i].node != ISP_DEV_NODE_NUM) {
-				for (n = 0; n < _dma_max_wr_; n++)
-					spin_lock_init(&(gION_TBL[i].pLock[n]));
-			}
-		}
-		#endif
 
 #ifndef EP_NO_CLKMGR
 
@@ -10353,37 +9041,6 @@ static signed int ISP_remove(struct platform_device *pDev)
 	for (i = 0; i < ISP_IRQ_TYPE_AMOUNT; i++)
 		tasklet_kill(isp_tasklet[i].pIsp_tkt);
 
-#if ISP_NOT_WORK
-	/* free all registered irq(child nodes) */
-	ISP_UnRegister_AllregIrq();
-	/* free father nodes of irq user list */
-	struct my_list_head *head;
-	struct my_list_head *father;
-
-	head = ((struct my_list_head *)(&SupIrqUserListHead.list));
-	while (1) {
-		father = head;
-		if (father->nextirq != father) {
-			father = father->nextirq;
-			REG_IRQ_NODE *accessNode;
-
-			typeof(((REG_IRQ_NODE *)0)->list) * __mptr = (father);
-			accessNode = ((REG_IRQ_NODE *)
-			    ((char *)__mptr - offsetof(REG_IRQ_NODE, list)));
-			pr_info("free father,reg_T(%d)\n", accessNode->reg_T);
-			if (father->nextirq != father) {
-				head->nextirq = father->nextirq;
-				father->nextirq = father;
-			} else {
-				/* last father node */
-				head->nextirq = head;
-				pr_info("break\n");
-				break;
-			}
-			kfree(accessNode);
-		}
-	}
-#endif
 	/*  */
 	device_destroy(pIspClass, IspDevNo);
 	/*  */
@@ -11268,11 +9925,6 @@ static signed int __init ISP_Init(void)
 	}
 	pr_info("ISP_MMSYS_CONFIG_BASE: %p\n", ISP_MMSYS_CONFIG_BASE);
 
-	/* FIX-ME: linux-3.10 procfs API changed */
-	#ifdef ISP_HELP
-	proc_create("driver/isp_reg", 0444, NULL, &fcameraisp_proc_fops);
-	proc_create("driver/camio_reg", 0444, NULL, &fcameraio_proc_fops);
-	#endif
 	isp_p2_dir = proc_mkdir("isp_p2", NULL);
 	if (!isp_p2_dir) {
 		LOG_INF("fail to mkdir /proc/isp_p2\n");
@@ -12774,28 +11426,9 @@ irqreturn_t ISP_Irq_CAMSV_0(signed int  Irq, void *DeviceId)
 		do_div(sec, 1000);	   /* usec */
 		usec = do_div(sec, 1000000); /* sec and usec */
 
-#if ISP_NOT_WORK /* always return CAM_FST_DROP_FRAME for CAMSV0~CAMSV5 */
-		/* chk this frame have EOF or not, dynimic dma port chk */
-		FrameStatus[module] = Irq_CAM_FrameStatus(reg_module);
-		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
-			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-				"CAMSV0 Lost p1 done_%d (0x%08x): ",
-				sof_count[module], cur_v_cnt);
-		}
-#endif
-
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			static unsigned int m_sec = 0, m_usec;
-#if ISP_NOT_WORK
-			unsigned int magic_num;
 
-			if (pstRTBuf[module]->ring_buf[_camsv_imgo_].active)
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-			else
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-#endif
 			if (g1stSof[module]) {
 				m_sec = sec;
 				m_usec = usec;
@@ -12998,28 +11631,9 @@ irqreturn_t ISP_Irq_CAMSV_1(signed int  Irq, void *DeviceId)
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 
-#if ISP_NOT_WORK /* always return CAM_FST_DROP_FRAME for CAMSV0~CAMSV5 */
-		/* chk this frame have EOF or not, dynimic dma port chk */
-		FrameStatus[module] = Irq_CAM_FrameStatus(reg_module);
-		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
-			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-				"CAMSV1 Lost p1 done_%d (0x%08x): ",
-				sof_count[module], cur_v_cnt);
-		}
-#endif
-
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			static unsigned int m_sec = 0, m_usec;
-#if ISP_NOT_WORK
-			unsigned int magic_num;
 
-			if (pstRTBuf[module]->ring_buf[_camsv_imgo_].active)
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-			else
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-#endif
 			if (g1stSof[module]) {
 				m_sec = sec;
 				m_usec = usec;
@@ -13225,29 +11839,9 @@ irqreturn_t ISP_Irq_CAMSV_2(signed int  Irq, void *DeviceId)
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 
-#if ISP_NOT_WORK /* always return CAM_FST_DROP_FRAME for CAMSV0~CAMSV5 */
-		/* chk this frame have EOF or not, dynimic dma port chk */
-		FrameStatus[module] = Irq_CAM_FrameStatus(reg_module);
-		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
-			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-				"CAMSV2 Lost p1 done_%d (0x%08x): ",
-				sof_count[module], cur_v_cnt);
-		}
-#endif
-
-
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			static unsigned int m_sec = 0, m_usec;
-#if ISP_NOT_WORK
-			unsigned int magic_num;
 
-			if (pstRTBuf[module]->ring_buf[_camsv_imgo_].active)
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-			else
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-#endif
 			if (g1stSof[module]) {
 				m_sec = sec;
 				m_usec = usec;
@@ -13448,28 +12042,9 @@ irqreturn_t ISP_Irq_CAMSV_3(signed int  Irq, void *DeviceId)
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 
-#if ISP_NOT_WORK /* always return CAM_FST_DROP_FRAME for CAMSV0~CAMSV5 */
-		/* chk this frame have EOF or not, dynimic dma port chk */
-		FrameStatus[module] = Irq_CAM_FrameStatus(reg_module);
-		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
-			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-				"CAMSV3 Lost p1 done_%d (0x%08x): ",
-				sof_count[module], cur_v_cnt);
-		}
-#endif
-
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			static unsigned int m_sec = 0, m_usec;
-#if ISP_NOT_WORK
-			unsigned int magic_num;
 
-			if (pstRTBuf[module]->ring_buf[_camsv_imgo_].active)
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-			else
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-#endif
 			if (g1stSof[module]) {
 				m_sec = sec;
 				m_usec = usec;
@@ -13576,7 +12151,6 @@ irqreturn_t ISP_Irq_CAMSV_3(signed int  Irq, void *DeviceId)
 
 irqreturn_t ISP_Irq_CAMSV_4(signed int  Irq, void *DeviceId)
 {
-		#ifdef ISP_HELP
 	/* pr_info("ISP_IRQ_CAM_SV:0x%x\n",Irq); */
 	unsigned int module = ISP_IRQ_TYPE_INT_CAMSV_4_ST;
 	unsigned int reg_module = ISP_CAMSV4_IDX;
@@ -13589,7 +12163,7 @@ irqreturn_t ISP_Irq_CAMSV_4(signed int  Irq, void *DeviceId)
 	unsigned int time_stamp;
 	/* */
 	unsigned int cur_v_cnt = 0;
-	struct timeval time_frmb;
+	struct timespec64 time_frmb;
 	unsigned long long  sec = 0;
 	unsigned long       usec = 0;
 	ktime_t             time;
@@ -13601,14 +12175,9 @@ irqreturn_t ISP_Irq_CAMSV_4(signed int  Irq, void *DeviceId)
 		return IRQ_HANDLED;
 
 	/*  */
-	/* do_gettimeofday(&time_frmb); */
-	#ifdef ISP_HELP
-	sec = cpu_clock(0);     /* ns */
-	do_div(sec, 1000);    /* usec */
-	usec = do_div(sec, 1000000);    /* sec and usec */
-	#endif
-	time_frmb.tv_usec = usec;
-	time_frmb.tv_sec = sec;
+	ktime_get_ts64(&time_frmb);
+	usec = time_frmb.tv_nsec / 1000;
+	sec = time_frmb.tv_sec;
 
 	#if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -13642,11 +12211,9 @@ irqreturn_t ISP_Irq_CAMSV_4(signed int  Irq, void *DeviceId)
 
 	spin_lock(&(IspInfo.SpinLockIrq[module]));
 	if (IrqStatus & SV_SW_PASS1_DON_ST) {
-		#ifdef ISP_HELP
 		sec = cpu_clock(0);     /* ns */
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
-		#endif
 		/* update pass1 done time stamp for eis user(need match with the
 		 * time stamp in image header)
 		 */
@@ -13678,28 +12245,9 @@ irqreturn_t ISP_Irq_CAMSV_4(signed int  Irq, void *DeviceId)
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 
-#if ISP_NOT_WORK /* always return CAM_FST_DROP_FRAME for CAMSV0~CAMSV5 */
-		/* chk this frame have EOF or not, dynimic dma port chk */
-		FrameStatus[module] = Irq_CAM_FrameStatus(reg_module);
-		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
-			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-				"CAMSV4 Lost p1 done_%d (0x%08x): ",
-				sof_count[module], cur_v_cnt);
-		}
-#endif
-
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			static unsigned int m_sec = 0, m_usec;
-#if ISP_NOT_WORK
-			unsigned int magic_num;
 
-			if (pstRTBuf[module]->ring_buf[_camsv_imgo_].active)
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-			else
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-#endif
 			if (g1stSof[module]) {
 				m_sec = sec;
 				m_usec = usec;
@@ -13759,7 +12307,8 @@ irqreturn_t ISP_Irq_CAMSV_4(signed int  Irq, void *DeviceId)
 				if (tmp & 0x1) {
 					IspInfo.IrqInfo.LastestSigTime_usec
 					    [module][cnt] =
-						(unsigned int)time_frmb.tv_usec;
+						(unsigned int)time_frmb.tv_nsec
+						/ 1000;
 					IspInfo.IrqInfo.LastestSigTime_sec
 					    [module][cnt] =
 						(unsigned int) time_frmb.tv_sec;
@@ -13799,14 +12348,13 @@ irqreturn_t ISP_Irq_CAMSV_4(signed int  Irq, void *DeviceId)
 		tasklet_schedule(isp_tasklet[module].pIsp_tkt);
 		#endif
 	}
-	#endif
+
 	return IRQ_HANDLED;
 
 }
 
 irqreturn_t ISP_Irq_CAMSV_5(signed int  Irq, void *DeviceId)
 {
-	#ifdef ISP_HELP
 	/* pr_info("ISP_IRQ_CAM_SV:0x%x\n",Irq); */
 	unsigned int module = ISP_IRQ_TYPE_INT_CAMSV_5_ST;
 	unsigned int reg_module = ISP_CAMSV5_IDX;
@@ -13819,7 +12367,7 @@ irqreturn_t ISP_Irq_CAMSV_5(signed int  Irq, void *DeviceId)
 	unsigned int time_stamp;
 	/* */
 	unsigned int cur_v_cnt = 0;
-	struct timeval time_frmb;
+	struct timespec64 time_frmb;
 	unsigned long long  sec = 0;
 	unsigned long       usec = 0;
 	ktime_t             time;
@@ -13831,12 +12379,9 @@ irqreturn_t ISP_Irq_CAMSV_5(signed int  Irq, void *DeviceId)
 		return IRQ_HANDLED;
 
 	/*  */
-	/* do_gettimeofday(&time_frmb); */
-	sec = cpu_clock(0);     /* ns */
-	do_div(sec, 1000);    /* usec */
-	usec = do_div(sec, 1000000);    /* sec and usec */
-	time_frmb.tv_usec = usec;
-	time_frmb.tv_sec = sec;
+	ktime_get_ts64(&time_frmb);
+	usec = time_frmb.tv_nsec / 1000;
+	sec = time_frmb.tv_sec;
 
 	#if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -13904,28 +12449,9 @@ irqreturn_t ISP_Irq_CAMSV_5(signed int  Irq, void *DeviceId)
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 
-#if ISP_NOT_WORK /* always return CAM_FST_DROP_FRAME for CAMSV0~CAMSV5 */
-		/* chk this frame have EOF or not, dynimic dma port chk */
-		FrameStatus[module] = Irq_CAM_FrameStatus(reg_module);
-		if (FrameStatus[module] == CAM_FST_DROP_FRAME) {
-			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
-				"CAMSV5 Lost p1 done_%d (0x%08x): ",
-				sof_count[module], cur_v_cnt);
-		}
-#endif
-
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
 			static unsigned int m_sec = 0, m_usec;
-#if ISP_NOT_WORK
-			unsigned int magic_num;
 
-			if (pstRTBuf[module]->ring_buf[_camsv_imgo_].active)
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-			else
-				magic_num =
-				ISP_RD32(CAMSV_REG_IMGO_FH_SPARE_3(reg_module));
-#endif
 			if (g1stSof[module]) {
 				m_sec = sec;
 				m_usec = usec;
@@ -13985,7 +12511,8 @@ irqreturn_t ISP_Irq_CAMSV_5(signed int  Irq, void *DeviceId)
 				if (tmp & 0x1) {
 					IspInfo.IrqInfo.LastestSigTime_usec
 					    [module][cnt] =
-						(unsigned int)time_frmb.tv_usec;
+						(unsigned int)time_frmb.tv_nsec
+						/ 1000;
 					IspInfo.IrqInfo.LastestSigTime_sec
 					    [module][cnt] =
 						(unsigned int) time_frmb.tv_sec;
@@ -14025,7 +12552,7 @@ irqreturn_t ISP_Irq_CAMSV_5(signed int  Irq, void *DeviceId)
 		tasklet_schedule(isp_tasklet[module].pIsp_tkt);
 		#endif
 	}
-	#endif
+
 	return IRQ_HANDLED;
 
 }
@@ -14535,12 +13062,7 @@ irqreturn_t ISP_Irq_CAM_A(signed int Irq, void *DeviceId)
 		IspInfo.IrqInfo.LastestSigTime_sec[module][12] =
 		    (unsigned int)(usec);
 
-		#if ISP_NOT_WORK
 		/* sw sof counter */
-		if (irqDelay == 1)
-			sof_count[module] = sofCntGrpHw;
-		#endif
-
 		sof_count[module] += frmPeriod;
 		/* for match vsync cnt */
 		if (sof_count[module] > 255)
@@ -15143,12 +13665,7 @@ irqreturn_t ISP_Irq_CAM_B(signed int  Irq, void *DeviceId)
 		IspInfo.IrqInfo.LastestSigTime_sec[module][12] =
 			(unsigned int)(usec);
 
-		#if ISP_NOT_WORK
 		/* sw sof counter */
-		if (irqDelay == 1)
-			sof_count[module] = sofCntGrpHw;
-		#endif
-
 		sof_count[module] += frmPeriod;
 		/* for match vsync cnt */
 		if (sof_count[module] > 255)
