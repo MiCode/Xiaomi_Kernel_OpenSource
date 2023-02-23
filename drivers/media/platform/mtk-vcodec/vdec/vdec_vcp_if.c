@@ -841,6 +841,9 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 			mutex_unlock(&dev->ctx_mutex);
 		}
 	break;
+	case VCP_EVENT_PRE_SUSPEND:
+		mtk_vcodec_alive_checker_suspend(dev);
+	break;
 	case VCP_EVENT_SUSPEND:
 		dev->is_codec_suspending = 1;
 		while (atomic_read(&dev->mq.cnt)) {
@@ -856,7 +859,6 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		mutex_lock(&dev->ipi_mutex_res);
 		mutex_unlock(&dev->ipi_mutex_res);
 		mutex_unlock(&dev->ipi_mutex);
-		mtk_vcodec_alive_checker_suspend(dev);
 		// send backup ipi to vcp by one of any instances
 		vdec_vcp_backup(dev);
 	break;

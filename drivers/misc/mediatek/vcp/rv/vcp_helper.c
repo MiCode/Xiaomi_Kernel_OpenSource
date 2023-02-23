@@ -834,6 +834,7 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
+		vcp_extern_notify(VCP_EVENT_PRE_SUSPEND);
 		mutex_lock(&vcp_A_notify_mutex);
 		vcp_extern_notify(VCP_EVENT_SUSPEND);
 		mutex_unlock(&vcp_A_notify_mutex);
