@@ -646,6 +646,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 
 	unsigned int fill_rate = 0;	  /* 100 times */
 	unsigned long long consume_rate = 0; /* 100 times */
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
 
 	if (if_fps == 0) {
 		DDPPR_ERR("%s invalid vrefresh %u\n",
@@ -723,8 +724,6 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
 
 	if (rdma->data->dsi_buffer) {
-		struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
-
 		if (priv->data->mmsys_id == MMSYS_MT6879)
 			gs[GS_RDMA_FIFO_SIZE] = 0x20;
 		else
@@ -775,17 +774,31 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 40), FP);
 	gs[GS_RDMA_DVFS_ULTRA_TH_HIGH] = gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW];
 
-	/* DISP_RDMA_LEAVE_DRS_SETTING */
-	gs[GS_RDMA_IS_DRS_STATUS_TH_LOW] =
-		DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
-	gs[GS_RDMA_IS_DRS_STATUS_TH_HIGH] =
-		DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
+	if (priv->data->mmsys_id == MMSYS_MT6768) {
+		/* DISP_RDMA_LEAVE_DRS_SETTING */
+		gs[GS_RDMA_IS_DRS_STATUS_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * urgent_low_us, FP);
+		gs[GS_RDMA_IS_DRS_STATUS_TH_HIGH] =
+			DO_DIV_ROUND_UP(consume_rate * urgent_high_us, FP);
 
-	/* DISP_RDMA_ENTER_DRS_SETTING */
-	gs[GS_RDMA_NOT_DRS_STATUS_TH_LOW] =
-		DO_DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
-	gs[GS_RDMA_NOT_DRS_STATUS_TH_HIGH] =
-		DO_DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
+		/* DISP_RDMA_ENTER_DRS_SETTING */
+		gs[GS_RDMA_NOT_DRS_STATUS_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * urgent_low_us, FP);
+		gs[GS_RDMA_NOT_DRS_STATUS_TH_HIGH] =
+			DO_DIV_ROUND_UP(consume_rate * urgent_high_us, FP);
+	} else {
+		/* DISP_RDMA_LEAVE_DRS_SETTING */
+		gs[GS_RDMA_IS_DRS_STATUS_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
+		gs[GS_RDMA_IS_DRS_STATUS_TH_HIGH] =
+			DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
+
+		/* DISP_RDMA_ENTER_DRS_SETTING */
+		gs[GS_RDMA_NOT_DRS_STATUS_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
+		gs[GS_RDMA_NOT_DRS_STATUS_TH_HIGH] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
+	}
 
 	/* DISP_RDMA_MEM_GMC_SETTING_3 */
 	gs[GS_RDMA_URGENT_TH_LOW] = DO_DIV_ROUND_UP(consume_rate *
@@ -1711,8 +1724,8 @@ const struct mtk_disp_rdma_data mt6768_rdma_driver_data = {
 	.pre_ultra_high_us = 160,
 	.ultra_low_us = 87,
 	.ultra_high_us = 150,
-	.urgent_low_us = 43,
-	.urgent_high_us = 79,
+	.urgent_low_us = 30,
+	.urgent_high_us = 35,
 	.sodi_config = mt6768_mtk_sodi_config,
 	.shadow_update_reg = 0x00bc,
 	.support_shadow = false,
