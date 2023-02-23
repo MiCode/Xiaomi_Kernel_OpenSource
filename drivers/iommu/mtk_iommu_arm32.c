@@ -351,11 +351,11 @@ struct mtk_iommu_iova_region {
 };
 
 static struct mtk_iommu_iova_region single_domain[] __maybe_unused = {
-	{.iova_base = 0,		.size = SZ_4G},
+	{.iova_base = SZ_4K,		.size = SZ_4G},
 };
 
 static struct mtk_iommu_iova_region single_domain_ext[] __maybe_unused = {
-	{.iova_base = 0, .size = SZ_4G * 4},
+	{.iova_base = SZ_4K, .size = SZ_4G * 4},
 };
 
 static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
@@ -1550,12 +1550,8 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 		mtk_mapping = arm_iommu_create_mapping(&platform_bus_type,
 						       region->iova_base,
 						       region->size);
-		if (IS_ERR_OR_NULL(mtk_mapping)) {
-			dev_err(dev,
-				"iommu init arm mapping for rgn %d fail %d\n",
-				domid, PTR_ERR(mtk_mapping));
-			return -EFAULT;
-		}
+		if (IS_ERR(mtk_mapping))
+			return PTR_ERR(mtk_mapping);
 		frstdata->mapping[domid] = mtk_mapping;
 	}
 	dev->archdata.dma_ops_setup = true;
@@ -1870,6 +1866,11 @@ static int mtk_iommu_create_mapping(struct device *dev,
 
 	data = dev_iommu_priv_get(dev);
 	domid = mtk_iommu_get_domain_id(dev, data->plat_data);
+	if (domid < 0) {
+		pr_info("[%s][name: %s ] get wrong domid = %d\n",
+		__func__, __LINE__, dev_name(dev), domid);
+		return -EINVAL;
+	}
 	mtk_mapping = data->mapping[domid];
 	if (!mtk_mapping) {
 		/* MTK iommu support 4GB iova address space. */
@@ -2045,9 +2046,14 @@ static struct dma_iommu_mapping *
 mtk_iommu_get_device_mapping_by_region(struct device *dev)
 {
 	struct mtk_iommu_data *data = dev_iommu_priv_get(dev), *frstdata;
-	struct list_head *hw_list = data->hw_list;
+	struct list_head *hw_list;
 	int region_id;
-
+	if (!data) {
+		pr_info("%s get dev [name: %s ] mapping fail. data is null",
+		__func__, dev_name(dev));
+		return NULL;
+	}
+	hw_list = data->hw_list;
 	region_id = mtk_iommu_get_domain_id(dev, data->plat_data);
 	if (region_id < 0) {
 		pr_warn("%s error, region_id is %d < 0\n", __func__, region_id);
