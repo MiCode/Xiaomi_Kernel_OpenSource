@@ -63,8 +63,9 @@
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
 #include <linux/nvmem-consumer.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
-#include "mtk_thermal.h"
+
+#ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
+#include "mtk_static_power.h"
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_PBM)
@@ -151,6 +152,8 @@ static struct platform_driver g_gpufreq_pdrv = {
 	},
 };
 static struct mt_gpufreq_power_table_info *g_power_table;
+static int (*mt_gpufreq_wrap_fp)(void);
+
 static struct g_pmic_info *g_pmic;
 static struct g_clk_info *g_clk;
 static void __iomem *g_MFG_base;
@@ -496,6 +499,16 @@ void mt_gpufreq_power_limit_notify_registerCB(gpufreq_power_limit_notify pCB)
   /* legacy */
 }
 EXPORT_SYMBOL(mt_gpufreq_power_limit_notify_registerCB);
+
+/*
+ * API : set gpu wrap function pointer
+ */
+
+void mt_gpufreq_set_gpu_wrap_fp(int (*gpu_wrap_fp)(void))
+{
+	mt_gpufreq_wrap_fp = gpu_wrap_fp;
+}
+EXPORT_SYMBOL(mt_gpufreq_set_gpu_wrap_fp);
 /*
  * API : enable DVFS for PTPOD initializing
  */
@@ -557,7 +570,7 @@ static void __gpufreq_calculate_power(unsigned int idx, unsigned int freq,
 
 	p_dynamic = __gpufreq_get_dyn_pgpu(freq, volt);
 
-#ifdef CONFIG_MTK_STATIC_POWER
+#ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
 	p_leakage = mt_spower_get_leakage(MTK_SPOWER_GPU, (volt / 100), temp);
 	if (!(regulator_is_enabled(g_pmic->mtk_pm_vgpu)) || p_leakage < 0)
 		p_leakage = 0;
@@ -588,7 +601,10 @@ static void __gpufreq_setup_opp_power_table(int num)
 		return;
 
 #if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
-	temp = get_immediate_gpu_wrap() / 1000;
+	if (mt_gpufreq_wrap_fp)
+		temp = mt_gpufreq_wrap_fp() / 1000;
+	else
+		temp = 40;
 #else
 	temp = 40;
 #endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
@@ -612,9 +628,6 @@ static void __gpufreq_setup_opp_power_table(int num)
 				g_power_table[i].gpufreq_volt,
 				g_power_table[i].gpufreq_power);
 	}
-#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
-	mtk_gpufreq_register(g_power_table, num);
-#endif /* CONFIG_MTK_LEGACY_THERMAL */
 }
 
 
@@ -627,7 +640,10 @@ static void __gpufreq_update_power_table(void)
 	unsigned int volt = 0;
 
 #if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
-	temp = get_immediate_gpu_wrap() / 1000;
+	if (mt_gpufreq_wrap_fp)
+		temp = mt_gpufreq_wrap_fp() / 1000;
+	else
+		temp = 40;
 #else
 	temp = 40;
 #endif /* ifdef CONFIG_THERMAL */
