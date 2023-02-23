@@ -1318,6 +1318,9 @@ initcall_debug=1 pelt=8";
 
 	hwrng: hwrng {
 		compatible = "arm,sec-rng";
+		methods = "smc";
+		method-fid = /bits/ 16 <0x26a>;
+		quality = /bits/ 16 <900>;
 	};
 
 	mobicore: mobicore {
