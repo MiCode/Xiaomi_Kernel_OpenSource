@@ -4043,6 +4043,8 @@ initcall_debug=1 pelt=8";
 			"CLK_MIPI_ANA_0A_CG",
 			"CLK_TOP_CAMTM_SEL_CG",
 			"CLK_TOP_CAMTM_208_CG";
+		operating-points-v2 = <&opp_table_mm>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		power-domains =	<&scpsys MT6765_POWER_DOMAIN_CAM>;
 	};
 
