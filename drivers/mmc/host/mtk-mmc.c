@@ -3070,6 +3070,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 			       IRQF_TRIGGER_NONE, pdev->name, host);
 	if (ret)
 		goto release;
+	if (host->id == MSDC_SD || host->id == MSDC_EMMC)
+		irq_set_affinity_hint(host->irq, get_cpu_mask(3));
 
 	if (host->id == MSDC_SDIO) {
 		ret = request_sdio_eint_irq(host);
