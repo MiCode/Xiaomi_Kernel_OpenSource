@@ -34,6 +34,7 @@
 #include <linux/atomic.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <linux/suspend.h>
 
 #ifndef CCCI_KMODULE_ENABLE
 #include "ccci_core.h"
@@ -2086,6 +2087,7 @@ static int dpmaif_wait_resume_done(void)
 			CCCI_NORMAL_LOG(-1, TAG,
 				"[%s] warning: suspend_flag = 1; (cnt: %d)",
 				__func__, cnt);
+			pm_system_wakeup();
 			return -1;
 		}
 	}
