@@ -4201,6 +4201,36 @@ cma=64M transparent_hugepage=never clk_ignore_unused=1";
 			<&venc_gcon CLK_VENC_SET1_VENC>;
 		clock-names =
 			"MT_CG_VENC";
+		operating-points-v2 = <&opp_table_venc>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		throughput-op-rate-thresh = <120>;
+		throughput-min = <312000000>;
+		throughput-normal-max = <457000000>;
+		throughput-config-offset = <2>;
+		throughput-table =
+			<875967048 2 1283 1283>, /* H.264 */
+			<875967048 4 962 962>,
+			<1129727304 2 1283 1283>, /* HEVC */
+			<1129727304 4 962 962>,
+			<892744264 2 1283 1283>, /* H265*/
+			<892744264 4 962 962>;
+		config-table =
+			<875967048 243000 2 2>, /* H.264 1080p 30fps */
+			<875967048 432000 4 4>, /* 720p 120fps */
+			<1129727304 243000 2 2>, /* HEVC 1080p 30fps */
+			<1129727304 432000 4 4>, /* 720p 120fps */
+			<892744264 243000 2 2>, /* H265 1080p 30fps*/
+			<892744264 432000 4 4>; /* 720p 120fps */
+		interconnects =
+		<&mmqos MASTER_LARB_PORT(M4U_PORT_VENC_RCPU)
+			&mmqos SLAVE_COMMON(0)>,
+		<&mmqos SLAVE_LARB(4) &mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "path_venc_rcpu",
+			"path_larb4";
+		interconnect-num = <2>;
+		bandwidth-table =
+			<4 712>,
+			<6 4>;
 	};
 
 	venc_gcon: venc_gcon@17000000 {
