@@ -33,7 +33,9 @@ f kernel/time/timer.c
 f kernel/trace/trace.c
 f kernel/trace/trace_events.c
 f lib/dynamic_debug.c
+f mm/memcontrol.c
 f mm/swap.c
+f mm/vmscan.c
 f net/core/rtnetlink.c
 f net/netfilter/nf_conntrack_core.c
 f security/selinux/avc.c
