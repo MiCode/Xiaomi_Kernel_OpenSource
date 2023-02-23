@@ -821,7 +821,7 @@ static struct mtk_panel_params ext_params = {
 };
 
 static struct mtk_panel_params ext_params_mode_1 = {
-	.vfp_low_power = 1290,//90hz
+	.vfp_low_power = 2526,//90hz
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
