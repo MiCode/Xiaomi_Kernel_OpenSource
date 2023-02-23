@@ -134,7 +134,7 @@ static u32 target_clk;
 #endif
 
 #define ISP_DEV_NAME           "camera-isp"
-#define SMI_LARB_MMU_CTL       (1)
+#define SMI_LARB_MMU_CTL       (0)
 
 /*#define ENABLE_WAITIRQ_LOG*/       /* wait irq debug logs */
 /*#define ENABLE_STT_IRQ_LOG*/       /*show STT irq debug logs */
@@ -475,9 +475,6 @@ static struct IspWorkqueTable isp_workque[ISP_IRQ_TYPE_AMOUNT] = {
 #ifndef CONFIG_MTK_CLKMGR /*CCF*/
 #include <linux/clk.h>
 struct ISP_CLK_STRUCT {
-	struct clk *ISP_SCP_SYS_DIS;
-	struct clk *ISP_SCP_SYS_ISP;
-	struct clk *ISP_SCP_SYS_CAM;
 	struct clk *ISP_IMG_DIP;
 	struct clk *ISP_CAM_CAMSYS;
 	struct clk *ISP_CAM_CAMTG;
@@ -3870,18 +3867,6 @@ static inline void Prepare_Enable_ccf_clock(void)
 
 	#endif
 #endif
-	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_DIS);
-	if (ret)
-		LOG_INF("cannot pre-en ISP_SCP_SYS_DIS clock\n");
-
-	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_ISP);
-	if (ret)
-		LOG_INF("cannot pre-en ISP_SCP_SYS_ISP clock\n");
-
-	ret = clk_prepare_enable(isp_clk.ISP_SCP_SYS_CAM);
-	if (ret)
-		LOG_INF("cannot pre-en ISP_SCP_SYS_CAM clock\n");
-
 	ret = clk_prepare_enable(isp_clk.ISP_IMG_DIP);
 	if (ret)
 		LOG_INF("cannot pre-en ISP_IMG_DIP clock\n");
@@ -3924,9 +3909,6 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMTG);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
 	clk_disable_unprepare(isp_clk.ISP_IMG_DIP);
-	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_CAM);
-	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_ISP);
-	clk_disable_unprepare(isp_clk.ISP_SCP_SYS_DIS);
 #ifdef ISP_HELP
 	#ifndef EP_MARK_SMI
 	/* pr_info("disable CG/MTCMOS through SMI CLK API\n"); */
@@ -10261,12 +10243,6 @@ static signed int ISP_probe(struct platform_device *pDev)
 		/*CCF: Grab clock pointer (struct clk*) */
 
 		pr_info("CONFIG_MTK_CLKMGR get clock pointer\n");
-		isp_clk.ISP_SCP_SYS_DIS =
-			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_DIS");
-		isp_clk.ISP_SCP_SYS_ISP =
-			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_ISP");
-		isp_clk.ISP_SCP_SYS_CAM =
-			devm_clk_get(&pDev->dev, "ISP_SCP_SYS_CAM");
 		isp_clk.ISP_IMG_DIP =
 			devm_clk_get(&pDev->dev, "ISP_CLK_IMG_DIP");
 		isp_clk.ISP_CAM_CAMSYS =
@@ -10281,18 +10257,6 @@ static signed int ISP_probe(struct platform_device *pDev)
 		isp_clk.ISP_CAM_CAMSV2 =
 			devm_clk_get(&pDev->dev, "ISP_CLK_CAMSV2");
 
-		if (IS_ERR(isp_clk.ISP_SCP_SYS_DIS)) {
-			LOG_INF("cannot get ISP_SCP_SYS_DIS clock\n");
-			return PTR_ERR(isp_clk.ISP_SCP_SYS_DIS);
-		}
-		if (IS_ERR(isp_clk.ISP_SCP_SYS_ISP)) {
-			LOG_INF("cannot get ISP_SCP_SYS_ISP clock\n");
-			return PTR_ERR(isp_clk.ISP_SCP_SYS_ISP);
-		}
-		if (IS_ERR(isp_clk.ISP_SCP_SYS_CAM)) {
-			LOG_INF("cannot get ISP_SCP_SYS_CAM clock\n");
-			return PTR_ERR(isp_clk.ISP_SCP_SYS_CAM);
-		}
 		if (IS_ERR(isp_clk.ISP_IMG_DIP)) {
 			LOG_INF("cannot get IMG_DIP clock\n");
 			return PTR_ERR(isp_clk.ISP_IMG_DIP);
@@ -11368,7 +11332,7 @@ static signed int __init ISP_Init(void)
 	}
 	pr_info("CLOCK_CELL_BASE: %p\n", CLOCK_CELL_BASE);
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mmsys_config");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-mmsys");
 	if (!node) {
 		LOG_INF("find mmsys_config node failed!!!\n");
 		return -ENODEV;
