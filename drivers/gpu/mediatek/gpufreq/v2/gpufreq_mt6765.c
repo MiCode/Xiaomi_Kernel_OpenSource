@@ -1497,7 +1497,7 @@ static int __gpufreq_volt_scale_gpu(
 	//steps = 15000/625 = 24
 	//sfchg rate rising/ falling = 2
 	//delay (steps+1)*sfchg + 52
-	udelay(102);
+	udelay(250);
 	g_gpu.cur_volt = __gpufreq_get_real_vgpu();
 	if (unlikely(g_gpu.cur_volt < vgpu_new))
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
