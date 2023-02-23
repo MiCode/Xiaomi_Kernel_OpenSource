@@ -4499,6 +4499,8 @@ initcall_debug=1 pelt=8";
 		compatible = "mediatek,mt6765-cm_mgr";
 		reg = <0 0x10200000 0 0x4000>;
 		reg-names = "cm_mgr_base";
+		interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+		interconnect-names = "cm-perf-bw";
 		required-opps = <&dvfsrc_freq_opp0>,
 				<&dvfsrc_freq_opp1>,
 				<&dvfsrc_freq_opp2>;
