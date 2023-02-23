@@ -2059,7 +2059,7 @@ static long vcodec_unlocked_ioctl(struct file *file, unsigned int cmd,
 	}
 	break;
 	}
-	return 0;
+	return 0xFF;
 }
 
 #if IS_ENABLED(CONFIG_COMPAT)
