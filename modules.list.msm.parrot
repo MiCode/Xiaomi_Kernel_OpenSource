@@ -25,7 +25,6 @@ qcom-pdc.ko
 qcom_tsens.ko
 thermal_pause.ko
 cpu_hotplug.ko
-gpucc-ravelin.ko
 arm_smmu.ko
 cmd-db.ko
 gh_msgq.ko
