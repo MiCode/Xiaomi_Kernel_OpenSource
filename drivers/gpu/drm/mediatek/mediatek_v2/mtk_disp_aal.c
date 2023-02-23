@@ -1170,7 +1170,7 @@ static int disp_aal_write_init_regs(struct mtk_ddp_comp *comp,
 		int *gain;
 
 		gain = init_regs->cabc_gainlmt;
-		if (priv->data->mmsys_id == MMSYS_MT6768) {
+		if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
 			basic_cmdq_write(handle, comp, MT6768_DISP_AAL_DRE_MAPPING_00,
 				(init_regs->dre_map_bypass << 4), 1 << 4);
 
@@ -1328,7 +1328,7 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 
 	gain = param->DREGainFltStatus;
 
-	if (priv->data->mmsys_id == MMSYS_MT6768) {
+	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(0),
 		    DRE_REG_2(gain[0], 0, gain[1], 14), ~0);
@@ -1429,7 +1429,7 @@ static int disp_aal_write_cabc_to_reg(struct mtk_ddp_comp *comp,
 
 	gain = param->cabc_gainlmt;
 	for (i = 0; i <= 10; i++) {
-		if (priv->data->mmsys_id == MMSYS_MT6768) {
+		if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + MT6768_DISP_AAL_CABC_GAINLMT_TBL(i),
 				CABC_GAINLMT(gain[0], gain[1], gain[2]), ~0);
@@ -2415,7 +2415,7 @@ static void ddp_aal_dre_backup(struct mtk_ddp_comp *comp)
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
-	if (priv->data->mmsys_id == MMSYS_MT6768) {
+	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
 		g_aal_backup.DRE_MAPPING =
 			readl(comp->regs + MT6768_DISP_AAL_DRE_MAPPING_00);
 
@@ -2444,7 +2444,7 @@ static void ddp_aal_cabc_backup(struct mtk_ddp_comp *comp)
 	g_aal_backup.CABC_02 = readl(comp->regs + DISP_AAL_CABC_02);
 
 	for (i = 0; i < CABC_GAINLMT_NUM; i++) {
-		if (priv->data->mmsys_id == MMSYS_MT6768) {
+		if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
 			g_aal_backup.CABC_GAINLMT[i] =
 			    readl(comp->regs + MT6768_DISP_AAL_CABC_GAINLMT_TBL(i));
 		} else {
@@ -2518,7 +2518,7 @@ static void ddp_aal_dre_restore(struct mtk_ddp_comp *comp)
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
-	if (priv->data->mmsys_id == MMSYS_MT6768) {
+	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
 		writel(g_aal_backup.DRE_MAPPING,
 			comp->regs + MT6768_DISP_AAL_DRE_MAPPING_00);
 
@@ -2547,7 +2547,7 @@ static void ddp_aal_cabc_restore(struct mtk_ddp_comp *comp)
 	writel(g_aal_backup.CABC_02, comp->regs + DISP_AAL_CABC_02);
 
 	for (i = 0; i < CABC_GAINLMT_NUM; i++) {
-		if (priv->data->mmsys_id == MMSYS_MT6768) {
+		if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
 			writel(g_aal_backup.CABC_GAINLMT[i],
 				comp->regs + MT6768_DISP_AAL_CABC_GAINLMT_TBL(i));
 		} else {
