@@ -462,8 +462,7 @@ aliases {
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyS0,921600n1 vmalloc=400M \
-earlycon=uart8250,mmio32,0x11002000 \
+		bootargs = "console=tty0 vmalloc=400M \
 8250.nr_uarts=4 \
 page_owner=on \
 swiotlb=noforce androidboot.hardware=mt6765 \
