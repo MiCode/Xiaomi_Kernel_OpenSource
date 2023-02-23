@@ -867,6 +867,15 @@ config GAUGE_MT6375
 	  The fuelgauge calculates and determines the battery state of charge
 	  according to battery open circuit voltage.
 
+config CHARGER_TYPE_MT6357
+       tristate "MT6357 Charger Type Detection Driver"
+       depends on MFD_MT6397
+       help
+         Say yes here to enable MT6357 Charger Type
+         Detection Driver.
+         This driver use MT6357 to detect charger type
+         Say no if not using MT6357 Charger Type Detection.
+
 config MTK_CHARGER_TYPE_DETECT
 	tristate "Mediatek Charger Type Detect Driver"
 	depends on TCPC_CLASS
@@ -883,6 +892,14 @@ config MTK_CHARGER
 	  This driver contains charging control flow and
 	  maintains charging status.
 	  Say no if not using MediaTek charging driver.
+
+config MT6357_DO_CTD
+	tristate "MT6370 get charger online from MT6357"
+	help
+	  Say yes here to enable mt6370 get charger online for mt6357.
+	  This will enable to get MT6370 charger online status for MT6357.
+	  This config will be enable for mt6357 charger type detection only.
+	  Say N to disable for other charger type detection chip choice.
 
 config CHARGER_RT9465
 	tristate "Charger Driver for Richtek RT9465 Charger IC"

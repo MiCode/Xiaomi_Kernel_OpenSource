@@ -1243,11 +1243,34 @@ static int mt6370_chg_get_status(struct mt6370_priv *priv,
 {
 	int ret;
 	unsigned int chg_stat;
-	union power_supply_propval online;
 	bool __maybe_unused chg_en = false;
 
-	ret = power_supply_get_property(priv->psy, POWER_SUPPLY_PROP_ONLINE,
-					&online);
+/*mt6357 do charger type detection*/
+#if IS_ENABLED(CONFIG_MT6357_DO_CTD)
+	struct power_supply *chg_psy = NULL;
+
+	chg_psy = devm_power_supply_get_by_phandle(priv->dev, "charger");
+	if (chg_psy == NULL) {
+		pr_info("get chg_psy fail %s\n", __func__);
+		return -1;
+	}
+
+	ret = power_supply_get_property(chg_psy, POWER_SUPPLY_PROP_ONLINE, val);
+	if (ret) {
+		pr_info("Failed to get online status\n");
+		return ret;
+	}
+
+	if (!val->intval) {
+		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		return 0;
+	}
+
+#else
+/*mt6370 do charger type detection*/
+	union power_supply_propval online;
+
+	ret = power_supply_get_property(priv->psy, POWER_SUPPLY_PROP_ONLINE, &online);
 	if (ret) {
 		dev_err(priv->dev, "Failed to get online status\n");
 		return ret;
@@ -1257,6 +1280,7 @@ static int mt6370_chg_get_status(struct mt6370_priv *priv,
 		val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		return 0;
 	}
+#endif
 
 	ret = mt6370_chg_field_get(priv, F_CHG_STAT, &chg_stat);
 	if (ret)
