@@ -2819,7 +2819,6 @@ initcall_debug=1 pelt=8";
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
-		ch_offset_i2c = <0x100>;
 		mediatek,hs_only;
 	};
 
@@ -2832,7 +2831,6 @@ initcall_debug=1 pelt=8";
 		<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
-		ch_offset_i2c = <0x100>;
 		mediatek,hs_only;
 	};
 
@@ -2845,7 +2843,6 @@ initcall_debug=1 pelt=8";
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
-		ch_offset_i2c = <0x100>;
 		mediatek,hs_only;
 	};
 
@@ -2870,7 +2867,6 @@ initcall_debug=1 pelt=8";
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <5>;
-		ch_offset_i2c = <0x100>;
 		mediatek,hs_only;
 	};
 
