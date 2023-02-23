@@ -628,6 +628,9 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 		ret = wait_event_interruptible(dpmaif_ctrl->bat_alloc_wq,
 				atomic_read(&dpmaif_ctrl->bat_need_alloc));
 
+		if (ret == -ERESTARTSYS)
+			continue;
+
 		if (atomic_read(&dpmaif_ctrl->bat_paused_alloc)
 				!= BAT_ALLOC_NO_PAUSED) {
 			if (atomic_read(&dpmaif_ctrl->bat_paused_alloc)
@@ -638,9 +641,6 @@ static int dpmaif_rx_bat_alloc_thread(void *arg)
 			}
 			continue;
 		}
-
-		if (ret == -ERESTARTSYS)
-			continue;
 
 		if (kthread_should_stop()) {
 			CCCI_ERROR_LOG(-1, TAG,
