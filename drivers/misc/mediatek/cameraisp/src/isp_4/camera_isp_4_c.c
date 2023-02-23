@@ -8289,6 +8289,10 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case ISP_GET_CUR_ISP_CLOCK:
 		{
 			struct ISP_GET_CLK_INFO getclk;
+			unsigned int clk[2] = {0};
+
+			getclk.curClk = clk[0];
+			getclk.targetClk = clk[1];
 			#ifdef ISP_HELP
 			getclk.curClk =
 				(u32)mmdvfs_qos_get_freq(PM_QOS_CAM_FREQ);
