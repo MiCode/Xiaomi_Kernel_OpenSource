@@ -1997,11 +1997,15 @@ cma=64M transparent_hugepage=never";
 		clocks = <&infracfg_ao CLK_IFR_CCIF_AP>,
 			<&infracfg_ao CLK_IFR_CCIF_MD>,
 			<&infracfg_ao CLK_IFR_CCIF1_AP>,
-			<&infracfg_ao CLK_IFR_CCIF1_MD>;
+			<&infracfg_ao CLK_IFR_CCIF1_MD>,
+			<&infracfg_ao CLK_IFR_CCIF2_AP>,
+			<&infracfg_ao CLK_IFR_CCIF2_MD>;
 		clock-names = "infra-ccif-ap",
 			"infra-ccif-md",
 			"infra-ccif1-ap",
-			"infra-ccif1-md";
+			"infra-ccif1-md",
+			"infra-ccif2-ap",
+			"infra-ccif2-md";
 	};
 
 	cldmadriver:cldmadriver@10014000 {
@@ -2047,12 +2051,14 @@ cma=64M transparent_hugepage=never";
 	};
 
 	ccci_scp:ccci_scp {
-		compatible = "mediatek,ccci_md_scp";
-		clocks = <&infracfg_ao CLK_IFR_CCIF2_AP>,
-			<&infracfg_ao CLK_IFR_CCIF2_MD>;
-		clock-names = "infra-ccif2-ap",
-			"infra-ccif2-md";
-	};
+			compatible = "mediatek,ccci_md_scp";
+			reg = <0 0x1023c000 0 0x1000>, /* AP_CCIF2_BASE */
+			      <0 0x1023d000 0 0x1000>; /* MD_CCIF2_BASE */
+			clocks = <&infracfg_ao CLK_IFR_CCIF2_AP>,
+				 <&infracfg_ao CLK_IFR_CCIF2_MD>;
+			clock-names = "infra-ccif2-ap",
+				"infra-ccif2-md";
+		};
 
 	md1_sim1_hot_plug_eint:MD1_SIM1_HOT_PLUG_EINT {
 	};
