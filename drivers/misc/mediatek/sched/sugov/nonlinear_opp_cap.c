@@ -139,9 +139,12 @@ static int init_capacity_table(void)
 
 		for_each_cpu(j, &pd_info->cpus) {
 			if (per_cpu(cpu_scale, j) != pd_info->caps[0]) {
-				pr_info("per_cpu(cpu_scale, %d)=%d, pd_info->caps[0]=%d\n",
+				pr_info("capacity err: cpu=%d, cpu_scale=%d, pd_info_cap=%d\n",
 					j, per_cpu(cpu_scale, j), pd_info->caps[0]);
 				per_cpu(cpu_scale, j) = pd_info->caps[0];
+			} else {
+				pr_info("capacity match: cpu=%d, cpu_scale=%d, pd_info_cap=%d\n",
+					j, per_cpu(cpu_scale, j), pd_info->caps[0]);
 			}
 		}
 	}
@@ -236,10 +239,11 @@ static int pd_capacity_tbl_show(struct seq_file *m, void *v)
 			break;
 
 		seq_printf(m, "Pd table: %d\n", i);
-		seq_printf(m, "nr_caps: %d\n", pd_info->nr_caps);
 		seq_printf(m, "cpus: %*pbl\n", cpumask_pr_args(&pd_info->cpus));
+		seq_printf(m, "nr_caps: %d\n", pd_info->nr_caps);
 		for (j = 0; j < pd_info->nr_caps; j++)
-			seq_printf(m, "%d: %lu\n", j, pd_info->caps[j]);
+			seq_printf(m, "%d: %lu, %lu\n", j, pd_info->caps[j],
+					pd_info->util_freq[pd_info->caps[j]]);
 	}
 
 	return 0;
