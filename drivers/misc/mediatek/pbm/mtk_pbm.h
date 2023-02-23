@@ -31,8 +31,7 @@ enum PBM_PRIO_TAG {
 
 extern void kicker_pbm_by_md(enum pbm_kicker kicker, bool status);
 extern void kicker_pbm_by_flash(bool status);
-
+extern void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage);
 extern void register_pbm_notify(void *oc_cb, enum PBM_PRIO_TAG prio_val);
-
 
 #endif

@@ -528,6 +528,7 @@ void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage)
 
 	mtk_power_budget_manager(KR_GPU, &mrpmgr);
 }
+EXPORT_SYMBOL(kicker_pbm_by_gpu);
 
 void kicker_pbm_by_flash(bool status)
 {
