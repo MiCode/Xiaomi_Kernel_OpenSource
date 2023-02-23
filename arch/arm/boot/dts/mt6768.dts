@@ -483,9 +483,9 @@ vmalloc=400M swiotlb=noforce \
 8250.nr_uarts=4 \
 cgroup.memory=nosocket,nokmem \
 firmware_class.path=/vendor/firmware \
-page_owner=on loop.max_part=7 \
+loop.max_part=7 \
 initcall_debug=1 pelt=8 \
-cma=64M transparent_hugepage=never clk_ignore_unused=1";
+transparent_hugepage=never clk_ignore_unused=1";
 		kaslr-seed = <0 0>;
 	};
 
