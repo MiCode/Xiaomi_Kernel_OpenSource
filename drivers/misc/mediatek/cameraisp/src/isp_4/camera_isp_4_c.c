@@ -98,19 +98,7 @@
 
 #include "inc/camera_isp.h"
 
-#ifdef ISP_HELP
-#ifndef EP_NO_PMQOS /* EP_NO_PMQOS is equivalent to EP_MARK_MMDVFS */
-#include <mmdvfs_mgr.h>
-#include <mmdvfs_pmqos.h>
-#include <linux/soc/mediatek/mtk-pm-qos.h>
-/* Use this qos request to control camera dynamic frequency change */
-struct mtk_pm_qos_request isp_qos;
-struct mtk_pm_qos_request camsys_qos_request[ISP_IRQ_TYPE_INT_CAM_B_ST+1];
-static struct ISP_PM_QOS_STRUCT G_PM_QOS[ISP_IRQ_TYPE_INT_CAM_B_ST+1];
-static u32 PMQoS_BW_value;
-static u32 target_clk;
-#endif
-#endif
+#include "inc/cam_qos.h"
 
 #define CAMSV_DBG
 #ifdef CAMSV_DBG
@@ -5282,45 +5270,7 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 
 	return Ret;
 }
-#ifdef ISP_HELP
-#ifndef EP_NO_PMQOS
-static int ISP_SetPMQOS(unsigned int cmd, unsigned int module)
-{
-	#define bit 8
 
-	unsigned int bw_cal = 0;
-	int Ret = 0;
-
-	switch (cmd) {
-	case 0: {
-		G_PM_QOS[module].bw_sum = 0;
-		G_PM_QOS[module].fps = 0;
-		break;
-	}
-	case 1: {
-		bw_cal = (G_PM_QOS[module].bw_sum * G_PM_QOS[module].fps)
-			/ 1000000; /* MByte/s */
-		break;
-	}
-	default:
-		LOG_INF("unsupport cmd:%d", cmd);
-		Ret = -1;
-		break;
-	}
-	mtk_pm_qos_update_request(&camsys_qos_request[module], bw_cal);
-
-	if (PMQoS_BW_value != bw_cal) {
-		pr_info(
-			"PM_QoS: module[%d], cmd[%d], bw[%d], fps[%d], total bw = %d MB/s\n",
-			module, cmd,
-			G_PM_QOS[module].bw_sum, G_PM_QOS[module].fps, bw_cal);
-		PMQoS_BW_value = bw_cal;
-	}
-
-	return Ret;
-}
-#endif
-#endif
 /******************************************************************************
  * update current idnex to working frame
  *****************************************************************************/
@@ -7119,7 +7069,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	#endif
 	#endif
 
-	unsigned int lv = 0;
 	/*  */
 	if (pFile->private_data == NULL) {
 		LOG_INF("private_data is NULL,(process, pid, tgid)=(%s, %d, %d)\n",
@@ -8185,221 +8134,94 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		}
 		break;
 
-#ifdef EP_NO_PMQOS
-	case ISP_DFS_CTRL:
+	case ISP_DFS_CTRL: {
+		unsigned int dfs_ctrl;
 
-	case ISP_DFS_UPDATE:
+		if (copy_from_user(&dfs_ctrl, (void *)Param,
+				   sizeof(unsigned int)) == 0) {
+			if (dfs_ctrl == MFALSE)
+				ISP4_SetPMQOS(E_CLK_CLR, ISP_IRQ_TYPE_INT_CAM_A_ST, NULL);
+		} else {
+			LOG_INF("ISP_DFS_CTRL copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+	} break;
+	case ISP_DFS_UPDATE: {
+		unsigned int dfs_update;
 
-	case ISP_GET_CUR_ISP_CLOCK:
+		if (copy_from_user(&dfs_update, (void *)Param,
+				   sizeof(unsigned int)) == 0) {
+			ISP4_SetPMQOS(E_CLK_UPDATE, ISP_IRQ_TYPE_INT_CAM_A_ST,
+				     &dfs_update);
+		} else {
+			LOG_INF("ISP_DFS_UPDATE copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+	} break;
+	case ISP_GET_CUR_ISP_CLOCK: {
+		struct ISP_GET_CLK_INFO getclk;
+		unsigned int clk[2] = {0};
 
-	case ISP_SET_PM_QOS_INFO:
+		ISP4_SetPMQOS(E_CLK_CUR, ISP_IRQ_TYPE_INT_CAM_A_ST, clk);
+		getclk.curClk = clk[0];
+		getclk.targetClk = clk[1];
+		if (copy_to_user((void *)Param, &getclk,
+				 sizeof(struct ISP_GET_CLK_INFO)) != 0) {
 
-	case ISP_SET_PM_QOS:
-		break;
-	case ISP_GET_SUPPORTED_ISP_CLOCKS:
-
-		/* Set a default clk for EP */
-		ispclks.clklevelcnt = 1;
-		ispclks.clklevel[lv] = 546;
-		pr_info("Default DFS Clk level:%d for EP",
-			ispclks.clklevel[lv]);
-
-		if (copy_to_user((void *)Param, &ispclks,
-		    sizeof(struct ISP_CLK_INFO)) != 0) {
 			LOG_INF("copy_to_user failed");
 			Ret = -EFAULT;
 		}
-		break;
-#else
-	case ISP_DFS_CTRL:
-		{
-			static unsigned int camsys_qos;
-			unsigned int dfs_ctrl;
+	} break;
+	case ISP_SET_PM_QOS_INFO: {
+		struct ISP_PM_QOS_INFO_STRUCT pm_qos_info;
 
-			if (copy_from_user(&dfs_ctrl, (void *)Param,
-			    sizeof(unsigned int)) == 0) {
-				if (dfs_ctrl == MTRUE) {
-					if (++camsys_qos == 1) {
-						#ifdef ISP_HELP
-						mtk_pm_qos_add_request(
-						  &isp_qos, PM_QOS_CAM_FREQ, 0);
-						pr_debug(
-						  "CAMSYS PMQoS turn on");
-						#endif
-					}
-				} else {
-					if (--camsys_qos == 0) {
-						#ifdef ISP_HELP
-						mtk_pm_qos_remove_request(
-						  &isp_qos);
-						pr_debug(
-							"CAMSYS PMQoS turn off");
-						#endif
-					}
-				}
-			} else {
-				LOG_INF("ISP_DFS_CTRL copy_from_user failed\n");
-				Ret = -EFAULT;
-			}
+		if (copy_from_user(&pm_qos_info, (void *)Param,
+				   sizeof(struct ISP_PM_QOS_INFO_STRUCT)) ==
+		    0) {
+			ISP4_SetPMQOS(E_BW_UPDATE, pm_qos_info.module,
+				     (unsigned int *)pm_qos_info.port_bw);
+		} else {
+			LOG_INF(
+				"ISP_SET_PM_QOS_INFO copy_from_user failed\n");
+
+			Ret = -EFAULT;
 		}
-		break;
-	case ISP_DFS_UPDATE:
-		{
-			unsigned int dfs_update;
-
-			if (copy_from_user(&dfs_update, (void *)Param,
-			    sizeof(unsigned int)) == 0) {
-			  #ifdef ISP_HELP
-				mtk_pm_qos_update_request(&isp_qos, dfs_update);
-				target_clk = dfs_update;
-				pr_debug("Set clock level:%d", dfs_update);
-				#endif
-			} else {
-				LOG_INF("ISP_DFS_UPDATE copy_from_user failed");
-				Ret = -EFAULT;
-			}
+	} break;
+	case ISP_SET_PM_QOS: {
+		if (copy_from_user(DebugFlag, (void *)Param,
+				   sizeof(unsigned int) * 2) == 0) {
+			if (DebugFlag[0] == 0)
+				ISP4_SetPMQOS(E_BW_CLR, DebugFlag[1], DebugFlag);
+		} else {
+			LOG_INF("ISP_SET_PM_QOS copy_from_user failed\n");
+			Ret = -EFAULT;
 		}
-		break;
-	case ISP_GET_SUPPORTED_ISP_CLOCKS:
-		{
-			struct ISP_CLK_INFO ispclks;
+	} break;
+	case ISP_GET_SUPPORTED_ISP_CLOCKS: {
+		struct ISP_CLK_INFO ispclks;
 
-			int result = 0;
-			u64 freq_steps[ISP_CLK_LEVEL_CNT] = {0};
-			ispclks.clklevelcnt = 1;
+		memset((void *)&ispclks, 0x0, sizeof(struct ISP_CLK_INFO));
 
-			/* Call mmdvfs_qos_get_freq_steps
-			 * to get supported frequency
-			 */
-			#ifdef ISP_HELP
-			result = mmdvfs_qos_get_freq_steps(PM_QOS_CAM_FREQ,
-				    freq_steps, (u32 *)&ispclks.clklevelcnt);
-			#endif
-			if (result < 0) {
-				LOG_INF(
-					"get MMDVFS freq steps failed, result: %d\n",
-					result);
-				Ret = -EFAULT;
-				break;
-			}
+		ispclks.clklevelcnt = (unsigned char)ISP4_SetPMQOS(
+			E_CLK_SUPPORTED, ISP_IRQ_TYPE_INT_CAM_A_ST,
+			(unsigned int *)ispclks.clklevel);
 
-			if (ispclks.clklevelcnt > ISP_CLK_LEVEL_CNT) {
-				LOG_INF("clklevelcnt is exceeded");
-				Ret = -EFAULT;
-				break;
-			}
+		if (ispclks.clklevelcnt >= ISP_CLK_LEVEL_CNT) {
 
-			for (; lv < ispclks.clklevelcnt; lv++) {
-			/* Save clk from low to high */
-				ispclks.clklevel[lv] = freq_steps[lv];
-				pr_debug("DFS Clk level[%d]:%d",
-					lv, ispclks.clklevel[lv]);
-			}
-			#ifdef ISP_HELP
-			target_clk = ispclks.clklevel[ispclks.clklevelcnt - 1];
-			#endif
-			if (copy_to_user((void *)Param, &ispclks,
-			    sizeof(struct ISP_CLK_INFO)) != 0) {
-				LOG_INF("copy_to_user failed");
-				Ret = -EFAULT;
-			}
+			LOG_INF(
+				"clklevelcnt is exceeded_%d, memory corruption\n",
+				ispclks.clklevelcnt);
+
+			Ret = -EFAULT;
+			break;
 		}
-		break;
-	case ISP_GET_CUR_ISP_CLOCK:
-		{
-			struct ISP_GET_CLK_INFO getclk;
-			unsigned int clk[2] = {0};
 
-			getclk.curClk = clk[0];
-			getclk.targetClk = clk[1];
-			#ifdef ISP_HELP
-			getclk.curClk =
-				(u32)mmdvfs_qos_get_freq(PM_QOS_CAM_FREQ);
-			getclk.targetClk = target_clk;
-			#endif
-			pr_debug("Get current clock level:%d, target clock:%d",
-				getclk.curClk, getclk.targetClk);
-
-			if (copy_to_user((void *)Param, &getclk,
-			    sizeof(struct ISP_GET_CLK_INFO)) != 0) {
-				LOG_INF("copy_to_user failed");
-				Ret = -EFAULT;
-			}
+		if (copy_to_user((void *)Param, &ispclks,
+				 sizeof(struct ISP_CLK_INFO)) != 0) {
+			LOG_INF("copy_to_user failed");
+			Ret = -EFAULT;
 		}
-		break;
-	case ISP_SET_PM_QOS_INFO:
-		{
-			struct ISP_PM_QOS_INFO_STRUCT pm_qos_info;
-
-			if (copy_from_user(&pm_qos_info, (void *)Param,
-			    sizeof(struct ISP_PM_QOS_INFO_STRUCT)) == 0) {
-
-				if (pm_qos_info.module <
-				      ISP_IRQ_TYPE_INT_CAM_A_ST ||
-				    pm_qos_info.module >
-				      ISP_IRQ_TYPE_INT_CAM_B_ST) {
-					LOG_INF("HW_module error:%d",
-						pm_qos_info.module);
-					Ret = -EFAULT;
-					break;
-				}
-				#ifdef ISP_HELP
-				G_PM_QOS[pm_qos_info.module].bw_sum =
-							pm_qos_info.bw_value;
-				G_PM_QOS[pm_qos_info.module].fps =
-							pm_qos_info.fps/10;
-				#endif
-			} else {
-				LOG_INF(
-					"ISP_SET_PM_QOS_INFO copy_from_user failed\n");
-				Ret = -EFAULT;
-			}
-		}
-		break;
-	case ISP_SET_PM_QOS:
-		{
-			if (copy_from_user(DebugFlag, (void *)Param,
-			    sizeof(unsigned int) * 2) == 0) {
-				static int bw_request[
-						   ISP_IRQ_TYPE_INT_CAM_B_ST+1];
-
-				if (DebugFlag[1] < ISP_IRQ_TYPE_INT_CAM_A_ST ||
-				    DebugFlag[1] > ISP_IRQ_TYPE_INT_CAM_B_ST) {
-					LOG_INF("HW_module error:%d",
-						DebugFlag[1]);
-					Ret = -EFAULT;
-					break;
-				}
-				if (DebugFlag[0] == 1) {
-					#ifdef ISP_HELP
-					if (++bw_request[DebugFlag[1]] == 1) {
-						mtk_pm_qos_add_request(
-						  &camsys_qos_request[
-							DebugFlag[1]],
-						  MTK_PM_QOS_MEMORY_BANDWIDTH,
-						  PM_QOS_DEFAULT_VALUE);
-					}
-					Ret = ISP_SetPMQOS(DebugFlag[0],
-							   DebugFlag[1]);
-					#endif
-				} else {
-					if (bw_request[DebugFlag[1]] == 0)
-						break;
-					#ifdef ISP_HELP
-					Ret = ISP_SetPMQOS(DebugFlag[0],
-							   DebugFlag[1]);
-					mtk_pm_qos_remove_request(
-					    &camsys_qos_request[DebugFlag[1]]);
-					bw_request[DebugFlag[1]] = 0;
-					#endif
-				}
-			} else {
-				LOG_INF("ISP_SET_PM_QOS copy_from_user failed\n");
-				Ret = -EFAULT;
-			}
-		}
-		break;
-#endif
+	} break;
 	case ISP_GET_VSYNC_CNT:
 		if (copy_from_user(&DebugFlag[0], (void *)Param,
 		    sizeof(unsigned int)) != 0) {
@@ -11574,6 +11396,13 @@ static signed int __init ISP_Init(void)
 	for (i = 0; i < ISP_DEV_NODE_NUM; i++)
 		SuspnedRecord[i] = 0;
 
+	for (j = ISP_IRQ_TYPE_INT_CAM_A_ST; j <= ISP_IRQ_TYPE_INT_CAM_B_ST; j++)
+		ISP4_SetPMQOS(E_BW_ADD, j, NULL);
+
+	for (j = ISP_IRQ_TYPE_INT_CAMSV_0_ST;
+			j <= ISP_IRQ_TYPE_INT_CAMSV_5_ST; j++)
+		ISP4_SV_SetPMQOS(E_BW_ADD, j, NULL);
+
 	pr_info("- X. Ret: %d.", Ret);
 	return Ret;
 }
@@ -11602,6 +11431,13 @@ static void __exit ISP_Exit(void)
 	cmdqCoreRegisterDebugRegDumpCB(NULL, NULL);
 #endif
 #endif
+
+	for (i = ISP_IRQ_TYPE_INT_CAMSV_0_ST;
+			i <= ISP_IRQ_TYPE_INT_CAMSV_5_ST; i++)
+		ISP4_SV_SetPMQOS(E_BW_REMOVE, i, NULL);
+
+	for (i = ISP_IRQ_TYPE_INT_CAM_A_ST; i <= ISP_IRQ_TYPE_INT_CAM_B_ST; i++)
+		ISP4_SetPMQOS(E_BW_REMOVE, i, NULL);
 
 	for (j = 0; j < ISP_IRQ_TYPE_AMOUNT; j++) {
 		if (pTbl_RTBuf[j] != NULL) {
