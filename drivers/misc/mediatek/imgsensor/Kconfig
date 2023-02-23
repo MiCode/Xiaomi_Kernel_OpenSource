@@ -54,6 +54,14 @@ config MTK_IMGSENSOR_ISP4
 	  To compile this driver as a module, choose M here: the
 	  module will be called imgsensor_isp4.
 
+config MTK_IMGSENSOR_ISP4_C
+	tristate "MediaTek image sensor support"
+	help
+	  This is a driver for the MediaTek
+	  image sensors.
+	  To compile this driver as a module, choose M here: the
+	  module will be called imgsensor_isp4_c.
+
 config MTK_IMGSENSOR_PLATFORM
 	string "set imgsensor platform name"
 	default MTK_PLATFORM if MTK_PLATFORM != ""
