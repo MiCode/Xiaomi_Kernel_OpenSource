@@ -1586,6 +1586,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 
 		dvfsrc-helper {
 			compatible = "mediatek,dvfsrc-helper";
+			vcore-supply = <&mt_pmic_vcore_buck_reg>;
 			rc-vcore-supply = <&dvfsrc_vcore>;
 			rc-vscp-supply = <&dvfsrc_vscp>;
 			interconnects = <&dvfsrc MT6873_MASTER_DBGIF &dvfsrc MT6873_SLAVE_DDR_EMI>,
