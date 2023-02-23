@@ -2924,8 +2924,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 
 	/* only eMMC has crypto property */
 	if (!(mmc->caps2 & MMC_CAP2_NO_MMC)) {
-		if (!IS_ERR_OR_NULL(host->crypto_clk) &&
-			!IS_ERR_OR_NULL(host->crypto_cg))
+		if (!IS_ERR_OR_NULL(host->crypto_clk) || !IS_ERR_OR_NULL(host->crypto_cg))
 			mmc->caps2 |= MMC_CAP2_CRYPTO;
 	}
 
