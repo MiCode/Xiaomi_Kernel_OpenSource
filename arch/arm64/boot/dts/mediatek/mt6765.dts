@@ -465,6 +465,7 @@ earlycon=uart8250,mmio32,0x11002000 \
 8250.nr_uarts=4 \
 page_owner=on \
 swiotlb=noforce androidboot.hardware=mt6765 \
+transparent_hugepage=never \
 maxcpus=8 loop.max_part=7 \
 firmware_class.path=/vendor/firmware \
 initcall_debug=1 pelt=8";
