@@ -506,4 +506,9 @@ config UNIPHIER_THERMAL
 	  Enable this to plug in UniPhier on-chip PVT thermal driver into the
 	  thermal framework. The driver supports CPU thermal zone temperature
 	  reporting and a couple of trip points.
+
+config RUBY_MI_THERMAL_CHG
+	bool "Thermal multi charge only support"
+	help
+	  Enable multi charge only support
 endif

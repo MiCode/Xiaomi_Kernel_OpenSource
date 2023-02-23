@@ -11,6 +11,7 @@
 #include "mtk_pe40.h"
 #include "mtk_pdc.h"
 
+#define ADAPTER_CAP_MAX_NR_BQ 10
 enum adapter_ret {
 	ADAPTER_OK = 0,
 	ADAPTER_NOT_SUPPORT,
@@ -49,8 +50,12 @@ extern int adapter_is_support_pd_pps(void);
 extern int adapter_get_cap(struct pd_cap *cap);
 extern int adapter_is_support_pd(void);
 
+int adapter_set_cap_xm(int mV, int mA);
+int adapter_set_cap_start_xm(int mV, int mA);
+int adapter_set_cap_end_xm(int mV, int mA);
 extern int set_charger_manager(struct charger_manager *info);
 extern int enable_vbus_ovp(bool en);
 extern int wake_up_charger(void);
+extern bool mtk_is_TA_support_pd_pps(struct charger_manager *pinfo);
 
 #endif /* __MTK_INTF_H */

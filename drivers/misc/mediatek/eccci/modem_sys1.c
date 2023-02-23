@@ -250,26 +250,28 @@ int md_fsm_exp_info(int md_id, unsigned int channel_id)
 	md = ccci_md_get_modem_by_id(md_id);
 	if (!md)
 		return 0;
+
+	md_info = (struct md_sys1_info *)md->private_data;
 	if (channel_id & (1 << D2H_EXCEPTION_INIT)) {
 		ccci_fsm_recv_md_interrupt(md->index, MD_IRQ_CCIF_EX);
+		md_info->channel_id = channel_id & ~(1 << D2H_EXCEPTION_INIT);
 		return 0;
 	}
-	md_info = (struct md_sys1_info *)md->private_data;
-	md_info->channel_id = channel_id;
-
-	if (md_info->channel_id & (1<<AP_MD_PEER_WAKEUP))
+	if (channel_id & (1<<AP_MD_PEER_WAKEUP)) {
 		__pm_wakeup_event(md_info->peer_wake_lock,
 			jiffies_to_msecs(HZ));
-	if (md_info->channel_id & (1<<AP_MD_SEQ_ERROR)) {
+		channel_id &= ~(1 << AP_MD_PEER_WAKEUP);
+	}
+	if (channel_id & (1<<AP_MD_SEQ_ERROR)) {
 		CCCI_ERROR_LOG(md->index, TAG, "MD check seq fail\n");
 		md->ops->dump_info(md, DUMP_FLAG_CCIF, NULL, 0);
+		channel_id &= ~(1 << AP_MD_SEQ_ERROR);
 	}
-
-	if (md_info->channel_id & (1 << D2H_EXCEPTION_INIT)) {
+	if (channel_id & (1 << D2H_EXCEPTION_INIT)) {
 		/* do not disable IRQ, as CCB still needs it */
 		ccci_fsm_recv_md_interrupt(md->index, MD_IRQ_CCIF_EX);
 	}
-
+	md_info->channel_id |= channel_id;
 	return 0;
 }
 EXPORT_SYMBOL(md_fsm_exp_info);
@@ -1250,6 +1252,21 @@ static void md_cd_sysfs_init(struct ccci_modem *md)
 			ccci_md_attr_parameter.attr.name, ret);
 }
 
+/* weak function for compatibility */
+int __weak ccci_modem_suspend_noirq(struct device *dev)
+{
+	CCCI_NORMAL_LOG(-1, TAG,
+		"%s:weak function\n", __func__);
+	return 0;
+}
+
+int __weak ccci_modem_resume_noirq(struct device *dev)
+{
+	CCCI_NORMAL_LOG(-1, TAG,
+		"%s:weak function\n", __func__);
+	return 0;
+}
+
 int __weak ccci_modem_plt_suspend(struct ccci_modem *md)
 {
 	CCCI_NORMAL_LOG(0, TAG, "[%s] md->hif_flag = %d,move to drivers module\n",
@@ -1431,6 +1448,8 @@ static const struct dev_pm_ops ccci_modem_pm_ops = {
 	.poweroff = ccci_modem_pm_suspend,
 	.restore = ccci_modem_pm_resume,
 	.restore_noirq = ccci_modem_pm_restore_noirq,
+	.suspend_noirq = ccci_modem_suspend_noirq,
+	.resume_noirq = ccci_modem_resume_noirq,
 };
 
 #ifdef CONFIG_OF

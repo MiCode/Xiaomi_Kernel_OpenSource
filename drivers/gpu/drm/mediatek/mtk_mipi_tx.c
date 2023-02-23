@@ -1366,6 +1366,13 @@ static int mtk_mipi_tx_pll_prepare_mt6877(struct clk_hw *hw)
 	/* TODO: should write bit8 to set SW_ANA_CK_EN here */
 	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_SW_CTRL_CON4, 1);
 
+	if (mipi_volt) {
+		/* set mipi_tx voltage */
+		DDPMSG(" %s+ mipi_volt change: %d\n", __func__, mipi_volt);
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL,
+		FLD_RG_DSI_HSTX_LDO_REF_SEL, mipi_volt << 6);
+	}
+
 	DDPDBG("%s-\n", __func__);
 #endif
 	return 0;

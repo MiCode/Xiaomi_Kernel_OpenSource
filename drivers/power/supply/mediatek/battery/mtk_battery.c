@@ -63,7 +63,7 @@
 #include <mtk_gauge_time_service.h>
 #include <mt-plat/upmu_common.h>
 #include <pmic_lbat_service.h>
-
+#include "../charger/mtk_charger_intf.h"
 
 
 /* ============================================================ */
@@ -122,6 +122,13 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,
+	POWER_SUPPLY_PROP_THERMAL_LIMIT_FCC,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
+	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_SMART_BATT,
+	POWER_SUPPLY_PROP_NIGHT_CHARGING,
 };
 
 /* boot mode */
@@ -443,8 +450,23 @@ int check_cap_level(int uisoc)
 
 void battery_update_psd(struct battery_data *bat_data)
 {
-	bat_data->BAT_batt_vol = battery_get_bat_voltage();
-	bat_data->BAT_batt_temp = battery_get_bat_temperature();
+	union power_supply_propval vbat_val = {0,};
+	union power_supply_propval tbat_val = {0,};
+	int ret = 0;
+
+	if (bat_data->USE_TI_GAUGE && bat_data->ti_bms_psy) {
+		ret = power_supply_get_property(bat_data->ti_bms_psy,
+					POWER_SUPPLY_PROP_VOLTAGE_NOW, &vbat_val);
+		ret |= power_supply_get_property(bat_data->ti_bms_psy,
+					POWER_SUPPLY_PROP_TEMP, &tbat_val);
+		if (!ret) {
+			bat_data->BAT_batt_vol = vbat_val.intval;
+			bat_data->BAT_batt_temp = tbat_val.intval;
+		}
+	} else {
+		bat_data->BAT_batt_vol = battery_get_bat_voltage();
+		bat_data->BAT_batt_temp = battery_get_bat_temperature();
+	}
 }
 
 static int battery_get_property(struct power_supply *psy,
@@ -453,14 +475,27 @@ static int battery_get_property(struct power_supply *psy,
 {
 	int ret = 0;
 	int fgcurrent = 0;
-	bool b_ischarging = 0;
+	//bool b_ischarging = 0;
 
 	struct battery_data *data =
 		container_of(psy->desc, struct battery_data, psd);
 
+	if (!data->USE_TI_GAUGE) {
+		bm_err("ti gauge not enable, can't get battery psy props!\n");
+		return -EPERM;
+	}
+
+	if (!data->ti_bms_psy) {
+		data->ti_bms_psy = power_supply_get_by_name("bms");
+		if (!data->ti_bms_psy) {
+			pr_err("ti bms_psy not ready, can't get battery psy props!\n");
+			return -ENODATA;
+		}
+	}
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		val->intval = data->BAT_STATUS;
+		val->intval = charger_manager_get_charge_status();
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = data->BAT_HEALTH;/* do not change before*/
@@ -485,34 +520,38 @@ static int battery_get_property(struct power_supply *psy,
 
 		if (gm.fixed_uisoc != 0xffff)
 			val->intval = gm.fixed_uisoc;
-		else
-			val->intval = data->BAT_CAPACITY;
+		else {
+			power_supply_get_property(data->ti_bms_psy,
+					POWER_SUPPLY_PROP_CAPACITY, val);
+			data->BAT_CAPACITY = val->intval;
+		}
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		b_ischarging = gauge_get_current(&fgcurrent);
-		if (b_ischarging == false)
-			fgcurrent = 0 - fgcurrent;
-
-		val->intval = fgcurrent * 100;
+		//b_ischarging = gauge_get_current(&fgcurrent);
+		//if (b_ischarging == false)
+			//fgcurrent = 0 - fgcurrent;
+		power_supply_get_property(data->ti_bms_psy, POWER_SUPPLY_PROP_CURRENT_NOW, val);
+		//val->intval = fgcurrent;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:
 		val->intval = battery_get_bat_avg_current() * 100;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		val->intval =
-			fg_table_cust_data.fg_profile[gm.battery_id].q_max
-			* 1000;
+		power_supply_get_property(data->ti_bms_psy,
+				POWER_SUPPLY_PROP_CHARGE_FULL, val);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
-		val->intval = gm.ui_soc *
-			fg_table_cust_data.fg_profile[gm.battery_id].q_max
-			* 1000 / 100;
+		power_supply_get_property(data->ti_bms_psy,
+				POWER_SUPPLY_PROP_CHARGE_COUNTER, val);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = data->BAT_batt_vol * 1000;
+		power_supply_get_property(data->ti_bms_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_NOW, val);
+		//val->intval = data->BAT_batt_vol * 1000;
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = gm.tbat_precise;
+		power_supply_get_property(data->ti_bms_psy,
+				POWER_SUPPLY_PROP_TEMP, val);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 		val->intval = check_cap_level(data->BAT_CAPACITY);
@@ -544,28 +583,30 @@ static int battery_get_property(struct power_supply *psy,
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		if (check_cap_level(data->BAT_CAPACITY) ==
-			POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN)
-			val->intval = 0;
-		else {
-			int q_max_mah = 0;
-			int q_max_uah = 0;
-
-			q_max_mah =
-				fg_table_cust_data.fg_profile[
-				gm.battery_id].q_max / 10;
-
-			q_max_uah = q_max_mah * 1000;
-			if (q_max_uah <= 100000) {
-				bm_debug("%s q_max_mah:%d q_max_uah:%d\n",
-					__func__, q_max_mah, q_max_uah);
-				q_max_uah = 100001;
-			}
-			val->intval = q_max_uah;
-		}
+		power_supply_get_property(data->ti_bms_psy,
+				POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, val);
 		break;
-
-
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		val->intval = charger_manager_get_thermal_level();
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
+		val->intval = charger_manager_get_max_thermal_level();
+		break;
+	case POWER_SUPPLY_PROP_THERMAL_LIMIT_FCC:
+		val->intval = charger_manager_get_thermal_limit_fcc();
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
+		val->intval = charger_manager_get_sic_current();
+		break;
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		val->intval = charger_manager_get_input_suspend();
+		break;
+	case POWER_SUPPLY_PROP_SMART_BATT:
+		val->intval = smart_batt_get_diff_fv();
+		break;
+	case POWER_SUPPLY_PROP_NIGHT_CHARGING:
+		val->intval = night_charging_get_status();
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -573,6 +614,59 @@ static int battery_get_property(struct power_supply *psy,
 
 	return ret;
 }
+
+static int battery_set_property(struct power_supply *psy, enum power_supply_property psp, const union power_supply_propval *val)
+{
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		charger_manager_set_thermal_level(val->intval);
+		break;
+	case POWER_SUPPLY_PROP_THERMAL_LIMIT_FCC:
+		charger_manager_set_thermal_limit_fcc(val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
+		charger_manager_set_sic_current(val->intval / 1000);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		charger_manager_set_input_suspend((bool)(val->intval));
+		break;
+	case POWER_SUPPLY_PROP_SMART_BATT:
+		smart_batt_set_diff_fv(val->intval);
+		break;
+	case POWER_SUPPLY_PROP_NIGHT_CHARGING:
+		night_charging_set_status(val->intval);
+		break;
+	default:
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+static int battery_is_writeable(struct power_supply *psy, enum power_supply_property prop)
+{
+	int rc = 0;
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+	case POWER_SUPPLY_PROP_THERMAL_LIMIT_FCC:
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+	case POWER_SUPPLY_PROP_SMART_BATT:
+	case POWER_SUPPLY_PROP_NIGHT_CHARGING:
+		rc = 1;
+		break;
+	default:
+		rc = 0;
+		break;
+	}
+
+	return rc;
+}
+
 
 /* battery_data initialization */
 struct battery_data battery_main = {
@@ -582,6 +676,8 @@ struct battery_data battery_main = {
 		.properties = battery_props,
 		.num_properties = ARRAY_SIZE(battery_props),
 		.get_property = battery_get_property,
+		.set_property = battery_set_property,
+		.property_is_writeable = battery_is_writeable,
 		},
 
 	.BAT_STATUS = POWER_SUPPLY_STATUS_DISCHARGING,
@@ -591,6 +687,7 @@ struct battery_data battery_main = {
 	.BAT_CAPACITY = -1,
 	.BAT_batt_vol = 0,
 	.BAT_batt_temp = 0,
+	.USE_TI_GAUGE = false,
 };
 
 void evb_battery_init(void)
@@ -656,7 +753,7 @@ void battery_update(struct battery_data *bat_data)
 	struct power_supply *bat_psy = bat_data->psy;
 
 	battery_update_psd(&battery_main);
-	bat_data->BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION;
+	bat_data->BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO;
 	bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD;
 	bat_data->BAT_PRESENT = 1;
 
@@ -1609,6 +1706,8 @@ int force_get_tbat_internal(bool update)
 	static struct timespec pre_time;
 	struct timespec ctime, dtime;
 
+	gm.fixed_bat_tmp = 25;
+
 	if (is_battery_init_done() == false) {
 		gm.tbat_precise = 250;
 		return 25;
@@ -1746,6 +1845,23 @@ int force_get_tbat(bool update)
 {
 	int bat_temperature_val = 0;
 	int counts = 0;
+	int ret = 0;
+	union power_supply_propval val = {0,};
+
+	if (!battery_main.ti_bms_psy) {
+		battery_main.ti_bms_psy = power_supply_get_by_name("bms");
+		if (!battery_main.ti_bms_psy) {
+			pr_err("ti bms_psy not ready, can't get battery psy props!\n");
+			gm.tbat_precise = 250;
+			return 25;
+		}
+	}
+
+	ret = power_supply_get_property(battery_main.ti_bms_psy, POWER_SUPPLY_PROP_TEMP, &val);
+	if (!ret) {
+		gm.tbat_precise = val.intval;
+		return gm.tbat_precise / 10;
+	}
 
 	if (is_fg_disabled()) {
 		bm_debug("[%s] fixed TBAT=25 t\n",
@@ -4396,6 +4512,7 @@ static int __init battery_probe(struct platform_device *dev)
 {
 	int ret_device_file = 0;
 	int ret;
+	struct device_node *np = dev->dev.of_node;
 	struct class_device *class_dev = NULL;
 	const char *fg_swocv_v = NULL;
 	char fg_swocv_v_tmp[10];
@@ -4443,6 +4560,8 @@ static int __init battery_probe(struct platform_device *dev)
 		ret = PTR_ERR(battery_main.psy);
 		return ret;
 	}
+	battery_main.USE_TI_GAUGE = of_property_read_bool(np, "use-ti-gauge");
+	battery_main.ti_bms_psy = power_supply_get_by_name("bms");
 	bm_err("[BAT_probe] power_supply_register Battery Success !!\n");
 #endif
 	ret = device_create_file(&(dev->dev), &dev_attr_Battery_Temperature);

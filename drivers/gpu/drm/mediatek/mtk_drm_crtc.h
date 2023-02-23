@@ -22,7 +22,9 @@
 #include "mtk_drm_ddp_addon.h"
 #include <linux/pm_wakeup.h>
 #include "mtk_disp_pmqos.h"
-
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_esd_check.h"
+#endif
 
 #define MAX_CRTC 3
 #define OVL_LAYER_NR 12L
@@ -117,6 +119,12 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_SIZE (DISP_SLOT_CUR_BL_IDX + 0x4)
 #if DISP_SLOT_SIZE > CMDQ_BUF_ALLOC_SIZE
 #error "DISP_SLOT_SIZE exceed CMDQ_BUF_ALLOC_SIZE"
+#endif
+
+#ifndef CONFIG_MI_DISP
+#if DISP_SLOT_SIZE > CMDQ_BUF_ALLOC_SIZE
+#error "DISP_SLOT_SIZE exceed CMDQ_BUF_ALLOC_SIZE"
+#endif
 #endif
 
 #define to_mtk_crtc(x) container_of(x, struct mtk_drm_crtc, base)
@@ -363,6 +371,10 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_USER_SCEN,
 	CRTC_PROP_HDR_ENABLE,
 	CRTC_PROP_OVL_DSI_SEQ,
+#ifdef CONFIG_MI_DISP_FOD_SYNC
+	/*MI FOD SYNC*/
+	CRTC_PROP_MI_FOD_SYNC_INFO,
+#endif
 	CRTC_PROP_MAX,
 };
 
@@ -734,6 +746,9 @@ struct mtk_drm_crtc {
 	struct cmdq_cb_data cb_data;
 	atomic_t cmdq_done;
 	wait_queue_head_t signal_fence_task_wq;
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	struct mi_esd_ctx *mi_esd_ctx;
+#endif
 };
 
 struct mtk_crtc_state {

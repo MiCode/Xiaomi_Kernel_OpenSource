@@ -351,6 +351,60 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(precharge_current),
 	POWER_SUPPLY_ATTR(charge_term_current),
 	POWER_SUPPLY_ATTR(calibrate),
+
+	/* XM add */
+	POWER_SUPPLY_ATTR(chip_ok),
+	POWER_SUPPLY_ATTR(i2c_error_count),
+	POWER_SUPPLY_ATTR(charge_status),
+	POWER_SUPPLY_ATTR(smart_batt),
+	POWER_SUPPLY_ATTR(night_charging),
+	POWER_SUPPLY_ATTR(mtbf_test),
+	/* only for usb_psy */
+	POWER_SUPPLY_ATTR(quick_charge_type),
+	POWER_SUPPLY_ATTR(pd_authentication),
+	POWER_SUPPLY_ATTR(pd_verify_done),
+	POWER_SUPPLY_ATTR(pd_type),
+	POWER_SUPPLY_ATTR(apdo_max),
+	POWER_SUPPLY_ATTR(power_max),
+	POWER_SUPPLY_ATTR(ffc_enable),
+	POWER_SUPPLY_ATTR(connector_temp),
+	POWER_SUPPLY_ATTR(typec_burn),
+	POWER_SUPPLY_ATTR(sw_cv),
+	POWER_SUPPLY_ATTR(stepchg_fv),
+	POWER_SUPPLY_ATTR(jeita_chg_index),
+	POWER_SUPPLY_ATTR(cv_wa_count),
+	POWER_SUPPLY_ATTR(pmic_vbus),
+	POWER_SUPPLY_ATTR(cp_ibus_delta),
+	POWER_SUPPLY_ATTR(cp_ibus_delta13),
+	POWER_SUPPLY_ATTR(cp_ibus_delta23),
+	POWER_SUPPLY_ATTR(cp_taper),
+	POWER_SUPPLY_ATTR(otg_enable),
+	/* only for battery */
+	POWER_SUPPLY_ATTR(thermal_limit_fcc),
+	POWER_SUPPLY_ATTR(bms_slave_connect_error),
+	/* only for XMUSB350 */
+	POWER_SUPPLY_ATTR(chg_type),
+	POWER_SUPPLY_ATTR(hvdcp3_type),
+	POWER_SUPPLY_ATTR(fw_version),
+	POWER_SUPPLY_ATTR(recheck_count),
+	/* only for TI GAUGE */
+	POWER_SUPPLY_ATTR(rsoc),
+	POWER_SUPPLY_ATTR(rm),
+	POWER_SUPPLY_ATTR(fcc),
+	POWER_SUPPLY_ATTR(shutdown_delay),
+	POWER_SUPPLY_ATTR(soc_decimal),
+	POWER_SUPPLY_ATTR(soc_decimal_rate),
+	POWER_SUPPLY_ATTR(fastcharge_mode),
+	POWER_SUPPLY_ATTR(monitor_delay),
+	POWER_SUPPLY_ATTR(shutdown_mode),
+	POWER_SUPPLY_ATTR(fake_cycle_count),
+	 /* only for charge pump */
+	POWER_SUPPLY_ATTR(bypass),
+	POWER_SUPPLY_ATTR(bypass_support),
+	POWER_SUPPLY_ATTR(ln_reset_check),
+	POWER_SUPPLY_ATTR(cp_vbat),
+	POWER_SUPPLY_ATTR(cp_ibat),
+
 	/* Local extensions */
 	POWER_SUPPLY_ATTR(usb_hc),
 	POWER_SUPPLY_ATTR(usb_otg),
@@ -360,6 +414,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(charge_now_raw),
 	POWER_SUPPLY_ATTR(charge_now_error),
 	POWER_SUPPLY_ATTR(capacity_raw),
+	POWER_SUPPLY_ATTR(report_full_rsoc),
 	POWER_SUPPLY_ATTR(battery_charging_enabled),
 	POWER_SUPPLY_ATTR(charging_enabled),
 	POWER_SUPPLY_ATTR(step_charging_enabled),
@@ -520,6 +575,7 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(battery_type),
 	POWER_SUPPLY_ATTR(cycle_counts),
 	POWER_SUPPLY_ATTR(serial_number),
+	POWER_SUPPLY_ATTR(device_chem),
 };
 
 static struct attribute *

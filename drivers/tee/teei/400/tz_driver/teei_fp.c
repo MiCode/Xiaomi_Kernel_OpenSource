@@ -1,8 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * All Rights Reserved.
  *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 #include <linux/slab.h>
 #include "teei_fp.h"
@@ -15,6 +22,7 @@ static struct TEEC_Context context;
 static int context_initialized;
 struct TEEC_UUID uuid_fp = { 0x7778c03f, 0xc30c, 0x4dd0,
 { 0xa3, 0x19, 0xea, 0x29, 0x64, 0x3d, 0x4d, 0x4b } };
+EXPORT_SYMBOL(uuid_fp);
 int send_fp_command(void *buffer, unsigned long size)
 {
 	int ret = 0;
@@ -34,6 +42,7 @@ int send_fp_command(void *buffer, unsigned long size)
 		}
 		context_initialized = 1;
 	}
+        IMSG_INFO("uuid_fp %x\n", __func__, uuid_fp.timeLow );
 	ret = ut_pf_gp_transfer_user_data(&context, &uuid_fp, 1, buffer, size);
 	if (ret) {
 		IMSG_ERROR("Failed to transfer data,err: %x", ret);

@@ -64,11 +64,19 @@
 #include "mtk_disp_bdg.h"
 #endif
 
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_disp_log.h"
+#endif
+
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
 #define DRIVER_DATE "20150513"
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
+
+atomic_t resume_pending;
+wait_queue_head_t resume_wait_q;
 
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
@@ -88,6 +96,9 @@ struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
 
 static int manual_shift;
 static bool no_shift;
+
+int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
 
 int mtk_atoi(const char *str)
 {
@@ -2656,7 +2667,7 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	caps_info->lcm_degree = 180;
 #endif
 
-	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_NATIVE;
+	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3;
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_WCG)) {
 		if (params)
 			caps_info->lcm_color_mode = params->lcm_color_mode;
@@ -2664,6 +2675,13 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 			DDPPR_ERR("%s: failed to get lcm color mode\n",
 				  __func__);
 	}
+
+#ifdef CONFIG_MI_DISP
+	if (!mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_WCG) &&
+			params) {
+		caps_info->lcm_color_mode = params->lcm_color_mode;
+	}
+#endif
 
 	if (params) {
 		caps_info->min_luminance = params->min_luminance;
@@ -3164,6 +3182,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 				DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_GAMMALUT, mtk_drm_ioctl_set_gammalut,
 			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_DITHER_PARAM, mtk_drm_ioctl_set_dither_param,
+				DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_PQPARAM, mtk_drm_ioctl_set_pqparam,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_PQINDEX, mtk_drm_ioctl_set_pqindex,
@@ -3239,6 +3259,7 @@ static const struct drm_ioctl32_desc mtk_compat_ioctls[] = {
 	DRM_IOCTL32_DEF_DRV(MTK_CCORR_GET_IRQ, NULL),
 	DRM_IOCTL32_DEF_DRV(MTK_SUPPORT_COLOR_TRANSFORM, NULL),
 	DRM_IOCTL32_DEF_DRV(MTK_SET_GAMMALUT, NULL),
+	DRM_IOCTL32_DEF_DRV(MTK_SET_DITHER_PARAM, NULL),
 	DRM_IOCTL32_DEF_DRV(MTK_SET_PQPARAM, NULL),
 	DRM_IOCTL32_DEF_DRV(MTK_SET_PQINDEX, NULL),
 	DRM_IOCTL32_DEF_DRV(MTK_SET_COLOR_REG, NULL),
@@ -3959,6 +3980,19 @@ static int mtk_drm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+static int mtk_drm_sys_prepare(struct device *dev)
+{
+		atomic_inc(&resume_pending);
+			return 0;
+}
+
+static void mtk_drm_sys_complete(struct device *dev)
+{
+		atomic_set(&resume_pending, 0);
+			wake_up_all(&resume_wait_q);
+				return;
+}
+
 static int mtk_drm_sys_suspend(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
@@ -4001,8 +4035,12 @@ static int mtk_drm_sys_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
-			 mtk_drm_sys_resume);
+static const struct dev_pm_ops mtk_drm_pm_ops = {
+	.prepare = mtk_drm_sys_prepare,
+	.complete = mtk_drm_sys_complete,
+	.suspend = mtk_drm_sys_suspend,
+	.resume = mtk_drm_sys_resume,
+};
 
 static const struct of_device_id mtk_drm_of_ids[] = {
 	{.compatible = "mediatek,mt2701-mmsys",
@@ -4075,6 +4113,13 @@ static int __init mtk_drm_init(void)
 	int ret;
 	int i;
 
+#ifdef CONFIG_MI_DISP
+	mi_disp_feature_init();
+#endif
+#ifdef CONFIG_MI_DISP_LOG
+	mi_disp_log_init();
+#endif
+
 	DDPINFO("%s+\n", __func__);
 	for (i = 0; i < ARRAY_SIZE(mtk_drm_drivers); i++) {
 		ret = platform_driver_register(mtk_drm_drivers[i]);
@@ -4085,7 +4130,6 @@ static int __init mtk_drm_init(void)
 		}
 	}
 	DDPINFO("%s-\n", __func__);
-
 	return 0;
 
 err:

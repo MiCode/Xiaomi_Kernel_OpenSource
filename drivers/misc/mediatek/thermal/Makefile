@@ -47,13 +47,17 @@ ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/flashlight/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 
 obj-y += mtk_thermal_monitor.o
 obj-y += mtk_cooler_shutdown.o
 ifeq ($(CONFIG_MTK_LEDS), y)
     # setMaxbrightness() defined in mediatek/kernel/drivers/leds/leds_drv.c only built when CONFIG_MTK_LEDS is set
-    obj-y += mtk_cooler_backlight.o
+    # obj-y += mtk_cooler_backlight.o
+	obj-$(CONFIG_THERMAL) += mtk_cooler_backlight_cus.o
 endif
+obj-$(CONFIG_THERMAL) += mtk_cooler_flashlight_cus.o
 obj-y += mtk_cooler_kshutdown.o
 obj-y += mtk_cooler_cam.o
 

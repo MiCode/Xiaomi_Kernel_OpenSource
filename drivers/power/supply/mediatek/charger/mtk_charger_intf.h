@@ -14,9 +14,11 @@
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/alarmtimer.h>
+#include <linux/pmic_voter.h>
 #include <mt-plat/v1/charger_type.h>
 #include <mt-plat/v1/mtk_charger.h>
 #include <mt-plat/v1/mtk_battery.h>
+#include <linux/platform_device.h>
 
 #include <mtk_gauge_time_service.h>
 
@@ -31,12 +33,34 @@ struct charger_data;
 #include "mtk_pdc_intf.h"
 #include "adapter_class.h"
 #include "mtk_smartcharging.h"
+#include "step_jeita_charge.h"
 
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
 
 #define CHRLOG_ERROR_LEVEL   1
 #define CHRLOG_DEBUG_LEVEL   2
+
+#define FG_MONITOR_DELAY_2P5S	2500
+#define FG_MONITOR_DELAY_5S	5000
+#define FG_MONITOR_DELAY_8S	8000
+#define FG_MONITOR_DELAY_17P5S	17500
+
+#define HIGH_CHARGE_SPEED	10000
+#define NORMAL_CHARGE_SPEED	5000
+
+#define is_between(left, right, value)				\
+		(((left) >= (right) && (left) >= (value)	\
+			&& (value) >= (right))			\
+		|| ((left) <= (right) && (left) <= (value)	\
+			&& (value) <= (right)))
+
+enum charger_plug_status {
+	CHARGER_UNCHANGED,
+	CHARGER_PLUGIN,
+	CHARGER_PLUGOUT,
+};
+
 
 extern int chr_get_debug_level(void);
 
@@ -124,6 +148,17 @@ enum sw_jeita_state_enum {
 	TEMP_T2_TO_T3,
 	TEMP_T3_TO_T4,
 	TEMP_ABOVE_T4
+};
+
+enum mt6360_charge_status {
+	MT6360_CHARGE_STATUS_PROGRESS = 1,
+	MT6360_CHARGE_STATUS_DONE = 2,
+};
+
+enum mp2762_charge_status {
+	MP2762_CHARGE_STATUS_PRECHARGE = 1,
+	MP2762_CHARGE_STATUS_FASTCHARGE = 2,
+	MP2762_CHARGE_STATUS_DONE = 3,
 };
 
 struct sw_jeita_data {
@@ -290,6 +325,136 @@ struct charger_manager {
 	bool usb_unlimited;
 	bool disable_charger;
 
+	char device_chem[10];
+	bool fg_full;
+	bool charge_full;
+	bool recharge;
+
+	struct votable	*bbc_icl_votable;
+	struct votable	*bbc_fcc_votable;
+	struct votable	*bbc_fv_votable;
+	struct votable	*bbc_iterm_votable;
+	struct votable	*bbc_vinmin_votable;
+	struct votable	*bbc_en_votable;
+	struct votable	*bbc_suspend_votable;
+
+	struct power_supply *usb_psy;
+	struct power_supply *batt_psy;
+	struct power_supply *bms_psy;
+	struct power_supply *charger_psy;
+	struct power_supply *xmusb350_psy;
+	struct power_supply *bbc_psy;
+	struct power_supply *master_cp_psy;
+	struct power_supply *slave_cp_psy;
+	struct power_supply *third_cp_psy;
+	struct charger_device *pmic_dev;
+	struct charger_device *cp_master;
+	struct charger_device *cp_slave;
+	struct charger_device *cp_third;
+	int fv;
+	int fv_ffc;
+	int fv_ffc_delta;
+	int fv_ffc_large_cycle;
+	int fv_effective;
+	int iterm;
+	int iterm_ffc;
+	int iterm_ffc_warm;
+	int iterm_effective;
+	int max_fcc;
+	int max_ibus;
+	int entry_soc;
+	int ffc_low_tbat;
+	int ffc_medium_tbat;
+	int ffc_high_tbat;
+	int ffc_high_soc;
+	bool dynamic_fv_flag;
+	int dynamic_fv_hold;
+	int dynamic_fv_hold_cnt;
+	int dynamic_fv_down_cnt;
+	int dynamic_fv_up_cnt;
+	bool ffc_enable;
+	bool cp_taper;
+	bool mtbf_test;
+	bool otg_enable;
+	bool typec_otg_burn;
+
+	int bbc_temp;
+	int cp_master_temp;
+	int cp_slave_temp;
+	int vbus;
+	int ibus;
+	int ibat;
+	int tbat;
+	int vbat;
+	int soc;
+	int rsoc;
+	int rawsoc;
+	int charge_status;
+	int cycle_count;
+	int cycle_count_status;
+	bool bbc_enable;
+	bool pp_enable;
+	bool master_cp_enable;
+	int recheck_count;
+	int cv_wa_count;
+	int full_wa_iterm;
+
+	int charger_status;
+	int psy_type;
+	int qc3_type;
+	int i350_type;
+	enum charger_type chr_type;
+	int strong_qc2;
+	bool input_suspend;
+	int bms_i2c_error_count;
+	int bms_slave_connect_error;
+	bool bat_verifed;
+	bool pd_verifed;
+	bool pd_verify_done;
+	int pd_type;
+	int apdo_max;
+	int fake_typec_temp;
+	int diff_fv_val;
+	bool night_charging;
+
+	struct delayed_work charge_monitor_work;
+	struct delayed_work usb_otg_monitor_work;
+	int step_jeita_tuple_count;
+	int step_fallback_hyst;
+	int step_forward_hyst;
+	int jeita_fallback_hyst;
+	int jeita_forward_hyst;
+	int sw_cv;
+	int sw_cv_count;
+	int step_chg_index[2];
+	int jeita_chg_index[2];
+	struct step_jeita_cfg0 step_chg_cfg[STEP_JEITA_TUPLE_COUNT];
+	struct step_jeita_cfg0 jeita_fv_cfg[STEP_JEITA_TUPLE_COUNT];
+	struct step_jeita_cfg1 jeita_fcc_cfg[STEP_JEITA_TUPLE_COUNT];
+	int step_chg_fcc;
+	int step_chg_fv;
+	int jeita_chg_fcc;
+
+	struct delayed_work max_power_work;
+	int max_power_flag;
+	bool soc_max_power_flag;
+
+	bool sic_support;
+	int sic_current;
+	int thermal_limit_fcc;
+	int thermal_level;
+	int last_thermal_level;
+	int thermal_limit[THERMAL_LIMIT_TUPLE][THERMAL_LIMIT_COUNT];
+
+	bool typec_burn;
+	int typec_burn_flag;
+	int vbus_control_gpio;
+	struct wakeup_source *attach_wakelock;
+	struct wakeup_source *typec_burn_wakelock;
+
+
+
+
 	struct charger_device *chg1_dev;
 	struct notifier_block chg1_nb;
 	struct charger_data chg1_data;
@@ -310,7 +475,6 @@ struct charger_manager {
 	struct adapter_device *pd_adapter;
 
 
-	enum charger_type chr_type;
 	bool can_charging;
 	int cable_out_cnt;
 
@@ -386,8 +550,8 @@ struct charger_manager {
 	bool disable_pd_dual;
 	bool is_pdc_run;
 
-	int pd_type;
 	bool pd_reset;
+	bool pd_soft_reset;
 
 	/* thread related */
 	struct hrtimer charger_kthread_timer;
@@ -427,6 +591,8 @@ struct charger_manager {
 	bool force_disable_pp[TOTAL_CHARGER];
 	bool enable_pp[TOTAL_CHARGER];
 	struct mutex pp_lock[TOTAL_CHARGER];
+
+	bool is_mp2762_adjust;
 };
 
 /* charger related module interface */
@@ -451,6 +617,12 @@ extern int pmic_is_bif_exist(void);
 extern int pmic_enable_hw_vbus_ovp(bool enable);
 extern bool pmic_is_battery_exist(void);
 
+extern void smart_batt_set_diff_fv(int val);
+extern int smart_batt_get_diff_fv(void);
+extern void night_charging_set_status(int val);
+extern int night_charging_get_status(void);
+extern void set_soft_reset_status(int val);
+extern int get_soft_reset_status(void);
 
 extern void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 	void *val);

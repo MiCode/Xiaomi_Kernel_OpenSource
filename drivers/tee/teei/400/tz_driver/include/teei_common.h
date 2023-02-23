@@ -1,8 +1,15 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * All Rights Reserved.
  *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #ifndef __TEEI_COMMON_H_
@@ -10,7 +17,7 @@
 
 #include <linux/types.h>
 #include <notify_queue.h>
-//#include <mt-plat/met_drv.h>
+#include <mt-plat/met_drv.h>
 
 #define TEEI_MAX_REQ_PARAMS  12
 #define TEEI_MAX_RES_PARAMS  8

@@ -275,17 +275,17 @@ config SND_SOC_WM_HUBS
 	default y if SND_SOC_WM8993=y || SND_SOC_WM8994=y
 	default m if SND_SOC_WM8993=m || SND_SOC_WM8994=m
 
-config SND_SOC_WM_ADSP
-	tristate
-	select SND_SOC_COMPRESS
-	default y if SND_SOC_CS47L24=y
-	default y if SND_SOC_WM5102=y
-	default y if SND_SOC_WM5110=y
-	default y if SND_SOC_WM2200=y
-	default m if SND_SOC_CS47L24=m
-	default m if SND_SOC_WM5102=m
-	default m if SND_SOC_WM5110=m
-	default m if SND_SOC_WM2200=m
+#config SND_SOC_WM_ADSP
+#	tristate
+#	select SND_SOC_COMPRESS
+#	default y if SND_SOC_CS47L24=y
+#	default y if SND_SOC_WM5102=y
+#	default y if SND_SOC_WM5110=y
+#	default y if SND_SOC_WM2200=y
+#	default m if SND_SOC_CS47L24=m
+#	default m if SND_SOC_WM5102=m
+#	default m if SND_SOC_WM5110=m
+#	default m if SND_SOC_WM2200=m
 
 config SND_SOC_AB8500_CODEC
 	tristate
@@ -1448,4 +1448,7 @@ config SND_SOC_SMARTPAINFO
 
 source "sound/soc/codecs/cs35l43/Kconfig"
 
+#Audio Start
+source "sound/soc/codecs/aw882xx/Kconfig"
+#Audio End
 endmenu

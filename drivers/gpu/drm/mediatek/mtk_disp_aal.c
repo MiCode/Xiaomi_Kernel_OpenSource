@@ -451,6 +451,7 @@ void disp_aal_notify_backlight_changed(int trans_backlight)
 {
 	unsigned long flags;
 	unsigned int service_flags;
+	int prev_backlight;
 
 	AALAPI_LOG("%d/%d\n", trans_backlight, g_max_backlight);
 	disp_aal_notify_backlight_log(trans_backlight);
@@ -459,9 +460,13 @@ void disp_aal_notify_backlight_changed(int trans_backlight)
 	if (trans_backlight > g_max_backlight)
 		trans_backlight = g_max_backlight;
 
+	prev_backlight = atomic_read(&g_aal_backlight_notified);
 	atomic_set(&g_aal_backlight_notified, trans_backlight);
 
 	service_flags = 0;
+	if ((prev_backlight == 0) && (prev_backlight != trans_backlight))
+		service_flags = AAL_SERVICE_FORCE_UPDATE;
+
 	if (trans_backlight == 0) {
 		mt_leds_brightness_set("lcd-backlight", 0);
 		/* set backlight = 0 may be not from AAL, */
@@ -912,10 +917,6 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 	g_aal_hist.ess_enable = g_aal_ess_en;
 	g_aal_hist.dre_enable = g_aal_dre_en;
 
-	g_aal_hist.serviceFlags = 0;
-	atomic_set(&g_aal0_hist_available, 0);
-	atomic_set(&g_aal1_hist_available, 0);
-
 	memcpy(&g_aal_hist_db, &g_aal_hist, sizeof(g_aal_hist));
 
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
@@ -929,6 +930,10 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 	ret = copy_to_user(AAL_U32_PTR(g_aal_init_dre30.dre30_hist_addr),
 		&g_aal_dre30_hist_db, sizeof(g_aal_dre30_hist_db));
 #endif
+
+	g_aal_hist.serviceFlags = 0;
+	atomic_set(&g_aal0_hist_available, 0);
+	atomic_set(&g_aal1_hist_available, 0);
 
 	AALFLOW_LOG("%s set g_aal_force_enable_irq to 0 +\n", __func__);
 	atomic_set(&g_aal_force_enable_irq, 0);
@@ -2230,6 +2235,9 @@ static void mtk_aal_bypass(struct mtk_ddp_comp *comp, int bypass,
 				comp_aal1->regs_pa + DISP_AAL_CFG, bypass, 0x1);
 		}
 		atomic_set(&g_aal_force_relay, bypass);
+		if (bypass == 0) // Enable AAL Histogram
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_AAL_CFG, 0x3 << 1, (0x3 << 1));
 	}
 #else
 	AALFLOW_LOG("is ignored\n");

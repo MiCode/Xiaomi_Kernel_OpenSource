@@ -253,6 +253,11 @@ obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
 obj-$(CONFIG_THERMAL) += mtk_ts_charger_v1.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
+#obj-$(CONFIG_THERMAL) += mtk_ts_lcd_ntc.o
+obj-$(CONFIG_THERMAL) += mtk_ts_quiet.o
+obj-$(CONFIG_THERMAL) += mtk_ts_ntc.o
+obj-$(CONFIG_THERMAL) += mtk_ts_flash.o
+obj-$(CONFIG_THERMAL) += mtk_ts_wifi.o
 
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
     obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o

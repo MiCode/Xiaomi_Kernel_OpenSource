@@ -614,4 +614,25 @@ void KD_IMGSENSOR_PROFILE_I2C(char *tag, int trans_num);
 
 #define mDELAY(ms)     mdelay(ms)
 #define uDELAY(us)       udelay(us)
+
+/* ruby camera*/
+#define S5KHPXSEMCO_SENSOR_ID                        0x1B70
+#define SENSOR_DRVNAME_S5KHPXSEMCO_MIPI_RAW          "s5khpxsemco_mipi_raw"
+#define IMX766SUNNY_SENSOR_ID                        0x0766
+#define SENSOR_DRVNAME_IMX766SUNNY_MIPI_RAW          "imx766sunny_mipi_raw"
+#define IMX766OFILM_SENSOR_ID                        0x0767
+#define SENSOR_DRVNAME_IMX766OFILM_MIPI_RAW          "imx766ofilm_mipi_raw"
+#define OV16A1QSUNNY_SENSOR_ID                       0x1640
+#define SENSOR_DRVNAME_OV16A1QSUNNY_MIPI_RAW         "ov16a1qsunny_mipi_raw"
+#define OV16A1QOFILM_SENSOR_ID                       0x1641
+#define SENSOR_DRVNAME_OV16A1QOFILM_MIPI_RAW         "ov16a1qofilm_mipi_raw"
+#define S5K4H7SUNNY_SENSOR_ID                        0x487B
+#define SENSOR_DRVNAME_S5K4H7SUNNY_MIPI_RAW          "s5k4h7sunny_mipi_raw"
+#define S5K4H7OFILM_SENSOR_ID                        0x487C
+#define SENSOR_DRVNAME_S5K4H7OFILM_MIPI_RAW          "s5k4h7ofilm_mipi_raw"
+#define OV02B10AAC_SENSOR_ID                         0x002B
+#define SENSOR_DRVNAME_OV02B10AAC_MIPI_RAW           "ov02b10aac_mipi_raw"
+#define OV02B10SUNNY_SENSOR_ID                       0x002C
+#define SENSOR_DRVNAME_OV02B10SUNNY_MIPI_RAW         "ov02b10sunny_mipi_raw"
+
 #endif              /* _KD_IMGSENSOR_H */

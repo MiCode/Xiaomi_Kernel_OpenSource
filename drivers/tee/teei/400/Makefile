@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2020, MICROTRUST Incorporated
+# Copyright (c) 2015-2019, MICROTRUST Incorporated
 # All Rights Reserved.
 #
 # This program is free software; you can redistribute it and/or
@@ -25,7 +25,7 @@ subdir-ccflags-y  += \
 	-I$(src)/tz_driver/include
 
 ifeq ($(CONFIG_MTPROF), y)
-subdir-ccflags-y += -I$(srctree)/include/linux/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtprof/
 endif
 
 subdir-ccflags-$(CONFIG_MICROTRUST_DEBUG) += -DDEBUG

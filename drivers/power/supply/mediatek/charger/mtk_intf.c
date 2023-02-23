@@ -128,6 +128,61 @@ int adapter_set_cap_end(int mV, int mA)
 	return ADAPTER_OK;
 }
 
+int adapter_set_1st_cap_xm(int mV, int mA)
+{
+	return adapter_dev_set_cap_xm(pinfo->pd_adapter,
+		MTK_PD_APDO_START, mV, mA);
+}
+
+int adapter_set_cap_xm(int mV, int mA)
+{
+	int ret;
+
+	if (!pinfo)
+		return ADAPTER_ERROR;
+
+	ret = adapter_dev_set_cap_xm(pinfo->pd_adapter, MTK_PD_APDO, mV, mA);
+	if (ret == MTK_ADAPTER_REJECT)
+		return ADAPTER_REJECT;
+	else if (ret != 0)
+		return ADAPTER_ERROR;
+
+	return ADAPTER_OK;
+}
+
+int adapter_set_cap_start_xm(int mV, int mA)
+{
+	int ret;
+
+	if (!pinfo)
+		return ADAPTER_ERROR;
+
+	ret = adapter_dev_set_cap_xm(pinfo->pd_adapter, MTK_PD_APDO_START, mV, mA);
+	if (ret == MTK_ADAPTER_REJECT)
+		return ADAPTER_REJECT;
+	else if (ret != 0)
+		return ADAPTER_ERROR;
+
+	return ADAPTER_OK;
+}
+
+int adapter_set_cap_end_xm(int mV, int mA)
+{
+	int ret;
+
+	if (!pinfo)
+		return ADAPTER_ERROR;
+
+	ret = adapter_dev_set_cap_xm(pinfo->pd_adapter, MTK_PD_APDO_END, mV, mA);
+	if (ret == MTK_ADAPTER_REJECT)
+		return ADAPTER_REJECT;
+	else if (ret != 0)
+		return ADAPTER_ERROR;
+
+	return ADAPTER_OK;
+}
+
+
 int adapter_get_output(int *mV, int *mA)
 {
 	return adapter_dev_get_output(pinfo->pd_adapter, mV, mA);
@@ -184,6 +239,9 @@ int adapter_get_cap(struct pd_cap *cap)
 {
 	struct adapter_power_cap tacap = {0};
 	int i;
+
+	if (!pinfo)
+		return ADAPTER_ERROR;
 
 	adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD, &tacap);
 

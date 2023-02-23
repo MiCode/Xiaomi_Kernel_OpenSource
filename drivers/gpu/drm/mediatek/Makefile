@@ -68,6 +68,10 @@ endif
 
 mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o
 
+ifeq ($(CONFIG_MI_DISP), y)
+include $(src)/mi_disp/Makefile
+endif
+
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek-drm.o
 obj-$(CONFIG_MTK_MT6382_BDG) += mtk_disp_bdg.o
 

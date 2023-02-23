@@ -373,12 +373,12 @@
 	status = "okay";
 };
 
-&fusb340 {
+/* &fusb340 {
 	pinctrl-names = "sel_up", "sel_down";
 	pinctrl-0 = <&sel_up>;
 	pinctrl-1 = <&sel_down>;
 	status = "okay";
-};
+};*/
 
 &pio {
 	ps_enable: ps_enable {
@@ -395,19 +395,19 @@
 		};
 	};
 
-	sel_up: sel_up {
+	/* sel_up: sel_up {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO6__FUNC_GPIO6>;
 			output-high;
 		};
-	};
+	};*/
 
-	sel_down: sel_down {
+	/* sel_down: sel_down {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO6__FUNC_GPIO6>;
 			output-low;
 		};
-	};
+	};*/
 };
 
 #include "k6877v1_64_k419/cust.dtsi"

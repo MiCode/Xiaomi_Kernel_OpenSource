@@ -844,7 +844,7 @@ static int mt6360_pmic_i2c_probe(struct i2c_client *client,
 	}
 #if defined(CONFIG_MTK_CHARGER)
 	/* get charger device for dvfs in FPWM mode */
-	mpi->chg_dev = get_charger_by_name("primary_chg");
+	mpi->chg_dev = get_charger_by_name("pmic");
 	if (!mpi->chg_dev) {
 		dev_err(&client->dev, "%s: get charger device fail\n",
 			__func__);

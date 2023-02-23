@@ -9,11 +9,13 @@ menuconfig INPUT_TOUCHSCREEN
 
 	  If unsure, say Y.
 
-source "drivers/input/touchscreen/mediatek/Kconfig"
+source "drivers/input/touchscreen/xiaomi/Kconfig"
 
-source "drivers/input/touchscreen/NT36672C/Kconfig"
 
 if INPUT_TOUCHSCREEN
+
+source  "drivers/input/touchscreen/focaltech_3680/Kconfig"
+source  "drivers/input/touchscreen/goodix_9916r/Kconfig"
 
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
@@ -1231,141 +1233,5 @@ config TOUCHSCREEN_SURFACE3_SPI
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called surface3_spi.
-
-config TOUCHSCREEN_SX8654
-	tristate "Semtech SX8654 touchscreen"
-	depends on I2C
-	help
-	  Say Y here if you have a Semtech SX8654 touchscreen controller.
-
-	  If unsure, say N
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called sx8654.
-
-config TOUCHSCREEN_MTK_NT36572_COMMON
-         bool "NT36572 for Mediatek package"
-         default n
-         help
-           Say Y here if you have NT36572 touch panel.
-           If unsure, say N.
-           To compile this dirver as a module, choose M here: the
-           module will be called.
-source "drivers/input/touchscreen/nt36572_common/Kconfig"
-
-config TOUCHSCREEN_TPS6507X
-	tristate "TPS6507x based touchscreens"
-	depends on I2C
-	select INPUT_POLLDEV
-	help
-	  Say Y here if you have a TPS6507x based touchscreen
-	  controller.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called tps6507x_ts.
-
-config TOUCHSCREEN_ZET6223
-	tristate "Zeitec ZET6223 touchscreen driver"
-	depends on I2C
-	help
-	  Say Y here if you have a touchscreen using Zeitec ZET6223
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called zet6223.
-
-config TOUCHSCREEN_ZFORCE
-	tristate "Neonode zForce infrared touchscreens"
-	depends on I2C
-	depends on GPIOLIB || COMPILE_TEST
-	help
-	  Say Y here if you have a touchscreen using the zforce
-	  infraread technology from Neonode.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called zforce_ts.
-
-config TOUCHSCREEN_COLIBRI_VF50
-	tristate "Toradex Colibri on board touchscreen driver"
-	depends on IIO && VF610_ADC
-	depends on GPIOLIB || COMPILE_TEST
-	help
-	  Say Y here if you have a Colibri VF50 and plan to use
-	  the on-board provided 4-wire touchscreen driver.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called colibri_vf50_ts.
-
-config TOUCHSCREEN_ROHM_BU21023
-	tristate "ROHM BU21023/24 Dual touch support resistive touchscreens"
-	depends on I2C
-	help
-	  Say Y here if you have a touchscreen using ROHM BU21023/24.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called bu21023_ts.
-
-config TOUCHSCREEN_MTK_GT1151
-        bool "GT1151 for Mediatek package"
-        default n
-        help
-          Say Y here if you have GT1151 touch panel.
-
-          If unsure, say N.
-
-          To compile this dirver as a module, choose M here: the
-          module will be called.
-
-source "drivers/input/touchscreen/GT1151/Kconfig"
-
-config TOUCHSCREEN_MTK_FOCALTECH_HD
-	bool "Focaltech Touchscreen"
-	depends on I2C
-	help
-	  Say Y here if you have Focaltech touch panel.
-	  If unsure, say N.
-
-	  To compile this dirver as a module, choose M here: the
-	  module will be called.
-
-config TOUCHSCREEN_MTK_FOCALTECH_FHD
-	bool "Focaltech FHD Touchscreen"
-	depends on I2C
-	help
-	  Say Y here if you have Focaltech touch panel.
-	  If unsure, say N
-
-	  To compile this dirver as a module, choose M here: the
-	  module will be called.
-
-config TOUCHSCREEN_MTK_SYNAPTICS_I2C_RMI4
-        tristate "Synaptics DSX I2C touchscreen"
-        depends on I2C
-        help
-          Say Y here if you have a Synaptics DSX I2C touchscreen
-          connected to your system.
-
-          If unsure, say N.
-
-          To compile this driver as a module, choose M here: the
-          module will be called synaptics_i2c_rmi4.
-
-source "drivers/input/touchscreen/synaptics_i2c_rmi4/Kconfig"
-
-config TOUCHSCREEN_MTK_TOUCH
-	string "Touch IC name for Mediatek package"
-	help
-	  Set touch IC name if you have touch panel.
-
-	  To compile this dirver for used touch IC.
 
 endif

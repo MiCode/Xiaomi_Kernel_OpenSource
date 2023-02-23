@@ -359,4 +359,20 @@ extern long WV511AAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int WV511AAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int WV511AAF_GetFileName(unsigned char *pFileName);
 
+//ruby 50M
+extern int RUBY_IMX766_DW9800VAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+	spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long RUBY_IMX766_DW9800VAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+	unsigned long a_u4Param);
+extern int RUBY_IMX766_DW9800VAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int RUBY_IMX766_DW9800VAF_GetFileName(unsigned char *pFileName);
+
+//ruby 200M
+extern int RUBY_SEMCO_S5KHPX_AK7314AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+	spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long RUBY_SEMCO_S5KHPX_AK7314AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+	unsigned long a_u4Param);
+extern int RUBY_SEMCO_S5KHPX_AK7314AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int RUBY_SEMCO_S5KHPX_AK7314AF_GetFileName(unsigned char *pFileName);
+
 #endif

@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/list.h>
 #include <linux/delay.h>
+#include <linux/leds.h>
 #include <linux/power_supply.h>
 
 #include "richtek/rt-flashlight.h"
@@ -137,6 +138,7 @@ static int mt6360_en_ch1;
 static int mt6360_en_ch2;
 static int mt6360_level_ch1;
 static int mt6360_level_ch2;
+static unsigned char g_flashlight_brightness;
 
 static int mt6360_is_charger_ready(void)
 {
@@ -170,7 +172,7 @@ static int mt6360_enable(void)
 {
 	int ret = 0;
 	enum flashlight_mode mode = FLASHLIGHT_MODE_TORCH;
-
+	g_flashlight_brightness = 1;
 	if (!flashlight_dev_ch1 || !flashlight_dev_ch2) {
 		pr_info("Failed to enable since no flashlight device.\n");
 		return -1;
@@ -277,7 +279,7 @@ static int mt6360_disable_all(void)
 static int mt6360_disable(int channel)
 {
 	int ret = 0;
-
+	g_flashlight_brightness = 0;
 	if (channel == MT6360_CHANNEL_CH1)
 		ret = mt6360_disable_ch1();
 	else if (channel == MT6360_CHANNEL_CH2)
@@ -799,6 +801,242 @@ err_node_put:
 	return -EINVAL;
 }
 
+
+static int flash_is_use;
+static void  mt6360_flash2_brightness_set(struct led_classdev *led_cdev,
+		enum led_brightness value)
+{
+	mt6360_set_driver(1);
+	mt6360_set_scenario(
+			FLASHLIGHT_SCENARIO_CAMERA |
+			FLASHLIGHT_SCENARIO_COUPLE);
+	mt6360_set_level(MT6360_CHANNEL_CH1, value);
+	mt6360_set_level(MT6360_CHANNEL_CH2, value);
+	mt6360_timeout_ms[MT6360_CHANNEL_CH1] = 0;
+	mt6360_timeout_ms[MT6360_CHANNEL_CH2] = 0;
+	if (value <= 0) {
+		mt6360_operate(MT6360_CHANNEL_CH1, MT6360_DISABLE);
+		mt6360_operate(MT6360_CHANNEL_CH2, MT6360_DISABLE);
+	} else {
+		mt6360_operate(MT6360_CHANNEL_CH1, MT6360_ENABLE);
+		mt6360_operate(MT6360_CHANNEL_CH2, MT6360_ENABLE);
+	}
+	msleep(50);
+	mt6360_set_scenario(
+			FLASHLIGHT_SCENARIO_FLASHLIGHT |
+			FLASHLIGHT_SCENARIO_COUPLE);
+	mt6360_operate(MT6360_CHANNEL_CH1, MT6360_DISABLE);
+	mt6360_operate(MT6360_CHANNEL_CH2, MT6360_DISABLE);
+	mt6360_set_driver(0);
+	return;
+}
+static void mt6360_flash_brightness_set(struct led_classdev *led_cdev,
+		enum led_brightness value)
+{
+	int channel = 0, channel_tmp = 0;
+	mt6360_set_driver(1);
+	if (0 == strcmp(led_cdev->name, "flash-light0")) {
+		channel = MT6360_CHANNEL_CH1;
+		channel_tmp = MT6360_CHANNEL_CH2;
+	} else if (0 == strcmp(led_cdev->name, "flash-light1")) {
+		channel = MT6360_CHANNEL_CH2;
+		channel_tmp = MT6360_CHANNEL_CH1;
+	}
+	mt6360_set_scenario(
+			FLASHLIGHT_SCENARIO_CAMERA |
+			FLASHLIGHT_SCENARIO_COUPLE);
+	mt6360_set_level(channel, value);
+	mt6360_timeout_ms[channel] = 0;
+	if (value <= 0)
+		mt6360_operate(channel, MT6360_DISABLE);
+	else {
+		mt6360_operate(channel, MT6360_ENABLE);
+		mt6360_operate(channel_tmp, MT6360_DISABLE);
+	}
+	msleep(50);
+	mt6360_set_scenario(
+			FLASHLIGHT_SCENARIO_FLASHLIGHT |
+			FLASHLIGHT_SCENARIO_COUPLE);
+	mt6360_operate(channel, MT6360_DISABLE);
+	mt6360_set_driver(0);
+	return;
+}
+static void mt6360_torch_brightness_set(struct led_classdev *led_cdev,
+		enum led_brightness value)
+{
+	struct flashlight_arg arg;
+	memset(&arg, 0, sizeof(struct flashlight_arg));
+	arg.channel = 0;
+	mt6360_disable(MT6360_CHANNEL_CH1);
+	mt6360_disable(MT6360_CHANNEL_CH2);
+	if (LED_OFF == value) {
+		arg.level = -1;
+		if (flash_is_use) {
+			pr_info("disable flashlight");
+			flash_is_use = 0;
+			mt6360_disable(MT6360_CHANNEL_ALL);
+			mt6360_timer_cancel(MT6360_CHANNEL_CH1);
+			mt6360_timer_cancel(MT6360_CHANNEL_CH2);
+			/* clear flashlight state */
+			mt6360_en_ch1 = MT6360_NONE;
+			mt6360_en_ch2 = MT6360_NONE;
+			mt6360_set_driver(0);
+		} else {
+			pr_debug("flashlight is alreadly disable");
+		}
+		return;
+	} else {
+		arg.level = value; //torch current 100ma
+		flash_is_use = 1;
+	}
+	//torch mode
+	if (0 == strcmp(led_cdev->name, "torch-light0")) {
+			arg.level = value;
+	} else if (0 == strcmp(led_cdev->name, "torch-light1")) {
+		arg.channel = MT6360_CHANNEL_CH2;
+			arg.level = value;
+	}
+	mt6360_set_driver(1);
+	mt6360_operate(MT6360_CHANNEL_CH1, MT6360_DISABLE);
+	mt6360_operate(MT6360_CHANNEL_CH2, MT6360_DISABLE);
+#if 1
+	if (arg.channel == MT6360_CHANNEL_CH1) {
+		flashlight_set_torch_brightness (
+		flashlight_dev_ch1, mt6360_torch_level[arg.level]);
+		mt6360_timeout_ms[MT6360_CHANNEL_CH1] = 0;
+		mt6360_en_ch1 = MT6360_ENABLE_TORCH;
+	} else if (arg.channel == MT6360_CHANNEL_CH2) {
+		flashlight_set_torch_brightness (
+		flashlight_dev_ch2, mt6360_torch_level[arg.level]);
+		mt6360_timeout_ms[MT6360_CHANNEL_CH2] = 0;
+		mt6360_en_ch2 = MT6360_ENABLE_TORCH;
+	}
+#endif
+	mt6360_enable();
+	return;
+}
+static void mt6360_torch2_brightness_set(struct led_classdev *led_cdev,
+		enum led_brightness value)
+{
+	struct flashlight_arg arg;
+	memset(&arg, 0, sizeof(struct flashlight_arg));
+	arg.channel = 0;
+	mt6360_disable(MT6360_CHANNEL_CH1);
+	mt6360_disable(MT6360_CHANNEL_CH2);
+	if (LED_OFF == value) {
+		arg.level = 0;
+		if (flash_is_use) {
+			pr_info("disable flashlight");
+			flash_is_use = 0;
+			mt6360_operate(MT6360_CHANNEL_CH1, MT6360_DISABLE);
+			mt6360_operate(MT6360_CHANNEL_CH2, MT6360_DISABLE);
+			mt6360_set_driver(0);
+		}
+	} else  {
+		arg.level = value; //torch current 200ma
+	}
+	mt6360_set_driver(1);
+	mt6360_operate(MT6360_CHANNEL_CH1, MT6360_DISABLE);
+	mt6360_operate(MT6360_CHANNEL_CH2, MT6360_DISABLE);
+	if (0 == strcmp(led_cdev->name, "torch-light2")) {
+		flashlight_set_torch_brightness(
+			flashlight_dev_ch1, mt6360_torch_level[arg.level]);
+			mt6360_timeout_ms[MT6360_CHANNEL_CH1] = 0;
+			mt6360_en_ch1 = MT6360_ENABLE_TORCH;
+			flashlight_set_torch_brightness(
+				flashlight_dev_ch2, mt6360_torch_level[arg.level]);
+			mt6360_timeout_ms[MT6360_CHANNEL_CH2] = 0;
+			mt6360_en_ch2 = MT6360_ENABLE_TORCH;
+		  mt6360_enable();
+	}
+	return;
+}
+static enum led_brightness mtk_pmic_flashlight_brightness_get(struct led_classdev *led_cdev)
+{
+	return g_flashlight_brightness;
+}
+static enum led_brightness mt6360_torch_brightness_get(struct led_classdev *led_cdev)
+{
+	return g_flashlight_brightness;
+}
+static struct led_classdev mtk_flash_led[MT6360_CHANNEL_NUM + 1] = {
+	{
+		.name = "flash-light0",
+		.brightness_set =  mt6360_flash_brightness_set,
+		.brightness_get = mtk_pmic_flashlight_brightness_get,
+		.brightness = LED_OFF,
+	},
+	{
+		.name = "flash-light1",
+		.brightness_set = mt6360_flash_brightness_set,
+		.brightness_set = mt6360_flash2_brightness_set,
+		.brightness_get = mtk_pmic_flashlight_brightness_get,
+		.brightness = LED_OFF,
+	},
+};
+static struct led_classdev mtk_torch_led[MT6360_CHANNEL_NUM + 1] = {
+	{
+		.name = "torch-light0",
+		.brightness_set = mt6360_torch_brightness_set,
+		.brightness_get = mt6360_torch_brightness_get,
+		.brightness = LED_OFF,
+	},
+	{
+		.name = "torch-light1",
+		.brightness_set = mt6360_torch_brightness_set,
+		.brightness = LED_OFF,
+	},
+	{
+		.name = "torch-light2",
+		.brightness_set = mt6360_torch2_brightness_set,
+		.brightness = LED_OFF,
+	},
+};
+static int32_t mtk_flashlight_create_torch_classdev(struct platform_device *pdev,
+				struct mt6360_platform_data *pdata)
+{
+	int32_t rc = 0;
+	int32_t i = 0;
+	for (i = 0; i <= pdata->channel_num && i < 2; i++) {
+		mt6360_torch_brightness_set(&mtk_torch_led[i],
+			LED_OFF);
+			rc = led_classdev_register(&pdev->dev,
+				&mtk_torch_led[i]);
+			if (rc) {
+				pr_err("Failed to register %d led dev. rc = %d\n",
+					i, rc);
+				return rc;
+			}
+	}
+	return 0;
+};
+static int32_t mtk_flashlight_create_flash_classdev(struct platform_device *pdev,
+				struct mt6360_platform_data *pdata)
+{
+	int32_t rc = 0;
+	int32_t i = 0;
+	pr_err("zhu channel num = %d\n", pdata->channel_num);
+	for (i = 0; i <= pdata->channel_num && i < 2; i++) {
+		//mt6360_flash_brightness_set(&mtk_flash_led[i],
+			//LED_OFF);
+			rc = led_classdev_register(&pdev->dev,
+				&mtk_flash_led[i]);
+			if (rc) {
+				pr_err("Failed to register %d led dev. rc = %d\n",
+						i, rc);
+				return rc;
+			}
+	}
+	return 0;
+};
+int32_t mtk_flashlight_create_classdev(struct platform_device *pdev, struct mt6360_platform_data *pdata)
+{
+	int32_t rc = 0;
+	rc = mtk_flashlight_create_torch_classdev(pdev, pdata);
+	rc = mtk_flashlight_create_flash_classdev(pdev, pdata);
+	return rc;
+}
+
 static int mt6360_probe(struct platform_device *pdev)
 {
 	struct mt6360_platform_data *pdata = dev_get_platdata(&pdev->dev);
@@ -872,7 +1110,7 @@ static int mt6360_probe(struct platform_device *pdev)
 		if (flashlight_dev_register(MT6360_NAME, &mt6360_ops))
 			return -EFAULT;
 	}
-
+	mtk_flashlight_create_classdev(pdev, pdata);
 	pr_debug("Probe done.\n");
 
 	return 0;

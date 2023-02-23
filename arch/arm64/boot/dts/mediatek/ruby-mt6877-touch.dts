@@ -1,0 +1,112 @@
+&pio{
+	ts_reset_active: ts_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			bias-disable;
+		};
+	};
+	ts_int_active: ts_int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			bias-disable;
+		};
+	};
+	ts_int_suspend: ts_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			slew-rate = <1>;
+			bias-disable;
+		};
+	};
+	ts_reset_suspend: ts_reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+	};
+	ts_spi_mode: ts_spimode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO160__FUNC_SPI3_MO>,
+				<PINMUX_GPIO161__FUNC_SPI3_MI>,
+				<PINMUX_GPIO162__FUNC_SPI3_CSB>,
+				<PINMUX_GPIO163__FUNC_SPI3_CLK>;
+			drive-strength = <2>;
+		};
+	};
+	ts_dvdd_enable: ts_dvddenable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
+			output-high;
+		};
+	};
+	ts_dvdd_disable: ts_dvdddisable {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
+			output-low;
+		};
+	};
+
+};
+&mt_pmic_vmc_ldo_reg {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+};
+&mt_pmic_vtp_ldo_reg {
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3300000>;
+};
+&spi3 {
+	mediatek,pad-select = <0>;
+	mediatek,kthread-rt = <1>;
+	status = "ok";
+	m16-touch@0 {
+		status = "ok";
+		compatible = "focaltech,3680-spi", "goodix,9916r-spi";
+		reg = <0x0>;
+		interrupt-parent = <&pio>;
+		interrupts = <14 0x2008>;
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_spi_mode", "pmx_ts_dvdd_enable", "pmx_ts_dvdd_disable";
+		pinctrl-0 = <&ts_reset_active &ts_int_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_spi_mode>;
+		pinctrl-3 = <&ts_dvdd_enable>;
+		pinctrl-4 = <&ts_dvdd_disable>;
+		iovdd-supply = <&mt_pmic_vmc_ldo_reg>;
+		avdd-supply = <&mt_pmic_vtp_ldo_reg>;
+		spi-max-frequency = <5000000>;
+
+		/* 1st supply from focal3680 */
+		focaltech,max-touch-number = <10>;
+		focaltech,super-resolution-factors = <10>;
+		focaltech,display-coords =  <0 0 10800 24000>;
+		focaltech,irq-gpio = <&pio 14 0x2008>;
+		focaltech,reset-gpio = <&pio 15 0x00>;
+		focaltech,avdd-name = "avdd";
+		focaltech,iovdd-name = "iovdd";
+		focaltech,touch-range-array = <1 5 10 15 20>;
+		focaltech,touch-def-array = <4 3 3 3>;
+		focaltech,touch-expert-array = <10 15 10 10
+						20 15 15 10
+						15 15 20 10>;
+		/* 2nd supply from goodix9916 */
+		goodix,avdd-name = "avdd";
+		goodix,iovdd-name = "iovdd";
+		goodix,reset-gpio = <&pio 15 0x00>;
+		goodix,irq-gpio = <&pio 14 0x2808>;
+		goodix,irq-flags = <2>;
+		goodix,panel-max-x = <1080>;
+		goodix,panel-max-y = <2400>;
+		goodix,panel-max-w = <255>;
+		goodix,panel-max-p = <4096>;
+		goodix,iovdd-gpio = <&pio 110 0x00>;
+		goodix,firmware-namea = "goodix_firmware_m16_TM.bin";
+		goodix,firmware-nameb = "goodix_firmware_m16_GVO.bin";
+		goodix,config-namea = "goodix_cfg_group_m16_TM.bin";
+		goodix,config-nameb = "goodix_cfg_group_m16_GVO.bin";
+		goodix,touch-expert-array = <2 3 2 2
+					     4 3 3 2
+					     3 3 4 2>;
+	};
+};
+

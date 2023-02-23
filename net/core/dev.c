@@ -4214,6 +4214,18 @@ static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen)
 	return false;
 }
 
+static int parseDHCPReply(struct sk_buff *skb)
+{
+	struct udphdr *uh = NULL;
+	const struct iphdr *iph = (const struct iphdr *)skb->data;
+	if(iph->protocol != IPPROTO_UDP)
+		return 0;
+	uh = (struct udphdr *)(skb->data+(iph->ihl<<2));
+	if(uh->source == 0x4300 && uh->dest == 0x4400)
+		return 1;
+	return 0;
+}
+
 /*
  * enqueue_to_backlog is called to queue an skb to a per CPU backlog
  * queue (may be a remote CPU queue).
@@ -4474,7 +4486,17 @@ static int netif_rx_internal(struct sk_buff *skb)
 
 		preempt_disable();
 		rcu_read_lock();
-
+		if(skb->dev && (0==strncmp(skb->dev->name,"wlan0",5)||0==strncmp(skb->dev->name,"wlan1",5)))
+		{
+			if((ntohs(skb->protocol) == ETH_P_ARP) || (ntohs(skb->protocol) == ETH_P_PAE)
+				||(ntohs(skb->protocol) == ETH_P_IP && parseDHCPReply(skb)) ) {
+				cpu = smp_processor_id();
+			}
+			else
+				cpu = get_rps_cpu(skb->dev, skb, &rflow);
+                }
+                else
+			cpu = get_rps_cpu(skb->dev, skb, &rflow);
 		cpu = get_rps_cpu(skb->dev, skb, &rflow);
 		if (cpu < 0)
 			cpu = smp_processor_id();

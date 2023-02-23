@@ -56,16 +56,30 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/reboot.h>
-
+#include <linux/of_device.h>
+#include <linux/hwid.h>
 #include <mt-plat/v1/charger_type.h>
 #include <mt-plat/v1/mtk_battery.h>
 #include <mt-plat/mtk_boot.h>
 #include <pmic.h>
 #include <mtk_gauge_time_service.h>
+#include <linux/ktime.h>
 
 #include "mtk_charger_intf.h"
 #include "mtk_charger_init.h"
+#include <tcpm.h>
 
+extern void mp2762_direct_set_fcc(struct charger_device *chg_dev, int value);
+
+enum product_name {
+	UNKNOW,
+	RUBY,
+	RUBYPRO,
+	RUBYPLUS,
+};
+
+//extern int get_charge_mode(void);
+static int product_name = UNKNOW;
 static struct charger_manager *pinfo;
 static struct list_head consumer_head = LIST_HEAD_INIT(consumer_head);
 static DEFINE_MUTEX(consumer_mutex);
@@ -76,6 +90,128 @@ struct tag_bootmode {
 	u32 bootmode;
 	u32 boottype;
 };
+
+extern int get_pd_usb_connected(void);
+static void usbpd_mi_vdm_received_cb(struct tcp_ny_uvdm uvdm);
+
+static bool check_usb_psy(void)
+{
+	if (!pinfo->usb_psy)
+		pinfo->usb_psy = power_supply_get_by_name("usb");
+
+	if (pinfo->usb_psy)
+		return true;
+	else
+		return false;
+}
+
+static bool mtk_check_psy(struct charger_manager *info)
+{
+	if (!pinfo->usb_psy)
+		pinfo->usb_psy = power_supply_get_by_name("usb");
+
+	if (!pinfo->usb_psy) {
+		chr_err("failed to get usb_psy\n");
+		return false;
+	}
+
+	if (!pinfo->batt_psy)
+		pinfo->batt_psy = power_supply_get_by_name("battery");
+
+	if (!pinfo->batt_psy) {
+		chr_err("failed to get batt_psy\n");
+		return false;
+	}
+
+	if (!pinfo->bms_psy)
+		pinfo->bms_psy = power_supply_get_by_name("bms");
+
+	if (!pinfo->bms_psy) {
+		chr_err("failed to get bms_psy\n");
+		return false;
+	}
+
+	if (!pinfo->charger_psy)
+		pinfo->charger_psy = power_supply_get_by_name("charger");
+
+	if (!pinfo->charger_psy) {
+		chr_err("failed to get charger_psy\n");
+		return false;
+	}
+
+	if (product_name == RUBYPLUS){
+		if (!pinfo->xmusb350_psy)
+		      pinfo->xmusb350_psy = power_supply_get_by_name("xmusb350");
+
+		if (!pinfo->xmusb350_psy) {
+			chr_err("failed to get xmusb350_psy\n");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool mtk_check_votable(struct charger_manager *info)
+{
+	if (!info->bbc_icl_votable)
+		info->bbc_icl_votable = find_votable("BBC_ICL");
+
+	if (!info->bbc_icl_votable) {
+		chr_err("failed to get bbc_icl_votable\n");
+		return false;
+	}
+
+	if (!info->bbc_fcc_votable)
+		info->bbc_fcc_votable = find_votable("BBC_FCC");
+
+	if (!info->bbc_fcc_votable) {
+		chr_err("failed to get bbc_fcc_votable\n");
+		return false;
+	}
+
+	if (!info->bbc_fv_votable)
+		info->bbc_fv_votable = find_votable("BBC_FV");
+
+	if (!info->bbc_fv_votable) {
+		chr_err("failed to get bbc_fv_votable\n");
+		return false;
+	}
+
+	if (!info->bbc_vinmin_votable)
+		info->bbc_vinmin_votable = find_votable("BBC_VINMIN");
+
+	if (!info->bbc_vinmin_votable) {
+		chr_err("failed to get bbc_vinmin_votable\n");
+		return false;
+	}
+
+	if (!info->bbc_iterm_votable)
+		info->bbc_iterm_votable = find_votable("BBC_ITERM");
+
+	if (!info->bbc_iterm_votable) {
+		chr_err("failed to get bbc_iterm_votable\n");
+		return false;
+	}
+
+	if (!info->bbc_en_votable)
+		info->bbc_en_votable = find_votable("BBC_ENABLE");
+
+	if (!info->bbc_en_votable) {
+		chr_err("failed to get bbc_en_votable\n");
+		return false;
+	}
+
+	if (!info->bbc_suspend_votable)
+		info->bbc_suspend_votable = find_votable("BBC_SUSPEND");
+
+	if (!info->bbc_suspend_votable) {
+		chr_err("failed to get bbc_suspend_votable\n");
+		return false;
+	}
+
+	return true;
+}
 
 bool mtk_is_TA_support_pd_pps(struct charger_manager *pinfo)
 {
@@ -227,9 +363,10 @@ void _wake_up_charger(struct charger_manager *info)
 /* charger_manager ops  */
 static int _mtk_charger_change_current_setting(struct charger_manager *info)
 {
+/*
 	if (info != NULL && info->change_current_setting)
 		return info->change_current_setting(info);
-
+*/
 	return 0;
 }
 
@@ -351,7 +488,10 @@ int charger_manager_enable_power_path(struct charger_consumer *consumer,
 	}
 
 	pr_info("%s: enable power path = %d\n", __func__, en);
-	ret = charger_dev_enable_powerpath(chg_dev, en);
+	if(en)
+	      vote(info->bbc_suspend_votable, CHARGER_MANAGER_VOTER, false, 0);
+	else
+	      vote(info->bbc_suspend_votable, CHARGER_MANAGER_VOTER, true, 1);
 out:
 	mutex_unlock(&info->pp_lock[idx]);
 	return ret;
@@ -382,8 +522,10 @@ int charger_manager_force_disable_power_path(struct charger_consumer *consumer,
 		goto out;
 
 	info->force_disable_pp[idx] = disable;
-	ret = charger_dev_enable_powerpath(chg_dev,
-		info->force_disable_pp[idx] ? false : info->enable_pp[idx]);
+	if(info->force_disable_pp[idx] || !(info->enable_pp[idx]))
+	      vote(info->bbc_suspend_votable, CHARGER_MANAGER_VOTER, true, 1);
+	else
+	      vote(info->bbc_suspend_votable, CHARGER_MANAGER_VOTER, false, 0);
 out:
 	mutex_unlock(&info->pp_lock[idx]);
 	return ret;
@@ -437,6 +579,28 @@ int charger_manager_enable_charging(struct charger_consumer *consumer,
 	ret = _charger_manager_enable_charging(consumer, idx, en);
 	mutex_unlock(&info->charger_lock);
 	return ret;
+}
+
+int charger_manager_get_input_current_limit(struct charger_consumer *consumer,
+	int idx, int *input_current)
+{
+	struct charger_manager *info = consumer->cm;
+
+	if (info != NULL) {
+		struct charger_data *pdata;
+
+		if (idx == MAIN_CHARGER)
+			pdata = &info->chg1_data;
+		else if (idx == SLAVE_CHARGER)
+			pdata = &info->chg2_data;
+		else
+			return -ENOTSUPP;
+
+		charger_dev_get_input_current(info->chg1_dev, input_current);
+		return 0;
+	}
+
+	return -EBUSY;
 }
 
 int charger_manager_set_input_current_limit(struct charger_consumer *consumer,
@@ -572,6 +736,160 @@ int charger_manager_get_current_charging_type(struct charger_consumer *consumer)
 	return 0;
 }
 
+int charger_manager_get_thermal_level(void)
+{
+	if (pinfo == NULL)
+		return 0;
+
+	return pinfo->thermal_level;
+}
+
+int charger_manager_get_max_thermal_level(void)
+{
+	return THERMAL_LIMIT_COUNT;
+}
+
+void charger_manager_set_thermal_level(int thermal_level)
+{
+	if (pinfo == NULL)
+		return;
+
+	if (thermal_level < 0 || pinfo->thermal_level < 0) {
+		if (thermal_level <= -888)
+			pinfo->thermal_level = 0;
+		else if (thermal_level < 0)
+			pinfo->thermal_level = thermal_level;
+		return;
+	}
+
+	if (thermal_level > THERMAL_LIMIT_COUNT - 1)
+		thermal_level = THERMAL_LIMIT_COUNT - 1;
+
+	pinfo->thermal_level = thermal_level;
+}
+
+int charger_manager_get_thermal_limit_fcc(void)
+{
+	if (pinfo == NULL)
+		return 0;
+
+	return pinfo->thermal_limit_fcc;
+}
+
+void charger_manager_set_thermal_limit_fcc(int thermal_limit_fcc)
+{
+	if (pinfo == NULL)
+		return;
+
+	if (!is_between(0, pinfo->max_fcc, thermal_limit_fcc))
+		return;
+
+	pinfo->thermal_limit_fcc = thermal_limit_fcc;
+}
+
+int charger_manager_get_sic_current(void)
+{
+	if (pinfo == NULL)
+		return 0;
+
+	chr_err("%s sic_current=%d\n", __func__, pinfo->sic_current);
+	return pinfo->sic_current * 1000;
+}
+EXPORT_SYMBOL(charger_manager_get_sic_current);
+
+void charger_manager_set_sic_current(int sic_current)
+{
+	if (pinfo == NULL || !pinfo->bbc_fcc_votable)
+		return;
+	chr_err("%s sic_current=%d, sic_support=%d\n", __func__, sic_current, pinfo->sic_support);
+
+	if (!pinfo->sic_support || !is_between(0, pinfo->max_fcc, sic_current))
+		return;
+
+	pinfo->sic_current = sic_current;
+	vote(pinfo->bbc_fcc_votable, SIC_VOTER, true, sic_current);
+}
+EXPORT_SYMBOL(charger_manager_set_sic_current);
+
+int charger_manager_get_input_suspend(void)
+{
+	if (pinfo == NULL)
+		return false;
+
+	return pinfo->input_suspend;
+}
+
+void charger_manager_set_input_suspend(bool input_suspend)
+{
+	if (pinfo == NULL)
+		return;
+
+	pinfo->input_suspend = input_suspend;
+	if(input_suspend)
+	      vote(pinfo->bbc_suspend_votable, BAT_SUSPEND_VOTER, true, 1);
+	else
+	      vote(pinfo->bbc_suspend_votable, BAT_SUSPEND_VOTER, false, 0);
+	power_supply_changed(pinfo->usb_psy);
+}
+
+#define MAX_NOTCHARGE_IBAT	20
+
+int charger_manager_get_charge_status(void)
+{
+	int charge_status = POWER_SUPPLY_STATUS_DISCHARGING;
+
+	if(!pinfo)
+		return charge_status;
+
+	if (pinfo->chr_type) {
+		if (pinfo->typec_burn || pinfo->input_suspend || pinfo->bms_i2c_error_count >= 10 ||
+			!is_between(pinfo->jeita_fcc_cfg[0].low_threshold, pinfo->jeita_fcc_cfg[pinfo->step_jeita_tuple_count - 1].high_threshold, pinfo->tbat)) {
+			charge_status = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		} else {
+			if (pinfo->charge_full && pinfo->soc == 100 && pinfo->ibat > (product_name == RUBYPLUS ? -150 : -80) && pinfo->ibat < (product_name == RUBYPLUS ? 150 : 80)) {
+				charge_status = POWER_SUPPLY_STATUS_FULL;
+			} else {
+				charge_status = POWER_SUPPLY_STATUS_CHARGING;
+			}
+		}
+	} else {
+		charge_status = POWER_SUPPLY_STATUS_DISCHARGING;
+	}
+
+	return charge_status;
+}
+
+int charger_manager_get_battery_health(void)
+{
+	union power_supply_propval pval = {0,};
+	int tbat = 0, battery_health = POWER_SUPPLY_HEALTH_GOOD;
+
+	if (!pinfo || !pinfo->bms_psy)
+		return battery_health;
+
+	if (pinfo->psy_type) {
+		tbat = pinfo->tbat;
+	} else {
+		power_supply_get_property(pinfo->bms_psy, POWER_SUPPLY_PROP_TEMP, &pval);
+		tbat = pval.intval;
+	}
+
+	if (tbat <= -100)
+		battery_health = POWER_SUPPLY_HEALTH_COLD;
+	else if (tbat <= 150)
+		battery_health = POWER_SUPPLY_HEALTH_COOL;
+	else if (tbat <= 480)
+		battery_health = POWER_SUPPLY_HEALTH_GOOD;
+	else if (tbat <= 520)
+		battery_health = POWER_SUPPLY_HEALTH_WARM;
+	else if (tbat < 600)
+		battery_health = POWER_SUPPLY_HEALTH_HOT;
+	else
+		battery_health = POWER_SUPPLY_HEALTH_OVERHEAT;
+
+	return battery_health;
+}
+
 int charger_manager_get_zcv(struct charger_consumer *consumer, int idx, u32 *uV)
 {
 	struct charger_manager *info = consumer->cm;
@@ -635,41 +953,27 @@ int charger_manager_set_bh(struct charger_consumer *consumer,
 	return 0;
 }
 
-int charger_manager_enable_chg_type_det(struct charger_consumer *consumer,
-	bool en)
+int charger_manager_enable_chg_type_det(struct charger_consumer *consumer, bool en)
 {
 	struct charger_manager *info = consumer->cm;
-	struct charger_device *chg_dev = NULL;
 	int ret = 0;
 
-	if (info != NULL) {
-		switch (info->data.bc12_charger) {
-		case MAIN_CHARGER:
-			chg_dev = info->chg1_dev;
-			break;
-		case SLAVE_CHARGER:
-			chg_dev = info->chg2_dev;
-			break;
-		default:
-			chg_dev = info->chg1_dev;
-			chr_err("%s: invalid number, use main charger as default\n",
-				__func__);
-			break;
+	chr_info("enable_chg_type_det, enable = %d\n", en);
+
+	if (en) {
+		if (!info->attach_wakelock->active)
+			__pm_stay_awake(info->attach_wakelock);
+	} else {
+		__pm_relax(info->attach_wakelock);
+	}
+
+	ret = charger_dev_enable_chg_type_det(info->chg2_dev, en);
+	if (ret < 0) {
+		chr_err("%s: en chgdet fail, en = %d\n", __func__, en);
+		return ret;
 		}
 
-		chr_err("%s: chg%d is doing bc12\n", __func__,
-			info->data.bc12_charger + 1);
-		ret = charger_dev_enable_chg_type_det(chg_dev, en);
-		if (ret < 0) {
-			chr_err("%s: en chgdet fail, en = %d\n", __func__, en);
-			return ret;
-		}
-	} else
-		chr_err("%s: charger_manager is null\n", __func__);
-
-
-
-	return 0;
+	return ret;
 }
 
 int register_charger_manager_notifier(struct charger_consumer *consumer,
@@ -895,6 +1199,8 @@ bool is_typec_adapter(struct charger_manager *info)
 			rp != 500 &&
 			info->chr_type != STANDARD_HOST &&
 			info->chr_type != CHARGING_HOST &&
+			info->chr_type != NONSTANDARD_CHARGER &&
+			info->chr_type != HVDCP_CHARGER &&
 			mtk_pe20_get_is_connect(info) == false &&
 			mtk_pe_get_is_connect(info) == false &&
 			info->enable_type_c == true)
@@ -1346,27 +1652,79 @@ void mtk_charger_int_handler(void)
 	_wake_up_charger(pinfo);
 }
 
-static int mtk_charger_plug_in(struct charger_manager *info,
-				enum charger_type chr_type)
+static int set_default_charger_parameters(struct charger_manager *info)
 {
-	info->chr_type = chr_type;
-	info->charger_thread_polling = true;
+	int ret = 0;
 
+	vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, DEFAULT_ICL);
+	vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, DEFAULT_FCC);
+	vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, DEFAULT_VINMIN);
+	vote(info->bbc_fv_votable, FFC_VOTER, true, info->fv - (product_name != RUBYPLUS ? pinfo->diff_fv_val : 2 * pinfo->diff_fv_val));
+	vote(info->bbc_iterm_votable, FFC_VOTER, true, info->iterm);
+
+	return ret;
+}
+
+static int mtk_charger_plug_in(struct charger_manager *info)
+{
+	union power_supply_propval pval = {0,};
+	struct timespec time;
+
+	chr_info("%s\n", __func__);
+
+	info->charger_thread_polling = true;
 	info->can_charging = true;
 	info->enable_dynamic_cv = true;
 	info->safety_timeout = false;
 	info->vbusov_stat = false;
+	info->cv_wa_count = 0;
+	info->ffc_enable = false;
+	info->pd_verify_done = false;
+	info->pd_verifed = false;
+	info->charge_full = false;
+	info->recharge = false;
+	info->cp_taper = false;
+	info->mtbf_test = false;
+	info->last_thermal_level = -1;
+	info->full_wa_iterm = 0;
 
-	chr_err("mtk_is_charger_on plug in, type:%d\n", chr_type);
-	if (info->plug_in != NULL)
-		info->plug_in(info);
+	get_monotonic_boottime(&time);
+	if (time.tv_sec <= 25)
+		info->strong_qc2 = 5;
+	else
+		info->strong_qc2 = 2;
 
-	memset(&pinfo->sc.data, 0, sizeof(struct scd_cmd_param_t_1));
-	pinfo->sc.disable_in_this_plug = false;
-	wakeup_sc_algo_cmd(&pinfo->sc.data, SC_EVENT_PLUG_IN, 0);
-	charger_dev_set_input_current(info->chg1_dev,
-				info->chg1_data.input_current_limit);
+	/* Check whether charge pump trigger reset after plug out */
+	if (!info->master_cp_psy)
+		info->master_cp_psy = power_supply_get_by_name("cp_master");
+	if (!info->slave_cp_psy)
+		info->slave_cp_psy = power_supply_get_by_name("cp_slave");
+	if (!info->third_cp_psy)
+		info->third_cp_psy = power_supply_get_by_name("cp_third");
+	if (info->master_cp_psy)
+		power_supply_get_property(info->master_cp_psy,
+				POWER_SUPPLY_PROP_LN_RESET_CHECK, &pval);
+	if (info->slave_cp_psy)
+		power_supply_get_property(info->slave_cp_psy,
+				POWER_SUPPLY_PROP_LN_RESET_CHECK, &pval);
+	if (info->third_cp_psy)
+		power_supply_get_property(info->third_cp_psy,
+				POWER_SUPPLY_PROP_LN_RESET_CHECK, &pval);
+
+	reset_mi_charge_alg(info);
+	charger_dev_enable_termination(info->chg1_dev, true);
+	set_default_charger_parameters(info);
+	vote(info->bbc_icl_votable, PDM_VOTER, false, 0);
+	vote(info->bbc_icl_votable, QCM_VOTER, false, 0);
+	vote(info->bbc_fcc_votable, PDM_VOTER, false, 0);
+	vote(info->bbc_en_votable, BBC_ENABLE_VOTER, true, 1);
+	vote(info->bbc_vinmin_votable, PDM_VOTER, false, 0);
+	schedule_delayed_work(&info->charge_monitor_work, 0);
 	charger_dev_plug_in(info->chg1_dev);
+
+	power_supply_get_property(pinfo->bms_psy, POWER_SUPPLY_PROP_DEVICE_CHEM, &pval);
+	strcpy(info->device_chem, pval.strval);
+
 	return 0;
 }
 
@@ -1374,27 +1732,72 @@ static int mtk_charger_plug_out(struct charger_manager *info)
 {
 	struct charger_data *pdata1 = &info->chg1_data;
 	struct charger_data *pdata2 = &info->chg2_data;
+	union power_supply_propval pval = {0,};
+	struct timespec time;
 
-	chr_err("%s\n", __func__);
-	info->chr_type = CHARGER_UNKNOWN;
+	chr_info("%s\n", __func__);
+
+	info->cv_wa_count = 0;
+	info->apdo_max = 0;
 	info->charger_thread_polling = false;
-	info->pd_reset = false;
-
 	pdata1->disable_charging_count = 0;
 	pdata1->input_current_limit_by_aicl = -1;
 	pdata2->disable_charging_count = 0;
+	info->ffc_enable = false;
+	info->entry_soc = 0;
+	info->pd_verify_done = false;
+	info->pd_verifed = false;
+	info->charge_full = false;
+	info->recharge = false;
+	info->cp_taper = false;
+	info->mtbf_test = false;
+	info->last_thermal_level = -1;
+	info->full_wa_iterm = 0;
+	info->chr_type == CHARGER_UNKNOWN;
+	pval.intval = 0;
+	power_supply_set_property(pinfo->bms_psy, POWER_SUPPLY_PROP_FASTCHARGE_MODE, &pval);
+	pval.intval = CHARGER_UNKNOWN;
+	power_supply_set_property(info->charger_psy, POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
 
-	if (info->plug_out != NULL)
-		info->plug_out(info);
+	get_monotonic_boottime(&time);
+	if (time.tv_sec <= 25)
+		info->strong_qc2 = 5;
+	else
+		info->strong_qc2 = 2;
 
-	memset(&pinfo->sc.data, 0, sizeof(struct scd_cmd_param_t_1));
-	wakeup_sc_algo_cmd(&pinfo->sc.data, SC_EVENT_PLUG_OUT, 0);
-	charger_dev_set_input_current(info->chg1_dev, 100000);
-	charger_dev_set_mivr(info->chg1_dev, info->data.min_charger_voltage);
+	set_default_charger_parameters(info);
+	vote(info->bbc_icl_votable, PDM_VOTER, false, 0);
+	vote(info->bbc_icl_votable, QCM_VOTER, false, 0);
+	vote(info->bbc_fcc_votable, PDM_VOTER, false, 0);
+	vote(info->bbc_fcc_votable, THERMAL_VOTER, false, 0);
+	vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, false, 0);
+	if (product_name != RUBYPLUS)
+		vote(info->bbc_en_votable, BBC_ENABLE_VOTER, true, 0);
+	vote(info->bbc_en_votable, FULL_ENABLE_VOTER, true, 1);
+	vote(info->bbc_vinmin_votable, PDM_VOTER, false, 0);
+	vote(info->bbc_icl_votable, FFC_VOTER, false, 0);
+	vote(info->bbc_iterm_votable, ITERM_WA_VOTER, false, 0);
+	if (!info->typec_burn)
+		cancel_delayed_work_sync(&info->charge_monitor_work);
+
+	if (product_name == RUBYPLUS) {
+		info->max_power_flag = 0;
+		cancel_delayed_work_sync(&info->max_power_work);
+		vote(info->bbc_fcc_votable, MAX_POWER_VOTER, false, 0);
+	}
+
+	reset_mi_charge_alg(info);
 	charger_dev_plug_out(info->chg1_dev);
+
+	if (product_name == RUBYPLUS) {
+		charger_dev_enable_wdt(info->cp_master, false, 0);
+		charger_dev_enable_wdt(info->cp_slave, false, 0);
+		charger_dev_enable_wdt(info->cp_third, false, 0);
+	}
+
 	return 0;
 }
-
+/*
 static bool mtk_is_charger_on(struct charger_manager *info)
 {
 	enum charger_type chr_type;
@@ -1409,13 +1812,13 @@ static bool mtk_is_charger_on(struct charger_manager *info)
 		}
 	} else {
 		if (info->chr_type == CHARGER_UNKNOWN)
-			mtk_charger_plug_in(info, chr_type);
+			mtk_charger_plug_in(info);
 		else
 			info->chr_type = chr_type;
 
 		if (info->cable_out_cnt > 0) {
 			mtk_charger_plug_out(info);
-			mtk_charger_plug_in(info, chr_type);
+			mtk_charger_plug_in(info);
 			mutex_lock(&info->cable_out_lock);
 			info->cable_out_cnt--;
 			mutex_unlock(&info->cable_out_lock);
@@ -1431,6 +1834,563 @@ static bool mtk_is_charger_on(struct charger_manager *info)
 static void charger_update_data(struct charger_manager *info)
 {
 	info->battery_temp = battery_get_bat_temperature();
+}*/
+
+/*
+static int check_charge_parameters(struct charger_manager *info)
+{
+	int div_rate = (product_name == RUBYPLUS ? 2 : 1);
+	//bool bbc_wa = (product_name == RUBY && info->vbus >= 6500);
+
+	switch(info->psy_type) {
+	case POWER_SUPPLY_TYPE_USB:
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, SDP_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, SDP_FCC / div_rate);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, SDP_VINMIN);
+		break;
+	case POWER_SUPPLY_TYPE_USB_CDP:
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, CDP_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, CDP_FCC / div_rate);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, CDP_VINMIN);
+		break;
+	case POWER_SUPPLY_TYPE_USB_DCP:
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, DCP_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, DCP_FCC / div_rate);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, DCP_VINMIN);
+
+		if (info->i350_type == XMUSB350_TYPE_DCP) {
+			vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, DCP_ICL / (info->recheck_count >= 2 ? 1 : 2));
+			vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, DCP_FCC / div_rate);
+			vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, DCP_VINMIN);
+		} else if (info->i350_type == XMUSB350_TYPE_OCP) {
+			vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, OCP_ICL);
+			vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, OCP_FCC / div_rate);
+			vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, OCP_VINMIN);
+		}
+		break;
+	case POWER_SUPPLY_TYPE_USB_FLOAT:
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, FLOAT_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, FLOAT_FCC / div_rate);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, FLOAT_VINMIN);
+		break;
+	case POWER_SUPPLY_TYPE_USB_HVDCP:
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC2_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC2_FCC / div_rate);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, QC2_VINMIN);
+
+		if (info->recheck_count >= 2 && info->i350_type == XMUSB350_TYPE_HVDCP_2) {
+			if (info->strong_qc2 && info->cv_wa_count < CV_MP2762_WA_COUNT) {
+				vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC2_ICL);
+				vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC2_FCC / div_rate);
+				vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, QC2_VINMIN);
+			} else {
+				if (bbc_wa) {
+					charger_dev_enable_powerpath(info->chg1_dev, false);
+					msleep(500);
+				}
+				vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, DCP_FCC / div_rate);
+				vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, DCP_ICL);
+				vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, DCP_VINMIN);
+				charger_dev_select_qc_mode(info->chg2_dev, QC_MODE_QC2_5);
+				msleep(250);
+				if (bbc_wa)
+					charger_dev_enable_powerpath(info->chg1_dev, true);
+			}
+		}
+		break;
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3_PLUS:
+		if (info->recheck_count >= 2) {
+			switch(info->qc3_type) {
+			case HVDCP3_18:
+				vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC3_18_ICL);
+				vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC3_18_FCC / div_rate);
+				vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus > QC3_18_VINMIN) ? QC3_18_VINMIN : DEFAULT_VINMIN);
+				break;
+			case HVDCP3_27:
+				vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC3_27_ICL);
+				vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC3_27_FCC / div_rate);
+				vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus > QC3_27_VINMIN) ? QC3_27_VINMIN : DEFAULT_VINMIN);
+				break;
+			case HVDCP35_18:
+				vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC35_18_ICL);
+				vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC35_18_FCC / div_rate);
+				vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus > QC35_18_VINMIN) ? QC35_18_VINMIN : DEFAULT_VINMIN);
+				break;
+			case HVDCP35_27:
+				vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC35_27_ICL);
+				vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC35_27_FCC / div_rate);
+				vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus > QC35_27_VINMIN) ? QC35_27_VINMIN : DEFAULT_VINMIN);
+				break;
+			default:
+				chr_err("not support qc3_type to check charger parameters");
+			}
+		}
+		break;
+	case POWER_SUPPLY_TYPE_USB_PD:
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, PD3_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, info->max_fcc);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus > PD3_VINMIN) ? PD3_VINMIN : DEFAULT_VINMIN);
+		if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO && info->recheck_count < 4)
+			power_supply_changed(info->usb_psy);
+		break;
+	default:
+		chr_err("not support psy_type to check charger parameters");
+	}
+
+	charger_dev_dump_registers(info->chg1_dev);
+	charger_dev_dump_registers(info->chg2_dev);
+
+	return 0;
+}
+*/
+
+static int check_vinlim(struct charger_manager *info)
+{
+	int pulse_type = 0, count = 0, ret = 0;
+
+	if (info->recheck_count < 2 && product_name == RUBYPLUS) {
+		return ret;
+	}
+	switch(info->psy_type) {
+	case POWER_SUPPLY_TYPE_USB_HVDCP:
+		if (info->i350_type == XMUSB350_TYPE_HVDCP_2) {
+			if (product_name == RUBY || product_name == RUBYPRO) {
+				if (info->strong_qc2)
+					charger_dev_select_qc_mode(info->chg2_dev, QC_MODE_QC2_9);
+				if (info->strong_qc2 && info->vbus < 8000)
+					info->strong_qc2--;
+			} else if (product_name == RUBYPLUS) {
+				if (info->strong_qc2 && info->cv_wa_count < CV_MP2762_WA_COUNT)
+					charger_dev_select_qc_mode(info->chg2_dev, QC_MODE_QC2_12);
+				if (info->strong_qc2 && info->vbus < 10000)
+					info->strong_qc2--;
+			}
+		}
+		break;
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+		if (info->vbus < BBC_BUCK_LOW_VBUS) {
+			pulse_type = QC3_DP_PULSE;
+			count = (BBC_BUCK_LOW_VBUS - info->vbus) / QC3_PULSE_STEP;
+		} else if (info->vbus > BBC_BUCK_HIGH_VBUS) {
+			pulse_type = QC3_DM_PULSE;
+			count = (info->vbus - BBC_BUCK_HIGH_VBUS) / QC3_PULSE_STEP;
+		}
+		break;
+	case POWER_SUPPLY_TYPE_USB_HVDCP_3_PLUS:
+		if (info->vbus < BBC_BUCK_LOW_VBUS) {
+			pulse_type = QC35_DP_PULSE;
+			count = (BBC_BUCK_LOW_VBUS - info->vbus) / QC35_PULSE_STEP;
+		} else if (info->vbus > BBC_BUCK_HIGH_VBUS) {
+			pulse_type = QC35_DM_PULSE;
+			count = (info->vbus - BBC_BUCK_HIGH_VBUS) / QC35_PULSE_STEP;
+		}
+		break;
+	}
+
+	if ((product_name == RUBYPLUS)&& count) {
+		chr_info("[CHARGE_LOOP] pulse_type = %d, count = %d\n", pulse_type, count);
+		charger_dev_qc3_dpdm_pulse(info->chg2_dev, pulse_type, count);
+	}
+
+	return ret;
+}
+
+static void check_cv_vbus(struct charger_manager *info)
+{
+	if (product_name != RUBYPLUS || info->recheck_count < 2)
+		return;
+
+	if (info->psy_type != POWER_SUPPLY_TYPE_USB_HVDCP && info->psy_type != POWER_SUPPLY_TYPE_USB_PD)
+		return;
+
+	if (info->cv_wa_count < CV_MP2762_WA_COUNT) {
+		if (info->vbat > (info->jeita_fv_cfg[info->jeita_chg_index[0]].value - 100) && info->ibat > -CV_IBAT_MP2762_WA && info->ibat < 0
+			&& info->vbus > CV_VBUS_MP2762_WA && info->vbus < 16000)
+			info->cv_wa_count++;
+		else
+			info->cv_wa_count = 0;
+	} else {
+		if (info->cv_wa_count == CV_MP2762_WA_COUNT) {
+			if (info->psy_type == POWER_SUPPLY_TYPE_USB_HVDCP) {
+				vote(info->bbc_suspend_votable, CV_WA_VOTER, true, 1);
+				msleep(400);
+				charger_dev_select_qc_mode(info->chg2_dev, QC_MODE_QC2_5);
+				vote(info->bbc_suspend_votable, CV_WA_VOTER, false, 0);
+			} else if (info->psy_type == POWER_SUPPLY_TYPE_USB_PD) {
+				power_supply_changed(info->usb_psy);
+			}
+		}
+		if (info->vbat > (info->jeita_fv_cfg[info->jeita_chg_index[0]].value - 100)) {
+			if (info->cv_wa_count < (2 * CV_MP2762_WA_COUNT))
+				info->cv_wa_count++;
+		} else {
+			info->cv_wa_count--;
+		}
+	}
+}
+
+static void update_real_type_data(struct charger_manager *info)
+{
+	static enum power_supply_type real_type_old = POWER_SUPPLY_TYPE_UNKNOWN;
+	int ret = 0;
+	union power_supply_propval real_type = {0,};
+	union power_supply_propval pval = {0,};
+
+	ret = power_supply_get_property(info->charger_psy, POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
+	if (ret)
+		chr_err("failed to get mtk charger type\n");
+	else
+		info->chr_type = pval.intval;
+
+	chr_err("%s: %d\n", __func__, info->chr_type);
+
+	if (info->chr_type == CHARGER_UNKNOWN) {
+		if(real_type_old != POWER_SUPPLY_TYPE_UNKNOWN)
+		{
+			real_type.intval = POWER_SUPPLY_TYPE_UNKNOWN;
+			power_supply_set_property(info->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE, &real_type);
+			power_supply_changed(info->usb_psy);
+		}
+		real_type_old = POWER_SUPPLY_TYPE_UNKNOWN;
+		return;
+	}
+
+	if (info->mtbf_test) {
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, CDP_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, CDP_FCC);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, CDP_VINMIN);
+		real_type.intval = POWER_SUPPLY_TYPE_USB_CDP;
+		chr_err("mtbf_test, set input current charging 1.5A\n");
+	} else if ((info->pd_type == MTK_PD_CONNECT_PE_READY_SNK || info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30 || info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) && info->chr_type != STANDARD_HOST) {
+		if (info->pd_verifed){
+			vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, PD3_ICL);
+			vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, info->max_fcc);
+		}
+		else {
+			if (product_name == RUBYPLUS){
+				vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, (info->vbus > PD3_VINMIN) ? PD3_ICL : PD3_RUBYPLUS_DFAULT_ICL);
+				vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, 3000);
+			}
+			else{
+				vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, PD3_ICL);
+				vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, 5800);
+			}
+		}
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus > PD3_VINMIN) ? PD3_VINMIN : DEFAULT_VINMIN);
+		//if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO && info->recheck_count < 4)
+		//	power_supply_changed(info->usb_psy);
+		real_type.intval = POWER_SUPPLY_TYPE_USB_PD;
+		chr_err("pd use vote current charging = %d\n", (info->vbus > PD3_VINMIN) ? PD3_ICL : PD3_RUBYPLUS_DFAULT_ICL);
+	} else if (info->chr_type == STANDARD_HOST && get_pd_usb_connected()) {
+		if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO && info->pd_verifed) {
+			vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, PD3_ICL);
+			vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, info->max_fcc);
+			vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus > PD3_VINMIN) ? PD3_VINMIN : DEFAULT_VINMIN);
+			real_type.intval = POWER_SUPPLY_TYPE_USB_PD;
+			chr_err("when pd connect hifi,  use vote current charging = %d\n", PD3_ICL);
+		} else {
+			vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, C2C_ICL);
+			vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, C2C_FCC);
+			vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, C2C_VINMIN);
+			if (product_name != RUBYPLUS)
+				real_type.intval = POWER_SUPPLY_TYPE_USB_PD;
+			else
+				real_type.intval = POWER_SUPPLY_TYPE_USB_CDP;
+			chr_err("C to C set input current charging = %d\n", C2C_ICL);
+		}
+	} else if (info->chr_type == HVDCP_CHARGER) {
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC2_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC2_FCC);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus > QC2_VINMIN) ? QC2_VINMIN : DEFAULT_VINMIN);
+		real_type.intval = POWER_SUPPLY_TYPE_USB_HVDCP;
+		chr_err("HVDCP set input current charging = %d\n", QC2_ICL);
+	} else if (info->chr_type == STANDARD_HOST) {
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, SDP_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, SDP_FCC);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, SDP_VINMIN);
+		real_type.intval = POWER_SUPPLY_TYPE_USB;
+		chr_err("SDP_USB set input current charging = %d\n", SDP_ICL);
+	} else if (info->chr_type == CHARGING_HOST) {
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, CDP_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, CDP_FCC);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, CDP_VINMIN);
+		real_type.intval = POWER_SUPPLY_TYPE_USB_CDP;
+		chr_err("CDP set input current charging = %d\n", CDP_ICL);
+	} else if (info->chr_type == STANDARD_CHARGER) {
+		if (!pinfo->xmusb350_psy){
+			vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, DCP_ICL);
+			vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, DCP_FCC);
+			vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, DCP_VINMIN);
+			real_type.intval = POWER_SUPPLY_TYPE_USB_DCP;
+			chr_err("DCP set input current charging = %d\n", DCP_ICL);
+		}else{
+			if(info->qc3_type == HVDCP3_18 || info->i350_type == XMUSB350_TYPE_HVDCP_3){
+				real_type.intval = POWER_SUPPLY_TYPE_USB_HVDCP_3;
+				if(info->recheck_count >= 2){
+					vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC3_18_RUBYPLUS_ICL);
+					vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC3_18_RUBYPLUS_FCC);
+					vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus >= QC3_18_RUBYPLUS_VINMIN) ? QC3_18_RUBYPLUS_VINMIN : DEFAULT_VINMIN);
+					chr_err("HVDCP_3_18 set input current charging = %d\n", QC3_18_RUBYPLUS_ICL);
+				}
+			}else if(info->qc3_type == HVDCP3_27){
+				real_type.intval = POWER_SUPPLY_TYPE_USB_HVDCP_3;
+				if(info->recheck_count >= 2){
+					vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC3_27_RUBYPLUS_ICL);
+					vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC3_27_RUBYPLUS_FCC);
+					vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus >= QC3_27_RUBYPLUS_VINMIN) ? QC3_27_RUBYPLUS_VINMIN : DEFAULT_VINMIN);
+					chr_err("HVDCP_3_27 set input current charging = %d\n", QC3_27_RUBYPLUS_ICL);
+				}
+			}else if(info->qc3_type == HVDCP35_18){
+				real_type.intval = POWER_SUPPLY_TYPE_USB_HVDCP_3_PLUS;
+				if(info->recheck_count >= 2){
+					vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC35_18_RUBYPLUS_ICL);
+					vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC35_18_RUBYPLUS_FCC);
+					vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus >= QC35_18_RUBYPLUS_VINMIN) ? QC35_18_RUBYPLUS_VINMIN : DEFAULT_VINMIN);
+					chr_err("HVDCP_3_PLUS set input current charging = %d\n", QC35_18_RUBYPLUS_ICL);
+				}
+			}else if(info->qc3_type == HVDCP35_27){
+				real_type.intval = POWER_SUPPLY_TYPE_USB_HVDCP_3_PLUS;
+				if(info->recheck_count >= 2){
+					vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC35_27_RUBYPLUS_ICL);
+					vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC35_27_RUBYPLUS_FCC);
+					vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus >= QC35_27_RUBYPLUS_VINMIN) ? QC35_27_RUBYPLUS_VINMIN : DEFAULT_VINMIN);
+					chr_err("HVDCP_3_PLUS set input current charging = %d\n", QC35_27_RUBYPLUS_ICL);
+				}
+			}else if(info->i350_type == XMUSB350_TYPE_HVDCP_2 || info->i350_type == XMUSB350_TYPE_HVDCP){
+				real_type.intval = POWER_SUPPLY_TYPE_USB_HVDCP;
+				if(info->recheck_count >= 2){
+					vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, QC2_RUBYPLUS_ICL);
+					vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, QC2_RUBYPLUS_FCC);
+					vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, (info->vbus >= QC2_RUBYPLUS_VINMIN) ? QC2_RUBYPLUS_VINMIN : DEFAULT_VINMIN);
+					chr_err("HVDCP 2 set input current charging = %d\n", QC2_RUBYPLUS_ICL);
+				}
+			}else {
+				vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, DCP_ICL);
+				vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, DCP_FCC);
+				vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, DCP_VINMIN);
+				real_type.intval = POWER_SUPPLY_TYPE_USB_DCP;
+				chr_err("DCP 2 set input current charging = %d\n", DCP_ICL);
+			}
+		}
+	} else if (info->chr_type == NONSTANDARD_CHARGER) {
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, FLOAT_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, FLOAT_FCC);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, FLOAT_VINMIN);
+		real_type.intval = POWER_SUPPLY_TYPE_USB_FLOAT;
+		chr_err("float type set input current charging = %d\n", FLOAT_ICL);
+	} else {
+		vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, OTHER_ICL);
+		vote(info->bbc_fcc_votable, CHARGER_TYPE_VOTER, true, OTHER_FCC);
+		vote(info->bbc_vinmin_votable, CHARGER_TYPE_VOTER, true, OTHER_VINMIN);
+		chr_err("others set input current charging = %d\n", OTHER_ICL);
+	}
+
+	if(real_type_old != real_type.intval){
+		real_type_old = real_type.intval;
+		power_supply_set_property(info->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE, &real_type);
+		power_supply_changed(info->usb_psy);
+		chr_err("%s,update real type to %d\n",__func__, real_type_old);
+	}
+
+	charger_dev_dump_registers(info->chg1_dev);
+	charger_dev_dump_registers(info->chg2_dev);
+}
+
+static void check_charge_data(struct charger_manager *info)
+{
+	union power_supply_propval pval = {0,};
+	enum power_supply_type psy_type = POWER_SUPPLY_TYPE_UNKNOWN;
+	enum charger_type chr_type = CHARGER_UNKNOWN;
+	enum hvdcp3_type qc3_type = HVDCP3_NONE;
+	enum xmusb350_chg_type i350_type = XMUSB350_TYPE_UNKNOW;
+	int charge_mode = 0, ret = 0;
+
+	ret = power_supply_get_property(info->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE, &pval);
+	if (ret)
+		chr_err("failed to get psy_type\n");
+	else
+		psy_type = pval.intval;
+
+	ret = power_supply_get_property(info->charger_psy, POWER_SUPPLY_PROP_CHARGE_TYPE, &pval);
+	if (ret)
+		chr_err("failed to get mtk charger type\n");
+	else
+		chr_type = pval.intval;
+
+	if (product_name == RUBYPLUS){
+		if (!pinfo->xmusb350_psy)
+		      pinfo->xmusb350_psy = power_supply_get_by_name("xmusb350");
+
+		if (pinfo->xmusb350_psy) {
+			ret = power_supply_get_property(info->xmusb350_psy, POWER_SUPPLY_PROP_HVDCP3_TYPE, &pval);
+			if (ret)
+			      chr_err("failed to get qc3 type\n");
+			else
+			      qc3_type = pval.intval;
+
+			ret = power_supply_get_property(info->xmusb350_psy, POWER_SUPPLY_PROP_CHG_TYPE, &pval);
+			if (ret)
+			      chr_err("failed to get qc3 type\n");
+			else
+			      i350_type = pval.intval;
+
+			ret = power_supply_get_property(info->xmusb350_psy, POWER_SUPPLY_PROP_RECHECK_COUNT, &pval);
+			if (ret)
+			      chr_err("failed to get recheck_count\n");
+			else
+			      info->recheck_count = pval.intval;
+		}
+	}
+
+	if (info->chr_type == CHARGER_UNKNOWN && chr_type != CHARGER_UNKNOWN)
+		info->charger_status = CHARGER_PLUGIN;
+	else if (info->chr_type != CHARGER_UNKNOWN && chr_type == CHARGER_UNKNOWN)
+		info->charger_status = CHARGER_PLUGOUT;
+	else
+		info->charger_status = CHARGER_UNCHANGED;
+
+	info->psy_type = psy_type;
+	info->chr_type = chr_type;
+	info->qc3_type = qc3_type;
+	info->i350_type = i350_type;
+
+	charger_dev_get_vbus(info->chg1_dev, &info->vbus);
+	charger_dev_get_ibus(info->chg1_dev, &info->ibus);
+	charger_dev_is_enabled(info->chg1_dev, &info->bbc_enable);
+	charger_dev_is_powerpath_enabled(info->chg1_dev, &info->pp_enable);
+	charger_dev_get_charge_status(pinfo->chg1_dev, &info->charge_status);
+	charger_dev_get_temperature(info->chg1_dev, &info->bbc_temp, &info->bbc_temp);
+	charger_dev_get_temperature(info->cp_master, &info->cp_master_temp, &info->cp_master_temp);
+	charger_dev_get_temperature(info->cp_slave, &info->cp_slave_temp, &info->cp_slave_temp);
+
+	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CAPACITY, &pval);
+	if (ret)
+		chr_err("failed to get soc\n");
+	else
+		info->soc = pval.intval;
+
+	ret = power_supply_get_property(info->bms_psy,POWER_SUPPLY_PROP_CHARGE_DONE, &pval);
+	if (ret)
+		chr_err("failed to get fg_full\n");
+	else
+		info->fg_full = !!pval.intval;
+
+	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
+	if (ret)
+		chr_err("failed to get vbat\n");
+	else
+		info->vbat = pval.intval / 1000;
+
+	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CURRENT_NOW, &pval);
+	if (ret)
+		chr_err("failed to get ibat\n");
+	else
+		info->ibat = pval.intval / 1000;
+
+	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_TEMP, &pval);
+	if (ret)
+		chr_err("failed to get tbat\n");
+	else
+		info->tbat = pval.intval;
+
+	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_CYCLE_COUNT, &pval);
+	if (ret)
+		chr_err("failed to get cycle_count\n");
+	else
+		info->cycle_count = pval.intval;
+
+	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_AUTHENTIC, &pval);
+	if (ret)
+		chr_err("failed to get bat_verifed\n");
+	else
+		info->bat_verifed = !!pval.intval;
+
+	ret = power_supply_get_property(info->bms_psy, POWER_SUPPLY_PROP_I2C_ERROR_COUNT, &pval);
+	if (ret)
+		chr_err("failed to get bms_i2c_error_count\n");
+	else
+		info->bms_i2c_error_count = pval.intval;
+
+	/*
+	if (info->bat_verifed)
+		vote(info->bbc_fcc_votable, BAT_VERIFY_VOTER, false, 0);
+	else
+		vote(info->bbc_fcc_votable, BAT_VERIFY_VOTER, true, 3000);
+	*/
+
+	//charge_mode = get_charge_mode();
+
+	if (info->charger_status == CHARGER_PLUGIN)
+		info->entry_soc = info->soc;
+
+	if (info->charger_status == CHARGER_PLUGIN) {
+		pval.intval = FG_MONITOR_DELAY_8S;
+	} else if (info->charger_status == CHARGER_PLUGOUT) {
+		pval.intval = FG_MONITOR_DELAY_17P5S;
+	} else if (info->ibat < 0 && info->psy_type) {
+		if (info->ibat <= -HIGH_CHARGE_SPEED)
+			pval.intval = FG_MONITOR_DELAY_2P5S;
+		else if (info->ibat <= -NORMAL_CHARGE_SPEED)
+			pval.intval = FG_MONITOR_DELAY_5S;
+		else
+			pval.intval = FG_MONITOR_DELAY_8S;
+	} else {
+		pval.intval = FG_MONITOR_DELAY_8S;
+	}
+	power_supply_set_property(pinfo->bms_psy, POWER_SUPPLY_PROP_MONITOR_DELAY, &pval);
+
+	if (info->pp_enable == !!get_effective_result(info->bbc_suspend_votable)) {
+		rerun_election(info->bbc_suspend_votable);
+		power_supply_changed(info->usb_psy);
+	}
+
+	chr_info("[CHARGE_LOOP]TYPE = [%d %d %d %d %d], BUS = [%d %d], BAT = [%d %d %d %d %d %d], BBC = [%d %d %d %d %d], TL_SJ = [%d %d %d %d], TEMP = [%d %d %d], FFC = [%d %d], COUNT = [%d %d]\n",
+		info->psy_type, info->qc3_type, info->i350_type, info->pd_type, info->pd_verifed,
+		info->vbus, info->ibus,
+		info->soc, info->vbat, info->ibat, info->tbat, info->fg_full, info->cycle_count,
+		info->bbc_enable, info->pp_enable, info->charge_status, info->charge_full, info->recharge,
+		info->sic_current, info->thermal_level, info->step_chg_index[0], info->jeita_chg_index[0],
+		info->bbc_temp, info->cp_master_temp, info->cp_slave_temp, info->ffc_enable, charge_mode, info->cv_wa_count, info->recheck_count);
+
+	if (info->input_suspend || info->typec_burn || !info->bat_verifed || info->bms_i2c_error_count >= 10)
+		chr_err("[CHARGE_LOOP] input_suspend = %d, typec_burn = %d, bat_verifed = %d, bms_i2c_error_count = %d\n", info->input_suspend, info->typec_burn, info->bat_verifed, info->bms_i2c_error_count);
+}
+
+static void check_battery_connector(struct charger_manager *info)
+{
+	int third_cp_vbat = 0;
+	chr_err("check_battery_connector ++\n");
+	charger_dev_get_vbat(info->cp_third, &third_cp_vbat);
+	chr_err("check_battery_connector third_cp_vbat = %d\n", third_cp_vbat);
+
+	if(info->bms_i2c_error_count >= 10){
+		if(product_name != RUBYPLUS)
+			vote(info->bbc_icl_votable, BATTERY_CONNECTOR_VOTER, true, 500);
+		if(product_name == RUBYPLUS)
+			vote(info->bbc_icl_votable, BATTERY_CONNECTOR_VOTER, true, 250);
+	}
+	else if((product_name == RUBYPLUS) && (third_cp_vbat < 6000))
+		vote(info->bbc_icl_votable, BATTERY_CONNECTOR_VOTER, true, 250);
+}
+
+static int init_charger_hw_limit(struct charger_manager *info)
+{
+	int ret = 0;
+
+	ret = vote(info->bbc_fv_votable, HW_LIMIT_VOTER, true, info->fv_ffc - (product_name != RUBYPLUS ? pinfo->diff_fv_val : 2 * pinfo->diff_fv_val));
+	if (ret)
+		chr_err("failed to init FV HW_LIMIT\n");
+
+	ret = vote(info->bbc_icl_votable, CHARGER_TYPE_VOTER, true, DEFAULT_ICL);
+	if (ret)
+		chr_err("failed to init ICL HW_LIMIT\n");
+
+	ret = vote(info->bbc_fcc_votable, HW_LIMIT_VOTER, true, info->max_fcc);
+	if (ret)
+		chr_err("failed to init FCC HW_LIMIT\n");
+
+	return ret;
 }
 
 static int mtk_chgstat_notify(struct charger_manager *info)
@@ -1446,6 +2406,7 @@ static int mtk_chgstat_notify(struct charger_manager *info)
 	return ret;
 }
 
+#if 0
 /* return false if vbus is over max_charger_voltage */
 static bool mtk_chg_check_vbus(struct charger_manager *info)
 {
@@ -1459,7 +2420,6 @@ static bool mtk_chg_check_vbus(struct charger_manager *info)
 	}
 
 	return true;
-}
 
 static void mtk_battery_notify_VCharger_check(struct charger_manager *info)
 {
@@ -1561,7 +2521,6 @@ static void mtk_battery_notify_check(struct charger_manager *info)
 		mtk_battery_notify_UI_test(info);
 	}
 }
-
 static void check_battery_exist(struct charger_manager *info)
 {
 	struct device *dev = NULL;
@@ -1635,7 +2594,6 @@ static void check_dynamic_mivr(struct charger_manager *info)
 		}
 	}
 }
-
 static void mtk_chg_get_tchg(struct charger_manager *info)
 {
 	int ret;
@@ -1796,6 +2754,60 @@ stop_charging:
 
 	info->can_charging = charging;
 }
+#endif
+
+void smart_batt_set_diff_fv(int val)
+{
+	if (pinfo == NULL)
+		return;
+	chr_err("%s: diff_fv_val = %d\n", __func__, val);
+	pinfo->diff_fv_val = val;
+}
+EXPORT_SYMBOL(smart_batt_set_diff_fv);
+
+int smart_batt_get_diff_fv()
+{
+	if (pinfo == NULL)
+		return 0;
+	chr_err("%s: diff_fv_val = %d\n", __func__, pinfo->diff_fv_val);
+	return pinfo->diff_fv_val;
+}
+EXPORT_SYMBOL(smart_batt_get_diff_fv);
+
+void night_charging_set_status(int val)
+{
+	if (pinfo == NULL)
+		return;
+	pinfo->night_charging = !!val;
+	chr_err("%s: night_charging = %d\n", __func__, pinfo->night_charging);
+}
+EXPORT_SYMBOL(night_charging_set_status);
+
+int night_charging_get_status()
+{
+	if (pinfo == NULL)
+		return 0;
+	chr_err("%s: night_charging = %d\n", __func__, pinfo->night_charging);
+	return pinfo->night_charging;
+}
+EXPORT_SYMBOL(night_charging_get_status);
+
+void set_soft_reset_status(int val)
+{
+	if (pinfo == NULL)
+		return;
+	pinfo->pd_soft_reset = !!val;
+	chr_err("%s:pd_soft_reset = %d\n", __func__, pinfo->pd_soft_reset);
+}
+EXPORT_SYMBOL(set_soft_reset_status);
+
+int get_soft_reset_status()
+{
+	if (pinfo == NULL)
+		return 0;
+	return pinfo->pd_soft_reset;
+}
+EXPORT_SYMBOL(get_soft_reset_status);
 
 static void kpoc_power_off_check(struct charger_manager *info)
 {
@@ -1804,6 +2816,11 @@ static void kpoc_power_off_check(struct charger_manager *info)
 	struct device_node *boot_node = NULL;
 	struct tag_bootmode *tag = NULL;
 	int boot_mode = 11;//UNKNOWN_BOOT
+	struct timespec64 time_now;
+	ktime_t ktime_now;
+	ktime_now = ktime_get_boottime();
+	time_now = ktime_to_timespec64(ktime_now);
+
 // workaround for mt6768 
 	//int boot_mode = get_boot_mode();
 	dev = &(info->pdev->dev);
@@ -1827,7 +2844,7 @@ static void kpoc_power_off_check(struct charger_manager *info)
 	    || boot_mode == LOW_POWER_OFF_CHARGING_BOOT) {
 		if (atomic_read(&info->enable_kpoc_shdn)) {
 			vbus = battery_get_vbus();
-			if (vbus >= 0 && vbus < 2500 && !mt_charger_plugin()) {
+			if (vbus >= 0 && vbus < 2500 && !mt_charger_plugin()  && (time_now.tv_sec > 10)) {
 				chr_err("Unplug Charger/USB in KPOC mode, shutdown\n");
 				chr_err("%s: system_state=%d\n", __func__,
 					system_state);
@@ -1934,13 +2951,93 @@ static void mtk_charger_init_timer(struct charger_manager *info)
 #endif /* CONFIG_PM */
 }
 
+static int calc_delta_time(ktime_t time_last, int *delta_time)
+{
+	ktime_t time_now;
+
+	time_now = ktime_get();
+
+	*delta_time = ktime_ms_delta(time_now, time_last);
+	if (*delta_time < 0)
+		*delta_time = 0;
+
+	return 0;
+}
+
+static void monitor_mp2762_ibat(struct charger_manager *info)
+{
+	int target_fcc = 0, mp2762_force_fcc = 0, delta_fcc = 0;
+	static int up_force_count = 0, down_force_count = 0, last_ibat = 0;
+	static ktime_t last_change_time = -1;
+	int change_delta = 0, vote_icl = 0;
+
+	if(last_change_time == -1)
+	      last_change_time = ktime_get();
+	calc_delta_time(last_change_time, &change_delta);
+	if(change_delta < 3000)
+	      return;
+
+	vote_icl = get_effective_result(info->bbc_icl_votable);
+	target_fcc = get_effective_result(info->bbc_fcc_votable);
+
+	/*adjust policy not apply the following scenarios
+	 *1.bbc not enabled
+	 *2.master cp enabled
+	 *3.ICL limit
+	 *4.ibat > 0
+	 *5.ibat far less than fcc_target
+	 *6.TODO             */
+	if (!info->bbc_enable || info->master_cp_enable || vote_icl < info->ibus + 300 || info->ibat >= 0 || -info->ibat + 500 < target_fcc)
+	{
+		if(info->is_mp2762_adjust){
+			info->is_mp2762_adjust = 0;
+			mp2762_force_fcc = target_fcc;
+			mp2762_direct_set_fcc(info->chg1_dev, mp2762_force_fcc);
+			up_force_count = 0;
+			down_force_count = 0;
+			last_ibat = 0;
+			chr_err("[monitor_mp2762_ibat] up_count = %d, down_count = %d, target_fcc = %d, mp2762_force_fcc = %d\n", up_force_count, down_force_count, target_fcc, mp2762_force_fcc);
+		}
+		return;
+	}
+
+	if((last_ibat + 150 < target_fcc) && (-info->ibat + 150 < target_fcc))
+	{
+		up_force_count++;
+		if(up_force_count >= 5){
+			up_force_count = 0;
+			delta_fcc = (target_fcc + info->ibat) > 300 ? 300 : (target_fcc + info->ibat);
+			mp2762_force_fcc = target_fcc + delta_fcc;
+			mp2762_direct_set_fcc(info->chg1_dev, mp2762_force_fcc);
+		}
+	}
+	else if((last_ibat > target_fcc + 150) && (-info->ibat > target_fcc + 150))
+	{
+		down_force_count++;
+		if(down_force_count >= 5){
+			down_force_count = 0;
+			delta_fcc = (target_fcc + info->ibat) < -300 ? -300 : (target_fcc + info->ibat);
+			mp2762_force_fcc = target_fcc + delta_fcc;
+			mp2762_direct_set_fcc(info->chg1_dev, mp2762_force_fcc);
+		}
+	}else{
+		up_force_count = 0;
+		down_force_count = 0;
+	}
+
+	info->is_mp2762_adjust = 1;
+	last_ibat = -info->ibat;
+	last_change_time = ktime_get();
+	chr_err("[monitor_mp2762_ibat] up_count = %d, down_count = %d, target_fcc = %d, mp2762_force_fcc = %d\n", up_force_count, down_force_count, target_fcc, mp2762_force_fcc);
+}
+
 static int charger_routine_thread(void *arg)
 {
 	struct charger_manager *info = arg;
 	unsigned long flags = 0;
-	bool is_charger_on = false;
-	int bat_current = 0, chg_current = 0;
+	//bool is_charger_on = false;
 	int ret;
+	init_charger_hw_limit(info);
 
 	while (1) {
 		ret = wait_event_interruptible(info->wait_que,
@@ -1957,28 +3054,34 @@ static int charger_routine_thread(void *arg)
 		spin_unlock_irqrestore(&info->slock, flags);
 
 		info->charger_thread_timeout = false;
-		bat_current = battery_get_bat_current();
-		chg_current = pmic_get_charging_current();
-		chr_err("Vbat=%d,Ibat=%d,I=%d,VChr=%d,T=%d,Soc=%d:%d,CT:%d:%d hv:%d pd:%d:%d\n",
-			battery_get_bat_voltage(), bat_current, chg_current,
-			battery_get_vbus(), battery_get_bat_temperature(),
-			battery_get_soc(), battery_get_uisoc(),
-			mt_get_charger_type(), info->chr_type,
-			info->enable_hv_charging, info->pd_type,
-			info->pd_reset);
 
-		is_charger_on = mtk_is_charger_on(info);
+		check_charge_data(info);
+		check_battery_connector(info);
+
+		if (info->charger_status == CHARGER_PLUGIN)
+			mtk_charger_plug_in(info);
+		else if (info->charger_status == CHARGER_PLUGOUT)
+			mtk_charger_plug_out(info);
 
 		if (info->charger_thread_polling == true)
 			mtk_charger_start_timer(info);
 
-		charger_update_data(info);
+		update_real_type_data(info);
+		if (info->chr_type != CHARGER_UNKNOWN) {
+			//check_charge_parameters(info);
+			check_vinlim(info);
+			check_cv_vbus(info);
+		}
+
+		/*charger_update_data(info);
 		check_battery_exist(info);
 		check_dynamic_mivr(info);
-		charger_check_status(info);
+		charger_check_status(info);*/
 		kpoc_power_off_check(info);
+		if(product_name == RUBYPLUS)
+		      monitor_mp2762_ibat(info);
 
-		if (is_disable_charger() == false) {
+		/*if (is_disable_charger() == false) {
 			if (is_charger_on == true) {
 				if (info->do_algorithm)
 					info->do_algorithm(info);
@@ -1986,7 +3089,7 @@ static int charger_routine_thread(void *arg)
 			} else
 				wakeup_sc_algo_cmd(&pinfo->sc.data, SC_EVENT_STOP_CHARGING, 0);
 		} else
-			chr_debug("disable charging\n");
+			chr_debug("disable charging\n");*/
 
 		spin_lock_irqsave(&info->slock, flags);
 		__pm_relax(info->charger_wakelock);
@@ -2003,7 +3106,7 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 				struct device *dev)
 {
 	struct device_node *np = dev->of_node;
-	u32 val;
+	int ret = 0;
 
 	chr_err("%s: starts\n", __func__);
 
@@ -2012,749 +3115,77 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 		return -EINVAL;
 	}
 
+	ret = of_property_read_u32(np, "fv", &info->fv);
+	if (ret)
+		chr_err("failed to parse fv\n");
+
+	ret = of_property_read_u32(np, "fv_ffc", &info->fv_ffc);
+	if (ret)
+		chr_err("failed to parse fv_ffc\n");
+
+	ret = of_property_read_u32(np, "fv_ffc_delta", &info->fv_ffc_delta);
+	if (ret){
+		chr_err("failed to parse fv_ffc_delta\n");
+		info->fv_ffc_delta = 0;
+	}
+
+	ret = of_property_read_u32(np, "fv_ffc_large_cycle", &info->fv_ffc_large_cycle);
+	if (ret){
+		info->fv_ffc_large_cycle = info->fv_ffc;
+		chr_err("failed to parse fv_ffc_large_cycle, use fv_ffc\n");
+	}
+
+	ret = of_property_read_u32(np, "iterm", &info->iterm);
+	if (ret)
+		chr_err("failed to parse iterm\n");
+
+	ret = of_property_read_u32(np, "iterm_ffc", &info->iterm_ffc);
+	if (ret)
+		chr_err("failed to parse iterm_ffc\n");
+
+	ret = of_property_read_u32(np, "iterm_ffc_warm", &info->iterm_ffc_warm);
+	if (ret) {
+		info->iterm_ffc_warm = info->iterm_ffc;
+		chr_err("failed to parse iterm_ffc_warm, use iterm_ffc\n");
+	}
+
+	ret = of_property_read_u32(np, "max_fcc", &info->max_fcc);
+	if (ret)
+		chr_err("failed to parse max_fcc\n");
+
+	ret = of_property_read_u32(np, "max_ibus", &info->max_ibus);
+	if (ret)
+		chr_err("failed to parse max_ibus\n");
+
+	ret = of_property_read_u32(np, "ffc_low_tbat", &info->ffc_low_tbat);
+	if (ret)
+		chr_err("failed to parse ffc_low_tbat\n");
+
+	ret = of_property_read_u32(np, "ffc_medium_tbat", &info->ffc_medium_tbat);
+	if (ret)
+		chr_err("failed to parse ffc_medium_tbat\n");
+
+	ret = of_property_read_u32(np, "ffc_high_tbat", &info->ffc_high_tbat);
+	if (ret)
+		chr_err("failed to parse ffc_high_tbat\n");
+
+	ret = of_property_read_u32(np, "ffc_high_soc", &info->ffc_high_soc);
+	if (ret)
+		chr_err("failed to parse ffc_high_soc\n");
+
+	chr_info("parse fv = %d, fv_ffc_large_cycle = %d, fv_ffc = %d, fv_ffc_delta = %d, max_fcc = %d, max_ibus = %d, ffc_low_tbat = %d, ffc_high_tbat = %d, ffc_high_soc = %d\n",
+		info->fv, info->fv_ffc_large_cycle, info->fv_ffc, info->fv_ffc_delta, info->max_fcc, info->max_ibus, info->ffc_low_tbat, info->ffc_high_tbat, info->ffc_high_soc);
+
 	if (of_property_read_string(np, "algorithm_name",
 		&info->algorithm_name) < 0) {
 		chr_err("%s: no algorithm_name name\n", __func__);
 		info->algorithm_name = "SwitchCharging";
 	}
 
-	if (strcmp(info->algorithm_name, "SwitchCharging") == 0) {
-		chr_err("found SwitchCharging\n");
-		mtk_switch_charging_init(info);
-	}
-#ifdef CONFIG_MTK_DUAL_CHARGER_SUPPORT
-	if (strcmp(info->algorithm_name, "DualSwitchCharging") == 0) {
-		pr_debug("found DualSwitchCharging\n");
-		mtk_dual_switch_charging_init(info);
-	}
-#endif
-
-	info->disable_charger = of_property_read_bool(np, "disable_charger");
-	info->enable_sw_safety_timer =
-			of_property_read_bool(np, "enable_sw_safety_timer");
-	info->sw_safety_timer_setting = info->enable_sw_safety_timer;
-	info->enable_sw_jeita = of_property_read_bool(np, "enable_sw_jeita");
-	info->enable_pe_plus = of_property_read_bool(np, "enable_pe_plus");
-	info->enable_pe_2 = of_property_read_bool(np, "enable_pe_2");
-	info->enable_pe_4 = of_property_read_bool(np, "enable_pe_4");
-	info->enable_pe_5 = of_property_read_bool(np, "enable_pe_5");
-	info->enable_type_c = of_property_read_bool(np, "enable_type_c");
-	info->enable_dynamic_mivr =
-			of_property_read_bool(np, "enable_dynamic_mivr");
-	info->disable_pd_dual = of_property_read_bool(np, "disable_pd_dual");
-
-	info->enable_hv_charging = true;
-
-	/* common */
-	if (of_property_read_u32(np, "battery_cv", &val) >= 0)
-		info->data.battery_cv = val;
-	else {
-		chr_err("use default BATTERY_CV:%d\n", BATTERY_CV);
-		info->data.battery_cv = BATTERY_CV;
-	}
-
-	if (of_property_read_u32(np, "max_charger_voltage", &val) >= 0)
-		info->data.max_charger_voltage = val;
-	else {
-		chr_err("use default V_CHARGER_MAX:%d\n", V_CHARGER_MAX);
-		info->data.max_charger_voltage = V_CHARGER_MAX;
-	}
-	info->data.max_charger_voltage_setting = info->data.max_charger_voltage;
-
-	if (of_property_read_u32(np, "min_charger_voltage", &val) >= 0)
-		info->data.min_charger_voltage = val;
-	else {
-		chr_err("use default V_CHARGER_MIN:%d\n", V_CHARGER_MIN);
-		info->data.min_charger_voltage = V_CHARGER_MIN;
-	}
-
-	/* dynamic mivr */
-	if (of_property_read_u32(np, "min_charger_voltage_1", &val) >= 0)
-		info->data.min_charger_voltage_1 = val;
-	else {
-		chr_err("use default V_CHARGER_MIN_1:%d\n", V_CHARGER_MIN_1);
-		info->data.min_charger_voltage_1 = V_CHARGER_MIN_1;
-	}
-
-	if (of_property_read_u32(np, "min_charger_voltage_2", &val) >= 0)
-		info->data.min_charger_voltage_2 = val;
-	else {
-		chr_err("use default V_CHARGER_MIN_2:%d\n", V_CHARGER_MIN_2);
-		info->data.min_charger_voltage_2 = V_CHARGER_MIN_2;
-	}
-
-	if (of_property_read_u32(np, "max_dmivr_charger_current", &val) >= 0)
-		info->data.max_dmivr_charger_current = val;
-	else {
-		chr_err("use default MAX_DMIVR_CHARGER_CURRENT:%d\n",
-			MAX_DMIVR_CHARGER_CURRENT);
-		info->data.max_dmivr_charger_current =
-					MAX_DMIVR_CHARGER_CURRENT;
-	}
-
-	/* charging current */
-	if (of_property_read_u32(np, "usb_charger_current_suspend", &val) >= 0)
-		info->data.usb_charger_current_suspend = val;
-	else {
-		chr_err("use default USB_CHARGER_CURRENT_SUSPEND:%d\n",
-			USB_CHARGER_CURRENT_SUSPEND);
-		info->data.usb_charger_current_suspend =
-						USB_CHARGER_CURRENT_SUSPEND;
-	}
-
-	if (of_property_read_u32(np, "usb_charger_current_unconfigured", &val)
-		>= 0) {
-		info->data.usb_charger_current_unconfigured = val;
-	} else {
-		chr_err("use default USB_CHARGER_CURRENT_UNCONFIGURED:%d\n",
-			USB_CHARGER_CURRENT_UNCONFIGURED);
-		info->data.usb_charger_current_unconfigured =
-					USB_CHARGER_CURRENT_UNCONFIGURED;
-	}
-
-	if (of_property_read_u32(np, "usb_charger_current_configured", &val)
-		>= 0) {
-		info->data.usb_charger_current_configured = val;
-	} else {
-		chr_err("use default USB_CHARGER_CURRENT_CONFIGURED:%d\n",
-			USB_CHARGER_CURRENT_CONFIGURED);
-		info->data.usb_charger_current_configured =
-					USB_CHARGER_CURRENT_CONFIGURED;
-	}
-
-	if (of_property_read_u32(np, "usb_charger_current", &val) >= 0) {
-		info->data.usb_charger_current = val;
-	} else {
-		chr_err("use default USB_CHARGER_CURRENT:%d\n",
-			USB_CHARGER_CURRENT);
-		info->data.usb_charger_current = USB_CHARGER_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "ac_charger_current", &val) >= 0) {
-		info->data.ac_charger_current = val;
-	} else {
-		chr_err("use default AC_CHARGER_CURRENT:%d\n",
-			AC_CHARGER_CURRENT);
-		info->data.ac_charger_current = AC_CHARGER_CURRENT;
-	}
-
-	info->data.pd_charger_current = 3000000;
-
-	if (of_property_read_u32(np, "ac_charger_input_current", &val) >= 0)
-		info->data.ac_charger_input_current = val;
-	else {
-		chr_err("use default AC_CHARGER_INPUT_CURRENT:%d\n",
-			AC_CHARGER_INPUT_CURRENT);
-		info->data.ac_charger_input_current = AC_CHARGER_INPUT_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "non_std_ac_charger_current", &val) >= 0)
-		info->data.non_std_ac_charger_current = val;
-	else {
-		chr_err("use default NON_STD_AC_CHARGER_CURRENT:%d\n",
-			NON_STD_AC_CHARGER_CURRENT);
-		info->data.non_std_ac_charger_current =
-					NON_STD_AC_CHARGER_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "charging_host_charger_current", &val)
-		>= 0) {
-		info->data.charging_host_charger_current = val;
-	} else {
-		chr_err("use default CHARGING_HOST_CHARGER_CURRENT:%d\n",
-			CHARGING_HOST_CHARGER_CURRENT);
-		info->data.charging_host_charger_current =
-					CHARGING_HOST_CHARGER_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "apple_1_0a_charger_current", &val) >= 0)
-		info->data.apple_1_0a_charger_current = val;
-	else {
-		chr_err("use default APPLE_1_0A_CHARGER_CURRENT:%d\n",
-			APPLE_1_0A_CHARGER_CURRENT);
-		info->data.apple_1_0a_charger_current =
-					APPLE_1_0A_CHARGER_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "apple_2_1a_charger_current", &val) >= 0)
-		info->data.apple_2_1a_charger_current = val;
-	else {
-		chr_err("use default APPLE_2_1A_CHARGER_CURRENT:%d\n",
-			APPLE_2_1A_CHARGER_CURRENT);
-		info->data.apple_2_1a_charger_current =
-					APPLE_2_1A_CHARGER_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "ta_ac_charger_current", &val) >= 0)
-		info->data.ta_ac_charger_current = val;
-	else {
-		chr_err("use default TA_AC_CHARGING_CURRENT:%d\n",
-			TA_AC_CHARGING_CURRENT);
-		info->data.ta_ac_charger_current =
-					TA_AC_CHARGING_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "usb_unlimited_current", &val) >= 0)
-		info->data.usb_unlimited_current = val;
-	else {
-		chr_err("use default usb_unlimited_current:%d\n",
-			USB_UNLIMITED_CURRENT);
-		info->data.usb_unlimited_current =
-					USB_UNLIMITED_CURRENT;
-	}
-
-	/* sw jeita */
-	if (of_property_read_u32(np, "jeita_temp_above_t4_cv", &val) >= 0)
-		info->data.jeita_temp_above_t4_cv = val;
-	else {
-		chr_err("use default JEITA_TEMP_ABOVE_T4_CV:%d\n",
-			JEITA_TEMP_ABOVE_T4_CV);
-		info->data.jeita_temp_above_t4_cv = JEITA_TEMP_ABOVE_T4_CV;
-	}
-
-	if (of_property_read_u32(np, "jeita_temp_t3_to_t4_cv", &val) >= 0)
-		info->data.jeita_temp_t3_to_t4_cv = val;
-	else {
-		chr_err("use default JEITA_TEMP_T3_TO_T4_CV:%d\n",
-			JEITA_TEMP_T3_TO_T4_CV);
-		info->data.jeita_temp_t3_to_t4_cv = JEITA_TEMP_T3_TO_T4_CV;
-	}
-
-	if (of_property_read_u32(np, "jeita_temp_t2_to_t3_cv", &val) >= 0)
-		info->data.jeita_temp_t2_to_t3_cv = val;
-	else {
-		chr_err("use default JEITA_TEMP_T2_TO_T3_CV:%d\n",
-			JEITA_TEMP_T2_TO_T3_CV);
-		info->data.jeita_temp_t2_to_t3_cv = JEITA_TEMP_T2_TO_T3_CV;
-	}
-
-	if (of_property_read_u32(np, "jeita_temp_t1_to_t2_cv", &val) >= 0)
-		info->data.jeita_temp_t1_to_t2_cv = val;
-	else {
-		chr_err("use default JEITA_TEMP_T1_TO_T2_CV:%d\n",
-			JEITA_TEMP_T1_TO_T2_CV);
-		info->data.jeita_temp_t1_to_t2_cv = JEITA_TEMP_T1_TO_T2_CV;
-	}
-
-	if (of_property_read_u32(np, "jeita_temp_t0_to_t1_cv", &val) >= 0)
-		info->data.jeita_temp_t0_to_t1_cv = val;
-	else {
-		chr_err("use default JEITA_TEMP_T0_TO_T1_CV:%d\n",
-			JEITA_TEMP_T0_TO_T1_CV);
-		info->data.jeita_temp_t0_to_t1_cv = JEITA_TEMP_T0_TO_T1_CV;
-	}
-
-	if (of_property_read_u32(np, "jeita_temp_below_t0_cv", &val) >= 0)
-		info->data.jeita_temp_below_t0_cv = val;
-	else {
-		chr_err("use default JEITA_TEMP_BELOW_T0_CV:%d\n",
-			JEITA_TEMP_BELOW_T0_CV);
-		info->data.jeita_temp_below_t0_cv = JEITA_TEMP_BELOW_T0_CV;
-	}
-
-	if (of_property_read_u32(np, "temp_t4_thres", &val) >= 0)
-		info->data.temp_t4_thres = val;
-	else {
-		chr_err("use default TEMP_T4_THRES:%d\n",
-			TEMP_T4_THRES);
-		info->data.temp_t4_thres = TEMP_T4_THRES;
-	}
-
-	if (of_property_read_u32(np, "temp_t4_thres_minus_x_degree", &val) >= 0)
-		info->data.temp_t4_thres_minus_x_degree = val;
-	else {
-		chr_err("use default TEMP_T4_THRES_MINUS_X_DEGREE:%d\n",
-			TEMP_T4_THRES_MINUS_X_DEGREE);
-		info->data.temp_t4_thres_minus_x_degree =
-					TEMP_T4_THRES_MINUS_X_DEGREE;
-	}
-
-	if (of_property_read_u32(np, "temp_t3_thres", &val) >= 0)
-		info->data.temp_t3_thres = val;
-	else {
-		chr_err("use default TEMP_T3_THRES:%d\n",
-			TEMP_T3_THRES);
-		info->data.temp_t3_thres = TEMP_T3_THRES;
-	}
-
-	if (of_property_read_u32(np, "temp_t3_thres_minus_x_degree", &val) >= 0)
-		info->data.temp_t3_thres_minus_x_degree = val;
-	else {
-		chr_err("use default TEMP_T3_THRES_MINUS_X_DEGREE:%d\n",
-			TEMP_T3_THRES_MINUS_X_DEGREE);
-		info->data.temp_t3_thres_minus_x_degree =
-					TEMP_T3_THRES_MINUS_X_DEGREE;
-	}
-
-	if (of_property_read_u32(np, "temp_t2_thres", &val) >= 0)
-		info->data.temp_t2_thres = val;
-	else {
-		chr_err("use default TEMP_T2_THRES:%d\n",
-			TEMP_T2_THRES);
-		info->data.temp_t2_thres = TEMP_T2_THRES;
-	}
-
-	if (of_property_read_u32(np, "temp_t2_thres_plus_x_degree", &val) >= 0)
-		info->data.temp_t2_thres_plus_x_degree = val;
-	else {
-		chr_err("use default TEMP_T2_THRES_PLUS_X_DEGREE:%d\n",
-			TEMP_T2_THRES_PLUS_X_DEGREE);
-		info->data.temp_t2_thres_plus_x_degree =
-					TEMP_T2_THRES_PLUS_X_DEGREE;
-	}
-
-	if (of_property_read_u32(np, "temp_t1_thres", &val) >= 0)
-		info->data.temp_t1_thres = val;
-	else {
-		chr_err("use default TEMP_T1_THRES:%d\n",
-			TEMP_T1_THRES);
-		info->data.temp_t1_thres = TEMP_T1_THRES;
-	}
-
-	if (of_property_read_u32(np, "temp_t1_thres_plus_x_degree", &val) >= 0)
-		info->data.temp_t1_thres_plus_x_degree = val;
-	else {
-		chr_err("use default TEMP_T1_THRES_PLUS_X_DEGREE:%d\n",
-			TEMP_T1_THRES_PLUS_X_DEGREE);
-		info->data.temp_t1_thres_plus_x_degree =
-					TEMP_T1_THRES_PLUS_X_DEGREE;
-	}
-
-	if (of_property_read_u32(np, "temp_t0_thres", &val) >= 0)
-		info->data.temp_t0_thres = val;
-	else {
-		chr_err("use default TEMP_T0_THRES:%d\n",
-			TEMP_T0_THRES);
-		info->data.temp_t0_thres = TEMP_T0_THRES;
-	}
-
-	if (of_property_read_u32(np, "temp_t0_thres_plus_x_degree", &val) >= 0)
-		info->data.temp_t0_thres_plus_x_degree = val;
-	else {
-		chr_err("use default TEMP_T0_THRES_PLUS_X_DEGREE:%d\n",
-			TEMP_T0_THRES_PLUS_X_DEGREE);
-		info->data.temp_t0_thres_plus_x_degree =
-					TEMP_T0_THRES_PLUS_X_DEGREE;
-	}
-
-	if (of_property_read_u32(np, "temp_neg_10_thres", &val) >= 0)
-		info->data.temp_neg_10_thres = val;
-	else {
-		chr_err("use default TEMP_NEG_10_THRES:%d\n",
-			TEMP_NEG_10_THRES);
-		info->data.temp_neg_10_thres = TEMP_NEG_10_THRES;
-	}
-
-	/* battery temperature protection */
-	info->thermal.sm = BAT_TEMP_NORMAL;
-	info->thermal.enable_min_charge_temp =
-		of_property_read_bool(np, "enable_min_charge_temp");
-
-	if (of_property_read_u32(np, "min_charge_temp", &val) >= 0)
-		info->thermal.min_charge_temp = val;
-	else {
-		chr_err("use default MIN_CHARGE_TEMP:%d\n",
-			MIN_CHARGE_TEMP);
-		info->thermal.min_charge_temp = MIN_CHARGE_TEMP;
-	}
-
-	if (of_property_read_u32(np, "min_charge_temp_plus_x_degree", &val)
-	    >= 0) {
-		info->thermal.min_charge_temp_plus_x_degree = val;
-	} else {
-		chr_err("use default MIN_CHARGE_TEMP_PLUS_X_DEGREE:%d\n",
-			MIN_CHARGE_TEMP_PLUS_X_DEGREE);
-		info->thermal.min_charge_temp_plus_x_degree =
-					MIN_CHARGE_TEMP_PLUS_X_DEGREE;
-	}
-
-	if (of_property_read_u32(np, "max_charge_temp", &val) >= 0)
-		info->thermal.max_charge_temp = val;
-	else {
-		chr_err("use default MAX_CHARGE_TEMP:%d\n",
-			MAX_CHARGE_TEMP);
-		info->thermal.max_charge_temp = MAX_CHARGE_TEMP;
-	}
-
-	if (of_property_read_u32(np, "max_charge_temp_minus_x_degree", &val)
-	    >= 0) {
-		info->thermal.max_charge_temp_minus_x_degree = val;
-	} else {
-		chr_err("use default MAX_CHARGE_TEMP_MINUS_X_DEGREE:%d\n",
-			MAX_CHARGE_TEMP_MINUS_X_DEGREE);
-		info->thermal.max_charge_temp_minus_x_degree =
-					MAX_CHARGE_TEMP_MINUS_X_DEGREE;
-	}
-
-	/* PE */
-	info->data.ta_12v_support = of_property_read_bool(np, "ta_12v_support");
-	info->data.ta_9v_support = of_property_read_bool(np, "ta_9v_support");
-
-	if (of_property_read_u32(np, "pe_ichg_level_threshold", &val) >= 0)
-		info->data.pe_ichg_level_threshold = val;
-	else {
-		chr_err("use default PE_ICHG_LEAVE_THRESHOLD:%d\n",
-			PE_ICHG_LEAVE_THRESHOLD);
-		info->data.pe_ichg_level_threshold = PE_ICHG_LEAVE_THRESHOLD;
-	}
-
-	if (of_property_read_u32(np, "ta_ac_12v_input_current", &val) >= 0)
-		info->data.ta_ac_12v_input_current = val;
-	else {
-		chr_err("use default TA_AC_12V_INPUT_CURRENT:%d\n",
-			TA_AC_12V_INPUT_CURRENT);
-		info->data.ta_ac_12v_input_current = TA_AC_12V_INPUT_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "ta_ac_9v_input_current", &val) >= 0)
-		info->data.ta_ac_9v_input_current = val;
-	else {
-		chr_err("use default TA_AC_9V_INPUT_CURRENT:%d\n",
-			TA_AC_9V_INPUT_CURRENT);
-		info->data.ta_ac_9v_input_current = TA_AC_9V_INPUT_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "ta_ac_7v_input_current", &val) >= 0)
-		info->data.ta_ac_7v_input_current = val;
-	else {
-		chr_err("use default TA_AC_7V_INPUT_CURRENT:%d\n",
-			TA_AC_7V_INPUT_CURRENT);
-		info->data.ta_ac_7v_input_current = TA_AC_7V_INPUT_CURRENT;
-	}
-
-	/* PE 2.0 */
-	if (of_property_read_u32(np, "pe20_ichg_level_threshold", &val) >= 0)
-		info->data.pe20_ichg_level_threshold = val;
-	else {
-		chr_err("use default PE20_ICHG_LEAVE_THRESHOLD:%d\n",
-			PE20_ICHG_LEAVE_THRESHOLD);
-		info->data.pe20_ichg_level_threshold =
-						PE20_ICHG_LEAVE_THRESHOLD;
-	}
-
-	if (of_property_read_u32(np, "ta_start_battery_soc", &val) >= 0)
-		info->data.ta_start_battery_soc = val;
-	else {
-		chr_err("use default TA_START_BATTERY_SOC:%d\n",
-			TA_START_BATTERY_SOC);
-		info->data.ta_start_battery_soc = TA_START_BATTERY_SOC;
-	}
-
-	if (of_property_read_u32(np, "ta_stop_battery_soc", &val) >= 0)
-		info->data.ta_stop_battery_soc = val;
-	else {
-		chr_err("use default TA_STOP_BATTERY_SOC:%d\n",
-			TA_STOP_BATTERY_SOC);
-		info->data.ta_stop_battery_soc = TA_STOP_BATTERY_SOC;
-	}
-
-	/* PE 4.0 */
-	if (of_property_read_u32(np, "high_temp_to_leave_pe40", &val) >= 0) {
-		info->data.high_temp_to_leave_pe40 = val;
-	} else {
-		chr_err("use default high_temp_to_leave_pe40:%d\n",
-			HIGH_TEMP_TO_LEAVE_PE40);
-		info->data.high_temp_to_leave_pe40 = HIGH_TEMP_TO_LEAVE_PE40;
-	}
-
-	if (of_property_read_u32(np, "high_temp_to_enter_pe40", &val) >= 0) {
-		info->data.high_temp_to_enter_pe40 = val;
-	} else {
-		chr_err("use default high_temp_to_enter_pe40:%d\n",
-			HIGH_TEMP_TO_ENTER_PE40);
-		info->data.high_temp_to_enter_pe40 = HIGH_TEMP_TO_ENTER_PE40;
-	}
-
-	if (of_property_read_u32(np, "low_temp_to_leave_pe40", &val) >= 0) {
-		info->data.low_temp_to_leave_pe40 = val;
-	} else {
-		chr_err("use default low_temp_to_leave_pe40:%d\n",
-			LOW_TEMP_TO_LEAVE_PE40);
-		info->data.low_temp_to_leave_pe40 = LOW_TEMP_TO_LEAVE_PE40;
-	}
-
-	if (of_property_read_u32(np, "low_temp_to_enter_pe40", &val) >= 0) {
-		info->data.low_temp_to_enter_pe40 = val;
-	} else {
-		chr_err("use default low_temp_to_enter_pe40:%d\n",
-			LOW_TEMP_TO_ENTER_PE40);
-		info->data.low_temp_to_enter_pe40 = LOW_TEMP_TO_ENTER_PE40;
-	}
-
-	/* PE 4.0 single */
-	if (of_property_read_u32(np,
-		"pe40_single_charger_input_current", &val) >= 0) {
-		info->data.pe40_single_charger_input_current = val;
-	} else {
-		chr_err("use default pe40_single_charger_input_current:%d\n",
-			3000);
-		info->data.pe40_single_charger_input_current = 3000;
-	}
-
-	if (of_property_read_u32(np, "pe40_single_charger_current", &val)
-	    >= 0) {
-		info->data.pe40_single_charger_current = val;
-	} else {
-		chr_err("use default pe40_single_charger_current:%d\n", 3000);
-		info->data.pe40_single_charger_current = 3000;
-	}
-
-	/* PE 4.0 dual */
-	if (of_property_read_u32(np, "pe40_dual_charger_input_current", &val)
-	    >= 0) {
-		info->data.pe40_dual_charger_input_current = val;
-	} else {
-		chr_err("use default pe40_dual_charger_input_current:%d\n",
-			3000);
-		info->data.pe40_dual_charger_input_current = 3000;
-	}
-
-	if (of_property_read_u32(np, "pe40_dual_charger_chg1_current", &val)
-	    >= 0) {
-		info->data.pe40_dual_charger_chg1_current = val;
-	} else {
-		chr_err("use default pe40_dual_charger_chg1_current:%d\n",
-			2000);
-		info->data.pe40_dual_charger_chg1_current = 2000;
-	}
-
-	if (of_property_read_u32(np, "pe40_dual_charger_chg2_current", &val)
-	    >= 0) {
-		info->data.pe40_dual_charger_chg2_current = val;
-	} else {
-		chr_err("use default pe40_dual_charger_chg2_current:%d\n",
-			2000);
-		info->data.pe40_dual_charger_chg2_current = 2000;
-	}
-
-	if (of_property_read_u32(np, "dual_polling_ieoc", &val) >= 0)
-		info->data.dual_polling_ieoc = val;
-	else {
-		chr_err("use default dual_polling_ieoc :%d\n", 750000);
-		info->data.dual_polling_ieoc = 750000;
-	}
-
-	if (of_property_read_u32(np, "pe40_stop_battery_soc", &val) >= 0)
-		info->data.pe40_stop_battery_soc = val;
-	else {
-		chr_err("use default pe40_stop_battery_soc:%d\n", 80);
-		info->data.pe40_stop_battery_soc = 80;
-	}
-
-	if (of_property_read_u32(np, "pe40_max_vbus", &val) >= 0)
-		info->data.pe40_max_vbus = val;
-	else {
-		chr_err("use default pe40_max_vbus:%d\n", PE40_MAX_VBUS);
-		info->data.pe40_max_vbus = PE40_MAX_VBUS;
-	}
-
-	if (of_property_read_u32(np, "pe40_max_ibus", &val) >= 0)
-		info->data.pe40_max_ibus = val;
-	else {
-		chr_err("use default pe40_max_ibus:%d\n", PE40_MAX_IBUS);
-		info->data.pe40_max_ibus = PE40_MAX_IBUS;
-	}
-
-	/* PE 4.0 cable impedance (mohm) */
-	if (of_property_read_u32(np, "pe40_r_cable_1a_lower", &val) >= 0)
-		info->data.pe40_r_cable_1a_lower = val;
-	else {
-		chr_err("use default pe40_r_cable_1a_lower:%d\n", 530);
-		info->data.pe40_r_cable_1a_lower = 530;
-	}
-
-	if (of_property_read_u32(np, "pe40_r_cable_2a_lower", &val) >= 0)
-		info->data.pe40_r_cable_2a_lower = val;
-	else {
-		chr_err("use default pe40_r_cable_2a_lower:%d\n", 390);
-		info->data.pe40_r_cable_2a_lower = 390;
-	}
-
-	if (of_property_read_u32(np, "pe40_r_cable_3a_lower", &val) >= 0)
-		info->data.pe40_r_cable_3a_lower = val;
-	else {
-		chr_err("use default pe40_r_cable_3a_lower:%d\n", 252);
-		info->data.pe40_r_cable_3a_lower = 252;
-	}
-
-	/* PD */
-	if (of_property_read_u32(np, "pd_vbus_upper_bound", &val) >= 0) {
-		info->data.pd_vbus_upper_bound = val;
-	} else {
-		chr_err("use default pd_vbus_upper_bound:%d\n",
-			PD_VBUS_UPPER_BOUND);
-		info->data.pd_vbus_upper_bound = PD_VBUS_UPPER_BOUND;
-	}
-
-	if (of_property_read_u32(np, "pd_vbus_low_bound", &val) >= 0) {
-		info->data.pd_vbus_low_bound = val;
-	} else {
-		chr_err("use default pd_vbus_low_bound:%d\n",
-			PD_VBUS_LOW_BOUND);
-		info->data.pd_vbus_low_bound = PD_VBUS_LOW_BOUND;
-	}
-
-	if (of_property_read_u32(np, "pd_ichg_level_threshold", &val) >= 0)
-		info->data.pd_ichg_level_threshold = val;
-	else {
-		chr_err("use default pd_ichg_level_threshold:%d\n",
-			PD_ICHG_LEAVE_THRESHOLD);
-		info->data.pd_ichg_level_threshold = PD_ICHG_LEAVE_THRESHOLD;
-	}
-
-	if (of_property_read_u32(np, "pd_stop_battery_soc", &val) >= 0)
-		info->data.pd_stop_battery_soc = val;
-	else {
-		chr_err("use default pd_stop_battery_soc:%d\n",
-			PD_STOP_BATTERY_SOC);
-		info->data.pd_stop_battery_soc = PD_STOP_BATTERY_SOC;
-	}
-
-	if (of_property_read_u32(np, "vsys_watt", &val) >= 0) {
-		info->data.vsys_watt = val;
-	} else {
-		chr_err("use default vsys_watt:%d\n",
-			VSYS_WATT);
-		info->data.vsys_watt = VSYS_WATT;
-	}
-
-	if (of_property_read_u32(np, "ibus_err", &val) >= 0) {
-		info->data.ibus_err = val;
-	} else {
-		chr_err("use default ibus_err:%d\n",
-			IBUS_ERR);
-		info->data.ibus_err = IBUS_ERR;
-	}
-
-	/* dual charger */
-	if (of_property_read_u32(np, "chg1_ta_ac_charger_current", &val) >= 0)
-		info->data.chg1_ta_ac_charger_current = val;
-	else {
-		chr_err("use default TA_AC_MASTER_CHARGING_CURRENT:%d\n",
-			TA_AC_MASTER_CHARGING_CURRENT);
-		info->data.chg1_ta_ac_charger_current =
-						TA_AC_MASTER_CHARGING_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "chg2_ta_ac_charger_current", &val) >= 0)
-		info->data.chg2_ta_ac_charger_current = val;
-	else {
-		chr_err("use default TA_AC_SLAVE_CHARGING_CURRENT:%d\n",
-			TA_AC_SLAVE_CHARGING_CURRENT);
-		info->data.chg2_ta_ac_charger_current =
-						TA_AC_SLAVE_CHARGING_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "slave_mivr_diff", &val) >= 0)
-		info->data.slave_mivr_diff = val;
-	else {
-		chr_err("use default SLAVE_MIVR_DIFF:%d\n", SLAVE_MIVR_DIFF);
-		info->data.slave_mivr_diff = SLAVE_MIVR_DIFF;
-	}
-
-	/* slave charger */
-	if (of_property_read_u32(np, "chg2_eff", &val) >= 0)
-		info->data.chg2_eff = val;
-	else {
-		chr_err("use default CHG2_EFF:%d\n", CHG2_EFF);
-		info->data.chg2_eff = CHG2_EFF;
-	}
-
-	info->data.parallel_vbus = of_property_read_bool(np, "parallel_vbus");
-
-	/* cable measurement impedance */
-	if (of_property_read_u32(np, "cable_imp_threshold", &val) >= 0)
-		info->data.cable_imp_threshold = val;
-	else {
-		chr_err("use default CABLE_IMP_THRESHOLD:%d\n",
-			CABLE_IMP_THRESHOLD);
-		info->data.cable_imp_threshold = CABLE_IMP_THRESHOLD;
-	}
-
-	if (of_property_read_u32(np, "vbat_cable_imp_threshold", &val) >= 0)
-		info->data.vbat_cable_imp_threshold = val;
-	else {
-		chr_err("use default VBAT_CABLE_IMP_THRESHOLD:%d\n",
-			VBAT_CABLE_IMP_THRESHOLD);
-		info->data.vbat_cable_imp_threshold = VBAT_CABLE_IMP_THRESHOLD;
-	}
-
-	/* BIF */
-	if (of_property_read_u32(np, "bif_threshold1", &val) >= 0)
-		info->data.bif_threshold1 = val;
-	else {
-		chr_err("use default BIF_THRESHOLD1:%d\n",
-			BIF_THRESHOLD1);
-		info->data.bif_threshold1 = BIF_THRESHOLD1;
-	}
-
-	if (of_property_read_u32(np, "bif_threshold2", &val) >= 0)
-		info->data.bif_threshold2 = val;
-	else {
-		chr_err("use default BIF_THRESHOLD2:%d\n",
-			BIF_THRESHOLD2);
-		info->data.bif_threshold2 = BIF_THRESHOLD2;
-	}
-
-	if (of_property_read_u32(np, "bif_cv_under_threshold2", &val) >= 0)
-		info->data.bif_cv_under_threshold2 = val;
-	else {
-		chr_err("use default BIF_CV_UNDER_THRESHOLD2:%d\n",
-			BIF_CV_UNDER_THRESHOLD2);
-		info->data.bif_cv_under_threshold2 = BIF_CV_UNDER_THRESHOLD2;
-	}
-
-	info->data.power_path_support =
-				of_property_read_bool(np, "power_path_support");
-	chr_debug("%s: power_path_support: %d\n",
-		__func__, info->data.power_path_support);
-
-	if (of_property_read_u32(np, "max_charging_time", &val) >= 0)
-		info->data.max_charging_time = val;
-	else {
-		chr_err("use default MAX_CHARGING_TIME:%d\n",
-			MAX_CHARGING_TIME);
-		info->data.max_charging_time = MAX_CHARGING_TIME;
-	}
-
-	if (of_property_read_u32(np, "bc12_charger", &val) >= 0)
-		info->data.bc12_charger = val;
-	else {
-		chr_err("use default BC12_CHARGER:%d\n",
-			DEFAULT_BC12_CHARGER);
-		info->data.bc12_charger = DEFAULT_BC12_CHARGER;
-	}
-
 	if (strcmp(info->algorithm_name, "SwitchCharging2") == 0) {
 		chr_err("found SwitchCharging2\n");
-		mtk_switch_charging_init2(info);
+		mtk_switch_charging_init(info);
 	}
-
-	if (of_property_read_u32(np, "sc_battery_size", &val) >= 0)
-		info->sc.battery_size = val;
-	else {
-		chr_err("use default sc_battery_size:%d\n",
-			SC_BATTERY_SIZE);
-		info->sc.battery_size = SC_BATTERY_SIZE;
-	}
-
-	if (of_property_read_u32(np, "sc_cv_time", &val) >= 0)
-		info->sc.left_time_for_cv = val;
-	else {
-		chr_err("use default sc_cv_time:%d\n",
-			SC_CV_TIME);
-		info->sc.left_time_for_cv = SC_CV_TIME;
-	}
-
-	if (of_property_read_u32(np, "sc_current_limit", &val) >= 0)
-		info->sc.current_limit = val;
-	else {
-		chr_err("use default sc_current_limit:%d\n",
-			SC_CURRENT_LIMIT);
-		info->sc.current_limit = SC_CURRENT_LIMIT;
-	}
-
-	chr_err("algorithm name:%s\n", info->algorithm_name);
 
 	return 0;
 }
@@ -2962,6 +3393,22 @@ static ssize_t show_ADC_Charger_Voltage(struct device *dev,
 
 static DEVICE_ATTR(ADC_Charger_Voltage, 0444, show_ADC_Charger_Voltage, NULL);
 
+static ssize_t show_thermal_limit(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	u8 tmpbuf[150];
+	int thermal_level = 0, len = 0, idx = 0;
+
+	idx = snprintf(buf, PAGE_SIZE, "%s:\n", "THERMAL_LIMIT");
+	for (thermal_level = 0; thermal_level <= 15; thermal_level++) {
+		len = snprintf(tmpbuf, PAGE_SIZE - idx, "level[%d] = %d\n", thermal_level, pinfo->thermal_limit[5][thermal_level]);
+		memcpy(&buf[idx], tmpbuf, len);
+		idx += len;
+	}
+
+	return idx;
+}
+
+static DEVICE_ATTR(thermal_limit, 0444, show_thermal_limit, NULL);
 /* procfs */
 static int mtk_chg_current_cmd_show(struct seq_file *m, void *data)
 {
@@ -3162,6 +3609,7 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 		goto _out;
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_chg2_current);
+	ret = device_create_file(&(pdev->dev), &dev_attr_thermal_limit);
 	if (ret)
 		goto _out;
 
@@ -3185,6 +3633,9 @@ _out:
 void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 	void *val)
 {
+	if (!check_usb_psy())
+		return;
+
 	chr_err("%s %d %d\n", __func__, type, evt);
 	switch (type) {
 	case MTK_PD_ADAPTER:
@@ -3193,7 +3644,11 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 			mutex_lock(&pinfo->charger_pd_lock);
 			chr_err("PD Notify Detach\n");
 			pinfo->pd_type = MTK_PD_CONNECT_NONE;
+			pinfo->pd_adapter->vdm_data.current_auth = 0;
 			mutex_unlock(&pinfo->charger_pd_lock);
+			charger_dev_update_chgtype(pinfo->chg2_dev, XMUSB350_TYPE_UNKNOW);
+			charger_dev_cp_reset_check(pinfo->cp_master);
+			charger_dev_cp_reset_check(pinfo->cp_slave);
 			/* reset PE40 */
 			break;
 
@@ -3213,6 +3668,7 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 			pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK;
 			mutex_unlock(&pinfo->charger_pd_lock);
 			/* PD is ready */
+			charger_dev_update_chgtype(pinfo->chg2_dev, XMUSB350_TYPE_PD);
 			break;
 
 		case MTK_PD_CONNECT_PE_READY_SNK_PD30:
@@ -3221,6 +3677,8 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 			pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_PD30;
 			mutex_unlock(&pinfo->charger_pd_lock);
 			/* PD30 is ready */
+			charger_dev_update_chgtype(pinfo->chg2_dev, XMUSB350_TYPE_PD);
+			_wake_up_charger(pinfo);
 			break;
 
 		case MTK_PD_CONNECT_PE_READY_SNK_APDO:
@@ -3228,6 +3686,7 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 			chr_err("PD Notify APDO Ready\n");
 			pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_APDO;
 			mutex_unlock(&pinfo->charger_pd_lock);
+			//charger_dev_update_chgtype(pinfo->chg2_dev, XMUSB350_TYPE_PD);
 			/* PE40 is ready */
 			_wake_up_charger(pinfo);
 			break;
@@ -3261,9 +3720,20 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 				atomic_set(&pinfo->enable_kpoc_shdn, 0);
 			mutex_unlock(&pinfo->charger_pd_lock);
 			break;
+		case MTK_PD_UVDM:
+			mutex_lock(&pinfo->charger_pd_lock);
+			usbpd_mi_vdm_received_cb(*(struct tcp_ny_uvdm *)val);
+			mutex_unlock(&pinfo->charger_pd_lock);
+			break;
+		case MTK_PD_CONNECT_SOFT_RESET:
+			mutex_lock(&pinfo->charger_pd_lock);
+			chr_err("PD Notify SoftReset\n");
+			pinfo->pd_soft_reset = true;
+			mutex_unlock(&pinfo->charger_pd_lock);
+			break;
 		};
 	}
-	mtk_pe50_notifier_call(pinfo, MTK_PE50_NOTISRC_TCP, evt, val);
+	//mtk_pe50_notifier_call(pinfo, MTK_PE50_NOTISRC_TCP, evt, val);
 }
 
 static int proc_dump_log_show(struct seq_file *m, void *v)
@@ -3894,12 +4364,99 @@ static ssize_t store_sc_test(
 static DEVICE_ATTR(sc_test, 0664,
 	show_sc_test, store_sc_test);
 
+static void usbpd_mi_vdm_received_cb(struct tcp_ny_uvdm uvdm)
+{
+	int i, cmd;
+
+	if (uvdm.uvdm_svid != USB_PD_MI_SVID) {
+		pr_info("SVID don't match XIAOMI: %x\n", uvdm.uvdm_svid);
+		return;
+	}
+
+	cmd = UVDM_HDR_CMD(uvdm.uvdm_data[0]);
+	pr_info("cmd: %d, uvdm.ack: %d, uvdm.uvdm_cnt: %d, uvdm.uvdm_svid: 0x%04x\n", cmd, uvdm.ack, uvdm.uvdm_cnt, uvdm.uvdm_svid);
+
+	switch (cmd) {
+	case USBPD_UVDM_CHARGER_VERSION:
+		pinfo->pd_adapter->vdm_data.ta_version = uvdm.uvdm_data[1];
+		pr_info("ta_version:%x\n", pinfo->pd_adapter->vdm_data.ta_version);
+		break;
+	case USBPD_UVDM_CHARGER_TEMP:
+		pinfo->pd_adapter->vdm_data.ta_temp = (uvdm.uvdm_data[1] & 0xFFFF) * 10;
+		pr_info("pinfo->pd_adapter->vdm_data.ta_temp:%d\n", pinfo->pd_adapter->vdm_data.ta_temp);
+		break;
+	case USBPD_UVDM_CHARGER_VOLTAGE:
+		pinfo->pd_adapter->vdm_data.ta_voltage = (uvdm.uvdm_data[1] & 0xFFFF) * 10;
+		pinfo->pd_adapter->vdm_data.ta_voltage *= 1000;
+		pr_info("ta_voltage:%d\n", pinfo->pd_adapter->vdm_data.ta_voltage);
+		break;
+	case USBPD_UVDM_SESSION_SEED:
+		for (i = 0; i < USBPD_UVDM_SS_LEN; i++) {
+			pinfo->pd_adapter->vdm_data.s_secert[i] = uvdm.uvdm_data[i+1];
+			pr_info("usbpd s_secert uvdm.uvdm_data[%d]=0x%x", i+1, uvdm.uvdm_data[i+1]);
+		}
+		break;
+	case USBPD_UVDM_AUTHENTICATION:
+		for (i = 0; i < USBPD_UVDM_SS_LEN; i++) {
+			pinfo->pd_adapter->vdm_data.digest[i] = uvdm.uvdm_data[i+1];
+			pr_info("usbpd digest[%d]=0x%x", i+1, uvdm.uvdm_data[i+1]);
+		}
+		break;
+	case USBPD_UVDM_REVERSE_AUTHEN:
+		pinfo->pd_adapter->vdm_data.reauth = (uvdm.uvdm_data[1] & 0xFFFF);
+		break;
+	case USBPD_UVDM_10A_AUTHEN:
+		pinfo->pd_adapter->vdm_data.current_auth = 1;
+		break;
+	default:
+		break;
+	}
+
+	pinfo->pd_adapter->uvdm_state = cmd;
+}
+
+static void mtk_charger_parse_cmdline(void)
+{
+	char *ruby = NULL, *rubypro = NULL, *rubyplus = NULL;
+	const char *sku = get_hw_sku();
+
+	ruby = strnstr(sku, "ruby", strlen(sku));
+	rubypro = strnstr(sku, "rubypro", strlen(sku));
+	rubyplus = strnstr(sku, "rubyplus", strlen(sku));
+
+	if (rubyplus)
+		product_name = RUBYPLUS;
+	else if (rubypro)
+		product_name = RUBYPRO;
+	else if (ruby)
+		product_name = RUBY;
+
+	chr_info("product_name = %d, ruby = %d, rubypro = %d, rubyplus = %d\n", product_name, ruby ? 1 : 0, rubypro ? 1 : 0, rubyplus ? 1 : 0);
+}
+
+static const struct platform_device_id mtk_charger_id[] = {
+	{ "ruby_charger", RUBY },
+	{ "rubypro_charger", RUBYPRO },
+	{ "rubyplus_charger", RUBYPLUS },
+	{},
+};
+MODULE_DEVICE_TABLE(platform, mtk_charger_id);
+
+static const struct of_device_id mtk_charger_of_match[] = {
+	{.compatible = "ruby_charger", .data = &mtk_charger_id[0], },
+	{.compatible = "rubypro_charger", .data = &mtk_charger_id[1], },
+	{.compatible = "rubyplus_charger", .data = &mtk_charger_id[2], },
+	{},
+};
+MODULE_DEVICE_TABLE(of, mtk_charger_of_match);
+
 static int mtk_charger_probe(struct platform_device *pdev)
 {
 	struct charger_manager *info = NULL;
 	struct list_head *pos = NULL;
 	struct list_head *phead = &consumer_head;
 	struct charger_consumer *ptr = NULL;
+	const struct of_device_id *of_id;
 	int i, ret;
 	int ret_device_file;
 	struct netlink_kernel_cfg cfg = {
@@ -3909,9 +4466,20 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	struct device_node *boot_node = NULL;
 	struct tag_bootmode *tag = NULL;
 	int boot_mode = 11;//UNKNOWN_BOOT
-	
+
 	chr_err("%s: starts\n", __func__);
-	
+	mtk_charger_parse_cmdline();
+
+	of_id = of_match_device(mtk_charger_of_match, &pdev->dev);
+	pdev->id_entry = of_id->data;
+
+	if (pdev->id_entry->driver_data == product_name) {
+		chr_info("CHARGE_ALG probe start\n");
+	} else {
+		chr_info("driver_data and product_name not match, don't probe, %d\n", pdev->id_entry->driver_data);
+		return -ENODEV;
+	}
+
 	// workaround for mt6768 
 	//int boot_mode = get_boot_mode();
 	dev = &(pdev->dev);
@@ -3930,15 +4498,30 @@ static int mtk_charger_probe(struct platform_device *pdev)
 				boot_mode = tag->bootmode;
 		}
 	}
-	
+
 	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info)
 		return -ENOMEM;
 	pinfo = info;
-	
+
 	platform_set_drvdata(pdev, info);
 	info->pdev = pdev;
+	info->diff_fv_val = 0;
+	info->night_charging = false;
+
+	if (product_name == RUBYPLUS){
+		info->data.bc12_charger = 2; // BC12 usb xm350
+	}else{
+		info->data.bc12_charger = 1; // BC12 usb mt6360
+	}
+
 	mtk_charger_parse_dt(info, &pdev->dev);
+
+	if (!mtk_check_votable(info))
+		chr_err("failed to check votable\n");
+
+	if (!mtk_check_psy(info))
+		chr_err("failed to check psy\n");
 
 	mutex_init(&info->charger_lock);
 	mutex_init(&info->charger_pd_lock);
@@ -3951,7 +4534,13 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	/*work around for mt6768*/
 	atomic_set(&info->enable_kpoc_shdn, 1);
 	info->charger_wakelock = wakeup_source_register(NULL, "charger suspend wakelock");
+	info->attach_wakelock = wakeup_source_register(NULL, "attach_wakelock");
+	info->typec_burn_wakelock = wakeup_source_register(NULL, "typec_burn_wakelock");
 	spin_lock_init(&info->slock);
+
+	ret = step_jeita_init(info, &pdev->dev, product_name);
+	if (ret)
+		chr_err("failed to init step_jeita\n");
 
 	/* init thread */
 	init_waitqueue_head(&info->wait_que);
@@ -3967,6 +4556,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->dvchg2_data.thermal_input_current_limit = -1;
 
 	info->sw_jeita.error_recovery_flag = true;
+	info->sic_current = info->max_fcc;
 
 	mtk_charger_init_timer(info);
 	info->is_pdc_run = false;
@@ -3994,7 +4584,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	else
 		chr_err("*** Error : can't find PD adapter ***\n");
 
-	if (mtk_pe_init(info) < 0)
+	/*if (mtk_pe_init(info) < 0)
 		info->enable_pe_plus = false;
 
 	if (mtk_pe20_init(info) < 0)
@@ -4004,7 +4594,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 		info->enable_pe_4 = false;
 
 	if (mtk_pe50_init(info) < 0)
-		info->enable_pe_5 = false;
+		info->enable_pe_5 = false;*/
 
 	mtk_pdc_init(info);
 	charger_ftm_init();
@@ -4090,13 +4680,6 @@ static void mtk_charger_shutdown(struct platform_device *dev)
 	}
 }
 
-static const struct of_device_id mtk_charger_of_match[] = {
-	{.compatible = "mediatek,charger",},
-	{},
-};
-
-MODULE_DEVICE_TABLE(of, mtk_charger_of_match);
-
 struct platform_device charger_device = {
 	.name = "charger",
 	.id = -1,
@@ -4106,6 +4689,7 @@ static struct platform_driver charger_driver = {
 	.probe = mtk_charger_probe,
 	.remove = mtk_charger_remove,
 	.shutdown = mtk_charger_shutdown,
+	.id_table = mtk_charger_id,
 	.driver = {
 		   .name = "charger",
 		   .of_match_table = mtk_charger_of_match,

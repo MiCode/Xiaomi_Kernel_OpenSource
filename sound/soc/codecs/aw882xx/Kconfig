@@ -1,0 +1,4 @@
+config SND_SMARTPA_AW882XX
+	tristate "SoC Audio for awinic aw882xxseries"
+	depends on I2C
+	help

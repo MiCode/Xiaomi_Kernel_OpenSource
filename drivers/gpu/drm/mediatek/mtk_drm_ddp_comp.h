@@ -241,7 +241,33 @@ enum mtk_ddp_io_cmd {
 	DSI_LFR_STATUS_CHECK,
 	WDMA_WRITE_DST_ADDR0,
 	WDMA_READ_DST_SIZE,
+#ifdef CONFIG_MI_DISP
+	MI_DSI_READ_DDIC_CMD,
+	MI_SET_BL_BY_I2C,
+	MI_SET_DC_CRC,
+	MI_SET_DC_CRC_OFF,
+	MI_GET_DC_STATUS,
+	MI_SET_DC_BACKLIGHT,
+	MI_SET_DC_THRESHOLD,
+	MI_SET_BACKLIGHT_DIMMING,
+	MI_RESTORE_CRC_LEVEL,
+	MI_SET_DC_CRC_BL_PACK,
+#endif
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	ESD_RESTORE_BACKLIGHT,
+	MI_DISP_ESD_CHECK_READ,
+	MI_DISP_ESD_CHECK_CMP,
+#endif
 };
+
+#ifdef CONFIG_MI_DISP
+struct mi_dc_crc_config {
+	int coef0;
+	int coef1;
+	int brightness;
+	int dc_threshold;
+};
+#endif
 
 struct golden_setting_context {
 	unsigned int is_vdo_mode;
@@ -336,6 +362,7 @@ struct mtk_ddp_comp {
 	u32 qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;
+	struct mutex panel_lock;
 };
 
 static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,
@@ -413,10 +440,10 @@ static inline void mtk_ddp_comp_layer_config(struct mtk_ddp_comp *comp,
 {
 	if (comp && comp->funcs && comp->funcs->layer_config &&
 			!comp->blank_mode) {
-		DDPDBG("[DRM]func:%s, line:%d ==>\n",
-			__func__, __LINE__);
-		DDPDBG("comp_funcs:0x%p, layer_config:0x%p\n",
-			comp->funcs, comp->funcs->layer_config);
+		// DDPDBG("[DRM]func:%s, line:%d ==>\n",
+		// 	__func__, __LINE__);
+		// DDPDBG("comp_funcs:0x%p, layer_config:0x%p\n",
+		// 	comp->funcs, comp->funcs->layer_config);
 
 		comp->funcs->layer_config(comp, idx, state, handle);
 	}

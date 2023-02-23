@@ -18,6 +18,10 @@ struct GPIO_PINCTRL gpio_pinctrl_list_cam[
 	{"ldo_vcama1_1"},
 	{"ldo_vcama1_0"},
 #endif
+#if defined(IMGSENSOR_MT6781) || defined(IMGSENSOR_MT6877)
+    {"ldo_vcamaf_1"},
+    {"ldo_vcamaf_0"},
+#endif
 	{"ldo_vcamd_1"},
 	{"ldo_vcamd_0"},
 	{"ldo_vcamio_1"},

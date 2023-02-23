@@ -1799,12 +1799,11 @@ void clk_buf_post_init(void)
 #endif
 #endif
 
-//XO_NFC as 6382 26M CLK, so can't disable clk for 6382 project
-/*#ifndef CONFIG_MTK_NFC_CLKBUF_ENABLE
-	clk_buf_ctrl_internal(CLK_BUF_NFC, CLK_BUF_FORCE_OFF);
-	CLK_BUF3_STATUS = CLOCK_BUFFER_DISABLE;
+//XO_NFC as 6877 26M CLK, enbale clk for 6877 project
+#ifdef CONFIG_MTK_NFC_CLKBUF_ENABLE
+	clk_buf_ctrl_internal(CLK_BUF_NFC, CLK_BUF_FORCE_ON);
+	CLK_BUF3_STATUS = CLOCK_BUFFER_SW_CONTROL;
 #endif
-*/
 
 #ifdef CLKBUF_USE_BBLPM
 	if (bblpm_switch == 2) {

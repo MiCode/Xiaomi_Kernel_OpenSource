@@ -178,6 +178,9 @@ int mtk_scp_ultra_allocate_mem(struct snd_pcm_substream *substream,
 	if (memif->using_sram == 0 && afe->request_dram_resource)
 		afe->request_dram_resource(afe->dev);
 
+	*phys_addr = ultra_dma_buf->addr;
+	*virt_addr = ultra_dma_buf->area;
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_scp_ultra_allocate_mem);

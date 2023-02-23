@@ -1448,70 +1448,8 @@ void set_scp_mpu(void)
 }
 #endif
 
-void scp_register_feature(enum feature_id id)
-{
-	int ret = 0;
 
-	/*prevent from access when scp is down*/
-	if (!scp_ready[SCP_A_ID]) {
-		pr_debug("[SCP] %s: not ready, scp=%u\n", __func__,
-			scp_ready[SCP_A_ID]);
-		return;
-	}
-
-	/* prevent from access when scp dvfs cali isn't done */
-	if (!scp_dvfs_cali_ready) {
-		pr_debug("[SCP] %s: dvfs cali not ready, scp_dvfs_cali=%u\n",
-		__func__, scp_dvfs_cali_ready);
-		return;
-	}
-
-	if (id < 0 || id >= NUM_FEATURE_ID) {
-		pr_notice("[SCP] %s, invalid feature id:%u, max id:%u\n",
-			__func__, id, NUM_FEATURE_ID - 1);
-		return;
-	}
-	/* because feature_table is a global variable,
-	 * use mutex lock to protect it from accessing in the same time
-	 */
-	mutex_lock(&scp_feature_mutex);
-
-	feature_table[id].enable = 1;
-	if (scp_dvfs_feature_enable())
-		scp_expected_freq = scp_get_freq();
-
-	scp_current_freq = readl(CURRENT_FREQ_REG);
-#if SCP_RESERVED_MEM && IS_ENABLED(CONFIG_OF_RESERVED_MEM)
-	/* if secure_dump is enabled, expected_freq is sent in scp_request_freq() */
-	if (!scpreg.secure_dump) {
-#else
-	{
-#endif
-	writel(scp_expected_freq, EXPECTED_FREQ_REG);
-	}
-
-	/* send request only when scp is not down */
-	if (scp_ready[SCP_A_ID]) {
-		if (scp_current_freq != scp_expected_freq) {
-			if (scp_dvfs_feature_enable()) {
-				/* set scp freq. */
-				ret = scp_request_freq();
-				if (ret == -1) {
-					pr_notice("[SCP]%s request_freq fail\n", __func__);
-					WARN_ON(1);
-				}
-			}
-		}
-	} else {
-		pr_notice("[SCP]Not send SCP DVFS request because SCP is down\n");
-		WARN_ON(1);
-	}
-
-	mutex_unlock(&scp_feature_mutex);
-}
-EXPORT_SYMBOL_GPL(scp_register_feature);
-
-void scp_deregister_feature(enum feature_id id)
+static void scp_control_feature(enum feature_id id, bool enable)
 {
 	int ret = 0;
 
@@ -1536,7 +1474,7 @@ void scp_deregister_feature(enum feature_id id)
 	}
 	mutex_lock(&scp_feature_mutex);
 
-	feature_table[id].enable = 0;
+	feature_table[id].enable = enable;
 
 	if (scp_dvfs_feature_enable())
 		scp_expected_freq = scp_get_freq();
@@ -1570,10 +1508,21 @@ void scp_deregister_feature(enum feature_id id)
 
 	mutex_unlock(&scp_feature_mutex);
 }
+
+void scp_register_feature(enum feature_id id)
+{
+	scp_control_feature(id, true);
+}
+EXPORT_SYMBOL_GPL(scp_register_feature);
+
+void scp_deregister_feature(enum feature_id id)
+{
+	scp_control_feature(id, false);
+}
 EXPORT_SYMBOL_GPL(scp_deregister_feature);
 
 /*scp sensor type register*/
-void scp_register_sensor(enum feature_id id, enum scp_sensor_id sensor_id)
+void scp_register_sensor(enum feature_id id, int sensor_id)
 {
 	uint32_t i;
 
@@ -1583,6 +1532,11 @@ void scp_register_sensor(enum feature_id id, enum scp_sensor_id sensor_id)
 
 	if (id != SENS_FEATURE_ID) {
 		pr_debug("[SCP]register sensor id err");
+		return;
+	}
+
+	if (sensor_id >= NUM_SENSOR_TYPE) {
+		pr_info("[SCP] sensor id not in sensor freq table");
 		return;
 	}
 	/* because feature_table is a global variable
@@ -1595,14 +1549,16 @@ void scp_register_sensor(enum feature_id id, enum scp_sensor_id sensor_id)
 			sensor_type_table[i].enable = 1;
 	}
 
-	/* register sensor*/
-	scp_register_feature(id);
+	/* register sensor */
+	scp_control_feature(id, true);
 	mutex_unlock(&scp_register_sensor_mutex);
-
 }
+EXPORT_SYMBOL_GPL(scp_register_sensor);
+
 /*scp sensor type deregister*/
-void scp_deregister_sensor(enum feature_id id, enum scp_sensor_id sensor_id)
+void scp_deregister_sensor(enum feature_id id, int sensor_id)
 {
+	bool feature_enable = false;
 	uint32_t i;
 
 	/* prevent from access when scp is down */
@@ -1613,19 +1569,27 @@ void scp_deregister_sensor(enum feature_id id, enum scp_sensor_id sensor_id)
 		pr_debug("[SCP]deregister sensor id err");
 		return;
 	}
+
+	if (sensor_id < 0 || sensor_id >= NUM_SENSOR_TYPE) {
+		pr_info("[SCP] sensor id not in sensor freq table");
+		return;
+	}
 	/* because feature_table is a global variable
 	 * use mutex lock to protect it from
 	 * accessing in the same time
 	 */
 	mutex_lock(&scp_register_sensor_mutex);
+	if (sensor_type_table[sensor_id].feature == sensor_id)
+		sensor_type_table[sensor_id].enable = 0;
 	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-		if (sensor_type_table[i].feature == sensor_id)
-			sensor_type_table[i].enable = 0;
+		if (sensor_type_table[i].enable)
+			feature_enable = true;
 	}
 	/* deregister sensor*/
-	scp_deregister_feature(id);
+	scp_control_feature(id, feature_enable);
 	mutex_unlock(&scp_register_sensor_mutex);
 }
+EXPORT_SYMBOL_GPL(scp_deregister_sensor);
 
 /*
  * apps notification

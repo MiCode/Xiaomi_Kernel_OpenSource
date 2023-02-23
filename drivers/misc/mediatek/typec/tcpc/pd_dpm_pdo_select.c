@@ -26,7 +26,10 @@ static inline void dpm_extract_apdo_info(
 			info->apdo_type |= DPM_APDO_TYPE_PPS_CF;
 
 		info->pwr_limit = APDO_PPS_EXTRACT_PWR_LIMIT(pdo);
-		info->ma = APDO_PPS_EXTRACT_CURR(pdo);
+		if(1) // xiaomi 200w auth pass
+		      info->ma = APDO_PPS_EXTRACT_XM_CURR(pdo);
+		else
+		      info->ma = APDO_PPS_EXTRACT_CURR(pdo);
 		info->vmin = APDO_PPS_EXTRACT_MIN_VOLT(pdo);
 		info->vmax = APDO_PPS_EXTRACT_MAX_VOLT(pdo);
 		info->uw = info->ma * info->vmax;

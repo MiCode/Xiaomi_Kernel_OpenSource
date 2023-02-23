@@ -52,6 +52,16 @@
 #ifdef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 #include "tz_m4u.h"
 #endif
+
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_print.h"
+#endif
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+#include "mi_disp/mi_disp_esd_check.h"
+#endif
+#ifdef CONFIG_MI_DISP_FOD_SYNC
+#include "mi_disp/mi_drm_crtc.h"
+#endif
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
 #include "mtk_layering_rule_base.h"
@@ -76,10 +86,14 @@ static struct mtk_drm_property mtk_crtc_property[CRTC_PROP_MAX] = {
 	{DRM_MODE_PROP_ATOMIC, "USER_SCEN", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "HDR_ENABLE", 0, UINT_MAX, 0},
 	{DRM_MODE_PROP_ATOMIC, "OVL_DSI_SEQ", 0, UINT_MAX, 0},
+#ifdef CONFIG_MI_DISP_FOD_SYNC
+	{DRM_MODE_PROP_ATOMIC, "FOD_SYNC_INFO", 0, UINT_MAX, 0},
+#endif
 };
 
 static struct cmdq_pkt *sb_cmdq_handle;
 static unsigned int sb_backlight;
+static bool need_mode_switch = false;
 
 bool hdr_en;
 static const char * const crtc_gce_client_str[] = {
@@ -514,6 +528,7 @@ static int mtk_drm_crtc_set_property(struct drm_crtc *crtc,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(state);
 	int index = drm_crtc_index(crtc);
+	static uint64_t last_dsp_mode_idx = 0;
 	int ret = 0;
 	int i;
 
@@ -522,6 +537,11 @@ static int mtk_drm_crtc_set_property(struct drm_crtc *crtc,
 
 	for (i = 0; i < CRTC_PROP_MAX; i++) {
 		if (private->crtc_property[index][i] == property) {
+			if (i == CRTC_PROP_DISP_MODE_IDX && last_dsp_mode_idx != val) {
+				need_mode_switch = true;
+				last_dsp_mode_idx = val;
+				DDPINFO("crtc: CRTC_PROP_DISP_MODE_IDX changed, need_mode_switch=%d", need_mode_switch);
+			}
 			crtc_state->prop_val[i] = (unsigned int)val;
 			DDPINFO("crtc:%d set property:%s %d\n",
 					index, property->name,
@@ -2358,11 +2378,13 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	unsigned int crtc_id = 0;
 #endif
 	/* Check if disp_mode_idx change */
-	if (old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX] ==
-		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX])
+	if ((old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX] ==
+		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]) && !need_mode_switch) {
 		return;
+	}
+	need_mode_switch = false;
 
-	DDPMSG("%s no delay from %u to %u\n", __func__,
+	DISP_TIME_INFO("no delay from %u to %u\n",
 		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
 		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 
@@ -6364,6 +6386,10 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	hdr_en = (bool)state->prop_val[CRTC_PROP_HDR_ENABLE];
 
+#ifdef CONFIG_MI_DISP_FOD_SYNC
+	mi_drm_crtc_update_layer_state(crtc);
+#endif
+
 #if defined(CONFIG_MTK_HDR_COLOR_GAIN_RGB) && (CONFIG_MTK_HDR_COLOR_GAIN_RGB > 0)
 	DDPINFO("crtc CONFIG_HDR_COLOR_GAIN_RED =%ld!\n", CONFIG_MTK_HDR_COLOR_GAIN_RGB);
 	if (hdr_en && !mtk_hdr_color_gain_setted &&
@@ -7495,6 +7521,11 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		mtk_drm_cwb_init(&mtk_crtc->base);
 
 	mtk_disp_chk_recover_init(&mtk_crtc->base);
+
+	#ifdef CONFIG_MI_DISP_ESD_CHECK
+	//mtk_disp_esd_chk_init(&mtk_crtc->base);
+	mi_disp_esd_chk_init(&mtk_crtc->base);
+	#endif
 
 	mtk_drm_fake_vsync_init(&mtk_crtc->base);
 

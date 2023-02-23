@@ -72,4 +72,5 @@ mainaf-y  += common/bu63169af/OIS_func.o
 mainaf-y  += common/bu63169af/OIS_main.o
 mainaf-y  += common/bu63169af/OIS_user.o
 mainaf-y  += common/bu64253gwzaf/BU64253GWZAF.o
-
+mainaf-y  += common/ruby_imx766_dw9800vaf/RUBY_IMX766_DW9800VAF.o
+mainaf-y  += common/ruby_semco_s5khpx_ak7314af/RUBY_SEMCO_S5KHPX_AK7314AF.o

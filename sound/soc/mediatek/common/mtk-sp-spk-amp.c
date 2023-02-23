@@ -102,7 +102,7 @@ static int mtk_spk_i2c_probe(struct i2c_client *client,
 		mtk_spk_type = i;
 		break;
 	}
-
+	dev_info(&client->dev, "%s() mtk_spk_type:%d\n", __func__,mtk_spk_type);
 	return ret;
 }
 
@@ -189,6 +189,8 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 			"%s(), get mtk_spk_i2s_in fail, use defalut i2s0\n",
 			 __func__);
 	}
+	dev_info(&pdev->dev, "%s() mtk_spk_i2s_out:%d\n", __func__,mtk_spk_i2s_out);
+	dev_info(&pdev->dev, "%s() mtk_spk_i2s_in:%d\n", __func__,mtk_spk_i2s_in);
 
 	if (mtk_spk_i2s_out > MTK_SPK_I2S_TYPE_NUM ||
 	    mtk_spk_i2s_in > MTK_SPK_I2S_TYPE_NUM) {
@@ -265,7 +267,7 @@ int mtk_spk_update_info(struct snd_soc_card *card,
 	}
 
 	dev_info(&pdev->dev,
-		 "%s(), mtk_spk_type %d, spk_out_dai_link_idx %d, spk_out_dai_link_idx %d, mck: %d\n",
+		 "%s(), mtk_spk_type %d, spk_ref_dai_link_idx %d, spk_out_dai_link_idx %d, mck: %d\n",
 		 __func__,
 		 mtk_spk_type, *spk_ref_dai_link_idx,
 		 *spk_out_dai_link_idx, mck_num);

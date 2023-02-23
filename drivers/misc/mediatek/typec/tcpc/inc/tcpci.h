@@ -152,6 +152,8 @@ int tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv);
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 
+int tcpci_notify_soft_reset(struct tcpc_device *tcpc);
+
 int tcpci_notify_hard_reset_state(struct tcpc_device *tcpc, uint8_t state);
 
 int tcpci_enter_mode(struct tcpc_device *tcpc,

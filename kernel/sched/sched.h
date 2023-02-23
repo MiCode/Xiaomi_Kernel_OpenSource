@@ -895,9 +895,6 @@ struct rq {
 	/* capture load from *all* tasks on this CPU: */
 	struct load_weight	load;
 	unsigned long		nr_load_updates;
-#ifdef CONFIG_SMP
-	unsigned int		ttwu_pending;
-#endif
 	u64			nr_switches;
 
 #ifdef CONFIG_UCLAMP_TASK
@@ -2545,8 +2542,5 @@ unsigned long scale_irq_capacity(unsigned long util, unsigned long irq, unsigned
 #ifdef CONFIG_SMP
 extern struct static_key_false sched_energy_present;
 #endif
-
-DECLARE_PER_CPU(int, cpufreq_idle_cpu);
-DECLARE_PER_CPU(spinlock_t, cpufreq_idle_cpu_lock);
 
 #include "extension/eas_plus.h"

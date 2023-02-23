@@ -740,6 +740,17 @@ int tcpci_enable_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 
+int tcpci_notify_soft_reset(struct tcpc_device *tcpc)
+{
+	struct tcp_notify tcp_noti = {0};
+	int ret;
+	DP_INFO("%s++++",__func__);
+
+	ret = tcpc_check_notify_time(tcpc, &tcp_noti,
+		TCP_NOTIFY_IDX_MISC, TCP_NOTIFY_SOFT_RESET);
+	return ret;
+}
+
 int tcpci_notify_hard_reset_state(struct tcpc_device *tcpc, uint8_t state)
 {
 	struct tcp_notify tcp_noti;

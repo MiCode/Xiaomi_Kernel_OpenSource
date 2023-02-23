@@ -91,6 +91,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *hw_info);
 int md_cd_pccif_send(struct ccci_modem *md, int channel_id);
 void md_cd_dump_pccif_reg(struct ccci_modem *md);
+void ccci_notify_set_scpmem(void);
 
 /* ADD_SYS_CORE */
 int ccci_modem_plt_syssuspend(void);

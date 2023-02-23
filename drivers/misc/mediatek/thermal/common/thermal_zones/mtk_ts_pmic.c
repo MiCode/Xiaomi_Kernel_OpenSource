@@ -45,8 +45,8 @@ static int polling_trip_temp2 = 20000;
 static int polling_factor1 = 5000;
 static int polling_factor2 = 10000;
 
-static unsigned int interval;	/* seconds, 0 : no auto polling */
-static unsigned int trip_temp[10] = { 120000, 110000, 100000, 90000, 80000,
+static unsigned int interval = 1;	/* seconds, 0 : no auto polling */
+static unsigned int trip_temp[10] = { 136000, 110000, 100000, 90000, 80000,
 					70000, 65000, 60000, 55000, 50000 };
 
 static unsigned int cl_dev_sysrst_state;
@@ -57,8 +57,8 @@ static int kernelmode;
 
 static int g_THERMAL_TRIP[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-static int num_trip;
-static char g_bind0[20] = { 0 };
+static int num_trip = 1;
+static char g_bind0[20] = "mtktspmic-sysrst";
 static char g_bind1[20] = { 0 };
 static char g_bind2[20] = { 0 };
 static char g_bind3[20] = { 0 };

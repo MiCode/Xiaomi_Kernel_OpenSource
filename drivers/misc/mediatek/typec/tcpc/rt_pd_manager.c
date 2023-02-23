@@ -618,7 +618,7 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 	rpmd->dev = &pdev->dev;
 
 #ifdef CONFIG_MTK_CHARGER
-	rpmd->chg_dev = get_charger_by_name("primary_chg");
+	rpmd->chg_dev = get_charger_by_name("pmic");
 	if (!rpmd->chg_dev) {
 		dev_notice(rpmd->dev, "%s get chg dev fail\n", __func__);
 		ret = -ENODEV;

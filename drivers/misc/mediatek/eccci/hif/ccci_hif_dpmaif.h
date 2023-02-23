@@ -414,6 +414,7 @@ struct hif_dpmaif_ctrl {
 	struct platform_device *plat_dev; /* maybe: no need. */
 	struct ccci_hif_dpmaif_val plat_val;
 
+	atomic_t suspend_flag;
 };
 
 #ifndef CCCI_KMODULE_ENABLE
@@ -521,4 +522,6 @@ extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
 extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 extern void mt_irq_dump_status(int irq);
+extern int dpmaif_suspend_noirq(struct device *dev);
+extern int dpmaif_resume_noirq(struct device *dev);
 #endif				/* __MODEM_DPMA_H__ */

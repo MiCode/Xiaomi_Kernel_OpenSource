@@ -1,0 +1,121 @@
+config MI_DISP
+	bool "Xiaomi Display Feature support"
+	default y
+	depends on DRM_MEDIATEK
+	help
+	  This creates /dev/mi_display/disp_feature.
+
+config MI_DISP_LOG
+	bool "Xiaomi Display Feature support"
+	default y
+	depends on DRM_MEDIATEK
+	help
+	  This creates /dev/mi_display/disp_feature.
+
+config MI_DISP_DEBUGFS
+	bool "Debugfs filesystem support"
+	default y
+	depends on MI_DISP && DEBUG_FS
+	help
+	  This enables debugfs for MI_DISP and MI_DISP_LOG at <debugfs>/
+	  mi_display, allow to enable/disable mi_disp_print_xxx()/
+	  mi_disp_dbg_xx() via debug_log, control log_type (kernel/user)
+	  or read log via disp_log.
+
+config MI_DISP_SYSFS
+	bool "Sysfs filesystem support"
+	default y
+	depends on MI_DISP && SYSFS
+	help
+	  This enables sysfs for MI_DISP at /sys/class/mi_display, the
+	  disp-DSI-n subdirectory contains nodes such as disp_param,
+	  panel_info, mipi_rw, and wp_info, which can be used to read
+	  display informations or control display status.
+
+config MI_DISP_PROCFS
+	bool "Procfs filesystem support"
+	default y
+	depends on MI_DISP && PROC_FS
+	help
+	  This enables procfs for MI_DISP at /proc/mi_display, allow
+	  to execute mipi read/write operatons for both primary and
+	  secondary displays.
+
+config MI_DISP_BRIGTHNESS_CLONE_COOLER
+	bool "Xiaomi Display Brightness-Clone Cooler support"
+	default y
+	depends on MI_DISP && THERMAL
+	help
+	  This register thermal cooling device brightness0-clone.
+
+config MI_DISP_NOTIFIER
+	bool "Xiaomi Display Notifier support"
+	default y
+	depends on MI_DISP
+	help
+	  This allow other modules (such as TP) to monitor display
+	  on/off events.
+
+config MI_DISP_LOG
+	bool "Xiaomi Display Log support"
+	default y
+	depends on MI_DISP
+	help
+	  This creates /dev/mi_display/disp_log.
+
+config MI_DISP_ESD_CHECK
+	bool "Xiaomi Display ESD Check support"
+	default n
+	depends on MI_DISP
+	help
+	  Use Xiaomi ESD Check to replace the MTK default scheme.
+
+config MI_DISP_SILKY_BRIGHTNESS_CRC
+       bool "Xiaomi Display Panel crc DC support"
+       default n
+       depends on MI_DISP
+       help
+         This is used to support the func of panel's crc DC.
+
+config MI_DISP_CABC_REG_OFF
+       bool "Xiaomi Display Panel CABC Reg off support"
+       default n
+       depends on MI_DISP
+       help
+         This is used to close CABC/ESS reg.
+
+config MI_DISP_INPUT_HANDLER
+       bool "Xiaomi Display input event handler"
+       default n
+       depends on MI_DISP
+       help
+         This is used to handle input events, such as kick idle for
+         cmd mode.
+
+config MI_DISP_BOOST
+       bool "Xiaomi Display CPU Boost"
+       default n
+       depends on MI_DISP
+       help
+         This is used to boost cpu for some cases, such as kicking idle
+         for cmd mode.
+config MI_DISP_FOD_SYNC
+       bool "Xiaomi Display fod sync"
+       default n
+       depends on MI_DISP
+       help
+         This is used to sync fod flag from sf.
+
+config MI_DISP_DSC2712
+       bool "Xiaomi Display DSC 2712*1200"
+       default n
+       depends on MI_DISP
+       help
+         This is used to DSC 2712*1200.
+
+config MI_DISP_VDO_TO_CMD_AOD
+       bool "Xiaomi Display vdo to cmd aod"
+       default n
+       depends on MI_DISP
+       help
+         This is used to vdo to cmd mode aod.

@@ -264,6 +264,8 @@ extern struct platform_driver mtk_disp_merge_driver;
 extern struct platform_driver mtk_dp_tx_driver;
 extern struct platform_driver mtk_dp_intf_driver;
 #endif
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
 
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);

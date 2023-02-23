@@ -3851,6 +3851,74 @@ static int krtatm_thread(void *arg)
 }
 #endif	/* FAST_RESPONSE_ATM */
 
+static void init_ctm_param()
+{
+	int t_K_SUM_TT_HIGH = CLCTM_TT_HIGH;
+	int t_K_SUM_TT_LOW = CLCTM_TT_LOW;
+	int t_CATMP_STEADY_TTJ_DELTA = CLCTM_STEADY_TTJ_DELTA;
+
+	ctm_on = CLATM_INIT_CFG_CATM;	/* 2: cATM+, 1: cATMv1, 0: off */
+
+	MAX_TARGET_TJ = CLCTM_TARGET_TJ;
+	STEADY_TARGET_TJ = CLCTM_TARGET_TJ;
+	TRIP_TPCB = CLCTM_TPCB_1;
+	STEADY_TARGET_TPCB = CLCTM_TPCB_2;
+	MAX_EXIT_TJ = CLCTM_EXIT_TJ;
+	STEADY_EXIT_TJ = CLCTM_EXIT_TJ;
+
+	COEF_AE = CLCTM_AE;
+	COEF_BE = CLCTM_BE;
+	COEF_AX = CLCTM_AX;
+	COEF_BX = CLCTM_BX;
+
+#if defined(CATM_TPCB_EXTEND)
+	if (g_turbo_bin && (STEADY_TARGET_TPCB >= 52000)) {
+		if (t_TPCB_EXTEND > 0 && t_TPCB_EXTEND < 10000) {
+			TRIP_TPCB += t_TPCB_EXTEND;
+			STEADY_TARGET_TPCB += t_TPCB_EXTEND;
+			COEF_AE = STEADY_TARGET_TJ +
+				(STEADY_TARGET_TPCB * COEF_BE) / 1000;
+			COEF_AX = STEADY_EXIT_TJ +
+				(STEADY_TARGET_TPCB * COEF_BX) / 1000;
+			TPCB_EXTEND = t_TPCB_EXTEND;
+		}
+	}
+#endif
+
+	/* +++ cATM+ parameters +++ */
+	if (ctm_on == 2) {
+		if (t_K_SUM_TT_HIGH >= 0
+			&& t_K_SUM_TT_HIGH < MAX_K_SUM_TT)
+			K_SUM_TT_HIGH = t_K_SUM_TT_HIGH;
+
+		if (t_K_SUM_TT_LOW >= 0
+			&& t_K_SUM_TT_LOW < MAX_K_SUM_TT)
+			K_SUM_TT_LOW = t_K_SUM_TT_LOW;
+
+		if (t_CATMP_STEADY_TTJ_DELTA >= 0)
+			CATMP_STEADY_TTJ_DELTA =
+					t_CATMP_STEADY_TTJ_DELTA;
+
+		catmplus_update_params();
+	}
+	/* --- cATM+ parameters --- */
+
+	/* --- SPA parameters --- */
+	thermal_spa_t.t_spa_Tpolicy_info.steady_target_tj =
+						STEADY_TARGET_TJ;
+
+	thermal_spa_t.t_spa_Tpolicy_info.steady_exit_tj =
+						STEADY_EXIT_TJ;
+
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#if THERMAL_ENABLE_TINYSYS_SSPM && CPT_ADAPTIVE_AP_COOLER &&	\
+	PRECISE_HYBRID_POWER_BUDGET && CONTINUOUS_TM
+		atm_update_catm_param_to_sspm();
+#endif
+#endif
+
+}
+
 static int __init mtk_cooler_atm_init(void)
 {
 	int err = 0;
@@ -3923,6 +3991,7 @@ static int __init mtk_cooler_atm_init(void)
 #if 0
 	reset_gpu_power_history();
 #endif
+	init_ctm_param();
 	tscpu_dprintk("%s: end\n", __func__);
 	return 0;
 }

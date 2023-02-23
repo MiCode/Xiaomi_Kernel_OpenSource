@@ -1,7 +1,15 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2015-2016, Linaro Limited
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  */
 
@@ -192,7 +200,8 @@ void isee_shm_pool_free(struct tee_shm_pool *pool);
  */
 void *isee_get_drvdata(struct tee_device *teedev);
 
-struct tee_shm *isee_shm_kalloc(struct tee_context *ctx, size_t size, u32 flags);
+struct tee_shm *isee_shm_kalloc(struct tee_context *ctx,
+					size_t size, u32 flags);
 void isee_shm_kfree(struct tee_shm *shm);
 
 /**
@@ -209,7 +218,10 @@ void isee_shm_kfree(struct tee_shm *shm);
  *
  * @returns a pointer to 'struct tee_shm'
  */
-struct tee_shm *isee_shm_alloc_noid(struct tee_context *ctx, size_t size, u32 flags);
+
+struct tee_shm *isee_shm_alloc_noid(struct tee_context *ctx,
+					size_t size, u32 flags);
+
 struct tee_shm *isee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags);
 
 /**

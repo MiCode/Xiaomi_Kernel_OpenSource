@@ -651,6 +651,7 @@ struct fgd_cmd_param_t_custom {
 struct battery_data {
 	struct power_supply_desc psd;
 	struct power_supply *psy;
+	struct power_supply *ti_bms_psy;
 	int BAT_STATUS;
 	int BAT_HEALTH;
 	int BAT_PRESENT;
@@ -659,6 +660,8 @@ struct battery_data {
 	/* Add for Battery Service */
 	int BAT_batt_vol;
 	int BAT_batt_temp;
+	/* Add for External Gauge */
+	bool USE_TI_GAUGE;
 };
 
 struct BAT_EC_Struct {

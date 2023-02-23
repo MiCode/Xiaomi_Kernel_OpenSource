@@ -29,6 +29,11 @@
 #include "mtk_drm_trace.h"
 #include "mtk_dump.h"
 
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_esd_check.h"
+#include "mi_disp/mi_disp_feature.h"
+#endif
+
 #ifdef CONFIG_MTK_MT6382_BDG
 #include "mtk_disp_bdg.h"
 #include "mtk_dsi.h"
@@ -36,6 +41,10 @@
 
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
+
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+#define ESD_CHECK_IRQ_PERIOD 10 /* ms */
+#endif
 
 /* pinctrl implementation */
 long _set_state(struct drm_crtc *crtc, const char *name)
@@ -211,10 +220,13 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		cmdq_pkt_clear_event(cmdq_handle,
 				     mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, MI_DISP_ESD_CHECK_READ, NULL);
+#else
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, ESD_CHECK_READ,
 				    (void *)mtk_crtc->gce_obj.buf.pa_base +
 					    DISP_SLOT_ESD_READ_BASE);
-
+#endif
 		cmdq_pkt_set_event(cmdq_handle,
 				   mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 	} else { /* VDO mode */
@@ -247,7 +259,13 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	esd_ctx = mtk_crtc->esd_ctx;
 	esd_ctx->chk_sta = 0;
 
-	cmdq_pkt_flush(cmdq_handle);
+	if (mtk_dsi_is_cmd_mode(output_comp)) { /*cmd mode*/
+#ifndef CONFIG_MI_DISP_ESD_CHECK
+		cmdq_pkt_flush(cmdq_handle);
+#endif
+	} else {
+		cmdq_pkt_flush(cmdq_handle);
+	}
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 4);
 
@@ -270,9 +288,19 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		goto done;
 	}
 
-	ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
+	if (mtk_dsi_is_cmd_mode(output_comp)) { /*cmd mode*/
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL, MI_DISP_ESD_CHECK_CMP, NULL);
+#else
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
 				  (void *)mtk_crtc->gce_obj.buf.va_base +
 					  DISP_SLOT_ESD_READ_BASE);
+#endif
+	} else {
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
+				  (void *)mtk_crtc->gce_obj.buf.va_base +
+					  DISP_SLOT_ESD_READ_BASE);
+	}
 done:
 	cmdq_pkt_destroy(cmdq_handle);
 	return ret;
@@ -414,6 +442,17 @@ done:
 	return ret;
 }
 
+static atomic_t panel_dead;
+int get_panel_dead_flag(void) {
+	return atomic_read(&panel_dead);
+}
+EXPORT_SYMBOL(get_panel_dead_flag);
+
+void set_panel_dead_flag(int value) {
+	atomic_set(&panel_dead, value);
+}
+EXPORT_SYMBOL(set_panel_dead_flag);
+
 static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -422,6 +461,8 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 #ifdef CONFIG_MTK_MT6382_BDG
 	struct mtk_dsi *dsi = NULL;
 #endif
+
+	atomic_set(&panel_dead, 1);
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_recovery, 0, 0);
 	if (crtc->state && !crtc->state->active) {
@@ -463,6 +504,10 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 4);
 
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_RESTORE_BACKLIGHT, NULL);
+#endif
+
 	mtk_crtc_hw_block_ready(crtc);
 	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
 		struct cmdq_pkt *cmdq_handle;
@@ -484,6 +529,7 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_recovery, 0, 5);
 
 done:
+	atomic_set(&panel_dead, 0);
 	CRTC_MMP_EVENT_END(drm_crtc_index(crtc), esd_recovery, 0, ret);
 
 	return 0;

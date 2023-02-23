@@ -19,7 +19,7 @@
 #include <linux/slab.h>
 #include <linux/usb/role.h>
 #include <linux/workqueue.h>
-
+#include <linux/hwid.h>
 #include "extcon-mtk-usb.h"
 
 #ifdef CONFIG_TCPC_CLASS
@@ -38,6 +38,16 @@ static const unsigned int usb_extcon_cable[] = {
 	EXTCON_NONE,
 };
 
+enum product_name {
+	UNKNOW,
+	RUBY,
+	RUBYPRO,
+	RUBYPLUS,
+};
+
+static unsigned int global_role = 0;
+static int product_name = UNKNOW;
+
 static void mtk_usb_extcon_update_role(struct work_struct *work)
 {
 	struct usb_role_info *role = container_of(to_delayed_work(work),
@@ -47,6 +57,7 @@ static void mtk_usb_extcon_update_role(struct work_struct *work)
 
 	cur_dr = extcon->c_role;
 	new_dr = role->d_role;
+	global_role = new_dr;
 
 	dev_info(extcon->dev, "cur_dr(%d) new_dr(%d)\n", cur_dr, new_dr);
 
@@ -92,6 +103,7 @@ static void mtk_usb_extcon_update_role(struct work_struct *work)
 	}
 
 	extcon->c_role = new_dr;
+	dev_info(extcon->dev, "ended cur_dr(%d) new_dr(%d)\n", cur_dr, new_dr);
 	kfree(role);
 }
 
@@ -169,8 +181,11 @@ static int mtk_usb_extcon_psy_notifier(struct notifier_block *nb,
 	dev_info(extcon->dev, "online=%d, ignore_usb=%d, type=%d\n",
 				pval.intval, ival.intval, tval.intval);
 
-	if (ival.intval)
+	/* Workaround for PR_SWAP, Host mode should not come to this function. */
+	if (extcon->c_role == DUAL_PROP_DR_HOST || (tval.intval != POWER_SUPPLY_TYPE_USB && tval.intval != POWER_SUPPLY_TYPE_USB_CDP && pval.intval) || global_role != extcon->c_role) {
+		dev_info(extcon->dev, "Remain HOST mode or usb_type not sdp or cdp\n");
 		return NOTIFY_DONE;
+	}
 
 #ifdef CONFIG_TCPC_CLASS
 	if (extcon->c_role == DUAL_PROP_DR_NONE && pval.intval &&
@@ -248,8 +263,39 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 static struct charger_device *primary_charger;
 
 static int mtk_usb_extcon_set_vbus_v1(bool is_on) {
+	struct power_supply *usb_psy;
+	struct charger_device *master_dev;
+	struct charger_device *slave_dev;
+	union power_supply_propval pval = {0,};
+
+	usb_psy = power_supply_get_by_name("usb");
+	if (!usb_psy) {
+		pr_err("%s: failed to get usb_psy\n", __func__);
+		return -1;
+	}
+
+	if (product_name == RUBYPRO) {
+		master_dev = get_charger_by_name("cp_master");
+		if (!master_dev) {
+			pr_err("%s: failed to get master_dev\n", __func__);
+			return -1;
+		}
+
+		slave_dev = get_charger_by_name("cp_slave");
+		if (!slave_dev) {
+			pr_err("%s: failed to get slave_dev\n", __func__);
+			return -1;
+		}
+	}
+
+	pr_info("[llt] %s: is_on=%d\n", __func__, is_on);
+	pval.intval = is_on;
+	power_supply_set_property(usb_psy, POWER_SUPPLY_PROP_OTG_ENABLE, &pval);
 	if (!primary_charger) {
-		primary_charger = get_charger_by_name("primary_chg");
+		if (product_name == RUBYPLUS)
+			primary_charger = get_charger_by_name("bbc");
+		else
+			primary_charger = get_charger_by_name("pmic");
 		if (!primary_charger) {
 			pr_info("%s: get primary charger device failed\n", __func__);
 			return -ENODEV;
@@ -258,9 +304,15 @@ static int mtk_usb_extcon_set_vbus_v1(bool is_on) {
 #if defined(CONFIG_MTK_GAUGE_VERSION) && (CONFIG_MTK_GAUGE_VERSION == 30)
 	pr_info("%s: is_on=%d\n", __func__, is_on);
 	if (is_on) {
+		if (product_name == RUBYPRO) {
+			charger_dev_cp_set_mode(master_dev, 6);
+			charger_dev_cp_set_mode(slave_dev, 6);
+		}
 		charger_dev_enable_otg(primary_charger, true);
 		charger_dev_set_boost_current_limit(primary_charger,
-			1500000);
+			2000000);
+		charger_dev_set_otg_voltage(primary_charger,
+			5500);
 		#if 0
 		{// # workaround
 			charger_dev_kick_wdt(primary_charger);
@@ -268,6 +320,10 @@ static int mtk_usb_extcon_set_vbus_v1(bool is_on) {
 		}
 		#endif
 	} else {
+		if (product_name == RUBYPRO) {
+			charger_dev_cp_set_mode(master_dev, 4);
+			charger_dev_cp_set_mode(slave_dev, 4);
+		}
 		charger_dev_enable_otg(primary_charger, false);
 		#if 0
 			//# workaround
@@ -402,7 +458,7 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
 			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_DEVICE);
 		} else if (noti->swap_state.new_role == PD_ROLE_DFP &&
-				extcon->c_role == DUAL_PROP_DR_DEVICE) {
+				(extcon->c_role == DUAL_PROP_DR_DEVICE || extcon->c_role == DUAL_PROP_DR_NONE || global_role != extcon->c_role)) {
 			dev_info(dev, "switch role to host\n");
 			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
 			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
@@ -554,6 +610,25 @@ void mt_usb_disconnect_v1(void)
 EXPORT_SYMBOL_GPL(mt_usb_disconnect_v1);
 #endif //ADAPT_PSY_V1
 
+static void extcon_parse_cmdline(void)
+{
+	char *ruby = NULL, *rubypro = NULL, *rubyplus = NULL;
+	const char *sku = get_hw_sku();
+
+	ruby = strnstr(sku, "ruby", strlen(sku));
+	rubypro = strnstr(sku, "rubypro", strlen(sku));
+	rubyplus = strnstr(sku, "rubyplus", strlen(sku));
+
+	if (rubyplus)
+		product_name = RUBYPLUS;
+	else if (rubypro)
+		product_name = RUBYPRO;
+	else if (ruby)
+		product_name = RUBY;
+
+	pr_info("product_name = %d, ruby = %d, rubypro = %d, rubyplus = %d\n", product_name, ruby ? 1 : 0, rubypro ? 1 : 0, rubyplus ? 1 : 0);
+}
+
 static int mtk_usb_extcon_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -561,6 +636,8 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 	struct platform_device *conn_pdev;
 	struct device_node *conn_np;
 	int ret;
+
+	extcon_parse_cmdline();
 
 	extcon = devm_kzalloc(&pdev->dev, sizeof(*extcon), GFP_KERNEL);
 	if (!extcon)

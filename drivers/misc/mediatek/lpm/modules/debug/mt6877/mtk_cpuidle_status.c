@@ -331,6 +331,36 @@ void mtk_cpuidle_state_enable(bool en)
 	mtk_cpupm_allow();
 }
 
+void mtk_s2idle_state_enable(bool en)
+{
+	struct cpuidle_driver *drv;
+	int i, cpu;
+	int suspend_type = mtk_lpm_suspend_type_get();
+
+	mtk_cpupm_block();
+
+	for_each_possible_cpu(cpu) {
+
+		drv = cpuidle_get_cpu_driver(per_cpu(cpuidle_devices, cpu));
+
+		if (!drv)
+			continue;
+
+		i = drv->state_count - 1;
+		if ((suspend_type == MTK_LPM_SUSPEND_S2IDLE) &&
+			!strcmp(drv->states[i].name, S2IDLE_STATE_NAME)) {
+
+			mtk_cpuidle_set_param(drv, i, IDLE_PARAM_EN, en);
+
+		}
+	}
+
+	if (!en)
+		mtk_lpm_last_cpuidle_dis = sched_clock();
+
+	mtk_cpupm_allow();
+}
+
 unsigned long long mtk_cpuidle_state_last_dis_ms(void)
 {
 	return (mtk_lpm_last_cpuidle_dis / 1000000);

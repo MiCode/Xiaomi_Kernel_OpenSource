@@ -421,9 +421,15 @@ static inline void dpm_update_request_not_bat(struct pd_port *pd_port,
 #ifdef CONFIG_USB_PD_REV30_PPS_SINK
 	if (req_info->type == DPM_PDO_TYPE_APDO) {
 		pd_port->request_apdo_new = true;
-		pd_port->last_rdo = RDO_APDO(
-				req_info->pos, req_info->vmin,
-				req_info->oper_ma, flags);
+		if(1){
+			pd_port->last_rdo = XM_RDO_APDO(
+						req_info->pos, req_info->vmin,
+						req_info->oper_ma, flags);
+		}else{
+			pd_port->last_rdo = RDO_APDO(
+						req_info->pos, req_info->vmin,
+						req_info->oper_ma, flags);
+		}
 		return;
 	}
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */

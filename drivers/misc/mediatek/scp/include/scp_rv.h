@@ -115,6 +115,7 @@ enum ipi_id {
 	IPI_CHREX,
 	IPI_SENSOR,
 	IPI_SENSOR_INIT_START,
+	IPI_ELLIPTIC,
 	SCP_NR_IPI,
 };
 
@@ -127,12 +128,15 @@ enum scp_reserve_mem_id_t {
 	AUDIO_IPI_MEM_ID,
 	VOW_BARGEIN_MEM_ID,
 	SCP_DRV_PARAMS_MEM_ID,
-	ULTRA_MEM_ID,
 	SENS_SUPER_MEM_ID,
 	SENS_LIST_MEM_ID,
 	SENS_DEBUG_MEM_ID,
 	SENS_CUSTOM_W_MEM_ID,
 	SENS_CUSTOM_R_MEM_ID,
+#ifdef CONFIG_MTK_ULTRASND_PROXIMITY
+	ULTRA_MEM_ID,
+	SCP_ELLIPTIC_DEBUG_MEM,
+#endif
 	NUMS_MEM_ID,
 };
 
@@ -197,6 +201,10 @@ extern phys_addr_t scp_get_reserve_mem_size(enum scp_reserve_mem_id_t id);
 /* APIs for registering function of features */
 extern void scp_register_feature(enum feature_id id);
 extern void scp_deregister_feature(enum feature_id id);
+extern void scp_register_sensor(enum feature_id id,
+		int sensor_id);
+extern void scp_deregister_sensor(enum feature_id id,
+		int sensor_id);
 
 /* APIs for reset scp */
 extern void scp_wdt_reset(int cpu_id);

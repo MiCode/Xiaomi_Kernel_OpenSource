@@ -20,7 +20,7 @@ static struct ppm_policy_data sysboost_policy = {
 	.name			= __stringify(PPM_POLICY_SYS_BOOST),
 	.lock			= __MUTEX_INITIALIZER(sysboost_policy.lock),
 	.policy			= PPM_POLICY_SYS_BOOST,
-	.priority		= PPM_POLICY_PRIO_PERFORMANCE_BASE,
+	.priority		= PPM_POLICY_PRIO_POWER_BUDGET_BASE,
 	.update_limit_cb	= ppm_sysboost_update_limit_cb,
 	.status_change_cb	= ppm_sysboost_status_change_cb,
 };
@@ -539,6 +539,9 @@ static int __init ppm_sysboost_policy_init(void)
 		case BOOST_BY_BOOT_TIME_OPT:
 			sysboost_data[i].user_name = "BOOT_TIME_OPT";
 			break;
+		case BOOST_BY_XM_THERMAL:
+			sysboost_data[i].user_name = "XM_THERM";
+			break;
 		case BOOST_BY_UT:
 		default:
 			sysboost_data[i].user_name = "UT";
@@ -564,7 +567,6 @@ static int __init ppm_sysboost_policy_init(void)
 	ppm_info("@%s: register %s done!\n", __func__, sysboost_policy.name);
 
 out:
-	sysboost_policy.is_enabled = false;
 	FUNC_EXIT(FUNC_LV_POLICY);
 
 	return ret;

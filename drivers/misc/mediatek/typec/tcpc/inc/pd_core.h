@@ -161,6 +161,7 @@
 #define APDO_PPS_EXTRACT_MAX_VOLT_RAW(raw)	(((raw) >> 17) & 0xff)
 #define APDO_PPS_EXTRACT_MIN_VOLT_RAW(raw)	(((raw) >> 8) & 0Xff)
 #define APDO_PPS_EXTRACT_CURR_RAW(raw)	(((raw) >> 0) & 0x7f)
+#define APDO_PPS_EXTRACT_XM_CURR_RAW(raw)	(((raw) >> 0) & 0xff)
 #define APDO_PPS_EXTRACT_PWR_LIMIT(raw)        ((raw >> 27) & 0x1)
 
 #define APDO_PPS_EXTRACT_MAX_VOLT(raw)	\
@@ -169,6 +170,8 @@
 	(APDO_PPS_EXTRACT_MIN_VOLT_RAW(raw) * 100)
 #define APDO_PPS_EXTRACT_CURR(raw)	\
 	(APDO_PPS_EXTRACT_CURR_RAW(raw) * 50)
+#define APDO_PPS_EXTRACT_XM_CURR(raw)	\
+	(APDO_PPS_EXTRACT_XM_CURR_RAW(raw) * 50)
 
 #define APDO_PPS(min_mv, max_mv, ma, flags)	\
 	(APDO_PPS_MIN_VOLT(min_mv)	 | \
@@ -200,6 +203,7 @@
 
 #define RDO_APDO_OP_MV(mv)	((((mv) / 20) & 0x7FF) << 9)
 #define RDO_APDO_OP_MA(ma)	((((ma) / 50) & 0x7F) << 0)
+#define XM_RDO_APDO_OP_MA(ma)	((((ma) / 50) & 0xFF) << 0)
 
 #define RDO_APDO_EXTRACT_OP_MV(raw)	(((raw >> 9 & 0x7FF)) * 20)
 #define RDO_APDO_EXTRACT_OP_MA(raw)	(((raw >> 0 & 0x7F)) * 50)
@@ -218,6 +222,11 @@
 				(RDO_OBJ_POS(n) | (flags) | \
 				RDO_APDO_OP_MV(op_mv) | \
 				RDO_APDO_OP_MA(op_ma))
+
+#define XM_RDO_APDO(n, op_mv, op_ma, flags)	\
+				(RDO_OBJ_POS(n) | (flags) | \
+				RDO_APDO_OP_MV(op_mv) | \
+				XM_RDO_APDO_OP_MA(op_ma))
 
 /* BDO : BIST Data Object */
 #define BDO_MODE_RECV       (0 << 28)

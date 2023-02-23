@@ -1,0 +1,777 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * this file is only for attribution of ruby
+ *
+ * Copyright (C) 2021 MediaTek Inc.
+ * Copyright (C) 2022 XiaoMi, Inc.
+ */
+
+#include "mediatek/xiaomi-mt6877-common.dtsi"
+#include "mediatek/ruby-mt6877-audio.dtsi"
+#include "mediatek/cust_ruby_camera.dtsi"
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio =	<&pio 176 0>;
+	};
+};
+
+&odm {
+	thermal_message: thermal-message {
+		board-sensor = "VIRTUAL-SENSOR";
+	};
+};
+
+&vibrator0 {
+	status = "disabled";
+	//vib_vol= <b>;  //3.0V
+};
+
+&mt_pmic_vibr_ldo_reg {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+};
+
+&disp_leds {
+	compatible = "mediatek,disp-leds";
+	backlight {
+		label = "lcd-backlight";
+		max-brightness = <4095>;
+		led-bits = <12>;
+		trans-bits = <12>;
+		default-state = "eighth";
+		/* factory setting below */
+		factory-max-brightness = <2047>;
+		factory-led-bits = <11>;
+		factory-trans-bits = <11>;
+	};
+};
+
+&led6 {
+	compatible = "mediatek,lcd-backlight";
+	led_mode = <4>;
+	data = <1>;
+	led_config = <12 12>;
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "m16_42_0d_0a_dsc_vdo,lcm";
+		reg = <0>;
+		pm-enable-gpios = <&pio 107 0>;
+		reset-gpios = <&pio 40 0>;
+		vddi-gpios = <&pio 108 0>;
+		vibr30-supply = <&mt_pmic_vibr_ldo_reg>;
+		vdd-gpios = <&pio 167 0>;
+		mi,esd-err-irq-gpio = <&pio 9 0x2002>;
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel2@0 {
+		compatible = "m16_36_02_0b_dsc_vdo,lcm";
+		reg = <1>;
+		pm-enable-gpios = <&pio 107 0>;
+		reset-gpios = <&pio 40 0>;
+		vddi-gpios = <&pio 108 0>;
+		vibr30-supply = <&mt_pmic_vibr_ldo_reg>;
+		vdd-gpios = <&pio 167 0>;
+		mi,esd-err-irq-gpio = <&pio 9 0x2002>;
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};
+
+&pio {
+	// ln8000-master
+	ln8000_master_int_default: ln8000_master_int_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO120__FUNC_GPIO120>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	ln8000_master_int_suspend: ln8000_master_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO120__FUNC_GPIO120>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	// ln8000-slave
+	ln8000_slave_int_default: ln8000_slave_int_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO119__FUNC_GPIO119>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	ln8000_slave_int_suspend: ln8000slave_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO119__FUNC_GPIO119>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	xmusb350_rst_normal: xmusb350_rst_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO168__FUNC_GPIO168>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_rst_isp: xmusb350_rst_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO168__FUNC_GPIO168>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_sda_normal: xmusb350_sda_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO63__FUNC_SDA11>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_sda_isp: xmusb350_sda_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO63__FUNC_GPIO63>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_scl_normal: xmusb350_scl_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO62__FUNC_SCL11>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_scl_isp: xmusb350_scl_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO62__FUNC_GPIO62>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	bq25980_standalone2_interrupt: bq25980_standalone2_interrupt {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO138__FUNC_GPIO138>;
+			drive-strength = <2>;
+			slew-rate = <0>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+	mp2762_interrupt: mp2762_interrupt {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO118__FUNC_GPIO118>;
+			drive-strength = <2>;
+			slew-rate = <0>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+};
+
+&i2c0 {
+	clock-frequency = <400000>;
+
+	mp2762@5c {
+		compatible = "mp2762";
+		reg = <0x5c>;
+		mp2762_irq_gpio = <&pio 118 0x0>;
+		iprechg = <240>;
+		vprechg = <6000>;
+		iterm = <100>;
+		iterm_ffc = <700>;
+		fv = <8900>;
+		fv_ffc = <8950>;
+		vinmin = <4700>;
+		pinctrl-names = "interrupt";
+		pinctrl-0 = <&mp2762_interrupt>;
+	};
+
+	bq25980_standalone2@67 {
+		compatible = "bq25980_standalone2";
+		reg = <0x67>;
+		pinctrl-names = "interrupt";
+		pinctrl-0 = <&bq25980_standalone2_interrupt>;
+		bq25980_irq_gpio = <&pio 138 0x0>;
+	};
+
+	bq25980_standalone3@66 {
+		compatible = "bq25980_standalone3";
+		reg = <0x66>;
+		bq25980_irq_gpio = <&pio 7 0x0>;
+	};
+};
+
+&i2c7 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	sc8551_i2c7@66 {
+		compatible = "sc8551_i2c7";
+		reg = <0x66>;
+		sc8551_irq_gpio = <&pio 119 0x0>;
+		ac_ovp = <13000>;
+		bus_ovp = <12300>;
+		bus_ocp = <4500>;
+		bat_ovp = <5000>;
+		bat_ocp = <8000>;
+	};
+
+	ln8000@51 {
+		compatible = "lionsemi,ln8000";
+		reg = <0x51>;
+		/* bank <bit-idx> <flags: active-low> */
+		//irq-gpios = <&tlmm 55 0x2002>;
+		pinctrl-names = "ln8000_master_irq";
+		pinctrl-0 = <&ln8000_master_int_default &ln8000_master_int_suspend>;
+
+		charger_name = "tertiary_chg";
+
+		//interrupt-parent = <&tlmm>;
+		//interrupts = <55 0x2002>;
+		//pinctrl-names = "default";
+		//pinctrl-0 = <&ln8000_int_default ln8000_int_suspend>;
+		ln8000_charger,irq_index = <296>;
+		/* device configuration */
+		ln8000_charger,bat-ovp-threshold = <4660>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4625>;
+		ln8000_charger,bus-ovp-threshold = <13000>;
+		ln8000_charger,bus-ovp-alarm-threshold = <11000>;
+		ln8000_charger,bus-ocp-threshold = <3750>;
+		ln8000_charger,bus-ocp-alarm-threshold = <3500>;
+		ln8000_charger,ntc-alarm-cfg  = <226>;
+		/* protection enable/disable flags
+		 *   vbat-ovp-disable
+		 *   vbat-reg-disable
+		 *   iin-ocp-disable
+		 *   iin-reg-disable
+		 *   tbus-mon-disable
+		 *   tbat-mon-disable
+		 *   tdie-prot-disable
+		 *   tdie-reg-disable
+		 *   revcurr-prot-disable
+		 */
+		ln8000_charger,tdie-prot-disable;
+		ln8000_charger,tbus-mon-disable;
+		ln8000_charger,tbat-mon-disable;
+		ln8000_charger,iin-ocp-disable;
+		ln8000_charger,iin-reg-disable;
+		ln8000_charger,tdie-reg-disable;
+		ln8000_charger,vbat-reg-disable;
+	};
+
+	sc8561_master@64 {
+		compatible = "sc8561_master";
+		reg = <0x64>;
+		sc8561_irq_gpio = <&pio 119 0x0>;
+	};
+
+	ln8410_master@66 {
+		compatible = "ln8410_master";
+		reg = <0x76>;
+		sc8561_irq_gpio = <&pio 119 0x0>;
+	};
+};
+
+&i2c11 {
+	clock-frequency = <400000>;
+
+	xmusb350@35 {
+		compatible = "xmusb350";
+		reg = <0x35>;
+		pinctrl-names = "xmusb350_normal", "xmusb350_isp";
+		//pinctrl-0 = <&xmusb350_rst_normal &xmusb350_sda_normal &xmusb350_scl_normal>;
+		//pinctrl-1 = <&xmusb350_rst_isp &xmusb350_sda_isp &xmusb350_scl_isp>;
+		pinctrl-0 = <&xmusb350_rst_normal>;
+		pinctrl-1 = <&xmusb350_rst_isp>;
+		xmusb350_rst_gpio = <&pio 168 0x00>;
+		xmusb350_sda_gpio = <&pio 63 0x00>;
+		xmusb350_scl_gpio = <&pio 62 0x00>;
+		xmusb350_irq_gpio = <&pio 119 0x0>;
+		vbus_control_gpio = <&pio 156 0x0>;
+		usb = <&ssusb>;
+	};
+
+	bq28z610@55 {
+		compatible = "bq28z610";
+		reg = <0x55>;
+		enable_shutdown_delay;
+		normal_shutdown_vbat_1s = <3400>;
+		critical_shutdown_vbat_1s = <3340>;
+		cool_critical_shutdown_vbat_1s = <3300>;
+		report_full_rsoc_1s = <9700>;
+		soc_gap_1s = <2>;
+		normal_shutdown_vbat_2s = <6800>;
+		critical_shutdown_vbat_2s = <6680>;
+		cool_critical_shutdown_vbat_2s = <6600>;
+		report_full_rsoc_2s = <9470>;
+		soc_gap_2s = <4>;
+		slave_connect_gpio = <&pio 6 0x1>;
+		soc_decimal_rate = <
+			0  38
+			10 35
+			20 33
+			30 33
+			40 33
+			50 33
+			60 33
+			70 30
+			80 25
+			90 20
+			95 10 >;
+	};
+
+	max77932@68 {
+		compatible = "max77932";
+		reg = <0x68>;
+		max77932_irq_gpio = <&pio 13 0x0>;
+	};
+
+	bq25980_standalone1@65 {
+		compatible = "bq25980_standalone1";
+		reg = <0x65>;
+		bq25980_irq_gpio = <&pio 6 0x0>;
+		status = "okay";
+	};
+
+	sc8551_i2c11@66 {
+		compatible = "sc8551_i2c11";
+		reg = <0x66>;
+		sc8551_irq_gpio = <&pio 120 0x0>;
+		ac_ovp = <13000>;
+		bus_ovp = <12300>;
+		bus_ocp = <4500>;
+		bat_ovp = <5000>;
+		bat_ocp = <8000>;
+	};
+
+	ln8000-secondary@51 {
+		compatible = "lionsemi,ln8000-secondary";
+		reg = <0x51>;
+		pinctrl-names = "ln8000_slave_irq";
+		pinctrl-0 = <&ln8000_slave_int_default &ln8000_slave_int_suspend>;
+
+		charger_name = "quaternary_chg";
+		/* bank <bit-idx> <flags: active-low> */
+		//irq-gpios = <&tlmm 55 0x2002>;
+
+		//interrupt-parent = <&tlmm>;
+		//interrupts = <55 0x2002>;
+		//pinctrl-names = "default";
+		//pinctrl-0 = <&ln8000_int_default &ln8000_int_suspend>;
+		//ln8000_charger,irq_index = <296>;
+		/* device configuration */
+		ln8000_charger,bat-ovp-threshold = <4660>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4625>;
+		ln8000_charger,bus-ovp-threshold = <13000>;
+		ln8000_charger,bus-ovp-alarm-threshold = <11000>;
+		ln8000_charger,bus-ocp-threshold = <3750>;
+		ln8000_charger,bus-ocp-alarm-threshold = <3500>;
+		ln8000_charger,ntc-alarm-cfg  = <226>;
+		/* protection enable/disable flags
+		 *   vbat-ovp-disable
+		 *   vbat-reg-disable
+		 *   iin-ocp-disable
+		 *   iin-reg-disable
+		 *   tbus-mon-disable
+		 *   tbat-mon-disable
+		 *   tdie-prot-disable
+		 *   tdie-reg-disable
+		 *   revcurr-prot-disable
+		 */
+		ln8000_charger,tdie-prot-disable;
+		ln8000_charger,tbus-mon-disable;
+		ln8000_charger,tbat-mon-disable;
+		ln8000_charger,iin-ocp-disable;
+		ln8000_charger,iin-reg-disable;
+		ln8000_charger,tdie-reg-disable;
+		ln8000_charger,vbat-reg-disable;
+	};
+
+	sc8561_slave@65 {
+		compatible = "sc8561_slave";
+		reg = <0x75>;
+		sc8561_irq_gpio = <&pio 120 0x0>;
+	};
+
+	ln8410_slave@67 {
+		compatible = "ln8410_slave";
+		reg = <0x77>;
+		sc8561_irq_gpio = <&pio 120 0x0>;
+	};
+};
+
+&bat_gm30 {
+	DISABLE_MTKBATTERY = <(1)>;
+	use-ti-gauge;
+};
+
+/* IRTX GPIO Start */
+&irtx_pwm {
+	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
+	pinctrl-0 = <&irtx_gpio_led_default>;
+	pinctrl-1 = <&irtx_gpio_led_set>;
+	pwm_ch = <0>;
+	status = "okay";
+};
+&pio {
+	/* IRTX GPIO Settings -Start */
+	/* default: GPIO0, output, high */
+	irtx_gpio_led_default:irtx_gpio_led_def@gpio107 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO107__FUNC_GPIO107>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+			input-schmitt-enable = <0>;
+		};
+	};
+
+	irtx_gpio_led_set:irtx_gpio_led_set@gpio107 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO107__FUNC_PWM_0>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+}; /* IRTX GPIO Settings -End */
+
+&mtkfb {
+	status = "disabled";
+};
+
+
+&ruby_charger {
+	fv = <4470>;
+	fv_ffc = <4500>;
+	fv_ffc_delta = <23>;
+	iterm = <220>;
+	iterm_ffc = <785>;
+	iterm_ffc_warm = <885>;
+	max_fcc = <12400>;
+	max_ibus = <6200>;
+	ffc_low_tbat = <150>;
+	ffc_high_tbat = <480>;
+	ffc_medium_tbat = <350>;
+	ffc_high_soc = <95>;
+
+	step_jeita_tuple_count = <6>;
+	step_fallback_hyst = <25>;
+	step_forward_hyst = <5>;
+	jeita_fallback_hyst = <5>;
+	jeita_forward_hyst = <5>;
+
+	jeita_fcc_cfg = <(-100)	0	4200	995	735
+			1	50	4200	2200	2200
+			51	100	4200	3200	3200
+			101	150	4200	5650	5650
+			151	470	4200	12400	12400
+			471	600	4200	2450	2450>;
+
+	jeita_fv_cfg = <(-100)	0	4450
+			1	50	4450
+			51	100	4450
+			101	150	4450
+			151	470	4500
+			471	600	4100>;
+
+	step_chg_cfg_low_cycle = <3000	3595	12400
+				3596	4090	12400
+				4091	4186	12400
+				4187	4288	8590
+				4289	4390	7190
+				4391	4480	5520>;
+
+	step_chg_cfg_high_cycle = <3000	3595	12400
+				3596	3850	12400
+				3851	4150	12400
+				4151	4300	8820
+				4301	4400	7350
+				4401	4480	5880>;
+
+	thermal_limit_dcp = <1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1700 1600 1400 1200>;
+	thermal_limit_qc2 = <2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2000 1500 1500 1000 500>;
+	thermal_limit_qc3_18w = <3500 3500 3500 3400 3300 3300 3200 3100 3000 2800 2600 2400 2200 2000 1000 700>;
+	thermal_limit_qc3_27w = <5400 5000 4700 4300 4000 3600 3400 3400 3400 3200 2500 2200 2000 1300 1000 700>;
+	thermal_limit_qc35 = <4400 4200 4000 3800 3600 3400 3200 3100 3000 2800 2600 2400 2200 2000 1000 700>;
+	thermal_limit_pd = <12400 10000 9000 8000 7000 6500 5400 5000 4400 3800 3400 2400 2000 1400 1000 500>;
+};
+
+&rubypro_charger {
+	vbus_control_gpio = <&pio 156 0x0>;
+	fv = <4450>;
+	fv_ffc = <4500>;
+	iterm = <200>;
+	iterm_ffc = <2499>;
+	iterm_ffc_warm = <3528>;
+	max_fcc = <22000>;
+	max_ibus = <6200>;
+	ffc_low_tbat = <150>;
+	ffc_high_tbat = <480>;
+	ffc_medium_tbat = <350>;
+	ffc_high_soc = <95>;
+	sic_support;
+
+	step_jeita_tuple_count = <6>;
+	step_fallback_hyst = <25>;
+	step_forward_hyst = <5>;
+	jeita_fallback_hyst = <5>;
+	jeita_forward_hyst = <5>;
+
+	jeita_fcc_cfg = <(-100)	0	4150	2440	976
+			1	50	4150	3406	3406
+			51	100	4150	5856	5856
+			101	150	4150	9740	9740
+			151	470	4150	22000	22000
+			471	600	4150	2440	2440>;
+
+	jeita_fv_cfg = <(-100)	0	4440
+			1	50	4440
+			51	100	4446
+			101	150	4446
+			151	470	4500
+			471	600	4100>;
+
+
+	step_chg_cfg_low_cycle = <3000	3595	21800
+				3596	4091	21800
+				4092	4141	19950
+				4142	4240	15900
+				4241	4390	12400
+				4391	4500	9500>;
+
+	step_chg_cfg_high_cycle = <3000	3595	21800
+				3596	4081	21800
+				4082	4121	19950
+				4122	4250	15900
+				4251	4400	12400
+				4401	4500	9500>;
+
+	thermal_limit_dcp = <1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1700 1600 1400 1200>;
+	thermal_limit_qc2 = <2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2000 1500 1500 1000 500>;
+	thermal_limit_qc3_18w = <2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2000 1500 1500 1000 500>;
+	thermal_limit_qc3_27w = <2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2000 1500 1500 1000 500>;
+	thermal_limit_qc35 = <2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2000 1500 1500 1000 500>;
+	thermal_limit_pd = <21800 20000 18000 16000 14000 12000 10000 8000 7000 6000 5000 4000 3000 1800 1000 500>;
+};
+
+&rubyplus_charger {
+	//vbus_control_gpio = <&pio 156 0x0>;
+	fv = <8890>;
+	fv_ffc = <9000>;
+	fv_ffc_large_cycle = <8960>;
+	fv_ffc_delta = <3>;
+	iterm = <105>;
+	iterm_ffc = <1323>;
+	iterm_ffc_warm = <2600>;
+	max_fcc = <21000>;
+	max_ibus = <10500>;
+	ffc_low_tbat = <200>;
+	ffc_high_tbat = <490>;
+	ffc_medium_tbat = <350>;
+	ffc_high_soc = <95>;
+	sic_support;
+
+	step_jeita_tuple_count = <7>;
+	step_fallback_hyst = <25>;
+	step_forward_hyst = <6>;
+	jeita_fallback_hyst = <5>;
+	jeita_forward_hyst = <5>;
+
+	jeita_fcc_cfg = <(-100)	0	8200	627	313
+			1	50	8200	3135	2090
+			51	100	8200	4180	3135
+			101	200	8200	6270	5225
+			201	250	8210	21000	12540
+			251	480	8600	21000	12540
+			481	600	8200	1045	1045>;
+
+	jeita_fv_cfg = <(-100)	0	8900
+			1	50	8900
+			51	100	8900
+			101	200	8900
+			201	250	9000
+			251	480	9000
+			481	600	8200>;
+
+	step_chg_cfg_fresh_cycle = <6000	8590	21000
+				8591	8890	12540
+				8891	8990	8360
+				8991	9006	1000
+				8991	9006	1000
+				8991	9006	1000
+				8991	9006	1000>;
+
+	step_chg_cfg_low_cycle = <6000	8290	21000
+				8291	8390	16720
+				8391	8890	12540
+				8891	8990	8360
+				8991	9006	1000
+				8991	9006	1000
+				8991	9006	1000>;
+
+	step_chg_cfg_normal_cycle = <6000	8230	20000
+				8231	8330	14630
+				8331	8890	12540
+				8891	8950	8360
+				8951	8966	1000
+				8951	8966	1000
+				8951	8966	1000>;
+
+	step_chg_cfg_high_cycle = <6000	8170	20000
+				8171	8270	12540
+				8271	8850	10450
+				8851	8950	8360
+				8951	8966	1000
+				8951	8966	1000
+				8951	8966	1000>;
+
+	thermal_limit_dcp = <1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1700 1600 1400 1200>;
+	thermal_limit_qc2 = <2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2000 1500 1500 1000 500>;
+	thermal_limit_qc3_18w = <3500 3500 3500 3400 3300 3300 3200 3100 3000 2800 2600 2400 2200 2000 1000 700>;
+	thermal_limit_qc3_27w = <5400 5000 4700 4300 4000 3600 3400 3400 3400 3200 2500 2200 2000 1300 1000 700>;
+	thermal_limit_qc35 = <4400 4200 4000 3800 3600 3400 3200 3100 3000 2800 2600 2400 2200 2000 1000 700>;
+	thermal_limit_pd = <21000 10000 9500 9000 8500 8000 7500 7000 6500 6000 5000 4000 3000 2000 1000 500>;
+};
+
+&ruby_pd_cp_manager {
+	compatible = "ruby_pd_cp_manager";
+	fv = <4450>;
+	fv_ffc = <4472>;
+	max_fcc = <12400>;
+	max_vbus = <12000>;
+	max_ibus = <6200>;
+	fcc_low_hyst = <100>;
+	fcc_high_hyst = <10>;
+	low_tbat = <100>;
+	medium_tbat = <350>;
+	high_tbat = <480>;
+	high_vbat = <4300>;
+	high_soc = <95>;
+	low_temp_high_soc = <90>;
+	cv_vbat = <4440>;
+	cv_vbat_ffc = <4470>;
+	cv_ibat = <1450>;
+	cv_ibat_warm = <1450>;
+	vbus_low_gap = <400>;
+	vbus_high_gap = <600>;
+	min_pdo_vbus = <8000>;
+	max_pdo_vbus = <11000>;
+	max_bbc_vbus = <12000>;
+	min_bbc_vbus = <9000>;
+};
+
+&rubypro_pd_cp_manager {
+	compatible = "rubypro_pd_cp_manager";
+	fv = <4450>;
+	fv_ffc = <4498>;
+	max_fcc = <22000>;
+	max_vbus = <21000>;
+	max_ibus = <6200>;
+	fcc_low_hyst = <150>;
+	fcc_high_hyst = <0>;
+	low_tbat = <150>;
+	medium_tbat = <350>;
+	high_tbat = <480>;
+	high_vbat = <4300>;
+	high_soc = <95>;
+	low_temp_high_soc = <90>;
+	cv_vbat = <4440>;
+	cv_vbat_ffc = <4490>;
+	cv_ibat = <2750>;
+	cv_ibat_warm = <3600>;
+	vbus_low_gap = <500>;
+	vbus_high_gap = <600>;
+	min_pdo_vbus = <8000>;
+	max_pdo_vbus = <21000>;
+	max_bbc_vbus = <12000>;
+	min_bbc_vbus = <9000>;
+	mt6360_control_gpio = <&pio 168 0x0>;
+};
+
+&rubyplus_pd_cp_manager {
+	compatible = "rubyplus_pd_cp_manager";
+	fv = <8895>;
+	fv_ffc = <8995>;
+	max_fcc = <21000>;
+	max_vbus = <20000>;
+	max_ibus = <10500>;
+	fcc_low_hyst = <70>;
+	fcc_high_hyst = <10>;
+	low_tbat = <200>;
+	medium_tbat = <350>;
+	high_tbat = <490>;
+	high_vbat = <8600>;
+	high_soc = <95>;
+	low_temp_high_soc = <90>;
+	cv_vbat = <8880>;
+	cv_vbat_ffc = <8980>;
+	cv_ibat = <1323>;
+	cv_ibat_warm = <2600>;
+	vbus_low_gap = <650>;
+	vbus_high_gap = <750>;
+	min_pdo_vbus = <18000>;
+	max_pdo_vbus = <21000>;
+	max_bbc_vbus = <15000>;
+	min_bbc_vbus = <10000>;
+};
+
+&u2port0 {
+	mediatek,eye-vrt = <6>; /* 0~7 */
+	mediatek,eye-term = <3>; /* 0~7 */
+	mediatek,eye-rev6 = <2>; /* 0~3 */
+	mediatek,eye-disc = <0xd>; /* 0~8 */
+	mediatek,host-eye-vrt = <6>; /* 0~7 */
+	mediatek,host-eye-term = <3>; /* 0~7 */
+	mediatek,host-eye-rev6 = <2>; /* 0~3 */
+	mediatek,host-eye-disc = <0xd>; /* 0~8 */
+	mediatek,eye-rubyproandplus-vrt = <7>; /* 0~7 */
+	mediatek,eye-rubyproandplus-term = <4>; /* 0~7 */
+	mediatek,eye-rubyproandplus-rev6 = <1>; /* 0~3 */
+	mediatek,eye-rubyproandplus-disc = <0xd>; /* 0~8 */
+	mediatek,host-eye-rubyproandplus-vrt = <7>; /* 0~7 */
+	mediatek,host-eye-rubyproandplus-term = <4>; /* 0~7 */
+	mediatek,host-eye-rubyproandplus-rev6 = <1>; /* 0~3 */
+	mediatek,host-eye-rubyproandplus-disc = <0xd>; /* 0~8 */
+
+};
+
+

@@ -81,6 +81,8 @@ int allocate_vow_bargein_mem(struct snd_pcm_substream *substream,
 	if ((memif->using_sram == 0) && (afe->request_dram_resource))
 		afe->request_dram_resource(afe->dev);
 
+	*phys_addr = dma_buf->addr;
+	*virt_addr = dma_buf->area;
 	return ret;
 }
 

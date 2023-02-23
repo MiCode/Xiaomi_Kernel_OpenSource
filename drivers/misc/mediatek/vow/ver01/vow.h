@@ -17,7 +17,7 @@
 #define DEBUG_VOWDRV 1
 
 #if DEBUG_VOWDRV
-#define VOWDRV_DEBUG(format, args...) pr_debug(format, ##args)
+#define VOWDRV_DEBUG(format, args...) pr_info(format, ##args)
 #else
 #define VOWDRV_DEBUG(format, args...)
 #endif

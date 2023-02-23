@@ -135,3 +135,13 @@ obj-$(CONFIG_AXP288_CHARGER)	+= axp288_charger.o
 ifeq ($(CONFIG_CUSTOM_BATTERY_EXTERNAL_CHANNEL),y)
 	obj-y += k6885v1_64_alpha/
 endif
+
+
+obj-y += ti/
+obj-y += maxim/
+obj-y += mps/
+obj-y += ln/
+obj-y += southchip/
+obj-y += xiaomi/
+obj-y += pmic_voter.o
+

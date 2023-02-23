@@ -47,6 +47,7 @@
 #include "ap_md_reg_dump.h"
 
 static struct regulator *reg_vmodem, *reg_vsram;
+#include "hif/ccci_hif_dpmaif.h"
 
 static struct ccci_clk_node clk_table[] = {
 /* #ifdef USING_PM_RUNTIME */
@@ -845,5 +846,53 @@ int ccci_modem_pm_restore_noirq(struct device *device)
 	irq_set_irq_type(md_ctrl->md_wdt_irq_id, IRQF_TRIGGER_RISING);
 #endif
 	return 0;
+}
+
+/* no support atf-1.4, so write scp smem addr to scp reg direct */
+void ccci_notify_set_scpmem(void)
+{
+	unsigned long long key = 0;
+	struct device_node *node = NULL;
+	void __iomem *ap_ccif2_base;
+	unsigned long long scp_smem_addr = 0;
+	int size = 0;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,ap_ccif2");
+	if (node) {
+		ap_ccif2_base = of_iomap(node, 0);
+		if (!ap_ccif2_base) {
+			CCCI_ERROR_LOG(-1, TAG, "ap_ccif2_base fail\n");
+			return;
+		}
+	} else {
+		CCCI_ERROR_LOG(-1, TAG, "can't find node ccif2 !\n");
+		return;
+	}
+	scp_smem_addr = (unsigned long long) get_smem_phy_start_addr(MD_SYS1,
+		SMEM_USER_CCISM_SCP, &size);
+	if (scp_smem_addr) {
+		ccci_write32(ap_ccif2_base, 0x100, (unsigned int)SCP_SMEM_KEY);
+		ccci_write32(ap_ccif2_base, 0x104, (unsigned int)(SCP_SMEM_KEY >> 32));
+		ccci_write32(ap_ccif2_base, 0x108, (unsigned int)scp_smem_addr);
+		ccci_write32(ap_ccif2_base, 0x10c, (unsigned int)(scp_smem_addr >> 32));
+
+		key = (unsigned long long) ccci_read32(ap_ccif2_base, 0x104);
+		key = (key << 32 ) |
+			((unsigned long long) ccci_read32(ap_ccif2_base, 0x100));
+		CCCI_NORMAL_LOG(MD_SYS1, TAG,
+			"%s: scp_smem_addr 0x%llx size: 0x%x  magic key: 0x%llx\n",
+			__func__, scp_smem_addr, size, key);
+	} else
+		CCCI_ERROR_LOG(MD_SYS1, TAG, "%s get_smem fail\n", __func__);
+}
+
+int ccci_modem_suspend_noirq(struct device *dev)
+{
+	return dpmaif_suspend_noirq(dev);
+}
+
+int ccci_modem_resume_noirq(struct device *dev)
+{
+	return dpmaif_resume_noirq(dev);
 }
 

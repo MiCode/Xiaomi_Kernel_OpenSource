@@ -327,6 +327,28 @@ config DRM_PANEL_TRULY_FT8756_VDO
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
 	  to host.
 
+config DRM_PANEL_M16_42_0D_0A_DSC_VDO
+	tristate "42 0D 0A FHD+ vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for this VDO
+	  mode Full HD Plus panel. The panel has a 1080x2400 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
+config DRM_PANEL_M16_36_02_0B_DSC_VDO
+	tristate "36 02 0B FHD+ vdo mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for this VDO
+	  mode Full HD Plus panel. The panel has a 1080x2400 resolution
+	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
+	  to host.
+
 config DRM_PANEL_TRULY_ILI9881H_VDO
 	tristate "TRULY HD+ vdo mode panel"
 	depends on OF

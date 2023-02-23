@@ -274,6 +274,7 @@ led_dat->brightness = brightness;
 	call_notifier(1, led_dat);
 #endif
 #ifndef CONFIG_MTK_AAL_SUPPORT
+	sysfs_notify(&led_dat->conf.cdev.dev->kobj, NULL, "brightness");
 	led_level_disp_set(led_dat, brightness);
 	led_dat->last_level = brightness;
 #endif
@@ -333,22 +334,37 @@ static int mtk_leds_parse_dt(struct device *dev,
 			ret = -EINVAL;
 			goto out_led_dt;
 		}
+#ifdef CONFIG_FACTORY_BUILD
+		ret = of_property_read_u32(child,
+			"factory-led-bits", &(s_led->conf.led_bits));
+#else
 		ret = of_property_read_u32(child,
 			"led-bits", &(s_led->conf.led_bits));
+#endif
 		if (ret) {
 			pr_info("No led-bits, use default value 8");
 			s_led->conf.led_bits = 8;
 		}
 		s_led->conf.cdev.max_brightness =
 			(1 << s_led->conf.led_bits) - 1;
+#ifdef CONFIG_FACTORY_BUILD
+		ret = of_property_read_u32(child,
+			"factory-trans-bits", &(s_led->conf.trans_bits));
+#else
 		ret = of_property_read_u32(child,
 			"trans-bits", &(s_led->conf.trans_bits));
+#endif
 		if (ret) {
 			pr_info("No trans-bits, use default value 10");
 			s_led->conf.trans_bits = 10;
 		}
+#ifdef CONFIG_FACTORY_BUILD
+		ret = of_property_read_u32(child,
+			"factory-max-brightness", &(s_led->conf.max_level));
+#else
 		ret = of_property_read_u32(child,
 			"max-brightness", &(s_led->conf.max_level));
+#endif
 		if (ret) {
 			s_led->conf.max_level = s_led->conf.cdev.max_brightness;
 			pr_info("No max-brightness, use default: %d",
@@ -358,6 +374,10 @@ static int mtk_leds_parse_dt(struct device *dev,
 		if (!ret) {
 			if (!strcmp(state, "half"))
 				level = s_led->conf.cdev.max_brightness / 2;
+			else if (!strcmp(state, "quarter"))
+				level = s_led->conf.cdev.max_brightness / 4;
+			else if (!strcmp(state, "eighth"))
+				level = s_led->conf.cdev.max_brightness / 8;
 			else if (!strcmp(state, "on"))
 				level = s_led->conf.cdev.max_brightness;
 			else
@@ -365,10 +385,12 @@ static int mtk_leds_parse_dt(struct device *dev,
 		} else {
 			level = s_led->conf.cdev.max_brightness;
 		}
-		pr_info("parse %d leds dt: %s, %d, %d",
+
+		pr_info("parse %d leds dt: %s, %d, %d, %d",
 			num, s_led->conf.cdev.name,
 			s_led->conf.max_level,
-			s_led->conf.led_bits);
+			s_led->conf.led_bits,
+			s_led->conf.trans_bits);
 		strncpy(s_led->desp.name, s_led->conf.cdev.name,
 			strlen(s_led->conf.cdev.name));
 		s_led->desp.index = num;

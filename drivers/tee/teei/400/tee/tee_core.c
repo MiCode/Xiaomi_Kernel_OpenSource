@@ -1,7 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015-2016, Linaro Limited
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  */
 
@@ -90,27 +98,6 @@ static void teedev_close_context(struct tee_context *ctx)
 	kfree(ctx);
 }
 
-int tee_k_open(struct file *filp)
-{
-	struct tee_context *ctx;
-	struct tee_device *teedev = NULL;
-
-	teedev = isee_get_teedev();
-	if (teedev == NULL) {
-		IMSG_ERROR("Failed to get the teedev!\n");
-		return -EINVAL;
-	}
-
-	ctx = teedev_open(teedev);
-	if (IS_ERR(ctx))
-		return PTR_ERR(ctx);
-
-	mutex_init(&ctx->mutex);
-
-	filp->private_data = ctx;
-	return 0;
-}
-
 static int tee_open(struct inode *inode, struct file *filp)
 {
 	struct tee_context *ctx;
@@ -122,12 +109,6 @@ static int tee_open(struct inode *inode, struct file *filp)
 	mutex_init(&ctx->mutex);
 
 	filp->private_data = ctx;
-	return 0;
-}
-
-int tee_k_release(struct file *filp)
-{
-	teedev_close_context(filp->private_data);
 	return 0;
 }
 
@@ -262,7 +243,7 @@ static int params_from_user(struct tee_context *ctx, struct tee_param *params,
 
 			if ((ip.a >= shm->size) || (ip.b > shm->size)
 					|| ((ip.a + ip.b) > shm->size)) {
-				IMSG_ERROR("Inval param in %s\n", __func__);
+				IMSG_ERROR("Inval param %s\n", __func__);
 				return -EINVAL;
 			}
 
@@ -684,7 +665,7 @@ static int tee_ioctl_shm_id(struct tee_context *ctx, unsigned long uaddr)
 	mutex_unlock(&teedev->mutex);
 
 	if (shm_found == 0) {
-		IMSG_ERROR("Failed to find the shm with uaddr =%llx\n", uaddr);
+		IMSG_ERROR("Failed to find shm with uaddr = %llx\n", uaddr);
 		return -EINVAL;
 	}
 
@@ -709,8 +690,7 @@ static int tee_ioctl_shm_release(struct tee_context *ctx, unsigned long arg)
 	return 0;
 }
 
-
-long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+static long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct tee_context *ctx = filp->private_data;
 	void __user *uarg = (void __user *)arg;
@@ -789,20 +769,18 @@ static int tee_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 
 	retVal = remap_pfn_range(vma, vma->vm_start, shm->paddr >> PAGE_SHIFT,
-					size, vma->vm_page_prot);
+				size, vma->vm_page_prot);
 
 	if (retVal != 0) {
 		IMSG_ERROR("Failed to remap the shm %d\n", retVal);
 		isee_shm_kfree(shm);
 	} else
 		shm->uaddr = vma->vm_start;
-
 exit:
 	mutex_unlock(&ctx->mutex);
 
 	return retVal;
 }
-
 
 static const struct file_operations tee_fops = {
 	.owner = THIS_MODULE,

@@ -2214,6 +2214,13 @@ int cpufreq_get_policy(struct cpufreq_policy *policy, unsigned int cpu)
 }
 EXPORT_SYMBOL(cpufreq_get_policy);
 
+void thermal_limits_notify(struct cpufreq_policy *policy)
+{
+	/* the adjusted frequency should not exceed thermal limit */
+	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
+			CPUFREQ_THERMAL, policy);
+}
+
 /*
  * policy : current policy.
  * new_policy: policy to be set.
@@ -2244,6 +2251,10 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 	/* adjust if necessary - all reasons */
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 			CPUFREQ_ADJUST, new_policy);
+
+	/* the adjusted frequency should not exceed thermal limit */
+	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
+			CPUFREQ_THERMAL, new_policy);
 
 	/*
 	 * verify the cpu speed can be set within this limit, which might be

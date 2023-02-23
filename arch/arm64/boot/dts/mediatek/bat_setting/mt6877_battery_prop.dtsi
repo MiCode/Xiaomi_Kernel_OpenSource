@@ -59,7 +59,7 @@ bat_gm30: battery{
 /*	compensate The resistance of PCB*/
 	COM_R_FG_VALUE = <(0)>;
 /*	compensate R_sense resistance*/
-	enable_tmp_intr_suspend = <(0)>;
+	enable_tmp_intr_suspend = <(1)>;
 /* Enable update temp when suspend */
 	ACTIVE_TABLE = <(0)>;
 /* Table numbers per battery*/

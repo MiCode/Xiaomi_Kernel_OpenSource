@@ -597,7 +597,7 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 	do {
 		pr_info("[SSMR-ALLOCATION]: retry: %d\n", offline_retry);
 		feature->virt_addr = dma_alloc_attrs(ssmr_dev, alloc_size,
-					&feature->phy_addr, GFP_KERNEL, 0);
+					&feature->phy_addr, GFP_KERNEL, DMA_ATTR_FORCE_CONTIGUOUS);
 		if (!feature->phy_addr) {
 			offline_retry++;
 			msleep(100);

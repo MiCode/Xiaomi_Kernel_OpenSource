@@ -58,6 +58,7 @@
 /* #include <musb_core.h> */ /* FIXME */
 #include "mtk_charger_intf.h"
 #include "mtk_switch_charging.h"
+#include "mtk_intf.h"
 
 struct tag_bootmode {
 	u32 size;
@@ -194,11 +195,14 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 		goto done;
 	}
 
+  
+#if 0	//CONFIG_FACTORY_BUILD
 	if (info->atm_enabled == true && (info->chr_type == STANDARD_HOST ||
 	    info->chr_type == CHARGING_HOST)) {
 		pdata->input_current_limit = 100000; /* 100mA */
 		goto done;
 	}
+#endif
 
 	if (mtk_is_TA_support_pd_pps(info)) {
 		pdata->input_current_limit =
@@ -464,7 +468,7 @@ static void swchg_turn_on_charging(struct charger_manager *info)
 		if (mtk_pe20_get_is_connect(info) == false)
 			mtk_pe_start_algorithm(info);
 
-		swchg_select_charging_current_limit(info);
+		//swchg_select_charging_current_limit(info);
 		if (info->chg1_data.input_current_limit == 0
 		    || info->chg1_data.charging_current_limit == 0) {
 			charging_enable = false;
@@ -851,6 +855,21 @@ int charger_dev_event(struct notifier_block *nb, unsigned long event, void *v)
 	return NOTIFY_DONE;
 }
 
+static int mtk_switch_chr_pdc_init(struct charger_manager *info)
+{
+	int ret;
+
+	ret = pdc_init();
+
+	if (ret == 0)
+		set_charger_manager(info);
+
+	info->leave_pdc = false;
+
+	return 0;
+}
+
+#if 0
 static int dvchg1_dev_event(struct notifier_block *nb, unsigned long event,
 			    void *data)
 {
@@ -882,7 +901,7 @@ static int dvchg2_dev_event(struct notifier_block *nb, unsigned long event,
 					      data);
 	return 0;
 }
-
+#endif
 int mtk_switch_charging_init(struct charger_manager *info)
 {
 	int ret = 0;
@@ -893,31 +912,37 @@ int mtk_switch_charging_init(struct charger_manager *info)
 	if (!swch_alg)
 		return -ENOMEM;
 
-	info->chg1_dev = get_charger_by_name("primary_chg");
-	if (info->chg1_dev)
-		chr_err("Found primary charger [%s]\n",
-			info->chg1_dev->props.alias_name);
-	else
-		chr_err("*** Error : can't find primary charger ***\n");
+	info->chg1_dev = get_charger_by_name("bbc");
+	if (!info->chg1_dev) {
+		chr_err("fail to get BBC charger device\n");
+	} else {
+		chr_info("seccess to get BBC charger device\n");
+	}
 
-	info->dvchg1_dev = get_charger_by_name("primary_divider_chg");
-	if (info->dvchg1_dev) {
-		chr_err("Found primary divider charger [%s]\n",
-			info->dvchg1_dev->props.alias_name);
-		info->dvchg1_nb.notifier_call = dvchg1_dev_event;
-		register_charger_device_notifier(info->dvchg1_dev,
-						 &info->dvchg1_nb);
-	} else
-		chr_err("*** Error : can't find primary divider charger ***\n");
-	info->dvchg2_dev = get_charger_by_name("secondary_divider_chg");
-	if (info->dvchg2_dev) {
-		chr_err("Found secondary divider charger [%s]\n",
-			info->dvchg2_dev->props.alias_name);
-		info->dvchg2_nb.notifier_call = dvchg2_dev_event;
-		register_charger_device_notifier(info->dvchg2_dev,
-						 &info->dvchg2_nb);
-	} else
-		chr_err("*** Error : can't find secondary divider charger ***\n");
+	if(info->data.bc12_charger == 1){
+		info->chg2_dev = get_charger_by_name("pmic");
+		if (!info->chg2_dev)
+		      chr_err("fail to get pmic\n");
+		else
+		      chr_info("seccess to get pmic\n");
+	}
+	else if(info->data.bc12_charger == 2){
+		info->chg2_dev = get_charger_by_name("xmusb350");
+		if (!info->chg2_dev)
+		      chr_err("fail to get chg2_dev\n");
+		else
+		      chr_info("seccess to get chg2_dev\n");
+	}
+
+	info->pmic_dev = get_charger_by_name("pmic");
+	if (!info->pmic_dev)
+		chr_err("fail to get pmic_dev\n");
+	else
+		chr_info("seccess to get pmic_dev\n");
+
+	info->cp_master = get_charger_by_name("cp_master");
+	info->cp_slave = get_charger_by_name("cp_slave");
+	info->cp_third = get_charger_by_name("cp_third");
 
 	mutex_init(&swch_alg->ichg_aicr_access_mutex);
 
@@ -929,5 +954,6 @@ int mtk_switch_charging_init(struct charger_manager *info)
 	info->do_event = charger_dev_event;
 	info->change_current_setting = mtk_switch_charging_current;
 
+	mtk_switch_chr_pdc_init(info);
 	return ret;
 }

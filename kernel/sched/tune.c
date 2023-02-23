@@ -948,7 +948,7 @@ schedtune_init_cgroups(void)
 	schedtune_initialized = true;
 }
 
-#ifdef CONFIG_MTK_FPSGO_V3
+#ifdef CONFIG_SCHED_TUNE
 int prefer_idle_for_perf_idx(int idx, int prefer_idle)
 {
 	struct schedtune *ct = NULL;

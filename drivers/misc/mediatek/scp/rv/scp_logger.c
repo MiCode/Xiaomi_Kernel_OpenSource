@@ -231,8 +231,17 @@ ssize_t scp_A_log_read(char __user *data, size_t len)
 
 	mutex_lock(&scp_A_log_mutex);
 
-	r_pos = SCP_A_buf_info->r_pos;
 	w_pos = SCP_A_buf_info->w_pos;
+
+#ifdef SCP_LOGGER_OVERWRITE
+	pr_err("scp_A_log_read: len= %d\n", len);
+	if (get_scp_semaphore(HW_SEM_LOGGER) < 0) {
+		pr_err("[SCP]: HW_semaphore Get fail.\n");
+		mutex_unlock(&scp_A_log_mutex);
+		return 0;
+	}
+#endif
+	r_pos = SCP_A_buf_info->r_pos;
 
 	if (r_pos == w_pos)
 		goto error;
@@ -269,6 +278,13 @@ ssize_t scp_A_log_read(char __user *data, size_t len)
 	SCP_A_buf_info->r_pos = r_pos;
 
 error:
+#ifdef SCP_LOGGER_OVERWRITE
+	if (release_scp_semaphore(HW_SEM_LOGGER) < 0) {
+		pr_err("[SCP]: HW_semaphore Release fail.\n");
+		mutex_unlock(&scp_A_log_mutex);
+		return 0;
+	}
+#endif
 	mutex_unlock(&scp_A_log_mutex);
 
 	return datalen;
@@ -513,8 +529,17 @@ static ssize_t scp_A_mobile_log_UT_show(struct device *kobj,
 
 	mutex_lock(&scp_A_log_mutex);
 
-	r_pos = SCP_A_buf_info->r_pos;
 	w_pos = SCP_A_buf_info->w_pos;
+
+#ifdef SCP_LOGGER_OVERWRITE
+	if (get_scp_semaphore(HW_SEM_LOGGER) < 0) {
+		pr_err("[SCP]: HW_semaphore Get fail.\n");
+		mutex_unlock(&scp_A_log_mutex);
+		return 0;
+	}
+#endif
+
+	r_pos = SCP_A_buf_info->r_pos;
 
 	if (r_pos == w_pos)
 		goto error;
@@ -541,6 +566,13 @@ static ssize_t scp_A_mobile_log_UT_show(struct device *kobj,
 	SCP_A_buf_info->r_pos = r_pos;
 
 error:
+#ifdef SCP_LOGGER_OVERWRITE
+	if (release_scp_semaphore(HW_SEM_LOGGER) < 0) {
+		pr_err("[SCP]: HW_semaphore Release fail.\n");
+		mutex_unlock(&scp_A_log_mutex);
+		return 0;
+	}
+#endif
 	mutex_unlock(&scp_A_log_mutex);
 
 	return len;

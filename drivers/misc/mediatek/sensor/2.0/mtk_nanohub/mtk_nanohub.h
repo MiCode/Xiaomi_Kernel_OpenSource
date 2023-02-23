@@ -144,6 +144,7 @@ struct pedometer_event_t {
 
 struct pressure_vec_t {
 	int32_t pressure;	/* Pa, i.e. hPa * 100 */
+	int32_t pressure_raw;
 	int32_t temperature;
 	uint32_t status;
 };

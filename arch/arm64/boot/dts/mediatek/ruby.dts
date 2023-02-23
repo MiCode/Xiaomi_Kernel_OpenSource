@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2021 MediaTek Inc.
+ * Copyright (C) 2022 XiaoMi, Inc.
+ */
+
+#include "mediatek/ruby-mt6877.dtsi"
+#include <ruby/cust.dtsi>
+
+/ {
+        model = "RUBY";
+        compatible = "mediatek,MT6877";
+};

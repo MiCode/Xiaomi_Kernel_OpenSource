@@ -391,6 +391,11 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 		memif->using_sram = 0;
 		return mtk_audio_sram_free(afe->sram, substream);
 	}
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+	// vow uses reserve dram, ignore free
+	if (memif->vow_bargein_enable)
+		return 0;
+#endif
 
 #if defined(CONFIG_MTK_ION)
 	// mmap don't free buffer

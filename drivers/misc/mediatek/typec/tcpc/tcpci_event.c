@@ -627,6 +627,9 @@ void pd_notify_tcp_event_buf_reset(struct pd_port *pd_port, uint8_t reason)
 {
 	struct tcpc_device *tcpc = pd_port->tcpc;
 
+	if(TCP_DPM_RET_DROP_RECV_SRESET == reason)
+	      tcpci_notify_soft_reset(tcpc);
+
 	pd_notify_tcp_event_1st_result(pd_port, reason);
 
 	mutex_lock(&tcpc->access_lock);

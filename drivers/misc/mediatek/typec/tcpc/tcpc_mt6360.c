@@ -1975,7 +1975,7 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 #if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
 	struct mt6360_chip *chip = tcpc_get_dev_data(tcpc);
 
-	chip->chgdev = get_charger_by_name("primary_chg");
+	chip->chgdev = get_charger_by_name("pmic");
 	if (!chip->chgdev) {
 		dev_info(chip->dev, "%s get charger device fail\n", __func__);
 		return -EINVAL;

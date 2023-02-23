@@ -22,9 +22,12 @@
 
 #include <sound/soc.h>
 #include <sound/tlv.h>
-
-#include "registers.h"
-
+#include <sound/jack.h>
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6359P
+#include <linux/mfd/mt6359p/registers.h>
+#else
+#include <linux/mfd/mt6359/registers.h>
+#endif
 #ifdef CONFIG_MTK_ACCDET
 #include "accdet.h"
 #endif
@@ -45,7 +48,9 @@
 #endif
 
 #include "mt6359.h"
-
+#ifdef CONFIG_SND_JACK_INPUT_DEV_RUBY
+#define USB_3_5_UNSUPPORT 1
+#endif
 enum {
 	MT6359_AIF_1 = 0,	/* dl: hp, rcv, hp+lo */
 	MT6359_AIF_2,		/* dl: lo only */
@@ -299,7 +304,9 @@ struct mt6359_priv {
 	int vow_dmic_lp;
 	int vow_single_mic_select;
 };
-
+#ifdef USB_3_5_UNSUPPORT
+extern struct snd_soc_jack g_usb_3_5_jack;
+#endif
 /* static function declaration */
 static int dc_trim_thread(void *arg);
 
@@ -6682,7 +6689,9 @@ static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
 {
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	int ret;
-
+#ifdef USB_3_5_UNSUPPORT
+	int status = 0;
+#endif
 	snd_soc_component_init_regmap(cmpnt, priv->regmap);
 
 	/* add codec controls */
@@ -6708,7 +6717,14 @@ static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3] = 3;
 
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
-
+#ifdef USB_3_5_UNSUPPORT
+	pr_warn("%s: snd_soc_card_jack_new\n", __func__);
+	status = snd_soc_card_jack_new(cmpnt->card, "USB_3_5 Jack", (SND_JACK_VIDEOOUT | SND_JACK_HEADSET),
+                                   &g_usb_3_5_jack, NULL, 0);
+	if (status) {
+		pr_err("%s: Failed to create new jack USB_3_5 Jack\n", __func__);
+	}
+#endif
 	priv->avdd_reg = devm_regulator_get(priv->dev, "vaud18");
 	if (IS_ERR(priv->avdd_reg)) {
 		dev_err(priv->dev, "%s(), have no vaud18 supply", __func__);

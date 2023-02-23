@@ -8,6 +8,9 @@
 
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
+#include <linux/platform_device.h>
+#include <linux/kernel.h>
+#include <sound/jack.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 
@@ -17,6 +20,8 @@
 #include "mt6877-afe-gpio.h"
 #include "../../codecs/mt6359.h"
 #include "../common/mtk-sp-spk-amp.h"
+#include "../../../../drivers/misc/mediatek/typec/tcpc/inc/tcpci_core.h"
+#include "../../../../drivers/misc/mediatek/typec/tcpc/inc/tcpm.h"
 
 #ifdef CONFIG_SND_SOC_AW87339
 #include "aw87339.h"
@@ -29,11 +34,27 @@
  */
 #define EXT_SPK_AMP_W_NAME "Ext_Speaker_Amp"
 
+// #ifdef CONFIG_SND_SMARTPA_AW882XX
+struct snd_soc_dai_link_component awinic_codecs[] = {
+	{
+		.of_node = NULL,
+		.dai_name = "aw882xx-aif-7-34", /*以 I2C 总线 0x6，地址 0x34 举例*/
+		.name = "aw882xx_smartpa.7-0034",
+	},
+	{
+		.of_node = NULL,
+		.dai_name = "aw882xx-aif-7-35", /*以 I2C 总线 0x6，地址 0x35 举例*/
+		.name = "aw882xx_smartpa.7-0035",
+	},
+};
+// #endif
+
 static const char *const mt6877_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_RICHTEK_RT5509_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
 						  MTK_SPK_NXP_TFA98XX_STR,
-						  MTK_SPK_MEDIATEK_RT5512_STR
+						  MTK_SPK_MEDIATEK_RT5512_STR,
+						  MTK_SPK_AW_AW882XX_STR
 						  };
 static const char *const
 	mt6877_spk_i2s_type_str[] = {MTK_SPK_I2S_0_STR,
@@ -55,6 +76,95 @@ static const struct soc_enum mt6877_spk_type_enum[] = {
 			    mt6877_spk_i2s_type_str),
 };
 
+#ifdef CONFIG_SND_JACK_INPUT_DEV_RUBY
+#define USB_3_5_UNSUPPORT 1
+#endif
+
+#ifdef USB_3_5_UNSUPPORT
+struct snd_soc_jack g_usb_3_5_jack;
+struct usb_priv *g_usbc_priv = NULL;
+struct usb_priv {
+	struct device *dev;
+	struct notifier_block psy_nb;
+	struct tcpc_device *tcpc_dev;
+};
+
+static int analog_usb_typec_event_changed(struct notifier_block *nb,
+					unsigned long evt, void *ptr)
+{
+	int ret = 0;
+	struct tcp_notify *noti = ptr;
+	struct usb_priv *usbc_priv = container_of(nb, struct usb_priv, psy_nb);
+	pr_info("%s: enter\n", __func__);
+	if (NULL == noti) {
+		pr_err("%s:data is NULL. \n", __func__);
+		return 0;
+	}
+
+	if (!usbc_priv || (usbc_priv != g_usbc_priv))
+		return -EINVAL;
+
+	pr_info("%s:USB change event received, evt %d, expected %d, ole state %d, new state %d\n",
+		__func__, evt, TCP_NOTIFY_TYPEC_STATE, noti->typec_state.old_state, noti->typec_state.new_state);
+	switch (evt) {
+	case TCP_NOTIFY_TYPEC_STATE:
+		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+			noti->typec_state.new_state == TYPEC_ATTACHED_AUDIO) {
+			/* Audio Plug in */
+			pr_info("%s: Audio Plug in\n", __func__);
+			snd_soc_jack_report(&g_usb_3_5_jack, (SND_JACK_HEADSET | SND_JACK_VIDEOOUT),
+			(SND_JACK_HEADSET | SND_JACK_VIDEOOUT));
+		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO &&
+			noti->typec_state.new_state == TYPEC_UNATTACHED) {
+			/* Audio Plug out */
+			pr_info("%s: Audio Plug out\n", __func__);
+			snd_soc_jack_report(&g_usb_3_5_jack, 0, (SND_JACK_HEADSET | SND_JACK_VIDEOOUT));
+		}
+		break;
+	}
+
+	return ret;
+}
+
+static int analog_usb_typec_event_setup(struct platform_device *platform_device)
+{
+	int rc = 0;
+	pr_info("%s: enter\n", __func__);
+	if (NULL != g_usbc_priv) {
+		pr_info("%s: had done! \n", __func__);
+		return 0;
+	}
+
+	g_usbc_priv = devm_kzalloc(&platform_device->dev, sizeof(*g_usbc_priv),
+				GFP_KERNEL);
+	if (!g_usbc_priv)
+		return -ENOMEM;
+
+	g_usbc_priv->dev = &platform_device->dev;
+
+	g_usbc_priv->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
+	if (!g_usbc_priv->tcpc_dev) {
+		rc = -EPROBE_DEFER;
+		pr_err("%s get tcpc device type_c_port0 fail \n", __func__);
+		goto err_data;
+	}
+
+	/* register tcpc_event */
+	g_usbc_priv->psy_nb.notifier_call = analog_usb_typec_event_changed;
+	g_usbc_priv->psy_nb.priority = 0;
+	rc = register_tcp_dev_notifier(g_usbc_priv->tcpc_dev, &g_usbc_priv->psy_nb, TCP_NOTIFY_TYPE_USB);
+	if (rc)
+	{
+		pr_err("%s: register_tcp_dev_notifier failed\n", __func__);
+	}
+
+	return 0;
+
+err_data:
+	devm_kfree(&platform_device->dev, g_usbc_priv);
+	return rc;
+}
+#endif
 static int mt6877_spk_type_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
@@ -541,6 +651,7 @@ static struct snd_soc_dai_link mt6877_mt6359_dai_links[] = {
 		.dynamic = 1,
 		.dpcm_playback = 1,
 	},
+	// 10
 	{
 		.name = "Capture_1",
 		.stream_name = "Capture_1",
@@ -651,6 +762,7 @@ static struct snd_soc_dai_link mt6877_mt6359_dai_links[] = {
 		.dynamic = 1,
 		.dpcm_capture = 1,
 	},
+	// 20
 	{
 		.name = "Capture_Mono_3",
 		.stream_name = "Capture_Mono_3",
@@ -777,6 +889,7 @@ static struct snd_soc_dai_link mt6877_mt6359_dai_links[] = {
 		.ignore_suspend = 1,
 		.init = mt6877_mt6359_init,
 	},
+	// 30
 	{
 		.name = "Primary Codec CH34",
 		.cpu_dai_name = "ADDA_CH34",
@@ -807,18 +920,19 @@ static struct snd_soc_dai_link mt6877_mt6359_dai_links[] = {
 	{
 		.name = "I2S3",
 		.cpu_dai_name = "I2S3",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+		//.codec_dai_name = "snd-soc-dummy-dai",
+		// .codec_name = "snd-soc-dummy",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
 		.be_hw_params_fixup = mt6877_i2s_hw_params_fixup,
 	},
+	// 34
 	{
 		.name = "I2S0",
 		.cpu_dai_name = "I2S0",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+		// .codec_dai_name = "snd-soc-dummy-dai",
+		// .codec_name = "snd-soc-dummy",
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
@@ -844,6 +958,7 @@ static struct snd_soc_dai_link mt6877_mt6359_dai_links[] = {
 		.ignore_suspend = 1,
 		.be_hw_params_fixup = mt6877_i2s_hw_params_fixup,
 	},
+	// 37
 	{
 		.name = "I2S5",
 		.cpu_dai_name = "I2S5",
@@ -1173,9 +1288,12 @@ static struct snd_soc_card mt6877_mt6359_soc_card = {
 static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6877_mt6359_soc_card;
-	struct device_node *platform_node, *codec_node, *spk_node, *dsp_node;
+	struct device_node *platform_node, *codec_node, __attribute__((unused))*spk_node, *dsp_node;
 	struct snd_soc_dai_link *spk_out_dai_link, *spk_iv_dai_link;
 	int ret, i;
+#ifdef USB_3_5_UNSUPPORT
+	int status = 0;
+#endif
 	int spk_out_dai_link_idx, spk_iv_dai_link_idx;
 	const char *name;
 
@@ -1196,6 +1314,13 @@ static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 	spk_iv_dai_link = &mt6877_mt6359_dai_links[spk_iv_dai_link_idx];
 	if (!spk_out_dai_link->codec_dai_name &&
 	    !spk_iv_dai_link->codec_dai_name) {
+#ifdef CONFIG_SND_SMARTPA_AW882XX
+		dev_info(&pdev->dev, "%s(), CONFIG_SND_SMARTPA_AW882XX\n", __func__);
+		spk_out_dai_link->codecs = awinic_codecs;
+		spk_out_dai_link->num_codecs = ARRAY_SIZE(awinic_codecs);
+		spk_iv_dai_link->codecs = awinic_codecs;
+		spk_iv_dai_link->num_codecs = ARRAY_SIZE(awinic_codecs);
+#else
 		spk_node = of_get_child_by_name(pdev->dev.of_node,
 					"mediatek,speaker-codec");
 		if (!spk_node) {
@@ -1217,6 +1342,7 @@ static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 				"i2s in get_dai_link_codecs fail\n");
 			return -EINVAL;
 		}
+#endif
 	}
 
 	dev_info(&pdev->dev, "%s(), update platform dai\n", __func__);
@@ -1260,6 +1386,8 @@ static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 		    i == spk_out_dai_link_idx ||
 		    i == spk_iv_dai_link_idx)
 			continue;
+		if (mt6877_mt6359_dai_links[i].codecs)
+			continue;
 		mt6877_mt6359_dai_links[i].codec_of_node = codec_node;
 	}
 
@@ -1271,6 +1399,15 @@ static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "%s snd_soc_register_card fail %d\n",
 			__func__, ret);
+#ifdef USB_3_5_UNSUPPORT
+	pr_warn("%s: USB_3_5_UNSUPPORT\n", __func__);
+	if (!ret) {
+		status = analog_usb_typec_event_setup(pdev);
+		if (status) {
+			dev_err(&pdev->dev,"%s analog usb typeC event setup fail.ret:%d\n", __func__, ret);
+		}
+	}
+#endif
 	return ret;
 }
 
@@ -1297,7 +1434,20 @@ static struct platform_driver mt6877_mt6359_driver = {
 	.probe = mt6877_mt6359_dev_probe,
 };
 
-module_platform_driver(mt6877_mt6359_driver);
+// module_platform_driver(mt6877_mt6359_driver);
+
+static int __init mt6877_mt6359_driver_init(void)
+{
+	return platform_driver_register(&mt6877_mt6359_driver);
+}
+
+static void __exit mt6877_mt6359_driver_exit(void)
+{
+	platform_driver_unregister(&mt6877_mt6359_driver);
+}
+
+late_initcall(mt6877_mt6359_driver_init);
+module_exit(mt6877_mt6359_driver_exit);
 
 /* Module information */
 MODULE_DESCRIPTION("MT6877 MT6359 ALSA SoC machine driver");

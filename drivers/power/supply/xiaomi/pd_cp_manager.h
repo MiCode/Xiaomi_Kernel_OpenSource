@@ -1,0 +1,90 @@
+
+#include <linux/device.h>
+#include <linux/interrupt.h>
+#include <linux/module.h>
+#include <linux/delay.h>
+#include <linux/workqueue.h>
+#include <linux/power_supply.h>
+#include "../mediatek/charger/mtk_charger_intf.h"
+
+#define PDM_SM_DELAY_300MS	300
+#define PDM_SM_DELAY_200MS	200
+#define PDM_SM_DELAY_150MS	150
+#define PDM_SM_DELAY_100MS	100
+
+#define HUGE_IBAT_DIFF		1200
+#define LARGE_IBAT_DIFF		650
+#define MEDIUM_IBAT_DIFF	150
+#define HUGE_VBAT_DIFF		150
+#define LARGE_VBAT_DIFF		100
+#define MEDIUM_VBAT_DIFF	30
+#define HUGE_IBUS_DIFF		900
+#define LARGE_IBUS_DIFF		500
+#define MEDIUM_IBUS_DIFF	200
+#define SMALL_IBUS_DIFF		100
+#define HUGE_VBUS_DIFF		1500
+#define LARGE_VBUS_DIFF		800
+#define MEDIUM_VBUS_DIFF	400
+#ifdef CONFIG_FACTORY_BUILD
+#define MAX_CABLE_RESISTANCE	550
+#else
+#define MAX_CABLE_RESISTANCE	350
+#endif
+
+#define HUGE_STEP		10
+#define LARGE_STEP		4
+#define MEDIUM_STEP		2
+#define SMALL_STEP		1
+
+#define PDM_BBC_ICL		100
+#define LOW_POWER_PD2_VINMIN 	4700
+#define LOW_POWER_PD2_ICL 	1000
+
+#define DEFAULT_PDO_VBUS_2S	10000
+#define DEFAULT_PDO_IBUS_2S	3000
+#define DEFAULT_PDO_VBUS_1S	5000
+#define DEFAULT_PDO_IBUS_1S	3000
+
+#define MIN_JEITA_CHG_INDEX	1
+#define MAX_JEITA_CHG_INDEX	4
+#define RUBYPLUS_MAX_JEITA_CHG_INDEX	5
+#define MIN_THERMAL_LIMIT_FCC	1500
+#define LOW_THERMAL_LIMIT_FCC	2000
+#define MIN_CP_IBUS		100
+#define LOW_CP_IBUS		650
+#define HIGH_CP_IBUS		2500
+
+#define CLOSE_CP_IBUS		1200
+#define OPEN_CP_IBUS		2000
+#define CLOSE_THIRD_FCC		4000
+#define CLOSE_SLAVE_FCC		3000
+#define OPEN_THIRD_FCC		8000
+#define OPEN_SLAVE_FCC		4500
+
+#define MAX_WATT_33W		34000000
+#define MAX_WATT_67W		68000000
+#define MAX_VBUS_67W		12000
+#define MIN_IBUS_67W		2200
+#define MAX_IBUS_67W		6200
+#define SECOND_IBUS_67W		6100
+
+#define STEP_MV			20
+
+#define MAX_VBUS_TUNE_COUNT		40
+#define MAX_ADAPTER_ADJUST_COUNT	10
+#define MAX_ENABLE_CP_COUNT		8
+#define MAX_TAPER_COUNT			3
+#define MAX_LOW_CP_IBUS_COUNT		5
+#define MAX_HIGH_CP_IBUS_COUNT		3
+
+#define BYPASS_ENTRY_FCC	4000
+#define BYPASS_EXIT_FCC		6000
+
+#define BYPASS_MIN_VBUS_1S	3600
+#define BYPASS_MIN_VBUS_2S	7200
+#define BYPASS_MAX_VBUS_1S	5500
+#define BYPASS_MAX_VBUS_2S	11000
+#define DIV2_MIN_VBUS_1S	6400
+#define DIV2_MIN_VBUS_2S	13000
+#define DIV2_MAX_VBUS_1S	12000
+#define DIV2_MAX_VBUS_2S	22000

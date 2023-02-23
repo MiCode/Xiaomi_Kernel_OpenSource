@@ -137,7 +137,8 @@ enum {
 	TCP_NOTIFY_REQUEST_BAT_INFO,
 	TCP_NOTIFY_WD_STATUS,
 	TCP_NOTIFY_CABLE_TYPE,
-	TCP_NOTIFY_MISC_END = TCP_NOTIFY_CABLE_TYPE,
+	TCP_NOTIFY_SOFT_RESET,
+	TCP_NOTIFY_MISC_END = TCP_NOTIFY_SOFT_RESET,
 };
 
 struct tcp_ny_pd_state {
@@ -886,6 +887,9 @@ extern uint8_t tcpm_inquire_pd_data_role(
 	struct tcpc_device *tcpc);
 
 extern uint8_t tcpm_inquire_pd_power_role(
+	struct tcpc_device *tcpc);
+
+extern uint8_t tcpm_inquire_pd_state_curr(
 	struct tcpc_device *tcpc);
 
 extern uint8_t tcpm_inquire_pd_vconn_role(

@@ -1807,6 +1807,11 @@ void __weak ccci_reset_ccif_hw(unsigned char md_id,
 }
 EXPORT_SYMBOL(ccci_reset_ccif_hw);
 
+void __weak ccci_notify_set_scpmem(void)
+{
+	CCCI_NORMAL_LOG(-1, TAG, "%s weak done\n", __func__);
+}
+
 static int ccif_debug(unsigned char hif_id,
 		enum ccci_hif_debug_flg flag, int *para)
 {
@@ -1970,6 +1975,8 @@ static int ccif_start(unsigned char hif_id)
 			__func__, hif_id);
 
 	ccif_set_clk_on(hif_id);
+	/* notify atf/kernel write scp smem to reg*/
+	ccci_notify_set_scpmem();
 	md_ccif_sram_reset(CCIF_HIF_ID);
 
 	md_ccif_switch_ringbuf(CCIF_HIF_ID, RB_EXP);
