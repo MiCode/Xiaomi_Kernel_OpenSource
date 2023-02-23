@@ -22,23 +22,23 @@
 
 enum {
 	topckgen,
-	infracfg,
+	infracfg_ao,
 	pericfg,
 	scpsys,
-	apmixed,
+	apmixedsys,
 	gce,
-	audio,
+	afe,
 	mipi_0a,
 	mipi_0b,
 	mipi_1a,
 	mipi_1b,
 	mipi_2a,
 	mipi_2b,
-	mfgsys,
-	mmsys,
+	mfgcfg,
+	mmsys_config,
 	imgsys,
 	camsys,
-	vencsys,
+	vcodec_gcon,
 };
 
 #define REGBASE_V(_phys, _id_name) { .phys = _phys, .name = #_id_name }
@@ -249,18 +249,23 @@ static const char * const *get_all_clk_names(void)
 		"syspll_d7",
 		"syspll4_d2",
 		"syspll4_d4",
+		"syspll4_d8"
 		"usb20_192m_ck",
+		"usb20_192m_d2",
 		"usb20_192m_d4",
 		"usb20_192m_d8",
 		"usb20_192m_d16",
 		"usb20_192m_d32",
+		"usb_phy48m_ck",
 		"univpll_d2",
 		"univpll1_d2",
 		"univpll1_d4",
+		"univpll1_d8",
 		"univpll_d3",
 		"univpll2_d2",
 		"univpll2_d4",
 		"univpll2_d8",
+		"univpll2_d16",
 		"univpll2_d32",
 		"univpll_d5",
 		"univpll3_d2",
@@ -268,16 +273,19 @@ static const char * const *get_all_clk_names(void)
 		"mmpll_ck",
 		"mmpll_d2",
 		"mpll_ck",
-		"mpll_104m_div_ck",
-		"mpll_52m_div_ck",
+		"da_mpll_104m_div_ck",
+		"da_mpll_52m_div_ck",
 		"mfgpll_ck",
 		"msdcpll_ck",
 		"msdcpll_d2",
-		"apll1_ck",
+		"msdcpll_d4",
+		"msdcpll_d8",
+		"msdcpll_d16",
+		"ad_apll1_ck",
 		"apll1_d2",
 		"apll1_d4",
 		"apll1_d8",
-		"ulposc1_ck",
+		"ad_ulposc1_ck",
 		"ulposc1_d2",
 		"ulposc1_d4",
 		"ulposc1_d8",
@@ -576,11 +584,10 @@ void setup_provider_clk(struct provider_clk *pvdck)
 		u32 pwr_mask;
 	} pvd_pwr_mask[] = {
 		{"mfgcfg", BIT(4) | BIT(7) | BIT(23)},
-		{"mmsys", BIT(3)},
+		{"mmsys_config", BIT(3)},
 		{"imgsys", BIT(3) | BIT(5)},
-		{"camsys", BIT(3) | BIT(5)},
-		{"venc_gcon", BIT(3) | BIT(26)},
-		{"mmsys", BIT(3)},
+		{"camsys", BIT(3) | BIT(25)},
+		{"vcodec_gcon", BIT(3) | BIT(26)},
 	};
 
 	int i;
@@ -595,6 +602,18 @@ void setup_provider_clk(struct provider_clk *pvdck)
 			return;
 		}
 	}
+}
+u32 get_spm_pwr_status(void)
+{
+	static void __iomem *scpsys_base, *pwr_sta, *pwr_sta_2nd;
+
+	if (scpsys_base == NULL || pwr_sta == NULL || pwr_sta_2nd == NULL) {
+		scpsys_base = ioremap(0x10006000, PAGE_SIZE);
+		pwr_sta = scpsys_base + 0x180;
+		pwr_sta_2nd = scpsys_base + 0x184;
+	}
+
+	return clk_readl(pwr_sta) & clk_readl(pwr_sta_2nd);
 }
 
 /*
@@ -612,42 +631,42 @@ static struct clkdbg_ops clkdbg_mt6765_ops = {
 	.prepare_fmeter = NULL,
 	.unprepare_fmeter = NULL,
 	.fmeter_freq = NULL,
-	//.get_all_regnames = get_all_regnames,
 	.get_all_clk_names = get_all_clk_names,
 	.get_pwr_names = get_pwr_names,
-	//.setup_provider_clk = setup_provider_clk,
 };
 
 
-static int __init clkdbg_mt6765_init(void)
+static int clk_dbg_mt6765_probe(struct platform_device *pdev)
 {
-	if (!of_machine_is_compatible("mediatek,MT6765"))
-		return -ENODEV;
-
-	//init_regbase(); //TODO
-
-	//init_custom_cmds();//TODO
+	pr_notice("%s start\n", __func__);
 	set_clkdbg_ops(&clkdbg_mt6765_ops);
-
-#if ALL_CLK_ON
-	prepare_enable_provider("topckgen");
-	reg_pdrv("all");
-	prepare_enable_provider("all");
-#endif
-
-#if DUMP_INIT_STATE
-	print_regs();
-	print_fmeter_all();
-#endif /* DUMP_INIT_STATE */
 
 	return 0;
 }
 
+static struct platform_driver clk_dbg_mt6765_drv = {
+	.probe = clk_dbg_mt6765_probe,
+	.driver = {
+		.name = "clk-dbg-mt6765",
+		.owner = THIS_MODULE,
+	},
+};
+
+/*
+ * init functions
+ */
+
+static int __init clkdbg_mt6765_init(void)
+{
+	pr_notice("%s start\n", __func__);
+	return clk_dbg_driver_register(&clk_dbg_mt6765_drv, "clk-dbg-mt6765");
+}
+
 static void __exit clkdbg_mt6765_exit(void)
 {
+	platform_driver_unregister(&clk_dbg_mt6765_drv);
 }
 
 subsys_initcall(clkdbg_mt6765_init);
 module_exit(clkdbg_mt6765_exit);
-
 MODULE_LICENSE("GPL");
