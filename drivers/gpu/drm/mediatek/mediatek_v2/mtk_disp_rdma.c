@@ -791,7 +791,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 40), FP);
 	gs[GS_RDMA_DVFS_ULTRA_TH_HIGH] = gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW];
 
-	if (priv->data->mmsys_id == MMSYS_MT6768) {
+	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
 		/* DISP_RDMA_LEAVE_DRS_SETTING */
 		gs[GS_RDMA_IS_DRS_STATUS_TH_LOW] =
 			DO_DIV_ROUND_UP(consume_rate * urgent_low_us, FP);
@@ -1785,8 +1785,8 @@ const struct mtk_disp_rdma_data mt6765_rdma_driver_data = {
 	.pre_ultra_high_us = 160,
 	.ultra_low_us = 87,
 	.ultra_high_us = 3,
-	.urgent_low_us = 43,
-	.urgent_high_us = 79,
+	.urgent_low_us = 30,
+	.urgent_high_us = 35,
 	.sodi_config = mt6765_mtk_sodi_config,
 	.shadow_update_reg = 0x00bc,
 	.support_shadow = false,
