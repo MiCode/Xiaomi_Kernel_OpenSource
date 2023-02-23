@@ -224,11 +224,18 @@ void mtk_disp_hrt_mmclk_request_mt6768(struct mtk_drm_crtc *mtk_crtc, unsigned i
 {
 	int layer_num;
 	int ret;
+	unsigned long long bw_base;
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct hrt_mmclk_request *req_level;
 
-	layer_num = bw * 10 / mtk_drm_primary_frame_bw(crtc);
+	bw_base = mtk_drm_primary_frame_bw(crtc);
+	if (bw_base != 0)
+		layer_num = bw * 10 / bw_base;
+	else {
+		DDPINFO("%s-error: frame_bw is zero, skip request mmclk\n", __func__);
+		return;
+	}
 
 	if (is_bdg_supported()) {
 		if (mtk_crtc->base.mode.vdisplay / mtk_crtc->base.mode.hdisplay > 18 / 9)
