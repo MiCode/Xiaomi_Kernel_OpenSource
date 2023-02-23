@@ -221,7 +221,7 @@ static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 			, spm_dormant_sta);
 	}
 
-#if !IS_ENABLED(SECURE_SERIAL_8250)
+#if !defined(SECURE_SERIAL_8250)
 	if (is_infra_pdn(pwrctrl->pcm_flags))
 		mtk8250_restore_dev();
 #endif
@@ -437,7 +437,7 @@ unsigned int spm_go_to_sleep(void)
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 #if IS_ENABLED(CONFIG_MTK_PMIC) || IS_ENABLED(CONFIG_MTK_PMIC_NEW_ARCH)
-#if !IS_ENABLED(DISABLE_DLPT_FEATURE)
+#if !defined(DISABLE_DLPT_FEATURE)
 	get_dlpt_imix_spm();
 #endif
 #endif
@@ -485,7 +485,7 @@ unsigned int spm_go_to_sleep(void)
 
 	spm_suspend_footprint(SPM_SUSPEND_ENTER_UART_SLEEP);
 
-#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && !IS_ENABLED(SECURE_SERIAL_8250)
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && !defined(SECURE_SERIAL_8250)
 	if (mtk8250_request_to_sleep()) {
 		last_wr = WR_UART_BUSY;
 		printk_deferred("[name:spm&]Fail to request uart sleep\n");
@@ -499,7 +499,7 @@ unsigned int spm_go_to_sleep(void)
 
 	spm_suspend_footprint(SPM_SUSPEND_LEAVE_WFI);
 
-#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && !IS_ENABLED(SECURE_SERIAL_8250)
+#if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING) && !defined(SECURE_SERIAL_8250)
 	mtk8250_request_to_wakeup();
 RESTORE_IRQ:
 #endif

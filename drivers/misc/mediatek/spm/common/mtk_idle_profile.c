@@ -10,7 +10,7 @@
 #include <mtk_idle_internal.h>
 #include <mtk_idle_profile.h>
 
-#if IS_ENABLED(CONFIG_MTK_CPU_FREQ)
+#if IS_ENABLED(CONFIG_MEDIATEK_CPU_DVFS)
 #include <mtk_cpufreq_api.h>
 #endif
 
@@ -561,7 +561,7 @@ void mtk_idle_latency_profile_result(unsigned int idle_type)
 	data = &idle_profile[idle_type][0];
 	pdata = &g_pdata[idle_type];
 
-	#if IS_ENABLED(CONFIG_MTK_CPU_FREQ)
+	#if IS_ENABLED(CONFIG_MEDIATEK_CPU_DVFS)
 	log("%s (cpu%d/%u),", mtk_idle_name(idle_type)
 		, smp_processor_id()
 		, mt_cpufreq_get_cur_freq(smp_processor_id()/4));

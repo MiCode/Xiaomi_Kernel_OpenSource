@@ -10,8 +10,8 @@
 #include <linux/time64.h>
 #include <linux/timekeeping.h>
 
-#if IS_ENABLED(CONFIG_THERMAL)
-//#include <mtk_thermal.h> /* mtkTTimer_start/cancel_timer */
+#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
+#include <mtk_thermal.h> /* mtkTTimer_start/cancel_timer */
 #endif
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>
@@ -71,17 +71,10 @@ static idle_footprint_t fp[NR_IDLE_TYPES] = {
  ************************************************************/
 /* [ByChip] Internal weak functions: implemented in mtk_spm_idle.c */
 
-
 bool __attribute__((weak)) mtk_idle_resource_pre_process(void)
 {
 	return false;
 }
-
-void __attribute__((weak)) mtk_idle_pre_process_by_chip(
-	int idle_type, int cpu, unsigned int op_cond, unsigned int idle_flag) {}
-
-void __attribute__((weak)) mtk_idle_post_process_by_chip(
-	int idle_type, int cpu, unsigned int op_cond, unsigned int idle_flag) {}
 
 /* External weak functions: implemented in clkbuf and thermal module */
 uint32_t __attribute__((weak)) clk_buf_bblpm_enter_cond(void) { return -1; }
@@ -165,9 +158,9 @@ static unsigned int mtk_idle_pre_handler(int idle_type)
 	/* notify mtk idle enter */
 	mtk_idle_notifier_call_chain(idle_notify_enter[idle_type]);
 
-	#if IS_ENABLED(CONFIG_THERMAL) && !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+	#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL) && !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	/* cancel thermal hrtimer for power saving */
-	//mtkTTimer_cancel_timer();
+	mtkTTimer_cancel_timer();
 	#endif
 
 	/* check ufs */
@@ -182,9 +175,9 @@ static unsigned int mtk_idle_pre_handler(int idle_type)
 
 static void mtk_idle_post_handler(int idle_type)
 {
-	#if IS_ENABLED(CONFIG_THERMAL) && !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
+	#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL) && !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	/* restart thermal hrtimer for update temp info */
-	//mtkTTimer_start_timer();
+	mtkTTimer_start_timer();
 	#endif
 
 	ufs_cb_after_idle();
@@ -252,7 +245,7 @@ int mtk_idle_enter(
 	__mtk_idle_footprint(IDLE_FP_UART_SLEEP);
 
 	/* uart sleep */
-	#if IS_ENABLED(CONFIG_SERIAL_8250_MT6577) && !IS_ENABLED(SECURE_SERIAL_8250)
+	#if IS_ENABLED(CONFIG_SERIAL_8250_MT6577) && !defined(SECURE_SERIAL_8250)
 	if (!(idle_flag & MTK_IDLE_LOG_DUMP_LP_GS)) {
 		if (mtk8250_request_to_sleep()) {
 			pr_info_ratelimited("Power/swap %s Fail to request uart sleep\n",
@@ -272,7 +265,7 @@ int mtk_idle_enter(
 	__mtk_idle_footprint(IDLE_FP_LEAVE_WFI);
 
 	/* uart resume */
-	#if IS_ENABLED(CONFIG_SERIAL_8250_MT6577) && !IS_ENABLED(SECURE_SERIAL_8250)
+	#if IS_ENABLED(CONFIG_SERIAL_8250_MT6577) && !defined(SECURE_SERIAL_8250)
 	if (!(idle_flag & MTK_IDLE_LOG_DUMP_LP_GS))
 		mtk8250_request_to_wakeup();
 RESTORE_UART:
