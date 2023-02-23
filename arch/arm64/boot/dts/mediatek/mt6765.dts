@@ -109,7 +109,7 @@ aliases {
 			power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>;
 			operating-points-v2 = <&opp_table_mm>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-			interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnects = <&mmqos SLAVE_LARB(21) &mmqos SLAVE_COMMON(0)>;
 			interconnect-names = "disp_hrt_qos";
 
 			/* define threads, see mt6765-gce.h */
@@ -290,7 +290,16 @@ aliases {
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			clocks = <&mmsys_config CLK_MM_DISP_OVL0>;
 			iommus = <&iommu M4U_PORT_DISP_OVL0>;
-
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_OVL0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_OVL0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_OVL0)
+						&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "DDP_COMPONENT_OVL0_qos",
+						"DDP_COMPONENT_OVL0_fbdc_qos",
+						"DDP_COMPONENT_OVL0_hrt_qos";
 		};
 
 		disp_ovl0_2l: disp_ovl0_2l@1400c000 {
@@ -303,6 +312,16 @@ aliases {
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			clocks = <&mmsys_config CLK_MM_DISP_OVL0_2L>;
 			iommus = <&iommu M4U_PORT_DISP_2L_OVL0_LARB0>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_2L_OVL0_LARB0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_2L_OVL0_LARB0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_2L_OVL0_LARB0)
+						&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "DDP_COMPONENT_OVL0_2L_qos",
+						"DDP_COMPONENT_OVL0_2L_fbdc_qos",
+						"DDP_COMPONENT_OVL0_2L_hrt_qos";
 		};
 
 		disp_rsz0: disp_rsz0@14015000 {
@@ -323,6 +342,13 @@ aliases {
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			clocks = <&mmsys_config CLK_MM_DISP_RDMA0>;
 			iommus = <&iommu M4U_PORT_DISP_RDMA0>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_RDMA0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_RDMA0)
+						&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "DDP_COMPONENT_RDMA0_qos",
+						"DDP_COMPONENT_RDMA0_hrt_qos";
 		};
 
 		disp_color0: disp_color0@1400f000 {
