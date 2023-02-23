@@ -2240,6 +2240,7 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					"RSC Enque Num is bigger than enqueNum:%d\n",
 						rsc_RscReq.m_ReqNum);
 					Ret = -EFAULT;
+					mutex_unlock(&gRscMutex);
 					goto EXIT;
 				}
 				if (copy_from_user
@@ -2250,6 +2251,7 @@ static long RSC_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					LOG_ERR(
 					"copy RSCConfig from request fail!!\n");
 					Ret = -EFAULT;
+					mutex_unlock(&gRscMutex);
 					goto EXIT;
 				}
 

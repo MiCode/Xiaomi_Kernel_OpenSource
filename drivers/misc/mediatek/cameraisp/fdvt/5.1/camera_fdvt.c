@@ -4027,6 +4027,8 @@ static signed int FDVT_open(struct inode *pInode, struct file *pFile)
 	/* Enable clock */
 	fdvt_enable_clock(MTRUE);
 	cmdq_mbox_enable(fdvt_clt->chan);
+	if (fdvt_secure_clt)
+		cmdq_sec_mbox_enable(fdvt_secure_clt->chan);
 	fdvt_count = 0;
 	log_dbg("FDVT open clock_enable_count: %d", clock_enable_count);
 	/*  */
@@ -4114,6 +4116,8 @@ static signed int FDVT_release(struct inode *pInode, struct file *pFile)
 	fdvt_sec_dma.handler_first_time = 0;
 
 	cmdq_mbox_disable(fdvt_clt->chan);
+	if (fdvt_secure_clt)
+		cmdq_sec_mbox_disable(fdvt_secure_clt->chan);
 	fdvt_enable_clock(MFALSE);
 	log_dbg("FDVT release clock_enable_count: %d", clock_enable_count);
 	/*  */
