@@ -135,7 +135,8 @@ aliases {
 			power-domains = <&scpsys MT6768_POWER_DOMAIN_DISP>;
 			operating-points-v2 = <&opp_table_mm>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-			interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnects = <&dvfsrc MT6873_MASTER_MM_DISP &dvfsrc
+					MT6873_SLAVE_DDR_EMI>;
 				interconnect-names = "disp-perf-bw";
 				required-opps = <&dvfsrc_freq_opp0>,
 					<&dvfsrc_freq_opp1>,
