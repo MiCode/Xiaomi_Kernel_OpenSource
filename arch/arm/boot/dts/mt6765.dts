@@ -5080,7 +5080,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 #include "cust_mt6765_msdc.dtsi"
 #include "mt6357.dtsi"
 #include "bat_setting/mt6765_battery_prop.dtsi"
-#include "mt6370_65.dtsi"
+#include "mt6370.dtsi"
 #include "rt9471.dtsi"
 #include "trusty.dtsi"
 
@@ -5095,3 +5095,6 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 	md_vmodem = <800000 800000>;
 };
 
+&mt6370 {
+	interrupts = <11 IRQ_TYPE_LEVEL_LOW 11 0>;
+};
