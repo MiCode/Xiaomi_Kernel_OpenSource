@@ -211,6 +211,8 @@ static int __init emicen_drv_init(void)
 		return ret;
 	}
 
+	emimpu_ap_region_init();
+
 	return ret;
 }
 
