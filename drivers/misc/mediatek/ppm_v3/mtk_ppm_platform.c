@@ -196,7 +196,7 @@ int ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
 		int core = cluster_status[i].core_num;
 		int opp = cluster_status[i].freq_idx;
 
-#if IS_ENABLED(CONFIG_MTK_UNIFY_POWER)
+#if IS_ENABLED(CONFIG_MTK_UNIFIED_POWER)
 		if (core > 0 && opp >= 0 && opp < DVFS_OPP_NUM) {
 			pwr_idx += cobra_tbl->basic_pwr_tbl
 				[CORE_NUM_L*i+core-1][opp].power_idx;
@@ -259,7 +259,7 @@ unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
 
 		if (core != 0 && opp >= 0 && opp < DVFS_OPP_NUM) {
 			now = ktime_get();
-#if IS_ENABLED(CONFIG_MTK_UNIFY_POWER)
+#if IS_ENABLED(CONFIG_MTK_UNIFIED_POWER)
 			dynamic =
 				upower_get_power(i, opp, UPOWER_DYN) / 1000;
 			lkg =

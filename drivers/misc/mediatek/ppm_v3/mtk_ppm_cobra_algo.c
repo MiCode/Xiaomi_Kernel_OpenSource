@@ -651,7 +651,7 @@ void ppm_cobra_init(void)
 	memset_io((u8 *)cobra_tbl, 0x00, PPM_COBRA_TBL_SRAM_SIZE);
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_UNIFY_POWER)
+#if IS_ENABLED(CONFIG_MTK_UNIFIED_POWER)
 	{
 		unsigned int core, dyn, lkg, dyn_c, lkg_c, cap;
 

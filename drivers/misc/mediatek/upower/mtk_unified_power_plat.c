@@ -17,8 +17,9 @@
 #include <linux/seq_file.h>
 #include <linux/sched.h>
 #include <linux/types.h>
-
-
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/nvmem-consumer.h>
 /* local include */
 #include "inc/mtk_cpufreq_api.h"
 #include "mtk_unified_power.h"
@@ -204,6 +205,77 @@ int upower_bank_to_spower_bank(int upower_bank)
 }
 #endif
 
+
+static unsigned int _mt_cpufreq_get_cpu_level_upower(void)
+{
+
+	unsigned int lv = 0;
+	int val = 0;
+	int ptp_val = 0;
+
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+	struct device_node *dev_node;
+
+	dev_node = of_find_node_by_name(NULL, "mt_cpufreq");
+	if (!dev_node)
+		pr_info("get mt_cpufreq node fail\n");
+
+	efuse_cell = of_nvmem_cell_get(dev_node, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		pr_info("@%s: cannot get efuse_segment_cell\n", __func__);
+		return PTR_ERR(efuse_cell);
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		pr_info("@%s: cannot get efuse_buf\n", __func__);
+		return PTR_ERR(efuse_buf);
+	}
+
+	val = (*efuse_buf);
+
+	if ((val == 0x80) || (val == 0x01) || (val == 0x40) || (val == 0x02) ||
+		(val == 0xE0) || (val == 0x07) || (val == 0x10) ||
+		(val == 0x08))
+		lv = 0;
+	else if ((val == 0xC0) || (val == 0x03) ||
+					(val == 0x20) || (val == 0x04))
+		lv = 1;
+
+	else if ((val == 0x90) || (val == 0x09) ||
+			(val == 0x50) || (val == 0x0A) || (val == 0xA0) ||
+			(val == 0x05) || (val == 0x60) || (val == 0x06))
+		lv = 6;
+
+
+	efuse_cell = of_nvmem_cell_get(dev_node, "efuse_ptpod_cell");
+	if (IS_ERR(efuse_cell)) {
+		pr_info("@%s: cannot get efuse_ptpod_cell\n", __func__);
+		return PTR_ERR(efuse_cell);
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		pr_info("@%s: cannot get efuse_buf\n", __func__);
+		return PTR_ERR(efuse_buf);
+	}
+	ptp_val = (*efuse_buf & 0xF0);
+
+
+	if (ptp_val <= 0x10 && lv == 0)
+		lv = 3;
+
+	if (ptp_val <= 0x10 && lv == 1)
+		lv = 4;
+
+	return lv;
+}
+
+
 static void upower_scale_l_cap(void)
 {
 	unsigned int ratio;
@@ -270,7 +342,7 @@ void get_original_table(void)
 	unsigned short idx = 0; /* default use MT6771T_FY */
 	int i, j;
 
-	idx = mt_cpufreq_get_cpu_level();
+	idx = _mt_cpufreq_get_cpu_level_upower();
 
 	if (idx >= NR_UPOWER_TBL_LIST)
 		idx = 0;
