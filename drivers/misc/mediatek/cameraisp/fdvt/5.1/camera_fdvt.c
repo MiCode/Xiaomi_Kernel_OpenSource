@@ -328,7 +328,7 @@ struct fdvt_device {
 
 static struct fdvt_device *fdvt_devs;
 static int nr_fdvt_devs;
-
+static int g_fd_buffer;
 /* Get HW modules' base address from device nodes */
 #define FDVT_DEV_NODE_IDX 0
 #define IPESYS_DEV_MODE_IDX 1
@@ -1069,17 +1069,21 @@ void *aie_get_va(struct dma_buf *my_dma_buf)
 	return buf_ptr;
 }
 
-int aie_result_dmabuf2fd(void)
+void aie_result_dmabuf2fd(void)
 {
 	int file_desp = 0;
+	if (fdvt_sec_dma.tzmp1_first_time == 1) {
+		file_desp = dma_buf_fd(fdvt_sec_dma.FDResultBuf_MVA.dmabuf, O_CLOEXEC);
 
-	file_desp = dma_buf_fd(fdvt_sec_dma.FDResultBuf_MVA.dmabuf, O_CLOEXEC);
-
-	if (file_desp < 0) {
-		log_err("[ERR]fd_buffer: %x", file_desp);
-		return -EFAULT;
+		if (file_desp < 0)
+			log_err("[ERR]fd_buffer: %x", file_desp);
+		else {
+			dma_buf_get(file_desp);
+			fdvt_sec_dma.tzmp1_first_time++;
+			log_inf("[FDVT]map fd: %x", file_desp);
+			g_fd_buffer = file_desp;
+		}
 	}
-	return file_desp;
 }
 
 static void aie_free_dmabuf(struct imem_buf_info *bufinfo)
@@ -1826,7 +1830,6 @@ static signed int config_fdvt_hw(struct fdvt_config *basic_config)
 		}
 	}
 #endif
-
 	if (basic_config->FD_MODE == 0) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
 			       CMDQ_REG_MASK);
@@ -2475,7 +2478,6 @@ static signed int fdvt_dump_reg(void)
 #endif
 
 	log_inf("- X.\n");
-
 
 	log_inf("FDVT DMA Debug Info\n");
 
@@ -3189,7 +3191,6 @@ static long FDVT_ioctl(struct file *pFile,
 	unsigned long flags;
 	struct FDVT_REQUEST_STRUCT *request;
 	spinlock_t *spinlock_lrq_ptr; /* spinlock for irq */
-	int fd_buffer = 0;
 
 	spinlock_lrq_ptr = &fdvt_info.spinlock_irq[FDVT_IRQ_TYPE_INT_FDVT_ST];
 
@@ -3544,9 +3545,9 @@ static long FDVT_ioctl(struct file *pFile,
 					[request->frame_rd_idx]) {
 				if (request->frame_config[request->frame_rd_idx].FDVT_IS_SECURE &&
 		request->frame_config[request->frame_rd_idx].FDVT_METADATA_TO_GCE.SecMemType == 1) {
-					fd_buffer = aie_result_dmabuf2fd();
+					aie_result_dmabuf2fd();
 					request->frame_config[request->frame_rd_idx].FDVT_IMG_Y_FD =
-							fd_buffer; /*ResultMVA_FD*/
+							g_fd_buffer; /*ResultMVA_FD*/
 				}
 
 
@@ -3640,9 +3641,10 @@ static long FDVT_ioctl(struct file *pFile,
 					if (request->frame_config
 					    [request->frame_rd_idx].FDVT_IS_SECURE &&
 	       request->frame_config[request->frame_rd_idx]. FDVT_METADATA_TO_GCE.SecMemType == 1) {
-						fd_buffer = aie_result_dmabuf2fd();
+						aie_result_dmabuf2fd();
 						request->frame_config
-				[request->frame_rd_idx].FDVT_IMG_Y_FD = fd_buffer; /*ResultMVA_FD*/
+				//  ResultMVA_FD
+				[request->frame_rd_idx].FDVT_IMG_Y_FD = g_fd_buffer;
 					}
 
 					memcpy(&fdvt_deq_req
