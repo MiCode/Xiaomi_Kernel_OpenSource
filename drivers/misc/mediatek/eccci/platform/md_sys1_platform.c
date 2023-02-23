@@ -1148,9 +1148,10 @@ void md1_pll_init(struct ccci_modem *md)
 	int cnt = 0;
 	unsigned int reg_val = 0;
 
-	if (!md_pll->md_top_Pll || !md_pll->md_top_clkSW)
+	if (!md_pll->md_top_Pll || !md_pll->md_top_clkSW) {
 		CCCI_NORMAL_LOG(0, TAG, "pll init: missing mapping\n");
-
+		return;
+	}
 	reg_val = ccci_read32(md_pll->md_top_Pll, 0x0);
 	CCCI_BOOTUP_LOG(0, TAG, "md_top_Pll val:0x%X before\n", reg_val);
 
