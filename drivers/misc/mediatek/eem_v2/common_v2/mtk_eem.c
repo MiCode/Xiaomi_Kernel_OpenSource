@@ -2968,6 +2968,7 @@ void eem_set_pi_efuse(enum eem_det_id id, unsigned int pi_efuse)
 
 	det->pi_efuse[det->pi_efuse_count++] = pi_efuse;
 }
+EXPORT_SYMBOL(eem_set_pi_efuse);
 
 unsigned int get_efuse_status(void)
 {

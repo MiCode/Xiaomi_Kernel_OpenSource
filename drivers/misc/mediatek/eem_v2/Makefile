@@ -70,13 +70,14 @@ mediatek_eem-y += common_v2/mtk_eem.o
 mediatek_eem-y += common_v2/mtk_eem_platform.o
 mediatek_eem-y += common_v2/mtk_eem_internal.o
 mediatek_eem-y += common_v2/mtk_eem_api.o
-
+obj-$(CONFIG_MTK_PTPOD_LEGACY) += mtk_picachu.o
+mtk_picachu-y += common_v2/mtk_picachu.o
 else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6833)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eem_v2/common_v3/inc
 obj-$(CONFIG_MTK_PTPOD_LEGACY) += mediatek_eem.o
 mediatek_eem-y += common_v3/mtk_eem.o
 mediatek_eem-y += common_v3/mtk_eem_platform.o
 mediatek_eem-y += common_v3/mtk_eem_internal.o
-obj-m += mtk_picachu.o
+obj-$(CONFIG_MTK_PTPOD_LEGACY) += mtk_picachu.o
 mtk_picachu-y += common_v3/mtk_picachu.o
 endif

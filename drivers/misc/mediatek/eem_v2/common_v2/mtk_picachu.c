@@ -71,13 +71,12 @@
 		return single_open(file, name ## _proc_show,	\
 			PDE_DATA(inode));			\
 	}							\
-	static const struct file_operations name ## _proc_fops = {	\
-		.owner          = THIS_MODULE,				\
-		.open           = name ## _proc_open,			\
-		.read           = seq_read,				\
-		.llseek         = seq_lseek,				\
-		.release        = single_release,			\
-		.write          = name ## _proc_write,			\
+	static const struct proc_ops name ## _proc_fops = {	\
+		.proc_open  = name ## _proc_open,			\
+		.proc_read  = seq_read,				\
+		.proc_lseek = seq_lseek,				\
+		.proc_release = single_release,			\
+		.proc_write = name ## _proc_write,			\
 	}
 
 #define PROC_FOPS_RO(name)					\
@@ -87,12 +86,11 @@
 		return single_open(file, name ## _proc_show,	\
 			PDE_DATA(inode));			\
 	}							\
-	static const struct file_operations name ## _proc_fops = {	\
-		.owner          = THIS_MODULE,				\
-		.open           = name ## _proc_open,			\
-		.read           = seq_read,				\
-		.llseek         = seq_lseek,				\
-		.release        = single_release,			\
+	static const struct proc_ops name ## _proc_fops = {	\
+		.proc_open = name ## _proc_open,			\
+		.proc_read = seq_read,				\
+		.proc_lseek = seq_lseek,				\
+		.proc_release = single_release,			\
 	}
 
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
@@ -149,7 +147,7 @@ struct picachu_proc {
 
 struct pentry {
 	const char *name;
-	const struct file_operations *fops;
+	const struct proc_ops *fops;
 };
 
 static struct picachu_proc picachu_proc_list[] = {
@@ -321,7 +319,8 @@ static void __exit picachu_exit(void)
 		iounmap(eem_base_addr);
 }
 
-subsys_initcall(picachu_init);
+module_init(picachu_init);
+module_exit(picachu_exit);
 
 MODULE_DESCRIPTION("MediaTek Picachu Driver v0.1");
 MODULE_LICENSE("GPL");
