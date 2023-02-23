@@ -1341,7 +1341,7 @@ static int port_rpc_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 			amms_smem->size, vma->vm_end - vma->vm_start);
 	if ((vma->vm_end - vma->vm_start) != amms_smem->size) {
 		CCCI_ERROR_LOG(md_id, RPC,
-			"smem size error:%s,vm_start=0x%llx,vm_end=0x%llx,smem_size=0x%x\n",
+			"smem size error:%s,vm_start=0x%lx,vm_end=0x%lx,smem_size=0x%x\n",
 			port->name, vma->vm_start, vma->vm_end, amms_smem->size);
 		return -EINVAL;
 	}

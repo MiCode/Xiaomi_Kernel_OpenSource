@@ -73,7 +73,7 @@ bool spm_is_md1_sleep_ccci(void)
 		MD_GET_SLEEP_MODE, 0, 0, 0, 0, 0, &res);
 
 	CCCI_NORMAL_LOG(0, TAG,
-		"[%s] flag_1=%llx, flag_2=%llx, flag_3=%llx, flag_4=%llx\n",
+		"[%s] flag_1=%lx, flag_2=%lx, flag_3=%lx, flag_4=%lx\n",
 		__func__, res.a0, res.a1, res.a2, res.a3);
 	if (res.a0 == 0)
 		return res.a1; /* 1-md is sleep, 0 - is not */
@@ -515,9 +515,14 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 	struct ccci_smem_region *mdss_dbg =
 		ccci_md_get_smem_by_user_id(md->index,
 			SMEM_USER_RAW_MDSS_DBG);
+	int md_dbg_dump_flag;
 	struct ccci_per_md *per_md_data =
 		ccci_get_per_md_data(md->index);
-	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
+
+	if (per_md_data == NULL)
+		return;
+
+	md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
 	count = 5;
 	while (spm_is_md1_sleep_ccci() == 0) {

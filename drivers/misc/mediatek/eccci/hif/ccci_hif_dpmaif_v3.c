@@ -2953,9 +2953,9 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 		kfree(rxq->pit_base);
 		return -ENOMEM;
 	}
-	CCCI_BOOTUP_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%llx,pit_base=0x%p\r\n",
+	CCCI_BOOTUP_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%pad,pit_base=0x%p\r\n",
 		__func__, rxq->pit_phy_addr, rxq->pit_base);
-	CCCI_NORMAL_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%llx,pit_base=0x%p\r\n",
+	CCCI_NORMAL_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%pad,pit_base=0x%p\r\n",
 		__func__, rxq->pit_phy_addr, rxq->pit_base);
 #endif
 	memset(rxq->pit_base, 0, dpmaif_ctrl->dl_pit_size);
@@ -4237,7 +4237,7 @@ int ccci_dpmaif_resume_noirq_v3(struct device *dev)
 			WAKE_SRC_HIF_DPMAIF, 0, 0, 0, 0, &res);
 
 	CCCI_NORMAL_LOG(-1, TAG,
-		"[%s] flag_1=0x%llx, flag_2=0x%llx, flag_3=0x%llx, flag_4=0x%llx\n",
+		"[%s] flag_1=0x%lx, flag_2=0x%lx, flag_3=0x%lx, flag_4=0x%lx\n",
 		__func__, res.a0, res.a1, res.a2, res.a3);
 
 	if ((!res.a0) && (res.a1 == WAKE_SRC_HIF_DPMAIF))

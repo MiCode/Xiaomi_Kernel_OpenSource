@@ -920,6 +920,9 @@ static int ccif_rx_collect(struct md_ccif_queue *queue, int budget,
 	struct ccci_per_md *per_md_data =
 		ccci_get_per_md_data(md_ctrl->md_id);
 
+	if (per_md_data == NULL)
+		return -1;
+
 	if (atomic_read(&queue->rx_on_going)) {
 		CCCI_DEBUG_LOG(md_ctrl->md_id, TAG,
 			"Q%d rx is on-going(%d)1\n",
@@ -1434,6 +1437,9 @@ static int md_ccif_op_send_skb(unsigned char hif_id, int qno,
 	struct ccci_per_md *per_md_data =
 		ccci_get_per_md_data(md_ctrl->md_id);
 	int md_state;
+
+	if (per_md_data == NULL)
+		return -1;
 
 	if (qno == 0xFF)
 		return -CCCI_ERR_INVALID_QUEUE_INDEX;
@@ -2450,7 +2456,7 @@ static int ccif_resume_noirq(struct device *dev)
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
 		MD_WAKEUP_AP_SRC, WAKE_SRC_HIF_CCIF0, 0, 0, 0, 0, &res);
 	CCCI_NORMAL_LOG(-1, TAG,
-		"[%s] flag_1=0x%llx, flag_2=0x%llx, flag_3=0x%llx, flag_4=0x%llx\n",
+		"[%s] flag_1=0x%lx, flag_2=0x%lx, flag_3=0x%lx, flag_4=0x%lx\n",
 		__func__, res.a0, res.a1, res.a2, res.a3);
 	if (!res.a0 && res.a1 == WAKE_SRC_HIF_CCIF0) {
 		ccif_ch = ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_RCHNUM);
