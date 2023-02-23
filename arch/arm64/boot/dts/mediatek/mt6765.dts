@@ -209,7 +209,8 @@ aliases {
 				"MTK_DRM_OPT_MML_PRIMARY",
 				"MTK_DRM_OPT_DUAL_TE",
 				"MTK_DRM_OPT_VIRTUAL_DISP",
-				"MTK_DRM_OPT_RES_SWITCH";
+				"MTK_DRM_OPT_RES_SWITCH",
+				"MTK_DRM_OPT_SHARE_SRAM";
 
 			helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 				<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -259,7 +260,8 @@ aliases {
 				<0>, /*MTK_DRM_OPT_MML_PRIMARY*/
 				<0>, /*MTK_DRM_OPT_DUAL_TE*/
 				<0>, /*MTK_DRM_OPT_VIRTUAL_DISP*/
-				<0>; /*MTK_DRM_OPT_RES_SWITCH*/
+				<0>, /*MTK_DRM_OPT_RES_SWITCH*/
+				<1>; /*MTK_DRM_OPT_SHARE_SRAM*/
 		};
 		disp_mtee_sec: disp_mtee_sec {
 			compatible = "mediatek,disp_mtee";
