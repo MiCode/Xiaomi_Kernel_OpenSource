@@ -1581,7 +1581,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	swfrm_info->chan_id = 0;
 	swfrm_info->fail_isHWhang = -1;
 	total_framenum = swfrm_info->total_frmnum;
-	if (swfrm_info->batchnum > 1) {
+	if (swfrm_info->batchnum > 0) {
 		if ((total_framenum < 0) || (total_framenum > TIME_MAX)) {
 			dev_info(imgsys_dev->dev,
 				"%s:unexpected total_framenum (%d -> %d), batchnum(%d) MAX (%d/%d)\n",
