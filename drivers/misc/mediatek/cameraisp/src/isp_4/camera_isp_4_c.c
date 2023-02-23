@@ -40,6 +40,7 @@
 #include <linux/init.h>
 #include <linux/printk.h>
 #include <linux/ktime.h>
+#include <linux/seq_file.h>
 
 #include <mt-plat/sync_write.h> /* For mt65xx_reg_sync_writel(). */
 
@@ -49,18 +50,14 @@
 //#include <m4u.h>
 //#endif
 
-/*#define EP_CODE_MARK_CMDQ*/
-#ifdef ISP_HELP
-#ifndef EP_CODE_MARK_CMDQ
-#include <cmdq_core.h>
-#endif
-#endif
 
 /*#define EP_MARK_SMI*/ /* disable SMI related for EP */
 //#include <smi_public.h>
 
 /*for kernel log count*/
 #define _K_LOG_ADJUST (0)//wait log owner rdy
+
+#include <cmdq_helper_ext.h>
 
 #if IS_ENABLED(CONFIG_COMPAT)
 /* 64 bit */
@@ -180,7 +177,6 @@
 /******************************************************************************
  *
  *****************************************************************************/
-#define DUMP_GCE_TPIPE  0
 
 
 /**
@@ -501,30 +497,10 @@ static struct isp_sec_dapc_reg lock_reg;
 static unsigned int sec_on;
 #endif
 
-#define AEE_DUMP_BY_USING_ION_MEMORY
 #define AEE_DUMP_REDUCE_MEMORY
 #ifdef AEE_DUMP_REDUCE_MEMORY
 /* ion */
 
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-#ifdef ISP_HELP
-#include <ion.h>
-#include <mtk/ion_drv.h>
-#include <mtk/mtk_ion.h>
-#endif
-
-struct isp_imem_memory {
-	void *handle;
-	int ion_fd;
-	uint64_t va;
-	uint32_t pa;
-	uint32_t length;
-};
-#ifdef ISP_HELP
-static struct ion_client *isp_p2_ion_client;
-#endif
-static struct isp_imem_memory g_isp_p2_imem_buf;
-#endif
 static bool g_bIonBufferAllocated;
 static unsigned int *g_pPhyISPBuffer;
 /* Kernel Warning */
@@ -3244,7 +3220,9 @@ static signed int ISP_DumpReg(void)
 static signed int ISP_DumpDIPReg(void)
 {
 	signed int Ret = 0;
-	unsigned int i, cmdqidx = 0;
+	unsigned int i, cmdqidx = 0, dipdmacmd = 0;
+	unsigned int smidmacmd = 0, dmaidx = 0;
+	unsigned int fifodmacmd = 0;
 #ifdef AEE_DUMP_REDUCE_MEMORY
 	unsigned int offset = 0;
 	uintptr_t OffsetAddr = 0;
@@ -3603,6 +3581,200 @@ static signed int ISP_DumpDIPReg(void)
 		ISP_RD32(ISP_DIP_A_BASE + 0x0060),
 		ISP_RD32(ISP_DIP_A_BASE + 0x0064),
 		ISP_RD32(ISP_DIP_A_BASE + 0x0068));
+
+	/* 0080, 0x15022080, DIP_A_CTL_DBG_SET */
+	ISP_WR32(ISP_DIP_A_BASE + 0x80, 0x0);
+	dipdmacmd = 0x00000013;
+	for (i = 0; i < 68 ; i++) {
+		/* 0x150210A8, DIPDMATOP_REG_D1A_DIPDMATOP_DMA_DEBUG_SEL */
+		switch (i) {
+		case 0x0:
+			dmaidx = 1;
+			pr_notice("imgi dma debug\n");
+			break;
+		case 0x4:
+			dmaidx = 2;
+			pr_notice("imgbi dma debug\n");
+			break;
+		case 0x8:
+			dmaidx = 4;
+			pr_notice("vipi dma debug\n");
+			break;
+		case 0xc:
+			dmaidx = 5;
+			pr_notice("vip2i dma debug\n");
+			break;
+		case 0x10:
+			dmaidx = 11;
+			pr_notice("img2o dma debug\n");
+			break;
+		case 0x14:
+			dmaidx = 12;
+			pr_notice("img2bo dma debug\n");
+			break;
+		case 0x18:
+			dmaidx = 13;
+			pr_notice("img3o dma debug\n");
+			break;
+		case 0x1c:
+			dmaidx = 14;
+			pr_notice("img3bo dma debug\n");
+			break;
+		case 0x20:
+			dmaidx = 15;
+			pr_notice("img3co dma debug\n");
+			break;
+		case 0x24:
+			dmaidx = 16;
+			pr_notice("feo dma debug\n");
+			break;
+		case 0x28:
+			dmaidx = 17;
+			pr_notice("mfbo dma debug\n");
+			break;
+		case 0x2c:
+			dmaidx = 3;
+			pr_notice("imgci dma debug\n");
+			break;
+		case 0x30:
+			dmaidx = 6;
+			pr_notice("vip3i dma debug\n");
+			break;
+		case 0x34:
+			dmaidx = 7;
+			pr_notice("dmgi dma debug\n");
+			break;
+		case 0x38:
+			dmaidx = 8;
+			pr_notice("depi dma debug\n");
+			break;
+		case 0x3c:
+			dmaidx = 9;
+			pr_notice("lcei dma debug\n");
+			break;
+		case 0x40:
+			dmaidx = 10;
+			pr_notice("ufdi dma debug\n");
+			break;
+		default:
+			break;
+		}
+
+		if (i <= 0x1c) {
+			dipdmacmd = dipdmacmd & 0xFFFF00FF;
+			dipdmacmd = dipdmacmd | (i << 8);
+			/* 06BC, 0x150226BC, DIP_A_DMA_DEBUG_SEL */
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, dipdmacmd);
+			/* 0084, 0x15022084, DIP_A_CTL_DBG_PORT */
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				dipdmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+			i++;
+			dipdmacmd = dipdmacmd & 0xFFFF00FF;
+			dipdmacmd = dipdmacmd | (i << 8);
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, dipdmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				dipdmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+			i++;
+			dipdmacmd = dipdmacmd & 0xFFFF00FF;
+			dipdmacmd = dipdmacmd | (i << 8);
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, dipdmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				dipdmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+			i++;
+			dipdmacmd = dipdmacmd & 0xFFFF00FF;
+			dipdmacmd = dipdmacmd | (i << 8);
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, dipdmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				dipdmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+		}
+
+		if (((dmaidx >= 11) && (dmaidx <= 17))) {
+			smidmacmd = 0x00080400;
+			smidmacmd = smidmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, smidmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				smidmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			smidmacmd = 0x00090400;
+			smidmacmd = smidmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, smidmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				smidmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			smidmacmd = 0x00000400;
+			smidmacmd = smidmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, smidmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				smidmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			smidmacmd = 0x00010400;
+			smidmacmd = smidmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, smidmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				smidmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			fifodmacmd = 0x00000300;
+			fifodmacmd = fifodmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, fifodmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				fifodmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			fifodmacmd = 0x00010300;
+			fifodmacmd = fifodmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, fifodmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				fifodmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			fifodmacmd = 0x00020300;
+			fifodmacmd = fifodmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, fifodmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				fifodmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			fifodmacmd = 0x00030300;
+			fifodmacmd = fifodmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, fifodmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				fifodmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+		} else {
+			smidmacmd = 0x00080100;
+			smidmacmd = smidmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, smidmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				smidmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			smidmacmd = 0x00000100;
+			smidmacmd = smidmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, smidmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				smidmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			fifodmacmd = 0x00000200;
+			fifodmacmd = fifodmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, fifodmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				fifodmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			fifodmacmd = 0x00010200;
+			fifodmacmd = fifodmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, fifodmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				fifodmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			fifodmacmd = 0x00020200;
+			fifodmacmd = fifodmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, fifodmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				fifodmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+
+			fifodmacmd = 0x00030200;
+			fifodmacmd = fifodmacmd | dmaidx;
+			ISP_WR32(ISP_DIP_A_BASE + 0x6BC, fifodmacmd);
+			pr_notice("0x%x : dip: 0x15022084(0x%x)\n",
+				fifodmacmd, ISP_RD32(ISP_DIP_A_BASE + 0x084));
+		}
+	}
 		/* 0080, 0x15022080, DIP_A_CTL_DBG_SET */
 		ISP_WR32(ISP_DIP_A_BASE + 0x80, 0x0);
 		/* 06BC, 0x150226BC, DIP_A_DMA_DEBUG_SEL */
@@ -4595,98 +4767,6 @@ static int32_t ISP_GetWaitQCamsvIrqIndex(
 
 	return index;
 }
-
-/******************************************************************************
- *
- *****************************************************************************/
-#ifdef ISP_HELP
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-static signed int isp_allocbuf(struct isp_imem_memory *pMemInfo)
-{
-	int ret = 0;
-	struct ion_mm_data mm_data;
-	struct ion_sys_data sys_data;
-	struct ion_handle *handle = NULL;
-
-	if (pMemInfo == NULL) {
-		LOG_INF("pMemInfo is NULL!!\n");
-		ret = -ENOMEM;
-		goto isp_allocbuf_exit;
-	}
-
-	if (isp_p2_ion_client == NULL) {
-		LOG_INF("isp_p2_ion_client is NULL!!\n");
-		ret = -ENOMEM;
-		goto isp_allocbuf_exit;
-	}
-
-	handle = ion_alloc(isp_p2_ion_client, pMemInfo->length, 0,
-				ION_HEAP_MULTIMEDIA_MASK, 0);
-	if (handle == NULL) {
-		LOG_INF("fail to alloc ion buffer, ret=%d\n", ret);
-		ret = -ENOMEM;
-		goto isp_allocbuf_exit;
-	}
-	pMemInfo->handle = (void *) handle;
-
-	pMemInfo->va = (uintptr_t) ion_map_kernel(isp_p2_ion_client, handle);
-	if (pMemInfo->va == 0) {
-		LOG_INF("fail to map va of buffer!\n");
-		ret = -ENOMEM;
-		goto isp_allocbuf_exit;
-	}
-
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = 0;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 1;
-	ret = ion_kernel_ioctl(isp_p2_ion_client, ION_CMD_MULTIMEDIA,
-				(unsigned long)&mm_data);
-	if (ret) {
-		LOG_INF("fail to config ion buffer, ret=%d\n", ret);
-		ret = -ENOMEM;
-		goto isp_allocbuf_exit;
-	}
-
-	sys_data.sys_cmd = ION_SYS_GET_PHYS;
-	sys_data.get_phys_param.kernel_handle = handle;
-	ret = ion_kernel_ioctl(isp_p2_ion_client, ION_CMD_SYSTEM,
-				(unsigned long)&sys_data);
-	pMemInfo->pa = sys_data.get_phys_param.phy_addr;
-
-isp_allocbuf_exit:
-
-	if (ret < 0) {
-		if (handle)
-			ion_free(isp_p2_ion_client, handle);
-	}
-
-	return ret;
-}
-#endif
-/******************************************************************************
- *
- *****************************************************************************/
-#ifdef ISP_HELP
-static void isp_freebuf(struct isp_imem_memory *pMemInfo)
-{
-	struct ion_handle *handle;
-
-	if (pMemInfo == NULL) {
-		LOG_INF("pMemInfo is NULL!!\n");
-		return;
-	}
-
-	handle = (struct ion_handle *) pMemInfo->handle;
-	if (handle != NULL) {
-		ion_unmap_kernel(isp_p2_ion_client, handle);
-		ion_free(isp_p2_ion_client, handle);
-	}
-
-}
-#endif
-#endif
 
 /******************************************************************************
  *
@@ -9272,30 +9352,6 @@ pr_info("- E. register IRQ: done\n");
 
 	/* mutex_lock(&gDipMutex); */  /* Protect the Multi Process */
 	g_bIonBufferAllocated = MFALSE;
-#ifdef ISP_HELP
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-	g_isp_p2_imem_buf.handle = NULL;
-	g_isp_p2_imem_buf.ion_fd = 0;
-	g_isp_p2_imem_buf.va = 0;
-	g_isp_p2_imem_buf.pa = 0;
-	g_isp_p2_imem_buf.length = ((4*ISP_DIP_REG_SIZE)
-	 + (2*MAX_ISP_TILE_TDR_HEX_NO)
-	 + (2*MAX_ISP_CMDQ_BUFFER_SIZE) + (8*0x400));
-	isp_p2_ion_client = NULL;
-	if ((isp_p2_ion_client == NULL) && (g_ion_device))
-		isp_p2_ion_client = ion_client_create(g_ion_device, "isp_p2");
-	if (isp_p2_ion_client == NULL) {
-		LOG_INF("invalid isp_p2_ion_client client!\n");
-	} else {
-		if (isp_allocbuf(&g_isp_p2_imem_buf) >= 0)
-			g_bIonBufferAllocated = MTRUE;
-	}
-	if (g_bIonBufferAllocated == MTRUE)
-		g_pPhyISPBuffer = (unsigned int *)(uintptr_t)
-			(g_isp_p2_imem_buf.va);
-
-#endif
-#endif
 	if (g_bIonBufferAllocated == MTRUE) {
 		g_pTuningBuffer = (unsigned int *)((
 			(uintptr_t)g_pPhyISPBuffer) + ISP_DIP_REG_SIZE);
@@ -9653,41 +9709,9 @@ static signed int ISP_release(
 			vfree(g_pKWVirISPBuffer);
 			g_pKWVirISPBuffer = NULL;
 		}
-	} else {
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-		if (g_isp_p2_imem_buf.handle != NULL) {
-			#ifdef ISP_HELP
-			isp_freebuf(&g_isp_p2_imem_buf);
-			#endif
-			g_isp_p2_imem_buf.handle = NULL;
-			g_isp_p2_imem_buf.ion_fd = 0;
-			g_isp_p2_imem_buf.va = 0;
-			g_isp_p2_imem_buf.pa = 0;
-		}
-		g_bIonBufferAllocated = MFALSE;
-		/* Navtive Exception */
-		g_pPhyISPBuffer = NULL;
-		g_pTuningBuffer = NULL;
-		g_pTpipeBuffer = NULL;
-		g_pVirISPBuffer = NULL;
-		g_pCmdqBuffer = NULL;
-		/* Kernel Exception */
-		g_pKWTpipeBuffer = NULL;
-		g_pKWCmdqBuffer = NULL;
-		g_pKWVirISPBuffer = NULL;
-#endif
 	}
 	/* mutex_unlock(&gDipMutex); */
-#ifdef ISP_HELP
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-	if (isp_p2_ion_client != NULL) {
-		ion_client_destroy(isp_p2_ion_client);
-		isp_p2_ion_client = NULL;
-	} else {
-		LOG_INF("isp_p2_ion_client is NULL!!\n");
-	}
-#endif
-#endif
+
 	/* reset backup regs*/
 	memset(g_BkReg, 0, sizeof(struct _isp_bk_reg_t) * ISP_IRQ_TYPE_AMOUNT);
 
@@ -10786,7 +10810,6 @@ static ssize_t CAMIO_RegDebug(
 /******************************************************************************
  *
  *****************************************************************************/
-#ifdef ISP_HELP
 static int isp_p2_ke_dump_read(struct seq_file *m, void *v)
 {
 #ifdef AEE_DUMP_REDUCE_MEMORY
@@ -10904,20 +10927,15 @@ static int isp_p2_ke_dump_read(struct seq_file *m, void *v)
 #endif
 	return 0;
 }
-#endif
-	#ifdef ISP_HELP
+
 static int proc_isp_p2_ke_dump_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, isp_p2_ke_dump_read, NULL);
 }
-#endif
-static const struct file_operations isp_p2_ke_dump_proc_fops = {
-		#ifdef ISP_HELP
-	.owner = THIS_MODULE,
-	.open = proc_isp_p2_ke_dump_open,
-	.read = seq_read,
-	.release = single_release,
-	#endif
+static const struct proc_ops isp_p2_ke_dump_proc_fops = {
+	.proc_open = proc_isp_p2_ke_dump_open,
+	.proc_read = seq_read,
+	.proc_release = single_release,
 };
 
 
@@ -10925,7 +10943,6 @@ static const struct file_operations isp_p2_ke_dump_proc_fops = {
 /******************************************************************************
  *
  *****************************************************************************/
-#ifdef ISP_HELP
 static int isp_p2_dump_read(struct seq_file *m, void *v)
 {
 #ifdef AEE_DUMP_REDUCE_MEMORY
@@ -11094,20 +11111,16 @@ static int isp_p2_dump_read(struct seq_file *m, void *v)
 #endif
 	return 0;
 }
-#endif
-#ifdef ISP_HELP
+
 static int proc_isp_p2_dump_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, isp_p2_dump_read, NULL);
 }
-#endif
-static const struct file_operations isp_p2_dump_proc_fops = {
-	#ifdef ISP_HELP
-	.owner = THIS_MODULE,
-	.open = proc_isp_p2_dump_open,
-	.read = seq_read,
-	.release = single_release,
-	#endif
+
+static const struct proc_ops isp_p2_dump_proc_fops = {
+	.proc_open = proc_isp_p2_dump_open,
+	.proc_read = seq_read,
+	.proc_release = single_release,
 };
 
 /******************************************************************************
@@ -11130,9 +11143,7 @@ static signed int __init ISP_Init(void)
 	signed int Ret = 0, j;
 	void *tmp;
 	struct device_node *node = NULL;
-	#ifdef ISP_HELP
 	struct proc_dir_entry *proc_entry;
-	#endif
 	struct proc_dir_entry *isp_p2_dir;
 
 	int i;
@@ -11267,12 +11278,10 @@ static signed int __init ISP_Init(void)
 		LOG_INF("fail to mkdir /proc/isp_p2\n");
 		return 0;
 	}
-		#ifdef ISP_HELP
 	proc_entry = proc_create("isp_p2_dump", 0444, isp_p2_dir,
 				&isp_p2_dump_proc_fops);
 	proc_entry = proc_create("isp_p2_kedump", 0444, isp_p2_dir,
 				&isp_p2_ke_dump_proc_fops);
-		#endif
 	for (j = 0; j < ISP_IRQ_TYPE_AMOUNT; j++) {
 		switch (j) {
 		case ISP_IRQ_TYPE_INT_CAM_A_ST:
@@ -11368,11 +11377,11 @@ static signed int __init ISP_Init(void)
 
 		}
 	}
-#ifdef ISP_HELP
+
 #ifndef EP_CODE_MARK_CMDQ
 	/* Register ISP callback */
 	pr_info("register isp callback for MDP");
-	cmdqCoreRegisterCB(CMDQ_GROUP_ISP,
+	cmdqCoreRegisterCB(mdp_get_group_isp(),
 			   ISP_MDPClockOnCallback,
 			   ISP_MDPDumpCallback,
 			   ISP_MDPResetCallback,
@@ -11381,7 +11390,6 @@ static signed int __init ISP_Init(void)
 	pr_info("register isp callback for GCE");
 	cmdqCoreRegisterDebugRegDumpCB(ISP_BeginGCECallback,
 				ISP_EndGCECallback);
-#endif
 #endif
 	/* m4u_enable_tf(M4U_PORT_CAM_IMGI, 0);*/
 
@@ -11418,10 +11426,9 @@ static void __exit ISP_Exit(void)
 	/*  */
 	platform_driver_unregister(&IspDriver);
 	/*  */
-#ifdef ISP_HELP
 #ifndef EP_CODE_MARK_CMDQ
 	/* Unregister ISP callback */
-	cmdqCoreRegisterCB(CMDQ_GROUP_ISP,
+	cmdqCoreRegisterCB(mdp_get_group_isp(),
 			   NULL,
 			   NULL,
 			   NULL,
@@ -11429,7 +11436,6 @@ static void __exit ISP_Exit(void)
 	/* Un-Register GCE callback */
 	pr_info("Un-register isp callback for GCE");
 	cmdqCoreRegisterDebugRegDumpCB(NULL, NULL);
-#endif
 #endif
 
 	for (i = ISP_IRQ_TYPE_INT_CAMSV_0_ST;
@@ -11536,15 +11542,6 @@ int32_t ISP_EndGCECallback(uint32_t taskID, uint32_t regCount,
 	uint32_t add[PER_LINE_LOG_SIZE];
 	uint32_t val[PER_LINE_LOG_SIZE];
 
-#if DUMP_GCE_TPIPE
-	int32_t tpipePA;
-	int32_t ctlStart;
-	unsigned long map_va = 0;
-	uint32_t map_size;
-	int32_t *pMapVa;
-	#define TPIPE_DUMP_SIZE    200
-#endif
-
 	pr_info("End taskID(%d),regCount(%d)", taskID, regCount);
 
 	for (i = 0; i < regCount; i += PER_LINE_LOG_SIZE) {
@@ -11563,59 +11560,6 @@ int32_t ISP_EndGCECallback(uint32_t taskID, uint32_t regCount,
 			add[5], val[5], add[6], val[6], add[7], val[7],
 			add[8], val[8], add[9], val[9]);
 	}
-
-#if DUMP_GCE_TPIPE
-	/* tpipePA = ISP_RD32(ISP_IMGSYS_BASE_PHY_KK + 0x204); */
-	tpipePA = val[7];
-	/* ctlStart = ISP_RD32(ISP_IMGSYS_BASE_PHY_KK + 0x000); */
-	ctlStart = val[0];
-
-	pr_info("kk:tpipePA(0x%x), ctlStart(0x%x)", tpipePA, ctlStart);
-
-	if ((tpipePA)) {
-#ifdef ISP_HELP
-#ifdef AEE_DUMP_BY_USING_ION_MEMORY
-		tpipePA = tpipePA&0xfffff000;
-		struct isp_imem_memory isp_p2GCEdump_imem_buf;
-
-		struct ion_client *isp_p2GCEdump_ion_client;
-
-		isp_p2GCEdump_imem_buf.handle = NULL;
-		isp_p2GCEdump_imem_buf.ion_fd = 0;
-		isp_p2GCEdump_imem_buf.va = 0;
-		isp_p2GCEdump_imem_buf.pa = 0;
-		isp_p2GCEdump_imem_buf.length = TPIPE_DUMP_SIZE;
-		if ((isp_p2_ion_client == NULL) && (g_ion_device)) {
-			isp_p2_ion_client =
-				ion_client_create(g_ion_device, "isp_p2");
-		}
-		if (isp_p2_ion_client == NULL)
-			LOG_INF("invalid isp_p2_ion_client client!\n");
-		if (isp_allocbuf(&isp_p2GCEdump_imem_buf) >= 0) {
-			pMapVa = (int *)isp_p2GCEdump_imem_buf.va;
-		pr_info("ctlStart(0x%x),tpipePA(0x%x)", ctlStart, tpipePA);
-
-		if (pMapVa) {
-			for (i = 0; i < TPIPE_DUMP_SIZE; i += 10) {
-				pr_info("[idx(%d)]%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X-%08X",
-					i, pMapVa[i], pMapVa[i+1], pMapVa[i+2],
-					pMapVa[i+3], pMapVa[i+4],
-					pMapVa[i+5], pMapVa[i+6], pMapVa[i+7],
-					pMapVa[i+8], pMapVa[i+9]);
-			}
-		}
-			#ifdef ISP_HELP
-			isp_freebuf(&isp_p2GCEdump_imem_buf);
-			#endif
-			isp_p2GCEdump_imem_buf.handle = NULL;
-			isp_p2GCEdump_imem_buf.ion_fd = 0;
-			isp_p2GCEdump_imem_buf.va = 0;
-			isp_p2GCEdump_imem_buf.pa = 0;
-		}
-#endif
-#endif
-	}
-#endif
 
 	return 0;
 }
