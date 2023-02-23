@@ -29,6 +29,7 @@
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
 #include <linux/of_platform.h>
@@ -9687,7 +9688,6 @@ static signed int ISP_release(
 	struct ISP_USER_INFO_STRUCT *pUserInfo;
 	unsigned int Reg;
 	unsigned int i = 0;
-	spin_lock(&(IspInfo.SpinLockIspRef));
 
 	pr_info("- E. UserCount: %d.\n", IspInfo.UserCount);
 
@@ -12898,7 +12898,6 @@ irqreturn_t ISP_Irq_DIP_A(signed int  Irq, void *DeviceId)
 
 irqreturn_t ISP_Irq_CAMSV_0(signed int  Irq, void *DeviceId)
 {
-	#ifdef ISP_HELP
 	/* pr_info("ISP_IRQ_CAM_SV:0x%x\n",Irq); */
 	unsigned int module = ISP_IRQ_TYPE_INT_CAMSV_0_ST;
 	unsigned int reg_module = ISP_CAMSV0_IDX;
@@ -12912,7 +12911,7 @@ irqreturn_t ISP_Irq_CAMSV_0(signed int  Irq, void *DeviceId)
 	unsigned int time_stamp;
 	/*  */
 	unsigned int cur_v_cnt = 0;
-	struct timeval time_frmb;
+	struct timespec64 time_frmb;
 	unsigned long long  sec = 0;
 	unsigned long       usec = 0;
 	ktime_t             time;
@@ -12924,14 +12923,9 @@ irqreturn_t ISP_Irq_CAMSV_0(signed int  Irq, void *DeviceId)
 		return IRQ_HANDLED;
 
 	/*  */
-	/* do_gettimeofday(&time_frmb); */
-	#ifdef ISP_HELP
-	sec = cpu_clock(0);     /* ns */
-	#endif
-	do_div(sec, 1000);    /* usec */
-	usec = do_div(sec, 1000000);    /* sec and usec */
-	time_frmb.tv_usec = usec;
-	time_frmb.tv_sec = sec;
+	ktime_get_ts64(&time_frmb);
+	usec = time_frmb.tv_nsec / 1000;
+	sec = time_frmb.tv_sec;
 
 	#if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -12966,11 +12960,9 @@ irqreturn_t ISP_Irq_CAMSV_0(signed int  Irq, void *DeviceId)
 
 	spin_lock(&(IspInfo.SpinLockIrq[module]));
 	if (IrqStatus & SV_SW_PASS1_DON_ST) {
-		#ifdef ISP_HELP
 		sec = cpu_clock(0);     /* ns */
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
-		#endif
 		/* update pass1 done time stamp for eis user(need match with the
 		 * time stamp in image header)
 		 */
@@ -13084,7 +13076,8 @@ irqreturn_t ISP_Irq_CAMSV_0(signed int  Irq, void *DeviceId)
 				if (tmp & 0x1) {
 					IspInfo.IrqInfo.LastestSigTime_usec
 					    [module][cnt] =
-						(unsigned int)time_frmb.tv_usec;
+						(unsigned int)time_frmb.tv_nsec
+						/ 1000;
 					IspInfo.IrqInfo.LastestSigTime_sec
 					    [module][cnt] =
 						(unsigned int) time_frmb.tv_sec;
@@ -13124,7 +13117,7 @@ irqreturn_t ISP_Irq_CAMSV_0(signed int  Irq, void *DeviceId)
 		tasklet_schedule(isp_tasklet[module].pIsp_tkt);
 		#endif
 	}
-	#endif
+
 	return IRQ_HANDLED;
 
 }
@@ -13132,7 +13125,6 @@ irqreturn_t ISP_Irq_CAMSV_0(signed int  Irq, void *DeviceId)
 irqreturn_t ISP_Irq_CAMSV_1(signed int  Irq, void *DeviceId)
 {
 	/* pr_info("ISP_IRQ_CAM_SV:0x%x\n",Irq); */
-	#ifdef ISP_HELP
 	unsigned int module = ISP_IRQ_TYPE_INT_CAMSV_1_ST;
 	unsigned int reg_module = ISP_CAMSV1_IDX;
 	unsigned int i;
@@ -13144,7 +13136,7 @@ irqreturn_t ISP_Irq_CAMSV_1(signed int  Irq, void *DeviceId)
 	unsigned int time_stamp;
 	/* */
 	unsigned int cur_v_cnt = 0;
-	struct timeval time_frmb;
+	struct timespec64 time_frmb;
 	unsigned long long  sec = 0;
 	unsigned long       usec = 0;
 	ktime_t             time;
@@ -13156,14 +13148,9 @@ irqreturn_t ISP_Irq_CAMSV_1(signed int  Irq, void *DeviceId)
 		return IRQ_HANDLED;
 
 	/*  */
-	/* do_gettimeofday(&time_frmb); */
-	#ifdef ISP_HELP
-	sec = cpu_clock(0);     /* ns */
-	do_div(sec, 1000);    /* usec */
-	usec = do_div(sec, 1000000);    /* sec and usec */
-	#endif
-	time_frmb.tv_usec = usec;
-	time_frmb.tv_sec = sec;
+	ktime_get_ts64(&time_frmb);
+	usec = time_frmb.tv_nsec / 1000;
+	sec = time_frmb.tv_sec;
 
 	#if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -13197,11 +13184,9 @@ irqreturn_t ISP_Irq_CAMSV_1(signed int  Irq, void *DeviceId)
 
 	spin_lock(&(IspInfo.SpinLockIrq[module]));
 	if (IrqStatus & SV_SW_PASS1_DON_ST) {
-		#ifdef ISP_HELP
 		sec = cpu_clock(0);     /* ns */
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
-		#endif
 		/* update pass1 done time stamp for eis user(need match with the
 		 * time stamp in image header)
 		 */
@@ -13314,7 +13299,8 @@ irqreturn_t ISP_Irq_CAMSV_1(signed int  Irq, void *DeviceId)
 				if (tmp & 0x1) {
 					IspInfo.IrqInfo.LastestSigTime_usec
 					    [module][cnt] =
-						(unsigned int)time_frmb.tv_usec;
+						(unsigned int)time_frmb.tv_nsec
+						/ 1000;
 					IspInfo.IrqInfo.LastestSigTime_sec
 					    [module][cnt] =
 						(unsigned int) time_frmb.tv_sec;
@@ -13357,7 +13343,7 @@ irqreturn_t ISP_Irq_CAMSV_1(signed int  Irq, void *DeviceId)
 
 
 	return IRQ_HANDLED;
-	#endif
+
 	//return ISP_Irq_CAMSV(ISP_IRQ_TYPE_INT_CAMSV_0_ST, ISP_CAMSV0_IDX,
 	//		     "CAMSV0");
 	return IRQ_HANDLED;
@@ -13365,7 +13351,6 @@ irqreturn_t ISP_Irq_CAMSV_1(signed int  Irq, void *DeviceId)
 
 irqreturn_t ISP_Irq_CAMSV_2(signed int  Irq, void *DeviceId)
 {
-		#ifdef ISP_HELP
 	/* pr_info("ISP_IRQ_CAM_SV:0x%x\n",Irq); */
 	unsigned int module = ISP_IRQ_TYPE_INT_CAMSV_2_ST;
 	unsigned int reg_module = ISP_CAMSV2_IDX;
@@ -13378,7 +13363,7 @@ irqreturn_t ISP_Irq_CAMSV_2(signed int  Irq, void *DeviceId)
 	unsigned int time_stamp;
 	/* */
 	unsigned int cur_v_cnt = 0;
-	struct timeval time_frmb;
+	struct timespec64 time_frmb;
 	unsigned long long  sec = 0;
 	unsigned long       usec = 0;
 	ktime_t             time;
@@ -13390,12 +13375,9 @@ irqreturn_t ISP_Irq_CAMSV_2(signed int  Irq, void *DeviceId)
 		return IRQ_HANDLED;
 
 	/*  */
-	/* do_gettimeofday(&time_frmb); */
-	sec = cpu_clock(0);     /* ns */
-	do_div(sec, 1000);    /* usec */
-	usec = do_div(sec, 1000000);    /* sec and usec */
-	time_frmb.tv_usec = usec;
-	time_frmb.tv_sec = sec;
+	ktime_get_ts64(&time_frmb);
+	usec = time_frmb.tv_nsec / 1000;
+	sec = time_frmb.tv_sec;
 
 	#if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -13545,7 +13527,8 @@ irqreturn_t ISP_Irq_CAMSV_2(signed int  Irq, void *DeviceId)
 				if (tmp & 0x1) {
 					IspInfo.IrqInfo.LastestSigTime_usec
 					    [module][cnt] =
-						(unsigned int)time_frmb.tv_usec;
+						(unsigned int)time_frmb.tv_nsec
+						/ 1000;
 					IspInfo.IrqInfo.LastestSigTime_sec
 					    [module][cnt] =
 						(unsigned int) time_frmb.tv_sec;
@@ -13585,13 +13568,12 @@ irqreturn_t ISP_Irq_CAMSV_2(signed int  Irq, void *DeviceId)
 		tasklet_schedule(isp_tasklet[module].pIsp_tkt);
 		#endif
 	}
-	#endif
+
 	return IRQ_HANDLED;
 }
 
 irqreturn_t ISP_Irq_CAMSV_3(signed int  Irq, void *DeviceId)
 {
-		#ifdef ISP_HELP
 	/* pr_info("ISP_IRQ_CAM_SV:0x%x\n",Irq); */
 	unsigned int module = ISP_IRQ_TYPE_INT_CAMSV_3_ST;
 	unsigned int reg_module = ISP_CAMSV3_IDX;
@@ -13604,7 +13586,7 @@ irqreturn_t ISP_Irq_CAMSV_3(signed int  Irq, void *DeviceId)
 	unsigned int time_stamp;
 	/* */
 	unsigned int cur_v_cnt = 0;
-	struct timeval time_frmb;
+	struct timespec64 time_frmb;
 	unsigned long long  sec = 0;
 	unsigned long       usec = 0;
 	ktime_t             time;
@@ -13616,14 +13598,9 @@ irqreturn_t ISP_Irq_CAMSV_3(signed int  Irq, void *DeviceId)
 		return IRQ_HANDLED;
 
 	/*  */
-	/* do_gettimeofday(&time_frmb); */
-	#ifdef ISP_HELP
-	sec = cpu_clock(0);     /* ns */
-	do_div(sec, 1000);    /* usec */
-	usec = do_div(sec, 1000000);    /* sec and usec */
-	#endif
-	time_frmb.tv_usec = usec;
-	time_frmb.tv_sec = sec;
+	ktime_get_ts64(&time_frmb);
+	usec = time_frmb.tv_nsec / 1000;
+	sec = time_frmb.tv_sec;
 
 	#if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -13657,11 +13634,9 @@ irqreturn_t ISP_Irq_CAMSV_3(signed int  Irq, void *DeviceId)
 
 	spin_lock(&(IspInfo.SpinLockIrq[module]));
 	if (IrqStatus & SV_SW_PASS1_DON_ST) {
-		#ifdef ISP_HELP
 		sec = cpu_clock(0);     /* ns */
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
-		#endif
 		/* update pass1 done time stamp for eis user(need match with
 		 * the time stamp in image header)
 		 */
@@ -13774,7 +13749,8 @@ irqreturn_t ISP_Irq_CAMSV_3(signed int  Irq, void *DeviceId)
 				if (tmp & 0x1) {
 					IspInfo.IrqInfo.LastestSigTime_usec
 					    [module][cnt] =
-						(unsigned int)time_frmb.tv_usec;
+						(unsigned int)time_frmb.tv_nsec
+						/ 1000;
 					IspInfo.IrqInfo.LastestSigTime_sec
 					    [module][cnt] =
 						(unsigned int) time_frmb.tv_sec;
@@ -13814,7 +13790,7 @@ irqreturn_t ISP_Irq_CAMSV_3(signed int  Irq, void *DeviceId)
 		tasklet_schedule(isp_tasklet[module].pIsp_tkt);
 		#endif
 	}
-	#endif
+
 	return IRQ_HANDLED;
 }
 
@@ -14276,7 +14252,6 @@ irqreturn_t ISP_Irq_CAMSV_5(signed int  Irq, void *DeviceId)
 
 irqreturn_t ISP_Irq_CAM_A(signed int Irq, void *DeviceId)
 {
-	#ifdef ISP_HELP
 	unsigned int module = ISP_IRQ_TYPE_INT_CAM_A_ST;
 	unsigned int reg_module = ISP_CAM_A_IDX;
 	unsigned int i;
@@ -14285,7 +14260,7 @@ irqreturn_t ISP_Irq_CAM_A(signed int Irq, void *DeviceId)
 	union FBC_CTRL_1 fbc_ctrl1[2];
 	union FBC_CTRL_2 fbc_ctrl2[2];
 	unsigned int cur_v_cnt = 0;
-	struct timeval time_frmb;
+	struct timespec64 time_frmb;
 	unsigned long long  sec = 0;
 	unsigned long       usec = 0;
 	ktime_t             time;
@@ -14297,13 +14272,9 @@ irqreturn_t ISP_Irq_CAM_A(signed int Irq, void *DeviceId)
 	if (G_u4EnableClockCount == 0)
 		return IRQ_HANDLED;
 
-	/*	*/
-	/* do_gettimeofday(&time_frmb); */
-	sec = cpu_clock(0);  /* ns */
-	do_div(sec, 1000);    /* usec */
-	usec = do_div(sec, 1000000);    /* sec and usec */
-	time_frmb.tv_usec = usec;
-	time_frmb.tv_sec = sec;
+	ktime_get_ts64(&time_frmb);
+	usec = time_frmb.tv_nsec / 1000;
+	sec = time_frmb.tv_sec;
 
 	#if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -14824,7 +14795,7 @@ LB_CAMA_SOF_IGNORE:
 				if (tmp & 0x1) {
 					IspInfo.IrqInfo.LastestSigTime_usec
 					    [module][cnt] =
-						(unsigned int)time_frmb.tv_usec;
+						(unsigned int)time_frmb.tv_nsec / 1000;
 					IspInfo.IrqInfo.LastestSigTime_sec
 					    [module][cnt] =
 						(unsigned int) time_frmb.tv_sec;
@@ -14887,7 +14858,6 @@ LB_CAMA_SOF_IGNORE:
 		tasklet_schedule(isp_tasklet[module].pIsp_tkt);
 		#endif
 	}
-	#endif
 	return IRQ_HANDLED;
 }
 
@@ -14901,9 +14871,7 @@ irqreturn_t ISP_Irq_CAM_B(signed int  Irq, void *DeviceId)
 	union FBC_CTRL_1 fbc_ctrl1[2];
 	union FBC_CTRL_2 fbc_ctrl2[2];
 	unsigned int cur_v_cnt = 0;
-	#ifdef ISP_HELP
-	struct timeval time_frmb;
-	#endif
+	struct timespec64 time_frmb;
 	unsigned long long  sec = 0;
 	unsigned long       usec = 0;
 	ktime_t             time;
@@ -14915,15 +14883,9 @@ irqreturn_t ISP_Irq_CAM_B(signed int  Irq, void *DeviceId)
 	if (G_u4EnableClockCount == 0)
 		return IRQ_HANDLED;
 
-	/*	*/
-	/* do_gettimeofday(&time_frmb); */
-	#ifdef ISP_HELP
-	sec = cpu_clock(0);  /* ns */
-	do_div(sec, 1000);    /* usec */
-	usec = do_div(sec, 1000000);    /* sec and usec */
-	time_frmb.tv_usec = usec;
-	time_frmb.tv_sec = sec;
-	#endif
+	ktime_get_ts64(&time_frmb);
+	usec = time_frmb.tv_nsec / 1000;
+	sec = time_frmb.tv_sec;
 
 	#if (ISP_BOTTOMHALF_WORKQ == 1)
 	gSvLog[module]._lastIrqTime.sec = sec;
@@ -15438,16 +15400,14 @@ LB_CAMB_SOF_IGNORE:
 
 			while (tmp) {
 				if (tmp & 0x1) {
-					#ifdef ISP_HELP
 					IspInfo.IrqInfo.LastestSigTime_usec
 					    [module][cnt] =
-					    (unsigned int) time_frmb.tv_usec;
+						(unsigned int)time_frmb.tv_nsec / 1000;
 					IspInfo.IrqInfo.LastestSigTime_sec
 					    [module][cnt] =
 					    (unsigned int) time_frmb.tv_sec;
 					IspInfo.IrqInfo.PassedBySigCnt
 					    [module][cnt][i]++;
-					#endif
 				}
 				tmp = tmp >> 1;
 				cnt++;
