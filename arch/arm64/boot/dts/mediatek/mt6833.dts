@@ -1893,6 +1893,9 @@
 
 	hwrng: hwrng {
 		compatible = "arm,sec-rng";
+		methods = "smc";
+		method-fid = /bits/ 16 <0x26a>;
+		quality = /bits/ 16 <900>;
 	};
 
 	/* Trustonic Mobicore SW IRQ number 115 = 32 + 83 */
