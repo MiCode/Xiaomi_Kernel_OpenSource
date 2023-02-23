@@ -201,8 +201,6 @@ static const struct scp_domain_data scp_domain_data_mt6765[] = {
 		.ctl_offs = 0x0300,
 		.sram_pdn_bits = GENMASK(8, 8),
 		.sram_pdn_ack_bits = GENMASK(12, 12),
-		//.subsys_clk_prefix = "vcodec",
-		.caps = MTK_SCPD_BYPASS_INIT_ON,
 	},
 
 };
