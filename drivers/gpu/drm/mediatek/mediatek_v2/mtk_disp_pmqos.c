@@ -16,6 +16,7 @@
 #include <soc/mediatek/mmqos.h>
 
 #include "mtk_drm_assert.h"
+#include "mtk_disp_bdg.h"
 
 #ifdef CONFIG_MTK_FB_MMDVFS_SUPPORT
 #include <linux/interconnect.h>
@@ -35,6 +36,34 @@ static int step_size = 1;
 struct hrt_mmclk_request {
 	int layer_num;
 	int volt;
+};
+
+/* aspect ratio <= 18 : 9 */
+struct hrt_mmclk_request hrt_req_level_bdg_mt6768[] = {
+	{20, 700000},
+	{40, 700000},
+	{45, 800000},
+};
+
+/* aspect ratio > 18 : 9 */
+struct hrt_mmclk_request hrt_req_level_bdg_fhdp_mt6768[] = {
+	{20, 700000},
+	{30, 700000},
+	{40, 800000},
+};
+
+/* aspect ratio <= 18 : 9 */
+struct hrt_mmclk_request hrt_req_level_mt6768[] = {
+	{35, 650000},
+	{60, 700000},
+	{70, 800000},
+};
+
+/* aspect ratio > 18 : 9 */
+struct hrt_mmclk_request hrt_req_level_fhdp_mt6768[] = {
+	{30, 650000},
+	{50, 700000},
+	{60, 800000},
 };
 #endif
 
@@ -197,34 +226,22 @@ void mtk_disp_hrt_mmclk_request_mt6768(struct mtk_drm_crtc *mtk_crtc, unsigned i
 	int ret;
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
-#if IS_ENABLED(CONFIG_MTK_MT6382_BDG)
-	struct hrt_mmclk_request req_level[] = { /* 18:9 */
-		{20, 700000},
-		{40, 700000},
-		{45, 800000},
-	};
-#else
-	struct hrt_mmclk_request req_level[] = { /* 18:9 */
-		{35, 650000},
-		{60, 700000},
-		{70, 800000},
-	};
-#endif
+	struct hrt_mmclk_request *req_level;
 
-	layer_num = bw*10 / mtk_drm_primary_frame_bw(crtc);
-#if IS_ENABLED(CONFIG_MTK_MT6382_BDG)
-	if ((mtk_crtc->base.mode.vdisplay) / mtk_crtc->base.mode.hdisplay > 18 / 9) {
-		req_level[0].layer_num = 20;
-		req_level[1].layer_num = 30;
-		req_level[2].layer_num = 40;
+	layer_num = bw * 10 / mtk_drm_primary_frame_bw(crtc);
+
+	if (is_bdg_supported()) {
+		if (mtk_crtc->base.mode.vdisplay / mtk_crtc->base.mode.hdisplay > 18 / 9)
+			req_level = hrt_req_level_bdg_fhdp_mt6768;
+		else
+			req_level = hrt_req_level_bdg_mt6768;
+	} else {
+		if (mtk_crtc->base.mode.vdisplay / mtk_crtc->base.mode.hdisplay > 18 / 9)
+			req_level = hrt_req_level_fhdp_mt6768;
+		else
+			req_level = hrt_req_level_mt6768;
 	}
-#else
-	if ((mtk_crtc->base.mode.vdisplay) / mtk_crtc->base.mode.hdisplay > 18 / 9) {
-		req_level[0].layer_num = 30;
-		req_level[1].layer_num = 50;
-		req_level[2].layer_num = 60;
-	}
-#endif
+
 	if (layer_num <= req_level[0].layer_num) {
 		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL2]);
 		ret = regulator_set_voltage(mm_freq_request, req_level[0].volt, INT_MAX);
