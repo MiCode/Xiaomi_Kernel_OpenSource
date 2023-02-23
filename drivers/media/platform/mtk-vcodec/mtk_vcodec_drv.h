@@ -74,7 +74,8 @@ enum mtk_instance_state {
 	MTK_STATE_INIT = 1,
 	MTK_STATE_HEADER = 2,
 	MTK_STATE_FLUSH = 3,
-	MTK_STATE_ABORT = 4,
+	MTK_STATE_STOP = 4,
+	MTK_STATE_ABORT = 5,
 };
 
 enum mtk_codec_type {

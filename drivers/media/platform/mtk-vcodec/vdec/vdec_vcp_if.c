@@ -807,6 +807,7 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 	struct list_head *p, *q;
 	struct mtk_vcodec_ctx *ctx;
 	int timeout = 0;
+	int val, wait_cnt, i;
 
 	if (!(mtk_vcodec_vcp & (1 << MTK_INST_DECODER)))
 		return 0;
@@ -846,6 +847,29 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 	break;
 	case VCP_EVENT_SUSPEND:
 		dev->is_codec_suspending = 1;
+		// check no more ipi in progress
+		mutex_lock(&dev->ipi_mutex);
+		mutex_lock(&dev->ipi_mutex_res);
+		mutex_unlock(&dev->ipi_mutex_res);
+		mutex_unlock(&dev->ipi_mutex);
+
+		// send backup ipi to vcp by one of any instances
+		vdec_vcp_backup(dev);
+
+		// check all hw lock is released
+		for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
+			val = down_trylock(&dev->dec_sem[i]);
+			for (wait_cnt = 0; val == 1 && wait_cnt < 5; wait_cnt++) {
+				usleep_range(10000, 20000);
+				val = down_trylock(&dev->dec_sem[i]);
+			}
+			if (val == 1)
+				mtk_v4l2_err("waiting hw_id %d relase lock fail", i);
+			else
+				up(&dev->dec_sem[i]);
+		}
+
+		// wait msg q of ipi_recv all done
 		while (atomic_read(&dev->mq.cnt)) {
 			timeout += 20;
 			usleep_range(10000, 20000);
@@ -854,16 +878,10 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 				break;
 			}
 		}
-		// check no more ipi in progress
-		mutex_lock(&dev->ipi_mutex);
-		mutex_lock(&dev->ipi_mutex_res);
-		mutex_unlock(&dev->ipi_mutex_res);
-		mutex_unlock(&dev->ipi_mutex);
-		// send backup ipi to vcp by one of any instances
-		vdec_vcp_backup(dev);
 	break;
 	case VCP_EVENT_RESUME:
 		mtk_vcodec_alive_checker_resume(dev);
+		dev->is_codec_suspending = 0;
 	break;
 	}
 	return NOTIFY_DONE;
