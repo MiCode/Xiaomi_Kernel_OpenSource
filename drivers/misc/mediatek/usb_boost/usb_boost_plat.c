@@ -331,7 +331,7 @@ static int usb_boost_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	bool audio_boost;
 #if IS_ENABLED(CONFIG_MTK_PPM_V3)
-	unsigned int i = 0;
+	unsigned int i, j = 0;
 #endif
 	USB_BOOST_NOTICE("\n");
 
@@ -362,6 +362,14 @@ static int usb_boost_probe(struct platform_device *pdev)
 		current_freq[i].max = -1;
 		policy_mask[i] = 0;
 	}
+
+	for (i = 0; i < CPU_MAX_KIR; i++) {
+		for_each_perfmgr_clusters(j) {
+			freq_set[i][j].min = -1;
+			freq_set[i][j].max = -1;
+		}
+	}
+
 	USB_BOOST_DBG("cluster_num=%d\n", cluster_num);
 	freq_to_set = kcalloc(cluster_num,
 		sizeof(struct cpu_ctrl_data), GFP_KERNEL);
