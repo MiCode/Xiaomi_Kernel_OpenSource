@@ -2953,9 +2953,9 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 		kfree(rxq->pit_base);
 		return -ENOMEM;
 	}
-	CCCI_BOOTUP_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%pad,pit_base=0x%p\r\n",
+	CCCI_BOOTUP_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%llx,pit_base=0x%p\r\n",
 		__func__, rxq->pit_phy_addr, rxq->pit_base);
-	CCCI_NORMAL_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%pad,pit_base=0x%p\r\n",
+	CCCI_NORMAL_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%llx,pit_base=0x%p\r\n",
 		__func__, rxq->pit_phy_addr, rxq->pit_base);
 #endif
 	memset(rxq->pit_base, 0, dpmaif_ctrl->dl_pit_size);
