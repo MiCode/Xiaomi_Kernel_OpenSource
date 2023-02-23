@@ -1878,6 +1878,9 @@ static void qcom_ethqos_phy_resume_clks(struct qcom_ethqos *ethqos)
 	if (priv->plat->pclk)
 		clk_prepare_enable(priv->plat->pclk);
 
+	if (priv->plat->clk_ptp_ref)
+		clk_prepare_enable(priv->plat->clk_ptp_ref);
+
 	if (ethqos->rgmii_clk)
 		clk_prepare_enable(ethqos->rgmii_clk);
 
