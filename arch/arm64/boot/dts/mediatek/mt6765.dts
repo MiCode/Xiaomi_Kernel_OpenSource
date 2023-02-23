@@ -3127,6 +3127,8 @@ initcall_debug=1 pelt=8";
 		usb-role-switch;
 		usb_phy_offset = <0x800>;
 		cdp-block;
+		wakeup-source;
+		infracg = <&infracfg_ao>;
 		port {
 			musb_drd_switch: endpoint@0 {
 				remote-endpoint = <&usb_role>;
