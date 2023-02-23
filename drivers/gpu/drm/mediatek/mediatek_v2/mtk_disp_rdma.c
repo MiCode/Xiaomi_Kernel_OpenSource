@@ -138,7 +138,10 @@ int disp_met_set(void *data, u64 val);
 #define FLD_RG_VDE_BLOCK_URGENT REG_FLD_MSB_LSB(31, 31)
 #define DISP_REG_RDMA_MEM_GMC_S4 0x00ec
 
-
+#define MT6768_DISP_REG_RDMA_IN_P_CNT 0x0f0
+#define MT6768_DISP_REG_RDMA_IN_LINE_CNT 0x0f4
+#define MT6768_DISP_REG_RDMA_OUT_P_CNT 0x0f8
+#define MT6768_DISP_REG_RDMA_OUT_LINE_CNT 0x0fC
 /* TODO: handle pixel/line cnt for other platform */
 #define DISP_REG_RDMA_IN_P_CNT 0x0120
 #define DISP_REG_RDMA_IN_LINE_CNT 0x0124
@@ -422,14 +425,23 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 		priv->abnormal_cnt++;
 	}
 	if (val & (1 << 4)) {
+		struct mtk_drm_private *drm_priv = NULL;
 		DDPPR_ERR("[IRQ] %s: underflow! cnt=%d\n",
 			  mtk_dump_comp_str(rdma), priv->underflow_cnt);
-
-		DDPMSG("%s: pix(%d,%d,%d,%d)\n", mtk_dump_comp_str(rdma),
-		       readl(DISP_REG_RDMA_IN_P_CNT + rdma->regs),
-		       readl(DISP_REG_RDMA_IN_LINE_CNT + rdma->regs),
-		       readl(DISP_REG_RDMA_OUT_P_CNT + rdma->regs),
-		       readl(DISP_REG_RDMA_OUT_LINE_CNT + rdma->regs));
+		if (mtk_crtc)
+			drm_priv = mtk_crtc->base.dev->dev_private;
+		if (drm_priv && drm_priv->data->mmsys_id == MMSYS_MT6768)
+			DDPMSG("%s: pix(%d,%d,%d,%d)\n", mtk_dump_comp_str(rdma),
+				readl(MT6768_DISP_REG_RDMA_IN_P_CNT + rdma->regs),
+				readl(MT6768_DISP_REG_RDMA_IN_LINE_CNT + rdma->regs),
+				readl(MT6768_DISP_REG_RDMA_OUT_P_CNT + rdma->regs),
+				readl(MT6768_DISP_REG_RDMA_OUT_LINE_CNT + rdma->regs));
+		else
+			DDPMSG("%s: pix(%d,%d,%d,%d)\n", mtk_dump_comp_str(rdma),
+				readl(DISP_REG_RDMA_IN_P_CNT + rdma->regs),
+				readl(DISP_REG_RDMA_IN_LINE_CNT + rdma->regs),
+				readl(DISP_REG_RDMA_OUT_P_CNT + rdma->regs),
+				readl(DISP_REG_RDMA_OUT_LINE_CNT + rdma->regs));
 		mtk_rdma_analysis(rdma);
 		mtk_rdma_dump(rdma);
 		if (mtk_crtc) {
@@ -657,10 +669,31 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 #ifdef SHARE_WROT_SRAM
 	/* Share MDP WROT SRAM. */
 	if (comp->id == DDP_COMPONENT_RDMA0 && can_use_wrot_sram()) {
+		unsigned int fifo_off_ultra = 0; /* 10 times */
+
+		if (height > 2340)
+			fifo_off_ultra = 400;
+		else
+			fifo_off_ultra = 500;
+
+		if (height > 2340 && if_fps == 90)
+			fifo_off_ultra = 300;
+		pre_ultra_low_us += fifo_off_ultra;
+		pre_ultra_high_us += fifo_off_ultra;
+		ultra_low_us += fifo_off_ultra;
+		ultra_high_us += fifo_off_ultra;
 		fifo_size = SZ_32K / 16UL;
 		gs[GS_RDMA_SRAM_SEL] = 1;
 		set_share_sram(1);
 	} else {
+		if (priv->data->mmsys_id == MMSYS_MT6768 && if_fps == 90) {
+			pre_ultra_low_us = 55;
+			pre_ultra_high_us = 65;
+			ultra_low_us = 45;
+			ultra_high_us = 55;
+			urgent_low_us = 35;
+			urgent_high_us = 44;
+		}
 		set_share_sram(0);
 		gs[GS_RDMA_SRAM_SEL] = 0;
 	}
@@ -767,9 +800,14 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	/* DISP_RDMA_THRESHOLD_FOR_SODI */
 	gs[GS_RDMA_TH_LOW_FOR_SODI] =
 		DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 50), FP);
-	gs[GS_RDMA_TH_HIGH_FOR_SODI] = DO_DIV_ROUND_UP(
-		gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 12,
-		FP);
+	if (priv->data->mmsys_id == MMSYS_MT6768)
+		gs[GS_RDMA_TH_HIGH_FOR_SODI] = DO_DIV_ROUND_UP(
+			gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 50,
+			FP);
+	else
+		gs[GS_RDMA_TH_HIGH_FOR_SODI] = DO_DIV_ROUND_UP(
+			gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 12,
+			FP);
 	if (gs[GS_RDMA_TH_HIGH_FOR_SODI] < gs[GS_RDMA_PRE_ULTRA_TH_HIGH])
 		gs[GS_RDMA_TH_HIGH_FOR_SODI] = gs[GS_RDMA_PRE_ULTRA_TH_HIGH];
 
@@ -780,18 +818,18 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	gs[GS_RDMA_TH_LOW_FOR_DVFS] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
 	gs[GS_RDMA_TH_HIGH_FOR_DVFS] = gs[GS_RDMA_PRE_ULTRA_TH_LOW] + 1;
 
-	/* DISP_RDMA_DVFS_SETTING_PREULTRA */
-	gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW] =
-		DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 40), FP);
-	gs[GS_RDMA_DVFS_PRE_ULTRA_TH_HIGH] =
-		DO_DIV_ROUND_UP(consume_rate * (pre_ultra_high_us + 40), FP);
-
-	/* DISP_RDMA_DVFS_SETTING_ULTRA */
-	gs[GS_RDMA_DVFS_ULTRA_TH_LOW] =
-		DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 40), FP);
-	gs[GS_RDMA_DVFS_ULTRA_TH_HIGH] = gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW];
-
 	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
+		/* DISP_RDMA_DVFS_SETTING_PREULTRA */
+		gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
+		gs[GS_RDMA_DVFS_PRE_ULTRA_TH_HIGH] =
+			DO_DIV_ROUND_UP(consume_rate * (pre_ultra_high_us + 20), FP);
+
+		/* DISP_RDMA_DVFS_SETTING_ULTRA */
+		gs[GS_RDMA_DVFS_ULTRA_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 20), FP);
+		gs[GS_RDMA_DVFS_ULTRA_TH_HIGH] = gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW];
+
 		/* DISP_RDMA_LEAVE_DRS_SETTING */
 		gs[GS_RDMA_IS_DRS_STATUS_TH_LOW] =
 			DO_DIV_ROUND_UP(consume_rate * urgent_low_us, FP);
@@ -804,6 +842,17 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		gs[GS_RDMA_NOT_DRS_STATUS_TH_HIGH] =
 			DO_DIV_ROUND_UP(consume_rate * urgent_high_us, FP);
 	} else {
+		/* DISP_RDMA_DVFS_SETTING_PREULTRA */
+		gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 40), FP);
+		gs[GS_RDMA_DVFS_PRE_ULTRA_TH_HIGH] =
+			DO_DIV_ROUND_UP(consume_rate * (pre_ultra_high_us + 40), FP);
+
+		/* DISP_RDMA_DVFS_SETTING_ULTRA */
+		gs[GS_RDMA_DVFS_ULTRA_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 40), FP);
+		gs[GS_RDMA_DVFS_ULTRA_TH_HIGH] = gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW];
+
 		/* DISP_RDMA_LEAVE_DRS_SETTING */
 		gs[GS_RDMA_IS_DRS_STATUS_TH_LOW] =
 			DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
@@ -1299,6 +1348,8 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_drm_private *drm_priv = NULL;
 
 	DDPDUMP("== %s REGS:0x%llx ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
 	if (mtk_ddp_comp_helper_get_opt(comp,
@@ -1391,14 +1442,28 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_RDMA_MEM_GMC_S3 + baddr));
 		DDPDUMP("(0x0ec)DISP_REG_RDMA_MEM_GMC_SETTING_4=0x%x\n",
 			readl(DISP_REG_RDMA_MEM_GMC_S4 + baddr));
-		DDPDUMP("(0x0f0)R_IN_PXL_CNT=0x%x\n",
-			readl(DISP_REG_RDMA_IN_P_CNT + baddr));
-		DDPDUMP("(0x0f4)R_IN_LINE_CNT=0x%x\n",
-			readl(DISP_REG_RDMA_IN_LINE_CNT + baddr));
-		DDPDUMP("(0x0f8)R_OUT_PXL_CNT=0x%x\n",
-			readl(DISP_REG_RDMA_OUT_P_CNT + baddr));
-		DDPDUMP("(0x0fc)R_OUT_LINE_CNT=0x%x\n",
-			readl(DISP_REG_RDMA_OUT_LINE_CNT + baddr));
+		if (mtk_crtc)
+			drm_priv = mtk_crtc->base.dev->dev_private;
+		if (drm_priv && drm_priv->data &&
+			drm_priv->data->mmsys_id == MMSYS_MT6768) {
+			DDPDUMP("(0x0f0)R_IN_PXL_CNT=0x%x\n",
+				readl(MT6768_DISP_REG_RDMA_IN_P_CNT + baddr));
+			DDPDUMP("(0x0f4)R_IN_LINE_CNT=0x%x\n",
+				readl(MT6768_DISP_REG_RDMA_IN_LINE_CNT + baddr));
+			DDPDUMP("(0x0f8)R_OUT_PXL_CNT=0x%x\n",
+				readl(MT6768_DISP_REG_RDMA_OUT_P_CNT + baddr));
+			DDPDUMP("(0x0fc)R_OUT_LINE_CNT=0x%x\n",
+				readl(MT6768_DISP_REG_RDMA_OUT_LINE_CNT + baddr));
+		} else {
+			DDPDUMP("(0x0f0)R_IN_PXL_CNT=0x%x\n",
+				readl(DISP_REG_RDMA_IN_P_CNT + baddr));
+			DDPDUMP("(0x0f4)R_IN_LINE_CNT=0x%x\n",
+				readl(DISP_REG_RDMA_IN_LINE_CNT + baddr));
+			DDPDUMP("(0x0f8)R_OUT_PXL_CNT=0x%x\n",
+				readl(DISP_REG_RDMA_OUT_P_CNT + baddr));
+			DDPDUMP("(0x0fc)R_OUT_LINE_CNT=0x%x\n",
+				readl(DISP_REG_RDMA_OUT_LINE_CNT + baddr));
+		}
 		DDPDUMP("(0x100)DISP_REG_RDMA_DBG_OUT=0x%x\n",
 			readl(DISP_REG_RDMA_DBG_OUT + baddr));
 		DDPDUMP("(0x10c)DISP_REG_RDMA_DBG_OUT1=0x%x\n",
@@ -1423,6 +1488,8 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct mtk_drm_private *drm_priv = NULL;
 
 	unsigned int global_ctrl;
 	unsigned int bg0 = readl(baddr + DISP_REG_RDMA_BG_CON_0);
@@ -1455,15 +1522,30 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(FIFO_CON_FLD_FIFO_PSEUDO_SIZE, fifo),
 		REG_FLD_VAL_GET(FIFO_CON_FLD_OUTPUT_VALID_FIFO_THRESHOLD, fifo),
 		readl(DISP_REG_RDMA_FIFO_LOG + baddr));
-	DDPDUMP("pos:in(%d,%d)out(%d,%d),bg(t%d,b%d,l%d,r%d)\n",
-		readl(DISP_REG_RDMA_IN_P_CNT + baddr),
-		readl(DISP_REG_RDMA_IN_LINE_CNT + baddr),
-		readl(DISP_REG_RDMA_OUT_P_CNT + baddr),
-		readl(DISP_REG_RDMA_OUT_LINE_CNT + baddr),
-		REG_FLD_VAL_GET(RDMA_BG_CON_1_TOP, bg1),
-		REG_FLD_VAL_GET(RDMA_BG_CON_1_BOTTOM, bg1),
-		REG_FLD_VAL_GET(RDMA_BG_CON_0_LEFT, bg0),
-		REG_FLD_VAL_GET(RDMA_BG_CON_0_RIGHT, bg0));
+		if (mtk_crtc)
+			drm_priv = mtk_crtc->base.dev->dev_private;
+		if (drm_priv && drm_priv->data &&
+			drm_priv->data->mmsys_id == MMSYS_MT6768) {
+			DDPDUMP("pos:in(%d,%d)out(%d,%d),bg(t%d,b%d,l%d,r%d)\n",
+			readl(MT6768_DISP_REG_RDMA_IN_P_CNT + baddr),
+			readl(MT6768_DISP_REG_RDMA_IN_LINE_CNT + baddr),
+			readl(MT6768_DISP_REG_RDMA_OUT_P_CNT + baddr),
+			readl(MT6768_DISP_REG_RDMA_OUT_LINE_CNT + baddr),
+			REG_FLD_VAL_GET(RDMA_BG_CON_1_TOP, bg1),
+			REG_FLD_VAL_GET(RDMA_BG_CON_1_BOTTOM, bg1),
+			REG_FLD_VAL_GET(RDMA_BG_CON_0_LEFT, bg0),
+			REG_FLD_VAL_GET(RDMA_BG_CON_0_RIGHT, bg0));
+		} else {
+			DDPDUMP("pos:in(%d,%d)out(%d,%d),bg(t%d,b%d,l%d,r%d)\n",
+			readl(DISP_REG_RDMA_IN_P_CNT + baddr),
+			readl(DISP_REG_RDMA_IN_LINE_CNT + baddr),
+			readl(DISP_REG_RDMA_OUT_P_CNT + baddr),
+			readl(DISP_REG_RDMA_OUT_LINE_CNT + baddr),
+			REG_FLD_VAL_GET(RDMA_BG_CON_1_TOP, bg1),
+			REG_FLD_VAL_GET(RDMA_BG_CON_1_BOTTOM, bg1),
+			REG_FLD_VAL_GET(RDMA_BG_CON_0_LEFT, bg0),
+			REG_FLD_VAL_GET(RDMA_BG_CON_0_RIGHT, bg0));
+		}
 #ifdef IF_ZERO /* TODO */
 	DDPDUMP("irq cnt:start=%d,end=%d,underflow=%d,targetline=%d\n",
 		rdma_start_irq_cnt[idx], rdma_done_irq_cnt[idx],
@@ -1798,12 +1880,12 @@ const struct mtk_disp_rdma_data mt6765_rdma_driver_data = {
 
 const struct mtk_disp_rdma_data mt6768_rdma_driver_data = {
 	.fifo_size = SZ_1K * 6,
-	.pre_ultra_low_us = 117,
-	.pre_ultra_high_us = 160,
-	.ultra_low_us = 87,
-	.ultra_high_us = 150,
-	.urgent_low_us = 30,
-	.urgent_high_us = 35,
+	.pre_ultra_low_us = 80,
+	.pre_ultra_high_us = 90,
+	.ultra_low_us = 60,
+	.ultra_high_us = 80,
+	.urgent_low_us = 43,
+	.urgent_high_us = 58,
 	.sodi_config = mt6768_mtk_sodi_config,
 	.shadow_update_reg = 0x00bc,
 	.support_shadow = false,
