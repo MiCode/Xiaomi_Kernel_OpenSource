@@ -4044,6 +4044,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		reg = <0 0x14002000 0 0x1000>;
 		mediatek,smi-id = <4>;
 		smi-common;
+		operating-points-v2 = <&opp_table_mm>;
 		power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>;
 		clocks = <&mmsys_config CLK_MM_SMI_COMM0>,
 			<&mmsys_config CLK_MM_SMI_COMM1>,
