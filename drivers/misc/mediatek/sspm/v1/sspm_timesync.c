@@ -1,181 +1,229 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2011-2015 MediaTek Inc.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <linux/types.h>
-#include <linux/module.h>       /* needed by all modules */
-#include <linux/init.h>         /* needed by module macros */
-#include <linux/fs.h>           /* needed by file_operations* */
-#include <linux/device.h>       /* needed by device_* */
-#include <linux/vmalloc.h>      /* needed by kmalloc */
-#include <linux/uaccess.h>      /* needed by copy_to_user */
-#include <linux/fs.h>           /* needed by file_operations* */
-#include <linux/slab.h>         /* needed by kmalloc */
-#include <linux/poll.h>         /* needed by poll */
+#include <linux/clocksource.h>
 #include <linux/sched/clock.h>
-#include <linux/interrupt.h>
 #include <linux/suspend.h>
-#include <linux/timer.h>
-#include <linux/ioport.h>
-#include <linux/io.h>
-#include <linux/atomic.h>
+#include <linux/timex.h>
 #include <linux/types.h>
-#include <mt-plat/sync_write.h>
+#include <asm/arch_timer.h>
+#include <asm/timex.h>
 #include "sspm_define.h"
-#include "sspm_helper.h"
 #include "sspm_ipi.h"
-#include "sspm_reservedmem.h"
-#include "sspm_reservedmem_define.h"
-#include "sspm_sysfs.h"
+#include "sspm_ipi_mbox.h"
+#include "sspm_mbox.h"
 #include "sspm_timesync.h"
 
-/* #define TINYSYS_TIME_TESTING */
+#define sspm_ts_write(id, val) \
+	sspm_mbox_write(SSPM_TS_MBOX, id, (void *)&val, 1)
 
-struct timesync_ctrl_s {
-	unsigned int base;
-	unsigned int size;
-	unsigned int ts_h;
-	unsigned int ts_l;
-	unsigned int clk_h;
-	unsigned int clk_l;
+#define TIMESYNC_TAG	"[SSPM_TS]"
+
+#define TIMESYNC_MAX_VER           (0x7)
+#define TIMESYNC_HEADER_FREEZE_OFS (31)
+#define TIMESYNC_HEADER_FREEZE     (1 << TIMESYNC_HEADER_FREEZE_OFS)
+#define TIMESYNC_HEADER_VER_OFS    (28)
+#define TIMESYNC_HEADER_VER_MASK   (TIMESYNC_MAX_VER << TIMESYNC_HEADER_VER_OFS)
+
+#define TIMESYNC_FLAG_SYNC     (1 << 0)
+#define TIMESYNC_FLAG_ASYNC    (1 << 1)
+#define TIMESYNC_FLAG_FREEZE   (1 << 2)
+#define TIMESYNC_FLAG_UNFREEZE (1 << 3)
+
+/* sched_clock wrap time is 4398 seconds for arm arch timer
+ * applying a period less than it for tinysys timesync
+ */
+#define TIMESYNC_WRAP_TIME (4000ULL * NSEC_PER_SEC)
+
+struct timesync_context_t {
+	spinlock_t lock;
+	struct work_struct work;
+	ktime_t wrap_kt;
+	u8 enabled;
+	u64 base_tick;
+	u64 base_ts;
 };
 
-static struct timesync_ctrl_s *ts_ctl;
-static unsigned int sspm_ts_inited;
-static struct sspm_work_struct sspm_timesync_work;
-static struct timer_list sspm_timesync_timer;
-static DEFINE_MUTEX(sspm_timesync_mutex);
-#if defined(TINYSYS_TIME_TESTING) && defined(DEBUG)
-static unsigned int sspm_sync_cnt;
-#endif
+static struct workqueue_struct *timesync_workqueue;
+static struct timesync_context_t timesync_ctx;
+static struct timecounter timesync_counter;
+static struct hrtimer timesync_refresh_timer;
+static u8 sspm_base_ver;
 
-static void sspm_timesync_timestamp(unsigned long long src, unsigned int *ts_h,
-	unsigned int *ts_l)
+static void sspm_ts_update(int suspended, u64 tick, u64 ts)
 {
-	*ts_l = (unsigned int)(src & 0x00000000FFFFFFFF);
-	*ts_h = (unsigned int)((src & 0xFFFFFFFF00000000) >> 32);
+	u32 header, val;
+
+	sspm_base_ver = (sspm_base_ver + 1)%(TIMESYNC_MAX_VER+1);
+
+	/* make header: freeze and version */
+	header = suspended ? TIMESYNC_HEADER_FREEZE : 0;
+
+	header |= ((sspm_base_ver << TIMESYNC_HEADER_VER_OFS) &
+		TIMESYNC_HEADER_VER_MASK);
+
+	/* update tick, h -> l */
+	val = (tick >> 32) & 0xFFFFFFFF;
+	val |= header;
+	sspm_ts_write(SSPM_TS_MBOX_TICK_H, val);
+
+	/* fix update sequence to promise atomicity */
+	mb();
+
+	val = tick & 0xFFFFFFFF;
+	sspm_ts_write(SSPM_TS_MBOX_TICK_L, val);
+
+	/* fix update sequence to promise atomicity */
+	mb();
+
+	/* update ts, l -> h */
+	val = ts & 0xFFFFFFFF;
+	sspm_ts_write(SSPM_TS_MBOX_TS_L, val);
+
+	/* fix update sequence to promise atomicity */
+	mb();
+
+	val = (ts >> 32) & 0xFFFFFFFF;
+	val |= header;
+	sspm_ts_write(SSPM_TS_MBOX_TS_H, val);
+
+	/* fix update sequence to promise atomicity */
+	mb();
 }
 
-void sspm_timesync_ts_get(unsigned int *ts_h, unsigned int *ts_l)
+static u64 timesync_tick_read(const struct cyclecounter *cc)
 {
-	unsigned long long ap_ts;
-
-	ap_ts = sched_clock();
-
-	sspm_timesync_timestamp(ap_ts, ts_h, ts_l);
+	return arch_timer_read_counter();
 }
 
-void sspm_timesync_clk_get(unsigned int *clk_h, unsigned int *clk_l)
+static struct cyclecounter timesync_cc __ro_after_init = {
+	.read	= timesync_tick_read,
+	.mask	= CLOCKSOURCE_MASK(56),
+};
+
+static void timesync_sync_base_internal(unsigned int flag)
 {
-	unsigned long long ap_clk;
+	u64 tick, ts;
+	unsigned long irq_flags = 0;
+	int freeze, unfreeze;
 
-	ap_clk = mtk_timer_src_count();
+	spin_lock_irqsave(&timesync_ctx.lock, irq_flags);
 
-	sspm_timesync_timestamp(ap_clk, clk_h, clk_l);
+	ts =  timecounter_read(&timesync_counter);
+	tick = timesync_counter.cycle_last;
+
+	timesync_ctx.base_tick = tick;
+	timesync_ctx.base_ts = ts;
+
+	freeze = (flag & TIMESYNC_FLAG_FREEZE) ? 1 : 0;
+	unfreeze = (flag & TIMESYNC_FLAG_UNFREEZE) ? 1 : 0;
+
+	/* sync with sspm */
+	sspm_ts_update(freeze, tick, ts);
+
+	spin_unlock_irqrestore(&timesync_ctx.lock, irq_flags);
+
+	pr_info("%s update base: ts=%llu, tick=0x%llx, fz=%d, ver=%d\n",
+		TIMESYNC_TAG, ts, tick, freeze, sspm_base_ver);
 }
 
-static void __tinysys_time_sync(int mode)
+static void timesync_sync_base(unsigned int flag)
 {
-	struct plt_ipi_data_s ipi_data;
-	int ret, ackdata;
+	if (!timesync_ctx.enabled)
+		return;
 
-	if (sspm_ts_inited) {
-		memset((void *)&ipi_data, 0, sizeof(ipi_data));
-
-		mutex_lock(&sspm_timesync_mutex);
-
-		ipi_data.cmd = PLT_TIMESYNC_SYNC;
-
-#if defined(TINYSYS_TIME_TESTING) && defined(DEBUG)
-		if (mode == 1)
-			ipi_data.u.ts.mode = mode;
-#endif
-		/* inject timestamp and clk */
-		sspm_timesync_ts_get(&ts_ctl->ts_h, &ts_ctl->ts_l);
-		sspm_timesync_clk_get(&ts_ctl->clk_h, &ts_ctl->clk_l);
-
-		ret = sspm_ipi_send_sync(IPI_ID_PLATFORM, IPI_OPT_POLLING,
-		    &ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE,
-		    &ackdata, 1);
-		if (ret != 0)
-			pr_err("SSPM: logger IPI fail ret=%d\n", ret);
-
-		mutex_unlock(&sspm_timesync_mutex);
-	}
+	if (flag & TIMESYNC_FLAG_ASYNC)
+		queue_work(timesync_workqueue, &(timesync_ctx.work));
+	else
+		timesync_sync_base_internal(flag);
 }
 
-static void tinysys_time_sync(void)
+static enum hrtimer_restart timesync_refresh(struct hrtimer *hrt)
 {
-	__tinysys_time_sync(0);
+	hrtimer_forward_now(hrt, timesync_ctx.wrap_kt);
+	/* snchronize new sched_clock base to co-processors */
+	timesync_sync_base(TIMESYNC_FLAG_ASYNC);
+
+	return HRTIMER_RESTART;
 }
 
 static void timesync_ws(struct work_struct *ws)
 {
-#if defined(TINYSYS_TIME_TESTING) && defined(DEBUG)
-	pr_debug("resync time about %d sec (%d)\n", TIMESYNC_TIMEOUT,
-		sspm_sync_cnt++);
-#endif
-	tinysys_time_sync();
+	timesync_sync_base(TIMESYNC_FLAG_SYNC);
 }
 
-static void sspm_ts_timeout(struct timer_list *unused)
+unsigned int __init sspm_timesync_init(void)
 {
-	sspm_schedule_work(&sspm_timesync_work);
-
-	sspm_timesync_timer.expires = jiffies + TIMESYNC_TIMEOUT;
-	add_timer(&sspm_timesync_timer);
-}
-
-unsigned int __init sspm_timesync_init(phys_addr_t start, phys_addr_t limit)
-{
-	unsigned int last_ofs;
-
-	last_ofs = 0;
-
-	ts_ctl = (struct timesync_ctrl_s *) (uintptr_t)start;
-	ts_ctl->base = PLT_TIMESYNC_SYNC; /* magic */
-	ts_ctl->size = sizeof(*ts_ctl);
-
-	sspm_timesync_ts_get(&ts_ctl->ts_h, &ts_ctl->ts_l);
-	sspm_timesync_clk_get(&ts_ctl->clk_h, &ts_ctl->clk_l);
-
-	last_ofs += ts_ctl->size;
-
-	if (last_ofs >= limit) {
-		pr_err("SSPM:%s() initial fail, last_ofs=%u, limit=%u\n",
-			__func__, last_ofs, (unsigned int) limit);
-		goto error;
+	timesync_workqueue = create_workqueue("sspm_ts_wq");
+	if (!timesync_workqueue) {
+		pr_info("%s workqueue create failed\n", __func__);
+		timesync_ctx.enabled = 0;
+		return -1;
 	}
 
-	sspm_ts_inited = 1;
-	return last_ofs;
+	INIT_WORK(&(timesync_ctx.work), timesync_ws);
 
-error:
-	sspm_ts_inited = 0;
-	ts_ctl = NULL;
+	spin_lock_init(&timesync_ctx.lock);
+
+	/* init cyclecounter mult and shift as sched_clock */
+	clocks_calc_mult_shift(&timesync_cc.mult, &timesync_cc.shift,
+				arch_timer_get_cntfrq(), NSEC_PER_SEC, 3600);
+
+	timesync_ctx.wrap_kt = ns_to_ktime(TIMESYNC_WRAP_TIME);
+
+	/* Init time counter:
+	 * start_time: current sched_clock
+	 * read: arch timer counter
+	 */
+	timecounter_init(&timesync_counter, &timesync_cc, sched_clock());
+
+	hrtimer_init(&timesync_refresh_timer,
+				CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	timesync_refresh_timer.function = timesync_refresh;
+	hrtimer_start(&timesync_refresh_timer,
+		timesync_ctx.wrap_kt, HRTIMER_MODE_REL);
+
+	pr_info("%s ts: cycle_last %lld, time_base:%lld, wrap:%lld\n",
+		TIMESYNC_TAG, timesync_counter.cycle_last,
+		timesync_counter.nsec, timesync_ctx.wrap_kt);
+
+	timesync_ctx.enabled = 1;
+
+	timesync_sync_base(TIMESYNC_FLAG_SYNC);
+
 	return 0;
 }
 
-int __init sspm_timesync_init_done(void)
+void sspm_timesync_suspend(void)
 {
-#if defined(TINYSYS_TIME_TESTING) && defined(DEBUG)
-	int ret;
-#endif
+	if (!timesync_ctx.enabled)
+		return;
 
-	tinysys_time_sync();
+	hrtimer_cancel(&timesync_refresh_timer);
 
-	INIT_WORK(&sspm_timesync_work.work, timesync_ws);
-	timer_setup(&sspm_timesync_timer, &sspm_ts_timeout, 0);
-	sspm_timesync_timer.expires = jiffies + TIMESYNC_TIMEOUT;
-	add_timer(&sspm_timesync_timer);
-
-#if defined(TINYSYS_TIME_TESTING) && defined(DEBUG)
-	ret = sspm_sysfs_create_file(&dev_attr_sspm_time_sync);
-
-	if (unlikely(ret != 0))
-		pr_err("[SSPM]: %s create file fail\n", __func__);
-#endif
-
-	return 0;
+	/* snchronize new sched_clock base to co-processors */
+	timesync_sync_base(TIMESYNC_FLAG_SYNC |
+		TIMESYNC_FLAG_FREEZE);
 }
+
+void sspm_timesync_resume(void)
+{
+	if (!timesync_ctx.enabled)
+		return;
+
+	/* re-init timecounter because sched_clock will be stopped during
+	 * suspend but arch timer counter is not, so we need to update
+	 *  start time after resume
+	 */
+	timecounter_init(&timesync_counter, &timesync_cc, sched_clock());
+
+	hrtimer_start(&timesync_refresh_timer,
+		timesync_ctx.wrap_kt, HRTIMER_MODE_REL);
+
+	/* snchronize new sched_clock base to co-processors */
+	timesync_sync_base(TIMESYNC_FLAG_SYNC |
+		TIMESYNC_FLAG_UNFREEZE);
+}
+
