@@ -286,7 +286,7 @@ static const struct dvfsrc_regulator_init_data regulator_mt6855_data = {
 
 static const unsigned int mt6765_voltages[] = {
 	650000,
-	700000,
+	0,
 	700000,
 	800000,
 };
