@@ -80,6 +80,8 @@
 #include <linux/of_address.h>   /* for device tree */
 #endif
 
+#include <linux/pm_runtime.h> /* for mtcmos */
+
 #if defined(ISP_MET_READY)
 /*MET:met mmsys profile*/
 #include <mt-plat/met_drv.h>
@@ -3857,6 +3859,15 @@ static inline void Prepare_Enable_ccf_clock(void)
 	/* must keep this clk open order: CG_SCP_SYS_DIS-> CG_DISP0_SMI_COMMON
 	 * -> CG_SCP_SYS_ISP/CAM -> ISP clk
 	 */
+
+	/* No need to use pm_runtime to control other dev,
+	 * because everything is described in imgsys in dts.
+	 */
+	ret = pm_runtime_get_sync(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev);
+	if (ret < 0)
+		LOG_INF("cannot pm runtime get ISP_IMGSYS_CONFIG_IDX mtcmos\n");
+
+
 #ifdef ISP_HELP
 	#ifndef EP_MARK_SMI
 	/* enable through smi API */
@@ -3897,6 +3908,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 
 static inline void Disable_Unprepare_ccf_clock(void)
 {
+	int ret;
 	/* must keep this clk close order: ISP clk
 	 * -> CG_SCP_SYS_ISP/CAM -> CG_DISP0_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
@@ -3916,6 +3928,10 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	smi_bus_disable_unprepare(SMI_LARB3, ISP_DEV_NAME);
 	#endif
 #endif
+
+	ret = pm_runtime_put_sync(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev);
+	if (ret < 0)
+		LOG_INF("cannot pm runtime put ISP_IMGSYS_CONFIG_IDX mtcmos\n");
 }
 
 /* only for suspend/resume, disable isp cg but no MTCMOS*/
@@ -10066,6 +10082,66 @@ EXIT:
 /******************************************************************************
  *
  *****************************************************************************/
+static void ISP_add_device_link(struct platform_device *pDev)
+{
+	char mtk_larb_str[32];
+	int i = 0, mtk_larb = 0, mtk_larbs = 0, larb_num = 0;
+	unsigned int larb_id = 0;
+	struct device_node *larb_node;
+	struct device_link *link;
+	struct platform_device *larb_pdev;
+
+	mtk_larb = of_count_phandle_with_args(pDev->dev.of_node, "mediatek,larb", NULL);
+	mtk_larbs = of_count_phandle_with_args(pDev->dev.of_node, "mediatek,larbs", NULL);
+
+	if (mtk_larb > mtk_larbs) {
+		larb_num = mtk_larb;
+		strncpy(mtk_larb_str, "mediatek,larb", 14);
+	} else {
+		larb_num = mtk_larbs;
+		strncpy(mtk_larb_str, "mediatek,larbs", 15);
+	}
+
+	LOG_INF("larb_num: %d; (%d, %d)\n", larb_num, mtk_larb, mtk_larbs);
+
+	if (larb_num <= 0) {
+		LOG_INF("%s: find no larb", pDev->dev.of_node->name);
+		return;
+	}
+
+	for (i = 0; i < larb_num; i++) {
+		larb_node = of_parse_phandle(pDev->dev.of_node, mtk_larb_str, i);
+		if (!larb_node) {
+			LOG_INF("%s: [%d]: failed to get larb from %s\n",
+				pDev->dev.of_node->name, i, mtk_larb_str);
+			continue;
+		}
+		larb_pdev = of_find_device_by_node(larb_node);
+		if (WARN_ON(!larb_pdev)) {
+			of_node_put(larb_node);
+			LOG_INF("%s: failed to get larb pdev\n", pDev->dev.of_node->name);
+			continue;
+		}
+
+		if (of_property_read_u32(larb_node, "mediatek,smi-id", &larb_id))
+			LOG_INF("Error: get larb id from DTS fail!!\n");
+		else
+			LOG_INF("%s gets larb_id=%d\n",
+				pDev->dev.of_node->name, larb_id);
+
+		of_node_put(larb_node);
+
+		link = device_link_add(&pDev->dev, &larb_pdev->dev,
+				DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+		if (!link)
+			LOG_INF("%s: [%d]: unable to link smi larb %d\n",
+				pDev->dev.of_node->name, i, larb_id);
+	}
+}
+
+/******************************************************************************
+ *
+ *****************************************************************************/
 static signed int ISP_probe(struct platform_device *pDev)
 {
 	signed int Ret = 0;
@@ -10137,6 +10213,10 @@ static signed int ISP_probe(struct platform_device *pDev)
 		nr_isp_devs, pDev->dev.of_node->name,
 		(unsigned long)isp_dev->regs);
 
+	// power resource is all described in "imgsys" in dts.
+	if (strncmp(pDev->dev.of_node->name, "imgsys", strlen("imgsys")) == 0)
+		pm_runtime_enable(&pDev->dev);
+
 	/* get IRQ ID and request IRQ */
 	isp_dev->irq = irq_of_parse_and_map(pDev->dev.of_node, 0);
 
@@ -10188,7 +10268,7 @@ static signed int ISP_probe(struct platform_device *pDev)
 			nr_isp_devs, pDev->dev.of_node->name, isp_dev->irq);
 	}
 
-
+	ISP_add_device_link(pDev);
 
 	/* Only register char driver in the 1st time */
 	if (nr_isp_devs == 1) {
@@ -10411,6 +10491,10 @@ static signed int ISP_remove(struct platform_device *pDev)
 	int i;
 	/*  */
 	pr_info("- E.");
+
+	if (strncmp(pDev->dev.of_node->name, "imgsys", strlen("imgsys")) == 0)
+		pm_runtime_disable(&pDev->dev);
+
 	/* unregister char driver. */
 	ISP_UnregCharDev();
 
