@@ -4301,7 +4301,7 @@ cma=64M transparent_hugepage=never";
 			"path_larb4";
 		interconnect-num = <2>;
 		bandwidth-table =
-			<4 1187>,
+			<4 712>,
 			<6 4>;
 	};
 
