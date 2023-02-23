@@ -8128,7 +8128,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 	case ISP_TRANSFOR_CCU_REG:
 		{
-			uint32_t hwTickCnt_ccu_direct[2];
+			uint32_t hwTickCnt_ccu_direct[2] = {};
 			unsigned int globaltime[2];
 			unsigned long long reg_trans_Time;
 			unsigned long long sum;
@@ -9665,6 +9665,7 @@ static signed int ISP_release(
 	struct ISP_USER_INFO_STRUCT *pUserInfo;
 	unsigned int Reg;
 	unsigned int i = 0;
+	spin_lock(&(IspInfo.SpinLockIspRef));
 
 	pr_info("- E. UserCount: %d.\n", IspInfo.UserCount);
 
