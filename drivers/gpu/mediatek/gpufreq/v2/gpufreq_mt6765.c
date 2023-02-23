@@ -1483,7 +1483,7 @@ static int __gpufreq_volt_scale_gpu(
 	//delay (steps+1)*sfchg + 52
 	udelay(102);
 	g_gpu.cur_volt = __gpufreq_get_real_vgpu();
-	if (unlikely(g_gpu.cur_volt != vgpu_new))
+	if (unlikely(g_gpu.cur_volt < vgpu_new))
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
 			"inconsistent scaled Vgpu, cur_volt: %d, target_volt: %d",
 			g_gpu.cur_volt, vgpu_new);
