@@ -7102,7 +7102,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	#endif
 	#endif
 
-	struct ISP_CLK_INFO ispclks;
 	unsigned int lv = 0;
 	/*  */
 	if (pFile->private_data == NULL) {
@@ -8246,6 +8245,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		break;
 	case ISP_GET_SUPPORTED_ISP_CLOCKS:
 		{
+			struct ISP_CLK_INFO ispclks;
+
 			int result = 0;
 			u64 freq_steps[ISP_CLK_LEVEL_CNT] = {0};
 
