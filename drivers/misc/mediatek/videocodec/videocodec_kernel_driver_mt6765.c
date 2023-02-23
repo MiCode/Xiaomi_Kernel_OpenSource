@@ -146,6 +146,10 @@ struct dmabuf_info {
 	struct dma_buf *dbuf;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
+	int len;
+	dma_addr_t iova;
+	int useAlloc;
+	int cnt;
 };
 
 static unsigned int allocate_count;
@@ -204,6 +208,7 @@ void vdec_polling_status(void)
 void vdec_power_on(struct mtk_vcodec_dev *dev)
 {
 	int ret = 0;
+
 	pr_debug("%s +\n", __func__);
 
 	mutex_lock(&gDrvInitParams->vdecPWRLock);
@@ -1203,7 +1208,7 @@ static long vcodec_unlockhw(unsigned long arg)
 			pm_runtime_put_sync(gDrvInitParams->vcodec_device2);
 #else
 #ifndef KS_POWER_WORKAROUND
-			venc_power_on(gVCodecDev));
+			venc_power_off(gVCodecDev));
 #endif
 #endif
 			CodecHWLock.pvHandle = 0;
@@ -1354,6 +1359,8 @@ static long vcodec_get_mva_allocation(struct device *dev, unsigned long arg)
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
 	struct dma_heap *dma_heap;
+	dma_addr_t iova;
+	int useAlloc = 0;
 
 	pr_debug("%s +\n", __func__);
 	user_data_addr = (unsigned char *)arg;
@@ -1388,14 +1395,20 @@ static long vcodec_get_mva_allocation(struct device *dev, unsigned long arg)
 			pr_info("[%s] dma heap buffer alloc fail\n", __func__);
 			return -EINVAL;
 		}
+		useAlloc = 1;
 
 	} else {
 		pr_debug("%s,rMemObj.fd != 0\n", __func__);
 		dmabuf = dma_buf_get(rMemObj.shared_fd);
+		useAlloc = 0;
 	}
 	attach = dma_buf_attach(dmabuf, dev);
 	if (IS_ERR(attach)) {
 		pr_info("[%s] attach fail, return\n", __func__);
+		if (useAlloc)
+			dma_heap_buffer_free(dmabuf);
+		else
+			dma_buf_put(dmabuf);
 		return -EFAULT;
 	}
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
@@ -1405,7 +1418,8 @@ static long vcodec_get_mva_allocation(struct device *dev, unsigned long arg)
 		dma_buf_detach(dmabuf, attach);
 		return -EFAULT;
 	}
-	rMemObj.iova = sg_dma_address(sgt->sgl);
+	iova = sg_dma_address(sgt->sgl);
+	rMemObj.iova = (VAL_UINT64_T)iova;
 	mutex_lock(&DmaAllocLock);
 	rMemObj.cnt = allocate_count;
 	if (rMemObj.len > CODEC_ALLOCATE_MAX_BUFFER_SIZE ||
@@ -1418,14 +1432,21 @@ static long vcodec_get_mva_allocation(struct device *dev, unsigned long arg)
 	dma_buf_info[allocate_count].attach = attach;
 	dma_buf_info[allocate_count].sgt = sgt;
 	dma_buf_info[allocate_count].dbuf = dmabuf;
+	dma_buf_info[allocate_count].len = rMemObj.len;
+	dma_buf_info[allocate_count].iova = iova;
+	dma_buf_info[allocate_count].useAlloc = useAlloc;
+	dma_buf_info[allocate_count].cnt = allocate_count;
 	allocate_count++;
 	mutex_unlock(&DmaAllocLock);
 	if (copy_to_user((void *)arg, &rMemObj, sizeof(struct VAL_MEM_INFO_T))) {
 		pr_info("Copy to user error\n");
 		return -EFAULT;
 	}
-	pr_info("[%s] iova = %llx, attach: %p, sgt: %p, cnt = %d, allocate_count : %d-\n",
-		__func__, rMemObj.iova, attach, sgt, rMemObj.cnt, allocate_count);
+	pr_info("[%s][%d] iova = %llx, attach: %p, sgt: %p, cnt = %d, allocate_count : %d, useAlloc : %d-\n",
+		__func__, __LINE__, rMemObj.iova, attach, sgt, rMemObj.cnt, allocate_count,
+		useAlloc);
+
+
 	return 0;
 }
 
@@ -1456,6 +1477,7 @@ static long vcodec_cache_flush_buff(struct device *dev, unsigned long arg, unsig
 	attach = dma_buf_attach(dmabuf, dev);
 	if (IS_ERR(attach)) {
 		pr_info("[%s] attach fail, return\n", __func__);
+		dma_buf_put(dmabuf);
 		return -EFAULT;
 	}
 	sgt = dma_buf_map_attachment(attach, op);
@@ -1467,22 +1489,47 @@ static long vcodec_cache_flush_buff(struct device *dev, unsigned long arg, unsig
 	dma_sync_sg_for_device(dev, sgt->sgl, sgt->orig_nents, op);
 	dma_buf_unmap_attachment(attach, sgt, op);
 	dma_buf_detach(dmabuf, attach);
+	dma_buf_put(dmabuf);
 	pr_debug("%s -\n", __func__);
 	return 0;
+}
+
+static void vcodec_dma_buf_release(void)
+{
+	int num_alloc_count = 0, i;
+	struct dmabuf_info *buf_info;
+
+	pr_debug("%s +\n", __func__);
+	num_alloc_count = allocate_count;
+	if (num_alloc_count != 0) {
+		for (i = 0; i < num_alloc_count; i++) {
+			buf_info = &dma_buf_info[i];
+			if (buf_info->dbuf != NULL) {
+				if (buf_info->useAlloc)
+					dma_heap_buffer_free(buf_info->dbuf);
+				else
+					dma_buf_put(buf_info->dbuf);
+			}
+		}
+	}
+	mutex_unlock(&DmaAllocLock);
+	pr_debug("%s -\n", __func__);
 }
 
 static long vcodec_get_mva_free(struct device *dev, unsigned long arg)
 {
 	unsigned char *user_data_addr;
-	long ret;
+	long ret = -1;
 	struct VAL_MEM_INFO_T rMemObj;
 	int fd;
-	int cnt;
+	int cnt, last_cnt, i;
+	int num_alloc_count = 0;
+	struct dmabuf_info *buf_info;
 
 	pr_debug("%s +\n", __func__);
 	user_data_addr = (unsigned char *)arg;
-	ret = copy_from_user(&rMemObj, user_data_addr,
-				sizeof(struct VAL_MEM_INFO_T));
+	ret = (long)copy_from_user(&rMemObj, user_data_addr,
+				(unsigned long)sizeof(struct VAL_MEM_INFO_T));
 	if (ret) {
 		pr_debug("%s, copy_from_user failed: %lu\n",
 			__func__, ret);
@@ -1491,19 +1538,57 @@ static long vcodec_get_mva_free(struct device *dev, unsigned long arg)
 	fd = rMemObj.shared_fd;
 	cnt = rMemObj.cnt;
 	mutex_lock(&DmaAllocLock);
-	if (dma_buf_info[cnt].attach != NULL && dma_buf_info[cnt].sgt != NULL)
-		dma_buf_unmap_attachment(dma_buf_info[cnt].attach, dma_buf_info[cnt].sgt,
-			DMA_BIDIRECTIONAL);
-	if (dma_buf_info[cnt].dbuf != NULL && dma_buf_info[cnt].attach != NULL)
-		dma_buf_detach(dma_buf_info[cnt].dbuf, dma_buf_info[cnt].attach);
-	dma_buf_info[cnt].attach = NULL;
-	dma_buf_info[cnt].sgt = NULL;
-	dma_buf_info[cnt].dbuf = NULL;
-	if (allocate_count > 0)
-		allocate_count--;
+	num_alloc_count = allocate_count;
+	if (num_alloc_count != 0) {
+		for (i = 0; i < num_alloc_count; i++) {
+			buf_info = &dma_buf_info[i];
+			if (rMemObj.iova != 0 && rMemObj.iova == buf_info->iova &&
+				cnt == buf_info->cnt && rMemObj.len == buf_info->len) {
+				pr_info("Free buffer index: %d, iova: %llx, total num: %d,\n"
+					"buf_iova: %llx,cnt : %d,buf_info->cnt : %d\n",
+					i, rMemObj.iova, num_alloc_count, buf_info->iova, cnt,
+					buf_info->cnt);
+				if (buf_info->attach != NULL && buf_info->sgt != NULL) {
+					dma_buf_unmap_attachment(buf_info->attach,
+						buf_info->sgt,
+						DMA_BIDIRECTIONAL);
+					pr_debug("dma_buf_unmap_attachment successful");
+				}
+				if (buf_info->dbuf != NULL && buf_info->attach != NULL) {
+					dma_buf_detach(buf_info->dbuf, buf_info->attach);
+					pr_debug("dma_buf_detach successful");
+				}
+				if (buf_info->dbuf != NULL) {
+					if (buf_info->useAlloc)
+						dma_heap_buffer_free(buf_info->dbuf);
+					else
+						dma_buf_put(buf_info->dbuf);
+					pr_debug("%s free successful,buf_info->useAlloc: %d",
+						__func__, buf_info->useAlloc);
+				}
+				last_cnt = num_alloc_count - 1U;
+				if (last_cnt != i)
+					dma_buf_info[i] = dma_buf_info[last_cnt];
+				dma_buf_info[last_cnt].attach = NULL;
+				dma_buf_info[last_cnt].sgt = NULL;
+				dma_buf_info[last_cnt].dbuf = NULL;
+				dma_buf_info[last_cnt].len = 0;
+				dma_buf_info[last_cnt].iova = 0;
+				dma_buf_info[last_cnt].cnt = 0;
+				if (dma_buf_info[last_cnt].useAlloc)
+					dma_buf_info[last_cnt].useAlloc = 0;
+				if (allocate_count > 0)
+					allocate_count--;
+				ret = 0;
+				break;
+			}
+		}
+	}
 	mutex_unlock(&DmaAllocLock);
-	pr_info("%s, cnt: %d, shared_fd: %d, len: %d, free memory iova %lx -\n",
-		__func__, cnt, fd, rMemObj.len, rMemObj.iova);
+	if (ret != 0) {
+		pr_info("Can not free memory iova: %llx, len : %u!\n", rMemObj.iova, rMemObj.len);
+		return ret;
+	}
 	return 0;
 }
 
@@ -1974,7 +2059,7 @@ static long vcodec_unlocked_ioctl(struct file *file, unsigned int cmd,
 	}
 	break;
 	}
-	return 0xFF;
+	return 0;
 }
 
 #if IS_ENABLED(CONFIG_COMPAT)
@@ -2111,6 +2196,7 @@ static int compat_copy_struct(
 	compat_uint_t u;
 	compat_ulong_t l;
 	compat_uptr_t p;
+	compat_u64 ull;
 	char c;
 	int err = 0;
 
@@ -2385,10 +2471,10 @@ static int compat_copy_struct(
 			struct VAL_MEM_INFO_T __user *to =
 				(struct VAL_MEM_INFO_T *)data;
 
-			err |= get_user(u, &(from32->iova));
-			err |= put_user(u, &(to->iova));
-			err |= get_user(u, &(from32->len));
-			err |= put_user(u, &(to->len));
+			err |= get_user(ull, &(from32->iova));
+			err |= put_user(ull, &(to->iova));
+			err |= get_user(l, &(from32->len));
+			err |= put_user(l, &(to->len));
 			err |= get_user(u, &(from32->shared_fd));
 			err |= put_user(u, &(to->shared_fd));
 			err |= get_user(u, &(from32->cnt));
@@ -2398,10 +2484,10 @@ static int compat_copy_struct(
 				(struct COMPAT_VAL_MEM_OBJ *)data32;
 			struct VAL_MEM_INFO_T __user *from =
 				(struct VAL_MEM_INFO_T *)data;
-			err |= get_user(u, &(from->iova));
-			err |= put_user(u, &(to32->iova));
-			err |= get_user(u, &(from->len));
-			err |= put_user(u, &(to32->len));
+			err |= get_user(ull, &(from->iova));
+			err |= put_user(ull, &(to32->iova));
+			err |= get_user(l, &(from->len));
+			err |= put_user(l, &(to32->len));
 			err |= get_user(u, &(from->shared_fd));
 			err |= put_user(u, &(to32->shared_fd));
 			err |= get_user(u, &(from->cnt));
@@ -2681,6 +2767,7 @@ static int vcodec_flush(struct file *file, fl_owner_t id)
 	return 0;
 }
 
+
 static int vcodec_release(struct inode *inode, struct file *file)
 {
 	unsigned long ulFlagsLockHW, ulFlagsISR;
@@ -2691,11 +2778,6 @@ static int vcodec_release(struct inode *inode, struct file *file)
 	pr_info("%s pid = %d, gDrvInitParams->drvOpenCount %d\n",
 			__func__, current->pid, gDrvInitParams->drvOpenCount);
 	gDrvInitParams->drvOpenCount--;
-	mutex_lock(&DmaAllocLock);
-	allocate_count = 0;
-	pr_info("%s  allocate_count %d\n", __func__,
-		allocate_count);
-	mutex_unlock(&DmaAllocLock);
 
 	if (gDrvInitParams->drvOpenCount == 0) {
 		mutex_lock(&gDrvInitParams->hwLock);
@@ -2795,6 +2877,12 @@ static int vcodec_release(struct inode *inode, struct file *file)
 		spin_lock_irqsave(&gDrvInitParams->encISRCountLock, ulFlagsISR);
 		gu4EncISRCount = 0;
 		spin_unlock_irqrestore(&gDrvInitParams->encISRCountLock, ulFlagsISR);
+		mutex_lock(&DmaAllocLock);
+		pr_info("%s  allocate_count still pending, please check %d for drvOpenCount: %d\n",
+			__func__, allocate_count, gDrvInitParams->drvOpenCount);
+		vcodec_dma_buf_release();
+		allocate_count = 0;
+		mutex_unlock(&DmaAllocLock);
 	}
 	mutex_unlock(&gDrvInitParams->driverOpenCountLock);
 
