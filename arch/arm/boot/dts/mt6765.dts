@@ -4006,6 +4006,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		nvmem-cells = <&efuse_segment>;
 		nvmem-cell-names = "efuse_segment_cell";
 		vcore-supply = <&mt_pmic_vcore_buck_reg>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
 	gpufreq_wrapper: gpufreq_wrapper {
