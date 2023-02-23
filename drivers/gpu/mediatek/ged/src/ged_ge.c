@@ -150,7 +150,7 @@ int ged_ge_alloc(int region_num, uint32_t *region_sizes)
 		// check region_sizes parameter
 		if (region_sizes[i] <= 0 ||
 			region_sizes[i] > GE_MAX_REGION_SIZE) {
-			GED_PDEBUG("check size fail rgion_sizes[%d]:%u\n",
+			GED_PDEBUG("check size fail region_sizes[%d]:%u\n",
 				i, region_sizes[i]);
 			goto err_parameter;
 		}
@@ -192,13 +192,14 @@ static int valid_parameters(struct GEEntry *entry, int region_id,
 	int u32_offset, int u32_size)
 {
 	if (region_id < 0 || region_id >= entry->region_num ||
-	u32_offset < 0 || u32_size < 0 ||
-	u32_offset * sizeof(uint32_t) > entry->region_sizes[region_id] ||
-	u32_size * sizeof(uint32_t) > entry->region_sizes[region_id] ||
-	(u32_offset + u32_size) * sizeof(uint32_t) >
-		entry->region_sizes[region_id]
-	) {
-
+		u32_offset < 0 ||
+		u32_offset >= (GE_MAX_REGION_SIZE / sizeof(uint32_t)) ||
+		u32_size <= 0 ||
+		u32_size > (GE_MAX_REGION_SIZE / sizeof(uint32_t)) ||
+		u32_offset * sizeof(uint32_t) >= entry->region_sizes[region_id] ||
+		u32_size * sizeof(uint32_t) > entry->region_sizes[region_id] ||
+		(u32_offset + u32_size) * sizeof(uint32_t) >
+		entry->region_sizes[region_id]) {
 		GED_PDEBUG("fail, invalid r_id %d, o %d, s %d\n",
 				region_id, u32_offset, u32_size);
 
@@ -366,13 +367,25 @@ int ged_bridge_ge_get(
 {
 	int header_size = sizeof(struct GED_BRIDGE_OUT_GE_GET);
 
-	if (output_buffer_size <
+	if (psGET_IN->uint32_offset < 0 ||
+		psGET_IN->uint32_offset >= (GE_MAX_REGION_SIZE / sizeof(uint32_t)) ||
+		psGET_IN->uint32_size <= 0 ||
+		psGET_IN->uint32_size > (GE_MAX_REGION_SIZE / sizeof(uint32_t))) {
+		GED_PDEBUG("[%s] invalid offset(%d) or size(%d)",
+				__func__,
+				psGET_IN->uint32_offset,
+				psGET_IN->uint32_size);
+		return -EFAULT;
+	}
+	// check output buffer alloc size
+	if (output_buffer_size !=
 		header_size +
 		(psGET_IN->uint32_size * sizeof(uint32_t))) {
-		pr_info("[%s] output_buffer_size (%d byte) < header_size + u32_size (%d byte)",
+		GED_PDEBUG("[%s] output_buffer_size (%d byte) != header_size + u32_size (%d byte)",
 			__func__,
 			(unsigned int)output_buffer_size,
-			(unsigned int)(header_size+(psGET_IN->uint32_size * sizeof(uint32_t))));
+			(unsigned int)(header_size +
+				(psGET_IN->uint32_size * sizeof(uint32_t))));
 		return -EFAULT;
 	}
 
@@ -392,13 +405,25 @@ int ged_bridge_ge_set(
 {
 	int header_size = sizeof(struct GED_BRIDGE_IN_GE_SET);
 
-	if (input_buffer_size <
+	if (psSET_IN->uint32_offset < 0 ||
+		psSET_IN->uint32_offset >= (GE_MAX_REGION_SIZE / sizeof(uint32_t)) ||
+		psSET_IN->uint32_size <= 0 ||
+		psSET_IN->uint32_size > (GE_MAX_REGION_SIZE / sizeof(uint32_t))) {
+		GED_PDEBUG("[%s] invalid offset(%d) or size(%d)",
+				__func__,
+				psSET_IN->uint32_offset,
+				psSET_IN->uint32_size);
+		return -EFAULT;
+	}
+	// check input buffer alloc size
+	if (input_buffer_size !=
 		header_size +
 		(psSET_IN->uint32_size * sizeof(uint32_t))) {
-		pr_info("[%s] input_buffer_size (%d byte) < header_size + u32_size (%d byte)",
+		GED_PDEBUG("[%s] input_buffer_size (%d byte) != header_size + u32_size (%d byte)",
 			__func__,
 			(unsigned int)input_buffer_size,
-			(unsigned int)(header_size+(psSET_IN->uint32_size * sizeof(uint32_t))));
+			(unsigned int)(header_size +
+				(psSET_IN->uint32_size * sizeof(uint32_t))));
 		return -EFAULT;
 	}
 
