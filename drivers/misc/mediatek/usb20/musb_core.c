@@ -3167,6 +3167,7 @@ enum musb_uwk_vers {
 	MUSB_UWK_V1 = 1,  /* MT6855 */
 	MUSB_UWK_V2,      /* MT6789 */
 	MUSB_UWK_V3,      /* MT6768 */
+	MUSB_UWK_V4,      /* MT6765 */
 };
 
 /* MT6855 */
@@ -3184,6 +3185,12 @@ enum musb_uwk_vers {
 /* MT6768 */
 #define USB_WAKEUP_DEC_CON1_MT6768	0x404
 #define USB1_CDDEBOUNCE(x)	(((x) & 0xf) << 1)
+
+/* MT6765 */
+#define USB_WAKEUP_DEC_CON1_MT6765	0x404
+#define USB2_CDEN		BIT(0)
+#define USB2_CDDEBOUNCE(x)	(((x) & 0xf) << 1)
+
 static void mt_usb_wakeup(struct musb *musb, bool enable)
 {
 
@@ -3247,6 +3254,16 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 			tmp |= USB1_CDDEBOUNCE(0x8) | USB1_CDEN;
 			regmap_write(pericfg, USB_WAKEUP_DEC_CON1_MT6768, tmp);
 			break;
+		case MUSB_UWK_V4:
+			if (IS_ERR_OR_NULL(pericfg)) {
+				DBG(0, "init fail");
+				return;
+			}
+
+			regmap_read(pericfg, USB_WAKEUP_DEC_CON1_MT6765, &tmp);
+			tmp |= USB2_CDDEBOUNCE(0x8) | USB2_CDEN;
+			regmap_write(pericfg, USB_WAKEUP_DEC_CON1_MT6765, tmp);
+			break;
 		default:
 			return;
 		}
@@ -3272,6 +3289,18 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 			regmap_read(pericfg, USB_WAKEUP_DEC_CON1_MT6768, &tmp);
 			tmp &= ~(USB1_CDEN | USB1_CDDEBOUNCE(0xf));
 			regmap_write(pericfg, USB_WAKEUP_DEC_CON1_MT6768, tmp);
+
+			if (is_con && !musb->is_active) {
+				DBG(0, "resume with device connected\n");
+				musb->is_active = 1;
+			}
+			break;
+		case MUSB_UWK_V4:
+			if (IS_ERR_OR_NULL(pericfg))
+				return;
+			regmap_read(pericfg, USB_WAKEUP_DEC_CON1_MT6765, &tmp);
+			tmp &= ~(USB2_CDEN | USB2_CDDEBOUNCE(0xf));
+			regmap_write(pericfg, USB_WAKEUP_DEC_CON1_MT6765, tmp);
 
 			if (is_con && !musb->is_active) {
 				DBG(0, "resume with device connected\n");
@@ -3308,6 +3337,8 @@ static int mt_usb_wakeup_init(struct musb *musb)
 			uwk_vers = 2;
 		else if (of_device_is_compatible(node, "mediatek,mt6768-usb20"))
 			uwk_vers = 3;
+		else if (of_device_is_compatible(node, "mediatek,mt6765-usb20"))
+			uwk_vers = 4;
 		else
 			return -EINVAL;
 		/* Add another platform with specific uwk_vers here  */
@@ -4532,8 +4563,8 @@ static int musb_probe(struct platform_device *pdev)
 	mtk_host_qmu_force_isoc_restart = 0;
 #endif
 #ifndef FPGA_PLATFORM
-	if (of_find_compatible_node(NULL, NULL,
-					"mediatek,mt6768-usb20"))
+	if (of_find_compatible_node(NULL, NULL, "mediatek,mt6768-usb20") ||
+		of_find_compatible_node(NULL, NULL, "mediatek,mt6765-usb20"))
 		register_usb_hal_dpidle_request(usb_spm_dpidle_request);
 	else
 		register_usb_hal_dpidle_request(usb_dpidle_request);
