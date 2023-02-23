@@ -244,22 +244,24 @@ static struct tee_mmu *tee_mmu_create_common(const struct mcp_buffer_map *b_map)
 {
 	struct tee_mmu *mmu;
 	int ret = -ENOMEM;
+	unsigned long nr_pages =
+		PAGE_ALIGN(b_map->offset + b_map->length) / PAGE_SIZE;
 
-	if (b_map->nr_pages > (PMD_ENTRIES_MAX * PTE_ENTRIES_MAX)) {
+	/* Allow Registered Shared mem with valid pointer and zero size.  */
+	if (!nr_pages)
+		nr_pages = 1;
+
+	if (nr_pages > (PMD_ENTRIES_MAX * PTE_ENTRIES_MAX)) {
 		ret = -EINVAL;
 		mc_dev_err(ret, "data mapping exceeds %d pages: %lu",
-			   PMD_ENTRIES_MAX * PTE_ENTRIES_MAX, b_map->nr_pages);
+			   PMD_ENTRIES_MAX * PTE_ENTRIES_MAX, nr_pages);
 		return ERR_PTR(ret);
 	}
 
 	/* Allocate the struct */
-	mmu = kzalloc(sizeof(*mmu), GFP_KERNEL);
-	if (!mmu)
-		return ERR_PTR(-ENOMEM);
-
-	/* Increment debug counter */
-	atomic_inc(&g_ctx.c_mmus);
-	kref_init(&mmu->kref);
+	mmu = tee_mmu_create_and_init();
+	if (IS_ERR(mmu))
+		return mmu;
 
 	/* The Xen front-end does not use PTEs */
 	if (protocol_fe_uses_pages_and_vas())
@@ -271,7 +273,7 @@ static struct tee_mmu *tee_mmu_create_common(const struct mcp_buffer_map *b_map)
 	mmu->flags = b_map->flags;
 
 	/* Pages info */
-	mmu->nr_pages = b_map->nr_pages;
+	mmu->nr_pages = nr_pages;
 	mmu->nr_pmd_entries = (mmu->nr_pages + PTE_ENTRIES_MAX - 1) /
 			    PTE_ENTRIES_MAX;
 	mc_dev_devel("mmu->nr_pages %lu num_ptes_pages %zu",
@@ -663,4 +665,20 @@ int tee_mmu_debug_structs(struct kasnprintf_buf *buf, const struct tee_mmu *mmu)
 			  "\t\t\tmmu %pK: %s len %u off %u table %pK\n",
 			  mmu, mmu->user ? "user" : "kernel", mmu->length,
 			  mmu->offset, (void *)mmu->pmd_table.page);
+}
+
+struct tee_mmu *tee_mmu_create_and_init(void)
+{
+	struct tee_mmu *mmu;
+
+	/* Allocate the mmu */
+	mmu = kzalloc(sizeof(*mmu), GFP_KERNEL);
+	if (!mmu)
+		return ERR_PTR(-ENOMEM);
+
+	/* Increment debug counter */
+	atomic_inc(&g_ctx.c_mmus);
+	kref_init(&mmu->kref);
+
+	return mmu;
 }

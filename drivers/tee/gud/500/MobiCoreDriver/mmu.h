@@ -40,6 +40,11 @@ struct tee_deleter {
 };
 
 /*
+ * Allocate MMU table and initialize it
+ */
+struct tee_mmu *tee_mmu_create_and_init(void);
+
+/*
  * Allocate MMU table and map buffer into it.
  * That is, create respective table entries.
  */
