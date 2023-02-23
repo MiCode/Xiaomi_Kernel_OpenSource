@@ -72,7 +72,7 @@ aliases {
 			compatible = "mediatek,mt6768-cm_mgr";
 			reg = <0 0x0c530000 0 0x9000>;
 			reg-names = "cm_mgr_base";
-			interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnects = <&dvfsrc MT6873_MASTER_MCU_0 &dvfsrc MT6873_SLAVE_DDR_EMI>;
 			interconnect-names = "cm-perf-bw";
 			required-opps = <&dvfsrc_freq_opp0>,
 					<&dvfsrc_freq_opp1>,
@@ -97,7 +97,7 @@ aliases {
 
 		fpsgo: fpsgo {
 			compatible = "mediatek,fpsgo";
-			interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnects = <&dvfsrc MT6873_MASTER_MCU_1 &dvfsrc MT6873_SLAVE_DDR_EMI>;
 			interconnect-names = "fpsgo-perf-bw";
 			required-opps = <&dvfsrc_freq_opp0>;
 
