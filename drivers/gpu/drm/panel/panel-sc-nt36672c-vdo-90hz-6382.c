@@ -877,7 +877,7 @@ static struct mtk_panel_params ext_params_mode_1 = {
 		.switch_en = 1,
 		.data_rate = 750,
 		.hbp = 14,
-		.vfp_lp_dyn = 1290,
+		.vfp_lp_dyn = 2526,
 	},
 	.phy_timcon = {
 		.clk_hs_post = 0x24,
