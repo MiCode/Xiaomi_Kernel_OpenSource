@@ -397,9 +397,7 @@ static int lcm_unprepare(struct drm_panel *panel)
 
 	ctx->error = 0;
 	ctx->prepared = false;
-#if IS_ENABLED(CONFIG_RT5081_PMU_DSV) || IS_ENABLED(CONFIG_REGULATOR_MT6370)
-	lcm_panel_bias_disable();
-#else
+
 	ctx->reset_gpio =
 		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(ctx->reset_gpio)) {
@@ -410,6 +408,9 @@ static int lcm_unprepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->reset_gpio, 0);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
+#if IS_ENABLED(CONFIG_RT5081_PMU_DSV) || IS_ENABLED(CONFIG_REGULATOR_MT6370)
+	lcm_panel_bias_disable();
+#else
 	if (ctx->gate_ic == 0) {
 		ctx->bias_neg = devm_gpiod_get_index(ctx->dev,
 			"bias", 1, GPIOD_OUT_HIGH);
