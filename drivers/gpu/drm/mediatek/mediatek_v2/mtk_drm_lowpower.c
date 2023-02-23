@@ -18,10 +18,192 @@
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_mmp.h"
 
+#ifdef SHARE_WROT_SRAM
+#include "cmdq_helper_ext.h"
+#endif
+
 #define MAX_ENTER_IDLE_RSZ_RATIO 300
 
 static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc);
 static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc);
+
+#ifdef SHARE_WROT_SRAM
+static int register_share_sram;
+static unsigned int is_wrot_sram_enabled;
+static unsigned int is_wrot_sram_available;
+static unsigned int is_wrot_sram;
+static struct drm_crtc *share_sram_crtc;
+
+unsigned int can_use_wrot_sram(void)
+{
+	return is_wrot_sram_available && is_wrot_sram_enabled;
+}
+
+void set_share_sram(unsigned int share_sram)
+{
+	if (is_wrot_sram != share_sram)
+		is_wrot_sram = share_sram;
+}
+
+unsigned int use_wrot_sram(void)
+{
+	return is_wrot_sram;
+}
+
+void mtk_drm_update_rdma_golden_setting(struct cmdq_pkt *cmdq_handle,
+	struct drm_crtc *crtc)
+{
+	/* Update RDMA golden setting */
+	struct mtk_drm_crtc *mtk_crtc =
+		to_mtk_crtc(crtc);
+	unsigned int i, j;
+	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_config cfg;
+
+	cfg.w = crtc->state->adjusted_mode.hdisplay;
+	cfg.h = crtc->state->adjusted_mode.vdisplay;
+	cfg.vrefresh =
+		drm_mode_vrefresh(&crtc->state->adjusted_mode);
+	cfg.bpc = mtk_crtc->bpc;
+	cfg.p_golden_setting_context =
+		__get_golden_setting_context(mtk_crtc);
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle,
+			MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
+}
+
+static void _share_wrot_cb(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_cb_data *cb_data = data.data;
+
+	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	kfree(cb_data);
+}
+
+static int32_t _acquire_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
+{
+	struct mtk_drm_crtc *mtk_crtc;
+	struct cmdq_pkt *handle;
+	struct mtk_cmdq_cb_data *cb_data;
+
+	DDPMSG("%s +\n", __func__);
+	is_wrot_sram_available = 1;
+	if (!share_sram_crtc || !share_sram_crtc->enabled) {
+		DDPMSG("%s share_sram_crtc is NULL or not enable\n", __func__);
+		return -EINVAL;
+	}
+
+	if (use_wrot_sram()) {
+		DDPMSG("%s wrot sram already used.\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!is_wrot_sram_enabled) {
+		DDPMSG("%s wrot sram is disabled.\n", __func__);
+		return -EINVAL;
+	}
+
+	mtk_crtc = to_mtk_crtc(share_sram_crtc);
+	mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	mtk_crtc_wait_frame_done(mtk_crtc, handle, DDP_FIRST_PATH, 0);
+	mtk_drm_update_rdma_golden_setting(handle, share_sram_crtc);
+
+	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+	if (!cb_data) {
+		DDPMSG("%s:cb data creation failed\n", __func__);
+		return -EINVAL;
+	}
+
+	cb_data->cmdq_handle = handle;
+	cmdq_pkt_flush_threaded(handle, _share_wrot_cb, cb_data);
+	return 0;
+}
+
+static int32_t _release_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
+{
+	struct mtk_drm_crtc *mtk_crtc;
+	struct cmdq_pkt *handle;
+	struct mtk_cmdq_cb_data *cb_data;
+
+	DDPMSG("%s +\n", __func__);
+	is_wrot_sram_available = 0;
+	if (!share_sram_crtc || !share_sram_crtc->enabled) {
+		DDPMSG("%s share_sram_crtc is NULL or not enable\n", __func__);
+		return -1;
+	}
+	if (!use_wrot_sram()) {
+		DDPMSG("%s wrot sram already relased.\n", __func__);
+		return -1;
+	}
+
+	if (!is_wrot_sram_enabled) {
+		DDPMSG("%s wrot sram is disabled.\n", __func__);
+		return -1;
+	}
+	mtk_crtc = to_mtk_crtc(share_sram_crtc);
+	mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	mtk_crtc_wait_frame_done(mtk_crtc, handle, DDP_FIRST_PATH, 0);
+	mtk_drm_update_rdma_golden_setting(handle, share_sram_crtc);
+
+	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+	if (!cb_data) {
+		DDPMSG("%s:cb data creation failed\n", __func__);
+		return -EINVAL;
+	}
+
+	cb_data->cmdq_handle = handle;
+	cmdq_pkt_flush_threaded(handle, _share_wrot_cb, cb_data);
+	return 0;
+}
+
+void mtk_drm_register_share_sram_callback(struct drm_crtc *crtc)
+{
+	if (!register_share_sram) {
+		/* 1. register call back first */
+		DDPINFO("%s mdp_set_resource_callback\n", __func__);
+		mdp_set_resource_callback(CMDQ_SYNC_RESOURCE_WROT0,
+				_acquire_wrot_resource, _release_wrot_resource);
+		register_share_sram = 1;
+		is_wrot_sram_available = 1;
+	}
+}
+
+void mtk_drm_unregister_share_sram_callback(struct drm_crtc *crtc)
+{
+	if (register_share_sram) {
+		/* 1. register call back first */
+		DDPINFO("%s mdp_set_resource_callback\n", __func__);
+		mdp_set_resource_callback(CMDQ_SYNC_RESOURCE_WROT0, NULL, NULL);
+		register_share_sram = 0;
+	}
+}
+
+/* vdo mode enter idle enter share sram */
+void mtk_drm_enter_share_sram(struct drm_crtc *crtc, bool first)
+{
+	DDPMSG("%s +\n", __func__);
+	share_sram_crtc = crtc;
+	is_wrot_sram_enabled = 1;
+	if (first) {
+		/* 1. register call back first */
+		mtk_drm_register_share_sram_callback(crtc);
+		/* 2. try to allocate sram at the fisrt time */
+		_acquire_wrot_resource(CMDQ_SYNC_RESOURCE_WROT0);
+	}
+}
+
+void mtk_drm_leave_share_sram(struct drm_crtc *crtc,
+	struct cmdq_pkt *cmdq_handle)
+{
+	DDPMSG("%s +\n", __func__);
+	/* 1. unregister call back */
+	is_wrot_sram_enabled = 0;
+	/* try to release share sram */
+	mtk_drm_update_rdma_golden_setting(cmdq_handle, share_sram_crtc);
+}
+#endif
 
 static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 {
@@ -648,6 +830,11 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 
 	/* 4. connect path */
 	mtk_crtc_connect_default_path(mtk_crtc);
+
+#ifdef SHARE_WROT_SRAM
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SHARE_SRAM))
+		mtk_drm_enter_share_sram(crtc, false);
+#endif
 
 	/* 5. config ddp engine & set dirty for cmd mode */
 	mtk_crtc_config_default_path(mtk_crtc);

@@ -82,6 +82,7 @@ static struct mtk_drm_helper help_info[] = {
 	{MTK_DRM_OPT_RES_SWITCH, 1, "MTK_DRM_OPT_RES_SWITCH"},
 	{MTK_DRM_OPT_PRE_TE, 1, "MTK_DRM_OPT_PRE_TE"},
 	{MTK_DRM_OPT_VIRTUAL_DISP, 1, "MTK_DRM_OPT_VIRTUAL_DISP"},
+	{MTK_DRM_OPT_SHARE_SRAM, 0, "MTK_DRM_OPT_SHARE_SRAM"},
 };
 
 enum DISP_HELPER_STAGE disp_helper_get_stage(void)

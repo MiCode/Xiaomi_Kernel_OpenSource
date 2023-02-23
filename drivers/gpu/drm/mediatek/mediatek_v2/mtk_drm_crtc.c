@@ -6415,6 +6415,13 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	}
 
 skip:
+
+#ifdef SHARE_WROT_SRAM
+	/* Stop share wrot sram.*/
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SHARE_SRAM))
+		mtk_drm_leave_share_sram(crtc, cmdq_handle);
+#endif
+
 	/* 2. stop all modules in this CRTC */
 	mtk_crtc_stop_ddp(mtk_crtc, cmdq_handle);
 
@@ -6548,6 +6555,9 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
 	unsigned int crtc_id = drm_crtc_index(crtc);
+#ifdef SHARE_WROT_SRAM
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+#endif
 #ifndef DRM_CMDQ_DISABLE
 	struct cmdq_client *client;
 #endif
@@ -6562,6 +6572,10 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd)
 	if (mtk_crtc->enabled) {
 		CRTC_MMP_MARK(crtc_id, enable, 0, 0);
 		DDPINFO("crtc%d skip %s\n", crtc_id, __func__);
+#ifdef SHARE_WROT_SRAM
+		if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SHARE_SRAM))
+			mtk_drm_enter_share_sram(crtc, true);
+#endif
 		goto end;
 	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
 		CRTC_MMP_MARK(crtc_id, enable, 0, 1);
@@ -6639,6 +6653,11 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd)
 
 	if (!crtc_id)
 		mtk_crtc->qos_ctx->last_hrt_req = 0;
+
+#ifdef SHARE_WROT_SRAM
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SHARE_SRAM))
+		mtk_drm_enter_share_sram(crtc, false);
+#endif
 
 	/* 6. config ddp engine */
 	mtk_crtc_config_default_path(mtk_crtc);

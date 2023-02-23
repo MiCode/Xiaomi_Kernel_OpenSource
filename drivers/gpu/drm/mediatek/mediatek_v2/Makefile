@@ -115,6 +115,11 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/dma-buf/heaps/          \
 	     -I$(srctree)/drivers/misc/mediatek/cmdq/bridge
 
+ifneq ($(filter y m, $(CONFIG_MTK_MDP)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mdp/
+ccflags-y += -DSHARE_WROT_SRAM
+endif
+
 ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox
 
 #ccflags-y += -DDRM_MMPATH

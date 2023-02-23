@@ -8,6 +8,12 @@
 
 #include <drm/drm_crtc.h>
 
+#ifndef DRM_CMDQ_DISABLE
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#else
+#include "mtk-cmdq-ext.h"
+#endif
+
 struct mtk_drm_idlemgr_context {
 	unsigned long long idle_check_interval;
 	unsigned long long idlemgr_last_kick_time;
@@ -42,5 +48,13 @@ mtk_drm_get_idle_check_interval(struct drm_crtc *crtc);
 
 void mtk_drm_idlemgr_kick_async(struct drm_crtc *crtc);
 
+#ifdef SHARE_WROT_SRAM
+unsigned int can_use_wrot_sram(void);
+void set_share_sram(unsigned int share_sram);
+unsigned int use_wrot_sram(void);
+void mtk_drm_enter_share_sram(struct drm_crtc *crtc, bool first);
+void mtk_drm_leave_share_sram(struct drm_crtc *crtc,
+		struct cmdq_pkt *cmdq_handle);
+#endif
 
 #endif
