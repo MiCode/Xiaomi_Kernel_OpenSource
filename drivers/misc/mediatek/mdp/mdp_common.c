@@ -1542,6 +1542,11 @@ void cmdq_mdp_init_secure_id(void *meta_array, u32 count, bool mtee)
 		}
 
 		buf = dma_buf_get(secMetadatas[i].baseHandle);
+		if (IS_ERR(buf)) {
+			CMDQ_ERR("%s: fail to get dma_buf:%ld, baseHandle:%d\n",
+				__func__, PTR_ERR(buf), secMetadatas[i].baseHandle);
+			return;
+		}
 		if (mtee)
 			sec_id = dmabuf_to_sec_id(buf, &sec_handle);
 		else
