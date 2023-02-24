@@ -1812,7 +1812,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		PCIE_DBG_FS(dev,
 			"\n\nPCIe: RC%d: set keep resources on flag\n\n",
 			dev->rc_idx);
-		msm_pcie_keep_resources_on |= BIT(dev->rc_idx);
+		msm_pcie_keep_resources_on |= (u32)BIT(dev->rc_idx);
 		break;
 	case MSM_PCIE_FORCE_GEN1:
 		PCIE_DBG_FS(dev,
