@@ -6,8 +6,8 @@
 #include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/iommu.h>
+#include <linux/qcom-io-pgtable.h>
 #include <linux/slab.h>
-#include "qcom-io-pgtable.h"
 
 #include "iommu-logger.h"
 

@@ -17,7 +17,6 @@
 #define VDDA_QREF_MAX_UV	   912000
 
 #define UFS_PHY_DEFAULT_LANES_PER_DIRECTION	1
-
 static int ufs_qcom_phy_start_serdes(struct ufs_qcom_phy *ufs_qcom_phy);
 static int ufs_qcom_phy_is_pcs_ready(struct ufs_qcom_phy *ufs_qcom_phy);
 

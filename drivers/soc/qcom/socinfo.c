@@ -1611,6 +1611,12 @@ void socinfo_enumerate_partinfo_details(void)
 	}
 }
 
+uint64_t socinfo_get_64bit_serial_number(void)
+{
+	uint64_t serial_num_h = socinfo_get_nproduct_id();
+	return (serial_num_h*0x100000000ULL + socinfo_get_serial_number());
+}
+
 #ifdef CONFIG_DEBUG_FS
 
 #define QCOM_OPEN(name, _func)						\
@@ -1916,7 +1922,7 @@ static int qcom_socinfo_probe(struct platform_device *pdev)
 					   SOCINFO_MINOR(le32_to_cpu(info->ver)));
 	qs->attr.soc_id = kasprintf(GFP_KERNEL, "%d", socinfo_get_id());
 	if (offsetof(struct socinfo, serial_num) <= item_size)
-		qs->attr.serial_number = kasprintf(GFP_KERNEL, "%u", socinfo_get_serial_number());
+		qs->attr.serial_number = kasprintf(GFP_KERNEL,  "0x%016llx", socinfo_get_64bit_serial_number());
 
 	if (socinfo_format >= SOCINFO_VERSION(0, 16)) {
 		socinfo_enumerate_partinfo_details();

@@ -20,11 +20,14 @@
 #include "walt.h"
 #include "trace.h"
 
+
+
 /* mask of CPUs on which there is an outstanding pause claim */
 static cpumask_t cpus_paused_by_us = { CPU_BITS_NONE };
 
 struct cluster_data {
 	bool			inited;
+
 	unsigned int		min_cpus;
 	unsigned int		max_cpus;
 	unsigned int		offline_delay_ms;
@@ -94,6 +97,7 @@ static unsigned int get_active_cpu_count(const struct cluster_data *cluster);
 static unsigned int get_active_32bit_cpu_count(const struct cluster_data *cluster);
 static void __ref do_core_ctl(void);
 
+
 /* ========================= sysfs interface =========================== */
 
 static ssize_t store_min_cpus(struct cluster_data *state,
@@ -105,6 +109,7 @@ static ssize_t store_min_cpus(struct cluster_data *state,
 		return -EINVAL;
 
 	state->min_cpus = min(val, state->num_cpus);
+
 	apply_need(state);
 
 	return count;
@@ -1461,6 +1466,7 @@ static int cluster_init(const struct cpumask *mask)
 	}
 	cluster->first_cpu = first_cpu;
 	cluster->min_cpus = 1;
+
 	cluster->max_cpus = cluster->num_cpus;
 	cluster->need_cpus = cluster->num_cpus;
 	cluster->need_32bit_cpus = cluster->num_32bit_cpus;

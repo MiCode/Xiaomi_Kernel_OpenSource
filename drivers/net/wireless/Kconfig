@@ -119,4 +119,5 @@ config CNSS2_DEBUG
 	  features, enabling kernel panic for certain cases to aid the
 	  debugging, and enabling any other debug mechanisms.
 
+source "drivers/net/wireless/mi_cnss_statistic/Kconfig"
 endif # WLAN

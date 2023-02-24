@@ -11,8 +11,8 @@
 #include <linux/phy/phy.h>
 #include <linux/pm_qos.h>
 #include <linux/notifier.h>
-#include "ufshcd.h"
-#include "unipro.h"
+#include "../mi_ufs/mi_ufshcd.h"
+#include "../mi_ufs/mi_unipro.h"
 
 #define MAX_UFS_QCOM_HOSTS	2
 #define MAX_U32                 (~(u32)0)

@@ -331,6 +331,10 @@ extern unsigned int sched_lib_mask_force;
 #define CPUFREQ_REASON_ADAPTIVE_LOW	0x400
 #define CPUFREQ_REASON_ADAPTIVE_HIGH	0x800
 
+
+#define OEM_CPUFREQ_UPDATE		(1U << 6)
+
+
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
 #define CONSERVATIVE_BOOST 2

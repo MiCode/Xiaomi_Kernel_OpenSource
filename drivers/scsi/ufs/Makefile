@@ -16,8 +16,15 @@ obj-$(CONFIG_SCSI_UFS_DWC_TC_PCI) += tc-dwc-g210-pci.o ufshcd-dwc.o tc-dwc-g210.
 obj-$(CONFIG_SCSI_UFS_DWC_TC_PLATFORM) += tc-dwc-g210-pltfrm.o ufshcd-dwc.o tc-dwc-g210.o
 obj-$(CONFIG_SCSI_UFS_CDNS_PLATFORM) += cdns-pltfrm.o
 obj-$(CONFIG_SCSI_UFS_QCOM) += ufs_qcom.o
-ufs_qcom-y += ufs-qcom.o
+ufs_qcom-y += ufs-qcom.o ../mi_ufs/mi-ufshcd-pltfrm.o \
+	../mi_ufs/mi_ufshcd.o ../mi_ufs/mi-ufs-sysfs.o
+ufs_qcom-$(CONFIG_DEBUG_FS)        += ../mi_ufs/mi-ufs-debugfs.o
+ufs_qcom-$(CONFIG_SCSI_UFS_BSG)	   += ../mi_ufs/mi_ufs_bsg.o
+ufs_qcom-$(CONFIG_SCSI_UFS_CRYPTO) += ../mi_ufs/mi-ufshcd-crypto.o
 ufs_qcom-$(CONFIG_SCSI_UFS_CRYPTO) += ufs-qcom-ice.o
+ufs_qcom-$(CONFIG_UFSGKI)          += ../mi_ufs/mi_ufs_common_ops.o
+
+
 obj-$(CONFIG_SCSI_UFS_EXYNOS) += ufs-exynos.o
 obj-$(CONFIG_SCSI_UFSHCD_PCI) += ufshcd-pci.o
 obj-$(CONFIG_SCSI_UFSHCD_PLATFORM) += ufshcd-pltfrm.o

@@ -133,6 +133,12 @@ void synx_util_get_object(struct synx_coredata *synx_obj)
 
 void synx_util_put_object(struct synx_coredata *synx_obj)
 {
+	if (synx_obj->num_bound_synxs &&
+		kref_read(&synx_obj->refcount) ==
+			synx_obj->num_bound_synxs + 1) {
+		// remaining refcounts are for bound handles
+		release_bound_synxs(synx_obj);
+	}
 	kref_put(&synx_obj->refcount, synx_util_destroy_coredata);
 }
 
@@ -1275,6 +1281,70 @@ int synx_util_init_table(void)
 	spin_lock_init(&camera_tbl_lock);
 
 	return 0;
+}
+
+void release_bound_synxs(struct synx_coredata *synx_obj)
+{
+	int ret = 0;
+	u32 i = 0;
+	u32 idx = 0;
+	s32 sync_id;
+	u32 type;
+	struct synx_external_data *data = NULL;
+	struct synx_bind_desc bind_descs[SYNX_MAX_NUM_BINDINGS];
+	struct bind_operations *bind_ops = NULL;
+	struct hash_key_data *entry = NULL;
+
+	memset(bind_descs, 0,
+		sizeof(struct synx_bind_desc) * SYNX_MAX_NUM_BINDINGS);
+	for (i = 0; i < synx_obj->num_bound_synxs; i++) {
+		memcpy(&bind_descs[idx++],
+			&synx_obj->bound_synxs[i],
+			sizeof(struct synx_bind_desc));
+		/* clear the memory, its been backed up above */
+		memset(&synx_obj->bound_synxs[i], 0,
+			sizeof(struct synx_bind_desc));
+	}
+	synx_obj->num_bound_synxs = 0;
+
+	for (i = 0; i < idx; i++) {
+		sync_id = bind_descs[i].external_desc.id[0];
+		data = bind_descs[i].external_data;
+		type = bind_descs[i].external_desc.type;
+		bind_ops = synx_util_get_bind_ops(type);
+		if (!bind_ops) {
+			pr_err("invalid bind ops for type: %u\n", type);
+			kfree(data);
+			continue;
+		}
+
+		/* clear the hash table entry */
+		entry = synx_util_release_data(sync_id, type);
+		if (entry && type == SYNX_TYPE_CSL) {
+			spin_lock_bh(&camera_tbl_lock);
+			kref_put(&entry->refcount, synx_util_destroy_data);
+			spin_unlock_bh(&camera_tbl_lock);
+		} else {
+			pr_err("missing hash entry for id %d\n", sync_id);
+		}
+
+		ret = bind_ops->deregister_callback(
+				synx_external_callback, data, sync_id);
+		if (ret < 0) {
+			pr_err("%s: deregistration fail %d err %d h_synx %d\n",
+				__func__, sync_id, ret, data->h_synx);
+			continue;
+		} else {
+			pr_debug("%s: deregistered: data: %u sync_id: %d\n",
+				__func__, data, sync_id);
+		}
+		/*
+		 * release the memory allocated for external data.
+		 * It is safe to release this memory as external cb
+		 * has been already deregistered before this.
+		 */
+		kfree(data);
+	}
 }
 
 int synx_util_save_data(u32 key, u32 tbl, void *data)

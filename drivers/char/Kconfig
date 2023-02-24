@@ -453,6 +453,11 @@ config ADI
 	  and SSM (Silicon Secured Memory).  Intended consumers of this
 	  driver include crash and makedumpfile.
 
+config XLOGCHAR
+    tristate "xlogchar driver"
+    help
+      Implements a high performance log driver	  
+
 config RANDOM_TRUST_CPU
 	bool "Trust the CPU manufacturer to initialize Linux's CRNG"
 	depends on ARCH_RANDOM

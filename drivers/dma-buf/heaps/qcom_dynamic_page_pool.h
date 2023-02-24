@@ -28,6 +28,16 @@
 				| __GFP_COMP)
 #define LOW_ORDER_GFP (GFP_HIGHUSER | __GFP_ZERO | __GFP_COMP)
 
+extern u64 totalram;
+/*
+ * 6GB totalram unit is pages
+ * 6 * 1024 * 1024 / 4 = 1572864
+ */
+#define HIGH_MEM_DEVICE (totalram > 1572864)
+#define ORDER_ZERO_PAGES (7680)
+#define ORDER_FOUR_PAGES (51200)
+#define A_HALF_AT_A_TIME (1)
+
 /*
  * We add __GFP_NOWARN for order 4 allocations since the core mm/ framework
  * makes no guarantee of these allocations succeeding.

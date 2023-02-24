@@ -26,7 +26,7 @@
 #include "../../../mm/slab.h"
 #include "../mm/internal.h"
 
-#define DMA_BUF_HASH_SIZE (1 << 20)
+#define DMA_BUF_HASH_SIZE (1 << 13)
 #define DMA_BUF_HASH_SEED 0x9747b28c
 static bool dma_buf_hash[DMA_BUF_HASH_SIZE];
 
@@ -198,6 +198,9 @@ void md_dump_slabinfo(struct seq_buf *m)
 	slab_caches = (struct list_head *)android_debug_symbol(ADS_SLAB_CACHES);
 	slab_mutex = (struct mutex *) android_debug_symbol(ADS_SLAB_MUTEX);
 
+		if (!mutex_trylock(slab_mutex))
+			return;
+
 	/* print_slabinfo_header */
 		seq_buf_printf(m,
 				"# name            <active_objs> <num_objs> <objsize> <objperslab> <pagesperslab>");
@@ -214,7 +217,6 @@ void md_dump_slabinfo(struct seq_buf *m)
 		seq_buf_printf(m, "\n");
 
 	/* Loop through all slabs */
-	mutex_lock(slab_mutex);
 	list_for_each_entry(s, slab_caches, list) {
 		memset(&sinfo, 0, sizeof(sinfo));
 		get_slabinfo(s, &sinfo);
@@ -230,6 +232,7 @@ void md_dump_slabinfo(struct seq_buf *m)
 		slabinfo_stats(m, s);
 		seq_buf_printf(m, "\n");
 	}
+
 	mutex_unlock(slab_mutex);
 }
 #endif
@@ -348,7 +351,7 @@ static unsigned long page_owner_filter = 0xF;
 static unsigned long page_owner_handles_size =  SZ_16K;
 static int nr_handles;
 static LIST_HEAD(accounted_call_site_list);
-static DEFINE_MUTEX(accounted_call_site_lock);
+static DEFINE_SPINLOCK(accounted_call_site_lock);
 struct accounted_call_site {
 	struct list_head list;
 	char name[50];
@@ -386,7 +389,7 @@ static bool check_unaccounted(char *buf, ssize_t count,
 		struct page *page, depot_stack_handle_t handle)
 {
 	int i, ret = 0;
-	unsigned long *entries;
+	unsigned long *entries, flags;
 	unsigned int nr_entries;
 	struct accounted_call_site *call_site;
 
@@ -401,16 +404,16 @@ static bool check_unaccounted(char *buf, ssize_t count,
 		if (ret == count - 1)
 			return false;
 
-		mutex_lock(&accounted_call_site_lock);
+		spin_lock_irqsave(&accounted_call_site_lock, flags);
 		list_for_each_entry(call_site,
 				&accounted_call_site_list, list) {
 			if (strnstr(buf, call_site->name,
 					strlen(buf))) {
-				mutex_unlock(&accounted_call_site_lock);
+				spin_unlock_irqrestore(&accounted_call_site_lock, flags);
 				return false;
 			}
 		}
-		mutex_unlock(&accounted_call_site_lock);
+		spin_unlock_irqrestore(&accounted_call_site_lock, flags);
 	}
 	return true;
 }
@@ -667,6 +670,7 @@ static ssize_t page_owner_call_site_write(struct file *file,
 {
 	struct accounted_call_site *call_site;
 	char buf[50];
+	unsigned long flags;
 
 	if (count >= 50) {
 		pr_err_ratelimited("Input string size too large\n");
@@ -690,9 +694,9 @@ static ssize_t page_owner_call_site_write(struct file *file,
 		return -ENOMEM;
 
 	strscpy(call_site->name, buf, strlen(call_site->name));
-	mutex_lock(&accounted_call_site_lock);
+	spin_lock_irqsave(&accounted_call_site_lock, flags);
 	list_add_tail(&call_site->list, &accounted_call_site_list);
-	mutex_unlock(&accounted_call_site_lock);
+	spin_unlock_irqrestore(&accounted_call_site_lock, flags);
 
 	return count;
 }
@@ -702,6 +706,7 @@ static ssize_t page_owner_call_site_read(struct file *file, char __user *ubuf,
 {
 	char *kbuf;
 	struct accounted_call_site *call_site;
+	unsigned long flags;
 	int i = 1, ret = 0;
 	size_t size = PAGE_SIZE;
 
@@ -710,18 +715,18 @@ static ssize_t page_owner_call_site_read(struct file *file, char __user *ubuf,
 		return -ENOMEM;
 
 	ret = scnprintf(kbuf, count, "%s\n", "Accounted call sites:");
-	mutex_lock(&accounted_call_site_lock);
+	spin_lock_irqsave(&accounted_call_site_lock, flags);
 	list_for_each_entry(call_site, &accounted_call_site_list, list) {
 		ret += scnprintf(kbuf + ret, size - ret,
 			"%d. %s\n", i, call_site->name);
 		i += 1;
 		if (ret == size) {
 			ret = -ENOMEM;
-			mutex_unlock(&accounted_call_site_lock);
+			spin_unlock_irqrestore(&accounted_call_site_lock, flags);
 			goto err;
 		}
 	}
-	mutex_unlock(&accounted_call_site_lock);
+	spin_unlock_irqrestore(&accounted_call_site_lock, flags);
 	ret = simple_read_from_buffer(ubuf, count, offset, kbuf, strlen(kbuf));
 err:
 	kfree(kbuf);
@@ -1149,6 +1154,9 @@ void md_dma_buf_info(char *m, size_t dump_size)
 	int ret;
 	struct dma_buf_priv dma_buf_priv;
 	struct priv_buf buf;
+
+	if (!in_task())
+		return;
 
 	buf.buf = m;
 	buf.size = dump_size;

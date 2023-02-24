@@ -479,7 +479,7 @@ static int msm_m31_eusb2_repeater_reset_and_init(struct m31_eusb2_phy *phy)
 	if (ret)
 		dev_err(phy->phy.dev, "repeater reset failed.\n");
 
-	ret = usb_repeater_init(phy->ur);
+	ret = usb_repeater_init(phy->ur, phy->phy.flags);
 	if (ret)
 		dev_err(phy->phy.dev, "repeater init failed.\n");
 

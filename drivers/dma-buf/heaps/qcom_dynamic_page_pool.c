@@ -216,7 +216,7 @@ static int dynamic_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 	int nr_total = 0;
 	int nr_freed;
 	int only_scan = 0;
-
+	bool tune_shrink = false;
 	if (!nr_to_scan)
 		only_scan = 1;
 
@@ -226,6 +226,8 @@ static int dynamic_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 			nr_total += dynamic_page_pool_do_shrink(pool,
 								gfp_mask,
 								nr_to_scan);
+			if (pool->vmid == 0 && HIGH_MEM_DEVICE)
+				tune_shrink = true;
 		} else {
 			nr_freed = dynamic_page_pool_do_shrink(pool,
 							       gfp_mask,
@@ -237,6 +239,8 @@ static int dynamic_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 		}
 	}
 	mutex_unlock(&pool_list_lock);
+	if (tune_shrink)
+		nr_total >>= A_HALF_AT_A_TIME;
 
 	return nr_total;
 }
@@ -276,7 +280,6 @@ struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
 		pool_list[i]->prerelease_callback = callback;
 		atomic_set(&pool_list[i]->count, 0);
 		pool_list[i]->last_low_watermark_ktime = 0;
-
 		if (IS_ERR_OR_NULL(pool_list[i])) {
 			int j;
 

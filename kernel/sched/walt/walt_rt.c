@@ -9,6 +9,7 @@
 #include "walt.h"
 #include "trace.h"
 
+
 #define MSEC_TO_NSEC (1000 * 1000)
 
 static DEFINE_PER_CPU(cpumask_var_t, walt_local_cpu_mask);
@@ -30,6 +31,7 @@ static void long_running_rt_task_notifier(void *unused, struct rq *rq)
 {
 	struct task_struct *curr = rq->curr;
 	unsigned int cpu = raw_smp_processor_id();
+	const char* unlimited_comm = "gh-watchdog, rcu_exp_gp_kthr";
 
 	if (!sysctl_sched_long_running_rt_task_ms)
 		return;
@@ -63,6 +65,10 @@ static void long_running_rt_task_notifier(void *unused, struct rq *rq)
 				per_cpu(rt_task_arrival_time, cpu),
 				rq->clock_task -
 				per_cpu(rt_task_arrival_time, cpu));
+		if(unlikely(strstr(unlimited_comm, curr->comm))) {
+			printk_deferred("let unlimited RT task: %s run\n", curr->comm);
+			return;
+		}
 		BUG();
 	}
 }
@@ -107,6 +113,7 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 	int cluster;
 	int order_index = (boost_on_big && num_sched_clusters > 1) ? 1 : 0;
 	bool best_cpu_lt = true;
+
 
 	if (unlikely(walt_disabled))
 		return;
@@ -225,13 +232,14 @@ static inline bool walt_should_honor_rt_sync(struct rq *rq, struct task_struct *
 		rq->rt.rt_nr_running <= 2;
 }
 
+
+
 enum rt_fastpaths {
 	NONE = 0,
 	NON_WAKEUP,
 	SYNC_WAKEUP,
 	CLUSTER_PACKING_FASTPATH,
 };
-
 
 static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int cpu,
 					int sd_flag, int wake_flags, int *new_cpu)
@@ -244,6 +252,7 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	struct cpumask *lowest_mask;
 	int packing_cpu;
 	int fastpath = NONE;
+
 
 	if (unlikely(walt_disabled))
 		return;

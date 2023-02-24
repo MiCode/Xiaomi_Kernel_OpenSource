@@ -27,12 +27,12 @@
 #include <soc/qcom/minidump.h>
 #include <linux/nvmem-consumer.h>
 
-#include "ufshcd.h"
-#include "ufshcd-pltfrm.h"
-#include "unipro.h"
+#include "../mi_ufs/mi_ufshcd.h"
+#include "../mi_ufs/mi-ufshcd-pltfrm.h"
+#include "../mi_ufs/mi_unipro.h"
 #include "ufs-qcom.h"
-#include "ufshci.h"
-#include "ufs_quirks.h"
+#include "../mi_ufs/mi_ufshci.h"
+#include "../mi_ufs/mi_ufs_quirks.h"
 #include "ufshcd-crypto-qti.h"
 
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
@@ -1876,7 +1876,7 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 		 * exit command.
 		 */
 		if (enable)
-			usleep_range(50, 60);
+			usleep_range(1000, 1100);
 
 		host->is_dev_ref_clk_enabled = enable;
 	}
@@ -1918,7 +1918,6 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 
 		ufs_qcom_cap.desired_working_mode =
 					UFS_QCOM_LIMIT_DESIRED_MODE;
-
 		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
 						 dev_max_params,
 						 dev_req_params);
@@ -2187,6 +2186,7 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 	if (host->disable_lpm)
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
 
+
 #if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO_QTI)
 	hba->quirks |= UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER;
 #endif
@@ -2195,7 +2195,6 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
 	if (!host->disable_lpm) {
 		hba->caps |= UFSHCD_CAP_CLK_GATING |
 		UFSHCD_CAP_HIBERN8_WITH_CLK_GATING |
@@ -2227,6 +2226,7 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 
 	if (host->hw_ver.major >= 0x5)
 		host->caps |= UFS_QCOM_CAP_SHARED_ICE;
+
 }
 
 static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba)
@@ -2292,14 +2292,14 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			/* enable the device ref clock for HS mode*/
 			if (ufshcd_is_hs_mode(&hba->pwr_info))
 				ufs_qcom_dev_ref_clk_ctrl(host, true);
+			if (!host->ref_clki->enabled) {
 			/* Device ref clk should be enabled before Unipro clock */
 			err = clk_prepare_enable(host->ref_clki->clk);
 			if (!err)
-				host->ref_clki->enabled = on;
-			else
-				ufs_qcom_msg(ERR, hba->dev,
-					"%s: Fail dev-ref-clk enabled, ret=%d\n",
-					__func__, err);
+					host->ref_clki->enabled = on;
+				else
+					ufs_qcom_msg(ERR, hba->dev, "%s: Fail dev-ref-clk enabled, ret=%d\n",__func__, err);
+			}
 		} else {
 			if (!ufs_qcom_is_link_active(hba)) {
 				/*
@@ -2549,7 +2549,7 @@ ufs_qcom_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 			err = -ENOMEM;
 			goto out_release_mem;
 		}
-		err = ufshcd_query_descriptor_retry(hba, ioctl_data->opcode,
+		err = mi_ufshcd_query_descriptor_retry(hba, ioctl_data->opcode,
 						    ioctl_data->idn, index, 0,
 						    desc, &length);
 		break;
@@ -4087,6 +4087,7 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	u32 val;
 	u32 dev_major = 0, dev_minor = 0;
 
+
 	if (!np)
 		return;
 
@@ -4126,6 +4127,7 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	of_property_read_u32(np, "limit-rx-pwm-gear", &host->limit_rx_pwm_gear);
 	of_property_read_u32(np, "limit-rate", &host->limit_rate);
 	of_property_read_u32(np, "limit-phy-submode", &host->limit_phy_submode);
+
 }
 
 /*
@@ -4148,7 +4150,6 @@ static void ufs_qcom_parse_g4_workaround_flag(struct ufs_qcom_host *host)
 static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host)
 {
 	struct device_node *node = host->hba->dev->of_node;
-
 	host->disable_lpm = of_property_read_bool(node, "qcom,disable-lpm");
 	if (host->disable_lpm)
 		ufs_qcom_msg(INFO, host->hba->dev, "(%s) All LPM is disabled\n",
@@ -4688,6 +4689,7 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	 * Hence, check for the connected device early-on & don't turn-off
 	 * the regulators.
 	 */
+
 
 	/* Perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_qcom_vops);

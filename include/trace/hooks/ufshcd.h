@@ -10,7 +10,7 @@
  * mechanism for vendor modules to hook and extend functionality
  */
 /* struct ufs_hba, struct ufshcd_lrb, struct uic_command */
-#include <../drivers/scsi/ufs/ufshcd.h>
+#include <../drivers/scsi/mi_ufs/mi_ufshcd.h>
 /* struct request */
 #include <linux/blkdev.h>
 /* struct scsi_device */

@@ -1528,5 +1528,10 @@ config REGULATOR_QTI_OCP_NOTIFIER
 	  providing a more graceful recovery mechanism than resetting the entire
 	  system.
 
+config REGULATOR_WL2866D
+	tristate "Xiaomi WL2866D regulator Driver"
+	help
+	  This driver provides support for the pmic regulator WL2866.
+
 endif
 

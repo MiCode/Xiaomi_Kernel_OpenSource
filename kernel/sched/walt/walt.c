@@ -22,6 +22,7 @@
 #include "walt.h"
 #include "trace.h"
 
+
 const char *task_event_names[] = {
 	"PUT_PREV_TASK",
 	"PICK_NEXT_TASK",
@@ -82,6 +83,7 @@ u64 walt_sched_clock(void)
 		return sched_clock_last;
 	return sched_clock();
 }
+EXPORT_SYMBOL(walt_sched_clock);
 
 static void walt_resume(void)
 {
@@ -505,6 +507,7 @@ static bool is_ed_task_present(struct rq *rq, u64 wallclock, struct task_struct 
 
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
+
 /*
  * Return total number of tasks "eligible" to run on higher capacity cpus
  */
@@ -1569,6 +1572,8 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq, struct walt_task_str
 	return delta;
 }
 
+
+
 /* Convert busy time to frequency equivalent
  * Assumes load is scaled to 1024
  */
@@ -1967,6 +1972,7 @@ account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event)
 	return 1;
 }
 
+
 /*
  * Called when new window is starting for a task, to record cpu usage over
  * recently concluded window(s). Normally 'samples' should be 1. It can be > 1
@@ -2277,8 +2283,10 @@ static inline void run_walt_irq_work_rollover(u64 old_window_start, struct rq *r
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
+
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
+
 {
 	u64 old_window_start;
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
@@ -2306,6 +2314,8 @@ static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int even
 	if (event == PUT_PREV_TASK && READ_ONCE(p->__state))
 		wts->iowaited = p->in_iowait;
 
+
+
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
 				&wrq->grp_time, wrq, wts, atomic64_read(&walt_irq_work_lastq_ws));
 	trace_sched_update_task_ravg_mini(p, rq, event, wallclock, irqtime,
@@ -2316,6 +2326,7 @@ done:
 
 	run_walt_irq_work_rollover(old_window_start, rq);
 }
+
 
 static inline void __sched_fork_init(struct task_struct *p)
 {
@@ -2446,6 +2457,7 @@ struct walt_sched_cluster *sched_cluster[WALT_NR_CPUS];
 __read_mostly int num_sched_clusters;
 
 struct list_head cluster_head;
+
 
 static struct walt_sched_cluster init_cluster = {
 	.list			= LIST_HEAD_INIT(init_cluster.list),
@@ -4188,6 +4200,7 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	bool double_enqueue = false;
 
+
 	if (unlikely(walt_disabled))
 		return;
 
@@ -4238,6 +4251,7 @@ static void android_rvh_enqueue_task(void *unused, struct rq *rq, struct task_st
 	if ((flags & ENQUEUE_WAKEUP) && do_pl_notif(rq))
 		waltgov_run_callback(rq, WALT_CPUFREQ_PL);
 
+
 	trace_sched_enq_deq_task(p, 1, cpumask_bits(p->cpus_ptr)[0], is_mvp(wts));
 }
 
@@ -4247,6 +4261,7 @@ static void android_rvh_dequeue_task(void *unused, struct rq *rq, struct task_st
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 	bool double_dequeue = false;
+
 
 	if (unlikely(walt_disabled))
 		return;
@@ -4470,6 +4485,8 @@ static void android_rvh_sched_fork_init(void *unused, struct task_struct *p)
 {
 	if (unlikely(walt_disabled))
 		return;
+
+
 
 	__sched_fork_init(p);
 }

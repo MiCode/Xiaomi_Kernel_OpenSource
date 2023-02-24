@@ -102,4 +102,9 @@ source "drivers/staging/qlge/Kconfig"
 
 source "drivers/staging/wfx/Kconfig"
 
+source "drivers/staging/extend_reclaim/Kconfig"
+
+source "drivers/staging/miev/Kconfig"
+
+
 endif # STAGING

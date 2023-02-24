@@ -141,6 +141,16 @@ int slim_do_transfer(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 
 	if (!clk_pause_msg) {
 		ret = pm_runtime_get_sync(ctrl->dev);
+		if (ret < 0) {
+			dev_err(ctrl->dev, "runtime resume failed ret:%d\n",
+				ret);
+			slim_free_txn_tid(ctrl, txn);
+			pm_runtime_put_noidle(ctrl->dev);
+			/* Set device in suspended since resume failed */
+			pm_runtime_set_suspended(ctrl->dev);
+			return ret;
+		}
+
 		if (ctrl->sched.clk_state != SLIM_CLK_ACTIVE) {
 			dev_err(ctrl->dev, "ctrl wrong state:%d, ret:%d\n",
 				ctrl->sched.clk_state, ret);
