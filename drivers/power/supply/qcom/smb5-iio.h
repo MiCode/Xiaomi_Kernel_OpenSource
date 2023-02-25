@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __SMB5_IIO_H
@@ -150,6 +150,8 @@ static const struct smb5_iio_prop_channels smb5_chans_pmic[] = {
 	SMB5_CHAN_INDEX("usb_real_type", USB_REAL_TYPE)
 	SMB5_CHAN_VOLT("usb_pd_voltage_max", PD_VOLTAGE_MAX)
 	SMB5_CHAN_VOLT("usb_pd_voltage_min", PD_VOLTAGE_MIN)
+	SMB5_CHAN_VOLT("voltage_qnovo", VOLTAGE_QNOVO)
+	SMB5_CHAN_CUR("current_qnovo", CURRENT_QNOVO)
 	SMB5_CHAN_INDEX("usb_connector_type", CONNECTOR_TYPE)
 	SMB5_CHAN_INDEX("usb_connector_health", CONNECTOR_HEALTH)
 	SMB5_CHAN_VOLT("usb_voltage_max_limit", VOLTAGE_MAX_LIMIT)
