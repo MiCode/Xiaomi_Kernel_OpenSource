@@ -1992,11 +1992,8 @@ static int geni_i2c_runtime_suspend(struct device *dev)
 		}
 	}
 
-	if (gi2c->is_le_vm) {
-		if (gi2c->first_xfer_done)
-			geni_i2c_unlock_bus(gi2c);
-		else
-			gi2c->first_xfer_done = true;
+	if (gi2c->is_le_vm && gi2c->first_xfer_done) {
+		geni_i2c_unlock_bus(gi2c);
 
 		if (gi2c->se_mode == GSI_ONLY) {
 			ret = geni_i2c_gpi_suspend_resume(gi2c, true);
