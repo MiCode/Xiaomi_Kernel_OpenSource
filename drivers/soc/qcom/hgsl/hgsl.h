@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2022, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __HGSL_H_
@@ -64,6 +64,21 @@ struct doorbell_queue {
 	uint32_t dbq_idx;
 	struct mutex lock;
 	atomic_t seq_num;
+};
+
+struct doorbell_context_queue {
+	struct hgsl_mem_node *queue_mem;
+	struct dma_buf_map map;
+	uint32_t db_signal;
+	uint32_t seq_num;
+	void *queue_header;
+	void *queue_body;
+	void *indirect_ibs;
+	uint32_t queue_header_gmuaddr;
+	uint32_t queue_body_gmuaddr;
+	uint32_t indirect_ibs_gmuaddr;
+	uint32_t queue_size;
+	int irq_idx;
 };
 
 struct qcom_hgsl {
@@ -134,6 +149,10 @@ struct hgsl_context {
 	struct hgsl_hsync_timeline *timeline;
 	uint32_t queued_ts;
 	bool is_killed;
+	int tcsr_idx;
+	struct mutex lock;
+	struct doorbell_context_queue *dbcq;
+	uint32_t dbcq_export_id;
 };
 
 struct hgsl_priv {
