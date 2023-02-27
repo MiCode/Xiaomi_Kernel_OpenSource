@@ -776,6 +776,8 @@ static int compat_fastrpc_get_dsp_info(struct fastrpc_file *fl,
 	info32 = compat_ptr(arg);
 	VERIFY(err, NULL != (info = kzalloc(
 				sizeof(*info), GFP_KERNEL)));
+	if (err)
+		return -EFAULT;
 
 	err = get_user(u, &info32->domain);
 	if (err)

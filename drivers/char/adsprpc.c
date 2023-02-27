@@ -3935,7 +3935,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		 * If remote-heap VMIDs are defined in DTSI, then do
 		 * hyp_assign from HLOS to those VMs (LPASS, ADSP).
 		 */
-		if (rhvm->vmid && mem && mem->refs == 1 && size) {
+		if (rhvm->vmid && mem->refs == 1 && size) {
 			err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1,
 				rhvm->vmid, rhvm->vmperm, rhvm->vmcount);
@@ -7909,7 +7909,8 @@ static void fastrpc_genpool_free(struct fastrpc_session_ctx *sess)
 	}
 	if (buf && sess->smmu.dev) {
 		domain = iommu_get_domain_for_dev(sess->smmu.dev);
-		iommu_unmap(domain, sess->smmu.genpool_iova,
+		if (domain)
+			iommu_unmap(domain, sess->smmu.genpool_iova,
 					sess->smmu.genpool_size);
 		if (buf->phys)
 			dma_free_attrs(sess->smmu.dev, buf->size, buf->virt,
@@ -8417,15 +8418,16 @@ static int __init fastrpc_device_init(void)
 				err = -ENOMEM;
 				ADSPRPC_WARN("%s: CMA alloc failed  err 0x%x\n",
 							__func__, err);
+			} else {
+				INIT_HLIST_NODE(&buf->hn);
+				buf->virt = region_vaddr;
+				buf->phys = (uintptr_t)region_phys;
+				buf->size = MINI_DUMP_DBG_SIZE;
+				buf->dma_attr = attr;
+				buf->raddr = 0;
+				ktime_get_real_ts64(&buf->buf_start_time);
+				me->channel[i].buf = buf;
 			}
-			INIT_HLIST_NODE(&buf->hn);
-			buf->virt = region_vaddr;
-			buf->phys = (uintptr_t)region_phys;
-			buf->size = MINI_DUMP_DBG_SIZE;
-			buf->dma_attr = attr;
-			buf->raddr = 0;
-			ktime_get_real_ts64(&buf->buf_start_time);
-			me->channel[i].buf = buf;
 		}
 		if (IS_ERR_OR_NULL(me->channel[i].handle))
 			pr_warn("adsprpc: %s: SSR notifier register failed for %s with err %d\n",
