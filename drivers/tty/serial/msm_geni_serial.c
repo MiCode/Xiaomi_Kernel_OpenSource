@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/bitmap.h>
@@ -2742,10 +2742,11 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 		disable_irq(uport->irq);
 	} else {
 		msm_geni_serial_power_on(uport);
-		ret = wait_for_transfers_inflight(uport);
-		if (ret)
-			UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
-				  "%s wait_for_transfer_inflight return ret: %d", __func__, ret);
+		if (msm_port->wakeup_irq > 0 && msm_port->wakeup_enabled) {
+			irq_set_irq_wake(msm_port->wakeup_irq, 0);
+			disable_irq(msm_port->wakeup_irq);
+			msm_port->wakeup_enabled = false;
+		}
 
 		msm_geni_serial_stop_tx(uport);
 	}
@@ -2768,12 +2769,6 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 				UART_LOG_DBG(msm_port->ipc_log_pwr, uport->dev,
 				"%s: Failed to suspend:%d\n", __func__, ret);
 			}
-
-		if (msm_port->wakeup_irq > 0 && msm_port->wakeup_enabled) {
-			irq_set_irq_wake(msm_port->wakeup_irq, 0);
-			disable_irq(msm_port->wakeup_irq);
-			msm_port->wakeup_enabled = false;
-		}
 
 		if (!IS_ERR_OR_NULL(msm_port->serial_rsc.geni_gpio_shutdown)) {
 			ret = pinctrl_select_state(
