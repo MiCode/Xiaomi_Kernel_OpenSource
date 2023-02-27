@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021, 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -9,6 +9,7 @@
 #include <linux/coresight.h>
 #include <linux/of.h>
 #include <linux/pm_runtime.h>
+#include <linux/suspend.h>
 
 #define DUMMY_TRACE_ID_START	256
 
@@ -78,6 +79,44 @@ static const struct coresight_ops_sink dummy_sink_ops = {
 static const struct coresight_ops dummy_cs_ops = {
 	.source_ops	= &dummy_source_ops,
 	.sink_ops	= &dummy_sink_ops,
+};
+
+#ifdef CONFIG_DEEPSLEEP
+static int dummy_source_suspend(struct device *dev)
+{
+	struct dummy_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (drvdata->csdev->type != CORESIGHT_DEV_TYPE_SOURCE)
+		return 0;
+
+	if (pm_suspend_via_firmware())
+		coresight_disable(drvdata->csdev);
+
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_HIBERNATION
+static int dummy_source_freeze(struct device *dev)
+{
+	struct dummy_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (drvdata->csdev->type != CORESIGHT_DEV_TYPE_SOURCE)
+		return 0;
+
+	coresight_disable(drvdata->csdev);
+
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops dummy_source_dev_pm_ops = {
+#ifdef CONFIG_DEEPSLEEP
+	.suspend = dummy_source_suspend,
+#endif
+#ifdef CONFIG_HIBERNATION
+	.freeze  = dummy_source_freeze,
+#endif
 };
 
 static int dummy_probe(struct platform_device *pdev)
@@ -152,6 +191,7 @@ static struct platform_driver dummy_driver = {
 	.driver	= {
 		.name   = "coresight-dummy",
 		.of_match_table = dummy_match,
+		.pm = &dummy_source_dev_pm_ops,
 	},
 };
 
