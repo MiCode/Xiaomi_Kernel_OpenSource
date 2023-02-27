@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _WALT_H
@@ -445,8 +445,14 @@ static inline bool walt_low_latency_task(struct task_struct *p)
 {
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
-	return wts->low_latency &&
-		(task_util(p) < sysctl_walt_low_latency_task_threshold);
+	if (!wts->low_latency)
+		return false;
+
+	if (wts->low_latency == WALT_LOW_LATENCY_PIPELINE)
+		return true;
+
+	/* WALT_LOW_LATENCY_BINDER and WALT_LOW_LATENCY_PROCFS remain */
+	return (task_util(p) < sysctl_walt_low_latency_task_threshold);
 }
 
 static inline bool walt_binder_low_latency_task(struct task_struct *p)
