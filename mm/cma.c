@@ -112,13 +112,6 @@ static void __init cma_activate_area(struct cma *cma)
 		goto out_error;
 
 	/*
-	 * The CMA region was marked as allocated by kmemleak when it was either
-	 * dynamically allocated or statically reserved. In any case,
-	 * inform kmemleak that the region is about to be freed to the page allocator.
-	 */
-	kmemleak_free_part_phys(cma_get_base(cma), cma_get_size(cma));
-
-	/*
 	 * alloc_contig_range() requires the pfn range specified to be in the
 	 * same zone. Simplify by forcing the entire CMA resv range to be in the
 	 * same zone.
@@ -337,8 +330,6 @@ int __init cma_declare_contiguous_nid(phys_addr_t base,
 			ret = -EBUSY;
 			goto err;
 		}
-
-		kmemleak_alloc_phys(base, size, 0, 0);
 	} else {
 		phys_addr_t addr = 0;
 
@@ -380,6 +371,11 @@ int __init cma_declare_contiguous_nid(phys_addr_t base,
 			}
 		}
 
+		/*
+		 * kmemleak scans/reads tracked objects for pointers to other
+		 * objects but this address isn't mapped and accessible
+		 */
+		kmemleak_ignore_phys(addr);
 		base = addr;
 	}
 

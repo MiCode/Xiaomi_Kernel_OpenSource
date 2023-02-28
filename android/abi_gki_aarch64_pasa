@@ -14,3 +14,5 @@
   hid_report_raw_event
   hid_unregister_driver
   hidinput_calc_abs_res
+  iio_trigger_generic_data_rdy_poll
+  input_device_enabled
