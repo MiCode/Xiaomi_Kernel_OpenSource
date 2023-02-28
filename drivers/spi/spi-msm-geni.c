@@ -1326,6 +1326,9 @@ setup_ipc:
 	if (!mas->shared_ee)
 		mas->setup = true;
 
+	if (spi->slave)
+		mas->slave_setup = true;
+
 	/*
 	 * Bypass hw_version read for LE. QUP common registers
 	 * should not be accessed from SVM as that memory is
