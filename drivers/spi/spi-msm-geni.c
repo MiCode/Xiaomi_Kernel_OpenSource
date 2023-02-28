@@ -210,9 +210,11 @@ struct spi_geni_master {
 	bool slave_state;
 	bool slave_cross_connected;
 	u32 xfer_timeout_offset;
+	bool master_cross_connect;
 };
 
 static void spi_slv_setup(struct spi_geni_master *mas);
+static void spi_master_setup(struct spi_geni_master *mas);
 
 static ssize_t spi_slave_state_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -239,6 +241,17 @@ static ssize_t spi_slave_state_store(struct device *dev,
 }
 
 static DEVICE_ATTR_RW(spi_slave_state);
+
+static void spi_master_setup(struct spi_geni_master *mas)
+{
+	geni_write_reg(OTHER_IO_OE | IO2_DATA_IN_SEL | RX_DATA_IN_SEL |
+		IO_MACRO_IO3_SEL | IO_MACRO_IO2_SEL | IO_MACRO_IO0_SEL,
+					mas->base, GENI_CFG_REG80);
+	geni_write_reg(START_TRIGGER, mas->base, SE_GENI_CFG_SEQ_START);
+
+	/* ensure data is written to hardware register */
+	wmb();
+}
 
 static void spi_slv_setup(struct spi_geni_master *mas)
 {
@@ -1214,6 +1227,9 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 
 		if (spi->slave)
 			spi_slv_setup(mas);
+
+		if (mas->master_cross_connect)
+			spi_master_setup(mas);
 	}
 
 	geni_se_init(mas->base, 0x0, (mas->tx_fifo_depth - 2));
@@ -2024,6 +2040,9 @@ static void spi_get_dt_property(struct platform_device *pdev,
 
 	geni_mas->disable_dma = of_property_read_bool(pdev->dev.of_node,
 		"qcom,disable-dma");
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,master-cross-connect"))
+		geni_mas->master_cross_connect = true;
 
 	of_property_read_u32(pdev->dev.of_node, "qcom,xfer-timeout-offset",
 			     &geni_mas->xfer_timeout_offset);

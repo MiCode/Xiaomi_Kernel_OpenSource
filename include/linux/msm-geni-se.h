@@ -150,6 +150,12 @@ struct se_geni_rsc {
 #define IO1_SEL_TX			BIT(2)
 #define IO2_DATA_IN_SEL_PAD2		(GENMASK(11, 10))
 #define IO3_DATA_IN_SEL_PAD2		BIT(15)
+#define OTHER_IO_OE			BIT(12)
+#define IO2_DATA_IN_SEL		BIT(11)
+#define RX_DATA_IN_SEL			BIT(8)
+#define IO_MACRO_IO3_SEL		(GENMASK(7, 6))
+#define IO_MACRO_IO2_SEL		BIT(5)
+#define IO_MACRO_IO0_SEL		BIT(0)
 
 /* GENI_FORCE_DEFAULT_REG fields */
 #define FORCE_DEFAULT	(BIT(0))
