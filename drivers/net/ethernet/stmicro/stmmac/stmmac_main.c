@@ -3456,9 +3456,8 @@ static int stmmac_hw_setup(struct net_device *dev, bool ptp_register)
 		stmmac_ptp_register(priv);
 		clk_set_rate(priv->plat->clk_ptp_ref,
 					 priv->plat->clk_ptp_rate);
+		ret = priv->plat->init_pps(priv);
 	}
-
-	ret = priv->plat->init_pps(priv);
 
 	priv->eee_tw_timer = STMMAC_DEFAULT_TWT_LS;
 
