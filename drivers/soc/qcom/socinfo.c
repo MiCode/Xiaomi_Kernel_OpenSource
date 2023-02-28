@@ -847,7 +847,7 @@ socinfo_get_subset_parts(void)
 	info += offset;
 	for (i = 0; i < num_parts; i++) {
 		part_entry = get_unaligned_le32(info);
-		if (part_entry)
+		if (part_entry & 1)
 			sub_parts |= BIT(i);
 		info += sizeof(uint32_t);
 	}
