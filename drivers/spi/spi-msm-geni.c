@@ -2072,6 +2072,9 @@ static int spi_geni_probe(struct platform_device *pdev)
 		goto spi_geni_probe_err;
 	}
 
+	if (slave_en)
+		spi->slave_abort = spi_slv_abort;
+
 	platform_set_drvdata(pdev, spi);
 	geni_mas = spi_master_get_devdata(spi);
 	rsc = &geni_mas->spi_rsc;
@@ -2220,11 +2223,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		dev_err(&pdev->dev, "Err IO mapping iomem\n");
 		goto spi_geni_probe_err;
-	}
-
-	if (slave_en) {
-		spi->slave = true;
-		spi->slave_abort = spi_slv_abort;
 	}
 
 	geni_mas->slave_cross_connected =
