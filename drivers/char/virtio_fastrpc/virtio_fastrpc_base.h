@@ -39,10 +39,10 @@ struct vfastrpc_apps {
 	struct virtio_device *vdev;
 	struct virt_fastrpc_vq rvq;
 	struct virt_fastrpc_vq svq;
-	void *rbufs;
-	void *sbufs;
-	unsigned int order;
+	void **rbufs;
+	void **sbufs;
 	unsigned int num_bufs;
+	unsigned int order;
 	unsigned int buf_size;
 	unsigned int num_channels;
 	int last_sbuf;

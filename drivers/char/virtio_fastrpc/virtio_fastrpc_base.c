@@ -33,6 +33,7 @@
 #define VIRTIO_FASTRPC_F_VERSION			5
 /* indicates domain num is available in config space */
 #define VIRTIO_FASTRPC_F_DOMAIN_NUM			6
+#define VIRTIO_FASTRPC_F_VQUEUE_SETTING		7
 
 #define NUM_CHANNELS			4 /* adsp, mdsp, slpi, cdsp0*/
 #define NUM_DEVICES			2 /* adsprpc-smd, adsprpc-smd-secure */
@@ -40,7 +41,8 @@
 #define INIT_FILELEN_MAX		(2*1024*1024)
 #define INIT_MEMLEN_MAX			(8*1024*1024)
 
-#define MAX_FASTRPC_BUF_SIZE		(128*1024)
+#define MAX_FASTRPC_BUF_SIZE		(1024*1024*4)
+#define DEF_FASTRPC_BUF_SIZE		(128*1024)
 #define DEBUGFS_SIZE			3072
 
 /*
@@ -54,13 +56,14 @@
  * need to be matched with BE_MINOR_VER. And it will return to 0 when
  * FE_MAJOR_VER is increased.
  */
-#define FE_MINOR_VER 0x2
+#define FE_MINOR_VER 0x3
 #define FE_VERSION (FE_MAJOR_VER << 16 | FE_MINOR_VER)
 #define BE_MAJOR_VER(ver) (((ver) >> 16) & 0xffff)
 
 struct virtio_fastrpc_config {
 	u32 version;
 	u32 domain_num;
+	u32 max_buf_size;
 } __packed;
 
 
@@ -722,9 +725,7 @@ static int init_vqs(struct vfastrpc_apps *me)
 	struct virtqueue *vqs[2];
 	static const char * const names[] = { "output", "input" };
 	vq_callback_t *cbs[] = { NULL, recv_done };
-	size_t total_buf_space;
-	void *bufs;
-	int err;
+	int err, i;
 
 	err = virtio_find_vqs(me->vdev, 2, vqs, cbs, names, NULL);
 	if (err)
@@ -733,28 +734,60 @@ static int init_vqs(struct vfastrpc_apps *me)
 	virt_init_vq(&me->svq, vqs[0]);
 	virt_init_vq(&me->rvq, vqs[1]);
 
-	/* we expect symmetric tx/rx vrings */
-	WARN_ON(virtqueue_get_vring_size(me->rvq.vq) !=
-			virtqueue_get_vring_size(me->svq.vq));
-	me->num_bufs = virtqueue_get_vring_size(me->rvq.vq) * 2;
 
-	me->buf_size = MAX_FASTRPC_BUF_SIZE;
-	total_buf_space = me->num_bufs * me->buf_size;
-	me->order = get_order(total_buf_space);
-	bufs = (void *)__get_free_pages(GFP_KERNEL,
-				me->order);
-	if (!bufs) {
-		err = -ENOMEM;
+	/* we expect symmetric tx/rx vrings */
+	if (virtqueue_get_vring_size(me->rvq.vq) !=
+			virtqueue_get_vring_size(me->svq.vq)) {
+		dev_err(&me->vdev->dev, "tx/rx vring size does not match\n");
+			err = -EINVAL;
 		goto vqs_del;
 	}
 
-	/* half of the buffers is dedicated for RX */
-	me->rbufs = bufs;
+	me->num_bufs = virtqueue_get_vring_size(me->rvq.vq);
+	me->rbufs = kcalloc(me->num_bufs, sizeof(void *), GFP_KERNEL);
+	if (!me->rbufs) {
+		err = -ENOMEM;
+		goto vqs_del;
+	}
+	me->sbufs = kcalloc(me->num_bufs, sizeof(void *), GFP_KERNEL);
+	if (!me->sbufs) {
+		err = -ENOMEM;
+		kfree(me->rbufs);
+		goto vqs_del;
+	}
 
-	/* and half is dedicated for TX */
-	me->sbufs = bufs + total_buf_space / 2;
+	me->order = get_order(me->buf_size);
+
+	for (i = 0; i < me->num_bufs; i++) {
+		me->rbufs[i] = (void *)__get_free_pages(GFP_KERNEL, me->order);
+		if (!me->rbufs[i]) {
+			err = -ENOMEM;
+			goto rbuf_del;
+		}
+	}
+
+	for (i = 0; i < me->num_bufs; i++) {
+		me->sbufs[i] = (void *)__get_free_pages(GFP_KERNEL, me->order);
+		if (!me->sbufs[i]) {
+			err = -ENOMEM;
+			goto sbuf_del;
+		}
+	}
 	return 0;
 
+sbuf_del:
+	for (i = 0; i < me->num_bufs; i++) {
+		if (me->sbufs[i])
+			free_pages((unsigned long)me->sbufs[i], me->order);
+	}
+
+rbuf_del:
+	for (i = 0; i < me->num_bufs; i++) {
+		if (me->rbufs[i])
+			free_pages((unsigned long)me->rbufs[i], me->order);
+	}
+	kfree(me->sbufs);
+	kfree(me->rbufs);
 vqs_del:
 	me->vdev->config->del_vqs(me->vdev);
 	return err;
@@ -829,6 +862,22 @@ static int virt_fastrpc_probe(struct virtio_device *vdev)
 	me->vdev = vdev;
 	me->dev = vdev->dev.parent;
 
+	if (virtio_has_feature(vdev, VIRTIO_FASTRPC_F_VQUEUE_SETTING)) {
+		virtio_cread(vdev, struct virtio_fastrpc_config, max_buf_size,
+				&config.max_buf_size);
+		if (config.max_buf_size > MAX_FASTRPC_BUF_SIZE) {
+			dev_err(&vdev->dev, "buffer size 0x%x is exceed to maximum limit 0x%x\n",
+					config.max_buf_size, MAX_FASTRPC_BUF_SIZE);
+			return -EINVAL;
+		}
+
+		me->buf_size = config.max_buf_size;
+		dev_info(&vdev->dev, "set buf_size to 0x%x\n", me->buf_size);
+	} else {
+		dev_info(&vdev->dev, "set buf_size to default value\n");
+		me->buf_size = DEF_FASTRPC_BUF_SIZE;
+	}
+
 	err = init_vqs(me);
 	if (err) {
 		dev_err(&vdev->dev, "failed to initialized virtqueue\n");
@@ -901,9 +950,9 @@ static int virt_fastrpc_probe(struct virtio_device *vdev)
 	virtio_device_ready(vdev);
 
 	/* set up the receive buffers */
-	for (i = 0; i < me->num_bufs / 2; i++) {
+	for (i = 0; i < me->num_bufs; i++) {
 		struct scatterlist sg;
-		void *cpu_addr = me->rbufs + i * me->buf_size;
+		void *cpu_addr = me->rbufs[i];
 
 		sg_init_one(&sg, cpu_addr, me->buf_size);
 		err = virtqueue_add_inbuf(me->rvq.vq, &sg, 1, cpu_addr,
@@ -942,6 +991,7 @@ alloc_channel_bail:
 static void virt_fastrpc_remove(struct virtio_device *vdev)
 {
 	struct vfastrpc_apps *me = &gfa;
+	int i;
 
 	device_destroy(me->class, MKDEV(MAJOR(me->dev_no), MINOR_NUM_DEV));
 	device_destroy(me->class, MKDEV(MAJOR(me->dev_no),
@@ -954,7 +1004,14 @@ static void virt_fastrpc_remove(struct virtio_device *vdev)
 	vfastrpc_channel_deinit(me);
 	vdev->config->reset(vdev);
 	vdev->config->del_vqs(vdev);
-	free_pages((unsigned long)me->rbufs, me->order);
+
+	for (i = 0; i < me->num_bufs; i++)
+		free_pages((unsigned long)me->rbufs[i], me->order);
+	for (i = 0; i < me->num_bufs; i++)
+		free_pages((unsigned long)me->sbufs[i], me->order);
+
+	kfree(me->sbufs);
+	kfree(me->rbufs);
 }
 
 const struct virtio_device_id id_table[] = {
@@ -969,6 +1026,7 @@ static unsigned int features[] = {
 	VIRTIO_FASTRPC_F_CONTROL,
 	VIRTIO_FASTRPC_F_VERSION,
 	VIRTIO_FASTRPC_F_DOMAIN_NUM,
+	VIRTIO_FASTRPC_F_VQUEUE_SETTING,
 };
 
 static struct virtio_driver virtio_fastrpc_driver = {
