@@ -2001,8 +2001,7 @@ static void spi_get_dt_property(struct platform_device *pdev,
 				struct spi_master *spi,
 				struct resource *res)
 {
-	bool rt_pri, slave_en;
-
+	bool rt_pri;
 
 	rt_pri = of_property_read_bool(pdev->dev.of_node, "qcom,rt");
 	if (rt_pri)
@@ -2050,12 +2049,6 @@ static void spi_get_dt_property(struct platform_device *pdev,
 		dev_info(&pdev->dev, "%s: DT based xfer timeout offset: %d\n",
 			 __func__, geni_mas->xfer_timeout_offset);
 
-	slave_en  = of_property_read_bool(pdev->dev.of_node,
-			 "qcom,slv-ctrl");
-	if (slave_en) {
-		spi->slave = true;
-		spi->slave_abort = spi_slv_abort;
-	}
 }
 
 static int spi_geni_probe(struct platform_device *pdev)
@@ -2067,8 +2060,12 @@ static int spi_geni_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct platform_device *wrapper_pdev;
 	struct device_node *wrapper_ph_node;
+	bool slave_en;
 
-	spi = spi_alloc_master(&pdev->dev, sizeof(struct spi_geni_master));
+	slave_en  = of_property_read_bool(pdev->dev.of_node,
+					  "qcom,slv-ctrl");
+
+	spi = __spi_alloc_controller(&pdev->dev, sizeof(struct spi_geni_master), slave_en);
 	if (!spi) {
 		ret = -ENOMEM;
 		dev_err(&pdev->dev, "Failed to alloc spi struct\n");
@@ -2223,6 +2220,11 @@ static int spi_geni_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		dev_err(&pdev->dev, "Err IO mapping iomem\n");
 		goto spi_geni_probe_err;
+	}
+
+	if (slave_en) {
+		spi->slave = true;
+		spi->slave_abort = spi_slv_abort;
 	}
 
 	geni_mas->slave_cross_connected =
