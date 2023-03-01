@@ -5113,8 +5113,8 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 		PCIE_DBG2(dev,
 			  "PCIe: %s Error from Endpoint: %02x:%02x.%01x\n",
 			  i ? "Uncorrectable" : "Correctable",
-			  ep_src_bdf >> 24, ep_src_bdf >> 19 & 0x1f,
-			  ep_src_bdf >> 16 & 0x07);
+			  busnr, ep_src_bdf >> 3 & 0x1f,
+			  ep_src_bdf & 0x07);
 
 		aer_cap = pci_find_ext_capability(pcidev, PCI_EXT_CAP_ID_ERR);
 		if (!aer_cap) {
