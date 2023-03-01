@@ -36,7 +36,10 @@
 #define RESULT_FAILURE		-1
 
 /* Slate Ramdump Size 4 MB */
-#define SLATE_RAMDUMP_SZ SZ_4M
+#define SLATE_RAMDUMP_SZ SZ_8M
+#define SLATE_MINIRAMDUMP_SZ SZ_64K
+#define SLATE_RAMDUMP		3
+
 
 #define SLATE_CRASH_IN_TWM	-2
 
@@ -146,6 +149,10 @@ struct qcom_slate {
 	int status_irq;
 	struct workqueue_struct *slate_queue;
 	struct work_struct restart_work;
+
+	phys_addr_t mem_phys;
+	void *mem_region;
+	size_t mem_size;
 };
 
 static irqreturn_t slate_status_change(int irq, void *dev_id);
@@ -247,6 +254,7 @@ static long slate_tzapp_comm(struct qcom_slate *pbd,
 	slate_tz_req->size_fw = req->size_fw;
 	rc = qseecom_send_command(pbd->qseecom_handle,
 		(void *)slate_tz_req, req_len, (void *)slate_tz_rsp, rsp_len);
+
 	mutex_unlock(&cmdsync_lock);
 	pr_debug("SLATE PIL qseecom returned with value 0x%x and status 0x%x\n",
 		rc, slate_tz_rsp->status);
@@ -517,7 +525,6 @@ static int slate_start(struct rproc *rproc)
 			__func__);
 		return -EINVAL;
 	}
-
 	/* Enable err fetal irq */
 	enable_irq(slate_data->status_irq);
 
@@ -555,7 +562,7 @@ static int slate_start(struct rproc *rproc)
 
 /**
 * slate_coredump() - Called by SSR framework to save dump of SLATE internal
-* memory, SLATE PIL allocates region from dynamic memory and pass this
+* memory, SLATE PIL does allocate region from dynamic memory and pass this
 * region to tz to dump memory content of SLATE.
 * @rproc: remoteproc handle for slate.
 *
@@ -564,7 +571,97 @@ static int slate_start(struct rproc *rproc)
 
 static void slate_coredump(struct rproc *rproc)
 {
+	struct qcom_slate *slate_data = (struct qcom_slate *)rproc->priv;
+	struct tzapp_slate_req slate_tz_req;
+	uint32_t ns_vmids[] = {VMID_HLOS};
+	uint32_t ns_vm_perms[] = {PERM_READ | PERM_WRITE};
+	u64 shm_bridge_handle;
+	void *region;
+	phys_addr_t start_addr;
+	uint32_t dump_info;
+	unsigned long size = SLATE_RAMDUMP_SZ;
+	unsigned long attr = 0;
+	int ret = 0;
+
 	pr_err("Setup for Coredump.\n");
+
+	slate_tz_req.tzapp_slate_cmd = SLATE_RPROC_DUMPINFO;
+	if (!slate_data->qseecom_handle) {
+		ret = load_slate_tzapp(slate_data);
+		if (ret) {
+			dev_err(slate_data->dev,
+				"%s: SLATE TZ app load failure\n",
+				__func__);
+			return;
+		}
+	}
+
+	ret = slate_tzapp_comm(slate_data, &slate_tz_req);
+	dump_info = slate_data->cmd_status;
+
+	if (dump_info == SLATE_RAMDUMP)
+		size = SLATE_RAMDUMP_SZ;
+	else {
+		dev_err(slate_data->dev,
+			"%s: SLATE RPROC ramdump collection failed\n",
+			__func__);
+		return;
+	}
+
+	region = dma_alloc_attrs(slate_data->dev, size,
+			&start_addr, GFP_KERNEL, attr);
+	if (region == NULL) {
+		dev_dbg(slate_data->dev,
+			"fail to allocate ramdump region of size %zx\n",
+			size);
+		return;
+	}
+
+	slate_data->mem_phys = start_addr;
+	slate_data->mem_size = size;
+	slate_data->mem_region = region;
+
+	ret = qtee_shmbridge_register(start_addr, size, ns_vmids,
+		ns_vm_perms, 1, PERM_READ | PERM_WRITE, &shm_bridge_handle);
+
+	if (ret) {
+		pr_err("Failed to create shm bridge. ret=[%d]\n",
+			__func__, ret);
+		goto dma_free;
+	}
+
+	slate_tz_req.tzapp_slate_cmd = SLATE_RPROC_RAMDUMP;
+	slate_tz_req.address_fw = start_addr;
+	slate_tz_req.size_fw = size;
+	ret = slate_tzapp_comm(slate_data, &slate_tz_req);
+	if (ret != 0) {
+		dev_dbg(slate_data->dev,
+			"%s: SLATE RPROC ramdmp collection failed\n",
+			__func__);
+		return;
+	}
+
+	dma_sync_single_for_cpu(slate_data->dev, slate_data->mem_phys, size, DMA_FROM_DEVICE);
+
+	pr_debug("Add coredump segment!\n");
+	ret = rproc_coredump_add_custom_segment(rproc, start_addr, size,
+			NULL, NULL);
+
+	if (ret) {
+		dev_err(slate_data->dev, "failed to add rproc_segment: %d\n",
+			ret);
+		rproc_coredump_cleanup(slate_data->rproc);
+		goto shm_free;
+	}
+
+	/* Prepare coredump file */
+	rproc_coredump(rproc);
+
+shm_free:
+	qtee_shmbridge_deregister(shm_bridge_handle);
+dma_free:
+	dma_free_attrs(slate_data->dev, size, region,
+			start_addr, attr);
 }
 
 /**
@@ -811,15 +908,24 @@ static int slate_stop(struct rproc *rproc)
 		pr_debug("Slate pil shutdown failed\n");
 		return ret;
 	}
-
 	if (slate_data->is_ready) {
 		disable_irq(slate_data->status_irq);
 		slate_data->is_ready = false;
 	}
-
 	return ret;
 }
 
+static void *slate_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
+{
+	struct qcom_slate *slate_data = (struct qcom_slate *)rproc->priv;
+	int offset;
+
+	offset = da - slate_data->mem_phys;
+	if (offset < 0 || offset + len > slate_data->mem_size)
+		return NULL;
+
+	return slate_data->mem_region + offset;
+}
 
 static const struct rproc_ops slate_ops = {
 	.prepare = slate_prepare,
@@ -828,6 +934,7 @@ static const struct rproc_ops slate_ops = {
 	.start = slate_start,
 	.stop = slate_stop,
 	.coredump = slate_coredump,
+	.da_to_va = slate_da_to_va,
 };
 
 static int slate_app_reboot_notify(struct notifier_block *nb,
