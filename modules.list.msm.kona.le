@@ -40,6 +40,7 @@ qcom_ipc_logging.ko
 ufs_qcom.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qmp-v4.ko
+phy-qcom-ufs-qmp-v4-kona.ko
 ufshcd-crypto-qti.ko
 camcc-sm8250.ko
 videocc-sm8250.ko
