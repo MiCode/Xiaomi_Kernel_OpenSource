@@ -478,11 +478,11 @@ static void smcinvoke_shmbridge_post_process(void)
 	} while (1);
 }
 
-static int smcinvoke_release_object(struct qtee_shm *in_shm, struct qtee_shm *out_shm,
-		int32_t tzhandle, uint32_t context_type)
+static int smcinvoke_release_tz_object(struct qtee_shm *in_shm, struct qtee_shm *out_shm,
+		uint32_t tzhandle, uint32_t context_type)
 {
 	int ret = 0;
-	bool release_handles;
+	bool release_handles = false;
 	uint8_t *in_buf = NULL;
 	uint8_t *out_buf = NULL;
 	struct smcinvoke_msg_hdr hdr = {0};
@@ -543,17 +543,17 @@ static int smcinvoke_object_post_process(void)
 		entry = list_entry(pos, struct smcinvoke_object_release_pending_list, list);
 
 		list_del(pos);
-		kfree_sensitive(entry);
 		mutex_unlock(&object_postprocess_lock);
 
 		if (entry) {
 			do {
-				ret = smcinvoke_release_object(&in_shm, &out_shm,
+				ret = smcinvoke_release_tz_object(&in_shm, &out_shm,
 					entry->data.tzhandle,  entry->data.context_type);
 			} while (-EBUSY == ret);
 		} else {
 			pr_err("entry is NULL, pos:%#llx\n", (uint64_t)pos);
 		}
+		kfree_sensitive(entry);
 	} while (1);
 
 out:
@@ -2648,29 +2648,33 @@ int smcinvoke_release_filp(struct file *filp)
 		goto out;
 	}
 
+	tzhandle = file_data->tzhandle;
+	/* Root object is special in sense it is indestructible */
+	if (!tzhandle || tzhandle == SMCINVOKE_TZ_ROOT_OBJ) {
+		if (!tzhandle)
+			pr_err("tzhandle not valid in object release\n");
+		goto out;
+	}
+
 	ret = qtee_shmbridge_allocate_shm(SMCINVOKE_TZ_MIN_BUF_SIZE, &in_shm);
 	if (ret) {
-		ret = -ENOMEM;
-		pr_err("shmbridge alloc failed for in msg in object release\n");
-		goto add_node;
+		pr_err("shmbridge alloc failed for in msg in object release with ret %d\n",
+			ret);
+		goto out;
 	}
 
 	ret = qtee_shmbridge_allocate_shm(SMCINVOKE_TZ_MIN_BUF_SIZE, &out_shm);
 	if (ret) {
-		ret = -ENOMEM;
-		pr_err("shmbridge alloc failed for out msg in object release\n");
-		goto add_node;
+		pr_err("shmbridge alloc failed for out msg in object release with ret %d\n",
+			ret);
+		goto out;
 	}
 
-	tzhandle = file_data->tzhandle;
-	/* Root object is special in sense it is indestructible */
-	if (!tzhandle || tzhandle == SMCINVOKE_TZ_ROOT_OBJ)
-		goto out;
-
-	ret = smcinvoke_release_object(&in_shm, &out_shm,
+	ret = smcinvoke_release_tz_object(&in_shm, &out_shm,
 		tzhandle,  file_data->context_type);
-add_node:
-	if (-EBUSY == ret || -ENOMEM == ret) {
+
+	if (-EBUSY == ret) {
+		pr_debug("failed to release handle in sync adding to list\n");
 		entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 		if (!entry) {
 			ret = -ENOMEM;
@@ -2690,6 +2694,9 @@ out:
 	qtee_shmbridge_free_shm(&out_shm);
 	kfree(filp->private_data);
 	filp->private_data = NULL;
+
+	if (ret != 0)
+		pr_err("Object release failed with ret %d\n", ret);
 
 	return ret;
 }
