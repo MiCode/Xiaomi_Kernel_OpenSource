@@ -67,6 +67,20 @@ static char * const power_state[] = {
 
 enum power_states current_state = ACTIVE;
 
+enum ssr_domain_info {
+	SSR_DOMAIN_MODEM,
+	SSR_DOMAIN_ADSP,
+	SSR_DOMAIN_MAX,
+};
+
+struct service_info {
+	const char name[STRING_LEN];
+	const char ssr_domains[STRING_LEN];
+	int domain_id;
+	void *handle;
+	struct notifier_block *nb;
+};
+
 struct ps_event {
 	enum ps_event_type event;
 };
@@ -236,6 +250,8 @@ static struct notifier_block powerstate_pm_nb = {
 	.priority = 100,
 };
 
+static int ssr_register(void);
+
 static int ps_probe(struct platform_device *pdev)
 {
 	int ret, i;
@@ -300,7 +316,12 @@ static int ps_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 	}
 
-	pr_debug("%s, success\n", __func__);
+	ret = ssr_register();
+	if (ret)
+		pr_err("%s: Error registering SSR\n", __func__);
+
+	if (!ret)
+		pr_debug("%s, success\n", __func__);
 
 	return ret;
 }
@@ -505,6 +526,116 @@ static void __exit exit_power_state_func(void)
 	platform_driver_unregister(&ps_driver);
 	list_for_each_entry(ss_list, &sub_sys_list, list)
 		list_del(&ss_list->list);
+}
+
+
+static int ssr_modem_cb(struct notifier_block *this, unsigned long opcode, void *data)
+{
+	struct ps_event modeme;
+
+	switch (opcode) {
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		pr_debug("%s: modem is shutdown\n", __func__);
+		if (ignore_ssr != 1) {
+			modeme.event = MDSP_BEFORE_POWERDOWN;
+			send_uevent(&modeme);
+		}
+		break;
+	case QCOM_SSR_AFTER_POWERUP:
+		pr_debug("%s: modem is powered up\n", __func__);
+		if (ignore_ssr != 1) {
+			modeme.event = MDSP_AFTER_POWERUP;
+			send_uevent(&modeme);
+		}
+		break;
+	default:
+		pr_debug("%s: ignore modem ssr event\n");
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static int ssr_adsp_cb(struct notifier_block *this, unsigned long opcode, void *data)
+{
+	struct ps_event adspe;
+
+	switch (opcode) {
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		pr_debug("%s: adsp is shutdown\n", __func__);
+		if (ignore_ssr != 1) {
+			adspe.event = ADSP_BEFORE_POWERDOWN;
+			send_uevent(&adspe);
+		}
+		break;
+	case QCOM_SSR_AFTER_POWERUP:
+		pr_debug("%s: adsp is powered up\n", __func__);
+		if (ignore_ssr != 1) {
+			adspe.event = ADSP_AFTER_POWERUP;
+			send_uevent(&adspe);
+		}
+		break;
+	default:
+		pr_debug("%s: ignore adsp ssr event\n");
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ssr_modem_nb = {
+	.notifier_call = ssr_modem_cb,
+	.priority = 0,
+};
+
+static struct notifier_block ssr_adsp_nb = {
+	.notifier_call = ssr_adsp_cb,
+	.priority = 0,
+};
+
+static struct service_info service_data[2] = {
+	{
+		.name = "SSR_MODEM",
+		.ssr_domains = "mpss",
+		.domain_id = SSR_DOMAIN_MODEM,
+		.nb = &ssr_modem_nb,
+		.handle = NULL,
+	},
+	{
+		.name = "SSR_ADSP",
+		.ssr_domains = "lpass",
+		.domain_id = SSR_DOMAIN_ADSP,
+		.nb = &ssr_adsp_nb,
+		.handle = NULL,
+	},
+};
+
+static int ssr_register(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(service_data); i++) {
+		if ((service_data[i].domain_id < 0) ||
+				(service_data[i].domain_id >= SSR_DOMAIN_MAX)) {
+			pr_err("Invalid service ID = %d\n",
+					service_data[i].domain_id);
+		} else {
+			service_data[i].handle =
+					qcom_register_ssr_notifier(
+					service_data[i].ssr_domains,
+					service_data[i].nb);
+			pr_err("subsys registration for id = %d, ssr domain = %s\n",
+				service_data[i].domain_id,
+				service_data[i].ssr_domains);
+			if (IS_ERR_OR_NULL(service_data[i].handle)) {
+				pr_err("subsys register failed for id = %d, ssr domain = %s\n",
+						service_data[i].domain_id,
+						service_data[i].ssr_domains);
+				service_data[i].handle = NULL;
+			}
+		}
+	}
+	return 0;
 }
 
 module_init(init_power_state_func);
