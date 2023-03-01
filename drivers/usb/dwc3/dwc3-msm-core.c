@@ -549,6 +549,7 @@ struct dwc3_msm {
 	int			gsi_reg_offset_cnt;
 
 	struct notifier_block	dpdm_nb;
+	struct notifier_block	panic_nb;
 	struct regulator	*dpdm_reg;
 
 	u64			dummy_gsi_db;
@@ -5015,6 +5016,41 @@ static int dwc3_msm_debug_init(struct dwc3_msm *mdwc)
 	return 0;
 }
 
+static int dwc3_usb_panic_notifier(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	struct dwc3_msm *mdwc = container_of(this, struct dwc3_msm, panic_nb);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	const struct debugfs_reg32 *dwc3_regs = dwc->regset->regs;
+	int size = dwc->regset->nregs, i;
+
+	ipc_log_string(mdwc->dwc_dma_ipc_log_ctxt, "[Reg_Name: Offset\t Value]");
+	for (i = 0; i < size; i++)
+		dump_dwc3_regs(dwc3_regs[i].name, dwc3_regs[i].offset,
+					dwc3_readl(dwc->regs, dwc3_regs[i].offset));
+
+	size = ARRAY_SIZE(qscratch_reg);
+	for (i = 0; i < size ; i++)
+		dump_dwc3_regs(qscratch_reg[i].name, qscratch_reg[i].offset + QSCRATCH_REG_OFFSET,
+					dwc3_msm_read_reg(mdwc->base, qscratch_reg[i].offset
+							+ QSCRATCH_REG_OFFSET));
+	return NOTIFY_DONE;
+}
+
+static int dwc3_usb_register_panic_hdlr(struct dwc3_msm *mdwc)
+{
+	mdwc->panic_nb.notifier_call  = dwc3_usb_panic_notifier;
+	mdwc->panic_nb.priority = INT_MAX;
+	return atomic_notifier_chain_register(&panic_notifier_list,
+			&mdwc->panic_nb);
+}
+
+static void dwc3_usb_unregister_panic_hdlr(struct dwc3_msm *mdwc)
+{
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+			&mdwc->panic_nb);
+}
+
 static void dwc3_host_complete(struct device *dev);
 static int dwc3_host_prepare(struct device *dev);
 static int dwc3_core_prepare(struct device *dev);
@@ -5557,6 +5593,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (dwc3_usb_register_panic_hdlr(mdwc))
+		dev_err(mdwc->dev, "dwc3-msm kernel panic notifier registration failed\n");
+
 	if (dwc3_msm_check_extcon_prop(pdev))
 		goto put_dwc3;
 
@@ -5647,6 +5686,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	destroy_workqueue(mdwc->sm_usb_wq);
 	destroy_workqueue(mdwc->dwc3_wq);
 
+	dwc3_usb_unregister_panic_hdlr(mdwc);
 	ipc_log_context_destroy(mdwc->dwc_ipc_log_ctxt);
 	mdwc->dwc_ipc_log_ctxt = NULL;
 	ipc_log_context_destroy(mdwc->dwc_dma_ipc_log_ctxt);
