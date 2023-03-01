@@ -249,6 +249,7 @@ static inline bool rwsem_read_trylock(struct rw_semaphore *sem, long *cntp)
 
 	if (!(*cntp & RWSEM_READ_FAILED_MASK)) {
 		rwsem_set_reader_owned(sem);
+		trace_android_vh_record_rwsem_lock_starttime(current, jiffies);
 		return true;
 	}
 
@@ -1326,7 +1327,6 @@ static inline int __down_write_common(struct rw_semaphore *sem, int state)
 			return -EINTR;
 	}
 
-	trace_android_vh_record_rwsem_lock_starttime(current, jiffies);
 	return 0;
 }
 
