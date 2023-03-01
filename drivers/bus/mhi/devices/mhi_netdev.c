@@ -1055,6 +1055,8 @@ static int mhi_netdev_probe(struct mhi_device *mhi_dev,
 		if (!rsc_parent_netdev || !rsc_parent_netdev->ndev)
 			return -ENODEV;
 
+		rsc_parent_netdev->rsc_dev = mhi_netdev;
+
 		/* this device is shared with parent device. so we won't be
 		 * creating a new network interface. Clone parent
 		 * information to child node
@@ -1139,12 +1141,21 @@ static const struct mhi_netdev_driver_data hw0_308_data = {
 	.mru = 0x8000,
 	.chain_skb = true,
 	.is_rsc_chan = false,
+	.has_rsc_child = true,
+	.interface_name = "rmnet_mhi",
+};
+
+static const struct mhi_netdev_driver_data hw0_rsc_308_data = {
+	.mru = 0x8000,
+	.chain_skb = true,
+	.is_rsc_chan = true,
 	.has_rsc_child = false,
 	.interface_name = "rmnet_mhi",
 };
 
 static const struct mhi_device_id mhi_netdev_match_table[] = {
 	{ .chan = "IP_HW0", .driver_data = (kernel_ulong_t)&hw0_308_data },
+	{ .chan = "IP_HW0_RSC", .driver_data = (kernel_ulong_t)&hw0_rsc_308_data },
 	{},
 };
 
