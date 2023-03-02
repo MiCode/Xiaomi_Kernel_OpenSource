@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/file.h>
@@ -16,20 +16,19 @@
 #include <linux/smcinvoke.h>
 
 #include "smcinvoke_helper.h"
-#include <soc/qcom/IAppLoader.h>
-#include <soc/qcom/CAppLoader.h>
-#include <soc/qcom/IAppController.h>
-#include <soc/qcom/IClientEnv.h>
-#include <soc/qcom/IOpener.h>
+#include <soc/qcom/smci_apploader.h>
+#include <soc/qcom/smci_appcontroller.h>
+#include <soc/qcom/smci_clientenv.h>
+#include <soc/qcom/smci_opener.h>
 
 #if !IS_ENABLED(CONFIG_QSEECOM)
 #include <linux/qseecom.h>
 #include <misc/qseecom_kernel.h>
-#include "IQSEEComCompat.h"
-#include "IQSEEComCompatAppLoader.h"
+#include "smci_qseecomcompat.h"
+#include "smci_qseecomcompatapploader.h"
 #endif
 
-const uint32_t CQSEEComCompatAppLoader_UID = 122;
+const uint32_t smci_qseecomcompatapploader_uid = 122;
 
 struct qseecom_compat_context {
 	void *dev; /* in/out */
@@ -37,9 +36,9 @@ struct qseecom_compat_context {
 	uint32_t sbuf_len; /* in/out */
 	struct qtee_shm shm;
 	uint8_t app_arch;
-	struct Object client_env;
-	struct Object app_loader;
-	struct Object app_controller;
+	struct smci_object client_env;
+	struct smci_object app_loader;
+	struct smci_object app_controller;
 };
 
 struct tzobject_context {
@@ -49,21 +48,21 @@ struct tzobject_context {
 
 static int invoke_over_smcinvoke(void *cxt,
 			uint32_t op,
-			union ObjectArg *args,
+			union smci_object_arg *args,
 			uint32_t counts);
 
-static struct Object tzobject_new(int fd)
+static struct smci_object tzobject_new(int fd)
 {
 	struct tzobject_context *me =
 			kzalloc(sizeof(struct tzobject_context), GFP_KERNEL);
 	if (!me)
-		return Object_NULL;
+		return SMCI_OBJECT_NULL;
 
 	kref_init(&me->refs);
 	me->fd = fd;
 	pr_debug("%s: me->fd = %d, me->refs = %u\n", __func__,
 			me->fd, kref_read(&me->refs));
-	return (struct Object) { invoke_over_smcinvoke, me };
+	return (struct smci_object) { invoke_over_smcinvoke, me };
 }
 
 static void tzobject_delete(struct kref *refs)
@@ -84,31 +83,31 @@ static void tzobject_delete(struct kref *refs)
 	kfree(me);
 }
 
-int getObjectFromHandle(int handle, struct Object *obj)
+static int get_smci_object_from_handle(int handle, struct smci_object *obj)
 {
 	int ret = 0;
 
 	if (handle == SMCINVOKE_USERSPACE_OBJ_NULL) {
-		/* NULL object*/
-		Object_ASSIGN_NULL(*obj);
+		/* NULL smci_object*/
+		SMCI_OBJECT_ASSIGN_NULL(*obj);
 	} else if (handle > SMCINVOKE_USERSPACE_OBJ_NULL) {
 		*obj = tzobject_new(handle);
-		if (Object_isNull(*obj))
-			ret = OBJECT_ERROR_BADOBJ;
+		if (SMCI_OBJECT_IS_NULL(*obj))
+			ret = SMCI_OBJECT_ERROR_BADOBJ;
 	} else {
 		pr_err("CBobj not supported for handle %d\n", handle);
-		ret = OBJECT_ERROR_BADOBJ;
+		ret = SMCI_OBJECT_ERROR_BADOBJ;
 	}
 
 	return ret;
 }
 
-int getHandleFromObject(struct Object obj, int *handle)
+static int get_handle_from_smci_object(struct smci_object obj, int *handle)
 {
 	int ret = 0;
 
-	if (Object_isNull(obj)) {
-	/* set NULL Object's fd to be -1 */
+	if (SMCI_OBJECT_IS_NULL(obj)) {
+	/* set NULL smci_object's fd to be -1 */
 		*handle = SMCINVOKE_USERSPACE_OBJ_NULL;
 		return ret;
 	}
@@ -120,11 +119,11 @@ int getHandleFromObject(struct Object obj, int *handle)
 			*handle = ctx->fd;
 		} else {
 			pr_err("Failed to get tzobject_context obj handle, ret = %d\n", ret);
-			ret = OBJECT_ERROR_BADOBJ;
+			ret = SMCI_OBJECT_ERROR_BADOBJ;
 		}
 	} else {
 		pr_err("CBobj not supported\n");
-		ret = OBJECT_ERROR_BADOBJ;
+		ret = SMCI_OBJECT_ERROR_BADOBJ;
 	}
 
 	return ret;
@@ -132,7 +131,7 @@ int getHandleFromObject(struct Object obj, int *handle)
 
 static int marshalIn(struct smcinvoke_cmd_req *req,
 			union smcinvoke_arg *argptr,
-			uint32_t op, union ObjectArg *args,
+			uint32_t op, union smci_object_arg *args,
 			uint32_t counts)
 {
 	size_t i = 0;
@@ -142,7 +141,7 @@ static int marshalIn(struct smcinvoke_cmd_req *req,
 	req->argsize = sizeof(union smcinvoke_arg);
 	req->args = (uintptr_t)argptr;
 
-	FOR_ARGS(i, counts, buffers) {
+	FOR_ARGS(i, counts, BUFFERS) {
 		argptr[i].b.addr = (uintptr_t) args[i].b.ptr;
 		argptr[i].b.size = args[i].b.size;
 	}
@@ -150,10 +149,10 @@ static int marshalIn(struct smcinvoke_cmd_req *req,
 	FOR_ARGS(i, counts, OI) {
 		int handle = -1, ret;
 
-		ret = getHandleFromObject(args[i].o, &handle);
+		ret = get_handle_from_smci_object(args[i].o, &handle);
 		if (ret) {
 			pr_err("invalid OI[%zu]\n", i);
-			return OBJECT_ERROR_BADOBJ;
+			return SMCI_OBJECT_ERROR_BADOBJ;
 		}
 		argptr[i].o.fd = handle;
 	}
@@ -161,12 +160,12 @@ static int marshalIn(struct smcinvoke_cmd_req *req,
 	FOR_ARGS(i, counts, OO) {
 		argptr[i].o.fd = SMCINVOKE_USERSPACE_OBJ_NULL;
 	}
-	return OBJECT_OK;
+	return SMCI_OBJECT_OK;
 }
 
 static int marshalOut(struct smcinvoke_cmd_req *req,
 			union smcinvoke_arg *argptr,
-			union ObjectArg *args, uint32_t counts,
+			union smci_object_arg *args, uint32_t counts,
 			struct tzobject_context *me)
 {
 	int ret = req->result;
@@ -180,7 +179,7 @@ static int marshalOut(struct smcinvoke_cmd_req *req,
 	}
 
 	FOR_ARGS(i, counts, OO) {
-		ret = getObjectFromHandle(argptr[i].o.fd, &(args[i].o));
+		ret = get_smci_object_from_handle(argptr[i].o.fd, &(args[i].o));
 		if (ret) {
 			pr_err("Failed to get OO[%zu] from handle = %d\n",
 				i, (int)argptr[i].o.fd);
@@ -192,21 +191,21 @@ static int marshalOut(struct smcinvoke_cmd_req *req,
 	}
 	if (failed) {
 		FOR_ARGS(i, counts, OO) {
-			Object_ASSIGN_NULL(args[i].o);
+			SMCI_OBJECT_ASSIGN_NULL(args[i].o);
 		}
 		/* Only overwrite ret value if invoke result is 0 */
 		if (ret == 0)
-			ret = OBJECT_ERROR_BADOBJ;
+			ret = SMCI_OBJECT_ERROR_BADOBJ;
 	}
 	return ret;
 }
 
 static int invoke_over_smcinvoke(void *cxt,
 			uint32_t op,
-			union ObjectArg *args,
+			union smci_object_arg *args,
 			uint32_t counts)
 {
-	int ret = OBJECT_OK;
+	int ret = SMCI_OBJECT_OK;
 	struct smcinvoke_cmd_req req = {0, 0, 0, 0, 0};
 	size_t i = 0;
 	struct tzobject_context *me = NULL;
@@ -214,30 +213,30 @@ static int invoke_over_smcinvoke(void *cxt,
 	union smcinvoke_arg *argptr = NULL;
 
 	FOR_ARGS(i, counts, OO) {
-		args[i].o = Object_NULL;
+		args[i].o = SMCI_OBJECT_NULL;
 	}
 
 	me = (struct tzobject_context *)cxt;
-	method = ObjectOp_methodID(op);
+	method = SMCI_OBJECT_OP_METHODID(op);
 	pr_debug("%s: cxt = %p, fd = %d, op = %u, cnt = %x, refs = %u\n",
 			__func__, me, me->fd, op, counts, kref_read(&me->refs));
 
-	if (ObjectOp_isLocal(op)) {
+	if (SMCI_OBJECT_OP_IS_LOCAL(op)) {
 		switch (method) {
-		case Object_OP_retain:
+		case SMCI_OBJECT_OP_RETAIN:
 			kref_get(&me->refs);
-			return OBJECT_OK;
-		case Object_OP_release:
+			return SMCI_OBJECT_OK;
+		case SMCI_OBJECT_OP_RELEASE:
 			kref_put(&me->refs, tzobject_delete);
-			return OBJECT_OK;
+			return SMCI_OBJECT_OK;
 		}
-		return OBJECT_ERROR_REMOTE;
+		return SMCI_OBJECT_ERROR_REMOTE;
 	}
 
-	argptr = kcalloc(OBJECT_COUNTS_TOTAL(counts),
+	argptr = kcalloc(SMCI_OBJECT_COUNTS_TOTAL(counts),
 			sizeof(union smcinvoke_arg), GFP_KERNEL);
 	if (argptr == NULL)
-		return OBJECT_ERROR_KMEM;
+		return SMCI_OBJECT_ERROR_KMEM;
 
 	ret = marshalIn(&req, argptr, op, args, counts);
 	if (ret)
@@ -256,7 +255,7 @@ static int invoke_over_smcinvoke(void *cxt,
 				__close_fd(current->files, obj.fd);
 			}
 		}
-		ret = OBJECT_ERROR_KMEM;
+		ret = SMCI_OBJECT_ERROR_KMEM;
 		goto exit;
 	}
 
@@ -267,7 +266,7 @@ exit:
 	return ret | req.result;
 }
 
-static int get_root_obj(struct Object *rootObj)
+static int get_root_obj(struct smci_object *rootObj)
 {
 	int ret = 0;
 	int root_fd = -1;
@@ -278,7 +277,7 @@ static int get_root_obj(struct Object *rootObj)
 		return ret;
 	}
 	*rootObj = tzobject_new(root_fd);
-	if (Object_isNull(*rootObj)) {
+	if (SMCI_OBJECT_IS_NULL(*rootObj)) {
 		__close_fd(current->files, root_fd);
 		ret = -ENOMEM;
 	}
@@ -289,24 +288,24 @@ static int get_root_obj(struct Object *rootObj)
  * Get a client environment using CBOR encoded credentials
  * with UID of SYSTEM_UID (1000)
  */
-int32_t get_client_env_object(struct Object *clientEnvObj)
+int32_t get_client_env_object(struct smci_object *client_env_obj)
 {
-	int32_t  ret = OBJECT_ERROR;
-	struct Object rootObj = Object_NULL;
+	int32_t  ret = SMCI_OBJECT_ERROR;
+	struct smci_object rootObj = SMCI_OBJECT_NULL;
 
 	/* get rootObj */
 	ret = get_root_obj(&rootObj);
 	if (ret) {
-		pr_err("Failed to create rootobj\n");
+		pr_err("Failed to create rootObj\n");
 		return ret;
 	}
 
-	ret = IClientEnv_registerWithCredentials(rootObj, Object_NULL, clientEnvObj);
+	ret = smci_clientenv_registerwithcredentials(rootObj, SMCI_OBJECT_NULL, client_env_obj);
 
 	if (ret)
-		pr_err("Failed to get ClientEnvObject, ret = %d\n", ret);
+		pr_err("Failed to get client_env_object, ret = %d\n", ret);
 
-	Object_release(rootObj);
+	smci_object_release(rootObj);
 	return ret;
 }
 EXPORT_SYMBOL(get_client_env_object);
@@ -328,7 +327,7 @@ static int load_app(struct qseecom_compat_context *cxt, const char *app_name)
 		return -EINVAL;
 	}
 
-	ret = IQSEEComCompatAppLoader_lookupTA(cxt->app_loader,
+	ret = smci_qseecomcompatapploader_lookupta(cxt->app_loader,
 		app_name, strlen(app_name), &cxt->app_controller);
 	if (!ret) {
 		pr_info("app %s exists\n", app_name);
@@ -341,7 +340,7 @@ static int load_app(struct qseecom_compat_context *cxt, const char *app_name)
 		return -EINVAL;
 	}
 
-	ret = IQSEEComCompatAppLoader_loadFromBuffer(
+	ret = smci_qseecomcompatapploader_loadfrombuffer(
 			cxt->app_loader, imgbuf_va, fw_size,
 			app_name, strlen(app_name),
 			dist_name, MAX_APP_NAME_SIZE, &dist_name_len,
@@ -386,14 +385,14 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		ret = -EINVAL;
 		goto exit_free_cxt;
 	}
-	/* get apploader with CQSEEComCompatAppLoader_UID */
-	ret = IClientEnv_open(cxt->client_env, CQSEEComCompatAppLoader_UID,
+	/* get apploader with smci_qseecomcompatapploader_uid */
+	ret = smci_clientenv_open(cxt->client_env, smci_qseecomcompatapploader_uid,
 				&cxt->app_loader);
 	if (ret) {
 		pr_err("failed to get apploader when loading app %s, ret %d\n",
 			app_name, ret);
 		ret = -EINVAL;
-		goto exit_release_clientenv;
+		goto exit_release_client_env;
 	}
 
 	/* load app*/
@@ -402,7 +401,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		pr_err("failed to load app %s, ret = %d\n",
 			app_name, ret);
 		ret = -EINVAL;
-		goto exit_release_apploader;
+		goto exit_release_app_loader;
 	}
 
 	/* Get the physical address of the req/resp buffer */
@@ -411,7 +410,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	if (ret) {
 		pr_err("qtee_shmbridge_allocate_shm failed, ret :%d\n", ret);
 		ret = -EINVAL;
-		goto exit_release_appcontroller;
+		goto exit_release_app_controller;
 	}
 	cxt->sbuf = cxt->shm.vaddr;
 	cxt->sbuf_len = size;
@@ -419,12 +418,12 @@ int qseecom_start_app(struct qseecom_handle **handle,
 
 	return ret;
 
-exit_release_appcontroller:
-	Object_release(cxt->app_controller);
-exit_release_apploader:
-	Object_release(cxt->app_loader);
-exit_release_clientenv:
-	Object_release(cxt->client_env);
+exit_release_app_controller:
+	smci_object_release(cxt->app_controller);
+exit_release_app_loader:
+	smci_object_release(cxt->app_loader);
+exit_release_client_env:
+	smci_object_release(cxt->client_env);
 exit_free_cxt:
 	kfree(cxt);
 
@@ -443,9 +442,9 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 	}
 
 	qtee_shmbridge_free_shm(&cxt->shm);
-	Object_release(cxt->app_controller);
-	Object_release(cxt->app_loader);
-	Object_release(cxt->client_env);
+	smci_object_release(cxt->app_controller);
+	smci_object_release(cxt->app_loader);
+	smci_object_release(cxt->client_env);
 	kfree(cxt);
 	*handle = NULL;
 	return 0;
@@ -467,15 +466,15 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 			 __func__, handle, send_buf, resp_buf, sbuf_len, rbuf_len);
 		return -EINVAL;
 	}
-	return IQSEEComCompat_sendRequest(cxt->app_controller,
+	return smci_qseecomcompat_sendrequest(cxt->app_controller,
 				  send_buf, sbuf_len,
 				  resp_buf, rbuf_len,
 				  send_buf, sbuf_len, &out_len,
 				  resp_buf, rbuf_len, &out_len,
 				  NULL, 0, /* embedded offset array */
 				  (cxt->app_arch == ELFCLASS64),
-				  Object_NULL, Object_NULL,
-				  Object_NULL, Object_NULL);
+				  SMCI_OBJECT_NULL, SMCI_OBJECT_NULL,
+				  SMCI_OBJECT_NULL, SMCI_OBJECT_NULL);
 }
 EXPORT_SYMBOL(qseecom_send_command);
 #endif
