@@ -3122,6 +3122,7 @@ static int qcom_ethqos_suspend(struct device *dev)
 		ethqos_phy_power_off(ethqos);
 	}
 
+	priv->boot_kpi = false;
 	ETHQOSDBG(" ret = %d\n", ret);
 	return ret;
 }
