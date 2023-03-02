@@ -339,8 +339,9 @@ static int vfastrpc_get_info_ioctl(void *param, struct vfastrpc_file *vfl)
 {
 	int err = 0;
 	uint32_t info;
+	struct fastrpc_file *fl = to_fastrpc_file(vfl);
 
-	K_COPY_FROM_USER(err, 0, &info, param, sizeof(info));
+	K_COPY_FROM_USER(err, fl->is_compat, &info, param, sizeof(info));
 	if (err)
 		return err;
 
@@ -348,7 +349,7 @@ static int vfastrpc_get_info_ioctl(void *param, struct vfastrpc_file *vfl)
 	if (err)
 		return err;
 
-	K_COPY_TO_USER(err, 0, param, &info, sizeof(info));
+	K_COPY_TO_USER(err, fl->is_compat, param, &info, sizeof(info));
 	return err;
 }
 
@@ -363,8 +364,9 @@ static int vfastrpc_init_ioctl(struct fastrpc_ioctl_init_attrs *init,
 		void *param, struct vfastrpc_file *vfl)
 {
 	int err = 0;
+	struct fastrpc_file *fl = to_fastrpc_file(vfl);
 
-	K_COPY_FROM_USER(err, 0, init, param, sizeof(*init));
+	K_COPY_FROM_USER(err, fl->is_compat, init, param, sizeof(*init));
 	if (err)
 		return err;
 
