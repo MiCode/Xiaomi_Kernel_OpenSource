@@ -3333,14 +3333,14 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 		console_stop(uport->cons);
 		disable_irq(uport->irq);
 	} else {
+		msm_geni_serial_power_on(uport);
+
 		if (msm_port->wakeup_irq > 0 && msm_port->wakeup_enabled) {
 			irq_set_irq_wake(msm_port->wakeup_irq, 0);
 			disable_irq(msm_port->wakeup_irq);
 			msm_port->wakeup_enabled = false;
 		}
 
-		geni_se_common_clks_on(msm_port->serial_rsc.se_clk,
-			msm_port->serial_rsc.m_ahb_clk, msm_port->serial_rsc.s_ahb_clk);
 		if (msm_port->xfer_mode == GENI_GPI_DMA) {
 			/* From the framework every time the stop
 			 * rx sequncer will be called before the closing
@@ -3394,8 +3394,6 @@ static void msm_geni_serial_shutdown(struct uart_port *uport)
 		} else {
 			msm_geni_serial_stop_tx(uport);
 		}
-		geni_se_common_clks_off(msm_port->serial_rsc.se_clk,
-			msm_port->serial_rsc.m_ahb_clk, msm_port->serial_rsc.s_ahb_clk);
 		msm_port->count = 0;
 	}
 
