@@ -3749,7 +3749,7 @@ static void ufs_qcom_print_ber_hist(struct ufs_qcom_host *host)
 
 			if (h->tstamp[p] == 0)
 				continue;
-			dev_err(host->hba->dev, "pa_err_%d=0x%x, err_code=0x%x, gear=%d, time=%lld us\n",
+			dev_dbg(host->hba->dev, "pa_err_%d=0x%x, err_code=0x%x, gear=%d, time=%lld us\n",
 						p, h->uec_pa[p], h->err_code[p], h->gear[p],
 						ktime_to_us(h->tstamp[p]));
 		}
@@ -3871,7 +3871,6 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 								  void *data)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct phy *phy = host->generic_phy;
 	bool ber_th_exceeded = false;
 
 	switch (evt) {
@@ -3885,8 +3884,7 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 			ufs_qcom_print_ber_hist(host);
 
 			if (crash_on_ber) {
-				ufs_qcom_phy_dbg_register_dump(phy);
-				BUG_ON(1);
+				dev_err(hba->dev, "BER crash disabled, Bail\n");
 			}
 		}
 
