@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021-2021 Qualcomm Innovation Center, Inc. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
@@ -566,17 +566,8 @@ static void android_rvh_is_cpu_allowed(void *unused, struct task_struct *p, int 
 	}
 }
 
-static int walt_halt_hp_online_teardown(unsigned int cpu)
-{
-	if (cpu == cpumask_first(cpu_possible_mask))
-		return -EINVAL;
-
-	return 0;
-}
-
 void walt_halt_init(void)
 {
-	int ret;
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 
 	walt_drain_thread = kthread_run(try_drain_rqs, &drain_data, "halt_drain_rqs");
@@ -588,17 +579,13 @@ void walt_halt_init(void)
 	sched_setscheduler_nocheck(walt_drain_thread, SCHED_FIFO, &param);
 
 	/*
-	 * register hotplug callback only for symmetric system (all or none
-	 * of the cores supporting 32bit).
+	 * disable hotplug of first cpu for a symmetric system (all or none of the cores
+	 * supporting 32bit).
 	 */
 	if (cpumask_empty(system_32bit_el0_cpumask()) ||
 		    (cpumask_weight(cpu_possible_mask) ==
-			     cpumask_weight(system_32bit_el0_cpumask()))) {
-		ret = cpuhp_setup_state(CPUHP_ANDROID_RESERVED_4, "walt-halt:online",
-					NULL, walt_halt_hp_online_teardown);
-		if (ret < 0)
-			pr_err("halt: error registering cpuhp callback\n");
-	}
+			     cpumask_weight(system_32bit_el0_cpumask())))
+		get_cpu_device(cpumask_first(cpu_possible_mask))->offline_disabled = true;
 
 	register_trace_android_rvh_get_nohz_timer_target(android_rvh_get_nohz_timer_target, NULL);
 	register_trace_android_rvh_set_cpus_allowed_by_task(
