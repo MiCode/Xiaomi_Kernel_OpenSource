@@ -3915,6 +3915,7 @@ static void ufs_qcom_save_all_regs(struct ufs_qcom_host *host)
 	ufs_qcom_phy_dbg_register_save(phy);
 }
 
+static bool enable_ber_mon = false;
 static void ufs_qcom_event_notify(struct ufs_hba *hba,
 								  enum ufs_event_type evt,
 								  void *data)
@@ -3925,6 +3926,9 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 
 	switch (evt) {
 	case UFS_EVT_PA_ERR:
+		if (!enable_ber_mon)
+			break;
+
 		ber_th_exceeded = ufs_qcom_update_ber_event(host, *(u32 *)data,
 								hba->pwr_info.gear_rx);
 
