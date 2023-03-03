@@ -4916,6 +4916,10 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 				ufshcd_readl(hba,
 					REG_UTP_TRANSFER_REQ_DOOR_BELL),
 				sz);
+#ifdef CONFIG_SMP
+		if (atomic_read(&host->hi_pri_en) && rq)
+			blk_queue_flag_clear(QUEUE_FLAG_SAME_COMP, rq->q);
+#endif
 	}
 }
 
@@ -4926,6 +4930,7 @@ static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	if (lrbp && lrbp->cmd) {
+		struct request *rq = scsi_cmd_to_rq(lrbp->cmd);
 		int sz = scsi_cmd_to_rq(lrbp->cmd) ?
 				blk_rq_sectors(scsi_cmd_to_rq(lrbp->cmd)) : 0;
 		ufs_qcom_log_str(host, ">,%x,%d,%x,%d\n",
@@ -4934,6 +4939,10 @@ static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 				ufshcd_readl(hba,
 					REG_UTP_TRANSFER_REQ_DOOR_BELL),
 				sz);
+#ifdef CONFIG_SMP
+		if (!atomic_read(&host->hi_pri_en) && rq)
+			blk_queue_flag_set(QUEUE_FLAG_SAME_COMP, rq->q);
+#endif
 	}
 }
 
