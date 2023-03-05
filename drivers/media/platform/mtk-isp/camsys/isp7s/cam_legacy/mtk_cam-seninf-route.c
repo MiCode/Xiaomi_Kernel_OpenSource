@@ -1878,11 +1878,19 @@ static void mtk_notify_listen_target_fn(struct kthread_work *work)
 
 	if (seninf_work) {
 		ctx = seninf_work->ctx;
-		if (ctx)
+		if (ctx) {
 			notify_fsync_listen_target(ctx);
 
+			if (seninf_work->do_sensor_stream_on) {
+				// stream on sensor after setting listen target
+				stream_sensor(ctx, 1);
+			}
+		} else
+			pr_info("[%s] ctx null, never be here\n", __func__);
+
 		kfree(seninf_work);
-	}
+	} else
+		pr_info("[%s] seninf_work null, never be here\n", __func__);
 }
 
 void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx,
@@ -1894,6 +1902,8 @@ void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx,
 		seninf_work = kmalloc(sizeof(struct mtk_seninf_work),
 					GFP_ATOMIC);
 		if (seninf_work) {
+			memset(seninf_work, 0, sizeof(*seninf_work));
+
 			// --- change to use kthread_delayed_work.
 			// kthread_init_work(&seninf_work->work,
 			//		mtk_notify_listen_target_fn);
@@ -1911,6 +1921,63 @@ void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx,
 		}
 	}
 }
+
+int stream_sensor(struct seninf_ctx *ctx, int enable)
+{
+	int ret;
+
+	ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, enable);
+	if (ret) {
+		dev_info(ctx->dev, "%s sensor stream-%s fail,ret(%d)\n",
+			 __func__,
+			 enable ? "on" : "off",
+			 ret);
+	} else {
+#ifdef SENINF_UT_DUMP
+		g_seninf_ops->_debug(ctx);
+#endif
+	}
+
+	return ret;
+}
+
+void notify_fsync_with_kthread_and_s_stream(struct seninf_ctx *ctx,
+	const unsigned int mdelay, const int enable)
+{
+	struct mtk_seninf_work *seninf_work = NULL;
+
+	if (!enable) {
+		// stream off immediately
+		stream_sensor(ctx, 0);
+		return;
+	}
+
+	seninf_work = kmalloc(sizeof(struct mtk_seninf_work),
+				GFP_ATOMIC);
+	if (seninf_work) {
+		memset(seninf_work, 0, sizeof(*seninf_work));
+
+		// --- change to use kthread_delayed_work.
+		// kthread_init_work(&seninf_work->work,
+		//		mtk_notify_listen_target_fn);
+		kthread_init_delayed_work(&seninf_work->dwork,
+				mtk_notify_listen_target_fn);
+
+		seninf_work->ctx = ctx;
+		seninf_work->do_sensor_stream_on = 1;
+
+		// --- change to use kthread_delayed_work.
+		// kthread_queue_work(&ctx->core->seninf_worker,
+		//		&seninf_work->work);
+		kthread_queue_delayed_work(&ctx->core->seninf_worker,
+				&seninf_work->dwork,
+				msecs_to_jiffies(mdelay));
+	} else {
+		// stream on immediately
+		stream_sensor(ctx, 1);
+	}
+}
+
 
 bool has_multiple_expo_mode(struct seninf_ctx *ctx)
 {

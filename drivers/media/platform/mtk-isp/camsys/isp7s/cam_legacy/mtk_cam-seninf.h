@@ -67,6 +67,7 @@ struct mtk_seninf_work {
 	struct kthread_work work;
 	struct kthread_delayed_work dwork;
 	struct seninf_ctx *ctx;
+	int do_sensor_stream_on;
 	union work_data_t {
 		unsigned int sof;
 		void *data_ptr;

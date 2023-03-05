@@ -1694,25 +1694,6 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 }
 
-static int stream_sensor(struct seninf_ctx *ctx, bool enable)
-{
-	int ret;
-
-	ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, enable);
-	if (ret) {
-		dev_info(ctx->dev, "%s sensor stream-%s fail,ret(%d)\n",
-			 __func__,
-			 enable ? "on" : "off",
-			 ret);
-	} else {
-#ifdef SENINF_UT_DUMP
-		g_seninf_ops->_debug(ctx);
-#endif
-	}
-
-	return ret;
-}
-
 static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
@@ -1781,11 +1762,8 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		// notify_fsync_listen_target(ctx);
 	}
 
-	// stream on sensor after mux set
-	stream_sensor(ctx, enable);
-
 	ctx->streaming = enable;
-	notify_fsync_listen_target_with_kthread(ctx, 2);
+	notify_fsync_with_kthread_and_s_stream(ctx, 2, enable);
 
 	if (core->aov_abnormal_deinit_flag) {
 		ctx->is_aov_real_sensor = 0;

@@ -31,6 +31,10 @@ u8 is_reset_by_user(struct seninf_ctx *ctx);
 int reset_sensor(struct seninf_ctx *ctx);
 int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx);
 
+int stream_sensor(struct seninf_ctx *ctx, int enable);
+void notify_fsync_with_kthread_and_s_stream(struct seninf_ctx *ctx,
+	const unsigned int mdelay, const int enable);
+
 #ifdef SENINF_DEBUG
 void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx);
 int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux, int vc_idx);
