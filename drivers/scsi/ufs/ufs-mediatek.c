@@ -3778,11 +3778,12 @@ static const struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 static int ufs_mtk_probe(struct platform_device *pdev)
 {
 	int err = 0;
-	struct device *dev = &pdev->dev, *phy_dev;
+	struct device *dev = &pdev->dev, *phy_dev = NULL;
 	struct device_node *reset_node, *phy_node = NULL;
 	struct platform_device *reset_pdev, *phy_pdev = NULL;
-	struct device_link *link, *phy_link;
+	struct device_link *link;
 	struct ufs_hba *hba;
+	struct ufs_mtk_host *host;
 
 	reset_node = of_find_compatible_node(NULL, NULL,
 					     "ti,syscon-reset");
@@ -3818,12 +3819,9 @@ skip_reset:
 		phy_dev = &phy_pdev->dev;
 
 		pm_runtime_set_active(phy_dev);
-		phy_link = device_link_add(dev, phy_dev, DL_FLAG_PM_RUNTIME);
-		if (!phy_link) {
-			dev_notice(dev, "add phys device_link fail\n");
-			goto skip_phy;
-		}
 		pm_runtime_enable(phy_dev);
+		pm_runtime_get_sync(phy_dev);
+
 		dev_info(dev, "phys node found\n");
 	} else {
 		dev_notice(dev, "phys node not found\n");
@@ -3847,6 +3845,11 @@ skip_phy:
 		irq_set_affinity_hint(hba->irq, get_cpu_mask(3));
 
 	ufs_mtk_mcq_set_irq_affinity(hba);
+
+	if ((phy_node) && (phy_dev)) {
+		host = ufshcd_get_variant(hba);
+		host->phy_dev = phy_dev;
+	}
 
 	/*
 	 * Because the default power setting of VSx (the upper layer of
@@ -3971,6 +3974,7 @@ int ufs_mtk_system_resume(struct device *dev)
 int ufs_mtk_runtime_suspend(struct device *dev)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	int ret = 0;
 
 #if defined(CONFIG_UFSFEATURE)
@@ -3990,6 +3994,9 @@ int ufs_mtk_runtime_suspend(struct device *dev)
 		ufsf_resume(ufsf, true);
 #endif
 
+	if (!ret && (host->phy_dev))
+		pm_runtime_put_sync(host->phy_dev);
+
 	return ret;
 }
 
@@ -3997,11 +4004,16 @@ int ufs_mtk_runtime_resume(struct device *dev)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 	int ret = 0;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
 #if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 	bool is_link_off = ufshcd_is_link_off(hba);
 #endif
+
+	if (host->phy_dev)
+		pm_runtime_get_sync(host->phy_dev);
+
 	ufs_mtk_dev_vreg_set_lpm(hba, false);
 
 	ret = ufshcd_runtime_resume(dev);
