@@ -432,7 +432,11 @@ mtk_cam_internal_img_working_buf_pool_init(struct mtk_cam_ctx *ctx,
 	if (IS_ERR(mem_priv))
 		return PTR_ERR(mem_priv);
 
+#ifdef FD_CLOSE_READY
 	dmabuf_fd = mtk_ccd_get_buffer_fd(ccd, mem_priv);
+#else
+	dmabuf_fd = 0;
+#endif
 	dbuf = mtk_ccd_get_buffer_dmabuf(ccd, mem_priv);
 	if (dbuf)
 		mtk_dma_buf_set_name(dbuf, "CAM_MEM_IMG_ID");
