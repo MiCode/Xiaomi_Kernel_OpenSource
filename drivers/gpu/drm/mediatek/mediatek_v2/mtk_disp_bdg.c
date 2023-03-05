@@ -1219,6 +1219,7 @@ int bdg_tx_data_phy_cycle_calc(struct mtk_dsi *dsi,
 				unsigned int *bdg_tx_data_phy_cycle)
 {
 	u32 ui, cycle_time;
+	unsigned int hs_trail;
 	struct mtk_panel_ext *ext = dsi->ext;
 
 	if (dsi->bdg_mipi_hopping_sta) {
@@ -1255,6 +1256,23 @@ int bdg_tx_data_phy_cycle_calc(struct mtk_dsi *dsi,
 			timcon0.HS_ZERO - timcon0.HS_PRPR : timcon0.HS_ZERO;
 	if (timcon0.HS_ZERO < 1)
 		timcon0.HS_ZERO = 1;
+
+	/********cal for mipi hop while first start system start**/
+	/* hs_trail > max(8*UI, 60ns+4*UI) (spec) */
+	/* hs_trail = 80ns+4*UI */
+	hs_trail = 80 + 4 * ui;
+	timcon0.HS_TRAIL = (hs_trail > cycle_time) ?
+				NS_TO_CYCLE_BDG(hs_trail, cycle_time) + 1 : 2;
+
+	/* ta_go = 4*lpx (spec) */
+	timcon1.TA_GO = 4 * timcon0.LPX;
+
+	/* ta_get = 5*lpx (spec) */
+	timcon1.TA_GET = 5 * timcon0.LPX;
+
+	/* ta_sure = lpx ~ 2*lpx (spec) */
+	timcon1.TA_SURE = 3 * timcon0.LPX / 2;
+	/********cal for mipi hop while first start system end**/
 
 	/* hs_exit > 100ns (spec) */
 	/* hs_exit = 120ns */
