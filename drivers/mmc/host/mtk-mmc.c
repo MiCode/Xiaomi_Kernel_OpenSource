@@ -3073,6 +3073,15 @@ static void msdc_restore_reg(struct msdc_host *host)
 	struct mmc_host *mmc = mmc_from_priv(host);
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
 
+	if (support_new_tx(host->dev_comp->new_tx_ver)) {
+		sdr_clr_bits(host->base + SDC_ADV_CFG0, SDC_NEW_TX_EN);
+		sdr_set_bits(host->base + SDC_ADV_CFG0, SDC_NEW_TX_EN);
+	}
+	if (support_new_rx(host->dev_comp->new_rx_ver)) {
+		sdr_clr_bits(host->base + MSDC_NEW_RX_CFG, MSDC_NEW_RX_PATH_SEL);
+		sdr_set_bits(host->base + MSDC_NEW_RX_CFG, MSDC_NEW_RX_PATH_SEL);
+	}
+
 	writel(host->save_para.msdc_cfg, host->base + MSDC_CFG);
 	writel(host->save_para.iocon, host->base + MSDC_IOCON);
 	writel(host->save_para.sdc_cfg, host->base + SDC_CFG);
