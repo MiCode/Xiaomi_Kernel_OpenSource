@@ -3597,6 +3597,7 @@
 				dma-requests = <8>;
 				support-hub = <0xC0>;  /*bit 0~7 to ch 0~7*/
 				peri-regs = <0x11036300 0x1 0x1>;  /*peri: <base, mask, val>*/
+				peri-axi-dbg = <0x11036150>;
 				#dma-cells = <1>;
 		};
 
