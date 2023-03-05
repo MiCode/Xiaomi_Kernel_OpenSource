@@ -242,7 +242,7 @@ static void jdi_dcs_write(struct jdi *ctx, const void *data, size_t len)
 	addr = (char *)data;
 
 	if (len > 1)
-		udelay(30);
+		udelay(20);
 
 	if ((int)*addr < 0xB0)
 		ret = mipi_dsi_dcs_write_buffer(dsi, data, len);
@@ -797,9 +797,6 @@ static int jdi_unprepare(struct drm_panel *panel)
 			devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
 		gpiod_set_value(ctx->bias_pos, 0);
 		devm_gpiod_put(ctx->dev, ctx->bias_pos);
-	} else if (ctx->gate_ic == 4831) {
-		_gate_ic_i2c_panel_bias_enable(0);
-		_gate_ic_Power_off();
 	}
 	ctx->error = 0;
 	ctx->prepared = false;
@@ -821,7 +818,7 @@ static int jdi_prepare(struct drm_panel *panel)
 	gpiod_set_value(ctx->reset_gpio, 1);
 	usleep_range(10000, 10001);
 	gpiod_set_value(ctx->reset_gpio, 0);
-	msleep(20);
+	usleep_range(10000, 10001);
 	gpiod_set_value(ctx->reset_gpio, 1);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 	// end
@@ -836,9 +833,6 @@ static int jdi_prepare(struct drm_panel *panel)
 			devm_gpiod_get_index(ctx->dev, "bias", 1, GPIOD_OUT_HIGH);
 		gpiod_set_value(ctx->bias_neg, 1);
 		devm_gpiod_put(ctx->dev, ctx->bias_neg);
-	} else if (ctx->gate_ic == 4831) {
-		_gate_ic_Power_on();
-		_gate_ic_i2c_panel_bias_enable(1);
 	}
 #ifndef BYPASSI2C
 	_lcm_i2c_write_bytes(0x0, 0xf);
