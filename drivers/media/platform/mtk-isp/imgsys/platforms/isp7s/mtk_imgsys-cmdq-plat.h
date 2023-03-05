@@ -26,6 +26,12 @@
 #define GCE_REC_MAX_LABEL_COUNT     (2048)
 #endif
 
+#define IMGSYS_REG_START	0x15000000
+#define IMGSYS_REG_END		0x157FFFFF
+
+#define IMGSYS_CMD_MAX_SZ_N	0x9000
+#define IMGSYS_CMD_MAX_SZ_V	0x50000
+
 #define IMGSYS_NOR_THD 12
 #define IMGSYS_QOS_MAX 56
 #define IMGSYS_SEC_THD 2
@@ -1017,7 +1023,7 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 					uint32_t fail_uinfo_idx, bool isHWhang,
 					uint32_t hangEvent));
 int imgsys_cmdq_parser_plat7s(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
-				struct Command *cmd, u32 hw_comb,
+				struct Command *cmd, u32 hw_comb, u32 cmd_num,
 				dma_addr_t dma_pa, uint32_t *num, u32 thd_idx);
 int imgsys_cmdq_sec_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_cmdq_sec_cmd_plat7s(struct cmdq_pkt *pkt);

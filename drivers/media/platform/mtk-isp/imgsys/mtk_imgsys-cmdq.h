@@ -262,7 +262,7 @@ struct imgsys_cmdq_cust_data {
 			void (*cmdq_err_cb)(struct cmdq_cb_data data,
 			uint32_t fail_uinfo_idx, bool isHWhang, uint32_t hangEvent));
 	int (*cmdq_parser)(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
-			struct Command *cmd, u32 hw_comb,
+			struct Command *cmd, u32 hw_comb, u32 cmd_num,
 			dma_addr_t dma_pa, uint32_t *num, u32 thd_idx);
 	int (*cmdq_sec_sendtask)(struct mtk_imgsys_dev *imgsys_dev);
 	void (*cmdq_sec_cmd)(struct cmdq_pkt *pkt);
