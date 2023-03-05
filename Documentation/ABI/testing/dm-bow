@@ -1,0 +1,19 @@
+What:		/sys/block/dm-<num>/bow/free
+Date:		January 2023
+KernelVersion:	5.15
+Contact:	paullawrence@google.com
+Description:	free space
+		Free space on device in bytes. Only valid in state 0
+Users:		Android vold to determine if there is sufficient space for expected size
+		of checksum
+
+What:		/sys/block/dm-<num>/bow/state
+Date:		January 2023
+KernelVersion:	5.15
+Contact:	paullawrence@google.com
+Description:	dm-bow state
+		Read-write string containing 0, 1 or 2
+		0: Trim mode
+		1: Checkpoint mode
+		2: Committed mode
+		See Documentation/device-mapper/dm-bow for details
