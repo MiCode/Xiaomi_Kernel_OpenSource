@@ -3847,7 +3847,7 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->lock            = &ctx->q_mutex;
 	dst_vq->allow_zero_bytesused = 1;
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (ctx->dev->enc_cnt & 1) {
+	if (ctx->id & 1) {
 		dst_vq->dev		= vcp_get_io_device(VCP_IOMMU_VDEC_512MB1);
 		mtk_v4l2_debug(4, "use VCP_IOMMU_VDEC_512MB1 domain");
 	} else {
