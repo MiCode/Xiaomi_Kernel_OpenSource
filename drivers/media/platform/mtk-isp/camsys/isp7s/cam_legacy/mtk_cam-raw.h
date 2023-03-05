@@ -522,10 +522,11 @@ void mtk_raw_set_dcif_rawi_fmt(struct device *dev, struct v4l2_format *img_fmt,
 			       int width, int height, unsigned int code,
 			       const struct v4l2_format *imgo_fmt);
 
-int mtk_cam_update_pd_meta_cfg_info(struct mtk_raw_pipeline *pipeline,
-							enum mtk_cam_ctrl_type ctrl_type);
-int mtk_cam_update_pd_meta_out_info(struct mtk_raw_pipeline *pipeline,
-							enum mtk_cam_ctrl_type ctrl_type);
+int mtk_cam_pde_try_meta_size(struct mtk_raw_pipeline *pipeline, int node_id,
+			      unsigned int base_sz);
+int mtk_cam_pde_set_meta_size(struct mtk_raw_pipeline *pipeline, int node_id,
+			      unsigned int base_sz, unsigned int act_sz);
+bool mtk_cam_pde_is_enabled(struct mtk_raw_pipeline *pipeline);
 
 int mtk_cam_init_hdr_tsfifo(struct mtk_raw *raw, struct v4l2_device *v4l2_dev);
 int mtk_cam_reset_hdr_tsfifo(struct mtk_raw_pipeline *pipe);

@@ -838,71 +838,118 @@ static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 	return ret;
 }
 
-static int set_pd_info(struct mtk_raw_pipeline *pipeline,
-					   enum mtk_cam_ctrl_type ctrl_type,
-					   int node_id, int pd_sz,
-					   int *pd_info_meta_sz, int *pd_table_offset)
+static void update_pd_meta_info(struct mtk_raw_pipeline *pipeline,
+				enum mtk_cam_ctrl_type ctrl_type, int node_id)
 {
-	int ret = 0;
 	struct device *dev;
 	struct mtk_cam_video_device *node;
 	struct mtk_cam_pde_info *pde_info_pipe;
 	const struct v4l2_format *fmt;
-	int fmt_sz, active_sz;
+	int fmt_sz;
 
 	dev = pipeline->raw->devs[pipeline->id];
 	node = &pipeline->vdev_nodes[node_id - MTK_RAW_SINK_NUM];
 	fmt = mtk_cam_dev_find_fmt(&node->desc,
-					node->active_fmt.fmt.meta.dataformat);
-
+				   node->active_fmt.fmt.meta.dataformat);
 	pde_info_pipe = &pipeline->pde_config.pde_info[ctrl_type];
-
 	fmt_sz = fmt->fmt.meta.buffersize;
-	active_sz = node->active_fmt.fmt.meta.buffersize;
+
+	if (node_id == MTK_RAW_META_IN) {
+		pde_info_pipe->meta_cfg_size = fmt_sz +
+			pde_info_pipe->pdi_max_size;
+		pde_info_pipe->pd_table_offset = fmt_sz;
+	} else if (node_id == MTK_RAW_META_OUT_0) {
+		pde_info_pipe->meta_0_size = fmt_sz +
+			pde_info_pipe->pdo_max_size;
+	}
+}
+
+bool mtk_cam_pde_is_enabled(struct mtk_raw_pipeline *pipeline)
+{
+	struct mtk_cam_pde_info *pde_info_pipe;
+
+	if (!pipeline)
+		return false;
+
+	pde_info_pipe = &pipeline->pde_config.pde_info[CAM_SET_CTRL];
+	if (pde_info_pipe->pdo_max_size && pde_info_pipe->pdi_max_size)
+		return true;
+
+	return false;
+}
+
+int mtk_cam_pde_try_meta_size(struct mtk_raw_pipeline *pipeline, int node_id,
+			      unsigned int base_sz)
+{
+	struct device *dev;
+	struct mtk_cam_pde_info *pde_info_pipe;
+	unsigned int extra_pd_sz = 0;
+
+	if (!pipeline ||
+	    (node_id != MTK_RAW_META_IN && node_id != MTK_RAW_META_OUT_0))
+		return 0;
+
+	dev = pipeline->raw->devs[pipeline->id];
+	pde_info_pipe = &pipeline->pde_config.pde_info[CAM_SET_CTRL];
+
+	if (node_id == MTK_RAW_META_IN)
+		extra_pd_sz = pde_info_pipe->pdi_max_size;
+	else if (node_id == MTK_RAW_META_OUT_0)
+		extra_pd_sz = pde_info_pipe->pdo_max_size;
+
+	dev_dbg(dev, "%s: node:%d, final sz:%d", __func__,
+		node_id, base_sz + extra_pd_sz);
+	return base_sz + extra_pd_sz;
+}
+
+int mtk_cam_pde_set_meta_size(struct mtk_raw_pipeline *pipeline, int node_id,
+			      unsigned int base_sz, unsigned int act_sz)
+{
+	struct device *dev;
+	struct mtk_cam_pde_info *pde_info_pipe;
+	unsigned int extra_pd_sz = 0;
+	int *pd_info_meta_sz;
+	int *pd_table_offset;
+
+	if (!pipeline ||
+	    (node_id != MTK_RAW_META_IN && node_id != MTK_RAW_META_OUT_0))
+		return 0;
+
+	dev = pipeline->raw->devs[pipeline->id];
+	pde_info_pipe = &pipeline->pde_config.pde_info[CAM_SET_CTRL];
+
+	if (node_id == MTK_RAW_META_IN) {
+		extra_pd_sz = pde_info_pipe->pdi_max_size;
+		pd_info_meta_sz = &pde_info_pipe->meta_cfg_size;
+		pd_table_offset = &pde_info_pipe->pd_table_offset;
+	} else if (node_id == MTK_RAW_META_OUT_0) {
+		extra_pd_sz = pde_info_pipe->pdo_max_size;
+		pd_info_meta_sz = &pde_info_pipe->meta_0_size;
+		pd_table_offset = NULL;
+	}
+
+	/* check size */
+	if (act_sz < base_sz + extra_pd_sz) {
+		dev_info(dev, "%s: failed, actual/required:%d/%d", __func__,
+			act_sz, base_sz + extra_pd_sz);
+		return -EINVAL;
+	}
+
+	/* update info */
+	if (pd_table_offset)
+		*pd_table_offset = base_sz;
+
+	*pd_info_meta_sz = base_sz + extra_pd_sz;
 
 	if (pd_table_offset)
-		*pd_table_offset = fmt_sz;
+		dev_info(dev, "%s, base/extra_pd_sz:%d/%d, final sz/offset: %d/%d",
+			__func__, base_sz, extra_pd_sz,
+			*pd_info_meta_sz, *pd_table_offset);
+	else
+		dev_info(dev, "%s, base/extra_pd_sz:%d/%d, final sz %d",
+			__func__, base_sz, extra_pd_sz, *pd_info_meta_sz);
 
-	*pd_info_meta_sz = active_sz;
-
-	if (!ret && active_sz < fmt_sz + pd_sz)
-		ret = -EINVAL;
-
-	dev_dbg(dev, "%s: meta (node %d): fmt size %d, pdi size %d; active size %d",
-			__func__, node, fmt_sz, pd_sz, active_sz);
-
-	return ret;
-}
-
-int mtk_cam_update_pd_meta_cfg_info(struct mtk_raw_pipeline *pipeline,
-							enum mtk_cam_ctrl_type ctrl_type)
-{
-	struct mtk_cam_pde_info *pde_info_pipe;
-
-	pde_info_pipe = &pipeline->pde_config.pde_info[ctrl_type];
-
-	if (!pde_info_pipe->pd_table_offset)
-		return 0;
-
-	return set_pd_info(pipeline, ctrl_type, MTK_RAW_META_IN,
-				pde_info_pipe->pdi_max_size,
-				&(pde_info_pipe->meta_cfg_size),
-				&(pde_info_pipe->pd_table_offset));
-}
-
-int mtk_cam_update_pd_meta_out_info(struct mtk_raw_pipeline *pipeline,
-							enum mtk_cam_ctrl_type ctrl_type)
-{
-	struct mtk_cam_pde_info *pde_info_pipe;
-
-	pde_info_pipe = &pipeline->pde_config.pde_info[ctrl_type];
-
-	if (!pde_info_pipe->pd_table_offset)
-		return 0;
-
-	return set_pd_info(pipeline, ctrl_type, MTK_RAW_META_OUT_0,
-				pde_info_pipe->pdo_max_size,
-				&(pde_info_pipe->meta_0_size), NULL);
+	return 0;
 }
 
 static int mtk_raw_pde_try_set_ctrl(struct v4l2_ctrl *ctrl,
@@ -927,11 +974,10 @@ static int mtk_raw_pde_try_set_ctrl(struct v4l2_ctrl *ctrl,
 	is_reset = (!pde_info_user->pdo_max_size || !pde_info_user->pdi_max_size);
 
 	if (!is_reset) {
-		// pde info may be set before set format
-		// active format buf size may be insufficient
-		// ignore return val
-		mtk_cam_update_pd_meta_cfg_info(pipeline, ctrl_type);
-		mtk_cam_update_pd_meta_out_info(pipeline, ctrl_type);
+		if (ctrl_type != CAM_SET_CTRL) {
+			update_pd_meta_info(pipeline, CAM_TRY_CTRL, MTK_RAW_META_IN);
+			update_pd_meta_info(pipeline, CAM_TRY_CTRL, MTK_RAW_META_OUT_0);
+		}
 
 		dev_dbg(dev,
 			"%s:type[%s] pdo/pdi/offset/cfg_sz/0_sz:%d/%d/%d/%d/%d\n",

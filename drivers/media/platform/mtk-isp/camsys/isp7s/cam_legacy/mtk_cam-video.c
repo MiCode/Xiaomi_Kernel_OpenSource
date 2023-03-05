@@ -2594,13 +2594,17 @@ int mtk_cam_vidioc_try_meta_fmt(struct file *file, void *fh,
 {
 	struct mtk_cam_device *cam = video_drvdata(file);
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	struct mtk_raw_pipeline *raw_pipeline;
 	const struct v4l2_format *fmt;
+	int tuned_sz;
 
 	switch (node->desc.dma_port) {
 	case MTKCAM_IPI_RAW_META_STATS_CFG:
 	case MTKCAM_IPI_RAW_META_STATS_0:
 	case MTKCAM_IPI_RAW_META_STATS_1:
 		fmt = mtk_cam_dev_find_fmt(&node->desc, f->fmt.meta.dataformat);
+		raw_pipeline =
+			mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
 		if (fmt) {
 			f->fmt.meta.dataformat = fmt->fmt.meta.dataformat;
 			f->fmt.meta.buffersize = fmt->fmt.meta.buffersize;
@@ -2612,7 +2616,7 @@ int mtk_cam_vidioc_try_meta_fmt(struct file *file, void *fh,
 					((char *)&f->fmt.meta.dataformat)[2],
 					((char *)&f->fmt.meta.dataformat)[3],
 					f->fmt.meta.buffersize);
-		} else
+		} else {
 			dev_info(cam->dev, "%s: unknown meta format(%c%c%c%c, size %d) for port(%d)",
 					__func__,
 					((char *)&f->fmt.meta.dataformat)[0],
@@ -2621,6 +2625,20 @@ int mtk_cam_vidioc_try_meta_fmt(struct file *file, void *fh,
 					((char *)&f->fmt.meta.dataformat)[3],
 					f->fmt.meta.buffersize,
 					node->desc.dma_port);
+		}
+
+		if (fmt && mtk_cam_pde_is_enabled(raw_pipeline)) {
+			tuned_sz = mtk_cam_pde_try_meta_size(raw_pipeline,
+							     node->desc.id,
+							     fmt->fmt.meta.buffersize);
+			if (tuned_sz) {
+				f->fmt.meta.buffersize = tuned_sz;
+				dev_info(cam->dev,
+					"%s: force update %s size %d",
+					__func__, node->desc.name, tuned_sz);
+			}
+		}
+
 		return (fmt) ? 0 : -EINVAL;
 	default:
 		break;
@@ -2643,10 +2661,9 @@ int mtk_cam_vidioc_s_meta_fmt(struct file *file, void *fh,
 	case MTKCAM_IPI_RAW_META_STATS_0:
 	case MTKCAM_IPI_RAW_META_STATS_1:
 		fmt = mtk_cam_dev_find_fmt(&node->desc, f->fmt.meta.dataformat);
-
+		raw_pipeline =
+			mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
 		if (fmt) {
-			raw_pipeline =
-				mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
 			node->active_fmt.fmt.meta.dataformat = fmt->fmt.meta.dataformat;
 			node->active_fmt.fmt.meta.buffersize = f->fmt.meta.buffersize;
 		} else {
@@ -2657,21 +2674,22 @@ int mtk_cam_vidioc_s_meta_fmt(struct file *file, void *fh,
 					node->desc.dma_port);
 			ret = -EINVAL;
 		}
+
+		if (fmt && mtk_cam_pde_is_enabled(raw_pipeline)) {
+			ret = mtk_cam_pde_set_meta_size(raw_pipeline,
+							node->desc.id,
+							fmt->fmt.meta.buffersize,
+							f->fmt.meta.buffersize);
+			if (ret)
+				dev_info(cam->dev,
+					"%s: wrong %s size %d",
+					__func__, node->desc.name,
+					f->fmt.meta.buffersize);
+		}
+
 		break;
 	default:
 		break;
-	}
-
-	if (!ret && node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
-		ret = mtk_cam_update_pd_meta_cfg_info(raw_pipeline, CAM_SET_CTRL);
-		if (ret)
-			dev_info(cam->dev, "%s: mtk_cam_update_pd_info fail %d",
-				__func__, ret);
-	} else if (!ret && node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
-		ret = mtk_cam_update_pd_meta_out_info(raw_pipeline, CAM_SET_CTRL);
-		if (ret)
-			dev_info(cam->dev, "%s: mtk_cam_update_pd_info fail %d",
-				__func__, ret);
 	}
 
 	return ((ret) ? ret : mtk_cam_vidioc_g_meta_fmt(file, fh, f));
