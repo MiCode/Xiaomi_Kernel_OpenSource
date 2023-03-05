@@ -669,11 +669,12 @@ static int mfgsys_config_proc_show(struct seq_file *m, void *v)
 			avs_table_stack[i].oppidx, avs_table_stack[i].volt);
 	}
 
-	seq_puts(m, "\n[Temper] [Ceiling] [I_STACK] [I_SRAM]\n");
+	seq_puts(m, "\n[Temper] [Ceiling] [I_STACK] [I_SRAM] [P_STACK]\n");
 	for (i = 0; i < gpm3_num; i++) {
-		seq_printf(m, "[%6d] %9d %9d %8d\n",
+		seq_printf(m, "[%6d] %9d %9d %8d %9d\n",
 			gpm3_table[i].temper, gpm3_table[i].ceiling,
-			gpm3_table[i].i_stack, gpm3_table[i].i_sram);
+			gpm3_table[i].i_stack, gpm3_table[i].i_sram,
+			gpm3_table[i].p_stack);
 	}
 
 	mutex_unlock(&gpufreq_debug_lock);
@@ -750,6 +751,11 @@ static ssize_t mfgsys_config_proc_write(struct file *file,
 				val = CONFIG_VAL_INVALID;
 		} else if (sysfs_streq(input_target, "imax_sram")) {
 			target = CONFIG_IMAX_SRAM;
+			ret = kstrtouint(input_val, 10, &val);
+			if (ret)
+				val = CONFIG_VAL_INVALID;
+		} else if (sysfs_streq(input_target, "pmax_stack")) {
+			target = CONFIG_PMAX_STACK;
 			ret = kstrtouint(input_val, 10, &val);
 			if (ret)
 				val = CONFIG_VAL_INVALID;
