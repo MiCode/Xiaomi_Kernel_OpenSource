@@ -2753,6 +2753,9 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 				cmdq_mdp_get_func()->qosGetPath(
 				thread_id, target_pmqos->qos2_isp_port[i]);
 
+			if (!port_path)
+				continue;
+
 			DP_BANDWIDTH(target_pmqos->qos2_isp_bandwidth[i],
 				total_pixel,
 				isp_throughput,
@@ -2781,6 +2784,9 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 			struct icc_path *port_path =
 				cmdq_mdp_get_func()->qosGetPath(thread_id,
 				port);
+
+			if (!port_path)
+				continue;
 
 			DP_BANDWIDTH(target_pmqos->qos2_mdp_bandwidth[i],
 				target_pmqos->mdp_total_pixel,
@@ -3034,6 +3040,9 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				cmdq_mdp_get_func()->qosGetPath(thread_id,
 				mdp_curr_pmqos->qos2_isp_port[i]);
 
+			if (!port_path)
+				continue;
+
 			CMDQ_LOG_PMQOS(
 				"[%d]end task, clear curr isp-bw of port[%d](0x%x) to 0\n",
 				thread_id, i, mdp_curr_pmqos->qos2_isp_port[i]);
@@ -3046,6 +3055,9 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 			struct icc_path *port_path =
 				cmdq_mdp_get_func()->qosGetPath(thread_id,
 				target_pmqos->qos2_isp_port[i]);
+
+			if (!port_path)
+				continue;
 
 			DP_BANDWIDTH(target_pmqos->qos2_isp_bandwidth[i],
 				target_pmqos->isp_total_pixel,
@@ -3081,6 +3093,9 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 				cmdq_mdp_get_func()->qosGetPath(thread_id,
 				port);
 
+			if (!port_path)
+				continue;
+
 			CMDQ_LOG_PMQOS(
 				"[%d]end task, clear curr mdp-bw of port[%d](0x%x) to 0\n",
 				thread_id, i, mdp_curr_pmqos->qos2_mdp_port[i]);
@@ -3095,6 +3110,9 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 			struct icc_path *port_path =
 				cmdq_mdp_get_func()->qosGetPath(thread_id,
 				port);
+
+			if (!port_path)
+				continue;
 
 			DP_BANDWIDTH(target_pmqos->qos2_mdp_bandwidth[i],
 				target_pmqos->mdp_total_pixel,
