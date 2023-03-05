@@ -192,6 +192,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len,
 		*msg_signaled = false;
 		if (!is_res)
 			inst->vcu.failure = 0;
+		inst->ctx->dev->codec_stop_done = false;
 	}
 	inst->ctx->err_msg = 0;
 
@@ -255,7 +256,8 @@ ipi_err_wait_and_unlock:
 	timeout = 0;
 	if (inst->vcu.daemon_pid == get_vcp_generation()) {
 		trigger_vcp_halt(VCP_A_ID);
-		while (inst->vcu.daemon_pid == get_vcp_generation()) {
+		while (inst->vcu.daemon_pid == get_vcp_generation() ||
+			!inst->ctx->dev->codec_stop_done) {
 			if (timeout > VCP_SYNC_TIMEOUT_MS) {
 				mtk_v4l2_debug(0, "halt restart timeout %x\n",
 					inst->vcu.daemon_pid);
@@ -265,6 +267,7 @@ ipi_err_wait_and_unlock:
 			timeout += 10;
 		}
 	}
+	inst->ctx->dev->codec_stop_done = false;
 	inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
 	inst->ctx->err_msg = *(__u32 *)msg;
 
@@ -906,6 +909,7 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 			}
 		}
 		mutex_unlock(&dev->ctx_mutex);
+		dev->codec_stop_done = true;
 		break;
 	case VCP_EVENT_SUSPEND:
 		mutex_lock(&dev->dec_dvfs_mutex);

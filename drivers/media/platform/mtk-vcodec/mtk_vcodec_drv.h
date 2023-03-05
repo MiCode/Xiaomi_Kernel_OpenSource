@@ -96,6 +96,7 @@ enum mtk_mmdvfs_type {
  * @MTK_STATE_HEADER - vdec had sps/pps header parsed or venc
  *                      had sps/pps header encoded
  * @MTK_STATE_FLUSH - vdec is flushing. Only used by decoder
+ * @MTK_STATE_STOP - vcodec instance need stop to avoid job ready
  * @MTK_STATE_ABORT - vcodec should be aborted
  */
 enum mtk_instance_state {
@@ -103,7 +104,8 @@ enum mtk_instance_state {
 	MTK_STATE_INIT = 1,
 	MTK_STATE_HEADER = 2,
 	MTK_STATE_FLUSH = 3,
-	MTK_STATE_ABORT = 4,
+	MTK_STATE_STOP = 4,
+	MTK_STATE_ABORT = 5,
 };
 
 enum mtk_codec_type {
@@ -788,6 +790,7 @@ struct mtk_vcodec_dev {
 	struct mtk_vcodec_pm pm;
 	struct notifier_block pm_notifier;
 	bool is_codec_suspending;
+	bool codec_stop_done;
 
 	int dec_cnt;
 	int enc_cnt;
