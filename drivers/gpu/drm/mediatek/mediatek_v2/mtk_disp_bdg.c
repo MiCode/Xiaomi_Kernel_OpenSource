@@ -291,16 +291,10 @@ do { \
 } while (0)
 
 #define BDG_OUTREG32(cmdq, addr, val) \
-do { \
-	DDPMSG("mtk_spi_write\n"); \
-	mtk_spi_write((unsigned long)(&addr), val); \
-} while (0)
+	(mtk_spi_write((unsigned long)(&addr), val))
 
 #define BDG_MASKREG32(cmdq, addr, mask, val) \
-do { \
-	DDPMSG("mtk_spi_mask_write\n"); \
-	mtk_spi_mask_write((unsigned long)(addr), mask, val); \
-} while (0)
+	(mtk_spi_mask_write((unsigned long)(addr), mask, val))
 #else
 #define BDG_OUTREGBIT(spi_en, cmdq, TYPE, REG, bit, value) \
 do { \
@@ -4240,23 +4234,11 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 	DDPMSG("%s, data_rate=%d\n", __func__, data_rate);
 
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + CORE_DIG_RW_COMMON_7 * 4,
-		CORE_DIG_RW_COMMON_7_LANE0_HSRX_WORD_CLK_SEL_GATING_REG_MASK,
-		0);
-
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + CORE_DIG_RW_COMMON_7 * 4,
-		CORE_DIG_RW_COMMON_7_LANE1_HSRX_WORD_CLK_SEL_GATING_REG_MASK,
-		0);
-
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + CORE_DIG_RW_COMMON_7 * 4,
-		CORE_DIG_RW_COMMON_7_LANE2_HSRX_WORD_CLK_SEL_GATING_REG_MASK,
-		0);
-
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + CORE_DIG_RW_COMMON_7 * 4,
-		CORE_DIG_RW_COMMON_7_LANE3_HSRX_WORD_CLK_SEL_GATING_REG_MASK,
-		0);
-
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + CORE_DIG_RW_COMMON_7 * 4,
-		CORE_DIG_RW_COMMON_7_LANE4_HSRX_WORD_CLK_SEL_GATING_REG_MASK,
+		(CORE_DIG_RW_COMMON_7_LANE0_HSRX_WORD_CLK_SEL_GATING_REG_MASK |
+		CORE_DIG_RW_COMMON_7_LANE1_HSRX_WORD_CLK_SEL_GATING_REG_MASK |
+		CORE_DIG_RW_COMMON_7_LANE2_HSRX_WORD_CLK_SEL_GATING_REG_MASK |
+		CORE_DIG_RW_COMMON_7_LANE3_HSRX_WORD_CLK_SEL_GATING_REG_MASK |
+		CORE_DIG_RW_COMMON_7_LANE4_HSRX_WORD_CLK_SEL_GATING_REG_MASK),
 		0);
 
 	if (data_rate > bdg_rx_v12)
@@ -4286,26 +4268,7 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_DDLCAL_CFG_1 * 4,
 		PPI_RW_DDLCAL_CFG_1_DDLCAL_DISABLE_TIME_MASK,
 		25);
-
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_DDLCAL_CFG_2 * 4,
-		PPI_RW_DDLCAL_CFG_2_DDLCAL_WAIT_MASK,
-		4);
-
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_DDLCAL_CFG_2 * 4,
-		PPI_RW_DDLCAL_CFG_2_DDLCAL_TUNE_MODE_MASK,
-		2);
-
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_DDLCAL_CFG_2 * 4,
-		PPI_RW_DDLCAL_CFG_2_DDLCAL_DDL_DLL_MASK,
-		1);
-
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_DDLCAL_CFG_2 * 4,
-		PPI_RW_DDLCAL_CFG_2_DDLCAL_ENABLE_WAIT_MASK,
-		25); // cfg_clk = 26 MHz
-
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_DDLCAL_CFG_2 * 4,
-		PPI_RW_DDLCAL_CFG_2_DDLCAL_UPDATE_SETTINGS_MASK,
-		1);
+	mtk_spi_write(MIPI_RX_PHY_BASE + PPI_RW_DDLCAL_CFG_2 * 4, 0x4b19);
 
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_DDLCAL_CFG_4 * 4,
 		PPI_RW_DDLCAL_CFG_4_DDLCAL_STUCK_THRESH_MASK,
@@ -4329,12 +4292,9 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 			max_phase);
 
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_DDLCAL_CFG_5 * 4,
-			PPI_RW_DDLCAL_CFG_5_DDLCAL_DLL_FBK_MASK,
-			dll_fbk);
-
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + PPI_RW_DDLCAL_CFG_5 * 4,
-			PPI_RW_DDLCAL_CFG_5_DDLCAL_DDL_COARSE_BANK_MASK,
-			coarse_bank);
+			(PPI_RW_DDLCAL_CFG_5_DDLCAL_DLL_FBK_MASK |
+			PPI_RW_DDLCAL_CFG_5_DDLCAL_DDL_COARSE_BANK_MASK),
+			((dll_fbk << 4) | coarse_bank));
 	}
 
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
@@ -4404,12 +4364,9 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 		0);
 
 	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + CORE_DIG_RW_COMMON_6 * 4,
-		CORE_DIG_RW_COMMON_6_DESERIALIZER_EN_DEASS_COUNT_THRESH_D_MASK,
-		1);
-
-	mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + CORE_DIG_RW_COMMON_6 * 4,
-		CORE_DIG_RW_COMMON_6_DESERIALIZER_DIV_EN_DELAY_THRESH_D_MASK,
-		1);
+		(CORE_DIG_RW_COMMON_6_DESERIALIZER_EN_DEASS_COUNT_THRESH_D_MASK |
+		CORE_DIG_RW_COMMON_6_DESERIALIZER_DIV_EN_DELAY_THRESH_D_MASK),
+		9);
 
 	if (data_rate > bdg_rx_v12) {
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
@@ -5308,31 +5265,26 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 	if (!hs_dco_enable) {
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
 			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
-			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_HSTXLB_DCO_EN_OVR_EN_MASK,
-			1);
+			(CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_HSTXLB_DCO_EN_OVR_EN_MASK |
+			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_HSTXLB_DCO_PON_OVR_EN_MASK),
+			0x3);
+
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
 			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
-			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_HSTXLB_DCO_PON_OVR_EN_MASK,
-			1);
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
-			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
-			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_LP_DCO_EN_OVR_VAL_MASK,
-			0);
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE +
-			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6 * 4,
-			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_LP_DCO_PON_OVR_VAL_MASK,
+			(CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_LP_DCO_EN_OVR_VAL_MASK |
+			CORE_DIG_IOCTRL_RW_AFE_CB_CTRL_2_6_OA_CB_LP_DCO_PON_OVR_VAL_MASK),
 			0);
 	}
 
 	if (!lp_tx_l023_enable) {
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1028 * 4, 0x80, 1);
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1028 * 4, 0x40, 1);
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1428 * 4, 0x80, 1);
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1428 * 4, 0x40, 1);
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1628 * 4, 0x80, 1);
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1628 * 4, 0x40, 1);
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1828 * 4, 0x80, 1);
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1828 * 4, 0x40, 1);
+		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1028 * 4, 0xc0, (3 << 6));
+
+		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1428 * 4, 0xc0, (3 << 6));
+
+		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1628 * 4, 0xc0, (3 << 6));
+
+		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1828 * 4, 0xc0, (3 << 6));
+
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1027 * 4, 0xf, 0);
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1427 * 4, 0xf, 0);
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1627 * 4, 0xf, 0);

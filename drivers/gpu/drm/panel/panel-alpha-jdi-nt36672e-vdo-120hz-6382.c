@@ -242,7 +242,7 @@ static void jdi_dcs_write(struct jdi *ctx, const void *data, size_t len)
 	addr = (char *)data;
 
 	if (len > 1)
-		udelay(100);
+		udelay(30);
 
 	if ((int)*addr < 0xB0)
 		ret = mipi_dsi_dcs_write_buffer(dsi, data, len);
