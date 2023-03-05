@@ -1467,6 +1467,9 @@ static void mtk_set_first_config(struct drm_device *dev,
 			DDPMSG("%s, set first config true\n", __func__);
 		}
 	}
+
+	if (is_bdg_supported())
+		bdg_spi_first_init();
 }
 
 static void mtk_atomic_complete(struct mtk_drm_private *private,

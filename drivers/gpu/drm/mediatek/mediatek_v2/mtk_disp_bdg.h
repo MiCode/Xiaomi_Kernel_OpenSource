@@ -136,4 +136,11 @@ void bdg_request_eint_irq(void);
 //void bdg_free_eint_irq(void);
 void bdg_rx_reset(void *cmdq);
 bool is_bdg_supported(void);
+void bdg_clk_buf_nfc(bool onoff);
+/***** NFC SRCLKENAI0 Interrupt Handler +++ *****/
+irqreturn_t nfc_eint_thread_handler(int irq, void *data);
+void nfc_request_eint_irq(void);
+void bdg_spi_first_init(void);
+
+/***** NFC SRCLKENAI0 Interrupt Handler --- *****/
 #endif
