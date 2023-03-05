@@ -4052,7 +4052,7 @@
 		};
 
 		dsi1_te: dsi1-te {
-			compatible = "mediatek, dsi1_te-int";
+			compatible = "mediatek, dsi1_te-eint";
 			status = "disabled";
 		};
 

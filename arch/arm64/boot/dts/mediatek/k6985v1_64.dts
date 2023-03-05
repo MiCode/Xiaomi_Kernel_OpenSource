@@ -104,6 +104,7 @@ androidboot.hardware=mt6985 \
 			output-low;
 		};
 	};
+
 	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO85__FUNC_DSI_TE>;
@@ -125,13 +126,32 @@ androidboot.hardware=mt6985 \
 			output-low;
 		};
 	};
+
+	mtkfb_pins_lcm_dsi1_te: lcm-dsi1-te {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO74__FUNC_DSI1_TE>;
+		};
+	};
+
+	mtkfb_pins_lcm_dsi_gpio: lcm-dsi-gpio {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO85__FUNC_GPIO85>;
+		};
+	};
+	mtkfb_pins_lcm_dsi1_gpio: lcm-dsi1-gpio {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO74__FUNC_GPIO74>;
+		};
+	};
+
 };
 
 &mtkfb {
 	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
 		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
 		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
-		"mode_te_te", "lcm_led_en1_gpio", "lcm_led_en0_gpio";
+		"mode_te_te", "lcm_led_en1_gpio", "lcm_led_en0_gpio",
+		"mode_te_te1";
 	pinctrl-0 = <&mtkfb_pins_lcd_bias_enp1>;
 	pinctrl-1 = <&mtkfb_pins_lcd_bias_enp0>;
 	pinctrl-2 = <&mtkfb_pins_lcd_bias_enn1>;
@@ -141,13 +161,15 @@ androidboot.hardware=mt6985 \
 	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
 	pinctrl-7 = <&mtkfb_pins_lcm_led_en1>;
 	pinctrl-8 = <&mtkfb_pins_lcm_led_en0>;
+	pinctrl-9 = <&mtkfb_pins_lcm_dsi1_te>;
 
 	status = "okay";
 };
 
 &dispsys_config {
-	pinctrl-names = "mode_te_te";
+	pinctrl-names = "mode_te_te", "mode_te_te1";
 	pinctrl-0 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-1 = <&mtkfb_pins_lcm_dsi1_te>;
 	status = "okay";
 };
 
@@ -178,6 +200,12 @@ androidboot.hardware=mt6985 \
 			};
 		};
 	};
+};
+
+&dsi1_te {
+	interrupt-parent = <&pio>;
+	interrupts = <74 1 74 1>;
+	status = "okay";
 };
 
 &dsi0 {
@@ -259,6 +287,7 @@ androidboot.hardware=mt6985 \
 		};
 	};
 };
+
 /* GPS GPIO standardization start */
 &pio {
 	gps_pins_default: gps_default {
@@ -298,6 +327,7 @@ androidboot.hardware=mt6985 \
 		};
 	};
 };
+
 &gps {
 	pinctrl-names = "default",
 		"gps_l1_lna_disable",
