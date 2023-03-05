@@ -168,6 +168,7 @@
 
 	/* chosen */
 	chosen: chosen {
+		mkp,policy=<0x0001fffb>;
 		bootargs = "console=tty0 root=/dev/ram \
 			rcupdate.rcu_expedited=1 \
 			swiotlb=noforce disable_dma32=on \
