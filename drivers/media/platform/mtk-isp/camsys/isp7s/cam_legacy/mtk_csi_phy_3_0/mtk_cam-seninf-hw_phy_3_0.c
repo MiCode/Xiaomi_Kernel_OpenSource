@@ -3695,6 +3695,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		"SENINF%d_CSI2_IRQ_STATUS(0x%x)\n", ctx->seninfIdx, temp);
 	if ((temp & 0xD0) != 0)
 		ret = -2; //multi lanes sync error, crc error, ecc error
+	else if ((temp & 0x10000000) != 0)
+		ret = -3; //async fifo overrun
 
 	/* SENINF_MUX */
 	for (j = SENINF_MUX1; j < _seninf_ops->mux_num; j++) {
