@@ -5277,13 +5277,13 @@ void startup_seq_dphy_specific(unsigned int data_rate)
 	}
 
 	if (!lp_tx_l023_enable) {
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1028 * 4, 0xc0, (3 << 6));
+		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1028 * 4, 0xc0, 3);
 
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1428 * 4, 0xc0, (3 << 6));
+		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1428 * 4, 0xc0, 3);
 
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1628 * 4, 0xc0, (3 << 6));
+		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1628 * 4, 0xc0, 3);
 
-		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1828 * 4, 0xc0, (3 << 6));
+		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1828 * 4, 0xc0, 3);
 
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1027 * 4, 0xf, 0);
 		mtk_spi_mask_field_write(MIPI_RX_PHY_BASE + 0x1427 * 4, 0xf, 0);
