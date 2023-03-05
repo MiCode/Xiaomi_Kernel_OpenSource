@@ -151,11 +151,13 @@ struct mtk_chan {
 	unsigned int start_en;
 	unsigned int start_int_buf_size;
 	unsigned long long start_record_time;
+	unsigned int peri_dbg;
 	struct uart_info rec_info[UART_RECORD_COUNT];
 };
 
 static unsigned long long num;
 static unsigned int res_status;
+static unsigned int peri_0_axi_dbg;
 
 static inline struct mtk_uart_apdmadev *
 to_mtk_uart_apdma_dev(struct dma_device *d)
@@ -218,6 +220,27 @@ void mtk_save_uart_apdma_reg(struct dma_chan *chan, unsigned int *reg_buf)
 }
 EXPORT_SYMBOL(mtk_save_uart_apdma_reg);
 
+static unsigned int mtk_uart_apdma_get_peri_axi_status(void)
+{
+	void __iomem *peri_remap_0_axi_dbg = NULL;
+	unsigned int ret = 0;
+
+	if (peri_0_axi_dbg == 0)
+		return 0;
+	peri_remap_0_axi_dbg = ioremap(peri_0_axi_dbg, 0x10);
+	if (!peri_remap_0_axi_dbg) {
+		pr_info("[%s] peri_remap_0_axi_dbg(%x) ioremap fail\n",
+			__func__, peri_0_axi_dbg);
+		return 0;
+	}
+	ret = readl(peri_remap_0_axi_dbg);
+
+	if (peri_remap_0_axi_dbg)
+		iounmap(peri_remap_0_axi_dbg);
+
+	return ret;
+}
+
 void mtk_uart_apdma_start_record(struct dma_chan *chan)
 {
 	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
@@ -229,6 +252,7 @@ void mtk_uart_apdma_start_record(struct dma_chan *chan)
 	c->start_en =  mtk_uart_apdma_read(c, VFF_EN);
 	c->start_int_buf_size =  mtk_uart_apdma_read(c, VFF_INT_BUF_SIZE);
 	c->start_record_time = sched_clock();
+	c->peri_dbg = mtk_uart_apdma_get_peri_axi_status();
 }
 EXPORT_SYMBOL(mtk_uart_apdma_start_record);
 
@@ -245,20 +269,24 @@ void mtk_uart_apdma_end_record(struct dma_chan *chan)
 	unsigned long long endtime = sched_clock();
 	unsigned long ns1 = do_div(starttime, 1000000000);
 	unsigned long ns2 = do_div(endtime, 1000000000);
+	unsigned int peri_dbg = mtk_uart_apdma_get_peri_axi_status();
 
 	dev_info(c->vc.chan.device->dev,
 			"[%s] [%s] [start %5lu.%06lu] start_wpt=0x%x, start_rpt=0x%x,\n"
-			"start_int_flag=0x%x, start_int_en=0x%x, start_en=0x%x, start_int_buf_size=0x%x\n",
+			"start_int_flag=0x%x, start_int_en=0x%x, start_en=0x%x,\n"
+			"start_int_buf_size=0x%x, 0x%x = 0x%x\n",
 			__func__, c->dir == DMA_DEV_TO_MEM ? "dma_rx" : "dma_tx",
 			(unsigned long)starttime, ns1 / 1000,
 			c->start_record_wpt, c->start_record_rpt, c->start_int_flag,
-			c->start_int_en, c->start_en, c->start_int_buf_size);
+			c->start_int_en, c->start_en, c->start_int_buf_size,
+			peri_0_axi_dbg, c->peri_dbg);
 	dev_info(c->vc.chan.device->dev,
 			"[%s] [%s] [end %5lu.%06lu] end_wpt=0x%x, end_rpt=0x%x\n"
-			"end_int_flag=0x%x, end_int_en=0x%x, end_en=0x%x, end_int_buf_size=0x%x\n",
+			"end_int_flag=0x%x, end_int_en=0x%x, end_en=0x%x, end_int_buf_size=0x%x,\n"
+			"0x%x = 0x%x\n",
 			__func__, c->dir == DMA_DEV_TO_MEM ? "dma_rx" : "dma_tx",
 			(unsigned long)endtime, ns2 / 1000, _wpt, _rpt, _int_flag,
-			_int_en, _en, _int_buf_size);
+			_int_en, _en, _int_buf_size, peri_0_axi_dbg, peri_dbg);
 
 }
 EXPORT_SYMBOL(mtk_uart_apdma_end_record);
@@ -1145,6 +1173,11 @@ static int mtk_uart_apdma_probe(struct platform_device *pdev)
 		mtk_uart_apdma_parse_peri(pdev);
 	}
 
+	if (mtkd->support_hub) {
+		if (of_property_read_u32_index(pdev->dev.of_node,
+			"peri-axi-dbg", 0, &peri_0_axi_dbg))
+			pr_notice("[%s] get peri-axi-dbg fail\n", __func__);
+	}
 	for (i = 0; i < mtkd->dma_requests; i++) {
 		c = devm_kzalloc(mtkd->ddev.dev, sizeof(*c), GFP_KERNEL);
 		if (!c) {
