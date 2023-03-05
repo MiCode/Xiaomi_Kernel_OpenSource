@@ -3948,7 +3948,7 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 						     SENINF_MUX_IRQ_STATUS);
 					camIrq_tmp = SENINF_READ_REG(
 						     pSeninf_cam_mux_pcsr,
-						     SENINF_CAM_MUX_PCSR_CHK_ERR_RES);
+						     SENINF_CAM_MUX_PCSR_IRQ_STATUS);
 
 					if (muxIrq_tmp) {
 						SENINF_WRITE_REG(
@@ -3959,19 +3959,15 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 							     pmux,
 							     SENINF_MUX_IRQ_STATUS);
 					}
-					if (camIrq_tmp) {
+					if (camIrq_tmp & 0x100) {
 						SENINF_WRITE_REG(
 						pSeninf_cam_mux_pcsr,
-						SENINF_CAM_MUX_PCSR_CHK_ERR_RES,
-						0xffffffff);
-						camIrq_tmp =
-						SENINF_READ_REG(
-						pSeninf_cam_mux_pcsr,
-						SENINF_CAM_MUX_PCSR_CHK_ERR_RES);
+						SENINF_CAM_MUX_PCSR_IRQ_STATUS,
+						0x103);
 					}
 					if (muxIrq_tmp & (0x1 << 0))
 						ctx_->fifo_overrun_cnt++;
-					if (camIrq_tmp)
+					if (camIrq_tmp & 0x3)
 						ctx_->size_err_cnt++;
 				}
 			}
