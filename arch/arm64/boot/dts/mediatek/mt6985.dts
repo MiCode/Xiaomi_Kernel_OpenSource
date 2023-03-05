@@ -3660,6 +3660,15 @@
 			};
 		};
 
+		mtk_leds1: mtk_leds1 {
+			backlight {
+				label = "lcd-backlight1";
+				max-brightness = <2047>;
+				min-brightness = <4>;
+				max-hw-brightness = <2047>;
+			};
+		};
+
 		topckgen@10000000 {
 			compatible = "mediatek,topckgen";
 			reg = <0 0x10000000 0 0x1000>;
