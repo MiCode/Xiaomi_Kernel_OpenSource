@@ -4996,7 +4996,7 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 
 			if (ctx && mtk_cam_scen_is_mstream_2exp_types(&ctx->pipe->scen_active) &&
 				(atomic_read(&ctx->enqueued_frame_seq_no) >
-				 ctx->composed_frame_seq_no)) {
+				 atomic_read(&ctx->latest_tx_cmd_seq_no))) {
 				dev_dbg(cam->dev, "%s mstream waits cq compose(%d), enque(%d)\n",
 						__func__,
 						ctx->composed_frame_seq_no,
@@ -6925,10 +6925,10 @@ static void isp_tx_frame_worker(struct work_struct *work)
 	if (ctx->rpmsg_dev) {
 		MTK_CAM_TRACE_BEGIN(BASIC, "ipi_cmd_frame:%d",
 				    req_stream_data->frame_seq_no);
-
 		rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
-
 		MTK_CAM_TRACE_END(BASIC);
+
+		atomic_set(&ctx->latest_tx_cmd_seq_no, session->frame_no);
 
 		dev_dbg(cam->dev,
 			 "%s: rpmsg_send id: %d, ctx:%d, seq:%d, bin:(0x%x)\n",
@@ -7030,6 +7030,7 @@ static void isp_tx_sv_frame_worker(struct work_struct *work)
 
 	if (ctx->rpmsg_dev) {
 		rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
+		atomic_set(&ctx->latest_tx_cmd_seq_no, session->frame_no);
 
 		dev_dbg(cam->dev,
 			 "%s: rpmsg_send id: %d, ctx:%d, seq:%d\n",
@@ -8783,6 +8784,7 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 		 __func__, ctx->stream_id, entity->name);
 
 	atomic_set(&ctx->enqueued_frame_seq_no, 0);
+	atomic_set(&ctx->latest_tx_cmd_seq_no, 0);
 	ctx->composed_frame_seq_no = 0;
 	ctx->dequeued_frame_seq_no = 0;
 	for (i = 0; i < MAX_SV_HW_TAGS; i++)
@@ -9107,6 +9109,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	ctx->prev_seninf = NULL;
 	atomic_set(&ctx->enqueued_frame_seq_no, 0);
 	atomic_set(&ctx->composed_delay_seq_no, 0);
+	atomic_set(&ctx->latest_tx_cmd_seq_no, 0);
 	ctx->enqueued_request_cnt = 0;
 	ctx->next_sof_mask_frame_seq_no = 0;
 	ctx->working_request_seq = 0;
