@@ -1184,7 +1184,8 @@ static int instant_current(struct mtk_gauge *gauge)
 
 	dvalue =
 	((dvalue * car_tune_value) / 1000);
-	bm_err("%s, r_fg=%d, car_tune:%d, curr:%d\n", __func__, r_fg_value, car_tune_value, dvalue);
+	bm_debug("%s, r_fg=%d, car_tune:%d, curr:%d\n",
+		__func__, r_fg_value, car_tune_value, dvalue);
 
 	return dvalue;
 }
@@ -1214,7 +1215,8 @@ static int cic2_current(struct mtk_gauge *gauge)
 
 	dvalue =
 	((dvalue * car_tune_value) / 1000);
-	bm_err("%s, r_fg=%d, car_tune:%d, curr:%d\n", __func__, r_fg_value, car_tune_value, dvalue);
+	bm_debug("%s, r_fg=%d, car_tune:%d, curr:%d\n",
+		__func__, r_fg_value, car_tune_value, dvalue);
 
 	return dvalue;
 }
@@ -1571,7 +1573,7 @@ static int coulomb_get(struct mtk_gauge *gauge,
 	temp_car = temp_car_h;
 	temp_car = temp_car << 16;
 	temp_car |= temp_car_l;
-	bm_err("[%s]l:0x%x h:0x%x, car:0x%x\n", __func__, temp_car_l, temp_car_h, temp_car);
+	bm_debug("[%s]l:0x%x h:0x%x, car:0x%x\n", __func__, temp_car_l, temp_car_h, temp_car);
 
 	uvalue32_car = temp_car & 0x7fffffff;
 	uvalue32_car_msb = (temp_car & BIT(31)) >> 31;
@@ -1616,7 +1618,7 @@ static int coulomb_get(struct mtk_gauge *gauge,
 		dvalue_CAR = (signed int) temp_value;
 
 
-	bm_err("[%s]l:0x%x h:0x%x val:%d msb:%d car:%d\n",
+	bm_debug("[%s]l:0x%x h:0x%x val:%d msb:%d car:%d\n",
 		__func__,
 		temp_car & 0xFFFF, (temp_car & 0xFFFF0000) >> 16,
 		uvalue32_car, uvalue32_car_msb,
