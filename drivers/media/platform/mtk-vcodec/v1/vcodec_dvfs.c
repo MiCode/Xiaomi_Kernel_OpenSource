@@ -548,12 +548,15 @@ void mtk_vcodec_alive_checker_suspend(struct mtk_vcodec_dev *dev)
 #ifdef VDEC_CHECK_ALIVE
 	/* Only support vdec check alive now */
 	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
+		mutex_lock(&dev->ctx_mutex);
 		if (!list_empty(&dev->ctx_list) && dev->vdec_dvfs_params.has_timer) {
 			mtk_v4l2_debug(0, "[VDVFS][VDEC] suspend vdec alive checker...");
 			del_timer_sync(&dev->vdec_dvfs_params.vdec_active_checker);
-			flush_workqueue(dev->check_alive_workqueue);
 			dev->vdec_dvfs_params.has_timer = 0;
-		}
+			mutex_unlock(&dev->ctx_mutex);
+			flush_workqueue(dev->check_alive_workqueue);
+		} else
+			mutex_unlock(&dev->ctx_mutex);
 	}
 #endif
 #endif
@@ -565,6 +568,7 @@ void mtk_vcodec_alive_checker_resume(struct mtk_vcodec_dev *dev)
 #ifdef VDEC_CHECK_ALIVE
 	/* Only support vdec check alive now */
 	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
+		mutex_lock(&dev->ctx_mutex);
 		if (!list_empty(&dev->ctx_list) && !dev->vdec_dvfs_params.has_timer) {
 			mtk_v4l2_debug(0, "[VDVFS][VDEC] resume vdec alive checker...");
 			timer_setup(&dev->vdec_dvfs_params.vdec_active_checker,
@@ -574,6 +578,7 @@ void mtk_vcodec_alive_checker_resume(struct mtk_vcodec_dev *dev)
 			add_timer(&dev->vdec_dvfs_params.vdec_active_checker);
 			dev->vdec_dvfs_params.has_timer = 1;
 		}
+		mutex_unlock(&dev->ctx_mutex);
 	}
 #endif
 #endif
