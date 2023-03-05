@@ -1434,7 +1434,6 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	struct img_sw_buffer *swbuf_data = NULL;
 	struct swfrm_info_t *swfrm_info = NULL;
 	struct gce_work *gwork;
-	int swfrm_cnt;
 	u64 time_local_reddonescpStart = 0;
 	int i = 0;
 	void *gce_virt = NULL;
@@ -1458,6 +1457,20 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	swbuf_data = (struct img_sw_buffer *)data;
 	gce_virt = mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
 	swfrm_info = (struct swfrm_info_t *)(gce_virt + (swbuf_data->offset));
+
+	if (!gce_virt) {
+		pr_info("%s: invalid gce_virt(%p)\n",
+			__func__, gce_virt);
+		return;
+	}
+
+	if (((int)(swbuf_data->offset) < 0) ||
+		(swbuf_data->offset > mtk_hcp_get_gce_mem_size(imgsys_dev->scp_pdev))) {
+		pr_info("%s: invalid swbuf_data->offset(%d), max(%d)\n",
+			__func__, swbuf_data->offset,
+			mtk_hcp_get_gce_mem_size(imgsys_dev->scp_pdev));
+		return;
+	}
 
 	if (!swfrm_info) {
 		pr_info("%s: invalid swfrm_info\n", __func__);
@@ -1566,14 +1579,6 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 
 	if (!swfrm_info->user_info[0].subfrm_idx)
 		req->tstate.time_reddonescpStart = time_local_reddonescpStart;
-
-	swfrm_cnt = atomic_inc_return(&req->swfrm_cnt);
-	if (swfrm_cnt == 1)
-		dev_dbg(imgsys_dev->dev,
-		"%d:%d:%s: request num(%d)/frame no(%d), request fd(%d) kva(0x%lx) tfnum(%d) sidx(%d)\n",
-		current->pid, current->tgid, __func__, swfrm_info->request_no,
-		swfrm_info->frame_no, swfrm_info->request_fd, (unsigned long)swfrm_info,
-		swfrm_info->total_frmnum, swfrm_info->user_info[0].subfrm_idx);
 
 	up(&imgsys_dev->sem);
 	/* TODO: log only safe to remove */
@@ -2134,6 +2139,8 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 			"%s: imgsys_quick_onoff_enable(%d)\n",
 			__func__, imgsys_quick_onoff_enable());
 
+	INIT_LIST_HEAD(&imgsys_dev->imgsys_pipe[0].pipe_job_pending_list);
+
 #if MTK_CM4_SUPPORT
 	struct img_ipi_param ipi_param;
 
@@ -2394,7 +2401,7 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 			__func__, imgsys_dev->imgsys_stream_cnt);
 
 		flush_fd_kva_list(imgsys_dev);
-
+		mutex_lock(&pipe->iova_cache.mlock);
 		list_for_each_entry_safe(iova_info, tmp,
 					&pipe->iova_cache.list, list_entry) {
 			mtk_imgsys_put_dma_buf(iova_info->dma_buf,
@@ -2406,6 +2413,7 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 			spin_unlock(&pipe->iova_cache.lock);
 			vfree(iova_info);
 		}
+		mutex_unlock(&pipe->iova_cache.mlock);
 
 	}
 	dev_dbg(pipe->imgsys_dev->dev,
@@ -2489,10 +2497,13 @@ void mtk_imgsys_hw_enqueue(struct mtk_imgsys_dev *imgsys_dev,
 		if (!is_batch_mode(req))
 			mtk_imgsys_std_ipi_params_config(req);
 #else
+#ifdef DESC_SUPPORT
 		if (is_desc_mode(req))
 			mtk_imgsys_desc_ipi_params_config(req);
 		else
 			mtk_imgsys_std_ipi_params_config(req);
+#endif
+		mtk_imgsys_std_ipi_params_config(req);
 #endif
 	}
 

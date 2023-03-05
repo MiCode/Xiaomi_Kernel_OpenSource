@@ -95,6 +95,7 @@ struct mtk_imgsys_dma_buf_iova_list {
 	struct list_head list;
 	struct hlist_head hlists[HBITS];
 	spinlock_t lock;
+	struct mutex mlock;
 };
 
 struct mtk_imgsys_dma_buf_iova_get_info {

@@ -477,6 +477,12 @@ void *isp7s_get_hwid_virt(void)
 }
 EXPORT_SYMBOL(isp7s_get_hwid_virt);
 
+phys_addr_t isp7s_get_gce_mem_size(void)
+{
+	return mb[IMG_MEM_G_ID].size;
+}
+EXPORT_SYMBOL(isp7s_get_gce_mem_size);
+
 
 int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 {
@@ -873,4 +879,5 @@ struct mtk_hcp_data isp7s_hcp_data = {
 	.get_gce = isp7s_get_gce,
 	.put_gce = isp7s_put_gce,
 	.get_hwid_virt = isp7s_get_hwid_virt,
+	.get_gce_mem_size = isp7s_get_gce_mem_size,
 };
