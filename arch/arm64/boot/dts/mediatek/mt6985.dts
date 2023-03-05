@@ -6941,6 +6941,10 @@
 			conninfra-emi-addr = <0>;
 			conninfra-emi-size = <0xc00000>;
 			#thermal-sensor-cells = <1>;
+			interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnect-names = "wifi-perf-bw";
+			required-opps = <&dvfsrc_freq_opp0>,
+					<&dvfsrc_freq_opp1>;
 		};
 
 		wifi_page_pool: wifi_page_pool {
