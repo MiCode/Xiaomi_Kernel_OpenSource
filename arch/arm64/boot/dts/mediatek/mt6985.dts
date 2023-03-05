@@ -6867,28 +6867,29 @@
 			compatible = "mediatek,mt6985-connv3";
 			/* BT, WIFI, GPS, FM */
 			radio-support = "wifi", "bt", "md";
-			pinctrl-names = "connsys-pin-ext32k-en-default",
-					"connsys-pin-ext32k-en-set",
-					"connsys-pin-ext32k-en-clr",
-					"connsys-pin-pmic-en-default",
+			pinctrl-names = "connsys-pin-pmic-en-default",
 					"connsys-pin-pmic-en-set",
 					"connsys-pin-pmic-en-clr",
 					"connsys-pin-pmic-faultb-default",
 					"connsys-pin-pmic-faultb-enable",
 					"connsys-combo-gpio-init",
 					"connsys-combo-gpio-pre-on",
-					"connsys-combo-gpio-on";
-			pinctrl-0 = <&connsys_pin_ext32k_en_default>;
-			pinctrl-1 = <&connsys_pin_ext32k_en_set>;
-			pinctrl-2 = <&connsys_pin_ext32k_en_clr>;
-			pinctrl-3 = <&connsys_pin_pmic_en_default>;
-			pinctrl-4 = <&connsys_pin_pmic_en_set>;
-			pinctrl-5 = <&connsys_pin_pmic_en_clr>;
-			pinctrl-6 = <&connsys_pin_pmic_faultb_default>;
-			pinctrl-7 = <&connsys_pin_pmic_faultb_enable>;
-			pinctrl-8 = <&connsys_combo_gpio_init>;
-			pinctrl-9 = <&connsys_combo_gpio_pre_on>;
-			pinctrl-10 = <&connsys_combo_gpio_on>;
+					"connsys-combo-gpio-on",
+					"connsys-pin-ext32k-en-default",
+					"connsys-pin-ext32k-en-set",
+					"connsys-pin-ext32k-en-clr",
+					"connsys-pin-pmic-en-default";
+			pinctrl-0 = <&connsys_pin_pmic_en_default>;
+			pinctrl-1 = <&connsys_pin_pmic_en_set>;
+			pinctrl-2 = <&connsys_pin_pmic_en_clr>;
+			pinctrl-3 = <&connsys_pin_pmic_faultb_default>;
+			pinctrl-4 = <&connsys_pin_pmic_faultb_enable>;
+			pinctrl-5 = <&connsys_combo_gpio_init>;
+			pinctrl-6 = <&connsys_combo_gpio_pre_on>;
+			pinctrl-7 = <&connsys_combo_gpio_on>;
+			pinctrl-8 = <&connsys_pin_ext32k_en_default>;
+			pinctrl-9 = <&connsys_pin_ext32k_en_set>;
+			pinctrl-10 = <&connsys_pin_ext32k_en_clr>;
 
 			interrupt-parent = <&pio>;
 			mt6376-gpio = <&pio 231 0>,
@@ -16058,25 +16059,6 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 		};
 	};
 
-	connsys_pin_ext32k_en_default: connsys-pin-ext32k-en-default {
-		pins-cmd-data {
-			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
-			output-low;
-		};
-	};
-	connsys_pin_ext32k_en_set: connsys-pin-ext32k-en-set {
-		pins-cmd-data {
-			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
-			output-high;
-		};
-	};
-	connsys_pin_ext32k_en_clr: connsys-pin-ext32k-en-clr {
-		pins-cmd-data {
-			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
-			output-low;
-		};
-	};
-
 	connsys_pin_pmic_en_default: connsys-pin-pmic-en-default {
 		pins-cmd-dat {
 			pinmux = <PINMUX_GPIO241__FUNC_GPIO241>;
@@ -16145,6 +16127,24 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 		/* 229 SCP_WB_URXD */
 		pins-cmd2-dat {
 			pinmux = <PINMUX_GPIO229__FUNC_TP_URXD3_VLP>;
+		};
+	};
+	connsys_pin_ext32k_en_default: connsys-pin-ext32k-en-default {
+		pins-cmd-data {
+			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
+			output-low;
+		};
+	};
+	connsys_pin_ext32k_en_set: connsys-pin-ext32k-en-set {
+		pins-cmd-data {
+			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
+			output-high;
+		};
+	};
+	connsys_pin_ext32k_en_clr: connsys-pin-ext32k-en-clr {
+		pins-cmd-data {
+			pinmux = <PINMUX_GPIO159__FUNC_GPIO159>;
+			output-low;
 		};
 	};
 	aud_gpio_i2s8_off: aud_gpio_i2s8_off {
