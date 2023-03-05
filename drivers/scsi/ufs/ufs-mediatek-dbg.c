@@ -1034,6 +1034,31 @@ void ufs_mtk_dbg_get_aee_buffer(unsigned long *vaddr, unsigned long *size)
 }
 EXPORT_SYMBOL_GPL(ufs_mtk_dbg_get_aee_buffer);
 
+static int write_irq_affinity(char *buf)
+{
+	struct ufs_hba *hba = ufshba;
+	cpumask_var_t new_mask;
+	int ret;
+
+	if (!zalloc_cpumask_var(&new_mask, GFP_KERNEL))
+		return -ENOMEM;
+
+	ret = cpumask_parse(buf, new_mask);
+	if (ret)
+		goto free;
+
+	if (!cpumask_intersects(new_mask, cpu_online_mask)) {
+		ret = -EINVAL;
+		goto free;
+	}
+
+	ret = irq_set_affinity(hba->irq, new_mask);
+
+free:
+	free_cpumask_var(new_mask);
+	return ret;
+}
+
 #ifndef USER_BUILD_KERNEL
 #define PROC_PERM		0660
 #else
@@ -1043,10 +1068,11 @@ EXPORT_SYMBOL_GPL(ufs_mtk_dbg_get_aee_buffer);
 static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 				 size_t count, loff_t *data)
 {
-	unsigned long op = UFSDBG_UNKNOWN;
+	unsigned long op, op2;
 	struct ufs_hba *hba = ufshba;
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-	char cmd_buf[16];
+	char cmd_buf[16], *tok, *cur;
+	int ret = count;
 
 	if (count == 0 || count > 15)
 		return -EINVAL;
@@ -1055,7 +1081,10 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 		return -EINVAL;
 
 	cmd_buf[count] = '\0';
-	if (kstrtoul(cmd_buf, 15, &op))
+
+	cur = cmd_buf;
+	tok = strsep(&cur, " ");
+	if (kstrtoul(tok, 10, &op))
 		return -EINVAL;
 
 	if (op == UFSDBG_CMD_LIST_DUMP) {
@@ -1077,9 +1106,28 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 			host->qos_enabled = false;
 			dev_info(hba->dev, "QoS off\n");
 		}
+	} else if (op == UFSDBG_CMD_SKIPBTAG_ON) {
+		host->skip_blocktag = true;
+		dev_info(hba->dev, "skip blocktag on\n");
+	} else if (op == UFSDBG_CMD_SKIPBTAG_OFF) {
+		host->skip_blocktag = false;
+		dev_info(hba->dev, "skip blocktag off\n");
+	} else if (op == UFSDBG_CMD_IRQ_SET) {
+		tok = strsep(&cur, " ");
+		if (kstrtoul(tok, 16, &op2))
+			return -EINVAL;
+		ret = write_irq_affinity(tok);
+		if (!ret)
+			ret = count;
+		dev_info(hba->dev, "set ufs irq %x\n", op2);
+	} else if (op == UFSDBG_CMD_IRQ_UNSET) {
+		ret = write_irq_affinity("03");
+		if (!ret)
+			ret = count;
+		dev_info(hba->dev, "set ufs irq 03\n");
 	}
 
-	return count;
+	return ret;
 }
 
 static int ufs_debug_proc_show(struct seq_file *m, void *v)

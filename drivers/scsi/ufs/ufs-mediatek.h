@@ -225,6 +225,7 @@ struct ufs_mtk_host {
 	bool qos_allowed;
 	bool qos_enabled;
 	bool boot_device;
+	bool skip_blocktag;
 
 	struct completion luns_added;
 

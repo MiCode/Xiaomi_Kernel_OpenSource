@@ -1225,12 +1225,15 @@ static void ufs_mtk_trace_vh_send_command_vend_ss(void *data, struct ufs_hba *hb
 static void ufs_mtk_trace_vh_send_command(void *data, struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 {
 	struct scsi_cmnd *cmd = lrbp->cmd;
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+#endif
 
 	if (!cmd)
 		return;
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
-	if (ufs_mtk_is_data_cmd(cmd)) {
+	if (!host->skip_blocktag && ufs_mtk_is_data_cmd(cmd)) {
 		mtk_btag_ufs_send_command(lrbp->task_tag, cmd);
 		mtk_btag_ufs_check(lrbp->task_tag, 1);
 	}
@@ -1270,6 +1273,7 @@ static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, stru
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 	int tag = lrbp->task_tag;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 #endif
 
 	if (!cmd)
@@ -1285,8 +1289,13 @@ static void ufs_mtk_trace_vh_compl_command(void *data, struct ufs_hba *hba, stru
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 	if (ufs_mtk_is_data_cmd(cmd)) {
+		/* Don't skip on req compl. We need to notify req compl if we do
+		 * so on send. Blocktag will skip by itself if there is no send
+		 * event on this tag.
+		 */
 		mtk_btag_ufs_transfer_req_compl(tag, ongoing_cnt);
-		mtk_btag_ufs_check(tag, ongoing_cnt);
+		if (!host->skip_blocktag)
+			mtk_btag_ufs_check(tag, ongoing_cnt);
 	}
 #endif
 
@@ -2315,6 +2324,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	init_completion(&host->luns_added);
 
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
+	host->skip_blocktag = false;
 	mtk_btag_ufs_init(host);
 #endif
 
