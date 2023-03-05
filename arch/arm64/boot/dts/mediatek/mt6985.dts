@@ -13115,9 +13115,6 @@
 
 	pmic-oc-debug {
 		compatible = "mediatek,mt6983-oc-debug";
-		interrupt-parent = <&main_pmic>;
-		interrupts = <54 IRQ_TYPE_NONE>, <55 IRQ_TYPE_NONE>;
-		interrupt-names = "LVSYS_R", "LVSYS_F";
 		status = "okay";
 	};
 
@@ -15457,6 +15454,18 @@ FLL0_out,FLL1_out,FLL2_out,FLL4_out,FLL5_out,FLL6_out";
 };
 
 /delete-node/ &mt6363_vbuck4_sshub;
+
+&main_pmic {
+	pmic-lvsys-notify {
+		compatible = "mediatek,mt6363-lvsys-notify";
+		thd-volts-l = <3400>;
+		thd-volts-h = <3500>;
+		lv-deb-sel = <0>;
+		hv-deb-sel = <2>;
+		vio18-switch-reg = <0x53 0x58>;
+		status = "okay";
+	};
+};
 
 &mddriver {
 	/* for md pmic voltage setting*/
