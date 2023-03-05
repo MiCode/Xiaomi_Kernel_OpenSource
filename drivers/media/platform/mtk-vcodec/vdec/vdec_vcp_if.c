@@ -119,27 +119,9 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len,
 	wait_queue_head_t *msg_wq;
 	bool is_res = false;
 	int ipi_wait_type = IPI_SEND_WAIT;
-	bool need_lock_dvfs = false;
 
 	if (preempt_count())
 		ipi_wait_type = IPI_SEND_POLLING;
-
-	if (!is_ack && need_wait_suspend) {
-		while (inst->ctx->dev->is_codec_suspending == 1) {
-			if (has_lock_dvfs && !need_lock_dvfs) {
-				mutex_unlock(&inst->ctx->dev->dec_dvfs_mutex);
-				need_lock_dvfs = true;
-			}
-			suspend_block_cnt++;
-			if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-				mtk_v4l2_debug(0, "VDEC blocked by suspend\n");
-				suspend_block_cnt = 0;
-			}
-			usleep_range(10000, 20000);
-		}
-		if (need_lock_dvfs)
-			mutex_lock(&inst->ctx->dev->dec_dvfs_mutex);
-	}
 
 	if (*(__u32 *)msg == AP_IPIMSG_DEC_FRAME_BUFFER) {
 		is_res = true;
@@ -147,8 +129,28 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len,
 	} else
 		msg_mutex = &inst->ctx->dev->ipi_mutex;
 
-	if (!is_ack)
+	if (!is_ack) {
 		mutex_lock(msg_mutex);
+
+		if (need_wait_suspend) {
+			while (inst->ctx->dev->is_codec_suspending == 1) {
+				mutex_unlock(msg_mutex);
+				if (has_lock_dvfs)
+					mutex_unlock(&inst->ctx->dev->dec_dvfs_mutex);
+
+				suspend_block_cnt++;
+				if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+					mtk_v4l2_debug(0, "VDEC blocked by suspend\n");
+					suspend_block_cnt = 0;
+				}
+				usleep_range(10000, 20000);
+
+				if (has_lock_dvfs)
+					mutex_lock(&inst->ctx->dev->dec_dvfs_mutex);
+				mutex_lock(msg_mutex);
+			}
+		}
+	}
 
 	if (inst->vcu.abort || inst->vcu.daemon_pid != get_vcp_generation())
 		goto ipi_err_unlock;

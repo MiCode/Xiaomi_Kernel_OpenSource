@@ -118,19 +118,24 @@ static int venc_vcp_ipi_send(struct venc_inst *inst, void *msg, int len, bool is
 	if (preempt_count())
 		ipi_wait_type = IPI_SEND_POLLING;
 
-	if (!is_ack && *(u32 *)msg != AP_IPIMSG_ENC_BACKUP) {
-		while (inst->ctx->dev->is_codec_suspending == 1) {
-			suspend_block_cnt++;
-			if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
-				mtk_v4l2_debug(0, "VENC blocked by suspend\n");
-				suspend_block_cnt = 0;
+	if (!is_ack) {
+		mutex_lock(&inst->ctx->dev->ipi_mutex);
+
+		if (*(u32 *)msg != AP_IPIMSG_ENC_BACKUP) {
+			while (inst->ctx->dev->is_codec_suspending == 1) {
+				mutex_unlock(&inst->ctx->dev->ipi_mutex);
+
+				suspend_block_cnt++;
+				if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
+					mtk_v4l2_debug(0, "VENC blocked by suspend\n");
+					suspend_block_cnt = 0;
+				}
+				usleep_range(10000, 20000);
+
+				mutex_lock(&inst->ctx->dev->ipi_mutex);
 			}
-			usleep_range(10000, 20000);
 		}
 	}
-
-	if (!is_ack)
-		mutex_lock(&inst->ctx->dev->ipi_mutex);
 
 	if (inst->vcu_inst.abort || inst->vcu_inst.daemon_pid != get_vcp_generation())
 		goto ipi_err_unlock;
@@ -741,17 +746,10 @@ static int vcp_venc_notify_callback(struct notifier_block *this,
 	break;
 	case VCP_EVENT_SUSPEND:
 		dev->is_codec_suspending = 1;
-		while (atomic_read(&dev->mq.cnt)) {
-			timeout += 20;
-			usleep_range(10000, 20000);
-			if (timeout > VCP_SYNC_TIMEOUT_MS) {
-				mtk_v4l2_debug(0, "VCP_EVENT_SUSPEND timeout\n");
-				break;
-			}
-		}
 		// check no more ipi in progress
 		mutex_lock(&dev->ipi_mutex);
 		mutex_unlock(&dev->ipi_mutex);
+
 		// send backup ipi to vcp by one of any instances
 		mutex_lock(&dev->ctx_mutex);
 		list_for_each_safe(p, q, &dev->ctx_list) {
@@ -766,6 +764,15 @@ static int vcp_venc_notify_callback(struct notifier_block *this,
 		}
 		if (!backup)
 			mutex_unlock(&dev->ctx_mutex);
+
+		while (atomic_read(&dev->mq.cnt)) {
+			timeout += 20;
+			usleep_range(10000, 20000);
+			if (timeout > VCP_SYNC_TIMEOUT_MS) {
+				mtk_v4l2_debug(0, "VCP_EVENT_SUSPEND timeout\n");
+				break;
+			}
+		}
 	break;
 	}
 	return NOTIFY_DONE;
