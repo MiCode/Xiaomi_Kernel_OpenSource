@@ -1527,6 +1527,12 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 				cb_param =
 					vzalloc(sizeof(struct mtk_imgsys_cb_param));
 				if (cb_param == NULL) {
+					pr_info(
+						"%s: [ERROR] cb_param vzalloc fail with req fd/no(%d/%d) frame no(%d) hw_comb(0x%x) in block(%d) for frm(%d/%d)!\n",
+						__func__,
+						frm_info->request_fd, frm_info->request_no,
+						frm_info->frame_no, hw_comb,
+						blk_idx, frm_idx, frm_num);
 					cmdq_pkt_destroy(pkt);
 					return -1;
 				}
