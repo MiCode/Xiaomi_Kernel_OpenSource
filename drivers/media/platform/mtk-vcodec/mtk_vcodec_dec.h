@@ -85,7 +85,7 @@ extern const struct v4l2_m2m_ops mtk_vdec_m2m_ops;
  * to ctx instance that get lock
  */
 void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx);
-void mtk_vdec_error_handle(struct mtk_vcodec_ctx *ctx);
+void mtk_vdec_error_handle(struct mtk_vcodec_ctx *ctx, char *debug_str);
 void mtk_vdec_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id);
 int mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id);
 int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,

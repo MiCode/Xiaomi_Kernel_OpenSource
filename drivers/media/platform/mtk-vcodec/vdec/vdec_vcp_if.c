@@ -898,7 +898,7 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 					inst->vcu.failure = VDEC_IPI_MSG_STATUS_FAIL;
 					inst->vcu.abort = 1;
 				}
-				mtk_vdec_error_handle(ctx);
+				mtk_vdec_error_handle(ctx, "STOP");
 			}
 		}
 		mutex_unlock(&dev->ctx_mutex);
@@ -935,6 +935,12 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		mtk_vcodec_alive_checker_suspend(dev);
 		mutex_unlock(&dev->ctx_mutex);
 		if (ctx) {
+			mtk_v4l2_debug(0, "[%d] backup (dvfs freq %d, high %d)(pw ref %d, %d %d)",
+				ctx->id, dev->vdec_dvfs_params.target_freq,
+				dev->vdec_dvfs_params.high_loading_scenario,
+				atomic_read(&dev->dec_larb_ref_cnt),
+				atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_LAT]),
+				atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_CORE]));
 			vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
 			mutex_lock(&dev->dec_dvfs_mutex);
 			// if power always on, put pw ref cnt before suspend

@@ -321,6 +321,16 @@ void vdec_check_release_lock(void *ctx_check)
 					ctx->id, i);
 		}
 	}
+	if (ctx->dev->dec_cnt == 1) {
+		for (i = 0; i < MTK_VDEC_HW_NUM; i++)
+			if (atomic_read(&ctx->dev->dec_clk_ref_cnt[i]))
+				mtk_v4l2_err("[%d] hw_id %d: dec_clk_ref_cnt %d, dec_always_on %d, dec_is_suspend_off %d",
+					ctx->id, i, atomic_read(&ctx->dev->dec_clk_ref_cnt[i]),
+					ctx->dev->dec_always_on[i], ctx->dev->dec_is_suspend_off);
+		if (atomic_read(&ctx->dev->dec_larb_ref_cnt))
+			mtk_v4l2_err("[%d] dec_larb_ref_cnt %d",
+				ctx->id, atomic_read(&ctx->dev->dec_larb_ref_cnt));
+	}
 }
 
 void vdec_suspend_power(struct mtk_vcodec_dev *dev)
@@ -334,9 +344,9 @@ void vdec_suspend_power(struct mtk_vcodec_dev *dev)
 	}
 	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
 		if (dev->dec_always_on[hw_id] > 0) {
-			mtk_vcodec_dec_clock_off(&dev->pm, hw_id);
 			mtk_v4l2_debug(0, "hw_id %d clock off for is always on %d",
 				hw_id, dev->dec_always_on[hw_id]);
+			mtk_vcodec_dec_clock_off(&dev->pm, hw_id);
 		}
 	}
 	dev->dec_is_suspend_off = true;
@@ -354,9 +364,9 @@ void vdec_resume_power(struct mtk_vcodec_dev *dev)
 	}
 	for (hw_id = 0; hw_id < MTK_VDEC_HW_NUM; hw_id++) {
 		if (dev->dec_always_on[hw_id] > 0) {
-			mtk_vcodec_dec_clock_on(&dev->pm, hw_id);
 			mtk_v4l2_debug(0, "hw_id %d clock on for is always on %d",
 				hw_id, dev->dec_always_on[hw_id]);
+			mtk_vcodec_dec_clock_on(&dev->pm, hw_id);
 		}
 	}
 	dev->dec_is_suspend_off = false;

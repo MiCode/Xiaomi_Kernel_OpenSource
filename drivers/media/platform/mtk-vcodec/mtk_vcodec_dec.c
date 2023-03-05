@@ -445,7 +445,7 @@ static int mtk_vdec_set_frame(struct mtk_vcodec_ctx *ctx,
 	if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM) {
 		ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, buf);
 		if (ret == -EIO) {
-			mtk_vdec_error_handle(ctx);
+			mtk_vdec_error_handle(ctx, "set_frame");
 		}
 	}
 
@@ -1196,16 +1196,24 @@ void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 	v4l2_event_queue_fh(&ctx->fh, &ev_error);
 }
 
-void mtk_vdec_error_handle(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_error_handle(struct mtk_vcodec_ctx *ctx, char *debug_str)
 {
+	struct mtk_vcodec_dev *dev = ctx->dev;
+
+	mtk_v4l2_err("[%d] start error handling %s (dvfs freq %d, high %d)(pw ref %d, %d %d)",
+		ctx->id, debug_str, dev->vdec_dvfs_params.target_freq,
+		dev->vdec_dvfs_params.high_loading_scenario,
+		atomic_read(&dev->dec_larb_ref_cnt),
+		atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_LAT]),
+		atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_CORE]));
 	ctx->state = MTK_STATE_ABORT;
 	vdec_check_release_lock(ctx);
-	mutex_lock(&ctx->dev->dec_dvfs_mutex);
-	if (ctx->dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ) {
-		mtk_vcodec_dec_pw_off(&ctx->dev->pm);
-		ctx->dev->vdec_dvfs_params.target_freq = 0;
+	mutex_lock(&dev->dec_dvfs_mutex);
+	if (dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ) {
+		mtk_vcodec_dec_pw_off(&dev->pm);
+		dev->vdec_dvfs_params.target_freq = 0;
 	}
-	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
+	mutex_unlock(&dev->dec_dvfs_mutex);
 	mtk_vdec_queue_error_event(ctx);
 }
 
@@ -1713,7 +1721,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 		clean_free_bs_buffer(ctx, &src_buf_info->bs_buffer);
 		if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
-			mtk_vdec_error_handle(ctx);
+			mtk_vdec_error_handle(ctx, "decode");
 			v4l2_m2m_buf_done(&src_buf_info->vb,
 				VB2_BUF_STATE_ERROR);
 		} else if (mtk_vcodec_unsupport) {
@@ -3268,7 +3276,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		if (ret) {
 			mtk_v4l2_err("[%d]: vdec_if_init() fail ret=%d",
 						 ctx->id, ret);
-			mtk_vdec_error_handle(ctx);
+			mtk_vdec_error_handle(ctx, "init");
 			return;
 		}
 		ctx->state = MTK_STATE_INIT;
@@ -3484,10 +3492,10 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		} else if (mtk_vcodec_unsupport || last_frame_type != NON_EOS) {
 			mtk_v4l2_err("[%d]Error!! Codec driver not support the file!",
 						 ctx->id);
-			mtk_vdec_error_handle(ctx);
+			mtk_vdec_error_handle(ctx, "unsupport");
 		} else if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
-			mtk_vdec_error_handle(ctx);
+			mtk_vdec_error_handle(ctx, "dec init");
 		}
 		ctx->init_cnt++;
 		return;
