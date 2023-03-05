@@ -780,6 +780,7 @@ struct mtk_vcodec_dev {
 	unsigned int dec_always_on[MTK_VDEC_HW_NUM]; // ref count
 	bool dec_is_suspend_off;
 	struct mutex dec_always_on_mutex;
+	atomic_t dec_hw_active[MTK_VDEC_HW_NUM];
 
 	struct mutex dec_dvfs_mutex;
 	struct mutex enc_dvfs_mutex;

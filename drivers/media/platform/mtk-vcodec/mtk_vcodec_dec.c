@@ -1199,17 +1199,22 @@ void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 void mtk_vdec_error_handle(struct mtk_vcodec_ctx *ctx, char *debug_str)
 {
 	struct mtk_vcodec_dev *dev = ctx->dev;
+	int i;
 
-	mtk_v4l2_err("[%d] start error handling %s (dvfs freq %d, high %d)(pw ref %d, %d %d)",
+	mtk_v4l2_err("[%d] start error handling %s (dvfs freq %d, high %d)(pw ref %d, %d %d)(hw active %d %d)",
 		ctx->id, debug_str, dev->vdec_dvfs_params.target_freq,
 		dev->vdec_dvfs_params.high_loading_scenario,
 		atomic_read(&dev->dec_larb_ref_cnt),
 		atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_LAT]),
-		atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_CORE]));
+		atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_CORE]),
+		atomic_read(&dev->dec_hw_active[MTK_VDEC_LAT]),
+		atomic_read(&dev->dec_hw_active[MTK_VDEC_CORE]));
 	ctx->state = MTK_STATE_ABORT;
 	vdec_check_release_lock(ctx);
+	for (i = 0; i < MTK_VDEC_HW_NUM; i++)
+		atomic_set(&dev->dec_hw_active[i], 0);
 	mutex_lock(&dev->dec_dvfs_mutex);
-	if (dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ) {
+	if (ctx->dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ) {
 		mtk_vcodec_dec_pw_off(&dev->pm);
 		dev->vdec_dvfs_params.target_freq = 0;
 	}

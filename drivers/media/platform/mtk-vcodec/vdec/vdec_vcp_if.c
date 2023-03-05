@@ -704,24 +704,28 @@ int vcp_dec_ipi_handler(void *arg)
 			// TODO: need remove HW locks /power & ISR ipis
 			case VCU_IPIMSG_DEC_LOCK_LAT:
 				get_dvfs_data(vcu->ctx->dev, msg->no_need_put);
+				atomic_set(&dev->dec_hw_active[MTK_VDEC_LAT], 1);
 				vdec_decode_prepare(vcu->ctx, MTK_VDEC_LAT);
 				msg->msg_id = AP_IPIMSG_DEC_LOCK_LAT_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), true, false, false);
 				break;
 			case VCU_IPIMSG_DEC_UNLOCK_LAT:
 				get_dvfs_data(vcu->ctx->dev, msg->no_need_put);
+				atomic_set(&dev->dec_hw_active[MTK_VDEC_LAT], 0);
 				vdec_decode_unprepare(vcu->ctx, MTK_VDEC_LAT);
 				msg->msg_id = AP_IPIMSG_DEC_UNLOCK_LAT_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), true, false, false);
 				break;
 			case VCU_IPIMSG_DEC_LOCK_CORE:
 				get_dvfs_data(vcu->ctx->dev, msg->no_need_put);
+				atomic_set(&dev->dec_hw_active[MTK_VDEC_CORE], 1);
 				vdec_decode_prepare(vcu->ctx, MTK_VDEC_CORE);
 				msg->msg_id = AP_IPIMSG_DEC_LOCK_CORE_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), true, false, false);
 				break;
 			case VCU_IPIMSG_DEC_UNLOCK_CORE:
 				get_dvfs_data(vcu->ctx->dev, msg->no_need_put);
+				atomic_set(&dev->dec_hw_active[MTK_VDEC_CORE], 0);
 				vdec_decode_unprepare(vcu->ctx, MTK_VDEC_CORE);
 				msg->msg_id = AP_IPIMSG_DEC_UNLOCK_CORE_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), true, false, false);
@@ -935,12 +939,14 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		mtk_vcodec_alive_checker_suspend(dev);
 		mutex_unlock(&dev->ctx_mutex);
 		if (ctx) {
-			mtk_v4l2_debug(0, "[%d] backup (dvfs freq %d, high %d)(pw ref %d, %d %d)",
+			mtk_v4l2_debug(0, "[%d] backup (dvfs freq %d, high %d)(pw ref %d, %d %d)(hw active %d %d)",
 				ctx->id, dev->vdec_dvfs_params.target_freq,
 				dev->vdec_dvfs_params.high_loading_scenario,
 				atomic_read(&dev->dec_larb_ref_cnt),
 				atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_LAT]),
-				atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_CORE]));
+				atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_CORE]),
+				atomic_read(&dev->dec_hw_active[MTK_VDEC_LAT]),
+				atomic_read(&dev->dec_hw_active[MTK_VDEC_CORE]));
 			vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
 			mutex_lock(&dev->dec_dvfs_mutex);
 			// if power always on, put pw ref cnt before suspend

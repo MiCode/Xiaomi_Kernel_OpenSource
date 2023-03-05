@@ -183,8 +183,26 @@ void mtk_vcodec_dec_pw_on(struct mtk_vcodec_pm *pm)
 void mtk_vcodec_dec_pw_off(struct mtk_vcodec_pm *pm)
 {
 	int larb_index;
+	int hw_lock_cnt = 0, i;
 	struct mtk_vcodec_dev *dev = container_of(pm, struct mtk_vcodec_dev, pm);
 
+	if (atomic_read(&dev->dec_larb_ref_cnt) <= 0) {
+		mtk_v4l2_err("dec_larb_ref_cnt %d invalid !!",
+			atomic_read(&dev->dec_larb_ref_cnt));
+		// BUG();
+		// return;
+	}
+	for (i = 0; i < MTK_VDEC_HW_NUM; i++)
+		hw_lock_cnt += atomic_read(&dev->dec_hw_active[i]);
+	if (atomic_read(&dev->dec_larb_ref_cnt) == 1 && hw_lock_cnt > 0) {
+		mtk_v4l2_err("error off last larb ref cnt (%d) when some hw locked %d (%d %d)",
+			atomic_read(&dev->dec_larb_ref_cnt), hw_lock_cnt,
+			atomic_read(&dev->dec_hw_active[MTK_VDEC_LAT]),
+			atomic_read(&dev->dec_hw_active[MTK_VDEC_CORE]));
+		// BUG();
+		dump_stack();
+		// return;
+	}
 	atomic_dec(&dev->dec_larb_ref_cnt);
 	for (larb_index = 0; larb_index < MTK_VDEC_MAX_LARB_COUNT; larb_index++) {
 		if (pm->larbvdecs[larb_index])
@@ -563,6 +581,12 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 
 	clks_data = &pm->vdec_clks_data;
 	dev = container_of(pm, struct mtk_vcodec_dev, pm);
+	if (atomic_read(&dev->dec_clk_ref_cnt[hw_id]) <= 0) {
+		mtk_v4l2_err("dec_clk_ref_cnt[%d] %d invalid !!",
+			hw_id, atomic_read(&dev->dec_larb_ref_cnt));
+		// BUG();
+		// return;
+	}
 	atomic_dec(&dev->dec_clk_ref_cnt[hw_id]);
 
 	if (pm->mtkdev->vdec_hw_ipm == VCODEC_IPM_V2) {
