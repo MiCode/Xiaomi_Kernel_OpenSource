@@ -619,6 +619,9 @@ void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *i
 		return;
 
 	inst_handle = (struct vdec_inst *) ctx->drv_handle;
+	if (!inst_handle)
+		return;
+
 	vsi_data = inst_handle->vsi;
 
 	inst = get_inst(ctx);

@@ -2438,6 +2438,11 @@ static int vidioc_vdec_qbuf(struct file *file, void *priv,
 		ctx->input_max_ts =
 			(timeval_to_ns(&buf->timestamp) > ctx->input_max_ts) ?
 			timeval_to_ns(&buf->timestamp) : ctx->input_max_ts;
+		if (IS_ERR_OR_NULL(buf->m.planes)) {
+			mtk_v4l2_err("[%d] buffer planes address %p %llx can not access",
+				ctx->id, buf->m.planes, buf->m.planes);
+			return -EIO;
+		}
 		if (buf->m.planes[0].bytesused == 0) {
 			mtkbuf->lastframe = EOS;
 			mtk_v4l2_debug(1, "[%d] index=%d Eos BS(%d,%d) vb=%p pts=%llu",

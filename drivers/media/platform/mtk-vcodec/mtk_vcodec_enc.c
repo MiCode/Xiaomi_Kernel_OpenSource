@@ -1647,6 +1647,11 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_enc_buf, vb);
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		if (IS_ERR_OR_NULL(buf->m.planes)) {
+			mtk_v4l2_err("[%d] buffer planes address %p %llx can not access",
+				ctx->id, buf->m.planes, buf->m.planes);
+			return -EIO;
+		}
 		if (buf->m.planes[0].bytesused == 0) {
 			mtkbuf->lastframe = EOS;
 			mtk_v4l2_debug(1, "[%d] index=%d Eos FB(%d,%d) vb=%p pts=%llu",
