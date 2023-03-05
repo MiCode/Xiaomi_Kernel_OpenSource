@@ -63,6 +63,7 @@ f include/linux/dev_printk.h
 f include/linux/dynamic_debug.h
 f include/linux/printk.h
 f include/linux/remoteproc.h
+f include/linux/stop_machine.h
 f include/media/media-entity.h
 f include/trace/events/block.h
 f include/trace/events/f2fs.h
@@ -79,6 +80,7 @@ f kernel/sched/core.c
 f kernel/sched/rt.c
 f kernel/signal.c
 f kernel/smp.c
+f kernel/stop_machine.c
 f kernel/time/alarmtimer.c
 f kernel/time/timer.c
 f kernel/trace/trace.c
