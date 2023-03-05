@@ -380,7 +380,8 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 
 		mutex_lock(&ctx->buf_lock);
 		for (i = 0; i < dst_vb2_v4l2->vb2_buf.num_planes; i++) {
-			pfb->fb_base[i].va = vb2_plane_vaddr(dst_buf, i);
+			if (mtk_v4l2_dbg_level > 0)
+				pfb->fb_base[i].va = vb2_plane_vaddr(dst_buf, i);
 			pfb->fb_base[i].dma_addr =
 				vb2_dma_contig_plane_dma_addr(dst_buf, i);
 			pfb->fb_base[i].size = ctx->picinfo.fb_sz[i];
@@ -449,7 +450,7 @@ struct mtk_vcodec_mem *mtk_vcodec_get_bs(struct mtk_vcodec_ctx *ctx)
 		dst_buf_info = container_of(dst_vb2_v4l2, struct mtk_video_enc_buf, vb);
 		pbs_buf = &dst_buf_info->bs_buf;
 
-		if (!ctx->enc_params.svp_mode)
+		if (!ctx->enc_params.svp_mode && mtk_v4l2_dbg_level > 0)
 			pbs_buf->va = vb2_plane_vaddr(dst_buf, 0);
 		pbs_buf->dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
 		pbs_buf->size = (size_t)dst_buf->planes[0].length;
