@@ -1,0 +1,261 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ *Copyright (C) 2022 MediaTek Inc.
+ */
+
+&spi0{
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	synapticstcm@0{
+		compatible = "synaptics-s3910";
+		reg = <0x0>;
+		chip-name = "S3910";
+		status = "okay";
+		spi-max-frequency = <15000000>;
+		/* Interrupt && Irq-gpio */
+		interrupt-parent = <&pio>;
+		interrupts = <8 0x2008>;
+
+		/* Power Config */
+		//enable2v8_gpio  = <&pio 164 0x1>;
+		vdd2v8-supply  = <&mt6373_vtp>;
+		vdd2v8-volt = <3000000>;
+		vcc1v8-supply  = <&mt6363_vio18>;
+		vcc1v8-volt = <1800000>;
+
+		/* Other HW Resource */
+		irq-gpio = <&pio 8 0x2008>;
+		reset-gpio = <&pio 67 0x1>;
+
+		pinctrl-names = "default",  "oplus_int_active",
+		"oplus_reset_active", "oplus_int_suspend",
+		"oplus_reset_suspend", "oplus_spi_active",
+		"oplus_spi_suspend";
+		pinctrl-0 = <&ctp_oplus_pins_default>;
+		pinctrl-1 = <&ctp_oplus_int_active>;
+		pinctrl-2 = <&ctp_oplus_reset_active>;
+		pinctrl-3 = <&ctp_oplus_int_suspend>;
+		pinctrl-4 = <&ctp_oplus_reset_suspend>;
+		pinctrl-5 = <&ctp_oplus_spi_active>, <&ctp_oplus_spi_mosi_active>;
+		pinctrl-6 = <&ctp_oplus_spi_suspend>;
+
+		touchpanel,max-num-support = <10>;
+		touchpanel,tx-rx-num = <17 40>;
+		earsense,tx-rx-num = <17 18>;
+		touchpanel,panel-coords = <10800 25200>;
+		touchpanel,display-coords = <1080 2520>;
+		touchpanel,touchmajor-limit = <128 216>;
+		touchpanel,elimination-range = <20 200 200>;
+		touchpanel,int-mode = <1>; /*0: interrupt and disable, 1:interrupt and not disable*/
+		touchpanel,smooth-level = <0 1 2 5 8 9>;
+		touchpanel,smooth-level-charging = <0 2 4 8 9 10>;
+		touchpanel,sensitive-level = <0 70 55 40 25 10>;
+		touchpanel,single-optimized-time = <8>;
+		touchpanel,high-frame-rate-time = <60>;
+
+		touchpanel,tp-index = <0>;
+		vid-len = <2>;
+		panel-type = <3 8>; /*type:3 BOE  type:8 SS*/
+		platform-support-project = <22023 22223>;
+		platform-support-project-dir = <22023 22023>;
+		platform-support-project-commandline = "default_commandline","default_commandline";
+
+		/* SW Support Feature Control */
+		regulator-count-not-support;
+		pressure-report-support;
+		game-switch-support;
+		enable-point-auto-change;
+		fw-update-app-support;
+		exception-upload-support;
+		freq-hop-simulate-support;
+		report-flow-unlock-support;
+		kernel-grip-support;
+		/*
+		 *Virtual Key Config:
+		 *1:touchpanel,button-type: <virtualkey_type  supportted_button-map>
+		 *virtualkey_type:
+		 *Type 1: using board_properties
+		 *Type 2: using same IC (button zone&& touch zone are seprate)
+		 *Type 3: using different IC (button zone&& touch zone are seprate)
+		 *Type 4: No need of virtual key process
+		 *supportted_button-map:select|menu|home|back
+		 *
+		 *2:touchpanel,button-map
+		 *type (X1,Y1)(X2,Y2)(X3,Y3)(Width_X,Hight_Y)--Only when button-type is 0
+		 */
+		touchpanel,button-type = <4>;
+		touchpanel,button-trx = <0 0>;
+
+		S3910 {
+			switch-report-rate;
+			report-rate-default = <60>;
+			report-rate-game-value = <0x03>;
+			fps-report-rate = <60 2 90 3 120 3>;//1:360Hz 2:125Hz 3:240Hz
+			fwupdate-bootloader = <1>;
+			default-gesture-mask = <8191>;
+			normal-config-version = <2>;
+		};
+	};
+
+};
+
+&i2c13 {
+	status = "okay";
+	synaptics20171@4b {
+	status = "okay";
+		compatible = "synaptics-s3908";
+		reg = <0x4b>;
+		chip-name = "S3908";
+
+		/* Interrupt && Irq-gpio */
+		interrupt-parent = <&pio>;
+		interrupts = <117 0x2008>;
+
+		/* Power Config */
+		vdd2v8-supply  = <&mt6373_vmch>;
+		vdd2v8-volt = <3000000>;
+		vcc1v8-supply  = <&mt6363_vio18>;
+		vcc1v8-volt = <1800000>;
+		/* Other HW Resource */
+
+		irq-gpio = <&pio 117 0x2008>;
+		reset-gpio = <&pio 218 0x1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ts_int_active2 &ts_reset_active2>;
+
+		touchpanel,max-num-support = <10>;
+		touchpanel,tx-rx-num = <9 17>;
+		touchpanel,panel-coords = <382 720>;
+		touchpanel,display-coords = <382 720>;
+		touchpanel,touchmajor-limit = <0 54>;
+		touchpanel,elimination-range = <20 200 200>;
+		touchpanel,int-mode = <1>; /*0: interrupt and disable, 1:interrupt and not disable*/
+		touchpanel,smooth-level = <0 1 2 3 8 10>;
+		touchpanel,sensitive-level = <0 88 70 64 45 10>;
+
+		touchpanel,tp-index = <1>;
+		vid-len = <2>;
+		panel-type = <3>; /*type:3 BOE*/
+
+		platform-support-project = <22023 22223>;
+		platform-support-project-dir = <22023 22023>;
+		platform-support-project-commandline = "default_commandline","default_commandline";
+
+
+		/* SW Support Feature Control */
+		fw-update-app-support;
+		game-switch-support;
+		report-flow-unlock-support;
+		kernel-grip-support;
+		freq-hop-simulate-support;
+		pressure-report-support;
+		exception-upload-support;
+		touchpanel,single-optimized-time = <8>;
+		touchpanel,high-frame-rate-time = <60>;
+		regulator-count-not-support;
+		/*
+		 *Virtual Key Config:
+		 *1:touchpanel,button-type: <virtualkey_type  supportted_button-map>
+		 *virtualkey_type:
+		 *Type 1: using board_properties
+		 *Type 2: using same IC (button zone&& touch zone are seprate)
+		 *Type 3: using different IC (button zone&& touch zone are seprate)
+		 *Type 4: No need of virtual key process
+		 *supportted_button-map:select|menu|home|back
+		 *
+		 *2:touchpanel,button-map
+		 *type (X1,Y1)(X2,Y2)(X3,Y3)(Width_X,Hight_Y)--Only when button-type is 0
+		 */
+		touchpanel,button-type = <4>;
+		touchpanel,button-trx = <0 0>;
+
+		S3908 {
+			report-rate-default = <90>;
+			report-rate-game-value = <2>;
+		};
+	};
+};
+
+&pio {
+	ctp_oplus_pins_default: pins-default {
+	};
+	ctp_oplus_int_active: int1-active {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			bias-disable;
+			input-enable;
+		};
+	};
+	ctp_oplus_reset_active: reset1-active {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO67__FUNC_GPIO67>;
+			output-high;
+		};
+	};
+	ctp_oplus_int_suspend: int1-suspend {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+			output-low;
+		};
+	};
+	ctp_oplus_reset_suspend: reset1-suspend {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO67__FUNC_GPIO67>;
+			output-low;
+		};
+	};
+	ctp_oplus_spi_active: spi-active {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO151__FUNC_SPI0_CSB>,
+				<PINMUX_GPIO152__FUNC_SPI0_MO>,
+				<PINMUX_GPIO153__FUNC_SPI0_CLK>;
+			bias-disable;
+			drive-strength = <4>;
+		};
+	};
+	ctp_oplus_spi_mosi_active: spi-mosi-active {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO150__FUNC_SPI0_MI>;
+			bias-pull-up;
+			drive-strength = <4>;
+		};
+	};
+	ctp_oplus_spi_suspend: spi-suspend {
+		pins-cmd-dat {
+			pinmux = < PINMUX_GPIO150__FUNC_GPIO150>,
+				< PINMUX_GPIO151__FUNC_GPIO151>,
+				<PINMUX_GPIO152__FUNC_GPIO152>,
+				< PINMUX_GPIO153__FUNC_GPIO153>;
+			bias-disable;
+			output-low;
+			drive-strength = <4>;
+		};
+	};
+
+	ts_int_active2: ts-int-active2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO117__FUNC_GPIO117>;
+			bias-disable;
+		};
+	};
+	ts_reset_active2: ts-reset-active2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO218__FUNC_GPIO218>;
+			output-high;
+		};
+	};
+	ctp_oplus_int_suspend2: int1-suspend2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO117__FUNC_GPIO117>;
+			output-low;
+		};
+	};
+	ctp_oplus_reset_suspend2: reset1-suspend2 {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO218__FUNC_GPIO218>;
+			output-low;
+		};
+	};
+};
