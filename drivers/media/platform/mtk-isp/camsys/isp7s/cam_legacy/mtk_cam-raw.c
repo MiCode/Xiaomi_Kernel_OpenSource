@@ -1707,6 +1707,8 @@ static void reset_reg(struct mtk_raw_device *dev)
 {
 	int cq_en, sw_done, sw_sub_ctl;
 
+	if (!dev)
+		return;
 	dev_dbg(dev->dev,
 			 "[%s++] CQ_EN/SW_SUB_CTL/SW_DONE [in] 0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x\n",
 			 __func__,
