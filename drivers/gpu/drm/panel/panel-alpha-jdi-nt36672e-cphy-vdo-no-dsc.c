@@ -879,15 +879,15 @@ static u32 fake_width = 1080;
 static bool need_fake_resolution;
 
 static struct drm_display_mode default_mode = {
-	.clock = 269043, //h_total * v_total * fps
+	.clock = 269050, //h_total * v_total * fps
 	.hdisplay = HAC,
 	.hsync_start = HAC + 76,//HFP
 	.hsync_end = HAC + 76 + 20,//HSA
 	.htotal = HAC + 76 + 20 + 22,//HBP
 	.vdisplay = VAC,
-	.vsync_start = VAC + 1300,//VFP
-	.vsync_end = VAC + 1300 + 10,//VSA
-	.vtotal = VAC + 1300 + 10 + 10,//VBP
+	.vsync_start = VAC + 1310,//VFP
+	.vsync_end = VAC + 1310 + 15,//VSA
+	.vtotal = VAC + 1310 + 15 + 15,//VBP
 };
 
 static struct drm_display_mode performance_mode_90hz = {
