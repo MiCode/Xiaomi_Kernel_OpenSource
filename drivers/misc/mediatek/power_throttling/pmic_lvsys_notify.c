@@ -233,6 +233,8 @@ static void update_lvsys_vth(struct pmic_lvsys_notify *lvsys_notify)
 	if (lvsys_notify->cur_lv_ptr && lvsys_notify->cur_lv_ptr <= last_lv) {
 		ret = lvsys_vth_get_selector_high(&info->vthl_range, *(lvsys_notify->cur_lv_ptr),
 						  &vth_sel);
+		if (ret)
+			dev_notice(lvsys_notify->dev, "Failed to get selector high(%d)\n", ret);
 #if LVSYS_DBG
 		dev_info(lvsys_notify->dev, "set INT_VTHL=%d(%d)\n",
 			 vth_sel, *(lvsys_notify->cur_lv_ptr));
@@ -246,6 +248,8 @@ static void update_lvsys_vth(struct pmic_lvsys_notify *lvsys_notify)
 	if (lvsys_notify->cur_hv_ptr && lvsys_notify->cur_hv_ptr >= first_hv) {
 		ret = lvsys_vth_get_selector_low(&info->vthh_range, *(lvsys_notify->cur_hv_ptr),
 						 &vth_sel);
+		if (ret)
+			dev_notice(lvsys_notify->dev, "Failed to get selector low(%d)\n", ret);
 #if LVSYS_DBG
 		dev_info(lvsys_notify->dev, "set INT_VTHH=%d(%d)\n",
 			 vth_sel, *(lvsys_notify->cur_hv_ptr));
@@ -344,29 +348,34 @@ static int pmic_lvsys_parse_dt(struct pmic_lvsys_notify *lvsys_notify, struct de
 
 	lvsys_notify->thd_volts_l_size =
 		of_property_count_elems_of_size(np, "thd-volts-l", sizeof(u32));
-	if (!lvsys_notify->thd_volts_l_size)
+	if (lvsys_notify->thd_volts_l_size <= 0)
 		return -EINVAL;
+
 	lvsys_notify->thd_volts_l = devm_kmalloc_array(lvsys_notify->dev,
 						       lvsys_notify->thd_volts_l_size,
 						       sizeof(u32), GFP_KERNEL);
 	if (!lvsys_notify->thd_volts_l)
 		return -ENOMEM;
+
 	ret = of_property_read_u32_array(np, "thd-volts-l", lvsys_notify->thd_volts_l,
 					 lvsys_notify->thd_volts_l_size);
 
 	lvsys_notify->thd_volts_h_size =
 		of_property_count_elems_of_size(np, "thd-volts-h", sizeof(u32));
-	if (!lvsys_notify->thd_volts_h_size)
+	if (lvsys_notify->thd_volts_h_size <= 0)
 		return -EINVAL;
+
 	lvsys_notify->thd_volts_h = devm_kmalloc_array(lvsys_notify->dev,
 						       lvsys_notify->thd_volts_h_size,
 						       sizeof(u32), GFP_KERNEL);
 	if (!lvsys_notify->thd_volts_h)
 		return -ENOMEM;
+
 	ret |= of_property_read_u32_array(np, "thd-volts-h", lvsys_notify->thd_volts_h,
 					 lvsys_notify->thd_volts_h_size);
 	if (ret)
 		return ret;
+
 	lvsys_notify->cur_lv_ptr = lvsys_notify->thd_volts_l;
 	lvsys_notify->cur_hv_ptr = get_next_hv_ptr(lvsys_notify);
 	update_lvsys_vth(lvsys_notify);
