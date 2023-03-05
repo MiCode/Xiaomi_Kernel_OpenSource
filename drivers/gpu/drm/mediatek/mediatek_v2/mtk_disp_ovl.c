@@ -28,6 +28,7 @@
 #include "mtk_drm_drv.h"
 #include "mtk_disp_ovl.h"
 #include "mtk_disp_pmqos.h"
+#include "mtk_drm_assert.h"
 #ifdef IF_ZERO
 #include "mtk_iommu_ext.h"
 #endif
@@ -1668,6 +1669,11 @@ void mtk_ovl_get_ovl_csc_data(struct drm_crtc *crtc,
 static int mtk_ovl_y2r_clamp(struct mtk_ddp_comp *comp, unsigned int idx,
 			     unsigned int ext_idx, struct cmdq_pkt *handle)
 {
+	struct drm_crtc *crtc = &comp->mtk_crtc->base;
+
+	if (!(mtk_drm_dal_enable() && drm_crtc_index(crtc) == 0))
+		return 0;
+
 	if (ext_idx != LYE_NORMAL) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_WCG_CFG0, BIT(ext_idx),
