@@ -27,6 +27,9 @@ struct cpu_stop_work {
 	unsigned long		caller;
 	void			*arg;
 	struct cpu_stop_done	*done;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	char queue_stack[512];
+#endif
 };
 
 int stop_one_cpu(unsigned int cpu, cpu_stop_fn_t fn, void *arg);

@@ -22,6 +22,9 @@
 #include <linux/atomic.h>
 #include <linux/nmi.h>
 #include <linux/sched/wake_q.h>
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+#include <linux/ftrace.h>
+#endif
 
 /*
  * Structure to determine completion condition and record errors.  May
@@ -385,6 +388,17 @@ int stop_two_cpus(unsigned int cpu1, unsigned int cpu2, cpu_stop_fn_t fn, void *
 bool stop_one_cpu_nowait(unsigned int cpu, cpu_stop_fn_t fn, void *arg,
 			struct cpu_stop_work *work_buf)
 {
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	int i = 0;
+	unsigned long ip;
+
+	if (strlen(work_buf->queue_stack) != 0)
+		printk_deferred("last queue statck:%s\n", work_buf->queue_stack);
+	for (i = 0; i < 8; i++) {
+		ip = (unsigned long) ftrace_return_address(i);
+		sprint_symbol(work_buf->queue_stack + strlen(work_buf->queue_stack), ip);
+	}
+#endif
 	*work_buf = (struct cpu_stop_work){ .fn = fn, .arg = arg, .caller = _RET_IP_, };
 	return cpu_stop_queue_work(cpu, work_buf);
 }
@@ -496,6 +510,9 @@ repeat:
 	if (!list_empty(&stopper->works)) {
 		work = list_first_entry(&stopper->works,
 					struct cpu_stop_work, list);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		memset(work->queue_stack, 0, 512);
+#endif
 		list_del_init(&work->list);
 	}
 	raw_spin_unlock_irq(&stopper->lock);
