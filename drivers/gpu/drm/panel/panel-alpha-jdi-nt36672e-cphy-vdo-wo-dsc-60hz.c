@@ -873,7 +873,7 @@ static u32 fake_width = 1080;
 static bool need_fake_resolution;
 
 static struct drm_display_mode default_mode = {
-	.clock = 169394, //h_total * v_total * fps
+	.clock = 169534, //h_total * v_total * fps
 	.hdisplay = HAC,
 	.hsync_start = HAC + 48,//HFP
 	.hsync_end = HAC + 48 + 10,//HSA
@@ -886,7 +886,7 @@ static struct drm_display_mode default_mode = {
 
 #if defined(CONFIG_MTK_PANEL_EXT)
 static struct mtk_panel_params ext_params = {
-	.pll_clk = 344,
+	.pll_clk = 350,
 	.vfp_low_power = 835, //45HZ
 	.cust_esd_check = 1,
 	.esd_check_enable = 1,
@@ -897,7 +897,7 @@ static struct mtk_panel_params ext_params = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
 	},
 	.is_cphy = 1,
-	.data_rate = 688,
+	.data_rate = 700,
 };
 
 static int panel_ata_check(struct drm_panel *panel)
