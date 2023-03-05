@@ -1229,10 +1229,14 @@ DPE_GetIRQState(unsigned int type, unsigned int userNumber, unsigned int stus,
 	unsigned long flags;
 
 	p = ProcessID % IRQ_USER_NUM_MAX;
+	LOG_INF("GetIRQState p= %d,stus  %d DPE_I.NT_ST= %lu\n", p, stus, DPE_INT_ST);
 	spin_lock_irqsave(&(DPEInfo.SpinLockIrq[type]), flags);
 	if (stus & DPE_INT_ST) {
+		LOG_INF("GetIRQSta DpeIrqCnt = %d,ProcessID[p] = %d,ProcessID = %d\n",
+		DPEInfo.IrqInfo.DpeIrqCnt[p], DPEInfo.IrqInfo.ProcessID[p], ProcessID);
 		ret = ((DPEInfo.IrqInfo.DpeIrqCnt[p] > 0) &&
 		       (DPEInfo.IrqInfo.ProcessID[p] == ProcessID));
+		LOG_INF("GetIRQSta ret = %d\n", ret);
 	} else {
 		LOG_ERR("EWIRQ,type:%d,u:%d,stat:%d,wReq:%d,PID:0x%x\n",
 			type, userNumber, stus, p, ProcessID);
@@ -7411,10 +7415,10 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 		LOG_INF("DPE Read status fail, IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
 		DvsStatus, DvpStatus);
 
-	if (DPE_debug_log_en == 1) {
-		LOG_INF("DVP IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
-		DvsStatus, DvpStatus);
-	}
+
+	LOG_INF("DVP IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
+	DvsStatus, DvpStatus);
+
 	/* DPE done status may rise later, so can't use done status now  */
 	/* if (DPE_INT_ST == (DPE_INT_ST & DvpStatus)) { */
 
@@ -7508,10 +7512,10 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 		LOG_INF("DPE Read status fail, IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
 		DvsStatus, DvpStatus);
 
-	if (DPE_debug_log_en == 1) {
-		LOG_INF("DVS IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
-		DvsStatus, DvpStatus);
-	}
+
+	LOG_INF("DVS IRQ, DvsStatus: 0x%08x, DvpStatus: 0x%08x\n",
+	DvsStatus, DvpStatus);
+
 
 	/* DPE done status may rise later, so can't use done status now  */
 	/* if (DPE_INT_ST == (DPE_INT_ST & DvsStatus)) { */
