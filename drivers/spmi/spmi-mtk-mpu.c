@@ -149,11 +149,10 @@ static int mtk_spmi_pmif_mpu_probe(struct platform_device *pdev)
 		/* enable kernel stage MPU region after insert mpu.ko for dts defined time sec*/
 		dev_info(&pdev->dev, "MPU delay enable %usec after mpu.ko insert\n",
 				mpu_delay_enable_time);
-		if (mpu_delay_enable_time >= 0) {
-			timer_setup(&mpu_timer.mpu_enable_timer, enable_kernel_mpu_handler, 0);
-			mod_timer(&mpu_timer.mpu_enable_timer,
-				(jiffies + msecs_to_jiffies(mpu_delay_enable_time*1000)));
-		}
+
+		timer_setup(&mpu_timer.mpu_enable_timer, enable_kernel_mpu_handler, 0);
+		mod_timer(&mpu_timer.mpu_enable_timer,
+			(jiffies + msecs_to_jiffies(mpu_delay_enable_time*1000)));
 	}
 
 	return 0;
