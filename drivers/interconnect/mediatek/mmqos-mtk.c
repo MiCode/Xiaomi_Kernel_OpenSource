@@ -133,6 +133,8 @@ static void mmqos_update_comm_bw(struct device *dev,
 		comm_bw = (mix_bw << 8) / freq;
 	if (max_bwl)
 		comm_bw = 0xfff;
+	if (mmqos_state & BWL_NO_QOSBOUND)
+		qos_bound = false;
 	if (comm_bw)
 		if (mmqos_state & BWL_MIN_ENABLE)
 			value = ((comm_bw > 0xfff) ? 0xfff :

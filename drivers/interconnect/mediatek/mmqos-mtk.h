@@ -29,6 +29,7 @@ enum mmqos_state_level {
 	DVFSRC_ENABLE = BIT(2),
 	COMM_OSTDL_ENABLE = BIT(3),
 	BWL_MIN_ENABLE = BIT(4),
+	BWL_NO_QOSBOUND = BIT(5),
 	MMQOS_ENABLE = BIT(0) | BIT(1) | BIT(2),
 };
 
