@@ -1199,14 +1199,13 @@ void mtk_vdec_queue_error_event(struct mtk_vcodec_ctx *ctx)
 void mtk_vdec_error_handle(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->state = MTK_STATE_ABORT;
+	vdec_check_release_lock(ctx);
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
-	if (mtk_vdec_dvfs_is_pw_always_on(ctx)) {
+	if (ctx->dev->vdec_dvfs_params.target_freq == VDEC_HIGHEST_FREQ) {
 		mtk_vcodec_dec_pw_off(&ctx->dev->pm);
 		ctx->dev->vdec_dvfs_params.target_freq = 0;
-		ctx->dev->vdec_dvfs_params.high_loading_scenario = 0;
 	}
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
-	vdec_check_release_lock(ctx);
 	mtk_vdec_queue_error_event(ctx);
 }
 

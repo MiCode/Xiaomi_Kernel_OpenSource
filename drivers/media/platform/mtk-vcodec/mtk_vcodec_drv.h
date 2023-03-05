@@ -753,9 +753,6 @@ struct mtk_vcodec_dev {
 	spinlock_t dec_power_lock[MTK_VDEC_HW_NUM];
 	spinlock_t enc_power_lock[MTK_VENC_HW_NUM];
 	int dec_m4u_ports[NUM_MAX_VDEC_M4U_PORT];
-	int dec_clk_ref_cnt[MTK_VDEC_HW_NUM];
-	int dec_larb_ref_cnt;
-	struct mutex dec_larb_mutex;
 
 	unsigned long id_counter;
 
