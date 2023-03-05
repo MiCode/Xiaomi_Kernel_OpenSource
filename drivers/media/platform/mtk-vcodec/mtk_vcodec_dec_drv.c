@@ -338,11 +338,13 @@ static int mtk_vcodec_dec_resume(struct device *pDev)
 static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 					unsigned long action, void *data)
 {
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	int wait_cnt = 0;
 	int val = 0;
 	int i;
 	struct mtk_vcodec_dev *dev =
 		container_of(nb, struct mtk_vcodec_dev, pm_notifier);
+#endif
 
 	mtk_v4l2_debug(1, "action = %ld", action);
 	switch (action) {
@@ -351,7 +353,7 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 		mutex_lock(&dev->dec_dvfs_mutex);
 		dev->is_codec_suspending = 1;
 		mutex_unlock(&dev->dec_dvfs_mutex);
-#endif
+
 		for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
 			val = down_trylock(&dev->dec_sem[i]);
 			while (val == 1) {
@@ -368,6 +370,7 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 			}
 			up(&dev->dec_sem[i]);
 		}
+#endif
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
 #if !IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)

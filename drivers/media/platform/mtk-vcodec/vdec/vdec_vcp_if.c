@@ -879,6 +879,7 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 	struct mtk_vcodec_ctx *ctx = NULL, *tmp_ctx;
 	int timeout = 0;
 	struct vdec_inst *inst = NULL;
+	int val, wait_cnt, i;
 
 	if (!mtk_vcodec_is_vcp(MTK_INST_DECODER))
 		return 0;
@@ -916,14 +917,6 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		dev->is_codec_suspending = 1;
 		mutex_unlock(&dev->dec_dvfs_mutex);
 
-		while (atomic_read(&dev->mq.cnt)) {
-			timeout += 20;
-			usleep_range(10000, 20000);
-			if (timeout > VCP_SYNC_TIMEOUT_MS) {
-				mtk_v4l2_debug(0, "VCP_EVENT_SUSPEND timeout\n");
-				break;
-			}
-		}
 		// check no more ipi in progress
 		mutex_lock(&dev->ipi_mutex);
 		mutex_lock(&dev->ipi_mutex_res);
@@ -959,6 +952,29 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 			mutex_unlock(&dev->dec_dvfs_mutex);
 		}
 		vdec_suspend_power(dev);
+
+		// check all hw lock is released
+		for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
+			val = down_trylock(&dev->dec_sem[i]);
+			for (wait_cnt = 0; val == 1 && wait_cnt < 5; wait_cnt++) {
+				usleep_range(10000, 20000);
+				val = down_trylock(&dev->dec_sem[i]);
+			}
+			if (val == 1)
+				mtk_v4l2_err("waiting hw_id %d relase lock fail", i);
+			else
+				up(&dev->dec_sem[i]);
+		}
+
+		// wait msg q of ipi_recv all done
+		while (atomic_read(&dev->mq.cnt)) {
+			timeout += 20;
+			usleep_range(10000, 20000);
+			if (timeout > VCP_SYNC_TIMEOUT_MS) {
+				mtk_v4l2_err("VCP_EVENT_SUSPEND timeout\n");
+				break;
+			}
+		}
 	break;
 	case VCP_EVENT_RESUME:
 		vdec_resume_power(dev);
