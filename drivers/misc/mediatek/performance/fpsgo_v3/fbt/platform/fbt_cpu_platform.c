@@ -150,7 +150,7 @@ void fbt_set_per_task_cap(int pid, unsigned int min_blc,
 	min_blc_1024 = clamp(min_blc_1024, 1U, 1024U);
 
 	max_blc_1024 = (max_util != 1024U) ? max_util : ((max_blc << 10) / 100U);
-	max_blc_1024 = clamp(max_blc_1024, 1U, 1024U);
+	max_blc_1024 = clamp(max_blc_1024, min_blc_1024, 1024U);
 
 	attr.sched_policy = -1;
 	attr.sched_flags =
