@@ -1731,6 +1731,10 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		dev_info(ctx->dev,
 			"[%s] is_ctx_streaming(%d)\n",
 			__func__, ctx->streaming);
+		if (!enable) {
+			// ensure forget cammux setting
+			mtk_cam_seninf_forget_camtg_setting(ctx);
+		}
 		return 0;
 	}
 

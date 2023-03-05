@@ -1312,6 +1312,27 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 	return 0;
 }
 
+int mtk_cam_seninf_forget_camtg_setting(struct seninf_ctx *ctx)
+{
+	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+	struct seninf_vc *vc;
+	int i, j;
+
+	// Only apply when stream off state
+	if (!ctx->streaming) {
+		for (i = 0; i < vcinfo->cnt; i++) {
+			vc = &vcinfo->vc[i];
+			vc->dest_cnt = 0;
+		}
+		for (i = 0; i < PAD_MAXCNT; i++)
+			for (j = 0; j < MAX_DEST_NUM; j++)
+				ctx->pad2cam[i][j] = 0xff;
+		dev_info(ctx->dev, "%s forget all cammux and set all pd2cam to 0xff\n", __func__);
+	}
+
+	return 0;
+}
+
 static int _mtk_cam_seninf_reset_cammux(struct seninf_ctx *ctx, int pad_id)
 {
 	struct seninf_vc *vc;

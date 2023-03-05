@@ -30,6 +30,7 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx);
 u8 is_reset_by_user(struct seninf_ctx *ctx);
 int reset_sensor(struct seninf_ctx *ctx);
 int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx);
+int mtk_cam_seninf_forget_camtg_setting(struct seninf_ctx *ctx);
 
 int stream_sensor(struct seninf_ctx *ctx, int enable);
 void notify_fsync_with_kthread_and_s_stream(struct seninf_ctx *ctx,
