@@ -1726,7 +1726,13 @@ void reset(struct mtk_raw_device *dev)
 		goto RESET_FAILURE;
 	}
 
-	if (dev->cam && dev->pipeline && dev->pipeline->enabled_sv_tags) {
+	if (!dev->cam) {
+		dev_dbg(dev->dev, "%s: get cam failed\n", __func__);
+
+		goto RESET_FAILURE;
+	}
+
+	if (dev->pipeline && dev->pipeline->enabled_sv_tags) {
 		struct mtk_cam_ctx *ctx;
 
 		ctx = mtk_cam_find_ctx(dev->cam, &dev->pipeline->subdev.entity);
