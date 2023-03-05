@@ -228,6 +228,7 @@ int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
 #define DISP_REG_OVL_CLRFMT_EXT (0x2D0UL)
 #define FLD_Ln_CLRFMT_NB(n) REG_FLD_MSB_LSB((n)*4 + 1, (n)*4)
 #define FLD_ELn_CLRFMT_NB(n) REG_FLD_MSB_LSB((n)*4 + 17, (n)*4 + 16)
+#define DISP_REG_OVL_WCG_CFG0 (0x2D4UL)
 #define DISP_REG_OVL_WCG_CFG1 (0x2D8UL)
 #define FLD_Ln_IGAMMA_EN(n) REG_FLD_MSB_LSB((n)*4, (n)*4)
 #define FLD_Ln_CSC_EN(n) REG_FLD_MSB_LSB((n)*4 + 1, (n)*4 + 1)
@@ -1664,6 +1665,21 @@ void mtk_ovl_get_ovl_csc_data(struct drm_crtc *crtc,
 	}
 }
 
+static int mtk_ovl_y2r_clamp(struct mtk_ddp_comp *comp, unsigned int idx,
+			     unsigned int ext_idx, struct cmdq_pkt *handle)
+{
+	if (ext_idx != LYE_NORMAL) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_OVL_WCG_CFG0, BIT(ext_idx),
+		       BIT(ext_idx));
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_OVL_WCG_CFG0, BIT(idx),
+		       BIT(idx));
+	}
+	return 0;
+}
+
 static int mtk_ovl_color_manage(struct mtk_ddp_comp *comp, unsigned int idx,
 			struct mtk_plane_state *state, struct cmdq_pkt *handle)
 {
@@ -2200,6 +2216,8 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	}
 	if (!pending->enable)
 		mtk_ovl_layer_off(comp, lye_idx, ext_lye_idx, handle);
+	if (priv->data->mmsys_id == MMSYS_MT6835)
+		mtk_ovl_y2r_clamp(comp, lye_idx, ext_lye_idx, handle);
 
 	mtk_ovl_color_manage(comp, idx, state, handle);
 
