@@ -1258,8 +1258,8 @@ int uarthub_core_dev0_clear_tx_request(void)
 		return -5;
 	}
 
-#if UARTHUB_INFO_LOG
-	pr_info("[%s] g_max_dev=[%d]\n", __func__, g_max_dev);
+#if UARTHUB_DEBUG_LOG
+	uarthub_core_debug_byte_cnt_info("HUB_DBG_ClrTX");
 #endif
 
 	UARTHUB_REG_WRITE(UARTHUB_INTFHUB_DEV0_STA_CLR(intfhub_base_remap_addr), 0x2);
