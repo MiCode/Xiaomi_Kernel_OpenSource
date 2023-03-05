@@ -82,6 +82,8 @@
 #include <linux/nvmem-consumer.h>
 #endif
 
+#include "mtk_disp_bdg.h"
+
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
 #define DRIVER_DATE "20150513"
@@ -6012,7 +6014,8 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	 * display keep MTCMOS by itself.
 	 */
 	mtk_smi_init_power_off();
-
+	if (is_bdg_supported())
+		bdg_first_init();
 	return 0;
 
 err_unset_dma_parms:
