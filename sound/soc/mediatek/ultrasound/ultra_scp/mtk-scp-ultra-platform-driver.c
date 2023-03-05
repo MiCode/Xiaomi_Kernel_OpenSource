@@ -648,6 +648,15 @@ static int mtk_scp_ultra_pcm_stop(struct snd_soc_component *component,
 		return 0;
 	}
 
+	if (scp_ultra->usnd_state == SCP_ULTRA_STATE_START) {
+		ultra_ipi_send(AUDIO_TASK_USND_MSG_ID_STOP,
+			       true,
+			       0,
+			       NULL,
+			       ULTRA_IPI_BYPASS_ACK);
+		scp_ultra->usnd_state = SCP_ULTRA_STATE_STOP;
+	}
+
 	/* stop dl memif */
 	ultra_memif_set_disable_hw_sema(afe, ultra_mem->ultra_dl_memif_id);
 	/* stop ul memif */
