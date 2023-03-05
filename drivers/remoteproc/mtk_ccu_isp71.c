@@ -77,6 +77,7 @@ static int mtk_ccu_read_platform_info_from_dt(struct device_node
 	*node, struct mtk_ccu *ccu);
 static int mtk_ccu_get_power(struct device *dev);
 static void mtk_ccu_put_power(struct device *dev);
+static int mtk_ccu_stopx(struct rproc *rproc, bool normal_stop);
 
 static int
 mtk_ccu_allocate_mem(struct device *dev, struct mtk_ccu_mem_handle *memHandle)
@@ -355,6 +356,7 @@ static int mtk_ccu_start(struct rproc *rproc)
 {
 	struct mtk_ccu *ccu = (struct mtk_ccu *)rproc->priv;
 	uint8_t *ccu_base = (uint8_t *)ccu->ccu_base;
+	int ret;
 #ifndef REQUEST_IRQ_IN_INIT
 	int rc;
 #endif
@@ -396,7 +398,12 @@ static int mtk_ccu_start(struct rproc *rproc)
 #endif
 
 	/*1. Set CCU run*/
-	return mtk_ccu_run(ccu);
+	ret = mtk_ccu_run(ccu);
+
+	if (ret)
+		mtk_ccu_stopx(rproc, false);
+
+	return ret;
 }
 
 void *mtk_ccu_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
@@ -443,7 +450,7 @@ static bool mtk_ccu_mb_rx_empty(struct mtk_ccu *ccu)
 	return (readl(&ccu->mb->rear) == readl(&ccu->mb->front));
 }
 
-static int mtk_ccu_stop(struct rproc *rproc)
+static int mtk_ccu_stopx(struct rproc *rproc, bool normal_stop)
 {
 	struct mtk_ccu *ccu = (struct mtk_ccu *)rproc->priv;
 	/* struct device *dev = &rproc->dev; */
@@ -456,8 +463,9 @@ static int mtk_ccu_stop(struct rproc *rproc)
 #endif
 
 	/* notify CCU to shutdown*/
-	ret = mtk_ccu_rproc_ipc_send(ccu->pdev, MTK_CCU_FEATURE_SYSCTRL,
-		3, NULL, 0);
+	if (normal_stop)
+		ret = mtk_ccu_rproc_ipc_send(ccu->pdev, MTK_CCU_FEATURE_SYSCTRL,
+			3, NULL, 0);
 
 	mtk_ccu_rproc_ipc_uninit(ccu);
 	mtk_ccu_sw_hw_reset(ccu);
@@ -488,15 +496,17 @@ static int mtk_ccu_stop(struct rproc *rproc)
 	writel(ccu_reset|MTK_CCU_HW_RESET_BIT, ccu_base + MTK_CCU_REG_RESET);
 #endif
 
-	for (i = 0; i <= MTK_CCU_MB_RX_TIMEOUT_SPEC; ++i) {
-		if (mtk_ccu_mb_rx_empty(ccu))
-			break;
-		if (i < MTK_CCU_MB_RX_TIMEOUT_SPEC)
-			udelay(10);
-	}
+	if (normal_stop) {
+		for (i = 0; i <= MTK_CCU_MB_RX_TIMEOUT_SPEC; ++i) {
+			if (mtk_ccu_mb_rx_empty(ccu))
+				break;
+			if (i < MTK_CCU_MB_RX_TIMEOUT_SPEC)
+				udelay(10);
+		}
 
-	if (i > MTK_CCU_MB_RX_TIMEOUT_SPEC)
-		LOG_DBG("mb_rx_empty timeout.\n");
+		if (i > MTK_CCU_MB_RX_TIMEOUT_SPEC)
+			LOG_DBG("mb_rx_empty timeout.\n");
+	}
 
 #if defined(CCU_SET_MMQOS)
 	mtk_icc_set_bw(ccu->path_ccuo, MBps_to_icc(0), MBps_to_icc(0));
@@ -522,6 +532,11 @@ static int mtk_ccu_stop(struct rproc *rproc)
 
 	mtk_ccu_clk_unprepare(ccu);
 	return 0;
+}
+
+static int mtk_ccu_stop(struct rproc *rproc)
+{
+	return mtk_ccu_stopx(rproc, true);
 }
 
 #if !defined(SECURE_CCU)
