@@ -52,6 +52,7 @@ enum gpu_fastdvfs_counter {
 	FASTDVFS_COUNTER_JS0_DELTA,
 	FASTDVFS_COUNTER_COMMIT_PROFILE,
 	FASTDVFS_COUNTER_DCS,
+	FASTDVFS_COUNTER_LAST_COMMIT_IDX,
 
 	NR_FASTDVFS_COUNTER,
 };
@@ -146,6 +147,10 @@ enum gpu_fastdvfs_share_info {
 #define SYSRAM_GPU_DCS                 \
 (                                      \
 (FASTDVFS_COUNTER_DCS*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_LAST_COMMIT_IDX               \
+(									   \
+(FASTDVFS_COUNTER_LAST_COMMIT_IDX*SYSRAM_LOG_SIZE) \
 )
 #define SYSRAM_GPU_FEEDBACK_INFO_UPDATED \
 (                                      \

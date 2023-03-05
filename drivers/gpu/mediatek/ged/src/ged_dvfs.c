@@ -524,6 +524,25 @@ void (*ged_dvfs_gpu_freq_commit_fp)(unsigned long ui32NewFreqID,
 	GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited) = NULL;
 EXPORT_SYMBOL(ged_dvfs_gpu_freq_commit_fp);
 
+
+unsigned long ged_dvfs_write_sysram_last_commit_idx(void)
+{
+
+	mtk_gpueb_sysram_write(SYSRAM_GPU_LAST_COMMIT_IDX, g_ged_dvfs_commit_idx);
+
+	return g_ged_dvfs_commit_idx;
+}
+EXPORT_SYMBOL(ged_dvfs_write_sysram_last_commit_idx);
+
+unsigned long ged_dvfs_write_sysram_last_commit_idx_test(int commit_idx)
+{
+
+	mtk_gpueb_sysram_write(SYSRAM_GPU_LAST_COMMIT_IDX, commit_idx);
+
+	return g_ged_dvfs_commit_idx;
+}
+EXPORT_SYMBOL(ged_dvfs_write_sysram_last_commit_idx_test);
+
 unsigned long ged_dvfs_get_last_commit_idx(void)
 {
 	return g_ged_dvfs_commit_idx;

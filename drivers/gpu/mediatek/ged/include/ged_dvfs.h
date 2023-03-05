@@ -149,7 +149,8 @@ void ged_dvfs_gpu_clock_switch_notify(enum ged_gpu_power_state power_state);
 GED_ERROR ged_dvfs_system_init(void);
 void ged_dvfs_system_exit(void);
 unsigned long ged_dvfs_get_last_commit_idx(void);
-
+unsigned long ged_dvfs_write_sysram_last_commit_idx(void);
+unsigned long ged_dvfs_write_sysram_last_commit_idx_test(int commit_idx);
 extern void (*ged_kpi_set_gpu_dvfs_hint_fp)(int t_gpu_target,
 	int boost_accum_gpu);
 
