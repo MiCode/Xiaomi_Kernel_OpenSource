@@ -467,11 +467,12 @@ static int dlpt_notify_handler(void *unused)
 		}
 		pre_ui_soc = cur_ui_soc;
 
-		/* Check low battery volt < 3.1V */
-		if (dlpt_check_power_off()) {
-			/* notify battery driver to power off by SOC=0 */
-			dlpt_set_shutdown_condition();
-			pr_info("[DLPT] notify battery SOC=0 to power off.\n");
+		if (cur_ui_soc == 1) {
+			if (dlpt_check_power_off()) {
+				/* notify battery driver to power off by SOC=0 */
+				dlpt_set_shutdown_condition();
+				pr_info("[DLPT] notify battery SOC=0 to power off.\n");
+			}
 		}
 bypass:
 		dlpt.notify_flag = false;
