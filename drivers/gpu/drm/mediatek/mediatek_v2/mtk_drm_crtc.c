@@ -13045,6 +13045,8 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	unsigned int i, j;
 #ifndef DRM_CMDQ_DISABLE
 	unsigned int ret = 0;
+	unsigned long cmdq_handle_cache = 0;
+	unsigned long cmdq_handle_size_cache = 0;
 #endif
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct mtk_crtc_state *mtk_crtc_state = to_mtk_crtc_state(crtc_state);
@@ -13275,13 +13277,15 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 
 #ifndef DRM_CMDQ_DISABLE
 #ifdef MTK_DRM_CMDQ_ASYNC
+	cmdq_handle_cache = (unsigned long)cmdq_handle;
+	cmdq_handle_size_cache = (unsigned long)cmdq_handle->cmd_buf_size;
 	ret = mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
 	if (ret) {
 		DDPPR_ERR("mtk_crtc_gce_flush failed!\n");
 		goto end;
 	}
-	CRTC_MMP_MARK((int) index, atomic_flush, (unsigned long)cmdq_handle,
-			(unsigned long)cmdq_handle->cmd_buf_size);
+	CRTC_MMP_MARK((int) index, atomic_flush, cmdq_handle_cache,
+			cmdq_handle_size_cache);
 #else
 	ret = mtk_crtc_gce_flush(crtc, NULL, NULL, cmdq_handle);
 	if (ret) {
