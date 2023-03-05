@@ -4915,8 +4915,7 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 		if (ext->params->lp_perline_en == 0 &&
 			mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base)) {
 			// hs mode
-			if (priv && priv->data && (priv->data->mmsys_id == MMSYS_MT6855 ||
-			    priv->data->mmsys_id == MMSYS_MT6886))
+			if (priv && priv->data && (priv->data->mmsys_id == MMSYS_MT6855))
 				cmdq_pkt_write(handle, comp->cmdq_base,
 						comp->regs_pa + DSI_CON_CTRL,
 						DSI_CM_MODE_WAIT_DATA_EVERY_LINE_EN,
