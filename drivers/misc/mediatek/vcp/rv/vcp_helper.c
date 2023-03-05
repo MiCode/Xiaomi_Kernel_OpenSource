@@ -836,12 +836,10 @@ int vcp_enable_pm_clk(enum feature_id id)
 		return -1;
 
 	mutex_lock(&vcp_pw_clk_mutex);
-	if (is_suspending) {
+	while (is_suspending) {
 		pr_notice("[VCP] %s blocked %d %d\n", __func__, pwclkcnt, is_suspending);
 		mutex_unlock(&vcp_pw_clk_mutex);
-		while (is_suspending)
-			usleep_range(10000, 20000);
-		pr_notice("[VCP] %s exit %d %d\n", __func__, pwclkcnt, is_suspending);
+		usleep_range(10000, 20000);
 		mutex_lock(&vcp_pw_clk_mutex);
 	}
 
@@ -885,12 +883,10 @@ int vcp_disable_pm_clk(enum feature_id id)
 		return -1;
 
 	mutex_lock(&vcp_pw_clk_mutex);
-	if (is_suspending) {
+	while (is_suspending) {
 		pr_notice("[VCP] %s blocked %d %d\n", __func__, pwclkcnt, is_suspending);
 		mutex_unlock(&vcp_pw_clk_mutex);
-		while (is_suspending)
-			usleep_range(10000, 20000);
-		pr_notice("[VCP] %s exit %d %d\n", __func__, pwclkcnt, is_suspending);
+		usleep_range(10000, 20000);
 		mutex_lock(&vcp_pw_clk_mutex);
 	}
 
