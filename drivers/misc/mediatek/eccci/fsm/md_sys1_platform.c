@@ -139,14 +139,14 @@ void md_cd_lock_modem_clock_src(int locked)
 		MD_REG_AP_MDSRC_REQ, locked, 0, 0, 0, 0, &res);
 	if (res.a0)
 		CCCI_ERROR_LOG(-1, TAG,
-			"md clock source requeset ret = 0x%llX\n", res.a0);
+			"md source requeset fail (0x%lX)\n", res.a0);
 
 	if (locked) {
 		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
 			MD_REG_AP_MDSRC_SETTLE, 0, 0, 0, 0, 0, &res);
 
 		CCCI_MEM_LOG_TAG(-1, TAG,
-			"a0 = 0x%llX; a1 = 0x%llX\n", res.a0, res.a1);
+			"a0 = 0x%lX; a1 = 0x%lX\n", res.a0, res.a1);
 
 		if (res.a1 == 0 && res.a0 > 0 && res.a0 < 10)
 			settle = res.a0; /* ATF */
@@ -155,17 +155,21 @@ void md_cd_lock_modem_clock_src(int locked)
 		else {
 			settle = 3;
 			CCCI_ERROR_LOG(-1, TAG,
-				"settle fail (0x%llX, 0x%llX) set = %d\n",
+				"md srouce settle fail (0x%lX, 0x%lX) set = %d\n",
 				res.a0, res.a1, settle);
 		}
 		mdelay(settle);
 
 		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
 			MD_REG_AP_MDSRC_ACK, 0, 0, 0, 0, 0, &res);
+		if (res.a0)
+			CCCI_ERROR_LOG(-1, TAG,
+				"md source ack fail (0x%lX)\n", res.a0);
+
 		CCCI_MEM_LOG_TAG(-1, TAG,
-			"settle = %d; ret = 0x%llX\n", settle, res.a0);
+			"settle = %d; ret = 0x%lX\n", settle, res.a0);
 		CCCI_NOTICE_LOG(-1, TAG,
-			"settle = %d; ret = 0x%llX\n", settle, res.a0);
+			"settle = %d; ret = 0x%lX\n", settle, res.a0);
 	}
 }
 
