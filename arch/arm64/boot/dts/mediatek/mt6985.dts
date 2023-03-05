@@ -9340,6 +9340,7 @@
 			 <&gce_m_sec 9 0 CMDQ_THR_PRIO_1>;
 		token-user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 		token-gpr-set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
+		token-tzmp-aie-wait = /bits/ 16 <CMDQ_SYNC_TOKEN_TZMP_AIE_WAIT>;
 	};
 
 	mminfra-imax {
