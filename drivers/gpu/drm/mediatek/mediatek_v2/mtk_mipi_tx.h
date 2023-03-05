@@ -102,6 +102,9 @@
 #define MIPITX_CK_SW_LPTX_PRE_OE	(0x0348UL)
 #define MIPITX_CKC_SW_LPTX_PRE_OE	(0x0368UL)
 
+#define MIPITX_DPHY	0
+#define MIPITX_CPHY	1
+
 struct mtk_mipi_tx {
 	struct device *dev;
 	void __iomem *regs;
@@ -144,6 +147,7 @@ struct mtk_mipitx_data {
 	void (*refill_mipitx_impedance)(struct mtk_mipi_tx *mipi_tx);
 	void (*pll_rate_switch_gce)(struct phy *phy, void *handle, unsigned long rate);
 	int (*mipi_tx_ssc_en)(struct phy *phy, struct mtk_panel_ext *mtk_panel);
+	int phy;	/* 0:DPHY, 1:CPHY */
 };
 
 struct mtk_panel_ext;

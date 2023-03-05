@@ -1239,6 +1239,295 @@ void mtk_mipi_tx_pre_oe_config(struct phy *phy, bool en)
 #endif
 }
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
+static int mtk_mipi_tx_pll_dphy_config_mt6985(struct mtk_mipi_tx *mipi_tx)
+{
+	unsigned int txdiv, txdiv0, txdiv1, tmp;
+	unsigned int div3, div3_en;
+	u32 rate;
+	unsigned int fbksel;
+
+	DDPINFO("%s+\n", __func__);
+
+	rate = (mipi_tx->data_rate_adpt) ? mipi_tx->data_rate_adpt :
+			mipi_tx->data_rate / 1000000;
+
+	dev_dbg(mipi_tx->dev, "prepare: %u MHz\n", rate);
+	if (rate >= 6000) {
+		txdiv = 1;
+		txdiv0 = 0;
+		txdiv1 = 0;
+		div3 = 1;
+		div3_en = 0;
+	} else if (rate >= 3000) {
+		txdiv = 2;
+		txdiv0 = 1;
+		txdiv1 = 0;
+		div3 = 1;
+		div3_en = 0;
+	} else if (rate >= 2000) {
+		txdiv = 1;
+		txdiv0 = 0;
+		txdiv1 = 0;
+		div3 = 3;
+		div3_en = 1;
+	} else if (rate >= 1500) {
+		txdiv = 4;
+		txdiv0 = 2;
+		txdiv1 = 0;
+		div3 = 1;
+		div3_en = 0;
+	} else if (rate >= 1000) {
+		txdiv = 2;
+		txdiv0 = 1;
+		txdiv1 = 0;
+		div3 = 3;
+		div3_en = 1;
+	} else if (rate >= 750) {
+		txdiv = 8;
+		txdiv0 = 3;
+		txdiv1 = 0;
+		div3 = 1;
+		div3_en = 0;
+	} else if (rate >= 510) {
+		txdiv = 4;
+		txdiv0 = 2;
+		txdiv1 = 0;
+		div3 = 3;
+		div3_en = 1;
+	} else {
+		DDPPR_ERR("data rate is too low\n");
+		return -EINVAL;
+	}
+
+	if (rate < 2500)
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_PRD_REF_SEL, 0x0);
+	else
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_PRD_REF_SEL, 0x4);
+
+#ifdef IF_ZERO
+	/* No need keep as default */
+	if (rate > 2000)
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_V2I_REF_SEL, 0x4);
+	else if (rate > 1200)
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_V2I_REF_SEL, 0x2);
+	else
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_V2I_REF_SEL, 0x0);
+#endif
+
+	/* value different from MT6983 */
+	if (rate < 2500)
+		writel(0xFFFF0070, mipi_tx->regs + MIPITX_PRESERVED_MT6983);
+	else
+		writel(0xFFFF0030, mipi_tx->regs + MIPITX_PRESERVED_MT6983);
+
+	writel(0x00FF12E0, mipi_tx->regs + MIPITX_PLL_CON4);
+	/* BG_LPF_EN / BG_CORE_EN */
+	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
+	usleep_range(500, 600);
+	writel(0x3FFF0080, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
+
+#ifdef IF_ONE
+	/* Switch OFF each Lane */
+	mtk_mipi_tx_update_bits(mipi_tx, mipi_tx->driver_data->d0_sw_ctl_en, FLD_DSI_SW_CTL_EN,
+				1);
+	mtk_mipi_tx_update_bits(mipi_tx, mipi_tx->driver_data->d1_sw_ctl_en, FLD_DSI_SW_CTL_EN,
+				1);
+	mtk_mipi_tx_update_bits(mipi_tx, mipi_tx->driver_data->d2_sw_ctl_en, FLD_DSI_SW_CTL_EN,
+				1);
+	mtk_mipi_tx_update_bits(mipi_tx, mipi_tx->driver_data->d3_sw_ctl_en, FLD_DSI_SW_CTL_EN,
+				1);
+	mtk_mipi_tx_update_bits(mipi_tx, mipi_tx->driver_data->ck_sw_ctl_en, FLD_DSI_SW_CTL_EN,
+				1);
+#endif
+
+	/* step 1: SDM_RWR_ON / SDM_ISO_EN */
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
+				FLD_AD_DSI_PLL_SDM_PWR_ON, 1);
+	usleep_range(30, 100);
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
+				FLD_AD_DSI_PLL_SDM_ISO_EN, 0);
+
+	fbksel = ((rate >> 1) * txdiv) >= 3800 ? 2 : 1;
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
+			FLD_RG_DSI_PLL_FBSEL_MT6983, (fbksel - 1) << 13);
+
+	tmp = mipi_tx->driver_data->dsi_get_pcw(rate, txdiv);
+	writel(tmp, mipi_tx->regs + MIPITX_PLL_CON0);
+
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
+				  FLD_RG_DSI_PLL_POSDIV, txdiv0 << 8);
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
+				  FLD_RG_DSI_PLL_DIV3_EN, div3_en << 28);
+	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_CON1,
+				   mipi_tx->driver_data->dsi_pll_en);
+
+	usleep_range(50, 100);
+
+	DDPINFO("%s-\n", __func__);
+	return 0;
+}
+
+static void mtk_mipi_tx_pll_dphy_deconfig_mt6985(struct mtk_mipi_tx *mipi_tx)
+{
+	DDPINFO("%s+\n", __func__);
+
+	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_PLL_CON1, mipi_tx->driver_data->dsi_pll_en);
+
+	/* TODO: should clear bit8 to set SW_ANA_CK_EN here */
+	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_SW_CTRL_CON4_MT6983, 1);
+
+	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_PWR, AD_DSI_PLL_SDM_ISO_EN);
+	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_PLL_PWR, AD_DSI_PLL_SDM_PWR_ON);
+
+#ifdef IF_ZERO
+	mtk_mipi_tx_set_bits(mipi_tx, mipi_tx->driver_data->d0_sw_ctl_en, DSI_D0_SW_CTL_EN);
+	mtk_mipi_tx_set_bits(mipi_tx, mipi_tx->driver_data->d1_sw_ctl_en, DSI_D1_SW_CTL_EN);
+	mtk_mipi_tx_set_bits(mipi_tx, mipi_tx->driver_data->d2_sw_ctl_en, DSI_D2_SW_CTL_EN);
+	mtk_mipi_tx_set_bits(mipi_tx, mipi_tx->driver_data->d3_sw_ctl_en, DSI_D3_SW_CTL_EN);
+	mtk_mipi_tx_set_bits(mipi_tx, mipi_tx->driver_data->ck_sw_ctl_en, DSI_CK_SW_CTL_EN);
+#endif
+
+	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
+	writel(0x3FFF0100, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
+
+	DDPINFO("%s-\n", __func__);
+}
+
+static int mtk_mipi_tx_pll_cphy_config_mt6985(struct mtk_mipi_tx *mipi_tx)
+{
+	unsigned int txdiv, txdiv0, txdiv1, tmp;
+	unsigned int div3, div3_en;
+	u32 rate;
+	unsigned int fbksel;
+
+	DDPINFO("%s+\n", __func__);
+
+	rate = (mipi_tx->data_rate_adpt) ? mipi_tx->data_rate_adpt :
+			mipi_tx->data_rate / 1000000;
+
+	dev_dbg(mipi_tx->dev, "prepare: %u MHz\n", rate);
+	if (rate >= 6000) {
+		txdiv = 1;
+		txdiv0 = 0;
+		txdiv1 = 0;
+		div3 = 1;
+		div3_en = 0;
+	} else if (rate >= 3000) {
+		txdiv = 2;
+		txdiv0 = 1;
+		txdiv1 = 0;
+		div3 = 1;
+		div3_en = 0;
+	} else if (rate >= 2000) {
+		txdiv = 1;
+		txdiv0 = 0;
+		txdiv1 = 0;
+		div3 = 3;
+		div3_en = 1;
+	} else if (rate >= 1500) {
+		txdiv = 4;
+		txdiv0 = 2;
+		txdiv1 = 0;
+		div3 = 1;
+		div3_en = 0;
+	} else if (rate >= 1000) {
+		txdiv = 2;
+		txdiv0 = 1;
+		txdiv1 = 0;
+		div3 = 3;
+		div3_en = 1;
+	} else if (rate >= 750) {
+		txdiv = 8;
+		txdiv0 = 3;
+		txdiv1 = 0;
+		div3 = 1;
+		div3_en = 0;
+	} else if (rate >= 500) {
+		txdiv = 4;
+		txdiv0 = 2;
+		txdiv1 = 0;
+		div3 = 3;
+		div3_en = 1;
+	} else if (rate >= 450) {
+		txdiv = 16;
+		txdiv0 = 4;
+		txdiv1 = 0;
+		div3 = 1;
+		div3_en = 0;
+	} else {
+		DDPPR_ERR("data rate is too low\n");
+		return -EINVAL;
+	}
+	/*set volate: cphy need 500mV*/
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+		FLD_RG_DSI_HSTX_LDO_REF_SEL, 0xD << 6);
+
+	/* change the mipi_volt */
+	if (mipi_volt) {
+		DDPMSG("%s+ mipi_volt change: %d\n", __func__, mipi_volt);
+		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
+			FLD_RG_DSI_HSTX_LDO_REF_SEL, mipi_volt << 6);
+	}
+
+	writel(0x0, mipi_tx->regs + MIPITX_PRESERVED_MT6983);
+	/* step 0 */
+	/* BG_LPF_EN / BG_CORE_EN */
+	writel(0x00FF12E0, mipi_tx->regs + MIPITX_PLL_CON4);
+	/* BG_LPF_EN=0 BG_CORE_EN=1 */
+	writel(0x3FFF0088, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
+	//usleep_range(1, 1); /* 1us */
+	/* BG_LPF_EN=1 */
+	writel(0x3FFF00C8, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
+
+	/* step 1: SDM_RWR_ON / SDM_ISO_EN */
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
+				FLD_AD_DSI_PLL_SDM_PWR_ON, 1);
+	usleep_range(30, 100);
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
+				FLD_AD_DSI_PLL_SDM_ISO_EN, 0);
+
+	fbksel = ((rate >> 1) * txdiv) >= 3800 ? 2 : 1;
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
+			FLD_RG_DSI_PLL_FBSEL_MT6983, (fbksel - 1) << 13);
+
+	tmp = mipi_tx->driver_data->dsi_get_pcw(rate, txdiv);
+	writel(tmp, mipi_tx->regs + MIPITX_PLL_CON0);
+
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
+			      FLD_RG_DSI_PLL_POSDIV, txdiv0 << 8);
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
+			      FLD_RG_DSI_PLL_DIV3_EN, div3_en << 28);
+	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_CON1,
+			       mipi_tx->driver_data->dsi_pll_en);
+
+	usleep_range(50, 100);
+
+	DDPINFO("%s-\n", __func__);
+	return 0;
+}
+
+static void mtk_mipi_tx_pll_cphy_deconfig_mt6985(struct mtk_mipi_tx *mipi_tx)
+{
+	DDPINFO("%s+\n", __func__);
+
+	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_PLL_CON1, mipi_tx->driver_data->dsi_pll_en);
+
+	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_PWR, AD_DSI_PLL_SDM_ISO_EN);
+	mtk_mipi_tx_clear_bits(mipi_tx, MIPITX_PLL_PWR, AD_DSI_PLL_SDM_PWR_ON);
+
+	writel(0x3FFF0080, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
+	writel(0x3FFF0000, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
+
+	DDPINFO("%s-\n", __func__);
+}
+#endif
+
 static int mtk_mipi_tx_pll_prepare(struct clk_hw *hw)
 {
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
@@ -1904,12 +2193,6 @@ static int mtk_mipi_tx_pll_prepare_mt6985(struct clk_hw *hw)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
-	unsigned int txdiv, txdiv0, txdiv1, tmp;
-	unsigned int div3, div3_en;
-	u32 rate;
-	unsigned int fbksel;
-
-	DDPDBG("%s+\n", __func__);
 
 	/* if mipitx is on, skip it... */
 	if (mtk_is_mipi_tx_enable(hw)) {
@@ -1917,130 +2200,26 @@ static int mtk_mipi_tx_pll_prepare_mt6985(struct clk_hw *hw)
 		return 0;
 	}
 
-	rate = (mipi_tx->data_rate_adpt) ? mipi_tx->data_rate_adpt :
-			mipi_tx->data_rate / 1000000;
-	dev_dbg(mipi_tx->dev, "prepare: %u MHz\n", rate);
-
-	if (rate >= 6000) {
-		txdiv = 1;
-		txdiv0 = 0;
-		txdiv1 = 0;
-		div3 = 1;
-		div3_en = 0;
-	} else if (rate >= 3000) {
-		txdiv = 2;
-		txdiv0 = 1;
-		txdiv1 = 0;
-		div3 = 1;
-		div3_en = 0;
-	} else if (rate >= 2000) {
-		txdiv = 1;
-		txdiv0 = 0;
-		txdiv1 = 0;
-		div3 = 3;
-		div3_en = 1;
-	} else if (rate >= 1500) {
-		txdiv = 4;
-		txdiv0 = 2;
-		txdiv1 = 0;
-		div3 = 1;
-		div3_en = 0;
-	} else if (rate >= 1000) {
-		txdiv = 2;
-		txdiv0 = 1;
-		txdiv1 = 0;
-		div3 = 3;
-		div3_en = 1;
-	} else if (rate >= 750) {
-		txdiv = 8;
-		txdiv0 = 3;
-		txdiv1 = 0;
-		div3 = 1;
-		div3_en = 0;
-	} else if (rate >= 510) {
-		txdiv = 4;
-		txdiv0 = 2;
-		txdiv1 = 0;
-		div3 = 3;
-		div3_en = 1;
-	} else {
-		DDPPR_ERR("data rate is too low\n");
-		return -EINVAL;
-	}
-
-	if (rate < 2500)
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_PRD_REF_SEL, 0x0);
+	if (mipi_tx->driver_data->phy)
+		mtk_mipi_tx_pll_cphy_config_mt6985(mipi_tx);
 	else
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_PRD_REF_SEL, 0x4);
-
-#ifdef IF_ZERO
-	/* No need keep as default */
-	if (rate > 2000)
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_V2I_REF_SEL, 0x4);
-	else if (rate > 1200)
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_V2I_REF_SEL, 0x2);
-	else
-		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL_MT6983,
-			FLD_RG_DSI_V2I_REF_SEL, 0x0);
-#endif
-
-	/* value different from MT6983 */
-	if (rate < 2500)
-		writel(0xFFFF0070, mipi_tx->regs + MIPITX_PRESERVED_MT6983);
-	else
-		writel(0xFFFF0030, mipi_tx->regs + MIPITX_PRESERVED_MT6983);
-
-	writel(0x00FF12E0, mipi_tx->regs + MIPITX_PLL_CON4);
-	/* BG_LPF_EN / BG_CORE_EN */
-	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
-	usleep_range(500, 600);
-	writel(0x3FFF0080, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
-
-#ifdef IF_ONE
-	/* Switch OFF each Lane */
-	mtk_mipi_tx_update_bits(mipi_tx, mipi_tx->driver_data->d0_sw_ctl_en, FLD_DSI_SW_CTL_EN,
-				1);
-	mtk_mipi_tx_update_bits(mipi_tx, mipi_tx->driver_data->d1_sw_ctl_en, FLD_DSI_SW_CTL_EN,
-				1);
-	mtk_mipi_tx_update_bits(mipi_tx, mipi_tx->driver_data->d2_sw_ctl_en, FLD_DSI_SW_CTL_EN,
-				1);
-	mtk_mipi_tx_update_bits(mipi_tx, mipi_tx->driver_data->d3_sw_ctl_en, FLD_DSI_SW_CTL_EN,
-				1);
-	mtk_mipi_tx_update_bits(mipi_tx, mipi_tx->driver_data->ck_sw_ctl_en, FLD_DSI_SW_CTL_EN,
-				1);
-#endif
-
-	/* step 1: SDM_RWR_ON / SDM_ISO_EN */
-	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
-				FLD_AD_DSI_PLL_SDM_PWR_ON, 1);
-	usleep_range(30, 100);
-	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
-				FLD_AD_DSI_PLL_SDM_ISO_EN, 0);
-
-	fbksel = ((rate >> 1) * txdiv) >= 3800 ? 2 : 1;
-	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
-			FLD_RG_DSI_PLL_FBSEL_MT6983, (fbksel - 1) << 13);
-
-	tmp = mipi_tx->driver_data->dsi_get_pcw(rate, txdiv);
-	writel(tmp, mipi_tx->regs + MIPITX_PLL_CON0);
-
-	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
-			      FLD_RG_DSI_PLL_POSDIV, txdiv0 << 8);
-	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_CON1,
-			      FLD_RG_DSI_PLL_DIV3_EN, div3_en << 28);
-	mtk_mipi_tx_set_bits(mipi_tx, MIPITX_PLL_CON1,
-			       mipi_tx->driver_data->dsi_pll_en);
-
-	usleep_range(50, 100);
-
-	DDPDBG("%s-\n", __func__);
+		mtk_mipi_tx_pll_dphy_config_mt6985(mipi_tx);
 
 #endif
 	return 0;
+}
+
+static void mtk_mipi_tx_pll_unprepare_mt6985(struct clk_hw *hw)
+{
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	struct mtk_mipi_tx *mipi_tx = mtk_mipi_tx_from_clk_hw(hw);
+
+	if (mipi_tx->driver_data->phy)
+		mtk_mipi_tx_pll_cphy_deconfig_mt6985(mipi_tx);
+	else
+		mtk_mipi_tx_pll_dphy_deconfig_mt6985(mipi_tx);
+
+#endif
 }
 
 static int mtk_mipi_tx_pll_cphy_prepare_mt6885(struct clk_hw *hw)
@@ -3214,7 +3393,7 @@ static void mtk_mipi_tx_pll_unprepare_mt6983(struct clk_hw *hw)
 	writel(0x3FFF0180, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
 	writel(0x3FFF0100, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
 
-	DDPINFO("%s-\n", __func__);
+	DDPDBG("%s-\n", __func__);
 #endif
 }
 
@@ -3234,7 +3413,7 @@ static void mtk_mipi_tx_pll_cphy_unprepare_mt6983(struct clk_hw *hw)
 	writel(0x3FFF0080, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
 	writel(0x3FFF0000, mipi_tx->regs + MIPITX_LANE_CON_MT6983);
 
-	DDPINFO("%s-\n", __func__);
+	DDPDBG("%s-\n", __func__);
 #endif
 }
 
@@ -4463,12 +4642,13 @@ static const struct mtk_mipitx_data mt6985_mipitx_data = {
 	.ck_sw_lptx_pre_oe = MIPITX_CK_SW_LPTX_PRE_OE_MT6983,
 	.ckc_sw_lptx_pre_oe = MIPITX_CKC_SW_LPTX_PRE_OE_MT6983,
 	.pll_prepare = mtk_mipi_tx_pll_prepare_mt6985,
-	.pll_unprepare = mtk_mipi_tx_pll_unprepare_mt6983,
+	.pll_unprepare = mtk_mipi_tx_pll_unprepare_mt6985,
 	.dsi_get_pcw = _dsi_get_pcw_mt6983,
 	.dsi_get_data_rate = _dsi_get_data_rate_mt6983,
 	.backup_mipitx_impedance = backup_mipitx_impedance_mt6983,
 	.refill_mipitx_impedance = refill_mipitx_impedance_mt6983,
 	.pll_rate_switch_gce = mtk_mipi_tx_pll_rate_switch_gce_mt6983,
+	.phy = MIPITX_DPHY,
 };
 
 static const struct mtk_mipitx_data mt6895_mipitx_data = {
@@ -4579,13 +4759,14 @@ static const struct mtk_mipitx_data mt6985_mipitx_cphy_data = {
 	.d3c_sw_lptx_pre_oe = MIPITX_D3C_SW_LPTX_PRE_OE_MT6983,
 	.ck_sw_lptx_pre_oe = MIPITX_CK_SW_LPTX_PRE_OE_MT6983,
 	.ckc_sw_lptx_pre_oe = MIPITX_CKC_SW_LPTX_PRE_OE_MT6983,
-	.pll_prepare = mtk_mipi_tx_pll_cphy_prepare_mt6983,
-	.pll_unprepare = mtk_mipi_tx_pll_cphy_unprepare_mt6983,
+	.pll_prepare = mtk_mipi_tx_pll_prepare_mt6985,
+	.pll_unprepare = mtk_mipi_tx_pll_unprepare_mt6985,
 	.dsi_get_pcw = _dsi_get_pcw_mt6983,
 	.dsi_get_data_rate = _dsi_get_data_rate_mt6983,
 	.backup_mipitx_impedance = backup_mipitx_impedance_mt6983,
 	.refill_mipitx_impedance = refill_mipitx_impedance_mt6983,
 	.pll_rate_switch_gce = mtk_mipi_tx_pll_rate_switch_cphy_gce_mt6983,
+	.phy = MIPITX_CPHY,
 };
 
 static const struct mtk_mipitx_data mt6895_mipitx_cphy_data = {
@@ -4860,7 +5041,6 @@ static const struct mtk_mipitx_data mt6855_mipitx_cphy_data = {
 	.backup_mipitx_impedance = backup_mipitx_impedance,
 	.refill_mipitx_impedance = refill_mipitx_impedance,
 };
-
 
 static const struct mtk_mipitx_data mt8173_mipitx_data = {
 	.mppll_preserve = (0 << 8),
