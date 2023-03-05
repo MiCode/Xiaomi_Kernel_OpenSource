@@ -53,7 +53,7 @@
  * hardware limit for once transfter.
  */
 #define MAX_SPI_XFER_SIZE_ONCE		(64 * 1024 - 1)
-#define MAX_SPI_TRY_CNT			(10)
+#define MAX_SPI_TRY_CNT			(3)
 /*
  * default never pass more than 32 bytes
  */
@@ -78,8 +78,6 @@ struct mtk_spi_slave_data {
 	u8 low_speed_tick_delay;
 	u8 high_speed_early_trans;
 	u8 low_speed_early_trans;
-	u8 high_speed_autok_state;
-	u8 low_speed_autok_state;
 	/* mutex for SPI Slave IO */
 	struct mutex	spislv_mutex;
 	u8 tx_nbits:3;
@@ -407,7 +405,7 @@ static void spislv_autok(u32 tx_speed_hz, u32 rx_speed_hz)
 				index, tick_window_early_1[index] == 1 ? "O" : "X");
 	}
 
-	if (tick_window_early_0_len > tick_window_early_1_len) {
+	if (tick_window_early_0_len >= tick_window_early_1_len) {
 		early_trans = 0;
 		tick_delay = spislv_select_tick_delay
 			(tick_window_early_0, tick_window_early_0_len);
@@ -444,10 +442,6 @@ int spislv_init(void)
 	if (ret)
 		return ret;
 
-	if (slv_data.low_speed_autok_state == 0) {
-		spislv_autok(SPI_TX_LOW_SPEED_HZ, SPI_RX_LOW_SPEED_HZ);
-		slv_data.low_speed_autok_state = 1;
-	}
 	ret = spislv_write_register(SPISLV_CTRL, (0x40 & (~(EARLY_TRANS_MASK)))
 		| ((slv_data.low_speed_early_trans << 16) & (EARLY_TRANS_MASK)));
 	if (ret)
@@ -462,10 +456,6 @@ int spislv_switch_speed_hz(u32 tx_speed_hz, u32 rx_speed_hz)
 	int ret = 0;
 
 	if (rx_speed_hz >= SPI_RX_MAX_SPEED_HZ) {
-		if (slv_data.high_speed_autok_state == 0) {
-			spislv_autok(tx_speed_hz, rx_speed_hz);
-			slv_data.high_speed_autok_state = 1;
-		}
 		ret = spislv_write_register(SPISLV_CTRL, (0x40 & (~(EARLY_TRANS_MASK)))
 			| ((slv_data.high_speed_early_trans << 16) & (EARLY_TRANS_MASK)));
 		spislv_chip_info.tick_delay = slv_data.high_speed_tick_delay;
@@ -572,8 +562,9 @@ static int spi_slave_probe(struct spi_device *spi)
 	spi->bits_per_word = 8;
 	spi->controller_data = (void *)&spislv_chip_info;
 	spislv_chip_info.tick_delay = slv_data.low_speed_tick_delay;
-	slv_data.high_speed_autok_state = 0;
-	slv_data.low_speed_autok_state = 0;
+
+	spislv_autok(SPI_TX_LOW_SPEED_HZ, SPI_RX_LOW_SPEED_HZ);
+	spislv_autok(SPI_TX_MAX_SPEED_HZ, SPI_RX_MAX_SPEED_HZ);
 	mutex_init(&slv_data.spislv_mutex);
 	return 0;
 }

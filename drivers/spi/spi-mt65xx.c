@@ -1176,13 +1176,11 @@ static int mtk_spi_probe(struct platform_device *pdev)
 			   addr_bits, ret);
 
 	ret = of_property_read_u32_index(
-				pdev->dev.of_node, "mediatek,autosuspend_delay",
+				pdev->dev.of_node, "mediatek,autosuspend-delay",
 				0, &mdata->auto_suspend_delay);
-	if (ret < 0) {
-		dev_info(&pdev->dev,
-				"get 'mediatek,autosuspend_delay' fail[%d], set 0\n", ret);
+	if (ret < 0)
 		mdata->auto_suspend_delay = 0;
-	}
+
 	pm_runtime_set_autosuspend_delay(&pdev->dev, mdata->auto_suspend_delay);
 	dev_info(&pdev->dev, "SPI probe, set auto_suspend delay = %dmS!\n",
 				mdata->auto_suspend_delay);
