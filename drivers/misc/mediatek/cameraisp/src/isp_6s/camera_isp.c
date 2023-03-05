@@ -6194,7 +6194,7 @@ static int ISP_release(struct inode *pInode, struct file *pFile)
 		 *  Next camera runs in single mode, and it will not update CQ0
 		 */
 		ISP_WR32(CAM_REG_CTL_TWIN_STATUS(i), 0x0);
-
+		ISP_StopHW(i);
 		LOG_INF("dev(%d): Disable all clk, cnt(%d)\n", i, clkcnt);
 		for (j = 0; j < clkcnt; j++)
 			ISP_EnableClock(i, MFALSE);
