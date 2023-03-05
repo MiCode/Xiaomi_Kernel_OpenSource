@@ -12,6 +12,7 @@
  *****************************************************************************/
 #include <linux/delay.h>
 #include "ultra_ipi.h"
+#include <linux/atomic.h>
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 #include "scp.h"
 #endif
@@ -26,9 +27,9 @@ static int ultra_ipi_ack_handler(unsigned int id,
 				void *data,
 				unsigned int len);
 
-static unsigned int ipi_ack_return;
-static unsigned int ipi_ack_id;
-static unsigned int ipi_ack_data;
+static atomic_t ipi_ack_return;
+static atomic_t ipi_ack_id;
+static atomic_t ipi_ack_data;
 #endif
 
 
@@ -100,9 +101,9 @@ static int ultra_ipi_ack_handler(unsigned int id,
 		(struct ultra_ipi_ack_info *)data;
 
 	ultra_ipi_tx_ack_handle(ipi_info->msg_id, ipi_info->msg_data);
-	ipi_ack_return = ipi_info->msg_need_ack;
-	ipi_ack_id = ipi_info->msg_id;
-	ipi_ack_data = ipi_info->msg_data;
+	atomic_set(&ipi_ack_return, ipi_info->msg_need_ack);
+	atomic_set(&ipi_ack_id, ipi_info->msg_id);
+	atomic_set(&ipi_ack_data, ipi_info->msg_data);
 	return 0;
 }
 #endif
@@ -119,7 +120,9 @@ bool ultra_ipi_send_msg(unsigned int msg_id,
 	int ipi_result = -1;
 	unsigned int retry_time = ULTRA_IPI_SEND_CNT_TIMEOUT;
 	unsigned int retry_cnt = 0;
-	unsigned int ack_time = ULTRA_IPI_WAIT_ACK_TIMEOUT;
+	unsigned int ack_time = polling_mode ?
+				ULTRA_IPI_WAIT_ACK_TIMEOUT * 1000 * 1000 :
+				ULTRA_IPI_WAIT_ACK_TIMEOUT;
 	unsigned int ack_cnt = 0;
 	unsigned int msg_need_ack = 0;
 	unsigned int resend_cnt = 0;
@@ -160,10 +163,9 @@ RESEND_IPI:
 			__func__, msg_id);
 		return false;
 	}
-	/* ipi ack reset */
-	ipi_ack_return = 0;
-	ipi_ack_id = 0xFF;
-	ipi_ack_data = 0;
+	atomic_set(&ipi_ack_return, 0);
+	atomic_set(&ipi_ack_id, 0xFF);
+	atomic_set(&ipi_ack_data, 0);
 
 	for (retry_cnt = 0; retry_cnt <= retry_time; retry_cnt++) {
 		ipi_result = mtk_ipi_send(&scp_ipidev,
@@ -192,8 +194,8 @@ RESEND_IPI:
 	if (ipi_result == IPI_ACTION_DONE) {
 		if (need_ack == ULTRA_IPI_NEED_ACK) {
 			for (ack_cnt = 0; ack_cnt <= ack_time; ack_cnt++) {
-				if ((ipi_ack_return == ULTRA_IPI_ACK_BACK) &&
-					(ipi_ack_id == msg_id)) {
+				if ((atomic_read(&ipi_ack_return) == ULTRA_IPI_ACK_BACK) &&
+					(atomic_read(&ipi_ack_id) == msg_id)) {
 					/* ack back */
 					break;
 				}
@@ -211,7 +213,9 @@ RESEND_IPI:
 		ret = true;
 	}
 	pr_info("%s(), ipi_id=%d,ret=%d,need_ack=%d,ack_return=%d,ack_id=%d\n",
-		__func__, msg_id, ret, need_ack, ipi_ack_return, ipi_ack_id);
+		__func__, msg_id, ret, need_ack,
+		atomic_read(&ipi_ack_return),
+		atomic_read(&ipi_ack_id));
 	return ret;
 #else
 	(void) msg_id;
