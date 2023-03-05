@@ -3213,214 +3213,194 @@ static struct S_START_T gSTime[ISP_IRQ_TYPE_AMOUNT] = {{0} };
 #define _INVALID_FRM_CNT_ 0xFFFF
 #endif
 
-static long ISP_Buf_CTRL_FUNC(unsigned long Param)
+static long ISP_Buf_CTRL_FUNC(struct ISP_BUFFER_CTRL_STRUCT *rt_buf_ctrl)
 {
 	int Ret = 0;
 	enum _isp_dma_enum_ rt_dma;
 	unsigned int i = 0;
-	struct ISP_BUFFER_CTRL_STRUCT rt_buf_ctrl;
 
 	/*  */
-	if ((void __user *)Param == NULL) {
-		LOG_NOTICE("[rtbc]NULL Param");
+	if (rt_buf_ctrl == NULL) {
+		LOG_NOTICE("[rtbc]NULL rt_buf_ctrl");
 		return -EFAULT;
 	}
 	/*  */
-	if (copy_from_user(&rt_buf_ctrl, (void __user *)Param,
-			   sizeof(struct ISP_BUFFER_CTRL_STRUCT)) == 0) {
+	if (rt_buf_ctrl->module >= ISP_IRQ_TYPE_AMOUNT ||
+		    rt_buf_ctrl->module < 0) {
+		LOG_NOTICE("[rtbc]not supported module:0x%x\n",
+			rt_buf_ctrl->module);
+		return -EFAULT;
+	}
 
-		if (rt_buf_ctrl.module >= ISP_IRQ_TYPE_AMOUNT ||
-		    rt_buf_ctrl.module < 0) {
-			LOG_NOTICE("[rtbc]not supported module:0x%x\n",
-				   rt_buf_ctrl.module);
+	if (pstRTBuf[rt_buf_ctrl->module] == NULL) {
+		LOG_NOTICE("[rtbc]NULL pstRTBuf, module:0x%x\n",
+		rt_buf_ctrl->module);
+		return -EFAULT;
+	}
 
-			return -EFAULT;
-		}
-
-		if (pstRTBuf[rt_buf_ctrl.module] == NULL) {
-			LOG_NOTICE("[rtbc]NULL pstRTBuf, module:0x%x\n",
-				   rt_buf_ctrl.module);
-
-			return -EFAULT;
-		}
-
-		rt_dma = rt_buf_ctrl.buf_id;
-		if (rt_dma >= _cam_max_ ||
-		    rt_dma < 0) {
-			LOG_NOTICE("[rtbc]buf_id error:0x%x\n", rt_dma);
-			return -EFAULT;
-		}
+	rt_dma = rt_buf_ctrl->buf_id;
+	if (rt_dma >= _cam_max_ || rt_dma < 0) {
+		LOG_NOTICE("[rtbc]buf_id error:0x%x\n", rt_dma);
+		return -EFAULT;
+	}
 
 		/*  */
-		switch (rt_buf_ctrl.ctrl) {
-		case ISP_RT_BUF_CTRL_CLEAR:
-			/*  */
-			if (IspInfo.DebugMask & ISP_DBG_BUF_CTRL) {
-				LOG_INF("[rtbc][%d][CLEAR]:rt_dma(%d)\n",
-					rt_buf_ctrl.module, rt_dma);
-			}
-			/*  */
+	switch (rt_buf_ctrl->ctrl) {
+	case ISP_RT_BUF_CTRL_CLEAR:
+		/*  */
+		if (IspInfo.DebugMask & ISP_DBG_BUF_CTRL) {
+			LOG_INF("[rtbc][%d][CLEAR]:rt_dma(%d)\n",
+			rt_buf_ctrl->module, rt_dma);
+		}
+		/*  */
 
-			memset((void *)IspInfo.IrqInfo
-				       .LastestSigTime_usec[rt_buf_ctrl.module],
-			       0, sizeof(unsigned int) * 32);
+		memset((void *)IspInfo.IrqInfo
+				   .LastestSigTime_usec[rt_buf_ctrl->module],
+			   0, sizeof(unsigned int) * 32);
 
-			memset((void *)IspInfo.IrqInfo
-				       .LastestSigTime_sec[rt_buf_ctrl.module],
-			       0, sizeof(unsigned int) * 32);
+		memset((void *)IspInfo.IrqInfo
+				   .LastestSigTime_sec[rt_buf_ctrl->module],
+			   0, sizeof(unsigned int) * 32);
 
-			/* remove, cause clear will be involked only */
-			/* when current module r totally stopped */
-			/* spin_lock_irqsave( */
-			/*      &(IspInfo.SpinLockIrq[irqT_Lock]), flags); */
+		/* remove, cause clear will be involked only */
+		/* when current module r totally stopped */
+		/* spin_lock_irqsave( */
+		/*      &(IspInfo.SpinLockIrq[irqT_Lock]), flags); */
 
-			/* reset active record */
-			pstRTBuf[rt_buf_ctrl.module]->ring_buf[rt_dma].active =
-				MFALSE;
+		/* reset active record */
+		pstRTBuf[rt_buf_ctrl->module]->ring_buf[rt_dma].active =
+			MFALSE;
 
-			memset((char *)&pstRTBuf[rt_buf_ctrl.module]
-				       ->ring_buf[rt_dma],
-			       0x00,
-			       sizeof(struct ISP_RT_RING_BUF_INFO_STRUCT));
+		memset((char *)&pstRTBuf[rt_buf_ctrl->module]
+			       ->ring_buf[rt_dma],
+			   0x00,
+			   sizeof(struct ISP_RT_RING_BUF_INFO_STRUCT));
 
 			/* init. frmcnt before vf_en */
-			for (i = 0; i < ISP_RT_BUF_SIZE; i++) {
-				pstRTBuf[rt_buf_ctrl.module]
-					->ring_buf[rt_dma]
-					.data[i]
-					.image.frm_cnt = _INVALID_FRM_CNT_;
-			}
-			switch (rt_buf_ctrl.module) {
-			case ISP_IRQ_TYPE_INT_CAM_A_ST:
-			case ISP_IRQ_TYPE_INT_CAM_B_ST:
-			case ISP_IRQ_TYPE_INT_CAM_C_ST:
-				if ((pstRTBuf[rt_buf_ctrl.module]
-					     ->ring_buf[_imgo_]
-					     .active == MFALSE) &&
-				    (pstRTBuf[rt_buf_ctrl.module]
-					     ->ring_buf[_rrzo_]
-					     .active == MFALSE)) {
+		for (i = 0; i < ISP_RT_BUF_SIZE; i++) {
+			pstRTBuf[rt_buf_ctrl->module]
+				->ring_buf[rt_dma]
+				.data[i]
+				.image.frm_cnt = _INVALID_FRM_CNT_;
+		}
+		switch (rt_buf_ctrl->module) {
+		case ISP_IRQ_TYPE_INT_CAM_A_ST:
+		case ISP_IRQ_TYPE_INT_CAM_B_ST:
+		case ISP_IRQ_TYPE_INT_CAM_C_ST:
+			if ((pstRTBuf[rt_buf_ctrl->module]
+				     ->ring_buf[_imgo_]
+				     .active == MFALSE) &&
+			    (pstRTBuf[rt_buf_ctrl->module]
+				     ->ring_buf[_rrzo_]
+				     .active == MFALSE)) {
 
-					sof_count[rt_buf_ctrl.module] = 0;
-					g1stSof[rt_buf_ctrl.module] = MTRUE;
-					HwP1Done_cnt[rt_buf_ctrl.module] = 0;
+				sof_count[rt_buf_ctrl->module] = 0;
+				g1stSof[rt_buf_ctrl->module] = MTRUE;
+				HwP1Done_cnt[rt_buf_ctrl->module] = 0;
 
 #if (TSTMP_SUBSAMPLE_INTPL == 1)
 
-					g1stSwP1Done[rt_buf_ctrl.module] =
-						MTRUE;
+				g1stSwP1Done[rt_buf_ctrl->module] =
+					MTRUE;
 
-					gPrevSofTimestp[rt_buf_ctrl.module] = 0;
+				gPrevSofTimestp[rt_buf_ctrl->module] = 0;
 #endif
-					g_ISPIntStatus[rt_buf_ctrl.module]
-						.ispIntErr = 0;
+				g_ISPIntStatus[rt_buf_ctrl->module]
+					.ispIntErr = 0;
 
-					g_ISPIntStatus[rt_buf_ctrl.module]
-						.ispInt5Err = 0;
+				g_ISPIntStatus[rt_buf_ctrl->module]
+					.ispInt5Err = 0;
 
-					g_ISPIntStatus_SMI[rt_buf_ctrl.module]
-						.ispIntErr = 0;
+				g_ISPIntStatus_SMI[rt_buf_ctrl->module]
+					.ispIntErr = 0;
 
-					g_ISPIntStatus_SMI[rt_buf_ctrl.module]
-						.ispInt5Err = 0;
+				g_ISPIntStatus_SMI[rt_buf_ctrl->module]
+					.ispInt5Err = 0;
 
-					pstRTBuf[rt_buf_ctrl.module]->dropCnt =
-						0;
+				pstRTBuf[rt_buf_ctrl->module]->dropCnt =
+					0;
 
-					pstRTBuf[rt_buf_ctrl.module]->state = 0;
-				}
-
-				memset((void *)g_DmaErr_CAM[rt_buf_ctrl.module],
-				       0, sizeof(unsigned int) * _cam_max_);
-
-				break;
-			case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
-			case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
-			case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
-			case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
-			case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
-			case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
-			case ISP_IRQ_TYPE_INT_CAMSV_6_ST:
-			case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
-				if (pstRTBuf[rt_buf_ctrl.module]
-					    ->ring_buf[_camsv_imgo_]
-					    .active == MFALSE) {
-
-					sof_count[rt_buf_ctrl.module] = 0;
-					g1stSof[rt_buf_ctrl.module] = MTRUE;
-					HwP1Done_cnt[rt_buf_ctrl.module] = 0;
-					g_ISPIntStatus[rt_buf_ctrl.module]
-						.ispIntErr = 0;
-
-					g_ISPIntStatus[rt_buf_ctrl.module]
-						.ispInt5Err = 0;
-
-					g_ISPIntStatus_SMI[rt_buf_ctrl.module]
-						.ispIntErr = 0;
-
-					g_ISPIntStatus_SMI[rt_buf_ctrl.module]
-						.ispInt5Err = 0;
-
-					pstRTBuf[rt_buf_ctrl.module]->dropCnt =
-						0;
-
-					pstRTBuf[rt_buf_ctrl.module]->state = 0;
-				}
-
-				break;
-			default:
-				LOG_NOTICE("unsupported module:0x%x\n",
-					   rt_buf_ctrl.module);
-				break;
+				pstRTBuf[rt_buf_ctrl->module]->state = 0;
 			}
 
-			/* spin_unlock_irqrestore( */
-			/*      &(IspInfo.SpinLockIrq[irqT_Lock]), flags); */
+			memset((void *)g_DmaErr_CAM[rt_buf_ctrl->module],
+			       0, sizeof(unsigned int) * _cam_max_);
 
 			break;
-		case ISP_RT_BUF_CTRL_DMA_EN: {
-			unsigned char array[_cam_max_];
-			unsigned int z;
-			unsigned char *pExt;
+		case ISP_IRQ_TYPE_INT_CAMSV_0_ST:
+		case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
+		case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
+		case ISP_IRQ_TYPE_INT_CAMSV_3_ST:
+		case ISP_IRQ_TYPE_INT_CAMSV_4_ST:
+		case ISP_IRQ_TYPE_INT_CAMSV_5_ST:
+		case ISP_IRQ_TYPE_INT_CAMSV_6_ST:
+		case ISP_IRQ_TYPE_INT_CAMSV_7_ST:
+			if (pstRTBuf[rt_buf_ctrl->module]
+				    ->ring_buf[_camsv_imgo_]
+				    .active == MFALSE) {
 
-			if (rt_buf_ctrl.pExtend == NULL) {
-				LOG_NOTICE("NULL pExtend");
-				Ret = -EFAULT;
-				break;
+				sof_count[rt_buf_ctrl->module] = 0;
+				g1stSof[rt_buf_ctrl->module] = MTRUE;
+				HwP1Done_cnt[rt_buf_ctrl->module] = 0;
+				g_ISPIntStatus[rt_buf_ctrl->module]
+					.ispIntErr = 0;
+
+				g_ISPIntStatus[rt_buf_ctrl->module]
+					.ispInt5Err = 0;
+
+				g_ISPIntStatus_SMI[rt_buf_ctrl->module]
+					.ispIntErr = 0;
+
+				g_ISPIntStatus_SMI[rt_buf_ctrl->module]
+					.ispInt5Err = 0;
+
+				pstRTBuf[rt_buf_ctrl->module]->dropCnt =
+					0;
+
+				pstRTBuf[rt_buf_ctrl->module]->state = 0;
 			}
 
-			pExt = (unsigned char *)(rt_buf_ctrl.pExtend);
-	for (z = 0; z < _cam_max_; z++) {
-		if (get_user(array[z], (unsigned char *)pExt) ==
-		0) {
-
-			pstRTBuf[rt_buf_ctrl.module]->ring_buf[z].active =
-			array[z];
-
-					if (IspInfo.DebugMask &
-					    ISP_DBG_BUF_CTRL) {
-						LOG_INF(
-							"[rtbc][DMA_EN]:dma_%d:%d",
-							z, array[z]);
-					}
-				} else {
-					LOG_NOTICE(
-						"[rtbc][DMA_EN]:get_user failed(%d)",
-						z);
-
-					Ret = -EFAULT;
-				}
-				pExt++;
-			}
-		} break;
-		/* Add this to remove build warning. */
-		case ISP_RT_BUF_CTRL_MAX:
-			/* Do nothing. */
+			break;
+		default:
+			LOG_NOTICE("unsupported module:0x%x\n",
+				   rt_buf_ctrl->module);
 			break;
 		}
-	} else {
-		LOG_NOTICE("[rtbc]copy_from_user failed");
-		Ret = -EFAULT;
+
+		/* spin_unlock_irqrestore( */
+		/*      &(IspInfo.SpinLockIrq[irqT_Lock]), flags); */
+
+		break;
+	case ISP_RT_BUF_CTRL_DMA_EN: {
+		unsigned char array[_cam_max_];
+		unsigned int z;
+		unsigned char *pExt;
+
+		if (rt_buf_ctrl->pExtend == NULL) {
+			LOG_NOTICE("NULL pExtend");
+			Ret = -EFAULT;
+			break;
+		}
+
+		pExt = (unsigned char *)(rt_buf_ctrl->pExtend);
+		for (z = 0; z < _cam_max_; z++) {
+			if (get_user(array[z], (unsigned char *)pExt) == 0) {
+
+				pstRTBuf[rt_buf_ctrl->module]->ring_buf[z].active =
+				array[z];
+				if (IspInfo.DebugMask & ISP_DBG_BUF_CTRL)
+					LOG_INF("[rtbc][DMA_EN]:dma_%d:%d", z, array[z]);
+			} else {
+				LOG_NOTICE("[rtbc][DMA_EN]:get_user failed(%d)", z);
+				Ret = -EFAULT;
+			}
+			pExt++;
+		}
+	} break;
+		/* Add this to remove build warning. */
+	case ISP_RT_BUF_CTRL_MAX:
+			/* Do nothing. */
+		break;
 	}
 
 	return Ret;
@@ -4720,8 +4700,20 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			Ret = -EFAULT;
 		}
 		break;
-	case ISP_BUFFER_CTRL:
-		Ret = ISP_Buf_CTRL_FUNC(Param);
+	case ISP_BUFFER_CTRL: {
+		struct ISP_BUFFER_CTRL_STRUCT rt_buf_ctrl;
+
+		if (copy_from_user(&rt_buf_ctrl, (void __user *)Param,
+			   sizeof(struct ISP_BUFFER_CTRL_STRUCT)) == 0) {
+			Ret = ISP_Buf_CTRL_FUNC(&rt_buf_ctrl);
+			if (Ret < 0)
+				LOG_NOTICE("ISP_Buf_CTRL_FUNC update failed\n");
+
+		} else {
+			LOG_NOTICE("copy_from_user failed\n");
+			Ret = -EFAULT;
+		}
+	}
 		break;
 	case ISP_VF_LOG:
 		if (copy_from_user(DebugFlag, (void *)Param,
@@ -5748,15 +5740,18 @@ static int compat_get_isp_read_register_data(
 
 static int compat_put_isp_read_register_data(
 	unsigned long arg,
-	struct compat_ISP_REG_IO_STRUCT *data32)
+	struct compat_ISP_REG_IO_STRUCT *data32,
+	struct ISP_REG_IO_STRUCT *data)
 {
 	long ret = 0;
 
-	ret = (long)copy_to_user(compat_ptr(arg),
-		data32, (unsigned long)sizeof(struct compat_ISP_REG_IO_STRUCT));
+	data32->Count = data->Count;
 
-	if (ret != 0L)
-		LOG_INF("Copy data to user failed!\n");
+	if (copy_to_user(compat_ptr(arg), data32,
+			sizeof(struct compat_ISP_REG_IO_STRUCT)) != 0) {
+		LOG_NOTICE("copy_to_user failed");
+		ret = -EFAULT;
+	}
 
 	return ret;
 }
@@ -5794,12 +5789,12 @@ static int compat_put_isp_buf_ctrl_struct_data(
 	data32->ctrl = data->ctrl;
 	data32->module = data->module;
 	data32->buf_id = data->buf_id;
-	ret = (long)copy_to_user(compat_ptr(arg),
-			data32, (unsigned long)sizeof(struct compat_ISP_BUFFER_CTRL_STRUCT));
 
-	if (ret != 0L)
-		LOG_INF("Copy data to user failed!\n");
-
+	if (copy_to_user(compat_ptr(arg), data32,
+			sizeof(struct compat_ISP_BUFFER_CTRL_STRUCT)) != 0) {
+		LOG_NOTICE("copy_to_user failed");
+		ret = -EFAULT;
+	}
 	return ret;
 }
 
@@ -5823,10 +5818,9 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 			return err;
 		}
 
-		ret = filp->f_op->unlocked_ioctl(filp, ISP_READ_REGISTER,
-						 (unsigned long)&data);
+		ret = ISP_ReadReg(&data);
 
-		err = compat_put_isp_read_register_data(arg, &data32);
+		err = compat_put_isp_read_register_data(arg, &data32, &data);
 		if (err != 0L) {
 			LOG_INF("compat_put_isp_read_register_data error!!!\n");
 			return err;
@@ -5843,8 +5837,8 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 			LOG_INF("COMPAT_ISP_WRITE_REGISTER error!!!\n");
 			return err;
 		}
-		ret = filp->f_op->unlocked_ioctl(filp, ISP_WRITE_REGISTER,
-						 (unsigned long)&data);
+
+		ret = ISP_WriteReg(&data);
 
 		return ret;
 	}
@@ -5861,8 +5855,8 @@ static long ISP_ioctl_compat(struct file *filp, unsigned int cmd,
 				"compat_get_isp_buf_ctrl_struct_data error!!!\n");
 			return err;
 		}
-		ret = filp->f_op->unlocked_ioctl(filp, ISP_BUFFER_CTRL,
-						 (unsigned long)&data);
+
+		ret = ISP_Buf_CTRL_FUNC(&data);
 
 		err = compat_put_isp_buf_ctrl_struct_data(arg, &data32, &data);
 
