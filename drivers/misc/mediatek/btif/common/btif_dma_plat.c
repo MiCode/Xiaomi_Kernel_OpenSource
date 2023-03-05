@@ -816,7 +816,7 @@ int hal_tx_dma_irq_handler(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 /*vFIFO data has been read by DMA controller, just disable tx dma's irq*/
 		i_ret = hal_btif_dma_ier_ctrl(p_dma_info, false);
 	} else {
-		BTIF_DBG_FUNC
+		BTIF_INFO_FUNC
 		    ("superious IRQ:vff_len(%d),valid_size(%d),left_len(%d)\n",
 		     vff_len, valid_size, left_len);
 	}
