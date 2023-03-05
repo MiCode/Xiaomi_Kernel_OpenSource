@@ -8,6 +8,28 @@ config DRM_PANEL
 menu "Display Panels"
 	depends on DRM && DRM_PANEL
 
+config DRM_PANEL_BOE_NT37705_DPHY_CMD_FHD
+        tristate "boe nt37705 dphy cmd fhd panel"
+        depends on OF
+        depends on DRM_MIPI_DSI
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          Say Y here if you want to enable support for ALPHA ILI7838A
+          DPHY vdo mode Full HD Plus 60HZ panel. The panel has a 1080x2520
+          resolution and uses 30-bits RGB per pixel. It provides a
+          MIPI DSI interface to host.
+
+config DRM_PANEL_BOE_BF130_DPHY_CMD_HD
+	tristate "panel boe bf130 dphy cmd hd panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for Alpha foldable
+	  FHD(382*720) panel.
+	  resolution and uses 24-bits RGB per pixel. It provides a
+	  MIPI DSI interface to host.
+
 config DRM_PANEL_ABT_Y030XX067A
 	tristate "ABT Y030XX067A 320x480 LCD panel"
 	depends on OF && SPI
