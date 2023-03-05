@@ -8600,7 +8600,7 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 			(i >= OVL_PHY_LAYER_NR && !plane_state->comp_state.comp_id) ||
 			((plane_state->comp_state.layer_caps & MTK_DISP_RSZ_LAYER) &&
 			mtk_crtc_state &&
-			(mtk_crtc_state->rsz_param[0].out_len == 0 ||
+			(mtk_crtc_state->rsz_param[0].out_len == 0 &&
 			(mtk_crtc->is_dual_pipe && mtk_crtc_state->rsz_param[1].out_len == 0)))) {
 			DDPINFO("%s i=%d comp_id=%u (%d,%d,%d,%d) continue\n", __func__, i,
 				plane_state->comp_state.comp_id,
