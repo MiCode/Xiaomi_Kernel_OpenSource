@@ -1775,7 +1775,7 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 		mtk_crtc && mtk_crtc->path_data->is_discrete_path)
 		return true;
 
-	if ((drm_crtc_index(crtc) == 0) &&
+	if (((drm_crtc_index(crtc) == 0) || (drm_crtc_index(crtc) == 3)) &&
 		mtk_drm_helper_get_opt(priv->helper_opt,
 			    MTK_DRM_OPT_PRIM_DUAL_PIPE) &&
 		panel_ext &&
@@ -3646,6 +3646,9 @@ static unsigned int dual_comp_map_mt6985(unsigned int comp_id)
 		break;
 	case DDP_COMPONENT_OVL3_2L:
 		ret = DDP_COMPONENT_OVL7_2L;
+		break;
+	case DDP_COMPONENT_OVL7_2L:
+		ret = DDP_COMPONENT_OVL3_2L;
 		break;
 	case DDP_COMPONENT_OVL0_2L_NWCG:
 		ret = DDP_COMPONENT_OVL2_2L_NWCG;

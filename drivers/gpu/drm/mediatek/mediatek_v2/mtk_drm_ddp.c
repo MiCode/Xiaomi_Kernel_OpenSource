@@ -10437,11 +10437,6 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		/* PANEL_COMP_OUT_CROSSBAR */
 		*addr = MT6985_PANEL_COMP_OUT_CROSSBAR2_MOUT_EN;
 		value = DISP_PQ_OUT_CROSSBAR2_TO_COMP_OUT_CROSSBAR4;
-	} else if ((cur == DDP_COMPONENT_PANEL0_COMP_OUT_CB3 &&
-		next == DDP_COMPONENT_COMP0_OUT_CB5)) {
-		/* PANEL_COMP_OUT_CROSSBAR */
-		*addr = MT6985_PANEL_COMP_OUT_CROSSBAR3_MOUT_EN;
-		value = DISP_PQ_OUT_CROSSBAR3_TO_COMP_OUT_CROSSBAR5;
 	} else if ((cur == DDP_COMPONENT_PANEL0_COMP_OUT_CB4 &&
 		next == DDP_COMPONENT_COMP0_OUT_CB3) ||
 		(cur == DDP_COMPONENT_PANEL1_COMP_OUT_CB4 &&
@@ -10455,7 +10450,9 @@ static int mtk_ddp_mout_en_MT6985(const struct mtk_mmsys_reg_data *data,
 		*addr = MT6985_PANEL_COMP_OUT_CROSSBAR3_MOUT_EN;
 		value = DISP_PQ_OUT_CROSSBAR3_TO_DSC_0;
 	} else if ((cur == DDP_COMPONENT_PANEL1_COMP_OUT_CB3 &&
-		next == DDP_COMPONENT_COMP1_OUT_CB5)) {
+		next == DDP_COMPONENT_COMP1_OUT_CB5) ||
+		(cur == DDP_COMPONENT_PANEL0_COMP_OUT_CB3 &&
+		next == DDP_COMPONENT_COMP0_OUT_CB5)) {
 		/* PANEL_COMP_OUT_CROSSBAR */
 		*addr = MT6985_PANEL_COMP_OUT_CROSSBAR3_MOUT_EN;
 		value = DISP_PQ_OUT_CROSSBAR3_TO_COMP_OUT_CROSSBAR5;
@@ -14498,6 +14495,12 @@ void mtk_ddp_insert_dsc_ext_MT6985(struct mtk_drm_crtc *mtk_crtc,
 	addr = MT6985_COMP_OUT_CROSSBAR5_MOUT_EN;
 	value = 0;
 	writel_relaxed(value, side_config_regs + addr);
+
+	/* DDP_COMPONENT_DLI_ASYNC10 -> DISP_PQ_OUT_CROSSBAR3_TO_DSC_0 */
+	addr = MT6985_PANEL_COMP_OUT_CROSSBAR4_MOUT_EN;
+	value = DISP_DLI_RELAY4_TO_DSC_1;
+	writel_relaxed(value, side_config_regs + addr);
+
 }
 
 void mtk_ddp_insert_dsc_prim_MT6985(struct mtk_drm_crtc *mtk_crtc,

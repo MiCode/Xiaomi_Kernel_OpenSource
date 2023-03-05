@@ -20,6 +20,7 @@
 
 #include <linux/module.h>
 #include <linux/of_platform.h>
+#include <linux/of_graph.h>
 #include <linux/platform_device.h>
 
 #define CONFIG_MTK_PANEL_EXT
@@ -268,13 +269,7 @@ static void jdi_panel_init(struct jdi *ctx)
 				0x02, 0x0E, 0x00, 0x71, 0x00, 0x07, 0x05, 0x0E,
 				0x05, 0x16);
 	jdi_dcs_write_seq_static(ctx, 0xC2, 0x1B, 0XA0);
-	//jdi_dcs_write_seq_static(ctx, 0XC0, 0X03);//JDI VESA
-	//jdi_dcs_write_seq_static(ctx, 0XC1, 0X89, 0X28, 0X00, 0X08, 0X00, 0XAA,
-				//0X02, 0X0E, 0X00, 0X2B, 0X00, 0X07, 0X0D, 0XB7,
-				//0X0C, 0XB7);//JDI VESA
-	//jdi_dcs_write_seq_static(ctx, 0XC2, 0X1B, 0XA0);
 	jdi_dcs_write_seq_static(ctx, 0XE9, 0X01);
-
 	jdi_dcs_write_seq_static(ctx, 0XFF, 0X20);
 	//REGR 0XFE,0X20
 	jdi_dcs_write_seq_static(ctx, 0XFB, 0X01);
@@ -869,7 +864,7 @@ static const struct drm_display_mode performance_mode1 = {
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 422,
 	.vfp_low_power = 5500,//45hz
-	.cust_esd_check = 0,
+	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
@@ -941,7 +936,7 @@ static struct mtk_panel_params ext_params = {
 static struct mtk_panel_params ext_params_90hz = {
 	.pll_clk = 422,
 	.vfp_low_power = 3524,//60hz
-	.cust_esd_check = 0,
+	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 
@@ -1014,7 +1009,7 @@ static struct mtk_panel_params ext_params_90hz = {
 static struct mtk_panel_params ext_params_120hz = {
 	.pll_clk = 422,
 	.vfp_low_power = 3524,//idle 60hz
-	.cust_esd_check = 0,
+	.cust_esd_check = 1,
 	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0A, .count = 1, .para_list[0] = 0x9C,
@@ -1333,12 +1328,15 @@ static const struct drm_panel_funcs jdi_drm_funcs = {
 static int jdi_probe(struct mipi_dsi_device *dsi)
 {
 	struct device *dev = &dsi->dev;
+	struct device_node *dsi_node;
 	struct jdi *ctx;
 	struct device_node *backlight;
 	unsigned int value;
 	int ret;
 
 	pr_info("%s+\n", __func__);
+
+	dsi_node = of_get_parent(dev->of_node);
 	ctx = devm_kzalloc(dev, sizeof(struct jdi), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
@@ -1393,6 +1391,12 @@ static int jdi_probe(struct mipi_dsi_device *dsi)
 	}
 	ctx->prepared = true;
 	ctx->enabled = true;
+	if (of_property_read_bool(dsi_node, "init-panel-off")) {
+		ctx->prepared = false;
+		ctx->enabled = false;
+		pr_info("nt36672e_cphy dsi_node:%s set prepared = enabled = false\n",
+					dsi_node->full_name);
+	}
 	drm_panel_init(&ctx->panel, dev, &jdi_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 
 	drm_panel_add(&ctx->panel);
