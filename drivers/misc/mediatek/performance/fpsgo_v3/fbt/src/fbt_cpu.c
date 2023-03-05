@@ -271,6 +271,7 @@ static int loading_enable;
 static int filter_frame_enable;
 static int filter_frame_window_size;
 static int filter_frame_kmin;
+static int test_mode;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -4306,7 +4307,7 @@ static unsigned long long fbt_est_loading(unsigned long long cur_ts,
 {
 	unsigned long long duration;
 
-	if (obv <= 0)
+	if (obv <= 0 || obv > 100)
 		return 0;
 
 	if (cur_ts > last_ts) {
@@ -4453,10 +4454,14 @@ out:
 	kfree(cpu_cl_obv);
 }
 
+
+
 static int fbt_get_loading_exp(int pid, unsigned long long buffer_id,
-	unsigned long long thr_last_cb_ts, unsigned long long *loading, unsigned long long ts_100us)
+	unsigned long long thr_last_cb_ts, unsigned long long *loading, unsigned long long ts_100us,
+	unsigned long long *_freq_prev_cb_ts, unsigned long long *_freq_lastest_ts,
+	unsigned int *_freq_lastest_obv, unsigned long long *_freq_last_cb_ts, int *_freq_last_obv)
 {
-	int i, ret = 0;
+	int i, ret = 0, ascending_check = 2, ts_check = 2;
 	unsigned long spinlock_flag_freq, spinlock_flag_loading;
 	unsigned long long loading_result = 0U;
 	unsigned long long prev_ts, next_ts, new_ts_100us;
@@ -4464,10 +4469,10 @@ static int fbt_get_loading_exp(int pid, unsigned long long buffer_id,
 	unsigned long long *cpu_freq_ts_prev, *cpu_freq_ts_next;
 	unsigned int cpy_current_obv;
 	unsigned int *cpu_obv;
-
 	new_ts_100us = ts_100us;
 
-	fpsgo_update_cpufreq_to_now(new_ts_100us);
+	if (!test_mode)
+		fpsgo_update_cpufreq_to_now(new_ts_100us);
 
 	cpu_freq_ts_prev = kcalloc(LOADING_CNT, sizeof(unsigned long long), GFP_KERNEL);
 	cpu_freq_ts_next = kcalloc(LOADING_CNT, sizeof(unsigned long long), GFP_KERNEL);
@@ -4479,16 +4484,14 @@ static int fbt_get_loading_exp(int pid, unsigned long long buffer_id,
 	}
 
 	spin_lock_irqsave(&freq_slock, spinlock_flag_freq);
-	cpy_current_obv = last_obv;
+	cpy_current_obv = (*_freq_last_obv);
 	spin_unlock_irqrestore(&freq_slock, spinlock_flag_freq);
-
 	spin_lock_irqsave(&loading_slock, spinlock_flag_loading);
-	freq_last_cb_ts = last_cb_ts;
-	memcpy(cpu_freq_ts_prev, prev_cb_ts, LOADING_CNT * sizeof(unsigned long long));
-	memcpy(cpu_freq_ts_next, lastest_ts, LOADING_CNT * sizeof(unsigned long long));
-	memcpy(cpu_obv, lastest_obv, LOADING_CNT * sizeof(unsigned int));
+	freq_last_cb_ts = (*_freq_last_cb_ts);
+	memcpy(cpu_freq_ts_prev, _freq_prev_cb_ts, LOADING_CNT * sizeof(unsigned long long));
+	memcpy(cpu_freq_ts_next, _freq_lastest_ts, LOADING_CNT * sizeof(unsigned long long));
+	memcpy(cpu_obv, _freq_lastest_obv, LOADING_CNT * sizeof(unsigned int));
 	spin_unlock_irqrestore(&loading_slock, spinlock_flag_loading);
-
 	render_last_cb_ts = thr_last_cb_ts;
 	(*loading) = 0;
 
@@ -4498,9 +4501,16 @@ static int fbt_get_loading_exp(int pid, unsigned long long buffer_id,
 	if (render_last_cb_ts > new_ts_100us) {
 		xgf_trace("[FBT][%s]pid=%d, bufferid=%llu new frame!",
 		__func__, pid, buffer_id);
+		ret = 1;
 		goto out;
 	}
 
+	if (!freq_last_cb_ts || !new_ts_100us) {
+		fpsgo_main_trace("[%s] freq_last_cb_ts=%llu, thr_cb_ts=%llu!", __func__,
+			freq_last_cb_ts, new_ts_100us);
+		ret = 1;
+		goto out;
+	}
 	/* Calculate the loading between render_last_cb and the current time. */
 	if (freq_last_cb_ts < new_ts_100us && freq_last_cb_ts >= render_last_cb_ts) {
 		loading_result = fbt_est_loading(new_ts_100us, freq_last_cb_ts, cpy_current_obv);
@@ -4509,9 +4519,9 @@ static int fbt_get_loading_exp(int pid, unsigned long long buffer_id,
 		__func__, pid, freq_last_cb_ts, cpy_current_obv, loading_result);
 	}
 
-
 	for (i = 0; i < LOADING_CNT; i++) {
 		prev_ts = next_ts = 0;
+
 		// unit: 100us
 		if (cpu_freq_ts_next[i] <= new_ts_100us &&
 			cpu_freq_ts_next[i] > render_last_cb_ts) {
@@ -4536,13 +4546,49 @@ static int fbt_get_loading_exp(int pid, unsigned long long buffer_id,
 			xgf_trace("[%s]i=%d, prevts=%llu,nextts=%llu,obv=%u,loading=%llu,acc=%llu",
 			__func__, i, prev_ts, next_ts, cpu_obv[i], loading_result, (*loading));
 		}
+
+		if (cpu_freq_ts_prev[i] > cpu_freq_ts_prev[(i + 1) % LOADING_CNT] ||
+			cpu_freq_ts_next[i] > cpu_freq_ts_next[(i + 1) % LOADING_CNT])
+			ascending_check--;
+		if (cpu_freq_ts_next[i] != cpu_freq_ts_prev[(i + 1) % LOADING_CNT])
+			ts_check--;
+
+		if (cpu_obv[i] < 0 || cpu_obv[i] > 100)
+			ret = 1;
 	}
+
+	if (ascending_check <= 0 || ts_check <= 0) {
+		xgf_trace("[%s] ascending=%d, ts_check=%d", __func__, ascending_check, ts_check);
+		ret = 1;
+	}
+
 out:
 	kfree(cpu_freq_ts_prev);
 	kfree(cpu_freq_ts_next);
 	kfree(cpu_obv);
 	return ret;
 }
+void set_fpsgo_testing_mode(int _test_mode)
+{
+	test_mode = _test_mode;
+}
+EXPORT_SYMBOL(set_fpsgo_testing_mode);
+
+
+int Test_fbt_get_loading_exp(int pid, unsigned long long buffer_id,
+	unsigned long long thr_last_cb_ts, unsigned long long *loading, unsigned long long ts_100us,
+	unsigned long long *_freq_prev_cb_ts, unsigned long long *_freq_lastest_ts,
+	unsigned int *_freq_lastest_obv, unsigned long long *_freq_last_cb_ts, int *_freq_last_obv)
+{
+	int ret = 0;
+
+	ret = fbt_get_loading_exp(pid, buffer_id, thr_last_cb_ts, loading, ts_100us,
+		_freq_prev_cb_ts, _freq_lastest_ts,
+		_freq_lastest_obv, _freq_last_cb_ts, _freq_last_obv);
+
+	return ret;
+}
+EXPORT_SYMBOL(Test_fbt_get_loading_exp);
 
 
 static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id,
@@ -4606,6 +4652,12 @@ static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id,
 		xgf_trace("[FBT][%s]pid=%d, bufferid=%d new frame!", __func__, pid, buffer_id);
 		goto out;
 	}
+	if (!freq_last_cb_ts || !new_ts_100us) {
+		fpsgo_main_trace("[%s] freq_last_cb_ts=%llu, thr_cb_ts=%llu!", __func__,
+			freq_last_cb_ts, new_ts_100us);
+		ret = 1;
+		goto out;
+	}
 
 	/* Calculate the loading between render_last_cb and the current time. */
 	if (freq_last_cb_ts < new_ts_100us && freq_last_cb_ts >= render_last_cb_ts) {
@@ -4642,6 +4694,8 @@ static int fbt_get_cl_loading_exp(int pid, unsigned long long buffer_id,
 				__func__, i, prev_ts, next_ts, cpu_obv[i], loading_result,
 				(*loading_cl));
 		}
+		if (cpu_obv[i] < 0 || cpu_obv[i] > 100)
+			ret = 1;
 	}
 out:
 	kfree(cpu_freq_ts_prev);
@@ -4671,7 +4725,8 @@ static unsigned long long fbt_adjust_loading_exp(struct render_info *thr,
 
 	new_ts_100us = nsec_to_100usec_ull(ts);
 	ret = fbt_get_loading_exp(thr->pid, thr->buffer_id, thr->render_last_cb_ts,
-		&loading, new_ts_100us);
+		&loading, new_ts_100us, prev_cb_ts, lastest_ts, lastest_obv, &last_cb_ts,
+		&last_obv);
 	fpsgo_systrace_c_fbt_debug(thr->pid, thr->buffer_id, loading, "q2q_loading");
 
 	if (!(adjust_loading ||
