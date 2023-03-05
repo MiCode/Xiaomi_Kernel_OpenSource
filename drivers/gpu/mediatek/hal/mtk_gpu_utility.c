@@ -715,6 +715,40 @@ void mtk_gpu_fence_debug_dump(int fd, int pid, int type, int timeouts)
 		mtk_gpu_fence_debug_dump_fp(fd, pid, type, timeouts);
 }
 EXPORT_SYMBOL(mtk_gpu_fence_debug_dump);
+
+/* -----------------------------set gpu reclaim policy--------------------------------- */
+
+void (*mtk_set_gpu_reclaim_policy_fp)(unsigned int val) = NULL;
+EXPORT_SYMBOL(mtk_set_gpu_reclaim_policy_fp);
+
+bool mtk_set_gpu_reclaim_policy(unsigned int val)
+{
+	if (mtk_set_gpu_reclaim_policy_fp != NULL) {
+		mtk_set_gpu_reclaim_policy_fp(val);
+		return true;
+	}
+	return false;
+
+}
+EXPORT_SYMBOL(mtk_set_gpu_reclaim_policy);
+
+/* -----------------------------get gpu reclaim policy--------------------------------- */
+
+unsigned int (*mtk_get_gpu_reclaim_policy_fp)(void) = NULL;
+EXPORT_SYMBOL(mtk_get_gpu_reclaim_policy_fp);
+
+bool mtk_get_gpu_reclaim_policy(unsigned int *pReclaim)
+{
+	if (mtk_get_gpu_reclaim_policy_fp != NULL) {
+		if (pReclaim) {
+			*pReclaim = mtk_get_gpu_reclaim_policy_fp();
+			return true;
+		}
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_get_gpu_reclaim_policy);
+
 static int mtk_gpu_hal_init(void)
 {
 	/*Do Nothing*/

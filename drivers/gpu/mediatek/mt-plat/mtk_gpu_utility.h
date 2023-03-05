@@ -83,6 +83,9 @@ bool mtk_get_dvfs_workload_mode(unsigned int *pui32WorkloadMode);
 bool mtk_set_fastdvfs_mode(unsigned int u32Mode);
 bool mtk_get_fastdvfs_mode(unsigned int *pui32Mode);
 bool mtk_set_gpu_idle(unsigned int val);
+bool mtk_get_gpu_reclaim_policy(unsigned int *pReclaim);
+bool mtk_set_gpu_reclaim_policy(unsigned int val);
+
 
 
 /* GPU PMU should be implemented by GPU IP-dep code */
