@@ -88,6 +88,15 @@ static const struct resource mt6363_keys_resources[] = {
 	DEFINE_RES_IRQ(MT6363_IRQ_HOMEKEY_R),
 };
 
+static const struct resource mt6363_lvsys_notify_resources[] = {
+	/* MT6363 LVSYS interrupt name is contrary,
+	 * we name LVSYS_R to MT6363_IRQ_NI_LVSYS_INT_FALLING;
+	 * LVSYS_F to MT6363_IRQ_NI_LVSYS_INT_RISING
+	 */
+	DEFINE_RES_IRQ_NAMED(MT6363_IRQ_NI_LVSYS_INT_FALLING, "LVSYS_R"),
+	DEFINE_RES_IRQ_NAMED(MT6363_IRQ_NI_LVSYS_INT_RISING, "LVSYS_F"),
+};
+
 static const struct resource mt6377_keys_resources[] = {
 	DEFINE_RES_IRQ(MT6377_IRQ_PWRKEY),
 	DEFINE_RES_IRQ(MT6377_IRQ_HOMEKEY),
@@ -258,6 +267,11 @@ static const struct mfd_cell mt6363_devs[] = {
 	}, {
 		.name = "mt6363-consys",
 		.of_compatible = "mediatek,mt6363-consys",
+	}, {
+		.name = "mt6363-lvsys-notify",
+		.num_resources = ARRAY_SIZE(mt6363_lvsys_notify_resources),
+		.resources = mt6363_lvsys_notify_resources,
+		.of_compatible = "mediatek,mt6363-lvsys-notify",
 	},
 };
 
