@@ -261,6 +261,7 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	struct mtk_drm_crtc *mtk_crtc = NULL;
 	unsigned int val = 0;
 	unsigned int ret = 0;
+	ktime_t cur_time;
 
 	if (IS_ERR_OR_NULL(priv))
 		return IRQ_NONE;
@@ -336,8 +337,10 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 	}
 
 	if (val & (1 << 1)) {
-		if (rdma->id == DDP_COMPONENT_RDMA0)
+		if (rdma->id == DDP_COMPONENT_RDMA0) {
+			cur_time = ktime_get();
 			DRM_MMP_EVENT_START(rdma0, val, 0);
+		}
 		DDPIRQ("[IRQ] %s: frame start!\n", mtk_dump_comp_str(rdma));
 		mtk_drm_refresh_tag_start(&priv->ddp_comp);
 		MMPathTraceDRM(rdma);
@@ -350,7 +353,15 @@ static irqreturn_t mtk_disp_rdma_irq_handler(int irq, void *dev_id)
 				struct drm_crtc *crtc = &mtk_crtc->base;
 				unsigned int crtc_idx = drm_crtc_index(crtc);
 				unsigned int pf_idx;
+				int vrefresh = 0;
 
+				vrefresh = drm_mode_vrefresh(
+						&mtk_crtc->base.state->adjusted_mode);
+				if (vrefresh > 0 &&
+				    ktime_to_us(cur_time - mtk_crtc->pf_time) >=
+				     (500000 / vrefresh)) {
+					mtk_crtc->pf_time = cur_time;
+				}
 				pf_idx = readl(mtk_get_gce_backup_slot_va(mtk_crtc,
 					DISP_SLOT_PRESENT_FENCE(crtc_idx)));
 				atomic_set(&drm_priv->crtc_rel_present[crtc_idx], pf_idx);
