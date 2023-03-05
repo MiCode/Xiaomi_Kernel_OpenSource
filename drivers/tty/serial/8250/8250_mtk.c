@@ -323,7 +323,10 @@ static int mtk8250_clear_fifo(struct tty_struct *tty)
 
 	//polling existed apdma request util finish
 	#if defined(KERNEL_mtk_uart_apdma_polling_rx_finish)
-	KERNEL_mtk_uart_apdma_polling_rx_finish(up->dma->rxchan);
+	if (up->dma && up->dma->rxchan)
+		KERNEL_mtk_uart_apdma_polling_rx_finish(up->dma->rxchan);
+	else
+		pr_info("[%s] para error. up->dma,rxchan is NULL\n", __func__);
 	#endif
 
 	//disable UART FIFO
