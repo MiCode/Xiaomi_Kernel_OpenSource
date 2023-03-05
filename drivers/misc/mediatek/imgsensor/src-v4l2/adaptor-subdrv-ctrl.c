@@ -1068,7 +1068,7 @@ void get_min_shutter_by_scenario(struct subdrv_ctx *ctx,
 		u64 *min_shutter, u64 *exposure_step)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid cur_sid:%u, mode_num:%u set default\n",
+		DRV_LOG(ctx, "invalid cur_sid:%u, mode_num:%u set default\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = 0;
 	}
