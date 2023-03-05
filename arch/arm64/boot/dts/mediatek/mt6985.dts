@@ -13444,6 +13444,8 @@
 		hv-thd-volt = <3500>;
 		lv1-thd-volt = <3450>;
 		lv2-thd-volt = <3300>;
+		lvsys-thd-enable = <1>;
+		vbat-thd-enable = <0>;
 	};
 
 	pbm: pbm {
