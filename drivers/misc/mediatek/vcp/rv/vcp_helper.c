@@ -1047,12 +1047,14 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 		return NOTIFY_OK;
 	case PM_POST_HIBERNATION:
+		/* currently no scenario
 		pr_debug("[VCP] %s: reboot\n", __func__);
 		retval = reset_vcp(VCP_ALL_REBOOT);
 		if (retval < 0) {
 			retval = -EINVAL;
 			pr_debug("[VCP] %s: reboot fail\n", __func__);
 		}
+		*/
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_DONE;
@@ -1135,8 +1137,10 @@ int reset_vcp(int reset)
 		vcp_set_clk();
 
 #if VCP_BOOT_TIME_OUT_MONITOR
-		vcp_ready_timer[VCP_A_ID].tl.expires = jiffies + VCP_READY_TIMEOUT;
-		add_timer(&vcp_ready_timer[VCP_A_ID].tl);
+		/* modify timer invoke api, since there is a BUG_ON case that fuzzer
+		 * re-entry reset_vcp() may add an already pending timer.
+		 */
+		mod_timer(&vcp_ready_timer[VCP_A_ID].tl, jiffies + VCP_READY_TIMEOUT);
 #endif
 		if (reset == VCP_ALL_RESUME) {
 			arm_smccc_smc(MTK_SIP_TINYSYS_VCP_CONTROL,
