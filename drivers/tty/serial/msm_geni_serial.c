@@ -3986,7 +3986,7 @@ static int msm_geni_serial_runtime_suspend(struct device *dev)
 
 	/* Check if port is in open state before enabling wakeup_irq */
 	if (port->wakeup_irq > 0 && port->uport.state->port.tty) {
-		atomic_set(&port->check_wakeup_byte, 1);
+		atomic_set(&port->check_wakeup_byte, 0);
 		enable_irq(port->wakeup_irq);
 		port->wakeup_enabled = true;
 	}
