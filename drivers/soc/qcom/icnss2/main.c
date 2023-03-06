@@ -138,16 +138,29 @@ struct icnss_priv *icnss_get_plat_priv(void)
 	return penv;
 }
 
+static inline void icnss_wpss_unload(struct icnss_priv *priv)
+{
+	if (priv && priv->rproc) {
+		rproc_shutdown(priv->rproc);
+		rproc_put(priv->rproc);
+		priv->rproc = NULL;
+	}
+}
+
 static ssize_t icnss_sysfs_store(struct kobject *kobj,
 				 struct kobj_attribute *attr,
 				 const char *buf, size_t count)
 {
 	struct icnss_priv *priv = icnss_get_plat_priv();
 
-	if (priv)
-		atomic_set(&priv->is_shutdown, true);
+	if (!priv)
+		return count;
 
 	icnss_pr_dbg("Received shutdown indication");
+
+	atomic_set(&priv->is_shutdown, true);
+	if (priv->wpss_supported && priv->device_id == ADRASTEA_DEVICE_ID)
+		icnss_wpss_unload(priv);
 
 	return count;
 }
@@ -2082,14 +2095,16 @@ static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 	icnss_pr_info("WPSS went down, state: 0x%lx, crashed: %d\n",
 		      priv->state, notif->crashed);
 
+	if (priv->device_id == ADRASTEA_DEVICE_ID)
+		icnss_update_state_send_modem_shutdown(priv, data);
+
 	set_bit(ICNSS_FW_DOWN, &priv->state);
+	icnss_ignore_fw_timeout(true);
 
 	if (notif->crashed)
 		priv->stats.recovery.root_pd_crash++;
 	else
 		priv->stats.recovery.root_pd_shutdown++;
-
-	icnss_ignore_fw_timeout(true);
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 
@@ -3762,15 +3777,6 @@ static void icnss_wpss_load(struct work_struct *wpss_load_work)
 	if (ret) {
 		icnss_pr_err("Failed to boot wpss rproc, ret: %d", ret);
 		rproc_put(priv->rproc);
-	}
-}
-
-static inline void icnss_wpss_unload(struct icnss_priv *priv)
-{
-	if (priv && priv->rproc) {
-		rproc_shutdown(priv->rproc);
-		rproc_put(priv->rproc);
-		priv->rproc = NULL;
 	}
 }
 
