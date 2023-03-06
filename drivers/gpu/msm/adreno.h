@@ -1211,6 +1211,12 @@ ADRENO_TARGET(gen7_4_0, ADRENO_REV_GEN7_4_0)
 ADRENO_TARGET(gen7_3_0, ADRENO_REV_GEN7_3_0)
 ADRENO_TARGET(gen7_6_0, ADRENO_REV_GEN7_6_0)
 
+static inline int adreno_is_gen7_0_x_family(struct adreno_device *adreno_dev)
+{
+	return adreno_is_gen7_0_0(adreno_dev) || adreno_is_gen7_0_1(adreno_dev) ||
+		adreno_is_gen7_4_0(adreno_dev) || adreno_is_gen7_3_0(adreno_dev);
+}
+
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum
  * @adreno_dev:		Pointer to adreno device
