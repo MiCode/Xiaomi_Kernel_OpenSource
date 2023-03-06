@@ -5,7 +5,7 @@
  * Copyright (C) 2016 Linaro Ltd
  * Copyright (C) 2015 Sony Mobile Communications Inc
  * Copyright (c) 2012-2013, 2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/firmware.h>
@@ -581,6 +581,43 @@ out:
 	return info;
 }
 
+/**
+ * qcom_ssr_add_subsys() - register qcom_ssr_subsystem as restart notification source
+ * @ssr_name:	identifier to use for notifications originating from @qcom_ssr_subsystem
+ *
+ * As the @qcom_ssr_subsystem is registered with the @name SSR events will be sent to all
+ * registered listeners for the remoteproc when any SSR events occur.
+ */
+struct qcom_ssr_subsystem *qcom_ssr_add_subsys(const char *name)
+{
+	struct qcom_ssr_subsystem *info;
+
+	if (!name)
+		return ERR_PTR(-EINVAL);
+
+	mutex_lock(&qcom_ssr_subsys_lock);
+	/* Match in the global qcom_ssr_subsystem_list with name */
+	list_for_each_entry(info, &qcom_ssr_subsystem_list, list)
+		if (!strcmp(info->name, name))
+			goto out;
+
+	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	if (!info) {
+		info = ERR_PTR(-ENOMEM);
+		goto out;
+	}
+	info->name = kstrdup_const(name, GFP_KERNEL);
+	srcu_init_notifier_head(&info->notifier_list);
+	srcu_init_notifier_head(&info->early_notifier_list);
+
+	/* Add to global notification list */
+	list_add_tail(&info->list, &qcom_ssr_subsystem_list);
+
+out:
+	mutex_unlock(&qcom_ssr_subsys_lock);
+	return info;
+}
+
 void *qcom_register_early_ssr_notifier(const char *name, struct notifier_block *nb)
 {
 	struct qcom_ssr_subsystem *info;
@@ -665,6 +702,20 @@ int qcom_unregister_ssr_notifier(void *notify, struct notifier_block *nb)
 	return srcu_notifier_chain_unregister(notify, nb);
 }
 EXPORT_SYMBOL_GPL(qcom_unregister_ssr_notifier);
+
+int qcom_notify_ssr_clients(struct qcom_ssr_subsystem *info, int state,
+			struct qcom_ssr_notify_data *data)
+{
+	struct qcom_ssr_subsystem *subsys = info;
+
+	if (!subsys)
+		return -EINVAL;
+
+	if (state < 0)
+		return -EINVAL;
+
+	return srcu_notifier_call_chain(&info->notifier_list, state, data);
+}
 
 static inline void notify_ssr_clients(struct qcom_rproc_ssr *ssr, struct qcom_ssr_notify_data *data)
 {
