@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef SLATECOM_INTERFACE_H
 #define SLATECOM_INTERFACE_H
@@ -47,6 +47,17 @@ struct subsys_state_ops {
 
 void slatecom_state_init(void (*fn1)(bool), void (*fn2)(bool));
 
+/*
+ * To set the slate boot mode
+ * Return 0 on success or -Ve on error
+ */
+int set_slate_boot_mode(uint32_t boot_mode);
+
+/*
+ * To get the slate boot mode
+ * Return 0/1 on success and -Ve on error
+ */
+int get_slate_boot_mode(void);
 
 /*
  * Message header type - generic header structure
