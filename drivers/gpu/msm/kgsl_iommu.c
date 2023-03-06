@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/bitfield.h>
@@ -1345,7 +1345,7 @@ static int set_smmu_aperture(struct kgsl_device *device,
 		ret = qcom_scm_kgsl_set_smmu_aperture(context->cb_num);
 
 	if (ret)
-		dev_err(device->dev, "Unable to set the SMMU aperture: %d. The aperture needs to be set to use per-process pagetables\n",
+		dev_err(&device->pdev->dev, "Unable to set the SMMU aperture: %d. The aperture needs to be set to use per-process pagetables\n",
 			ret);
 
 	return ret;
@@ -1364,7 +1364,7 @@ static int set_smmu_lpac_aperture(struct kgsl_device *device,
 		ret = qcom_scm_kgsl_set_smmu_lpac_aperture(context->cb_num);
 
 	if (ret)
-		dev_err(device->dev, "Unable to set the LPAC SMMU aperture: %d. The aperture needs to be set to use per-process pagetables\n",
+		dev_err(&device->pdev->dev, "Unable to set the LPAC SMMU aperture: %d. The aperture needs to be set to use per-process pagetables\n",
 			ret);
 
 	return ret;
@@ -1607,9 +1607,6 @@ static void kgsl_iommu_close(struct kgsl_mmu *mmu)
 		__free_page(kgsl_guard_page);
 		kgsl_guard_page = NULL;
 	}
-
-	of_platform_depopulate(&iommu->pdev->dev);
-	platform_device_put(iommu->pdev);
 
 	kmem_cache_destroy(addr_entry_cache);
 	addr_entry_cache = NULL;
@@ -2257,6 +2254,7 @@ static int kgsl_iommu_setup_context(struct kgsl_mmu *mmu,
 {
 	struct device_node *node = of_find_node_by_name(parent, name);
 	struct platform_device *pdev;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	int ret;
 
 	if (!node)
@@ -2271,7 +2269,7 @@ static int kgsl_iommu_setup_context(struct kgsl_mmu *mmu,
 
 	context->cb_num = -1;
 	context->name = name;
-	context->kgsldev = KGSL_MMU_DEVICE(mmu);
+	context->kgsldev = device;
 	context->pdev = pdev;
 	ratelimit_default_init(&context->ratelimit);
 
@@ -2302,7 +2300,7 @@ static int kgsl_iommu_setup_context(struct kgsl_mmu *mmu,
 	if (context->cb_num >= 0)
 		return 0;
 
-	dev_err(KGSL_MMU_DEVICE(mmu)->dev, "Couldn't get the context bank for %s: %d\n",
+	dev_err(&device->pdev->dev, "Couldn't get the context bank for %s: %d\n",
 		context->name, context->cb_num);
 
 	iommu_detach_device(context->domain, &context->pdev->dev);
@@ -2428,7 +2426,7 @@ static int iommu_probe_secure_context(struct kgsl_device *device,
 	ret = iommu_domain_set_attr(context->domain, DOMAIN_ATTR_SECURE_VMID,
 		&secure_vmid);
 	if (ret) {
-		dev_err(device->dev, "Unable to set the secure VMID: %d\n", ret);
+		dev_err(&device->pdev->dev, "Unable to set the secure VMID: %d\n", ret);
 		iommu_domain_free(context->domain);
 		context->domain = NULL;
 
@@ -2504,19 +2502,14 @@ static void kgsl_iommu_check_config(struct kgsl_mmu *mmu,
 	of_node_put(node);
 }
 
-int kgsl_iommu_probe(struct kgsl_device *device)
+int kgsl_iommu_bind(struct kgsl_device *device, struct platform_device *pdev)
 {
 	u32 val[2];
 	int ret, i;
 	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
-	struct platform_device *pdev;
 	struct kgsl_mmu *mmu = &device->mmu;
-	struct device_node *node;
+	struct device_node *node = pdev->dev.of_node;
 	struct kgsl_global_memdesc *md;
-
-	node = of_find_compatible_node(NULL, NULL, "qcom,kgsl-smmu-v2");
-	if (!node)
-		return -ENODEV;
 
 	/* Create a kmem cache for the pagetable address objects */
 	if (!addr_entry_cache) {
@@ -2529,7 +2522,7 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 
 	ret = of_property_read_u32_array(node, "reg", val, 2);
 	if (ret) {
-		dev_err(device->dev,
+		dev_err(&device->pdev->dev,
 			"%pOF: Unable to read KGSL IOMMU register range\n",
 			node);
 		goto err;
@@ -2542,14 +2535,12 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 		goto err;
 	}
 
-	pdev = of_find_device_by_node(node);
 	iommu->pdev = pdev;
 	iommu->num_clks = 0;
 
 	iommu->clks = devm_kcalloc(&pdev->dev, ARRAY_SIZE(kgsl_iommu_clocks),
 				sizeof(*iommu->clks), GFP_KERNEL);
 	if (!iommu->clks) {
-		platform_device_put(pdev);
 		ret = -ENOMEM;
 		goto err;
 	}
@@ -2573,9 +2564,6 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 	mmu->type = KGSL_MMU_TYPE_IOMMU;
 	mmu->mmu_ops = &kgsl_iommu_ops;
 
-	/* Fill out the rest of the devices in the node */
-	of_platform_populate(node, NULL, NULL, &pdev->dev);
-
 	/* Peek at the phandle to set up configuration */
 	kgsl_iommu_check_config(mmu, node);
 
@@ -2583,13 +2571,11 @@ int kgsl_iommu_probe(struct kgsl_device *device)
 	ret = iommu_probe_user_context(device, node);
 	if (ret) {
 		of_platform_depopulate(&pdev->dev);
-		platform_device_put(pdev);
 		goto err;
 	}
 
 	/* Probe the secure pagetable (this is optional) */
 	iommu_probe_secure_context(device, node);
-	of_node_put(node);
 
 	/* Map any globals that might have been created early */
 	list_for_each_entry(md, &device->globals, node)
@@ -2626,7 +2612,6 @@ err:
 	kmem_cache_destroy(addr_entry_cache);
 	addr_entry_cache = NULL;
 
-	of_node_put(node);
 	return ret;
 }
 

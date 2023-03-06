@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <uapi/linux/sched/types.h>
@@ -4938,16 +4938,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 		goto error_pwrctrl_close;
 	}
 
-	/* This can return -EPROBE_DEFER */
-	status = kgsl_mmu_probe(device);
-	if (status != 0)
-		goto error_pwrctrl_close;
-
 	status = kgsl_reclaim_init();
-	if (status) {
-		kgsl_mmu_close(device);
+	if (status)
 		goto error_pwrctrl_close;
-	}
 
 	rwlock_init(&device->context_lock);
 	spin_lock_init(&device->submit_lock);
@@ -4994,8 +4987,6 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 	kgsl_device_events_remove(device);
 
 	kgsl_free_globals(device);
-
-	kgsl_mmu_close(device);
 
 	kgsl_pwrctrl_close(device);
 
