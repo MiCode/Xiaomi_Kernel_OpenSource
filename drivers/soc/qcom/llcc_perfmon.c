@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -1366,10 +1367,10 @@ static bool feac_event_filter_config(struct llcc_perfmon_private *llcc_priv,
 		}
 
 		mask_val = FEAC_ADDR_LOWER_MATCH_MASK;
-		llcc_bcast_modify(llcc_priv, offset, lower_val_match, mask_val);
+		llcc_bcast_modify(llcc_priv, lower_offset_match, lower_val_match, mask_val);
 
 		mask_val = FEAC_ADDR_LOWER_MASK_MASK;
-		llcc_bcast_modify(llcc_priv, offset, lower_val_mask, mask_val);
+		llcc_bcast_modify(llcc_priv, lower_offset_mask, lower_val_mask, mask_val);
 
 		mask_val = FEAC_ADDR_UPPER_MATCH_MASK | FEAC_ADDR_UPPER_MASK_MASK;
 		llcc_bcast_modify(llcc_priv, offset, val, mask_val);

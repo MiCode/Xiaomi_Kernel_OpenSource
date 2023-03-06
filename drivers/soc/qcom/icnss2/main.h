@@ -21,12 +21,14 @@
 #include <linux/timer.h>
 
 #define WCN6750_DEVICE_ID 0x6750
+#define WCN6450_DEVICE_ID 0x6450
 #define ADRASTEA_DEVICE_ID 0xabcd
 #define THERMAL_NAME_LENGTH 20
 #define ICNSS_SMEM_VALUE_MASK 0xFFFFFFFF
 #define ICNSS_SMEM_SEQ_NO_POS 16
 #define QCA6750_PATH_PREFIX    "qca6750/"
 #define ADRASTEA_PATH_PREFIX   "adrastea/"
+#define WCN6450_PATH_PREFIX    "wcn6450/"
 #define ICNSS_MAX_FILE_NAME      35
 #define ICNSS_PCI_EP_WAKE_OFFSET 4
 #define ICNSS_DISABLE_M3_SSR 0
