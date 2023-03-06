@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -266,7 +267,7 @@ int kgsl_add_va_to_minidump(struct device *dev, const char *name, void *ptr,
 static int kgsl_add_driver_data_to_va_minidump(struct kgsl_device *device)
 {
 	int ret;
-	char name[32];
+	char name[MAX_VA_MINIDUMP_STR_LEN];
 	struct kgsl_pagetable *pt;
 	struct adreno_context *ctxt;
 	struct kgsl_process_private *p;
@@ -292,7 +293,7 @@ static int kgsl_add_driver_data_to_va_minidump(struct kgsl_device *device)
 
 	spin_lock(&adreno_dev->active_list_lock);
 	list_for_each_entry(ctxt, &adreno_dev->active_list, active_node) {
-		snprintf(name, sizeof(name), "kgsl_adreno_ctx_%d", ctxt->base.id);
+		snprintf(name, sizeof(name), KGSL_ADRENO_CTX_ENTRY"_%d", ctxt->base.id);
 		ret = kgsl_add_va_to_minidump(device->dev, name,
 				(void *)(ctxt), sizeof(struct adreno_context));
 		if (ret)
@@ -302,7 +303,7 @@ static int kgsl_add_driver_data_to_va_minidump(struct kgsl_device *device)
 
 	read_lock(&kgsl_driver.proclist_lock);
 	list_for_each_entry(p, &kgsl_driver.process_list, list) {
-		snprintf(name, sizeof(name), "kgsl_proc_priv_%d", pid_nr(p->pid));
+		snprintf(name, sizeof(name), KGSL_PROC_PRIV_ENTRY "_%d", pid_nr(p->pid));
 		ret = kgsl_add_va_to_minidump(device->dev, name,
 				(void *)(p), sizeof(struct kgsl_process_private));
 		if (ret)
@@ -312,7 +313,7 @@ static int kgsl_add_driver_data_to_va_minidump(struct kgsl_device *device)
 
 	spin_lock(&kgsl_driver.ptlock);
 	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
-		snprintf(name, sizeof(name), "kgsl_pgtable_%d", pt->name);
+		snprintf(name, sizeof(name), KGSL_PGTABLE_ENTRY"_%d", pt->name);
 		ret = kgsl_add_va_to_minidump(device->dev, name,
 				(void *)(pt), sizeof(struct kgsl_pagetable));
 		if (ret)
@@ -345,9 +346,24 @@ static struct notifier_block kgsl_va_minidump_nb = {
 
 void kgsl_qcom_va_md_register(struct kgsl_device *device)
 {
+	int ret;
+
 	if (!qcom_va_md_enabled())
 		return;
 
-	if (qcom_va_md_register("KGSL", &kgsl_va_minidump_nb))
-		dev_err(device->dev, "Failed to register notifier with va_minidump\n");
+	ret = qcom_va_md_register("KGSL", &kgsl_va_minidump_nb);
+	if (ret)
+		dev_err(device->dev, "Failed to register notifier with va_minidump: %d\n", ret);
+}
+
+void kgsl_qcom_va_md_unregister(struct kgsl_device *device)
+{
+	int ret;
+
+	if (!qcom_va_md_enabled())
+		return;
+
+	ret = qcom_va_md_unregister("KGSL", &kgsl_va_minidump_nb);
+	if (ret)
+		dev_err(device->dev, "Failed to unregister notifier with va_minidump: %d\n", ret);
 }
