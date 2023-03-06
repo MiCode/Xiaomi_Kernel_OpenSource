@@ -13,7 +13,8 @@
 #include "ep_pcie_com.h"
 #include "ep_pcie_phy.h"
 
-#define EP_PCIE_MAX_DEBUGFS_OPTION 24
+#define PCIE_PHYSICAL_DEVICE 0
+#define EP_PCIE_MAX_DEBUGFS_OPTION 25
 
 static const char * const
 	ep_pcie_debugfs_option_desc[EP_PCIE_MAX_DEBUGFS_OPTION] = {
@@ -41,6 +42,7 @@ static const char * const
 	"Enable dumping core/dbi registers when D3hot set by host",
 	"Disable dumping core/dbi registers when D3hot set by host",
 	"Dump edma registers",
+	"Dump clock CBCR registers",
 	};
 
 static struct dentry *dent_ep_pcie;
@@ -319,6 +321,32 @@ static int ep_pcie_cmd_debug_open(struct inode *inode, struct file *file)
 	return single_open(file, ep_pcie_cmd_debug_show, NULL);
 }
 
+static void ep_pcie_aspm_stat(struct ep_pcie_dev_t *ep_dev)
+{
+	if (!ep_dev->mmio) {
+		EP_PCIE_DBG_FS("PCIe: V%d: No dev or MHI space found\n", ep_dev->rev);
+		return;
+	}
+
+	if (!ep_dev->power_on) {
+		EP_PCIE_DBG_FS("PCIe V%d: the power is already down; can't dump registers\n",
+				ep_dev->rev);
+		return;
+	}
+
+	EP_PCIE_DBG_FS("PCIe: V%d: L0s: %u L1: %u L1.1: %u L1.2: %u\n",
+			 ep_dev->rev,
+			 readl_relaxed(ep_dev->mmio +
+				       PCIE20_PARF_DEBUG_CNT_IN_L0S),
+			 readl_relaxed(ep_dev->mmio +
+				       PCIE20_PARF_DEBUG_CNT_IN_L1),
+			 readl_relaxed(ep_dev->mmio +
+				       PCIE20_PARF_DEBUG_CNT_IN_L1SUB_L1),
+			 readl_relaxed(ep_dev->mmio +
+				       PCIE20_PARF_DEBUG_CNT_IN_L1SUB_L2));
+
+}
+
 static ssize_t ep_pcie_cmd_debug(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
@@ -443,6 +471,14 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 		break;
 	case 23: /* output edma registers */
 		edma_dump();
+		break;
+	case 24: /* Dump clock CBCR registers */
+		ep_pcie_clk_dump(dev);
+		EP_PCIE_DBG_FS("\nPCIe Testcase %d: Clock CBCR reg info will be dumped in Dmesg",
+			testcase);
+		break;
+	case 25: /* Dump ASPM stats */
+		ep_pcie_aspm_stat(dev);
 		break;
 	default:
 		EP_PCIE_DBG_FS("PCIe: Invalid testcase: %d\n", testcase);
