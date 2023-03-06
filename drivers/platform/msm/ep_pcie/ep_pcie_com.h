@@ -49,8 +49,11 @@
 #define PCIE20_PARF_INT_ALL_3_STATUS   0x2D88
 #define PCIE20_PARF_INT_ALL_3_MASK     0x2D8C
 #define PCIE20_PARF_INT_ALL_3_CLEAR    0x2D90
-#define PCIE20_PARF_MHI_BASE_ADDR_VFn_LOWER(n)       (((n) * 8) + 0x3088)
-#define PCIE20_PARF_MHI_BASE_ADDR_VFn_UPPER(n)       (((n) * 8)  + 0x308C)
+#define PCIE20_PARF_MHI_BASE_ADDR_V1_VFn_LOWER(n)       (((n) * 0x8) + 0x3088)
+#define PCIE20_PARF_MHI_BASE_ADDR_V1_VFn_UPPER(n)       (((n) * 0x8)  + 0x308C)
+#define PCIE20_PARF_MHI_BASE_ADDR_VFn_LOWER(n)       (((n) * 0x28) + 0x3100)
+#define PCIE20_PARF_MHI_BASE_ADDR_VFn_UPPER(n)       (((n) * 0x28)  + 0x3104)
+
 
 #define PCIE20_PARF_MHI_IPA_DBS_V1_VF(n)                (((n) * 0x8) + 0x2E9C)
 #define PCIE20_PARF_MHI_IPA_CDB_V1_VF_TARGET_LOWER(n)   (((n) * 0x18) + 0x2E08)
