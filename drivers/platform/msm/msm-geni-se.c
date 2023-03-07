@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -955,6 +955,13 @@ static int geni_se_add_ab_ib(struct geni_se_device *geni_se_dev,
 		geni_se_dev->cur_ab, geni_se_dev->cur_ib,
 		rsc->ab, rsc->ib, bus_bw_update);
 
+	if (ret) {
+		GENI_LOG_ERR(geni_se_dev->log_ctx, true, geni_se_dev->dev,
+			     "%s: %s: Error %d core2x clock vote\n",
+			     __func__, dev_name(rsc->ctrl_dev), ret);
+		mutex_unlock(&geni_se_dev->geni_dev_lock);
+		return ret;
+	}
 
 	if (geni_se_dev->num_paths >= 2) {
 
