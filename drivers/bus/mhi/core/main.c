@@ -96,7 +96,7 @@ void mhi_db_brstmode(struct mhi_controller *mhi_cntrl,
 	if (db_cfg->db_mode) {
 		db_cfg->db_val = db_val;
 		mhi_write_db(mhi_cntrl, db_addr, db_val);
-		db_cfg->db_mode = 0;
+		db_cfg->db_mode = false;
 	}
 }
 
@@ -722,7 +722,7 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 	{
 		unsigned long pm_lock_flags;
 
-		mhi_chan->db_cfg.db_mode = 1;
+		mhi_chan->db_cfg.db_mode = true;
 		read_lock_irqsave(&mhi_cntrl->pm_lock, pm_lock_flags);
 		if (tre_ring->wp != tre_ring->rp &&
 		    MHI_DB_ACCESS_VALID(mhi_cntrl)) {
