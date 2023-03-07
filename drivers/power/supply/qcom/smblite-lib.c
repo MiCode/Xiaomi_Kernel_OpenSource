@@ -856,7 +856,7 @@ static int smblite_lib_icl_irq_disable_vote_callback(struct votable *votable,
 {
 	struct smb_charger *chg = data;
 
-	if (!chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq)
+	if (!chg->irq_info[USBIN_ICL_CHANGE_IRQ].is_requested)
 		return 0;
 
 	if (chg->irq_info[USBIN_ICL_CHANGE_IRQ].enabled) {
@@ -882,7 +882,7 @@ static int smblite_lib_temp_change_irq_disable_vote_callback(
 {
 	struct smb_charger *chg = data;
 
-	if (!chg->irq_info[TEMP_CHANGE_IRQ].irq)
+	if (!chg->irq_info[TEMP_CHANGE_IRQ].is_requested)
 		return 0;
 
 	if (chg->irq_info[TEMP_CHANGE_IRQ].enabled && disable) {

@@ -198,6 +198,7 @@ struct smb_irq_info {
 	struct smb_irq_data		*irq_data;
 	int				irq;
 	bool				enabled;
+	bool				is_requested;
 };
 
 static const unsigned int smblite_lib_extcon_cable[] = {
