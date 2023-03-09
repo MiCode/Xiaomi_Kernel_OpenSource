@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/utsname.h>
@@ -544,28 +544,15 @@ struct mem_entry {
 	unsigned int type;
 } __packed;
 
-static int _save_mem_entries(int id, void *ptr, void *data)
-{
-	struct kgsl_mem_entry *entry = ptr;
-	struct mem_entry *m = (struct mem_entry *) data;
-	unsigned int index = id - 1;
-
-	m[index].gpuaddr = entry->memdesc.gpuaddr;
-	m[index].size = entry->memdesc.size;
-	m[index].type = kgsl_memdesc_get_memtype(&entry->memdesc);
-
-	return 0;
-}
-
 static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 		u8 *buf, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_mem_list_v2 *header =
 		(struct kgsl_snapshot_mem_list_v2 *)buf;
-	int num_mem = 0;
-	int ret = 0;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int id, index = 0, ret = 0, num_mem = 0;
 	struct kgsl_process_private *process = priv;
+	struct mem_entry *m = (struct mem_entry *)(buf + sizeof(*header));
+	struct kgsl_mem_entry *entry;
 
 	/* we need a process to search! */
 	if (process == NULL)
@@ -592,7 +579,12 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 	 * Walk through the memory list and store the
 	 * tuples(gpuaddr, size, memtype) in snapshot
 	 */
-	idr_for_each(&process->mem_idr, _save_mem_entries, data);
+	idr_for_each_entry(&process->mem_idr, entry, id) {
+		m[index].gpuaddr = entry->memdesc.gpuaddr;
+		m[index].size = entry->memdesc.size;
+		m[index].type = kgsl_memdesc_get_memtype(&entry->memdesc);
+		index++;
+	}
 
 	ret = sizeof(*header) + (num_mem * sizeof(struct mem_entry));
 out:
