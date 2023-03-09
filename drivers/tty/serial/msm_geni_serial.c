@@ -383,6 +383,7 @@ struct msm_geni_serial_port {
 	struct ktermios *current_termios;
 	bool resuming_from_deep_sleep;
 	bool shutdown_in_progress;
+	bool compat_ioctl_support;
 };
 
 static const struct uart_ops msm_geni_serial_pops;
@@ -994,6 +995,40 @@ static int msm_geni_serial_ioctl(struct uart_port *uport, unsigned int cmd,
 		break;
 	}
 	return ret;
+}
+
+/**
+ * msm_geni_uart_tty_ioctl: tty ldisc ops IOCTL.
+
+ * @tty: tty port pointer.
+ * @file: file pointer for dev node.
+ * @cmd: IOCTL command passed by client.
+ * @arg: IOCTL argument passed by client.
+ *
+ * This function used as ldisc ops compat IOCTL and it
+ * will call msm geni serial IOCTL.
+ * For 32-bit user-space application and 64-bit kernel,
+ * We required compat IOCTL implementation any IOCTL call
+ * from user space.
+ *
+ * Return: 0 for success, Negative in error case.
+ */
+static int msm_geni_uart_tty_ioctl(struct tty_struct *tty, struct file *file,
+				   unsigned int cmd, unsigned long arg)
+{
+	struct uart_state *state = tty->driver_data;
+	struct uart_port *uport;
+
+	if (!state) {
+		pr_err("%s: Invalid driver data buffer\n", __func__);
+		return -EINVAL;
+	}
+
+	uport = state->uart_port;
+	if (!uport)
+		return -EINVAL;
+
+	return msm_geni_serial_ioctl(uport, cmd, arg);
 }
 
 static void msm_geni_serial_break_ctl(struct uart_port *uport, int ctl)
@@ -3510,6 +3545,7 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 {
 	int ret = 0;
 	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+	struct tty_struct *tty;
 
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev, "%s: Start %d\n", __func__, true);
 
@@ -3558,6 +3594,15 @@ static int msm_geni_serial_startup(struct uart_port *uport)
 			dev_err(uport->dev, "%s:Failed to set IRQ wake:%d\n",
 					__func__, ret);
 			goto exit_startup;
+		}
+	}
+
+	if (msm_port->compat_ioctl_support) {
+		tty = uport->state->port.tty;
+		if (tty && !tty->ldisc->ops->compat_ioctl) {
+			UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
+				     "%s: setting ldisc compat ioctl\n", __func__);
+			tty->ldisc->ops->compat_ioctl = msm_geni_uart_tty_ioctl;
 		}
 	}
 exit_startup:
@@ -4648,6 +4693,10 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	dev_port->pm_auto_suspend_disable =
 		of_property_read_bool(pdev->dev.of_node,
 		"qcom,auto-suspend-disable");
+
+	dev_port->compat_ioctl_support =
+		of_property_read_bool(pdev->dev.of_node,
+				      "qcom,compat-ioctl-support");
 
 	if (is_console) {
 		dev_port->handle_rx = handle_rx_console;
