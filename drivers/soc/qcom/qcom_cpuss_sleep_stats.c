@@ -2,9 +2,10 @@
 
 /*
  * Copyright (c) 2020 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#include <linux/cpumask.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/init.h>
@@ -125,6 +126,7 @@ struct qcom_target_info {
 	int ncpu;
 	phys_addr_t per_cpu_lpm_cfg[MAX_POSSIBLE_CPUS];
 	u32 per_cpu_lpm_cfg_size[MAX_POSSIBLE_CPUS];
+	bool per_cpu_available[MAX_POSSIBLE_CPUS];
 	phys_addr_t apss_seq_mem_base;
 	u32 apss_seq_mem_size;
 	phys_addr_t l3_seq_lpm_cfg;
@@ -376,6 +378,9 @@ static ssize_t qcom_cpuss_stats_reset_write(struct file *file,
 	/* Reset cpu LPM/Residencies */
 	mutex_lock(&t_info->stats_reset_lock);
 	for (i = 0; i < ncpu; i++) {
+		if (!t_info->per_cpu_available[i])
+			continue;
+
 		ret = qcom_cpuss_reset_clear_lpm_residency(t_info->per_cpu_lpm_cfg[i],
 							   RESET_ALL_CPU_LPM);
 		if (ret)
@@ -597,6 +602,9 @@ static int qcom_cpuss_read_lpm_and_residency_cfg_informaion(struct qcom_target_i
 
 	/* per cpu lpm and residency */
 	for (i = 0; i < t_info->ncpu; i++) {
+		if (!t_info->per_cpu_available[i])
+			continue;
+
 		addr = t_info->per_cpu_lpm_cfg[i];
 		ret = qcom_scm_io_readl(addr, &val);
 		if (ret)
@@ -644,6 +652,7 @@ static int qcom_cpuss_sleep_stats_probe(struct platform_device *pdev)
 	struct dentry *root_dir;
 	struct qcom_target_info *t_info;
 	struct resource *res;
+	int cpu;
 
 	t_info = devm_kzalloc(&pdev->dev, sizeof(struct qcom_target_info),
 			      GFP_KERNEL);
@@ -693,6 +702,9 @@ static int qcom_cpuss_sleep_stats_probe(struct platform_device *pdev)
 	t_info->offsets = (u32 *)device_get_match_data(&pdev->dev);
 	if (!t_info->offsets)
 		return -ENODEV;
+
+	for_each_cpu(cpu, cpu_possible_mask)
+		t_info->per_cpu_available[cpu] = true;
 
 	/*
 	 * Function to read cfgs register to know lpm stats per cpu/cluster and
