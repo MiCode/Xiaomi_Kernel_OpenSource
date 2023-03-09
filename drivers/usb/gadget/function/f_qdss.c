@@ -626,6 +626,7 @@ static void qdss_disable(struct usb_function *f)
 	spin_lock_irqsave(&qdss->lock, flags);
 	if (!qdss->usb_connected) {
 		spin_unlock_irqrestore(&qdss->lock, flags);
+		usb_gadget_autopm_put_async(qdss->gadget);
 		return;
 	}
 
