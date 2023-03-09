@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk/qcom.h>
@@ -364,6 +364,17 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 
 	kgsl_regread(device, A6XX_RBBM_CLOCK_CNTL, &value);
 
+	/*
+	 * GBIF L2 CGC control is not part of the UCHE and is enabled by
+	 * default. Hence modify the register when CGC disabled is
+	 * requested.
+	 * Note: The below programming will need modification in case
+	 * of change in the register reset value in future.
+	 */
+	if (!on)
+		kgsl_regrmw(device, A6XX_UCHE_GBIF_GX_CONFIG, GENMASK(18, 16),
+				FIELD_PREP(GENMASK(18, 16), 0));
+
 	if (value == __get_rbbm_clock_cntl_on(adreno_dev) && on)
 		return;
 
@@ -386,10 +397,6 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 	for (i = 0; i < a6xx_core->hwcg_count; i++)
 		kgsl_regwrite(device, a6xx_core->hwcg[i].offset,
 			on ? a6xx_core->hwcg[i].val : 0);
-
-	/* GBIF L2 CGC control is not part of the UCHE */
-	kgsl_regrmw(device, A6XX_UCHE_GBIF_GX_CONFIG, 0x70000,
-			FIELD_PREP(GENMASK(18, 16), on ? 2 : 0));
 
 	/*
 	 * Enable SP clock after programming HWCG registers.
