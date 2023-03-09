@@ -220,8 +220,12 @@ int btfm_slim_disable_ch(struct btfmslim *btfmslim, struct btfmslim_ch *ch,
 		}
 	}
 	ch->dai.sconfig.port_mask = 0;
-	if (ch->dai.sconfig.chs != NULL)
+	if (ch->dai.sconfig.chs != NULL) {
 		kfree(ch->dai.sconfig.chs);
+		BTFMSLIM_INFO("setting ch->dai.sconfig.chs to NULL");
+		ch->dai.sconfig.chs = NULL;
+	} else
+		BTFMSLIM_ERR("ch->dai.sconfig.chs is already NULL");
 
 	if (btfm_num_ports_open > 0)
 		btfm_num_ports_open--;
