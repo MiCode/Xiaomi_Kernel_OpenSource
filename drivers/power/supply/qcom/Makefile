@@ -13,5 +13,7 @@ qcom-smb1398-charger-y += smb1398-charger.o pmic-voter.o
 obj-$(CONFIG_SMB1355_SLAVE_CHARGER)	+= qcom-smb1355-charger.o
 qcom-smb1355-charger-y += smb1355-charger.o pmic-voter.o
 obj-$(CONFIG_SMB23X_CHARGER)   += smb23x-charger.o
+obj-$(CONFIG_SMB1390_CHARGE_PUMP_PSY)   += qcom-smb1390-charger.o
+qcom-smb1390-charger-y += smb1390-charger-psy.o pmic-voter.o
 obj-$(CONFIG_QTI_QBG)   += qti-qbg-main.o
 qti-qbg-main-y  += qti-qbg.o qbg-sdam.o qbg-battery-profile.o battery-profile-loader.o
