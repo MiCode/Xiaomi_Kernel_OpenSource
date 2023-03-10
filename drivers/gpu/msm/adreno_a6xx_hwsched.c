@@ -14,7 +14,6 @@
 #include "adreno_a6xx_hwsched.h"
 #include "adreno_hfi.h"
 #include "adreno_snapshot.h"
-#include "kgsl_bus.h"
 #include "kgsl_device.h"
 #include "kgsl_trace.h"
 #include "kgsl_util.h"
@@ -1033,8 +1032,6 @@ static int a6xx_hwsched_bus_set(struct adreno_device *adreno_dev, int buslevel,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	int ret = 0;
-
-	kgsl_icc_set_tag(pwr, buslevel);
 
 	if (buslevel != pwr->cur_buslevel) {
 		ret = a6xx_hwsched_dcvs_set(adreno_dev, INVALID_DCVS_IDX,
