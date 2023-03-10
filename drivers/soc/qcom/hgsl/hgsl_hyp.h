@@ -157,8 +157,6 @@ enum gsl_rpc_func_t {
 	RPC_PERFCOUNTERS_READ,
 	RPC_NOTIFY_CLEANUP,
 	RPC_COMMAND_RESETSTATUS,
-	RPC_CONTEXT_QUERY_DBCQ,
-	RPC_CONTEXT_REGISTER_DBCQ,
 	RPC_FUNC_LAST /* insert new func BEFORE this line! */
 };
 
@@ -393,22 +391,6 @@ struct notify_cleanup_params_t {
 	uint32_t            timeout;
 };
 
-struct query_dbcq_params_t {
-	uint32_t                size;
-	uint32_t                devhandle;
-	uint32_t                ctxthandle;
-	uint32_t                length;
-};
-
-struct register_dbcq_params_t {
-	uint32_t                size;
-	uint32_t                devhandle;
-	uint32_t                ctxthandle;
-	uint32_t                len;
-	uint32_t                queue_body_offset;
-	uint32_t                export_id;
-};
-
 #pragma pack(pop)
 
 struct hgsl_hab_channel_t {
@@ -458,7 +440,7 @@ int hgsl_hyp_dbq_create(struct hgsl_hab_channel_t *hab_channel,
 	uint32_t ctxthandle, uint32_t *dbq_info);
 
 int hgsl_hyp_ctxt_destroy(struct hgsl_hab_channel_t *hab_channel,
-	uint32_t devhandle, uint32_t context_id, uint32_t *rval, uint32_t dbcq_export_id);
+	uint32_t devhandle, uint32_t context_id, uint32_t *rval);
 
 int hgsl_hyp_get_shadowts_mem(struct hgsl_hab_channel_t *hab_channel,
 	uint32_t context_id, uint32_t *shadow_ts_flags,
@@ -532,13 +514,5 @@ int hgsl_hyp_get_dbq_info(struct hgsl_hyp_priv_t *priv, uint32_t dbq_idx,
 	struct hgsl_dbq_info *dbq_info);
 
 int hgsl_hyp_notify_cleanup(struct hgsl_hab_channel_t *hab_channel, uint32_t timeout);
-
-int hgsl_hyp_query_dbcq(struct hgsl_hab_channel_t *hab_channel, uint32_t devhandle,
-	uint32_t ctxthandle, uint32_t length, uint32_t *db_signal, uint32_t *queue_gmuaddr,
-	uint32_t *irq_idx);
-
-int hgsl_hyp_context_register_dbcq(struct hgsl_hab_channel_t *hab_channel,
-	uint32_t devhandle, uint32_t ctxthandle, int fd, uint32_t size,
-	uint32_t queue_body_offset, uint32_t *export_id);
 
 #endif
