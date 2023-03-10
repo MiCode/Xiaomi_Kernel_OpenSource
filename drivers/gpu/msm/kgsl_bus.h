@@ -17,12 +17,10 @@ enum kgsl_bus_vote {
 
 struct kgsl_device;
 struct platform_device;
-struct kgsl_pwrctrl;
 
 int kgsl_bus_init(struct kgsl_device *device, struct platform_device *pdev);
 void kgsl_bus_close(struct kgsl_device *device);
 int kgsl_bus_update(struct kgsl_device *device, enum kgsl_bus_vote vote_state);
-void kgsl_icc_set_tag(struct kgsl_pwrctrl *pwr, int buslevel);
 
 u32 *kgsl_bus_get_table(struct platform_device *pdev,
 		const char *name, int *count);
