@@ -134,6 +134,7 @@ static DECLARE_RWSEM(qrtr_epts_lock);
 /* local port allocation management */
 static DEFINE_XARRAY_ALLOC(qrtr_ports);
 static DEFINE_SPINLOCK(qrtr_port_lock);
+u32 qrtr_ports_next = QRTR_MIN_EPH_SOCKET;
 
 /* backup buffers */
 #define QRTR_BACKUP_HI_NUM	5
@@ -1479,8 +1480,9 @@ static int qrtr_port_assign(struct qrtr_sock *ipc, int *port)
 	int rc;
 
 	if (!*port) {
-		rc = xa_alloc(&qrtr_ports, port, ipc, QRTR_EPH_PORT_RANGE,
-				GFP_KERNEL);
+		rc = xa_alloc_cyclic(&qrtr_ports, port, ipc,
+				     QRTR_EPH_PORT_RANGE, &qrtr_ports_next,
+				     GFP_ATOMIC);
 	} else if (*port < QRTR_MIN_EPH_SOCKET &&
 		   !(capable(CAP_NET_ADMIN) ||
 		   in_egroup_p(AID_VENDOR_QRTR) ||
