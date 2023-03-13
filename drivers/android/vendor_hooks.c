@@ -41,6 +41,9 @@
 #include <trace/hooks/remoteproc.h>
 #include <trace/hooks/rwsem.h>
 #include <trace/hooks/futex.h>
+#ifdef CONFIG_MTK_SERROR_HOOK
+#include <trace/hooks/traps.h>
+#endif
 #include <trace/hooks/fips140.h>
 #include <trace/hooks/dmabuf.h>
 #include <trace/hooks/timer.h>
@@ -134,3 +137,6 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_aes_expandkey);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_aes_encrypt);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_aes_decrypt);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_timer_calc_index);
+#ifdef CONFIG_MTK_SERROR_HOOK
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_arm64_serror_panic);
+#endif

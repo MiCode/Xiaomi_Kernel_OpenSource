@@ -45,6 +45,9 @@
 #include <asm/stacktrace.h>
 #include <asm/system_misc.h>
 #include <asm/sysreg.h>
+#ifdef CONFIG_MTK_SERROR_HOOK
+#include <trace/hooks/traps.h>
+#endif
 
 static bool __kprobes __check_eq(unsigned long pstate)
 {
@@ -915,6 +918,10 @@ void __noreturn arm64_serror_panic(struct pt_regs *regs, unsigned long esr)
 
 	pr_crit("SError Interrupt on CPU%d, code 0x%016lx -- %s\n",
 		smp_processor_id(), esr, esr_get_class_string(esr));
+
+#ifdef CONFIG_MTK_SERROR_HOOK
+	trace_android_rvh_arm64_serror_panic(regs, esr);
+#endif
 	if (regs)
 		__show_regs(regs);
 
