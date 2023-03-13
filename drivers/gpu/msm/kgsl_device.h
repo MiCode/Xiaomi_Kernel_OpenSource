@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __KGSL_DEVICE_H
 #define __KGSL_DEVICE_H
@@ -170,6 +170,8 @@ struct kgsl_functable {
 		struct kgsl_context *context);
 	/** @create_hw_fence: Create a hardware fence */
 	void (*create_hw_fence)(struct kgsl_device *device, struct kgsl_sync_fence *kfence);
+	/** @register_gdsc_notifier: Target specific function to register gdsc notifier */
+	int (*register_gdsc_notifier)(struct kgsl_device *device);
 };
 
 struct kgsl_ioctl {
