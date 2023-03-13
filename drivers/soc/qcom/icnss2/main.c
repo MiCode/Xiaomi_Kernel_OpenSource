@@ -488,8 +488,12 @@ static int icnss_send_smp2p(struct icnss_priv *priv,
 		return ret;
 	}
 
-	if (test_bit(ICNSS_FW_DOWN, &priv->state))
-		return -ENODEV;
+	if (test_bit(ICNSS_FW_DOWN, &priv->state) ||
+	    !test_bit(ICNSS_FW_READY, &priv->state)) {
+		icnss_pr_smp2p("FW down, ignoring sending SMP2P state: 0x%lx\n",
+				  priv->state);
+		return -EINVAL;
+	}
 
 	value |= priv->smp2p_info[smp2p_entry].seq++;
 	value <<= ICNSS_SMEM_SEQ_NO_POS;
@@ -3197,6 +3201,13 @@ int icnss_force_wake_request(struct device *dev)
 		return -EINVAL;
 	}
 
+	if (test_bit(ICNSS_FW_DOWN, &priv->state) ||
+	    !test_bit(ICNSS_FW_READY, &priv->state)) {
+		icnss_pr_soc_wake("FW down, ignoring SOC Wake request state: 0x%lx\n",
+				  priv->state);
+		return -EINVAL;
+	}
+
 	if (atomic_inc_not_zero(&priv->soc_wake_ref_count)) {
 		icnss_pr_soc_wake("SOC already awake, Ref count: %d",
 				  atomic_read(&priv->soc_wake_ref_count));
@@ -3223,6 +3234,13 @@ int icnss_force_wake_release(struct device *dev)
 
 	if (!priv) {
 		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
+
+	if (test_bit(ICNSS_FW_DOWN, &priv->state) ||
+	    !test_bit(ICNSS_FW_READY, &priv->state)) {
+		icnss_pr_soc_wake("FW down, ignoring SOC Wake release state: 0x%lx\n",
+				  priv->state);
 		return -EINVAL;
 	}
 
