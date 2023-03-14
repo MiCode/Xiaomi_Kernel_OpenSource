@@ -2566,6 +2566,25 @@ static void get_qbg_debug_mask(struct qti_qbg *chip)
 	kfree(data[1]);
 }
 
+#define SOC_UPDATE_FREQUENCY_MS		60000
+static void soc_update_work(struct work_struct *work)
+{
+	struct qti_qbg *chip = container_of(work, struct qti_qbg, soc_update_work.work);
+	int rc = 0;
+
+	if (chip->sys_soc != INT_MIN) {
+		qbg_dbg(chip, QBG_DEBUG_STATUS, "write soc = %d to register\n",
+			chip->sys_soc);
+		rc = qbg_write_iio_chan(chip, SYS_SOC, chip->sys_soc);
+		if (rc < 0) {
+			pr_err("Failed to write battery sys_soc, rc=%d\n", rc);
+			return;
+		}
+	}
+
+	schedule_delayed_work(&chip->soc_update_work, msecs_to_jiffies(SOC_UPDATE_FREQUENCY_MS));
+}
+
 static int qbg_parse_sdam_dt(struct qti_qbg *chip, struct device_node *node)
 {
 	int rc;
@@ -2728,6 +2747,7 @@ static int qti_qbg_probe(struct platform_device *pdev)
 
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_WORK(&chip->udata_work, process_udata_work);
+	INIT_DELAYED_WORK(&chip->soc_update_work, soc_update_work);
 	mutex_init(&chip->fifo_lock);
 	mutex_init(&chip->data_lock);
 	mutex_init(&chip->context_lock);
@@ -2851,6 +2871,8 @@ static int qti_qbg_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	schedule_delayed_work(&chip->soc_update_work, msecs_to_jiffies(SOC_UPDATE_FREQUENCY_MS));
+
 	dev_info(&pdev->dev, "QBG initialized! battery_profile=%s SOC=%d\n",
 			qbg_get_battery_type(chip), chip->soc);
 
@@ -2865,6 +2887,7 @@ static int qti_qbg_remove(struct platform_device *pdev)
 		rtc_class_close(chip->rtc);
 	cancel_work_sync(&chip->status_change_work);
 	cancel_work_sync(&chip->udata_work);
+	cancel_delayed_work_sync(&chip->soc_update_work);
 	mutex_destroy(&chip->fifo_lock);
 	mutex_destroy(&chip->data_lock);
 	mutex_destroy(&chip->context_lock);

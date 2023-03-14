@@ -13,6 +13,7 @@
 #include <linux/irq.h>
 #include <linux/iio/consumer.h>
 #include <dt-bindings/iio/qti_power_supply_iio.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/pmic-voter.h>
 #include <linux/ktime.h>
 #include <linux/usb/typec.h>
@@ -963,6 +964,29 @@ static bool is_charging_paused(struct smb_charger *chg)
 	return val & CHARGING_PAUSE_CMD_BIT;
 }
 
+#define PERCENT_TO_10NANO_RATIO		1000000
+static int smblite_lib_read_soc(struct smb_charger *chg)
+{
+	ssize_t len;
+	u16 *val;
+	int soc;
+
+	if (!chg->soc_nvmem)
+		return -EINVAL;
+
+	val = nvmem_cell_read(chg->soc_nvmem, &len);
+	if (IS_ERR(val)) {
+		smblite_lib_err(chg, "Failed to read charger msoc from SDAM\n");
+		return PTR_ERR(val);
+	}
+
+	soc = (int)*val;
+	soc = (soc << 16) / PERCENT_TO_10NANO_RATIO;
+	kfree(val);
+
+	return soc;
+}
+
 #define CUTOFF_COUNT		3
 int smblite_lib_get_prop_batt_status(struct smb_charger *chg,
 				union power_supply_propval *val)
@@ -970,7 +994,7 @@ int smblite_lib_get_prop_batt_status(struct smb_charger *chg,
 	union power_supply_propval pval = {0, };
 	bool usb_online;
 	u8 stat;
-	int rc, input_present = 0;
+	int rc, input_present = 0, count = 4, data = 0;
 
 	if (chg->fake_chg_status_on_debug_batt) {
 		rc = smblite_lib_get_prop_from_bms(chg,
@@ -1044,8 +1068,29 @@ int smblite_lib_get_prop_batt_status(struct smb_charger *chg,
 		val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		break;
 	case TERMINATE_CHARGE:
-	case INHIBIT_CHARGE:
 		val->intval = POWER_SUPPLY_STATUS_FULL;
+		break;
+	case INHIBIT_CHARGE:
+		data = smblite_lib_read_soc(chg);
+		if (data < 0) {
+			smblite_lib_err(chg, "Failed to read msoc rc = %d\n", data);
+			return data;
+		}
+
+		smblite_lib_dbg(chg, PR_MISC, "Read soc = %d\n", data);
+		/*
+		 * Write msoc value to charger SOC_PCT register 4 times after entered
+		 * inhibit mode.
+		 */
+		while (count--) {
+			rc = smblite_lib_set_prop_batt_sys_soc(chg, data);
+			if (rc < 0) {
+				smblite_lib_err(chg, "Failed to set battery system soc rc=%d\n",
+						rc);
+				return rc;
+			}
+		}
+
 		break;
 	case DISABLE_CHARGE:
 	case PAUSE_CHARGE:

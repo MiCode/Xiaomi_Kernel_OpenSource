@@ -285,6 +285,7 @@ struct smb_charger {
 	struct class            qcom_class;
 	struct smblite_remote_bms	remote_bms;
 	struct nvmem_cell       *debug_mask_nvmem;
+	struct nvmem_cell	*soc_nvmem;
 	int			*debug_mask;
 	enum smb_mode		mode;
 	u8			subtype;
