@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "smcinvoke: %s: " fmt, __func__
@@ -478,17 +478,45 @@ static void smcinvoke_shmbridge_post_process(void)
 	} while (1);
 }
 
+static int smcinvoke_release_tz_object(struct qtee_shm *in_shm, struct qtee_shm *out_shm,
+		uint32_t tzhandle, uint32_t context_type)
+{
+	int ret = 0;
+	bool release_handles = false;
+	uint8_t *in_buf = NULL;
+	uint8_t *out_buf = NULL;
+	struct smcinvoke_msg_hdr hdr = {0};
+	struct smcinvoke_cmd_req req = {0};
+
+	in_buf = in_shm->vaddr;
+	out_buf = out_shm->vaddr;
+	hdr.tzhandle = tzhandle;
+	hdr.op = OBJECT_OP_RELEASE;
+	hdr.counts = 0;
+	*(struct smcinvoke_msg_hdr *)in_buf = hdr;
+
+	ret = prepare_send_scm_msg(in_buf, in_shm->paddr,
+			SMCINVOKE_TZ_MIN_BUF_SIZE, out_buf, out_shm->paddr,
+			SMCINVOKE_TZ_MIN_BUF_SIZE, &req, NULL,
+			&release_handles, context_type, in_shm, out_shm);
+	process_piggyback_data(out_buf, SMCINVOKE_TZ_MIN_BUF_SIZE);
+	if (ret) {
+		pr_err("Failed to release object(0x%x), ret:%d\n",
+				hdr.tzhandle, ret);
+	} else {
+		pr_debug("Released object(0x%x) successfully.\n",
+				hdr.tzhandle);
+	}
+
+	return ret;
+}
+
+
 static int smcinvoke_object_post_process(void)
 {
 	struct smcinvoke_object_release_pending_list *entry = NULL;
 	struct list_head *pos;
 	int ret = 0;
-	bool release_handles;
-	uint32_t context_type;
-	uint8_t *in_buf = NULL;
-	uint8_t *out_buf = NULL;
-	struct smcinvoke_cmd_req req = {0};
-	struct smcinvoke_msg_hdr hdr = {0};
 	struct qtee_shm in_shm = {0}, out_shm = {0};
 
 	ret = qtee_shmbridge_allocate_shm(SMCINVOKE_TZ_MIN_BUF_SIZE, &in_shm);
@@ -513,37 +541,19 @@ static int smcinvoke_object_post_process(void)
 		}
 		pos = g_object_postprocess.next;
 		entry = list_entry(pos, struct smcinvoke_object_release_pending_list, list);
-		if (entry) {
-			in_buf = in_shm.vaddr;
-			out_buf = out_shm.vaddr;
-			hdr.tzhandle = entry->data.tzhandle;
-			hdr.op = OBJECT_OP_RELEASE;
-			hdr.counts = 0;
-			*(struct smcinvoke_msg_hdr *)in_buf = hdr;
-			context_type = entry->data.context_type;
-		} else {
-			pr_err("entry is NULL, pos:%#llx\n", (uint64_t)pos);
-		}
+
 		list_del(pos);
-		kfree_sensitive(entry);
 		mutex_unlock(&object_postprocess_lock);
 
 		if (entry) {
 			do {
-				ret = prepare_send_scm_msg(in_buf, in_shm.paddr,
-					SMCINVOKE_TZ_MIN_BUF_SIZE, out_buf, out_shm.paddr,
-					SMCINVOKE_TZ_MIN_BUF_SIZE, &req, NULL,
-					&release_handles, context_type, &in_shm, &out_shm);
-				process_piggyback_data(out_buf, SMCINVOKE_TZ_MIN_BUF_SIZE);
-				if (ret) {
-					pr_err("Failed to release object(0x%x), ret:%d\n",
-								hdr.tzhandle, ret);
-				} else {
-					pr_debug("Released object(0x%x) successfully.\n",
-									hdr.tzhandle);
-				}
+				ret = smcinvoke_release_tz_object(&in_shm, &out_shm,
+					entry->data.tzhandle,  entry->data.context_type);
 			} while (-EBUSY == ret);
+		} else {
+			pr_err("entry is NULL, pos:%#llx\n", (uint64_t)pos);
 		}
+		kfree_sensitive(entry);
 	} while (1);
 
 out:
@@ -2628,6 +2638,7 @@ int smcinvoke_release_filp(struct file *filp)
 	struct smcinvoke_file_data *file_data = filp->private_data;
 	uint32_t tzhandle = 0;
 	struct smcinvoke_object_release_pending_list *entry = NULL;
+	struct qtee_shm in_shm = {0}, out_shm = {0};
 
 	trace_smcinvoke_release_filp(current->files, filp,
 			file_count(filp), file_data->context_type);
@@ -2639,29 +2650,55 @@ int smcinvoke_release_filp(struct file *filp)
 
 	tzhandle = file_data->tzhandle;
 	/* Root object is special in sense it is indestructible */
-	if (!tzhandle || tzhandle == SMCINVOKE_TZ_ROOT_OBJ)
-		goto out;
-
-	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
-	if (!entry) {
-		ret = -ENOMEM;
+	if (!tzhandle || tzhandle == SMCINVOKE_TZ_ROOT_OBJ) {
+		if (!tzhandle)
+			pr_err("tzhandle not valid in object release\n");
 		goto out;
 	}
 
-	entry->data.tzhandle = tzhandle;
-	entry->data.context_type = file_data->context_type;
-	mutex_lock(&object_postprocess_lock);
-	list_add_tail(&entry->list, &g_object_postprocess);
-	mutex_unlock(&object_postprocess_lock);
-	pr_debug("Object release list: added a handle:0x%lx\n", tzhandle);
-	__wakeup_postprocess_kthread(&smcinvoke[OBJECT_WORKER_THREAD]);
+	ret = qtee_shmbridge_allocate_shm(SMCINVOKE_TZ_MIN_BUF_SIZE, &in_shm);
+	if (ret) {
+		pr_err("shmbridge alloc failed for in msg in object release with ret %d\n",
+			ret);
+		goto out;
+	}
 
+	ret = qtee_shmbridge_allocate_shm(SMCINVOKE_TZ_MIN_BUF_SIZE, &out_shm);
+	if (ret) {
+		pr_err("shmbridge alloc failed for out msg in object release with ret %d\n",
+			ret);
+		goto out;
+	}
+
+	ret = smcinvoke_release_tz_object(&in_shm, &out_shm,
+		tzhandle,  file_data->context_type);
+
+	if (-EBUSY == ret) {
+		pr_debug("failed to release handle in sync adding to list\n");
+		entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+		if (!entry) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		ret = 0;
+		entry->data.tzhandle = tzhandle;
+		entry->data.context_type = file_data->context_type;
+		mutex_lock(&object_postprocess_lock);
+		list_add_tail(&entry->list, &g_object_postprocess);
+		mutex_unlock(&object_postprocess_lock);
+		pr_debug("Object release list: added a handle:0x%lx\n", tzhandle);
+		__wakeup_postprocess_kthread(&smcinvoke[OBJECT_WORKER_THREAD]);
+	}
 out:
+	qtee_shmbridge_free_shm(&in_shm);
+	qtee_shmbridge_free_shm(&out_shm);
 	kfree(filp->private_data);
 	filp->private_data = NULL;
 
-	return ret;
+	if (ret != 0)
+		pr_err("Object release failed with ret %d\n", ret);
 
+	return ret;
 }
 
 int smcinvoke_release_from_kernel_client(int fd)
