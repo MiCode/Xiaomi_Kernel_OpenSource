@@ -44,16 +44,6 @@ config SPMI_MSM_PMIC_ARB_DEBUG
 	  Inc. (QTI) MSM family processors.  This feature is available on chips
 	  with PMIC arbiter version 5 and above.
 
-config SPMI_QTI_GLINK_DEBUG
-	tristate "QTI Glink Debug SPMI Controller"
-	depends on QTI_PMIC_GLINK
-	help
-	  The Qualcomm Technologies, Inc. Glink debug SPMI controller driver
-	  provides an interface to read and write PMIC registers over PMIC
-	  Glink using a remote subsytem (e.g. DSP).  This allows for debugging
-	  PMIC peripherals that would typically only be accessible to the
-	  charger and fuel gauging firmware running on the remote subsystem.
-
 config VIOSPMI_MSM_PMIC_ARB
        tristate "QTI Virtio SPMI Controller (Virtio PMIC Arbiter)"
        select IRQ_DOMAIN
