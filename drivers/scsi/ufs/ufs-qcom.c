@@ -4922,10 +4922,6 @@ static ssize_t dbg_state_show(struct device *dev,
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
-#if defined(CONFIG_UFS_DBG)
-	host->dbg_en = true;
-#endif
-
 	return scnprintf(buf, PAGE_SIZE, "%d\n", host->dbg_en);
 }
 
