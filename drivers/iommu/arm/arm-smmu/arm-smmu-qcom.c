@@ -1273,6 +1273,10 @@ static int qsmmuv500_tbu_testbus_init(struct qsmmuv500_tbu_device *tbu)
 }
 #endif
 
+static int qtb500_tbu_halt_req(struct qsmmuv500_tbu_device *tbu);
+static int qtb500_tbu_halt_poll(struct qsmmuv500_tbu_device *tbu);
+static void qtb500_tbu_resume(struct qsmmuv500_tbu_device *tbu);
+
 static void arm_smmu_testbus_dump(struct arm_smmu_device *smmu, u16 sid)
 {
 	if (smmu->model == QCOM_SMMUV500 &&
@@ -1286,8 +1290,12 @@ static void arm_smmu_testbus_dump(struct arm_smmu_device *smmu, u16 sid)
 			if (of_device_is_compatible(tbu->dev->of_node, "qcom,qtb500")) {
 				struct qtb500_device *qtb = to_qtb500(tbu);
 
-				arm_smmu_debug_dump_debugchain(tbu->dev,
+				qtb500_tbu_halt_req(tbu);
+				if (!qtb500_tbu_halt_poll(tbu)) {
+					arm_smmu_debug_dump_debugchain(tbu->dev,
 							qtb->debugchain_base);
+					qtb500_tbu_resume(tbu);
+				}
 			} else {
 				arm_smmu_debug_dump_tbu_testbus(tbu->dev,
 							tbu->base,
