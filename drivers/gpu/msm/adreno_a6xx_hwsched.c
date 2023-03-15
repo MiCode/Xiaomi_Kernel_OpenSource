@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -1245,19 +1245,30 @@ int a6xx_hwsched_add_to_minidump(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_GMU_LOG_ENTRY,
-			a6xx_dev->gmu.gmu_log->hostptr, a6xx_dev->gmu.gmu_log->size);
-	if (ret)
-		return ret;
+	if (a6xx_dev->gmu.gmu_log) {
+		ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev,
+					KGSL_GMU_LOG_ENTRY,
+					a6xx_dev->gmu.gmu_log->hostptr,
+					a6xx_dev->gmu.gmu_log->size);
+		if (ret)
+			return ret;
+	}
 
-	ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_HFIMEM_ENTRY,
-			a6xx_dev->gmu.hfi.hfi_mem->hostptr, a6xx_dev->gmu.hfi.hfi_mem->size);
-	if (ret)
-		return ret;
+	if (a6xx_dev->gmu.hfi.hfi_mem) {
+		ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev,
+					KGSL_HFIMEM_ENTRY,
+					a6xx_dev->gmu.hfi.hfi_mem->hostptr,
+					a6xx_dev->gmu.hfi.hfi_mem->size);
+		if (ret)
+			return ret;
+	}
 
-	if (adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev))
-		ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev, KGSL_GMU_DUMPMEM_ENTRY,
-				a6xx_dev->gmu.dump_mem->hostptr, a6xx_dev->gmu.dump_mem->size);
+	if ((adreno_is_a630(adreno_dev) || adreno_is_a615_family(adreno_dev)) &&
+			a6xx_dev->gmu.dump_mem)
+		ret = kgsl_add_va_to_minidump(adreno_dev->dev.dev,
+					KGSL_GMU_DUMPMEM_ENTRY,
+					a6xx_dev->gmu.dump_mem->hostptr,
+					a6xx_dev->gmu.dump_mem->size);
 
 	return ret;
 }
