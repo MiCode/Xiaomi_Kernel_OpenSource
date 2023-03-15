@@ -803,7 +803,6 @@ static int rproc_helios_driver_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_rproc;
 
-	qcom_add_ssr_subdev(rproc, &helios->ssr_subdev, helios->ssr_name);
 
 	qcom_add_glink_subdev(rproc, &helios->glink_subdev, helios->ssr_name);
 
@@ -816,6 +815,7 @@ static int rproc_helios_driver_probe(struct platform_device *pdev)
 		goto deinit_wakeup_source;
 	}
 
+	qcom_add_ssr_subdev(rproc, &helios->ssr_subdev, helios->ssr_name);
 	/* Register callback for Helios Crash with heliosCom */
 	helios->config_type.priv = (void *)rproc;
 	helios->config_type.helioscom_reset_notification_cb = helios_crash_handler;
