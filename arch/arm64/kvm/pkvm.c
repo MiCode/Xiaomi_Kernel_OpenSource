@@ -315,21 +315,18 @@ void pkvm_destroy_hyp_vm(struct kvm *host_kvm)
 	struct mm_struct *mm = current->mm;
 	struct rb_node *node;
 
-	if (host_kvm->arch.pkvm.handle) {
-		WARN_ON(kvm_call_hyp_nvhe(__pkvm_teardown_vm,
-					  host_kvm->arch.pkvm.handle));
-	}
+	if (!host_kvm->arch.pkvm.handle)
+		goto out_free;
 
-	host_kvm->arch.pkvm.handle = 0;
-	free_hyp_memcache(&host_kvm->arch.pkvm.teardown_mc, host_kvm);
-	free_hyp_stage2_memcache(&host_kvm->arch.pkvm.teardown_stage2_mc,
-				 host_kvm);
+	WARN_ON(kvm_call_hyp_nvhe(__pkvm_start_teardown_vm, host_kvm->arch.pkvm.handle));
 
 	node = rb_first(&host_kvm->arch.pkvm.pinned_pages);
 	while (node) {
 		ppage = rb_entry(node, struct kvm_pinned_page, node);
-		WARN_ON(kvm_call_hyp_nvhe(__pkvm_host_reclaim_page,
-					  page_to_pfn(ppage->page)));
+		WARN_ON(kvm_call_hyp_nvhe(__pkvm_reclaim_dying_guest_page,
+					  host_kvm->arch.pkvm.handle,
+					  page_to_pfn(ppage->page),
+					  ppage->ipa));
 		cond_resched();
 
 		account_locked_vm(mm, 1, false);
@@ -338,6 +335,14 @@ void pkvm_destroy_hyp_vm(struct kvm *host_kvm)
 		rb_erase(&ppage->node, &host_kvm->arch.pkvm.pinned_pages);
 		kfree(ppage);
 	}
+
+	WARN_ON(kvm_call_hyp_nvhe(__pkvm_finalize_teardown_vm, host_kvm->arch.pkvm.handle));
+
+out_free:
+	host_kvm->arch.pkvm.handle = 0;
+	free_hyp_memcache(&host_kvm->arch.pkvm.teardown_mc, host_kvm);
+	free_hyp_stage2_memcache(&host_kvm->arch.pkvm.teardown_stage2_mc,
+				 host_kvm);
 }
 
 int pkvm_init_host_vm(struct kvm *host_kvm, unsigned long type)
@@ -381,10 +386,6 @@ void pkvm_host_reclaim_page(struct kvm *host_kvm, phys_addr_t ipa)
 		return;
 
 	ppage = container_of(node, struct kvm_pinned_page, node);
-
-	WARN_ON(kvm_call_hyp_nvhe(__pkvm_host_reclaim_page,
-				  page_to_pfn(ppage->page)));
-
 	account_locked_vm(mm, 1, false);
 	unpin_user_pages_dirty_lock(&ppage->page, 1, true);
 	kfree(ppage);
@@ -600,8 +601,8 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 	};
 	void *start, *end, *hyp_va;
 	kvm_nvhe_reloc_t *endrel;
+	int ret, i, secs_first;
 	size_t offset, size;
-	int ret, i;
 
 	if (!is_protected_kvm_enabled())
 		return -EOPNOTSUPP;
@@ -618,8 +619,13 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 		return -ENODEV;
 	}
 
+	/* Missing or empty module sections are placed first */
 	sort(secs_map, ARRAY_SIZE(secs_map), sizeof(secs_map[0]), __pkvm_cmp_mod_sec, NULL);
-	start = secs_map[0].sec->start;
+	for (secs_first = 0; secs_first < ARRAY_SIZE(secs_map); secs_first++) {
+		start = secs_map[secs_first].sec->start;
+		if (start)
+			break;
+	}
 	end = secs_map[ARRAY_SIZE(secs_map) - 1].sec->end;
 	size = end - start;
 
@@ -641,7 +647,8 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 	endrel = (void *)mod->relocs + mod->nr_relocs * sizeof(*endrel);
 	kvm_apply_hyp_module_relocations(start, hyp_va, mod->relocs, endrel);
 
-	ret = pkvm_map_module_sections(secs_map, hyp_va, ARRAY_SIZE(secs_map));
+	ret = pkvm_map_module_sections(secs_map + secs_first, hyp_va,
+				       ARRAY_SIZE(secs_map) - secs_first);
 	if (ret) {
 		kvm_err("Failed to map EL2 module page: %d\n", ret);
 		module_put(this);

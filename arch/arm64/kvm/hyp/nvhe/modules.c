@@ -68,7 +68,7 @@ const struct pkvm_module_ops module_ops = {
 	.linear_unmap_early = __pkvm_linear_unmap_early,
 	.flush_dcache_to_poc = __kvm_flush_dcache_to_poc,
 	.register_host_perm_fault_handler = hyp_register_host_perm_fault_handler,
-	.protect_host_page = hyp_protect_host_page,
+	.host_stage2_mod_prot = module_change_host_page_prot,
 	.host_stage2_get_leaf = host_stage2_get_leaf,
 	.register_host_smc_handler = __pkvm_register_host_smc_handler,
 	.register_default_trap_handler = __pkvm_register_default_trap_handler,
@@ -136,6 +136,8 @@ int __pkvm_register_hcall(unsigned long hvn_hyp_va)
 {
 	dyn_hcall_t hfn = (void *)hvn_hyp_va;
 	int reserved_id, ret;
+
+	assert_in_mod_range(hvn_hyp_va);
 
 	hyp_spin_lock(&dyn_hcall_lock);
 

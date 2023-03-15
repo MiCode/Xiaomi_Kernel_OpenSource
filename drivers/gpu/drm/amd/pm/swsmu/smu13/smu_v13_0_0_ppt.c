@@ -145,6 +145,7 @@ static struct cmn2asic_msg_mapping smu_v13_0_0_message_map[SMU_MSG_MAX_COUNT] = 
 	MSG_MAP(SetBadMemoryPagesRetiredFlagsPerChannel,
 			    PPSMC_MSG_SetBadMemoryPagesRetiredFlagsPerChannel,   0),
 	MSG_MAP(AllowGpo,			PPSMC_MSG_SetGpoAllow,           0),
+	MSG_MAP(AllowIHHostInterrupt,		PPSMC_MSG_AllowIHHostInterrupt,       0),
 };
 
 static struct cmn2asic_mapping smu_v13_0_0_clk_map[SMU_CLK_COUNT] = {
@@ -405,6 +406,9 @@ static int smu_v13_0_0_setup_pptable(struct smu_context *smu)
 	struct smu_table_context *smu_table = &smu->smu_table;
 	struct amdgpu_device *adev = smu->adev;
 	int ret = 0;
+
+	if (amdgpu_sriov_vf(smu->adev))
+		return 0;
 
 	ret = smu_v13_0_0_get_pptable_from_pmfw(smu,
 						&smu_table->power_play_table,
@@ -1255,6 +1259,9 @@ static int smu_v13_0_0_get_thermal_temperature_range(struct smu_context *smu,
 	struct smu_13_0_0_powerplay_table *powerplay_table =
 		table_context->power_play_table;
 	PPTable_t *pptable = smu->smu_table.driver_pptable;
+
+	if (amdgpu_sriov_vf(smu->adev))
+		return 0;
 
 	if (!range)
 		return -EINVAL;

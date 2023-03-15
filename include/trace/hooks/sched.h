@@ -193,11 +193,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_misfit_status,
 	TP_PROTO(struct task_struct *p, struct rq *rq, bool *need_update),
 	TP_ARGS(p, rq, need_update), 1);
 
-DECLARE_RESTRICTED_HOOK(android_rvh_update_cpus_allowed,
-	TP_PROTO(struct task_struct *p, cpumask_var_t cpus_requested,
-		 const struct cpumask *new_mask, int *ret),
-	TP_ARGS(p, cpus_requested, new_mask, ret), 1);
-
 DECLARE_RESTRICTED_HOOK(android_rvh_sched_fork_init,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p), 1);
@@ -318,8 +313,8 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_thermal_stats,
 		TP_ARGS(cpu), 1);
 
 DECLARE_HOOK(android_vh_do_wake_up_sync,
-	TP_PROTO(struct wait_queue_head *wq_head, int *done),
-	TP_ARGS(wq_head, done));
+	TP_PROTO(struct wait_queue_head *wq_head, int *done, struct sock *sk),
+	TP_ARGS(wq_head, done, sk));
 
 DECLARE_HOOK(android_vh_set_wake_flags,
 	TP_PROTO(int *wake_flags, unsigned int *mode),
@@ -332,6 +327,10 @@ DECLARE_RESTRICTED_HOOK(android_rvh_find_new_ilb,
 DECLARE_RESTRICTED_HOOK(android_rvh_find_energy_efficient_cpu,
 	TP_PROTO(struct task_struct *p, int prev_cpu, int sync, int *new_cpu),
 	TP_ARGS(p, prev_cpu, sync, new_cpu), 1);
+
+DECLARE_HOOK(android_vh_sched_pelt_multiplier,
+	TP_PROTO(unsigned int old, unsigned int cur, int *ret),
+	TP_ARGS(old, cur, ret));
 
 /* macro versions of hooks are no longer required */
 
