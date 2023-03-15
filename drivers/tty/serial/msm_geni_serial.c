@@ -1676,8 +1676,6 @@ static void start_rx_sequencer(struct uart_port *uport)
 {
 	unsigned int geni_status;
 	struct msm_geni_serial_port *port = GET_DEV_PORT(uport);
-	u32 geni_se_param = (UART_PARAM_SKIP_FRAME_ERR_CHAR |
-			     UART_PARAM_SKIP_BREAK_CHAR | UART_PARAM_RFR_OPEN);
 
 	if (port->startup_in_progress)
 		return;
@@ -1704,11 +1702,8 @@ static void start_rx_sequencer(struct uart_port *uport)
 							&port->rx_dma);
 	}
 
-	/* Start RX with the RFR_OPEN to keep RFR in always ready state.
-	 * Configure for character with Framing error & Break character
-	 * is not written in RX fifo.
-	 */
-	geni_setup_s_cmd(uport->membase, UART_START_READ, geni_se_param);
+	/* Start RX with the RFR_OPEN to keep RFR in always ready state. */
+	geni_setup_s_cmd(uport->membase, UART_START_READ, UART_PARAM_RFR_OPEN);
 	msm_geni_serial_enable_interrupts(uport);
 
 	/* Ensure that the above writes go through */
@@ -2219,6 +2214,12 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 	geni_status = geni_read_reg_nolog(uport->membase, SE_GENI_STATUS);
 	/* Possible stop rx is called */
 	if (!(geni_status & S_GENI_CMD_ACTIVE)) {
+		if (drop_rx) {
+			rx_bytes = geni_read_reg_nolog(uport->membase, SE_DMA_RX_LEN_IN);
+			dump_ipc(uport, msm_port->ipc_log_rx,
+				 "Dropping Error Rx Data",
+				 (char *)msm_port->rx_buf, 0, rx_bytes);
+		}
 		UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 			    "%s: GENI: 0x%x\n", __func__, geni_status);
 		return 0;
@@ -2240,8 +2241,12 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 	/* Check RX buffer data for faulty pattern*/
 	check_rx_buf((char *)msm_port->rx_buf, uport, rx_bytes);
 
-	if (drop_rx)
+	if (drop_rx) {
+		dump_ipc(uport, msm_port->ipc_log_rx,
+			 "Dropping Error Rx Data",
+			 (char *)msm_port->rx_buf, 0, rx_bytes);
 		return 0;
+	}
 
 	if (atomic_read(&msm_port->check_wakeup_byte)) {
 		ret = msm_geni_find_wakeup_byte(uport, rx_bytes);
@@ -2439,6 +2444,8 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 				     "%s dma_rx_status:0x%x Rx Framing error:%d\n",
 				     __func__, dma_rx_status,
 				     uport->icount.frame);
+			geni_se_dump_dbg_regs(&msm_port->serial_rsc, uport->membase,
+					      msm_port->ipc_log_misc);
 			drop_rx = true;
 		}
 
@@ -2449,6 +2456,9 @@ static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport)
 				     __func__, dma_rx_status, uport->icount.brk);
 			msm_geni_update_uart_error_code(msm_port,
 							UART_ERROR_RX_BREAK_ERROR);
+			geni_se_dump_dbg_regs(&msm_port->serial_rsc, uport->membase,
+					      msm_port->ipc_log_misc);
+			drop_rx = true;
 		}
 
 		if (dma_rx_status & RX_EOT || dma_rx_status & RX_DMA_DONE) {
