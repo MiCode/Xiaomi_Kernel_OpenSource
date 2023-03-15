@@ -790,7 +790,7 @@ static void ep_pcie_sriov_init(struct ep_pcie_dev_t *dev)
 
 static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 {
-	uint32_t val = 0, num_vf = 0, i;
+	uint32_t val = 0, i;
 	struct resource *dbi = dev->res[EP_PCIE_RES_DM_CORE].resource;
 	struct resource *dbi_vf = dev->res[EP_PCIE_RES_DM_VF_CORE].resource;
 
@@ -1116,8 +1116,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev, bool configured)
 	 * timeout on host side.
 	 */
 	if (dbi_vf) {
-		num_vf =  hweight_long(dev->sriov_mask);
-		for (i = 1; i <= num_vf; i++)
+		for (i = 1; i <= ep_pcie_dev.num_vfs; i++)
 			ep_pcie_config_inbound_iatu(dev, i);
 	}
 }
@@ -4039,10 +4038,12 @@ static int ep_pcie_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u32((&pdev->dev)->of_node, "qcom,sriov-mask",
 					&sriov_mask);
-	ep_pcie_dev.sriov_mask = (unsigned long)sriov_mask;
-	if (!ret)
+	if (!ret) {
+		ep_pcie_dev.sriov_mask = (unsigned long)sriov_mask;
 		EP_PCIE_INFO(&ep_pcie_dev, "PCIe V%d: SR-IOV mask:0x%x\n",
 			ep_pcie_dev.rev, sriov_mask);
+	}
+
 	ep_pcie_dev.use_iatu_msi = of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,pcie-use-iatu-msi");
 	EP_PCIE_DBG(&ep_pcie_dev,
