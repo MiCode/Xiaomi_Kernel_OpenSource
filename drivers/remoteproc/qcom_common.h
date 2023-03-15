@@ -78,7 +78,7 @@ void qcom_add_ssr_subdev(struct rproc *rproc, struct qcom_rproc_ssr *ssr,
 			 const char *ssr_name);
 void qcom_notify_early_ssr_clients(struct rproc_subdev *subdev);
 void qcom_remove_ssr_subdev(struct rproc *rproc, struct qcom_rproc_ssr *ssr);
-struct qcom_ssr_subsystem *qcom_ssr_add_subsys(const char *name);
+struct qcom_ssr_subsystem *qcom_ssr_get_subsys(const char *name);
 int qcom_notify_ssr_clients(struct qcom_ssr_subsystem *info, int state,
 							struct qcom_ssr_notify_data *data);
 
