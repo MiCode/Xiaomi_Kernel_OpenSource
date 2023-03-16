@@ -2,7 +2,7 @@
 /*
  * Qualcomm Technologies, Inc. SDHCI Platform driver.
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of_device.h>
@@ -740,7 +740,7 @@ int sdhci_msm_mmc_clk_update_freq(struct sdhci_msm_host *host,
 	struct mmc_host *mhost = host->mmc;
 	int err = 0;
 
-	if (!host) {
+	if (!mhost) {
 		pr_err("bad host parameter\n");
 		WARN_ON(1);
 		return -EINVAL;
@@ -1316,7 +1316,7 @@ int _sdhci_msm_mmc_suspend_clk_scaling(struct sdhci_msm_host *host)
 	struct mmc_host *mhost = host->mmc;
 	int err;
 
-	if (!host) {
+	if (!mhost) {
 		WARN(1, "bad host parameter\n");
 		return -EINVAL;
 	}
@@ -1365,7 +1365,7 @@ int _sdhci_msm_mmc_resume_clk_scaling(struct sdhci_msm_host *host)
 	u32 devfreq_max_clk = 0;
 	u32 devfreq_min_clk = 0;
 
-	if (!host) {
+	if (!mhost) {
 		WARN(1, "bad host parameter\n");
 		return -EINVAL;
 	}
@@ -1419,7 +1419,7 @@ int _sdhci_msm_mmc_exit_clk_scaling(struct sdhci_msm_host *host)
 	struct mmc_host *mhost = host->mmc;
 	int err;
 
-	if (!host) {
+	if (!mhost) {
 		pr_err("%s: bad host parameter\n", __func__);
 		WARN_ON(1);
 		return -EINVAL;

@@ -3,7 +3,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm SDHCI Platform driver
  *
  * Copyright (c) 2013-2014,2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -4910,6 +4910,12 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 #if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
 	pwrseq_scale = kzalloc(sizeof(struct mmc_pwrseq), GFP_KERNEL);
+
+	if (!pwrseq_scale) {
+		ret = -ENOMEM;
+		goto pm_runtime_disable;
+	}
+
 	pwrseq_scale->ops = &mmc_pwrseq_emmc_ops;
 	host->mmc->pwrseq = pwrseq_scale;
 #endif
