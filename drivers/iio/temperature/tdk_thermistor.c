@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2020 InvenSense, Inc.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -35,7 +36,6 @@ enum {
 	TDK_THERM
 };
 
-static bool ss_request;
 
 static const struct iio_chan_spec tdk_therm_channels[] = {
 	{
@@ -78,7 +78,6 @@ struct tdk_thermistor_data {
 };
 
 static bool current_state;
-static int tdk_thermistor_calibrate(struct tdk_thermistor_data *data);
 static int tdk_thermistor_read(struct tdk_thermistor_data *data,
 			       struct iio_chan_spec const *chan, int *val);
 
@@ -112,13 +111,12 @@ static enum hrtimer_restart tdk_thermistor_hrtimer_handler(struct hrtimer *t)
 {
 	struct tdk_thermistor_data *data =
 		container_of(t, struct tdk_thermistor_data, timer);
-	struct device *dev = data->dev;
 
 	if (!data)
 		return HRTIMER_NORESTART;
 
 	pr_info(TAG "%s: t: %lld\n",
-		__func__, ktime_get_boot_ns());
+		__func__, ktime_get_boottime_ns());
 
 	if (data->trig != NULL)
 		iio_trigger_poll(data->trig);
@@ -182,21 +180,6 @@ static int test_thread_fn(void *input_data)
 }
 #endif
 
-static int tdk_thermistor_calibrate(struct tdk_thermistor_data *data)
-{
-	int ret;
-	u8 buf[8];
-
-	pr_info(TAG "%s: Triggered calibration of TDK thermistor\n", __func__);
-
-	ret = spi_read(data->spi, (void *)buf, 8);
-
-	if (ret) {
-		pr_info(TAG "%s: Failed SPI read: %i\n", __func__, ret);
-		return ret;
-	}
-	return 0;
-}
 
 static int tdk_thermistor_read(struct tdk_thermistor_data *data,
 			       struct iio_chan_spec const *chan, int *val)
@@ -281,7 +264,7 @@ static irqreturn_t tdk_thermistor_store_time(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
 
-	pf->timestamp = ktime_get_boot_ns();
+	pf->timestamp = ktime_get_boottime_ns();
 	pr_info(TAG "%s: t: %llx\n", __func__, pf->timestamp);
 
 	return IRQ_WAKE_THREAD;
@@ -295,7 +278,6 @@ static irqreturn_t tdk_thermistor_trigger_handler(int irq, void *private)
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct tdk_thermistor_data *data = iio_priv(indio_dev);
 	int ret;
-	int val;
 
 	pr_info(TAG "%s: Triggered read TDK thermistor\n", __func__);
 
@@ -343,7 +325,7 @@ static int tdk_thermistor_probe(struct spi_device *spi)
 		return -ENOMEM;
 	}
 
-	buffer = devm_iio_kfifo_allocate(&spi->dev);
+	buffer = iio_kfifo_allocate();
 	if (!buffer) {
 		pr_info(
 		TAG "%s: Failed to alloc memory TDK thermistor\n", __func__);
@@ -372,8 +354,8 @@ static int tdk_thermistor_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	data->trig = iio_trigger_alloc("%s-hrtimer%d", indio_dev->name,
-				indio_dev->id);
+	data->trig = iio_trigger_alloc(indio_dev->dev.parent, "%s-hrtimer%d",
+				indio_dev->name, iio_device_id(indio_dev));
 	if (data->trig == NULL) {
 		ret = -ENOMEM;
 		dev_err(&spi->dev, "iio trigger alloc error\n");
