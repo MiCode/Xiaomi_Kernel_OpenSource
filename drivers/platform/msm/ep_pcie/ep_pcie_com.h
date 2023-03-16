@@ -121,6 +121,12 @@
 #define PCIE20_DEVICE_CAPABILITIES     0x74
 #define PCIE20_MSIX_TABLE_OFFSET_REG   0xB4
 #define PCIE20_MSIX_PBA_OFFSET_REG	0xB8
+#define PCIE20_MSIX_CAP_ID_NEXT_CTRL_REG(n) (0x200*n)
+#define PCIE20_MSIX_DOORBELL_OFF_REG	0x898 /* Offset from MSI-X capability base */
+#define PCIE20_MSIX_ADDRESS_MATCH_LOW_OFF 0x890 /* Offset from MSI-X capability base */
+#define PCIE20_MSIX_ADDRESS_MATCH_UPPER_OFF 0x894 /* Offset from MSI-X capability base */
+#define PCIE20_MSIX_ADDRESS_MATCH_EN	BIT(0)
+#define PCIE20_MSIX_DB_VF_ACTIVE	BIT(15)
 #define PCIE20_MASK_EP_L1_ACCPT_LATENCY 0xE00
 #define PCIE20_MASK_EP_L0S_ACCPT_LATENCY 0x1C0
 #define PCIE20_LINK_CAPABILITIES       0x7C
@@ -440,6 +446,7 @@ struct ep_pcie_dev_t {
 	ulong                        perst_deast_counter;
 	ulong                        wake_counter;
 	ulong                        msi_counter;
+	ulong                        msix_counter;
 	ulong                        global_irq_counter;
 	ulong                        sriov_irq_counter;
 	ulong                        perst_ast_in_enum_counter;
@@ -512,6 +519,7 @@ extern int ep_pcie_get_debug_mask(void);
 extern void ep_pcie_phy_init(struct ep_pcie_dev_t *dev);
 extern bool ep_pcie_phy_is_ready(struct ep_pcie_dev_t *dev);
 extern void ep_pcie_reg_dump(struct ep_pcie_dev_t *dev, u32 sel, bool linkdown);
+extern void ep_pcie_clk_dump(struct ep_pcie_dev_t *dev);
 extern void ep_pcie_debugfs_init(struct ep_pcie_dev_t *ep_dev);
 extern void ep_pcie_debugfs_exit(void);
 

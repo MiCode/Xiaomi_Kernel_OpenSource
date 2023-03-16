@@ -24,23 +24,27 @@
 #include <linux/slab.h>
 #include <linux/soc/qcom/mdt_loader.h>
 #include <linux/qseecom_kernel.h>
+#include <linux/soc/qcom/slatecom_interface.h>
 #include "qcom_common.h"
-#include "qcom_pil_info.h"
 #include "remoteproc_internal.h"
 
 #define SECURE_APP		"slateapp"
 #define INVALID_GPIO		-1
-#define NUM_GPIOS		4
+#define NUM_GPIOS		3
 
 #define RESULT_SUCCESS		0
 #define RESULT_FAILURE		-1
 
 /* Slate Ramdump Size 4 MB */
-#define SLATE_RAMDUMP_SZ SZ_4M
+#define SLATE_RAMDUMP_SZ SZ_8M
+#define SLATE_MINIRAMDUMP_SZ SZ_64K
+#define SLATE_RAMDUMP		3
+
+
+#define SLATE_CRASH_IN_TWM	-2
 
 #define segment_is_hash(flag) (((flag) & (0x7 << 24)) == (0x2 << 24))
 
-uint32_t slate_app_uid = 286;
 static struct workqueue_struct *slate_reset_wq;
 
 /* tzapp command list.*/
@@ -53,8 +57,7 @@ enum slate_tz_commands {
 	SLATE_RPROC_SHUTDOWN,
 	SLATE_RPROC_DUMPINFO,
 	SLATE_RPROC_UP_INFO,
-	SLATE_RPROC_RESTART,
-	SLATE_RPROC_POWERDOWN,
+	SLATE_RPROC_RESET,
 };
 
 /* tzapp bg request.*/
@@ -146,6 +149,10 @@ struct qcom_slate {
 	int status_irq;
 	struct workqueue_struct *slate_queue;
 	struct work_struct restart_work;
+
+	phys_addr_t mem_phys;
+	void *mem_region;
+	size_t mem_size;
 };
 
 static irqreturn_t slate_status_change(int irq, void *dev_id);
@@ -247,6 +254,7 @@ static long slate_tzapp_comm(struct qcom_slate *pbd,
 	slate_tz_req->size_fw = req->size_fw;
 	rc = qseecom_send_command(pbd->qseecom_handle,
 		(void *)slate_tz_req, req_len, (void *)slate_tz_rsp, rsp_len);
+
 	mutex_unlock(&cmdsync_lock);
 	pr_debug("SLATE PIL qseecom returned with value 0x%x and status 0x%x\n",
 		rc, slate_tz_rsp->status);
@@ -278,33 +286,17 @@ end:
 static void slate_restart_work(struct work_struct *work)
 {
 
-	struct qcom_slate *drvdata =
+	struct qcom_slate *slate_data =
 		container_of(work, struct qcom_slate, restart_work);
-	struct rproc *slate_rproc = drvdata->rproc;
-	bool recovery_status = slate_rproc->recovery_disabled;
+	struct rproc *slate_rproc = slate_data->rproc;
 
-	pr_debug("Handle restart\n");
+	/* Trigger  apps crash if recovery is disabled */
+	BUG_ON(slate_rproc->recovery_disabled);
 
-	/* Disable revoery to trigger shutdown sequence to power off Slate */
-	mutex_lock(&slate_rproc->lock);
-	if (slate_rproc->state == RPROC_CRASHED ||
-			slate_rproc->state == RPROC_OFFLINE) {
-		mutex_unlock(&slate_rproc->lock);
-		return;
-	}
-	slate_rproc->recovery_disabled = true;
-	mutex_unlock(&slate_rproc->lock);
+	/* If recovery is enabled, go for recovery path */
+	pr_debug("Slate is crashed! Starting recovery...\n");
+	rproc_report_crash(slate_rproc, RPROC_FATAL_ERROR);
 
-	/* Shutdown slate */
-	rproc_shutdown(slate_rproc);
-
-	/* Power up and load image again in slate */
-	rproc_boot(slate_rproc);
-
-	/*restore the recovery value */
-	mutex_lock(&slate_rproc->lock);
-	slate_rproc->recovery_disabled = recovery_status;
-	mutex_unlock(&slate_rproc->lock);
 }
 
 static irqreturn_t slate_status_change(int irq, void *dev_id)
@@ -391,6 +383,7 @@ static int setup_slate_gpio_irq(struct platform_device *pdev,
 		goto err;
 	}
 
+	/* AP2SLATE STATUS IRQ */
 	if (gpio_request(drvdata->gpios[1], "AP2SLATE_STATUS")) {
 		dev_err(&pdev->dev,
 			"%s Failed to configure AP2SLATE_STATUS gpio\n",
@@ -444,6 +437,7 @@ static int slate_dt_parse_gpio(struct platform_device *pdev,
 		pr_err("ap2slate status gpio not found, error=%d\n", val);
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -478,6 +472,12 @@ static int slate_auth_and_xfer(struct qcom_slate *slate_data)
 	slate_tz_req.size_fw = slate_data->size_fw;
 
 	ret = slate_tzapp_comm(slate_data, &slate_tz_req);
+
+	if (slate_data->cmd_status == SLATE_CRASH_IN_TWM) {
+		slate_tz_req.tzapp_slate_cmd = SLATE_RPROC_DLOAD_CONT;
+		ret = slate_tzapp_comm(slate_data, &slate_tz_req);
+	}
+
 	if (ret || slate_data->cmd_status) {
 		dev_err(slate_data->dev,
 				"%s: Firmware image authentication failed\n",
@@ -511,10 +511,49 @@ static int wait_for_err_ready(struct qcom_slate *slate_data)
 	ret = wait_for_completion_timeout(&slate_data->err_ready,
 			msecs_to_jiffies(10000));
 	if (!ret) {
-		pr_err("[%s]: Error ready timed out\n", slate_data->firmware_name);
+		pr_err("[%s]: Error ready timed out\n",
+			slate_data->firmware_name);
 		return -ETIMEDOUT;
 	}
 	return 0;
+}
+
+void send_reset_signal(struct qcom_slate *slate_data)
+{
+	struct tzapp_slate_req slate_tz_req;
+	int ret;
+
+	slate_tz_req.tzapp_slate_cmd = SLATE_RPROC_RESET;
+	slate_tz_req.address_fw = 0;
+	slate_tz_req.size_fw = 0;
+
+	ret = slate_tzapp_comm(slate_data, &slate_tz_req);
+	if (ret || slate_data->cmd_status)
+		dev_err(slate_data->dev,
+			"%s: Failed to send reset signal to tzapp\n",
+			__func__);
+}
+
+int slate_flash_mode(struct qcom_slate *slate_data)
+{
+	int ret;
+	int retry_attempt = 2;
+
+	do {
+		ret = wait_for_err_ready(slate_data);
+		if (!ret)
+			return RESULT_SUCCESS;
+		dev_err(slate_data->dev,
+			"[%s:%d]: Timed out waiting for error ready: %s!\n",
+			current->comm, current->pid, slate_data->firmware_name);
+
+		pr_info("Retry booting slate, Mode: Flash, attempt: %d\n",
+				retry_attempt);
+		send_reset_signal(slate_data);
+		retry_attempt -= 1;
+	} while (retry_attempt);
+
+	return ret;
 }
 
 static int slate_start(struct rproc *rproc)
@@ -528,8 +567,15 @@ static int slate_start(struct rproc *rproc)
 		return -EINVAL;
 	}
 
-	/* Enable err fetal irq */
-	enable_irq(slate_data->status_irq);
+	/* Slate is booted from flash */
+	if (get_slate_boot_mode()) {
+		if (gpio_get_value(slate_data->gpios[0])) {
+			pr_info("Slate is booted up!! Mode: FLASH\n");
+			slate_data->is_ready = true;
+			return RESULT_SUCCESS;
+		} else
+			return RESULT_FAILURE;
+	}
 
 	slate_data->address_fw = slate_data->region_start;
 	slate_data->size_fw = slate_data->region_end - slate_data->region_start;
@@ -538,9 +584,9 @@ static int slate_start(struct rproc *rproc)
 
 	ret = slate_auth_and_xfer(slate_data);
 	if (ret) {
-		dev_err(slate_data->dev, "%s slate TZ qpp load failure\n",
-		__func__);
-	return ret;
+		dev_err(slate_data->dev, "%s slate TZ app load failure\n",
+					__func__);
+		return ret;
 	}
 
 	ret = wait_for_err_ready(slate_data);
@@ -551,7 +597,7 @@ static int slate_start(struct rproc *rproc)
 		return ret;
 	}
 
-	pr_err("Slate is booted up!\n");
+	pr_err("Slate is booted up!! Mode: HOST\n");
 
 	dma_free_coherent(slate_data->dev, slate_data->region_size,
 		slate_data->region, slate_data->region_start);
@@ -565,7 +611,7 @@ static int slate_start(struct rproc *rproc)
 
 /**
 * slate_coredump() - Called by SSR framework to save dump of SLATE internal
-* memory, SLATE PIL allocates region from dynamic memory and pass this
+* memory, SLATE PIL does allocate region from dynamic memory and pass this
 * region to tz to dump memory content of SLATE.
 * @rproc: remoteproc handle for slate.
 *
@@ -574,7 +620,97 @@ static int slate_start(struct rproc *rproc)
 
 static void slate_coredump(struct rproc *rproc)
 {
+	struct qcom_slate *slate_data = (struct qcom_slate *)rproc->priv;
+	struct tzapp_slate_req slate_tz_req;
+	uint32_t ns_vmids[] = {VMID_HLOS};
+	uint32_t ns_vm_perms[] = {PERM_READ | PERM_WRITE};
+	u64 shm_bridge_handle;
+	void *region;
+	phys_addr_t start_addr;
+	uint32_t dump_info;
+	unsigned long size = SLATE_RAMDUMP_SZ;
+	unsigned long attr = 0;
+	int ret = 0;
+
 	pr_err("Setup for Coredump.\n");
+
+	slate_tz_req.tzapp_slate_cmd = SLATE_RPROC_DUMPINFO;
+	if (!slate_data->qseecom_handle) {
+		ret = load_slate_tzapp(slate_data);
+		if (ret) {
+			dev_err(slate_data->dev,
+				"%s: SLATE TZ app load failure\n",
+				__func__);
+			return;
+		}
+	}
+
+	ret = slate_tzapp_comm(slate_data, &slate_tz_req);
+	dump_info = slate_data->cmd_status;
+
+	if (dump_info == SLATE_RAMDUMP)
+		size = SLATE_RAMDUMP_SZ;
+	else {
+		dev_err(slate_data->dev,
+			"%s: SLATE RPROC ramdump collection failed\n",
+			__func__);
+		return;
+	}
+
+	region = dma_alloc_attrs(slate_data->dev, size,
+			&start_addr, GFP_KERNEL, attr);
+	if (region == NULL) {
+		dev_dbg(slate_data->dev,
+			"fail to allocate ramdump region of size %zx\n",
+			size);
+		return;
+	}
+
+	slate_data->mem_phys = start_addr;
+	slate_data->mem_size = size;
+	slate_data->mem_region = region;
+
+	ret = qtee_shmbridge_register(start_addr, size, ns_vmids,
+		ns_vm_perms, 1, PERM_READ | PERM_WRITE, &shm_bridge_handle);
+
+	if (ret) {
+		pr_err("Failed to create shm bridge. ret=[%d]\n",
+			__func__, ret);
+		goto dma_free;
+	}
+
+	slate_tz_req.tzapp_slate_cmd = SLATE_RPROC_RAMDUMP;
+	slate_tz_req.address_fw = start_addr;
+	slate_tz_req.size_fw = size;
+	ret = slate_tzapp_comm(slate_data, &slate_tz_req);
+	if (ret != 0) {
+		dev_dbg(slate_data->dev,
+			"%s: SLATE RPROC ramdmp collection failed\n",
+			__func__);
+		return;
+	}
+
+	dma_sync_single_for_cpu(slate_data->dev, slate_data->mem_phys, size, DMA_FROM_DEVICE);
+
+	pr_debug("Add coredump segment!\n");
+	ret = rproc_coredump_add_custom_segment(rproc, start_addr, size,
+			NULL, NULL);
+
+	if (ret) {
+		dev_err(slate_data->dev, "failed to add rproc_segment: %d\n",
+			ret);
+		rproc_coredump_cleanup(slate_data->rproc);
+		goto shm_free;
+	}
+
+	/* Prepare coredump file */
+	rproc_coredump(rproc);
+
+shm_free:
+	qtee_shmbridge_deregister(shm_bridge_handle);
+dma_free:
+	dma_free_attrs(slate_data->dev, size, region,
+			start_addr, attr);
 }
 
 /**
@@ -768,10 +904,27 @@ static int slate_load(struct rproc *rproc, const struct firmware *fw)
 		return -EINVAL;
 	}
 
+	/* Enable status and err fetal irqs */
+	enable_irq(slate_data->status_irq);
+
+	/* boot slate from flash */
+	if (get_slate_boot_mode()) {
+		if (gpio_get_value(slate_data->gpios[0]))
+			return RESULT_SUCCESS;
+		ret = slate_flash_mode(slate_data);
+		if (!ret)
+			return RESULT_SUCCESS;
+		dev_err(slate_data->dev,
+			"%s: Failed to boot slate from flash\n",
+			__func__);
+		return ret;
+	}
+
 	mdt = (const struct pil_mdt *)fw->data;
 	ret = slate_setup_region(slate_data, mdt);
 	if (ret) {
-		dev_err(slate_data->dev, "%s: slate memory_setup failure\n", __func__);
+		dev_err(slate_data->dev, "%s: slate memory_setup failure\n",
+			__func__);
 		return ret;
 	}
 	pr_debug("Loading from %pa tp %pa\n", &slate_data->region_start,
@@ -781,17 +934,19 @@ static int slate_load(struct rproc *rproc, const struct firmware *fw)
 		slate_data->region, slate_data->region_start,
 		slate_data->region_size, NULL);
 	if (ret) {
-		dev_err(slate_data->dev, "%s: slate memory setup failure\n", __func__);
+		dev_err(slate_data->dev, "%s: slate memory setup failure\n",
+			__func__);
 		return ret;
 	}
 
 	/* send the metadata */
 	ret = slate_auth_metadata(slate_data, fw->data, fw->size);
 	if (ret) {
-		dev_err(slate_data->dev, "%s: slate TZ app load failure\n", __func__);
+		dev_err(slate_data->dev, "%s: slate TZ app load failure\n",
+			__func__);
 		return ret;
 	}
-	return 0;
+	return ret;
 }
 
 static int slate_stop(struct rproc *rproc)
@@ -821,15 +976,24 @@ static int slate_stop(struct rproc *rproc)
 		pr_debug("Slate pil shutdown failed\n");
 		return ret;
 	}
-
 	if (slate_data->is_ready) {
 		disable_irq(slate_data->status_irq);
 		slate_data->is_ready = false;
 	}
-
 	return ret;
 }
 
+static void *slate_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
+{
+	struct qcom_slate *slate_data = (struct qcom_slate *)rproc->priv;
+	int offset;
+
+	offset = da - slate_data->mem_phys;
+	if (offset < 0 || offset + len > slate_data->mem_size)
+		return NULL;
+
+	return slate_data->mem_region + offset;
+}
 
 static const struct rproc_ops slate_ops = {
 	.prepare = slate_prepare,
@@ -838,6 +1002,7 @@ static const struct rproc_ops slate_ops = {
 	.start = slate_start,
 	.stop = slate_stop,
 	.coredump = slate_coredump,
+	.da_to_va = slate_da_to_va,
 };
 
 static int slate_app_reboot_notify(struct notifier_block *nb,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -50,6 +50,14 @@
 #define LLCC_TRP_ACT_CTRLn(n)         (n * SZ_4K)
 #define LLCC_TRP_ACT_CLEARn(n)        (8 + n * SZ_4K)
 #define LLCC_TRP_STATUSn(n)           (4 + n * SZ_4K)
+
+#define LLCC_TRP_STAL_ATTR0_CFGn(n)   (0xC + SZ_4K * n)
+#define STALING_TRIGGER_MASK          0x1
+
+#define LLCC_TRP_STAL_ATTR1_CFGn(n)   (0x10 + SZ_4K * n)
+#define STALING_ENABLE_MASK           0x1
+#define STALING_NUM_FRAMES_MASK       GENMASK(6, 4)
+
 #define LLCC_TRP_ATTR0_CFGn(n)        (0x21000 + SZ_8 * n)
 #define LLCC_TRP_ATTR1_CFGn(n)        (0x21004 + SZ_8 * n)
 #define LLCC_TRP_ATTR2_CFGn(n)        (0x21100 + SZ_4 * n)
@@ -376,35 +384,35 @@ static const struct llcc_slice_config diwali_data[] =  {
 };
 
 static const struct llcc_slice_config kalama_data[] =  {
-	{LLCC_CPUSS,     1, 5120, 1, 0, 0xFFFFFF, 0x0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_VIDSC0,    2,  512, 4, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_AUDIO,     6, 1024, 1, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_MDMHPGRW, 25, 1024, 4, 0, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_MDMHW,    26, 1024, 1, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_CMPT,     10, 4096, 1, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_GPUHTW,   11,  512, 1, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_GPU,       9, 3096, 1, 0, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_MMUHWT,   18,  768, 1, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_DISP,     16, 6144, 1, 1, 0xFFFFFF, 0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_MDMPNG,   27, 1024, 0, 1, 0xF00000, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_CVP,       8,  256, 4, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_MDMVPE,   29,   64, 1, 1, 0xF00000, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-	{LLCC_WRTCH,    31,  512, 1, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_CAMEXP0,   4,  256, 4, 1,      0xF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_CAMEXP1,   7, 3200, 3, 1, 0xFFFFF0, 0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_CMPTHCP,  17,  256, 4, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_LCPDARE,  30,  128, 4, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
-	{LLCC_AENPU,     3, 3072, 1, 1, 0xFe01FF, 0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_ISLAND1,  12, 1792, 7, 1,   0xFE00, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_ISLAND4,  15,  256, 7, 1,  0x10000, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_CAMEXP2,  19, 3200, 3, 1, 0xFFFFF0, 0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_CAMEXP3,  20, 3200, 2, 1, 0xFFFFF0, 0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_CAMEXP4,  21, 3200, 2, 1, 0xFFFFF0, 0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_DISP_WB,  23, 1024, 4, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_DISP_1,   24, 6144, 1, 1, 0xFFFFFF, 0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-	{LLCC_VIDVSP,   28,  256, 4, 1, 0xFFFFFF, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CPUSS,     1, 5120, 1, 0, 0xFFFFFF,     0x0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_VIDSC0,    2,  512, 4, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_AUDIO,     6, 1024, 1, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_MDMHPGRW, 25, 1024, 4, 0, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_MDMHW,    26, 1024, 1, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CMPT,     10, 4096, 1, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_GPUHTW,   11,  512, 1, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_GPU,       9, 3096, 1, 0, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_MMUHWT,   18,  768, 1, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_DISP,     16, 6144, 1, 1, 0xFFFFFF,     0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_MDMPNG,   27, 1024, 0, 1, 0xF00000,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CVP,       8,  256, 4, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_MDMVPE,   29,   64, 1, 1, 0xF00000,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+	{LLCC_WRTCH,    31,  512, 1, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CAMEXP0,   4,  256, 4, 1,      0xF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CAMEXP1,   7, 3200, 3, 1, 0xFFFFF0,     0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CMPTHCP,  17,  256, 4, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_LCPDARE,  30,  128, 4, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1},
+	{LLCC_AENPU,     3, 3072, 1, 1, 0xFe01FF,     0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_ISLAND1,  12, 1792, 7, 1,      0x0,  0xFE00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_ISLAND4,  15,  256, 7, 1,      0x0, 0x10000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CAMEXP2,  19, 3200, 3, 1, 0xFFFFF0,     0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CAMEXP3,  20, 3200, 2, 1, 0xFFFFF0,     0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CAMEXP4,  21, 3200, 2, 1, 0xFFFFF0,     0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_DISP_WB,  23, 1024, 4, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_DISP_1,   24, 6144, 1, 1, 0xFFFFFF,     0x0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_VIDVSP,   28,  256, 4, 1, 0xFFFFFF,     0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
 
 static const struct llcc_slice_config kona_data[] =  {
@@ -536,12 +544,12 @@ static const struct qcom_llcc_config cinder_cfg[] = {
 		.size		= ARRAY_SIZE(cinder_data_4ch),
 	},
 	{
-		.sct_data	= cinder_data_2ch,
-		.size		= ARRAY_SIZE(cinder_data_2ch),
-	},
-	{
 		.sct_data	= cinder_data_4ch,
 		.size		= ARRAY_SIZE(cinder_data_4ch),
+	},
+	{
+		.sct_data	= cinder_data_2ch,
+		.size		= ARRAY_SIZE(cinder_data_2ch),
 	},
 };
 
@@ -759,6 +767,120 @@ size_t llcc_get_slice_size(struct llcc_slice_desc *desc)
 	return desc->slice_size;
 }
 EXPORT_SYMBOL_GPL(llcc_get_slice_size);
+
+static int llcc_staling_conf_capacity(u32 sid, struct llcc_staling_mode_params *p)
+{
+	u32 notif_staling_reg;
+
+	notif_staling_reg = LLCC_TRP_STAL_ATTR1_CFGn(sid);
+
+	return regmap_update_bits(drv_data->bcast_regmap, notif_staling_reg,
+				 STALING_ENABLE_MASK,
+				 LLCC_STALING_MODE_CAPACITY);
+}
+
+static int llcc_staling_conf_notify(u32 sid, struct llcc_staling_mode_params *p)
+{
+	u32 notif_staling_reg, staling_distance;
+	int ret;
+
+	if (p->notify_params.op != LLCC_NOTIFY_STALING_WRITEBACK)
+		return -EINVAL;
+
+	notif_staling_reg = LLCC_TRP_STAL_ATTR1_CFGn(sid);
+
+	ret = regmap_update_bits(drv_data->bcast_regmap, notif_staling_reg,
+				 STALING_ENABLE_MASK,
+				 LLCC_STALING_MODE_NOTIFY);
+	if (ret)
+		return ret;
+
+	staling_distance = p->notify_params.staling_distance;
+
+	return regmap_update_bits(drv_data->bcast_regmap, notif_staling_reg,
+				  STALING_NUM_FRAMES_MASK, staling_distance);
+}
+
+static int (*staling_mode_ops[LLCC_STALING_MODE_MAX])(u32, struct llcc_staling_mode_params *) = {
+	[LLCC_STALING_MODE_CAPACITY]	= llcc_staling_conf_capacity,
+	[LLCC_STALING_MODE_NOTIFY]	= llcc_staling_conf_notify,
+};
+
+/**
+ * llcc_configure_staling_mode - Configure cache staling mode by setting the
+ *				 staling_mode and corresponding
+ *				 mode-specific params
+ *
+ * @desc: Pointer to llcc slice descriptor
+ * @p: Staling mode-specific params
+ *
+ * Returns: zero on success or negative errno.
+ */
+int llcc_configure_staling_mode(struct llcc_slice_desc *desc,
+				struct llcc_staling_mode_params *p)
+
+{
+	u32 sid;
+	enum llcc_staling_mode m;
+
+	if (IS_ERR(drv_data))
+		return PTR_ERR(drv_data);
+
+	if (drv_data->llcc_ver < 50)
+		return -EOPNOTSUPP;
+
+	if (IS_ERR_OR_NULL(desc) || !p)
+		return -EINVAL;
+
+	sid = desc->slice_id;
+	m = p->staling_mode;
+
+	/*
+	 * Look up op corresponding to staling mode and call it
+	 * with the params passed
+	 */
+	return (*staling_mode_ops[m])(sid, p);
+
+}
+EXPORT_SYMBOL(llcc_configure_staling_mode);
+
+/**
+ * llcc_notif_staling_inc_counter - Trigger the staling of the sub-cache frame.
+ *
+ * @desc: Pointer to llcc slice descriptor
+ *
+ * Returns: zero on success or negative errno.
+ */
+int llcc_notif_staling_inc_counter(struct llcc_slice_desc *desc)
+{
+	u32 sid, stale_trigger_reg, discard;
+	int ret;
+
+	if (IS_ERR(drv_data))
+		return PTR_ERR(drv_data);
+
+	if (drv_data->llcc_ver < 50)
+		return -EOPNOTSUPP;
+
+	if (IS_ERR_OR_NULL(desc))
+		return -EINVAL;
+
+	sid = desc->slice_id;
+	stale_trigger_reg = LLCC_TRP_STAL_ATTR0_CFGn(sid);
+
+	ret = regmap_update_bits(drv_data->bcast_regmap, stale_trigger_reg,
+				 STALING_TRIGGER_MASK, STALING_TRIGGER_MASK);
+	if (ret)
+		return ret;
+
+	/*
+	 * stale_trigger_reg is a self-clearing reg. Read it anyway to ensure
+	 * that the write went through. We don't care about the value being
+	 * read, so discard it.
+	 */
+	return regmap_read(drv_data->bcast_regmap, stale_trigger_reg, &discard);
+}
+EXPORT_SYMBOL(llcc_notif_staling_inc_counter);
 
 static u32 llcc_trp_cfg_n(int slice_id, unsigned int offset, u32 val)
 {
@@ -1029,6 +1151,11 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	}
 
 	if (of_property_match_string(dev->of_node,
+				    "compatible", "qcom,llcc-v50") >= 0) {
+		drv_data->llcc_ver = 50;
+		llcc_regs = llcc_regs_v21;
+		drv_data->offsets = llcc_offsets_v41;
+	} else if (of_property_match_string(dev->of_node,
 				    "compatible", "qcom,llcc-v41") >= 0) {
 		drv_data->llcc_ver = 41;
 		llcc_regs = llcc_regs_v21;

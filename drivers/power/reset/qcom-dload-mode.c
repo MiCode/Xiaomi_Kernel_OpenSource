@@ -287,6 +287,10 @@ static int qcom_dload_reboot(struct notifier_block *this, unsigned long event,
 			set_download_mode(QCOM_DOWNLOAD_EDL);
 		else if (!strcmp(cmd, "qcom_dload"))
 			msm_enable_dump_mode(true);
+		else if (!strcmp(cmd, "rtc"))
+			qcom_scm_custom_reset_type = QCOM_SCM_RST_SHUTDOWN_TO_RTC_MODE;
+		else if (!strcmp(cmd, "twm"))
+			qcom_scm_custom_reset_type = QCOM_SCM_RST_SHUTDOWN_TO_TWM_MODE;
 	}
 
 	if (current_download_mode != QCOM_DOWNLOAD_NODUMP)

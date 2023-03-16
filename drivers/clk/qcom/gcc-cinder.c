@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -70,7 +70,7 @@ static struct clk_alpha_pll gcc_gpll0 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -120,7 +120,7 @@ static struct clk_alpha_pll gcc_gpll1 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -165,7 +165,7 @@ static struct clk_alpha_pll gcc_gpll2 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -210,7 +210,7 @@ static struct clk_alpha_pll gcc_gpll3 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -238,7 +238,7 @@ static struct clk_alpha_pll gcc_gpll4 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -266,7 +266,7 @@ static struct clk_alpha_pll gcc_gpll5 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -311,7 +311,7 @@ static struct clk_alpha_pll gcc_gpll6 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -339,7 +339,7 @@ static struct clk_alpha_pll gcc_gpll7 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -367,7 +367,7 @@ static struct clk_alpha_pll gcc_gpll8 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -1456,6 +1456,26 @@ static struct clk_branch gcc_ddrss_ecpri_dma_clk = {
 			.name = "gcc_ddrss_ecpri_dma_clk",
 			.parent_hws = (const struct clk_hw*[]){
 				&gcc_aggre_noc_ecpri_dma_clk_src.clkr.hw,
+			},
+			.num_parents = 1,
+			.flags = CLK_SET_RATE_PARENT,
+			.ops = &clk_branch2_aon_ops,
+		},
+	},
+};
+
+static struct clk_branch gcc_ddrss_ecpri_gsi_clk = {
+	.halt_reg = 0x54298,
+	.halt_check = BRANCH_HALT_VOTED,
+	.hwcg_reg = 0x54298,
+	.hwcg_bit = 1,
+	.clkr = {
+		.enable_reg = 0x54298,
+		.enable_mask = BIT(0),
+		.hw.init = &(const struct clk_init_data){
+			.name = "gcc_ddrss_ecpri_gsi_clk",
+			.parent_hws = (const struct clk_hw*[]){
+				&gcc_aggre_noc_ecpri_gsi_clk_src.clkr.hw,
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -2730,6 +2750,7 @@ static struct clk_regmap *gcc_cinder_clocks[] = {
 	[GCC_CFG_NOC_ECPRI_CC_AHB_CLK] = &gcc_cfg_noc_ecpri_cc_ahb_clk.clkr,
 	[GCC_CFG_NOC_USB3_PRIM_AXI_CLK] = &gcc_cfg_noc_usb3_prim_axi_clk.clkr,
 	[GCC_DDRSS_ECPRI_DMA_CLK] = &gcc_ddrss_ecpri_dma_clk.clkr,
+	[GCC_DDRSS_ECPRI_GSI_CLK] = NULL,
 	[GCC_ECPRI_AHB_CLK] = &gcc_ecpri_ahb_clk.clkr,
 	[GCC_ECPRI_CC_GPLL0_CLK_SRC] = &gcc_ecpri_cc_gpll0_clk_src.clkr,
 	[GCC_ECPRI_CC_GPLL1_EVEN_CLK_SRC] = &gcc_ecpri_cc_gpll1_even_clk_src.clkr,
@@ -2749,6 +2770,7 @@ static struct clk_regmap *gcc_cinder_clocks[] = {
 	[GCC_GPLL0] = &gcc_gpll0.clkr,
 	[GCC_GPLL0_OUT_EVEN] = &gcc_gpll0_out_even.clkr,
 	[GCC_GPLL1] = &gcc_gpll1.clkr,
+	[GCC_GPLL1_OUT_EVEN] = &gcc_gpll1_out_even.clkr,
 	[GCC_GPLL2] = &gcc_gpll2.clkr,
 	[GCC_GPLL2_OUT_EVEN] = &gcc_gpll2_out_even.clkr,
 	[GCC_GPLL3] = &gcc_gpll3.clkr,
@@ -2923,9 +2945,21 @@ static const struct qcom_cc_desc gcc_cinder_desc = {
 
 static const struct of_device_id gcc_cinder_match_table[] = {
 	{ .compatible = "qcom,cinder-gcc" },
+	{ .compatible = "qcom,cinder-gcc-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gcc_cinder_match_table);
+
+static int gcc_cinder_fixup(struct platform_device *pdev, struct regmap *regmap)
+{
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,cinder-gcc-v2")) {
+		gcc_cinder_clocks[GCC_DDRSS_ECPRI_GSI_CLK] = &gcc_ddrss_ecpri_gsi_clk.clkr;
+		gcc_pcie_0_clkref_en.halt_check = BRANCH_HALT_DELAY;
+		gcc_usb2_clkref_en.halt_check = BRANCH_HALT_DELAY;
+	}
+
+	return 0;
+}
 
 static int gcc_cinder_probe(struct platform_device *pdev)
 {
@@ -2938,6 +2972,10 @@ static int gcc_cinder_probe(struct platform_device *pdev)
 
 	/* Update FORCE_MEM_CORE_ON for gcc_pcie_0_mstr_axi_clk */
 	regmap_update_bits(regmap, 0x9d024, BIT(14), BIT(14));
+
+	ret = gcc_cinder_fixup(pdev, regmap);
+	if (ret)
+		return ret;
 
 	ret = qcom_cc_register_rcg_dfs(regmap, gcc_dfs_clocks,
 				       ARRAY_SIZE(gcc_dfs_clocks));

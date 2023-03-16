@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -114,7 +114,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"measure_only_gcc_sys_noc_cpuss_ahb_clk",
 	"measure_only_hwkm_ahb_clk",
 	"measure_only_ipa_2x_clk",
-	"measure_only_mccc_clk",
+	"mc_cc_debug_mux",
 	"measure_only_pka_ahb_clk",
 	"measure_only_pka_core_clk",
 	"measure_only_qpic_clk",
@@ -179,7 +179,7 @@ static int gcc_debug_mux_sels[] = {
 	0x9,		/* measure_only_gcc_sys_noc_cpuss_ahb_clk */
 	0x16C,		/* measure_only_hwkm_ahb_clk */
 	0x18C,		/* measure_only_ipa_2x_clk */
-	0x165,		/* measure_only_mccc_clk */
+	0x165,		/* mc_cc_debug_mux */
 	0x16E,		/* measure_only_pka_ahb_clk */
 	0x16D,		/* measure_only_pka_core_clk */
 	0x166,		/* measure_only_qpic_clk */
@@ -212,7 +212,7 @@ static const char *const mc_cc_debug_mux_parent_names[] = {
 };
 
 static struct clk_debug_mux mc_cc_debug_mux = {
-	.period_offset = 0x50,
+	.period_offset = 0x20,
 	.hw.init = &(struct clk_init_data){
 		.name = "mc_cc_debug_mux",
 		.ops = &clk_debug_mux_ops,

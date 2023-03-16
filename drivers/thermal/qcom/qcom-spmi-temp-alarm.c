@@ -11,6 +11,7 @@
 #include <linux/err.h>
 #include <linux/iio/consumer.h>
 #include <linux/interrupt.h>
+#include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -873,6 +874,14 @@ static int qpnp_tm_restore(struct device *dev)
 	return ret;
 }
 
+static void qpnp_tm_shutdown(struct platform_device *pdev)
+{
+	struct qpnp_tm_chip *chip = platform_get_drvdata(pdev);
+
+	if (chip->irq > 0)
+		devm_free_irq(chip->dev, chip->irq, chip);
+}
+
 static int qpnp_tm_freeze(struct device *dev)
 {
 	struct qpnp_tm_chip *chip = dev_get_drvdata(dev);
@@ -924,6 +933,7 @@ static struct platform_driver qpnp_tm_driver = {
 		.pm = &qpnp_tm_pm_ops,
 	},
 	.probe  = qpnp_tm_probe,
+	.shutdown = qpnp_tm_shutdown,
 };
 module_platform_driver(qpnp_tm_driver);
 

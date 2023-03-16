@@ -769,6 +769,7 @@ void __mod_lruvec_state(struct lruvec *lruvec, enum node_stat_item idx,
 	if (!mem_cgroup_disabled())
 		__mod_memcg_lruvec_state(lruvec, idx, val);
 }
+EXPORT_SYMBOL_GPL(__mod_lruvec_state);
 
 void __mod_lruvec_page_state(struct page *page, enum node_stat_item idx,
 			     int val)
@@ -1346,6 +1347,7 @@ void mem_cgroup_update_lru_size(struct lruvec *lruvec, enum lru_list lru,
 	if (nr_pages > 0)
 		*lru_size += nr_pages;
 }
+EXPORT_SYMBOL_GPL(mem_cgroup_update_lru_size);
 
 /**
  * mem_cgroup_margin - calculate chargeable space of a memory cgroup

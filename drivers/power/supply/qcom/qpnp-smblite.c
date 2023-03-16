@@ -1609,6 +1609,14 @@ static struct smb_irq_info smblite_irqs[] = {
 	},
 };
 
+static void smblite_init_irq_info(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(smblite_irqs); i++)
+		smblite_irqs[i].is_requested = false;
+}
+
 static int smblite_get_irq_index_byname(const char *irq_name)
 {
 	int i;
@@ -1663,6 +1671,7 @@ static int smblite_request_interrupt(struct smblite *chip,
 
 	smblite_irqs[irq_index].irq = irq;
 	smblite_irqs[irq_index].irq_data = irq_data;
+	smblite_irqs[irq_index].is_requested = true;
 	if (smblite_irqs[irq_index].wake)
 		enable_irq_wake(irq);
 
@@ -1730,9 +1739,12 @@ static void smblite_free_interrupts(struct smb_charger *chg)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(smblite_irqs); i++)
-		if (smblite_irqs[i].irq > 0)
+	for (i = 0; i < ARRAY_SIZE(smblite_irqs); i++) {
+		if (smblite_irqs[i].irq > 0) {
 			devm_free_irq(chg->dev, smblite_irqs[i].irq, smblite_irqs[i].irq_data);
+			smblite_irqs[i].is_requested = false;
+		}
+	}
 
 	if (chg->usb_id_irq > 0 && chg->usb_id_gpio > 0)
 		devm_free_irq(chg->dev, chg->usb_id_irq, chg);
@@ -2177,6 +2189,8 @@ static int smblite_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
+	smblite_init_irq_info();
+
 	rc = smblite_determine_initial_status(chip);
 	if (rc < 0) {
 		pr_err("Couldn't determine initial status rc=%d\n",
@@ -2315,6 +2329,7 @@ static int smblite_restore(struct device *dev)
 			enable_irq_wake(smblite_irqs[i].irq);
 
 		smblite_irqs[i].enabled = true;
+		smblite_irqs[i].is_requested = true;
 	}
 
 	/* register the USB-id irq */
@@ -2355,6 +2370,16 @@ static int smblite_restore(struct device *dev)
 
 	pr_debug("SMBLITE: USB Present=%d Battery present=%d\n",
 		usb_present, batt_present);
+
+	/*
+	 * There can be a case where DS exit happens quickly
+	 * and APSD done bit is not yet set. This causes the WA
+	 * to re-run APSD once APSD done bit is set in source
+	 * change_irq to handle slow insertion false detection to
+	 * not trigger. Re-run APSD once DS is complete to handle
+	 * fix false port detection.
+	 */
+	smblite_lib_rerun_apsd_if_required(chg);
 
 	return rc;
 }

@@ -349,6 +349,35 @@ struct ipa_fmwk_contex {
 	int (*ipa_wdi_release_smmu_mapping_per_inst)(u32 hdl, u32 num_buffers,
 		struct ipa_wdi_buffer_info *info);
 
+	int (*ipa_wdi_opt_dpath_register_flt_cb_per_inst)(
+		ipa_wdi_hdl_t hdl,
+		ipa_wdi_opt_dpath_flt_rsrv_cb flt_rsrv_cb,
+		ipa_wdi_opt_dpath_flt_rsrv_rel_cb flt_rsrv_rel_cb,
+		ipa_wdi_opt_dpath_flt_add_cb flt_add_cb,
+		ipa_wdi_opt_dpath_flt_rem_cb flt_rem_cb);
+
+	int (*ipa_wdi_opt_dpath_notify_flt_rsvd_per_inst)(ipa_wdi_hdl_t hdl,
+		bool is_success);
+
+	int (*ipa_wdi_opt_dpath_notify_flt_rlsd_per_inst)(ipa_wdi_hdl_t hdl,
+		bool is_success);
+
+	int (*ipa_wdi_opt_dpath_rsrv_filter_req)(
+			struct ipa_wlan_opt_dp_rsrv_filter_req_msg_v01 *req,
+			struct ipa_wlan_opt_dp_rsrv_filter_resp_msg_v01 *resp);
+
+	int (*ipa_wdi_opt_dpath_add_filter_req)(
+			struct ipa_wlan_opt_dp_add_filter_req_msg_v01 *req,
+			struct ipa_wlan_opt_dp_add_filter_complt_ind_msg_v01 *ind);
+
+	int (*ipa_wdi_opt_dpath_remove_filter_req)(
+				struct ipa_wlan_opt_dp_remove_filter_req_msg_v01 *req,
+				struct ipa_wlan_opt_dp_remove_filter_complt_ind_msg_v01 *ind);
+
+	int (*ipa_wdi_opt_dpath_remove_all_filter_req)(
+				struct ipa_wlan_opt_dp_remove_all_filter_req_msg_v01 *req,
+				struct ipa_wlan_opt_dp_remove_all_filter_resp_msg_v01 *resp);
+
 	/* ipa_gsb APIs*/
 	int (*ipa_bridge_init)(struct ipa_bridge_init_params *params, u32 *hdl);
 
@@ -1330,7 +1359,15 @@ int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 		|| ipa_fmwk_ctx->ipa_wdi_disable_pipes_per_inst
 		|| ipa_fmwk_ctx->ipa_wdi_set_perf_profile_per_inst
 		|| ipa_fmwk_ctx->ipa_wdi_create_smmu_mapping_per_inst
-		|| ipa_fmwk_ctx->ipa_wdi_release_smmu_mapping_per_inst) {
+		|| ipa_fmwk_ctx->ipa_wdi_release_smmu_mapping_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_opt_dpath_register_flt_cb_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_opt_dpath_notify_flt_rsvd_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_opt_dpath_notify_flt_rlsd_per_inst
+		|| ipa_fmwk_ctx->ipa_wdi_opt_dpath_rsrv_filter_req
+		|| ipa_fmwk_ctx->ipa_wdi_opt_dpath_add_filter_req
+		|| ipa_fmwk_ctx->ipa_wdi_opt_dpath_remove_filter_req
+		|| ipa_fmwk_ctx->ipa_wdi_opt_dpath_remove_all_filter_req
+		){
 		pr_err("ipa_wdi3 APIs were already initialized\n");
 		return -EPERM;
 	}
@@ -1373,6 +1410,20 @@ int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 		in->ipa_wdi_create_smmu_mapping_per_inst;
 	ipa_fmwk_ctx->ipa_wdi_release_smmu_mapping_per_inst =
 		in->ipa_wdi_release_smmu_mapping_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_opt_dpath_register_flt_cb_per_inst =
+		in->ipa_wdi_opt_dpath_register_flt_cb_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_opt_dpath_notify_flt_rsvd_per_inst =
+		in->ipa_wdi_opt_dpath_notify_flt_rsvd_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_opt_dpath_notify_flt_rlsd_per_inst =
+		in->ipa_wdi_opt_dpath_notify_flt_rlsd_per_inst;
+	ipa_fmwk_ctx->ipa_wdi_opt_dpath_rsrv_filter_req =
+		in->ipa_wdi_opt_dpath_rsrv_filter_req;
+	ipa_fmwk_ctx->ipa_wdi_opt_dpath_add_filter_req =
+		in->ipa_wdi_opt_dpath_add_filter_req;
+	ipa_fmwk_ctx->ipa_wdi_opt_dpath_remove_filter_req =
+		in->ipa_wdi_opt_dpath_remove_filter_req;
+	ipa_fmwk_ctx->ipa_wdi_opt_dpath_remove_all_filter_req =
+		in->ipa_wdi_opt_dpath_remove_all_filter_req;
 	pr_info("ipa_wdi3 registered successfully\n");
 
 	return 0;
@@ -1726,6 +1777,102 @@ int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_disconnect_wdi_pipe);
+
+int ipa_wdi_opt_dpath_register_flt_cb_per_inst(
+	ipa_wdi_hdl_t hdl,
+	ipa_wdi_opt_dpath_flt_rsrv_cb flt_rsrv_cb,
+	ipa_wdi_opt_dpath_flt_rsrv_rel_cb flt_rsrv_rel_cb,
+	ipa_wdi_opt_dpath_flt_add_cb flt_add_cb,
+	ipa_wdi_opt_dpath_flt_rem_cb flt_rem_cb)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_opt_dpath_register_flt_cb_per_inst,
+		hdl,
+		flt_rsrv_cb,
+		flt_rsrv_rel_cb,
+		flt_add_cb,
+		flt_rem_cb);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_opt_dpath_register_flt_cb_per_inst);
+
+
+int ipa_wdi_opt_dpath_notify_flt_rsvd_per_inst(ipa_wdi_hdl_t hdl,
+	bool is_success)
+
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_opt_dpath_notify_flt_rsvd_per_inst,
+		hdl, is_success);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_opt_dpath_notify_flt_rsvd_per_inst);
+
+int ipa_wdi_opt_dpath_notify_flt_rlsd_per_inst(ipa_wdi_hdl_t hdl,
+	bool is_success)
+
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_opt_dpath_notify_flt_rlsd_per_inst, hdl, is_success);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_opt_dpath_notify_flt_rlsd_per_inst);
+
+
+int ipa_wdi_opt_dpath_rsrv_filter_req(
+		struct ipa_wlan_opt_dp_rsrv_filter_req_msg_v01 *req,
+		struct ipa_wlan_opt_dp_rsrv_filter_resp_msg_v01 *resp)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_opt_dpath_rsrv_filter_req, req, resp);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_opt_dpath_rsrv_filter_req);
+
+int ipa_wdi_opt_dpath_add_filter_req(
+		struct ipa_wlan_opt_dp_add_filter_req_msg_v01 *req,
+		struct ipa_wlan_opt_dp_add_filter_complt_ind_msg_v01 *ind)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_opt_dpath_add_filter_req, req, ind);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_opt_dpath_add_filter_req);
+
+
+int ipa_wdi_opt_dpath_remove_filter_req(
+			struct ipa_wlan_opt_dp_remove_filter_req_msg_v01 *req,
+			struct ipa_wlan_opt_dp_remove_filter_complt_ind_msg_v01 *ind)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_opt_dpath_remove_filter_req, req, ind);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_opt_dpath_remove_filter_req);
+
+int ipa_wdi_opt_dpath_remove_all_filter_req(
+			struct ipa_wlan_opt_dp_remove_all_filter_req_msg_v01 *req,
+			struct ipa_wlan_opt_dp_remove_all_filter_resp_msg_v01 *resp)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_opt_dpath_remove_all_filter_req, req, resp);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_opt_dpath_remove_all_filter_req);
 
 int ipa_reg_uc_rdyCB(struct ipa_wdi_uc_ready_params *param)
 {

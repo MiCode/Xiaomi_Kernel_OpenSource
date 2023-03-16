@@ -1,0 +1,17 @@
+MSM_ARCH_FRAGMENT_CONFIG=kona_le_gki.fragment
+
+if [ "${VARIANT}" = gki ]; then
+  DEFCONFIG=le_gki_defconfig
+
+  PRE_DEFCONFIG_CMDS="KCONFIG_CONFIG=${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/${DEFCONFIG} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/gki_defconfig ${ROOT_DIR}/msm-kernel/arch/arm64/configs/${MSM_ARCH_FRAGMENT_CONFIG}"
+  POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/${DEFCONFIG}"
+
+elif [ "${VARIANT}" = consolidate ]; then
+  DEFCONFIG=le_consolidate_defconfig
+  FRAGMENT_CONFIG=msm-kernel/arch/arm64/configs/consolidate.fragment
+
+  PRE_DEFCONFIG_CMDS="KCONFIG_CONFIG=${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/le_gki_defconfig ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/gki_defconfig ${ROOT_DIR}/msm-kernel/arch/arm64/configs/${MSM_ARCH_FRAGMENT_CONFIG} && KCONFIG_CONFIG=${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/${DEFCONFIG} ${ROOT_DIR}/${KERNEL_DIR}/scripts/kconfig/merge_config.sh -m -r ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/le_gki_defconfig ${ROOT_DIR}/${FRAGMENT_CONFIG}"
+  POST_DEFCONFIG_CMDS="rm ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/${DEFCONFIG} && rm ${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/configs/le_gki_defconfig"
+
+fi
+

@@ -26,8 +26,10 @@
 #define VIRTIO_FASTRPC_CMD_MMAP			4
 #define VIRTIO_FASTRPC_CMD_MUNMAP		5
 #define VIRTIO_FASTRPC_CMD_CONTROL		6
-#define VIRTIO_FASTRPC_CMD_GET_DSP_INFO	7
-#define VIRTIO_FASTRPC_CMD_MUNMAP_FD	8
+#define VIRTIO_FASTRPC_CMD_GET_DSP_INFO		7
+#define VIRTIO_FASTRPC_CMD_MUNMAP_FD		8
+#define VIRTIO_FASTRPC_CMD_MEM_MAP		9
+#define VIRTIO_FASTRPC_CMD_MEM_UNMAP		10
 
 #define STATIC_PD			0
 #define DYNAMIC_PD			1
@@ -158,6 +160,22 @@ struct virt_munmap_msg {
 	struct virt_msg_hdr hdr;	/* virtio fastrpc message header */
 	u64 vdsp;			/* dsp address */
 	u64 size;			/* mmap length */
+} __packed;
+
+struct virt_mem_map_msg {
+	struct virt_msg_hdr hdr;    /* virtio fastrpc message header */
+	s32 offset;          /* map offset, currently it has to be 0*/
+	u32 flags;           /* flags defined in enum fastrpc_map_flags */
+	s32 attrs;           /* attrs passed in from user for SMMU map, currently it is 0 */
+	u64 raddr;           /* dsp address return from BE */
+	struct virt_fastrpc_mapping mmap;    /* map description */
+} __packed;
+
+struct virt_mem_unmap_msg {
+	struct virt_msg_hdr hdr;    /* virtio fastrpc message header */
+	s32 fd;		/* ion fd */
+	u64 len;	/* mapping length*/
+	u64 raddr;	/* dsp address return from BE */
 } __packed;
 
 struct virt_munmap_fd_msg {
@@ -606,7 +624,7 @@ static int context_alloc(struct vfastrpc_file *vfl,
 	ctx->fds = (int *)(&ctx->lpra[bufs]);
 	ctx->attrs = (unsigned int *)(&ctx->fds[bufs]);
 
-	K_COPY_FROM_USER(err, 0, (void *)ctx->lpra, invoke->pra,
+	K_COPY_FROM_USER(err, fl->is_compat, (void *)ctx->lpra, invoke->pra,
 			bufs * sizeof(*ctx->lpra));
 	if (err)
 		goto bail;
@@ -1453,7 +1471,7 @@ int vfastrpc_internal_munmap(struct vfastrpc_file *vfl,
 	}
 
 	mutex_lock(&fl->map_mutex);
-	VERIFY(err, !vfastrpc_mmap_remove(vfl, ud->vaddrout, ud->size, &map));
+	VERIFY(err, !vfastrpc_mmap_remove(vfl, -1, ud->vaddrout, ud->size, &map));
 	mutex_unlock(&fl->map_mutex);
 	if (err) {
 		dev_err(me->dev, "mapping not found to unmap va 0x%lx, len 0x%x\n",
@@ -1765,6 +1783,224 @@ int vfastrpc_internal_mmap(struct vfastrpc_file *vfl,
 		mutex_lock(&fl->map_mutex);
 		vfastrpc_mmap_free(vfl, map, 0);
 		mutex_unlock(&fl->map_mutex);
+	}
+	mutex_unlock(&fl->internal_map_mutex);
+	return err;
+}
+
+static int virt_fastrpc_mem_map(struct vfastrpc_file *vfl, s32 offset,
+		u32 flags, s32 attrs, struct virt_fastrpc_mapping *vmmap,
+		struct scatterlist *table, uintptr_t *raddr)
+{
+	struct fastrpc_file *fl = to_fastrpc_file(vfl);
+	struct vfastrpc_apps *me = vfl->apps;
+	struct virt_mem_map_msg *vmsg, *rsp = NULL;
+	struct virt_fastrpc_msg *msg;
+	struct virt_fastrpc_sgl *sgbuf;
+	int err, sgbuf_size, total_size;
+	struct scatterlist *sgl = NULL;
+	int sgl_index = 0;
+
+	sgbuf_size = vmmap->nents * sizeof(*sgbuf);
+	total_size = sizeof(*vmsg) + sgbuf_size;
+
+	msg = virt_alloc_msg(vfl, total_size);
+	if (!msg)
+		return -ENOMEM;
+
+	vmsg = (struct virt_mem_map_msg *)msg->txbuf;
+	vmsg->hdr.pid = fl->tgid;
+	vmsg->hdr.tid = current->pid;
+	vmsg->hdr.cid = fl->cid;
+	vmsg->hdr.cmd = VIRTIO_FASTRPC_CMD_MEM_MAP;
+	vmsg->hdr.len = total_size;
+	vmsg->hdr.msgid = msg->msgid;
+	vmsg->hdr.result = 0xffffffff;
+	vmsg->offset = offset;
+	vmsg->flags = flags;
+	vmsg->attrs = attrs;
+	vmsg->raddr = 0;
+	memcpy(&vmsg->mmap, vmmap, sizeof(*vmmap));
+	sgbuf = vmsg->mmap.sgl;
+
+	for_each_sg(table, sgl, vmmap->nents, sgl_index) {
+		sgbuf[sgl_index].pv = sg_dma_address(sgl);
+		sgbuf[sgl_index].len = sg_dma_len(sgl);
+	}
+
+	err = vfastrpc_txbuf_send(vfl, vmsg, total_size);
+	if (err)
+		goto bail;
+
+	wait_for_completion(&msg->work);
+
+	rsp = msg->rxbuf;
+	if (!rsp)
+		goto bail;
+
+	err = rsp->hdr.result;
+	if (err)
+		goto bail;
+	*raddr = (uintptr_t)rsp->raddr;
+bail:
+	if (rsp)
+		vfastrpc_rxbuf_send(vfl, rsp, me->buf_size);
+	virt_free_msg(vfl, msg);
+	return err;
+}
+
+int vfastrpc_internal_mem_map(struct vfastrpc_file *vfl,
+				struct fastrpc_ioctl_mem_map *ud)
+{
+	struct fastrpc_file *fl = to_fastrpc_file(vfl);
+	int err = 0;
+	struct vfastrpc_mmap *map = NULL;
+	struct vfastrpc_apps *me = vfl->apps;
+	struct virt_fastrpc_mapping vmmap;
+
+	VERIFY(err, fl->dsp_proc_init == 1);
+	if (err) {
+		dev_err(me->dev, " %s: user application %s trying to map without initialization\n",
+			__func__, current->comm);
+		err = EBADR;
+		return err;
+	}
+
+	mutex_lock(&fl->internal_map_mutex);
+	mutex_lock(&fl->map_mutex);
+	VERIFY(err, !vfastrpc_mmap_create(vfl, ud->m.fd, ud->m.attrs,
+			ud->m.vaddrin, ud->m.length,
+			 ud->m.flags, &map));
+	mutex_unlock(&fl->map_mutex);
+	if (err)
+		goto bail;
+
+	if (map->raddr) {
+		err = -EEXIST;
+		goto bail;
+	}
+
+	vmmap.fd = map->fd;
+	vmmap.refcount = map->refs;
+	vmmap.va = map->va;
+	vmmap.len = map->size;
+	vmmap.attr = VFASTRPC_MAP_ATTR_CACHED;
+	vmmap.nents = map->table->nents;
+	err = virt_fastrpc_mem_map(vfl, ud->m.offset, ud->m.flags, ud->m.attrs,
+			&vmmap, map->table->sgl, &map->raddr);
+	if (err)
+		goto bail;
+	ud->m.vaddrout = map->raddr;
+bail:
+	if (err) {
+		dev_err(me->dev, "%s failed to map fd %d flags %d err %d\n",
+			__func__, ud->m.fd, ud->m.flags, err);
+		if (map) {
+			mutex_lock(&fl->map_mutex);
+			vfastrpc_mmap_free(vfl, map, 0);
+			mutex_unlock(&fl->map_mutex);
+		}
+	}
+	mutex_unlock(&fl->internal_map_mutex);
+	return err;
+}
+
+static int virt_fastrpc_mem_unmap(struct vfastrpc_file *vfl, int fd, u64 size,
+		uintptr_t raddr)
+{
+	struct fastrpc_file *fl = to_fastrpc_file(vfl);
+	struct vfastrpc_apps *me = vfl->apps;
+	struct virt_mem_unmap_msg *vmsg, *rsp = NULL;
+	struct virt_fastrpc_msg *msg;
+	int err;
+
+	msg = virt_alloc_msg(vfl, sizeof(*vmsg));
+	if (!msg)
+		return -ENOMEM;
+
+	vmsg = (struct virt_mem_unmap_msg *)msg->txbuf;
+	vmsg->hdr.pid = fl->tgid;
+	vmsg->hdr.tid = current->pid;
+	vmsg->hdr.cid = fl->cid;
+	vmsg->hdr.cmd = VIRTIO_FASTRPC_CMD_MEM_UNMAP;
+	vmsg->hdr.len = sizeof(*vmsg);
+	vmsg->hdr.msgid = msg->msgid;
+	vmsg->hdr.result = 0xffffffff;
+	vmsg->fd = fd;
+	vmsg->len = size;
+	vmsg->raddr = raddr;
+
+	err = vfastrpc_txbuf_send(vfl, vmsg, sizeof(*vmsg));
+	if (err)
+		goto bail;
+
+	wait_for_completion(&msg->work);
+
+	rsp = msg->rxbuf;
+	if (!rsp)
+		goto bail;
+
+	err = rsp->hdr.result;
+bail:
+	if (rsp)
+		vfastrpc_rxbuf_send(vfl, rsp, me->buf_size);
+	virt_free_msg(vfl, msg);
+
+	return err;
+}
+
+int vfastrpc_internal_mem_unmap(struct vfastrpc_file *vfl,
+				struct fastrpc_ioctl_mem_unmap *ud)
+{
+	struct fastrpc_file *fl = to_fastrpc_file(vfl);
+	int err = 0;
+	struct vfastrpc_mmap *map = NULL;
+	struct vfastrpc_apps *me = vfl->apps;
+
+	VERIFY(err, fl->dsp_proc_init == 1);
+	if (err) {
+		dev_err(me->dev, "%s: user application %s trying to map without initialization\n",
+			__func__, current->comm);
+		err = EBADR;
+		return err;
+	}
+
+	mutex_lock(&fl->internal_map_mutex);
+	mutex_lock(&fl->map_mutex);
+	VERIFY(err, !vfastrpc_mmap_remove(vfl, ud->um.fd,
+				(uintptr_t)ud->um.vaddr, ud->um.length, &map));
+	mutex_unlock(&fl->map_mutex);
+	if (err)
+		goto bail;
+
+	VERIFY(err, map->flags == FASTRPC_MAP_FD ||
+			map->flags == FASTRPC_MAP_FD_DELAYED ||
+			map->flags == FASTRPC_MAP_STATIC);
+	if (err) {
+		err = -EBADMSG;
+		goto bail;
+	}
+
+	err = virt_fastrpc_mem_unmap(vfl, map->fd, map->size, map->raddr);
+	if (err)
+		goto bail;
+
+	mutex_lock(&fl->map_mutex);
+	vfastrpc_mmap_free(vfl, map, 0);
+	mutex_unlock(&fl->map_mutex);
+	map = NULL;
+bail:
+	if (err) {
+		dev_err(me->dev, "%s failed to unmap fd %d addr 0x%llx length 0x%x err 0x%x\n",
+			__func__, ud->um.fd, ud->um.vaddr, ud->um.length, err);
+		/* Add back to map list in case of error to unmap on DSP */
+		if (map) {
+			mutex_lock(&fl->map_mutex);
+			if (map->attr & FASTRPC_ATTR_KEEP_MAP)
+				map->refs++;
+			vfastrpc_mmap_add(vfl, map);
+			mutex_unlock(&fl->map_mutex);
+		}
 	}
 	mutex_unlock(&fl->internal_map_mutex);
 	return err;

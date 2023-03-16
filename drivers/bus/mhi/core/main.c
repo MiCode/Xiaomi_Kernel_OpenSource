@@ -96,7 +96,7 @@ void mhi_db_brstmode(struct mhi_controller *mhi_cntrl,
 	if (db_cfg->db_mode) {
 		db_cfg->db_val = db_val;
 		mhi_write_db(mhi_cntrl, db_addr, db_val);
-		db_cfg->db_mode = 0;
+		db_cfg->db_mode = false;
 	}
 }
 
@@ -610,6 +610,29 @@ static void mhi_recycle_ev_ring_element(struct mhi_controller *mhi_cntrl,
 	smp_wmb();
 }
 
+static bool rsc_ch_ring_db_check(struct mhi_controller *mhi_cntrl,
+			  struct mhi_chan *mhi_chan)
+{
+	struct mhi_ring *tre_ring;
+	int n_free_tre, n_queued_tre;
+	bool ring_db = true;
+
+	/*
+	 * on RSC channel IPA HW has a minimum credit requirement before
+	 * switching to DB mode
+	 */
+	if (mhi_chan->type == MHI_CH_TYPE_INBOUND_COALESCED) {
+		tre_ring = &mhi_chan->tre_ring;
+		n_free_tre = mhi_get_free_desc_count(mhi_chan->mhi_dev,
+						DMA_FROM_DEVICE);
+		n_queued_tre = tre_ring->elements - n_free_tre;
+		if (n_queued_tre < MHI_RSCTRE_MIN_CREDITS)
+			ring_db = false;
+	}
+
+	return ring_db;
+}
+
 static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 			    struct mhi_tre *event,
 			    struct mhi_chan *mhi_chan)
@@ -718,11 +741,27 @@ static int parse_xfer_event(struct mhi_controller *mhi_cntrl,
 		break;
 	} /* CC_EOT */
 	case MHI_EV_CC_OOB:
+	{
+		unsigned long pm_lock_flags;
+
+		mhi_chan->db_cfg.db_mode = true;
+		mhi_chan->mode_change++;
+
+		read_lock_irqsave(&mhi_cntrl->pm_lock, pm_lock_flags);
+		if (tre_ring->wp != tre_ring->rp &&
+		    MHI_DB_ACCESS_VALID(mhi_cntrl) &&
+		    rsc_ch_ring_db_check(mhi_cntrl, mhi_chan)) {
+			MHI_VERB(dev, "OOB_MODE chan %d ring doorbell\n", mhi_chan->chan);
+			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
+		}
+		read_unlock_irqrestore(&mhi_cntrl->pm_lock, pm_lock_flags);
+		break;
+	}
 	case MHI_EV_CC_DB_MODE:
 	{
 		unsigned long pm_lock_flags;
 
-		mhi_chan->db_cfg.db_mode = 1;
+		mhi_chan->db_cfg.db_mode = true;
 		read_lock_irqsave(&mhi_cntrl->pm_lock, pm_lock_flags);
 		if (tre_ring->wp != tre_ring->rp &&
 		    MHI_DB_ACCESS_VALID(mhi_cntrl)) {
@@ -756,6 +795,7 @@ static int parse_rsc_event(struct mhi_controller *mhi_cntrl,
 	int ev_code;
 	u32 cookie; /* offset to local descriptor */
 	u16 xfer_len;
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
 
 	buf_ring = &mhi_chan->buf_ring;
 	tre_ring = &mhi_chan->tre_ring;
@@ -766,6 +806,14 @@ static int parse_rsc_event(struct mhi_controller *mhi_cntrl,
 
 	/* Received out of bound cookie */
 	WARN_ON(cookie >= buf_ring->len);
+
+	/* received out of bound cookie */
+	if (cookie >= buf_ring->len) {
+		MHI_ERR(dev, "cookie 0x%08x bufring_len %zu", cookie, buf_ring->len);
+		MHI_ERR(dev, "Processing Event:0x%llx 0x%08x 0x%08x\n",
+			event->ptr, event->dword[0], event->dword[1]);
+		panic("invalid cookie");
+	}
 
 	buf_info = buf_ring->base + cookie;
 
@@ -1229,7 +1277,8 @@ static int mhi_queue(struct mhi_device *mhi_dev, struct mhi_buf_info *buf_info,
 	if (mhi_chan->dir == DMA_TO_DEVICE)
 		atomic_inc(&mhi_cntrl->pending_pkts);
 
-	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)))
+	if (likely(MHI_DB_ACCESS_VALID(mhi_cntrl)) &&
+	    rsc_ch_ring_db_check(mhi_cntrl, mhi_chan))
 		mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 
 	read_unlock_irqrestore(&mhi_cntrl->pm_lock, flags);
@@ -1316,9 +1365,19 @@ int mhi_gen_tre(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan,
 	bei = !!(mhi_chan->intmod);
 
 	mhi_tre = tre_ring->wp;
-	mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
-	mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(info->len);
-	mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(bei, eot, eob, chain);
+
+	if (mhi_chan->type == MHI_CH_TYPE_INBOUND_COALESCED) {
+		buf_info->used = true;
+		mhi_tre->ptr =
+			MHI_RSCTRE_DATA_PTR(buf_info->p_addr, buf_info->len);
+		mhi_tre->dword[0] =
+			MHI_RSCTRE_DATA_DWORD0(buf_ring->wp - buf_ring->base);
+		mhi_tre->dword[1] = MHI_RSCTRE_DATA_DWORD1;
+	} else {
+		mhi_tre->ptr = MHI_TRE_DATA_PTR(buf_info->p_addr);
+		mhi_tre->dword[0] = MHI_TRE_DATA_DWORD0(info->len);
+		mhi_tre->dword[1] = MHI_TRE_DATA_DWORD1(bei, eot, eob, chain);
+	}
 
 	MHI_VERB(dev, "Chan: %d WP: 0x%llx TRE: 0x%llx 0x%08x 0x%08x\n",
 		 mhi_chan->chan, (u64)mhi_to_physical(tre_ring, mhi_tre),
@@ -1664,6 +1723,32 @@ static void mhi_mark_stale_events(struct mhi_controller *mhi_cntrl,
 	spin_unlock_irqrestore(&mhi_event->lock, flags);
 }
 
+static void mhi_reset_rsc_chan(struct mhi_controller *mhi_cntrl,
+			       struct mhi_chan *mhi_chan)
+{
+	struct mhi_ring *buf_ring, *tre_ring;
+	struct mhi_result result;
+	struct mhi_buf_info *buf_info;
+	struct device *dev = &mhi_cntrl->mhi_dev->dev;
+
+	MHI_VERB(dev, "Reset RSC channel\n");
+	/* reset any pending buffers */
+	buf_ring = &mhi_chan->buf_ring;
+	tre_ring = &mhi_chan->tre_ring;
+	result.transaction_status = -ENOTCONN;
+	result.bytes_xferd = 0;
+
+	buf_info = buf_ring->base;
+	for (; (void *)buf_info < buf_ring->base + buf_ring->len; buf_info++) {
+		if (!buf_info->used)
+			continue;
+
+		result.buf_addr = buf_info->cb_buf;
+		mhi_chan->xfer_cb(mhi_chan->mhi_dev, &result);
+		buf_info->used = false;
+	}
+}
+
 static void mhi_reset_data_chan(struct mhi_controller *mhi_cntrl,
 				struct mhi_chan *mhi_chan)
 {
@@ -1712,7 +1797,10 @@ void mhi_reset_chan(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan)
 
 	mhi_mark_stale_events(mhi_cntrl, mhi_event, er_ctxt, chan);
 
-	mhi_reset_data_chan(mhi_cntrl, mhi_chan);
+	if (mhi_chan->type == MHI_CH_TYPE_INBOUND_COALESCED)
+		mhi_reset_rsc_chan(mhi_cntrl, mhi_chan);
+	else
+		mhi_reset_data_chan(mhi_cntrl, mhi_chan);
 
 	read_unlock_bh(&mhi_cntrl->pm_lock);
 }

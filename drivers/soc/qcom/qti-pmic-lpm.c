@@ -29,6 +29,9 @@
 #define SDAM_INT_TEST_VAL	0xE1
 #define SDAM_INT_TEST_VAL_BIT	BIT(1)
 
+#define SDAM_HANDSHAKE_REG	0x48
+#define SDAM_TWM_HANDSHAKE_BIT	BIT(1)
+
 static void qti_pmic_lpm_syscore_shutdown(void);
 
 /**
@@ -74,6 +77,19 @@ static int pmic_lpm_write(struct qti_pmic_lpm *chip, int addr, u8 *data, int len
 
 	return rc;
 }
+
+static int pmic_lpm_masked_write(struct qti_pmic_lpm *chip, int addr, u8 mask, u8 val)
+{
+	int rc;
+
+	rc = regmap_update_bits(chip->regmap, chip->sdam_base + addr, mask, val);
+	if (rc < 0)
+		pr_err("Failed to write to sdam addr:%#x,rc=%d\n",
+			chip->sdam_base + addr, rc);
+
+	return rc;
+}
+
 
 static int qti_pmic_handle_lpm(struct qti_pmic_lpm *chip, bool entry)
 {
@@ -286,9 +302,13 @@ static int qti_pmic_lpm_remove(struct platform_device *pdev)
 	return rc;
 }
 
+#define TWM_HANDSHAKE_RETRY_COUNT 50
+#define TWM_HANDSHAKE_COMPLETION_DATA 0x02
+
 static void qti_pmic_lpm_syscore_shutdown(void)
 {
 	int rc = 0;
+	u8 data = 0, count = TWM_HANDSHAKE_RETRY_COUNT;
 
 	if (gchip == NULL) {
 		pr_err("gchip is NULL\n");
@@ -298,11 +318,29 @@ static void qti_pmic_lpm_syscore_shutdown(void)
 	pr_debug("LPM Syscore shutdown twm_state : %d\n", gchip->twm_enable);
 
 	if (gchip->twm_enable) {
+		/*Clear the handshake bit before sending TWM notification */
+		pmic_lpm_masked_write(gchip, SDAM_HANDSHAKE_REG, SDAM_TWM_HANDSHAKE_BIT, 0);
+
 		rc = qti_pmic_handle_lpm(gchip, true);
 		if (rc < 0)
 			dev_err(gchip->dev, "Failed to handle twm entry, rc:%d\n",
 				rc);
-		pr_debug("PMIC TWM enabled\n");
+
+		/* Once Co-proc receives TWM entry notification -- It configures
+		 * SPI block and sets SDAM48(BIT1) to notify APPS of completion
+		 * of configuration. Block APPS shutdown until Co-proc notifies
+		 * APPS of SPI configuration completion.
+		 */
+		do {
+			pmic_lpm_read(gchip, SDAM_HANDSHAKE_REG, &data, 1);
+			pr_debug("Value of SDAM_HANDSHAKE_REG(SDAM48) : %d\n",
+									data);
+			if (data & TWM_HANDSHAKE_COMPLETION_DATA) {
+				pr_info("PMIC TWM enabled\n");
+				return;
+			}
+			mdelay(10);
+		} while (count--);
 	}
 }
 
@@ -345,33 +383,7 @@ static int qti_pmic_lpm_resume_early(struct device *dev)
 }
 #endif
 
-static int qti_pmic_lpm_freeze_late(struct device *dev)
-{
-	int rc;
-	struct qti_pmic_lpm *chip = dev_get_drvdata(dev);
-
-	rc = qti_pmic_handle_lpm(chip, true);
-	if (rc < 0)
-		dev_err(dev, "Failed to handle freeze_late(), rc:%d\n", rc);
-
-	return rc;
-}
-
-static int qti_pmic_lpm_restore_early(struct device *dev)
-{
-	int rc;
-	struct qti_pmic_lpm *chip = dev_get_drvdata(dev);
-
-	rc = qti_pmic_handle_lpm(chip, false);
-	if (rc < 0)
-		dev_err(dev, "Failed to handle restore_early(), rc:%d\n", rc);
-
-	return rc;
-}
-
 static const struct dev_pm_ops qti_pmic_lpm_pm_ops = {
-	.freeze_late = qti_pmic_lpm_freeze_late,
-	.restore_early = qti_pmic_lpm_restore_early,
 #ifdef CONFIG_DEEPSLEEP
 	.suspend_late = qti_pmic_lpm_suspend_late,
 	.resume_early = qti_pmic_lpm_resume_early,

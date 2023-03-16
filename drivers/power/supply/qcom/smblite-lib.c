@@ -856,7 +856,7 @@ static int smblite_lib_icl_irq_disable_vote_callback(struct votable *votable,
 {
 	struct smb_charger *chg = data;
 
-	if (!chg->irq_info[USBIN_ICL_CHANGE_IRQ].irq)
+	if (!chg->irq_info[USBIN_ICL_CHANGE_IRQ].is_requested)
 		return 0;
 
 	if (chg->irq_info[USBIN_ICL_CHANGE_IRQ].enabled) {
@@ -882,7 +882,7 @@ static int smblite_lib_temp_change_irq_disable_vote_callback(
 {
 	struct smb_charger *chg = data;
 
-	if (!chg->irq_info[TEMP_CHANGE_IRQ].irq)
+	if (!chg->irq_info[TEMP_CHANGE_IRQ].is_requested)
 		return 0;
 
 	if (chg->irq_info[TEMP_CHANGE_IRQ].enabled && disable) {
@@ -3292,7 +3292,7 @@ void smblite_lib_rerun_apsd(struct smb_charger *chg)
 		smblite_lib_err(chg, "Couldn't re-run APSD rc=%d\n", rc);
 }
 
-static int smblite_lib_rerun_apsd_if_required(struct smb_charger *chg)
+int smblite_lib_rerun_apsd_if_required(struct smb_charger *chg)
 {
 	union power_supply_propval val;
 	int rc;

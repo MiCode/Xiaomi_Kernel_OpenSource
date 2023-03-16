@@ -637,7 +637,7 @@ int mhi_init_chan_ctxt(struct mhi_controller *mhi_cntrl,
 
 	tre_ring->rp = tre_ring->wp = tre_ring->base;
 	buf_ring->rp = buf_ring->wp = buf_ring->base;
-	mhi_chan->db_cfg.db_mode = 1;
+	mhi_chan->db_cfg.db_mode = true;
 
 	/* Update to all cores */
 	smp_wmb();

@@ -538,6 +538,20 @@ config SM_CAMCC_8250
 	  Support for the camera clock controller on SM8250 devices.
 	  Say Y if you want to support camera devices and camera functionality.
 
+config SM_DEBUGCC_8250
+	tristate "SM8250 Debug Clock Controller"
+	select SM_GCC_8250
+	help
+	  Support for the debug clock controller on SM8250 devices.
+	  Say Y if you want to support clock debug functionality.
+
+config SM_NPUCC_8250
+	tristate "SM8250 npu Clock Controller"
+	select SM_GCC_8250
+	help
+	  Support for the npu clock controller on SM8250 devices.
+	  Say Y if you want to support npu functionality.
+
 config SM_DISPCC_8250
 	tristate "SM8150 and SM8250 Display Clock Controller"
 	depends on SM_GCC_8150 || SM_GCC_8250

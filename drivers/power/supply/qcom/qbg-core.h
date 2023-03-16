@@ -115,6 +115,7 @@ enum QBG_ACCUM_INTERVAL_TYPE {
  * @debug_mask:		Debug mask to enable/disable debug prints
  * @adc_cmn_wb_base:	Base address of ADC_CMN_WB module
  * @adc_cmn_base:	Base address of ADC_CMN module
+ * @vbatt_empty_threshold_mv:	Threshold for vbatt-empty INT.
  * @pon_ocv:		Power-on OCV of QBG device
  * @pon_ibat:		Power-on current of QBG device
  * @pon_soc:		Power-on SOC of QBG device
@@ -189,7 +190,9 @@ struct qti_qbg {
 	wait_queue_head_t	qbg_wait_q;
 	const char		*irq_name;
 	const char		*batt_type_str;
+	const char		*vbatt_empty_irq_name;
 	int			irq;
+	int			vbatt_empty_irq;
 	u8			*context;
 	u32			base;
 	u32			rev4;
@@ -203,6 +206,7 @@ struct qti_qbg {
 	u32			*debug_mask;
 	u32			adc_cmn_wb_base;
 	u32			adc_cmn_base;
+	u32			vbatt_empty_threshold_mv;
 	int			pon_ocv;
 	int			pon_ibat;
 	int			pon_tbat;

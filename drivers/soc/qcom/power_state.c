@@ -21,8 +21,6 @@
 #include <linux/suspend.h>
 #include <linux/ioctl.h>
 #include <linux/kdev_t.h>
-#include <soc/qcom/subsystem_restart.h>
-#include <soc/qcom/subsystem_notif.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/gpio.h>
@@ -30,10 +28,21 @@
 #include <linux/ktime.h>
 #include <linux/pm_wakeup.h>
 #include <linux/compat.h>
+#include <linux/remoteproc.h>
+#include <linux/remoteproc/qcom_rproc.h>
 #include "linux/power_state.h"
 
 #define POWER_STATE "power_state"
 #define STRING_LEN 32
+
+LIST_HEAD(sub_sys_list);
+
+struct subsystem_list {
+	struct list_head list;
+	const char *name;
+	bool status;
+	phandle rproc_handle;
+};
 
 static struct class *ps_class;
 struct device *ps_ret;
@@ -41,8 +50,7 @@ static  struct cdev ps_cdev;
 static  dev_t ps_dev;
 struct kobject *kobj_ref;
 static struct wakeup_source *notify_ws;
-static const char *adsp_subsys = "adsp";
-static const char *mdsp_subsys = "modem";
+static int subsys_count;
 static int ignore_ssr;
 
 enum power_states {
@@ -58,6 +66,20 @@ static char * const power_state[] = {
 };
 
 enum power_states current_state = ACTIVE;
+
+enum ssr_domain_info {
+	SSR_DOMAIN_MODEM,
+	SSR_DOMAIN_ADSP,
+	SSR_DOMAIN_MAX,
+};
+
+struct service_info {
+	const char name[STRING_LEN];
+	const char ssr_domains[STRING_LEN];
+	int domain_id;
+	void *handle;
+	struct notifier_block *nb;
+};
 
 struct ps_event {
 	enum ps_event_type event;
@@ -82,18 +104,16 @@ static int send_uevent(struct ps_event *pse)
 	return kobject_uevent_env(&ps_ret->kobj, KOBJ_CHANGE, envp);
 }
 
-static int subsys_suspend(const char *subsystem, uint32_t *ui_obj_msg)
+static int subsys_suspend(void *rproc_handle, uint32_t state)
 {
 	int ret = 0;
-	uint32_t state = *ui_obj_msg;
 
 	switch (state) {
 	case SUBSYS_DEEPSLEEP:
-		/*Add call for Subsys Suspend*/
-		break;
 	case SUBSYS_HIBERNATE:
 		ignore_ssr = 1;
 		/*Add call for Subsys Shutdown*/
+		rproc_shutdown(rproc_handle);
 		ignore_ssr = 0;
 		break;
 	default:
@@ -104,24 +124,60 @@ static int subsys_suspend(const char *subsystem, uint32_t *ui_obj_msg)
 	return ret;
 }
 
-static int subsys_resume(const char *subsystem, uint32_t *ui_obj_msg)
+static int subsys_resume(void *rproc_handle, uint32_t state)
 {
 	int ret = 0;
-	uint32_t state = *ui_obj_msg;
 
 	switch (state) {
 	case SUBSYS_DEEPSLEEP:
-		/*Add call for Subsys Power Up*/
-		break;
 	case SUBSYS_HIBERNATE:
 		ignore_ssr = 1;
 		/*Add call for Subsys Restart*/
+		ret = rproc_boot(rproc_handle);
 		ignore_ssr = 0;
 		break;
 	default:
 		pr_err("%s: Invalid subsys suspend exit state\n", __func__);
 		ret = -1;
 		break;
+	}
+	return ret;
+}
+
+static int subsystem_resume(uint32_t state)
+{
+	struct subsystem_list *ss_list;
+	int ret;
+	void *pil_h = NULL;
+
+	list_for_each_entry(ss_list, &sub_sys_list, list) {
+		pr_err("%s: initiating %s resume\n", __func__, ss_list->name);
+		pil_h = rproc_get_by_phandle(ss_list->rproc_handle);
+		ret = subsys_resume(pil_h, state);
+		if (ret) {
+			pr_err("%s : subsys resume failed for %s\n", __func__, ss_list->name);
+			BUG();
+		}
+		pr_err("%s: %s resume complete\n", __func__, ss_list->name);
+	}
+	return ret;
+}
+
+static int subsystem_suspend(uint32_t state)
+{
+	struct subsystem_list *ss_list;
+	int ret;
+	void *pil_h = NULL;
+
+	list_for_each_entry(ss_list, &sub_sys_list, list) {
+		pr_err("%s: initiating %s suspend\n", __func__, ss_list->name);
+		pil_h = rproc_get_by_phandle(ss_list->rproc_handle);
+		ret = subsys_suspend(pil_h, state);
+		if (ret) {
+			pr_err("%s : subsys suspend failed for %s\n", __func__, ss_list->name);
+			BUG();
+		}
+		pr_err("%s: %s suspend complete\n", __func__, ss_list->name);
 	}
 	return ret;
 }
@@ -191,11 +247,17 @@ static int powerstate_pm_notifier(struct notifier_block *nb, unsigned long event
 
 static struct notifier_block powerstate_pm_nb = {
 	.notifier_call = powerstate_pm_notifier,
+	.priority = 100,
 };
+
+static int ssr_register(void);
 
 static int ps_probe(struct platform_device *pdev)
 {
-	int ret;
+	int ret, i;
+	const char *name;
+	struct subsystem_list *ss_list;
+	phandle rproc_handle;
 
 	ret = register_pm_notifier(&powerstate_pm_nb);
 	if (ret) {
@@ -209,7 +271,59 @@ static int ps_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	return 0;
+	/*Get Rproc handles for ADSP and Modem*/
+	if (pdev) {
+		if (pdev->dev.of_node) {
+			subsys_count = of_property_count_strings(pdev->dev.of_node,
+								"qcom,subsys-name");
+
+			if (subsys_count > 0) {
+				for (i = 0; i < subsys_count; i++) {
+
+					if (of_property_read_string_index(pdev->dev.of_node,
+							"qcom,subsys-name", i, &name)) {
+						pr_err("%s: error reading subsystem name\n",
+								__func__);
+						continue;
+					}
+
+					if (of_property_read_u32_index(pdev->dev.of_node,
+							"qcom,rproc-handle", i, &rproc_handle)) {
+						pr_err("%s: error reading %s rproc-handle\n",
+									__func__, name);
+						continue;
+					}
+
+					ss_list = devm_kzalloc(&pdev->dev,
+							sizeof(struct subsystem_list), GFP_KERNEL);
+					if (!ss_list) {
+						ret = -ENOMEM;
+						return ret;
+					}
+
+					ss_list->name = name;
+					ss_list->rproc_handle = rproc_handle;
+					ss_list->status = false;
+					list_add_tail(&ss_list->list, &sub_sys_list);
+				}
+			}
+		} else {
+			pr_err("%s: device tree information missing\n", __func__);
+			ret = -EFAULT;
+		}
+	} else {
+		pr_err("%s: platform device null\n", __func__);
+		ret = -ENODEV;
+	}
+
+	ret = ssr_register();
+	if (ret)
+		pr_err("%s: Error registering SSR\n", __func__);
+
+	if (!ret)
+		pr_debug("%s, success\n", __func__);
+
+	return ret;
 }
 
 static const struct of_device_id power_state_of_match[] = {
@@ -257,13 +371,27 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 	case ENTER_DEEPSLEEP:
 	case POWER_STATE_ENTER_DEEPSLEEP:
 		pr_debug("%s: Enter Deep Sleep\n", __func__);
+		ret = subsystem_suspend(SUBSYS_DEEPSLEEP);
 		current_state = DEEPSLEEP;
 		break;
 
 	case ENTER_HIBERNATE:
 	case POWER_STATE_ENTER_HIBERNATE:
 		pr_debug("%s: Enter Hibernate\n", __func__);
+		ret = subsystem_suspend(SUBSYS_HIBERNATE);
 		current_state = HIBERNATE;
+		break;
+
+	case EXIT_DEEPSLEEP_STATE:
+	case POWER_STATE_EXIT_DEEPSLEEP_STATE:
+		pr_err("%s: Exit Deep Sleep\n", __func__);
+		ret = subsystem_resume(SUBSYS_DEEPSLEEP);
+		break;
+
+	case EXIT_HIBERNATE_STATE:
+	case POWER_STATE_EXIT_HIBERNATE_STATE:
+		pr_debug("%s: Exit Hibernate\n", __func__);
+		ret = subsystem_resume(SUBSYS_HIBERNATE);
 		break;
 
 	case MODEM_SUSPEND:
@@ -275,12 +403,6 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 			ret = -EFAULT;
 		}
 
-		/*To Modem subsys*/
-		ret = subsys_suspend(mdsp_subsys, &ui_obj_msg);
-		if (ret != 0)
-			pr_err("%s: Modem failed to Shutdown\n", __func__);
-		else
-			pr_debug("%s: Modem Shutdown Complete\n", __func__);
 		break;
 
 	case ADSP_SUSPEND:
@@ -292,12 +414,6 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 			ret = -EFAULT;
 		}
 
-		/*To ADSP subsys*/
-		ret = subsys_suspend(adsp_subsys, &ui_obj_msg);
-		if (ret != 0)
-			pr_err("%s: ADSP failed to Shutdown\n", __func__);
-		else
-			pr_debug("%s: ADSP Shutdown Complete\n", __func__);
 		break;
 
 	case MODEM_EXIT:
@@ -309,13 +425,6 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 			ret = -EFAULT;
 		}
 
-		/*To Modem subsys*/
-		ret = subsys_resume(mdsp_subsys, &ui_obj_msg);
-		if (ret != 0) {
-			pr_err("%s: Modem Load Failed\n", __func__);
-			ret = subsystem_restart(mdsp_subsys);
-		} else
-			pr_debug("%s: Modem Successfully Brought up\n", __func__);
 		break;
 
 	case ADSP_EXIT:
@@ -327,13 +436,6 @@ static long ps_ioctl(struct file *filp, unsigned int ui_power_state_cmd, unsigne
 			ret = -EFAULT;
 		}
 
-		/*To ADSP subsys*/
-		ret = subsys_resume(adsp_subsys, &ui_obj_msg);
-		if (ret != 0) {
-			pr_err("%s: ADSP Load Failed\n", __func__);
-			ret = subsystem_restart(adsp_subsys);
-		} else
-			pr_debug("%s: ADSP Successfully Brought up\n", __func__);
 		break;
 
 	default:
@@ -349,6 +451,7 @@ static long compat_ps_ioctl(struct file *file, unsigned int cmd, unsigned long a
 	unsigned int nr = 0;
 
 	nr = _IOC_NR(cmd);
+
 	return (long)ps_ioctl(file, nr, arg);
 }
 static const struct file_operations ps_fops = {
@@ -401,8 +504,8 @@ static int __init init_power_state_func(void)
 	/*Creating sysfs file for power_state*/
 	if (sysfs_create_file(kobj_ref, &power_state_attr.attr)) {
 		pr_err("%s: Cannot create sysfs file\n", __func__);
-		kobject_put(kobj_ref);
 		sysfs_remove_file(kernel_kobj, &power_state_attr.attr);
+		kobject_put(kobj_ref);
 	}
 
 	return 0;
@@ -410,13 +513,129 @@ static int __init init_power_state_func(void)
 
 static void __exit exit_power_state_func(void)
 {
-	kobject_put(kobj_ref);
+	struct subsystem_list *ss_list;
+
+	unregister_pm_notifier(&powerstate_pm_nb);
+	wakeup_source_unregister(notify_ws);
 	sysfs_remove_file(kernel_kobj, &power_state_attr.attr);
+	kobject_put(kobj_ref);
 	device_destroy(ps_class, ps_dev);
 	class_destroy(ps_class);
 	cdev_del(&ps_cdev);
 	unregister_chrdev_region(ps_dev, 1);
 	platform_driver_unregister(&ps_driver);
+	list_for_each_entry(ss_list, &sub_sys_list, list)
+		list_del(&ss_list->list);
+}
+
+
+static int ssr_modem_cb(struct notifier_block *this, unsigned long opcode, void *data)
+{
+	struct ps_event modeme;
+
+	switch (opcode) {
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		pr_debug("%s: modem is shutdown\n", __func__);
+		if (ignore_ssr != 1) {
+			modeme.event = MDSP_BEFORE_POWERDOWN;
+			send_uevent(&modeme);
+		}
+		break;
+	case QCOM_SSR_AFTER_POWERUP:
+		pr_debug("%s: modem is powered up\n", __func__);
+		if (ignore_ssr != 1) {
+			modeme.event = MDSP_AFTER_POWERUP;
+			send_uevent(&modeme);
+		}
+		break;
+	default:
+		pr_debug("%s: ignore modem ssr event\n");
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static int ssr_adsp_cb(struct notifier_block *this, unsigned long opcode, void *data)
+{
+	struct ps_event adspe;
+
+	switch (opcode) {
+	case QCOM_SSR_BEFORE_SHUTDOWN:
+		pr_debug("%s: adsp is shutdown\n", __func__);
+		if (ignore_ssr != 1) {
+			adspe.event = ADSP_BEFORE_POWERDOWN;
+			send_uevent(&adspe);
+		}
+		break;
+	case QCOM_SSR_AFTER_POWERUP:
+		pr_debug("%s: adsp is powered up\n", __func__);
+		if (ignore_ssr != 1) {
+			adspe.event = ADSP_AFTER_POWERUP;
+			send_uevent(&adspe);
+		}
+		break;
+	default:
+		pr_debug("%s: ignore adsp ssr event\n");
+		break;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ssr_modem_nb = {
+	.notifier_call = ssr_modem_cb,
+	.priority = 0,
+};
+
+static struct notifier_block ssr_adsp_nb = {
+	.notifier_call = ssr_adsp_cb,
+	.priority = 0,
+};
+
+static struct service_info service_data[2] = {
+	{
+		.name = "SSR_MODEM",
+		.ssr_domains = "mpss",
+		.domain_id = SSR_DOMAIN_MODEM,
+		.nb = &ssr_modem_nb,
+		.handle = NULL,
+	},
+	{
+		.name = "SSR_ADSP",
+		.ssr_domains = "lpass",
+		.domain_id = SSR_DOMAIN_ADSP,
+		.nb = &ssr_adsp_nb,
+		.handle = NULL,
+	},
+};
+
+static int ssr_register(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(service_data); i++) {
+		if ((service_data[i].domain_id < 0) ||
+				(service_data[i].domain_id >= SSR_DOMAIN_MAX)) {
+			pr_err("Invalid service ID = %d\n",
+					service_data[i].domain_id);
+		} else {
+			service_data[i].handle =
+					qcom_register_ssr_notifier(
+					service_data[i].ssr_domains,
+					service_data[i].nb);
+			pr_err("subsys registration for id = %d, ssr domain = %s\n",
+				service_data[i].domain_id,
+				service_data[i].ssr_domains);
+			if (IS_ERR_OR_NULL(service_data[i].handle)) {
+				pr_err("subsys register failed for id = %d, ssr domain = %s\n",
+						service_data[i].domain_id,
+						service_data[i].ssr_domains);
+				service_data[i].handle = NULL;
+			}
+		}
+	}
+	return 0;
 }
 
 module_init(init_power_state_func);

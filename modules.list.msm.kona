@@ -11,6 +11,7 @@ qcom-scm.ko
 smem.ko
 secure_buffer.ko
 qcom-cpufreq-hw.ko
+qcom_cpu_vendor_hooks.ko
 sched-walt.ko
 qti-regmap-debugfs.ko
 qcom_hwspinlock.ko
@@ -39,6 +40,7 @@ qcom_ipc_logging.ko
 ufs_qcom.ko
 phy-qcom-ufs.ko
 phy-qcom-ufs-qmp-v4.ko
+phy-qcom-ufs-qmp-v4-kona.ko
 ufshcd-crypto-qti.ko
 camcc-sm8250.ko
 videocc-sm8250.ko
@@ -53,3 +55,7 @@ regmap-spmi.ko
 qcom-spmi-pmic.ko
 nvmem_qcom-spmi-sdam.ko
 rtc-pm8xxx.ko
+qpnp-power-on.ko
+msm-poweroff.ko
+qcom_llcc_pmu.ko
+qcom-pmu-lib.ko

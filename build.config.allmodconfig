@@ -6,7 +6,6 @@ function update_config() {
          -d TEST_KMOD  \
          -e UNWINDER_FRAME_POINTER \
 	 -d INFINIBAND_QIB \
-	 -d WERROR \
          -d SAMPLES \
          -d BPFILTER \
 

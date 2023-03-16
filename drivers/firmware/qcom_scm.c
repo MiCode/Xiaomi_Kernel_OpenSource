@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2010,2015,2019,2021 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt)     "qcom-scm: %s: " fmt, __func__
 
@@ -61,6 +61,9 @@ struct qcom_scm {
 
 	u64 dload_mode_addr;
 };
+
+enum qcom_scm_custom_reset_type qcom_scm_custom_reset_type;
+EXPORT_SYMBOL(qcom_scm_custom_reset_type);
 
 #define QCOM_SCM_FLAG_COLDBOOT_CPU0	0x00
 #define QCOM_SCM_FLAG_COLDBOOT_CPU1	0x01
@@ -966,11 +969,9 @@ void qcom_scm_halt_spmi_pmic_arbiter(void)
 		.arginfo = QCOM_SCM_ARGS(1),
 	};
 
-	pr_crit("Calling SCM to disable SPMI PMIC arbiter\n");
-
 	ret = qcom_scm_call_atomic(__scm->dev, &desc, NULL);
 	if (ret)
-		pr_err("Failed to halt_spmi_pmic_arbiter=0x%x\n", ret);
+		pr_debug("Failed to halt_spmi_pmic_arbiter=0x%x\n", ret);
 }
 EXPORT_SYMBOL(qcom_scm_halt_spmi_pmic_arbiter);
 
@@ -2272,6 +2273,21 @@ static int qcom_scm_reboot(struct device *dev)
 	return qcom_scm_call_atomic(dev, &desc, NULL);
 }
 
+int qcom_scm_custom_reboot(struct device *dev,
+			enum qcom_scm_custom_reset_type reboot_type)
+{
+	struct qcom_scm_desc desc = {
+		.svc = QCOM_SCM_SVC_OEM_POWER,
+		.cmd = QCOM_SCM_OEM_POWER_CUSTOM_REBOOT,
+		.owner = ARM_SMCCC_OWNER_OEM,
+	};
+
+	desc.args[0] = reboot_type;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	return qcom_scm_call_atomic(dev, &desc, NULL);
+}
+
 int qcom_scm_ice_restore_cfg(void)
 {
 	struct qcom_scm_desc desc = {
@@ -2607,8 +2623,13 @@ static int qcom_scm_do_restart(struct notifier_block *this, unsigned long event,
 {
 	struct qcom_scm *scm = container_of(this, struct qcom_scm, restart_nb);
 
-	if (reboot_mode == REBOOT_WARM)
+	if (reboot_mode == REBOOT_WARM &&
+		qcom_scm_custom_reset_type == QCOM_SCM_RST_NONE)
 		qcom_scm_reboot(scm->dev);
+
+	if (qcom_scm_custom_reset_type > QCOM_SCM_RST_NONE &&
+			qcom_scm_custom_reset_type < QCOM_SCM_RST_MAX)
+		qcom_scm_custom_reboot(scm->dev, qcom_scm_custom_reset_type);
 
 	return NOTIFY_OK;
 }

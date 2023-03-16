@@ -150,6 +150,9 @@ struct mhi_dev_net_ctxt {
 	void (*net_event_notifier)(struct mhi_dev_client_cb_reason *cb);
 	uint32_t num_mhi_instances;
 	uint32_t eth_iface_out_ch; /* outbound channel that uses eth interface */
+	/* TX and RX Reqs  */
+	u32 tx_reqs;
+	u32 rx_reqs;
 };
 
 static struct mhi_dev_net_ctxt mhi_net_ctxt;
@@ -331,7 +334,7 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 				struct mhi_req, list);
 		list_del_init(&req->list);
 		spin_unlock_irqrestore(&mhi_handle->rd_lock, flags);
-		skb = alloc_skb(MHI_NET_DEFAULT_MTU, GFP_KERNEL);
+		skb = alloc_skb(mhi_handle->dev->mtu, GFP_KERNEL);
 		if (skb == NULL) {
 			mhi_dev_net_log(mhi_handle->vf_id, MHI_ERROR, "skb alloc failed\n");
 			spin_lock_irqsave(&mhi_handle->rd_lock, flags);
@@ -345,7 +348,7 @@ static ssize_t mhi_dev_net_client_read(struct mhi_dev_net_client *mhi_handle)
 		req->vf_id = mhi_handle->vf_id;
 		req->chan = chan;
 		req->buf = skb->data;
-		req->len = MHI_NET_DEFAULT_MTU;
+		req->len = mhi_handle->dev->mtu;
 		req->context = skb;
 		req->mode = DMA_ASYNC;
 		req->snd_cmpl = 0;
@@ -395,7 +398,7 @@ static int mhi_dev_net_alloc_write_reqs(struct mhi_dev_net_client *client)
 	int nreq = 0, rc = 0;
 	struct mhi_req *wreq;
 
-	while (nreq < MHI_MAX_TX_REQ) {
+	while (nreq < mhi_net_ctxt.tx_reqs) {
 		wreq = kzalloc(sizeof(struct mhi_req), GFP_ATOMIC);
 		if (!wreq)
 			return -ENOMEM;
@@ -414,7 +417,7 @@ static int mhi_dev_net_alloc_read_reqs(struct mhi_dev_net_client *client)
 	int nreq = 0, rc = 0;
 	struct mhi_req *mreq;
 
-	while (nreq < MHI_MAX_RX_REQ) {
+	while (nreq < mhi_net_ctxt.rx_reqs) {
 		mreq = kzalloc(sizeof(struct mhi_req), GFP_ATOMIC);
 		if (!mreq)
 			return -ENOMEM;
@@ -498,6 +501,8 @@ static void mhi_dev_net_rawip_setup(struct net_device *dev)
 	dev->header_ops = NULL;
 	dev->type = ARPHRD_RAWIP;
 	dev->hard_header_len = 0;
+	dev->min_mtu = ETH_MIN_MTU;
+	dev->max_mtu = ETH_MAX_MTU;
 	dev->mtu = MHI_NET_DEFAULT_MTU;
 	dev->addr_len = 0;
 	dev->flags &= ~(IFF_BROADCAST | IFF_MULTICAST);
@@ -940,6 +945,7 @@ EXPORT_SYMBOL(mhi_dev_net_exit);
 static int mhi_dev_net_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	uint32_t reqs = 0;
 
 	if (pdev->dev.of_node) {
 		mhi_net_ctxt.pdev = pdev;
@@ -951,6 +957,17 @@ static int mhi_dev_net_probe(struct platform_device *pdev)
 			mhi_dev_net_log(MHI_PF_ID, MHI_INFO,
 					"Channel %d uses ethernet interface\n",
 					mhi_net_ctxt.eth_iface_out_ch);
+
+		ret = of_property_read_u32((&mhi_net_ctxt.pdev->dev)->of_node,
+						"qcom,tx_rx_reqs", &reqs);
+		if (ret < 0) {
+			mhi_net_ctxt.tx_reqs = MHI_MAX_TX_REQ;
+			mhi_net_ctxt.rx_reqs = MHI_MAX_RX_REQ;
+		} else {
+			mhi_net_ctxt.tx_reqs = reqs;
+			mhi_net_ctxt.rx_reqs = reqs;
+		}
+
 		mhi_dev_net_log(MHI_PF_ID, MHI_INFO,
 				"MHI Network probe success");
 	}

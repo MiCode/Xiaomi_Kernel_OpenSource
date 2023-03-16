@@ -604,7 +604,6 @@ static void virtio_regulator_remove(struct virtio_device *vdev)
 
 static const struct virtio_device_id id_table[] = {
 	{ VIRTIO_ID_REGULATOR, VIRTIO_DEV_ANY_ID },
-	{ VIRTIO_ID_REGULATOR_BC, VIRTIO_DEV_ANY_ID },
 	{ 0 },
 };
 

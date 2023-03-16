@@ -392,6 +392,11 @@ int crm_channel_switch_complete(const struct crm_drv *drv, u32 ch)
 			sts &= CH1_CHN_BUSY;
 
 		retry--;
+		/*
+		 * Wait till all the votes are applied to new
+		 * channel during channel switch.
+		 * Maximum delay of 5 msec.
+		 */
 		udelay(100);
 	} while ((sts != BIT(ch)) && retry);
 

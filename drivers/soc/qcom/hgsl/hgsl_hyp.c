@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "hgsl_hyp.h"
@@ -1309,16 +1309,15 @@ int hgsl_hyp_mem_map_smmu(struct hgsl_hab_channel_t *hab_channel,
 		goto out;
 	}
 
+out:
 	mem_node->fd = hgsl_params->fd;
 	mem_node->export_id = export_id;
 	/*hab requires to use same socket for unexport */
 	mem_node->hab_channel = hab_channel;
 	mem_node->memtype = hgsl_params->memtype;
-	LOGD("mem_map_smmu: export_id(%d), size(%d), flags(0x%x), priv(0x%lx)",
-		export_id, rpc_params.len, rpc_params.flags, mem_node->memdesc.priv64);
-
-out:
-	LOGD("%d, 0x%x, %d", ret, hgsl_params->flags, hgsl_params->fd);
+	LOGD("mem_map_smmu: export_id(%d), size(%d), flags(0x%x), priv(0x%lx), fd(%d), ret(%d)",
+		export_id, rpc_params.len, rpc_params.flags, mem_node->memdesc.priv64,
+		hgsl_params->fd, ret);
 	RPC_TRACE_DONE();
 	return ret;
 }

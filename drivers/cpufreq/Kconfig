@@ -243,6 +243,16 @@ config CPUFREQ_DUMMY
 
 	  If in doubt, say N
 
+config CPUFREQ_VM
+	tristate "Virtual machine CPU frequency driver"
+	help
+	  This option adds a virtual machine CPUfreq driver which populates
+	  energy model required by energy aware scheduling. It assumes that cpu
+	  cpufreq and voltage are fixed. It does not change cpu frequency and
+	  voltage.
+
+	  If in doubt, say N
+
 if X86
 source "drivers/cpufreq/Kconfig.x86"
 endif

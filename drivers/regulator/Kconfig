@@ -296,6 +296,16 @@ config REGULATOR_CPCAP
 	  Say y here for CPCAP regulator found on some Motorola phones
 	  and tablets such as Droid 4.
 
+config REGULATOR_CPR
+	bool "RBCPR regulator driver for APC"
+	depends on OF && QCOM_SCM
+	help
+	  Compile in RBCPR (RapidBridge Core Power Reduction) driver to support
+	  corner vote for APC power rail. The driver takes PTE process voltage
+	  suggestions in efuse as initial settings. It converts corner vote
+	  to voltage value before writing to a voltage regulator API, such as
+	  that provided by spm-regulator driver.
+
 config REGULATOR_CROS_EC
 	tristate "ChromeOS EC regulators"
 	depends on CROS_EC && OF
@@ -1008,6 +1018,16 @@ config REGULATOR_QCOM_SPMI
 	  Say M here if you want to include support for the regulators on the
 	  Qualcomm SPMI PMICs as a module. The module will be named
 	  "qcom_spmi-regulator".
+
+config REGULATOR_SPM
+	bool "SPM regulator driver"
+	depends on SPMI
+	help
+	  Enable support for the SPM regulator driver which is used for
+	  setting voltages of processor supply regulators via the SPM module
+	  found inside chips of Qualcomm Technologies Inc. The SPM regulator
+	  driver can be used on QTI SoCs where the APSS processor cores are
+	  supplied by their own PMIC regulator.
 
 config REGULATOR_QCOM_USB_VBUS
 	tristate "Qualcomm USB Vbus regulator driver"

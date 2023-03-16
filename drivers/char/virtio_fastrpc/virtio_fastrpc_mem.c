@@ -17,18 +17,19 @@ static inline void vfastrpc_free_pages(struct page **pages, int count)
 	kvfree(pages);
 }
 
-static struct page **vfastrpc_alloc_pages(unsigned int count, gfp_t gfp)
+static struct page **vfastrpc_alloc_pages(struct device *dev, unsigned int count, gfp_t gfp)
 {
 	struct page **pages;
 	unsigned long order_mask = (2U << MAX_ORDER) - 1;
-	unsigned int i = 0, array_size = count * sizeof(*pages);
+	unsigned int i = 0, nid = dev_to_node(dev);
 
-	pages = kvzalloc(array_size, GFP_KERNEL);
+	pages = kvzalloc(count * sizeof(*pages), GFP_KERNEL);
 	if (!pages)
 		return NULL;
 
 	/* IOMMU can map any pages, so himem can also be used here */
 	gfp |= __GFP_NOWARN | __GFP_HIGHMEM;
+	gfp &= ~__GFP_COMP;
 
 	while (count) {
 		struct page *page = NULL;
@@ -42,22 +43,18 @@ static struct page **vfastrpc_alloc_pages(unsigned int count, gfp_t gfp)
 		for (order_mask &= (2U << __fls(count)) - 1;
 		     order_mask; order_mask &= ~order_size) {
 			unsigned int order = __fls(order_mask);
+			gfp_t alloc_flags = gfp;
 
 			order_size = 1U << order;
-			page = alloc_pages(order ?
-					   (gfp | __GFP_NORETRY) &
-						~__GFP_RECLAIM : gfp, order);
+			if (order_mask > order_size)
+				alloc_flags |= __GFP_NORETRY;
+
+			page = alloc_pages_node(nid, alloc_flags, order);
 			if (!page)
 				continue;
-			if (!order)
-				break;
-			if (!PageCompound(page)) {
+			if (order)
 				split_page(page, order);
-				break;
-			} else if (!split_huge_page(page)) {
-				break;
-			}
-			__free_pages(page, order);
+			break;
 		}
 		if (!page) {
 			vfastrpc_free_pages(pages, i);
@@ -70,13 +67,13 @@ static struct page **vfastrpc_alloc_pages(unsigned int count, gfp_t gfp)
 	return pages;
 }
 
-static struct page **vfastrpc_alloc_buffer(struct vfastrpc_buf *buf,
+static struct page **vfastrpc_alloc_buffer(struct device *dev, struct vfastrpc_buf *buf,
 		gfp_t gfp, pgprot_t prot)
 {
 	struct page **pages;
 	unsigned int count = PAGE_ALIGN(buf->size) >> PAGE_SHIFT;
 
-	pages = vfastrpc_alloc_pages(count, gfp);
+	pages = vfastrpc_alloc_pages(dev, count, gfp);
 	if (!pages)
 		return NULL;
 
@@ -119,12 +116,12 @@ void vfastrpc_buf_free(struct vfastrpc_buf *buf, int cache)
 		spin_lock(&fl->hlock);
 		if (fl->num_cached_buf > MAX_CACHED_BUFS) {
 			spin_unlock(&fl->hlock);
-			dev_dbg(fl->apps->dev, "num_cached_buf reaches upper limit\n");
+			dev_dbg(vfl->apps->dev, "num_cached_buf reaches upper limit\n");
 			goto skip_buf_cache;
 		}
 		hlist_add_head(&buf->hn, &fl->cached_bufs);
 		fl->num_cached_buf++;
-		dev_dbg(fl->apps->dev, "%d buf is cached, size = 0x%lx",
+		dev_dbg(vfl->apps->dev, "%d buf is cached, size = 0x%lx",
 				fl->num_cached_buf, buf->size);
 		spin_unlock(&fl->hlock);
 		return;
@@ -187,7 +184,7 @@ int vfastrpc_buf_alloc(struct vfastrpc_file *vfl, size_t size,
 	buf->flags = rflags;
 	buf->raddr = 0;
 	buf->remote = 0;
-	buf->pages = vfastrpc_alloc_buffer(buf, GFP_KERNEL, prot);
+	buf->pages = vfastrpc_alloc_buffer(me->dev, buf, GFP_KERNEL, prot);
 	if (IS_ERR_OR_NULL(buf->pages)) {
 		err = -ENOMEM;
 		dev_err(me->dev,
@@ -227,17 +224,21 @@ void vfastrpc_mmap_add(struct vfastrpc_file *vfl, struct vfastrpc_mmap *map)
 	}
 }
 
-int vfastrpc_mmap_remove(struct vfastrpc_file *vfl, uintptr_t va,
-		size_t len, struct vfastrpc_mmap **ppmap)
+int vfastrpc_mmap_remove(struct vfastrpc_file *vfl, int fd,
+		uintptr_t va, size_t len, struct vfastrpc_mmap **ppmap)
 {
 	struct vfastrpc_mmap *match = NULL, *map;
 	struct fastrpc_file *fl = to_fastrpc_file(vfl);
 	struct hlist_node *n;
 
 	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
-		if (map->raddr == va &&
-			map->raddr + map->len == va + len &&
-			map->refs == 1) {
+		if ((fd < 0 || map->fd == fd) && map->raddr == va &&
+				map->raddr + map->len == va + len &&
+				(map->refs == 1 ||
+				 (map->refs == 2 &&
+				  map->attr & FASTRPC_ATTR_KEEP_MAP))) {
+			if (map->attr & FASTRPC_ATTR_KEEP_MAP)
+				map->refs--;
 			match = map;
 			hlist_del_init(&map->hn);
 			break;
@@ -264,7 +265,7 @@ int vfastrpc_mmap_remove_fd(struct vfastrpc_file *vfl, int fd, u32 *entries)
 			(*entries)++;
 			match = map;
 			if (match->refs > 1) {
-				dev_err(fl->apps->dev,
+				dev_err(vfl->apps->dev,
 						"%s map refs = %d is abnormal\n",
 						__func__, match->refs);
 				err = -ETOOMANYREFS;

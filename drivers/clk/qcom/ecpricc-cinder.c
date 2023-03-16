@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -22,7 +22,6 @@
 #include "clk-regmap-divider.h"
 #include "clk-regmap-mux.h"
 #include "common.h"
-#include "gdsc.h"
 #include "reset.h"
 #include "vdd-level.h"
 
@@ -110,11 +109,11 @@ enum {
 };
 
 static const struct pll_vco lucid_evo_vco[] = {
-	{ 249600000, 2000000000, 0 },
+	{ 249600000, 2020000000, 0 },
 };
 
 /* 625 MHz configuration */
-static const struct alpha_pll_config ecpri_cc_pll0_config = {
+static struct alpha_pll_config ecpri_cc_pll0_config = {
 	.l = 0x20,
 	.cal_l = 0x44,
 	.alpha = 0x8D55,
@@ -150,7 +149,7 @@ static struct clk_alpha_pll ecpri_cc_pll0 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -192,7 +191,7 @@ static struct clk_alpha_pll ecpri_cc_pll1 = {
 				[VDD_LOW] = 1066000000,
 				[VDD_LOW_L1] = 1500000000,
 				[VDD_NOMINAL] = 1800000000,
-				[VDD_HIGH] = 2000000000},
+				[VDD_HIGH] = 2020000000},
 		},
 	},
 };
@@ -4093,9 +4092,23 @@ static const struct qcom_cc_desc ecpri_cc_cinder_desc = {
 
 static const struct of_device_id ecpri_cc_cinder_match_table[] = {
 	{ .compatible = "qcom,cinder-ecpricc" },
+	{ .compatible = "qcom,cinder-ecpricc-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ecpri_cc_cinder_match_table);
+
+static int ecpri_cc_cinder_fixup(struct platform_device *pdev, struct regmap *regmap)
+{
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,cinder-ecpricc-v2")) {
+		/* 700 MHz configuration */
+		ecpri_cc_pll0_config.l = 0x24;
+		ecpri_cc_pll0_config.alpha = 0x7555;
+
+		ecpri_cc_emac_synce_div_clk_src.width = 9;
+	}
+
+	return 0;
+}
 
 static int ecpri_cc_cinder_probe(struct platform_device *pdev)
 {
@@ -4105,6 +4118,10 @@ static int ecpri_cc_cinder_probe(struct platform_device *pdev)
 	regmap = qcom_cc_map(pdev, &ecpri_cc_cinder_desc);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
+
+	ret = ecpri_cc_cinder_fixup(pdev, regmap);
+	if (ret)
+		return ret;
 
 	clk_lucid_evo_pll_configure(&ecpri_cc_pll0, regmap, &ecpri_cc_pll0_config);
 	clk_lucid_evo_pll_configure(&ecpri_cc_pll1, regmap, &ecpri_cc_pll1_config);

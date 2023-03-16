@@ -2032,6 +2032,7 @@
   __traceiter_android_vh_check_file_open
   __traceiter_android_vh_check_mmap_file
   __traceiter_android_vh_check_uninterruptible_tasks
+  __traceiter_android_vh_cpufreq_offline
   __traceiter_android_vh_iommu_iovad_alloc_iova
   __traceiter_android_vh_iommu_iovad_free_iova
   __traceiter_android_vh_is_fpsimd_save
@@ -2109,6 +2110,7 @@
   __tracepoint_android_vh_check_file_open
   __tracepoint_android_vh_check_mmap_file
   __tracepoint_android_vh_check_uninterruptible_tasks
+  __tracepoint_android_vh_cpufreq_offline
   __tracepoint_android_vh_iommu_iovad_alloc_iova
   __tracepoint_android_vh_iommu_iovad_free_iova
   __tracepoint_android_vh_is_fpsimd_save

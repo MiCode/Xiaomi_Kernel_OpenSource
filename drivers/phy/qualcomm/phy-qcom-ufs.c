@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013-2021, Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "phy-qcom-ufs-i.h"
@@ -946,7 +947,7 @@ void ufs_qcom_phy_dbg_register_save(struct phy *generic_phy)
 {
 	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
 
-	if (ufs_qcom_phy->phy_spec_ops->dbg_register_dump)
+	if (ufs_qcom_phy->phy_spec_ops->dbg_register_save)
 		ufs_qcom_phy->phy_spec_ops->dbg_register_save(ufs_qcom_phy);
 
 }

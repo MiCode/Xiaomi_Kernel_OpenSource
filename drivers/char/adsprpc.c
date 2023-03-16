@@ -64,6 +64,7 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
+#include <soc/qcom/socinfo.h>
 
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
@@ -698,13 +699,21 @@ skip_buf_cache:
 			goto bail;
 		}
 		vmid = fl->apps->channel[cid].vmid;
-		if ((vmid) && (fl->apps->channel[cid].in_hib == 0)) {
+		if (((vmid) || (cid == MDSP_DOMAIN_ID && fl->apps->channel[cid].rhvm.vmid)) &&
+				(fl->apps->channel[cid].in_hib == 0)) {
 			int srcVM[2] = {VMID_HLOS, vmid};
 			int hyp_err = 0;
+			if (vmid) {
+				hyp_err = hyp_assign_phys(buf->phys,
+						buf_page_size(buf->size),
+						srcVM, 2, destVM, destVMperm, 1);
+			} else {
+				hyp_err = hyp_assign_phys(buf->phys, buf_page_size(buf->size),
+						fl->apps->channel[cid].rhvm.vmid,
+						fl->apps->channel[cid].rhvm.vmcount,
+						hlosvm, hlosvmperm, 1);
+			}
 
-			hyp_err = hyp_assign_phys(buf->phys,
-				buf_page_size(buf->size),
-				srcVM, 2, destVM, destVMperm, 1);
 			if (hyp_err) {
 				ADSPRPC_ERR(
 					"rh hyp unassign failed with %d for phys 0x%llx, size %zu\n",
@@ -1002,13 +1011,22 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			sess = fl->sctx;
 
 		vmid = fl->apps->channel[cid].vmid;
-		if (vmid && map->phys && (me->channel[cid].in_hib == 0)) {
+		if (((vmid && map->phys) || ((cid == MDSP_DOMAIN_ID) &&
+						fl->apps->channel[cid].rhvm.vmid)) &&
+				(me->channel[cid].in_hib == 0)) {
 			int hyp_err = 0;
 			int srcVM[2] = {VMID_HLOS, vmid};
-
-			hyp_err = hyp_assign_phys(map->phys,
-				buf_page_size(map->size),
-				srcVM, 2, destVM, destVMperm, 1);
+			if (vmid) {
+				hyp_err = hyp_assign_phys(map->phys,
+						buf_page_size(map->size),
+						srcVM, 2, destVM, destVMperm, 1);
+			} else {
+				hyp_err = hyp_assign_phys(map->phys,
+						buf_page_size(map->size),
+						fl->apps->channel[cid].rhvm.vmid,
+						fl->apps->channel[cid].rhvm.vmcount,
+						hlosvm, hlosvmperm, 1);
+			}
 			if (hyp_err) {
 				ADSPRPC_ERR(
 					"rh hyp unassign failed with %d for phys 0x%llx, size %zu\n",
@@ -1302,15 +1320,23 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 		}
 
 		vmid = fl->apps->channel[cid].vmid;
-		if (vmid) {
+		if (vmid  || (cid == MDSP_DOMAIN_ID && me->channel[cid].rhvm.vmid)) {
 			int srcVM[1] = {VMID_HLOS};
 			int destVM[2] = {VMID_HLOS, vmid};
 			int destVMperm[2] = {PERM_READ | PERM_WRITE,
 					PERM_READ | PERM_WRITE | PERM_EXEC};
+			if (vmid) {
+				err = hyp_assign_phys(map->phys,
+						buf_page_size(map->size),
+						srcVM, 1, destVM, destVMperm, 2);
+			} else {
+				err = hyp_assign_phys(map->phys,
+						buf_page_size(map->size),
+						hlosvm, 1, me->channel[cid].rhvm.vmid,
+						me->channel[cid].rhvm.vmperm,
+						me->channel[cid].rhvm.vmcount);
+			}
 
-			err = hyp_assign_phys(map->phys,
-					buf_page_size(map->size),
-					srcVM, 1, destVM, destVMperm, 2);
 			if (err) {
 				ADSPRPC_ERR(
 					"rh hyp assign failed with %d for phys 0x%llx, size %zu\n",
@@ -1477,14 +1503,23 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, size_t size,
 		dma_attr, (int)rflags);
 
 	vmid = fl->apps->channel[cid].vmid;
-	if (vmid) {
+	if (vmid || (cid == MDSP_DOMAIN_ID && me->channel[cid].rhvm.vmid)) {
 		int srcVM[1] = {VMID_HLOS};
 		int destVM[2] = {VMID_HLOS, vmid};
 		int destVMperm[2] = {PERM_READ | PERM_WRITE,
 					PERM_READ | PERM_WRITE | PERM_EXEC};
 
-		err = hyp_assign_phys(buf->phys, buf_page_size(size),
-			srcVM, 1, destVM, destVMperm, 2);
+		if (vmid) {
+			err = hyp_assign_phys(buf->phys, buf_page_size(size),
+					srcVM, 1, destVM, destVMperm, 2);
+		} else {
+
+			err = hyp_assign_phys(buf->phys, buf_page_size(size),
+					hlosvm, 1, me->channel[cid].rhvm.vmid,
+					me->channel[cid].rhvm.vmperm,
+					me->channel[cid].rhvm.vmcount);
+		}
+
 		if (err) {
 			ADSPRPC_DEBUG(
 				"rh hyp assign failed with %d for phys 0x%llx, size %zu\n",
@@ -2807,33 +2842,23 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 }
 
 /*
- * fastrpc_get_dsp_status - Reads the property string from device node
- *                          and updates the cdsp device avialbility status
- *                          if the node belongs to cdsp device.
+ * fastrpc_get_cdsp_status - Reads the property string from soc_info
+			    denoted for cdsp part, and updates
+ *                          the cdsp device avialbility status
+ *                          if the cdsp is not defective.
  * @me  : pointer to fastrpc_apps.
  */
 
-static void fastrpc_get_dsp_status(struct fastrpc_apps *me)
+static void fastrpc_get_cdsp_status(struct fastrpc_apps *me)
 {
-	int ret = -1;
-	struct device_node *node = NULL;
-	const char *name = NULL;
-
-	do {
-		node = of_find_compatible_node(node, NULL, "qcom,pil-tz-generic");
-		if (node) {
-			ret = of_property_read_string(node, "qcom,firmware-name", &name);
-			if (!strcmp(name, "cdsp")) {
-				ret =  of_device_is_available(node);
-				me->remote_cdsp_status = ret;
-				ADSPRPC_INFO("cdsp node found with ret:%x\n", ret);
-				break;
-			}
-		} else {
-			ADSPRPC_ERR("cdsp node not found\n");
-			break;
-		}
-	} while (1);
+	if (socinfo_get_part_info(PART_COMP)) {
+		me->remote_cdsp_status = 0;
+		ADSPRPC_ERR(
+			"cdsp part defective with status:%x\n", me->remote_cdsp_status);
+	} else {
+		me->remote_cdsp_status = 1;
+		ADSPRPC_INFO("cdsp available with status: %x\n", me->remote_cdsp_status);
+	}
 }
 
 static void fastrpc_init(struct fastrpc_apps *me)
@@ -3944,7 +3969,7 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		 * If remote-heap VMIDs are defined in DTSI, then do
 		 * hyp_assign from HLOS to those VMs (LPASS, ADSP).
 		 */
-		if (rhvm->vmid && mem && mem->refs == 1 && size) {
+		if (rhvm->vmid && mem->refs == 1 && size) {
 			err = hyp_assign_phys(phys, (uint64_t)size,
 				hlosvm, 1,
 				rhvm->vmid, rhvm->vmperm, rhvm->vmcount);
@@ -4750,8 +4775,9 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 		match = NULL;
 		spin_lock_irqsave(&me->hlock, irq_flags);
 		hlist_for_each_entry_safe(map, n, &me->maps, hn) {
-			if (map->servloc_name &&
-				fl->servloc_name && !strcmp(map->servloc_name, fl->servloc_name)) {
+			if ((!fl && map->servloc_name) ||
+					(fl && map->servloc_name  && fl->servloc_name &&
+					 !strcmp(map->servloc_name, fl->servloc_name))) {
 				match = map;
 				if (map->is_persistent && map->in_use) {
 					int destVM[1] = {VMID_HLOS};
@@ -7413,6 +7439,7 @@ static const struct of_device_id fastrpc_match_table[] = {
 	{ .compatible = "qcom,msm-fastrpc-compute", },
 	{ .compatible = "qcom,msm-fastrpc-compute-cb", },
 	{ .compatible = "qcom,msm-adsprpc-mem-region", },
+	{ .compatible = "qcom,msm-mdsprpc-mem-region", },
 	{}
 };
 
@@ -7839,6 +7866,8 @@ static int fastrpc_probe(struct platform_device *pdev)
 		}
 		init_secure_vmid_list(dev, "qcom,adsp-remoteheap-vmid",
 							&gcinfo[0].rhvm);
+		init_secure_vmid_list(dev, "qcom,mdsp-remoteheap-vmid",
+							&gcinfo[1].rhvm);
 		fastrpc_init_privileged_gids(dev, "qcom,fastrpc-gids",
 					&me->gidlist);
 		init_qos_cores_list(dev, "qcom,qos-cores",
@@ -7871,6 +7900,15 @@ static int fastrpc_probe(struct platform_device *pdev)
 		}
 		goto bail;
 	}
+	if (of_device_is_compatible(dev->of_node,
+					"qcom,msm-mdsprpc-mem-region")) {
+		ret = of_reserved_mem_device_init_by_idx(dev, dev->of_node, 0);
+		if (ret) {
+			pr_err("adsprpc: Error: %s: initialization of memory region mdsp_mem failed with %d\n",
+				__func__, ret);
+		}
+	}
+
 	me->legacy_remote_heap = of_property_read_bool(dev->of_node,
 					"qcom,fastrpc-legacy-remote-heap");
 
@@ -7918,7 +7956,8 @@ static void fastrpc_genpool_free(struct fastrpc_session_ctx *sess)
 	}
 	if (buf && sess->smmu.dev) {
 		domain = iommu_get_domain_for_dev(sess->smmu.dev);
-		iommu_unmap(domain, sess->smmu.genpool_iova,
+		if (domain)
+			iommu_unmap(domain, sess->smmu.genpool_iova,
 					sess->smmu.genpool_size);
 		if (buf->phys)
 			dma_free_attrs(sess->smmu.dev, buf->size, buf->virt,
@@ -8344,7 +8383,7 @@ static int __init fastrpc_device_init(void)
 	}
 	memset(me, 0, sizeof(*me));
 	fastrpc_init(me);
-	fastrpc_get_dsp_status(me);
+	fastrpc_get_cdsp_status(me);
 	me->dev = NULL;
 	me->legacy_remote_heap = false;
 	err = bus_register(&fastrpc_bus_type);
@@ -8426,15 +8465,16 @@ static int __init fastrpc_device_init(void)
 				err = -ENOMEM;
 				ADSPRPC_WARN("%s: CMA alloc failed  err 0x%x\n",
 							__func__, err);
+			} else {
+				INIT_HLIST_NODE(&buf->hn);
+				buf->virt = region_vaddr;
+				buf->phys = (uintptr_t)region_phys;
+				buf->size = MINI_DUMP_DBG_SIZE;
+				buf->dma_attr = attr;
+				buf->raddr = 0;
+				ktime_get_real_ts64(&buf->buf_start_time);
+				me->channel[i].buf = buf;
 			}
-			INIT_HLIST_NODE(&buf->hn);
-			buf->virt = region_vaddr;
-			buf->phys = (uintptr_t)region_phys;
-			buf->size = MINI_DUMP_DBG_SIZE;
-			buf->dma_attr = attr;
-			buf->raddr = 0;
-			ktime_get_real_ts64(&buf->buf_start_time);
-			me->channel[i].buf = buf;
 		}
 		if (IS_ERR_OR_NULL(me->channel[i].handle))
 			pr_warn("adsprpc: %s: SSR notifier register failed for %s with err %d\n",
