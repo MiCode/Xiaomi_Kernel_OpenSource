@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -343,7 +343,7 @@ static int gen7_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	gen7_gmu_aop_send_acd_state(gmu, adreno_dev->acd_enabled);
 
-	ret = gen7_gmu_enable_gdsc(adreno_dev);
+	ret = kgsl_pwrctrl_enable_cx_gdsc(device, gmu->cx_gdsc);
 	if (ret)
 		return ret;
 
@@ -418,7 +418,7 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	gen7_gmu_disable_gdsc(adreno_dev);
+	kgsl_pwrctrl_disable_cx_gdsc(device, gmu->cx_gdsc);
 
 	gen7_rdpm_cx_freq_update(gmu, 0);
 
@@ -433,7 +433,7 @@ static int gen7_hwsched_gmu_boot(struct adreno_device *adreno_dev)
 
 	trace_kgsl_pwr_request_state(device, KGSL_STATE_AWARE);
 
-	ret = gen7_gmu_enable_gdsc(adreno_dev);
+	ret = kgsl_pwrctrl_enable_cx_gdsc(device, gmu->cx_gdsc);
 	if (ret)
 		return ret;
 
@@ -486,7 +486,7 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	gen7_gmu_disable_gdsc(adreno_dev);
+	kgsl_pwrctrl_disable_cx_gdsc(device, gmu->cx_gdsc);
 
 	gen7_rdpm_cx_freq_update(gmu, 0);
 
@@ -573,7 +573,7 @@ static int gen7_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	gen7_gmu_disable_gdsc(adreno_dev);
+	kgsl_pwrctrl_disable_cx_gdsc(device, gmu->cx_gdsc);
 
 	gen7_rdpm_cx_freq_update(gmu, 0);
 
@@ -1386,6 +1386,7 @@ const struct adreno_power_ops gen7_hwsched_power_ops = {
 	.pm_resume = gen7_hwsched_pm_resume,
 	.gpu_clock_set = gen7_hwsched_clock_set,
 	.gpu_bus_set = gen7_hwsched_bus_set,
+	.register_gdsc_notifier = gen7_gmu_register_gdsc_notifier,
 };
 
 const struct adreno_hwsched_ops gen7_hwsched_ops = {

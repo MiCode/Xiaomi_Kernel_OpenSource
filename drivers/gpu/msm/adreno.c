@@ -3336,6 +3336,36 @@ static void adreno_create_hw_fence(struct kgsl_device *device, struct kgsl_sync_
 		adreno_dev->dispatch_ops->create_hw_fence(adreno_dev, kfence);
 }
 
+static int adreno_cx_gdsc_event(struct notifier_block *nb,
+	unsigned long event, void *data)
+{
+	struct kgsl_pwrctrl *pwr = container_of(nb, struct kgsl_pwrctrl, cx_gdsc_nb);
+
+	if (!(event & REGULATOR_EVENT_DISABLE) || !pwr->cx_gdsc_wait)
+		return 0;
+
+	pwr->cx_gdsc_wait = false;
+	complete_all(&pwr->cx_gdsc_gate);
+
+	return 0;
+}
+
+static int adreno_register_gdsc_notifier(struct kgsl_device *device)
+{
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_power_ops *ops = ADRENO_POWER_OPS(adreno_dev);
+
+	if (ops->register_gdsc_notifier)
+		return ops->register_gdsc_notifier(adreno_dev);
+
+	if (IS_ERR_OR_NULL(pwr->cx_gdsc))
+		return 0;
+
+	pwr->cx_gdsc_nb.notifier_call = adreno_cx_gdsc_event;
+	return devm_regulator_register_notifier(pwr->cx_gdsc, &pwr->cx_gdsc_nb);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.suspend_context = adreno_suspend_context,
@@ -3377,6 +3407,7 @@ static const struct kgsl_functable adreno_functable = {
 	.queue_recurring_cmd = adreno_queue_recurring_cmd,
 	.dequeue_recurring_cmd = adreno_dequeue_recurring_cmd,
 	.create_hw_fence = adreno_create_hw_fence,
+	.register_gdsc_notifier = adreno_register_gdsc_notifier,
 };
 
 static const struct component_master_ops adreno_ops = {
