@@ -322,8 +322,6 @@ void gen7_hwsched_snapshot(struct adreno_device *adreno_dev,
 				entry->md);
 	}
 
-	adreno_hwsched_parse_fault_cmdobj(adreno_dev, snapshot);
-
 	if (!adreno_hwsched_context_queue_enabled(adreno_dev))
 		return;
 
