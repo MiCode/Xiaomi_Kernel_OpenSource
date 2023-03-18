@@ -3003,12 +3003,6 @@
   snd_soc_set_runtime_hwparams
   snd_soc_unregister_card
   snd_soc_unregister_component
-  snd_usb_autoresume
-  snd_usb_autosuspend
-  snd_usb_endpoint_close
-  snd_usb_endpoint_configure
-  snd_usb_endpoint_prepare
-  snd_usb_endpoint_set_params
   snprintf
   soc_device_register
   soc_device_unregister
@@ -3327,7 +3321,6 @@
   __tracepoint_android_rvh_account_irq
   __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_rvh_after_enqueue_task
-  __tracepoint_android_rvh_audio_usb_offload_disconnect
   __tracepoint_android_rvh_build_perf_domains
   __tracepoint_android_rvh_can_migrate_task
   __tracepoint_android_rvh_check_preempt_wakeup
@@ -3368,7 +3361,6 @@
   __tracepoint_android_rvh_update_misfit_status
   __tracepoint_android_rvh_update_thermal_stats
   __tracepoint_android_rvh_wake_up_new_task
-  __tracepoint_android_vh_audio_usb_offload_connect
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_wakeup_ilocked
@@ -3802,15 +3794,7 @@
   xdp_rxq_info_is_reg
   xdp_rxq_info_unreg_mem_model
   xfrm_lookup
-  xhci_alloc_command
-  xhci_alloc_erst
-  xhci_free_command
   xhci_get_endpoint_index
-  xhci_queue_stop_endpoint
-  xhci_ring_alloc
-  xhci_ring_cmd_db
-  xhci_ring_free
-  xhci_trb_virt_to_dma
   xp_alloc
   xp_dma_map
   xp_dma_sync_for_cpu_slow
