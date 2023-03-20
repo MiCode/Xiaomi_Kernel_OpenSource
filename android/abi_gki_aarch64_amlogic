@@ -334,6 +334,7 @@
   devm_nvmem_cell_get
   devm_of_clk_add_hw_provider
   devm_of_pwm_get
+  devm_pci_remap_cfg_resource
   devm_phy_get
   devm_pinctrl_get
   devm_pinctrl_put

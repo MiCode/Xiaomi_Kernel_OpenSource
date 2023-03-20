@@ -287,6 +287,7 @@
   devm_nvmem_register
   devm_of_clk_add_hw_provider
   devm_of_iomap
+  devm_pci_remap_cfgspace
   devm_pinctrl_get
   devm_pinctrl_put
   devm_pinctrl_register
@@ -894,6 +895,7 @@
   of_nvmem_cell_get
   of_parse_phandle
   of_parse_phandle_with_args
+  of_pci_get_max_link_speed
   of_property_count_elems_of_size
   of_property_match_string
   of_property_read_string
@@ -941,6 +943,7 @@
   pci_unregister_driver
   pci_write_config_byte
   pci_write_config_word
+  pcie_link_speed
   PDE_DATA
   __per_cpu_offset
   perf_trace_buf_alloc
