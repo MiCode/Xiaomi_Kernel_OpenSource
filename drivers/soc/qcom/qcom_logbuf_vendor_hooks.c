@@ -2,7 +2,7 @@
 
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "logbuf_vh: " fmt
@@ -19,7 +19,6 @@
 
 #include "../../../kernel/printk/printk_ringbuffer.h"
 #include "debug_symbol.h"
-#include "qcom_logbuf_boot_log.h"
 
 void register_log_minidump(struct printk_ringbuffer *prb)
 {
@@ -70,27 +69,17 @@ static int logbuf_vh_driver_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct printk_ringbuffer *prb = NULL;
 
-	if (IS_BUILTIN(CONFIG_QCOM_LOGBUF_VENDOR_HOOKS)) {
-		prb = *(struct printk_ringbuffer **)kallsyms_lookup_name("prb");
-	} else {
-		ret = debug_symbol_available();
-		if (ret == 0) {
-			prb = *(struct printk_ringbuffer **)
-				      debug_symbol_lookup_name("prb");
-		} else if (ret == -EPROBE_DEFER) {
-			ret = -EPROBE_DEFER;
-			return ret;
-		}
-	}
+	if (!debug_symbol_available())
+		return -EPROBE_DEFER;
+
+	prb = *(struct printk_ringbuffer **)DEBUG_SYMBOL_LOOKUP(prb);
 	register_log_minidump(prb);
-	ret = boot_log_register(&pdev->dev);
 
 	return ret;
 }
 
 static int logbuf_vh_driver_remove(struct platform_device *pdev)
 {
-	boot_log_unregister();
 	return 0;
 }
 

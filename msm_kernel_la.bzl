@@ -9,6 +9,7 @@ load(
     "kernel_compile_commands",
     "kernel_images",
     "kernel_modules_install",
+    "kernel_uapi_headers_cc_library",
     "merged_kernel_uapi_headers",
 )
 load(
@@ -25,7 +26,6 @@ load(":msm_common.bzl", "define_top_level_config", "gen_config_without_source_li
 load(":msm_dtc.bzl", "define_dtc_dist")
 load(":msm_abl.bzl", "define_abl_dist")
 load(":super_image.bzl", "super_image")
-load(":uapi_library.bzl", "define_uapi_library")
 load(":image_opts.bzl", "boot_image_opts")
 load(":target_variants.bzl", "la_variants")
 load(":modules.bzl", "COMMON_GKI_MODULES_LIST")
@@ -117,7 +117,6 @@ def _define_kernel_build(
         dtbo_list,
         dtstree,
         define_abi_targets,
-        define_compile_commands,
         kmi_enforced):
     """Creates a `kernel_build` and other associated definitions
 
@@ -131,7 +130,6 @@ def _define_kernel_build(
       dtb_list: device tree blobs expected to be built
       dtbo_list: device tree overlay blobs expected to be built
       define_abi_targets: boolean determining if ABI targets should be defined
-      define_compile_commands: boolean determining if `compile_commands.json` should be generated
       kmi_enforced: boolean determining if the KMI contract should be enforced
     """
     out_list = [".config", "Module.symvers"]
@@ -148,9 +146,10 @@ def _define_kernel_build(
         build_config = ":{}_build_config".format(target),
         dtstree = dtstree,
         base_kernel = base_kernel,
+        strip_modules = True,
         kmi_symbol_list = "//msm-kernel:android/abi_gki_aarch64_qcom" if define_abi_targets else None,
         additional_kmi_symbol_lists = ["{}_all_kmi_symbol_lists".format(base_kernel)] if define_abi_targets else None,
-        enable_interceptor = define_compile_commands,
+        collect_unstripped_modules = define_abi_targets,
         visibility = ["//visibility:public"],
     )
 
@@ -159,7 +158,7 @@ def _define_kernel_build(
             name = "{}_abi".format(target),
             kernel_build = ":{}".format(target),
             define_abi_targets = True,
-            abi_definition = "//msm-kernel:android/abi_gki_aarch64.xml",
+            abi_definition_xml = "//msm-kernel:android/abi_gki_aarch64.xml",
             kmi_enforced = kmi_enforced,
             module_grouping = False,
             kmi_symbol_list_add_only = True,
@@ -176,11 +175,10 @@ def _define_kernel_build(
         kernel_build = ":{}".format(target),
     )
 
-    if define_compile_commands:
-        kernel_compile_commands(
-            name = "{}_compile_commands".format(target),
-            kernel_build = ":{}".format(target),
-        )
+    kernel_compile_commands(
+        name = "{}_compile_commands".format(target),
+        kernel_build = ":{}".format(target),
+    )
 
 def _define_image_build(
         target,
@@ -332,11 +330,21 @@ def _define_kernel_dist(target, msm_target, variant, base_kernel):
         dist_dir = dist_dir,
     )
 
+def _define_uapi_library(target):
+    """Define a cc_library for userspace programs to use
+
+    Args:
+      target: kernel_build target name (e.g. "kalama_gki")
+    """
+    kernel_uapi_headers_cc_library(
+        name = "{}_uapi_header_library".format(target),
+        kernel_build = ":{}".format(target),
+    )
+
 def define_msm_la(
         msm_target,
         variant,
         in_tree_module_list,
-        define_compile_commands = False,
         kmi_enforced = True,
         boot_image_opts = boot_image_opts()):
     """Top-level kernel build definition macro for an MSM platform
@@ -345,7 +353,6 @@ def define_msm_la(
       msm_target: name of target platform (e.g. "kalama")
       variant: variant of kernel to build (e.g. "gki")
       in_tree_module_list: list of in-tree modules
-      define_compile_commands: boolean determining if `compile_commands.json` should be generated
       kmi_enforced: boolean determining if the KMI contract should be enforced
       boot_image_header_version: boot image header version (for `boot.img`)
       base_address: edk2 base address
@@ -391,7 +398,6 @@ def define_msm_la(
         dtbo_list,
         dtstree,
         define_abi_targets,
-        define_compile_commands,
         kmi_enforced,
     )
 
@@ -412,10 +418,10 @@ def define_msm_la(
 
     _define_kernel_dist(target, msm_target, variant, base_kernel)
 
+    _define_uapi_library(target)
+
     define_abl_dist(target, msm_target, variant)
 
     define_dtc_dist(target, msm_target, variant)
-
-    define_uapi_library(target)
 
     define_extras(target)

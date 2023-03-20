@@ -271,6 +271,7 @@ struct geni_ibi {
 	u32 ctrl_id;
 	struct rcvd_ibi_data data;
 	bool ibic_naon;
+	bool naon_clk_en;
 	struct clk *core_clk;
 	struct clk *ahb_clk;
 	struct clk *src_clk;
@@ -315,7 +316,6 @@ struct geni_i3c_dev {
 	struct geni_i3c_ver_info ver_info;
 	struct msm_geni_i3c_rsc i3c_rsc;
 	struct device *wrapper_dev;
-	u32 maxdevs;
 };
 
 struct geni_i3c_i2c_dev_data {
@@ -569,6 +569,17 @@ static void set_new_addr_slot(unsigned long *addrslot, u8 addr)
 
 	ptr = addrslot + (addr / BITS_PER_LONG);
 	*ptr |= 1 << (addr % BITS_PER_LONG);
+}
+
+static void clear_new_addr_slot(unsigned long *addrslot, u8 addr)
+{
+	unsigned long *ptr;
+
+	if (addr > I3C_ADDR_MASK)
+		return;
+
+	ptr = addrslot + (addr / BITS_PER_LONG);
+	*ptr &= ~(1 << (addr % BITS_PER_LONG));
 }
 
 static bool is_new_addr_slot_set(unsigned long *addrslot, u8 addr)
@@ -1138,34 +1149,11 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 		}
 
 		if (i3cboardinfo->init_dyn_addr &&
-			(i3cboardinfo->init_dyn_addr < I3C_MAX_ADDR))
+			(i3cboardinfo->init_dyn_addr < I3C_MAX_ADDR)) {
 			/* If DA is specified in DTSI, use it */
 			addr = init_dyn_addr = i3cboardinfo->init_dyn_addr;
-
-		/* Ask framework to get free address for us */
-		ret = i3c_master_get_free_addr(m, addr);
-		if (ret >= 0) {
-			addr = ret;
-			i3cboardinfo->init_dyn_addr = addr;
-			init_dyn_addr = addr;
-		} else {
-			I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
-					"%s: Asked addr:%d not free, ret:%d\n",
-					 __func__, addr, ret);
-			return;
 		}
-
-		if (is_new_addr_slot_set(gi3c->newaddrslots, addr)) {
-			I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
-				"%s:slot addr:%d not free, try new addr:%d\n",
-				__func__, addr, addr + 1);
-			ret = i3c_master_get_free_addr(m, addr + 1);
-			if (ret >= 0) {
-				addr = ret;
-				i3cboardinfo->init_dyn_addr = addr;
-				init_dyn_addr = addr;
-			}
-		}
+		addr = ret = i3c_master_get_free_addr(m, addr);
 
 		if (ret < 0) {
 			I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
@@ -1228,12 +1216,8 @@ static void geni_i3c_perform_daa(struct geni_i3c_dev *gi3c)
 				IBI_NACK_TBL_CTRL;
 
 		ret = i3c_geni_execute_write_command(gi3c, &xfer, tx_buf, 1);
-		if (ret) {
-			I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
-					"%s: Failed:%d to assign DA:%d\n",
-					__func__, ret, tx_buf[0]);
+		if (ret)
 			break;
-		}
 	}
 daa_err:
 	return;
@@ -1505,50 +1489,35 @@ static void geni_i3c_master_detach_i3c_dev(struct i3c_dev_desc *dev)
 	i3c_dev_set_master_data(dev, NULL);
 }
 
-static int geni_i3c_master_do_daa(struct i3c_master_controller *m)
+static int geni_i3c_master_entdaa_locked(struct geni_i3c_dev *gi3c)
 {
-	struct geni_i3c_dev *gi3c = to_geni_i3c_master(m);
-	u8 start_addr = 0;
-	int addr = 0, ret = 0, free_addr = 0;
-
-	/* Get ready with the DAA table */
-	for (addr = 0; addr < gi3c->maxdevs; addr++) {
-		free_addr = i3c_master_get_free_addr(m, start_addr + 1);
-		if (free_addr < 0)
-			return -ENOSPC;
-
-		start_addr = free_addr;
-		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
-				"%s: Got free_addr:%d\n",
-				 __func__, free_addr);
-		set_new_addr_slot(gi3c->newaddrslots, free_addr);
-	}
+	struct i3c_master_controller *m = &gi3c->ctrlr;
+	u8 addr;
+	int ret;
 
 	ret = i3c_master_entdaa_locked(m);
 	if (ret && ret != I3C_ERROR_M2)
 		return ret;
 
-	for (addr = 0; addr < gi3c->maxdevs; addr++) {
+	for (addr = 0; addr <= I3C_ADDR_MASK; addr++) {
 		if (is_new_addr_slot_set(gi3c->newaddrslots, addr)) {
-			ret = i3c_master_add_i3c_dev_locked(m,
-						gi3c->newaddrslots[addr]);
-			if (ret < 0)
-				I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
-					"%s: error:%d adding device addr:%d\n",
-					 __func__, ret, addr);
+			clear_new_addr_slot(gi3c->newaddrslots, addr);
+			i3c_master_add_i3c_dev_locked(m, addr);
 		}
 	}
 
-	ret = i3c_master_enec_locked(m, I3C_BROADCAST_ADDR,
+	i3c_master_enec_locked(m, I3C_BROADCAST_ADDR,
 				      I3C_CCC_EVENT_MR |
 				      I3C_CCC_EVENT_HJ);
-	if (ret)
-		I3C_LOG_ERR(gi3c->ipcl, false, gi3c->se.dev,
-				 "%s: error:%d with i3c_master_enec_locked\n",
-				__func__, ret);
 
-	/* For now can't make DAA failing with ret and impact DAA */
 	return 0;
+}
+
+static int geni_i3c_master_do_daa(struct i3c_master_controller *m)
+{
+	struct geni_i3c_dev *gi3c = to_geni_i3c_master(m);
+
+	return geni_i3c_master_entdaa_locked(gi3c);
 }
 
 static int geni_i3c_master_bus_init(struct i3c_master_controller *m)
@@ -1730,7 +1699,12 @@ static void qcom_geni_i3c_ibi_conf(struct geni_i3c_dev *gi3c)
 	gi3c->ibi.err = 0;
 	reinit_completion(&gi3c->ibi.done);
 
-	if (gi3c->ibi.ibic_naon) {
+	/* set the configuration for 100Khz OD speed */
+	geni_write_reg(0x5FD74322, gi3c->ibi.ibi_base, IBI_SCL_PP_TIMING_CONFIG);
+
+
+	/* Balance NAON Clock enable/disable between ibi_conf & ibi_unconf */
+	if (gi3c->ibi.ibic_naon && !gi3c->ibi.naon_clk_en) {
 		if (geni_i3c_enable_naon_ibi_clks(gi3c, true)) {
 			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
 				"%s:  NAON clock failure\n", __func__);
@@ -1956,6 +1930,10 @@ static int geni_i3c_enable_naon_ibi_clks(struct geni_i3c_dev *gi3c, bool clk_en)
 	if (!gi3c->ibi.ibic_naon)
 		return -EINVAL;
 
+	/* if naon clocks are disabled, then only enable all these clocks */
+	if (clk_en)
+		clk_en = (!gi3c->ibi.naon_clk_en) ? true : false;
+
 	if (clk_en) {
 		ret = clk_prepare_enable(gi3c->ibi.core_clk);
 		if (ret) {
@@ -1983,10 +1961,16 @@ static int geni_i3c_enable_naon_ibi_clks(struct geni_i3c_dev *gi3c, bool clk_en)
 			clk_disable_unprepare(gi3c->ibi.ahb_clk);
 			return ret;
 		}
+		gi3c->ibi.naon_clk_en = true;
+		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			"%s: Enable Clock success\n", __func__);
 	} else {
 		clk_disable_unprepare(gi3c->ibi.core_clk);
 		clk_disable_unprepare(gi3c->ibi.ahb_clk);
 		clk_disable_unprepare(gi3c->ibi.src_clk);
+		gi3c->ibi.naon_clk_en = false;
+		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
+			 "%s: Disable clock success\n", __func__);
 	}
 
 	return ret;
@@ -2006,7 +1990,7 @@ static void qcom_geni_i3c_ibi_unconf(struct geni_i3c_dev *gi3c)
 
 	geni_i3c_enable_ibi_ctrl(gi3c, false);
 	geni_i3c_enable_ibi_irq(gi3c, false);
-	if (gi3c->ibi.ibic_naon) {
+	if (gi3c->ibi.ibic_naon && gi3c->ibi.naon_clk_en) {
 		if (geni_i3c_enable_naon_ibi_clks(gi3c, false)) {
 			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
 				"%s:  NAON clock failure\n", __func__);
@@ -2068,49 +2052,47 @@ static const struct i3c_master_controller_ops geni_i3c_master_ops = {
 };
 
 /*
- * geni_i3c_enable_naon_ibi_clks() - Gets clock handles for NAON IBI clocks
- * @gi3c: I3C device handle
+ * i3c_naon_ibi_clk_init: Read DTSI property and get clk handles
+ * @gi3c: Device handle for i3c master
  *
- * Return: True OR respective failure code/value
+ * return: returns 0 for success and nonzero for failure.
  */
 static int i3c_naon_ibi_clk_init(struct geni_i3c_dev *gi3c)
 {
 	int ret = 0;
 
-	if (!gi3c->ibi.ibic_naon)
-		return ret;
+	if (gi3c->ibi.ibic_naon) {
+		gi3c->ibi.core_clk = devm_clk_get(gi3c->se.dev,
+							"ibic-core-clk");
+		if (IS_ERR(gi3c->ibi.core_clk)) {
+			ret = PTR_ERR(gi3c->ibi.core_clk);
+			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"Error getting NAON IBI Core clk %d\n", ret);
+			return ret;
+		}
 
-	gi3c->ibi.core_clk = devm_clk_get(gi3c->se.dev, "ibic-core-clk");
-	if (IS_ERR(gi3c->ibi.core_clk)) {
-		ret = PTR_ERR(gi3c->ibi.core_clk);
-		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
-			"Error getting NAON IBI Core clk %d\n", ret);
-		return ret;
-	}
-	/* Keep IBI core clock at 37.5 MHz */
-	ret = clk_set_rate(gi3c->ibi.core_clk, 37500000);
-	if (ret) {
-		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
-			"Error Setting the NAON clock rate: %d\n", ret);
-		return ret;
-	}
+		ret = clk_set_rate(gi3c->ibi.core_clk, 37500000);
+		if (ret)
+			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"%s:Error Setting the clock rate: %d\n",
+				 __func__, ret);
 
-	gi3c->ibi.ahb_clk = devm_clk_get(gi3c->se.dev, "ibic-ahb-clk");
-	if (IS_ERR(gi3c->ibi.ahb_clk)) {
-		ret = PTR_ERR(gi3c->ibi.ahb_clk);
-		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
-			"Error getting NAON AHB clk %d\n", ret);
-		return ret;
-	}
+		gi3c->ibi.ahb_clk = devm_clk_get(gi3c->se.dev, "ibic-ahb-clk");
+		if (IS_ERR(gi3c->ibi.ahb_clk)) {
+			ret = PTR_ERR(gi3c->ibi.ahb_clk);
+			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"Error getting NAON AHB clk %d\n", ret);
+			return ret;
+		}
 
-	gi3c->ibi.src_clk = devm_clk_get(gi3c->se.dev, "ibic-src-clk");
-	if (IS_ERR(gi3c->ibi.src_clk)) {
-		ret = PTR_ERR(gi3c->ibi.src_clk);
-		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
-			"Error getting NAON src clk %d\n", ret);
-		return ret;
+		gi3c->ibi.src_clk = devm_clk_get(gi3c->se.dev, "ibic-src-clk");
+		if (IS_ERR(gi3c->ibi.src_clk)) {
+			ret = PTR_ERR(gi3c->ibi.src_clk);
+			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"Error getting NAON src clk %d\n", ret);
+			return ret;
+		}
 	}
-
 	return ret;
 }
 
@@ -2180,14 +2162,6 @@ static int i3c_geni_rsrcs_init(struct geni_i3c_dev *gi3c,
 		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
 			"SE clk freq not specified, default to 100 MHz.\n");
 		gi3c->clk_src_freq = 100000000;
-	}
-
-	ret = device_property_read_u32(&pdev->dev, "max_i3c_devs",
-		&gi3c->maxdevs);
-	if (ret) {
-		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,
-			"max_i3c_devs is undefined, default to two\n");
-		gi3c->maxdevs = 1;
 	}
 
 	ret = geni_se_common_resources_init(&gi3c->se,
@@ -2264,6 +2238,17 @@ static int i3c_ibi_rsrcs_init(struct geni_i3c_dev *gi3c,
 		return -ENXIO;
 	}
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,ibic-naon")) {
+		gi3c->ibi.ibic_naon = true;
+		dev_info(&pdev->dev, "%s:I3C IBI is NAON cntrl\n", __func__);
+		ret = i3c_naon_ibi_clk_init(gi3c);
+		if (ret)
+			return -EINVAL;
+
+		if (geni_i3c_enable_naon_ibi_clks(gi3c, true))
+			return -EINVAL;
+	}
+
 	/* Enable TLMM I3C MODE registers */
 	msm_qup_write(gi3c->ibi.ctrl_id, TLMM_I3C_MODE);
 
@@ -2288,6 +2273,12 @@ static int i3c_ibi_rsrcs_init(struct geni_i3c_dev *gi3c,
 	spin_lock_init(&gi3c->ibi.lock);
 	gi3c->ibi.num_slots = ((geni_read_reg(gi3c->ibi.ibi_base, IBI_HW_PARAM)
 				& I3C_IBI_TABLE_DEPTH_MSK));
+	if (gi3c->ibi.num_slots == 0) {
+		I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+			"Invalid num_slots:%d\n", gi3c->ibi.num_slots);
+		return -EINVAL;
+	}
+
 	gi3c->ibi.slots = devm_kcalloc(&pdev->dev, gi3c->ibi.num_slots,
 				sizeof(*gi3c->ibi.slots), GFP_KERNEL);
 	if (!gi3c->ibi.slots)

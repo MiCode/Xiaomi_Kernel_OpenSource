@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __GH_RM_DRV_PRIVATE_H
@@ -90,6 +90,7 @@ struct gh_vm_property {
 #define GH_RM_RPC_MSG_ID_CALL_VM_GET_HYP_RESOURCES	0x56000020
 #define GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_HYP_CAPIDS	0x56000021
 #define GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_HYP_IRQS	0X56000022
+#define GH_RM_RPC_MSG_ID_CALL_VM_GET_VMID		0x56000024
 
 /* Message IDs: vRTC Configuration */
 #define GH_RM_RPC_MSG_ID_CALL_VM_SET_TIME_BASE		0x56000030
@@ -98,6 +99,7 @@ struct gh_vm_property {
 #define GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_GET_INFO		0x56000040
 #define GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_REGISTER_RANGE	0x56000041
 #define GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_DEREGISTER_SLOT	0x56000042
+#define GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_GET_SLOT_NUMBER	0x56000043
 
 /* Message IDs: VM Configuration */
 #define GH_RM_RPC_MSG_ID_CALL_VM_IRQ_ACCEPT		0x56000050
@@ -494,6 +496,18 @@ struct gh_minidump_deregister_slot_req_payload {
 	u16 slot_num;
 	u16 reserved;
 } __packed;
+
+struct gh_minidump_get_slot_req_payload {
+	u32 name_len : 8;
+	u32 reserved1 : 24;
+	u16 starting_slot;
+	u16 reserved2;
+};
+
+struct gh_minidump_get_slot_resp_payload {
+	u16 slot_number;
+	u16 reserved;
+};
 
 /* End Message ID headers */
 

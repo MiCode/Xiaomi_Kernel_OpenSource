@@ -5,7 +5,7 @@
  * Copyright (C) 2016 Linaro Ltd
  * Copyright (C) 2014 Sony Mobile Communications AB
  * Copyright (c) 2012-2013, 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -33,6 +33,7 @@
 
 #include <trace/events/rproc_qcom.h>
 #include <soc/qcom/qcom_ramdump.h>
+#include <trace/hooks/remoteproc.h>
 
 #include "qcom_common.h"
 #include "qcom_pil_info.h"
@@ -40,7 +41,7 @@
 #include "remoteproc_internal.h"
 
 #define XO_FREQ		19200000
-#define PIL_TZ_AVG_BW	0
+#define PIL_TZ_AVG_BW	UINT_MAX
 #define PIL_TZ_PEAK_BW	UINT_MAX
 #define QMP_MSG_LEN	64
 
@@ -51,6 +52,7 @@ static int scm_pas_bw_count;
 static DEFINE_MUTEX(scm_pas_bw_mutex);
 bool timeout_disabled;
 static bool mpss_dsm_mem_setup;
+static bool recovery_set_cb;
 
 struct adsp_data {
 	int crash_reason_smem;
@@ -133,6 +135,7 @@ struct qcom_adsp {
 	struct qcom_rproc_ssr ssr_subdev;
 	struct qcom_sysmon *sysmon;
 	const struct firmware *dtb_firmware;
+	bool subsys_recovery_disabled;
 };
 
 static ssize_t txn_id_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -149,6 +152,21 @@ void adsp_segment_dump(struct rproc *rproc, struct rproc_dump_segment *segment,
 {
 	struct qcom_adsp *adsp = rproc->priv;
 	int total_offset;
+	void __iomem *base;
+	int len = strlen("md_dbg_buf");
+
+	if (strnlen(segment->priv, len + 1) == len &&
+		    !strcmp(segment->priv, "md_dbg_buf")) {
+		base = ioremap((unsigned long)le64_to_cpu(segment->da), size);
+		if (!base) {
+			pr_err("failed to map md_dbg_buf region\n");
+			return;
+		}
+
+		memcpy_fromio(dest, base, size);
+		iounmap(base);
+		return;
+	}
 
 	total_offset = segment->da + segment->offset + offset - adsp->mem_phys;
 	if (total_offset < 0 || total_offset + size > adsp->mem_size) {
@@ -358,7 +376,7 @@ static void disable_regulators(struct qcom_adsp *adsp)
 {
 	int i;
 
-	for (i = 0; i < adsp->reg_cnt; i++) {
+	for (i = (adsp->reg_cnt - 1); i >= 0; i--) {
 		regulator_set_voltage(adsp->regs[i].reg, 0, INT_MAX);
 		regulator_set_load(adsp->regs[i].reg, 0);
 		regulator_disable(adsp->regs[i].reg);
@@ -502,7 +520,7 @@ free_metadata:
 	qcom_mdt_free_metadata(adsp->dev, adsp->pas_id, adsp->mdata,
 					adsp->dma_phys_below_32b, ret);
 free_firmware:
-	if (!fw)
+	if (fw)
 		release_firmware(fw);
 
 free_metadata_dtb:
@@ -900,6 +918,7 @@ static int adsp_alloc_memory_region(struct qcom_adsp *adsp)
 	}
 
 	ret = of_address_to_resource(node, 0, &r);
+	of_node_put(node);
 	if (ret)
 		return ret;
 
@@ -965,7 +984,7 @@ static int setup_mpss_dsm_mem(struct platform_device *pdev)
 	struct device_node *node;
 	struct resource res;
 	phys_addr_t mem_phys;
-	int curr_perm;
+	u64 curr_perm;
 	u64 mem_size;
 	int ret;
 	newvm[0].vmid = QCOM_SCM_VMID_MSS_MSA;
@@ -995,6 +1014,36 @@ static int setup_mpss_dsm_mem(struct platform_device *pdev)
 	mpss_dsm_mem_setup = true;
 	return 0;
 }
+
+static void android_vh_rproc_recovery_set(void *data, struct rproc *rproc)
+{
+	struct qcom_adsp *adsp = (struct qcom_adsp *)rproc->priv;
+
+	adsp->subsys_recovery_disabled = rproc->recovery_disabled;
+}
+
+void qcom_rproc_update_recovery_status(struct rproc *rproc, bool enable)
+{
+	struct qcom_adsp *adsp;
+
+	if (!rproc)
+		return;
+
+	adsp = (struct qcom_adsp *)rproc->priv;
+	mutex_lock(&rproc->lock);
+	if (enable) {
+		/* Save recovery flag */
+		adsp->subsys_recovery_disabled = rproc->recovery_disabled;
+		rproc->recovery_disabled = !enable;
+		pr_info("qcom rproc: %s: recovery enabled by kernel client\n", rproc->name);
+	} else {
+		/* Restore recovery flag */
+		rproc->recovery_disabled = adsp->subsys_recovery_disabled;
+		pr_info("qcom rproc: %s: recovery disabled by kernel client\n", rproc->name);
+	}
+	mutex_unlock(&rproc->lock);
+}
+EXPORT_SYMBOL(qcom_rproc_update_recovery_status);
 
 static int adsp_probe(struct platform_device *pdev)
 {
@@ -1059,6 +1108,7 @@ static int adsp_probe(struct platform_device *pdev)
 	adsp->qmp_name = desc->qmp_name;
 	adsp->dma_phys_below_32b = desc->dma_phys_below_32b;
 	adsp->both_dumps = desc->both_dumps;
+	adsp->subsys_recovery_disabled = true;
 
 	if (desc->free_after_auth_reset) {
 		adsp->mdata = devm_kzalloc(adsp->dev, sizeof(struct qcom_mdt_metadata), GFP_KERNEL);
@@ -1125,7 +1175,6 @@ static int adsp_probe(struct platform_device *pdev)
 	timeout_disabled = qcom_pil_timeouts_disabled();
 	qcom_add_glink_subdev(rproc, &adsp->glink_subdev, desc->ssr_name);
 	qcom_add_smd_subdev(rproc, &adsp->smd_subdev);
-	qcom_add_ssr_subdev(rproc, &adsp->ssr_subdev, desc->ssr_name);
 	adsp->sysmon = qcom_add_sysmon_subdev(rproc,
 					      desc->sysmon_name,
 					      desc->ssctl_id);
@@ -1134,6 +1183,7 @@ static int adsp_probe(struct platform_device *pdev)
 		goto detach_proxy_pds;
 	}
 
+	qcom_add_ssr_subdev(rproc, &adsp->ssr_subdev, desc->ssr_name);
 	ret = device_create_file(adsp->dev, &dev_attr_txn_id);
 	if (ret)
 		goto remove_subdevs;
@@ -1147,8 +1197,20 @@ static int adsp_probe(struct platform_device *pdev)
 	if (ret)
 		goto destroy_minidump_dev;
 
+	if (!recovery_set_cb) {
+		ret = register_trace_android_vh_rproc_recovery_set(android_vh_rproc_recovery_set,
+											NULL);
+		if (ret) {
+			dev_err(&pdev->dev, "Unable to register with rproc_recovery_set trace hook\n");
+			goto remove_rproc;
+		}
+		recovery_set_cb = true;
+	}
+
 	return 0;
 
+remove_rproc:
+	rproc_del(rproc);
 destroy_minidump_dev:
 	if (adsp->minidump_dev)
 		qcom_destroy_ramdump_device(adsp->minidump_dev);
@@ -1163,6 +1225,7 @@ detach_active_pds:
 deinit_wakeup_source:
 	device_init_wakeup(adsp->dev, false);
 free_rproc:
+	device_init_wakeup(adsp->dev, false);
 	rproc_free(rproc);
 
 	return ret;
@@ -1172,6 +1235,7 @@ static int adsp_remove(struct platform_device *pdev)
 {
 	struct qcom_adsp *adsp = platform_get_drvdata(pdev);
 
+	unregister_trace_android_vh_rproc_recovery_set(android_vh_rproc_recovery_set, NULL);
 	rproc_del(adsp->rproc);
 	if (adsp->minidump_dev)
 		qcom_destroy_ramdump_device(adsp->minidump_dev);
@@ -1180,6 +1244,7 @@ static int adsp_remove(struct platform_device *pdev)
 	qcom_remove_sysmon_subdev(adsp->sysmon);
 	qcom_remove_smd_subdev(adsp->rproc, &adsp->smd_subdev);
 	qcom_remove_ssr_subdev(adsp->rproc, &adsp->ssr_subdev);
+	adsp_pds_detach(adsp, adsp->proxy_pds, adsp->proxy_pd_count);
 	device_init_wakeup(adsp->dev, false);
 	rproc_free(adsp->rproc);
 

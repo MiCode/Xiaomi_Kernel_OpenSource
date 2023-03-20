@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -220,6 +220,8 @@ struct spi_geni_master {
 	bool disable_dma;
 	bool slave_setup;
 	bool slave_state;
+	bool slave_cross_connected;
+	bool master_cross_connect;
 };
 
 /**
@@ -298,6 +300,7 @@ void geni_spi_se_dump_dbg_regs(struct geni_se *se, void __iomem *base,
 }
 
 static void spi_slv_setup(struct spi_geni_master *mas);
+static void spi_master_setup(struct spi_geni_master *mas);
 
 static ssize_t spi_slave_state_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -325,11 +328,28 @@ static ssize_t spi_slave_state_store(struct device *dev,
 
 static DEVICE_ATTR_RW(spi_slave_state);
 
+static void spi_master_setup(struct spi_geni_master *mas)
+{
+	geni_write_reg(OTHER_IO_OE | IO2_DATA_IN_SEL | RX_DATA_IN_SEL |
+		IO_MACRO_IO3_SEL | IO_MACRO_IO2_SEL | IO_MACRO_IO0_SEL_BIT,
+					mas->base, GENI_CFG_REG80);
+	geni_write_reg(START_TRIGGER, mas->base, SE_GENI_CFG_SEQ_START);
+
+	/* ensure data is written to hardware register */
+	wmb();
+}
+
 static void spi_slv_setup(struct spi_geni_master *mas)
 {
 	geni_write_reg(SPI_SLAVE_EN, mas->base, SE_SPI_SLAVE_EN);
 
-	geni_write_reg(1, mas->base, GENI_OUTPUT_CTRL);
+	if (mas->slave_cross_connected) {
+		geni_write_reg(GENI_IO_MUX_1_EN, mas->base, GENI_OUTPUT_CTRL);
+		geni_write_reg(IO1_SEL_TX | IO2_DATA_IN_SEL_PAD2 |
+			       IO3_DATA_IN_SEL_PAD2, mas->base, GENI_CFG_REG80);
+	} else {
+		geni_write_reg(GENI_IO_MUX_0_EN, mas->base, GENI_OUTPUT_CTRL);
+	}
 
 	geni_write_reg(START_TRIGGER, mas->base, SE_GENI_CFG_SEQ_START);
 	/* ensure data is written to hardware register */
@@ -1277,6 +1297,9 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 
 		if (spi->slave)
 			spi_slv_setup(mas);
+
+		if (mas->master_cross_connect)
+			spi_master_setup(mas);
 	}
 	geni_se_init(&mas->spi_rsc, 0x0, (mas->tx_fifo_depth - 2));
 	mas->tx_fifo_depth = geni_se_get_tx_fifo_depth(&mas->spi_rsc);
@@ -2015,12 +2038,19 @@ static int spi_geni_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct geni_se *spi_rsc;
 
-	spi = spi_alloc_master(&pdev->dev, sizeof(struct spi_geni_master));
+	slave_en  = of_property_read_bool(pdev->dev.of_node,
+			 "qcom,slv-ctrl");
+
+	spi = __spi_alloc_controller(&pdev->dev, sizeof(struct spi_geni_master), slave_en);
 	if (!spi) {
 		ret = -ENOMEM;
 		dev_err(&pdev->dev, "Failed to alloc spi struct\n");
 		goto spi_geni_probe_err;
 	}
+
+	if (slave_en)
+		spi->slave_abort = spi_slv_abort;
+
 	platform_set_drvdata(pdev, spi);
 	geni_mas = spi_master_get_devdata(spi);
 	geni_mas->dev = dev;
@@ -2216,14 +2246,11 @@ static int spi_geni_probe(struct platform_device *pdev)
 	geni_mas->disable_dma = of_property_read_bool(pdev->dev.of_node,
 		"qcom,disable-dma");
 
-	slave_en  = of_property_read_bool(pdev->dev.of_node,
-			 "qcom,slv-ctrl");
-	if (slave_en) {
-		spi->slave = true;
-		spi->slave_abort = spi_slv_abort;
-	}
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,master-cross-connect"))
+		geni_mas->master_cross_connect = true;
 
-
+	geni_mas->slave_cross_connected =
+		of_property_read_bool(pdev->dev.of_node, "slv-cross-connected");
 	spi->mode_bits = (SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH);
 	spi->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
 	spi->num_chipselect = SPI_NUM_CHIPSELECT;

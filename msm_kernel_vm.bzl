@@ -8,6 +8,7 @@ load(
     "kernel_compile_commands",
     "kernel_images",
     "kernel_modules_install",
+    "kernel_uapi_headers_cc_library",
     "merged_kernel_uapi_headers",
 )
 load(
@@ -22,8 +23,23 @@ load(
 load(":msm_common.bzl", "define_top_level_config", "gen_config_without_source_lines", "get_out_dir")
 load(":msm_dtc.bzl", "define_dtc_dist")
 load(":image_opts.bzl", "vm_image_opts")
-load(":uapi_library.bzl", "define_uapi_library")
 load(":target_variants.bzl", "vm_variants")
+
+def define_make_vm_dtb_img(target, dtb_list, page_size):
+    compiled_dtbs = ["//msm-kernel:{}/{}".format(target, t) for t in dtb_list]
+    dtb_cmd="compiled_dtb_list=\"{}\"\n".format(" ".join(["$(location {})".format(d) for d in compiled_dtbs]))
+    dtb_cmd += """
+      $(location //prebuilts/kernel-build-tools:linux-x86/bin/mkdtboimg) \\
+        create "$@" --page_size={page_size} $${{compiled_dtb_list}}
+    """.format(page_size=page_size)
+
+    native.genrule(
+        name = "{}_vm_dtb_img".format(target),
+        srcs = compiled_dtbs,
+        outs = ["{}-dtb.img".format(target)],
+        tools = ["//prebuilts/kernel-build-tools:linux-x86/bin/mkdtboimg"],
+        cmd_bash = dtb_cmd,
+    )
 
 def _define_build_config(
         msm_target,
@@ -111,8 +127,7 @@ def _define_kernel_build(
         target,
         dtb_list,
         dtbo_list,
-        dtstree,
-        define_compile_commands):
+        dtstree):
     """Creates a `kernel_build` and other associated definitions
 
     This is where the main kernel build target is created (e.g. `//msm-kernel:kalama_gki`).
@@ -122,7 +137,6 @@ def _define_kernel_build(
       target: name of main Bazel target (e.g. `kalama_gki`)
       dtb_list: device tree blobs expected to be built
       dtbo_list: device tree overlay blobs expected to be built
-      define_compile_commands: boolean determining if `compile_commands.json` should be generated
     """
     out_list = [".config", "Module.symvers"]
 
@@ -154,16 +168,18 @@ def _define_kernel_build(
         dtstree = dtstree,
         kmi_symbol_list = None,
         additional_kmi_symbol_lists = None,
+        module_signing_key = ":signing_key",
+        system_trusted_key = ":verity_cert.pem",
         abi_definition = None,
-        enable_interceptor = define_compile_commands,
+        strip_modules = True,
         visibility = ["//visibility:public"],
     )
 
     kernel_images(
         name = "{}_images".format(target),
         kernel_build = ":{}".format(target),
-        boot_image_outs = ["dtb.img"],
-        build_boot = True,
+        boot_image_outs = [],
+        build_boot = False,
         kernel_modules_install = None,
     )
 
@@ -172,11 +188,10 @@ def _define_kernel_build(
         kernel_build = ":{}".format(target),
     )
 
-    if define_compile_commands:
-        kernel_compile_commands(
-            name = "{}_compile_commands".format(target),
-            kernel_build = ":{}".format(target),
-        )
+    kernel_compile_commands(
+        name = "{}_compile_commands".format(target),
+        kernel_build = ":{}".format(target),
+    )
 
 def _define_kernel_dist(target, msm_target, variant):
     """Creates distribution targets for kernel builds
@@ -194,8 +209,10 @@ def _define_kernel_dist(target, msm_target, variant):
     msm_dist_targets = [
         # do not sort
         ":{}".format(target),
+        ":{}_images".format(target),
         ":{}_merged_kernel_uapi_headers".format(target),
         ":{}_build_config".format(target),
+        ":{}_vm_dtb_img".format(target),
         ":signing_key",
         ":verity_key",
     ]
@@ -229,18 +246,27 @@ def _define_kernel_dist(target, msm_target, variant):
         dist_dir = dist_dir,
     )
 
+def _define_uapi_library(target):
+    """Define a cc_library for userspace programs to use
+
+    Args:
+      target: kernel_build target name (e.g. "kalama_gki")
+    """
+    kernel_uapi_headers_cc_library(
+        name = "{}_uapi_header_library".format(target),
+        kernel_build = ":{}".format(target),
+    )
+
 def define_msm_vm(
         msm_target,
         variant,
         defconfig = None,
-        define_compile_commands = False,
         vm_image_opts = vm_image_opts()):
     """Top-level kernel build definition macro for a VM MSM platform
 
     Args:
       msm_target: name of target platform (e.g. "kalama")
       variant: variant of kernel to build (e.g. "gki")
-      define_compile_commands: boolean determining if `compile_commands.json` should be generated
       vm_image_opts: vm_image_opts structure containing boot image options
     """
 
@@ -270,13 +296,20 @@ def define_msm_vm(
         dtb_list,
         dtbo_list,
         dtstree,
-        define_compile_commands,
     )
 
     _define_kernel_dist(target, msm_target, variant)
 
+    _define_uapi_library(target)
+
     define_dtc_dist(target, msm_target, variant)
 
-    define_uapi_library(target)
+    # use only dtbs related to the variant for dtb image creation
+    if "tuivm" in msm_target:
+        seg_dtb_list = [ dtb for dtb in dtb_list if "-vm-" in dtb ]
+    elif "oemvm" in msm_target:
+        seg_dtb_list = [ dtb for dtb in dtb_list if "-oemvm-" in dtb ]
+
+    define_make_vm_dtb_img(target, seg_dtb_list, vm_image_opts.dummy_img_size)
 
     define_extras(target, flavor = "vm")

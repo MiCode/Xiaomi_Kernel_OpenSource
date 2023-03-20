@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <trace/hooks/sched.h>
@@ -107,6 +107,7 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 	bool boost_on_big = rt_boost_on_big();
 	int cluster;
 	int order_index = (boost_on_big && num_sched_clusters > 1) ? 1 : 0;
+	int end_index = 0;
 	bool best_cpu_lt = true;
 
 	if (unlikely(walt_disabled))
@@ -116,6 +117,10 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 		return; /* No targets found */
 
 	rcu_read_lock();
+
+	if (num_sched_clusters > 3 && order_index == 0)
+		end_index = 1;
+
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
 		for_each_cpu_and(cpu, lowest_mask, &cpu_array[order_index][cluster]) {
 			bool lt;
@@ -184,6 +189,10 @@ static void walt_rt_energy_aware_wake_cpu(struct task_struct *task, struct cpuma
 			best_cpu_util = util;
 			*best_cpu = cpu;
 			best_cpu_lt = lt;
+		}
+		if (cluster < end_index) {
+			if (*best_cpu == -1 || !available_idle_cpu(*best_cpu))
+				continue;
 		}
 
 		if (*best_cpu != -1)
@@ -302,12 +311,14 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	ret = cpupri_find_fitness(&task_rq(task)->rd->cpupri, task,
 				lowest_mask, walt_rt_task_fits_capacity);
 
-	/* create a fastpath for finding a packing cpu */
-	packing_cpu = walt_find_and_choose_cluster_packing_cpu(task_cpu(task), task);
-	if (packing_cpu >= 0) {
-		fastpath = CLUSTER_PACKING_FASTPATH;
-		*new_cpu = packing_cpu;
-		goto unlock;
+	/* try finding a packing cpu only if this task had run on silver */
+	if (is_min_cluster_cpu(task_cpu(task))) {
+		packing_cpu = walt_find_and_choose_cluster_packing_cpu(task_cpu(task), task);
+		if (packing_cpu >= 0) {
+			fastpath = CLUSTER_PACKING_FASTPATH;
+			*new_cpu = packing_cpu;
+			goto unlock;
+		}
 	}
 
 	walt_rt_energy_aware_wake_cpu(task, lowest_mask, ret, &target);
@@ -335,7 +346,7 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 unlock:
 	rcu_read_unlock();
 out:
-	trace_sched_select_task_rt(task, fastpath);
+	trace_sched_select_task_rt(task, fastpath, *new_cpu);
 }
 
 
@@ -344,15 +355,19 @@ static void walt_rt_find_lowest_rq(void *unused, struct task_struct *task,
 
 {
 	int packing_cpu;
+	int fastpath = 0;
 
 	if (unlikely(walt_disabled))
 		return;
 
-	/* create a fastpath for finding a packing cpu */
-	packing_cpu = walt_find_and_choose_cluster_packing_cpu(task_cpu(task), task);
-	if (packing_cpu >= 0) {
-		*best_cpu = packing_cpu;
-		return;
+	/* try finding a packing cpu only if this task had run on silver */
+	if (is_min_cluster_cpu(task_cpu(task))) {
+		packing_cpu = walt_find_and_choose_cluster_packing_cpu(task_cpu(task), task);
+		if (packing_cpu >= 0) {
+			*best_cpu = packing_cpu;
+			fastpath = CLUSTER_PACKING_FASTPATH;
+			goto out;
+		}
 	}
 
 	walt_rt_energy_aware_wake_cpu(task, lowest_mask, ret, best_cpu);
@@ -364,6 +379,8 @@ static void walt_rt_find_lowest_rq(void *unused, struct task_struct *task,
 	 */
 	if (*best_cpu == -1)
 		cpumask_andnot(lowest_mask, lowest_mask, cpu_halt_mask);
+out:
+	trace_sched_rt_find_lowest_rq(task, fastpath, *best_cpu);
 }
 
 void walt_rt_init(void)

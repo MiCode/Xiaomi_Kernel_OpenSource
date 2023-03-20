@@ -147,6 +147,7 @@ config QCOM_TLMM_VM_IRQCHIP
 config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
+	select REGMAP_MMIO
 	help
 	  Qualcomm Technologies, Inc. platform specific
 	  Last Level Cache Controller(LLCC) driver for platforms such as,
@@ -235,6 +236,8 @@ config PDR_INDICATION_NOTIF_TIMEOUT
 config QCOM_QMI_HELPERS
 	tristate
 	depends on NET
+
+source "drivers/soc/qcom/memshare/Kconfig"
 
 config QCOM_RMTFS_MEM
 	tristate "Qualcomm Remote Filesystem memory driver"
@@ -513,9 +516,8 @@ config QCOM_LOGBUF_VENDOR_HOOKS
 	  device running.
 
 config QCOM_LOGBUF_BOOTLOG
-	bool "QTI Boot Log Support"
-	depends on QCOM_LOGBUF_VENDOR_HOOKS
-	default y
+	tristate "QTI Boot Log Support"
+	depends on ARCH_QCOM
 	help
 	  This enables to keep copy of initial log_buf
 	  of minimum 512KB from bootup. It can help in
@@ -543,15 +545,6 @@ config QCOM_SOC_WATCHDOG
 	  setting the bark/bite time and also petting the hardware watchdog. To
 	  utilize this the Qualcomm Technologies, Inc. watchdog framework must
 	  also be enabled.
-
-config QCOM_IRQ_STAT
-	bool "QCOM IRQ stats"
-	depends on QCOM_WDT_CORE
-	help
-	  This give irq stats for top hitter at
-	  watchdog pet, watchdog bark and kernel panics.
-	  This provides additional debug information
-	  for irq counts on cpu and ipi counts.
 
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	bool "QCOM force watchdog bite on panic"
@@ -675,15 +668,6 @@ config MSM_BOOT_STATS
 	  This figures are reported in mpm sleep clock cycles and have a
 	  resolution of 31 bits as 1 bit is used as an overflow check.
 
-config MSM_BOOT_TIME_MARKER
-	bool "Use MSM boot time marker reporting"
-	depends on MSM_BOOT_STATS
-	help
-	  Use this to mark msm boot kpi for measurement.
-	  An instrumentation for boot time measurement.
-	  To create an entry, call "place_marker" function.
-	  At userspace, write marker name to "/sys/kernel/boot_kpi/kpi_values"
-
 config QCOM_CPU_VENDOR_HOOKS
         tristate "QTI Vendor Hooks Support"
         depends on ARCH_QCOM && ANDROID_VENDOR_HOOKS
@@ -754,7 +738,7 @@ config QCOM_WCD_USBSS_I2C
 
 config QCOM_MINIDUMP
 	tristate "QCOM Minidump Support"
-	depends on QCOM_SMEM || ARCH_QTI_VM
+	depends on (QCOM_SMEM || ARCH_QTI_VM) && KALLSYMS
 	help
 	  This enables minidump feature. It allows various clients to
 	  register to dump their state at system bad state (panic/WDT,etc.,).
@@ -799,10 +783,17 @@ config QCOM_MINIDUMP_PANIC_DUMP
 	  panic.
 
 config QCOM_MINIDUMP_PANIC_CPU_CONTEXT
-	bool "QCOM Minidump Panic dumps Support"
+	bool "QCOM Minidump Panic dumps CPU Context"
 	depends on ARM64 && QCOM_MINIDUMP_PANIC_DUMP
 	help
 	  This enables cpu context collection in minidump table,
+	  on panic.
+
+config QCOM_MINIDUMP_PANIC_MEMORY_INFO
+	bool "QCOM Minidump Panic dumps Memory Info"
+	depends on QCOM_MINIDUMP_PANIC_DUMP
+	help
+	  This enables memory info collection in minidump table,
 	  on panic.
 
 config QCOM_MINIDUMP_PSTORE
@@ -860,6 +851,15 @@ config QCOM_ADSP_SLEEPMON
 	   detects and logs sleep violations from ADSP subsystem. The driver
 	   uses master stats from ADSP subsystem stored in SMEM.
 
+config GH_CPUSYS_VM_MEM_ACCESS
+        tristate "Qualcomm Technologies, Inc. CPUSYS VM shared mem access driver"
+        depends on GH_RM_DRV
+        help
+         Qualcomm Technologies, Inc. CPUSYS shared  mem access driver for MSM devices.
+         The drivers provides shared memory access to CPUSYS VM.
+         Say Y here to compile the driver as a part of kernel or M to compile
+         as a module.
+
 config GH_TLMM_VM_MEM_ACCESS
 	tristate "Qualcomm Technologies, Inc. TLMM VM mem access driver"
 	depends on GH_RM_DRV
@@ -882,6 +882,7 @@ config QCOM_ICC_BWMON
 	tristate "QCOM Interconnect Bandwidth Monitor driver"
 	depends on ARCH_QCOM || COMPILE_TEST
 	select PM_OPP
+	select REGMAP_MMIO
 	help
 	  Sets up driver monitoring bandwidth on various interconnects and
 	  based on that voting for interconnect bandwidth, adjusting their
@@ -894,6 +895,7 @@ config QCOM_ICC_BWMON
 
 config QCOM_DEBUG_SYMBOL
 	tristate "Enable Debug Symbol Support"
+	depends on ANDROID_DEBUG_KINFO
 	help
 	  This enables Debug Symbol Support. This driver is based on
 	  Google Debug Kinfo driver, according to the provided info, this

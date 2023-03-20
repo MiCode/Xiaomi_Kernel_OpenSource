@@ -117,6 +117,7 @@ extern void qcom_scm_disable_sdi(void);
 extern int qcom_scm_set_remote_state(u32 state, u32 id);
 extern int qcom_scm_spin_cpu(void);
 extern void qcom_scm_set_download_mode(enum qcom_download_mode mode, phys_addr_t tcsr_boot_misc);
+extern int qcom_scm_get_download_mode(unsigned int *mode, phys_addr_t tcsr_boot_misc);
 extern int qcom_scm_config_cpu_errata(void);
 
 extern int qcom_scm_pas_init_image(u32 peripheral, dma_addr_t metadata);
@@ -166,7 +167,7 @@ qcom_scm_assign_mem_regions(struct qcom_scm_mem_map_info *mem_regions,
 			    struct qcom_scm_current_perm_info *newvms,
 			    size_t newvms_sz);
 extern int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
-			       unsigned int *src,
+			       u64 *src,
 			       const struct qcom_scm_vmperm *newvm,
 			       unsigned int dest_cnt);
 extern int qcom_scm_mem_protect_sd_ctrl(u32 devid, phys_addr_t mem_addr,

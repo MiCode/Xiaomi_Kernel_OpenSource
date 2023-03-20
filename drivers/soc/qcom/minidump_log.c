@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/cache.h>
@@ -44,6 +44,7 @@
 
 #include <asm/memory.h>
 
+#include <linux/sched/cputime.h>
 #include "../../../kernel/sched/sched.h"
 #include <linux/sched/walt.h>
 
@@ -61,6 +62,7 @@
 #endif
 #include "minidump_memory.h"
 #endif
+#include "../../../kernel/time/tick-internal.h"
 
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
 
@@ -130,6 +132,7 @@ static DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 #endif
 
 /* Meminfo */
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_MEMORY_INFO
 static struct seq_buf *md_meminfo_seq_buf;
 
 /* Slabinfo */
@@ -152,6 +155,7 @@ char *md_dma_buf_info_addr;
 
 size_t md_dma_buf_procs_size = SZ_256K;
 char *md_dma_buf_procs_addr;
+#endif
 
 /* Modules information */
 #ifdef CONFIG_MODULES
@@ -197,10 +201,10 @@ static void register_kernel_sections(void)
 	void *_sdata, *__bss_stop;
 	void *start_ro, *end_ro;
 
-	_sdata = (void *)debug_symbol_lookup_name("_sdata");
-	__bss_stop = (void *)debug_symbol_lookup_name("__bss_stop");
-	base = (void *)debug_symbol_lookup_name("__per_cpu_start");
-	static_size = (size_t)((void *)debug_symbol_lookup_name("__per_cpu_end") - base);
+	_sdata = DEBUG_SYMBOL_LOOKUP(_sdata);
+	__bss_stop = DEBUG_SYMBOL_LOOKUP(__bss_stop);
+	base = DEBUG_SYMBOL_LOOKUP(__per_cpu_start);
+	static_size = (size_t)(DEBUG_SYMBOL_LOOKUP(__per_cpu_end) - base);
 
 	strscpy(ksec_entry.name, data_name, sizeof(ksec_entry.name));
 	ksec_entry.virt_addr = (u64)_sdata;
@@ -209,8 +213,8 @@ static void register_kernel_sections(void)
 	if (msm_minidump_add_region(&ksec_entry) < 0)
 		pr_err("Failed to add data section in Minidump\n");
 
-	start_ro = (void *)debug_symbol_lookup_name("__start_ro_after_init");
-	end_ro = (void *)debug_symbol_lookup_name("__end_ro_after_init");
+	start_ro = DEBUG_SYMBOL_LOOKUP(__start_ro_after_init);
+	end_ro = DEBUG_SYMBOL_LOOKUP(__end_ro_after_init);
 	strscpy(ksec_entry.name, rodata_name, sizeof(ksec_entry.name));
 	ksec_entry.virt_addr = (uintptr_t)start_ro;
 	ksec_entry.phys_addr = virt_to_phys(start_ro);
@@ -570,7 +574,7 @@ static void register_irq_stack(void)
 	u64 irq_stack_base;
 	struct md_region irq_sp_entry;
 	u64 sp;
-	u64 *irq_stack_ptr = (void *)debug_symbol_lookup_name("irq_stack_ptr");
+	u64 *irq_stack_ptr = DEBUG_SYMBOL_LOOKUP(irq_stack_ptr);
 
 	for_each_possible_cpu(cpu) {
 		irq_stack_base = *(u64 *)(per_cpu_ptr((void *)irq_stack_ptr, cpu));
@@ -851,6 +855,17 @@ static inline const char *md_get_task_state(struct task_struct *tsk)
 	return task_state_array[md_task_state_index(tsk)];
 }
 
+static void md_dump_next_event(void)
+{
+	int cpu;
+	struct tick_device *device_dump = DEBUG_SYMBOL_LOOKUP(tick_cpu_device);
+
+	for_each_possible_cpu(cpu) {
+		pr_emerg("CPU%d next event is %ld\n", cpu,
+			per_cpu(device_dump->evtdev, cpu)->next_event);
+	}
+}
+
 static void md_dump_runqueues(void)
 {
 	int cpu;
@@ -1094,7 +1109,9 @@ void md_dump_process(void)
 	md_dump_other_cpus_context();
 dump_rq:
 #endif
+	md_dump_next_event();
 	md_dump_runqueues();
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_MEMORY_INFO
 	if (md_meminfo_seq_buf)
 		md_dump_meminfo(md_meminfo_seq_buf);
 
@@ -1116,6 +1133,7 @@ dump_rq:
 		md_dma_buf_info(md_dma_buf_info_addr, md_dma_buf_info_size);
 	if (md_dma_buf_procs_addr)
 		md_dma_buf_procs(md_dma_buf_procs_addr, md_dma_buf_procs_size);
+#endif
 	md_in_oops_handler = false;
 }
 EXPORT_SYMBOL(md_dump_process);
@@ -1187,15 +1205,9 @@ err_seq_buf:
 
 static void md_register_panic_data(void)
 {
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_MEMORY_INFO
 	struct dentry *minidump_dir = NULL;
 
-	md_register_panic_entries(MD_RUNQUEUE_PAGES, "KRUNQUEUE",
-				  &md_runq_seq_buf);
-#ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
-	md_register_panic_entries(MD_CPU_CNTXT_PAGES, "KCNTXT",
-				  &md_cntxt_seq_buf);
-	register_trace_android_vh_ipi_stop(md_ipi_stop, NULL);
-#endif
 	md_register_panic_entries(MD_MEMINFO_PAGES, "MEMINFO",
 				  &md_meminfo_seq_buf);
 #ifdef CONFIG_SLUB_DEBUG
@@ -1220,6 +1232,14 @@ static void md_register_panic_data(void)
 	md_debugfs_dmabufinfo(minidump_dir);
 	md_register_memory_dump(md_dma_buf_procs_size, "DMA_PROC");
 	md_debugfs_dmabufprocs(minidump_dir);
+#endif
+#ifdef CONFIG_QCOM_MINIDUMP_PANIC_CPU_CONTEXT
+	md_register_panic_entries(MD_CPU_CNTXT_PAGES, "KCNTXT",
+				  &md_cntxt_seq_buf);
+	register_trace_android_vh_ipi_stop(md_ipi_stop, NULL);
+#endif
+	md_register_panic_entries(MD_RUNQUEUE_PAGES, "KRUNQUEUE",
+				  &md_runq_seq_buf);
 }
 
 static int register_vmap_mem(const char *name, void *virual_addr, size_t dump_len)
@@ -1295,17 +1315,6 @@ static int md_module_process(struct module *mod)
 	return 0;
 }
 
-static int md_get_present_module(const char *mod_name,
-				void *mod_addr, void *data)
-{
-	struct module *mod = container_of(mod_name,
-				struct module, name[0]);
-
-	if (mod != THIS_MODULE)
-		md_module_process(mod);
-	return 0;
-}
-
 static int md_module_notify(struct notifier_block *self,
 			    unsigned long val, void *data)
 {
@@ -1325,6 +1334,8 @@ static struct notifier_block md_module_nb = {
 static void md_register_module_data(void)
 {
 	int ret;
+	struct module *module;
+	struct list_head *module_list;
 
 	ret = md_register_panic_entries(MD_MODULE_PAGES, "KMODULES",
 					&md_mod_info_seq_buf);
@@ -1340,7 +1351,15 @@ static void md_register_module_data(void)
 		return;
 	}
 
-	android_debug_for_each_module(md_get_present_module, NULL);
+	module_list = DEBUG_SYMBOL_LOOKUP(modules);
+	if (IS_ERR_OR_NULL(module_list))
+		return;
+	preempt_disable();
+	list_for_each_entry_rcu(module, module_list, list) {
+		if (module != THIS_MODULE)
+			md_module_process(module);
+	}
+	preempt_enable();
 }
 #endif
 

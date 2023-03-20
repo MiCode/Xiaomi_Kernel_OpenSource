@@ -92,6 +92,7 @@
 /* XHCI registers */
 #define USB3_HCSPARAMS1		(0x4)
 #define USB3_PORTSC		(0x420)
+#define USB3_PORTPMSC_20	(0x424)
 
 /**
  *  USB QSCRATCH Hardware registers
@@ -484,6 +485,7 @@ struct extcon_nb {
 struct dwc3_msm {
 	struct device *dev;
 	void __iomem *base;
+	void __iomem *tcsr_dyn_en_dis;
 	void __iomem *ahb2phy_base;
 	phys_addr_t reg_phys;
 	struct platform_device	*dwc3;
@@ -605,6 +607,7 @@ struct dwc3_msm {
 	bool			has_orientation_gpio;
 
 	bool			wcd_usbss;
+	bool			dynamic_disable;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1234,8 +1237,15 @@ static void dwc3_core_stop_active_transfer(struct dwc3_ep *dep, bool force)
 	u32 cmd;
 	int ret;
 
+	/*
+	 * Do not allow endxfer if no transfer was started, or if the
+	 * delayed ep stop is set.  If delayed ep stop is set, the
+	 * endxfer is in progress by DWC3 gadget, and waiting for the
+	 * SETUP stage to occur.
+	 */
 	if (!(mdwc->hw_eps[dep->number].flags &
-			DWC3_MSM_HW_EP_TRANSFER_STARTED))
+			DWC3_MSM_HW_EP_TRANSFER_STARTED) ||
+		(dep->flags & DWC3_EP_DELAY_STOP))
 		return;
 
 	dwc3_msm_notify_event(dwc, DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
@@ -1274,6 +1284,18 @@ static void dwc3_core_stop_active_transfer(struct dwc3_ep *dep, bool force)
 	memset(&params, 0, sizeof(params));
 	ret = dwc3_core_send_gadget_ep_cmd(dep, cmd, &params);
 	WARN_ON_ONCE(ret);
+	if (ret == -ETIMEDOUT && dep->dwc->ep0state != EP0_SETUP_PHASE) {
+		/*
+		 * Set DWC3_EP_DELAY_STOP and DWC3_EP_TRANSFER_STARTED
+		 * together, as endxfer will need to be handed over to DWC3
+		 * ep0 when it moves back to the SETUP phase.  If the transfer
+		 * started flag is not set, then the endxfer on GSI ep is
+		 * treated as a no-op.
+		 */
+		dep->flags |= DWC3_EP_DELAY_STOP | DWC3_EP_TRANSFER_STARTED;
+		dbg_event(0xFF, "core ENDXFER", ret);
+		goto out;
+	}
 	dep->resource_index = 0;
 
 	if (DWC3_IP_IS(DWC31) || DWC3_VER_IS_PRIOR(DWC3, 310A))
@@ -1285,7 +1307,7 @@ static void dwc3_core_stop_active_transfer(struct dwc3_ep *dep, bool force)
 	 */
 	if (dep->stream_capable)
 		dep->flags |= DWC3_EP_IGNORE_NEXT_NOSTREAM;
-
+out:
 	mdwc->hw_eps[dep->number].flags &= ~DWC3_MSM_HW_EP_TRANSFER_STARTED;
 }
 
@@ -3497,7 +3519,6 @@ static void dwc3_dis_sleep_mode(struct dwc3_msm *mdwc)
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL1, reg);
 }
 
-
 /* Force Gen1 speed on Gen2 controller if required */
 static void dwc3_force_gen1(struct dwc3_msm *mdwc)
 {
@@ -3507,15 +3528,36 @@ static void dwc3_force_gen1(struct dwc3_msm *mdwc)
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_LLUCTL, DWC3_LLUCTL_FORCE_GEN1, 1);
 }
 
-static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
+static int dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = NULL;
 	u32 val;
 
 	if (!mdwc->dwc3)
-		return;
+		return 0;
 
 	dwc = platform_get_drvdata(mdwc->dwc3);
+
+	if (mdwc->dynamic_disable)
+		return -EINVAL;
+
+	/*
+	 * Reading a value on the TCSR_USB_INT_DYN_EN_DIS register deviating
+	 * from 0xF means that TZ caused TCSR to disable USB Interface
+	 */
+	if (mdwc->tcsr_dyn_en_dis) {
+		val = dwc3_msm_read_reg(mdwc->tcsr_dyn_en_dis, 0);
+		if (val != 0xF)
+			return -EINVAL;
+	}
+
+	/*
+	 * Reading from GSNPSID (known read-only register) which is expected
+	 * to show a non-zero value if controller was turned on properly.
+	 */
+	val = dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID);
+	if (DWC3_GSNPS_ID(val) == 0)
+		return -EINVAL;
 
 	/* Get initial P3 status and enable IN_P3 event */
 	if (mdwc->ip == DWC31_IP)
@@ -3542,6 +3584,7 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 	}
 
 	dwc3_force_gen1(mdwc);
+	return 0;
 }
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc, bool ignore_p3_state)
@@ -4223,7 +4266,15 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
 		dev_dbg(mdwc->dev, "%s: exit power collapse\n", __func__);
 
-		dwc3_msm_power_collapse_por(mdwc);
+		ret = dwc3_msm_power_collapse_por(mdwc);
+		if (ret < 0) {
+			dev_err(mdwc->dev, "%s: Controller was not turned on properly\n",
+						__func__);
+			dwc3_clk_enable_disable(mdwc, false,
+				mdwc->lpm_flags & MDWC3_POWER_COLLAPSE);
+			dwc3_msm_config_gdsc(mdwc, 0);
+			goto error;
+		}
 
 		mdwc->lpm_flags &= ~MDWC3_POWER_COLLAPSE;
 	}
@@ -4291,6 +4342,12 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 {
 	/* Flush processing any pending events before handling new ones */
 	flush_work(&mdwc->sm_work);
+
+	if (mdwc->dynamic_disable && (mdwc->vbus_active ||
+			(mdwc->id_state == DWC3_ID_GROUND))) {
+		dev_err(mdwc->dev, "%s: Event not allowed\n", __func__);
+		return;
+	}
 
 	dbg_log_string("enter: mdwc->inputs:%lx hs_phy_flags:%x\n",
 				mdwc->inputs, mdwc->hs_phy->flags);
@@ -5145,11 +5202,90 @@ static ssize_t bus_vote_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(bus_vote);
 
+static ssize_t xhci_test_store(struct device *dev,
+		struct device_attribute *attr, const char *buf,
+		size_t count)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc;
+	enum usb_role cur_role;
+	u32 reg;
+
+	if (mdwc->dwc3 == NULL)
+		return count;
+
+	dwc = platform_get_drvdata(mdwc->dwc3);
+	cur_role = dwc3_msm_get_role(mdwc);
+	if (cur_role != USB_ROLE_HOST) {
+		dev_err(dev, "USB is not in host mode\n");
+		return count;
+	}
+
+	pm_runtime_resume(&dwc->xhci->dev);
+	pm_runtime_forbid(&dwc->xhci->dev);
+	reg = dwc3_msm_read_reg(mdwc->base, USB3_PORTPMSC_20);
+	dev_info(dev, "USB PORTPMSC val:%x\n", reg);
+	reg |= USB_TEST_PACKET << PORT_TEST_MODE_SHIFT;
+	dev_info(dev, "writing %x to USB PORTPMSC\n", reg);
+	dwc3_msm_write_reg(mdwc->base, USB3_PORTPMSC_20, reg);
+	return count;
+}
+static DEVICE_ATTR_WO(xhci_test);
+
+static ssize_t dynamic_disable_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	bool disable;
+
+	strtobool(buf, &disable);
+	if (disable) {
+		if (mdwc->dynamic_disable) {
+			dbg_log_string("USB already disabled\n");
+			return count;
+		}
+
+		flush_work(&mdwc->sm_work);
+		set_bit(ID, &mdwc->inputs);
+		clear_bit(B_SESS_VLD, &mdwc->inputs);
+		queue_work(mdwc->sm_usb_wq, &mdwc->sm_work);
+		flush_work(&mdwc->sm_work);
+		while (test_bit(WAIT_FOR_LPM, &mdwc->inputs))
+			msleep(20);
+		mdwc->dynamic_disable = true;
+		dbg_log_string("Dynamic USB disable\n");
+	} else {
+		if (!mdwc->dynamic_disable) {
+			dbg_log_string("USB already enabled\n");
+			return count;
+		}
+		if (mdwc->tcsr_dyn_en_dis) {
+			if (dwc3_msm_read_reg(mdwc->tcsr_dyn_en_dis, 0) != 0xF) {
+				dbg_log_string("Unable to enable USB\n");
+				return count;
+			}
+		}
+
+		mdwc->dynamic_disable = false;
+		pm_runtime_disable(mdwc->dev);
+		pm_runtime_set_suspended(mdwc->dev);
+		pm_runtime_enable(mdwc->dev);
+		dwc3_ext_event_notify(mdwc);
+		flush_work(&mdwc->sm_work);
+		dbg_log_string("Dynamic USB enable\n");
+	}
+
+	return count;
+}
+static DEVICE_ATTR_WO(dynamic_disable);
+
 static struct attribute *dwc3_msm_attrs[] = {
 	&dev_attr_orientation.attr,
 	&dev_attr_mode.attr,
 	&dev_attr_speed.attr,
 	&dev_attr_bus_vote.attr,
+	&dev_attr_xhci_test.attr,
+	&dev_attr_dynamic_disable.attr,
 	NULL
 };
 ATTRIBUTE_GROUPS(dwc3_msm);
@@ -5801,6 +5937,17 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENODEV;
 		goto err;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcsr_dyn_en_dis");
+	if (res) {
+		mdwc->tcsr_dyn_en_dis = devm_ioremap(&pdev->dev, res->start,
+			resource_size(res));
+		if (!mdwc->tcsr_dyn_en_dis) {
+			dev_err(&pdev->dev, "ioremap for tcsr_dyn_en_dis failed\n");
+			ret = -ENODEV;
+			goto err;
+		}
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,

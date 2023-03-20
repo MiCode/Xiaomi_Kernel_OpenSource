@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2010,2015,2019,2021 The Linux Foundation. All rights reserved.
  * Copyright (C) 2015 Linaro Ltd.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt)     "qcom-scm: %s: " fmt, __func__
 
@@ -584,6 +584,25 @@ void qcom_scm_set_download_mode(enum qcom_download_mode mode, phys_addr_t tcsr_b
 }
 EXPORT_SYMBOL(qcom_scm_set_download_mode);
 
+int qcom_scm_get_download_mode(unsigned int *mode, phys_addr_t tcsr_boot_misc)
+{
+	int ret = -EINVAL;
+	struct device *dev = __scm ? __scm->dev : NULL;
+
+	if (tcsr_boot_misc || (__scm && __scm->dload_mode_addr)) {
+		ret = qcom_scm_io_readl(tcsr_boot_misc ? : __scm->dload_mode_addr, mode);
+	} else {
+		dev_err(dev,
+			"No available mechanism for getting download mode\n");
+	}
+
+	if (ret)
+		dev_err(dev, "failed to get download mode: %d\n", ret);
+
+	return ret;
+}
+EXPORT_SYMBOL(qcom_scm_get_download_mode);
+
 int qcom_scm_config_cpu_errata(void)
 {
 	struct qcom_scm_desc desc = {
@@ -1009,11 +1028,9 @@ void qcom_scm_halt_spmi_pmic_arbiter(void)
 		.arginfo = QCOM_SCM_ARGS(1),
 	};
 
-	pr_crit("Calling SCM to disable SPMI PMIC arbiter\n");
-
 	ret = qcom_scm_call_atomic(__scm->dev, &desc, NULL);
 	if (ret)
-		pr_err("Failed to halt_spmi_pmic_arbiter=0x%x\n", ret);
+		pr_debug("Failed to halt_spmi_pmic_arbiter=0x%x\n", ret);
 }
 EXPORT_SYMBOL(qcom_scm_halt_spmi_pmic_arbiter);
 
@@ -1291,7 +1308,7 @@ static int __qcom_scm_assign_mem(struct device *dev, phys_addr_t mem_region,
  * Return negative errno on failure or 0 on success with @srcvm updated.
  */
 int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
-			unsigned int *srcvm,
+			u64 *srcvm,
 			const struct qcom_scm_vmperm *newvm,
 			unsigned int dest_cnt)
 {
@@ -1308,9 +1325,9 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 	__le32 *src;
 	void *ptr;
 	int ret, i, b;
-	unsigned long srcvm_bits = *srcvm;
+	u64 srcvm_bits = *srcvm;
 
-	src_sz = hweight_long(srcvm_bits) * sizeof(*src);
+	src_sz = hweight64(srcvm_bits) * sizeof(*src);
 	mem_to_map_sz = sizeof(*mem_to_map);
 	dest_sz = dest_cnt * sizeof(*destvm);
 	ptr_sz = ALIGN(src_sz, SZ_64) + ALIGN(mem_to_map_sz, SZ_64) +
@@ -1323,8 +1340,10 @@ int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 	/* Fill source vmid detail */
 	src = ptr;
 	i = 0;
-	for_each_set_bit(b, &srcvm_bits, BITS_PER_LONG)
-		src[i++] = cpu_to_le32(b);
+	for (b = 0; b < BITS_PER_TYPE(u64); b++) {
+		if (srcvm_bits & BIT(b))
+			src[i++] = cpu_to_le32(b);
+	}
 
 	/* Fill details of mem buff to map */
 	mem_to_map = ptr + ALIGN(src_sz, SZ_64);
@@ -2709,6 +2728,7 @@ void scm_waitq_flag_handler(struct completion *wq, u32 flags)
 		break;
 	case QCOM_SMC_WAITQ_FLAG_WAKE_ALL:
 		complete_all(wq);
+		reinit_completion(wq);
 		break;
 	default:
 		pr_err("invalid flags: %u\n", flags);

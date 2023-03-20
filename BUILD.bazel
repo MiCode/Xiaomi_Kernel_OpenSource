@@ -12,19 +12,40 @@ package(
     ],
 )
 
-load("@kernel_toolchain_info//:dict.bzl", "BRANCH")
+_aarch64_additional_kmi_symbol_lists = [
+    # keep sorted
+    "android/abi_gki_aarch64_db845c",
+    "android/abi_gki_aarch64_galaxy",
+    "android/abi_gki_aarch64_pixel",
+    "android/abi_gki_aarch64_qcom",
+    "android/abi_gki_aarch64_virtual_device",
+]
 
-define_common_kernels(branch = BRANCH, target_configs = {
+define_common_kernels(target_configs = {
     "kernel_aarch64": {
+        # TODO(b/269346251): re-enable strict mode
+        "kmi_symbol_list_strict_mode": False,
         "module_implicit_outs": COMMON_GKI_MODULES_LIST,
+        "kmi_symbol_list": "android/abi_gki_aarch64",
+        "additional_kmi_symbol_lists": _aarch64_additional_kmi_symbol_lists,
+        "protected_exports_list": "android/abi_gki_protected_exports",
+        "protected_modules_list": "android/gki_protected_modules",
     },
     "kernel_aarch64_16k": {
+        "kmi_symbol_list_strict_mode": False,
         "module_implicit_outs": COMMON_GKI_MODULES_LIST,
     },
     "kernel_aarch64_debug": {
+        # TODO(b/269346251): re-enable strict mode
+        "kmi_symbol_list_strict_mode": False,
         "module_implicit_outs": COMMON_GKI_MODULES_LIST,
+        "kmi_symbol_list": "android/abi_gki_aarch64",
+        "additional_kmi_symbol_lists": _aarch64_additional_kmi_symbol_lists,
+        "protected_exports_list": "android/abi_gki_protected_exports",
+        "protected_modules_list": "android/gki_protected_modules",
     },
     "kernel_riscv64": {
+        "kmi_symbol_list_strict_mode": False,
         "module_implicit_outs": COMMON_GKI_MODULES_LIST,
     },
     "kernel_x86_64": {
@@ -44,6 +65,8 @@ define_db845c(
         "arch/arm64/boot/dts/qcom/sdm845-db845c.dtb",
         "arch/arm64/boot/dts/qcom/sm8450-qrd.dtb",
     ],
+    define_abi_targets = True,
+    kmi_symbol_list = "//common:android/abi_gki_aarch64_db845c",
     module_outs = [
         # keep sorted
         "crypto/michael_mic.ko",
@@ -225,6 +248,7 @@ define_db845c(
         "sound/soc/qcom/qdsp6/snd-q6apm.ko",
         "sound/soc/qcom/qdsp6/snd-q6dsp-common.ko",
         "sound/soc/qcom/snd-soc-qcom-common.ko",
+        "sound/soc/qcom/snd-soc-qcom-sdw.ko",
         "sound/soc/qcom/snd-soc-sdm845.ko",
         "sound/soc/qcom/snd-soc-sm8250.ko",
     ],
@@ -324,6 +348,23 @@ copy_to_dist_dir(
         ":rockpi4_modules_install",
     ],
     dist_dir = "out/rockpi4/dist",
+    flat = True,
+)
+
+kernel_build(
+    name = "fips140",
+    outs = [],
+    base_kernel = ":kernel_aarch64",
+    build_config = "build.config.gki.aarch64.fips140",
+    module_outs = ["crypto/fips140.ko"],
+)
+
+copy_to_dist_dir(
+    name = "fips140_dist",
+    data = [
+        ":fips140",
+    ],
+    dist_dir = "out/fips140/dist",
     flat = True,
 )
 
@@ -535,10 +576,13 @@ ddk_headers(
     name = "all_headers_unsafe",
     hdrs = [
         "drivers/gpu/drm/virtio/virtgpu_trace.h",
+        "drivers/devfreq/governor.h",
     ],
     # The list of include directories where source files can #include headers
     # from. In other words, these are the `-I` option to the C compiler.
     # Unsafe include directories are appended to ccflags-y.
-    includes = [],
+    includes = [
+        "drivers/devfreq",
+    ],
     visibility = ["//visibility:private"],
 )

@@ -34,18 +34,21 @@ def gen_config_without_source_lines(build_config, target):
     return ":" + rule_name
 
 def get_out_dir(msm_target, variant):
+    if msm_target.find("allyes") != -1:
+        le_target = msm_target.split(".")[0];
+        return "out/msm-kernel-{}-{}".format(le_target.replace("-", "_"), variant.replace("-", "_"))
     return "out/msm-kernel-{}-{}".format(msm_target.replace("-", "_"), variant.replace("-", "_"))
 
 def define_signing_keys():
     native.genrule(
         name = "signing_key",
         srcs = ["//msm-kernel:certs/qcom_x509.genkey"],
-        outs = ["signing_cert.pem", "signing_key.pem"],
+        outs = ["signing_key.pem"],
         tools = ["//prebuilts/build-tools:linux-x86/bin/openssl"],
         cmd_bash = """
           $(location //prebuilts/build-tools:linux-x86/bin/openssl) req -new -nodes -utf8 -sha256 -days 36500 \
             -batch -x509 -config $(location //msm-kernel:certs/qcom_x509.genkey) \
-            -outform PEM -out $(location signing_cert.pem) -keyout $(location signing_key.pem)
+            -outform PEM -out "$@" -keyout "$@"
         """
     )
 

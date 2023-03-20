@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/file.h>
 #include <linux/fs.h>
+#include <linux/qcom_scm.h>
 
 #include <soc/qcom/secure_buffer.h>
 #include <linux/gunyah.h>
@@ -33,7 +34,7 @@ SRCU_NOTIFIER_HEAD_STATIC(gh_vm_notifier);
 static int gh_##name(struct gh_vm *vm, int vm_status)			 \
 {									 \
 	int ret = 0;							 \
-	ret = gh_rm_##name(vm->vmid);					 \
+	ret = ghd_rm_##name(vm->vmid);					 \
 	if (!ret)							 \
 		vm->status.vm_status = vm_status;			 \
 	return ret;							 \
@@ -139,7 +140,7 @@ static void gh_vm_cleanup(struct gh_vm *vm)
 		fallthrough;
 	case GH_RM_VM_STATUS_INIT:
 	case GH_RM_VM_STATUS_AUTH:
-		ret = gh_rm_vm_reset(vmid);
+		ret = ghd_rm_vm_reset(vmid);
 		if (!ret) {
 			ret = gh_wait_for_vm_status(vm, GH_RM_VM_STATUS_RESET);
 			if (ret < 0)
@@ -178,7 +179,7 @@ static int gh_exit_vm(struct gh_vm *vm, u32 stop_reason, u8 stop_flags)
 		return -ENODEV;
 	}
 
-	ret = gh_rm_vm_stop(vmid, stop_reason, stop_flags);
+	ret = ghd_rm_vm_stop(vmid, stop_reason, stop_flags);
 	if (ret) {
 		pr_err("Failed to stop the VM:%d ret %d\n", vmid, ret);
 		mutex_unlock(&vm->vm_lock);
@@ -439,34 +440,39 @@ err_destroy_vcpu:
 int gh_reclaim_mem(struct gh_vm *vm, phys_addr_t phys,
 					ssize_t size, bool is_system_vm)
 {
-	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 	int vmid = vm->vmid;
-	int destVM[1] = {VMID_HLOS};
-	int srcVM[1] = {vmid};
+	struct qcom_scm_vmperm destVM[1] = {{VMID_HLOS,
+				PERM_READ | PERM_WRITE | PERM_EXEC}};
+	u64 srcVM = BIT(vmid);
 	int ret = 0;
 
 	if (!is_system_vm) {
-		ret = gh_rm_mem_reclaim(vm->mem_handle, 0);
+		ret = ghd_rm_mem_reclaim(vm->mem_handle, 0);
 
 		if (ret)
 			pr_err("Failed to reclaim memory for %d, %d\n",
 						vm->vmid, ret);
 	}
 
-	ret = hyp_assign_phys(phys, size, srcVM, 1, destVM, destVMperm, 1);
-
+	ret = qcom_scm_assign_mem(phys, size, &srcVM, destVM, ARRAY_SIZE(destVM));
+	if (ret)
+		pr_err("failed qcom_assign for %pa address of size %zx - subsys VMid %d rc:%d\n",
+			&phys, size, vmid, ret);
 	return ret;
 }
 
 int gh_provide_mem(struct gh_vm *vm, phys_addr_t phys,
 					ssize_t size, bool is_system_vm)
 {
-	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 	gh_vmid_t vmid = vm->vmid;
 	struct gh_acl_desc *acl_desc;
 	struct gh_sgl_desc *sgl_desc;
-	int srcVM[1] = {VMID_HLOS};
-	int destVM[1] = {vmid};
+	struct qcom_scm_vmperm srcVM[1] = {{VMID_HLOS,
+				PERM_READ | PERM_WRITE | PERM_EXEC}};
+	struct qcom_scm_vmperm destVM[1] = {{vmid,
+				PERM_READ | PERM_WRITE | PERM_EXEC}};
+	u64 srcvmid = BIT(srcVM[0].vmid);
+	u64 dstvmid = BIT(destVM[0].vmid);
 	int ret = 0;
 
 	acl_desc = kzalloc(offsetof(struct gh_acl_desc, acl_entries[1]),
@@ -490,10 +496,11 @@ int gh_provide_mem(struct gh_vm *vm, phys_addr_t phys,
 	sgl_desc->sgl_entries[0].ipa_base = phys;
 	sgl_desc->sgl_entries[0].size = size;
 
-	ret = hyp_assign_phys(phys, size, srcVM, 1, destVM, destVMperm, 1);
+	ret = qcom_scm_assign_mem(phys, size, &srcvmid, destVM,
+					ARRAY_SIZE(destVM));
 	if (ret) {
-		pr_err("failed hyp_assign for %pa address of size %zx - subsys VMid %d rc:%d\n",
-			phys, size, vmid, ret);
+		pr_err("failed qcom_assign for %pa address of size %zx - subsys VMid %d rc:%d\n",
+		       &phys, size, vmid, ret);
 		goto err_hyp_assign;
 	}
 
@@ -508,12 +515,16 @@ int gh_provide_mem(struct gh_vm *vm, phys_addr_t phys,
 		ret = gh_rm_mem_donate(GH_RM_MEM_TYPE_NORMAL, 0, 0,
 			acl_desc, sgl_desc, NULL, &vm->mem_handle);
 	else
-		ret = gh_rm_mem_lend(GH_RM_MEM_TYPE_NORMAL, 0, 0, acl_desc,
+		ret = ghd_rm_mem_lend(GH_RM_MEM_TYPE_NORMAL, 0, 0, acl_desc,
 				sgl_desc, NULL, &vm->mem_handle);
 
-	if (ret)
-		ret = hyp_assign_phys(phys, size, destVM, 1,
-						srcVM, destVMperm, 1);
+	if (ret) {
+		ret = qcom_scm_assign_mem(phys, size, &dstvmid,
+				      srcVM, ARRAY_SIZE(srcVM));
+		if (ret)
+			pr_err("failed qcom_assign for %pa address of size %zx - subsys VMid %d rc:%d\n",
+				&phys, size, srcVM[0].vmid, ret);
+	}
 
 err_hyp_assign:
 	kfree(acl_desc);
@@ -561,7 +572,7 @@ long gh_vm_configure(u16 auth_mech, u64 image_offset,
 		return ret;
 	}
 
-	ret = gh_rm_vm_init(vm->vmid);
+	ret = ghd_rm_vm_init(vm->vmid);
 	if (ret) {
 		pr_err("VM_INIT_IMAGE failed for VM:%d %d\n",
 						vm->vmid, ret);

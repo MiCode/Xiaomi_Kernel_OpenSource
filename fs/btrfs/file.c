@@ -31,329 +31,6 @@
 #include "reflink.h"
 #include "subpage.h"
 
-static struct kmem_cache *btrfs_inode_defrag_cachep;
-/*
- * when auto defrag is enabled we
- * queue up these defrag structs to remember which
- * inodes need defragging passes
- */
-struct inode_defrag {
-	struct rb_node rb_node;
-	/* objectid */
-	u64 ino;
-	/*
-	 * transid where the defrag was added, we search for
-	 * extents newer than this
-	 */
-	u64 transid;
-
-	/* root objectid */
-	u64 root;
-
-	/*
-	 * The extent size threshold for autodefrag.
-	 *
-	 * This value is different for compressed/non-compressed extents,
-	 * thus needs to be passed from higher layer.
-	 * (aka, inode_should_defrag())
-	 */
-	u32 extent_thresh;
-};
-
-static int __compare_inode_defrag(struct inode_defrag *defrag1,
-				  struct inode_defrag *defrag2)
-{
-	if (defrag1->root > defrag2->root)
-		return 1;
-	else if (defrag1->root < defrag2->root)
-		return -1;
-	else if (defrag1->ino > defrag2->ino)
-		return 1;
-	else if (defrag1->ino < defrag2->ino)
-		return -1;
-	else
-		return 0;
-}
-
-/* pop a record for an inode into the defrag tree.  The lock
- * must be held already
- *
- * If you're inserting a record for an older transid than an
- * existing record, the transid already in the tree is lowered
- *
- * If an existing record is found the defrag item you
- * pass in is freed
- */
-static int __btrfs_add_inode_defrag(struct btrfs_inode *inode,
-				    struct inode_defrag *defrag)
-{
-	struct btrfs_fs_info *fs_info = inode->root->fs_info;
-	struct inode_defrag *entry;
-	struct rb_node **p;
-	struct rb_node *parent = NULL;
-	int ret;
-
-	p = &fs_info->defrag_inodes.rb_node;
-	while (*p) {
-		parent = *p;
-		entry = rb_entry(parent, struct inode_defrag, rb_node);
-
-		ret = __compare_inode_defrag(defrag, entry);
-		if (ret < 0)
-			p = &parent->rb_left;
-		else if (ret > 0)
-			p = &parent->rb_right;
-		else {
-			/* if we're reinserting an entry for
-			 * an old defrag run, make sure to
-			 * lower the transid of our existing record
-			 */
-			if (defrag->transid < entry->transid)
-				entry->transid = defrag->transid;
-			entry->extent_thresh = min(defrag->extent_thresh,
-						   entry->extent_thresh);
-			return -EEXIST;
-		}
-	}
-	set_bit(BTRFS_INODE_IN_DEFRAG, &inode->runtime_flags);
-	rb_link_node(&defrag->rb_node, parent, p);
-	rb_insert_color(&defrag->rb_node, &fs_info->defrag_inodes);
-	return 0;
-}
-
-static inline int __need_auto_defrag(struct btrfs_fs_info *fs_info)
-{
-	if (!btrfs_test_opt(fs_info, AUTO_DEFRAG))
-		return 0;
-
-	if (btrfs_fs_closing(fs_info))
-		return 0;
-
-	return 1;
-}
-
-/*
- * insert a defrag record for this inode if auto defrag is
- * enabled
- */
-int btrfs_add_inode_defrag(struct btrfs_trans_handle *trans,
-			   struct btrfs_inode *inode, u32 extent_thresh)
-{
-	struct btrfs_root *root = inode->root;
-	struct btrfs_fs_info *fs_info = root->fs_info;
-	struct inode_defrag *defrag;
-	u64 transid;
-	int ret;
-
-	if (!__need_auto_defrag(fs_info))
-		return 0;
-
-	if (test_bit(BTRFS_INODE_IN_DEFRAG, &inode->runtime_flags))
-		return 0;
-
-	if (trans)
-		transid = trans->transid;
-	else
-		transid = inode->root->last_trans;
-
-	defrag = kmem_cache_zalloc(btrfs_inode_defrag_cachep, GFP_NOFS);
-	if (!defrag)
-		return -ENOMEM;
-
-	defrag->ino = btrfs_ino(inode);
-	defrag->transid = transid;
-	defrag->root = root->root_key.objectid;
-	defrag->extent_thresh = extent_thresh;
-
-	spin_lock(&fs_info->defrag_inodes_lock);
-	if (!test_bit(BTRFS_INODE_IN_DEFRAG, &inode->runtime_flags)) {
-		/*
-		 * If we set IN_DEFRAG flag and evict the inode from memory,
-		 * and then re-read this inode, this new inode doesn't have
-		 * IN_DEFRAG flag. At the case, we may find the existed defrag.
-		 */
-		ret = __btrfs_add_inode_defrag(inode, defrag);
-		if (ret)
-			kmem_cache_free(btrfs_inode_defrag_cachep, defrag);
-	} else {
-		kmem_cache_free(btrfs_inode_defrag_cachep, defrag);
-	}
-	spin_unlock(&fs_info->defrag_inodes_lock);
-	return 0;
-}
-
-/*
- * pick the defragable inode that we want, if it doesn't exist, we will get
- * the next one.
- */
-static struct inode_defrag *
-btrfs_pick_defrag_inode(struct btrfs_fs_info *fs_info, u64 root, u64 ino)
-{
-	struct inode_defrag *entry = NULL;
-	struct inode_defrag tmp;
-	struct rb_node *p;
-	struct rb_node *parent = NULL;
-	int ret;
-
-	tmp.ino = ino;
-	tmp.root = root;
-
-	spin_lock(&fs_info->defrag_inodes_lock);
-	p = fs_info->defrag_inodes.rb_node;
-	while (p) {
-		parent = p;
-		entry = rb_entry(parent, struct inode_defrag, rb_node);
-
-		ret = __compare_inode_defrag(&tmp, entry);
-		if (ret < 0)
-			p = parent->rb_left;
-		else if (ret > 0)
-			p = parent->rb_right;
-		else
-			goto out;
-	}
-
-	if (parent && __compare_inode_defrag(&tmp, entry) > 0) {
-		parent = rb_next(parent);
-		if (parent)
-			entry = rb_entry(parent, struct inode_defrag, rb_node);
-		else
-			entry = NULL;
-	}
-out:
-	if (entry)
-		rb_erase(parent, &fs_info->defrag_inodes);
-	spin_unlock(&fs_info->defrag_inodes_lock);
-	return entry;
-}
-
-void btrfs_cleanup_defrag_inodes(struct btrfs_fs_info *fs_info)
-{
-	struct inode_defrag *defrag;
-	struct rb_node *node;
-
-	spin_lock(&fs_info->defrag_inodes_lock);
-	node = rb_first(&fs_info->defrag_inodes);
-	while (node) {
-		rb_erase(node, &fs_info->defrag_inodes);
-		defrag = rb_entry(node, struct inode_defrag, rb_node);
-		kmem_cache_free(btrfs_inode_defrag_cachep, defrag);
-
-		cond_resched_lock(&fs_info->defrag_inodes_lock);
-
-		node = rb_first(&fs_info->defrag_inodes);
-	}
-	spin_unlock(&fs_info->defrag_inodes_lock);
-}
-
-#define BTRFS_DEFRAG_BATCH	1024
-
-static int __btrfs_run_defrag_inode(struct btrfs_fs_info *fs_info,
-				    struct inode_defrag *defrag)
-{
-	struct btrfs_root *inode_root;
-	struct inode *inode;
-	struct btrfs_ioctl_defrag_range_args range;
-	int ret = 0;
-	u64 cur = 0;
-
-again:
-	if (test_bit(BTRFS_FS_STATE_REMOUNTING, &fs_info->fs_state))
-		goto cleanup;
-	if (!__need_auto_defrag(fs_info))
-		goto cleanup;
-
-	/* get the inode */
-	inode_root = btrfs_get_fs_root(fs_info, defrag->root, true);
-	if (IS_ERR(inode_root)) {
-		ret = PTR_ERR(inode_root);
-		goto cleanup;
-	}
-
-	inode = btrfs_iget(fs_info->sb, defrag->ino, inode_root);
-	btrfs_put_root(inode_root);
-	if (IS_ERR(inode)) {
-		ret = PTR_ERR(inode);
-		goto cleanup;
-	}
-
-	if (cur >= i_size_read(inode)) {
-		iput(inode);
-		goto cleanup;
-	}
-
-	/* do a chunk of defrag */
-	clear_bit(BTRFS_INODE_IN_DEFRAG, &BTRFS_I(inode)->runtime_flags);
-	memset(&range, 0, sizeof(range));
-	range.len = (u64)-1;
-	range.start = cur;
-	range.extent_thresh = defrag->extent_thresh;
-
-	sb_start_write(fs_info->sb);
-	ret = btrfs_defrag_file(inode, NULL, &range, defrag->transid,
-				       BTRFS_DEFRAG_BATCH);
-	sb_end_write(fs_info->sb);
-	iput(inode);
-
-	if (ret < 0)
-		goto cleanup;
-
-	cur = max(cur + fs_info->sectorsize, range.start);
-	goto again;
-
-cleanup:
-	kmem_cache_free(btrfs_inode_defrag_cachep, defrag);
-	return ret;
-}
-
-/*
- * run through the list of inodes in the FS that need
- * defragging
- */
-int btrfs_run_defrag_inodes(struct btrfs_fs_info *fs_info)
-{
-	struct inode_defrag *defrag;
-	u64 first_ino = 0;
-	u64 root_objectid = 0;
-
-	atomic_inc(&fs_info->defrag_running);
-	while (1) {
-		/* Pause the auto defragger. */
-		if (test_bit(BTRFS_FS_STATE_REMOUNTING,
-			     &fs_info->fs_state))
-			break;
-
-		if (!__need_auto_defrag(fs_info))
-			break;
-
-		/* find an inode to defrag */
-		defrag = btrfs_pick_defrag_inode(fs_info, root_objectid,
-						 first_ino);
-		if (!defrag) {
-			if (root_objectid || first_ino) {
-				root_objectid = 0;
-				first_ino = 0;
-				continue;
-			} else {
-				break;
-			}
-		}
-
-		first_ino = defrag->ino + 1;
-		root_objectid = defrag->root;
-
-		__btrfs_run_defrag_inode(fs_info, defrag);
-	}
-	atomic_dec(&fs_info->defrag_running);
-
-	/*
-	 * during unmount, we use the transaction_wait queue to
-	 * wait for the defragger to stop
-	 */
-	wake_up(&fs_info->transaction_wait);
-	return 0;
-}
-
 /* simple helper to fault in pages and copy.  This should go away
  * and be replaced with calls into generic code.
  */
@@ -696,7 +373,10 @@ next_slot:
 						args->start - extent_offset,
 						0, false);
 				ret = btrfs_inc_extent_ref(trans, &ref);
-				BUG_ON(ret); /* -ENOMEM */
+				if (ret) {
+					btrfs_abort_transaction(trans, ret);
+					break;
+				}
 			}
 			key.offset = args->start;
 		}
@@ -783,7 +463,10 @@ delete_extent_item:
 						key.offset - extent_offset, 0,
 						false);
 				ret = btrfs_free_extent(trans, &ref);
-				BUG_ON(ret); /* -ENOMEM */
+				if (ret) {
+					btrfs_abort_transaction(trans, ret);
+					break;
+				}
 				args->bytes_found += extent_end - key.offset;
 			}
 
@@ -3665,7 +3348,7 @@ bool btrfs_find_delalloc_in_range(struct btrfs_inode *inode, u64 start, u64 end,
 	u64 prev_delalloc_end = 0;
 	bool ret = false;
 
-	while (cur_offset < end) {
+	while (cur_offset <= end) {
 		u64 delalloc_start;
 		u64 delalloc_end;
 		bool delalloc;
@@ -3832,6 +3515,7 @@ static loff_t find_desired_extent(struct btrfs_inode *inode, loff_t offset,
 		struct extent_buffer *leaf = path->nodes[0];
 		struct btrfs_file_extent_item *extent;
 		u64 extent_end;
+		u8 type;
 
 		if (path->slots[0] >= btrfs_header_nritems(leaf)) {
 			ret = btrfs_next_leaf(root, path);
@@ -3886,10 +3570,16 @@ static loff_t find_desired_extent(struct btrfs_inode *inode, loff_t offset,
 
 		extent = btrfs_item_ptr(leaf, path->slots[0],
 					struct btrfs_file_extent_item);
+		type = btrfs_file_extent_type(leaf, extent);
 
-		if (btrfs_file_extent_disk_bytenr(leaf, extent) == 0 ||
-		    btrfs_file_extent_type(leaf, extent) ==
-		    BTRFS_FILE_EXTENT_PREALLOC) {
+		/*
+		 * Can't access the extent's disk_bytenr field if this is an
+		 * inline extent, since at that offset, it's where the extent
+		 * data starts.
+		 */
+		if (type == BTRFS_FILE_EXTENT_PREALLOC ||
+		    (type == BTRFS_FILE_EXTENT_REG &&
+		     btrfs_file_extent_disk_bytenr(leaf, extent) == 0)) {
 			/*
 			 * Explicit hole or prealloc extent, search for delalloc.
 			 * A prealloc extent is treated like a hole.
@@ -4116,23 +3806,6 @@ const struct file_operations btrfs_file_operations = {
 #endif
 	.remap_file_range = btrfs_remap_file_range,
 };
-
-void __cold btrfs_auto_defrag_exit(void)
-{
-	kmem_cache_destroy(btrfs_inode_defrag_cachep);
-}
-
-int __init btrfs_auto_defrag_init(void)
-{
-	btrfs_inode_defrag_cachep = kmem_cache_create("btrfs_inode_defrag",
-					sizeof(struct inode_defrag), 0,
-					SLAB_MEM_SPREAD,
-					NULL);
-	if (!btrfs_inode_defrag_cachep)
-		return -ENOMEM;
-
-	return 0;
-}
 
 int btrfs_fdatawrite_range(struct inode *inode, loff_t start, loff_t end)
 {

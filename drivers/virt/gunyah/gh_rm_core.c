@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -571,14 +571,8 @@ static int gh_rm_send_request(u32 message_id,
 	if (gh_rm_msgq_desc == NULL)
 		return -EPROBE_DEFER;
 
-	num_fragments = (req_buff_size + GH_RM_MAX_MSG_SIZE_BYTES - 1) /
-			GH_RM_MAX_MSG_SIZE_BYTES;
-
-	/* The above calculation also includes the count
-	 * for the 'request' packet. Exclude it as the
-	 * header needs to fill the num. of fragments to follow.
-	 */
-	num_fragments--;
+	if (req_buff_size)
+		num_fragments = (req_buff_size - 1) / GH_RM_MAX_MSG_SIZE_BYTES;
 
 	if (num_fragments > GH_RM_MAX_NUM_FRAGMENTS) {
 		pr_err("%s: Limit exceeded for the number of fragments: %u\n",
@@ -663,7 +657,7 @@ void *gh_rm_call(gh_rm_msgid_t message_id,
 	int req_ret;
 	void *ret;
 
-	if (!message_id || !req_buff || !resp_buff_size || !rm_error)
+	if (!message_id || !resp_buff_size || !rm_error)
 		return ERR_PTR(-EINVAL);
 
 	connection = gh_rm_alloc_connection(message_id, seq_done_needed);
@@ -1277,7 +1271,7 @@ static void gh_rm_get_svm_res_work_fn(struct work_struct *work)
 	gh_vmid_t vmid;
 	int ret;
 
-	ret = gh_rm_get_vmid(GH_PRIMARY_VM, &vmid);
+	ret = ghd_rm_get_vmid(GH_PRIMARY_VM, &vmid);
 	if (ret)
 		pr_err("%s: Unable to get VMID for VM label %d\n",
 						__func__, GH_PRIMARY_VM);
@@ -1351,10 +1345,12 @@ static void gh_vm_check_peer(struct device *dev, struct device_node *rm_root)
 	uuid_t vm_guid;
 
 	peers_cnt = of_property_count_strings(rm_root, "qcom,peers");
+	if (!peers_cnt)
+		return;
+
 	peers_array = kcalloc(peers_cnt, sizeof(char *), GFP_KERNEL);
 	if (!peers_array) {
 		dev_err(dev, "Failed to allocate memory\n");
-		ret = -ENOMEM;
 		return;
 	}
 
@@ -1362,7 +1358,6 @@ static void gh_vm_check_peer(struct device *dev, struct device_node *rm_root)
 					    peers_cnt);
 	if (ret < 0) {
 		dev_err(dev, "Failed to find qcom,peers\n");
-		ret = -ENODEV;
 		goto out;
 	}
 

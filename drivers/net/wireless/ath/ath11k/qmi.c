@@ -19,6 +19,7 @@
 #define SLEEP_CLOCK_SELECT_INTERNAL_BIT	0x02
 #define HOST_CSTATE_BIT			0x04
 #define PLATFORM_CAP_PCIE_GLOBAL_RESET	0x08
+#define PLATFORM_CAP_PCIE_PME_D3COLD	0x10
 
 #define FW_BUILD_ID_MASK "QC_IMAGE_VERSION_STRING="
 
@@ -1752,6 +1753,8 @@ static int ath11k_qmi_host_cap_send(struct ath11k_base *ab)
 	if (ab->hw_params.global_reset)
 		req.nm_modem |= PLATFORM_CAP_PCIE_GLOBAL_RESET;
 
+	req.nm_modem |= PLATFORM_CAP_PCIE_PME_D3COLD;
+
 	ath11k_dbg(ab, ATH11K_DBG_QMI, "qmi host cap request\n");
 
 	ret = qmi_txn_init(&ab->qmi.handle, &txn,
@@ -1961,7 +1964,7 @@ static void ath11k_qmi_free_target_mem_chunk(struct ath11k_base *ab)
 			continue;
 
 		dma_free_coherent(ab->dev,
-				  ab->qmi.target_mem[i].size,
+				  ab->qmi.target_mem[i].prev_size,
 				  ab->qmi.target_mem[i].vaddr,
 				  ab->qmi.target_mem[i].paddr);
 		ab->qmi.target_mem[i].vaddr = NULL;
@@ -1982,12 +1985,12 @@ static int ath11k_qmi_alloc_target_mem_chunk(struct ath11k_base *ab)
 		 * in such case, no need to allocate memory for FW again.
 		 */
 		if (chunk->vaddr) {
-			if (chunk->prev_type == chunk->type ||
+			if (chunk->prev_type == chunk->type &&
 			    chunk->prev_size == chunk->size)
 				continue;
 
 			/* cannot reuse the existing chunk */
-			dma_free_coherent(ab->dev, chunk->size,
+			dma_free_coherent(ab->dev, chunk->prev_size,
 					  chunk->vaddr, chunk->paddr);
 			chunk->vaddr = NULL;
 		}
@@ -3087,6 +3090,9 @@ static const struct qmi_msg_handler ath11k_qmi_msg_handlers[] = {
 			sizeof(struct qmi_wlfw_fw_init_done_ind_msg_v01),
 		.fn = ath11k_qmi_msg_fw_init_done_cb,
 	},
+
+	/* end of list */
+	{},
 };
 
 static int ath11k_qmi_ops_new_server(struct qmi_handle *qmi_hdl,

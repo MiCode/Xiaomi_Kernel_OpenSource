@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/interrupt.h>
@@ -31,6 +31,7 @@
 #include <soc/qcom/secure_buffer.h>
 #include "gh_secure_vm_virtio_backend.h"
 #include "hcall_virtio.h"
+#include <linux/qcom_scm.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/gh_virtio_backend.h>
@@ -1066,12 +1067,12 @@ static int
 unshare_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, struct resource *r,
 		    struct shared_memory *shmem)
 {
-	u32 src_vmlist[2] = {self, peer};
-	int dst_vmlist[1] = {self};
-	int dst_perms[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	u64 src_vmlist = BIT(self) | BIT(peer);
+	struct qcom_scm_vmperm dst_vmlist[1] = {{self,
+				PERM_READ | PERM_WRITE | PERM_EXEC}};
 	int ret;
 
-	ret = gh_rm_mem_reclaim(shmem->shm_memparcel, 0);
+	ret = ghd_rm_mem_reclaim(shmem->shm_memparcel, 0);
 	if (ret) {
 		pr_err("%s: gh_rm_mem_reclaim failed for handle %x addr=%llx size=%lld err=%d\n",
 			VIRTIO_PRINT_MARKER, shmem->shm_memparcel, r->start,
@@ -1079,10 +1080,10 @@ unshare_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, struct resource *r,
 		return ret;
 	}
 
-	ret = hyp_assign_phys(r->start, resource_size(r), src_vmlist, 2,
-				      dst_vmlist, dst_perms, 1);
+	ret = qcom_scm_assign_mem(r->start, resource_size(r), &src_vmlist,
+				      dst_vmlist, ARRAY_SIZE(dst_vmlist));
 	if (ret)
-		pr_err("%s: hyp_assign_phys failed for addr=%llx size=%lld err=%d\n",
+		pr_err("%s: qcom_scm_assign_mem failed for addr=%llx size=%lld err=%d\n",
 			VIRTIO_PRINT_MARKER, r->start, resource_size(r), ret);
 
 	return ret;
@@ -1096,7 +1097,7 @@ static int unshare_vm_buffers(struct virt_machine *vm, gh_vmid_t peer)
 	if (!vm->hyp_assign_done)
 		return 0;
 
-	ret = gh_rm_get_vmid(GH_PRIMARY_VM, &self_vmid);
+	ret = ghd_rm_get_vmid(GH_PRIMARY_VM, &self_vmid);
 	if (ret)
 		return ret;
 
@@ -1114,10 +1115,12 @@ static int share_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, int gunyah_label,
 				struct resource *r, u32 *shm_memparcel,
 				struct shared_memory *shmem)
 {
-	u32 src_vmlist[1] = {self};
-	int src_perms[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
-	int dst_vmlist[2] = {self, peer};
-	int dst_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
+	struct qcom_scm_vmperm src_vmlist[] = {{self,
+					PERM_READ | PERM_WRITE | PERM_EXEC}};
+	struct qcom_scm_vmperm dst_vmlist[] = {{self, PERM_READ | PERM_WRITE},
+			{peer, PERM_READ | PERM_WRITE}};
+	u64 src_vmids = BIT(src_vmlist[0].vmid);
+	u64 dst_vmids = BIT(dst_vmlist[0].vmid) | BIT(dst_vmlist[1].vmid);
 	struct gh_acl_desc *acl;
 	struct gh_sgl_desc *sgl;
 	int ret;
@@ -1131,10 +1134,10 @@ static int share_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, int gunyah_label,
 		return -ENOMEM;
 	}
 
-	ret = hyp_assign_phys(r->start, resource_size(r), src_vmlist, 1,
-				      dst_vmlist, dst_perms, 2);
+	ret = qcom_scm_assign_mem(r->start, resource_size(r), &src_vmids,
+				      dst_vmlist, ARRAY_SIZE(dst_vmlist));
 	if (ret) {
-		pr_err("%s: hyp_assign_phys failed for addr=%llx size=%lld err=%d\n",
+		pr_err("%s: qcom_scm_assign_mem failed for addr=%llx size=%lld err=%d\n",
 		       VIRTIO_PRINT_MARKER, r->start, resource_size(r), ret);
 		kfree(acl);
 		kfree(sgl);
@@ -1151,13 +1154,15 @@ static int share_a_vm_buffer(gh_vmid_t self, gh_vmid_t peer, int gunyah_label,
 	sgl->sgl_entries[0].ipa_base = r->start;
 	sgl->sgl_entries[0].size = resource_size(r);
 
-	ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, 0, gunyah_label,
+	ret = ghd_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, 0, gunyah_label,
 					acl, sgl, NULL, shm_memparcel);
 	if (ret) {
 		pr_err("%s: Sharing memory failed %d\n", VIRTIO_PRINT_MARKER, ret);
 		/* Attempt to assign resource back to HLOS */
-		hyp_assign_phys(r->start, resource_size(r), dst_vmlist, 2,
-				      src_vmlist, src_perms, 1);
+		if (qcom_scm_assign_mem(r->start, resource_size(r), &dst_vmids,
+				      src_vmlist, ARRAY_SIZE(src_vmlist)))
+			pr_err("%s: qcom_scm_assign_mem to re-assign addr=%llx size=%lld back to HLOS failed\n",
+			       VIRTIO_PRINT_MARKER, r->start, resource_size(r));
 	}
 
 	kfree(acl);
@@ -1171,7 +1176,7 @@ static int share_vm_buffers(struct virt_machine *vm, gh_vmid_t peer)
 	int i, ret;
 	gh_vmid_t self_vmid;
 
-	ret = gh_rm_get_vmid(GH_PRIMARY_VM, &self_vmid);
+	ret = ghd_rm_get_vmid(GH_PRIMARY_VM, &self_vmid);
 	if (ret)
 		return ret;
 

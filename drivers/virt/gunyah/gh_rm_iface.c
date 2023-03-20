@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  */
 
@@ -116,7 +116,7 @@ void gh_reset_vm_prop_table_entry(gh_vmid_t vmid)
 }
 
 /**
- * gh_rm_get_vmid: Translate VM name to vmid
+ * ghd_rm_get_vmid: Translate VM name to vmid
  * @vm_name: VM name to lookup
  * @vmid: out pointer to store found vmid if VM is ofund
  *
@@ -124,7 +124,7 @@ void gh_reset_vm_prop_table_entry(gh_vmid_t vmid)
  * If no VM is known to RM with the supplied name, returns -EINVAL.
  * Returns 0 on success.
  */
-int gh_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid)
+int ghd_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid)
 {
 	gh_vmid_t _vmid;
 	int ret = 0;
@@ -152,6 +152,12 @@ int gh_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid)
 out:
 	spin_unlock(&gh_vm_table_lock);
 	return ret;
+}
+EXPORT_SYMBOL(ghd_rm_get_vmid);
+
+int gh_rm_get_vmid(enum gh_vm_names vm_name, gh_vmid_t *vmid)
+{
+	return ghd_rm_get_vmid(vm_name, vmid);
 }
 EXPORT_SYMBOL(gh_rm_get_vmid);
 
@@ -398,6 +404,41 @@ int gh_rm_vm_lookup(enum gh_vm_lookup_type type, const void *data, size_t size,
 
 	return ret;
 }
+
+/**
+ * gh_rm_get_this_vmid() - Retrieve VMID of this virtual machine
+ * @vmid: Filled with the VMID of this VM
+ */
+int gh_rm_get_this_vmid(gh_vmid_t *vmid)
+{
+	static gh_vmid_t cached_vmid = GH_VMID_INVAL;
+	int reply_err_code;
+	size_t resp_size;
+	__le32 *resp;
+	int ret;
+
+	if (cached_vmid != GH_VMID_INVAL) {
+		*vmid = cached_vmid;
+		return 0;
+	}
+
+	resp = (__le32 *)gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_GET_VMID, NULL, 0, &resp_size,
+			&reply_err_code);
+
+	if (reply_err_code || IS_ERR_OR_NULL(resp)) {
+		ret = PTR_ERR(resp);
+		pr_err("%s: failed with err: %d\n", __func__, ret);
+		return ret;
+	}
+
+	if (resp_size != sizeof(*resp))
+		return -EBADMSG;
+
+	*vmid = cached_vmid = lower_16_bits(le32_to_cpu(*resp));
+	kfree(resp);
+	return 0;
+}
+EXPORT_SYMBOL(gh_rm_get_this_vmid);
 
 /**
  * gh_rm_vm_get_status: Get the status of a particular VM
@@ -1165,13 +1206,13 @@ int gh_rm_vm_auth_image(gh_vmid_t vmid, ssize_t n_entries,
 EXPORT_SYMBOL(gh_rm_vm_auth_image);
 
 /**
- * gh_rm_vm_init: Request to allocate resources of the VM
+ * ghd_rm_vm_init: Request to allocate resources of the VM
  * @vmid: The vmid of VM to initialize.
  *
  * The function returns 0 on success and a negative error code
  * upon failure.
  */
-int gh_rm_vm_init(gh_vmid_t vmid)
+int ghd_rm_vm_init(gh_vmid_t vmid)
 {
 	struct gh_vm_init_req_payload req_payload = {
 		.vmid = vmid,
@@ -1206,16 +1247,22 @@ int gh_rm_vm_init(gh_vmid_t vmid)
 
 	return 0;
 }
+EXPORT_SYMBOL(ghd_rm_vm_init);
+
+int gh_rm_vm_init(gh_vmid_t vmid)
+{
+	return ghd_rm_vm_init(vmid);
+}
 EXPORT_SYMBOL(gh_rm_vm_init);
 
 /**
- * gh_rm_vm_start: Send a request to Resource Manager VM to start a VM.
+ * ghd_rm_vm_start: Send a request to Resource Manager VM to start a VM.
  * @vmid: The vmid of the vm to be started.
  *
  * The function encodes the error codes via ERR_PTR. Hence, the caller is
  * responsible to check it with IS_ERR_OR_NULL().
  */
-int gh_rm_vm_start(int vmid)
+int ghd_rm_vm_start(int vmid)
 {
 	struct gh_vm_start_resp_payload *resp_payload;
 	struct gh_vm_start_req_payload req_payload = {0};
@@ -1241,16 +1288,22 @@ int gh_rm_vm_start(int vmid)
 
 	return 0;
 }
+EXPORT_SYMBOL(ghd_rm_vm_start);
+
+int gh_rm_vm_start(int vmid)
+{
+	return ghd_rm_vm_start(vmid);
+}
 EXPORT_SYMBOL(gh_rm_vm_start);
 
 /**
- * gh_rm_vm_stop: Send a request to Resource Manager VM to stop a VM.
+ * ghd_rm_vm_stop: Send a request to Resource Manager VM to stop a VM.
  * @vmid: The vmid of the vm to be stopped.
  *
  * The function encodes the error codes via ERR_PTR. Hence, the caller is
  * responsible to check it with IS_ERR_OR_NULL().
  */
-int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags)
+int ghd_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags)
 {
 	struct gh_vm_stop_req_payload req_payload = {0};
 	size_t resp_payload_size;
@@ -1285,17 +1338,23 @@ int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags)
 
 	return 0;
 }
+EXPORT_SYMBOL(ghd_rm_vm_stop);
+
+int gh_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags)
+{
+	return ghd_rm_vm_stop(vmid, stop_reason, flags);
+}
 EXPORT_SYMBOL(gh_rm_vm_stop);
 
 /**
- * gh_rm_vm_reset: Send a request to Resource Manager VM to free up all
+ * ghd_rm_vm_reset: Send a request to Resource Manager VM to free up all
  * resources used by the VM.
  * @vmid: The vmid of the vm to be cleaned up.
  *
  * The function returns 0 on success and a negative error code
  * upon failure.
  */
-int gh_rm_vm_reset(gh_vmid_t vmid)
+int ghd_rm_vm_reset(gh_vmid_t vmid)
 {
 	struct gh_vm_reset_req_payload req_payload = {
 		.vmid = vmid,
@@ -1323,8 +1382,13 @@ int gh_rm_vm_reset(gh_vmid_t vmid)
 
 	return 0;
 }
-EXPORT_SYMBOL(gh_rm_vm_reset);
+EXPORT_SYMBOL(ghd_rm_vm_reset);
 
+int gh_rm_vm_reset(gh_vmid_t vmid)
+{
+	return ghd_rm_vm_reset(vmid);
+}
+EXPORT_SYMBOL(gh_rm_vm_reset);
 /**
  * gh_rm_console_open: Open a console with a VM
  * @vmid: The vmid of the vm to be started.
@@ -1760,7 +1824,7 @@ int gh_rm_mem_release(gh_memparcel_handle_t handle, u8 flags)
 EXPORT_SYMBOL(gh_rm_mem_release);
 
 /**
- * gh_rm_mem_reclaim: Reclaim a memory represented by a handle. This results in
+ * ghd_rm_mem_reclaim: Reclaim a memory represented by a handle. This results in
  *                    the RM mapping the associated memory into the stage-2
  *                    page-tables of the owner VM
  * @handle: The memparcel handle associated with the memory
@@ -1770,7 +1834,7 @@ EXPORT_SYMBOL(gh_rm_mem_release);
  * On success, the function will return 0. Otherwise, a negative number will be
  * returned.
  */
-int gh_rm_mem_reclaim(gh_memparcel_handle_t handle, u8 flags)
+int ghd_rm_mem_reclaim(gh_memparcel_handle_t handle, u8 flags)
 {
 	int ret;
 
@@ -1782,6 +1846,12 @@ int gh_rm_mem_reclaim(gh_memparcel_handle_t handle, u8 flags)
 	trace_gh_rm_mem_call_return(handle, ret);
 
 	return ret;
+}
+EXPORT_SYMBOL(ghd_rm_mem_reclaim);
+
+int gh_rm_mem_reclaim(gh_memparcel_handle_t handle, u8 flags)
+{
+	return ghd_rm_mem_reclaim(handle, flags);
 }
 EXPORT_SYMBOL(gh_rm_mem_reclaim);
 
@@ -2230,7 +2300,7 @@ static int gh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
 	return 0;
 
 err_mem_append:
-	gh_rm_mem_reclaim(resp_payload->memparcel_handle, 0);
+	ghd_rm_mem_reclaim(resp_payload->memparcel_handle, 0);
 err_resp_size:
 	kfree(resp_payload);
 err_rm_call:
@@ -2239,7 +2309,7 @@ err_rm_call:
 }
 
 /**
- * gh_rm_mem_share: Share memory with other VM(s) without excluding the owner
+ * ghd_rm_mem_share: Share memory with other VM(s) without excluding the owner
  * @mem_type: The type of memory being shared (i.e. normal or I/O)
  * @flags: Bitmask of values to influence the behavior of the RM when it shares
  *         the memory
@@ -2258,7 +2328,7 @@ err_rm_call:
  * @handle with the memparcel handle. Otherwise, a negative number will be
  * returned.
  */
-int gh_rm_mem_share(u8 mem_type, u8 flags, gh_label_t label,
+int ghd_rm_mem_share(u8 mem_type, u8 flags, gh_label_t label,
 		    struct gh_acl_desc *acl_desc, struct gh_sgl_desc *sgl_desc,
 		    struct gh_mem_attr_desc *mem_attr_desc,
 		    gh_memparcel_handle_t *handle)
@@ -2276,10 +2346,20 @@ int gh_rm_mem_share(u8 mem_type, u8 flags, gh_label_t label,
 
 	return ret;
 }
+EXPORT_SYMBOL(ghd_rm_mem_share);
+
+int gh_rm_mem_share(u8 mem_type, u8 flags, gh_label_t label,
+		    struct gh_acl_desc *acl_desc, struct gh_sgl_desc *sgl_desc,
+		    struct gh_mem_attr_desc *mem_attr_desc,
+		    gh_memparcel_handle_t *handle)
+{
+	return ghd_rm_mem_share(mem_type, flags, label, acl_desc, sgl_desc,
+		    mem_attr_desc, handle);
+}
 EXPORT_SYMBOL(gh_rm_mem_share);
 
 /**
- * gh_rm_mem_lend: Lend memory to other VM(s)--excluding the owner
+ * ghd_rm_mem_lend: Lend memory to other VM(s)--excluding the owner
  * @mem_type: The type of memory being lent (i.e. normal or I/O)
  * @flags: Bitmask of values to influence the behavior of the RM when it lends
  *         the memory
@@ -2298,7 +2378,7 @@ EXPORT_SYMBOL(gh_rm_mem_share);
  * @handle with the memparcel handle. Otherwise, a negative number will be
  * returned.
  */
-int gh_rm_mem_lend(u8 mem_type, u8 flags, gh_label_t label,
+int ghd_rm_mem_lend(u8 mem_type, u8 flags, gh_label_t label,
 		   struct gh_acl_desc *acl_desc, struct gh_sgl_desc *sgl_desc,
 		   struct gh_mem_attr_desc *mem_attr_desc,
 		   gh_memparcel_handle_t *handle)
@@ -2316,8 +2396,17 @@ int gh_rm_mem_lend(u8 mem_type, u8 flags, gh_label_t label,
 
 	return ret;
 }
-EXPORT_SYMBOL(gh_rm_mem_lend);
+EXPORT_SYMBOL(ghd_rm_mem_lend);
 
+int gh_rm_mem_lend(u8 mem_type, u8 flags, gh_label_t label,
+		   struct gh_acl_desc *acl_desc, struct gh_sgl_desc *sgl_desc,
+		   struct gh_mem_attr_desc *mem_attr_desc,
+		   gh_memparcel_handle_t *handle)
+{
+	return ghd_rm_mem_lend(mem_type, flags, label, acl_desc, sgl_desc,
+		   mem_attr_desc, handle);
+}
+EXPORT_SYMBOL(gh_rm_mem_lend);
 /**
  * gh_rm_mem_donate: Donate memory to a single VM.
  * @mem_type: The type of memory being lent (i.e. normal or I/O)
@@ -2634,3 +2723,58 @@ int gh_rm_minidump_deregister_slot(uint16_t slot_num)
 	return 0;
 }
 EXPORT_SYMBOL(gh_rm_minidump_deregister_slot);
+
+/**
+ * gh_rm_minidump_get_slot_from_name: Get a slot number by entry name
+ *
+ * @starting_slot: The start slot number to find the entry
+ * @name: The name of a registered entry
+ * @name_size: Length of the entry name
+ *
+ * On success, the function will return slot number. Otherwise, a negative
+ * value will be returned.
+ */
+int gh_rm_minidump_get_slot_from_name(uint16_t starting_slot, const char *name, size_t name_size)
+{
+	int reply_err_code, ret = -EINVAL;
+	struct gh_minidump_get_slot_req_payload *req_payload;
+	struct gh_minidump_get_slot_resp_payload *resp_payload;
+	size_t req_size, resp_size;
+	void *req_buf;
+
+	if (!name)
+		return -EINVAL;
+
+	req_size = sizeof(*req_payload) + name_size;
+
+	req_buf = kzalloc(req_size, GFP_KERNEL);
+	if (!req_buf)
+		return -ENOMEM;
+
+	req_payload = req_buf;
+	req_payload->name_len = name_size;
+	req_payload->starting_slot = starting_slot;
+	memcpy(req_buf + sizeof(*req_payload), name, name_size);
+
+	resp_payload =
+		gh_rm_call(GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_GET_SLOT_NUMBER,
+			   req_buf, req_size, &resp_size, &reply_err_code);
+
+	if (reply_err_code || IS_ERR(resp_payload)) {
+		pr_err("%s failed with err: 0x%llx %d\n", __func__, resp_payload, reply_err_code);
+		ret = PTR_ERR(resp_payload);
+		goto err_rm_call;
+	}
+
+	if (resp_size != sizeof(*resp_payload)) {
+		ret = -EINVAL;
+		pr_err("%s: Invalid size received: %u\n", __func__, resp_size);
+		goto err_rm_call;
+	}
+	ret = resp_payload->slot_number;
+
+err_rm_call:
+	kfree(req_buf);
+	return ret;
+}
+EXPORT_SYMBOL(gh_rm_minidump_get_slot_from_name);

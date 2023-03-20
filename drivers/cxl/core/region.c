@@ -131,7 +131,7 @@ static int cxl_region_decode_reset(struct cxl_region *cxlr, int count)
 		struct cxl_memdev *cxlmd = cxled_to_memdev(cxled);
 		struct cxl_port *iter = cxled_to_port(cxled);
 		struct cxl_ep *ep;
-		int rc;
+		int rc = 0;
 
 		while (!is_cxl_root(to_cxl_port(iter->dev.parent)))
 			iter = to_cxl_port(iter->dev.parent);
@@ -143,7 +143,8 @@ static int cxl_region_decode_reset(struct cxl_region *cxlr, int count)
 
 			cxl_rr = cxl_rr_load(iter, cxlr);
 			cxld = cxl_rr->decoder;
-			rc = cxld->reset(cxld);
+			if (cxld->reset)
+				rc = cxld->reset(cxld);
 			if (rc)
 				return rc;
 		}
@@ -186,7 +187,8 @@ static int cxl_region_decode_commit(struct cxl_region *cxlr)
 			     iter = ep->next, ep = cxl_ep_load(iter, cxlmd)) {
 				cxl_rr = cxl_rr_load(iter, cxlr);
 				cxld = cxl_rr->decoder;
-				cxld->reset(cxld);
+				if (cxld->reset)
+					cxld->reset(cxld);
 			}
 
 			cxled->cxld.reset(&cxled->cxld);
@@ -991,10 +993,10 @@ static int cxl_port_setup_targets(struct cxl_port *port,
 		int i, distance;
 
 		/*
-		 * Passthrough ports impose no distance requirements between
+		 * Passthrough decoders impose no distance requirements between
 		 * peers
 		 */
-		if (port->nr_dports == 1)
+		if (cxl_rr->nr_targets == 1)
 			distance = 0;
 		else
 			distance = p->nr_targets / cxl_rr->nr_targets;
@@ -1226,7 +1228,7 @@ static int cxl_region_attach(struct cxl_region *cxlr,
 		struct cxl_endpoint_decoder *cxled_target;
 		struct cxl_memdev *cxlmd_target;
 
-		cxled_target = p->targets[pos];
+		cxled_target = p->targets[i];
 		if (!cxled_target)
 			continue;
 
@@ -1922,6 +1924,9 @@ static int cxl_region_probe(struct device *dev)
 	 * CXL_CONFIG_COMMIT is also responsible for releasing the driver.
 	 */
 	up_read(&cxl_region_rwsem);
+
+	if (rc)
+		return rc;
 
 	switch (cxlr->mode) {
 	case CXL_DECODER_PMEM:

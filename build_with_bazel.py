@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+# Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
 
 import argparse
 import errno
@@ -8,6 +8,7 @@ import glob
 import logging
 import os
 import re
+import shutil
 import sys
 import subprocess
 
@@ -64,6 +65,13 @@ class BazelBuilder:
             "--crosstool_top={}".format(toolchain),
             "--host_crosstool_top={}".format(HOST_CROSSTOOL),
         ]
+
+    def copy_abi_file(self):
+        """Copy ABI STG file from msm-kernel to common"""
+        msm_sym_list = os.path.join(self.workspace, "msm-kernel", "android", "abi_gki_aarch64_qcom")
+
+        if os.path.exists(msm_sym_list):
+            shutil.copy2(msm_sym_list, os.path.join(self.workspace, "common", "android", "abi_gki_aarch64_qcom"))
 
     def setup_extensions(self):
         """Set up the extension files if needed"""
@@ -200,7 +208,7 @@ class BazelBuilder:
 
     def clean_legacy_generated_files(self):
         """Clean generated files from legacy build to avoid conflicts with Bazel"""
-        for f in glob.glob("{}/msm-kernel/arch/arm64/configs/vendor/*-*_defconfig".format(self.workspace)):
+        for f in glob.glob("{}/msm-kernel/arch/arm64/configs/vendor/*_defconfig".format(self.workspace)):
             os.remove(f)
 
         f = os.path.join(self.workspace, "bootable", "bootloader", "edk2", "Conf", ".AutoGenIdFile.txt")
@@ -220,6 +228,7 @@ class BazelBuilder:
         out_subdir="dist",
         extra_options=None,
         us_cross_toolchain=None,
+        bazel_target_opts=None,
     ):
         """Execute a bazel command"""
         cmdline = [self.bazel_bin, bazel_subcommand]
@@ -228,8 +237,8 @@ class BazelBuilder:
         if us_cross_toolchain:
             cmdline.extend(self.get_cross_cli_opts(us_cross_toolchain))
         cmdline.extend(targets)
-        if self.out_dir and bazel_subcommand == "run":
-            cmdline.extend(["--", "--dist_dir", os.path.join(self.out_dir, out_subdir)])
+        if bazel_target_opts is not None:
+            cmdline.extend(["--"] + bazel_target_opts)
 
         cmdline_str = " ".join(cmdline)
         try:
@@ -257,8 +266,17 @@ class BazelBuilder:
         self, targets, out_subdir="dist", user_opts=None, us_cross_toolchain=None
     ):
         """Run "bazel run" on all targets in serial (since bazel run cannot have multiple targets)"""
+        bto = []
+        if self.out_dir:
+            bto.extend(["--dist_dir", os.path.join(self.out_dir, out_subdir)])
         for target in targets:
-            self.bazel("run", [target], out_subdir, user_opts, us_cross_toolchain)
+            self.bazel("run", [target], out_subdir, user_opts, us_cross_toolchain, bazel_target_opts=bto)
+
+    def run_menuconfig(self):
+        """Run menuconfig on all target-variant combos class is initialized with"""
+        for t, v in self.target_list:
+            self.bazel("run", ["//{}:{}_{}_config".format(self.kernel_dir, t, v)],
+                    out_subdir=None, bazel_target_opts=["menuconfig"])
 
     def build(self):
         """Determine which targets to build, then build them"""
@@ -280,9 +298,12 @@ class BazelBuilder:
             sys.exit(1)
 
         self.clean_legacy_generated_files()
+        self.copy_abi_file()
 
         if self.skip_list:
             self.user_opts.extend(["--//msm-kernel:skip_{}=true".format(s) for s in self.skip_list])
+
+        self.user_opts.extend(["--config=stamp"])
 
         logging.info("Building %s targets...", CPU)
         self.build_targets(
@@ -339,6 +360,12 @@ def main():
         choices=["debug", "info", "warning", "error"],
         help="Log level (debug, info, warning, error)",
     )
+    parser.add_argument(
+        "-c",
+        "--menuconfig",
+        action="store_true",
+        help="Run menuconfig for <target>-<variant> and exit without building",
+    )
 
     args, user_opts = parser.parse_known_args(sys.argv[1:])
 
@@ -351,7 +378,10 @@ def main():
 
     builder = BazelBuilder(args.target, args.skip, args.out_dir, user_opts)
     try:
-        builder.build()
+        if args.menuconfig:
+            builder.run_menuconfig()
+        else:
+            builder.build()
     except KeyboardInterrupt:
         logging.info("Received keyboard interrupt... exiting")
         del builder
