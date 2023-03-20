@@ -5369,12 +5369,8 @@ static void cpr_debugfs_init(struct cpr_regulator *cpr_vreg)
 		}
 	}
 
-	temp = debugfs_create_u32("cpr_debug_enable", 0644, cpr_vreg->debugfs,
+	debugfs_create_u32("cpr_debug_enable", 0644, cpr_vreg->debugfs,
 					&cpr_debug_enable);
-	if (IS_ERR_OR_NULL(temp)) {
-		cpr_err(cpr_vreg, "cpr_debug_enable node creation failed\n");
-		return;
-	}
 }
 
 static void cpr_debugfs_remove(struct cpr_regulator *cpr_vreg)
