@@ -152,6 +152,8 @@ int mhi_dma_provide_ops(const struct mhi_dma_ops *ops)
 	}
 	mhi->mhi_hw_ctx->phandle = ep_pcie_get_phandle(mhi->mhi_hw_ctx->ifc_id);
 	if (mhi->mhi_hw_ctx->phandle) {
+		/* Get EP PCIe capabilities to check if it supports SRIOV capability */
+		ep_pcie_core_get_capability(mhi_hw_ctx->phandle, &mhi_hw_ctx->ep_cap);
 		/* PCIe link is already up */
 		mhi_dev_pcie_notify_event = MHI_INIT;
 		mhi_dev_setup_virt_device(mhi->mhi_hw_ctx);
@@ -5195,6 +5197,8 @@ static int mhi_dev_probe(struct platform_device *pdev)
 	if (mhi_hw_ctx->phandle) {
 		/* PCIe link is already up */
 		mhi_dev_pcie_notify_event = MHI_INIT;
+		/* Get EP PCIe capabilities to check if it supports SRIOV capability */
+		ep_pcie_core_get_capability(mhi_hw_ctx->phandle, &mhi_hw_ctx->ep_cap);
 		/*
 		 * Setup all virtual device prior to PF Mission mode
 		 * completion to make sure VF's are initialized in mission
