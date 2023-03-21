@@ -360,7 +360,8 @@ int btfm_slim_hw_init(struct btfmslim *btfmslim)
 		slim_ifd->e_addr.instance = 0x0;
 		slim_ifd->laddr = 0x0;
 	} else if (chipset_ver == QCA_MOSELLE_SOC_ID_0100 ||
-		chipset_ver == QCA_MOSELLE_SOC_ID_0110) {
+		chipset_ver == QCA_MOSELLE_SOC_ID_0110 ||
+		chipset_ver == QCA_MOSELLE_SOC_ID_0120) {
 		BTFMSLIM_INFO("chipset is Moselle, overwriting EA");
 		slim->is_laddr_valid = false;
 		slim->e_addr.manf_id = SLIM_MANF_ID_QCOM;
