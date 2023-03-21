@@ -889,7 +889,6 @@ static int chdrv_write_firmware(struct ch_dev_t *dev_ptr)
 static int chdrv_init_ram(struct ch_dev_t *dev_ptr)
 {
 	int ch_err = !dev_ptr || !dev_ptr->sensor_connected;
-	int i;
 
 #ifdef CHDRV_DEBUG
 	u32 prog_time;

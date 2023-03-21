@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2020 InvenSense, Inc.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -404,7 +405,7 @@ static irqreturn_t ch101_store_time(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
 
-	pf->timestamp = ktime_get_boot_ns();
+	pf->timestamp = ktime_get_boottime_ns();
 	pr_info(TAG "%s: t: %llu\n", __func__, pf->timestamp);
 
 	return IRQ_WAKE_THREAD;
@@ -555,7 +556,7 @@ static enum hrtimer_restart ch101_hrtimer_handler(struct hrtimer *t)
 	}
 
 	pr_info(TAG "%s: t: %lld, counter: %d\n",
-		__func__, ktime_get_boot_ns(), data->counter);
+		__func__, ktime_get_boottime_ns(), data->counter);
 
 	complete(&data->data_completion);
 
@@ -1079,8 +1080,9 @@ int ch101_core_probe(struct i2c_client *client, struct regmap *regmap,
 		goto error_triggered_buffer_setup;
 	}
 
-	data->trig = iio_trigger_alloc("%s-hrtimer%d", indio_dev->name,
-			indio_dev->id);
+	data->trig = iio_trigger_alloc(indio_dev->dev.parent,
+			"%s-hrtimer%d", indio_dev->name,
+			iio_device_id(indio_dev));
 	if (data->trig == NULL) {
 		ret = -ENOMEM;
 		dev_err(&client->dev, "iio trigger alloc error\n");
@@ -1149,7 +1151,6 @@ error_trigger_alloc:
 error_triggered_buffer_setup:
 error_request_threaded_irq:
 error_find_sensors:
-	devm_iio_device_free(&client->dev, indio_dev);
 	dev_err(dev, "%s: Error %d:\n", __func__, ret);
 
 	return ret;
@@ -1163,7 +1164,6 @@ int ch101_core_remove(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct ch101_data *data = iio_priv(indio_dev);
-	struct ch101_callbacks *cbk = data->client.cbk;
 
 	dev_info(dev, "%s: Start: %p\n", __func__, data);
 
@@ -1184,8 +1184,6 @@ int ch101_core_remove(struct i2c_client *client)
 	iio_trigger_free(data->trig);
 
 	iio_device_unregister(indio_dev);
-	devm_iio_device_free(dev, indio_dev);
-	devm_kfree(dev, cbk);
 
 	dev_info(dev, "%s: End\n", __func__);
 

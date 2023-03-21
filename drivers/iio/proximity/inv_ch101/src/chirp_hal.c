@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2020 InvenSense, Inc.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -20,7 +21,7 @@
 #include <linux/timekeeping.h>
 #include <linux/delay.h>
 #include <linux/printk.h>
-#include <linux/time.h>
+#include <linux/time64.h>
 #include <asm/div64.h>
 
 #include "chirp_hal.h"
@@ -252,10 +253,10 @@ void os_delay_ms(const uint16_t ms)
 
 u64 os_timestamp_ns(void)
 {
-	struct timespec ts;
+	struct timespec64 ts;
 
-	get_monotonic_boottime(&ts);
-	return timespec_to_ns(&ts);
+	ktime_get_boottime_ts64(&ts);
+	return timespec64_to_ns(&ts);
 }
 
 u64 os_timestamp_ms(void)
