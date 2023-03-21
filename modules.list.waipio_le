@@ -104,3 +104,13 @@ c1dcvs_vendor.ko
 c1dcvs_scmi.ko
 bcl_pmic5.ko
 nfc_i2c.ko
+phy-msm-snps-eusb2.ko
+phy-msm-ssusb-qmp.ko
+usb_f_diag.ko
+usb_f_qdss.ko
+repeater-i2c-eusb2.ko
+repeater.ko
+dwc3-msm.ko
+usb_bam.ko
+redriver.ko
+sps_drv.ko
