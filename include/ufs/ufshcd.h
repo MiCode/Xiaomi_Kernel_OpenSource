@@ -639,6 +639,13 @@ enum ufshcd_quirks {
 	 * keys were stored in it.
 	 */
 	UFSHCD_QUIRK_KEYS_IN_PRDT			= 1 << 22,
+
+	/*
+	 * Some platform raises interrupt (per queue) in addition to
+	 * CQES (traditional) when ESI is disabled.
+	 * Enable this quirk will disable CQES and use per queue interrupt.
+	 */
+	UFSHCD_QUIRK_MCQ_BROKEN_INTR			= 1 << 23,
 };
 
 enum ufshcd_caps {
