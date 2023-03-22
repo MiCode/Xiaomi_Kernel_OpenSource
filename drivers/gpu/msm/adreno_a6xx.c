@@ -375,6 +375,11 @@ static void a6xx_hwcg_set(struct adreno_device *adreno_dev, bool on)
 		kgsl_regrmw(device, A6XX_UCHE_GBIF_GX_CONFIG, GENMASK(18, 16),
 				FIELD_PREP(GENMASK(18, 16), 0));
 
+	/* Recommended to always disable GBIF_CX_CONFIG for gen6_3_26_0*/
+	if (adreno_is_gen6_3_26_0(adreno_dev))
+		kgsl_regrmw(device, A6XX_GBIF_CX_CONFIG, GENMASK(18, 16),
+				FIELD_PREP(GENMASK(18, 16), 0));
+
 	if (value == __get_rbbm_clock_cntl_on(adreno_dev) && on)
 		return;
 
