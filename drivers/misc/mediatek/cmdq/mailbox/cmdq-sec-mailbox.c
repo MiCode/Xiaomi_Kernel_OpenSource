@@ -1411,8 +1411,14 @@ void cmdq_sec_mbox_stop(struct cmdq_client *cl)
 			__func__, cl, cmdq, thread, thread->idx);
 
 		mutex_lock(&cmdq->exec_lock);
+		if (!task->pkt) {
+			cmdq_err("pkt is null");
+			mutex_unlock(&cmdq->exec_lock);
+			return;
+		}
+
 		if (!task->pkt->sec_data) {
-			cmdq_err("%s pkt sec_data is null", __func__);
+			cmdq_err("pkt sec_data is null");
 			mutex_unlock(&cmdq->exec_lock);
 			return;
 		}
