@@ -52,6 +52,14 @@ config TYPEC_MUX_DP_SELECTOR
 	  Works with Type-C Port Controller Manager.
 	  If unsure, say N.
 
+config TYPEC_MUX_FLIP_ALPHA_FSA4480
+       tristate "flip alpha phone FSA4480 aux channel switch IC"
+       help
+         Say Y or M if your system has a FSA4480 switch IC.
+         Support DP aux channel switch function.
+         Support typec analog audio switch.
+         Support turn on source vbus function.
+
 config TYPEC_MUX_PI3DPX1205A
 	tristate "DIODES USB TYPE-C DP Linear Redriver"
 	depends on MTK_USB_TYPEC_MUX
