@@ -8989,6 +8989,11 @@
 			mediatek,srclken-rc-broadcast;
 			mediatek,enable;
 		};
+
+		gpio_keys: gpio-keys {
+			compatible = "gpio-keys";
+			status = "disabled";
+		};
 	};
 
 	scp: scp@1c700000 {
