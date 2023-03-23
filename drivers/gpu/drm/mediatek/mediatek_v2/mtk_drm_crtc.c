@@ -9629,6 +9629,13 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
 				&en);
 
+	/* connector seemless switch's resume frame not update screen */
+	if (output_comp && mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI) {
+		struct mtk_dsi *dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+
+		mtk_crtc->skip_frame = dsi->pending_switch;
+	}
+
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 		/* 1. power on mtcmos & init apsrc*/
 		mtk_drm_top_clk_prepare_enable(crtc->dev);
