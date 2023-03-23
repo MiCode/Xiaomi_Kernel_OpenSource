@@ -38,6 +38,8 @@
 #include "mtk_pbm.h"
 #endif
 
+extern atomic_t md_ee_occurred;
+
 struct ccci_md_regulator {
 	struct regulator *reg_ref;
 	unsigned char *reg_name;
@@ -137,9 +139,14 @@ void md_cd_lock_modem_clock_src(int locked)
 
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
 		MD_REG_AP_MDSRC_REQ, locked, 0, 0, 0, 0, &res);
-	if (res.a0)
-		CCCI_ERROR_LOG(-1, TAG,
-			"md source requeset fail (0x%lX)\n", res.a0);
+	if (res.a0) {
+		if (locked)
+			CCCI_ERROR_LOG(-1, TAG,
+				"md source requeset fail (0x%lX)\n", res.a0);
+		else
+			CCCI_ERROR_LOG(-1, TAG,
+				"md source release fail (0x%lX)\n", res.a0);
+	}
 
 	if (locked) {
 		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
@@ -155,7 +162,7 @@ void md_cd_lock_modem_clock_src(int locked)
 		else {
 			settle = 3;
 			CCCI_ERROR_LOG(-1, TAG,
-				"md srouce settle fail (0x%lX, 0x%lX) set = %d\n",
+				"md source settle fail (0x%lX, 0x%lX) set = %d\n",
 				res.a0, res.a1, settle);
 		}
 		mdelay(settle);
@@ -603,7 +610,8 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 	inform_nfc_vsim_change(0, 0);
 #endif
 
-	if ((md_cd_plat_val_ptr.md_gen == 6298) && md_cd_plat_val_ptr.md_sub_ver) {
+	if (!atomic_read(&md_ee_occurred) && (md_cd_plat_val_ptr.md_gen == 6298) &&
+	    md_cd_plat_val_ptr.md_sub_ver) {
 		reg = ioremap_wc(0x20020000, 0x1000);
 		if (!reg) {
 			CCCI_ERROR_LOG(0, TAG, "%s, ioremap_wc fail\n", __func__);
