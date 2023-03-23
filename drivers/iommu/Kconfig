@@ -437,6 +437,25 @@ config ARM_SMMU_TESTBUS
 
 	  If unsure, say N here.
 
+config ARM_SMMU_TESTBUS_DEBUGFS
+	bool "Expose testbus control debugfs nodes"
+	depends on ARM_SMMU && IOMMU_DEBUGFS && ARM_SMMU_TESTBUS
+	help
+	  Support for exposing debugfs nodes to set testbus select values
+	  for selecting a testbus to inspect for a particular TCU/TBU
+	  on an SMMU. This also exposes debugfs nodes to read testbus output
+	  after the output has been selected.
+
+config ARM_SMMU_CAPTUREBUS_DEBUGFS
+	bool "Expose capturebus control debugfs nodes"
+	depends on ARM_SMMU && QCOM_IOMMU_DEBUG
+	help
+	  Support for exposing debugfs nodes to configure capturebus for each
+	  tbu of an SMMU. This also exposes debugfs nodes to get the snapshot
+	  of capturebus.
+
+	  If unsure, say N here.
+
 config ARM_SMMU_V3
 	tristate "ARM Ltd. System MMU Version 3 (SMMUv3) Support"
 	depends on ARM64
@@ -485,6 +504,14 @@ config IOMMU_TLBSYNC_DEBUG
 	  first TLB sync timeout failure by calling BUG() from
 	  a workqueue thread. Note to use this only on debug
 	  builds.
+
+config ARM_SMMU_TESTBUS_DUMP
+	bool "ARM SMMU testbus dump"
+	depends on ARM_SMMU && ARM_SMMU_TESTBUS
+	help
+	  Enables testbus dump collection on arm smmu right after TLB
+	  sync timeout failure.
+	  Note to use this only on debug builds.
 
 	  If unsure, say N here.
 
