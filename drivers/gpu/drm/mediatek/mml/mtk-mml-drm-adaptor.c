@@ -1304,6 +1304,7 @@ done:
 	mutex_unlock(&ctx->config_mutex);
 	return idle;
 }
+EXPORT_SYMBOL_GPL(mml_drm_ctx_idle);
 
 static void drm_ctx_release(struct mml_drm_ctx *ctx)
 {

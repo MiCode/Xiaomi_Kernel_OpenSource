@@ -64,10 +64,10 @@
 #include "mtk_fbconfig_kdebug.h"
 #include "mtk_layering_rule_base.h"
 
-#include "../mml/mtk-mml.h"
-#include "../mml/mtk-mml-drm-adaptor.h"
-#include "../mml/mtk-mml-driver.h"
-#include "../mml/mtk-mml-color.h"
+#include "mtk-mml.h"
+#include "mtk-mml-drm-adaptor.h"
+#include "mtk-mml-driver.h"
+#include "mtk-mml-color.h"
 
 #include <soc/mediatek/mmqos.h>
 
@@ -10569,6 +10569,11 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 			comp->fb = NULL;
 	}
 
+	if (priv->mml_ctx && mml_drm_ctx_idle(priv->mml_ctx)) {
+		mml_drm_put_context(priv->mml_ctx);
+		priv->mml_ctx = NULL;
+	}
+
 	/* 11. set CRTC SW status */
 	mtk_crtc_set_status(crtc, false);
 
@@ -10726,12 +10731,11 @@ void mml_cmdq_pkt_init(struct drm_crtc *crtc, struct cmdq_pkt *cmdq_handle)
 	if (!crtc || !cmdq_handle)
 		return;
 
-	mtk_crtc = to_mtk_crtc(crtc);
 	mml_ctx = mtk_drm_get_mml_drm_ctx(crtc->dev, crtc);
-	priv = crtc->dev->dev_private;
-
-	if (!mtk_crtc)
+	if (!mml_ctx)
 		return;
+	mtk_crtc = to_mtk_crtc(crtc);
+	priv = crtc->dev->dev_private;
 
 	switch (mtk_crtc->mml_ir_state) {
 	case MML_IR_ENTERING:
