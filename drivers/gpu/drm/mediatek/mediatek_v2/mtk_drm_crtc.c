@@ -1336,7 +1336,7 @@ int mtk_drm_setbacklight(struct drm_crtc *crtc, unsigned int level,
 		sb_cmdq_handle = NULL;
 	} else {
 		cmdq_handle =
-			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	}
 
 	if (!cmdq_handle) {
@@ -1557,7 +1557,7 @@ int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	/* send LCM CMD */
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
 
-	if (is_frame_mode)
+	if (is_frame_mode || mtk_crtc->gce_obj.client[CLIENT_DSI_CFG] == NULL)
 		cmdq_handle =
 			cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	else
@@ -1650,8 +1650,8 @@ int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en)
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
 
 	/* setHBM would use VM CMD in  DSI VDO mode only */
-	client = (is_frame_mode) ? mtk_crtc->gce_obj.client[CLIENT_CFG] :
-				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
+	client = (is_frame_mode || mtk_crtc->gce_obj.client[CLIENT_DSI_CFG] == NULL) ?
+		mtk_crtc->gce_obj.client[CLIENT_CFG] : mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
 	cmdq_handle =
 		cmdq_pkt_create(client);
 
@@ -9242,7 +9242,7 @@ void mtk_crtc_stop(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
 
 	/* 0. Waiting CLIENT_DSI_CFG thread done */
-	if (crtc_id == 0) {
+	if (mtk_crtc->gce_obj.client[CLIENT_DSI_CFG] != NULL) {
 		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 
@@ -16967,7 +16967,7 @@ void mtk_crtc_stop_for_pm(struct mtk_drm_crtc *mtk_crtc, bool need_wait)
 	DDPINFO("%s:%d +\n", __func__, __LINE__);
 
 	/* 0. Waiting CLIENT_DSI_CFG thread done */
-	if (crtc_id == 0) {
+	if (mtk_crtc->gce_obj.client[CLIENT_DSI_CFG] != NULL) {
 		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 
@@ -17072,16 +17072,25 @@ int mtk_drm_switch_te(struct drm_crtc *crtc, int te_num, bool need_lock)
 		mutex_lock(&private->commit.lock);
 		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	}
-	mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+
+	if (mtk_crtc->gce_obj.client[CLIENT_DSI_CFG] != NULL)
+		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
 			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	else
+		mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
+			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	if (!handle) {
 		DDPPR_ERR("%s:%d NULL handle\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 
-	if (!set_outpin) {
+	if (!set_outpin && mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]) {
 		cmdq_set_outpin_event(mtk_crtc->gce_obj.client[CLIENT_DSI_CFG],
+				true);
+		set_outpin = true;
+	} else if (!set_outpin) {
+		cmdq_set_outpin_event(mtk_crtc->gce_obj.client[CLIENT_CFG],
 				true);
 		set_outpin = true;
 	}

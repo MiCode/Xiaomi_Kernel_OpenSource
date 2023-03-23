@@ -1013,7 +1013,8 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 	/* only use CLIENT_DSI_CFG for VM CMD scenario */
 	/* use CLIENT_CFG otherwise */
 
-	gce_client = (!is_frame_mode && use_lpm) ?
+	gce_client = (!is_frame_mode && !use_lpm &&
+				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]) ?
 			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG] :
 			mtk_crtc->gce_obj.client[CLIENT_CFG];
 

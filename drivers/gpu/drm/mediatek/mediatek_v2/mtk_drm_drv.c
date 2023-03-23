@@ -958,7 +958,7 @@ static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage,
 #endif
 
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
-		mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	cb_data->crtc = crtc;
 	cb_data->cmdq_handle = cmdq_handle;
 
