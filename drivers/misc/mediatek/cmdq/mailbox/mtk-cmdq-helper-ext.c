@@ -2589,8 +2589,12 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 #endif
 
 	if (inst && inst->op == CMDQ_CODE_WFE) {
+#ifdef CMDQ_SECURE_SUPPORT
+		if (!pkt->sec_data)
+			cmdq_print_wait_summary(client->chan, pc, inst);
+#else
 		cmdq_print_wait_summary(client->chan, pc, inst);
-
+#endif
 		if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
 			inst->arg_a <= CMDQ_TOKEN_DISP_VA_END)
 			cmdq_util_prebuilt_dump(
