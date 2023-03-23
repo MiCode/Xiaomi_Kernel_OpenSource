@@ -683,7 +683,10 @@ void cmdq_util_hw_trace_dump(const u16 hwid, const bool dram)
 	}
 
 	trace = &util.hw_trace[hwid];
-	if (trace->clt && trace->pkt)
+	if (!trace->clt) {
+		cmdq_err("hw trace disable");
+		return;
+	} else if (trace->clt && trace->pkt)
 		cmdq_dump_summary(trace->clt, trace->pkt);
 
 	// SRAM
