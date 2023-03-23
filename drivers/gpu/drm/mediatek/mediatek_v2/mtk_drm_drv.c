@@ -2417,8 +2417,8 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_mem_dp_w_tdshp[] = {
 };
 
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_mem_dp_wo_tdshp[] = {
-	DDP_COMPONENT_OVL7_2L,
-	DDP_COMPONENT_OVL7_2L_VIRTUAL0,
+	DDP_COMPONENT_OVL5_2L,
+	DDP_COMPONENT_OVL5_2L_VIRTUAL0,
 	DDP_COMPONENT_OVLSYS_WDMA2,
 };
 
@@ -2427,9 +2427,10 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_mem_dp_wo_tdshp[] = {
 /* CRTC3 */
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_secondary_dp[] = {
 	DDP_COMPONENT_OVL7_2L,
-	DDP_COMPONENT_OVLSYS_DLO_ASYNC12,
-	DDP_COMPONENT_DLI_ASYNC8,
-	DDP_COMPONENT_PQ1_OUT_CB4,
+	DDP_COMPONENT_OVLSYS_DLO_ASYNC11,
+	DDP_COMPONENT_DLI_ASYNC7,
+	DDP_COMPONENT_TDSHP3,
+	DDP_COMPONENT_PQ1_OUT_CB2,
 	DDP_COMPONENT_PANEL1_COMP_OUT_CB3,
 	DDP_COMPONENT_COMP1_OUT_CB5,
 	DDP_COMPONENT_MERGE1_OUT_CB3,
