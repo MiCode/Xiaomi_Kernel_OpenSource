@@ -10,6 +10,7 @@
  * If you need to do some special config, you can also use this macro.
  */
 #define IOMMU_BRING_UP	(0)
+//#define IOMMU_SECURE_DEBUG
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
@@ -4991,6 +4992,7 @@ static int m4u_debug_set(void *data, u64 val)
 	case 1:	/* show help info */
 		ret = mtk_iommu_debug_help(NULL);
 		break;
+#ifdef IOMMU_SECURE_DEBUG
 	case 2: /* mm translation fault test */
 		report_custom_iommu_fault(0, 0, 0x500000f, MM_IOMMU, 0);
 		break;
@@ -5018,6 +5020,7 @@ static int m4u_debug_set(void *data, u64 val)
 	case 10:
 		ret = ao_secure_dbg_switch_by_atf(MM_IOMMU, DISP_IOMMU, 0);
 		break;
+#endif
 	case 11:	/* enable trace log */
 		event_mgr[IOMMU_ALLOC].dump_log = 1;
 		event_mgr[IOMMU_FREE].dump_log = 1;
@@ -5093,7 +5096,7 @@ static int m4u_debug_set(void *data, u64 val)
 		mtk_iommu_iova_map_dump(NULL, 0, MM_TABLE);
 		mtk_iommu_iova_map_dump(NULL, 0, APU_TABLE);
 		break;
-#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
+#ifdef IOMMU_SECURE_DEBUG
 	case 19:
 		mtk_iommu_dump_bank_base();
 		break;
