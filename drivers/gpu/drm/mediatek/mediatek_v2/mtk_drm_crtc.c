@@ -2094,7 +2094,7 @@ err2:
 /* power on all modules on this CRTC */
 void mtk_crtc_ddp_prepare(struct mtk_drm_crtc *mtk_crtc)
 {
-	int i, j, k, ddp_mode;
+	int i, j, k;
 	struct mtk_ddp_comp *comp;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	const struct mtk_addon_scenario_data *addon_data;
@@ -2105,10 +2105,9 @@ void mtk_crtc_ddp_prepare(struct mtk_drm_crtc *mtk_crtc)
 	    mtk_drm_get_lcm_ext_params(crtc);
 	unsigned int comp_id;
 
-	for_each_comp_id_in_path_data(comp_id, mtk_crtc->path_data, i, j, ddp_mode) {
-		comp = priv->ddp_comp[comp_id];
+	for_each_comp_in_crtc_target_mode_path(comp, mtk_crtc, i, mtk_crtc->ddp_mode, 0)
 		mtk_ddp_comp_prepare(comp);
-	}
+
 	for (i = 0; i < ADDON_SCN_NR; i++) {
 		addon_data = mtk_addon_get_scenario_data(__func__,
 							 &mtk_crtc->base, i);
@@ -2165,7 +2164,7 @@ void mtk_crtc_ddp_prepare(struct mtk_drm_crtc *mtk_crtc)
 
 void mtk_crtc_ddp_unprepare(struct mtk_drm_crtc *mtk_crtc)
 {
-	int i, j, k, ddp_mode;
+	int i, j, k;
 	struct mtk_ddp_comp *comp;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	const struct mtk_addon_scenario_data *addon_data;
@@ -2176,10 +2175,8 @@ void mtk_crtc_ddp_unprepare(struct mtk_drm_crtc *mtk_crtc)
 	    mtk_drm_get_lcm_ext_params(crtc);
 	unsigned int comp_id;
 
-	for_each_comp_id_in_path_data(comp_id, mtk_crtc->path_data, i, j, ddp_mode) {
-		comp = priv->ddp_comp[comp_id];
+	for_each_comp_in_crtc_target_mode_path(comp, mtk_crtc, i, mtk_crtc->ddp_mode, 0)
 		mtk_ddp_comp_unprepare(comp);
-	}
 
 	for (i = 0; i < ADDON_SCN_NR; i++) {
 		addon_data = mtk_addon_get_scenario_data(__func__,
