@@ -1407,15 +1407,16 @@ void cmdq_sec_mbox_stop(struct cmdq_client *cl)
 	task = list_first_entry_or_null(
 		&thread->task_list, struct cmdq_sec_task, list_entry);
 	if (task) {
-		if (!task->pkt->sec_data) {
-			cmdq_err("%s pkt sec_data is null", __func__);
-			return;
-		}
-
 		cmdq_msg("[ IN] %s: cl:%p cmdq:%p thrd:%p idx:%u\n",
 			__func__, cl, cmdq, thread, thread->idx);
 
 		mutex_lock(&cmdq->exec_lock);
+		if (!task->pkt->sec_data) {
+			cmdq_err("%s pkt sec_data is null", __func__);
+			mutex_unlock(&cmdq->exec_lock);
+			return;
+		}
+
 		memset(&cmdq->cancel, 0, sizeof(cmdq->cancel));
 		cmdq->cancel.throwAEE = false;
 		cmdq_sec_task_submit(cmdq, task, CMD_CMDQ_TL_CANCEL_TASK,
