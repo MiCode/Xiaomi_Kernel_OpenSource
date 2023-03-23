@@ -38,6 +38,7 @@
 #include <linux/smp.h>
 #include <linux/irq.h>
 #include <linux/irqdesc.h>
+#include <trace/hooks/sched.h>
 
 void sysrq_sched_debug_show_at_AEE(void);
 
@@ -1122,6 +1123,13 @@ static const struct of_device_id systimer_of_match[] = {
 	{},
 };
 
+#if IS_ENABLED(CONFIG_MTK_FTRACE_DEFAULT_ENABLE) && IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+static void hangdet_chk_jiffies(void *data, void *unused)
+{
+	trace_printk("%lld %lld %lld\n", jiffies, ktime_get(), sched_clock());
+}
+#endif
+
 static int __init hangdet_init(void)
 {
 	int res = 0;
@@ -1227,6 +1235,23 @@ static int __init hangdet_init(void)
 #endif
 
 	aee_reboot_hook_init();
+
+#if IS_ENABLED(CONFIG_MTK_FTRACE_DEFAULT_ENABLE)
+	trace_set_clr_event(NULL, "timer_start", 1);
+	trace_set_clr_event(NULL, "timer_start", 1);
+	trace_set_clr_event(NULL, "timer_expire_entry", 1);
+	trace_set_clr_event(NULL, "hrtimer_init", 1);
+	trace_set_clr_event(NULL, "hrtimer_start", 1);
+	trace_set_clr_event(NULL, "hrtimer_expire_entry", 1);
+	trace_set_clr_event(NULL, "tick_stop", 1);
+#if IS_ENABLED(CONFIG_MTK_TICK_BROADCAST_DEBUG)
+	res = register_trace_android_vh_jiffies_update(
+		hangdet_chk_jiffies, NULL);
+
+	if (res)
+		pr_info("add vh for jiffies failed %d\n", res);
+#endif
+#endif
 
 	return 0;
 }
