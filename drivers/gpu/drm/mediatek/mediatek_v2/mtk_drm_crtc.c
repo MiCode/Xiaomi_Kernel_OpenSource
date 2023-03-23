@@ -5951,22 +5951,21 @@ static void mtk_crtc_update_hrt_qos(struct drm_crtc *crtc,
 			mtk_ddp_comp_io_cmd(comp, NULL, PMQOS_SET_BW, NULL);
 	}
 
-	if (crtc_idx != 0)
-		return;
-
 	if (priv->power_state == false)
 		return;
 
 	hrt_idx = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_CUR_HRT_IDX);
 	atomic_set(&mtk_crtc->qos_ctx->last_hrt_idx, hrt_idx);
 	atomic_set(&mtk_crtc->qos_ctx->hrt_cond_sig, 1);
-	wake_up(&mtk_crtc->qos_ctx->hrt_cond_wq);
+	/* adjust hrt usage callback only for primary display */
+	if (crtc_idx == 0)
+		wake_up(&mtk_crtc->qos_ctx->hrt_cond_wq);
 	cur_hrt_bw = *(unsigned int *)mtk_get_gce_backup_slot_va(mtk_crtc, DISP_SLOT_CUR_HRT_LEVEL);
 	if (cur_hrt_bw != NO_PENDING_HRT &&
 		cur_hrt_bw <= mtk_crtc->qos_ctx->last_hrt_req) {
 
-		DDPINFO("cur:%u last:%u, release HRT to last_hrt_req:%u\n",
-			cur_hrt_bw,	mtk_crtc->qos_ctx->last_hrt_req,
+		DDPINFO("CRTC%u cur:%u last:%u, release HRT to last_hrt_req:%u\n",
+			crtc_idx, cur_hrt_bw,	mtk_crtc->qos_ctx->last_hrt_req,
 			mtk_crtc->qos_ctx->last_hrt_req);
 
 		if (mtk_drm_helper_get_opt(priv->helper_opt,
@@ -9696,8 +9695,7 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	/* 5. connect path */
 	mtk_crtc_connect_default_path(mtk_crtc);
 
-	if (!crtc_id)
-		mtk_crtc->qos_ctx->last_hrt_req = 0;
+	mtk_crtc->qos_ctx->last_hrt_req = 0;
 
 	/* 6. config ddp engine */
 	mtk_crtc_config_default_path(mtk_crtc);

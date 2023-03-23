@@ -3741,6 +3741,7 @@ static const struct mtk_crtc_path_data mt6985_mtk_secondary_path_data = {
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6985_mtk_ddp_secondary_dp),
 	.dual_path[0] = mt6985_mtk_ddp_dual_secondary_dp,
 	.dual_path_len[0] = ARRAY_SIZE(mt6985_mtk_ddp_dual_secondary_dp),
+	.path_req_hrt[DDP_MAJOR][0] = true,
 	.addon_data = mt6985_addon_secondary_path,
 //	.addon_data_dual = mt6985_addon_secondary_path_dual,
 };
