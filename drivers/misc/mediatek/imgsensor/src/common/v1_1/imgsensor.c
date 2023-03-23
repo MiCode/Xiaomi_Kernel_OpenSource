@@ -2041,8 +2041,7 @@ static int compat_put_imagesensor_getinfo_struct(
 	long ret = 0;
 
 	data32->SensorId = data->SensorId;
-
-	ret = (long)copy_to_user(compat_ptr(arg), data32,
+	ret = (long)copy_to_user((void __user *)compat_ptr(arg), data32,
 		(unsigned long)sizeof(struct COMPAT_IMAGESENSOR_GETINFO_STRUCT));
 
 	if (ret != 0L) {
@@ -2085,8 +2084,7 @@ static int compat_put_acdk_sensor_featurecontrol_struct(
 	data32->FeatureId = data->FeatureId;
 	data32->pFeaturePara = ptr_to_compat(data->pFeaturePara);
 	data32->pFeatureParaLen = ptr_to_compat(data->pFeatureParaLen);
-
-	ret = (long)copy_to_user(compat_ptr(arg), data32,
+	ret = (long)copy_to_user((void __user *)compat_ptr(arg), data32,
 		(unsigned long)sizeof(struct COMPAT_ACDK_SENSOR_FEATURECONTROL_STRUCT));
 
 	if (ret != 0L) {
@@ -2127,7 +2125,7 @@ static int compat_put_acdk_sensor_control_struct(
 
 	data32->InvokeCamera = data->InvokeCamera;
 	data32->ScenarioId   = data->ScenarioId;
-	ret = (long)copy_to_user(compat_ptr(arg), data32,
+	ret = (long)copy_to_user((void __user *)compat_ptr(arg), data32,
 		(unsigned long)sizeof(struct COMPAT_ACDK_SENSOR_CONTROL_STRUCT));
 
 	if (ret != 0L) {
@@ -2146,21 +2144,20 @@ static long imgsensor_compat_ioctl(
 	void *pBuff = NULL;
 
 	if (_IOC_DIR(a_u4Command) != _IOC_NONE) {
-		pBuff = kmalloc(_IOC_SIZE(a_u4Command), GFP_KERNEL);
-		if (pBuff == NULL) {
-			PK_DBG("[CAMERA SENSOR] ioctl allocate mem failed\n");
-			i4RetValue = -ENOMEM;
-			goto CAMERA_HW_Ioctl_EXIT;
-		} else {
-			memset(pBuff, 0x0, _IOC_SIZE(a_u4Command));
-		}
-
 		if (_IOC_WRITE & _IOC_DIR(a_u4Command)) {
 			switch (a_u4Command) {
 			case COMPAT_KDIMGSENSORIOC_X_FEATURECONCTROL:
 			{
 				struct COMPAT_ACDK_SENSOR_FEATURECONTROL_STRUCT data32;
 				struct ACDK_SENSOR_FEATURECONTROL_STRUCT data;
+				pBuff = kmalloc(sizeof(data), GFP_KERNEL);
+				if (pBuff == NULL) {
+					PK_DBG("[CAMERA SENSOR] ioctl allocate mem failed\n");
+					i4RetValue = -ENOMEM;
+					goto CAMERA_HW_Ioctl_EXIT;
+				} else {
+					memset(pBuff, 0x0, _IOC_SIZE(sizeof(data)));
+				}
 
 				if (compat_get_acdk_sensor_featurecontrol_struct(a_u4Param,
 								&data32, &data) != 0) {
@@ -2191,6 +2188,14 @@ static long imgsensor_compat_ioctl(
 			{
 				struct COMPAT_ACDK_SENSOR_CONTROL_STRUCT data32;
 				struct ACDK_SENSOR_CONTROL_STRUCT data;
+				pBuff = kmalloc(sizeof(data), GFP_KERNEL);
+				if (pBuff == NULL) {
+					PK_DBG("[CAMERA SENSOR] ioctl allocate mem failed\n");
+					i4RetValue = -ENOMEM;
+					goto CAMERA_HW_Ioctl_EXIT;
+				} else {
+					memset(pBuff, 0x0, _IOC_SIZE(sizeof(data)));
+				}
 
 				if (compat_get_acdk_sensor_control_struct(a_u4Param,
 								&data32, &data) != 0) {
@@ -2221,6 +2226,14 @@ static long imgsensor_compat_ioctl(
 			{
 				struct COMPAT_IMAGESENSOR_GETINFO_STRUCT data32;
 				struct IMAGESENSOR_GETINFO_STRUCT data;
+				pBuff = kmalloc(sizeof(data), GFP_KERNEL);
+				if (pBuff == NULL) {
+					PK_DBG("[CAMERA SENSOR] ioctl allocate mem failed\n");
+					i4RetValue = -ENOMEM;
+					goto CAMERA_HW_Ioctl_EXIT;
+				} else {
+					memset(pBuff, 0x0, _IOC_SIZE(sizeof(data)));
+				}
 
 				if (compat_get_imagesensor_getinfo_struct(a_u4Param,
 								&data32, &data) != 0) {
@@ -2248,19 +2261,10 @@ static long imgsensor_compat_ioctl(
 				break;
 			}
 			default:
-				if (a_pstFile->f_op->unlocked_ioctl(a_pstFile,
-							a_u4Command, a_u4Param) != 0) {
-					PK_DBG("default unlocked_ioctl fail\n");
-					i4RetValue = 1;
-					goto CAMERA_HW_Ioctl_EXIT;
-				}
-			} //switch (a_u4Command)
-			if ((_IOC_READ & _IOC_DIR(a_u4Command)) &&
-				copy_to_user((void __user *)a_u4Param, pBuff,
-					_IOC_SIZE(a_u4Command))) {
-				PK_DBG("[CAMERA SENSOR] ioctl copy to user failed\n");
-				i4RetValue = -EFAULT;
+				PK_DBG("compat_ioctl not support such cammand\n");
+				i4RetValue = -EPERM;
 				goto CAMERA_HW_Ioctl_EXIT;
+				break;
 			}
 		}
 	} else {
