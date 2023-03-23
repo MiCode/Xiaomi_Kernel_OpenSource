@@ -313,7 +313,6 @@ int cmdq_sec_pkt_wait_complete(struct cmdq_pkt *pkt)
 		cmdq_msg("===== SW timeout Pre-dump %hhu =====", cnt);
 		cnt++;
 
-		cmdq_dump_core(client->chan);
 		cmdq_msg("thd:%d Hidden thread info since it's secure",
 			thread_id);
 		cmdq_sec_dump_operation(client->chan);
