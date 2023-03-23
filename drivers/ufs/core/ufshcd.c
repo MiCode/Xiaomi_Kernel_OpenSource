@@ -59,6 +59,10 @@
 #define NOP_OUT_RETRIES    10
 /* Timeout after 50 msecs if NOP OUT hangs without response */
 #define NOP_OUT_TIMEOUT    50 /* msecs */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+/* Maximum MCQ registers polling time */
+#define MCQ_POLL_TIMEOUT   500
+#endif
 
 /* Query request retries */
 #define QUERY_REQ_RETRIES 3
@@ -176,7 +180,9 @@ EXPORT_SYMBOL_GPL(ufshcd_dump_regs);
 enum {
 	UFSHCD_MAX_CHANNEL	= 0,
 	UFSHCD_MAX_ID		= 1,
+#if !IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	UFSHCD_NUM_RESERVED	= 1,
+#endif
 	UFSHCD_CMD_PER_LUN	= 32 - UFSHCD_NUM_RESERVED,
 	UFSHCD_CAN_QUEUE	= 32 - UFSHCD_NUM_RESERVED,
 };
@@ -304,7 +310,9 @@ static int ufshcd_setup_hba_vreg(struct ufs_hba *hba, bool on);
 static int ufshcd_setup_vreg(struct ufs_hba *hba, bool on);
 static inline int ufshcd_config_vreg_hpm(struct ufs_hba *hba,
 					 struct ufs_vreg *vreg);
+#if !IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 static int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag);
+#endif
 static void ufshcd_wb_toggle_buf_flush_during_h8(struct ufs_hba *hba,
 						 bool enable);
 static void ufshcd_hba_vreg_set_lpm(struct ufs_hba *hba);
@@ -3001,9 +3009,34 @@ static int ufshcd_compose_dev_cmd(struct ufs_hba *hba,
  * @mask and wait until the controller confirms that these requests have been
  * cleared.
  */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+static int ufshcd_clear_cmds(struct ufs_hba *hba, unsigned long mask)
+#else
 static int ufshcd_clear_cmds(struct ufs_hba *hba, u32 mask)
+#endif
 {
 	unsigned long flags;
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	int err, result, tag;
+
+	if (is_mcq_enabled(hba)) {
+		/*
+		 * MCQ mode. Clean up the MCQ resources similar to
+		 * what the ufshcd_utrl_clear() does for SDB mode.
+		 */
+		for_each_set_bit(tag, &mask, hba->nutrs) {
+			err = ufshcd_mcq_sq_cleanup(hba, tag, &result);
+			if (err || result) {
+				dev_err(hba->dev, "%s: failed tag=%d. err=%d, result=%d\n",
+					__func__, tag, err, result);
+				return FAILED;
+			}
+		}
+		return 0;
+	}
+
+	/* Single Doorbell Mode */
+#endif
 
 	/* clear outstanding transaction before retry */
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -3104,6 +3137,13 @@ retry:
 		err = -ETIMEDOUT;
 		dev_dbg(hba->dev, "%s: dev_cmd request timedout, tag %d\n",
 			__func__, lrbp->task_tag);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+		/* MCQ mode */
+		if (is_mcq_enabled(hba))
+			return ufshcd_clear_cmds(hba, 1U << lrbp->task_tag);
+#endif
+
+		/* SDB mode */
 		if (ufshcd_clear_cmds(hba, 1U << lrbp->task_tag) == 0) {
 			/* successfully cleared the command, retry if needed */
 			err = -EAGAIN;
@@ -5421,8 +5461,13 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 }
 
 /* Release the resources allocated for processing a SCSI command. */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+void ufshcd_release_scsi_cmd(struct ufs_hba *hba,
+				    struct ufshcd_lrb *lrbp)
+#else
 static void ufshcd_release_scsi_cmd(struct ufs_hba *hba,
 				    struct ufshcd_lrb *lrbp)
+#endif
 {
 	struct scsi_cmnd *cmd = lrbp->cmd;
 
@@ -5550,6 +5595,12 @@ static int ufshcd_poll(struct Scsi_Host *shost, unsigned int queue_num)
  */
 static irqreturn_t ufshcd_transfer_req_compl(struct ufs_hba *hba)
 {
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	struct ufshcd_lrb *lrbp;
+	u32 hwq_num, utag;
+	int tag;
+#endif
+
 	/* Resetting interrupt aggregation counters first and reading the
 	 * DOOR_BELL afterward allows us to handle all the completed requests.
 	 * In order to prevent other interrupts starvation the DB is read once
@@ -5568,7 +5619,27 @@ static irqreturn_t ufshcd_transfer_req_compl(struct ufs_hba *hba)
 	 * Ignore the ufshcd_poll() return value and return IRQ_HANDLED since we
 	 * do not want polling to trigger spurious interrupt complaints.
 	 */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+
+	if (!is_mcq_enabled(hba)) {
+		ufshcd_poll(hba->host, UFSHCD_POLL_FROM_INTERRUPT_CONTEXT);
+		goto out;
+	}
+
+	/* mcq mode */
+	for (tag = 0; tag < hba->nutrs; tag++) {
+		lrbp = &hba->lrb[tag];
+		if (lrbp->cmd) {
+			utag = blk_mq_unique_tag(scsi_cmd_to_rq(lrbp->cmd));
+			hwq_num = blk_mq_unique_tag_to_hwq(utag);
+			ufshcd_poll(hba->host, hwq_num);
+		}
+	}
+
+out:
+#else
 	ufshcd_poll(hba->host, UFSHCD_POLL_FROM_INTERRUPT_CONTEXT);
+#endif
 
 	return IRQ_HANDLED;
 }
@@ -6348,6 +6419,38 @@ static bool ufshcd_abort_all(struct ufs_hba *hba)
 	bool needs_reset = false;
 	int tag, ret;
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (is_mcq_enabled(hba)) {
+		struct ufshcd_lrb *lrbp;
+		int tag;
+
+		for (tag = 0; tag < hba->nutrs; tag++) {
+			lrbp = &hba->lrb[tag];
+			if (lrbp->cmd) {
+				ret = ufshcd_try_to_abort_task(hba, tag);
+				dev_err(hba->dev, "Aborting tag %d / CDB %#02x %s\n", tag,
+					hba->lrb[tag].cmd ? hba->lrb[tag].cmd->cmnd[0] : -1,
+					ret ? "failed" : "succeeded");
+			}
+			if (ret) {
+				needs_reset = true;
+				goto out;
+			}
+		}
+	} else {
+		/* Clear pending transfer requests */
+		for_each_set_bit(tag, &hba->outstanding_reqs, hba->nutrs) {
+			ret = ufshcd_try_to_abort_task(hba, tag);
+			dev_err(hba->dev, "Aborting tag %d / CDB %#02x %s\n", tag,
+				hba->lrb[tag].cmd ? hba->lrb[tag].cmd->cmnd[0] : -1,
+				ret ? "failed" : "succeeded");
+			if (ret) {
+				needs_reset = true;
+				goto out;
+			}
+		}
+	}
+#else
 	/* Clear pending transfer requests */
 	for_each_set_bit(tag, &hba->outstanding_reqs, hba->nutrs) {
 		ret = ufshcd_try_to_abort_task(hba, tag);
@@ -6359,6 +6462,7 @@ static bool ufshcd_abort_all(struct ufs_hba *hba)
 			goto out;
 		}
 	}
+#endif
 
 	/* Clear pending task management requests */
 	for_each_set_bit(tag, &hba->outstanding_tasks, hba->nutmrs) {
@@ -6783,7 +6887,11 @@ static irqreturn_t ufshcd_handle_mcq_cq_events(struct ufs_hba *hba)
 			ufshcd_mcq_write_cqis(hba, events, i);
 
 		if (events & UFSHCD_MCQ_CQIS_TAIL_ENT_PUSH_STS)
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+			ufshcd_mcq_poll_cqe_lock(hba, hwq);
+#else
 			ufshcd_mcq_poll_cqe_nolock(hba, hwq);
+#endif
 	}
 
 	return IRQ_HANDLED;
@@ -7293,6 +7401,10 @@ static int ufshcd_eh_device_reset_handler(struct scsi_cmnd *cmd)
 	unsigned long flags, pending_reqs = 0, not_cleared = 0;
 	struct Scsi_Host *host;
 	struct ufs_hba *hba;
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	struct ufs_hw_queue *hwq;
+	struct ufshcd_lrb *lrbp;
+#endif
 	u32 pos;
 	int err;
 	u8 resp = 0xF, lun;
@@ -7307,6 +7419,21 @@ static int ufshcd_eh_device_reset_handler(struct scsi_cmnd *cmd)
 			err = resp;
 		goto out;
 	}
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (is_mcq_enabled(hba)) {
+		for (pos = 0; pos < hba->nutrs; pos++) {
+			lrbp = &hba->lrb[pos];
+			if (lrbp->cmd && lrbp->lun == lun) {
+				ufshcd_clear_cmds(hba, 1U << pos);
+				hwq = ufshcd_mcq_req_to_hwq(hba,
+					scsi_cmd_to_rq(lrbp->cmd));
+				ufshcd_mcq_poll_cqe_lock(hba, hwq);
+			}
+		}
+		err = 0;
+		goto out;
+	}
+#endif
 
 	/* clear the commands that were pending for corresponding LUN */
 	spin_lock_irqsave(&hba->outstanding_lock, flags);
@@ -7364,7 +7491,11 @@ static void ufshcd_set_req_abort_skip(struct ufs_hba *hba, unsigned long bitmap)
  *
  * Returns zero on success, non-zero on failure
  */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag)
+#else
 static int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag)
+#endif
 {
 	struct ufshcd_lrb *lrbp = &hba->lrb[tag];
 	int err = 0;
@@ -7387,6 +7518,22 @@ static int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag)
 			 */
 			dev_err(hba->dev, "%s: cmd at tag %d not pending in the device.\n",
 				__func__, tag);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+			if (is_mcq_enabled(hba)) {
+				/* mcq mode */
+				if (lrbp->cmd) {
+					/* sleep for max. 200us to stabilize */
+					usleep_range(100, 200);
+					continue;
+				}
+				/* command completed already */
+				dev_err(hba->dev, "%s: cmd at tag=%d is cleared.\n",
+					__func__, tag);
+				goto out;
+			}
+#endif
+
+			/* single door bell mode */
 			reg = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 			if (reg & (1 << tag)) {
 				/* sleep for max. 200us to stabilize */
@@ -7453,8 +7600,13 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 
 	ufshcd_hold(hba, false);
 	reg = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (!is_mcq_enabled(hba) && !(test_bit(tag, &hba->outstanding_reqs))) {
+#else
 	/* If command is already aborted/completed, return FAILED. */
 	if (!(test_bit(tag, &hba->outstanding_reqs))) {
+#endif
+		/* If command is already aborted/completed, return FAILED. */
 		dev_err(hba->dev,
 			"%s: cmd at tag %d already completed, outstanding=0x%lx, doorbell=0x%x\n",
 			__func__, tag, hba->outstanding_reqs, reg);
@@ -7483,7 +7635,13 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	}
 	hba->req_abort_count++;
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (!is_mcq_enabled(hba) && !(reg & (1 << tag))) {
+		/* only execute this code in single doorbell mode */
+#else
 	if (!(reg & (1 << tag))) {
+#endif
+
 		dev_err(hba->dev,
 		"%s: cmd was completed, but without a notifying intr, tag = %d",
 		__func__, tag);
@@ -7509,6 +7667,13 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		goto release;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (is_mcq_enabled(hba)) {
+		/* MCQ mode. Branch off to handle abort for mcq mode */
+		err = ufshcd_mcq_abort(cmd);
+		goto release;
+	}
+#endif
 	/* Skip task abort in case previous aborts failed and report failure */
 	if (lrbp->req_abort_skip) {
 		dev_err(hba->dev, "%s: skipping abort\n", __func__);
