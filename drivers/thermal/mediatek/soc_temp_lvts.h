@@ -350,6 +350,7 @@ struct lvts_id {
 #define LVTSOFFSETL_0	0x034
 #define LVTSMSRCTL0_0	0x038
 #define LVTSMSRCTL1_0	0x03C
+#define PAUSE_SENSING_POINT		(1 << 8 | 1 << 3 | 1 << 2 | 1 << 1 | 0x0)
 #define LVTSTSSEL_0	0x040
 #define SET_SENSOR_INDEX	0x13121110
 #define LVTSDEVICETO_0	0x044

@@ -363,6 +363,30 @@ static void device_identification_v1(struct lvts_data *lvts_data)
 	}
 }
 
+static void release_all_sensing_points(struct lvts_data *lvts_data)
+{
+	unsigned int i;
+	void __iomem *base;
+
+	/* do not care the number of sensors in controller while release */
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+		writel(0x0, LVTSMSRCTL1_0 + base);
+	}
+}
+
+static void pause_all_sensing_points(struct lvts_data *lvts_data)
+{
+	unsigned int i;
+	void __iomem *base;
+
+	/* do not care the number of sensors in controller while pause */
+	for (i = 0; i < lvts_data->num_tc; i++) {
+		base = GET_BASE_ADDR(i);
+		writel(PAUSE_SENSING_POINT, LVTSMSRCTL1_0 + base);
+	}
+}
+
 static void disable_sensing_points(struct lvts_data *lvts_data, unsigned int tc_id)
 {
 	void __iomem *base;
@@ -1024,7 +1048,11 @@ static int soc_temp_lvts_set_trip_temp(void *data, int trip, int temp)
 		return 0;
 
 	update_all_tc_hw_reboot_point(lvts_data, temp);
+
+	pause_all_sensing_points(lvts_data);
+	wait_all_tc_sensing_point_idle(lvts_data);
 	set_all_tc_hw_reboot(lvts_data);
+	release_all_sensing_points(lvts_data);
 
 	ret = set_reboot_temperature(temp);
 
@@ -1148,7 +1176,6 @@ static int lvts_init(struct lvts_data *lvts_data)
 	lk_init = lvts_lk_init_check(lvts_data);
 	if (lk_init == true) {
 		ret = read_calibration_data(lvts_data);
-		set_all_tc_hw_reboot(lvts_data);
 
 #ifdef DUMP_MORE_LOG
 		clear_lvts_register_value_array(lvts_data);
@@ -1191,9 +1218,9 @@ static int lvts_init(struct lvts_data *lvts_data)
 	read_device_reg_before_active(lvts_data);
 #endif
 
-	enable_all_sensing_points(lvts_data);
-
 	set_all_tc_hw_reboot(lvts_data);
+
+	enable_all_sensing_points(lvts_data);
 
 	lvts_data->init_done = true;
 
