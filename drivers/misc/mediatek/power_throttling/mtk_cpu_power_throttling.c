@@ -41,8 +41,6 @@ static void cpu_pt_low_battery_cb(enum LOW_BATTERY_LEVEL_TAG level)
 					freq_limit = pt_policy->cpu_limit;
 			}
 
-			pr_notice("%s: pt_policy->cpu = %d, freq_limit = %d\n", __func__,
-				pt_policy->cpu, freq_limit);
 			freq_qos_update_request(&pt_policy->qos_req, freq_limit);
 		}
 	}
