@@ -334,37 +334,6 @@ static int _mtk_esd_check_eint(struct drm_crtc *crtc)
 	return ret;
 }
 
-static void mtk_drm_release_esd_eint(struct drm_crtc *crtc)
-{
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
-	struct mtk_ddp_comp *output_comp;
-
-	if (unlikely(esd_ctx->eint_irq == -1)) {
-		DDPPR_ERR("%s %u release eint_irq %d\n",
-			__func__, drm_crtc_index(crtc), esd_ctx->eint_irq);
-		return;
-	}
-	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if (IS_ERR_OR_NULL(output_comp)) {
-		DDPPR_ERR("%s null output_comp\n", __func__);
-		return;
-	}
-
-	free_irq(esd_ctx->eint_irq, esd_ctx);
-	/*
-	 * TE pinmux HW reg would be changed after free_irq, need to change pinctrl
-	 * sw state as well. for next time set state to TE mode would not be skipped
-	 * at the pinctrl_select_state.
-	 */
-	if (output_comp->id == DDP_COMPONENT_DSI0)
-		_set_state(crtc, "mode_te_gpio");
-	else
-		_set_state(crtc, "mode_te_gpio1");
-
-	esd_ctx->eint_irq = -1;
-}
-
 static int mtk_drm_request_eint(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -421,31 +390,6 @@ static int mtk_drm_request_eint(struct drm_crtc *crtc)
 		_set_state(crtc, "mode_te_te");
 	else
 		_set_state(crtc, "mode_te_te1");
-
-	/* in order to not all project DTS assign pinctrl mode 'mode_te_gpio', */
-	/* add flag to decide need release eint during ESD check switch. */
-	if (esd_ctx->need_release_eint == -1) {
-		struct mtk_drm_private *priv = crtc->dev->dev_private;
-		struct pinctrl_state *pState;
-
-		if (!(priv && priv->pctrl)) {
-			esd_ctx->need_release_eint = 0;
-			return ret;
-		}
-
-		pState = pinctrl_lookup_state(priv->pctrl, "mode_te_gpio");
-		if (IS_ERR(pState)) {
-			esd_ctx->need_release_eint = 0;
-			return ret;
-		}
-
-		pState = pinctrl_lookup_state(priv->pctrl, "mode_te_gpio1");
-		if (IS_ERR(pState)) {
-			esd_ctx->need_release_eint = 0;
-			return ret;
-		}
-		esd_ctx->need_release_eint = 1;
-	}
 
 	return ret;
 }
@@ -580,31 +524,36 @@ done:
 	return 0;
 }
 
-int mtk_drm_esd_testing_process(struct drm_crtc *crtc, bool need_lock)
+int mtk_drm_esd_testing_process(struct mtk_drm_esd_ctx *esd_ctx, bool need_lock)
 {
 		struct mtk_drm_private *private = NULL;
+		struct drm_crtc *crtc = NULL;
 		struct mtk_drm_crtc *mtk_crtc = NULL;
-		struct mtk_drm_esd_ctx *esd_ctx = NULL;
 		int ret = 0;
 		int i = 0;
 		int recovery_flg = 0;
 		unsigned int crtc_idx;
 
+		if (!esd_ctx) {
+			DDPPR_ERR("%s invalid ESD context, stop thread\n", __func__);
+			return -EINVAL;
+		}
+
+		if (!esd_ctx->chk_active)
+			return 0;
+
+		crtc = esd_ctx->crtc;
 		if (!crtc) {
 			DDPPR_ERR("%s invalid CRTC context, stop thread\n", __func__);
 			return -EINVAL;
 		}
-		private = crtc->dev->dev_private;
 		mtk_crtc = to_mtk_crtc(crtc);
 		if (!mtk_crtc) {
 			DDPPR_ERR("%s invalid mtk_crtc stop thread\n", __func__);
 			return -EINVAL;
 		}
-		crtc_idx = drm_crtc_index(crtc);
-		esd_ctx = mtk_crtc->esd_ctx;
-		if (!mtk_crtc->esd_ctx)
-			return 1;
-		mtk_drm_trace_begin("esd");
+
+		private = crtc->dev->dev_private;
 		if (need_lock) {
 			mutex_lock(&private->commit.lock);
 			DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -612,13 +561,7 @@ int mtk_drm_esd_testing_process(struct drm_crtc *crtc, bool need_lock)
 		if (!mtk_drm_is_idle(crtc))
 			atomic_set(&esd_ctx->target_time, 0);
 
-		/* 1. esd check & recovery */
-		if (!esd_ctx->chk_active && need_lock) {
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-			mutex_unlock(&private->commit.lock);
-			return 0;
-		}
-
+		crtc_idx = drm_crtc_index(crtc);
 		i = 0; /* repeat */
 		do {
 			ret = mtk_drm_esd_check(crtc);
@@ -636,12 +579,7 @@ int mtk_drm_esd_testing_process(struct drm_crtc *crtc, bool need_lock)
 				"[ESD%u]after esd recovery %d times, still fail, disable esd check\n",
 				crtc_idx, ESD_TRY_CNT);
 			mtk_disp_esd_check_switch(crtc, false);
-			/*
-			 * disable ESD check might release TE pin to GPIO mode when connector
-			 * switch enabled, need restore TE pin back to TE mode.
-			 */
-			if (esd_ctx->need_release_eint == 1)
-				mtk_drm_request_eint(crtc);
+
 			if (need_lock) {
 				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 				mutex_unlock(&private->commit.lock);
@@ -664,56 +602,48 @@ int mtk_drm_esd_testing_process(struct drm_crtc *crtc, bool need_lock)
 static void mtk_esd_timer_do(struct timer_list *esd_timer)
 {
 	//wake up interrupt
-	struct mtk_drm_crtc *mtk_crtc = esd_timer_to_mtk_crtc(esd_timer);
-	struct mtk_drm_esd_ctx *esd_ctx = NULL;
+	struct mtk_drm_esd_ctx *esd_ctx =
+		container_of(esd_timer, struct mtk_drm_esd_ctx, esd_timer);
 
-	esd_ctx = mtk_crtc->esd_ctx;
+	if (!esd_ctx) {
+		DDPPR_ERR("%s invalid ESD_CTX\n", __func__);
+		return;
+	}
+
 	atomic_set(&esd_ctx->target_time, 1);
-	wake_up_interruptible(&mtk_crtc->esd_ctx->check_task_wq);
+	wake_up_interruptible(&esd_ctx->check_task_wq);
 }
 
-int init_esd_timer(struct drm_crtc *crtc)
+static void init_esd_timer(struct mtk_drm_esd_ctx *esd_ctx)
 {
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_esd_ctx *esd_ctx = NULL;
+	if (unlikely(!esd_ctx)) {
+		DDPPR_ERR("%s invalid ESD context\n");
+		return;
+	}
 
-	esd_ctx = mtk_crtc->esd_ctx;
-	timer_setup(&mtk_crtc->esd_timer, mtk_esd_timer_do, 0);
-	mod_timer(&mtk_crtc->esd_timer, jiffies + (1*HZ));
-	return 0;
+	timer_setup(&esd_ctx->esd_timer, mtk_esd_timer_do, 0);
+	mod_timer(&esd_ctx->esd_timer, jiffies + (1*HZ));
 }
 
 static int mtk_drm_esd_check_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
-	struct drm_crtc *crtc = (struct drm_crtc *)data;
-	struct mtk_drm_private *private = NULL;
-	struct mtk_drm_crtc *mtk_crtc = NULL;
-	struct mtk_drm_esd_ctx *esd_ctx = NULL;
+	struct mtk_drm_esd_ctx *esd_ctx = (struct mtk_drm_esd_ctx *)data;
 	int ret = 0;
-	unsigned int crtc_idx;
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
-	if (!crtc) {
-		DDPPR_ERR("%s invalid CRTC context, stop thread\n", __func__);
+	if (!esd_ctx) {
+		DDPPR_ERR("%s invalid ESD context, stop thread\n", __func__);
 
 		return -EINVAL;
 	}
-	private = crtc->dev->dev_private;
-	mtk_crtc = to_mtk_crtc(crtc);
-	if (!mtk_crtc) {
-		DDPPR_ERR("%s invalid mtk_crtc stop thread\n", __func__);
-		return -EINVAL;
-	}
-	esd_ctx = mtk_crtc->esd_ctx;
-	crtc_idx = drm_crtc_index(crtc);
 	while (1) {
 		msleep(ESD_CHECK_PERIOD);
 		if (esd_ctx->chk_en == 0)
 			continue;
 
-		init_esd_timer(crtc);
+		init_esd_timer(esd_ctx);
 
 		ret = wait_event_interruptible(
 			esd_ctx->check_task_wq,
@@ -724,8 +654,9 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			DDPINFO("[ESD]check thread waked up accidently\n");
 			continue;
 		}
-		del_timer_sync(&mtk_crtc->esd_timer);
-		mtk_drm_esd_testing_process(crtc, true);
+
+		del_timer_sync(&esd_ctx->esd_timer);
+		mtk_drm_esd_testing_process(esd_ctx, true);
 		/* 2. other check & recovery */
 		if (kthread_should_stop())
 			break;
@@ -737,28 +668,36 @@ void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable)
 {
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
-	struct mtk_drm_esd_ctx *esd_ctx = mtk_crtc->esd_ctx;
+	struct mtk_drm_esd_ctx *esd_ctx = NULL;
+	struct mtk_ddp_comp *output_comp;
+
+	output_comp = (mtk_crtc) ? mtk_ddp_comp_request_output(mtk_crtc) : NULL;
 
 	if (!mtk_drm_helper_get_opt(priv->helper_opt,
 					   MTK_DRM_OPT_ESD_CHECK_RECOVERY))
 		return;
 
-	if (unlikely(!esd_ctx)) {
-		DDPINFO("%s:invalid ESD context, crtc id:%d\n",
-			__func__, drm_crtc_index(crtc));
-		return;
-	}
 	DDPINFO("%s %u, esd chk active: %d\n", __func__, drm_crtc_index(crtc), enable);
 
-	esd_ctx->chk_active = enable;
+	if (output_comp && mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI) {
+		struct mtk_dsi *mtk_dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
 
-	/* release eint for connector switch; crtc might check differrent eint irq */
-	if (esd_ctx->need_release_eint == 1) {
-		if (!enable) /* release EINT if exist */
-			mtk_drm_release_esd_eint(crtc);
-		else /* request EINT before enable ESD check */
-			mtk_drm_request_eint(crtc);
+		if (mtk_dsi)
+			esd_ctx = mtk_dsi->esd_ctx;
 	}
+
+	if (esd_ctx) {
+		mtk_crtc->esd_ctx = esd_ctx;
+	} else {
+		DDPPR_ERR("%s:%d invalid ESD context, crtc id:%d\n",
+				__func__, __LINE__, drm_crtc_index(crtc));
+		return;
+	}
+	esd_ctx->chk_active = enable;
+	if (enable)
+		esd_ctx->crtc = crtc;
+	else
+		esd_ctx->crtc = NULL;
 
 	atomic_set(&esd_ctx->check_wakeup, enable);
 	if (enable)
@@ -789,7 +728,9 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_panel_ext *panel_ext;
 	struct mtk_drm_esd_ctx *esd_ctx;
+	struct mtk_ddp_comp *output_comp;
 
+	output_comp = (mtk_crtc) ? mtk_ddp_comp_request_output(mtk_crtc) : NULL;
 	panel_ext = mtk_crtc->panel_ext;
 	if (!(panel_ext && panel_ext->params)) {
 		DDPMSG("can't find panel_ext handle\n");
@@ -807,12 +748,18 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 		return;
 	}
 	mtk_crtc->esd_ctx = esd_ctx;
+	if (output_comp && mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI) {
+		struct mtk_dsi *dsi = container_of(output_comp, struct mtk_dsi, ddp_comp);
+
+		if (dsi)
+			dsi->esd_ctx = esd_ctx;
+	}
 
 	esd_ctx->eint_irq = -1;
-	esd_ctx->need_release_eint = -1;
 	esd_ctx->chk_en = 1;
+	esd_ctx->crtc = crtc;
 	esd_ctx->disp_esd_chk_task = kthread_create(
-		mtk_drm_esd_check_worker_kthread, crtc, "disp_echk");
+		mtk_drm_esd_check_worker_kthread, esd_ctx, "disp_echk");
 
 	init_waitqueue_head(&esd_ctx->check_task_wq);
 	init_waitqueue_head(&esd_ctx->ext_te_wq);

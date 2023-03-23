@@ -124,6 +124,7 @@ struct mtk_dsi {
 	/* for Panel Master dcs read/write */
 	struct mipi_dsi_device *dev_for_PM;
 	bool pending_switch;
+	struct mtk_drm_esd_ctx *esd_ctx;
 };
 
 enum dsi_porch_type;
