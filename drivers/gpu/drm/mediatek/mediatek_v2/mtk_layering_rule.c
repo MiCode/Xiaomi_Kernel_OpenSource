@@ -767,20 +767,12 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 	tmp = 0;
 
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
-	if ((mtk_crtc->res_switch == RES_SWITCH_NO_USE) && disp_idx != 0) {
-		if (output_comp) {
-			DDPINFO("%s, crtc_state:0x%llx\n", __func__, (u64)mtk_crtc->base.state);
-			mtk_ddp_comp_io_cmd(output_comp, NULL,
-				GET_FRAME_HRT_BW_BY_DATARATE, &tmp);
-		}
-	} else {
-		DDPDBG("%s mode_idx:%d\n", __func__, mode_idx);
-		mtk_crtc->mode_idx = mode_idx;
-		tmp = mode_idx;
-		if (output_comp)
-			mtk_ddp_comp_io_cmd(output_comp, NULL,
-				GET_FRAME_HRT_BW_BY_MODE, &tmp);
-	}
+	DDPDBG("%s: %u mode_idx:%d\n", __func__, disp_idx, mode_idx);
+	mtk_crtc->mode_idx = mode_idx;
+	tmp = mode_idx;
+	if (output_comp)
+		mtk_ddp_comp_io_cmd(output_comp, NULL,
+			GET_FRAME_HRT_BW_BY_MODE, &tmp);
 
 	if (!tmp) {
 		/* for avail_bw == 0 case, which imply this display is not HRT,

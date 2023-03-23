@@ -9605,6 +9605,13 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc)
 	DDP_PROFILE("[PROFILE] %s+\n", __func__);
 	CRTC_MMP_MARK(crtc_id, enable, 1, 0);
 
+	/*
+	 * for case display does not have multiple display mode,
+	 * copy current crtc state's display mode to avail_modes for layering rule
+	 */
+	if (mtk_crtc->avail_modes_num == 0 && mtk_crtc->avail_modes)
+		drm_mode_copy(mtk_crtc->avail_modes, &crtc->state->adjusted_mode);
+
 	only_output = (priv && priv->usage[crtc_id] == DISP_OPENING);
 	/* adjust path for ovl switch if necessary */
 	mtk_drm_crtc_path_adjust(priv, crtc, mtk_crtc->ddp_mode);
@@ -10082,11 +10089,13 @@ struct drm_display_mode *mtk_drm_crtc_avail_disp_mode(struct drm_crtc *crtc,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
-	/* If not crtc0, use crtc0 instead. TODO: need to reconsidered for
-	 * secondary display, i.e: DP, HDMI
-	 */
+	/* For not multiple display mode's display, would use first display_mode since resume */
+	if (mtk_crtc && mtk_crtc->avail_modes_num == 0 && mtk_crtc->avail_modes)
+		return mtk_crtc->avail_modes;
 
-	if (drm_crtc_index(crtc) != 0) {
+	/* If not crtc0 and avail_modes is NULL, use crtc0 instead. */
+
+	if (drm_crtc_index(crtc) != 0 && (mtk_crtc && mtk_crtc->avail_modes == NULL)) {
 		struct drm_crtc *crtc0;
 
 		DDPPR_ERR("%s no support CRTC%u", __func__,
@@ -10156,6 +10165,8 @@ void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	mtk_ddp_comp_io_cmd(comp, NULL, DSI_GET_TIMING, &timing);
 	if (timing == NULL) {
 		DDPMSG("%s, %d, failed to get default timing\n", __func__, __LINE__);
+		mtk_crtc->avail_modes_num = 0;
+		mtk_crtc->avail_modes = vzalloc(sizeof(struct drm_display_mode));
 		return;
 	}
 
@@ -10191,7 +10202,7 @@ void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 	}
 
 	/* store display mode for crtc0 only */
-	if (comp && drm_crtc_index(&mtk_crtc->base) == 0) {
+	if (comp && mtk_ddp_comp_get_type(comp->id) == MTK_DSI) {
 		mtk_ddp_comp_io_cmd(comp, NULL,
 			DSI_SET_CRTC_AVAIL_MODES, mtk_crtc);
 
@@ -10212,7 +10223,7 @@ void mtk_drm_crtc_init_para(struct drm_crtc *crtc)
 			mtk_drm_pan_disp_set_hrt_bw(crtc, __func__);
 	} else {
 		mtk_crtc->avail_modes_num = 0;
-		mtk_crtc->avail_modes = NULL;
+		mtk_crtc->avail_modes = vzalloc(sizeof(struct drm_display_mode));
 	}
 
 	mtk_crtc->mml_cfg = NULL;

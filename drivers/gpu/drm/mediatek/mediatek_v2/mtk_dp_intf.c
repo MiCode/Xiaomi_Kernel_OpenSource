@@ -929,6 +929,36 @@ unsigned long long mtk_dpintf_get_frame_hrt_bw_base(
 	return bw_base;
 }
 
+static unsigned long long mtk_dpintf_get_frame_hrt_bw_base_by_mode(
+		struct mtk_drm_crtc *mtk_crtc, struct mtk_dp_intf *dp_intf)
+{
+	unsigned long long base_bw;
+	unsigned int hact;
+	unsigned int vtotal;
+	unsigned int vact;
+	unsigned int vrefresh;
+	u32 bpp = 3;
+
+	/* for the case dpintf not initialize yet, return 1 avoid treat as error */
+	if (!(mtk_crtc && mtk_crtc->avail_modes))
+		return 1;
+
+	hact = mtk_crtc->avail_modes->hdisplay;
+	vtotal = mtk_crtc->avail_modes->vtotal;
+	vact = mtk_crtc->avail_modes->vdisplay;
+	vrefresh = drm_mode_vrefresh(mtk_crtc->avail_modes);
+	base_bw = (unsigned long long)vact * hact * vrefresh * 4 / 1000;
+	base_bw = base_bw * vtotal / vact;
+	base_bw = base_bw / 1000;
+	if (dp_intf_bw != base_bw) {
+		dp_intf_bw = base_bw;
+		DDPDBG("%s Frame Bw:%llu, bpp:%d\n", __func__, base_bw, bpp);
+		DPTXMSG("%s Frame Bw:%llu, bpp:%d\n", __func__, base_bw, bpp);
+	}
+
+	return base_bw;
+}
+
 static int mtk_dpintf_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd cmd, void *params)
 {
@@ -942,6 +972,15 @@ static int mtk_dpintf_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			(unsigned long long *)params;
 
 		*base_bw = mtk_dpintf_get_frame_hrt_bw_base(mtk_crtc, dp_intf);
+	}
+		break;
+	case GET_FRAME_HRT_BW_BY_MODE:
+	{
+		struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+		unsigned long long *base_bw =
+			(unsigned long long *)params;
+
+		*base_bw = mtk_dpintf_get_frame_hrt_bw_base_by_mode(mtk_crtc, dp_intf);
 	}
 		break;
 	default:

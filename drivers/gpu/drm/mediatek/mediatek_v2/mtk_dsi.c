@@ -8484,10 +8484,16 @@ unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_mode(
 
 		if (to_info.is_support) {
 			DDPDBG("%s cmd mode bw %d\n", __func__, bw_base);
-			bw_base *= (unsigned long long)
-				(mtk_crtc->base.state->adjusted_mode.hdisplay +
-				to_info.left_overhead + to_info.right_overhead)
-				* 1000 / mtk_crtc->base.state->adjusted_mode.hdisplay;
+			if (mtk_crtc->res_switch == RES_SWITCH_ON_AP)
+				bw_base *= (unsigned long long)
+					(mtk_crtc->scaling_ctx.lcm_width +
+					to_info.left_overhead + to_info.right_overhead)
+					* 1000 / mtk_crtc->scaling_ctx.lcm_width;
+			else
+				bw_base *= (unsigned long long)
+					(mode->hdisplay +
+					to_info.left_overhead + to_info.right_overhead)
+					* 1000 / mode->hdisplay;
 			bw_base /= 1000;
 			DDPDBG("%s cmd mode bw with total overhead %d\n",
 				__func__, bw_base);
