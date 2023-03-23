@@ -9675,7 +9675,7 @@
 		interconnects = <&mmqos SLAVE_LARB(38) &mmqos SLAVE_COMMON(0)>;
 		interconnect-names = "disp_hrt_qos";
 		pre-define-bw = <0xffffffff>, <4200>, <0>;
-		crtc-ovl-usage = <7>, <4>, <8>;
+		crtc-ovl-usage = <7>, <4>, <2>;
 
 		/* define threads, see mt6873-gce.h */
 		mediatek,mailbox-gce = <&gce>;
