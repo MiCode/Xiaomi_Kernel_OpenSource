@@ -316,6 +316,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	return 0;
 #else
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = (crtc && crtc->dev) ? crtc->dev->dev_private : NULL;
 	struct mtk_plane_state *plane_state;
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
 	struct cmdq_pkt *cmdq_handle;
@@ -326,15 +327,22 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 		DDPPR_ERR("%s: can't find ovl comp\n", __func__);
 		return 0;
 	}
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPPR_ERR("%s: cant' find priv\n", __func__);
+		return 0;
+	}
+
 	layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
 	if (layer_id < 0) {
 		DDPPR_ERR("%s invalid layer id:%d\n", __func__, layer_id);
 		return 0;
 	}
 
+	DDP_MUTEX_LOCK(&priv->commit.lock, __func__, __LINE__);
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	if (!mtk_crtc->enabled) {
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		DDP_MUTEX_UNLOCK(&priv->commit.lock, __func__, __LINE__);
 		return 0;
 	}
 
@@ -342,6 +350,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	if (!plane_state) {
 		DDPPR_ERR("%s: can't set dal plane_state\n", __func__);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		DDP_MUTEX_UNLOCK(&priv->commit.lock, __func__, __LINE__);
 		return 0;
 	}
 
@@ -371,6 +380,7 @@ int drm_show_dal(struct drm_crtc *crtc, bool enable)
 	mtk_crtc_gce_flush(crtc, mtk_drm_cmdq_done, cmdq_handle, cmdq_handle);
 #endif
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+	DDP_MUTEX_UNLOCK(&priv->commit.lock, __func__, __LINE__);
 	return 0;
 #endif
 }
