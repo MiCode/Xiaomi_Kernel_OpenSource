@@ -273,7 +273,6 @@ int mt6985_afe_enable_clock(struct mtk_base_afe *afe)
 	int ret = 0;
 	struct arm_smccc_res res;
 
-	dev_dbg(afe->dev, "%s() successfully start\n", __func__);
 
 	ret = clk_prepare_enable(afe_priv->clk[CLK_MUX_AUDIO]);
 	if (ret) {
@@ -336,7 +335,6 @@ void mt6985_afe_disable_clock(struct mtk_base_afe *afe)
 {
 	struct mt6985_afe_private *afe_priv = afe->platform_priv;
 
-	dev_dbg(afe->dev, "%s() successfully start\n", __func__);
 
 	clk_disable_unprepare(afe_priv->clk[CLK_AFE]);
 
