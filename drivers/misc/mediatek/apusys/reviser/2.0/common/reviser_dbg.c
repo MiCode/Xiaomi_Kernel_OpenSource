@@ -63,8 +63,8 @@ static uint32_t g_rvr_debug_op;
 static uint32_t g_rvr_remote_klog;
 static uint32_t g_reviser_vlm_ctx;
 static uint32_t g_reviser_mem_tcm_bank;
-static uint16_t g_reviser_mem_dram_bank;
-static uint16_t g_reviser_mem_dram_ctx;
+static uint32_t g_reviser_mem_dram_bank;
+static uint32_t g_reviser_mem_dram_ctx;
 
 //----------------------------------------------
 // user table dump
