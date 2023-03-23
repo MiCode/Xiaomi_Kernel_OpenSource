@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -71,6 +71,7 @@ struct limits_dcvs_hw {
 	cpumask_t core_map;
 	struct delayed_work freq_poll_work;
 	unsigned long max_freq[NR_CPUS];
+	unsigned long cluster_fmax;
 	unsigned long hw_freq_limit;
 	struct device_attribute lmh_freq_attr;
 	struct list_head list;
@@ -104,6 +105,10 @@ static void limits_dcvs_get_freq_limits(struct limits_dcvs_hw *hw)
 		dev_pm_opp_find_freq_ceil(cpu_dev, &freq_floor);
 
 		hw->max_freq[idx] = freq_ceil / 1000;
+
+		if (hw->cluster_fmax < hw->max_freq[idx])
+			hw->cluster_fmax = hw->max_freq[idx];
+
 		idx++;
 	}
 }
@@ -112,11 +117,12 @@ static unsigned long limits_mitigation_notify(struct limits_dcvs_hw *hw)
 {
 	uint32_t val = 0, max_cpu_ct = 0, max_cpu_limit = 0, idx = 0, cpu = 0;
 	struct device *cpu_dev = NULL;
-	unsigned long freq_val, max_limit = 0;
+	unsigned long freq_val = 0, lmh_max_limit = 0;
+	unsigned long max_capacity = 0, capacity = 0;
 	struct dev_pm_opp *opp_entry;
 
 	val = readl_relaxed(hw->osm_hw_reg);
-	dcvsh_get_frequency(val, max_limit);
+	dcvsh_get_frequency(val, lmh_max_limit);
 	for_each_cpu(cpu, &hw->core_map) {
 		cpu_dev = get_cpu_device(cpu);
 		if (!cpu_dev) {
@@ -127,8 +133,8 @@ static unsigned long limits_mitigation_notify(struct limits_dcvs_hw *hw)
 
 		pr_debug("CPU:%d max value read:%lu\n",
 			cpumask_first(&hw->core_map),
-			max_limit);
-		freq_val = FREQ_KHZ_TO_HZ(max_limit);
+			lmh_max_limit);
+		freq_val = FREQ_KHZ_TO_HZ(lmh_max_limit);
 		opp_entry = dev_pm_opp_find_freq_floor(cpu_dev, &freq_val);
 		/*
 		 * Hardware mitigation frequency can be lower than the lowest
@@ -151,24 +157,38 @@ static unsigned long limits_mitigation_notify(struct limits_dcvs_hw *hw)
 			idx++;
 			continue;
 		}
-		max_limit = FREQ_HZ_TO_KHZ(freq_val);
+		lmh_max_limit = FREQ_HZ_TO_KHZ(freq_val);
 		break;
 	}
 
 	if (max_cpu_ct == cpumask_weight(&hw->core_map))
-		max_limit = max_cpu_limit;
+		lmh_max_limit = max_cpu_limit;
 
-	pr_debug("CPU:%d max limit:%lu\n", cpumask_first(&hw->core_map),
-			max_limit);
+	max_capacity = arch_scale_cpu_capacity(cpumask_first(&hw->core_map));
+
+	if (lmh_max_limit >= hw->cluster_fmax)
+		capacity = max_capacity;
+	else
+		capacity = mult_frac(max_capacity, lmh_max_limit, hw->cluster_fmax);
+
+	/* Don't pass boost capacity to scheduler */
+	if (capacity > max_capacity)
+		capacity = max_capacity;
+
+	arch_set_thermal_pressure(&hw->core_map, max_capacity - capacity);
+
+	pr_debug("CPU:%d capacity:%lu max_capacity:%lu lmh_limit:%lu cluster_fmax:%lu\n",
+			cpumask_first(&hw->core_map), capacity, max_capacity,
+			lmh_max_limit, hw->cluster_fmax);
 
 notify_exit:
-	hw->hw_freq_limit = max_limit;
-	return max_limit;
+	hw->hw_freq_limit = lmh_max_limit;
+	return lmh_max_limit;
 }
 
 static void limits_dcvs_poll(struct work_struct *work)
 {
-	unsigned long max_limit = 0;
+	unsigned long lmh_max_limit = 0;
 	struct limits_dcvs_hw *hw = container_of(work,
 					struct limits_dcvs_hw,
 					freq_poll_work.work);
@@ -177,9 +197,9 @@ static void limits_dcvs_poll(struct work_struct *work)
 	mutex_lock(&hw->access_lock);
 	if (hw->max_freq[0] == U32_MAX)
 		limits_dcvs_get_freq_limits(hw);
-	max_limit = limits_mitigation_notify(hw);
+	lmh_max_limit = limits_mitigation_notify(hw);
 	for_each_cpu(cpu, &hw->core_map) {
-		if (max_limit >= hw->max_freq[idx])
+		if (lmh_max_limit >= hw->max_freq[idx])
 			cpu_ct++;
 		idx++;
 	}
