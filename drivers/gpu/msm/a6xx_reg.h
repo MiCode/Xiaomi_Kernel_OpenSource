@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _A6XX_REG_H
@@ -1136,6 +1136,12 @@
 #define A6XX_RSCC_TCS1_DRV0_STATUS                      0x003EE
 #define A6XX_RSCC_TCS2_DRV0_STATUS                      0x00496
 #define A6XX_RSCC_TCS3_DRV0_STATUS                      0x0053E
+#define A6XX_RSCC_TCS4_DRV0_STATUS                      0x005E6
+#define A6XX_RSCC_TCS5_DRV0_STATUS                      0x0068E
+#define A6XX_RSCC_TCS6_DRV0_STATUS                      0x00736
+#define A6XX_RSCC_TCS7_DRV0_STATUS                      0x007DE
+#define A6XX_RSCC_TCS8_DRV0_STATUS                      0x00886
+#define A6XX_RSCC_TCS9_DRV0_STATUS                      0x0092E
 
 /* GPU PDC sequencer registers in AOSS.RPMh domain */
 #define PDC_GPU_ENABLE_PDC			0x1140

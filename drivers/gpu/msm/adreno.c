@@ -1184,10 +1184,12 @@ static void adreno_setup_device(struct adreno_device *adreno_dev)
 				adreno_dev->gpucore->uche_gmem_alignment);
 }
 
-static const struct of_device_id adreno_gmu_match[] = {
+static const struct of_device_id adreno_component_match[] = {
 	{ .compatible = "qcom,gen7-gmu" },
 	{ .compatible = "qcom,gpu-gmu" },
 	{ .compatible = "qcom,gpu-rgmu" },
+	{ .compatible = "qcom,kgsl-smmu-v2" },
+	{ .compatible = "qcom,smmu-kgsl-cb" },
 	{},
 };
 
@@ -1229,16 +1231,6 @@ int adreno_device_probe(struct platform_device *pdev,
 		goto err_bus_close;
 
 	/*
-	 * Bind the GMU components (if applicable) before doing the KGSL
-	 * platform probe
-	 */
-	if (of_find_matching_node(dev->of_node, adreno_gmu_match)) {
-		status = component_bind_all(dev, NULL);
-		if (status)
-			goto err_bus_close;
-	}
-
-	/*
 	 * The SMMU APIs use unsigned long for virtual addresses which means
 	 * that we cannot use 64 bit virtual addresses on a 32 bit kernel even
 	 * though the hardware and the rest of the KGSL driver supports it.
@@ -1264,7 +1256,7 @@ int adreno_device_probe(struct platform_device *pdev,
 	/* Probe the LLCC - this could return -EPROBE_DEFER */
 	status = adreno_probe_llcc(adreno_dev, pdev);
 	if (status)
-		goto err_unbind;
+		goto err_bus_close;
 
 	/*
 	 * IF the GPU HTW slice was successsful set the MMU feature so the
@@ -1273,9 +1265,14 @@ int adreno_device_probe(struct platform_device *pdev,
 	if (!IS_ERR_OR_NULL(adreno_dev->gpuhtw_llc_slice))
 		kgsl_mmu_set_feature(device, KGSL_MMU_LLCC_ENABLE);
 
+	 /* Bind the components before doing the KGSL platform probe. */
+	status = component_bind_all(dev, NULL);
+	if (status)
+		goto err_remove_llcc;
+
 	status = kgsl_request_irq(pdev, "kgsl_3d0_irq", adreno_irq_handler, device);
 	if (status < 0)
-		goto err_remove_llcc;
+		goto err_unbind;
 
 	device->pwrctrl.interrupt_num = status;
 
@@ -1287,7 +1284,7 @@ int adreno_device_probe(struct platform_device *pdev,
 
 	status = kgsl_device_platform_probe(device);
 	if (status)
-		goto err_remove_llcc;
+		goto err_unbind;
 
 	adreno_fence_trace_array_init(device);
 
@@ -1311,7 +1308,7 @@ int adreno_device_probe(struct platform_device *pdev,
 	if (status) {
 		trace_array_put(device->fence_trace_array);
 		kgsl_device_platform_remove(device);
-		goto err_remove_llcc;
+		goto err_unbind;
 	}
 
 	/* Initialize the snapshot engine */
@@ -1364,6 +1361,9 @@ int adreno_device_probe(struct platform_device *pdev,
 
 	return 0;
 
+err_unbind:
+	component_unbind_all(dev, NULL);
+
 err_remove_llcc:
 	if (!IS_ERR_OR_NULL(adreno_dev->gpu_llc_slice))
 		llcc_slice_putd(adreno_dev->gpu_llc_slice);
@@ -1373,10 +1373,6 @@ err_remove_llcc:
 
 	if (!IS_ERR_OR_NULL(adreno_dev->gpumv_llc_slice))
 		llcc_slice_putd(adreno_dev->gpumv_llc_slice);
-
-err_unbind:
-	if (of_find_matching_node(dev->of_node, adreno_gmu_match))
-		component_unbind_all(dev, NULL);
 
 err_bus_close:
 	kgsl_bus_close(device);
@@ -1469,8 +1465,7 @@ static void adreno_unbind(struct device *dev)
 
 	kgsl_device_platform_remove(device);
 
-	if (of_find_matching_node(dev->of_node, adreno_gmu_match))
-		component_unbind_all(dev, NULL);
+	component_unbind_all(dev, NULL);
 
 	kgsl_bus_close(device);
 	device->pdev = NULL;
@@ -3409,43 +3404,40 @@ static void _release_of(struct device *dev, void *data)
 	of_node_put(data);
 }
 
-static void adreno_add_gmu_components(struct device *dev,
+static void adreno_add_components(struct device *dev,
 		struct component_match **match)
 {
 	struct device_node *node;
 
-	node = of_find_matching_node(NULL, adreno_gmu_match);
-	if (!node)
-		return;
+	/*
+	 * Add kgsl-smmu, context banks and gmu as components, if supported.
+	 * Master bind (adreno_bind) will be called only once all added
+	 * components are available.
+	 */
+	for_each_matching_node(node, adreno_component_match) {
+		if (!of_device_is_available(node))
+			continue;
 
-	if (!of_device_is_available(node)) {
-		of_node_put(node);
-		return;
+		component_match_add_release(dev, match, _release_of, _compare_of, node);
 	}
-
-	component_match_add_release(dev, match, _release_of,
-		_compare_of, node);
 }
 
 static int adreno_probe(struct platform_device *pdev)
 {
 	struct component_match *match = NULL;
 
-	adreno_add_gmu_components(&pdev->dev, &match);
+	adreno_add_components(&pdev->dev, &match);
 
-	if (match)
-		return component_master_add_with_match(&pdev->dev,
-				&adreno_ops, match);
-	else
-		return adreno_bind(&pdev->dev);
+	if (!match)
+		return -ENODEV;
+
+	return component_master_add_with_match(&pdev->dev,
+			&adreno_ops, match);
 }
 
 static int adreno_remove(struct platform_device *pdev)
 {
-	if (of_find_matching_node(NULL, adreno_gmu_match))
-		component_master_del(&pdev->dev, &adreno_ops);
-	else
-		adreno_unbind(&pdev->dev);
+	component_master_del(&pdev->dev, &adreno_ops);
 
 	return 0;
 }
@@ -3472,10 +3464,19 @@ static int __init kgsl_3d_init(void)
 	if (ret)
 		return ret;
 
+	ret = kgsl_mmu_init();
+	if (ret) {
+		kgsl_core_exit();
+		return ret;
+	}
+
 	gmu_core_register();
 	ret = platform_driver_register(&adreno_platform_driver);
-	if (ret)
+	if (ret) {
+		gmu_core_unregister();
+		kgsl_mmu_exit();
 		kgsl_core_exit();
+	}
 
 	return ret;
 }
@@ -3484,6 +3485,7 @@ static void __exit kgsl_3d_exit(void)
 {
 	platform_driver_unregister(&adreno_platform_driver);
 	gmu_core_unregister();
+	kgsl_mmu_exit();
 	kgsl_core_exit();
 }
 

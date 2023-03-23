@@ -410,22 +410,6 @@ static void android_vh_allow_domain_state(void *unused,
 	*allow = cluster_gov->state_allowed[idx];
 }
 
-static void cluster_gov_disable(void)
-{
-	unregister_trace_android_vh_allow_domain_state(android_vh_allow_domain_state, NULL);
-}
-
-static void cluster_gov_enable(void)
-{
-	register_trace_android_vh_allow_domain_state(android_vh_allow_domain_state, NULL);
-}
-
-struct cluster_governor gov_ops = {
-	.select = update_cluster_select,
-	.enable = cluster_gov_enable,
-	.disable = cluster_gov_disable,
-};
-
 static int lpm_cluster_gov_remove(struct platform_device *pdev)
 {
 	struct generic_pm_domain *genpd = pd_to_genpd(pdev->dev.pm_domain);
@@ -438,6 +422,7 @@ static int lpm_cluster_gov_remove(struct platform_device *pdev)
 	cluster_gov->genpd->flags &= ~GENPD_FLAG_MIN_RESIDENCY;
 	remove_cluster_sysfs_nodes(cluster_gov);
 	dev_pm_genpd_remove_notifier(cluster_gov->dev);
+	list_del(&cluster_gov->list);
 
 	return 0;
 }
@@ -480,8 +465,6 @@ static int lpm_cluster_gov_probe(struct platform_device *pdev)
 	for (i = 0; i < cluster_gov->genpd->state_count; i++)
 		cluster_gov->state_allowed[i] = true;
 
-	register_cluster_governor_ops(&gov_ops);
-
 	return 0;
 }
 
@@ -500,12 +483,36 @@ static struct platform_driver qcom_cluster_lpm_driver = {
 	},
 };
 
+static void cluster_gov_disable(void)
+{
+#if defined(_TRACE_HOOK_PM_DOMAIN_H)
+	unregister_trace_android_vh_allow_domain_state(android_vh_allow_domain_state, NULL);
+#endif
+	platform_driver_unregister(&qcom_cluster_lpm_driver);
+}
+
+static void cluster_gov_enable(void)
+{
+#if defined(_TRACE_HOOK_PM_DOMAIN_H)
+	register_trace_android_vh_allow_domain_state(android_vh_allow_domain_state, NULL);
+#endif
+	platform_driver_register(&qcom_cluster_lpm_driver);
+}
+
+struct cluster_governor gov_ops = {
+	.select = update_cluster_select,
+	.enable = cluster_gov_enable,
+	.disable = cluster_gov_disable,
+};
+
 void qcom_cluster_lpm_governor_deinit(void)
 {
-	 platform_driver_unregister(&qcom_cluster_lpm_driver);
+	unregister_cluster_governor_ops(&gov_ops);
 }
 
 int qcom_cluster_lpm_governor_init(void)
 {
-	return platform_driver_register(&qcom_cluster_lpm_driver);
+	register_cluster_governor_ops(&gov_ops);
+
+	return 0;
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
@@ -87,6 +87,19 @@ static struct gmu_vma_entry a6xx_gmu_vma[] = {
 			.size = SZ_512M,
 			.next_va = 0x60000000
 		},
+};
+
+static u32 a6xx_rscc_tcsm_drv0_status_reglist[] = {
+	A6XX_RSCC_TCS0_DRV0_STATUS,
+	A6XX_RSCC_TCS1_DRV0_STATUS,
+	A6XX_RSCC_TCS2_DRV0_STATUS,
+	A6XX_RSCC_TCS3_DRV0_STATUS,
+	A6XX_RSCC_TCS4_DRV0_STATUS,
+	A6XX_RSCC_TCS5_DRV0_STATUS,
+	A6XX_RSCC_TCS6_DRV0_STATUS,
+	A6XX_RSCC_TCS7_DRV0_STATUS,
+	A6XX_RSCC_TCS8_DRV0_STATUS,
+	A6XX_RSCC_TCS9_DRV0_STATUS,
 };
 
 static ssize_t log_stream_enable_store(struct kobject *kobj,
@@ -986,16 +999,16 @@ static int a6xx_complete_rpmh_votes(struct adreno_device *adreno_dev,
 		unsigned int timeout)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	int ret = 0;
+	int i, ret = 0;
 
-	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS0_DRV0_STATUS,
-			BIT(0), timeout, BIT(0));
-	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS1_DRV0_STATUS,
-			BIT(0), timeout, BIT(0));
-	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS2_DRV0_STATUS,
-			BIT(0), timeout, BIT(0));
-	ret |= timed_poll_check_rscc(device, A6XX_RSCC_TCS3_DRV0_STATUS,
-			BIT(0), timeout, BIT(0));
+	for (i = 0; i < 4; i++)
+		ret |= timed_poll_check_rscc(device, a6xx_rscc_tcsm_drv0_status_reglist[i],
+				BIT(0), timeout, BIT(0));
+
+	if (adreno_is_a650_family(adreno_dev))
+		for (; i < ARRAY_SIZE(a6xx_rscc_tcsm_drv0_status_reglist); i++)
+			ret |= timed_poll_check_rscc(device, a6xx_rscc_tcsm_drv0_status_reglist[i],
+					BIT(0), timeout, BIT(0));
 
 	if (ret)
 		dev_err(device->dev, "RPMH votes timedout: %d\n", ret);
