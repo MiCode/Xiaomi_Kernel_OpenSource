@@ -702,6 +702,14 @@ int mtk_ddp_comp_get_type(enum mtk_ddp_comp_id comp_id)
 	return mtk_ddp_matches[comp_id].type;
 }
 
+int mtk_ddp_comp_get_alias(enum mtk_ddp_comp_id comp_id)
+{
+	if (comp_id >= DDP_COMPONENT_ID_MAX)
+		return -EINVAL;
+
+	return mtk_ddp_matches[comp_id].alias_id;
+}
+
 static bool mtk_drm_find_comp_in_ddp(struct mtk_ddp_comp ddp_comp,
 				     const struct mtk_crtc_path_data *path_data)
 {

@@ -116,10 +116,8 @@ static inline int _lcm_need_esd_check(struct mtk_panel_ext *panel_ext)
 {
 	int ret = 0;
 
-	if (panel_ext->params->esd_check_enable == 1 &&
-		mtk_drm_lcm_is_connect()) {
+	if (panel_ext->params->esd_check_enable == 1)
 		ret = 1;
-	}
 
 	return ret;
 }

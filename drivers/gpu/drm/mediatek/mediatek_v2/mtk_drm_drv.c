@@ -1113,28 +1113,24 @@ static bool mtk_atomic_skip_plane_update(struct mtk_drm_private *private,
 #endif
 }
 
-bool mtk_drm_lcm_is_connect(void)
+bool mtk_drm_lcm_is_connect(struct mtk_drm_crtc *mtk_crtc)
 {
-	struct device_node *chosen_node;
+	struct mtk_ddp_comp *comp = mtk_crtc ? mtk_ddp_comp_request_output(mtk_crtc) : NULL;
+	struct mtk_panel_ext *panel_ext = NULL;
 
-	chosen_node = of_find_node_by_path("/chosen");
-	if (chosen_node) {
-		struct tag_videolfb *videolfb_tag = NULL;
-		unsigned long size = 0;
+	if (!(comp && mtk_ddp_comp_get_type(comp->id) == MTK_DSI))
+		return false;
 
-		videolfb_tag = (struct tag_videolfb *)of_get_property(
-			chosen_node,
-			"atag,videolfb",
-			(int *)&size);
-		if (videolfb_tag)
-			return videolfb_tag->islcmfound;
+	mtk_ddp_comp_io_cmd(comp, NULL, REQ_PANEL_EXT, &panel_ext);
 
-		DDPINFO("[DT][videolfb] videolfb_tag not found\n");
-	} else {
-		DDPINFO("[DT][videolfb] of_chosen not found\n");
-	}
+	if (IS_ERR_OR_NULL(panel_ext))
+		return false;
 
-	return false;
+	/* panel conntection state not check yet, adjust after connector enable */
+	if (panel_ext->is_connected == -1)
+		return true;
+
+	return !!panel_ext->is_connected;
 }
 
 static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
@@ -1148,8 +1144,10 @@ static void drm_atomic_esd_chk_first_enable(struct drm_device *dev,
 
 	if (is_first) {
 		for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+			struct mtk_drm_crtc *mtk_crtc = crtc ? to_mtk_crtc(crtc) : NULL;
+
 			if (drm_crtc_index(crtc) == 0) {
-				if  (mtk_drm_lcm_is_connect())
+				if  (mtk_drm_lcm_is_connect(mtk_crtc))
 					mtk_disp_esd_check_switch(crtc, true);
 				break;
 			}

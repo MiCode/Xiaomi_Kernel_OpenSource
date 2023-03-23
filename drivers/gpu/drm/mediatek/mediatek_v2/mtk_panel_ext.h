@@ -520,6 +520,7 @@ struct mtk_panel_params {
 struct mtk_panel_ext {
 	struct mtk_panel_funcs *funcs;
 	struct mtk_panel_params *params;
+	int is_connected;
 };
 
 struct mtk_panel_ctx {

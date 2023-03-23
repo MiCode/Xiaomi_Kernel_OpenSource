@@ -3427,6 +3427,62 @@ static void mtk_dsi_disable_vfp_early_stop(struct mtk_dsi *dsi,
 }
 
 /***********************Msync 2.0 function end************************/
+static unsigned int panel_connection_from_atag(void)
+{
+	struct device_node *chosen_node;
+
+	chosen_node = of_find_node_by_path("/chosen");
+	if (chosen_node) {
+		struct tag_videolfb *videolfb_tag = NULL;
+		unsigned long size = 0;
+
+		videolfb_tag = (struct tag_videolfb *)of_get_property(
+			chosen_node,
+			"atag,videolfb",
+			(int *)&size);
+		if (videolfb_tag)
+			return videolfb_tag->islcmfound;
+
+		DDPINFO("[DT][videolfb] videolfb_tag not found\n");
+	} else {
+		DDPINFO("[DT][videolfb] of_chosen not found\n");
+	}
+
+	return 0;
+}
+
+static void check_panel_connection(struct drm_crtc *crtc, struct mtk_dsi *dsi)
+{
+	unsigned int alias, connected;
+
+	alias = mtk_ddp_comp_get_alias(dsi->ddp_comp.id);
+	connected = panel_connection_from_atag() & BIT(alias);
+	/* for the case that panel does not init at LK, check panel TE again */
+	if (connected == 0) {
+		u32 tmp;
+		unsigned int loop_cnt = 0;
+
+		while (loop_cnt < 100 * 1000) {
+			tmp = readl(dsi->regs + DSI_INTSTA);
+			if (tmp & TE_RDY_INT_FLAG) {
+				connected = 1;
+				break;
+			}
+			loop_cnt++;
+			udelay(1);
+		}
+	}
+	mtk_drm_fake_vsync_switch(crtc, !connected);
+	if (dsi->ext)
+		dsi->ext->is_connected = !!connected;
+
+	/* modify trigger loop not to wait TE when panel is not connected */
+	if (connected == 0 && mtk_crtc_with_trigger_loop(crtc)) {
+		mtk_crtc_stop_trig_loop(crtc);
+		mtk_crtc_start_trig_loop(crtc);
+	}
+}
+
 static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 	int force_lcm_update)
 {
@@ -3588,6 +3644,8 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		}
 	}
 
+	if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && dsi->ext && dsi->ext->is_connected == -1)
+		check_panel_connection(crtc, dsi);
 	DDPINFO("%s -\n", __func__);
 
 	dsi->output_en = true;
@@ -10597,6 +10655,8 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	/* Assume DSI0 enable already in LK */
 	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
 #ifndef CONFIG_MTK_DISP_NO_LK
+		unsigned int alias = mtk_ddp_comp_get_alias(dsi->ddp_comp.id);
+
 		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 			phy_power_on(dsi->phy);
 			ret = clk_prepare_enable(dsi->engine_clk);
@@ -10611,6 +10671,8 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		}
 		dsi->output_en = true;
 		dsi->clk_refcnt = 1;
+		if (dsi->ext && dsi->ext->is_connected == -1)
+			dsi->ext->is_connected = panel_connection_from_atag() & BIT(alias);
 #endif
 	}
 
@@ -11184,6 +11246,7 @@ int fbconfig_get_esd_check_test(struct drm_crtc *crtc,
 	struct mtk_panel_params *dsi_params = NULL;
 	int cmd_matched = 0;
 	uint32_t i = 0;
+	bool panel_connected;
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 	if (crtc->state && !(crtc->state->active)) {
@@ -11226,7 +11289,8 @@ int fbconfig_get_esd_check_test(struct drm_crtc *crtc,
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
 	/* 0 disable esd check */
-	if (mtk_drm_lcm_is_connect())
+	panel_connected = mtk_drm_lcm_is_connect(mtk_crtc);
+	if (panel_connected)
 		mtk_disp_esd_check_switch(crtc, false);
 
 	/* 1 stop crtc */
@@ -11247,7 +11311,7 @@ int fbconfig_get_esd_check_test(struct drm_crtc *crtc,
 	mtk_dsi_start(dsi);
 
 	/* 6 enable esd check */
-	if (mtk_drm_lcm_is_connect())
+	if (panel_connected)
 		mtk_disp_esd_check_switch(crtc, true);
 
 	mtk_crtc_hw_block_ready(crtc);
@@ -11342,6 +11406,7 @@ int Panel_Master_dsi_config_entry(struct drm_crtc *crtc,
 	int ret = 0;
 	struct mtk_dsi *dsi = NULL;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	bool panel_connected;
 
 	dsi = pm_get_mtk_dsi(crtc);
 	if (!dsi) {
@@ -11351,7 +11416,8 @@ int Panel_Master_dsi_config_entry(struct drm_crtc *crtc,
 	mtk_drm_idlemgr_kick(__func__, &mtk_crtc->base, 0);
 
 	/*  disable esd check */
-	if (mtk_drm_lcm_is_connect())
+	panel_connected = mtk_drm_lcm_is_connect(mtk_crtc);
+	if (panel_connected)
 		mtk_disp_esd_check_switch(crtc, false);
 
 	if ((!strcmp(name, "PM_CLK")) || (!strcmp(name, "PM_SSC"))) {
@@ -11364,7 +11430,7 @@ int Panel_Master_dsi_config_entry(struct drm_crtc *crtc,
 		}
 	}
 	/* enable esd check */
-	if (mtk_drm_lcm_is_connect())
+	if (panel_connected)
 		mtk_disp_esd_check_switch(crtc, true);
 
 
