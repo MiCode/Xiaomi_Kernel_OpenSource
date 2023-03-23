@@ -525,7 +525,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 				mtk_crtc->base.dev->dev_private;
 	struct mtk_ddp_comp *output_comp = NULL;
 	int en = 0;
-	struct cmdq_pkt *cmdq_handle;
+	struct cmdq_pkt *cmdq_handle = NULL;
 
 	DDPINFO("%s, crtc%d+\n", __func__, crtc_id);
 
@@ -540,8 +540,9 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	}
 
 	/* 0. Waiting CLIENT_DSI_CFG/CLIENT_CFG thread done */
-	mtk_crtc_pkt_create(&cmdq_handle, crtc,
-		mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	if (mtk_crtc->gce_obj.client[CLIENT_DSI_CFG])
+		mtk_crtc_pkt_create(&cmdq_handle, crtc,
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
 
 	if (cmdq_handle) {
 		cmdq_pkt_flush(cmdq_handle);
