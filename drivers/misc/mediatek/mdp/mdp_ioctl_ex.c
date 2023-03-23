@@ -35,8 +35,8 @@
 
 #define RDMA_CPR_PREBUILT(mod, pipe, index) \
 	((index) < CMDQ_CPR_PREBUILT_REG_CNT ? \
-	CMDQ_CPR_PREBUILT(mod, pipe, index) : \
-	CMDQ_CPR_PREBUILT_EXT(mod, pipe, (index) - CMDQ_CPR_PREBUILT_REG_CNT))
+	CMDQ_CPR_PREBUILT(mod, (pipe & 0x1), index) : \
+	CMDQ_CPR_PREBUILT_EXT(mod, (pipe & 0x1), (index) - CMDQ_CPR_PREBUILT_REG_CNT))
 
 struct mdpsys_con_context {
 	struct device *dev;
