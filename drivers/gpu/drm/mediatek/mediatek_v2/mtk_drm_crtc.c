@@ -11580,6 +11580,7 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 				mtk_ddp_comp_io_cmd(comp, NULL, CONNECTOR_PANEL_ENABLE, NULL);
 			else
 				DDPPR_ERR("%s %d invalid output_comp\n", __func__, __LINE__);
+			mtk_crtc_hw_block_ready(crtc);
 		}
 	}
 
