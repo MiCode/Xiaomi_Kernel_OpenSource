@@ -9838,6 +9838,9 @@ static void mtk_drm_crtc_fix_conn_mode(struct drm_crtc *crtc, struct drm_display
 	copy_drm_disp_mode(mode, &crtc->state->adjusted_mode);
 	crtc->state->adjusted_mode.hskew = mode->hskew;
 	drm_mode_set_crtcinfo(&crtc->state->adjusted_mode, 0);
+
+	/* update DAL setting */
+	drm_update_dal(crtc, NULL);
 }
 
 static void mtk_drm_crtc_update_interface(struct drm_crtc *crtc,

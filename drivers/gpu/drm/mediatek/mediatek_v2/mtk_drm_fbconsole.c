@@ -274,7 +274,7 @@ enum MFC_STATUS MFC_Open(MFC_HANDLE *handle, void *fb_addr,
 	ctxt->font_width = MFC_FONT_WIDTH;
 	ctxt->font_height = MFC_FONT_HEIGHT;
 	ctxt->filp = filp;
-
+	ctxt->buffer_size = fb_width * fb_height * fb_bpp;
 	*handle = ctxt;
 
 	return MFC_STATUS_OK;
