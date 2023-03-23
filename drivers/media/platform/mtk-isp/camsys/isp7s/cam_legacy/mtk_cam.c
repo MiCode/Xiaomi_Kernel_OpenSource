@@ -4994,13 +4994,23 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 
 			ctx = mtk_cam_find_raw_ctx(cam, req);
 
-			if (ctx && mtk_cam_scen_is_mstream_2exp_types(&ctx->pipe->scen_active) &&
+			/* enque while the last request is composed */
+			if (ctx && mtk_cam_scen_is_mstream_types(&ctx->pipe->scen_active) &&
 				(atomic_read(&ctx->enqueued_frame_seq_no) >
 				 atomic_read(&ctx->latest_tx_cmd_seq_no))) {
 				dev_dbg(cam->dev, "%s mstream waits cq compose(%d), enque(%d)\n",
 						__func__,
 						ctx->composed_frame_seq_no,
 						atomic_read(&ctx->enqueued_frame_seq_no));
+				break;
+			}
+
+			/* handle 1 request only */
+			if (ctx && mtk_cam_scen_is_mstream_types(&ctx->pipe->scen_active) &&
+				enqueue_req_cnt) {
+				dev_dbg(cam->dev,
+					"%s mstream handle 1 request only\n",
+					__func__);
 				break;
 			}
 
