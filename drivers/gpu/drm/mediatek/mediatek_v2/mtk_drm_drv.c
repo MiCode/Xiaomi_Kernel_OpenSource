@@ -4513,7 +4513,8 @@ int mtk_drm_suspend_release_fence(struct device *dev)
 	}
 	/* release present fence */
 	mtk_drm_suspend_release_present_fence(dev, 0);
-	mtk_drm_suspend_release_sf_present_fence(dev, 0);
+	/* TODO: sf present fence is obsolete, should remove corresponding code */
+	/* mtk_drm_suspend_release_sf_present_fence(dev, 0); */
 
 	return 0;
 }

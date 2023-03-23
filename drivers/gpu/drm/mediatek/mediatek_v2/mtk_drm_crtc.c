@@ -9768,7 +9768,7 @@ unsigned int mtk_drm_dump_wk_lock(
 	len += scnprintf(stringbuf + len, buf_len - len,
 		 "==========    wakelock Info    ==========\n");
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < MAX_CRTC ; i++) {
 		crtc = priv->crtc[i];
 		if (!crtc)
 			continue;
@@ -9830,6 +9830,7 @@ static void mtk_drm_crtc_fix_conn_mode(struct drm_crtc *crtc, struct drm_display
 	crtc->state->adjusted_mode.vtotal	= timing->vtotal;
 	crtc->state->adjusted_mode.vscan	= timing->vscan;
 	vfree(mtk_crtc->avail_modes);
+	mtk_crtc->avail_modes = NULL;
 	mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_SET_CRTC_AVAIL_MODES, mtk_crtc);
 
 	/* Update mode & adjusted_mode in CRTC */
@@ -10624,7 +10625,8 @@ static void mtk_drm_crtc_release_fence(struct drm_crtc *crtc)
 			MTK_SESSION_TYPE(session_id) == MTK_SESSION_EXTERNAL ||
 			MTK_SESSION_TYPE(session_id) == MTK_SESSION_SP) {
 		mtk_drm_suspend_release_present_fence(crtc->dev->dev, id);
-		mtk_drm_suspend_release_sf_present_fence(crtc->dev->dev, id);
+		/* TODO: sf present fence is obsolete, should remove corresponding code */
+		/* mtk_drm_suspend_release_sf_present_fence(crtc->dev->dev, id); */
 	}
 }
 #endif
