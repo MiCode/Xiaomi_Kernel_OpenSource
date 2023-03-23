@@ -16,7 +16,7 @@
 #include "vcp.h"
 
 #define ROUNDUP(a, b)		        (((a) + ((b)-1)) & ~((b)-1))
-#define VCP_SYNC_TIMEOUT_MS		(100)
+#define VCP_SYNC_TIMEOUT_MS		(200)
 
 /* vcp dram shared memory */
 #define DRAM_VDEC_VSI_BUF_LEN		(480 * 1024)

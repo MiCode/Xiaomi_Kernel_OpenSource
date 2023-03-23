@@ -161,7 +161,7 @@ static int vdec_vcp_ipi_send(struct vdec_inst *inst, void *msg, int len,
 		timeout++;
 		if (timeout > VCP_SYNC_TIMEOUT_MS) {
 			mtk_vcodec_err(inst, "VCP_A_ID not ready");
-			/* mtk_smi_dbg_hang_detect("VDEC VCP"); */
+			mtk_smi_dbg_hang_detect("VDEC VCP");
 #if IS_ENABLED(CONFIG_MTK_EMI)
 			mtk_emidbg_dump();
 #endif
