@@ -3959,7 +3959,7 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 							     pmux,
 							     SENINF_MUX_IRQ_STATUS);
 					}
-					if (camIrq_tmp & 0x100) {
+					if (camIrq_tmp & 0x3) {
 						SENINF_WRITE_REG(
 						pSeninf_cam_mux_pcsr,
 						SENINF_CAM_MUX_PCSR_IRQ_STATUS,
