@@ -2516,9 +2516,9 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 	DDPDBG("%s +\n", __func__);
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	if (dsi->clk_refcnt == 0) {
-		DDPAEE("%s:%d, invalid cnt:%d\n",
+		DDPAEE("%s:%d, %s invalid cnt:%d\n",
 			__func__, __LINE__,
-			dsi->clk_refcnt);
+			mtk_dump_comp_str(&dsi->ddp_comp), dsi->clk_refcnt);
 		return;
 	}
 
@@ -3441,7 +3441,7 @@ static unsigned int panel_connection_from_atag(void)
 			"atag,videolfb",
 			(int *)&size);
 		if (videolfb_tag)
-			return videolfb_tag->islcmfound;
+			return (videolfb_tag->islcmfound & 0xFFFF);
 
 		DDPINFO("[DT][videolfb] videolfb_tag not found\n");
 	} else {
@@ -10502,6 +10502,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	int irq_num;
 	int comp_id;
 	int ret;
+	unsigned int alias;
 
 	DDPINFO("%s+\n", __func__);
 	dsi = devm_kzalloc(dev, sizeof(*dsi), GFP_KERNEL);
@@ -10652,11 +10653,12 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 		pm_runtime_get_sync(dev);
 #endif
 
+	alias = mtk_ddp_comp_get_alias(dsi->ddp_comp.id);
+	/* use atag information check which display enable in LK */
 	/* Assume DSI0 enable already in LK */
-	if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
+	if (mtk_disp_num_from_atag() & BIT(alias) ||
+		(mtk_disp_num_from_atag() == 0 && dsi->ddp_comp.id == DDP_COMPONENT_DSI0)) {
 #ifndef CONFIG_MTK_DISP_NO_LK
-		unsigned int alias = mtk_ddp_comp_get_alias(dsi->ddp_comp.id);
-
 		if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 			phy_power_on(dsi->phy);
 			ret = clk_prepare_enable(dsi->engine_clk);

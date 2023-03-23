@@ -1050,13 +1050,17 @@ static void mtk_atomic_doze_finish(struct drm_device *dev,
 
 static bool mtk_drm_is_enable_from_lk(struct drm_crtc *crtc)
 {
-	/* TODO: check if target CRTC has been turn on in LK */
-	if (drm_crtc_index(crtc) == 0)
-#ifndef CONFIG_MTK_DISP_NO_LK
-		return true;
-#else
-		return false;
-#endif
+	struct mtk_drm_crtc *mtk_crtc = crtc ? to_mtk_crtc(crtc) : NULL;
+	struct mtk_ddp_comp *comp = mtk_crtc ? mtk_ddp_comp_request_output(mtk_crtc) : NULL;
+	unsigned int alias = 0;
+
+	if (comp && mtk_ddp_comp_get_type(comp->id) == MTK_DSI) {
+		alias = mtk_ddp_comp_get_alias(comp->id);
+
+		if (mtk_disp_num_from_atag() & BIT(alias) ||
+				(mtk_disp_num_from_atag() == 0 && drm_crtc_index(crtc) == 0))
+			return true;
+	}
 	return false;
 }
 
@@ -5428,6 +5432,30 @@ found:
 #endif
 }
 
+unsigned int mtk_disp_num_from_atag(void)
+{
+	struct device_node *chosen_node;
+
+	chosen_node = of_find_node_by_path("/chosen");
+	if (chosen_node) {
+		struct tag_videolfb *videolfb_tag = NULL;
+		unsigned long size = 0;
+
+		videolfb_tag = (struct tag_videolfb *)of_get_property(
+			chosen_node,
+			"atag,videolfb",
+			(int *)&size);
+		if (videolfb_tag)
+			return ((videolfb_tag->islcmfound >> 16) & 0xFFFF);
+
+		DDPINFO("[DT][videolfb] videolfb_tag not found\n");
+	} else {
+		DDPINFO("[DT][videolfb] of_chosen not found\n");
+	}
+
+	return 0;
+}
+
 int mtk_drm_get_panel_info(struct drm_device *dev,
 			     struct drm_mtk_session_info *info, unsigned int crtc_id)
 {
@@ -6008,6 +6036,15 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	mtk_drm_init_dummy_table(private);
 
 	mtk_drm_first_enable(drm);
+
+	/* power off mtcmos*/
+	/* Because of align lk hw power status,
+	 * we power on mtcmos at the beginning of the display initialization.
+	 * We power off mtcmos at the end of the display initialization.
+	 * Here we only decrease ref count, the power will hold on.
+	 */
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
+		mtk_drm_top_clk_disable_unprepare(drm);
 
 	/*
 	 * When kernel init, SMI larb will get once for keeping

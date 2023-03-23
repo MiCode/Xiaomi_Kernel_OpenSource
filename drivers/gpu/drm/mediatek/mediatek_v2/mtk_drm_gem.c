@@ -174,7 +174,10 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 
 	obj = &mtk_gem->base;
 
-	mtk_gem->size = size;
+	if (vramsize == 0)
+		mtk_gem->size = size;
+	else
+		mtk_gem->size = vramsize;
 	mtk_gem->dma_attrs = DMA_ATTR_WRITE_COMBINE;
 
 	sgt = mtk_gem_vmap_pa(mtk_gem, fb_base, 0, dev->dev, &fb_pa);
@@ -190,8 +193,8 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 	mtk_gem->kvaddr = mtk_gem->cookie;
 	mtk_gem->sg = sgt;
 
-	DDPINFO("%s cookie = %p dma_addr = %pad size = %zu\n", __func__,
-		mtk_gem->cookie, &mtk_gem->dma_addr, size);
+	DDPINFO("%s cookie = %p dma_addr = %pad size = %zu vramsize = %zu\n", __func__,
+		mtk_gem->cookie, &mtk_gem->dma_addr, size, vramsize);
 
 	return mtk_gem;
 }

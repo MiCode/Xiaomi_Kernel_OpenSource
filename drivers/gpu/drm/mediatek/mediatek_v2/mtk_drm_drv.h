@@ -410,7 +410,7 @@ int lcm_fps_ctx_update(unsigned long long cur_ns,
 		unsigned int crtc_id, unsigned int mode);
 int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
 bool mtk_drm_lcm_is_connect(struct mtk_drm_crtc *mtk_crtc);
-
+unsigned int mtk_disp_num_from_atag(void);
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 	unsigned int *fps);
 struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,

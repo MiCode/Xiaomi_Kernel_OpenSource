@@ -9823,7 +9823,7 @@ static void mtk_drm_crtc_update_interface(struct drm_crtc *crtc,
 			}
 		}
 	}
-	if (timing == NULL) {
+	if (mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI && timing == NULL) {
 		mtk_ddp_comp_io_cmd(output_comp, NULL, DSI_GET_TIMING, &timing);
 		if (timing == NULL) {
 			DDPPR_ERR("%s %d fail to get default timing\n",
@@ -10248,7 +10248,7 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	/*3. Enable M4U port and replace OVL address to mva */
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_USE_M4U)) {
-		DDPINFO("%s, enable iommu\n", __func__);
+		DDPINFO("%s crtc%u, enable iommu\n", __func__, drm_crtc_index(crtc));
 		mtk_crtc_enable_iommu_runtime(mtk_crtc, cmdq_handle);
 	}
 
@@ -10391,14 +10391,7 @@ void mtk_drm_crtc_first_enable(struct drm_crtc *crtc)
 	/* 9. set CRTC SW status */
 	mtk_crtc_set_status(crtc, true);
 
-	/* 10. power off mtcmos*/
-	/* Because of align lk hw power status,
-	 * we power on mtcmos at the beginning of the display initialization.
-	 * We power off mtcmos at the end of the display initialization.
-	 * Here we only decrease ref count, the power will hold on.
-	 */
-	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)
-		mtk_drm_top_clk_disable_unprepare(crtc->dev);
+	/* move power off mtcmos to kms init flow for multiple display in LK */
 }
 
 void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
@@ -14143,7 +14136,8 @@ void mtk_drm_fake_vsync_switch(struct drm_crtc *crtc, bool enable)
 	struct mtk_drm_fake_vsync *fake_vsync = mtk_crtc->fake_vsync;
 
 	if (mtk_drm_lcm_is_connect(mtk_crtc) ||
-		!mtk_crtc_is_frame_trigger_mode(crtc))
+		!mtk_crtc_is_frame_trigger_mode(crtc) ||
+		mtk_crtc_is_mem_mode(crtc))
 		return;
 
 	if (unlikely(!fake_vsync)) {
