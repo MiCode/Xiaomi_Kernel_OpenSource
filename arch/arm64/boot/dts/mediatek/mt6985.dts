@@ -9674,7 +9674,7 @@
 		lp-mmclk-freq = <218000000>;
 		interconnects = <&mmqos SLAVE_LARB(38) &mmqos SLAVE_COMMON(0)>;
 		interconnect-names = "disp_hrt_qos";
-		pre-define-bw = <0xffffffff>, <4200>, <0>;
+		pre-define-bw = <0xffffffff>, <4200>, <0>, <2700>;
 		crtc-ovl-usage = <7>, <4>, <2>;
 
 		/* define threads, see mt6873-gce.h */
