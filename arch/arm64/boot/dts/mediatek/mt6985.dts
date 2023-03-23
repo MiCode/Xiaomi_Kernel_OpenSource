@@ -12060,7 +12060,7 @@
 		compatible = "mediatek,mtk-drm-gateic-drv";
 	};
 
-	dsi0: dsi@1400d000 {
+	dsi0: dsi0@1400d000 {
 		compatible = "mediatek,dsi0",
 					"mediatek,mt6985-dsi";
 		reg = <0 0x1400d000 0 0x1000>;
@@ -12073,7 +12073,7 @@
 		phy-names = "dphy";
 	};
 
-	dsi1: dsi@1420d000 {
+	dsi1: dsi1@1420d000 {
 		status = "disabled";
 		compatible = "mediatek,dsi1",
 					"mediatek,mt6985-dsi";
