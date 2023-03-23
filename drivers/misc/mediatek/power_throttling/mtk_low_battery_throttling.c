@@ -121,13 +121,18 @@ int register_low_battery_notify(low_battery_callback lb_cb,
 		return -EINVAL;
 	}
 	lbcb_tb[prio_val].lbcb = lb_cb;
+	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
+
+	if (!low_bat_thl_data) {
+		pr_info("[%s] low_bat_thl_data not allocate\n", __func__);
+		return ret;
+	}
 
 	if (low_bat_thl_data->low_bat_thl_level && lbcb_tb[prio_val].lbcb) {
 		lbcb_tb[prio_val].lbcb(low_bat_thl_data->low_bat_thl_level);
 		pr_info("[%s] notify lv=%d\n", __func__, low_bat_thl_data->low_bat_thl_level);
 	}
 
-	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 	return ret;
 }
 EXPORT_SYMBOL(register_low_battery_notify);
@@ -386,7 +391,6 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
-	low_bat_thl_data = priv;
 	dev_set_drvdata(&pdev->dev, priv);
 
 	vol_l_size = of_property_count_elems_of_size(np, "thd-volts-l", sizeof(u32));
@@ -522,7 +526,7 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 		dev_notice(&pdev->dev, "%d mV, %d mV, %d mV Done\n",
 			   priv->hv_thd_volt, priv->lv1_thd_volt, priv->lv2_thd_volt);
 	}
-
+	low_bat_thl_data = priv;
 	ret = device_create_file(&(pdev->dev),
 		&dev_attr_low_battery_protect_ut);
 	ret |= device_create_file(&(pdev->dev),
