@@ -2155,8 +2155,6 @@ static long imgsensor_compat_ioctl(
 					PK_DBG("[CAMERA SENSOR] ioctl allocate mem failed\n");
 					i4RetValue = -ENOMEM;
 					goto CAMERA_HW_Ioctl_EXIT;
-				} else {
-					memset(pBuff, 0x0, _IOC_SIZE(sizeof(data)));
 				}
 
 				if (compat_get_acdk_sensor_featurecontrol_struct(a_u4Param,
@@ -2193,8 +2191,6 @@ static long imgsensor_compat_ioctl(
 					PK_DBG("[CAMERA SENSOR] ioctl allocate mem failed\n");
 					i4RetValue = -ENOMEM;
 					goto CAMERA_HW_Ioctl_EXIT;
-				} else {
-					memset(pBuff, 0x0, _IOC_SIZE(sizeof(data)));
 				}
 
 				if (compat_get_acdk_sensor_control_struct(a_u4Param,
@@ -2231,8 +2227,6 @@ static long imgsensor_compat_ioctl(
 					PK_DBG("[CAMERA SENSOR] ioctl allocate mem failed\n");
 					i4RetValue = -ENOMEM;
 					goto CAMERA_HW_Ioctl_EXIT;
-				} else {
-					memset(pBuff, 0x0, _IOC_SIZE(sizeof(data)));
 				}
 
 				if (compat_get_imagesensor_getinfo_struct(a_u4Param,
