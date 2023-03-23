@@ -49,6 +49,7 @@
 #define WDMA_CT_EN BIT(11)
 #define WDMA_CON_SWAP BIT(16)
 #define WDMA_UFO_DCP_ENABLE BIT(18)
+#define WDMA_BKGD_ENABLE BIT(20)
 #define WDMA_INT_MTX_SEL (0xf << 24)
 #define WDMA_DEBUG_SEL (0xf << 28)
 #define DISP_REG_WDMA_SRC_SIZE 0x0018
@@ -60,6 +61,8 @@
 #define DISP_REG_WDMA_DST_WIN_BYTE 0x0028
 #define DISP_REG_WDMA_ALPHA 0x002C
 #define DISP_REG_WDMA_DST_UV_PITCH 0x0078
+#define DISP_REG_WDMA_BKGD 0x0030
+#define DISP_REG_WDMA_BKGD_MSB 0x0034
 #define WDMA_A_Value (0xff)
 #define WDMA_A_Sel BIT(31)
 #define DISP_REG_WDMA_DST_ADDR_OFFSETX(n) (0x0080 + 0x04 * (n))
@@ -1046,6 +1049,23 @@ static bool is_yuv(uint32_t format)
 	return false;
 }
 
+void mtk_wdma_blank_output(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+					unsigned int enable_blank)
+{
+	DDPINFO("%s enable blank %d\n", __func__, enable_blank);
+	if (enable_blank) {
+		mtk_ddp_write_mask(comp, WDMA_BKGD_ENABLE,
+				DISP_REG_WDMA_CFG, WDMA_BKGD_ENABLE, handle);
+
+		mtk_ddp_write(comp, 0, DISP_REG_WDMA_BKGD, handle);
+
+		mtk_ddp_write(comp, 0, DISP_REG_WDMA_BKGD_MSB, handle);
+	} else {
+		mtk_ddp_write_mask(comp, 0,
+				DISP_REG_WDMA_CFG, WDMA_BKGD_ENABLE, handle);
+	}
+}
+
 static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 			    struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
@@ -1128,6 +1148,11 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	/* Debug WDMA status */
 	mtk_ddp_write_mask(comp, 0xe0000000,
 			DISP_REG_WDMA_CFG, WDMA_DEBUG_SEL, handle);
+
+	if (priv->usage[crtc_idx] == DISP_OPENING)
+		mtk_wdma_blank_output(comp, handle, 1);
+	else
+		mtk_wdma_blank_output(comp, handle, 0);
 
 	mtk_ddp_write(comp, comp->fb->pitches[0],
 		DISP_REG_WDMA_DST_WIN_BYTE, handle);
@@ -1459,6 +1484,10 @@ int mtk_wdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_WDMA_SHADOW_CTRL + baddr),
 			readl(DISP_REG_WDMA_DST_WIN_BYTE + baddr),
 			readl(DISP_REG_WDMA_ALPHA + baddr));
+
+		DDPDUMP("0x030:0x%08x 0x034:0x%08x\n",
+			readl(DISP_REG_WDMA_BKGD + baddr),
+			readl(DISP_REG_WDMA_BKGD_MSB + baddr));
 
 		DDPDUMP("0x038:0x%08x 0x078:0x%08x\n",
 			readl(DISP_REG_WDMA_BUF_CON1 + baddr),

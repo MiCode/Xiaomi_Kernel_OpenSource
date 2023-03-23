@@ -15268,13 +15268,17 @@ void mtk_disp_mutex_remove_comp(struct mtk_disp_mutex *mutex,
 			__func__, __LINE__,
 			&ddp->mutex[mutex->id], mutex, mutex->id);
 
-	if (ddp->data->dispsys_map && ddp->data->dispsys_map[id] == 1 &&
-			ddp->side_regs_pa) {
+	if (ddp->data->dispsys_map && ddp->data->dispsys_map[id] == 1)
 		reg_addr = ddp->side_regs;
+	else
+		reg_addr = ddp->regs;
+
+	if (ddp->data->dispsys_map &&
+		ddp->data->dispsys_map[id] == OVLSYS1) {
 		if (ddp->ovlsys1_regs)
 			reg_addr1 = ddp->ovlsys1_regs;
-	} else {
-		reg_addr = ddp->regs;
+	} else if (ddp->data->dispsys_map &&
+				ddp->data->dispsys_map[id] == OVLSYS0) {
 		if (ddp->ovlsys0_regs)
 			reg_addr1 = ddp->ovlsys0_regs;
 	}
@@ -15293,35 +15297,39 @@ void mtk_disp_mutex_remove_comp(struct mtk_disp_mutex *mutex,
 				reg_addr1 + DISP_REG_MUTEX_SOF(ddp->data, mutex->id));
 		break;
 	default:
-		if (ddp->data->mutex_mod[id] <= BIT(31)) {
-			reg = readl_relaxed(
-				reg_addr +
-				DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
-			reg &= ~(ddp->data->mutex_mod[id]);
-			writel_relaxed(
-				reg, reg_addr + DISP_REG_MUTEX_MOD(ddp->data,
-								    mutex->id));
-			if (reg_addr1) {
-				reg1 = readl_relaxed(
-					reg_addr1 +
-					DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
-				reg1 &= ~(ddp->data->mutex_mod[id]);
-				writel_relaxed(
-					reg1, reg_addr1 + DISP_REG_MUTEX_MOD(ddp->data,
-									    mutex->id));
+		if (ddp->data->mutex_mod[id] > 0) {
+			if (ddp->data->mutex_mod[id] <= BIT(31)) {
+				reg = readl_relaxed(reg_addr +
+							DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
+				reg &= ~(ddp->data->mutex_mod[id]);
+				writel_relaxed(reg, reg_addr + DISP_REG_MUTEX_MOD(ddp->data,
+										   mutex->id));
+			} else {
+				reg = readl_relaxed(reg_addr + DISP_REG_MUTEX_MOD2(mutex->id));
+				reg &= ~(ddp->data->mutex_mod[id] & ~BIT(31));
+				writel_relaxed(reg, reg_addr + DISP_REG_MUTEX_MOD2(mutex->id));
 			}
-		} else {
-			reg = readl_relaxed(reg_addr +
-					    DISP_REG_MUTEX_MOD2(mutex->id));
-			reg &= ~(ddp->data->mutex_mod[id] & ~BIT(31));
-			writel_relaxed(reg, reg_addr + DISP_REG_MUTEX_MOD2(
-								mutex->id));
-			if (reg_addr1) {
-				reg1 = readl_relaxed(reg_addr1 +
-						    DISP_REG_MUTEX_MOD2(mutex->id));
-				reg1 &= ~(ddp->data->mutex_mod[id] & ~BIT(31));
-				writel_relaxed(reg1, reg_addr1 + DISP_REG_MUTEX_MOD2(
-									mutex->id));
+		}
+
+		if (reg_addr1) {
+			if (ddp->data->mutex_ovlsys_mod[id] > 0) {
+				if (ddp->data->mutex_ovlsys_mod[id] <= BIT(31)) {
+					reg1 = readl_relaxed(reg_addr1 +
+							DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
+					reg1 &= ~(ddp->data->mutex_ovlsys_mod[id]);
+					writel_relaxed(reg1, reg_addr1 +
+							DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
+				} else {
+					reg1 = readl_relaxed(reg_addr1 +
+							DISP_REG_MUTEX_MOD2(mutex->id));
+					reg1 &= ~(ddp->data->mutex_ovlsys_mod[id] & ~BIT(31));
+					writel_relaxed(reg1, reg_addr1 +
+							DISP_REG_MUTEX_MOD2(mutex->id));
+					reg1 = readl_relaxed(
+						reg_addr1 +
+						DISP_REG_MUTEX_MOD(ddp->data, mutex->id));
+					DDPINFO("after remove reg %x\n", reg1);
+				}
 			}
 		}
 		break;

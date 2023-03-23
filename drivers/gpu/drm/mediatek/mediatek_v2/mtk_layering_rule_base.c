@@ -2586,6 +2586,35 @@ static int mtk_lye_get_comp_id(int disp_idx, int disp_list, struct drm_device *d
 					i = 0;
 				}
 				return comp_id_list[i];
+			} else if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) -
+					HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
+						layer_map_idx) {
+				temp = priv->ovl_usage[disp_idx];
+
+				for (i = 1 ; i < MAX_CRTC ; ++i) {
+					if ((disp_list & BIT(i)) != 0)
+						temp = temp & ~priv->ovl_usage[i];
+				}
+				temp1 = HRT_GET_FIRST_SET_BIT(temp -
+						HRT_GET_FIRST_SET_BIT(temp -
+						HRT_GET_FIRST_SET_BIT(temp)) -
+						HRT_GET_FIRST_SET_BIT(temp));
+				for (i = 0 ; i < comp_id_nr ; ++i) {
+					if (temp1 == BIT(i))
+						break;
+				}
+				if (i >= comp_id_nr) {
+					DDPPR_ERR("%s comp_id_nr %u ovl_usage %u, set to 0\n",
+							__func__, comp_id_nr, temp);
+					i = 0;
+				}
+				return comp_id_list[i];
 			}
 			temp = priv->ovl_usage[disp_idx];
 
@@ -2594,6 +2623,9 @@ static int mtk_lye_get_comp_id(int disp_idx, int disp_list, struct drm_device *d
 					temp = temp & ~priv->ovl_usage[i];
 			}
 			temp1 = HRT_GET_FIRST_SET_BIT(temp -
+					HRT_GET_FIRST_SET_BIT(temp -
+					HRT_GET_FIRST_SET_BIT(temp - HRT_GET_FIRST_SET_BIT(temp)) -
+					HRT_GET_FIRST_SET_BIT(temp)) -
 					HRT_GET_FIRST_SET_BIT(temp - HRT_GET_FIRST_SET_BIT(temp)) -
 					HRT_GET_FIRST_SET_BIT(temp));
 			for (i = 0 ; i < comp_id_nr ; ++i) {
