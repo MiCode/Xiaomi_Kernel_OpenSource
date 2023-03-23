@@ -1930,6 +1930,7 @@ void mt6985_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 	unsigned int sodi_req_val = 0, sodi_req_mask = 0;
 	unsigned int emi_req_val = 0, emi_req_mask = 0;
 	bool en = *((bool *)data);
+	struct device_node *node = NULL;
 //need check
 	if (id == DDP_COMPONENT_ID_MAX) { /* config when top clk on */
 		if (!en)
@@ -2009,6 +2010,10 @@ void mt6985_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
 		if (priv->side_config_regs)
 			writel_relaxed(v, priv->side_config_regs +  MMSYS_EMI_REQ_CTL);
+
+		node = of_find_compatible_node(NULL, NULL, "boe,bf130,dphy,cmd,hd");
+		if (node && priv->side_config_regs)
+			writel_relaxed(0x01, priv->side_config_regs +  0x184);
 
 		/* 0xF0: only config on OVLSYS(HARD CODE) */
 		if (priv->ovlsys0_regs) {
