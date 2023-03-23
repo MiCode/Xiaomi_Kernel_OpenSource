@@ -2567,8 +2567,6 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 	if (!err_num[hwid])
 		cmdq_util_helper->error_enable((u8)hwid);
 
-	cmdq_dump_core(client->chan);
-
 #ifdef CMDQ_SECURE_SUPPORT
 	/* for secure path dump more detail */
 	if (pkt->sec_data) {
@@ -2577,6 +2575,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		cmdq_sec_helper->sec_err_dump_fp(
 			pkt, client, (u64 **)&inst, &mod);
 	} else {
+		cmdq_dump_core(client->chan);
 		cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
 	}
 
