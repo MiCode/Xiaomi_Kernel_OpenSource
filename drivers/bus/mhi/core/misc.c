@@ -956,6 +956,11 @@ void mhi_debug_reg_dump(struct mhi_controller *mhi_cntrl)
 		{ NULL },
 	};
 
+	if (!mhi_cntrl->regs || !mhi_cntrl->bhi || !mhi_cntrl->bhie) {
+		MHI_ERR(dev, "Cannot dump MHI/BHI registers\n");
+		return;
+	}
+
 	MHI_ERR(dev, "host pm_state:%s dev_state:%s ee:%s\n",
 		to_mhi_pm_state_str(mhi_cntrl->pm_state),
 		TO_MHI_STATE_STR(mhi_cntrl->dev_state),
