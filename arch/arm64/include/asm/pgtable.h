@@ -1036,8 +1036,10 @@ static inline int arch_prepare_to_swap(struct page *page)
 #define __HAVE_ARCH_SWAP_INVALIDATE
 static inline void arch_swap_invalidate_page(int type, pgoff_t offset)
 {
+#if !IS_ENABLED(CONFIG_MTK_MTE_DEBUG)
 	if (system_supports_mte())
 		mte_invalidate_tags(type, offset);
+#endif // CONFIG_MTK_MTE_DEBUG
 }
 
 static inline void arch_swap_invalidate_area(int type)

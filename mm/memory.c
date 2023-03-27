@@ -4006,6 +4006,11 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
 	set_pte_at(vma->vm_mm, vmf->address, vmf->pte, pte);
 	arch_do_swap_page(vma->vm_mm, vma, vmf->address, pte, vmf->orig_pte);
 
+#if IS_ENABLED(CONFIG_MTK_MTE_DEBUG)
+	if (system_supports_mte())
+		mte_invalidate_tags(swp_type(entry), swp_offset(entry));
+#endif // CONFIG_MTK_MTE_DEBUG
+
 	folio_unlock(folio);
 	if (folio != swapcache && swapcache) {
 		/*
