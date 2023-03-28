@@ -7,14 +7,9 @@
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
-#include <linux/rtmutex.h>
 #include "internal.h"
 
-#if IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
 static DEFINE_MUTEX(pmsg_lock);
-#else
-static DEFINE_RT_MUTEX(pmsg_lock);
-#endif
 
 static ssize_t write_pmsg(struct file *file, const char __user *buf,
 			  size_t count, loff_t *ppos)
@@ -33,17 +28,9 @@ static ssize_t write_pmsg(struct file *file, const char __user *buf,
 	if (!access_ok(buf, count))
 		return -EFAULT;
 
-#if IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
 	mutex_lock(&pmsg_lock);
-#else
-	rt_mutex_lock(&pmsg_lock);
-#endif
 	ret = psinfo->write_user(&record, buf);
-#if IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
 	mutex_unlock(&pmsg_lock);
-#else
-	rt_mutex_unlock(&pmsg_lock);
-#endif
 	return ret ? ret : count;
 }
 

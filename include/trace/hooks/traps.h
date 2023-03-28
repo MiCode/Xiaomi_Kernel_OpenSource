@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-// Copyright (c) 2023 Mediatek Inc.
-
-#ifdef CONFIG_MTK_SERROR_HOOK
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM traps
 #define TRACE_INCLUDE_PATH trace/hooks
@@ -10,35 +7,29 @@
 #define _TRACE_HOOK_TRAPS_H
 #include <trace/hooks/vendor_hooks.h>
 
-#ifdef __GENKSYMS__
-#include <asm/ptrace.h>
-#endif
-
 struct pt_regs;
 
 DECLARE_RESTRICTED_HOOK(android_rvh_do_undefinstr,
-	TP_PROTO(struct pt_regs *regs),
-	TP_ARGS(regs),
-	TP_CONDITION(!user_mode(regs)));
-
-DECLARE_RESTRICTED_HOOK(android_rvh_do_ptrauth_fault,
-	TP_PROTO(struct pt_regs *regs, unsigned int esr),
+	TP_PROTO(struct pt_regs *regs, unsigned long esr),
 	TP_ARGS(regs, esr),
 	TP_CONDITION(!user_mode(regs)));
 
+DECLARE_RESTRICTED_HOOK(android_rvh_do_el1_bti,
+	TP_PROTO(struct pt_regs *regs, unsigned long esr),
+	TP_ARGS(regs, esr), 1);
+
+DECLARE_RESTRICTED_HOOK(android_rvh_do_el1_fpac,
+	TP_PROTO(struct pt_regs *regs, unsigned long esr),
+	TP_ARGS(regs, esr), 1);
+
 DECLARE_RESTRICTED_HOOK(android_rvh_panic_unhandled,
-	TP_PROTO(struct pt_regs *regs, const char *vector, unsigned int esr),
+	TP_PROTO(struct pt_regs *regs, const char *vector, unsigned long esr),
 	TP_ARGS(regs, vector, esr), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_arm64_serror_panic,
-	TP_PROTO(struct pt_regs *regs, unsigned int esr),
+	TP_PROTO(struct pt_regs *regs, unsigned long esr),
 	TP_ARGS(regs, esr), 1);
-
-DECLARE_RESTRICTED_HOOK(android_rvh_do_serror,
-	TP_PROTO(struct pt_regs *regs, unsigned int esr, int *ret),
-	TP_ARGS(regs, esr, ret), 1);
 
 #endif /* _TRACE_HOOK_TRAPS_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
-#endif
