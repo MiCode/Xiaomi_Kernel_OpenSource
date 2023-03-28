@@ -2893,7 +2893,7 @@ static irqreturn_t ep_pcie_handle_sriov_irq(int irq, void *data)
 	}
 
 	dev->sriov_irq_counter++;
-	EP_PCIE_DBG(dev,
+	EP_PCIE_DUMP(dev,
 		"PCIe V%d: No. %ld SR-IOV IRQ %d received; status:0x%x; mask:0x%x\n",
 		dev->rev, dev->sriov_irq_counter, irq, sriov_irq_status, sriov_irq_mask);
 
