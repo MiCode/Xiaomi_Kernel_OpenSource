@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "adreno.h"
@@ -542,9 +542,7 @@ u32 a6xx_preemption_pre_ibsubmit(struct adreno_device *adreno_dev,
 
 		/* Add a KMD post amble to clear the perf counters during preemption */
 		if (!adreno_dev->perfcounter) {
-			u64 kmd_postamble_addr =
-					PREEMPT_SCRATCH_ADDR(adreno_dev, KMD_POSTAMBLE_IDX);
-
+			u64 kmd_postamble_addr = SCRATCH_POSTAMBLE_ADDR(KGSL_DEVICE(adreno_dev));
 			*cmds++ = cp_type7_packet(CP_SET_AMBLE, 3);
 			*cmds++ = lower_32_bits(kmd_postamble_addr);
 			*cmds++ = upper_32_bits(kmd_postamble_addr);
@@ -696,6 +694,7 @@ static int a6xx_preemption_ringbuffer_init(struct adreno_device *adreno_dev,
 
 int a6xx_preemption_init(struct adreno_device *adreno_dev)
 {
+	u32 flags = ADRENO_FEATURE(adreno_dev, ADRENO_APRIV) ? KGSL_MEMDESC_PRIVILEGED : 0;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_iommu *iommu = KGSL_IOMMU(device);
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
@@ -717,7 +716,7 @@ int a6xx_preemption_init(struct adreno_device *adreno_dev)
 	}
 
 	ret = adreno_allocate_global(device, &preempt->scratch,
-		PAGE_SIZE, 0, 0, 0, "preempt_scratch");
+		PAGE_SIZE, 0, 0, flags, "preempt_scratch");
 	if (ret)
 		return ret;
 
@@ -731,12 +730,13 @@ int a6xx_preemption_init(struct adreno_device *adreno_dev)
 	}
 
 	/*
-	 * First 8 dwords of the preemption scratch buffer is used to store the address for CP
-	 * to save/restore VPC data. Reserve 11 dwords in the preemption scratch buffer from
-	 * index KMD_POSTAMBLE_IDX for KMD postamble pm4 packets
+	 * First 28 dwords of the device scratch buffer are used to store shadow rb data.
+	 * Reserve 11 dwords in the device scratch buffer from SCRATCH_POSTAMBLE_OFFSET for
+	 * KMD postamble pm4 packets. This should be in *device->scratch* so that userspace
+	 * cannot access it.
 	 */
 	if (!adreno_dev->perfcounter) {
-		u32 *postamble = preempt->scratch->hostptr + (KMD_POSTAMBLE_IDX * sizeof(u64));
+		u32 *postamble = device->scratch->hostptr + SCRATCH_POSTAMBLE_OFFSET;
 		u32 count = 0;
 
 		postamble[count++] = cp_type7_packet(CP_REG_RMW, 3);
