@@ -2579,17 +2579,13 @@ static int spi_geni_resume(struct device *dev)
 static int spi_geni_suspend(struct device *dev)
 {
 	int ret = 0;
-	struct spi_master *spi = get_spi_master(dev);
-	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
 	if (!pm_runtime_status_suspended(dev)) {
+		struct spi_master *spi = get_spi_master(dev);
+		struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
+
 		SPI_LOG_ERR(geni_mas->ipc, true, dev,
-			":%s: runtime PM is active\n", __func__);
-		ret = -EBUSY;
-		return ret;
-	}
-
-	if (!pm_runtime_status_suspended(dev)) {
+			    ":%s: runtime PM is active\n", __func__);
 		if (list_empty(&spi->queue) && !spi->cur_msg) {
 			SPI_LOG_ERR(geni_mas->ipc, true, dev,
 					"%s: Force suspend", __func__);
