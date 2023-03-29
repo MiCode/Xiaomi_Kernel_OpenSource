@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __ADRENO_HFI_H
 #define __ADRENO_HFI_H
+
+#include "kgsl_util.h"
 
 #define HW_FENCE_QUEUE_SIZE		SZ_4K
 #define HFI_QUEUE_SIZE			SZ_4K /* bytes, must be base 4dw */
@@ -1091,4 +1093,41 @@ static inline u32 hfi_get_gmu_va_alignment(u32 va_align)
 int adreno_hwsched_wait_ack_completion(struct adreno_device *adreno_dev,
 	struct device *dev, struct pending_cmd *ack,
 	void (*process_msgq)(struct adreno_device *adreno_dev));
+
+/**
+ * hfi_get_minidump_string - Get the va-minidump string from entry
+ * mem_kind: mem_kind type
+ * hfi_minidump_str: Pointer to the output string
+ * size: Max size of the hfi_minidump_str
+ * rb_id: Pointer to the rb_id count
+ *
+ * This function return 0 on valid mem_kind and copies the VA-MINIDUMP string to
+ * hfi_minidump_str else return error
+ */
+static inline int hfi_get_minidump_string(u32 mem_kind, char *hfi_minidump_str,
+					   size_t size, u32 *rb_id)
+{
+	/* Extend this if the VA mindump need more hfi alloc entries */
+	switch (mem_kind) {
+	case HFI_MEMKIND_RB:
+		snprintf(hfi_minidump_str, size, KGSL_GMU_RB_ENTRY"_%d", (*rb_id)++);
+		break;
+	case HFI_MEMKIND_SCRATCH:
+		snprintf(hfi_minidump_str, size, KGSL_SCRATCH_ENTRY);
+		break;
+	case HFI_MEMKIND_PROFILE:
+		snprintf(hfi_minidump_str, size, KGSL_GMU_KERNEL_PROF_ENTRY);
+		break;
+	case HFI_MEMKIND_USER_PROFILE_IBS:
+		snprintf(hfi_minidump_str, size, KGSL_GMU_USER_PROF_ENTRY);
+		break;
+	case HFI_MEMKIND_CMD_BUFFER:
+		snprintf(hfi_minidump_str, size, KGSL_GMU_CMD_BUFFER_ENTRY);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
 #endif
