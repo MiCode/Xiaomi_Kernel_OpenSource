@@ -885,25 +885,71 @@ msm_get_subset_parts(struct device *dev,
 }
 ATTR_DEFINE(subset_parts);
 
-int32_t
-socinfo_get_subpart_info(enum subset_part_type part, uint32_t *nIdx, uint32_t *part_info)
+/**
+ * socinfo_get_part_count - Get part count
+ * @part: The subset_part_type to be checked
+ *
+ * Return the number of instances supported by the
+ * firmware for the part on success and a negative
+ * errno will be returned in error cases.
+ */
+int
+socinfo_get_part_count(enum subset_part_type part)
 {
-	uint32_t num_parts = 0, offset = 0;
-	void *info = socinfo;
+	int part_count = 1;
 
-	if (part >= NUM_PARTS_MAX) {
+	/* TODO: part_count to be read from SMEM after firmware adds support */
+
+	if ((part <= PART_UNKNOWN) || (part >= NUM_PARTS_MAX)) {
 		pr_err("Bad part number\n");
 		return -EINVAL;
 	}
 
-	num_parts = socinfo_get_num_subset_parts();
-	offset = socinfo_get_nsubset_parts_array_offset();
-	if (!num_parts || !offset)
+	return part_count;
+}
+EXPORT_SYMBOL(socinfo_get_part_count);
+
+/**
+ * socinfo_get_subpart_info - Get subpart information
+ * @part: The subset_part_type to be checked
+ * @part_info: Pointer to the subpart information.
+ *             Used to store the subpart information
+ *             for num_parts instances of the part.
+ * @num_parts: Number of instances of the part for
+ *             which the subpart information is required.
+ *
+ * On success subpart information will be stored in the part_info
+ * array for minimum of the number of instances requested and
+ * the number of instances supported by the firmware.
+ *
+ * A value of zero will be returned on success and a negative
+ * errno will be returned in error cases.
+ */
+int
+socinfo_get_subpart_info(enum subset_part_type part,
+		u32 *part_info,
+		u32 num_parts)
+{
+	uint32_t num_subset_parts = 0, offset = 0;
+	void *info = socinfo;
+	u32 i = 0, count = 0;
+	int part_count = 0;
+
+	part_count = socinfo_get_part_count(part);
+	if (part_count <= 0)
 		return -EINVAL;
 
-	info += (offset + (part * sizeof(uint32_t)));
-	*part_info = get_unaligned_le32(info);
-	*nIdx = 0;
+	num_subset_parts = socinfo_get_num_subset_parts();
+	offset = socinfo_get_nsubset_parts_array_offset();
+	if (!num_subset_parts || !offset)
+		return -EINVAL;
+
+	info += (offset + (part * sizeof(u32)));
+	count = min_t(u32, num_parts, part_count);
+	for (i = 0; i < count; i++) {
+		part_info[i] = get_unaligned_le32(info);
+		info += sizeof(u32);
+	}
 
 	return 0;
 }

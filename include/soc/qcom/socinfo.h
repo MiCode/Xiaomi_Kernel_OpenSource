@@ -110,7 +110,10 @@ uint32_t socinfo_get_partinfo_vulkan_id(unsigned int part_id);
 int socinfo_get_oem_variant_id(void);
 uint32_t socinfo_get_cluster_info(enum subset_cluster_type cluster);
 bool socinfo_get_part_info(enum subset_part_type part);
-int32_t socinfo_get_subpart_info(enum subset_part_type part, uint32_t *nIdx, uint32_t *part_info);
+int socinfo_get_part_count(enum subset_part_type part);
+int socinfo_get_subpart_info(enum subset_part_type part,
+		u32 *part_info,
+		u32 num_parts);
 #else
 static inline uint32_t socinfo_get_id(void)
 {
@@ -158,7 +161,14 @@ bool socinfo_get_part_info(enum subset_part_type part)
 {
 	return false;
 }
-int32_t socinfo_get_subpart_info(enum subset_part_type part, uint32_t *nIdx, uint32_t *part_info)
+int socinfo_get_part_count(enum subset_part_type part)
+{
+	return -EINVAL;
+}
+
+int socinfo_get_subpart_info(enum subset_part_type part,
+		u32 *part_info,
+		u32 num_parts)
 {
 	return -EINVAL;
 }
