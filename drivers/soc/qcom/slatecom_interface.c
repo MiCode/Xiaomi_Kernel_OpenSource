@@ -445,6 +445,7 @@ static int slatecom_fw_load(struct slatedaemon_priv *priv)
 	if (ret) {
 		pr_err("%s: rproc boot failed, err: %d\n",
 			__func__, ret);
+		priv->pil_h = NULL;
 		goto fail;
 	}
 
