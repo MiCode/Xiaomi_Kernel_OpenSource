@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
@@ -97,6 +97,13 @@
 #define ACCL_TYPE(addr)			((addr >> 16) & 0xF)
 #define NR_ACCL_TYPES			3
 #define MAX_RSC_COUNT			2
+#define VREG_ADDR(addr)			(addr & ~0xF)
+
+enum {
+	HW_ACCL_CLK = 0x3,
+	HW_ACCL_VREG,
+	HW_ACCL_BUS,
+};
 
 static const char * const accl_str[] = {
 	"", "", "", "CLK", "VREG", "BUS",
@@ -549,6 +556,7 @@ static int check_for_req_inflight(struct rsc_drv *drv, struct tcs_group *tcs,
 	u32 addr;
 	int i, j, k;
 	int tcs_id = tcs->offset;
+	unsigned long accl;
 
 	for (i = 0; i < tcs->num_tcs; i++, tcs_id++) {
 		if (tcs_is_free(drv, tcs_id))
@@ -559,7 +567,16 @@ static int check_for_req_inflight(struct rsc_drv *drv, struct tcs_group *tcs,
 		for_each_set_bit(j, &curr_enabled, MAX_CMDS_PER_TCS) {
 			addr = read_tcs_cmd(drv, RSC_DRV_CMD_ADDR, tcs_id, j);
 			for (k = 0; k < msg->num_cmds; k++) {
-				if (addr == msg->cmds[k].addr)
+			/*
+			 * Each RPMh VREG accelerator resource has 3 or 4 contiguous 4-byte
+			 * aligned addresses associated with it. Ignore the offset to check
+			 * for in-flight VREG requests.
+			 */
+				accl = ACCL_TYPE(msg->cmds[k].addr);
+				if (accl == HW_ACCL_VREG &&
+				    VREG_ADDR(addr) == VREG_ADDR(msg->cmds[k].addr))
+					return -EBUSY;
+				else if (addr == msg->cmds[k].addr)
 					return -EBUSY;
 			}
 		}
