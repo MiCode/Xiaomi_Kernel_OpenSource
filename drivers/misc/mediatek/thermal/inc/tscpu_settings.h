@@ -246,12 +246,12 @@
 #define tscpu_dprintk(fmt, args...) \
 do {                                    \
 	if (tscpu_debug_log == 1) {                \
-		pr_info(TSCPU_LOG_TAG fmt, ##args); \
+		pr_notice(TSCPU_LOG_TAG fmt, ##args); \
 	}                                   \
 } while (0)
 
-#define tscpu_printk(fmt, args...) pr_info(TSCPU_LOG_TAG fmt, ##args)
-#define tscpu_warn(fmt, args...)  pr_info(TSCPU_LOG_TAG fmt, ##args)
+#define tscpu_printk(fmt, args...) pr_notice(TSCPU_LOG_TAG fmt, ##args)
+#define tscpu_warn(fmt, args...)  pr_notice(TSCPU_LOG_TAG fmt, ##args)
 
 /*=============================================================
  * Structures
@@ -373,6 +373,7 @@ extern int tscpu_curr_cpu_temp, tscpu_curr_gpu_temp;
 #if IS_ENABLED(CONFIG_OF)
 extern u32 thermal_irq_number;
 extern void __iomem *thermal_base;
+extern void __iomem *rgu_base;
 extern void __iomem *auxadc_ts_base;
 extern void __iomem *infracfg_ao_base;
 extern void __iomem *th_apmixed_base;
@@ -460,6 +461,7 @@ extern void __iomem *INFRACFG_AO_base;
 
 /* chip dependent */
 #define THERM_CTRL_BASE_2    thermal_base
+#define RGU_CTRL_BASE_2      rgu_base
 #define AUXADC_BASE_2        auxadc_ts_base
 #define INFRACFG_AO_BASE_2   infracfg_ao_base
 #define APMIXED_BASE_2       th_apmixed_base
@@ -679,6 +681,18 @@ extern void __iomem *INFRACFG_AO_base;
 #define PTPSPARE2_P           (thermal_phy_base + 0xF28)
 #define PTPSPARE3_P           (thermal_phy_base + 0xF2C)
 
+
+/**************************************************************************** */
+/* RGU related registers. */
+/**************************************************************************** */
+#define MTK_WDT_REQ_MODE		(RGU_CTRL_BASE_2 + 0x0030)
+#define MTK_WDT_REQ_IRQ_EN		(RGU_CTRL_BASE_2 + 0x0034)
+#define MTK_WDT_REQ_MODE_KEY		(0x33000000)
+#define MTK_WDT_REQ_IRQ_KEY		(0x44000000)
+#define MTK_WDT_REQ_THERMAL_MARK		(1<<18)
+#define MTK_WDT_REQ_MODE_THERMAL		(1<<18)
+#define MTK_WDT_REQ_IRQ_THERMAL_EN		(1<<18)
+
 /*******************************************************************************
  * Thermal Controller Register Mask Definition
  *****************************************************************************
@@ -728,5 +742,8 @@ extern void __iomem *INFRACFG_AO_base;
 
 /*cpu core nums*/
 #define TZCPU_NO_CPU_CORES              (8)
+
+/* clear hw protect offset mask */
+#define PROTOFFSET	GENMASK(15, 0)
 
 #endif	/* __TSCPU_SETTINGS_H__ */
