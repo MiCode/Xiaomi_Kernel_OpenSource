@@ -2656,12 +2656,23 @@ void cmdq_core_dump_handle_buffer(const struct cmdq_pkt *pkt,
 				pkt->avail_buf_size);
 		else
 			va = (u32 *)(buf->va_base + CMDQ_CMD_BUFFER_SIZE);
-		va -= 4;
 
-		CMDQ_LOG(
-			"[%s]va:0x%p pa:%pa last inst (0x%p) 0x%08x:%08x 0x%08x:%08x\n",
-			tag, buf->va_base, &buf->pa_base,
-			va, va[1], va[0], va[3], va[2]);
+		if (CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size >= CMDQ_INST_SIZE * 2) {
+			va -= 4;
+
+			CMDQ_LOG(
+				"[%s]va:0x%p pa:%pa last inst (0x%p) 0x%08x:%08x 0x%08x:%08x\n",
+				tag, buf->va_base, &buf->pa_base,
+				va, va[1], va[0], va[3], va[2]);
+		} else {
+			va -= 2;
+
+			CMDQ_LOG(
+				"[%s]va:0x%p pa:%pa last inst (0x%p) 0x%08x:%08x\n",
+				tag, buf->va_base, &buf->pa_base,
+				va, va[1], va[0]);
+		}
+
 	}
 }
 
