@@ -1,5 +1,14 @@
 # SPDX-License-Identifier: GPL-2.0
 
+config MTK_SMI_BWC
+	tristate "MediaTek BWC driver"
+	help
+	  BWC is mainy to optimize the bus access latency based on
+	  multimedia scenarios.
+	  It is required for many MTK multimedia middlewares including
+	  camera and video middlewares on some legacy chips.
+	  This config enables BWC functions.
+
 config HAVE_MTK_MC
 	bool "MediaTek Memory Controller support"
 	help
