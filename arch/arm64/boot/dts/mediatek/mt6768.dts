@@ -1771,7 +1771,10 @@ transparent_hugepage=never";
 	};
 
 	hwrng: hwrng {
-		compatible = "mediatek,mt67xx-rng";
+		compatible = "arm,sec-rng";
+		methods = "smc";
+		method-fid = /bits/ 16 <0x26a>;
+		quality = /bits/ 16 <900>;
 	};
 
 	bus_dbg@10208000 {
