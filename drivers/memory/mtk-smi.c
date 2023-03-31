@@ -1569,15 +1569,14 @@ mtk_smi_larb_mt6768_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
 
 static struct mtk_smi_reg_pair
 mtk_smi_larb_mt6765_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
-	{/* {SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1},
-	  * {SMI_LARB_SPM_ULTRA_MASK, 0xffffffc0}, {SMI_LARB_WRR_PORT(0), 0xb},
-	  * {SMI_LARB_WRR_PORT(1), 0xb}, {SMI_LARB_WRR_PORT(2), 0xb},
-	  * {SMI_LARB_WRR_PORT(3), 0xb}, {SMI_LARB_WRR_PORT(4), 0xb},
-	  * TODO macro not defined */}, /*LARB0 */
-	{/* {SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1}, */}, /*LARB1 */
-	{/* {SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1},
-	  * {SMI_LARB_SPM_ULTRA_MASK, 0xffffc000}, */}, /*LARB2 */
-	{}, /*LARB3*/
+	{{SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1},
+	 {SMI_LARB_SPM_ULTRA_MASK, 0xffffffc0}, {SMI_LARB_WRR_PORTx(0), 0xb},
+	 {SMI_LARB_WRR_PORTx(1), 0xb}, {SMI_LARB_WRR_PORTx(2), 0xb},
+	 {SMI_LARB_WRR_PORTx(3), 0xb}, {SMI_LARB_WRR_PORTx(4), 0xb},},/*LARB0 smi_larb0_conf_pair*/
+	{{SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1},},/*LARB1 smi_larb1_conf_pair*/
+	{{SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1},
+	 {SMI_LARB_SPM_ULTRA_MASK, 0xffffc000},},                     /*LARB2 smi_larb2_conf_pair*/
+	{{SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1},},/*LARB3 smi_larb3_conf_pair*/
 	{}, /*LARB4*/
 };
 
@@ -2371,7 +2370,8 @@ static u16 mtk_smi_common_mt6768_bwl[MTK_COMMON_NR_MAX][SMI_COMMON_LARB_NR_MAX] 
 };
 
 static u16 mtk_smi_common_mt6765_bwl[MTK_COMMON_NR_MAX][SMI_COMMON_LARB_NR_MAX] = {
-	{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
+	/*From mt6765/smi_conf.h smi_comm_init_pair */
+	{0x1ba5, 0x1000, 0x15d3, 0x1000, 0x0, 0x0, 0x0, 0x0},
 };
 
 static struct mtk_smi_reg_pair
@@ -2613,16 +2613,13 @@ mtk_smi_common_mt6768_misc[MTK_COMMON_NR_MAX][SMI_COMMON_MISC_NR] = {
 
 static struct mtk_smi_reg_pair /*TODO complete golden setting; macro not defined */
 mtk_smi_common_mt6765_misc[MTK_COMMON_NR_MAX][SMI_COMMON_MISC_NR] = {
-	{/* {SMI_L1LEN, 0xb}, {SMI_WRR_REG0, 0x30c30c},
-	  * {SMI_DCM, 0x4fd}, {SMI_DUMMY, 0x1}, from smi_comm_conf_pair */},
-	/* 0:SMI_COMMON */
-	{{SMI_L1LEN, 0xb}, {SMI_PREULTRA_MASK1, 0x2105}, {SMI_DUMMY, 0x1},
-	 /* {SMI_WRR_REG0, 0x30c30c},
-	  * {SMI_DCM, 0x4fd}, {SMI_Mx_RWULTRA_WRRy(1, 0, 0), 0x30c30c},
-	  * {SMI_Mx_RWULTRA_WRRy(1, 1, 0), 0x30c30c},
-	  * {SMI_Mx_RWULTRA_WRRy(2, 0, 0), 0x30c30c},
-	  * {SMI_Mx_RWULTRA_WRRy(2, 1, 0), 0x30c30c},
-	  * TODO: Need to set */},
+	/* From /smi/mt6765/smi_conf.h */
+	{{SMI_L1LEN, 0xb}, {SMI_WRR_REG0, 0x30c30c}, {SMI_DCM, 0x4fd},
+	 {SMI_Mx_RWULTRA_WRRy(1, 0, 0), 0x30c30c},
+	 {SMI_Mx_RWULTRA_WRRy(1, 1, 0), 0x30c30c},
+	 {SMI_Mx_RWULTRA_WRRy(2, 0, 0), 0x30c30c},
+	 {SMI_Mx_RWULTRA_WRRy(2, 1, 0), 0x30c30c},
+	 {SMI_DUMMY, 0x1},}, /* 0:SMI_COMMON smi_comm_conf_pair */
 };
 
 static const struct mtk_smi_common_plat mtk_smi_common_gen1 = {
