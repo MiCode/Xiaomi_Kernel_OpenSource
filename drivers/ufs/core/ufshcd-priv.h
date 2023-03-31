@@ -66,6 +66,10 @@ void ufshcd_compl_one_cqe(struct ufs_hba *hba, int task_tag,
 int ufshcd_mcq_init(struct ufs_hba *hba);
 int ufshcd_mcq_decide_queue_depth(struct ufs_hba *hba);
 int ufshcd_mcq_memory_alloc(struct ufs_hba *hba);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+void ufshcd_mcq_make_queues_operational(struct ufs_hba *hba);
+void ufshcd_mcq_config_mac(struct ufs_hba *hba, u32 max_active_cmds);
+#endif
 void ufshcd_mcq_select_mcq_mode(struct ufs_hba *hba);
 u32 ufshcd_mcq_read_cqis(struct ufs_hba *hba, int i);
 void ufshcd_mcq_write_cqis(struct ufs_hba *hba, u32 val, int i);
@@ -84,6 +88,9 @@ int ufshcd_mcq_abort(struct scsi_cmnd *cmd);
 int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag);
 void ufshcd_release_scsi_cmd(struct ufs_hba *hba,
 				struct ufshcd_lrb *lrbp);
+#endif
+#if !IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+#define UFSHCD_MCQ_IO_QUEUE_OFFSET	1
 #endif
 #define SD_ASCII_STD true
 #define SD_RAW false
@@ -293,7 +300,9 @@ static inline int ufshcd_mcq_vops_config_esi(struct ufs_hba *hba)
 	return -EOPNOTSUPP;
 }
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 extern unsigned int dev_cmd_queues;
+#endif
 extern const struct ufs_pm_lvl_states ufs_pm_lvl_states[];
 
 /**

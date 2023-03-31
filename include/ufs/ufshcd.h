@@ -639,7 +639,7 @@ enum ufshcd_quirks {
 	 * keys were stored in it.
 	 */
 	UFSHCD_QUIRK_KEYS_IN_PRDT			= 1 << 22,
-
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	/*
 	 * Some platform raises interrupt (per queue) in addition to
 	 * CQES (traditional) when ESI is disabled.
@@ -652,6 +652,7 @@ enum ufshcd_quirks {
 	 * FAILED error code will be reuturned.
 	 */
 	UFSHCD_QUIRK_MCQ_BROKEN_RTC			= 1 << 24,
+#endif
 };
 
 enum ufshcd_caps {
@@ -1175,7 +1176,11 @@ static inline size_t ufshcd_sg_entry_size(const struct ufs_hba *hba)
 	({ (void)(hba); BUILD_BUG_ON(sg_entry_size != sizeof(struct ufshcd_sg_entry)); })
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 static inline size_t ufshcd_get_ucd_size(const struct ufs_hba *hba)
+#else
+static inline size_t sizeof_utp_transfer_cmd_desc(const struct ufs_hba *hba)
+#endif
 {
 	return sizeof(struct utp_transfer_cmd_desc) + SG_ALL * ufshcd_sg_entry_size(hba);
 }

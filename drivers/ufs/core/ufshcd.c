@@ -2847,10 +2847,18 @@ static void ufshcd_map_queues(struct Scsi_Host *shost)
 static void ufshcd_init_lrb(struct ufs_hba *hba, struct ufshcd_lrb *lrb, int i)
 {
 	struct utp_transfer_cmd_desc *cmd_descp = (void *)hba->ucdl_base_addr +
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 		i * ufshcd_get_ucd_size(hba);
+#else
+		i * sizeof_utp_transfer_cmd_desc(hba);
+#endif
 	struct utp_transfer_req_desc *utrdlp = hba->utrdl_base_addr;
 	dma_addr_t cmd_desc_element_addr = hba->ucdl_dma_addr +
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 		i * ufshcd_get_ucd_size(hba);
+#else
+		i * sizeof_utp_transfer_cmd_desc(hba);
+#endif
 	u16 response_offset = offsetof(struct utp_transfer_cmd_desc,
 				       response_upiu);
 	u16 prdt_offset = offsetof(struct utp_transfer_cmd_desc, prd_table);
@@ -3805,7 +3813,11 @@ static int ufshcd_memory_alloc(struct ufs_hba *hba)
 	size_t utmrdl_size, utrdl_size, ucdl_size;
 
 	/* Allocate memory for UTP command descriptors */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	ucdl_size = ufshcd_get_ucd_size(hba) * hba->nutrs;
+#else
+	ucdl_size = sizeof_utp_transfer_cmd_desc(hba) * hba->nutrs;
+#endif
 	hba->ucdl_base_addr = dmam_alloc_coherent(hba->dev,
 						  ucdl_size,
 						  &hba->ucdl_dma_addr,
@@ -3905,7 +3917,11 @@ static void ufshcd_host_memory_configure(struct ufs_hba *hba)
 	prdt_offset =
 		offsetof(struct utp_transfer_cmd_desc, prd_table);
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	cmd_desc_size = ufshcd_get_ucd_size(hba);
+#else
+	cmd_desc_size = sizeof_utp_transfer_cmd_desc(hba);
+#endif
 	cmd_desc_dma_addr = hba->ucdl_dma_addr;
 
 	for (i = 0; i < hba->nutrs; i++) {
@@ -5561,7 +5577,11 @@ static int ufshcd_poll(struct Scsi_Host *shost, unsigned int queue_num)
 	struct ufs_hw_queue *hwq;
 
 	if (is_mcq_enabled(hba)) {
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 		hwq = &hba->uhq[queue_num + dev_cmd_queues];
+#else
+		hwq = &hba->uhq[queue_num + UFSHCD_MCQ_IO_QUEUE_OFFSET];
+#endif
 
 		return ufshcd_mcq_poll_cqe_lock(hba, hwq);
 	}
@@ -8614,7 +8634,11 @@ static void ufshcd_release_sdb_queue(struct ufs_hba *hba, int nutrs)
 {
 	size_t ucdl_size, utrdl_size;
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	ucdl_size = ufshcd_get_ucd_size(hba) * nutrs;
+#else
+	ucdl_size = sizeof_utp_transfer_cmd_desc(hba) * nutrs;
+#endif
 	dmam_free_coherent(hba->dev, ucdl_size, hba->ucdl_base_addr,
 			   hba->ucdl_dma_addr);
 
@@ -8664,15 +8688,22 @@ err:
 static void ufshcd_config_mcq(struct ufs_hba *hba)
 {
 	int ret;
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	u32 intrs;
+#endif
+
 	ret = ufshcd_mcq_vops_config_esi(hba);
 
 	dev_info(hba->dev, "ESI %sconfigured\n", ret ? "is not " : "");
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	intrs = (hba->quirks & UFSHCD_QUIRK_MCQ_BROKEN_INTR) ?
 		(UFSHCD_ENABLE_MCQ_INTRS & ~MCQ_CQ_EVENT_STATUS) : UFSHCD_ENABLE_MCQ_INTRS;
 
 	ufshcd_enable_intr(hba, intrs);
+#else
+	ufshcd_enable_intr(hba, UFSHCD_ENABLE_MCQ_INTRS);
+#endif
 	ufshcd_mcq_make_queues_operational(hba);
 	ufshcd_mcq_config_mac(hba, hba->nutrs);
 
