@@ -1557,51 +1557,79 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 
 static void mtk_rdma_prepare(struct mtk_ddp_comp *comp)
 {
+	struct mtk_drm_private *private = NULL;
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
-#ifdef SHARE_WROT_SRAM
-	struct mtk_drm_private *private =
-			comp->mtk_crtc->base.dev->dev_private;
-	int ret = 0;
-#endif
+	int crtc_id;
 
 	mtk_ddp_comp_clk_prepare(comp);
-#ifdef SHARE_WROT_SRAM
-	if (mtk_drm_helper_get_opt(private->helper_opt,
-			MTK_DRM_OPT_SHARE_SRAM)) {
-		if (IS_ERR(rdma->wrot_clk)) {
-			DDPMSG("get mdp_wrot0 clk failed: %p ,\n", rdma->wrot_clk);
-		} else {
-			ret = clk_prepare_enable(rdma->wrot_clk);
-			if (ret)
-				DDPMSG("enable mdp_wrot0 clk failed!\n");
-			else
-				DDPMSG("enable mdp_wrot0 clk success!\n");
-		}
-	}
-#endif
+
 	/* Bypass shadow register and read shadow register */
 	if (rdma->data->need_bypass_shadow)
 		mtk_ddp_write_mask_cpu(comp, RDMA_BYPASS_SHADOW,
 			DISP_REG_RDMA_SHADOW_UPDATE(rdma), RDMA_BYPASS_SHADOW);
+
+	if (comp->mtk_crtc) {
+		private = comp->mtk_crtc->base.dev->dev_private;
+#ifdef SHARE_WROT_SRAM
+		if (mtk_drm_helper_get_opt(private->helper_opt,
+				MTK_DRM_OPT_SHARE_SRAM)) {
+			if (IS_ERR(rdma->wrot_clk)) {
+				DDPMSG("get mdp_wrot0 clk failed: %p ,\n", rdma->wrot_clk);
+			} else {
+				int ret = 0;
+
+				ret = clk_prepare_enable(rdma->wrot_clk);
+				if (ret)
+					DDPMSG("enable mdp_wrot0 clk failed!\n");
+				else
+					DDPMSG("enable mdp_wrot0 clk success!\n");
+			}
+		}
+#endif
+		/* SW workaround.
+		 * Enable polling RDMA output line isn't 0 && RDMA status is run,
+		 * before path resume.
+		 */
+		crtc_id = drm_crtc_index(&comp->mtk_crtc->base);
+		if (crtc_id == 0 &&
+			private->data->mmsys_id == MMSYS_MT6768 &&
+			mtk_dsi_is_cmd_mode(private->ddp_comp[DDP_COMPONENT_DSI0]))
+			polling_rdma_output_line_enable = 1;
+	}
 }
 
 static void mtk_rdma_unprepare(struct mtk_ddp_comp *comp)
 {
+	struct mtk_drm_private *private = NULL;
+	int crtc_id;
 #ifdef SHARE_WROT_SRAM
 	struct mtk_disp_rdma *rdma = comp_to_rdma(comp);
-	struct mtk_drm_private *private =
-		comp->mtk_crtc->base.dev->dev_private;
-
-	if (mtk_drm_helper_get_opt(private->helper_opt,
-			MTK_DRM_OPT_SHARE_SRAM)) {
-		if (IS_ERR(rdma->wrot_clk)) {
-			DDPMSG("get mdp_wrot0 clk failed: %p ,\n", rdma->wrot_clk);
-		} else {
-			clk_disable_unprepare(rdma->wrot_clk);
-			DDPMSG("disable mdp_wrot0 clk success!\n");
-		}
-	}
 #endif
+
+	if (comp->mtk_crtc) {
+		private = comp->mtk_crtc->base.dev->dev_private;
+
+#ifdef SHARE_WROT_SRAM
+		if (mtk_drm_helper_get_opt(private->helper_opt,
+				MTK_DRM_OPT_SHARE_SRAM)) {
+			if (IS_ERR(rdma->wrot_clk)) {
+				DDPMSG("get mdp_wrot0 clk failed: %p ,\n", rdma->wrot_clk);
+			} else {
+				clk_disable_unprepare(rdma->wrot_clk);
+				DDPMSG("disable mdp_wrot0 clk success!\n");
+			}
+		}
+#endif
+		/* SW workaround.
+		 * Disable polling RDMA output line isn't 0 && RDMA status is run,
+		 * before path stop.
+		 */
+		crtc_id = drm_crtc_index(&comp->mtk_crtc->base);
+		if (crtc_id == 0 &&
+			private->data->mmsys_id == MMSYS_MT6768 &&
+			mtk_dsi_is_cmd_mode(private->ddp_comp[DDP_COMPONENT_DSI0]))
+			polling_rdma_output_line_enable = 0;
+	}
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 

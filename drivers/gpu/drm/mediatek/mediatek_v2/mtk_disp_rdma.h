@@ -27,5 +27,5 @@ struct mtk_disp_rdma_data {
 	bool rdma_irq_ts_debug;
 	bool disable_underflow;
 };
-
+extern int polling_rdma_output_line_enable;
 #endif

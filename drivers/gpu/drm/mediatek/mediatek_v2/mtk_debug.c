@@ -41,6 +41,7 @@
 #include "mtk_drm_graphics_base.h"
 #include "mtk_disp_bdg.h"
 #include "mtk_dsi.h"
+#include <linux/pm_domain.h>
 
 #define DISP_REG_CONFIG_MMSYS_CG_SET(idx) (0x104 + 0x10 * (idx))
 #define DISP_REG_CONFIG_MMSYS_CG_CLR(idx) (0x108 + 0x10 * (idx))
@@ -148,6 +149,79 @@ static bool logger_enable = 1;
 #else
 static bool logger_enable;
 #endif
+
+#define MT6768_DISP_REG_RDMA_OUT_LINE_CNT 0x0fC
+#define MT6768_DISP_REG_RDMA_DBG_OUT1 0x10C
+
+int polling_rdma_output_line_enable;
+static struct notifier_block nb;
+static unsigned long pm_penpd_status = GENPD_NOTIFY_OFF;
+
+/* SW workaround.
+ * Polling RDMA output line isn't 0 && RDMA status is run,
+ * before switching mm clock mux in cmd mode.
+ */
+void polling_rdma_output_line_is_not_zero(void)
+{
+	struct mtk_drm_private *priv = NULL;
+	struct mtk_ddp_comp *comp = NULL;
+	unsigned int loop_cnt = 0;
+
+	if (!drm_dev) {
+		DDPMSG("%s drm_dev is null\n", __func__);
+		return;
+	}
+	priv = drm_dev->dev_private;
+
+	if (!priv) {
+		DDPMSG("%s priv is null\n", __func__);
+		return;
+	}
+	comp = priv->ddp_comp[DDP_COMPONENT_RDMA0];
+
+	if (!comp || !comp->mtk_crtc ||
+			pm_penpd_status == GENPD_NOTIFY_PRE_OFF ||
+			pm_penpd_status == GENPD_NOTIFY_OFF) {
+		DDPDBG("%s DISP power status:%d\n",
+			__func__, pm_penpd_status);
+		return;
+	}
+
+	if (polling_rdma_output_line_enable &&
+		mtk_crtc_is_frame_trigger_mode(&comp->mtk_crtc->base)) {
+		DDPDBG("%s start\n", __func__);
+
+		while (loop_cnt < 1*1000) {
+			if (readl(comp->regs + MT6768_DISP_REG_RDMA_OUT_LINE_CNT) ||
+					!(readl(comp->regs + MT6768_DISP_REG_RDMA_DBG_OUT1) & 0x1))
+				break;
+			loop_cnt++;
+			udelay(1);
+		}
+
+		if (loop_cnt == 1000)
+			DDPMSG("%s delay loop_cnt=%d, outline=0x%x\n",
+				__func__, loop_cnt,
+				readl(comp->regs + MT6768_DISP_REG_RDMA_OUT_LINE_CNT));
+
+		/* DDPDBG("%s done\n", __func__); */
+	}
+}
+
+static int mtk_disp_pd_callback(struct notifier_block *nb,
+				unsigned long flags, void *data)
+{
+	pm_penpd_status = flags;
+	if (flags == GENPD_NOTIFY_PRE_OFF)
+		DDPDBG("%s,enter suspend pre_off\n", __func__);
+	else if (flags == GENPD_NOTIFY_OFF)
+		DDPDBG("%s,enter suspend off\n", __func__);
+	else if (flags == GENPD_NOTIFY_PRE_ON)
+		DDPDBG("%s,enter resume pre_on\n", __func__);
+	else if (flags == GENPD_NOTIFY_ON)
+		DDPDBG("%s,enter resume on\n", __func__);
+	return NOTIFY_OK;
+}
 
 static int draw_RGBA8888_buffer(char *va, int w, int h,
 		       char r, char g, char b, char a)
@@ -4010,16 +4084,49 @@ out:
 
 void disp_dbg_init(struct drm_device *dev)
 {
+	int ret = 0;
+	struct mtk_drm_private *priv;
+
 	if (IS_ERR_OR_NULL(dev))
 		DDPMSG("%s, disp debug init with invalid dev\n", __func__);
 	else
 		DDPMSG("%s, disp debug init\n", __func__);
 	drm_dev = dev;
 	init_completion(&cwb_cmp);
+
+	priv = drm_dev->dev_private;
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPMSG("%s, invalid priv\n", __func__);
+		return;
+	}
+	/* SW workaround.
+	 * Polling RDMA output line isn't 0 && RDMA status is run,
+	 * before switching mm clock mux in cmd mode.
+	 */
+	if (priv->data->mmsys_id == MMSYS_MT6768) {
+		nb.notifier_call = mtk_disp_pd_callback;
+		ret = dev_pm_genpd_add_notifier(dev->dev, &nb);
+		if (ret)
+			DDPMSG("dev_pm_genpd_add_notifier disp register fail!\n");
+		else
+			mtk_mux_set_quick_switch_chk_cb(
+				polling_rdma_output_line_is_not_zero);
+	}
 }
 
 void disp_dbg_deinit(void)
 {
+	int ret = 0;
+	struct mtk_drm_private *priv;
+
+	priv = drm_dev->dev_private;
+	if (!IS_ERR_OR_NULL(priv) && priv->data->mmsys_id == MMSYS_MT6768) {
+		ret = dev_pm_genpd_remove_notifier(drm_dev->dev);
+		if (ret)
+			DDPMSG("dev_pm_genpd_remove_notifier disp unregister fail!\n");
+		mtk_mux_set_quick_switch_chk_cb(NULL);
+	}
+
 	if (debug_buffer)
 		vfree(debug_buffer);
 #if IS_ENABLED(CONFIG_DEBUG_FS)
