@@ -1577,10 +1577,12 @@ static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
 
 	if (cur_thres > NUM_REQS_HIGH_THRESH && !host->cur_freq_vote) {
 		freq_val = host->max_cpu_scale_freq;
-		ufs_qcom_toggle_pri_affinity(host->hba, true);
+		if (host->irq_affinity_support)
+			ufs_qcom_toggle_pri_affinity(host->hba, true);
 	} else if (cur_thres < NUM_REQS_LOW_THRESH && host->cur_freq_vote) {
 		freq_val = host->min_cpu_scale_freq;
-		ufs_qcom_toggle_pri_affinity(host->hba, false);
+		if (host->irq_affinity_support)
+			ufs_qcom_toggle_pri_affinity(host->hba, false);
 	}
 
 	if (freq_val == -1)
@@ -3288,6 +3290,9 @@ static void ufs_qcom_parse_irq_affinity(struct ufs_hba *hba)
 			host->def_mask.bits[0] = UFS_QCOM_IRQ_SLVR_MASK;
 		}
 	}
+	/* If device includes perf mask, enable dynamic irq affinity feature */
+	if (host->perf_mask.bits[0])
+		host->irq_affinity_support = true;
 }
 
 static void ufs_qcom_parse_pm_level(struct ufs_hba *hba)
@@ -3352,8 +3357,8 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 	switch (data) {
 	case UFS_QCOM_LVL_NO_THERM:
 		ufs_qcom_msg(WARN, tcd->devdata, "UFS host thermal mitigation stops\n");
-
-		atomic_set(&host->therm_mitigation, 0);
+		if (host->irq_affinity_support)
+			atomic_set(&host->therm_mitigation, 0);
 
 		/* Set the default auto-hiberate idle timer to 5 ms */
 		ufshcd_auto_hibern8_update(hba, ufs_qcom_us_to_ahit(5000));
@@ -3368,10 +3373,12 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 		ufs_qcom_msg(WARN, tcd->devdata,
 			"Going into UFS host thermal mitigation state, performance may be impacted before UFS host thermal mitigation stops\n");
 
-		/* Stop setting hi-pri to requests and set irq affinity to default value */
-		atomic_set(&host->therm_mitigation, 1);
-		cancel_dwork_unvote_cpufreq(hba);
-		ufs_qcom_toggle_pri_affinity(hba, false);
+		if (host->irq_affinity_support) {
+			/* Stop setting hi-pri to requests and set irq affinity to default value */
+			atomic_set(&host->therm_mitigation, 1);
+			cancel_dwork_unvote_cpufreq(hba);
+			ufs_qcom_toggle_pri_affinity(hba, false);
+		}
 		/* Set the default auto-hiberate idle timer to 1 ms */
 		ufshcd_auto_hibern8_update(hba, ufs_qcom_us_to_ahit(1000));
 
@@ -5055,7 +5062,7 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 					ufshcd_readl(hba,
 						REG_UTP_TRANSFER_REQ_DOOR_BELL),
 					sz);
-		if (atomic_read(&host->hi_pri_en) && rq)
+		if ((host->irq_affinity_support) && atomic_read(&host->hi_pri_en) && rq)
 			rq->cmd_flags |= REQ_HIPRI;
 	}
 }
