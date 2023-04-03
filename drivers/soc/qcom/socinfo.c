@@ -1143,6 +1143,9 @@ static const struct soc_id soc_id[] = {
 	{ 601, "SG_KALAMAP"},
 	{ 603, "QCS_KALAMAP"},
 	{ 604, "QCM_KALAMA"},
+	{ 605, "MONACOAU_ADAS"},
+	{ 606, "MONACOAU_IVI"},
+	{ 607, "MONACOAU_SRV1L"},
 	{ 608, "CROW" },
 };
 
