@@ -73,21 +73,34 @@ static struct task_struct **thread_array;
 static bool Hang_first_done;
 static bool hd_detect_enabled;
 static bool hd_zygote_stopped;
+static bool hd_hang_trace;
+static bool hd_hang_poll;
 static int hd_timeout = 0x7fffffff;
 static int hang_detect_counter = 0x7fffffff;
 static int dump_bt_done;
 static bool reboot_flag;
 static struct name_list *white_list;
-static struct hang_callback_list *callback_list;
 
 #ifdef CONFIG_MTK_HANG_PROC
 static struct proc_dir_entry *pe;
 #endif
 
+struct hang_callback {
+	struct list_head hc_entry;
+	void (*fn)(void);
+};
+
+struct list_hang_callback {
+	struct list_head list;
+	struct rw_semaphore rwsem;
+};
+static struct list_hang_callback hc_list;
+
+wait_queue_head_t hang_wait;
+
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_start_wait);
 DECLARE_WAIT_QUEUE_HEAD(dump_bt_done_wait);
 DEFINE_RAW_SPINLOCK(white_list_lock);
-DEFINE_RAW_SPINLOCK(callback_list_lock);
 DEFINE_MUTEX(thread_array_lock);
 
 static void show_status(int flag);
@@ -270,38 +283,39 @@ int del_white_list(char *name)
 
 int register_hang_callback(void (*function_addr)(void))
 {
-	struct hang_callback_list *new_callback;
-	struct hang_callback_list *pList;
+	struct hang_callback *new_callback;
 
-	raw_spin_lock(&callback_list_lock);
-	if (!callback_list) {
-		new_callback = kmalloc(sizeof(struct hang_callback_list), GFP_KERNEL);
-		if (!new_callback) {
-			raw_spin_unlock(&callback_list_lock);
-			return -1;
-		}
-		new_callback->fn = function_addr;
-		new_callback->next = NULL;
-		callback_list = new_callback;
-		raw_spin_unlock(&callback_list_lock);
-		return 0;
-	}
-
-	pList = callback_list;
-	/*add new thread name*/
-	new_callback = kmalloc(sizeof(struct hang_callback_list), GFP_KERNEL);
-	if (!new_callback) {
-		raw_spin_unlock(&callback_list_lock);
+	new_callback = kzalloc(sizeof(struct hang_callback), GFP_KERNEL);
+	if (!new_callback)
 		return -1;
-	}
 
 	new_callback->fn = function_addr;
-	new_callback->next = callback_list;
-	callback_list = new_callback;
-	raw_spin_unlock(&callback_list_lock);
+
+	down_write(&hc_list.rwsem);
+	list_add_tail(&new_callback->hc_entry, &hc_list.list);
+	up_write(&hc_list.rwsem);
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(register_hang_callback);
+
+int unregister_hang_callback(void (*function_addr)(void))
+{
+	struct hang_callback *hc_cb, *n;
+
+	down_write(&hc_list.rwsem);
+	list_for_each_entry_safe(hc_cb, n, &hc_list.list, hc_entry) {
+		if (hc_cb->fn == function_addr) {
+			list_del(&hc_cb->hc_entry);
+			kfree(hc_cb);
+			break;
+		}
+	}
+	up_write(&hc_list.rwsem);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(unregister_hang_callback);
 
 #ifdef CONFIG_MTK_HANG_PROC
 #define SEQ_printf(m, x...) \
@@ -541,7 +555,15 @@ static int monitor_hang_release(struct inode *inode, struct file *filp)
 static unsigned int monitor_hang_poll(struct file *file,
 		struct poll_table_struct *ptable)
 {
-	return 0;
+	unsigned int mask = 0;
+
+	hd_hang_poll = true;
+	poll_wait(file, &hang_wait, ptable);
+	if ((hd_detect_enabled == 1) && (hd_hang_trace == true)) {
+		mask |= POLLIN;
+		hd_hang_trace = false;
+	}
+	return mask;
 }
 
 static ssize_t monitor_hang_read(struct file *filp, char __user *buf,
@@ -1477,19 +1499,14 @@ static int is_in_white_list(struct task_struct *p)
 
 static int run_callback(void)
 {
-	struct hang_callback_list *pList = NULL;
+	struct hang_callback *hc_cb, *n;
 
-	if (!callback_list)
-		return -1;
+	down_read(&hc_list.rwsem);
+	list_for_each_entry_safe(hc_cb, n, &hc_list.list, hc_entry)
+		hc_cb->fn();
+	up_read(&hc_list.rwsem);
 
-	raw_spin_lock(&callback_list_lock);
-	pList = callback_list;
-	while (pList) {
-		pList->fn();
-		pList = pList->next;
-	}
-	raw_spin_unlock(&callback_list_lock);
-	return -1;
+	return 0;
 }
 
 static void show_task_info(void)
@@ -1506,7 +1523,6 @@ static void show_task_backtrace(void)
 {
 	struct task_struct *p, *system_server_task = NULL;
 	struct task_struct *monkey_task = NULL;
-	struct task_struct *aee_aed_task = NULL;
 	struct task_info task_info_arr[MAX_NR_SPECIAL_PROCESS];
 	int i = 0;
 	unsigned int task_array_idx = 0;
@@ -1539,8 +1555,6 @@ static void show_task_backtrace(void)
 				system_server_task = p;
 			if (strstr(p->comm, "monkey"))
 				monkey_task = p;
-			if (!strcmp(p->comm, "aee_aed"))
-				aee_aed_task = p;
 		}
 		/* specify process, need dump maps file and native backtrace */
 		if (!first_dump_blocked && (task_array_idx < MAX_NR_SPECIAL_PROCESS)) {
@@ -1588,8 +1602,6 @@ static void show_task_backtrace(void)
 	}
 	log_hang_info("dump backtrace end: %llu\n", local_clock());
 	if (Hang_first_done == false) {
-		if (aee_aed_task)
-			send_sig(SIGUSR1, aee_aed_task, 1);
 		if (system_server_task)
 			send_sig(SIGQUIT, system_server_task, 1);
 		if (monkey_task)
@@ -1717,6 +1729,10 @@ static int hang_detect_thread(void *arg)
 		if (hd_detect_enabled && check_white_list())
 #endif
 		{
+			if (hd_hang_poll && (hang_detect_counter == 2)) {
+				hd_hang_trace = true;
+				wake_up(&hang_wait);
+			}
 
 			if (hang_detect_counter <= 0) {
 				log_hang_info(
@@ -1836,11 +1852,17 @@ static int __init monitor_hang_init(void)
 	if (thread_array == NULL)
 		return 1;
 
+	init_waitqueue_head(&hang_wait);
+
 	err = misc_register(&Hang_Monitor_dev);
 	if (unlikely(err)) {
 		pr_notice("failed to register Hang_Monitor_dev device!\n");
 		return err;
 	}
+
+	init_rwsem(&hc_list.rwsem);
+	INIT_LIST_HEAD(&hc_list.list);
+
 	hang_detect_init();
 	mrdump_regist_hang_bt(show_task_info);
 

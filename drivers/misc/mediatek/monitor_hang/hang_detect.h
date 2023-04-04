@@ -14,12 +14,6 @@ struct name_list {
 	struct name_list *next;
 };
 
-struct hang_callback_list
-{
-	void (*fn)(void);
-	struct hang_callback_list *next;
-};
-
 /* hang detect timeout value*/
 #define	COUNT_SWT_INIT		0
 #define	COUNT_SWT_NORMAL	10
@@ -40,6 +34,7 @@ struct hang_callback_list
 #define HANG_DEL_WHITE_LIST _IOR('p', 0x14, char [TASK_COMM_LEN])
 
 extern int register_hang_callback(void (*function_addr)(void));
+extern int unregister_hang_callback(void (*function_addr)(void));
 extern void mrdump_regist_hang_bt(void (*fn)(void));
 
 #ifdef CONFIG_MTK_HANG_DETECT_LOG
