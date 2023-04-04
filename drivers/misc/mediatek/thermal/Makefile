@@ -97,6 +97,7 @@ else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6765)),)
 
 include $(srctree)/drivers/misc/mediatek/thermal/v2/src/Makefile
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/v2/inc
+thermal_monitor-y += common/thermal_zones/mtk_ts_imgsensor.o
 thermal_monitor-y += v2/mtk_thermal_monitor.o
 thermal_monitor-y += v2/src/mtk_tc.o
 thermal_monitor-y += v2/src/mtk_ts_6357buck1.o

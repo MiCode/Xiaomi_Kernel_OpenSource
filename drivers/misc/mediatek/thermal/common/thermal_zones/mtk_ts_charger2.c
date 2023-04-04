@@ -139,7 +139,7 @@ static int mtktscharger2_get_hw_temp(void)
 	ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_TEMP, &prop);
 	if (ret == 0) {
-		t = 1000 * prop.intval;
+		t = 100 * prop.intval;
 		prev_temp = t;
 	} else
 		t = prev_temp;
@@ -336,7 +336,7 @@ struct thermal_cooling_device *cdev, unsigned long state)
 		/* To trigger data abort to reset the system
 		 * for thermal protection.
 		 */
-		//BUG_ON(1);
+		BUG_ON(1);
 	}
 
 	return 0;

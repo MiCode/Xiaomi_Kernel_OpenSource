@@ -2097,7 +2097,7 @@ static int  thermal_monitor_init(void)
 		mtk_mdm_txpwr_init();
 		mtktscharger_init();
 		mtktscharger2_init();
-//		mtk_imgs_init();
+		mtk_imgs_init();
 		wmt_tm_init();
 		tsallts_init();
 		return 0;
@@ -2129,7 +2129,7 @@ static void thermal_monitor_exit(void)
 	mtk_mdm_txpwr_exit();
 	mtktscharger_exit();
 	mtktscharger2_exit();
-//	mtk_imgs_exit();
+	mtk_imgs_exit();
 	wmt_tm_deinit();
 	tsallts_exit();
 }
