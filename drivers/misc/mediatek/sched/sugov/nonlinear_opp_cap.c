@@ -259,39 +259,6 @@ static const struct proc_ops pd_capacity_tbl_ops = {
 	.proc_read = seq_read
 };
 
-int init_opp_cap_info(struct proc_dir_entry *dir)
-{
-	int ret;
-	struct proc_dir_entry *entry;
-
-	parse_eas_data(&eas_node);
-
-	if (eas_node.available) {
-		ret = init_sram_mapping();
-		if (ret)
-			return ret;
-	}
-
-	ret = alloc_capacity_table();
-	if (ret)
-		return ret;
-
-	ret = init_capacity_table();
-	if (ret)
-		return ret;
-	initialized = true;
-	entry = proc_create("pd_capacity_tbl", 0644, dir, &pd_capacity_tbl_ops);
-	if (!entry)
-		pr_info("mtk_scheduler/pd_capacity_tbl entry create failed\n");
-
-	return ret;
-}
-
-void clear_opp_cap_info(void)
-{
-	free_capacity_table();
-}
-
 #if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
 void mtk_arch_set_freq_scale(void *data, const struct cpumask *cpus,
 		unsigned long freq, unsigned long max, unsigned long *scale)
@@ -345,6 +312,47 @@ unsigned int get_sched_capacity_margin_dvfs(void)
 }
 EXPORT_SYMBOL_GPL(get_sched_capacity_margin_dvfs);
 
+static int capacity_margin_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%u\n", get_sched_capacity_margin_dvfs());
+	return 0;
+}
+
+static int capacity_margin_open(struct inode *in, struct file *file)
+{
+	return single_open(file, capacity_margin_show, NULL);
+}
+
+static ssize_t capacity_margin_write(struct file *filp, const char *ubuf,
+	size_t count, loff_t *data)
+{
+	char buf[16] = {0};
+	int ret;
+	unsigned int input = sysctl_sched_capacity_margin_dvfs;
+
+	if (!count)
+		return count;
+	if (count + 1 > 16)
+		return -ENOMEM;
+	ret = copy_from_user(buf, ubuf, count);
+	if (ret)
+		return -EFAULT;
+	buf[count] = '\0';
+	ret = kstrtouint(buf, 10, &input);
+	if (ret)
+		return -EFAULT;
+	ret = set_sched_capacity_margin_dvfs(input);
+	if (ret)
+		return -EFAULT;
+	return count;
+}
+
+static const struct proc_ops capacity_margin_ops = {
+	.proc_open = capacity_margin_open,
+	.proc_read = seq_read,
+	.proc_write = capacity_margin_write
+};
+
 void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 				struct cpumask *cpumask, unsigned long *next_freq)
 {
@@ -394,6 +402,44 @@ void mtk_map_util_freq(void *data, unsigned long util, unsigned long freq,
 }
 EXPORT_SYMBOL_GPL(mtk_map_util_freq);
 #endif
+
+int init_opp_cap_info(struct proc_dir_entry *dir)
+{
+	int ret;
+	struct proc_dir_entry *entry;
+
+	parse_eas_data(&eas_node);
+
+	if (eas_node.available) {
+		ret = init_sram_mapping();
+		if (ret)
+			return ret;
+	}
+
+	ret = alloc_capacity_table();
+	if (ret)
+		return ret;
+
+	ret = init_capacity_table();
+	if (ret)
+		return ret;
+	initialized = true;
+	entry = proc_create("pd_capacity_tbl", 0644, dir, &pd_capacity_tbl_ops);
+	if (!entry)
+		pr_info("mtk_scheduler/pd_capacity_tbl entry create failed\n");
+#if IS_ENABLED(CONFIG_NONLINEAR_FREQ_CTL)
+	entry = proc_create("capacity_margin", 0644, dir, &capacity_margin_ops);
+	if (!entry)
+		pr_info("mtk_scheduler/capacity_margin entry create failed\n");
+#endif
+	return ret;
+}
+
+void clear_opp_cap_info(void)
+{
+	free_capacity_table();
+}
+
 #else
 
 static int init_opp_cap_info(struct proc_dir_entry *dir) { return 0; }
