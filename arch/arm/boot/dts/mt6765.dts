@@ -4234,6 +4234,9 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		min_charger_voltage_1 = <4400000>;
 		min_charger_voltage_2 = <4200000>;
 		max_dmivr_charger_current = <1800000>;
+
+		/* fast charging algo support indicator */
+		enable_fast_charging_indicator;
 	};
 
 	mtk_ctd: mtk_ctd {
