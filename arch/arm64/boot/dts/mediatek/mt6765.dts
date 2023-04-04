@@ -466,7 +466,6 @@ aliases {
 	chosen: chosen {
 		bootargs = "console=tty0 vmalloc=400M \
 8250.nr_uarts=4 \
-page_owner=on \
 swiotlb=noforce androidboot.hardware=mt6765 \
 transparent_hugepage=never \
 maxcpus=8 loop.max_part=7 \
