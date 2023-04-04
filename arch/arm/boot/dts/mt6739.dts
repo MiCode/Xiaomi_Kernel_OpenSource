@@ -392,7 +392,6 @@ cgroup.memory=nosocket,nokmem \
 androidboot.hardware=mt6739 maxcpus=8 \
 dma_debug=off \
 firmware_class.path=/vendor/firmware loop.max_part=7 \
-pelt=8 \
 initcall_debug=1 clk_ignore_unused=1";
 		kaslr-seed = <0 0>;
 	};
