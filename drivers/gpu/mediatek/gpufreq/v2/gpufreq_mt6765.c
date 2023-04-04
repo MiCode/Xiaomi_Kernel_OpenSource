@@ -48,7 +48,7 @@
 #if IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 #include <mtk_low_battery_throttling.h>
 #endif
-#if IS_ENABLED(CONFIG_MTK_STATIC_POWER)
+#if IS_ENABLED(CONFIG_MTK_STATIC_POWER_LEGACY)
 #include <leakage_table_v2/mtk_static_power.h>
 #endif
 #if IS_ENABLED(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING)
@@ -62,10 +62,6 @@
 
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
 #include <linux/nvmem-consumer.h>
-#endif
-
-#ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
-#include "mtk_static_power.h"
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_PBM)
@@ -570,7 +566,7 @@ static void __gpufreq_calculate_power(unsigned int idx, unsigned int freq,
 
 	p_dynamic = __gpufreq_get_dyn_pgpu(freq, volt);
 
-#ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
+#if IS_ENABLED(CONFIG_MTK_STATIC_POWER_LEGACY)
 	p_leakage = mt_spower_get_leakage(MTK_SPOWER_GPU, (volt / 100), temp);
 	if (!(regulator_is_enabled(g_pmic->mtk_pm_vgpu)) || p_leakage < 0)
 		p_leakage = 0;
