@@ -658,7 +658,7 @@ static int psy_chr_type_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev, "charger");
-		if (chg_psy == NULL) {
+		if (chg_psy == NULL || IS_ERR(chg_psy)) {
 			pr_info("get chg_psy fail %s\n", __func__);
 			return -EINVAL;
 		}
