@@ -2302,14 +2302,34 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_MDP_WROT0)
 				&mmqos SLAVE_COMMON(0)>,
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_MDP_WDMA0)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_CAM_IMGI)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_CAM_IMGO)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_CAM_IMG2O)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_CAM_IMG3O)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_CAM_VIPI)
+				&mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_CAM_LCEI)
 				&mmqos SLAVE_COMMON(0)>;
 		interconnect-names =
 			"mdp_rdma0",
 			"mdp_wrot0",
-			"mdp_wdma";
-		operating-points-v2 = <&opp_table_mm>;
+			"mdp_wdma",
+			"img_imgi",
+			"img_imgo",
+			"img_img2o",
+			"img_img3o",
+			"img_vipi",
+			"img_lcei";
+		operating-points-v2 = <&opp_table_mm>, <&opp_table_mm>;
 		mdp-opp = <&opp_table_mm>;
+		isp-opp = <&opp_table_mm>;
 		mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		isp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
 	gce_mbox: gce_mbox@10238000 {
