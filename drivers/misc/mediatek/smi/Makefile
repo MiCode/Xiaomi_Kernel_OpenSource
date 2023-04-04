@@ -2,3 +2,4 @@
 
 ccflags-y += -I$(srctree)/drivers/iommu
 obj-$(CONFIG_MTK_SMI) += mtk-smi-dbg.o
+obj-$(CONFIG_MTK_SMI_BWC) += mtk-smi-bwc.o
