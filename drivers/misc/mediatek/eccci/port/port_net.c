@@ -261,7 +261,6 @@ int ccmni_send_pkt(int md_id, int ccmni_idx, void *data, int is_ack)
 
 	ccci_h = (struct ccci_header *)skb_push(skb,
 		sizeof(struct ccci_header));
-	ccci_h = (struct ccci_header *)skb->data;
 	ccci_h->channel = tx_ch;
 	ccci_h->data[0] = ccmni_idx;
 	/* as skb->len already included ccci_header after skb_push */
@@ -344,7 +343,7 @@ int ccmni_send_mbim_skb(int md_id, struct sk_buff *skb)
 	int is_ack = 0;
 
 	if (md_id < 0 || md_id >= MAX_MD_NUM) {
-		CCCI_ERROR_LOG(md_id, NET, "invalid MD id=%d\n", md_id);
+		CCCI_ERROR_LOG(-1, NET, "invalid MD id=%d\n", md_id);
 		return -EINVAL;
 	}
 
@@ -360,7 +359,7 @@ int ccmni_send_mbim_skb(int md_id, struct sk_buff *skb)
 void ccmni_update_mbim_interface(int md_id, int id)
 {
 	if (md_id < 0 || md_id >= MAX_MD_NUM) {
-		CCCI_ERROR_LOG(md_id, NET, "invalid MD id=%d\n", md_id);
+		CCCI_ERROR_LOG(-1, NET, "invalid MD id=%d\n", md_id);
 		return;
 	}
 
@@ -370,13 +369,15 @@ void ccmni_update_mbim_interface(int md_id, int id)
 
 static int port_net_init(struct port_t *port)
 {
-	int md_id = port->md_id;
-	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
+	struct ccci_per_md *per_md_data;
 
 	if (port->md_id < 0 || port->md_id >= MAX_MD_NUM) {
-		CCCI_ERROR_LOG(md_id, NET, "invalid MD id=%d\n", port->md_id);
+		CCCI_ERROR_LOG(-1, NET, "invalid MD id=%d\n", port->md_id);
 		return -EINVAL;
 	}
+	per_md_data = ccci_get_per_md_data(port->md_id);
+	if (per_md_data == NULL)
+		return -EINVAL;
 	port->minor += CCCI_NET_MINOR_BASE;
 	if (port->rx_ch == CCCI_CCMNI1_RX) {
 		atomic_set(&mbim_ccmni_index[port->md_id], -1);
@@ -388,9 +389,9 @@ static int port_net_init(struct port_t *port)
 		eccci_ccmni_ops.md_ability &= (~(MODEM_CAP_SGIO));
 #endif
 		if (port->md_id == MD_SYS1)
-			ccmni_ops.init(md_id, &eccci_ccmni_ops);
+			ccmni_ops.init(port->md_id, &eccci_ccmni_ops);
 		else if (port->md_id == MD_SYS3)
-			ccmni_ops.init(md_id, &eccci_cc3mni_ops);
+			ccmni_ops.init(port->md_id, &eccci_cc3mni_ops);
 	}
 	return 0;
 }
@@ -472,8 +473,8 @@ static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 
 	int mbim_ccmni_current = 0;
 #ifdef CCCI_SKB_TRACE
-	struct ccci_per_md *per_md_data = ccci_get_per_md_data(port->md_id);
-	unsigned long long *netif_rx_profile = per_md_data->netif_rx_profile;
+	struct ccci_per_md *per_md_data;
+	unsigned long long *netif_rx_profile;
 	unsigned long long netif_time;
 #endif
 #ifdef PORT_NET_TRACE
@@ -481,6 +482,17 @@ static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 	unsigned long long total_time;
 
 	total_time = sched_clock();
+#endif
+	if (port->md_id < 0 || port->md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, NET,
+			"invalid MD id=%d\n", port->md_id);
+		return -EINVAL;
+	}
+#ifdef CCCI_SKB_TRACE
+	per_md_data = ccci_get_per_md_data(port->md_id);
+	if (per_md_data == NULL)
+		return -EINVAL;
+	netif_rx_profile = per_md_data->netif_rx_profile;
 #endif
 	if ((port->hif_id == MD1_NET_HIF) || (port->hif_id == CLDMA_HIF_ID)) {
 		skb_pull(skb, sizeof(struct lhif_header));

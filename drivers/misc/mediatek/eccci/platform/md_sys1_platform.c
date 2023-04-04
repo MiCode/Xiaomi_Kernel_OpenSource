@@ -168,14 +168,14 @@ EXPORT_SYMBOL(ccci_set_spm_mdsrc_cb);
 
 void md_cd_lock_modem_clock_src(int locked)
 {
-	int settle = -1;
+	int settle;
 	struct arm_smccc_res res = {0};
 
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
 		MD_REG_AP_MDSRC_REQ, locked, 0, 0, 0, 0, &res);
 	if (res.a0)
 		CCCI_ERROR_LOG(-1, TAG,
-			"md clock source requeset ret = 0x%llX\n", res.a0);
+			"md clock source requeset ret = 0x%lX\n", res.a0);
 
 	if (res.a0 && md_cd_plat_val_ptr.md_gen < 6295) {
 		CCCI_ERROR_LOG(-1, TAG, "[md_gen < 6295] using spm\n");
@@ -189,7 +189,7 @@ void md_cd_lock_modem_clock_src(int locked)
 			MD_REG_AP_MDSRC_SETTLE, 0, 0, 0, 0, 0, &res);
 
 		CCCI_MEM_LOG_TAG(-1, TAG,
-			"a0 = 0x%llX; a1 = 0x%llX\n", res.a0, res.a1);
+			"a0 = 0x%lX; a1 = 0x%lX\n", res.a0, res.a1);
 
 		if (res.a1 == 0 && res.a0 > 0 && res.a0 < 10)
 			settle = res.a0; /* ATF */
@@ -198,7 +198,7 @@ void md_cd_lock_modem_clock_src(int locked)
 		else {
 			settle = 3;
 			CCCI_ERROR_LOG(-1, TAG,
-				"settle fail (0x%llX, 0x%llX) set = %d\n",
+				"settle fail (0x%lX, 0x%lX) set = %d\n",
 				res.a0, res.a1, settle);
 		}
 		mdelay(settle);
@@ -206,9 +206,9 @@ void md_cd_lock_modem_clock_src(int locked)
 		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_CLOCK_REQUEST,
 			MD_REG_AP_MDSRC_ACK, 0, 0, 0, 0, 0, &res);
 		CCCI_MEM_LOG_TAG(-1, TAG,
-			"settle = %d; ret = 0x%llX\n", settle, res.a0);
+			"settle = %d; ret = 0x%lX\n", settle, res.a0);
 		CCCI_NOTICE_LOG(-1, TAG,
-			"settle = %d; ret = 0x%llX\n", settle, res.a0);
+			"settle = %d; ret = 0x%lX\n", settle, res.a0);
 	}
 }
 
@@ -378,7 +378,7 @@ static void md1_pmic_setting_init(struct platform_device *plat_dev)
 
 static void md1_pmic_setting_on(void)
 {
-	int ret = -1, idx;
+	int ret, idx;
 
 	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON]%s start\n", __func__);
 	CCCI_NORMAL_LOG(-1, TAG, "[POWER ON]%s start\n", __func__);
@@ -1550,7 +1550,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *hw_info)
 {
 	int idx = 0;
-	int ret = -1;
+	int ret;
 #ifdef USING_PM_RUNTIME
 	int retval = 0;
 #endif
@@ -1571,7 +1571,11 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 
 	ret = of_property_read_u32(dev_ptr->dev.of_node,
 		"mediatek,ap_plat_info", &ap_plat_info);
-	CCCI_NORMAL_LOG(-1, TAG, "ap_plat_info : %u\n", ap_plat_info);
+	if (ret < 0)
+		CCCI_ERROR_LOG(0, TAG, "%s:get DTS:ap_plat_info fail\n",
+			__func__);
+	else
+		CCCI_NORMAL_LOG(0, TAG, "ap_plat_info : %u\n", ap_plat_info);
 
 
 	CCCI_DEBUG_LOG(dev_cfg->index, TAG,
@@ -1837,7 +1841,6 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 		CCCI_ERROR_LOG(-1, TAG,
 			"%s:get hw info fail(%d)\n", __func__, ret);
 		kfree(md_hw);
-		md_hw = NULL;
 		return -1;
 	}
 
@@ -1846,7 +1849,6 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 	ret = ccci_modem_init_common(plat_dev, &dev_cfg, md_hw);
 	if (ret < 0) {
 		kfree(md_hw);
-		md_hw = NULL;
 	}
 	return ret;
 }

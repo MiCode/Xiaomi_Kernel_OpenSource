@@ -1178,7 +1178,7 @@ static int md_dump_mem_once(unsigned int md_id, const void *buff_src,
 
 		if (ret < 0) {
 			CCCI_ERROR_LOG(md_id, TAG,
-				"%s: ccci_dump_write fail %d, 0x%llx, %lu, 0x%llx\n",
+				"%s: ccci_dump_write fail %d, 0x%lx, %lu, 0x%lx\n",
 				__func__, ret, dump_limit, strlen(temp_buf + tmp_idx), i);
 			return -2;
 		} else if (!ret) {
@@ -1206,12 +1206,12 @@ void md_dump_reg(struct ccci_modem *md)
 	buf_addr = res.a1;
 	buf_size = res.a2;
 	CCCI_NORMAL_LOG(-1, TAG,
-		"[%s][MD_REG_DUMP_START] flag_1=0x%llx, flag_2=0x%llx, flag_3=0x%llx, flag_4=0x%llx\n",
+		"[%s][MD_REG_DUMP_START] flag_1=0x%lx, flag_2=0x%lx, flag_3=0x%lx, flag_4=0x%lx\n",
 		__func__, res.a0, res.a1, res.a2, res.a3);
 	/* go kernel debug red dump,fix me,we need make it more compatible later */
 	if ((res.a0 & 0xffff0000) != 0) {
-		CCCI_NORMAL_LOG(-1, TAG, "[%s] go kernel md reg dump\n", __func__);
-		CCCI_NORMAL_LOG(-1, TAG, "[%s] md_gen\n", __func__, md_cd_plat_val_ptr.md_gen);
+		CCCI_NORMAL_LOG(-1, TAG, "[%s] go kernel md reg dump, md_gen: %u\n",
+			__func__, md_cd_plat_val_ptr.md_gen);
 		//gen93 used same md reg dump table
 		if (md_cd_plat_val_ptr.md_gen == 6293)
 			md_dump_register_for_gen93(md);
@@ -1238,7 +1238,7 @@ void md_dump_reg(struct ccci_modem *md)
 		arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_DEBUG_DUMP,
 			MD_REG_DUMP_STAGE, 0, 0, 0, 0, 0, &res);
 		CCCI_DEBUG_LOG(-1, TAG,
-			"[%s][MD_REG_DUMP_STAGE] flag_0=0x%llx, flag_1=0x%llx, flag_2=0x%llx, flag_3=0x%llx\n",
+			"[%s][MD_REG_DUMP_STAGE] flag_0=0x%lx, flag_1=0x%lx, flag_2=0x%lx, flag_3=0x%lx\n",
 			__func__, res.a0, res.a1, res.a2, res.a3);
 		switch (res.a2) {
 		case DUMP_FINISHED: /* go through */

@@ -61,7 +61,7 @@ EXPORT_SYMBOL(mtk_ccci_register_md_state_cb);
 
 int force_md_stop(struct ccci_fsm_monitor *monitor_ctl)
 {
-	int ret = -1;
+	int ret;
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(monitor_ctl->md_id);
 
 	needforcestop = 1;
@@ -475,10 +475,19 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_command *ee_cmd = NULL;
 	struct port_t *port = NULL;
 	struct sk_buff *skb = NULL;
-	struct ccci_modem *md = ccci_md_get_modem_by_id(ctl->md_id);
+	struct ccci_modem *md = NULL;
 	unsigned long flags;
 	int ret;
 
+	if (ctl == NULL) {
+		CCCI_ERROR_LOG(0, FSM, "%s, ctl is NULL!!!\n", __func__);
+		return;
+	}
+	md = ccci_md_get_modem_by_id(ctl->md_id);
+	if (md == NULL) {
+		CCCI_ERROR_LOG(0, FSM, "%s, md NULL!!!\n", __func__);
+		return;
+	}
 	/* 1. state sanity check */
 	if (ctl->curr_state == CCCI_FSM_GATED)
 		goto success;
@@ -570,7 +579,7 @@ static int ccci_md_epon_set(int md_id)
 	switch (md_id) {
 	case MD_SYS1:
 		if (!md || !md->hw_info) {
-			CCCI_NORMAL_LOG(md_id, FSM, "%s, NULL!!!\n", __func__);
+			CCCI_ERROR_LOG(md_id, FSM, "%s, NULL!!!\n", __func__);
 			break;
 		}
 		if (md->hw_info->md_l2sram_base) {
@@ -584,6 +593,10 @@ static int ccci_md_epon_set(int md_id)
 				+ md->hw_info->md_epon_offset)) == 0xBAEBAE10;
 		break;
 	case MD_SYS3:
+		if (!mdss_dbg) {
+			CCCI_ERROR_LOG(md_id, FSM, "%s, mdss_dbg is NULL!!!\n", __func__);
+			break;
+		}
 		ret = *((int *)(mdss_dbg->base_ap_view_vir
 			+ CCCI_EE_OFFSET_EPON_MD3))
 				== 0xBAEBAE10;
@@ -982,9 +995,8 @@ int ccci_fsm_recv_control_packet(int md_id, struct sk_buff *skb)
 	struct c2k_ctrl_port_msg *c2k_ctl_msg = NULL;
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
 
-	if (!ctl)
+	if (!ctl || !per_md_data)
 		return -CCCI_ERR_INVALID_PARAM;
-
 	CCCI_NORMAL_LOG(ctl->md_id, FSM,
 		"control message 0x%X,0x%X\n",
 		ccci_h->data[1], ccci_h->reserved);
