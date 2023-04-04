@@ -31,7 +31,8 @@ ifeq ($(CONFIG_MTK_VIDEOCODEC_IPM_V1),y)
 	vcodec_kernel_driver-v1-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += vcodec_kernel_codec.o
 else ifeq ($(CONFIG_MTK_VIDEOCODEC_IPM_V2),y)
 	ccflags-y += \
-		-I$(srctree)/drivers/misc/mediatek/videocodec/v2
+		-I$(srctree)/drivers/misc/mediatek/videocodec/v2   \
+		-I$(srctree)/drivers/misc/mediatek/smi
 	obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += vcodec_kernel_driver-v2.o
 	vcodec_kernel_driver-v2-$(CONFIG_MTK_VIDEOCODEC_DRIVER) +=  v2/videocodec_kernel_drv_plat.o
 	vcodec_kernel_driver-v2-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += vcodec_kernel_codec.o
