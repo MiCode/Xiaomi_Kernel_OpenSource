@@ -5764,6 +5764,10 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//LOG_INF("[%s]buf address/len = 0x%lx/0x%x, ureq =0x%x\n",
 	//__func__, p->m.userptr,  p->length, sizeof(ureq));
 
+	// MAX_FRAMES_PER_REQUEST = 3
+	if (ureq.m_ReqNum > 3)
+		goto EXIT;
+
 	Ret = copy_from_user(&ureq, (void __user *)p->m.userptr, sizeof(ureq));
 
 	Ret = copy_from_user(&cfgs[0], (void __user *)ureq.m_pDpeConfig,
