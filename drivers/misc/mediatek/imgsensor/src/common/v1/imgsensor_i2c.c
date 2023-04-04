@@ -195,23 +195,8 @@ enum IMGSENSOR_RETURN imgsensor_i2c_read(
 
 		if (__ratelimit(&ratelimit))
 			pr_info(
-			    "I2C read failed (ret = %d)! speed(%dk)\n",
-			    ret_i2c,
-			    speed);
-			pr_info(
-			    "msg[0] addr(0x%02x) flags(0x%x) len(%u) buf(0x%02x%02x)\n",
-			    pinst->msg[0].addr,
-			    pinst->msg[0].flags,
-			    pinst->msg[0].len,
-				*(pinst->msg[0].buf),
-				*(pinst->msg[0].buf + 1));
-			pr_info(
-			    "msg[1] addr(0x%02x) flags(0x%x) len(%u) buf(0x%02x%02x)\n",
-			    pinst->msg[1].addr,
-			    pinst->msg[1].flags,
-			    pinst->msg[1].len,
-				*(pinst->msg[1].buf),
-				*(pinst->msg[1].buf + 1));
+			    "I2C read failed (ret = %d)! speed(%dk) id(0x%02x) len(%u)(%u)\n",
+			    ret_i2c, speed, id, write_length, read_length);
 		ret = IMGSENSOR_RETURN_ERROR;
 	}
 
@@ -263,11 +248,8 @@ enum IMGSENSOR_RETURN imgsensor_i2c_write(
 
 		if (__ratelimit(&ratelimit))
 			pr_info(
-			    "I2C write failed (ret = %d)! speed(%dk) data(0x%x)\n",
-			    ret_i2c,
-			    speed,
-			    *pwrite_data);
-
+			    "I2C write failed (ret = %d)! speed(%dk) id(0x%02x)\n",
+			    ret_i2c, speed, id);
 		ret = IMGSENSOR_RETURN_ERROR;
 	}
 
