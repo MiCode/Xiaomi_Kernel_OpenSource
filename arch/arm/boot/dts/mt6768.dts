@@ -480,7 +480,7 @@ aliases {
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram \
 vmalloc=400M swiotlb=noforce \
-8250.nr_uarts=4 \
+8250.nr_uarts=2 \
 cgroup.memory=nosocket,nokmem \
 firmware_class.path=/vendor/firmware \
 loop.max_part=7 \
@@ -2775,7 +2775,7 @@ transparent_hugepage=never clk_ignore_unused=1";
 	};
 
 	apdma: dma-controller@11000980 {
-		compatible = "mediatek,mt6577-uart-dma";
+		compatible = "mediatek,mt6779-uart-dma";
 		reg = <0 0x11000980 0 0x80>,
 		      <0 0x11000A00 0 0x80>,
 		      <0 0x11000A80 0 0x80>,
@@ -2787,7 +2787,6 @@ transparent_hugepage=never clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "apdma";
 		#dma-cells = <1>;
-		dma-bits = <34>;
 		dma-requests = <4>;
 	};
 
