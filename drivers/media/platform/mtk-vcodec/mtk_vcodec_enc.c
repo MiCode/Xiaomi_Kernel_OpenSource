@@ -88,6 +88,7 @@ static void mtk_venc_sec_dc_unmap_dmabuf(void *mem_priv)
 
 	if (buf->vaddr) {
 		mtk_v4l2_err("dmabuf buffer vaddr not null\n");
+		dma_buf_vunmap(buf->db_attach->dmabuf, buf->vaddr);
 		buf->vaddr = NULL;
 	}
 
@@ -2369,7 +2370,8 @@ static int mtk_venc_encode_header(void *priv)
 	dst_buf_info = container_of(dst_vb2_v4l2, struct mtk_video_enc_buf, vb);
 
 	bs_buf = &dst_buf_info->bs_buf;
-	bs_buf->va = vb2_plane_vaddr(dst_buf, 0);
+	if (mtk_v4l2_dbg_level > 0)
+		bs_buf->va = vb2_plane_vaddr(dst_buf, 0);
 	bs_buf->dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
 	bs_buf->size = (size_t)dst_buf->planes[0].length;
 	bs_buf->dmabuf = dst_buf->planes[0].dbuf;
@@ -2788,7 +2790,8 @@ static void mtk_venc_worker(struct work_struct *work)
 	pbs_buf = &dst_buf_info->bs_buf;
 	pfrm_buf = &src_buf_info->frm_buf;
 
-	pbs_buf->va = vb2_plane_vaddr(dst_buf, 0);
+	if (mtk_v4l2_dbg_level > 0)
+		pbs_buf->va = vb2_plane_vaddr(dst_buf, 0);
 	pbs_buf->dma_addr = vb2_dma_contig_plane_dma_addr(dst_buf, 0);
 	pbs_buf->size = (size_t)dst_buf->planes[0].length;
 	pbs_buf->dmabuf = dst_buf->planes[0].dbuf;
@@ -2893,7 +2896,8 @@ static void mtk_venc_worker(struct work_struct *work)
 	}
 
 	for (i = 0; i < src_buf->num_planes ; i++) {
-		pfrm_buf->fb_addr[i].va = vb2_plane_vaddr(src_buf, i) +
+		if (mtk_v4l2_dbg_level > 0)
+			pfrm_buf->fb_addr[i].va = vb2_plane_vaddr(src_buf, i) +
 			(size_t)src_buf->planes[i].data_offset;
 		pfrm_buf->fb_addr[i].dma_addr =
 			vb2_dma_contig_plane_dma_addr(src_buf, i) +

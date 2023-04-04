@@ -96,6 +96,7 @@ static void mtk_vdec_sec_dc_unmap_dmabuf(void *mem_priv)
 
 	if (buf->vaddr) {
 		mtk_v4l2_err("dmabuf buffer vaddr not null\n");
+		dma_buf_vunmap(buf->db_attach->dmabuf, buf->vaddr);
 		buf->vaddr = NULL;
 	}
 
@@ -1027,7 +1028,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 		mutex_lock(&ctx->buf_lock);
 		for (i = 0; i < num_planes; i++) {
-			pfb->fb_base[i].va = vb2_plane_vaddr(dst_buf, i);
+			if (mtk_v4l2_dbg_level > 0)
+				pfb->fb_base[i].va = vb2_plane_vaddr(dst_buf, i);
 			pfb->fb_base[i].dma_addr =
 				vb2_dma_contig_plane_dma_addr(dst_buf, i);
 			pfb->fb_base[i].size = ctx->picinfo.fb_sz[i];
@@ -1091,7 +1093,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 	}
 
 	buf = &src_buf_info->bs_buffer;
-	buf->va = vb2_plane_vaddr(src_buf, 0);
+	if (mtk_v4l2_dbg_level > 0)
+		buf->va = vb2_plane_vaddr(src_buf, 0);
 	buf->dma_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
 	buf->size = (size_t)src_buf->planes[0].bytesused;
 	buf->length = (size_t)src_buf->planes[0].length;
@@ -2558,7 +2561,8 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 	vb2_v4l2 = to_vb2_v4l2_buffer(vb);
 	buf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 	src_mem = &buf->bs_buffer;
-	src_mem->va = vb2_plane_vaddr(src_buf, 0);
+	if (mtk_v4l2_dbg_level > 0)
+		src_mem->va = vb2_plane_vaddr(src_buf, 0);
 	src_mem->dma_addr = vb2_dma_contig_plane_dma_addr(src_buf, 0);
 	src_mem->size = (size_t)src_buf->planes[0].bytesused;
 	src_mem->length = (size_t)src_buf->planes[0].length;
