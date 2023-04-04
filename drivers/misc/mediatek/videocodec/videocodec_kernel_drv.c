@@ -106,14 +106,6 @@ unsigned int VENC_IRQ_ID, VDEC_IRQ_ID;
 
 /* #define KS_POWER_WORKAROUND */
 
-unsigned int TimeDiffMs(struct VAL_TIME_T timeOld, struct VAL_TIME_T timeNew)
-{
-	/* pr_info ("@@ timeOld(%d, %d), timeNew(%d, %d)", */
-	/* timeOld.u4Sec, timeOld.u4uSec, timeNew.u4Sec, timeNew.u4uSec); */
-	return ((((timeNew.u4Sec - timeOld.u4Sec) * 1000000) + timeNew.u4uSec) -
-		 timeOld.u4uSec) / 1000;
-}
-
 void *mt_venc_base_get(void)
 {
 	return (void *)KVA_VENC_BASE;

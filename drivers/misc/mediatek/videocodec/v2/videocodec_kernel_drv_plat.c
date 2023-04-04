@@ -47,12 +47,10 @@
 #include "videocodec_kernel.h"
 #include <asm/cacheflush.h>
 #include <linux/io.h>
-//#include <asm/sizes.h>
 #include "val_types_private.h"
 #include "hal_types_private.h"
 #include "val_api_private.h"
 #include "drv_api.h"
-//#include "smi_public.h"
 
 #include "mtk_vcodec_pm.h"
 #include "mtk_vcodec_intr.h"
@@ -85,18 +83,19 @@
 #define pr_debug(...)
 #endif
 
-//#define ENABLE_MMDVFS_VDEC
+#define ENABLE_MMDVFS_VDEC
 #ifdef ENABLE_MMDVFS_VDEC
 /* <--- MM DVFS related */
-//#include <mtk_smi.h>
+#include "mmdvfs_mgr.h"
+#include "mtk-smi-bwc.h"
 #include <mmdvfs_config_util.h>
 #define DROP_PERCENTAGE     50
 #define RAISE_PERCENTAGE    90
 #define MONITOR_DURATION_MS 4000
 #define DVFS_UNREQUEST (-1)
-#define DVFS_LOW     0//MMDVFS_VOLTAGE_LOW
-#define DVFS_HIGH    1//MMDVFS_VOLTAGE_HIGH
-#define DVFS_DEFAULT 1//MMDVFS_VOLTAGE_HIGH
+#define DVFS_LOW     MMDVFS_VOLTAGE_LOW
+#define DVFS_HIGH    MMDVFS_VOLTAGE_HIGH
+#define DVFS_DEFAULT MMDVFS_VOLTAGE_HIGH
 #define MONITOR_START_MINUS_1   0
 #define SW_OVERHEAD_MS 1
 #define PAUSE_DETECTION_GAP     200
@@ -112,6 +111,13 @@ static unsigned int gHWLockInterval;
 static int  gHWLockMaxDuration;
 static unsigned int gHWLockPrevInterval;
 
+unsigned int TimeDiffMs(struct VAL_TIME_T timeOld, struct VAL_TIME_T timeNew)
+{
+	/* pr_info ("@@ timeOld(%d, %d), timeNew(%d, %d)", */
+	/* timeOld.u4Sec, timeOld.u4uSec, timeNew.u4Sec, timeNew.u4uSec); */
+	return ((((timeNew.u4Sec - timeOld.u4Sec) * 1000000) + timeNew.u4uSec) -
+		 timeOld.u4uSec) / 1000;
+}
 
 /* raise/drop voltage */
 void SendDvfsRequest(int level)
@@ -119,27 +125,23 @@ void SendDvfsRequest(int level)
 #ifndef VCODEC_FPGAPORTING
 	int ret = 0;
 
+#if IS_ENABLED(CONFIG_MTK_SMI_BWC)
 	if (level == MMDVFS_VOLTAGE_LOW) {
 		pr_debug("[VCODEC][MMDVFS_VDEC] %s(MMDVFS_FINE_STEP_OPP3)",
 			__func__);
-//#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
-		//ret = mmdvfs_set_fine_step(SMI_BWC_SCEN_VP, MMDVFS_FINE_STEP_OPP3);
-//#endif
+		ret = mmdvfs_set_fine_step(SMI_BWC_SCEN_VP, MMDVFS_FINE_STEP_OPP3);
 	} else if (level == MMDVFS_VOLTAGE_HIGH) {
 		pr_debug("[VCODEC][MMDVFS_VDEC] %s(MMDVFS_FINE_STEP_OPP0)",
 			__func__);
-//#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
-		//ret = mmdvfs_set_fine_step(SMI_BWC_SCEN_VP, MMDVFS_FINE_STEP_OPP0);
-//#endif
+		ret = mmdvfs_set_fine_step(SMI_BWC_SCEN_VP, MMDVFS_FINE_STEP_OPP0);
 	} else if (level == DVFS_UNREQUEST) {
 		pr_debug("[VCODEC][MMDVFS_VDEC] %s(MMDVFS_FINE_STEP_UNREQUEST)",
 			__func__);
-//#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
-		//ret = mmdvfs_set_fine_step(SMI_BWC_SCEN_VP, MMDVFS_FINE_STEP_UNREQUEST);
-//#endif
+		ret = mmdvfs_set_fine_step(SMI_BWC_SCEN_VP, MMDVFS_FINE_STEP_UNREQUEST);
 	} else {
 		pr_debug("[VCODEC][MMDVFS_VDEC] OOPS: level = %d\n", level);
 	}
+#endif
 
 	if (ret != 0) {
 		/* Add one line comment for avoid kernel coding style, WARNING:BRACES: */
@@ -1229,7 +1231,7 @@ long vcodec_plat_unlocked_ioctl(unsigned int cmd, unsigned long arg)
 	break;
 
 	}
-	return 0xFF;
+	return 0;
 }
 
 void vcodec_plat_release(void)
