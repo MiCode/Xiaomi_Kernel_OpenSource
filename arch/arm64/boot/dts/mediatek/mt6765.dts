@@ -3187,6 +3187,12 @@ pwrap: pwrap@1000d000 {
 			<&infracfg_ao CLK_IFR_MSDC0>,
 			<&infracfg_ao CLK_IFR_FAES_FDE>;
 		clock-names = "source", "hclk", "crypto_clk";
+		/*
+		 * trust frameware version
+		 * atf: atf v1.3, atf v1.4, atf v1.6
+		 * tf-a: tf-a
+		 */
+		tf-ver = "atf";
 		status = "disabled";
 	};
 
