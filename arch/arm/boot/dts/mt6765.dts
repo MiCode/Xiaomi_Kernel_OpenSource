@@ -4680,12 +4680,32 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 	};
 
 	ccu@1a0b1000 {
+		#address-cells = <2>;
+		#size-cells = <2>;
 		compatible = "mediatek,ccu";
+		power-domains = <&scpsys MT6765_POWER_DOMAIN_CAM>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		iommus = <&iommu M4U_PORT_CAM_CCUI>,
+			 <&iommu M4U_PORT_CAM_CCUO>;
 		reg = <0 0x1a0b1000 0 0x1000>;
 		interrupts = <GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&camsys CLK_CAM_CCU>;
-		clock-names = "CCU_CLK_CAM_CCU";
-		power-domains = <&scpsys MT6765_POWER_DOMAIN_CAM>;
+		clocks = <&topckgen CLK_TOP_MM>,
+			<&camsys CLK_CAM>,
+			<&camsys CLK_CAM_LARB3>,
+			<&camsys CLK_CAM_CCU>;
+		clock-names = "TOP_CAM_CLK",
+			"CCU_CLK_CAM_CAM",
+			"CCU_CLK_CAM_CCU_LARB3",
+			"CCU_CLK_CAM_CCU";
+		mediatek,larbs = <&smi_larb3>;
+		interconnects =
+			<&mmqos SLAVE_LARB(5) &mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_CAM_CCUI) &mmqos SLAVE_COMMON(0)>,
+			<&mmqos MASTER_LARB_PORT(M4U_PORT_CAM_CCUO) &mmqos SLAVE_COMMON(0)>;
+		interconnect-names =
+			"ccu_g",
+			"ccu_i",
+			"ccu_o";
 	};
 
 	lk_charger: lk_charger {
