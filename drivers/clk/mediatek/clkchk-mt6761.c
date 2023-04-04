@@ -60,7 +60,7 @@ static bool clk_hw_is_enabled(const struct clk_hw *hw)
 
 static struct regbase rb[] = {
 	[topckgen]	= REGBASE_V(0x10000000, topckgen, PD_NULL, CLK_NULL),
-	[infracfg]	= REGBASE_V(0x10001000, infracfg, MT6761_POWER_DOMAIN_IFR, CLK_NULL),
+	[infracfg]	= REGBASE_V(0x10001000, infracfg, PD_NULL, CLK_NULL),
 	[scpsys]	= REGBASE_V(0x10006000, scpsys, PD_NULL, CLK_NULL),
 	[apmixedsys]	= REGBASE_V(0x1000c000, apmixedsys, PD_NULL, CLK_NULL),
 	[audiosys]	= REGBASE_V(0x11220000, audiosys, PD_NULL, CLK_NULL),

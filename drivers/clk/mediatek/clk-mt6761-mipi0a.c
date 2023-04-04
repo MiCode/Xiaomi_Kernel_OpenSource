@@ -77,6 +77,6 @@ static void __exit clk_mt6761_mipi0a_exit(void)
 {
 }
 
-module_init(clk_mt6761_mipi0a_init);
+postcore_initcall(clk_mt6761_mipi0a_init);
 module_exit(clk_mt6761_mipi0a_exit);
 MODULE_LICENSE("GPL");

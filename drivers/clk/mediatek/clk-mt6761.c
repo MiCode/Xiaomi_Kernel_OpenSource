@@ -1285,7 +1285,7 @@ static void __exit clk_mt6761_exit(void)
 {
 }
 
-module_init(clk_mt6761_init);
+postcore_initcall_sync(clk_mt6761_init);
 module_exit(clk_mt6761_exit);
 
 MODULE_LICENSE("GPL");

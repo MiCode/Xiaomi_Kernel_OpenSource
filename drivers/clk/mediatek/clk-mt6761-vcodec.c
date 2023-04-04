@@ -79,6 +79,6 @@ static void __exit clk_mt6761_vcodec_exit(void)
 {
 }
 
-module_init(clk_mt6761_vcodec_init);
+postcore_initcall(clk_mt6761_vcodec_init);
 module_exit(clk_mt6761_vcodec_exit);
 MODULE_LICENSE("GPL");
