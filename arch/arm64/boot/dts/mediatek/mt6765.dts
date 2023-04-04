@@ -3470,7 +3470,7 @@ initcall_debug=1 pelt=8";
 	smi_common: smi_common@14002000 {
 		compatible = "mediatek,mt6765-smi-common","mediatek,smi-common","syscon";
 		reg = <0 0x14002000 0 0x1000>;
-		mediatek,smi-id = <4>;
+		mediatek,common-id = <0>;
 		smi-common;
 		operating-points-v2 = <&opp_table_mm>;
 		power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>;
@@ -3611,7 +3611,7 @@ initcall_debug=1 pelt=8";
 		clocks = <&mmsys_config CLK_MM_SMI_LARB0>,
 			<&mmsys_config CLK_MM_SMI_LARB0>;
 		clock-names = "apb", "smi";
-		mediatek,smi-id = <0>;
+		mediatek,larb-id = <0>;
 	};
 
 	mdp_rdma0: mdp_rdma0@14004000 {
@@ -3739,7 +3739,7 @@ initcall_debug=1 pelt=8";
 		clocks = <&mmsys_config CLK_MM_SMI_IMG>,
 			<&imgsys CLK_IMG_LARB2>;
 		clock-names = "apb", "smi";
-		mediatek,smi-id = <2>;
+		mediatek,larb-id = <2>;
 	};
 
 	fdvt@1502b000 {
@@ -3804,7 +3804,7 @@ initcall_debug=1 pelt=8";
 		clocks = <&vcodecsys CLK_VENC_SET1_VENC>,
 			<&vcodecsys CLK_VENC_SET1_VENC>;
 		clock-names =  "apb" , "smi";
-		mediatek,smi-id = <1>;
+		mediatek,larb-id = <1>;
 	};
 
 	venc@17020000 {
@@ -3925,7 +3925,7 @@ initcall_debug=1 pelt=8";
 		clocks = <&mmsys_config CLK_MM_SMI_CAM>,
 			<&camsys CLK_CAM_LARB3>;
 		clock-names = "apb" , "smi";
-		mediatek,smi-id = <3>;
+		mediatek,larb-id = <3>;
 	};
 
 	cam1@1a003000 {
