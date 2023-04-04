@@ -1211,6 +1211,25 @@ u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
 {
 	u64 sec_eng_flag = 0;
 
+	/* MDP engines */
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WDMA);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT1);
+
+	/* DISP engines */
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_RDMA0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_RDMA1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_WDMA0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_WDMA1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_OVL0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_OVL1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_OVL2);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_2L_OVL0);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_2L_OVL1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DISP_2L_OVL2);
+
 	/* ISP */
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMGI);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_VIPI);
