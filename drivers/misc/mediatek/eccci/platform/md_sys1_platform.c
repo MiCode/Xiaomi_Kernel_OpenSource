@@ -118,6 +118,12 @@ void ccci_dump(void)
 EXPORT_SYMBOL(ccci_dump);
 #endif
 
+unsigned int ccci_get_ap_plat_info(void)
+{
+	return ap_plat_info;
+}
+EXPORT_SYMBOL(ccci_get_ap_plat_info);
+
 /* md1 sys_clk_cg no need set in this API*/
 static void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 {

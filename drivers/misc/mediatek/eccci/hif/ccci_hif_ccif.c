@@ -2040,7 +2040,7 @@ static void ccif_set_clk_on(unsigned char hif_id)
 
 /*
  * for ccif4,5 power off action different:
- * gen97: 0x1000330C [31:0] write 0x0
+ * gen97: 0x1000330C [31:0] write 0x0, except mt6855 used 98 flow
  * gen98: 0x10001BF0 [15:0] write 0xF7FF
  * gen95: 0x10001C10 [31:0] write 0x0
  */
@@ -2050,10 +2050,11 @@ static void ccif_set_clk_off(unsigned char hif_id)
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 	int idx;
 	unsigned long flags;
+	unsigned int ap_plat_info;
 
 	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s start\n", __func__);
-
-	if ((ccif_ctrl->plat_val.md_gen >= 6298) ||
+	ap_plat_info = ccci_get_ap_plat_info();
+	if ((ap_plat_info == 6855) || (ccif_ctrl->plat_val.md_gen >= 6298) ||
 	    (ccif_ctrl->ccif_hw_reset_ver == 1)) {
 		/* write 1 clear register */
 		regmap_write(ccif_ctrl->plat_val.infra_ao_base,

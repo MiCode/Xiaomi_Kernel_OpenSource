@@ -137,6 +137,8 @@ struct ccif_irq_cb_func_info {
 	void (*cb_func)(unsigned char user_id);
 };
 
+extern unsigned int ccci_get_ap_plat_info(void);
+
 static inline void ccif_set_busy_queue(struct md_ccif_ctrl *md_ctrl,
 	unsigned int qno)
 {
