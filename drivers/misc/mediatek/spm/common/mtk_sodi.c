@@ -48,7 +48,7 @@ void mtk_idle_disp_is_ready(bool enable)
 }
 
 /* External weak function: implemented in disp driver */
-bool __attribute__((weak)) disp_pwm_is_osc(void) {return false; }
+bool __attribute__((weak)) disp_pwm_is_osc(void) {return true; }
 
 
 bool mtk_sodi3_enabled(void)
