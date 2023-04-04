@@ -4094,11 +4094,8 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		reg = <0 0x10200000 0 0x4000>;
 		reg-names = "cm_mgr_base";
 		interconnects =
-			<&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
 			<&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
-		interconnect-names =
-			"cm-perf-bw",
-			"cm-polling-bw";
+		interconnect-names = "cm-perf-bw";
 		required-opps = <&dvfsrc_freq_opp0>,
 				<&dvfsrc_freq_opp1>,
 				<&dvfsrc_freq_opp2>;
