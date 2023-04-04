@@ -1347,6 +1347,10 @@ initcall_debug=1 pelt=8";
 		clock-frequency = <13000000>;
 	};
 
+	disable_unused: disable_unused {
+		compatible = "simple-bus";
+	};
+
 	clocks {
 		clk26m: clk26m {
 			compatible = "fixed-clock";
@@ -4667,6 +4671,7 @@ initcall_debug=1 pelt=8";
 #include "mediatek/cust_mt6765_msdc.dtsi"
 #include "mediatek/mt6357.dtsi"
 #include "mediatek/bat_setting/mt6765_battery_prop.dtsi"
+#include "mediatek/mt6765-disable-unused.dtsi"
 #include "mediatek/mt6370.dtsi"
 #include "mediatek/rt9471.dtsi"
 #include "mediatek/trusty.dtsi"
