@@ -160,6 +160,24 @@
 		};
 	};
 
+	mt6357_ts_buck1: mt6357_ts_buck1 {
+				compatible = "mediatek,mt6357_ts_buck1";
+				io-channels =
+					<&pmic_auxadc AUXADC_VCORE_TEMP>;
+				io-channel-names =
+					"pmic_buck1_temp";
+				interconnects = <&mtk_ts_pmic 1>;
+	};
+
+	mt6357ts_buck2: mt6357_ts_buck2 {
+				compatible = "mediatek,mt6357_ts_buck2";
+				io-channels =
+					<&pmic_auxadc AUXADC_VPROC_TEMP>;
+				io-channel-names =
+					"pmic_buck2_temp";
+				interconnects = <&mtk_ts_pmic 1>;
+	};
+
 	mt6357regulator: mt6357regulator {
 		compatible = "mediatek,mt6357-regulator";
 		mt_pmic_vs1_buck_reg: buck_vs1 {
