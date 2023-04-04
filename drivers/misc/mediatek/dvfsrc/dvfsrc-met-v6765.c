@@ -19,28 +19,20 @@ static inline u32 dvfsrc_met_read(struct mtk_dvfsrc_met *dvfs, u32 offset)
 }
 
 enum met_src_index {
-	SRC_MD2SPM_IDX,
-	DDR_OPP_IDX,
-	DDR_SW_REQ1_PMQOS_IDX,
-	DDR_SW_REQ2_CM_IDX,
-	DDR_EMI_TOTAL_IDX,
-	DDR_QOS_BW_IDX,
-	VCORE_OPP_IDX,
-	VCORE_SW_REQ1_PMQOS_IDX,
-	VCORE_SW_REQ2_CM_IDX,
-	VCORE_SCP_IDX,
-	SRC_TOTAL_EMI_BW_IDX,
-	SRC_PMQOS_TOTAL_IDX,
-	SRC_PMQOS_BW0_IDX,
-	SRC_PMQOS_BW1_IDX,
-	SRC_PMQOS_BW2_IDX,
-	SRC_PMQOS_BW3_IDX,
-	SRC_PMQOS_BW4_IDX,
-	SRC_MD_REQ_OPP,
-	BWMON_TOTAL_BW_IDX,
-	BWMON_CPU_BW_IDX,
-	BWMON_GPU_BW_IDX,
-	BWMON_MM_BW_IDX,
+	MD2SPM = 0,
+	DDR_SW_REQ1_PMQOS,
+	DDR_SW_REQ2_CM,
+	DDR_QOS_BW,
+	VCORE_SW_REQ1_PMQOS,
+	VCORE_SW_REQ2_CM,
+	VCORE_SCP,
+	PMQOS_TOTAL,
+	PMQOS_PEAK,
+	PMQOS_BW1,
+	PMQOS_BW2,
+	PMQOS_BW3,
+	PMQOS_BW4,
+	MD_REQ_OPP,
 	SRC_MAX
 };
 
@@ -49,34 +41,27 @@ static unsigned int met_vcorefs_src[SRC_MAX];
 
 static char *met_src_name[SRC_MAX] = {
 	"MD2SPM",
-	"SRC_DDR_OPP",
 	"DDR__SW_REQ1_PMQOS",
 	"DDR__SW_REQ2_CM",
-	"DDR__EMI_TOTAL",
 	"DDR__QOS_BW",
-	"SRC_VCORE_OPP",
 	"VCORE__SW_REQ1_PMQOS",
 	"VCORE__SW_REQ2_CM",
 	"VCORE__SCP",
-	"TOTAL_EMI_BW",
 	"PMQOS_TOTAL",
-	"PMQOS_BW0",
+	"PMQOS_PEAK",
 	"PMQOS_BW1",
 	"PMQOS_BW2",
 	"PMQOS_BW3",
 	"PMQOS_BW4",
 	"MD_REQ_OPP",
-	"BWMON__TOTAL_BW",
-	"BWMON__CPU_BW",
-	"BWMON__GPU_BW",
-	"BWMON__MM_BW",
 };
 
+#define DVFSRC_BASIC_CONTROL	(0x0)
 #define DVFSRC_SW_REQ	(0x4)
 #define DVFSRC_SW_REQ2	(0x8)
-#define DVFSRC_VCORE_REQUEST (0x48)
 #define DVFSRC_EMI_QOS0            (0x24)
 #define DVFSRC_EMI_QOS1            (0x28)
+#define DVFSRC_VCORE_REQUEST (0x48)
 #define DVFSRC_SW_BW_0	(0x160)
 #define DVFSRC_SW_BW_1	(0x164)
 #define DVFSRC_SW_BW_2	(0x168)
@@ -87,7 +72,6 @@ static char *met_src_name[SRC_MAX] = {
 #define DVFSRC_LEVEL               (0xDC)
 #define DVFSRC_EMI_MD2SPM0_T       (0x3C)
 #define DVFSRC_EMI_MD2SPM1_T       (0x40)
-#define DVFSRC_BASIC_CONTROL       (0x0)
 
 #define DVFSRC_CURRENT_LEVEL(x)	(((x) >> 16) & 0x0000ffff)
 
@@ -97,7 +81,13 @@ static char *met_src_name[SRC_MAX] = {
 #define VCORE_SW_AP_SHIFT	2
 #define VCORE_SW_AP_MASK	0x3
 
-/* DVFSRC_VCORE_REQUEST  */
+/* DVFSRC_SW_REQ2 0x8 */
+#define EMI_SW_AP2_SHIFT	0
+#define EMI_SW_AP2_MASK		0x3
+#define VCORE_SW_AP2_SHIFT	2
+#define VCORE_SW_AP2_MASK	0x3
+
+/* DVFSRC_VCORE_REQUEST 0x48 */
 #define VCORE_SCP_GEAR_SHIFT	30
 #define VCORE_SCP_GEAR_MASK	0x3
 
@@ -117,87 +107,73 @@ static u32 dvfsrc_get_current_level(struct mtk_dvfsrc_met *dvfsrc)
 	return DVFSRC_CURRENT_LEVEL(dvfsrc_met_read(dvfsrc, DVFSRC_LEVEL));
 }
 
-static u32 dvfsrc_mt6768_ddr_qos(struct mtk_dvfsrc_met *dvfs, u32 bw)
+static u32 dvfsrc_ddr_qos(struct mtk_dvfsrc_met *dvfs)
 {
-	unsigned int qos0_thres = dvfsrc_met_read(dvfs, DVFSRC_EMI_QOS0);
-	unsigned int qos1_thres = dvfsrc_met_read(dvfs, DVFSRC_EMI_QOS1);
+	u32 qos_peak_bw, qos_bw1, qos_bw2, qos_bw3, qos_bw4;
+	u32 qos_total_bw;
 
-	if (bw > qos1_thres)
-		return 2;
-	else if (bw > qos0_thres)
-		return 1;
-	else
-		return 0;
-}
-
-
-static int dvfsrc_emi_mon_gear(struct mtk_dvfsrc_met *dvfs)
-{
-	//unsigned int total_bw_status = get_emi_bwst(0);
-	//if (((total_bw_status >> 1) & 0x1) != 0)
-	//	return 2;
-	//else if ((total_bw_status & 0x1) != 0)
-	//	return 1;
-	//else
-	//	return 0;
-	return 0;
-}
-
-static void vcorefs_get_src_ddr_req(struct mtk_dvfsrc_met *dvfs)
-{
-	unsigned int sw_req;
-
-	sw_req = dvfsrc_met_read(dvfs, DVFSRC_SW_REQ);
-	met_vcorefs_src[DDR_SW_REQ1_PMQOS_IDX] =
-		(sw_req >> EMI_SW_AP_SHIFT) & EMI_SW_AP_MASK;
-
-	sw_req = dvfsrc_met_read(dvfs, DVFSRC_SW_REQ2);
-
-	met_vcorefs_src[DDR_SW_REQ2_CM_IDX] =
-		(sw_req >> EMI_SW_AP_SHIFT) & EMI_SW_AP_MASK;
-
-	met_vcorefs_src[DDR_EMI_TOTAL_IDX] =
-		dvfsrc_emi_mon_gear(dvfs);
-}
-
-static void vcorefs_get_src_vcore_req(struct mtk_dvfsrc_met *dvfs)
-{
-	u32 sw_req;
-
-	sw_req = dvfsrc_met_read(dvfs, DVFSRC_SW_REQ);
-	met_vcorefs_src[VCORE_SW_REQ1_PMQOS_IDX] =
-		(sw_req >> VCORE_SW_AP_SHIFT) & VCORE_SW_AP_MASK;
-	sw_req = dvfsrc_met_read(dvfs, DVFSRC_SW_REQ2);
-	met_vcorefs_src[VCORE_SW_REQ2_CM_IDX] =
-		(sw_req >> VCORE_SW_AP_SHIFT) & VCORE_SW_AP_MASK;
-	sw_req = dvfsrc_met_read(dvfs, DVFSRC_VCORE_REQUEST);
-	met_vcorefs_src[VCORE_SCP_IDX] =
-		(sw_req >> VCORE_SCP_GEAR_SHIFT) & VCORE_SCP_GEAR_MASK;
-}
-
-static void vcorefs_get_src_misc_info(struct mtk_dvfsrc_met *dvfs)
-{
-	u32 qos_bw0, qos_bw1, qos_bw2, qos_bw3, qos_bw4;
-	u32 total_bw;
-
-	qos_bw0 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_0);
+	qos_peak_bw = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_0);
 	qos_bw1 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_1);
 	qos_bw2 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_2);
 	qos_bw3 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_3);
 	qos_bw4 = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_4);
-	total_bw = qos_bw0 + qos_bw1 + qos_bw2 + qos_bw3 + qos_bw4;
-	met_vcorefs_src[SRC_MD2SPM_IDX] =
-		dvfsrc_met_read(dvfs, DVFSRC_MD_SCENARIO);
-	met_vcorefs_src[SRC_PMQOS_TOTAL_IDX] = total_bw;
-	met_vcorefs_src[DDR_QOS_BW_IDX] =
-		dvfsrc_mt6768_ddr_qos(dvfs, total_bw);
-	met_vcorefs_src[SRC_PMQOS_BW0_IDX] = qos_bw0;
-	met_vcorefs_src[SRC_PMQOS_BW1_IDX] = qos_bw1;
-	met_vcorefs_src[SRC_PMQOS_BW2_IDX] = qos_bw2;
-	met_vcorefs_src[SRC_PMQOS_BW3_IDX] = qos_bw3;
-	met_vcorefs_src[SRC_PMQOS_BW4_IDX] = qos_bw4;
-	met_vcorefs_src[SRC_MD_REQ_OPP] =
-		dvfsrc_met_read(dvfs, DVFSRC_RSRV_0) & 0x3F;
+	qos_total_bw = qos_bw1 + qos_bw2 + qos_bw3 + qos_bw4;
+
+	met_vcorefs_src[PMQOS_PEAK] = qos_peak_bw;
+	met_vcorefs_src[PMQOS_BW1] = qos_bw1;
+	met_vcorefs_src[PMQOS_BW2] = qos_bw2;
+	met_vcorefs_src[PMQOS_BW3] = qos_bw3;
+	met_vcorefs_src[PMQOS_BW4] = qos_bw4;
+	met_vcorefs_src[PMQOS_TOTAL] = qos_total_bw;
+
+	qos_total_bw = max_t(u32, qos_total_bw, qos_peak_bw);
+
+	return qos_total_bw;
+}
+
+static void vcorefs_get_src_ddr_req(struct mtk_dvfsrc_met *dvfs)
+{
+	unsigned int sw_req, sw_req2;
+	unsigned int qos0_thres, qos1_thres;
+	u32 total_bw;
+
+	qos0_thres = dvfsrc_met_read(dvfs, DVFSRC_EMI_QOS0);
+	qos1_thres = dvfsrc_met_read(dvfs, DVFSRC_EMI_QOS1);
+
+	sw_req = dvfsrc_met_read(dvfs, DVFSRC_SW_REQ);
+	met_vcorefs_src[DDR_SW_REQ1_PMQOS] = (sw_req >> EMI_SW_AP_SHIFT) & EMI_SW_AP_MASK;
+
+	sw_req2 = dvfsrc_met_read(dvfs, DVFSRC_SW_REQ2);
+	met_vcorefs_src[DDR_SW_REQ2_CM] = (sw_req2 >> EMI_SW_AP2_SHIFT) & EMI_SW_AP2_MASK;
+
+	total_bw = dvfsrc_ddr_qos(dvfs);
+
+	if (total_bw > qos1_thres)
+		met_vcorefs_src[DDR_QOS_BW] = 2;
+	else if (total_bw > qos0_thres)
+		met_vcorefs_src[DDR_QOS_BW] = 1;
+	else
+		met_vcorefs_src[DDR_QOS_BW] = 0;
+}
+
+static void vcorefs_get_src_vcore_req(struct mtk_dvfsrc_met *dvfs)
+{
+	unsigned int sw_req, sw_req2, sw_req3;
+
+	sw_req = dvfsrc_met_read(dvfs, DVFSRC_SW_REQ);
+	met_vcorefs_src[VCORE_SW_REQ1_PMQOS] = (sw_req >> VCORE_SW_AP_SHIFT) & VCORE_SW_AP_MASK;
+
+	sw_req2 = dvfsrc_met_read(dvfs, DVFSRC_SW_REQ2);
+	met_vcorefs_src[VCORE_SW_REQ2_CM] = (sw_req2 >> VCORE_SW_AP2_SHIFT) & VCORE_SW_AP2_MASK;
+
+	sw_req3 = dvfsrc_met_read(dvfs, DVFSRC_VCORE_REQUEST);
+	met_vcorefs_src[VCORE_SCP] = (sw_req3 >> VCORE_SCP_GEAR_SHIFT) & VCORE_SCP_GEAR_MASK;
+}
+
+static void vcorefs_get_src_misc_info(struct mtk_dvfsrc_met *dvfs)
+{
+	met_vcorefs_src[MD2SPM] = dvfsrc_met_read(dvfs, DVFSRC_MD_SCENARIO);
+	met_vcorefs_src[MD_REQ_OPP] = dvfsrc_met_read(dvfs, DVFSRC_RSRV_0);
 }
 
 static unsigned int *dvfsrc_get_src_req(struct mtk_dvfsrc_met *dvfs)
@@ -213,14 +189,6 @@ static int dvfsrc_get_ddr_ratio(struct mtk_dvfsrc_met *dvfs)
 {
 	return 0;
 }
-
-const struct dvfsrc_met_config mt6768_met_config = {
-	.dvfsrc_get_src_req_num = dvfsrc_get_src_req_num,
-	.dvfsrc_get_src_req_name = dvfsrc_get_src_req_name,
-	.dvfsrc_get_src_req = dvfsrc_get_src_req,
-	.dvfsrc_get_ddr_ratio = dvfsrc_get_ddr_ratio,
-	.get_current_level = dvfsrc_get_current_level,
-};
 
 const struct dvfsrc_met_config mt6765_met_config = {
 	.dvfsrc_get_src_req_num = dvfsrc_get_src_req_num,

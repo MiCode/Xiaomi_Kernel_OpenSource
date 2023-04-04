@@ -249,7 +249,7 @@ static const struct dvfsrc_met_data mt6768_data = {
 };
 
 static const struct dvfsrc_met_data mt6765_data = {
-	.met = &mt6768_met_config,
+	.met = &mt6765_met_config,
 	.version = 0x6765,
 };
 static const struct of_device_id dvfsrc_met_of_match[] = {
