@@ -71,6 +71,7 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 #if !IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 	return 0;
 #endif
+
 	if (power_type >= POWER_TYPE_NUM ||
 		power_type < 0) {
 		pr_notice("[md1_power] invalid power_type=%d\n",
@@ -92,6 +93,7 @@ int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 		return MAX_MD1_POWER;
 #endif
 	scenario = get_md1_scenario(share_reg, power_type);
+
 	scenario_power = get_md1_scenario_power(scenario, power_type);
 	g_scenario_power[power_type] = scenario_power;
 
@@ -265,5 +267,6 @@ EXPORT_SYMBOL(init_md_section_level);
 
 module_init(mdpm_module_init);
 module_exit(mdpm_module_exit);
+
 MODULE_DESCRIPTION("MDPM Driver v0.1");
 MODULE_LICENSE("GPL");
