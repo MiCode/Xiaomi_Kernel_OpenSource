@@ -32,12 +32,6 @@
 #define MTK_VDEC_REG_NAME_VENC_GCON				"VENC_GCON"
 #define MTK_VDEC_REG_NAME_VENC_BASE				"VENC_BASE"
 
-
-#define MTK_PLATFORM_MT6765				"platform:mt6765"
-#define MTK_PLATFORM_MT6761				"platform:mt6761"
-#define MTK_PLATFORM_MT6739				"platform:mt6739"
-#define MTK_PLATFORM_MT6580				"platform:mt6580"
-
 #define MTK_VENC_MAX_LARB_COUNT 2
 #define MTK_VDEC_MAX_LARB_COUNT 2
 

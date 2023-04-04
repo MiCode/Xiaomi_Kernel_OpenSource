@@ -103,20 +103,12 @@
 #define VCODEC_CACHE_INVALIDATE_BUFF	_IOWR(MFV_IOC_MAGIC, 0x41, unsigned int)
 /* VAL_MEM_INFO_T * */
 extern const struct file_operations vcodec_fops;
-#if IS_ENABLED(CONFIG_PM)
-extern struct dev_pm_domain mt_vdec_pm_domain;
-extern struct dev_pm_domain mt_venc_pm_domain;
-#endif
 
 /* hardware VENC IRQ status(VP8/H264) */
 extern unsigned int gu4HwVencIrqStatus;
-extern const char *platform;
-extern unsigned int gLockTimeOutCount;
-extern int gBistFlag;
-extern int gDfvsFlag;
-extern int gWakeLock;
 
-extern unsigned int is_entering_suspend;
+extern unsigned int gLockTimeOutCount;
+
 extern struct mtk_vcodec_dev *gVCodecDev;
 extern void *KVA_VENC_IRQ_ACK_ADDR, *KVA_VENC_IRQ_STATUS_ADDR, *KVA_VENC_BASE;
 extern void *KVA_VDEC_MISC_BASE, *KVA_VDEC_VLD_BASE;
@@ -166,7 +158,7 @@ struct mtk_vcodec_drv_init_params {
 	struct VAL_EVENT_T EncIsrEvent;    /* mutex : HWLockEventTimeoutLock */
 };
 extern struct mtk_vcodec_drv_init_params *gDrvInitParams;
-void initDvfsParams(void);
+
 //define the write register function
 #define mt_reg_sync_writel(v, a) \
 	do {    \
@@ -175,3 +167,119 @@ void initDvfsParams(void);
 	} while (0)
 
 #endif /* __VCODEC_DRIVER_H__ */
+
+#if IS_ENABLED(CONFIG_COMPAT)
+enum STRUCT_TYPE {
+	VAL_HW_LOCK_TYPE = 0,
+	VAL_POWER_TYPE,
+	VAL_ISR_TYPE,
+	VAL_MEMORY_TYPE,
+	VAL_FRAME_INFO_TYPE,
+	VAL_MEM_OBJ_TYPE
+};
+
+enum COPY_DIRECTION {
+	COPY_FROM_USER = 0,
+	COPY_TO_USER,
+};
+
+struct COMPAT_VAL_HW_LOCK_T {
+	/* [IN]     The video codec driver handle */
+	compat_uptr_t       pvHandle;
+	/* [IN]     The size of video codec driver handle */
+	compat_uint_t       u4HandleSize;
+	/* [IN/OUT] The Lock discriptor */
+	compat_uptr_t       pvLock;
+	/* [IN]     The timeout ms */
+	compat_uint_t       u4TimeoutMs;
+	/* [IN/OUT] The reserved parameter */
+	compat_uptr_t       pvReserved;
+	/* [IN]     The size of reserved parameter structure */
+	compat_uint_t       u4ReservedSize;
+	/* [IN]     The driver type */
+	compat_uint_t       eDriverType;
+	/* [IN]     True if this is a secure instance */
+	/* MTK_SEC_VIDEO_PATH_SUPPORT */
+	char                bSecureInst;
+};
+
+struct COMPAT_VAL_POWER_T {
+	/* [IN]     The video codec driver handle */
+	compat_uptr_t       pvHandle;
+	/* [IN]     The size of video codec driver handle */
+	compat_uint_t       u4HandleSize;
+	/* [IN]     The driver type */
+	compat_uint_t       eDriverType;
+	/* [IN]     Enable or not. */
+	char                fgEnable;
+	/* [IN/OUT] The reserved parameter */
+	compat_uptr_t       pvReserved;
+	/* [IN]     The size of reserved parameter structure */
+	compat_uint_t       u4ReservedSize;
+	/* [OUT]    The number of power user right now */
+	/* unsigned int        u4L2CUser; */
+};
+
+struct COMPAT_VAL_ISR_T {
+	/* [IN]     The video codec driver handle */
+	compat_uptr_t       pvHandle;
+	/* [IN]     The size of video codec driver handle */
+	compat_uint_t       u4HandleSize;
+	/* [IN]     The driver type */
+	compat_uint_t       eDriverType;
+	/* [IN]     The isr function */
+	compat_uptr_t       pvIsrFunction;
+	/* [IN/OUT] The reserved parameter */
+	compat_uptr_t       pvReserved;
+	/* [IN]     The size of reserved parameter structure */
+	compat_uint_t       u4ReservedSize;
+	/* [IN]     The timeout in ms */
+	compat_uint_t       u4TimeoutMs;
+	/* [IN]     The num of return registers when HW done */
+	compat_uint_t       u4IrqStatusNum;
+	/* [IN/OUT] The value of return registers when HW done */
+	compat_uint_t       u4IrqStatus[IRQ_STATUS_MAX_NUM];
+};
+
+struct COMPAT_VAL_MEMORY_T {
+	/* [IN]     The allocation memory type */
+	compat_uint_t       eMemType;
+	/* [IN]     The size of memory allocation */
+	compat_ulong_t      u4MemSize;
+	/* [IN/OUT] The memory virtual address */
+	compat_uptr_t       pvMemVa;
+	/* [IN/OUT] The memory physical address */
+	compat_uptr_t       pvMemPa;
+	/* [IN]     The memory byte alignment setting */
+	compat_uint_t       eAlignment;
+	/* [IN/OUT] The align memory virtual address */
+	compat_uptr_t       pvAlignMemVa;
+	/* [IN/OUT] The align memory physical address */
+	compat_uptr_t       pvAlignMemPa;
+	/* [IN]     The memory codec for VENC or VDEC */
+	compat_uint_t       eMemCodec;
+	compat_uint_t       i4IonShareFd;
+	compat_uptr_t       pIonBufhandle;
+	/* [IN/OUT] The reserved parameter */
+	compat_uptr_t       pvReserved;
+	/* [IN]     The size of reserved parameter structure */
+	compat_ulong_t      u4ReservedSize;
+};
+
+struct COMPAT_VAL_FRAME_INFO_T {
+	compat_uptr_t handle;
+	compat_uint_t driver_type;
+	compat_uint_t input_size;
+	compat_uint_t frame_width;
+	compat_uint_t frame_height;
+	compat_uint_t frame_type;
+	compat_uint_t is_compressed;
+};
+
+struct COMPAT_VAL_MEM_OBJ {
+	compat_u64 iova;
+	compat_ulong_t len;
+	compat_uint_t shared_fd;
+	compat_uint_t cnt;
+};
+#endif

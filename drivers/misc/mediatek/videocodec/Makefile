@@ -19,12 +19,21 @@ vcodec_kernel_common_driver-$(CONFIG_MTK_VIDEOCODEC_DRIVER) +=  videocodec_kerne
 vcodec_kernel_codec-$(CONFIG_MTK_VIDEOCODEC_DRIVER) +=	mtk_vcodec_pm.o   \
 							mtk_vcodec_intr.o   \
 							videocodec_kernel_drv.o
-ifeq ($(CONFIG_MTK_VIDEOCODEC_MT6765),y)
-	obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += vcodec_kernel_driver-mt6765.o
-	vcodec_kernel_driver-mt6765-$(CONFIG_MTK_VIDEOCODEC_DRIVER) +=  v1/mtk_vcodec_pm_plat.o   \
+
+ifeq ($(CONFIG_MTK_VIDEOCODEC_IPM_V1),y)
+	ccflags-y += \
+		-I$(srctree)/drivers/misc/mediatek/videocodec/v1
+	obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += vcodec_kernel_driver-v1.o
+	vcodec_kernel_driver-v1-$(CONFIG_MTK_VIDEOCODEC_DRIVER) +=  v1/mtk_vcodec_pm_plat.o   \
 									v1/dvfs_v2.o	\
-									videocodec_kernel_driver_mt6765.o
-	vcodec_kernel_driver-mt6765-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += vcodec_kernel_codec.o
+									v1/videocodec_kernel_drv_plat.o
+	vcodec_kernel_driver-v1-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += vcodec_kernel_codec.o
+else ifeq ($(CONFIG_MTK_VIDEOCODEC_IPM_V2),y)
+	ccflags-y += \
+		-I$(srctree)/drivers/misc/mediatek/videocodec/v2
+	obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += vcodec_kernel_driver-v2.o
+	vcodec_kernel_driver-v2-$(CONFIG_MTK_VIDEOCODEC_DRIVER) +=  v2/videocodec_kernel_drv_plat.o
+	vcodec_kernel_driver-v2-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += vcodec_kernel_codec.o
 endif
 
 ccflags-y += \

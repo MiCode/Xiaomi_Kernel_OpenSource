@@ -30,6 +30,11 @@
 #include <linux/sched.h>
 #include <linux/suspend.h>
 #include <linux/pm_wakeup.h>
+#include <linux/dma-buf.h>
+#include <linux/dma-heap.h>
+#include <uapi/linux/dma-heap.h>
+#include <linux/dma-direction.h>
+#include <linux/scatterlist.h>
 #include <linux/iommu.h>
 #if IS_ENABLED(CONFIG_MTK_CLKMGR)
 #include "mach/mt_clkmgr.h"
@@ -56,9 +61,11 @@
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_pm_codec.h"
 #include "mtk_vcodec_pm_plat.h"
+#include "videocodec_kernel_drv_plat.h"
 
 #include <linux/slab.h>
 #include "dvfs_v2.h"
+#include "mtk_heap.h"
 
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -68,21 +75,13 @@
 #include <linux/uaccess.h>
 #include <linux/compat.h>
 #endif
-#define VCODEC_DEVNAME     "Vcodec"
-#define VCODEC_DEVNAME2     "Vcodec2"
-#define VCODEC_DEV_MAJOR_NUMBER 160   /* 189 */
 
 static dev_t vcodec_devno = MKDEV(VCODEC_DEV_MAJOR_NUMBER, 0);
-static dev_t vcodec_devno2 = MKDEV(VCODEC_DEV_MAJOR_NUMBER, 1);
-
 
 /* hardware VENC IRQ status(VP8/H264) */
 unsigned int gu4HwVencIrqStatus;
 const char *platform;
 unsigned int gLockTimeOutCount;
-
-
-unsigned int is_entering_suspend;
 
 /* #define VCODEC_DEBUG */
 #ifdef VCODEC_DEBUG
@@ -99,21 +98,28 @@ unsigned int is_entering_suspend;
 void *KVA_VENC_IRQ_ACK_ADDR, *KVA_VENC_IRQ_STATUS_ADDR, *KVA_VENC_BASE;
 void *KVA_VDEC_MISC_BASE, *KVA_VDEC_VLD_BASE;
 void *KVA_VDEC_BASE, *KVA_VDEC_GCON_BASE, *KVA_MBIST_BASE;
-int gBistFlag;
-int gDfvsFlag;
-int gWakeLock;
+
 struct mtk_vcodec_dev *gVCodecDev;
 struct mtk_vcodec_drv_init_params *gDrvInitParams;
 unsigned int VENC_IRQ_ID, VDEC_IRQ_ID;
 
 /* #define KS_POWER_WORKAROUND */
 
-/* disable temporary for alaska DVT verification, smi seems not ready */
-#define ENABLE_MMDVFS_VDEC
-#ifdef ENABLE_MMDVFS_VDEC
-#define MIN_VDEC_FREQ 228
-#define MIN_VENC_FREQ 228
-#endif
+struct dmabuf_info {
+	struct dma_buf *dbuf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	int len;
+	dma_addr_t iova;
+	int useAlloc;
+	int cnt;
+};
+
+static unsigned int allocate_count;
+DEFINE_MUTEX(DmaAllocLock);
+#define CODEC_MAX_BUFFER 5000U
+struct dmabuf_info dma_buf_info[CODEC_MAX_BUFFER];
+#define CODEC_ALLOCATE_MAX_BUFFER_SIZE 0x10000000UL /*256MB*/
 
 unsigned int TimeDiffMs(struct VAL_TIME_T timeOld, struct VAL_TIME_T timeNew)
 {
@@ -133,72 +139,1198 @@ void *mt_vdec_base_get(void)
 	return (void *)KVA_VDEC_BASE;
 }
 
-/**
- * Suspend callbacks after user space processes are frozen
- * Since user space processes are frozen, there is no need and cannot hold same
- * mutex that protects lock owner while checking status.
- * If video codec hardware is still active now, must not aenter suspend.
- **/
-static int vcodec_suspend(struct platform_device *pDev, pm_message_t state)
+/* DMA Buf operations */
+long vcodec_get_mva_allocation(struct device *dev, unsigned long arg)
 {
-	if (gWakeLock == 0) {
-		if (CodecHWLock.pvHandle != 0) {
-			pr_info("%s fail due to videocodec activity", __func__);
-			return -EBUSY;
-		}
-		pr_debug("%s ok", __func__);
+	unsigned char *user_data_addr;
+	long ret;
+	int fd;
+	struct VAL_MEM_INFO_T rMemObj;
+	struct dma_buf *dmabuf = NULL;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	struct dma_heap *dma_heap;
+	dma_addr_t iova;
+	int useAlloc = 0;
+
+	pr_debug("%s +\n", __func__);
+	user_data_addr = (unsigned char *)arg;
+	ret = copy_from_user(&rMemObj, user_data_addr,
+				sizeof(struct VAL_MEM_INFO_T));
+	if (ret) {
+		pr_debug("%s, copy_from_user failed: %lu\n",
+			__func__, ret);
+		return -EFAULT;
 	}
+
+	pr_debug("%s, [b]rMemObj.shared_fd: %d, len: %d\n", __func__,
+		rMemObj.shared_fd, rMemObj.len);
+	if (rMemObj.shared_fd == 0) {
+		pr_debug("%s,rMemObj.fd == 0\n", __func__);
+		dma_heap = dma_heap_find("mtk_mm");
+		if (!dma_heap) {
+			pr_info("[%s] dma heap find fail\n", __func__);
+			return -EINVAL;
+		}
+		dmabuf = dma_heap_buffer_alloc(dma_heap, rMemObj.len,
+			O_RDWR | O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
+		if (IS_ERR_OR_NULL(dmabuf)) {
+			pr_info("dma_buf_get fail: %ld\n", PTR_ERR(dmabuf));
+			return -EFAULT;
+		}
+		fd = dma_buf_fd(dmabuf, O_RDWR | O_CLOEXEC);
+		rMemObj.shared_fd = fd;
+		pr_debug("%s, shared_fd: %d\n", __func__, rMemObj.shared_fd);
+		dma_heap_put(dma_heap);
+		if (IS_ERR(dmabuf)) {
+			pr_info("[%s] dma heap buffer alloc fail\n", __func__);
+			return -EINVAL;
+		}
+		useAlloc = 1;
+
+	} else {
+		pr_debug("%s,rMemObj.fd != 0\n", __func__);
+		dmabuf = dma_buf_get(rMemObj.shared_fd);
+		useAlloc = 0;
+	}
+	attach = dma_buf_attach(dmabuf, dev);
+	if (IS_ERR(attach)) {
+		pr_info("[%s] attach fail, return\n", __func__);
+		if (useAlloc)
+			dma_heap_buffer_free(dmabuf);
+		else
+			dma_buf_put(dmabuf);
+		return -EFAULT;
+	}
+	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+
+	if (IS_ERR(sgt)) {
+		pr_info("map failed, detach and return\n");
+		dma_buf_detach(dmabuf, attach);
+		return -EFAULT;
+	}
+	iova = sg_dma_address(sgt->sgl);
+	rMemObj.iova = (VAL_UINT64_T)iova;
+	mutex_lock(&DmaAllocLock);
+	rMemObj.cnt = allocate_count;
+	if (rMemObj.len > CODEC_ALLOCATE_MAX_BUFFER_SIZE ||
+		rMemObj.len == 0U || allocate_count >= CODEC_MAX_BUFFER) {
+		pr_info("Set buffer fail: buffer len = %u allocate_count = %d !!\n",
+			rMemObj.len, allocate_count);
+		mutex_unlock(&DmaAllocLock);
+		return -EINVAL;
+	}
+	dma_buf_info[allocate_count].attach = attach;
+	dma_buf_info[allocate_count].sgt = sgt;
+	dma_buf_info[allocate_count].dbuf = dmabuf;
+	dma_buf_info[allocate_count].len = rMemObj.len;
+	dma_buf_info[allocate_count].iova = iova;
+	dma_buf_info[allocate_count].useAlloc = useAlloc;
+	dma_buf_info[allocate_count].cnt = allocate_count;
+	allocate_count++;
+	mutex_unlock(&DmaAllocLock);
+	if (copy_to_user((void *)arg, &rMemObj, sizeof(struct VAL_MEM_INFO_T))) {
+		pr_info("Copy to user error\n");
+		return -EFAULT;
+	}
+	pr_debug("[%s][%d]iova:%llx, attach: %p, sgt: %p,cnt = %d, allocate_count :%d,useAlloc :%d",
+		__func__, __LINE__, rMemObj.iova, attach, sgt,
+		rMemObj.cnt, allocate_count, useAlloc);
 	return 0;
 }
 
-static int vcodec_resume(struct platform_device *pDev)
+long vcodec_cache_flush_buff(struct device *dev, unsigned long arg, unsigned int op)
 {
-	if (gWakeLock == 0)
-		pr_info("%s ok", __func__);
+	unsigned char *user_data_addr;
+	long ret;
+	struct VAL_MEM_INFO_T rMemObj;
+	struct dma_buf *dmabuf = NULL;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+
+	pr_debug("%s +\n", __func__);
+	user_data_addr = (unsigned char *)arg;
+	ret = copy_from_user(&rMemObj, user_data_addr,
+				sizeof(struct VAL_MEM_INFO_T));
+	if (ret) {
+		pr_debug("%s, copy_from_user failed : %lu\n",
+			__func__, ret);
+		return -EFAULT;
+	}
+	if (rMemObj.shared_fd == 0) {
+		pr_info("%s, shared_fd : %d can't be 0, please check\n", __func__,
+			rMemObj.shared_fd);
+		return -1;
+	}
+	dmabuf = dma_buf_get(rMemObj.shared_fd);
+	attach = dma_buf_attach(dmabuf, dev);
+	if (IS_ERR(attach)) {
+		pr_info("[%s] attach fail, return\n", __func__);
+		dma_buf_put(dmabuf);
+		return -EFAULT;
+	}
+	sgt = dma_buf_map_attachment(attach, op);
+	if (IS_ERR(sgt)) {
+		pr_info("map failed, detach and return\n");
+		dma_buf_detach(dmabuf, attach);
+		return -EFAULT;
+	}
+	dma_sync_sg_for_device(dev, sgt->sgl, sgt->orig_nents, op);
+	dma_buf_unmap_attachment(attach, sgt, op);
+	dma_buf_detach(dmabuf, attach);
+	dma_buf_put(dmabuf);
+	pr_debug("%s -\n", __func__);
 	return 0;
 }
 
-/**
- * Suspend notifiers before user space processes are frozen.
- * User space driver can still complete decoding/encoding of current frame.
- * Change state to is_entering_suspend to stop further tasks but allow current
- * frame to complete (LOCKHW, WAITISR, UNLOCKHW).
- * Since there is no critical section proection, it is possible for a new task
- * to start after changing to is_entering_suspend state. This case will be
- * handled by suspend callback vcodec_suspend.
- **/
-static int vcodec_suspend_notifier(struct notifier_block *nb,
-					unsigned long action, void *data)
+static void vcodec_dma_buf_release(void)
 {
-	int wait_cnt = 0;
+	int num_alloc_count = 0, i;
+	struct dmabuf_info *buf_info;
 
-	pr_info("%s ok action = %ld", __func__, action);
-	switch (action) {
-	case PM_SUSPEND_PREPARE:
-		is_entering_suspend = 1;
-		while (CodecHWLock.pvHandle != 0) {
-			wait_cnt++;
-			if (wait_cnt > 90) {
-				pr_info("%s waiting %p %d",
-					__func__, CodecHWLock.pvHandle,
-					(int)CodecHWLock.eDriverType);
-				/* Current task is still not finished, don't
-				 * care, will check again in real suspend
-				 */
-				return NOTIFY_DONE;
+	pr_debug("%s +\n", __func__);
+	num_alloc_count = allocate_count;
+	if (num_alloc_count != 0) {
+		for (i = 0; i < num_alloc_count; i++) {
+			buf_info = &dma_buf_info[i];
+			if (buf_info->dbuf != NULL) {
+				if (buf_info->useAlloc)
+					dma_heap_buffer_free(buf_info->dbuf);
+				else
+					dma_buf_put(buf_info->dbuf);
 			}
-			usleep_range(1000, 2000);
 		}
-		return NOTIFY_OK;
-	case PM_POST_SUSPEND:
-		is_entering_suspend = 0;
-		return NOTIFY_OK;
-	default:
-		return NOTIFY_DONE;
 	}
-	return NOTIFY_DONE;
+	pr_debug("%s -\n", __func__);
 }
 
+long vcodec_get_mva_free(struct device *dev, unsigned long arg)
+{
+	unsigned char *user_data_addr;
+	long ret = -1;
+	struct VAL_MEM_INFO_T rMemObj;
+	int fd;
+	int cnt, last_cnt, i;
+	int num_alloc_count = 0;
+	struct dmabuf_info *buf_info;
+
+	pr_debug("%s +\n", __func__);
+	user_data_addr = (unsigned char *)arg;
+	ret = (long)copy_from_user(&rMemObj, user_data_addr,
+				(unsigned long)sizeof(struct VAL_MEM_INFO_T));
+	if (ret) {
+		pr_debug("%s, copy_from_user failed: %lu\n",
+			__func__, ret);
+		return -EFAULT;
+	}
+	fd = rMemObj.shared_fd;
+	cnt = rMemObj.cnt;
+	mutex_lock(&DmaAllocLock);
+	num_alloc_count = allocate_count;
+	if (num_alloc_count != 0) {
+		for (i = 0; i < num_alloc_count; i++) {
+			buf_info = &dma_buf_info[i];
+			if (rMemObj.iova != 0 && rMemObj.iova == buf_info->iova &&
+				cnt == buf_info->cnt && rMemObj.len == buf_info->len) {
+				pr_info("Free buffer index: %d, iova: %llx, total num: %d,\n"
+					"buf_iova: %llx,cnt : %d,buf_info->cnt : %d\n",
+					i, rMemObj.iova, num_alloc_count, buf_info->iova, cnt,
+					buf_info->cnt);
+				if (buf_info->attach != NULL && buf_info->sgt != NULL) {
+					dma_buf_unmap_attachment(buf_info->attach,
+						buf_info->sgt,
+						DMA_BIDIRECTIONAL);
+					pr_debug("dma_buf_unmap_attachment successful");
+				}
+				if (buf_info->dbuf != NULL && buf_info->attach != NULL) {
+					dma_buf_detach(buf_info->dbuf, buf_info->attach);
+					pr_debug("dma_buf_detach successful");
+				}
+				if (buf_info->dbuf != NULL) {
+					if (buf_info->useAlloc)
+						dma_heap_buffer_free(buf_info->dbuf);
+					else
+						dma_buf_put(buf_info->dbuf);
+					pr_debug("%s free successful,buf_info->useAlloc: %d",
+						__func__, buf_info->useAlloc);
+				}
+				last_cnt = num_alloc_count - 1U;
+				if (last_cnt != i)
+					dma_buf_info[i] = dma_buf_info[last_cnt];
+				dma_buf_info[last_cnt].attach = NULL;
+				dma_buf_info[last_cnt].sgt = NULL;
+				dma_buf_info[last_cnt].dbuf = NULL;
+				dma_buf_info[last_cnt].len = 0;
+				dma_buf_info[last_cnt].iova = 0;
+				dma_buf_info[last_cnt].cnt = 0;
+				if (dma_buf_info[last_cnt].useAlloc)
+					dma_buf_info[last_cnt].useAlloc = 0;
+				if (allocate_count > 0)
+					allocate_count--;
+				ret = 0;
+				break;
+			}
+		}
+	}
+	mutex_unlock(&DmaAllocLock);
+	if (ret != 0) {
+		pr_info("Can not free memory iova: %llx, len : %u!\n", rMemObj.iova, rMemObj.len);
+		return ret;
+	}
+	return 0;
+}
+
+/* Vcodec file operations */
+void vcodec_vma_open(struct vm_area_struct *vma)
+{
+	pr_debug("%s, virt %lx, phys %lx\n", __func__, vma->vm_start,
+			vma->vm_pgoff << PAGE_SHIFT);
+}
+
+void vcodec_vma_close(struct vm_area_struct *vma)
+{
+	pr_debug("%s, virt %lx, phys %lx\n", __func__, vma->vm_start,
+			vma->vm_pgoff << PAGE_SHIFT);
+}
+
+static const struct vm_operations_struct vcodec_remap_vm_ops = {
+	.open = vcodec_vma_open,
+	.close = vcodec_vma_close,
+};
+
+static int vcodec_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	unsigned long length = vma->vm_end - vma->vm_start;
+	unsigned long pa_start = vma->vm_pgoff << PAGE_SHIFT;
+	unsigned long pfn;
+	unsigned long start = vma->vm_start;
+
+	pr_info("%s vma->start 0x%lx, vma->end 0x%lx, vma->pgoff 0x%lx, pa_start 0x%lx\n", __func__,
+			(unsigned long)vma->vm_start,
+			(unsigned long)vma->vm_end,
+			(unsigned long)vma->vm_pgoff,
+			(unsigned long)pa_start);
+	length = vma->vm_end - vma->vm_start;
+	pfn = vma->vm_pgoff<<PAGE_SHIFT;
+
+	if ((length <  VDEC_REGION && (pa_start >= VDEC_BASE_PHY &&
+		pa_start < VDEC_BASE_PHY + VDEC_REGION)) ||
+		(length <  VENC_REGION && (pa_start >= VENC_BASE_PHY &&
+		pa_start < VENC_BASE_PHY + VENC_REGION))) {
+		vma->vm_pgoff = pa_start >> PAGE_SHIFT;
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+		if (remap_pfn_range(vma, start, vma->vm_pgoff,
+			PAGE_SIZE, vma->vm_page_prot) == true)
+			return -EAGAIN;
+	} else {
+		pr_info("mmap region error: Len(0x%lx),pfn(0x%lx)",
+			(unsigned long)length, pfn);
+		return -EAGAIN;
+	}
+	vma->vm_ops = &vcodec_remap_vm_ops;
+	vcodec_vma_open(vma);
+	return 0;
+}
+
+static int vcodec_open(struct inode *inode, struct file *file)
+{
+	pr_debug("%s\n", __func__);
+
+	mutex_lock(&gDrvInitParams->driverOpenCountLock);
+	gDrvInitParams->drvOpenCount++;
+
+	pr_info("%s pid = %d, gDrvInitParams->drvOpenCount %d\n",
+			__func__, current->pid, gDrvInitParams->drvOpenCount);
+	mutex_unlock(&gDrvInitParams->driverOpenCountLock);
+
+	/* TODO: Check upper limit of concurrent users? */
+
+	return 0;
+}
+
+static int vcodec_flush(struct file *file, fl_owner_t id)
+{
+	pr_debug("%s, curr_tid =%d\n", __func__, current->pid);
+	pr_debug("%s pid = %d, gDrvInitParams->drvOpenCount %d\n",
+			__func__, current->pid, gDrvInitParams->drvOpenCount);
+
+	return 0;
+}
+
+static long vcodec_unlocked_ioctl(struct file *file, unsigned int cmd,
+				unsigned long arg)
+{
+	long ret;
+	unsigned char *user_data_addr;
+	int temp_nr_cpu_ids;
+	char rIncLogCount;
+	unsigned int flush_dma_direction;
+
+	pr_debug("%s %u +\n", __func__, cmd);
+	switch (cmd) {
+	case VCODEC_SET_THREAD_ID:
+	{
+		pr_info("[INFO] VCODEC_SET_THREAD_ID empty");
+	}
+	break;
+
+	case VCODEC_ALLOC_NON_CACHE_BUFFER:
+	{
+		pr_info("[INFO] VCODEC_ALLOC_NON_CACHE_BUFFER  empty");
+	}
+	break;
+
+	case VCODEC_FREE_NON_CACHE_BUFFER:
+	{
+		pr_info("[INFO] VCODEC_FREE_NON_CACHE_BUFFER  empty");
+	}
+	break;
+
+	case VCODEC_INC_ENC_EMI_USER:
+	{
+		/* pr_debug("VCODEC_INC_ENC_EMI_USER + tid = %d\n",
+		 *		current->pid);
+		 */
+
+		mutex_lock(&gDrvInitParams->encEMILock);
+		gDrvInitParams->u4EncEMICounter++;
+		pr_debug("[VCODEC] ENC_EMI_USER = %d\n",
+				gDrvInitParams->u4EncEMICounter);
+		user_data_addr = (unsigned char *)arg;
+		ret = copy_to_user(user_data_addr, &gDrvInitParams->u4EncEMICounter,
+				sizeof(unsigned int));
+		if (ret) {
+			pr_info("INC_ENC_EMI_USER, copy_to_user fail: %lu",
+					ret);
+			mutex_unlock(&gDrvInitParams->encEMILock);
+			return -EFAULT;
+		}
+		mutex_unlock(&gDrvInitParams->encEMILock);
+
+		/* pr_debug("VCODEC_INC_ENC_EMI_USER - tid = %d\n",
+		 *		current->pid);
+		 */
+	}
+	break;
+
+	case VCODEC_DEC_ENC_EMI_USER:
+	{
+		/* pr_debug("VCODEC_DEC_ENC_EMI_USER + tid = %d\n",
+		 *		current->pid);
+		 */
+
+		mutex_lock(&gDrvInitParams->encEMILock);
+		gDrvInitParams->u4EncEMICounter--;
+		pr_info("[VCODEC] ENC_EMI_USER = %d\n",
+				gDrvInitParams->u4EncEMICounter);
+		user_data_addr = (unsigned char *)arg;
+		ret = copy_to_user(user_data_addr, &gDrvInitParams->u4EncEMICounter,
+					sizeof(unsigned int));
+		if (ret) {
+			pr_info("DEC_ENC_EMI_USER, copy_to_user fail: %lu",
+					ret);
+			mutex_unlock(&gDrvInitParams->encEMILock);
+			return -EFAULT;
+		}
+		mutex_unlock(&gDrvInitParams->encEMILock);
+
+		/* pr_debug("VCODEC_DEC_ENC_EMI_USER - tid = %d\n",
+		 *		current->pid);
+		 */
+	}
+	break;
+
+	case VCODEC_LOCKHW:
+	{
+		ret = vcodec_lockhw(arg);
+		if (ret) {
+			pr_info("[ERROR] VCODEC_LOCKHW failed! %lu\n",
+					ret);
+			return ret;
+		}
+	}
+		break;
+
+	case VCODEC_UNLOCKHW:
+	{
+		ret = vcodec_unlockhw(arg);
+		if (ret) {
+			pr_info("[ERROR] VCODEC_UNLOCKHW failed! %lu\n",
+					ret);
+			return ret;
+		}
+	}
+		break;
+
+	case VCODEC_WAITISR:
+	{
+		ret = vcodec_waitisr(arg);
+		if (ret) {
+			pr_info("[ERROR] VCODEC_WAITISR failed! %lu\n",
+					ret);
+			return ret;
+		}
+	}
+	break;
+
+	case VCODEC_INITHWLOCK:
+	{
+		pr_info("[INFO] VCODEC_INITHWLOCK empty");
+	}
+	break;
+
+	case VCODEC_DEINITHWLOCK:
+	{
+		pr_info("[INFO] VCODEC_DEINITHWLOCK empty");
+	}
+	break;
+
+	case VCODEC_GET_CORE_NUMBER:
+	{
+		/* pr_debug("VCODEC_GET_CORE_NUMBER + - tid = %d\n",
+		 *		current->pid);
+		 */
+
+		user_data_addr = (unsigned char *)arg;
+		temp_nr_cpu_ids = nr_cpu_ids;
+		ret = copy_to_user(user_data_addr, &temp_nr_cpu_ids,
+				sizeof(int));
+		if (ret) {
+			pr_info("GET_CORE_NUMBER, copy_to_user failed: %lu",
+					ret);
+			return -EFAULT;
+		}
+		/* pr_debug("VCODEC_GET_CORE_NUMBER - - tid = %d\n",
+		 *		current->pid);
+		 */
+	}
+	break;
+
+	case VCODEC_MB:
+	{
+		/* For userspace to guarantee register setting order */
+		mb();
+	}
+	break;
+
+	case VCODEC_SET_LOG_COUNT:
+	{
+		pr_debug("VCODEC_SET_LOG_COUNT + tid = %d\n", current->pid);
+
+		mutex_lock(&gDrvInitParams->logCountLock);
+		user_data_addr = (unsigned char *)arg;
+		ret = copy_from_user(&rIncLogCount, user_data_addr,
+			sizeof(char));
+		if (ret) {
+			pr_info("[ERROR] VCODEC_SET_LOG_COUNT, copy_from_user failed: %lu\n",
+				ret);
+			mutex_unlock(&gDrvInitParams->logCountLock);
+			return -EFAULT;
+		}
+
+		if (rIncLogCount == VAL_TRUE) {
+			if (gDrvInitParams->u4LogCountUser == 0) {
+#if IS_ENABLED(CONFIG_CONSOLE_LOCK_DURATION_DETECT)
+				gDrvInitParams->u4LogCount = get_detect_count();
+				set_detect_count(gDrvInitParams->u4LogCount + 100);
+#endif
+			}
+			gDrvInitParams->u4LogCountUser++;
+		} else {
+			gDrvInitParams->u4LogCountUser--;
+			if (gDrvInitParams->u4LogCountUser == 0) {
+#if IS_ENABLED(CONFIG_CONSOLE_LOCK_DURATION_DETECT)
+				set_detect_count(gDrvInitParams->u4LogCount);
+#endif
+				gDrvInitParams->u4LogCount = 0;
+			}
+		}
+		mutex_unlock(&gDrvInitParams->logCountLock);
+
+		pr_debug("VCODEC_SET_LOG_COUNT - tid = %d\n", current->pid);
+	}
+	break;
+
+	case VCODEC_MVA_ALLOCATION:
+	{
+		ret = vcodec_get_mva_allocation(gVCodecDev->dev, arg);
+		if (ret) {
+			pr_debug("[ERROR] VCODEC_MVA_ALLOCATION failed! %lu\n",
+				ret);
+			return ret;
+		}
+	}
+	break;
+	case VCODEC_MVA_FREE:
+	{
+		ret = vcodec_get_mva_free(gVCodecDev->dev, arg);
+		if (ret) {
+			pr_debug("[ERROR] VCODEC_MVA_FREE failed! %lu\n",
+				ret);
+			return ret;
+		}
+	}
+	break;
+	case VCODEC_CACHE_FLUSH_BUFF:
+	case VCODEC_CACHE_INVALIDATE_BUFF:
+	{
+		flush_dma_direction =
+			((cmd == VCODEC_CACHE_FLUSH_BUFF) ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+		ret = vcodec_cache_flush_buff(gVCodecDev->dev, arg, flush_dma_direction);
+		if (ret) {
+			pr_debug("[ERROR] VCODEC_CACHE_FLUSH_BUFF failed! %lu\n",
+				ret);
+			return ret;
+		}
+	}
+	break;
+	default:
+	{
+		ret = vcodec_plat_unlocked_ioctl(cmd, arg);
+		return ret;
+	}
+	break;
+	}
+	return 0;
+}
+
+static int vcodec_release(struct inode *inode, struct file *file)
+{
+	unsigned long ulFlagsLockHW, ulFlagsISR;
+
+	/* dump_stack(); */
+	pr_debug("%s, curr_tid =%d\n", __func__, current->pid);
+	mutex_lock(&gDrvInitParams->driverOpenCountLock);
+	pr_info("%s pid = %d, gDrvInitParams->drvOpenCount %d\n",
+			__func__, current->pid, gDrvInitParams->drvOpenCount);
+	gDrvInitParams->drvOpenCount--;
+
+	if (gDrvInitParams->drvOpenCount == 0) {
+		mutex_lock(&gDrvInitParams->hwLock);
+
+		vcodec_plat_release();
+
+		gDrvInitParams->u4VdecLockThreadId = 0;
+		CodecHWLock.pvHandle = 0;
+		CodecHWLock.eDriverType = VAL_DRIVER_TYPE_NONE;
+		CodecHWLock.rLockedTime.u4Sec = 0;
+		CodecHWLock.rLockedTime.u4uSec = 0;
+		mutex_unlock(&gDrvInitParams->hwLock);
+
+		mutex_lock(&gDrvInitParams->decEMILock);
+		gDrvInitParams->u4DecEMICounter = 0;
+		mutex_unlock(&gDrvInitParams->decEMILock);
+
+		mutex_lock(&gDrvInitParams->encEMILock);
+		gDrvInitParams->u4EncEMICounter = 0;
+		mutex_unlock(&gDrvInitParams->encEMILock);
+
+		mutex_lock(&gDrvInitParams->pwrLock);
+		gDrvInitParams->u4PWRCounter = 0;
+		mutex_unlock(&gDrvInitParams->pwrLock);
+		spin_lock_irqsave(&gDrvInitParams->lockDecHWCountLock, ulFlagsLockHW);
+		gu4LockDecHWCount = 0;
+		spin_unlock_irqrestore(&gDrvInitParams->lockDecHWCountLock, ulFlagsLockHW);
+
+		spin_lock_irqsave(&gDrvInitParams->lockEncHWCountLock, ulFlagsLockHW);
+		gu4LockEncHWCount = 0;
+		spin_unlock_irqrestore(&gDrvInitParams->lockEncHWCountLock, ulFlagsLockHW);
+
+		spin_lock_irqsave(&gDrvInitParams->decISRCountLock, ulFlagsISR);
+		gu4DecISRCount = 0;
+		spin_unlock_irqrestore(&gDrvInitParams->decISRCountLock, ulFlagsISR);
+
+		spin_lock_irqsave(&gDrvInitParams->encISRCountLock, ulFlagsISR);
+		gu4EncISRCount = 0;
+		spin_unlock_irqrestore(&gDrvInitParams->encISRCountLock, ulFlagsISR);
+		mutex_lock(&DmaAllocLock);
+		pr_info("%s  allocate_count still pending, please check %d for drvOpenCount: %d\n",
+			__func__, allocate_count, gDrvInitParams->drvOpenCount);
+		vcodec_dma_buf_release();
+		allocate_count = 0;
+		mutex_unlock(&DmaAllocLock);
+	}
+
+	mutex_unlock(&gDrvInitParams->driverOpenCountLock);
+
+	return 0;
+}
+
+/* For Compatible Use */
+#if IS_ENABLED(CONFIG_COMPAT)
+static int get_uptr_to_32(compat_uptr_t *p, void __user **uptr)
+{
+	void __user *p2p;
+	int err = get_user(p2p, uptr);
+	*p = ptr_to_compat(p2p);
+	return err;
+}
+static int compat_copy_struct(
+			enum STRUCT_TYPE eType,
+			enum COPY_DIRECTION eDirection,
+			void __user *data32,
+			void __user *data)
+{
+	compat_uint_t u;
+	compat_ulong_t l;
+	compat_uptr_t p;
+	compat_u64 ull;
+	char c;
+	int err = 0;
+
+	switch (eType) {
+	case VAL_HW_LOCK_TYPE:
+	{
+		if (eDirection == COPY_FROM_USER) {
+			struct COMPAT_VAL_HW_LOCK_T __user *from32 =
+					(struct COMPAT_VAL_HW_LOCK_T *)data32;
+			struct VAL_HW_LOCK_T __user *to =
+						(struct VAL_HW_LOCK_T *)data;
+
+			err = get_user(p, &(from32->pvHandle));
+			err |= put_user(compat_ptr(p), &(to->pvHandle));
+			err |= get_user(u, &(from32->u4HandleSize));
+			err |= put_user(u, &(to->u4HandleSize));
+			err |= get_user(p, &(from32->pvLock));
+			err |= put_user(compat_ptr(p), &(to->pvLock));
+			err |= get_user(u, &(from32->u4TimeoutMs));
+			err |= put_user(u, &(to->u4TimeoutMs));
+			err |= get_user(p, &(from32->pvReserved));
+			err |= put_user(compat_ptr(p), &(to->pvReserved));
+			err |= get_user(u, &(from32->u4ReservedSize));
+			err |= put_user(u, &(to->u4ReservedSize));
+			err |= get_user(u, &(from32->eDriverType));
+			err |= put_user(u, &(to->eDriverType));
+			err |= get_user(c, &(from32->bSecureInst));
+			err |= put_user(c, &(to->bSecureInst));
+		} else {
+			struct COMPAT_VAL_HW_LOCK_T __user *to32 =
+					(struct COMPAT_VAL_HW_LOCK_T *)data32;
+			struct VAL_HW_LOCK_T __user *from =
+						(struct VAL_HW_LOCK_T *)data;
+
+			err = get_uptr_to_32(&p, &(from->pvHandle));
+			err |= put_user(p, &(to32->pvHandle));
+			err |= get_user(u, &(from->u4HandleSize));
+			err |= put_user(u, &(to32->u4HandleSize));
+			err |= get_uptr_to_32(&p, &(from->pvLock));
+			err |= put_user(p, &(to32->pvLock));
+			err |= get_user(u, &(from->u4TimeoutMs));
+			err |= put_user(u, &(to32->u4TimeoutMs));
+			err |= get_uptr_to_32(&p, &(from->pvReserved));
+			err |= put_user(p, &(to32->pvReserved));
+			err |= get_user(u, &(from->u4ReservedSize));
+			err |= put_user(u, &(to32->u4ReservedSize));
+			err |= get_user(u, &(from->eDriverType));
+			err |= put_user(u, &(to32->eDriverType));
+			err |= get_user(c, &(from->bSecureInst));
+			err |= put_user(c, &(to32->bSecureInst));
+		}
+	}
+	break;
+	case VAL_POWER_TYPE:
+	{
+		if (eDirection == COPY_FROM_USER) {
+			struct COMPAT_VAL_POWER_T __user *from32 =
+					(struct COMPAT_VAL_POWER_T *)data32;
+			struct VAL_POWER_T __user *to =
+						(struct VAL_POWER_T *)data;
+
+			err = get_user(p, &(from32->pvHandle));
+			err |= put_user(compat_ptr(p), &(to->pvHandle));
+			err |= get_user(u, &(from32->u4HandleSize));
+			err |= put_user(u, &(to->u4HandleSize));
+			err |= get_user(u, &(from32->eDriverType));
+			err |= put_user(u, &(to->eDriverType));
+			err |= get_user(c, &(from32->fgEnable));
+			err |= put_user(c, &(to->fgEnable));
+			err |= get_user(p, &(from32->pvReserved));
+			err |= put_user(compat_ptr(p), &(to->pvReserved));
+			err |= get_user(u, &(from32->u4ReservedSize));
+			err |= put_user(u, &(to->u4ReservedSize));
+		} else {
+			struct COMPAT_VAL_POWER_T __user *to32 =
+					(struct COMPAT_VAL_POWER_T *)data32;
+			struct VAL_POWER_T __user *from =
+					(struct VAL_POWER_T *)data;
+
+			err = get_uptr_to_32(&p, &(from->pvHandle));
+			err |= put_user(p, &(to32->pvHandle));
+			err |= get_user(u, &(from->u4HandleSize));
+			err |= put_user(u, &(to32->u4HandleSize));
+			err |= get_user(u, &(from->eDriverType));
+			err |= put_user(u, &(to32->eDriverType));
+			err |= get_user(c, &(from->fgEnable));
+			err |= put_user(c, &(to32->fgEnable));
+			err |= get_uptr_to_32(&p, &(from->pvReserved));
+			err |= put_user(p, &(to32->pvReserved));
+			err |= get_user(u, &(from->u4ReservedSize));
+			err |= put_user(u, &(to32->u4ReservedSize));
+		}
+	}
+	break;
+	case VAL_ISR_TYPE:
+	{
+		int i = 0;
+
+		if (eDirection == COPY_FROM_USER) {
+			struct COMPAT_VAL_ISR_T __user *from32 =
+					(struct COMPAT_VAL_ISR_T *)data32;
+			struct VAL_ISR_T __user *to = (struct VAL_ISR_T *)data;
+
+			err = get_user(p, &(from32->pvHandle));
+			err |= put_user(compat_ptr(p), &(to->pvHandle));
+			err |= get_user(u, &(from32->u4HandleSize));
+			err |= put_user(u, &(to->u4HandleSize));
+			err |= get_user(u, &(from32->eDriverType));
+			err |= put_user(u, &(to->eDriverType));
+			err |= get_user(p, &(from32->pvIsrFunction));
+			err |= put_user(compat_ptr(p), &(to->pvIsrFunction));
+			err |= get_user(p, &(from32->pvReserved));
+			err |= put_user(compat_ptr(p), &(to->pvReserved));
+			err |= get_user(u, &(from32->u4ReservedSize));
+			err |= put_user(u, &(to->u4ReservedSize));
+			err |= get_user(u, &(from32->u4TimeoutMs));
+			err |= put_user(u, &(to->u4TimeoutMs));
+			err |= get_user(u, &(from32->u4IrqStatusNum));
+			err |= put_user(u, &(to->u4IrqStatusNum));
+			for (; i < IRQ_STATUS_MAX_NUM; i++) {
+				err |= get_user(u, &(from32->u4IrqStatus[i]));
+				err |= put_user(u, &(to->u4IrqStatus[i]));
+			}
+			return err;
+
+		} else {
+			struct COMPAT_VAL_ISR_T __user *to32 =
+					(struct COMPAT_VAL_ISR_T *)data32;
+			struct VAL_ISR_T __user *from =
+						(struct VAL_ISR_T *)data;
+
+			err = get_uptr_to_32(&p, &(from->pvHandle));
+			err |= put_user(p, &(to32->pvHandle));
+			err |= get_user(u, &(from->u4HandleSize));
+			err |= put_user(u, &(to32->u4HandleSize));
+			err |= get_user(u, &(from->eDriverType));
+			err |= put_user(u, &(to32->eDriverType));
+			err |= get_uptr_to_32(&p, &(from->pvIsrFunction));
+			err |= put_user(p, &(to32->pvIsrFunction));
+			err |= get_uptr_to_32(&p, &(from->pvReserved));
+			err |= put_user(p, &(to32->pvReserved));
+			err |= get_user(u, &(from->u4ReservedSize));
+			err |= put_user(u, &(to32->u4ReservedSize));
+			err |= get_user(u, &(from->u4TimeoutMs));
+			err |= put_user(u, &(to32->u4TimeoutMs));
+			err |= get_user(u, &(from->u4IrqStatusNum));
+			err |= put_user(u, &(to32->u4IrqStatusNum));
+			for (; i < IRQ_STATUS_MAX_NUM; i++) {
+				err |= get_user(u, &(from->u4IrqStatus[i]));
+				err |= put_user(u, &(to32->u4IrqStatus[i]));
+			}
+		}
+	}
+	break;
+	case VAL_MEMORY_TYPE:
+	{
+		if (eDirection == COPY_FROM_USER) {
+			struct COMPAT_VAL_MEMORY_T __user *from32 =
+					(struct COMPAT_VAL_MEMORY_T *)data32;
+			struct VAL_MEMORY_T __user *to =
+						(struct VAL_MEMORY_T *)data;
+
+			err = get_user(u, &(from32->eMemType));
+			err |= put_user(u, &(to->eMemType));
+			err |= get_user(l, &(from32->u4MemSize));
+			err |= put_user(l, &(to->u4MemSize));
+			err |= get_user(p, &(from32->pvMemVa));
+			err |= put_user(compat_ptr(p), &(to->pvMemVa));
+			err |= get_user(p, &(from32->pvMemPa));
+			err |= put_user(compat_ptr(p), &(to->pvMemPa));
+			err |= get_user(u, &(from32->eAlignment));
+			err |= put_user(u, &(to->eAlignment));
+			err |= get_user(p, &(from32->pvAlignMemVa));
+			err |= put_user(compat_ptr(p), &(to->pvAlignMemVa));
+			err |= get_user(p, &(from32->pvAlignMemPa));
+			err |= put_user(compat_ptr(p), &(to->pvAlignMemPa));
+			err |= get_user(u, &(from32->eMemCodec));
+			err |= put_user(u, &(to->eMemCodec));
+			err |= get_user(u, &(from32->i4IonShareFd));
+			err |= put_user(u, &(to->i4IonShareFd));
+			err |= get_user(p, &(from32->pIonBufhandle));
+			err |= put_user(compat_ptr(p), &(to->pIonBufhandle));
+			err |= get_user(p, &(from32->pvReserved));
+			err |= put_user(compat_ptr(p), &(to->pvReserved));
+			err |= get_user(l, &(from32->u4ReservedSize));
+			err |= put_user(l, &(to->u4ReservedSize));
+		} else {
+			struct COMPAT_VAL_MEMORY_T __user *to32 =
+					(struct COMPAT_VAL_MEMORY_T *)data32;
+
+			struct VAL_MEMORY_T __user *from =
+					(struct VAL_MEMORY_T *)data;
+
+			err = get_user(u, &(from->eMemType));
+			err |= put_user(u, &(to32->eMemType));
+			err |= get_user(l, &(from->u4MemSize));
+			err |= put_user(l, &(to32->u4MemSize));
+			err |= get_uptr_to_32(&p, &(from->pvMemVa));
+			err |= put_user(p, &(to32->pvMemVa));
+			err |= get_uptr_to_32(&p, &(from->pvMemPa));
+			err |= put_user(p, &(to32->pvMemPa));
+			err |= get_user(u, &(from->eAlignment));
+			err |= put_user(u, &(to32->eAlignment));
+			err |= get_uptr_to_32(&p, &(from->pvAlignMemVa));
+			err |= put_user(p, &(to32->pvAlignMemVa));
+			err |= get_uptr_to_32(&p, &(from->pvAlignMemPa));
+			err |= put_user(p, &(to32->pvAlignMemPa));
+			err |= get_user(u, &(from->eMemCodec));
+			err |= put_user(u, &(to32->eMemCodec));
+			err |= get_user(u, &(from->i4IonShareFd));
+			err |= put_user(u, &(to32->i4IonShareFd));
+			err |= get_uptr_to_32(&p,
+					(void __user **)&(from->pIonBufhandle));
+			err |= put_user(p, &(to32->pIonBufhandle));
+			err |= get_uptr_to_32(&p, &(from->pvReserved));
+			err |= put_user(p, &(to32->pvReserved));
+			err |= get_user(l, &(from->u4ReservedSize));
+			err |= put_user(l, &(to32->u4ReservedSize));
+		}
+	}
+	break;
+	case VAL_FRAME_INFO_TYPE:
+	{
+		if (eDirection == COPY_FROM_USER) {
+			struct COMPAT_VAL_FRAME_INFO_T __user *from32 =
+				(struct COMPAT_VAL_FRAME_INFO_T *)data32;
+			struct VAL_FRAME_INFO_T __user *to =
+				(struct VAL_FRAME_INFO_T *)data;
+
+			err = get_user(p, &(from32->handle));
+			err |= put_user(compat_ptr(p), &(to->handle));
+			err |= get_user(u, &(from32->driver_type));
+			err |= put_user(u, &(to->driver_type));
+			err |= get_user(u, &(from32->input_size));
+			err |= put_user(u, &(to->input_size));
+			err |= get_user(u, &(from32->frame_width));
+			err |= put_user(u, &(to->frame_width));
+			err |= get_user(u, &(from32->frame_height));
+			err |= put_user(u, &(to->frame_height));
+			err |= get_user(u, &(from32->frame_type));
+			err |= put_user(u, &(to->frame_type));
+			err |= get_user(u, &(from32->is_compressed));
+			err |= put_user(u, &(to->is_compressed));
+		} else {
+			struct COMPAT_VAL_FRAME_INFO_T __user *to32 =
+				(struct COMPAT_VAL_FRAME_INFO_T *)data32;
+			struct VAL_FRAME_INFO_T __user *from =
+				(struct VAL_FRAME_INFO_T *)data;
+
+			err = get_uptr_to_32(&p, &(from->handle));
+			err |= put_user(p, &(to32->handle));
+			err |= get_user(u, &(from->driver_type));
+			err |= put_user(u, &(to32->driver_type));
+			err |= get_user(u, &(from->input_size));
+			err |= put_user(u, &(to32->input_size));
+			err |= get_user(u, &(from->frame_width));
+			err |= put_user(u, &(to32->frame_width));
+			err |= get_user(u, &(from->frame_height));
+			err |= put_user(u, &(to32->frame_height));
+			err |= get_user(u, &(from->frame_type));
+			err |= put_user(u, &(to32->frame_type));
+			err |= get_user(u, &(from->is_compressed));
+			err |= put_user(u, &(to32->is_compressed));
+		}
+	}
+	break;
+	case VAL_MEM_OBJ_TYPE:
+	{
+		if (eDirection == COPY_FROM_USER) {
+			struct COMPAT_VAL_MEM_OBJ __user *from32 =
+				(struct COMPAT_VAL_MEM_OBJ *)data32;
+			struct VAL_MEM_INFO_T __user *to =
+				(struct VAL_MEM_INFO_T *)data;
+
+			err |= get_user(ull, &(from32->iova));
+			err |= put_user(ull, &(to->iova));
+			err |= get_user(l, &(from32->len));
+			err |= put_user(l, &(to->len));
+			err |= get_user(u, &(from32->shared_fd));
+			err |= put_user(u, &(to->shared_fd));
+			err |= get_user(u, &(from32->cnt));
+			err |= put_user(u, &(to->cnt));
+		} else {
+			struct COMPAT_VAL_MEM_OBJ __user *to32 =
+				(struct COMPAT_VAL_MEM_OBJ *)data32;
+			struct VAL_MEM_INFO_T __user *from =
+				(struct VAL_MEM_INFO_T *)data;
+			err |= get_user(ull, &(from->iova));
+			err |= put_user(ull, &(to32->iova));
+			err |= get_user(l, &(from->len));
+			err |= put_user(l, &(to32->len));
+			err |= get_user(u, &(from->shared_fd));
+			err |= put_user(u, &(to32->shared_fd));
+			err |= get_user(u, &(from->cnt));
+			err |= put_user(u, &(to32->cnt));
+		}
+	}
+	break;
+	default:
+	break;
+	}
+
+	return err;
+}
+
+long vcodec_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
+					unsigned long arg)
+{
+	long ret = 0;
+
+	pr_debug("%s: %u\n", __func__, cmd);
+	switch (cmd) {
+	case VCODEC_ALLOC_NON_CACHE_BUFFER:
+	case VCODEC_FREE_NON_CACHE_BUFFER:
+	{
+		struct COMPAT_VAL_MEMORY_T __user *data32;
+		struct VAL_MEMORY_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_MEMORY_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_MEMORY_TYPE, COPY_FROM_USER,
+					(void *)data32, (void *)data);
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, cmd,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_MEMORY_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+		return ret;
+	}
+	break;
+	case VCODEC_LOCKHW:
+	case VCODEC_UNLOCKHW:
+	{
+		struct COMPAT_VAL_HW_LOCK_T __user *data32;
+		struct VAL_HW_LOCK_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_HW_LOCK_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_HW_LOCK_TYPE, COPY_FROM_USER,
+					(void *)data32, (void *)data);
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, cmd,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_HW_LOCK_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+		return ret;
+	}
+	break;
+
+	case VCODEC_INC_PWR_USER:
+	case VCODEC_DEC_PWR_USER:
+	{
+		struct COMPAT_VAL_POWER_T __user *data32;
+		struct VAL_POWER_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_POWER_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_POWER_TYPE, COPY_FROM_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, cmd,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_POWER_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+		return ret;
+	}
+	break;
+
+	case VCODEC_WAITISR:
+	{
+		struct COMPAT_VAL_ISR_T __user *data32;
+		struct VAL_ISR_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_ISR_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_ISR_TYPE, COPY_FROM_USER,
+					(void *)data32, (void *)data);
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, VCODEC_WAITISR,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_ISR_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+		return ret;
+	}
+	break;
+
+	case VCODEC_SET_FRAME_INFO:
+	{
+		struct COMPAT_VAL_FRAME_INFO_T __user *data32;
+		struct VAL_FRAME_INFO_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_FRAME_INFO_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_FRAME_INFO_TYPE,
+				COPY_FROM_USER, (void *)data32, (void *)data);
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, VCODEC_SET_FRAME_INFO,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_FRAME_INFO_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+	}
+	break;
+
+	case VCODEC_MVA_ALLOCATION:
+	{
+		struct COMPAT_VAL_MEM_OBJ __user *data32;
+		struct VAL_MEM_INFO_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_MEM_INFO_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE,
+				COPY_FROM_USER, (void *)data32, (void *)data);
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, VCODEC_MVA_ALLOCATION,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+	}
+	break;
+
+	case VCODEC_MVA_FREE:
+	{
+		struct COMPAT_VAL_MEM_OBJ __user *data32;
+		struct VAL_MEM_INFO_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_MEM_INFO_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE,
+				COPY_FROM_USER, (void *)data32, (void *)data);
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, VCODEC_MVA_FREE,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+	}
+	break;
+
+	case VCODEC_CACHE_FLUSH_BUFF:
+	case VCODEC_CACHE_INVALIDATE_BUFF:
+	{
+		struct COMPAT_VAL_MEM_OBJ __user *data32;
+		struct VAL_MEM_INFO_T __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_MEM_INFO_T));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE,
+				COPY_FROM_USER, (void *)data32, (void *)data);
+		if (err)
+			return err;
+
+		ret = file->f_op->unlocked_ioctl(file, VCODEC_CACHE_FLUSH_BUFF,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_MEM_OBJ_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+
+		if (err)
+			return err;
+	}
+	break;
+
+	default:
+		return vcodec_unlocked_ioctl(file, cmd, arg);
+	}
+	return 0;
+}
+#else
+#define vcodec_unlocked_compat_ioctl NULL
+#endif
+
+const struct file_operations vcodec_fops = {
+	.owner      = THIS_MODULE,
+	.unlocked_ioctl = vcodec_unlocked_ioctl,
+	.open       = vcodec_open,
+	.flush      = vcodec_flush,
+	.release    = vcodec_release,
+	.mmap       = vcodec_mmap,
+#if IS_ENABLED(CONFIG_COMPAT)
+	.compat_ioctl   = vcodec_unlocked_compat_ioctl,
+#endif
+};
 
 static int vcodec_probe(struct platform_device *pdev)
 {
@@ -255,36 +1387,6 @@ static int vcodec_probe(struct platform_device *pdev)
 	gDrvInitParams->vcodec_device =
 		device_create(gDrvInitParams->vcodec_class, NULL, vcodec_devno, NULL,
 					VCODEC_DEVNAME);
-#if IS_ENABLED(CONFIG_PM)
-	gDrvInitParams->vcodec_device->pm_domain = &mt_vdec_pm_domain;
-
-	gDrvInitParams->vcodec_cdev2 = cdev_alloc();
-	gDrvInitParams->vcodec_cdev2->owner = THIS_MODULE;
-	gDrvInitParams->vcodec_cdev2->ops = &vcodec_fops;
-
-	ret = cdev_add(gDrvInitParams->vcodec_cdev2, vcodec_devno2, 1);
-	if (ret) {
-		/* Add one line comment for avoid kernel coding style,
-		 * WARNING:BRACES:
-		 */
-		pr_info("[VCODEC] Can't add Vcodec Device 2\n");
-	}
-
-	gDrvInitParams->vcodec_class2 = class_create(THIS_MODULE, VCODEC_DEVNAME2);
-	if (IS_ERR(gDrvInitParams->vcodec_class2)) {
-		ret = PTR_ERR(gDrvInitParams->vcodec_class2);
-		pr_info("[VCODEC] Unable to create class 2, err = %d", ret);
-		return ret;
-	}
-
-	gDrvInitParams->vcodec_device2 =
-		device_create(gDrvInitParams->vcodec_class2, NULL, vcodec_devno2,
-					NULL, VCODEC_DEVNAME2);
-	gDrvInitParams->vcodec_device2->pm_domain = &mt_venc_pm_domain;
-
-	pm_runtime_enable(gDrvInitParams->vcodec_device);
-	pm_runtime_enable(gDrvInitParams->vcodec_device2);
-#endif
 
 	dev->io_domain = iommu_get_domain_for_dev(&pdev->dev);
 	if (dev->io_domain == NULL) {
@@ -330,34 +1432,9 @@ static int vcodec_probe(struct platform_device *pdev)
 	}
 	pr_debug("%s ret : %d Done\n ", __func__, ret);
 
-	if (gWakeLock == 0)
-		pm_notifier(vcodec_suspend_notifier, 0);
-
 	pr_debug("%s Done\n", __func__);
-	if (gDfvsFlag == 1) {
-		mtk_prepare_vdec_dvfs(dev);
-		mtk_prepare_vdec_emi_bw(dev);
-		if (dev->vdec_reg <= 0)
-			pr_debug("Vdec get DVFS freq steps failed: %d\n", dev->vdec_reg);
-		else if (dev->vdec_freq_cnt > 0 && dev->vdec_freq_cnt <= MAX_CODEC_FREQ_STEP)
-			dev->dec_freq = dev->vdec_freqs[dev->vdec_freq_cnt - 1];
-		else
-			dev->dec_freq = MIN_VDEC_FREQ;
-		mtk_prepare_venc_dvfs(dev);
-		mtk_prepare_venc_emi_bw(dev);
-		if (dev->venc_reg <= 0)
-			pr_debug("Venc get DVFS freq steps failed: %d\n", dev->venc_reg);
-		else if (dev->venc_freq_cnt > 0 && dev->venc_freq_cnt <= MAX_CODEC_FREQ_STEP)
-			dev->enc_freq = dev->venc_freqs[dev->venc_freq_cnt - 1];
-		else
-			dev->enc_freq = MIN_VENC_FREQ;
-	}
-	dev->dev = &pdev->dev;
-	gVCodecDev = dev;
-#if IS_ENABLED(CONFIG_PM)
-	dev_set_drvdata(gDrvInitParams->vcodec_device, dev);
-	dev_set_drvdata(gDrvInitParams->vcodec_device2, dev);
-#endif
+
+	vcodec_plat_probe(pdev, dev);
 	return 0;
 }
 
@@ -403,31 +1480,10 @@ static struct platform_driver vcodec_driver = {
 	},
 };
 
-
-static void mtk_platform_init_flgs(void)
-{
-	if (!strcmp(MTK_PLATFORM_MT6765, platform)) {
-		gBistFlag = 0;
-		gDfvsFlag = 1;
-		gWakeLock = 0;
-	} else if (!strcmp(MTK_PLATFORM_MT6761, platform)) {
-		gBistFlag = 1;
-		gDfvsFlag = 1;
-		gWakeLock = 0;
-
-	} else {
-		gBistFlag = 0;
-		gDfvsFlag = 0;
-		gWakeLock = -1;
-
-	}
-}
-
 static int __init vcodec_driver_init(void)
 {
 	enum VAL_RESULT_T  eValHWLockRet;
 	unsigned long ulFlags, ulFlagsLockHW, ulFlagsISR;
-	int ret;
 
 	pr_debug("+%s !!\n", __func__);
 
@@ -465,10 +1521,6 @@ static int __init vcodec_driver_init(void)
 		struct device_node *node = NULL;
 
 		node = of_find_compatible_node(NULL, NULL, "mediatek,venc");
-		ret = of_property_read_string(node, "mediatek,platform", &platform);
-		if (ret < 0)
-			pr_info("[VCODEC][ERROR] please must add platform entry in venc node\n");
-		mtk_platform_init_flgs();
 		KVA_VENC_BASE = of_iomap(node, 0);
 		VENC_IRQ_ID =  irq_of_parse_and_map(node, 0);
 		KVA_VENC_IRQ_STATUS_ADDR =    KVA_VENC_BASE + 0x05C;
@@ -483,16 +1535,6 @@ static int __init vcodec_driver_init(void)
 		VDEC_IRQ_ID =  irq_of_parse_and_map(node, 0);
 		KVA_VDEC_MISC_BASE = KVA_VDEC_BASE + 0x5000;
 		KVA_VDEC_VLD_BASE = KVA_VDEC_BASE + 0x0000;
-	}
-
-	if (gBistFlag == 1) {
-		{
-			struct device_node *node = NULL;
-
-			node = of_find_compatible_node(NULL, NULL, "mediatek,mbist");
-			if (node != NULL)
-				KVA_MBIST_BASE = of_iomap(node, 0);
-		}
 	}
 
 	spin_lock_irqsave(&gDrvInitParams->lockDecHWCountLock, ulFlagsLockHW);
@@ -547,9 +1589,6 @@ static int __init vcodec_driver_init(void)
 		pr_info("[VCODEC][ERROR] create vcodec hwlock event error\n");
 	}
 
-	if (gDfvsFlag == 1)
-		initDvfsParams();
-
 	/* IsrEvent part */
 	spin_lock_irqsave(&gDrvInitParams->decIsrLock, ulFlags);
 	gDrvInitParams->DecIsrEvent.pvHandle = "DECISR_EVENT";
@@ -579,9 +1618,7 @@ static int __init vcodec_driver_init(void)
 		pr_info("[VCODEC][ERROR] create enc isr event error\n");
 	}
 
-	if (gWakeLock == 0)
-		is_entering_suspend = 0;
-
+	vcodec_driver_plat_init();
 	pr_debug("%s Done\n", __func__);
 
 #if IS_ENABLED(CONFIG_MTK_HIBERNATION)
@@ -609,9 +1646,8 @@ static void __exit vcodec_driver_exit(void)
 
 	cdev_del(gDrvInitParams->vcodec_cdev);
 	unregister_chrdev_region(vcodec_devno, 1);
-#if IS_ENABLED(CONFIG_PM)
-	cdev_del(gDrvInitParams->vcodec_cdev2);
-#endif
+
+	vcodec_driver_plat_exit();
 	/* [TODO] iounmap the following? */
 
 	free_irq(VENC_IRQ_ID, NULL);
