@@ -1051,19 +1051,31 @@ static void set_tc_trigger_hw_protect
 	/* temperature to trigger SPM state2 */
 	raw_high = temperature_to_raw_room(temperature, ts_name);
 
+	/* set offset to 0x3FFF to avoid interrupt false triggered */
+	/* large offset can guarantee temp check is always false */
+	temp = readl(offset + TEMPPROTCTL);
+	mt_reg_sync_writel(temp | 0x3FFF, offset + TEMPPROTCTL);
+
 	temp = readl(offset + TEMPMONINT);
 	/* disable trigger SPM interrupt */
 	mt_reg_sync_writel(temp & 0x00000000, offset + TEMPMONINT);
 
+	temp = readl(offset + TEMPPROTCTL);
 	/* Select protection sensor */
 	config = ((d_index << 2) + 0x2) << 16;
-	mt_reg_sync_writel(config, offset + TEMPPROTCTL);
+	mt_reg_sync_writel(temp | config, offset + TEMPPROTCTL);
 
 	/* set hot to HOT wakeup event */
 	mt_reg_sync_writel(raw_high, offset + TEMPPROTTC);
 
+	temp = readl(offset + TEMPMONINT);
 	/* enable trigger Hot SPM interrupt */
 	mt_reg_sync_writel(temp | 0x80000000, offset + TEMPMONINT);
+
+	/* clear offset after HW reset are configured. */
+	/* make sure thermal controller uses latest sensor value to compare */
+	mt_reg_sync_writel(
+			readl(offset + TEMPPROTCTL) & ~PROTOFFSET, offset + TEMPPROTCTL);
 }
 
 static int read_tc_raw_and_temp(
@@ -1336,10 +1348,14 @@ void thermal_release_all_periodoc_temp_sensing(void)
 static void tscpu_thermal_enable_all_periodoc_sensing_point(int tc_num)
 {
 	__u32 offset;
+	int temp;
 
 	offset = tscpu_g_tc[tc_num].tc_offset;
 
 	switch (tscpu_g_tc[tc_num].ts_number) {
+		/* Set thermal protection sensor strategy to selected sensing point */
+		temp = readl(offset + TEMPPROTCTL) & ~(0x1 << 16);
+		mt_reg_sync_writel(temp | 0x20000, offset + TEMPPROTCTL);
 	case 1:
 		/* enable periodoc temperature sensing point 0 */
 		mt_reg_sync_writel(0x00000001, offset + TEMPMONCTL0);
@@ -1447,6 +1463,36 @@ void tscpu_thermal_initial_all_tc(void)
 	}
 }
 
+static void disable_rgu_reset(void)
+{
+	unsigned int tmp;
+
+	tmp = __raw_readl(MTK_WDT_REQ_MODE);
+	tmp |=  MTK_WDT_REQ_MODE_KEY;
+	tmp &=  ~(MTK_WDT_REQ_MODE_THERMAL);
+	mt_reg_sync_writel(tmp, MTK_WDT_REQ_MODE);
+
+	tmp = __raw_readl(MTK_WDT_REQ_IRQ_EN);
+	tmp |= MTK_WDT_REQ_IRQ_KEY;
+	tmp &=  ~(MTK_WDT_REQ_IRQ_THERMAL_EN);
+	mt_reg_sync_writel(tmp, MTK_WDT_REQ_MODE);
+}
+
+static void enable_rgu_reset(void)
+{
+	unsigned int tmp;
+
+	tmp = __raw_readl(MTK_WDT_REQ_MODE);
+	tmp |=  MTK_WDT_REQ_MODE_KEY;
+	tmp |= (MTK_WDT_REQ_MODE_THERMAL);
+	mt_reg_sync_writel(tmp, MTK_WDT_REQ_MODE);
+
+	tmp = __raw_readl(MTK_WDT_REQ_IRQ_EN);
+	tmp |= MTK_WDT_REQ_IRQ_KEY;
+	tmp &=  ~(MTK_WDT_REQ_IRQ_THERMAL_EN);
+	mt_reg_sync_writel(tmp, MTK_WDT_REQ_MODE);
+}
+
 void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 {
 	int i = 0;
@@ -1465,7 +1511,7 @@ void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 	/* Thermal need to config to direct reset mode
 	 * this API provide by Weiqi Fu(RGU SW owner).
 	 */
-	//TODO
+	disable_rgu_reset();
 #if THERMAL_PERFORMANCE_PROFILE
 	do_gettimeofday(&end);
 
@@ -1485,7 +1531,7 @@ void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 	/*Thermal need to config to direct reset mode
 	 *  this API provide by Weiqi Fu(RGU SW owner).
 	 */
-	//TODO
+	enable_rgu_reset();
 }
 
 void tscpu_reset_thermal(void)
@@ -1592,18 +1638,29 @@ int tscpu_get_curr_max_ts_temp(void)
 }
 
 #if IS_ENABLED(CONFIG_OF)
+void __iomem *rgu_base;
+
 int get_io_reg_base(void)
 {
 	struct device_node *node = NULL;
+	struct device_node *rgu_node = NULL;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,therm_ctrl");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */
 		thermal_base = of_iomap(node, 0);
-		/* tscpu_printk("[THERM_CTRL] thermal_base=0x%p\n"
+		/* tscpu_printk("[THERM_CTRL] thermal_base=0x%p\n",
 		 *					thermal_base);
 		 */
+	}
+
+	rgu_node = of_find_compatible_node(NULL, NULL, "mediatek,toprgu");
+	WARN_ON_ONCE(rgu_node == 0);
+	if (rgu_node) {
+		/* Setup IO addresses */
+		rgu_base = of_iomap(rgu_node, 0);
+		/*tscpu_printk("[THERM_CTRL] rgu_base = 0x%px\n",rgu_base);*/
 	}
 
 	/*get thermal irq num */

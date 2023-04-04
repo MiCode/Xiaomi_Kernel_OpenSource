@@ -30,7 +30,7 @@
 #define mtktspmic_dprintk(fmt, args...) \
 do {									\
 	if (mtktspmic_debug_log == 1) {				\
-		pr_info("[Thermal/TZ/PMIC] " fmt, ##args); \
+		pr_notice("[Thermal/TZ/PMIC] " fmt, ##args); \
 	}								   \
 } while (0)
 

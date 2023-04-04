@@ -164,11 +164,10 @@ static kgid_t gid = KGIDT_INIT(1000);
 #define THRML_STORAGE_LOG(msg_id, func_name, ...)
 #endif
 
-
 #define THRML_LOG(fmt, args...) \
 	do { \
 		if (unlikely(enable_ThermalMonitorXlog)) { \
-			pr_info("THERMAL/MONITOR " fmt, ##args); \
+			pr_notice("THERMAL/MONITOR " fmt, ##args); \
 		} \
 	} while (0)
 
@@ -717,7 +716,6 @@ static int _mtkthermal_tz_read(struct seq_file *m, void *v)
 #if (MAX_STEP_MA_LEN > 1)
 			mutex_lock(&tzdata->ma_lock);
 			ma_len = tzdata->ma_len;
-			pr_info("%s, %s, ma_len: %d\n", __func__, __LINE__, ma_len);
 			fake_temp = tzdata->fake_temp;
 			seq_printf(m, "ma_len=%d\n", ma_len);
 			seq_printf(m, "%d ", tzdata->ma_lens[0]);
@@ -734,7 +732,6 @@ static int _mtkthermal_tz_read(struct seq_file *m, void *v)
 #else
 			mutex_lock(&tzdata->ma_lock);
 			ma_len = tzdata->ma_len;
-			pr_info("%s, %s, ma_len: %d\n", __func__, __LINE__, ma_len);
 			fake_temp = tzdata->fake_temp;
 			mutex_unlock(&tzdata->ma_lock);
 			seq_printf(m, "ma_len=%d\n", ma_len);
@@ -792,7 +789,6 @@ static ssize_t _mtkthermal_tz_write
 #if (MAX_STEP_MA_LEN > 1)
 			mutex_lock(&tzdata->ma_lock);
 			tzdata->ma_len = arg_val;
-			pr_info("%s, %s, ma_len: %d\n", __func__, __LINE__, tzdata->ma_len);
 			tzdata->ma_counter = 0;
 			tzdata->curr_idx_ma_len = 0;
 			tzdata->ma_lens[0] = arg_val;
@@ -827,7 +823,6 @@ static ssize_t _mtkthermal_tz_write
 #else
 			mutex_lock(&tzdata->ma_lock);
 			tzdata->ma_len = arg_val;
-			pr_info("%s, %s, ma_len: %d\n", __func__, __LINE__, tzdata->ma_len);
 			tzdata->ma_counter = 0;
 			mutex_unlock(&tzdata->ma_lock);
 			THRML_ERROR_LOG("%s %s ma_len=%d.\n", __func__,
@@ -1760,6 +1755,14 @@ static int mtk_cooling_wrapper_set_cur_state
 		}
 	}
 
+	list_for_each_entry(instance, &cdev->thermal_instances, cdev_node) {
+		if (!strcmp(instance->cdev->type, cdev->type)) {
+			instance->initialized = false;
+
+			if (instance->target == THERMAL_NO_TARGET)
+				state = 0;
+		}
+	}
 
 	if (state == 0) {
 		int last_temp = 0;
@@ -1816,19 +1819,10 @@ static int mtk_cooling_wrapper_set_cur_state
 				if ((last_temp >= (int)trip_temp)
 					|| (((int)trip_temp - last_temp)
 					< mcdata->exit_threshold)) {
-
 					THRML_LOG(
 						"[.set_cur_state]not exit yet tz_type:%s cdev_type:%s trip:%d state:%lu\n",
 						mcdata->tz->type, cdev->type,
 						mcdata->trip, state);
-
-					list_for_each_entry(instance, &cdev->thermal_instances,
-							cdev_node) {
-						if (instance->target == THERMAL_NO_TARGET)
-							continue;
-
-						instance->target = cur_state;
-					}
 
 					state = cur_state;
 				}
