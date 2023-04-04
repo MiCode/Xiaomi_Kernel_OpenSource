@@ -16,6 +16,14 @@
 #include "clk-mtk.h"
 #include "clk-mux.h"
 
+void (*mux_qs_chk_cb)(void) = NULL;
+
+void mtk_mux_set_quick_switch_chk_cb(void (*callback)(void))
+{
+	mux_qs_chk_cb = callback;
+}
+EXPORT_SYMBOL(mtk_mux_set_quick_switch_chk_cb);
+
 static unsigned long long profile_time[4];
 static bool is_registered;
 
@@ -290,6 +298,13 @@ static int mtk_clk_mux_set_parent_setclr_lock(struct clk_hw *hw, u8 index)
 				mask << mux->data->mux_shift);
 		regmap_write(mux->regmap, mux->data->set_ofs,
 				index << mux->data->mux_shift);
+
+		/*
+		 * Workaround for mm dvfs. Poll mm rdma reg before
+		 * clkmux switching.
+		 */
+		if (mux_qs_chk_cb && (mux->data->flags & QUICK_SWITCH_CHK) == QUICK_SWITCH_CHK)
+			mux_qs_chk_cb();
 
 		if (mux->data->upd_shift >= 0)
 			regmap_write(mux->regmap, mux->data->upd_ofs,

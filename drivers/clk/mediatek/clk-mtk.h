@@ -239,6 +239,8 @@ struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num);
 #define CLK_USE_HW_VOTER	BIT(2)
 #define HWV_CHK_FULL_STA	BIT(3)
 
+#define QUICK_SWITCH_CHK	BIT(15)
+
 struct mtk_pll_div_table {
 	u32 div;
 	unsigned long freq;
