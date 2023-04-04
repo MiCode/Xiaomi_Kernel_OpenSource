@@ -3719,12 +3719,19 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 
 	venc_jpg@17030000 {
 		compatible = "mediatek,venc_jpg";
+		mediatek,platform = "platform:mt6765";
 		reg =	<0 0x17030000 0 0x10000>;
+		mediatek,larbs = <&smi_larb1>;
+		iommus = <&iommu M4U_PORT_JPGENC_RDMA>,
+			<&iommu M4U_PORT_JPGENC_BSDMA>;
 		interrupts = <GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks =
 			<&vcodecsys CLK_VENC_SET2_JPGENC>;
 		clock-names =
 			"MT_CG_VENC_JPGENC";
+		interconnects = <&mmqos SLAVE_LARB(1) &mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "path_larb1";
+		interconnect-num = <1>;
 	};
 
 	vdec@17040000 {
