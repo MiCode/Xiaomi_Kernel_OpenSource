@@ -429,13 +429,13 @@ aliases {
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyS0,921600n1 vmalloc=400M \
-8250.nr_uarts=4 \
+		bootargs = "console=tty0 vmalloc=400M \
+8250.nr_uarts=2 \
 swiotlb=noforce \
 transparent_hugepage=never \
 cgroup.memory=nosocket,nokmem \
 androidboot.hardware=mt6761 \
-maxcpus=8 loop.max_part=7 initcall_debug=1 earlycon=uart8250,mmio32,0x11002000 \
+maxcpus=8 loop.max_part=7 initcall_debug=1 \
 firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		kaslr-seed = <0 0>;
 	};

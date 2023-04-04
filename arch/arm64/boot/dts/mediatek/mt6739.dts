@@ -387,7 +387,7 @@
 	chosen: chosen {
 		bootargs = "console=tty0 vmalloc=400M \
 swiotlb=noforce \
-8250.nr_uarts=4 \
+8250.nr_uarts=2 \
 transparent_hugepage=never \
 cgroup.memory=nosocket,nokmem \
 androidboot.hardware=mt6739 maxcpus=8 \
