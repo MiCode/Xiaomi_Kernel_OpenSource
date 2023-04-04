@@ -604,7 +604,7 @@
 			    8250.nr_uarts=4 \
 			    androidboot.hardware=mt6855 \
 			    initcall_debug=1 transparent_hugepage=never \
-			    vmalloc=400M swiotlb=noforce cma=64M allow_file_spec_access \
+			    vmalloc=400M swiotlb=noforce allow_file_spec_access \
 			    firmware_class.path=/vendor/firmware pelt=8 \
 			    loop.max_part=7";
 		kaslr-seed = <0 0>;
