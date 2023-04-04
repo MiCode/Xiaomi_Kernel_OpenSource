@@ -19,6 +19,7 @@
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 extern u32 dvfsrc_get_required_opp_peak_bw(struct device_node *np,
 					   int index);
+extern void dvfsrc_set_power_model_ddr_request(const struct device *dev, int level);
 #else
 static inline u32 dvfsrc_get_required_opp_peak_bw(struct device_node *np,
 					   int index)

@@ -32,6 +32,7 @@
 #include <linux/topology.h>
 #include <linux/math64.h>
 #include <sync_write.h>
+#include <linux/of_platform.h>
 
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -92,6 +93,7 @@ static int cpu_load[NR_CPUS];
 static int loading_acc[NR_CPUS];
 static int loading_cnt;
 static struct platform_device *cm_pdev;
+static struct platform_device *dvfsrc_pdev;
 
 /*extern struct icc_path *of_mtk_icc_get(struct device *dev, const char *name);*/
 
@@ -617,12 +619,12 @@ static void cm_mgr_set_dram_level(int level)
 	int dram_level;
 
 	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1 && level != cm_mgr_num_perf - 1)
-		dram_level = cm_mgr_num_perf - 1;
+		dram_level = 0;
 	else
 		dram_level = level;
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
-	//dvfsrc_set_power_model_ddr_request(dram_level);
-	icc_set_bw(cm_mgr_polling_bw_path, 0, cm_mgr_get_perfs(dram_level));
+	dvfsrc_set_power_model_ddr_request(&(dvfsrc_pdev->dev), dram_level);
+	//icc_set_bw(cm_mgr_polling_bw_path, 0, cm_mgr_get_perfs(dram_level));
 #endif /* CONFIG_MTK_DVFSRC */
 }
 
@@ -799,7 +801,7 @@ static int cm_mgr_check_up_status(int level, int *cpu_ratio_idx)
 					__func__, __LINE__,
 					vcore_dram_opp_cur, vcore_dram_opp);
 #endif /* DEBUG_CM_MGR */
-			cm_mgr_set_dram_level(vcore_dram_opp);
+			cm_mgr_set_dram_level(CM_MGR_EMI_OPP - vcore_dram_opp);
 		}
 
 		return -1;
@@ -823,7 +825,7 @@ static int cm_mgr_check_up_status(int level, int *cpu_ratio_idx)
 					__func__, __LINE__,
 					vcore_dram_opp_cur, vcore_dram_opp);
 #endif /* DEBUG_CM_MGR */
-			cm_mgr_set_dram_level(vcore_dram_opp);
+			cm_mgr_set_dram_level(CM_MGR_EMI_OPP - vcore_dram_opp);
 		} else {
 			if (debounce_times_reset_adb)
 				debounce_times_up = 0;
@@ -883,7 +885,7 @@ static int cm_mgr_check_down_status(int level, int *cpu_ratio_idx)
 					__func__, __LINE__,
 					vcore_dram_opp_cur, vcore_dram_opp);
 #endif /* DEBUG_CM_MGR */
-			cm_mgr_set_dram_level(vcore_dram_opp);
+			cm_mgr_set_dram_level(CM_MGR_EMI_OPP - vcore_dram_opp);
 		}
 
 		return -1;
@@ -907,7 +909,7 @@ static int cm_mgr_check_down_status(int level, int *cpu_ratio_idx)
 					__func__, __LINE__,
 					vcore_dram_opp_cur, vcore_dram_opp);
 #endif /* DEBUG_CM_MGR */
-			cm_mgr_set_dram_level(vcore_dram_opp);
+			cm_mgr_set_dram_level(CM_MGR_EMI_OPP - vcore_dram_opp);
 		} else {
 			if (debounce_times_reset_adb)
 				debounce_times_down = 0;
@@ -934,12 +936,12 @@ static void check_cm_mgr_status_internal(void)
 	unsigned long flags;
 
 	if (cm_mgr_enable == 0) {
-		cm_mgr_set_dram_level(cm_mgr_num_perf - 1);
+		cm_mgr_set_dram_level(0);
 		return;
 	}
 
 	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1) {
-		cm_mgr_set_dram_level(cm_mgr_num_perf - 1);
+		cm_mgr_set_dram_level(0);
 		return;
 	}
 
@@ -947,7 +949,7 @@ static void check_cm_mgr_status_internal(void)
 		return;
 
 	if (!cm_mgr_check_bw_status()) {
-		cm_mgr_set_dram_level(cm_mgr_num_perf - 1);
+		cm_mgr_set_dram_level(0);
 		return;
 	}
 
@@ -1137,7 +1139,7 @@ static void check_cm_mgr_status_internal(void)
 
 		vcore_dram_opp = vcore_dram_opp_cur;
 		if (vcore_dram_opp == CM_MGR_EMI_OPP)
-			cm_mgr_set_dram_level(cm_mgr_num_perf - 1);
+			cm_mgr_set_dram_level(0);
 
 cm_mgr_opp_end:
 		cm_mgr_update_met();
@@ -1228,6 +1230,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct device_node *node = pdev->dev.of_node;
+	struct device_node *dvfsrc_node = NULL;
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 	int i;
 #endif /* CONFIG_MTK_DVFSRC */
@@ -1252,6 +1255,14 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 
 	(void)cm_mgr_get_idx();
 
+	/* get dvfsrc devices*/
+	dvfsrc_node = of_parse_phandle(node, "dvfs", 0);
+	if (!dvfsrc_node) {
+		dev_info(&pdev->dev, "fail to find pmic node\n");
+		return -1;
+	}
+
+	dvfsrc_pdev = of_find_device_by_node(dvfsrc_node);
 	/* required-opps */
 	cm_mgr_num_perf = of_count_phandle_with_args(node,
 			"required-opps", NULL);

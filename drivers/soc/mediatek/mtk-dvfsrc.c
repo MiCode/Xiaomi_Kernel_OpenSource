@@ -273,6 +273,7 @@ static const int mt6768_regs[] = {
 
 static const int mt6765_regs[] = {
 	[DVFSRC_SW_REQ] =		0x4,
+	[DVFSRC_SW_REQ2] =		0x8,
 	[DVFSRC_LEVEL] =		0xDC,
 	[DVFSRC_SW_BW] =		0x16C,
 	[DVFSRC_SW_PEAK_BW] =		0x160,
@@ -480,6 +481,17 @@ static void mt6873_set_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 	opp = &dvfsrc->curr_opps->opps[level];
 	mt6873_set_dram_level(dvfsrc, opp->dram_opp);
 }
+
+void dvfsrc_set_power_model_ddr_request(const struct device *dev, int level)
+{
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	if (level < 0)
+		level = 0;
+
+	dvfsrc_rmw(dvfsrc, DVFSRC_SW_REQ2, level, 0x3, 0);
+}
+EXPORT_SYMBOL(dvfsrc_set_power_model_ddr_request);
 
 #ifdef DVFSRC_FORCE_OPP_SUPPORT
 static void mt6873_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
