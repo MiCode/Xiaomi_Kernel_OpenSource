@@ -215,6 +215,7 @@ struct charger_data {
 	int force_charging_current;
 	int thermal_input_current_limit;
 	int thermal_charging_current_limit;
+	bool thermal_throttle_record;
 	int disable_charging_count;
 	int input_current_limit_by_aicl;
 	int junction_temp_min;
@@ -350,6 +351,7 @@ struct mtk_charger {
 
 	/* water detection */
 	bool water_detected;
+	bool record_water_detected;
 
 	bool enable_dynamic_mivr;
 

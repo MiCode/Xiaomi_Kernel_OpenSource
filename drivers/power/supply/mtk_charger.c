@@ -800,6 +800,36 @@ static ssize_t chr_type_store(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RW(chr_type);
 
+static ssize_t pd_type_show(struct device *dev, struct device_attribute *attr,
+					       char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	char *pd_type_name = "None";
+
+	switch (pinfo->pd_type) {
+	case MTK_PD_CONNECT_NONE:
+		pd_type_name = "None";
+		break;
+	case MTK_PD_CONNECT_PE_READY_SNK:
+		pd_type_name = "PD";
+		break;
+	case MTK_PD_CONNECT_PE_READY_SNK_PD30:
+		pd_type_name = "PD";
+		break;
+	case MTK_PD_CONNECT_PE_READY_SNK_APDO:
+		pd_type_name = "PD with PPS";
+		break;
+	case MTK_PD_CONNECT_TYPEC_ONLY_SNK:
+		pd_type_name = "normal";
+		break;
+	}
+	chr_err("%s: %d\n", __func__, pinfo->pd_type);
+	return sprintf(buf, "%s\n", pd_type_name);
+}
+
+static DEVICE_ATTR_RO(pd_type);
+
+
 static ssize_t Pump_Express_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
@@ -828,6 +858,89 @@ static ssize_t Pump_Express_show(struct device *dev,
 }
 
 static DEVICE_ATTR_RO(Pump_Express);
+
+static ssize_t Charging_mode_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	int ret = 0, i = 0;
+	char *alg_name = "normal";
+	bool is_ta_detected = false;
+	struct mtk_charger *pinfo = dev->driver_data;
+	struct chg_alg_device *alg = NULL;
+
+	if (!pinfo) {
+		chr_err("%s: pinfo is null\n", __func__);
+		return sprintf(buf, "%d\n", is_ta_detected);
+	}
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = pinfo->alg[i];
+		if (alg == NULL)
+			continue;
+		ret = chg_alg_is_algo_ready(alg);
+		if (ret == ALG_RUNNING) {
+			is_ta_detected = true;
+			break;
+		}
+	}
+	if (alg == NULL)
+		return sprintf(buf, "%s\n", alg_name);
+
+	switch (alg->alg_id) {
+	case PE_ID:
+		alg_name = "PE";
+		break;
+	case PE2_ID:
+		alg_name = "PE2";
+		break;
+	case PDC_ID:
+		alg_name = "PDC";
+		break;
+	case PE4_ID:
+		alg_name = "PE4";
+		break;
+	case PE5_ID:
+		alg_name = "P5";
+		break;
+	}
+	chr_err("%s: charging_mode: %s\n", __func__, alg_name);
+	return sprintf(buf, "%s\n", alg_name);
+}
+
+static DEVICE_ATTR_RO(Charging_mode);
+
+static ssize_t High_voltage_chg_enable_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+
+	chr_err("%s: hv_charging = %d\n", __func__, pinfo->enable_hv_charging);
+	return sprintf(buf, "%d\n", pinfo->enable_hv_charging);
+}
+
+static DEVICE_ATTR_RO(High_voltage_chg_enable);
+
+static ssize_t Rust_detect_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+
+	chr_err("%s: Rust detect = %d\n", __func__, pinfo->record_water_detected);
+	return sprintf(buf, "%d\n", pinfo->record_water_detected);
+}
+
+static DEVICE_ATTR_RO(Rust_detect);
+
+static ssize_t Thermal_throttle_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	struct charger_data *chg_data = &(pinfo->chg_data[CHG1_SETTING]);
+
+	return sprintf(buf, "%d\n", chg_data->thermal_throttle_record);
+}
+
+static DEVICE_ATTR_RO(Thermal_throttle);
 
 static ssize_t fast_chg_indicator_show(struct device *dev, struct device_attribute *attr,
 					       char *buf)
@@ -2682,6 +2795,26 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	if (ret)
 		goto _out;
 
+	ret = device_create_file(&(pdev->dev), &dev_attr_Charging_mode);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_pd_type);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_High_voltage_chg_enable);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_Rust_detect);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_Thermal_throttle);
+	if (ret)
+		goto _out;
+
 	ret = device_create_file(&(pdev->dev), &dev_attr_vbat_mon);
 	if (ret)
 		goto _out;
@@ -3189,9 +3322,10 @@ int notify_adapter_event(struct notifier_block *notifier,
 	case MTK_TYPEC_WD_STATUS:
 		chr_err("wd status = %d\n", *(bool *)val);
 		pinfo->water_detected = *(bool *)val;
-		if (pinfo->water_detected == true)
+		if (pinfo->water_detected == true) {
 			pinfo->notify_code |= CHG_TYPEC_WD_STATUS;
-		else
+			pinfo->record_water_detected = true;
+		} else
 			pinfo->notify_code &= ~CHG_TYPEC_WD_STATUS;
 		mtk_chgstat_notify(pinfo);
 		break;
