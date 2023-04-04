@@ -21,6 +21,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/of_graph.h>
+#include <linux/of_address.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <video/mipi_display.h>
@@ -386,6 +387,14 @@ static const char * const mtk_dsi_porch_str[] = {
 	DECLARE_DSI_PORCH(DECLARE_STR)};
 
 #define AS_UINT32(x) (*(u32 *)((void *)x))
+#define DISP_REG_SET_FIELD(field, reg32, val)  \
+	do {  \
+		unsigned int regval; \
+		regval = readl((unsigned long *)(reg32)); \
+		regval  = (regval & ~REG_FLD_MASK(field)) | \
+			(REG_FLD_VAL((field), (val))); \
+		writel(regval, (reg32));  \
+	} while (0)
 
 enum DSI_MODE_CON {
 	MODE_CON_CMD = 0,
@@ -1254,6 +1263,27 @@ void mtk_dsi_config_null_packet(struct mtk_dsi *dsi)
 	}
 }
 
+static void mtk_dsi_set_mipi26m(int enable)
+{
+	struct device_node *node;
+	static void __iomem *clk_apmixed_base;
+
+	if (clk_apmixed_base == NULL) {
+		node = of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
+		if (!node) {
+			DDPINFO("[CLK_APMIXED] find node failed\n");
+			return;
+		}
+		clk_apmixed_base = of_iomap(node, 0);
+		if (clk_apmixed_base == NULL) {
+			DDPINFO("[CLK_APMIXED] io map failed\n");
+			return;
+		}
+	}
+	DISP_REG_SET_FIELD(FLD_PLL_MIPID26M_EN_MIPITX0,
+			clk_apmixed_base + APMIXED_PLL_CON8, enable);
+}
+
 static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 {
 	struct mtk_drm_private *priv = NULL;
@@ -1295,6 +1325,9 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 					priv->data->mmsys_id == MMSYS_MT6895) {
 					mtk_mipi_tx_dphy_lane_config_mt6983(dsi->phy, dsi->ext,
 								     !dsi->is_slave);
+				} else if (priv->data->mmsys_id == MMSYS_MT6739) {
+					mtk_mipi_tx_dphy_lane_config_mt6739(dsi->phy,
+							dsi->ext, !!dsi->slave_dsi, dsi->lanes);
 				} else {
 					mtk_mipi_tx_dphy_lane_config(dsi->phy, dsi->ext,
 								     !dsi->is_slave);
@@ -1305,6 +1338,9 @@ static int mtk_dsi_poweron(struct mtk_dsi *dsi)
 			if (dsi->ext->params->ssc_enable && mipi_tx->driver_data->mipi_tx_ssc_en)
 				mipi_tx->driver_data->mipi_tx_ssc_en(dsi->phy, dsi->ext);
 		}
+
+		if (priv->data->mmsys_id == MMSYS_MT6739)
+			mtk_dsi_set_mipi26m(1);
 
 		pm_runtime_get_sync(dsi->host.dev);
 
@@ -2520,6 +2556,16 @@ static irqreturn_t mtk_dsi_irq(int irq, void *dev_id)
 
 static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 {
+	struct mtk_drm_crtc *mtk_crtc = dsi->is_slave ?
+		dsi->master_dsi->ddp_comp.mtk_crtc
+		: dsi->ddp_comp.mtk_crtc;
+	struct mtk_drm_private *priv = NULL;
+
+	if (mtk_crtc && mtk_crtc->base.dev)
+		priv = mtk_crtc->base.dev->dev_private;
+	else if (dsi->encoder.dev)
+		priv = dsi->encoder.dev->dev_private;
+
 	DDPDBG("%s +\n", __func__);
 
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
@@ -2541,6 +2587,9 @@ static void mtk_dsi_poweroff(struct mtk_dsi *dsi)
 
 		phy_power_off(dsi->phy);
 		pm_runtime_put_sync(dsi->host.dev);
+
+		if (priv && priv->data->mmsys_id == MMSYS_MT6739)
+			mtk_dsi_set_mipi26m(0);
 	}
 
 	DDPDBG("%s -\n", __func__);

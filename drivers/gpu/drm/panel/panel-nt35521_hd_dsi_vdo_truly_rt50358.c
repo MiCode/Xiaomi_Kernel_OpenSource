@@ -699,6 +699,7 @@ static struct mtk_panel_params ext_params = {
 	.vfp_low_power = 470,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
+	.ssc_enable = 1,
 	.rotate = 1,
 	.phy_timcon = {
 		.clk_hs_post = 0x24,
