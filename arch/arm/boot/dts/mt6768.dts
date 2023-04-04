@@ -3653,6 +3653,11 @@ transparent_hugepage=never clk_ignore_unused=1";
 		//clock-names = "CAM_MDP", "IMG_DL_RELAY", "IMG_DL_ASYNC_TOP";
 	};
 
+	smi_bwc {
+		compatible = "mediatek,smi-legacy-bwc",
+					"mediatek,mt6768-smi-bwc";
+	};
+
 	smi_common: smi_common@14002000 {
 		compatible = "mediatek,mt6768-smi-common",
 					"mediatek,smi-common", "syscon";
