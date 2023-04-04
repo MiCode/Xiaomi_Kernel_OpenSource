@@ -108,6 +108,7 @@ void *mtk_vcodec_get_buffer(struct device *dev, struct mtk_vcodec_queue *vcodec_
 	attach = dma_buf_attach(vcodec_buf->dbuf, dev);
 	if (IS_ERR(attach)) {
 		pr_info("[%s] attach fail, return\n", __func__);
+		mutex_unlock(&vcodec_queue->mmap_lock);
 		return NULL;
 	}
 	vcodec_buf->attach = attach;
@@ -116,10 +117,15 @@ void *mtk_vcodec_get_buffer(struct device *dev, struct mtk_vcodec_queue *vcodec_
 	if (IS_ERR(sgt)) {
 		pr_info("map failed, detach and return\n");
 		dma_buf_detach(vcodec_buf->dbuf, attach);
+		mutex_unlock(&vcodec_queue->mmap_lock);
 		return NULL;
 	}
 	vcodec_buf->sgt = sgt;
 	mem_buff_data->iova = sg_dma_address(sgt->sgl);
+	if (vcodec_buf->dbuf != NULL) {
+		if (vcodec_buf->useAlloc)
+			get_dma_buf(vcodec_buf->dbuf);
+	}
 	vcodec_buf->mem_priv = vcodec_buf->dbuf;
 	vcodec_buf->size = mem_buff_data->len;
 	vcodec_buf->iova = mem_buff_data->iova;
@@ -172,12 +178,6 @@ int mtk_vcodec_free_buffer(struct mtk_vcodec_queue *vcodec_queue,
 				pr_info("%s (mem_priv 0x%x size %d ref_cnt %d)\n",
 					__func__, vcodec_buf->mem_priv, vcodec_buf->size,
 					atomic_read(&vcodec_buf->ref_cnt));
-				vcodec_buf_remove(vcodec_queue, i);
-				continue;
-			}
-			if (vcodec_buf->dbuf != NULL && vcodec_buf->dbuf->sysfs_entry != NULL &&
-				vcodec_buf->dbuf->sysfs_entry->kobj.state_initialized == 0) {
-				pr_info("[%s][Error]state un-initialized, continue");
 				vcodec_buf_remove(vcodec_queue, i);
 				continue;
 			}
