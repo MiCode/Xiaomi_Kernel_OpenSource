@@ -75,7 +75,6 @@ aliases {
 			interconnect-names = "fpsgo-perf-bw";
 			required-opps = <&dvfsrc_freq_opp0>;
 
-			gcc_enable = <1>;
 			fbt_cpu_mask = <255 15 240 240>;
 			sbe_resceue_enable = <1>;
 		};
