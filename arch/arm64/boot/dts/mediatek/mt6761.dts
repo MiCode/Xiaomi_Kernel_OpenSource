@@ -4024,25 +4024,41 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 	};
 
 	pmic_clock_buffer_ctrl: pmic_clock_buffer_ctrl {
-		compatible = "mediatek,pmic_clock_buffer";
-		mediatek,clkbuf-quantity = <7>;
-		mediatek,clkbuf-config = <2 1 1 2 0 0 0>;
-		mediatek,clkbuf-driving-current = <1 1 1 1 1 1 1>;
-		mediatek,bblpm-support = "enable";
+		compatible = "mediatek,clock_buffer_ctrl";
+		mediatek,xo-buf-hwbblpm-mask = <1 0 0 0 0 0 0>;
+		mediatek,xo-buf-hwbblpm-bypass = <0 0 0 0 0 0 0>;
+		pmif = <&pwrap 0>;
+		mediatek,enable;
+	};
 
-		pwrap-dcxo-en = <0x188 0 0x188 1 0x188 0>;
-		pwrap-dcxo-cfg = <0x18c 0x19c>;
+	low_battery_throttling {
+		compatible = "mediatek,low_battery_throttling";
+		hv_thd_volt = <3400>;
+		lv1_thd_volt = <3250>;
+		lv2_thd_volt = <3100>;
+	};
 
-		spm-pwr-status = <0x180 0 0x180 1>;
+	cpu_power_throttling: cpu_power_throttling {
+		compatible = "mediatek,cpu-power-throttling";
+		lbat_cpu_limit = <900000 900000 1300000>;
+		oc_cpu_limit = <900000 900000 1300000>;
+	};
 
-		pwrap = <&pwrap>;
-		sleep = <&sleep>;
+	md_power_throttling: md_power_throttling {
+		compatible = "mediatek,md-power-throttling";
+		lbat_md_reduce_tx = <6>;
+		oc_md_reduce_tx = <6>;
+	};
+
+	bp_thl: bp_thl {
+		compatible = "mediatek,mtk-bp-thl";
+		soc_limit = <15>;
+		soc_limit_ext = <20>;
+		soc_limit_ext_release = <25>;
 	};
 
 	pbm: pbm {
 		compatible = "mediatek,pbm";
-		io-channels = <&pmic_auxadc AUXADC_BATADC>;
-		io-channel-names = "pmic_batadc";
 	};
 
 	bat_gm30: battery {
@@ -4179,12 +4195,16 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		};
 	};
 
+	disable_unused: disable_unused {
+		compatible = "simple-bus";
+	};
 };
 
 #include "mediatek/cust_mt6761_msdc.dtsi"
 #include "mediatek/mt6357.dtsi"
 #include "mediatek/bat_setting/mt6761_battery_prop.dtsi"
 #include "mediatek/mt6370.dtsi"
+#include "mediatek/mt6761-disable-unused.dtsi"
 //#include "mediatek/mt6370_pd.dtsi"
 
 &mddriver {
