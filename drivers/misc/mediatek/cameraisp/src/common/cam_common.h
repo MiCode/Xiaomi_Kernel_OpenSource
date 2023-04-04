@@ -160,6 +160,7 @@
  */
 
 #define IS_SECURE_TZMP1(id)	(			\
+					IS_MT6765(id) ||        \
 					IS_MT6768(id) ||	\
 					IS_MT6789(id) ||	\
 					IS_MT6833(id))
