@@ -392,7 +392,6 @@ transparent_hugepage=never \
 cgroup.memory=nosocket,nokmem \
 androidboot.hardware=mt6739 maxcpus=8 \
 dma_debug=off \
-pelt=8 \
 firmware_class.path=/vendor/firmware loop.max_part=7 kvm-arm.mode=none";
 		kaslr-seed = <0 0>;
 	};
