@@ -4134,6 +4134,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 					1 2 2 2 2 2 2 2>;
 
 		/* use_cpu_to_dram_map_new = "enable"; */
+		dvfs = <&dvfsrc>;
 	};
 
 	fpsgo: fpsgo {
