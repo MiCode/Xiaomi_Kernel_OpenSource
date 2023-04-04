@@ -82,7 +82,7 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 
 	for (i = 0; i < count; i++) {
 		buf_size +=
-		(int)(DIV_ROUND_CLOSEST_ULL(txbuf[i]*pwm_ir->carrier,
+		(int)(DIV_ROUND_CLOSEST_ULL((u64)(txbuf[i])*pwm_ir->carrier,
 		(u32)(NSEC_PER_SEC/1000))) * pwm_ir->cycle;
 		total_time += txbuf[i];
 	}
@@ -103,7 +103,7 @@ static int mtk_pwm_ir_tx(struct rc_dev *rcdev, unsigned int *txbuf,
 		int j, cur_cycle = 0;
 
 		periods =
-		(int)(DIV_ROUND_CLOSEST_ULL(txbuf[i]*pwm_ir->carrier,
+		(int)(DIV_ROUND_CLOSEST_ULL((u64)(txbuf[i])*pwm_ir->carrier,
 		(u32)(NSEC_PER_SEC/1000))) * pwm_ir->cycle;
 
 		for (j = 0; j < periods; j++) {
