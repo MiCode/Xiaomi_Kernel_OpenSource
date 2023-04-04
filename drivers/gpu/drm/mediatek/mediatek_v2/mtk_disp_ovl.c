@@ -4208,6 +4208,21 @@ mtk_ovl_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkt,
 	}
 }
 
+void mtk_ovl_first_cfg(struct mtk_ddp_comp *comp,
+	       struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
+{
+	unsigned int value = 0, mask = 0;
+	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
+
+	if (priv->data->mmsys_id == MMSYS_MT6761) {
+		DDPINFO("%s\n", __func__);
+		SET_VAL_MASK(value, mask, 1, DATAPATH_CON_FLD_OUTPUT_CLAMP);
+		cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_REG_OVL_DATAPATH_CON,
+				value, mask);
+	}
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_ovl_funcs = {
 	.config = mtk_ovl_config,
 	.start = mtk_ovl_start,
@@ -4225,6 +4240,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_ovl_funcs = {
 	.unprepare = mtk_ovl_unprepare,
 	.connect = mtk_ovl_connect,
 	.config_trigger = mtk_ovl_config_trigger,
+	.first_cfg = mtk_ovl_first_cfg,
 };
 
 /* TODO: to be refactored */

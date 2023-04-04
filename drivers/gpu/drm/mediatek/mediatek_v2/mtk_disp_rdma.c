@@ -665,7 +665,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned int fill_rate = 0;	  /* 100 times */
 	unsigned long long consume_rate = 0; /* 100 times */
 	struct mtk_drm_private *priv = comp->mtk_crtc->base.dev->dev_private;
-
+	unsigned long long temp = 0;
 #ifdef SHARE_WROT_SRAM
 	/* Share MDP WROT SRAM. */
 	if (comp->id == DDP_COMPONENT_RDMA0 && can_use_wrot_sram()) {
@@ -682,7 +682,11 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		pre_ultra_high_us += fifo_off_ultra;
 		ultra_low_us += fifo_off_ultra;
 		ultra_high_us += fifo_off_ultra;
-		fifo_size = SZ_32K / 16UL;
+
+		if (priv->data->mmsys_id == MMSYS_MT6739)
+			fifo_size = SZ_16K / 16UL;
+		else
+			fifo_size = SZ_32K / 16UL;
 		gs[GS_RDMA_SRAM_SEL] = 1;
 		set_share_sram(1);
 	} else {
@@ -776,6 +780,14 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	else
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
 
+	if (priv->data->mmsys_id == MMSYS_MT6739) {
+		temp = width * height * Bpp;
+		do_div(temp, 16);
+		temp -= 1;
+		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] =
+			gs[GS_RDMA_PRE_ULTRA_TH_LOW] < temp ? gs[GS_RDMA_PRE_ULTRA_TH_LOW] : temp;
+	}
+
 	if (rdma->data->dsi_buffer) {
 		if (priv->data->mmsys_id == MMSYS_MT6879)
 			gs[GS_RDMA_FIFO_SIZE] = 0x20;
@@ -798,14 +810,28 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 		(gs[GS_RDMA_FIFO_SIZE] - gs[GS_RDMA_PRE_ULTRA_TH_LOW]);
 
 	/* DISP_RDMA_THRESHOLD_FOR_SODI */
-	gs[GS_RDMA_TH_LOW_FOR_SODI] =
-		DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 50), FP);
+	if (priv->data->mmsys_id == MMSYS_MT6739)
+		gs[GS_RDMA_TH_LOW_FOR_SODI] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 12), FP);
+	else
+		gs[GS_RDMA_TH_LOW_FOR_SODI] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 50), FP);
+
 	if (priv->data->mmsys_id == MMSYS_MT6768 ||
 		priv->data->mmsys_id == MMSYS_MT6761)
 		gs[GS_RDMA_TH_HIGH_FOR_SODI] = DO_DIV_ROUND_UP(
 			gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 50,
 			FP);
-	else
+	else if (priv->data->mmsys_id == MMSYS_MT6739) {
+		mmsys_clk = 180;
+		if (is_dc)
+			fill_rate = 96 * mmsys_clk; /* FIFO depth / us */
+		else
+			fill_rate = 96 * mmsys_clk * 3 / 16; /* FIFO depth / us */
+		gs[GS_RDMA_TH_HIGH_FOR_SODI] = DO_DIV_ROUND_UP(
+			gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 12,
+			FP);
+	} else
 		gs[GS_RDMA_TH_HIGH_FOR_SODI] = DO_DIV_ROUND_UP(
 			gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 12,
 			FP);
@@ -844,6 +870,29 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 			DO_DIV_ROUND_UP(consume_rate * urgent_low_us, FP);
 		gs[GS_RDMA_NOT_DRS_STATUS_TH_HIGH] =
 			DO_DIV_ROUND_UP(consume_rate * urgent_high_us, FP);
+	} else if (priv->data->mmsys_id == MMSYS_MT6739) {
+		/* DISP_RDMA_DVFS_SETTING_PREULTRA */
+		gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
+		gs[GS_RDMA_DVFS_PRE_ULTRA_TH_HIGH] =
+			DO_DIV_ROUND_UP(consume_rate * (pre_ultra_high_us + 20), FP);
+
+		/* DISP_RDMA_DVFS_SETTING_ULTRA */
+		gs[GS_RDMA_DVFS_ULTRA_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 20), FP);
+		gs[GS_RDMA_DVFS_ULTRA_TH_HIGH] = gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW];
+
+		/* DISP_RDMA_LEAVE_DRS_SETTING */
+		gs[GS_RDMA_IS_DRS_STATUS_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_high_us + 10), FP);
+		gs[GS_RDMA_IS_DRS_STATUS_TH_HIGH] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_high_us + 10), FP);
+
+		/* DISP_RDMA_ENTER_DRS_SETTING */
+		gs[GS_RDMA_NOT_DRS_STATUS_TH_LOW] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
+		gs[GS_RDMA_NOT_DRS_STATUS_TH_HIGH] =
+			DO_DIV_ROUND_UP(consume_rate * (ultra_high_us + 40), FP);
 	} else {
 		/* DISP_RDMA_DVFS_SETTING_PREULTRA */
 		gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW] =
@@ -1895,12 +1944,12 @@ static const struct mtk_disp_rdma_data mt2701_rdma_driver_data = {
 
 const struct mtk_disp_rdma_data mt6739_rdma_driver_data = {
 	.fifo_size = SZ_1K * 2,
-	.pre_ultra_low_us = 117,
-	.pre_ultra_high_us = 160,
-	.ultra_low_us = 87,
-	.ultra_high_us = 3,
-	.urgent_low_us = 43,
-	.urgent_high_us = 79,
+	.pre_ultra_low_us = 60,
+	.pre_ultra_high_us = 70,
+	.ultra_low_us = 40,
+	.ultra_high_us = 60,
+	.urgent_low_us = 30,
+	.urgent_high_us = 35,
 	.sodi_config = mt6739_mtk_sodi_config,
 	.shadow_update_reg = 0x00bc,
 	.support_shadow = false,
@@ -1935,7 +1984,7 @@ const struct mtk_disp_rdma_data mt6761_rdma_driver_data = {
 	.ultra_high_us = 60,
 	.urgent_low_us = 30,
 	.urgent_high_us = 35,
-	.sodi_config = mt6761_mtk_sodi_config,
+	.sodi_config = mt6768_mtk_sodi_config,
 	.shadow_update_reg = 0x00bc,
 	.support_shadow = false,
 	.need_bypass_shadow = false,

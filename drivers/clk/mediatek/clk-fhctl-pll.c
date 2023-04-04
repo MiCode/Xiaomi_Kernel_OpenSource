@@ -156,6 +156,76 @@ static struct match mt6765_match = {
 };
 /* 6765 end */
 
+/* 6739 begin */
+#define SIZE_6739_TOP (sizeof(mt6739_top_data)\
+	/sizeof(struct fh_pll_data))
+#define DATA_6739_TOP(_name) {				\
+		.name = _name,						\
+		.dds_mask = GENMASK(20, 0),			\
+		.slope0_value = 0x6000F4B,			\
+		.slope1_value = 0xFF000368,			\
+		.sfstrx_en = BIT(2),				\
+		.frddsx_en = BIT(1),				\
+		.fhctlx_en = BIT(0),				\
+		.tgl_org = BIT(31),					\
+		.dvfs_tri = BIT(31),				\
+		.pcwchg = BIT(31),					\
+		.dt_val = 0x0,						\
+		.df_val = 0x9,						\
+		.updnlmt_shft = 16,					\
+		.msk_frddsx_dys = GENMASK(23, 20),	\
+		.msk_frddsx_dts = GENMASK(19, 16),	\
+	}
+#define OFFSET_6739_TOP(_fhctl, _con_pcw) {	\
+		.offset_fhctl = _fhctl,				\
+		.offset_con_pcw = _con_pcw,			\
+		.offset_hp_en = 0x0,				\
+		.offset_clk_con = 0x4,				\
+		.offset_rst_con = 0x8,				\
+		.offset_slope0 = 0xc,				\
+		.offset_slope1 = 0x10,				\
+		.offset_cfg = 0x0,					\
+		.offset_updnlmt = 0x4,				\
+		.offset_dds = 0x8,					\
+		.offset_dvfs = 0xc,					\
+		.offset_mon = 0x10,					\
+	}
+static struct fh_pll_data mt6739_top_data[] = {
+	DATA_6739_TOP("armpll"),
+	DATA_6739_TOP("mainpll"),
+	DATA_6739_TOP("msdcpll"),
+	DATA_6739_TOP("mfgpll"),
+	DATA_6739_TOP("mempll"),
+	DATA_6739_TOP("mmpll"),
+	{}
+};
+static struct fh_pll_offset mt6739_top_offset[SIZE_6739_TOP] = {
+	OFFSET_6739_TOP(0x0038, 0x0204),	// FHCTL0_CFG, ARMPLL
+	OFFSET_6739_TOP(0x004C, 0x0224),    // FHCTL1_CFG, MAINPLL
+	OFFSET_6739_TOP(0x0060, 0x0254),    // FHCTL2_CFG, MSDCPLL
+	OFFSET_6739_TOP(0x0074, 0x0244),    // FHCTL3_CFG, MFGPLL
+	OFFSET_6739_TOP(0x0088, 0xffff),    // FHCTL4_CFG, MEMPLL
+	OFFSET_6739_TOP(0x009C, 0x0274),    // FHCTL5_CFG, MMPLL
+	{}
+};
+static struct fh_pll_regs mt6739_top_regs[SIZE_6739_TOP];
+static struct fh_pll_domain mt6739_top = {
+	.name = "top",
+	.data = (struct fh_pll_data *)&mt6739_top_data,
+	.offset = (struct fh_pll_offset *)&mt6739_top_offset,
+	.regs = (struct fh_pll_regs *)&mt6739_top_regs,
+	.init = &init_v1,
+};
+static struct fh_pll_domain *mt6739_domain[] = {
+	&mt6739_top,
+	NULL
+};
+static struct match mt6739_match = {
+	.compatible = "mediatek,mt6739-fhctl",
+	.domain_list = (struct fh_pll_domain **)mt6739_domain,
+};
+/* 6739 end */
+
 /* 6761 begin */
 #define SIZE_6761_TOP (sizeof(mt6761_top_data)\
 	/sizeof(struct fh_pll_data))
@@ -1580,6 +1650,7 @@ static struct match mt6983_match = {
 
 static const struct match *matchs[] = {
 	&mt6765_match,
+	&mt6739_match,
 	&mt6761_match,
 	&mt6768_match,
 	&mt6853_match,

@@ -254,7 +254,7 @@ static const struct dvfsrc_met_data mt6765_data = {
 };
 
 static const struct dvfsrc_met_data mt6761_data = {
-	.met = &mt6761_met_config,
+	.met = &mt6768_met_config,
 	.version = 0x6761,
 };
 

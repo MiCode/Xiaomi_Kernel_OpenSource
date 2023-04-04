@@ -42,7 +42,7 @@
 #if !defined(SPM_K414_EARLY_PORTING)
 #include <mtk_power_gs_api.h>
 #endif
-
+#include <mtk_cpuidle.h>
 #include <mtk_idle_internal.h>
 #include <mtk_idle_profile.h>
 
@@ -476,17 +476,8 @@ unsigned int spm_go_to_sodi(u32 spm_flags, u32 spm_data, u32 sodi_flags)
 	spm_sodi_notify_sspm_before_wfi(pwrctrl, operation_cond);
 	profile_so_end(PIDX_SSPM_BEFORE_WFI);
 
-#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
-	mt_irq_mask_all(&mask);
-	mt_irq_unmask_for_sleep_ex(SPM_IRQ0_ID);
-	unmask_edge_trig_irqs_for_cirq();
-#endif
-
+	SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS, SPM_ARGS_IRQ_BACKUP, 0, 0);
 	profile_so_start(PIDX_PRE_IRQ_PROCESS);
-#if IS_ENABLED(CONFIG_MTK_SYS_CIRQ)
-	mt_cirq_clone_gic();
-	mt_cirq_enable();
-#endif
 	profile_so_end(PIDX_PRE_IRQ_PROCESS);
 
 	spm_sodi_footprint(SPM_SODI_ENTER_SPM_FLOW);
@@ -559,15 +550,8 @@ RESTORE_IRQ:
 	spm_sodi_footprint(SPM_SODI_LEAVE_SPM_FLOW);
 
 	profile_so_start(PIDX_POST_IRQ_PROCESS);
-#if IS_ENABLED(CONFIG_MTK_SYS_CIRQ)
-	mt_cirq_flush();
-	mt_cirq_disable();
-#endif
 	profile_so_end(PIDX_POST_IRQ_PROCESS);
-
-#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
-	mt_irq_mask_restore(&mask);
-#endif
+	SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS, SPM_ARGS_IRQ_RESTORE, 0, 0);
 
 	spin_unlock_irqrestore(&__spm_lock, flags);
 

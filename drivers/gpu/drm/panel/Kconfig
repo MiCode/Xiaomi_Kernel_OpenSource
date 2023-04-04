@@ -954,29 +954,7 @@ config DRM_PANEL_NT35521_HD_VDO_TRULY_RT5081
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
 	  interface to host.
 
-config DRM_PANEL_NT35695_FHD_VDO_TRULY_RT5081_19_9
-	tristate "nt35695 fhd vdo and dphy 60hz panel"
-	depends on OF
-	depends on DRM_MIPI_DSI
-	depends on BACKLIGHT_CLASS_DEVICE
-	help
-	  Say Y here if you want to enable support for nt35695 fhdplus and
-	  wqhd cmd panel. The panel has a 1520x720 resolution
-	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
-	  interface to host.
-
-config DRM_PANEL_NT35695_FHD_VDO_TRULY_RT5081_HDP_1680
-	tristate "nt35695 fhd vdo and dphy 60hz panel"
-	depends on OF
-	depends on DRM_MIPI_DSI
-	depends on BACKLIGHT_CLASS_DEVICE
-	help
-	  Say Y here if you want to enable support for nt35695 fhdplus and
-	  wqhd cmd panel. The panel has a 1680x720 resolution
-	  and uses 24-bits RGB per pixel. It provides a MIPI DSI
-	  interface to host.
-
-config DRM_PANEL_NT35695_FHD_VDO_TRULY_RT5081_HDP
+config DRM_PANEL_NT35695_FHD_VDO_AUO_RT5081_HDP
 	tristate "nt35695 fhd vdo and dphy 60hz panel"
 	depends on OF
 	depends on DRM_MIPI_DSI

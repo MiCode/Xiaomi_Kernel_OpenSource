@@ -352,6 +352,12 @@ static inline int arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 	int cpu = 0;
 
 	cpumask_clear(cpus);
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+	while (cpu < 4) {
+		cpumask_set_cpu(cpu, cpus);
+		cpu++;
+	}
+#else
 	if (cluster_id == 0) {
 		cpu = 0;
 
@@ -367,13 +373,18 @@ static inline int arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 			cpu++;
 		}
 	}
+#endif
 
 	return 0;
 }
 
 static inline int arch_get_nr_clusters(void)
 {
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+	return 1;
+#else
 	return NR_PPM_CLUSTERS;
+#endif
 }
 
 #ifdef __cplusplus

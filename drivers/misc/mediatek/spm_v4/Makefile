@@ -4,6 +4,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/spm_v4/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/vcorefs_v3/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eem_v1/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/cpuidle/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6739/include/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/power_gs_v1/

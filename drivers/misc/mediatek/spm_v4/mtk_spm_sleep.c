@@ -28,7 +28,7 @@
 /* #include <mach/mtk_clkmgr.h> */
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-//#include <mtk_cpuidle.h>
+#include <mtk_cpuidle.h>
 #endif
 #if IS_ENABLED(CONFIG_MTK_WATCHDOG) && IS_ENABLED(CONFIG_MTK_WD_KICKER)
 #include <mach/wd_api.h>
@@ -404,21 +404,7 @@ unsigned int spm_go_to_sleep(u32 spm_flags, u32 spm_data)
 
 	spin_lock_irqsave(&__spm_lock, flags);
 
-#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
-/* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING)
-	mt_irq_mask_all(&mask);
-	mt_irq_unmask_for_sleep_ex(SPM_IRQ0_ID);
-#endif
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6763)
-	unmask_edge_trig_irqs_for_cirq();
-#endif
-#endif
-
-#if IS_ENABLED(CONFIG_MTK_SYS_CIRQ)
-	mt_cirq_clone_gic();
-	mt_cirq_enable();
-#endif
+	SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS, SPM_ARGS_IRQ_BACKUP, 0, 0);
 
 	spm_crit2("sec = %u, wakesrc = 0x%x (%u)(%u)\n",
 		  sec, pwrctrl->wake_src, is_cpu_pdn(pwrctrl->pcm_flags),
@@ -464,17 +450,7 @@ RESTORE_IRQ:
 
 	/* record last wakesta */
 	last_wr = spm_output_wake_reason(&spm_wakesta);
-#if IS_ENABLED(CONFIG_MTK_SYS_CIRQ)
-	mt_cirq_flush();
-	mt_cirq_disable();
-#endif
-
-#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
-/* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING)
-	mt_irq_mask_restore(&mask);
-#endif
-#endif
+	SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS, SPM_ARGS_IRQ_RESTORE, 0, 0);
 
 	spin_unlock_irqrestore(&__spm_lock, flags);
 

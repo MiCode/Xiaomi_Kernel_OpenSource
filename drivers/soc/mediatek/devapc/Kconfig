@@ -54,6 +54,14 @@ config DEVAPC_MT6739
 	 say yes here to enable support Mediatek MT6765
 	 Device APC driver.
 
+config DEVAPC_MT6761
+        tristate "Mediatek MT6761 Device APC driver"
+        select MTK_DEVAPC
+        select DEVAPC_LEGACY
+        help
+         say yes here to enable support Mediatek MT6765
+         Device APC driver.
+
 config DEVAPC_MT6765
 	tristate "Mediatek MT6765 Device APC driver"
 	select MTK_DEVAPC

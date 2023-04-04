@@ -1462,7 +1462,15 @@ int clatm_get_curr_opp_power(void)
 {
 	int cpu_power = 0, gpu_power = 0;
 
+#if defined(ATM_USES_PPM)
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
 	cpu_power = (int) mt_ppm_thermal_get_cur_power();
+#else
+	cpu_power = 0;
+#endif
+#else
+	cpu_power = 0;
+#endif
 	gpu_power = _get_current_gpu_power();
 
 	tscpu_dprintk("%s cpu power=%d gpu power=%d\n",
@@ -1477,8 +1485,12 @@ static int get_total_curr_power(void)
 	int cpu_power = 0, gpu_power = 0;
 
 #ifdef ATM_USES_PPM
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
 	/* choose OPP with power "<=" limit */
 	cpu_power = (int) mt_ppm_thermal_get_cur_power() + 1;
+#else
+	cpu_power = 0;
+#endif
 #else
 	/* maybe you should disable PRECISE_HYBRID_POWER_BUDGET
 	 * if current cpu power unavailable .
@@ -2241,10 +2253,12 @@ static ssize_t tscpu_write_atm_setting
 			if (i_min_cpu_pwr > 0)
 				MINIMUM_CPU_POWERS[i_id] = i_min_cpu_pwr;
 #ifdef ATM_USES_PPM
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
 			else if (i_min_cpu_pwr == 0)
 				MINIMUM_CPU_POWERS[i_id] =
 					mt_ppm_thermal_get_min_power() + 1;
 				/* choose OPP with power "<=" limit */
+#endif
 #endif
 			else {
 				#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -2257,10 +2271,12 @@ static ssize_t tscpu_write_atm_setting
 			if (i_max_cpu_pwr > 0)
 				MAXIMUM_CPU_POWERS[i_id] = i_max_cpu_pwr;
 #ifdef ATM_USES_PPM
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
 			else if (i_max_cpu_pwr == 0)
 				MAXIMUM_CPU_POWERS[i_id] =
 					mt_ppm_thermal_get_max_power() + 1;
 				/* choose OPP with power "<=" limit */
+#endif
 #endif
 			else {
 				#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
@@ -3010,9 +3026,16 @@ static ssize_t tscpu_atm_cpu_min_opp_write
 		if (g_c_min_opp.min_CPU_power[atm_id] == 0)
 			g_c_min_opp.min_CPU_power[atm_id] =
 				MINIMUM_CPU_POWERS[atm_id];
-
+#ifdef ATM_USES_PPM
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
 		g_c_min_opp.min_CPU_power_from_opp[atm_id] =
 			ppm_find_pwr_idx(g_c_min_opp.cpu_opp_set[atm_id]);
+#else
+		g_c_min_opp.min_CPU_power_from_opp[atm_id] = 0
+#endif
+#else
+		g_c_min_opp.min_CPU_power_from_opp[atm_id] = 0
+#endif
 		if (g_c_min_opp.min_CPU_power_from_opp[atm_id] == -1) {
 			g_c_min_opp.mode[atm_id] = 0;
 			tscpu_printk("Error: When transfer a CPU opp to a power budget\n");
@@ -3584,8 +3607,16 @@ static int krtatm_thread(void *arg)
 			trace_ATM__result(
 				TARGET_TJ,
 				atm_curr_maxtj,
+#ifdef CPU_CLUSTER_TYPE_0
+				get_immediate_cpu_wrap(),
+				0,
+#elif defined(CPU_CLUSTER_TYPE_1)
+				get_immediate_cpuLL_wrap(),
+				get_immediate_cpuL_wrap(),
+#else
 				get_immediate_cpuL_wrap(),
 				get_immediate_cpuB_wrap(),
+#endif
 				get_immediate_gpu_wrap(),
 				gpu_loading,
 				(adaptive_cpu_power_limit == 0x7FFFFFFF)

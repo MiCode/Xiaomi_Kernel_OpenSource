@@ -68,3 +68,4 @@ MTK_INTERNAL_SPM-y += ../common/mtk_idle_fs/mtk_lp_sysfs_procfs.o
 MTK_INTERNAL_SPM-y += ../common/mtk_idle_fs/mtk_idle_sysfs.o
 MTK_INTERNAL_SPM-y += ../common/mtk_idle_fs/mtk_lp_kernfs.o
 MTK_INTERNAL_SPM-y += ../common/mtk_idle_fs/mtk_lp_sysfs.o
+MTK_INTERNAL_SPM-y += ../common/mtk_idle_fs/mtk_lp_sysfs_procfs.o

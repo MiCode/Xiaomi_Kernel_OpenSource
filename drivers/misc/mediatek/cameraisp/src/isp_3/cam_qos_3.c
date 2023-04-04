@@ -261,7 +261,7 @@ void mtk_pmqos_set(enum ISP_CAM_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 		}
 			break;
 		default:
-			LOG_NOTICE("unsupported port:%d\n", portID);
+			LOG_DBG("Cam unsupported port:%d\n", portID);
 		break;
 	}
 	break;
@@ -282,12 +282,12 @@ void mtk_pmqos_set(enum ISP_CAM_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 		}
 			break;
 		default:
-			LOG_NOTICE("unsupported port:%d\n", portID);
+			LOG_DBG("CamSV unsupported port:%d\n", portID);
 			break;
 		}
 		break;
 	default:
-		LOG_NOTICE("unsupported module:%d\n", module);
+		LOG_DBG("No Cam, unsupported module:%d\n", module);
 		break;
 	}
 }

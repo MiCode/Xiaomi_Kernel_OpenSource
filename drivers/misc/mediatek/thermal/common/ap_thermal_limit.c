@@ -196,8 +196,10 @@ struct apthermolmt_user *handle, unsigned int limit)
 //#endif
 		timeout = jiffies + msecs_to_jiffies(100);
 #if defined(ATM_USES_PPM)
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
 		mt_ppm_cpu_thermal_protect((final_limit != 0x7FFFFFFF) ?
 							final_limit : 0);
+#endif
 #else
 		mt_cpufreq_thermal_protect((final_limit != 0x7FFFFFFF) ?
 							final_limit : 0);

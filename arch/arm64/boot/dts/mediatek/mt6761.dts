@@ -60,7 +60,6 @@ aliases {
 			compatible = "mediatek,disp_pwm0",
 			"mediatek,mt6761-disp-pwm";
 			reg = <0 0x1100e000 0 0x1000>;
-			interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH 0>;
 			#pwm-cells = <2>;
 			pwm_src_base = <&sleep>;
 			pwm_src_addr = <0x458>;
@@ -77,10 +76,8 @@ aliases {
 			mediatek,smi-id = <0>;
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			iommus = <&iommu M4U_PORT_DISP_2L_OVL0_LARB0>;
-			clocks = <&mmsys_config CLK_MM_F26M_HRTWT>,
-				<&mmsys_config CLK_MM_IMG_DL_RELAY>,
-				   <&topckgen CLK_TOP_DISP_PWM_SEL>;
-			clock-num = <3>;
+			clocks = <&mmsys_config CLK_MM_F26M_HRTWT>;
+			clock-num = <1>;
 #if 0
 			fake-engine = <&smi_larb0 M4U_LARB0_PORT4>,
 				<&smi_larb1 M4U_LARB1_PORT4>;
@@ -88,8 +85,12 @@ aliases {
 			power-domains = <&scpsys MT6761_POWER_DOMAIN_DIS>;
 			operating-points-v2 = <&opp_table_mm>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-			interconnects = <&mmqos SLAVE_LARB(21) &mmqos SLAVE_COMMON(0)>;
-			interconnect-names = "disp_hrt_qos";
+			interconnects = <&dvfsrc MT6873_MASTER_MM_DISP
+					&dvfsrc MT6873_SLAVE_DDR_EMI>;
+			interconnect-names = "disp-perf-bw";
+			required-opps = <&dvfsrc_freq_opp0>,
+					<&dvfsrc_freq_opp1>,
+					<&dvfsrc_freq_opp2>;
 
 			/* define threads, see mt6765-gce.h */
 			mediatek,mailbox-gce = <&gce_mbox>;
@@ -246,7 +247,6 @@ aliases {
 					"mediatek,mt6761-disp-mutex";
 			reg = <0 0x14001000 0 0x1000>;
 			interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH 0>;
-			clocks = <&topckgen CLK_TOP_DISP_PWM_SEL>;
 		};
 
 		disp_ovl0: disp_ovl0@1400b000 {
@@ -259,7 +259,16 @@ aliases {
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			clocks = <&mmsys_config CLK_MM_DISP_OVL0>;
 			iommus = <&iommu M4U_PORT_DISP_OVL0>;
-
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_OVL0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_OVL0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_OVL0)
+						&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "DDP_COMPONENT_OVL0_qos",
+						"DDP_COMPONENT_OVL0_fbdc_qos",
+						"DDP_COMPONENT_OVL0_hrt_qos";
 		};
 
 		disp_ovl0_2l: disp_ovl0_2l@1400c000 {
@@ -272,6 +281,16 @@ aliases {
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			clocks = <&mmsys_config CLK_MM_DISP_OVL0_2L>;
 			iommus = <&iommu M4U_PORT_DISP_2L_OVL0_LARB0>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_2L_OVL0_LARB0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_2L_OVL0_LARB0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_2L_OVL0_LARB0)
+						&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "DDP_COMPONENT_OVL0_2L_qos",
+						"DDP_COMPONENT_OVL0_2L_fbdc_qos",
+						"DDP_COMPONENT_OVL0_2L_hrt_qos";
 		};
 
 		disp_rsz0: disp_rsz0@14015000 {
@@ -292,6 +311,13 @@ aliases {
 			dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 			clocks = <&mmsys_config CLK_MM_DISP_RDMA0>;
 			iommus = <&iommu M4U_PORT_DISP_RDMA0>;
+			interconnects =
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_RDMA0)
+						&mmqos SLAVE_COMMON(0)>,
+				<&mmqos MASTER_LARB_PORT(M4U_PORT_DISP_RDMA0)
+						&mmqos SLAVE_COMMON(0)>;
+			interconnect-names = "DDP_COMPONENT_RDMA0_qos",
+						"DDP_COMPONENT_RDMA0_hrt_qos";
 		};
 
 		disp_color0: disp_color0@1400f000 {
@@ -308,7 +334,7 @@ aliases {
 			reg = <0 0x14010000 0 0x1000>;
 			interrupts = <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&mmsys_config CLK_MM_DISP_CCORR0>;
-			ccorr_bit = <13>;
+			ccorr_bit = <12>;
 			ccorr_num_per_pipe = <1>;
 			ccorr_linear_per_pipe = <0x01>;
 			ccorr_prim_force_linear = <0x0>;
@@ -792,6 +818,29 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 			"cam-0", "cam-1", "cam-2", "cam-3";
 	};
 
+	scpsys_clk: scpsys@10001000 {
+		compatible = "mediatek,mt6761-scpsys-clk", "syscon";
+		reg =   <0 0x10001000 0 0x1000>, /* infra_ao */
+			<0 0x10006000 0 0x1000>, /* spm */
+			<0 0x14002000 0 0x1000>, /* spi_common */
+			<0 0x1020e000 0 0x1000>, /* infracfg */
+			<0 0x18004000 0 0x1000>; /* connsys */
+		clocks = <&topckgen CLK_TOP_MM_SEL>,
+			<&topckgen CLK_TOP_MFG_SEL>,
+			<&mmsys_config CLK_MM_SMI_COMM0>,
+			<&mmsys_config CLK_MM_SMI_COMM1>,
+			<&mmsys_config CLK_MM_SMI_COMMON>,
+			<&mmsys_config CLK_MM_SMI_LARB0>,
+			<&camsys CLK_CAM_LARB2>,
+			<&camsys CLK_CAM>,
+			<&mmsys_config CLK_MM_SMI_CAM>,
+			<&mmsys_config CLK_MM_SMI_IMG>;
+			clock-names = "mm", "mfg",
+			"mm-0", "mm-1", "mm-2", "mm-3",
+			"cam-0", "cam-1", "cam-2", "cam-3";
+		#clock-cells = <1>;
+	};
+
 	scp_infra: scp_infra@10001000 {
 		compatible = "mediatek,scpinfra";
 		reg = <0 0x10001000 0 0x1000>;
@@ -1105,8 +1154,8 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 						"pmic_bif_voltage",
 						"pmic_ptim_voltage",
 						"pmic_ptim_r";
-				//nvmem-cells = <&fg_init>, <&fg_soc>;
-				//nvmem-cell-names = "initialization", "state-of-charge";
+				nvmem-cells = <&fg_init>, <&fg_soc>;
+				nvmem-cell-names = "initialization", "state-of-charge";
 			};
 		};
 	};
@@ -1224,9 +1273,7 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		reg = <0 0x10012000 0 0x1000>,
 			<0 0x10006000 0 0x1000>;
 		reg-names = "dvfsrc", "spm";
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
+		#interconnect-cells = <1>;
 
 		dvfsrc_freq_opp2: opp2 {
 			opp-peak-KBps = <0 0 0 0 0>;
@@ -1267,11 +1314,12 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		dvfsrc-met {
 			compatible = "mediatek,dvfsrc-met";
 		};
-		qos@00110b80 {
-			compatible = "mediatek,mt6761-qos";
-			reg = <0 0x00110b80 0 0x80>;
-		};
 
+	};
+
+	qos {
+		compatible = "mediatek,mt6761-qos";
+		reg = <0 0x00110b80 0 0x80>;
 	};
 
 	power_gs {
@@ -1668,9 +1716,10 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		mediatek,srclken_o1 = <0>;
 		/* DTS/GIC_ID: MDWDT 205/107; CCIF0 92/128; CCIF0 93/129 */
 		interrupts = <GIC_SPI 205 IRQ_TYPE_EDGE_RISING 0>,
-					<GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH 0>,
-					<GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH 0>;
-		power-domains = <&scpsys MT6761_POWER_DOMAIN_MD>;
+				<GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH 0>,
+				<GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH 0>;
+		clocks = <&scpsys_clk SCP_SYS_MD1>;
+		clock-names = "scp-sys-md1-main";
 		ccci-infracfg = <&infracfg_ao>;
 		ccci-topckgen = <&topckgen>;
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
@@ -1960,7 +2009,9 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 			"mdp_wdma";
 		operating-points-v2 = <&opp_table_mm>;
 		mdp-opp = <&opp_table_mm>;
+		isp-opp = <&opp_table_mm>;
 		mdp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		isp-dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	};
 
 	gce_mbox: gce_mbox@10238000 {
@@ -2533,8 +2584,8 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		compatible = "mediatek,therm_ctrl";
 		reg = <0 0x1100b000 0 0x1000>;
 		interrupts = <GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&infracfg_ao CLK_IFR_THERM>;
-		clock-names = "therm-main";
+		clocks = <&infracfg_ao CLK_IFR_THERM>, <&infracfg_ao CLK_IFR_AUXADC>;
+		clock-names = "therm-main", "auxadc-main";
 		nvmem = <&efuse>;
 		nvmem-names = "mtk_efuse";
 		nvmem-cells = <&cpu_freq_segment>,
@@ -2621,7 +2672,7 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 			/*WDT_EINT conn_wdt_irq_b*/
 			   <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH 0>,
 			/*conn2ap_sw_irq*/
-			   <GIC_SPI 214 IRQ_TYPE_EDGE_RISING>;
+			   <GIC_SPI 214 IRQ_TYPE_EDGE_RISING 0>;
 		power-domains = <&scpsys MT6761_POWER_DOMAIN_CONN>;
 		pmic = <&main_pmic>;
 		memory-region = <&consys_mem>;
@@ -2955,11 +3006,6 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		};
 	};
 
-	mipi_tx0@11c80000 {
-		compatible = "mediatek,mipi_tx0";
-		reg = <0 0x11c80000 0 0x10000>;
-	};
-
 	msdc1_pad_macro@11c90000 {
 		compatible = "mediatek,msdc1_pad_macro";
 		reg = <0 0x11c90000 0 0x10000>;
@@ -3072,8 +3118,8 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 	mmdvfs-debug {
 		compatible = "mediatek,mmdvfs-debug";
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-		force-step0 = <1>;
-		release-step0 = <1>;
+		force-step0 = <0>;
+		release-step0 = <0>;
 	};
 
 	mmdvfs {
@@ -4074,6 +4120,18 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 					1 2 2 2 2 2 2 2>;
 
 		/* use_cpu_to_dram_map_new = "enable"; */
+	};
+
+	fpsgo: fpsgo {
+		compatible = "mediatek,fpsgo";
+		interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+		interconnect-names = "fpsgo-perf-bw";
+		required-opps = <&dvfsrc_freq_opp0>;
+
+		adj_count = <30>;
+		gcc_enable = <0>;
+		fbt_cpu_mask = <15 15 15 15>;
+		sbe_resceue_enable = <1>;
 	};
 
 	dram_ctrl {

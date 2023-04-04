@@ -837,6 +837,12 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	task->pkt = pkt;
 	task->exec_time = sched_clock();
 
+	if (atomic_read(&cmdq->mbox_usage) <= 0) {
+		cmdq_err("hwid:%hu usage:%d idx:%d gce off",
+			cmdq->hwid, atomic_read(&cmdq->usage), thread->idx);
+		dump_stack();
+	}
+
 	if (list_empty(&thread->task_busy_list)) {
 		if (mminfra_power_cb && !mminfra_power_cb()) {
 			cmdq_err("task running when mminfra power off,cmdq:%pa id:%u usage:%d",

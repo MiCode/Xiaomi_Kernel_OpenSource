@@ -6,6 +6,7 @@ obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clk-disable-unused.o
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6739.c),)
 obj-$(CONFIG_COMMON_CLK_MT6739) += clk-mt6739.o
 obj-$(CONFIG_COMMON_CLK_MT6739) += mt6739_clkmgr.o
+obj-$(CONFIG_COMMON_CLK_MT6739) += clk-mt6739-pg.o
 clk-clkmgr-mt6739-$(CONFIG_COMMON_CLK_MT6739) += mt6739_clkmgr.o
 obj-$(CONFIG_COMMON_CLK_MT6739) += clk-fmeter-mt6739.o
 clk-fmeter-mt6739-$(CONFIG_COMMON_CLK_MT6739) += clk-fmeter-mt6739.o
@@ -27,6 +28,7 @@ obj-$(CONFIG_COMMON_CLK_MT6761_CAMSYS) += clk-mt6761-cam.o
 obj-$(CONFIG_COMMON_CLK_MT6761_MIPI0ASYS) += clk-mt6761-mipi0a.o
 obj-$(CONFIG_COMMON_CLK_MT6761_MMSYS) += clk-mt6761-mm.o
 obj-$(CONFIG_COMMON_CLK_MT6761_VCODECSYS) += clk-mt6761-vcodec.o
+obj-$(CONFIG_COMMON_CLK_MT6761) += clk-mt6761-pg.o
 obj-$(CONFIG_COMMON_CLK_MT6761) += clkchk-mt6761.o
 clk-chk-mt6761-$(CONFIG_COMMON_CLK_MT6761) += clkchk-mt6761.o
 obj-$(CONFIG_COMMON_CLK_MT6761) += mt6761_clkmgr.o
@@ -63,7 +65,7 @@ endif
 
 ifneq ($(wildcard $(srctree)/$(src)/clk-mt6768.c),)
 obj-$(CONFIG_COMMON_CLK_MT6768) += clk-mt6768.o
-obj-$(CONFIG_COMMON_CLK_PG_LEGACY) += clk-mt6768-pg.o
+obj-$(CONFIG_COMMON_CLK_MT6768) += clk-mt6768-pg.o
 obj-$(CONFIG_COMMON_CLK_MT6768) += clkchk-mt6768.o
 clk-chk-mt6768-$(CONFIG_COMMON_CLK_MT6768) += clkchk-mt6768.o
 obj-$(CONFIG_COMMON_CLK_MT6768) += mt6768_clkmgr.o

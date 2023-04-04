@@ -1235,7 +1235,7 @@ static bool mdp_check_camin_support_virtual(void)
 
 static bool mdp_svp_support_meta_data(void)
 {
-	return true;
+	return false;
 }
 
 void cmdq_mdp_platform_function_setting(void)

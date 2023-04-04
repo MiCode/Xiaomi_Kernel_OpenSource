@@ -273,6 +273,12 @@ struct gpufreq_opp_info g_default_gpu_segment3[] = {
 	GPUOP(290000, 105000, 80000, 1, 0, 0),
 };
 
+struct mt_gpufreq_power_table_info {
+	unsigned int gpufreq_khz;
+	unsigned int gpufreq_volt;
+	unsigned int gpufreq_power;
+};
+
 /**************************************************
  * Segment Adjustment
  **************************************************/

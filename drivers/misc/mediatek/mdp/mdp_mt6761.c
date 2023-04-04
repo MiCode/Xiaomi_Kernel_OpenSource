@@ -1412,7 +1412,7 @@ static s32 mdp_get_rdma_idx(u32 eng_base)
 
 static bool mdp_check_camin_support_virtual(void)
 {
-	return false;
+	return true;
 }
 
 static bool mdp_svp_support_meta_data(void)

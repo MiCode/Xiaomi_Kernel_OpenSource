@@ -65,6 +65,13 @@ struct hrt_mmclk_request hrt_req_level_fhdp_mt6768[] = {
 	{50, 700000},
 	{60, 800000},
 };
+
+struct hrt_mmclk_request hrt_req_level_mt6761[] = {
+	{50, 650000},
+	{60, 700000},
+	{70, 800000},
+};
+
 #endif
 
 void mtk_disp_pmqos_get_icc_path_name(char *buf, int buf_len,
@@ -269,6 +276,36 @@ void mtk_disp_hrt_mmclk_request_mt6768(struct mtk_drm_crtc *mtk_crtc, unsigned i
 		DDPMSG("%s layer_num = %d, volt = %d\n", __func__, layer_num, req_level[2].volt);
 	}
 }
+
+void mtk_disp_hrt_mmclk_request_mt6761(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
+{
+	int layer_num;
+	int ret;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct hrt_mmclk_request *req_level = hrt_req_level_mt6761;
+
+	layer_num = bw * 10 / mtk_drm_primary_frame_bw(crtc);
+	if (layer_num <= req_level[0].layer_num) {
+		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL2]);
+		ret = regulator_set_voltage(mm_freq_request, req_level[0].volt, INT_MAX);
+		if (ret)
+			DDPPR_ERR("%s:regulator_set_voltage fail\n", __func__);
+		DDPMSG("%s layer_num = %d, volt = %d\n", __func__, layer_num, req_level[0].volt);
+	} else if (layer_num > req_level[0].layer_num && layer_num <= req_level[1].layer_num) {
+		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL1]);
+		ret = regulator_set_voltage(mm_freq_request, req_level[1].volt, INT_MAX);
+		if (ret)
+			DDPPR_ERR("%s:regulator_set_voltage fail\n", __func__);
+		DDPMSG("%s layer_num = %d, volt = %d\n", __func__, layer_num, req_level[1].volt);
+	} else if (layer_num > req_level[1].layer_num) {
+		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL0]);
+		ret = regulator_set_voltage(mm_freq_request, req_level[2].volt, INT_MAX);
+		if (ret)
+			DDPPR_ERR("%s:regulator_set_voltage fail\n", __func__);
+		DDPMSG("%s layer_num = %d, volt = %d\n", __func__, layer_num, req_level[2].volt);
+	}
+}
 #endif
 
 int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
@@ -319,6 +356,8 @@ int mtk_disp_set_hrt_bw(struct mtk_drm_crtc *mtk_crtc, unsigned int bw)
 #ifdef CONFIG_MTK_FB_MMDVFS_SUPPORT
 	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765)
 		mtk_disp_hrt_mmclk_request_mt6768(mtk_crtc, tmp);
+	else if (priv->data->mmsys_id == MMSYS_MT6761)
+		mtk_disp_hrt_mmclk_request_mt6761(mtk_crtc, tmp);
 #else
 	mtk_icc_set_bw(priv->hrt_bw_request, 0, MBps_to_icc(tmp));
 #endif

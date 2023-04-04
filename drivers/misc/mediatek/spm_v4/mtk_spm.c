@@ -36,6 +36,8 @@
 #if IS_ENABLED(CONFIG_MTK_DRAMC_LEGACY)
 #include <soc/mediatek/dramc_legacy.h>
 #endif /* CONFIG_MTK_DRAMC */
+#include <linux/irq.h>
+#include <linux/irqdesc.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
@@ -112,41 +114,12 @@ void __attribute__((weak)) spm_deepidle_init(void)
 	spm_crit2("NO %s !!!\n", __func__);
 }
 
-void __attribute__((weak)) spm_vcorefs_init(void)
-{
-	spm_crit2("NO %s !!!\n", __func__);
-}
-
-void __attribute__((weak)) mt_power_gs_t_dump_suspend(int count, ...)
-{
-	spm_crit2("NO %s !!!\n", __func__);
-}
-
-void __attribute__((weak)) mt_power_gs_t_dump_dpidle(int count, ...)
-{
-	spm_crit2("NO %s !!!\n", __func__);
-}
-
-void __attribute__((weak)) mt_power_gs_t_dump_sodi3(int count, ...)
-{
-	spm_crit2("NO %s !!!\n", __func__);
-}
-
-void __attribute__((weak)) set_wakeup_sources(u32 *list, u32 num_events)
-{
-	spm_crit2("NO %s !!!\n", __func__);
-}
-
 int __attribute__((weak)) spm_fs_init(void)
 {
 	spm_crit2("NO %s !!!\n", __func__);
 	return 0;
 }
 
-char *__attribute__((weak)) spm_vcorefs_dump_dvfs_regs(char *p)
-{
-	return NULL;
-}
 
 ssize_t __attribute__((weak))
 get_spm_last_wakeup_src(char *ToUserBuf, size_t sz, void *priv) { return 0; }
@@ -154,7 +127,16 @@ get_spm_last_wakeup_src(char *ToUserBuf, size_t sz, void *priv) { return 0; }
 ssize_t __attribute__((weak))
 get_spm_sleep_count(char *ToUserBuf, size_t sz, void *priv) { return 0; }
 
+unsigned int virq_to_hwirq(unsigned int virq)
+{
+	struct irq_desc *desc;
+	unsigned int hwirq;
 
+	desc = irq_to_desc(virq);
+	WARN_ON(!desc);
+	hwirq = desc ? desc->irq_data.hwirq : 0;
+	return hwirq;
+}
 
 /**************************************
  * Init and IRQ Function
@@ -586,6 +568,7 @@ int __init spm_module_init(void)
 
 	int i;
 	unsigned int irq_type;
+	unsigned int hwirq = 0;
 
 	struct mtk_lp_sysfs_handle *pParent = NULL;
 	struct mtk_lp_sysfs_handle entry_spm;
@@ -640,12 +623,14 @@ int __init spm_module_init(void)
 		if (edge_trig_irqs[i]) {
 			irq_type = irq_get_trigger_type(edge_trig_irqs[i]);
 			irq_set_irq_type(edge_trig_irqs[i], irq_type);
+			hwirq = virq_to_hwirq(edge_trig_irqs[i]);
+			SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS,
+				SPM_ARGS_REG_EDGE_TRIGGER_IRQ, hwirq, i);
 		}
 	}
-
-#if IS_ENABLED(CONFIG_FAST_CIRQ_CLONE_FLUSH)
-	set_wakeup_sources(edge_trig_irqs, NF_EDGE_TRIG_IRQS);
-#endif
+	//set_wakeup_sources(edge_trig_irqs, NF_EDGE_TRIG_IRQS);
+	hwirq = virq_to_hwirq(SPM_IRQ0_ID);
+	SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS, SPM_ARGS_SET_WAKEUP_SOURCES, hwirq, 0);
 
 	spm_sodi3_init();
 	spm_sodi_init();
@@ -1419,21 +1404,6 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 	return ret;
 }
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
-
-void unmask_edge_trig_irqs_for_cirq(void)
-{
-	int i;
-
-	for (i = 0; i < NF_EDGE_TRIG_IRQS; i++) {
-		if (edge_trig_irqs[i]) {
-			/* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING)
-			/* unmask edge trigger irqs */
-			//mt_irq_unmask_for_sleep_ex(edge_trig_irqs[i]);
-#endif
-		}
-	}
-}
 
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 static atomic_t ipi_lock_cnt;

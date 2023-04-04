@@ -46,7 +46,6 @@
 /**************************************************
  * Frequency Hopping Setting
  **************************************************/
-//TODO: Verify when FHCTL ready
 #define GPUFREQ_FHCTL_ENABLE            (1)
 #define MFG_PLL_NAME                    "mfgpll"
 /**************************************************

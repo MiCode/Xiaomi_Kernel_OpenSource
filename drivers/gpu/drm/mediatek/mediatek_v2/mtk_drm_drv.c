@@ -3811,7 +3811,7 @@ const struct mtk_mmsys_driver_data mt6761_mmsys_driver_data = {
 	.fake_eng_data = &mt6761_fake_eng_data,
 	.mmsys_id = MMSYS_MT6761,
 	.mode_tb = mt6761_mode_tb,
-	.sodi_config = mt6761_mtk_sodi_config,
+	.sodi_config = mt6768_mtk_sodi_config,
 	.bypass_infra_ddr_control = true,
 };
 

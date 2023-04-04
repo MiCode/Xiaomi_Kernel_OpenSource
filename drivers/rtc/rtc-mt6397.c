@@ -37,7 +37,7 @@
 /*debug information*/
 static int rtc_show_time;
 static int rtc_show_alarm = 1;
-
+static struct regmap *rtc_regmap;
 module_param(rtc_show_time, int, 0644);
 module_param(rtc_show_alarm, int, 0644);
 
@@ -1036,6 +1036,46 @@ static int mtk_rtc_set_spare(struct device *dev)
 	return ret;
 }
 
+int rtc_clock_enable(int enable)
+{
+	int ret = 0;
+	if (IS_ERR_OR_NULL(rtc_regmap))
+		return -EINVAL;
+	if (enable) {
+		ret = regmap_update_bits(rtc_regmap,
+				MT6357_SCK_TOP_CKPDN_CON0_CLR_ADDR,
+				(MT6357_RG_RTC_MCLK_PDN_MASK << MT6357_RG_RTC_MCLK_PDN_SHIFT),
+				(1 << MT6357_RG_RTC_MCLK_PDN_SHIFT));
+		if (ret)
+			goto exit;
+		ret = regmap_update_bits(rtc_regmap,
+				MT6357_SCK_TOP_CKPDN_CON0_CLR_ADDR,
+				(MT6357_RG_RTC_32K_CK_PDN_MASK << MT6357_RG_RTC_32K_CK_PDN_SHIFT),
+				(1 << MT6357_RG_RTC_32K_CK_PDN_SHIFT));
+		if (ret)
+			goto exit;
+		return 0;
+	} else {
+		ret = regmap_update_bits(rtc_regmap,
+				MT6357_SCK_TOP_CKPDN_CON0_SET_ADDR,
+				(MT6357_RG_RTC_MCLK_PDN_MASK << MT6357_RG_RTC_MCLK_PDN_SHIFT),
+				(1 << MT6357_RG_RTC_MCLK_PDN_SHIFT));
+		if (ret)
+			goto exit;
+		ret = regmap_update_bits(rtc_regmap,
+				MT6357_SCK_TOP_CKPDN_CON0_SET_ADDR,
+				(MT6357_RG_RTC_32K_CK_PDN_MASK << MT6357_RG_RTC_32K_CK_PDN_SHIFT),
+				(1 << MT6357_RG_RTC_32K_CK_PDN_SHIFT));
+		if (ret)
+			goto exit;
+		return 0;
+	}
+exit:
+	pr_err("%s SPM regmap write/read error!!!\n", __func__);
+	return ret;
+}
+EXPORT_SYMBOL(rtc_clock_enable);
+
 static int mtk_rtc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -1063,6 +1103,7 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 		return rtc->irq;
 
 	rtc->regmap = mt6397_chip->regmap;
+	rtc_regmap = mt6397_chip->regmap;
 	mutex_init(&rtc->lock);
 
 	platform_set_drvdata(pdev, rtc);

@@ -305,12 +305,6 @@ spm_go_to_sleep(u32 spm_flags, u32 spm_data)
 	return 0;
 }
 
-void __attribute__((weak))
-gpio_dump_regs(void)
-{
-
-}
-
 static int slp_suspend_ops_enter(suspend_state_t state)
 {
 	int ret = 0;

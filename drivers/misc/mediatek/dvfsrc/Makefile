@@ -22,7 +22,7 @@ mtk-dvfsrc-helper-$(CONFIG_MTK_DVFSRC_MET_MT6873) += dvfsrc-met-v6873.o
 mtk-dvfsrc-helper-${CONFIG_MTK_DVFSRC_MET_MT6873} += dvfsrc-met-v6983.o
 mtk-dvfsrc-helper-${CONFIG_MTK_DVFSRC_MET_MT6768} += dvfsrc-met-v6768.o dvfsrc-ipi.o
 mtk-dvfsrc-helper-${CONFIG_MTK_DVFSRC_MET_MT6765} += dvfsrc-met-v6765.o dvfsrc-ipi.o
-mtk-dvfsrc-helper-${CONFIG_MTK_DVFSRC_MET_MT6761} += dvfsrc-met-v6761.o dvfsrc-ipi.o
+mtk-dvfsrc-helper-${CONFIG_MTK_DVFSRC_MET_MT6761} += dvfsrc-met-v6768.o dvfsrc-ipi.o
 
 obj-$(CONFIG_MTK_DVFSRC_MET_MT6768) += dvfsrc-opp-mt6768.o
 obj-$(CONFIG_MTK_DVFSRC_MET_MT6765) += dvfsrc-opp-mt6765.o

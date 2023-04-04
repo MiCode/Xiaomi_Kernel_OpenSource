@@ -13533,7 +13533,7 @@ static void ISP_BH_Workqueue(struct work_struct *pWork)
 /******************************************************************************
  *
  ******************************************************************************/
-module_init(ISP_Init);
+late_initcall(ISP_Init);
 module_exit(ISP_Exit);
 MODULE_DESCRIPTION("Camera ISP driver");
 MODULE_AUTHOR("ME3");

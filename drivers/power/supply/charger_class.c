@@ -920,7 +920,11 @@ static int __init charger_class_init(void)
 	return 0;
 }
 
+#if IS_BUILTIN(CONFIG_MTK_CHARGER)
+subsys_initcall(charger_class_init);
+#else
 module_init(charger_class_init);
+#endif
 module_exit(charger_class_exit);
 
 MODULE_DESCRIPTION("Switching Charger Class Device");

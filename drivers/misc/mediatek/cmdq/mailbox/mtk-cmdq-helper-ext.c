@@ -1082,6 +1082,10 @@ static void cmdq_pkt_instr_encoder(void *buf, u16 arg_c, u16 arg_b,
 	cmdq_inst->arg_a = arg_a;
 	cmdq_inst->arg_b = arg_b;
 	cmdq_inst->arg_c = arg_c;
+	if (cmdq_inst->op >> 4 == 7 || cmdq_inst->op != op) {
+		cmdq_err("cmdq_inst->op:%#x, op::%#x", cmdq_inst->op, op);
+		dump_stack();
+	}
 }
 
 s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,

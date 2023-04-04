@@ -19,12 +19,12 @@ $(info "CONFIG_MICROTRUST_TEST_DRIVERS=$(CONFIG_MICROTRUST_TEST_DRIVERS)")
 $(info "-----------CONFIG_MTPROF=$(CONFIG_MTPROF)")
 $(info "-----------MICROTRUST_TZ_DRIVER_MTK_BOOTPROF=$(MICROTRUST_TZ_DRIVER_MTK_BOOTPROF)")
 
-$(info "whf src=$(src)")
+$(info "src=$(src)")
 
 subdir-ccflags-y  += -I$(srctree)/$(src)/common/include
 #ccflags-y  += -I$(src)/common/include
-$(info "whf subdir-ccflags-y=$(subdir-ccflags-y)")
-$(info "whf ccflags-y=$(ccflags-y)")
+$(info "subdir-ccflags-y=$(subdir-ccflags-y)")
+$(info "ccflags-y=$(ccflags-y)")
 subdir-ccflags-y  += \
 	-I$(srctree)/$(src)/tz_dcih \
 	-I$(srctree)/$(src)/public \
@@ -39,7 +39,8 @@ subdir-ccflags-$(CONFIG_MICROTRUST_DEBUG) += -DDEBUG
 
 include $(srctree)/drivers/tee/gpapi/Makefile.impl.include
 
-obj-m += isee.o
+obj-$(CONFIG_MICROTRUST_TEE_SUPPORT) += isee.o
+
 isee-y :=              tee/tee_core.o \
                        tee/capi_proxy.o \
                        tee/tee_client_api.o \

@@ -114,14 +114,6 @@ void register_apu_callback(struct apu_callbacks *apucb)
 }
 EXPORT_SYMBOL_GPL(register_apu_callback);
 
-static struct md_callbacks *g_mdcb;
-
-void register_md_callback(struct md_callbacks *mdcb)
-{
-	g_mdcb = mdcb;
-}
-EXPORT_SYMBOL_GPL(register_md_callback);
-
 static int scpsys_domain_is_on(struct scp_domain *scpd)
 {
 	struct scp *scp = scpd->scp;
@@ -881,26 +873,6 @@ static int scpsys_apu_power_off(struct generic_pm_domain *genpd)
 	return ret;
 }
 
-static int scpsys_legacy_md_power_on(struct generic_pm_domain *genpd)
-{
-	int ret = 0;
-
-	if (g_mdcb && g_mdcb->md_power_on) {
-		ret = g_mdcb->md_power_on(genpd);
-	}
-	return ret;
-}
-
-static int scpsys_legacy_md_power_off(struct generic_pm_domain *genpd)
-{
-	int ret = 0;
-
-	if (g_mdcb && g_mdcb->md_power_off) {
-		ret = g_mdcb->md_power_off(genpd);
-	}
-	return ret;
-}
-
 static int mtk_hwv_is_done(struct scp_domain *scpd)
 {
 	struct scp *scp = scpd->scp;
@@ -1345,10 +1317,7 @@ struct scp *init_scp(struct platform_device *pdev,
 		}
 
 		genpd->name = data->name;
-		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_LEGACY_MD_OPS)) {
-			genpd->power_off = scpsys_legacy_md_power_off;
-			genpd->power_on = scpsys_legacy_md_power_on;
-		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_MD_OPS)) {
+		if (MTK_SCPD_CAPS(scpd, MTK_SCPD_MD_OPS)) {
 			genpd->power_off = scpsys_md_power_off;
 			genpd->power_on = scpsys_md_power_on;
 		} else if (MTK_SCPD_CAPS(scpd, MTK_SCPD_APU_OPS)) {

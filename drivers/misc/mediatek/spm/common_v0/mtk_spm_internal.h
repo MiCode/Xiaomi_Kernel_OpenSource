@@ -210,7 +210,7 @@ void mtk_spm_irq_restore(void);
 /***********************************************************
  * mtk_spm_internal.c
  ***********************************************************/
-
+void mtk_cpuidle_framework_init(void);
 long spm_get_current_time_ms(void);
 void rekick_vcorefs_scenario(void); /* FIXME: To be removed */
 int __spm_get_pcm_timer_val(const struct pwr_ctrl *pwrctrl);

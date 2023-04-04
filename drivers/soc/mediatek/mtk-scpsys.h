@@ -25,7 +25,6 @@
 #define MTK_SCPD_BYPASS_CLK		BIT(10)
 #define MTK_SCPD_HWV_OPS		BIT(11)
 #define MTK_SCPD_DISABLE_INIT_ON	BIT(12)
-#define MTK_SCPD_LEGACY_MD_OPS 	BIT(13)
 
 #define MAX_CLKS	3
 #define MAX_SUBSYS_CLKS 10
@@ -154,14 +153,8 @@ struct apu_callbacks {
 	int (*apu_power_off)(void);
 };
 
-struct md_callbacks {
-	int (*md_power_on)(struct generic_pm_domain *genpd);
-	int (*md_power_off)(struct generic_pm_domain *genpd);
-};
-
 /* register new apu_callbacks and return previous apu_callbacks. */
 extern void register_apu_callback(struct apu_callbacks *apucb);
-extern void register_md_callback(struct md_callbacks *mdcb);
 
 int register_scpsys_notifier(struct notifier_block *nb);
 int unregister_scpsys_notifier(struct notifier_block *nb);

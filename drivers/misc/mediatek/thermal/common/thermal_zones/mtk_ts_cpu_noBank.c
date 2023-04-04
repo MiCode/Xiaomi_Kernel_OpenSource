@@ -2024,7 +2024,11 @@ static int tscpu_read_ttpct(struct seq_file *m, void *v)
 	unsigned int cpu_power, gpu_power, max_cpu_pwr, max_gpu_pwr;
 
 #ifdef ATM_USES_PPM
-	max_cpu_pwr = mt_ppm_thermal_get_max_power() + 1;
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
+		max_cpu_pwr = mt_ppm_thermal_get_max_power() + 1;
+#else
+	max_cpu_pwr = 3000;
+#endif
 #else
 	max_cpu_pwr = 3000;
 #endif
@@ -2543,8 +2547,18 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 	init_thermal(dev);
 
 #ifdef ATM_USES_PPM
-	mt_ppm_thermal_get_cpu_cluster_temp_cb(
-		&get_immediate_cpuL_wrap, &get_immediate_cpuB_wrap);
+#if IS_ENABLED(CONFIG_MTK_PPM_V3)
+#ifdef CPU_CLUSTER_TYPE_0
+		mt_ppm_thermal_get_cpu_cluster_temp_cb(
+			&get_immediate_cpu_wrap, &get_immediate_cpu_wrap);
+#elif defined(CPU_CLUSTER_TYPE_1)
+		mt_ppm_thermal_get_cpu_cluster_temp_cb(
+			&get_immediate_cpuLL_wrap, &get_immediate_cpuL_wrap);
+#else
+		mt_ppm_thermal_get_cpu_cluster_temp_cb(
+			&get_immediate_cpuL_wrap, &get_immediate_cpuB_wrap);
+#endif
+#endif
 #endif
 
 #if MTK_TS_CPU_RT

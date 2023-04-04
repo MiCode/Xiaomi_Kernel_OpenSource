@@ -11,6 +11,8 @@
 #endif
 #include "mtk_cpufreq_platform.h"
 
+#include "mt-plat/mtk_devinfo.h"
+#include <linux/nvmem-consumer.h>
 
 #ifndef CONFIG_MTK_FREQ_HOPPING
 #define FH_PLL0 0
@@ -470,15 +472,47 @@ int mt_cpufreq_dts_map(void)
 
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
-/*	unsigned int lv = CPU_LEVEL_0;
-
+	unsigned int lv = CPU_LEVEL_0;
 	unsigned int seg_code = 0;
 	unsigned int turbo_code = 0;
 
-	seg_code = get_devinfo_with_index(SEG_EFUSE);
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+	struct device_node *dev_node;
 
-	turbo_code = get_devinfo_with_index(TURBO_EFUSE);
-	turbo_code = _GET_BITS_VAL_(21:20, turbo_code);
+	dev_node = of_find_node_by_name(NULL, "mt_cpufreq");
+	if (!dev_node)
+		pr_info("get mt_cpufreq node fail\n");
+
+	efuse_cell = of_nvmem_cell_get(dev_node, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		pr_info("@%s: cannot get efuse_segment_cell\n", __func__);
+		return PTR_ERR(efuse_cell);
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		pr_info("@%s: cannot get efuse_buf\n", __func__);
+		return PTR_ERR(efuse_buf);
+	}
+	seg_code = (*efuse_buf);
+
+	efuse_cell = of_nvmem_cell_get(dev_node, "efuse_turbo_cell");
+	if (IS_ERR(efuse_cell)) {
+		pr_info("@%s: cannot get efuse_turbo_cell\n", __func__);
+		return PTR_ERR(efuse_cell);
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		pr_info("@%s: cannot get efuse_buf\n", __func__);
+		return PTR_ERR(efuse_buf);
+	}
+
+	turbo_code = _GET_BITS_VAL_(21:20, *efuse_buf);
 
 	if ((seg_code == 0x80 || seg_code == 0x88 || seg_code == 0x0
 		|| seg_code == 0x08 || seg_code == 0x90) && turbo_code == 0x3)
@@ -490,8 +524,8 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		lv = CPU_LEVEL_2;
 	else
 		lv = CPU_LEVEL_0;
-*/
-	return CPU_LEVEL_0;
+
+	return lv;
 }
 
 unsigned int _mt_cpufreq_disable_feature(void)

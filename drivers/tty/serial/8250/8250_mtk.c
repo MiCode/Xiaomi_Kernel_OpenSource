@@ -19,7 +19,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
-
+#include <linux/delay.h>
 #include "8250.h"
 
 #define MTK_UART_HIGHS		0x09	/* Highspeed register */
@@ -36,12 +36,19 @@
 #define MTK_UART_IER_XOFFI	0x20	/* Enable XOFF character interrupt */
 #define MTK_UART_IER_RTSI	0x40	/* Enable RTS Modem status interrupt */
 #define MTK_UART_IER_CTSI	0x80	/* Enable CTS Modem status interrupt */
-
+#define MTK_UART_SLEEP_REQ	0x2d	/* Sleep request register */
+#define MTK_UART_SEND_SLEEP_REQ	0x1	/* Request uart to sleep */
+#define MTK_UART_SLEEP_ACK	0x2e	/* Sleep ack register */
+#define MTK_UART_SLEEP_ACK_IDLE	0x1	/* uart in idle state */
+#define MTK_UART_RX_SEL		0x24	/* Uart rx pin sel */
+#define MTK_UART_WAIT_ACK_TIMES	50
+#define MTK_UART_FCR_RD		0x17	/* Fifo control register */
 #define MTK_UART_DLL  0x24
 #define MTK_UART_DLH  0x25
 #define MTK_UART_FEATURE_SEL  0x27
 #define MTK_UART_EFR    0x26
-
+#define MTK_UART_GUARD		0x0f	/* Guard time added register */
+#define MTK_UART_SLEEP_EN	0x12	/* Sleep Enable register */
 #define MTK_UART_EFR_EN		0x10	/* Enable enhancement feature */
 #define MTK_UART_EFR_RTS	0x40	/* Enable hardware rx flow control */
 #define MTK_UART_EFR_CTS	0x80	/* Enable hardware tx flow control */
@@ -66,6 +73,33 @@ enum dma_rx_status {
 };
 #endif
 
+struct mtk8250_reg {
+	unsigned int ier;
+	unsigned int mcr;
+	unsigned int msr;
+	unsigned int scr;
+	unsigned int dll;
+	unsigned int dlm;
+	unsigned int lcr;
+	unsigned int efr;
+	unsigned int xon1;
+	unsigned int xon2;
+	unsigned int xoff1;
+	unsigned int xoff2;
+	unsigned int highspeed;
+	unsigned int sample_count;
+	unsigned int sample_point;
+	unsigned int guard;
+	unsigned int escape_dat;
+	unsigned int escape_en;
+	unsigned int sleep_en;
+	unsigned int dma_en;
+	unsigned int rxtri_ad;
+	unsigned int fracdiv_l;
+	unsigned int fracdiv_m;
+	unsigned int fcr_rd;
+	unsigned int rx_sel;
+};
 struct mtk8250_data {
 	int			line;
 	unsigned int		rx_pos;
@@ -73,6 +107,7 @@ struct mtk8250_data {
 	struct clk		*uart_clk;
 	struct clk		*bus_clk;
 	struct uart_8250_dma	*dma;
+	struct mtk8250_reg	reg;
 #ifdef CONFIG_SERIAL_8250_DMA
 	enum dma_rx_status	rx_status;
 #endif
@@ -542,6 +577,219 @@ static int mtk8250_probe_of(struct platform_device *pdev, struct uart_port *p,
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_MTK_SPM_V4)
+static void mtk8250_save_dev(struct device *dev)
+{
+	unsigned long flags;
+	struct mtk8250_data *data = dev_get_drvdata(dev);
+	struct mtk8250_reg *reg;
+	struct uart_8250_port *up;
+
+	if (data == NULL)
+		return;
+	reg = &data->reg;
+	up = serial8250_get_port(data->line);
+	if (up->port.dev == NULL)
+		return;
+
+	/* DLL may be changed by console write. To avoid this, use spinlock */
+	spin_lock_irqsave(&up->port.lock, flags);
+	reg->fcr_rd = serial_in(up, MTK_UART_FCR_RD);
+
+	/*save baudrate */
+	reg->highspeed = serial_in(up, MTK_UART_HIGHS);
+	reg->fracdiv_l = serial_in(up, MTK_UART_FRACDIV_L);
+	reg->fracdiv_m = serial_in(up, MTK_UART_FRACDIV_M);
+	serial_out(up, UART_LCR, reg->lcr | UART_LCR_DLAB);
+	reg->dll = serial_in(up, UART_DLL);
+	reg->dlm = serial_in(up, UART_DLM);
+	serial_out(up, UART_LCR, reg->lcr);
+
+	serial_out(up, MTK_UART_FEATURE_SEL, 0x1);
+	serial_out(up, MTK_UART_EFR, reg->efr);
+
+	reg->dll = serial_in(up, MTK_UART_DLL);
+	reg->dlm = serial_in(up, MTK_UART_DLH);
+	serial_out(up, MTK_UART_FEATURE_SEL, 0x0);
+
+	reg->sample_count = serial_in(up, MTK_UART_SAMPLE_COUNT);
+	reg->sample_point = serial_in(up, MTK_UART_SAMPLE_POINT);
+	reg->guard = serial_in(up, MTK_UART_GUARD);
+
+	/* save flow control */
+	reg->mcr = serial_in(up, UART_MCR);
+	reg->ier = serial_in(up, UART_IER);
+	reg->xon1 = serial_in(up, UART_XON1);
+	reg->xon2 = serial_in(up, UART_XON2);
+	reg->xoff1 = serial_in(up, UART_XOFF1);
+	reg->xoff2 = serial_in(up, UART_XOFF2);
+	reg->escape_dat = serial_in(up, MTK_UART_ESCAPE_DAT);
+	reg->sleep_en = serial_in(up, MTK_UART_SLEEP_EN);
+
+	/* save others */
+	reg->escape_en = serial_in(up, MTK_UART_ESCAPE_EN);
+	reg->msr = serial_in(up, UART_MSR);
+	reg->scr = serial_in(up, UART_SCR);
+	reg->dma_en = serial_in(up, MTK_UART_DMA_EN);
+	reg->rxtri_ad = serial_in(up, MTK_UART_RXTRI_AD);
+	reg->rx_sel = serial_in(up, MTK_UART_RX_SEL);
+	spin_unlock_irqrestore(&up->port.lock, flags);
+}
+#endif
+
+int mtk8250_request_to_sleep(void)
+{
+	int i = 0;
+	int line = 0;
+	int sleep_req;
+	struct uart_8250_port *up;
+	struct mtk8250_data *data;
+
+	for (line = 0; line < CONFIG_SERIAL_8250_NR_UARTS; line++) {
+		up = serial8250_get_port(line);
+
+		if (up->port.dev == NULL)
+			continue;
+		else if (dev_get_drvdata(up->port.dev) == NULL)
+			continue;
+
+		data = dev_get_drvdata(up->port.dev);
+		if (data->clk_count <= 0U)
+			continue;
+
+		/* request UART to sleep */
+		sleep_req = serial_in(up, MTK_UART_SLEEP_REQ);
+		serial_out(up, MTK_UART_SLEEP_REQ,
+			sleep_req | MTK_UART_SEND_SLEEP_REQ);
+
+		/* wait for UART to ACK */
+		while (!(serial_in(up, MTK_UART_SLEEP_ACK)
+			& MTK_UART_SLEEP_ACK_IDLE)) {
+			if (i++ >= MTK_UART_WAIT_ACK_TIMES) {
+				serial_out(up, MTK_UART_SLEEP_REQ, sleep_req);
+				pr_info_ratelimited("UART%d SLEEP ACK Fail\n",
+					line);
+				return -EBUSY;
+			}
+			udelay(10);
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk8250_request_to_sleep);
+
+int mtk8250_request_to_wakeup(void)
+{
+	int i = 0;
+	int line = 0;
+	int sleep_req;
+	struct uart_8250_port *up;
+	struct mtk8250_data *data;
+
+	for (line = 0; line < CONFIG_SERIAL_8250_NR_UARTS; line++) {
+		up = serial8250_get_port(line);
+
+		if (up->port.dev == NULL)
+			continue;
+		else if (dev_get_drvdata(up->port.dev) == NULL)
+			continue;
+
+		data = dev_get_drvdata(up->port.dev);
+		if (data->clk_count <= 0U)
+			continue;
+
+		/* wakeup uart */
+		sleep_req = serial_in(up, MTK_UART_SLEEP_REQ);
+		serial_out(up, MTK_UART_SLEEP_REQ,
+			sleep_req & (~MTK_UART_SEND_SLEEP_REQ));
+
+		/* wait for UART to ACK */
+		while (serial_in(up, MTK_UART_SLEEP_ACK)
+			& MTK_UART_SLEEP_ACK_IDLE) {
+			if (i++ >= MTK_UART_WAIT_ACK_TIMES) {
+				serial_out(up, MTK_UART_SLEEP_REQ, sleep_req);
+				pr_debug("CANNOT GET UART%d WAKE ACK\n", line);
+				return -EBUSY;
+			}
+			udelay(10);
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk8250_request_to_wakeup);
+
+void mtk8250_restore_dev(void)
+{
+	unsigned long flags;
+	int line = 0;
+	struct uart_8250_port *up;
+	struct mtk8250_data *data;
+	struct mtk8250_reg *reg;
+
+	for (line = 0; line < CONFIG_SERIAL_8250_NR_UARTS; line++) {
+		up = serial8250_get_port(line);
+		if (up->port.dev == NULL)
+			continue;
+		data = dev_get_drvdata(up->port.dev);
+		if (data == NULL)
+			continue;
+		reg = &data->reg;
+
+		if (!uart_console(&up->port))
+			continue;
+
+		mtk8250_runtime_resume(up->port.dev);
+		spin_lock_irqsave(&up->port.lock, flags);
+
+		serial_out(up, UART_FCR, reg->fcr_rd);
+
+		/*restore baudrate */
+		serial_out(up, MTK_UART_HIGHS, reg->highspeed);
+		serial_out(up, MTK_UART_FRACDIV_L, reg->fracdiv_l);
+		serial_out(up, MTK_UART_FRACDIV_M, reg->fracdiv_m);
+		serial_out(up, UART_LCR, reg->lcr | UART_LCR_DLAB);
+		serial_out(up, UART_DLL, reg->dll);
+		serial_out(up, UART_DLM, reg->dlm);
+		serial_out(up, UART_LCR, reg->lcr);
+
+		serial_out(up, MTK_UART_FEATURE_SEL, 0x1);
+
+		serial_out(up, MTK_UART_EFR, reg->efr);
+
+		serial_out(up, MTK_UART_DLL, reg->dll);
+		serial_out(up, MTK_UART_DLH, reg->dlm);
+		serial_out(up, MTK_UART_FEATURE_SEL, 0x0);
+
+		serial_out(up, MTK_UART_SAMPLE_COUNT, reg->sample_count);
+		serial_out(up, MTK_UART_SAMPLE_POINT, reg->sample_point);
+		serial_out(up, MTK_UART_GUARD, reg->guard);
+
+		/* restore flow control */
+		serial_out(up, UART_MCR, reg->mcr);
+		serial_out(up, UART_IER, reg->ier);
+		serial_out(up, UART_XON1, reg->xon1);
+		serial_out(up, UART_XON2, reg->xon2);
+		serial_out(up, UART_XOFF1, reg->xoff1);
+		serial_out(up, UART_XOFF2, reg->xoff2);
+		serial_out(up, MTK_UART_ESCAPE_DAT, reg->escape_dat);
+		serial_out(up, MTK_UART_SLEEP_EN, reg->sleep_en);
+
+		/* restore others */
+		serial_out(up, MTK_UART_ESCAPE_EN, reg->escape_en);
+		serial_out(up, UART_MSR, reg->msr);
+		serial_out(up, UART_SCR, reg->scr);
+
+		serial_out(up, MTK_UART_DMA_EN, reg->dma_en);
+		serial_out(up, MTK_UART_RXTRI_AD, reg->rxtri_ad);
+		serial_out(up, MTK_UART_FCR_RD, reg->fcr_rd);
+		serial_out(up, MTK_UART_RX_SEL, reg->rx_sel);
+		spin_unlock_irqrestore(&up->port.lock, flags);
+	}
+}
+EXPORT_SYMBOL(mtk8250_restore_dev);
+
 static int mtk8250_probe(struct platform_device *pdev)
 {
 	struct uart_8250_port uart = {};
@@ -652,7 +900,12 @@ static int __maybe_unused mtk8250_suspend(struct device *dev)
 	struct mtk8250_data *data = dev_get_drvdata(dev);
 	int irq = data->rx_wakeup_irq;
 	int err;
-
+#if IS_ENABLED(CONFIG_MTK_SPM_V4)
+	struct uart_8250_port *up;
+	up = serial8250_get_port(data->line);
+	if (up->port.dev != NULL && uart_console(&up->port) == 1)
+		mtk8250_save_dev(dev);
+#endif
 	serial8250_suspend_port(data->line);
 
 	pinctrl_pm_select_sleep_state(dev);

@@ -374,6 +374,14 @@ static void spm_dvfsfw_init(int curr_opp)
 	spin_unlock_irqrestore(&__spm_lock, flags);
 }
 
+static unsigned int opp_table[4] = {
+	101,
+	96,
+	91,
+	85
+};
+
+
 int spm_vcorefs_pwarp_cmd(void)
 {
 #if 1
@@ -381,14 +389,16 @@ int spm_vcorefs_pwarp_cmd(void)
 #if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
 
 	unsigned long flags;
-	//int opp;
+	int opp;
 
 	spin_lock_irqsave(&__spm_lock, flags);
 
 	//for (opp = 0; opp < NUM_OPP; opp++)
 		//mt_secure_call(MTK_SIP_KERNEL_SPM_VCOREFS_ARGS,
 			//VCOREFS_SMC_CMD_2, opp, get_vcore_ptp_volt(opp), 0);
-
+	for (opp = 0; opp < NUM_OPP; opp++)
+		mt_secure_call(MTK_SIP_KERNEL_SPM_VCOREFS_ARGS,
+			VCOREFS_SMC_CMD_2, opp, opp_table[opp], 0);
 	spin_unlock_irqrestore(&__spm_lock, flags);
 
 	spm_vcorefs_warn("%s: atf\n", __func__);
@@ -595,7 +605,7 @@ static int spm_trigger_dvfs(int kicker, int opp, bool fix)
 	r = wait_spm_complete_by_condition(is_dvfs_in_progress() == 0,
 		SPM_DVFS_TIMEOUT);
 	if (r < 0) {
-		//spm_vcorefs_dump_dvfs_regs(NULL);
+		spm_vcorefs_dump_dvfs_regs(NULL);
 /* aee_kernel_warning("SPM Warring", "Vcore DVFS timeout warning"); */
 		return -1;
 	}
@@ -611,11 +621,11 @@ static int spm_trigger_dvfs(int kicker, int opp, bool fix)
  * & ~(0x7 << 3)) | (md_req[opp] << 3));
  */
 
-	//vcorefs_crit_mask(log_mask(), kicker,
-		//"[%s] fix: %d, opp: %d, vcore: 0x%x, emi: 0x%x, md: 0x%x\n",
-		//__func__, fix, opp,
-		//spm_read(DVFSRC_VCORE_REQUEST), spm_read(DVFSRC_EMI_REQUEST),
-		//spm_read(DVFSRC_MD_REQUEST));
+	vcorefs_crit_mask(log_mask(), kicker,
+		"[%s] fix: %d, opp: %d, vcore: 0x%x, emi: 0x%x, md: 0x%x\n",
+		__func__, fix, opp,
+		spm_read(DVFSRC_VCORE_REQUEST), spm_read(DVFSRC_EMI_REQUEST),
+		spm_read(DVFSRC_MD_REQUEST));
 #if 1
 	/* check DVFS timer */
 	if (fix)
@@ -628,7 +638,7 @@ static int spm_trigger_dvfs(int kicker, int opp, bool fix)
 			SPM_DVFS_TIMEOUT);
 
 	if (r < 0) {
-		//spm_vcorefs_dump_dvfs_regs(NULL);
+		spm_vcorefs_dump_dvfs_regs(NULL);
 	/* aee_kernel_warning("SPM Warring", "Vcore DVFS timeout warning"); */
 		return -1;
 	}

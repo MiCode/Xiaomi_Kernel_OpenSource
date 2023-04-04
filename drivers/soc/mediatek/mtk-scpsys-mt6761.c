@@ -45,7 +45,7 @@ static const struct scp_domain_data scp_domain_data_mt6761[] = {
 			BUS_PROT_IGN(IFR_TYPE, 0x02A8, 0x02AC, 0x0250, 0x0258,
 				MT6761_TOP_AXI_PROT_EN_INFRA_3_MD1),
 		},
-		.caps = MTK_SCPD_LEGACY_MD_OPS | MTK_SCPD_BYPASS_INIT_ON,
+		.caps = MTK_SCPD_MD_OPS | MTK_SCPD_BYPASS_INIT_ON,
 	},
 
 	[MT6761_POWER_DOMAIN_CONN] = {
@@ -186,178 +186,6 @@ static const struct scp_soc_data mt6761_data = {
 	}
 };
 
-static int scpsys_domain_is_on(struct scp_domain *scpd)
-{
-	struct scp *scp = scpd->scp;
-
-	u32 status = readl(scp->base + scp->ctrl_reg.pwr_sta_offs) &
-						scpd->data->sta_mask;
-	u32 status2 = readl(scp->base + scp->ctrl_reg.pwr_sta2nd_offs) &
-						scpd->data->sta_mask;
-
-	if (status && status2)
-		return true;
-	if (!status && !status2)
-		return false;
-
-	return -EINVAL;
-}
-
-static int set_bus_protection(struct regmap *map, u32 set_ofs, u32 sta_ofs, u32 mask)
-{
-	u32 val;
-	int ret = 0;
-
-	regmap_write(map, set_ofs, mask);
-
-	ret = regmap_read_poll_timeout_atomic(map, sta_ofs,
-			val, (val & mask) == mask,
-			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
-
-	if (ret < 0) {
-		pr_err("%s val=0x%x, mask=0x%x, (val & mask)=0x%x\n",
-			__func__, val, mask, (val & mask));
-	}
-	return ret;
-}
-
-#define MD1_PROT_STEP1_0_MASK			((0x1 << 7))
-#define MD1_PROT_STEP1_0_ACK_MASK		((0x1 << 7))
-#define MD1_PROT_STEP2_0_MASK			((0x1 << 3)	\
-							|(0x1 << 4))
-#define MD1_PROT_STEP2_0_ACK_MASK		((0x1 << 3)	\
-							|(0x1 << 4))
-#define MD1_PROT_STEP2_1_MASK			((0x1 << 6))
-#define MD1_PROT_STEP2_1_ACK_MASK			((0x1 << 6))
-
-static int mt6761_md_power_on(struct generic_pm_domain *genpd)
-{
-	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
-	struct scp *scp = scpd->scp;
-	struct regmap *infracfg = scp->infracfg;
-	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
-	void __iomem *sram_iso_addr = scp->base + 0x0394;
-	void __iomem *extra_ctl_addr = scp->base + 0x0398;
-	u32 val = 0;
-	int ret = 0, tmp = 0;
-
-	/* for md subsys, reset_b is prior to power_on bit */
-	val = readl(ctl_addr);
-	val &= ~(0x1 << 0);
-	writel(val, ctl_addr);
-
-	/* subsys power on */
-	val |= (0x1 << 2);
-	writel(val, ctl_addr);
-	val |= (0x1 << 3);
-	writel(val, ctl_addr);
-
-	/* wait until PWR_ACK = 1 */
-	ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp > 0,
-				 MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
-
-	if (ret < 0)
-		goto out;
-
-	/* TINFO="MD_SRAM_ISO_CON[0]=1"*/
-	writel(readl(sram_iso_addr) | (0x1 << 0), sram_iso_addr);
-	/* TINFO="Set PWR_ISO = 0" */
-	val &= ~(0x1 << 1);
-	writel(val, ctl_addr);
-	/* TINFO="Set PWR_CLK_DIS = 0" */
-	val &= ~(0x1 << 4);
-	writel(val, ctl_addr);
-	/* TINFO="Set PWR_RST_B = 1" */
-	val |= (0x1 << 0);
-	writel(val, ctl_addr);
-	/* TINFO="MD_EXTRA_PWR_CON[0]=0"*/
-	writel(readl(extra_ctl_addr) & ~(0x1 << 0), extra_ctl_addr);
-	/* TINFO="Finish to turn on MD1" */
-
-	/* TINFO="Set SRAM_PDN = 0" */
-	val &= ~(0x1 << 8);
-	writel(val, ctl_addr);
-	/* TINFO="Release bus protect - step2 : 0" */
-	regmap_write(infracfg, 0x02A4, MD1_PROT_STEP2_0_MASK);
-	/* TINFO="Release bus protect - step2 : 1" */
-	regmap_write(infracfg, 0x02AC, MD1_PROT_STEP2_1_MASK);
-	/* TINFO="Release bus protect - step1 : 0" */
-	regmap_write(infracfg, 0x02A4, MD1_PROT_STEP1_0_MASK);
-
-	return 0;
-
-out:
-	dev_err(scp->dev, "Failed to power on mtcmos %s[%d, 0x%x]\n", genpd->name, ret, val);
-
-	return ret;
-}
-
-
-
-static int mt6761_md_power_off(struct generic_pm_domain *genpd)
-{
-	struct scp_domain *scpd = container_of(genpd, struct scp_domain, genpd);
-	struct scp *scp = scpd->scp;
-	struct regmap *infracfg = scp->infracfg;
-	void __iomem *ctl_addr = scp->base + scpd->data->ctl_offs;
-	void __iomem *sram_iso_addr = scp->base + 0x0394;
-	void __iomem *extra_ctl_addr = scp->base + 0x0398;
-	u32 val = 0;
-	int ret = 0, tmp = 0;
-
-	/* TINFO="Set bus protect - step1 : 0" */
-	ret = set_bus_protection(infracfg, 0x02A0, 0x0228, MD1_PROT_STEP1_0_MASK);
-	if (ret < 0)
-		goto out;
-	/* TINFO="Set bus protect - step2 : 0" */
-	ret = set_bus_protection(infracfg, 0x02A0, 0x0228, MD1_PROT_STEP2_0_MASK);
-	if (ret < 0)
-		goto out;
-	/* TINFO="Set bus protect - step2 : 1" */
-	ret = set_bus_protection(infracfg, 0x02A8, 0x0258, MD1_PROT_STEP2_1_MASK);
-	if (ret < 0)
-		goto out;
-	/* TINFO="Set SRAM_PDN = 1" */
-	val = readl(ctl_addr);
-	val |= (0x1 << 8);
-	writel(val, ctl_addr);
-
-	/* TINFO="Start to turn off MD1" */
-	/* TINFO="MD_EXTRA_PWR_CON[0]=1"*/
-	writel(readl(extra_ctl_addr) | (0x1 << 0), extra_ctl_addr);
-	/* TINFO="Set PWR_CLK_DIS = 1" */
-	val |= (0x1 << 4);
-	writel(val, ctl_addr);
-	/* TINFO="Set PWR_ISO = 1" */
-	val |= (0x1 << 1);
-	writel(val, ctl_addr);
-	/* TINFO="MD_SRAM_ISO_CON[0]=0"*/
-	writel(readl(sram_iso_addr) & ~(0x1 << 0), sram_iso_addr);
-	/* TINFO="Set PWR_ON = 0" */
-	val &= ~(0x1 << 2);
-	writel(val, ctl_addr);
-	/* TINFO="Set PWR_ON_2ND = 0" */
-	val &= ~(0x1 << 3);
-	writel(val, ctl_addr);
-	/* TINFO="Wait until PWR_STATUS = 0 and PWR_STATUS_2ND = 0" */
-	ret = readx_poll_timeout_atomic(scpsys_domain_is_on, scpd, tmp, tmp == 0,
-			MTK_POLL_DELAY_US, MTK_POLL_TIMEOUT);
-	if (ret < 0)
-		goto out;
-
-	return 0;
-
-out:
-	dev_err(scp->dev, "Failed to power off mtcmos %s(%d, 0x%x)\n", genpd->name, ret, val);
-
-	return ret;
-}
-
-static struct md_callbacks mt6761_md_callbacks = {
-	.md_power_on = mt6761_md_power_on,
-	.md_power_off = mt6761_md_power_off,
-};
-
 /*
  * scpsys driver init
  */
@@ -380,8 +208,6 @@ static int mt6761_scpsys_probe(struct platform_device *pdev)
 	int i, ret;
 
 	soc = of_device_get_match_data(&pdev->dev);
-
-	register_md_callback(&mt6761_md_callbacks);
 
 	scp = init_scp(pdev, soc->domains, soc->num_domains, &soc->regs);
 	if (IS_ERR(scp))

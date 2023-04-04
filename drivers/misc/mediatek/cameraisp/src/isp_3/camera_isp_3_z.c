@@ -1100,16 +1100,25 @@ static unsigned int g_DmaErr_p1[nDMA_ERR] = { 0 };
 		avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];\
 		if (avaLen > 1) {\
 			if (snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__) < 0) { \
-				LOG_DBG("[Error] snprintf failed");\
+				if (logT == _LOG_INF)\
+					LOG_INF("[Error] snprintf failed");\
+				else\
+					LOG_DBG("[Error] snprintf failed");\
 			} \
 			if ('\0' !=     gSvLog[irq]._str[ppb][logT][str_leng - 1]) { \
-				LOG_INF("(%d)(%d)log str over flow", irq, logT);\
+				if (logT == _LOG_INF)\
+					LOG_INF("(%d)(%d)log str over flow", irq, logT);\
+				else\
+					LOG_DBG("(%d)(%d)log str over flow", irq, logT);\
 			} \
 			while (*ptr++ != '\0') {\
 				(*ptr2)++;\
 			} \
 		} else { \
-			LOG_INF("(%d)(%d)log str avalible=0", irq, logT);\
+			if (logT == _LOG_INF)\
+				LOG_INF("(%d)(%d)log str avalible=0", irq, logT);\
+			else\
+				LOG_DBG("(%d)(%d)log str avalible=0", irq, logT);\
 		} \
 	} while (0)
 /*for keep IRQ err log*/
@@ -1140,7 +1149,10 @@ static unsigned int g_DmaErr_p1[nDMA_ERR] = { 0 };
 				(*ptr2)++;\
 			} \
 		} else { \
-			LOG_INF("(%d)(%d)log str avalible=0", irq, logT);\
+			if (logT == _LOG_INF)\
+				LOG_INF("(%d)(%d)log str avalible=0", irq, logT);\
+			else\
+				LOG_DBG("(%d)(%d)log str avalible=0", irq, logT);\
 		} \
 	} while (0)
 #else
@@ -1171,9 +1183,9 @@ static unsigned int g_DmaErr_p1[nDMA_ERR] = { 0 };
 				for     (i = 0; i <     DBG_PAGE; i++) {\
 					if (ptr[NORMAL_STR_LEN*(i+1) - 1] != '\0') {\
 						ptr[NORMAL_STR_LEN*(i+1) - 1] = '\0';\
-						LOG_INF("%s", &ptr[NORMAL_STR_LEN*i]);\
+						LOG_DBG("%s", &ptr[NORMAL_STR_LEN*i]);\
 					} else {\
-						LOG_INF("%s", &ptr[NORMAL_STR_LEN*i]);\
+						LOG_DBG("%s", &ptr[NORMAL_STR_LEN*i]);\
 						break;\
 					} \
 				} \
@@ -3205,7 +3217,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 ********************************************************************************/
 static void ISP_EnableClock(bool En)
 {
-	LOG_INF("- E. En: %d. G_u4EnableClockCount:%d.", En, G_u4EnableClockCount);
+	LOG_DBG("- E. En: %d. G_u4EnableClockCount:%d.", En, G_u4EnableClockCount);
 
 	if (En) {
 		/*LOG_INF("CCF:prepare_enable clk"); */
@@ -3219,7 +3231,7 @@ static void ISP_EnableClock(bool En)
 		spin_unlock(&(IspInfo.SpinLockClock));
 		Disable_Unprepare_ccf_clock();
 	}
-	LOG_INF("- X. En: %d. G_u4EnableClockCount:%d.", En, G_u4EnableClockCount);
+	LOG_DBG("- X. En: %d. G_u4EnableClockCount:%d.", En, G_u4EnableClockCount);
 }
 
 /*******************************************************************************
@@ -12681,7 +12693,7 @@ static void __exit ISP_Exit(void)
 /*******************************************************************************
 *
 ********************************************************************************/
-module_init(ISP_Init);
+late_initcall(ISP_Init);
 module_exit(ISP_Exit);
 MODULE_DESCRIPTION("Camera ISP driver");
 MODULE_AUTHOR("ME3");

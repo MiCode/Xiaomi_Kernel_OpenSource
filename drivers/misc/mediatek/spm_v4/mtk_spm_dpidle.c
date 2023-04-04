@@ -24,7 +24,7 @@
 #include <mt-plat/mtk_cirq.h>
 #endif
 #include <mtk_spm_idle.h>
-//#include <mtk_cpuidle.h>
+#include <mtk_cpuidle.h>
 #if IS_ENABLED(CONFIG_MTK_WATCHDOG) && IS_ENABLED(CONFIG_MTK_WD_KICKER)
 #include <mach/wd_api.h>
 #endif
@@ -632,17 +632,7 @@ unsigned int spm_go_to_sleep_dpidle(u32 spm_flags, u32 spm_data)
 	spm_dpidle_notify_sspm_before_wfi(true,
 					  DEEPIDLE_OPT_VCORE_LP_MODE,
 					  pwrctrl);
-
-#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
-	mt_irq_mask_all(&mask);
-	mt_irq_unmask_for_sleep_ex(SPM_IRQ0_ID);
-	unmask_edge_trig_irqs_for_cirq();
-#endif
-
-#if IS_ENABLED(CONFIG_MTK_SYS_CIRQ)
-	mt_cirq_clone_gic();
-	mt_cirq_enable();
-#endif
+	SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS, SPM_ARGS_IRQ_BACKUP, 0, 0);
 
 	spm_crit2("sleep_deepidle, sec = %u, wakesrc = 0x%x [%u][%u]\n",
 		sec, pwrctrl->wake_src,
@@ -705,15 +695,7 @@ RESTORE_IRQ:
 	last_wr = __spm_output_wake_reason(&wakesta, pcmdesc,
 					   true, "sleep_dpidle");
 
-#if IS_ENABLED(CONFIG_MTK_SYS_CIRQ)
-	mt_cirq_flush();
-	mt_cirq_disable();
-#endif
-
-#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
-	mt_irq_mask_restore(&mask);
-#endif
-
+	SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS, SPM_ARGS_IRQ_RESTORE, 0, 0);
 	spin_unlock_irqrestore(&__spm_lock, flags);
 
 #if IS_ENABLED(CONFIG_MTK_WATCHDOG) && IS_ENABLED(CONFIG_MTK_WD_KICKER)

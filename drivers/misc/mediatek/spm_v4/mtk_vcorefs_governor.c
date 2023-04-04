@@ -104,7 +104,8 @@ __weak unsigned int mt_eem_vcorefs_set_volt(void)
 #endif
 	return ret;
 #else
-	vcorefs_crit("NOT SUPPORT EEM\n");
+	//vcorefs_crit("NOT SUPPORT EEM\n");
+	spm_vcorefs_pwarp_cmd();
 	return 0;
 #endif
 }
@@ -357,17 +358,35 @@ int vcorefs_get_curr_ddr(void)
 }
 EXPORT_SYMBOL(vcorefs_get_curr_ddr);
 
+static int uv_opp[4] = {
+	1150000,
+	1118750,
+	1087500,
+	1050000
+};
+
+static int hz_opp[4] = {
+	1333000,
+	1066000,
+	1066000,
+	1066000
+};
+
 int vcorefs_get_vcore_by_steps(u32 opp)
 {
+#if 0
 #if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6775) || IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6771)
 	return get_vcore_opp_volt(opp);
 #else
 	return vcore_pmic_to_uv(get_vcore_ptp_volt(opp));
 #endif
+#endif
+	return uv_opp[opp];
 }
 
 int vcorefs_get_ddr_by_steps(u32 opp)
 {
+#if 0
 #if 1
 	int ddr_khz;
 
@@ -377,6 +396,8 @@ int vcorefs_get_ddr_by_steps(u32 opp)
 #else
 	return 0;
 #endif
+#endif
+	return hz_opp[opp];
 }
 
 char *governor_get_kicker_name(int id)
