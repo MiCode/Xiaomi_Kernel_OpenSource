@@ -539,6 +539,11 @@ static bool is_dcmd_request(struct mmc_request *mrq)
 		&& PTR_ERR(mrq->completion.wait.task_list.prev))
 		return false;
 
+	/* skip sw cqhci cmd */
+	if (mrq->cmd->opcode == MMC_EXECUTE_READ_TASK
+		|| mrq->cmd->opcode == MMC_EXECUTE_WRITE_TASK)
+		return false;
+
 	mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
 	req = blk_mq_rq_from_pdu(mqrq);
 
@@ -559,6 +564,80 @@ static bool is_dcmd_request(struct mmc_request *mrq)
 	return false;
 }
 
+#if IS_ENABLED(CONFIG_MMC_CQHCI)
+static void __emmc_store_buf_start_hwcqhci(struct mmc_host *mmc, struct mmc_request *mrq,
+	unsigned long long t, unsigned long long nanosec_rem, int l_skip)
+{
+	struct msdc_host *host = NULL;
+	struct cqhci_host *cq_host = NULL;
+	u64 *task_desc = NULL;
+	u64 data = 0;
+
+	host = mmc_priv(mmc);
+	cq_host = host->cq_host;
+
+	if (mrq->cmd || !cq_host || !cq_host->desc_base)
+		return;
+
+	task_desc = (__le64 __force *)dbg_get_desc(cq_host, mrq->tag);
+	cqhci_prep_task_desc_dbg(mrq, &data, 1);
+	*task_desc = cpu_to_le64(data);
+
+	dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+	dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+	dbg_run_host_log_dat[dbg_host_cnt].type = 5;
+	dbg_run_host_log_dat[dbg_host_cnt].cmd = MAGIC_CQHCI_DBG_NUM_L + mrq->tag;
+	dbg_run_host_log_dat[dbg_host_cnt].arg = lower_32_bits(*task_desc);
+	dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+	dbg_host_cnt++;
+	if (dbg_host_cnt >= dbg_max_cnt)
+		dbg_host_cnt = 0;
+	dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+	dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+	dbg_run_host_log_dat[dbg_host_cnt].type = 5;
+	dbg_run_host_log_dat[dbg_host_cnt].cmd = MAGIC_CQHCI_DBG_NUM_U + mrq->tag;
+	dbg_run_host_log_dat[dbg_host_cnt].arg = upper_32_bits(*task_desc);
+	dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+	dbg_host_cnt++;
+}
+#endif
+
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
+static void __emmc_store_buf_start_swcqhci(struct mmc_host *mmc, struct mmc_request *mrq,
+	unsigned long long t, unsigned long long nanosec_rem, int l_skip)
+{
+	struct msdc_host *host = NULL;
+	struct swcq_host *swcq_host = NULL;
+	u64 data = 0;
+
+	host = mmc_priv(mmc);
+	swcq_host = host->swcq_host;
+
+	if (!swcq_host)
+		return;
+
+	cqhci_prep_task_desc_dbg(mrq, &data, 1);
+	data = cpu_to_le64(data);
+
+	dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+	dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+	dbg_run_host_log_dat[dbg_host_cnt].type = 5;
+	dbg_run_host_log_dat[dbg_host_cnt].cmd = MAGIC_CQHCI_DBG_NUM_L + mrq->tag;
+	dbg_run_host_log_dat[dbg_host_cnt].arg = lower_32_bits(data);
+	dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+	dbg_host_cnt++;
+	if (dbg_host_cnt >= dbg_max_cnt)
+		dbg_host_cnt = 0;
+	dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
+	dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
+	dbg_run_host_log_dat[dbg_host_cnt].type = 5;
+	dbg_run_host_log_dat[dbg_host_cnt].cmd = MAGIC_CQHCI_DBG_NUM_U + mrq->tag;
+	dbg_run_host_log_dat[dbg_host_cnt].arg = upper_32_bits(data);
+	dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
+	dbg_host_cnt++;
+}
+#endif
+
 static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 	struct mmc_request *mrq)
 {
@@ -566,9 +645,6 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 	unsigned long long nanosec_rem = 0;
 	static int last_cmd, last_arg, skip;
 	int l_skip = 0;
-	u64 *task_desc = NULL;
-	u64 data;
-	struct cqhci_host *cq_host = NULL;
 	unsigned long flags;
 	struct msdc_host *host = NULL;
 
@@ -579,35 +655,21 @@ static void __emmc_store_buf_start(void *__data, struct mmc_host *mmc,
 		return;
 
 	host = mmc_priv(mmc);
-	cq_host = mmc->cqe_private;
 	t = cpu_clock(print_cpu_test);
 	tn = t;
 	nanosec_rem = do_div(t, 1000000000)/1000;
 
 	spin_lock_irqsave(&host->log_lock, flags);
 
-	if (!(mrq->cmd) && cq_host && cq_host->desc_base) { /* CQE */
-		task_desc = (__le64 __force *)dbg_get_desc(cq_host, mrq->tag);
-		cqhci_prep_task_desc_dbg(mrq, &data, 1);
-		*task_desc = cpu_to_le64(data);
 
-		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
-		dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
-		dbg_run_host_log_dat[dbg_host_cnt].type = 5;
-		dbg_run_host_log_dat[dbg_host_cnt].cmd = MAGIC_CQHCI_DBG_NUM_L + mrq->tag;
-		dbg_run_host_log_dat[dbg_host_cnt].arg = lower_32_bits(*task_desc);
-		dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
-		dbg_host_cnt++;
-		if (dbg_host_cnt >= dbg_max_cnt)
-			dbg_host_cnt = 0;
-		dbg_run_host_log_dat[dbg_host_cnt].time_sec = t;
-		dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
-		dbg_run_host_log_dat[dbg_host_cnt].type = 5;
-		dbg_run_host_log_dat[dbg_host_cnt].cmd = MAGIC_CQHCI_DBG_NUM_U + mrq->tag;
-		dbg_run_host_log_dat[dbg_host_cnt].arg = upper_32_bits(*task_desc);
-		dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
-		dbg_host_cnt++;
-	} else if (mrq->cmd) { /* non-CQE */
+	if (!(mrq->cmd)) { /* CQE */
+#if IS_ENABLED(CONFIG_MMC_CQHCI)
+		__emmc_store_buf_start_hwcqhci(mmc, mrq, t, nanosec_rem, l_skip);
+#endif
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
+		__emmc_store_buf_start_swcqhci(mmc, mrq, t, nanosec_rem, l_skip);
+#endif
+	} else { /* non-CQE */
 		/* skip log if last cmd rsp are the same */
 		if (last_cmd == mrq->cmd->opcode &&
 			last_arg == mrq->cmd->arg && mrq->cmd->opcode == 13) {
@@ -656,7 +718,6 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 	unsigned long long nanosec_rem = 0;
 	static int last_cmd, last_arg, skip;
 	int l_skip = 0;
-	struct cqhci_host *cq_host = NULL;
 	unsigned long flags;
 	struct msdc_host *host = NULL;
 
@@ -667,7 +728,6 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 		return;
 
 	host = mmc_priv(mmc);
-	cq_host = mmc->cqe_private;
 	t = cpu_clock(print_cpu_test);
 
 	nanosec_rem = do_div(t, 1000000000)/1000;
@@ -679,7 +739,15 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 		dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
 		dbg_run_host_log_dat[dbg_host_cnt].type = 5;
 		dbg_run_host_log_dat[dbg_host_cnt].cmd = MAGIC_CQHCI_DBG_NUM_RI + mrq->tag;
-		dbg_run_host_log_dat[dbg_host_cnt].arg = cqhci_readl(cq_host, CQHCI_CRA);
+#if IS_ENABLED(CONFIG_MMC_CQHCI)
+		if (host->cq_host)
+			dbg_run_host_log_dat[dbg_host_cnt].arg =
+				cqhci_readl(host->cq_host, CQHCI_CRA);
+#endif
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
+		if (host->swcq_host)
+			dbg_run_host_log_dat[dbg_host_cnt].arg = 0;
+#endif
 		dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
 		dbg_host_cnt++;
 	} else if (mrq->cmd) { /* non-CQE */
@@ -704,7 +772,12 @@ static void __emmc_store_buf_end(void *__data, struct mmc_host *mmc,
 			dbg_run_host_log_dat[dbg_host_cnt].time_usec = nanosec_rem;
 			dbg_run_host_log_dat[dbg_host_cnt].type = 61;
 			dbg_run_host_log_dat[dbg_host_cnt].cmd = mrq->cmd->opcode;
-			dbg_run_host_log_dat[dbg_host_cnt].arg = cqhci_readl(cq_host, CQHCI_CRDCT);
+#if IS_ENABLED(CONFIG_MMC_CQHCI)
+			dbg_run_host_log_dat[dbg_host_cnt].arg =
+				cqhci_readl(host->cq_host, CQHCI_CRDCT);
+#else
+			dbg_run_host_log_dat[dbg_host_cnt].arg = 0;
+#endif
 			dbg_run_host_log_dat[dbg_host_cnt].skip = l_skip;
 			dbg_host_cnt++;
 		} else {
@@ -816,10 +889,6 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 static void record_mmc_send_command(void *__data,
 	struct mmc_host *mmc, struct mmc_request *mrq)
 {
-#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
-	/* TODO: record sw cqhci command history */
-	return;
-#endif
 	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		__emmc_store_buf_start(__data, mmc, mrq);
 	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
@@ -829,10 +898,6 @@ static void record_mmc_send_command(void *__data,
 static void record_mmc_receive_command(void *__data,
 	struct mmc_host *mmc, struct mmc_request *mrq)
 {
-#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
-	/* TODO: record sw cqhci command history */
-	return;
-#endif
 	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		__emmc_store_buf_end(__data, mmc, mrq);
 	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
