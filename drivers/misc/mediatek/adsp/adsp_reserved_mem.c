@@ -98,8 +98,10 @@ void adsp_set_emimpu_shared_region(void)
 
 	ret = mtk_emimpu_init_region(&adsp_region,
 				     MPU_PROCT_REGION_ADSP_SHARED);
-	if (ret < 0)
+	if (ret < 0) {
 		pr_info("%s fail to init emimpu region\n", __func__);
+		return;
+	}
 	mtk_emimpu_set_addr(&adsp_region, mem->phys_addr,
 			    (mem->phys_addr + mem->size - 0x1));
 	mtk_emimpu_set_apc(&adsp_region, MPU_PROCT_D0_AP,
