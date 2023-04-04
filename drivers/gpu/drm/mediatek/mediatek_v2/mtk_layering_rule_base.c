@@ -64,7 +64,6 @@ static DEFINE_MUTEX(layering_info_lock);
 
 #define DISP_RSZ_LAYER_NUM 2
 #define DISP_MML_LAYER_LIMIT 1
-#define DISP_LAYER_RULE_MAX_NUM 1024
 
 static struct {
 	enum LYE_HELPER_OPT opt;
@@ -397,8 +396,7 @@ static int get_larb_by_ovl(struct drm_device *dev, int ovl_idx, int disp_idx)
 static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 			   enum DISP_DEBUG_LEVEL debug_level)
 {
-	bool alloc;
-	int i, j, ret;
+	int i, j;
 	struct drm_mtk_layer_config *layer_info;
 
 #define _HRT_FMT \
@@ -421,11 +419,6 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 		for (i = 0; i < HRT_DISP_TYPE_NUM; i++) {
 			if (disp_info->layer_num[i] <= 0)
 				continue;
-			else if (disp_info->layer_num[i] >= DISP_LAYER_RULE_MAX_NUM) {
-				DDPPR_ERR("%s layer_num[%d] %d > DISP_LAYER_RULE_MAX_NUM\n",
-						__func__, i, disp_info->layer_num[i]);
-				continue;
-			}
 
 			DDPMSG("HRT D%d/M%d/LN%d/hrt:0x%x/G(%d,%d)/id%u\n", i,
 			       disp_info->disp_mode[i], disp_info->layer_num[i],
@@ -433,33 +426,7 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 			       disp_info->gles_tail[i], disp_info->hrt_idx);
 
 			for (j = 0; j < disp_info->layer_num[i]; j++) {
-				if (access_ok(&disp_info->input_config[i][j],
-					sizeof(struct drm_mtk_layer_config))) {
-					layer_info =
-						(!layer_info) ?
-						kzalloc(sizeof(struct drm_mtk_layer_config),
-							GFP_KERNEL) :
-						layer_info;
-
-					if (!layer_info) {
-						DDPPR_ERR("%s:%d NULL layer_info\n",
-								__func__, __LINE__);
-						continue;
-					} else
-						alloc = true;
-
-					ret = copy_from_user(layer_info,
-							&disp_info->input_config[i][j],
-							sizeof(struct drm_mtk_layer_config));
-					DDPMSG("%s layer_info copy_from_user ret %d\n",
-						__func__, ret);
-					if (ret != sizeof(struct drm_mtk_layer_config)) {
-						DDPPR_ERR("%s ret %d\n", __func__, ret);
-						break;
-					}
-				} else if (disp_info->input_config[i])
-					layer_info = &disp_info->input_config[i][j];
-
+				layer_info = &disp_info->input_config[i][j];
 				DDPMSG(_L_FMT, j, layer_info->ovl_id,
 				       layer_info->src_offset_x,
 				       layer_info->src_offset_y,
@@ -490,11 +457,6 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 		for (i = 0; i < HRT_DISP_TYPE_NUM; i++) {
 			if (disp_info->layer_num[i] <= 0)
 				continue;
-			else if (disp_info->layer_num[i] >= DISP_LAYER_RULE_MAX_NUM) {
-				DDPPR_ERR("%s layer_num[%d] %d > DISP_LAYER_RULE_MAX_NUM\n",
-						__func__, i, disp_info->layer_num[i]);
-				continue;
-			}
 
 			DDPINFO("HRT D%d/M%d/LN%d/hrt:0x%x/G(%d,%d)/id%u\n", i,
 				disp_info->disp_mode[i],
@@ -503,34 +465,7 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 				disp_info->gles_tail[i], disp_info->hrt_idx);
 
 			for (j = 0; j < disp_info->layer_num[i]; j++) {
-				if (access_ok(&disp_info->input_config[i][j],
-					sizeof(struct drm_mtk_layer_config))) {
-
-					layer_info =
-						(!layer_info) ?
-						kzalloc(sizeof(struct drm_mtk_layer_config),
-							GFP_KERNEL) :
-						layer_info;
-
-					if (!layer_info) {
-						DDPPR_ERR("%s:%d NULL layer_info\n",
-								__func__, __LINE__);
-						continue;
-					} else
-						alloc = true;
-
-					ret = copy_from_user(layer_info,
-							&disp_info->input_config[i][j],
-							sizeof(struct drm_mtk_layer_config));
-					DDPINFO("%s layer_info copy_from_user ret %d\n",
-						__func__, ret);
-					if (ret != sizeof(struct drm_mtk_layer_config)) {
-						DDPPR_ERR("%s ret %d\n", __func__, ret);
-						break;
-					}
-				} else if (disp_info->input_config[i])
-					layer_info = &disp_info->input_config[i][j];
-
+				layer_info = &disp_info->input_config[i][j];
 				DDPINFO(_L_FMT, j, layer_info->ovl_id,
 					layer_info->src_offset_x,
 					layer_info->src_offset_y,
@@ -549,9 +484,6 @@ static void dump_disp_info(struct drm_mtk_layering_info *disp_info,
 			}
 		}
 	}
-
-	if (alloc)
-		kfree(layer_info);
 }
 
 static void dump_disp_trace(struct drm_mtk_layering_info *disp_info)
