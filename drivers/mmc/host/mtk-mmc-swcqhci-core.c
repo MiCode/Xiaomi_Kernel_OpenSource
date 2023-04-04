@@ -103,7 +103,7 @@ int swcq_set_task(struct mmc_host *mmc, int task_id)
 	WARN_ON(!mrq->data);
 	flags = mrq->data->flags & MMC_DATA_READ ? 1 : 0;
 #if MMC_SWCQ_DEBUG
-	pr_info("%s task_mrq[%d]=%08x, %s", __func__, task_id,
+	dev_info(mmc_dev(mmc), "%s task_mrq[%d]=%08x, %s", __func__, task_id,
 		swcq_host->mrq[task_id], flags ? "read" : "write");
 #endif
 
@@ -155,7 +155,7 @@ int swcq_poll_task(struct mmc_host *mmc, u32 *status)
 
 	mmc->ops->request(mmc, &chk_mrq);
 	if (cmd.error) {
-		pr_info("%s: cmd%d err =%d", __func__, cmd.opcode, cmd.error);
+		dev_info(mmc_dev(mmc), "%s: cmd%d err =%d", __func__, cmd.opcode, cmd.error);
 		return cmd.error;
 	}
 
@@ -238,6 +238,29 @@ static inline int get_step_of_swcq_host(struct swcq_host *swcq_host, int last_st
 	return seq;
 }
 
+static inline void swcq_wait_trans_compl(struct mmc_host *mmc, int task_id, int step)
+{
+	u32 tmo = 0;
+	u32 chk_q_cnt = 0;
+	struct swcq_host *swcq_host = mmc->cqe_private;
+
+	if (swcq_host->pre_tsks || swcq_tskid_idle(swcq_host) || swcq_tskdone(swcq_host))
+		return;
+
+	chk_q_cnt = q_cnt(swcq_host);
+	/* wait the data transfer complete */
+	tmo = wait_event_interruptible_timeout(swcq_host->wait_dat_trans,
+			swcq_tskdone(swcq_host) || (q_cnt(swcq_host) > chk_q_cnt),
+			10 * HZ);
+	if (!tmo) {
+		dev_info(mmc_dev(mmc), "[%s]: tmo: task_id=%d chk_q_cnt=%d q_cnt=%d step=%d\n",
+			__func__, task_id, chk_q_cnt, q_cnt(swcq_host), step);
+		dev_info(mmc_dev(mmc), "[%s]: tmo: ongoing_task=(%d, %d) P=%08x Q=%08x R=%08x\n",
+			__func__, swcq_tskid(swcq_host), swcq_tskdone(swcq_host),
+			swcq_host->pre_tsks, swcq_host->qnd_tsks, swcq_host->rdy_tsks);
+	}
+}
+
 int mmc_run_queue_thread(void *data)
 {
 	struct mmc_host *mmc = data;
@@ -255,7 +278,7 @@ int mmc_run_queue_thread(void *data)
 		step = get_step_of_swcq_host(swcq_host, step);
 #if MMC_SWCQ_DEBUG
 		if (step)
-			pr_info("%s: S%d C%d P%08x Q%08x R%08x T%d,D%d",
+			dev_info(mmc_dev(mmc), "%s: S%d C%d P%08x Q%08x R%08x T%d,D%d",
 				__func__,
 				step,
 				atomic_read(&swcq_host->q_cnt),
@@ -292,16 +315,18 @@ int mmc_run_queue_thread(void *data)
 			task_id = ffs(swcq_host->rdy_tsks) - 1;
 			atomic_set(&swcq_host->ongoing_task.id, task_id);
 			err = swcq_run_task(mmc, task_id);
-			if (!err) {
-				swcq_host->rdy_tsks &= ~(1<<task_id);
-				swcq_host->qnd_tsks &= ~(1<<task_id);
-			} else
+			if (err)
 				goto SWCQ_ERR_HANDLE;
+
+			swcq_host->rdy_tsks &= ~(1<<task_id);
+			swcq_host->qnd_tsks &= ~(1<<task_id);
 			break;
 		case MMC_SWCQ_SET:
 			spin_lock(&swcq_host->lock);
 			task_id = ffs(swcq_host->pre_tsks) - 1;
 			spin_unlock(&swcq_host->lock);
+			if (task_id < 0)
+				break;
 			err = swcq_set_task(mmc, task_id);
 			if (!err) {
 				spin_lock(&swcq_host->lock);
@@ -330,6 +355,7 @@ int mmc_run_queue_thread(void *data)
 			step = MMC_SWCQ_NONE;
 			schedule();
 		}
+		swcq_wait_trans_compl(mmc, task_id, step);
 
 		set_current_state(TASK_RUNNING);
 		if (kthread_should_stop())
@@ -351,16 +377,17 @@ static int swcq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	struct swcq_host *swcq_host = mmc->cqe_private;
 
 	if (mrq->data) {
-		if (mrq->tag > 31) {
-			pr_info("%s should not issue tag>31 req.", __func__);
-			WARN_ON(1);
+		if (mrq->tag >= mmc->cqe_qdepth) {
+			dev_dbg(mmc_dev(mmc), "%s should not issue tag >= %d req.",
+				__func__, mmc->cqe_qdepth);
+			return -EBUSY;
 		}
 		spin_lock(&swcq_host->lock);
 		swcq_host->pre_tsks |= (1 << mrq->tag);
 		swcq_host->mrq[mrq->tag] = mrq;
 		spin_unlock(&swcq_host->lock);
 	} else {
-		pr_info("%s should not issue non-data req.", __func__);
+		dev_info(mmc_dev(mmc), "%s should not issue non-data req.", __func__);
 		WARN_ON(1);
 		return -1;
 	}
@@ -388,7 +415,7 @@ static bool swcq_timeout(struct mmc_host *mmc, struct mmc_request *mrq,
 {
 	struct swcq_host *swcq_host = mmc->cqe_private;
 
-	pr_info("%s: C%d P%08x Q%08x R%08x T%d,D%d",
+	dev_info(mmc_dev(mmc), "%s: C%d P%08x Q%08x R%08x T%d,D%d",
 		__func__,
 		atomic_read(&swcq_host->q_cnt),
 		swcq_host->pre_tsks,
@@ -422,7 +449,7 @@ static void swcq_recovery_start(struct mmc_host *mmc)
 {
 	struct swcq_host *swcq_host = mmc->cqe_private;
 
-	pr_debug("%s: SWCQ recovery start", mmc_hostname(mmc));
+	dev_dbg(mmc_dev(mmc), "%s: SWCQ recovery start", mmc_hostname(mmc));
 	if (swcq_host->ops->err_handle)
 		swcq_host->ops->err_handle(mmc);
 #if SWCQ_TUNING_CMD
@@ -443,7 +470,7 @@ static void swcq_recovery_finish(struct mmc_host *mmc)
 	if (mmc->ops->execute_tuning)
 		mmc->ops->execute_tuning(mmc, MMC_SEND_TUNING_BLOCK_HS200);
 
-	pr_debug("%s: SWCQ recovery done", mmc_hostname(mmc));
+	dev_info(mmc_dev(mmc), "%s: SWCQ recovery done", mmc_hostname(mmc));
 }
 
 static const struct mmc_cqe_ops swcq_ops = {
@@ -478,12 +505,13 @@ int swcq_init(struct swcq_host *swcq_host, struct mmc_host *mmc)
 
 	spin_lock_init(&swcq_host->lock);
 	init_waitqueue_head(&swcq_host->wait_cmdq_empty);
+	init_waitqueue_head(&swcq_host->wait_dat_trans);
 #ifdef CONFIG_MMC_CRYPTO
 	err = swcq_mmc_init_crypto(mmc);
 	if (err)
 		goto out_err;
 #endif
-	pr_info("%s: swcq init done", mmc_hostname(mmc));
+	dev_info(mmc_dev(mmc), "%s: swcq init done", mmc_hostname(mmc));
 
 	return 0;
 

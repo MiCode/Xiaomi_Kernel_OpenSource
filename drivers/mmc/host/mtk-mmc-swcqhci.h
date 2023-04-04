@@ -166,6 +166,7 @@ struct swcq_host {
 	struct swcq_ongoing_task ongoing_task;
 	struct task_struct	*cmdq_thread;
 	wait_queue_head_t wait_cmdq_empty;
+	wait_queue_head_t wait_dat_trans;
 	struct mmc_request *mrq[NUM_SLOTS];
 	const struct swcq_host_ops *ops;
 #ifdef CONFIG_MMC_CRYPTO
@@ -178,5 +179,21 @@ struct swcq_host {
 
 int swcq_init(struct swcq_host *swcq_host, struct mmc_host *mmc);
 
+static inline int q_cnt(struct swcq_host *host)
+{
+	return atomic_read(&host->q_cnt);
+}
 
-#endif /* __MTK_MMC_SWCQHCI_H__ */
+static inline int swcq_tskid(struct swcq_host *host)
+{
+	return atomic_read(&host->ongoing_task.id);
+}
+
+static inline int swcq_tskdone(struct swcq_host *host)
+{
+	return atomic_read(&host->ongoing_task.done);
+}
+
+#define swcq_tskid_idle(host) (swcq_tskid(host) == MMC_SWCQ_TASK_IDLE)
+
+#endif

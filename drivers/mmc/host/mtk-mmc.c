@@ -1356,7 +1356,7 @@ static void msdc_data_xfer_next(struct msdc_host *host,
 		if (atomic_read(&swcq_host->ongoing_task.id)
 			!= MMC_SWCQ_TASK_IDLE) {
 			atomic_set(&swcq_host->ongoing_task.done, 1);
-			wake_up_process(swcq_host->cmdq_thread);
+			wake_up_interruptible(&swcq_host->wait_dat_trans);
 			return;
 		}
 	}
