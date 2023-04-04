@@ -1327,6 +1327,10 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		clock-frequency = <13000000>;
 	};
 
+	disable_unused: disable_unused {
+		compatible = "simple-bus";
+	};
+
 	clocks {
 		clk26m: clk26m {
 			compatible = "fixed-clock";
@@ -2268,7 +2272,6 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_GCE>,
 			<&infracfg_ao CLK_IFR_GCE_26M>;
 		clock-names = "GCE", "GCE_TIMER";
-		power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>;
 		mediatek,mailbox-gce = <&gce_mbox>;
 		mboxes = <&gce_mbox 11 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>;
@@ -4533,6 +4536,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 #include "cust_mt6765_msdc.dtsi"
 #include "mt6357.dtsi"
 #include "bat_setting/mt6765_battery_prop.dtsi"
+#include "mt6765-disable-unused.dtsi"
 #include "mt6370.dtsi"
 #include "rt9471.dtsi"
 #include "trusty.dtsi"
