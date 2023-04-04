@@ -380,6 +380,62 @@ long vcodec_get_mva_free(struct device *dev, unsigned long arg)
 	return 0;
 }
 
+//get secure handle for SVP
+static long vcodec_get_secure_handle(struct device *dev, unsigned long arg)
+{
+#if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
+	unsigned char *user_data_addr;
+	long ret = 0;
+	struct VAL_FD_TO_SEC_HANDLE rSecObj;
+	struct dma_buf *dmabuf = NULL;
+	uint32_t sec_handle = 0;
+
+	pr_info("%s +\n", __func__);
+	user_data_addr = (unsigned char *)arg;
+	ret = copy_from_user(&rSecObj, user_data_addr,
+				sizeof(struct VAL_FD_TO_SEC_HANDLE));
+	if (ret) {
+		pr_info("%s, copy_from_user failed: %lu\n",
+			__func__, ret);
+		dma_buf_put(dmabuf);
+		ret = -EFAULT;
+	return ret;
+	}
+
+	pr_info("%s, [b]rSecObj.shared_fd: %d\n", __func__, rSecObj.shared_fd);
+	dmabuf = dma_buf_get(rSecObj.shared_fd);
+	if (IS_ERR_OR_NULL(dmabuf)) {
+		pr_info("%s dma_buf_get fail: %ld\n", __func__, PTR_ERR(dmabuf));
+		dma_buf_put(dmabuf);
+		ret = -EFAULT;
+		return ret;
+	}
+
+	sec_handle = (VAL_UINT32_T)dmabuf_to_secure_handle(dmabuf);
+	if (!sec_handle) {
+		pr_info("%s get secure handle failed\n", __func__);
+		dma_buf_put(dmabuf);
+		ret = -EFAULT;
+		return ret;
+	}
+	rSecObj.sec_handle = (VAL_UINT32_T)sec_handle;
+
+	if (copy_to_user((void *)arg, &rSecObj, sizeof(struct VAL_FD_TO_SEC_HANDLE))) {
+		pr_info("Copy to user error\n");
+		dma_buf_put(dmabuf);
+		ret = -EFAULT;
+		return ret;
+	}
+
+	pr_info("[%s][%d] sec_handle = %llx -\n", __func__, __LINE__, rSecObj.sec_handle);
+	return ret;
+#else
+	pr_info("[%s][%d] SVP not supported -\n", __func__, __LINE__);
+	return 0;
+#endif
+}
+
+
 /* Vcodec file operations */
 void vcodec_vma_open(struct vm_area_struct *vma)
 {
@@ -679,6 +735,17 @@ static long vcodec_unlocked_ioctl(struct file *file, unsigned int cmd,
 		ret = vcodec_cache_flush_buff(gVCodecDev->dev, arg, flush_dma_direction);
 		if (ret) {
 			pr_debug("[ERROR] VCODEC_CACHE_FLUSH_BUFF failed! %lu\n",
+				ret);
+			return ret;
+		}
+	}
+	break;
+	case VCODEC_GET_SECURE_HANDLE:
+	{
+		ret = vcodec_get_secure_handle(gVCodecDev->dev, arg);
+		pr_info("[INFO] VCODEC_GET_SECURE_HANDLE");
+		if (ret) {
+			pr_debug("[ERROR] VCODEC_GET_SECURE_HANDLE failed! %lu\n",
 				ret);
 			return ret;
 		}
@@ -1073,6 +1140,29 @@ static int compat_copy_struct(
 		}
 	}
 	break;
+	case VAL_SEC_HANDLE_OBJ_TYPE:
+	{
+		if (eDirection == COPY_FROM_USER) {
+			struct COMPAT_VAL_SEC_HANDLE_OBJ __user *from32 =
+				(struct COMPAT_VAL_SEC_HANDLE_OBJ *)data32;
+			struct VAL_FD_TO_SEC_HANDLE __user *to =
+				(struct VAL_FD_TO_SEC_HANDLE *)data;
+			err |= get_user(u, &(from32->shared_fd));
+			err |= put_user(u, &(to->shared_fd));
+			err |= get_user(u, &(from32->sec_handle));
+			err |= put_user(u, &(to->sec_handle));
+		} else {
+			struct COMPAT_VAL_SEC_HANDLE_OBJ __user *to32 =
+				(struct COMPAT_VAL_SEC_HANDLE_OBJ *)data32;
+			struct VAL_FD_TO_SEC_HANDLE __user *from =
+				(struct VAL_FD_TO_SEC_HANDLE *)data;
+			err |= get_user(u, &(from->shared_fd));
+			err |= put_user(u, &(to32->shared_fd));
+			err |= get_user(u, &(from->sec_handle));
+			err |= put_user(u, &(to32->sec_handle));
+		}
+	}
+	break;
 	default:
 	break;
 	}
@@ -1310,7 +1400,30 @@ long vcodec_unlocked_compat_ioctl(struct file *file, unsigned int cmd,
 			return err;
 	}
 	break;
+	case VCODEC_GET_SECURE_HANDLE:
+	{
+		struct COMPAT_VAL_SEC_HANDLE_OBJ __user *data32;
+		struct VAL_MEM_INFO_T __user *data;
+		int err;
 
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(struct VAL_FD_TO_SEC_HANDLE));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_copy_struct(VAL_SEC_HANDLE_OBJ_TYPE,
+				COPY_FROM_USER, (void *)data32, (void *)data);
+		if (err)
+			return err;
+		ret = file->f_op->unlocked_ioctl(file, VCODEC_GET_SECURE_HANDLE,
+						(unsigned long)data);
+
+		err = compat_copy_struct(VAL_SEC_HANDLE_OBJ_TYPE, COPY_TO_USER,
+					(void *)data32, (void *)data);
+		if (err)
+			return err;
+	}
+	break;
 	default:
 		return vcodec_unlocked_ioctl(file, cmd, arg);
 	}

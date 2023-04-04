@@ -659,4 +659,9 @@ struct VAL_MEM_INFO_T {
 	unsigned int cnt;
 };
 
+struct VAL_FD_TO_SEC_HANDLE {
+	int shared_fd;
+	VAL_UINT32_T sec_handle;
+};
+
 #endif /* #ifndef _VAL_TYPES_PUBLIC_H_ */

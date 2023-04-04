@@ -102,6 +102,8 @@
 /* VAL_MEM_INFO_T * */
 #define VCODEC_CACHE_INVALIDATE_BUFF	_IOWR(MFV_IOC_MAGIC, 0x41, unsigned int)
 /* VAL_MEM_INFO_T * */
+#define VCODEC_GET_SECURE_HANDLE	_IOWR(MFV_IOC_MAGIC, 0x43, unsigned int)
+/* VAL_FD_TO_SEC_HANDLE  * */
 extern const struct file_operations vcodec_fops;
 
 /* hardware VENC IRQ status(VP8/H264) */
@@ -175,7 +177,8 @@ enum STRUCT_TYPE {
 	VAL_ISR_TYPE,
 	VAL_MEMORY_TYPE,
 	VAL_FRAME_INFO_TYPE,
-	VAL_MEM_OBJ_TYPE
+	VAL_MEM_OBJ_TYPE,
+	VAL_SEC_HANDLE_OBJ_TYPE
 };
 
 enum COPY_DIRECTION {
@@ -281,5 +284,10 @@ struct COMPAT_VAL_MEM_OBJ {
 	compat_ulong_t len;
 	compat_uint_t shared_fd;
 	compat_uint_t cnt;
+};
+
+struct COMPAT_VAL_SEC_HANDLE_OBJ {
+	compat_uint_t shared_fd;
+	compat_uint_t sec_handle;
 };
 #endif
