@@ -2416,7 +2416,7 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 	};
 
 	apdma: dma-controller@11000580 {
-		compatible = "mediatek,mt6577-uart-dma";
+		compatible = "mediatek,mt6779-uart-dma";
 		reg = <0 0x11000680 0 0x80>,
 		      <0 0x11000700 0 0x80>,
 		      <0 0x11000780 0 0x80>,
@@ -2428,7 +2428,6 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		clocks = <&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "apdma";
 		dma-requests = <4>;
-		dma-bits = <34>;
 		#dma-cells = <1>;
 	};
 
