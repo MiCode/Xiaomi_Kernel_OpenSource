@@ -1248,6 +1248,9 @@ static int aed_ke_open(struct inode *inode, struct file *filp)
 	if (strcmp(current->comm, "aee_aedv") == 0)
 		have_32bit_aedv = 1;
 
+	if (strcmp(current->comm, "aee_aedv64") == 0)
+		have_32bit_aedv = 1;
+
 	major = MAJOR(inode->i_rdev);
 	minor = MINOR(inode->i_rdev);
 	devname = filp->f_path.dentry->d_iname;
