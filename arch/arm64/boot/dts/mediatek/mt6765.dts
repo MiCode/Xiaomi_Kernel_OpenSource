@@ -4604,6 +4604,47 @@ initcall_debug=1 pelt=8";
 		compatible = "medaitek,svp";
 	};
 
+	met {
+		met_emi: met-emi {
+			compatible = "mediatek,met_emi";
+			emi_num = <1>;
+			dram_num = <1>;
+			dramc_ver = <2>;
+			seda_ver = <300>;
+			/*0: dram ebg, 1:emi_freq, 2: DRAMC_DCM_CTRL 3:chn_emi_low_effi */
+			met_emi_support_list = <0x4>;
+			cen_emi_reg_base = <0x10219000>;
+			cen_emi_reg_size = <0x1000>;
+			chn_emi_reg_base = <0x1022d000 0x10235000>;
+			chn_emi_reg_size = <0xa90>;
+			dramc_nao_reg_base = <0x1022c000 0x10234000>;
+			dramc_nao_reg_size = <0x76c>;
+			dramc_ao_reg_base = <0x1022a000 0x10232000>;
+			dramc_ao_reg_size = <0x2000>;
+			ddrphy_ao_reg_base = <0x10228000 0x10230000>;
+			ddrphy_ao_reg_size = <0x1650>;
+			ddrphy_ao_misc_cg_ctrl0 = <0x284>;
+			ddrphy_ao_misc_cg_ctrl2 = <0x28c>;
+			dram_freq_default = <6400>;
+			ddr_ratio_default = <2>;
+			dram_type_default = <8>;
+		};
+		met_res_ram {
+			compatible = "mediatek,met_res_ram";
+			met_res_ram_sspm {
+				size = <0x400000>; /* 4M: only reserve on userdebug/eng load */
+				start = <0x0>; /* start addr of reserved ram*/
+			};
+		};
+		sspm_rts_header:sspm-rts-header {
+			node_0 = "SSPM_PTPOD",
+				"_id,voltage";
+
+			node_1 = "SSPM_MET_UNIT_TEST",
+				"test";
+		};
+	};
+
 };
 
 #include "mediatek/cust_mt6765_msdc.dtsi"
