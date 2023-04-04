@@ -28,6 +28,18 @@ config DRM_PANEL_ASUS_Z00T_TM5P5_NT35596
 	  NT35596 1080x1920 video mode panel as found in some Asus
 	  Zenfone 2 Laser Z00T devices.
 
+config DRM_MTK_GENERAL_PANEL_DRV
+	tristate "MTK general panel driver"
+	depends on OF
+	depends on GPIOLIB && OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for the mtk
+	  general panel driver, the panel has 2560x1600 resolution,
+	  24 bit RGB per pixel and uses MIPI DSI interface to host
+	  add it to project then can used it
+
 config DRM_PANEL_BOE_HIMAX8279D
 	tristate "Boe Himax8279d panel"
 	depends on OF
