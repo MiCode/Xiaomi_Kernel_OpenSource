@@ -281,11 +281,19 @@ void mtk_disp_hrt_mmclk_request_mt6761(struct mtk_drm_crtc *mtk_crtc, unsigned i
 {
 	int layer_num;
 	int ret;
+	unsigned long long bw_base;
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct hrt_mmclk_request *req_level = hrt_req_level_mt6761;
 
-	layer_num = bw * 10 / mtk_drm_primary_frame_bw(crtc);
+	bw_base = mtk_drm_primary_frame_bw(crtc);
+	if (bw_base != 0)
+		layer_num = bw * 10 / bw_base;
+	else {
+		DDPMSG("%s-error: frame_bw is zero, skip request mmclk\n", __func__);
+		return;
+	}
+
 	if (layer_num <= req_level[0].layer_num) {
 		icc_set_bw(priv->hrt_bw_request, 0, disp_perfs[HRT_LEVEL_LEVEL2]);
 		ret = regulator_set_voltage(mm_freq_request, req_level[0].volt, INT_MAX);
