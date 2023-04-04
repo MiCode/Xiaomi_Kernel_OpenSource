@@ -1553,7 +1553,7 @@ static int qbg_get_battery_temp(struct qti_qbg *chip, int *temp)
 	return 0;
 }
 
-#define TENTH_FACTOR	10
+#define UAH_FACTOR	10
 static int qbg_get_charge_counter(struct qti_qbg *chip, int *charge_count)
 {
 
@@ -1562,7 +1562,8 @@ static int qbg_get_charge_counter(struct qti_qbg *chip, int *charge_count)
 		return 0;
 	}
 
-	*charge_count = chip->learned_capacity * chip->soc / TENTH_FACTOR;
+	*charge_count = chip->learned_capacity * chip->soc * UAH_FACTOR;
+
 	return 0;
 }
 
