@@ -3671,9 +3671,7 @@ static inline void ISP_Reset(signed int module)
 	case ISP_CAMSV0_IDX:
 	case ISP_CAMSV1_IDX:
 	case ISP_CAMSV2_IDX:
-	case ISP_CAMSV3_IDX:
-	case ISP_CAMSV4_IDX:
-	case ISP_CAMSV5_IDX: {
+	case ISP_CAMSV3_IDX: {
 		/* Reset CAMSV flow */
 		ISP_WR32(CAMSV_REG_SW_CTL(module), 0x4); /* SW_RST: 1 */
 		ISP_WR32(CAMSV_REG_SW_CTL(module), 0x0); /* SW_RST: 0 */
@@ -3764,12 +3762,6 @@ static signed int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 		break;
 	case ISP_CAMSV3_IDX:
 		regBase = ISP_CAMSV3_BASE;
-		break;
-	case ISP_CAMSV4_IDX:
-		regBase = ISP_CAMSV4_BASE;
-		break;
-	case ISP_CAMSV5_IDX:
-		regBase = ISP_CAMSV5_BASE;
 		break;
 	case ISP_DIP_A_IDX:
 		regBase = ISP_DIP_A_BASE;
@@ -3866,12 +3858,6 @@ static signed int ISP_WriteRegToHw(
 		break;
 	case ISP_CAMSV3_IDX:
 		regBase = ISP_CAMSV3_BASE;
-		break;
-	case ISP_CAMSV4_IDX:
-		regBase = ISP_CAMSV4_BASE;
-		break;
-	case ISP_CAMSV5_IDX:
-		regBase = ISP_CAMSV5_BASE;
 		break;
 	case ISP_DIP_A_IDX:
 		regBase = ISP_DIP_A_BASE;
@@ -7001,40 +6987,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						    ISP_CAMSV3_IDX), (vf+0x1));
 					module = ISP_IRQ_TYPE_INT_CAMSV_3_ST;
 					break;
-				case ISP_CAMSV4_IDX:
-					pr_info("CAMSV_4 viewFinder is ON\n");
-					cam_dmao = (ISP_RD32(CAMSV_REG_MODULE_EN
-						(ISP_CAMSV4_IDX)) & 0x10);
-					pr_info("CAMSV_4:[DMA_EN]:0x%x\n",
-						cam_dmao);
-					vf = ISP_RD32(CAMSV_REG_TG_VF_CON(
-							ISP_CAMSV4_IDX));
-					if (vf & 0x1)
-						pr_notice(
-							"module_%d: vf already enabled\n",
-							ISP_CAMSV4_IDX);
-					else
-						ISP_WR32(CAMSV_REG_TG_VF_CON(
-						    ISP_CAMSV4_IDX), (vf+0x1));
-					module = ISP_IRQ_TYPE_INT_CAMSV_4_ST;
-					break;
-				case ISP_CAMSV5_IDX:
-					pr_info("CAMSV_5 viewFinder is ON\n");
-					cam_dmao = (ISP_RD32(CAMSV_REG_MODULE_EN
-						(ISP_CAMSV5_IDX)) & 0x10);
-					pr_info("CAMSV_5:[DMA_EN]:0x%x\n",
-						cam_dmao);
-					vf = ISP_RD32(CAMSV_REG_TG_VF_CON(
-							ISP_CAMSV5_IDX));
-					if (vf & 0x1)
-						pr_notice(
-							"module_%d: vf already enabled\n",
-							ISP_CAMSV5_IDX);
-					else
-						ISP_WR32(CAMSV_REG_TG_VF_CON(
-						    ISP_CAMSV5_IDX), (vf+0x1));
-					module = ISP_IRQ_TYPE_INT_CAMSV_5_ST;
-					break;
 				default:
 					LOG_INF("unsupported module:0x%x\n",
 						DebugFlag[1]);
@@ -7096,30 +7048,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						pr_notice(
 							"module_%d: vf already disalbed\n",
 							ISP_CAMSV3_IDX);
-					break;
-				case ISP_CAMSV4_IDX:
-					pr_info("CAMSV_4 viewFinder is OFF\n");
-					vf = ISP_RD32(CAMSV_REG_TG_VF_CON(
-							ISP_CAMSV4_IDX));
-					if (vf & 0x1)
-						ISP_WR32(CAMSV_REG_TG_VF_CON(
-						    ISP_CAMSV4_IDX), (vf-0x1));
-					else
-						pr_notice(
-							"module_%d: vf already disalbed\n",
-							ISP_CAMSV4_IDX);
-					break;
-				case ISP_CAMSV5_IDX:
-					pr_info("CAMSV_5 viewFinder is OFF\n");
-					vf = ISP_RD32(CAMSV_REG_TG_VF_CON(
-							ISP_CAMSV5_IDX));
-					if (vf & 0x1)
-						ISP_WR32(CAMSV_REG_TG_VF_CON(
-						    ISP_CAMSV5_IDX), (vf-0x1));
-					else
-						pr_notice(
-							"module_%d: vf already disalbed\n",
-							ISP_CAMSV5_IDX);
 					break;
 				default:
 					LOG_INF("unsupported module:0x%x\n",
