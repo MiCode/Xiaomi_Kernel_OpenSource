@@ -816,6 +816,10 @@ static void __sd_store_buf_end(void *__data, struct mmc_host *mmc,
 static void record_mmc_send_command(void *__data,
 	struct mmc_host *mmc, struct mmc_request *mrq)
 {
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
+	/* TODO: record sw cqhci command history */
+	return;
+#endif
 	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		__emmc_store_buf_start(__data, mmc, mrq);
 	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))
@@ -825,6 +829,10 @@ static void record_mmc_send_command(void *__data,
 static void record_mmc_receive_command(void *__data,
 	struct mmc_host *mmc, struct mmc_request *mrq)
 {
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
+	/* TODO: record sw cqhci command history */
+	return;
+#endif
 	if (!(mmc->caps2 & MMC_CAP2_NO_MMC))
 		__emmc_store_buf_end(__data, mmc, mrq);
 	else if (!(mmc->caps2 & MMC_CAP2_NO_SD))

@@ -1004,6 +1004,17 @@ config MMC_HSQ
 
 	  If unsure, say N.
 
+config MMC_MTK_SW_CQHCI
+	tristate "Sofeware Command Queue Host Controller Interface support"
+	help
+		Some mmc host maybe not have CQHCI hardware.
+		This selects the Softeware Command Queue Host Controller Interface,
+		which will get better performance but will consume more CPU time.
+
+		If you want, say Y or M here.
+
+		f unsure, say N.
+
 config MMC_TOSHIBA_PCI
 	tristate "Toshiba Type A SD/MMC Card Interface Driver"
 	depends on PCI

@@ -23,6 +23,7 @@
 #include <linux/pm_qos.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <linux/sched/clock.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/interconnect.h>
@@ -39,6 +40,9 @@
 
 #include "cqhci.h"
 #include "mtk-mmc-autok.h"
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
+#include "mtk-mmc-swcqhci.h"
+#endif
 
 #define MAX_BD_NUM          1024
 #define MSDC_NR_CLOCKS      3
@@ -425,6 +429,16 @@
 #define CQHCI_RD_CMD_WND_SEL	  (0x1 << 14) /* RW */
 #define CQHCI_WR_CMD_WND_SEL	  (0x1 << 15) /* RW */
 
+/*
+ * EMMC51_CFG0 mask, host use these registers bits
+ * to send class11(CMDQ) cmds during data transmission.
+ */
+#define EMMC51_CFG_CMDQEN          (0x1    <<  0)
+#define EMMC51_CFG_NUM             (0x3F   <<  1)
+#define EMMC51_CFG_RSPTYPE         (0x7    <<  7)
+#define EMMC51_CFG_DTYPE           (0x3    << 10)
+#define EMMC51_CMDQ_MASK           (0xFFF)
+
 /* EMMC_TOP_CONTROL mask */
 #define PAD_RXDLY_SEL           (0x1 << 0)	/* RW */
 #define DELAY_EN                (0x1 << 1)	/* RW */
@@ -669,6 +683,9 @@ struct msdc_host {
 	struct msdc_tune_para def_tune_para; /* default tune setting */
 	struct msdc_tune_para saved_tune_para; /* tune result of CMD21/CMD19 */
 	struct cqhci_host *cq_host;
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
+	struct swcq_host *swcq_host;
+#endif
 	struct reg_oc_msdc sd_oc;
 	/* autok */
 	int	id;		/* host id */
