@@ -708,15 +708,6 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
-
-		ssmr_cma_mem: ssmr-reserved-cma_memory {
-			compatible = "shared-dma-pool";
-			reusable;
-			size = <0 0x10000000>;
-			alignment = <0 0x1000000>;
-			alloc-range = <0 0xc0000000 0 0x10000000>;
-		};
-
 	};
 
 	/* Microtrust SW IRQ number 188(220) ~ 193(225) */
@@ -3649,19 +3640,6 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		/* reserved for overlay by odm */
 	};
 
-	memory_ssmr_features: memory-ssmr-features {
-		compatible = "mediatek,memory-ssmr-features";
-		svp-region-based-size = <0 0x10000000>;
-		2d_fr-size = <0 0x8000000>;
-		tui-size = <0 0x4000000>;
-		wfd-size = <0 0x4000000>;
-		prot-region-based-size = <0 0x8000000>;
-		ta-elf-size = <0 0x1000000>;
-		ta-stack-heap-size = <0 0x6000000>;
-		sdsp-tee-sharedmem-size = <0 0x1000000>;
-		sdsp-firmware-size = <0 0x1000000>;
-	};
-
 	audio_snd_card {
 		compatible = "mediatek,audio_snd_card";
 	};
@@ -4014,11 +3992,6 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 	rt9465_slave_chr: rt9465_slave_chr {
 		compatible = "richtek,rt9465";
 		status = "disabled";
-	};
-
-	ssmr {
-		compatible = "mediatek,trusted_mem";
-		memory-region = <&ssmr_cma_mem>;
 	};
 
 	rt-pd-manager {
