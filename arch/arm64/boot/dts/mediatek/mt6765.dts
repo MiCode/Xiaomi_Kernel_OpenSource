@@ -1391,48 +1391,39 @@ initcall_debug=1 pelt=8";
 
 	fhctl@1000ce00 {
 		compatible = "mediatek,mt6765-fhctl";
-		reg = <0 0x1000ce00 0 0x100>;
-		mediatek,apmixed = <&apmixed>;
-
-		armpll {
-			mediatek,fh-id = <0>;
-			mediatek,fh-pll-id = <CLK_APMIXED_ARMPLL>;
-			mediatek,fh-cpu-pll;
-		};
-
-		mainpll {
-			mediatek,fh-id = <1>;
-			mediatek,fh-pll-id = <CLK_APMIXED_MAINPLL>;
-		};
-
-		msdcpll {
-			mediatek,fh-id = <2>;
-			mediatek,fh-pll-id = <CLK_APMIXED_MSDCPLL>;
-		};
-
-		mfgpll {
-			mediatek,fh-id = <3>;
-			mediatek,fh-pll-id = <CLK_APMIXED_MFGPLL>;
-		};
-
-		mpll {
-			mediatek,fh-id = <5>;
-			mediatek,fh-pll-id = <CLK_APMIXED_MPLL>;
-		};
-
-		mmpll {
-			mediatek,fh-id = <6>;
-			mediatek,fh-pll-id = <CLK_APMIXED_MMPLL>;
-		};
-
-		armpll_l {
-			mediatek,fh-id = <7>;
-			mediatek,fh-pll-id = <CLK_APMIXED_ARMPLL_L>;
-			mediatek,fh-cpu-pll;
+		reg = <0 0x1000ce00 0 0x100>, //AP FHCTL base
+		<0 0x1000c000 0 0xe00>; //APMIX base
+		map0 {
+			domain = "top";
+			method = "fhctl-sspm";
+			armpll {
+				fh-id = <0>;
+			};
+			mainpll {
+				fh-id = <1>;
+			};
+			msdcpll {
+				fh-id = <2>;
+			};
+			mfgpll {
+				fh-id = <3>;
+			};
+			mpll {
+				fh-id = <5>;
+			};
+			mmpll {
+				fh-id = <6>;
+			};
+			armpll_l {
+				fh-id = <7>;
+			};
+			ccipll {
+				fh-id = <8>;
+			};
 		};
 	};
 
-	pwrap: pwrap@1000d000 {
+pwrap: pwrap@1000d000 {
 		compatible = "mediatek,mt6765-pwrap", "syscon";
 		reg = <0 0x1000d000 0 0x1000>;
 		reg-names = "pwrap";
