@@ -924,6 +924,11 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 	priv = crtc->dev->dev_private;
 	index = index_of_chist(comp->id);
 
+	spin_lock_irqsave(&g_chist_clock_lock, flags);
+	if (atomic_read(&(g_chist_is_clock_on[index_of_chist(comp->id)])) == 0) {
+		spin_unlock_irqrestore(&g_chist_clock_lock, flags);
+		return;
+	}
 	spin_lock_irqsave(&g_chist_global_lock, flags);
 	for (; i < DISP_CHIST_CHANNEL_COUNT; i++) {
 		if (g_chist_config[index][i].enabled) {
@@ -951,6 +956,8 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 		}
 	}
 	spin_unlock_irqrestore(&g_chist_global_lock, flags);
+	spin_unlock_irqrestore(&g_chist_clock_lock, flags);
+
 	cur_present_fence = *(unsigned int *)(mtk_get_gce_backup_slot_va(mtk_crtc,
 				DISP_SLOT_PRESENT_FENCE(0)));
 	if (cur_present_fence != 0) {
