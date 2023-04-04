@@ -1157,8 +1157,8 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 						"pmic_bif_voltage",
 						"pmic_ptim_voltage",
 						"pmic_ptim_r";
-				//nvmem-cells = <&fg_init>, <&fg_soc>;
-				//nvmem-cell-names = "initialization", "state-of-charge";
+				nvmem-cells = <&fg_init>, <&fg_soc>;
+				nvmem-cell-names = "initialization", "state-of-charge";
 			};
 		};
 	};
