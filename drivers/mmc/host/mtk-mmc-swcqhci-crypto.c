@@ -440,6 +440,7 @@ static int set_crypto(struct msdc_host *host,
 		polling_tmo = jiffies + HZ*3;
 		while (readl(host->base + MSDC_AES_SWST)
 			& MSDC_AES_SWITCH_START_ENC) {
+			cpu_relax();
 			if (time_after(jiffies, polling_tmo)) {
 				pr_notice("msdc error: trigger AES ENC timeout!\n");
 				WARN_ON(1);
@@ -453,6 +454,7 @@ static int set_crypto(struct msdc_host *host,
 		polling_tmo = jiffies + HZ*3;
 		while (readl(host->base + MSDC_AES_SWST)
 			& MSDC_AES_SWITCH_START_DEC) {
+			cpu_relax();
 			if (time_after(jiffies, polling_tmo)) {
 				pr_notice("msdc error: trigger AES DEC timeout!\n");
 				WARN_ON(1);

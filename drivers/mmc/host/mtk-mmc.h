@@ -712,6 +712,7 @@ struct msdc_host {
 	bool qos_enable;
 	struct icc_path *bw_path;
 	unsigned int peak_bw;
+	u8 tf_ver; /* save trust frameware version. e.g: atf, tf-a */
 };
 
 /*--------------------------------------------------------------------------*/

@@ -209,6 +209,7 @@ static const struct mtk_mmc_compatible mt6765_compat = {
 	.enhance_rx = true,
 	.support_64g = true,
 	.need_gate_cg = true,
+	.set_crypto_enable_in_sw = true,
 };
 
 static const struct mtk_mmc_compatible mt6768_compat = {
@@ -2719,18 +2720,24 @@ static void msdc_hs400_enhanced_strobe(struct mmc_host *mmc,
 
 /* SiP commands */
 #define MTK_SIP_MMC_CONTROL	MTK_SIP_SMC_CMD(0x273)
-#define MMC_MTK_SIP_CRYPTO_CTRL	BIT(1)
+#define MMC_MTK_ATF_SIP_CRYPTO_CTRL	BIT(0)
+#define MMC_MTK_TFA_SIP_CRYPTO_CTRL	BIT(1)
 
 /* SMC call wapper function */
-#define mmc_mtk_crypto_ctrl(smcc_res) \
+#define mmc_mtk_crypto_ctrl(sip_cmd, smcc_res) \
 	arm_smccc_smc(MTK_SIP_MMC_CONTROL, \
-		MMC_MTK_SIP_CRYPTO_CTRL, 0, 0, 0, 0, 0, 0, &smcc_res)
+		sip_cmd, 0, 0, 0, 0, 0, 0, &smcc_res)
 
 static void mmc_mtk_crypto_enable(struct mmc_host *mmc)
 {
-	struct arm_smccc_res res;
+	struct arm_smccc_res res = {0};
+	struct msdc_host *host = mmc_priv(mmc);
+	int sip_cmd = MMC_MTK_TFA_SIP_CRYPTO_CTRL;
 
-	mmc_mtk_crypto_ctrl(res);
+	if (host->tf_ver == 1)
+		sip_cmd = MMC_MTK_ATF_SIP_CRYPTO_CTRL;
+
+	mmc_mtk_crypto_ctrl(sip_cmd, res);
 	if (res.a0) {
 		pr_info("%s: crypto enable failed, err: %lu\n",
 			 __func__, res.a0);
@@ -2871,6 +2878,8 @@ static int request_sdio_eint_irq(struct msdc_host *host)
 static void msdc_of_property_parse(struct platform_device *pdev,
 				   struct msdc_host *host)
 {
+	const char *tf_ver = NULL;
+
 	of_property_read_u32(pdev->dev.of_node, "mediatek,latch-ck",
 			     &host->latch_ck);
 
@@ -2943,6 +2952,17 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 		}
 		host->peak_bw =
 		    dvfsrc_get_required_opp_peak_bw(pdev->dev.of_node, 0);
+	}
+
+	/* default value 2, indicate tf-a is used */
+	host->tf_ver = 2;
+	if (!of_property_read_string(pdev->dev.of_node, "tf-ver", &tf_ver)) {
+		if (!strncmp(tf_ver, "atf", 3))
+			host->tf_ver = 1;
+		else if (!strncmp(tf_ver, "tf-a", 4))
+			host->tf_ver = 2;
+		else
+			pr_info("mmc%d: tf version[%s] is supported\n", host->id, tf_ver);
 	}
 }
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
