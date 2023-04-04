@@ -4127,6 +4127,8 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 	imgsys@15020000 {
 		compatible = "mediatek,imgsys", "syscon";
 		reg = <0 0x15020000 0 0x1000>;
+		mediatek,larb = <&smi_larb2 &smi_larb3>;
+
 		/* Camera CCF */
 		clocks =
 			<&imgsys CLK_IMG_DIP>,
@@ -4396,6 +4398,75 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		reg = <0 0x1a000000  0 0x1000>;
 		#clock-cells = <1>;
 	};
+
+	cam_qos_legacy {
+		/* non-v4l2 legacy camera */
+		compatible = "mediatek,cam_qos_legacy";
+		operating-points-v2 = <&opp_table_mm>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		mediatek,platform = "mt6765";
+
+		l3_cam_imgo = <M4U_PORT_CAM_IMGO>;
+		l3_cam_rrzo = <M4U_PORT_CAM_RRZO>;
+		l3_cam_aao = <M4U_PORT_CAM_AAO>;
+		l3_cam_afo = <M4U_PORT_CAM_AFO>;
+		l3_cam_lsci0 = <M4U_PORT_CAM_LSCI0>;
+		l3_cam_lsci1 = <M4U_PORT_CAM_LSCI1>;
+		l3_cam_pdo = <M4U_PORT_CAM_PDO>;
+		l3_cam_bpci = <M4U_PORT_CAM_BPCI>;
+		l3_cam_lcso = <M4U_PORT_CAM_LCSO>;
+		l3_cam_rsso_a = <M4U_PORT_CAM_RSSO_A>;
+		l3_cam_rsso_b = <M4U_PORT_CAM_RSSO_B>;
+		l3_cam_ufeo = <M4U_PORT_CAM_UFEO>;
+		l3_cam_soc0 = <M4U_PORT_CAM_SOC0>;
+		l3_cam_soc1 = <M4U_PORT_CAM_SOC1>;
+		l3_cam_soc2 = <M4U_PORT_CAM_SOC2>;
+		l3_cam_rawi_a = <M4U_PORT_CAM_RAWI_A>;
+		l3_cam_rawi_b = <M4U_PORT_CAM_RAWI_B>;
+	};
+
+	cam_mem {
+		compatible = "mediatek,cam_mem";
+		mediatek,platform = "mt6765";
+		dma-ranges = <0x0 0x0 0x0 0x0 0x0 0x80000000>;
+
+		iommus = /* LARB2 */
+			<&iommu M4U_PORT_CAM_IMGI>,
+			<&iommu M4U_PORT_CAM_IMG2O>,
+			<&iommu M4U_PORT_CAM_IMG3O>,
+			<&iommu M4U_PORT_CAM_VIPI>,
+			<&iommu M4U_PORT_CAM_LCEI>,
+			<&iommu M4U_PORT_CAM_FD_RP>,
+			<&iommu M4U_PORT_CAM_FD_WR>,
+			<&iommu M4U_PORT_CAM_FD_RB>,
+			<&iommu M4U_PORT_CAM_DPE_RDMA>,
+			<&iommu M4U_PORT_CAM_DPE_WDMA>,
+			<&iommu M4U_PORT_CAM_RSC_RDMA>,
+			<&iommu M4U_PORT_CAM_RSC_WDMA>,
+
+			/* LARB3 */
+			<&iommu M4U_PORT_CAM_IMGO>,
+			<&iommu M4U_PORT_CAM_RRZO>,
+			<&iommu M4U_PORT_CAM_AAO>,
+			<&iommu M4U_PORT_CAM_AFO>,
+			<&iommu M4U_PORT_CAM_LSCI0>,
+			<&iommu M4U_PORT_CAM_LSCI1>,
+			<&iommu M4U_PORT_CAM_PDO>,
+			<&iommu M4U_PORT_CAM_BPCI>,
+			<&iommu M4U_PORT_CAM_LCSO>,
+			<&iommu M4U_PORT_CAM_RSSO_A>,
+			<&iommu M4U_PORT_CAM_RSSO_B>,
+			<&iommu M4U_PORT_CAM_UFEO>,
+			<&iommu M4U_PORT_CAM_SOC0>,
+			<&iommu M4U_PORT_CAM_SOC1>,
+			<&iommu M4U_PORT_CAM_SOC2>,
+			<&iommu M4U_PORT_CAM_CCUI>,
+			<&iommu M4U_PORT_CAM_CCUO>,
+			<&iommu M4U_PORT_CAM_CACI>,
+			<&iommu M4U_PORT_CAM_RAWI_A>,
+			<&iommu M4U_PORT_CAM_RAWI_B>,
+			<&iommu M4U_PORT_CAM_CCUG>;
+		};
 
 	camsys1: camsysisp@1a000000  {
 		compatible = "mediatek,camsys", "syscon";
