@@ -67,8 +67,7 @@ int mtk_idle_sysfs_entry_root_get(struct mtk_lp_sysfs_handle **handle)
 
 int mtk_idle_sysfs_power_create_group(struct attribute_group *grp)
 {
-	//return mtk_lp_kernfs_create_group(power_kobj, grp);
-	return 0;
+	return mtk_lp_kernfs_create_group(kernel_kobj, grp);
 }
 size_t get_mtk_idle_sysfs_power_bufsz_max(void)
 {
