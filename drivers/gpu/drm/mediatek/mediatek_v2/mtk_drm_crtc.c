@@ -10407,6 +10407,8 @@ void mtk_gce_backup_slot_restore(struct mtk_drm_crtc *mtk_crtc, const char *mast
 	int i;
 	unsigned int mmsys_id = 0;
 	struct drm_crtc *crtc = &mtk_crtc->base;
+	struct mtk_ddp_comp *comp = NULL;
+
 
 	mmsys_id = mtk_get_mmsys_id(crtc);
 	size = mtk_gce_get_dummy_table(mmsys_id, &table);
@@ -10443,9 +10445,18 @@ void mtk_gce_backup_slot_restore(struct mtk_drm_crtc *mtk_crtc, const char *mast
 		reg_val = dummy_data[slot_idx];
 		writel(reg_val, table[slot_idx].addr + table[slot_idx].offset);
 
+		comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_WDMA0);
+		if (!comp)
+			comp = mtk_ddp_comp_find_by_id(crtc, DDP_COMPONENT_WDMA1);
+
 		for (i = (DISP_SLOT_RDMA_FB_IDX / sizeof(unsigned int)) ; i < size ; i++) {
-			reg_val = dummy_data[i];
-			writel(reg_val, table[i].addr + table[i].offset);
+			if (i == (DISP_SLOT_CUR_OUTPUT_FENCE / sizeof(unsigned int)) && !comp)
+				DDPINFO("%s, crtc[%d] havn't wdma,skip restore output fence\n",
+					__func__, drm_crtc_index(crtc));
+			else {
+				reg_val = dummy_data[i];
+				writel(reg_val, table[i].addr + table[i].offset);
+			}
 		}
 	}
 	DDPDBG("%s, by %s\n", __func__,
