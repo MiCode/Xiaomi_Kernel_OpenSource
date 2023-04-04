@@ -289,6 +289,10 @@ ccflags-y += -I$(srctree)/include/linux/soc/mediatek/
 ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V1)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1/
 endif
+ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V0)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v0/
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpueb/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
