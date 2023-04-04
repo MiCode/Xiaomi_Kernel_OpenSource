@@ -637,6 +637,7 @@ static void mtk_dsi_dphy_timconfig(struct mtk_dsi *dsi, void *handle)
 	} else {
 		switch (priv->data->mmsys_id) {
 		case MMSYS_MT6768:
+		case MMSYS_MT6761:
 			ui = 1000 / dsi->data_rate + 1;
 			cycle_time = 8000 / dsi->data_rate + 1;
 
@@ -744,6 +745,7 @@ CONFIG_REG:
 	if (!is_bdg_supported()) {
 		switch (priv->data->mmsys_id) {
 		case MMSYS_MT6768:
+		case MMSYS_MT6761:
 			break;
 		default:
 			//N4/5 must add this constraint, N6 is option, so we use the same
