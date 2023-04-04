@@ -257,7 +257,7 @@ static void mtk_rsz_addon_config(struct mtk_ddp_comp *comp,
 	struct mtk_addon_rsz_config config = addon_config->addon_rsz_config;
 	struct mtk_rsz_config_struct *rsz_config = NULL;
 	struct mtk_disp_rsz *rsz = comp_to_rsz(comp);
-	enum mtk_rsz_color_format fmt = RGB888;
+	enum mtk_rsz_color_format fmt = ARGB8101010;
 	bool tile_mode = false;
 	u32 reg_val = 0;
 	u32 tile_idx = 0;
