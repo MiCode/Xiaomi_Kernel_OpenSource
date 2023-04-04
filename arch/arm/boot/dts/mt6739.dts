@@ -2626,6 +2626,17 @@ initcall_debug=1 clk_ignore_unused=1";
 		interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH 0>;
 	};
 
+	smi_bwc {
+		compatible = "mediatek,smi-legacy-bwc",
+					"mediatek,mt6739-smi-bwc";
+		clocks = <&topckgen CLK_TOP_MM_SEL>,
+			<&topckgen CLK_TOP_VENCPLL>,
+			<&topckgen CLK_TOP_SYSPLL2_D2>;
+		clock-names = "MMDVFS_CLK_TOP_MMPLL_CK",
+			"mmdvfs_clk_top_vencpll_ck",
+			"mmdvfs_clk_top_syspll2_d2";
+	};
+
 	smi_common: smi_common@14002000 {
 		compatible = "mediatek,smi-common",
 			     "mediatek,mt6739-smi-common", "syscon";

@@ -3087,6 +3087,11 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		compatible = "mediatek,irq_nfc-eint";
 	};
 
+	smi_bwc {
+		compatible = "mediatek,smi-legacy-bwc",
+					"mediatek,mt6761-smi-bwc";
+	};
+
 	smi_common: smi_common@14002000 {
 		compatible = "mediatek,smi-common",
 			     "mediatek,mt6761-smi-common", "syscon";
