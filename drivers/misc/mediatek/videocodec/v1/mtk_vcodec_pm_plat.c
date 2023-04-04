@@ -61,7 +61,7 @@ void mtk_prepare_venc_dvfs(struct mtk_vcodec_dev *dev)
 	freq = 0;
 	while (!IS_ERR(opp =
 		dev_pm_opp_find_freq_ceil(&dev->plat_dev->dev, &freq))) {
-		dev->venc_freqs[i] = freq;
+		dev->venc_freqs[i] = freq / 1000000; //Hz -> MHz
 		freq++;
 		i++;
 		dev_pm_opp_put(opp);
@@ -128,7 +128,7 @@ void set_venc_opp(struct mtk_vcodec_dev *dev, u32 freq)
 	struct dev_pm_opp *opp = 0;
 	int volt = 0;
 	int ret = 0;
-	unsigned long freq_64 = (unsigned long)freq;
+	unsigned long freq_64 = (unsigned long)freq * 1000000; //MHz -> Hz
 
 	if (dev->venc_reg != 0) {
 		opp = dev_pm_opp_find_freq_ceil(&dev->plat_dev->dev, &freq_64);
@@ -185,7 +185,7 @@ void mtk_prepare_vdec_dvfs(struct mtk_vcodec_dev *dev)
 	freq = 0;
 	while (!IS_ERR(opp =
 		dev_pm_opp_find_freq_ceil(&dev->plat_dev->dev, &freq))) {
-		dev->vdec_freqs[i] = freq;
+		dev->vdec_freqs[i] = freq / 1000000; //Hz -> MHz
 		freq++;
 		i++;
 		dev_pm_opp_put(opp);
@@ -247,7 +247,7 @@ void set_vdec_opp(struct mtk_vcodec_dev *dev, u32 freq)
 	struct dev_pm_opp *opp = 0;
 	int volt = 0;
 	int ret = 0;
-	unsigned long freq_64 = (unsigned long)freq;
+	unsigned long freq_64 = (unsigned long)freq * 1000000; //MHz -> Hz
 
 	if (dev->vdec_reg != 0) {
 		opp = dev_pm_opp_find_freq_ceil(&dev->plat_dev->dev, &freq_64);

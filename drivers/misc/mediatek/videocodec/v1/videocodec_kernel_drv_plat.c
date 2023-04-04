@@ -1729,7 +1729,7 @@ int vcodec_plat_probe(struct platform_device *pdev, struct mtk_vcodec_dev *dev)
 	if (dev->vdec_reg <= 0)
 		pr_debug("Vdec get DVFS freq steps failed: %d\n", dev->vdec_reg);
 	else if (dev->vdec_freq_cnt > 0 && dev->vdec_freq_cnt <= MAX_CODEC_FREQ_STEP)
-		dev->dec_freq = dev->vdec_freqs[dev->vdec_freq_cnt - 1];
+		dev->dec_freq = dev->vdec_freqs[0];
 	else
 		dev->dec_freq = MIN_VDEC_FREQ;
 	mtk_prepare_venc_dvfs(dev);
@@ -1737,7 +1737,7 @@ int vcodec_plat_probe(struct platform_device *pdev, struct mtk_vcodec_dev *dev)
 	if (dev->venc_reg <= 0)
 		pr_debug("Venc get DVFS freq steps failed: %d\n", dev->venc_reg);
 	else if (dev->venc_freq_cnt > 0 && dev->venc_freq_cnt <= MAX_CODEC_FREQ_STEP)
-		dev->enc_freq = dev->venc_freqs[dev->venc_freq_cnt - 1];
+		dev->enc_freq = dev->venc_freqs[0];
 	else
 		dev->enc_freq = MIN_VENC_FREQ;
 
