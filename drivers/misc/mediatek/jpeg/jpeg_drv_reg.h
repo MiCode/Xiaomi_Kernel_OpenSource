@@ -43,4 +43,71 @@
 #define REG_JPGDEC_HYBRID_378(X) (JPEG_HYBRID_DEC_BASE(X) + 0x0378)
 #define REG_JPGDEC_HYBRID_384(X) (JPEG_HYBRID_DEC_BASE(X) + 0x0384)
 
+
+#define JPEG_ENC_BASE   jpeg_dev_get_encoder_base_VA()
+
+#define JPEG_ENC_REG_COUNT                          0x31C
+
+
+/********************************************************************/
+/* define JPEG Encoder Registers register field*/
+/********************************************************************/
+
+
+#define JPEG_DRV_ENC_INT_STATUS_DONE   0x01
+#define JPEG_DRV_ENC_INT_STATUS_STALL  0x02
+#define JPEG_DRV_ENC_INT_STATUS_VCODEC_IRQ  0x10
+#define JPEG_DRV_ENC_INT_STATUS_MASK_ALLIRQ 0x13
+#define JPEG_DRV_DEC_INT_STATUS_DEC_ERR   0x04
+
+
+
+/********************************************************************/
+/* The following registers are for JPEG Encoder Registers on MT6589 */
+/********************************************************************/
+
+
+
+#define REG_ADDR_JPEG_ENC_RSTB                           (JPEG_ENC_BASE + 0x100)
+#define REG_ADDR_JPEG_ENC_CTRL                           (JPEG_ENC_BASE + 0x104)
+#define REG_ADDR_JPEG_ENC_QUALITY                        (JPEG_ENC_BASE + 0x108)
+#define REG_ADDR_JPEG_ENC_BLK_NUM                        (JPEG_ENC_BASE + 0x10C)
+#define REG_ADDR_JPEG_ENC_BLK_CNT                        (JPEG_ENC_BASE + 0x110)
+#define REG_ADDR_JPEG_ENC_INTERRUPT_STATUS               (JPEG_ENC_BASE + 0x11C)
+
+#define REG_ADDR_JPEG_ENC_DST_ADDR0                      (JPEG_ENC_BASE + 0x120)
+#define REG_ADDR_JPEG_ENC_DMA_ADDR0                      (JPEG_ENC_BASE + 0x124)
+#define REG_ADDR_JPEG_ENC_STALL_ADDR0                    (JPEG_ENC_BASE + 0x128)
+
+#define REG_ADDR_JPEG_ENC_OFFSET_ADDR                    (JPEG_ENC_BASE + 0x138)
+#define REG_ADDR_JPEG_ENC_CURR_DMA_ADDR                  (JPEG_ENC_BASE + 0x13C)
+
+#define REG_ADDR_JPEG_ENC_RST_MCU_NUM                    (JPEG_ENC_BASE + 0x150)
+#define REG_ADDR_JPEG_ENC_IMG_SIZE                       (JPEG_ENC_BASE + 0x154)
+#define REG_ADDR_JPEG_ENC_GULTRA_TRESH                   (JPEG_ENC_BASE + 0x158)
+
+
+#define REG_ADDR_JPEG_ENC_DEBUG_INFO0                    (JPEG_ENC_BASE + 0x160)
+#define REG_ADDR_JPEG_ENC_DEBUG_INFO1                    (JPEG_ENC_BASE + 0x164)
+#define REG_ADDR_JPEG_ENC_TOTAL_CYCLE                    (JPEG_ENC_BASE + 0x168)
+#define REG_ADDR_JPEG_ENC_BYTE_OFFSET_MASK               (JPEG_ENC_BASE + 0x16C)
+
+
+#define REG_ADDR_JPEG_ENC_SRC_LUMA_ADDR                  (JPEG_ENC_BASE + 0x170)
+#define REG_ADDR_JPEG_ENC_SRC_CHROMA_ADDR                (JPEG_ENC_BASE + 0x174)
+#define REG_ADDR_JPEG_ENC_STRIDE                         (JPEG_ENC_BASE + 0x178)
+#define REG_ADDR_JPEG_ENC_IMG_STRIDE                     (JPEG_ENC_BASE + 0x17C)
+#define REG_ADDR_JPEG_ENC_MEM_CYCLE                      (JPEG_ENC_BASE + 0x208)
+
+
+#define REG_ADDR_JPEG_ENC_SMI_DEBUG0                     (JPEG_ENC_BASE + 0x304)
+#define REG_ADDR_JPEG_ENC_SMI_DEBUG1                     (JPEG_ENC_BASE + 0x308)
+#define REG_ADDR_JPEG_ENC_SMI_DEBUG2                     (JPEG_ENC_BASE + 0x30C)
+#define REG_ADDR_JPEG_ENC_SMI_DEBUG3                     (JPEG_ENC_BASE + 0x310)
+#define REG_ADDR_JPEG_ENC_CODEC_SEL                      (JPEG_ENC_BASE + 0x314)
+#define REG_ADDR_JPEG_ENC_ULTRA_THRES                    (JPEG_ENC_BASE + 0x318)
+
+#define REG_ADDR_JPEG_ENC_PASS2_RSTB                     (JPEG_ENC_BASE + 0x800)
+
+
 #endif
