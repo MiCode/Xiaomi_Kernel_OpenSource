@@ -5411,26 +5411,11 @@ done:
 
 static struct device *dsi_find_slave(struct mtk_dsi *dsi)
 {
-	struct device_node *remote = NULL, *endpoint = NULL;
+	struct device_node *remote;
 	struct mtk_dsi *slave_dsi;
 	struct platform_device *pdev;
-	while ((endpoint = of_graph_get_next_endpoint(dsi->dev->of_node, endpoint))) {
-		remote = of_graph_get_remote_port_parent(endpoint);
-		if (!remote) {
-			pr_info("No remote node!\n");
-			return NULL;
-		}
-		pr_info("remote->name=%s\n", remote->name);
-		if (!strstr(remote->name, "dsi")) {
-			pr_info("not slave node:%s\n", remote->name);
-			continue;
-		} else {
-			pr_info("find slave\n");
-			break;
-		}
-	}
 
-	//remote = of_graph_get_remote_node(dsi->dev->of_node, 1, 0);
+	remote = of_graph_get_remote_node(dsi->dev->of_node, 1, 0);
 	if (!remote)
 		return NULL;
 
@@ -9549,7 +9534,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	struct mtk_dsi *dsi;
 	struct device *dev = &pdev->dev;
 	const struct of_device_id *of_id;
-	struct device_node *remote_node = NULL, *endpoint = NULL;
+	struct device_node *remote_node, *endpoint;
 	struct resource *regs;
 	int irq_num;
 	int comp_id;
@@ -9581,40 +9566,31 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	dsi->driver_data = (struct mtk_dsi_driver_data *)of_id->data;
 
 	if (!dsi->is_slave) {
-		while ((endpoint = of_graph_get_next_endpoint(dev->of_node, endpoint))) {
+		endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
+		if (endpoint) {
 			remote_node = of_graph_get_remote_port_parent(endpoint);
 			if (!remote_node) {
 				dev_err(dev, "No panel connected\n");
 				ret = -ENODEV;
 				goto error;
 			}
-			pr_info("remote node:%s\n", remote_node->name);
-			// slave node in endpoint also
-			if (!strstr(remote_node->name, "panel")) {
-				pr_info("not panel node:%s\n", remote_node->name);
-				continue;
-			}
+
 			dsi->bridge = of_drm_find_bridge(remote_node);
 			dsi->panel = of_drm_find_panel(remote_node);
 			of_node_put(remote_node);
 			if (IS_ERR_OR_NULL(dsi->bridge) && IS_ERR_OR_NULL(dsi->panel)) {
 				dev_info(dev, "Waiting for bridge or panel driver\n");
 				dsi->panel = NULL;
-			} else
-				break;
-		}
-
-		if (!dsi->panel) {
-			pr_info("error: panel not find!\n");
-			ret = -EPROBE_DEFER;
-			goto error;
-		}
-		if (dsi->panel)
-			dsi->ext = find_panel_ext(dsi->panel);
-		if (dsi->slave_dsi) {
-			dsi->slave_dsi->ext = dsi->ext;
-			dsi->slave_dsi->panel = dsi->panel;
-			dsi->slave_dsi->bridge = dsi->bridge;
+				ret = -EPROBE_DEFER;
+				goto error;
+			}
+			if (dsi->panel)
+				dsi->ext = find_panel_ext(dsi->panel);
+			if (dsi->slave_dsi) {
+				dsi->slave_dsi->ext = dsi->ext;
+				dsi->slave_dsi->panel = dsi->panel;
+				dsi->slave_dsi->bridge = dsi->bridge;
+			}
 		}
 	}
 
