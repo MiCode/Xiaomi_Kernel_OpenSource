@@ -85,7 +85,7 @@ int iter;
 #define LL_CORE_NUM 4
 #define L_CORE_NUM 2
 #define LKG_IDX 0
-#define UPOWER_UT
+// #define UPOWER_UT
 struct mtk_upower_buf {
 	char buf[LOG_BUF_LEN];
 	char *p_idx;
