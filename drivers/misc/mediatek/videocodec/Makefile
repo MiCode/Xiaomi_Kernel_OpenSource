@@ -18,6 +18,7 @@ vcodec_kernel_common_driver-$(CONFIG_MTK_VIDEOCODEC_DRIVER) +=  videocodec_kerne
 
 vcodec_kernel_codec-$(CONFIG_MTK_VIDEOCODEC_DRIVER) +=	mtk_vcodec_pm.o   \
 							mtk_vcodec_intr.o   \
+							mtk_vcodec_mem.o   \
 							videocodec_kernel_drv.o
 
 ifeq ($(CONFIG_MTK_VIDEOCODEC_IPM_V1),y)

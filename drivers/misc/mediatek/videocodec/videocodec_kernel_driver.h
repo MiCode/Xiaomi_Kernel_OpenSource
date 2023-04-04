@@ -121,7 +121,7 @@ extern unsigned int VENC_IRQ_ID, VDEC_IRQ_ID;
 #define VDO_HW_READ(ptr)            readl((void __iomem *)ptr)
 
 struct mtk_vcodec_drv_init_params {
-	int drvOpenCount;
+	atomic_t drvOpenCount;
 	unsigned int u4PWRCounter;      /* mutex : PWRLock */
 	unsigned int u4EncEMICounter;   /* mutex : EncEMILock */
 	unsigned int u4DecEMICounter;   /* mutex : DecEMILock */
