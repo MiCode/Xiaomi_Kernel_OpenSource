@@ -18,6 +18,9 @@
 #if IS_ENABLED(CONFIG_COMPAT)
 #include <linux/compat.h>
 #endif
+#ifdef MMDVFS_HOOK
+#include <mmdvfs_mgr.h>
+#endif
 
 #include "mtk-smi-bwc.h"
 
@@ -57,7 +60,7 @@ u8 mtk_smi_larb_mt6768_bwl[MAX_SMI_SCEN_NUM][MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_M
 	{0x16, 0x14, 0x2, 0x2, 0x2, 0x2, 0x4, 0x2, 0x2, 0x2, 0x2, 0x2, 0x4, 0x4, 0x4,
 	 0x2, 0x2, 0x2, 0x2, 0x2, 0x2}, /* LARB3 */
 	{0x3, 0x1, 0x1, 0x1, 0x1, 0x5, 0x3, 0x1, 0x1, 0x1, 0x6}, /* LARB4 */
-	},	// init
+	},	// init, vpwfd, vr4k
 	{
 	{0x1f, 0x1f, 0x1f, 0x7, 0x7, 0x1, 0xb, 0x1f}, /* LARB0 */
 	{0x3, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x6}, /* LARB1 */
@@ -69,13 +72,13 @@ u8 mtk_smi_larb_mt6768_bwl[MAX_SMI_SCEN_NUM][MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_M
 };
 
 static u16 mtk_smi_common_mt6768_bwl[MAX_SMI_SCEN_NUM][SMI_COMMON_LARB_NR_MAX] = {
-	{0x1ba5, 0x1000, 0x15d3, 0x1000, 0x1000, 0x0, 0x0, 0x0},	// init
+	{0x1ba5, 0x1000, 0x15d3, 0x1000, 0x1000, 0x0, 0x0, 0x0},	// init, vpwfd, vr4k
 	{0x1327, 0x119e, 0x1241, 0x12e6, 0x119e, 0x0, 0x0, 0x0},	// icfp
 };
 
 static struct mtk_smi_reg_pair
 mtk_smi_common_mt6768_misc[MAX_SMI_SCEN_NUM][SMI_COMMON_MISC_NR] = {
-	{{SMI_BUS_SEL, 0x104},},	// init
+	{{SMI_BUS_SEL, 0x104},},	// init, vpwfd, vr4k
 	{{SMI_BUS_SEL, 0x144},},	// icfp
 };
 
@@ -92,10 +95,83 @@ static struct smi_bwc_info bwc_info_mt6768 = {
 };
 // end bwc config for mt6768
 
+// begin bwc config for mt6761
+u8 mtk_smi_larb_mt6761_bwl[MAX_SMI_SCEN_NUM][MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_MAX] = {
+	{
+	{0x1f, 0x1f, 0xe, 0x7, 0x7, 0x4, 0x4, 0x1f}, /* LARB0 */
+	{0x3, 0x1, 0x1, 0x1, 0x1, 0x5, 0x3, 0x1, 0x1, 0x1, 0x6}, /* LARB1 */
+	{0x16, 0x14, 0x2, 0x2, 0x2, 0x4, 0x4, 0x2, 0x2, 0x4, 0x2, 0x2, 0x4, 0x4, 0x4,
+	 0x4, 0x4, 0x2, 0x2, 0x2, 0x2, 0x4, 0x4, 0x4}, /* LARB2 */
+	},	// init, vpwfd, icfp, vr4k
+};
+
+static u16 mtk_smi_common_mt6761_bwl[MAX_SMI_SCEN_NUM][SMI_COMMON_LARB_NR_MAX] = {
+	{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0},	// init, vpwfd, icfp, vr4k
+};
+
+static u32 mtk_smi_mt6761_scen_map[SMI_BWC_SCEN_CNT] = {
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0
+};
+
+static struct smi_bwc_info bwc_info_mt6761 = {
+	.scen_map = (u32 *)mtk_smi_mt6761_scen_map,
+	.larb_bwl = (u8 *)mtk_smi_larb_mt6761_bwl,
+	.comm_bwl = (u16 *)mtk_smi_common_mt6761_bwl,
+	.comm_misc = NULL,
+};
+// end bwc config for mt6761
+
+// begin bwc config for mt6739
+u8 mtk_smi_larb_mt6739_bwl[MAX_SMI_SCEN_NUM][MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_MAX] = {
+	{
+	{0x1f, 0x1f, 0x1f, 0x2, 0x1, 0x1, 0x5}, /* LARB0 */
+	{0x3, 0x1, 0x2, 0x1, 0x1, 0x3, 0x2, 0x1, 0x1, 0x1, 0x5}, /* LARB1 */
+	{0xc, 0x6, 0x2, 0x2, 0x2, 0x2, 0x2, 0x2, 0x4, 0x3, 0x1}, /* LARB2 */
+	},	// init, vpwfd
+	{
+	{0x1f, 0x1f, 0x1f, 0xe, 0x1, 0x1, 0x7}, /* LARB0 */
+	{0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x4}, /* LARB1 */
+	{0xa, 0x4, 0x2, 0x2, 0x2, 0x2, 0x2, 0x2, 0x4, 0x2, 0x1}, /* LARB2 */
+	},	// icfp, vr4k
+	{
+	{0x1, 0x1f, 0x1f, 0x2, 0x1, 0x1, 0x5}, /* LARB0 */
+	{0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x4}, /* LARB1 */
+	{0xa, 0x4, 0x2, 0x2, 0x2, 0x2, 0x2, 0x2, 0x4, 0x2, 0x1}, /* LARB2 */
+	},	// wfd
+};
+
+static u16 mtk_smi_common_mt6739_bwl[MAX_SMI_SCEN_NUM][SMI_COMMON_LARB_NR_MAX] = {
+	{0x12f6, 0x1000, 0x1000, 0x0, 0x0, 0x0, 0x0, 0x0},	// init, vpwfd
+	{0x119a, 0x118f, 0x1250, 0x0, 0x0, 0x0, 0x0, 0x0},	// icfp, vr4k
+	{0x119a, 0x118f, 0x1250, 0x0, 0x0, 0x0, 0x0, 0x0},	// wfd
+};
+
+static u32 mtk_smi_mt6739_scen_map[SMI_BWC_SCEN_CNT] = {
+	0, 0, 0, 0, 0, 0, 2, 0, 0, 0,
+	0, 1, 1, 1, 1, 1, 1, 1, 0
+};
+
+static struct smi_bwc_info bwc_info_mt6739 = {
+	.scen_map = (u32 *)mtk_smi_mt6739_scen_map,
+	.larb_bwl = (u8 *)mtk_smi_larb_mt6739_bwl,
+	.comm_bwl = (u16 *)mtk_smi_common_mt6739_bwl,
+	.comm_misc = NULL,
+};
+// end bwc config for mt6739
+
 static const struct of_device_id of_smi_bwc_match_tbl[] = {
 	{
 		.compatible = "mediatek,mt6768-smi-bwc",
 		.data = &bwc_info_mt6768,
+	},
+	{
+		.compatible = "mediatek,mt6761-smi-bwc",
+		.data = &bwc_info_mt6761,
+	},
+	{
+		.compatible = "mediatek,mt6739-smi-bwc",
+		.data = &bwc_info_mt6739,
 	},
 	{}
 };
@@ -214,9 +290,8 @@ static void do_config_by_scen(s32 smi_scen)
 
 static s32 smi_bwc_conf(const struct MTK_SMI_BWC_CONF *conf)
 {
-	s32 same = 0, smi_scen, i, ret;
+	s32 same = 0, smi_scen, i;
 	u32 *smi_scen_map = g_bwc_info->scen_map;
-	struct smi_dev_info	*smi = g_dev_info;
 
 	if (!conf) {
 		SMIDBG("MTK_SMI_BWC_CONF no such device or address\n");
@@ -228,16 +303,6 @@ static s32 smi_bwc_conf(const struct MTK_SMI_BWC_CONF *conf)
 	}
 
 	spin_lock(&(smi_drv.lock));
-	if (!smi->probe) {
-		ret = smi_dev_probe();
-		if (ret) {
-			spin_unlock(&(smi_drv.lock));
-			SMIDBG("MTK_SMI_BWC_CONF cannot probe smi dev.\n");
-			return -ENXIO;
-		}
-
-		smi->probe = true;
-	}
 
 	if (!conf->b_on) {
 		if (smi_drv.table[conf->scen] <= 0)
@@ -310,6 +375,7 @@ static s32 smi_release(struct inode *inode, struct file *file)
 static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	s32 ret = 0;
+	struct smi_dev_info	*smi = g_dev_info;
 
 	if (!g_bwc_info) {
 		SMIWRN(0, "not support legacy bwc function\n", cmd, ret);
@@ -317,6 +383,19 @@ static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	}
 	if (!file->f_op || !file->f_op->unlocked_ioctl)
 		return -ENOTTY;
+
+	spin_lock(&(smi_drv.lock));
+	if (!smi->probe) {
+		ret = smi_dev_probe();
+		if (ret) {
+			spin_unlock(&(smi_drv.lock));
+			SMIDBG("cannot probe smi dev info.\n");
+			return -ENXIO;
+		}
+
+		smi->probe = true;
+	}
+	spin_unlock(&(smi_drv.lock));
 
 	switch (cmd) {
 	case MTK_IOC_SMI_BWC_CONF:
@@ -373,6 +452,7 @@ static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
+		SMIERR("bwc mmdvfs_handle_cmd.\n");
 		mmdvfs_handle_cmd(&mmdvfs_cmd);
 
 		if (copy_to_user((void *)arg,
@@ -632,6 +712,11 @@ static int smi_bwc_probe(struct platform_device *pdev)
 
 	struct smi_dev_info	*dev_info;
 
+#ifdef MMDVFS_HOOK
+	mmdvfs_init();
+	mmdvfs_clks_init((&pdev->dev)->of_node);
+#endif
+
 	dev_info = kzalloc(sizeof(*dev_info), GFP_KERNEL);
 	if (!dev_info)
 		return -ENOMEM;
@@ -692,6 +777,7 @@ static int __init mtk_smi_bwc_init(void)
 			status);
 		return -ENODEV;
 	}
+
 	return 0;
 }
 

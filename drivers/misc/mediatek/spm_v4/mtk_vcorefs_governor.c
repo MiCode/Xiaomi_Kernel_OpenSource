@@ -50,6 +50,9 @@ typedef int (*dvfs_setting)(int msdc, bool enable);
  *void msdc_register_vcore_callback(int id,
  *	request_dvfs_opp request_opp_cb, dvfs_setting setting_cb);
  */
+#if IS_ENABLED(CONFIG_MTK_SMI_BWC)
+void mmdvfs_register_vcore_callback(request_dvfs_opp request_opp_cb);
+#endif
 
 __weak void __iomem *qos_sram_base;
 
@@ -812,6 +815,10 @@ int vcorefs_module_init(void)
 
 	pr_info("[vcorefs] register msdc callback!\n");
 	msdc_register_vcore_callback(MSDC_EMMC, vcorefs_request_dvfs_opp, spm_msdc_dvfs_setting);
+#if IS_ENABLED(CONFIG_MTK_SMI_BWC)
+	pr_info("[vcorefs] register mmdvfs callback!\n");
+	mmdvfs_register_vcore_callback(vcorefs_request_dvfs_opp);
+#endif
 	r = init_vcorefs_sysfs();
 	if (r) {
 		vcorefs_err("FAILED TO CREATE /sys/power/vcorefs (%d)\n", r);
