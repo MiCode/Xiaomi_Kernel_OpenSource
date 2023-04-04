@@ -1306,17 +1306,12 @@ int a6xx_hwsched_cp_init(struct adreno_device *adreno_dev)
 
 int a6xx_hwsched_counter_inline_enable(struct adreno_device *adreno_dev,
 		const struct adreno_perfcount_group *group,
-		unsigned int counter, unsigned int countable)
+		u32 counter, u32 countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg = &group->regs[counter];
-	u32 cmds[A6XX_PERF_COUNTER_ENABLE_DWORDS + 1];
+	u32 val, cmds[A6XX_PERF_COUNTER_ENABLE_DWORDS + 1];
 	int ret;
-	char str[64];
-
-	if (!(device->state == KGSL_STATE_ACTIVE))
-		return a6xx_counter_enable(adreno_dev, group, counter,
-			countable);
 
 	if (group->flags & ADRENO_PERFCOUNTER_GROUP_RESTORE)
 		a6xx_perfcounter_update(adreno_dev, reg, false);
@@ -1328,13 +1323,21 @@ int a6xx_hwsched_counter_inline_enable(struct adreno_device *adreno_dev,
 	cmds[2] = cp_type4_packet(reg->select, 1);
 	cmds[3] = countable;
 
-	snprintf(str, sizeof(str), "Perfcounter %s/%u/%u start via commands failed\n",
-			group->name, counter, countable);
+	ret = a6xx_hfi_send_cmd_async(adreno_dev, cmds);
+	if (ret)
+		goto err;
 
-	ret = submit_raw_cmds(adreno_dev, cmds, str);
-	if (!ret)
+	/* Wait till the register is programmed with the countable */
+	ret = kgsl_regmap_read_poll_timeout(&device->regmap, reg->select, val,
+				val == countable, 100, ADRENO_IDLE_TIMEOUT);
+	if (!ret) {
 		reg->value = 0;
+		return ret;
+	}
 
+err:
+	dev_err(device->dev, "Perfcounter %s/%u/%u start via commands failed\n",
+			group->name, counter, countable);
 	return ret;
 }
 
