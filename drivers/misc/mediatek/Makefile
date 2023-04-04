@@ -122,6 +122,7 @@ obj-$(CONFIG_MTK_TIMER_ACCURACY_TEST) += timer/
 obj-$(CONFIG_MTK_PPM_V3) += ppm_v3/
 obj-$(CONFIG_MTK_SPM) += spm/
 obj-$(CONFIG_MTK_SPM_V0) += spm/
+obj-$(CONFIG_MTK_HPS_V3) += hps_v3/
 obj-$(CONFIG_MTK_POWER_GS_LEGACY) += power_gs_v1/
 obj-$(CONFIG_MTK_POWER_GS_LEGACY_V2) += power_gs_v1/
 obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += videocodec/
