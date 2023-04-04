@@ -7,7 +7,7 @@
 #include <linux/kthread.h>
 #include <linux/blk-mq.h>
 #include <uapi/linux/sched/types.h>
-
+#include <mt-plat/mtk_blocktag.h>
 #include "../core/queue.h"
 #include "mtk-mmc-swcqhci-crypto.h"
 
@@ -43,7 +43,7 @@ int swcq_done_task(struct mmc_host *mmc, int task_id)
 	struct mmc_request *mrq = swcq_host->mrq[task_id];
 
 	if (mrq->data->error) {
-		pr_err("%s: task%d  data error %d\n",
+		dev_err(mmc_dev(mmc), "%s: task%d  data error %d\n",
 			__func__, task_id, mrq->data->error);
 		return mrq->data->error;
 	}
@@ -303,6 +303,17 @@ int mmc_run_queue_thread(void *data)
 #endif
 				if (!atomic_read(&swcq_host->q_cnt))
 					wake_up_interruptible(&swcq_host->wait_cmdq_empty);
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
+				if (done_mrq->data) {
+					if (done_mrq->data->error)
+						done_mrq->data->bytes_xfered = 0;
+					else
+						done_mrq->data->bytes_xfered = done_mrq->data->blksz
+							* done_mrq->data->blocks;
+					mmc_mtk_biolog_transfer_req_compl(mmc, done_mrq->tag, 0);
+					mmc_mtk_biolog_check(mmc, q_cnt(swcq_host));
+				}
+#endif
 				mmc_cqe_request_done(mmc, done_mrq);
 			} else {
 				spin_lock(&swcq_host->lock);
@@ -386,13 +397,17 @@ static int swcq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		swcq_host->pre_tsks |= (1 << mrq->tag);
 		swcq_host->mrq[mrq->tag] = mrq;
 		spin_unlock(&swcq_host->lock);
+		atomic_inc(&swcq_host->q_cnt);
+#if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
+		mmc_mtk_biolog_send_command(mrq->tag, mrq);
+		mmc_mtk_biolog_check(mmc, q_cnt(swcq_host));
+#endif
 	} else {
 		dev_info(mmc_dev(mmc), "%s should not issue non-data req.", __func__);
 		WARN_ON(1);
 		return -1;
 	}
 
-	atomic_inc(&swcq_host->q_cnt);
 	wake_up_process(swcq_host->cmdq_thread);
 
 	return 0;
