@@ -140,6 +140,9 @@ extern struct dma_buf *dma_buf_export(
 extern int dma_buf_fd(struct dma_buf *dmabuf, int flags);
 
 extern long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_K_IOCTL)
+extern long tee_k_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+#endif
 extern int tee_k_open(struct file *filp);
 extern int tee_k_release(struct file *filp);
 

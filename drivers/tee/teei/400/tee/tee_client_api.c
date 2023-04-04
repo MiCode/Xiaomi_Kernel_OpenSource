@@ -30,6 +30,20 @@
 #define TEEC_MAX_DEV_SEQ	10
 #define DEFAULT_CAPABILITY "bta_loader"
 
+
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_K_IOCTL)
+static inline long ioctl(struct file *filp, unsigned int cmd, void *arg)
+{
+	long ret;
+
+	if (!filp)
+		return -EBADF;
+
+	ret = tee_k_ioctl(filp, cmd, (unsigned long)arg);
+
+	return ret;
+}
+#else
 static inline long ioctl(struct file *filp, unsigned int cmd, void *arg)
 {
 	long ret;
@@ -47,6 +61,7 @@ static inline long ioctl(struct file *filp, unsigned int cmd, void *arg)
 
 	return ret;
 }
+#endif
 
 static inline int close(int fd)
 {

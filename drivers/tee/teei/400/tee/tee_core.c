@@ -217,6 +217,94 @@ out:
 
 #endif
 
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_K_IOCTL)
+static int params_from_kernel(struct tee_context *ctx, struct tee_param *params,
+			    size_t num_params,
+			    struct tee_ioctl_param *kparams)
+{
+	size_t n;
+
+	for (n = 0; n < num_params; n++) {
+		struct tee_shm *shm;
+		struct tee_ioctl_param ip;
+
+		memcpy(&ip, kparams + n, sizeof(ip));
+
+		/* All unused attribute bits has to be zero */
+		if (ip.attr & ~TEE_IOCTL_PARAM_ATTR_MASK)
+			return -EINVAL;
+
+		params[n].attr = ip.attr;
+		switch (ip.attr & TEE_IOCTL_PARAM_ATTR_TYPE_MASK) {
+		case TEE_IOCTL_PARAM_ATTR_TYPE_NONE:
+		case TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_OUTPUT:
+			break;
+		case TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_INPUT:
+		case TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_INOUT:
+			params[n].u.value.a = ip.a;
+			params[n].u.value.b = ip.b;
+			params[n].u.value.c = ip.c;
+			break;
+		case TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INPUT:
+		case TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_OUTPUT:
+		case TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INOUT:
+			/*
+			 * If we fail to get a pointer to a shared memory
+			 * object (and increase the ref count) from an
+			 * identifier we return an error. All pointers that
+			 * has been added in params have an increased ref
+			 * count. It's the callers responibility to do
+			 * isee_shm_put() on all resolved pointers.
+			 */
+			shm = isee_shm_get_from_id(ctx, ip.c);
+			if (IS_ERR(shm))
+				return PTR_ERR(shm);
+
+			if ((ip.a >= shm->size) || (ip.b > shm->size)
+					|| ((ip.a + ip.b) > shm->size)) {
+				IMSG_ERROR("Inval param params_from_user\n");
+				return -EINVAL;
+			}
+
+			params[n].u.memref.shm_offs = ip.a;
+			params[n].u.memref.size = ip.b;
+			params[n].u.memref.shm = shm;
+			break;
+		default:
+			/* Unknown attribute */
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
+static int params_to_kernel(struct tee_ioctl_param *kparams,
+			  size_t num_params, struct tee_param *params)
+{
+	size_t n;
+
+	for (n = 0; n < num_params; n++) {
+		struct tee_ioctl_param *kp = kparams + n;
+		struct tee_param *p = params + n;
+
+		switch (p->attr) {
+		case TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_OUTPUT:
+		case TEE_IOCTL_PARAM_ATTR_TYPE_VALUE_INOUT:
+			kp->a = p->u.value.a;
+			kp->b = p->u.value.b;
+			kp->c = p->u.value.c;
+			break;
+		case TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_OUTPUT:
+		case TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INOUT:
+			kp->b = (u64)p->u.memref.size;
+		default:
+			break;
+		}
+	}
+	return 0;
+}
+#endif
+
 static int params_from_user(struct tee_context *ctx, struct tee_param *params,
 			    size_t num_params,
 			    struct tee_ioctl_param __user *uparams)
@@ -306,6 +394,68 @@ static int params_to_user(struct tee_ioctl_param __user *uparams,
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_K_IOCTL)
+static int tee_k_ioctl_open_session(struct tee_context *ctx,
+				  struct tee_ioctl_buf_data *buf)
+{
+	int rc;
+	size_t n;
+	struct tee_ioctl_open_session_arg *arg = NULL;
+	struct tee_ioctl_param *kparams = NULL;
+	struct tee_param *params = NULL;
+	bool have_session = false;
+
+	if (!ctx->teedev->desc->ops->open_session)
+		return -EINVAL;
+
+	if (buf->buf_len > TEE_MAX_ARG_SIZE ||
+	    buf->buf_len < sizeof(struct tee_ioctl_open_session_arg))
+		return -EINVAL;
+
+	arg = (struct tee_ioctl_open_session_arg *)(buf->buf_ptr);
+
+	if (sizeof(struct tee_ioctl_open_session_arg) +
+			TEE_IOCTL_PARAM_SIZE(arg->num_params) != buf->buf_len)
+		return -EINVAL;
+
+	if (arg->num_params) {
+		params = kcalloc(arg->num_params, sizeof(struct tee_param),
+				 GFP_KERNEL);
+		if (!params)
+			return -ENOMEM;
+		kparams = arg->params;
+		rc = params_from_kernel(ctx, params, arg->num_params, kparams);
+		if (rc)
+			goto out;
+	}
+
+	rc = ctx->teedev->desc->ops->open_session(ctx, arg, params);
+	if (rc)
+		goto out;
+	have_session = true;
+
+	rc = params_to_kernel(kparams, arg->num_params, params);
+out:
+	/*
+	 * If we've succeeded to open the session but failed to communicate
+	 * it back to user space, close the session again to avoid leakage.
+	 */
+	if (rc && have_session && ctx->teedev->desc->ops->close_session)
+		ctx->teedev->desc->ops->close_session(ctx, arg->session);
+
+	if (params) {
+		/* Decrease ref count for all valid shared memory pointers */
+		for (n = 0; n < arg->num_params; n++)
+			if (tee_param_is_memref(params + n) &&
+			    params[n].u.memref.shm)
+				isee_shm_put(params[n].u.memref.shm);
+		kfree(params);
+	}
+
+	return rc;
+}
+#endif
+
 static int tee_ioctl_open_session(struct tee_context *ctx,
 				  struct tee_ioctl_buf_data __user *ubuf)
 {
@@ -382,6 +532,58 @@ out:
 	return rc;
 }
 
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_K_IOCTL)
+static int tee_k_ioctl_invoke(struct tee_context *ctx,
+			    struct tee_ioctl_buf_data *buf)
+{
+	int rc;
+	size_t n;
+	struct tee_ioctl_invoke_arg *arg = NULL;
+	struct tee_ioctl_param *kparams = NULL;
+	struct tee_param *params = NULL;
+
+	if (!ctx->teedev->desc->ops->invoke_func)
+		return -EINVAL;
+
+	if (buf->buf_len > TEE_MAX_ARG_SIZE ||
+	    buf->buf_len < sizeof(struct tee_ioctl_invoke_arg))
+		return -EINVAL;
+
+	arg = (struct tee_ioctl_invoke_arg *)(buf->buf_ptr);
+
+	if (sizeof(struct tee_ioctl_invoke_arg) +
+			TEE_IOCTL_PARAM_SIZE(arg->num_params) != buf->buf_len)
+		return -EINVAL;
+
+	if (arg->num_params) {
+		params = kcalloc(arg->num_params, sizeof(struct tee_param),
+				 GFP_KERNEL);
+		if (!params)
+			return -ENOMEM;
+		kparams = arg->params;
+		rc = params_from_kernel(ctx, params, arg->num_params, kparams);
+		if (rc)
+			goto out;
+	}
+
+	rc = ctx->teedev->desc->ops->invoke_func(ctx, arg, params);
+	if (rc)
+		goto out;
+
+	rc = params_to_kernel(kparams, arg->num_params, params);
+out:
+	if (params) {
+		/* Decrease ref count for all valid shared memory pointers */
+		for (n = 0; n < arg->num_params; n++)
+			if (tee_param_is_memref(params + n) &&
+			    params[n].u.memref.shm)
+				isee_shm_put(params[n].u.memref.shm);
+		kfree(params);
+	}
+	return rc;
+}
+#endif
+
 static int tee_ioctl_invoke(struct tee_context *ctx,
 			    struct tee_ioctl_buf_data __user *ubuf)
 {
@@ -447,6 +649,18 @@ out:
 	return rc;
 }
 
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_K_IOCTL)
+static int tee_k_ioctl_cancel(struct tee_context *ctx,
+			    struct tee_ioctl_cancel_arg *arg)
+{
+	if (!ctx->teedev->desc->ops->cancel_req)
+		return -EINVAL;
+
+	return ctx->teedev->desc->ops->cancel_req(ctx, arg->cancel_id,
+						  arg->session);
+}
+#endif
+
 static int tee_ioctl_cancel(struct tee_context *ctx,
 			    struct tee_ioctl_cancel_arg __user *uarg)
 {
@@ -461,6 +675,18 @@ static int tee_ioctl_cancel(struct tee_context *ctx,
 	return ctx->teedev->desc->ops->cancel_req(ctx, arg.cancel_id,
 						  arg.session);
 }
+
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_K_IOCTL)
+static int
+tee_k_ioctl_close_session(struct tee_context *ctx,
+			struct tee_ioctl_close_session_arg *arg)
+{
+	if (!ctx->teedev->desc->ops->close_session)
+		return -EINVAL;
+
+	return ctx->teedev->desc->ops->close_session(ctx, arg->session);
+}
+#endif
 
 static int
 tee_ioctl_close_session(struct tee_context *ctx,
@@ -661,6 +887,16 @@ out:
 	return rc;
 }
 
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_K_IOCTL)
+static int tee_k_ioctl_set_hostname(struct tee_context *ctx,
+			struct tee_ioctl_set_hostname_arg *arg)
+{
+	memcpy(ctx->hostname, arg->hostname, TEE_MAX_HOSTNAME_SIZE-1);
+
+	return 0;
+}
+#endif
+
 static int tee_ioctl_set_hostname(struct tee_context *ctx,
 			struct tee_ioctl_close_session_arg __user *uarg)
 {
@@ -716,6 +952,42 @@ static int tee_ioctl_shm_release(struct tee_context *ctx, unsigned long arg)
 
 	return 0;
 }
+
+#if IS_ENABLED(CONFIG_MICROTRUST_TEE_K_IOCTL)
+/* tee_k_ioctl function is for the kernel-space ioctl */
+long tee_k_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	struct tee_context *ctx = filp->private_data;
+	long retVal = 0;
+
+	mutex_lock(&ctx->mutex);
+
+	switch (cmd) {
+	case TEE_IOC_OPEN_SESSION:
+		retVal = tee_k_ioctl_open_session(ctx, (void *)arg);
+		break;
+	case TEE_IOC_INVOKE:
+		retVal = tee_k_ioctl_invoke(ctx, (void *)arg);
+		break;
+	case TEE_IOC_CANCEL:
+		retVal = tee_k_ioctl_cancel(ctx, (void *)arg);
+		break;
+	case TEE_IOC_CLOSE_SESSION:
+		retVal = tee_k_ioctl_close_session(ctx, (void *)arg);
+		break;
+	case TEE_IOC_SET_HOSTNAME:
+		retVal = tee_k_ioctl_set_hostname(ctx, (void *)arg);
+		break;
+	default:
+		IMSG_ERROR("NOT support kernel ioctl cmd = %x.\n", cmd);
+		retVal = -EINVAL;
+	}
+
+	mutex_unlock(&ctx->mutex);
+
+	return retVal;
+}
+#endif
 
 long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
