@@ -2940,7 +2940,7 @@ static const unsigned int mt6765_mutex_sof[DDP_MUTEX_SOF_MAX] = {
 
 static const unsigned int mt6768_mutex_sof[DDP_MUTEX_SOF_MAX] = {
 		[DDP_MUTEX_SOF_SINGLE_MODE] =
-			MT6768_MUTEX_SOF_SINGLE_MODE | MT6768_MUTEX_EOF_DSI0,
+			MT6768_MUTEX_SOF_SINGLE_MODE,
 		[DDP_MUTEX_SOF_DSI0] =
 			MT6768_MUTEX_SOF_DSI0 | MT6768_MUTEX_EOF_DSI0,
 };
@@ -13253,6 +13253,8 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 	int i, j, id, type;
 	unsigned int val = DDP_MUTEX_SOF_SINGLE_MODE;
 	struct mtk_ddp_comp *comp = NULL;
+	struct mtk_drm_private *drm_priv = mtk_crtc->base.dev->dev_private;
+	unsigned int sof;
 
 	if (&ddp->mutex[mutex->id] != mutex)
 		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
@@ -13260,8 +13262,15 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 			&ddp->mutex[mutex->id], mutex, mutex->id);
 
 	if (is_cmd_mode) {
+		sof = ddp->data->mutex_sof[val];
+		/* Only primary display support MUTEX_EOF_EN_FOR_CMD_MODE on MT6768*/
+		if (drm_priv && drm_priv->data
+			&& drm_priv->data->mmsys_id == MMSYS_MT6768
+			&& drm_crtc_index(&mtk_crtc->base) == 0)
+			sof |= MT6768_MUTEX_EOF_DSI0;
+
 		writel_relaxed(
-			ddp->data->mutex_sof[val],
+			sof,
 			ddp->regs + DISP_REG_MUTEX_SOF(ddp->data, mutex->id));
 		if (ddp->data->dispsys_map && ddp->side_regs)
 			writel_relaxed(
@@ -13322,6 +13331,8 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_ddp *ddp = NULL;
 	unsigned int reg;
 	resource_size_t regs_pa;
+	struct mtk_drm_private *drm_priv = mtk_crtc->base.dev->dev_private;
+	unsigned int sof;
 
 	if (mutex_id >= DDP_PATH_NR) {
 		DDPPR_ERR("mutex id is out of bound:%d\n", mutex_id);
@@ -13397,9 +13408,16 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 
 		return;
 	}
+	sof = ddp->data->mutex_sof[reg];
+	/* Only primary display support MUTEX_EOF_EN_FOR_CMD_MODE on MT6768*/
+	if (is_cmd_mode && drm_priv && drm_priv->data
+		&& drm_priv->data->mmsys_id == MMSYS_MT6768
+		&& drm_crtc_index(&mtk_crtc->base) == 0)
+		sof |= MT6768_MUTEX_EOF_DSI0;
+
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       regs_pa + DISP_REG_MUTEX_SOF(ddp->data, mutex->id),
-		       ddp->data->mutex_sof[reg], ~0);
+		       sof, ~0);
 }
 
 void mtk_disp_mutex_remove_comp(struct mtk_disp_mutex *mutex,
