@@ -53,6 +53,16 @@ config MICROTRUST_DYNAMIC_CORE
 	  Say Y if you would like to enable the driver.
 	  If unsure, say Y.
 
+config MICROTRUST_TEE_K_IOCTL
+	tristate "Use tee_k_ioctl in Microtrust Kernel client API"
+	depends on MICROTRUST_TEE_SUPPORT
+	default n
+	help
+	  Use the tee_k_ioctl function in Microtrust Kernel client API.
+	  Support copy kernel space data in teei driver.
+	  Say Y if get_fs / set_fs functions can NOT take effect.
+	  If unsure, say N.
+
 config MICROTRUST_TZ_DRIVER_MTK_BOOTPROF
 	tristate "Enable MTK bootprof to track boot progress of TEEI"
 	depends on MICROTRUST_TZ_DRIVER
