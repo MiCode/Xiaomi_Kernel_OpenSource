@@ -1,0 +1,421 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ */
+
+// himax 83112A cphy panel driver setting
+&dsi0 {
+	panel1 {
+		compatible = "mtk,general,panel";
+		status = "okay";
+		reg = <1>; /* !!! must set, if no, the panel not load !!! */
+		reset-gpios = <&pio 86 0>; /* must set */
+		/* must set, at least one pair <level delay_ms> */
+		reset-sequence = <1 10>, <0 5>, <1 10>;
+		pinctrl-names = "default";
+		/* must set, for multi panel compatible support */
+		panel-name = "hx83112a_vdo_144hz_cphy";
+		lcm-dsi-lane-num = <3>; /* must set, can be 1/2/3/4 */
+		/* must set, can be RGB88(0)/RGB66(1)/RGB666_PACKED(2)/RGB565(3) */
+		lcm-dsi-format = <0>;
+		/* must set, 0 CMD/1 SYNC_EVENT/2 BURST/4 SYNC PULSE */
+		lcm-dsi-modeflag = <0xe05>;
+		/* must set, dsi_type:0x23/0x29...
+		 *			last:1 vc:0 ack:0 delay_ms
+		 *			data_len data[0] data[1] ...
+		 */
+		lcm-init-cmd = [
+			29 01 00 00 00 00 06 B9 83 12 2A 55 00
+			39 01 00 00 00 00 03 51 0F FF
+			15 01 00 00 00 00 02 53 24
+			29 01 00 00 00 00 23 B1 1C 71 71 2D ED
+			      52 2F 1B 22 22 00 00 12 33 E1 40
+				  CD 44 1A 05 14 00 00 88 C4 CC CC CC
+				  0F 88 12 00 00 D0
+			23 01 00 00 00 00 02 E9 E5
+			29 01 00 00 00 00 03 B1 FF A0
+			23 01 00 00 00 00 02 E9 3F
+			23 01 00 00 00 00 02 BD 01
+			29 01 00 00 00 00 04 B1 01 23 00
+			23 01 00 00 00 00 02 BD 00
+			29 01 00 00 00 00 12 B2 00 6A 40 00 00 14
+						76 00 41 00 00 11 00 00 00 15 27
+			29 01 00 00 00 00 2D B4 00 3F 00 3F 00 3F
+						00 3F 00 3F 00 3F 00 50 00 00 00
+						13 00 27 07 07 07 00 00 00 00 00
+						00 00 00 00 00 00 FF 00 FF 10 00
+						02 2B 2B 2B 2B
+			29 01 00 00 00 00 04 B6 86 86 03
+			23 01 00 00 00 00 02 E9 CD
+			29 01 00 00 00 00 04 BA 84 01 01
+			23 01 00 00 00 00 02 E9 3F
+			23 01 00 00 00 00 02 BD 02
+			29 01 00 00 00 00 05 BA 70 03 A8 AD
+			23 01 00 00 00 00 02 BD 03
+			29 01 00 00 00 00 07 BA 00 00 20 C0 79 F8
+			23 01 00 00 00 00 02 BD 00
+			29 01 00 00 00 00 04 BC 33 02 04
+			29 01 00 00 00 00 08 BF 00 41 80 1C 36 00 85
+			23 01 00 00 00 00 02 BD 01
+			29 01 00 00 00 00 04 BF 0A B3 69
+			23 01 00 00 00 00 02 BD 02
+			23 01 00 00 00 00 02 BF 70
+			23 01 00 00 00 00 02 BD 00
+			29 01 00 00 00 00 07 C0 09 09 44 22 88 D8
+			23 01 00 00 00 00 02 E9 D2
+			23 01 00 00 00 00 02 C0 FF
+			23 01 00 00 00 00 02 E9 3F
+			29 01 00 00 00 00 07 CB 00 13 38 00 04 93
+			23 01 00 00 00 00 02 BD 01
+			29 01 00 00 00 00 08 CB 1F 55 02 28 1C 08 1F
+			23 01 00 00 00 00 02 BD 00
+			23 01 00 00 00 00 02 CC 02
+			29 01 00 00 00 00 03 CE 00 8A
+			29 01 00 00 00 00 07 D0 07 C0 18 48 11 08
+			29 01 00 00 00 00 05 D1 07 03 0C FD
+			23 01 00 00 00 00 02 E9 C9
+			23 01 00 00 00 00 02 D1 02
+			23 01 00 00 00 00 02 E9 3F
+			23 01 00 00 00 00 02 E9 C9
+			23 01 00 00 00 00 02 C7 80
+			23 01 00 00 00 00 02 E9 3F
+			23 01 00 00 00 00 02 BD 01
+			29 01 00 00 00 00 08 D2 00 00 00 01 00 00 70
+			23 01 00 00 00 00 02 BD 00
+			29 01 00 00 00 00 29 D3 00 C0 14 14 14 14 14 14
+						14 00 03 03 03 10 01 0C 0C 0C 0C 0C 0C
+						32 10 13 00 13 32 10 03 00 03 32 10 03
+						00 03 00 00 FF 00
+			23 01 00 00 00 00 02 BD 01
+			23 01 00 00 00 00 02 D3 04
+			23 01 00 00 00 00 02 E9 C9
+			23 01 00 00 00 00 02 D3 04
+			23 01 00 00 00 00 02 E9 3F
+			23 01 00 00 00 00 02 BD 02
+			29 01 00 00 00 00 10 D3 00 00 00 00 00 00 02 02 02 01 11 00 00 00 01
+			23 01 00 00 00 00 02 BD 00
+			29 01 00 00 00 00 31 D5 18 18 18 18 18 18 18 18 01 01
+						00 00 03 03 02 02 C7 C7 C7 C7 C0 C0 C0 C0 C0
+						C0 C0 C0 40 40 40 40 18 18 18 18 18 18 BE BE
+						21 21 20 20 18 18 18 18
+			29 01 00 00 00 00 31 D6 18 18 18 18 18 18 18 18 02 02
+						03 03 00 00 01 01 C7 C7 C7 C7 18 18 C0 C0 C0
+						C0 C0 C0 40 40 40 40 C0 C0 18 18 18 18 BE BE
+						20 20 21 21 18 18 18 18
+			23 01 00 00 00 00 02 BD 01
+			29 01 00 00 00 00 25 D8 FF FF FF FF FF FA FF FF FF FF
+						FF FA FF FF FF FF FF FA FF FF FF FF FF FA FF
+						FF FF FF FF FA FF FF FF FF FF FA
+			23 01 00 00 00 00 02 BD 02
+			29 01 00 00 00 00 0D D8 FF FF FF FF FF FA FF FF FF FF FF FA
+			23 01 00 00 00 00 02 BD 03
+			29 01 00 00 00 00 19 D8 FF AA AA AF AA AA FF AA AA AF
+						AA AA FF FF FF FF FF FA FF FF FF FF FF FA
+			23 01 00 00 00 00 02 BD 00
+			29 01 00 00 00 00 25 D8 AA FF FA AA AB AA AA FF FA AA
+						AB AA AA FF FA AA AB AA AA FF FA AA AB AA
+						AA FF FA AA AB AA AA FF FA AA AB AA
+			29 01 00 00 00 00 04 D9 AF 04 02
+			29 01 00 00 00 00 2F E0 00 0F 29 2E 37 71 85 8D 91 92
+						93 92 90 8F 8D 8B 8A 8D 8F A7 B9 50 67 00
+						0F 29 2E 37 71 85 8D 91 92 93 92 90 8F 8D
+						8B 8A 8D 8F A7 B9 50 67
+			29 01 00 00 00 00 40 E1 11 00 00 89 30 80 0A 00 03 20
+						00 14 03 20 03 20 02 00 02 91 00 20 02 47
+						00 0B 00 0C 05 0E 03 68 18 00 10 E0 03 0C
+						20 00 06 0B 0B 33 0E 1C 2A 38 46 54 62 69
+						70 77 79 7B 7D 7E 01 02 01 00 09
+			23 01 00 00 00 00 02 BD 01
+			29 01 00 00 00 00 1A E1 40 09 BE 19 FC 19 FA 19 F8 1A
+						38 1A 78 1A B6 2A F6 2B 34 2B 74 3B 74 6B F4
+			23 01 00 00 00 00 02 BD 03
+			29 01 00 00 00 00 03 E1 01 3F
+			23 01 00 00 00 00 02 BD 00
+			29 01 00 00 00 00 0C E7 4F 05 05 64 52 21 03 1B 69 02 02
+			23 01 00 00 00 00 02 E9 D8
+			23 01 00 00 00 00 02 E7 18
+			23 01 00 00 00 00 02 E9 3F
+			23 01 00 00 00 00 02 BD 01
+			29 01 00 00 00 00 0B E7 02 00 0A 01 04 04 0D 05 2A 0A
+			23 01 00 00 00 00 02 BD 02
+			29 01 00 00 00 00 23 E7 01 07 01 07 01 07 06 06 06 16 00
+						16 81 02 40 00 1E 50 05 04 03 02 01 00 00 00
+						00 00 00 00 00 00 00 00
+			23 01 00 00 00 00 02 BD 00
+			29 01 00 00 00 00 04 BE 80 00 F0
+			23 01 00 00 00 00 02 BB 00
+			23 01 00 00 00 00 02 E9 D0
+			23 01 00 00 00 00 02 BB 38
+			23 01 00 00 00 00 02 E9 3F
+			29 01 00 00 00 00 06 B9 00 00 00 00 00
+			05 01 00 00 50 00 01 11
+			05 01 00 00 00 00 01 29
+		];
+		lcm-deinit-cmd = [ /* must set */
+			05 01 00 00 50 00 01 28
+			05 01 00 00 14 00 01 10 ];
+		/* if backlight control by lcm, must set, according to ddic */
+		backlight-max-level = <2047>;
+		/* if backlight control by lcm pwm, must set */
+		backlight-setting-cmd = [39 01 00 00 00 00 03 51 07 FF];
+		/* Note: panel-pwr-supply@xxx must according to the power on sequence */
+		//panel-pwr-supply@0 { /* must set at least one */
+		//	reg = <0>;
+		//	pwr-name = "v1_8"; /* must set, according regulator or gpio setting */
+		//	pwr-ctrl-mode = "regulator"; /* must set, can be regulator/gpio/pmic */
+		//  /* xxx-supply, xxx must according to pwr-name, must set */
+		//	v1_8-supply = <&mt_pmic_vtp_ldo_reg>;
+		//  /* regulator setting in lk */
+		//	v1_8_lk-supply = <6360 8 0x15 0x40 0xff 0x00 0x11 0x1 0x1 0x6>;
+		//	pwr-set-voltage = <1800000>; /* if power type is regulator, must set */
+		//	delay_ms = <10>; /* must set, after power on this power, delay xxx ms */
+		//};
+		//panel-pwr-supply@1 {
+		//	reg = <1>;
+		//	pwr-name = "v1_0"; /* must set, can be regulator/gpio/pmic */
+		//	v1_0-gpios = <&pio 108 0>; /* xxx-gpios, xxx must as pwr-name, must set */
+		//	pwr-ctrl-mode = "gpio"; /* must set, can be regulator/gpio/pmic */
+		/*if power type is gpio, must set, power on this power,
+		 *		the gpio state should be
+		 */
+		//	pwr-high-level = <1>;
+		//	delay_ms = <5>; /* must set, after power on this power, delay xxx ms */
+		//};
+		panel-pwr-supply@0 {
+			reg = <2>;
+			pwr-name = "demo";
+			pwr-ctrl-mode = "pmic";
+			delay_ms = <10>;
+		};
+
+		/* Note: mode@0 must be default mode */
+		panel-mode-setting@0 { /* must set, at lease one */
+			panel-mode-width = <1600>; /* must set */
+			panel-mode-height = <2560>; /* must set */
+			panel-mode-hfp = <100>; /* must set */
+			panel-mode-hsa = <40>; /* must set */
+			panel-mode-hbp = <60>; /* must set */
+			panel-mode-vfp = <120>; /* must set */
+			panel-mode-vsa = <4>; /* must set */
+			panel-mode-vbp = <18>; /* must set */
+			panel-mode-clock = <700359>; /* must set, htotal*vtotal*fps */
+			panel-mode-vrefresh = <144>; /* k419 must set, k510 optional*/
+			panel-mode-width_mm = <129>; /* optional */
+			panel-mode-height_mm = <64>; /* optional */
+		};
+		/* Note: ext-param@0 must be default mode, nubmer of it must equal number of mode */
+		panel-ext-param-setting@0 { /* must set, at lease one */
+			ext-param-data_rate_khz = <816000>; /* must set, khz */
+			ext-param-is_cphy = <1>; /* optional */
+			ext-param-output_mode = <2>; /* optional, single/dsc_single/dsc_dual */
+			/* must set in lk, can be 1(dsi0)/2(dsi1)/3(dsidual) */
+			ext-param-lcm_if = <1>;
+			ext-param-lcm_cmd_if = <2>; /* optional, single/dsc_single/dsc_dual */
+			ext-param-ssc_disable = <1>; /* optional, can be 0/1 */
+			ext-param-bdg_ssc_disable = <1>; /* optional, can be 0/1 */
+			//ext-param-ssc_range = <0>; /* optional, if ssc_en=1, must set */
+			//ext-param-lcm_color_mode = <0>; /* optional */
+			//ext-param-min_luminance = <0>; /* optional */
+			//ext-param-average_luminance = <0>; /* optional */
+			//ext-param-max_luminance = <0>; /* optional */
+			//ext-param-round_corner_en = <0>; /* optional */
+			// /* optional, if round_corner_en=1 must set */
+			//ext-param-corner_pattern_height = <0>;
+			// /* optional, if round_corner_en=1 must set */
+			//ext-param-corner_pattern_height_bot = <0>;
+			// /* optional, if round_corner_en=1 must set */
+			//ext-param-corner_pattern_tp_size = <0>;
+			// /* optional, if round_corner_en=1 must set */
+			//ext-param-corner_pattern_tp_size_l = <0>;
+			// /* optional, if round_corner_en=1 must set */
+			//ext-param-corner_pattern_tp_size_r = <0>;
+			// /* optional, if round_corner_en=1 must set */
+			//ext-param-corner_pattern_lt_addr = <0>;
+			// /* optional, if round_corner_en=1 must set */
+			//ext-param-corner_pattern_lt_addr_l = <0>;
+			// /* optional, if round_corner_en=1 must set */
+			//ext-param-corner_pattern_lt_addr_r = <0>;
+			//ext-param-physical_width_um = <0>; /* optional */
+			//ext-param-physical_height_um = <0>; /* optional */
+			//ext-param-hbm_en_time = <0>; /* optional */
+			//ext-param-hbm_dis_time = <0>; /* optional */
+			//ext-param-lcm_index = <0>; /* optional */
+			//ext-param-wait_sof_before_dec_vfp = <0>; /* optional */
+			//ext-param-doze_delay = <0>; /* optional */
+			//ext-param-lfr_enable = <0>; /* optional */
+			//ext-param-lfr_minimum_fps = <0>; /* optional */
+			//ext-param-cust_esd_check = <1>; /* optional */
+			//ext-param-esd_check_enable = <0>; /* optional */
+			// /* optional [cmd count par[0] mask[0]], type:u8 hex */
+			//ext-param-lcm_esd_check_table = [0a 01 9c ff];
+			//ext-param-vfp_lp = <0>; /* optional */
+			//ext-param-bdg_lane_swap_en = <0>; /* optional */
+			//ext-param-lane_swap_en = <1>; /* optional */
+			/* optional, if lane_swap_en=1 or bdg_lane_swap_en=1, must be set,
+			 *	can be 0/1/2/3/4 type:u32 hex
+			 */
+			//ext-param-lane_swap_data = <02 00 01 03 04 01
+			//							00 01 02 03 04 00>;
+			/* optional, if lane_swap_en=1 and is_cphy=1, must be set,
+			 *	can be 0/1/2/3/4/5/6/7/8/9 type:u32 hex
+			 */
+			//ext-param-cphy_lane_swap_data =
+			//					<00 01 02 03 04 05 06 07 08 09
+			//					00 01 02 03 04 05 06 07 08 09>;
+			//ext-param-bdg_dsc_enable = <1>; /* optional */
+			ext-param-dsc_enable = <1>; /* optional */
+			//ext-param-dual_dsc_enable = <0>;
+			/* optional, if dsc_enable=1 or bdg_dsc_enable=1 must be set, can be 0/1 */
+			ext-param-dsc_slice_mode = <0>;
+			ext-param-dsc_pps = [
+				11 00 00 89 30 80 0A 00 03 20 00 14 03 20 03 20
+				02 00 02 91 00 20 02 47 00 0B 00 0C 05 0E 03 68
+				18 00 10 E0 03 0C 20 00 06 0B 0B 33 0E 1C 2A 38
+				46 54 62 69 70 77 79 7B 7D 7E 01 02 01 00 09 40
+				09 BE 19 FC 19 FA 19 F8 1A 38 1A 78 1A B6 2A F6
+				2B 34 2B 74 3B 74 6B F4 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00];
+			//ext-param-change_fps_vfp_send_cmd = <0>;
+			//ext-param-vdo_per_frame_lp_enable = <0>;
+			//ext-param-lp_perline_en = <0>;
+			//ext-param-cmd_null_pkt_en = <0>;
+			//ext-param-cmd_null_pkt_len = <0>;
+			//ext-param-set_area_before_trigger = <0>;
+
+			//ext-param-skip_unnecessary_switch;
+			//ext-param-send_cmd_to_ddic = <0 0 1 2 0a 00>;
+			//ext-param-spr_out_put_mode = <0>;
+			//ext-param-panel_rotate = <0>;
+			//ext-param-phy_timcon_setting {
+			//	phy_timcon-hs_trail = <0>;
+			//	phy_timcon-hs_prpr = <0>;
+			//	phy_timcon-hs_zero = <0>;
+			//	phy_timcon-lpx = <0>;
+			//	phy_timcon-ta_get = <0>;
+			//	phy_timcon-ta_sure = <0>;
+			//	phy_timcon-ta_go = <0>;
+			//	phy_timcon-da_hs_exit = <0>;
+			//	phy_timcon-clk_trail = <0>;
+			//	phy_timcon-cont_det = <0>;
+			//	phy_timcon-da_hs_sync = <0>;
+			//	phy_timcon-clk_zero = <0>;
+			//	phy_timcon-clk_hs_prpr = <0>;
+			//	phy_timcon-clk_hs_exit = <0>;
+			//	phy_timcon-clk_hs_post = <0>;
+			//};
+			//ext-param-dyn_setting {
+			//	dyn-switch_en = <0>;
+			//	dyn-pll_clk = <0>;
+			//	dyn-data_rate = <0>;
+			//	dyn-vsa = <0>;
+			//	dyn-vbp = <0>;
+			//	dyn-vfp = <0>;
+			//	dyn-vfp_lp_dyn = <0>;
+			//	dyn-hsa = <0>;
+			//	dyn-hbp = <0>;
+			//	dyn-hfp = <0>;
+			//	dyn-max_vfp_for_msync_dyn = <0>;
+			//};
+			//ext-param-dyn_fps_setting {
+			//	dyn_fps-switch_en = <1>;
+			//	dyn_fps-vact_timing_fps = <120>;
+			//	//dyn_fps-data_rate = <0>;
+			//	dyn_fps-switch_cmd_0 = <0 4 0xb9 0x83 0x10 0x21>;
+			//	dyn_fps-switch_cmd_1 = <0 2 0xe2 0x00>;
+			//	dyn_fps-switch_cmd_2 = <0 2 0xb9 0x00>;
+			//};
+		};
+		port {
+			panel1_in: endpoint {
+				remote-endpoint = <&dsi_out1>;
+			};
+		};
+	};
+	panel2 {
+		compatible = "mtk,general,panel";
+		panel-name = "dsi 0 test2 panel";
+		status = "okay";
+		/* !!! must set, if no, the panel not load !!! */
+		reg = <2>;
+		/* set it if setting for sub path, will skip panel id check */
+		//sub-path-panel;
+		port {
+			panel2_in: endpoint {
+				remote-endpoint = <&dsi_out2>;
+			};
+		};
+	};
+	panel3 {
+		status = "okay";
+		compatible = "mtk,general,panel";
+		reg = <3>; /* !!! must set, if no, the panel not load !!! */
+		panel-name = "dsi0 test 3 panel";
+		port {
+			panel3_in: endpoint {
+				remote-endpoint = <&dsi_out3>;
+			};
+		};
+	};
+	ports {
+		port@1 {
+			reg = <1>;
+			dsi_out1: endpoint {
+				remote-endpoint = <&panel1_in>;
+			};
+		};
+		port@2 {
+			reg = <2>;
+			dsi_out2: endpoint {
+				remote-endpoint = <&panel2_in>;
+			};
+		};
+		port@3 {
+			reg = <3>;
+			dsi_out3: endpoint {
+				remote-endpoint = <&panel3_in>;
+			};
+		};
+		port@4 {
+			reg = <4>;
+			master_out: endpoint {
+				remote-endpoint = <&slave_in>;
+			};
+		};
+	};
+};
+
+//&dsi1 {
+//	mediatek,dual-dsi-slave;
+//	status = "okay";
+
+//	panel4 {
+//		compatible = "mtk,general,panel";
+//		panel-name = "dsi 1 test4 panel";
+//		status = "okay";
+//		/* !!! must set, if no, the panel not load !!! */
+//		reg = <4>;
+//		/* set it if setting for sub path, will skip panel id check */
+//		//sub-path-panel;
+//		port {
+//			panel4_in: endpoint {
+//				remote-endpoint = <&dsi_out4>;
+//			};
+//		};
+//	};
+//	ports {
+//		port@1 {
+//			reg = <1>;
+//			slave_in: endpoint {
+//				remote-endpoint = <&master_out>;
+//			};
+//		};
+//		port@2 {
+//			reg = <4>;
+//			dis_out4: endpoint {
+//				remote-endpoint = <&panel4_in>;
+//			};
+//		};
+//	};
+//};
