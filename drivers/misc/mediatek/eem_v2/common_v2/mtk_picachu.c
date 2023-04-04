@@ -319,7 +319,11 @@ static void __exit picachu_exit(void)
 		iounmap(eem_base_addr);
 }
 
+#if IS_BUILTIN(CONFIG_MTK_PTPOD_LEGACY)
+subsys_initcall(picachu_init);
+#else
 module_init(picachu_init);
+#endif
 module_exit(picachu_exit);
 
 MODULE_DESCRIPTION("MediaTek Picachu Driver v0.1");

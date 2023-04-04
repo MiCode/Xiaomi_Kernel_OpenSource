@@ -2999,7 +2999,7 @@ static struct notifier_block eem_pm_notifier_func = {
 /*
  * Module driver
  */
-static int eem_init(void)
+static int __init eem_init(void)
 {
 	int err = 0;
 #ifdef DRCC_SUPPORT
@@ -3049,14 +3049,18 @@ static int eem_init(void)
 	return 0;
 }
 
-static void eem_exit(void)
+static void __exit eem_exit(void)
 {
 	FUNC_ENTER(FUNC_LV_MODULE);
 	eem_debug("eem de-initialization\n");
 	FUNC_EXIT(FUNC_LV_MODULE);
 }
 
+#if IS_BUILTIN(CONFIG_MTK_PTPOD_LEGACY)
+late_initcall(eem_init);
+#else
 module_init(eem_init);
+#endif
 module_exit(eem_exit);
 MODULE_DESCRIPTION("MediaTek EEM Driver v0.3");
 MODULE_LICENSE("GPL v2");
