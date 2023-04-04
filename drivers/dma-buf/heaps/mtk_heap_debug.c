@@ -861,15 +861,24 @@ static int dma_heap_buf_dump_cb(const struct dma_buf *dmabuf, void *priv)
 	struct mtk_heap_dump_s *dump_param = priv;
 	struct seq_file *s = dump_param->file;
 	struct dma_heap *dump_heap = dump_param->heap;
+	struct dma_buf tmp_dmabuf;
+	struct file tmp_file;
 	unsigned long flag = dump_param->flag;
 	int delta = 0;
 
+	if (WARN_ON(!dmabuf || !dmabuf->file))
+		return 0;
 	/* heap is valid but buffer is not from this heap */
 	if (dump_heap && !is_dmabuf_from_heap(dmabuf, dump_heap))
 		return 0;
 
 	if (flag & HEAP_DUMP_DEC_1_REF)
 		delta = 1;
+
+	if (get_kernel_nofault(tmp_dmabuf, dmabuf) ||
+	    get_kernel_nofault(tmp_file, dmabuf->file) ||
+	    !is_dma_buf_file(dmabuf->file))
+		return 0;
 
 	spin_lock((spinlock_t *)&dmabuf->name_lock);
 	dmabuf_dump(s, "inode:%-8lu size(Byte):%-10zu count:%-2ld cache_sg:%d  exp:%s\tname:%s\n",
@@ -1200,6 +1209,8 @@ static void dmabuf_rbtree_dump_buf(struct dump_fd_data *fddata, unsigned long fl
 
 		dbg_node = rb_entry(tmp_rb, struct dmabuf_debug_node, dmabuf_node);
 		dmabuf = dbg_node->dmabuf;
+		if (WARN_ON(!dmabuf))
+			return;
 
 		dma_heap_buf_dump_cb(dmabuf, &dump_param);
 

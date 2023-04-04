@@ -912,8 +912,12 @@ static int system_buf_priv_dump(const struct dma_buf *dmabuf,
 				struct seq_file *s)
 {
 	int i = 0, j = 0;
-	struct system_heap_buffer *buf = dmabuf->priv;
+	struct system_heap_buffer *buf =  NULL;
 
+	if (WARN_ON(!dmabuf || !dmabuf->priv))
+		return 0;
+
+	buf = dmabuf->priv;
 	dmabuf_dump(s, "\tbuf_priv: uncached:%d alloc_pid:%d(%s)tid:%d(%s) alloc_time:%lluus\n",
 		    !!buf->uncached,
 		    buf->pid, buf->pid_name,
@@ -929,7 +933,7 @@ static int system_buf_priv_dump(const struct dma_buf *dmabuf,
 			struct device *dev = buf->dev_info[i][j].dev;
 			struct sg_table *sgt = buf->mapped_table[i][j];
 
-			if (!sgt || !dev || !dev_iommu_fwspec_get(dev))
+			if (!mapped || !sgt || !sgt->sgl || !dev || !dev_iommu_fwspec_get(dev))
 				continue;
 
 			dmabuf_dump(s,
