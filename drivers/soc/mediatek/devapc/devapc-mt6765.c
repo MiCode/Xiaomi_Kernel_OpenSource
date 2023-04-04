@@ -26,6 +26,7 @@
 #include <linux/types.h>
 #include <linux/soc/mediatek/devapc_public.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/sched/clock.h>
 #include <linux/sched/debug.h>
 #ifdef DBG_ENABLE
 #include <linux/arm-smccc.h>

@@ -4,6 +4,8 @@ ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
 GCOV_PROFILE := y
 endif
 
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
+
 obj-$(CONFIG_DEVAPC_ARCH_COMMON) += device-apc-common-legacy.o
 device-apc-common-legacy-$(CONFIG_DEVAPC_ARCH_COMMON) += devapc-mtk-common.o
 
