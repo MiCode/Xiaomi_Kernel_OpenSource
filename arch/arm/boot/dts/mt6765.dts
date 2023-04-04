@@ -1442,7 +1442,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 
 			mtk_gauge: mtk_gauge {
 				compatible = "mediatek,mt6357-gauge";
-				charger = <&mt6370_chg>;
+				charger = <&mtk_charger_type>;
 				bootmode = <&chosen>;
 				io-channels = <&pmic_auxadc AUXADC_BAT_TEMP>,
 						<&pmic_auxadc AUXADC_BATADC>,
@@ -4817,7 +4817,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 	charger: charger {
 		compatible = "mediatek,charger";
 		gauge = <&mtk_gauge>;
-		charger = <&mt6370_chg>;
+		charger = <&mtk_charger_type>;
 		bootmode = <&chosen>;
 		pmic = <&main_pmic>;
 
@@ -4871,8 +4871,8 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 
 	mtk_ctd: mtk_ctd {
 		compatible = "mediatek,mtk_ctd";
-		bc12 = <&mt6370_chg>;
-		bc12_sel = <0>;
+		bc12 = <&mtk_charger_type>;
+		bc12_sel = <1>;
 	};
 
 	pd_adapter: pd_adapter {
@@ -4882,7 +4882,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
-		charger = <&mt6370_chg>;
+		charger = <&mtk_charger_type>;
 		vbus-supply = <&otg_vbus>;
 		vbus-voltage = <5000000>;
 		vbus-current = <1800000>;
@@ -5167,6 +5167,14 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 /* for md pmic voltage setting*/
 	md_vmodem-supply = <&mt_pmic_vmodem_buck_reg>;
 	md_vmodem = <800000 800000>;
+};
+
+&mt6370_chg {
+	charger = <&mtk_charger_type>; /*mt6370 get online status*/
+};
+
+&mtk_charger_type {
+	charger = <&mt6370_chg>; /*mt6357 get charger status*/
 };
 
 &mt6370 {
