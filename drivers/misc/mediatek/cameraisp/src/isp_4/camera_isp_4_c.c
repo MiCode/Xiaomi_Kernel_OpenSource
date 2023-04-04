@@ -3583,12 +3583,16 @@ static void ISP_EnableClock(bool En)
 		G_u4EnableClockCount++;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		Prepare_Enable_ccf_clock(); /* can't be used in spinlock! */
+		spin_lock(&(IspInfo.SpinLockClock));
 		if (G_u4EnableClockCount == 1) {
-			for (module = ISP_CAM_A_IDX; module < ISP_DEV_NODE_NUM; module++) {
+			spin_unlock(&(IspInfo.SpinLockClock));
+			for (module = ISP_CAM_A_IDX; module < ISP_CAMSV4_IDX; module++) {
 				enable_irq(isp_devs[module].irq);
 				LOG_INF(
 					"enable_irq cam %d\n", module);
 			}
+		} else {
+			spin_unlock(&(IspInfo.SpinLockClock));
 		}
 #endif
 	/* Disable CAMSYS_HALT1_EN: LSCI&BPCI, To avoid ISP halt keep arise */
@@ -3643,13 +3647,15 @@ static void ISP_EnableClock(bool En)
 
 			ISP_WR32(CLOCK_CELL_BASE, _reg&(~(1<<6)));
 		}
-		spin_unlock(&(IspInfo.SpinLockClock));
 		if (G_u4EnableClockCount == 0) {
-			for (module = ISP_CAM_A_IDX; module < ISP_DEV_NODE_NUM; module++) {
+			spin_unlock(&(IspInfo.SpinLockClock));
+			for (module = ISP_CAM_A_IDX; module < ISP_CAMSV4_IDX; module++) {
 				disable_irq(isp_devs[module].irq);
 				LOG_INF(
 					"disable_irq cam %d\n", module);
 			}
+		} else {
+			spin_unlock(&(IspInfo.SpinLockClock));
 		}
 		Disable_Unprepare_ccf_clock(); /* can't be used in spinlock! */
 #endif
