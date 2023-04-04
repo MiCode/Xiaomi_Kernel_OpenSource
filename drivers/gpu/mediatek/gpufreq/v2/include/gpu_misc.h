@@ -44,6 +44,7 @@ extern void mt_gpufreq_disable_by_ptpod(void);
 extern void mt_gpufreq_restore_default_volt(void);
 extern unsigned int mt_gpufreq_get_cur_volt(void);
 extern unsigned int mt_gpufreq_get_freq_by_idx(unsigned int idx);
+extern unsigned int mt_gpufreq_get_volt_by_idx(unsigned int idx);
 extern unsigned int mt_gpufreq_get_ori_opp_idx(unsigned int idx);
 extern unsigned int mt_gpufreq_get_volt_by_real_idx(unsigned int idx);
 extern unsigned int mt_gpufreq_get_freq_by_real_idx(unsigned int idx);
