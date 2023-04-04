@@ -13,9 +13,9 @@
 #define CREATE_TRACE_POINTS
 #include "mtk_cm_mgr_events_mt6761.h"
 
-#if IS_ENABLED(CONFIG_MTK_DRAMC_LEGACY)
-#include <mtk_dramc.h>
-#endif /* CONFIG_MTK_DRAMC_LEGACY */
+#if IS_ENABLED(CONFIG_MTK_DRAMC)
+#include <soc/mediatek/dramc.h>
+#endif /* CONFIG_MTK_DRAMC */
 
 #define PER_CPU_STALL_RATIO
 #define LIGHT_LOAD

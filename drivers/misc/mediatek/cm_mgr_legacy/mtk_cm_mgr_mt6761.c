@@ -108,7 +108,6 @@ struct cm_mgr_met_data {
 };
 
 static struct icc_path *cm_mgr_perf_bw_path;
-static struct icc_path *cm_mgr_polling_bw_path;
 
 
 u32 cm_mgr_get_perfs(int num)
@@ -365,9 +364,9 @@ static void debug_stall_all(void)
 
 static int cm_mgr_check_dram_type(void)
 {
-#if IS_ENABLED(CONFIG_MTK_DRAMC_LEGACY)
-	int ddr_type = get_ddr_type();
-	int ddr_hz = dram_steps_freq(0);
+#if IS_ENABLED(CONFIG_MTK_DRAMC)
+	int ddr_type = mtk_dramc_get_ddr_type();
+	int ddr_hz = mtk_dramc_get_steps_freq(0);
 
 	if (ddr_type == TYPE_LPDDR4X || ddr_type == TYPE_LPDDR4)
 		cm_mgr_idx = CM_MGR_LP4X_2CH_3200;
@@ -377,9 +376,9 @@ static int cm_mgr_check_dram_type(void)
 			__func__, __LINE__, ddr_type, ddr_hz, cm_mgr_idx);
 #else
 	cm_mgr_idx = 0;
-	pr_info("#@# %s(%d) NO CONFIG_MTK_DRAMC_LEGACY !!! set cm_mgr_idx to 0x%x\n",
+	pr_info("#@# %s(%d) NO CONFIG_MTK_DRAMC !!! set cm_mgr_idx to 0x%x\n",
 			__func__, __LINE__, cm_mgr_idx);
-#endif /* CONFIG_MTK_DRAMC_LEGACY */
+#endif /* CONFIG_MTK_DRAMC */
 
 	return cm_mgr_idx;
 };
@@ -1242,15 +1241,10 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	cm_mgr_perf_bw_path = of_mtk_icc_get(&pdev->dev, "cm-perf-bw");
+	cm_mgr_perf_bw_path = of_icc_get(&pdev->dev, "cm-perf-bw");
 	if (IS_ERR(cm_mgr_perf_bw_path)) {
 		dev_info(&pdev->dev, "get cm-perf_bw fail\n");
 		cm_mgr_perf_bw_path = NULL;
-	}
-	cm_mgr_polling_bw_path = of_mtk_icc_get(&pdev->dev, "cm-polling-bw");
-	if (IS_ERR(cm_mgr_polling_bw_path)) {
-		dev_info(&pdev->dev, "get cm-perf_polling_bw fail\n");
-		cm_mgr_polling_bw_path = NULL;
 	}
 
 	(void)cm_mgr_get_idx();
