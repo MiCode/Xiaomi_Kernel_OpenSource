@@ -521,8 +521,8 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-		/*	cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>, */
-		/*		<&SODI &SODI3 &DPIDLE &SUSPEND>; */
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
+				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu1: cpu@001 {
@@ -534,7 +534,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
@@ -547,7 +547,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
@@ -560,7 +560,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			operating-points-v2 = <&cluster0_opp>;
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+			cpu-idle-states = <&standby &MCDI_CPU &MCDI_CLUSTER>,
 				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
@@ -584,10 +584,10 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		idle-states {
 			entry-method = "arm,psci";
 
-			STANDBY: standby {
+			standby: standby {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x00000001>;
-				entry-latency-us = <600>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <600>;
 				min-residency-us = <1200>;
 				local-timer-stop;
@@ -596,7 +596,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			MCDI_CPU: mcdi-cpu {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x00010001>;
-				entry-latency-us = <600>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <600>;
 				min-residency-us = <1200>;
 				local-timer-stop;
@@ -605,7 +605,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			MCDI_CLUSTER: mcdi-cluster {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010001>;
-				entry-latency-us = <600>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <600>;
 				min-residency-us = <1200>;
 				local-timer-stop;
@@ -614,7 +614,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			SODI: sodi {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010002>;
-				entry-latency-us = <800>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
 				local-timer-stop;
@@ -623,7 +623,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			SODI3: sodi3 {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010003>;
-				entry-latency-us = <800>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
 				local-timer-stop;
@@ -632,7 +632,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			DPIDLE: dpidle {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010004>;
-				entry-latency-us = <800>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
 				local-timer-stop;
@@ -641,7 +641,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			SUSPEND: suspend {
 				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010005>;
-				entry-latency-us = <800>;
+				entry-latency-us = <3000000000>;
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
 				local-timer-stop;
