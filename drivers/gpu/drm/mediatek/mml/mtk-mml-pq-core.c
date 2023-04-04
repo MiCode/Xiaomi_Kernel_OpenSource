@@ -279,6 +279,10 @@ static void release_pq_task(struct kref *ref)
 	mml_pq_msg("%s aal_hist[%p] hdr_hist[%p]",
 		__func__, pq_task->aal_hist[0], pq_task->hdr_hist[0]);
 
+	kfree(pq_task->hdr_hist[0]);
+	kfree(pq_task->hdr_hist[1]);
+	kfree(pq_task->aal_hist[0]);
+	kfree(pq_task->aal_hist[1]);
 	kfree(pq_task->aal_readback.readback_data.pipe0_hist);
 	kfree(pq_task->aal_readback.readback_data.pipe1_hist);
 	kfree(pq_task->hdr_readback.readback_data.pipe0_hist);
