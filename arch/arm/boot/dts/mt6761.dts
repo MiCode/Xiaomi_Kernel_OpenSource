@@ -435,7 +435,6 @@ swiotlb=noforce \
 cgroup.memory=nosocket,nokmem \
 androidboot.hardware=mt6761 \
 maxcpus=8 loop.max_part=7 initcall_debug=1 earlycon=uart8250,mmio32,0x11002000 \
-pelt=8 \
 firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		kaslr-seed = <0 0>;
 	};
