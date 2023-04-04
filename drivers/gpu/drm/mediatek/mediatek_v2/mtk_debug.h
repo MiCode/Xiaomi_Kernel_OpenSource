@@ -80,5 +80,5 @@ unsigned int mtk_dbg_get_lfr_skip_num_value(void);
 unsigned int mtk_dbg_get_lfr_dbg_value(void);
 int hrt_lp_switch_get(void);
 #endif
-
+extern void mtk_mux_set_quick_switch_chk_cb(void (*callback) (void));
 #endif
