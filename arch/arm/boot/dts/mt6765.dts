@@ -3711,8 +3711,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		compatible = "mediatek,smi_larb1","mediatek,mt6765-smi-larb", "mediatek,smi-larb";
 		reg = <0 0x17010000 0 0x1000>;
 		mediatek,smi = <&smi_common>;
-		power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>,
-				<&scpsys MT6765_POWER_DOMAIN_VCODEC>;
+		power-domains = <&scpsys MT6765_POWER_DOMAIN_VCODEC>;
 		clocks = <&vcodecsys CLK_VENC_SET1_VENC>,
 			<&vcodecsys CLK_VENC_SET1_VENC>;
 		clock-names =  "apb" , "smi";
