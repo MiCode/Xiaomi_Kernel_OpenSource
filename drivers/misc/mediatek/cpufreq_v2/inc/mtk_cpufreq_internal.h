@@ -52,6 +52,16 @@
  * LOCK
  */
 extern void mt_ppm_get_cluster_ptpod_fix_freq_idx_register(void *fun);
+
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
+extern struct mutex cpufreq_mutex;
+#define cpufreq_lock()		mutex_lock(&cpufreq_mutex)
+#define cpufreq_unlock()	mutex_unlock(&cpufreq_mutex)
+
+extern struct mutex cpufreq_para_mutex;
+#define cpufreq_para_lock()		mutex_lock(&cpufreq_para_mutex)
+#define cpufreq_para_unlock()	mutex_unlock(&cpufreq_para_mutex)
+#else
 extern struct mutex cpufreq_mutex;
 extern bool is_in_cpufreq;
 #define cpufreq_lock(flags) \
@@ -81,6 +91,12 @@ extern struct mutex cpufreq_para_mutex;
 		flags = (unsigned long)&flags; \
 		mutex_unlock(&cpufreq_para_mutex); \
 	} while (0)
+
+extern int _search_available_freq_idx_under_v(struct mt_cpu_dvfs *p,
+	unsigned int volt);
+#endif
+
+
 
 /* Debugging */
 extern unsigned int func_lv_mask;
@@ -189,6 +205,7 @@ extern struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS];
 #define for_each_cpu_dvfs(i, p)			\
 for (i = 0, p = cpu_dvfs; i < NR_MT_CPU_DVFS; i++, p = &cpu_dvfs[i])
 
+
 #ifndef ONE_CLUSTER
 #define for_each_cpu_dvfs_only(i, p)	\
 for (i = 0, p = cpu_dvfs; (i < NR_MT_CPU_DVFS) && \
@@ -285,8 +302,7 @@ static inline unsigned int cpu_dvfs_get_idx_by_freq(struct mt_cpu_dvfs *mt_dvfs,
 
 extern int _search_available_freq_idx(struct mt_cpu_dvfs *p,
 	unsigned int target_khz, unsigned int relation);
-extern int _search_available_freq_idx_under_v(struct mt_cpu_dvfs *p,
-	unsigned int volt);
+
 extern void _mt_cpufreq_dvfs_request_wrapper(struct mt_cpu_dvfs *p,
 	int new_opp_idx, enum mt_cpu_dvfs_action_id action, void *data);
 extern int set_cur_volt_wrapper(struct mt_cpu_dvfs *p, unsigned int volt);
@@ -297,6 +313,7 @@ extern struct mt_cpu_dvfs *id_to_cpu_dvfs(enum mt_cpu_dvfs_id id);
 extern struct buck_ctrl_t *id_to_buck_ctrl(enum mt_cpu_dvfs_buck_id id);
 extern struct pll_ctrl_t *id_to_pll_ctrl(enum mt_cpu_dvfs_pll_id id);
 
+extern u32 get_devinfo_with_index(u32 index);
 extern int turbo_flag;
 
 extern void _kick_PBM_by_cpu(void);

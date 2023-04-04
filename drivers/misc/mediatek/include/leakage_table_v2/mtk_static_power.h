@@ -13,6 +13,10 @@
 #include "mtk_static_power_6765.h"
 #elif IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6833)
 #include "mtk_static_power_6833.h"
+#elif IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
+#include "mtk_static_power_6739.h"
+#elif IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+#include "mtk_static_power_6761.h"
 #else
 #include "mtk_static_power_plat.h"
 #endif

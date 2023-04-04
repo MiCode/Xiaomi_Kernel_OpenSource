@@ -1249,15 +1249,16 @@ static int mt6370_chg_get_status(struct mt6370_priv *priv,
 #if IS_ENABLED(CONFIG_MT6357_DO_CTD)
 	struct power_supply *chg_psy = NULL;
 
-	chg_psy = devm_power_supply_get_by_phandle(priv->dev, "charger");
-	if (chg_psy == NULL) {
+	chg_psy = devm_power_supply_get_by_phandle(priv->dev,
+						"charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
 		pr_info("get chg_psy fail %s\n", __func__);
 		return -1;
 	}
 
 	ret = power_supply_get_property(chg_psy, POWER_SUPPLY_PROP_ONLINE, val);
 	if (ret) {
-		pr_info("Failed to get online status\n");
+		dev_err(priv->dev, "Failed to get online status\n");
 		return ret;
 	}
 

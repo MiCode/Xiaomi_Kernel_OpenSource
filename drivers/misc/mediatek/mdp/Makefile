@@ -65,6 +65,8 @@ endif # !CONFIG_MTK_GMO_RAM_OPTIMIZE
 obj-$(CONFIG_MTK_MDP) += cmdq_helper_inf.o
 obj-$(CONFIG_MTK_MDP_MT6873) += mdp_drv_mt6873.o
 obj-$(CONFIG_MTK_MDP_MT6853) += mdp_drv_mt6853.o
+obj-$(CONFIG_MTK_MDP_MT6761) += mdp_drv_mt6761.o
+obj-$(CONFIG_MTK_MDP_MT6739) += mdp_drv_mt6739.o
 ifeq ($(CONFIG_MTK_MDP), y)
 obj-$(CONFIG_MTK_MDP_MT6768) += mdp_drv_mt6768.o
 obj-$(CONFIG_MTK_MDP_MT6765) += mdp_drv_mt6765.o
@@ -103,6 +105,14 @@ endif
 ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6765.c),)
 obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6765.o
 endif
+
+ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6761.c),)
+obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6761.o
+endif
+
+ifneq ($(wildcard $(srctree)/$(src)/mdp_mt6739.c),)
+obj-$(CONFIG_MTK_MDP) += mdp_drv_mt6739.o
+endif
 endif
 
 mdp_drv_mt6873-objs := mdp_drv.o mdp_mt6873.o
@@ -116,6 +126,8 @@ mdp_drv_mt6855-objs := mdp_drv.o mdp_mt6855.o
 mdp_drv_mt6789-objs := mdp_drv.o mdp_mt6789.o
 mdp_drv_mt6768-objs := mdp_drv.o mdp_mt6768.o
 mdp_drv_mt6765-objs := mdp_drv.o mdp_mt6765.o
+mdp_drv_mt6761-objs := mdp_drv.o mdp_mt6761.o
+mdp_drv_mt6739-objs := mdp_drv.o mdp_mt6739.o
 
 mdp_drv-objs := mdp_driver.o \
 	mdp_ioctl_ex.o \

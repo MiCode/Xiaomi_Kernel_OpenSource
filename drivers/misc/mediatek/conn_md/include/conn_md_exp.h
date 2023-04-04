@@ -6,44 +6,13 @@
 #ifndef __CONN_MD_EXP_H_
 #define __CONN_MD_EXP_H_
 
-#ifdef KERNEL_5_4_NOT_FINISH_PORTING
 #include "port_ipc.h"		/*mediatek/kernel/drivers/eccci */
 #include "ccci_ipc_task_ID.h"	/*mediatek/kernel/drivers/eccci */
-#endif
 #define uint32 unsigned int
 #define uint8 unsigned char
 #define uint16 unsigned short
 #ifdef CHAR
 #undef CHAR
-#endif
-
-#ifndef KERNEL_5_4_NOT_FINISH_PORTING
-#define    MD_MOD_EL1    5
-
-struct local_para {
-	unsigned char ref_count;
-	unsigned char _stub; /* MD complier will align ref_count to 16bit */
-	unsigned short msg_len;
-	unsigned char data[0];
-} __packed;
-
-struct peer_buff {
-	unsigned short pdu_len;
-	unsigned char ref_count;
-	unsigned char pb_resvered;
-	unsigned short free_header_space;
-	unsigned short free_tail_space;
-	unsigned char data[0];
-} __packed;
-
-struct ipc_ilm {
-	unsigned long src_mod_id;
-	unsigned long dest_mod_id;
-	unsigned long sap_id;
-	unsigned long msg_id;
-	struct local_para *local_para_ptr;
-	struct peer_buff *peer_buff_ptr;
-}; /* for conn_md */
 #endif
 
 /*

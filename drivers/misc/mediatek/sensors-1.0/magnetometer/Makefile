@@ -6,6 +6,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensors-1.0/include
 obj-$(CONFIG_MTK_SENSOR_SUPPORT)   +=  mag_common.o
 mag_common-$(CONFIG_MTK_SENSOR_SUPPORT)   +=  mag.o mag_factory.o
 
-obj-$(CONFIG_MTK_MAGHUB)        +=  maghub/
-#obj-$(CONFIG_MTK_AKM09915_NEW)         +=  akm09915/
-#obj-$(CONFIG_MTK_AKM09918)          +=  akm09918/
+obj-$(CONFIG_MTK_MAGHUB) += maghub/
+#obj-$(CONFIG_MTK_AKM09915_NEW) += akm09915/
+ifeq ($(CONFIG_MTK_AKM09918),y)
+obj-$(CONFIG_MTK_AKM09918) += akm09918/
+endif

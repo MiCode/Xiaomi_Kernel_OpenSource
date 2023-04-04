@@ -326,8 +326,7 @@ void mtk_iova_dbg_dump(struct seq_file *s)
 static int m4u_debug_set(void *data, u64 val)
 {
 	int ret = 0;
-#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
-	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
 	u32 sec_handle = 0;
 	u32 refcount = 0;
 	u32 size = 0x1000;

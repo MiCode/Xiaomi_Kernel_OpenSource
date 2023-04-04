@@ -413,6 +413,7 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 	case DISP_HW_OVL_TB:
 		map = ovl_mapping_table[addon_data->hrt_type];
 		if (priv->secure_static_path_switch == true ||
+			priv->data->mmsys_id == MMSYS_MT6739 ||
 			(mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
 			priv->need_vds_path_switch))
@@ -421,6 +422,7 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 	case DISP_HW_LARB_TB:
 		map = larb_mapping_table[addon_data->hrt_type];
 		if (priv->secure_static_path_switch == true ||
+			priv->data->mmsys_id == MMSYS_MT6739 ||
 			(mtk_drm_helper_get_opt(priv->helper_opt,
 			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
 			priv->need_vds_path_switch))
@@ -430,6 +432,7 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 		if (param <= MAX_PHY_OVL_CNT && param >= 0) {
 			tmp_map = layer_mapping_table[addon_data->hrt_type];
 			if (priv->secure_static_path_switch == true ||
+				priv->data->mmsys_id == MMSYS_MT6739 ||
 				(mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_VDS_PATH_SWITCH) &&
 				priv->need_vds_path_switch))

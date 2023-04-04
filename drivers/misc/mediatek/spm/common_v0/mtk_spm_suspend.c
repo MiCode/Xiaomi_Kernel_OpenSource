@@ -103,10 +103,17 @@ struct spm_wakesrc_irq_list spm_wakesrc_irqs[] = {
 	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,mtk-btcvsd-snd", 0, 0},
 	/* wf_hif_int */
 	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 0, 0},
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+	/* conn2ap_btif_wakeup_out */
+	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6761-consys", 0, 0},
+	/* conn2ap_sw_irq */
+	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6761-consys", 2, 0},
+#else
 	/* conn2ap_btif_wakeup_out */
 	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6765-consys", 0, 0},
 	/* conn2ap_sw_irq */
 	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6765-consys", 2, 0},
+#endif
 	/* CCIF_AP_DATA */
 	{ WAKE_SRC_R12_CCIF0_EVENT_B, "mediatek,ap_ccif0", 0, 0},
 	/* SCP A IPC2HOST */
@@ -395,6 +402,17 @@ bool spm_is_enable_sleep(void)
 	return true;
 }
 
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+bool spm_get_is_cpu_pdn(void)
+{
+	return is_cpu_pdn(suspend_pcm_flags);
+}
+
+bool spm_get_is_infra_pdn(void)
+{
+	return is_infra_pdn(suspend_pcm_flags);
+}
+#else
 bool spm_suspend_condition_check(void)
 {
 	if (is_infra_pdn(suspend_pcm_flags) && !is_cpu_pdn(suspend_pcm_flags)) {
@@ -404,6 +422,7 @@ bool spm_suspend_condition_check(void)
 
 	return true;
 }
+#endif
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 #if IS_ENABLED(CONFIG_MTK_PMIC) || IS_ENABLED(CONFIG_MTK_PMIC_NEW_ARCH)
@@ -449,8 +468,9 @@ unsigned int spm_go_to_sleep(void)
 			SPM_PWR_CTRL_SUSPEND, PW_WAKE_SRC, 0);
 
 	__spm_set_pwrctrl_pcm_flags(pwrctrl, spm_flags);
-
+#if !IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
 	__sync_big_buck_ctrl_pcm_flag(&spm_flags1);
+#endif
 	__spm_set_pwrctrl_pcm_flags1(pwrctrl, spm_flags1);
 
 

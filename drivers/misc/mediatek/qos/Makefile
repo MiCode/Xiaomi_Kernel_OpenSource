@@ -22,7 +22,7 @@ ifeq ($(CONFIG_MTK_QOS_MT6893),y)
 endif
 
 
-ifeq ($(CONFIG_MTK_QOS_MT6768),y)
+ifeq ($(CONFIG_MTK_QOS_LEGACY),y)
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += mtk_qos_legacy.o
 mtk_qos_legacy-objs := mtk_qos_common.o mtk_qos_bound.o mtk_qos_sysfs.o qos-v6768.o mtk_qos_ipi_v1.o
 else

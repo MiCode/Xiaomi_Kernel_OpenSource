@@ -1,0 +1,51 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ */
+#ifndef _DTS_IOMMU_PORT_MT6739_H_
+#define _DTS_IOMMU_PORT_MT6739_H_
+
+#include <dt-bindings/memory/mtk-memory-port.h>
+
+#define M4U_LARB0_ID		7
+#define M4U_LARB1_ID		11
+#define M4U_LARB2_ID		11
+
+#define MTK_IOMMU_LARB_NR 3
+
+/* larb0 */
+#define M4U_PORT_DISP_OVL0		MTK_M4U_ID(0, 0)
+#define M4U_PORT_DISP_RDMA0		MTK_M4U_ID(0, 1)
+#define M4U_PORT_DISP_WDMA0		MTK_M4U_ID(0, 2)
+#define M4U_PORT_MDP_RDMA0		MTK_M4U_ID(0, 3)
+#define M4U_PORT_MDP_WDMA0		MTK_M4U_ID(0, 4)
+#define M4U_PORT_MDP_WROT0		MTK_M4U_ID(0, 5)
+#define M4U_PORT_DISP_FAKE_LARB0	MTK_M4U_ID(0, 6)
+/* larb1 */
+#define M4U_PORT_VENC_RCPU		MTK_M4U_ID(1, 0)
+#define M4U_PORT_VENC_REC		MTK_M4U_ID(1, 1)
+#define M4U_PORT_VENC_BSDMA		MTK_M4U_ID(1, 2)
+#define M4U_PORT_VENC_SV_COMV		MTK_M4U_ID(1, 3)
+#define M4U_PORT_VENC_RD_COMV		MTK_M4U_ID(1, 4)
+#define M4U_PORT_JPGENC_RDMA		MTK_M4U_ID(1, 5)
+#define M4U_PORT_JPGENC_BSDMA		MTK_M4U_ID(1, 6)
+#define M4U_PORT_VENC_CUR_LUMA		MTK_M4U_ID(1, 7)
+#define M4U_PORT_VENC_CUR_CHROMA	MTK_M4U_ID(1, 8)
+#define M4U_PORT_VENC_REF_LUMA		MTK_M4U_ID(1, 9)
+#define M4U_PORT_VENC_REF_CHROMA	MTK_M4U_ID(1, 10)
+/* larb2 */
+#define M4U_PORT_CAM_IMGO		MTK_M4U_ID(2, 0)
+#define M4U_PORT_CAM_RRZO		MTK_M4U_ID(2, 1)
+#define M4U_PORT_CAM_LSCI_0		MTK_M4U_ID(2, 2)
+#define M4U_PORT_CAM_LSCI_1		MTK_M4U_ID(2, 3)
+#define M4U_PORT_CAM_BPCI_0		MTK_M4U_ID(2, 4)
+#define M4U_PORT_CAM_BPCI_1		MTK_M4U_ID(2, 5)
+#define M4U_PORT_CAM_ESFKO		MTK_M4U_ID(2, 6)
+#define M4U_PORT_CAM_AAO		MTK_M4U_ID(2, 7)
+#define M4U_PORT_CAM_SV0		MTK_M4U_ID(2, 8)
+#define M4U_PORT_CAM_IMGI		MTK_M4U_ID(2, 9)
+#define M4U_PORT_CAM_IMG2O		MTK_M4U_ID(2, 10)
+
+#define M4U_PORT_UNKNOWN		(M4U_PORT_CAM_IMG2O+1)
+
+#endif

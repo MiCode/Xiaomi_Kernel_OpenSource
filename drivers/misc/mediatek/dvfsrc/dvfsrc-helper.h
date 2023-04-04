@@ -108,5 +108,6 @@ extern const struct dvfsrc_config mt6768_dvfsrc_config;
 extern const struct dvfsrc_config mt6765_dvfsrc_config;
 extern const struct dvfsrc_qos_config mt6768_qos_config;
 extern const struct dvfsrc_qos_config mt6765_qos_config;
+extern const struct dvfsrc_qos_config mt6761_qos_config;
 #endif
 

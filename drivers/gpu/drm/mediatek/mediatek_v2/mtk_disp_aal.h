@@ -42,17 +42,19 @@
 	(0x358 + (idx) * 4)
 #define DISP_AAL_DRE_CRV_CAL_00                 (0x344)
 #define DISP_AAL_DRE_MAPPING_00                 (0x3b4)
-#define MT6768_DISP_AAL_DRE_MAPPING_00          (0x3b0)
+#define GKI_DISP_AAL_DRE_MAPPING_00          (0x3b0)
 #define DISP_AAL_CABC_GAINLMT_TBL(idx) \
 	(0x410 + (idx) * 4)
-#define MT6768_DISP_AAL_CABC_GAINLMT_TBL(idx) \
+#define GKI_DISP_AAL_CABC_GAINLMT_TBL(idx) \
 	(0x40c + (idx) * 4)
 
 #define DISP_AAL_DBG_CFG_MAIN                   (0x45c)
 
 #define MAX_DRE_FLT_NUM                         (16)
 #define DRE_FLT_NUM                             (12)
-#define MT6768_DRE_FLT_NUM                      (13)
+
+#define GKI_DRE_FLT_NUM                      (13)
+
 
 /* DRE 3.0 */
 #define DISP_AAL_CFG_MAIN                       (0x200)

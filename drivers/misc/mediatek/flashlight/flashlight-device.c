@@ -5,7 +5,7 @@
 
 #include "flashlight-core.h"
 
-#if defined(mt6739)
+#if IS_ENABLED(CONFIG_MTK_FLASHLIGHT_RT4505)
 const struct flashlight_device_id flashlight_id[] = {
 	/* {TYPE, CT, PART, "NAME", CHANNEL, DECOUPLE} */
 	{0, 0, 0, "flashlights-rt4505", 0, 0},

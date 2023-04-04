@@ -24,3 +24,21 @@ config MTK_CMDQ_MBOX_EXT_MT6765
 	  and aee db. Enable performance tools which add instruction
 	  inside packet and profiling. Also enable secure path with
 	  new sec controller which decuple with v3 driver.
+
+config MTK_CMDQ_MBOX_EXT_MT6761
+	tristate "enable CMDQ mailbox driver extension on mt6761"
+	help
+	  This extension enable debug feature, such as cmdq-status,
+	  cmdq-record, pre-dump, timeout error dump, first error buffer
+	  and aee db. Enable performance tools which add instruction
+	  inside packet and profiling. Also enable secure path with
+	  new sec controller which decuple with v3 driver.
+
+config MTK_CMDQ_MBOX_EXT_MT6739
+	tristate "enable CMDQ mailbox driver extension on mt6739"
+	help
+	  This extension enable debug feature, such as cmdq-status,
+	  cmdq-record, pre-dump, timeout error dump, first error buffer
+	  and aee db. Enable performance tools which add instruction
+	  inside packet and profiling. Also enable secure path with
+	  new sec controller which decuple with v3 driver.

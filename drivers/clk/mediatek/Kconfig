@@ -115,6 +115,17 @@ config COMMON_CLK_MT2712_VENCSYS
 	help
 	  This driver supports MediaTek MT2712 vencsys clocks.
 
+config COMMON_CLK_MT6739
+ 	tristate "Clock driver for Mediatek MT6739"
+ 	depends on ARM64 || ARM || COMPILE_TEST
+ 	select COMMON_CLK_MEDIATEK
+ 	default MACH_MT6739
+ 	help
+ 	  This driver supports Mediatek MT6739 clocks.
+ 	  Use the config to support CCF on MT6739,
+ 	  instead of old clkmgr architecture.
+ 	  MT6739 default will use CCF.
+
 config COMMON_CLK_MT6765
 	tristate "Clock driver for MediaTek MT6765"
 	depends on ARM || ARM64 || COMPILE_TEST
@@ -213,6 +224,62 @@ config COMMON_CLK_MT6765_MIPI2BSYS
        depends on COMMON_CLK_MT6765
        help
          This driver supports MediaTek MT6765 mipi2bsys clocks.
+
+config COMMON_CLK_MT6761
+	tristate "Clock driver for MediaTek MT6761"
+	depends on ARM64 || ARM || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default MACH_MT6761
+	help
+	  This driver supports MediaTek MT6761 basic clocks,
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6853 SOC,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6761_AUDIOSYS
+	tristate "Clock driver for MediaTek MT6761 audiosys"
+	depends on COMMON_CLK_MT6761
+	help
+	  This driver supports MediaTek MT6761 audsys clocks,
+	  which is used to control audsys clock output.
+	  If you wish to use clock resources from the audsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6761_CAMSYS
+	tristate "Clock driver for MediaTek MT6761 camsys"
+	depends on COMMON_CLK_MT6761
+	help
+	  This driver supports MediaTek MT6761 camsys clocks,
+	  which is used to control camsys clock output.
+	  If you wish to use clock resources from the camsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6761_MMSYS
+	tristate "Clock driver for MediaTek MT6761 mmsys"
+	depends on COMMON_CLK_MT6761
+	help
+	  This driver supports MediaTek MT6761 mmsys clocks,
+	  which is used to control mmsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6761_VCODECSYS
+	tristate "Clock driver for MediaTek MT6761 vcodecsys"
+	depends on COMMON_CLK_MT6761
+	help
+	  This driver supports MediaTek MT6761 vcodecsys clocks,
+	  which is used to control vcodecsys clock output.
+	  If you wish to use clock resources from the vcodecsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6761_MIPI0ASYS
+	tristate "Clock driver for MediaTek MT6761 mipi0asys"
+	depends on COMMON_CLK_MT6761
+	help
+	  This driver supports MediaTek MT6761 mipi0asys clocks,
+	  which is used to control mipi0asys clock output.
+	  If you wish to use clock resources from the mipi0asys device,
+	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6768
 	tristate "Clock driver for MediaTek MT6768"

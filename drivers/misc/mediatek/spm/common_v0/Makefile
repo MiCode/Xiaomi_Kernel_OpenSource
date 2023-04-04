@@ -5,6 +5,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/cpuidle/
 # Include mtk idle headers and cpuidle driver header for external modules
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/spm/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/power_gs_v1/
+# Include mtk_eem.h
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/$(MTK_PLATFORM)/inc/
 # Include mmdvfs_mgr.h
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 # Include uart header "mtk_uart_api.h"

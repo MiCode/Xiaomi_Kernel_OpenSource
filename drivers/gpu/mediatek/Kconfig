@@ -156,3 +156,21 @@ config MTK_GPU_MT6765_SUPPORT
 	  Set Y or M to select this feature for specific platform-mt6765,
 	  and set N to disable.
 	  It is additional config to separate platforms.
+
+config MTK_GPU_MT6761_SUPPORT
+	tristate "Specify Mediatek GPU Platform is mt6761"
+	depends on MTK_GPU_SUPPORT
+	help
+	  Select MediaTek GPU Platform is mt6761.
+	  Set Y or M to select this feature for specific platform-mt6761,
+	  and set N to disable.
+	  It is additional config to separate platforms.
+
+config MTK_GPU_MT6739_SUPPORT
+	tristate "Specify Mediatek GPU Platform is mt6739"
+	depends on MTK_GPU_SUPPORT
+	help
+	  Select MediaTek GPU Platform is mt6739.
+	  Set Y or M to select this feature for specific platform-mt6739,
+	  and set N to disable.
+	  It is additional config to separate platforms.

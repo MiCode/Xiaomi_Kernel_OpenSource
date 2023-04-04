@@ -144,6 +144,7 @@ config TOUCHSCREEN_MTK_GT1151
 	module will be called.
 
 source "drivers/input/touchscreen/GT1151/Kconfig"
+source "drivers/input/touchscreen/MTK1151/Kconfig"
 
 config TOUCHSCREEN_MTK_TUI_COMMON_API
         tristate "Tui common api ko for Mediatek package"

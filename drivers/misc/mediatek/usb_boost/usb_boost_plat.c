@@ -570,7 +570,9 @@ int audio_core_hold(void)
 		of_device_is_compatible(np, "mediatek,mt6855-usb_boost") ||
 		of_device_is_compatible(np, "mediatek,mt6789-usb_boost") ||
 		of_device_is_compatible(np, "mediatek,mt6768-usb_boost") ||
-		of_device_is_compatible(np, "mediatek,mt6833-usb_boost")) {
+		of_device_is_compatible(np, "mediatek,mt6833-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6761-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6739-usb_boost")) {
 		USB_BOOST_NOTICE("\n");
 		cpu_latency_qos_update_request(&pm_qos_req, 50);
 	}
@@ -588,7 +590,9 @@ int audio_core_release(void)
 		of_device_is_compatible(np, "mediatek,mt6855-usb_boost") ||
 		of_device_is_compatible(np, "mediatek,mt6789-usb_boost") ||
 		of_device_is_compatible(np, "mediatek,mt6768-usb_boost") ||
-		of_device_is_compatible(np, "mediatek,mt6833-usb_boost")) {
+		of_device_is_compatible(np, "mediatek,mt6833-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6761-usb_boost") ||
+		of_device_is_compatible(np, "mediatek,mt6739-usb_boost")) {
 		USB_BOOST_NOTICE("\n");
 		cpu_latency_qos_update_request(&pm_qos_req,
 			PM_QOS_DEFAULT_VALUE);

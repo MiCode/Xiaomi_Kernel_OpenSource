@@ -16,6 +16,7 @@
 # kernel build system and can use its language.
 ifneq ($(KERNELRELEASE),)
 
+    ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/platform/
     ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/
     ccflags-y += -I$(srctree)/drivers/misc/mediatek/dual_ccci/
 

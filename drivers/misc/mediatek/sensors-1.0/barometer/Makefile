@@ -18,6 +18,6 @@ obj-$(CONFIG_MTK_SENSOR_SUPPORT)  += baro_common.o
 baro_common-$(CONFIG_MTK_SENSOR_SUPPORT) += barometer.o barometer_factory.o
 
 obj-$(CONFIG_MTK_BAROHUB) += barohub/
-ifneq ($(CONFIG_MTK_BAROHUB),y)
-#obj-$(CONFIG_MTK_BMP280_NEW) += BMP280-new/
+ifeq ($(CONFIG_MTK_BMP280_NEW),y)
+obj-$(CONFIG_MTK_BMP280_NEW) += BMP280-new/
 endif

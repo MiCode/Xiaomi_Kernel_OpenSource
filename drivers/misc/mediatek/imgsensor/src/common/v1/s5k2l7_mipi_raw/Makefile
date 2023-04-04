@@ -5,6 +5,11 @@ IMGSENSOR_SUBDRV_OBJ := \
 	$(subdrv-rpath)/s5k2l7mipiraw_Sensor.o \
 	$(subdrv-rpath)/s5k2l7_pdaf_cal.o \
 
+ifeq ($(CONFIG_MTK_IMGSENSOR_ISP3_Z), m)
+$(eval $(MTK_PLATFORM_KO)-objs += $(IMGSENSOR_SUBDRV_OBJ))
+else ifeq ($(CONFIG_MTK_IMGSENSOR_ISP3_Z), y)
+obj-$(CONFIG_MTK_IMGSENSOR_ISP3_Z) += $(IMGSENSOR_SUBDRV_OBJ)
+endif
 ifeq ($(CONFIG_MTK_IMGSENSOR_ISP4), m)
 $(eval $(MTK_PLATFORM_KO)-objs += $(IMGSENSOR_SUBDRV_OBJ))
 else ifeq ($(CONFIG_MTK_IMGSENSOR_ISP4), y)

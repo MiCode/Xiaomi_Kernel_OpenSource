@@ -1,0 +1,8 @@
+config MTK_CM_MGR_LEGACY
+	tristate "MTK CM_MGR for LEGACY"
+	help
+	  This kernel config can be used to enable CM_MGR. When enable
+	  this option, dram opp level will be changed which will depended
+	  on power table.
+	  If unsure, say N.
+

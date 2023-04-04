@@ -19,6 +19,15 @@ config HAVE_MTK_MC
 
 if HAVE_MTK_MC
 
+config MTK_EMI_LEGACY_V0
+	tristate "MediaTek External Memory Interface Legacy V0 driver"
+	depends on HAVE_MTK_MC
+	help
+	  This selects the MediaTek(R) EMI driver.
+	  Provide the API for MPU registration, EMI MPU violation handling,
+	  the API for EMI information, the BWL golden setting,
+	  and the sysfs for EMI ISU control.
+
 config MTK_EMI_LEGACY
 	tristate "MediaTek External Memory Interface Legacy driver"
 	depends on HAVE_MTK_MC
@@ -46,6 +55,15 @@ config MTK_EMI_MPU_TEST
 	  This driver is mainly for testing purposes. It creates interfaces
 	  for the self-test code of EMI MPU running in the user space.
 	  This driver should not be enabled in the release version.
+
+config MTK_DRAMC_LEGACY
+        tristate "MediaTek DRAMC LEGACY driver"
+        depends on HAVE_MTK_MC
+        help
+          This selects the MediaTek(R) DRAMC driver.
+          Provide the API for DRAMC low power scenario, and the interface
+          for reporting DRAM information, e.g. DRAM mode register (MR) for
+          DRAM vendor ID, temperature, and density.
 
 config MTK_DRAMC
 	tristate "MediaTek DRAMC driver"

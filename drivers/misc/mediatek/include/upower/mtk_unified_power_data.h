@@ -9,6 +9,10 @@
 #include "mtk_unified_power_data_6765.h"
 #elif IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6833)
 #include "mtk_unified_power_data_6833.h"
+#elif IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
+#include "mtk_unified_power_data_6739.h"
+#elif IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+#include "mtk_unified_power_data_6761.h"
 #else
 #include "mtk_unified_power_data_plat.h"
 #endif

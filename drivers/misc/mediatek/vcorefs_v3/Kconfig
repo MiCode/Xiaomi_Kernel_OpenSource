@@ -1,0 +1,7 @@
+config MTK_VCOREFS_LEGACY
+	tristate "MTK VCOREFS LEGACY"
+	help
+	  This kernel config can be used to enable MTK VCOREFS LEGACY
+	  for MT6739, spm is used to control vcore and dram frequency
+	  it should be enabled by default.
+	  If unsure, say N.

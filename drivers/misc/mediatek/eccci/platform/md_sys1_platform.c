@@ -33,6 +33,7 @@
 #endif
 
 #include <linux/regulator/consumer.h> /* for MD PMIC */
+#include <vcorefs_v3/mtk_vcorefs_manager.h>
 
 #include "ccci_core.h"
 #include "ccci_platform.h"
@@ -949,7 +950,7 @@ static int md_cd_srcclkena_setting(struct ccci_modem *md)
 			"%s:re-read INFRA_AO_MD_SRCCLKENA fail,ret=%d\n",
 			__func__, ret);
 	}
-	CCCI_BOOTUP_LOG(md->index, TAG,
+	CCCI_NORMAL_LOG(md->index, TAG,
 		"[POWER ON]%s: set md1_srcclkena bit(0x1000_0F0C)=0x%x\n",
 		__func__, reg_value);
 
@@ -1140,6 +1141,83 @@ static void md1_post_access_md_reg(struct ccci_modem *md)
 		reg_value);
 }
 
+void md1_pll_init_6739(struct ccci_modem *md)
+{
+	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
+	struct md_pll_reg *md_pll = md_info->md_pll_base;
+	void __iomem *map_addr = ioremap(0x1000C000, 0x1000);
+	int cnt = 0;
+	unsigned int reg_val;
+
+	while (1) {
+		reg_val = ccci_read32(md_pll->md_top_Pll, 0x0);
+		CCCI_NORMAL_LOG(md->index, TAG, "Curr pll:0x%X\n", reg_val);
+		if (reg_val != 0)
+			break;
+		msleep(20);
+	}
+	/* Enables clock square1 low-pass filter for 26M quality. */
+	ROr2W(map_addr, 0x0, 0x2);
+	udelay(100);
+
+	/* Default md_srclkena_ack settle time = 136T 32K */
+	/* cldma_write32(md_pll->md_top_Pll, 0x4, 0x02020E88); */
+
+	/* PLL init */
+	ccci_write32(md_pll->md_top_Pll, 0x60, 0x80118000);
+	ccci_write32(md_pll->md_top_Pll, 0x58, 0x800B8A00);
+	ccci_write32(md_pll->md_top_Pll, 0x50, 0x80114E00);
+	ccci_write32(md_pll->md_top_Pll, 0x48, 0x80114E00);
+	ccci_write32(md_pll->md_top_Pll, 0x40, 0x800B8A00);
+
+	while ((ccci_read32(md_pll->md_top_Pll, 0xC00) >> 14) & 0x1)
+		;
+
+	RAnd2W(md_pll->md_top_Pll, 0x108, ~(0x10000));
+
+	ccci_write32(md_pll->md_top_Pll, 0x14, 0x10000);
+	ccci_write32(md_pll->md_top_Pll, 0x14, 0x10001);
+	udelay(100);
+	ccci_write32(md_pll->md_top_Pll, 0x14, 0x10000);
+	ccci_write32(md_pll->md_top_Pll, 0x14, 0x0);
+
+	ROr2W(md_pll->md_top_Pll, 0x108, 0x10000);
+	udelay(1);
+	RAnd2W(md_pll->md_top_Pll, 0x104, ~(0x4000000));
+	udelay(1);
+	ccci_write32(md_pll->md_top_Pll, 0x10, 0x100010);
+
+	do {
+		reg_val = ccci_read32(md_pll->md_top_Pll, 0x10);
+		cnt++;
+		if ((cnt % 5) == 0) {
+			CCCI_BOOTUP_LOG(md->index, TAG, "pll init: rewrite 0x100010(%d)\n", cnt);
+			ccci_write32(md_pll->md_top_Pll, 0x10, 0x100010);
+		}
+		msleep(20);
+	} while (reg_val != 0x100010);
+	CCCI_BOOTUP_LOG(md->index, TAG, "pll init: check 0x100010[0x%X], cnt:%d\n", reg_val, cnt);
+
+	while ((ccci_read32(md_pll->md_top_clkSW, 0x84) & 0x8000) != 0x8000) {
+		msleep(20);
+		CCCI_BOOTUP_LOG(md->index, TAG, "pll init: [0x%x]=0x%x\n", MDTOP_CLKSW_BASE + 0x84,
+			ccci_read32(md_pll->md_top_clkSW, 0x84));
+	}
+
+	ROr2W(md_pll->md_top_clkSW, 0x24, 0x3);
+	ROr2W(md_pll->md_top_clkSW, 0x24, 0x58103FC);
+	ROr2W(md_pll->md_top_clkSW, 0x28, 0x10);
+
+	ccci_write32(md_pll->md_top_clkSW, 0x20, 0x1);
+
+	ccci_write32(md_pll->md_top_Pll, 0x314, 0xFFFF);
+	ccci_write32(md_pll->md_top_Pll, 0x318, 0xFFFF);
+
+	/*make a record that means MD pll has been initialized.*/
+	ccci_write32(md_pll->md_top_Pll, 0xF00, 0x62930000);
+	CCCI_BOOTUP_LOG(md->index, TAG, "pll init: end\n");
+}
+
 void md1_pll_init(struct ccci_modem *md)
 {
 	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
@@ -1169,7 +1247,7 @@ void md1_pll_init(struct ccci_modem *md)
 
 	/* Default md_srclkena_ack settle time = 147T 32K */
 	ccci_write32(md_pll->md_top_Pll, 0x4, 0x02020E93);
-	if (ap_plat_info == 6765) {
+	if (ap_plat_info == 6765 || ap_plat_info == 6761) {
 		/* Default md_srclkena_ack settle time = 136T 32K */
 		ccci_write32(md_pll->md_top_Pll, 0x4, 0x02020E88);
 	} else {
@@ -1187,8 +1265,12 @@ void md1_pll_init(struct ccci_modem *md)
 		;
 
 	RAnd2W(md_pll->md_top_Pll, 0x64, ~(0x80));
-
-	ccci_write32(md_pll->md_top_Pll, 0x104, 0x4C43100);
+	if (ap_plat_info == 6761)
+		CCCI_BOOTUP_LOG(0, TAG, "[POWER ON] by pass set 0x4C43100\n");
+	else {
+		CCCI_NORMAL_LOG(0, TAG, "[POWER ON] do write 0x4C43100\n");
+		ccci_write32(md_pll->md_top_Pll, 0x104, 0x4C43100);
+	}
 	ccci_write32(md_pll->md_top_Pll, 0x10, 0x100010);
 	do {
 		reg_val = ccci_read32(md_pll->md_top_Pll, 0x10);
@@ -1219,15 +1301,49 @@ void md1_pll_init(struct ccci_modem *md)
 	ccci_write32(md_pll->md_top_Pll, 0x314, 0xFFFF);
 	ccci_write32(md_pll->md_top_Pll, 0x318, 0xFFFF);
 
-	/*make a record that means MD pll has been initialized.*/
+	/* make a record that means MD pll has been initialized. */
 	ccci_write32(md_pll->md_top_Pll, 0xF00, 0x62930000);
 	CCCI_BOOTUP_LOG(0, TAG, "pll init: end\n");
 }
 
+
+static int (*vcorefs_request_dvfs_callback)(enum dvfs_kicker, enum dvfs_opp);
+void ccci_set_svcorefs_request_dvfs_cb(int (*vcorefs_request_dvfs_opp)(enum dvfs_kicker, enum dvfs_opp))
+{
+	vcorefs_request_dvfs_callback = vcorefs_request_dvfs_opp;
+}
+EXPORT_SYMBOL(ccci_set_svcorefs_request_dvfs_cb);
+
+/* mt6739 used vcore old fun to set value */
+static int md_cd_vcore_config_old (unsigned int hold_req)
+{
+	static int is_hold;
+	int ret = -1;
+
+	if (!vcorefs_request_dvfs_callback) {
+		CCCI_ERROR_LOG(0, TAG, "register vcorefs_request_dvfs_callback func fail\n");
+		return ret;
+	}
+	CCCI_BOOTUP_LOG(0, TAG, "md_cd_vcore_config: is_hold=%d, hold_req=%d\n", is_hold, hold_req);
+	if (hold_req && is_hold == 0) {
+		ret = vcorefs_request_dvfs_callback(KIR_APCCCI, OPP_0);
+		is_hold = 1;
+	} else if (hold_req == 0 && is_hold) {
+		ret = vcorefs_request_dvfs_callback(KIR_APCCCI, OPP_UNREQ);
+		is_hold = 0;
+	} else
+		CCCI_ERROR_LOG(0, TAG, "invalid hold_req: is_hold=%d, hold_req=%d\n", is_hold, hold_req);
+	if (ret)
+		CCCI_ERROR_LOG(0, TAG, "md_cd_vcore_config fail: ret=%d, hold_req=%d\n", ret, hold_req);
+	return ret;
+}
+
+
 int md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
 {
 	static int is_hold;
-	int volt_cnt, volt, ret;
+	int volt_cnt, volt;
+	int ret = 0;
 	struct ccci_modem *md;
 
 	md = ccci_md_get_modem_by_id(0);
@@ -1235,6 +1351,11 @@ int md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
 		return -1;
 	if (md_cd_plat_val_ptr.md_gen >= 6295)
 		return 0;
+	/* mt6739 used vcore old fun to set value */
+	if (ap_plat_info == 6739) {
+		ret = md_cd_vcore_config_old(hold_req);
+		return ret;
+	}
 
 	CCCI_BOOTUP_LOG(0, TAG,
 		"[POWER ON]%s: is_hold=%d, hold_req=%d\n", __func__, is_hold, hold_req);
@@ -1268,8 +1389,6 @@ int md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
 			vcore_reg_ref = NULL;
 		}
 		is_hold = 0;
-
-
 	} else
 		CCCI_ERROR_LOG(0, TAG,
 			"[POWER ON]%s: invalid hold_req: is_hold=%d, hold_req=%d\n",
@@ -1350,7 +1469,10 @@ static int md_cd_power_on(struct ccci_modem *md)
 
 	if (md_cd_plat_val_ptr.md_gen < 6295) {
 		/* step 5: pll init */
-		md1_pll_init(md);
+		if (ap_plat_info == 6739)
+			md1_pll_init_6739(md);
+		else
+			md1_pll_init(md);
 
 		/* step 8: disable MD WDT */
 		md_rgu_base = ioremap(0x200f0100, 0x300);

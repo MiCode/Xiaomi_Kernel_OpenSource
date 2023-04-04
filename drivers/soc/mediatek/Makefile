@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox
 obj-$(CONFIG_MTK_CMDQ) += mtk-cmdq-helper.o
 obj-$(CONFIG_MTK_DVFSRC) += mtk-dvfsrc.o mtk-dvfsrc-start.o
@@ -7,6 +8,12 @@ obj-$(CONFIG_MTK_MBOX) += mtk-mbox.o
 obj-$(CONFIG_MTK_PMIC_WRAP) += mtk-pmic-wrap.o
 obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys.o mtk-pm-domain-disable-unused.o
 
+ifneq ($(wildcard $(srctree)/$(src)/mtk-scpsys-mt6739.c),)
+obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys-mt6739.o mtk-scpsys-bringup.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/mtk-scpsys-mt6761.c),)
+obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys-mt6761.o mtk-scpsys-bringup.o
+endif
 ifneq ($(wildcard $(srctree)/$(src)/mtk-scpsys-mt6768.c),)
 obj-$(CONFIG_MTK_SCPSYS) += mtk-scpsys-mt6768.o mtk-scpsys-bringup.o
 endif

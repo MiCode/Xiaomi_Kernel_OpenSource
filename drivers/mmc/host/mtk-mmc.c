@@ -4,6 +4,7 @@
  * Author: Chaotian.Jing <chaotian.jing@mediatek.com>
  */
 #include "mtk-mmc.h"
+#include "mtk-mmc-vcore.h"
 #include "mtk-mmc-dbg.h"
 #include "rpmb-mtk.h"
 #include "../core/card.h"
@@ -2738,6 +2739,19 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 	} else
 		pr_info("mmc%d:req-vcore:%d\n", host->id, host->req_vcore);
 
+#if IS_ENABLED(CONFIG_MTK_SPM_V4)
+	if (of_property_read_u32(pdev->dev.of_node, "dvfs-opp-index",
+		&host->dvfs_opp_index)) {
+		pr_info("mmc%d:failed to get dvfs-opp-index\n", host->id);
+		host->dvfs_opp_index = -1;
+	} else if (host->dvfs_opp_index >= NUM_OPP) {
+		pr_info("mmc%d:dvfs-opp-index:%d is greater than max value.\n",
+			host->id, host->dvfs_opp_index);
+		host->dvfs_opp_index = -1;
+	} else
+		pr_info("mmc%d:dvfs-opp-index:%d\n", host->id, host->dvfs_opp_index);
+#endif
+
 	if (of_property_read_u32(pdev->dev.of_node, "ocr-voltage", &host->ocr_volt)) {
 		pr_info("mmc%d:failed to get ocr_volt\n", host->id);
 		host->ocr_volt = 0;
@@ -3125,6 +3139,9 @@ static int msdc_drv_remove(struct platform_device *pdev)
 {
 	struct mmc_host *mmc;
 	struct msdc_host *host;
+#if IS_ENABLED(CONFIG_MTK_SPM_V4)
+	int i;
+#endif
 
 	mmc = platform_get_drvdata(pdev);
 	host = mmc_priv(mmc);
@@ -3149,6 +3166,12 @@ static int msdc_drv_remove(struct platform_device *pdev)
 
 	mmc_mtk_biolog_exit();
 
+#if IS_ENABLED(CONFIG_MTK_SPM_V4)
+	for (i = 0; i < 3; i++) {
+		msdc_vcore_cbs[i].request_opp_cb = NULL;
+		msdc_vcore_cbs[i].setting_cb = NULL;
+	}
+#endif
 	return 0;
 }
 
@@ -3357,6 +3380,17 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 		if (regulator_set_voltage(host->dvfsrc_vcore_power, 0, INT_MAX))
 			pr_info("%s: failed to set vcore to MIN\n", __func__);
 	}
+#if IS_ENABLED(CONFIG_MTK_SPM_V4)
+	if (host->dvfs_opp_index >= 0) {
+		if (msdc_vcore_cbs[MSDC_EMMC].request_opp_cb
+			&& msdc_vcore_cbs[MSDC_EMMC].request_opp_cb(KIR_AUTOK_EMMC, OPP_UNREQ) != 0)
+			dev_err(host->dev, "request_opp_cb@OPP_UNREQ fail!\n", host->id);
+		else
+			dev_dbg(host->dev, "pull down dvfs opp to UNREQ\n");
+		if (msdc_vcore_cbs[MSDC_EMMC].setting_cb)
+			msdc_vcore_cbs[MSDC_EMMC].setting_cb(KIR_AUTOK_SDIO, 1);
+	}
+#endif
 	cpu_latency_qos_update_request(&host->pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
 
@@ -3369,6 +3403,32 @@ static int __maybe_unused msdc_runtime_suspend(struct device *dev)
 
 	return 0;
 }
+
+#if IS_ENABLED(CONFIG_MTK_SPM_V4)
+void msdc_register_vcore_callback(int id,
+					request_dvfs_opp request_opp_cb,
+					dvfs_setting setting_cb)
+{
+	if (id < MSDC_EMMC || id > MSDC_SDIO) {
+		pr_info("The msdc id[%s] is incorrect\n", id);
+		return;
+	}
+	msdc_vcore_cbs[id].request_opp_cb = request_opp_cb;
+	msdc_vcore_cbs[id].setting_cb = setting_cb;
+}
+EXPORT_SYMBOL(msdc_register_vcore_callback);
+
+void msdc_unregister_vcore_callback(int id)
+{
+	if (id < MSDC_EMMC || id > MSDC_SDIO) {
+		pr_info("The msdc id[%s] is incorrect\n", id);
+		return;
+	}
+	msdc_vcore_cbs[id].request_opp_cb = NULL;
+	msdc_vcore_cbs[id].setting_cb = NULL;
+}
+EXPORT_SYMBOL(msdc_unregister_vcore_callback);
+#endif
 
 static int __maybe_unused msdc_runtime_resume(struct device *dev)
 {
@@ -3389,7 +3449,15 @@ static int __maybe_unused msdc_runtime_resume(struct device *dev)
 			pr_info("%s: failed to set vcore to %d\n",
 				__func__, host->req_vcore);
 	}
-
+#if IS_ENABLED(CONFIG_MTK_SPM_V4)
+	if (host->dvfs_opp_index >= 0) {
+		if (msdc_vcore_cbs[MSDC_EMMC].request_opp_cb
+			&& msdc_vcore_cbs[MSDC_EMMC].request_opp_cb(KIR_AUTOK_EMMC, host->dvfs_opp_index) != 0)
+			dev_err(host->dev, "request_opp_cb@LEVEL%d fail!\n", host->dvfs_opp_index);
+		else
+			dev_dbg(host->dev, "pull up dvfs opp to %d\n", host->dvfs_opp_index);
+	}
+#endif
 	msdc_ungate_clock(host);
 #if IS_ENABLED(CONFIG_MMC_AUTOK)
 	msdc_restore_timing_setting(host);

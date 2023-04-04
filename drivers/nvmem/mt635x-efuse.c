@@ -14,6 +14,14 @@
 #include <linux/regmap.h>
 
 /* PMIC EFUSE registers definition */
+#define EFUSE_V0_TOP_CKPDN_CON0              (0x10c)
+#define EFUSE_V0_TOP_CKHWEN_CON0             (0x12a)
+#define EFUSE_V0_OTP_CON0                    (0x390)
+#define EFUSE_V0_OTP_CON8                    (0x3a0)
+#define EFUSE_V0_OTP_CON11                   (0x3a6)
+#define EFUSE_V0_OTP_CON12                   (0x3a8)
+#define EFUSE_V0_OTP_CON13                   (0x3aa)
+
 #define EFUSE_V1_TOP_CKPDN_CON0              (0x10c)
 #define EFUSE_V1_TOP_CKHWEN_CON0             (0x12a)
 #define EFUSE_V1_OTP_CON0                    (0x38a)
@@ -47,7 +55,7 @@
 /* Timeout (us) of polling the status */
 #define EFUSE_POLL_TIMEOUT	30000
 #define EFUSE_POLL_DELAY_US	50
-#define EFUSE_READ_DELAY_US	30
+#define EFUSE_READ_DELAY_US	80
 
 struct efuse_reg {
 	unsigned int ck_pdn;
@@ -58,6 +66,16 @@ struct efuse_reg {
 	unsigned int otp_rd_sw;
 	unsigned int otp_dout_sw;
 	unsigned int otp_rd_busy;
+};
+
+static const struct efuse_reg reg_v0 = {
+	.ck_pdn = EFUSE_V0_TOP_CKPDN_CON0,
+	.ck_pdn_hwen = EFUSE_V0_TOP_CKHWEN_CON0,
+	.otp_pa = EFUSE_V0_OTP_CON0,
+	.otp_rd_trig = EFUSE_V0_OTP_CON8,
+	.otp_rd_sw = EFUSE_V0_OTP_CON11,
+	.otp_dout_sw = EFUSE_V0_OTP_CON12,
+	.otp_rd_busy = EFUSE_V0_OTP_CON13,
 };
 
 static const struct efuse_reg reg_v1 = {
@@ -270,6 +288,13 @@ static int mt635x_efuse_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct efuse_chip_data mt6357_efuse_data = {
+	.reg_num = 128,
+	.ctrl_reg_width = 0x2,
+	.reg = &reg_v0,
+
+};
+
 static const struct efuse_chip_data mt6359p_efuse_data = {
 	.reg_num = 128,
 	.ctrl_reg_width = 0x2,
@@ -294,7 +319,7 @@ static const struct efuse_chip_data mt6368_efuse_data = {
 static const struct of_device_id mt635x_efuse_of_match[] = {
 	{
 		.compatible = "mediatek,mt6357-efuse",
-		.data = &mt6359p_efuse_data
+		.data = &mt6357_efuse_data
 	}, {
 		.compatible = "mediatek,mt6358-efuse",
 		.data = &mt6359p_efuse_data

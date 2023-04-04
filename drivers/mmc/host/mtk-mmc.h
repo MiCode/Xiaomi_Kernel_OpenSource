@@ -687,6 +687,9 @@ struct msdc_host {
 	u32 req_vcore;
 	u32 ocr_volt;
 	struct regulator *dvfsrc_vcore_power;
+#if IS_ENABLED(CONFIG_MTK_SPM_V4)
+	int dvfs_opp_index;
+#endif
 	bool use_cmd_intr;
 	struct pm_qos_request pm_qos_req;
 	bool qos_enable;

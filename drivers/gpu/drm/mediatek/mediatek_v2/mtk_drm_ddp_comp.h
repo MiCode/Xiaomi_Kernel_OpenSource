@@ -77,6 +77,14 @@ struct drm_crtc_state;
 #define MMSYS_DUMMY0 0x0400
 #define DISP_REG_CONFIG_MMSYS_MISC                0x0F0
 
+#define MT6739_MMSYS_SODI_REQ_MASK                       0xF8
+#define MT6739_SODI_REQ_MASK_ALL                  REG_FLD_MSB_LSB(4, 0)
+	#define MT6739_SODI_REQ_MASK_RDMA0            REG_FLD_MSB_LSB(0, 0)
+
+#define MT6739_DVFS_HALT_MASK_SEL_ALL             REG_FLD_MSB_LSB(20, 16)
+	#define MT6739_DVFS_HALT_MASK_SEL_RDMA0       REG_FLD_MSB_LSB(16, 16)
+	#define MT6739_DVFS_HALT_MASK_SEL_WDMA0       REG_FLD_MSB_LSB(17, 17)
+
 #define SODI_HRT_FIFO_SEL                         REG_FLD_MSB_LSB(3, 0)
 	#define SODI_HRT_FIFO_SEL_DISP0_PD_MODE       REG_FLD_MSB_LSB(0, 0)
 	#define SODI_HRT_FIFO_SEL_DISP0_CG_MODE       REG_FLD_MSB_LSB(1, 1)
@@ -856,7 +864,11 @@ void mtk_ddp_comp_clk_prepare(struct mtk_ddp_comp *comp);
 void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp);
 void mtk_ddp_comp_iommu_enable(struct mtk_ddp_comp *comp,
 			       struct cmdq_pkt *handle);
+void mt6739_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data);
 void mt6765_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data);
+void mt6761_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6768_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);

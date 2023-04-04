@@ -451,11 +451,13 @@ static bool cam_mem_get_secure_handle(struct ION_BUFFER *mmu,
 
 	mmu->dmaBuf = buf;
 
+	#if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
 	IonNode->sec_handle = dmabuf_to_secure_handle(mmu->dmaBuf);
 	if (IonNode->sec_handle == 0) {
 		LOG_NOTICE("Get sec_handle failed! memID(%d)\n", IonNode->memID);
 		return false;
 	}
+	#endif
 
 	return true;
 }
@@ -480,6 +482,7 @@ static bool cam_mem_mmu_get_dma_buffer(
 	}
 	mmu->dmaBuf = buf;
 
+	#if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
 	if (IonNode->need_sec_handle) {
 		IonNode->sec_handle = dmabuf_to_secure_handle(mmu->dmaBuf);
 		if (IonNode->sec_handle == 0) {
@@ -487,6 +490,7 @@ static bool cam_mem_mmu_get_dma_buffer(
 			return false;
 		}
 	}
+	#endif
 
 	mmu->attach = dma_buf_attach(mmu->dmaBuf, cam_mem_dev.dev);
 	if (IS_ERR(mmu->attach)) {

@@ -327,7 +327,7 @@ void cmdq_thread_timeout_restore(struct cmdq_thread *thread, const u32 ms);
 s32 cmdq_mbox_set_hw_id(void *cmdq);
 s32 cmdq_mbox_reset_hw_id(void *cmdq);
 
-#if IS_ENABLED(CONFIG_MMPROFILE)
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt);
 #endif
 

@@ -162,7 +162,93 @@ static struct peri_iommu_data mt6983_peri_iommu_data[PERI_IOMMU_NUM] = {
 	},
 };
 
+static const struct mtk_iommu_port iommu_port_mt6739[] = {
+	/*Larb0 */
+	MM_IOMMU_PORT_INIT("L0_DISP_OVL0", 0, 0, 0x0, 0),
+	MM_IOMMU_PORT_INIT("L0_DISP_RDMA0", 0, 0, 0x0, 1),
+	MM_IOMMU_PORT_INIT("L0_DISP_WDMA0", 0, 0, 0x0, 2),
+	MM_IOMMU_PORT_INIT("L0_MDP_RDMA0", 0, 0, 0x0, 3),
+	MM_IOMMU_PORT_INIT("L0_MDP_WDMA0", 0, 0, 0x0, 4),
+	MM_IOMMU_PORT_INIT("L0_MDP_WROT0", 0, 0, 0x0, 5),
+	MM_IOMMU_PORT_INIT("L0_DISP_FAKE_LARB0", 0, 0, 0x0, 6),
+	/*Larb1 */
+	MM_IOMMU_PORT_INIT("L1_VENC_RCPU", 0, 1, 0x1, 0),
+	MM_IOMMU_PORT_INIT("L1_VENC_REC", 0, 1, 0x1, 1),
+	MM_IOMMU_PORT_INIT("L1_VENC_BSDMA", 0, 1, 0x1, 2),
+	MM_IOMMU_PORT_INIT("L1_VENC_SV_COMV", 0, 1, 0x1, 3),
+	MM_IOMMU_PORT_INIT("L1_VENC_RD_COMV", 0, 1, 0x1, 4),
+	MM_IOMMU_PORT_INIT("L1_JPGENC_RDMA", 0, 1, 0x1, 5),
+	MM_IOMMU_PORT_INIT("L1_JPGENC_BSDMA", 0, 1, 0x1, 6),
+	MM_IOMMU_PORT_INIT("L1_VENC_CUR_LUMA", 0, 1, 0x1, 7),
+	MM_IOMMU_PORT_INIT("L1_VENC_CUR_CHROMA", 0, 1, 0x1, 8),
+	MM_IOMMU_PORT_INIT("L1_VENC_REF_LUMA", 0, 1, 0x1, 9),
+	MM_IOMMU_PORT_INIT("L1_VENC_REF_CHROMA", 0, 1, 0x1, 10),
+	/*Larb2 */
+	MM_IOMMU_PORT_INIT("L2_CAM_IMGO", 0, 2, 0x2, 0),
+	MM_IOMMU_PORT_INIT("L2_CAM_RRZO", 0, 2, 0x2, 1),
+	MM_IOMMU_PORT_INIT("L2_CAM_LSCI_0", 0, 2, 0x2, 2),
+	MM_IOMMU_PORT_INIT("L2_CAM_LSCI_1", 0, 2, 0x2, 3),
+	MM_IOMMU_PORT_INIT("L2_CAM_BPCI_0", 0, 2, 0x2, 4),
+	MM_IOMMU_PORT_INIT("L2_CAM_BPCI_1", 0, 2, 0x2, 5),
+	MM_IOMMU_PORT_INIT("L2_CAM_ESFKO", 0, 2, 0x2, 6),
+	MM_IOMMU_PORT_INIT("L2_CAM_AAO", 0, 2, 0x2, 7),
+	MM_IOMMU_PORT_INIT("L2_CAM_SV0", 0, 2, 0x2, 8),
+	MM_IOMMU_PORT_INIT("L2_CAM_IMGI", 0, 2, 0x2, 9),
+	MM_IOMMU_PORT_INIT("L2_CAM_IMG2O", 0, 2, 0x2, 10),
 
+	MM_IOMMU_PORT_INIT("UNKNOWN", 0, 0, 0x0, 0)
+};
+
+static const struct mtk_iommu_port iommu_port_mt6761[] = {
+	/*Larb0 */
+	MM_IOMMU_PORT_INIT("L0_DISP_OVL0", 0, 0, 0x0, 0),
+	MM_IOMMU_PORT_INIT("L0_DISP_2L_OVL0_LARB0", 0, 0, 0x0, 1),
+	MM_IOMMU_PORT_INIT("L0_DISP_RDMA0", 0, 0, 0x0, 2),
+	MM_IOMMU_PORT_INIT("L0_DISP_WDMA0", 0, 0, 0x0, 3),
+	MM_IOMMU_PORT_INIT("L0_MDP_RDMA0", 0, 0, 0x0, 4),
+	MM_IOMMU_PORT_INIT("L0_MDP_WDMA0", 0, 0, 0x0, 5),
+	MM_IOMMU_PORT_INIT("L0_MDP_WROT0", 0, 0, 0x0, 6),
+	MM_IOMMU_PORT_INIT("L0_DISP_FAKE0", 0, 0, 0x0, 7),
+	/*Larb1 */
+	MM_IOMMU_PORT_INIT("L1_VENC_RCPU", 0, 1, 0x1, 0),
+	MM_IOMMU_PORT_INIT("L1_VENC_REC", 0, 1, 0x1, 1),
+	MM_IOMMU_PORT_INIT("L1_VENC_BSDMA", 0, 1, 0x1, 2),
+	MM_IOMMU_PORT_INIT("L1_VENC_SV_COMV", 0, 1, 0x1, 3),
+	MM_IOMMU_PORT_INIT("L1_VENC_RD_COMV", 0, 1, 0x1, 4),
+	MM_IOMMU_PORT_INIT("L1_JPGENC_RDMA", 0, 1, 0x1, 5),
+	MM_IOMMU_PORT_INIT("L1_JPGENC_BSDMA", 0, 1, 0x1, 6),
+	MM_IOMMU_PORT_INIT("L1_VENC_CUR_LUMA", 0, 1, 0x1, 7),
+	MM_IOMMU_PORT_INIT("L1_VENC_CUR_CHROMA", 0, 1, 0x1, 8),
+	MM_IOMMU_PORT_INIT("L1_VENC_REF_LUMA", 0, 1, 0x1, 9),
+	MM_IOMMU_PORT_INIT("L1_VENC_REF_CHROMA", 0, 1, 0x1, 10),
+	/*Larb2 */
+	MM_IOMMU_PORT_INIT("L2_CAM_IMGO", 0, 2, 0x2, 0),
+	MM_IOMMU_PORT_INIT("L2_CAM_RRZO", 0, 2, 0x2, 1),
+	MM_IOMMU_PORT_INIT("L2_CAM_AAO", 0, 2, 0x2, 2),
+	MM_IOMMU_PORT_INIT("L2_CAM_LCSO", 0, 2, 0x2, 3),
+	MM_IOMMU_PORT_INIT("L2_CAM_ESFKO", 0, 2, 0x2, 4),
+	MM_IOMMU_PORT_INIT("L2_CAM_IMGO_S", 0, 2, 0x2, 5),
+	MM_IOMMU_PORT_INIT("L2_CAM_IMGO_S2", 0, 2, 0x2, 6),
+	MM_IOMMU_PORT_INIT("L2_CAM_LSCI", 0, 2, 0x2, 7),
+	MM_IOMMU_PORT_INIT("L2_CAM_LSCI_D", 0, 2, 0x2, 8),
+	MM_IOMMU_PORT_INIT("L2_CAM_AFO", 0, 2, 0x2, 9),
+	MM_IOMMU_PORT_INIT("L2_CAM_AFO_D", 0, 2, 0x2, 10),
+	MM_IOMMU_PORT_INIT("L2_CAM_BPCI", 0, 2, 0x2, 11),
+	MM_IOMMU_PORT_INIT("L2_CAM_BPCI_D", 0, 2, 0x2, 12),
+	MM_IOMMU_PORT_INIT("L2_CAM_UFDI", 0, 2, 0x2, 13),
+	MM_IOMMU_PORT_INIT("L2_CAM_IMGI", 0, 2, 0x2, 14),
+	MM_IOMMU_PORT_INIT("L2_CAM_IMG2O", 0, 2, 0x2, 15),
+	MM_IOMMU_PORT_INIT("L2_CAM_IMG3O", 0, 2, 0x2, 16),
+	MM_IOMMU_PORT_INIT("L2_CAM_VIPI", 0, 2, 0x2, 17),
+	MM_IOMMU_PORT_INIT("L2_CAM_VIP2I", 0, 2, 0x2, 18),
+	MM_IOMMU_PORT_INIT("L2_CAM_VIP3I", 0, 2, 0x2, 19),
+	MM_IOMMU_PORT_INIT("L2_CAM_ICEI", 0, 2, 0x2, 20),
+	MM_IOMMU_PORT_INIT("L2_CAM_FD_RP", 0, 2, 0x2, 21),
+	MM_IOMMU_PORT_INIT("L2_CAM_FD_WR", 0, 2, 0x2, 22),
+	MM_IOMMU_PORT_INIT("L2_CAM_FD_RB", 0, 2, 0x2, 23),
+
+	MM_IOMMU_PORT_INIT("UNKNOWN", 0, 0, 0x0, 0)
+};
 static const struct mtk_iommu_port iommu_port_mt6765[] = {
 	/*Larb0 */
 	MM_IOMMU_PORT_INIT("L0_DISP_OVL0", 0, 0, 0x0, 0),
@@ -4995,6 +5081,16 @@ static int mt6983_tf_is_gce_videoup(u32 port_tf, u32 vld_tf)
 
 }
 
+static const struct mtk_m4u_plat_data mt6739_data = {
+	.port_list[MM_IOMMU] = iommu_port_mt6739,
+	.port_nr[MM_IOMMU]   = ARRAY_SIZE(iommu_port_mt6739),
+};
+
+static const struct mtk_m4u_plat_data mt6761_data = {
+	.port_list[MM_IOMMU] = iommu_port_mt6761,
+	.port_nr[MM_IOMMU]   = ARRAY_SIZE(iommu_port_mt6761),
+};
+
 static const struct mtk_m4u_plat_data mt6765_data = {
 	.port_list[MM_IOMMU] = iommu_port_mt6765,
 	.port_nr[MM_IOMMU]   = ARRAY_SIZE(iommu_port_mt6765),
@@ -5094,6 +5190,8 @@ static const struct mtk_m4u_plat_data mt6895_data = {
 };
 
 static const struct of_device_id mtk_m4u_dbg_of_ids[] = {
+	{ .compatible = "mediatek,mt6739-iommu-debug", .data = &mt6739_data},
+	{ .compatible = "mediatek,mt6761-iommu-debug", .data = &mt6761_data},
 	{ .compatible = "mediatek,mt6765-iommu-debug", .data = &mt6765_data},
 	{ .compatible = "mediatek,mt6768-iommu-debug", .data = &mt6768_data},
 	{ .compatible = "mediatek,mt6779-iommu-debug", .data = &mt6779_data},

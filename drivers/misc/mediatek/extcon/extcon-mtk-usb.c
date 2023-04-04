@@ -136,15 +136,19 @@ static void mtk_usb_extcon_psy_detector(struct work_struct *work)
 
 	/* Workaround for PR_SWAP, IF tcpc_dev, then do not switch role. */
 	/* Since we will set USB to none when type-c plug out */
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
 	if (extcon->tcpc_dev) {
 		if (usb_is_online(extcon) && extcon->c_role == USB_ROLE_NONE)
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 	} else {
+#endif
 		if (usb_is_online(extcon))
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 		else
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
 	}
+#endif
 
 }
 
@@ -189,12 +193,62 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_CHARGER_RT9458)
+/* ADAPT_CHARGER_V1 */
+#include <charger_class.h>
+static struct charger_device *primary_charger;
+
+static int mtk_usb_extcon_set_vbus_v1(struct mtk_extcon_info *extcon, bool is_on)
+{
+	struct device *dev = extcon->dev;
+	if (!primary_charger) {
+		primary_charger = get_charger_by_name("primary_chg");
+		if (!primary_charger) {
+			dev_info(dev, "%s : get primary charger device failed\n", __func__);
+			return -ENODEV;
+		}
+	}
+#if IS_ENABLED(CONFIG_MTK_GAUGE_VERSION) && (CONFIG_MTK_GAUGE_VERSION == 30)
+	dev_info(dev, "%s vbus turn %s\n", __func__, is_on ? "on" : "off");
+	if (is_on) {
+		charger_dev_enable_otg(primary_charger, true);
+		charger_dev_set_boost_current_limit(primary_charger,
+			1500000);
+		#if 0
+		{// # workaround
+			charger_dev_kick_wdt(primary_charger);
+			enable_boost_polling(true);
+		}
+		#endif
+	} else {
+		charger_dev_enable_otg(primary_charger, false);
+		#if 0
+			//# workaround
+			enable_boost_polling(false);
+		#endif
+	}
+#else
+	if (is_on) {
+		charger_dev_enable_otg(primary_charger, true);
+		charger_dev_set_boost_current_limit(primary_charger,
+			1500000);
+	} else {
+		charger_dev_enable_otg(primary_charger, false);
+	}
+#endif
+		return 0;
+}
+#endif
+
 static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 							bool is_on)
 {
+	int ret;
+#if IS_ENABLED(CONFIG_CHARGER_RT9458)
+	ret = mtk_usb_extcon_set_vbus_v1(extcon, is_on);
+#else
 	struct regulator *vbus = extcon->vbus;
 	struct device *dev = extcon->dev;
-	int ret;
 
 	/* vbus is optional */
 	if (!vbus || extcon->vbus_on == is_on)
@@ -232,7 +286,9 @@ static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 
 	extcon->vbus_on = is_on;
 
-	return 0;
+	ret = 0;
+#endif
+	return ret;
 }
 
 #if IS_ENABLED(CONFIG_TCPC_CLASS)
@@ -466,7 +522,9 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_extcon_info *extcon;
+#if IS_ENABLED(CONFIG_TCPC_CLASS)
 	const char *tcpc_name;
+#endif
 	int ret;
 
 	extcon = devm_kzalloc(&pdev->dev, sizeof(*extcon), GFP_KERNEL);

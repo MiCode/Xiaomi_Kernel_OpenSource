@@ -21,7 +21,7 @@ struct qos_rec_data {
 
 	/* remaining size = 3804 bytes */
 };
-#if IS_ENABLED(CONFIG_MTK_QOS_MT6768)
+#if IS_ENABLED(CONFIG_MTK_QOS_LEGACY)
 static inline int qos_init_rec_share(void)
 {
 	return 0;

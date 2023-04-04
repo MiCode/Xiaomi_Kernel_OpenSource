@@ -3030,6 +3030,7 @@ EXPORT_SYMBOL(register_spm_resource_req_func);
 static void usb_spm_dpidle_request(int mode)
 {
 	unsigned long flags;
+	int ret;
 
 	spin_lock_irqsave(&usb_hal_dpidle_lock, flags);
 
@@ -3068,11 +3069,27 @@ static void usb_spm_dpidle_request(int mode)
 		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB,
 			SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M |
 			SPM_RESOURCE_AXI_BUS);
+		if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20")) {
+			/* workaround: keep clock on for wakeup function */
+			ret = clk_prepare_enable(glue->sys_clk);
+			if (ret)
+				DBG(0, "%s: clk_prepare_enable: sys_clk failed: %d\n",
+						__func__, ret);
+			ret = clk_prepare_enable(glue->ref_clk);
+			if (ret)
+				DBG(0, "%s: clk_prepare_enable: ref_clk failed: %d\n",
+						__func__, ret);
+		}
 		DBG(0, "DPIDLE_SUSPEND\n");
 		break;
 	case USB_DPIDLE_RESUME:
 		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB,
 			SPM_RESOURCE_RELEASE);
+		if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20")) {
+			/* workaround: keep clock on for wakeup function */
+			clk_disable_unprepare(glue->sys_clk);
+			clk_disable_unprepare(glue->ref_clk);
+		}
 		DBG(0, "DPIDLE_RESUME\n");
 		break;
 	default:
@@ -3714,6 +3731,45 @@ static void mt_usb_try_idle(struct musb *musb, unsigned long timeout)
 }
 #endif
 
+static void __iomem *infra_mbist;
+#define USB_SRAM_SET 0x093cc01b
+
+/* setup sram, only for mt6761 */
+static void usb_sram_setup(void)
+{
+	if (infra_mbist)
+		writel(USB_SRAM_SET, infra_mbist + 0x2c);
+	else
+		DBG(0, "infra_mbist not init\n");
+
+	mdelay(1);
+}
+
+static int usb_sram_init(void)
+{
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL,
+					"mediatek,infra_mbist");
+	if (!node) {
+		DBG(0, "infra_mbist map node failed\n");
+		return -1;
+	}
+
+	infra_mbist = of_iomap(node, 0);
+	if (!infra_mbist) {
+		DBG(0, "iomap infra_mbist failed\n");
+		return -1;
+	}
+
+	/* usb20_top_bist */
+	writel(USB_SRAM_SET, infra_mbist + 0x2c);
+	/* wait stable */
+	mdelay(1);
+
+	return 0;
+}
+
 static int real_enable = 0, real_disable;
 static int virt_enable = 0, virt_disable;
 static void mt_usb_enable(struct musb *musb)
@@ -3734,6 +3790,11 @@ static void mt_usb_enable(struct musb *musb)
 	mdelay(10);
 
 	flags = musb_readl(musb->mregs, USB_L1INTM);
+
+	if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20")) {
+		/* only for mt6761 */
+		usb_sram_setup();
+	}
 
 	/* update musb->power & mtk_usb_power in the same time */
 	musb->power = true;
@@ -3794,6 +3855,8 @@ bool mt_usb_is_device(void)
 	return true;
 #endif
 }
+EXPORT_SYMBOL(mt_usb_is_device);
+
 static struct delayed_work disconnect_check_work;
 static bool musb_hal_is_vbus_exist(void);
 void do_disconnect_check_work(struct work_struct *data)
@@ -4285,6 +4348,9 @@ out_unreg:
 static int mt_usb_init(struct musb *musb)
 {
 	int ret;
+#if IS_ENABLED(CONFIG_USB_MTK_OTG)
+	struct device_node *node = musb->glue->dev->of_node;
+#endif
 
 	DBG(1, "%s\n", __func__);
 
@@ -4380,7 +4446,17 @@ static int mt_usb_init(struct musb *musb)
 	uwk_vers = 0;
 	mt_usb_wakeup_init(musb);
 	musb->host_suspend = true;
+	if (of_property_read_bool(node, "host-suspend-disable")) {
+		musb->host_suspend = false;
+		DBG(0, "%s not enable host suspend\n", __func__);
+	}
 #endif
+
+	if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20")) {
+		/* only for mt6761 */
+		usb_sram_init();
+	}
+
 	DBG(0, "%s done\n", __func__);
 	return 0;
 
@@ -4564,7 +4640,9 @@ static int musb_probe(struct platform_device *pdev)
 #endif
 #ifndef FPGA_PLATFORM
 	if (of_find_compatible_node(NULL, NULL, "mediatek,mt6768-usb20") ||
-		of_find_compatible_node(NULL, NULL, "mediatek,mt6765-usb20"))
+		of_find_compatible_node(NULL, NULL, "mediatek,mt6765-usb20") ||
+		of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20") ||
+		of_find_compatible_node(NULL, NULL, "mediatek,mt6739-usb20"))
 		register_usb_hal_dpidle_request(usb_spm_dpidle_request);
 	else
 		register_usb_hal_dpidle_request(usb_dpidle_request);
@@ -4751,6 +4829,8 @@ static const struct of_device_id apusb_of_ids[] = {
 	{.compatible = "mediatek,mt6833-usb20",},
 	{.compatible = "mediatek,mt6768-usb20",},
 	{.compatible = "mediatek,mt6765-usb20",},
+	{.compatible = "mediatek,mt6761-usb20",},
+	{.compatible = "mediatek,mt6739-usb20",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, apusb_of_ids);

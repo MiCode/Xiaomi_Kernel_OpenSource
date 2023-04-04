@@ -1,0 +1,7 @@
+config MTK_SPM_V4
+	tristate "MTK SPM V4"
+	help
+	  This kernel config can be used to enable MTK SPM V4
+	  for MT6739, MT6763 and MT6771, spm is used to control
+	  harware resource when devices enter suspend or idle state.
+	  If unsure, say N.

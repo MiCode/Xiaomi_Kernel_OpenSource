@@ -52,6 +52,25 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/mcupm/mt6833/
 endif
 
+ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6739)),)
+ccflags-y += \
+	-I$(CPUFREQ_ROOT_DIR)/inc \
+	-I$(srctree)/drivers/misc/mediatek/include \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/common/include	\
+	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/src/common/platform   \
+	-I$(srctree)/drivers/misc/mediatek/mcupm/common/
+
+endif
+
+ifneq ($(strip $(CONFIG_MEDIATEK_CPU_DVFS_MT6761)),)
+ccflags-y += \
+	-I$(CPUFREQ_ROOT_DIR)/inc \
+	-I$(srctree)/drivers/misc/mediatek/include \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/common/include	\
+	-I$(srctree)/drivers/misc/mediatek/cpufreq_v2/src/platform   \
+	-I$(srctree)/drivers/misc/mediatek/mcupm/common/
+
+endif
 #sspm
 ifneq ($(strip $(CONFIG_MTK_TINYSYS_SSPM_V1)),)
 	ccflags-y += -DUSE_SSPM_VER_V1
@@ -69,12 +88,19 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
 endif
 
 obj-$(CONFIG_MEDIATEK_CPU_DVFS) += CPU_DVFS.o
-
+ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6739)),)
+CPU_DVFS-y := common/mtk_cpufreq_main.o
+CPU_DVFS-y += common/mtk_cpufreq_interface.o
+CPU_DVFS-y += common/mtk_cpufreq_api.o
+CPU_DVFS-y += common/mtk_cpufreq_debug.o
+CPU_DVFS-y += common/platform/mtk_cpufreq_platform.o
+else
 CPU_DVFS-y := mtk_cpufreq_main.o
 CPU_DVFS-y += mtk_cpufreq_interface.o
 CPU_DVFS-y += mtk_cpufreq_api.o
 CPU_DVFS-y += mtk_cpufreq_debug.o
 CPU_DVFS-y += mtk_cpufreq_hybrid.o
+endif
 ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6768)),)
 CPU_DVFS-y += mt6768/mtk_cpufreq_platform.o
 endif
@@ -83,4 +109,7 @@ CPU_DVFS-y += common_v2/mtk_cpufreq_platform.o
 endif
 ifneq ($(strip $(CONFIG_MEDIATEK_CPU_DVFS_MT6833)),)
 CPU_DVFS-y += common_v3/mtk_cpufreq_platform.o
+endif
+ifneq ($(strip $(CONFIG_MEDIATEK_CPU_DVFS_MT6761)),)
+CPU_DVFS-y += platform/mtk_cpufreq_platform.o
 endif

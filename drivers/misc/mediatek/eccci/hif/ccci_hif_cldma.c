@@ -99,7 +99,6 @@ static int normal_tx_ring2queue[NORMAL_TXQ_NUM];
 
 struct md_cd_ctrl *cldma_ctrl;
 
-static void __iomem *md_cldma_misc_base;
 
 struct ccci_cldma_clk_node cldma_clk_table[CLDMA_CLOCK_COUNT] = {
 	{ NULL,	"infra-cldma-bclk"},
@@ -126,10 +125,6 @@ static inline struct device *ccci_md_get_dev_by_id(int md_id)
 
 static void cldma_dump_register(struct md_cd_ctrl *md_ctrl)
 {
-	if (md_cldma_misc_base)
-		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-			"MD CLDMA IP busy = %x\n",
-			ccci_read32(md_cldma_misc_base, 0));
 
 	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
 		"dump AP CLDMA Tx pdn register, active=%x\n",
@@ -2981,7 +2976,6 @@ static u64 s_cldma_dmamask = DMA_BIT_MASK(36);
 static int ccci_cldma_hif_init(struct platform_device *pdev,
 		unsigned char hif_id, unsigned char md_id)
 {
-	struct device_node *node = NULL;
 	struct md_cd_ctrl *md_ctrl;
 	int i, idx;
 
@@ -3047,21 +3041,6 @@ static int ccci_cldma_hif_init(struct platform_device *pdev,
 		kfree(md_ctrl);
 		return -1;
 	}
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mdcldmamisc");
-	if (node) {
-		md_cldma_misc_base = of_iomap(node, 0);
-		if (!md_cldma_misc_base) {
-			CCCI_ERROR_LOG(-1, TAG,
-				"%s: md_cldma_misc_base of_iomap failed\n",
-				node->full_name);
-			return -1;
-		}
-
-	} else
-		CCCI_BOOTUP_LOG(-1, TAG,
-			"warning: no md cldma misc in dts\n");
-
 
 	for (idx = 0; idx < ARRAY_SIZE(cldma_clk_table); idx++) {
 		cldma_clk_table[idx].clk_ref = devm_clk_get(&pdev->dev,

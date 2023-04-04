@@ -207,6 +207,7 @@
 #define LC_HS_TX_EN BIT(0)
 #define LC_ULPM_EN BIT(1)
 #define LC_WAKEUP_EN BIT(2)
+#define EARLY_DRDY (0x1f<<8)
 #define PHY_FLD_REG_LC_HSTX_EN REG_FLD_MSB_LSB(0, 0)
 
 #define DSI_PHY_LD0CON 0x108
@@ -1371,9 +1372,15 @@ static void mtk_dsi_clk_hs_mode(struct mtk_dsi *dsi, bool enter)
 			writel(0x55, dsi->regs + DSI_PHY_LCPAT);
 	}
 
-	if (enter && !mtk_dsi_clk_hs_state(dsi))
-		mtk_dsi_mask(dsi, DSI_PHY_LCCON, LC_HS_TX_EN, LC_HS_TX_EN);
-	else if (!enter && mtk_dsi_clk_hs_state(dsi))
+	if (enter && !mtk_dsi_clk_hs_state(dsi)) {
+		if (priv->data->mmsys_id == MMSYS_MT6739) {
+			mtk_dsi_mask(dsi, DSI_PHY_LCCON, 0xffffffff, 0x1);
+			if (dsi->ext && dsi->ext->params && dsi->ext->params->lane_swap_en) {
+				mtk_dsi_mask(dsi, DSI_PHY_LCCON, EARLY_DRDY, EARLY_DRDY);
+			}
+		} else
+			mtk_dsi_mask(dsi, DSI_PHY_LCCON, LC_HS_TX_EN, LC_HS_TX_EN);
+	} else if (!enter && mtk_dsi_clk_hs_state(dsi))
 		mtk_dsi_mask(dsi, DSI_PHY_LCCON, LC_HS_TX_EN, 0);
 }
 
@@ -9275,7 +9282,47 @@ static const struct mtk_dsi_driver_data mt8173_dsi_driver_data = {
 	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
 };
 
+const struct mtk_dsi_driver_data mt6739_dsi_driver_data = {
+	.reg_cmdq0_ofs = 0x200,
+	.reg_cmdq1_ofs = 0x204,
+	.reg_vm_cmd_con_ofs = 0x130,
+	.reg_vm_cmd_data0_ofs = 0x134,
+	.reg_vm_cmd_data10_ofs = 0x180,
+	.reg_vm_cmd_data20_ofs = 0x1a0,
+	.reg_vm_cmd_data30_ofs = 0x1b0,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.need_wait_fifo = true,
+	.dsi_buffer = false,
+	.dsi_new_trail = false,
+	.max_vfp = 0,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
+};
+
 const struct mtk_dsi_driver_data mt6765_dsi_driver_data = {
+	.reg_cmdq0_ofs = 0x200,
+	.reg_cmdq1_ofs = 0x204,
+	.reg_vm_cmd_con_ofs = 0x130,
+	.reg_vm_cmd_data0_ofs = 0x134,
+	.reg_vm_cmd_data10_ofs = 0x180,
+	.reg_vm_cmd_data20_ofs = 0x1a0,
+	.reg_vm_cmd_data30_ofs = 0x1b0,
+	.poll_for_idle = mtk_dsi_poll_for_idle,
+	.irq_handler = mtk_dsi_irq_status,
+	.esd_eint_compat = "mediatek, DSI_TE-eint",
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.need_wait_fifo = true,
+	.dsi_buffer = false,
+	.dsi_new_trail = false,
+	.max_vfp = 0,
+	.mmclk_by_datarate = mtk_dsi_set_mmclk_by_datarate_V1,
+};
+
+const struct mtk_dsi_driver_data mt6761_dsi_driver_data = {
 	.reg_cmdq0_ofs = 0x200,
 	.reg_cmdq1_ofs = 0x204,
 	.reg_vm_cmd_con_ofs = 0x130,
@@ -9513,7 +9560,9 @@ static const struct mtk_dsi_driver_data mt2701_dsi_driver_data = {
 
 static const struct of_device_id mtk_dsi_of_match[] = {
 	{.compatible = "mediatek,mt2701-dsi", .data = &mt2701_dsi_driver_data},
+	{.compatible = "mediatek,mt6739-dsi", .data = &mt6739_dsi_driver_data},
 	{.compatible = "mediatek,mt6765-dsi", .data = &mt6765_dsi_driver_data},
+	{.compatible = "mediatek,mt6761-dsi", .data = &mt6761_dsi_driver_data},
 	{.compatible = "mediatek,mt6768-dsi", .data = &mt6768_dsi_driver_data},
 	{.compatible = "mediatek,mt6779-dsi", .data = &mt6779_dsi_driver_data},
 	{.compatible = "mediatek,mt8173-dsi", .data = &mt8173_dsi_driver_data},

@@ -20,6 +20,7 @@ MTK_PLATFORM := mt6765
 endif
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2
 obj-y += mtk-auddrv-devtree-parser.o
 #obj-y += mtk-auddrv-underflow-mach.o
 
@@ -31,6 +32,10 @@ ifeq ($(CONFIG_MTK_SND_SOC_NEW_ARCH),y)
 
 # MENU Governor Predict(low power)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcdi/include
+
+# spm
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/spm
 
 # Common object
 obj-$(CONFIG_MTK_SND_SOC_NEW_ARCH_COMMON) += mtk-soc-speaker-amp.o

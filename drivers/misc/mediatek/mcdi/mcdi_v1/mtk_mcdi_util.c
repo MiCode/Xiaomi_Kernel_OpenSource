@@ -47,20 +47,39 @@ static inline int mcdi_sspm_ready(void)
 
 static inline unsigned int mcdi_mcupm_read(int id)
 {
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
+	if (mcdi_mcupm_sram_is_ready())
+		return mcdi_read((uintptr_t)(MCDI_MBOX + (4 * id)));
+#else
 	return mcdi_read((uintptr_t)id);
-
+#endif
 	return 0;
 
 }
 
 static inline void mcdi_mcupm_write(int id, unsigned int val)
 {
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
+	if (mcdi_mcupm_sram_is_ready())
+		mcdi_write((uintptr_t)(MCDI_MBOX + (4 * id)), val);
+#else
 	mcdi_write((uintptr_t)id, val);
+#endif
 }
 
 static inline int mcdi_mcupm_ready(void)
 {
-	return false;
+	int sta = get_mcupmfw_load_info();
+	bool ret = false;
+
+	ret = (sta) ? true : false;
+	if (sta == -1) {
+		sta = mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
+			MCDI_SMC_EVENT_MCUPM_FW_STA, 0, 0, 0);
+		ret = (sta == MCUPM_FW_KICK) ? true : false;
+		set_mcupmfw_load_info((ret == true) ? 1 : 0);
+	}
+	return ret;
 }
 
 #if defined(MCDI_SSPM_INTF)

@@ -3241,6 +3241,28 @@ static const struct mtk_iommu_plat_data mt2712_data = {
 	.larbid_remap = {{0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}},
 };
 
+static const struct mtk_iommu_plat_data mt6739_data = {
+	.m4u_plat      = M4U_MT6739,
+	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN |
+			 NOT_STD_AXI_MODE | SHARE_PGTABLE,
+	.inv_sel_reg   = REG_MMU_INV_SEL_GEN1,
+	.iova_region   = single_domain,
+	.iova_region_nr = ARRAY_SIZE(single_domain),
+	.iommu_id	= DISP_IOMMU,
+	.iommu_type     = MM_IOMMU,
+};
+
+static const struct mtk_iommu_plat_data mt6761_data = {
+	.m4u_plat      = M4U_MT6761,
+	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN |
+			 NOT_STD_AXI_MODE | SHARE_PGTABLE,
+	.inv_sel_reg   = REG_MMU_INV_SEL_GEN1,
+	.iova_region   = single_domain,
+	.iova_region_nr = ARRAY_SIZE(single_domain),
+	.iommu_id	= DISP_IOMMU,
+	.iommu_type     = MM_IOMMU,
+};
+
 static const struct mtk_iommu_plat_data mt6765_data = {
 	.m4u_plat      = M4U_MT6765,
 	.flags         = HAS_SUB_COMM | OUT_ORDER_WR_EN | WR_THROT_EN |
@@ -3652,6 +3674,8 @@ static const struct mtk_iommu_plat_data mt8192_data = {
 
 static const struct of_device_id mtk_iommu_of_ids[] = {
 	{ .compatible = "mediatek,mt2712-m4u", .data = &mt2712_data},
+	{ .compatible = "mediatek,mt6739-m4u", .data = &mt6739_data},
+	{ .compatible = "mediatek,mt6761-m4u", .data = &mt6761_data},
 	{ .compatible = "mediatek,mt6765-m4u", .data = &mt6765_data},
 	{ .compatible = "mediatek,mt6768-m4u", .data = &mt6768_data},
 	{ .compatible = "mediatek,mt6779-m4u", .data = &mt6779_data},

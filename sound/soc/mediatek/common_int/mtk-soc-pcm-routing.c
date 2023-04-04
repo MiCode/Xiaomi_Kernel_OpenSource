@@ -56,11 +56,14 @@
 #include <linux/clk.h>
 #include <linux/time.h>
 
-#include <linux/fb.h>
 #include <linux/notifier.h>
 
 #if IS_ENABLED(CONFIG_COMPAT)
 #include <linux/compat.h>
+#endif
+
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+#include "mtk_disp_notify.h"
 #endif
 
 #include "mtk-soc-speaker-amp.h"
@@ -1066,33 +1069,31 @@ static struct platform_driver mtk_afe_routing_driver = {
 	.remove = mtk_afe_routing_remove,
 };
 
-static int soc_fb_notifier_callback(struct notifier_block *self,
-				    unsigned long event, void *data)
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+static int soc_notifier_callback(struct notifier_block *nb,
+				 unsigned long value, void *v)
 {
-	struct fb_event *evdata = data;
-	int blank;
+	int *data = (int *)v;
 
-	if (event != FB_EVENT_BLANK)
-		return 0;
-
-	blank = *(int *)evdata->data;
-	switch (blank) {
-	case FB_BLANK_UNBLANK:
-		set_screen_state(true);
-		break;
-	case FB_BLANK_POWERDOWN:
-		set_screen_state(false);
-		break;
-	default:
-		break;
+	if (value == MTK_DISP_EVENT_BLANK) {
+		pr_info("%s+\n", __func__);
+		if (*data == MTK_DISP_BLANK_UNBLANK) {
+			pr_info("Set screen state true\n");
+			set_screen_state(true);
+		} else if (*data == MTK_DISP_BLANK_POWERDOWN) {
+			pr_info("Set screen state false\n");
+			set_screen_state(false);
+		}
+		pr_info("%s-\n", __func__);
 	}
 
 	return 0;
 }
 
-static struct notifier_block soc_fb_notif = {
-	.notifier_call = soc_fb_notifier_callback,
+static struct notifier_block soc_notif = {
+	.notifier_call = soc_notifier_callback,
 };
+#endif
 
 #ifndef CONFIG_OF
 static struct platform_device *soc_mtkafe_routing_dev;
@@ -1117,10 +1118,13 @@ static int __init mtk_soc_routing_platform_init(void)
 
 	ret = platform_driver_register(&mtk_afe_routing_driver);
 
-	ret = fb_register_client(&soc_fb_notif);
+#if IS_ENABLED(CONFIG_DRM_MEDIATEK)
+	ret = mtk_disp_notifier_register("Audio", &soc_notif);
 	if (ret)
-		pr_err("FAILED TO REGISTER FB CLIENT (%d)\n", ret);
-
+		pr_err("FAILED TO REGISTER disp notifier (%d)\n", ret);
+#else
+	pr_err("CONFIG_DRM_MEDIATEK not enable, ignore register disp notifer\n");
+#endif
 	return ret;
 }
 module_init(mtk_soc_routing_platform_init);

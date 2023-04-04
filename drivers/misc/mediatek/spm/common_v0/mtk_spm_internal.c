@@ -328,6 +328,7 @@ u32 __spm_get_wake_period(int pwake_time, unsigned int last_wr)
 	return period;
 }
 
+#if !IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
 static bool is_big_buck_ctrl_by_spm(void)
 {
 	return false;
@@ -343,5 +344,6 @@ void __sync_big_buck_ctrl_pcm_flag(u32 *flag)
 				SPM_FLAG1_BIG_BUCK_ON_ENABLE);
 	}
 }
+#endif
 
 MODULE_DESCRIPTION("SPM-Internal Driver v0.1");

@@ -1673,7 +1673,8 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 			return DDP_COMPONENT_OVL0_2L;
 		else if (priv->data->mmsys_id == MMSYS_MT6879)
 			return DDP_COMPONENT_OVL0_2L_NWCG;
-		else if (priv->data->mmsys_id == MMSYS_MT6768)
+		else if (priv->data->mmsys_id == MMSYS_MT6768 ||
+				priv->data->mmsys_id == MMSYS_MT6761)
 			return DDP_COMPONENT_OVL0_2L;
 		else
 			return DDP_COMPONENT_OVL2_2L;

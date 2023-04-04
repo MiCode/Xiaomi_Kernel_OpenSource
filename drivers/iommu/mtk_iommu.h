@@ -44,6 +44,8 @@ struct mtk_iommu_suspend_reg {
 enum mtk_iommu_plat {
 	M4U_MT2701,
 	M4U_MT2712,
+	M4U_MT6739,
+	M4U_MT6761,
 	M4U_MT6765,
 	M4U_MT6768,
 	M4U_MT6779,

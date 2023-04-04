@@ -40,6 +40,12 @@ obj-$(CONFIG_PINCTRL_MT6797)	+= pinctrl-mt6797.o
 ifneq ($(wildcard $(srctree)/$(src)/pinctrl-mt6373.c),)
 obj-$(CONFIG_PINCTRL_MT6373)	+= pinctrl-mt6373.o
 endif
+ifneq ($(wildcard $(srctree)/$(src)/pinctrl-mt6761.c),)
+obj-$(CONFIG_PINCTRL_MT6761)	+= pinctrl-mt6761.o
+endif
+ifneq ($(wildcard $(srctree)/$(src)/pinctrl-mt6739.c),)
+obj-$(CONFIG_PINCTRL_MT6739)	+= pinctrl-mt6739.o
+endif
 ifneq ($(wildcard $(srctree)/$(src)/pinctrl-mt6765.c),)
 obj-$(CONFIG_PINCTRL_MT6765)	+= pinctrl-mt6765.o
 endif

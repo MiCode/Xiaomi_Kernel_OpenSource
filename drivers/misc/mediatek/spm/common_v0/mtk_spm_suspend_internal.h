@@ -85,10 +85,6 @@ void spm_suspend_post_process(struct pwr_ctrl *pwrctrl);
  * External functions and variable
  **************************************/
 
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
-extern void mt_print_scp_ipi_id(void);
-#endif
-
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 extern void aee_rr_rec_spm_suspend_val(u32 val);
 #endif

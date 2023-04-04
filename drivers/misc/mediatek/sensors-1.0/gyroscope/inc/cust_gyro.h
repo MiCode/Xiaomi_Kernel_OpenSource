@@ -25,5 +25,5 @@ struct gyro_hw {
 	bool is_batch_supported;
 };
 
-int get_gyro_dts_func(struct device_node *node, struct gyro_hw *hw);
+extern int get_gyro_dts_func(struct device_node *node, struct gyro_hw *hw);
 #endif

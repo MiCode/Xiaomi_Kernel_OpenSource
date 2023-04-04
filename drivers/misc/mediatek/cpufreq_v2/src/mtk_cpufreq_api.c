@@ -279,6 +279,7 @@ unsigned int mt_cpufreq_get_cur_freq(unsigned int id)
 }
 EXPORT_SYMBOL(mt_cpufreq_get_cur_freq);
 
+#ifndef ONE_CLUSTER
 unsigned int mt_cpufreq_get_cur_freq_idx(enum mt_cpu_dvfs_id id)
 {
 #ifdef CPU_DVFS_NOT_READY
@@ -324,7 +325,7 @@ unsigned int mt_cpufreq_get_cur_cci_freq_idx(void)
 #endif
 }
 EXPORT_SYMBOL(mt_cpufreq_get_cur_cci_freq_idx);
-
+#endif
 
 unsigned int mt_cpufreq_get_freq_by_idx(enum mt_cpu_dvfs_id id, int idx)
 {

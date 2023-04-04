@@ -1,0 +1,14 @@
+config MTK_CAMERA_ISP_RAW_SUPPORT_ISP3_M
+	tristate "[ISP] Image Signal Processor - mt6761"
+	help
+	  Enable to build mt6761 camera isp driver which
+	  processes and enhances the image raw data
+	  from the imgsensor.
+	  Disable if it is not supported or not wanted.
+
+config MTK_CAMERA_ISP_RAW_SUPPORT_ISP3_Z
+	tristate "[ISP] Image Signal Processor - mt6739"
+	help
+	  Enable to build mt6739 camera isp driver which
+	  from the imgsensor.
+	  Disable if it is not supported or not wanted.

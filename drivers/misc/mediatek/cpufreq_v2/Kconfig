@@ -16,6 +16,24 @@ config MTK_DVFS_MT6768
 	  Set Y to select this feature for specific platform-MT6768.
 	  If unsure, set N to disable.
 
+config MTK_DVFS_MT6739
+	tristate "Specify Mediatek CPU_DVFS Platform is MT6739"
+	depends on MEDIATEK_CPU_DVFS
+	help
+	  Select MediaTek Low Power Module Platform is MT6739
+	  for power management.
+	  Set Y to select this feature for specific platform-MT6739.
+	  If unsure, set N to disable.
+
+config MEDIATEK_CPU_DVFS_MT6761
+	tristate "Specify Mediatek CPU_DVFS Platform is MT6761"
+	depends on MEDIATEK_CPU_DVFS
+	help
+	  Select MediaTek Low Power Module Platform is MT6761
+	  for power management.
+	  Set Y to select this feature for specific platform-MT6761.
+	  If unsure, set N to disable.
+
 config MEDIATEK_CPU_DVFS_MT6765
 	tristate "Specify Mediatek CPU_DVFS Platform is MT6765"
 	depends on MEDIATEK_CPU_DVFS

@@ -6,6 +6,14 @@ config MTK_DEVAPC
 	  device, it cannot access the device and will get a violation
 	  interrupt. Device APC prevents malicious access to internal devices.
 
+config DEVAPC_LEGACY
+	tristate "Mediatek Device APC driver for legacy platform"
+	help
+	  Say yes here to enable support Mediatek legacy
+	  Device APC driver.
+	  This driver do not split common handle flow
+	  into different files.
+
 config DEVAPC_ARCH_COMMON
 	tristate "Mediatek Device APC driver architecture common"
 	help
@@ -37,6 +45,14 @@ config MTK_SABORT_HOOK
 	  synchronous abort dump which can see Device APC driver
 	  violation log in case of synchronous abort happened.
 	  This is for debug purpose.
+
+config DEVAPC_MT6739
+	tristate "Mediatek MT6739 Device APC driver"
+	select MTK_DEVAPC
+	select DEVAPC_LEGACY
+	help
+	 say yes here to enable support Mediatek MT6765
+	 Device APC driver.
 
 config DEVAPC_MT6765
 	tristate "Mediatek MT6765 Device APC driver"

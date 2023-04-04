@@ -18,7 +18,11 @@ struct edge_trigger_irq_list {
 };
 
 static struct edge_trigger_irq_list list[] = {
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+	{ "mediatek,mt6761-infracfg",   0,	0 },
+#else
 	{ "mediatek,mt6765-infracfg",   0,	0 },
+#endif
 	{ "mediatek,kp",            0,  WAKE_SRC_R12_KP_IRQ_B },
 	{ "mediatek,mddriver",       3,  WAKE_SRC_R12_MD1_WDT_B },
 	{ "mediatek,disp_rdma0",   0,      WAKE_SRC_R12_SYS_CIRQ_IRQ_B},

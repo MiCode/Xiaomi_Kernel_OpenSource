@@ -79,8 +79,10 @@ void upower_update_tables_by_eem(void)
 #ifdef UPOWER_USE_DEF_CCI_TBL
 	upower_init_volt_cci();
 #endif
+#if IS_ENABLED(CONFIG_MTK_EEM_READY)
 #ifdef UPOWER_NUM_LARGER
 	confirm_volt();
+#endif
 #endif
 
 	upower_update_dyn_pwr();

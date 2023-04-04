@@ -532,9 +532,9 @@ SND_SOC_DAILINK_DEFS(i2s1_awb_capture,
 
 static int mt6357_codec_init(struct snd_soc_pcm_runtime *rtd)
 {
+#if IS_ENABLED(CONFIG_SND_SOC_MT6357_ACCDET)
 	struct snd_soc_component *codec_component =
 		snd_soc_rtdcom_lookup(rtd, CODEC_MT6357_NAME);
-#if IS_ENABLED(CONFIG_SND_SOC_MT6357_ACCDET)
 	mt6357_accdet_init(codec_component, rtd->card);
 #endif
 	return 0;

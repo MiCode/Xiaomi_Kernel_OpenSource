@@ -88,7 +88,9 @@ ifeq ($(CONFIG_MTK_TINYSYS_SCP_CM4_SUPPORT),)
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_aod_scp.o
 endif
 endif
+ifneq ($(filter y m, $(or $(CONFIG_MTK_TEE_GP_COORDINATOR), $(CONFIG_MTK_GZ_TZ_SYSTEM))),)
 obj-$(CONFIG_DRM_MEDIATEK) += mtk_disp_sec.o
+endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\

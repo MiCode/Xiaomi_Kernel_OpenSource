@@ -8,3 +8,4 @@ config MTK_CAMERA_ISP_RAW_SUPPORT
 	  Disable if it is not supported or not wanted.
 
 source "drivers/misc/mediatek/cameraisp/src/isp_4/Kconfig"
+source "drivers/misc/mediatek/cameraisp/src/isp_3/Kconfig"

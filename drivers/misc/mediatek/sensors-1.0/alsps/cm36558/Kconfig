@@ -1,0 +1,9 @@
+
+config MTK_CM36558
+	bool "cm36558 for MediaTek package"
+	default n
+	help
+	  It support different type sensor
+	  in this platform. If this option
+	  is set, it will support ambient
+	  and light sensor CM36558.

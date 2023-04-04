@@ -58,7 +58,7 @@ mtk_mmqos_unregister_bw_throttle_notifier(struct notifier_block *nb)
 { return 0; }
 
 static inline s32
-mtk_mmqos_hrt_scen(enum hrt_scen, bool is_start) { return 0; }
+mtk_mmqos_hrt_scen(enum hrt_scen scen, bool is_start) { return 0; }
 
 static inline s32
 mtk_mmqos_system_qos_update(unsigned short qos_status) { return 0; }

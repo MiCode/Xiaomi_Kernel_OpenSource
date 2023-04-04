@@ -114,6 +114,8 @@ static int ccci_scp_ipi_send(int md_id, int op_id, void *data)
 	return ret;
 }
 
+#ifdef FEATURE_SCP_CCCI_SUPPORT
+
 static int scp_set_clk_cg(unsigned int on)
 {
 	int idx, ret;
@@ -162,6 +164,7 @@ static int scp_set_clk_cg(unsigned int on)
 
 	return 0;
 }
+#endif
 
 static void ccci_notify_atf_set_scpmem(void)
 {
@@ -204,7 +207,10 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 				CCCI_ERROR_LOG(scp_ctl->md_id, FSM,
 					"SCP init not ready!\n");
 			else {
+#ifdef FEATURE_SCP_CCCI_SUPPORT
 				ret = scp_set_clk_cg(1);
+#endif
+
 				if (ret) {
 					CCCI_ERROR_LOG(scp_ctl->md_id, FSM,
 						"fail to set scp clk, ret = %d\n", ret);
@@ -299,7 +305,10 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 			case SCP_CCCI_STATE_STOP:
 				CCCI_NORMAL_LOG(ipi_msg_ptr->md_id, FSM,
 						"MD INVALID,scp send ack to ap\n");
+#ifdef FEATURE_SCP_CCCI_SUPPORT
 				ret = scp_set_clk_cg(0);
+#endif
+
 				if (ret)
 					CCCI_ERROR_LOG(ipi_msg_ptr->md_id, FSM,
 						"fail to set scp clk, ret = %d\n", ret);
@@ -445,6 +454,7 @@ static struct notifier_block apsync_notifier = {
 };
 #endif
 
+#ifdef FEATURE_SCP_CCCI_SUPPORT
 static int ccif_scp_clk_init(struct device *dev)
 {
 	int idx = 0;
@@ -463,6 +473,8 @@ static int ccif_scp_clk_init(struct device *dev)
 
 	return 0;
 }
+#endif
+
 
 static int fsm_scp_hw_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
 {
@@ -487,8 +499,10 @@ int fsm_scp_init(struct ccci_fsm_scp *scp_ctl, struct device *dev)
 		CCCI_ERROR_LOG(-1, FSM, "ccci scp hw init fail\n");
 		return ret;
 	}
-
+#ifdef FEATURE_SCP_CCCI_SUPPORT
 	ret = ccif_scp_clk_init(dev);
+#endif
+
 	if (ret < 0) {
 		CCCI_ERROR_LOG(-1, FSM, "ccif scp clk init fail\n");
 		return ret;

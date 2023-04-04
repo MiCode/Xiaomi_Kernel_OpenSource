@@ -3008,7 +3008,8 @@ mtk_ovl_addon_rsz_config(struct mtk_ddp_comp *comp, enum mtk_ddp_comp_id prev,
 			       ~0);
 		_store_bg_roi(comp, rsz_src_roi.height, rsz_src_roi.width);
 	}
-	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
+	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765
+		|| priv->data->mmsys_id == MMSYS_MT6761) {
 		struct mtk_ddp_comp *comp_ovl0 = priv->ddp_comp[DDP_COMPONENT_OVL0];
 		static char init_ovl0 = true;
 
@@ -4387,6 +4388,32 @@ static const struct mtk_disp_ovl_data mt2701_ovl_driver_data = {
 	.source_bpc = 8,
 };
 
+static const struct compress_info compr_info_mt6739  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+const struct mtk_disp_ovl_data mt6739_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_BASE,
+	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6739,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.preultra_th_dc = 0x3ff,
+	.fifo_size = 128,
+	.issue_req_th_dl = 95,
+	.issue_req_th_dc = 47,
+	.issue_req_th_urg_dl = 47,
+	.issue_req_th_urg_dc = 47,
+	.greq_num_dl = 0x5555,
+	.is_support_34bits = false,
+};
+
 static const struct compress_info compr_info_mt6765  = {
 	.name = "AFBC_V1_2_MTK_1",
 	.l_config = &compr_l_config_AFBC_V1_2,
@@ -4401,6 +4428,32 @@ const struct mtk_disp_ovl_data mt6765_ovl_driver_data = {
 	.fmt_uyvy = 4U << 12,
 	.fmt_yuyv = 5U << 12,
 	.compr_info = &compr_info_mt6765,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.preultra_th_dc = 0x3ff,
+	.fifo_size = 192,
+	.issue_req_th_dl = 127,
+	.issue_req_th_dc = 15,
+	.issue_req_th_urg_dl = 63,
+	.issue_req_th_urg_dc = 15,
+	.greq_num_dl = 0x7777,
+	.is_support_34bits = false,
+};
+
+static const struct compress_info compr_info_mt6761  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+const struct mtk_disp_ovl_data mt6761_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_BASE,
+	.el_addr_offset = 0x04,
+	.el_hdr_addr = 0xfd0,
+	.el_hdr_addr_offset = 0x08,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6761,
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.preultra_th_dc = 0x3ff,
@@ -4700,8 +4753,12 @@ static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-ovl",
 	 .data = &mt2701_ovl_driver_data},
+	{.compatible = "mediatek,mt6739-disp-ovl",
+	 .data = &mt6739_ovl_driver_data},
 	{.compatible = "mediatek,mt6765-disp-ovl",
 	 .data = &mt6765_ovl_driver_data},
+	{.compatible = "mediatek,mt6761-disp-ovl",
+	 .data = &mt6761_ovl_driver_data},
 	{.compatible = "mediatek,mt6768-disp-ovl",
 	 .data = &mt6768_ovl_driver_data},
 	{.compatible = "mediatek,mt6779-disp-ovl",

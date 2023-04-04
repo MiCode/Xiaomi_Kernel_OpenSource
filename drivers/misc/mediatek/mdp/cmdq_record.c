@@ -1793,7 +1793,21 @@ s32 cmdq_op_acquire_ex(struct cmdqRecStruct *handle,
 s32 cmdq_op_write_from_reg_ex(struct cmdqRecStruct *handle,
 	struct cmdq_command_buffer *cmd_buf, u32 write_reg, u32 from_reg)
 {
-	return -EINVAL;
+	s32 status;
+
+	if (!handle)
+		return -EINVAL;
+
+	do {
+		status = cmdq_op_read_reg(handle, from_reg,
+			&handle->arg_value, ~0);
+		CMDQ_CHECK_AND_BREAK_STATUS(status);
+
+		status = cmdq_op_write_reg(handle, write_reg,
+			handle->arg_value, ~0);
+	} while (0);
+
+	return status;
 }
 
 s32 cmdq_alloc_write_addr(u32 count, dma_addr_t *paStart, u32 clt, void *fp)

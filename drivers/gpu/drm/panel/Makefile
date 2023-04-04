@@ -99,6 +99,12 @@ obj-$(CONFIG_DRM_PANEL_NT37801_MSYNC2_RTE) += panel-nt37801-msync2-rte.o
 obj-$(CONFIG_DRM_PANEL_HX83112B_AUO_CMD_RT5081) += panel-hx83112b-auo-cmd-60hz-rt5081.o
 obj-$(CONFIG_DRM_PANEL_HX83112B_AUO_VDO_RT5081) += panel-hx83112b-auo-vdo-60hz-rt5081.o
 obj-$(CONFIG_DRM_PANEL_TD4320_FHDP__AUO_VDO_RT5081) += panel-td4320-fhdp-dsi-vdo-auo-rt5081.o
+obj-$(CONFIG_DRM_PANEL_NT35521_HD_VDO_TRULY_RT5081) += panel-nt35521_hd_dsi_vdo_truly_rt5081.o
+obj-$(CONFIG_DRM_PANEL_NT35521_HD_VDO_TRULY_RT50358) += panel-tps65132-i2c.o
+obj-$(CONFIG_DRM_PANEL_NT35521_HD_VDO_TRULY_RT50358) += panel-nt35521_hd_dsi_vdo_truly_rt50358.o
+obj-$(CONFIG_DRM_PANEL_NT35695_FHD_VDO_TRULY_RT5081_19_9) += panel-nt35695_fhd_dsi_vdo_truly_rt5081_hdp_19_9.o
+obj-$(CONFIG_DRM_PANEL_NT35695_FHD_VDO_TRULY_RT5081_HDP_1680) += panel-nt35695_fhd_dsi_vdo_truly_rt5081_hdp_1680.o
+obj-$(CONFIG_DRM_PANEL_NT35695_FHD_VDO_TRULY_RT5081_HDP) += panel-nt35695_fhd_dsi_vdo_truly_rt5081_hdp.o
 obj-$(CONFIG_DRM_PANEL_BOE_HX83102J_VDO) += panel-boe-hx83102j-vdo.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_HX83102J_VDO) += panel-tianma-hx83102j-vdo.o
 

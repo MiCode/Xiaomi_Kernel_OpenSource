@@ -885,6 +885,15 @@ config MTK_CHARGER_TYPE_DETECT
 	  typec attach notify.
 	  Say N to disable.
 
+config CHARGER_TYPE_MT6357
+       tristate "MT6357 Charger Type Detection Driver"
+       depends on MFD_MT6397
+       help
+         Say yes here to enable MT6357 Charger Type
+         Detection Driver.
+         This driver use MT6357 to detect charger type
+         Say no if not using MT6357 Charger Type Detection.
+
 config MTK_CHARGER
 	tristate "MediaTek Charging Driver"
 	help
@@ -901,6 +910,15 @@ config MT6357_DO_CTD
 	  This config will be enable for mt6357 charger type detection only.
 	  Say N to disable for other charger type detection chip choice.
 
+config MTK_SWCHR_SUPPORT
+	tristate "MediaTek switch charger"
+	depends on MTK_CHARGER
+	help
+	  This is to enable switching charger control flow.
+	  switching charger has better performance than pulse charger
+	  Set to yes if switching charger is used.
+	  Set to no if pmic pulse charger is used.
+
 config CHARGER_RT9465
 	tristate "Charger Driver for Richtek RT9465 Charger IC"
 	depends on MTK_CHARGER
@@ -909,6 +927,16 @@ config CHARGER_RT9465
 	  It is mainly used as slave IC for dual charger
 	  application.
 	  It depends on config MTK_CHARGER.
+
+
+config CHARGER_RT9458
+	tristate "Charger Driver for Richtek RT9458 Charger IC"
+	depends on MTK_SWCHR_SUPPORT
+	help
+	  Say Y to enable
+	  Richtek RT9458 driver.
+	  It depends on
+	  the config MTK_SWCHR_SUPPORT.
 
 config MTK_PUMP_EXPRESS_PLUS_SUPPORT
 	tristate "MediaTek PUMP EXPRESS PLUS"

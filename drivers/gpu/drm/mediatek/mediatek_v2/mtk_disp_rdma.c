@@ -800,7 +800,8 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	/* DISP_RDMA_THRESHOLD_FOR_SODI */
 	gs[GS_RDMA_TH_LOW_FOR_SODI] =
 		DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 50), FP);
-	if (priv->data->mmsys_id == MMSYS_MT6768)
+	if (priv->data->mmsys_id == MMSYS_MT6768 ||
+		priv->data->mmsys_id == MMSYS_MT6761)
 		gs[GS_RDMA_TH_HIGH_FOR_SODI] = DO_DIV_ROUND_UP(
 			gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 50,
 			FP);
@@ -818,7 +819,9 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	gs[GS_RDMA_TH_LOW_FOR_DVFS] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
 	gs[GS_RDMA_TH_HIGH_FOR_DVFS] = gs[GS_RDMA_PRE_ULTRA_TH_LOW] + 1;
 
-	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
+	if (priv->data->mmsys_id == MMSYS_MT6768 ||
+		priv->data->mmsys_id == MMSYS_MT6765 ||
+		priv->data->mmsys_id == MMSYS_MT6761) {
 		/* DISP_RDMA_DVFS_SETTING_PREULTRA */
 		gs[GS_RDMA_DVFS_PRE_ULTRA_TH_LOW] =
 			DO_DIV_ROUND_UP(consume_rate * (pre_ultra_low_us + 20), FP);
@@ -895,6 +898,7 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 	struct golden_setting_context *gsc = cfg->p_golden_setting_context;
 	struct mtk_drm_private *priv =
 		comp->mtk_crtc->base.dev->dev_private;
+
 
 	if ((comp->id != DDP_COMPONENT_RDMA0)
 		&& (comp->id != DDP_COMPONENT_RDMA1)
@@ -1889,6 +1893,23 @@ static const struct mtk_disp_rdma_data mt2701_rdma_driver_data = {
 	.has_greq_urg_num = true,
 };
 
+const struct mtk_disp_rdma_data mt6739_rdma_driver_data = {
+	.fifo_size = SZ_1K * 2,
+	.pre_ultra_low_us = 117,
+	.pre_ultra_high_us = 160,
+	.ultra_low_us = 87,
+	.ultra_high_us = 3,
+	.urgent_low_us = 43,
+	.urgent_high_us = 79,
+	.sodi_config = mt6739_mtk_sodi_config,
+	.shadow_update_reg = 0x00bc,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.has_greq_urg_num = false,
+	.is_support_34bits = false,
+	.dsi_buffer = false,
+};
+
 const struct mtk_disp_rdma_data mt6765_rdma_driver_data = {
 	.fifo_size = SZ_1K * 6,
 	.pre_ultra_low_us = 117,
@@ -1898,6 +1919,23 @@ const struct mtk_disp_rdma_data mt6765_rdma_driver_data = {
 	.urgent_low_us = 30,
 	.urgent_high_us = 35,
 	.sodi_config = mt6765_mtk_sodi_config,
+	.shadow_update_reg = 0x00bc,
+	.support_shadow = false,
+	.need_bypass_shadow = false,
+	.has_greq_urg_num = false,
+	.is_support_34bits = false,
+	.dsi_buffer = false,
+};
+
+const struct mtk_disp_rdma_data mt6761_rdma_driver_data = {
+	.fifo_size = SZ_1K * 6,
+	.pre_ultra_low_us = 60,
+	.pre_ultra_high_us = 70,
+	.ultra_low_us = 40,
+	.ultra_high_us = 60,
+	.urgent_low_us = 30,
+	.urgent_high_us = 35,
+	.sodi_config = mt6761_mtk_sodi_config,
 	.shadow_update_reg = 0x00bc,
 	.support_shadow = false,
 	.need_bypass_shadow = false,
@@ -2079,8 +2117,12 @@ static const struct mtk_disp_rdma_data mt6855_rdma_driver_data = {
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-rdma",
 	 .data = &mt2701_rdma_driver_data},
+	{.compatible = "mediatek,mt6739-disp-rdma",
+	 .data = &mt6739_rdma_driver_data},
 	{.compatible = "mediatek,mt6765-disp-rdma",
 	 .data = &mt6765_rdma_driver_data},
+	{.compatible = "mediatek,mt6761-disp-rdma",
+	 .data = &mt6761_rdma_driver_data},
 	{.compatible = "mediatek,mt6768-disp-rdma",
 	 .data = &mt6768_rdma_driver_data},
 	{.compatible = "mediatek,mt6779-disp-rdma",

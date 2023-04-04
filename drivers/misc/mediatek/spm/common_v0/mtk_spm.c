@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/rtc.h>
 #include <linux/suspend.h>
@@ -27,6 +28,16 @@
 #include <mtk_sspm.h>
 
 #include <mtk_idle_fs/mtk_idle_sysfs.h>
+
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+#include <linux/regmap.h>
+#include <linux/mfd/mt6397/registers.h>
+#include <linux/mfd/mt6397/core.h>
+
+/* PMICWRAP Reg */
+#define PMIC_RG_TOP2_RSV0_ADDR             (0x15A)
+#endif /* CONFIG_MTK_PLAT_POWER_MT6761 */
+
 DEFINE_SPINLOCK(__spm_lock);
 
 void __iomem *spm_base;
@@ -34,6 +45,9 @@ void __iomem *sleep_reg_md_base;
 
 static struct platform_device *pspmdev;
 static struct wakeup_source *spm_wakelock;
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+static struct mt6357_priv *spm_priv;
+#endif
 
 /* FIXME: should not used externally !!! */
 void *mt_spm_base_get(void)
@@ -46,6 +60,24 @@ void spm_pm_stay_awake(int sec)
 {
 	__pm_wakeup_event(spm_wakelock, jiffies_to_msecs(HZ * sec));
 }
+
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+static int is_pmic_mrv(void)
+{
+	int ret, tmp_val = 0;
+	struct regmap *regmap = spm_priv->regmap;
+
+	ret = regmap_read(regmap, PMIC_RG_TOP2_RSV0_ADDR, &tmp_val);
+
+	if (ret)
+		return -1;
+
+	if (tmp_val & (1 << 15))
+		return 1;
+	else
+		return 0;
+}
+#endif
 
 static void spm_register_init(unsigned int *spm_irq_0_ptr)
 {
@@ -96,13 +128,68 @@ static ssize_t debug_log_store(
 }
 
 static DEVICE_ATTR_RW(debug_log);
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+static int spm_init_done;
+
+static const struct of_device_id spm_sleep_of_ids[] = {
+	{.compatible = "mediatek,sleep",},
+	{}
+};
+#endif
 
 static int spm_probe(struct platform_device *pdev)
 {
 	int ret;
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+	struct mt6397_chip *chip = NULL;
+	struct device_node *pmic_node = NULL;
+	struct device_node *node = NULL;
+	struct platform_device *pmic_pdev = NULL;
 
+	if (spm_init_done)
+		return 0;
+	node = of_find_matching_node(NULL, spm_sleep_of_ids);
+	if (!node) {
+		dev_notice(&pdev->dev, "fail to find spm sleep node\n");
+		return -ENODEV;
+	}
+	pmic_node = of_parse_phandle(node, "pmic", 0);
+	if (!pmic_node) {
+		dev_notice(&pdev->dev, "fail to find pmic node\n");
+		return -ENODEV;
+	}
+	pmic_pdev = of_find_device_by_node(pmic_node);
+	if (!pmic_pdev) {
+		dev_notice(&pdev->dev, "fail to find pmic device or some project no pmic config\n");
+		return -ENODEV;
+	}
+	chip = dev_get_drvdata(&(pmic_pdev->dev));
+	if (!chip) {
+		dev_notice(&pdev->dev, "fail to find pmic drv data\n");
+		return -ENODEV;
+	}
+	if (IS_ERR_VALUE(chip->regmap)) {
+		spm_priv->regmap = NULL;
+		dev_notice(&pdev->dev, "get pmic regmap fail\n");
+		return -ENODEV;
+	}
+#endif
 	ret = device_create_file(&(pdev->dev), &dev_attr_debug_log);
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+	spm_priv = devm_kzalloc(&pdev->dev,
+				sizeof(struct mt6357_priv),
+				GFP_KERNEL);
+	if (!spm_priv)
+		return -ENOMEM;
 
+	spm_priv->regmap = chip->regmap;
+
+	/* Do initialization only one time */
+	spm_init_done = 1;
+
+	if (is_pmic_mrv())
+		SMC_CALL(ARGS, SPM_ARGS_PMIC_MRV, 0, 0);
+#endif
 	return 0;
 }
 

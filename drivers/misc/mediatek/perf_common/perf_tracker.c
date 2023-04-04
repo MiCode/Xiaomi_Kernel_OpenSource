@@ -125,8 +125,11 @@ void perf_tracker(u64 wallclock,
 	long mm_available = 0, mm_free = 0;
 	int dram_rate = 0;
 	struct mtk_btag_mictx_iostat_struct *iostat_ptr = &iostat;
-	int bw_c = 0, bw_g = 0, bw_mm = 0, bw_total = 0, bw_idx = 0xFFFF;
+	int bw_c = 0, bw_g = 0, bw_mm = 0, bw_total = 0;
+#if IS_ENABLED(CONFIG_MTK_QOS_FRAMEWORK)
+	int bw_idx = 0xFFFF;
 	u32 bw_record = 0;
+#endif
 	u32 sbin_data[bw_record_nums+dsu_record_nums] = {0};
 	u32 dsu_v = 0, dsu_f = 0;
 	int vcore_uv = 0;

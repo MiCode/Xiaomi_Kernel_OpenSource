@@ -1596,8 +1596,19 @@ static int mtk_disp_ccorr_remove(struct platform_device *pdev)
 #endif
 	return 0;
 }
+static const struct mtk_disp_ccorr_data mt6739_ccorr_driver_data = {
+	.support_shadow     = false,
+	.need_bypass_shadow = false,
+	.single_pipe_ccorr_num = 1,
+};
 
 static const struct mtk_disp_ccorr_data mt6765_ccorr_driver_data = {
+	.support_shadow     = false,
+	.need_bypass_shadow = false,
+	.single_pipe_ccorr_num = 1,
+};
+
+static const struct mtk_disp_ccorr_data mt6761_ccorr_driver_data = {
 	.support_shadow     = false,
 	.need_bypass_shadow = false,
 	.single_pipe_ccorr_num = 1,
@@ -1664,8 +1675,12 @@ static const struct mtk_disp_ccorr_data mt6855_ccorr_driver_data = {
 };
 
 static const struct of_device_id mtk_disp_ccorr_driver_dt_match[] = {
+	{ .compatible = "mediatek,mt6739-disp-ccorr",
+	  .data = &mt6739_ccorr_driver_data},
 	{ .compatible = "mediatek,mt6765-disp-ccorr",
 	  .data = &mt6765_ccorr_driver_data},
+	{ .compatible = "mediatek,mt6761-disp-ccorr",
+	  .data = &mt6761_ccorr_driver_data},
 	{ .compatible = "mediatek,mt6768-disp-ccorr",
 	  .data = &mt6768_ccorr_driver_data},
 	{ .compatible = "mediatek,mt6779-disp-ccorr",

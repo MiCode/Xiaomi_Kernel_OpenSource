@@ -801,7 +801,7 @@ static int dump_emi_last_bm(struct ccci_modem *md)
 	return 0;
 }
 
-void md_dump_register_for_6768(struct ccci_modem *md)
+void md_dump_register_for_gen93(struct ccci_modem *md)
 {
 	/* MD no need dump because of bus hang happened - open for debug */
 	struct ccci_per_md *per_md_data = &md->per_md_data;
@@ -1212,8 +1212,9 @@ void md_dump_reg(struct ccci_modem *md)
 	if ((res.a0 & 0xffff0000) != 0) {
 		CCCI_NORMAL_LOG(-1, TAG, "[%s] go kernel md reg dump\n", __func__);
 		CCCI_NORMAL_LOG(-1, TAG, "[%s] md_gen\n", __func__, md_cd_plat_val_ptr.md_gen);
-		if (ap_plat_info == 6768 || ap_plat_info == 6765)
-			md_dump_register_for_6768(md);
+		//gen93 used same md reg dump table
+		if (md_cd_plat_val_ptr.md_gen == 6293)
+			md_dump_register_for_gen93(md);
 		else
 			internal_md_dump_debug_register(md->index);
 		return;

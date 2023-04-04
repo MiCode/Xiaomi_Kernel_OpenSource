@@ -8,6 +8,7 @@ menu "Power, PMIC, Battery & Low Power"
 source "drivers/misc/mediatek/clkbuf/Kconfig"
 source "drivers/misc/mediatek/slbc/Kconfig"
 source "drivers/misc/mediatek/cm_mgr/Kconfig"
+source "drivers/misc/mediatek/cm_mgr_legacy/Kconfig"
 source "drivers/misc/mediatek/mcupm/Kconfig"
 source "drivers/misc/mediatek/dvfsrc/Kconfig"
 source "drivers/misc/mediatek/dcm/Kconfig"
@@ -37,9 +38,26 @@ source "drivers/misc/mediatek/cpuhotplug/Kconfig"
 source "drivers/misc/mediatek/upower/Kconfig"
 source "drivers/misc/mediatek/leakage_table_v2/Kconfig"
 source "drivers/misc/mediatek/spm/Kconfig"
+source "drivers/misc/mediatek/spm_v4/Kconfig"
 source "drivers/misc/mediatek/power_gs_v1/Kconfig"
 source "drivers/misc/mediatek/thermal/Kconfig"
 source "drivers/misc/mediatek/hps_v3/Kconfig"
+
+config MTK_PLAT_POWER_MT6739
+	tristate "Platform power specified macro"
+	help
+	  This macro is used to distinguish the platform dependent parts
+	  from those power related features.
+	  If the macro is enabled, compile the mt6761 related code.
+	  If unsure, say N.
+
+config MTK_PLAT_POWER_MT6761
+	tristate "Platform power specified macro"
+	help
+	  This macro is used to distinguish the platform dependent parts
+	  from those power related features.
+	  If the macro is enabled, compile the mt6761 related code.
+	  If unsure, say N.
 
 config MTK_PLAT_POWER_MT6768
 	tristate "Platform power specified macro"

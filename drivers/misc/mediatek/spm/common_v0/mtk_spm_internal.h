@@ -93,6 +93,12 @@ extern struct pwr_ctrl pwrctrl_dp;
 extern struct pwr_ctrl pwrctrl_so3;
 extern struct pwr_ctrl pwrctrl_so;
 
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+struct mt6357_priv {
+	struct device *dev;
+	struct regmap *regmap;
+};
+#endif
 
 /* SMC: defined parameters for MTK_SIP_KERNEL_SPM_ARGS */
 enum {
@@ -105,6 +111,14 @@ enum {
 	SPM_ARGS_DPIDLE,
 	SPM_ARGS_DPIDLE_FINISH,
 	SPM_ARGS_PCM_WDT,
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+	SPM_ARGS_PMIC_MRV,
+#endif
+	SPM_ARGS_IRQ_SMC_SET_PENDING,
+	SPM_ARGS_IRQ_SMC_REG_IRQ,
+	SPM_ARGS_IRQ_SMC_SET_WAKEUP_SOURCES,
+	SPM_ARGS_IRQ_SMC_BACKUP,
+	SPM_ARGS_IRQ_SMC_RESTORE,
 	SPM_ARGS_NUM,
 };
 
@@ -207,7 +221,9 @@ void __spm_get_wakeup_status(struct wake_status *wakesta);
 unsigned int __spm_output_wake_reason(
 	const struct wake_status *wakesta, bool suspend, const char *scenario);
 unsigned int __spm_get_wake_period(int pwake_time, unsigned int last_wr);
+#if !IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
 void __sync_big_buck_ctrl_pcm_flag(u32 *flag);
+#endif
 
 /***********************************************************
  * mtk_spm_twam.c

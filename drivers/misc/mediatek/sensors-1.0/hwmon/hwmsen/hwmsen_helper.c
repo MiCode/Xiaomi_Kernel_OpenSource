@@ -179,7 +179,8 @@ EXPORT_SYMBOL_GPL(hwmsen_read_block);
 /*----------------------------------------------------------------------------*/
 int hwmsen_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 {
-	int err, idx, num;
+	int err;
+	u32 idx, num;
 	char buf[C_I2C_FIFO_SIZE];
 
 	if (!client)
@@ -586,12 +587,16 @@ struct hwmsen_convert map[] = {
 /*----------------------------------------------------------------------------*/
 int hwmsen_get_convert(int direction, struct hwmsen_convert *cvt)
 {
+	unsigned int dir;
+
 	if (!cvt)
 		return -EINVAL;
-	else if (direction >= ARRAY_SIZE(map))
+	else if (direction < 0 || direction >= ARRAY_SIZE(map))
 		return -EINVAL;
+	else
+		dir = direction;
 
-	*cvt = map[direction];
+	*cvt = map[dir];
 	return 0;
 }
 /*----------------------------------------------------------------------------*/

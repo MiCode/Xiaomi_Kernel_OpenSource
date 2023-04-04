@@ -34,7 +34,11 @@ static void spm_dram_type_check(void)
 		spmfw_idx = SPMFW_LP4X_2CH_3200;
 	else if (ddr_type == TYPE_LPDDR4X && ddr_hz == 2400)
 		spmfw_idx = SPMFW_LP4X_2CH_2400;
+#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
+	else if (ddr_type == TYPE_LPDDR3 && ddr_hz == 1866)
+#else
 	else if (ddr_type == TYPE_LPDDR3)
+#endif
 		spmfw_idx = SPMFW_LP3_1CH_1866;
 
 	pr_info("#@# %s(%d) __spmfw_idx 0x%x, ddr=[%d][%d]\n",

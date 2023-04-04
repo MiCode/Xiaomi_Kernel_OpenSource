@@ -329,8 +329,10 @@ static long eas_ioctl_impl(struct file *filp,
 		unsigned int cmd, unsigned long arg, void *pKM)
 {
 	ssize_t ret = 0;
+#if IS_ENABLED(CONFIG_MTK_SCHEDULER)
 	unsigned int sync;
 	unsigned int val;
+#endif
 	void __user *ubuf = (struct _CORE_CTL_PACKAGE *)arg;
 	struct _CORE_CTL_PACKAGE msgKM = {0};
 	bool bval;

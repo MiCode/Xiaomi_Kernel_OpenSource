@@ -6,7 +6,7 @@
 #define pr_fmt(fmt) "[Sensor dts] " fmt
 
 #include <cust_acc.h>
-#include <cust_accelgyro.h>
+//#include <cust_accelgyro.h>
 #include <cust_alsps.h>
 #include <cust_baro.h>
 #include <cust_gyro.h>
@@ -77,6 +77,7 @@ int get_accel_dts_func(struct device_node *node, struct acc_hw *hw)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(get_accel_dts_func);
 
 int get_alsps_dts_func(struct device_node *node, struct alsps_hw *hw)
 {
@@ -178,6 +179,7 @@ int get_alsps_dts_func(struct device_node *node, struct alsps_hw *hw)
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(get_alsps_dts_func);
 
 int get_mag_dts_func(struct device_node *node, struct mag_hw *hw)
 {
@@ -234,6 +236,7 @@ int get_mag_dts_func(struct device_node *node, struct mag_hw *hw)
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(get_mag_dts_func);
 
 int get_gyro_dts_func(struct device_node *node, struct gyro_hw *hw)
 {
@@ -296,6 +299,7 @@ int get_gyro_dts_func(struct device_node *node, struct gyro_hw *hw)
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(get_gyro_dts_func);
 
 int get_baro_dts_func(struct device_node *node, struct baro_hw *hw)
 {
@@ -359,7 +363,9 @@ int get_baro_dts_func(struct device_node *node, struct baro_hw *hw)
 	}
 	return 0;
 }
+EXPORT_SYMBOL_GPL(get_baro_dts_func);
 
+/*
 int get_accelgyro_dts_func(struct device_node *node, struct accelgyro_hw *hw)
 {
 	int ret;
@@ -412,3 +418,4 @@ int get_accelgyro_dts_func(struct device_node *node, struct accelgyro_hw *hw)
 
 	return 0;
 }
+*/

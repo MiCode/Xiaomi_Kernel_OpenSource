@@ -46,6 +46,14 @@ config MTK_IMGSENSOR_MT6893
 	  To compile this driver as a module, choose M here: the
 	  module will be called imgsensor_mt6893.
 
+config MTK_IMGSENSOR_ISP3_Z
+	tristate "MediaTek image sensor support"
+	help
+	  This is a driver for the MediaTek
+	  image sensors.
+	  To compile this driver as a module, choose M here: the
+	  module will be called imgsensor_isp3_z.
+
 config MTK_IMGSENSOR_ISP4
 	tristate "MediaTek image sensor support"
 	help
@@ -61,6 +69,14 @@ config MTK_IMGSENSOR_ISP4_C
 	  image sensors.
 	  To compile this driver as a module, choose M here: the
 	  module will be called imgsensor_isp4_c.
+
+config MTK_IMGSENSOR_ISP3_M
+	tristate "MediaTek image sensor support"
+	help
+	  This is a driver for the MediaTek
+	  image sensors.
+	  To compile this driver as a module, choose M here: the
+	  module will be called imgsensor_isp3_m.
 
 config MTK_IMGSENSOR_PLATFORM
 	string "set imgsensor platform name"

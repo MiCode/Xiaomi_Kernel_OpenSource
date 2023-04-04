@@ -459,6 +459,12 @@ config SND_SOC_MT6765
 	  This adds ASoC driver for Mediatek MT6765 boards
 	  that can be used with other codecs.
 
+config SND_SOC_MT6739
+	tristate "ASoC support for Mediatek MT6739 chip"
+	help
+	  This adds ASoC driver for Mediatek MT6739 boards
+	  that can be used with other codecs.
+
 config MTK_SCP_AUDIO
 	tristate "ASoC support for Mediatek scp audio chip"
 	help

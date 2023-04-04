@@ -35,7 +35,7 @@ static inline int mtk_dvfsrc_vcore_uv_table(u32 opp)
 { return 0; }
 #endif /* CONFIG_MTK_DVFSRC_HELPER */
 
-#if IS_ENABLED(CONFIG_MTK_DVFSRC_MET)
+#if IS_ENABLED(CONFIG_MTK_DVFSRC_MET) || IS_ENABLED(CONFIG_MTK_SPM_V4)
 /* for MET */
 extern int vcorefs_get_num_opp(void);
 extern int vcorefs_get_opp_info_num(void);

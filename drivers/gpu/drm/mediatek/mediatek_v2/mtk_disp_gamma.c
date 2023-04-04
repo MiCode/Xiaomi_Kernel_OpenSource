@@ -953,7 +953,9 @@ static int mtk_disp_gamma_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mtk_disp_gamma_driver_dt_match[] = {
+	{ .compatible = "mediatek,mt6739-disp-gamma",},
 	{ .compatible = "mediatek,mt6765-disp-gamma",},
+	{ .compatible = "mediatek,mt6761-disp-gamma",},
 	{ .compatible = "mediatek,mt6768-disp-gamma",},
 	{ .compatible = "mediatek,mt6779-disp-gamma",},
 	{ .compatible = "mediatek,mt6789-disp-gamma",},

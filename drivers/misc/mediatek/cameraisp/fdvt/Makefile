@@ -1,7 +1,7 @@
 
 MTK_CUSTOM_PATH  := $(srctree)/drivers/misc/mediatek
 
-ifeq ($(CONFIG_MTK_CAMERA_FD_VERSION40),m)
+ifneq (, $(filter $(strip $(CONFIG_MTK_CAMERA_FD_VERSION40)),m y))
   $(info FDVT LBJ: Drv use 4.0 folder)
   MTKCAM_FDVT_VERSION := 4.0
   MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/4.0
@@ -9,12 +9,19 @@ ifeq ($(CONFIG_MTK_CAMERA_FD_VERSION40),m)
   obj-y += 4.0/
 endif
 
-ifeq ($(CONFIG_MTK_CAMERA_FD_ISP6S),m)
+ifneq (, $(filter $(strip $(CONFIG_MTK_CAMERA_FD_ISP6S)),m y))
   $(info FDVT: Drv use 5.1 folder)
   MTKCAM_FDVT_VERSION := 5.1
   MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1
   subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/5.1/inc
   $(info fdvt tina)
+endif
+
+ifneq (, $(filter $(strip $(CONFIG_MTK_CAMERA_FD_VERSION35)),m y))
+  $(info FDVT: Drv use 3.5 folder)
+  MTKCAM_FDVT_VERSION := 3.5
+  MTKCAM_FDVT_PATH := $(MTK_CUSTOM_PATH)/cameraisp/fdvt/3.5
+  subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/cameraisp/fdvt/3.5/inc
 endif
 
 #ifdef CONFIG_MTK_M4U
@@ -32,17 +39,26 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 	     -I$(srctree)/drivers/staging/android/ion/mtk
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
-$(info Tina add dma: $(CONFIG_MTK_CAM_SECURE_FD_SUPPORT))
 ifeq ($(strip $(CONFIG_MTK_CAM_SECURE_FD_SUPPORT)),y)
 ccflags-y += -DCMDQ_MTEE
 endif
 
 #obj-y:= fdvt_dummy.o
+
+ifneq (, $(filter $(strip $(CONFIG_MTK_CAMERA_FD_ISP6S)),m y))
 obj-$(CONFIG_MTK_CAMERA_FD_ISP6S) += camera_fdvt_isp51.o
 camera_fdvt_isp51-objs += 5.1/camera_fdvt.o
+endif
 
+ifneq (, $(filter $(strip $(CONFIG_MTK_CAMERA_FD_VERSION40)),m y))
 obj-$(CONFIG_MTK_CAMERA_FD_VERSION40) += camera_fdvt_isp40.o
 camera_fdvt_isp40-objs += 4.0/camera_fdvt.o
+endif
+
+ifneq (, $(filter $(strip $(CONFIG_MTK_CAMERA_FD_VERSION35)),m y))
+obj-$(CONFIG_MTK_CAMERA_FD_VERSION35) += camera_fdvt_isp35.o
+camera_fdvt_isp35-objs += 3.5/camera_fdvt.o
+endif
 
 ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
   MTK_SECURE_FD_SUPPORT := 1
@@ -51,3 +67,4 @@ else
 endif
 
 subdir-ccflags-y += -DMTK_SECURE_FD_SUPPORT=$(MTK_SECURE_FD_SUPPORT)
+

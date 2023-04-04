@@ -26,6 +26,6 @@ struct baro_hw {
 	bool is_batch_supported;
 };
 
-int get_baro_dts_func(struct device_node *node, struct baro_hw *hw);
+extern int get_baro_dts_func(struct device_node *node, struct baro_hw *hw);
 
 #endif
