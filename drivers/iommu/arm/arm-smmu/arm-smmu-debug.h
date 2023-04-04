@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define ARM_SMMU_TESTBUS_SEL			0x25E4
@@ -9,6 +10,14 @@
 #define ARM_SMMU_TCU_TESTBUS_HLOS1_NS		0x28
 #define DEBUG_TESTBUS_SEL_TBU			0x50
 #define DEBUG_TESTBUS_TBU			0x58
+
+#define DebugChainQTB_debug_Load		0x8
+#define DebugChainQTB_debug_Dump_Low		0x10
+#define DebugChainQTB_debug_Dump_High		0x14
+#define DebugChainQTB_debug_ShiftRegLen		0x18
+#define Qtb500_QtbNsDbgQsmStatus		0xc00
+#define Qtb500_QtbNsDbgIdleStatus		0xc08
+
 
 #define TCU_PTW_TESTBUS				BIT(8)
 #define TCU_CACHE_TESTBUS			~TCU_PTW_TESTBUS
@@ -88,6 +97,10 @@ enum testbus_ops {
 
 #if IS_ENABLED(CONFIG_ARM_SMMU)
 
+u32 arm_smmu_debug_qtb_debugchain_load(void __iomem *debugchain_base);
+u64 arm_smmu_debug_qtb_debugchain_dump(void __iomem *debugchain_base);
+void arm_smmu_debug_dump_debugchain(struct device *dev, void __iomem *debugchain_base);
+void arm_smmu_debug_dump_qtb_regs(struct device *dev, void __iomem *tbu_base);
 u32 arm_smmu_debug_tbu_testbus_select(void __iomem *tbu_base,
 					bool write, u32 val);
 u32 arm_smmu_debug_tbu_testbus_output(void __iomem *tbu_base);
@@ -109,6 +122,20 @@ void arm_smmu_debug_get_capture_snapshot(void __iomem *tbu_base,
 		u64 snapshot[NO_OF_CAPTURE_POINTS][REGS_PER_CAPTURE_POINT]);
 void arm_smmu_debug_clear_intr_and_validbits(void __iomem *tbu_base);
 #else
+u32 arm_smmu_debug_qtb_debugchain_load(void __iomem *debugchain_base);
+{
+	return 0;
+}
+u64 arm_smmu_debug_qtb_debugchain_dump(void __iomem *debugchain_base);
+{
+	return 0;
+}
+void arm_smmu_debug_dump_debugchain(struct device *dev, void __iomem *debugchain_base);
+{
+}
+void arm_smmu_debug_dump_qtb_regs(struct device *dev, void __iomem *tbu_base)
+{
+}
 static inline u32 arm_smmu_debug_tbu_testbus_select(void __iomem *tbu_base,
 				bool write, u32 val)
 {
