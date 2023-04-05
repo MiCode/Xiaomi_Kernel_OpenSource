@@ -279,9 +279,12 @@ static int msm_hang_detect_probe(struct platform_device *pdev)
 		pr_err("%s: Can't get qcom,threshold-arr property\n", __func__);
 		return -EINVAL;
 	}
-	if (num_regs > num_possible_cpus()) {
-		pr_err("%s: expected <= %d elements in qcom,threshold-arr\n",
-			__func__, num_possible_cpus());
+	if (num_regs > nr_cpu_ids) {
+		/* limit num of regs to nr_cpu_ids */
+		num_regs = nr_cpu_ids;
+	} else if (num_regs < nr_cpu_ids) {
+		pr_err("%s: expected = %d elements in qcom,threshold-arr\n",
+			__func__, nr_cpu_ids);
 		return -EINVAL;
 	}
 
@@ -290,8 +293,8 @@ static int msm_hang_detect_probe(struct platform_device *pdev)
 		pr_err("%s: Can't get qcom,config-arr property\n", __func__);
 		return -EINVAL;
 	}
-	if (ret != num_regs) {
-		pr_err("%s: expected %d elements in qcom,config-arr\n",
+	if (ret < num_regs) {
+		pr_err("%s: expected minimum %d elements in qcom,config-arr\n",
 			__func__, num_regs);
 		return -EINVAL;
 	}

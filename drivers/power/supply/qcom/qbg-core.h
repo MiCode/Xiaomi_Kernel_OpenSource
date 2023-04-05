@@ -173,6 +173,7 @@ struct qti_qbg {
 	struct qbg_essential_params	essential_params;
 	struct work_struct	status_change_work;
 	struct work_struct	udata_work;
+	struct delayed_work	soc_update_work;
 	struct notifier_block	nb;
 	struct qbg_kernel_data	kdata;
 	struct qbg_user_data	udata;

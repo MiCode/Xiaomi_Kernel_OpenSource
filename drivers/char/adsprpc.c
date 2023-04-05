@@ -6204,6 +6204,10 @@ int fastrpc_internal_control(struct fastrpc_file *fl,
 
 		for (ii = 0; ii < silver_core_count; ii++) {
 			cpu = me->silvercores.coreno[ii];
+			if (!cpu_possible(cpu)) {
+				ADSPRPC_ERR("%s cpu id: %d is not possible\n",  __func__, cpu);
+				continue;
+			}
 			if (!fl->qos_request) {
 				err = dev_pm_qos_add_request(
 						get_cpu_device(cpu),

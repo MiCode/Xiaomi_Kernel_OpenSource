@@ -1698,6 +1698,12 @@ static void msm_geni_uart_rx_queue_dma_tre(int index, struct uart_port *uport)
 	msm_port->gsi->rx_desc->callback_param = &msm_port->gsi->rx_cb;
 
 	rx_cookie = dmaengine_submit(msm_port->gsi->rx_desc);
+	if (dma_submit_error(rx_cookie)) {
+		pr_err("%s: dmaengine_submit failed (%d)\n", __func__, rx_cookie);
+		dmaengine_terminate_all(msm_port->gsi->rx_c);
+		return;
+	}
+
 	dma_async_issue_pending(msm_port->gsi->rx_c);
 	UART_LOG_DBG(msm_port->ipc_log_misc, uport->dev,
 		     "%s: End\n", __func__);
@@ -1885,6 +1891,11 @@ static void msm_geni_uart_gsi_xfer_tx(struct work_struct *work)
 	msm_port->gsi->tx_desc->callback = msm_geni_uart_gsi_tx_cb;
 	msm_port->gsi->tx_desc->callback_param = &msm_port->gsi->tx_cb;
 	tx_cookie = dmaengine_submit(msm_port->gsi->tx_desc);
+	if (dma_submit_error(tx_cookie)) {
+		pr_err("%s: dmaengine_submit failed (%d)\n", __func__, tx_cookie);
+		dmaengine_terminate_all(msm_port->gsi->tx_c);
+		return;
+	}
 	reinit_completion(&msm_port->tx_xfer);
 	dma_async_issue_pending(msm_port->gsi->tx_c);
 
@@ -1925,7 +1936,8 @@ static void msm_geni_uart_gsi_cancel_rx(struct work_struct *work)
 			     "%s: gsi_rx not yet done\n", __func__);
 		return;
 	}
-	dmaengine_terminate_all(msm_port->gsi->rx_c);
+	if (msm_port->gsi->rx_c)
+		dmaengine_terminate_all(msm_port->gsi->rx_c);
 	complete(&msm_port->xfer);
 	msm_port->gsi_rx_done = false;
 	atomic_set(&msm_port->stop_rx_inprogress, 0);
@@ -2002,6 +2014,11 @@ static int msm_geni_uart_gsi_xfer_rx(struct uart_port *uport)
 	msm_port->gsi->rx_desc->callback = msm_geni_uart_gsi_rx_cb;
 	msm_port->gsi->rx_desc->callback_param = &msm_port->gsi->rx_cb;
 	rx_cookie = dmaengine_submit(msm_port->gsi->rx_desc);
+	if (dma_submit_error(rx_cookie)) {
+		pr_err("%s: dmaengine_submit failed (%d)\n", __func__, rx_cookie);
+		dmaengine_terminate_all(msm_port->gsi->rx_c);
+		return -EINVAL;
+	}
 	dma_async_issue_pending(msm_port->gsi->rx_c);
 	msm_port->gsi_rx_done = true;
 
@@ -3618,6 +3635,8 @@ static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 		u32 tx_trans_cfg, u32 tx_parity_cfg, u32 rx_trans_cfg,
 		u32 rx_parity_cfg, u32 bits_per_char, u32 stop_bit_len)
 {
+	struct msm_geni_serial_port *msm_port = GET_DEV_PORT(uport);
+
 	geni_write_reg(loopback, uport->membase, SE_UART_LOOPBACK_CFG);
 	geni_write_reg(tx_trans_cfg, uport->membase,
 							SE_UART_TX_TRANS_CFG);
@@ -3633,6 +3652,8 @@ static void geni_serial_write_term_regs(struct uart_port *uport, u32 loopback,
 							SE_UART_RX_WORD_LEN);
 	geni_write_reg(stop_bit_len, uport->membase,
 						SE_UART_TX_STOP_BIT_LEN);
+	geni_se_config_packing(&msm_port->se, bits_per_char, 4, false, true, false);
+	geni_se_config_packing(&msm_port->se, bits_per_char, 4, false, false, true);
 }
 
 static void msm_geni_serial_termios_cfg(struct uart_port *uport,
@@ -4618,10 +4639,10 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 				line = 0;
 		} else {
 			line = of_alias_get_id(pdev->dev.of_node, "hsuart");
-			/* for non alias hsuart use uart_line_id in get_port_from_line */
 			if (line < 0)
-				dev_dbg(&pdev->dev, "%s: non alias hsuart\n", __func__);
-			line = uart_line_id;
+				line = uart_line_id++;
+			else
+				uart_line_id++;
 		}
 	} else {
 		line = pdev->id;
@@ -4634,13 +4655,14 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	}
 	is_console = (drv->cons ? true : false);
 	dev_port = get_port_from_line(line, is_console);
+	dev_port->is_console = is_console;
 	if (IS_ERR_OR_NULL(dev_port)) {
 		ret = PTR_ERR(dev_port);
-		dev_err(&pdev->dev, "Invalid line ret:%d\n", ret);
+		dev_err(&pdev->dev, "Invalid line %d(%d)\n",
+					line, ret);
 		goto exit_geni_serial_probe;
 	}
 
-	dev_port->is_console = is_console;
 	if (drv->cons && !con_enabled) {
 		dev_err(&pdev->dev, "%s, Console Disabled\n", __func__);
 		ret = pinctrl_pm_select_sleep_state(&pdev->dev);
@@ -4664,9 +4686,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	ret = msm_geni_serial_read_dtsi(pdev, dev_port);
 	if (ret)
 		goto exit_geni_serial_probe;
-
-	if (!drv->cons)
-		uart_line_id++;
 
 	dev_port->tx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
 	dev_port->rx_fifo_depth = DEF_FIFO_DEPTH_WORDS;

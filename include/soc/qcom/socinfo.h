@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __SOC_QCOM_SOCINFO_H__
@@ -110,6 +110,7 @@ uint32_t socinfo_get_partinfo_vulkan_id(unsigned int part_id);
 int socinfo_get_oem_variant_id(void);
 uint32_t socinfo_get_cluster_info(enum subset_cluster_type cluster);
 bool socinfo_get_part_info(enum subset_part_type part);
+int32_t socinfo_get_subpart_info(enum subset_part_type part, uint32_t *nIdx, uint32_t *part_info);
 #else
 static inline uint32_t socinfo_get_id(void)
 {
@@ -156,6 +157,10 @@ uint32_t socinfo_get_cluster_info(enum subset_cluster_type cluster)
 bool socinfo_get_part_info(enum subset_part_type part)
 {
 	return false;
+}
+int32_t socinfo_get_subpart_info(enum subset_part_type part, uint32_t *nIdx, uint32_t *part_info)
+{
+	return -EINVAL;
 }
 #endif /* CONFIG_QCOM_SOCINFO */
 

@@ -19,7 +19,7 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/qrtr.h>
 
-#define NS_LOG_PAGE_CNT 4
+#define NS_LOG_PAGE_CNT 8
 static void *ns_ilc;
 #define NS_INFO(x, ...) ipc_log_string(ns_ilc, x, ##__VA_ARGS__)
 

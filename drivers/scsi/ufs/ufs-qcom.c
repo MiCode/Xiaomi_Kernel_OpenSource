@@ -3220,7 +3220,8 @@ static void ufs_qcom_qos_init(struct ufs_hba *hba)
 	qr->qcg = qcg;
 	for_each_available_child_of_node(np, group_node) {
 		of_property_read_u32(group_node, "mask", &mask);
-		qcg->mask.bits[0] = mask;
+		/* assign only populated cpu mask to qcg mask */
+		qcg->mask.bits[0] = mask & cpu_possible_mask->bits[0];
 		if (!cpumask_subset(&qcg->mask, cpu_possible_mask)) {
 			ufs_qcom_msg(ERR, dev, "Invalid group mask\n");
 			goto out_err;
@@ -3272,14 +3273,16 @@ static void ufs_qcom_parse_irq_affinity(struct ufs_hba *hba)
 
 	if (np) {
 		of_property_read_u32(np, "qcom,prime-mask", &mask);
-		host->perf_mask.bits[0] = mask;
+		/* assign only populated cpu mask to perf mask  */
+		host->perf_mask.bits[0] = mask & cpu_possible_mask->bits[0];
 		if (!cpumask_subset(&host->perf_mask, cpu_possible_mask)) {
 			ufs_qcom_msg(ERR, dev, "Invalid group prime mask\n");
 			host->perf_mask.bits[0] = UFS_QCOM_IRQ_PRIME_MASK;
 		}
 		mask = 0;
 		of_property_read_u32(np, "qcom,silver-mask", &mask);
-		host->def_mask.bits[0] = mask;
+		/* assign only populated cpu mask to silver mask */
+		host->def_mask.bits[0] = mask & cpu_possible_mask->bits[0];
 		if (!cpumask_subset(&host->def_mask, cpu_possible_mask)) {
 			ufs_qcom_msg(ERR, dev, "Invalid group silver mask\n");
 			host->def_mask.bits[0] = UFS_QCOM_IRQ_SLVR_MASK;
@@ -4921,10 +4924,6 @@ static ssize_t dbg_state_show(struct device *dev,
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
-#if defined(CONFIG_UFS_DBG)
-	host->dbg_en = true;
-#endif
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", host->dbg_en);
 }
