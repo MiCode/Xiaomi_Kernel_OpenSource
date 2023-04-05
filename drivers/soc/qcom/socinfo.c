@@ -353,11 +353,37 @@ struct smem_image_version {
 };
 #endif /* CONFIG_DEBUG_FS */
 
+#define MAX_SOCINFO_ATTRS 45
 /* sysfs attributes */
 #define ATTR_DEFINE(param)      \
 	static DEVICE_ATTR(param, (S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH ), \
 			msm_get_##param,     \
 			NULL)
+
+/* sysfs attributes for subpart information */
+#define CREATE_PART_FUNCTION(part, part_enum)  \
+	static ssize_t \
+	msm_get_##part(struct device *dev, \
+			struct device_attribute *attr, \
+			char *buf) \
+	{ \
+		u32 *part_info; \
+		int num_parts = 0; \
+		int str_pos = 0, i = 0; \
+		num_parts = socinfo_get_part_count(part_enum); \
+		part_info = kmalloc_array(num_parts, sizeof(*part_info), GFP_KERNEL); \
+		socinfo_get_subpart_info(part_enum, part_info, num_parts); \
+		for (i = 0; i < num_parts; i++) { \
+			str_pos += scnprintf(buf+str_pos, PAGE_SIZE-str_pos, "0x%x", \
+					part_info[i]); \
+			if (i != num_parts-1) \
+				str_pos += scnprintf(buf+str_pos, PAGE_SIZE-str_pos, ","); \
+		} \
+		str_pos += scnprintf(buf+str_pos, PAGE_SIZE-str_pos, "\n"); \
+		kfree(part_info); \
+		return str_pos; \
+	} \
+	ATTR_DEFINE(part) \
 
 /* Version 2 */
 static uint32_t socinfo_get_raw_id(void)
@@ -885,29 +911,90 @@ msm_get_subset_parts(struct device *dev,
 }
 ATTR_DEFINE(subset_parts);
 
-int32_t
-socinfo_get_subpart_info(enum subset_part_type part, uint32_t *nIdx, uint32_t *part_info)
+/**
+ * socinfo_get_part_count - Get part count
+ * @part: The subset_part_type to be checked
+ *
+ * Return the number of instances supported by the
+ * firmware for the part on success and a negative
+ * errno will be returned in error cases.
+ */
+int
+socinfo_get_part_count(enum subset_part_type part)
 {
-	uint32_t num_parts = 0, offset = 0;
-	void *info = socinfo;
+	int part_count = 1;
 
-	if (part >= NUM_PARTS_MAX) {
+	/* TODO: part_count to be read from SMEM after firmware adds support */
+
+	if ((part <= PART_UNKNOWN) || (part >= NUM_PARTS_MAX)) {
 		pr_err("Bad part number\n");
 		return -EINVAL;
 	}
 
-	num_parts = socinfo_get_num_subset_parts();
-	offset = socinfo_get_nsubset_parts_array_offset();
-	if (!num_parts || !offset)
+	return part_count;
+}
+EXPORT_SYMBOL(socinfo_get_part_count);
+
+/**
+ * socinfo_get_subpart_info - Get subpart information
+ * @part: The subset_part_type to be checked
+ * @part_info: Pointer to the subpart information.
+ *             Used to store the subpart information
+ *             for num_parts instances of the part.
+ * @num_parts: Number of instances of the part for
+ *             which the subpart information is required.
+ *
+ * On success subpart information will be stored in the part_info
+ * array for minimum of the number of instances requested and
+ * the number of instances supported by the firmware.
+ *
+ * A value of zero will be returned on success and a negative
+ * errno will be returned in error cases.
+ */
+int
+socinfo_get_subpart_info(enum subset_part_type part,
+		u32 *part_info,
+		u32 num_parts)
+{
+	uint32_t num_subset_parts = 0, offset = 0;
+	void *info = socinfo;
+	u32 i = 0, count = 0;
+	int part_count = 0;
+
+	part_count = socinfo_get_part_count(part);
+	if (part_count <= 0)
 		return -EINVAL;
 
-	info += (offset + (part * sizeof(uint32_t)));
-	*part_info = get_unaligned_le32(info);
-	*nIdx = 0;
+	num_subset_parts = socinfo_get_num_subset_parts();
+	offset = socinfo_get_nsubset_parts_array_offset();
+	if (!num_subset_parts || !offset)
+		return -EINVAL;
+
+	info += (offset + (part * sizeof(u32)));
+	count = min_t(u32, num_parts, part_count);
+	for (i = 0; i < count; i++) {
+		part_info[i] = get_unaligned_le32(info);
+		info += sizeof(u32);
+	}
 
 	return 0;
 }
 EXPORT_SYMBOL(socinfo_get_subpart_info);
+
+CREATE_PART_FUNCTION(gpu, PART_GPU);
+CREATE_PART_FUNCTION(video, PART_VIDEO);
+CREATE_PART_FUNCTION(camera, PART_CAMERA);
+CREATE_PART_FUNCTION(display, PART_DISPLAY);
+CREATE_PART_FUNCTION(audio, PART_AUDIO);
+CREATE_PART_FUNCTION(modem, PART_MODEM);
+CREATE_PART_FUNCTION(wlan, PART_WLAN);
+CREATE_PART_FUNCTION(comp, PART_COMP);
+CREATE_PART_FUNCTION(sensors, PART_SENSORS);
+CREATE_PART_FUNCTION(npu, PART_NPU);
+CREATE_PART_FUNCTION(spss, PART_SPSS);
+CREATE_PART_FUNCTION(nav, PART_NAV);
+CREATE_PART_FUNCTION(comp1, PART_COMP1);
+CREATE_PART_FUNCTION(display1, PART_DISPLAY1);
 
 /* Version 15 */
 static ssize_t
@@ -1150,7 +1237,7 @@ static const struct soc_id soc_id[] = {
 };
 
 static struct qcom_socinfo *qsocinfo;
-static struct attribute *msm_custom_socinfo_attrs[35];
+static struct attribute *msm_custom_socinfo_attrs[MAX_SOCINFO_ATTRS];
 
 static char *socinfo_get_image_version_base_address(void)
 {
@@ -1434,6 +1521,20 @@ static void socinfo_populate_sysfs(struct qcom_socinfo *qcom_socinfo)
 			&dev_attr_nsubset_parts_array_offset.attr;
 		msm_custom_socinfo_attrs[i++] = &dev_attr_subset_cores.attr;
 		msm_custom_socinfo_attrs[i++] = &dev_attr_subset_parts.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_gpu.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_video.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_camera.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_display.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_audio.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_modem.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_wlan.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_comp.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_sensors.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_npu.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_spss.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_nav.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_comp1.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_display1.attr;
 	case SOCINFO_VERSION(0, 13):
 		msm_custom_socinfo_attrs[i++] = &dev_attr_nproduct_id.attr;
 		msm_custom_socinfo_attrs[i++] = &dev_attr_chip_id.attr;
