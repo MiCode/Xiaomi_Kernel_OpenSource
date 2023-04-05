@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 /* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved. */
-/* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved. */
+/* Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #include <linux/interrupt.h>
 #include <linux/module.h>
@@ -30,7 +30,7 @@
 #define DRIVER_MODE_RAW_FRAMES		0
 #define DRIVER_MODE_PROPERTIES		1
 #define DRIVER_MODE_AMB			2
-#define QUERY_FIRMWARE_TIMEOUT_MS	100
+#define QUERY_FIRMWARE_TIMEOUT_MS	150
 #define EUPGRADE			140
 #define QTIMER_DIV			192
 #define QTIMER_MUL			10000
@@ -77,6 +77,7 @@ struct qti_can {
 	s64 time_diff;
 	bool active_low;
 	bool univ_acc_filter_flag;
+	bool probe_query_resp;
 };
 
 struct qti_can_netdev_privdata {
@@ -635,6 +636,7 @@ static int qti_can_process_response(struct qti_can *priv_data,
 
 exit:
 	if (resp->cmd == priv_data->wait_cmd) {
+		priv_data->probe_query_resp = true;
 		priv_data->cmd_result = ret;
 		complete(&priv_data->response_completion);
 	}
@@ -758,7 +760,10 @@ static int qti_can_process_rx(struct qti_can *priv_data, char *rx_buf)
 				length_processed += 1;
 				continue;
 			}
-			length = resp->len + sizeof(struct spi_miso);
+			if (dynamic_pos_checksum_en || resp->cmd == CMD_GET_FW_VERSION)
+				length = resp->len + sizeof(struct spi_miso) + 1;
+			else
+				length = resp->len + sizeof(struct spi_miso);
 		}
 		dev_dbg(&priv_data->spidev->dev, "processing. p %d -> l %d (t %d)\n",
 			length_processed, length_left, priv_data->xfer_length);
@@ -1875,7 +1880,9 @@ static int qti_can_probe(struct spi_device *spi)
 	if (err)
 		dev_info(&priv_data->spidev->dev, "register_pm_notifier_error\n");
 
-	while ((query_err != 0) && (retry < QTI_CAN_FW_QUERY_RETRY_COUNT)) {
+	priv_data->probe_query_resp = false;
+	while ((query_err != 0) && (retry < QTI_CAN_FW_QUERY_RETRY_COUNT) &&
+	       (!(priv_data->probe_query_resp))) {
 		dev_dbg(dev, "Trying to query fw version %d\n", retry);
 		query_err = qti_can_query_firmware_version(priv_data);
 		priv_data->assembly_buffer_size = 0;
@@ -1987,7 +1994,9 @@ static int qti_can_restore(struct device *dev)
 		ret = -1;
 	}
 
-	while ((query_err != 0) && (retry < QTI_CAN_FW_QUERY_RETRY_COUNT)) {
+	priv_data->probe_query_resp = false;
+	while ((query_err != 0) && (retry < QTI_CAN_FW_QUERY_RETRY_COUNT) &&
+	       (!(priv_data->probe_query_resp))) {
 		dev_dbg(dev, "Trying to query fw version %d\n", retry);
 		query_err = qti_can_query_firmware_version(priv_data);
 		priv_data->assembly_buffer_size = 0;
