@@ -362,6 +362,7 @@ enum msm_pcie_gpio {
 	MSM_PCIE_GPIO_PERST,
 	MSM_PCIE_GPIO_WAKE,
 	MSM_PCIE_GPIO_EP,
+	MSM_PCIE_GPIO_CARD_PRESENCE_PIN,
 	MSM_PCIE_MAX_GPIO
 };
 
@@ -889,7 +890,8 @@ static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
 static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
 	{"perst-gpio", 0, 1, 0, 0, 1},
 	{"wake-gpio", 0, 0, 0, 0, 0},
-	{"qcom,ep-gpio", 0, 1, 1, 0, 0}
+	{"qcom,ep-gpio", 0, 1, 1, 0, 0},
+	{"card-presence-pin", 0, 0, 0, 0, 0}
 };
 
 /* resets */
@@ -5220,6 +5222,13 @@ static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 
 	dev->link_status = MSM_PCIE_LINK_DOWN;
 
+	/* Linkdown is expected. As it must be due to card removal action. So return */
+	if ((dev->gpio[MSM_PCIE_GPIO_CARD_PRESENCE_PIN].num) &&
+		(gpio_get_value(dev->gpio[MSM_PCIE_GPIO_CARD_PRESENCE_PIN].num))) {
+		PCIE_DUMP(dev, "Linkdown due to card removal\n");
+		return;
+	}
+
 	if (!dev->suspending && !dev->user_suspend) {
 		/* PCIe registers dump on link down */
 		PCIE_DUMP(dev,
@@ -6869,7 +6878,9 @@ static int __maybe_unused msm_pcie_pm_resume_noirq(struct device *dev)
 		if (rc) {
 			PCIE_ERR(pcie_dev, "PCIe: fail to enable GDSC-CORE for RC%d (%s)\n",
 					pcie_dev->rc_idx, pcie_dev->pdev->name);
-					return rc;
+			msm_pcie_vreg_deinit_analog_rails(pcie_dev);
+			mutex_unlock(&pcie_dev->recovery_lock);
+			return rc;
 		}
 
 		/* switch pipe clock source after gdsc-core is turned on */
@@ -6882,6 +6893,11 @@ static int __maybe_unused msm_pcie_pm_resume_noirq(struct device *dev)
 			PCIE_ERR(pcie_dev,
 				"PCIe: RC%d: failed to set ICC path vote. ret %d\n",
 				pcie_dev->rc_idx, rc);
+			if (pcie_dev->pipe_clk_ext_src && pcie_dev->pipe_clk_mux)
+				clk_set_parent(pcie_dev->pipe_clk_ext_src, pcie_dev->pipe_clk_mux);
+			regulator_disable(pcie_dev->gdsc_core);
+			msm_pcie_vreg_deinit_analog_rails(pcie_dev);
+			mutex_unlock(&pcie_dev->recovery_lock);
 			return rc;
 		}
 
@@ -8290,7 +8306,7 @@ int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 				 node) {
 		if (reg_itr->user == reg->user) {
 			list_del(&reg->node);
-			spin_unlock(&pcie_dev->evt_reg_list_lock);
+			spin_unlock_irqrestore(&pcie_dev->evt_reg_list_lock, flags);
 			PCIE_DBG(pcie_dev,
 				 "PCIe: RC%d: Event deregistered for BDF 0x%04x\n",
 				 pcie_dev->rc_idx,

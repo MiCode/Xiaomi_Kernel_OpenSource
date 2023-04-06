@@ -25,6 +25,9 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/slab.h>
 
+#define SE_GENI_TEST_BUS_CTRL	0x44 //GENI_TEST_BUS_CTRL
+#define SE_NUM_FOR_TEST_BUS	5  //for SE4
+
 #define SE_GENI_CFG_REG68		(0x210)
 #define SE_I2C_TX_TRANS_LEN		(0x26C)
 #define SE_I2C_RX_TRANS_LEN		(0x270)
@@ -148,8 +151,10 @@ struct geni_i2c_dev {
 	dma_addr_t rx_ph;
 	struct msm_gpi_ctrl tx_ev;
 	struct msm_gpi_ctrl rx_ev;
-	struct scatterlist tx_sg[5]; /* lock, cfg0, go, TX, unlock */
-	struct scatterlist rx_sg;
+	struct scatterlist *tx_sg; /* lock, cfg0, go, TX, unlock */
+	struct scatterlist *rx_sg;
+	dma_addr_t tx_sg_dma;
+	dma_addr_t rx_sg_dma;
 	int cfg_sent;
 	struct dma_async_tx_descriptor *tx_desc;
 	struct dma_async_tx_descriptor *rx_desc;
@@ -168,9 +173,11 @@ struct geni_i2c_dev {
 	bool is_i2c_rtl_based; /* doing pending cancel only for rtl based SE's */
 	bool bus_recovery_enable; //To be enabled by client if needed
 	atomic_t is_xfer_in_progress;
+	bool gsi_err; /* For every gsi error performing gsi reset */
 	struct notifier_block panic_nb; //panic notfier call back
 	bool panic_dump_collect; //panic dumps collection with dt based flag
 	bool clocks_on; //To check whether clocks were on/off
+	bool i2c_test_dev; //Set this DT flag to enable test bus dump for an SE
 };
 
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
@@ -262,6 +269,21 @@ static inline void qcom_geni_i2c_calc_timeout(struct geni_i2c_dev *gi2c)
 
 	gi2c->xfer_timeout = usecs_to_jiffies(xfer_max_usec);
 
+}
+
+/*
+ * geni_se_select_test_bus: Selects the test bus as required
+ *
+ * @gi2c_dev:		Geni I2C device handle
+ * test_bus_num:	Test bus number to select (1 to 16)
+ *
+ * Return:	None
+ */
+static void geni_se_select_test_bus(struct geni_i2c_dev *gi2c, u8 test_bus_num)
+{
+	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+			"%s: test_bus:%d\n", __func__, test_bus_num);
+	writel_relaxed(test_bus_num, gi2c->base + SE_GENI_TEST_BUS_CTRL); //0x44
 }
 
 static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
@@ -419,6 +441,33 @@ static int geni_i2c_bus_recovery(struct geni_i2c_dev *gi2c)
 	return 0;
 }
 
+/*
+ * geni_i2c_test_bus_dump(): Dumps or reads test bus for selected SE test bus.
+ *
+ * gi2c_i2c_dev:	Handle to SE device
+ * se_num:		SE number, which start from 0.
+ *
+ * Return:		None
+ *
+ * Note:		This function has added extra test buses for refrences.
+ */
+static void geni_i2c_test_bus_dump(struct geni_i2c_dev *gi2c, u8 se_num)
+{
+	//Select test bus number and test bus, then read test bus.
+
+	//geni_m_comp_sig_test_bus
+	geni_se_select_test_bus(gi2c, 8);
+	test_bus_select_per_qupv3(gi2c->wrapper_dev, se_num);
+	test_bus_read_per_qupv3(gi2c->wrapper_dev);
+
+	//geni_m_branch_cond_1_test_bus
+	geni_se_select_test_bus(gi2c, 5);
+	test_bus_select_per_qupv3(gi2c->wrapper_dev, se_num);
+	test_bus_read_per_qupv3(gi2c->wrapper_dev);
+
+	//Can Add more here based on debug ask.
+}
+
 static int do_pending_cancel(struct geni_i2c_dev *gi2c)
 {
 	int timeout = 0;
@@ -452,6 +501,12 @@ static int do_pending_cancel(struct geni_i2c_dev *gi2c)
 		gi2c->cfg_sent = 0;
 	} else {
 		reinit_completion(&gi2c->xfer);
+
+		// Issue point for e.g.: dump test bus/read test bus
+		if (gi2c->i2c_test_dev)
+			//For se4, its 5 as SE num starts from 0
+			geni_i2c_test_bus_dump(gi2c, SE_NUM_FOR_TEST_BUS);
+
 		geni_cancel_m_cmd(gi2c->base);
 		timeout = wait_for_completion_timeout(&gi2c->xfer, HZ);
 		if (!timeout) {
@@ -726,11 +781,14 @@ static void gi2c_ev_cb(struct dma_chan *ch, struct msm_gpi_cb const *cb_str,
 	default:
 		break;
 	}
-	if (cb_str->cb_event != MSM_GPI_QUP_NOTIFY)
+	if (cb_str->cb_event != MSM_GPI_QUP_NOTIFY) {
 		I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
 				"GSI QN err:0x%x, status:0x%x, err:%d\n",
 				cb_str->error_log.error_code,
 				m_stat, cb_str->cb_event);
+		gi2c->gsi_err = true;
+		complete(&gi2c->xfer);
+	}
 }
 
 static void gi2c_gsi_cb_err(struct msm_gpi_dma_async_tx_cb_param *cb,
@@ -965,7 +1023,7 @@ static struct dma_async_tx_descriptor *geni_i2c_prep_desc
 		geni_desc->callback_param = &gi2c->tx_cb;
 	} else {
 		geni_desc = dmaengine_prep_slave_sg(gi2c->rx_c,
-					&gi2c->rx_sg, 1, DMA_DEV_TO_MEM,
+					gi2c->rx_sg, 1, DMA_DEV_TO_MEM,
 					(DMA_PREP_INTERRUPT | DMA_CTRL_ACK));
 		if (!geni_desc) {
 			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
@@ -1081,6 +1139,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 	struct msm_gpi_tre *lock_t = NULL;
 	struct msm_gpi_tre *cfg0_t = NULL;
 
+	gi2c->gsi_err = false;
 	if (!gi2c->req_chan) {
 		ret = geni_i2c_gsi_request_channel(gi2c);
 		if (ret)
@@ -1144,7 +1203,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		if (msgs[i].flags & I2C_M_RD) {
 			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 				"msg[%d].len:%d R\n", i, gi2c->cur->len);
-			sg_init_table(&gi2c->rx_sg, 1);
+			sg_init_table(gi2c->rx_sg, 1);
 			ret = geni_se_iommu_map_buf(rx_dev, &gi2c->rx_ph,
 						dma_buf, msgs[i].len,
 						DMA_FROM_DEVICE);
@@ -1164,7 +1223,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 			}
 
 			rx_t = setup_rx_tre(gi2c, msgs, i, num);
-			sg_set_buf(&gi2c->rx_sg, rx_t,
+			sg_set_buf(gi2c->rx_sg, rx_t,
 						 sizeof(gi2c->rx_t));
 
 			gi2c->rx_desc =
@@ -1248,7 +1307,7 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		}
 
 geni_i2c_err_prep_sg:
-		if (gi2c->err) {
+		if (gi2c->err || gi2c->gsi_err) {
 			if (!gi2c->is_le_vm) {
 				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 						"gpi_terminate\n");
@@ -1266,6 +1325,13 @@ geni_i2c_err_prep_sg:
 				}
 			}
 		}
+
+		if (gi2c->gsi_err) {
+			if (!ret)
+				ret = -EIO;
+			gi2c->gsi_err = false;
+		}
+
 		if (gi2c->is_shared)
 			/* Resend cfg tre for every new message on shared se */
 			gi2c->cfg_sent = 0;
@@ -1788,6 +1854,12 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,panic-dump-collect"))
 		gi2c->panic_dump_collect = true;
 
+	gi2c->i2c_test_dev = false;
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,i2c-test-dev")) {
+		gi2c->i2c_test_dev = true;
+		dev_info(&pdev->dev, " This is I2C device under test\n");
+	}
+
 	gi2c->i2c_rsc.wrapper_dev = &wrapper_pdev->dev;
 	gi2c->i2c_rsc.ctrl_dev = gi2c->dev;
 
@@ -1898,6 +1970,20 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		}
 	}
 
+	gi2c->tx_sg = dmam_alloc_coherent(gi2c->dev, 5*sizeof(struct scatterlist),
+					&gi2c->tx_sg_dma, GFP_KERNEL);
+	if (!gi2c->tx_sg) {
+		dev_err(&pdev->dev, "could not allocate for tx_sg\n");
+		return -ENOMEM;
+	}
+
+	gi2c->rx_sg = dmam_alloc_coherent(gi2c->dev, sizeof(struct scatterlist),
+					&gi2c->rx_sg_dma, GFP_KERNEL);
+	if (!gi2c->rx_sg) {
+		dev_err(&pdev->dev, "could not allocate for rx_sg\n");
+		return -ENOMEM;
+	}
+
 	gi2c->adap.algo = &geni_i2c_algo;
 	init_completion(&gi2c->xfer);
 	platform_set_drvdata(pdev, gi2c);
@@ -1924,6 +2010,12 @@ static int geni_i2c_probe(struct platform_device *pdev)
 		atomic_notifier_chain_register(&panic_notifier_list,
 					       &gi2c->panic_nb);
 	}
+
+	if (gi2c->i2c_test_dev) {
+		/* configure Test bus to dump test bus later, only once */
+		test_bus_enable_per_qupv3(gi2c->wrapper_dev);
+	}
+
 	dev_info(gi2c->dev, "I2C probed\n");
 	return 0;
 }

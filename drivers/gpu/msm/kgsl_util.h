@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _KGSL_UTIL_H_
@@ -17,6 +18,17 @@
 #define KGSL_GMU_LOG_ENTRY "kgsl_gmu_log"
 #define KGSL_HFIMEM_ENTRY "kgsl_hfi_mem"
 #define KGSL_GMU_DUMPMEM_ENTRY "kgsl_gmu_dump_mem"
+#define KGSL_GMU_RB_ENTRY "kgsl_gmu_rb"
+#define KGSL_GMU_KERNEL_PROF_ENTRY "kgsl_gmu_kernel_profiling"
+#define KGSL_GMU_USER_PROF_ENTRY "kgsl_gmu_user_profiling"
+#define KGSL_GMU_CMD_BUFFER_ENTRY "kgsl_gmu_cmd_buffer"
+#define KGSL_HFI_BIG_IB_ENTRY "kgsl_hfi_big_ib"
+#define KGSL_HFI_BIG_IB_REC_ENTRY "kgsl_hfi_big_ib_rec"
+#define KGSL_ADRENO_CTX_ENTRY "kgsl_adreno_ctx"
+#define KGSL_PROC_PRIV_ENTRY "kgsl_proc_priv"
+#define KGSL_PGTABLE_ENTRY "kgsl_pgtable"
+
+#define MAX_VA_MINIDUMP_STR_LEN 32
 
 struct regulator;
 struct clk_bulk_data;
@@ -158,5 +170,11 @@ int kgsl_add_va_to_minidump(struct device *dev, const char *name, void *ptr,
  * @device: Pointer to kgsl device
  */
 void kgsl_qcom_va_md_register(struct kgsl_device *device);
+
+/**
+ * kgsl_qcom_va_md_unregister - Unregister driver with va-minidump
+ * @device: Pointer to kgsl device
+ */
+void kgsl_qcom_va_md_unregister(struct kgsl_device *device);
 
 #endif

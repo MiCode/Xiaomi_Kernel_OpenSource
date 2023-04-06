@@ -401,6 +401,32 @@ if (print) { \
 #define UART_CONSOLE_CORE2X_VOTE	19200
 
 #if IS_ENABLED(CONFIG_MSM_GENI_SE)
+
+/**
+ * test_bus_select_per_qupv3() - Function to select the test bus
+ * @wrapper_dev:	Handle to QUPV3 wrapper node
+ * @test_bus_num:	Test bus number to select
+ *
+ * Return:	None
+ */
+void test_bus_select_per_qupv3(struct device *wrapper_dev, u8 test_bus_num);
+
+/**
+ * test_bus_enable_per_qupv3() - Function to enable test bus
+ * @wrapper_dev:        Handle to QUPV3 wrapper node
+ *
+ * Return:      None
+ */
+void test_bus_enable_per_qupv3(struct device *wrapper_dev);
+
+/**
+ * test_bus_read_per_qupv3() - Observe the value in QUPV3_TEST_BUS_REG
+ * @wrapper_dev:        Handle to QUPV3 wrapper node
+ *
+ * Return:	None
+ */
+void test_bus_read_per_qupv3(struct device *wrapper_dev);
+
 /**
  * geni_read_reg_nolog() - Helper function to read from a GENI register
  * @base:	Base address of the serial engine's register block.

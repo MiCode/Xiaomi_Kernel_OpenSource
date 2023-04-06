@@ -2,7 +2,7 @@
 /*
  * Qualcomm Technologies, Inc. SDHCI Platform driver.
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of_device.h>

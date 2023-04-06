@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __ADRENO_A6XX_GMU_H
 #define __ADRENO_A6XX_GMU_H
@@ -97,10 +97,6 @@ struct a6xx_gmu_device {
 	u32 perf_ddr_bw;
 	/** @num_oob_perfcntr: Number of active oob_perfcntr requests */
 	u32 num_oob_perfcntr;
-	/** @gdsc_nb: Notifier block for cx gdsc regulator */
-	struct notifier_block gdsc_nb;
-	/** @gdsc_gate: Completion to signal cx gdsc collapse status */
-	struct completion gdsc_gate;
 };
 
 /* Helper function to get to a6xx gmu device from adreno device */
@@ -252,14 +248,6 @@ int a6xx_gmu_memory_init(struct adreno_device *adreno_dev);
  * This function enables or disables gpu acd feature using mailbox
  */
 void a6xx_gmu_aop_send_acd_state(struct a6xx_gmu_device *gmu, bool flag);
-
-/**
- * a6xx_gmu_enable_gdsc - Enable gmu gdsc
- * @adreno_dev: Pointer to the adreno device
- *
- * Return: 0 on success or negative error on failure
- */
-int a6xx_gmu_enable_gdsc(struct adreno_device *adreno_dev);
 
 /**
  * a6xx_gmu_disable_gdsc - Disable gmu gdsc
@@ -431,14 +419,6 @@ void a6xx_gmu_remove(struct kgsl_device *device);
 int a6xx_gmu_enable_clks(struct adreno_device *adreno_dev);
 
 /**
- * a6xx_gmu_enable_gdsc - Enable gmu gdsc
- * @adreno_dev: Pointer to the adreno device
- *
- * Return: 0 on success or negative error on failure
- */
-int a6xx_gmu_enable_gdsc(struct adreno_device *adreno_dev);
-
-/**
  * a6xx_gmu_handle_watchdog - Handle watchdog interrupt
  * @adreno_dev: Pointer to the adreno device
  */
@@ -456,5 +436,11 @@ void a6xx_gmu_send_nmi(struct adreno_device *adreno_dev, bool force);
  * @adreno_dev: Pointer to the adreno device
  */
 int a6xx_gmu_add_to_minidump(struct adreno_device *adreno_dev);
+
+/**
+ * a6xx_gmu_register_gdsc_notifier - Register gdsc notifier for a6xx gmu
+ * @adreno_dev: Pointer to the adreno device
+ */
+int a6xx_gmu_register_gdsc_notifier(struct adreno_device *adreno_dev);
 
 #endif

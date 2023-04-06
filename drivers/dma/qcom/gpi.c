@@ -559,7 +559,8 @@ struct gpii_chan {
 
 struct gpii {
 	u32 gpii_id;
-	struct gpii_chan gpii_chan[MAX_CHANNELS_PER_GPII];
+	struct gpii_chan *gpii_chan;
+	dma_addr_t gpii_chan_dma;
 	struct gpi_dev *gpi_dev;
 	enum EV_PRIORITY ev_priority;
 	enum se_protocol protocol;
@@ -1762,6 +1763,12 @@ static void gpi_process_events(struct gpii *gpii)
 				  gpi_event->gpi_ere.dword[2],
 				  gpi_event->gpi_ere.dword[3]);
 
+			if (chid >= MAX_CHANNELS_PER_GPII) {
+				GPII_ERR(gpii, GPI_DBG_COMMON,
+					 "gpii channel:%d not valid\n", chid);
+				goto error_irq;
+			}
+
 			switch (type) {
 			case XFER_COMPLETE_EV_TYPE:
 				gpii_chan = &gpii->gpii_chan[chid];
@@ -1800,6 +1807,15 @@ static void gpi_process_events(struct gpii *gpii)
 	} while (rp != ev_ring->rp);
 
 	GPII_VERB(gpii, GPI_DBG_COMMON, "exit: c_rp:%pa\n", &cntxt_rp);
+	return;
+error_irq:
+	/* clear pending IEOB events */
+	gpi_write_reg(gpii, gpii->ieob_clr_reg, BIT(0));
+
+	for (chid = 0, gpii_chan = gpii->gpii_chan;
+	     chid < MAX_CHANNELS_PER_GPII; chid++, gpii_chan++)
+		gpi_generate_cb_event(gpii_chan, MSM_GPI_QUP_FW_ERROR,
+				      (type << 8) | chid);
 }
 
 /* processing events using tasklet */
@@ -3145,6 +3161,16 @@ static int gpi_probe(struct platform_device *pdev)
 	for (i = 0; i < gpi_dev->max_gpii; i++) {
 		struct gpii *gpii = &gpi_dev->gpiis[i];
 		int chan;
+
+		gpii->gpii_chan = dmam_alloc_coherent(gpi_dev->dev,
+				MAX_CHANNELS_PER_GPII*sizeof(struct gpii_chan),
+				&gpii->gpii_chan_dma, GFP_KERNEL);
+
+		if (!gpii->gpii_chan) {
+			GPI_ERR(gpi_dev,
+				"No memory for GPII chan alloc\n");
+			return -ENOMEM;
+		}
 
 		gpii->is_resumed = true;
 		if (!(((1 << i) & gpi_dev->gpii_mask)  ||

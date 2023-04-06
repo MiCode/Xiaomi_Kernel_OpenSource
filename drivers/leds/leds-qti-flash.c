@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt)	"qti-flash: %s: " fmt, __func__
 
@@ -1713,8 +1713,8 @@ struct flash_led_register {
 
 static const struct flash_led_register ext_setup_reg_list[] = {
 	{ FLASH_LED_IRESOLUTION, 0x01, FLASH_LED_IRESOLUTION_MASK(0) },
-	{ FLASH_LED_STROBE_CTRL(0), FLASH_LED_HW_SW_STROBE_SEL
-		| FLASH_LED_STROBE_TRIGGER | FLASH_LED_STROBE_POLARITY, GENMASK(7, 0) },
+	{ FLASH_LED_STROBE_CTRL(0), (1 << FLASH_LED_STROBE_CFG_SHIFT) | FLASH_LED_HW_SW_STROBE_SEL |
+		FLASH_LED_STROBE_POLARITY, GENMASK(7, 0) },
 	{ FLASH_LED_HDRM_WINDOW, 0x0, FLASH_LED_HI_LO_WIN_MASK },
 	{ FLASH_LED_HDRM_PRGM, 0x20, FLASH_LED_HDRM_CTRL_MODE_MASK | FLASH_LED_VOLTAGE_MASK },
 	{ FLASH_LED_WARMUP_DELAY, 0x0, FLASH_LED_WARMUP_DELAY_MASK },
@@ -1982,8 +1982,6 @@ static int qti_flash_led_remove(struct platform_device *pdev)
 		for (j = 0; j < ARRAY_SIZE(qti_flash_led_attrs); j++)
 			sysfs_remove_file(&led->snode[i].cdev.dev->kobj,
 				&qti_flash_led_attrs[j].attr);
-
-		led_classdev_unregister(&led->snode[i].cdev);
 	}
 
 	for (i = 0; (i < led->num_fnodes); i++)
