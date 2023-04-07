@@ -118,27 +118,6 @@ static DEFINE_MUTEX(register_mutex);
 static struct snd_usb_audio *usb_chip[SNDRV_CARDS];
 static struct usb_driver usb_audio_driver;
 
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD_DEBUG)
-static struct snd_offload_operations *offload_ops;
-
-int snd_usb_register_offload_ops(struct snd_offload_operations *ops)
-{
-	if (offload_ops)
-		return -EEXIST;
-
-	offload_ops = ops;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(snd_usb_register_offload_ops);
-
-int snd_usb_unregister_offload_ops(void)
-{
-	offload_ops = NULL;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(snd_usb_unregister_offload_ops);
-#endif
-
 /*
  * disconnect streams
  * called from usb_audio_disconnect()
@@ -931,12 +910,6 @@ static int usb_audio_probe(struct usb_interface *intf,
 	usb_set_intfdata(intf, chip);
 	atomic_dec(&chip->active);
 	mutex_unlock(&register_mutex);
-
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD_DEBUG)
-	if (offload_ops && offload_ops->connect_cb)
-		offload_ops->connect_cb(intf, chip);
-#endif
-
 	return 0;
 
  __error:
@@ -969,11 +942,6 @@ static void usb_audio_disconnect(struct usb_interface *intf)
 
 	if (chip == USB_AUDIO_IFACE_UNUSED)
 		return;
-
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD_DEBUG)
-	if (offload_ops && offload_ops->disconnect_cb)
-		offload_ops->disconnect_cb(intf);
-#endif
 
 	card = chip->card;
 
@@ -1118,11 +1086,6 @@ static int usb_audio_suspend(struct usb_interface *intf, pm_message_t message)
 		snd_power_change_state(chip->card, SNDRV_CTL_POWER_D3hot);
 		chip->system_suspend = chip->num_suspended_intf;
 	}
-
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD_DEBUG)
-	if (offload_ops && offload_ops->suspend_cb)
-		offload_ops->suspend_cb(intf, message);
-#endif
 
 	return 0;
 }

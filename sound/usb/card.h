@@ -207,27 +207,4 @@ struct snd_usb_stream {
 	struct list_head list;
 };
 
-#if IS_ENABLED(CONFIG_MTK_USB_OFFLOAD_DEBUG)
-struct snd_offload_operations {
-	void (*connect_cb)(struct usb_interface *intf, struct snd_usb_audio *chip);
-	void (*disconnect_cb)(struct usb_interface *intf);
-	void (*suspend_cb)(struct usb_interface *intf, pm_message_t message);
-};
-
-#if IS_ENABLED(CONFIG_SND_USB_AUDIO)
-int snd_usb_register_offload_ops(struct snd_offload_operations *ops);
-int snd_usb_unregister_offload_ops(void);
-#else
-int snd_usb_register_offload_ops(struct snd_offload_operations *ops)
-{
-	return -EOPNOTSUPP;
-}
-
-int snd_usb_unregister_offload_ops(void)
-{
-	return -EOPNOTSUPP;
-}
-#endif /* IS_ENABLED(CONFIG_SND_USB_AUDIO) */
-#endif /* IS_ENABLED(CONFIG_MTK_USB_OFFLOAD_DEBUG) */
-
 #endif /* __USBAUDIO_CARD_H */
