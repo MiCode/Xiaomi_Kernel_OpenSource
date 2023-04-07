@@ -1531,6 +1531,12 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 		 * all processing in the same context, so that we don't run
 		 * into any scheduling letencies.
 		 */
+
+		/*
+		 * Flushing any pending D state change events before handling
+		 * PERST deassert as it is handled in threaded IRQ context.
+		 */
+		flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
 		mhi_sm_pcie_event_manager(&dstate_change_evt->work);
 		goto exit;
 	case EP_PCIE_EVENT_PM_D0:
