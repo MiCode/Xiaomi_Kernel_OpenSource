@@ -77,8 +77,11 @@ static struct scmi_pmu_vendor_ops pmu_config_ops = {
 static int scmi_pmu_protocol_init(const struct scmi_protocol_handle *ph)
 {
 	u32 version;
+	int ret;
 
-	ph->xops->version_get(ph, &version);
+	ret = ph->xops->version_get(ph, &version);
+	if (ret)
+		return ret;
 
 	dev_dbg(ph->dev, "version %d.%d\n",
 		PROTOCOL_REV_MAJOR(version), PROTOCOL_REV_MINOR(version));

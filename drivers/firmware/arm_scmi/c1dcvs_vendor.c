@@ -142,8 +142,11 @@ static struct scmi_c1dcvs_vendor_ops c1dcvs_config_ops = {
 static int scmi_c1dcvs_protocol_init(const struct scmi_protocol_handle *ph)
 {
 	u32 version;
+	int ret;
 
-	ph->xops->version_get(ph, &version);
+	ret = ph->xops->version_get(ph, &version);
+	if (ret)
+		return ret;
 
 	dev_err(ph->dev, "version %d.%d\n",
 		PROTOCOL_REV_MAJOR(version), PROTOCOL_REV_MINOR(version));
