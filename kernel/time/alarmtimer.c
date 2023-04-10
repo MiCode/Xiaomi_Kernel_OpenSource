@@ -33,6 +33,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/alarmtimer.h>
 
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+#include <linux/sched/clock.h>
+#endif
+
 /**
  * struct alarm_base - Alarm timer bases
  * @lock:		Lock for syncrhonized access to the base
@@ -201,13 +205,38 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 	unsigned long flags;
 	int ret = HRTIMER_NORESTART;
 	int restart = ALARMTIMER_NORESTART;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	u64 start, end, process_time;
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	start = sched_clock();
+#endif
 
 	spin_lock_irqsave(&base->lock, flags);
 	alarmtimer_dequeue(base, alarm);
 	spin_unlock_irqrestore(&base->lock, flags);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end = sched_clock();
+	process_time = end - start;
+	if (process_time > 5000000L) // > 5ms
+		pr_notice("irq_monitor: time: %lld func: %s line: %d "
+			, process_time, __func__, __LINE__);
+
+	start = sched_clock();
+#endif
 
 	if (alarm->function)
 		restart = alarm->function(alarm, base->get_ktime());
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end = sched_clock();
+	process_time = end - start;
+	if (process_time > 5000000L) // > 5ms
+		pr_notice("irq_monitor: function: %pS time: %lld func: %s line: %d "
+			, alarm->function, process_time, __func__, __LINE__);
+
+	start = sched_clock();
+#endif
 
 	spin_lock_irqsave(&base->lock, flags);
 	if (restart != ALARMTIMER_NORESTART) {
@@ -216,6 +245,13 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 		ret = HRTIMER_RESTART;
 	}
 	spin_unlock_irqrestore(&base->lock, flags);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	end = sched_clock();
+	process_time = end - start;
+	if (process_time > 5000000L) // > 5ms
+		pr_notice("irq_monitor: time: %lld func: %s line: %d "
+			, process_time, __func__, __LINE__);
+#endif
 
 	trace_alarmtimer_fired(alarm, base->get_ktime());
 	return ret;
