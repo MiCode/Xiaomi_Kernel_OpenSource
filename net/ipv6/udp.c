@@ -1322,6 +1322,9 @@ out:
 	return err;
 }
 
+#if IS_ENABLED(CONFIG_MTK_IPV6MAPV4_DEBUG)
+#define debug_num_internal 20
+#endif
 int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 {
 	struct ipv6_txoptions opt_space;
@@ -1337,6 +1340,9 @@ int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	struct flowi6 *fl6 = &cork.fl.u.ip6;
 	struct dst_entry *dst;
 	struct ipcm6_cookie ipc6;
+#if IS_ENABLED(CONFIG_MTK_IPV6MAPV4_DEBUG)
+	static int debug_flag;
+#endif
 	int addr_len = msg->msg_namelen;
 	bool connected = false;
 	int ulen = len;
@@ -1388,6 +1394,12 @@ int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 			sin.sin_family = AF_INET;
 			sin.sin_port = sin6 ? sin6->sin6_port : inet->inet_dport;
 			sin.sin_addr.s_addr = daddr->s6_addr32[3];
+		#if IS_ENABLED(CONFIG_MTK_IPV6MAPV4_DEBUG)
+			if (debug_flag % debug_num_internal == 0) {
+				pr_info("udp v6 send old:%p, new:%p", msg->msg_name, &sin);
+				debug_flag++;
+			}
+		#endif
 			msg->msg_name = &sin;
 			msg->msg_namelen = sizeof(sin);
 do_udp_sendmsg:
