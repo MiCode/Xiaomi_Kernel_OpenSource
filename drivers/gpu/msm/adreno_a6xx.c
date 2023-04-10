@@ -1394,10 +1394,9 @@ static int a6xx_clear_pending_transactions(struct adreno_device *adreno_dev)
 			A6XX_GBIF_GX_HALT_MASK);
 	}
 
-	if (ret)
-		return ret;
+	ret |= a6xx_halt_gbif(adreno_dev);
 
-	return a6xx_halt_gbif(adreno_dev);
+	return ret;
 }
 
 /**
@@ -1413,9 +1412,12 @@ static int a6xx_reset(struct adreno_device *adreno_dev)
 	int ret;
 	unsigned long flags = device->pwrctrl.ctrl_flags;
 
-	ret = a6xx_clear_pending_transactions(adreno_dev);
-	if (ret)
-		return ret;
+	/*
+	 * There is a chance that GPU reset can be successful even
+	 * if GBIF is stuck before reset. Hence do not check for the
+	 * return type.
+	 */
+	a6xx_clear_pending_transactions(adreno_dev);
 
 	/* Clear ctrl_flags to ensure clocks and regulators are turned off */
 	device->pwrctrl.ctrl_flags = 0;
