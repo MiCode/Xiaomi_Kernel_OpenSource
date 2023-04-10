@@ -646,6 +646,12 @@ enum ufshcd_quirks {
 	 * Enable this quirk will disable CQES and use per queue interrupt.
 	 */
 	UFSHCD_QUIRK_MCQ_BROKEN_INTR			= 1 << 23,
+
+	/*
+	 * This qurik skip Run Time Command (RTC) related flow.
+	 * FAILED error code will be reuturned.
+	 */
+	UFSHCD_QUIRK_MCQ_BROKEN_RTC			= 1 << 24,
 };
 
 enum ufshcd_caps {

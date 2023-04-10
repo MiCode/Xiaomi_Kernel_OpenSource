@@ -499,6 +499,9 @@ static int ufshcd_mcq_sq_stop(struct ufs_hba *hba, struct ufs_hw_queue *hwq)
 	u32 i = hwq->id;
 	int err;
 
+	if (hba->quirks & UFSHCD_QUIRK_MCQ_BROKEN_RTC)
+		return FAILED;
+
 	writel(SQ_STOP, mcq_opr_base(hba, OPR_SQD, i) + REG_SQRTC);
 	reg = mcq_opr_base(hba, OPR_SQD, i) + REG_SQRTS;
 	err = ufshcd_mcq_poll_register(reg, SQ_STS, SQ_STS, MCQ_POLL_MS);
@@ -513,6 +516,9 @@ static int ufshcd_mcq_sq_start(struct ufs_hba *hba, struct ufs_hw_queue *hwq)
 	void __iomem *reg;
 	u32 i = hwq->id;
 	int err;
+
+	if (hba->quirks & UFSHCD_QUIRK_MCQ_BROKEN_RTC)
+		return FAILED;
 
 	writel(SQ_START, mcq_opr_base(hba, OPR_SQD, i) + REG_SQRTC);
 	reg = mcq_opr_base(hba, OPR_SQD, i) + REG_SQRTS;
@@ -541,6 +547,9 @@ int ufshcd_mcq_sq_cleanup(struct ufs_hba *hba, int task_tag, int *result)
 	void __iomem *reg, *opr_sqd_base;
 	u32 nexus, i;
 	int err;
+
+	if (hba->quirks & UFSHCD_QUIRK_MCQ_BROKEN_RTC)
+		return FAILED;
 
 	if (task_tag != hba->nutrs - UFSHCD_NUM_RESERVED) {
 		if (!cmd)
