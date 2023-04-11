@@ -3956,6 +3956,10 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
 		}
 	}
 
+#if IS_ENABLED(CONFIG_MTK_MTE_DEBUG)
+	pte = mk_pte(page, vma->vm_page_prot);
+	arch_do_swap_page(vma->vm_mm, vma, vmf->address, pte, vmf->orig_pte);
+#endif
 	/*
 	 * Remove the swap entry and conditionally try to free up the swapcache.
 	 * We're already holding a reference on the page but haven't mapped it
@@ -3967,7 +3971,9 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
 
 	inc_mm_counter_fast(vma->vm_mm, MM_ANONPAGES);
 	dec_mm_counter_fast(vma->vm_mm, MM_SWAPENTS);
+#if !IS_ENABLED(CONFIG_MTK_MTE_DEBUG)
 	pte = mk_pte(page, vma->vm_page_prot);
+#endif
 
 	/*
 	 * Same logic as in do_wp_page(); however, optimize for pages that are
@@ -4004,7 +4010,9 @@ vm_fault_t do_swap_page(struct vm_fault *vmf)
 	VM_BUG_ON(!folio_test_anon(folio) ||
 			(pte_write(pte) && !PageAnonExclusive(page)));
 	set_pte_at(vma->vm_mm, vmf->address, vmf->pte, pte);
+#if !IS_ENABLED(CONFIG_MTK_MTE_DEBUG)
 	arch_do_swap_page(vma->vm_mm, vma, vmf->address, pte, vmf->orig_pte);
+#endif
 
 #if IS_ENABLED(CONFIG_MTK_MTE_DEBUG)
 	if (system_supports_mte())
