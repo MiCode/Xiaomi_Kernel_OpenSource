@@ -1069,8 +1069,8 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 		}
 		hlist_add_head(&buf->hn, &fl->cached_bufs);
 		fl->num_cached_buf++;
-		spin_unlock(&fl->hlock);
 		buf->type = -1;
+		spin_unlock(&fl->hlock);
 		return;
 	}
 skip_buf_cache:
