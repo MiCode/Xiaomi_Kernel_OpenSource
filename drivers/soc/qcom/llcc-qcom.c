@@ -12,12 +12,12 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/regmap.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/llcc-qcom.h>
-#include <linux/soc/qcom/llcc-tcm.h>
 
 #define ACTIVATE                      BIT(0)
 #define DEACTIVATE                    BIT(1)
@@ -465,6 +465,207 @@ static const struct qcom_llcc_config neo_cfg[] = {
 };
 
 static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
+
+struct llcc_tcm_drv_data {
+	struct device *dev;
+	struct llcc_slice_desc *tcm_slice;
+	struct llcc_tcm_data *tcm_data;
+	bool is_active;
+	bool activate_on_init;
+	struct mutex lock;
+};
+
+static struct llcc_tcm_drv_data *tcm_drv_data = (void *) -EPROBE_DEFER;
+
+/**
+ * qcom_llcc_tcm_init - Initiates the tcm manager
+ * @pdev: the platform device for the llcc driver
+ * @table: the llcc slice table
+ * @size: the size of the llcc slice table
+ * @node: the memory-regions node in the llcc device tree entry
+ *
+ * Returns 0 on success and a negative error code on failure
+ */
+static int qcom_llcc_tcm_init(struct platform_device *pdev,
+		const struct llcc_slice_config *table, size_t size,
+		struct device_node *node)
+{
+	u32 i;
+	int ret;
+	struct resource r;
+
+	tcm_drv_data = devm_kzalloc(&pdev->dev, sizeof(struct llcc_tcm_drv_data),
+			GFP_KERNEL);
+
+	if (!tcm_drv_data) {
+		pr_err("Failed to allocate tcm driver data\n");
+		ret = -ENOMEM;
+		goto cfg_err;
+	}
+
+	tcm_drv_data->tcm_data = devm_kzalloc(&pdev->dev,
+			sizeof(struct llcc_tcm_data), GFP_KERNEL);
+
+	if (!tcm_drv_data->tcm_data) {
+		pr_err("Failed to allocate tcm user data\n");
+		ret = -ENOMEM;
+		goto cfg_err;
+	}
+
+	tcm_drv_data->dev = &pdev->dev;
+	tcm_drv_data->tcm_slice = llcc_slice_getd(LLCC_APTCM);
+	if (IS_ERR_OR_NULL(tcm_drv_data->tcm_slice)) {
+		pr_err("Failed to get tcm slice from llcc driver\n");
+		ret = -ENODEV;
+		goto cfg_err;
+	}
+
+	for (i = 0; i < size; i++) {
+		if (table[i].usecase_id == LLCC_APTCM) {
+			tcm_drv_data->activate_on_init = table[i].activate_on_init;
+			break;
+		}
+	}
+
+	ret = of_address_to_resource(node, 0, &r);
+	if (ret)
+		goto slice_cfg_err;
+	of_node_put(node);
+
+	tcm_drv_data->tcm_data->phys_addr = r.start;
+	tcm_drv_data->tcm_data->mem_size =
+		tcm_drv_data->tcm_slice->slice_size * SZ_1K;
+	tcm_drv_data->tcm_data->virt_addr = ioremap(tcm_drv_data->tcm_data->phys_addr,
+			tcm_drv_data->tcm_data->mem_size);
+	if (IS_ERR_OR_NULL(tcm_drv_data->tcm_data->virt_addr))
+		goto slice_cfg_err;
+
+
+	mutex_init(&tcm_drv_data->lock);
+
+	return 0;
+
+slice_cfg_err:
+	llcc_slice_putd(tcm_drv_data->tcm_slice);
+cfg_err:
+	drv_data = ERR_PTR(-ENODEV);
+	return ret;
+}
+
+/**
+ * llcc_tcm_activate - Activate the TCM slice and give exclusive access
+ *
+ * A valid pointer to a struct llcc_tcm_data will be returned on success
+ * and error pointer on failure
+ */
+struct llcc_tcm_data *llcc_tcm_activate(void)
+{
+	int ret;
+
+	if (IS_ERR(tcm_drv_data))
+		return ERR_PTR(-EPROBE_DEFER);
+
+	mutex_lock(&tcm_drv_data->lock);
+	if (IS_ERR_OR_NULL(tcm_drv_data->tcm_slice) ||
+			IS_ERR_OR_NULL(tcm_drv_data->tcm_data) ||
+			tcm_drv_data->is_active) {
+		ret = -EBUSY;
+		goto act_err;
+	}
+
+	/* Should go through anyways if slice is already activated, */
+	/* but if not already activated through the TCM manager */
+	ret = llcc_slice_activate(tcm_drv_data->tcm_slice);
+	if (ret) {
+		if (tcm_drv_data->activate_on_init)
+			goto act_err;
+		else
+			goto act_err_deact;
+	}
+
+	tcm_drv_data->is_active = true;
+
+	mutex_unlock(&tcm_drv_data->lock);
+	return tcm_drv_data->tcm_data;
+
+act_err_deact:
+	llcc_slice_deactivate(tcm_drv_data->tcm_slice);
+act_err:
+	mutex_unlock(&tcm_drv_data->lock);
+	return ERR_PTR(ret);
+}
+EXPORT_SYMBOL(llcc_tcm_activate);
+
+/**
+ * llcc_tcm_deactivate - Deactivate the TCM slice and revoke exclusive access
+ * @tcm_data: Pointer to the tcm data descriptor
+ */
+void llcc_tcm_deactivate(struct llcc_tcm_data *tcm_data)
+{
+	if (IS_ERR(tcm_drv_data) || IS_ERR_OR_NULL(tcm_data))
+		return;
+
+	mutex_lock(&tcm_drv_data->lock);
+	if (IS_ERR_OR_NULL(tcm_drv_data->tcm_slice) ||
+			IS_ERR_OR_NULL(tcm_drv_data->tcm_data) ||
+			!tcm_drv_data->is_active) {
+		mutex_unlock(&tcm_drv_data->lock);
+		return;
+	}
+
+	if (!tcm_drv_data->activate_on_init)
+		llcc_slice_deactivate(tcm_drv_data->tcm_slice);
+
+	tcm_drv_data->is_active = false;
+
+	mutex_unlock(&tcm_drv_data->lock);
+}
+EXPORT_SYMBOL(llcc_tcm_deactivate);
+
+/**
+ * llcc_tcm_get_phys_addr - Gets the physical address of the tcm slice
+ * @tcm_data: Pointer to the tcm data descriptor
+ *
+ * Returns the physical address on success and 0 on failure
+ */
+phys_addr_t llcc_tcm_get_phys_addr(struct llcc_tcm_data *tcm_data)
+{
+	if (IS_ERR_OR_NULL(tcm_data))
+		return 0;
+
+	return tcm_data->phys_addr;
+}
+EXPORT_SYMBOL(llcc_tcm_get_phys_addr);
+
+/**
+ * llcc_tcm_get_virt_addr - Gets the virtual address of the tcm slice
+ * @tcm_data: Pointer to the tcm data descriptor
+ *
+ * Returns the virtual address on success and NULL on failure
+ */
+void __iomem *llcc_tcm_get_virt_addr(struct llcc_tcm_data *tcm_data)
+{
+	if (IS_ERR_OR_NULL(tcm_data))
+		return NULL;
+
+	return tcm_data->virt_addr;
+}
+EXPORT_SYMBOL(llcc_tcm_get_virt_addr);
+
+/**
+ * llcc_tcm_get_slice_size - Gets the size of the tcm slice
+ * @tcm_data: Pointer to the tcm data descriptor
+ *
+ * Returns the size of the slice on success and 0 on failure
+ */
+size_t llcc_tcm_get_slice_size(struct llcc_tcm_data *tcm_data)
+{
+	if (IS_ERR_OR_NULL(tcm_data))
+		return 0;
+
+	return tcm_data->mem_size;
+}
+EXPORT_SYMBOL(llcc_tcm_get_slice_size);
 
 /**
  * llcc_slice_getd - get llcc slice descriptor
@@ -1386,7 +1587,7 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 
 	tcm_memory_node = of_parse_phandle(dev->of_node, "memory-region", 0);
 	if (tcm_memory_node) {
-		ret = qcom_llcc_tcm_probe(pdev, llcc_cfg, sz, tcm_memory_node);
+		ret = qcom_llcc_tcm_init(pdev, llcc_cfg, sz, tcm_memory_node);
 		if (ret)
 			dev_err(dev, "Failed to probe TCM manager\n");
 	}
