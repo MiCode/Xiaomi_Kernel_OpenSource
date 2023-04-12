@@ -344,6 +344,7 @@ const char *arch_vma_name(struct vm_area_struct *vma)
 {
 	return is_gate_vma(vma) ? "[vectors]" : NULL;
 }
+EXPORT_SYMBOL(arch_vma_name);
 
 /* If possible, provide a placement hint at a random offset from the
  * stack for the sigpage and vdso pages.

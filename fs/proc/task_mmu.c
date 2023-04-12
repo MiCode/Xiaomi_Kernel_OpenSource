@@ -765,7 +765,7 @@ static const struct mm_walk_ops smaps_shmem_walk_ops = {
  *
  * Use vm_start of @vma as the beginning address if @start is 0.
  */
-static void smap_gather_stats(struct vm_area_struct *vma,
+void smap_gather_stats(struct vm_area_struct *vma,
 		struct mem_size_stats *mss, unsigned long start)
 {
 	const struct mm_walk_ops *ops = &smaps_walk_ops;
@@ -802,6 +802,7 @@ static void smap_gather_stats(struct vm_area_struct *vma,
 	else
 		walk_page_range(vma->vm_mm, start, vma->vm_end, ops, mss);
 }
+EXPORT_SYMBOL(smap_gather_stats);
 
 #define SEQ_PUT_DEC(str, val) \
 		seq_put_decimal_ull_width(m, str, (val) >> 10, 8)

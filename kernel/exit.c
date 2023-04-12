@@ -68,6 +68,7 @@
 #include <linux/kprobes.h>
 #include <linux/rethook.h>
 #include <linux/sysfs.h>
+#include <trace/hooks/sched.h>
 
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
@@ -853,6 +854,8 @@ void __noreturn do_exit(long code)
 
 	tsk->exit_code = code;
 	taskstats_exit(tsk, group_dead);
+
+	trace_android_vh_do_exit(tsk);
 
 	exit_mm();
 

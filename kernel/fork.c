@@ -2773,6 +2773,7 @@ pid_t kernel_clone(struct kernel_clone_args *args)
 	 * might get invalid after that point, if the thread exits quickly.
 	 */
 	trace_sched_process_fork(current, p);
+	trace_android_vh_do_fork(p);
 
 	pid = get_task_pid(p, PIDTYPE_PID);
 	nr = pid_vnr(pid);
