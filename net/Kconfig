@@ -58,14 +58,6 @@ config NET_REDIRECT
 config SKB_EXTENSIONS
 	bool
 
-config CONFIG_MTK_IPV6MAPV4_DEBUG
-	bool "Fix ipv6 map v4 exception due to use after free stack"
-	help
-	  This option makes it possible to send message with
-	  ipv6 map v4 destination address
-          ipv6 map v4 triggered by kasan
-          udp send message and record destination address.
-
 menu "Networking options"
 
 source "net/packet/Kconfig"
