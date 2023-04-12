@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"flashv2: %s: " fmt, __func__
@@ -3331,10 +3331,10 @@ sysfs_fail:
 					&qpnp_flash_led_attrs[j].attr);
 	}
 
-	i = led->num_snodes;
+	j = led->num_snodes;
 error_switch_register:
-	while (i > 0)
-		led_classdev_unregister(&led->snode[--i].cdev);
+	while (j > 0)
+		led_classdev_unregister(&led->snode[--j].cdev);
 	i = led->num_fnodes;
 error_led_register:
 	while (i > 0)
