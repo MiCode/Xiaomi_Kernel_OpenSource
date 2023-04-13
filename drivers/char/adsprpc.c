@@ -2469,9 +2469,11 @@ static void fastrpc_ramdump_collection(int cid)
 			ADSPRPC_ERR("adsprpc: %s: unable to dump PD memory (err %d)\n",
 				__func__, ret);
 		hlist_del_init(&buf->hn_init);
-		if (!list_empty(&head)) {
-			list_del(&head);
-		}
+
+		spin_lock(&me->hlock);
+		if (chan->buf->virt)
+			memset(chan->buf->virt, 0, MINI_DUMP_DBG_SIZE);
+		spin_unlock(&me->hlock);
 		if (fl) {
 			spin_lock_irqsave(&me->hlock, irq_flags);
 			if (fl->file_close)
