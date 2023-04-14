@@ -34,9 +34,7 @@
 
 #include "dma-buf-sysfs-stats.h"
 
-#if (!IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG))
 static inline int is_dma_buf_file(struct file *);
-#endif
 
 struct dma_buf_list {
 	struct list_head head;
@@ -45,14 +43,22 @@ struct dma_buf_list {
 
 static struct dma_buf_list db_list;
 
-#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
-/*
- * This function helps in traversing the db_list and calls the
+/**
+ * dma_buf_get_each - Helps in traversing the db_list and calls the
  * callback function which can extract required info out of each
  * dmabuf.
+ * The db_list needs to be locked to prevent the db_list from being
+ * dynamically updated during the traversal process.
+ *
+ * @callback: [in]   Handle for each dmabuf buffer in db_list.
+ * @private:  [in]   User-defined, used to pass in when callback is
+ *                   called.
+ *
+ * Returns 0 on success, otherwise returns a non-zero value for
+ * mutex_lock_interruptible or callback.
  */
-int get_each_dmabuf(int (*callback)(const struct dma_buf *dmabuf,
-		    void *private), void *private)
+int dma_buf_get_each(int (*callback)(const struct dma_buf *dmabuf,
+		     void *private), void *private)
 {
 	struct dma_buf *buf;
 	int ret = mutex_lock_interruptible(&db_list.lock);
@@ -68,8 +74,7 @@ int get_each_dmabuf(int (*callback)(const struct dma_buf *dmabuf,
 	mutex_unlock(&db_list.lock);
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(get_each_dmabuf, MINIDUMP);
-#endif
+EXPORT_SYMBOL_NS_GPL(dma_buf_get_each, MINIDUMP);
 
 static char *dmabuffs_dname(struct dentry *dentry, char *buffer, int buflen)
 {
@@ -551,18 +556,10 @@ static const struct file_operations dma_buf_fops = {
 /*
  * is_dma_buf_file - Check if struct file* is associated with dma_buf
  */
-#if IS_ENABLED(CONFIG_MTK_IOMMU_DEBUG)
-int is_dma_buf_file(struct file *file)
-{
-	return file->f_op == &dma_buf_fops;
-}
-EXPORT_SYMBOL_NS_GPL(is_dma_buf_file, MINIDUMP);
-#else
 static inline int is_dma_buf_file(struct file *file)
 {
 	return file->f_op == &dma_buf_fops;
 }
-#endif
 
 static struct file *dma_buf_getfile(size_t size, int flags)
 {
