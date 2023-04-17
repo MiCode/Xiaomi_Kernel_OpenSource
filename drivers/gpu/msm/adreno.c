@@ -424,7 +424,7 @@ static irqreturn_t adreno_freq_limiter_irq_handler(int irq, void *data)
 		pwr->pwrlevels[pwr->active_pwrlevel].gpu_freq,
 		pwr->pwrlevels[pwr->previous_pwrlevel].gpu_freq);
 
-	reset_control_assert(device->freq_limiter_irq_clear);
+	reset_control_reset(device->freq_limiter_irq_clear);
 
 	return IRQ_HANDLED;
 }
