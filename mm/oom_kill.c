@@ -1277,12 +1277,13 @@ void add_to_oom_reaper(struct task_struct *p)
 	p = find_lock_task_mm(p);
 	if (!p)
 		return;
-
-	get_task_struct(p);
 	if (task_will_free_mem(p)) {
 		__mark_oom_victim(p);
-		__wake_oom_reaper(p);
+		if (!test_and_set_bit(MMF_OOM_REAP_QUEUED,
+				     &p->signal->oom_mm->flags)) {
+			get_task_struct(p);
+			__wake_oom_reaper(p);
+		}
 	}
 	task_unlock(p);
-	put_task_struct(p);
 }

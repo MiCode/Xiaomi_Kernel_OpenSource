@@ -946,7 +946,7 @@ struct fastrpc_apps {
 	struct hlist_head frpc_drivers;
 	struct mutex mut_uid;
 	/* Indicates cdsp device status */
-	int remote_cdsp_status;
+	int fastrpc_cdsp_status;
 };
 
 struct fastrpc_mmap {

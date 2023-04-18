@@ -32,6 +32,7 @@
 #include <linux/irq.h>
 #include <linux/interconnect.h>
 #include <linux/pci_regs.h>
+#include <linux/nvmem-consumer.h>
 
 #include "ep_pcie_com.h"
 #include <linux/dma-mapping.h>
@@ -2890,10 +2891,11 @@ static irqreturn_t ep_pcie_handle_sriov_irq(int irq, void *data)
 		sriov_irq_mask = readl_relaxed(dev->parf + PCIE20_INT_ALL_VF_BME_MASK);
 		ep_pcie_write_mask(
 			dev->parf + PCIE20_INT_ALL_VF_BME_CLEAR, 0, sriov_irq_status);
+		sriov_irq_status &= sriov_irq_mask;
 	}
 
 	dev->sriov_irq_counter++;
-	EP_PCIE_DBG(dev,
+	EP_PCIE_DUMP(dev,
 		"PCIe V%d: No. %ld SR-IOV IRQ %d received; status:0x%x; mask:0x%x\n",
 		dev->rev, dev->sriov_irq_counter, irq, sriov_irq_status, sriov_irq_mask);
 
@@ -3853,10 +3855,108 @@ struct ep_pcie_hw hw_drv = {
 	.get_capability = ep_pcie_core_get_cap,
 };
 
+/*
+ * is_pcie_boot_config - reads boot_config register using
+ * nvmem interface and determines if host-interface is pcie or not.
+ * @pdev: pointer to ep_pcie device.
+ *
+ * Return 0 on success, negative number on error.
+ */
+static int is_pcie_boot_config(struct platform_device *pdev)
+{
+	struct nvmem_cell *cell = NULL;
+	u32 *buf, fast_boot, host_bypass, fast_boot_mask = 0, host_bypass_mask = 0;
+	size_t len = 0;
+	int ret = 0, num_fast_boot_values = 0, i;
+	u32 fast_boot_values[MAX_FAST_BOOT_VALUES];
+
+	/*
+	 * BOOT_CONFIG is a FUSE based register.
+	 * This register allows to read the proper PBL related values.
+	 * Using nvmem interface to read boot_config register and
+	 * using bitmask (provided through devicetree) for
+	 * masking fast_boot and pcie_host_bypass.
+	 */
+	if (!of_find_property((&pdev->dev)->of_node, "nvmem-cells", NULL))
+		return 0;
+
+	ret = of_property_read_u32((&pdev->dev)->of_node, "qcom,fast-boot-mask", &fast_boot_mask);
+	if (ret) {
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: qcom,fast-boot-mask does not exist\n",
+			ep_pcie_dev.rev);
+		return ret;
+	}
+
+	ret = of_property_read_u32((&pdev->dev)->of_node, "qcom,host-bypass-mask",
+			&host_bypass_mask);
+	if (ret) {
+		EP_PCIE_DBG(&ep_pcie_dev, "PCIe V%d: qcom,host-bypass-mask does not exist\n",
+			ep_pcie_dev.rev);
+		return ret;
+	}
+
+	if (!of_get_property((&pdev->dev)->of_node, "qcom,fast-boot-values", NULL))
+		return -EINVAL;
+
+	num_fast_boot_values = of_property_count_elems_of_size((&pdev->dev)->of_node,
+			"qcom,fast-boot-values", sizeof(u32));
+	if ((num_fast_boot_values < 0) || (num_fast_boot_values > MAX_FAST_BOOT_VALUES)) {
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: qcom,fast-boot-values not valid\n", ep_pcie_dev.rev);
+		return num_fast_boot_values;
+	}
+
+	ret = of_property_read_u32_array((&pdev->dev)->of_node, "qcom,fast-boot-values",
+			fast_boot_values, num_fast_boot_values);
+	if (ret) {
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: qcom,fast-boot-values not found\n", ep_pcie_dev.rev);
+		return ret;
+	}
+
+	cell = nvmem_cell_get(&pdev->dev, "boot_conf");
+	if (IS_ERR(cell)) {
+		EP_PCIE_ERR(&ep_pcie_dev, "PCIe V%d: Error in reading BOOT_CONFIG cell\n",
+			ep_pcie_dev.rev);
+		return PTR_ERR(cell);
+	}
+
+	buf = nvmem_cell_read(cell, &len);
+	if (IS_ERR(buf)) {
+		EP_PCIE_ERR(&ep_pcie_dev, "PCIe V%d: Error in reading BOOT_CONFIG\n",
+			ep_pcie_dev.rev);
+		nvmem_cell_put(cell);
+		return PTR_ERR(buf);
+	}
+
+	fast_boot = (((*buf) & fast_boot_mask) >> ((ffs(fast_boot_mask)) - 1));
+	host_bypass = ((*buf) & host_bypass_mask);
+	EP_PCIE_INFO(&ep_pcie_dev,
+		"PCIe V%d: BOOT_CONFIG val = %x, fast_boot = %x, host_bypass = %x\n",
+		ep_pcie_dev.rev, (*buf), fast_boot, host_bypass);
+	kfree(buf);
+	nvmem_cell_put(cell);
+
+	for (i = 0; i < num_fast_boot_values; i++) {
+		if (fast_boot == fast_boot_values[i] && !host_bypass)
+			return 0;
+	}
+
+	return -EPERM;
+}
+
 static int ep_pcie_probe(struct platform_device *pdev)
 {
 	int ret;
 	u32 sriov_mask = 0;
+
+	ret = is_pcie_boot_config(pdev);
+	if (ret) {
+		EP_PCIE_DBG(&ep_pcie_dev,
+			"PCIe V%d: boot_config is not PCIe\n",
+			ep_pcie_dev.rev);
+		goto res_failure;
+	}
 
 	ep_pcie_dev.link_speed = 1;
 	ret = of_property_read_u32((&pdev->dev)->of_node,

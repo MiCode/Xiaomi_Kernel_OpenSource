@@ -502,7 +502,11 @@ iommu_map_cmd_completion:
 							 sat_cntrl, id, evt);
 			int ret;
 
-			WARN_ON(!sat_dev);
+			if (!sat_dev) {
+				MSG_LOG("Failed to find the satellite device with id : %d\n", id);
+				WARN_ON(!sat_dev);
+				return;
+			}
 
 			memset(&gen_ctxt, 0, sizeof(gen_ctxt));
 			memset(&buf, 0, sizeof(buf));
@@ -537,7 +541,12 @@ iommu_map_cmd_completion:
 							 SAT_CTXT_TYPE_CHAN);
 			int ret;
 
-			WARN_ON(!sat_dev);
+			if (!sat_dev) {
+				MSG_LOG("Failed to find the satellite device with id : %d\n", id);
+				WARN_ON(!sat_dev);
+				return;
+			}
+
 			WARN_ON(sat_dev->chan_started);
 
 			ret = mhi_prepare_for_transfer(sat_dev->mhi_dev, 0);
@@ -562,7 +571,12 @@ iommu_map_cmd_completion:
 				find_sat_dev_by_id(sat_cntrl, id,
 						   SAT_CTXT_TYPE_CHAN);
 
-			WARN_ON(!sat_dev);
+			if (!sat_dev) {
+				MSG_LOG("Failed to find the satellite device with id : %d\n", id);
+				WARN_ON(!sat_dev);
+				return;
+			}
+
 			WARN_ON(!sat_dev->chan_started);
 
 			mhi_unprepare_from_transfer(sat_dev->mhi_dev);

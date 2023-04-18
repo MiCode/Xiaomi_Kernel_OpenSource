@@ -739,7 +739,7 @@ static void qrtr_ns_data_ready(struct sock *sk)
 int qrtr_ns_init(void)
 {
 	struct sockaddr_qrtr sq;
-	int rx_buf_sz = INT_MAX;
+	int rx_buf_sz = SZ_1M;
 	int ret;
 
 	INIT_LIST_HEAD(&qrtr_ns.lookups);
@@ -778,7 +778,7 @@ int qrtr_ns_init(void)
 		goto err_wq;
 	}
 
-	sock_setsockopt(qrtr_ns.sock, SOL_SOCKET, SO_RCVBUF,
+	sock_setsockopt(qrtr_ns.sock, SOL_SOCKET, SO_RCVBUFFORCE,
 			KERNEL_SOCKPTR((void *)&rx_buf_sz), sizeof(rx_buf_sz));
 
 	qrtr_ns.bcast_sq.sq_family = AF_QIPCRTR;

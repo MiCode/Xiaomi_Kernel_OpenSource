@@ -633,6 +633,7 @@ static void slate_coredump(struct rproc *rproc)
 	int ret = 0;
 
 	pr_err("Setup for Coredump.\n");
+	rproc_coredump_cleanup(rproc);
 
 	slate_tz_req.tzapp_slate_cmd = SLATE_RPROC_DUMPINFO;
 	if (!slate_data->qseecom_handle) {
