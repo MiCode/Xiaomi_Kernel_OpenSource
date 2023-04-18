@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #if !defined(_KGSL_POWER_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -17,14 +17,14 @@
 
 DECLARE_EVENT_CLASS(gpu_work_period_class,
 
-	TP_PROTO(u32 gpu_id, u32 uid, u64 start_time_ns,
+	TP_PROTO(u32 gpu_id, uid_t uid, u64 start_time_ns,
 		 u64 end_time_ns, u64 total_active_duration_ns),
 
 	TP_ARGS(gpu_id, uid, start_time_ns, end_time_ns, total_active_duration_ns),
 
 	TP_STRUCT__entry(
 		__field(u32, gpu_id)
-		__field(u32, uid)
+		__field(uid_t, uid)
 		__field(u64, start_time_ns)
 		__field(u64, end_time_ns)
 		__field(u64, total_active_duration_ns)
@@ -47,7 +47,7 @@ DECLARE_EVENT_CLASS(gpu_work_period_class,
 	);
 
 DEFINE_EVENT(gpu_work_period_class, gpu_work_period,
-	TP_PROTO(u32 gpu_id, u32 uid, u64 start_time_ns,
+	TP_PROTO(u32 gpu_id, uid_t uid, u64 start_time_ns,
 		 u64 end_time_ns, u64 total_active_duration_ns),
 
 	TP_ARGS(gpu_id, uid, start_time_ns, end_time_ns, total_active_duration_ns)

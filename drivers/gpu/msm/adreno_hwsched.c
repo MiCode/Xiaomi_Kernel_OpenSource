@@ -147,7 +147,7 @@ static void _retire_timestamp_only(struct kgsl_drawobj *drawobj)
 
 	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME) {
 		atomic64_inc(&drawobj->context->proc_priv->frame_count);
-		atomic_inc(&drawobj->context->proc_priv->period.frames);
+		atomic_inc(&drawobj->context->proc_priv->period->frames);
 	}
 
 	/* Retire pending GPU events for the object */
@@ -1139,7 +1139,7 @@ void adreno_hwsched_retire_cmdobj(struct adreno_hwsched *hwsched,
 	drawobj = DRAWOBJ(cmdobj);
 	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME) {
 		atomic64_inc(&drawobj->context->proc_priv->frame_count);
-		atomic_inc(&drawobj->context->proc_priv->period.frames);
+		atomic_inc(&drawobj->context->proc_priv->period->frames);
 	}
 
 	entry = cmdobj->profiling_buf_entry;

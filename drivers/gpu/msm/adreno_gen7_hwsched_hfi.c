@@ -167,7 +167,10 @@ static void log_profiling_info(struct adreno_device *adreno_dev, u32 *rcvd)
 		info.active = cmd->active;
 	info.retired_on_gmu = cmd->retired_on_gmu;
 
-	kgsl_proc_work_period_update(device, context->proc_priv, info.active);
+	/* protected GPU work must not be reported */
+	if  (!(context->flags & KGSL_CONTEXT_SECURE))
+		kgsl_work_period_update(device, context->proc_priv->period,
+					     info.active);
 
 	trace_adreno_cmdbatch_retired(context, &info, 0, 0, 0);
 

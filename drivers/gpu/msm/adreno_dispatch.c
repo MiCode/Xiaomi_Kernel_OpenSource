@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -251,7 +251,7 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 
 	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME) {
 		atomic64_inc(&context->proc_priv->frame_count);
-		atomic_inc(&context->proc_priv->period.frames);
+		atomic_inc(&context->proc_priv->period->frames);
 	}
 
 	/*
@@ -2259,6 +2259,11 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 	info.eop = end;
 	info.active = active;
 
+	/* protected GPU work must not be reported */
+	if  (!(context->flags & KGSL_CONTEXT_SECURE))
+		kgsl_work_period_update(KGSL_DEVICE(adreno_dev),
+					     context->proc_priv->period, active);
+
 	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_RETIRED,
 			       pid_nr(context->proc_priv->pid),
 			       context->id, drawobj->timestamp,
@@ -2266,7 +2271,7 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 
 	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME) {
 		atomic64_inc(&context->proc_priv->frame_count);
-		atomic_inc(&context->proc_priv->period.frames);
+		atomic_inc(&context->proc_priv->period->frames);
 	}
 
 	/*
