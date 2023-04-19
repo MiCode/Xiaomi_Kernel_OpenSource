@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2012-2014,2018-2021 The Linux Foundation. All rights reserved.
  *
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_QCOM_SPMI_VADC_H
@@ -301,6 +301,7 @@
 
 #define ADC7_SBUx				0x94
 #define ADC7_VBAT_2S_MID			0x96
+#define ADC7_V_I_BAT_THERM			0xb8
 
 /* ADC channels for PMIC5 Gen3 */
 
