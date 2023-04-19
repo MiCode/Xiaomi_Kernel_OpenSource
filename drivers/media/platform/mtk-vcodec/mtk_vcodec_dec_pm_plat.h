@@ -35,5 +35,5 @@ void mtk_vdec_prepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *i
 void mtk_vdec_unprepare_vcp_dvfs_data(struct mtk_vcodec_ctx *ctx, unsigned long *in);
 void mtk_vdec_dvfs_sync_vsi_data(struct mtk_vcodec_ctx *ctx);
 void mtk_vdec_dvfs_update_active_state(struct mtk_vcodec_ctx *ctx);
-bool mtk_vdec_dvfs_is_pw_always_on(struct mtk_vcodec_ctx *ctx);
+bool mtk_vdec_dvfs_is_pw_always_on(struct mtk_vcodec_dev *dev);
 #endif /* _MTK_VCODEC_DEC_PM_PLAT_H_ */

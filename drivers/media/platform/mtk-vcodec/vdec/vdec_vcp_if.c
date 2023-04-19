@@ -858,7 +858,6 @@ static void vdec_vcp_mmdvfs_resume(struct mtk_vcodec_ctx *ctx)
 	if (!inst)
 		return;
 
-	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_SET_PARAM;
@@ -868,7 +867,6 @@ static void vdec_vcp_mmdvfs_resume(struct mtk_vcodec_ctx *ctx)
 	msg.data[0] = MTK_INST_RESUME;
 	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), false, false, true);
 
-	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 
 	mtk_vcodec_debug(inst, "- ret=%d", err);
 }
@@ -935,24 +933,29 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 				break;
 			}
 		}
+
 		mtk_vcodec_alive_checker_suspend(dev);
 		mutex_unlock(&dev->ctx_mutex);
-		if (ctx) {
-			mtk_v4l2_debug(0, "[%d] backup (dvfs freq %d, high %d)(pw ref %d, %d %d)(hw active %d %d)",
-				ctx->id, dev->vdec_dvfs_params.target_freq,
-				dev->vdec_dvfs_params.high_loading_scenario,
-				atomic_read(&dev->dec_larb_ref_cnt),
-				atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_LAT]),
-				atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_CORE]),
-				atomic_read(&dev->dec_hw_active[MTK_VDEC_LAT]),
-				atomic_read(&dev->dec_hw_active[MTK_VDEC_CORE]));
+		mtk_v4l2_debug(0, "[%d] %sbackup (dvfs freq %d, high %d)(pw ref %d, %d %d)(hw active %d %d)",
+			ctx ? ctx->id : 0, ctx ? "" : "no need ",
+			dev->vdec_dvfs_params.target_freq,
+			dev->vdec_dvfs_params.high_loading_scenario,
+			atomic_read(&dev->dec_larb_ref_cnt),
+			atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_LAT]),
+			atomic_read(&dev->dec_clk_ref_cnt[MTK_VDEC_CORE]),
+			atomic_read(&dev->dec_hw_active[MTK_VDEC_LAT]),
+			atomic_read(&dev->dec_hw_active[MTK_VDEC_CORE]));
+
+		mutex_lock(&dev->dec_dvfs_mutex);
+		if (ctx)
 			vdec_vcp_backup((struct vdec_inst *)ctx->drv_handle);
-			mutex_lock(&dev->dec_dvfs_mutex);
-			// if power always on, put pw ref cnt before suspend
-			if (mtk_vdec_dvfs_is_pw_always_on(ctx))
-				mtk_vcodec_dec_pw_off(&ctx->dev->pm);
-			mutex_unlock(&dev->dec_dvfs_mutex);
-		}
+
+		// if power always on, put pw ref cnt before suspend
+		if (mtk_vdec_dvfs_is_pw_always_on(dev))
+			mtk_vcodec_dec_pw_off(&dev->pm);
+		dev->dvfs_is_suspend_off = true;
+		mutex_unlock(&dev->dec_dvfs_mutex);
+
 		vdec_suspend_power(dev);
 
 		// check all hw lock is released
@@ -992,14 +995,16 @@ static int vcp_vdec_notify_callback(struct notifier_block *this,
 		}
 		mtk_vcodec_alive_checker_resume(dev);
 		mutex_unlock(&dev->ctx_mutex);
-		if (ctx) {
-			mutex_lock(&dev->dec_dvfs_mutex);
-			// if power always on before suspend, get pw ref cnt after resume
-			if (mtk_vdec_dvfs_is_pw_always_on(ctx))
-				mtk_vcodec_dec_pw_on(&ctx->dev->pm);
-			mutex_unlock(&dev->dec_dvfs_mutex);
+		mutex_lock(&dev->dec_dvfs_mutex);
+		// if power always on before suspend, get pw ref cnt after resume
+		if (mtk_vdec_dvfs_is_pw_always_on(dev))
+			mtk_vcodec_dec_pw_on(&dev->pm);
+		if (ctx)
 			vdec_vcp_mmdvfs_resume(ctx);
-		}
+
+		dev->dvfs_is_suspend_off = false;
+		mutex_unlock(&dev->dec_dvfs_mutex);
+
 		dev->is_codec_suspending = 0;
 	break;
 	}
