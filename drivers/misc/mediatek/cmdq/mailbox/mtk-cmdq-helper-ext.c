@@ -488,12 +488,13 @@ static void cmdq_dump_vcp_reg(struct cmdq_pkt *pkt)
 	}
 }
 
-static bool cmdq_pkt_is_exec(struct cmdq_pkt *pkt)
+bool cmdq_pkt_is_exec(struct cmdq_pkt *pkt)
 {
 	if (pkt && pkt->task_alloc && !pkt->rec_irq)
 		return true;
 	return false;
 }
+EXPORT_SYMBOL(cmdq_pkt_is_exec);
 
 void cmdq_mbox_pool_set_limit(struct cmdq_client *cl, u32 limit)
 {
