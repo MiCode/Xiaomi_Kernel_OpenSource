@@ -656,13 +656,6 @@ struct mtk_vcodec_ctx {
 	int init_cnt;
 	int decoded_frame_cnt;
 	int last_decoded_frame_cnt; // used for timer to check active state of decoded ctx
-
-	/* used for vcp background idle check */
-	unsigned int vcp_action_cnt;
-	unsigned int last_vcp_action_cnt;
-	bool is_vcp_active;
-	struct mutex vcp_active_mutex;
-
 	struct mutex buf_lock;
 	struct mutex worker_lock;
 	struct slbc_data sram_data;

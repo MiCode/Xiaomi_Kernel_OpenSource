@@ -93,7 +93,6 @@ static int fops_vcodec_open(struct file *file)
 			return -EPERM;
 		}
 		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_VDEC);
-		ctx->is_vcp_active = true;
 	}
 #endif
 
@@ -116,7 +115,6 @@ static int fops_vcodec_open(struct file *file)
 	mutex_init(&ctx->q_mutex);
 	mutex_init(&ctx->gen_buf_va_lock);
 	mutex_init(&ctx->detect_ts_param.lock);
-	mutex_init(&ctx->vcp_active_mutex);
 
 	ctx->type = MTK_INST_DECODER;
 	ret = mtk_vcodec_dec_ctrls_setup(ctx);
@@ -210,7 +208,6 @@ static int fops_vcodec_release(struct file *file)
 	struct mtk_vcodec_dev *dev = video_drvdata(file);
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(file->private_data);
 	int i;
-	bool is_vcp_active;
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	int ret;
 #endif
@@ -280,14 +277,13 @@ static int fops_vcodec_release(struct file *file)
 	memset(ctx->dma_meta_list, 0,
 		sizeof(struct dma_meta_buf) * MAX_META_BUF_CNT);
 
-	is_vcp_active = ctx->is_vcp_active;
 	kfree(ctx->dec_flush_buf);
 	kfree(ctx);
 	if (dev->dec_cnt > 0)
 		dev->dec_cnt--;
 	mutex_unlock(&dev->dev_mutex);
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	if (mtk_vcodec_is_vcp(MTK_INST_DECODER) && is_vcp_active) {
+	if (mtk_vcodec_is_vcp(MTK_INST_DECODER)) {
 		ret = vcp_deregister_feature(VDEC_FEATURE_ID);
 		if (ret) {
 			mtk_v4l2_err("Failed to vcp_deregister_feature");

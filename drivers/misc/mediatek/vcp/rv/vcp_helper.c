@@ -861,7 +861,7 @@ int vcp_enable_pm_clk(enum feature_id id)
 		vcp_enable_irqs();
 
 		if (!is_vcp_ready(VCP_A_ID))
-			reset_vcp(VCP_ALL_RESUME);
+			reset_vcp(VCP_ALL_ENABLE);
 	}
 	pwclkcnt++;
 #ifdef VCP_CLK_FMETER
@@ -956,7 +956,6 @@ static int vcp_pm_event(struct notifier_block *notifier
 
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
-		vcp_extern_notify(VCP_EVENT_PRE_SUSPEND);
 		mutex_lock(&vcp_A_notify_mutex);
 		vcp_extern_notify(VCP_EVENT_SUSPEND);
 		mutex_unlock(&vcp_A_notify_mutex);

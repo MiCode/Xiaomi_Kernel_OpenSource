@@ -95,11 +95,9 @@ void mtk_vcodec_alive_checker_deinit(struct mtk_vcodec_dev *dev)
 		}
 		if (vdec_inst_count == 0 && dev->vdec_dvfs_params.has_timer) {
 			del_timer_sync(&dev->vdec_dvfs_params.vdec_active_checker);
-			dev->vdec_dvfs_params.has_timer = 0;
-			mutex_unlock(&dev->ctx_mutex);
 			flush_workqueue(dev->check_alive_workqueue);
+			dev->vdec_dvfs_params.has_timer = 0;
 			mtk_v4l2_debug(0, "[VDVFS][VDEC] deinit vdec alive checker...");
-			mutex_lock(&dev->ctx_mutex);
 		}
 	}
 #endif

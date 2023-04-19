@@ -13,7 +13,6 @@
 #include <linux/module.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
-#include <soc/mediatek/mmdvfs_v3.h>
 
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_dec.h"
@@ -438,65 +437,12 @@ static u64 mtk_vdec_ts_update_mode_and_timestamp(struct mtk_vcodec_ctx *ctx, u64
 	return timestamp;
 }
 
-static void mtk_vdec_check_vcp_active(struct mtk_vcodec_ctx *ctx, bool from_timer, bool add_cnt,
-	char *debug_str)
-{
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-#ifdef VDEC_CHECK_ALIVE
-	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
-		if (!from_timer)
-			mutex_lock(&ctx->vcp_active_mutex);
-		if (!ctx->is_vcp_active) {
-			if (!debug_str)
-				debug_str = "unknown";
-			mtk_v4l2_debug(0, "[%d] vcp active by %s (vcp_action_cnt %d, last %d, %d)",
-				ctx->id, debug_str, ctx->vcp_action_cnt,
-				ctx->last_vcp_action_cnt, add_cnt);
-			ctx->is_vcp_active = true;
-			vcp_register_feature(VDEC_FEATURE_ID);
-			mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_VDEC);
-		}
-		if (add_cnt)
-			ctx->vcp_action_cnt++;
-		if (!from_timer)
-			mutex_unlock(&ctx->vcp_active_mutex);
-	}
-#endif
-#endif
-}
-
-static void mtk_vdec_check_vcp_inactive(struct mtk_vcodec_ctx *ctx, bool from_timer)
-{
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-#ifdef VDEC_CHECK_ALIVE
-	if (mtk_vcodec_vcp & (1 << MTK_INST_DECODER)) {
-		if (!from_timer)
-			mutex_lock(&ctx->vcp_active_mutex);
-		if (ctx->is_vcp_active) {
-			mtk_v4l2_debug(0, "[%d] vcp inactive (vcp_action_cnt %d)",
-				ctx->id, ctx->vcp_action_cnt);
-			if (from_timer)
-				mutex_unlock(&ctx->dev->ctx_mutex);
-			vcp_deregister_feature(VDEC_FEATURE_ID);
-			mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_VDEC);
-			if (from_timer)
-				mutex_lock(&ctx->dev->ctx_mutex);
-			ctx->is_vcp_active = false;
-		}
-		if (!from_timer)
-			mutex_unlock(&ctx->vcp_active_mutex);
-	}
-#endif
-#endif
-}
-
 static int mtk_vdec_set_frame(struct mtk_vcodec_ctx *ctx,
 	struct mtk_video_dec_buf *buf)
 {
 	int ret = 0;
 
 	if (ctx->input_driven == INPUT_DRIVEN_PUT_FRM) {
-		mtk_vdec_check_vcp_active(ctx, false, true, "put frm");
 		ret = vdec_if_set_param(ctx, SET_PARAM_FRAME_BUFFER, buf);
 		if (ret == -EIO) {
 			mtk_vdec_error_handle(ctx, "set_frame");
@@ -1294,7 +1240,6 @@ static void mtk_vdec_reset_decoder(struct mtk_vcodec_ctx *ctx, bool is_drain,
 
 	mutex_lock(&ctx->gen_buf_va_lock);
 	ctx->state = MTK_STATE_FLUSH;
-	mtk_vdec_check_vcp_active(ctx, false, false, "reset"); // vcp active for reset msg
 	if (ctx->input_driven == INPUT_DRIVEN_CB_FRM)
 		wake_up(&ctx->fm_wq);
 
@@ -1682,7 +1627,6 @@ static void mtk_vdec_worker(struct work_struct *work)
 		memset(&drain_fb, 0, sizeof(struct vdec_fb));
 		if (src_buf->planes[0].bytesused == 0)
 			drain_fb.status = FB_ST_EOS;
-		mtk_vdec_check_vcp_active(ctx, false, true, "worker EOS");
 		vdec_if_flush(ctx, NULL, &drain_fb, FLUSH_BITSTREAM | FLUSH_FRAME);
 
 		if (!ctx->input_driven) {
@@ -1748,7 +1692,6 @@ static void mtk_vdec_worker(struct work_struct *work)
 	if (src_buf_info->used == false)
 		mtk_vdec_ts_insert(ctx, ctx->dec_params.timestamp);
 	src_buf_info->used = true;
-	mtk_vdec_check_vcp_active(ctx, false, true, "worker");
 	mtk_vdec_do_gettimeofday(&worktvstart1);
 	ret = vdec_if_decode(ctx, buf, pfb, &src_chg);
 	mtk_vdec_do_gettimeofday(&vputvend);
@@ -2088,45 +2031,6 @@ void mtk_vdec_check_alive_work(struct work_struct *ws)
 
 	caws = container_of(ws, struct vdec_check_alive_work_struct, work);
 	dev = caws->dev;
-
-	/* vcp background idle check */
-	mutex_lock(&dev->ctx_mutex);
-	if (list_empty(&dev->ctx_list) || dev->is_codec_suspending == 1) {
-		mutex_unlock(&dev->ctx_mutex);
-		if (caws->ctx != NULL)
-			kfree(caws);
-		return;
-	}
-
-	list_for_each(item, &dev->ctx_list) {
-		ctx = list_entry(item, struct mtk_vcodec_ctx, list);
-		mutex_lock(&ctx->vcp_active_mutex);
-		mtk_v4l2_debug(8, "ctx:%d, is_vcp_active:%d, vcp_action_cnt:%d, last_vcp_action_cnt:%d",
-			ctx->id, ctx->is_vcp_active, ctx->vcp_action_cnt,
-			ctx->last_vcp_action_cnt);
-		if (ctx->state == MTK_STATE_HEADER) {
-			if (ctx->last_vcp_action_cnt == ctx->vcp_action_cnt)
-				mtk_vdec_check_vcp_inactive(ctx, true);
-			else {
-				mtk_vdec_check_vcp_active(ctx, true, false, "timer");
-				ctx->last_vcp_action_cnt = ctx->vcp_action_cnt;
-			}
-		} else if (ctx->state == MTK_STATE_ABORT)
-			mtk_v4l2_err("ctx:%d is abort", ctx->id);
-		mutex_unlock(&ctx->vcp_active_mutex);
-	}
-	mutex_unlock(&dev->ctx_mutex);
-
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-	/* vcp background idle check may turn off vcp power */
-	/* if vcp is powered off, skip dvfs check */
-	if (!is_vcp_ready(VCP_A_ID)) {
-		mtk_v4l2_debug(4, "vcp powered off, skip dvfs check");
-		if (caws->ctx != NULL)
-			kfree(caws);
-		return;
-	}
-#endif
 
 	mmdvfs_in_vcp = (dev->vdec_reg == 0 && dev->vdec_mmdvfs_clk == 0);
 
@@ -3394,8 +3298,6 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		ctx->state = MTK_STATE_INIT;
 	}
 
-	mtk_vdec_check_vcp_active(ctx, false, true, "start"); // cnt+1 before state change
-
 #ifdef VDEC_CHECK_ALIVE
 	/* ctx resume, queue work for check alive timer */
 	if (!ctx->is_active && ctx->state == MTK_STATE_HEADER) {
@@ -3696,7 +3598,6 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		ctx->is_hdr = color_desc.is_hdr;
 	}
 
-	mtk_vdec_check_vcp_active(ctx, false, true, "init done"); // cnt+1 before state change
 	ctx->state = MTK_STATE_HEADER;
 	mtk_v4l2_debug(1, "[%d] dpbsize=%d", ctx->id, ctx->last_dpb_size);
 
@@ -3835,10 +3736,8 @@ static int vb2ops_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x)", ctx->id, q->type, ctx->state);
 
-	if (ctx->state == MTK_STATE_FLUSH) {
-		mtk_vdec_check_vcp_active(ctx, false, true, "start"); // cnt+1 before state change
+	if (ctx->state == MTK_STATE_FLUSH)
 		ctx->state = MTK_STATE_HEADER;
-	}
 
 	//SET_PARAM_TOTAL_FRAME_BUFQ_COUNT for SW DEC
 	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
