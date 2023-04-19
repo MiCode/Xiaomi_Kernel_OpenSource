@@ -297,7 +297,7 @@ static void print_wakeup_sources(void)
 	spin_unlock_irqrestore(&wakeup_reason_lock, flags);
 }
 
-static ssize_t last_resume_reason_show(struct kobject *kobj,
+ssize_t last_resume_reason_show(struct kobject *kobj,
 				       struct kobj_attribute *attr, char *buf)
 {
 	ssize_t buf_offset = 0;
@@ -326,6 +326,7 @@ static ssize_t last_resume_reason_show(struct kobject *kobj,
 
 	return buf_offset;
 }
+EXPORT_SYMBOL(last_resume_reason_show);
 
 static ssize_t last_suspend_time_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
