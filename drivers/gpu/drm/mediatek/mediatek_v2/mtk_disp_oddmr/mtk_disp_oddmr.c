@@ -552,7 +552,8 @@ mtk_oddmr_load_buffer(struct drm_crtc *crtc,
 		DDPMSG("%s gem create fail\n", __func__);
 		return NULL;
 	}
-	DDPMSG("%s gem create %p iommu %llx size %u\n", __func__, gem->kvaddr, gem->dma_addr, size);
+	DDPMSG("%s gem create %p iommu %llx size %lu\n", __func__,
+		gem->kvaddr, gem->dma_addr, size);
 	if ((addr != NULL) && (!secu))
 		memcpy(gem->kvaddr, addr, size);
 
@@ -1324,6 +1325,7 @@ static void mtk_oddmr_first_cfg(struct mtk_ddp_comp *comp,
 	oddmr_priv->spr_enable = comp->mtk_crtc->panel_ext->params->spr_params.enable;
 	oddmr_priv->spr_relay = comp->mtk_crtc->panel_ext->params->spr_params.relay;
 	oddmr_priv->spr_format = comp->mtk_crtc->panel_ext->params->spr_params.spr_format_type;
+	oddmr_priv->od_user_gain = 64;
 	/* read panelid */
 	crtc_idx = drm_crtc_index(&mtk_crtc->base);
 	if (crtc_idx == 0)
@@ -2188,10 +2190,13 @@ static int mtk_oddmr_common_gain_lookup(int item, void *table, uint32_t cnt)
 	return result;
 }
 
-static int mtk_oddmr_od_gain_lookup(uint32_t fps, uint32_t dbv, int table_idx, uint32_t *weight)
+static int mtk_oddmr_od_gain_lookup(struct mtk_ddp_comp *comp,
+	uint32_t fps, uint32_t dbv, int table_idx, uint32_t *weight)
 {
+	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
 	int result_fps, result_dbv, tmp_item;
-	uint32_t cnt;
+	uint32_t cnt, result;
+	uint32_t user_gain = oddmr_priv->od_user_gain;
 	struct mtk_oddmr_table_gain *bl_gain_table;
 	struct mtk_oddmr_table_gain *fps_gain_table;
 
@@ -2211,7 +2216,11 @@ static int mtk_oddmr_od_gain_lookup(uint32_t fps, uint32_t dbv, int table_idx, u
 	bl_gain_table = g_od_param.od_tables[table_idx]->bl_table;
 	tmp_item = (int)dbv;
 	result_dbv = mtk_oddmr_common_gain_lookup(tmp_item, bl_gain_table, cnt);
-	*weight = ((uint32_t)result_dbv * (uint32_t)result_fps + 32) / 64;
+	result = ((uint32_t)result_dbv * (uint32_t)result_fps + 32) / 64;
+	result = (result * user_gain + 32) / 64;
+	*weight = result;
+	ODDMRAPI_LOG("dbv_gain %d, fps_gain %d, user_gain %d weight %d\n",
+		result_dbv, result_fps, user_gain, result);
 	return 0;
 }
 
@@ -2595,7 +2604,7 @@ static int mtk_oddmr_dmr_table_lookup(struct mtk_disp_oddmr *priv,
 		}
 	}
 	DDPPR_ERR("%s table not found, %u,%u,%u Hz\n",
-			new_timing->hdisplay, new_timing->vdisplay, new_timing->vrefresh);
+			__func__, new_timing->hdisplay, new_timing->vdisplay, new_timing->vrefresh);
 	return -EFAULT;
 }
 
@@ -2659,7 +2668,7 @@ static void mtk_oddmr_set_od_weight(struct mtk_ddp_comp *comp, uint32_t weight,
 static void mtk_oddmr_set_od_weight_dual(struct mtk_ddp_comp *comp, uint32_t weight,
 		struct cmdq_pkt *handle)
 {
-	ODDMRAPI_LOG("oddmr %u+\n", weight);
+	ODDMRAPI_LOG("%u+\n", weight);
 	mtk_oddmr_set_od_weight(default_comp, weight, handle);
 	if (comp->mtk_crtc->is_dual_pipe)
 		mtk_oddmr_set_od_weight(oddmr1_default_comp, weight, handle);
@@ -2693,7 +2702,7 @@ static void mtk_oddmr_od_timing_chg_dual(struct mtk_oddmr_timing *timing, struct
 				weight = 0;
 				mtk_oddmr_od_set_res_udma_dual(handle);
 			} else {
-				mtk_oddmr_od_gain_lookup(timing->vrefresh,
+				mtk_oddmr_od_gain_lookup(default_comp, timing->vrefresh,
 						timing->bl_level, table_idx, &weight);
 			}
 			mtk_oddmr_set_od_weight_dual(default_comp, weight, handle);
@@ -2766,7 +2775,7 @@ static void mtk_oddmr_od_bl_chg(uint32_t bl_level, struct cmdq_pkt *handle)
 			DDPPR_ERR("%s table invalid %d\n", __func__, table_idx);
 			return;
 		}
-		mtk_oddmr_od_gain_lookup(g_oddmr_current_timing.vrefresh,
+		mtk_oddmr_od_gain_lookup(default_comp, g_oddmr_current_timing.vrefresh,
 				bl_level, table_idx, &weight);
 		mtk_oddmr_set_od_weight_dual(default_comp, weight, handle);
 	}
@@ -3184,8 +3193,6 @@ static int mtk_oddmr_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle
 		uint32_t value = *(uint32_t *)data;
 
 		mtk_oddmr_set_od_weight_dual(comp, value, handle);
-		if (atomic_read(&g_oddmr_od_weight_trigger) > 0)
-			atomic_dec(&g_oddmr_od_weight_trigger);
 		break;
 	}
 	case ODDMR_CMD_OD_ENABLE:
@@ -3224,7 +3231,7 @@ static int mtk_oddmr_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle
 		struct mtk_oddmr_od_tuning_sram *tuning_data = data;
 
 		if (tuning_data == NULL) {
-			ODDMRFLOW_LOG("tuning data is NULL\n", cmd);
+			ODDMRFLOW_LOG("%d tuning data is NULL\n", cmd);
 			return -EFAULT;
 		}
 		mtk_oddmr_od_tuning_write_sram_dual(comp, handle, tuning_data);
@@ -3272,15 +3279,20 @@ static void disp_oddmr_wait_sof_irq(void)
 	CRTC_MMP_MARK(0, oddmr_sof_thread, atomic_read(&g_oddmr_od_weight_trigger), 0);
 	if (g_oddmr_priv->od_enable) {
 		/* 1. restore user weight */
-		if (atomic_read(&g_oddmr_od_weight_trigger) == 1) {
-			sel = g_oddmr_priv->od_data.od_sram_read_sel;
-			mtk_oddmr_od_gain_lookup(g_oddmr_current_timing.vrefresh,
-					g_oddmr_current_timing.bl_level,
-					g_oddmr_priv->od_data.od_sram_table_idx[sel], &weight);
-			ODDMRFLOW_LOG("weight restore %u\n", weight);
-			mtk_crtc_user_cmd(&default_comp->mtk_crtc->base,
-				default_comp, ODDMR_CMD_OD_SET_WEIGHT, &weight);
-			CRTC_MMP_MARK(0, oddmr_sof_thread, weight, 1);
+		if (atomic_read(&g_oddmr_od_weight_trigger) > 0) {
+			atomic_dec(&g_oddmr_od_weight_trigger);
+			if (atomic_read(&g_oddmr_od_weight_trigger) == 0) {
+				sel = g_oddmr_priv->od_data.od_sram_read_sel;
+				mtk_oddmr_od_gain_lookup(default_comp,
+						g_oddmr_current_timing.vrefresh,
+						g_oddmr_current_timing.bl_level,
+						g_oddmr_priv->od_data.od_sram_table_idx[sel],
+						&weight);
+				ODDMRFLOW_LOG("weight restore %u\n", weight);
+				mtk_crtc_user_cmd(&default_comp->mtk_crtc->base,
+					default_comp, ODDMR_CMD_OD_SET_WEIGHT, &weight);
+				CRTC_MMP_MARK(0, oddmr_sof_thread, weight, 1);
+			}
 		}
 		/* 2. wait until near next frame te */
 		frame_req_trig = (atomic_read(&g_oddmr_frame_dirty) == 1);
@@ -3526,6 +3538,39 @@ static int mtk_oddmr_od_enable(struct drm_device *dev, int en)
 		ret = -EAGAIN;
 	}
 	return ret;
+}
+
+static int mtk_oddmr_od_user_gain(struct mtk_ddp_comp *comp, struct mtk_drm_oddmr_ctl *ctl_data)
+{
+	struct mtk_disp_oddmr *oddmr_priv = comp_to_oddmr(comp);
+	uint8_t od_user_gain = 0;
+	int sel;
+
+	if (ctl_data == NULL ||
+		ctl_data->data == NULL ||
+		ctl_data->size != 1) {
+		ODDMRFLOW_LOG("ctl_data is invalid\n");
+		return -EFAULT;
+	}
+
+	if (copy_from_user(&od_user_gain, ctl_data->data, 1)) {
+		ODDMRFLOW_LOG("copy_from_user fail\n");
+		return -EFAULT;
+	}
+
+	oddmr_priv->od_user_gain = od_user_gain;
+	if (comp->mtk_crtc->is_dual_pipe) {
+		oddmr_priv = comp_to_oddmr(oddmr1_default_comp);
+		oddmr_priv->od_user_gain = od_user_gain;
+	}
+
+	sel = oddmr_priv->od_data.od_sram_read_sel;
+	atomic_set(&g_oddmr_od_weight_trigger, 1);
+	mtk_drm_idlemgr_kick(__func__,
+			&comp->mtk_crtc->base, 1);
+	mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+	ODDMRFLOW_LOG("weight set user gain %u\n", od_user_gain);
+	return 0;
 }
 
 static void mtk_oddmr_dmr_set_table_mode(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkg)
@@ -4020,6 +4065,9 @@ int mtk_drm_ioctl_oddmr_ctl(struct drm_device *dev, void *data,
 		break;
 	case MTK_DRM_ODDMR_OD_WRITE_SW_REG:
 		ret = mtk_oddmr_od_write_sw_reg(default_comp, param, &g_od_param);
+		break;
+	case MTK_DRM_ODDMR_OD_USER_GAIN:
+		ret = mtk_oddmr_od_user_gain(default_comp, param);
 		break;
 	default:
 		ODDMRFLOW_LOG("cmd %d is invalid\n", param->cmd);

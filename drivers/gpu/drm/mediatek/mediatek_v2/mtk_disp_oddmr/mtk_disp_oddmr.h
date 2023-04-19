@@ -157,6 +157,7 @@ struct mtk_disp_oddmr {
 	/* only use in pipe0 */
 	enum ODDMR_STATE od_state;
 	enum ODDMR_STATE dmr_state;
+	uint32_t od_user_gain;
 };
 
 int mtk_drm_ioctl_oddmr_load_param(struct drm_device *dev, void *data,
