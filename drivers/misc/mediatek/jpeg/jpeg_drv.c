@@ -387,10 +387,10 @@ static int jpeg_drv_hybrid_dec_lock(int *hwid)
 			continue;
 		} else {
 			*hwid = id;
-			dec_hwlocked[id] = true;
 			JPEG_LOG(1, "jpeg dec get %d HW core", id);
 			_jpeg_hybrid_dec_int_status[id] = 0;
 			jpeg_drv_hybrid_dec_power_on(id);
+			dec_hwlocked[id] = true;
 			enable_irq(gJpegqDev.hybriddecIrqId[id]);
 			break;
 		}
@@ -412,10 +412,10 @@ static void jpeg_drv_hybrid_dec_unlock(unsigned int hwid)
 	if (!dec_hwlocked[hwid]) {
 		JPEG_LOG(0, "try to unlock a free core %d", hwid);
 	} else {
-		dec_hwlocked[hwid] = false;
-		JPEG_LOG(1, "jpeg dec HW core %d is unlocked", hwid);
-		jpeg_drv_hybrid_dec_power_off(hwid);
 		disable_irq(gJpegqDev.hybriddecIrqId[hwid]);
+		dec_hwlocked[hwid] = false;
+		jpeg_drv_hybrid_dec_power_off(hwid);
+		JPEG_LOG(1, "jpeg dec HW core %d is unlocked", hwid);
 		jpg_dmabuf_free_iova(bufInfo[hwid].i_dbuf,
 			bufInfo[hwid].i_attach,
 			bufInfo[hwid].i_sgt);
