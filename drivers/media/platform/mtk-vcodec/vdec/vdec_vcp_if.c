@@ -709,8 +709,8 @@ int vcp_dec_ipi_handler(void *arg)
 			// TODO: need remove HW locks /power & ISR ipis
 			case VCU_IPIMSG_DEC_LOCK_LAT:
 				get_dvfs_data(vcu->ctx->dev, msg->no_need_put);
-				atomic_set(&dev->dec_hw_active[MTK_VDEC_LAT], 1);
 				vdec_decode_prepare(vcu->ctx, MTK_VDEC_LAT);
+				atomic_set(&dev->dec_hw_active[MTK_VDEC_LAT], 1);
 				msg->msg_id = AP_IPIMSG_DEC_LOCK_LAT_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), true, false, false);
 				break;
@@ -723,8 +723,8 @@ int vcp_dec_ipi_handler(void *arg)
 				break;
 			case VCU_IPIMSG_DEC_LOCK_CORE:
 				get_dvfs_data(vcu->ctx->dev, msg->no_need_put);
-				atomic_set(&dev->dec_hw_active[MTK_VDEC_CORE], 1);
 				vdec_decode_prepare(vcu->ctx, MTK_VDEC_CORE);
+				atomic_set(&dev->dec_hw_active[MTK_VDEC_CORE], 1);
 				msg->msg_id = AP_IPIMSG_DEC_LOCK_CORE_DONE;
 				vdec_vcp_ipi_send(inst, msg, sizeof(*msg), true, false, false);
 				break;

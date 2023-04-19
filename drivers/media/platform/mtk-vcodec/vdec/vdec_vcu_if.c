@@ -262,8 +262,8 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 		case VCU_IPIMSG_DEC_SET_PARAM_DONE:
 			break;
 		case VCU_IPIMSG_DEC_LOCK_LAT:
-			atomic_set(&dev->dec_hw_active[MTK_VDEC_LAT], 1);
 			vdec_decode_prepare(vcu->ctx, MTK_VDEC_LAT);
+			atomic_set(&dev->dec_hw_active[MTK_VDEC_LAT], 1);
 			ret = 1;
 			break;
 		case VCU_IPIMSG_DEC_UNLOCK_LAT:
@@ -272,8 +272,8 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 			ret = 1;
 			break;
 		case VCU_IPIMSG_DEC_LOCK_CORE:
-			atomic_set(&dev->dec_hw_active[MTK_VDEC_CORE], 1);
 			vdec_decode_prepare(vcu->ctx, MTK_VDEC_CORE);
+			atomic_set(&dev->dec_hw_active[MTK_VDEC_CORE], 1);
 			ret = 1;
 			break;
 		case VCU_IPIMSG_DEC_UNLOCK_CORE:
