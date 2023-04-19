@@ -1746,6 +1746,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 			 */
 			mtk_v4l2_err(" <=== [%d] vcodec not support the source!===>",
 				ctx->id);
+			ctx->state = MTK_STATE_ABORT;
 			mtk_vdec_queue_error_event(ctx);
 			v4l2_m2m_buf_done(&src_buf_info->vb,
 				VB2_BUF_STATE_DONE);
@@ -3305,7 +3306,12 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		if (ret) {
 			mtk_v4l2_err("[%d]: vdec_if_init() fail ret=%d",
 						 ctx->id, ret);
-			mtk_vdec_error_handle(ctx, "init");
+			if (ret == -EIO)
+				mtk_vdec_error_handle(ctx, "init");
+			else {
+				ctx->state = MTK_STATE_ABORT;
+				mtk_vdec_queue_error_event(ctx);
+			}
 			return;
 		}
 		ctx->state = MTK_STATE_INIT;
@@ -3522,7 +3528,8 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		} else if (mtk_vcodec_unsupport || last_frame_type != NON_EOS) {
 			mtk_v4l2_err("[%d]Error!! Codec driver not support the file!",
 						 ctx->id);
-			mtk_vdec_error_handle(ctx, "unsupport");
+			ctx->state = MTK_STATE_ABORT;
+			mtk_vdec_queue_error_event(ctx);
 		} else if (ret == -EIO) {
 			/* ipi timeout / VPUD crashed ctx abort */
 			mtk_vdec_error_handle(ctx, "dec init");
