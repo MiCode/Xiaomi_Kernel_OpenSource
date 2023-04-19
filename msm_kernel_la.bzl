@@ -65,10 +65,10 @@ LZ4_RAMDISK=%d
 [ -z "$$DT_OVERLAY_SUPPORT" ] && DT_OVERLAY_SUPPORT=1
 
 if [ "$$KERNEL_CMDLINE_CONSOLE_AUTO" != "0" ]; then
-    KERNEL_VENDOR_CMDLINE+=' console=ttyMSM0,115200n8 earlycon=qcom_geni,0x00a9C000 qcom_geni_serial.con_enabled=1 '
+    KERNEL_VENDOR_CMDLINE+=' earlycon=%s '
 fi
 
-KERNEL_VENDOR_CMDLINE+=' bootconfig '
+KERNEL_VENDOR_CMDLINE+=' %s '
 VENDOR_BOOTCONFIG+='androidboot.first_stage_console=1 androidboot.hardware=qcom_kp'
 EOF
     """ % (
@@ -80,6 +80,8 @@ EOF
         boot_image_opts.page_size,
         boot_image_opts.super_image_size,
         int(boot_image_opts.lz4_ramdisk),
+        boot_image_opts.earlycon_addr,
+        " ".join(boot_image_opts.kernel_vendor_cmdline_extras),
     )
 
     # Generate the build config
@@ -146,9 +148,10 @@ def _define_kernel_build(
         build_config = ":{}_build_config".format(target),
         dtstree = dtstree,
         base_kernel = base_kernel,
-        strip_modules = True,
-        kmi_symbol_list = "//msm-kernel:android/abi_gki_aarch64_qcom" if define_abi_targets else None,
+        kmi_symbol_list = "android/abi_gki_aarch64_qcom" if define_abi_targets else None,
         additional_kmi_symbol_lists = ["{}_all_kmi_symbol_lists".format(base_kernel)] if define_abi_targets else None,
+        protected_exports_list = "android/abi_gki_protected_exports" if define_abi_targets else None,
+        protected_modules_list = "android/gki_protected_modules" if define_abi_targets else None,
         collect_unstripped_modules = define_abi_targets,
         visibility = ["//visibility:public"],
     )
@@ -158,7 +161,7 @@ def _define_kernel_build(
             name = "{}_abi".format(target),
             kernel_build = ":{}".format(target),
             define_abi_targets = True,
-            abi_definition_xml = "//msm-kernel:android/abi_gki_aarch64.xml",
+            abi_definition_stg = "android/abi_gki_aarch64.stg",
             kmi_enforced = kmi_enforced,
             module_grouping = False,
             kmi_symbol_list_add_only = True,
@@ -190,7 +193,7 @@ def _define_image_build(
         build_vendor_boot = False,
         build_vendor_kernel_boot = False,
         build_vendor_dlkm = True,
-        build_system_dlkm = True,
+        build_system_dlkm = False,
         boot_image_outs = None,
         dtbo_list = [],
         vendor_ramdisk_binaries = None,
@@ -260,7 +263,7 @@ def _define_image_build(
         name = "{}_super_image".format(target),
         kernel_modules_install = "{}_modules_install".format(target),
         deps = [
-            ":{}_images_system_dlkm_image".format(target),
+            "{}_images_system_dlkm_image".format(base_kernel),
             ":{}_images_vendor_dlkm_image".format(target),
         ],
     )
@@ -284,6 +287,7 @@ def _define_kernel_dist(target, msm_target, variant, base_kernel):
     msm_dist_targets = [
         # do not sort
         base_kernel,
+        "{}_images_system_dlkm_image".format(base_kernel),
         "{}_headers".format(base_kernel),
         ":{}".format(target),
         ":{}_images".format(target),

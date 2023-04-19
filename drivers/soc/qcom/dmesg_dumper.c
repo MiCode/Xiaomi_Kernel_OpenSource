@@ -23,6 +23,8 @@
 #define DDUMP_PROFS_NAME			"vmkmsg"
 #define DDUMP_WAIT_WAKEIRQ_TIMEOUT	msecs_to_jiffies(1000)
 
+static bool vm_status_ready;
+
 static void qcom_ddump_to_shm(struct kmsg_dumper *dumper,
 			  enum kmsg_dump_reason reason)
 {
@@ -69,29 +71,29 @@ static int qcom_ddump_map_memory(struct qcom_dmesg_dumper *qdd)
 {
 	struct device *dev = qdd->dev;
 	struct device_node *np;
+	u32 size;
 	int ret;
 
-	np = of_parse_phandle(dev->of_node, "shared-buffer", 0);
-	if (!np) {
-		/*
-		 * "shared-buffer" is only specified for primary VM.
-		 * Parse "memory-region" for the hypervisor-generated node for
-		 * secondary VM.
-		 */
+	if (qdd->primary_vm) {
+		ret = of_property_read_u32(qdd->dev->of_node, "shared-buffer-size", &size);
+		if (ret)
+			return -EINVAL;
+		qdd->size = size;
+	} else {
 		np = qcom_ddump_svm_of_parse(qdd);
 		if (!np) {
 			dev_err(dev, "Unable to parse shared mem node\n");
 			return -EINVAL;
 		}
-	}
 
-	ret = of_address_to_resource(np, 0, &qdd->res);
-	of_node_put(np);
-	if (ret) {
-		dev_err(dev, "of_address_to_resource failed!\n");
-		return -EINVAL;
+		ret = of_address_to_resource(np, 0, &qdd->res);
+		of_node_put(np);
+		if (ret) {
+			dev_err(dev, "of_address_to_resource failed!\n");
+			return -EINVAL;
+		}
+		qdd->size = resource_size(&qdd->res);
 	}
-	qdd->size = resource_size(&qdd->res);
 
 	return 0;
 }
@@ -200,14 +202,27 @@ static int qcom_ddump_rm_cb(struct notifier_block *nb, unsigned long cmd,
 		return NOTIFY_DONE;
 
 	if (vm_status_payload->vm_status == GH_RM_VM_STATUS_READY) {
+		qdd->base = kzalloc(qdd->size, GFP_KERNEL);
+		if (!qdd->base) {
+			dev_err(qdd->dev, "Failed to alloc memory\n");
+			return NOTIFY_DONE;
+		}
+
+		qdd->res.start = virt_to_phys(qdd->base);
+		qdd->res.end = qdd->res.start + qdd->size - 1;
 		if (qcom_ddump_share_mem(qdd, self_vmid, peer_vmid)) {
+			kfree(qdd->base);
 			dev_err(qdd->dev, "Failed to share memory\n");
 			return NOTIFY_DONE;
 		}
+
+		vm_status_ready = true;
 	}
 
-	if (vm_status_payload->vm_status == GH_RM_VM_STATUS_RESET)
+	if (vm_status_payload->vm_status == GH_RM_VM_STATUS_RESET) {
 		qcom_ddump_unshare_mem(qdd, self_vmid, peer_vmid);
+		vm_status_ready = false;
+	}
 
 	return NOTIFY_DONE;
 }
@@ -256,6 +271,9 @@ static ssize_t qcom_ddump_vmkmsg_read(struct file *file, char __user *buf,
 	struct qcom_dmesg_dumper *qdd = pde_data(file_inode(file));
 	struct ddump_shm_hdr *hdr = qdd->base;
 	int ret;
+
+	if (!vm_status_ready)
+		return -ENODEV;
 
 	if (count < LOG_LINE_MAX) {
 		dev_err(qdd->dev, "user buffer size should greater than %d\n", LOG_LINE_MAX);
@@ -334,13 +352,6 @@ static int qcom_ddump_alive_log_probe(struct qcom_dmesg_dumper *qdd)
 		if (!res) {
 			ret = -ENXIO;
 			dev_err(dev, "request mem region fail\n");
-			goto err_unregister_rx_dbl;
-		}
-
-		qdd->base = devm_ioremap_wc(dev, qdd->res.start, qdd->size);
-		if (!qdd->base) {
-			ret = -ENOMEM;
-			dev_err(dev, "devm_ioremap_wc fail\n");
 			goto err_unregister_rx_dbl;
 		}
 
@@ -465,6 +476,7 @@ static int qcom_ddump_remove(struct platform_device *pdev)
 	}
 
 	if (qdd->primary_vm) {
+		kfree(qdd->base);
 		gh_rm_unregister_notifier(&qdd->rm_nb);
 	} else {
 		ret = kmsg_dump_unregister(&qdd->dump);

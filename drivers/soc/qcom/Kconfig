@@ -144,6 +144,15 @@ config QCOM_TLMM_VM_IRQCHIP
          Say Y here to compile the driver as a part of kernel or M to compile
          as a module.
 
+config GIC_INTERRUPT_ROUTING
+	tristate "GIC Interrupt Routing driver"
+	depends on ARM_GIC_V3
+	help
+	  GIC interrupt routing driver.
+	  The driver manages interrupt routing for shared peripheral interrupts.
+	  Say Y here to compile the driver as a part of kernel or M to compile
+	  as a module.
+
 config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -239,6 +248,7 @@ config QCOM_QMI_HELPERS
 
 source "drivers/soc/qcom/memshare/Kconfig"
 
+source "drivers/soc/qcom/hab/Kconfig"
 config QCOM_RMTFS_MEM
 	tristate "Qualcomm Remote Filesystem memory driver"
 	depends on ARCH_QCOM
@@ -450,6 +460,15 @@ config QCOM_SECURE_BUFFER
 	  use this memory and no unauthorized access is made to the
 	  buffer.
 
+config QCOM_MEM_HOOKS
+	tristate "Memory trace hook callbacks"
+	help
+	  A helper driver for loading various memory-related vendor
+	  hooks, which are used to control the behavior of the core.
+	  If unsure, say 'M' here to ensure that the hooks are compiled
+	  in.
+
+
 config HYP_ASSIGN_DEBUG
 	bool "Enable caller tracking for hyp-assign"
 	depends on QCOM_SECURE_BUFFER
@@ -475,6 +494,15 @@ config QCOM_SOCINFO
 	help
 	 Say yes here to support the Qualcomm socinfo driver, providing
 	 information about the SoC to user space.
+
+config QCOM_SOCINFO_DT
+	tristate "Qualcomm Technologies, Inc. DT based socinfo driver"
+	select SOC_BUS
+	help
+	Say yes here to support the Qualcomm Technologies, Inc. device tree
+	 based socinfo driver, providing information about the SoC to
+	 user space. The driver gets the soc information from device tree.
+	 If unsure, say no.
 
 config QCOM_SPM
 	tristate "Qualcomm Subsystem Power Manager (SPM)"
@@ -545,6 +573,16 @@ config QCOM_SOC_WATCHDOG
 	  setting the bark/bite time and also petting the hardware watchdog. To
 	  utilize this the Qualcomm Technologies, Inc. watchdog framework must
 	  also be enabled.
+
+config QCOM_IRQ_STAT
+	bool "QCOM IRQ stats"
+	default y
+	depends on QCOM_WDT_CORE && ANDROID_VENDOR_OEM_DATA
+	help
+	  This give irq stats for top hitter at
+	  watchdog bark and kernel panics.
+	  This provides additional debug information
+	  for irq counts.
 
 config QCOM_FORCE_WDOG_BITE_ON_PANIC
 	bool "QCOM force watchdog bite on panic"
@@ -668,6 +706,14 @@ config MSM_BOOT_STATS
 	  This figures are reported in mpm sleep clock cycles and have a
 	  resolution of 31 bits as 1 bit is used as an overflow check.
 
+config USB_BAM
+	tristate "USB BAM Driver"
+	help
+	  Enabling this option adds USB BAM Driver.
+	  USB BAM driver was added to supports Smart Peripheral Subsystem
+	  Peripheral-to-Peripheral transfers between the USB and other
+	  peripheral.
+
 config QCOM_CPU_VENDOR_HOOKS
         tristate "QTI Vendor Hooks Support"
         depends on ARCH_QCOM && ANDROID_VENDOR_HOOKS
@@ -716,6 +762,16 @@ config QTI_CRYPTO_TZ
 	 performing hardware based file encryption. This means keys are
 	 programmed and managed through SCM calls to TZ where ICE driver
 	 will configure keys.
+
+config QTI_CRYPTO_VIRTUALIZATION
+	tristate "Enable hypervysor to be used for FBE"
+	depends on FS_ENCRYPTION_INLINE_CRYPT
+	depends on MSM_HAB
+	help
+	 Say 'Y or M' to enable routing of crypto requests to different operating
+	 system in virtualized environment. Driver uses a hardware abstraction(hab)
+	 layer where the APIs exposed by that operationg systems are used to send
+	 requests to perform the hardware crypto operation.
 
 config QTI_HW_KEY_MANAGER
 	tristate "Enable QTI Hardware Key Manager for storage encryption"
@@ -930,6 +986,16 @@ config QCOM_VM_ALIVE_LOG_ENCRYPT
 	  wrapping. This needs to be enabled on both Primary VM and the other VM
 	  whose kmsg is desired.
 
+config MSM_SYSTEM_HEALTH_MONITOR
+	tristate "System Health Monitor"
+	help
+	  System Health Monitor (SHM) passively monitors the health of the
+	  peripherals connected to the application processor. Software
+	  components in the application processor that experience
+	  communication failure can request the SHM to perform a system-wide
+	  health check. If any failures are detected during the health-check,
+	  then a subsystem restart will be triggered for the failed subsystem.
+
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
 
@@ -950,5 +1016,15 @@ config QCOM_PANEL_EVENT_NOTIFIER
 	  panel events such as panel on , panel off, fps change etc.  Clients
 	  can use these notifications for power saving or align its operations
 	  with display panel power state.
+
+config RENAME_DEVICES
+	tristate "Rename  block and network device names"
+	depends on VIRTIO_BLK
+	default n
+	help
+	  This option is to rename the block and network devices names
+	  which is needed during android verified boot process and it
+	  also maps to physical partition names on gvm side which help
+	  identify the block and network devices.
 
 endmenu

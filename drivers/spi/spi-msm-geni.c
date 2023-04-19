@@ -1301,20 +1301,15 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 		if (mas->master_cross_connect)
 			spi_master_setup(mas);
 	}
-	geni_se_init(&mas->spi_rsc, 0x0, (mas->tx_fifo_depth - 2));
-	mas->tx_fifo_depth = geni_se_get_tx_fifo_depth(&mas->spi_rsc);
-	mas->rx_fifo_depth = geni_se_get_rx_fifo_depth(&mas->spi_rsc);
-	mas->tx_fifo_width = geni_se_get_tx_fifo_width(&mas->spi_rsc);
 
 	mas->oversampling = 1;
-	/* Transmit an entire FIFO worth of data per IRQ */
-	mas->tx_wm = 1;
 
 	mas->gsi_mode =
 		(geni_read_reg(mas->base, GENI_IF_DISABLE_RO) &
 					FIFO_IF_DISABLE);
 
 	if (mas->gsi_mode) {
+		SPI_LOG_DBG(mas->ipc, false, mas->dev, "%s:GSI mode\n", __func__);
 		mas->tx = dma_request_slave_channel(mas->dev, "tx");
 		if (IS_ERR_OR_NULL(mas->tx)) {
 			dev_info(mas->dev, "Failed to get tx DMA ch %ld\n",
@@ -1378,6 +1373,13 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 			mas->rx = NULL;
 			goto setup_ipc;
 		}
+	} else {
+		mas->tx_fifo_depth = geni_se_get_tx_fifo_depth(&mas->spi_rsc);
+		mas->rx_fifo_depth = geni_se_get_rx_fifo_depth(&mas->spi_rsc);
+		mas->tx_fifo_width = geni_se_get_tx_fifo_width(&mas->spi_rsc);
+		geni_se_init(&mas->spi_rsc, 0x0, (mas->tx_fifo_depth - 2));
+		/* Transmit an entire FIFO worth of data per IRQ */
+		mas->tx_wm = 1;
 	}
 setup_ipc:
 	dev_info(mas->dev, "tx_fifo %d rx_fifo %d tx_width %d\n",
@@ -1645,14 +1647,21 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 	return ret;
 }
 
-static void handle_fifo_timeout(struct spi_geni_master *mas,
+static void handle_fifo_timeout(struct spi_master *spi,
 					struct spi_transfer *xfer)
 {
+	struct spi_geni_master *mas = spi_master_get_devdata(spi);
 	unsigned long timeout;
 	u32 rx_fifo_status;
 	int rx_wc, i;
 
 	geni_spi_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
+
+	if (mas->cur_xfer_mode == GENI_SE_FIFO)
+		geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
+	if (spi->slave)
+		goto dma_unprep;
+
 	reinit_completion(&mas->xfer_done);
 
 	/* Dummy read the rx fifo for any spurious data*/
@@ -1663,10 +1672,8 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 		for (i = 0; i < rx_wc; i++)
 			geni_read_reg(mas->base, SE_GENI_RX_FIFOn);
 	}
-
 	geni_se_cancel_m_cmd(&mas->spi_rsc);
-	if (mas->cur_xfer_mode == GENI_SE_FIFO)
-		geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
+
 	/* Ensure cmd cancel is written */
 	mb();
 	timeout = wait_for_completion_timeout(&mas->xfer_done, HZ);
@@ -1681,6 +1688,7 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 			dev_err(mas->dev,
 				"Failed to cancel/abort m_cmd\n");
 	}
+dma_unprep:
 	if (mas->cur_xfer_mode == GENI_SE_DMA) {
 		if (xfer->tx_buf && xfer->tx_dma) {
 			reinit_completion(&mas->xfer_done);
@@ -1707,6 +1715,8 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 				xfer->rx_dma, xfer->len);
 		}
 	}
+	if (spi->slave && !mas->dis_autosuspend)
+		pm_runtime_put_sync_suspend(mas->dev);
 
 }
 
@@ -1848,8 +1858,7 @@ err_gsi_geni_transfer_one:
 	}
 	return ret;
 err_fifo_geni_transfer_one:
-	if (!spi->slave)
-		handle_fifo_timeout(mas, xfer);
+	handle_fifo_timeout(spi, xfer);
 	return ret;
 }
 
@@ -2335,6 +2344,7 @@ static int spi_geni_runtime_suspend(struct device *dev)
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
+	disable_irq(geni_mas->irq);
 	if (geni_mas->is_le_vm) {
 		spi_geni_unlock_bus(spi);
 		return 0;
@@ -2449,6 +2459,7 @@ exit_rt_resume:
 		return ret;
 	}
 	ret = geni_se_resources_on(&geni_mas->spi_rsc);
+	enable_irq(geni_mas->irq);
 	return ret;
 }
 

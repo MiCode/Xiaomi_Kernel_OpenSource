@@ -1,5 +1,6 @@
 load(":target_variants.bzl", "la_variants")
 load(":msm_kernel_la.bzl", "define_msm_la")
+load(":image_opts.bzl", "boot_image_opts")
 
 target_name = "pineapple"
 
@@ -30,9 +31,7 @@ def define_pineapple():
         "drivers/dma/qcom/bam_dma.ko",
         "drivers/dma/qcom/msm_gpi.ko",
         "drivers/edac/qcom_edac.ko",
-        "drivers/firmware/arm_scmi/c1dcvs_vendor.ko",
-        "drivers/firmware/arm_scmi/memlat_vendor.ko",
-        "drivers/firmware/arm_scmi/pmu_vendor.ko",
+        "drivers/firmware/arm_scmi/qcom_scmi_vendor.ko",
         "drivers/firmware/qcom-scm.ko",
         "drivers/gpu/drm/display/drm_display_helper.ko",
         "drivers/gpu/drm/display/drm_dp_aux_bus.ko",
@@ -53,6 +52,7 @@ def define_pineapple():
         "drivers/hwtracing/coresight/coresight-tpdm.ko",
         "drivers/hwtracing/coresight/coresight-trace-noc.ko",
         "drivers/hwtracing/stm/stm_console.ko",
+        "drivers/hwtracing/stm/stm_heartbeat.ko",
         "drivers/hwtracing/stm/stm_core.ko",
         "drivers/hwtracing/stm/stm_ftrace.ko",
         "drivers/hwtracing/stm/stm_p_ost.ko",
@@ -93,6 +93,7 @@ def define_pineapple():
         "drivers/phy/qualcomm/phy-qcom-ufs-qmp-v4-kalama.ko",
         "drivers/phy/qualcomm/phy-qcom-ufs-qmp-v4-pineapple.ko",
         "drivers/phy/qualcomm/phy-qcom-ufs-qrbtc-sdm845.ko",
+        "drivers/pinctrl/qcom/pinctrl-cliffs.ko",
         "drivers/pinctrl/qcom/pinctrl-msm.ko",
         "drivers/pinctrl/qcom/pinctrl-pineapple.ko",
         "drivers/pinctrl/qcom/pinctrl-spmi-gpio.ko",
@@ -127,6 +128,7 @@ def define_pineapple():
         "drivers/soc/qcom/adsp_sleepmon.ko",
         "drivers/soc/qcom/altmode-glink.ko",
         "drivers/soc/qcom/boot_stats.ko",
+        "drivers/soc/qcom/dcvs/c1dcvs_scmi_v2.ko",
         "drivers/soc/qcom/cdsprm.ko",
         "drivers/soc/qcom/charger-ulog-glink.ko",
         "drivers/soc/qcom/cmd-db.ko",
@@ -136,22 +138,25 @@ def define_pineapple():
         "drivers/soc/qcom/crypto-qti.ko",
         "drivers/soc/qcom/dcc_v2.ko",
         "drivers/soc/qcom/dcvs/bwmon.ko",
-        "drivers/soc/qcom/dcvs/c1dcvs_scmi.ko",
         "drivers/soc/qcom/dcvs/dcvs_fp.ko",
         "drivers/soc/qcom/dcvs/memlat.ko",
-        "drivers/soc/qcom/dcvs/memlat_scmi.ko",
-        "drivers/soc/qcom/dcvs/pmu_scmi.ko",
+        "drivers/soc/qcom/dcvs/mpam.ko",
         "drivers/soc/qcom/dcvs/qcom-dcvs.ko",
         "drivers/soc/qcom/dcvs/qcom-pmu-lib.ko",
+        "drivers/soc/qcom/dcvs/qcom_scmi_client.ko",
         "drivers/soc/qcom/debug_symbol.ko",
         "drivers/soc/qcom/dmesg_dumper.ko",
         "drivers/soc/qcom/eud.ko",
         "drivers/soc/qcom/gh_tlmm_vm_mem_access.ko",
+        "drivers/soc/qcom/gic_intr_routing.ko",
         "drivers/soc/qcom/glink_probe.ko",
+        "drivers/soc/qcom/health_monitor.ko",
+        "drivers/soc/qcom/hung_task_enh.ko",
         "drivers/soc/qcom/hwkm.ko",
         "drivers/soc/qcom/llcc-qcom.ko",
         "drivers/soc/qcom/llcc_perfmon.ko",
         "drivers/soc/qcom/mdt_loader.ko",
+        "drivers/soc/qcom/mem-hooks.ko",
         "drivers/soc/qcom/mem-offline.ko",
         "drivers/soc/qcom/mem_buf/mem_buf.ko",
         "drivers/soc/qcom/mem_buf/mem_buf_dev.ko",
@@ -208,6 +213,7 @@ def define_pineapple():
         "drivers/thermal/qcom/qti_qmi_cdev.ko",
         "drivers/thermal/qcom/qti_qmi_sensor_v2.ko",
         "drivers/thermal/qcom/qti_userspace_cdev.ko",
+        "drivers/thermal/qcom/thermal_minidump.ko",
         "drivers/thermal/qcom/thermal_pause.ko",
         "drivers/tty/hvc/hvc_gunyah.ko",
         "drivers/tty/serial/msm_geni_serial.ko",
@@ -237,12 +243,14 @@ def define_pineapple():
         "drivers/virt/gunyah/gh_rm_drv.ko",
         "drivers/virt/gunyah/gh_virt_wdt.ko",
         "drivers/virt/gunyah/gunyah.ko",
+        "kernel/msm_sysstats.ko",
         "kernel/sched/walt/sched-walt.ko",
         "kernel/trace/qcom_ipc_logging.ko",
         "net/qrtr/qrtr.ko",
         "net/qrtr/qrtr-gunyah.ko",
         "net/qrtr/qrtr-mhi.ko",
         "net/qrtr/qrtr-smd.ko",
+		"sound/usb/snd-usb-audio-qmi.ko",
     ]
 
     _pineapple_consolidate_in_tree_modules = _pineapple_in_tree_modules + [
@@ -267,4 +275,13 @@ def define_pineapple():
             msm_target = target_name,
             variant = variant,
             in_tree_module_list = mod_list,
+            boot_image_opts = boot_image_opts(
+                earlycon_addr = "qcom_geni,0x00a9C000",
+                kernel_vendor_cmdline_extras = [
+                    # do not sort
+                    "console=ttyMSM0,115200n8",
+                    "qcom_geni_serial.con_enabled=1",
+                    "bootconfig",
+                ],
+            ),
         )

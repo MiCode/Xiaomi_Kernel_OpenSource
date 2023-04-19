@@ -52,20 +52,6 @@ config QCOM_BWMON
 	  (memory) frequencies through the QCOM DCVS framework. This driver
 	  handles voting for DDR and LLCC.
 
-config QTI_HW_MEMLAT_SCMI_CLIENT
-	tristate "Qualcomm Technologies Inc. SCMI client driver for HW MEMLAT"
-	depends on QCOM_MEMLAT && QTI_SCMI_MEMLAT_PROTOCOL
-	default n
-	help
-	  SCMI client driver registers itself with SCMI framework for memlat
-	  vendor protocol, and also registers with the memlat interface
-	  driver.
-
-	  This driver delivers the memlat vendor protocol handle to interface
-	  driver, and interface driver will use this handle to communicate with
-	  memlat HW.
-
-
 config QTI_PMU_SCMI_CLIENT
 	tristate "Qualcomm Technologies Inc. SCMI client driver for PMU"
 	depends on QTI_SCMI_PMU_PROTOCOL && QCOM_PMU_LIB
@@ -76,7 +62,18 @@ config QTI_PMU_SCMI_CLIENT
 
 	  This driver delivers the pmu vendor protocol handle to interface
 	  driver, and interface driver will use this handle to communicate with
-	  rimps.
+	  cpucp.
+
+config QTI_QCOM_SCMI_CLIENT
+	tristate "Qualcomm Technologies Inc. SCMI client driver"
+	depends on QTI_SCMI_VENDOR_PROTOCOL
+	default n
+	help
+	  SCMI client driver registers for Qcom vendor protocol.
+
+	  This driver delivers the qcom vendor protocol handle to interface
+	  driver, and interface driver will use this handle to communicate with
+	  cpucp.
 
 config QTI_C1DCVS_SCMI_CLIENT
 	tristate "Qualcomm Technologies Inc. SCMI client driver for cpudcvs"
@@ -89,3 +86,25 @@ config QTI_C1DCVS_SCMI_CLIENT
 	  This driver delivers the cpudcvs protocol handle to interface
 	  driver, and interface driver will use this handle to communicate with
 	  cpucp.
+
+config QTI_C1DCVS_SCMI_V2
+	tristate "Qualcomm Technologies Inc. SCMI client driver for C1 DCVS"
+	depends on QTI_SCMI_VENDOR_PROTOCOL
+	help
+	  C1 DCVS driver to expose sysfs node to user space and
+	  register with SCMI framework.
+
+	  This driver is used to expose sysfs  interface to communicate
+	  with cpucp for C1 DCVS based on SCMI consolidation.
+
+config QTI_MPAM
+	tristate "Qualcomm Technologies Inc. MPAM Interface Driver"
+	depends on QTI_SCMI_VENDOR_PROTOCOL
+	default n
+	help
+	  Driver to expose MPAM sysfs nodes to user space.
+
+	  This driver gathers MPAM configuration parameters from sysfs
+	  userspace and relays them to CPUCP via SCMI communication.
+	  It is intended to be used by clients familiar with modifying
+	  the ARM MPAM configuration settings.

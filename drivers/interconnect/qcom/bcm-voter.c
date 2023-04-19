@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <asm/div64.h>
@@ -31,16 +32,19 @@ static DEFINE_MUTEX(bcm_voter_lock);
  * @ws_list: list containing bcms that have different wake/sleep votes
  * @voter_node: list of bcm voters
  * @tcs_wait: mask for which buckets require TCS completion
+ * @has_amc: flag to determine if this voter supports AMC
  * @init: flag to determine when init has completed.
  */
 struct bcm_voter {
 	struct device *dev;
 	struct device_node *np;
+	struct qcom_icc_crm_voter *crm;
 	struct mutex lock;
 	struct list_head commit_list;
 	struct list_head ws_list;
 	struct list_head voter_node;
 	u32 tcs_wait;
+	bool has_amc;
 	bool init;
 };
 
@@ -242,6 +246,31 @@ struct bcm_voter *of_bcm_voter_get(struct device *dev, const char *name)
 EXPORT_SYMBOL_GPL(of_bcm_voter_get);
 
 /**
+ * qcom_icc_bcm_voter_exist - checks if the bcm voter exists
+ * @voter: voter that needs to checked against available bcm voters
+ *
+ * Returns true incase bcm_voter exists else false
+ */
+static bool qcom_icc_bcm_voter_exist(struct bcm_voter *voter)
+{
+	bool exists = false;
+	struct bcm_voter *temp;
+
+	if (voter) {
+		mutex_lock(&bcm_voter_lock);
+		list_for_each_entry(temp, &bcm_voters, voter_node) {
+			if (temp == voter) {
+				exists = true;
+				break;
+			}
+		}
+		mutex_unlock(&bcm_voter_lock);
+	}
+
+	return exists;
+}
+
+/**
  * qcom_icc_bcm_voter_add - queues up the bcm nodes that require updates
  * @voter: voter that the bcms are being added to
  * @bcm: bcm to add to the commit and wake sleep list
@@ -249,6 +278,9 @@ EXPORT_SYMBOL_GPL(of_bcm_voter_get);
 void qcom_icc_bcm_voter_add(struct bcm_voter *voter, struct qcom_icc_bcm *bcm)
 {
 	if (!voter)
+		return;
+
+	if (!qcom_icc_bcm_voter_exist(voter))
 		return;
 
 	mutex_lock(&voter->lock);
@@ -285,19 +317,7 @@ static void qcom_icc_bcm_log(struct bcm_voter *voter, enum rpmh_state state,
 		trace_bcm_voter_commit(rpmh_state[state], cmd);
 }
 
-/**
- * qcom_icc_bcm_voter_commit - generates and commits tcs cmds based on bcms
- * @voter: voter that needs flushing
- *
- * This function generates a set of AMC commands and flushes to the BCM device
- * associated with the voter. It conditionally generate WAKE and SLEEP commands
- * based on deltas between WAKE/SLEEP requirements. The ws_list persists
- * through multiple commit requests and bcm nodes are removed only when the
- * requirements for WAKE matches SLEEP.
- *
- * Returns 0 on success, or an appropriate error code otherwise.
- */
-int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
+static int commit_rpmh(struct bcm_voter *voter)
 {
 	struct qcom_icc_bcm *bcm;
 	struct qcom_icc_bcm *bcm_tmp;
@@ -305,52 +325,47 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 	struct tcs_cmd cmds[MAX_BCMS];
 	int ret = 0;
 
-	if (!voter)
-		return 0;
+	if (voter->has_amc) {
+		/*
+		 * Pre sort the BCMs based on VCD for ease of generating a command list
+		 * that groups the BCMs with the same VCD together. VCDs are numbered
+		 * with lowest being the most expensive time wise, ensuring that
+		 * those commands are being sent the earliest in the queue. This needs
+		 * to be sorted every commit since we can't guarantee the order in which
+		 * the BCMs are added to the list.
+		 */
+		list_sort(NULL, &voter->commit_list, cmp_vcd);
 
-	mutex_lock(&voter->lock);
-	list_for_each_entry(bcm, &voter->commit_list, list)
-		bcm_aggregate(bcm, voter->init);
+		/*
+		 * Construct the command list based on a pre ordered list of BCMs
+		 * based on VCD.
+		 */
+		tcs_list_gen(voter, QCOM_ICC_BUCKET_AMC, cmds, commit_idx);
+		if (!commit_idx[0])
+			goto out;
 
-	/*
-	 * Pre sort the BCMs based on VCD for ease of generating a command list
-	 * that groups the BCMs with the same VCD together. VCDs are numbered
-	 * with lowest being the most expensive time wise, ensuring that
-	 * those commands are being sent the earliest in the queue. This needs
-	 * to be sorted every commit since we can't guarantee the order in which
-	 * the BCMs are added to the list.
-	 */
-	list_sort(NULL, &voter->commit_list, cmp_vcd);
+		qcom_icc_bcm_log(voter, RPMH_ACTIVE_ONLY_STATE, cmds, commit_idx);
+		ret = rpmh_write_batch(voter->dev, RPMH_ACTIVE_ONLY_STATE,
+				       cmds, commit_idx);
 
-	/*
-	 * Construct the command list based on a pre ordered list of BCMs
-	 * based on VCD.
-	 */
-	tcs_list_gen(voter, QCOM_ICC_BUCKET_AMC, cmds, commit_idx);
-	if (!commit_idx[0])
-		goto out;
+		/*
+		 * Ignore -EBUSY for AMC requests, since this can only happen for AMC
+		 * requests when the RSC is in solver mode. We can only be in solver
+		 * mode at the time of request for secondary RSCs (e.g. Display RSC),
+		 * since the primary Apps RSC is only in solver mode while
+		 * entering/exiting power collapse when SW isn't running. The -EBUSY
+		 * response is expected in solver and is a non-issue, since we just
+		 * want the request to apply to the WAKE set in that case instead.
+		 * Interconnect doesn't know when the RSC is in solver, so just always
+		 * send AMC and ignore the harmless error response.
+		 */
+		if (ret && ret != -EBUSY) {
+			pr_err("Error sending AMC RPMH requests (%d)\n", ret);
+			goto out;
+		}
+	}
 
 	rpmh_invalidate(voter->dev);
-
-	qcom_icc_bcm_log(voter, RPMH_ACTIVE_ONLY_STATE, cmds, commit_idx);
-	ret = rpmh_write_batch(voter->dev, RPMH_ACTIVE_ONLY_STATE,
-			       cmds, commit_idx);
-
-	/*
-	 * Ignore -EBUSY for AMC requests, since this can only happen for AMC
-	 * requests when the RSC is in solver mode. We can only be in solver
-	 * mode at the time of request for secondary RSCs (e.g. Display RSC),
-	 * since the primary Apps RSC is only in solver mode while
-	 * entering/exiting power collapse when SW isn't running. The -EBUSY
-	 * response is expected in solver and is a non-issue, since we just
-	 * want the request to apply to the WAKE set in that case instead.
-	 * Interconnect doesn't know when the RSC is in solver, so just always
-	 * send AMC and ignore the harmless error response.
-	 */
-	if (ret && ret != -EBUSY) {
-		pr_err("Error sending AMC RPMH requests (%d)\n", ret);
-		goto out;
-	}
 
 	list_for_each_entry_safe(bcm, bcm_tmp, &voter->commit_list, list)
 		list_del_init(&bcm->list);
@@ -361,10 +376,9 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 		 * requirements change as the execution environment transitions
 		 * between different power states.
 		 */
-		if (bcm->vote_x[QCOM_ICC_BUCKET_WAKE] !=
-		    bcm->vote_x[QCOM_ICC_BUCKET_SLEEP] ||
-		    bcm->vote_y[QCOM_ICC_BUCKET_WAKE] !=
-		    bcm->vote_y[QCOM_ICC_BUCKET_SLEEP])
+		if (!voter->has_amc ||
+		    bcm->vote_x[QCOM_ICC_BUCKET_WAKE] != bcm->vote_x[QCOM_ICC_BUCKET_SLEEP] ||
+		    bcm->vote_y[QCOM_ICC_BUCKET_WAKE] != bcm->vote_y[QCOM_ICC_BUCKET_SLEEP])
 			list_add_tail(&bcm->list, &voter->commit_list);
 		else
 			list_del_init(&bcm->ws_list);
@@ -394,6 +408,114 @@ int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
 	}
 
 out:
+	return ret;
+}
+
+static int map_crm_pwr_state(enum crm_drv_type client_type, u32 bucket)
+{
+	if (client_type == CRM_HW_DRV)
+		return bucket;
+
+	switch (bucket) {
+	case QCOM_ICC_BUCKET_AMC: return CRM_ACTIVE_STATE;
+	case QCOM_ICC_BUCKET_WAKE: return CRM_WAKE_STATE;
+	case QCOM_ICC_BUCKET_SLEEP: return CRM_SLEEP_STATE;
+	}
+
+	return -EINVAL;
+}
+
+static int crm_cmd_gen(struct crm_cmd *cmd, enum crm_drv_type client_type,
+		       u32 bucket, u32 node, u64 vote_x, u64 vote_y)
+{
+	int pwr_state;
+
+	if (!cmd)
+		return -EINVAL;
+
+	memset(cmd, 0, sizeof(*cmd));
+
+	if (vote_x > BCM_TCS_CMD_VOTE_MASK)
+		vote_x = BCM_TCS_CMD_VOTE_MASK;
+
+	if (vote_y > BCM_TCS_CMD_VOTE_MASK)
+		vote_y = BCM_TCS_CMD_VOTE_MASK;
+
+	pwr_state = map_crm_pwr_state(client_type, bucket);
+	if (pwr_state < 0)
+		return pwr_state;
+
+	cmd->pwr_state.hw = pwr_state;
+	cmd->resource_idx = node;
+	cmd->data = BCM_TCS_CMD(true, true, vote_x, vote_y);
+	cmd->wait = true;
+
+	return 0;
+}
+
+static int commit_crm(struct bcm_voter *voter)
+{
+	struct list_head *bcm_list = &voter->commit_list;
+	struct qcom_icc_crm_voter *crm = voter->crm;
+	struct qcom_icc_bcm *bcm;
+	struct crm_cmd crm_cmd;
+	int ret, i;
+
+	list_for_each_entry(bcm, bcm_list, list) {
+		for (i = 0; i < crm->pwr_states; i++) {
+			ret = crm_cmd_gen(&crm_cmd, crm->client_type, i, bcm->crm_node,
+					  bcm->vote_x[i], bcm->vote_y[i]);
+			if (ret) {
+				pr_err("Error generating crm_cmd: ret=%d\n", ret);
+				return ret;
+			}
+
+			ret = crm_write_bw_vote(crm->dev, crm->client_type,
+						crm->client_idx, &crm_cmd);
+			if (ret) {
+				pr_err("Error writing crm bw: ret=%d\n", ret);
+				return ret;
+			}
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * qcom_icc_bcm_voter_commit - generates and commits tcs cmds based on bcms
+ * @voter: voter that needs flushing
+ *
+ * This function generates a set of AMC commands and flushes to the BCM device
+ * associated with the voter. It conditionally generate WAKE and SLEEP commands
+ * based on deltas between WAKE/SLEEP requirements. The ws_list persists
+ * through multiple commit requests and bcm nodes are removed only when the
+ * requirements for WAKE matches SLEEP.
+ *
+ * Returns 0 on success, or an appropriate error code otherwise.
+ */
+int qcom_icc_bcm_voter_commit(struct bcm_voter *voter)
+{
+	struct qcom_icc_bcm *bcm;
+	struct qcom_icc_bcm *bcm_tmp;
+	int ret;
+
+	if (!voter)
+		return 0;
+
+	if (!qcom_icc_bcm_voter_exist(voter))
+		return -ENODEV;
+
+	mutex_lock(&voter->lock);
+
+	list_for_each_entry(bcm, &voter->commit_list, list)
+		bcm_aggregate(bcm, voter->init);
+
+	if (voter->crm)
+		ret = commit_crm(voter);
+	else
+		ret = commit_rpmh(voter);
+
 	list_for_each_entry_safe(bcm, bcm_tmp, &voter->commit_list, list)
 		list_del_init(&bcm->list);
 
@@ -411,6 +533,9 @@ void qcom_icc_bcm_voter_clear_init(struct bcm_voter *voter)
 	if (!voter)
 		return;
 
+	if (!qcom_icc_bcm_voter_exist(voter))
+		return;
+
 	mutex_lock(&voter->lock);
 	voter->init = false;
 	mutex_unlock(&voter->lock);
@@ -420,7 +545,10 @@ EXPORT_SYMBOL(qcom_icc_bcm_voter_clear_init);
 static int qcom_icc_bcm_voter_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
+	struct qcom_icc_crm_voter *crm;
 	struct bcm_voter *voter;
+	const char *crm_name;
+	int ret;
 
 	voter = devm_kzalloc(&pdev->dev, sizeof(*voter), GFP_KERNEL);
 	if (!voter)
@@ -429,6 +557,7 @@ static int qcom_icc_bcm_voter_probe(struct platform_device *pdev)
 	voter->dev = &pdev->dev;
 	voter->np = np;
 	voter->init = true;
+	voter->has_amc = !of_property_read_bool(np, "qcom,no-amc");
 
 	if (of_property_read_u32(np, "qcom,tcs-wait", &voter->tcs_wait))
 		voter->tcs_wait = QCOM_ICC_TAG_ACTIVE_ONLY;
@@ -437,8 +566,52 @@ static int qcom_icc_bcm_voter_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&voter->commit_list);
 	INIT_LIST_HEAD(&voter->ws_list);
 
+	ret = of_property_read_string(np, "qcom,crm-name", &crm_name);
+	if (!ret) {
+		crm = devm_kzalloc(&pdev->dev, sizeof(*crm), GFP_KERNEL);
+		if (!crm)
+			return -ENOMEM;
+
+		crm->dev = crm_get_device(crm_name);
+		if (IS_ERR(crm->dev))
+			return PTR_ERR(crm->dev);
+
+		crm->client_type = CRM_HW_DRV;
+
+		ret = of_property_read_u32(np, "qcom,crm-client-idx", &crm->client_idx);
+		if (ret) {
+			dev_err(&pdev->dev, "Error getting crm-client-idx, ret=%d\n", ret);
+			return ret;
+		}
+
+		ret = of_property_read_u32(np, "qcom,crm-pwr-states", &crm->pwr_states);
+		if (ret) {
+			dev_err(&pdev->dev, "Error getting crm-pwr-states, ret=%d\n", ret);
+			return ret;
+		}
+
+		voter->crm = crm;
+	}
+
 	mutex_lock(&bcm_voter_lock);
 	list_add_tail(&voter->voter_node, &bcm_voters);
+	mutex_unlock(&bcm_voter_lock);
+
+	return 0;
+}
+
+static int qcom_icc_bcm_voter_remove(struct platform_device *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+	struct bcm_voter *voter, *temp;
+
+	mutex_lock(&bcm_voter_lock);
+	list_for_each_entry_safe(voter, temp, &bcm_voters, voter_node) {
+		if (voter->np == np) {
+			list_del(&voter->voter_node);
+			break;
+		}
+	}
 	mutex_unlock(&bcm_voter_lock);
 
 	return 0;
@@ -452,12 +625,18 @@ MODULE_DEVICE_TABLE(of, bcm_voter_of_match);
 
 static struct platform_driver qcom_icc_bcm_voter_driver = {
 	.probe = qcom_icc_bcm_voter_probe,
+	.remove = qcom_icc_bcm_voter_remove,
 	.driver = {
 		.name		= "bcm_voter",
 		.of_match_table = bcm_voter_of_match,
 	},
 };
-module_platform_driver(qcom_icc_bcm_voter_driver);
+
+static int __init qcom_icc_bcm_voter_driver_init(void)
+{
+	return platform_driver_register(&qcom_icc_bcm_voter_driver);
+}
+module_init(qcom_icc_bcm_voter_driver_init);
 
 MODULE_AUTHOR("David Dai <daidavid1@codeaurora.org>");
 MODULE_DESCRIPTION("Qualcomm BCM Voter interconnect driver");

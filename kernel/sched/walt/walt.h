@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _WALT_H
@@ -66,7 +66,6 @@ struct walt_cpu_load {
 	bool		rtgb_active;
 	u64		ws;
 	bool		ed_active;
-	bool		big_task_rotation;
 };
 
 #define DECLARE_BITMAP_ARRAY(name, nr, bits) \
@@ -786,12 +785,12 @@ static inline bool task_fits_capacity(struct task_struct *p,
 	if (check_for_higher_capacity(task_cpu(p), dst_cpu)) {
 		margin = sched_capacity_margin_down[dst_cpu];
 		if (task_in_related_thread_group(p)) {
-			margin = sched_capacity_margin_early_down[dst_cpu];
+			margin = max(margin, sched_capacity_margin_early_down[dst_cpu]);
 		}
 	} else {
 		margin = sched_capacity_margin_up[task_cpu(p)];
 		if (task_in_related_thread_group(p)) {
-			margin = sched_capacity_margin_early_up[task_cpu(p)];
+			margin = max(margin, sched_capacity_margin_early_up[task_cpu(p)]);
 		}
 	}
 
@@ -992,8 +991,37 @@ struct compute_energy_output {
 
 bool walt_halt_check_last(int cpu);
 extern struct cpumask __cpu_halt_mask;
+extern struct cpumask __cpu_partial_halt_mask;
+
 #define cpu_halt_mask ((struct cpumask *)&__cpu_halt_mask)
+#define cpu_partial_halt_mask ((struct cpumask *)&__cpu_partial_halt_mask)
+
+/* a halted cpu must NEVER be used for tasks, as this is the thermal indication to avoid a cpu */
 #define cpu_halted(cpu) cpumask_test_cpu((cpu), cpu_halt_mask)
+
+/* a partially halted may be used for helping smaller cpus with small tasks */
+#define cpu_partial_halted(cpu) cpumask_test_cpu((cpu), cpu_partial_halt_mask)
+
+/*
+ * a partially halted cpu should help silvers with rt and region2 tasks
+ * but cannot help smaller cpus if the cpu is halted
+ */
+#define cpu_should_help_mincpus(cpu) (cpu_partial_halted(cpu) && !cpu_halted(cpu))
+
+/* a halted cpu cannot help anyone (per-cpu kthreads may remain) */
+#define cpu_should_not_help_mincpus(cpu) cpu_halted(cpu)
+
+/* determine if this task should be allowed to use a partially halted cpu */
+static inline bool task_reject_partialhalt_cpu(struct task_struct *p, int cpu)
+{
+	if (p->prio < MAX_RT_PRIO)
+		return false;
+
+	if (cpu_partial_halted(cpu) && !task_fits_capacity(p, 0))
+		return true;
+
+	return false;
+}
 
 /* walt_find_and_choose_cluster_packing_cpu - Return a packing_cpu choice common for this cluster.
  * @start_cpu:  The cpu from the cluster to choose from
@@ -1019,7 +1047,6 @@ static inline int walt_find_and_choose_cluster_packing_cpu(int start_cpu, struct
 		return -1;
 	if (!sysctl_sched_cluster_util_thres_pct)
 		return -1;
-
 
 	/* find all unhalted active cpus */
 	cpumask_andnot(&unhalted_cpus, cpu_active_mask, cpu_halt_mask);
@@ -1052,6 +1079,9 @@ static inline int walt_find_and_choose_cluster_packing_cpu(int start_cpu, struct
 
 	/* don't pack big tasks */
 	if (task_util(p) >= sysctl_sched_idle_enough)
+		return -1;
+
+	if (task_reject_partialhalt_cpu(p, packing_cpu))
 		return -1;
 
 	/* don't pack if running at a freq higher than 43.9pct of its fmax */

@@ -10,6 +10,8 @@
 #include <linux/regmap.h>
 #include <linux/platform_device.h>
 
+#include <soc/qcom/crm.h>
+
 #define to_qcom_provider(_provider) \
 	container_of(_provider, struct qcom_icc_provider, provider)
 
@@ -26,6 +28,8 @@ struct qcom_icc_provider {
 	struct device *dev;
 	struct qcom_icc_bcm * const *bcms;
 	size_t num_bcms;
+	struct qcom_icc_node * const *nodes;
+	size_t num_nodes;
 	struct list_head probe_list;
 	struct regmap *regmap;
 	struct clk_bulk_data *clks;
@@ -54,6 +58,14 @@ struct bcm_db {
 #define MAX_BCMS		64
 #define MAX_BCM_PER_NODE	3
 #define MAX_VCD			10
+
+struct qcom_icc_crm_voter {
+	const char *name;
+	const struct device *dev;
+	enum crm_drv_type client_type;
+	u32 client_idx;
+	u32 pwr_states;
+};
 
 /**
  * struct qcom_icc_node - Qualcomm specific interconnect nodes
@@ -138,6 +150,7 @@ struct qcom_icc_bcm {
 	struct list_head list;
 	struct list_head ws_list;
 	int voter_idx;
+	u8 crm_node;
 	size_t num_nodes;
 	struct qcom_icc_node *nodes[];
 };
@@ -179,4 +192,5 @@ int qcom_icc_rpmh_probe(struct platform_device *pdev);
 int qcom_icc_rpmh_remove(struct platform_device *pdev);
 void qcom_icc_rpmh_sync_state(struct device *dev);
 int qcom_icc_get_bw_stub(struct icc_node *node, u32 *avg, u32 *peak);
+int qcom_icc_rpmh_configure_qos(struct qcom_icc_provider *qp);
 #endif

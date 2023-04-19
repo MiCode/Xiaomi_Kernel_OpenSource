@@ -13,16 +13,11 @@
 #include <linux/arm-smccc.h>
 #include <linux/dma-mapping.h>
 #include <linux/qtee_shmbridge.h>
+#include <linux/qcom_scm_hab.h>
 
 #include "qcom_scm.h"
 
-/**
- * struct arm_smccc_args
- * @args:	The array of values used in registers in smc instruction
- */
-struct arm_smccc_args {
-	unsigned long args[8];
-};
+static bool hab_calling_convention;
 
 static DEFINE_MUTEX(qcom_scm_lock);
 
@@ -40,18 +35,23 @@ static void __scm_smc_do_quirk(const struct arm_smccc_args *smc,
 {
 	unsigned long a0 = smc->args[0];
 	struct arm_smccc_quirk quirk = { .id = ARM_SMCCC_QUIRK_QCOM_A6 };
+	bool atomic = ARM_SMCCC_IS_FAST_CALL(smc->args[0]) ? true : false;
 
 	quirk.state.a6 = 0;
 
-	do {
-		arm_smccc_smc_quirk(a0, smc->args[1], smc->args[2],
-				    smc->args[3], smc->args[4], smc->args[5],
-				    quirk.state.a6, smc->args[7], res, &quirk);
+	if (hab_calling_convention) {
+		scm_call_qcpe(smc, res, atomic);
+	} else {
+		do {
+			arm_smccc_smc_quirk(a0, smc->args[1], smc->args[2],
+					smc->args[3], smc->args[4],
+					smc->args[5], quirk.state.a6,
+					smc->args[7], res, &quirk);
+			if (res->a0 == QCOM_SCM_INTERRUPTED)
+				a0 = res->a0;
+		} while (res->a0 == QCOM_SCM_INTERRUPTED);
+	}
 
-		if (res->a0 == QCOM_SCM_INTERRUPTED)
-			a0 = res->a0;
-
-	} while (res->a0 == QCOM_SCM_INTERRUPTED);
 }
 
 #define IS_WAITQ_SLEEP_OR_WAKE(res) \
@@ -114,7 +114,7 @@ int scm_get_wq_ctx(u32 *wq_ctx, u32 *flags, u32 *more_pending)
 }
 
 static int scm_smc_do_quirk(struct device *dev, struct arm_smccc_args *smc,
-			    struct arm_smccc_res *res)
+		    struct arm_smccc_res *res, const bool multi_smc_call)
 {
 	struct completion *wq = NULL;
 	struct qcom_scm *qscm;
@@ -141,11 +141,17 @@ static int scm_smc_do_quirk(struct device *dev, struct arm_smccc_args *smc,
 			}
 
 			if (res->a0 == QCOM_SCM_WAITQ_SLEEP) {
+				if (multi_smc_call)
+					mutex_unlock(&qcom_scm_lock);
 				wait_for_completion(wq);
+				if (multi_smc_call)
+					mutex_lock(&qcom_scm_lock);
 				fill_wq_resume_args(smc, smc_call_ctx);
 				wq = NULL;
 				continue;
 			} else {
+				/* Currently it is not supported by a firmware */
+				WARN_ON_ONCE(1);
 				fill_wq_wake_ack_args(smc, smc_call_ctx);
 				continue;
 			}
@@ -170,9 +176,11 @@ static int scm_smc_do_quirk(struct device *dev, struct arm_smccc_args *smc,
 
 static int __scm_smc_do(struct device *dev, struct arm_smccc_args *smc,
 			 struct arm_smccc_res *res,
-			 enum qcom_scm_call_type call_type)
+			 enum qcom_scm_call_type call_type,
+			 bool multicall_allowed)
 {
 	int ret, retry_count = 0;
+	bool multi_smc_call = qcom_scm_multi_call_allow(dev, multicall_allowed);
 
 	if (call_type == QCOM_SCM_CALL_ATOMIC) {
 		__scm_smc_do_quirk(smc, res);
@@ -181,7 +189,7 @@ static int __scm_smc_do(struct device *dev, struct arm_smccc_args *smc,
 
 	do {
 		mutex_lock(&qcom_scm_lock);
-		ret = scm_smc_do_quirk(dev, smc, res);
+		ret = scm_smc_do_quirk(dev, smc, res, multi_smc_call);
 		mutex_unlock(&qcom_scm_lock);
 		if (ret)
 			return ret;
@@ -268,7 +276,7 @@ int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 		smc.args[SCM_SMC_LAST_REG_IDX] = shm.paddr;
 	}
 
-	ret = __scm_smc_do(dev, &smc, &smc_res, call_type);
+	ret = __scm_smc_do(dev, &smc, &smc_res, call_type, desc->multicall_allowed);
 	/* ret error check follows shm cleanup */
 
 	if (shm.vaddr) {
@@ -291,4 +299,25 @@ int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
 	ret = (long)smc_res.a0 ? qcom_scm_remap_error(smc_res.a0) : 0;
 
 	return ret;
+}
+
+void __qcom_scm_init(void)
+{
+	int ret;
+	/**
+	 * The HAB connection should be opened before first SMC call.
+	 * If not, there could be errors that might cause the
+	 * system to crash.
+	 */
+	ret = scm_qcpe_hab_open();
+	if (ret != -EOPNOTSUPP) {
+		hab_calling_convention = true;
+		pr_debug("using HAB channel communication ret = %d\n", ret);
+	}
+
+}
+
+void __qcom_scm_qcpe_exit(void)
+{
+	scm_qcpe_hab_close();
 }

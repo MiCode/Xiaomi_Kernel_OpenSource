@@ -1,5 +1,6 @@
 targets = [
     # keep sorted
+    "gen3auto",
     "kalama",
     "pineapple",
 ]
@@ -12,7 +13,7 @@ la_variants = [
 
 le_targets = [
     # keep sorted
-    "pineapple.allyes",
+    "pineapple-allyes",
 ]
 
 le_variants = [
@@ -25,7 +26,12 @@ vm_types = [
     "oemvm",
 ]
 
-vm_targets = ["{}-{}".format(t, vt) for t in targets for vt in vm_types]
+vm_target_bases = [
+    "kalama",
+    "pineapple",
+]
+
+vm_targets = ["{}-{}".format(t, vt) for t in vm_target_bases for vt in vm_types]
 
 vm_variants = [
     # keep sorted

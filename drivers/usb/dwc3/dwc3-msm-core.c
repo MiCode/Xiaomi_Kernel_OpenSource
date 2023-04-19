@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -728,14 +728,6 @@ static unsigned int dwc3_msm_set_max_speed(struct dwc3_msm *mdwc, enum usb_devic
 	dwc->maximum_speed = spd;
 
 	return 0;
-}
-
-static irqreturn_t dwc3_msm_core_irq(int irq, void *data)
-{
-	struct dwc3_msm *mdwc = data;
-
-	mdwc->irq_cnt++;
-	return IRQ_NONE;
 }
 
 /**
@@ -3723,8 +3715,7 @@ static void dwc3_set_ssphy_orientation_flag(struct dwc3_msm *mdwc)
 	dbg_event(0xFF, "ss_flag", mdwc->ss_phy->flags);
 }
 
-static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc,
-						bool perf_mode);
+static void msm_dwc3_perf_vote_enable(struct dwc3_msm *mdwc, bool enable);
 
 static void configure_usb_wakeup_interrupt(struct dwc3_msm *mdwc,
 	struct usb_irq *uirq, unsigned int polarity, bool enable)
@@ -4008,8 +3999,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 		return 0;
 	}
 
-	cancel_delayed_work_sync(&mdwc->perf_vote_work);
-	msm_dwc3_perf_vote_update(mdwc, false);
+	msm_dwc3_perf_vote_enable(mdwc, false);
 	if (dwc) {
 		if (!mdwc->in_host_mode) {
 			evt = dwc->ev_buf;
@@ -4985,7 +4975,7 @@ static int dwc3_msm_set_role(struct dwc3_msm *mdwc, enum usb_role role)
 	case USB_ROLE_HOST:
 		mdwc->vbus_active = false;
 		mdwc->id_state = DWC3_ID_GROUND;
-		WARN_ON(mdwc->refcnt_dp_usb);
+		dbg_log_string("refcnt:%d start host mode\n", mdwc->refcnt_dp_usb);
 		mdwc->refcnt_dp_usb++;
 		break;
 
@@ -5438,6 +5428,7 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		return -EAGAIN;
 	}
 
+	dev_dbg(dev, "lanes %d, connect %d\n", lanes, dp_connected);
 	/* flush any pending work */
 	flush_work(&mdwc->resume_work);
 	flush_workqueue(mdwc->sm_usb_wq);
@@ -5486,6 +5477,7 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		pm_runtime_get_sync(&mdwc->dwc3->dev);
 		mdwc->ss_phy->flags |= PHY_USB_DP_CONCURRENT_MODE;
 		pm_runtime_put_sync(&mdwc->dwc3->dev);
+		dbg_log_string("Set DP 2 lanes: success, refcnt:%d\n", mdwc->refcnt_dp_usb);
 		return 0;
 	}
 
@@ -5495,10 +5487,6 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 
 	mutex_lock(&mdwc->role_switch_mutex);
 	/* 4 lanes handling */
-	if (mdwc->dp_state != DP_2_LANE)
-		mdwc->refcnt_dp_usb++;
-
-	mdwc->dp_state = DP_4_LANE;
 	if (mdwc->id_state == DWC3_ID_GROUND) {
 		/* stop USB host mode */
 		ret = dwc3_start_stop_host(mdwc, false);
@@ -5516,16 +5504,20 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		dwc3_msm_set_dp_only_params(mdwc);
 		dwc3_start_stop_device(mdwc, true);
 	} else {
-		if (mdwc->in_host_mode || mdwc->in_device_mode) {
-			ret = -EBUSY;
-			goto exit;
-		}
+		while (test_bit(WAIT_FOR_LPM, &mdwc->inputs))
+			msleep(20);
 
 		dbg_log_string("USB is not active.\n");
 		dwc3_msm_set_dp_only_params(mdwc);
 	}
 
+	if (mdwc->dp_state != DP_2_LANE)
+		mdwc->refcnt_dp_usb++;
+
+	mdwc->dp_state = DP_4_LANE;
+
 exit:
+	dbg_log_string("Set DP 4 lanes: %d refcnt:%d\n", ret, mdwc->refcnt_dp_usb);
 	mutex_unlock(&mdwc->role_switch_mutex);
 	return ret;
 }
@@ -5712,16 +5704,7 @@ static int dwc3_msm_parse_core_params(struct dwc3_msm *mdwc, struct device_node 
 	mdwc->dr_mode = (ret < 0) ? USB_DR_MODE_UNKNOWN : ret;
 
 	mdwc->core_irq = of_irq_get(dwc3_node, 0);
-	if (mdwc->core_irq > 0) {
-		ret = devm_request_irq(mdwc->dev, mdwc->core_irq, dwc3_msm_core_irq,
-					IRQF_SHARED, "dwc3-msm", mdwc);
-		if (ret) {
-			dev_err(mdwc->dev, "failed to request irq #%d --> %d\n",
-					mdwc->core_irq, ret);
-			return ret;
-		}
-		disable_irq(mdwc->core_irq);
-	}
+	disable_irq(mdwc->core_irq);
 
 	phy_node = of_parse_phandle(dwc3_node, "usb-phy", 0);
 	mdwc->hs_phy = devm_usb_get_phy_by_node(mdwc->dev, phy_node, NULL);
@@ -6167,8 +6150,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		clk_prepare_enable(mdwc->xo_clk);
 	}
 
-	cancel_delayed_work_sync(&mdwc->perf_vote_work);
-	msm_dwc3_perf_vote_update(mdwc, false);
+	msm_dwc3_perf_vote_enable(mdwc, false);
 	cancel_work_sync(&mdwc->sm_work);
 
 	if (mdwc->hs_phy)
@@ -6247,7 +6229,8 @@ static int dwc3_msm_host_ss_powerup(struct dwc3_msm *mdwc)
 	u32 reg;
 
 	dbg_log_string("start: speed:%d\n", dwc3_msm_get_max_speed(mdwc));
-	if (mdwc->disable_host_ssphy_powerdown ||
+	if (!mdwc->in_host_mode ||
+		mdwc->disable_host_ssphy_powerdown ||
 		dwc3_msm_get_max_speed(mdwc) < USB_SPEED_SUPER)
 		return 0;
 
@@ -6342,8 +6325,6 @@ static void msm_dwc3_perf_vote_update(struct dwc3_msm *mdwc, bool perf_mode)
 {
 	int latency = mdwc->pm_qos_latency;
 
-	mdwc->irq_cnt = 0;
-
 	if ((mdwc->perf_mode == perf_mode) || !latency)
 		return;
 
@@ -6362,17 +6343,38 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
 						perf_vote_work.work);
+	struct irq_desc *irq_desc = irq_to_desc(mdwc->core_irq);
+	unsigned int new = irq_desc->tot_count;
 	bool in_perf_mode = false;
 
-	if (mdwc->irq_cnt >= PM_QOS_THRESHOLD)
+	if (new - mdwc->irq_cnt >= PM_QOS_THRESHOLD)
 		in_perf_mode = true;
 
 	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%u\n",
-		 __func__, in_perf_mode, mdwc->irq_cnt);
+		 __func__, in_perf_mode, new - mdwc->irq_cnt);
 
+	mdwc->irq_cnt = new;
 	msm_dwc3_perf_vote_update(mdwc, in_perf_mode);
 	schedule_delayed_work(&mdwc->perf_vote_work,
 			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+}
+
+static void msm_dwc3_perf_vote_enable(struct dwc3_msm *mdwc, bool enable)
+{
+	struct irq_desc *irq_desc = irq_to_desc(mdwc->core_irq);
+
+	if (enable) {
+		/* make sure when enable work, save a valid start irq count */
+		mdwc->irq_cnt = irq_desc->tot_count;
+
+		/* start in perf mode for better performance initially for host/device mode */
+		msm_dwc3_perf_vote_update(mdwc, true);
+		schedule_delayed_work(&mdwc->perf_vote_work,
+				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+	} else {
+		cancel_delayed_work_sync(&mdwc->perf_vote_work);
+		msm_dwc3_perf_vote_update(mdwc, false);
+	}
 }
 
 /**
@@ -6483,15 +6485,10 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
 		cpu_latency_qos_add_request(&mdwc->pm_qos_req_dma,
 					    PM_QOS_DEFAULT_VALUE);
-		/* start in perf mode for better performance initially */
-		msm_dwc3_perf_vote_update(mdwc, true);
-		schedule_delayed_work(&mdwc->perf_vote_work,
-				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+		msm_dwc3_perf_vote_enable(mdwc, true);
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off host\n", __func__);
-
-		cancel_delayed_work_sync(&mdwc->perf_vote_work);
-		msm_dwc3_perf_vote_update(mdwc, false);
+		msm_dwc3_perf_vote_enable(mdwc, false);
 		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 
 		ret = pm_runtime_resume_and_get(&mdwc->dwc3->dev);
@@ -6510,6 +6507,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		 * reset before dwc3_gadget_init() is called.  Otherwise, USB
 		 * gadget will be set to HS only.
 		 */
+		mdwc->in_host_mode = false;
+
 		if (!mdwc->ss_release_called) {
 			dwc3_msm_host_ss_powerup(mdwc);
 			dwc3_msm_clear_dp_only_params(mdwc);
@@ -6532,7 +6531,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		dwc3_msm_write_reg_field(mdwc->base, DWC3_GUSB3PIPECTL(0),
 				DWC3_GUSB3PIPECTL_SUSPHY, 0);
-		mdwc->in_host_mode = false;
 
 		/* wait for LPM, to ensure h/w is reset after stop_host */
 		set_bit(WAIT_FOR_LPM, &mdwc->inputs);
@@ -6643,14 +6641,10 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		cpu_latency_qos_add_request(&mdwc->pm_qos_req_dma,
 					    PM_QOS_DEFAULT_VALUE);
 		clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
-		/* start in perf mode for better performance initially */
-		msm_dwc3_perf_vote_update(mdwc, true);
-		schedule_delayed_work(&mdwc->perf_vote_work,
-				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+		msm_dwc3_perf_vote_enable(mdwc, true);
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off gadget\n", __func__);
-		cancel_delayed_work_sync(&mdwc->perf_vote_work);
-		msm_dwc3_perf_vote_update(mdwc, false);
+		msm_dwc3_perf_vote_enable(mdwc, false);
 		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 
 		dwc3_override_vbus_status(mdwc, false);

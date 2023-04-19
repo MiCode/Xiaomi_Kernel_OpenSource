@@ -6,7 +6,7 @@
  *
  * Author: Will Deacon <will.deacon@arm.com>
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _ARM_SMMU_H
@@ -351,6 +351,7 @@ struct arm_smmu_smr {
 	u16				id;
 	bool				valid;
 	bool				pinned;
+	bool				used;
 };
 
 struct arm_smmu_device {
@@ -381,7 +382,8 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_NO_ASID_RETENTION	(1 << 3)
 #define ARM_SMMU_OPT_DISABLE_ATOS	(1 << 4)
 #define ARM_SMMU_OPT_CONTEXT_FAULT_RETRY	(1 << 5)
-#define ARM_SMMU_OPT_IGNORE_NUMPAGENDXB	(1 << 6)
+#define ARM_SMMU_OPT_MULTI_MATCH_HANDOFF_SMR	(1 << 6)
+#define ARM_SMMU_OPT_IGNORE_NUMPAGENDXB	(1 << 7)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 	enum arm_smmu_implementation	model;
@@ -504,6 +506,8 @@ struct arm_smmu_domain {
 	struct arm_smmu_mapping_cfg	mapping_cfg;
 	bool				delayed_s1_trans_enable;
 	u32				secure_vmid;
+	fault_handler_irq_t		fault_handler_irq;
+	void				*handler_irq_token;
 
 	/*
 	 * Track PMDs which require tlb invalidate prior to being

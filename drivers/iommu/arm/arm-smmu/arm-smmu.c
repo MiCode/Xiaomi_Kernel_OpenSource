@@ -14,7 +14,7 @@
  *	- Context fault reporting
  *	- Extended Stream ID (16 bit)
  *
- * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "arm-smmu: " fmt
@@ -95,6 +95,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_NO_ASID_RETENTION, "qcom,no-asid-retention" },
 	{ ARM_SMMU_OPT_DISABLE_ATOS, "qcom,disable-atos" },
 	{ ARM_SMMU_OPT_CONTEXT_FAULT_RETRY, "qcom,context-fault-retry" },
+	{ ARM_SMMU_OPT_MULTI_MATCH_HANDOFF_SMR, "qcom,multi-match-handoff-smr" },
 	{ ARM_SMMU_OPT_IGNORE_NUMPAGENDXB, "qcom,ignore-numpagendxb" },
 	{ 0, NULL},
 };
@@ -1260,6 +1261,18 @@ static int arm_smmu_alloc_context_bank(struct arm_smmu_domain *smmu_domain,
 				smmu_domain);
 }
 
+static irqreturn_t arm_smmu_context_fault_irq(int irq, void *dev)
+{
+	struct iommu_domain *domain = dev;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+
+	/* call the handler that is requested in non-thread irq context */
+	if (smmu_domain->fault_handler_irq)
+		smmu_domain->fault_handler_irq(domain, smmu_domain->handler_irq_token);
+
+	return IRQ_WAKE_THREAD;
+}
+
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu,
 					struct device *dev)
@@ -1497,7 +1510,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	else
 		context_fault = arm_smmu_context_fault;
 
-	ret = devm_request_threaded_irq(smmu->dev, irq, NULL,
+	ret = devm_request_threaded_irq(smmu->dev, irq, arm_smmu_context_fault_irq,
 			context_fault, IRQF_ONESHOT | IRQF_SHARED,
 			"arm-smmu-context-fault", domain);
 	if (ret < 0) {
@@ -1704,7 +1717,7 @@ static int arm_smmu_find_sme(struct arm_smmu_device *smmu, u16 id, u16 mask)
 
 	/* Validating SMRs is... less so */
 	for (i = 0; i < smmu->num_mapping_groups; ++i) {
-		if (!smrs[i].valid) {
+		if (!smrs[i].used) {
 			/*
 			 * Note the first free entry we come across, which
 			 * we'll claim in the end if nothing else matches.
@@ -1749,6 +1762,7 @@ static bool arm_smmu_free_sme(struct arm_smmu_device *smmu, int idx)
 		smmu->s2crs[idx].cbndx = cbndx;
 	} else if (smmu->smrs) {
 		smmu->smrs[idx].valid = false;
+		smmu->smrs[idx].used = false;
 	}
 
 	return true;
@@ -1801,6 +1815,7 @@ static int arm_smmu_master_alloc_smes(struct device *dev)
 			smrs[idx].id = sid;
 			smrs[idx].mask = mask;
 			smrs[idx].valid = config_smrs;
+			smrs[idx].used = true;
 		} else if (smrs && WARN_ON(smrs[idx].valid != config_smrs)) {
 			ret = -EINVAL;
 			goto out_err;
@@ -2722,6 +2737,15 @@ static int arm_smmu_set_fault_model(struct iommu_domain *domain, int fault_model
 	return ret;
 }
 
+static void arm_smmu_set_fault_handler_irq(struct iommu_domain *domain,
+		fault_handler_irq_t handler_irq, void *token)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+
+	smmu_domain->fault_handler_irq = handler_irq;
+	smmu_domain->handler_irq_token = token;
+}
+
 static int arm_smmu_enable_s1_translation(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -2782,6 +2806,7 @@ static struct qcom_iommu_ops arm_smmu_ops = {
 	.get_asid_nr			= arm_smmu_get_asid_nr,
 	.set_secure_vmid		= arm_smmu_set_secure_vmid,
 	.set_fault_model		= arm_smmu_set_fault_model,
+	.set_fault_handler_irq		= arm_smmu_set_fault_handler_irq,
 	.enable_s1_translation		= arm_smmu_enable_s1_translation,
 	.get_mappings_configuration	= arm_smmu_get_mappings_configuration,
 
@@ -2925,6 +2950,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 		handoff_smrs[i].id = of_read_number(cell++, 1);
 		handoff_smrs[i].mask = of_read_number(cell++, 1);
 		handoff_smrs[i].valid = true;
+		handoff_smrs[i].used = true;
 	}
 
 
@@ -2938,6 +2964,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 			if (!smrs.valid)
 				continue;
 
+			smrs.used = true;
 			smrs.id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
 			smrs.mask = FIELD_GET(ARM_SMMU_SMR_MASK, smr);
 
@@ -2946,6 +2973,7 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 			if (!smrs.valid)
 				continue;
 
+			smrs.used = true;
 			smrs.id = FIELD_GET(ARM_SMMU_SMR_ID, smr);
 			/*
 			 * The SMR mask covers bits 30:16 when extended stream
@@ -2979,8 +3007,11 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 
 				smmu->s2crs[i].pinned = true;
 				bitmap_set(smmu->context_map, smmu->s2crs[i].cbndx, 1);
-				handoff_smrs[index].valid = false;
 
+				if (!(smmu->options & ARM_SMMU_OPT_MULTI_MATCH_HANDOFF_SMR)) {
+					handoff_smrs[index].valid = false;
+					handoff_smrs[index].used = false;
+				}
 				break;
 
 			} else {
@@ -3416,6 +3447,7 @@ static void arm_smmu_rmr_install_bypass_smr(struct arm_smmu_device *smmu)
 				smmu->smrs[idx].id = rmr->sids[i];
 				smmu->smrs[idx].mask = 0;
 				smmu->smrs[idx].valid = true;
+				smmu->smrs[idx].used = true;
 			}
 			smmu->s2crs[idx].count++;
 			smmu->s2crs[idx].type = S2CR_TYPE_BYPASS;
