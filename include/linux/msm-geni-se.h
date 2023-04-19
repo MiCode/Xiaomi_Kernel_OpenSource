@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _LINUX_MSM_GENI_SE
@@ -393,11 +393,11 @@ if (print) { \
 } while (0)
 
 /* In KHz */
-#define DEFAULT_SE_CLK  19200
-#define I2C_CORE2X_VOTE	19200
-#define I3C_CORE2X_VOTE	19200
-#define SPI_CORE2X_VOTE	100000
-#define UART_CORE2X_VOTE	100000
+#define DEFAULT_SE_CLK			19200
+#define I2C_CORE2X_VOTE			19200
+#define I3C_CORE2X_VOTE			19200
+#define SPI_CORE2X_VOTE			50000
+#define UART_CORE2X_VOTE		100000
 #define UART_CONSOLE_CORE2X_VOTE	19200
 
 #if IS_ENABLED(CONFIG_MSM_GENI_SE)
