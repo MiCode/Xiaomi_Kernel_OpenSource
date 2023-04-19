@@ -11719,6 +11719,15 @@ static void mtk_drm_crtc_atomic_begin(struct drm_crtc *crtc,
 		mtk_crtc_gce_commit_begin(crtc, old_crtc_state, mtk_crtc_state, true);
 	CRTC_MMP_MARK(index, atomic_begin, (unsigned long)mtk_crtc_state->cmdq_handle, 0);
 
+	if (mtk_crtc->dsi_null_pkt_postpone == true) {
+		if (output_comp) {
+			DDPINFO("dsi_null_pkt_postpone\n");
+			mtk_ddp_comp_io_cmd(output_comp, mtk_crtc_state->cmdq_handle,
+					DSI_NULL_PKT_SET, NULL);
+		}
+		mtk_crtc->dsi_null_pkt_postpone = false;
+	}
+
 #ifndef DRM_CMDQ_DISABLE
 	/* reset mml ir ovl, TODO: support random ovl, not the first comp of the path */
 	if (((mtk_crtc->mml_ir_state == MML_IR_ENTERING) && (crtc_idx == 0)) ||
