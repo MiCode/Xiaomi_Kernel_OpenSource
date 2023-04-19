@@ -271,7 +271,7 @@ struct dip_config_data {
 };
 #define SHARED_BUFFER
 #ifdef SHARED_BUFFER
-#define TIME_MAX (192)
+#define TIME_MAX (80)
 struct img_ipi_frameparam {
 	u8		dmas_enable[IMG_MAX_HW_DMAS][TIME_MAX];
 	struct header_desc	dmas[IMG_MAX_HW_DMAS];
