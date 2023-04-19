@@ -62,11 +62,6 @@ static bool _mtk_fh_set_rate(const char *pll_name, unsigned long dds, int postdi
 				dds, 9999);
 		return true;
 	}
-	FHDBG("pll_name<%s> fh_id<%d> hdlr<%x> perms<%x>",
-			array->pll_name,
-			array->fh_id,
-			hdlr,
-			array->perms);
 	return false;
 }
 
