@@ -1069,8 +1069,8 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 		}
 		hlist_add_head(&buf->hn, &fl->cached_bufs);
 		fl->num_cached_buf++;
-		spin_unlock(&fl->hlock);
 		buf->type = -1;
+		spin_unlock(&fl->hlock);
 		return;
 	}
 skip_buf_cache:
@@ -2469,9 +2469,11 @@ static void fastrpc_ramdump_collection(int cid)
 			ADSPRPC_ERR("adsprpc: %s: unable to dump PD memory (err %d)\n",
 				__func__, ret);
 		hlist_del_init(&buf->hn_init);
-		if (!list_empty(&head)) {
-			list_del(&head);
-		}
+
+		spin_lock(&me->hlock);
+		if (chan->buf->virt)
+			memset(chan->buf->virt, 0, MINI_DUMP_DBG_SIZE);
+		spin_unlock(&me->hlock);
 		if (fl) {
 			spin_lock_irqsave(&me->hlock, irq_flags);
 			if (fl->file_close)

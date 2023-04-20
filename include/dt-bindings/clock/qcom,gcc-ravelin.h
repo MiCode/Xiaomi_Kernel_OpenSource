@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _DT_BINDINGS_CLK_QCOM_GCC_RAVELIN_H
@@ -183,5 +183,7 @@
 #define GCC_VENUS_BCR						26
 #define GCC_VIDEO_BCR						27
 #define GCC_VIDEO_VENUS_BCR					28
+#define GCC_VENUS_CTL_AXI_CLK_ARES				29
+#define GCC_VIDEO_VENUS_CTL_CLK_ARES				30
 
 #endif

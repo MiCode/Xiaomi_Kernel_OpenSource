@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "adreno.h"
@@ -72,9 +72,9 @@ static u64 a6xx_counter_read_norestore(struct adreno_device *adreno_dev,
 	return ((((u64) hi) << 32) | lo) + reg->value;
 }
 
-int a6xx_counter_enable(struct adreno_device *adreno_dev,
+static int a6xx_counter_enable(struct adreno_device *adreno_dev,
 		const struct adreno_perfcount_group *group,
-		unsigned int counter, unsigned int countable)
+		u32 counter, u32 countable)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_perfcount_register *reg = &group->regs[counter];
@@ -89,6 +89,16 @@ int a6xx_counter_enable(struct adreno_device *adreno_dev,
 		reg->value = 0;
 
 	return ret;
+}
+
+static int a6xx_hwsched_counter_enable(struct adreno_device *adreno_dev,
+		const struct adreno_perfcount_group *group,
+		u32 counter, u32 countable)
+{
+	if (!(KGSL_DEVICE(adreno_dev)->state == KGSL_STATE_ACTIVE))
+		return a6xx_counter_enable(adreno_dev, group, counter, countable);
+
+	return a6xx_hwsched_counter_inline_enable(adreno_dev, group, counter, countable);
 }
 
 static int a6xx_counter_inline_enable(struct adreno_device *adreno_dev,
@@ -941,7 +951,7 @@ static const struct adreno_perfcount_group a6xx_hwsched_perfcounter_groups
 		a6xx_counter_enable, a6xx_counter_read, a6xx_counter_load),
 	A6XX_REGULAR_PERFCOUNTER_GROUP(PC, pc),
 	A6XX_REGULAR_PERFCOUNTER_GROUP(VFD, vfd),
-	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq, a6xx_hwsched_counter_inline_enable,
+	A6XX_PERFCOUNTER_GROUP(HLSQ, hlsq, a6xx_hwsched_counter_enable,
 			a6xx_counter_read, a6xx_counter_load),
 	A6XX_REGULAR_PERFCOUNTER_GROUP(VPC, vpc),
 	A6XX_REGULAR_PERFCOUNTER_GROUP(CCU, ccu),
@@ -950,9 +960,9 @@ static const struct adreno_perfcount_group a6xx_hwsched_perfcounter_groups
 	A6XX_REGULAR_PERFCOUNTER_GROUP(RAS, ras),
 	A6XX_REGULAR_PERFCOUNTER_GROUP(LRZ, lrz),
 	A6XX_REGULAR_PERFCOUNTER_GROUP(UCHE, uche),
-	A6XX_PERFCOUNTER_GROUP(TP, tp, a6xx_hwsched_counter_inline_enable,
+	A6XX_PERFCOUNTER_GROUP(TP, tp, a6xx_hwsched_counter_enable,
 			a6xx_counter_read, a6xx_counter_load),
-	A6XX_PERFCOUNTER_GROUP(SP, sp, a6xx_hwsched_counter_inline_enable,
+	A6XX_PERFCOUNTER_GROUP(SP, sp, a6xx_hwsched_counter_enable,
 			a6xx_counter_read, a6xx_counter_load),
 	A6XX_REGULAR_PERFCOUNTER_GROUP(RB, rb),
 	A6XX_REGULAR_PERFCOUNTER_GROUP(VSC, vsc),
