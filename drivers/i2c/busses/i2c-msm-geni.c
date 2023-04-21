@@ -1327,8 +1327,11 @@ geni_i2c_err_prep_sg:
 		}
 
 		if (gi2c->gsi_err) {
-			if (!ret)
-				ret = -EIO;
+			 /* if i2c error already present, no need to update error values */
+			if (!gi2c->err) {
+				gi2c->err = -EIO;
+				ret = gi2c->err;
+			}
 			gi2c->gsi_err = false;
 		}
 
