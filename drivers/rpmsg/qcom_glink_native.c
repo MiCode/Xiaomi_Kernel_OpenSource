@@ -1653,11 +1653,6 @@ static int __qcom_glink_send(struct glink_channel *channel,
 	int chunk_size = len;
 	int left_size = 0;
 
-	if (!(channel->channel_ready)) {
-		dev_err(glink->dev, "Channel not ready\n");
-		return -EAGAIN;
-	}
-
 	if (!glink->intentless) {
 		while (!intent) {
 			spin_lock_irqsave(&channel->intent_lock, flags);
