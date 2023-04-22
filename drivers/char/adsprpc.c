@@ -7470,6 +7470,27 @@ static void configure_secure_channels(uint32_t secure_domains)
 	}
 }
 
+static void configure_unsigned_support(uint32_t unsigned_support_domains)
+{
+	struct fastrpc_apps *me = &gfa;
+	int ii = 0, unsigned_support = 0;
+
+	/*
+	 * unsigned_support_domains contains the bitmask for unsigned support for subsystems
+	 *  Bit 0 - ADSP
+	 *  Bit 1 - MDSP
+	 *  Bit 2 - SLPI
+	 *  Bit 3 - CDSP
+	 */
+	for (ii = ADSP_DOMAIN_ID; ii <= CDSP_DOMAIN_ID; ++ii) {
+		unsigned_support = (unsigned_support_domains >> ii) & 0x01;
+
+		me->channel[ii].unsigned_support = unsigned_support;
+		ADSPRPC_INFO("domain %d configured for unsigned_support %d\n",
+			ii, unsigned_support);
+	}
+}
+
 /*
  * This function is used to create the service locator required for
  * registering for remote process restart (PDR) notifications if that
@@ -7520,6 +7541,7 @@ static int fastrpc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret = 0;
 	uint32_t secure_domains = 0;
+	uint32_t unsigned_support_domains = 0;
 
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute")) {
@@ -7541,6 +7563,16 @@ static int fastrpc_probe(struct platform_device *pdev)
 				configure_secure_channels(secure_domains);
 			else
 				pr_info("adsprpc: unable to read the domain configuration from dts\n");
+		}
+		if (of_get_property(dev->of_node,
+			"qcom,unsigned-support-domains", NULL) != NULL) {
+			VERIFY(err, !of_property_read_u32(dev->of_node,
+					  "qcom,unsigned-support-domains",
+			      &unsigned_support_domains));
+			if (!err)
+				configure_unsigned_support(unsigned_support_domains);
+			else
+				pr_info("adsprpc: unable to read unsigned support domain configuration from dts\n");
 		}
 	}
 	if (of_device_is_compatible(dev->of_node,
