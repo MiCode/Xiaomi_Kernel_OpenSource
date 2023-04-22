@@ -912,8 +912,11 @@ int rimps_pmu_init(struct scmi_device *sdev)
 		return -EINVAL;
 
 	ops = sdev->handle->devm_get_protocol(sdev, SCMI_PMU_PROTOCOL, &ph);
-	if (IS_ERR(ops))
-		return PTR_ERR(ops);
+	if (IS_ERR(ops)) {
+		ret = PTR_ERR(ops);
+		ops = NULL;
+		return ret;
+	}
 
 	/*
 	 * If communication with cpucp doesn't succeed here the device memory
