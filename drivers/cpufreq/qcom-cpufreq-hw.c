@@ -19,6 +19,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/qcom-cpufreq-hw.h>
+#include <linux/topology.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/dcvsh.h>
@@ -34,8 +35,8 @@
 #define MAX_FN_SIZE			20
 #define LIMITS_POLLING_DELAY_MS		4
 
-#define CYCLE_CNTR_OFFSET(c, m, acc_count)				\
-			(acc_count ? ((c - cpumask_first(m) + 1) * 4) : 0)
+#define CYCLE_CNTR_OFFSET(core_id, m, acc_count)		\
+			(acc_count ? ((core_id + 1) * 4) : 0)
 
 enum {
 	REG_ENABLE,
@@ -227,7 +228,7 @@ u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
 	cpu_counter = &qcom_cpufreq_counter[cpu];
 	spin_lock_irqsave(&cpu_counter->lock, flags);
 
-	offset = CYCLE_CNTR_OFFSET(cpu, policy->related_cpus,
+	offset = CYCLE_CNTR_OFFSET(topology_core_id(cpu), policy->related_cpus,
 					accumulative_counter);
 	val = readl_relaxed_no_log(policy->driver_data +
 				    offsets[REG_CYCLE_CNTR] + offset);
@@ -244,6 +245,8 @@ u64 qcom_cpufreq_get_cpu_cycle_counter(int cpu)
 	}
 	cycle_counter_ret = cpu_counter->total_cycle_counter;
 	spin_unlock_irqrestore(&cpu_counter->lock, flags);
+
+	pr_debug("CPU %u, core-id 0x%x, offset %u\n", cpu, topology_core_id(cpu), offset);
 
 	return cycle_counter_ret;
 }
