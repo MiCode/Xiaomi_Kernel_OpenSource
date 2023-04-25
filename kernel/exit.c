@@ -68,7 +68,9 @@
 #include <linux/kprobes.h>
 #include <linux/rethook.h>
 #include <linux/sysfs.h>
+#if IS_ENABLED(CONFIG_MTK_MBRAINK_EXPORT_DEPENDED)
 #include <trace/hooks/sched.h>
+#endif
 
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
@@ -855,7 +857,9 @@ void __noreturn do_exit(long code)
 	tsk->exit_code = code;
 	taskstats_exit(tsk, group_dead);
 
+#if IS_ENABLED(CONFIG_MTK_MBRAINK_EXPORT_DEPENDED)
 	trace_android_vh_do_exit(tsk);
+#endif
 
 	exit_mm();
 

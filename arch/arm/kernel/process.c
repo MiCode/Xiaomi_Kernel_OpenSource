@@ -344,7 +344,9 @@ const char *arch_vma_name(struct vm_area_struct *vma)
 {
 	return is_gate_vma(vma) ? "[vectors]" : NULL;
 }
+#if IS_ENABLED(CONFIG_MTK_MBRAINK_EXPORT_DEPENDED)
 EXPORT_SYMBOL(arch_vma_name);
+#endif
 
 /* If possible, provide a placement hint at a random offset from the
  * stack for the sigpage and vdso pages.

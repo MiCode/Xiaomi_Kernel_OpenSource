@@ -4684,7 +4684,9 @@ __weak const char *arch_vma_name(struct vm_area_struct *vma)
 {
 	return NULL;
 }
+#if IS_ENABLED(CONFIG_MTK_MBRAINK_EXPORT_DEPENDED)
 EXPORT_SYMBOL(arch_vma_name);
+#endif
 
 static inline void siginfo_buildtime_checks(void)
 {
