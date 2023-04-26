@@ -781,22 +781,28 @@ static int llcc_spad_poll_state(struct llcc_slice_desc *desc, u32 s0, u32 s1)
 {
 	int ret;
 	u32 slice_status;
+	struct regmap *spad_regmap;
 
-	ret = regmap_read_poll_timeout(drv_data->spad_and_bcast_regmap,
+	if ((s0 == ACTIVE_STATE) && (s1 == ACTIVE_STATE_7MB))
+		spad_regmap = drv_data->spad_or_bcast_regmap;
+	else
+		spad_regmap = drv_data->spad_and_bcast_regmap;
+
+	ret = regmap_read_poll_timeout(spad_regmap,
 				       SPAD_LPI_LB_PCB_PWR_STATUS0,
 				       slice_status,
 				       (slice_status == s0),
 				       0, LLCC_STATUS_READ_DELAY);
 	if (ret)
 		return ret;
-	ret = regmap_read_poll_timeout(drv_data->spad_and_bcast_regmap,
+	ret = regmap_read_poll_timeout(spad_regmap,
 				       SPAD_LPI_LB_PCB_PWR_STATUS1,
 				       slice_status,
 				       (slice_status == s0),
 				       0, LLCC_STATUS_READ_DELAY);
 	if (ret)
 		return ret;
-	ret = regmap_read_poll_timeout(drv_data->spad_and_bcast_regmap,
+	ret = regmap_read_poll_timeout(spad_regmap,
 				       SPAD_LPI_LB_PCB_PWR_STATUS2,
 				       slice_status,
 				       (slice_status == s0),
@@ -805,7 +811,7 @@ static int llcc_spad_poll_state(struct llcc_slice_desc *desc, u32 s0, u32 s1)
 		return ret;
 	/* For all instances of 7MB per scratchpad */
 	if (desc->slice_size == SZ_7MB) {
-		ret = regmap_read_poll_timeout(drv_data->spad_and_bcast_regmap,
+		ret = regmap_read_poll_timeout(spad_regmap,
 					       SPAD_LPI_LB_PCB_PWR_STATUS3,
 					       slice_status,
 					       (slice_status == s1),
