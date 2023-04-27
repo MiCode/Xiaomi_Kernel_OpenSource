@@ -563,8 +563,8 @@ void iomap(void)
 
 static int mt_clkmgr_debug_module_init(void)
 {
-	iomap();
-	mt_clkmgr_debug_init();
+// iomap();
+// mt_clkmgr_debug_init();
 	return 0;
 }
 
