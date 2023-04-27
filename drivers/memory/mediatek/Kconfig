@@ -55,6 +55,15 @@ config MTK_EMI_LEGACY
 	  the API for EMI information, the BWL golden setting,
 	  and the sysfs for EMI ISU control.
 
+config MTK_EMI_BWL_VERSION
+	int "MTK_EMI_BWL_VERSION"
+	depends on HAVE_MTK_MC
+	default 0
+	help
+	  This selects the MediaTek(R) EMI driver.
+	  Provide version for emi bwl implementation in kernel,
+	  0 means not support by default.
+
 config MTK_EMI
 	tristate "MediaTek External Memory Interface driver"
 	depends on HAVE_MTK_MC

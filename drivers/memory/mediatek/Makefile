@@ -14,6 +14,7 @@ obj-$(CONFIG_MTK_EMI_MPU_TEST) += emi-mpu-test-v2.o
 obj-$(CONFIG_MTK_EMI_LEGACY) += emicen.o
 obj-$(CONFIG_MTK_EMI_LEGACY) += emimpu.o
 obj-$(CONFIG_MTK_EMI_LEGACY) += emiisu.o
+obj-$(CONFIG_MTK_EMI_LEGACY) += emictrl.o
 
 obj-$(CONFIG_MTK_EMI_LEGACY_V0) += emi_legacy_v0/
 
