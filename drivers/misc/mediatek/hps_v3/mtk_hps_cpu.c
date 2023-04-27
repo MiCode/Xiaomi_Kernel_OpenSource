@@ -12,7 +12,7 @@
 #if IS_ENABLED(CONFIG_ARM64)
 #include <asm/cpu_ops.h>
 #endif
-
+#include "mtk_ppm_platform.h"
 #include "mtk_hps_internal.h"
 
 /*
@@ -131,7 +131,7 @@ int hps_cpu_init(void)
 
 	i = j = 0;
 	hps_warn("%s\n", __func__);
-
+#ifndef PPM_NOT_REGISTER_CALLBACK
 	for (i = setup_max_cpus; i < num_possible_cpus(); i++) {
 // #if IS_ENABLED(CONFIG_ARM64)
 		// if (!cpu_ops[i])
@@ -141,7 +141,7 @@ int hps_cpu_init(void)
 // #endif
 		set_cpu_present(i, true);
 	}
-
+#endif
 	/* ==== New algo. definition ==== */
 	hps_sys.cluster_num = (unsigned int)arch_get_nr_clusters();
 	hps_warn("[New algo.] hps_sys.cluster_num %d\n", hps_sys.cluster_num);

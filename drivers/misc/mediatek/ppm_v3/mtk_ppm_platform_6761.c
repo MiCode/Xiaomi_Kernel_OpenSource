@@ -177,7 +177,6 @@ static int ppm_get_spower_devid(enum ppm_cluster cluster)
 #endif
 }
 
-
 int ppm_platform_init(void)
 {
 #ifdef PPM_SSPM_SUPPORT
@@ -197,6 +196,10 @@ int ppm_platform_init(void)
 	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN,
 			"ppm/cpuhp", ppm_cpu_up,
 			ppm_cpu_dead);
+
+	ppm_main_info.client_info[PPM_CLIENT_HOTPLUG].name = "HOTPLUG";
+	ppm_main_info.client_info[PPM_CLIENT_HOTPLUG].client = PPM_CLIENT_HOTPLUG;
+	ppm_main_info.client_info[PPM_CLIENT_HOTPLUG].limit_cb = get_cpuhop_ppm_callback();
 
 	return 0;
 }

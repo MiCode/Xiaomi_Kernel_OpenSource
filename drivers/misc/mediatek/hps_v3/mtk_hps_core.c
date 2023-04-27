@@ -11,6 +11,7 @@
 #include <linux/sched/task.h>
 #include <asm-generic/bug.h>
 
+#include "mtk_ppm_platform.h"
 #include "mtk_hps_internal.h"
 #include "mtk_hps.h"
 #include <trace/events/sched.h>
@@ -156,11 +157,12 @@ ACAO_HPS_START:
 		//aee_rr_rec_hps_cb_footprint(3);
 		//aee_rr_rec_hps_cb_fp_times((u64) ktime_to_ms(ktime_get()));
 		first_cpu = cpumask_first(hps_ctxt.online_core);
+#ifndef PPM_NOT_REGISTER_CALLBACK
 		if (first_cpu >= setup_max_cpus) {
 			pr_notice("PPM request without first cpu online!\n");
 			goto ACAO_HPS_END;
 		}
-
+#endif
 		if (!cpu_online(first_cpu))
 			add_cpu(first_cpu);
 		//aee_rr_rec_hps_cb_footprint(4);
@@ -196,8 +198,9 @@ ACAO_HPS_START:
 	}
 	//aee_rr_rec_hps_cb_footprint(9);
 	//aee_rr_rec_hps_cb_fp_times((u64) ktime_to_ms(ktime_get()));
-
+#ifndef PPM_NOT_REGISTER_CALLBACK
 ACAO_HPS_END:
+#endif
 	//aee_rr_rec_hps_cb_footprint(10);
 	//aee_rr_rec_hps_cb_fp_times((u64) ktime_to_ms(ktime_get()));
 	set_current_state(TASK_INTERRUPTIBLE);
@@ -284,7 +287,6 @@ void hps_task_wakeup(void)
 
 	mutex_unlock(&hps_ctxt.lock);
 }
-
 static void ppm_limit_callback(struct ppm_client_req req)
 {
 	struct ppm_client_req *p = (struct ppm_client_req *)&req;
@@ -295,7 +297,13 @@ static void ppm_limit_callback(struct ppm_client_req req)
 	mutex_unlock(&hps_ctxt.para_lock);
 	hps_task_wakeup_nolock();
 }
-
+#ifdef PPM_NOT_REGISTER_CALLBACK
+void *get_cpuhop_ppm_callback(void)
+{
+	return &ppm_limit_callback;
+}
+EXPORT_SYMBOL(get_cpuhop_ppm_callback);
+#endif
 /*
  * init
  */
@@ -310,8 +318,9 @@ int hps_core_init(void)
 		return r;
 	}
 	/* register PPM callback */
+#ifndef PPM_NOT_REGISTER_CALLBACK
 	mt_ppm_register_client(PPM_CLIENT_HOTPLUG, &ppm_limit_callback);
-
+#endif
 	return r;
 }
 
