@@ -690,6 +690,7 @@ static enum power_supply_property bq27541_props[] = {
 	POWER_SUPPLY_PROP_POWER_AVG,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_MANUFACTURER,
+	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 };
 #define bq27542_props bq27541_props
 #define bq27546_props bq27541_props
@@ -1985,6 +1986,11 @@ static int bq27xxx_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_MANUFACTURER:
 		val->strval = BQ27XXX_MANUFACTURER;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_COUNTER:
+		ret = bq27xxx_simple_value(di->cache.capacity, val);
+		if (val->intval >= 0)
+			val->intval = ((val->intval) * 8000) / 100;
 		break;
 	default:
 		return -EINVAL;
