@@ -248,14 +248,8 @@ static int mtk_imgs_get_temp(struct thermal_zone_device *thermal, int *t)
 		 */
 		curr_temp = mtk_imgs_get_max_temp();
 	} else {
-#if IS_ENABLED(CONFIG_MTK_IMGSENSOR)
 		ret = Get_Camera_Temperature(
 				1 << (index - 1), &invalid, &curr_temp);
-#else
-		invalid = SENSOR_TEMPERATURE_CANNOT_SEARCH_SENSOR;
-		curr_temp = -127;
-		ret = -1;
-#endif
 
 		curr_temp *= 1000;
 
