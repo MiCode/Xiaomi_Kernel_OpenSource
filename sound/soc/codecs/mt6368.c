@@ -5289,6 +5289,8 @@ static void *get_vow_coeff_by_name(struct mt6368_priv *priv,
 		return &(priv->reg_afe_vow_vad_cfg5);
 	else if (strcmp(name, "Audio_VOW_Periodic") == 0)
 		return &(priv->reg_afe_vow_periodic);
+	else if (strcmp(name, "Audio_Vow_SINGLE_MIC_Select") == 0)
+		return &(priv->vow_single_mic_select);
 	else if (strcmp(name, "Audio_VOW_Periodic_Param") == 0)
 		return (void *) &(priv->vow_periodic_param);
 	else
@@ -5379,6 +5381,9 @@ static const struct snd_kcontrol_new mt6368_snd_vow_controls[] = {
 		       SND_SOC_NOPM, 0, 0x80000, 0,
 		       audio_vow_cfg_get, audio_vow_cfg_set),
 	SOC_SINGLE_EXT("Audio_VOW_Periodic",
+		       SND_SOC_NOPM, 0, 0x80000, 0,
+		       audio_vow_cfg_get, audio_vow_cfg_set),
+	SOC_SINGLE_EXT("Audio_Vow_SINGLE_MIC_Select",
 		       SND_SOC_NOPM, 0, 0x80000, 0,
 		       audio_vow_cfg_get, audio_vow_cfg_set),
 	SND_SOC_BYTES_TLV("Audio_VOW_Periodic_Param",
