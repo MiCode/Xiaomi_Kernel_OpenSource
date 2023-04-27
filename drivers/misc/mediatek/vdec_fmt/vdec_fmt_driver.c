@@ -706,6 +706,7 @@ static int fmt_gce_cmd_flush(unsigned long arg)
 			cmdq_mbox_disable(fmt->clt_fmt[0]->chan);
 			mutex_unlock(fmt->mux_gce_th[identifier]);
 			mutex_unlock(&fmt->mux_fmt);
+			mutex_unlock(&fmt->mux_active_time);
 			return -EINVAL;
 		}
 		if ((FMT_GET32(fmt->map_base[0].va + 0x30) & 0x20000) == 0) {
