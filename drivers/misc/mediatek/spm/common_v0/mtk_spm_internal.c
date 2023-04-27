@@ -175,6 +175,8 @@ unsigned int __spm_output_wake_reason(
 		vfree(log_buf);
 		return -1;
 	}
+	memset(log_buf, 0, LOG_BUF_OUT_SZ);
+	memset(buf, 0, LOG_BUF_SIZE);
 	if (wakesta->assert_pc != 0) {
 		/* add size check for vcoredvfs */
 		aee_sram_printk("PCM ASSERT AT 0x%x (%s), r13 = 0x%x, ",
