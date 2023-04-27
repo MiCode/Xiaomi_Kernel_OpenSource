@@ -3621,13 +3621,22 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 	};
 
 	venc_jpg@17030000 {
-		compatible = "mediatek,venc_jpg";
+		compatible = "mediatek,mtk-jpgenc-32bit";
 		reg = <0 0x17030000 0 0x10000>;
 		interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH 0>;
 		clocks =
 			<&vcodecsys CLK_VENC_SET2_JPGENC>;
-		clock-names =
-			"MT_CG_VENC_JPGENC";
+		clock-names = "jpgenc";
+		mediatek,larb = <&smi_larb1>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
+		iommus = <&iommu M4U_PORT_JPGENC_BSDMA>;
+		operating-points-v2 = <&opp_table_mm>;
+		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		interconnects = <&mmqos MASTER_LARB_PORT(M4U_PORT_JPGENC_BSDMA)
+					&mmqos SLAVE_COMMON(0)>;
+		interconnect-names = "path_jpegenc_bsdma";
+		interconnect-num = <1>;
+		cshot-spec = <26>;
 	};
 
 	vdec@17040000 {
