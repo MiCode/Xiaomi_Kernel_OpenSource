@@ -129,6 +129,25 @@ static void lcm_panel_get_data(struct lcm *ctx)
 }
 #endif
 
+static void udelay_panel(unsigned int del)
+{
+	unsigned int count = del / 1000;
+
+	while (count--)
+		udelay(1000);
+	udelay(del % 1000);
+}
+
+static void lcm_mdelay(unsigned int ms)
+{
+	if (ms < 10)
+		udelay_panel(ms * 1000);
+	else if (ms <= 20)
+		usleep_range(ms*1000, (ms+1)*1000);
+	else
+		usleep_range(ms * 1000 - 100, ms * 1000);
+}
+
 #if IS_ENABLED(CONFIG_RT5081_PMU_DSV) || IS_ENABLED(CONFIG_REGULATOR_MT6370)
 static struct regulator *disp_bias_pos;
 static struct regulator *disp_bias_neg;
@@ -226,13 +245,13 @@ static void lcm_panel_init(struct lcm *ctx)
 	}
 
 	gpiod_set_value(ctx->reset_gpio, 0);
-	usleep_range(10 * 1000, 11 * 1000);
+	lcm_mdelay(15);
 	gpiod_set_value(ctx->reset_gpio, 1);
-	usleep_range(10 * 1000, 11 * 1000);
+	lcm_mdelay(1);
 	gpiod_set_value(ctx->reset_gpio, 0);
-	usleep_range(10 * 1000, 11 * 1000);
+	lcm_mdelay(10);
 	gpiod_set_value(ctx->reset_gpio, 1);
-	usleep_range(10 * 1000, 11 * 1000);
+	lcm_mdelay(10);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
 	lcm_dcs_write_seq_static(ctx, 0xB9, 0x83, 0x11, 0x2B);
@@ -359,7 +378,7 @@ static void lcm_panel_init(struct lcm *ctx)
 	lcm_dcs_write_seq_static(ctx, 0x44, 0x08, 0x66); /* set TE event @ line 0x866(2150) */
 
 	lcm_dcs_write_seq_static(ctx, 0x11);
-	msleep(120);
+	lcm_mdelay(30);
 	lcm_dcs_write_seq_static(ctx, 0xE9, 0xC2);
 	lcm_dcs_write_seq_static(ctx, 0xB0, 0x01);
 	lcm_dcs_write_seq_static(ctx, 0xE9, 0x00);
@@ -391,9 +410,9 @@ static int lcm_unprepare(struct drm_panel *panel)
 		return 0;
 
 	lcm_dcs_write_seq_static(ctx, 0x28);
-	msleep(50);
+	lcm_mdelay(50);
 	lcm_dcs_write_seq_static(ctx, 0x10);
-	msleep(150);
+	lcm_mdelay(150);
 
 	ctx->error = 0;
 	ctx->prepared = false;
