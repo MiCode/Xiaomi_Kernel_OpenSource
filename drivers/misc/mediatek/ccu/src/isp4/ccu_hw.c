@@ -788,6 +788,7 @@ static int _ccu_powerdown(void)
 	/*Set CCU_A_RESET. CCU_HW_RST=1*/
 	ccu_write_reg_bit(ccu_base, RESET, CCU_HW_RST, 1);
 	/*CCF*/
+	ccu_irq_disable();
 	ccu_clock_disable();
 
 #if (CCU_I2C_MTK)
@@ -934,7 +935,9 @@ int ccu_irq_enable(void)
 {
 	int ret = 0;
 
-	LOG_DBG_MUST("%s+.\n", __func__);
+	LOG_DBG_MUST("%s(%d)+.\n", __func__, ccu_dev->irq_enabled);
+	if (ccu_dev->irq_enabled)
+		return 0;
 
 	ccu_write_reg(ccu_base, EINTC_CLR, 0xFF);
 	ccu_read_reg(ccu_base, EINTC_ST);
@@ -948,12 +951,17 @@ int ccu_irq_enable(void)
 	}
 #endif
 
+	ccu_dev->irq_enabled = 1;
+
 	return ret;
 }
 
 int ccu_irq_disable(void)
 {
-	LOG_DBG_MUST("%s+.\n", __func__);
+	LOG_DBG_MUST("%s(%d)+.\n", __func__, ccu_dev->irq_enabled);
+
+	if (!ccu_dev->irq_enabled)
+		return 0;
 
 #if (REQUEST_IRQ_IN_INIT)
 	disable_irq(ccu_dev->irq_num);
@@ -962,6 +970,8 @@ int ccu_irq_disable(void)
 #endif
 	ccu_write_reg(ccu_base, EINTC_CLR, 0xFF);
 	ccu_read_reg(ccu_base, EINTC_ST);
+
+	ccu_dev->irq_enabled = 0;
 
 	return 0;
 }

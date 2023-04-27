@@ -39,6 +39,7 @@ struct ccu_device_s {
 	void __iomem *pmem_base;
 	void __iomem *ddrmem_base;
 	void __iomem *n3d_a_base;
+	int irq_enabled;
 	unsigned int irq_num;
 	struct mutex dev_mutex;
 	struct mutex user_mutex;

@@ -1448,6 +1448,7 @@ static int ccu_probe(struct platform_device *pdev)
 		g_ccu_device->path_ccug = of_mtk_icc_get(g_ccu_device->dev, "ccu_g");
 #endif
 		g_ccu_device->irq_num = irq_of_parse_and_map(node, 0);
+		g_ccu_device->irq_enabled = 0;
 		LOG_INF_MUST("probe 1, ccu_base: 0x%lx, bin_base: 0x%lx,",
 		(uint64_t)g_ccu_device->ccu_base, (uint64_t)g_ccu_device->bin_base);
 		LOG_INF_MUST("probe 1, ccu_base:irq_num: %d, pdev: %lx\n",
