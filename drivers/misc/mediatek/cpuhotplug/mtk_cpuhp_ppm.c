@@ -10,8 +10,8 @@
 #include <linux/kthread.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
-#if IS_ENABLED(CONFIG_MTK_PPM_READY)
-#include <mtk_ppm_api.h>
+#include <linux/device.h>
+#include <ppm_v3/mtk_ppm_api.h>
 
 
 #include <linux/nmi.h>
@@ -26,17 +26,14 @@ static DEFINE_MUTEX(ppm_mutex);
 static struct wakeup_source *hps_ws;
 #endif
 
-#if IS_ENABLED(CONFIG_ARM)
-#define CPU_DOWN	cpu_down
-#define CPU_UP		cpu_up
-#else
+
 #define CPU_DOWN(i)	\
 	(get_cpu_device(i) == NULL ? false \
-	: device_offline(get_cpu_device(i)))
+	: remove_cpu(i))
 #define CPU_UP(i)	\
 	(get_cpu_device(i) == NULL ? false \
-	: device_online(get_cpu_device(i)))
-#endif
+	: add_cpu(i))
+
 
 #define HPS_RETRY	10
 
@@ -179,4 +176,3 @@ void ppm_notifier(void)
 	if (!hps_ws)
 		pr_debug("hps wakelock register fail!\n");
 }
-#endif
