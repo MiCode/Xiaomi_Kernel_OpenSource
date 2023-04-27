@@ -14298,11 +14298,14 @@ void mtk_disp_mutex_src_set(struct mtk_drm_crtc *mtk_crtc, bool is_cmd_mode)
 
 	if (is_cmd_mode) {
 		sof = ddp->data->mutex_sof[val];
-		/* Only primary display support MUTEX_EOF_EN_FOR_CMD_MODE on MT6768*/
+		/* Only primary display support MUTEX_EOF_EN_FOR_CMD_MODE on MT6768/MT6765*/
 		if (drm_priv && drm_priv->data
-			&& drm_priv->data->mmsys_id == MMSYS_MT6768
-			&& drm_crtc_index(&mtk_crtc->base) == 0)
-			sof |= MT6768_MUTEX_EOF_DSI0;
+			&& drm_crtc_index(&mtk_crtc->base) == 0) {
+			if (drm_priv->data->mmsys_id == MMSYS_MT6768)
+				sof |= MT6768_MUTEX_EOF_DSI0;
+			if (drm_priv->data->mmsys_id == MMSYS_MT6765)
+				sof |= MT6765_MUTEX_EOF_DSI0;
+		}
 
 		writel_relaxed(
 			sof,
@@ -14444,11 +14447,14 @@ void mtk_disp_mutex_add_comp_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		return;
 	}
 	sof = ddp->data->mutex_sof[reg];
-	/* Only primary display support MUTEX_EOF_EN_FOR_CMD_MODE on MT6768*/
+	/* Only primary display support MUTEX_EOF_EN_FOR_CMD_MODE on MT6768/MT6765*/
 	if (is_cmd_mode && drm_priv && drm_priv->data
-		&& drm_priv->data->mmsys_id == MMSYS_MT6768
-		&& drm_crtc_index(&mtk_crtc->base) == 0)
-		sof |= MT6768_MUTEX_EOF_DSI0;
+		&& drm_crtc_index(&mtk_crtc->base) == 0) {
+		if (drm_priv->data->mmsys_id == MMSYS_MT6768)
+			sof |= MT6768_MUTEX_EOF_DSI0;
+		else if (drm_priv->data->mmsys_id == MMSYS_MT6765)
+			sof |= MT6765_MUTEX_EOF_DSI0;
+	}
 
 	cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 		       regs_pa + DISP_REG_MUTEX_SOF(ddp->data, mutex->id),

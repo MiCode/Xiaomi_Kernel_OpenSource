@@ -818,6 +818,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 			DO_DIV_ROUND_UP(consume_rate * (ultra_low_us + 50), FP);
 
 	if (priv->data->mmsys_id == MMSYS_MT6768 ||
+		priv->data->mmsys_id == MMSYS_MT6765 ||
 		priv->data->mmsys_id == MMSYS_MT6761)
 		gs[GS_RDMA_TH_HIGH_FOR_SODI] = DO_DIV_ROUND_UP(
 			gs[GS_RDMA_FIFO_SIZE] * FP - (fill_rate - consume_rate) * 50,
@@ -1498,7 +1499,8 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 		if (mtk_crtc)
 			drm_priv = mtk_crtc->base.dev->dev_private;
 		if (drm_priv && drm_priv->data &&
-			drm_priv->data->mmsys_id == MMSYS_MT6768) {
+			(drm_priv->data->mmsys_id == MMSYS_MT6768
+				|| drm_priv->data->mmsys_id == MMSYS_MT6765)) {
 			DDPDUMP("(0x0f0)R_IN_PXL_CNT=0x%x\n",
 				readl(MT6768_DISP_REG_RDMA_IN_P_CNT + baddr));
 			DDPDUMP("(0x0f4)R_IN_LINE_CNT=0x%x\n",
@@ -1578,7 +1580,8 @@ int mtk_rdma_analysis(struct mtk_ddp_comp *comp)
 		if (mtk_crtc)
 			drm_priv = mtk_crtc->base.dev->dev_private;
 		if (drm_priv && drm_priv->data &&
-			drm_priv->data->mmsys_id == MMSYS_MT6768) {
+			(drm_priv->data->mmsys_id == MMSYS_MT6768
+				|| drm_priv->data->mmsys_id == MMSYS_MT6765)) {
 			DDPDUMP("pos:in(%d,%d)out(%d,%d),bg(t%d,b%d,l%d,r%d)\n",
 			readl(MT6768_DISP_REG_RDMA_IN_P_CNT + baddr),
 			readl(MT6768_DISP_REG_RDMA_IN_LINE_CNT + baddr),
