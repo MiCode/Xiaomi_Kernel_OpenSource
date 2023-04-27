@@ -2297,6 +2297,7 @@
   rtc_update_irq
   rtc_valid_tm
   rtnl_is_locked
+  __rtnl_link_register
   __rtnl_link_unregister
   rtnl_lock
   rtnl_unlock
@@ -2840,6 +2841,9 @@
   __traceiter_android_vh_meminfo_proc_show
   __traceiter_android_vh_alloc_pages_slowpath_begin
   __traceiter_android_vh_alloc_pages_slowpath_end
+  __traceiter_android_vh_mutex_can_spin_on_owner
+  __traceiter_android_vh_mutex_opt_spin_finish
+  __traceiter_android_vh_mutex_opt_spin_start
   __traceiter_android_vh_mutex_unlock_slowpath
   __traceiter_android_vh_mutex_unlock_slowpath_end
   __traceiter_android_vh_mutex_wait_finish
@@ -2867,8 +2871,11 @@
   __traceiter_android_vh_record_rwsem_lock_starttime
   __traceiter_android_vh_record_pcpu_rwsem_starttime
   __traceiter_android_vh_rmqueue
+  __traceiter_android_vh_rwsem_can_spin_on_owner
   __traceiter_android_vh_rwsem_init
   __traceiter_android_vh_rwsem_mark_wake_readers
+  __traceiter_android_vh_rwsem_opt_spin_finish
+  __traceiter_android_vh_rwsem_opt_spin_start
   __traceiter_android_vh_rwsem_set_owner
   __traceiter_android_vh_rwsem_set_reader_owned
   __traceiter_android_vh_rwsem_up_read_end
@@ -3084,6 +3091,9 @@
   __tracepoint_android_vh_meminfo_proc_show
   __tracepoint_android_vh_alloc_pages_slowpath_begin
   __tracepoint_android_vh_alloc_pages_slowpath_end
+  __tracepoint_android_vh_mutex_can_spin_on_owner
+  __tracepoint_android_vh_mutex_opt_spin_finish
+  __tracepoint_android_vh_mutex_opt_spin_start
   __tracepoint_android_vh_mutex_unlock_slowpath
   __tracepoint_android_vh_mutex_unlock_slowpath_end
   __tracepoint_android_vh_mutex_wait_finish
@@ -3111,8 +3121,11 @@
   __tracepoint_android_vh_record_rwsem_lock_starttime
   __tracepoint_android_vh_record_pcpu_rwsem_starttime
   __tracepoint_android_vh_rmqueue
+  __tracepoint_android_vh_rwsem_can_spin_on_owner
   __tracepoint_android_vh_rwsem_init
   __tracepoint_android_vh_rwsem_mark_wake_readers
+  __tracepoint_android_vh_rwsem_opt_spin_finish
+  __tracepoint_android_vh_rwsem_opt_spin_start
   __tracepoint_android_vh_rwsem_set_owner
   __tracepoint_android_vh_rwsem_set_reader_owned
   __tracepoint_android_vh_rwsem_up_read_end

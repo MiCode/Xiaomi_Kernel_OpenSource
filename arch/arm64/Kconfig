@@ -493,6 +493,22 @@ config ARM64_ERRATUM_834220
 
 	  If unsure, say Y.
 
+config ARM64_ERRATUM_1742098
+	bool "Cortex-A57/A72: 1742098: ELR recorded incorrectly on interrupt taken between cryptographic instructions in a sequence"
+	depends on COMPAT
+	default y
+	help
+	  This option removes the AES hwcap for aarch32 user-space to
+	  workaround erratum 1742098 on Cortex-A57 and Cortex-A72.
+
+	  Affected parts may corrupt the AES state if an interrupt is
+	  taken between a pair of AES instructions. These instructions
+	  are only present if the cryptography extensions are present.
+	  All software should have a fallback implementation for CPUs
+	  that don't implement the cryptography extensions.
+
+	  If unsure, say Y.
+
 config ARM64_ERRATUM_845719
 	bool "Cortex-A53: 845719: a load might read incorrect data"
 	depends on COMPAT
@@ -712,6 +728,29 @@ config ARM64_ERRATUM_2067961
 	  Workaround is to issue two TSB consecutively on affected cores.
 
 	  If unsure, say Y.
+
+config ARM64_ERRATUM_2454944
+	bool "Cortex-A510: 2454944: Unmodified cache line might be written back to memory"
+	select ARCH_HAS_TEARDOWN_DMA_OPS
+	select RODATA_FULL_DEFAULT_ENABLED
+	help
+	  This option adds the workaround for ARM Cortex-A510 erratum 2454944.
+
+	  Affected Cortex-A510 core might write unmodified cache lines back to
+	  memory, which breaks the assumptions upon which software coherency
+	  management for non-coherent DMA relies. If a cache line is
+	  speculatively fetched while a non-coherent device is writing directly
+	  to DRAM, and subsequently written back by natural eviction, data
+	  written by the device in the intervening period can be lost.
+
+	  The workaround is to enforce as far as reasonably possible that all
+	  non-coherent DMA transfers are bounced and/or remapped to minimise
+	  the chance that any Cacheable alias exists through which speculative
+	  cache fills could occur. To further improve effectiveness of
+	  the workaround, lazy TLB flushing should be disabled.
+
+	  This is quite involved and has unavoidable performance impact on
+	  affected systems.
 
 config ARM64_ERRATUM_2457168
 	bool "Cortex-A510: 2457168: workaround for AMEVCNTR01 incrementing incorrectly"
