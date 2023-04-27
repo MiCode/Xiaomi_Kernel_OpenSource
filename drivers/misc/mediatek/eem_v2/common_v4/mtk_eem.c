@@ -51,11 +51,7 @@
 	#include <linux/of_fdt.h>
 	#include <mt-plat/aee.h>
 #endif
-/* label_comment */
-/* #include <mt-plat/mtk_chip.h> */
 
-/* label_comment */
-/* #include "upmu_common.h" */
 
 #if IS_ENABLED(CONFIG_MTK_FREQ_HOPPING)
 #include "mt_freqhopping.h"
@@ -65,66 +61,6 @@
 #if IS_ENABLED(CONFIG_THERMAL)
 #include "v3/inc/mach/mtk_thermal.h"
 #endif
-
-
-/* label_new_start */
-
-/*
-#if IS_ENABLED(CONFIG_MTK_LEGACY_THERMAL)
-#include "mach/mtk_thermal.h"
-#endif
-*/
-
-/* label_temp_insert */
-
-/* enum thermal_bank_name {
-	THERMAL_BANK0     = 0,
-	THERMAL_BANK3     = 1,
-	THERMAL_BANK4     = 2,
-	THERMAL_BANK_NUM
-}; */
-
-
-/*
-struct TS_PTPOD {
-	unsigned int ts_MTS;
-	unsigned int ts_BTS;
-}; */
-
-
-
-/* label_comment */
-/* extern void get_thermal_slope_intercept
-		(struct TS_PTPOD *ts_info, enum thermal_bank_name ts_bank);
- */
-
-/* label_comment */
-/*
-struct bench_mem_info {
-	const struct function *functions;
-	u64 (*do_cycles)(const struct function *r, size_t size, void *src, void *dst);
-	double (*do_gettimeofday)(const struct function *r, size_t size, void *src, void *dst);
-	const char *const *usage;
-	bool alloc_src;
-}; */
-
-// enum upower_bank {
-// /*	UPOWER_BANK_L,*/
-// 	UPOWER_BANK_LL,
-// /*	UPOWER_BANK_CLS_L, */
-// 	UPOWER_BANK_CLS_LL,
-// 	UPOWER_BANK_CCI,
-
-// 	NR_UPOWER_BANK,
-// };
-
-/* label_comment */
-/* extern void upower_update_volt_by_eem(enum upower_bank bank,
-		unsigned int *volt, unsigned int opp_num); */
-/* label_comment */
-/* extern void upower_update_degree_by_eem(enum upower_bank bank, int deg); */
-
-/* label_new_end */
 
 
 #include "mtk_ppm_api.h"
@@ -139,11 +75,6 @@ struct bench_mem_info {
 #include <regulator/consumer.h>
 #include <linux/of_platform.h>
 #include <linux/nvmem-consumer.h>
-/* label_comment */
-
-/* #if UPDATE_TO_UPOWER
-#include "mtk_upower.h"
-#endif */
 
 /* label_new_start */
 #if UPDATE_TO_UPOWER
@@ -221,25 +152,6 @@ unsigned int ptp_data[3] = {0, 0, 0};
 void __iomem *eem_base;
 static u32 eem_irq_number;
 #endif
-
-/*=============================================================
- * weak function
- *=============================================================
- */
-
-/* label_comment */
-
-/* void __attribute__ ((weak))
-mt_ppm_ptpod_policy_activate(void)
-{
-	pr_info("%s not ready\n", __func__);
-} */
-
-/* void __attribute__ ((weak))
-mt_ppm_ptpod_policy_deactivate(void)
-{
-	pr_info("%s not ready\n", __func__);
-} */
 
 /*=============================================================
  * common functions for both ap and eem
@@ -381,14 +293,6 @@ static int get_devinfo(void)
 	aee_rr_rec_ptp_e2((unsigned int)val[3]);
 	aee_rr_rec_ptp_e3((unsigned int)val[4]);
 	aee_rr_rec_ptp_e4((unsigned int)val[5]);
-
-
-/* 	set_ptp_devinfo_0((unsigned int)val[0]);
-	set_ptp_e0((unsigned int)val[1]);
-	set_ptp_e1((unsigned int)val[2]);
-	set_ptp_e2((unsigned int)val[3]);
-	set_ptp_e3((unsigned int)val[4]);
-	set_ptp_e4((unsigned int)val[5]); */
 #endif
 
 	eem_debug("M_HW_RES0 = 0x%08X\n", val[0]);
@@ -427,11 +331,6 @@ static int get_devinfo(void)
 /*============================================================
  * function declarations of EEM detectors
  *============================================================
- */
-
-/*
-static void mt_ptp_lock(unsigned long *flags);
-static void mt_ptp_unlock(unsigned long *flags);
  */
 
 /* label_new_start */
@@ -504,23 +403,6 @@ static void _mt_eem_aee_init(void)
 
 #if IS_ENABLED(CONFIG_THERMAL)
 /* common part in thermal */
-
-/* label_comment */
-
-/* int __attribute__((weak))
-tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank)
-{
-	eem_error("cannot find %s (thermal has not ready yet!)\n", __func__);
-	return 0;
-}
-
-int __attribute__((weak))
-tscpu_is_temp_valid(void)
-{
-	eem_error("cannot find %s (thermal has not ready yet!)\n", __func__);
-	return 0;
-} */
-
 #endif
 
 static struct eem_ctrl *id_to_eem_ctrl(enum eem_ctrl_id id)
@@ -714,8 +596,6 @@ int base_ops_mon_mode(struct eem_det *det)
 	get_thermal_slope_intercept(&ts_info, ts_bank);
 	det->MTS = ts_info.ts_MTS;
 	det->BTS = ts_info.ts_BTS;
-/* 	det->MTS = 2;
-	det->BTS = 2;  */
 #endif
 
 /*
@@ -1070,16 +950,6 @@ void base_ops_get_orig_volt_table(struct eem_det *det)
 }
 
 /* label_comment */
-/*
-static long long eem_get_current_time_us(void)
-{
-	struct timeval t;
-
-	do_gettimeofday(&t);
-	return((t.tv_sec & 0xFFF) * 1000000 + t.tv_usec);
-}
- */
-
 /* label_new_start */
 
 static long long eem_get_current_time_us(void)
@@ -1098,23 +968,6 @@ static long long eem_get_current_time_us(void)
  *=============================================================
  */
 
-/*
-static void mt_ptp_lock(unsigned long *flags)
-{
-	spin_lock_irqsave(&eem_spinlock, *flags);
-	eem_pTime_us = eem_get_current_time_us();
-
-}
-EXPORT_SYMBOL(mt_ptp_lock);
-
-static void mt_ptp_unlock(unsigned long *flags)
-{
-eem_cTime_us = eem_get_current_time_us();
-	EEM_IS_TOO_LONG();
-	spin_unlock_irqrestore(&eem_spinlock, *flags);
-}
-EXPORT_SYMBOL(mt_ptp_unlock);
-*/
 
 /* label_new_start */
 void mt_ptp_lock(unsigned long *flags)
@@ -1211,11 +1064,6 @@ static int eem_volt_thread_handler(void *data)
 				aee_rr_rec_ptp_status(
 					aee_rr_curr_ptp_status() |
 					(1 << EEM_CPU_2_LITTLE_IS_SET_VOLT));
-
-/* 				set_ptp_status(
-					get_ptp_status() |
-					(1 << EEM_CPU_2_LITTLE_IS_SET_VOLT)); */
-
 				temp = EEM_CPU_2_LITTLE_IS_SET_VOLT;
 				break;
 
@@ -1244,9 +1092,6 @@ static int eem_volt_thread_handler(void *data)
 				/* label_comment */
 				aee_rr_rec_ptp_status(
 				aee_rr_curr_ptp_status() & ~(1 << temp));
-
-/* 				set_ptp_status(
-				get_ptp_status() & ~(1 << temp)); */
 #endif
 		}
 		if ((ctrl->volt_update & EEM_VOLT_RESTORE) &&
@@ -1909,13 +1754,6 @@ static inline void handle_init02_isr(struct eem_det *det)
 		((unsigned long long)(0xFF) << (8 * i))
 						)
 					);
-
-/* 					set_ptp_cpu_2_little_volt(
-		((unsigned long long)(det->volt_tbl[i]) << (8 * i)) |
-		(get_ptp_cpu_2_little_volt() & ~
-		((unsigned long long)(0xFF) << (8 * i))
-						)
-					); */
 				}
 			}
 			break;
@@ -1931,14 +1769,6 @@ static inline void handle_init02_isr(struct eem_det *det)
 		((unsigned long long)(0xFF) << (8 * (i - 8)))
 					)
 				);
-
-
-/* 				set_ptp_cpu_2_little_volt_1(
-		((unsigned long long)(det->volt_tbl[i]) << (8 * (i - 8))) |
-		(get_ptp_cpu_2_little_volt_1() & ~
-		((unsigned long long)(0xFF) << (8 * (i - 8)))
-					)
-				); */
 			}
 			break;
 #else
@@ -1952,18 +1782,6 @@ static inline void handle_init02_isr(struct eem_det *det)
 		((unsigned long long)(0xFF) << (8 * i))
 					)
 				);
-
-/* 				set_ptp_cpu_2_little_volt(
-		((unsigned long long)(det->volt_tbl[i]) << (8 * i)) |
-		(get_ptp_cpu_2_little_volt() & ~
-		((unsigned long long)(0xFF) << (8 * i))
-					)
-				); */
-
-
-
-
-
 			} else {
 
 /* label_comment */
@@ -1974,13 +1792,6 @@ static inline void handle_init02_isr(struct eem_det *det)
 		((unsigned long long)(0xFF) << (8 * (i - 8)))
 					)
 				);
-
-/* 				set_ptp_cpu_2_little_volt_1(
-		((unsigned long long)(det->volt_tbl[i]) << (8 * (i - 8))) |
-		(get_ptp_cpu_2_little_volt_1() & ~
-		((unsigned long long)(0xFF) << (8 * (i - 8)))
-					)
-				); */
 			}
 			break;
 #endif
@@ -2039,11 +1850,6 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 	/* label_comment */
 	unsigned long long temp_cur =
 		(unsigned long long)aee_rr_curr_ptp_temp();
-
-/* 	unsigned long long temp_cur =
-		(unsigned long long)get_ptp_temp(); */
-
-
 #endif
 #endif
 #if ENABLE_LOO
@@ -2080,11 +1886,6 @@ div_u64((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK0), 1000);
 		temp_long << (8 * EEM_CPU_2_LITTLE_IS_SET_VOLT) |
 			(temp_cur & ~(0xFF <<
 			(8 * EEM_CPU_2_LITTLE_IS_SET_VOLT))));
-
-/* 			set_ptp_temp(
-		temp_long << (8 * EEM_CPU_2_LITTLE_IS_SET_VOLT) |
-			(temp_cur & ~(0xFF <<
-			(8 * EEM_CPU_2_LITTLE_IS_SET_VOLT)))); */
 		}
 #endif
 		break;
@@ -2152,14 +1953,6 @@ div_u64((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK0), 1000);
 		((unsigned long long)(0xFF) << (8 * i))
 					)
 				);
-
-
-/* 				set_ptp_cpu_2_little_volt(
-		((unsigned long long)(det->volt_tbl[i]) << (8 * i)) |
-		(get_ptp_cpu_2_little_volt() & ~
-		((unsigned long long)(0xFF) << (8 * i))
-					)
-				); */
 			} else {
 
 /* label_comment */
@@ -2169,14 +1962,6 @@ div_u64((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK0), 1000);
 		((unsigned long long)(0xFF) << (8 * (i - 8)))
 					)
 				);
-
-
-/* 				set_ptp_cpu_2_little_volt_1(
-		((unsigned long long)(det->volt_tbl[i]) << (8 * (i - 8))) |
-		(get_ptp_cpu_2_little_volt_1() & ~
-		((unsigned long long)(0xFF) << (8 * (i - 8)))
-					)
-				); */
 			}
 			break;
 #endif
@@ -2571,10 +2356,6 @@ static int eem_probe(struct platform_device *pdev)
 	/* set EEM IRQ */
 
 	/* label_comment */
-
-	/* 	ret = request_irq(eem_irq_number, eem_isr, IRQF_TRIGGER_LOW, "eem",
-		NULL); */
-
 	ret = request_irq(eem_irq_number, eem_isr, IRQF_TRIGGER_HIGH, "eem",
 		NULL);
 
@@ -3265,13 +3046,6 @@ static int create_procfs(void)
 	struct proc_dir_entry *det_dir = NULL;
 	int i;
 	struct eem_det *det;
-
-
-
-/* 	struct pentry {
-		const char *name;
-		const struct file_operations *fops;// mt6768 fops to proc_ops
-	}; */
 
 /* label_new_start */
 	struct pentry {

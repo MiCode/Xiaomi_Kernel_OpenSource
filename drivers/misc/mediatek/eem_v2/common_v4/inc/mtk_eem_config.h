@@ -7,7 +7,7 @@
 
 /* CONFIG (SW related) */
 /* #define EEM_NOT_READY (1) *//* for bring up, remove for MP */
-#define CONFIG_EEM_SHOWLOG (1)
+#define CONFIG_EEM_SHOWLOG (0)
 #define EN_ISR_LOG (0)
 #define EEM_BANK_SOC (0) /* use voltage bin, so disable it */
 #define EARLY_PORTING (0) /* for detecting real vboot in eem_init01 */

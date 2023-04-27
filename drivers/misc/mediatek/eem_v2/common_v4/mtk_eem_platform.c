@@ -52,7 +52,7 @@ struct eem_det_ops cci_det_ops = {
 };
 
 
-#define GPU_SWITCH 0	//label_macro
+#define GPU_SWITCH 1	//label_macro
 
 /* import some functions about GPU */
 /* label_new_strat */
@@ -255,7 +255,7 @@ int get_volt_gpu(struct eem_det *det)
 #if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 	/* eem_debug("get_volt_gpu=%d\n",mt_gpufreq_get_cur_volt()); */
 #if GPU_SWITCH
-	return mt_gpufreq_get_cur_volt(); /* unit  mv * 100 = 10uv */
+	return gpufreq_get_cur_volt(TARGET_GPU); /* unit  mv * 100 = 10uv */
 
 #else
 #endif
@@ -344,8 +344,7 @@ void get_orig_volt_table_gpu(struct eem_det *det)
 	for (i = 0; i < det->num_freq_tbl; i++) {
 
 		/* label_comment */
-		/* volt = mt_gpufreq_get_volt_by_idx(i); */
-		volt = mt_gpufreq_get_volt_by_real_idx(i);
+		volt = mt_gpufreq_get_volt_by_idx(i);
 		det->volt_tbl_orig[i] = det->ops->volt_2_pmic(det, volt);
 
 	}
