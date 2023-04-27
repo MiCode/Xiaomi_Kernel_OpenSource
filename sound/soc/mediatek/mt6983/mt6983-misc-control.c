@@ -329,7 +329,20 @@ static int mt6983_usb_echo_ref_set(struct snd_kcontrol *kcontrol,
 	if (!dl_memif->substream) {
 		dev_warn(afe->dev, "%s(), dl_memif->substream == NULL\n",
 			 __func__);
-		return -EINVAL;
+
+		if (afe_priv->usb_call_echo_ref_reallocate) {
+			dev_info(afe->dev, "%s(), free area: %llx\n", __func__,
+				 dl_memif->dma_area);
+			/* free previous allocate */
+			dma_free_coherent(afe->dev,
+					  dl_memif->dma_bytes,
+					  dl_memif->dma_area,
+					  dl_memif->dma_addr);
+
+			afe_priv->usb_call_echo_ref_reallocate = false;
+			afe_priv->usb_call_echo_ref_enable = false;
+		}
+		return 0;
 	}
 
 	if (!ul_memif->substream) {
@@ -356,6 +369,9 @@ static int mt6983_usb_echo_ref_set(struct snd_kcontrol *kcontrol,
 			unsigned char *dma_area;
 
 			if (afe_priv->usb_call_echo_ref_reallocate) {
+				dev_info(afe->dev, "%s(), free area: %llx\n",
+					 __func__,
+					 dl_memif->dma_area);
 				/* free previous allocate */
 				dma_free_coherent(afe->dev,
 						  dl_memif->dma_bytes,
@@ -418,6 +434,8 @@ static int mt6983_usb_echo_ref_set(struct snd_kcontrol *kcontrol,
 		mtk_memif_set_disable(afe, ul_id);
 
 		if (afe_priv->usb_call_echo_ref_reallocate) {
+			dev_info(afe->dev, "%s(), free area: %llx\n", __func__,
+				 dl_memif->dma_area);
 			/* free previous allocate */
 			dma_free_coherent(afe->dev,
 					  dl_memif->dma_bytes,

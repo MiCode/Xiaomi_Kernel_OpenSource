@@ -302,7 +302,7 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	}
 MEM_ALLOCATE_DONE:
 	dev_info(afe->dev,
-		 "%s(), %s, use_adsp_share_mem %d, using_sram %d, use_dram_only %d, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx\n",
+		 "%s(), %s, use_adsp_share_mem %d, using_sram %d, use_dram_only %d, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %llx, dma_bytes 0x%zx\n",
 		 __func__, memif->data->name,
 		 memif->use_adsp_share_mem,
 		 memif->using_sram, memif->use_dram_only,
