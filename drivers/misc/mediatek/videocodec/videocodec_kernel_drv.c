@@ -631,7 +631,7 @@ static int vcodec_release(struct inode *inode, struct file *file)
 		mtk_vcodec_mem_release((struct mtk_vcodec_queue *)file->private_data);
 	pr_info("%s pid = %d, gDrvInitParams->drvOpenCount %d\n",
 			__func__, current->pid, gDrvInitParams->drvOpenCount);
-	if (atomic_dec_and_test(&gDrvInitParams->drvOpenCount) == 0) {
+	if (atomic_dec_and_test(&gDrvInitParams->drvOpenCount)) {
 		mutex_lock(&gDrvInitParams->hwLock);
 
 		vcodec_plat_release();
