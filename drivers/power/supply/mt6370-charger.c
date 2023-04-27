@@ -1412,10 +1412,9 @@ out:
 	return ret;
 }
 
-static int mt6370_get_cv(struct charger_device *chgdev, u32 *cv)
+static int __mt6370_get_cv(struct mt6370_priv *priv, u32 *cv)
 {
 	int ret = 0;
-	struct mt6370_priv *priv = charger_get_data(chgdev);
 	union power_supply_propval val;
 
 	ret = power_supply_get_property(priv->psy,
@@ -1429,13 +1428,20 @@ static int mt6370_get_cv(struct charger_device *chgdev, u32 *cv)
 	return ret;
 }
 
+static int mt6370_get_cv(struct charger_device *chgdev, u32 *cv)
+{
+	struct mt6370_priv *priv = charger_get_data(chgdev);
+
+	return __mt6370_get_cv(priv, cv);
+}
+
 static int __mt6370_set_cv(struct mt6370_priv *priv, u32 uV)
 {
 	int ret = 0, reg_val = 0;
 	u32 ori_cv;
 
 	/* Get the original cv to check if this step of setting cv is necessary */
-	ret = mt6370_get_cv(priv->chgdev, &ori_cv);
+	ret = __mt6370_get_cv(priv, &ori_cv);
 	if (ret)
 		return ret;
 
@@ -1475,12 +1481,9 @@ out:
 
 static int mt6370_set_cv(struct charger_device *chgdev, u32 uV)
 {
-	int ret = 0;
 	struct mt6370_priv *priv = charger_get_data(chgdev);
 
-	ret = __mt6370_set_cv(priv, uV);
-
-	return ret;
+	return __mt6370_set_cv(priv, uV);
 }
 
 static int mt6370_chg_get_property(struct power_supply *psy,
