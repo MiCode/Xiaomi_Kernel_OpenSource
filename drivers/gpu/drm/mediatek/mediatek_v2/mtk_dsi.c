@@ -5021,8 +5021,10 @@ static void mtk_dsi_config_trigger(struct mtk_ddp_comp *comp,
 			}
 		}
 
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);
+		//Do not set MMAPB_SLICE_EARLY_EN in mt6765
+		if (priv && priv->data && priv->data->mmsys_id != MMSYS_MT6765)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->mtk_crtc->config_regs_pa + 0xF0, 0x1, 0x1);
 
 		if ((update_x != 0) && (update_y != 0) && ext->params->set_area_before_trigger) {
 			pr_info("run update area!\n");
