@@ -360,6 +360,7 @@ void mtk_idle_post_process_by_chip(
 	/* setup vcore dvfs after idle scenario */
 	dvfsrc_md_scenario_update(0);
 
+	rcu_idle_exit();
 	/* print log */
 	wr = mtk_idle_log[idle_type](idle_type, &wakesta, op_cond, idle_flag);
 
@@ -369,6 +370,7 @@ void mtk_idle_post_process_by_chip(
 	/* unlock spm spin_lock */
 	spin_unlock_irqrestore(&__spm_lock, flags);
 
+	rcu_idle_enter();
 	/* [sleep dpidle only] */
 	if (op_cond & MTK_IDLE_OPT_SLEEP_DPIDLE) {
 		/* post watch dog config */

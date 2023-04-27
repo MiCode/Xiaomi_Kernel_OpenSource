@@ -213,6 +213,7 @@ void mtkTTimer_cancel_timer(void)
 {
 	int i;
 
+	rcu_idle_exit();
 	spin_lock(&tTimer_lock);
 	for (i = 0; i < tTimerArray.count; i++) {
 		mtkTTimer_dprintk("[%s] %s\n", __func__,
@@ -220,6 +221,7 @@ void mtkTTimer_cancel_timer(void)
 		tTimerArray.tFuncs[i].cancel_timer();
 	}
 	spin_unlock(&tTimer_lock);
+	rcu_idle_enter();
 }
 EXPORT_SYMBOL(mtkTTimer_cancel_timer);
 
@@ -227,6 +229,7 @@ void mtkTTimer_start_timer(void)
 {
 	int i;
 
+	rcu_idle_exit();
 	spin_lock(&tTimer_lock);
 	for (i = 0; i < tTimerArray.count; i++) {
 		mtkTTimer_dprintk("[%s] %s\n", __func__,
@@ -234,6 +237,7 @@ void mtkTTimer_start_timer(void)
 		tTimerArray.tFuncs[i].start_timer();
 	}
 	spin_unlock(&tTimer_lock);
+	rcu_idle_enter();
 }
 EXPORT_SYMBOL(mtkTTimer_start_timer);
 #if defined(LVTS_CPU_PM_NTFY_CALLBACK)
