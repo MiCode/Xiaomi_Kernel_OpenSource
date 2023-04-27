@@ -638,6 +638,10 @@ static int psy_chr_type_get_property(struct power_supply *psy,
 
 	pr_notice("%s: prop:%d\n", __func__, psp);
 	info = (struct mtk_charger_type *)power_supply_get_drvdata(psy);
+	if (info == NULL) {
+		pr_notice("%s: get info failed\n", __func__);
+		return -EINVAL;
+	}
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -680,6 +684,11 @@ int psy_chr_type_set_property(struct power_supply *psy,
 	pr_notice("%s: prop:%d %d\n", __func__, psp, val->intval);
 
 	info = (struct mtk_charger_type *)power_supply_get_drvdata(psy);
+	if (info == NULL) {
+		pr_notice("%s: get info failed\n", __func__);
+		return -EINVAL;
+	}
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (val->intval)
@@ -703,6 +712,11 @@ static int mt_ac_get_property(struct power_supply *psy,
 	struct mtk_charger_type *info;
 
 	info = (struct mtk_charger_type *)power_supply_get_drvdata(psy);
+	if (info == NULL) {
+		pr_notice("%s: get info failed\n", __func__);
+		return -EINVAL;
+	}
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = 0;
@@ -727,6 +741,10 @@ static int mt_usb_get_property(struct power_supply *psy,
 	struct mtk_charger_type *info;
 
 	info = (struct mtk_charger_type *)power_supply_get_drvdata(psy);
+	if (info == NULL) {
+		pr_notice("%s: get info failed\n", __func__);
+		return -EINVAL;
+	}
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
