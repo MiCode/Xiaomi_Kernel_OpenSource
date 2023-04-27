@@ -71,31 +71,6 @@ static bool mcdi_stress_en;
 static unsigned int mcdi_stress_us = 10 * 1000;
 static struct task_struct *mcdi_stress_tsk[NF_CPU];
 
-//int __attribute__((weak)) mtk_enter_idle_state(int mode)
-//{
-//	return 0;
-//}
-#if !IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6761)
-int __attribute__((weak)) soidle_enter(int cpu)
-{
-	return 1;
-}
-
-int __attribute__((weak)) dpidle_enter(int cpu)
-{
-	return 1;
-}
-
-int __attribute__((weak)) soidle3_enter(int cpu)
-{
-	return 1;
-}
-#endif
-unsigned long long __attribute__((weak)) idle_get_current_time_ms(void)
-{
-	return 0;
-}
-
 void __attribute__((weak)) aee_rr_rec_mcdi_val(int id, u32 val)
 {
 }
