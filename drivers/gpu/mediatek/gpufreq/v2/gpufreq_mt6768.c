@@ -2150,29 +2150,29 @@ static int __gpufreq_buck_control(enum gpufreq_power_state power)
 
 	/* power on */
 	if (power == POWER_ON) {
+		ret = regulator_enable(g_pmic->reg_vgpu);
+		if (unlikely(ret)) {
+			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to enable VGPU (%d)", ret);
+			goto done;
+		}
 		ret = regulator_enable(g_pmic->reg_vsram_gpu);
 		if (unlikely(ret)) {
 			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to enable VSRAM_GPU (%d)",
 			ret);
 			goto done;
 		}
-		ret = regulator_enable(g_pmic->reg_vgpu);
-		if (unlikely(ret)) {
-			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to enable VGPU (%d)", ret);
-			goto done;
-		}
 		g_gpu.buck_count++;
 	/* power off */
 	} else {
-		ret = regulator_disable(g_pmic->reg_vgpu);
-		if (unlikely(ret)) {
-			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to disable VGPU (%d)", ret);
-			goto done;
-		}
 		ret = regulator_disable(g_pmic->reg_vsram_gpu);
 		if (unlikely(ret)) {
 			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to disable VSRAM_GPU (%d)",
 			ret);
+			goto done;
+		}
+		ret = regulator_disable(g_pmic->reg_vgpu);
+		if (unlikely(ret)) {
+			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to disable VGPU (%d)", ret);
 			goto done;
 		}
 		g_gpu.buck_count--;
