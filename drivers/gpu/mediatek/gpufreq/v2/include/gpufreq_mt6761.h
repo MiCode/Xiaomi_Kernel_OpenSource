@@ -101,11 +101,10 @@
 /**************************************************
  * Power Throttling Setting
  **************************************************/
-//TODO:GKI
 //over current and lot battery disabled so OC freq / Low batt freq dont matter
-#define GPUFREQ_BATT_OC_ENABLE          (0)
-#define GPUFREQ_BATT_PERCENT_ENABLE     (0)
-#define GPUFREQ_LOW_BATT_ENABLE         (0)
+#define GPUFREQ_BATT_OC_ENABLE          (1)
+#define GPUFREQ_BATT_PERCENT_ENABLE     (1)
+#define GPUFREQ_LOW_BATT_ENABLE         (1)
 #define GPUFREQ_BATT_OC_FREQ            (485000)
 #define GPUFREQ_BATT_PERCENT_IDX        (0)
 #define GPUFREQ_LOW_BATT_FREQ           (485000)
