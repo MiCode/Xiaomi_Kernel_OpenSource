@@ -43,6 +43,9 @@ thermal_monitor-y += common/mtk_thermal_platform.o
 thermal_monitor-y += common/ap_thermal_limit.o
 thermal_monitor-y += common/mtk_thermal_timer.o
 thermal_monitor-y += mtk_cooler_shutdown.o
+ifneq ($(strip $(CONFIG_LEDS_MTK)),)
+thermal_monitor-y += mtk_cooler_backlight.o
+endif
 thermal_monitor-y += mtk_cooler_kshutdown.o
 thermal_monitor-y += mtk_cooler_cam.o
 

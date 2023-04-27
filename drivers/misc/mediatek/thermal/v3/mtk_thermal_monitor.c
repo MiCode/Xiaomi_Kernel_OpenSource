@@ -2090,6 +2090,9 @@ static int __init thermal_monitor_init(void)
 		mtkthermal_init();
 		mtk_thermal_platform_init();
 		mtk_cooler_shutdown_init();
+#if IS_ENABLED(CONFIG_LEDS_MTK)
+		mtk_cooler_backlight_init();
+#endif
 		mtk_cooler_kshutdown_init();
 		mtk_cooler_atm_init();
 		mtk_cooler_dtm_init();
@@ -2126,6 +2129,9 @@ static void __exit thermal_monitor_exit(void)
 	mtkthermal_exit();
 	mtk_thermal_platform_exit();
 	mtk_cooler_shutdown_exit();
+#if IS_ENABLED(CONFIG_LEDS_MTK)
+	mtk_cooler_backlight_exit();
+#endif
 	mtk_cooler_kshutdown_exit();
 	mtk_cooler_atm_exit();
 	mtk_cooler_dtm_exit();
