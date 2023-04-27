@@ -8,7 +8,6 @@
 
 #include <drm/drm.h>
 
-
 #define MTK_SUBMIT_NO_IMPLICIT   0x0 /* disable implicit sync */
 #define MTK_SUBMIT_IN_FENCE   0x1 /* enable input fence */
 #define MTK_SUBMIT_OUT_FENCE  0x2  /* enable output fence */
