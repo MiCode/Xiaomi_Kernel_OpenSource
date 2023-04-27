@@ -386,6 +386,7 @@ SWCQ_ERR_HANDLE:
 static int swcq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct swcq_host *swcq_host = mmc->cqe_private;
+	unsigned long flags;
 
 	if (mrq->data) {
 		if (mrq->tag >= mmc->cqe_qdepth) {
@@ -393,15 +394,15 @@ static int swcq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 				__func__, mmc->cqe_qdepth);
 			return -EBUSY;
 		}
-		spin_lock(&swcq_host->lock);
+		spin_lock_irqsave(&swcq_host->lock, flags);
 		swcq_host->pre_tsks |= (1 << mrq->tag);
 		swcq_host->mrq[mrq->tag] = mrq;
-		spin_unlock(&swcq_host->lock);
 		atomic_inc(&swcq_host->q_cnt);
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 		mmc_mtk_biolog_send_command(mrq->tag, mrq);
 		mmc_mtk_biolog_check(mmc, q_cnt(swcq_host));
 #endif
+		spin_unlock_irqrestore(&swcq_host->lock, flags);
 	} else {
 		dev_info(mmc_dev(mmc), "%s should not issue non-data req.", __func__);
 		WARN_ON(1);

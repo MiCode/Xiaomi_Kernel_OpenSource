@@ -3320,8 +3320,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		/* cqhci 16bit length */
 		/* 0 size, means 65536 so we don't have to -1 here */
 		mmc->max_seg_size = 64 * 1024;
-	}
 #endif
+	}
 #if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
 skip_hwcq:
 #endif
