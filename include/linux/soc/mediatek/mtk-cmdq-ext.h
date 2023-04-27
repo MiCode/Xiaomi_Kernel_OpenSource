@@ -304,6 +304,8 @@ s32 cmdq_pkt_readback(struct cmdq_pkt *pkt, enum CMDQ_VCP_ENG_ENUM engine,
 	struct cmdq_reuse *reuse,
 	struct cmdq_poll_reuse *poll_reuse);
 
+bool cmdq_pkt_is_exec(struct cmdq_pkt *pkt);
+
 void cmdq_mbox_pool_set_limit(struct cmdq_client *cl, u32 limit);
 void cmdq_mbox_pool_create(struct cmdq_client *cl);
 void cmdq_mbox_pool_clear(struct cmdq_client *cl);
