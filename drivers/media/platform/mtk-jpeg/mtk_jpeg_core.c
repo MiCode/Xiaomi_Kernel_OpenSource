@@ -653,6 +653,7 @@ static void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx)
 	u32 port_num = 0;
 	/* limiting FPS, Upper Bound FPS = 20 */
 	unsigned int target_fps = 30;
+	unsigned int cshot_spec = 0xffffffff;
 
 	/* Support QoS */
 	unsigned int emi_bw = 0;
@@ -664,8 +665,25 @@ static void mtk_jpeg_update_bw_request(struct mtk_jpeg_ctx *ctx)
 		pr_info("%s  port_num: %u\n", __func__, port_num);
 	if (port_num == 1) {
 		picSize = (ctx->out_q.pix_mp.width * ctx->out_q.pix_mp.height) / 1000000;
-		picSize = ((picSize * 3/2) * 8/5) + 1;
-		emi_bw = picSize * 20;
+		ret = of_property_read_u32(jpeg->dev->of_node, "cshot-spec", &cshot_spec);
+		if (ret >= 0)
+			pr_info("%s  cshot_spec ret: %d, cshot_spec : %d\n",
+		    __func__, ret, cshot_spec);
+		if (ctx->out_q.fmt->fourcc == V4L2_PIX_FMT_YUYV ||
+			ctx->out_q.fmt->fourcc == V4L2_PIX_FMT_YVYU)
+			picSize = ((picSize * 2) * 8/5) + 1;
+		else
+			picSize = ((picSize * 3/2) * 8/5) + 1;
+		if (cshot_spec == 232 || cshot_spec == 26) {
+			if ((picSize * 20) < cshot_spec) {
+				emi_bw = picSize * 20;
+			} else {
+				emi_bw = cshot_spec / picSize;
+				emi_bw = (emi_bw + 1) * picSize;
+			}
+		} else {
+			emi_bw = picSize * 20;
+		}
 		emi_bw = emi_bw * 4/3;
 		mtk_icc_set_bw(jpeg->path_bsdma, MBps_to_icc(emi_bw), MBps_to_icc(emi_bw));
 		pr_info("port_num == 1 Width %d Height %d emi_bw %d\n",
