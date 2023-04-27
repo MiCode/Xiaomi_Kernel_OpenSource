@@ -1015,12 +1015,15 @@ static int __maybe_unused aw36514_suspend(struct device *dev)
 
 static int __maybe_unused aw36514_resume(struct device *dev)
 {
-	struct i2c_client *client = to_i2c_client(dev);
-	struct aw36514_flash *flash = i2c_get_clientdata(client);
+	//struct i2c_client *client = to_i2c_client(dev);
+	//struct aw36514_flash *flash = i2c_get_clientdata(client);
+	//int rval = -EINVAL;
 
 	FLASH_AW36514_LOG("%s %d", __func__, __LINE__);
 
-	return aw36514_init(flash);
+
+	//return aw36514_init(flash);
+	return 0;
 }
 
 static const struct i2c_device_id aw36514_id_table[] = {
