@@ -130,12 +130,9 @@ struct g_clk_info {
 	struct clk *clk_mux;/* main clock for mfg setting*/
 	struct clk *clk_main_parent;/* sub clock for mfg trans mux setting*/
 	struct clk *clk_sub_parent; /* sub clock for mfg trans parent setting*/
-};
-
-struct gpufreq_mtcmos_info {
-	struct device *pd_mfg_async;
-	struct device *pd_mfg; /* dependent on pd_mfg_async */
-	struct device *pd_mfg_core0; /* dependent on pd_mfg */
+	struct clk *pd_mfg_async;
+	struct clk *pd_mfg; /* dependent on pd_mfg_async */
+	struct clk *pd_mfg_core0; /* dependent on pd_mfg */
 };
 
 struct g_pmic_info {
