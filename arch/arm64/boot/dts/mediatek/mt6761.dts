@@ -4108,7 +4108,7 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 		reg = <0 0x10200000 0 0x4000>;
 		reg-names = "cm_mgr_base";
 		interconnects =
-			<&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+			<&dvfsrc MT6873_MASTER_MCU_0 &dvfsrc MT6873_SLAVE_DDR_EMI>;
 		interconnect-names = "cm-perf-bw";
 		required-opps = <&dvfsrc_freq_opp0>,
 				<&dvfsrc_freq_opp1>,
@@ -4134,7 +4134,7 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 
 	fpsgo: fpsgo {
 		compatible = "mediatek,fpsgo";
-		interconnects = <&dvfsrc MT6873_MASTER_MCUSYS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+		interconnects = <&dvfsrc MT6873_MASTER_MCU_1 &dvfsrc MT6873_SLAVE_DDR_EMI>;
 		interconnect-names = "fpsgo-perf-bw";
 		required-opps = <&dvfsrc_freq_opp0>;
 
