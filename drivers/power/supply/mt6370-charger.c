@@ -94,6 +94,7 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6370_REG_CHGHIDDENCTRL8	0x137
 #define MT6370_REG_CHGHIDDENCTRL9	0x138
 #define MT6370_REG_CHGHIDDENCTRL15	0x13E
+#define MT6370_REG_CHGHIDDENCTRL22	0x145
 #define MT6370_REG_CHG_STAT		0x14A
 #define MT6370_REG_CHGNTC		0x14B
 #define MT6370_REG_ADCDATAH		0x14C
@@ -289,6 +290,7 @@ module_param(dbg_log_en, bool, 0644);
 #define MT6370_OTG_OC_MASK		GENMASK(2, 0)
 #define MT6370_OTG_PIN_EN_MASK		BIT(1)
 #define MT6370_OPA_MODE_MASK		BIT(0)
+#define MT6370_BATOVP_LVL_MASK		GENMASK(6, 5)
 
 
 #define MT6370_MIVR_IBUS_TH_100_mA	100
@@ -1376,6 +1378,111 @@ static int mt6370_chg_set_online(struct mt6370_priv *priv,
 	return 0;
 }
 
+static int mt6370_enable_hidden_mode(struct mt6370_priv *priv, bool en)
+{
+	int ret = 0;
+
+	mutex_lock(&priv->hidden_mode_lock);
+
+	if (en) {
+		if (priv->hidden_mode_cnt == 0) {
+			ret = regmap_bulk_write(priv->regmap,
+						mt6370_reg_en_hidden_mode[0],
+						mt6370_val_en_hidden_mode,
+						ARRAY_SIZE(mt6370_val_en_hidden_mode));
+			if (ret < 0)
+				goto err;
+		}
+		priv->hidden_mode_cnt++;
+	} else {
+		if (priv->hidden_mode_cnt == 1) /* last one */
+			ret = regmap_write(priv->regmap,
+					   mt6370_reg_en_hidden_mode[0], 0x00);
+		priv->hidden_mode_cnt--;
+		if (ret < 0)
+			goto err;
+	}
+	mt_dbg(priv->dev, "%s: en = %d\n", __func__, en);
+	goto out;
+
+err:
+	dev_info(priv->dev, "%s: en = %d fail(%d)\n", __func__, en, ret);
+out:
+	mutex_unlock(&priv->hidden_mode_lock);
+	return ret;
+}
+
+static int mt6370_get_cv(struct charger_device *chgdev, u32 *cv)
+{
+	int ret = 0;
+	struct mt6370_priv *priv = charger_get_data(chgdev);
+	union power_supply_propval val;
+
+	ret = power_supply_get_property(priv->psy,
+					POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
+					&val);
+	if (ret < 0)
+		return ret;
+
+	*cv = val.intval;
+
+	return ret;
+}
+
+static int __mt6370_set_cv(struct mt6370_priv *priv, u32 uV)
+{
+	int ret = 0, reg_val = 0;
+	u32 ori_cv;
+
+	/* Get the original cv to check if this step of setting cv is necessary */
+	ret = mt6370_get_cv(priv->chgdev, &ori_cv);
+	if (ret)
+		return ret;
+
+	if (ori_cv == uV)
+		return 0;
+
+	/* Enable hidden mode */
+	ret = mt6370_enable_hidden_mode(priv, true);
+	if (ret)
+		return ret;
+
+	/* Store BATOVP Level info */
+	ret = regmap_read(priv->regmap, MT6370_REG_CHGHIDDENCTRL22, &reg_val);
+	if (ret)
+		goto out;
+
+	/* Disable BATOVP */
+	ret = regmap_write(priv->regmap, MT6370_REG_CHGHIDDENCTRL22,
+			   reg_val | MT6370_BATOVP_LVL_MASK);
+	if (ret)
+		goto out;
+
+	/* Set CV */
+	ret = mt6370_chg_field_set(priv, F_VOREG, uV);
+	if (ret)
+		goto out;
+
+	/* Delay 5ms */
+	mdelay(5);
+
+	/* Enable BATOVP and restore BATOVP level */
+	ret = regmap_write(priv->regmap, MT6370_REG_CHGHIDDENCTRL22, reg_val);
+out:
+	/* Disable hidden mode */
+	return mt6370_enable_hidden_mode(priv, false);
+}
+
+static int mt6370_set_cv(struct charger_device *chgdev, u32 uV)
+{
+	int ret = 0;
+	struct mt6370_priv *priv = charger_get_data(chgdev);
+
+	ret = __mt6370_set_cv(priv, uV);
+
+	return ret;
+}
+
 static int mt6370_chg_get_property(struct power_supply *psy,
 				   enum power_supply_property psp,
 				   union power_supply_propval *val)
@@ -1434,7 +1541,7 @@ static int mt6370_chg_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
 		return mt6370_chg_field_set(priv, F_ICHG, val->intval);
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
-		return mt6370_chg_field_set(priv, F_VOREG, val->intval);
+		return __mt6370_set_cv(priv, val->intval);
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		return mt6370_chg_field_set(priv, F_IAICR, val->intval);
 	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT:
@@ -1827,40 +1934,6 @@ static int mt6370_enable_wdt(struct mt6370_priv *priv, bool en)
 	return ret;
 }
 
-static int mt6370_enable_hidden_mode(struct mt6370_priv *priv, bool en)
-{
-	int ret = 0;
-
-	mutex_lock(&priv->hidden_mode_lock);
-
-	if (en) {
-		if (priv->hidden_mode_cnt == 0) {
-			ret = regmap_bulk_write(priv->regmap,
-						mt6370_reg_en_hidden_mode[0],
-						mt6370_val_en_hidden_mode,
-						ARRAY_SIZE(mt6370_val_en_hidden_mode));
-			if (ret < 0)
-				goto err;
-		}
-		priv->hidden_mode_cnt++;
-	} else {
-		if (priv->hidden_mode_cnt == 1) /* last one */
-			ret = regmap_write(priv->regmap,
-					   mt6370_reg_en_hidden_mode[0], 0x00);
-		priv->hidden_mode_cnt--;
-		if (ret < 0)
-			goto err;
-	}
-	mt_dbg(priv->dev, "%s: en = %d\n", __func__, en);
-	goto out;
-
-err:
-	dev_err(priv->dev, "%s: en = %d fail(%d)\n", __func__, en, ret);
-out:
-	mutex_unlock(&priv->hidden_mode_lock);
-	return ret;
-}
-
 static inline int mt6370_ichg_workaround(struct mt6370_priv *priv, u32 uA)
 {
 	int ret = 0;
@@ -2047,46 +2120,6 @@ out:
 	if (ret >= 0)
 		priv->mivr = uV;
 	mutex_unlock(&priv->pp_lock);
-	return ret;
-}
-
-static int __mt6370_set_cv(struct mt6370_priv *priv, u32 uV)
-{
-	int ret = 0;
-	union power_supply_propval val;
-
-	val.intval = uV;
-	ret = power_supply_set_property(priv->psy,
-					POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
-					&val);
-
-	return ret;
-}
-
-static int mt6370_get_cv(struct charger_device *chgdev, u32 *cv)
-{
-	int ret = 0;
-	struct mt6370_priv *priv = charger_get_data(chgdev);
-	union power_supply_propval val;
-
-	ret = power_supply_get_property(priv->psy,
-					POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
-					&val);
-	if (ret < 0)
-		return ret;
-
-	*cv = val.intval;
-
-	return ret;
-}
-
-static int mt6370_set_cv(struct charger_device *chgdev, u32 uV)
-{
-	int ret = 0;
-	struct mt6370_priv *priv = charger_get_data(chgdev);
-
-	ret = __mt6370_set_cv(priv, uV);
-
 	return ret;
 }
 
