@@ -1946,8 +1946,10 @@ static ssize_t spmi_access_store(struct device_driver *ddri,
 		}
 
 		ret = sscanf(buf, "0x%x 0x%x", &offset, &value);
-		if (ret < 0)
+		if (((offset % 4) != 0) || (ret != 2)) {
+			pr_notice("%s() Invalid input!!\n", __func__);
 			return ret;
+		}
 
 		if (value) {
 			if (offset > arb->spmimst_regs[SPMI_MST_DBG]) {
