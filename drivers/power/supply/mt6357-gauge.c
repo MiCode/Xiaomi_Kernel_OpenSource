@@ -905,6 +905,8 @@ static int average_current_get(struct mtk_gauge *gauge_dev,
 	struct mtk_gauge_sysfs_field_info *attr, int *data)
 {
 
+	*data = instant_current(gauge_dev);
+
 	return 0;
 }
 
