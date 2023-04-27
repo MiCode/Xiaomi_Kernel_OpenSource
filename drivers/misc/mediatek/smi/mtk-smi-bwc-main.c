@@ -160,6 +160,51 @@ static struct smi_bwc_info bwc_info_mt6739 = {
 };
 // end bwc config for mt6739
 
+// begin bwc config for mt6765
+u8 mtk_smi_larb_mt6765_bwl[MAX_SMI_SCEN_NUM][MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_MAX] = {
+	{
+	{0x1f, 0x1f, 0x1f, 0x7, 0x7, 0x4, 0x4, 0x1f},                     /* LARB0 */
+	{0x3, 0x1, 0x1, 0x1, 0x1, 0x5, 0x3, 0x1, 0x1, 0x1, 0x6},          /* LARB1 */
+	{0xc, 0x1, 0x4, 0x4, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1},     /* LARB2 */
+	{0x16, 0x14, 0x2, 0x2, 0x2, 0x2, 0x4, 0x2, 0x2, 0x2, 0x2, 0x2, 0x4, 0x4, 0x4,
+	 0x2, 0x2, 0x2, 0x2, 0x2, 0x2},                                   /* LARB3 */
+	},       // init, vpwfd, vr4k smi_larb<X>_init_pair()
+	{
+	{0x1f, 0x1f, 0x1f, 0x7, 0x7, 0x1, 0xb, 0x1f},                    /* LARB0 */
+	{0x3, 0x1, 0x1, 0x1, 0x1, 0x5, 0x3, 0x1, 0x1, 0x1, 0x6},         /* LARB1 */
+	{0x6, 0x1, 0x2, 0x3, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1},    /* LARB2 */
+	{0x14, 0x6, 0x2, 0x2, 0x2, 0x2, 0x4, 0x2, 0x2, 0x2, 0x2, 0x2, 0x4, 0x4, 0x4,
+	 0x2, 0x2, 0x2, 0x2, 0x2, 0x2},                                  /* LARB3 */
+	},      // icfp smi_larb<X>_icfp_pair()
+};
+
+//From smi_comm_init_pair() & smi_comm_icfp_pair()
+static u16 mtk_smi_common_mt6765_bwl[MAX_SMI_SCEN_NUM][SMI_COMMON_LARB_NR_MAX] = {
+	{0x1ba5, 0x1000, 0x15d3, 0x1000, 0x0, 0x0, 0x0, 0x0}, // init, vpwfd, vr4k
+	{0x1327, 0x119e, 0x1241, 0x12e6, 0x0, 0x0, 0x0, 0x0}, // icfp
+};
+
+static struct mtk_smi_reg_pair
+mtk_smi_common_mt6765_misc[MAX_SMI_SCEN_NUM][SMI_COMMON_MISC_NR] = {
+	{{SMI_BUS_SEL, 0x4},},	// init, vpwfd, vr4k smi_comm_init_pair()
+	{{SMI_BUS_SEL, 0x44},},	// icfp smi_comm_icfp_pair()
+};
+
+static u32 mtk_smi_mt6765_scen_map[SMI_BWC_SCEN_CNT] = {
+	0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0,
+	1, 1, 1, 0
+};
+
+static struct smi_bwc_info bwc_info_mt6765 = {
+	.scen_map = (u32 *)mtk_smi_mt6765_scen_map,
+	.larb_bwl = (u8 *)mtk_smi_larb_mt6765_bwl,
+	.comm_bwl = (u16 *)mtk_smi_common_mt6765_bwl,
+	.comm_misc = (struct mtk_smi_reg_pair *)mtk_smi_common_mt6765_misc,
+};
+// end bwc config for mt6765
+
 static const struct of_device_id of_smi_bwc_match_tbl[] = {
 	{
 		.compatible = "mediatek,mt6768-smi-bwc",
@@ -172,6 +217,10 @@ static const struct of_device_id of_smi_bwc_match_tbl[] = {
 	{
 		.compatible = "mediatek,mt6739-smi-bwc",
 		.data = &bwc_info_mt6739,
+	},
+	{
+		.compatible = "mediatek,mt6765-smi-bwc",
+		.data = &bwc_info_mt6765,
 	},
 	{}
 };
@@ -721,7 +770,6 @@ static int smi_bwc_probe(struct platform_device *pdev)
 	if (!dev_info)
 		return -ENOMEM;
 	g_dev_info = dev_info;
-
 	g_bwc_info =
 		(struct smi_bwc_info *)of_device_get_match_data(&pdev->dev);
 	dev_no = MKDEV(MTK_SMI_MAJOR_NUMBER, 0);
@@ -748,7 +796,7 @@ static int smi_bwc_probe(struct platform_device *pdev)
 	smi_drv.scen = SMI_BWC_SCEN_NORMAL;
 	memset(&smi_drv.table, 0, sizeof(smi_drv.table));
 	smi_drv.table[smi_drv.scen] += 1;
-
+	SMIDBG("%s done!!\n", __func__);
 	return ret;
 }
 
