@@ -1145,6 +1145,9 @@ void dmabuf_release_check(const struct dma_buf *dmabuf)
 }
 EXPORT_SYMBOL_GPL(dmabuf_release_check);
 
+hang_dump_cb hang_dump_proc;
+EXPORT_SYMBOL_GPL(hang_dump_proc);
+
 module_init(system_heap_create);
 MODULE_LICENSE("GPL v2");
 
