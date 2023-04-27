@@ -156,6 +156,7 @@ u64 idle_get_current_time_ms(void)
 	do_div(idle_current_time, 1000000);
 	return idle_current_time;
 }
+EXPORT_SYMBOL(idle_get_current_time_ms);
 
 struct mtk_idle_twam *mtk_idle_get_twam(void)
 {

@@ -61,6 +61,7 @@ mcdi-y += platform/mtk_mcdi_state.o
 
 else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6739)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcdi/platform_v0/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/spm/common/
 mcdi-y += platform_v0/mtk_mcdi_plat.o
 mcdi-y += platform_v0/mtk_mcdi_state.o
 endif

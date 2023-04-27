@@ -21,18 +21,20 @@
 #include <sched/sched.h>
 #include <mtk_cpuidle.h>
 #include <mtk_idle.h>
-#include <mtk_idle_profile.h>
-#include <mtk_idle_internal.h>
 #include <mtk_mcdi.h>
 #include <mtk_mcdi_governor.h>
-#include <mtk_mcdi_profile.h>
 #include <mtk_mcdi_util.h>
 #include <mtk_mcdi_cpc.h>
+#include <mtk_mcdi_profile.h>
+
 
 #include <mtk_mcdi_plat.h>
 #include <mtk_mcdi_reg.h>
 #include <mtk_mcdi_state.h>
 #include <mtk_mcdi_api.h>
+
+#include <mtk_idle_profile.h>
+#include <mtk_idle_internal.h>
 
 #include <mtk_mcdi_governor_hint.h>
 

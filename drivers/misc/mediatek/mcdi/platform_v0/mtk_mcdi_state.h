@@ -26,5 +26,7 @@ enum mcdi_s_state {
 
 int mcdi_get_mcdi_idle_state(int idx);
 struct cpuidle_driver *mcdi_state_tbl_get(int cpu);
+extern void mcdi_set_state_lat(int cpu_type, int state, unsigned int val);
+extern void mcdi_set_state_res(int cpu_type, int state, unsigned int val);
 
 #endif /* __MCDI_STATE_H__ */
