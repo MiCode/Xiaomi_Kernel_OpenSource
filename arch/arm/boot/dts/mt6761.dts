@@ -2799,6 +2799,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 			reg = <0 0x11cc0800 0 0x100>;
 			clocks = <&clk26m>;
 			clock-names = "ref";
+			mediatek,usb-special-phy-settings;
 			#phy-cells = <1>;
 			nvmem-cells = <&u2_phy_data>;
 			nvmem-cell-names = "intr_cal";
