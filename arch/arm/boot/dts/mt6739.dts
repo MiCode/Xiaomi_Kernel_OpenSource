@@ -2568,9 +2568,9 @@ initcall_debug=1 clk_ignore_unused=1";
 		clock-names = "clk_mux",
 						"clk_sub_parent",
 						"clk_main_parent";
-		nvmem-cells = <&efuse_segment>;
-		nvmem-cell-names = "efuse_segment_cell";
-		dvfsrc-vcore-supply = <&mt_pmic_vcore_buck_reg>;
+		nvmem-cells = <&efuse_segment &efuse_turbo>;
+		nvmem-cell-names = "efuse_segment_cell", "efuse_turbo_cell";
+		vcore-supply = <&mt_pmic_vcore_buck_reg>;
 	};
 
 	gpufreq_wrapper: gpufreq_wrapper {
