@@ -1806,7 +1806,7 @@ static const struct mtk_smi_larb_gen mtk_smi_larb_mt6768 = {
 
 /*TODO complete settings including golden setting*/
 static const struct mtk_smi_larb_gen mtk_smi_larb_mt6765 = {
-	.port_in_larb_gen2 = {8, 9, 12, 21, 11,},
+	.port_in_larb_gen2 = {8, 11, 12, 21,},
 	.config_port                = mtk_smi_larb_config_port_gen2_general,
 	.larb_direct_to_common_mask = 0,
 				      /*skip larb: none TODO*/
