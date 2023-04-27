@@ -1409,9 +1409,12 @@
 				nvmem-cell-names = "intr_cal", "term_cal";
 				nvmem-cell-masks = <0x3f 0xf00>;
 				mediatek,efuse-intr = <0x26>;
-				mediatek,eye-vrt = <2>;
-				mediatek,eye-vrt-host = <2>;
-				mediatek,discth= <0xb>;
+				mediatek,eye-vrt = <7>;
+				mediatek,eye-term = <7>;
+				mediatek,discth = <0x9>;
+				mediatek,eye-src = <6>;
+				mediatek,rev6 = <1>;
+				mediatek,eye-vrt-host = <7>;
 				mediatek,lpm-parameter = <0x19 0x1e 0x1e>;
 			};
 
@@ -1439,13 +1442,15 @@
 				nvmem-cell-names = "intr_cal", "term_cal";
 				nvmem-cell-masks = <0x1f8000 0x7800000>;
 				mediatek,efuse-intr = <0x26>;
-				mediatek,eye-vrt = <2>;
-				mediatek,eye-vrt-host = <2>;
-				mediatek,discth= <0xb>;
+				mediatek,eye-vrt = <7>;
+				mediatek,eye-term = <7>;
+				mediatek,discth = <0xd>;
+				mediatek,eye-src = <7>;
+				mediatek,rev6 = <3>;
+				mediatek,eye-vrt-host = <7>;
 				mediatek,lpm-parameter = <0x19 0x1e 0x1e>;
 			};
 		};
-
 		u3fpgaphy: usb-phy {
 			compatible = "mediatek,fpga-u3phy";
 			mediatek,ippc = <0x11203e00>;
