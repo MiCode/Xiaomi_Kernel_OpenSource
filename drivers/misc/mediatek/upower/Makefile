@@ -39,6 +39,7 @@ Upower-y += mtk_unified_power_api.o
 ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6768)),)
 Upower-y += mtk_unified_power_plat.o
 else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6765)),)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cpufreq_v2/src/common_v2/
 Upower-y += mtk_unified_power_plat_6765.o
 else ifneq ($(strip $(CONFIG_MTK_PLAT_POWER_MT6833)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cpufreq_v2/src/common_v3/
