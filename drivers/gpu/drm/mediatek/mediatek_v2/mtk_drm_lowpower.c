@@ -88,7 +88,8 @@ static int32_t _acquire_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
 
 	DDPMSG("%s +\n", __func__);
 	is_wrot_sram_available = 1;
-	if (!share_sram_crtc || !share_sram_crtc->enabled) {
+	if (!share_sram_crtc || !share_sram_crtc->enabled
+		|| !(share_sram_crtc->state->active)) {
 		DDPMSG("%s share_sram_crtc is NULL or not enable\n", __func__);
 		return -EINVAL;
 	}
@@ -128,7 +129,8 @@ static int32_t _release_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
 
 	DDPMSG("%s +\n", __func__);
 	is_wrot_sram_available = 0;
-	if (!share_sram_crtc || !share_sram_crtc->enabled) {
+	if (!share_sram_crtc || !share_sram_crtc->enabled
+		|| !(share_sram_crtc->state->active)) {
 		DDPMSG("%s share_sram_crtc is NULL or not enable\n", __func__);
 		return -1;
 	}

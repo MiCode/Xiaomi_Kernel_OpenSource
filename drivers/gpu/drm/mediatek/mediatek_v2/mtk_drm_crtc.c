@@ -6674,11 +6674,6 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd)
 	if (!crtc_id)
 		mtk_crtc->qos_ctx->last_hrt_req = 0;
 
-#ifdef SHARE_WROT_SRAM
-	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SHARE_SRAM))
-		mtk_drm_enter_share_sram(crtc, false);
-#endif
-
 	/* 6. config ddp engine */
 	mtk_crtc_config_default_path(mtk_crtc);
 	CRTC_MMP_MARK(crtc_id, enable, 1, 3);
@@ -6715,6 +6710,11 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd)
 	/* 15. alloc sram if last is MML */
 	if (mtk_crtc->is_mml)
 		mtk_crtc_alloc_sram(mtk_crtc, mtk_state->prop_val[CRTC_PROP_LYE_IDX]);
+
+#ifdef SHARE_WROT_SRAM
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SHARE_SRAM))
+		mtk_drm_enter_share_sram(crtc, false);
+#endif
 end:
 	CRTC_MMP_EVENT_END(crtc_id, enable,
 			mtk_crtc->enabled, 0);
