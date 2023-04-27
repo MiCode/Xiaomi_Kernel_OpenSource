@@ -222,3 +222,29 @@ int mt_cpufreq_get_sched_enable(void)
 {
 	return sched_dvfs_enable;
 }
+#if !IS_ENABLED(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
+void *get_mcupm_ipidev(void)
+{
+	return NULL;
+}
+EXPORT_SYMBOL(get_mcupm_ipidev);
+#endif
+
+#if !IS_ENABLED(CONFIG_MTK_IPI)
+typedef int (*mbox_pin_cb_t)(unsigned int ipi_id, void *prdata, void *data, unsigned int len);
+
+int mtk_ipi_register(void *ipidev, int ipi_id,
+		mbox_pin_cb_t cb, void *prdata, void *msg)
+{
+	return 0;
+}
+EXPORT_SYMBOL(mtk_ipi_register);
+
+int mtk_ipi_send_compl(void *ipidev, int ipi_id,
+		int opt, void *data, int len, unsigned long timeout)
+{
+	return 0;
+}
+EXPORT_SYMBOL(mtk_ipi_send_compl);
+
+#endif
