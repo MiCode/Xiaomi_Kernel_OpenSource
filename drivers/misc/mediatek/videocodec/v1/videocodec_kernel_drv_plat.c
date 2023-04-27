@@ -1552,10 +1552,10 @@ void vcodec_plat_release(void)
 {
 	/* check if someone didn't unlockHW */
 	if (CodecHWLock.pvHandle != 0) {
-		pr_info("err %s %d, type = %d, 0x%lx\n",
+		pr_info("err %s %d, type = %d, 0x%lx, gDrvInitParams->drvOpenCount = %d\n",
 			__func__, current->pid,
 			CodecHWLock.eDriverType,
-			(unsigned long)CodecHWLock.pvHandle);
+			(unsigned long)CodecHWLock.pvHandle, gDrvInitParams->drvOpenCount);
 		pr_info("err VCODEC_SEL 0x%x\n",
 			VDO_HW_READ(KVA_VDEC_GCON_BASE + 0x20));
 
