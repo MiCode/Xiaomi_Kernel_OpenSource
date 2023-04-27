@@ -465,6 +465,10 @@ int mtk_drm_ioctl_bypass_disp_gamma(struct drm_device *dev, void *data,
 static void disp_gamma_wait_sof_irq(void)
 {
 	int ret = 0;
+	int sram_config_sel;
+	int sram_out_sel;
+	int sram_config;
+	struct mtk_ddp_comp *comp_gamma = default_comp;
 
 	if (atomic_read(&g_gamma_sof_irq_available) == 0) {
 		DDPINFO("wait_event_interruptible\n");
@@ -474,6 +478,24 @@ static void disp_gamma_wait_sof_irq(void)
 		DDPINFO("sof_irq_available = 1, waken up, ret = %d", ret);
 	} else {
 		DDPINFO("sof_irq_available = 0");
+		return;
+	}
+
+	if (default_comp->mtk_crtc->is_dual_pipe) {
+		struct mtk_drm_crtc *mtk_crtc = default_comp->mtk_crtc;
+		struct drm_crtc *crtc = &mtk_crtc->base;
+		struct mtk_drm_private *priv = crtc->dev->dev_private;
+
+		comp_gamma = priv->ddp_comp[DDP_COMPONENT_GAMMA1];
+	}
+	sram_config = readl(comp_gamma->regs + DISP_GAMMA_SHADOW_SRAM);
+	sram_config_sel = (sram_config & 0x2) >> 1;
+	sram_out_sel = sram_config & 0x1;
+
+	if (sram_config_sel != sram_out_sel) {
+		DDPPR_ERR("%s: g_gamma_sram_status is error\n", __func__);
+		mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+		CRTC_MMP_MARK(0, gamma_sof, 0, 1);
 		return;
 	}
 
