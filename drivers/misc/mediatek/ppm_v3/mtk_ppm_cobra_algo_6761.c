@@ -354,7 +354,7 @@ void ppm_cobra_init(void)
 	struct ppm_cobra_data *p = &cobra_tbl;
 	int i, j;
 
-#if IS_ENABLED(CONFIG_MTK_UNIFY_POWER)
+#if IS_ENABLED(CONFIG_MTK_UNIFIED_POWER)
 	{
 		unsigned int core, dyn, lkg, dyn_c, lkg_c, cap;
 

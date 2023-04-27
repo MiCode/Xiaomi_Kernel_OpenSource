@@ -18,6 +18,10 @@
 #include <linux/sched.h>
 #include <linux/types.h>
 
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/nvmem-consumer.h>
+#include <linux/of_platform.h>
 /* local include */
 //#include "mtk_cpufreq_api.h"
 #include "mtk_unified_power.h"
@@ -64,6 +68,57 @@ int degree_set[NR_UPOWER_DEGREE] = {
 		UPOWER_DEGREE_4,
 		UPOWER_DEGREE_5,
 };
+
+static unsigned int _mt_cpufreq_get_cpu_level(void)
+{
+	unsigned int lv = 0;
+	unsigned int efuse_seg;
+	struct platform_device *pdev;
+	struct device_node *node;
+	struct nvmem_cell *efuse_cell;
+	size_t efuse_len;
+	unsigned int *efuse_buf;
+
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6761-dvfsp");
+
+	if (!node) {
+		pr_info("%s fail to get device node\n", __func__);
+		return 0;
+	}
+	pdev = of_device_alloc(node, NULL, NULL);
+	if (!pdev) {
+		pr_info("%s fail to create device node\n", __func__);
+		return 0;
+	}
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		pr_info("@%s: cannot get efuse_cell\n", __func__);
+		return PTR_ERR(efuse_cell);
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	efuse_seg = *efuse_buf;
+	kfree(efuse_buf);
+
+
+#if IS_ENABLED(CONFIG_MTK_LP_OPP)
+		lv = 0;
+#endif
+
+	if ((efuse_seg == 0x10) || (efuse_seg == 0x11) || (efuse_seg == 0x90)
+			|| (efuse_seg == 0x91))
+		lv = 3;
+
+	/* free pdev */
+	if (pdev != NULL) {
+		of_platform_device_destroy(&pdev->dev, NULL);
+		put_device(&pdev->dev);
+	}
+
+	return lv;
+}
 
 /* collect all the raw tables */
 #define INIT_UPOWER_TBL_INFOS(name, tbl) {__stringify(name), &tbl}
@@ -162,7 +217,7 @@ void get_original_table(void)
 	unsigned short idx = 0; /* default use FY table */
 	unsigned int i, j;
 
-	//idx = mt_cpufreq_get_cpu_level();
+	idx = _mt_cpufreq_get_cpu_level();
 	upower_debug("idx = %d", idx);
 	/* get location of reference table */
 	if (idx >= NR_UPOWER_TBL_LIST)

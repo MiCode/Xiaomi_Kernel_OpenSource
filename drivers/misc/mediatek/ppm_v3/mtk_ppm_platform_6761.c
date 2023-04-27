@@ -275,7 +275,7 @@ unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
 
 		if (core != 0 && opp >= 0 && opp < DVFS_OPP_NUM) {
 			now = ktime_get();
-#if IS_ENABLED(CONFIG_MTK_UNIFY_POWER)
+#if IS_ENABLED(CONFIG_MTK_UNIFIED_POWER)
 			dynamic = upower_get_power(i, opp, UPOWER_DYN) / 1000;
 			lkg = mt_ppm_get_leakage_mw((enum ppm_cluster_lkg)i);
 			total = ((((dynamic * 100 + (percentage - 1))
