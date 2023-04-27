@@ -54,6 +54,14 @@ s free_iova_fast
 s free_global_cached_iovas
 s free_cpu_cached_iovas
 s __free_iova
+s mem_cgroup_swappiness_write
+s swpinout_threshold
+s scan_anon_priority
+s __param_threshold
+s __param_str_threshold
+s __param_str_scan_anon_prio
+s __param_scan_anon_prio
+s shrink_lruvec
 c CONFIG_CFG80211_DEFAULT_PS
 c CONFIG_UFSTW_BOOT_ENABLED
 c CONFIG_UFSTW_IGNORE_GUARANTEE_BIT
