@@ -860,6 +860,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
 				local-timer-stop;
+				status = "ok";
 			};
 
 			SODI3: sodi3 {
@@ -868,6 +869,8 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 				entry-latency-us = <3000000000>;
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
+				local-timer-stop;
+				status = "ok";
 			};
 
 			DPIDLE: dpidle {
@@ -877,6 +880,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 				exit-latency-us = <1000>;
 				min-residency-us = <2000>;
 				local-timer-stop;
+				status = "ok";
 			};
 
 			SUSPEND: suspend {
