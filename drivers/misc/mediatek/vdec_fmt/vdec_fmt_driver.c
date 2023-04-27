@@ -174,6 +174,13 @@ static void fmt_active_resource_time_check(struct work_struct *work)
 			if (fmt->gce_task[i].used == 1 && fmt->gce_task[i].pkt_ptr != NULL) {
 				fmt_debug(0, "clear active taskid %d pkt_ptr %p",
 					i, fmt->gce_task[i].pkt_ptr);
+					if (cmdq_pkt_is_exec(fmt->gce_task[i].pkt_ptr)) {
+						fmt_debug(0, "pkt is executing taskid %d pkt_ptr %p",
+						i, fmt->gce_task[i].pkt_ptr);
+						ktime_get_real_ts64(&fmt->fmt_active_time);
+						mutex_unlock(&fmt->mux_active_time);
+						return;
+					}
 				cmdq_pkt_destroy(fmt->gce_task[i].pkt_ptr);
 				fmt->gce_task[i].used = 0;
 				fmt->gce_task[i].pkt_ptr = NULL;
