@@ -3183,7 +3183,7 @@ static u32 uwk_vers;
 enum musb_uwk_vers {
 	MUSB_UWK_V1 = 1,  /* MT6855 */
 	MUSB_UWK_V2,      /* MT6789 */
-	MUSB_UWK_V3,      /* MT6768 */
+	MUSB_UWK_V3,      /* MT6768, MT6761*/
 	MUSB_UWK_V4,      /* MT6765 */
 };
 
@@ -3352,7 +3352,8 @@ static int mt_usb_wakeup_init(struct musb *musb)
 			uwk_vers = 1;
 		else if (of_device_is_compatible(node, "mediatek,mt6789-usb20"))
 			uwk_vers = 2;
-		else if (of_device_is_compatible(node, "mediatek,mt6768-usb20"))
+		else if (of_device_is_compatible(node, "mediatek,mt6768-usb20") ||
+				of_device_is_compatible(node, "mediatek,mt6761-usb20"))
 			uwk_vers = 3;
 		else if (of_device_is_compatible(node, "mediatek,mt6765-usb20"))
 			uwk_vers = 4;
