@@ -19,4 +19,9 @@ ccflags-y += -DSMI_MER
 ccflags-y += -DMMDVFS_HOOK
 ccflags-y += -DMMDVFS_QOS_SUPPORT
 mtk-smi-bwc-objs += mmdvfs_mgr_v3.o mmdvfs_profile_adaptor.o mmdvfs_mgr_util.o
+else ifneq ($(filter y m,$(CONFIG_MTK_SMI_BWC_MT6765)),)
+ccflags-y += -DSMI_CER
+ccflags-y += -DMMDVFS_HOOK
+ccflags-y += -DMMDVFS_QOS_SUPPORT
+mtk-smi-bwc-objs += mmdvfs_mgr_v3.o mmdvfs_profile_adaptor.o mmdvfs_mgr_util.o
 endif

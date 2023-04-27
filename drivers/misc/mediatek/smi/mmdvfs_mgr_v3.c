@@ -885,6 +885,8 @@ void mmdvfs_init(void)
 		g_mmdvfs_mgr->is_mmdvfs_start = 1;
 	if (mmdvfs_get_mmdvfs_profile() == MMDVFS_PROFILE_CAN)
 		g_mmdvfs_mgr->is_mmdvfs_start = 1;
+	if (mmdvfs_get_mmdvfs_profile() == MMDVFS_PROFILE_CER)
+		g_mmdvfs_mgr->is_mmdvfs_start = 1;
 }
 
 /* To be implemented */
@@ -1241,6 +1243,8 @@ int mmdvfs_get_mmdvfs_profile(void)
 	mmdvfs_profile_id = MMDVFS_PROFILE_SYL;
 #elif defined(SMI_CAN)
 	mmdvfs_profile_id = MMDVFS_PROFILE_CAN;
+#elif defined(SMI_CER)
+	mmdvfs_profile_id = MMDVFS_PROFILE_CER;
 #endif
 
 	MMDVFSDEBUG(4, "Segment_code=%d,mmdvfs_profile_id=%d\n", segment_code,

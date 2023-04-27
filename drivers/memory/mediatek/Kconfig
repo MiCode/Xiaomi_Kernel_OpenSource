@@ -27,6 +27,15 @@ config MTK_SMI_BWC_MT6739
 	  camera and video middlewares on some legacy chips.
 	  This config enables BWC functions.
 
+config MTK_SMI_BWC_MT6765
+	tristate "MediaTek BWC driver for MT6765"
+	help
+	  BWC is mainly to optimize the bus access latency based on
+	  multimedia scenarios.
+	  It is required for many MTK multimedia middlewares including
+	  camera and video middlewares on some legacy chips.
+	  This config enables BWC functions.
+
 config HAVE_MTK_MC
 	bool "MediaTek Memory Controller support"
 	help
