@@ -13,9 +13,6 @@
 
 obj-$(CONFIG_MTK_JPEG) += jpeg-driver.o
 
-jpeg-driver-$(CONFIG_MTK_JPEG) += jpeg_drv_enc.o \
-				jpeg_drv.o \
-				jpeg_dma_buf.o
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect \
-             -I$(srctree)/drivers/misc/mediatek/jpeg
-
+jpeg-driver-$(CONFIG_MTK_JPEG) += jpeg_drv.o \
+				jpeg_dma_buf.o \
+# EOF
