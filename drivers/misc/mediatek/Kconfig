@@ -310,7 +310,6 @@ config MTK_ENABLE_GMO
 
 config MTK_ENABLE_AGO
 	bool "Enable/Disable A-Go related feautre"
-	select ZRAM
 	select CRYPTO_LZ4
 	select DM_VERITY
 	select DM_ANDROID_VERITY_AT_MOST_ONCE_DEFAULT_ENABLED
