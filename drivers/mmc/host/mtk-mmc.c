@@ -2742,27 +2742,27 @@ static void msdc_hs400_enhanced_strobe(struct mmc_host *mmc,
 
 /* SiP commands */
 #define MTK_SIP_MMC_CONTROL	MTK_SIP_SMC_CMD(0x273)
+#define MMC_MTK_ATF_VERSION	1
+#define MMC_MTK_TFA_VERSION	2
 #define MMC_MTK_ATF_SIP_CRYPTO_CTRL	BIT(0)
 #define MMC_MTK_TFA_SIP_CRYPTO_CTRL	BIT(1)
-
-/* SMC call wapper function */
-#define mmc_mtk_crypto_ctrl(sip_cmd, smcc_res) \
-	arm_smccc_smc(MTK_SIP_MMC_CONTROL, \
-		sip_cmd, 0, 0, 0, 0, 0, 0, &smcc_res)
 
 static void mmc_mtk_crypto_enable(struct mmc_host *mmc)
 {
 	struct arm_smccc_res res = {0};
 	struct msdc_host *host = mmc_priv(mmc);
-	int sip_cmd = MMC_MTK_TFA_SIP_CRYPTO_CTRL;
 
-	if (host->tf_ver == 1)
-		sip_cmd = MMC_MTK_ATF_SIP_CRYPTO_CTRL;
+	if (host->tf_ver == MMC_MTK_ATF_VERSION)
+		arm_smccc_smc(MTK_SIP_MMC_CONTROL, MMC_MTK_ATF_SIP_CRYPTO_CTRL,
+			4, 1, 0, 0, 0, 0, &res);
+	else if (host->tf_ver == MMC_MTK_TFA_VERSION)
+		arm_smccc_smc(MTK_SIP_MMC_CONTROL, MMC_MTK_TFA_SIP_CRYPTO_CTRL,
+			0, 0, 0, 0, 0, 0, &res);
+	else
+		dev_info(mmc_dev(mmc), "tf version[%d] is not supported\n", host->tf_ver);
 
-	mmc_mtk_crypto_ctrl(sip_cmd, res);
 	if (res.a0) {
-		pr_info("%s: crypto enable failed, err: %lu\n",
-			 __func__, res.a0);
+		dev_info(mmc_dev(mmc), "crypto enable failed, err: %lu\n", res.a0);
 		mmc->caps2 &= ~MMC_CAP2_CRYPTO;
 	}
 }
@@ -2976,13 +2976,13 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 		    dvfsrc_get_required_opp_peak_bw(pdev->dev.of_node, 0);
 	}
 
-	/* default value 2, indicate tf-a is used */
-	host->tf_ver = 2;
+	/* default value is TFA version, indicate tf-a is used */
+	host->tf_ver = MMC_MTK_TFA_VERSION;
 	if (!of_property_read_string(pdev->dev.of_node, "tf-ver", &tf_ver)) {
 		if (!strncmp(tf_ver, "atf", 3))
-			host->tf_ver = 1;
+			host->tf_ver = MMC_MTK_ATF_VERSION;
 		else if (!strncmp(tf_ver, "tf-a", 4))
-			host->tf_ver = 2;
+			host->tf_ver = MMC_MTK_TFA_VERSION;
 		else
 			pr_info("mmc%d: tf version[%s] is supported\n", host->id, tf_ver);
 	}
