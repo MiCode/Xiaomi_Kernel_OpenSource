@@ -337,10 +337,10 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	if (IS_ERR(bw_path)) {
 		dev_info(&pdev->dev, "get cm-perf_bw fail\n");
 		cm_mgr_set_bw_path(NULL);
+	} else {
+		/* set bw path */
+		cm_mgr_set_bw_path(bw_path);
 	}
-	/* set bw path */
-	cm_mgr_set_bw_path(bw_path);
-
 	if (ret > 0) {
 		cm_mgr_perfs = devm_kzalloc(&pdev->dev,
 				ret * sizeof(u32),
