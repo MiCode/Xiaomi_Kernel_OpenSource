@@ -451,8 +451,7 @@ aliases {
 
 	/* chosen */
 	chosen: chosen {
-		bootargs = "console=tty0 console=ttyS0,921600n1 vmalloc=400M \
-earlycon=uart8250,mmio32,0x11002000 \
+		bootargs = "console=tty0 vmalloc=400M \
 swiotlb=noforce androidboot.hardware=mt6765 \
 maxcpus=8 loop.max_part=7 \
 firmware_class.path=/vendor/firmware \
