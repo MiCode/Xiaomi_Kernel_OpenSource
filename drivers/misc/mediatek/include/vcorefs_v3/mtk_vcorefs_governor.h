@@ -115,8 +115,9 @@ struct opp_profile {
 #endif
 
 /* need autok in MSDC group */
-#define AUTOK_KIR_GROUP \
-	((1U << KIR_AUTOK_EMMC) | (1U << KIR_AUTOK_SDIO) | (1U << KIR_AUTOK_SD))
+//#define AUTOK_KIR_GROUP \
+	//((1U << KIR_AUTOK_EMMC) | (1U << KIR_AUTOK_SDIO) | (1U << KIR_AUTOK_SD))
+#define AUTOK_KIR_GROUP         0
 /*
  * VOUT selection in normal mode (SW mode)
  * VOUT = 0.40000V + 6.25mV * VOSEL for PMIC MT6335

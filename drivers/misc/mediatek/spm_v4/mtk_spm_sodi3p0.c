@@ -37,7 +37,7 @@
 #include <mtk_spm_resource_req_internal.h>
 #include <mtk_spm_pmic_wrap.h>
 #include <mtk_spm_sip.h>
-
+#include <mtk_spm_sleep_internal.h>
 #if !defined(SPM_K414_EARLY_PORTING)
 #include <mtk_power_gs_api.h>
 #endif
@@ -55,7 +55,7 @@
  * only for internal debug
  **************************************/
 #define PCM_SEC_TO_TICK(sec)	(sec * 32768)
-#define SPM_PCMWDT_EN		(0)
+#define SODI3_SPM_PCMWDT_EN		(0)
 
 #define LOG_BUF_SIZE					(256)
 #define SODI3_LOGOUT_TIMEOUT_CRITERIA	(20)
@@ -148,7 +148,7 @@ static void spm_sodi3_notify_sspm_before_wfi(struct pwr_ctrl *pwrctrl,
 #if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	//wk_auxadc_bgd_ctrl(0);
-	//rtc_clock_enable(0);
+	rtc_clock_enable(0);
 #endif
 #endif
 }
@@ -161,7 +161,7 @@ static void spm_sodi3_notify_sspm_after_wfi(u32 operation_cond)
 {
 #if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
-	//rtc_clock_enable(1);
+	rtc_clock_enable(1);
 	//wk_auxadc_bgd_ctrl(1);
 #endif
 #endif
@@ -181,7 +181,7 @@ static void spm_sodi3_pcm_setup_after_wfi(struct pwr_ctrl *pwrctrl,
 
 static void spm_sodi3_setup_wdt(struct pwr_ctrl *pwrctrl, void **api)
 {
-#if SPM_PCMWDT_EN && \
+#if SODI3_SPM_PCMWDT_EN && \
 	IS_ENABLED(CONFIG_MTK_WATCHDOG) && \
 	IS_ENABLED(CONFIG_MTK_WD_KICKER)
 	struct wd_api *wd_api = NULL;
@@ -203,7 +203,7 @@ static void spm_sodi3_setup_wdt(struct pwr_ctrl *pwrctrl, void **api)
 
 static void spm_sodi3_resume_wdt(struct pwr_ctrl *pwrctrl, void *api)
 {
-#if SPM_PCMWDT_EN && \
+#if SODI3_SPM_PCMWDT_EN && \
 	IS_ENABLED(CONFIG_MTK_WATCHDOG) && \
 	IS_ENABLED(CONFIG_MTK_WD_KICKER)
 	struct wd_api *wd_api = (struct wd_api *)api;
@@ -297,12 +297,7 @@ unsigned int spm_go_to_sodi3(u32 spm_flags, u32 spm_data, u32 sodi3_flags)
 	spm_sodi3_footprint(SPM_SODI3_ENTER_UART_SLEEP);
 
 	if (!(sodi3_flags & SODI_FLAG_DUMP_LP_GS)) {
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6771)
 		if (mtk8250_request_to_sleep()) {
-#else
-		//if (request_uart_to_sleep()) {
-		if (0) {
-#endif
 			wr = WR_UART_BUSY;
 			goto RESTORE_IRQ;
 		}
@@ -330,11 +325,7 @@ unsigned int spm_go_to_sodi3(u32 spm_flags, u32 spm_data, u32 sodi3_flags)
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	if (!(sodi3_flags & SODI_FLAG_DUMP_LP_GS))
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6771)
 		mtk8250_request_to_wakeup();
-#else
-		//request_uart_to_wakeup();
-#endif
 RESTORE_IRQ:
 
 	spm_sodi3_footprint(SPM_SODI3_ENTER_UART_AWAKE);

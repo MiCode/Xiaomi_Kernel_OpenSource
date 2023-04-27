@@ -33,6 +33,8 @@
 #define spm_is_wakesrc_invalid(wakesrc)	\
 	(!!((u32)(wakesrc) & 0xc0003803))
 
+extern struct regmap *pmic_regmap;
+
 enum spm_suspend_step {
 	SPM_SUSPEND_ENTER = 0x00000001,
 	SPM_SUSPEND_ENTER_UART_SLEEP = 0x00000003,
@@ -44,4 +46,10 @@ enum spm_suspend_step {
 
 #define CPU_FOOTPRINT_SHIFT 24
 
+bool spm_resource_req(unsigned int user, unsigned int req_mask);
+
+extern void register_spm_resource_req_func(
+	bool (*spm_resource_req_func)(unsigned int user, unsigned int req_mask));
+
+extern int rtc_clock_enable(int enable);
 #endif /* __MTK_SPM_SLEEP_INTERNAL_H__ */

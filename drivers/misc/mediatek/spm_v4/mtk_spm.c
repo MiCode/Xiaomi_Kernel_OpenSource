@@ -99,20 +99,6 @@ struct spm_irq_desc {
 
 static twam_handler_t spm_twam_handler;
 
-void __attribute__((weak)) spm_sodi3_init(void)
-{
-	spm_crit2("NO %s !!!\n", __func__);
-}
-
-void __attribute__((weak)) spm_sodi_init(void)
-{
-	spm_crit2("NO %s !!!\n", __func__);
-}
-
-void __attribute__((weak)) spm_deepidle_init(void)
-{
-	spm_crit2("NO %s !!!\n", __func__);
-}
 
 int __attribute__((weak)) spm_fs_init(void)
 {

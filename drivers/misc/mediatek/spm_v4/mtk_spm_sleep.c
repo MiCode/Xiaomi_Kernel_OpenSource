@@ -83,12 +83,6 @@ u8 spm_snapshot_golden_setting;
 struct wake_status spm_wakesta; /* record last wakesta */
 static unsigned int spm_sleep_count;
 
-int __attribute__ ((weak)) mtk_enter_idle_state(int idx)
-{
-	spm_crit("[name:spm&]NO %s !!!\n", __func__);
-	return -1;
-}
-
 void __attribute__((weak)) mt_cirq_clone_gic(void)
 {
 	spm_crit("[name:spm&]NO %s !!!\n", __func__);
@@ -166,7 +160,7 @@ static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 	if (is_cpu_pdn(pwrctrl->pcm_flags)) {
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-		//spm_dormant_sta = mtk_enter_idle_state(MTK_SUSPEND_MODE);
+		spm_dormant_sta = mtk_enter_idle_state(MTK_SUSPEND_MODE);
 #else
 		;
 #endif
@@ -184,12 +178,7 @@ static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 		spm_crit2("spm_dormant_sta %d", spm_dormant_sta);
 
 	if (is_infra_pdn(pwrctrl->pcm_flags))
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
-		//mtk_uart_restore();
-		printk_deferred("AAAAAA Remmber to deleted");
-#else
 		mtk8250_restore_dev();
-#endif
 }
 
 static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
@@ -415,12 +404,7 @@ unsigned int spm_go_to_sleep(u32 spm_flags, u32 spm_data)
 	spm_suspend_footprint(SPM_SUSPEND_ENTER_UART_SLEEP);
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
-	//if (request_uart_to_sleep()) {
-	if (0) {
-#else
 	if (mtk8250_request_to_sleep()) {
-#endif
 		last_wr = WR_UART_BUSY;
 		goto RESTORE_IRQ;
 	}
@@ -433,11 +417,7 @@ unsigned int spm_go_to_sleep(u32 spm_flags, u32 spm_data)
 	spm_suspend_footprint(SPM_SUSPEND_LEAVE_WFI);
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
-	//request_uart_to_wakeup();
-#else
 	mtk8250_request_to_wakeup();
-#endif
 RESTORE_IRQ:
 #endif
 

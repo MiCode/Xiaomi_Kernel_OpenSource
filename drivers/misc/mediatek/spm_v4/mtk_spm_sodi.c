@@ -46,6 +46,8 @@
 #include <mtk_idle_internal.h>
 #include <mtk_idle_profile.h>
 
+extern int rtc_clock_enable(int enable);
+
 void __attribute__ ((weak)) mtk8250_backup_dev(void)
 {
 	//pr_debug("NO %s !!!\n", __func__);
@@ -165,7 +167,7 @@ static void spm_sodi_notify_sspm_before_wfi(struct pwr_ctrl *pwrctrl,
 #if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	//wk_auxadc_bgd_ctrl(0);
-	//rtc_clock_enable(0);
+	rtc_clock_enable(0);
 
 	//if (operation_cond & DEEPIDLE_OPT_CLKBUF_BBLPM)
 		//clk_buf_control_bblpm(1);
@@ -184,7 +186,7 @@ static void spm_sodi_notify_sspm_after_wfi(u32 operation_cond)
 	//if (operation_cond & DEEPIDLE_OPT_CLKBUF_BBLPM)
 		//clk_buf_control_bblpm(0);
 
-	//rtc_clock_enable(1);
+	rtc_clock_enable(1);
 	//wk_auxadc_bgd_ctrl(1);
 #endif
 #endif
@@ -200,8 +202,7 @@ void spm_trigger_wfi_for_sodi(u32 pcm_flags)
 	int spm_dormant_sta = 0;
 
 	if (is_cpu_pdn(pcm_flags))
-		//spm_dormant_sta = mtk_enter_idle_state(MTK_SODI_MODE);
-		spm_dormant_sta = 0;
+		spm_dormant_sta = mtk_enter_idle_state(MTK_SODI_MODE);
 	else {
 		SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS,
 			       SPM_ARGS_SODI, 0, 0);
@@ -494,12 +495,7 @@ unsigned int spm_go_to_sodi(u32 spm_flags, u32 spm_data, u32 sodi_flags)
 	spm_sodi_footprint(SPM_SODI_ENTER_UART_SLEEP);
 
 	if (!(sodi_flags & SODI_FLAG_DUMP_LP_GS)) {
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6771)
 		if (mtk8250_request_to_sleep()) {
-#else
-		//if (request_uart_to_sleep()) {
-		if (0) {
-#endif
 			wr = WR_UART_BUSY;
 			goto RESTORE_IRQ;
 		}
@@ -523,11 +519,8 @@ unsigned int spm_go_to_sodi(u32 spm_flags, u32 spm_data, u32 sodi_flags)
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	if (!(sodi_flags & SODI_FLAG_DUMP_LP_GS))
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6771)
 		mtk8250_request_to_wakeup();
-#else
-		//request_uart_to_wakeup();
-#endif
+
 RESTORE_IRQ:
 
 	spm_sodi_footprint(SPM_SODI_ENTER_UART_AWAKE);

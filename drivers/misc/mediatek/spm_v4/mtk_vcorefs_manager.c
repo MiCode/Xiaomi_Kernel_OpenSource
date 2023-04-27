@@ -164,13 +164,12 @@ static int _get_dvfs_opp(struct vcorefs_profile *pwrctrl,
 {
 	unsigned int dvfs_opp = UINT_MAX;
 	int i, group;
-	char table[NUM_KICKER * 4 + 1];
+	char table[LAST_KICKER * 4 + 1];
 	char *p = table;
-	char *buff_end = table + (NUM_KICKER * 4 + 1);
+	char *buff_end = table + (LAST_KICKER * 4 + 1);
 
 	group = spm_vcorefs_get_kicker_group(kicker);
-
-	for (i = 0; i < NUM_KICKER; i++) {
+	for (i = 0; i < LAST_KICKER; i++) {
 		if (kicker_table[i] < 0
 			|| group != spm_vcorefs_get_kicker_group(i))
 			continue;
@@ -189,7 +188,7 @@ static int _get_dvfs_opp(struct vcorefs_profile *pwrctrl,
 		}
 	}
 
-	for (i = 0; i < NUM_KICKER; i++)
+	for (i = 0; i < LAST_KICKER; i++)
 		p += snprintf(p, buff_end-p, "%d, ", kicker_table[i]);
 
 	vcorefs_crit_mask(log_mask(), kicker,
@@ -311,7 +310,7 @@ int vcorefs_request_dvfs_opp(enum dvfs_kicker kicker, enum dvfs_opp opp)
 		if (pwrctrl->autok_finish == false) {
 			vcorefs_crit_mask(log_mask(), kicker,
 						"MSDC AUTOK NOT FINISH\n");
-			return -1;
+			//return -1;
 		}
 	}
 
@@ -376,7 +375,7 @@ void vcorefs_drv_init(int plat_init_opp)
 	int i;
 
 	mutex_lock(&vcorefs_mutex);
-	for (i = 0; i < NUM_KICKER; i++)
+	for (i = 0; i < LAST_KICKER; i++)
 		kicker_table[i] = -1;
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -388,7 +387,7 @@ void vcorefs_drv_init(int plat_init_opp)
 	feature_en = true;
 
 #if IS_ENABLED(CONFIG_MTK_QOS_SUPPORT)
-		pwrctrl->kr_req_mask = (1 << NUM_KICKER) - 1;
+		pwrctrl->kr_req_mask = (1 << LAST_KICKER) - 1;
 #endif
 
 	mutex_unlock(&vcorefs_mutex);
@@ -407,7 +406,7 @@ static char *vcorefs_get_kicker_info(char *p)
 	int i;
 	char *buff_end = p + PAGE_SIZE;
 
-	for (i = 0; i < NUM_KICKER; i++)
+	for (i = 0; i < LAST_KICKER; i++)
 		p += snprintf(p, buff_end - p,
 			"[%s] opp: %d\n",
 			governor_get_kicker_name(i), kicker_table[i]);

@@ -63,6 +63,7 @@ extern unsigned int idle_condition_mask[NR_TYPES][NR_GRPS];
 
 extern unsigned int soidle3_pll_condition_mask[NR_PLLS];
 
+extern int rtc_clock_enable(int enable);
 /*
  * Function Declarations
  */

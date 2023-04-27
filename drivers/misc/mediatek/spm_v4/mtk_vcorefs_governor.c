@@ -42,15 +42,15 @@
 
 #include "mtk-mmc-vcore.h"
 
-#ifndef MSDC_EMMC
+extern struct regmap *pmic_regmap;
+/*
 typedef int (*request_dvfs_opp)(enum dvfs_kicker, enum dvfs_opp);
 typedef int (*dvfs_setting)(int msdc, bool enable);
 #define MSDC_EMMC (0)
-#endif
-/*
- *void msdc_register_vcore_callback(int id,
- *	request_dvfs_opp request_opp_cb, dvfs_setting setting_cb);
- */
+*/
+
+//void msdc_register_vcore_callback(int id,
+	//request_dvfs_opp request_opp_cb, dvfs_setting setting_cb);
 #if IS_ENABLED(CONFIG_MTK_SMI_BWC)
 void mmdvfs_register_vcore_callback(request_dvfs_opp request_opp_cb);
 #endif

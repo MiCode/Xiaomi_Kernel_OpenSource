@@ -23,6 +23,8 @@
 #include <mtk_spm_vcore_dvfs.h>
 #include <mtk_spm_resource_req_internal.h>
 
+extern struct regmap *pmic_regmap;
+
 void spm_dpidle_pre_process(unsigned int operation_cond, struct pwr_ctrl *pwrctrl)
 {
 #if !IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)

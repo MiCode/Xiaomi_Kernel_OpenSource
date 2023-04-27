@@ -53,6 +53,7 @@
 #include <mtk_spm_resource_req.h>
 #include <mtk_spm_resource_req_internal.h>
 #include <mtk_spm_sip.h>
+#include <mtk_spm_sleep_internal.h>
 
 #if !defined(SPM_K414_EARLY_PORTING)
 #include <mtk_power_gs_api.h>
@@ -88,28 +89,6 @@
 #define	DPIDLE_LOG_DISCARD_CRITERIA			5000	/* ms */
 
 #define reg_read(addr)         __raw_readl(IOMEM(addr))
-
-void __attribute__ ((weak)) mtk8250_backup_dev(void)
-{
-	//pr_debug("NO %s !!!\n", __func__);
-}
-
-void __attribute__ ((weak)) mtk8250_restore_dev(void)
-{
-	//pr_debug("NO %s !!!\n", __func__);
-}
-
-int __attribute__ ((weak)) mtk8250_request_to_wakeup(void)
-{
-	//pr_debug("NO %s !!!\n", __func__);
-	return 0;
-}
-
-int __attribute__ ((weak)) mtk8250_request_to_sleep(void)
-{
-	//pr_debug("NO %s !!!\n", __func__);
-	return 0;
-}
 
 enum spm_deepidle_step {
 	SPM_DEEPIDLE_ENTER = 0x00000001,
@@ -230,7 +209,7 @@ static void spm_dpidle_notify_sspm_before_wfi(bool sleep_dpidle,
 #if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	//wk_auxadc_bgd_ctrl(0);
-	//rtc_clock_enable(0);
+	rtc_clock_enable(0);
 
 	//if ((operation_cond & DEEPIDLE_OPT_CLKBUF_BBLPM) && !sleep_dpidle)
 		//clk_buf_control_bblpm(1);
@@ -250,7 +229,7 @@ static void spm_dpidle_notify_sspm_after_wfi(bool sleep_dpidle,
 	//if ((operation_cond & DEEPIDLE_OPT_CLKBUF_BBLPM) && !sleep_dpidle)
 		//clk_buf_control_bblpm(0);
 
-	//rtc_clock_enable(1);
+	rtc_clock_enable(1);
 	//wk_auxadc_bgd_ctrl(1);
 #endif
 #endif
@@ -264,8 +243,7 @@ void spm_dpidle_notify_sspm_after_wfi_async_wait(void)
 static void spm_trigger_wfi_for_dpidle(struct pwr_ctrl *pwrctrl)
 {
 	if (is_cpu_pdn(pwrctrl->pcm_flags))
-		//spm_dormant_sta = mtk_enter_idle_state(MTK_DPIDLE_MODE);
-		spm_dormant_sta = 0;
+		spm_dormant_sta = mtk_enter_idle_state(MTK_DPIDLE_MODE);
 	else {
 		SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS,
 			       SPM_ARGS_DPIDLE, 0, 0);
@@ -482,12 +460,7 @@ unsigned int spm_go_to_dpidle(u32 spm_flags, u32 spm_data,
 	spm_dpidle_footprint(SPM_DEEPIDLE_ENTER_UART_SLEEP);
 
 	if (!(operation_cond & DEEPIDLE_OPT_DUMP_LP_GOLDEN)) {
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6771)
 		if (mtk8250_request_to_sleep()) {
-#else
-		//if (request_uart_to_sleep()) {
-		if (0) {
-#endif
 			wr = WR_UART_BUSY;
 			goto RESTORE_IRQ;
 		}
@@ -508,11 +481,7 @@ unsigned int spm_go_to_dpidle(u32 spm_flags, u32 spm_data,
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	if (!(operation_cond & DEEPIDLE_OPT_DUMP_LP_GOLDEN))
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6771)
 		mtk8250_request_to_wakeup();
-#else
-		//request_uart_to_wakeup();
-#endif
 RESTORE_IRQ:
 #endif
 
@@ -650,12 +619,7 @@ unsigned int spm_go_to_sleep_dpidle(u32 spm_flags, u32 spm_data)
 			     SPM_DEEPIDLE_ENTER_UART_SLEEP);
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6771)
 	if (mtk8250_request_to_sleep()) {
-#else
-	//if (request_uart_to_sleep()) {
-	if (0) {
-#endif
 		last_wr = WR_UART_BUSY;
 		goto RESTORE_IRQ;
 	}
@@ -672,11 +636,7 @@ unsigned int spm_go_to_sleep_dpidle(u32 spm_flags, u32 spm_data)
 			     SPM_DEEPIDLE_LEAVE_WFI);
 
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6771)
 		mtk8250_request_to_wakeup();
-#else
-		//request_uart_to_wakeup();
-#endif
 RESTORE_IRQ:
 #endif
 

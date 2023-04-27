@@ -32,15 +32,10 @@ extern void mt_irq_unmask_for_sleep(unsigned int irq);
 #endif
 
 /* UART */
-#if IS_ENABLED(CONFIG_MTK_PLAT_POWER_MT6739)
-extern int request_uart_to_sleep(void);
-extern int request_uart_to_wakeup(void);
-extern void mtk_uart_restore(void);
-#else
 extern int mtk8250_request_to_sleep(void);
 extern int mtk8250_request_to_wakeup(void);
 extern void mtk8250_restore_dev(void);
-#endif
+
 extern void dump_uart_reg(void);
 
 #if IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)

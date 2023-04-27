@@ -13,6 +13,7 @@
 //#include <mtk_cpuidle.h>
 #endif
 #include <mtk_spm_resource_req_internal.h>
+#include <mtk_spm_sleep_internal.h>
 
 int __attribute__ ((weak)) mtk_cpuidle_init(void) { return -EOPNOTSUPP; }
 
@@ -27,6 +28,8 @@ static int __init mt_spm_init(void)
 #endif
 
 	spm_resource_req_init();
+
+	register_spm_resource_req_func(&spm_resource_req);
 
 	return 0;
 }

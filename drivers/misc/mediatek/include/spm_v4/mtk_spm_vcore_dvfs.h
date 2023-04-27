@@ -34,17 +34,12 @@
 #define SPM_DVFS_TIMEOUT 1000 /* 1ms */
 #endif
 
-extern struct regmap *pmic_regmap;
-
 enum vcorefs_smc_cmd {
 	VCOREFS_SMC_CMD_0,
 	VCOREFS_SMC_CMD_1,
 	VCOREFS_SMC_CMD_2,
 	NUM_VCOREFS_SMC_CMD,
 };
-
-#define AUTOK_KIR_GROUP \
-	((1U << KIR_AUTOK_EMMC) | (1U << KIR_AUTOK_SDIO) | (1U << KIR_AUTOK_SD))
 
 extern void spm_go_to_vcorefs(int spm_flags);
 extern int spm_set_vcore_dvfs(struct kicker_config *krconf);

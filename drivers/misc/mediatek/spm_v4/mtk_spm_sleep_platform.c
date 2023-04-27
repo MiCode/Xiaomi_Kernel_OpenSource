@@ -57,6 +57,8 @@
 #include <mtk_hps_internal.h>
 #endif
 
+#include <mtk_spm_sleep_internal.h>
+
 /**************************************
  * only for internal debug
  **************************************/
@@ -77,7 +79,6 @@
 #define SPM_SYSCLK_SETTLE       99	/* 3ms */
 
 #define WAIT_UART_ACK_TIMES     10	/* 10 * 10us */
-
 
 void spm_set_sysclk_settle(void)
 {
@@ -175,7 +176,7 @@ void spm_suspend_pre_process(struct pwr_ctrl *pwrctrl)
 	regmap_update_bits(pmic_regmap, MT6357_SMPS_ANA_CON2, 0x7 << 6, 0x7 << 6);
 #endif
 
-	//rtc_clock_enable(0);
+	rtc_clock_enable(0);
 
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
@@ -257,7 +258,7 @@ void spm_suspend_post_process(struct pwr_ctrl *pwrctrl)
 	regmap_update_bits(pmic_regmap, MT6357_SMPS_ANA_CON2, 0x7 << 6, 0x5 << 6);
 #endif
 
-	//rtc_clock_enable(1);
+	rtc_clock_enable(1);
 
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
