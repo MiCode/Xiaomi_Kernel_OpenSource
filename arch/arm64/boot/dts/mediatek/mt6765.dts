@@ -111,8 +111,12 @@ aliases {
 			power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>;
 			operating-points-v2 = <&opp_table_mm>;
 			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
-			interconnects = <&mmqos SLAVE_LARB(21) &mmqos SLAVE_COMMON(0)>;
-			interconnect-names = "disp_hrt_qos";
+			interconnects = <&dvfsrc MT6873_MASTER_MM_DISP &dvfsrc
+					MT6873_SLAVE_DDR_EMI>;
+			interconnect-names = "disp-perf-bw";
+			required-opps = <&dvfsrc_freq_opp0>,
+					<&dvfsrc_freq_opp1>,
+					 <&dvfsrc_freq_opp2>;
 
 			/* define threads, see mt6765-gce.h */
 			mediatek,mailbox-gce = <&gce_mbox>;
