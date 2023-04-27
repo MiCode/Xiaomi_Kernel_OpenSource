@@ -33,6 +33,7 @@
 #include <gpufreq_common.h>
 #include <mtk_gpu_utility.h>
 #include <gpu_misc.h>
+#include "clkchk-mt6765.h"
 
 
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
@@ -1610,6 +1611,9 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 		if (!g_EnableHWAPM_state) {
 			ret = pm_runtime_get_sync(g_mtcmos->pd_mfg_core0);
 			if (unlikely(ret < 0)) {
+				GPUFREQ_LOGI("@%s: dump clk/pd reg after enabling pd\n", __func__);
+				print_subsys_reg_mt6765(0);//dump mnuxes
+				print_subsys_reg_mt6765(3);//dump pd
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
 					"fail to enable pd_mfg_core0 (%d)", ret);
 				goto done;
@@ -1627,6 +1631,9 @@ static int __gpufreq_mtcmos_control(enum gpufreq_power_state power)
 		if (!g_EnableHWAPM_state) {
 			ret = pm_runtime_put_sync(g_mtcmos->pd_mfg_core0);
 			if (unlikely(ret < 0)) {
+				GPUFREQ_LOGI("@%s: dump clk/pd reg after disabling pd\n", __func__);
+				print_subsys_reg_mt6765(0);//dump muxes
+				print_subsys_reg_mt6765(3);//dump pd
 				__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
 					"fail to disable pd_mfg_core0 (%d)", ret);
 				goto done;
