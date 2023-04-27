@@ -13,7 +13,7 @@
 #include <linux/dma-mapping.h>
 #include "val_types_public.h"
 
-#define CODEC_MAX_BUFFER 512U
+#define CODEC_MAX_BUFFER 768U
 #define CODEC_ALLOCATE_MAX_BUFFER_SIZE 0x10000000UL /*256MB*/
 
 struct mtk_vcodec_mem {

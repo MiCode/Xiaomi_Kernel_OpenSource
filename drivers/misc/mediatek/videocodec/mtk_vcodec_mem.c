@@ -36,7 +36,8 @@ void mtk_vcodec_mem_release(struct mtk_vcodec_queue *vcodec_queue)
 	unsigned int buffer;
 
 	mutex_lock(&vcodec_queue->mmap_lock);
-	pr_debug("Release code queue !\n");
+	pr_debug("[%s] Release code queue ,  Num_buffers :%d\n",
+		__func__, vcodec_queue->num_buffers);
 	if (vcodec_queue->num_buffers != 0) {
 		for (buffer = 0; buffer < vcodec_queue->num_buffers; buffer++) {
 			vcodec_buffer = &vcodec_queue->bufs[buffer];
@@ -45,6 +46,8 @@ void mtk_vcodec_mem_release(struct mtk_vcodec_queue *vcodec_queue)
 					dma_heap_buffer_free(vcodec_buffer->mem_priv);
 				else
 					dma_buf_put(vcodec_buffer->mem_priv);
+
+				atomic_set(&vcodec_buffer->ref_cnt, 0);
 			pr_info("Free %d dbuf = %p size = %d mem_priv = %lx ref_cnt = %d\n",
 				 buffer, vcodec_buffer->dbuf,
 				 (unsigned int)vcodec_buffer->size,
@@ -135,11 +138,12 @@ void *mtk_vcodec_get_buffer(struct device *dev, struct mtk_vcodec_queue *vcodec_
 	mem_buff_data->cnt = 1;
 	mutex_unlock(&vcodec_queue->mmap_lock);
 
-	pr_info("[%s] Num_buffers :%d iova: %llx size: %d mem_priv: %lx useAlloc:%d, state: %d\n",
+	pr_info("[%s] nob:%d iova: %llx size: %d mem_priv: %lx useAlloc:%d, state: %d ref_cnt %d\n",
 		__func__, vcodec_queue->num_buffers, mem_buff_data->iova,
 		(unsigned int)vcodec_buf->size,
 		(unsigned long)vcodec_buf->mem_priv, vcodec_buf->useAlloc,
-		vcodec_buf->dbuf->sysfs_entry->kobj.state_initialized);
+		vcodec_buf->dbuf->sysfs_entry->kobj.state_initialized,
+		atomic_read(&vcodec_buf->ref_cnt));
 
 	return vcodec_buf->mem_priv;
 }
@@ -203,7 +207,7 @@ int mtk_vcodec_free_buffer(struct mtk_vcodec_queue *vcodec_queue,
 				else
 					dma_buf_put(vcodec_buf->dbuf);
 
-				atomic_dec(&vcodec_buf->ref_cnt);
+				atomic_set(&vcodec_buf->ref_cnt, 0);
 				vcodec_buf_remove(vcodec_queue, i);
 				ret = 0;
 				break;
