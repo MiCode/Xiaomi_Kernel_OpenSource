@@ -3475,7 +3475,10 @@ static inline void Prepare_Enable_ccf_clock(void)
 	/* No need to use pm_runtime to control other dev,
 	 * because everything is described in imgsys in dts.
 	 */
+	LOG_INF("pm_runtime_get_sync +, G_u4EnableClockCount(%d), UserCount(%d)\n",
+			G_u4EnableClockCount, IspInfo.UserCount);
 	ret = pm_runtime_get_sync(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev);
+	LOG_INF("pm_runtime_get_sync -\n");
 	if (ret < 0)
 		LOG_INF("cannot pm runtime get ISP_IMGSYS_CONFIG_IDX mtcmos\n");
 
@@ -3523,7 +3526,10 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
 	clk_disable_unprepare(isp_clk.ISP_IMG_DIP);
 
+	LOG_INF("pm_runtime_put_sync +, G_u4EnableClockCount(%d), UserCount(%d)\n",
+			G_u4EnableClockCount, IspInfo.UserCount);
 	ret = pm_runtime_put_sync(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev);
+	LOG_INF("pm_runtime_put_sync -\n");
 	if (ret < 0)
 		LOG_INF("cannot pm runtime put ISP_IMGSYS_CONFIG_IDX mtcmos\n");
 }
@@ -3589,7 +3595,8 @@ static void ISP_EnableClock(bool En)
 			for (module = ISP_CAM_A_IDX; module < ISP_CAMSV4_IDX; module++) {
 				enable_irq(isp_devs[module].irq);
 				LOG_INF(
-					"enable_irq cam %d\n", module);
+					"enable_irq cam %d, irq=%d\n",
+					module, isp_devs[module].irq);
 			}
 		} else {
 			spin_unlock(&(IspInfo.SpinLockClock));
@@ -3652,7 +3659,8 @@ static void ISP_EnableClock(bool En)
 			for (module = ISP_CAM_A_IDX; module < ISP_CAMSV4_IDX; module++) {
 				disable_irq(isp_devs[module].irq);
 				LOG_INF(
-					"disable_irq cam %d\n", module);
+					"disable_irq cam %d, irq=%d\n",
+					module, isp_devs[module].irq);
 			}
 		} else {
 			spin_unlock(&(IspInfo.SpinLockClock));
@@ -10258,6 +10266,7 @@ static signed int DMAErrHandler(void)
 void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 			enum ISP_IRQ_TYPE_ENUM module)
 {
+	static unsigned int camsv1_irq_errcount;
 	/* ERR print */
 	/* unsigned int i = 0; */
 	if (ErrStatus) {
@@ -10302,14 +10311,23 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				WarnStatus, ErrStatus);
 			break;
 		case ISP_IRQ_TYPE_INT_CAMSV_1_ST:
+		{
 			g_ISPIntErr[ISP_IRQ_TYPE_INT_CAMSV_1_ST] |=
 				(ErrStatus|WarnStatus);
 			g_ISPIntErr_SMI[ISP_IRQ_TYPE_INT_CAMSV_1_ST] =
 				g_ISPIntErr[ISP_IRQ_TYPE_INT_CAMSV_1_ST];
-			IRQ_LOG_KEEPER_LOG_INF(module, m_CurrentPPB, _LOG_ERR,
-				"CAMSV1:int_err:0x%x_0x%x\n",
-				WarnStatus, ErrStatus);
+			if ((camsv1_irq_errcount % 1000) == 0) {
+				IRQ_LOG_KEEPER_LOG_INF(module, m_CurrentPPB, _LOG_ERR,
+					"CAMSV1:int_err:0x%x_0x%x\n",
+					WarnStatus, ErrStatus);
+			}
+			if (camsv1_irq_errcount == 1000)
+				camsv1_irq_errcount = 1;
+			else
+				camsv1_irq_errcount += 1;
+
 			break;
+		}
 		case ISP_IRQ_TYPE_INT_CAMSV_2_ST:
 			g_ISPIntErr[ISP_IRQ_TYPE_INT_CAMSV_2_ST] |=
 				(ErrStatus|WarnStatus);
