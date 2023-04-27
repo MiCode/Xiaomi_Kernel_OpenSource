@@ -3033,20 +3033,20 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 
 	gpufreq: gpufreq {
 		compatible = "mediatek,gpufreq";
-		power-domains = <&scpsys MT6761_POWER_DOMAIN_MFG_ASYNC>,
-			<&scpsys MT6761_POWER_DOMAIN_MFG>,
-			<&scpsys MT6761_POWER_DOMAIN_MFG_CORE0>;
-		power-domain-names = "pd_mfg_async",
-			"pd_mfg",
-			"pd_mfg_core0";
 		clocks =
 			<&topckgen CLK_TOP_MFG_SEL>,
 			<&topckgen CLK_TOP_MFGPLL>,
-			<&clk26m>;
+			<&clk26m>,
+			<&scpsys_clk SCP_SYS_MFG_ASYNC>,
+			<&scpsys_clk SCP_SYS_MFG>,
+			<&scpsys_clk SCP_SYS_MFG_CORE0>;
 		clock-names =
 			"clk_mux",
 			"clk_main_parent",
-			"clk_sub_parent";
+			"clk_sub_parent",
+			"mtcmos_mfg_async",
+			"mtcmos_mfg",
+			"mtcmos_mfg_core0";
 		nvmem-cells = <&efuse_segment>;
 		nvmem-cell-names = "efuse_segment_cell";
 		dvfsrc-vcore-supply = <&dvfsrc_vcore>;
