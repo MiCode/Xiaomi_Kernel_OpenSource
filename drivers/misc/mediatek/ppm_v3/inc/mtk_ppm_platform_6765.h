@@ -162,6 +162,10 @@ static inline void ppm_get_cl_cpus(struct cpumask *cpu_mask, unsigned int cid)
 		cpumask_set_cpu(7, cpu_mask);
 	}
 }
+
+#define PPM_NOT_REGISTER_CALLBACK
+extern void *get_cpuhop_ppm_callback(void);
+
 #ifdef __cplusplus
 }
 #endif
