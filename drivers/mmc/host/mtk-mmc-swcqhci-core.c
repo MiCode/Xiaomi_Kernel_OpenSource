@@ -471,13 +471,15 @@ static void swcq_recovery_start(struct mmc_host *mmc)
 {
 	struct swcq_host *swcq_host = mmc->cqe_private;
 
-	dev_dbg(mmc_dev(mmc), "%s: SWCQ recovery start", mmc_hostname(mmc));
+	dev_info(mmc_dev(mmc), "SWCQ recovery start");
 	if (swcq_host->ops->err_handle)
 		swcq_host->ops->err_handle(mmc);
 #if SWCQ_TUNING_CMD
 	/* Maybe it's cmd crc error at this time and cmdq not empty,
 	 * only cmd13 can be used for tuning.
 	 */
+	if (swcq_host->ops->prepare_tuning)
+		swcq_host->ops->prepare_tuning(mmc);
 	if (mmc->ops->execute_tuning)
 		mmc->ops->execute_tuning(mmc, MMC_SEND_STATUS);
 #endif
@@ -489,10 +491,12 @@ static void swcq_recovery_finish(struct mmc_host *mmc)
 	struct swcq_host *swcq_host = mmc->cqe_private;
 
 	swcq_reset(swcq_host);
+	if (swcq_host->ops->prepare_tuning)
+		swcq_host->ops->prepare_tuning(mmc);
 	if (mmc->ops->execute_tuning)
 		mmc->ops->execute_tuning(mmc, MMC_SEND_TUNING_BLOCK_HS200);
 
-	dev_info(mmc_dev(mmc), "%s: SWCQ recovery done", mmc_hostname(mmc));
+	dev_info(mmc_dev(mmc), "SWCQ recovery done");
 }
 
 static const struct mmc_cqe_ops swcq_ops = {

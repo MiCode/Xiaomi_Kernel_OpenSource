@@ -148,6 +148,7 @@ struct swcq_host_ops {
 	 */
 	void  (*dump_info)(struct mmc_host *host);
 	void  (*err_handle)(struct mmc_host *host);
+	void  (*prepare_tuning)(struct mmc_host *host);
 
 };
 

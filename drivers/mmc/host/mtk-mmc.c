@@ -957,8 +957,8 @@ static void msdc_request_done(struct msdc_host *host, struct mmc_request *mrq)
 	if (host->error)
 		msdc_reset_hw(host);
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
-	if (mrq->data && (mrq->cmd->opcode != MMC_EXECUTE_READ_TASK
-					|| mrq->cmd->opcode != MMC_EXECUTE_WRITE_TASK)) {
+	if (mrq->data && mrq->cmd->opcode != MMC_EXECUTE_READ_TASK
+		&& mrq->cmd->opcode != MMC_EXECUTE_WRITE_TASK) {
 		mmc_mtk_biolog_transfer_req_compl(mmc_from_priv(host), 0, 0);
 		mmc_mtk_biolog_check(mmc_from_priv(host), 0);
 	}
@@ -1331,18 +1331,27 @@ static void msdc_ops_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (!mrq->host)
 		mrq->host = mmc;
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
-	if (mrq->data && (mrq->cmd->opcode != MMC_EXECUTE_READ_TASK
-					|| mrq->cmd->opcode != MMC_EXECUTE_WRITE_TASK)) {
+	if (mrq->data && mrq->cmd->opcode != MMC_EXECUTE_READ_TASK
+		&& mrq->cmd->opcode != MMC_EXECUTE_WRITE_TASK) {
 		mmc_mtk_biolog_send_command(0, mrq);
 		mmc_mtk_biolog_check(mmc, 1);
 	}
 #endif
 #if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
-		if (msdc_op_cmdq_on_tran(mrq->cmd)) {
-			msdc_start_request_cmdq(mmc, mrq);
-		} else
+	if (msdc_op_cmdq_on_tran(mrq->cmd))
+		msdc_start_request_cmdq(mmc, mrq);
+	else {
 #endif
-			msdc_start_request_legacy(mmc, mrq);
+		msdc_start_request_legacy(mmc, mrq);
+		/* Flag re-tuning needed on CRC errors */
+		if (mrq->cmd->error == -EILSEQ && !mmc->retune_crc_disable
+			&& mrq->cmd->opcode != MMC_SEND_TUNING_BLOCK
+			&& mrq->cmd->opcode != MMC_SEND_TUNING_BLOCK_HS200
+			&& mrq->cmd->opcode != MMC_SEND_STATUS)
+			mmc_retune_needed(mmc);
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
+	}
+#endif
 
 }
 
@@ -3100,9 +3109,21 @@ void  msdc_swcq_err_handle(struct mmc_host *mmc)
 {
 
 }
+
+void msdc_swcq_prepare_tuning(struct mmc_host *mmc)
+{
+#if IS_ENABLED(CONFIG_MMC_AUTOK)
+	struct msdc_host *host = mmc_priv(mmc);
+
+	if (mmc->ios.timing == MMC_TIMING_MMC_HS200)
+		host->is_autok_done = 0;
+#endif
+}
+
 static const struct swcq_host_ops msdc_swcq_ops = {
 	.dump_info = msdc_swcq_dump,
 	.err_handle = msdc_swcq_err_handle,
+	.prepare_tuning = msdc_swcq_prepare_tuning,
 };
 #endif
 
