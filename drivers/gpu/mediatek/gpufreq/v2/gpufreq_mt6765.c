@@ -162,7 +162,6 @@ static unsigned int g_aging_enable;
 static unsigned int g_shader_present;
 static unsigned int g_stress_test_enable;
 static struct gpufreq_status g_gpu;
-static bool g_volt_enable_state;
 static bool g_EnableHWAPM_state;
 static struct gpufreq_mtcmos_info *g_mtcmos;
 static enum gpufreq_dvfs_state g_dvfs_state;
@@ -399,38 +398,6 @@ void mt_gpufreq_set_hwapm_state(bool bEnableHWAPM)
 }
 EXPORT_SYMBOL(mt_gpufreq_set_hwapm_state);
 
-/* API: mt_gpufreq_voltage_enable_set */
-unsigned int mt_gpufreq_voltage_enable_set(unsigned int enable)
-{
-	mutex_lock(&gpufreq_lock);
-	GPUFREQ_LOGD("@%s: begin, enable = %d, g_volt_enable_state = %d\n",
-		__func__, enable, g_volt_enable_state);
-	if (((g_dvfs_state && DVFS_DISABLE) == DVFS_DISABLE) && enable == 0) {
-		GPUFREQ_LOGI("@%s: DVFS is paused by PTPOD\n", __func__);
-		mutex_unlock(&gpufreq_lock);
-		return -1;
-	}
-	if (enable == 1) {
-		__gpufreq_buck_control(POWER_ON);
-		g_volt_enable_state = true;
-		__gpufreq_kick_pbm(1);
-		GPUFREQ_LOGD("@%s: VCORE is on\n", __func__);
-	} else if (enable == 0)  {
-		__gpufreq_buck_control(POWER_OFF);
-		g_volt_enable_state = false;
-		__gpufreq_kick_pbm(0);
-		GPUFREQ_LOGD("@%s: VCORE is off\n", __func__);
-	}
-
-	GPUFREQ_LOGD("@%s: end, enable = %d, g_volt_enable_state = %d\n",
-		__func__, enable, g_volt_enable_state);
-
-	mutex_unlock(&gpufreq_lock);
-
-	return 0;
-}
-EXPORT_SYMBOL(mt_gpufreq_voltage_enable_set);
-
 /* API: mt_gpufreq_get_dvfs_table_num */
 unsigned int mt_gpufreq_get_dvfs_table_num(void)
 {
@@ -569,7 +536,7 @@ static void __gpufreq_calculate_power(unsigned int idx, unsigned int freq,
 
 #if IS_ENABLED(CONFIG_MTK_STATIC_POWER_LEGACY)
 	p_leakage = mt_spower_get_leakage(MTK_SPOWER_GPU, (volt / 100), temp);
-	if (!(regulator_is_enabled(g_pmic->mtk_pm_vgpu)) || p_leakage < 0)
+	if (g_gpu.buck_count == 0 || p_leakage < 0)
 		p_leakage = 0;
 #else
 	p_leakage = 71;
@@ -581,6 +548,7 @@ static void __gpufreq_calculate_power(unsigned int idx, unsigned int freq,
 			idx, p_dynamic, p_leakage, p_total, temp);
 
 	g_power_table[idx].gpufreq_power = p_total;
+	g_gpu.working_table[idx].power = p_total;
 
 }
 
@@ -2266,7 +2234,12 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	}
 	/*before power ON , set the hwapm state first*/
 	mt_gpufreq_set_hwapm_state(false);
-
+	/* init OPP table */
+	ret = __gpufreq_init_opp_table(pdev);
+	if (unlikely(ret)) {
+		GPUFREQ_LOGE("fail to init OPP table (%d)", ret);
+		goto done;
+	}
 	/* power on to init first OPP index */
 	ret = __gpufreq_power_control(POWER_ON);
 	if (unlikely(ret < 0)) {
@@ -2275,12 +2248,6 @@ static int __gpufreq_pdrv_probe(struct platform_device *pdev)
 	}
 	if (g_aging_enable)
 		__gpufreq_apply_aging(true);
-	/* init OPP table */
-	ret = __gpufreq_init_opp_table(pdev);
-	if (unlikely(ret)) {
-		GPUFREQ_LOGE("fail to init OPP table (%d)", ret);
-		goto done;
-	}
 	/* init first OPP index by current freq and volt */
 	ret = __gpufreq_init_opp_idx();
 	if (unlikely(ret)) {
