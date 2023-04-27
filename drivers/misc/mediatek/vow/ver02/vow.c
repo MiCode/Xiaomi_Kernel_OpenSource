@@ -98,6 +98,7 @@ static DEFINE_MUTEX(vow_payloaddump_mutex);
 static DEFINE_MUTEX(vow_vmalloc_lock);
 static DEFINE_MUTEX(vow_extradata_mutex);
 static DEFINE_MUTEX(voicedata_mutex);
+static DEFINE_MUTEX(vow_sendspkmdl_mutex);
 
 /*****************************************************************************
  * VOW SERVICES
@@ -874,12 +875,14 @@ static bool vow_service_ReleaseSpeakerModel(int id)
 
 	ret = vow_service_SendSpeakerModel(I, VOW_CLEAN_MODEL);
 
+	mutex_lock(&vow_sendspkmdl_mutex);
 	vowserv.vow_speaker_model[I].model_ptr = NULL;
 	vowserv.vow_speaker_model[I].uuid = 0;
 	vowserv.vow_speaker_model[I].id = -1;
 	vowserv.vow_speaker_model[I].keyword = -1;
 	vowserv.vow_speaker_model[I].flag = 0;
 	vowserv.vow_speaker_model[I].enabled = 0;
+	mutex_unlock(&vow_sendspkmdl_mutex);
 
 	return ret;
 }
@@ -899,13 +902,16 @@ static bool vow_service_SetSpeakerModel(unsigned long arg)
 	if (vow_service_GetParameter(arg) != 0)
 		return false;
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
+	mutex_lock(&vow_sendspkmdl_mutex);
 	vowserv.vow_speaker_model[I].model_ptr =
 	   (void *)(scp_get_reserve_mem_virt(VOW_MEM_ID))
 	   + (VOW_MODEL_SIZE * I);
+	mutex_unlock(&vow_sendspkmdl_mutex);
 
 	if (vow_service_CopyModel(I) != 0)
 		return false;
 
+	mutex_lock(&vow_sendspkmdl_mutex);
 	ptr8 = (char *)vowserv.vow_speaker_model[I].model_ptr;
 	VOWDRV_DEBUG("SetSPKModel:slot: %d, ID: %x, UUID: %x, flag: %x\n",
 		      I,
@@ -917,17 +923,20 @@ static bool vow_service_SetSpeakerModel(unsigned long arg)
 		      *(char *)&ptr8[0], *(char *)&ptr8[1],
 		      *(char *)&ptr8[2], *(char *)&ptr8[3],
 		      *(short *)&ptr8[160], *(int *)&ptr8[7960]);
+	mutex_unlock(&vow_sendspkmdl_mutex);
 
 	ret = vow_service_SendSpeakerModel(I, VOW_SET_MODEL);
 	/* if IPI send fail, then just clean this model information */
 	if (ret == false) {
 		VOWDRV_DEBUG("vow ipi fail, then ignore this load model\n");
+		mutex_lock(&vow_sendspkmdl_mutex);
 		vowserv.vow_speaker_model[I].model_ptr = NULL;
 		vowserv.vow_speaker_model[I].uuid = 0;
 		vowserv.vow_speaker_model[I].id = -1;
 		vowserv.vow_speaker_model[I].keyword = -1;
 		vowserv.vow_speaker_model[I].flag = 0;
 		vowserv.vow_speaker_model[I].enabled = 0;
+		mutex_unlock(&vow_sendspkmdl_mutex);
 	}
 #else
 	VOWDRV_DEBUG("%s(), vow: SCP no support\n\r", __func__);
