@@ -3299,6 +3299,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		}
 		host->swcq_host->ops = &msdc_swcq_ops;
 		ret = swcq_init(host->swcq_host, mmc);
+		mmc->max_segs = 128;
 		if (ret)
 			goto host_free;
 		goto skip_hwcq;

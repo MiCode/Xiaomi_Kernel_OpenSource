@@ -139,6 +139,7 @@ struct swcq_ongoing_task {
 #define MMC_SWCQ_TASK_IDLE  99
 	atomic_t  id;
 	atomic_t done;
+	atomic_t blksz;
 };
 
 struct swcq_host_ops {
@@ -192,6 +193,11 @@ static inline int swcq_tskid(struct swcq_host *host)
 static inline int swcq_tskdone(struct swcq_host *host)
 {
 	return atomic_read(&host->ongoing_task.done);
+}
+
+static inline int swcq_tskblksz(struct swcq_host *host)
+{
+	return atomic_read(&host->ongoing_task.blksz);
 }
 
 #define swcq_tskid_idle(host) (swcq_tskid(host) == MMC_SWCQ_TASK_IDLE)

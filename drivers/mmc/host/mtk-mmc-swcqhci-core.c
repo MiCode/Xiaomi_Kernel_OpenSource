@@ -80,6 +80,7 @@ int swcq_run_task(struct mmc_host *mmc, int task_id)
 	}
 #endif
 
+	atomic_set(&swcq_host->ongoing_task.blksz, (mrq->data ? mrq->data->blocks : 0));
 	mmc_wait_for_req(mmc, &data_mrq);
 	if (cmd.error) {
 		pr_err("%s: cmd%d error %d\n",
@@ -246,6 +247,9 @@ static inline void swcq_wait_trans_compl(struct mmc_host *mmc, int task_id, int 
 
 	if (swcq_host->pre_tsks || swcq_tskid_idle(swcq_host) || swcq_tskdone(swcq_host))
 		return;
+	/* for 4k data, skip wait event to improve the performance */
+	if (swcq_tskblksz(swcq_host) <= 8)
+		return;
 
 	chk_q_cnt = q_cnt(swcq_host);
 	/* wait the data transfer complete */
@@ -296,6 +300,7 @@ int mmc_run_queue_thread(void *data)
 				done_mrq = swcq_host->mrq[task_id];
 				atomic_set(&swcq_host->ongoing_task.done, 0);
 				atomic_set(&swcq_host->ongoing_task.id, MMC_SWCQ_TASK_IDLE);
+				atomic_set(&swcq_host->ongoing_task.blksz, 0);
 				swcq_host->mrq[task_id] = NULL;
 				atomic_dec(&swcq_host->q_cnt);
 #ifdef CONFIG_MMC_CRYPTO
@@ -459,6 +464,7 @@ static void swcq_reset(struct swcq_host *swcq_host)
 	spin_unlock(&swcq_host->lock);
 	atomic_set(&swcq_host->ongoing_task.done, 0);
 	atomic_set(&swcq_host->ongoing_task.id, MMC_SWCQ_TASK_IDLE);
+	atomic_set(&swcq_host->ongoing_task.blksz, 0);
 }
 
 static void swcq_recovery_start(struct mmc_host *mmc)
@@ -511,6 +517,7 @@ int swcq_init(struct swcq_host *swcq_host, struct mmc_host *mmc)
 	/*swcmdq not have DCMD*/
 	mmc->cqe_qdepth = NUM_SLOTS;
 	atomic_set(&swcq_host->ongoing_task.id, MMC_SWCQ_TASK_IDLE);
+	atomic_set(&swcq_host->ongoing_task.blksz, 0);
 	swcq_host->cmdq_thread = kthread_create(mmc_run_queue_thread, mmc,
 				"mmc-swcq%d", mmc->index);
 
