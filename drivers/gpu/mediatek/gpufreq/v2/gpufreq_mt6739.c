@@ -55,6 +55,9 @@
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
 #include <linux/nvmem-consumer.h>
 #endif
+
+#include <mtk_vcorefs_manager.h>
+
 /**
  * ===============================================
  * Local Function Declaration
@@ -66,7 +69,6 @@ static unsigned int __gpufreq_dvfs_enable(void);
 static void __gpufreq_set_dvfs_state(unsigned int set, unsigned int state);
 static void __gpufreq_dump_bringup_status(struct platform_device *pdev);
 static void __gpufreq_measure_power(void);
-static void __gpufreq_set_springboard(void);
 static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx);
 static int __gpufreq_pause_dvfs(void);
 static void __gpufreq_resume_dvfs(void);
@@ -774,13 +776,11 @@ done_unlock:
 int __gpufreq_generic_commit_gpu(int target_oppidx, enum gpufreq_dvfs_state key)
 {
 	struct gpufreq_opp_info *opp_table = g_gpu.working_table;
-	struct gpufreq_sb_info *sb_table = g_gpu.sb_table;
 	int opp_num = g_gpu.opp_num;
 	int cur_oppidx = 0;
 	unsigned int cur_freq = 0, target_freq = 0;
 	unsigned int cur_volt = 0, target_volt = 0;
 	unsigned int cur_vsram = 0, target_vsram = 0;
-	int sb_idx = 0;
 	int ret = GPUFREQ_SUCCESS;
 	GPUFREQ_TRACE_START("target_oppidx=%d, key=%d",
 		target_oppidx, key);
@@ -825,21 +825,15 @@ int __gpufreq_generic_commit_gpu(int target_oppidx, enum gpufreq_dvfs_state key)
 		}
 	} else if (target_freq > cur_freq) {
 		/* voltage scaling */
-		while (target_volt != cur_volt) {
-			sb_idx = target_oppidx > sb_table[cur_oppidx].up ?
-				target_oppidx : sb_table[cur_oppidx].up;
+		if (target_volt != cur_volt) {
 			ret = __gpufreq_volt_scale_gpu(
-				cur_volt, opp_table[sb_idx].volt,
-				cur_vsram, opp_table[sb_idx].vsram);
+				cur_volt, target_volt, cur_vsram, target_vsram);
 			if (unlikely(ret)) {
 				GPUFREQ_LOGE("fail to scale Vgpu: (%d->%d), Vsram_gpu: (%d->%d)",
-					cur_volt, opp_table[sb_idx].volt,
-					cur_vsram, opp_table[sb_idx].vsram);
+					cur_volt, target_volt,
+					cur_vsram, target_vsram);
 				goto done_unlock;
 			}
-			cur_oppidx = sb_idx;
-			cur_volt = opp_table[sb_idx].volt;
-			cur_vsram = opp_table[sb_idx].vsram;
 		}
 		/* frequency scaling */
 		ret = __gpufreq_freq_scale_gpu(cur_freq, target_freq);
@@ -857,21 +851,16 @@ int __gpufreq_generic_commit_gpu(int target_oppidx, enum gpufreq_dvfs_state key)
 			goto done_unlock;
 		}
 		/* voltage scaling */
-		while (target_volt != cur_volt) {
-			sb_idx = target_oppidx < sb_table[cur_oppidx].down ?
-				target_oppidx : sb_table[cur_oppidx].down;
+		if (target_volt != cur_volt) {
 			ret = __gpufreq_volt_scale_gpu(
-				cur_volt, opp_table[sb_idx].volt,
-				cur_vsram, opp_table[sb_idx].vsram);
+				cur_volt, target_volt,
+				cur_vsram, target_vsram);
 			if (unlikely(ret)) {
 				GPUFREQ_LOGE("fail to scale Vgpu: (%d->%d), Vsram_gpu: (%d->%d)",
-					cur_volt, opp_table[sb_idx].volt,
-					cur_vsram, opp_table[sb_idx].vsram);
+					cur_volt, target_volt,
+					cur_vsram, target_vsram);
 				goto done_unlock;
 			}
-			cur_oppidx = sb_idx;
-			cur_volt = opp_table[sb_idx].volt;
-			cur_vsram = opp_table[sb_idx].vsram;
 		}
 	}
 	g_gpu.cur_oppidx = target_oppidx;
@@ -1431,31 +1420,39 @@ static int __gpufreq_volt_scale_gpu(
 	unsigned int vgpu_old, unsigned int vgpu_new,
 	unsigned int vsram_old, unsigned int vsram_new)
 {
-	//TODO:GKI set voltage mark abort
 	int ret = GPUFREQ_SUCCESS;
-	vgpu_new = 115000;
-	GPUFREQ_LOGI("force VGPU to 1.15V");
+	unsigned int volt = g_gpu.cur_volt;
 	GPUFREQ_TRACE_START("vgpu_old=%d, vgpu_new=%d, vsram_old=%d, vsram_new=%d",
 		vgpu_old, vgpu_new, vsram_old, vsram_new);
 	GPUFREQ_LOGD("begin to scale Vgpu: (%d->%d), Vsram_gpu: (%d->%d)",
 		vgpu_old, vgpu_new, vsram_old, vsram_new);
-		ret = regulator_set_voltage(
-				g_pmic->reg_vcore,
-				vgpu_new * 10,
-				VGPU_MAX_VOLT * 10 + 125);
-		if (unlikely(ret)) {
-			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to set VSRAM_G (%d)", ret);
-			goto done;
+	if (vgpu_new != vgpu_old) {
+		switch (vgpu_new) {
+		case GPU_DVFS_VOLT0:
+			ret = vcorefs_request_dvfs_opp(KIR_GPU, OPP_0);
+			break;
+		case GPU_DVFS_VOLT1:
+			ret = vcorefs_request_dvfs_opp(KIR_GPU, OPP_1);
+			break;
+		case GPU_DVFS_VOLT2:
+			ret = vcorefs_request_dvfs_opp(KIR_GPU, OPP_2);
+			break;
+		case GPU_DVFS_VOLT3:
+			ret = vcorefs_request_dvfs_opp(KIR_GPU, OPP_3);
+			break;
+		default:
+			GPUFREQ_LOGD("@%s: ummapped voltage! volt %d\n", __func__, vgpu_new);
+			break;
 		}
-	g_gpu.cur_volt = __gpufreq_get_real_vgpu();
-	if (unlikely(g_gpu.cur_volt != vgpu_new))
-		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
-			"inconsistent scaled Vgpu, cur_volt: %d, target_volt: %d",
-			g_gpu.cur_volt, vgpu_new);
-	/*Legacy has fixed Vsram = 87500. so not updating the vsram */
-	/* todo: GED log buffer (gpufreq_pr_logbuf) */
-	GPUFREQ_LOGD("Updated Vgpu: %d, Vsram: %d", g_gpu.cur_volt, g_gpu.cur_vsram);
-done:
+		volt = __gpufreq_get_real_vgpu();
+		if (ret == -1)
+			GPUFREQ_LOGE("@%s: vcorefs_request_dvfs_opp fail! volt %d\n",
+			__func__, volt);
+		else {
+			g_gpu.cur_volt = vgpu_new;
+			g_gpu.cur_vsram = vsram_new;
+		}
+	}
 	GPUFREQ_TRACE_END();
 	return ret;
 }
@@ -1550,7 +1547,7 @@ static unsigned int __gpufreq_get_real_fgpu(void)
 	unsigned int posdiv_power = 0;
 	unsigned int freq = 0;
 	unsigned int pcw = 0;
-	GPUFREQ_LOGE("%s: MFGPLL_CON1 = 0x%x", __func__, MFGPLL_CON1);
+	GPUFREQ_LOGD("%s: MFGPLL_CON1 = 0x%x", __func__, MFGPLL_CON1);
 	mfgpll = readl(MFGPLL_CON1);
 	pcw = mfgpll & (0x3FFFFF);
 	posdiv_power = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
@@ -1686,99 +1683,32 @@ done:
 }
 static int __gpufreq_buck_control(enum gpufreq_power_state power)
 {
-	//TODO:GKI set voltage
 	int ret = GPUFREQ_SUCCESS;
-	unsigned int volt = __gpufreq_get_real_vgpu();
-	GPUFREQ_LOGD("@%s: volt = %d ", __func__, volt);
+	unsigned int volt = g_gpu.cur_volt;
+
+	GPUFREQ_LOGD("@%s: current volt = %d ", __func__, volt);
 	GPUFREQ_TRACE_START("power=%d", power);
 	/* power on */
 	if (power == POWER_ON) {
-#if 0
-		if (volt > 70000)
-			ret = regulator_set_voltage(g_pmic->mtk_pm_vgpu, 70000, INT_MAX);
-		else if (volt > 65000)
-			ret = regulator_set_voltage(g_pmic->mtk_pm_vgpu, 65000, INT_MAX);
-		else if (volt > 0)
-			ret = regulator_set_voltage(g_pmic->mtk_pm_vgpu, volt, INT_MAX);
-		else
-			ret = regulator_set_voltage(g_pmic->mtk_pm_vgpu, 0, INT_MAX);
-		if (unlikely(ret)) {
-			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to set vcroe voltage (%d)",
-			ret);
-			goto done;
-		}
-#else
-		ret = regulator_set_voltage(g_pmic->reg_vcore, 115000*10, VGPU_MAX_VOLT * 10 + 125);
-		if (unlikely(ret)) {
-			GPUFREQ_LOGD("@%s: set vcore fail :%d", __func__, ret);
-			goto done;
-		}
-#endif
-		g_volt_enable_state =  true;
+		g_volt_enable_state = true;
 		g_gpu.buck_count++;
 	/* power off */
 	} else {
-#if 0
-		ret = regulator_set_voltage(g_pmic->mtk_pm_vgpu, 0, INT_MAX);
-		if (unlikely(ret)) {
-			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to set vcroe voltage (%d)",
-			ret);
-			goto done;
-		}
-#endif
-		g_volt_enable_state =  false;
+		ret = vcorefs_request_dvfs_opp(KIR_GPU, OPP_UNREQ);
+		GPUFREQ_LOGD("@%s:power off vcorefs_request_dvfs_opp ret %d\n", __func__, ret);
+		g_volt_enable_state = false;
 		g_gpu.buck_count--;
 	}
-done:
+	if (ret == -1) {
+		GPUFREQ_LOGE("@%s: vcorefs_request_dvfs_opp fail! volt %d\n", __func__, volt);
+	} else {
+		g_gpu.cur_volt = __gpufreq_get_real_vgpu();
+		g_gpu.cur_vsram = __gpufreq_get_real_vsram();
+	}
 	GPUFREQ_TRACE_END();
 	return ret;
 }
-/*
- * API: find the longest and valid opp idx can be reached
- * use springboard opp index to avoid buck variation,
- * as the diff between Vgpu and Vsram must be in valid range
- * that is, MIN_BUCK_DIFF <= Vsram - Vgpu <= MAX_BUCK_DIFF
- * and Vsram always >= Vgpu, so we only focus on "MAX_BUCK_DIFF"
- */
-static void __gpufreq_set_springboard(void)
-{
-	struct gpufreq_opp_info *opp_table = g_gpu.working_table;
-	int src_idx = 0, dst_idx = 0;
-	unsigned int src_vgpu = 0, src_vsram = 0;
-	unsigned int dst_vgpu = 0, dst_vsram = 0;
-	/* build volt scale-up springboad table */
-	/* when volt scale-up: Vsram -> Vgpu */
-	for (src_idx = 0; src_idx < g_gpu.opp_num; src_idx++) {
-		src_vgpu = opp_table[src_idx].volt;
-		/* search from the beginning of opp table */
-		for (dst_idx = 0; dst_idx < g_gpu.opp_num; dst_idx++) {
-			dst_vsram = opp_table[dst_idx].vsram;
-			/* the smallest valid opp idx can be reached */
-			if (dst_vsram - src_vgpu <= MAX_BUCK_DIFF) {
-				g_gpu.sb_table[src_idx].up = dst_idx;
-				break;
-			}
-		}
-		GPUFREQ_LOGD("springboard_up[%02d]: %d",
-			src_idx, g_gpu.sb_table[src_idx].up);
-	}
-	/* build volt scale-down springboad table */
-	/* when volt scale-down: Vgpu -> Vsram */
-	for (src_idx = 0; src_idx < g_gpu.opp_num; src_idx++) {
-		src_vsram = opp_table[src_idx].vsram;
-		/* search from the end of opp table */
-		for (dst_idx = g_gpu.min_oppidx; dst_idx >= 0 ; dst_idx--) {
-			dst_vgpu = opp_table[dst_idx].volt;
-			/* the largest valid opp idx can be reached */
-			if (src_vsram - dst_vgpu <= MAX_BUCK_DIFF) {
-				g_gpu.sb_table[src_idx].down = dst_idx;
-				break;
-			}
-		}
-		GPUFREQ_LOGD("springboard_down[%02d]: %d",
-			src_idx, g_gpu.sb_table[src_idx].down);
-	}
-}
+
 /* API: init first OPP idx by init freq set in preloader */
 static int __gpufreq_init_opp_idx(void)
 {
@@ -1956,7 +1886,6 @@ static void __gpufreq_apply_aging(unsigned int apply_aging)
 		GPUFREQ_LOGD("apply Vaging: %d, GPU[%02d] Volt: %d, Vsram: %d",
 			apply_aging, i, working_table[i].volt, working_table[i].vsram);
 	}
-	__gpufreq_set_springboard();
 	mutex_unlock(&gpufreq_lock);
 }
 /* API: apply given adjustment table to signed table */
@@ -2123,7 +2052,6 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 		ret = GPUFREQ_ENOMEM;
 		goto done;
 	}
-	__gpufreq_set_springboard();
 	__gpufreq_setup_opp_power_table(g_gpu.signed_opp_num);
 done:
 	return ret;
@@ -2141,53 +2069,63 @@ static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx)
 }
 static int __gpufreq_init_segment_id(struct platform_device *pdev)
 {
-	//unsigned int efuse_id = 0;
+	unsigned int efuse_id = 0;
+	unsigned int turbo_id = 0;
 	unsigned int segment_id = 0;
-	segment_id = MT6739_SEGMENT;
-	GPUFREQ_LOGI("@%s: segment_id = %d\n", __func__, segment_id);
+
+	struct nvmem_cell *efuse_cell;
+	struct nvmem_cell *turbo_cell;
+	unsigned int *efuse_buf;
+	unsigned int *turbo_buf;
+	size_t efuse_len;
+	size_t turbo_len;
+	// for get segment id
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		GPUFREQ_LOGE("@%s: cannot get efuse_segment_cell\n", __func__);
+		PTR_ERR(efuse_cell);
+	}
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		GPUFREQ_LOGE("@%s: cannot get efuse_buf of efuse segment\n", __func__);
+		PTR_ERR(efuse_buf);
+	}
+	efuse_id = (*efuse_buf & 0xFF);
+	kfree(efuse_buf);
+	// for get turbo id
+	turbo_cell = nvmem_cell_get(&pdev->dev, "efuse_turbo_cell");
+	if (IS_ERR(turbo_cell)) {
+		GPUFREQ_LOGE("@%s: cannot get efuse_turbo_cell\n", __func__);
+		PTR_ERR(turbo_cell);
+	}
+	turbo_buf = (unsigned int *)nvmem_cell_read(turbo_cell, &turbo_len);
+	nvmem_cell_put(turbo_cell);
+	if (IS_ERR(turbo_buf)) {
+		GPUFREQ_LOGE("@%s: cannot get turbo_buf of turbo segment\n", __func__);
+		PTR_ERR(turbo_buf);
+	}
+	turbo_id = (*turbo_buf & 0xFF);
+	kfree(turbo_buf);
+
+	if (((turbo_id & EFUSE_FAB_INFO_TURBO_MASK) == EFUSE_FAB_INFO_TURBO_MASK)
+		&& (efuse_id == 0x80 || efuse_id == 0x88
+		|| efuse_id == 0x90 || efuse_id == 0x08
+		|| efuse_id == 0x00 || efuse_id == 0x40
+		|| efuse_id == 0x48 || efuse_id == 0xC8
+		|| efuse_id == 0xC0 || efuse_id == 0xD0)) {
+		/* 6739D */
+		segment_id = MT6739TW_SEGMENT;
+	} else if (efuse_id == 0xB8 || efuse_id == 0x38) {
+		/* Other Version, set default segment */
+		segment_id = MT6739WD_SEGMENT;
+	} else {
+		segment_id = MT6739_SEGMENT;
+	}
+	GPUFREQ_LOGI("@%s: efuse_id = 0x%08X, turbo_id = 0x%08X, segment_id = %d\n",
+		__func__, efuse_id, turbo_id, segment_id);
 	g_gpu.segment_id = segment_id;
 	return 0;
-
-//	unsigned int efuse_id = 0;
-//	unsigned int segment_id = 0;
-//#if IS_ENABLED(CONFIG_MTK_DEVINFO)
-//	struct nvmem_cell *efuse_cell;
-//	unsigned int *efuse_buf;
-//	size_t efuse_len;
-//#endif
-//#if IS_ENABLED(CONFIG_MTK_DEVINFO)
-//	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
-//	if (IS_ERR(efuse_cell)) {
-//		GPUFREQ_LOGE("@%s: cannot get efuse_segment_cell\n", __func__);
-//		PTR_ERR(efuse_cell);
-//	}
-//	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
-//	nvmem_cell_put(efuse_cell);
-//	if (IS_ERR(efuse_buf)) {
-//		GPUFREQ_LOGE("@%s: cannot get efuse_buf of efuse segment\n", __func__);
-//	    PTR_ERR(efuse_buf);
-//	}
-//	efuse_id = (*efuse_buf & 0xFF);
-//	kfree(efuse_buf);
-//#else
-//	efuse_id = 0x0;
-//#endif /* CONFIG_MTK_DEVINFO */
-//	if (efuse_id == 0x80 || efuse_id == 0x88
-//		|| efuse_id == 0x90 || efuse_id == 0x08
-//		|| efuse_id == 0x00 || efuse_id == 0x40
-//		|| efuse_id == 0x48 || efuse_id == 0xC8
-//		|| efuse_id == 0xC0 || efuse_id == 0xD0) {
-//		/* 6739D */
-//		segment_id = MT6739TW_SEGMENT;
-//	} else if (efuse_id == 0xB8 || efuse_id == 0x38){
-//		/* Other Version, set default segment */
-//		segment_id = MT6739WD_SEGMENT;
-//	} else {
-//		segment_id = MT6739_SEGMENT;
-//	}
-//	GPUFREQ_LOGI("@%s: efuse_id = 0x%08X, segment_id = %d\n", __func__, efuse_id, segment_id);
-//	g_gpu.segment_id = segment_id;
-//	return 0;
 }
 static int __gpufreq_init_mtcmos(struct platform_device *pdev)
 {

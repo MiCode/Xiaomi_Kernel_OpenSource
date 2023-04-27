@@ -24,6 +24,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/aed/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/leakage_table_v2/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/v2/inc/mach/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/vcorefs_v3/
 
 ccflags-y += \
 	-Wno-unused-variable \

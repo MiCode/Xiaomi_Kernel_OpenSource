@@ -133,6 +133,14 @@
 #define GPUFREQ_BATT_OC_FREQ            (485000)
 #define GPUFREQ_BATT_PERCENT_IDX        (0)
 #define GPUFREQ_LOW_BATT_FREQ           (485000)
+
+/* MT6739 Use VCORE DVFS and need on/off VCORE & frequency control only */
+#define GPU_DVFS_VOLT0	 (115000)	/* mV x 100 */
+#define GPU_DVFS_VOLT1	 (111875)	/* mV x 100 */
+#define GPU_DVFS_VOLT2	 (108750)	/* mV x 100 */
+#define GPU_DVFS_VOLT3	 (105000)	/* mV x 100 */
+
+#define EFUSE_FAB_INFO_TURBO_MASK       (0x300000)
 /**************************************************
  * Enumeration MT6739
  **************************************************/
