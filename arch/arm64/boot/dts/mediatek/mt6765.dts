@@ -3604,7 +3604,7 @@ pwrap: pwrap@1000d000 {
 
 	smi_larb0: smi_larb0@14003000 {
 		cell-index = <0>;
-		compatible = "mediatek,smi_larb0","mediatek,mt6765-smi-larb", "mediatek,smi_larb";
+		compatible = "mediatek,smi_larb0","mediatek,mt6765-smi-larb", "mediatek,smi-larb";
 		reg = <0 0x14003000 0 0x1000>;
 		mediatek,smi = <&smi_common>;
 		init-power-on;
