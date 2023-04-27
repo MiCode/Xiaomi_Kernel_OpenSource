@@ -3403,6 +3403,18 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		compatible = "mediatek,irq_nfc-eint";
 	};
 
+	smi_bwc {
+		compatible = "mediatek,smi-legacy-bwc", "mediatek,mt6765-smi-bwc";
+		clocks = <&topckgen CLK_TOP_MM_SEL>,
+			<&topckgen CLK_TOP_MMPLL>,
+			<&topckgen CLK_TOP_UNIVPLL1_D2>,
+			<&topckgen CLK_TOP_MMPLL_D2>;
+		clock-names = "mmdvfs_clk_mm_sel_ck",
+			"mmdvfs_clk_mmpll_ck",
+			"mmdvfs_clk_univpll1_d2_ck",
+			"mmdvfs_clk_mmpll_d2_ck";
+	};
+
 	smi_common: smi_common@14002000 {
 		compatible = "mediatek,mt6765-smi-common","mediatek,smi-common","syscon";
 		reg = <0 0x14002000 0 0x1000>;
@@ -3464,6 +3476,8 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 		#mtk-interconnect-cells = <1>;
 		mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2 &smi_larb3>;
 		mediatek,commons = <&smi_common>;
+		disable-ostd;
+		disable-bwl;
 		clocks = <&topckgen CLK_TOP_MM_SEL>;
 		clock-names = "mm";
 		interconnects = <&dvfsrc MT6873_MASTER_MMSYS &dvfsrc MT6873_SLAVE_DDR_EMI>,
