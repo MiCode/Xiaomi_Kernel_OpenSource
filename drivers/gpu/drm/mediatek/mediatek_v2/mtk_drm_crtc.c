@@ -3380,6 +3380,7 @@ void mtk_crtc_mode_switch_config(struct mtk_drm_crtc *mtk_crtc,
 		mtk_ddp_comp_stop(comp, cmdq_handle);
 		mtk_ddp_comp_config(comp, &cfg, cmdq_handle);
 		mtk_ddp_comp_start(comp, cmdq_handle);
+		mtk_ddp_comp_io_cmd(comp, cmdq_handle, IRQ_LEVEL_NORMAL, NULL);
 		if (!mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_USE_PQ))
 			mtk_ddp_comp_bypass(comp, 1, cmdq_handle);
