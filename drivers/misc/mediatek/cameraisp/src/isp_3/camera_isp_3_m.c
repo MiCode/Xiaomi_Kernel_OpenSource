@@ -90,8 +90,8 @@ static u32 PMQoS_BW_value[ISP_PASS1_PATH_TYPE_AMOUNT][_rt_dma_max_];
 #define CAMSV_DBG
 #ifdef CAMSV_DBG
 #define CAM_TAG "CAM:"
-#define CAMSV_TAG "SV1:"
-#define CAMSV2_TAG "SV2:"
+#define CAMSV_TAG "CAMSV1:"
+#define CAMSV2_TAG "CAMSV2:"
 #else
 #define CAMSV_TAG ""
 #define CAMSV2_TAG ""
@@ -1062,11 +1062,11 @@ static unsigned int g_DmaErr_p1[nDMA_ERR] = {0};
 						1] != '\0') {                  \
 						ptr[NORMAL_STR_LEN * (i + 1) - \
 						    1] = '\0';                 \
-						log_inf("%s",                  \
+						log_dbg("%s",                  \
 							&ptr[NORMAL_STR_LEN *  \
 							     i]);              \
 					} else {                               \
-						log_inf("%s",                  \
+						log_dbg("%s",                  \
 							&ptr[NORMAL_STR_LEN *  \
 							     i]);              \
 						break;                         \
@@ -2958,6 +2958,8 @@ static inline void Prepare_Enable_ccf_clock(void)
 	ret = pm_runtime_get_sync(cam_isp_devs->dev);
 	if (ret < 0)
 		log_err("cannot pm runtime get ISP_IMGSYS_CONFIG_IDX mtcmos\n");
+	else
+		log_inf("+ pm_runtime_get_sync\n");
 
 	ret = clk_prepare_enable(isp_clk.CG_CAM_LARB2);
 	if (ret)
@@ -3005,6 +3007,8 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	ret = pm_runtime_put_sync(cam_isp_devs->dev);
 	if (ret < 0)
 		log_err("cannot pm runtime put ISP_IMGSYS_CONFIG_IDX mtcmos\n");
+	else
+		log_inf("- pm_runtime_put_sync\n");
 }
 
 /******************************************************************************
@@ -3012,7 +3016,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
  ******************************************************************************/
 static void ISP_EnableClock(bool En)
 {
-	log_inf("- E. En: %d. G_u4EnableClockCount:%d.", En, G_u4EnableClockCount);
+	log_dbg("- E. En: %d. G_u4EnableClockCount:%d.\n", En, G_u4EnableClockCount);
 
 	if (En) {
 		spin_lock(&(IspInfo.SpinLockClock));
@@ -3025,7 +3029,7 @@ static void ISP_EnableClock(bool En)
 		spin_unlock(&(IspInfo.SpinLockClock));
 		Disable_Unprepare_ccf_clock();
 	}
-	log_inf("- X. En: %d. G_u4EnableClockCount:%d.", En, G_u4EnableClockCount);
+	log_dbg("- X. En: %d. G_u4EnableClockCount:%d.\n", En, G_u4EnableClockCount);
 }
 
 /******************************************************************************
@@ -8029,7 +8033,7 @@ static bool ISP_PM_QOS_CTRL_FUNC(unsigned int bIsOn, unsigned int module)
 
 	for (port = 0; port < _rt_dma_max_; port++) {
 		if (PMQoS_BW_value[module][port] != G_PM_QOS[module].port_bw[port].avg) {
-			pr_debug("PM_QoS: module[%d], bIsOn[%d], bw[%d], bw = %d MB/s\n",
+			log_dbg("PM_QoS: module[%d], bIsOn[%d], bw[%d], bw = %d MB/s\n",
 				module, bIsOn,
 				G_PM_QOS[module].bw_sum,
 				G_PM_QOS[module].port_bw[port].avg);
@@ -9315,7 +9319,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV(signed int Irq, void *DeviceId)
 		if (IspInfo.DebugMask & ISP_DBG_BUF_CTRL) {
 			IRQ_LOG_KEEPER(
 				_CAMSV_IRQ, m_CurrentPPB, _LOG_INF,
-				CAMSV_TAG "DONE_%d_%d(0x%x,0x%x,0x%x,0x%x)\n",
+				CAMSV_TAG "P1_DON_%d_%d(0x%x,0x%x,0x%x,0x%x)\n",
 				(sof_count[_CAMSV]) ? (sof_count[_CAMSV] - 1)
 						    : (sof_count[_CAMSV]),
 				((ISP_RD32(ISP_REG_ADDR_CAMSV_TG_INTER_ST) &
@@ -9387,7 +9391,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV(signed int Irq, void *DeviceId)
 				ISP_RD32(ISP_REG_ADDR_CAMSV_IMGO_FBC);
 			IRQ_LOG_KEEPER(
 				_CAMSV_IRQ, m_CurrentPPB, _LOG_INF,
-				CAMSV_TAG "SOF_%d_%d(0x%x,0x%x,0x%x,0x%x)\n",
+				CAMSV_TAG "P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x)\n",
 				sof_count[_CAMSV],
 				((ISP_RD32(ISP_REG_ADDR_CAMSV_TG_INTER_ST) &
 				  0x00FF0000) >>
@@ -9507,7 +9511,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 			IRQ_LOG_KEEPER(
 				_CAMSV_D_IRQ, m_CurrentPPB,
 				_LOG_INF, CAMSV2_TAG
-				"DONE_%d_%d(0x%x,0x%x,0x%x,0x%x,camsv support no	inner addr)\n",
+				"P1_DON_%d_%d(0x%x,0x%x,0x%x,0x%x,camsv support no	inner addr)\n",
 				(sof_count[_CAMSV_D])
 					? (sof_count[_CAMSV_D] - 1)
 					: (sof_count[_CAMSV_D]),
@@ -9583,7 +9587,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 			IRQ_LOG_KEEPER(
 				_CAMSV_D_IRQ, m_CurrentPPB,
 				_LOG_INF, CAMSV2_TAG
-				"SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,camsv	support	no inner addr)\n",
+				"P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,camsv	support	no inner addr)\n",
 				sof_count[_CAMSV_D],
 				((ISP_RD32(ISP_REG_ADDR_CAMSV_TG2_INTER_ST) &
 				  0x00FF0000) >>
@@ -11102,7 +11106,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					pm_qos_info.port_bw[dma_port];
 				}
 
-				pr_debug("ISP_SET_PM_QOS_INFO bw:(%d), upd_flag:(%d), module:(%d)\n",
+				log_dbg("ISP_SET_PM_QOS_INFO bw:(%d), upd_flag:(%d), module:(%d)\n",
 					pm_qos_info.bw_value,
 					1,
 					pm_qos_info.module);
@@ -12311,7 +12315,7 @@ EXIT:
 		 *  2. CCF: call clk_enable/disable every time
 		 */
 		ISP_EnableClock(MTRUE);
-		log_dbg("isp open G_u4EnableClockCount:	%d",
+		log_inf("isp open G_u4EnableClockCount:	%d\n",
 			G_u4EnableClockCount);
 	}
 
@@ -12421,7 +12425,7 @@ EXIT:
 	 *  2. CCF: call clk_enable/disable every time
 	 */
 	ISP_EnableClock(MFALSE);
-	log_dbg("isp release G_u4EnableClockCount: %d", G_u4EnableClockCount);
+	log_inf("isp release G_u4EnableClockCount: %d\n", G_u4EnableClockCount);
 	/*  */
 	log_inf("- X. UserCount: %d.", IspInfo.UserCount);
 	return 0;
@@ -13077,6 +13081,7 @@ static signed int ISP_resume(struct platform_device *pDev)
 	}
 	//enable clock
 	ISP_EnableClock(MTRUE);
+	log_inf("isp resume G_u4EnableClockCount: %d\n", G_u4EnableClockCount);
 
 	/* TG_VF_CON[0] (0x15004414[0]): VFDATA_EN.     TG1     Take Picture
 	 * Request.
