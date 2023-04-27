@@ -23,6 +23,27 @@ extern void __iomem *csram_base;
 extern struct ppm_data cluster_ppm_info[MAX_CLUSTER_NR];
 extern int cluster_nr;
 
+#if !IS_ENABLED(CONFIG_ARM64)
+struct stackframe {
+	/*
+	 * FP member should hold R7 when CONFIG_THUMB2_KERNEL is enabled
+	 * and R11 otherwise.
+	 */
+	unsigned long fp;
+	unsigned long sp;
+	unsigned long lr;
+	unsigned long pc;
+};
+
+struct return_address_data {
+	unsigned int level;
+	void *addr;
+};
+
+register unsigned long arm32_current_stack_pointer asm ("sp");
+extern int unwind_frame(struct stackframe *frame);
+#endif
+
 #if IS_ENABLED(CONFIG_MTK_PERF_TRACKER)
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_TRACER)
 #include <mt-plat/mtk_blocktag.h>

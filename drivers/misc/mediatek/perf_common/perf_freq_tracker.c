@@ -61,12 +61,70 @@ static inline int find_qos_in_cluster(struct freq_constraints *qos)
 	return (cid < cluster_nr) ? cid : -1;
 }
 
+#if !IS_ENABLED(CONFIG_ARM64)
+void notrace arm32_walk_stackframe(struct stackframe *frame,
+		     int (*fn)(struct stackframe *, void *), void *data)
+{
+	while (1) {
+		int ret;
+
+		if (fn(frame, data))
+			break;
+		ret = unwind_frame(frame);
+		if (ret < 0)
+			break;
+	}
+}
+
+static int save_return_addr(struct stackframe *frame, void *d)
+{
+	struct return_address_data *data = d;
+	int ret = 0;
+
+	if (!data->level) {
+		data->addr = (void *)frame->pc;
+		ret =  1;
+	} else {
+		--data->level;
+		ret = 0;
+	}
+
+	return ret;
+}
+
+void *arm32_return_address(unsigned int level)
+{
+	struct return_address_data data;
+	struct stackframe frame;
+
+	data.level = level + 2;
+	data.addr = NULL;
+
+	frame.fp = (unsigned long)__builtin_frame_address(0);
+	frame.sp = arm32_current_stack_pointer;
+	frame.lr = (unsigned long)__builtin_return_address(0);
+	frame.pc = (unsigned long)arm32_return_address;
+
+	arm32_walk_stackframe(&frame, save_return_addr, &data);
+
+	if (!data.level)
+		return data.addr;
+	else
+		return NULL;
+}
+#endif
+
 static void mtk_freq_qos_add_request(void *data, struct freq_constraints *qos,
 	struct freq_qos_request *req, enum freq_qos_req_type type, int value, int ret)
 {
 	int cid = 0;
+#if IS_ENABLED(CONFIG_ARM64)
 	const char *caller_info = find_and_get_symobls(
 		(unsigned long)__builtin_return_address(1));
+#else
+	const char *caller_info = find_and_get_symobls(
+		(unsigned long)arm32_return_address(1));
+#endif
 	if (caller_info) {
 		cid = find_qos_in_cluster(qos);
 		trace_freq_qos_user_setting(cid, type, value, caller_info);
@@ -76,8 +134,13 @@ static void mtk_freq_qos_add_request(void *data, struct freq_constraints *qos,
 static void mtk_freq_qos_update_request(void *data, struct freq_qos_request *req, int value)
 {
 	int cid = 0;
+#if IS_ENABLED(CONFIG_ARM64)
 	const char *caller_info = find_and_get_symobls(
 		(unsigned long)__builtin_return_address(1));
+#else
+	const char *caller_info = find_and_get_symobls(
+		(unsigned long)arm32_return_address(1));
+#endif
 	if (caller_info) {
 		cid = find_qos_in_cluster(req->qos);
 		trace_freq_qos_user_setting(cid, req->type, value, caller_info);
