@@ -1815,6 +1815,11 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		ctrl_intf = <1>;
 	};
 
+	emictrl {
+		compatible = "mediatek,common-emictrl";
+		mediatek,emi-reg = <&emicen>;
+	};
+
 	mdpsys_config: mdpsys_config@14000000 {
 		compatible = "mediatek,mdpsys_config";
 		clocks = <&mmsys_config CLK_MM_CAM_MDP>,
