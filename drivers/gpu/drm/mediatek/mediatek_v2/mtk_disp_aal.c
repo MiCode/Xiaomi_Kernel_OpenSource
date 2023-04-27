@@ -2457,6 +2457,7 @@ static void ddp_aal_cabc_backup(struct mtk_ddp_comp *comp)
 
 	for (i = 0; i < CABC_GAINLMT_NUM; i++) {
 		if (priv->data->mmsys_id == MMSYS_MT6768 ||
+			priv->data->mmsys_id == MMSYS_MT6765 ||
 			priv->data->mmsys_id == MMSYS_MT6761 ||
 			priv->data->mmsys_id == MMSYS_MT6739) {
 			g_aal_backup.CABC_GAINLMT[i] =

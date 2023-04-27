@@ -1961,10 +1961,10 @@ const struct mtk_disp_rdma_data mt6739_rdma_driver_data = {
 
 const struct mtk_disp_rdma_data mt6765_rdma_driver_data = {
 	.fifo_size = SZ_1K * 6,
-	.pre_ultra_low_us = 117,
-	.pre_ultra_high_us = 160,
-	.ultra_low_us = 87,
-	.ultra_high_us = 3,
+	.pre_ultra_low_us = 60,
+	.pre_ultra_high_us = 70,
+	.ultra_low_us = 40,
+	.ultra_high_us = 60,
 	.urgent_low_us = 30,
 	.urgent_high_us = 35,
 	.sodi_config = mt6765_mtk_sodi_config,
