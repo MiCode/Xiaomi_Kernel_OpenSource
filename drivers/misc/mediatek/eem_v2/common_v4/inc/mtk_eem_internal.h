@@ -34,12 +34,23 @@
 /*
  * LOG
  */
+#define SHOW_DBG_INFO_NTC_WARR_LOG 0
+
 #define EEM_TAG	 "[xxxxEEM] "
 	#define eem_error(fmt, args...)		pr_notice(EEM_TAG fmt, ##args)
+
+#if SHOW_DBG_INFO_NTC_WARR_LOG
 	#define eem_warning(fmt, args...)	pr_notice(EEM_TAG fmt, ##args)
 	#define eem_notice(fmt, args...)	pr_notice(EEM_TAG fmt, ##args)
 	#define eem_info(fmt, args...)		pr_notice(EEM_TAG fmt, ##args)
 	#define eem_debug(fmt, args...)		pr_notice(EEM_TAG fmt, ##args)
+#else
+	#define eem_warning(fmt, args...)
+	#define eem_notice(fmt, args...)
+	#define eem_info(fmt, args...)
+	#define eem_debug(fmt, args...)
+#endif
+
 #if EN_ISR_LOG /* For Interrupt use */
 	#define eem_isr_info(fmt, args...)  eem_debug(fmt, ##args)
 #else
