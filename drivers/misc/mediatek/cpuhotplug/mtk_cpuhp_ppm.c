@@ -15,7 +15,7 @@
 
 
 #include <linux/nmi.h>
-
+#include "mtk_ppm_platform.h"
 #include "mtk_cpuhp_private.h"
 
 static struct cpumask ppm_online_cpus;
@@ -141,6 +141,11 @@ static void ppm_limit_callback(struct ppm_client_req req)
 	wake_up_process(ppm_kthread);
 }
 
+void *get_cpuhop_ppm_callback(void)
+{
+	return &ppm_limit_callback;
+}
+EXPORT_SYMBOL(get_cpuhop_ppm_callback);
 
 void ppm_notifier(void)
 {
@@ -168,10 +173,10 @@ void ppm_notifier(void)
 		       PTR_ERR(ppm_kthread));
 		return;
 	}
-
+#ifndef PPM_NOT_REGISTER_CALLBACK
 	/* register PPM callback */
 	mt_ppm_register_client(PPM_CLIENT_HOTPLUG, &ppm_limit_callback);
-
+#endif
 	hps_ws = wakeup_source_register(NULL, "hps");
 	if (!hps_ws)
 		pr_debug("hps wakelock register fail!\n");

@@ -13,6 +13,9 @@
 
 # common source and includes
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/ppm_v3/inc/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cpufreq_v2/inc/
+
 
 obj-$(CONFIG_MTK_CPUHOTPLUG) += mtk_cpuhp.o
 mtk_cpuhp-y += mtk_cpuhp_core.o
