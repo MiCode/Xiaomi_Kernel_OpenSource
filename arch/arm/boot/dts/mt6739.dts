@@ -3062,10 +3062,12 @@ initcall_debug=1 clk_ignore_unused=1";
 	};
 
 	pmic_clock_buffer_ctrl: pmic_clock_buffer_ctrl {
-		compatible = "mediatek,pmic_clock_buffer";
-		mediatek,clkbuf-quantity = <7>;
-		mediatek,clkbuf-config = <2 1 1 2 0 0 0>;
-		mediatek,clkbuf-driving-current = <(-1) (-1) (-1) (-1) (-1) (-1) (-1)>;
+		compatible = "mediatek,clock_buffer_ctrl";
+		mediatek,xo-buf-hwbblpm-mask = <1 0 0 0 0 0 0>;
+		mediatek,xo-buf-hwbblpm-bypass = <0 0 0 0 0 0 0>;
+		pmif = <&pwrap 0>;
+		mediatek,xo-nfc = <0>;
+		mediatek,enable;
 	};
 
 	consys: consys@18070000 {
