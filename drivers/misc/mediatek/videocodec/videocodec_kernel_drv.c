@@ -270,6 +270,7 @@ static long vcodec_get_secure_handle(struct device *dev, unsigned long arg)
 	}
 
 	pr_info("[%s][%d] sec_handle = %llx -\n", __func__, __LINE__, rSecObj.sec_handle);
+	dma_buf_put(dmabuf);
 	return ret;
 #else
 	pr_info("[%s][%d] SVP not supported -\n", __func__, __LINE__);
