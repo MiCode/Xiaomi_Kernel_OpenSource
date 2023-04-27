@@ -559,7 +559,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	unsigned int lv = CPU_LEVEL_3;
 	unsigned int efuse_seg;
 	unsigned int efuse_ly;
-	//struct platform_device *pdev;
+	struct platform_device *pdev;
 	struct device_node *node;
 	struct nvmem_cell *efuse_cell;
 	size_t efuse_len;
@@ -567,6 +567,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	unsigned int *efuse_ly_buf;
 	int val = 0;
 	int val_ly = 0;
+	unsigned int fabinfo2;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-dvfsp");
 
@@ -574,8 +575,12 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		tag_pr_info("%s fail to get device node\n", __func__);
 		return 0;
 	}
-
-	efuse_cell = of_nvmem_cell_get(node, "efuse_segment_cell");
+	pdev = of_device_alloc(node, NULL, NULL);
+	if (!pdev) {
+		tag_pr_info("%s fail to create device node\n", __func__);
+		return 0;
+	}
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
 	if (IS_ERR(efuse_cell)) {
 		tag_pr_info("@%s: cannot get efuse_cell, errno %ld\n",
 			__func__, PTR_ERR(efuse_cell));
@@ -589,7 +594,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	kfree(efuse_buf);
 
 	/* get efuse ly */
-	efuse_cell = of_nvmem_cell_get(node, "efuse_ly_cell");
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_ly_cell");
 	if (IS_ERR(efuse_cell)) {
 		tag_pr_info("@%s: cannot get efuse_ly_cell, errno %ld\n",
 			__func__, PTR_ERR(efuse_cell));
@@ -600,6 +605,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	nvmem_cell_put(efuse_cell);
 	efuse_ly = *efuse_ly_buf;
 	val_ly = (efuse_ly >> 1) & 0x1;
+	fabinfo2 = (efuse_ly >> 3) & 0x1;
 	kfree(efuse_ly_buf);
 
 	if ((val == 0x2) || (val == 0x5))
@@ -622,7 +628,22 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 			lv = CPU_LEVEL_8;
 		else
 			lv = CPU_LEVEL_5;
+	}
 
+	/* for MT6765X */
+	if (val == 0x24) {
+		lv = CPU_LEVEL_10;
+		tag_pr_info("%s CPU DVFS level: %d for 65X\n",
+				__func__, lv);
+	}
+
+	/* for improve yield MT6765OD */
+	if ((val == 0x3) || (val == 0x4) || (val == 0x12)) {
+		if (fabinfo2 == 1) {
+			lv = CPU_LEVEL_9;
+			tag_pr_info("%s CPU DVFS fabinfo2 is true for 65OD, lv=%d\n",
+				__func__, lv);
+		}
 	}
 
 	turbo_flag = 0;
@@ -630,6 +651,11 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		lv, turbo_flag, val, val_ly,
 		UP_VPROC_ST, DOWN_VPROC_ST,
 		UP_VSRAM_ST, DOWN_VSRAM_ST);
+	/* free pdev */
+	if (pdev != NULL) {
+		of_platform_device_destroy(&pdev->dev, NULL);
+		of_dev_put(pdev);
+	}
 
 	return lv;
 }
