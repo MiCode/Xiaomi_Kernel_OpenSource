@@ -269,6 +269,7 @@ static unsigned int ipi_isr_cb(unsigned int mbox, void __iomem *base,
 
 bool sspm_prepare_ipi_mbox_context(struct platform_device *pdev)
 {
+	int of_ret;
 	u32 i, ret;
 	u32 send_count, mbox_count, pin_name_count;
 	u32 pins_size, mbox_id, m_retdata, m_lock, m_polling;
@@ -390,9 +391,9 @@ bool sspm_prepare_ipi_mbox_context(struct platform_device *pdev)
 
 	/* Pin name table */
 	for (i = 0; i < pin_name_count; ++i) {
-		ret = of_property_read_string_index(pdev->dev.of_node, "pin_name_tbl", i,
+		of_ret = of_property_read_string_index(pdev->dev.of_node, "pin_name_tbl", i,
 						    &pin_name_pt);
-		if (ret < 0) {
+		if (of_ret < 0) {
 			pr_debug("[SSPM]%s:Cannot get pin_name_pt (%d):%d\n", __func__, i,
 				 __LINE__);
 			return false;
