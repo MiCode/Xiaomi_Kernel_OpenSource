@@ -1596,18 +1596,29 @@ static void cnss_recovery_work_handler(struct work_struct *work)
 {
 }
 #else
-static void cnss_recovery_work_handler(struct work_struct *work)
+void cnss_recovery_handler(struct cnss_plat_data *plat_priv)
 {
 	int ret;
 
-	struct cnss_plat_data *plat_priv =
-		container_of(work, struct cnss_plat_data, recovery_work);
+	set_bit(CNSS_DRIVER_RECOVERY, &plat_priv->driver_state);
 
 	if (!plat_priv->recovery_enabled)
 		panic("subsys-restart: Resetting the SoC wlan crashed\n");
 
 	cnss_bus_dev_shutdown(plat_priv);
 	cnss_bus_dev_ramdump(plat_priv);
+
+	/* If recovery is triggered before Host driver registration,
+	 * avoid device power up because eventually device will be
+	 * power up as part of driver registration.
+	 */
+	if (!test_bit(CNSS_DRIVER_REGISTER, &plat_priv->driver_state) ||
+	    !test_bit(CNSS_DRIVER_REGISTERED, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Host driver not registered yet, ignore Device Power Up, 0x%lx\n",
+			    plat_priv->driver_state);
+		return;
+	}
+
 	msleep(POWER_RESET_MIN_DELAY_MS);
 
 	ret = cnss_bus_dev_powerup(plat_priv);
@@ -1615,6 +1626,14 @@ static void cnss_recovery_work_handler(struct work_struct *work)
 		__pm_relax(plat_priv->recovery_ws);
 
 	return;
+}
+
+static void cnss_recovery_work_handler(struct work_struct *work)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(work, struct cnss_plat_data, recovery_work);
+
+	cnss_recovery_handler(plat_priv);
 }
 
 void cnss_device_crashed(struct device *dev)
@@ -1723,6 +1742,18 @@ self_recovery:
 	if (test_bit(LINK_DOWN_SELF_RECOVERY, &plat_priv->ctrl_params.quirks))
 		clear_bit(LINK_DOWN_SELF_RECOVERY,
 			  &plat_priv->ctrl_params.quirks);
+
+	/* If link down self recovery is triggered before Host driver
+	 * registration, avoid device power up because eventually device
+	 * will be power up as part of driver registration.
+	 */
+
+	if (!test_bit(CNSS_DRIVER_REGISTER, &plat_priv->driver_state) ||
+	    !test_bit(CNSS_DRIVER_REGISTERED, &plat_priv->driver_state)) {
+		cnss_pr_dbg("Host driver not registered yet, ignore Device Power Up, 0x%lx\n",
+			    plat_priv->driver_state);
+		return 0;
+	}
 
 	cnss_bus_dev_powerup(plat_priv);
 

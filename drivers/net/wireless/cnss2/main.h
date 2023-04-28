@@ -311,6 +311,7 @@ enum cnss_driver_state {
 	CNSS_PCI_PROBE_DONE,
 	CNSS_DRIVER_REGISTER,
 	CNSS_FS_READY,
+	CNSS_DRIVER_REGISTERED = 25,
 };
 
 struct cnss_recovery_data {
@@ -643,4 +644,5 @@ int cnss_get_feature_list(struct cnss_plat_data *plat_priv,
 			  u64 *feature_list);
 int cnss_get_input_gpio_value(struct cnss_plat_data *plat_priv, int gpio_num);
 bool cnss_check_driver_loading_allowed(void);
+void cnss_recovery_handler(struct cnss_plat_data *plat_priv);
 #endif /* _CNSS_MAIN_H */
