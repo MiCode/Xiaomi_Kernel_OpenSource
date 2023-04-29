@@ -605,13 +605,6 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 					else
 						snprintf(filename_tmp, filename_len,
 							ELF_BDF_FILE_NAME_L3_GF);
-				} else if (hw_platform_ver == HARDWARE_PROJECT_L10) {
-					if ((uint32_t)CountryGlobal == hw_country_ver)
-						snprintf(filename_tmp, filename_len,
-							ELF_BDF_FILE_NAME_L10_GF_GLOBAL);
-					else
-						snprintf(filename_tmp, filename_len,
-							ELF_BDF_FILE_NAME_L10_GF);
 				} else
 					snprintf(filename_tmp, filename_len,
 						ELF_BDF_FILE_NAME_GF);
@@ -629,13 +622,6 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 				else
 					snprintf(filename_tmp, filename_len,
 						ELF_BDF_FILE_NAME_L3);
-			} else if (hw_platform_ver == HARDWARE_PROJECT_L10) {
-				if ((uint32_t)CountryGlobal == hw_country_ver)
-					snprintf(filename_tmp, filename_len,
-						ELF_BDF_FILE_NAME_L10_GLOBAL);
-				else
-					snprintf(filename_tmp, filename_len,
-						ELF_BDF_FILE_NAME_L10);
 			} else
 				snprintf(filename_tmp, filename_len,
 					ELF_BDF_FILE_NAME);
