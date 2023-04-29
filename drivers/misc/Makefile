@@ -68,7 +68,6 @@ obj-$(CONFIG_QSEECOM)		+= qseecom-mod.o
 qseecom-mod-$(CONFIG_QSEECOM)  := qseecom.o
 qseecom-mod-$(CONFIG_COMPAT)	+= compat_qseecom.o
 obj-$(CONFIG_WIGIG_SENSING_SPI)	+= wigig_sensing.o
-obj-y				+= hwid/
 obj-$(CONFIG_PERF_HELPER)       += perf_helper.o
 obj-$(CONFIG_MI_GAMEKEY)        += mi_gamekey/
 obj-$(CONFIG_LDO_WL2866D)	+= wl2866d.o
