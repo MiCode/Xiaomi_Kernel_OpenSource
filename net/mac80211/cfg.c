@@ -796,7 +796,8 @@ static int ieee80211_set_monitor_channel(struct wiphy *wiphy,
 			ret = ieee80211_vif_use_channel(sdata, chandef,
 					IEEE80211_CHANCTX_EXCLUSIVE);
 		}
-	} else if (local->open_count == local->monitors) {
+       // Patch: Always allow channel change, even if a normal virtual interface is present
+       } else /*if (local->open_count == local->monitors)*/ {
 		local->_oper_chandef = *chandef;
 		ieee80211_hw_config(local, 0);
 	}
