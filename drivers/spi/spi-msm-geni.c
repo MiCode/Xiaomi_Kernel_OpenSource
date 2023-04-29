@@ -39,6 +39,9 @@
 #define SE_SPI_PRE_POST_CMD_DLY	(0x274)
 #define SE_SPI_DELAY_COUNTERS	(0x278)
 
+#define SE_SPI_SLAVE_EN           (0x2BC)
+#define SPI_SLAVE_EN              BIT(0)
+
 /* SE_SPI_CPHA register fields */
 #define CPHA			(BIT(0))
 
@@ -203,8 +206,59 @@ struct spi_geni_master {
 	u32 miso_sampling_ctrl_val;
 	bool gpi_reset; /* GPI channel reset*/
 	bool disable_dma;
+	bool slave_setup;
+	bool slave_state;
 	u32 xfer_timeout_offset;
 };
+
+static void spi_slv_setup(struct spi_geni_master *mas);
+
+static ssize_t spi_slave_state_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	struct platform_device *pdev = container_of(dev, struct
+						platform_device, dev);
+	struct spi_master *spi = platform_get_drvdata(pdev);
+	struct spi_geni_master *geni_mas;
+
+	geni_mas = spi_master_get_devdata(spi);
+
+	if (geni_mas)
+		ret = scnprintf(buf, sizeof(int), "%d\n",
+				geni_mas->slave_state);
+	return ret;
+}
+
+static ssize_t spi_slave_state_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	return 1;
+}
+
+static DEVICE_ATTR_RW(spi_slave_state);
+
+static void spi_slv_setup(struct spi_geni_master *mas)
+{
+	geni_write_reg(SPI_SLAVE_EN, mas->base, SE_SPI_SLAVE_EN);
+
+	geni_write_reg(1, mas->base, GENI_OUTPUT_CTRL);
+
+	geni_write_reg(START_TRIGGER, mas->base, SE_GENI_CFG_SEQ_START);
+	/* ensure data is written to hardware register */
+	wmb();
+	dev_info(mas->dev, "spi slave setup done\n");
+}
+
+static int spi_slv_abort(struct spi_master *spi)
+{
+	struct spi_geni_master *mas = spi_master_get_devdata(spi);
+
+	complete_all(&mas->tx_cb);
+	complete_all(&mas->rx_cb);
+	return 0;
+}
 
 static struct spi_master *get_spi_master(struct device *dev)
 {
@@ -306,9 +360,10 @@ static int setup_fifo_params(struct spi_device *spi_slv,
 	if (mode & SPI_CPOL)
 		cpol |= CPOL;
 
-	if (mode & SPI_CPHA)
-		cpha |= CPHA;
-
+	if (!spi->slave) {
+		if (mode & SPI_CPHA)
+			cpha |= CPHA;
+	}
 	if (spi_slv->mode & SPI_CS_HIGH)
 		demux_output_inv |= BIT(spi_slv->chip_select);
 
@@ -1124,10 +1179,28 @@ static int spi_geni_mas_setup(struct spi_master *spi)
 	int hw_ver;
 	int ret = 0;
 
-	if (unlikely(proto != SPI)) {
-		dev_err(mas->dev, "Invalid proto %d\n", proto);
-		return -ENXIO;
+	if (spi->slave) {
+		if (mas->slave_setup)
+			goto setup_ipc;
+		proto = get_se_proto(mas->base);
+		if (unlikely(proto != SPI_SLAVE)) {
+			dev_err(mas->dev, "Invalid proto %d\n", proto);
+			return -ENXIO;
+		}
 	}
+
+	if (unlikely(!mas->setup)) {
+		proto = get_se_proto(mas->base);
+
+		if ((unlikely(proto != SPI)) && (!spi->slave)) {
+			dev_err(mas->dev, "Invalid proto %d\n", proto);
+			return -ENXIO;
+		}
+
+		if (spi->slave)
+			spi_slv_setup(mas);
+	}
+
 	geni_se_init(mas->base, 0x0, (mas->tx_fifo_depth - 2));
 	mas->tx_fifo_depth = get_tx_fifo_depth(mas->base);
 	mas->rx_fifo_depth = get_rx_fifo_depth(mas->base);
@@ -1402,7 +1475,9 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 	else if (xfer->rx_buf)
 		m_cmd = SPI_RX_ONLY;
 
-	spi_tx_cfg &= ~CS_TOGGLE;
+	if (!spi->slave)
+		spi_tx_cfg &= ~CS_TOGGLE;
+
 	if (!(mas->cur_word_len % MIN_WORD_LEN)) {
 		trans_len =
 			((xfer->len << 3) / mas->cur_word_len) & TRANS_LEN_MSK;
@@ -1442,7 +1517,9 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 		mas->cur_xfer_mode = FIFO_MODE;
 	geni_se_select_mode(mas->base, mas->cur_xfer_mode);
 
-	geni_write_reg(spi_tx_cfg, mas->base, SE_SPI_TRANS_CFG);
+	if (!spi->slave)
+		geni_write_reg(spi_tx_cfg, mas->base, SE_SPI_TRANS_CFG);
+
 	geni_setup_m_cmd(mas->base, m_cmd, m_param);
 	SPI_LOG_DBG(mas->ipc, false, mas->dev,
 		"%s: trans_len %d xferlen%d tx_cfg 0x%x cmd 0x%x cs%d mode%d freq %d\n",
@@ -1595,8 +1672,14 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 			goto err_fifo_geni_transfer_one;
 		}
 
+		if (spi->slave)
+			mas->slave_state = true;
+
 		timeout = wait_for_completion_timeout(&mas->xfer_done,
 					xfer_timeout);
+		if (spi->slave)
+			mas->slave_state = false;
+
 		if (!timeout) {
 			SPI_LOG_ERR(mas->ipc, true, mas->dev,
 				"Xfer[len %d tx %pK rx %pK n %d] timed out.\n",
@@ -1681,6 +1764,10 @@ err_gsi_geni_transfer_one:
 	}
 	return ret;
 err_fifo_geni_transfer_one:
+
+	if (!spi->slave)
+		handle_fifo_timeout(mas, xfer);
+
 	handle_fifo_timeout(mas, xfer);
 	return ret;
 }
@@ -1860,6 +1947,75 @@ exit_geni_spi_irq:
 	return IRQ_HANDLED;
 }
 
+/**
+ * spi_get_dt_property: To read DTSI property.
+ * @pdev: structure to platform driver.
+ * @geni_mas: structure to spi geni.
+ * @spi: structure to spi master.
+ * @res: resource details.
+ * This function will read SPI DTSI property.
+ *
+ * return: None.
+ */
+static void spi_get_dt_property(struct platform_device *pdev,
+				struct spi_geni_master *geni_mas,
+				struct spi_master *spi,
+				struct resource *res)
+{
+	bool rt_pri, slave_en;
+
+
+	rt_pri = of_property_read_bool(pdev->dev.of_node, "qcom,rt");
+	if (rt_pri)
+		spi->rt = true;
+	geni_mas->dis_autosuspend =
+		of_property_read_bool(pdev->dev.of_node,
+				"qcom,disable-autosuspend");
+	/*
+	 * shared_se property is set when spi is being used simultaneously
+	 * from two Execution Environments.
+	 */
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,shared_se")) {
+		geni_mas->shared_se = true;
+		geni_mas->shared_ee = true;
+	} else {
+
+		/*
+		 * shared_ee property will be set when spi is being used from
+		 * dual Execution Environments unlike gsi_mode flag
+		 * which is set if SE is in GSI mode.
+		 */
+		geni_mas->shared_ee =
+		of_property_read_bool(pdev->dev.of_node, "qcom,shared_ee");
+	}
+
+	geni_mas->set_miso_sampling = of_property_read_bool(pdev->dev.of_node,
+				"qcom,set-miso-sampling");
+	if (geni_mas->set_miso_sampling) {
+		if (!of_property_read_u32(pdev->dev.of_node,
+				"qcom,miso-sampling-ctrl-val",
+				&geni_mas->miso_sampling_ctrl_val))
+			dev_info(&pdev->dev, "MISO_SAMPLING_SET: %d\n",
+				geni_mas->miso_sampling_ctrl_val);
+	}
+
+	geni_mas->disable_dma = of_property_read_bool(pdev->dev.of_node,
+		"qcom,disable-dma");
+
+	of_property_read_u32(pdev->dev.of_node, "qcom,xfer-timeout-offset",
+			     &geni_mas->xfer_timeout_offset);
+	if (geni_mas->xfer_timeout_offset)
+		dev_info(&pdev->dev, "%s: DT based xfer timeout offset: %d\n",
+			 __func__, geni_mas->xfer_timeout_offset);
+
+	slave_en  = of_property_read_bool(pdev->dev.of_node,
+			 "qcom,slv-ctrl");
+	if (slave_en) {
+		spi->slave = true;
+		spi->slave_abort = spi_slv_abort;
+	}
+}
+
 static int spi_geni_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1869,7 +2025,6 @@ static int spi_geni_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct platform_device *wrapper_pdev;
 	struct device_node *wrapper_ph_node;
-	bool rt_pri;
 
 	spi = spi_alloc_master(&pdev->dev, sizeof(struct spi_geni_master));
 	if (!spi) {
@@ -2016,57 +2171,17 @@ static int spi_geni_probe(struct platform_device *pdev)
 		goto spi_geni_probe_err;
 	}
 
-	rt_pri = of_property_read_bool(pdev->dev.of_node, "qcom,rt");
-	if (rt_pri)
-		spi->rt = true;
-	geni_mas->dis_autosuspend =
-		of_property_read_bool(pdev->dev.of_node,
-				"qcom,disable-autosuspend");
-	/*
-	 * shared_se property is set when spi is being used simultaneously
-	 * from two Execution Environments.
-	 */
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,shared_se")) {
-		geni_mas->shared_se = true;
-		geni_mas->shared_ee = true;
-	} else {
+	spi_get_dt_property(pdev, geni_mas, spi, res);
 
-		/*
-		 * shared_ee property will be set when spi is being used from
-		 * dual Execution Environments unlike gsi_mode flag
-		 * which is set if SE is in GSI mode.
-		 */
-		geni_mas->shared_ee =
-		of_property_read_bool(pdev->dev.of_node, "qcom,shared_ee");
-	}
-
-	geni_mas->set_miso_sampling = of_property_read_bool(pdev->dev.of_node,
-				"qcom,set-miso-sampling");
-	if (geni_mas->set_miso_sampling) {
-		if (!of_property_read_u32(pdev->dev.of_node,
-				"qcom,miso-sampling-ctrl-val",
-				&geni_mas->miso_sampling_ctrl_val))
-			dev_info(&pdev->dev, "MISO_SAMPLING_SET: %d\n",
-				geni_mas->miso_sampling_ctrl_val);
-	}
 	geni_mas->phys_addr = res->start;
 	geni_mas->size = resource_size(res);
 	geni_mas->base = devm_ioremap(&pdev->dev, res->start,
-						resource_size(res));
+				      resource_size(res));
 	if (!geni_mas->base) {
 		ret = -ENOMEM;
 		dev_err(&pdev->dev, "Err IO mapping iomem\n");
 		goto spi_geni_probe_err;
 	}
-
-	geni_mas->disable_dma = of_property_read_bool(pdev->dev.of_node,
-		"qcom,disable-dma");
-
-	of_property_read_u32(pdev->dev.of_node, "qcom,xfer-timeout-offset",
-			     &geni_mas->xfer_timeout_offset);
-	if (geni_mas->xfer_timeout_offset)
-		dev_info(&pdev->dev, "%s: DT based xfer timeout offset: %d\n",
-			 __func__, geni_mas->xfer_timeout_offset);
 
 	spi->mode_bits = (SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH);
 	spi->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
@@ -2099,6 +2214,10 @@ static int spi_geni_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register SPI master\n");
 		goto spi_geni_probe_unmap;
 	}
+
+	ret = sysfs_create_file(&(geni_mas->dev->kobj),
+			&dev_attr_spi_slave_state.attr);
+
 	dev_info(&pdev->dev, "%s: completed\n", __func__);
 	return ret;
 spi_geni_probe_unmap:
@@ -2114,6 +2233,7 @@ static int spi_geni_remove(struct platform_device *pdev)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(master);
 
+	sysfs_remove_file(&pdev->dev.kobj, &dev_attr_spi_slave_state.attr);
 	se_geni_resources_off(&geni_mas->spi_rsc);
 	spi_unregister_master(master);
 	pm_runtime_put_noidle(&pdev->dev);
