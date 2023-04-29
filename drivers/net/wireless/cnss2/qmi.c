@@ -4,13 +4,14 @@
 
 #include <linux/module.h>
 #include <linux/soc/qcom/qmi.h>
+#include <linux/hwid.h>
 
 #include "bus.h"
 #include "debug.h"
 #include "main.h"
 #include "qmi.h"
 #include "genl.h"
-#include "hwid.h"
+
 
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c

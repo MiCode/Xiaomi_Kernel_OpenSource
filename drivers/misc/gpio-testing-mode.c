@@ -17,7 +17,7 @@
 #include <linux/pm_wakeirq.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
-#include "hwid.h"
+#include <linux/hwid.h>
 struct gpio_data {
 	int irq;
 	int gpio_num;

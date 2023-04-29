@@ -56,6 +56,7 @@ obj-y				+= cardreader/
 obj-y 							+= mi-memory/
 obj-y 							+= mi-ioturbo/
 obj-y 							+= mi-power/
+obj-$(CONFIG_MI_HARDWARE_ID)	+= hwid.o
 obj-$(CONFIG_PVPANIC)   	+= pvpanic.o
 obj-$(CONFIG_HABANA_AI)		+= habanalabs/
 obj-$(CONFIG_UACCE)		+= uacce/
