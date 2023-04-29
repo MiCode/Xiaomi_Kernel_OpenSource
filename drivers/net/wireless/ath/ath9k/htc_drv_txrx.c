@@ -543,7 +543,7 @@ void ath9k_htc_tx_drain(struct ath9k_htc_priv *priv)
 	 * Ensure that all pending TX frames are flushed,
 	 * and that the TX completion/failed tasklets is killed.
 	 */
-	htc_stop(priv->htc);
+	htc_stop_hst(priv->htc);
 	tasklet_kill(&priv->wmi->wmi_event_tasklet);
 	tasklet_kill(&priv->tx_failed_tasklet);
 
