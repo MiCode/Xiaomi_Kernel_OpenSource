@@ -140,11 +140,6 @@ static inline bool walt_should_honor_rt_sync(struct rq *rq, struct task_struct *
 		rq->rt.rt_nr_running <= 2;
 }
 
-#ifdef CONFIG_TURBO_WALT
-extern void mi_select_task_rq_fair(struct task_struct *p, int prev_cpu,
-		int sd_flag, int wake_flags, int *target_cpu);
-#endif
-
 static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int cpu,
 					int sd_flag, int wake_flags, int *new_cpu)
 {
@@ -155,9 +150,6 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	int ret, target = -1, this_cpu;
 	struct cpumask *lowest_mask;
 
-#ifdef CONFIG_TURBO_WALT
-	mi_select_task_rq_fair(task, cpu, sd_flag, wake_flags, new_cpu);
-#endif
 	if (unlikely(walt_disabled))
 		return;
 
