@@ -316,6 +316,7 @@ static int get_spi_clk_cfg(u32 speed_hz, struct spi_geni_master *mas,
 static void spi_setup_word_len(struct spi_geni_master *mas, u32 mode,
 						int bits_per_word)
 {
+	struct spi_master *spi = get_spi_master(mas->dev);
 	int pack_words = 1;
 	bool msb_first = (mode & SPI_LSB_FIRST) ? false : true;
 	u32 word_len = geni_read_reg(mas->base, SE_SPI_WORD_LEN);
@@ -327,10 +328,19 @@ static void spi_setup_word_len(struct spi_geni_master *mas, u32 mode,
 	 */
 	if (!(mas->tx_fifo_width % bits_per_word))
 		pack_words = mas->tx_fifo_width / bits_per_word;
-	word_len &= ~WORD_LEN_MSK;
-	word_len |= ((bits_per_word - MIN_WORD_LEN) & WORD_LEN_MSK);
 	se_config_packing(mas->base, bits_per_word, pack_words, msb_first);
-	geni_write_reg(word_len, mas->base, SE_SPI_WORD_LEN);
+
+	/*
+	 * Don't configure SPI word length for SPI Slave it is an optional
+	 * property for SPI Slave. H/W will take care of SPI slave word
+	 * if SPI_SLAVE_EN bit is set.
+	 */
+
+	if (!spi->slave) {
+		word_len &= ~WORD_LEN_MSK;
+		word_len |= ((bits_per_word - MIN_WORD_LEN) & WORD_LEN_MSK);
+		geni_write_reg(word_len, mas->base, SE_SPI_WORD_LEN);
+	}
 	se_get_packing_config(bits_per_word, pack_words, msb_first,
 							&cfg0, &cfg1);
 	SPI_LOG_DBG(mas->ipc, false, mas->dev,
@@ -1563,14 +1573,21 @@ static int setup_fifo_xfer(struct spi_transfer *xfer,
 	return ret;
 }
 
-static void handle_fifo_timeout(struct spi_geni_master *mas,
+static void handle_fifo_timeout(struct spi_master *spi,
 					struct spi_transfer *xfer)
 {
+	struct spi_geni_master *mas = spi_master_get_devdata(spi);
 	unsigned long timeout;
 	u32 rx_fifo_status;
 	int rx_wc, i;
 
 	geni_se_dump_dbg_regs(&mas->spi_rsc, mas->base, mas->ipc);
+
+	if (mas->cur_xfer_mode == FIFO_MODE)
+		geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
+	if (spi->slave)
+		goto dma_unprep;
+
 	reinit_completion(&mas->xfer_done);
 
 	/* Dummy read the rx fifo for any spurious data*/
@@ -1583,8 +1600,7 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 	}
 
 	geni_cancel_m_cmd(mas->base);
-	if (mas->cur_xfer_mode == FIFO_MODE)
-		geni_write_reg(0, mas->base, SE_GENI_TX_WATERMARK_REG);
+
 	/* Ensure cmd cancel is written */
 	mb();
 	timeout = wait_for_completion_timeout(&mas->xfer_done, HZ);
@@ -1599,6 +1615,7 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 			dev_err(mas->dev,
 				"Failed to cancel/abort m_cmd\n");
 	}
+dma_unprep:
 	if (mas->cur_xfer_mode == SE_DMA) {
 		if (xfer->tx_buf && xfer->tx_dma) {
 			reinit_completion(&mas->xfer_done);
@@ -1625,6 +1642,8 @@ static void handle_fifo_timeout(struct spi_geni_master *mas,
 				xfer->rx_dma, xfer->len);
 		}
 	}
+	if (spi->slave && !mas->dis_autosuspend)
+		pm_runtime_put_sync_suspend(mas->dev);
 
 }
 
@@ -1771,10 +1790,7 @@ err_gsi_geni_transfer_one:
 	return ret;
 err_fifo_geni_transfer_one:
 
-	if (!spi->slave)
-		handle_fifo_timeout(mas, xfer);
-
-	handle_fifo_timeout(mas, xfer);
+	handle_fifo_timeout(spi, xfer);
 	return ret;
 }
 
@@ -2294,6 +2310,7 @@ static int spi_geni_runtime_suspend(struct device *dev)
 	struct spi_master *spi = get_spi_master(dev);
 	struct spi_geni_master *geni_mas = spi_master_get_devdata(spi);
 
+	disable_irq(geni_mas->irq);
 	if (geni_mas->is_le_vm)
 		return spi_geni_levm_suspend_proc(geni_mas, spi);
 
@@ -2395,6 +2412,7 @@ exit_rt_resume:
 	if (geni_mas->gsi_mode)
 		ret = spi_geni_gpi_pause_resume(geni_mas, false);
 
+	enable_irq(geni_mas->irq);
 	return ret;
 }
 
