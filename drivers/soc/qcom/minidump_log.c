@@ -682,11 +682,6 @@ static void md_dump_task_info(struct task_struct *task, char *status,
 	seq_buf_printf(md_runq_seq_buf,
 		       " prio: %d aff: %*pb",
 		       task->prio, cpumask_pr_args(&task->cpus_mask));
-#ifdef CONFIG_SCHED_WALT
-	seq_buf_printf(md_runq_seq_buf, " enq: %lu wake: %lu sleep: %lu",
-		       task->wts.last_enqueued_ts, task->wts.last_wake_ts,
-		       task->wts.last_sleep_ts);
-#endif
 	seq_buf_printf(md_runq_seq_buf,
 		       " vrun: %lu arr: %lu sum_ex: %lu\n",
 		       (unsigned long)se->vruntime,

@@ -265,6 +265,30 @@ enum xm_property_id {
 	XM_PROP_FG1_TFULLQ,
 	XM_PROP_FG1_RSOC,
 	XM_PROP_FG1_AI,
+	XM_PROP_SLAVE_CHIP_OK,
+	XM_PROP_SLAVE_AUTHENTIC,
+	XM_PROP_FG1_VOL,
+	XM_PROP_FG1_SOC,
+	XM_PROP_FG1_TEMP,
+	XM_PROP_FG1_IBATT,
+	XM_PROP_FG2_VOL,
+	XM_PROP_FG2_SOC,
+	XM_PROP_FG2_TEMP,
+	XM_PROP_FG2_IBATT,
+	XM_PROP_FG2_QMAX,
+	XM_PROP_FG2_RM,
+	XM_PROP_FG2_FCC,
+	XM_PROP_FG2_SOH,
+	XM_PROP_FG2_FCC_SOH,
+	XM_PROP_FG2_CYCLE,
+	XM_PROP_FG2_FAST_CHARGE,
+	XM_PROP_FG2_CURRENT_MAX,
+	XM_PROP_FG2_VOL_MAX,
+	XM_PROP_FG2_TSIM,
+	XM_PROP_FG2_TAMBIENT,
+	XM_PROP_FG2_TREMQ,
+	XM_PROP_FG2_TFULLQ,
+	XM_PROP_FG_VENDOR_ID,
 	XM_PROP_FG1_CELL1_VOL,
 	XM_PROP_FG1_CELL2_VOL,
 	XM_PROP_MAX,
@@ -379,6 +403,8 @@ struct xm_verify_digest_resp_msg {
 	struct pmic_glink_hdr	hdr;
 	u32			property_id;
 	u8			digest[BATTERY_DIGEST_LEN];
+	/*dual battery master and slave flag*/
+	bool		slave_fg;
 };
 
 struct battery_charger_shutdown_req_msg {
@@ -452,6 +478,8 @@ struct battery_chg_dev {
 	bool				shutdown_delay_en;
 	bool				support_2s_charging;
 	bool				report_power_absent;
+	/*dual battery authentic flag*/
+	bool				slave_fg_verify_flag;
 
 	/*battery auth check for ssr*/
 	bool				battery_auth;
@@ -709,12 +737,37 @@ static int read_verify_digest_property_id(struct battery_chg_dev *bcdev,
 	req_msg.hdr.owner = MSG_OWNER_BC;
 	req_msg.hdr.type = MSG_TYPE_REQ_RESP;
 	req_msg.hdr.opcode = pst->opcode_get;
-
 	pr_debug("psy: %s prop_id: %u\n", pst->psy->desc->name,
 		req_msg.property_id);
 
 	return battery_chg_write(bcdev, &req_msg, sizeof(req_msg));
 }
+static ssize_t verify_slave_flag_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	bool val;
+
+	if (kstrtobool(buf, &val))
+		return -EINVAL;
+
+	bcdev->slave_fg_verify_flag = val;
+	pr_err("verify_digest_flag :%d \n", val);
+
+	return count;
+}
+
+static ssize_t verify_slave_flag_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", bcdev->slave_fg_verify_flag);
+}
+static CLASS_ATTR_RW(verify_slave_flag);
 
 #if defined(CONFIG_MI_WIRELESS)
 static int write_wls_bin_prop_id(struct battery_chg_dev *bcdev, struct psy_state *pst,
