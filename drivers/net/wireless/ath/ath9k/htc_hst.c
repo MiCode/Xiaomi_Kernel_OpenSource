@@ -231,7 +231,7 @@ int htc_init(struct htc_target *target)
 	return htc_setup_complete(target);
 }
 
-int htc_connect_service(struct htc_target *target,
+int htc_connect_service_hst(struct htc_target *target,
 		     struct htc_service_connreq *service_connreq,
 		     enum htc_endpoint_id *conn_rsp_epid)
 {
@@ -304,12 +304,12 @@ int htc_send_epid(struct htc_target *target, struct sk_buff *skb,
 	return htc_issue_send(target, skb, skb->len, 0, epid);
 }
 
-void htc_stop(struct htc_target *target)
+void htc_stop_hst(struct htc_target *target)
 {
 	target->hif->stop(target->hif_dev);
 }
 
-void htc_start(struct htc_target *target)
+void htc_start_hst(struct htc_target *target)
 {
 	target->hif->start(target->hif_dev);
 }

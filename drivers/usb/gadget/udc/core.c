@@ -1183,21 +1183,6 @@ static inline void usb_gadget_udc_set_speed(struct usb_udc *udc,
 		gadget->ops->udc_set_speed(gadget, s);
 }
 
-static inline void usb_gadget_enable_async_callbacks(struct usb_udc *udc)
-{
-        struct usb_gadget *gadget = udc->gadget;
-
-        if (gadget->ops->udc_async_callbacks)
-                gadget->ops->udc_async_callbacks(gadget, true);
-}
-
-static inline void usb_gadget_disable_async_callbacks(struct usb_udc *udc)
-{
-        struct usb_gadget *gadget = udc->gadget;
-
-        if (gadget->ops->udc_async_callbacks)
-                gadget->ops->udc_async_callbacks(gadget, false);
-}
 
 /**
  * usb_gadget_enable_async_callbacks - tell usb device controller to enable asynchronous callbacks
