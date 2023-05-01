@@ -3206,14 +3206,15 @@ static ssize_t shutdown_store(struct device *dev,
 {
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
 
+	cnss_pr_dbg("Received shutdown notification\n");
 	if (plat_priv) {
 		set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
+		cnss_bus_update_status(plat_priv, CNSS_SYS_REBOOT);
 		del_timer(&plat_priv->fw_boot_timer);
 		complete_all(&plat_priv->power_up_complete);
 		complete_all(&plat_priv->cal_complete);
+		cnss_pr_dbg("Shutdown notification handled\n");
 	}
-
-	cnss_pr_dbg("Received shutdown notification\n");
 
 	return count;
 }
@@ -3454,6 +3455,7 @@ static int cnss_reboot_notifier(struct notifier_block *nb,
 		container_of(nb, struct cnss_plat_data, reboot_nb);
 
 	set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
+	cnss_bus_update_status(plat_priv, CNSS_SYS_REBOOT);
 	del_timer(&plat_priv->fw_boot_timer);
 	complete_all(&plat_priv->power_up_complete);
 	complete_all(&plat_priv->cal_complete);
