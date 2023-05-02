@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/scmi_protocol.h>
@@ -248,7 +248,7 @@ static int qcom_cpufreq_stats_init(struct scmi_handle *handle)
 			prot_attr.statistics_address_low |
 				(u64)prot_attr.statistics_address_high << 32,
 			prot_attr.statistics_len);
-		if (IS_ERR(pinfo->stats_iomem)) {
+		if (!pinfo->stats_iomem) {
 			kfree(pinfo);
 			return -ENOMEM;
 		}
