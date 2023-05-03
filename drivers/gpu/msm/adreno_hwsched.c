@@ -1742,7 +1742,10 @@ static void adreno_hwsched_reset_and_snapshot_legacy(struct adreno_device *adren
 	}
 
 	if (!drawobj) {
-		kgsl_device_snapshot(device, NULL, NULL, fault & ADRENO_GMU_FAULT);
+		if (fault & ADRENO_GMU_FAULT)
+			gmu_core_fault_snapshot(device);
+		else
+			kgsl_device_snapshot(device, NULL, NULL, false);
 		goto done;
 	}
 
@@ -1816,7 +1819,10 @@ static void adreno_hwsched_reset_and_snapshot(struct adreno_device *adreno_dev, 
 		obj_lpac = get_active_cmdobj_lpac(adreno_dev);
 
 	if (!obj && !obj_lpac) {
-		kgsl_device_snapshot(device, NULL, NULL, fault & ADRENO_GMU_FAULT);
+		if (fault & ADRENO_GMU_FAULT)
+			gmu_core_fault_snapshot(device);
+		else
+			kgsl_device_snapshot(device, NULL, NULL, false);
 		goto done;
 	}
 
