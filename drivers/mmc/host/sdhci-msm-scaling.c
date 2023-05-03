@@ -1275,6 +1275,7 @@ int _sdhci_msm_mmc_init_clk_scaling(struct sdhci_msm_host *host)
 		sdhci_msm_mmc_devfreq_get_dev_status;
 	host->clk_scaling.devfreq_profile.target = sdhci_msm_mmc_devfreq_set_target;
 	host->clk_scaling.devfreq_profile.initial_freq = mhost->ios.clock;
+	host->clk_scaling.devfreq_profile.timer = DEVFREQ_TIMER_DELAYED;
 
 	host->clk_scaling.ondemand_gov_data.upthreshold =
 		host->clk_scaling.upthreshold;
