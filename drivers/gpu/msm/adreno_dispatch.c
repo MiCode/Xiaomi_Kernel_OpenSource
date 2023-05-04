@@ -249,8 +249,10 @@ static void _retire_timestamp(struct kgsl_drawobj *drawobj)
 				context->id, drawobj->timestamp,
 				!!(drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME));
 
-	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME)
+	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME) {
 		atomic64_inc(&context->proc_priv->frame_count);
+		atomic_inc(&context->proc_priv->period.frames);
+	}
 
 	/*
 	 * For A3xx we still get the rptr from the CP_RB_RPTR instead of
@@ -2256,8 +2258,10 @@ static void retire_cmdobj(struct adreno_device *adreno_dev,
 			       context->id, drawobj->timestamp,
 			       !!(drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME));
 
-	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME)
+	if (drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME) {
 		atomic64_inc(&context->proc_priv->frame_count);
+		atomic_inc(&context->proc_priv->period.frames);
+	}
 
 	/*
 	 * For A3xx we still get the rptr from the CP_RB_RPTR instead of
