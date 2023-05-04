@@ -29,6 +29,7 @@ MODULES_LIST_ORDER="1"
 
 VM_SIZE_EXT4=270000000
 DUMMY_IMG_SIZE=4096
+PREFERRED_USERSPACE=le
 
 ################################################################################
 ## Inheriting MSM configs
