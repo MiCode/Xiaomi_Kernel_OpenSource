@@ -19,6 +19,9 @@
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_qos.h>
+/* XIAOMI ADD */
+#include <linux/time.h>
+#include <linux/timekeeping.h>
 
 #define SPI_CFG0_REG                      0x0000
 #define SPI_CFG1_REG                      0x0004
@@ -103,6 +106,9 @@
 #define MTK_SPI_PACKET_SIZE 1024
 #define MTK_SPI_32BITS_MASK  (0xffffffff)
 
+/* XIAOMI MOD */
+#define MTK_SPI_FIFO_TIMEOUT 5000000
+
 #define MTK_SPI_IPM_PACKET_SIZE SZ_64K
 #define MTK_SPI_IPM_PACKET_LOOP SZ_256
 
@@ -140,6 +146,8 @@ struct mtk_spi {
 	const struct mtk_spi_compatible *dev_comp;
 	struct pm_qos_request spi_qos_request;
 	u32 spi_clk_hz;
+/* XIAOMI MOD */
+	bool fifo_no_irq_support;
 };
 
 static const struct mtk_spi_compatible mtk_common_compat;
@@ -352,12 +360,15 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 	struct mtk_chip_config *chip_config = spi->controller_data;
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
-	if (mdata->dev_comp->no_need_unprepare)
-		ret = clk_enable(mdata->spi_clk);
-	else
-		ret = clk_prepare_enable(mdata->spi_clk);
-	if (ret)
-		return ret;
+	/* XIAOMI MOD */
+	if (!master->auto_runtime_pm) {
+		if (mdata->dev_comp->no_need_unprepare)
+			ret = clk_enable(mdata->spi_clk);
+		else
+			ret = clk_prepare_enable(mdata->spi_clk);
+		if (ret)
+			return ret;
+	}
 	cpu_latency_qos_update_request(&mdata->spi_qos_request, 500);
 
 	cpha = spi->mode & SPI_CPHA ? 1 : 0;
@@ -456,10 +467,13 @@ static int mtk_spi_unprepare_message(struct spi_controller *ctlr,
 {
 	struct mtk_spi *mdata = spi_master_get_devdata(ctlr);
 
-	if (mdata->dev_comp->no_need_unprepare)
-		clk_disable(mdata->spi_clk);
-	else
-		clk_disable_unprepare(mdata->spi_clk);
+	/* XIAOMI MOD */
+	if (!ctlr->auto_runtime_pm) {
+		if (mdata->dev_comp->no_need_unprepare)
+			clk_disable(mdata->spi_clk);
+		else
+			clk_disable_unprepare(mdata->spi_clk);
+	}
 
 	cpu_latency_qos_update_request(&mdata->spi_qos_request, PM_QOS_DEFAULT_VALUE);
 	return 0;
@@ -471,13 +485,16 @@ static void mtk_spi_set_cs(struct spi_device *spi, bool enable)
 	int ret;
 	struct mtk_spi *mdata = spi_master_get_devdata(spi->master);
 
-	if (mdata->dev_comp->no_need_unprepare)
-		ret = clk_enable(mdata->spi_clk);
-	else
-		ret = clk_prepare_enable(mdata->spi_clk);
-	if (ret < 0) {
-		dev_err(&spi->dev, "failed to enable spi_clk (%d)\n", ret);
-		return;
+	/* XIAOMI MOD */
+	if (!spi->master->auto_runtime_pm) {
+		if (mdata->dev_comp->no_need_unprepare)
+			ret = clk_enable(mdata->spi_clk);
+		else
+			ret = clk_prepare_enable(mdata->spi_clk);
+		if (ret < 0) {
+			dev_err(&spi->dev, "failed to enable spi_clk (%d)\n", ret);
+			return;
+		}
 	}
 
 	if (spi->mode & SPI_CS_HIGH)
@@ -493,10 +510,13 @@ static void mtk_spi_set_cs(struct spi_device *spi, bool enable)
 		mdata->state = MTK_SPI_IDLE;
 		mtk_spi_reset(mdata);
 	}
-	if (mdata->dev_comp->no_need_unprepare)
-		clk_disable(mdata->spi_clk);
-	else
-		clk_disable_unprepare(mdata->spi_clk);
+	/* XIAOMI MOD */
+	if (!spi->master->auto_runtime_pm) {
+		if (mdata->dev_comp->no_need_unprepare)
+			clk_disable(mdata->spi_clk);
+		else
+			clk_disable_unprepare(mdata->spi_clk);
+	}
 }
 
 static void mtk_spi_prepare_transfer(struct spi_master *master,
@@ -681,12 +701,53 @@ static void mtk_spi_setup_dma_addr(struct spi_master *master,
 	}
 }
 
+/* XIAOMI ADD */
+static int mtk_spi_transfer_nointerrupt(struct spi_master *master)
+{
+	u32 reg_val, cnt, remainder;
+	struct mtk_spi *mdata = spi_master_get_devdata(master);
+	struct spi_transfer *trans = mdata->cur_transfer;
+	u64 cur_time;
+
+	mtk_spi_enable_transfer(master);
+
+	cur_time = ktime_get_boottime_ns();
+	do {
+		reg_val = readl(mdata->base + SPI_STATUS1_REG);
+		if (ktime_get_boottime_ns() - cur_time > MTK_SPI_FIFO_TIMEOUT) {
+			return -1;
+		}
+	} while (reg_val == 0);
+	reg_val = readl(mdata->base + SPI_STATUS0_REG);
+	if (reg_val & MTK_SPI_PAUSE_INT_STATUS)
+		mdata->state = MTK_SPI_PAUSED;
+	else
+		mdata->state = MTK_SPI_IDLE;
+
+	if (trans->rx_buf) {
+		cnt = mdata->xfer_len / 4;
+		ioread32_rep(mdata->base + SPI_RX_DATA_REG,
+			     trans->rx_buf, cnt);
+		remainder = mdata->xfer_len % 4;
+		if (remainder > 0) {
+			reg_val = readl(mdata->base + SPI_RX_DATA_REG);
+			memcpy(trans->rx_buf +
+				(cnt * 4),
+				&reg_val,
+				remainder);
+		}
+	}
+	return 0;
+}
+
 static int mtk_spi_fifo_transfer(struct spi_master *master,
 				 struct spi_device *spi,
 				 struct spi_transfer *xfer)
 {
 	int cnt, remainder;
 	u32 reg_val;
+/* XIAOMI MOD */
+	u32 cmd;
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
 	mdata->cur_transfer = xfer;
@@ -709,6 +770,15 @@ static int mtk_spi_fifo_transfer(struct spi_master *master,
 	spi_debug("spi setting Done.Dump reg before Transfer start:\n");
 	spi_dump_reg(mdata, master);
 
+/* XIAOMI MOD*/
+	cmd = readl(mdata->base + SPI_CMD_REG);
+	if (mdata->fifo_no_irq_support && xfer->len <= MTK_SPI_MAX_FIFO_SIZE) {
+		cmd &= ~(SPI_CMD_FINISH_IE | SPI_CMD_PAUSE_IE);
+		writel(cmd, mdata->base + SPI_CMD_REG);
+		return mtk_spi_transfer_nointerrupt(master);
+	}
+	cmd |= (SPI_CMD_FINISH_IE | SPI_CMD_PAUSE_IE);
+	writel(cmd, mdata->base + SPI_CMD_REG);
 	mtk_spi_enable_transfer(master);
 
 	return 1;
@@ -731,6 +801,8 @@ static int mtk_spi_dma_transfer(struct spi_master *master,
 	mtk_spi_prepare_transfer(master, xfer);
 
 	cmd = readl(mdata->base + SPI_CMD_REG);
+/* XIAOMI MOD */
+	cmd |= (SPI_CMD_FINISH_IE | SPI_CMD_PAUSE_IE);
 	if (xfer->tx_buf)
 		cmd |= SPI_CMD_TX_DMA;
 	if (xfer->rx_buf)
@@ -904,6 +976,8 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	struct mtk_spi *mdata;
 	const struct of_device_id *of_id;
 	int i, irq, ret, addr_bits;
+	/* XIAOMI ADD*/
+	u32 suspend_delay;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(*mdata));
 	if (!master) {
@@ -1085,6 +1159,18 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* XIAOMI MOD */
+	ret = of_property_read_u32(pdev->dev.of_node, "autosuspend_delay",
+				&suspend_delay);
+	if (ret == 0) {
+		pm_runtime_set_autosuspend_delay(&pdev->dev, suspend_delay);
+		dev_info(&pdev->dev, "SPI probe, set auto_suspend delay = %dms!\n",
+				suspend_delay);
+		pm_runtime_use_autosuspend(&pdev->dev);
+		pm_runtime_enable(&pdev->dev);
+		master->auto_runtime_pm = true;
+	}
+
 	ret = devm_spi_register_master(&pdev->dev, master);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to register master (%d)\n", ret);
@@ -1092,6 +1178,9 @@ static int mtk_spi_probe(struct platform_device *pdev)
 			clk_unprepare(mdata->spi_clk);
 		goto err_put_master;
 	}
+/* XIAOMI MOD */
+	mdata->fifo_no_irq_support = of_property_read_bool(pdev->dev.of_node,
+							"fifo_no_irq_support");
 
 	return 0;
 
@@ -1107,11 +1196,88 @@ static int mtk_spi_remove(struct platform_device *pdev)
 
 	cpu_latency_qos_remove_request(&mdata->spi_qos_request);
 	clk_unprepare(mdata->spi_clk);
+/* XIAOMI MOD */
+	if (master->auto_runtime_pm)
+		pm_runtime_disable(&pdev->dev);
 
 	mtk_spi_reset(mdata);
 
 	return 0;
 }
+
+/* XIAOMI ADD */
+static int mtk_spi_runtime_suspend(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	struct mtk_spi *mdata = spi_controller_get_devdata(master);
+
+	if (!master->auto_runtime_pm)
+		return 0;
+	if (mdata->dev_comp->no_need_unprepare)
+			clk_disable(mdata->spi_clk);
+		else
+			clk_disable_unprepare(mdata->spi_clk);
+	return 0;
+}
+
+static int mtk_spi_runtime_resume(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	struct mtk_spi *mdata = spi_controller_get_devdata(master);
+	int ret;
+
+	if (!master->auto_runtime_pm)
+		return 0;
+	if (mdata->dev_comp->no_need_unprepare)
+		ret = clk_enable(mdata->spi_clk);
+	else
+		ret = clk_prepare_enable(mdata->spi_clk);
+	if (ret < 0) {
+		dev_err(dev, "failed to enable spi_clk (%d)\n", ret);
+		return ret;
+	}
+	return 0;
+}
+
+static int mtk_spi_suspend(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	int ret;
+
+	if (!master->auto_runtime_pm)
+		return 0;
+	ret = spi_controller_suspend(master);
+	if (ret)
+		return ret;
+	if (!pm_runtime_suspended(dev)) {
+		ret = mtk_spi_runtime_suspend(dev);
+	}
+	return ret;
+}
+
+static int mtk_spi_resume(struct device *dev)
+{
+	struct spi_master *master = dev_get_drvdata(dev);
+	int ret;
+
+	if (!master->auto_runtime_pm)
+		return 0;
+	if (!pm_runtime_suspended(dev)) {
+		ret = mtk_spi_runtime_resume(dev);
+		if (ret)
+			goto out;
+	}
+	ret = spi_controller_resume(master);
+out:
+	return ret;
+}
+
+static const struct dev_pm_ops mtk_spi_pm = {
+	SET_SYSTEM_SLEEP_PM_OPS(mtk_spi_suspend, mtk_spi_resume)
+	SET_RUNTIME_PM_OPS(mtk_spi_runtime_suspend,
+			   mtk_spi_runtime_resume, NULL)
+};
+
 
 void mt_spi_disable_master_clk(struct spi_device *spidev)
 {
@@ -1137,6 +1303,8 @@ EXPORT_SYMBOL(mt_spi_enable_master_clk);
 static struct platform_driver mtk_spi_driver = {
 	.driver = {
 		.name = "mtk-spi",
+		/* XIAOMI MOD */
+		.pm = &mtk_spi_pm,
 		.of_match_table = mtk_spi_of_match,
 	},
 	.probe = mtk_spi_probe,

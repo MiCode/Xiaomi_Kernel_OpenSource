@@ -660,6 +660,15 @@ static int mt6375_enable_typec_otp_fwen(struct tcpc_device *tcpc, bool en)
 		(ddata, MT6375_REG_TYPECOTPCTRL, MT6375_MSK_TYPECOTP_FWEN);
 }
 
+static int mt6375_set_force_discharge(struct tcpc_device *tcpc, bool en, int mv)
+{
+	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
+
+	pr_info("%s en = %d", __func__, en);
+	return (en ? mt6375_set_bits : mt6375_clr_bits)
+		(ddata, TCPC_V10_REG_POWER_CTRL, TCPC_V10_REG_BLEED_DISC_EN);
+}
+
 static int mt6375_hidet_is_plugout(struct mt6375_tcpc_data *ddata, bool *out)
 {
 	int ret;
@@ -2219,8 +2228,17 @@ static int mt6375_set_auto_dischg_discnt(struct tcpc_device *tcpc, bool en)
 	u8 val = en ? TCPC_V10_REG_AUTO_DISCHG_DISCNT
 		    : TCPC_V10_REG_VBUS_MONITOR;
 	struct mt6375_tcpc_data *ddata = tcpc_get_dev_data(tcpc);
+	int ret = 0;
 
 	MT6375_INFO("%s en=%d\n", __func__, en);
+	if (en) {
+		ret |= mt6375_update_bits(ddata, TCPC_V10_REG_POWER_CTRL,
+					  TCPC_V10_REG_VBUS_MONITOR, 0);
+		ret |= mt6375_update_bits(ddata, TCPC_V10_REG_POWER_CTRL,
+					  TCPC_V10_REG_AUTO_DISCHG_DISCNT,
+					  TCPC_V10_REG_AUTO_DISCHG_DISCNT);
+		return ret;
+	}
 	return mt6375_update_bits(ddata, TCPC_V10_REG_POWER_CTRL, mask, val);
 }
 
@@ -2295,6 +2313,7 @@ static struct tcpc_ops mt6375_tcpc_ops = {
 
 	.set_floating_ground = mt6375_set_floating_ground,
 	.set_otp_fwen = mt6375_enable_typec_otp_fwen,
+	.set_force_discharge = mt6375_set_force_discharge,
 };
 
 static void mt6375_irq_work_handler(struct kthread_work *work)
@@ -2309,6 +2328,7 @@ static void mt6375_irq_work_handler(struct kthread_work *work)
 	reinit_completion(&ddata->tcpc->alert_done);
 
 	tcpci_lock_typec(ddata->tcpc);
+	atomic_inc(&ddata->tcpc->suspend_pending);
 
 	do {
 		ret = tcpci_alert(ddata->tcpc);
@@ -2326,6 +2346,7 @@ static void mt6375_irq_work_handler(struct kthread_work *work)
 			break;
 	} while (1);
 
+	atomic_dec_if_positive(&ddata->tcpc->suspend_pending);
 	tcpci_unlock_typec(ddata->tcpc);
 	complete(&ddata->tcpc->alert_done);
 	enable_irq(ddata->irq);
@@ -2376,8 +2397,8 @@ static int mt6375_tcpc_init_irq(struct mt6375_tcpc_data *ddata)
 	}
 	ddata->irq = ret;
 	ret = devm_request_threaded_irq(ddata->dev, ret, NULL,
-					mt6375_pd_evt_handler, IRQF_ONESHOT,
-					dev_name(ddata->dev), ddata);
+					mt6375_pd_evt_handler, IRQF_ONESHOT |
+					IRQF_NO_SUSPEND, dev_name(ddata->dev), ddata);
 	if (ret < 0) {
 		dev_err(ddata->dev, "failed to request irq %d\n", ddata->irq);
 		return ret;
@@ -2659,6 +2680,7 @@ static int mt6375_tcpc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	device_init_wakeup(ddata->dev, true);
 	dev_info(ddata->dev, "%s successfully!\n", __func__);
 	return 0;
 err:

@@ -6,6 +6,9 @@
 #ifndef _MTK_DRM_RECOVERY_H
 #define _MTK_DRM_RECOVERY_H
 
+#include <drm/drm_crtc.h>
+#include "mtk_panel_ext.h"
+
 struct mtk_drm_private;
 
 enum mtk_esd_chk_mode {

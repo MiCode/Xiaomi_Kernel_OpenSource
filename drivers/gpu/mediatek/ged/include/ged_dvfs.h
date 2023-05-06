@@ -139,6 +139,9 @@ GED_ERROR ged_dvfs_system_init(void);
 void ged_dvfs_system_exit(void);
 unsigned long ged_dvfs_get_last_commit_idx(void);
 
+bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
+	unsigned long ui32NewFreq, GED_DVFS_COMMIT_TYPE eCommitType);
+
 extern void (*ged_kpi_set_gpu_dvfs_hint_fp)(int t_gpu_target,
 	int boost_accum_gpu);
 

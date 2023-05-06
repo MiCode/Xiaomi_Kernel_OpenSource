@@ -472,6 +472,11 @@ int mtk_mbox_polling(struct mtk_mbox_device *mbdev, unsigned int mbox,
 		return ret;
 
 	pin_recv->recv_record.poll_count++;
+
+	/*dump recv info*/
+	if (mbdev->log_enable)
+		mtk_mbox_dump_recv_pin(mbdev, pin_recv);
+
 	return MBOX_DONE;
 }
 EXPORT_SYMBOL_GPL(mtk_mbox_polling);
@@ -479,13 +484,16 @@ EXPORT_SYMBOL_GPL(mtk_mbox_polling);
 /*
  * set lock status
  */
-static void mtk_mbox_set_lock(struct mtk_mbox_device *mbdev, unsigned int lock)
+static void mtk_mbox_set_lock(struct mtk_mbox_device *mbdev, unsigned int mbox,
+		unsigned int lock)
 {
 	struct mtk_mbox_pin_recv *pin_recv;
 	int i;
 
 	for (i = 0; i < mbdev->recv_count; i++) {
 		pin_recv = &(mbdev->pin_recv_table[i]);
+		if (pin_recv->mbox != mbox)
+			continue;
 		pin_recv->lock = lock;
 	}
 }
@@ -514,7 +522,7 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 
 	spin_lock_irqsave(&minfo->mbox_lock, flags);
 	/*lock pin*/
-	mtk_mbox_set_lock(mbdev, MBOX_PIN_BUSY);
+	mtk_mbox_set_lock(mbdev, mbox, MBOX_PIN_BUSY);
 	/*get irq status*/
 	irq_status = mtk_mbox_read_recv_irq(mbdev, mbox);
 	irq_temp = 0;
@@ -623,7 +631,7 @@ skip:
 	spin_lock_irqsave(&minfo->mbox_lock, flags);
 	mtk_mbox_clr_irq(mbdev, mbox, irq_temp);
 	/*release pin*/
-	mtk_mbox_set_lock(mbdev, MBOX_DONE);
+	mtk_mbox_set_lock(mbdev, mbox, MBOX_DONE);
 	spin_unlock_irqrestore(&minfo->mbox_lock, flags);
 
 	if (irq_temp == 0 && irq_status != 0) {

@@ -6,6 +6,7 @@
 #include <linux/genalloc.h>
 #include <linux/log2.h>
 #include <linux/kernel.h>
+#include <uapi/linux/dma-buf.h>
 #include "mdw.h"
 #include "mdw_cmn.h"
 #include "mdw_mem.h"
@@ -26,6 +27,7 @@ static int mdw_mem_pool_chunk_add(struct mdw_mem_pool *pool, uint32_t size)
 {
 	int ret = 0;
 	struct mdw_mem *m;
+	char buf_name[DMA_BUF_NAME_LEN];
 
 	mdw_trace_begin("%s|size(%u)", __func__, size);
 
@@ -36,6 +38,14 @@ static int mdw_mem_pool_chunk_add(struct mdw_mem_pool *pool, uint32_t size)
 			(uint64_t) pool->mpriv, size);
 		ret = -ENOMEM;
 		goto out;
+	}
+
+	memset(buf_name, 0, sizeof(buf_name));
+	snprintf(buf_name, sizeof(buf_name)-1, "APU_CMDBUF_POOL:%u/%u",
+		current->pid, current->tgid);
+	if (mdw_mem_set_name(m, buf_name)) {
+		mdw_drv_err("s(0x%llx) m(0x%llx) set name fail, size: %d\n",
+			(uint64_t)pool->mpriv, (uint64_t)m);
 	}
 
 	ret = mdw_mem_map(pool->mpriv, m);

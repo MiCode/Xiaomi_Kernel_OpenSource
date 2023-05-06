@@ -229,7 +229,7 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end = sched_clock();
 	process_time = end - start;
-	if (process_time > 1000000L) // > 1ms
+	if (process_time > 5000000L) // > 5ms
 		pr_notice("irq_monitor: time: %lld func: %s line: %d "
 			, process_time, __func__, __LINE__);
 
@@ -240,7 +240,7 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end = sched_clock();
 	process_time = end - start;
-	if (process_time > 1000000L) // > 1ms
+	if (process_time > 5000000L) // > 5ms
 		pr_notice("irq_monitor: function: %pS time: %lld func: %s line: %d "
 			, alarm->function, process_time, __func__, __LINE__);
 
@@ -256,7 +256,7 @@ static enum hrtimer_restart alarmtimer_fired(struct hrtimer *timer)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end = sched_clock();
 	process_time = end - start;
-	if (process_time > 1000000L) // > 1ms
+	if (process_time > 5000000L) // > 5ms
 		pr_notice("irq_monitor: time: %lld func: %s line: %d "
 			, process_time, __func__, __LINE__);
 #endif

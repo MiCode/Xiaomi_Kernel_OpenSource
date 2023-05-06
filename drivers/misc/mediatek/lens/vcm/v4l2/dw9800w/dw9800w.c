@@ -19,6 +19,7 @@
 
 #define DW9800W_NAME				"dw9800w"
 #define DW9800W_MAX_FOCUS_POS			1023
+#define DW9800W_ORIGIN_FOCUS_POS		512
 /*
  * This sets the minimum granularity for the focus positions.
  * A value of 1 gives maximum accuracy for a desired focus position
@@ -34,9 +35,8 @@
  * uniformly adjusted for gradual lens movement, with desired
  * number of control steps.
  */
-#define DW9800W_MOVE_STEPS			16
-#define DW9800W_MOVE_DELAY_US			8400
-#define DW9800W_STABLE_TIME_US			20000
+#define DW9800W_MOVE_STEPS			100
+#define DW9800W_MOVE_DELAY_US			5000
 
 /* dw9800w device structure */
 struct dw9800w_device {
@@ -77,10 +77,21 @@ static int dw9800w_set_position(struct dw9800w_device *dw9800w, u16 val)
 static int dw9800w_release(struct dw9800w_device *dw9800w)
 {
 	int ret, val;
+	int diff_dac = 0;
+	int nStep_count = 0;
+	int i = 0;
 	struct i2c_client *client = v4l2_get_subdevdata(&dw9800w->sd);
 
-	for (val = round_down(dw9800w->focus->val, DW9800W_MOVE_STEPS);
-	     val >= 0; val -= DW9800W_MOVE_STEPS) {
+	diff_dac = DW9800W_ORIGIN_FOCUS_POS - dw9800w->focus->val;
+
+	nStep_count = (diff_dac < 0 ? (diff_dac*(-1)) : diff_dac) /
+		DW9800W_MOVE_STEPS;
+
+	val = dw9800w->focus->val;
+
+	for (i = 0; i < nStep_count; ++i) {
+		val += (diff_dac < 0 ? (DW9800W_MOVE_STEPS*(-1)) : DW9800W_MOVE_STEPS);
+
 		ret = dw9800w_set_position(dw9800w, val);
 		if (ret) {
 			LOG_INF("%s I2C failure: %d",
@@ -91,15 +102,17 @@ static int dw9800w_release(struct dw9800w_device *dw9800w)
 			     DW9800W_MOVE_DELAY_US + 1000);
 	}
 
-	i2c_smbus_write_byte_data(client, 0x02, 0x20);
-	msleep(20);
+	// last step to origin
+	ret = dw9800w_set_position(dw9800w, DW9800W_ORIGIN_FOCUS_POS);
+	if (ret) {
+		LOG_INF("%s I2C failure: %d",
+			__func__, ret);
+		return ret;
+	}
 
-	/*
-	 * Wait for the motor to stabilize after the last movement
-	 * to prevent the motor from shaking.
-	 */
-	usleep_range(DW9800W_STABLE_TIME_US - DW9800W_MOVE_DELAY_US,
-		     DW9800W_STABLE_TIME_US - DW9800W_MOVE_DELAY_US + 1000);
+	i2c_smbus_write_byte_data(client, 0x02, 0x20);
+
+	LOG_INF("-\n");
 
 	return 0;
 }

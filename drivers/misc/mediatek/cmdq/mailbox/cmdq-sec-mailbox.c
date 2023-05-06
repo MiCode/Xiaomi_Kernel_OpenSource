@@ -308,7 +308,6 @@ void cmdq_sec_mbox_enable(void *chan)
 			WARN_ON(clk_prepare(cmdq->clock) < 0);
 	}
 	mutex_unlock(&cmdq->mbox_mutex);
-
 	cmdq_sec_clk_enable(cmdq);
 }
 EXPORT_SYMBOL(cmdq_sec_mbox_enable);
@@ -328,7 +327,6 @@ void cmdq_sec_mbox_disable(void *chan)
 	}
 
 	cmdq_sec_clk_disable(cmdq);
-
 	mutex_lock(&cmdq->mbox_mutex);
 	mbox_usage = atomic_dec_return(&cmdq->mbox_usage);
 	if (cmdq->unprepare_in_idle) {

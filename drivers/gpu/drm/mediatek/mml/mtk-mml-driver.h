@@ -42,8 +42,10 @@ static inline int of_mml_read_comp_id_index(const struct device_node *np,
  * mml_qos_update_tput - scan throughputs in all path client and update the max one
  *
  * @mml: The mml driver instance
+ *
+ * Return: throughput upper bound from opp table
  */
-void mml_qos_update_tput(struct mml_dev *mml);
+u32 mml_qos_update_tput(struct mml_dev *mml);
 
 s32 mml_comp_init(struct platform_device *comp_pdev, struct mml_comp *comp);
 
@@ -54,7 +56,7 @@ s32 mml_comp_clk_enable(struct mml_comp *comp);
 s32 mml_comp_clk_disable(struct mml_comp *comp);
 
 void mml_comp_qos_set(struct mml_comp *comp, struct mml_task *task,
-	struct mml_comp_config *ccfg, u32 throughput);
+	struct mml_comp_config *ccfg, u32 throughput, u32 tput_up);
 void mml_comp_qos_clear(struct mml_comp *comp);
 
 /*
@@ -145,6 +147,21 @@ void mml_clock_unlock(struct mml_dev *mml);
  * @mml: The mml driver instance
  */
 void mml_lock_wake_lock(struct mml_dev *mml, bool lock);
+
+/*
+ * mml_record_track - record mml task behavior for debug print
+ *
+ * @mml: The mml driver instance
+ * @task: The mml task to record
+ */
+void mml_record_track(struct mml_dev *mml, struct mml_task *task);
+
+/*
+ * mml_record_dump - dump records to log
+ *
+ * @mml: The mml driver instance
+ */
+void mml_record_dump(struct mml_dev *mml);
 
 s32 mml_subcomp_init(struct platform_device *comp_pdev,
 	int subcomponent, struct mml_comp *comp);

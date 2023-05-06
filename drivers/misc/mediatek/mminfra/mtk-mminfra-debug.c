@@ -79,6 +79,8 @@ static void do_mminfra_bkrs(bool is_restore)
 	int err;
 
 	if (mminfra_check_scmi_status()) {
+		pr_notice("%s: call scmi_tinysys_common_set(%d)\n",
+				__func__, is_restore);
 		err = scmi_tinysys_common_set(tinfo->ph, feature_id,
 				2, (is_restore)?0:1, 0, 0, 0);
 		pr_notice("%s: call scmi_tinysys_common_set(%d) err=%d\n",
@@ -182,6 +184,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 		mminfra_cg_check(true);
 		count = atomic_inc_return(&clk_ref_cnt);
 		cmdq_util_mminfra_cmd(0);
+		cmdq_util_mminfra_cmd(3); //mminfra rfifo init
 		do_mminfra_bkrs(true);
 		test_base = ioremap(0x1e800280, 4);
 		val = readl_relaxed(test_base);
@@ -192,7 +195,7 @@ static int mtk_mminfra_pd_callback(struct notifier_block *nb,
 			aee_kernel_warning("mminfra",
 				"HRE restore failed 0x1e800280=%x\n", val);
 #endif
-
+			BUG_ON(1);
 		}
 		iounmap(test_base);
 		pr_notice("%s: enable clk ref_cnt=%d\n", __func__, count);
@@ -429,6 +432,7 @@ static int mminfra_debug_probe(struct platform_device *pdev)
 			return ret;
 		}
 		cmdq_util_mminfra_cmd(0);
+		cmdq_util_mminfra_cmd(3); //mminfra rfifo init
 	}
 
 	dbg->mminfra_base = ioremap(MMINFRA_BASE, 0x8f4);

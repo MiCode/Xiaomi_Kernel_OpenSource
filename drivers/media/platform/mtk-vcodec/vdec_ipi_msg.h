@@ -56,6 +56,7 @@ enum vdec_ipi_msg_id {
 	AP_IPIMSG_DEC_SET_PARAM,
 	AP_IPIMSG_DEC_QUERY_CAP,
 	AP_IPIMSG_DEC_FRAME_BUFFER,
+	AP_IPIMSG_DEC_BACKUP,
 
 	VCU_IPIMSG_DEC_INIT_DONE = VCU_IPIMSG_VDEC_ACK_BASE,
 	VCU_IPIMSG_DEC_START_DONE,
@@ -64,6 +65,7 @@ enum vdec_ipi_msg_id {
 	VCU_IPIMSG_DEC_RESET_DONE,
 	VCU_IPIMSG_DEC_SET_PARAM_DONE,
 	VCU_IPIMSG_DEC_QUERY_CAP_DONE,
+	VCU_IPIMSG_DEC_BACKUP_DONE,
 
 	VCU_IPIMSG_DEC_PUT_FRAME_BUFFER = VCU_IPIMSG_VDEC_SEND_BASE,
 	VCU_IPIMSG_DEC_LOCK_CORE,
@@ -194,6 +196,7 @@ struct vdec_vcu_ipi_ack {
 	__u64 ap_inst_addr;
 #endif
 	__s32 codec_id;
+	__u32 reserved;
 };
 
 /**
@@ -209,6 +212,7 @@ struct vdec_vcu_ipi_mem_op {
 	__s32 status;
 	__u64 ap_inst_addr;
 	struct vcodec_mem_obj mem;
+	__u32 reserved[2];
 };
 
 /**

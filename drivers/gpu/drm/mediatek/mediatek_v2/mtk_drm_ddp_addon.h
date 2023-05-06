@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (C) 2021-2022 XiaoMi, Inc.
  */
 
 #ifndef MTK_DRM_DDP_ADDON_H
@@ -25,6 +26,7 @@ enum addon_scenario {
 	ONE_SCALING,
 	TWO_SCALING,
 	WDMA_WRITE_BACK,
+	WDMA_WRITE_BACK_OVL,
 	GAME_PQ,
 	VP_PQ,
 	TRIPLE_DISP,
@@ -42,8 +44,10 @@ enum addon_module {
 	DISP_RSZ_v5,
 	DISP_RSZ_v6,
 	DISP_WDMA0,
+	DISP_WDMA0_v2,
 	DISP_WDMA1,
 	DISP_WDMA2,
+	DISP_WDMA2_v2,
 	MML_RSZ,
 	MML_RSZ_v2,
 	DMDP_PQ_WITH_RDMA,

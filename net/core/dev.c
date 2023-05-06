@@ -3178,6 +3178,12 @@ static u16 skb_tx_hash(const struct net_device *dev,
 
 		qoffset = sb_dev->tc_to_txq[tc].offset;
 		qcount = sb_dev->tc_to_txq[tc].count;
+		if (unlikely(!qcount)) {
+			net_warn_ratelimited("%s: invalid qcount, qoffset %u for tc %u\n",
+					     sb_dev->name, qoffset, tc);
+			qoffset = 0;
+			qcount = dev->real_num_tx_queues;
+		}
 	}
 
 	if (skb_rx_queue_recorded(skb)) {
@@ -3868,7 +3874,8 @@ int dev_loopback_xmit(struct net *net, struct sock *sk, struct sk_buff *skb)
 	skb_reset_mac_header(skb);
 	__skb_pull(skb, skb_network_offset(skb));
 	skb->pkt_type = PACKET_LOOPBACK;
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
+	if (skb->ip_summed == CHECKSUM_NONE)
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
 	WARN_ON(!skb_dst(skb));
 	skb_dst_force(skb);
 	netif_rx_ni(skb);
@@ -4536,6 +4543,18 @@ static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen)
 	return false;
 }
 
+static int parseDHCPReply(struct sk_buff *skb)
+{
+	struct udphdr *uh = NULL;
+	const struct iphdr *iph = (const struct iphdr *)skb->data;
+	if(iph->protocol != IPPROTO_UDP)
+		return 0;
+	uh = (struct udphdr *)(skb->data+(iph->ihl<<2));
+	if(uh->source == 0x4300 && uh->dest == 0x4400)
+		return 1;
+	return 0;
+}
+
 /*
  * enqueue_to_backlog is called to queue an skb to a per CPU backlog
  * queue (may be a remote CPU queue).
@@ -4797,8 +4816,17 @@ static int netif_rx_internal(struct sk_buff *skb)
 
 		preempt_disable();
 		rcu_read_lock();
-
-		cpu = get_rps_cpu(skb->dev, skb, &rflow);
+		if(skb->dev && (0==strncmp(skb->dev->name,"wlan0",5)||0==strncmp(skb->dev->name,"wlan1",5)))
+		{
+			if((ntohs(skb->protocol) == ETH_P_ARP) || (ntohs(skb->protocol) == ETH_P_PAE)
+				||(ntohs(skb->protocol) == ETH_P_IP && parseDHCPReply(skb)) ) {
+				cpu = smp_processor_id();
+			}
+			else
+				cpu = get_rps_cpu(skb->dev, skb, &rflow);
+                }
+                else
+			cpu = get_rps_cpu(skb->dev, skb, &rflow);
 		if (cpu < 0)
 			cpu = smp_processor_id();
 
@@ -5558,7 +5586,18 @@ static int netif_receive_skb_internal(struct sk_buff *skb)
 #ifdef CONFIG_RPS
 	if (static_branch_unlikely(&rps_needed)) {
 		struct rps_dev_flow voidflow, *rflow = &voidflow;
-		int cpu = get_rps_cpu(skb->dev, skb, &rflow);
+		int cpu;
+		if(skb->dev && (0==strncmp(skb->dev->name,"wlan0",5)||0==strncmp(skb->dev->name,"wlan1",5)))
+		{
+			if((ntohs(skb->protocol) == ETH_P_ARP) || (ntohs(skb->protocol) == ETH_P_PAE)
+				||(ntohs(skb->protocol) == ETH_P_IP && parseDHCPReply(skb)) ) {
+				cpu = smp_processor_id();
+			}
+			else
+				cpu = get_rps_cpu(skb->dev, skb, &rflow);
+		}
+		else
+			cpu = get_rps_cpu(skb->dev, skb, &rflow);
 
 		if (cpu >= 0) {
 			ret = enqueue_to_backlog(skb, cpu, &rflow->last_qtail);

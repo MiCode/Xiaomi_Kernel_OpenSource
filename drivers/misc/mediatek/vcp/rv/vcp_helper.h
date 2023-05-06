@@ -50,6 +50,7 @@ struct VCP_IRQ_AST_INFO {
 /* reset ID */
 #define VCP_ALL_ENABLE	0x00
 #define VCP_ALL_REBOOT	0x01
+#define VCP_ALL_SUSPEND	0x10
 
 #define VCP_PACK_IOVA(addr)     ((uint32_t)((addr) | (((addr) >> 32) & 0xF)))
 #define VCP_UNPACK_IOVA(addr)   \
@@ -119,6 +120,7 @@ struct vcp_regs {
 	unsigned int vcp_tcmsize;
 	unsigned int core_nums;
 	unsigned int twohart;
+	unsigned int femter_ck;
 };
 
 /* vcp work struct definition*/
@@ -158,6 +160,8 @@ struct vcp_region_info_st {
 	uint32_t ap_params_start;
 };
 
+extern bool driver_init_done;
+
 /* vcp device attribute */
 extern struct device_attribute dev_attr_vcp_A_mobile_log_UT;
 extern struct device_attribute dev_attr_vcp_A_logger_wakeup_AP;
@@ -182,7 +186,7 @@ extern unsigned int vcp_dbg_log;
 int vcp_excep_init(void);
 void vcp_ram_dump_init(void);
 void vcp_excep_cleanup(void);
-void vcp_reset_wait_timeout(void);
+void vcp_wait_core_stop_timeout(int mmup_enable);
 
 /* vcp irq */
 extern irqreturn_t vcp_A_irq_handler(int irq, void *dev_id);

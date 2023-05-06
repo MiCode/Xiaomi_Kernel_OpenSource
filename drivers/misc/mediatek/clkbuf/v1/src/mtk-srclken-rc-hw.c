@@ -56,6 +56,9 @@ int srclken_rc_subsys_ctrl(u8 idx, const char *mode)
 	else if (!strcmp(mode, "SW_BBLPM"))
 		return __srclken_rc_subsys_ctrl(&rc_hw.subsys[idx],
 			CLKBUF_CMD_SW, RC_BBLPM_REQ);
+	else if (!strcmp(mode, "SW_LPM"))
+		return __srclken_rc_subsys_ctrl(&rc_hw.subsys[idx],
+			CLKBUF_CMD_SW, RC_LPM_VOTE_REQ);
 	else if (!strcmp(mode, "INIT"))
 		return __srclken_rc_subsys_ctrl(&rc_hw.subsys[idx],
 			CLKBUF_CMD_INIT, RC_NONE_REQ);

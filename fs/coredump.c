@@ -859,15 +859,16 @@ void do_coredump(const kernel_siginfo_t *siginfo)
 		goto close_fail;
 	if (displaced)
 		put_files_struct(displaced);
-	if (!dump_interrupted()) {
-		/*
-		 * umh disabled with CONFIG_STATIC_USERMODEHELPER_PATH="" would
-		 * have this set to NULL.
-		 */
-		if (!cprm.file) {
+
+	/*
+	* umh disabled with CONFIG_STATIC_USERMODEHELPER_PATH="" would
+	* have this set to NULL.
+	*/
+	if (!cprm.file) {
 			pr_info("Core dump to |%s disabled\n", cn.corename);
 			goto close_fail;
-		}
+	}
+	if (!dump_interrupted()) {
 		file_start_write(cprm.file);
 		core_dumped = binfmt->core_dump(&cprm);
 		file_end_write(cprm.file);
@@ -1176,8 +1177,10 @@ int dump_vma_snapshot(struct coredump_params *cprm, int *vma_count,
 
 	mmap_write_unlock(mm);
 
-	if (WARN_ON(i != *vma_count))
+	if (WARN_ON(i != *vma_count)) {
+		kvfree(*vma_meta);
 		return -EFAULT;
+	}
 
 	*vma_data_size_ptr = vma_data_size;
 	return 0;

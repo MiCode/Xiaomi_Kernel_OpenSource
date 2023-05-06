@@ -215,6 +215,17 @@ static const char *mt6983_bus_id_to_master(uint32_t bus_id, uint32_t vio_addr,
 			return "STH_EMI_GMC_M";
 		else
 			return infra_mi_trans(bus_id >> 1);
+	} else if ((vio_addr >= L3CACHE_0_START && vio_addr <= L3CACHE_0_END) ||
+		(vio_addr >= L3CACHE_1_START && vio_addr <= L3CACHE_1_END) ||
+		(vio_addr >= L3CACHE_2_START && vio_addr <= L3CACHE_2_END) ||
+		(vio_addr >= L3CACHE_3_START && vio_addr <= L3CACHE_3_END)) {
+		pr_info(PFX "vio_addr is from L3Cache share SRAM\n");
+		if ((bus_id & 0x3) == 0x0)
+			return "NTH_EMI_GMC_M";
+		else if ((bus_id & 0x3) == 0x2)
+			return "STH_EMI_GMC_M";
+		else
+			return infra_mi_trans(bus_id >> 1);
 	} else if (slave_type == SLAVE_TYPE_VLP) {
 		/* mi3 */
 		if ((vio_addr >= VLP_SCP_START_ADDR) && (vio_addr <= VLP_SCP_END_ADDR)) {

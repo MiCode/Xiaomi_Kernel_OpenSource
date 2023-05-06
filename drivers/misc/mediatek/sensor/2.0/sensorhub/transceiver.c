@@ -753,6 +753,24 @@ static void transceiver_destroy_manager(struct transceiver_device *dev)
 	hf_manager_destroy(dev->hf_dev.manager);
 }
 
+static void transceiver_scp_reboot_to_hal(void)
+{
+	struct transceiver_device *dev = &transceiver_dev;
+	struct hf_manager *manager = dev->hf_dev.manager;
+	struct hf_manager_event hf_event;
+
+	/*report scp reboot signal*/
+	memset(&hf_event, 0, sizeof(struct hf_manager_event));
+	hf_event.action = BIAS_ACTION;
+	hf_event.sensor_type = SENSOR_TYPE_INVALID;
+	hf_event.timestamp = ktime_get_boottime_ns();
+	hf_event.word[0] = 0xFF;
+	hf_event.word[1] = 0xFF;
+	hf_event.word[2] = 0xFF;
+	manager->report(manager, &hf_event);
+	pr_err("scp reboot,and report scp reboot signal directly\n");
+}
+
 static void transceiver_sensor_bootup(struct transceiver_device *dev)
 {
 	int ret = 0;
@@ -771,6 +789,7 @@ static void transceiver_sensor_bootup(struct transceiver_device *dev)
 		}
 	} else {
 		transceiver_restore_sensor(dev);
+		transceiver_scp_reboot_to_hal();
 	}
 }
 
@@ -795,6 +814,11 @@ static int transceiver_pm_notifier_call(struct notifier_block *notifier,
 	case PM_POST_SUSPEND:
 		transceiver_comm_with(SENSOR_TYPE_INVALID,
 			SENS_COMM_CTRL_UNMASK_NOTIFY_CMD, NULL, 0);
+		//Added to send flush command to light sensor.
+		transceiver_comm_with(SENSOR_TYPE_LIGHT,
+			SENS_COMM_CTRL_FLUSH_CMD, NULL, 0);
+		transceiver_comm_with(SENSOR_TYPE_LUX_B,
+			SENS_COMM_CTRL_FLUSH_CMD, NULL, 0);
 		timesync_resume();
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:

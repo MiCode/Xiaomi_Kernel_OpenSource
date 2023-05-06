@@ -442,6 +442,7 @@ struct mtk_disp_ovl_data {
 	bool is_support_34bits;
 	unsigned int (*aid_sel_mapping)(struct mtk_ddp_comp *comp);
 	resource_size_t (*mmsys_mapping)(struct mtk_ddp_comp *comp);
+	unsigned int source_bpc;
 };
 
 #define MAX_LAYER_NUM 4
@@ -1539,7 +1540,7 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 					BIT(sec_bit), BIT(sec_bit));
 			else
 				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + aid_sel_offset,
+					mmsys_reg + aid_sel_offset,
 					0, BIT(sec_bit));
 		}
 
@@ -1691,11 +1692,12 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	if (!pending->addr)
 		con |= BIT(28);
 
-	DDPINFO("%s+ id %d, idx:%d, enable:%d, fmt:0x%x, ",
-		__func__, comp->id, idx, pending->enable, pending->format);
-	DDPINFO("addr 0x%lx, compr %d, con 0x%x\n",
+	DDPINFO("%s+ id %d, idx:%d, ext_idx:%d, enable:%d, fmt:0x%x, ",
+		__func__, comp->id, idx, ext_lye_idx, pending->enable, pending->format);
+	DDPINFO("addr 0x%lx, compr %d, con 0x%x, mml_mode %d\n",
 		(unsigned long)pending->addr,
-		(unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con);
+		(unsigned int)pending->prop_val[PLANE_PROP_COMPRESS], con,
+		pending->mml_mode);
 
 	if (rotate) {
 		unsigned int bg_w = 0, bg_h = 0;
@@ -1801,6 +1803,12 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		 */
 		temp_bw = (unsigned long long)pending->width * pending->height;
 		temp_bw *= mtk_get_format_bpp(fmt);
+
+		/* COMPRESS ratio */
+		if (pending->prop_val[PLANE_PROP_COMPRESS]) {
+			temp_bw *= 7;
+			do_div(temp_bw, 10);
+		}
 		do_div(temp_bw, 1000);
 		temp_bw *= ratio_tmp;
 		do_div(temp_bw, 100);
@@ -1810,15 +1818,17 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		DDPDBG("comp %d bw %llu vtotal:%d vact:%d\n",
 			comp->id, temp_bw, vtotal, vact);
 
+		if (pending->mml_mode != MML_MODE_RACING) {
 #ifdef IF_ZERO
-		if (pending->prop_val[PLANE_PROP_COMPRESS])
-			comp->fbdc_bw += temp_bw;
-		else
-			comp->qos_bw += temp_bw;
+			if (pending->prop_val[PLANE_PROP_COMPRESS])
+				comp->fbdc_bw += temp_bw;
+			else
+				comp->qos_bw += temp_bw;
 #else
-		/* so far only report one qos BW, no need to separate FBDC or normal BW */
-		comp->qos_bw += temp_bw;
+			/* so far only report one qos BW, no need to separate FBDC or normal BW */
+			comp->qos_bw += temp_bw;
 #endif
+		}
 	}
 }
 
@@ -2066,6 +2076,9 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 {
 	/* input config */
 	struct mtk_plane_pending_state *pending = &state->pending;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct drm_crtc *crtc = &mtk_crtc->base;
+	int crtc_idx = drm_crtc_index(crtc);
 	dma_addr_t addr = pending->addr;
 	unsigned int pitch = pending->pitch & 0xffff;
 	unsigned int vpitch = (unsigned int)pending->prop_val[PLANE_PROP_VPITCH];
@@ -2149,7 +2162,8 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		comp->regs_pa + DISP_REG_OVL_SYSRAM_BUF1_ADDR(lye_idx),
 		0, ~0);
 
-	if (comp->id == DDP_COMPONENT_OVL0_2L || comp->id == DDP_COMPONENT_OVL1_2L) {
+	if (crtc_idx == 0 &&
+		(comp->id == DDP_COMPONENT_OVL0_2L || comp->id == DDP_COMPONENT_OVL1_2L)) {
 		// setting SMI for read SRAM
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			(resource_size_t)(0x14021000) + SMI_LARB_NON_SEC_CON + 4*9,
@@ -2898,8 +2912,11 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		//			    DISP_BW_FBDC_MODE);
 
 		/* process normal */
+		if (comp->last_qos_bw == comp->qos_bw)
+			break;
 		__mtk_disp_set_module_bw(comp->qos_req, comp->id, comp->qos_bw,
 					    DISP_BW_NORMAL_MODE);
+		comp->last_qos_bw = comp->qos_bw;
 
 		DDPDBG("update ovl fbdc_bw to %u, qos bw to %u\n",
 			comp->fbdc_bw, comp->qos_bw);
@@ -2923,6 +2940,13 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		cmdq_pkt_mem_move(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_STA,
 			slot, CMDQ_THR_SPR_IDX3);
+		break;
+	}
+	case OVL_GET_SOURCE_BPC: {
+		struct mtk_disp_ovl *ovl = comp_to_ovl(comp);
+
+		DDPINFO("%s, source_bpc[%d]\n", __func__, ovl->data->source_bpc);
+		return ovl->data->source_bpc;
 		break;
 	}
 	default:
@@ -3175,6 +3199,13 @@ int mtk_ovl_dump(struct mtk_ddp_comp *comp)
 
 		/* FBDC */
 		mtk_serial_dump_reg(baddr, 0x800, 3);
+
+		/*SYSRAM*/
+		mtk_serial_dump_reg(baddr, 0x880, 4);
+		mtk_serial_dump_reg(baddr, 0x890, 4);
+		mtk_serial_dump_reg(baddr, 0x8a0, 4);
+		mtk_serial_dump_reg(baddr, 0x8b0, 4);
+
 		for (i = 0; i < 4; i++)
 			mtk_serial_dump_reg(baddr, 0xF44 + i * 0x20, 2);
 		for (i = 0; i < 3; i++)
@@ -3463,6 +3494,16 @@ mtk_ovl_config_trigger(struct mtk_ddp_comp *comp, struct cmdq_pkt *pkt,
 		       enum mtk_ddp_comp_trigger_flag flag)
 {
 	switch (flag) {
+	case MTK_TRIG_FLAG_PRE_TRIGGER:
+	{
+		DDPINFO("%s+ %s\n", __func__, mtk_dump_comp_str(comp));
+			cmdq_pkt_write(pkt, comp->cmdq_base,
+					comp->regs_pa + DISP_REG_OVL_RST, 0x1, 0x1);
+			cmdq_pkt_write(pkt, comp->cmdq_base,
+					comp->regs_pa + DISP_REG_OVL_RST, 0x0, 0x1);
+
+		break;
+	}
 #ifdef IF_ZERO /* not ready for dummy register method */
 	case MTK_TRIG_FLAG_LAYER_REC:
 	{
@@ -3727,6 +3768,7 @@ static const struct mtk_disp_ovl_data mt2701_ovl_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6779  = {
@@ -3746,6 +3788,7 @@ static const struct mtk_disp_ovl_data mt6779_ovl_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6885  = {
@@ -3772,6 +3815,7 @@ static const struct mtk_disp_ovl_data mt6885_ovl_driver_data = {
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x7777,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6983  = {
@@ -3800,6 +3844,7 @@ static const struct mtk_disp_ovl_data mt6983_ovl_driver_data = {
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6983,
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6983,
+	.source_bpc = 10,
 };
 
 static const struct compress_info compr_info_mt6895  = {
@@ -3828,6 +3873,7 @@ static const struct mtk_disp_ovl_data mt6895_ovl_driver_data = {
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6895,
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6895,
+	.source_bpc = 10,
 };
 
 static const struct compress_info compr_info_mt6873  = {
@@ -3854,6 +3900,7 @@ static const struct mtk_disp_ovl_data mt6873_ovl_driver_data = {
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6853  = {
@@ -3880,6 +3927,7 @@ static const struct mtk_disp_ovl_data mt6853_ovl_driver_data = {
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6833  = {
@@ -3906,6 +3954,7 @@ static const struct mtk_disp_ovl_data mt6833_ovl_driver_data = {
 	.issue_req_th_urg_dc = 15,
 	.greq_num_dl = 0x5555,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6879  = {
@@ -3934,6 +3983,7 @@ static const struct mtk_disp_ovl_data mt6879_ovl_driver_data = {
 	.is_support_34bits = true,
 	.aid_sel_mapping = &mtk_ovl_aid_sel_MT6879,
 	.mmsys_mapping = &mtk_ovl_mmsys_mapping_MT6879,
+	.source_bpc = 8,
 };
 
 static const struct compress_info compr_info_mt6855  = {
@@ -3959,6 +4009,7 @@ static const struct mtk_disp_ovl_data mt6855_ovl_driver_data = {
 	.issue_req_th_urg_dc = 31,
 	.greq_num_dl = 0xbbbb,
 	.is_support_34bits = true,
+	.source_bpc = 8,
 };
 
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
@@ -3972,6 +4023,7 @@ static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.support_shadow = false,
 	.need_bypass_shadow = false,
 	.is_support_34bits = false,
+	.source_bpc = 8,
 };
 
 static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {

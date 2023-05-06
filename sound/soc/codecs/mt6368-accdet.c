@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/kernel.h>
 #include <linux/iio/consumer.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/init.h>
@@ -27,8 +28,11 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <linux/mfd/mt6397/core.h>
+#include <linux/debugfs.h>
 #include "mt6368-accdet.h"
 #include "mt6368.h"
+#include "../../../../drivers/misc/mediatek/typec/tcpc/inc/tcpci_core.h"
+#include "../../../../drivers/misc/mediatek/typec/tcpc/inc/tcpm.h"
 /* grobal variable definitions */
 #define REGISTER_VAL(x)	(x - 1)
 #define HAS_CAP(_c, _x)	(((_c) & (_x)) == (_x))
@@ -61,6 +65,61 @@
 #define EINT_PLUG_OUT			(0)
 #define EINT_PLUG_IN			(1)
 #define EINT_MOISTURE_DETECTED	(2)
+
+/* Audio Start */
+#define MEDIA_PREVIOUS_SCAN_CODE 257
+#define MEDIA_NEXT_SCAN_CODE 258
+/* Audio End */
+
+/* add headset_status */
+#define HEADSET_STATUS_RECORD
+#ifdef HEADSET_STATUS_RECORD
+#define HEADSET_STATUS_RECORD_INDEX_PLUGIN (0)
+#define HEADSET_STATUS_RECORD_INDEX_KEY_PREVIOUS (1)
+#define HEADSET_STATUS_RECORD_INDEX_KEY_NEXT (2)
+#define HEADSET_STATUS_RECORD_INDEX_KEY_MEDIA (3)
+#define HEADSET_STATUS_RECORD_INDEX_PLUGOUT (4)
+
+#define HEADSET_EVENT_PLUGIN_HEADPHONE (0)
+#define HEADSET_EVENT_PLUGIN_MICROPHONE (4)
+#define HEADSET_EVENT_PLUGIN_JACK (8)
+
+#define HEADSET_EVENT_KEY_PREVIOUS_DOWN (0)
+#define HEADSET_EVENT_KEY_PREVIOUS_UP (4)
+
+#define HEADSET_EVENT_KEY_NEXT_DOWN (0)
+#define HEADSET_EVENT_KEY_NEXT_UP (4)
+
+#define HEADSET_EVENT_KEY_MEDIA_DOWN (0)
+#define HEADSET_EVENT_KEY_MEDIA_UP (4)
+
+#define HEADSET_EVENT_PLUGOUT_HEADPHONE (0)
+#define HEADSET_EVENT_PLUGOUT_MICROPHONE (4)
+#define HEADSET_EVENT_PLUGOUT_JACK (8)
+
+#define DEBUGFS_DIR_NAME "accdet"
+#define DEBUGFS_HEADSET_STATUS_FILE_NAME "headset_status"
+#define HEADSET_EVENT_MAX (5)
+#define HEADSET_EVENT_OFFSET_MAX (12)
+static u16 headset_status[HEADSET_EVENT_MAX] = {0,0,0,0,0};
+static u32 headphone_status = 0;
+static u32 microphone_status = 0;
+static struct dentry* accdet_debugfs_dir;
+#endif
+
+#ifdef CONFIG_TARGET_PRODUCT_XAGA
+#define USB_3_5_UNSUPPORT 1
+#endif
+
+#ifdef USB_3_5_UNSUPPORT
+struct snd_soc_jack g_usb_3_5_jack;
+struct usb_priv *g_usbc_priv = NULL;
+struct usb_priv {
+	struct device *dev;
+	struct notifier_block psy_nb;
+	struct tcpc_device *tcpc_dev;
+};
+#endif
 
 struct mt63xx_accdet_data {
 	struct snd_soc_jack jack;
@@ -187,8 +246,147 @@ static void recover_eint_digital_setting(void);
 static void recover_eint_setting(u32 eintsts);
 static void recover_moisture_setting(u32 moistureID);
 static void send_status_event(u32 cable_type, u32 status);
+#ifdef HEADSET_STATUS_RECORD
+static ssize_t headset_status_read(struct file *filp, char __user *buffer,
+	size_t count, loff_t *ppos);
+static ssize_t headset_status_write(struct file *filp, const char __user *buffer,
+	size_t count, loff_t *ppos);
+static void add_headset_event(u32 event_index, u32 event_offset);
+#endif
 
 /* global function declaration */
+
+#ifdef USB_3_5_UNSUPPORT
+static int analog_usb_typec_event_changed(struct notifier_block *nb,
+					unsigned long evt, void *ptr)
+{
+	int ret = 0;
+	struct tcp_notify *noti = ptr;
+	struct usb_priv *usbc_priv = container_of(nb, struct usb_priv, psy_nb);
+
+	if (NULL == noti) {
+		pr_err("%s:data is NULL. \n", __func__);
+		return 0;
+	}
+
+	if (!usbc_priv || (usbc_priv != g_usbc_priv))
+		return -EINVAL;
+
+	pr_info("%s:USB change event received, evt %d, expected %d, ole state %d, new state %d\n",
+		__func__, evt, TCP_NOTIFY_TYPEC_STATE, noti->typec_state.old_state, noti->typec_state.new_state);
+	switch (evt) {
+	case TCP_NOTIFY_TYPEC_STATE:
+		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+			noti->typec_state.new_state == TYPEC_ATTACHED_AUDIO) {
+			/* Audio Plug in */
+			snd_soc_jack_report(&g_usb_3_5_jack, (SND_JACK_HEADSET | SND_JACK_VIDEOOUT),
+			(SND_JACK_HEADSET | SND_JACK_VIDEOOUT));
+		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO &&
+			noti->typec_state.new_state == TYPEC_UNATTACHED) {
+			/* Audio Plug out */
+			snd_soc_jack_report(&g_usb_3_5_jack, 0, (SND_JACK_HEADSET | SND_JACK_VIDEOOUT));
+		}
+		break;
+	}
+
+	return ret;
+}
+
+static int analog_usb_typec_event_setup(struct platform_device *platform_device)
+{
+	int rc = 0;
+
+	if (NULL != g_usbc_priv) {
+		pr_info("%s: had done! \n", __func__);
+		return 0;
+	}
+
+	g_usbc_priv = devm_kzalloc(&platform_device->dev, sizeof(*g_usbc_priv),
+				GFP_KERNEL);
+	if (!g_usbc_priv)
+		return -ENOMEM;
+
+	g_usbc_priv->dev = &platform_device->dev;
+
+	g_usbc_priv->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
+	if (!g_usbc_priv->tcpc_dev) {
+		rc = -EPROBE_DEFER;
+		pr_err("%s get tcpc device type_c_port0 fail \n", __func__);
+		goto err_data;
+	}
+
+	/* register tcpc_event */
+	g_usbc_priv->psy_nb.notifier_call = analog_usb_typec_event_changed;
+	g_usbc_priv->psy_nb.priority = 0;
+	rc = register_tcp_dev_notifier(g_usbc_priv->tcpc_dev, &g_usbc_priv->psy_nb, TCP_NOTIFY_TYPE_USB);
+	if (rc)
+	{
+		pr_err("%s: register_tcp_dev_notifier failed\n", __func__);
+	}
+
+	return 0;
+
+err_data:
+	devm_kfree(&platform_device->dev, g_usbc_priv);
+	return rc;
+}
+#endif // USB_3_5_UNSUPPORT
+
+
+#ifdef HEADSET_STATUS_RECORD
+static void add_headset_event(u32 event_index, u32 event_offset) {
+	u16 status;
+
+	if (event_index >= HEADSET_EVENT_MAX) {
+		return;
+	}
+
+	status = (headset_status[event_index] & (0xF << event_offset));
+	status += (0x1 << event_offset);
+	if (status > (0xF << event_offset)) {
+		status = (0xF << event_offset);
+	}
+
+	headset_status[event_index] = (headset_status[event_index] & (~(0xF << event_offset)))
+								  + status;
+
+	return;
+}
+
+static ssize_t headset_status_read(struct file *filp, char __user *buffer,
+	size_t count, loff_t *ppos) {
+	char buf[64];
+
+	sprintf(buf, "0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
+		headset_status[0], headset_status[1],
+		headset_status[2], headset_status[3],
+		headset_status[4]);
+
+	return simple_read_from_buffer(buffer, count, ppos, buf, strlen(buf));
+}
+
+static ssize_t headset_status_write(struct file *filp, const char __user *buffer,
+	size_t count, loff_t *ppos) {
+	char buf[4];
+	size_t buf_size = min(count, sizeof(buf) - 1);
+
+	if (copy_from_user(buf, buffer, buf_size))
+		return -EFAULT;
+
+	if (strncmp(buf, "0", 1) == 0) {
+		memset(headset_status, 0, sizeof(headset_status));
+	}
+
+	return count;
+}
+
+static const struct file_operations accdet_headset_status_fops = {
+    .owner = THIS_MODULE,
+    .read = headset_status_read,
+    .write = headset_status_write,
+};
+#endif
+
 inline u32 accdet_read(u32 addr)
 {
 	u32 val = 0;
@@ -373,14 +571,14 @@ static void cat_register(char *buf)
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	st_addr = ACCDET_AUXADC_SEL_ADDR;
 	end_addr = ACCDET_MON_FLAG_EN_ADDR;
-	for (addr = st_addr; addr <= end_addr; addr += 8) {
+	for (addr = st_addr; addr <= end_addr; addr += 4) {
 		idx = addr;
 		ret = sprintf(accdet_log_buf,
 			"(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
 			idx, accdet_read(idx),
+			idx+1, accdet_read(idx+1),
 			idx+2, accdet_read(idx+2),
-			idx+4, accdet_read(idx+4),
-			idx+6, accdet_read(idx+6));
+			idx+3, accdet_read(idx+3));
 		if (ret < 0)
 			pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
@@ -391,14 +589,14 @@ static void cat_register(char *buf)
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	st_addr = RG_AUDPREAMPLON_ADDR;
 	end_addr = RG_CLKSQ_EN_ADDR;
-	for (addr = st_addr; addr <= end_addr; addr += 8) {
+	for (addr = st_addr; addr <= end_addr; addr += 4) {
 		idx = addr;
 		ret = sprintf(accdet_log_buf,
 			"(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
 			idx, accdet_read(idx),
+			idx+1, accdet_read(idx+1),
 			idx+2, accdet_read(idx+2),
-			idx+4, accdet_read(idx+4),
-			idx+6, accdet_read(idx+6));
+			idx+3, accdet_read(idx+3));
 		if (ret < 0)
 			pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
@@ -861,28 +1059,36 @@ static void send_key_event(u32 keycode, u32 flag)
 
 	switch (keycode) {
 	case DW_KEY:
+#ifdef HEADSET_STATUS_RECORD
+		add_headset_event(HEADSET_STATUS_RECORD_INDEX_KEY_NEXT,
+			flag ? HEADSET_EVENT_KEY_NEXT_DOWN : HEADSET_EVENT_KEY_NEXT_UP);
+#endif
 		if (flag != 0)
 			report = SND_JACK_BTN_1;
-		snd_soc_jack_report(&accdet->jack, report,
-				SND_JACK_BTN_1);
+		snd_soc_jack_report(&accdet->jack, report, SND_JACK_BTN_1);
 		break;
 	case UP_KEY:
+#ifdef HEADSET_STATUS_RECORD
+		add_headset_event(HEADSET_STATUS_RECORD_INDEX_KEY_PREVIOUS,
+			flag ? HEADSET_EVENT_KEY_PREVIOUS_DOWN : HEADSET_EVENT_KEY_PREVIOUS_UP);
+#endif
 		if (flag != 0)
 			report = SND_JACK_BTN_2;
-		snd_soc_jack_report(&accdet->jack, report,
-				SND_JACK_BTN_2);
+		snd_soc_jack_report(&accdet->jack, report, SND_JACK_BTN_2);
 		break;
 	case MD_KEY:
+#ifdef HEADSET_STATUS_RECORD
+		add_headset_event(HEADSET_STATUS_RECORD_INDEX_KEY_MEDIA,
+			flag ? HEADSET_EVENT_KEY_MEDIA_DOWN : HEADSET_EVENT_KEY_MEDIA_UP);
+#endif
 		if (flag != 0)
 			report = SND_JACK_BTN_0;
-		snd_soc_jack_report(&accdet->jack, report,
-				SND_JACK_BTN_0);
+		snd_soc_jack_report(&accdet->jack, report, SND_JACK_BTN_0);
 		break;
 	case AS_KEY:
 		if (flag != 0)
 			report = SND_JACK_BTN_3;
-		snd_soc_jack_report(&accdet->jack, report,
-				SND_JACK_BTN_3);
+		snd_soc_jack_report(&accdet->jack, report, SND_JACK_BTN_3);
 		break;
 	}
 }
@@ -893,8 +1099,25 @@ static void send_status_event(u32 cable_type, u32 status)
 
 	switch (cable_type) {
 	case HEADSET_NO_MIC:
-		if (status)
+#ifdef HEADSET_STATUS_RECORD
+		if (headphone_status != status) {
+			headphone_status = status;
+			add_headset_event(
+				status ? HEADSET_STATUS_RECORD_INDEX_PLUGIN : HEADSET_STATUS_RECORD_INDEX_PLUGOUT,
+				status ? HEADSET_EVENT_PLUGIN_HEADPHONE : HEADSET_EVENT_PLUGOUT_HEADPHONE);
+		}
+#endif
+		if (status) {
+#ifdef HEADSET_STATUS_RECORD
+			if (microphone_status != status) {
+				microphone_status = status;
+				add_headset_event(
+					status ? HEADSET_STATUS_RECORD_INDEX_PLUGIN : HEADSET_STATUS_RECORD_INDEX_PLUGOUT,
+					status ? HEADSET_EVENT_PLUGIN_MICROPHONE : HEADSET_EVENT_PLUGOUT_MICROPHONE);
+			}
+#endif
 			report = SND_JACK_HEADPHONE;
+		}
 		else
 			report = 0;
 		snd_soc_jack_report(&accdet->jack, report,
@@ -917,6 +1140,14 @@ static void send_status_event(u32 cable_type, u32 status)
 		 * reported for slow plug-in case
 		 */
 		if (status == 0) {
+#ifdef HEADSET_STATUS_RECORD
+			if (headphone_status != status) {
+				headphone_status = status;
+				add_headset_event(
+					status ? HEADSET_STATUS_RECORD_INDEX_PLUGIN : HEADSET_STATUS_RECORD_INDEX_PLUGOUT,
+					status ? HEADSET_EVENT_PLUGIN_HEADPHONE : HEADSET_EVENT_PLUGOUT_HEADPHONE);
+			}
+#endif
 			report = 0;
 			snd_soc_jack_report(&accdet->jack, report,
 					SND_JACK_HEADPHONE);
@@ -925,7 +1156,14 @@ static void send_status_event(u32 cable_type, u32 status)
 			report = SND_JACK_MICROPHONE;
 		else
 			report = 0;
-
+#ifdef HEADSET_STATUS_RECORD
+		if (microphone_status != status) {
+			microphone_status = status;
+			add_headset_event(
+				status ? HEADSET_STATUS_RECORD_INDEX_PLUGIN : HEADSET_STATUS_RECORD_INDEX_PLUGOUT,
+				status ? HEADSET_EVENT_PLUGIN_MICROPHONE : HEADSET_EVENT_PLUGOUT_MICROPHONE);
+		}
+#endif
 		snd_soc_jack_report(&accdet->jack, report,
 				SND_JACK_MICROPHONE);
 		pr_info("accdet MICROPHONE(4-pole) %s\n",
@@ -963,6 +1201,7 @@ static void multi_key_detection(u32 cur_AB)
 	 * issued AB=0 and Eint, delay to wait eint been flaged in register.
 	 * or eint handler issued. accdet->cur_eint_state == PLUG_OUT
 	 */
+	pr_info("%s: accdet: cur_key = %d", __func__, accdet->cur_key);
 	usleep_range(10000, 12000);
 
 	if (HAS_CAP(accdet->data->caps, ACCDET_AP_GPIO_EINT)) {
@@ -1261,11 +1500,12 @@ static u32 adjust_moisture_analog_setting(u32 eintID)
 		pr_info("%s efuse=0x%x,vref2val=0x%x, vref2hi=0x%x\n",
 			__func__, efuseval, vref2val, vref2hi);
 		/* voltage 880~1330mV */
-		accdet_update_bit(RG_ACCDETSPARE_H_ADDR, 7);
+		/*accdet_update_bit(RG_ACCDETSPARE_H_ADDR, 7);
 		accdet_update_bits(RG_EINTCOMPVTH_ADDR,
 			6, 0x3, (vref2val & 0xc) >> 2);
 		accdet_update_bits(RG_ACCDETSPARE_H_ADDR,
 			5, 0x3, (vref2val & 0x3));
+		*/
 		/* golden setting
 		 * accdet_update_bits(RG_ACCDETSPARE_ADDR,
 		 * 3, 0x1f, 0x1e);
@@ -1763,9 +2003,10 @@ static inline void check_cable_type(void)
 	u32 cur_AB = 0;
 
 	cur_AB = accdet_read(ACCDET_MEM_IN_ADDR) >> ACCDET_STATE_MEM_IN_OFFSET;
-		cur_AB = cur_AB & ACCDET_STATE_AB_MASK;
+	cur_AB = cur_AB & ACCDET_STATE_AB_MASK;
 
 	accdet->button_status = 0;
+	pr_info("%s: cur_AB = %d, accdet_status = %d", __func__, cur_AB, accdet->accdet_status);
 
 	switch (accdet->accdet_status) {
 	case PLUG_OUT:
@@ -2119,17 +2360,19 @@ static u32 config_moisture_detect_2_1_1(void)
 		accdet_dts.moisture_comp_vth);
 
 	/* EINTVTH1K/5K/10K efuse */
-	ret = nvmem_device_read(accdet->accdet_efuse, 96*2, 2, &efuseval);
+	/* RG_MOISTURE0[3:2] to 0x252F bit[7:6] */
+	/* RG_MOISTURE0[1:0] to 0x2534 bit[6:5] */
+	ret = nvmem_device_read(accdet->accdet_efuse, 98*2, 2, &efuseval);
 	eintvth = (int)(efuseval & ACCDET_CALI_MASK0);
-	pr_info("%s moisture_eint0 efuse=0x%x,eintvth=0x%x\n",
-		__func__, efuseval, eintvth);
+	pr_info("%s RG_MOISTURE0 efuseval=0x%x eintvth=0x%x\n", __func__, efuseval, eintvth);
 	/* set moisture reference voltage MVTH */
 	if (eintvth == 0) {
 		pr_info("%s vref_1v = 0x81\n", __func__);
 		accdet_write(RG_ACCDETSPARE_H_ADDR, 0x81);
 	} else {
-		pr_info("%s vref_1v = 0x%x\n", __func__, eintvth);
-		accdet_write(RG_ACCDETSPARE_H_ADDR, eintvth);
+		accdet_update_bits(RG_ACCDETSPARE_H_ADDR, 7, 0x1, ((eintvth >> 4) & 0x1));
+		accdet_update_bits(RG_EINTCOMPVTH_ADDR, 6, 0x3, ((eintvth >> 2) & 0x3));
+		accdet_update_bits(RG_ACCDETSPARE_H_ADDR, 5, 0x3, (eintvth & 0x3));
 	}
 	return 0;
 }
@@ -2988,6 +3231,17 @@ int mt6368_accdet_init(struct snd_soc_component *component,
 {
 	int ret;
 
+#ifdef USB_3_5_UNSUPPORT
+	ret = snd_soc_card_jack_new(card,
+					"USB_3_5 Jack",
+					(SND_JACK_VIDEOOUT | SND_JACK_HEADSET),
+					&g_usb_3_5_jack,
+					NULL, 0);
+	if (ret) {
+		pr_err("USB_3_5 Jack create failed");
+	}
+#endif
+
 	/* Enable Headset and 4 Buttons Jack detection */
 	ret = snd_soc_card_jack_new(card,
 				    "Headset Jack",
@@ -3002,9 +3256,9 @@ int mt6368_accdet_init(struct snd_soc_component *component,
 	}
 
 	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, MEDIA_NEXT_SCAN_CODE);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, MEDIA_PREVIOUS_SCAN_CODE);
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
 
 	snd_soc_component_set_jack(component, &accdet->jack, NULL);
@@ -3241,6 +3495,22 @@ static int accdet_probe(struct platform_device *pdev)
 	atomic_set(&accdet_first, 1);
 	mod_timer(&accdet_init_timer, (jiffies + ACCDET_INIT_WAIT_TIMER));
 
+#ifdef HEADSET_STATUS_RECORD
+	// new headset status record
+	accdet_debugfs_dir = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
+	if (!IS_ERR(accdet_debugfs_dir)) {
+		debugfs_create_file(DEBUGFS_HEADSET_STATUS_FILE_NAME, 0666,
+			accdet_debugfs_dir, NULL, &accdet_headset_status_fops);
+	}
+#endif
+
+#ifdef USB_3_5_UNSUPPORT
+	ret = analog_usb_typec_event_setup(pdev);
+	if (ret) {
+		pr_notice("%s analog usb typeC event setup fail.ret:%d\n", __func__, ret);
+	}
+#endif
+
 	return 0;
 
 err_create_workqueue:
@@ -3278,7 +3548,6 @@ static long mt_accdet_unlocked_ioctl(struct file *file, unsigned int cmd,
 	}
 	return 0;
 }
-
 #if IS_ENABLED(CONFIG_USB_SWITCH_ET7480)
 void accdet_eint_callback_wrapper(unsigned int plug_status)
 {

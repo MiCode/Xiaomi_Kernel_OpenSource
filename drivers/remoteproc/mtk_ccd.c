@@ -229,10 +229,12 @@ static long ccd_unlocked_ioctl(struct file *filp, unsigned int cmd,
 	case IOCTL_CCD_WORKER_READ:
 		ret = copy_from_user(&work_obj, user_addr,
 				     sizeof(struct ccd_worker_item));
-		ccd_worker_read(ccd, &work_obj);
 
+		ret = ccd_worker_read(ccd, &work_obj);
+		if (ret < 0)
+			break;
 		ret = copy_to_user(user_addr, &work_obj,
-				   sizeof(struct ccd_worker_item));
+			   sizeof(struct ccd_worker_item));
 		break;
 	case IOCTL_CCD_WORKER_WRITE:
 		ret = copy_from_user(&work_obj, user_addr,

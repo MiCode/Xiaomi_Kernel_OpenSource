@@ -25,6 +25,7 @@ enum {
 	HW_ID_DOVDD,
 	HW_ID_AFVDD,
 	HW_ID_AVDD1,
+	HW_ID_AVDD2,
 	HW_ID_PDN,
 	HW_ID_RST,
 	HW_ID_MCLK,
@@ -205,6 +206,32 @@ struct subdrv_entry {
 #define subdrv_i2c_wr_regs_u16(subctx, list, len) \
 	adaptor_i2c_wr_regs_u16(subctx->i2c_client, \
 		subctx->i2c_write_id >> 1, list, len)
+
+#ifdef __XIAOMI_CAMERA__
+#define subdrv_i2c_rd_u8_u8(subctx, reg) \
+({ \
+	u8 __val = 0xff; \
+	adaptor_i2c_rd_u8_u8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, reg, &__val); \
+	__val; \
+})
+
+#define subdrv_i2c_wr_u8_u8(subctx, reg, val) \
+	adaptor_i2c_wr_u8_u8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, reg, val)
+
+#define subdrv_i2c_wr_regs_u8_u8(subctx, list, len) \
+	adaptor_i2c_wr_regs_u8_u8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, list, len)
+
+#define subdrv_i2c_wr_regs_u16_burst_for_addr_same(subctx, list, len) \
+		adaptor_i2c_wr_regs_u16_burst_for_addr_same(subctx->i2c_client, \
+			subctx->i2c_write_id >> 1, list, len)
+
+#define subdrv_i2c_wr_regs_u8_burst(subctx, list, len) \
+			adaptor_i2c_wr_regs_u8_burst(subctx->i2c_client, \
+				subctx->i2c_write_id >> 1, list, len)
+#endif
 
 #define FINE_INTEG_CONVERT(_shutter, _fine_integ) \
 ( \

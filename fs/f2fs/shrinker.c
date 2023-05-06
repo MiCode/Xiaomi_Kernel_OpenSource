@@ -118,7 +118,7 @@ unsigned long f2fs_shrink_scan(struct shrinker *shrink,
 			break;
 	}
 	spin_unlock(&f2fs_list_lock);
-	return freed;
+	return freed ? freed : SHRINK_STOP;
 }
 
 void f2fs_join_shrinker(struct f2fs_sb_info *sbi)

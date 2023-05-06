@@ -126,6 +126,9 @@ struct md_ccif_ctrl {
 	struct platform_device *plat_dev;
 	struct ccci_hif_ccif_val plat_val;
 	unsigned long long isr_cnt[CCIF_CH_NUM];
+
+	unsigned int ccif_hw_reset_ver;
+	void __iomem *infracfg_base;
 };
 
 static inline void ccif_set_busy_queue(struct md_ccif_ctrl *md_ctrl,

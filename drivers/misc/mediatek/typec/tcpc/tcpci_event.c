@@ -1350,9 +1350,11 @@ static int tcpc_event_thread_fn(void *data)
 			dev_notice(&tcpc->dev, "%s exits(%d)\n", __func__, ret);
 			break;
 		}
+		atomic_inc(&tcpc->suspend_pending);
 		do {
 			atomic_dec_if_positive(&tcpc->pending_event);
 		} while (pd_policy_engine_run(tcpc) && !kthread_should_stop());
+		atomic_dec_if_positive(&tcpc->suspend_pending);
 	}
 
 	return 0;

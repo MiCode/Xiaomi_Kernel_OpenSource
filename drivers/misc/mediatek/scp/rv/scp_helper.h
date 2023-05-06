@@ -165,16 +165,18 @@ struct scp_region_info_st {
 	uint32_t ap_params_start;
 };
 
+extern struct scp_regs scpreg;
+extern const struct file_operations scp_A_log_file_ops;
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 /* scp device attribute */
 extern struct device_attribute dev_attr_scp_A_mobile_log_UT;
 extern struct device_attribute dev_attr_scp_A_logger_wakeup_AP;
-extern const struct file_operations scp_A_log_file_ops;
 
-extern struct scp_regs scpreg;
 extern struct device_attribute dev_attr_scp_mobile_log;
 extern struct device_attribute dev_attr_scp_A_get_last_log;
 extern struct device_attribute dev_attr_scp_A_status;
 extern struct device_attribute dev_attr_log_filter;
+#endif
 extern struct bin_attribute bin_attr_scp_dump;
 
 /* scp loggger */

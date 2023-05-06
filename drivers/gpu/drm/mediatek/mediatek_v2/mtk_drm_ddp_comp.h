@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (C) 2021-2022 XiaoMi, Inc.
  */
 
 #ifndef MTK_DRM_DDP_COMP_H
@@ -293,6 +294,7 @@ enum mtk_ddp_comp_id {
 struct mtk_ddp_comp;
 struct cmdq_pkt;
 enum mtk_ddp_comp_trigger_flag {
+	MTK_TRIG_FLAG_PRE_TRIGGER,
 	MTK_TRIG_FLAG_TRIGGER,
 	MTK_TRIG_FLAG_EOF,
 	MTK_TRIG_FLAG_LAYER_REC,
@@ -331,6 +333,9 @@ enum mtk_ddp_io_cmd {
 	BACKUP_INFO_CMP,
 	LCM_RESET,
 	DSI_SEND_DDIC_CMD_PACK,
+	DSI_SEND_DDIC_CMD_PACK_,
+	SET_DC_SYNC_TE_MODE_ON,
+	SET_DC_SYNC_TE_MODE_OFF,
 	DSI_SET_BL,
 	DSI_SET_BL_AOD,
 	DSI_SET_BL_GRP,
@@ -353,6 +358,19 @@ enum mtk_ddp_io_cmd {
 	GET_FRAME_HRT_BW_BY_MODE,
 	DSI_SEND_DDIC_CMD,
 	DSI_READ_DDIC_CMD,
+#ifdef CONFIG_MI_DISP
+	MI_DSI_READ_DDIC_CMD,
+	MI_SET_BL_BY_I2C,
+	MI_SET_DC_CRC,
+	MI_SET_DC_CRC_OFF,
+	MI_GET_DC_STATUS,
+	MI_SET_DC_BACKLIGHT,
+	MI_SET_DC_THRESHOLD,
+	MI_SET_BACKLIGHT_DIMMING,
+	MI_RESTORE_CRC_LEVEL,
+	MI_SET_DC_CRC_BL_PACK,
+	MI_GET_WP_INFO,
+#endif
 	DSI_GET_VIRTUAL_HEIGH,
 	DSI_GET_VIRTUAL_WIDTH,
 	FRAME_DIRTY,
@@ -374,7 +392,17 @@ enum mtk_ddp_io_cmd {
 	DSI_DISABLE_VFP_EALRY_STOP,
 	/*Msync 2.0 cmd end*/
 	DUAL_TE_INIT,
+	OVL_GET_SOURCE_BPC,
 };
+
+#ifdef CONFIG_MI_DISP
+struct mi_dc_crc_config {
+	int coef0;
+	int coef1;
+	int brightness;
+	int dc_threshold;
+};
+#endif
 
 struct golden_setting_context {
 	unsigned int is_vdo_mode;
@@ -394,6 +422,7 @@ struct mtk_ddp_config {
 	unsigned int vrefresh;
 	unsigned int bpc;
 	struct golden_setting_context *p_golden_setting_context;
+	unsigned int source_bpc;
 };
 
 struct mtk_ddp_fb_info {
@@ -470,8 +499,10 @@ struct mtk_ddp_comp {
 	struct icc_path *hrt_qos_req;
 	bool blank_mode;
 	u32 qos_bw;
+	u32 last_qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;
+	struct mutex panel_lock;
 };
 
 static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,
@@ -549,10 +580,10 @@ static inline void mtk_ddp_comp_layer_config(struct mtk_ddp_comp *comp,
 {
 	if (comp && comp->funcs && comp->funcs->layer_config &&
 			!comp->blank_mode) {
-		DDPDBG("[DRM]func:%s, line:%d ==>\n",
-			__func__, __LINE__);
-		DDPDBG("comp_funcs:0x%p, layer_config:0x%p\n",
-			comp->funcs, comp->funcs->layer_config);
+		//DDPDBG("[DRM]func:%s, line:%d ==>\n",
+		//	__func__, __LINE__);
+		//DDPDBG("comp_funcs:0x%p, layer_config:0x%p\n",
+		//	comp->funcs, comp->funcs->layer_config);
 
 		comp->funcs->layer_config(comp, idx, state, handle);
 	}

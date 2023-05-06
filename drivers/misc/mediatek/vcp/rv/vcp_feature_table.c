@@ -35,4 +35,4 @@ struct vcp_feature_tb feature_table[NUM_FEATURE_ID] = {
 		.sys_id	= VCPSYS_CORE0,
 	},
 };
-
+EXPORT_SYMBOL(feature_table);

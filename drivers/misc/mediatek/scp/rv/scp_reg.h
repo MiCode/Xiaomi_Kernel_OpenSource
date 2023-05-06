@@ -246,6 +246,10 @@
 #define R_CORE0_CACHE_RAM		(scpreg.l1cctrl + 0x00000)
 #define R_CORE1_CACHE_RAM		(scpreg.l1cctrl + 0x20000)
 
+/* scp region info */
+#define SCP_DRAM_RESV_EMBED		(0x7)
+#define SCP_DRAM_RESV_NO_EMBED(val)	(val & ~(SCP_DRAM_RESV_EMBED))
+
 /* INFRA_IRQ (always on register) */
 #define INFRA_IRQ_SET			(scpreg.scpsys + 0x0B14)
 	#define AP_AWAKE_LOCK		(0)

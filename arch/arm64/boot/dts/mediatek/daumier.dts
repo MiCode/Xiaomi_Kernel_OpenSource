@@ -1,0 +1,5 @@
+#include "mediatek/daumier-mt6983.dtsi"
+&memory_ssmr_features {
+	svp-page-based-size = <0 0x1C000000>;
+};
+#include <daumier/cust.dtsi>

@@ -254,7 +254,9 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		 */
 		ccci_md_exception_handshake(ctl->md_id,
 			MD_EX_CCIF_TIMEOUT);
-#ifdef ENABLE_EMIMPU_CB
+#if IS_ENABLED(CONFIG_MTK_EMI)
+		CCCI_NORMAL_LOG(ctl->md_id, FSM,
+			"mtk_clear_md_violation\n");
 		mtk_clear_md_violation();
 #endif
 		count = 0;

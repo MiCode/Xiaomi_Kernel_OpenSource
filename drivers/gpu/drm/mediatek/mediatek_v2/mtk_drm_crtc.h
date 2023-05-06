@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (C) 2021-2022 XiaoMi, Inc.
  */
 
 #ifndef MTK_DRM_CRTC_H
@@ -29,7 +30,6 @@
 #include "mtk_drm_ddp_addon.h"
 #include "mtk_disp_pmqos.h"
 #include "slbc_ops.h"
-
 #define MAX_CRTC 3
 #define OVL_LAYER_NR 12L
 #define OVL_PHY_LAYER_NR 4L
@@ -118,8 +118,10 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_TE1_EN (DISP_SLOT_DSI_STATE_DBG7_2 + 0x4)
 #define DISP_SLOT_SIZE (DISP_SLOT_TE1_EN + 0x4)
 
+#ifndef CONFIG_MI_DISP
 #if DISP_SLOT_SIZE > CMDQ_BUF_ALLOC_SIZE
 #error "DISP_SLOT_SIZE exceed CMDQ_BUF_ALLOC_SIZE"
+#endif
 #endif
 
 #define to_mtk_crtc(x) container_of(x, struct mtk_drm_crtc, base)
@@ -366,6 +368,11 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_MSYNC2_0_ENABLE,
 	CRTC_PROP_SKIP_CONFIG,
 	CRTC_PROP_OVL_DSI_SEQ,
+	CRTC_PROP_OUTPUT_SCENARIO,
+#ifdef CONFIG_MI_DISP_FOD_SYNC
+	/*MI FOD SYNC*/
+	CRTC_PROP_MI_FOD_SYNC_INFO,
+#endif
 	CRTC_PROP_MAX,
 };
 
@@ -433,6 +440,7 @@ enum MTK_CRTC_COLOR_FMT {
 	EXPR(CLIENT_SODI_LOOP)                                                 \
 	EXPR(CLIENT_SUB_CFG)                                                   \
 	EXPR(CLIENT_DSI_CFG)                                                   \
+	EXPR(CLIENT_PQ)                                                        \
 	EXPR(CLIENT_TYPE_MAX)
 
 enum CRTC_GCE_CLIENT_TYPE { DECLARE_GCE_CLIENT(DECLARE_NUM) };
@@ -481,6 +489,40 @@ enum CWB_BUFFER_TYPE {
 	IMAGE_ONLY,
 	CARRY_METADATA,
 	BUFFER_TYPE_NR,
+};
+
+struct lcm {
+	struct device *dev;
+	struct drm_panel panel;
+	struct backlight_device *backlight;
+	struct gpio_desc *reset_gpio;
+	struct gpio_desc *bias_pos;
+	struct gpio_desc *dvdd_gpio;
+	struct gpio_desc *cam_gpio;
+	struct gpio_desc *leden_gpio;
+
+	bool prepared;
+	bool enabled;
+	bool hbm_en;
+	bool wqhd_en;
+	bool dc_status;
+	bool hbm_enabled;
+	bool lhbm_en;
+
+	int error;
+	const char *panel_info;
+	int dynamic_fps;
+	u32 doze_brightness_state;
+
+	struct pinctrl *pinctrl_gpios;
+	struct pinctrl_state *err_flag_irq;
+
+	u32 max_brightness_clone;
+	struct mutex panel_lock;
+	int bl_max_level;
+	int gir_status;
+	int spr_status;
+	int crc_level;
 };
 
 struct mtk_crtc_path_data {
@@ -754,6 +796,10 @@ struct mtk_drm_crtc {
 	bool layer_rec_en;
 	unsigned int mode_change_index;
 	int mode_idx;
+	bool res_switch;
+	bool res_change;
+	unsigned int original_width;
+	unsigned int original_height;
 
 	wait_queue_head_t state_wait_queue;
 	bool crtc_blank;
@@ -800,9 +846,13 @@ struct mtk_drm_crtc {
 	bool is_force_mml_scen;
 	bool need_stop_last_mml_job;
 	bool mml_cmd_ir;
+	bool leave_mml_scn;
 
 	atomic_t signal_irq_for_pre_fence;
 	wait_queue_head_t signal_irq_for_pre_fence_wq;
+
+	atomic_t force_high_step;
+	int force_high_enabled;
 };
 
 struct mtk_crtc_state {
@@ -831,13 +881,17 @@ struct mtk_cmdq_cb_data {
 	struct cmdq_pkt			*cmdq_handle;
 	struct drm_crtc			*crtc;
 	unsigned int misc;
+	unsigned int mmclk_req_idx;
 	unsigned int msync2_enable;
 	void __iomem *mutex_reg_va;
 	void __iomem *disp_reg_va;
 	void __iomem *disp_mutex_reg_va;
 	void __iomem *mmlsys_reg_va;
 	bool is_mml;
+	bool leave_mml_scn;
 	unsigned int pres_fence_idx;
+	struct drm_framebuffer *wb_fb;
+	unsigned int wb_fence_idx;
 };
 
 extern unsigned int disp_spr_bypass;
@@ -1001,9 +1055,17 @@ unsigned int *mtk_get_gce_backup_slot_va(struct mtk_drm_crtc *mtk_crtc,
 
 dma_addr_t mtk_get_gce_backup_slot_pa(struct mtk_drm_crtc *mtk_crtc,
 			unsigned int slot_index);
+unsigned int mtk_read_dummy_backup_slot_table(struct mtk_drm_crtc *mtk_crtc,
+			unsigned int slot_index);
 
 unsigned int mtk_get_plane_slot_idx(struct mtk_drm_crtc *mtk_crtc, unsigned int idx);
-void mtk_gce_backup_slot_init(struct mtk_drm_crtc *mtk_crtc);
+void mtk_gce_backup_slot_backup(struct mtk_drm_crtc *mtk_crtc);
+void mtk_gce_backup_slot_restore(struct mtk_drm_crtc *mtk_crtc);
+
+//CWB
+int mtk_drm_cwb_copy_buf(struct drm_crtc *crtc,
+			  struct mtk_cwb_info *cwb_info,
+			  void *buffer, unsigned int buf_idx);
 
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);
@@ -1027,4 +1089,6 @@ int mtk_drm_ioctl_get_pq_caps(struct drm_device *dev, void *data,
 int mtk_drm_ioctl_set_pq_caps(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 void mtk_crtc_prepare_instr(struct drm_crtc *crtc);
+unsigned int check_dsi_underrun_event(void);
+void clear_dsi_underrun_event(void);
 #endif /* MTK_DRM_CRTC_H */

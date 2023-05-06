@@ -630,7 +630,8 @@ void kcsan_report(const volatile void *ptr, size_t size, int access_type,
 		bool reported = value_change != KCSAN_VALUE_CHANGE_FALSE &&
 				print_report(value_change, type, &ai, other_info);
 
-		if (reported && panic_on_warn)
+		// if (reported && panic_on_warn)
+		if (reported)
 			panic("panic_on_warn set ...\n");
 
 		release_report(&flags, other_info);

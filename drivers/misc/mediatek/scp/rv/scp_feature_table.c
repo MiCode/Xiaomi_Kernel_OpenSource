@@ -426,7 +426,7 @@ struct scp_sub_feature_tb sensor_type_table[NUM_SENSOR_TYPE] = {
 	},
 	{
 		.feature = OIS_FEATURE_ID,
-		.freq    = 0,
+		.freq    = 511,
 		.enable  = 0,
 	},
 	{
@@ -440,12 +440,122 @@ struct scp_sub_feature_tb sensor_type_table[NUM_SENSOR_TYPE] = {
 		.enable  = 0,
 	},
 	{
+		.feature = PS_FACTORY_STRM_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = ALS_FACTORY_STRM_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = ELEVATOR_DETECT_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = FOD_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = AOD_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = NONUI_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = LUX_B_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = FREE_FALL_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = LIGHT_SMD_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = SAR_ALGO_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = SAR_ALGO_1_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = SAR_ALGO_2_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = DBTAP_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = SAR_SECONDARY_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = ELLIPTIC_FUSION_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = FRONT_CCT_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = FRONT_CCT_FACTORY_STRM_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = BACK_CCT_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = BACK_CCT_FACTORY_STRM_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
 		.feature = FLICKER_REAR_FEATURE_ID,
 		.freq    = 0,
 		.enable  = 0,
 	},
 	{
 		.feature = RGBW_REAR_FEATURE_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = DUAL_CCT_FEATURE_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = TREADMILL_ID,
+		.freq    = 0,
+		.enable  = 0,
+	},
+	{
+		.feature = SMALL_MOVE_FEATURE_ID,
 		.freq    = 0,
 		.enable  = 0,
 	},

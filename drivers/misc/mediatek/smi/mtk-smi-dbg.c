@@ -830,6 +830,8 @@ s32 mtk_smi_dbg_hang_detect(const char *user)
 			mtk_smi_dbg_print(smi, true, true, i, false);
 	}
 
+	mtk_smi_dump_last_pd(user);
+
 	return ret;
 }
 EXPORT_SYMBOL_GPL(mtk_smi_dbg_hang_detect);
@@ -1005,7 +1007,7 @@ int smi_get_larb_dump(const char *val, const struct kernel_param *kp)
 	s32		result, larb_id;
 
 	result = kstrtoint(val, 0, &larb_id);
-	if (result) {
+	if (result || larb_id < 0) {
 		pr_notice("SMI get larb dump failed: %d\n", result);
 		return result;
 	}
@@ -1027,7 +1029,7 @@ int smi_put_larb(const char *val, const struct kernel_param *kp)
 	s32		result, larb_id;
 
 	result = kstrtoint(val, 0, &larb_id);
-	if (result) {
+	if (result || larb_id < 0) {
 		pr_notice("SMI put larb failed: %d\n", result);
 		return result;
 	}

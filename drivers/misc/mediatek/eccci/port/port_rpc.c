@@ -1309,7 +1309,6 @@ static void rpc_msg_handler(struct port_t *port, struct sk_buff *skb)
 /*
  * define character device operation for rpc_u
  */
- #define BANK4_DRDI_SMEM_SIZE (512*1024)
 static int port_rpc_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 {
 	struct port_t *port = fp->private_data;

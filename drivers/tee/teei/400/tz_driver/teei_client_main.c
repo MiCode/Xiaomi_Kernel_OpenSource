@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (C) 2021-2022 XiaoMi, Inc.
  * All Rights Reserved.
  *
  */
@@ -36,7 +37,7 @@
 #if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
 //#include "linux/bootprof.h"
 #else
-#include "bootprof.h
+#include "bootprof.h"
 #endif /* KERNEL_VERSION */
 #endif /* CONFIG_MTPROF */
 
@@ -84,11 +85,16 @@ DECLARE_SEMA(pm_sema, 0);
 DECLARE_COMPLETION(boot_decryto_lock);
 
 #if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
-#define TZ_PREFER_BIND_CORE (6)
+#define TZ_PREFER_BIND_CORE (7)
 #endif
 
 #define TEEI_RT_POLICY			(0x01)
 #define TEEI_NORMAL_POLICY		(0x02)
+
+#define LITTLE_GROUP			(0x0)
+#define BIG_GROUP			(0x01)
+
+static int g_cpu_group = BIG_GROUP;
 
 /* ARMv8.2 for CA55, CA75 etc */
 static int teei_cpu_id_arm82[] = {
@@ -210,21 +216,21 @@ static struct platform_device *g_teei_pdev;
 int teei_set_switch_pri(unsigned long policy)
 {
 #ifdef DYNAMIC_SET_PRIORITY
-	struct sched_param param = {.sched_priority = 50 };
 	int retVal = 0;
 
 	if (policy == TEEI_RT_POLICY) {
 		if (teei_switch_task != NULL) {
-			sched_setscheduler_nocheck(teei_switch_task,
-						SCHED_FIFO, &param);
+			set_user_nice(teei_switch_task,
+						MIN_NICE + 1);
+			IMSG_PRINTK("TEEI: priority is 101\n");
 			return 0;
 		} else
 			return -EINVAL;
 	} else if (policy == TEEI_NORMAL_POLICY) {
 		if (teei_switch_task != NULL) {
-			param.sched_priority = 0;
-			sched_setscheduler_nocheck(teei_switch_task,
-						SCHED_NORMAL, &param);
+			set_user_nice(teei_switch_task,
+						0);
+			IMSG_PRINTK("TEEI: priority is 120\n");
 			return 0;
 		} else
 			return -EINVAL;
@@ -242,30 +248,32 @@ int teei_set_switch_pri(unsigned long policy)
 
 void teei_cpus_read_lock(void)
 {
-	if (current != teei_cpu_write_owner)
+	if (current != teei_cpu_write_owner) {
 		cpus_read_lock();
+		down_read(&teei_cpus_lock);
+	}
 }
 
 void teei_cpus_read_unlock(void)
 {
-	if (current != teei_cpu_write_owner)
+	if (current != teei_cpu_write_owner) {
+		up_read(&teei_cpus_lock);
 		cpus_read_unlock();
+	}
 }
 
 void teei_cpus_write_lock(void)
 {
-#ifdef ISEE_FP_SINGLE_CHANNEL
-	cpus_write_lock();
+	cpus_read_lock();
+	down_write(&teei_cpus_lock);
 	teei_cpu_write_owner = current;
-#endif
 }
 
 void teei_cpus_write_unlock(void)
 {
-#ifdef ISEE_FP_SINGLE_CHANNEL
 	teei_cpu_write_owner = NULL;
-	cpus_write_unlock();
-#endif
+	up_write(&teei_cpus_lock);
+	cpus_read_unlock();
 }
 
 struct tz_driver_state *get_tz_drv_state(void)
@@ -325,13 +333,15 @@ static int find_prefer_core(int excluded_cpu)
 	int prefer_core = -1;
 
 	/* search for prefer cpu firstly */
-	for_each_online_cpu(i) {
-		if (i == excluded_cpu)
-			continue;
+	if (g_cpu_group == BIG_GROUP) {
+		for_each_online_cpu(i) {
+			if (i == excluded_cpu)
+				continue;
 
-		if (is_prefer_core(i)) {
-			prefer_core = i;
-			break;
+			if (is_prefer_core(i)) {
+				prefer_core = i;
+				break;
+			}
 		}
 	}
 
@@ -346,7 +356,10 @@ static int find_prefer_core(int excluded_cpu)
 
 		prefer_core = i;
 		/* break when next active cpu has been selected */
-		break;
+		/* if in the little group, choose the first online CPU */
+		/* if in the big group, choose the last online CPU (BIG Core) */
+		if (g_cpu_group == LITTLE_GROUP)
+			break;
 	}
 
 	return prefer_core;
@@ -409,6 +422,9 @@ static int nq_cpu_up_prep(unsigned int cpu)
 	IMSG_DEBUG("current_cpu_id = %d power on %d\n",
 				sched_cpu, cpu);
 
+	if (g_cpu_group == LITTLE_GROUP)
+		return 0;
+
 	if (cpu == TZ_PREFER_BIND_CORE) {
 		IMSG_DEBUG("cpu up: prepare for changing %d to %d\n",
 			sched_cpu, cpu);
@@ -442,6 +458,12 @@ static int nq_cpu_down_prep(unsigned int cpu)
 		IMSG_DEBUG("cpu down prepare for prefer %d.\n", cpu);
 	else if (!is_prefer_core_binded()
 			&& is_prefer_core_onlined()) {
+
+		if (g_cpu_group == LITTLE_GROUP) {
+			IMSG_INFO("current CPU is little, ignore this one\n");
+			return retVal;
+		}
+
 		IMSG_PRINTK("cpu down prepare for changing %d %d.\n",
 							sched_cpu, cpu);
 		retVal = add_work_entry(SWITCH_CORE_TYPE,
@@ -741,6 +763,106 @@ int teei_get_max_freq(int cpu_index)
 }
 #endif
 
+
+static int teei_set_current_cpu_id(unsigned long arg)
+{
+#if !IS_ENABLED(CONFIG_MICROTRUST_DYNAMIC_CORE)
+	int cpu_id = 0;
+	int retVal = 0;
+
+	cpu_id = (int)arg;
+
+	if (cpu_online(cpu_id)) {
+		teei_move_cpu_context(cpu_id, current_cpu_id);
+		current_cpu_id = cpu_id;
+		cpumask_clear(&mask);
+		cpumask_set_cpu(get_current_cpuid(), &mask);
+		set_cpus_allowed_ptr(teei_switch_task, &mask);
+
+		if (cpu_id < 4)
+			g_cpu_group = LITTLE_GROUP;
+		else
+			g_cpu_group = BIG_GROUP;
+	} else {
+		IMSG_ERROR("%s cpu %lu is offline, switch is on %lu.\n",
+					arg, current_cpu_id);
+		retVal = -EINVAL;
+	}
+
+	return retVal;
+#else
+	return 0;
+#endif
+
+
+}
+
+static int teei_switch_to_game_mode(void)
+{
+	int cpu_id = 0;
+	int is_found = 0;
+	int retVal = 0;
+	int i = 0;
+
+	teei_cpus_write_lock();
+
+	for_each_online_cpu(i) {
+		if (i < 4) {
+			cpu_id = i;
+			is_found = 1;
+			break;
+		}
+	}
+
+	if (is_found == 1)
+		retVal = teei_set_current_cpu_id(cpu_id);
+	else
+		retVal = -EFAULT;
+
+	teei_cpus_write_unlock();
+
+	return retVal;
+}
+
+static int teei_switch_to_non_game_mode(void)
+{
+	int cpu_id = 0;
+	int is_found = 0;
+	int retVal = 0;
+	int i = 0;
+
+	teei_cpus_write_lock();
+
+	for_each_online_cpu(i) {
+		if ((i > 3)) {
+			cpu_id = i;
+			is_found = 1;
+		}
+	}
+
+	if (is_found == 1)
+		retVal = teei_set_current_cpu_id(cpu_id);
+	else
+		retVal = -EFAULT;
+
+
+	teei_cpus_write_unlock();
+
+	return retVal;
+}
+
+int teei_switch_current_mode(unsigned int mode)
+{
+	int retVal = 0;
+
+	if (mode == GAME_MODE)
+		retVal = teei_switch_to_game_mode();
+	else if (mode == NON_GAME_MODE)
+		retVal = teei_switch_to_non_game_mode();
+
+	return retVal;
+}
+ EXPORT_SYMBOL_GPL(teei_switch_current_mode);
 static long teei_config_ioctl(struct file *file,
 				unsigned int cmd, unsigned long arg)
 {
@@ -797,6 +919,7 @@ static long teei_config_ioctl(struct file *file,
 		}
 
 		break;
+
 	case TEEI_CONFIG_IOCTL_UNLOCK:
 		complete(&boot_decryto_lock);
 		break;
@@ -1194,6 +1317,7 @@ static int teei_client_init(void)
 		teei_move_cpu_context(current_cpu_id, 0);
 	}
 #endif
+	cpumask_clear(&mask);
 	cpumask_set_cpu(get_current_cpuid(), &mask);
 	set_cpus_allowed_ptr(teei_switch_task, &mask);
 	teei_cpus_write_unlock();

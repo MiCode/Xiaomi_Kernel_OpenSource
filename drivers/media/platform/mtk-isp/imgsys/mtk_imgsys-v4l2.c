@@ -947,7 +947,7 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 					dyn_buf_info.fmt.fmt.pix_mp.height;
 			dev_buf->fmt.fmt.pix_mp.pixelformat =
 					dyn_buf_info.fmt.fmt.pix_mp.pixelformat;
-			for (i = 0; i < IMGBUF_MAX_PLANES; i++) {
+			for (i = 0; i < dyn_buf_info.buf.num_planes; i++) {
 				vfmt = &dev_buf->fmt.fmt.pix_mp.plane_fmt[i];
 				bfmt =
 				&dyn_buf_info.fmt.fmt.pix_mp.plane_fmt[i];
@@ -2594,6 +2594,35 @@ static struct notifier_block imgsys_notifier_block = {
 };
 #endif
 
+static void mtk_imgsys_get_ccu_phandle(struct mtk_imgsys_dev *imgsys_dev)
+{
+	struct device *dev = imgsys_dev->dev;
+	struct device_node *node;
+	phandle rproc_ccu_phandle;
+	int ret;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_imgsys_ccu");
+	if (node == NULL) {
+		dev_info(dev, "of_find mediatek,camera_imgsys_ccu fail\n");
+		goto out;
+	}
+
+	ret = of_property_read_u32(node, "mediatek,ccu_rproc",
+				   &rproc_ccu_phandle);
+	if (ret) {
+		dev_info(dev, "fail to get rproc_ccu_phandle:%d\n", ret);
+		goto out;
+	}
+
+	imgsys_dev->rproc_ccu_handle = rproc_get_by_phandle(rproc_ccu_phandle);
+	if (imgsys_dev->rproc_ccu_handle == NULL) {
+		dev_info(imgsys_dev->dev, "Get ccu handle fail\n");
+		goto out;
+	}
+
+out:
+	return;
+}
 
 static int mtk_imgsys_probe(struct platform_device *pdev)
 {
@@ -2614,6 +2643,8 @@ static int mtk_imgsys_probe(struct platform_device *pdev)
 	data = of_device_get_match_data(&pdev->dev);
 
 	init_imgsys_pipeline(data);
+
+	mtk_imgsys_get_ccu_phandle(imgsys_dev);
 
 	imgsys_dev->cust_pipes = data->pipe_settings;
 	imgsys_dev->modules = data->imgsys_modules;

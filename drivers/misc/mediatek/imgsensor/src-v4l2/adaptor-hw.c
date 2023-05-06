@@ -15,6 +15,15 @@
 #include "adaptor.h"
 #include "adaptor-hw.h"
 
+#if (defined(MATISSE_CAM) || defined(RUBENS_CAM))
+#include <linux/of_platform.h>
+#include <linux/regmap.h>
+
+/* MT6319 BUCK CONTROL */
+#define MT6319_BUCK_TOP_4PHASE_ANA_CON42		0x16b1
+struct regmap *mt6319_7_regmap;
+#endif
+
 #define INST_OPS(__ctx, __field, __idx, __hw_id, __set, __unset) do {\
 	if (__ctx->__field[__idx]) { \
 		__ctx->hw_ops[__hw_id].set = __set; \
@@ -56,6 +65,57 @@ static struct clk *get_clk_by_freq(struct adaptor_ctx *ctx, int freq)
 
 	return NULL;
 }
+
+#if (defined(MATISSE_CAM) || defined(RUBENS_CAM))
+static struct regmap *pmic_get_regmap(struct adaptor_ctx *ctx, const char *name)
+{
+	struct device_node *np;
+	struct platform_device *pdev;
+	const char *refpath;
+	int err;
+
+	np = of_find_node_by_path("/__symbols__");
+	if (!np) {
+		dev_info(ctx->dev, "%s: no symbols in root of device tree.\n", __func__);
+		return NULL;
+	}
+	err = of_property_read_string(np, name, &refpath);
+	if (err) return NULL;
+	np = of_find_node_by_path(refpath);
+	if (!np) {
+		dev_info(ctx->dev, "%s: no %s in __symbols__.\n", __func__, name);
+		return NULL;
+	}
+	dev_info(ctx->dev, "%s: device is in (%s)\n", __func__,refpath);
+
+	pdev = of_find_device_by_node(np->child);
+	if (!pdev) {
+		dev_info(ctx->dev, "%s: mt6368 platform device not found!\n", __func__);
+		return NULL;
+	}
+	dev_info(ctx->dev, "%s: device %s was found successfully!\n", __func__, name);
+	return dev_get_regmap(pdev->dev.parent, NULL);
+}
+
+static int mtk_set_mt6319_7_vbuck1_4_pwm_mode(struct adaptor_ctx *ctx, bool en)
+{
+	unsigned int value;
+
+	if(mt6319_7_regmap != NULL) {
+		regmap_read(mt6319_7_regmap, MT6319_BUCK_TOP_4PHASE_ANA_CON42, &value);
+		dev_info(ctx->dev, "%s: mt6319_7_regmap = 0x%x\n", __func__, value);
+
+		dev_info(ctx->dev, "%s: set mt6319_7 pwm mode (%d)\n", __func__, en);
+		if(en)
+			return regmap_set_bits(mt6319_7_regmap,
+						MT6319_BUCK_TOP_4PHASE_ANA_CON42, 0xF);
+		else
+			return regmap_clear_bits(mt6319_7_regmap,
+						MT6319_BUCK_TOP_4PHASE_ANA_CON42, 0xF);
+	}
+	return -1;
+}
+#endif
 
 static int set_mclk(struct adaptor_ctx *ctx, void *data, int val)
 {
@@ -207,11 +267,18 @@ static int reinit_pinctrl(struct adaptor_ctx *ctx)
 
 	return 0;
 }
+
 int do_hw_power_on(struct adaptor_ctx *ctx)
 {
 	int i;
 	const struct subdrv_pw_seq_entry *ent;
 	struct adaptor_hw_ops *op;
+
+	if (ctx->sensor_ws)
+		__pm_stay_awake(ctx->sensor_ws);
+	else
+		dev_dbg(ctx->dev, "%s fail to __pm_stay_awake\n",
+			__func__);
 
 	/* may be released for mipi switch */
 	if (!ctx->pinctrl)
@@ -224,12 +291,19 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 	for (i = 0; i < ctx->subdrv->pw_seq_cnt; i++) {
 		ent = &ctx->subdrv->pw_seq[i];
 		op = &ctx->hw_ops[ent->id];
+#ifdef __XIAOMI_CAMERA__
+		if ((ent->id == HW_ID_AFVDD) && ctx->is_reset == 1) {
+			dev_info(ctx->dev, "%s skip power on for AF\n", __func__);
+			continue;
+		}
+#endif
 		if (!op->set) {
 			dev_dbg(ctx->dev, "cannot set comp %d val %d\n",
 				ent->id, ent->val);
 			continue;
 		}
 		op->set(ctx, op->data, ent->val);
+		dev_err(ctx->dev, "[%s] op->data =%d, ent->val = %d", __func__,op->data,ent->val);
 		if (ent->delay)
 			mdelay(ent->delay);
 	}
@@ -244,6 +318,17 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 
 int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 {
+#if (defined(MATISSE_CAM) || defined(RUBENS_CAM))
+	/* set mt6319_7 forcePWM mode when macro power on */
+	int ret;
+	dev_info(ctx->dev, "%s get subdrv id = %d\n", __func__, ctx->subdrv->id);
+	if (ctx->subdrv->id == 736) {
+		ret = mtk_set_mt6319_7_vbuck1_4_pwm_mode(ctx, true);
+		if (ret) {
+			dev_info(ctx->dev, "%s set mt6319_7 pwm mode failed! (%d)\n", __func__, ret);
+		}
+	}
+#endif
 
 #ifndef IMGSENSOR_USE_PM_FRAMEWORK
 	dev_dbg(ctx->dev, "%s power ref cnt = %d\n", __func__, ctx->power_refcnt);
@@ -271,9 +356,20 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	for (i = ctx->subdrv->pw_seq_cnt - 1; i >= 0; i--) {
 		ent = &ctx->subdrv->pw_seq[i];
 		op = &ctx->hw_ops[ent->id];
+#ifdef __XIAOMI_CAMERA__
+		if ((ent->id == HW_ID_AFVDD) && ctx->is_reset == 1) {
+			dev_info(ctx->dev, "%s skip power off for AF\n", __func__);
+			continue;
+		}
+#endif
 		if (!op->unset)
 			continue;
 		op->unset(ctx, op->data, ent->val);
+		dev_err(ctx->dev, "[%s] op->data =%d, ent->val = %d", __func__,op->data,ent->val);
+#ifdef __XIAOMI_CAMERA__
+		if (ent->delay)
+			mdelay(ent->delay);
+#endif
 		//msleep(ent->delay);
 	}
 
@@ -288,12 +384,30 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		ctx->pinctrl = NULL;
 	}
 
+	if (ctx->sensor_ws)
+		__pm_relax(ctx->sensor_ws);
+	else
+		dev_dbg(ctx->dev, "%s fail to __pm_relax\n",
+			__func__);
+
 	//dev_dbg(ctx->dev, "%s\n", __func__);
 	return 0;
 
 }
+
 int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 {
+#if (defined(MATISSE_CAM) || defined(RUBENS_CAM))
+	/* reset mt6319_7 when macro power off */
+	int ret;
+	dev_info(ctx->dev, "%s get subdrv id = %d\n", __func__, ctx->subdrv->id);
+	if (ctx->subdrv->id == 736) {
+		ret = mtk_set_mt6319_7_vbuck1_4_pwm_mode(ctx, false);
+		if (ret) {
+			dev_info(ctx->dev, "%s set mt6319_7 pwm mode failed! (%d)\n", __func__, ret);
+		}
+	}
+#endif
 
 #ifndef IMGSENSOR_USE_PM_FRAMEWORK
 
@@ -375,6 +489,9 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	INST_OPS(ctx, regulator, REGULATOR_AVDD1, HW_ID_AVDD1,
 			set_reg, unset_reg);
 
+	INST_OPS(ctx, regulator, REGULATOR_AVDD2, HW_ID_AVDD2,
+                        set_reg, unset_reg);
+
 	if (ctx->state[STATE_MIPI_SWITCH_ON])
 		ctx->hw_ops[HW_ID_MIPI_SWITCH].set = set_state_mipi_switch;
 
@@ -405,12 +522,25 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	INST_OPS(ctx, state, STATE_AVDD1_OFF, HW_ID_AVDD1,
 			set_state_boolean, unset_state);
 
+	INST_OPS(ctx, state, STATE_AVDD2_OFF, HW_ID_AVDD2,
+                        set_state_boolean, unset_state);
+
 	/* the pins of mipi switch are shared. free it for another users */
 	if (ctx->state[STATE_MIPI_SWITCH_ON] ||
 		ctx->state[STATE_MIPI_SWITCH_OFF]) {
 		devm_pinctrl_put(ctx->pinctrl);
 		ctx->pinctrl = NULL;
 	}
+
+#ifdef __XIAOMI_CAMERA__
+	ctx->is_reset = 0;
+#if (defined(MATISSE_CAM) || defined(RUBENS_CAM))
+	/* get regmap for mt6319_7 */
+	if(mt6319_7_regmap == NULL) {
+		mt6319_7_regmap = pmic_get_regmap(ctx, "mt6319_7");
+	}
+#endif
+#endif
 
 	return 0;
 }
@@ -427,8 +557,15 @@ int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx)
 		ctx->is_sensor_inited == 1 &&
 		ctx->power_refcnt > 0) {
 
+#ifdef __XIAOMI_CAMERA__
+		/* do not power on/off for AFVDD */
+		ctx->is_reset = 1;
+#endif
 		do_hw_power_off(ctx);
 		do_hw_power_on(ctx);
+#ifdef __XIAOMI_CAMERA__
+		ctx->is_reset = 0;
+#endif
 
 		return 0;
 	}

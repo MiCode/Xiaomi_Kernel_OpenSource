@@ -32,6 +32,7 @@
 #include "fstb.h"
 
 static DEFINE_MUTEX(xgf_main_lock);
+static DEFINE_MUTEX(xgff_frames_lock);
 static int xgf_enable;
 int xgf_trace_enable;
 EXPORT_SYMBOL(xgf_trace_enable);
@@ -79,7 +80,7 @@ int fstb_fps_num = TARGET_FPS_LEVEL;
 EXPORT_SYMBOL(fstb_fps_num);
 int fstb_fps_choice[TARGET_FPS_LEVEL] = {20, 25, 30, 40, 45, 60, 90, 120, 144, 240};
 EXPORT_SYMBOL(fstb_fps_choice);
-int fstb_consider_deq = 1;
+int fstb_consider_deq;
 EXPORT_SYMBOL(fstb_consider_deq);
 
 module_param(xgf_sp_name, charp, 0644);
@@ -103,6 +104,7 @@ module_param(fstb_separate_runtime_enable, int, 0644);
 module_param(fstb_consider_deq, int, 0644);
 
 HLIST_HEAD(xgf_renders);
+HLIST_HEAD(xgff_frames);
 HLIST_HEAD(xgf_hw_events);
 HLIST_HEAD(xgf_spid_list);
 HLIST_HEAD(xgf_wspid_list);
@@ -765,6 +767,29 @@ static void xgf_reset_render_sector(struct xgf_render *render)
 	render->sector_nr = 0;
 }
 
+void xgff_reset_render_sector(struct xgf_render *render)
+{
+	struct hlist_node *s, *p;
+	struct xgf_render_sector *sect_iter;
+	struct xgf_pid_rec *pids_iter;
+
+//	xgf_lockprove(__func__);
+
+	hlist_for_each_entry_safe(sect_iter, s, &render->sector_head, hlist) {
+		hlist_for_each_entry_safe(pids_iter, p,
+				&sect_iter->path_head, hlist) {
+			hlist_del(&pids_iter->hlist);
+			xgf_free(pids_iter);
+		}
+		INIT_HLIST_HEAD(&sect_iter->path_head);
+
+		hlist_del(&sect_iter->hlist);
+		xgf_free(sect_iter);
+	}
+	INIT_HLIST_HEAD(&render->sector_head);
+	render->sector_nr = 0;
+}
+
 static void xgf_reset_render_hw_list(struct xgf_render *render)
 {
 	struct hlist_node *h;
@@ -778,6 +803,21 @@ static void xgf_reset_render_hw_list(struct xgf_render *render)
 	}
 	INIT_HLIST_HEAD(&render->hw_head);
 }
+
+static void xgff_reset_render_hw_list(struct xgf_render *render)
+{
+	struct hlist_node *h;
+	struct xgf_hw_rec *hw_iter;
+
+//	xgf_lockprove(__func__);
+
+	hlist_for_each_entry_safe(hw_iter, h, &render->hw_head, hlist) {
+		hlist_del(&hw_iter->hlist);
+		xgf_free(hw_iter);
+	}
+	INIT_HLIST_HEAD(&render->hw_head);
+}
+
 
 static void xgf_clean_hw_events(void)
 {
@@ -826,6 +866,41 @@ void xgf_clean_deps_list(struct xgf_render *render, int pos)
 	}
 }
 EXPORT_SYMBOL(xgf_clean_deps_list);
+
+void xgff_clean_deps_list(struct xgf_render *render, int pos)
+{
+	struct xgf_dep *iter;
+
+//	xgf_lockprove(__func__);
+
+	if (pos == INNER_DEPS) {
+		while (!RB_EMPTY_ROOT(&render->deps_list)) {
+			iter = rb_entry(render->deps_list.rb_node,
+						struct xgf_dep, rb_node);
+			rb_erase(&iter->rb_node, &render->deps_list);
+			xgf_free(iter);
+		}
+	}
+
+	if (pos == OUTER_DEPS) {
+		while (!RB_EMPTY_ROOT(&render->out_deps_list)) {
+			iter = rb_entry(render->out_deps_list.rb_node,
+						struct xgf_dep, rb_node);
+			rb_erase(&iter->rb_node, &render->out_deps_list);
+			xgf_free(iter);
+		}
+	}
+
+	if (pos == PREVI_DEPS) {
+		while (!RB_EMPTY_ROOT(&render->prev_deps_list)) {
+			iter = rb_entry(render->prev_deps_list.rb_node,
+						struct xgf_dep, rb_node);
+			rb_erase(&iter->rb_node, &render->prev_deps_list);
+			xgf_free(iter);
+		}
+	}
+}
+EXPORT_SYMBOL(xgff_clean_deps_list);
 
 int xgf_dep_frames_mod(struct xgf_render *render, int pos)
 {
@@ -1437,9 +1512,11 @@ int xgf_uboost_case(struct xgf_render *render)
 {
 	int quarter, ret = 0,	shift = 2;
 
-	quarter = render->frame_count >> shift;
-	if (quarter < render->u_wake_r_count)
-		ret = 1;
+	if (xgf_uboost) {
+		quarter = render->frame_count >> shift;
+		if (quarter < render->u_wake_r_count)
+			ret = 1;
+	}
 
 	return ret;
 }
@@ -1529,7 +1606,12 @@ static int xgf_tid_overlap(int tid, int rpid, int uboost)
 	struct xgf_render *render_iter;
 	struct hlist_node *n;
 
-	if (!tid || tid < 0 || uboost)
+	if (!tid || tid < 0) {
+		ret = 1;
+		goto out;
+	}
+
+	if (!uboost || rpid == tid)
 		goto out;
 
 	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
@@ -1704,6 +1786,8 @@ int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
 
+		xgf_add_pid2prev_dep(render_iter, pid);
+
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
 
@@ -1876,7 +1960,7 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 			continue;
 
 		xgf_r_uboost = xgf_uboost_case(render_iter);
-		if (xgf_uboost_case(render_iter) && xgf_uboost)
+		if (xgf_r_uboost && xgf_uboost)
 			xgf_add_pid2prev_dep(render_iter, render_iter->parent);
 
 		if (render_iter->spid)
@@ -1884,6 +1968,8 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
+
+		xgf_add_pid2prev_dep(render_iter, pid);
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
@@ -1970,6 +2056,34 @@ void xgf_reset_renders(void)
 	xgf_clean_hw_events();
 }
 
+static void xgff_reset_render(struct xgff_frame *iter)
+{
+	xgff_clean_deps_list(&iter->xgfrender, INNER_DEPS);
+	xgff_clean_deps_list(&iter->xgfrender, OUTER_DEPS);
+	xgff_clean_deps_list(&iter->xgfrender, PREVI_DEPS);
+	xgff_reset_render_sector(&iter->xgfrender);
+	xgff_reset_render_hw_list(&iter->xgfrender);
+
+	fbt_xgff_list_loading_del(iter->ploading);
+
+	hlist_del(&iter->hlist);
+	xgf_free(iter);
+}
+
+static void xgff_reset_all_renders(void)
+{
+	struct xgff_frame *r;
+	struct hlist_node *h;
+
+	mutex_lock(&xgff_frames_lock);
+
+	hlist_for_each_entry_safe(r, h, &xgff_frames, hlist) {
+		xgff_reset_render(r);
+	}
+
+	mutex_unlock(&xgff_frames_lock);
+}
+
 void fpsgo_ctrl2xgf_nn_job_begin(unsigned int tid, unsigned long long mid)
 {
 	xgf_hw_event_collect(HW_AI, tid, mid, 1);
@@ -2021,6 +2135,7 @@ void fpsgo_ctrl2xgf_switch_xgf(int val)
 		xgf_enable = val;
 
 		xgf_reset_renders();
+		xgff_reset_all_renders();
 
 		if (xgf_ko_is_ready())
 			xgf_enter_state_xchg(xgf_enable);
@@ -2034,7 +2149,9 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 	unsigned long long now_ts = xgf_get_time();
 	long long diff, check_period, recycle_period;
 	struct xgf_hw_event *hw_iter;
-	struct hlist_node *hw_t;
+	struct hlist_node *hw_t, *r_t;
+	struct xgf_render *r_iter;
+	struct xgff_frame *rr_iter;
 
 	/* over 1 seconds since last check2recycle */
 	check_period = NSEC_PER_SEC;
@@ -2048,6 +2165,7 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 
 	if (!fstb_active) {
 		xgf_reset_renders();
+		xgff_reset_all_renders();
 		goto out;
 	}
 
@@ -2057,6 +2175,7 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 			xgf_dep_frames = XGF_DEP_FRAMES_MIN;
 		xgf_prev_dep_frames = xgf_dep_frames;
 		xgf_reset_renders();
+		xgff_reset_all_renders();
 		goto out;
 	}
 
@@ -2072,10 +2191,37 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 		xgf_free(hw_iter);
 	}
 
+	hlist_for_each_entry_safe(r_iter, r_t, &xgf_renders, hlist) {
+		diff = now_ts - r_iter->queue.end_ts;
+		if (diff >= check_period) {
+			xgf_clean_deps_list(r_iter, INNER_DEPS);
+			xgf_clean_deps_list(r_iter, OUTER_DEPS);
+			xgf_clean_deps_list(r_iter, PREVI_DEPS);
+			xgf_reset_render_sector(r_iter);
+			xgf_reset_render_hw_list(r_iter);
+
+			if (r_iter->ema2_pt) {
+				xgf_ema2_free(r_iter->ema2_pt);
+				r_iter->ema2_pt = 0;
+			}
+
+			hlist_del(&r_iter->hlist);
+			xgf_free(r_iter);
+		}
+	}
+
 out:
 	last_check2recycle_ts = now_ts;
 done:
 	xgf_unlock(__func__);
+
+	mutex_lock(&xgff_frames_lock);
+	hlist_for_each_entry_safe(rr_iter, r_t, &xgff_frames, hlist) {
+		diff = now_ts - rr_iter->ts;
+		if (diff >= check_period)
+			xgff_reset_render(rr_iter);
+	}
+	mutex_unlock(&xgff_frames_lock);
 }
 
 static char *xgf_strcat(char *dest, const char *src,
@@ -2759,20 +2905,6 @@ void xgf_set_timer_info(int pid, unsigned long long bufID, int hrtimer_pid, int 
 }
 EXPORT_SYMBOL(xgf_set_timer_info);
 
-struct xgff_frame {
-	struct hlist_node hlist;
-	pid_t parent;
-	pid_t tid;
-	unsigned long long bufid;
-	unsigned long frameid;
-
-	struct xgf_render xgfrender;
-	struct fbt_thread_loading *ploading;
-};
-
-static DEFINE_MUTEX(xgff_frames_lock);
-HLIST_HEAD(xgff_frames);
-
 static int xgff_find_frame(pid_t tID, unsigned long long bufID,
 	unsigned long long  frameID, struct xgff_frame **ret)
 {
@@ -2795,41 +2927,6 @@ static int xgff_find_frame(pid_t tID, unsigned long long bufID,
 
 	return -EINVAL;
 }
-
-void xgff_clean_deps_list(struct xgf_render *render, int pos)
-{
-	struct xgf_dep *iter;
-
-//	xgf_lockprove(__func__);
-
-	if (pos == INNER_DEPS) {
-		while (!RB_EMPTY_ROOT(&render->deps_list)) {
-			iter = rb_entry(render->deps_list.rb_node,
-						struct xgf_dep, rb_node);
-			rb_erase(&iter->rb_node, &render->deps_list);
-			xgf_free(iter);
-		}
-	}
-
-	if (pos == OUTER_DEPS) {
-		while (!RB_EMPTY_ROOT(&render->out_deps_list)) {
-			iter = rb_entry(render->out_deps_list.rb_node,
-						struct xgf_dep, rb_node);
-			rb_erase(&iter->rb_node, &render->out_deps_list);
-			xgf_free(iter);
-		}
-	}
-
-	if (pos == PREVI_DEPS) {
-		while (!RB_EMPTY_ROOT(&render->prev_deps_list)) {
-			iter = rb_entry(render->prev_deps_list.rb_node,
-						struct xgf_dep, rb_node);
-			rb_erase(&iter->rb_node, &render->prev_deps_list);
-			xgf_free(iter);
-		}
-	}
-}
-EXPORT_SYMBOL(xgff_clean_deps_list);
 
 int xgff_dep_frames_mod(struct xgf_render *render, int pos)
 {
@@ -2914,43 +3011,6 @@ struct xgf_dep *xgff_get_dep(
 	return xd;
 }
 EXPORT_SYMBOL(xgff_get_dep);
-
-void xgff_reset_render_sector(struct xgf_render *render)
-{
-	struct hlist_node *s, *p;
-	struct xgf_render_sector *sect_iter;
-	struct xgf_pid_rec *pids_iter;
-
-//	xgf_lockprove(__func__);
-
-	hlist_for_each_entry_safe(sect_iter, s, &render->sector_head, hlist) {
-		hlist_for_each_entry_safe(pids_iter, p,
-				&sect_iter->path_head, hlist) {
-			hlist_del(&pids_iter->hlist);
-			xgf_free(pids_iter);
-		}
-		INIT_HLIST_HEAD(&sect_iter->path_head);
-
-		hlist_del(&sect_iter->hlist);
-		xgf_free(sect_iter);
-	}
-	INIT_HLIST_HEAD(&render->sector_head);
-	render->sector_nr = 0;
-}
-
-static void xgff_reset_render_hw_list(struct xgf_render *render)
-{
-	struct hlist_node *h;
-	struct xgf_hw_rec *hw_iter;
-
-//	xgf_lockprove(__func__);
-
-	hlist_for_each_entry_safe(hw_iter, h, &render->hw_head, hlist) {
-		hlist_del(&hw_iter->hlist);
-		xgf_free(hw_iter);
-	}
-	INIT_HLIST_HEAD(&render->hw_head);
-}
 
 int xgff_get_dep_list(int pid, int count,
 	unsigned int *arr, struct xgf_render *render_iter)
@@ -3038,7 +3098,8 @@ int xgff_get_dep_list(int pid, int count,
 }
 
 static int xgff_new_frame(pid_t tID, unsigned long long bufID,
-	unsigned long long frameID, struct xgff_frame **ret, int force)
+	unsigned long long frameID, struct xgff_frame **ret, int force,
+	unsigned long long ts)
 {
 	struct xgff_frame *iter;
 	struct xgf_render *xriter;
@@ -3069,6 +3130,7 @@ static int xgff_new_frame(pid_t tID, unsigned long long bufID,
 		iter->tid = tID;
 		iter->bufid = bufID;
 		iter->frameid = frameID;
+		iter->ts = ts;
 
 		xriter = &iter->xgfrender;
 
@@ -3138,7 +3200,7 @@ static int _xgff_frame_start(
 		goto qudeq_notify_err;
 	}
 
-	if (xgff_new_frame(tid, queueid, frameid, rframe, 1)) {
+	if (xgff_new_frame(tid, queueid, frameid, rframe, 1, ts)) {
 		ret = XGF_PARAM_ERR;
 		goto qudeq_notify_err;
 	}
@@ -3376,7 +3438,7 @@ Reget:
 	index = xgf_atomic_inc_return(xgf_event_index);
 
 	/* protection for if xgf_nr_cpus in error condition */
-	if (unlikely(index < 0)) {
+	if (unlikely(index <= 0)) {
 		xgf_atomic_set(xgf_event_index, 0);
 		return;
 	}
@@ -3438,7 +3500,7 @@ static void fstb_buffer_record_waking_switch_timer(int cpu, int event,
 Reget:
 	index = atomic_inc_return(&fstb_event_data_idx);
 
-	if (unlikely(index < 0)) {
+	if (unlikely(index <= 0)) {
 		atomic_set(&fstb_event_data_idx, 0);
 		return;
 	}

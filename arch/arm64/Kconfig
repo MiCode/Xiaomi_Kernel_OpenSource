@@ -669,6 +669,49 @@ config ARM64_ERRATUM_1508412
 
 	  If unsure, say Y.
 
+config ARM64_ERRATUM_2051678
+	bool "Cortex-A510: 2051678: disable Hardware Update of the page table's dirty bit"
+	help
+	  This options adds the workaround for ARM Cortex-A510 erratum ARM64_ERRATUM_2051678.
+	  Affected Coretex-A510 might not respect the ordering rules for
+	  hardware update of the page table's dirty bit. The workaround
+	  is to not enable the feature on affected CPUs.
+
+	  If unsure, say Y.
+
+config ARM64_WORKAROUND_TSB_FLUSH_FAILURE
+	bool
+
+config ARM64_ERRATUM_2054223
+	bool "Cortex-A710: 2054223: workaround TSB instruction failing to flush trace"
+	default y
+	select ARM64_WORKAROUND_TSB_FLUSH_FAILURE
+	help
+	  Enable workaround for ARM Cortex-A710 erratum 2054223
+
+	  Affected cores may fail to flush the trace data on a TSB instruction, when
+	  the PE is in trace prohibited state. This will cause losing a few bytes
+	  of the trace cached.
+
+	  Workaround is to issue two TSB consecutively on affected cores.
+
+	  If unsure, say Y.
+
+config ARM64_ERRATUM_2067961
+	bool "Neoverse-N2: 2067961: workaround TSB instruction failing to flush trace"
+	default y
+	select ARM64_WORKAROUND_TSB_FLUSH_FAILURE
+	help
+	  Enable workaround for ARM Neoverse-N2 erratum 2067961
+
+	  Affected cores may fail to flush the trace data on a TSB instruction, when
+	  the PE is in trace prohibited state. This will cause losing a few bytes
+	  of the trace cached.
+
+	  Workaround is to issue two TSB consecutively on affected cores.
+
+	  If unsure, say Y.
+
 config CAVIUM_ERRATUM_22375
 	bool "Cavium erratum 22375, 24313"
 	default y
@@ -1195,6 +1238,15 @@ config UNMAP_KERNEL_AT_EL0
 	  via a trampoline page in the vector table.
 
 	  If unsure, say Y.
+
+config MITIGATE_SPECTRE_BRANCH_HISTORY
+	bool "Mitigate Spectre style attacks against branch history" if EXPERT
+	default y
+	help
+	  Speculation attacks against some high-performance processors can
+	  make use of branch history to influence future speculation.
+	  When taking an exception from user-space, a sequence of branches
+	  or a firmware call overwrites the branch history.
 
 config RODATA_FULL_DEFAULT_ENABLED
 	bool "Apply r/o permissions of VM areas also to their linear aliases"
@@ -1987,3 +2039,57 @@ config FAKE_ASYM32_CPU
 	  the capability to run 32bit user space program.
 	  This feature should not be enabled in MP project. If you don't know,
 	  say N.
+
+config BUILD_XIAOMI_CAMERA_IMAGE_NAMES
+	string "To distinguish different project name"
+	help
+	  For Camera to distinguish project names.
+
+config HWCONF_MANAGER_ENABLE
+	tristate "Hardware configuration and monitor information compile control"
+	default n
+	help
+	It provides HWCONF_MANAGER to be compiled in kernel
+
+config HWCONF_MANAGER
+	bool "Hardware configuration and monitor information"
+	default n
+	help
+	It provides all kinds of components configuration information and
+	monitor values.
+
+config TARGET_PRODUCT_MATISSE
+	bool "Product Name Matisse For Add one more resistance"
+	default n
+	help
+	Product Name Matisse For Add one more resistance.
+
+config TARGET_PRODUCT_RUBENS
+	bool "Product Name Rubens For Add one more resistance"
+	default n
+	help
+	Product Name Rubens For Add one more resistance.
+
+config TARGET_PRODUCT_PLATO
+	bool "Product Name PLATO"
+	default n
+	help
+	Product Name PLATO.
+
+config TARGET_PRODUCT_XAGA
+	bool "Product Name XAGA"
+	default n
+	help
+	Product Name XAGA.
+
+config TARGET_PRODUCT_DAUMIER
+	bool "Product Name DAUMIER"
+	default n
+	help
+	Product Name DAUMIER.
+
+config BUILD_XIAOMI_CAMERA_IMAGE_NAMES
+	string "To distinguish different project name"
+	help
+	  For Camera to distinguish project names.
+

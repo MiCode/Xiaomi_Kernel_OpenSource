@@ -752,7 +752,6 @@ void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 }
 
 
-
 static ssize_t scp_A_dump_show(struct file *filep,
 		struct kobject *kobj, struct bin_attribute *attr,
 		char *buf, loff_t offset, size_t size)
@@ -798,7 +797,6 @@ struct bin_attribute bin_attr_scp_dump = {
 	.size = 0,
 	.read = scp_A_dump_show,
 };
-
 
 
 /*

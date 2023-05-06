@@ -47,6 +47,9 @@ module_param(imgsys_qos_blank_int, int, 0644);
 int imgsys_qos_factor;
 module_param(imgsys_qos_factor, int, 0644);
 
+int imgsys_quick_onoff_en;
+module_param(imgsys_quick_onoff_en, int, 0644);
+
 struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
@@ -136,7 +139,9 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 {
 	u32 idx = 0;
 
-	dev_info(imgsys_dev->dev, "%s: cmdq stream on (%d)\n", __func__, is_stream_off);
+	dev_info(imgsys_dev->dev,
+		"%s: cmdq stream on (%d) quick_pwr(%d)\n",
+		__func__, is_stream_off, imgsys_quick_onoff_enable());
 	is_stream_off = 0;
 
 	cmdq_mbox_enable(imgsys_clt[0]->chan);
@@ -157,7 +162,8 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 	u32 idx = 0;
 
 	dev_info(imgsys_dev->dev,
-		"%s: cmdq stream off (%d) idx(%d)\n", __func__, is_stream_off, idx);
+		"%s: cmdq stream off (%d) idx(%d) quick_pwr(%d)\n",
+		__func__, is_stream_off, idx, imgsys_quick_onoff_enable());
 	is_stream_off = 1;
 
 	#if CMDQ_STOP_FUNC
@@ -347,8 +353,11 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 
 	if (cb_param->err != 0)
 		pr_info(
-			"%s: [ERROR] cb(%p) error(%d) gid(%d) for frm(%d/%d) blk(%d/%d) lst(%d/%d) earlycb(%d) ofst(0x%x) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
-			__func__, cb_param, cb_param->err, cb_param->group_id,
+			"%s: [ERROR] cb(%p) req fd/no(%d/%d) frame no(%d) error(%d) gid(%d) clt(0x%x) hw_comb(0x%x) for frm(%d/%d) blk(%d/%d) lst(%d/%d) earlycb(%d) ofst(0x%x) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
+			__func__, cb_param, cb_param->req_fd,
+			cb_param->req_no, cb_param->frm_no,
+			cb_param->err, cb_param->group_id,
+			cb_param->clt, cb_param->hw_comb,
 			cb_param->frm_idx, cb_param->frm_num,
 			cb_param->blk_idx, cb_param->blk_num,
 			cb_param->isBlkLast, cb_param->isFrmLast,
@@ -439,6 +448,8 @@ static void imgsys_cmdq_cb_work(struct work_struct *work)
 			#if IMGSYS_QOS_SET_REAL
 			mtk_imgsys_mmqos_ts_cal(imgsys_dev, cb_param, hw_comb);
 			mtk_imgsys_mmqos_set(imgsys_dev, cb_param->frm_info, 0);
+			#elif IMGSYS_QOS_SET_BY_SCEN
+			mtk_imgsys_mmqos_set_by_scen(imgsys_dev, cb_param->frm_info, 0);
 			#endif
 			#endif
 			mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
@@ -559,8 +570,11 @@ void imgsys_cmdq_task_cb(struct cmdq_cb_data data)
 		}
 		real_frm_idx = cb_param->frm_idx - (cb_param->task_cnt - 1) + err_idx;
 		pr_info(
-			"%s: [ERROR] cb(%p) error(%d) gid(%d) for frm(%d/%d) blk(%d/%d) lst(%d/%d/%d) earlycb(%d) ofst(0x%x) erridx(%d/%d) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
-			__func__, cb_param, cb_param->err, cb_param->group_id,
+			"%s: [ERROR] cb(%p) req fd/no(%d/%d) frame no(%d) error(%d) gid(%d) clt(0x%x) hw_comb(0x%x) for frm(%d/%d) blk(%d/%d) lst(%d/%d/%d) earlycb(%d) ofst(0x%x) erridx(%d/%d) task(%d/%d/%d) ofst(%x/%x/%x/%x/%x)",
+			__func__, cb_param, cb_param->req_fd,
+			cb_param->req_no, cb_param->frm_no,
+			cb_param->err, cb_param->group_id,
+			cb_param->clt, cb_param->hw_comb,
 			cb_param->frm_idx, cb_param->frm_num,
 			cb_param->blk_idx, cb_param->blk_num,
 			cb_param->isBlkLast, cb_param->isFrmLast, cb_param->isTaskLast,
@@ -663,6 +677,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	u32 cmd_num = 0;
 	u32 cmd_idx = 0;
 	u32 blk_idx = 0; /* For Vss block cnt */
+	u32 blk_num = 0;
 	u32 thd_idx = 0;
 	u32 hw_comb = 0;
 	int ret = 0, ret_flush = 0;
@@ -689,6 +704,8 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 	mtk_imgsys_mmdvfs_set(imgsys_dev, frm_info, 1);
 	#if IMGSYS_QOS_SET_REAL
 	mtk_imgsys_mmqos_set(imgsys_dev, frm_info, 1);
+	#elif IMGSYS_QOS_SET_BY_SCEN
+	mtk_imgsys_mmqos_set_by_scen(imgsys_dev, frm_info, 1);
 	#endif
 	#endif
 	mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
@@ -745,6 +762,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 		cmd_num = cmd_buf->curr_length / sizeof(struct Command);
 		cmd = (struct Command *)((unsigned long)(frm_info->user_info[frm_idx].g_swbuf) +
 			(unsigned long)(cmd_buf->cmd_offset));
+		blk_num = cmd_buf->frame_block;
 		hw_comb = frm_info->user_info[frm_idx].hw_comb;
 
 		if (isPack == 0) {
@@ -803,7 +821,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			frm_info->user_info[frm_idx].hw_comb, frm_info->sync_id, thd_idx, clt);
 
 		cmd_idx = 0;
-		for (blk_idx = 0; blk_idx < cmd_buf->frame_block; blk_idx++) {
+		for (blk_idx = 0; blk_idx < blk_num; blk_idx++) {
 			tsReqStart = ktime_get_boottime_ns()/1000;
 			if (isPack == 0) {
 				/* create pkt and hook clt as pkt's private data */
@@ -882,11 +900,15 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				task_num++;
 				cb_param->pkt = pkt;
 				cb_param->frm_info = frm_info;
+				cb_param->req_fd = frm_info->request_fd;
+				cb_param->req_no = frm_info->request_no;
+				cb_param->frm_no = frm_info->frame_no;
+				cb_param->hw_comb = hw_comb;
 				cb_param->frm_idx = frm_idx;
 				cb_param->frm_num = frm_num;
 				cb_param->user_cmdq_cb = cmdq_cb;
 				cb_param->user_cmdq_err_cb = cmdq_err_cb;
-				if ((blk_idx + 1) == cmd_buf->frame_block)
+				if ((blk_idx + 1) == blk_num)
 					cb_param->isBlkLast = 1;
 				else
 					cb_param->isBlkLast = 0;
@@ -895,7 +917,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				else
 					cb_param->isFrmLast = 0;
 				cb_param->blk_idx = blk_idx;
-				cb_param->blk_num = cmd_buf->frame_block;
+				cb_param->blk_num = blk_num;
 				cb_param->is_earlycb = frm_info->user_info[frm_idx].is_earlycb;
 				cb_param->group_id = frm_info->group_id;
 				cb_param->cmdqTs.tsReqStart = tsReqStart;
@@ -948,7 +970,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 					frm_info->user_info[frm_idx].subfrm_idx,
 					frm_info->user_info[frm_idx].hw_comb,
 					frm_info->frm_owner, cb_param, frm_idx, frm_num,
-					blk_idx, cmd_buf->frame_block);
+					blk_idx, blk_num);
 
 				ret_flush = cmdq_pkt_flush_async(pkt, imgsys_cmdq_task_cb,
 								(void *)cb_param);
@@ -1151,11 +1173,17 @@ void imgsys_cmdq_setevent(u64 u_id)
 
 void imgsys_cmdq_clearevent(int event_id)
 {
-	cmdq_mbox_enable(imgsys_clt[0]->chan);
-	cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[event_id].event);
-	pr_debug("%s: cmdq_clear_event with (%d/%d)!\n",
-			__func__, event_id, imgsys_event[event_id].event);
-	cmdq_mbox_disable(imgsys_clt[0]->chan);
+	if ((event_id >= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START) &&
+		(event_id <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END)) {
+		cmdq_mbox_enable(imgsys_clt[0]->chan);
+		cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[event_id].event);
+		pr_debug("%s: cmdq_clear_event with (%d/%d)!\n",
+				__func__, event_id, imgsys_event[event_id].event);
+		cmdq_mbox_disable(imgsys_clt[0]->chan);
+	} else {
+		pr_info("%s: [ERROR]unexpected event_id=(%d)!\n",
+			__func__, event_id);
+	}
 }
 
 #if DVFS_QOS_READY
@@ -1417,6 +1445,136 @@ void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 	#endif
 }
 
+void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				bool isSet)
+{
+	struct mtk_imgsys_qos *qos_info = &imgsys_dev->qos_info;
+	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
+	u32 hw_comb = 0;
+	u64 pixel_sz = 0;
+	u32 fps = 0;
+	u32 frm_num = 0;
+	u64 bw_final[MTK_IMGSYS_QOS_GROUP] = {0};
+
+	frm_num = frm_info->total_frmnum;
+	hw_comb = frm_info->user_info[frm_num-1].hw_comb;
+	pixel_sz = frm_info->user_info[frm_num-1].pixel_bw;
+	fps = frm_info->fps;
+
+	if (is_stream_off == 0) {
+		if (isSet == 1) {
+			if (dvfs_info->vss_task_cnt != 0) {
+				bw_final[0] = IMGSYS_QOS_VSS_BW_0;
+				bw_final[1] = IMGSYS_QOS_VSS_BW_1;
+				if (qos_info->bw_total[0][0] != bw_final[0]) {
+					dev_info(qos_info->dev,
+						"[%s] L9_0 idx=%d, path=%p, bw=%d/%d; L12_1 idx=%d, path=%p, bw=%d/%d,\n",
+						__func__,
+						IMGSYS_L9_COMMON_0,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].bw,
+						bw_final[0],
+						IMGSYS_L12_COMMON_1,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].bw,
+						bw_final[1]);
+					// Save for capture bw
+					qos_info->bw_total[0][0] = bw_final[0];
+					qos_info->bw_total[0][1] = bw_final[1];
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
+					MBps_to_icc(qos_info->bw_total[0][0]));
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L12_COMMON_1].bw),
+					MBps_to_icc(qos_info->bw_total[0][1]));
+				}
+			} else if ((hw_comb & (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) ==
+				(IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) {
+				if (fps == 30) {
+					if (pixel_sz > IMGSYS_QOS_4K_SIZE) {
+						bw_final[0] = IMGSYS_QOS_4K_30_BW_0;
+						bw_final[1] = IMGSYS_QOS_4K_30_BW_1;
+					} else if (pixel_sz > IMGSYS_QOS_FHD_SIZE) {
+						bw_final[0] = IMGSYS_QOS_FHD_30_BW_0;
+						bw_final[1] = IMGSYS_QOS_FHD_30_BW_1;
+					} else {
+						bw_final[0] = IMGSYS_QOS_FHD_30_BW_0;
+						bw_final[1] = IMGSYS_QOS_FHD_30_BW_1;
+					}
+				} else if (fps == 60) {
+					if (pixel_sz > IMGSYS_QOS_4K_SIZE) {
+						bw_final[0] = IMGSYS_QOS_4K_60_BW_0;
+						bw_final[1] = IMGSYS_QOS_4K_60_BW_1;
+					} else if (pixel_sz > IMGSYS_QOS_FHD_SIZE) {
+						bw_final[0] = IMGSYS_QOS_FHD_60_BW_0;
+						bw_final[1] = IMGSYS_QOS_FHD_60_BW_1;
+					} else {
+						bw_final[0] = IMGSYS_QOS_FHD_60_BW_0;
+						bw_final[1] = IMGSYS_QOS_FHD_60_BW_1;
+					}
+				} else {
+					return;
+				}
+				bw_final[0] = (bw_final[0] * imgsys_qos_factor)/10;
+				bw_final[1] = (bw_final[1] * imgsys_qos_factor)/10;
+				if (qos_info->qos_path[IMGSYS_L9_COMMON_0].bw != bw_final[0]) {
+					dev_info(qos_info->dev,
+						"[%s] L9_0 idx=%d, path=%p, bw=%d/%d; L12_1 idx=%d, path=%p, bw=%d/%d,\n",
+						__func__,
+						IMGSYS_L9_COMMON_0,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].bw,
+						bw_final[0],
+						IMGSYS_L12_COMMON_1,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].bw,
+						bw_final[1]);
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].bw = bw_final[0];
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].bw = bw_final[1];
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
+					0);
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L12_COMMON_1].bw),
+					0);
+				}
+			}
+		} else if (isSet == 0) {
+			if (dvfs_info->vss_task_cnt == 0) {
+				if (qos_info->bw_total[0][0] != 0) {
+					dev_info(qos_info->dev,
+						"[%s] L9_0 idx=%d, path=%p, bw=%d/%d; L12_1 idx=%d, path=%p, bw=%d/%d,\n",
+						__func__,
+						IMGSYS_L9_COMMON_0,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].bw,
+						bw_final[0],
+						IMGSYS_L12_COMMON_1,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].bw,
+						bw_final[1]);
+					// Clear for capture bw
+					qos_info->bw_total[0][0] = 0;
+					qos_info->bw_total[0][1] = 0;
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
+					0);
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L12_COMMON_1].bw),
+					0);
+				}
+			}
+		}
+	}
+}
+
 void mtk_imgsys_mmqos_reset(struct mtk_imgsys_dev *imgsys_dev)
 {
 	u32 dvfs_idx = 0, qos_idx = 0;
@@ -1424,6 +1582,8 @@ void mtk_imgsys_mmqos_reset(struct mtk_imgsys_dev *imgsys_dev)
 
 	qos_info = &imgsys_dev->qos_info;
 
+	qos_info->qos_path[IMGSYS_L9_COMMON_0].bw = 0;
+	qos_info->qos_path[IMGSYS_L12_COMMON_1].bw = 0;
 	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L9_COMMON_0].path, 0, 0);
 	mtk_icc_set_bw(qos_info->qos_path[IMGSYS_L12_COMMON_1].path, 0, 0);
 
@@ -1719,9 +1879,10 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
 		if (user_cnt == 1) {
-			dev_info(dvfs_info->dev,
-				"[%s] isPowerOn(%d) user(%d)\n",
-				__func__, isPowerOn, user_cnt);
+			if (!imgsys_quick_onoff_enable())
+				dev_info(dvfs_info->dev,
+					"[%s] isPowerOn(%d) user(%d)\n",
+					__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
@@ -1737,9 +1898,10 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 	} else {
 		user_cnt = atomic_dec_return(&imgsys_dev->imgsys_user_cnt);
 		if (user_cnt == 0) {
-			dev_info(dvfs_info->dev,
-				"[%s] isPowerOn(%d) user(%d)\n",
-				__func__, isPowerOn, user_cnt);
+			if (!imgsys_quick_onoff_enable())
+				dev_info(dvfs_info->dev,
+					"[%s] isPowerOn(%d) user(%d)\n",
+					__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
@@ -1782,5 +1944,10 @@ bool imgsys_cmdq_ts_dbg_enable(void)
 bool imgsys_dvfs_dbg_enable(void)
 {
 	return imgsys_dvfs_dbg_en;
+}
+
+bool imgsys_quick_onoff_enable(void)
+{
+	return imgsys_quick_onoff_en;
 }
 

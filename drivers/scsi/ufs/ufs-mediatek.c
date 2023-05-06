@@ -63,7 +63,7 @@ static int ufs_abort_aee_count;
 	ufs_mtk_smc(UFS_MTK_SIP_GET_VCC_INFO, res)
 
 static struct ufs_dev_fix ufs_mtk_dev_fixups[] = {
-	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
+	UFS_FIX(UFS_ANY_VENDOR, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_AFTER_LPM),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "H9HQ21AFAMZDAR",
 		UFS_DEVICE_QUIRK_SUPPORT_EXTENDED_FEATURES),
@@ -976,15 +976,8 @@ static void ufs_mtk_get_controller_version(struct ufs_hba *hba)
 
 	ret = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_LOCALVERINFO), &ver);
 	if (!ret) {
-		if (ver >= UFS_UNIPRO_VER_1_8) {
+		if (ver >= UFS_UNIPRO_VER_1_8)
 			host->hw_ver.major = 3;
-			/*
-			 * Fix HCI version for some platforms with
-			 * incorrect version
-			 */
-			if (hba->ufs_version < ufshci_version(3, 0))
-				hba->ufs_version = ufshci_version(3, 0);
-		}
 	}
 }
 
@@ -1020,9 +1013,6 @@ int ufs_mtk_rpmb_security_out(struct scsi_device *sdev,
 	cmd[4] = 0;                              /* inc_512 bit 7 set to 0 */
 	put_unaligned_be32(trans_len, cmd + 6);  /* transfer length */
 
-	/* Ensure device is resumed before RPMB operation */
-	scsi_autopm_get_device(sdev);
-
 retry:
 	ret = scsi_execute_req(sdev, cmd, DMA_TO_DEVICE,
 				     frames, trans_len, &sshdr,
@@ -1045,9 +1035,6 @@ retry:
 	if (driver_byte(ret) & DRIVER_SENSE)
 		scsi_print_sense_hdr(sdev, "rpmb: security out", &sshdr);
 
-	/* Allow device to be runtime suspended */
-	scsi_autopm_put_device(sdev);
-
 	return ret;
 }
 
@@ -1067,9 +1054,6 @@ int ufs_mtk_rpmb_security_in(struct scsi_device *sdev,
 	cmd[4] = 0;                             /* inc_512 bit 7 set to 0 */
 	put_unaligned_be32(alloc_len, cmd + 6); /* allocation length */
 
-	/* Ensure device is resumed before RPMB operation */
-	scsi_autopm_get_device(sdev);
-
 retry:
 	ret = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE,
 				     frames, alloc_len, &sshdr,
@@ -1084,9 +1068,6 @@ retry:
 		 */
 		if (--reset_retries > 0)
 			goto retry;
-
-	/* Allow device to be runtime suspended */
-	scsi_autopm_put_device(sdev);
 
 	if (ret)
 		dev_err(&sdev->sdev_gendev, "%s: failed with err %0x\n",
@@ -1131,7 +1112,10 @@ static int ufs_mtk_rpmb_cmd_seq(struct device *dev,
 	 * Use rpmb lock to prevent other rpmb read/write threads cut in line.
 	 * Use mutex not spin lock because in/out function might sleep.
 	 */
-	mutex_lock(&host->rpmb_lock);
+	down(&host->rpmb_sem);
+	/* Ensure device is resumed before RPMB operation */
+	scsi_autopm_get_device(sdev);
+
 	for (ret = 0, i = 0; i < ncmds && !ret; i++) {
 		cmd = &cmds[i];
 		if (cmd->flags & RPMB_F_WRITE)
@@ -1141,7 +1125,10 @@ static int ufs_mtk_rpmb_cmd_seq(struct device *dev,
 			ret = ufs_mtk_rpmb_security_in(sdev, cmd->frames,
 						      cmd->nframes);
 	}
-	mutex_unlock(&host->rpmb_lock);
+
+	/* Allow device to be runtime suspended */
+	scsi_autopm_put_device(sdev);
+	up(&host->rpmb_sem);
 
 	scsi_device_put(sdev);
 	return ret;
@@ -1223,9 +1210,9 @@ static void ufs_mtk_rpmb_add(void *data, async_cookie_t cookie)
 	rawdev_ufs_rpmb = rdev;
 
 	/*
-	 * Initialize rpmb mutex.
+	 * Initialize rpmb semaphore.
 	 */
-	mutex_init(&host->rpmb_lock);
+	sema_init(&host->rpmb_sem, 1);
 
 out_put_dev:
 	scsi_device_put(hba->sdev_rpmb);
@@ -2050,7 +2037,7 @@ static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
 	if (dev_info->wspecversion >= 0x0300) {
 		if (vreg_info->vccq2) {
 			regulator_disable(vreg_info->vccq2->reg);
-			kfree(vreg_info->vccq2->name);
+			devm_kfree(hba->dev, vreg_info->vccq2->name);
 			devm_kfree(hba->dev, vreg_info->vccq2);
 			vreg_info->vccq2 = NULL;
 		}
@@ -2059,7 +2046,7 @@ static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
 	} else {
 		if (vreg_info->vccq) {
 			regulator_disable(vreg_info->vccq->reg);
-			kfree(vreg_info->vccq->name);
+			devm_kfree(hba->dev, vreg_info->vccq->name);
 			devm_kfree(hba->dev, vreg_info->vccq);
 			vreg_info->vccq = NULL;
 		}
@@ -2108,8 +2095,10 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 	struct ufs_dev_info *dev_info = &hba->dev_info;
 	u16 mid = dev_info->wmanufacturerid;
 
-	if (mid == UFS_VENDOR_SAMSUNG)
+	if (mid == UFS_VENDOR_SAMSUNG) {
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 6);
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME), 10);
+	}
 
 	/*
 	 * Decide waiting time before gating reference clock and
@@ -2144,10 +2133,9 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
 
-	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON) {
+	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON)
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
-		dev_info->hpb_enabled = false;
-	}
+
 
 	if (ufs_mtk_is_delay_after_vcc_off(hba) && hba->vreg_info.vcc) {
 		/*
@@ -2229,6 +2217,10 @@ static void ufs_mtk_hibern8_notify(struct ufs_hba *hba, enum uic_cmd_dme cmd,
 
 	if (status == PRE_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER)
 		ufs_mtk_auto_hibern8_disable(hba);
+
+	if (status == POST_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER &&
+		hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
+		usleep_range(5000, 5100);
 }
 
 void ufs_mtk_setup_task_mgmt(struct ufs_hba *hba, int tag, u8 tm_function)
@@ -2281,7 +2273,6 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	struct platform_device *reset_pdev;
 	struct device_link *link;
 	struct ufs_hba *hba;
-	struct cpumask imask;
 
 	reset_node = of_find_compatible_node(NULL, NULL,
 					     "ti,syscon-reset");
@@ -2317,11 +2308,9 @@ skip_reset:
 
 	/* set affinity to cpu3 */
 	hba = platform_get_drvdata(pdev);
-	if (hba && hba->irq) {
-		cpumask_clear(&imask);
-		cpumask_set_cpu(3, &imask);
-		irq_set_affinity_hint(hba->irq, &imask);
-	}
+	if (hba && hba->irq)
+		irq_set_affinity_hint(hba->irq, get_cpu_mask(3));
+
 out:
 
 	of_node_put(reset_node);
@@ -2363,20 +2352,37 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 int ufs_mtk_pltfrm_suspend(struct device *dev)
 {
 	int ret;
-#if defined(CONFIG_UFSFEATURE)
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_mtk_host *host;
+#if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
+#endif
 
+	host = ufshcd_get_variant(hba);
+	if (down_trylock(&host->rpmb_sem))
+		return -EBUSY;
+
+#if defined(CONFIG_UFSFEATURE)
 	if (ufsf->hba)
 		ufsf_suspend(ufsf);
 #endif
 
+	/* Check if shutting down */
+	if (!ufshcd_is_user_access_allowed(hba)) {
+		ret = -EBUSY;
+		goto out;
+	}
+
 	ret = ufshcd_pltfrm_suspend(dev);
+out:
+
 #if defined(CONFIG_UFSFEATURE)
 	/* We assume link is off */
 	if (ret && ufsf)
 		ufsf_resume(ufsf, true);
 #endif
+	if (ret)
+		up(&host->rpmb_sem);
 
 	return ret;
 }
@@ -2384,8 +2390,9 @@ int ufs_mtk_pltfrm_suspend(struct device *dev)
 int ufs_mtk_pltfrm_resume(struct device *dev)
 {
 	int ret;
-#if defined(CONFIG_UFSFEATURE)
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_mtk_host *host;
+#if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 	bool is_link_off = ufshcd_is_link_off(hba);
 #endif
@@ -2396,6 +2403,10 @@ int ufs_mtk_pltfrm_resume(struct device *dev)
 	if (!ret && ufsf->hba)
 		ufsf_resume(ufsf, is_link_off);
 #endif
+
+	host = ufshcd_get_variant(hba);
+	if (!ret)
+		up(&host->rpmb_sem);
 
 	return ret;
 }

@@ -323,7 +323,7 @@ int ged_dmabuf_set_name(int32_t share_fd, char *name)
 
 	dmabuf = dma_buf_get(share_fd);
 
-	if (dmabuf == NULL) {
+	if (IS_ERR_OR_NULL(dmabuf)) {
 		GED_PDEBUG("%s: dma_buf_get return NULL", __func__);
 		return -1;
 	}

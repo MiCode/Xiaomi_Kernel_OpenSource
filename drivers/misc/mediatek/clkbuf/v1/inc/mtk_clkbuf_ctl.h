@@ -8,6 +8,23 @@
 
 #include "mtk_clkbuf_common.h"
 
+enum RC_CTRL_CMD {
+	HW = 0,
+	SW_OFF,
+	SW_BBLPM,
+	SW_FPM,
+	SW_LPM,
+	MAX_RC_REQ_NUM
+};
+
+static const char * const rc_req_list[] = {
+	"HW",
+	"SW_OFF",
+	"SW_BBLPM",
+	"SW_FPM",
+	"SW_LPM",
+};
+
 struct clkbuf_misc {
 	bool flightmode;
 	bool enable;
@@ -21,6 +38,7 @@ struct clkbuf_misc {
 
 extern int clk_buf_ctrl(const char *xo_name, bool onoff);
 extern int clk_buf_hw_ctrl(const char *xo_name, bool onoff);
+extern int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req);
 extern int clk_buf_set_by_flightmode(bool on);
 extern int clk_buf_control_bblpm(bool on);
 extern int clk_buf_dump_log(void);

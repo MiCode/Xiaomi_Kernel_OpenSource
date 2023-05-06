@@ -9,3 +9,4 @@ subdir-ccflags-y += -DEEM_DBG_LITE
 cpudvfs-y += eem-dbg-lite.o
 endif
 cpudvfs-y += cpufreq-dbg-lite.o
+cpudvfs-y += devinfo.o

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (C) 2021-2022 XiaoMi, Inc.
  */
 
 #ifndef MTK_DRM_DRV_H
@@ -99,6 +100,7 @@ struct mtk_drm_private {
 	enum MTK_DRM_SESSION_MODE session_mode;
 	atomic_t crtc_present[MAX_CRTC];
 	atomic_t crtc_sf_present[MAX_CRTC];
+	atomic_t crtc_rel_present[MAX_CRTC];
 
 	struct device_node *mutex_node;
 	struct device *mutex_dev;
@@ -179,6 +181,9 @@ struct mtk_drm_private {
 	struct mml_drm_ctx *mml_ctx;
 	atomic_t mml_job_done;
 	wait_queue_head_t signal_mml_job_done_wq;
+	unsigned int *dummy_table_backup;
+  
+	unsigned int seg_id;
 };
 
 struct mtk_drm_property {
@@ -222,6 +227,17 @@ struct tag_videolfb {
 	char lcmname[1]; /* this is the minimum size */
 };
 
+struct mtk_drm_disp_sec_cb {
+	int (*cb)(int value, struct cmdq_pkt *handle, resource_size_t dummy_larb);
+};
+
+enum DISP_SEC_SIGNAL {
+	DISP_SEC_START = 0,
+	DISP_SEC_STOP,
+	DISP_SEC_ENABLE,
+	DISP_SEC_DISABLE,
+};
+
 struct disp_iommu_device *disp_get_iommu_dev(void);
 
 extern struct platform_driver mtk_ddp_driver;
@@ -256,6 +272,9 @@ extern struct platform_driver mtk_disp_dlo_async_driver;
 extern struct platform_driver mtk_disp_dli_async_driver;
 extern struct platform_driver mtk_disp_inlinerotate_driver;
 extern struct platform_driver mtk_mmlsys_bypass_driver;
+extern struct mtk_drm_disp_sec_cb disp_sec_cb;
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
 
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);
@@ -280,6 +299,8 @@ int lcm_fps_ctx_update(unsigned long long cur_ns,
 		unsigned int crtc_id, unsigned int mode);
 int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
 bool mtk_drm_lcm_is_connect(void);
+bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc);
+
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 	unsigned int *fps);
 struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,
@@ -288,5 +309,6 @@ void mtk_drm_wait_mml_submit_done(struct mtk_mml_cb_para *cb_para);
 void **mtk_aod_scp_ipi_init(void);
 void mtk_free_mml_submit(struct mml_submit *temp);
 int copy_mml_submit(struct mml_submit *src, struct mml_submit *dst);
+void **mtk_drm_disp_sec_cb_init(void);
 
 #endif /* MTK_DRM_DRV_H */

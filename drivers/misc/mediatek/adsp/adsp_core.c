@@ -354,7 +354,7 @@ static int adsp_pm_suspend_prepare(void)
 		adsp_timesync_suspend(APTIME_FREEZE);
 		pr_info("%s, time sync freeze", __func__);
 
-		adsp_smc_send(MTK_ADSP_SMC_OP_ENTER_LP, 0, 0);
+		adsp_smc_send(MTK_ADSP_KERNEL_OP_ENTER_LP, 0, 0);
 	}
 
 	return NOTIFY_DONE;
@@ -366,7 +366,7 @@ static int adsp_pm_post_suspend(void)
 		adsp_timesync_resume();
 		pr_info("%s, time sync unfreeze", __func__);
 
-		adsp_smc_send(MTK_ADSP_SMC_OP_LEAVE_LP, 0, 0);
+		adsp_smc_send(MTK_ADSP_KERNEL_OP_LEAVE_LP, 0, 0);
 	}
 
 	return NOTIFY_DONE;
@@ -427,9 +427,9 @@ void adsp_latch_dump_region(bool en)
 	/* MUST! latch/unlatch region symmetric */
 	if (en) {
 		mutex_lock(&access_lock);
-		adsp_smc_send(MTK_ADSP_SMC_OP_CFG_LATCH, true, 0);
+		adsp_smc_send(MTK_ADSP_KERNEL_OP_CFG_LATCH, true, 0);
 	} else {
-		adsp_smc_send(MTK_ADSP_SMC_OP_CFG_LATCH, false, 0);
+		adsp_smc_send(MTK_ADSP_KERNEL_OP_CFG_LATCH, false, 0);
 		mutex_unlock(&access_lock);
 	}
 }
@@ -437,13 +437,13 @@ void adsp_latch_dump_region(bool en)
 void adsp_core_start(u32 cid)
 {
 	mutex_lock(&access_lock);
-	adsp_smc_send(MTK_ADSP_SMC_OP_CORE_START, cid, 0);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_CORE_START, cid, 0);
 	mutex_unlock(&access_lock);
 }
 
 void adsp_core_stop(u32 cid)
 {
-	adsp_smc_send(MTK_ADSP_SMC_OP_CORE_STOP, cid, 0);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_CORE_STOP, cid, 0);
 }
 
 static void adsp_set_dram_remap(void)
@@ -459,36 +459,8 @@ static void adsp_set_dram_remap(void)
 		size += adsp_cores[cid]->sysram_size;
 	}
 
-	adsp_smc_send(MTK_ADSP_SMC_OP_CFG_REMAP,
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_CFG_REMAP,
 		      adsp_cores[ADSP_A_ID]->sysram_phys, size);
-}
-
-static void adsp_sram_restore_snapshot(struct adsp_priv *pdata)
-{
-	if (!pdata->itcm || !pdata->itcm_snapshot || !pdata->itcm_size ||
-	    !pdata->dtcm || !pdata->dtcm_snapshot || !pdata->dtcm_size)
-		return;
-
-	memcpy_toio(pdata->itcm, pdata->itcm_snapshot, pdata->itcm_size);
-	memcpy_toio(pdata->dtcm, pdata->dtcm_snapshot, pdata->dtcm_size);
-}
-
-static void adsp_sram_provide_snapshot(struct adsp_priv *pdata)
-{
-	if (!pdata->itcm || !pdata->dtcm)
-		return;
-
-	if (!pdata->itcm_snapshot)
-		pdata->itcm_snapshot = vmalloc(pdata->itcm_size);
-
-	if (!pdata->dtcm_snapshot)
-		pdata->dtcm_snapshot = vmalloc(pdata->dtcm_size);
-
-	if (!pdata->itcm_snapshot || !pdata->dtcm_snapshot)
-		return;
-
-	memcpy_fromio(pdata->itcm_snapshot, pdata->itcm, pdata->itcm_size);
-	memcpy_fromio(pdata->dtcm_snapshot, pdata->dtcm, pdata->dtcm_size);
 }
 
 int adsp_reset(void)
@@ -503,17 +475,14 @@ int adsp_reset(void)
 	}
 
 	/* clear adsp cfg */
-	adsp_smc_send(MTK_ADSP_SMC_OP_SYS_CLEAR, 0, 0);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, 0, 0);
 
 	/* choose default clk mux */
 	adsp_select_clock_mode(CLK_LOW_POWER);
 	adsp_select_clock_mode(CLK_DEFAULT_INIT);
 
-	/* restore tcm to initial state */
-	for (cid = 0; cid < get_adsp_core_total(); cid++) {
-		pdata = adsp_cores[cid];
-		adsp_sram_restore_snapshot(pdata);
-	}
+	/* reload adsp */
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_RELOAD, 0, 0);
 
 	/* restart adsp */
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
@@ -631,7 +600,7 @@ int adsp_system_bootup(void)
 		goto ERROR;
 
 	switch_adsp_power(true);
-	adsp_smc_send(MTK_ADSP_SMC_OP_SYS_CLEAR, 0, 0);
+	adsp_smc_send(MTK_ADSP_KERNEL_OP_SYS_CLEAR, 0, 0);
 
 	for (cid = 0; cid < get_adsp_core_total(); cid++) {
 		pdata = adsp_cores[cid];
@@ -646,13 +615,12 @@ int adsp_system_bootup(void)
 			goto ERROR;
 		}
 
-		adsp_sram_provide_snapshot(pdata);
-
 		reinit_completion(&pdata->done);
 		adsp_core_start(cid);
-		ret = wait_for_completion_timeout(&pdata->done, HZ);
+		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
 
 		if (unlikely(ret == 0)) {
+			adsp_core_stop(cid);
 			pr_warn("%s, core %d boot_up timeout\n", __func__, cid);
 			ret = -ETIME;
 			goto ERROR;

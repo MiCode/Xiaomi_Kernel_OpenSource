@@ -407,7 +407,7 @@ struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size, bool IsSecu
 	struct dma_buf *my_dma_buf;
 
 	if (IsSecure)
-		dma_heap = dma_heap_find("mtk_prot_page-uncached");
+		dma_heap = dma_heap_find("mtk_prot_region");
 	else
 		dma_heap = dma_heap_find("mtk_mm-uncached");
 

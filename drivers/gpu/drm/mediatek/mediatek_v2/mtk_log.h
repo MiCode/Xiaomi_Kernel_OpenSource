@@ -138,7 +138,7 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 		if (r < 0) {	\
 			pr_err("snprintf error\n");	\
 		}	\
-		aee_kernel_warning_api(__FILE__, __LINE__,                     \
+		aee_kernel_exception_api(__FILE__, __LINE__,                     \
 				       DB_OPT_DEFAULT |                        \
 					       DB_OPT_MMPROFILE_BUFFER,        \
 				       str, string, ##args);                   \

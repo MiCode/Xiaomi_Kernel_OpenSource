@@ -321,6 +321,11 @@ static void apu_coredump_work_func(struct work_struct *p_work)
 		if ((apu->platdata->flags & F_SECURE_COREDUMP)) {
 			apusys_rv_smc_call(dev,
 				MTK_APUSYS_KERNEL_OP_APUSYS_RV_COREDUMP_SHADOW_COPY, 0);
+			/* gating md32 cg for cache dump */
+			apusys_rv_smc_call(dev,
+				MTK_APUSYS_KERNEL_OP_APUSYS_RV_CG_GATING, 0);
+			apusys_rv_smc_call(dev,
+				MTK_APUSYS_KERNEL_OP_APUSYS_RV_CACHEDUMP, 0);
 			apusys_rv_smc_call(dev,
 				MTK_APUSYS_KERNEL_OP_APUSYS_RV_CLEAR_WDT_ISR, 0);
 		}

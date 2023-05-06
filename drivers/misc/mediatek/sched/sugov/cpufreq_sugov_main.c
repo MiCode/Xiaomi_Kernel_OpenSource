@@ -86,7 +86,7 @@ static bool sugov_should_update_freq(struct sugov_policy *sg_policy, u64 time)
 	 */
 
 	delta_ns = time - sg_policy->last_freq_update_time;
-	return delta_ns >= sg_policy->min_rate_limit_ns;
+	return delta_ns >= READ_ONCE(sg_policy->min_rate_limit_ns);
 }
 
 static bool sugov_up_down_rate_limit(struct sugov_policy *sg_policy, u64 time,
@@ -179,7 +179,7 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	unsigned int freq = policy->cpuinfo.max_freq;
 	unsigned long next_freq = 0;
 
-	mtk_map_util_freq((void *)sg_policy, util, freq, max, &next_freq);
+	mtk_map_util_freq((void *)sg_policy, util, freq, policy->related_cpus, &next_freq);
 	if (next_freq) {
 		freq = next_freq;
 	} else {
@@ -304,6 +304,7 @@ unsigned long mtk_cpu_util(int cpu, unsigned long util_cfs,
 EXPORT_SYMBOL(mtk_cpu_util);
 
 DEFINE_PER_CPU(int, cpufreq_idle_cpu);
+DEFINE_PER_CPU(int, pre_rt_throttled);
 EXPORT_SYMBOL(cpufreq_idle_cpu);
 
 DEFINE_PER_CPU(spinlock_t, cpufreq_idle_cpu_lock) = __SPIN_LOCK_UNLOCKED(cpufreq_idle_cpu_lock);
@@ -313,12 +314,19 @@ static unsigned long sugov_get_util(struct sugov_cpu *sg_cpu)
 	struct rq *rq = cpu_rq(sg_cpu->cpu);
 	unsigned long util = cpu_util_cfs(rq);
 	unsigned long max = capacity_orig_of(sg_cpu->cpu);
+	int rt_throttled_toggle = 0;
 
 	sg_cpu->max = max;
 	sg_cpu->bw_dl = cpu_bw_dl(rq);
 
 	spin_lock(&per_cpu(cpufreq_idle_cpu_lock, sg_cpu->cpu));
-	if (per_cpu(cpufreq_idle_cpu, sg_cpu->cpu)) {
+	if (per_cpu(pre_rt_throttled, sg_cpu->cpu) != rq->rt.rt_throttled) {
+		rt_throttled_toggle = 1;
+		per_cpu(cpufreq_idle_cpu, sg_cpu->cpu) = (rq->nr_running) ? 0 : 1;
+	}
+	per_cpu(pre_rt_throttled, sg_cpu->cpu) = rq->rt.rt_throttled;
+	if ((!rt_throttled_toggle && per_cpu(cpufreq_idle_cpu, sg_cpu->cpu)) ||
+		(rt_throttled_toggle &&  !rq->nr_running)) {
 		spin_unlock(&per_cpu(cpufreq_idle_cpu_lock, sg_cpu->cpu));
 		return 0;
 	}
@@ -490,6 +498,8 @@ void mtk_set_cpu_min_opp(int cpu, unsigned long min_util)
 	}
 
 	pd = em_cpu_get(cpu);
+	if (!pd)
+		return;
 	scale_cpu = arch_scale_cpu_capacity(cpu);
 	ps = &pd->table[pd->nr_perf_states - 1];
 	freq = map_util_freq(min_util, ps->frequency, scale_cpu);
@@ -738,8 +748,8 @@ static DEFINE_MUTEX(min_rate_lock);
 static void update_min_rate_limit_ns(struct sugov_policy *sg_policy)
 {
 	mutex_lock(&min_rate_lock);
-	sg_policy->min_rate_limit_ns = min(sg_policy->up_rate_delay_ns,
-					   sg_policy->down_rate_delay_ns);
+	WRITE_ONCE(sg_policy->min_rate_limit_ns, min(sg_policy->up_rate_delay_ns,
+					   sg_policy->down_rate_delay_ns));
 	mutex_unlock(&min_rate_lock);
 }
 

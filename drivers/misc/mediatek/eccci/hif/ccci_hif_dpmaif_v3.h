@@ -510,4 +510,6 @@ extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
 extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
 extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 
+extern void ccmni_set_cur_speed(u64 cur_dl_speed);
+
 #endif				/* __MODEM_DPMA_H__ */

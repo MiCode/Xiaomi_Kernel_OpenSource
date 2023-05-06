@@ -96,4 +96,9 @@ extern void cpus_write_lock(void);
 extern void cpus_write_unlock(void);
 
 int teei_set_switch_pri(unsigned long policy);
+
+#define GAME_MODE 0x0
+#define NON_GAME_MODE 0x01
+
+int teei_switch_current_mode(unsigned int mode);
 #endif /* __TEEI_CLIENT_MAIN_H__ */

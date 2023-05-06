@@ -43,7 +43,6 @@
 #define MCUCFG_VERSION "mcucfg-ver"
 #define CSRAM_DVFS_LOG_RANGE "cslog-range"
 
-#define get_volt(offs, repo) ((repo[offs] >> 12) & 0x1FFFF)
 #define get_freq(offs, repo) ((repo[offs] & 0xFFF) * 1000)
 
 #define ENTRY_EACH_LOG	5
@@ -420,8 +419,7 @@ static int opp_idx_show(struct seq_file *m, void *v, u32 pos)
 
 	while (pos < dbg_repo_num && get_freq(pos, repo) != prev_freq) {
 		prev_freq = get_freq(pos, repo);
-		seq_printf(m, "\t%-2d (%u, %u)\n", opp,
-			get_freq(pos, repo), get_volt(pos, repo));
+		seq_printf(m, "\t%-2d (%u, kHz)\n", opp, get_freq(pos, repo));
 		pos++;
 		opp++;
 	}

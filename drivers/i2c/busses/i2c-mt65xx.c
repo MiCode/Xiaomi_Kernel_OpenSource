@@ -22,10 +22,12 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/pm_qos.h>
 #include <linux/scatterlist.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 
+#define I2C_CONFERR			(1 << 9)
 #define I2C_RS_TRANSFER			(1 << 4)
 #define I2C_ARB_LOST			(1 << 3)
 #define I2C_HS_NACKERR			(1 << 2)
@@ -43,11 +45,14 @@
 #define I2C_IO_CONFIG_OPEN_DRAIN	0x0003
 #define I2C_IO_CONFIG_PUSH_PULL		0x0000
 #define I2C_SOFT_RST			0x0001
+#define I2C_FSM_RST			0x0004
 #define I2C_HANDSHAKE_RST		0x0020
 #define I2C_FIFO_ADDR_CLR		0x0001
 #define I2C_HFIFO_ADDR_CLR		0x0002
 #define I2C_FIFO_ADDR_CLR_MCH		0x0004
 #define I2C_DELAY_LEN			0x0002
+#define I2C_ST_START_CON		0x8001
+#define I2C_FS_START_CON		0x1800
 #define I2C_TIME_CLR_VALUE		0x0000
 #define I2C_TIME_DEFAULT_VALUE		0x0003
 #define I2C_TIME_HS_SPEED_VALUE		0x0080
@@ -88,9 +93,11 @@
 #define I2C_CONTROL_ASYNC_MODE          (0x1 << 9)
 #define I2C_CONTROL_WRAPPER             (0x1 << 0)
 
-#define I2C_OFFSET_SCP			0x200
+#define I2C_OFFSET_SCP		0x200
 #define I2C_CCU_INTR_EN         0x2
 #define I2C_MCU_INTR_EN         0x1
+#define I2C_FIFO_DATA_LEN_MASK		0x001f
+#define MAX_POLLING_CNT		10
 
 #define I2C_DRV_NAME		"i2c-mt65xx"
 
@@ -292,6 +299,7 @@ struct mtk_i2c {
 	bool ignore_restart_irq;
 	struct mtk_i2c_ac_timing ac_timing;
 	const struct mtk_i2c_compatible *dev_comp;
+	struct pm_qos_request i2c_qos_request;
 };
 
 /**
@@ -592,6 +600,7 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 {
 	u16 control_reg;
 	u16 intr_stat_reg;
+	u16 ext_conf_val;
 
 	mtk_i2c_writew(i2c, I2C_CHN_CLR_FLAG, OFFSET_START);
 	intr_stat_reg = mtk_i2c_readw(i2c, OFFSET_INTR_STAT);
@@ -632,8 +641,13 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 	if (i2c->dev_comp->ltiming_adjust)
 		mtk_i2c_writew(i2c, i2c->ltiming_reg, OFFSET_LTIMING);
 
+	if (i2c->speed_hz <= I2C_MAX_STANDARD_MODE_FREQ)
+		ext_conf_val = I2C_ST_START_CON;
+	else
+		ext_conf_val = I2C_FS_START_CON;
+
 	if (i2c->dev_comp->timing_adjust) {
-		mtk_i2c_writew(i2c, i2c->ac_timing.ext, OFFSET_EXT_CONF);
+		ext_conf_val = i2c->ac_timing.ext;
 		mtk_i2c_writew(i2c, i2c->ac_timing.inter_clk_div,
 			       OFFSET_CLOCK_DIV);
 		mtk_i2c_writew(i2c, I2C_SCL_MIS_COMP_VALUE,
@@ -658,6 +672,7 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 				       OFFSET_HS_STA_STO_AC_TIMING);
 		}
 	}
+	mtk_i2c_writew(i2c, ext_conf_val, OFFSET_EXT_CONF);
 
 	/* If use i2c pin from PMIC mt6397 side, need set PATH_DIR first */
 	if (i2c->have_pmic)
@@ -1017,6 +1032,7 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 	u16 restart_flag = 0;
 	u16 dma_sync = 0;
 	u16 data_size = 0;
+	u16 fifo_data_len = 0;
 	u32 reg_4g_mode;
 	u8 *ptr = NULL;
 	u8 *dma_rd_buf = NULL;
@@ -1024,6 +1040,7 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 	dma_addr_t rpaddr = 0;
 	dma_addr_t wpaddr = 0;
 	bool isDMA = false;
+	int i = 0;
 	int ret;
 
 	i2c->irq_stat = 0;
@@ -1037,6 +1054,8 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		if (i2c->ch_offset_i2c == I2C_OFFSET_SCP) {
 			dev_dbg(i2c->dev, "Not_support_dma! msgs->len:%d,fifo_size:%d\n",
 					msgs->len, i2c->dev_comp->fifo_size);
+			if (i2c->op == I2C_MASTER_CONTINUOUS_WR)
+				kfree(msgs->buf);
 			return -EPERM;
 		}
 		isDMA = true;
@@ -1069,7 +1088,7 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		mtk_i2c_writew(i2c, addr_reg, OFFSET_SLAVE_ADDR);
 
 	/* Clear interrupt status */
-	mtk_i2c_writew(i2c, restart_flag | I2C_HS_NACKERR | I2C_ACKERR |
+	mtk_i2c_writew(i2c, restart_flag | I2C_CONFERR | I2C_HS_NACKERR | I2C_ACKERR |
 			    I2C_ARB_LOST | I2C_TRANSAC_COMP, OFFSET_INTR_STAT);
 
 	if (i2c->ch_offset_i2c)
@@ -1253,7 +1272,7 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 			writel(msgs->len, i2c->pdmabase + OFFSET_TX_LEN);
 			writel((msgs + 1)->len, i2c->pdmabase + OFFSET_RX_LEN);
 		}
-
+		mb();
 		writel(I2C_DMA_START_EN, i2c->pdmabase + OFFSET_EN);
 	} else if (i2c->op != I2C_MASTER_RD) {
 		data_size = msgs->len;
@@ -1271,13 +1290,24 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		if (left_num >= 1)
 			start_reg |= I2C_RS_MUL_CNFG;
 	}
+	mb();
+	if ((i2c->ch_offset_i2c == I2C_OFFSET_SCP) && (isDMA == false) && (i2c->op != I2C_MASTER_RD)) {
+		do {
+			fifo_data_len = mtk_i2c_readw(i2c, OFFSET_FIFO_STAT) & I2C_FIFO_DATA_LEN_MASK;
+			if (msgs->len == fifo_data_len)
+				break;
+			i++;
+		} while (i < MAX_POLLING_CNT);
+		if (MAX_POLLING_CNT == i)
+			dev_info(i2c->dev, "I2C fifo status: 0x%x maybe not ready!\n", fifo_data_len);
+	}
 	mtk_i2c_writew(i2c, start_reg, OFFSET_START);
 
 	ret = wait_for_completion_timeout(&i2c->msg_complete,
 					  i2c->adap.timeout);
 
 	/* Clear interrupt mask */
-	mtk_i2c_writew(i2c, ~(restart_flag | I2C_HS_NACKERR | I2C_ACKERR |
+	mtk_i2c_writew(i2c, ~(restart_flag | I2C_CONFERR | I2C_HS_NACKERR | I2C_ACKERR |
 			    I2C_ARB_LOST | I2C_TRANSAC_COMP), OFFSET_INTR_MASK);
 
 	if (isDMA == true) {
@@ -1295,7 +1325,6 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 			dma_unmap_single(i2c->dev, wpaddr,
 					 msgs->len, DMA_TO_DEVICE);
 
-			kfree(msgs->buf);
 		} else if (i2c->op == I2C_MASTER_WRRD) {
 			dma_unmap_single(i2c->dev, wpaddr, msgs->len,
 					 DMA_TO_DEVICE);
@@ -1307,8 +1336,16 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		}
 	}
 
+	if (i2c->op == I2C_MASTER_CONTINUOUS_WR) {
+		kfree(msgs->buf);
+	}
+
 	if (ret == 0) {
 		u16 start_reg = mtk_i2c_readw(i2c, OFFSET_START);
+		mtk_i2c_writew(i2c, 0, OFFSET_INTR_MASK);
+		if (i2c->ch_offset_i2c != 0) {
+			mtk_i2c_writew_shadow(i2c, I2C_FSM_RST | I2C_SOFT_RST, OFFSET_SOFTRESET);
+		}
 		dev_dbg(i2c->dev, "addr: %x, transfer timeout\n", msgs->addr);
 		mtk_i2c_dump_reg(i2c);
 		if (i2c->ch_offset_i2c) {
@@ -1335,7 +1372,8 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		}
 		return -ENXIO;
 	}
-	if ((i2c->op != I2C_MASTER_WR) && (isDMA == false)) {
+	if ((i2c->op != I2C_MASTER_WR) &&
+			(i2c->op != I2C_MASTER_CONTINUOUS_WR) && (isDMA == false)) {
 		if (i2c->op == I2C_MASTER_WRRD) {
 			data_size = (msgs + 1)->len;
 			ptr = (msgs + 1)->buf;
@@ -1360,6 +1398,10 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
 	u8 *dma_multi_wr_buf;
 	struct i2c_msg multi_msg[1];
 	struct mtk_i2c *i2c = i2c_get_adapdata(adap);
+
+	/* update qos to prevent deep idle during transfer */
+	if (adap->nr == 5)
+		cpu_latency_qos_update_request(&i2c->i2c_qos_request, 150);
 
 	ret = mtk_i2c_clock_enable(i2c);
 	if (ret)
@@ -1454,6 +1496,9 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
 
 err_exit:
 	mtk_i2c_clock_disable(i2c);
+	if (adap->nr == 5)
+		cpu_latency_qos_update_request(&i2c->i2c_qos_request,
+			PM_QOS_DEFAULT_VALUE);
 	return ret;
 }
 
@@ -1643,6 +1688,10 @@ static int mtk_i2c_probe(struct platform_device *pdev)
 	}
 	mtk_i2c_init_hw(i2c);
 	mtk_i2c_clock_disable(i2c);
+
+	/* register qos to prevent deep idle during transfer */
+	cpu_latency_qos_add_request(&i2c->i2c_qos_request,
+		PM_QOS_DEFAULT_VALUE);
 
 	ret = devm_request_irq(&pdev->dev, irq, mtk_i2c_irq,
 			       IRQF_NO_SUSPEND | IRQF_TRIGGER_NONE,

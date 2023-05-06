@@ -25,6 +25,11 @@ int g_stagger_info(struct adaptor_ctx *ctx,
 	if (!info)
 		return 0;
 
+	if (info->scenario_id != SENSOR_SCENARIO_ID_NONE)
+		scenario = info->scenario_id;
+
+	dev_info(ctx->dev, " %s scenario %d %d\n", __func__, scenario, info->scenario_id);
+
 	ret = subdrv_call(ctx, get_frame_desc, scenario, &fd);
 
 	if (!ret) {
@@ -40,6 +45,7 @@ int g_stagger_info(struct adaptor_ctx *ctx,
 	}
 
 	info->count = hdr_cnt;
+	dev_info(ctx->dev, " %s after %d %d\n", __func__, info->count, info->scenario_id);
 
 	return ret;
 }

@@ -1,0 +1,112 @@
+/* TOUCH start */
+/*Touch SPI state init*/
+&pio {
+	pmx_ts_active {
+		ts_int_active: ts_int_active {
+			pins_cmd_dat {
+				pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+				slew-rate = <0>;
+				bias-disable;
+			};
+		};
+	};
+	pmx_ts_suspend {
+		ts_int_suspend: ts_int_suspend {
+			pins_cmd_dat {
+				pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+				slew-rate = <1>;
+				output-low;
+			};
+		};
+
+	};
+	ts_cs_active: ts_cs_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO110__FUNC_SPI2_A_CSB>;
+		};
+	};
+
+	ts_cs_suspend: ts_cs_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
+			slew-rate = <1>;
+			bias-pull-down;
+			output-low;
+		};
+	};
+	ts_spi_mode: ts_spimode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO109__FUNC_SPI2_A_MI>,
+				<PINMUX_GPIO110__FUNC_SPI2_A_CSB>,
+				<PINMUX_GPIO111__FUNC_SPI2_A_MO>,
+				<PINMUX_GPIO112__FUNC_SPI2_A_CLK>;
+			drive-strength = <2>;
+		};
+	};
+
+};
+
+&spi2 {
+	status = "ok";
+        mediatek,pad-select = <0>;
+	mediatek,kthread-rt = <1>;
+	novatek@0 {
+		compatible = "novatek,NVT-ts-spi";
+		reg = <0>; //Same as CS ID
+		status = "ok";
+
+		pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_spimode";
+		pinctrl-0 = <&ts_cs_active &ts_int_active>;
+		pinctrl-1 = <&ts_cs_suspend &ts_int_suspend>;
+		pinctrl-2 = <&ts_spi_mode>;
+		spi-max-frequency = <13000000>;	//4800000,9600000,15000000,19200000
+		super-resolution-factor = <10>;
+		novatek,irq-gpio = <&pio 135 0x2001>;
+
+		/*  523 */
+		novatek,swrst-n8-addr = <0x03F0FE>;
+		novatek,spi-rd-fast-addr = <0x03F310>;
+
+		/* MP */
+		/*new touch faeature default param*/
+		novatek,touch-game-param-config1 = <2 2 1 2 1>;
+		novatek,touch-game-param-config2 = <2 2 2 2 1>;
+		novatek,touch-game-param-config3 = <2 2 3 2 1>;
+
+		/* game 2.0 */
+		novatek,touch-follow-performance-def = <3>;
+		novatek,touch-tap-sensitivity-def = <4>;
+		novatek,touch-aim-sensitivity-def = <3>;
+		novatek,touch-tap-stability-def = <3>;
+		/* novatek,touch-follow-performance = <2  4  1
+						    4  7  1
+						    6  9  1
+						    8  11 1
+						    10 14 1>;
+		novatek,touch-tap-sensitivity = <100 120 140 150 160>;
+		novatek,touch-aim-sensitivity = <2   4   6   8   10>;
+		novatek,touch-tap-stability   = <8   12  15  18  25>;
+		novatek,touch-expert-array    = <6   9   1   120 6   15>; */
+		novatek,touch-expert-array    = <3 4 3 3
+						 5 4 4 3
+						 4 4 5 3>;
+
+		novatek,config-array-size = <2>;
+		novatek,cfg_0 {
+                        novatek,tp-vendor = <0x46>;
+                        novatek,display-maker = <0x36>;
+                        novatek,fw-name = "novatek_nt36672e_l16_fw01.bin";
+                        novatek,mp-name = "novatek_nt36672e_l16_mp01.bin";
+                        novatek,clicknum-file-name = "nvt+tianma";
+		};
+		novatek,cfg_1 {
+                        novatek,tp-vendor = <0x53>;
+                        novatek,display-maker = <0x42>;
+                        novatek,fw-name = "novatek_nt36672e_l16_fw02.bin";
+                        novatek,mp-name = "novatek_nt36672e_l16_mp02.bin";
+                        novatek,clicknum-file-name = "nvt+csot";
+		};
+
+	};
+};
+/* TOUCH end */

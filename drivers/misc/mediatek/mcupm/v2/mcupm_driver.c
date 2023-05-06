@@ -3,7 +3,9 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
+#include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
@@ -393,6 +395,69 @@ void *get_mcupm_ipidev(void)
 }
 EXPORT_SYMBOL_GPL(get_mcupm_ipidev);
 
+static struct task_struct *mcupm_task;
+#define UBUS_BASE   0x0C800000
+#define CLUSTER_MPAM_BASE   0X10000
+#define MPAMCFG_PART_SEL_OFS    0x100
+#define MPAMCFG_CPBM_NS_OFS 0x1000
+#define MPAMCFG_PART_SEL    (UBUS_BASE+CLUSTER_MPAM_BASE+MPAMCFG_PART_SEL_OFS)
+#define MPAMCFG_CPBM    (UBUS_BASE+CLUSTER_MPAM_BASE+MPAMCFG_CPBM_NS_OFS)
+#define UBUS_MPAM_SIZE  0x1100
+static phys_addr_t mpam_base_virt;
+
+int mcupm_thread(void *data)
+{
+	int ipi_recv_d = 0, ret = 0, i;
+	struct mcupm_ipi_data_s ipi_data;
+	unsigned int cmd, partid, cache_por;
+
+	ipi_data.cmd = MCUPM_PLT_SERV_READY;
+	mcupm_plt_ackdata = 0;
+
+	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_PLATFORM, IPI_SEND_POLLING,
+			&ipi_data,
+			sizeof(struct mcupm_ipi_data_s) / MCUPM_MBOX_SLOT_SIZE,
+			2000);
+
+	if (ret) {
+		pr_info("MCUPM: plt IPI fail ret=%d, ackdata=%d\n",
+				ret, mcupm_plt_ackdata);
+	}
+
+	if (mcupm_plt_ackdata < 0) {
+		pr_info("MCUPM: plt IPI init fail, ackdata=%d\n",
+				mcupm_plt_ackdata);
+	}
+
+	//mmap utility bus
+	mpam_base_virt =
+		(phys_addr_t)(uintptr_t)ioremap(UBUS_BASE+CLUSTER_MPAM_BASE, UBUS_MPAM_SIZE);
+
+	if (!mpam_base_virt)
+		return -ENOMEM;
+
+	do {
+		mtk_ipi_recv(&mcupm_ipidev, CH_S_PLATFORM);
+		ipi_recv_d = mcupm_plt_ackdata;
+
+		cmd = (ipi_recv_d >> 28) & 0xF;
+		partid = (ipi_recv_d >> 16) & 0xFFF;
+		cache_por = ipi_recv_d & 0xFFFF;
+
+		if (cmd != 0)
+			continue;
+		//part sel
+		iowrite32(partid, (void __iomem *)(mpam_base_virt+MPAMCFG_PART_SEL_OFS));
+		//set cpbm
+		ret = 0;
+		for (i = 0; i < cache_por; i++)
+			ret = (ret << 1) + 1;
+		iowrite32(ret, (void __iomem *)(mpam_base_virt+MPAMCFG_CPBM_NS_OFS));
+	} while (!kthread_should_stop());
+
+	return 0;
+}
+
 static int mcupm_device_probe(struct platform_device *pdev)
 {
 	int i, ret;
@@ -444,6 +509,8 @@ static int mcupm_device_probe(struct platform_device *pdev)
 		pr_info("MCUPM timesync init fail\n");
 		return ret;
 	}
+
+	mcupm_task = kthread_run(mcupm_thread, NULL, "mcupm_task");
 
 	return 0;
 }

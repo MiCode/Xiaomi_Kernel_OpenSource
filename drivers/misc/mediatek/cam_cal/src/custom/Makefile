@@ -37,11 +37,22 @@ comma := ,
 empty :=
 space := $(empty) $(empty)
 
-KERNEL_CAM_CAL_SRC := $(notdir $(wildcard $(CAM_CAL_CUSTOM_SRC_LAYOUT_PATH)/*.c))
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"matisse")
+BUILD_PROJECT_NAME := matisse
+endif
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"rubens")
+BUILD_PROJECT_NAME := rubens
+endif
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"xaga")
+BUILD_PROJECT_NAME := xaga
+endif
+
+KERNEL_CAM_CAL_SRC := $(notdir $(wildcard $(CAM_CAL_CUSTOM_SRC_LAYOUT_PATH)/$(BUILD_PROJECT_NAME)*.c))
 KERNEL_CAM_CAL_OBJ := $(addprefix layout/,$(patsubst %.c, %.o, $(KERNEL_CAM_CAL_SRC)))
 KERNEL_CAM_CAL := $(basename $(KERNEL_CAM_CAL_SRC))
 CAM_CAL_CONFIG_LIST := $(subst $(space),$(comma),$(foreach e,$(subst ",,$(KERNEL_CAM_CAL)),E($(e))))
 subdir-ccflags-y += -D'CAM_CAL_CONFIG_LIST=$(CAM_CAL_CONFIG_LIST)'
 
 camera_eeprom-objs += cam_cal_config.o
+camera_eeprom-objs += xiaomi_cam_cal_config.o
 camera_eeprom-objs += $(KERNEL_CAM_CAL_OBJ)

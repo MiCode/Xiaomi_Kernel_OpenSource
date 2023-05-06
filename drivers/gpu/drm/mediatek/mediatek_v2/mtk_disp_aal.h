@@ -130,6 +130,16 @@ struct DISP_DRE30_PARAM {
 	unsigned int dre30_gain[AAL_DRE30_GAIN_REGISTER_NUM];
 };
 
+struct mtk_disp_aal_data {
+	bool support_shadow;
+	bool need_bypass_shadow;
+	int aal_dre_hist_start;
+	int aal_dre_hist_end;
+	int aal_dre_gain_start;
+	int aal_dre_gain_end;
+	int bitShift;
+};
+
 void disp_aal_debug(const char *opt);
 
 /* Provide for LED */

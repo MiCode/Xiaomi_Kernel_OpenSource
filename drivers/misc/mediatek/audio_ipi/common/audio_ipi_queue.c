@@ -439,31 +439,22 @@ int send_message_ack(
 	unsigned long flags = 0;
 
 	/* error handling */
-	if (handler == NULL) {
-		pr_info("handler == NULL!! return");
+	if (handler == NULL)
 		return -1;
-	}
 
-	if (p_ipi_msg_ack == NULL) {
-		pr_notice("p_ipi_msg_ack = NULL, return");
+	if (p_ipi_msg_ack == NULL)
 		return -1;
-	}
 
-	if (p_ipi_msg_ack->ack_type != AUDIO_IPI_MSG_ACK_BACK) {
-		pr_notice("ack_type %d invalid, return",
-			  p_ipi_msg_ack->ack_type);
+	if (p_ipi_msg_ack->ack_type != AUDIO_IPI_MSG_ACK_BACK)
 		return -1;
-	}
 
 
 	/* get info */
 	msg_queue = (struct msg_queue_t *)handler->msg_queue;
 	task_scene = msg_queue->task_scene;
 
-	if (msg_queue->enable == false) {
-		pr_info("queue disabled!! return");
+	if (msg_queue->enable == false)
 		return -1;
-	}
 
 
 	/* get msg ack & wake up queue */
@@ -618,6 +609,9 @@ static int process_message_in_queue(
 			break;
 		}
 
+		if (check_print_msg_info(p_ack) == true)
+			DUMP_IPI_MSG("ack back", p_ipi_msg);
+
 		/* should be in pair */
 		spin_lock_irqsave(&msg_queue->ack_lock, flags);
 		if (!check_ack_msg_valid(p_ipi_msg, p_ack)) {
@@ -643,17 +637,13 @@ static int process_message_in_queue(
 	}
 
 
+	/* pop message from queue & wake up next message */
 	spin_lock_irqsave(&msg_queue->rw_lock, flags);
-
-	/* pop message from queue */
 	pop_msg(msg_queue, &p_ipi_msg_pop);
-	AUD_ASSERT(p_ipi_msg_pop == p_ipi_msg);
-
-	/* wake up next message */
 	is_queue_empty = check_queue_empty(msg_queue);
-
 	spin_unlock_irqrestore(&msg_queue->rw_lock, flags);
 
+	AUD_ASSERT(p_ipi_msg_pop == p_ipi_msg);
 
 	if (is_queue_empty == false) {
 		dsb(SY);

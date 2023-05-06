@@ -579,6 +579,7 @@ static int scpsys_power_on(struct generic_pm_domain *genpd)
 	if (ret < 0)
 		goto err_pwr_ack;
 
+	udelay(100);
 	val &= ~PWR_CLK_DIS_BIT;
 	writel(val, ctl_addr);
 
@@ -954,13 +955,11 @@ err_hwv_vote:
 err_hwv_prepare:
 	regmap_read(scp->hwv_regmap, scpd->data->hwv_done_ofs, &val);
 	dev_err(scp->dev, "Failed to hwv prepare timeout %s(%d %x)\n", genpd->name, ret, val);
-	scpsys_clk_disable(scpd->lp_clk, MAX_CLKS);
 err_lp_clk:
 	dev_err(scp->dev, "Failed to enable lp clk %s(%d)\n", genpd->name, ret);
-	scpsys_clk_disable(scpd->clk, MAX_CLKS);
 err_clk:
-	dev_err(scp->dev, "Failed to enable clk %s(%d)\n", genpd->name, ret);
-	scpsys_regulator_disable(scpd);
+	val = scpsys_regulator_is_enabled(scpd);
+	dev_err(scp->dev, "Failed to enable clk %s(%d %d)\n", genpd->name, ret, val);
 err_regulator:
 	dev_err(scp->dev, "Failed to power on domain %s(%d)\n", genpd->name, ret);
 

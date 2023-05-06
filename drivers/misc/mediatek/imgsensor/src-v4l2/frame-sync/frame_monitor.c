@@ -470,7 +470,7 @@ static void frm_dump_measurement_data(
 
 
 	if (p_fmeas->idx == 0) {
-		LOG_MUST(
+		LOG_PF_INF(
 			"[%u] ID:%#x (sidx:%u), tg:%d, vsync:%u, pred/act fl:(curr:%u,*0:%u(%u)/%u, 1:%u(%u)/%u, 2:%u(%u)/%u, 3:%u(%u)/%u), ts_tg_%u:(%u/%u/%u/%u), query_vts_at:%u (SOF + %u)\n",
 			idx,
 			frm_inst.f_info[idx].sensor_id,
@@ -498,7 +498,7 @@ static void frm_dump_measurement_data(
 			query_vts_at,
 			time_after_sof);
 	} else if (p_fmeas->idx == 1) {
-		LOG_MUST(
+		LOG_PF_INF(
 			"[%u] ID:%#x (sidx:%u), tg:%d, vsync:%u, pred/act fl:(curr:%u, 0:%u(%u)/%u,*1:%u(%u)/%u, 2:%u(%u)/%u, 3:%u(%u)/%u), ts_tg_%u:(%u/%u/%u/%u), query_vts_at:%u (SOF + %u)\n",
 			idx,
 			frm_inst.f_info[idx].sensor_id,
@@ -526,7 +526,7 @@ static void frm_dump_measurement_data(
 			query_vts_at,
 			time_after_sof);
 	} else if (p_fmeas->idx == 2) {
-		LOG_MUST(
+		LOG_PF_INF(
 			"[%u] ID:%#x (sidx:%u), tg:%d, vsync:%u, pred/act fl:(curr:%u, 0:%u(%u)/%u, 1:%u(%u)/%u,*2:%u(%u)/%u, 3:%u(%u)/%u), ts_tg_%u:(%u/%u/%u/%u), query_vts_at:%u (SOF + %u)\n",
 			idx,
 			frm_inst.f_info[idx].sensor_id,
@@ -554,7 +554,7 @@ static void frm_dump_measurement_data(
 			query_vts_at,
 			time_after_sof);
 	} else if (p_fmeas->idx == 3) {
-		LOG_MUST(
+		LOG_PF_INF(
 			"[%u] ID:%#x (sidx:%u), tg:%d, vsync:%u, pred/act fl:(curr:%u, 0:%u(%u)/%u, 1:%u(%u)/%u, 2:%u(%u)/%u,*3:%u(%u)/%u), ts_tg_%u:(%u/%u/%u/%u), query_vts_at:%u (SOF + %u)\n",
 			idx,
 			frm_inst.f_info[idx].sensor_id,
@@ -1239,7 +1239,7 @@ int frm_timestamp_checker(unsigned int m_tg, unsigned int s_tg)
 
 timestamp_checker_log:
 
-	LOG_MUST(
+	LOG_PF_INF(
 		"sync:%d, diff:%u, cnt:%u, ts_idx(m:%u/s:%u), ts_tg_%u(%u):(0:%u/1:%u/2:%u/3:%u, %u)/ts_tg_%u(%u):(0:%u/1:%u/2:%u/3:%u, %u)\n",
 		result,
 		min_diff,

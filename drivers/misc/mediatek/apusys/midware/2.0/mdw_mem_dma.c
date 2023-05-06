@@ -85,10 +85,17 @@ static int mdw_mem_dma_allocate_sgt(const char *buf,
 
 	nr_pages = DIV_ROUND_UP((unsigned long)buf + len, PAGE_SIZE)
 		- ((unsigned long)buf / PAGE_SIZE);
-	pages = kmalloc_array(nr_pages, sizeof(struct page *), GFP_KERNEL);
+	pages = kvmalloc(nr_pages * sizeof(struct page *), GFP_KERNEL);
 
-	if (!pages)
+	mdw_mem_debug("mdw buf: 0x%llx, len: 0x%lx, nr_pages: %d\n",
+		buf, len, nr_pages);
+
+	if (!pages) {
+		mdw_drv_err("No Page 0x%llx, len: 0x%lx, nr_pages: %d\n",
+				buf, len, nr_pages);
 		return -ENOMEM;
+	}
+
 
 	p = buf - offset_in_page(buf);
 	mdw_mem_debug("start p: 0x%llx buf: 0x%llx\n",
@@ -100,7 +107,7 @@ static int mdw_mem_dma_allocate_sgt(const char *buf,
 		else
 			pages[index] = kmap_to_page((void *)p);
 		if (!pages[index]) {
-			kfree(pages);
+			kvfree(pages);
 			mdw_drv_err("map failed\n");
 			return -EFAULT;
 		}
@@ -114,7 +121,7 @@ static int mdw_mem_dma_allocate_sgt(const char *buf,
 
 	ret = sg_alloc_table_from_pages(sgt, pages, index,
 		offset_in_page(buf), len, GFP_KERNEL);
-	kfree(pages);
+	kvfree(pages);
 	if (ret) {
 		mdw_drv_err("sg_alloc_table_from_pages: %d\n", ret);
 		return ret;
@@ -293,7 +300,7 @@ static void mdw_dmabuf_release(struct dma_buf *dbuf)
 
 	mdw_mem_dma_free_sgt(&mdbuf->sgt);
 	vunmap(mdbuf->vaddr);
-	kvfree(mdbuf->buf);
+	vfree(mdbuf->buf);
 	kfree(mdbuf);
 	m->release(m);
 }
@@ -393,7 +400,7 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem)
 		goto free_mdw_dbuf;
 	}
 
-	kva = kvzalloc(mdbuf->dma_size, GFP_KERNEL);
+	kva = vzalloc(mdbuf->dma_size);
 	if (!kva) {
 		ret = -ENOMEM;
 		goto free_mdw_dbuf;
@@ -444,7 +451,7 @@ int mdw_mem_dma_alloc(struct mdw_mem *mem)
 free_sgt:
 	mdw_mem_dma_free_sgt(&mdbuf->sgt);
 free_buf:
-	kvfree(kva);
+	vfree(kva);
 free_mdw_dbuf:
 	kfree(mdbuf);
 out:

@@ -2516,19 +2516,8 @@ static int _btif_rx_btm_init(struct _mtk_btif_ *p_btif)
 		}
 
 #if ENABLE_BTIF_RX_THREAD_RT_SCHED
-		{
-			int i_ret = -1;
-			int policy = SCHED_FIFO;
-			struct sched_param param;
-
-			param.sched_priority = MAX_RT_PRIO - 20;
-			i_ret = sched_setscheduler(p_btif->p_task, policy,
-					&param);
-			if (i_ret != 0)
-				BTIF_WARN_FUNC("set RT to workqueue failed\n");
-			else
-				BTIF_INFO_FUNC("set RT to workqueue succeed\n");
-		}
+		sched_set_fifo(p_btif->p_task);
+		BTIF_INFO_FUNC("set btif_rxd to real time priority.\n");
 #endif
 
 		wake_up_process(p_btif->p_task);

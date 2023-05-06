@@ -8,6 +8,9 @@
 
 #include <linux/mfd/mt6685/registers.h>
 
+#define HWCID                   0x8
+#define HWCID_MASK              0xff
+
 /*features*/
 #define SUPPORT_EOSC_CALI
 #define SUPPORT_PWR_OFF_ALARM

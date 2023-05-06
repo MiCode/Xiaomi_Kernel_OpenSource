@@ -17,6 +17,12 @@
 #include "mtk_drm_ddp.h"
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_drm_mmp.h"
+#ifdef CONFIG_MI_DISP_INPUT_HANDLER
+#include "mi_disp/mi_disp_input_handler.h"
+#endif
+#ifdef CONFIG_MI_DISP_BOOST
+#include "mi_disp/mi_disp_boost.h"
+#endif
 
 #define MAX_ENTER_IDLE_RSZ_RATIO 300
 
@@ -74,6 +80,11 @@ static void mtk_drm_cmd_mode_enter_idle(struct drm_crtc *crtc)
 
 	mtk_drm_idlemgr_disable_crtc(crtc);
 	lcm_fps_ctx_reset(crtc);
+#ifdef CONFIG_MI_DISP_ESD_CHECK
+	if (mtk_crtc->esd_ctx) {
+		atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
+	}
+#endif
 }
 
 static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
@@ -118,8 +129,16 @@ static void mtk_drm_cmd_mode_leave_idle(struct drm_crtc *crtc)
 		return;
 	}
 
+#ifdef CONFIG_MI_DISP_BOOST
+	mi_disp_boost_enable();
+#endif
+
 	mtk_drm_idlemgr_enable_crtc(crtc);
 	lcm_fps_ctx_reset(crtc);
+
+#ifdef CONFIG_MI_DISP_BOOST
+	mi_disp_boost_disable();
+#endif
 }
 
 static void mtk_drm_idlemgr_enter_idle_nolock(struct drm_crtc *crtc)
@@ -384,6 +403,14 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 			continue;
 		}
 
+#ifdef CONFIG_MI_DISP_INPUT_HANDLER
+		if (mi_disp_input_is_touch_active()) {
+			/* kicked in touch active, it's not idle */
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			continue;
+		}
+#endif
+
 		t_idle = local_clock() - idlemgr_ctx->idlemgr_last_kick_time;
 		if (t_idle < idlemgr_ctx->idle_check_interval * 1000 * 1000) {
 			/* kicked in idle_check_interval msec, it's not idle */
@@ -511,6 +538,7 @@ static void mtk_drm_idlemgr_disable_crtc(struct drm_crtc *crtc)
 	/* 4. disconnect path */
 	mtk_crtc_disconnect_default_path(mtk_crtc);
 
+	mtk_gce_backup_slot_backup(mtk_crtc);
 	/* 5. power off all modules in this CRTC */
 	mtk_crtc_ddp_unprepare(mtk_crtc);
 	mtk_drm_idlemgr_disable_connector(crtc);
@@ -559,7 +587,7 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 	mtk_drm_idlemgr_enable_connector(crtc);
 	mtk_crtc_ddp_prepare(mtk_crtc);
 
-	mtk_gce_backup_slot_init(mtk_crtc);
+	mtk_gce_backup_slot_restore(mtk_crtc);
 
 #ifndef DRM_CMDQ_DISABLE
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL)

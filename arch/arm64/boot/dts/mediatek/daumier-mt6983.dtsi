@@ -1,0 +1,673 @@
+/*
+this file is only for attribution of daumier
+*/
+#include "mediatek/xiaomi-mt6983-common.dtsi"
+#include "mediatek/daumier_mt6983_camera_v4l2.dtsi"
+#include "mediatek/xiaomi_daumier_mt6983_touch.dtsi"
+#include <dt-bindings/iio/mt635x-auxadc.h>
+
+&gpu_mali_opp {
+			opp00 {
+				opp-hz = /bits/ 64 <955000000>;
+				opp-microvolt = <750000>;
+			};
+			opp01 {
+				opp-hz = /bits/ 64 <880000000>;
+				opp-microvolt = <750000>;
+			};
+			opp02 {
+				opp-hz = /bits/ 64 <848000000>;
+				opp-microvolt = <750000>;
+			};
+			opp03 {
+				opp-hz = /bits/ 64 <841000000>;
+				opp-microvolt = <743750>;
+			};
+			opp04 {
+				opp-hz = /bits/ 64 <835000000>;
+				opp-microvolt = <737500>;
+			};
+			opp05 {
+				opp-hz = /bits/ 64 <828000000>;
+				opp-microvolt = <731250>;
+			};
+			opp06 {
+				opp-hz = /bits/ 64 <822000000>;
+				opp-microvolt = <725000>;
+			};
+			opp07 {
+				opp-hz = /bits/ 64 <816000000>;
+				opp-microvolt = <718750>;
+			};
+			opp08 {
+				opp-hz = /bits/ 64 <809000000>;
+				opp-microvolt = <712500>;
+			};
+			opp09 {
+				opp-hz = /bits/ 64 <803000000>;
+				opp-microvolt = <706250>;
+			};
+			opp10 {
+				opp-hz = /bits/ 64 <797000000>;
+				opp-microvolt = <700000>;
+			};
+			opp11 {
+				opp-hz = /bits/ 64 <770000000>;
+				opp-microvolt = <693750>;
+			};
+			opp12 {
+				opp-hz = /bits/ 64 <744000000>;
+				opp-microvolt = <687500>;
+			};
+			opp13 {
+				opp-hz = /bits/ 64 <717000000>;
+				opp-microvolt = <681250>;
+			};
+			opp14 {
+				opp-hz = /bits/ 64 <691000000>;
+				opp-microvolt = <675000>;
+			};
+			opp15 {
+				opp-hz = /bits/ 64 <665000000>;
+				opp-microvolt = <668750>;
+			};
+			opp16 {
+				opp-hz = /bits/ 64 <638000000>;
+				opp-microvolt = <662500>;
+			};
+			opp17 {
+				opp-hz = /bits/ 64 <612000000>;
+				opp-microvolt = <656250>;
+			};
+			opp18 {
+				opp-hz = /bits/ 64 <586000000>;
+				opp-microvolt = <650000>;
+			};
+			opp19 {
+				opp-hz = /bits/ 64 <569000000>;
+				opp-microvolt = <643750>;
+			};
+			opp20 {
+				opp-hz = /bits/ 64 <552000000>;
+				opp-microvolt = <637500>;
+			};
+			opp21 {
+				opp-hz = /bits/ 64 <535000000>;
+				opp-microvolt = <631250>;
+			};
+			opp22 {
+				opp-hz = /bits/ 64 <518000000>;
+				opp-microvolt = <625000>;
+			};
+			opp23 {
+				opp-hz = /bits/ 64 <501000000>;
+				opp-microvolt = <618750>;
+			};
+			opp24 {
+				opp-hz = /bits/ 64 <484000000>;
+				opp-microvolt = <612500>;
+			};
+			opp25 {
+				opp-hz = /bits/ 64 <467000000>;
+				opp-microvolt = <606250>;
+			};
+			opp26 {
+				opp-hz = /bits/ 64 <451000000>;
+				opp-microvolt = <600000>;
+			};
+			opp27 {
+				opp-hz = /bits/ 64 <434000000>;
+				opp-microvolt = <593750>;
+			};
+			opp28 {
+				opp-hz = /bits/ 64 <417000000>;
+				opp-microvolt = <587500>;
+			};
+			opp29 {
+				opp-hz = /bits/ 64 <400000000>;
+				opp-microvolt = <581250>;
+			};
+			opp30 {
+				opp-hz = /bits/ 64 <383000000>;
+				opp-microvolt = <575000>;
+			};
+			opp31 {
+				opp-hz = /bits/ 64 <366000000>;
+				opp-microvolt = <568750>;
+			};
+			opp32 {
+				opp-hz = /bits/ 64 <349000000>;
+				opp-microvolt = <562500>;
+			};
+			opp33 {
+				opp-hz = /bits/ 64 <332000000>;
+				opp-microvolt = <556250>;
+			};
+			opp34 {
+				opp-hz = /bits/ 64 <316000000>;
+				opp-microvolt = <550000>;
+			};
+			opp35 {
+				opp-hz = /bits/ 64 <303000000>;
+				opp-microvolt = <543750>;
+			};
+			opp36 {
+				opp-hz = /bits/ 64 <290000000>;
+				opp-microvolt = <537500>;
+			};
+			opp37 {
+				opp-hz = /bits/ 64 <277000000>;
+				opp-microvolt = <531250>;
+			};
+			opp38 {
+				opp-hz = /bits/ 64 <265000000>;
+				opp-microvolt = <525000>;
+			};
+			opp39 {
+				opp-hz = /bits/ 64 <252000000>;
+				opp-microvolt = <518750>;
+			};
+			opp40 {
+				opp-hz = /bits/ 64 <239000000>;
+				opp-microvolt = <512500>;
+			};
+			opp41 {
+				opp-hz = /bits/ 64 <226000000>;
+				opp-microvolt = <506250>;
+			};
+			opp42 {
+				opp-hz = /bits/ 64 <214000000>;
+				opp-microvolt = <500000>;
+			};
+		};
+
+&odm {
+	xiaomi_touch: xiaomi_touch {
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
+	};
+};
+
+&pio {
+	test_mode_irq38: test_mode_irq38 {
+                pins_cmd_dat {
+			pinmux = <PINMUX_GPIO38__FUNC_GPIO38>;
+			drive-strength = <2>;
+			bias-disable;
+			input-enable;
+		};
+	};
+
+        test_mode_irq39: test_mode_irq39 {
+        	pins_cmd_dat {
+			pinmux = <PINMUX_GPIO39__FUNC_GPIO39>;
+			drive-strength = <2>;
+			bias-disable;
+			input-enable;
+		};
+        };
+};
+
+&odm {
+	testing-mode {
+		compatible = "modem,testing-mode";
+		status-gpio = <&pio 38 0>, <&pio 39 0>;
+		debounce-time = <30>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&test_mode_irq38 &test_mode_irq39>;
+	};
+};
+
+&odm {
+	mi_game_plaid {
+		compatible = "xiaomi-gpu-plaid";
+	};
+};
+
+/* IRTX GPIO Start */
+&irtx_pwm {
+	pwm_ch = <3>;
+	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
+	pinctrl-0 = <&irtx_gpio_led_default>;
+	pinctrl-1 = <&irtx_gpio_led_set>;
+	status = "okay";
+};
+&pio {
+	/* IRTX GPIO Settings -Start */
+	/* default: GPIO0, output, high */
+	irtx_gpio_led_default:irtx_gpio_led_def@gpio37 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO37__FUNC_GPIO37>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+			input-schmitt-enable = <0>;
+		};
+	};
+	irtx_gpio_led_set:irtx_gpio_led_set@gpio37 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO37__FUNC_PWM_3>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+}; /* IRTX GPIO Settings -End */
+
+&i2c9 {
+	clock-frequency = <400000>;
+	bq28z610@55 {
+		compatible = "bq28z610";
+		reg = <0x55>;
+		enable_shutdown_delay;
+		normal_shutdown_vbat_1s = <3400>;
+		critical_shutdown_vbat_1s = <3320>;
+		cool_critical_shutdown_vbat_1s = <3300>;
+		old_critical_shutdown_vbat_1s = <3310>;
+		report_full_rsoc_1s = <9700>;
+		soc_gap_1s = <2>;
+		soc_decimal_rate = <
+			0  38
+			10 35
+			20 33
+			30 33
+			40 33
+			50 33
+			60 33
+			70 30
+			80 25
+			90 20
+			95 10 >;
+	};
+};
+
+&i2c12 {
+	clock-frequency = <400000>;
+	sc8561_master@64 {
+		compatible = "sc8561_master";
+		reg = <0x64>;
+		sc8561_irq_gpio = <&pio 13 0x0>;
+	};
+};
+
+&mt6373_adc {
+	vin3_open {
+		channel = <AUXADC_VIN3>;
+		pures = <ADC_PURES_100K>;
+	};
+};
+
+&charger {
+		max_charger_voltage = <12000000>;
+		vbus_control-supply = <&mt6373_vcn33_3>;
+		fv = <4450>;
+		fv_ffc = <4480>;
+		iterm = <200>;
+		iterm_warm = <200>;
+		iterm_ffc = <782>;
+		iterm_ffc_warm = <884>;
+		usb_charger_current = <500000>;
+		ac_charger_current = <1600000>;
+		ac_charger_input_current = <1600000>;
+		charging_host_charger_current = <1500000>;
+		pd2_input_current = <1200000>;
+		ffc_low_tbat = <150>;
+		ffc_high_tbat = <480>;
+		ffc_medium_tbat = <350>;
+		ffc_high_soc = <95>;
+		step_fallback_hyst = <25>;
+		step_forward_hyst = <5>;
+		jeita_fallback_hyst = <10>;
+		jeita_forward_hyst = <10>;
+		max_fcc = <12400>;
+		daumier_product;
+		io-channels = <&mt6373_adc AUXADC_VIN3>;
+		io-channel-names = "mt6373_adc3";
+		min_charger_voltage_1 = <4600000>;
+		min_charger_voltage_2 = <4400000>;
+		jeita_fcc_cfg = <(-100)	0	4200	1000	759
+				1	50	4200	2530	2530
+				51	100	4200	3542	3542
+				101	150	4200	6072	6072
+				151	470	4200	12400	12400
+				471	600	4200	2530	2530>;
+		jeita_fv_cfg = <(-100)	0	4450
+				1	50	4450
+				51	100	4450
+				101	150	4450
+				151	470	4480
+				471	600	4100>;
+		step_chg_cfg_low_cycle = <3000	3595	12360
+					3596	4200	12360
+					4201	4300	9108
+					4301	4400	7590
+					4401	4450	6072
+					4451	4480	6072>;
+		step_chg_cfg_high_cycle = <3000	3595	12360
+					3596	4150	12360
+					4151	4300	9108
+					4301	4400	7590
+					4401	4450	6072
+					4451	4472	6072>;
+		thermal_limit_dcp = <1600 1600 1600 1600 1600 1600 1600 1600 1600 1600 1600 1600 1500 1400 1200 1000>;
+		thermal_limit_qc2 = <2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2000 1500 1500 1000 500>;
+		thermal_limit_qc3_18w = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+		thermal_limit_qc3_27w = <2500 2500 2500 2500 2500 2500 2500 2300 2200 2100 1500 1000 800 700 600 500>;
+		thermal_limit_qc35 = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+		thermal_limit_pd = <12400 10000 9000 8500 8000 7000 6600 6500 6000 5500 5000 4500 4000 3000 2000 1000>;
+};
+
+&lk_charger {
+		/* charging current */
+		usb_charger_current = <500000>;
+		ac_charger_current = <1600000>;
+		ac_charger_input_current = <1600000>;
+		non_std_ac_charger_current = <500000>;
+		charging_host_charger_current = <1500000>;
+		ta_ac_charger_current = <2000000>;
+		pd_charger_current = <1500000>;
+		pre_charger_current = <250000>;
+
+		/* battery temperature protection */
+		temp_t4_threshold = <60>;
+		temp_t3_threshold = <45>;
+		temp_t1_threshold = <(-10)>;
+		fast_charge_voltage = <3100>;
+	};
+
+&mtk_gauge {
+        DISABLE_MTKBATTERY = <(1)>;
+};
+
+&pd_cp_manager {
+		compatible = "pd_cp_manager";
+		fv = <4450>;
+		fv_ffc = <4480>;
+		max_fcc = <12400>;
+		max_vbus = <21000>;
+		max_ibus = <6200>;
+		fcc_low_hyst = <100>;
+		fcc_high_hyst = <10>;
+		low_tbat = <100>;
+		high_tbat = <480>;
+		high_vbat = <4400>;
+		high_soc = <95>;
+		low_fcc = <2000>;
+		cv_vbat = <4440>;
+		cv_vbat_ffc = <4460>;
+		cv_ibat = <2000>;
+		min_pdo_vbus = <8000>;
+		max_pdo_vbus = <21000>;
+		mt6375_control_gpio = <&pio 26 0x0>;
+};
+
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio =	<&pio 87 0>;
+	};
+};
+
+&mtk_leds {
+	compatible = "mediatek,disp-leds";
+	backlight {
+		label = "lcd-backlight";
+		led_mode = <4>;
+		max-brightness = <16383>;
+		max-hw-brightness = <4095>;
+		default-state = "quarter";
+	};
+};
+
+&mt6373_vaud18 {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+};
+
+&mt6373_vibr {
+	regulator-min-microvolt = <3000000>;
+	regulator-max-microvolt = <3000000>;
+};
+
+&pio {
+	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO84__FUNC_GPIO84>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO86__FUNC_GPIO86>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO86__FUNC_GPIO86>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO85__FUNC_DSI_TE>;
+		};
+	};
+
+	mtkfb_pins_lcm_dvdd_en1: lcm_dvdd_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO193__FUNC_GPIO193>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_dvdd_en0: lcm_dvdd_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO193__FUNC_GPIO193>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
+		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "lcm_dvdd_en1_gpio",
+		"lcm_dvdd_en0_gpio";
+	pinctrl-0 = <&mtkfb_pins_lcd_bias_enp1>;
+	pinctrl-1 = <&mtkfb_pins_lcd_bias_enp0>;
+	pinctrl-2 = <&mtkfb_pins_lcd_bias_enn1>;
+	pinctrl-3 = <&mtkfb_pins_lcd_bias_enn0>;
+	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-7 = <&mtkfb_pins_lcm_dvdd_en1>;
+	pinctrl-8 = <&mtkfb_pins_lcm_dvdd_en0>;
+
+	status = "okay";
+};
+&dispsys_config {
+	pinctrl-names =
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "lcm_dvdd_en1_gpio",
+		"lcm_dvdd_en0_gpio";
+	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-3 = <&mtkfb_pins_lcm_dvdd_en1>;
+	pinctrl-4 = <&mtkfb_pins_lcm_dvdd_en0>;
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "l2m_38_0a_0a_dsc_cmd,lcm";
+		reg = <0>;
+		reset-gpios = <&pio 86 0>;
+		dvdd-gpios = <&pio 193 0>;
+		vibr-supply = <&mt6373_vibr>;
+		vaud18-supply = <&mt6373_vrfio18_aif>;
+		pinctrl-names = "default";
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};
+
+&u2port0{
+		mediatek,eye-vrt = <7>;
+		mediatek,eye-term = <7>;
+		mediatek,rev6 = <3>;
+		mediatek,eye-vrt-host = <7>;
+};
+
+&disp_ccorr0_0 {
+	ccorr_bit = <13>;
+};
+
+&disp_aal0 {
+	mtk_dre30_support = <1>;
+};
+
+&disp_aal1 {
+	mtk_dre30_support = <1>;
+};
+
+&mtee_svp {
+	mtee: MTEE {
+                   compatible = "mediatek,mtk_svp_on_mtee_support";
+	};
+
+	svp: SecureVideoPath {
+                   compatible = "mediatek,mtk_sec_video_path_support";
+	};
+};
+
+&mtk_ctd {
+	bc12_sel = <0>;
+	};
+
+/* Audio Start */
+&i2c6 {
+	status = "okay";
+	cs35l41_bottom: cs35l41@41 {
+		compatible = "cirrus,cs35l41";
+		#sound-dai-cells = <0>;
+		reg = <0x41>;
+		reset-gpio = <&pio 30 0>;
+		interrupt-parent = <&pio>;
+		interrupts = <20 IRQ_TYPE_LEVEL_LOW 20 0>;
+		irq-gpio = <&pio 20 0>;
+		sound-name-prefix = "SPK";
+		cirrus,boost-peak-milliamp = <4500>;
+		cirrus,boost-ind-nanohenry = <1000>;
+		cirrus,boost-cap-microfarad = <15>;
+		cirrus,asp-sdout-hiz = <1>;
+		cirrus,gpio-config2 {
+			cirrus,gpio-src-select = <0x4>;
+			cirrus,gpio-output-enable;
+		};
+	};
+
+	cs35l41_top: cs35l41@40 {
+		compatible = "cirrus,cs35l41";
+		#sound-dai-cells = <0>;
+		reg = <0x40>;
+		reset-gpio = <&pio 30 0>;
+		spk-sw-gpio = <&pio 207 0>;
+		interrupt-parent = <&pio>;
+		interrupts = <25 IRQ_TYPE_LEVEL_LOW 25 0>;
+		irq-gpio = <&pio 25 0>;
+		sound-name-prefix = "RCV";
+		cirrus,boost-peak-milliamp = <4500>;
+		cirrus,boost-ind-nanohenry = <1000>;
+		cirrus,boost-cap-microfarad = <15>;
+		cirrus,asp-sdout-hiz = <1>;
+		cirrus,tuning-has-prefix;
+		cirrus,gpio-config2 {
+			cirrus,gpio-src-select = <0x4>;
+			cirrus,gpio-output-enable;
+		};
+	};
+};
+
+&snd_audio_dsp {
+	mtk_dsp_voip = <0x1f 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+	mtk_dsp_primary = <0x5 0xffffffff 0xffffffff \
+			   0xffffffff 0x30000>;
+	mtk_dsp_offload = <0x0 0xffffffff 0xffffffff \
+			   0xffffffff 0x400000>;//0x1d change to 0x0 for disable adsp offload mode.
+	mtk_dsp_deep = <0x5 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+	mtk_dsp_playback = <0x1 0x4 0xffffffff 0x14 0x30000>;
+	mtk_dsp_music = <0x1 0xffffffff 0xffffffff 0xffffffff 0x0>;
+	mtk_dsp_capture1 = <0x1 0xffffffff 0xd 0x13 0x20000>;
+	mtk_dsp_a2dp = <0x1 0xffffffff 0xffffffff 0xffffffff 0x40000>;
+	mtk_dsp_bledl = <0x1 0xffffffff 0xffffffff 0xffffffff 0x30000>;
+	mtk_dsp_dataprovider = <0x0 0xffffffff 0xf 0xffffffff 0x30000>;
+	mtk_dsp_call_final = <0x0 0x4 0x10 0x14 0x18000>;
+	mtk_dsp_fast = <0x5 0xffffffff 0xffffffff 0xffffffff 0x5000>;
+	mtk_dsp_ktv = <0x1 0x8 0x12 0xffffffff 0x10000>;
+	mtk_dsp_capture_raw = <0x1 0xffffffff 0xffffffff 0xffffffff 0x20000>;
+	mtk_dsp_fm = <0x1 0xffffffff 0x10 0xffffffff 0x10000>;
+	mtk_dsp_bleul = <0x1 0xffffffff 0xffffffff 0xffffffff 0x20000>;
+	mtk_dsp_ver = <0x1>;
+	swdsp_smartpa_process_enable = <0x0>;
+	mtk_dsp_mem_afe = <0x1 0x40000>;
+};
+/* Audio End */
+
+/* Haptic Start */
+&aw8697_haptic {
+	aw86927_vib_bst_vol_default = < 0x49 >;
+	aw86927_vib_bst_vol_ram = < 0x49 >;
+	aw86927_vib_bst_vol_rtp = < 0x49 >;
+};
+/* Haptic End */
+
+&pd_adapter{
+	product_index = <4>;
+};

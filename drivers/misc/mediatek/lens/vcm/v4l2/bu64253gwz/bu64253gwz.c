@@ -19,6 +19,7 @@
 
 #define BU64253GWZ_NAME				"bu64253gwz"
 #define BU64253GWZ_MAX_FOCUS_POS			1023
+#define BU64253GWZ_ORIGIN_FOCUS_POS			512
 /*
  * This sets the minimum granularity for the focus positions.
  * A value of 1 gives maximum accuracy for a desired focus position
@@ -34,9 +35,8 @@
  * uniformly adjusted for gradual lens movement, with desired
  * number of control steps.
  */
-#define BU64253GWZ_MOVE_STEPS			16
-#define BU64253GWZ_MOVE_DELAY_US			8400
-#define BU64253GWZ_STABLE_TIME_US			20000
+#define BU64253GWZ_MOVE_STEPS				100
+#define BU64253GWZ_MOVE_DELAY_US			5000
 
 /* bu64253gwz device structure */
 struct bu64253gwz_device {
@@ -78,11 +78,22 @@ static int bu64253gwz_set_position(struct bu64253gwz_device *bu64253gwz, u16 val
 static int bu64253gwz_release(struct bu64253gwz_device *bu64253gwz)
 {
 	int ret, val;
+	int diff_dac = 0;
+	int nStep_count = 0;
+	int i = 0;
 	char puSendCmd[2];
 	struct i2c_client *client = v4l2_get_subdevdata(&bu64253gwz->sd);
 
-	for (val = round_down(bu64253gwz->focus->val, BU64253GWZ_MOVE_STEPS);
-	     val >= 0; val -= BU64253GWZ_MOVE_STEPS) {
+	diff_dac = BU64253GWZ_ORIGIN_FOCUS_POS - bu64253gwz->focus->val;
+
+	nStep_count = (diff_dac < 0 ? (diff_dac*(-1)) : diff_dac) /
+		BU64253GWZ_MOVE_STEPS;
+
+	val = bu64253gwz->focus->val;
+
+	for (i = 0; i < nStep_count; ++i) {
+		val += (diff_dac < 0 ? (BU64253GWZ_MOVE_STEPS*(-1)) : BU64253GWZ_MOVE_STEPS);
+
 		ret = bu64253gwz_set_position(bu64253gwz, val);
 		if (ret < 0) {
 			LOG_INF("%s I2C failure: %d",
@@ -93,19 +104,19 @@ static int bu64253gwz_release(struct bu64253gwz_device *bu64253gwz)
 			     BU64253GWZ_MOVE_DELAY_US + 1000);
 	}
 
+	// last step to origin
+	ret = bu64253gwz_set_position(bu64253gwz, BU64253GWZ_ORIGIN_FOCUS_POS);
+	if (ret < 0) {
+		LOG_INF("%s I2C failure: %d",
+			__func__, ret);
+		return ret;
+	}
+
 	puSendCmd[0] = (char)(0x00);
 	puSendCmd[1] = (char)(0x00);
 	i2c_master_send(client, puSendCmd, 2);
 
-	LOG_INF("Wait\n");
-	msleep(20);
-
-	/*
-	 * Wait for the motor to stabilize after the last movement
-	 * to prevent the motor from shaking.
-	 */
-	usleep_range(BU64253GWZ_STABLE_TIME_US - BU64253GWZ_MOVE_DELAY_US,
-		     BU64253GWZ_STABLE_TIME_US - BU64253GWZ_MOVE_DELAY_US + 1000);
+	LOG_INF("-\n");
 
 	return 0;
 }

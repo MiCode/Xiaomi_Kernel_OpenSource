@@ -107,6 +107,11 @@ static struct regbase rb[] = {
 		CLK_NULL),
 	[mdp] = REGBASE_V(0x1f000000, mdp, MT6895_POWER_DOMAIN_MDP0, CLK_NULL),
 	[mdp1] = REGBASE_V(0x1f800000, mdp1, MT6895_POWER_DOMAIN_MDP1, CLK_NULL),
+	[img_subcomm0] = REGBASE_V(0x15002000, img, MT6895_POWER_DOMAIN_ISP_MAIN, CLK_NULL),
+	[img_subcomm1] = REGBASE_V(0x15003000, img, MT6895_POWER_DOMAIN_ISP_MAIN, CLK_NULL),
+	[cam_mm_subcomm0] = REGBASE_V(0x1a005000, cam_m, MT6895_POWER_DOMAIN_CAM_MAIN, CLK_NULL),
+	[cam_mdp_subcomm1] = REGBASE_V(0x1a006000, cam_m, MT6895_POWER_DOMAIN_CAM_MAIN, CLK_NULL),
+	[cam_sys_subcomm1] = REGBASE_V(0x1a007000, cam_m, MT6895_POWER_DOMAIN_CAM_MAIN, CLK_NULL),
 	{},
 };
 
@@ -419,6 +424,12 @@ static struct regname rn[] = {
 	REGNAME(mdp, 0x100, MDPSYS_CG_0),
 	/* MDPSYS1_CONFIG register */
 	REGNAME(mdp1, 0x100, MDPSYS_CG_0),
+	/* smi dump */
+	REGNAME(img_subcomm0, 0x3C0, IMG_CLAMP_STA),
+	REGNAME(img_subcomm1, 0x3C0, IMG_CLAMP_STA1),
+	REGNAME(cam_mm_subcomm0, 0x3C0, MM_CLAMP_STA),
+	REGNAME(cam_mdp_subcomm1, 0x3C0, MDP_CLAMP_STA),
+	REGNAME(cam_sys_subcomm1, 0x3C0, SYS_CLAMP_STA),
 	{},
 };
 
@@ -752,6 +763,7 @@ static void dump_hwv_history(struct regmap *regmap, u32 id)
 	for (i = 0; i < 16; i++)
 		pr_notice("[%d]addr: 0x%x, data: 0x%x\n", i, addr[i], val[i]);
 
+	/* sspm need some time to run isr */
 	mdelay(1000);
 
 	BUG_ON(1);
@@ -769,6 +781,7 @@ static void dump_hwv_pll_reg(struct regmap *regmap, u32 shift)
 {
 	u32 val[7];
 
+	regmap_write(regmap, HWV_DOMAIN_KEY, HWV_SECURE_KEY);
 	regmap_read(regmap, HWV_PLL_SET, &val[0]);
 	regmap_read(regmap, HWV_PLL_CLR, &val[1]);
 	regmap_read(regmap, HWV_PLL_STA, &val[2]);

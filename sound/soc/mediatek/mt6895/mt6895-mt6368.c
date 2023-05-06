@@ -355,7 +355,7 @@ static int mt6895_mt6368_init(struct snd_soc_pcm_runtime *rtd)
 static int mt6895_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				      struct snd_pcm_hw_params *params)
 {
-	dev_info(rtd->dev, "%s(), fix format to 32bit\n", __func__);
+	dev_info(rtd->dev, "%s(),fix format to 32bit\n", __func__);
 
 	/* fix BE i2s format to 32bit, clean param mask first */
 	snd_mask_reset_range(hw_param_mask(params, SNDRV_PCM_HW_PARAM_FORMAT),
@@ -563,10 +563,18 @@ SND_SOC_DAILINK_DEFS(ap_dmic_ch34,
 	DAILINK_COMP_ARRAY(COMP_CPU("AP_DMIC_CH34")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+#if IS_ENABLED(CONFIG_SND_SOC_CS35L41)
+SND_SOC_DAILINK_DEFS(i2s0,
+	DAILINK_COMP_ARRAY(COMP_CPU("I2S0")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("cs35l41.6-0040", "cs35l41.6-0040"),
+	                   COMP_CODEC("cs35l41.6-0041", "cs35l41.6-0041")),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+#else
 SND_SOC_DAILINK_DEFS(i2s0,
 	DAILINK_COMP_ARRAY(COMP_CPU("I2S0")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+#endif
 SND_SOC_DAILINK_DEFS(i2s1,
 	DAILINK_COMP_ARRAY(COMP_CPU("I2S1")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
@@ -575,10 +583,18 @@ SND_SOC_DAILINK_DEFS(i2s2,
 	DAILINK_COMP_ARRAY(COMP_CPU("I2S2")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+#if IS_ENABLED(CONFIG_SND_SOC_CS35L41)
+SND_SOC_DAILINK_DEFS(i2s3,
+	DAILINK_COMP_ARRAY(COMP_CPU("I2S3")),
+	DAILINK_COMP_ARRAY(COMP_CODEC("cs35l41.6-0040", "cs35l41.6-0040"),
+	                   COMP_CODEC("cs35l41.6-0041", "cs35l41.6-0041")),
+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+#else
 SND_SOC_DAILINK_DEFS(i2s3,
 	DAILINK_COMP_ARRAY(COMP_CPU("I2S3")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),
 	DAILINK_COMP_ARRAY(COMP_EMPTY()));
+#endif
 SND_SOC_DAILINK_DEFS(i2s5,
 	DAILINK_COMP_ARRAY(COMP_CPU("I2S5")),
 	DAILINK_COMP_ARRAY(COMP_DUMMY()),

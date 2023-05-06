@@ -340,6 +340,16 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, 0);
 	struct mtk_base_afe_memif *memif = &afe->memif[cpu_dai->id];
 
+	dev_info(afe->dev,
+		 "%s(), %s, use_adsp_share_mem %d, using_sram %d, use_dram_only %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx, vow_barge_in_enable %d\n",
+		 __func__, memif->data->name,
+		 memif->use_adsp_share_mem,
+		 memif->using_sram, memif->use_dram_only,
+		 &substream->runtime->dma_addr,
+		 substream->runtime->dma_area,
+		 substream->runtime->dma_bytes,
+		 memif->vow_barge_in_enable);
+
 #if IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_HWFREE,
 			   substream, NULL, dai, afe);
@@ -368,7 +378,11 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 		if (memif->scp_ultra_enable)
 			return 0;
 #endif
-
+#if IS_ENABLED(CONFIG_MTK_VOW_SUPPORT)
+		// vow uses reserve dram, ignore free
+		if (memif->vow_barge_in_enable)
+			return 0;
+#endif
 		return snd_pcm_lib_free_pages(substream);
 	}
 }

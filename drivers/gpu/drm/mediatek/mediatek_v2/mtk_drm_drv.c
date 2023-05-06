@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (C) 2021-2022 XiaoMi, Inc.
  */
 
 #include <drm/drm_atomic_helper.h>
@@ -60,13 +61,22 @@
 //#include "swpm_me.h"
 //#include "include/pmic_api_buck.h"
 #include <../drivers/gpu/drm/mediatek/mml/mtk-mml.h>
-
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_disp_log.h"
+#endif
 #include "../mml/mtk-mml.h"
 #include "../mml/mtk-mml-drm-adaptor.h"
 #include "../mml/mtk-mml-driver.h"
 
 #include "slbc_ops.h"
 #include <linux/syscalls.h>
+#define CLKBUF_COMMON_H
+#include <mtk_clkbuf_ctl.h>
+
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -77,6 +87,8 @@
 void disp_dbg_deinit(void);
 void disp_dbg_probe(void);
 void disp_dbg_init(struct drm_device *dev);
+atomic_t resume_pending;
+wait_queue_head_t resume_wait_q;
 
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
@@ -115,6 +127,52 @@ void **mtk_aod_scp_ipi_init(void)
 	return (void **)&aod_scp_ipi.send_ipi;
 }
 EXPORT_SYMBOL(mtk_aod_scp_ipi_init);
+
+struct mtk_drm_disp_sec_cb disp_sec_cb;
+EXPORT_SYMBOL(disp_sec_cb);
+
+void **mtk_drm_disp_sec_cb_init(void)
+{
+	DDPMSG("%s+\n", __func__);
+	return (void **)&disp_sec_cb.cb;
+}
+EXPORT_SYMBOL(mtk_drm_disp_sec_cb_init);
+
+bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc)
+{
+	int ret = 0;
+	bool val = false;
+	int ret_slbc = 0;
+	struct slbc_data *sram = NULL;
+
+	if (!mtk_crtc)
+		return false;
+
+	if (mtk_crtc->mml_ir_sram)
+		return true;
+
+	mtk_crtc->mml_ir_sram = kzalloc(sizeof(struct slbc_data), GFP_KERNEL);
+	sram = mtk_crtc->mml_ir_sram;
+	sram->type = TP_BUFFER;
+	sram->size = 0;
+	sram->uid = UID_DISP;
+	sram->flag = 0;
+	ret_slbc = slbc_request(sram);
+	if (ret_slbc >= 0) {
+		ret = slbc_power_on(sram);
+		DDPINFO("%s success - ret:%d address:0x%lx size:0x%lx\n", __func__,
+			ret, (unsigned long)sram->paddr, sram->size);
+		DRM_MMP_MARK(sram_alloc, (unsigned long)sram->paddr, sram->size);
+		val = true;
+	} else {
+		DDPMSG("%s fail ret:%d\n", __func__, ret_slbc);
+		kfree(mtk_crtc->mml_ir_sram);
+		mtk_crtc->mml_ir_sram = NULL;
+		val = false;
+	}
+	return val;
+}
+
 
 int mtk_drm_ioctl_set_dither_param(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
@@ -445,6 +503,7 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 		int dst_y = plane_state->dst.y1;
 		int dst_w = drm_rect_width(&plane_state->dst);
 		int dst_h = drm_rect_height(&plane_state->dst);
+		int tmp_w = 0, tmp_h = 0;
 		int idx;
 
 		if (!plane_state->crtc)
@@ -459,9 +518,16 @@ static void mtk_atomic_disp_rsz_roi(struct drm_device *dev,
 
 		if (comp_state[drm_crtc_index(crtc)][idx].layer_caps
 			& MTK_DISP_RSZ_LAYER) {
+			if (dst_w != 0)
+				tmp_w = ((dst_x * src_w * 10) / dst_w + 5) / 10;
+			else
+				tmp_w = 0;
+			if (dst_h != 0)
+				tmp_h = ((dst_y * src_h * 10) / dst_h + 5) / 10;
+			else
+				tmp_h = 0;
 			mtk_rect_make(&src_layer_roi,
-				((dst_x * src_w * 10) / dst_w + 5) / 10,
-				((dst_y * src_h * 10) / dst_h + 5) / 10,
+				tmp_w, tmp_h,
 				src_w, src_h);
 			mtk_rect_make(&dst_layer_roi,
 				dst_x, dst_y,
@@ -730,11 +796,13 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 				}
 			//pmic_ldo_vio18_lp(SRCLKEN0, 0, 1, HW_LP);
 			//pmic_ldo_vio18_lp(SRCLKEN2, 0, 1, HW_LP);
+			clk_buf_voter_ctrl_by_id(12, SW_BBLPM);
 		} else if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]
 				&& !prepare) {
 			DDPMSG("exit AOD, enable PMIC LPMODE\n");
 			//pmic_ldo_vio18_lp(SRCLKEN0, 1, 1, HW_LP);
 			//pmic_ldo_vio18_lp(SRCLKEN2, 1, 1, HW_LP);
+			clk_buf_voter_ctrl_by_id(12, SW_OFF);
 		}
 	}
 	if (!mtk_state->doze_changed ||
@@ -767,6 +835,9 @@ static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage,
 	struct mtk_cmdq_cb_data *cb_data;
 	int i, j;
 	unsigned int bypass = 0;
+
+	/* skip this stage avoid cmdq_mbox control abnormal */
+	return;
 
 	DDPINFO("%s+: new crtc state = %d, old crtc state = %d, stage = %d\n", __func__,
 		crtc->state->active, old_state, stage);
@@ -1823,8 +1894,16 @@ static const struct mtk_addon_module_data mt6983_addon_wdma0_data[] = {
 	{DISP_WDMA0, ADDON_AFTER, DDP_COMPONENT_SPR0},
 };
 
+static const struct mtk_addon_module_data mt6983_addon_wdma0_data_v2[] = {
+	{DISP_WDMA0_v2, ADDON_AFTER, DDP_COMPONENT_OVL0_VIRTUAL0},
+};
+
 static const struct mtk_addon_module_data mt6983_addon_wdma2_data[] = {
 	{DISP_WDMA2, ADDON_AFTER, DDP_COMPONENT_SPR1},
+};
+
+static const struct mtk_addon_module_data mt6983_addon_wdma2_data_v2[] = {
+	{DISP_WDMA2_v2, ADDON_AFTER, DDP_COMPONENT_OVL1_VIRTUAL0},
 };
 
 static const struct mtk_addon_module_data mt6895_addon_wdma0_data[] = {
@@ -1969,6 +2048,11 @@ static const struct mtk_addon_scenario_data mt6983_addon_main[ADDON_SCN_NR] = {
 				.module_data = mt6983_addon_wdma0_data,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
+		[WDMA_WRITE_BACK_OVL] = {
+				.module_num = ARRAY_SIZE(mt6983_addon_wdma0_data_v2),
+				.module_data = mt6983_addon_wdma0_data_v2,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
 		[MML_WITH_PQ] = {
 				.module_num = ARRAY_SIZE(addon_mml_rsz),
 				.module_data = addon_mml_rsz,
@@ -2004,6 +2088,11 @@ static const struct mtk_addon_scenario_data mt6983_addon_main_dual[ADDON_SCN_NR]
 		[WDMA_WRITE_BACK] = {
 				.module_num = ARRAY_SIZE(mt6983_addon_wdma2_data),
 				.module_data = mt6983_addon_wdma2_data,
+				.hrt_type = HRT_TB_TYPE_GENERAL1,
+			},
+		[WDMA_WRITE_BACK_OVL] = {
+				.module_num = ARRAY_SIZE(mt6983_addon_wdma2_data_v2),
+				.module_data = mt6983_addon_wdma2_data_v2,
 				.hrt_type = HRT_TB_TYPE_GENERAL1,
 			},
 		[MML_WITH_PQ] = {
@@ -3576,6 +3665,13 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 				  __func__);
 	}
 
+#ifdef CONFIG_MI_DISP
+	if (!mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_WCG) &&
+			params) {
+		caps_info->lcm_color_mode = params->lcm_color_mode;
+	}
+#endif
+
 	if (params) {
 		caps_info->min_luminance = params->min_luminance;
 		caps_info->average_luminance = params->average_luminance;
@@ -4294,6 +4390,7 @@ err_handle_mtk_drm_get_mml_drm_ctx:
 static void mtk_drm_init_dummy_table(struct mtk_drm_private *priv)
 {
 	struct dummy_mapping *table;
+	unsigned int *dummy_backup;
 	size_t size;
 	int i;
 
@@ -4339,6 +4436,12 @@ static void mtk_drm_init_dummy_table(struct mtk_drm_private *priv)
 			table[i].addr = comp->regs;
 		}
 	}
+
+	dummy_backup = vzalloc(size * sizeof(unsigned int));
+	if (unlikely(IS_ERR_OR_NULL(dummy_backup)))
+		DDPPR_ERR("%s %d vazlloc fail\n", __func__, __LINE__);
+	else
+		priv->dummy_table_backup = dummy_backup;
 }
 
 static int mtk_drm_kms_init(struct drm_device *drm)
@@ -4474,8 +4577,10 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 	init_waitqueue_head(&private->repaint_data.wq);
 	INIT_LIST_HEAD(&private->repaint_data.job_queue);
 	INIT_LIST_HEAD(&private->repaint_data.job_pool);
-	for (i = 0; i < MAX_CRTC ; ++i)
+	for (i = 0; i < MAX_CRTC ; ++i) {
 		atomic_set(&private->crtc_present[i], 0);
+		atomic_set(&private->crtc_rel_present[i], 0);
+	}
 	atomic_set(&private->rollback_all, 0);
 
 #ifdef CONFIG_DRM_MEDIATEK_DEBUG_FS
@@ -4711,6 +4816,15 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_PQ_CAPS, mtk_drm_ioctl_set_pq_caps,
 			  DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_CWB_ROI,
+				mtk_drm_ioctl_set_cwb_roi,
+				DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_SET_CWB_STATUS,
+				mtk_drm_ioctl_set_cwb_status,
+				DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_GET_CWB_IMAGE,
+				mtk_drm_ioctl_get_cwb_image,
+				DRM_UNLOCKED),
 };
 
 static const struct file_operations mtk_drm_fops = {
@@ -5243,6 +5357,52 @@ struct disp_iommu_device *disp_get_iommu_dev(void)
 	return &disp_iommu;
 }
 
+static int mtk_drm_get_segment_id(struct platform_device *pdev,
+	struct mtk_drm_private *private)
+{
+	int ret = 0;
+	unsigned int segment_id = 0;
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+#endif
+
+	if (IS_ERR_OR_NULL(private)) {
+		DDPPR_ERR("%s, private is NULL\n", __func__);
+		ret = EFAULT;
+		return ret;
+	}
+
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_seg_disp_cell");
+	if (IS_ERR(efuse_cell)) {
+		DDPPR_ERR("%s, fail to get efuse_segment_cell (%ld)\n",
+			__func__, PTR_ERR(efuse_cell));
+		ret = PTR_ERR(efuse_cell);
+		goto done;
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		DDPPR_ERR("%s, fail to get efuse_buf (%ld)\n",
+			__func__, PTR_ERR(efuse_buf));
+		ret = PTR_ERR(efuse_buf);
+		goto done;
+	}
+
+	segment_id = (*efuse_buf & 0xFF);
+	kfree(efuse_buf);
+#endif
+
+done:
+	DDPINFO("%s, segment_id: %d", __func__, segment_id);
+
+	private->seg_id = segment_id;
+	return ret;
+}
+
 static int mtk_drm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -5288,6 +5448,11 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		disp_helper_set_stage(DISP_HELPER_STAGE_NORMAL);
 	else
 		disp_helper_set_stage(DISP_HELPER_STAGE_BRING_UP);
+
+	if (private->data->mmsys_id == MMSYS_MT6895) {
+		if (mtk_drm_get_segment_id(pdev, private))
+			DDPPR_ERR("%s, segment get fail\n", __func__);
+	}
 
 	ranges = of_get_property(dev->of_node, "dma-ranges", &len);
 	if (ranges)
@@ -5551,6 +5716,19 @@ static int mtk_drm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+static int mtk_drm_sys_prepare(struct device *dev)
+{
+	atomic_inc(&resume_pending);
+	return 0;
+}
+
+static void mtk_drm_sys_complete(struct device *dev)
+{
+	atomic_set(&resume_pending, 0);
+	wake_up_all(&resume_wait_q);
+	return;
+}
+
 static int mtk_drm_sys_suspend(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
@@ -5613,8 +5791,12 @@ static int mtk_drm_sys_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
-			 mtk_drm_sys_resume);
+static const struct dev_pm_ops mtk_drm_pm_ops = {
+	.prepare = mtk_drm_sys_prepare,
+	.complete = mtk_drm_sys_complete,
+	.suspend = mtk_drm_sys_suspend,
+	.resume = mtk_drm_sys_resume,
+};
 
 static const struct of_device_id mtk_drm_of_ids[] = {
 	{.compatible = "mediatek,mt2701-mmsys",
@@ -5698,6 +5880,13 @@ static int __init mtk_drm_init(void)
 {
 	int ret;
 	int i;
+
+#ifdef CONFIG_MI_DISP
+	mi_disp_feature_init();
+#endif
+#ifdef CONFIG_MI_DISP_LOG
+	mi_disp_log_init();
+#endif
 
 	DDPINFO("%s+\n", __func__);
 	for (i = 0; i < ARRAY_SIZE(mtk_drm_drivers); i++) {

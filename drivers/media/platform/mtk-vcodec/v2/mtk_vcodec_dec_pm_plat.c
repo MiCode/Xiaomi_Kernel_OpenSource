@@ -33,10 +33,11 @@
 
 static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 {
+	const int op_item_num = 9;
 	const int tp_item_num = 4;
 	const int bw_item_num = 2;
 	struct platform_device *pdev;
-	int i, larb_cnt, ret;
+	int i, j, larb_cnt, ret;
 	u32 nmin, nmax, cnt;
 
 	pdev = dev->plat_dev;
@@ -64,7 +65,7 @@ static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 	dev->vdec_dvfs_params.normal_max_freq = nmax;
 	dev->vdec_dvfs_params.allow_oc = 0;
 
-	mtk_v4l2_debug(6, "[VDEC] tput op_th %d, tmin %u, tmax %u",
+	mtk_v4l2_debug(8, "[VDEC] tput op_th %d, tmin %u, tmax %u",
 		dev->vdec_dvfs_params.per_frame_adjust_op_rate,
 		dev->vdec_dvfs_params.min_freq,
 		dev->vdec_dvfs_params.normal_max_freq);
@@ -73,12 +74,64 @@ static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 		dev->vdec_dvfs_params.lock_cnt[i] = 0;
 
 
+	/* max operating rate by codec / resolution */
+	cnt = of_property_count_u32_elems(pdev->dev.of_node, "max-op-rate-table");
+	dev->vdec_op_rate_cnt = cnt / op_item_num;
+
+	mtk_v4l2_debug(8, "[VDEC] max-op-rate table elements %u, %d per line",
+			cnt, op_item_num);
+	if (!dev->vdec_op_rate_cnt) {
+		mtk_v4l2_debug(0, "[VDEC] max-op-rate-table not exist");
+		return false;
+	}
+
+	dev->vdec_dflt_op_rate = vzalloc(sizeof(struct vcodec_op_rate) * dev->vdec_op_rate_cnt);
+
+	mtk_v4l2_debug(8, "[VDEC] vzalloc %zu x %d res %p",
+			sizeof(struct vcodec_op_rate), dev->vdec_op_rate_cnt,
+			dev->vdec_dflt_op_rate);
+	if (!dev->vdec_dflt_op_rate) {
+		mtk_v4l2_debug(0, "[VDEC] vzalloc vdec_dflt_op_rate table failed");
+		return false;
+	}
+
+	for (i = 0; i < dev->vdec_op_rate_cnt; i++) {
+		ret = of_property_read_u32_index(pdev->dev.of_node, "max-op-rate-table",
+				i * op_item_num, &dev->vdec_dflt_op_rate[i].codec_fmt);
+		if (ret) {
+			mtk_v4l2_debug(0, "[VDEC] Cannot get default op rate codec_fmt");
+			return false;
+		}
+
+		for (j = 0; j < (op_item_num - 1) / 2; j++) {
+			ret = of_property_read_u32_index(pdev->dev.of_node, "max-op-rate-table",
+					i * op_item_num + 1 + j * 2,
+					(u32 *)&dev->vdec_dflt_op_rate[i].pixel_per_frame[j]);
+			if (ret) {
+				mtk_v4l2_debug(0, "[VDEC] Cannot get pixel per frame %d %d",
+						i, j);
+				return false;
+			}
+
+			ret = of_property_read_u32_index(pdev->dev.of_node, "max-op-rate-table",
+					i * op_item_num + 2 + j * 2,
+					(u32 *)&dev->vdec_dflt_op_rate[i].max_op_rate[j]);
+			if (ret) {
+				mtk_v4l2_debug(0, "[VDEC] Cannot get max_op_rate %d %d",
+						i, j);
+				return false;
+			}
+		}
+		dev->vdec_dflt_op_rate[i].codec_type = 0;
+	}
+
+
 	/* throughput */
 	cnt = of_property_count_u32_elems(pdev->dev.of_node, "throughput-table");
 	dev->vdec_tput_cnt = cnt / tp_item_num;
 
-	mtk_v4l2_debug(6, "[VDEC] tput table elements %u, %d per line",
-			cnt, tp_item_num, dev->vdec_tput);
+	mtk_v4l2_debug(8, "[VDEC] tput table elements %u, %d per line",
+			cnt, tp_item_num);
 	if (!dev->vdec_tput_cnt) {
 		mtk_v4l2_debug(0, "[VDEC] throughtput table not exist");
 		return false;
@@ -86,7 +139,7 @@ static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 
 	dev->vdec_tput = vzalloc(sizeof(struct vcodec_perf) * dev->vdec_tput_cnt);
 
-	mtk_v4l2_debug(6, "[VDEC] vzalloc %zu x %d res %p",
+	mtk_v4l2_debug(8, "[VDEC] vzalloc %zu x %d res %p",
 			sizeof(struct vcodec_perf), dev->vdec_tput_cnt, dev->vdec_tput);
 	if (!dev->vdec_tput) {
 		mtk_v4l2_debug(0, "[VDEC] vzalloc vdec_tput table failed");
@@ -173,6 +226,20 @@ static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 	mtk_v4l2_debug(0, "[VDEC] tput_cnt %d, cfg_cnt %d, port_cnt %d",
 		dev->vdec_tput_cnt, dev->vdec_cfg_cnt, dev->vdec_port_cnt);
 
+	for (i = 0; i < dev->vdec_op_rate_cnt; i++) {
+		mtk_v4l2_debug(0, "[VDEC] oprate fmt %u, %u/%u,%u/%u,%u/%u,%u/%u",
+			dev->vdec_dflt_op_rate[i].codec_fmt,
+			dev->vdec_dflt_op_rate[i].pixel_per_frame[0],
+			dev->vdec_dflt_op_rate[i].max_op_rate[0],
+			dev->vdec_dflt_op_rate[i].pixel_per_frame[1],
+			dev->vdec_dflt_op_rate[i].max_op_rate[1],
+			dev->vdec_dflt_op_rate[i].pixel_per_frame[2],
+			dev->vdec_dflt_op_rate[i].max_op_rate[2],
+			dev->vdec_dflt_op_rate[i].pixel_per_frame[3],
+			dev->vdec_dflt_op_rate[i].max_op_rate[3]);
+	}
+
+
 	for (i = 0; i < dev->vdec_tput_cnt; i++) {
 		mtk_v4l2_debug(0, "[VDEC] tput fmt %u, cfg %d, cy1 %u, cy2 %u",
 			dev->vdec_tput[i].codec_fmt,
@@ -193,6 +260,11 @@ static bool mtk_dec_tput_init(struct mtk_vcodec_dev *dev)
 
 static void mtk_dec_tput_deinit(struct mtk_vcodec_dev *dev)
 {
+	if (dev->vdec_dflt_op_rate) {
+		vfree(dev->vdec_dflt_op_rate);
+		dev->vdec_dflt_op_rate = 0;
+	}
+
 	if (dev->vdec_tput) {
 		vfree(dev->vdec_tput);
 		dev->vdec_tput = 0;
@@ -281,7 +353,7 @@ void mtk_prepare_vdec_emi_bw(struct mtk_vcodec_dev *dev)
 
 	for (i = 0; i < port_num; i++) {
 		dev->vdec_qos_req[i] = of_mtk_icc_get(&pdev->dev, path_strs[i]);
-		mtk_v4l2_debug(10, "[VDEC] qos port[%d] name %s", i, path_strs[i]);
+		mtk_v4l2_debug(16, "[VDEC] qos port[%d] name %s", i, path_strs[i]);
 	}
 #endif
 }
@@ -304,7 +376,7 @@ void set_vdec_opp(struct mtk_vcodec_dev *dev, u32 freq)
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
-		mtk_v4l2_debug(4, "[VDEC] freq %u, voltage %d", freq, volt);
+		mtk_v4l2_debug(8, "[VDEC] freq %u, voltage %d", freq, volt);
 
 		ret = regulator_set_voltage(dev->vdec_reg, volt, INT_MAX);
 		if (ret) {
@@ -315,7 +387,7 @@ void set_vdec_opp(struct mtk_vcodec_dev *dev, u32 freq)
 
 void mtk_vdec_dvfs_begin_inst(struct mtk_vcodec_ctx *ctx)
 {
-	mtk_v4l2_debug(6, "[VDEC] ctx = %p",  ctx);
+	mtk_v4l2_debug(8, "[VDEC] ctx = %p",  ctx);
 
 	if (need_update(ctx)) {
 		update_freq(ctx->dev, MTK_INST_DECODER);
@@ -326,7 +398,7 @@ void mtk_vdec_dvfs_begin_inst(struct mtk_vcodec_ctx *ctx)
 
 void mtk_vdec_dvfs_end_inst(struct mtk_vcodec_ctx *ctx)
 {
-	mtk_v4l2_debug(6, "[VDEC] ctx = %p",  ctx);
+	mtk_v4l2_debug(8, "[VDEC] ctx = %p",  ctx);
 
 	if (remove_update(ctx)) {
 		update_freq(ctx->dev, MTK_INST_DECODER);
@@ -341,7 +413,7 @@ void mtk_vdec_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 	struct mtk_vcodec_dev *dev = 0;
 	u64 target_bw = 0;
 
-	mtk_v4l2_debug(6, "[VDEC] ctx = %p",  ctx);
+	mtk_v4l2_debug(8, "[VDEC] ctx = %p",  ctx);
 	dev = ctx->dev;
 
 	for (i = 0; i < dev->vdec_port_cnt; i++) {
@@ -352,19 +424,19 @@ void mtk_vdec_pmqos_begin_inst(struct mtk_vcodec_ctx *ctx)
 			if (dev->vdec_dvfs_params.target_freq == dev->vdec_dvfs_params.min_freq) {
 				mtk_icc_set_bw_not_update(dev->vdec_qos_req[i],
 					MBps_to_icc(0), 0);
-				mtk_v4l2_debug(6, "[VDEC] port %d bw %lu (0)MB/s",
+				mtk_v4l2_debug(8, "[VDEC] port %d bw %lu (0)MB/s",
 					i, (u32)target_bw);
 			} else {
 				mtk_icc_set_bw_not_update(dev->vdec_qos_req[i],
 					MBps_to_icc((u32)target_bw), 0);
-				mtk_v4l2_debug(6, "[VDEC] port %d bw %lu MB/s", i, (u32)target_bw);
+				mtk_v4l2_debug(8, "[VDEC] port %d bw %lu MB/s", i, (u32)target_bw);
 			}
 		} else if (dev->vdec_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw(dev->vdec_qos_req[i], 0, 0);
-			mtk_v4l2_debug(6, "[VDEC] port %d set larb %u bw",
+			mtk_v4l2_debug(8, "[VDEC] port %d set larb %u bw",
 					i, dev->vdec_port_bw[i].larb);
 		} else {
-			mtk_v4l2_debug(6, "[VDEC] unknown port type %d %d\n",
+			mtk_v4l2_debug(8, "[VDEC] unknown port type %d %d\n",
 				dev->vdec_port_bw[i].port_type);
 		}
 	}
@@ -376,7 +448,7 @@ void mtk_vdec_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 	struct mtk_vcodec_dev *dev = 0;
 	u64 target_bw = 0;
 
-	mtk_v4l2_debug(6, "[VDEC] ctx = %p",  ctx);
+	mtk_v4l2_debug(8, "[VDEC] ctx = %p",  ctx);
 	dev = ctx->dev;
 
 	for (i = 0; i < dev->vdec_port_cnt; i++) {
@@ -391,19 +463,19 @@ void mtk_vdec_pmqos_end_inst(struct mtk_vcodec_ctx *ctx)
 			if (dev->vdec_dvfs_params.target_freq == dev->vdec_dvfs_params.min_freq) {
 				mtk_icc_set_bw_not_update(dev->vdec_qos_req[i],
 					MBps_to_icc(0), 0);
-				mtk_v4l2_debug(6, "[VDEC] port %d bw %lu (0)MB/s",
+				mtk_v4l2_debug(8, "[VDEC] port %d bw %lu (0)MB/s",
 					i, (u32)target_bw);
 			} else {
 				mtk_icc_set_bw_not_update(dev->vdec_qos_req[i],
 					MBps_to_icc((u32)target_bw), 0);
-				mtk_v4l2_debug(6, "[VDEC] port %d bw %lu MB/s", i, (u32)target_bw);
+				mtk_v4l2_debug(8, "[VDEC] port %d bw %lu MB/s", i, (u32)target_bw);
 			}
 		} else if (dev->vdec_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw(dev->vdec_qos_req[i], 0, 0);
-			mtk_v4l2_debug(6, "[VDEC] port %d set larb %u bw",
+			mtk_v4l2_debug(8, "[VDEC] port %d set larb %u bw",
 					i, dev->vdec_port_bw[i].larb);
 		} else {
-			mtk_v4l2_debug(6, "[VDEC] unknown port type %d",
+			mtk_v4l2_debug(8, "[VDEC] unknown port type %d",
 				dev->vdec_port_bw[i].port_type);
 		}
 	}
@@ -420,7 +492,7 @@ void mtk_vdec_dvfs_begin_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 
 	dev->vdec_dvfs_params.lock_cnt[hw_id]++;
 	if (dev->vdec_dvfs_params.lock_cnt[hw_id] > 1)
-		mtk_v4l2_debug(6, "[VDEC] lock_cnt oor %s %d", __func__, __LINE__);
+		mtk_v4l2_debug(8, "[VDEC] lock_cnt oor %s %d", __func__, __LINE__);
 
 	dev->vdec_dvfs_params.frame_need_update =
 		(orig ^ (dev->vdec_dvfs_params.lock_cnt[0] | dev->vdec_dvfs_params.lock_cnt[1]));
@@ -482,7 +554,8 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 	u64 target_bw = 0;
 
 	dev = ctx->dev;
-	if (!dev->vdec_dvfs_params.frame_need_update)
+	if (!dev->vdec_dvfs_params.frame_need_update ||
+		(dev->vdec_dvfs_params.target_freq == dev->vdec_dvfs_params.min_freq))
 		return;
 
 	for (i = 0; i < dev->vdec_port_cnt; i++) {
@@ -491,13 +564,13 @@ void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
 		if (dev->vdec_port_bw[i].port_type < VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw_not_update(dev->vdec_qos_req[i],
 				MBps_to_icc((u32)target_bw), 0);
-			mtk_v4l2_debug(6, "[VDEC] port %d bw %lu MB/s", i, (u32)target_bw);
+			mtk_v4l2_debug(8, "[VDEC] port %d bw %lu MB/s", i, (u32)target_bw);
 		} else if (dev->vdec_port_bw[i].port_type == VCODEC_PORT_LARB_SUM) {
 			mtk_icc_set_bw(dev->vdec_qos_req[i], 0, 0);
-			mtk_v4l2_debug(6, "[VDEC] port %d set larb %u bw",
+			mtk_v4l2_debug(8, "[VDEC] port %d set larb %u bw",
 					i, dev->vdec_port_bw[i].larb);
 		} else {
-			mtk_v4l2_debug(6, "[VDEC] unknown port type %d",
+			mtk_v4l2_debug(8, "[VDEC] unknown port type %d",
 				dev->vdec_port_bw[i].port_type);
 		}
 	}

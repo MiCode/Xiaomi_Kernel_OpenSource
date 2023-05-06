@@ -64,6 +64,7 @@ static struct afe_offload_param_t afe_offload_block = {
 static struct afe_offload_codec_t afe_offload_codec_info = {
 	.codec_samplerate = 0,
 	.codec_bitrate = 0,
+	.target_samplerate = 0,
 };
 
 static struct snd_compr_stream *offload_stream;
@@ -82,6 +83,7 @@ static DEFINE_SPINLOCK(offload_lock);
 struct wakeup_source *Offload_suspend_lock;
 #endif
 static struct mtk_base_dsp *dsp;
+static unsigned int offload_buffer_size;
 
 /*
  * Function  Declaration
@@ -147,12 +149,47 @@ static int offloadservice_getformat(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int offloadservice_setbuffersize(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	offload_buffer_size = (unsigned int)ucontrol->value.integer.value[0];
+	pr_info("%s offload_buffer_size = %d\n", __func__, offload_buffer_size);
+	return 0;
+}
+
+static int offloadservice_getbuffersize(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = offload_buffer_size;
+	return 0;
+}
+
+static int offloadservice_settargetrate(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	afe_offload_codec_info.target_samplerate = (unsigned int)ucontrol->value.integer.value[0];
+	pr_debug("%s target_samplerate = %d\n", __func__, afe_offload_codec_info.target_samplerate);
+	return 0;
+}
+
+static int offloadservice_gettargetrate(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = afe_offload_codec_info.target_samplerate;
+	return 0;
+}
+
+
 static const struct snd_kcontrol_new Audio_snd_dloffload_controls[] = {
 	SOC_SINGLE_EXT("offload digital volume", SND_SOC_NOPM, 0, 0x1000000, 0,
 	offloadservice_getvolume, offloadservice_setvolume),
 	SOC_SINGLE_EXT("offload set format", SND_SOC_NOPM, 0,
 	TASK_SCENE_PLAYBACK_MP3, 0,
 	offloadservice_getformat, offloadservice_setformat),
+	SOC_SINGLE_EXT("offload_buffer_size", SND_SOC_NOPM, 0, 0x400000, 0,
+	offloadservice_getbuffersize, offloadservice_setbuffersize),
+	SOC_SINGLE_EXT("offload_target_rate", SND_SOC_NOPM, 0, 0x100000, 0,
+	offloadservice_gettargetrate, offloadservice_settargetrate),
 };
 
 /*
@@ -227,9 +264,8 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 					AUDIO_IPI_PAYLOAD,
 					AUDIO_IPI_MSG_BYPASS_ACK,
 					AUDIO_DSP_TASK_DLCOPY,
-					sizeof(unsigned int),
-					(unsigned int)
-					dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr,
+					sizeof(dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr),
+					0,
 					(char *)
 					&dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr);
 			pr_debug("%s(),MSG_DECODER_START, Update the final data, TRANSFERRED %lld\n",
@@ -245,8 +281,12 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 
 		pr_info("%s, OFFLOAD_DRAIN", __func__);
 		ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-			AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_NEED_ACK,
-			OFFLOAD_DRAIN, buf_bridge->pWrite, 0, NULL);
+			AUDIO_IPI_PAYLOAD,
+			AUDIO_IPI_MSG_NEED_ACK,
+			OFFLOAD_DRAIN,
+			sizeof(buf_bridge->pWrite),
+			0,
+			(void *)&buf_bridge->pWrite);
 
 		afe_offload_block.state = OFFLOAD_STATE_DRAIN;
 		afe_offload_block.drain_state = AUDIO_DRAIN_EARLY_NOTIFY;
@@ -262,6 +302,7 @@ static int mtk_compr_offload_drain(struct snd_compr_stream *stream)
 static int mtk_compr_offload_open(struct snd_soc_component *component,
 				  struct snd_compr_stream *stream)
 {
+	int ret = 0;
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(true);
 #endif
@@ -278,6 +319,39 @@ static int mtk_compr_offload_open(struct snd_soc_component *component,
 	if (dsp == NULL) {
 		dsp = (struct mtk_base_dsp *)get_dsp_base();
 		pr_debug("get_dsp_base again\n");
+	}
+
+	if (offload_buffer_size < 262144) { // 256K
+		pr_debug("%s err offload_buffer_size = %u\n", __func__, offload_buffer_size);
+		return -1;
+	}
+
+	/* gen pool related */
+	dsp->dsp_mem[ID].gen_pool_buffer =
+			mtk_get_adsp_dram_gen_pool(GENPOOL_ID);
+	if (dsp->dsp_mem[ID].gen_pool_buffer != NULL) {
+		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
+			gen_pool_avail(
+				dsp->dsp_mem[ID].gen_pool_buffer),
+			gen_pool_size(
+				dsp->dsp_mem[ID].gen_pool_buffer));
+
+		/* allocate ring buffer wioth share memory*/
+		ret = mtk_adsp_genpool_allocate_sharemem_ring(
+			      &dsp->dsp_mem[ID],
+			      offload_buffer_size,
+			      ID);
+		pr_debug("%s() allocate offload bufsize = %u\n", __func__, offload_buffer_size);
+
+		if (ret < 0) {
+			pr_debug("%s err\n", __func__);
+			return -1;
+		}
+		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
+			 gen_pool_avail(
+			 dsp->dsp_mem[ID].gen_pool_buffer),
+			 gen_pool_size(
+			 dsp->dsp_mem[ID].gen_pool_buffer));
 	}
 	return 0;
 }
@@ -332,7 +406,6 @@ static int mtk_compr_offload_set_params(struct snd_soc_component *component,
 	struct mtk_base_dsp_mem *audio_dsp_mem;
 	void *ipi_audio_buf; /* dsp <-> audio data struct*/
 	int ret = 0;
-	unsigned int offload_buffer_size;
 
 	audio_task_register_callback(
 			 TASK_SCENE_PLAYBACK_MP3,
@@ -340,42 +413,6 @@ static int mtk_compr_offload_set_params(struct snd_soc_component *component,
 
 	codec = params->codec;
 	afe_offload_block.samplerate = codec.sample_rate;
-	offload_buffer_size = codec.reserved[1];
-
-	if (offload_buffer_size < 262144) { // 256K
-		pr_debug("%s err offload_buffer_size = %u\n", __func__, offload_buffer_size);
-		return -1;
-	}
-
-	/* gen pool related */
-	if (dsp)
-		mtk_adsp_genpool_free_sharemem_ring(&dsp->dsp_mem[ID], ID);
-	dsp->dsp_mem[ID].gen_pool_buffer =
-			mtk_get_adsp_dram_gen_pool(GENPOOL_ID);
-	if (dsp->dsp_mem[ID].gen_pool_buffer != NULL) {
-		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
-			gen_pool_avail(
-				dsp->dsp_mem[ID].gen_pool_buffer),
-			gen_pool_size(
-				dsp->dsp_mem[ID].gen_pool_buffer));
-
-		/* allocate ring buffer wioth share memory*/
-		ret = mtk_adsp_genpool_allocate_sharemem_ring(
-			      &dsp->dsp_mem[ID],
-			      offload_buffer_size,
-			      ID);
-		pr_debug("%s() allocate offload bufsize = %u\n", __func__, offload_buffer_size);
-
-		if (ret < 0) {
-			pr_debug("%s err\n", __func__);
-			return -1;
-		}
-		pr_debug("gen_pool_avail = %zu poolsize = %zu\n",
-			 gen_pool_avail(
-			 dsp->dsp_mem[ID].gen_pool_buffer),
-			 gen_pool_size(
-			 dsp->dsp_mem[ID].gen_pool_buffer));
-	}
 
 	//set shared Dram meme
 	audio_hwbuf = &dsp->dsp_mem[ID].adsp_buf;
@@ -386,7 +423,7 @@ static int mtk_compr_offload_set_params(struct snd_soc_component *component,
 	afe_offload_codec_info.codec_bitrate = codec.bit_rate;
 	audio_hwbuf->aud_buffer.buffer_attr.channel = codec.ch_out;
 	audio_hwbuf->aud_buffer.buffer_attr.format = codec.format;
-	audio_hwbuf->aud_buffer.buffer_attr.rate = codec.reserved[2];
+	audio_hwbuf->aud_buffer.buffer_attr.rate = afe_offload_codec_info.target_samplerate;
 
 	ret = set_audiobuffer_hw(&dsp->dsp_mem[ID].adsp_buf,
 				 BUFFER_TYPE_SHARE_MEM);
@@ -421,9 +458,8 @@ static int mtk_compr_offload_set_params(struct snd_soc_component *component,
 	mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 			 AUDIO_IPI_PAYLOAD,
 			 AUDIO_IPI_MSG_NEED_ACK, AUDIO_DSP_TASK_HWPARAM,
-			 sizeof(unsigned int),
-			 (unsigned int)
-			 dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr,
+			 sizeof(dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr),
+			 0,
 			 (char *)
 			 &dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr);
 
@@ -572,6 +608,8 @@ static void offloadservice_ipicmd_received(struct ipi_msg_t *ipi_msg)
 		break;
 	case OFFLOAD_DECODE_ERROR:
 		afe_offload_service.decode_error = true;
+		offloadservice_setwriteblocked(false);
+		offloadservice_releasewriteblocked();
 		pr_info("%s decode_error\n", __func__);
 		break;
 	case OFFLOAD_CODEC_INFO:
@@ -620,8 +658,7 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 	copy_size = count;
 	availsize = RingBuf_getFreeSpace(ringbuf);
 #ifdef DEBUG_VERBOSE
-	pr_debug(
-		"%s copy_size = %d availsize = %d\n",
+	pr_debug("%s copy_size = %d availsize = %d\n",
 		__func__, copy_size,
 		RingBuf_getFreeSpace(ringbuf));
 
@@ -648,11 +685,12 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 		afe_offload_service.needdata = false;
 		u4round = 1;
 		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-				AUDIO_IPI_MSG_ONLY,
+				AUDIO_IPI_PAYLOAD,
 				AUDIO_IPI_MSG_BYPASS_ACK,
 				OFFLOAD_SETWRITEBLOCK,
-				afe_offload_block.write_blocked_idx,
-				0, NULL);
+				sizeof(afe_offload_block.write_blocked_idx),
+				0,
+				(void *)&afe_offload_block.write_blocked_idx);
 #ifdef use_wake_lock
 		mtk_compr_offload_int_wakelock(false);
 #endif
@@ -674,11 +712,12 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 		    (32 * USE_PERIODS_MAX) * u4round) {
 			/* notify writeIDX to SCP each 256K*/
 			mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
-				AUDIO_IPI_MSG_ONLY,
+				AUDIO_IPI_PAYLOAD,
 				AUDIO_IPI_MSG_BYPASS_ACK,
 				OFFLOAD_WRITEIDX,
-				buf_bridge->pWrite,
-				0, NULL);
+				sizeof(buf_bridge->pWrite),
+				0,
+				(void *)&buf_bridge->pWrite);
 			u4round++;
 		}
 	}
@@ -696,9 +735,8 @@ static int offloadservice_copydatatoram(void __user *buf, size_t count)
 				AUDIO_IPI_PAYLOAD,
 				AUDIO_IPI_MSG_BYPASS_ACK,
 				AUDIO_DSP_TASK_DLCOPY,
-				sizeof(unsigned int),
-				(unsigned int)
-				dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr,
+				sizeof(dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr),
+				0,
 				(char *)
 				&dsp->dsp_mem[ID].msg_atod_share_buf.phy_addr);
 #ifdef DEBUG_VERBOSE

@@ -117,8 +117,9 @@ struct mtk_cam_seninf_ops {
 	int (*_enable_cam_mux_vsync_irq)(struct seninf_ctx *ctx, bool enable, int cam_mux);
 	int (*_disable_all_cam_mux_vsync_irq)(struct seninf_ctx *ctx);
 	int (*_debug)(struct seninf_ctx *ctx);
-	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u32 val);
+	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u64 val);
 	ssize_t (*_show_err_status)(struct device *dev, struct device_attribute *attr, char *buf);
+	int (*_enable_stream_err_detect)(struct seninf_ctx *ctx);
 	unsigned int seninf_num;
 	unsigned int mux_num;
 	unsigned int cam_mux_num;

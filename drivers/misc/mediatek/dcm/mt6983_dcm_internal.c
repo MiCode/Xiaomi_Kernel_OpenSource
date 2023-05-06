@@ -624,6 +624,42 @@ void dcm_pre_init(void)
 	dcm_pr_info("weak function of %s\n", __func__);
 }
 
+static void disabled_by_dts(void)
+{
+	struct device_node *node;
+	int infra_err, mcu_err, infra_disable, mcu_disable;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6983-dcm");
+	if (node) {
+		unsigned int dcm_infra_mcusys = (INFRA_DCM_TYPE | MCUSYS_DCM_TYPE);
+		unsigned int dcm_mcusys_all_type = (MCUSYS_DCM_TYPE | MCUSYS_ACP_DCM_TYPE |
+			MCUSYS_ADB_DCM_TYPE | MCUSYS_BUS_DCM_TYPE | MCUSYS_CBIP_DCM_TYPE |
+			MCUSYS_CORE_DCM_TYPE | MCUSYS_IO_DCM_TYPE | MCUSYS_CPC_PBI_DCM_TYPE |
+			MCUSYS_CPC_TURBO_DCM_TYPE | MCUSYS_STALL_DCM_TYPE |
+			MCUSYS_APB_DCM_TYPE);
+
+		infra_err = of_property_read_u32(node, "infra_disable", &infra_disable);
+		mcu_err = of_property_read_u32(node, "mcu_disable", &mcu_disable);
+
+		if ((!infra_err && infra_disable) && (!mcu_err && mcu_disable)) {
+			dcm_pr_notice("[DCM] mediatek,dcm infra_disable, mcu_disable found in DTS!\n");
+			dcm_disable(dcm_infra_mcusys);
+			dcm_disable(dcm_mcusys_all_type);
+		} else if (!infra_err && infra_disable) {
+			dcm_pr_notice("[DCM] mediatek,dcm only infra_disable found in DTS!\n");
+			dcm_disable(INFRA_DCM_TYPE);
+		} else if (!mcu_err && mcu_disable) {
+			dcm_pr_notice("[DCM] mediatek,dcm only mcu_disable found in DTS!\n");
+			dcm_disable(dcm_mcusys_all_type);
+		} else {
+			dcm_pr_notice("[DCM] mediatek,dcm no disable found in DTS!\n");
+		}
+		dcm_dump_state(dcm_infra_mcusys);
+	} else {
+		dcm_pr_notice("[DCM] mediatek,mt6983-dcm not found in DTS!\n");
+	}
+}
+
 static int dcm_smc_call_control(int onoff, unsigned int mask)
 {
 	struct arm_smccc_res res;
@@ -651,6 +687,8 @@ static int __init mt6983_dcm_init(void)
 	dcm_array_register();
 
 	ret = mt_dcm_common_init();
+
+	disabled_by_dts();
 
 	return ret;
 }

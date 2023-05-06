@@ -18,6 +18,8 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
 
+#include <soc/mediatek/smi.h>
+
 #include "mtk_cam.h"
 #include "mtk_cam-feature.h"
 #include "mtk_cam_pm.h"
@@ -451,7 +453,7 @@ static const struct v4l2_subdev_video_ops mtk_camsv_subdev_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops mtk_camsv_subdev_pad_ops = {
-	.link_validate = mtk_cam_link_validate,
+	.link_validate = mtk_cam_sv_link_validate,
 	.init_cfg = mtk_camsv_init_cfg,
 	.set_fmt = mtk_camsv_set_fmt,
 	.get_fmt = mtk_camsv_get_fmt,
@@ -602,6 +604,34 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB14,
 		},
 	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SBGGR10P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGBRG10P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGRBG10P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SRGGB10P,
+		},
+	},
 };
 
 #define MTK_CAMSV_TOTAL_CAPTURE_QUEUES 1
@@ -703,6 +733,8 @@ void sv_reset(struct mtk_camsv_device *dev)
 			 readl(dev->base + REG_CAMSV_FRAME_SEQ_NO)
 			);
 
+		mtk_smi_dbg_hang_detect("camsys-camsv");
+
 		goto RESET_FAILURE;
 	}
 
@@ -792,6 +824,10 @@ unsigned int mtk_cam_sv_format_sel(unsigned int pixel_fmt)
 	case V4L2_PIX_FMT_MTISP_SGBRG10:
 	case V4L2_PIX_FMT_MTISP_SGRBG10:
 	case V4L2_PIX_FMT_MTISP_SRGGB10:
+	case V4L2_PIX_FMT_SBGGR10P:
+	case V4L2_PIX_FMT_SGBRG10P:
+	case V4L2_PIX_FMT_SGRBG10P:
+	case V4L2_PIX_FMT_SRGGB10P:
 		fmt.Bits.TG1_FMT = SV_TG_FMT_RAW10;
 		break;
 	case V4L2_PIX_FMT_MTISP_SBGGR12:
@@ -813,21 +849,36 @@ unsigned int mtk_cam_sv_format_sel(unsigned int pixel_fmt)
 	return fmt.Raw;
 }
 
-unsigned int mtk_cam_sv_pak_sel(unsigned int tg_fmt,
+unsigned int mtk_cam_sv_pak_sel(unsigned int pixel_fmt,
 	unsigned int pixel_mode)
 {
 	union CAMSV_PAK pak;
 
 	pak.Raw = 0;
 
-	switch (tg_fmt) {
-	case SV_TG_FMT_RAW8:
+	switch (pixel_fmt) {
+	case V4L2_PIX_FMT_SBGGR8:
+	case V4L2_PIX_FMT_SGBRG8:
+	case V4L2_PIX_FMT_SGRBG8:
+	case V4L2_PIX_FMT_SRGGB8:
 		pak.Bits.PAK_MODE = 128;
 		break;
-	case SV_TG_FMT_RAW10:
+	case V4L2_PIX_FMT_MTISP_SBGGR10:
+	case V4L2_PIX_FMT_MTISP_SGBRG10:
+	case V4L2_PIX_FMT_MTISP_SGRBG10:
+	case V4L2_PIX_FMT_MTISP_SRGGB10:
 		pak.Bits.PAK_MODE = 129;
 		break;
-	case SV_TG_FMT_RAW12:
+	case V4L2_PIX_FMT_SBGGR10P:
+	case V4L2_PIX_FMT_SGBRG10P:
+	case V4L2_PIX_FMT_SGRBG10P:
+	case V4L2_PIX_FMT_SRGGB10P:
+		pak.Bits.PAK_MODE = 143;
+		break;
+	case V4L2_PIX_FMT_MTISP_SBGGR12:
+	case V4L2_PIX_FMT_MTISP_SGBRG12:
+	case V4L2_PIX_FMT_MTISP_SGRBG12:
+	case V4L2_PIX_FMT_MTISP_SRGGB12:
 		pak.Bits.PAK_MODE = 130;
 		break;
 	default:
@@ -842,27 +893,40 @@ unsigned int mtk_cam_sv_pak_sel(unsigned int tg_fmt,
 unsigned int mtk_cam_sv_xsize_cal(struct mtkcam_ipi_input_param *cfg_in_param)
 {
 
-	union CAMSV_FMT_SEL fmt;
 	unsigned int size;
 	unsigned int divisor;
 
-	fmt.Raw = cfg_in_param->fmt;
-
-	switch (fmt.Bits.TG1_FMT) {
-	case SV_TG_FMT_RAW8:
+	switch (cfg_in_param->fmt) {
+	case V4L2_PIX_FMT_SBGGR8:
+	case V4L2_PIX_FMT_SGBRG8:
+	case V4L2_PIX_FMT_SGRBG8:
+	case V4L2_PIX_FMT_SRGGB8:
 		size = cfg_in_param->in_crop.s.w;
 		break;
-	case SV_TG_FMT_RAW10:
+	case V4L2_PIX_FMT_MTISP_SBGGR10:
+	case V4L2_PIX_FMT_MTISP_SGBRG10:
+	case V4L2_PIX_FMT_MTISP_SGRBG10:
+	case V4L2_PIX_FMT_MTISP_SRGGB10:
+	case V4L2_PIX_FMT_SBGGR10P:
+	case V4L2_PIX_FMT_SGBRG10P:
+	case V4L2_PIX_FMT_SGRBG10P:
+	case V4L2_PIX_FMT_SRGGB10P:
 		size = (cfg_in_param->in_crop.s.w * 10) / 8;
 		break;
-	case SV_TG_FMT_RAW12:
+	case V4L2_PIX_FMT_MTISP_SBGGR12:
+	case V4L2_PIX_FMT_MTISP_SGBRG12:
+	case V4L2_PIX_FMT_MTISP_SGRBG12:
+	case V4L2_PIX_FMT_MTISP_SRGGB12:
 		size = (cfg_in_param->in_crop.s.w * 12) / 8;
 		break;
-	case SV_TG_FMT_RAW14:
+	case V4L2_PIX_FMT_MTISP_SBGGR14:
+	case V4L2_PIX_FMT_MTISP_SGBRG14:
+	case V4L2_PIX_FMT_MTISP_SGRBG14:
+	case V4L2_PIX_FMT_MTISP_SRGGB14:
 		size = (cfg_in_param->in_crop.s.w * 14) / 8;
 		break;
 	default:
-		return 0;
+		break;
 	}
 
 	switch (cfg_in_param->pixel_mode) {
@@ -991,7 +1055,6 @@ int mtk_cam_sv_top_config(
 							SV_INT_EN_TG_SOF_INT_EN |
 							SV_INT_EN_SW_PASS1_DON_INT_EN |
 							SV_INT_EN_DMA_ERR_INT_EN);
-	union CAMSV_FMT_SEL fmt;
 	union CAMSV_PAK pak;
 	int ret = 0;
 
@@ -1034,7 +1097,8 @@ int mtk_cam_sv_top_config(
 	}
 
 	/* fmt sel */
-	CAMSV_WRITE_REG(dev->base + REG_CAMSV_FMT_SEL, cfg_in_param->fmt);
+	CAMSV_WRITE_REG(dev->base + REG_CAMSV_FMT_SEL,
+		mtk_cam_sv_format_sel(cfg_in_param->fmt));
 
 	/* int en */
 	CAMSV_WRITE_REG(dev->base + REG_CAMSV_INT_EN, int_en);
@@ -1053,8 +1117,7 @@ int mtk_cam_sv_top_config(
 	}
 
 	/* pak */
-	fmt.Raw = cfg_in_param->fmt;
-	pak.Raw = mtk_cam_sv_pak_sel(fmt.Bits.TG1_FMT, cfg_in_param->pixel_mode);
+	pak.Raw = mtk_cam_sv_pak_sel(cfg_in_param->fmt, cfg_in_param->pixel_mode);
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MODULE_EN,
 		CAMSV_MODULE_EN, PAK_EN, 1);
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MODULE_EN,
@@ -1195,6 +1258,9 @@ int mtk_cam_sv_top_enable(struct mtk_camsv_device *dev)
 	mtk_cam_sv_toggle_db(dev);
 	mtk_cam_sv_toggle_tg_db(dev);
 
+	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_FBC_IMGO_CTL1,
+		CAMSV_FBC_IMGO_CTL1, FBC_DB_EN, 1);
+
 	dev_info(dev->dev, "%s FBC_IMGO_CTRL1/2:0x%x/0x%x\n",
 		__func__,
 		CAMSV_READ_REG(dev->base + REG_CAMSV_FBC_IMGO_CTL1),
@@ -1230,7 +1296,7 @@ int mtk_cam_sv_fbc_enable(
 	if (CAMSV_READ_BITS(dev->base + REG_CAMSV_TG_VF_CON,
 			CAMSV_TG_VF_CON, VFDATA_EN) == 1) {
 		ret = -1;
-		dev_dbg(dev->dev, "cannot enable fbc when streaming");
+		dev_info(dev->dev, "cannot enable fbc when streaming");
 		goto EXIT;
 	}
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_FBC_IMGO_CTL1,
@@ -1263,8 +1329,10 @@ int mtk_cam_sv_top_disable(struct mtk_camsv_device *dev)
 		CAMSV_WRITE_BITS(dev->base + REG_CAMSV_TG_VF_CON,
 			CAMSV_TG_VF_CON, VFDATA_EN, 0);
 		mtk_cam_sv_toggle_tg_db(dev);
-		sv_reset(dev);
 	}
+
+	sv_reset(dev);
+
 	CAMSV_WRITE_BITS(dev->base + REG_CAMSV_MODULE_EN,
 		CAMSV_MODULE_EN, DB_EN, 0);
 	CAMSV_WRITE_REG(dev->base + REG_CAMSV_MODULE_EN, 0);
@@ -1380,11 +1448,11 @@ int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 
 	fmt.Raw = mtk_cam_sv_format_sel(img_fmt->fmt.pix_mp.pixelformat);
 
-	cfg_in_param.fmt = fmt.Raw;
+	cfg_in_param.fmt = img_fmt->fmt.pix_mp.pixelformat;
 	cfg_in_param.in_crop.p.x = 0;
 	cfg_in_param.in_crop.p.y = 0;
-	cfg_in_param.in_crop.s.w = ALIGN(img_fmt->fmt.pix_mp.width, 4);
-	cfg_in_param.in_crop.s.h = ALIGN(img_fmt->fmt.pix_mp.height, 4);
+	cfg_in_param.in_crop.s.w = img_fmt->fmt.pix_mp.width;
+	cfg_in_param.in_crop.s.h = img_fmt->fmt.pix_mp.height;
 	cfg_in_param.pixel_mode = 3;
 
 	pxl = ((cfg_in_param.in_crop.s.w + cfg_in_param.in_crop.p.x) << 16) |
@@ -1397,7 +1465,7 @@ int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 	params->cfg_info.grab_lin = lin;
 	params->cfg_info.fmt_sel = fmt.Raw;
 	params->cfg_info.pak =
-		mtk_cam_sv_pak_sel(fmt.Bits.TG1_FMT, cfg_in_param.pixel_mode);
+		mtk_cam_sv_pak_sel(img_fmt->fmt.pix_mp.pixelformat, cfg_in_param.pixel_mode);
 	params->cfg_info.imgo_xsize =
 		mtk_cam_sv_xsize_cal(&cfg_in_param) - 1;
 	params->cfg_info.imgo_ysize = cfg_in_param.in_crop.s.h - 1;
@@ -1458,7 +1526,27 @@ int mtk_cam_find_sv_dev_index(
 	return -1;
 }
 
-int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
+int mtk_cam_sv_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns)
+{
+	struct mtk_camsv_working_buf_entry *buf_entry;
+	int i;
+
+	for (i = 0; i < ctx->used_sv_num; i++) {
+		spin_lock(&ctx->sv_using_buffer_list[i].lock);
+		if (list_empty(&ctx->sv_using_buffer_list[i].list)) {
+			spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+			return 0;
+		}
+		buf_entry = list_first_entry(&ctx->sv_using_buffer_list[i].list,
+				struct mtk_camsv_working_buf_entry, list_entry);
+		buf_entry->ts_raw = ts_ns;
+		spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+	}
+
+	return 1;
+}
+
+int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx)
 {
 	unsigned int seq_no;
 	dma_addr_t base_addr;
@@ -1476,8 +1564,8 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 		}
 		list_for_each_entry_safe(buf_entry, buf_entry_prev,
 			&ctx->sv_using_buffer_list[i].list, list_entry) {
-			if (buf_entry->ts_raw == 0) {
-				buf_entry->ts_raw = ts_ns;
+			if (atomic_read(&buf_entry->is_apply) == 0) {
+				atomic_set(&buf_entry->is_apply, 1);
 				break;
 			}
 		}
@@ -1485,14 +1573,18 @@ int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns)
 				struct mtk_camsv_working_buf_entry, list_entry);
 		if (mtk_cam_sv_is_vf_on(camsv_dev) &&
 			(ctx->used_raw_num != 0)) {
-			if ((buf_entry->ts_sv == 0) ||
-				((buf_entry->ts_sv < buf_entry->ts_raw) &&
-				((buf_entry->ts_raw - buf_entry->ts_sv) > 10000000))) {
-				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld",
-					__func__, ctx->sv_pipe[i]->id,
-					buf_entry->ts_raw, buf_entry->ts_sv);
-				spin_unlock(&ctx->sv_using_buffer_list[i].lock);
-				continue;
+			if ((CAMSV_CHECK_TS == 1) && (buf_entry->is_stagger == 0 ||
+				(buf_entry->is_stagger == 1 && STAGGER_CQ_LAST_SOF == 0))) {
+				if ((buf_entry->ts_sv == 0) ||
+					((buf_entry->ts_sv < buf_entry->ts_raw) &&
+					((buf_entry->ts_raw - buf_entry->ts_sv) > 10000000))) {
+					dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld is_apply:%d",
+						__func__, ctx->sv_pipe[i]->id,
+						buf_entry->ts_raw, buf_entry->ts_sv,
+						atomic_read(&buf_entry->is_apply));
+					spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+					continue;
+				}
 			}
 		}
 		list_del(&buf_entry->list_entry);
@@ -1553,6 +1645,8 @@ int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx,
 					struct mtk_camsv_working_buf_entry, list_entry);
 			buf_entry->ts_sv = ts_ns;
 			if (((buf_entry->ts_raw == 0) && (ctx->used_raw_num != 0)) ||
+				((atomic_read(&buf_entry->is_apply) == 0) &&
+				(ctx->used_raw_num != 0)) ||
 				((buf_entry->ts_sv < buf_entry->ts_raw) &&
 				((buf_entry->ts_raw - buf_entry->ts_sv) > 10000000))) {
 				dev_dbg(ctx->cam->dev, "%s pipe_id:%d ts_raw:%lld ts_sv:%lld",
@@ -1625,11 +1719,52 @@ int mtk_cam_sv_rgbw_apply_next_buffer(
 	return ret;
 }
 
+int mtk_cam_sv_apply_switch_buffers(struct mtk_cam_ctx *ctx)
+{
+	unsigned int seq_no;
+	dma_addr_t base_addr;
+	struct mtk_camsv_working_buf_entry *buf_entry;
+	struct mtk_camsv_device *camsv_dev;
+	int i;
+
+	for (i = 0; i < ctx->used_sv_num; i++) {
+		camsv_dev = get_camsv_dev(ctx->cam, ctx->sv_pipe[i]);
+
+		spin_lock(&ctx->sv_using_buffer_list[i].lock);
+		if (list_empty(&ctx->sv_using_buffer_list[i].list)) {
+			spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+			return 0;
+		}
+		buf_entry = list_first_entry(&ctx->sv_using_buffer_list[i].list,
+				struct mtk_camsv_working_buf_entry, list_entry);
+		list_del(&buf_entry->list_entry);
+		ctx->sv_using_buffer_list[i].cnt--;
+		spin_unlock(&ctx->sv_using_buffer_list[i].lock);
+		spin_lock(&ctx->sv_processing_buffer_list[i].lock);
+		list_add_tail(&buf_entry->list_entry,
+				&ctx->sv_processing_buffer_list[i].list);
+		ctx->sv_processing_buffer_list[i].cnt++;
+		spin_unlock(&ctx->sv_processing_buffer_list[i].lock);
+
+		if (buf_entry->s_data->req->pipe_used & (1 << ctx->sv_pipe[i]->id)) {
+			seq_no = buf_entry->s_data->frame_seq_no;
+			base_addr =
+				buf_entry->s_data->sv_frame_params.img_out.buf[0][0].iova;
+			camsv_dev->is_enqueued = 1;
+			mtk_cam_sv_setup_cfg_info(camsv_dev, buf_entry->s_data);
+			mtk_cam_sv_enquehwbuf(camsv_dev, base_addr, seq_no);
+		}
+	}
+
+	return 1;
+}
+
 int mtk_cam_sv_dev_config(
 	struct mtk_cam_ctx *ctx,
 	unsigned int idx,
 	unsigned int hw_scen,
-	unsigned int exp_order)
+	unsigned int exp_order,
+	unsigned int pixelmode)
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct device *dev = cam->dev;
@@ -1639,7 +1774,8 @@ int mtk_cam_sv_dev_config(
 	struct mtk_camsv_device *camsv_dev;
 	struct v4l2_format *img_fmt;
 	unsigned int i;
-	int ret, pad_idx, pixel_mode = 0;
+	int ret, pad_idx;
+	int cfg_pixel_mode = pixelmode;
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		if (hw_scen & (1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW)) {
@@ -1647,22 +1783,22 @@ int mtk_cam_sv_dev_config(
 				MTK_RAW_MAIN_STREAM_SV_1_OUT - MTK_RAW_SINK_NUM].active_fmt;
 			pad_idx = PAD_SRC_RAW_W0;
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
+			mtk_cam_seninf_get_pixelmode(ctx->seninf, pad_idx, &cfg_pixel_mode);
 		} else {
 			img_fmt = &ctx->pipe->vdev_nodes[MTK_RAW_MAIN_STREAM_OUT - MTK_RAW_SINK_NUM]
 				.active_fmt;
-			pad_idx = PAD_SRC_RAW0;
 			mf = &ctx->pipe->cfg[MTK_RAW_SINK].mbus_fmt;
+			cfg_pixel_mode = ctx->pipe->res_config.tgo_pxl_mode;
 		}
 	} else {
 		img_fmt = &ctx->sv_pipe[idx]
 			->vdev_nodes[MTK_CAMSV_MAIN_STREAM_OUT-MTK_CAMSV_SINK_NUM].active_fmt;
 		pad_idx = ctx->sv_pipe[idx]->seninf_padidx;
 		mf = &ctx->sv_pipe[idx]->cfg[MTK_CAMSV_SINK].mbus_fmt;
+		mtk_cam_seninf_get_pixelmode(ctx->seninf, pad_idx, &cfg_pixel_mode);
 	}
 
-	/* Update cfg_in_param */
-	mtk_cam_seninf_get_pixelmode(ctx->seninf, pad_idx, &pixel_mode);
-	cfg_in_param.pixel_mode = pixel_mode;
+	cfg_in_param.pixel_mode = cfg_pixel_mode;
 	cfg_in_param.data_pattern = 0x0;
 	cfg_in_param.in_crop.p.x = 0;
 	cfg_in_param.in_crop.p.y = 0;
@@ -1672,11 +1808,11 @@ int mtk_cam_sv_dev_config(
 		img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline);
 	cfg_in_param.raw_pixel_id = mtk_cam_get_sensor_pixel_id(mf->code);
 	cfg_in_param.subsample = 0;
-	cfg_in_param.fmt = mtk_cam_sv_format_sel(img_fmt->fmt.pix_mp.pixelformat);
+	cfg_in_param.fmt = img_fmt->fmt.pix_mp.pixelformat;
 
-	if (cfg_in_param.in_crop.s.w % (1 << pixel_mode))
+	if (cfg_in_param.in_crop.s.w % (1 << cfg_pixel_mode))
 		dev_info(dev, "crop width(%d) is not the multiple of pixel mode(%d)\n",
-			cfg_in_param.in_crop.s.w, pixel_mode);
+			cfg_in_param.in_crop.s.w, cfg_pixel_mode);
 
 	if (hw_scen & MTK_CAMSV_SUPPORTED_SPECIAL_HW_SCENARIO) {
 		pm_runtime_get_sync(cam->sv.devs[idx]);
@@ -1772,6 +1908,9 @@ int mtk_cam_sv_dev_stream_on(
 	if (streaming)
 		ret = mtk_cam_sv_top_enable(camsv_dev);
 	else {
+		/* reset enqueued status */
+		camsv_dev->is_enqueued = 0;
+
 		ret = mtk_cam_sv_top_disable(camsv_dev) ||
 			mtk_cam_sv_fbc_disable(camsv_dev) ||
 			mtk_cam_sv_dmao_disable(camsv_dev) ||
@@ -2248,7 +2387,7 @@ static int mtk_camsv_pm_suspend(struct device *dev)
 		return 0;
 
 	/* Disable ISP's view finder and wait for TG idle */
-	dev_dbg(dev, "camsv suspend, disable VF\n");
+	dev_info(dev, "camsv suspend, disable VF\n");
 	val = readl(camsv_dev->base + REG_CAMSV_TG_VF_CON);
 	writel(val & (~CAMSV_TG_VF_CON_VFDATA_EN),
 		camsv_dev->base + REG_CAMSV_TG_VF_CON);
@@ -2257,7 +2396,7 @@ static int mtk_camsv_pm_suspend(struct device *dev)
 					(val & CAMSV_TG_CS_MASK) == CAMSV_TG_IDLE_ST,
 					USEC_PER_MSEC, MTK_CAMSV_STOP_HW_TIMEOUT);
 	if (ret)
-		dev_dbg(dev, "can't stop HW:%d:0x%x\n", ret, val);
+		dev_info(dev, "can't stop HW:%d:0x%x\n", ret, val);
 
 	/* Disable CMOS */
 	val = readl(camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
@@ -2286,7 +2425,7 @@ static int mtk_camsv_pm_resume(struct device *dev)
 		return ret;
 
 	/* Enable CMOS */
-	dev_dbg(dev, "camsv resume, enable CMOS/VF\n");
+	dev_info(dev, "camsv resume, enable CMOS/VF\n");
 	val = readl(camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
 	writel(val | CAMSV_TG_SEN_MODE_CMOS_EN,
 		camsv_dev->base + REG_CAMSV_TG_SEN_MODE);
@@ -2596,10 +2735,10 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
+	disable_irq(camsv_dev->irq);
+
 	for (i = 0; i < camsv_dev->num_clks; i++)
 		clk_disable_unprepare(camsv_dev->clks[i]);
-
-	disable_irq(camsv_dev->irq);
 
 	return 0;
 }

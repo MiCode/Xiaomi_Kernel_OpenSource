@@ -114,6 +114,47 @@
  *
  ************************************************************************/
 /* SENSOR CHIP VERSION */
+/*XIAOMI*/
+#define MATISSES5KHM2_SENSOR_ID                        0xFAD2
+#define SENSOR_DRVNAME_MATISSES5KHM2_MIPI_RAW          "matisses5khm2_mipi_raw"
+#define MATISSEIMX596_SENSOR_ID                        0x0596
+#define SENSOR_DRVNAME_MATISSEIMX596_MIPI_RAW          "matisseimx596_mipi_raw"
+#define MATISSEGC02M1_SENSOR_ID                        0x2E0
+#define SENSOR_DRVNAME_MATISSEGC02M1_MIPI_RAW          "matissegc02m1_mipi_raw"
+#define MATISSES5K4H7_SENSOR_ID                        0x487B
+#define SENSOR_DRVNAME_MATISSES5K4H7_MIPI_RAW          "matisses5k4h7_mipi_raw"
+
+#define RUBENSIMX582_SENSOR_ID                        0x0582
+#define SENSOR_DRVNAME_RUBENSIMX582_MIPI_RAW          "rubensimx582_mipi_raw"
+#define RUBENSIMX596_SENSOR_ID                        0x0596
+#define SENSOR_DRVNAME_RUBENSIMX596_MIPI_RAW          "rubensimx596_mipi_raw"
+#define RUBENSGC02M1_SENSOR_ID                        0x2E0
+#define SENSOR_DRVNAME_RUBENSGC02M1_MIPI_RAW          "rubensgc02m1_mipi_raw"
+#define RUBENSS5K4H7_SENSOR_ID                        0x487B
+#define SENSOR_DRVNAME_RUBENSS5K4H7_MIPI_RAW          "rubenss5k4h7_mipi_raw"
+
+#define XAGAS5KHM2_SENSOR_ID                        0xFAD2
+#define SENSOR_DRVNAME_XAGAS5KHM2_MIPI_RAW          "xagas5khm2_mipi_raw"
+#define XAGAGC02M1_SENSOR_ID                        0x2E0
+#define SENSOR_DRVNAME_XAGAGC02M1_MIPI_RAW          "xagagc02m1_mipi_raw"
+#define XAGAS5K4H7_SENSOR_ID                        0x487B
+#define SENSOR_DRVNAME_XAGAS5K4H7_MIPI_RAW          "xagas5k4h7_mipi_raw"
+#define XAGAOV16A1_SENSOR_ID                        0x1641
+#define SENSOR_DRVNAME_XAGAOV16A1_MIPI_RAW          "xagaov16a1_mipi_raw"
+#define XAGAS5KGW1_SENSOR_ID                        0xF971
+#define SENSOR_DRVNAME_XAGAS5KGW1_MIPI_RAW          "xagas5kgw1_mipi_raw"
+#define XAGAOV02B10_SENSOR_ID                        0x002B
+#define SENSOR_DRVNAME_XAGAOV02B10_MIPI_RAW         "xagaov02b10_mipi_raw"
+
+#define DAUMIERIMX707_SENSOR_ID                        0x0707
+#define SENSOR_DRVNAME_DAUMIERIMX707_MIPI_RAW          "daumierimx707_mipi_raw"
+#define DAUMIEROV32B40_SENSOR_ID                       0x3242
+#define SENSOR_DRVNAME_DAUMIEROV32B40_MIPI_RAW         "daumierov32b40_mipi_raw"
+#define DAUMIEROV13B10_SENSOR_ID                       0xD42
+#define SENSOR_DRVNAME_DAUMIEROV13B10_MIPI_RAW         "daumierov13b10_mipi_raw"
+#define DAUMIERS5K5E9_SENSOR_ID                        0x559B
+#define SENSOR_DRVNAME_DAUMIERS5K5E9_MIPI_RAW          "daumiers5k5e9_mipi_raw"
+
 /*IMX*/
 #define IMX499_SENSOR_ID                        0x0499
 #define IMX481_SENSOR_ID                        0x0481

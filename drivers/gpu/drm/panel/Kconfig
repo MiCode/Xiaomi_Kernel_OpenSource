@@ -300,6 +300,7 @@ config DRM_PANEL_OLIMEX_LCD_OLINUXINO
 	depends on OF
 	depends on I2C
 	depends on BACKLIGHT_CLASS_DEVICE
+	select CRC32
 	help
 	  The panel is used with different sizes LCDs, from 480x272 to
 	  1280x800, and 24 bit per pixel.
@@ -599,6 +600,56 @@ config DRM_PANEL_TRULY_FT8756_VDO
 	  mode Full HD Plus panel. The panel has a 1080x2300 resolution
 	  and uses 24-bits RGB per pixel. It provides a MIPI DSI interface
 	  to host.
+
+config DRM_PANEL_L11_38_0A_0A_DSC_CMD
+	tristate "DRM_PANEL_L11_38_0A_0A_DSC_CMD panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for L11 38_0A_0A_DSC_CMD Plus panel.
+	  The panel has a 1440x3200 resolution and uses 24-bits RGB per pixel.
+	  It provides a MIPI DSI interface to host.
+
+config DRM_PANEL_L11A_38_0A_0A_DSC_CMD
+	tristate "DRM_PANEL_L11A_38_0A_0A_DSC_CMD panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for L11A 38_0A_0A_DSC_CMD Plus panel.
+	  The panel has a 1440x3200 resolution and uses 24-bits RGB per pixel.
+	  It provides a MIPI DSI interface to host.
+
+config DRM_PANEL_L2M_38_0A_0A_DSC_CMD
+	tristate "DRM_PANEL_L2M_38_0A_0A_DSC_CMD panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for L2M 38_0A_0A_DSC_CMD Plus panel.
+	  The panel has a 1440x3200 resolution and uses 24-bits RGB per pixel.
+	  It provides a MIPI DSI interface to host.
+
+config DRM_PANEL_L16_42_02_0A_DSC_VDO
+	tristate "DRM_PANEL_L16_42_02_0A_DSC_VDO panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for L16_42_02_0A_DSC_VDO Plus panel.
+	  The panel has a 1080x2460 resolution and uses 24-bits RGB per pixel.
+	  It provides a MIPI DSI interface to host.
+
+config DRM_PANEL_L16_36_02_0B_DSC_VDO
+	tristate "DRM_PANEL_L16_36_02_0B_DSC_VDO panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for L16_36_02_0B_DSC_VDO Plus panel.
+	  The panel has a 1080x2460 resolution and uses 24-bits RGB per pixel.
+	  It provides a MIPI DSI interface to host.
 
 config DRM_PANEL_ALPHA_JDI_NT36672C_CPHY_VDO
 	tristate "ALPHA JDI FHD+ CPHY vdo mode panel"

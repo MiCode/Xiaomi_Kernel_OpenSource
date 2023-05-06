@@ -3247,7 +3247,7 @@ static const struct mau_config_info mau_config_default[] = {
 };
 
 /**********iommu trace**********/
-#define IOMMU_MAX_EVENT_COUNT 3000
+#define IOMMU_MAX_EVENT_COUNT 8000
 
 #define iommu_dump(file, fmt, args...) \
 	do {\
@@ -3970,6 +3970,8 @@ static int mtk_iommu_help_fops_proc_show(struct seq_file *s, void *unused)
 static int mtk_iommu_dump_fops_proc_show(struct seq_file *s, void *unused)
 {
 	mtk_iommu_trace_dump(s);
+	mtk_iommu_iova_alloc_dump(s, NULL);
+	mtk_iommu_iova_alloc_dump_top(s, NULL);
 	return 0;
 }
 
@@ -4343,10 +4345,15 @@ static void mtk_iova_dbg_alloc(struct device *dev, struct iova_domain *iovad,
 {
 	struct iova_info *iova_buf;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	u32 tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
 
 	if (!iova) {
 		pr_info("%s fail! dev:%s, size:0x%zx\n",
 			__func__, dev_name(dev), size);
+
+		if (tab_id == APU_TABLE)
+			mtk_iommu_iova_alloc_dump(NULL, dev);
+
 		return mtk_iommu_iova_alloc_dump_top(NULL, dev);
 	}
 
@@ -4354,7 +4361,7 @@ static void mtk_iova_dbg_alloc(struct device *dev, struct iova_domain *iovad,
 	if (!iova_buf)
 		return;
 
-	iova_buf->tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
+	iova_buf->tab_id = tab_id;
 	iova_buf->dom_id = MTK_M4U_TO_DOM(fwspec->ids[0]);
 	iova_buf->dev = dev;
 	iova_buf->iovad = iovad;
@@ -4364,7 +4371,7 @@ static void mtk_iova_dbg_alloc(struct device *dev, struct iova_domain *iovad,
 	list_add(&iova_buf->list_node, &iova_list.head);
 	spin_unlock(&iova_list.lock);
 
-	mtk_iommu_iova_trace(IOMMU_ALLOC, iova, size, iova_buf->tab_id, dev);
+	mtk_iommu_iova_trace(IOMMU_ALLOC, iova, size, tab_id, dev);
 }
 
 static void mtk_iova_dbg_free(struct iova_domain *iovad, dma_addr_t iova, size_t size)

@@ -157,6 +157,20 @@ uint8_t tcpm_inquire_typec_attach_state(
 }
 EXPORT_SYMBOL(tcpm_inquire_typec_attach_state);
 
+atomic_t tcpm_inquire_pending_event(
+	struct tcpc_device *tcpc)
+{
+	return tcpc->pending_event;
+}
+EXPORT_SYMBOL(tcpm_inquire_pending_event);
+
+atomic_t tcpm_inquire_suspend_pending(
+	struct tcpc_device *tcpc)
+{
+	return tcpc->suspend_pending;
+}
+EXPORT_SYMBOL(tcpm_inquire_suspend_pending);
+
 uint8_t tcpm_inquire_typec_role(
 	struct tcpc_device *tcpc)
 {
@@ -377,6 +391,14 @@ uint8_t tcpm_inquire_pd_power_role(
 	return pd_port->power_role;
 }
 EXPORT_SYMBOL(tcpm_inquire_pd_power_role);
+
+uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc_dev)
+{
+	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	return pd_port->pe_state_curr;
+}
+EXPORT_SYMBOL(tcpm_inquire_pd_state_curr);
 
 uint8_t tcpm_inquire_pd_vconn_role(
 	struct tcpc_device *tcpc)

@@ -312,6 +312,7 @@ void mmc_mtk_biolog_transfer_req_compl(struct mmc_host *mmc,
 void mmc_mtk_biolog_check(struct mmc_host *mmc, unsigned long req_mask);
 int mmc_mtk_biolog_init(struct mmc_host *mmc);
 int mmc_mtk_biolog_exit(void);
+void set_mmc_perf_mode(struct mmc_host *mmc, bool boost);
 
 #else
 
@@ -341,7 +342,7 @@ int mmc_mtk_biolog_exit(void);
 #define mmc_mtk_biolog_check(...)
 #define mmc_mtk_biolog_init(...)
 #define mmc_mtk_biolog_exit(...)
-
+#define set_mmc_perf_mode(...)
 #endif
 
 #endif

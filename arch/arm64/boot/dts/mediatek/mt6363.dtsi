@@ -75,11 +75,11 @@
 			};
 			vin4_open {
 				channel = <AUXADC_VIN4>;
-				pures = <ADC_PURES_OPEN>;
+				pures = <ADC_PURES_100K>;
 			};
 			vin5_open {
 				channel = <AUXADC_VIN5>;
-				pures = <ADC_PURES_OPEN>;
+				pures = <ADC_PURES_100K>;
 			};
 			vin6_open {
 				channel = <AUXADC_VIN6>;
@@ -266,6 +266,7 @@
 				regulator-max-microvolt = <3500000>;
 				regulator-enable-ramp-delay = <680>;
 				regulator-allowed-modes = <0 2>;
+				regulator-always-on;
 			};
 			mt6363_vcn13: VCN13 {
 				regulator-compatible = "VCN13";

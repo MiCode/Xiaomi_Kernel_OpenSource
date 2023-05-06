@@ -17,6 +17,7 @@
 #include <linux/timekeeping.h>
 #include <linux/usb/composite.h>
 #include <trace/hooks/sound.h>
+#include <linux/pm_wakeup.h>
 
 #include "usb_boost.h"
 #include "xhci-trace.h"
@@ -103,6 +104,7 @@ static int trigger_cnt_disabled;
 static int enabled;
 static int inited;
 static struct class *usb_boost_class;
+static struct wakeup_source *usb_boost_ws;
 static int cpu_freq_dft_para[_ATTR_PARA_RW_MAXID] = {1, 3, 300, 0};
 static int cpu_core_dft_para[_ATTR_PARA_RW_MAXID] = {1, 3, 300, 0};
 static int dram_vcore_dft_para[_ATTR_PARA_RW_MAXID] = {1, 3, 300, 0};
@@ -384,6 +386,7 @@ static void audio_boost_work(struct work_struct *work_struct)
 	audio_boost_inst.request_func = __request_empty;
 	USB_BOOST_NOTICE("audio_boost, begin of work\n");
 	audio_core_hold();
+	audio_freq_hold();
 
 	while (1) {
 		int timeout;
@@ -399,6 +402,7 @@ static void audio_boost_work(struct work_struct *work_struct)
 	}
 
 	audio_core_release();
+	audio_freq_release();
 	audio_boost_inst.request_func = __request_audio;
 	USB_BOOST_NOTICE("audio_boost, end of work\n");
 }
@@ -639,7 +643,7 @@ static int create_sys_fs(void)
 
 		for (n = 0; n < _ATTR_MAXID; n++) {
 			boost_inst[i].attr[n].attr.name = attr_name[n];
-				boost_inst[i].attr[n].attr.mode = 0400;
+			boost_inst[i].attr[n].attr.mode = 0400;
 			boost_inst[i].attr[n].show = attr_show;
 			boost_inst[i].attr[n].store = attr_store;
 
@@ -655,6 +659,7 @@ static int create_sys_fs(void)
 		}
 
 	}
+
 	return 0;
 
 }
@@ -826,8 +831,10 @@ void xhci_urb_giveback_dbg(void *unused, struct urb *urb)
 {
 	switch (usb_endpoint_type(&urb->ep->desc)) {
 	case USB_ENDPOINT_XFER_BULK:
-		if (urb->actual_length >= 8192)
+		if (urb->actual_length >= 8192) {
+			__pm_wakeup_event(usb_boost_ws, 10000);
 			usb_boost();
+		}
 		break;
 	case USB_ENDPOINT_XFER_ISOC:
 		update_time_audio();
@@ -868,6 +875,8 @@ int usb_boost_init(void)
 	INIT_WORK(&audio_boost_inst.work, audio_boost_work);
 	/* default off */
 	audio_boost_inst.request_func = __request_empty;
+	/* wakelock */
+	usb_boost_ws = wakeup_source_register(NULL, "usb_boost");
 
 	create_sys_fs();
 	default_setting();

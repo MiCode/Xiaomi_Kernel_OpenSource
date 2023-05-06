@@ -87,12 +87,14 @@ void mtk_jpeg_set_enc_dst(struct mtk_jpeg_ctx *ctx, void __iomem *base,
 	dma_addr_offsetmask = dma_addr & JPEG_ENC_DST_ADDR_OFFSET_MASK;
 	size = vb2_plane_size(dst_buf, 0);
 
+	pr_info("%s output size %d dma_addr %llx", __func__, size, (dma_addr - ctx->dst_offset));
+
 	writel(dma_addr_offset & ~0xf, base + JPEG_ENC_OFFSET_ADDR);
 	writel(dma_addr_offsetmask & 0xf, base + JPEG_ENC_BYTE_OFFSET_MASK);
 	writel(dma_addr & ~0xf, base + JPEG_ENC_DST_ADDR0);
 	writel(dma_addr >> 32, base + JPEG_ENC_DEST_ADDR0_EXT);
-	writel((dma_addr + size) & ~0xf, base + JPEG_ENC_STALL_ADDR0);
-	writel(((dma_addr + size)>>32), base + JPEG_ENC_STALL_ADDR0_EXT);
+	writel((dma_addr + (size - ctx->dst_offset)) & ~0xf, base + JPEG_ENC_STALL_ADDR0);
+	writel(((dma_addr + (size - ctx->dst_offset))>>32), base + JPEG_ENC_STALL_ADDR0_EXT);
 }
 
 void mtk_jpeg_set_enc_params(struct mtk_jpeg_ctx *ctx,  void __iomem *base)

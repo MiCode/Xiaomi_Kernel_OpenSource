@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (C) 2021-2022 XiaoMi, Inc.
  */
 
 #include "mtk_drm_ddp_addon.h"
@@ -49,11 +50,21 @@ static const int disp_wdma0_path[] = {
 	DDP_COMPONENT_WDMA0,
 };
 
+static const int disp_wdma0_path_v2[] = {
+	DDP_COMPONENT_MAIN_OVL_DISP_WDMA_VIRTUAL,
+	DDP_COMPONENT_WDMA0,
+};
+
 static const int disp_wdma1_path[] = {
 	DDP_COMPONENT_WDMA1,
 };
 
 static const int disp_wdma2_path[] = {
+	DDP_COMPONENT_WDMA2,
+};
+
+static const int disp_wdma2_path_v2[] = {
+	DDP_COMPONENT_MAIN_OVL_DISP1_WDMA_VIRTUAL,
 	DDP_COMPONENT_WDMA2,
 };
 
@@ -127,6 +138,10 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 				.path = disp_wdma0_path,
 				.path_len = ARRAY_SIZE(disp_wdma0_path),
 			},
+		[DISP_WDMA0_v2] = {
+				.path = disp_wdma0_path_v2,
+				.path_len = ARRAY_SIZE(disp_wdma0_path_v2),
+			},
 		[DISP_WDMA1] = {
 				.path = disp_wdma1_path,
 				.path_len = ARRAY_SIZE(disp_wdma1_path),
@@ -134,6 +149,10 @@ static const struct mtk_addon_path_data addon_module_path[ADDON_MODULE_NUM] = {
 		[DISP_WDMA2] = {
 				.path = disp_wdma2_path,
 				.path_len = ARRAY_SIZE(disp_wdma2_path),
+			},
+		[DISP_WDMA2_v2] = {
+				.path = disp_wdma2_path_v2,
+				.path_len = ARRAY_SIZE(disp_wdma2_path_v2),
 			},
 		[MML_RSZ] = {
 				.path = mml_rsz_path,
@@ -195,8 +214,6 @@ mtk_addon_get_scenario_data_dual(const char *source, struct drm_crtc *crtc,
 	if (mtk_crtc->path_data && mtk_crtc->path_data->addon_data_dual)
 		return &mtk_crtc->path_data->addon_data_dual[scn];
 
-	DDPPR_ERR("[%s] crtc%d cannot get addon data\n", source,
-		  drm_crtc_index(crtc));
 	return NULL;
 }
 
@@ -676,19 +693,28 @@ void mtk_addon_connect_after(struct drm_crtc *crtc, unsigned int ddp_mode,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *comp = NULL;
-	enum mtk_ddp_comp_id prev_attach_comp_id, prev_comp_id, cur_comp_id,
-		next_comp_id;
+	enum mtk_ddp_comp_id prev_attach_comp_id = 0, path_attach_id = 0,
+		prev_comp_id, cur_comp_id, next_comp_id;
 	const struct mtk_addon_path_data *path_data =
 		mtk_addon_module_get_path(module_data->module);
 	int i, j;
 	unsigned int addon_idx;
 
-	prev_attach_comp_id =
-		mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
+	if (mtk_ddp_comp_get_type(module_data->attach_comp) ==
+			MTK_DISP_VIRTUAL) {
+		path_attach_id = module_data->attach_comp;
+		prev_attach_comp_id = mtk_crtc_find_prev_comp(crtc, ddp_mode,
+				path_attach_id);
+	} else {
+		prev_attach_comp_id =
+			mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
+		path_attach_id = prev_attach_comp_id;
+	}
+
 	if (prev_attach_comp_id == -1) {
 		comp = priv->ddp_comp[module_data->attach_comp];
-		DDPMSG("[ERR]Attach module:%s is not in path mode %d\n",
-			  mtk_dump_comp_str(comp), ddp_mode);
+		DDPPR_ERR("Attach module:%s is not in path mode %d\n",
+			mtk_dump_comp_str(comp), ddp_mode);
 		return;
 	}
 
@@ -702,14 +728,14 @@ void mtk_addon_connect_after(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	/* 2. add subpath to main path */
 	mtk_ddp_add_comp_to_path_with_cmdq(
-		mtk_crtc, prev_attach_comp_id, path_data->path[0],
+		mtk_crtc, path_attach_id, path_data->path[0],
 		cmdq_handle);
 
 	/* 3. config module */
 	/* config attach comp */
-	comp = priv->ddp_comp[prev_attach_comp_id];
 	prev_comp_id = mtk_crtc_find_prev_comp(crtc, ddp_mode,
 				prev_attach_comp_id);
+	comp = priv->ddp_comp[prev_attach_comp_id];
 	cur_comp_id = comp->id;
 	next_comp_id = -1;
 	for (i = 0; i < path_data->path_len; i++)
@@ -743,8 +769,8 @@ void mtk_addon_connect_after(struct drm_crtc *crtc, unsigned int ddp_mode,
 			}
 	}
 	/* config subpath last comp */
-	comp = priv->ddp_comp[path_data->path[addon_idx]];
 	prev_comp_id = cur_comp_id;
+	comp = priv->ddp_comp[path_data->path[addon_idx]];
 	cur_comp_id = comp->id;
 	next_comp_id = -1;
 	mtk_ddp_comp_addon_config(comp, prev_comp_id, next_comp_id,
@@ -762,16 +788,26 @@ void mtk_addon_disconnect_after(
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct mtk_ddp_comp *comp = NULL;
-	enum mtk_ddp_comp_id prev_attach_comp_id, prev_comp_id, next_comp_id;
+	enum mtk_ddp_comp_id prev_attach_comp_id = 0, path_attach_id = 0,
+		prev_comp_id, next_comp_id;
 	const struct mtk_addon_path_data *path_data =
 		mtk_addon_module_get_path(module_data->module);
 
-	prev_attach_comp_id =
-		mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
+	if (mtk_ddp_comp_get_type(module_data->attach_comp) ==
+			MTK_DISP_VIRTUAL) {
+		path_attach_id = module_data->attach_comp;
+		prev_attach_comp_id = mtk_crtc_find_prev_comp(crtc, ddp_mode,
+				path_attach_id);
+	} else {
+		prev_attach_comp_id =
+			mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
+		path_attach_id = prev_attach_comp_id;
+	}
+
 	if (prev_attach_comp_id == -1) {
 		comp = priv->ddp_comp[module_data->attach_comp];
-		DDPMSG("[ERR]Attach module:%s is not in path mode %d\n",
-			  mtk_dump_comp_str(comp), ddp_mode);
+		DDPPR_ERR("Attach module:%s is not in path mode %d\n",
+			mtk_dump_comp_str(comp), ddp_mode);
 		return;
 	}
 
@@ -784,7 +820,7 @@ void mtk_addon_disconnect_after(
 
 	/* 2. remove subpath from main path */
 	mtk_ddp_remove_comp_from_path_with_cmdq(
-		mtk_crtc, prev_attach_comp_id, path_data->path[0],
+		mtk_crtc, path_attach_id, path_data->path[0],
 		cmdq_handle);
 
 	/* 3. disconnect subpath and remove mutex */

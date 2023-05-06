@@ -31,3 +31,4 @@ snd-soc-mt6983-afe-objs += \
 
 # machine driver
 obj-$(CONFIG_SND_SOC_MT6983_MT6338) += mt6983-mt6338.o
+

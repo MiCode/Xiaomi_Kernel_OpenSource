@@ -290,7 +290,6 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 static int ccci_scp_ipi_handler(unsigned int id, void *prdata, void *data,
 			unsigned int len)
 {
-	struct ccci_ipi_msg *ipi_msg_ptr = (struct ccci_ipi_msg *)data;
 	struct sk_buff *skb = NULL;
 
 	if (len != sizeof(struct ccci_ipi_msg)) {
@@ -299,14 +298,11 @@ static int ccci_scp_ipi_handler(unsigned int id, void *prdata, void *data,
 		len, (int)sizeof(struct ccci_ipi_msg));
 		return -1;
 	}
-	CCCI_NORMAL_LOG(ipi_msg_ptr->md_id, CORE,
-		"IPI handler %d/0x%x, %d\n",
-		ipi_msg_ptr->op_id,
-		ipi_msg_ptr->data[0], len);
 
 	skb = ccci_alloc_skb(len, 0, 0);
 	if (!skb)
 		return -1;
+
 	memcpy(skb_put(skb, len), data, len);
 	ccci_skb_enqueue(&scp_ipi_rx_skb_list, skb);
 	/* ipi_send use mutex, can not be called from ISR context */

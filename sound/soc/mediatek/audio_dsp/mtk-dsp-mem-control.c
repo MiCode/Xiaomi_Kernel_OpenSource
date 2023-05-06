@@ -434,37 +434,29 @@ int mtk_adsp_genpool_free_sharemem_ring(struct mtk_base_dsp_mem *dsp_mem,
 }
 EXPORT_SYMBOL(mtk_adsp_genpool_free_sharemem_ring);
 
-int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream,
-			  unsigned int size)
+int mtk_adsp_allocate_mem(struct snd_pcm_substream *substream, unsigned int size)
 {
 	int ret = 0;
 
 	if (substream->runtime->dma_area) {
-		ret = mtk_adsp_genpool_free_memory(
-				&substream->runtime->dma_area,
-				&substream->runtime->dma_bytes,
-				AUDIO_DSP_AFE_SHARE_MEM_ID);
+		ret = mtk_adsp_genpool_free_memory(&substream->runtime->dma_area,
+						   &substream->runtime->dma_bytes,
+						   AUDIO_DSP_AFE_SHARE_MEM_ID);
+		if (ret)
+			return ret;
 	}
-	ret =  mtk_adsp_genpool_allocate_memory
-			(&substream->runtime->dma_area,
-			 &substream->runtime->dma_addr,
-			 size,
-			 AUDIO_DSP_AFE_SHARE_MEM_ID);
 
-	return ret;
+	return mtk_adsp_genpool_allocate_memory(&substream->runtime->dma_area,
+						&substream->runtime->dma_addr,
+						size, AUDIO_DSP_AFE_SHARE_MEM_ID);
 }
 EXPORT_SYMBOL_GPL(mtk_adsp_allocate_mem);
 
 int mtk_adsp_free_mem(struct snd_pcm_substream *substream)
 {
-	int ret = 0;
-
-	ret = mtk_adsp_genpool_free_memory(
-		       &substream->runtime->dma_area,
-		       &substream->runtime->dma_bytes,
-		       AUDIO_DSP_AFE_SHARE_MEM_ID);
-
-	return ret;
+	return mtk_adsp_genpool_free_memory(&substream->runtime->dma_area,
+					    &substream->runtime->dma_bytes,
+					    AUDIO_DSP_AFE_SHARE_MEM_ID);
 }
 EXPORT_SYMBOL_GPL(mtk_adsp_free_mem);
 
@@ -481,15 +473,22 @@ int mtk_adsp_genpool_allocate_memory(unsigned char **vaddr,
 		return -1;
 	}
 
+	if (!vaddr || !paddr)
+		return -EINVAL;
+
 	/* allocate VA with gen pool */
 	if (*vaddr == NULL) {
 		*vaddr = (unsigned char *)gen_pool_alloc(gen_pool_dsp, size);
-		*paddr = gen_pool_virt_to_phys(gen_pool_dsp,
-					       (unsigned long)*vaddr);
+		if (*vaddr == NULL)
+			return -ENOMEM;
+
+		*paddr = gen_pool_virt_to_phys(gen_pool_dsp, (unsigned long)*vaddr);
+		if (*paddr < 0)
+			return -EFAULT;
 	}
 
-	pr_debug("%s size =%u id = %d vaddr = %p paddr =0x%llx\n", __func__,
-		size, id, vaddr, (unsigned long long)*paddr);
+	pr_debug("%s size =%u id = %d vaddr:0x%llx paddr:0x%llx\n",
+		 __func__, size, id, (u64)*vaddr, (u64)*paddr);
 
 	return 0;
 }
@@ -505,9 +504,12 @@ int mtk_adsp_genpool_free_memory(unsigned char **vaddr,
 		return -1;
 	}
 
+	if (!vaddr || !size)
+		return -EINVAL;
+
 	if (!gen_pool_has_addr(gen_pool_dsp, (unsigned long)*vaddr, *size)) {
 		pr_warn("%s() vaddr is not in genpool\n", __func__);
-		return -1;
+		return -EFAULT;
 	}
 
 	/* allocate VA with gen pool */
@@ -912,8 +914,8 @@ int init_mtk_adsp_dram_segment(void)
 /* set audio share dram mpu write-through */
 int set_mtk_adsp_mpu_sharedram(unsigned int dram_segment)
 {
-	unsigned int phy_addr, size;
 	struct ipi_msg_t ipi_msg;
+	unsigned long long payload_buf[2];
 	int ret;
 
 	if (dram_segment >= AUDIO_DSP_SHARE_MEM_NUM) {
@@ -923,16 +925,17 @@ int set_mtk_adsp_mpu_sharedram(unsigned int dram_segment)
 
 	adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 
-	phy_addr = (unsigned int)dsp_dram_buffer[dram_segment].phy_addr;
-	size = (unsigned int)dsp_dram_buffer[dram_segment].size;
-
-	pr_info("%s phy_addr[0x%x] size[0x%x]\n", __func__, phy_addr, size);
+	pr_info("%s phy_addr[0x%llx] size[0x%llx]\n", __func__,
+		dsp_dram_buffer[dram_segment].phy_addr,
+		dsp_dram_buffer[dram_segment].size);
+	payload_buf[0] = dsp_dram_buffer[dram_segment].phy_addr;
+	payload_buf[1] = dsp_dram_buffer[dram_segment].size;
 
 	ret = audio_send_ipi_msg(
 		&ipi_msg, TASK_SCENE_AUD_DAEMON_A,
-		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_MSG_ONLY,
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_PAYLOAD,
 		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_EINGBUFASHAREMEM,
-		phy_addr, size, 0);
+		sizeof(payload_buf), 0, (void *)payload_buf);
 
 	adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 
