@@ -118,4 +118,10 @@ source "drivers/staging/wfx/Kconfig"
 
 source "drivers/staging/hikey9xx/Kconfig"
 
+source "drivers/staging/extend_reclaim/Kconfig"
+
+source "drivers/staging/mi-log/Kconfig"
+
+source "drivers/staging/binder_prio/Kconfig"
+
 endif # STAGING

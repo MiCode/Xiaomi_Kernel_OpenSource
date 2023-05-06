@@ -58,11 +58,6 @@ DECLARE_HOOK(android_vh_ufs_check_int_errors,
 	TP_PROTO(struct ufs_hba *hba, bool queue_eh_work),
 	TP_ARGS(hba, queue_eh_work));
 
-struct scsi_device;
-DECLARE_HOOK(android_vh_ufs_update_sdev,
-	TP_PROTO(struct scsi_device *sdev),
-	TP_ARGS(sdev));
-
 DECLARE_HOOK(android_vh_ufs_clock_scaling,
 	TP_PROTO(struct ufs_hba *hba, bool *force_out, bool *force_scaling, bool *scale_up),
 	TP_ARGS(hba, force_out, force_scaling, scale_up));

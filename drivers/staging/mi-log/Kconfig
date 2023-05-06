@@ -1,0 +1,7 @@
+config MI_LOG
+	tristate "mi log"
+	default n
+
+config MI_EXCEPTION_LOG
+	tristate "mi exception log"
+	default n

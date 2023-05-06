@@ -3,6 +3,7 @@
 obj-$(CONFIG_CNSS2) += cnss2.o
 
 ccflags-y += -I$(srctree)/drivers/net/wireless/cnss_utils/
+ccflags-y += -I$(srctree)/drivers/misc/hwid/
 cnss2-y := main.o
 cnss2-y += bus.o
 cnss2-y += debug.o

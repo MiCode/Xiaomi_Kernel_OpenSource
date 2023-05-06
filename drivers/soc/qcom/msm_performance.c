@@ -69,7 +69,6 @@ enum cpu_clusters {
 	MAX = 2,
 	CLUSTER_MAX
 };
-
 static struct kset *msm_perf_kset;
 static struct kobject *param_kobj;
 
@@ -155,7 +154,6 @@ static ssize_t get_dplh_log_level(struct kobject *kobj,
 static ssize_t set_dplh_log_level(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf,
 	size_t count);
-
 
 static struct kobj_attribute cpu_min_freq_attr =
 	__ATTR(cpu_min_freq, 0644, get_cpu_min_freq, set_cpu_min_freq);
@@ -1982,6 +1980,7 @@ static int __init msm_performance_init(void)
 	init_pmu_counter();
 
 	dest = ioremap(GPLAF_SP_ADDR, GPLAF_SP_SIZE);
+
 	return 0;
 }
 MODULE_LICENSE("GPL v2");

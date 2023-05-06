@@ -100,3 +100,4 @@ obj-$(CONFIG_CHARGER_WILCO)	+= wilco-charger.o
 obj-$(CONFIG_QTI_BATTERY_CHARGER)	+= qti_battery_charger.o
 obj-$(CONFIG_RN5T618_POWER)	+= rn5t618_power.o
 obj-$(CONFIG_QCOM_POWER_SUPPLY)		+= qcom/
+obj-$(CONFIG_XM_POWER_SUPPLY)		+= xiaomi/

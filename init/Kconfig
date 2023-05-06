@@ -606,6 +606,12 @@ config TASK_IO_ACCOUNTING
 
 	  Say N if unsure.
 
+config MIHW
+	bool "MI driver"
+	default n
+	help
+	  Mi driver code
+
 config PSI
 	bool "Pressure stall information tracking"
 	help

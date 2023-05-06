@@ -1,0 +1,10 @@
+#
+# ST SPI stmvl53l5  devices
+#
+menu "stmvl53l5"
+config STMVL53L5
+	tristate "ST stmvl53l5 driver"
+	help
+	This enables the ST stmvl53l5 driver
+endmenu
+

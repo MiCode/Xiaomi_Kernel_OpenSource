@@ -205,6 +205,9 @@ extern enum sched_boost_policy boost_policy;
 extern unsigned int sysctl_input_boost_ms;
 extern unsigned int sysctl_input_boost_freq[8];
 extern unsigned int sysctl_sched_boost_on_input;
+extern unsigned int sysctl_powerkey_input_boost_ms;
+extern unsigned int sysctl_powerkey_input_boost_freq[8];
+extern unsigned int sysctl_powerkey_sched_boost_on_input;
 extern unsigned int sysctl_sched_user_hint;
 extern unsigned int sysctl_sched_conservative_pl;
 extern unsigned int sysctl_sched_hyst_min_coloc_ns;
@@ -295,7 +298,6 @@ extern unsigned int sched_lib_mask_force;
 #define WALT_CPUFREQ_PL			(1U << 3)
 #define WALT_CPUFREQ_EARLY_DET		(1U << 4)
 #define WALT_CPUFREQ_BOOST_UPDATE	(1U << 5)
-
 #define NO_BOOST 0
 #define FULL_THROTTLE_BOOST 1
 #define CONSERVATIVE_BOOST 2

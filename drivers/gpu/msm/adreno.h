@@ -1775,19 +1775,6 @@ static inline int adreno_allocate_global(struct kgsl_device *device,
 	return PTR_ERR_OR_ZERO(*memdesc);
 }
 
-/**
- * adreno_regulator_disable_poll - Disable the regulator and wait for it to
- * complete
- * @device: A GPU device handle
- * @reg: Pointer to the regulator to disable
- * @offset: Offset of the register to poll for success
- * @timeout: Timeout (in milliseconds)
- *
- * Return: true if the regulator got disabled or false on timeout
- */
-bool adreno_regulator_disable_poll(struct kgsl_device *device,
-		struct regulator *reg, u32 offset, u32 timeout);
-
 static inline void adreno_set_dispatch_ops(struct adreno_device *adreno_dev,
 		const struct adreno_dispatch_ops *ops)
 {

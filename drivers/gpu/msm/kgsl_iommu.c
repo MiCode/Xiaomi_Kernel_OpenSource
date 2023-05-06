@@ -2159,6 +2159,7 @@ static int kgsl_iommu_setup_context(struct kgsl_mmu *mmu,
 		iommu_fault_handler_t handler)
 {
 	struct device_node *node = of_find_node_by_name(parent, name);
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct platform_device *pdev;
 	int ret;
 
@@ -2197,6 +2198,18 @@ static int kgsl_iommu_setup_context(struct kgsl_mmu *mmu,
 		context->domain = NULL;
 		return ret;
 	}
+
+	/*
+	* It is problamatic if smmu driver does system suspend before consumer
+	* device (gpu). So smmu driver creates a device_link to act as a
+	* supplier which in turn will ensure correct order during system
+	* suspend. In kgsl, since we don't initialize iommu on the gpu device,
+	* we should create a device_link between kgsl iommu device and gpu
+	* device to maintain a correct suspend order between smmu device and
+	* gpu device.
+	*/
+	device_link_add(&device->pdev->dev, &pdev->dev,
+	DL_FLAG_AUTOREMOVE_CONSUMER);
 
 	iommu_set_fault_handler(context->domain, handler, mmu);
 

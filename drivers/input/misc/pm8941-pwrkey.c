@@ -18,6 +18,8 @@
 #include <linux/platform_device.h>
 #include <linux/reboot.h>
 #include <linux/regmap.h>
+#include <linux/nmi.h>
+#include <linux/sched/debug.h>
 
 #define PON_REV2			0x01
 
@@ -50,6 +52,11 @@
 
 #define PON_DBC_CTL			0x71
 #define  PON_DBC_DELAY_MASK		0x7
+
+#if IS_ENABLED(CONFIG_MTD_OOPS)
+extern int g_long_press_reason;
+extern void mtdoops_do_dump_if(int reason);
+#endif
 
 struct pm8941_data {
 	unsigned int	pull_up_bit;
@@ -140,12 +147,77 @@ static int pm8941_reboot_notify(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+
+void show_state_filter_single(unsigned long state_filter)
+{
+	struct task_struct *g, *p;
+
+#if BITS_PER_LONG == 32
+	printk(KERN_INFO
+		"  task 			   PC stack   pid father\n");
+#else
+	printk(KERN_INFO
+		"  task 					   PC stack   pid father\n");
+#endif
+	rcu_read_lock();
+	for_each_process_thread(g, p) {
+		/*
+		 * reset the NMI-timeout, listing all files on a slow
+		 * console might take a lot of time:
+		 * Also, reset softlockup watchdogs on all CPUs, because
+		 * another CPU might be blocked waiting for us to process
+		 * an IPI.
+		 */
+		touch_nmi_watchdog();
+		//touch_all_softlockup_watchdogs();
+		if (p->state == state_filter)
+			sched_show_task(p);
+	}
+	rcu_read_unlock();
+}
+
 static irqreturn_t pm8941_pwrkey_irq(int irq, void *_data)
 {
 	struct pm8941_pwrkey *pwrkey = _data;
 	unsigned int sts;
 	int error;
 	u64 elapsed_us;
+
+	if (!strcmp(pwrkey->data->name,"pmic_pwrkey_bark")){
+
+#if IS_ENABLED(CONFIG_MTD_OOPS)
+		error = regmap_read(pwrkey->regmap,
+			pwrkey->baseaddr + PON_RT_STS, &sts);
+		if (error)
+			return IRQ_HANDLED;
+		sts &= pwrkey->data->status_bit;
+		if(sts){
+			dev_err(pwrkey->dev, "pwrkey_bark_irq trigger, start dump mtdoops");
+			mtdoops_do_dump_if(g_long_press_reason);
+		}
+#endif
+		return IRQ_HANDLED;
+	}
+	else if (!strcmp(pwrkey->data->name,"pmic_pwrkey_resin_bark")){
+
+		error = regmap_read(pwrkey->regmap,
+			pwrkey->baseaddr + PON_RT_STS, &sts);
+		if (error)
+			return IRQ_HANDLED;
+		sts &= pwrkey->data->status_bit;
+		if(sts){
+			int tmp_console = console_loglevel;
+			dev_err(pwrkey->dev, "pwrkey_resin_bark_irq trigger, start D&R task info");
+			console_verbose();
+			pr_info("------ collect D&R-state processes info before long comb key ------\n");
+			show_state_filter_single(TASK_UNINTERRUPTIBLE);
+			show_state_filter_single(TASK_RUNNING);
+			pr_info("------ end collecting D&R-state processes info ------\n");
+			console_loglevel = tmp_console;
+		}
+		else{
+		}
+	}
 
 	if (pwrkey->sw_debounce_time_us) {
 		elapsed_us = ktime_us_delta(ktime_get(),
@@ -453,11 +525,33 @@ static const struct pm8941_data pon_gen3_resin_data = {
 	.has_pon_pbs = true,
 };
 
+static const struct pm8941_data pon_gen3_pwrkey_bark_data = {
+	.status_bit = PON_GEN3_KPDPWR_N_SET,
+	.name = "pmic_pwrkey_bark",
+	.phys = "pmic_pwrkey_bark/input0",
+	.supports_ps_hold_poff_config = false,
+	.supports_debounce_config = false,
+	.needs_sw_debounce = true,
+	.has_pon_pbs = true,
+};
+
+static const struct pm8941_data pon_gen3_pwrkey_resin_bark_data = {
+	.status_bit = PON_GEN3_KPDPWR_N_SET,
+	.name = "pmic_pwrkey_resin_bark",
+	.phys = "pmic_pwrkey_resin_bark/input0",
+	.supports_ps_hold_poff_config = false,
+	.supports_debounce_config = false,
+	.needs_sw_debounce = true,
+	.has_pon_pbs = true,
+};
+
 static const struct of_device_id pm8941_pwr_key_id_table[] = {
 	{ .compatible = "qcom,pm8941-pwrkey", .data = &pwrkey_data },
 	{ .compatible = "qcom,pm8941-resin", .data = &resin_data },
 	{ .compatible = "qcom,pmk8350-pwrkey", .data = &pon_gen3_pwrkey_data },
 	{ .compatible = "qcom,pmk8350-resin", .data = &pon_gen3_resin_data },
+	{ .compatible = "qcom,pmk8350-pwrkey-bark", .data = &pon_gen3_pwrkey_bark_data },
+	{ .compatible = "qcom,pmk8350-pwrkey-resin-bark", .data = &pon_gen3_pwrkey_resin_bark_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, pm8941_pwr_key_id_table);

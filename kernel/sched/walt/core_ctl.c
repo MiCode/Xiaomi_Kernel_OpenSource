@@ -84,7 +84,6 @@ ATOMIC_NOTIFIER_HEAD(core_ctl_notifier);
 static unsigned int last_nr_big;
 
 static unsigned int get_active_cpu_count(const struct cluster_data *cluster);
-
 /* ========================= sysfs interface =========================== */
 
 static ssize_t store_min_cpus(struct cluster_data *state,
@@ -96,6 +95,7 @@ static ssize_t store_min_cpus(struct cluster_data *state,
 		return -EINVAL;
 
 	state->min_cpus = min(val, state->num_cpus);
+
 	apply_need(state);
 
 	return count;

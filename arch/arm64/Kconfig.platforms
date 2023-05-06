@@ -225,6 +225,12 @@ config ARCH_SHIMA
 	  SHIMA chipset. If you do not wish to build a kernel that
 	  runs on this chipset or if you are unsure, say 'N' here.
 
+config WL2866D
+	bool "Enable Support for ingres camera driver"
+	depends on ARCH_QCOM
+	help
+	  This enable support for ingres camera driver
+
 config ARCH_WAIPIO
 	bool "Enable Support for Qualcomm Technologies, Inc. WAIPIO"
 	depends on ARCH_QCOM
@@ -407,5 +413,11 @@ config ARCH_ZYNQMP
 	bool "Xilinx ZynqMP Family"
 	help
 	  This enables support for Xilinx ZynqMP Family
+
+config S12B
+	bool "Enable Support for zizhan camera driver"
+	depends on ARCH_QCOM
+	help
+	  This enable support for zizhan camera driver
 
 endmenu

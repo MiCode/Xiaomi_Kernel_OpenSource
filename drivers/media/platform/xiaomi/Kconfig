@@ -1,0 +1,1 @@
+source "drivers/media/platform/xiaomi/ispv3/Kconfig"
