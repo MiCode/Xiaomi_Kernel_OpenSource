@@ -335,7 +335,7 @@ compound_page_dtor * const compound_page_dtors[NR_COMPOUND_DTORS] = {
  * allocations below this point, only high priority ones. Automatically
  * tuned according to the amount of memory in the system.
  */
-int min_free_kbytes = 1024;
+int min_free_kbytes = 32768;
 int user_min_free_kbytes = -1;
 #ifdef CONFIG_DISCONTIGMEM
 /*
@@ -4505,6 +4505,7 @@ __alloc_pages_direct_reclaim(gfp_t gfp_mask, unsigned int order,
 	struct page *page = NULL;
 	unsigned long pflags;
 	bool drained = false;
+	bool skip_pcp_drain = false;
 
 	psi_memstall_enter(&pflags);
 	*did_some_progress = __perform_reclaim(gfp_mask, order, ac);
@@ -4521,7 +4522,10 @@ retry:
 	 */
 	if (!page && !drained) {
 		unreserve_highatomic_pageblock(ac, false);
-		drain_all_pages(NULL);
+		trace_android_vh_drain_all_pages_bypass(gfp_mask, order,
+			alloc_flags, ac->migratetype, *did_some_progress, &skip_pcp_drain);
+		if (!skip_pcp_drain)
+			drain_all_pages(NULL);
 		drained = true;
 		goto retry;
 	}
@@ -8118,8 +8122,8 @@ int __meminit init_per_zone_wmark_min(void)
 
 	if (new_min_free_kbytes > user_min_free_kbytes) {
 		min_free_kbytes = new_min_free_kbytes;
-		if (min_free_kbytes < 128)
-			min_free_kbytes = 128;
+		if (min_free_kbytes < 32768)
+			min_free_kbytes = 32768;
 		if (min_free_kbytes > 262144)
 			min_free_kbytes = 262144;
 	} else {

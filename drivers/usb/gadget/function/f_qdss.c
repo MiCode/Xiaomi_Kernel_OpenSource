@@ -256,7 +256,17 @@ static void qdss_write_complete(struct usb_ep *ep,
 		qdss->ch.name, ep->name, req, req->status, req->length);
 	spin_lock_irqsave(&qdss->lock, flags);
 	list_move_tail(&qreq->list, &qdss->data_write_pool);
-	complete(&qreq->write_done);
+
+	/*
+	 * When channel is closed, we move all queued requests to
+	 * dequeued_data_pool list and wait for it to be drained.
+	 * Signal the completion here if the channel is closed
+	 * and both queued & dequeued lists are empty.
+	 */
+	if (!qdss->opened && list_empty(&qdss->dequeued_data_pool) &&
+			list_empty(&qdss->queued_data_pool))
+		complete(&qdss->dequeue_done);
+
 	if (req->length != 0) {
 		d_req->actual = req->actual;
 		d_req->status = req->status;
@@ -267,23 +277,14 @@ static void qdss_write_complete(struct usb_ep *ep,
 		qdss->ch.notify(qdss->ch.priv, state, d_req, NULL);
 }
 
-void usb_qdss_free_req(struct usb_qdss_ch *ch)
+static void qdss_free_reqs(struct f_qdss *qdss)
 {
-	struct f_qdss *qdss;
 	struct list_head *act, *tmp;
 	struct qdss_req *qreq;
 	int data_write_req = 0;
 	unsigned long flags;
 
-	spin_lock_irqsave(&channel_lock, flags);
-	if (ch == NULL || ch->priv_usb == NULL) {
-		spin_unlock_irqrestore(&channel_lock, flags);
-		pr_err("%s: qdss channel or qdss ctx is NULL\n", __func__);
-		return;
-	}
-
-	qdss = ch->priv_usb;
-	spin_unlock_irqrestore(&channel_lock, flags);
+	lockdep_assert_held(&qdss->mutex);
 
 	spin_lock_irqsave(&qdss->lock, flags);
 
@@ -299,11 +300,28 @@ void usb_qdss_free_req(struct usb_qdss_ch *ch)
 							data_write_req);
 	spin_unlock_irqrestore(&qdss->lock, flags);
 }
+
+void usb_qdss_free_req(struct usb_qdss_ch *ch)
+{
+	struct f_qdss *qdss = container_of(ch, struct f_qdss, ch);
+
+	if (!ch) {
+		pr_err("%s: ch is NULL\n", __func__);
+		return;
+	}
+
+	mutex_lock(&qdss->mutex);
+	if (!qdss->opened)
+		pr_err("%s: channel %s closed\n", __func__, ch->name);
+	else
+		qdss_free_reqs(qdss);
+	mutex_unlock(&qdss->mutex);
+}
 EXPORT_SYMBOL(usb_qdss_free_req);
 
 int usb_qdss_alloc_req(struct usb_qdss_ch *ch, int no_write_buf)
 {
-	struct f_qdss *qdss = ch->priv_usb;
+	struct f_qdss *qdss = container_of(ch, struct f_qdss, ch);
 	struct usb_request *req;
 	struct usb_ep *in;
 	struct list_head *list_pool;
@@ -311,12 +329,19 @@ int usb_qdss_alloc_req(struct usb_qdss_ch *ch, int no_write_buf)
 	struct qdss_req *qreq;
 	unsigned long flags;
 
+	if (!ch) {
+		pr_err("%s: ch is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	qdss_log("channel:%s num_write_buf:%d\n", ch->name, no_write_buf);
 
 	if (!qdss) {
 		pr_err("%s: %s closed\n", __func__, ch->name);
 		return -ENODEV;
 	}
+
+	mutex_lock(&qdss->mutex);
 
 	in = qdss->port.data;
 	list_pool = &qdss->data_write_pool;
@@ -337,14 +362,15 @@ int usb_qdss_alloc_req(struct usb_qdss_ch *ch, int no_write_buf)
 		req->context = qreq;
 		req->complete = qdss_write_complete;
 		list_add_tail(&qreq->list, list_pool);
-		init_completion(&qreq->write_done);
 		spin_unlock_irqrestore(&qdss->lock, flags);
 	}
 
+	mutex_unlock(&qdss->mutex);
 	return 0;
 
 fail:
-	usb_qdss_free_req(ch);
+	qdss_free_reqs(qdss);
+	mutex_unlock(&qdss->mutex);
 	return -ENOMEM;
 }
 EXPORT_SYMBOL(usb_qdss_alloc_req);
@@ -567,8 +593,10 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 			NULL,
 			NULL);
 
+	mutex_lock(&qdss->mutex);
+
 	/* Uninitialized init data i.e. ep specific operation */
-	if (qdss->ch.app_conn && !strcmp(qdss->ch.name, USB_QDSS_CH_MSM)) {
+	if (qdss->opened && !qdss_uses_sw_path(qdss)) {
 		status = uninit_data(qdss->port.data);
 		if (status)
 			pr_err("%s: uninit_data error\n", __func__);
@@ -583,6 +611,8 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 	 * before calling connect work
 	 */
 	usb_gadget_autopm_put_async(qdss->gadget);
+
+	mutex_unlock(&qdss->mutex);
 }
 
 static void qdss_disable(struct usb_function *f)
@@ -619,7 +649,11 @@ static void usb_qdss_connect_work(struct work_struct *work)
 		return;
 	}
 
-	qdss_log("channel:%s\n", qdss->ch.name);
+	mutex_lock(&qdss->mutex);
+
+	qdss_log("channel:%s opened:%d\n", qdss->ch.name, qdss->opened);
+	if (!qdss->opened)
+		goto unlock_out;
 
 	if (qdss_uses_sw_path(qdss))
 		goto notify;
@@ -627,25 +661,30 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	status = set_qdss_data_connection(qdss, 1);
 	if (status) {
 		pr_err("set_qdss_data_connection error(%d)\n", status);
-		return;
+		goto unlock_out;
 	}
 
 	spin_lock_irqsave(&qdss->lock, flags);
 	req = qdss->endless_req;
 	spin_unlock_irqrestore(&qdss->lock, flags);
 	if (!req)
-		return;
+		goto unlock_out;
 
 	status = usb_ep_queue(qdss->port.data, req, GFP_ATOMIC);
 	if (status) {
 		pr_err("%s: usb_ep_queue error (%d)\n", __func__, status);
-		return;
+		goto unlock_out;
 	}
 
 notify:
+	mutex_unlock(&qdss->mutex);
 	if (qdss->ch.notify)
 		qdss->ch.notify(qdss->ch.priv, USB_QDSS_CONNECT,
 						NULL, &qdss->ch);
+	return;
+
+unlock_out:
+	mutex_unlock(&qdss->mutex);
 }
 
 static int qdss_set_alt(struct usb_function *f, unsigned int intf,
@@ -653,7 +692,6 @@ static int qdss_set_alt(struct usb_function *f, unsigned int intf,
 {
 	struct f_qdss  *qdss = func_to_qdss(f);
 	struct usb_gadget *gadget = f->config->cdev->gadget;
-	struct usb_qdss_ch *ch = &qdss->ch;
 	int ret = 0;
 
 	qdss_log("qdss pointer = %pK\n", qdss);
@@ -733,7 +771,7 @@ static int qdss_set_alt(struct usb_function *f, unsigned int intf,
 		}
 	}
 
-	if (qdss->usb_connected && ch->app_conn)
+	if (qdss->usb_connected)
 		queue_work(qdss->wq, &qdss->connect_w);
 
 	return 0;
@@ -760,15 +798,14 @@ static struct f_qdss *alloc_usb_qdss(char *channel_name)
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&channel_lock, flags);
 
 	if (found) {
-		spin_unlock_irqrestore(&channel_lock, flags);
 		pr_err("%s: (%s) is already available.\n",
 				__func__, channel_name);
 		return ERR_PTR(-EEXIST);
 	}
 
-	spin_unlock_irqrestore(&channel_lock, flags);
 	qdss = kzalloc(sizeof(struct f_qdss), GFP_KERNEL);
 	if (!qdss) {
 		pr_err("%s: Unable to allocate qdss device\n", __func__);
@@ -790,35 +827,43 @@ static struct f_qdss *alloc_usb_qdss(char *channel_name)
 	spin_lock_init(&qdss->lock);
 	INIT_LIST_HEAD(&qdss->data_write_pool);
 	INIT_LIST_HEAD(&qdss->queued_data_pool);
+	INIT_LIST_HEAD(&qdss->dequeued_data_pool);
 	INIT_WORK(&qdss->connect_w, usb_qdss_connect_work);
 	INIT_WORK(&qdss->disconnect_w, usb_qdss_disconnect_work);
+	mutex_init(&qdss->mutex);
+	init_completion(&qdss->dequeue_done);
 
 	return qdss;
 }
 
 int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 {
-	struct f_qdss *qdss = ch->priv_usb;
+	struct f_qdss *qdss = container_of(ch, struct f_qdss, ch);
 	unsigned long flags;
 	struct usb_request *req = NULL;
 	struct qdss_req *qreq;
 
+	if (!ch) {
+		pr_err("%s: ch is NULL\n", __func__);
+		return -EINVAL;
+	}
 
-	if (!qdss)
-		return -ENODEV;
+	mutex_lock(&qdss->mutex);
 
 	qdss_log("channel:%s d_req:%pK\n", ch->name, d_req);
 	spin_lock_irqsave(&qdss->lock, flags);
 
-	if (qdss->qdss_close || qdss->usb_connected == 0) {
+	if (!qdss->opened || !qdss->usb_connected) {
 		spin_unlock_irqrestore(&qdss->lock, flags);
 		qdss_log("return -EIO\n");
+		mutex_unlock(&qdss->mutex);
 		return -EIO;
 	}
 
 	if (list_empty(&qdss->data_write_pool)) {
 		pr_err("error: usb_qdss_data_write list is empty\n");
 		spin_unlock_irqrestore(&qdss->lock, flags);
+		mutex_unlock(&qdss->mutex);
 		return -EAGAIN;
 	}
 
@@ -833,7 +878,6 @@ int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 	req->length = d_req->length;
 	req->sg = d_req->sg;
 	req->num_sgs = d_req->num_sgs;
-	reinit_completion(&qreq->write_done);
 	if (req->sg)
 		qdss_log("%s: req:%pK req->num_sgs:0x%x\n",
 			ch->name, req, req->num_sgs);
@@ -844,12 +888,13 @@ int usb_qdss_write(struct usb_qdss_ch *ch, struct qdss_request *d_req)
 		spin_lock_irqsave(&qdss->lock, flags);
 		/* Remove from queued pool and add back to data pool */
 		list_move_tail(&qreq->list, &qdss->data_write_pool);
-		complete(&qreq->write_done);
 		spin_unlock_irqrestore(&qdss->lock, flags);
 		pr_err("qdss usb_ep_queue failed\n");
+		mutex_unlock(&qdss->mutex);
 		return -EIO;
 	}
 
+	mutex_unlock(&qdss->mutex);
 	return 0;
 }
 EXPORT_SYMBOL(usb_qdss_write);
@@ -886,100 +931,99 @@ retry:
 		goto retry;
 	}
 
+	spin_unlock_irqrestore(&channel_lock, flags);
 	if (!qdss) {
-		spin_unlock_irqrestore(&channel_lock, flags);
 		qdss_log("failed to find channel:%s\n", name);
 		return NULL;
 	}
 
+	mutex_lock(&qdss->mutex);
 	qdss_log("qdss ctx found for channel:%s\n", name);
-	ch->priv_usb = qdss;
 	ch->priv = priv;
 	ch->notify = notify;
-	ch->app_conn = 1;
-	qdss->qdss_close = false;
-	spin_unlock_irqrestore(&channel_lock, flags);
+	qdss->opened = true;
+	reinit_completion(&qdss->dequeue_done);
 
 	/* the case USB cabel was connected before qdss called qdss_open */
-	if (qdss->usb_connected == 1)
+	if (qdss->usb_connected)
 		queue_work(qdss->wq, &qdss->connect_w);
 
+	mutex_unlock(&qdss->mutex);
 	return ch;
 }
 EXPORT_SYMBOL(usb_qdss_open);
 
 void usb_qdss_close(struct usb_qdss_ch *ch)
 {
-	struct f_qdss *qdss;
+	struct f_qdss *qdss = container_of(ch, struct f_qdss, ch);
 	struct usb_gadget *gadget;
 	unsigned long flags;
 	int status;
 	struct qdss_req *qreq;
-	LIST_HEAD(dequeued);
+	bool do_wait;
 
-	spin_lock_irqsave(&channel_lock, flags);
-	if (!ch->priv_usb) {
-		spin_unlock_irqrestore(&channel_lock, flags);
-		pr_err("%s is called for %s without calling usb_qdss_open()\n",
-						__func__, ch->name);
+	if (!ch) {
+		pr_err("%s: ch is NULL\n", __func__);
 		return;
 	}
 
 	qdss_log("channel:%s\n", ch->name);
-	qdss = ch->priv_usb;
-	qdss->qdss_close = true;
-	spin_lock(&qdss->lock);
+
+	mutex_lock(&qdss->mutex);
+	if (!qdss->opened) {
+		pr_err("%s: channel %s closed\n", __func__, ch->name);
+		goto unlock_out;
+	}
+
+	spin_lock_irqsave(&qdss->lock, flags);
+	qdss->opened = false;
+	/*
+	 * Some UDCs like DWC3 stop the endpoint transfer upon dequeue
+	 * of a request and retire all the previously *started* requests.
+	 * This introduces a race between the below dequeue loop and
+	 * retiring of all started requests. As soon as we drop the lock
+	 * here before dequeue, the request gets retired and UDC thinks
+	 * we are dequeuing a request that was not queued before. To
+	 * avoid this problem, lets dequeue the requests in the reverse
+	 * order.
+	 */
 	while (!list_empty(&qdss->queued_data_pool)) {
-		qreq = list_first_entry(&qdss->queued_data_pool,
+		qreq = list_last_entry(&qdss->queued_data_pool,
 				struct qdss_req, list);
-		list_move_tail(&qreq->list, &dequeued);
-		spin_unlock(&qdss->lock);
-		spin_unlock_irqrestore(&channel_lock, flags);
-		qdss_log("dequeue req:%pK\n", qreq->usb_req);
-		usb_ep_dequeue(qdss->port.data, qreq->usb_req);
-		spin_lock_irqsave(&channel_lock, flags);
-		spin_lock(&qdss->lock);
+		list_move_tail(&qreq->list, &qdss->dequeued_data_pool);
+		spin_unlock_irqrestore(&qdss->lock, flags);
+		status = usb_ep_dequeue(qdss->port.data, qreq->usb_req);
+		qdss_log("dequeue req:%pK status=%d\n", qreq->usb_req, status);
+		spin_lock_irqsave(&qdss->lock, flags);
 	}
 
 	/*
 	 * It's possible that requests may be completed synchronously during
 	 * usb_ep_dequeue() and would have already been moved back to
-	 * data_write_pool.  So make sure to check the last item on the
-	 * dequeued list (if any) rather than the last qreq that we just
-	 * called ep_dequeue() on in the loop above.
+	 * data_write_pool.  So make sure to check that our dequeued_data_pool
+	 * is empty. If not, wait for it to happen. The request completion
+	 * handler would signal us when this list is empty and channel close
+	 * is in progress.
 	 */
-	qreq = list_empty(&dequeued) ? NULL :
-		list_last_entry(&dequeued, struct qdss_req, list);
+	do_wait = !list_empty(&qdss->dequeued_data_pool);
+	spin_unlock_irqrestore(&qdss->lock, flags);
 
-	spin_unlock(&qdss->lock);
-	spin_unlock_irqrestore(&channel_lock, flags);
-
-	/* wait for the last qreq to be completed before freeing them */
-	if (qreq) {
-		qdss_log("waiting for completion on %pK\n", qreq->usb_req);
-		wait_for_completion(&qreq->write_done);
+	if (do_wait) {
+		qdss_log("waiting for completion on dequeued requests\n");
+		wait_for_completion(&qdss->dequeue_done);
 	}
 
-	WARN_ON(!list_empty(&dequeued));
+	WARN_ON(!list_empty(&qdss->dequeued_data_pool));
 
-	usb_qdss_free_req(ch);
-	spin_lock_irqsave(&channel_lock, flags);
-	ch->priv_usb = NULL;
+	qdss_free_reqs(qdss);
 	ch->notify = NULL;
-	if (!qdss || !qdss->usb_connected || qdss_uses_sw_path(qdss)) {
-		ch->app_conn = 0;
-		spin_unlock_irqrestore(&channel_lock, flags);
-		return;
-	}
+	if (!qdss->usb_connected || qdss_uses_sw_path(qdss))
+		goto unlock_out;
 
 	if (qdss->endless_req) {
-		spin_unlock_irqrestore(&channel_lock, flags);
 		usb_ep_dequeue(qdss->port.data, qdss->endless_req);
-		spin_lock_irqsave(&channel_lock, flags);
 	}
 	gadget = qdss->gadget;
-	ch->app_conn = 0;
-	spin_unlock_irqrestore(&channel_lock, flags);
 
 	status = uninit_data(qdss->port.data);
 	if (status)
@@ -988,6 +1032,9 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	status = set_qdss_data_connection(qdss, 0);
 	if (status)
 		pr_err("%s:qdss_disconnect error\n", __func__);
+
+unlock_out:
+	mutex_unlock(&qdss->mutex);
 }
 EXPORT_SYMBOL(usb_qdss_close);
 
@@ -1003,8 +1050,8 @@ static void qdss_cleanup(void)
 	list_for_each_safe(act, tmp, &usb_qdss_ch_list) {
 		_ch = list_entry(act, struct usb_qdss_ch, list);
 		qdss = container_of(_ch, struct f_qdss, ch);
-		spin_lock_irqsave(&channel_lock, flags);
 		destroy_workqueue(qdss->wq);
+		spin_lock_irqsave(&channel_lock, flags);
 		if (!_ch->priv) {
 			list_del(&_ch->list);
 			kfree(qdss);

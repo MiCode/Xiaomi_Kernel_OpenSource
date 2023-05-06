@@ -32,6 +32,107 @@ static int allow_dbg_print(u8 ep_num)
 	return 0;
 }
 
+void dwc3_dbg_trace_log_ctrl(void *log_ctxt, struct usb_ctrlrequest *ctrl)
+{
+	char *ctrl_req_str;
+
+	if (ctrl == NULL)
+		return;
+
+	ctrl_req_str = kzalloc(DWC3_MSG_MAX, GFP_ATOMIC);
+	if (!ctrl_req_str)
+		return;
+
+	usb_decode_ctrl(ctrl_req_str, DWC3_MSG_MAX, ctrl->bRequestType,
+				ctrl->bRequest, le16_to_cpu(ctrl->wValue),
+				le16_to_cpu(ctrl->wIndex),
+				le16_to_cpu(ctrl->wLength));
+	ipc_log_string(log_ctxt, "dbg_trace_log_ctrl: %s", ctrl_req_str);
+	kfree(ctrl_req_str);
+}
+
+void dwc3_dbg_trace_log_request(void *log_ctxt, struct dwc3_request *req,
+				char *tag)
+{
+	struct dwc3_ep *dep;
+
+	if (req == NULL)
+		return;
+
+	dep = req->dep;
+	ipc_log_string(log_ctxt, "%s: %s: req %p length %u/%u %s%s%s ==> %d",
+			tag, dep->name, req, req->request.actual,
+			req->request.length,
+			req->request.zero ? "Z" : "z",
+			req->request.short_not_ok ? "S" : "s",
+			req->request.no_interrupt ? "i" : "I",
+			req->request.status);
+}
+
+void dwc3_dbg_trace_ep_cmd(void *log_ctxt, struct dwc3_ep *dep,
+				unsigned int cmd,
+				struct dwc3_gadget_ep_cmd_params *params,
+				int cmd_status)
+{
+	ipc_log_string(log_ctxt,
+			"dbg_send_ep_cmd: %s: cmd '%s' [%x] params %08x %08x %08x --> status: %s",
+			dep->name, dwc3_gadget_ep_cmd_string(cmd), cmd, params->param0,
+			params->param1, params->param2, dwc3_ep_cmd_status_string(cmd_status));
+}
+
+void dwc3_dbg_trace_trb_complete(void *log_ctxt, struct dwc3_ep *dep,
+					struct dwc3_trb *trb, char *tag)
+{
+	char *s;
+	int pcm = ((trb->size >> 24) & 3) + 1;
+
+	switch (usb_endpoint_type(dep->endpoint.desc)) {
+	case USB_ENDPOINT_XFER_INT:
+	case USB_ENDPOINT_XFER_ISOC:
+		switch (pcm) {
+		case 1:
+			s = "1x ";
+			break;
+		case 2:
+			s = "2x ";
+			break;
+		case 3:
+		default:
+			s = "3x ";
+			break;
+		}
+		break;
+	default:
+		s = "";
+	}
+
+	ipc_log_string(log_ctxt,
+		       "%s: %s: trb %p (E%d:D%d) buf %08x%08x sz %s%d ctrl %08x (%c%c%c%c:%c%c:%s)",
+		       tag, dep->name, trb, dep->trb_enqueue,
+		       dep->trb_dequeue, trb->bph, trb->bpl, s, trb->size, trb->ctrl,
+		       trb->ctrl & DWC3_TRB_CTRL_HWO ? 'H' : 'h',
+		       trb->ctrl & DWC3_TRB_CTRL_LST ? 'L' : 'l',
+		       trb->ctrl & DWC3_TRB_CTRL_CHN ? 'C' : 'c',
+		       trb->ctrl & DWC3_TRB_CTRL_CSP ? 'S' : 's',
+		       trb->ctrl & DWC3_TRB_CTRL_ISP_IMI ? 'S' : 's',
+		       trb->ctrl & DWC3_TRB_CTRL_IOC ? 'C' : 'c',
+		       dwc3_trb_type_string(DWC3_TRBCTL_TYPE(trb->ctrl)));
+}
+
+void dwc3_dbg_trace_event(void *log_ctxt, u32 event, struct dwc3 *dwc)
+{
+	char *event_str;
+
+	event_str = kzalloc(DWC3_MSG_MAX, GFP_ATOMIC);
+	if (!event_str)
+		return;
+
+	ipc_log_string(log_ctxt, "event (%08x): %s", event,
+			dwc3_decode_event(event_str, DWC3_MSG_MAX,
+					event, dwc->ep0state));
+	kfree(event_str);
+}
+
 /**
  * dwc3_dbg_print:  prints the common part of the event
  * @addr:   endpoint address

@@ -943,6 +943,10 @@
 			can be useful when debugging issues that require an SLB
 			miss to occur.
 
+	disable_dma32=	[KNL]
+			Dynamically disable ZONE_DMA32 on kernels compiled with
+			CONFIG_ZONE_DMA32=y.
+
 	stress_slb	[PPC]
 			Limits the number of kernel SLB entries, and flushes
 			them frequently to increase the rate of SLB faults
@@ -5046,8 +5050,12 @@
 			Specific mitigations can also be selected manually:
 
 			retpoline	  - replace indirect branches
-			retpoline,generic - google's original retpoline
-			retpoline,amd     - AMD-specific minimal thunk
+			retpoline,generic - Retpolines
+			retpoline,lfence  - LFENCE; indirect branch
+			retpoline,amd     - alias for retpoline,lfence
+			eibrs		  - enhanced IBRS
+			eibrs,retpoline   - enhanced IBRS + Retpolines
+			eibrs,lfence      - enhanced IBRS + LFENCE
 
 			Not specifying this option is equivalent to
 			spectre_v2=auto.

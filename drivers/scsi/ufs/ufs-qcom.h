@@ -63,12 +63,6 @@
 #define UFS_QCOM_CLK_GATING_DELAY_MS_PWR_SAVE	10
 #define UFS_QCOM_CLK_GATING_DELAY_MS_PERF	50
 
-/* QCOM ICE registers */
-#define REG_UFS_ICE_CONTROL	0x00
-
-/* bit definitions for QCOM_ICE_REG_CONTROL register */
-#define ICE_CONTROL	BIT(1)
-
 /* QCOM UFS host controller vendor specific registers */
 enum {
 	REG_UFS_SYS1CLK_1US                 = 0xC0,
@@ -109,6 +103,15 @@ enum {
 	UFS_UFS_DBG_RD_PRDT_RAM			= 0x1700,
 	UFS_UFS_DBG_RD_RESP_RAM			= 0x1800,
 	UFS_UFS_DBG_RD_EDTL_RAM			= 0x1900,
+};
+
+/* QCOM UFS host controller vendor specific H8 count registers */
+enum {
+	REG_UFS_HW_H8_ENTER_CNT				= 0x2700,
+	REG_UFS_SW_H8_ENTER_CNT				= 0x2704,
+	REG_UFS_SW_AFTER_HW_H8_ENTER_CNT	= 0x2708,
+	REG_UFS_HW_H8_EXIT_CNT				= 0x270C,
+	REG_UFS_SW_H8_EXIT_CNT				= 0x2710,
 };
 
 #define UFS_CNTLR_2_x_x_VEN_REGS_OFFSET(x)	(0x000 + x)
@@ -527,16 +530,6 @@ static inline int ufshcd_dme_rmw(struct ufs_hba *hba, u32 mask,
 
 out:
 	return err;
-}
-
-static inline void ufshcd_ice_rmwl(struct ufs_qcom_host *host, u32 mask, u32 val, u32 reg)
-{
-	u32 tmp;
-
-	tmp = readl_relaxed((host)->ice_mmio + (reg));
-	tmp &= ~mask;
-	tmp |= (val & mask);
-	writel_relaxed(tmp, (host)->ice_mmio + (reg));
 }
 
 /*

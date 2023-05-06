@@ -1,0 +1,4 @@
+config MIEV
+	tristate "mi event"
+	help
+	  mi event log.

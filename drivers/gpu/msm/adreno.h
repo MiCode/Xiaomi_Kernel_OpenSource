@@ -207,6 +207,7 @@ enum adreno_gpurev {
 	ADRENO_REV_GEN7_0_0 = 0x070000,
 	ADRENO_REV_GEN7_0_1 = 0x070001,
 	ADRENO_REV_GEN7_4_0 = 0x070400,
+	ADRENO_REV_GEN7_3_0 = 0x070300,
 };
 
 #define ADRENO_SOFT_FAULT BIT(0)
@@ -571,8 +572,6 @@ struct adreno_device {
 	bool sptp_pc_enabled;
 	/** @bcl_enabled: True if BCL is enabled */
 	bool bcl_enabled;
-	/** @lsr_enabled: True if LSR is enabled */
-	bool lsr_enabled;
 	struct kgsl_memdesc *profile_buffer;
 	unsigned int profile_index;
 	struct kgsl_memdesc *pwrup_reglist;
@@ -1053,6 +1052,7 @@ ADRENO_TARGET(a610, ADRENO_REV_A610)
 ADRENO_TARGET(a612, ADRENO_REV_A612)
 ADRENO_TARGET(a618, ADRENO_REV_A618)
 ADRENO_TARGET(a619, ADRENO_REV_A619)
+ADRENO_TARGET(a621, ADRENO_REV_A621)
 ADRENO_TARGET(a630, ADRENO_REV_A630)
 ADRENO_TARGET(a635, ADRENO_REV_A635)
 ADRENO_TARGET(a662, ADRENO_REV_A662)
@@ -1136,6 +1136,7 @@ static inline int adreno_is_gen7(struct adreno_device *adreno_dev)
 ADRENO_TARGET(gen7_0_0, ADRENO_REV_GEN7_0_0)
 ADRENO_TARGET(gen7_0_1, ADRENO_REV_GEN7_0_1)
 ADRENO_TARGET(gen7_4_0, ADRENO_REV_GEN7_4_0)
+ADRENO_TARGET(gen7_3_0, ADRENO_REV_GEN7_3_0)
 
 /*
  * adreno_checkreg_off() - Checks the validity of a register enum
@@ -1773,19 +1774,6 @@ static inline int adreno_allocate_global(struct kgsl_device *device,
 	*memdesc = kgsl_allocate_global(device, size, padding, flags, priv, name);
 	return PTR_ERR_OR_ZERO(*memdesc);
 }
-
-/**
- * adreno_regulator_disable_poll - Disable the regulator and wait for it to
- * complete
- * @device: A GPU device handle
- * @reg: Pointer to the regulator to disable
- * @offset: Offset of the register to poll for success
- * @timeout: Timeout (in milliseconds)
- *
- * Return: true if the regulator got disabled or false on timeout
- */
-bool adreno_regulator_disable_poll(struct kgsl_device *device,
-		struct regulator *reg, u32 offset, u32 timeout);
 
 static inline void adreno_set_dispatch_ops(struct adreno_device *adreno_dev,
 		const struct adreno_dispatch_ops *ops)

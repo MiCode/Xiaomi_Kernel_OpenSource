@@ -527,6 +527,9 @@ static int mhi_sm_prepare_resume(void)
 				MHI_SM_ERR("Failed resuming ipa_mhi:%d", res);
 				goto exit;
 			}
+		} else if (mhi_sm_ctx->mhi_dev->use_edma) {
+			/* edma resets  when device goes to D3 cold*/
+			mhi_edma_init(mhi_sm_ctx->mhi_dev->dev);
 		}
 	}
 
@@ -686,27 +689,33 @@ static int mhi_sm_prepare_suspend(enum mhi_dev_state new_state)
 	if ((old_state == MHI_DEV_M0_STATE) &&
 			((new_state == MHI_DEV_M2_STATE) ||
 			 (new_state == MHI_DEV_M3_STATE))) {
-		if (mhi_sm_ctx->mhi_dev->use_ipa) {
-			MHI_SM_DBG("Disable IPA with ipa_dma_disable()\n");
-			while (wait_timeout < MHI_IPA_DISABLE_COUNTER) {
+		MHI_SM_DBG("Disable IPA with ipa_dma_disable()\n");
+		while (wait_timeout < MHI_IPA_DISABLE_COUNTER) {
+			if (mhi_sm_ctx->mhi_dev->use_ipa) {
 				/* wait for the disable to finish */
 				res = ipa_dma_disable();
-				if (!res)
-					break;
-				MHI_SM_ERR
-					("IPA disable fail cnt:%d\n",
-						wait_timeout);
-				msleep(MHI_IPA_DISABLE_DELAY_MS);
-				wait_timeout++;
+			} else if (mhi_sm_ctx->mhi_dev->use_edma) {
+				/* wait for edma to be idle*/
+				res = mhi_edma_status();
 			}
-
-			if (wait_timeout >= MHI_IPA_DISABLE_COUNTER) {
-				MHI_SM_ERR
-					("Fail to disable IPA for M3\n");
-				goto exit;
-			}
-			MHI_SM_ERR("IPA DMA successfully disabled\n");
+			if (!res)
+				break;
+			MHI_SM_ERR
+				("DMA disable fail cnt:%d\n",
+					wait_timeout);
+			msleep(MHI_IPA_DISABLE_DELAY_MS);
+			wait_timeout++;
 		}
+
+		if (wait_timeout >= MHI_IPA_DISABLE_COUNTER) {
+			MHI_SM_ERR
+				("Fail to disable DMA for M3\n");
+			goto exit;
+		}
+
+		/* edma completely resets when link goes to susupend state */
+		if (mhi_sm_ctx->mhi_dev->use_edma)
+			mhi_edma_release();
 	}
 
 	if ((old_state == MHI_DEV_M0_STATE) &&
@@ -1166,10 +1175,15 @@ int mhi_dev_sm_exit(struct mhi_dev *mhi_dev)
 	mhi_sm_debugfs_destroy();
 	flush_workqueue(mhi_sm_ctx->mhi_sm_wq);
 	destroy_workqueue(mhi_sm_ctx->mhi_sm_wq);
-	/* Initiate MHI IPA reset */
-	ipa_dma_disable();
-	ipa_mhi_destroy();
-	ipa_dma_destroy();
+
+	if (mhi_sm_ctx->mhi_dev->use_edma)
+		mhi_edma_release();
+	if (mhi_sm_ctx->mhi_dev->use_ipa) {
+		/* Initiate MHI IPA reset */
+		ipa_dma_disable();
+		ipa_mhi_destroy();
+		ipa_dma_destroy();
+	}
 	mutex_destroy(&mhi_sm_ctx->mhi_state_lock);
 	mhi_sm_ctx = NULL;
 

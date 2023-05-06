@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2011-2017, 2021, The Linux Foundation
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _DRIVERS_SLIMBUS_H
@@ -102,6 +103,22 @@ void __slimbus_dbg(const char *func, const char *fmt, ...);
 /* slimbus base frequency values */
 #define	SLIM_BASE_FREQ_11	11025
 #define	SLIM_BASE_FREQ_4	4000
+
+/**
+ * This is Workaround implementation to avoid redzone overwritten corruption
+ * causing by ngd child device name change in BT driver, changed device name
+ * must be having the same size according to the device name allocated in
+ * slimbus driver.
+ * Adding EXTRA_CHAR to support the name change as expected name change in
+ * BT driver is not possible due to dependent drivers.
+ */
+#define BT_WAR
+
+#ifdef BT_WAR
+#define EXTRA_CHAR "   "
+#else
+#define EXTRA_CHAR ""
+#endif
 
 /**
  * struct slim_framer - Represents SLIMbus framer.
@@ -450,6 +467,7 @@ struct slim_controller {
 	int		(*enable_stream)(struct slim_stream_runtime *rt);
 	int		(*disable_stream)(struct slim_stream_runtime *rt);
 	int			(*wakeup)(struct slim_controller *ctrl);
+	struct mutex            stream_lock;
 };
 
 /* IPC logging stuff */

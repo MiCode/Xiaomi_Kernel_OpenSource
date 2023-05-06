@@ -280,8 +280,15 @@ enum arm_smmu_cbar_type {
 #define TCU_SYNC_IN_PRGSS		BIT(20)
 #define TCU_INV_IN_PRGSS		BIT(16)
 
+/* Relative to SMMU_BASE */
+#define APPS_SMMU_SAFE_SEC_CFG		0x2648
+#define SAFE_REQ			BIT(2)
+#define SAFE_ACK			BIT(4)
+
 #define ARM_SMMU_CB_ATSR		0x8f0
 #define ARM_SMMU_ATSR_ACTIVE		BIT(0)
+
+#define ARM_SMMU_MICRO_IDLE_DELAY_US	5
 
 
 /* Maximum number of context banks per SMMU */
@@ -345,10 +352,21 @@ struct arm_smmu_s2cr {
 	bool				pinned;
 };
 
+/*
+ * Add smr state for debug purpose, it indicate the SMR
+ * table entry from kernel side.
+ */
+enum arm_smmu_smr_state {
+	SMR_INVALID,
+	SMR_PROGRAMMED,
+	SMR_ALLOCATED,
+};
+
 struct arm_smmu_smr {
 	u16				mask;
 	u16				id;
 	bool				valid;
+	enum arm_smmu_smr_state		state;
 };
 
 struct arm_smmu_device {
@@ -427,25 +445,6 @@ struct arm_smmu_device {
 
 	/* power ref count for the atomic clients. */
 	unsigned int			atomic_pwr_refcount;
-};
-
-struct qsmmuv500_tbu_device {
-	struct list_head		list;
-	struct device			*dev;
-	struct arm_smmu_device		*smmu;
-	void __iomem			*base;
-	void __iomem			*status_reg;
-
-	struct arm_smmu_power_resources *pwr;
-	u32				sid_start;
-	u32				num_sids;
-
-	/* Protects halt count */
-	spinlock_t			halt_lock;
-	u32				halt_count;
-
-	bool				has_micro_idle;
-	unsigned int			*irqs;
 };
 
 enum arm_smmu_context_fmt {
@@ -729,13 +728,13 @@ struct arm_smmu_device *qcom_adreno_smmu_impl_init(struct arm_smmu_device *smmu)
 void arm_smmu_write_context_bank(struct arm_smmu_device *smmu, int idx);
 int arm_mmu500_reset(struct arm_smmu_device *smmu);
 
-int arm_smmu_micro_idle_wake(struct arm_smmu_power_resources *pwr);
-void arm_smmu_micro_idle_allow(struct arm_smmu_power_resources *pwr);
 int arm_smmu_power_on(struct arm_smmu_power_resources *pwr);
 void arm_smmu_power_off(struct arm_smmu_device *smmu,
 			struct arm_smmu_power_resources *pwr);
 struct arm_smmu_power_resources *arm_smmu_init_power_resources(
 			struct device *dev);
+
+extern struct platform_driver qsmmuv500_tbu_driver;
 
 /* Misc. constants */
 #define TBUID_SHIFT                     10

@@ -31,7 +31,7 @@
 #include "ufshci.h"
 #include "ufs_quirks.h"
 #include "ufshcd-crypto-qti.h"
-#include <trace/hooks/ufshcd.h>
+
 
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
@@ -118,6 +118,11 @@ static void ufs_qcom_parse_g4_workaround_flag(struct ufs_qcom_host *host);
 static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val);
 static void ufs_qcom_hook_clock_scaling(void *used, struct ufs_hba *hba, bool *force_out,
 		bool *force_saling, bool *scale_up);
+
+#ifdef CONFIG_UFS_EBUFF
+extern bool of_obtain_ebuffha_info(void);
+extern bool ebuff_value_u32(char *pname, u32 *value);
+#endif
 
 static inline void cancel_dwork_unvote_cpufreq(struct ufs_hba *hba)
 {
@@ -541,6 +546,14 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	 * so that the ice hardware will be re-initialized properly in the
 	 * later part of the UFS host controller reset.
 	 */
+	ufs_qcom_ice_disable(host);
+
+	/*
+	* The ice registers are also reset to default values after a ufs
+	* host controller reset. Reset the ice internal software flags here
+	* so that the ice hardware will be re-initialized properly in the
+	* later part of the UFS host controller reset.
+	*/
 	ufs_qcom_ice_disable(host);
 
 	if (reenable_intr) {
@@ -1125,12 +1138,6 @@ static void ufs_qcom_apply_turbo_setting(struct ufs_hba *hba)
 			ATTR_HW_CGC_EN_TURBO, PA_VS_CLK_CFG_REG);
 	if (err)
 		dev_err(hba->dev, "%s apply of turbo setting failed\n", __func__);
-	/*
-	 * clear bit 1 of ICE_CONTROL Register to support ice
-	 * core clock frequency greater than 300 MHz
-	 */
-	if (host->turbo_additional_conf_req)
-		ufshcd_ice_rmwl(host, ICE_CONTROL, 0, REG_UFS_ICE_CONTROL);
 
 	host->turbo_unipro_attr_applied = true;
 }
@@ -1152,12 +1159,6 @@ static void ufs_qcom_remove_turbo_setting(struct ufs_hba *hba)
 			ATTR_HW_CGC_EN_NON_TURBO, PA_VS_CLK_CFG_REG);
 	if (err)
 		dev_err(hba->dev, "%s remove of turbo setting failed\n", __func__);
-	/*
-	 * Set bit 1 of ICE_CONTROL Register to support ice
-	 * core clock frequency lesser or equal than 300 MHz
-	 */
-	if (host->turbo_additional_conf_req)
-		ufshcd_ice_rmwl(host, ICE_CONTROL, 1, REG_UFS_ICE_CONTROL);
 
 	host->turbo_unipro_attr_applied = false;
 }
@@ -2228,6 +2229,9 @@ static u32 ufs_qcom_get_ufs_hci_version(struct ufs_hba *hba)
 static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+#ifdef CONFIG_UFS_EBUFF
+	u32 value = 0;
+#endif
 
 	if (host->hw_ver.major == 0x01) {
 		hba->quirks |= UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
@@ -2253,6 +2257,19 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 	if (host->disable_lpm)
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
 
+#ifdef CONFIG_UFS_EBUFF
+	if (ebuff_value_u32("host_quirks", &value)) {
+		u32 mask = 0;
+		if (ebuff_value_u32("host_quirks_mask", &mask)) {
+			dev_info(hba->dev, "%s: ebuff origin host_quirks 0x%x value 0x%x mask 0x%x\n", __func__, hba->quirks, value, mask);
+			hba->quirks = (hba->quirks & (~mask)) | (value & mask);
+		} else {
+			dev_info(hba->dev, "%s: ebuff origin host_quirks 0x%x value 0x%x\n", __func__, hba->quirks, value);
+			hba->quirks |= value;
+		}
+	}
+#endif
+
 #if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO_QTI)
 	hba->quirks |= UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER;
 #endif
@@ -2261,6 +2278,9 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+#ifdef CONFIG_UFS_EBUFF
+	u32 value = 0;
+#endif
 
 	if (!host->disable_lpm) {
 		hba->caps |= UFSHCD_CAP_CLK_GATING |
@@ -2291,6 +2311,18 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 		 */
 		host->caps |= UFS_QCOM_CAP_SVS2;
 	}
+#ifdef CONFIG_UFS_EBUFF
+	if (ebuff_value_u32("caps", &value)) {
+		u32 mask = 0;
+		if (ebuff_value_u32("caps_mask", &mask)) {
+			dev_info(hba->dev, "%s: ebuff origin caps 0x%x value 0x%x mask 0x%x\n", __func__, hba->caps, value, mask);
+			hba->caps = (hba->caps & (~mask)) | (value & mask);
+		} else {
+			dev_info(hba->dev, "%s: ebuff origin caps 0x%x value 0x%x\n", __func__, host->caps, value);
+			host->caps |= value;
+		}
+	}
+#endif
 }
 
 static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba)
@@ -4181,6 +4213,9 @@ cell_put:
 static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 {
 	struct device_node *np = host->hba->dev->of_node;
+#ifdef CONFIG_UFS_EBUFF
+	u32 ebuff_value = 0;
+#endif
 
 	if (!np)
 		return;
@@ -4200,6 +4235,22 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	of_property_read_u32(np, "limit-rate", &host->limit_rate);
 	of_property_read_u32(np, "limit-phy-submode", &host->limit_phy_submode);
 	of_property_read_u32(np, "ufs-dev-types", &host->ufs_dev_types);
+
+#ifdef CONFIG_UFS_EBUFF
+	if (ebuff_value_u32("rate", &ebuff_value)) {
+		if (ebuff_value == 1)
+			host->limit_rate = PA_HS_MODE_A;
+		else if (ebuff_value == 2)
+			host->limit_rate = PA_HS_MODE_B;
+	}
+
+	if (ebuff_value_u32("gear", &ebuff_value)) {
+		if (ebuff_value >= 1 && ebuff_value <= 4) {
+			host->limit_tx_hs_gear = (int)ebuff_value;
+			host->limit_rx_hs_gear = (int)ebuff_value;
+		}
+	}
+#endif
 
 	if (host->ufs_dev_types >= 2)
 		ufs_qcom_read_nvmem_cell(host);
@@ -4315,8 +4366,20 @@ static void ufs_qcom_hook_clock_scaling(void *unused, struct ufs_hba *hba, bool 
 static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host)
 {
 	struct device_node *node = host->hba->dev->of_node;
+#ifdef CONFIG_UFS_EBUFF
+	u32 ebuff_value = 2;
+#endif
 
 	host->disable_lpm = of_property_read_bool(node, "qcom,disable-lpm");
+#ifdef CONFIG_UFS_EBUFF
+	if (ebuff_value_u32("disable_lpm", &ebuff_value)) {
+		if (ebuff_value == 0)
+			host->disable_lpm = false;
+		else if (ebuff_value == 1)
+			host->disable_lpm = true;
+	}
+#endif
+
 	if (host->disable_lpm)
 		dev_info(host->hba->dev, "(%s) All LPM is disabled\n",
 			 __func__);
@@ -4664,6 +4727,38 @@ out:
 }
 static DEVICE_ATTR_RW(turbo_support);
 
+static ssize_t hibern8_count_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	u32 hw_h8_enter;
+	u32 sw_h8_enter;
+	u32 sw_hw_h8_enter;
+	u32 hw_h8_exit;
+	u32	sw_h8_exit;
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	pm_runtime_get_sync(hba->dev);
+	ufshcd_hold(hba, false);
+	hw_h8_enter = ufshcd_readl(hba, REG_UFS_HW_H8_ENTER_CNT);
+	sw_h8_enter = ufshcd_readl(hba, REG_UFS_SW_H8_ENTER_CNT);
+	sw_hw_h8_enter = ufshcd_readl(hba, REG_UFS_SW_AFTER_HW_H8_ENTER_CNT);
+	hw_h8_exit = ufshcd_readl(hba, REG_UFS_HW_H8_EXIT_CNT);
+	sw_h8_exit = ufshcd_readl(hba, REG_UFS_SW_H8_EXIT_CNT);
+	ufshcd_release(hba);
+	pm_runtime_put_sync(hba->dev);
+
+	return sysfs_emit(buf,
+			 "%s: %d\n%s: %d\n%s: %d\n%s: %d\n%s: %d\n",
+			 "hw_h8_enter", hw_h8_enter,
+			 "sw_h8_enter", sw_h8_enter,
+			 "sw_after_hw_h8_enter", sw_hw_h8_enter,
+			 "hw_h8_exit", hw_h8_exit,
+			 "sw_h8_exit", sw_h8_exit);
+
+}
+
+static DEVICE_ATTR_RO(hibern8_count);
+
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
@@ -4674,6 +4769,7 @@ static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_crash_on_err.attr,
 	&dev_attr_clk_mode.attr,
 	&dev_attr_turbo_support.attr,
+	&dev_attr_hibern8_count.attr,
 	NULL
 };
 
@@ -4852,6 +4948,10 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	    strcmp(android_boot_dev, dev_name(dev)))
 		return -ENODEV;
 
+#ifdef CONFIG_UFS_EBUFF
+	of_obtain_ebuffha_info();
+#endif
+
 	/* Perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_qcom_vops);
 	if (err)
@@ -4898,6 +4998,12 @@ static void ufs_qcom_shutdown(struct platform_device *pdev)
 			scsi_remove_device(sdev);
 	}
 	ufshcd_shutdown(hba);
+
+	/* UFS_RESET TLMM register cannot reset to POR value '1' after warm
+	 * reset, so deassert ufs device reset line after UFS device shutdown
+	 * to ensure the UFS_RESET TLMM register value is POR value
+	 */
+	ufs_qcom_device_reset_ctrl(hba, false);
 }
 
 static const struct of_device_id ufs_qcom_of_match[] = {

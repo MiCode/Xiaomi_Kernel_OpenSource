@@ -241,12 +241,32 @@ static int cdsp_loader_remove(struct platform_device *pdev)
 
 static int cdsp_loader_probe(struct platform_device *pdev)
 {
-	int ret = cdsp_loader_init_sysfs(pdev);
 
-	if (ret != 0) {
-		dev_err(&pdev->dev, "%s: Error in initing sysfs\n", __func__);
-		return ret;
-	}
+	 phandle rproc_phandle;
+	 struct property *prop = NULL;
+	 int size = 0;
+	 struct rproc *cdsp = NULL;
+	 int ret = 0;
+	
+	 prop = of_find_property(pdev->dev.of_node, "qcom,rproc-handle", &size);
+		 if (!prop) {
+		 dev_err(&pdev->dev, "%s: error reading rproc phandle", __func__);
+		 return -ENOPARAM;
+	 }
+
+	 rproc_phandle = be32_to_cpup(prop->value);
+	 cdsp = rproc_get_by_phandle(rproc_phandle);
+	 if (!cdsp) {
+		 dev_err(&pdev->dev, "%s: rproc not found", __func__);
+		 return -EPROBE_DEFER;
+	 }
+
+	 ret = cdsp_loader_init_sysfs(pdev);
+	
+	 if (ret != 0) {
+		 dev_err(&pdev->dev, "%s: Error in initing sysfs\n", __func__);
+		 return ret;
+	 }
 
 	return 0;
 }
@@ -278,5 +298,6 @@ static void __exit cdsp_loader_exit(void)
 }
 module_exit(cdsp_loader_exit);
 
+MODULE_SOFTDEP("pre: qcom_q6v5_pas");
 MODULE_DESCRIPTION("CDSP Loader module");
 MODULE_LICENSE("GPL v2");

@@ -294,7 +294,7 @@ static const struct llcc_slice_config cape_data[] =  {
 };
 
 static const struct llcc_slice_config diwali_data[] =  {
-	{LLCC_CPUSS,     1, 1536, 0, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 1, 1, 0 },
+	{LLCC_CPUSS,     1, 1536, 0, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
 	{LLCC_VIDSC0,    2,  128, 3, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_MDMHPGRW,  7,  512, 3, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_GPUHTW,   11,  256, 1, 1, 0x0FFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
@@ -711,7 +711,8 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	struct platform_device *llcc_edac;
 	const struct qcom_llcc_config *cfg;
 	const struct llcc_slice_config *llcc_cfg;
-	u32 sz;
+	void __iomem *ch_reg = NULL;
+	u32 sz, ch_reg_sz, ch_reg_off, ch_num;
 
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data) {
@@ -764,8 +765,31 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	llcc_cfg = cfg->sct_data;
-	sz = cfg->size;
+	ch_reg = devm_platform_ioremap_resource_byname(pdev, "multi_ch_reg");
+	if (!IS_ERR(ch_reg)) {
+		if (of_property_read_u32_index(dev->of_node, "multi-ch-off", 1, &ch_reg_sz)) {
+			dev_err(&pdev->dev,
+				"Couldn't get size of multi channel feature register\n");
+			ret = -ENODEV;
+			goto err;
+		}
+
+		if (of_property_read_u32(dev->of_node, "multi-ch-off", &ch_reg_off))
+			ch_reg_off = 0;
+
+		ch_num = readl_relaxed(ch_reg);
+		ch_num = (ch_num >> ch_reg_off) & ((1 << ch_reg_sz) - 1);
+
+		drv_data->cfg_index = ch_num;
+		llcc_cfg = cfg[ch_num].sct_data;
+		sz = cfg[ch_num].size;
+
+		devm_iounmap(dev, ch_reg);
+		ch_reg = NULL;
+	} else {
+		llcc_cfg = cfg->sct_data;
+		sz = cfg->size;
+	}
 
 	drv_data->desc = devm_kzalloc(dev, sizeof(struct llcc_slice_desc)*sz, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(drv_data->desc)) {

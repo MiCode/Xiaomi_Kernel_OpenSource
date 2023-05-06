@@ -49,23 +49,6 @@ int adreno_wake_nice = -7;
 /* Number of milliseconds to stay active active after a wake on touch */
 unsigned int adreno_wake_timeout = 100;
 
-bool adreno_regulator_disable_poll(struct kgsl_device *device,
-		struct regulator *reg, u32 offset, u32 timeout)
-{
-	u32 val;
-	int ret;
-
-	if (IS_ERR_OR_NULL(reg))
-		return true;
-
-	regulator_disable(reg);
-
-	ret = kgsl_regmap_read_poll_timeout(&device->regmap, offset,
-		val, !(val & BIT(31)), 100, timeout * 1000);
-
-	return ret ? false : true;
-}
-
 static u32 get_ucode_version(const u32 *data)
 {
 	u32 version;
@@ -664,13 +647,13 @@ static int adreno_of_parse_pwrlevels(struct adreno_device *adreno_dev,
 		level->gpu_freq = freq;
 		level->bus_freq = bus;
 		level->voltage_level = voltage;
-		level->cx_min = 0xffffffff;
+		level->cx_level = 0xffffffff;
 
 		of_property_read_u32(child, "qcom,acd-level",
 			&level->acd_level);
 
-		of_property_read_u32(child, "qcom,min-cx-level",
-			&level->cx_min);
+		of_property_read_u32(child, "qcom,cx-level",
+			&level->cx_level);
 
 		level->bus_min = level->bus_freq;
 		kgsl_of_property_read_ddrtype(child,
@@ -1403,6 +1386,8 @@ static void adreno_unbind(struct device *dev)
 
 	if (of_find_matching_node(dev->of_node, adreno_gmu_match))
 		component_unbind_all(dev, NULL);
+
+	kgsl_bus_close(device);
 
 	if (device->num_l3_pwrlevels != 0)
 		qcom_dcvs_unregister_voter(KGSL_L3_DEVICE, DCVS_L3,

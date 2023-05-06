@@ -260,6 +260,8 @@ int __scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 		goto out;
 
 	rq->cmd_len = COMMAND_SIZE(cmd[0]);
+	if(cmd[0] == 0x3b)
+		rq->cmd_len = 16;
 	memcpy(rq->cmd, cmd, rq->cmd_len);
 	rq->retries = retries;
 	req->timeout = timeout;
@@ -1907,10 +1909,6 @@ int scsi_mq_setup_tags(struct Scsi_Host *shost)
 		tag_set->ops = &scsi_mq_ops_no_commit;
 	tag_set->nr_hw_queues = shost->nr_hw_queues ? : 1;
 	tag_set->queue_depth = shost->can_queue;
-	if (shost->hostt->name && strcmp(shost->hostt->name, "ufshcd") == 0) {
-		tag_set->queue_depth--;
-		tag_set->reserved_tags++;
-	}
 	tag_set->cmd_size = cmd_size;
 	tag_set->numa_node = NUMA_NO_NODE;
 	tag_set->flags = BLK_MQ_F_SHOULD_MERGE;

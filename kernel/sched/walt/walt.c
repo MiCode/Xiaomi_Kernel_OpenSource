@@ -106,6 +106,7 @@ u64 walt_ktime_get_ns(void)
 		return ktime_to_ns(ktime_last);
 	return ktime_get_ns();
 }
+EXPORT_SYMBOL_GPL(walt_ktime_get_ns);
 
 static void walt_resume(void)
 {
@@ -3751,34 +3752,37 @@ static void walt_cpu_frequency_limits(void *unused, struct cpufreq_policy *polic
  */
 static void android_rvh_update_cpu_capacity(void *unused, int cpu, unsigned long *capacity)
 {
-	unsigned long max_capacity = arch_scale_cpu_capacity(cpu);
+	unsigned long fmax_capacity = arch_scale_cpu_capacity(cpu);
 	unsigned long thermal_pressure = arch_scale_thermal_pressure(cpu);
-	unsigned long thermal_cap;
+	unsigned long thermal_cap, old;
+	unsigned long rt_pressure = fmax_capacity - *capacity;
 	struct walt_sched_cluster *cluster;
-	unsigned long rt_pressure = max_capacity - *capacity;
+	struct rq *rq = cpu_rq(cpu);
 
 	if (unlikely(walt_disabled))
 		return;
 
 	/*
-	 * thermal_pressure = max_capacity - curr_cap_as_per_thermal.
+	 * thermal_pressure = cpu_scale - curr_cap_as_per_thermal.
 	 * so,
-	 * curr_cap_as_per_thermal = max_capacity - thermal_pressure.
+	 * curr_cap_as_per_thermal = cpu_scale - thermal_pressure.
 	 */
 
-	thermal_cap = max_capacity - thermal_pressure;
+	thermal_cap = fmax_capacity - thermal_pressure;
 
 	cluster = cpu_cluster(cpu);
-	/* reduce the max_capacity under cpufreq constraints */
+	/* reduce the fmax_capacity under cpufreq constraints */
 	if (cluster->max_freq != cluster->max_possible_freq)
-		max_capacity = mult_frac(max_capacity, cluster->max_freq,
+		fmax_capacity = mult_frac(fmax_capacity, cluster->max_freq,
 					 cluster->max_possible_freq);
 
-	cpu_rq(cpu)->cpu_capacity_orig = min(max_capacity, thermal_cap);
-	*capacity = cpu_rq(cpu)->cpu_capacity_orig - rt_pressure;
+	old = rq->cpu_capacity_orig;
+	rq->cpu_capacity_orig = min(fmax_capacity, thermal_cap);
 
-	if (max_capacity != arch_scale_cpu_capacity(cpu))
+	if (old != rq->cpu_capacity_orig)
 		trace_update_cpu_capacity(cpu, rt_pressure, *capacity);
+
+	*capacity = max(rq->cpu_capacity_orig - rt_pressure, 1UL);
 }
 
 static void android_rvh_sched_cpu_starting(void *unused, int cpu)
@@ -3993,9 +3997,13 @@ static void android_rvh_try_to_wake_up_success(void *unused, struct task_struct 
 {
 	unsigned long flags;
 	int cpu = p->cpu;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (unlikely(walt_disabled))
 		return;
+
+	if (wts->mvp_list.prev == NULL && wts->mvp_list.next == NULL)
+		init_new_task_load(p);
 
 	raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
 	if (do_pl_notif(cpu_rq(cpu)))

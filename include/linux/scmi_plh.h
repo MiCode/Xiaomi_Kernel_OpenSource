@@ -17,7 +17,8 @@
 
 enum plh_features {
 	PERF_LOCK_SCROLL,
-	PERF_LOCK_LAUNCH
+	PERF_LOCK_LAUNCH,
+	PERF_LOCK_DRAG
 };
 
 struct scmi_protocol_handle;

@@ -462,6 +462,7 @@ static int bcl_set_lbat(void *data, int low, int high)
 	if (high == INT_MAX &&
 		bat_data->irq_num && bat_data->irq_enabled) {
 		disable_irq_nosync(bat_data->irq_num);
+		disable_irq_wake(bat_data->irq_num);
 		bat_data->irq_enabled = false;
 		pr_debug("lbat[%d]: disable irq:%d\n",
 				bat_data->type,
@@ -469,6 +470,7 @@ static int bcl_set_lbat(void *data, int low, int high)
 	} else if (high != INT_MAX &&
 		bat_data->irq_num && !bat_data->irq_enabled) {
 		enable_irq(bat_data->irq_num);
+		enable_irq_wake(bat_data->irq_num);
 		bat_data->irq_enabled = true;
 		pr_debug("lbat[%d]: enable irq:%d\n",
 				bat_data->type,
@@ -774,7 +776,13 @@ static void bcl_probe_lvls(struct platform_device *pdev,
 
 static void bcl_configure_bcl_peripheral(struct bcl_device *bcl_perph)
 {
+	struct device_node *np;
 	bcl_write_register(bcl_perph, BCL_MONITOR_EN, BIT(7));
+
+	np = of_find_node_by_name(NULL, "bcl-ibat");
+	if (np) {
+		bcl_write_register(bcl_perph, 0x59, 0x7E);
+	}
 }
 
 static int bcl_remove(struct platform_device *pdev)

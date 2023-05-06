@@ -850,27 +850,33 @@ static void rgmu_idle_check(struct work_struct *work)
 	struct kgsl_device *device = container_of(work,
 					struct kgsl_device, idle_check_ws);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int ret;
 
 	mutex_lock(&device->mutex);
 
 	if (test_bit(GMU_DISABLE_SLUMBER, &device->gmu_core.flags))
 		goto done;
 
-	if (!atomic_read(&device->active_cnt)) {
-		spin_lock(&device->submit_lock);
+	if (atomic_read(&device->active_cnt)) {
+		kgsl_pwrscale_update(device);
+		kgsl_start_idle_timer(device);
+		goto done;
+	}
 
-		if (device->submit_now) {
-			spin_unlock(&device->submit_lock);
-			kgsl_pwrscale_update(device);
-			kgsl_start_idle_timer(device);
-			goto done;
-		}
+	spin_lock(&device->submit_lock);
 
-		device->slumber = true;
+	if (device->submit_now) {
 		spin_unlock(&device->submit_lock);
+		kgsl_pwrscale_update(device);
+		kgsl_start_idle_timer(device);
+		goto done;
+	}
 
-		a6xx_power_off(adreno_dev);
-	} else {
+	device->slumber = true;
+	spin_unlock(&device->submit_lock);
+
+	ret = a6xx_power_off(adreno_dev);
+	if (ret == -EBUSY) {
 		kgsl_pwrscale_update(device);
 		kgsl_start_idle_timer(device);
 	}
@@ -1007,22 +1013,7 @@ static int a6xx_first_boot(struct adreno_device *adreno_dev)
 
 	set_bit(RGMU_PRIV_FIRST_BOOT_DONE, &rgmu->flags);
 	set_bit(RGMU_PRIV_GPU_STARTED, &rgmu->flags);
-
-	/*
-	 * There is a possible deadlock scenario during kgsl firmware reading
-	 * (request_firmware) and devfreq update calls. During first boot, kgsl
-	 * device mutex is held and then request_firmware is called for reading
-	 * firmware. request_firmware internally takes dev_pm_qos_mtx lock.
-	 * Whereas in case of devfreq update calls triggered by thermal/bcl or
-	 * devfreq sysfs, it first takes the same dev_pm_qos_mtx lock and then
-	 * tries to take kgsl device mutex as part of get_dev_status/target
-	 * calls. This results in deadlock when both thread are unable to acquire
-	 * the mutex held by other thread. Enable devfreq updates now as we are
-	 * done reading all firmware files.
-	 */
 	device->pwrscale.devfreq_enabled = true;
-
-	device->pwrctrl.last_stat_updated = ktime_get();
 
 	kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 
@@ -1071,6 +1062,11 @@ static int a6xx_power_off(struct adreno_device *adreno_dev)
 	if (ret) {
 		a6xx_rgmu_oob_clear(device, oob_gpu);
 		goto no_gx_power;
+	}
+
+	if (a6xx_irq_pending(adreno_dev)) {
+		a6xx_gmu_oob_clear(device, oob_gpu);
+		return -EBUSY;
 	}
 
 	kgsl_pwrscale_update_stats(device);

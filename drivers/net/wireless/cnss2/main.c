@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <linux/pm_wakeup.h>
 #include <linux/reboot.h>
 #include <linux/rwsem.h>
@@ -23,6 +24,7 @@
 #include "bus.h"
 #include "debug.h"
 #include "genl.h"
+#include "reg.h"
 
 #define CNSS_DUMP_FORMAT_VER		0x11
 #define CNSS_DUMP_FORMAT_VER_V2		0x22
@@ -550,7 +552,7 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 		if (cfg) {
 			if (!cfg->dms_mac_addr_supported) {
 				cnss_pr_err("DMS MAC address not supported\n");
-				CNSS_ASSERT(0);
+				//CNSS_ASSERT(0);
 				return -EINVAL;
 			}
 		}
@@ -559,13 +561,13 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 				break;
 
 			ret = cnss_qmi_get_dms_mac(plat_priv);
-			if (ret == 0)
+			if (ret != -EAGAIN)
 				break;
 			msleep(CNSS_DMS_QMI_CONNECTION_WAIT_MS);
 		}
-		if (!plat_priv->dms.mac_valid) {
+		if (!plat_priv->dms.nv_mac_not_prov && !plat_priv->dms.mac_valid) {
 			cnss_pr_err("Unable to get MAC from DMS after retries\n");
-			CNSS_ASSERT(0);
+			//CNSS_ASSERT(0);
 			return -EINVAL;
 		}
 	}
@@ -1216,6 +1218,208 @@ static inline int cnss_register_esoc(struct cnss_plat_data *plat_priv)
 static inline void cnss_unregister_esoc(struct cnss_plat_data *plat_priv) {}
 #endif
 
+int cnss_enable_dev_sol_irq(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+	int ret = 0;
+
+	if (sol_gpio->dev_sol_gpio < 0 || sol_gpio->dev_sol_irq <= 0)
+		return 0;
+
+	enable_irq(sol_gpio->dev_sol_irq);
+	ret = enable_irq_wake(sol_gpio->dev_sol_irq);
+	if (ret)
+		cnss_pr_err("Failed to enable device SOL as wake IRQ, err = %d\n",
+			    ret);
+
+	return ret;
+}
+
+int cnss_disable_dev_sol_irq(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+	int ret = 0;
+
+	if (sol_gpio->dev_sol_gpio < 0 || sol_gpio->dev_sol_irq <= 0)
+		return 0;
+
+	ret = disable_irq_wake(sol_gpio->dev_sol_irq);
+	if (ret)
+		cnss_pr_err("Failed to disable device SOL as wake IRQ, err = %d\n",
+			    ret);
+	disable_irq(sol_gpio->dev_sol_irq);
+
+	return ret;
+}
+
+int cnss_get_dev_sol_value(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (sol_gpio->dev_sol_gpio < 0)
+		return -EINVAL;
+
+	return gpio_get_value(sol_gpio->dev_sol_gpio);
+}
+
+static irqreturn_t cnss_dev_sol_handler(int irq, void *data)
+{
+	struct cnss_plat_data *plat_priv = data;
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	sol_gpio->dev_sol_counter++;
+	cnss_pr_dbg("WLAN device SOL IRQ (%u) is asserted #%u\n",
+		    irq, sol_gpio->dev_sol_counter);
+
+	/* Make sure abort current suspend */
+	cnss_pm_stay_awake(plat_priv);
+	cnss_pm_relax(plat_priv);
+	pm_system_wakeup();
+
+	cnss_bus_handle_dev_sol_irq(plat_priv);
+
+	return IRQ_HANDLED;
+}
+
+static int cnss_init_dev_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+	int ret = 0;
+
+	sol_gpio->dev_sol_gpio = of_get_named_gpio(dev->of_node,
+						   "wlan-dev-sol-gpio", 0);
+	if (sol_gpio->dev_sol_gpio < 0)
+		goto out;
+
+	cnss_pr_dbg("Get device SOL GPIO (%d) from device node\n",
+		    sol_gpio->dev_sol_gpio);
+
+	ret = gpio_request(sol_gpio->dev_sol_gpio, "wlan_dev_sol_gpio");
+	if (ret) {
+		cnss_pr_err("Failed to request device SOL GPIO, err = %d\n",
+			    ret);
+		goto out;
+	}
+
+	gpio_direction_input(sol_gpio->dev_sol_gpio);
+	sol_gpio->dev_sol_irq = gpio_to_irq(sol_gpio->dev_sol_gpio);
+
+	ret = request_irq(sol_gpio->dev_sol_irq, cnss_dev_sol_handler,
+			  IRQF_TRIGGER_FALLING, "wlan_dev_sol_irq", plat_priv);
+	if (ret) {
+		cnss_pr_err("Failed to request device SOL IRQ, err = %d\n", ret);
+		goto free_gpio;
+	}
+
+	return 0;
+
+free_gpio:
+	gpio_free(sol_gpio->dev_sol_gpio);
+out:
+	return ret;
+}
+
+static void cnss_deinit_dev_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (sol_gpio->dev_sol_gpio < 0)
+		return;
+
+	free_irq(sol_gpio->dev_sol_irq, plat_priv);
+	gpio_free(sol_gpio->dev_sol_gpio);
+}
+
+int cnss_set_host_sol_value(struct cnss_plat_data *plat_priv, int value)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (sol_gpio->host_sol_gpio < 0)
+		return -EINVAL;
+
+	if (value)
+		cnss_pr_dbg("Assert host SOL GPIO\n");
+	gpio_set_value(sol_gpio->host_sol_gpio, value);
+
+	return 0;
+}
+
+int cnss_get_host_sol_value(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (sol_gpio->host_sol_gpio < 0)
+		return -EINVAL;
+
+	return gpio_get_value(sol_gpio->host_sol_gpio);
+}
+
+static int cnss_init_host_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+	int ret = 0;
+
+	sol_gpio->host_sol_gpio = of_get_named_gpio(dev->of_node,
+						    "wlan-host-sol-gpio", 0);
+	if (sol_gpio->host_sol_gpio < 0)
+		goto out;
+
+	cnss_pr_dbg("Get host SOL GPIO (%d) from device node\n",
+		    sol_gpio->host_sol_gpio);
+
+	ret = gpio_request(sol_gpio->host_sol_gpio, "wlan_host_sol_gpio");
+	if (ret) {
+		cnss_pr_err("Failed to request host SOL GPIO, err = %d\n",
+			    ret);
+		goto out;
+	}
+
+	gpio_direction_output(sol_gpio->host_sol_gpio, 0);
+
+	return 0;
+
+out:
+	return ret;
+}
+
+static void cnss_deinit_host_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (sol_gpio->host_sol_gpio < 0)
+		return;
+
+	gpio_free(sol_gpio->host_sol_gpio);
+}
+
+static int cnss_init_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	int ret;
+
+	ret = cnss_init_dev_sol_gpio(plat_priv);
+	if (ret)
+		goto out;
+
+	ret = cnss_init_host_sol_gpio(plat_priv);
+	if (ret)
+		goto deinit_dev_sol;
+
+	return 0;
+
+deinit_dev_sol:
+	cnss_deinit_dev_sol_gpio(plat_priv);
+out:
+	return ret;
+}
+
+static void cnss_deinit_sol_gpio(struct cnss_plat_data *plat_priv)
+{
+	cnss_deinit_host_sol_gpio(plat_priv);
+	cnss_deinit_dev_sol_gpio(plat_priv);
+}
+
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 static int cnss_subsys_powerup(const struct subsys_desc *subsys_desc)
 {
@@ -1382,6 +1586,20 @@ static const char *cnss_recovery_reason_to_str(enum cnss_recovery_reason reason)
 	return "UNKNOWN";
 };
 
+#ifdef CONFIG_CNSS2_DEBUG
+static bool cnss_link_down_self_recovery(void)
+{
+	/* Attempt self recovery only in production builds */
+	return false;
+}
+#else
+static bool cnss_link_down_self_recovery(void)
+{
+	cnss_pr_err("PCI link down recovery failed. Force self recovery\n");
+	return true;
+}
+#endif
+
 static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			    enum cnss_recovery_reason reason)
 {
@@ -1419,7 +1637,11 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			 */
 			clear_bit(CNSS_DRIVER_RECOVERY,
 				  &plat_priv->driver_state);
+			cnss_pr_err("clear recovery bit to avoid skipping recovery work\n");
 			return 0;
+		} else {
+			if (cnss_link_down_self_recovery())
+				goto self_recovery;
 		}
 		break;
 	case CNSS_REASON_RDDM:
@@ -2943,9 +3165,12 @@ static ssize_t fs_ready_store(struct device *dev,
 {
 	int fs_ready = 0;
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	cnss_pr_err("fs_ready event!\n");
 
-	if (sscanf(buf, "%du", &fs_ready) != 1)
+	if (sscanf(buf, "%du", &fs_ready) != 1) {
+		cnss_pr_err("no parm to write to fs_ready!\n");
 		return -EINVAL;
+	}
 
 	cnss_pr_dbg("File system is ready, fs_ready is %d, count is %zu\n",
 		    fs_ready, count);
@@ -2959,6 +3184,8 @@ static ssize_t fs_ready_store(struct device *dev,
 		cnss_pr_dbg("QMI is bypassed\n");
 		return count;
 	}
+
+	cnss_pr_dbg("device ID 0x%lx\n", plat_priv->device_id);
 
 	switch (plat_priv->device_id) {
 	case QCA6290_DEVICE_ID:
@@ -3081,6 +3308,8 @@ static int cnss_create_sysfs_link(struct cnss_plat_data *plat_priv)
 	struct device *dev = &plat_priv->plat_dev->dev;
 	int ret;
 
+	cnss_pr_err("start create cnss link\n");
+
 	ret = sysfs_create_link(kernel_kobj, &dev->kobj, "cnss");
 	if (ret) {
 		cnss_pr_err("Failed to create cnss link, err = %d\n",
@@ -3176,6 +3405,10 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 {
 	int ret;
 
+	ret = cnss_init_sol_gpio(plat_priv);
+	if (ret)
+		return ret;
+
 	timer_setup(&plat_priv->fw_boot_timer,
 		    cnss_bus_fw_boot_timeout_hdlr, 0);
 
@@ -3215,6 +3448,8 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 		cnss_pr_err("QMI IPC connection call back register failed, err = %d\n",
 			    ret);
 
+	plat_priv->sram_dump = kcalloc(SRAM_DUMP_SIZE, 1, GFP_KERNEL);
+
 	return 0;
 }
 
@@ -3232,6 +3467,8 @@ static void cnss_misc_deinit(struct cnss_plat_data *plat_priv)
 	unregister_pm_notifier(&cnss_pm_notifier);
 	del_timer(&plat_priv->fw_boot_timer);
 	wakeup_source_unregister(plat_priv->recovery_ws);
+	cnss_deinit_sol_gpio(plat_priv);
+	kfree(plat_priv->sram_dump);
 }
 
 static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
@@ -3326,6 +3563,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	const struct platform_device_id *device_id;
 	int retry = 0;
 
+	cnss_pr_err("cnss_probe!\n");
 	if (cnss_get_plat_priv(plat_dev)) {
 		cnss_pr_err("Driver is already initialized!\n");
 		ret = -EEXIST;
@@ -3361,6 +3599,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 
 	cnss_get_pm_domain_info(plat_priv);
 	cnss_get_wlaon_pwr_ctrl_info(plat_priv);
+	cnss_power_misc_params_init(plat_priv);
 	cnss_get_tcs_info(plat_priv);
 	cnss_get_cpr_info(plat_priv);
 	cnss_aop_mbox_init(plat_priv);

@@ -62,7 +62,7 @@ static gfp_t dma_direct_optimal_gfp_mask(struct device *dev, u64 dma_mask,
 	if (*phys_limit <= DMA_BIT_MASK(zone_dma_bits))
 		return GFP_DMA;
 	if (*phys_limit <= DMA_BIT_MASK(32) &&
-		!zone_dma32_is_empty(dev_to_node(dev)))
+		!zone_dma32_are_empty())
 		return GFP_DMA32;
 	return 0;
 }
@@ -90,6 +90,7 @@ static struct page *__dma_direct_alloc_pages(struct device *dev, size_t size,
 					   &phys_limit);
 	page = dma_alloc_contiguous(dev, size, gfp);
 	if (page && !dma_coherent_ok(dev, page_to_phys(page), size)) {
+		pr_err("%s: !coherent_ok, gfp_flags %#x(%pGg) cma phys 0x%lx", __func__, gfp, page_to_phys(page));
 		dma_free_contiguous(dev, page, size);
 		page = NULL;
 	}
@@ -97,13 +98,14 @@ again:
 	if (!page)
 		page = alloc_pages_node(node, gfp, get_order(size));
 	if (page && !dma_coherent_ok(dev, page_to_phys(page), size)) {
+		pr_err("%s: !coherent_ok, gfp_flags %#x(%pGg) buddy phys 0x%lx", __func__, gfp, page_to_phys(page));
 		dma_free_contiguous(dev, page, size);
 		page = NULL;
 
 		if (IS_ENABLED(CONFIG_ZONE_DMA32) &&
 		    phys_limit < DMA_BIT_MASK(64) &&
 		    !(gfp & (GFP_DMA32 | GFP_DMA)) &&
-		    !zone_dma32_is_empty(node)) {
+		    !zone_dma32_are_empty()) {
 			gfp |= GFP_DMA32;
 			goto again;
 		}

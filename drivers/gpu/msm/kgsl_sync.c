@@ -446,7 +446,7 @@ static void kgsl_get_fence_names(struct dma_fence *fence,
 	}
 
 	info_ptr->fences = kcalloc(num_fences, sizeof(struct fence_info),
-			GFP_ATOMIC);
+			GFP_KERNEL);
 	if (info_ptr->fences == NULL)
 		return;
 
@@ -482,7 +482,7 @@ struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 		return ERR_PTR(-EINVAL);
 
 	/* create the callback */
-	kcb = kzalloc(sizeof(*kcb), GFP_ATOMIC);
+	kcb = kzalloc(sizeof(*kcb), GFP_KERNEL);
 	if (kcb == NULL) {
 		dma_fence_put(fence);
 		return ERR_PTR(-ENOMEM);

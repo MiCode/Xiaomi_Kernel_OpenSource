@@ -838,7 +838,7 @@ static void qdss_mhi_remove(struct mhi_device *mhi_dev)
 			wait_for_completion(&drvdata->completion);
 		} else {
 			spin_unlock_bh(&drvdata->lock);
-			if (drvdata->usb_ch && drvdata->usb_ch->priv_usb)
+			if (drvdata->usb_ch)
 				usb_qdss_close(drvdata->usb_ch);
 			do {
 				msleep(20);

@@ -31,6 +31,7 @@
 #include "qmi.h"
 #include "debug.h"
 #include "genl.h"
+#include "hwid.h"
 
 #define WLFW_SERVICE_WCN_INS_ID_V01	3
 #define WLFW_SERVICE_INS_ID_V01		0
@@ -42,8 +43,10 @@
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan."
+#define ELF_BDF_FILE_NAME_L9S		"bd_l9s.elf"
+#define ELF_BDF_FILE_NAME_L9S_GLOBAL	"bd_l9sgl.elf"
 #define REGDB_FILE_NAME			"regdb.bin"
-#define DUMMY_BDF_FILE_NAME		"bdwlan.dmy"
+#define REGDB_FILE_NAME_XIAOMI		"regdb_xiaomi.bin"
 
 #define QDSS_TRACE_CONFIG_FILE "qdss_trace_config.cfg"
 
@@ -1011,15 +1014,28 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 	char foundry_specific_filename[ICNSS_MAX_FILE_NAME];
 	int ret = 0;
 
+	uint32_t hw_platform_ver = 0;
+	uint32_t hw_country_ver = 0;
+	hw_country_ver = get_hw_country_version();
+	hw_platform_ver = get_hw_version_platform();
+
 	switch (bdf_type) {
 	case ICNSS_BDF_ELF:
-		if (priv->board_id == 0xFF)
-			snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
-		else if (priv->board_id < 0xFF)
+		if (priv->board_id == 0xFF) {
+		        if (hw_platform_ver == HARDWARE_PROJECT_L9S) {
+				if ((uint32_t)CountryGlobal == hw_country_ver)
+					snprintf(filename_tmp, filename_len,
+						ELF_BDF_FILE_NAME_L9S_GLOBAL);
+				else
+					snprintf(filename_tmp, filename_len,
+						ELF_BDF_FILE_NAME_L9S);
+			} else
+			        snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
+		} else if (priv->board_id < 0xFF) {
 			snprintf(filename_tmp, filename_len,
 				 ELF_BDF_FILE_NAME_PREFIX "%02x",
 				 priv->board_id);
-		else
+		} else
 			snprintf(filename_tmp, filename_len,
 				 BDF_FILE_NAME_PREFIX "%02x.e%02x",
 				 priv->board_id >> 8 & 0xFF,
@@ -1047,12 +1063,7 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 		}
 		break;
 	case ICNSS_BDF_REGDB:
-		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME);
-		break;
-	case ICNSS_BDF_DUMMY:
-		icnss_pr_dbg("CNSS_BDF_DUMMY is set, sending dummy BDF\n");
-		snprintf(filename_tmp, filename_len, DUMMY_BDF_FILE_NAME);
-		ret = ICNSS_MAX_FILE_NAME;
+		snprintf(filename_tmp, filename_len, REGDB_FILE_NAME_XIAOMI);
 		break;
 	default:
 		icnss_pr_err("Invalid BDF type: %d\n",
@@ -1061,7 +1072,7 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 		break;
 	}
 
-	if (ret >= 0)
+	if (!ret)
 		icnss_add_fw_prefix_name(priv, filename, filename_tmp);
 
 	return ret;
@@ -1076,8 +1087,6 @@ static char *icnss_bdf_type_to_str(enum icnss_bdf_type bdf_type)
 		return "BDF";
 	case ICNSS_BDF_REGDB:
 		return "REGDB";
-	case ICNSS_BDF_DUMMY:
-		return "BDF";
 	default:
 		return "UNKNOWN";
 	}
@@ -1109,13 +1118,8 @@ int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type)
 
 	ret = icnss_get_bdf_file_name(priv, bdf_type,
 				      filename, sizeof(filename));
-	if (ret > 0) {
-		temp = DUMMY_BDF_FILE_NAME;
-		remaining = ICNSS_MAX_FILE_NAME;
-		goto bypass_bdf;
-	} else if (ret < 0) {
+	if (ret)
 		goto err_req_fw;
-	}
 
 	ret = request_firmware(&fw_entry, filename, &priv->pdev->dev);
 	if (ret) {
@@ -1127,7 +1131,6 @@ int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type)
 	temp = fw_entry->data;
 	remaining = fw_entry->size;
 
-bypass_bdf:
 	icnss_pr_dbg("Downloading %s: %s, size: %u\n",
 		     icnss_bdf_type_to_str(bdf_type), filename, remaining);
 
@@ -1192,16 +1195,14 @@ bypass_bdf:
 		req->seg_id++;
 	}
 
-	if (bdf_type != ICNSS_BDF_DUMMY)
-		release_firmware(fw_entry);
+	release_firmware(fw_entry);
 
 	kfree(req);
 	kfree(resp);
 	return 0;
 
 err_send:
-	if (bdf_type != ICNSS_BDF_DUMMY)
-		release_firmware(fw_entry);
+	release_firmware(fw_entry);
 err_req_fw:
 	if (bdf_type != ICNSS_BDF_REGDB)
 		ICNSS_QMI_ASSERT();
@@ -2943,7 +2944,7 @@ static void wlfw_del_server(struct qmi_handle *qmi,
 	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
 
 	if (priv && test_bit(ICNSS_DEL_SERVER, &priv->state)) {
-		icnss_pr_info("WLFW server delete in progress, Ignore server delete:  0x%lx\n",
+		icnss_pr_info("WLFW server delete / icnss remove in progress, Ignore server delete:  0x%lx\n",
 			      priv->state);
 		return;
 	}
@@ -2988,6 +2989,7 @@ int icnss_register_fw_service(struct icnss_priv *priv)
 
 void icnss_unregister_fw_service(struct icnss_priv *priv)
 {
+	set_bit(ICNSS_DEL_SERVER, &priv->state);
 	qmi_handle_release(&priv->qmi);
 }
 

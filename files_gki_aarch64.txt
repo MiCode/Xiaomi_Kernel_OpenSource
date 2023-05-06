@@ -458,6 +458,8 @@ block/partitions/efi.c
 block/partitions/efi.h
 block/partitions/msdos.c
 block/scsi_ioctl.c
+certs/common.c
+certs/common.h
 certs/system_certificates.S
 certs/system_keyring.c
 crypto/acompress.c
@@ -1451,6 +1453,7 @@ drivers/scsi/ufs/ufs_bsg.h
 drivers/scsi/ufs/ufs-debugfs.c
 drivers/scsi/ufs/ufs-debugfs.h
 drivers/scsi/ufs/ufs.h
+drivers/scsi/ufs/ufshcd-add-info.h
 drivers/scsi/ufs/ufshcd.c
 drivers/scsi/ufs/ufshcd-crypto.c
 drivers/scsi/ufs/ufshcd-crypto.h
@@ -1474,6 +1477,7 @@ drivers/soc/qcom/smem_state.c
 drivers/soc/sunxi/sunxi_sram.c
 drivers/spi/internals.h
 drivers/spi/spi.c
+drivers/spi/spi-mem.c
 drivers/spmi/spmi.c
 drivers/staging/android/ashmem.c
 drivers/staging/android/ashmem.h
@@ -1594,6 +1598,8 @@ drivers/usb/gadget/function/f_ncm.c
 drivers/usb/gadget/function/f_rndis.c
 drivers/usb/gadget/function/f_serial.c
 drivers/usb/gadget/function/f_uac2.c
+drivers/usb/gadget/function/f_uvc.c
+drivers/usb/gadget/function/f_uvc.h
 drivers/usb/gadget/function/ndis.h
 drivers/usb/gadget/function/rndis.c
 drivers/usb/gadget/function/rndis.h
@@ -1615,6 +1621,16 @@ drivers/usb/gadget/function/u_rndis.h
 drivers/usb/gadget/function/u_serial.c
 drivers/usb/gadget/function/u_serial.h
 drivers/usb/gadget/function/u_uac2.h
+drivers/usb/gadget/function/u_uvc.h
+drivers/usb/gadget/function/uvc_configfs.c
+drivers/usb/gadget/function/uvc_configfs.h
+drivers/usb/gadget/function/uvc.h
+drivers/usb/gadget/function/uvc_queue.c
+drivers/usb/gadget/function/uvc_queue.h
+drivers/usb/gadget/function/uvc_v4l2.c
+drivers/usb/gadget/function/uvc_v4l2.h
+drivers/usb/gadget/function/uvc_video.c
+drivers/usb/gadget/function/uvc_video.h
 drivers/usb/gadget/udc/core.c
 drivers/usb/gadget/udc/dummy_hcd.c
 drivers/usb/gadget/udc/trace.c
@@ -1767,6 +1783,7 @@ fs/erofs/erofs_fs.h
 fs/erofs/inode.c
 fs/erofs/internal.h
 fs/erofs/namei.c
+fs/erofs/pcpubuf.c
 fs/erofs/super.c
 fs/erofs/tagptr.h
 fs/erofs/utils.c
@@ -2814,6 +2831,7 @@ include/linux/jump_label_ratelimit.h
 include/linux/kallsyms.h
 include/linux/kasan-checks.h
 include/linux/kasan.h
+include/linux/kasan-tags.h
 include/linux/kbd_kern.h
 include/linux/kbuild.h
 include/linux/kconfig.h
@@ -3727,6 +3745,7 @@ include/net/Space.h
 include/net/stp.h
 include/net/strparser.h
 include/net/switchdev.h
+include/net/tc_act/tc_bpf.h
 include/net/tc_act/tc_csum.h
 include/net/tc_act/tc_ct.h
 include/net/tc_act/tc_gact.h
@@ -3937,7 +3956,6 @@ include/trace/hooks/memory.h
 include/trace/hooks/mmc_core.h
 include/trace/hooks/mm.h
 include/trace/hooks/module.h
-include/trace/hooks/mpam.h
 include/trace/hooks/net.h
 include/trace/hooks/pci.h
 include/trace/hooks/pm_domain.h
@@ -3957,7 +3975,6 @@ include/trace/hooks/softlockup.h
 include/trace/hooks/sound.h
 include/trace/hooks/syscall_check.h
 include/trace/hooks/sys.h
-include/trace/hooks/sysrqcrash.h
 include/trace/hooks/thermal.h
 include/trace/hooks/timer.h
 include/trace/hooks/topology.h
@@ -3965,12 +3982,10 @@ include/trace/hooks/traps.h
 include/trace/hooks/typec.h
 include/trace/hooks/ufshcd.h
 include/trace/hooks/usb.h
-include/trace/hooks/user.h
 include/trace/hooks/v4l2core.h
 include/trace/hooks/v4l2mc.h
 include/trace/hooks/vendor_hooks.h
 include/trace/hooks/vmscan.h
-include/trace/hooks/workqueue.h
 include/trace/hooks/wqlockup.h
 include/trace/perf.h
 include/trace/syscall.h
@@ -4332,6 +4347,7 @@ include/uapi/linux/sync_file.h
 include/uapi/linux/sysctl.h
 include/uapi/linux/sysinfo.h
 include/uapi/linux/taskstats.h
+include/uapi/linux/tc_act/tc_bpf.h
 include/uapi/linux/tc_act/tc_csum.h
 include/uapi/linux/tc_act/tc_ct.h
 include/uapi/linux/tc_act/tc_gact.h
@@ -4380,6 +4396,7 @@ include/uapi/linux/usb/charger.h
 include/uapi/linux/usbdevice_fs.h
 include/uapi/linux/usb/f_accessory.h
 include/uapi/linux/usb/functionfs.h
+include/uapi/linux/usb/g_uvc.h
 include/uapi/linux/usb/midi.h
 include/uapi/linux/usb/video.h
 include/uapi/linux/userfaultfd.h
@@ -5542,6 +5559,7 @@ net/packet/internal.h
 net/rfkill/core.c
 net/rfkill/rfkill.h
 net/sched/act_api.c
+net/sched/act_bpf.c
 net/sched/act_gact.c
 net/sched/act_mirred.c
 net/sched/act_police.c

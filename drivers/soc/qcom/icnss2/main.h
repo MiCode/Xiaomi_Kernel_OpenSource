@@ -37,7 +37,6 @@ enum icnss_bdf_type {
 	ICNSS_BDF_BIN,
 	ICNSS_BDF_ELF,
 	ICNSS_BDF_REGDB = 4,
-	ICNSS_BDF_DUMMY = 255,
 };
 
 struct icnss_control_params {
@@ -420,8 +419,10 @@ struct icnss_priv {
 	struct icnss_stats stats;
 	void *modem_notify_handler;
 	void *wpss_notify_handler;
+	void *wpss_early_notify_handler;
 	struct notifier_block modem_ssr_nb;
 	struct notifier_block wpss_ssr_nb;
+	struct notifier_block wpss_early_ssr_nb;
 	uint32_t diag_reg_read_addr;
 	uint32_t diag_reg_read_mem_type;
 	uint32_t diag_reg_read_len;
@@ -483,6 +484,8 @@ struct icnss_priv {
 	uint32_t fw_soc_wake_ack_irq;
 	char foundry_name;
 	bool bdf_download_support;
+	unsigned long device_config;
+	bool wpss_supported;
 };
 
 struct icnss_reg_info {

@@ -451,6 +451,7 @@ struct event_req {
 	void			(*msi_cb)(void *req);
 	struct list_head	list;
 	u32			flush_num;
+	u32			snd_cmpl;
 	bool		is_cmd_cpl;
 	bool		is_stale;
 };
@@ -509,6 +510,7 @@ struct mhi_dev_channel {
 	uint32_t			pend_wr_count;
 	uint32_t			msi_cnt;
 	uint32_t			flush_req_cnt;
+	uint32_t			snd_cmpl_cnt;
 	uint32_t			pend_flush_cnt;
 	bool				skip_td;
 	bool				db_pending;
@@ -1172,4 +1174,10 @@ void mhi_uci_chan_state_notify(struct mhi_dev *mhi,
 		enum mhi_client_channel ch_id, enum mhi_ctrl_info ch_state);
 
 void mhi_dev_pm_relax(void);
+
+int  mhi_edma_release(void);
+
+int  mhi_edma_status(void);
+
+int mhi_edma_init(struct device *dev);
 #endif /* _MHI_H */

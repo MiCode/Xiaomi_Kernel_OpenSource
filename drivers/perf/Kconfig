@@ -124,6 +124,15 @@ config THUNDERX2_PMU
 	   The SoC has PMU support in its L3 cache controller (L3C) and
 	   in the DDR4 Memory Controller (DMC).
 
+config ARM_SMMU_PMU
+	 tristate "ARM SMMU PMU"
+	 depends on PERF_EVENTS && ARM64 && ARM_SMMU
+	   help
+	   Provides support for the SMMU performance monitor unit (PMU)
+	   on ARM-based systems.
+	   Adds the SMMU PMU into the perf events subsystem for
+	   monitoring SMMU performance events.
+
 config XGENE_PMU
         depends on ARCH_XGENE
         bool "APM X-Gene SoC PMU"

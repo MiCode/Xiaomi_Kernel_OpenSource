@@ -285,7 +285,7 @@ __get_gmu_ao_cgc_mode_cntl(struct adreno_device *adreno_dev)
 	else if (adreno_is_a615_family(adreno_dev))
 		return 0x00000222;
 	/* a662 should be checked before a660 */
-	else if (adreno_is_a662(adreno_dev))
+	else if (adreno_is_a662(adreno_dev) || adreno_is_a621(adreno_dev))
 		return 0x00020200;
 	else if (adreno_is_a660(adreno_dev))
 		return 0x00020000;
@@ -317,26 +317,13 @@ __get_gmu_ao_cgc_hyst_cntl(struct adreno_device *adreno_dev)
 
 static unsigned int __get_gmu_wfi_config(struct adreno_device *adreno_dev)
 {
-	if (adreno_is_a620(adreno_dev) || adreno_is_a640(adreno_dev) ||
+	unsigned int rev = ADRENO_GPUREV(adreno_dev);
+
+	if ((rev == ADRENO_REV_A620) || adreno_is_a640(adreno_dev) ||
 		adreno_is_a650(adreno_dev))
 		return 0x00000002;
 
 	return 0x00000000;
-}
-
-void a6xx_cx_regulator_disable_wait(struct regulator *reg,
-				struct kgsl_device *device, u32 timeout)
-{
-	u32 offset;
-
-	offset = adreno_is_a662(ADRENO_DEVICE(device)) ?
-			 A662_GPU_CC_CX_GDSCR : A6XX_GPU_CC_CX_GDSCR;
-
-	if (!adreno_regulator_disable_poll(device, reg, offset, timeout)) {
-		dev_err(device->dev, "GPU CX wait timeout. Dumping CX votes:\n");
-		/* Dump the cx regulator consumer list */
-		qcom_clk_dump(NULL, reg, false);
-	}
 }
 
 static void set_holi_sptprac_clock(struct kgsl_device *device, bool enable)
@@ -772,6 +759,11 @@ void a6xx_start(struct adreno_device *adreno_dev)
 	a6xx_llc_configure_gpuhtw_scid(adreno_dev);
 
 	a6xx_llc_enable_overrides(adreno_dev);
+
+	if (adreno_is_a662(adreno_dev))
+		kgsl_regrmw(device, A6XX_GBIF_CX_CONFIG, 0x3c0,
+			FIELD_PREP(GENMASK(7, 6), 0x1) |
+			FIELD_PREP(GENMASK(9, 8), 0x1));
 
 	if (adreno_is_a660(adreno_dev)) {
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
@@ -1218,7 +1210,7 @@ static void a6xx_gpu_keepalive(struct adreno_device *adreno_dev,
 	gmu_core_regwrite(device, A6XX_GMU_GMU_PWR_COL_KEEPALIVE, state);
 }
 
-static bool a6xx_irq_pending(struct adreno_device *adreno_dev)
+bool a6xx_irq_pending(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 status;

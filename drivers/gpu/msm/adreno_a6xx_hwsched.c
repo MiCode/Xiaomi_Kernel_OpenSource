@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -309,9 +310,6 @@ static int a6xx_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	device->gmu_fault = false;
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LSR))
-		adreno_dev->lsr_enabled = true;
-
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_AWARE);
 
 	return 0;
@@ -329,8 +327,7 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	/* Poll to make sure that the CX is off */
-	a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+	a6xx_gmu_disable_gdsc(adreno_dev);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 
@@ -352,6 +349,13 @@ static int a6xx_hwsched_gmu_boot(struct adreno_device *adreno_dev)
 	ret = a6xx_gmu_enable_clks(adreno_dev);
 	if (ret)
 		goto gdsc_off;
+
+	/*
+	 * TLB operations are skipped during slumber. Incase CX doesn't
+	 * go down, it can result in incorrect translations due to stale
+	 * TLB entries. Flush TLB before boot up to ensure fresh start.
+	 */
+	kgsl_mmu_flush_tlb(&device->mmu);
 
 	ret = a6xx_rscc_wakeup_sequence(adreno_dev);
 	if (ret)
@@ -391,8 +395,7 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	/* Poll to make sure that the CX is off */
-	a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+	a6xx_gmu_disable_gdsc(adreno_dev);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 
@@ -481,8 +484,7 @@ static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	/* Poll to make sure that the CX is off */
-	a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
+	a6xx_gmu_disable_gdsc(adreno_dev);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 
@@ -693,22 +695,7 @@ static int a6xx_hwsched_first_boot(struct adreno_device *adreno_dev)
 
 	set_bit(GMU_PRIV_FIRST_BOOT_DONE, &gmu->flags);
 	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
-
-	/*
-	 * There is a possible deadlock scenario during kgsl firmware reading
-	 * (request_firmware) and devfreq update calls. During first boot, kgsl
-	 * device mutex is held and then request_firmware is called for reading
-	 * firmware. request_firmware internally takes dev_pm_qos_mtx lock.
-	 * Whereas in case of devfreq update calls triggered by thermal/bcl or
-	 * devfreq sysfs, it first takes the same dev_pm_qos_mtx lock and then
-	 * tries to take kgsl device mutex as part of get_dev_status/target
-	 * calls. This results in deadlock when both thread are unable to acquire
-	 * the mutex held by other thread. Enable devfreq updates now as we are
-	 * done reading all firmware files.
-	 */
-	device->pwrscale.devfreq_enabled = true;
-
-	device->pwrctrl.last_stat_updated = ktime_get();
+    device->pwrscale.devfreq_enabled = true; 
 	device->state = KGSL_STATE_ACTIVE;
 
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_ACTIVE);

@@ -60,6 +60,15 @@ config RPMSG_QCOM_GLINK_SPSS
 	  region with the remote proc by writing the smem descriptor location
 	  and size into shared registers.
 
+config RPMSG_QCOM_GLINK_HELIOSCOM
+	tristate "Qualcomm Technologies, Inc. HELIOSCOM Glink driver"
+	help
+		Say y here to enable support for the GLINK HELIOSCOM driver,
+		which provides support for using the GLINK communication protocol
+		over HELIOSCOM. This transport performs marshaling of GLINK commands and
+		data to the appropriate HELIOSCOM format and allows for GLINK
+		communication with remote subsystems that are external to the SoC.
+
 config RPMSG_QCOM_SMD
 	tristate "Qualcomm Shared Memory Driver (SMD)"
 	depends on MAILBOX

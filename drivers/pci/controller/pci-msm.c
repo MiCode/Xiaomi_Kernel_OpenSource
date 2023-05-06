@@ -72,6 +72,7 @@
 #define PCIE20_PARF_INT_ALL_STATUS (0x224)
 #define PCIE20_PARF_INT_ALL_CLEAR (0x228)
 #define PCIE20_PARF_INT_ALL_MASK (0x22c)
+#define PCIE20_PARF_CFG_BITS_3 (0x2C4)
 #define PCIE20_PARF_DEVICE_TYPE (0x1000)
 #define PCIE20_PARF_BDF_TO_SID_TABLE_N (0x2000)
 #define PCIE20_PARF_BDF_TO_SID_CFG (0x2C00)
@@ -117,6 +118,7 @@
 
 #define PCIE20_AUX_CLK_FREQ_REG (0xb40)
 #define PCIE20_ACK_F_ASPM_CTRL_REG (0x70c)
+#define PCIE20_LANE_SKEW_OFF (0x714)
 #define PCIE20_ACK_N_FTS (0xff00)
 
 #define PCIE20_PLR_IATU_VIEWPORT (0x900)
@@ -800,8 +802,8 @@ struct msm_pcie_dev_t {
 	int drv_disable_pc_vote;
 	struct mutex drv_pc_lock;
 	struct completion speed_change_completion;
-
 	bool drv_supported;
+	bool panic_genspeed_mismatch;
 
 	bool aer_dump;
 	void (*rumi_init)(struct msm_pcie_dev_t *pcie_dev);
@@ -4165,6 +4167,13 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 		 dev->rc_idx, dev->current_link_speed,
 		 dev->current_link_width);
 
+	if ((!dev->enumerated) && dev->panic_genspeed_mismatch &&
+	    dev->target_link_speed &&
+	    dev->target_link_speed != dev->current_link_speed)
+		panic("PCIe: RC%d: Gen-speed mismatch:%d, expected:%d\n",
+		      dev->rc_idx, dev->current_link_speed,
+		      dev->target_link_speed);
+
 	/*
 	 * If the link up GEN speed is less than the max/default supported,
 	 * then scale the resources accordingly.
@@ -4320,6 +4329,13 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 		PCIE_DBG(dev, "PCIe: RC%d: Set max link speed to %u\n",
 			 dev->rc_idx, dev->link_speed_cap_offset);
 	}
+
+	/**
+	 * configure LANE_SKEW_OFF BIT-5 and PARF_CFG_BITS_3 BIT-8 to support
+	 * dynamic link width upscaling.
+	 */
+	msm_pcie_write_mask(dev->parf + PCIE20_PARF_CFG_BITS_3, 0, BIT(8));
+	msm_pcie_write_mask(dev->dm_core + PCIE20_LANE_SKEW_OFF, 0, BIT(5));
 
 	/* de-assert PCIe reset link to bring EP out of reset */
 
@@ -5961,6 +5977,9 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				 "PCIe: RC%d: DRV: failed to setup DRV: ret: %d\n",
 				pcie_dev->rc_idx, ret);
 	}
+
+	pcie_dev->panic_genspeed_mismatch = of_property_read_bool(of_node,
+						"qcom,panic-genspeed-mismatch");
 
 	msm_pcie_sysfs_init(pcie_dev);
 

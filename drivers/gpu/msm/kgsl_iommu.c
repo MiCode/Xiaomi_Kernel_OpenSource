@@ -276,9 +276,20 @@ static int _iopgtbl_unmap_pages(struct kgsl_iommu_pt *pt, u64 gpuaddr,
 	return (unmapped == size) ? 0 : -EINVAL;
 }
 
+static void kgsl_iommu_flush_tlb(struct kgsl_mmu *mmu)
+{
+	struct kgsl_iommu *iommu = &mmu->iommu;
+
+	iommu_flush_iotlb_all(to_iommu_domain(&iommu->user_context));
+
+	/* As LPAC is optional, check LPAC domain is present before flush */
+	if (iommu->lpac_context.domain)
+		iommu_flush_iotlb_all(to_iommu_domain(&iommu->lpac_context));
+}
+
 static int _iopgtbl_unmap(struct kgsl_iommu_pt *pt, u64 gpuaddr, size_t size)
 {
-	struct kgsl_iommu *iommu = &pt->base.mmu->iommu;
+	struct kgsl_device *device = KGSL_MMU_DEVICE(pt->base.mmu);
 	struct io_pgtable_ops *ops = pt->pgtbl_ops;
 	int ret = 0;
 
@@ -298,12 +309,16 @@ static int _iopgtbl_unmap(struct kgsl_iommu_pt *pt, u64 gpuaddr, size_t size)
 	}
 
 flush:
-	iommu_flush_iotlb_all(to_iommu_domain(&iommu->user_context));
+	/* Skip TLB Operations if GPU is in slumber */
+	if (mutex_trylock(&device->mutex)) {
+		if (device->state == KGSL_STATE_SLUMBER) {
+			mutex_unlock(&device->mutex);
+			return 0;
+		}
+		mutex_unlock(&device->mutex);
+	}
 
-	/* As LPAC is optional, check LPAC domain is present before flush */
-	if (iommu->lpac_context.domain)
-		iommu_flush_iotlb_all(to_iommu_domain(&iommu->lpac_context));
-
+	kgsl_iommu_flush_tlb(pt->base.mmu);
 	return 0;
 }
 
@@ -2144,6 +2159,7 @@ static int kgsl_iommu_setup_context(struct kgsl_mmu *mmu,
 		iommu_fault_handler_t handler)
 {
 	struct device_node *node = of_find_node_by_name(parent, name);
+	struct kgsl_device *device = KGSL_MMU_DEVICE(mmu);
 	struct platform_device *pdev;
 	int ret;
 
@@ -2182,6 +2198,18 @@ static int kgsl_iommu_setup_context(struct kgsl_mmu *mmu,
 		context->domain = NULL;
 		return ret;
 	}
+
+	/*
+	* It is problamatic if smmu driver does system suspend before consumer
+	* device (gpu). So smmu driver creates a device_link to act as a
+	* supplier which in turn will ensure correct order during system
+	* suspend. In kgsl, since we don't initialize iommu on the gpu device,
+	* we should create a device_link between kgsl iommu device and gpu
+	* device to maintain a correct suspend order between smmu device and
+	* gpu device.
+	*/
+	device_link_add(&device->pdev->dev, &pdev->dev,
+	DL_FLAG_AUTOREMOVE_CONSUMER);
 
 	iommu_set_fault_handler(context->domain, handler, mmu);
 
@@ -2508,6 +2536,7 @@ static const struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
 	.mmu_getpagetable = kgsl_iommu_getpagetable,
 	.mmu_map_global = kgsl_iommu_map_global,
+	.mmu_flush_tlb = kgsl_iommu_flush_tlb,
 };
 
 static const struct kgsl_mmu_pt_ops iopgtbl_pt_ops = {

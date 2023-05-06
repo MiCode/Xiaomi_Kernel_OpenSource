@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"flashv2: %s: " fmt, __func__
@@ -445,7 +446,7 @@ led_brightness qpnp_flash_led_brightness_get(struct led_classdev *led_cdev)
 
 static int qpnp_flash_led_headroom_config(struct qpnp_flash_led *led)
 {
-	int rc, i, addr_offset;
+	int rc = 0, i, addr_offset;
 
 	for (i = 0; i < led->num_fnodes; i++) {
 		addr_offset = led->fnode[i].id;
@@ -2927,7 +2928,7 @@ static int qpnp_flash_led_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	led->pmic_type = (u8)of_device_get_match_data(&pdev->dev);
+	led->pmic_type = (uintptr_t)of_device_get_match_data(&pdev->dev);
 
 	if (led->pmic_type == PM6150L)
 		led->wa_flags |= PM6150L_IRES_WA;

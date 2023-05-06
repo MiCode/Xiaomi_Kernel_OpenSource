@@ -599,8 +599,8 @@ static const struct clk_rpmh_desc clk_rpmh_diwali = {
 DEFINE_CLK_RPMH_ARC(neo, bi_tcxo, bi_tcxo_ao, "xo.lvl", 0x3, 1);
 
 static struct clk_hw *neo_rpmh_clocks[] = {
-	[RPMH_CXO_CLK]          = &neo_bi_tcxo.hw,
-	[RPMH_CXO_CLK_A]        = &neo_bi_tcxo_ao.hw,
+	[RPMH_CXO_CLK]		= &neo_bi_tcxo.hw,
+	[RPMH_CXO_CLK_A]		= &neo_bi_tcxo_ao.hw,
 };
 
 static const struct clk_rpmh_desc clk_rpmh_neo = {

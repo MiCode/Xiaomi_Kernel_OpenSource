@@ -69,7 +69,9 @@ enum dwc3_notify_event {
 	DWC3_CONTROLLER_CONNDONE_EVENT,
 	DWC3_CONTROLLER_NOTIFY_OTG_EVENT,
 	DWC3_CONTROLLER_NOTIFY_DISABLE_UPDXFER,
-	DWC3_CONTROLLER_PULLUP,
+	DWC3_CONTROLLER_PULLUP_ENTER,
+	DWC3_CONTROLLER_PULLUP_EXIT,
+	DWC3_CONTROLLER_SOFT_RESET,
 
 	/* USB GSI event buffer related notification */
 	DWC3_GSI_EVT_BUF_ALLOC,
@@ -140,6 +142,7 @@ struct gsi_channel_info {
 };
 
 struct dwc3;
+extern void *dwc_trace_ipc_log_ctxt;
 
 #if IS_ENABLED(CONFIG_USB_DWC3_MSM)
 void dwc3_msm_notify_event(struct dwc3 *dwc,

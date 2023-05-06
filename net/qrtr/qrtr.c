@@ -404,7 +404,6 @@ static void __qrtr_node_release(struct kref *kref)
 	struct qrtr_node *node = container_of(kref, struct qrtr_node, ref);
 	unsigned long flags;
 	void __rcu **slot;
-
 	spin_lock_irqsave(&qrtr_nodes_lock, flags);
 	if (node->nid != QRTR_EP_NID_AUTO) {
 		radix_tree_for_each_slot(slot, &qrtr_nodes, &iter, 0) {
@@ -1788,8 +1787,9 @@ static int qrtr_send_resume_tx(struct qrtr_cb *cb)
 
 	skb = qrtr_alloc_ctrl_packet(&pkt);
 	if (!skb) {
+		QRTR_INFO(node->ilc, "qrtr_alloc_ctrl_packet failed\n");
 		qrtr_node_release(node);
-		return -ENOMEM;
+ 		return -ENOMEM;
 	}
 
 	pkt->cmd = cpu_to_le32(QRTR_TYPE_RESUME_TX);

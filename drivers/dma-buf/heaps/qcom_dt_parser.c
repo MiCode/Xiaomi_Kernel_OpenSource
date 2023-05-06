@@ -67,12 +67,9 @@ void free_pdata(const struct platform_data *pdata)
 static int heap_dt_init(struct device_node *mem_node,
 			struct platform_heap *heap)
 {
-	const __be32 *basep;
-	u64 base, size;
 	struct device *dev = heap->dev;
 	struct reserved_mem *rmem;
 	int ret = 0;
-
 
 	rmem = of_reserved_mem_lookup(mem_node);
 
@@ -98,19 +95,8 @@ static int heap_dt_init(struct device_node *mem_node,
 		}
 	}
 
-	basep = of_get_address(mem_node, 0, &size, NULL);
-	if (basep) {
-		base = of_translate_address(mem_node, basep);
-		if (base != OF_BAD_ADDR) {
-			heap->base = base;
-			heap->size = size;
-		} else {
-			ret = -EINVAL;
-			dev_err(heap->dev,
-				"Failed to get heap base/size\n");
-			of_reserved_mem_device_release(dev);
-		}
-	}
+	heap->base = rmem->base;
+	heap->size = rmem->size;
 	heap->is_nomap =  of_property_read_bool(mem_node, "no-map");
 
 	return ret;

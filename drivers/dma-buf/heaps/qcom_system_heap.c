@@ -69,6 +69,8 @@
 #define DYNAMIC_POOL_REFILL_DEFER_WINDOW_MS 10
 #define DYNAMIC_POOL_KTHREAD_NICE_VAL 10
 
+u64 totalram;
+
 static int get_dynamic_pool_fillmark(struct dynamic_page_pool *pool)
 {
 	return DYNAMIC_POOL_FILL_MARK / (PAGE_SIZE << pool->order);
@@ -198,7 +200,6 @@ static void system_heap_buf_free(struct deferred_freelist_item *item,
 	table = &buffer->sg_table;
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		struct page *page = sg_page(sg);
-
 		if (reason == DF_UNDER_PRESSURE) {
 			__free_pages(page, compound_order(page));
 		} else {
@@ -412,6 +413,11 @@ void qcom_system_heap_create(const char *name, const char *system_alias, bool un
 	struct sched_attr attr = { .sched_nice = DYNAMIC_POOL_KTHREAD_NICE_VAL };
 	int ret;
 	int i;
+	struct sysinfo sinfo;
+
+	si_meminfo(&sinfo);
+	totalram = sinfo.totalram;
+
 
 	ret = dynamic_page_pool_init_shrinker();
 	if (ret)

@@ -776,7 +776,6 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 	int first_cpu;
 	bool energy_eval_needed = true;
 	struct compute_energy_output output;
-
 	if (walt_is_many_wakeup(sibling_count_hint) && prev_cpu != cpu &&
 			cpumask_test_cpu(prev_cpu, &p->cpus_mask))
 		return prev_cpu;
@@ -1228,7 +1227,6 @@ static void walt_cfs_check_preempt_wakeup(void *unused, struct rq *rq, struct ta
 	struct walt_task_struct *wts_c = (struct walt_task_struct *) rq->curr->android_vendor_data1;
 	bool resched = false;
 	bool p_is_mvp, curr_is_mvp;
-
 	if (unlikely(walt_disabled))
 		return;
 

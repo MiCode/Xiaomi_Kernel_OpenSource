@@ -1402,6 +1402,11 @@ static void ep_pcie_enumeration_complete(struct ep_pcie_dev_t *dev)
 				dev->rev);
 		goto done;
 	}
+
+	spin_unlock_irqrestore(&dev->isr_lock, irqsave_flags);
+	qcom_edma_init(&dev->pdev->dev);
+	spin_lock_irqsave(&dev->isr_lock, irqsave_flags);
+
 	dev->enumerated = true;
 	dev->link_status = EP_PCIE_LINK_ENABLED;
 
@@ -2021,6 +2026,11 @@ checkbme:
 
 link_fail:
 	dev->power_on = false;
+	if (dev->phy_rev >= 3)
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_LTSSM, BIT(8), 0);
+	else
+		ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_SYS_CTRL, BIT(0), 0);
+
 	if (!ep_pcie_debug_keep_resource)
 		ep_pcie_pipe_clk_deinit(dev);
 pipe_clk_fail:
@@ -2039,7 +2049,6 @@ out:
 
 int ep_pcie_core_disable_endpoint(void)
 {
-	u32 val = 0;
 	unsigned long irqsave_flags;
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
 
@@ -2068,10 +2077,6 @@ int ep_pcie_core_disable_endpoint(void)
 			dev->rev);
 	}
 	dev->conf_ipa_msi_iatu = false;
-
-	val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
-	EP_PCIE_DBG(dev, "PCIe V%d: LTSSM_STATE during disable:0x%x\n",
-		dev->rev, (val >> 0xC) & 0x3f);
 
 	if (!dev->tcsr_not_supported) {
 		EP_PCIE_DBG2(dev, "PCIe V%d: Set pcie_disconnect_req during D3_COLD\n",
@@ -3488,7 +3493,6 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		EP_PCIE_ERR(&ep_pcie_dev,
 			"PCIe V%d: failed to init GPIO\n",
 			ep_pcie_dev.rev);
-		ep_pcie_release_resources(&ep_pcie_dev);
 		goto gpio_failure;
 	}
 
@@ -3497,8 +3501,6 @@ static int ep_pcie_probe(struct platform_device *pdev)
 		EP_PCIE_ERR(&ep_pcie_dev,
 			"PCIe V%d: failed to init IRQ\n",
 			ep_pcie_dev.rev);
-		ep_pcie_release_resources(&ep_pcie_dev);
-		ep_pcie_gpio_deinit(&ep_pcie_dev);
 		goto irq_failure;
 	}
 
@@ -3532,7 +3534,6 @@ static int ep_pcie_probe(struct platform_device *pdev)
 	atomic_notifier_chain_register(&panic_notifier_list,
 				       &ep_pcie_core_panic_notifier);
 
-	qcom_edma_init(&pdev->dev);
 
 	if (!ep_pcie_dev.perst_enum)
 		enable_irq(ep_pcie_dev.irq[EP_PCIE_INT_GLOBAL].num);

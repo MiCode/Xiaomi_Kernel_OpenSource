@@ -26,8 +26,10 @@ mem_buf.ko
 mem-hooks.ko
 mem-offline.ko
 memory_dump_v2.ko
+minidump.ko
 msm_dma_iommu_mapping.ko
 msm_geni_serial.ko
+msm_rtb.ko
 ns.ko
 phy-generic.ko
 pinctrl-msm.ko
@@ -56,3 +58,12 @@ debug-regulator.ko
 gh_arm_drv.ko
 gh_ctrl.ko
 gh_dbl.ko
+rpmh-regulator.ko
+qti-fixed-regulator.ko
+nvmem_qcom-spmi-sdam.ko
+proxy-consumer.ko
+qcom-spmi-pmic.ko
+spmi-pmic-arb.ko
+qti-regmap-debugfs.ko
+regmap-spmi.ko
+rtc-pm8xxx.ko

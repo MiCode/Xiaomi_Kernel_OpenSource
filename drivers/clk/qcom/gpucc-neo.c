@@ -19,7 +19,7 @@
 #include "reset.h"
 #include "vdd-level.h"
 
-static DEFINE_VDD_REGULATORS(vdd_cx, VDD_HIGH_L1 + 1, 1, vdd_corner);
+static DEFINE_VDD_REGULATORS(vdd_cx, VDD_NOMINAL + 1, 1, vdd_corner);
 static DEFINE_VDD_REGULATORS(vdd_mxa, VDD_NOMINAL + 1, 1, vdd_corner);
 
 static struct clk_vdd_class *gpu_cc_neo_regulators[] = {

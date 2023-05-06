@@ -128,7 +128,7 @@ static void do_input_boost_rem(struct work_struct *work)
 
 static void do_input_boost(struct work_struct *work)
 {
-	unsigned int i, ret;
+	unsigned int cpu, ret;
 	struct cpu_sync *i_sync_info;
 
 	cancel_delayed_work_sync(&input_boost_rem);
@@ -139,9 +139,9 @@ static void do_input_boost(struct work_struct *work)
 
 	/* Set the input_boost_min for all CPUs in the system */
 	pr_debug("Setting input boost min for all CPUs\n");
-	for (i = 0; i < 8; i++) {
-		i_sync_info = &per_cpu(sync_info, i);
-		i_sync_info->input_boost_min = sysctl_input_boost_freq[i];
+	for_each_possible_cpu(cpu) {
+		i_sync_info = &per_cpu(sync_info, cpu);
+		i_sync_info->input_boost_min = sysctl_input_boost_freq[cpu];
 	}
 
 	/* Update policies for all online CPUs */
@@ -184,8 +184,37 @@ static void inputboost_input_event(struct input_handle *handle,
 		return;
 
 	queue_work(input_boost_wq, &input_boost_work);
+
 	last_input_time = ktime_to_us(ktime_get());
 }
+
+void touch_irq_boost(void)
+{
+	u64 now;
+	int cpu;
+	int enabled = 0;
+
+	for_each_possible_cpu(cpu) {
+		if (sysctl_input_boost_freq[cpu] > 0) {
+			enabled = 1;
+			break;
+		}
+	}
+	if (!enabled)
+		return;
+
+	now = ktime_to_us(ktime_get());
+	if (now - last_input_time < MIN_INPUT_INTERVAL)
+		return;
+
+	if (work_pending(&input_boost_work))
+		return;
+
+	queue_work(input_boost_wq, &input_boost_work);
+
+	last_input_time = ktime_to_us(ktime_get());
+}
+EXPORT_SYMBOL(touch_irq_boost);
 
 static int inputboost_input_connect(struct input_handler *handler,
 		struct input_dev *dev, const struct input_device_id *id)
