@@ -164,6 +164,6 @@
 | socrates-t-oss | Redmi K60 Pro | Android T | LA.VENDOR.13.2.0.r1-07300-r1.0.r1_00020.0 |[socrates-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/socrates-t-oss) |
 | ruby-s-oss | Redmi Note12 Pro | Android S | alps-mp-s0.mp1.tc8sp-cs1-V1 |[ruby-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ruby-s-oss) |
 | mayfly-s-oss | Xiaomi 12S | Android S | LA.VENDOR.1.0.r1-13100-r1.0.r1_00037.0 |[mayfly-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mayfly-s-oss) |
-| fuxi-t-oss | Xiaomi 13 | Android T | LA.VENDOR.13.2.0.r1-07300-KAILUA.0 |[fuxi-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/fuxi-t-oss) |
+| fuxi-t-oss | Xiaomi 13/13 pro | Android T | LA.VENDOR.13.2.0.r1-07300-KAILUA.0 |[fuxi-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/fuxi-t-oss) |
 | mondrian-s-oss | Redmi K60 | Android S | LA.VENDOR.1.0.r1-11900-r1.0.r1_00029.0 |[mondrian-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mondrian-s-oss) |
 | daumier-s-oss | Xiaomi 12 Pro | Android S | alps-release-s0.mp1.tc8sp2-mt6983-V1.0.1_W53 |[daumier-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daumier-s-oss) |
