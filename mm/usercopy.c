@@ -175,6 +175,19 @@ static inline void check_heap_object(const void *ptr, unsigned long n,
 	if (is_vmalloc_addr(ptr)) {
 		struct vmap_area *area = find_vmap_area(addr);
 
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+		if (!area) {
+			int i = 0;
+			struct vmap_area *va;
+
+			pr_info("%s: ptr %lu is not in any vmap area\n", __func__, addr);
+			pr_info("%s: dump all vmalloc rb tree\n", __func__);
+			list_for_each_entry(va, &vmap_area_list, list)
+				pr_info("%s: %d: va_start: %lu va_end: %lu\n", __func__,
+						i++, va->va_start, va->va_end);
+		}
+#endif
+
 		if (!area)
 			usercopy_abort("vmalloc", "no area", to_user, 0, n);
 
