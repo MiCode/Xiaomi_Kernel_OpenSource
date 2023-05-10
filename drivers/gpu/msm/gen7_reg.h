@@ -110,6 +110,8 @@
 #define GEN7_CP_ALWAYS_ON_COUNTER_LO     0x980
 #define GEN7_CP_ALWAYS_ON_COUNTER_HI     0x981
 #define GEN7_CP_AHB_CNTL                 0x98d
+#define GEN7_CP_RL_ERROR_DETAILS_0       0x9b4
+#define GEN7_CP_RL_ERROR_DETAILS_1       0x9cf
 #define GEN7_CP_APERTURE_CNTL_HOST       0xa00
 #define GEN7_CP_APERTURE_CNTL_CD         0xa03
 #define GEN7_CP_BV_PROTECT_STATUS        0xa61

@@ -68,6 +68,17 @@ config IIO_TRIGGERED_EVENT
 	help
 	  Provides helper functions for setting up triggered events.
 
+config IPD
+	tristate "Enable Inter-Pupillary Distance Driver"
+	depends on I2C
+	depends on GPIOLIB || COMPILE_TEST
+	help
+	  Say yes here to build support for Inter-Pupillary
+	  Distance driver.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called ipd.
+
 source "drivers/iio/accel/Kconfig"
 source "drivers/iio/adc/Kconfig"
 source "drivers/iio/afe/Kconfig"

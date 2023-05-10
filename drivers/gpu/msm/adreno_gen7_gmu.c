@@ -1228,26 +1228,34 @@ int gen7_gmu_parse_fw(struct adreno_device *adreno_dev)
 	int ret, offset = 0;
 	const char *gmufw_name = gen7_core->gmufw_name;
 
-	/* GMU fw already saved and verified so do nothing new */
-	if (gmu->fw_image)
-		return 0;
+	/*
+	 * If GMU fw already saved and verified, do nothing new.
+	 * Skip only request_firmware and allow preallocation to
+	 * ensure in scenario where GMU request firmware succeeded
+	 * but preallocation fails, we don't return early without
+	 * successful preallocations on next open call.
+	 */
+	if (!gmu->fw_image) {
 
-	if (gen7_core->gmufw_name == NULL)
-		return -EINVAL;
+		if (gen7_core->gmufw_name == NULL)
+			return -EINVAL;
 
-	ret = request_firmware(&gmu->fw_image, gmufw_name, &gmu->pdev->dev);
-	if (ret) {
-		if (gen7_core->gmufw_bak_name) {
-			gmufw_name = gen7_core->gmufw_bak_name;
-			ret = request_firmware(&gmu->fw_image, gmufw_name,
+		ret = request_firmware(&gmu->fw_image, gmufw_name,
 				&gmu->pdev->dev);
-		}
 		if (ret) {
-			dev_err(&gmu->pdev->dev,
-				"request_firmware (%s) failed: %d\n",
-				gmufw_name, ret);
+			if (gen7_core->gmufw_bak_name) {
+				gmufw_name = gen7_core->gmufw_bak_name;
+				ret = request_firmware(&gmu->fw_image, gmufw_name,
+					&gmu->pdev->dev);
+			}
 
-			return ret;
+			if (ret) {
+				dev_err(&gmu->pdev->dev,
+					"request_firmware (%s) failed: %d\n",
+					gmufw_name, ret);
+
+				return ret;
+			}
 		}
 	}
 

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _LINUX_MSM_GENI_SE
@@ -25,7 +25,8 @@ enum se_protocol_types {
 	SPI,
 	UART,
 	I2C,
-	I3C
+	I3C,
+	SPI_SLAVE
 };
 
 /**
@@ -100,6 +101,9 @@ struct se_geni_rsc {
 #define GENI_FW_REVISION_RO		(0x68)
 #define GENI_FW_S_REVISION_RO		(0x6C)
 #define SE_GENI_CLK_SEL			(0x7C)
+#define SE_GENI_CFG_SEQ_START		(0x84)
+#define SE_GENI_CFG_REG			(0x200)
+#define GENI_CFG_REG80			(0x240)
 #define SE_GENI_BYTE_GRAN		(0x254)
 #define SE_GENI_DMA_MODE_EN		(0x258)
 #define SE_GENI_TX_PACKING_CFG0		(0x260)
@@ -133,10 +137,25 @@ struct se_geni_rsc {
 #define SE_HW_PARAM_2			(0xE2C)
 #define SE_DMA_GENERAL_CFG		(0xE30)
 #define SE_DMA_DEBUG_REG0		(0xE40)
+#define SLAVE_MODE_EN			(BIT(3))
+#define START_TRIGGER			(BIT(0))
 #define QUPV3_HW_VER			(0x4)
 
 /* GENI_OUTPUT_CTRL fields */
 #define DEFAULT_IO_OUTPUT_CTRL_MSK	(GENMASK(6, 0))
+#define GENI_IO_MUX_0_EN		BIT(0)
+#define GENI_IO_MUX_1_EN		BIT(1)
+
+/* GENI_CFG_REG80 fields */
+#define IO1_SEL_TX			BIT(2)
+#define IO2_DATA_IN_SEL_PAD2		(GENMASK(11, 10))
+#define IO3_DATA_IN_SEL_PAD2		BIT(15)
+#define OTHER_IO_OE			BIT(12)
+#define IO2_DATA_IN_SEL		BIT(11)
+#define RX_DATA_IN_SEL			BIT(8)
+#define IO_MACRO_IO3_SEL		(GENMASK(7, 6))
+#define IO_MACRO_IO2_SEL		BIT(5)
+#define IO_MACRO_IO0_SEL		BIT(0)
 
 /* GENI_FORCE_DEFAULT_REG fields */
 #define FORCE_DEFAULT	(BIT(0))

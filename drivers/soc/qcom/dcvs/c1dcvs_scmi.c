@@ -140,24 +140,32 @@ static ssize_t store_##name(struct kobject *kobj,			\
 				   size_t count)			\
 {									\
 	int ret, i = 0;							\
-	char *s = kstrdup(buf, GFP_KERNEL);				\
+	char *s;						\
 	unsigned int msg[2] = {0};						\
 	char *str;							\
-									\
-	if (!ops)							\
-		return -ENODEV;						\
+										\
+	s = kstrdup(buf, GFP_KERNEL);					\
+	if (!s)		\
+		return -ENOMEM;		\
+	if (!ops) {						\
+		ret = -ENODEV;		\
+		goto out;						\
+	}		\
 									\
 	while (((str = strsep(&s, " ")) != NULL) && i < 2) {		\
 		ret = kstrtouint(str, 10, &msg[i]);			\
 		if (ret < 0) {						\
 			pr_err("Invalid value :%d\n", ret);		\
-			return -EINVAL;					\
+			ret =  -EINVAL;					\
+			goto out;		\
 		}							\
 		i++;							\
 	}								\
 									\
 	pr_info("Input threshold :%lu for cluster :%lu\n", msg[1], msg[0]);\
 	ret = ops->set_##name(ph, msg);				\
+out:		\
+	kfree(s);		\
 	return ((ret < 0) ? ret : count);				\
 }									\
 
