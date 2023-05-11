@@ -93,7 +93,10 @@ static struct qrtr_node *node_get(unsigned int node_id)
 	node->id = node_id;
 	xa_init(&node->servers);
 
-	xa_store(&nodes, node_id, node, GFP_KERNEL);
+	if (xa_is_err(xa_store(&nodes, node_id, node, GFP_KERNEL))) {
+		kfree(node);
+		return NULL;
+	}
 
 	return node;
 }
