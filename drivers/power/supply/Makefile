@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 subdir-ccflags-$(CONFIG_POWER_SUPPLY_DEBUG) := -DDEBUG
+ccflags-$(CONFIG_TCPC_CLASS) += -I../../usb/typec/tcpc/inc
 
 power_supply-y				:= power_supply_core.o
 power_supply-$(CONFIG_SYSFS)		+= power_supply_sysfs.o
@@ -85,4 +86,11 @@ obj-$(CONFIG_CHARGER_TPS65217)	+= tps65217_charger.o
 obj-$(CONFIG_AXP288_FUEL_GAUGE) += axp288_fuel_gauge.o
 obj-$(CONFIG_AXP288_CHARGER)	+= axp288_charger.o
 obj-$(CONFIG_CHARGER_CROS_USBPD)	+= cros_usbpd-charger.o
+obj-$(CONFIG_NOPMI_CHARGER)	+= nopmi_chg.o
+obj-$(CONFIG_NOPMI_CHARGER)	+= nopmi_chg_jeita.o
+obj-$(CONFIG_NOPMI_CHARGER)	+= nopmi_chg_common.o
+obj-$(CONFIG_CHARGER_PD_POLICY)	+= pd_policy_manager.o
 obj-$(CONFIG_ARCH_QCOM)		+= qcom/
+obj-$(CONFIG_CHARGER_MAX77729)			+= maxim/
+obj-$(CONFIG_NOPMI_CHARGER)			+= nopmi/
+obj-$(CONFIG_ARCH_QCOM)		+= battery_secret/

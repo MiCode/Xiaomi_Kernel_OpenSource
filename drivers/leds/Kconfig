@@ -724,6 +724,15 @@ config LEDS_POWERNV
 	  To compile this driver as a module, choose 'm' here: the module
 	  will be called leds-powernv.
 
+config LEDS_MSM_BACK_GPIO_FLASH
+        tristate "Support for BACK GPIO Flash LEDs"
+        help
+          This driver supports the leds functionality of GPIO Flash LED. It
+          includes flash mode and torch mode.
+
+          To compile this driver as a module, choose M here: the module will
+          be called leds-back-gpio-flash.
+
 config LEDS_SYSCON
 	bool "LED support for LEDs on system controllers"
 	depends on LEDS_CLASS=y
@@ -815,6 +824,15 @@ config LEDS_QPNP_VIBRATOR
 	  is connected on the VIB_DRV_N line and can be controlled
 	  manually or by the DTEST lines.It uses the android timed-output
 	  framework.
+	  
+config LEDS_QPNP_VIBRATOR_PWM
+	tristate "Vibrator-PWM support for QPNP PMIC"
+	depends on LEDS_CLASS && MFD_SPMI_PMIC
+	help
+	  This option enables device driver support for the vibrator-pwm
+	  peripheral found on Qualcomm Technologies, Inc. QPNP PMICs.
+	  The vibrator-pwm peripheral is capable of driving LAR vibrators.
+
 
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"

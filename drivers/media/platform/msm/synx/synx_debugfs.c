@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, 2022, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/io.h>
@@ -19,7 +19,7 @@
 
 struct dentry *my_direc;
 const char delim[] = ",";
-int columns = NAME_COLUMN | ID_COLUMN |
+int columns = NAME_COLUMN |
 	BOUND_COLUMN | STATE_COLUMN | ERROR_CODES;
 
 void populate_bound_rows(
@@ -48,11 +48,11 @@ static ssize_t synx_table_read(struct file *file,
 	struct error_node *err_node, *err_node_tmp;
 	struct synx_table_row *row;
 	char *dbuf, *cur, *end;
-	struct synx_obj_node *obj_node;
 
 	int i = 0;
 	int state = SYNX_STATE_INVALID;
 	ssize_t len = 0;
+	s32 index;
 
 	dbuf = kzalloc(MAX_DBG_BUF_SIZE, GFP_KERNEL);
 	if (!dbuf)
@@ -65,16 +65,18 @@ static ssize_t synx_table_read(struct file *file,
 		cur += scnprintf(cur, end - cur, "|   Bound   |");
 	if (columns & STATE_COLUMN)
 		cur += scnprintf(cur, end - cur, "|  Status  |");
-	if (columns & ID_COLUMN)
-		cur += scnprintf(cur, end - cur, "|    ID    |");
 	cur += scnprintf(cur, end - cur, "\n");
 	for (i = 0; i < SYNX_MAX_OBJS; i++) {
 		row = &dev->synx_table[i];
 
-		if (!row->index)
+		index = row->index;
+		mutex_lock(&dev->row_locks[index]);
+		if (!row->index) {
+			mutex_unlock(&dev->row_locks[index]);
+			pr_warn("synx obj at %d invalid\n", index);
 			continue;
+		}
 
-		mutex_lock(&dev->row_locks[row->index]);
 		if (columns & NAME_COLUMN)
 			cur += scnprintf(cur, end - cur,
 				"|%10s|", row->name);
@@ -94,14 +96,7 @@ static ssize_t synx_table_read(struct file *file,
 				cur,
 				end);
 		}
-		if (columns & ID_COLUMN) {
-			list_for_each_entry(obj_node,
-				&row->synx_obj_list, list) {
-				cur += scnprintf(cur, end - cur,
-					"|0x%8x|", obj_node->synx_obj);
-				}
-		}
-		mutex_unlock(&dev->row_locks[row->index]);
+		mutex_unlock(&dev->row_locks[index]);
 		cur += scnprintf(cur, end - cur, "\n");
 	}
 	if (columns & ERROR_CODES && !list_empty(

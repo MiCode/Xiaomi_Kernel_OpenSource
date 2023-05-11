@@ -83,6 +83,13 @@
 #define USB_HSPHY_1P8_VOL_MAX			1800000 /* uV */
 #define USB_HSPHY_1P8_HPM_LOAD			19000	/* uA */
 
+#undef dev_dbg
+#define dev_dbg dev_err
+#undef pr_debug
+#define pr_debug pr_info
+
+unsigned long panel_info = 1;
+
 struct msm_hsphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -803,10 +810,18 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	if (IS_ERR(phy->phy_reset))
 		return PTR_ERR(phy->phy_reset);
 
-	phy->param_override_seq_cnt = of_property_count_elems_of_size(
+	pr_info("panel_info %x\n",panel_info);
+	if(panel_info == 1)
+		phy->param_override_seq_cnt = of_property_count_elems_of_size(
 					dev->of_node,
 					"qcom,param-override-seq",
 					sizeof(*phy->param_override_seq));
+	if (panel_info == 0)
+		phy->param_override_seq_cnt = of_property_count_elems_of_size(
+					dev->of_node,
+					"qcom,param-override-seq-no-panel",
+					sizeof(*phy->param_override_seq));
+
 	if (phy->param_override_seq_cnt > 0) {
 		phy->param_override_seq = devm_kcalloc(dev,
 					phy->param_override_seq_cnt,
@@ -820,10 +835,17 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 
-		ret = of_property_read_u32_array(dev->of_node,
+		if(panel_info == 1)
+			ret = of_property_read_u32_array(dev->of_node,
 				"qcom,param-override-seq",
 				phy->param_override_seq,
 				phy->param_override_seq_cnt);
+		if(panel_info == 0)
+			ret = of_property_read_u32_array(dev->of_node,
+				"qcom,param-override-seq-no-panel",
+				phy->param_override_seq,
+				phy->param_override_seq_cnt);
+
 		if (ret) {
 			dev_err(dev, "qcom,param-override-seq read failed %d\n",
 				ret);
@@ -905,7 +927,20 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 	msm_hsphy_enable_power(phy, false);
 	return 0;
 }
+#ifdef CONFIG_TARGET_PROJECT_K7T
+static int __init parameter_select(char *str){
+	int ret = 0;
 
+	ret = kstrtol(str, 10, &panel_info);
+	if (ret < 0)
+		return ret;
+	if(panel_info > 1)
+		pr_err("can't get panel_info\n");
+	pr_info("get panel_info %x from cmdline\n",panel_info);
+	return 1;
+}
+__setup("panel_info=",parameter_select);
+#endif
 static const struct of_device_id msm_usb_id_table[] = {
 	{
 		.compatible = "qcom,usb-hsphy-snps-femto",

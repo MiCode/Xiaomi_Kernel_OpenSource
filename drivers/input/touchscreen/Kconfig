@@ -1313,7 +1313,7 @@ config TOUCHSCREEN_ROHM_BU21023
 config TOUCHSCREEN_ST
 	tristate "STMicroelectronics Touchscreen Driver"
 	depends on I2C
-	default y
+	default n
 	help
 	  Say Y here if you have a STMicroelectronics Touchscreen.
 
@@ -1349,10 +1349,25 @@ config TOUCHSCREEN_SYNAPTICS_TCM
 	  To compile this driver as a module, choose M here: the
 	  module will be called synaptics_tcm.
 
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+
+source "drivers/input/touchscreen/ft3418_i2c/Kconfig"
+
+source "drivers/input/touchscreen/nt36525b_spi/Kconfig"
+
 source "drivers/input/touchscreen/synaptics_tcm/Kconfig"
 
 source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 
 source "drivers/input/touchscreen/nt36xxx/Kconfig"
+
+source "drivers/input/touchscreen/ft8006s_spi/Kconfig"
+
+config TOUCHSCREEN_COMMON
+    bool "touchscreen for xiaomi project"
+	 depends on I2C
+	 default n
+	 help
+	Say Y here if you have a xiaomi touchscreen and want to enable support for the built-in touchscreen.
 
 endif

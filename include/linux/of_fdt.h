@@ -48,6 +48,7 @@ extern char __dtb_end[];
 extern u64 of_flat_dt_translate_address(unsigned long node);
 extern void of_fdt_limit_memory(int limit);
 extern int of_fdt_get_ddrtype(void);
+extern void early_init_dt_setup_pureason_arch(unsigned long pu_reason);
 extern int of_fdt_get_ddrrank(int channel);
 extern int of_fdt_get_ddrhbb(int channel, int rank);
 #endif /* CONFIG_OF_FLATTREE */

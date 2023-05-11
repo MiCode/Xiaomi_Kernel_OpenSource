@@ -645,6 +645,15 @@ config CHARGER_CROS_USBPD
 	  what is connected to USB PD ports from the EC and converts
 	  that into power_supply properties.
 
+config NOPMI_CHARGER
+	tristate "NOPMI Charger Support"
+	depends on I2C
+	help
+	  Say Y to include support for NOPMI Charger.
+
 source "drivers/power/supply/qcom/Kconfig"
+source "drivers/power/supply/maxim/Kconfig"
+source "drivers/power/supply/nopmi/Kconfig"
+source "drivers/power/supply/battery_secret/Kconfig"
 
 endif # POWER_SUPPLY

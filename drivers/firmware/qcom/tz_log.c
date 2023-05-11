@@ -2,7 +2,9 @@
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  */
+#ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
+#endif
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/io.h>
@@ -21,6 +23,7 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
 #include <soc/qcom/qtee_shmbridge.h>
+#include <linux/proc_fs.h>
 
 /* QSEE_LOG_BUF_SIZE = 32K */
 #define QSEE_LOG_BUF_SIZE 0x8000
@@ -287,6 +290,9 @@ enum tzdbg_stats_type {
 	TZDBG_STATS_MAX
 };
 
+int tz_log_tag = TZDBG_LOG;
+int qsee_log_tag = TZDBG_QSEE_LOG;
+
 struct tzdbg_stat {
 	char *name;
 	char *data;
@@ -321,6 +327,9 @@ static struct tzdbg_log_t *g_qsee_log;
 static dma_addr_t coh_pmem;
 static uint32_t debug_rw_buf_size;
 static uint64_t qseelog_shmbridge_handle;
+static struct proc_dir_entry *g_proc_dir;
+static struct proc_dir_entry *p_qsee_log_dump_handler;
+static struct proc_dir_entry *p_tz_log_dump_handler;
 
 /*
  * Debugfs data structure and functions
@@ -848,6 +857,28 @@ static const struct file_operations tzdbg_fops = {
 	.open    = simple_open,
 };
 
+static ssize_t qsee_log_dump_procfs_read(struct file *file, char __user *buf,
+					 size_t count, loff_t *offp)
+{
+	file->private_data = (void *)(&qsee_log_tag);
+	return tzdbgfs_read(file, buf, count, offp);
+}
+const struct file_operations qsee_log_dump_proc_fops = {
+	.owner = THIS_MODULE,
+	.read = qsee_log_dump_procfs_read,
+};
+
+static ssize_t tz_log_dump_procfs_read(struct file *file, char __user *buf,
+					 size_t count, loff_t *offp)
+{
+	file->private_data = (void *)(&tz_log_tag);
+	return tzdbgfs_read(file, buf, count, offp);
+}
+
+const struct file_operations tz_log_dump_proc_fops = {
+	.owner = THIS_MODULE,
+	.read = tz_log_dump_procfs_read,
+};
 
 /*
  * Allocates log buffer from ION, registers the buffer at TZ
@@ -900,6 +931,8 @@ err:
 static int  tzdbgfs_init(struct platform_device *pdev)
 {
 	int rc = 0;
+
+#ifdef CONFIG_DEBUG_FS
 	int i;
 	struct dentry           *dent_dir;
 	struct dentry           *dent;
@@ -909,7 +942,9 @@ static int  tzdbgfs_init(struct platform_device *pdev)
 		dev_err(&pdev->dev, "tzdbg debugfs_create_dir failed\n");
 		return -ENOMEM;
 	}
+#endif
 
+#ifdef CONFIG_DEBUG_FS
 	for (i = 0; i < TZDBG_STATS_MAX; i++) {
 		tzdbg.debug_tz[i] = i;
 		dent = debugfs_create_file_unsafe(tzdbg.stat[i].name,
@@ -921,15 +956,40 @@ static int  tzdbgfs_init(struct platform_device *pdev)
 			goto err;
 		}
 	}
+	
+	platform_set_drvdata(pdev, dent_dir);
+#endif
+//#ifdef CONFIG_DEBUG_FS
 	tzdbg.disp_buf = kzalloc(max(debug_rw_buf_size,
 			tzdbg.hyp_debug_rw_buf_size), GFP_KERNEL);
 	if (tzdbg.disp_buf == NULL)
 		goto err;
-	platform_set_drvdata(pdev, dent_dir);
+
+//#endif
+	g_proc_dir = proc_mkdir("tzdbg", 0);
+	if (g_proc_dir == 0) {
+		printk("Unable to mkdir /proc/tzdbg\n");
+		pr_err("%s: qsee log dump dirs in proc  create dir failed ! \n", __func__);
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	p_qsee_log_dump_handler = proc_create_data("qsee_log", 0, g_proc_dir,
+					      &qsee_log_dump_proc_fops, &tzdbg.debug_tz[TZDBG_QSEE_LOG]);
+	if (p_qsee_log_dump_handler == NULL) {
+		pr_err("%s: qsee log dump dirs in proc  create qsee file failed ! \n", __func__);
+	}
+	p_tz_log_dump_handler = proc_create_data("tz_log", 0, g_proc_dir,
+					    &tz_log_dump_proc_fops, &tzdbg.debug_tz[TZDBG_LOG]);
+	if (p_tz_log_dump_handler == NULL) {
+		pr_err("%s: qsee log dump dirs in proc  create tz file failed ! \n", __func__);
+	}
+
 	return 0;
 err:
+#ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(dent_dir);
-
+#endif
 	return rc;
 }
 
@@ -944,7 +1004,9 @@ static void tzdbgfs_exit(struct platform_device *pdev)
 	}
 	kzfree(tzdbg.disp_buf);
 	dent_dir = platform_get_drvdata(pdev);
+#ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(dent_dir);
+#endif
 }
 
 static int __update_hypdbg_base(struct platform_device *pdev,
@@ -1093,7 +1155,6 @@ static int tz_log_probe(struct platform_device *pdev)
 
 	if (tzdbgfs_init(pdev))
 		goto err;
-
 	tzdbg_register_qsee_log_buf(pdev);
 
 	tzdbg_get_tz_version();

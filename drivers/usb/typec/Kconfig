@@ -106,5 +106,7 @@ config TYPEC_TPS6598X
 source "drivers/usb/typec/mux/Kconfig"
 
 source "drivers/usb/typec/altmodes/Kconfig"
-
+source "drivers/usb/typec/maxim/Kconfig"
+source "drivers/usb/typec/tcpc/Kconfig"
+source "drivers/usb/typec/wusb3801x/Kconfig"
 endif # TYPEC

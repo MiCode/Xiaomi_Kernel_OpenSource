@@ -352,6 +352,20 @@ static const struct kgsl_ioctl kgsl_compat_ioctl_funcs[] = {
 			kgsl_ioctl_sparse_bind),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_SPARSE_COMMAND,
 			kgsl_ioctl_gpu_sparse_command),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_AUX_COMMAND,
+			kgsl_ioctl_gpu_aux_command),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_CREATE,
+			kgsl_ioctl_timeline_create),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_WAIT,
+			kgsl_ioctl_timeline_wait),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_FENCE_GET,
+			kgsl_ioctl_timeline_fence_get),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_QUERY,
+			kgsl_ioctl_timeline_query),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_SIGNAL,
+			kgsl_ioctl_timeline_signal),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_TIMELINE_DESTROY,
+			kgsl_ioctl_timeline_destroy),
 };
 
 long kgsl_compat_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)

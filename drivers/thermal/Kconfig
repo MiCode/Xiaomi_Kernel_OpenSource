@@ -478,6 +478,17 @@ config GENERIC_ADC_THERMAL
 	  to this driver. This driver reports the temperature by reading ADC
 	  channel and converts it to temperature based on lookup table.
 
+config THERMAL_QPNP_ADC_TM
+	tristate "Qualcomm Technologies Inc. Thermal Monitor ADC Driver"
+	depends on THERMAL
+	depends on  SPMI
+	help
+	  This enables the thermal Sysfs driver for the ADC thermal monitoring
+	  device. It shows up in Sysfs as a thermal zone with multiple trip points.
+	  Disabling the thermal zone device via the mode file results in disabling
+	  the sensor. Also able to set threshold temperature for both hot and cold
+	  and update when a threshold is reached.
+
 config THERMAL_TSENS
 	tristate "Qualcomm Technologies Inc. TSENS Temperature driver"
 	depends on THERMAL

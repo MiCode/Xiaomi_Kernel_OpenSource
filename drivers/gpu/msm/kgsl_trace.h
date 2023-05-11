@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2021, The Linux Foundation. All rights reserved.
  */
 
 #if !defined(_KGSL_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -1292,6 +1292,183 @@ TRACE_EVENT(kgsl_opp_notify,
 		__entry->min_freq, __entry->max_freq
 	)
 );
+
+TRACE_EVENT(kgsl_timeline_alloc,
+	TP_PROTO(
+		u32 id,
+		u64 seqno
+	),
+	TP_ARGS(
+		id,
+		seqno
+	),
+	TP_STRUCT__entry(
+		__field(u32, id)
+		__field(u64, seqno)
+	),
+	TP_fast_assign(
+		__entry->id = id;
+		__entry->seqno = seqno;
+	),
+	TP_printk("id=%u initial=%llu",
+		__entry->id, __entry->seqno
+	)
+);
+
+TRACE_EVENT(kgsl_timeline_destroy,
+	TP_PROTO(
+		u32 id
+	),
+	TP_ARGS(
+		id
+	),
+	TP_STRUCT__entry(
+		__field(u32, id)
+	),
+	TP_fast_assign(
+		__entry->id = id;
+	),
+	TP_printk("id=%u",
+		__entry->id
+	)
+);
+
+
+TRACE_EVENT(kgsl_timeline_signal,
+	TP_PROTO(
+		u32 id,
+		u64 seqno
+	),
+	TP_ARGS(
+		id,
+		seqno
+	),
+	TP_STRUCT__entry(
+		__field(u32, id)
+		__field(u64, seqno)
+	),
+	TP_fast_assign(
+		__entry->id = id;
+		__entry->seqno = seqno;
+	),
+	TP_printk("id=%u seqno=%llu",
+		__entry->id, __entry->seqno
+	)
+);
+
+TRACE_EVENT(kgsl_timeline_fence_alloc,
+	TP_PROTO(
+		u32 timeline,
+		u64 seqno
+	),
+	TP_ARGS(
+		timeline,
+		seqno
+	),
+	TP_STRUCT__entry(
+		__field(u32, timeline)
+		__field(u64, seqno)
+	),
+	TP_fast_assign(
+		__entry->timeline = timeline;
+		__entry->seqno = seqno;
+	),
+	TP_printk("timeline=%u seqno=%llu",
+		__entry->timeline, __entry->seqno
+	)
+);
+
+TRACE_EVENT(kgsl_timeline_fence_release,
+	TP_PROTO(
+		u32 timeline,
+		u64 seqno
+	),
+	TP_ARGS(
+		timeline,
+		seqno
+	),
+	TP_STRUCT__entry(
+		__field(u32, timeline)
+		__field(u64, seqno)
+	),
+	TP_fast_assign(
+		__entry->timeline = timeline;
+		__entry->seqno = seqno;
+	),
+	TP_printk("timeline=%u seqno=%llu",
+		__entry->timeline, __entry->seqno
+	)
+);
+
+
+TRACE_EVENT(kgsl_timeline_wait,
+	TP_PROTO(
+		u32 flags,
+		s64 tv_sec,
+		s64 tv_nsec
+	),
+	TP_ARGS(
+		flags,
+		tv_sec,
+		tv_nsec
+	),
+	TP_STRUCT__entry(
+		__field(u32, flags)
+		__field(s64, tv_sec)
+		__field(s64, tv_nsec)
+	),
+	TP_fast_assign(
+		__entry->flags = flags;
+		__entry->tv_sec = tv_sec;
+		__entry->tv_nsec = tv_nsec;
+	),
+	TP_printk("flags=0x%x tv_sec=%llu tv_nsec=%llu",
+		__entry->flags, __entry->tv_sec, __entry->tv_nsec
+
+	)
+);
+
+TRACE_EVENT(kgsl_aux_command,
+	TP_PROTO(u32 drawctxt_id, u32 numcmds, u32 flags, u32 timestamp
+	),
+	TP_ARGS(drawctxt_id, numcmds, flags, timestamp
+	),
+	TP_STRUCT__entry(
+		__field(u32, drawctxt_id)
+		__field(u32, numcmds)
+		__field(u32, flags)
+		__field(u32, timestamp)
+	),
+	TP_fast_assign(
+		__entry->drawctxt_id = drawctxt_id;
+		__entry->numcmds = numcmds;
+		__entry->flags = flags;
+		__entry->timestamp = timestamp;
+	),
+	TP_printk("context=%u numcmds=%u flags=0x%x timestamp=%u",
+		__entry->drawctxt_id, __entry->numcmds, __entry->flags,
+		__entry->timestamp
+	)
+);
+
+TRACE_EVENT(kgsl_drawobj_timeline,
+	TP_PROTO(u32 timeline, u64 seqno
+	),
+	TP_ARGS(timeline, seqno
+	),
+	TP_STRUCT__entry(
+		__field(u32, timeline)
+		__field(u64, seqno)
+	),
+	TP_fast_assign(
+		__entry->timeline = timeline;
+		__entry->seqno = seqno;
+	),
+	TP_printk("timeline=%u seqno=%llu",
+		__entry->timeline, __entry->seqno
+	)
+);
+
 #endif /* _KGSL_TRACE_H */
 
 /* This part must be outside protection */

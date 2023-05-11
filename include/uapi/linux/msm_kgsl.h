@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _UAPI_MSM_KGSL_H
@@ -122,6 +122,7 @@
 /* Flags for GPU command sync points */
 #define KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP 0
 #define KGSL_CMD_SYNCPOINT_TYPE_FENCE 1
+#define KGSL_CMD_SYNCPOINT_TYPE_TIMELINE 2
 
 /* --- Memory allocation flags --- */
 
@@ -1102,6 +1103,21 @@ struct kgsl_cmd_syncpoint_fence {
 	int fd;
 };
 
+/*
+ * struct kgsl_cmd_syncpoint_timeline
+ * @timelines: Address of an array of &struct kgsl_timeline_val
+ * @count: Number of entries in @timelines
+ * @timelines_size: Size of each entry in @timelines
+ *
+ * Define a syncpoint for a number of timelines.  This syncpoint will
+ * be satisfied when all of the specified timelines are signaled.
+ */
+struct kgsl_cmd_syncpoint_timeline {
+	__u64 timelines;
+	__u32 count;
+	__u32 timelines_size;
+};
+
 /**
  * struct kgsl_cmd_syncpoint - Define a sync point for a command batch
  * @type: type of sync point defined here
@@ -1669,5 +1685,200 @@ struct kgsl_gpu_sparse_command {
 
 #define IOCTL_KGSL_GPU_SPARSE_COMMAND \
 	_IOWR(KGSL_IOC_TYPE, 0x55, struct kgsl_gpu_sparse_command)
+
+#define KGSL_GPU_AUX_COMMAND_TIMELINE	(1 << 1)
+/* Reuse the same flag that GPU COMMAND uses */
+#define KGSL_GPU_AUX_COMMAND_SYNC	KGSL_CMDBATCH_SYNC
+
+/**
+ * struct kgsl_aux_command_generic - Container for an AUX command
+ * @priv: Pointer to the type specific buffer
+ * @size: Size of the type specific buffer
+ * @type: type of sync point defined here
+ *
+ * Describes a generic container for GPU aux commands. @priv is a user pointer
+ * to the command struct matching @type of size @size.
+ */
+struct kgsl_gpu_aux_command_generic {
+	__u64 priv;
+	__u64 size;
+	__u32 type;
+/* private: Padding for 64 bit compatibility */
+	__u32 padding;
+};
+
+/**
+ * struct kgsl_gpu_aux_command - Argument for IOCTL_KGSL_GPU_AUX_COMMAND
+ * @flags: flags for the object
+ * @cmdlist: List of &struct kgsl_gpu_aux_command_generic objects
+ * @cmd_size: Size of each entry in @cmdlist
+ * @numcmds: Number of entries in @cmdlist
+ * @synclist: List of &struct kgsl_command_syncpoint objects
+ * @syncsize: Size of each entry in @synclist
+ * @numsyncs: Number of entries in @synclist
+ * @context_id: ID of the context submtting the aux command
+ * @timestamp: Timestamp for the command submission
+ *
+ * Describe a GPU auxiliary command. Auxiliary commands are tasks that are not
+ * performed on hardware but can be queued like normal GPU commands. Like GPU
+ * commands AUX commands are assigned a timestamp and processed in order in the
+ * queue. They can also have standard sync objects attached. The only
+ * difference is that AUX commands usually perform some sort of administrative
+ * task in the CPU and are retired in the dispatcher.
+ *
+ * For bind operations flags must have one of the KGSL_GPU_AUX_COMMAND_* flags
+ * set. If sync objects are attached KGSL_GPU_AUX_COMMAND_SYNC must be set.
+ * @cmdlist points to an array of &struct kgsl_gpu_aux_command_generic structs
+ * which in turn will have a pointer to a specific command type.
+ * @numcmds is the number of commands in the list and @cmdsize is the size
+ * of each entity in @cmdlist.
+ *
+ * If KGSL_GPU_AUX_COMMAND_SYNC is specified @synclist will point to an array of
+ * &struct kgsl_command_syncpoint items in the same fashion as a GPU hardware
+ * command. @numsyncs and @syncsize describe the list.
+ *
+ * @context_id is the context that is submitting the command and @timestamp
+ * contains the timestamp for the operation.
+ */
+struct kgsl_gpu_aux_command {
+	__u64 flags;
+	__u64 cmdlist;
+	__u32 cmdsize;
+	__u32 numcmds;
+	__u64 synclist;
+	__u32 syncsize;
+	__u32 numsyncs;
+	__u32 context_id;
+	__u32 timestamp;
+};
+
+#define IOCTL_KGSL_GPU_AUX_COMMAND \
+	_IOWR(KGSL_IOC_TYPE, 0x57, struct kgsl_gpu_aux_command)
+
+/**
+ * struct kgsl_timeline_create - Argument for IOCTL_KGSL_TIMELINE_CREATE
+ * @seqno: Initial sequence number for the timeline
+ * @id: Timeline identifier [out]
+ *
+ * Create a new semaphore timeline and return the identifier in @id.
+ * The identifier is global for the device and can be used to
+ * identify the timeline in all subsequent commands.
+ */
+struct kgsl_timeline_create {
+	__u64 seqno;
+	__u32 id;
+/* private: padding for 64 bit compatibility */
+	__u32 padding;
+};
+
+#define IOCTL_KGSL_TIMELINE_CREATE \
+	_IOWR(KGSL_IOC_TYPE, 0x58, struct kgsl_timeline_create)
+
+/**
+ * struct kgsl_timeline_val - A container to store a timeline/sequence number
+ * pair.
+ * @seqno: Sequence number to signal/query
+ * @timeline: The timeline identifier to signal/query
+ *
+ * A container to store a timeline/seqno pair used by the query and signal
+ * ioctls.
+ */
+struct kgsl_timeline_val {
+	__u64 seqno;
+	__u32 timeline;
+/* private: padding for 64 bit compatibility */
+	__u32 padding;
+};
+
+#define KGSL_TIMELINE_WAIT_ALL 1
+#define KGSL_TIMELINE_WAIT_ANY 2
+
+/**
+ * struct kgsl_timeline_wait - Argument for IOCTL_KGSL_TIMELINE_WAIT
+ * @tv_sec: Number of seconds to wait for the signal
+ * @tv_nsec: Number of nanoseconds to wait for the signal
+ * @timelines: Address of an array of &struct kgsl_timeline_val entries
+ * @count: Number of entries in @timeline
+ * @timelines_size: Size of each entry in @timelines
+ * @flags: One of KGSL_TIMELINE_WAIT_ALL or KGSL_TIMELINE_WAIT_ANY
+ *
+ * Wait for the timelines listed in @timelines to be signaled. If @flags is
+ * equal to KGSL_TIMELINE_WAIT_ALL then wait for all timelines or if
+ * KGSL_TIMELINE_WAIT_ANY is specified then wait for any of the timelines to
+ * signal. @tv_sec and @tv_nsec indicates the number of seconds and nanoseconds
+ * that the process should be blocked waiting for the signal.
+ */
+struct kgsl_timeline_wait {
+	__s64 tv_sec;
+	__s64 tv_nsec;
+	__u64 timelines;
+	__u32 count;
+	__u32 timelines_size;
+	__u32 flags;
+/* private: padding for 64 bit compatibility */
+	__u32 padding;
+};
+
+#define IOCTL_KGSL_TIMELINE_WAIT \
+	_IOW(KGSL_IOC_TYPE, 0x59, struct kgsl_timeline_wait)
+
+#define IOCTL_KGSL_TIMELINE_QUERY \
+	_IOWR(KGSL_IOC_TYPE, 0x5A, struct kgsl_timeline_val)
+
+/**
+ * struct kgsl_timeline_signal - argument for IOCTL_KGSL_TIMELINE_SIGNAL
+ * @timelines: Address of an array of &struct kgsl_timeline_val entries
+ * @count: Number of entries in @timelines
+ * @timelines_size: Size of each entry in @timelines
+ *
+ * Signal an array of timelines of type @struct kgsl_timeline_val.
+ */
+struct kgsl_timeline_signal {
+	__u64 timelines;
+	__u32 count;
+	__u32 timelines_size;
+};
+
+#define IOCTL_KGSL_TIMELINE_SIGNAL \
+	_IOW(KGSL_IOC_TYPE, 0x5B, struct kgsl_timeline_signal)
+
+/**
+ * struct kgsl_timeline_fence_get - argument for IOCTL_KGSL_TIMELINE_FENCE_GET
+ * @seqno: Sequence number for the fence
+ * @timeline: Timeline to create the fence on
+ * @handle: Contains the fence fd for a successful operation [out]
+ *
+ * Create a sync file descriptor for the seqnum on the timeline and return it in
+ * @handle.  Can be polled and queried just like any other sync file descriptor
+ */
+struct kgsl_timeline_fence_get {
+	__u64 seqno;
+	__u32 timeline;
+	int handle;
+};
+
+#define IOCTL_KGSL_TIMELINE_FENCE_GET \
+	_IOWR(KGSL_IOC_TYPE, 0x5C, struct kgsl_timeline_fence_get)
+/**
+ * IOCTL_KGSL_TIMELINE_DESTROY takes a u32 identifier for the timeline to
+ * destroy
+ */
+#define IOCTL_KGSL_TIMELINE_DESTROY _IOW(KGSL_IOC_TYPE, 0x5D, __u32)
+
+/**
+ * struct kgsl_gpu_aux_command_timeline - An aux command for timeline signals
+ * @timelines: An array of &struct kgsl_timeline_val elements
+ * @count: The number of entries in @timelines
+ * @timelines_size: The size of each element in @timelines
+ *
+ * An aux command for timeline signals that can be pointed to by
+ * &struct kgsl_aux_command_generic when the type is
+ * KGSL_GPU_AUX_COMMAND_TIMELINE.
+ */
+struct kgsl_gpu_aux_command_timeline {
+	__u64 timelines;
+	__u32 count;
+	__u32 timelines_size;
+};
 
 #endif /* _UAPI_MSM_KGSL_H */

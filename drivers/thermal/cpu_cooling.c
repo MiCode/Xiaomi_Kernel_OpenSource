@@ -34,6 +34,9 @@
 #include <linux/of_device.h>
 
 #include <trace/events/thermal.h>
+#ifdef CONFIG_ARCH_QCOM
+#define USE_LMH_DEV    0
+#endif
 
 /*
  * Cooling state <-> CPUFreq frequency
@@ -124,8 +127,11 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 	struct cpufreq_policy *policy = data;
 	unsigned long clipped_freq = ULONG_MAX, floor_freq = 0;
 	struct cpufreq_cooling_device *cpufreq_cdev;
-
+#ifdef CONFIG_ARCH_QCOM
+	if (event != CPUFREQ_THERMAL)
+#else
 	if (event != CPUFREQ_INCOMPATIBLE)
+#endif
 		return NOTIFY_DONE;
 
 	mutex_lock(&cooling_list_lock);
@@ -153,9 +159,13 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 		 */
 		clipped_freq = cpufreq_cdev->clipped_freq;
 		floor_freq = cpufreq_cdev->floor_freq;
+#ifdef CONFIG_ARCH_QCOM
+		cpufreq_verify_within_limits(policy, floor_freq, clipped_freq);
+#else
 		if (policy->max > clipped_freq || policy->min < floor_freq)
 			cpufreq_verify_within_limits(policy, floor_freq,
 							clipped_freq);
+#endif
 		break;
 	}
 
@@ -163,6 +173,36 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 
 	return NOTIFY_OK;
 }
+
+#ifdef CONFIG_ARCH_QCOM
+void cpu_limits_set_level(unsigned int cpu, unsigned int max_freq)
+{
+	struct cpufreq_cooling_device *cpufreq_cdev;
+	struct thermal_cooling_device *cdev;
+	unsigned int cdev_cpu;
+	unsigned int level;
+
+	list_for_each_entry(cpufreq_cdev, &cpufreq_cdev_list, node) {
+		sscanf(cpufreq_cdev->cdev->type, "thermal-cpufreq-%d", &cdev_cpu);
+		if (cdev_cpu == cpu) {
+                  //solve the max CPU limit not set by dongchangsicheng 2022/05/17
+			for (level = 0; level <= cpufreq_cdev->max_level; level++) {
+				int target_freq = cpufreq_cdev->em->table[level].frequency;
+				if (max_freq <= target_freq) {
+					cdev = cpufreq_cdev->cdev;
+					if (cdev){
+						cdev->ops->set_cur_state(cdev, cpufreq_cdev->max_level - level);
+                                        }
+						
+					break;
+				}
+			}
+
+			break;
+		}
+	}
+}
+#endif
 
 #ifdef CONFIG_ENERGY_MODEL
 /**
@@ -405,7 +445,11 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 
 	/* Request state should be less than max_level */
 	if (WARN_ON(state > cpufreq_cdev->max_level))
+#ifdef CONFIG_ARCH_QCOM
+		state = cpufreq_cdev->max_level;
+#else
 		return -EINVAL;
+#endif
 
 	/* Check if the old cooling action is same as new cooling action */
 	if (cpufreq_cdev->cpufreq_state == state)
@@ -419,13 +463,27 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 	 * can handle the CPU freq mitigation, if not, notify cpufreq
 	 * framework.
 	 */
+#ifdef CONFIG_ARCH_QCOM
+	if (USE_LMH_DEV && cpufreq_cdev->plat_ops) {
+		if (cpufreq_cdev->plat_ops->ceil_limit)
+			cpufreq_cdev->plat_ops->ceil_limit(
+				cpufreq_cdev->policy->cpu, clip_freq);
+		get_online_cpus();
+		cpufreq_update_policy(cpufreq_cdev->policy->cpu);
+		put_online_cpus();
+	} else {
+		get_online_cpus();
+		cpufreq_update_policy(cpufreq_cdev->policy->cpu);
+		put_online_cpus();
+	}
+#else
 	if (cpufreq_cdev->plat_ops &&
 		cpufreq_cdev->plat_ops->ceil_limit)
 		cpufreq_cdev->plat_ops->ceil_limit(cpufreq_cdev->policy->cpu,
 							clip_freq);
 	else
 		cpufreq_update_policy(cpufreq_cdev->policy->cpu);
-
+#endif
 	return 0;
 }
 
@@ -701,7 +759,11 @@ __cpufreq_cooling_register(struct device_node *np,
 	list_add(&cpufreq_cdev->node, &cpufreq_cdev_list);
 	mutex_unlock(&cooling_list_lock);
 
+#ifdef CONFIG_ARCH_QCOM
+	if (first)
+#else
 	if (first && !cpufreq_cdev->plat_ops)
+#endif
 		cpufreq_register_notifier(&thermal_cpufreq_notifier_block,
 					  CPUFREQ_POLICY_NOTIFIER);
 
@@ -841,10 +903,16 @@ void cpufreq_cooling_unregister(struct thermal_cooling_device *cdev)
 	mutex_unlock(&cooling_list_lock);
 
 	if (last) {
+#ifdef CONFIG_ARCH_QCOM
+		cpufreq_unregister_notifier(
+				&thermal_cpufreq_notifier_block,
+				CPUFREQ_POLICY_NOTIFIER);
+#else
 		if (!cpufreq_cdev->plat_ops)
 			cpufreq_unregister_notifier(
 					&thermal_cpufreq_notifier_block,
 					CPUFREQ_POLICY_NOTIFIER);
+#endif
 	}
 
 	thermal_cooling_device_unregister(cpufreq_cdev->cdev);

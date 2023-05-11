@@ -84,6 +84,8 @@ obj-$(CONFIG_LEDS_QTI_TRI_LED)		+= leds-qti-tri-led.o
 obj-$(CONFIG_LEDS_QPNP_FLASH_V2)        += leds-qpnp-flash-v2.o leds-qpnp-flash-common.o
 obj-$(CONFIG_LEDS_QPNP_VIBRATOR_LDO)	+= leds-qpnp-vibrator-ldo.o
 obj-$(CONFIG_LEDS_QPNP_VIBRATOR)	+= leds-qpnp-vibrator.o
+obj-$(CONFIG_LEDS_QPNP_VIBRATOR_PWM)	+= leds-qpnp-vibrator-pwm.o
+obj-$(CONFIG_LEDS_MSM_BACK_GPIO_FLASH)  += leds-msm-back-gpio-flash.o
 
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_CR0014114)		+= leds-cr0014114.o

@@ -1059,7 +1059,10 @@ int mipi_dsi_dcs_set_display_brightness(struct mipi_dsi_device *dsi,
 					u16 brightness)
 {
 	u8 payload[2] = { brightness & 0xff, brightness >> 8 };
+	//u8 payload[2] = { brightness >> 8, brightness & 0xff };
 	ssize_t err;
+
+	//pr_err("k7t project msm-dsi-panel:[%s] payload[0] = 0x%X,  payload[1] = 0x%X\n", __func__, payload[0], payload[1]);
 
 	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
 				 payload, sizeof(payload));

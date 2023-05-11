@@ -1163,6 +1163,11 @@ struct snd_soc_card {
 #endif
 	u32 pop_time;
 
+#ifdef CONFIG_SND_SOC_AW87XXX
+	int aw87xxx_spk_mode;
+	int aw87xxx_rcv_mode;
+#endif /* CONFIG_SND_SOC_AW87XXX */
+
 	void *drvdata;
 };
 

@@ -24,6 +24,16 @@ struct inode;
 struct pci_dev;
 struct pci_controller;
 
+#ifdef CONFIG_TARGET_PROJECT_K7T
+
+#define DOZE_MIN_BRIGHTNESS_LEVEL	5
+enum {
+	DOZE_BRIGHTNESS_INVALID = 0,
+	DOZE_BRIGHTNESS_HBM,
+	DOZE_BRIGHTNESS_LBM,
+};
+#endif
+
 /**
  * DRM device structure. This structure represent a complete card that
  * may contain multiple heads.
@@ -219,6 +229,11 @@ struct drm_device {
 	struct drm_vma_offset_manager *vma_offset_manager;
 	/*@} */
 	int switch_power_state;
+	int doze_brightness;
+	/*add for thermal begin*/
+	int doze_state;
+	int pre_state;
+	/*add for thermal end*/
 
 	/**
 	 * @fb_helper:

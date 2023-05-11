@@ -917,9 +917,6 @@ void kgsl_memdesc_init(struct kgsl_device *device,
 	if (flags & KGSL_MEMFLAGS_SECURE)
 		memdesc->priv |= KGSL_MEMDESC_SECURE;
 
-	if (device->flags & KGSL_FLAG_USE_SHMEM)
-		memdesc->priv |= KGSL_MEMDESC_USE_SHMEM;
-
 	memdesc->flags = flags;
 	memdesc->dev = device->dev->parent;
 

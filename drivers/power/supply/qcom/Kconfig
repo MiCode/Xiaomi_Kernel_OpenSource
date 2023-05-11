@@ -145,4 +145,11 @@ config SMB1398_CHARGER
 	      wireless charger receiver and provide the input for downstream
 	      chargers.
 
+
+config SH36610X_BATTERY
+	tristate "SH36610x battery driver"
+	depends on I2C
+	help
+	  Say Y to enable support of SH36610x Battery Charger.
+
 endmenu

@@ -1,0 +1,13 @@
+config FUELGAUGE_MAX77729
+	bool
+	prompt "Support as maxim fuel gauge IC."
+	default n
+	help
+		It's an fuel gauge driver.
+
+config CHARGER_MAX77729
+	bool
+	prompt "Support charger Driver."
+	default n
+	help
+		It's an charger driver.

@@ -19,6 +19,7 @@
 #include <linux/pagevec.h>
 #include <linux/uio.h>
 #include <linux/uuid.h>
+#include <linux/uidgid.h>
 #include <linux/file.h>
 #include <linux/nls.h>
 
@@ -199,6 +200,10 @@ static inline enum cp_reason_type need_do_checkpoint(struct inode *inode)
 		cp_reason = CP_HARDLINK;
 	else if (is_sbi_flag_set(sbi, SBI_NEED_CP))
 		cp_reason = CP_SB_NEED_CP;
+#ifdef CONFIG_F2FS_CP_OPT
+	else if (f2fs_parent_inode_xattr_set(inode))
+		cp_reason = CP_PARENT_XATTR_SET;
+#endif
 	else if (file_wrong_pino(inode))
 		cp_reason = CP_WRONG_PINO;
 	else if (!f2fs_space_for_roll_forward(sbi))
@@ -257,6 +262,8 @@ static int f2fs_do_sync_file(struct file *file, loff_t start, loff_t end,
 		.for_reclaim = 0,
 	};
 	unsigned int seq_id = 0;
+	ktime_t start_time, delta;
+	unsigned long long duration;
 
 	if (unlikely(f2fs_readonly(inode->i_sb) ||
 				is_sbi_flag_set(sbi, SBI_CP_DISABLED)))
@@ -272,6 +279,7 @@ static int f2fs_do_sync_file(struct file *file, loff_t start, loff_t end,
 		trace_android_fs_fsync_start(inode,
 				current->pid, path, current->comm);
 	}
+	start_time = ktime_get();
 
 	if (S_ISDIR(inode->i_mode))
 		goto go_write;
@@ -318,6 +326,7 @@ go_write:
 	up_read(&F2FS_I(inode)->i_sem);
 
 	if (cp_reason) {
+		stat_inc_cp_reason(sbi, cp_reason);
 		/* all the dirty node pages should be flushed for POR */
 		ret = f2fs_sync_fs(inode->i_sb, 1);
 
@@ -376,6 +385,24 @@ flush_out:
 	}
 	f2fs_update_time(sbi, REQ_TIME);
 out:
+	delta = ktime_sub(ktime_get(), start_time);
+	duration = (unsigned long long) ktime_to_ns(delta) / (1000 * 1000);
+
+	/* print slow fsync spend more than 1s */
+	if (duration > 1000) {
+		char *file_path, file_pathbuf[MAX_TRACE_PATHBUF_LEN];
+
+		file_path = android_fstrace_get_pathname(file_pathbuf,
+				MAX_TRACE_PATHBUF_LEN, inode);
+		pr_info("[f2fs] slow fsync: %llu ms, cp_reason: %s, "
+			"datasync = %d, ret = %d, comm: %s: (uid %u, gid %u), "
+			"entry: %s", duration, f2fs_cp_reasons[cp_reason],
+			datasync, ret, current->comm,
+			from_kuid_munged(&init_user_ns, current_fsuid()),
+			from_kgid_munged(&init_user_ns, current_fsgid()),
+			file_path);
+	}
+
 	trace_f2fs_sync_file_exit(inode, cp_reason, datasync, ret);
 	f2fs_trace_ios(NULL, 1);
 	trace_android_fs_fsync_end(inode, start, end - start);

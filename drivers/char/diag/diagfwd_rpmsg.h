@@ -16,6 +16,7 @@ struct diag_rpmsg_info {
 	atomic_t opened;
 	atomic_t diag_state;
 	uint32_t fifo_size;
+	uint32_t list_pkt_cnt;
 	struct rpmsg_device *hdl;
 	char edge[DIAG_RPMSG_NAME_SZ];
 	char name[DIAG_RPMSG_NAME_SZ];

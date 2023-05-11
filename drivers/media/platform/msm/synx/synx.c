@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt) "synx: " fmt
 
@@ -549,7 +550,7 @@ int synx_release(s32 synx_obj)
 
 	fence = row->fence;
 	rc = synx_release_core(row);
-	dma_fence_put(fence);
+	synx_release_handle(row);
 	return rc;
 }
 
@@ -1599,6 +1600,8 @@ int synx_initialize(struct synx_initialization_params *params)
 
 	mutex_lock(&synx_dev->table_lock);
 	synx_dev->open_cnt++;
+	/* zero handle not allowed */
+	set_bit(0, synx_dev->bitmap);
 	mutex_unlock(&synx_dev->table_lock);
 
 	if (params)

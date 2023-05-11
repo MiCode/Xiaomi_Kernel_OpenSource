@@ -1,0 +1,105 @@
+#
+# CCIC devices
+#
+
+comment "CCIC configs"
+
+config CCIC_MAX77705
+	tristate "CCIC 77705"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you will get support for
+	  max77705 ccic full version chipset
+
+config CCIC_MAX77729
+	tristate "CCIC 77729"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you will get support for
+	  max77729 ccic full version chipset
+
+config MAXIM_CCIC_ALTERNATE_MODE
+	bool "support alternate mode"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you will get support for
+	  alternate mode function with max77705 ccic chipset
+
+config CCIC_MAX77705_DEBUG
+	bool "CCIC 77705 DEBUG"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you will get support for
+	  debugging feature with max77705 ccic chipset
+
+config MAX77705_FW_PID03_SUPPORT
+	bool "support MAX77705 FW PID 0x03"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you will get support for
+	  specified firmware with max77705 ccic chipset
+
+config MUIC_MAX77705
+	tristate "Using MAX77705 MUIC"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you will get support for
+	  the MAX77705 MUIC chip.
+	  To enable this driver,
+	  USE_MUIC should be enabled.
+
+config MUIC_MAX77729
+	tristate "Using MAX77729 MUIC"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you will get support for
+	  the MAX77729 MUIC chip.
+	  To enable this driver,
+	  USE_MUIC should be enabled.
+
+config HV_MUIC_MAX77705_AFC
+	tristate "Using MAX77705 AFC MUIC"
+	default n
+	help
+	  If you say yes here you will get support for
+	  the MAX77705 AFC MUIC.
+	  To enable this driver,
+	  MUIC_MAX77705 should be enabled.
+
+config MUIC_MAX77705_PDIC
+	tristate "Using MAX77705 MUIC supports CCIC chip interface"
+	default n
+	help
+	  If you say yes here you will get support for
+	  the CCIC chip with MAX77705 MUIC.
+	  To enable this driver,
+	  MUIC_MAX77705 and MUIC_SUPPORT_CCIC should be enabled.
+
+config AFC
+	bool "Using MAX77705 AFC"
+	default n
+	help
+	  If you say yes here you will get support for
+	  the MAX77705 AFC.
+	  To enable this driver,
+	  MUIC_MAX77705 should be enabled.
+
+config SUPPORT_QC30
+	bool "SUPPORT_QC30"
+	default n
+	help
+	  If you say yes here you will get support for the QC3.0 charger.
+
+config MUIC_QC_DISABLE
+	bool "Using QC charging"
+	depends on I2C
+	default n
+	help
+	  If you say yes here you will not get support for the QC charging
