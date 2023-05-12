@@ -2478,7 +2478,7 @@ static void fastrpc_ramdump_collection(int cid)
 		hlist_del_init(&buf->hn_init);
 
 		spin_lock(&me->hlock);
-		if (chan->buf->virt)
+		if (chan->buf && chan->buf->virt)
 			memset(chan->buf->virt, 0, MINI_DUMP_DBG_SIZE);
 		spin_unlock(&me->hlock);
 		if (fl) {
