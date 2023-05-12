@@ -943,6 +943,7 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 	uint8_t *user_src = NULL;
 	uint8_t *k_src = NULL;
 	uint8_t *k_buf_src = NULL;
+	uint32_t buf_size = 0;
 	uint8_t *k_align_src = NULL;
 
 	uint32_t sha_pad_len = 0;
@@ -981,9 +982,8 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 		return 0;
 	}
 
-
-	k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2,
-				GFP_KERNEL);
+	buf_size = total + CACHE_LINE_SIZE * 2;
+	k_buf_src = kmalloc(buf_size, GFP_KERNEL);
 	if (k_buf_src == NULL)
 		return -ENOMEM;
 
@@ -1003,7 +1003,7 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 	if (user_src && copy_from_user(k_src,
 				(void __user *)user_src,
 				qcedev_areq->sha_op_req.data[0].len)) {
-		memset(k_buf_src, 0, ksize((void *)k_buf_src));
+		memset(k_buf_src, 0, buf_size);
 		kfree(k_buf_src);
 		return -EFAULT;
 	}
@@ -1013,7 +1013,7 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 		if (user_src && copy_from_user(k_src,
 					(void __user *)user_src,
 					qcedev_areq->sha_op_req.data[i].len)) {
-			memset(k_buf_src, 0, ksize((void *)k_buf_src));
+			memset(k_buf_src, 0, buf_size);
 			kfree(k_buf_src);
 			return -EFAULT;
 		}
@@ -1044,7 +1044,7 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 	handle->sha_ctxt.last_blk = 0;
 	handle->sha_ctxt.first_blk = 0;
 
-	memset(k_buf_src, 0, ksize((void *)k_buf_src));
+	memset(k_buf_src, 0, buf_size);
 	kfree(k_buf_src);
 	return err;
 }
@@ -1070,17 +1070,19 @@ static int qcedev_sha_update(struct qcedev_async_req *qcedev_areq,
 		struct	qcedev_sha_op_req *saved_req;
 		struct	qcedev_sha_op_req req;
 		struct	qcedev_sha_op_req *sreq = &qcedev_areq->sha_op_req;
+		uint32_t req_size = 0;
 
+		req_size = sizeof(struct qcedev_sha_op_req);
 		/* save the original req structure */
 		saved_req =
-			kmalloc(sizeof(struct qcedev_sha_op_req), GFP_KERNEL);
+			kmalloc(req_size, GFP_KERNEL);
 		if (saved_req == NULL) {
 			pr_err("%s:Can't Allocate mem:saved_req 0x%lx\n",
 						__func__, (uintptr_t)saved_req);
 			return -ENOMEM;
 		}
-		memcpy(&req, sreq, sizeof(struct qcedev_sha_op_req));
-		memcpy(saved_req, sreq, sizeof(struct qcedev_sha_op_req));
+		memcpy(&req, sreq, sizeof(*sreq));
+		memcpy(saved_req, sreq, sizeof(*sreq));
 
 		i = 0;
 		/* Address 32 KB  at a time */
@@ -1152,7 +1154,7 @@ static int qcedev_sha_update(struct qcedev_async_req *qcedev_areq,
 		}
 		sreq->entries = saved_req->entries;
 		sreq->data_len = saved_req->data_len;
-		memset(saved_req, 0, ksize((void *)saved_req));
+		memset(saved_req, 0, req_size);
 		kfree(saved_req);
 	} else
 		err = qcedev_sha_update_max_xfer(qcedev_areq, handle, sg_src);
@@ -1167,6 +1169,7 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 	struct scatterlist sg_src;
 	uint32_t total;
 	uint8_t *k_buf_src = NULL;
+	uint32_t buf_size = 0;
 	uint8_t *k_align_src = NULL;
 
 	if (!handle->sha_ctxt.init_done) {
@@ -1178,8 +1181,8 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 
 	total = handle->sha_ctxt.trailing_buf_len;
 
-	k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2,
-				GFP_KERNEL);
+	buf_size = total + CACHE_LINE_SIZE * 2;
+	k_buf_src = kmalloc(buf_size, GFP_KERNEL);
 	if (k_buf_src == NULL)
 		return -ENOMEM;
 
@@ -1202,7 +1205,7 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 	handle->sha_ctxt.trailing_buf_len = 0;
 	handle->sha_ctxt.init_done = false;
 	memset(&handle->sha_ctxt.trailing_buf[0], 0, 64);
-	memset(k_buf_src, 0, ksize((void *)k_buf_src));
+	memset(k_buf_src, 0, buf_size);
 	kfree(k_buf_src);
 	qcedev_areq->sha_req.sreq.src = NULL;
 	return err;
@@ -1219,6 +1222,7 @@ static int qcedev_hash_cmac(struct qcedev_async_req *qcedev_areq,
 	uint8_t *user_src = NULL;
 	uint8_t *k_src = NULL;
 	uint8_t *k_buf_src = NULL;
+	uint32_t buf_size = 0;
 
 	total = qcedev_areq->sha_op_req.data_len;
 
@@ -1236,7 +1240,8 @@ static int qcedev_hash_cmac(struct qcedev_async_req *qcedev_areq,
 	if (total > U32_MAX - CACHE_LINE_SIZE * 2)
 		return -EINVAL;
 
-	k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2, GFP_KERNEL);
+	buf_size = total + CACHE_LINE_SIZE * 2;
+	k_buf_src = kmalloc(buf_size, GFP_KERNEL);
 	if (k_buf_src == NULL)
 		return -ENOMEM;
 
@@ -1248,7 +1253,7 @@ static int qcedev_hash_cmac(struct qcedev_async_req *qcedev_areq,
 		user_src = qcedev_areq->sha_op_req.data[i].vaddr;
 		if (user_src && copy_from_user(k_src, (void __user *)user_src,
 				qcedev_areq->sha_op_req.data[i].len)) {
-			memset(k_buf_src, 0, ksize((void *)k_buf_src));
+			memset(k_buf_src, 0, buf_size);
 			kfree(k_buf_src);
 			return -EFAULT;
 		}
@@ -1262,7 +1267,7 @@ static int qcedev_hash_cmac(struct qcedev_async_req *qcedev_areq,
 	handle->sha_ctxt.diglen = qcedev_areq->sha_op_req.diglen;
 	err = submit_req(qcedev_areq, handle);
 
-	memset(k_buf_src, 0, ksize((void *)k_buf_src));
+	memset(k_buf_src, 0, buf_size);
 	kfree(k_buf_src);
 	return err;
 }
@@ -1373,7 +1378,7 @@ static int qcedev_hmac_get_ohash(struct qcedev_async_req *qcedev_areq,
 
 	handle->sha_ctxt.last_blk = 0;
 	handle->sha_ctxt.first_blk = 0;
-	memset(k_src, 0, ksize((void *)k_src));
+	memset(k_src, 0, sha_block_size);
 	kfree(k_src);
 	qcedev_areq->sha_req.sreq.src = NULL;
 	return err;
@@ -1571,27 +1576,29 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 	uint32_t total = 0;
 	uint32_t len;
 	uint8_t *k_buf_src = NULL;
+	uint32_t buf_size = 0;
 	uint8_t *k_align_src = NULL;
 	uint32_t max_data_xfer;
 	struct qcedev_cipher_op_req *saved_req;
+	uint32_t req_size = 0;
 	struct	qcedev_cipher_op_req *creq = &areq->cipher_op_req;
 
 	total = 0;
 
 	if (areq->cipher_op_req.mode == QCEDEV_AES_MODE_CTR)
 		byteoffset = areq->cipher_op_req.byteoffset;
-	k_buf_src = kmalloc(QCE_MAX_OPER_DATA + CACHE_LINE_SIZE * 2,
-				GFP_KERNEL);
+	buf_size = QCE_MAX_OPER_DATA + CACHE_LINE_SIZE * 2;
+	k_buf_src = kmalloc(buf_size, GFP_KERNEL);
 	if (k_buf_src == NULL)
 		return -ENOMEM;
 	k_align_src = (uint8_t *)ALIGN(((uintptr_t)k_buf_src),
 							CACHE_LINE_SIZE);
 	max_data_xfer = QCE_MAX_OPER_DATA - byteoffset;
 
-	saved_req = kmemdup(creq, sizeof(struct qcedev_cipher_op_req),
-				GFP_KERNEL);
+	req_size = sizeof(struct qcedev_cipher_op_req);
+	saved_req = kmemdup(creq, req_size, GFP_KERNEL);
 	if (saved_req == NULL) {
-		memset(k_buf_src, 0, ksize((void *)k_buf_src));
+		memset(k_buf_src, 0, buf_size);
 		kfree(k_buf_src);
 		return -ENOMEM;
 
@@ -1619,10 +1626,8 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 				err = qcedev_vbuf_ablk_cipher_max_xfer(areq,
 						&di, handle, k_align_src);
 				if (err < 0) {
-					memset(saved_req, 0,
-						ksize((void *)saved_req));
-					memset(k_buf_src, 0,
-						ksize((void *)k_buf_src));
+					memset(saved_req, 0, req_size);
+					memset(k_buf_src, 0, buf_size);
 					kfree(k_buf_src);
 					kfree(saved_req);
 					return err;
@@ -1665,10 +1670,8 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 				err = qcedev_vbuf_ablk_cipher_max_xfer(areq,
 						&di, handle, k_align_src);
 				if (err < 0) {
-					memset(saved_req, 0,
-						ksize((void *)saved_req));
-					memset(k_buf_src, 0,
-						ksize((void *)k_buf_src));
+					memset(saved_req, 0, req_size);
+					memset(k_buf_src, 0, buf_size);
 					kfree(k_buf_src);
 					kfree(saved_req);
 					return err;
@@ -1713,8 +1716,8 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 	creq->data_len = saved_req->data_len;
 	creq->byteoffset = saved_req->byteoffset;
 
-	memset(saved_req, 0, ksize((void *)saved_req));
-	memset(k_buf_src, 0, ksize((void *)k_buf_src));
+	memset(saved_req, 0, req_size);
+	memset(k_buf_src, 0, buf_size);
 	kfree(saved_req);
 	kfree(k_buf_src);
 	return err;
