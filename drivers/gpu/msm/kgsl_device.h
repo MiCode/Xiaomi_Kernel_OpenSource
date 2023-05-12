@@ -53,18 +53,6 @@ enum kgsl_event_results {
 	KGSL_EVENT_CANCELLED = 2,
 };
 
-/**
- * struct gpu_work_period - Process specific GPU work periods stats
- */
-struct gpu_work_period {
-	/** @active: Total amount of time the GPU spent running work */
-	u64 active;
-	/** @cmds: Total number of commands completed within work period */
-	u32 cmds;
-	/** @frames: Total number frames completed within work period */
-	atomic_t frames;
-};
-
 /*
  * "list" of event types for ftrace symbolic magic
  */
@@ -340,12 +328,12 @@ struct kgsl_device {
 	/** @idle_jiffies: Latest idle jiffies */
 	unsigned long idle_jiffies;
 
-	/** @proc_period_timer: Timer to capture GPU work stats */
-	struct timer_list proc_period_timer;
-	/** @proc_period_lock: Lock to protect process GPU work periods */
-	spinlock_t proc_period_lock;
-	/** @proc_period_work: Worker thread to emulate GPU work event */
-	struct work_struct proc_period_work;
+	/** @work_period_timer: Timer to capture application GPU work stats */
+	struct timer_list work_period_timer;
+	/** work_period_lock: Lock to protect process application GPU work periods */
+	spinlock_t work_period_lock;
+	/** work_period_ws: Worker thread to emulate application GPU work event */
+	struct work_struct work_period_ws;
 	/** @flags: Flags for gpu_period stats */
 	unsigned long flags;
 	struct {
@@ -529,14 +517,8 @@ struct kgsl_process_private {
 	 * @reclaim_lock: Mutex lock to protect KGSL_PROC_PINNED_STATE
 	 */
 	struct mutex reclaim_lock;
-	/** @gpu_work_period: Stats for GPU utilization */
-	struct gpu_work_period period;
-	/** @uid: Process private unique identifier */
-	u32 uid;
-	/** @flags: Flags to accumlate process sepcific stats */
-	unsigned long flags;
-	/** @defer_ws: Work struct for process private put */
-	struct work_struct defer_ws;
+	/** @period: Stats for GPU utilization */
+	struct gpu_work_period *period;
 	/**
 	 * @cmd_count: The number of cmds that are active for the process
 	 */

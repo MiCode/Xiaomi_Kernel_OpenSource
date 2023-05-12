@@ -141,7 +141,10 @@ static void log_profiling_info(struct adreno_device *adreno_dev, u32 *rcvd)
 	if (context == NULL)
 		return;
 
-	kgsl_proc_work_period_update(device, context->proc_priv, cmd->active);
+	/* protected GPU work must not be reported */
+	if  (!(context->flags & KGSL_CONTEXT_SECURE))
+		kgsl_work_period_update(device, context->proc_priv->period,
+					     cmd->active);
 
 	info.timestamp = cmd->ts;
 	info.rb_id = adreno_get_level(context);
