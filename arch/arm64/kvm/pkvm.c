@@ -173,6 +173,7 @@ void __init kvm_hyp_reserve(void)
 	hyp_mem_pages += hyp_vm_table_pages();
 	hyp_mem_pages += hyp_vmemmap_pages(STRUCT_HYP_PAGE_SIZE);
 	hyp_mem_pages += hyp_ffa_proxy_pages();
+	hyp_mem_pages += hyp_host_fp_pages(num_possible_cpus());
 
 	/*
 	 * Try to allocate a PMD-aligned region to reduce TLB pressure once
@@ -505,6 +506,7 @@ static int __init finalize_pkvm(void)
 	 * at, which would end badly once inaccessible.
 	 */
 	kmemleak_free_part(__hyp_bss_start, __hyp_bss_end - __hyp_bss_start);
+	kmemleak_free_part(__hyp_data_start, __hyp_data_end - __hyp_data_start);
 	kmemleak_free_part_phys(hyp_mem_base, hyp_mem_size);
 
 	ret = pkvm_drop_host_privileges();
@@ -512,6 +514,11 @@ static int __init finalize_pkvm(void)
 		pr_err("Failed to de-privilege the host kernel: %d\n", ret);
 		pkvm_firmware_rmem_clear();
 	}
+
+#ifdef CONFIG_ANDROID_ARM64_WORKAROUND_DMA_BEYOND_POC
+	if (!ret)
+		ret = pkvm_register_early_nc_mappings();
+#endif
 
 	return ret;
 }
@@ -600,7 +607,6 @@ early_param("kvm-arm.protected_modules", early_pkvm_modules_cfg);
 
 static void free_modprobe_argv(struct subprocess_info *info)
 {
-	kfree(info->argv[3]);
 	kfree(info->argv);
 }
 
@@ -610,7 +616,8 @@ static void free_modprobe_argv(struct subprocess_info *info)
  * security is enforced by making sure this can be called only when pKVM is
  * enabled, not yet completely initialized.
  */
-static int __init pkvm_request_early_module(char *module_name)
+static int __init __pkvm_request_early_module(char *module_name,
+					      char *module_path)
 {
 	char *modprobe_path = CONFIG_MODPROBE_PATH;
 	struct subprocess_info *info;
@@ -621,6 +628,7 @@ static int __init pkvm_request_early_module(char *module_name)
 		NULL
 	};
 	char **argv;
+	int idx = 0;
 
 	if (!is_protected_kvm_enabled())
 		return -EACCES;
@@ -628,41 +636,56 @@ static int __init pkvm_request_early_module(char *module_name)
 	if (static_branch_likely(&kvm_protected_mode_initialized))
 		return -EACCES;
 
-	argv = kmalloc(sizeof(char *[5]), GFP_KERNEL);
+	argv = kmalloc(sizeof(char *) * 7, GFP_KERNEL);
 	if (!argv)
 		return -ENOMEM;
 
-	module_name = kstrdup(module_name, GFP_KERNEL);
-	if (!module_name)
-		goto free_argv;
-
-	argv[0] = modprobe_path;
-	argv[1] = "-q";
-	argv[2] = "--";
-	argv[3] = module_name;
-	argv[4] = NULL;
+	argv[idx++] = modprobe_path;
+	argv[idx++] = "-q";
+	if (*module_path != '\0') {
+		argv[idx++] = "-d";
+		argv[idx++] = module_path;
+	}
+	argv[idx++] = "--";
+	argv[idx++] = module_name;
+	argv[idx++] = NULL;
 
 	info = call_usermodehelper_setup(modprobe_path, argv, envp, GFP_KERNEL,
 					 NULL, free_modprobe_argv, NULL);
 	if (!info)
-		goto free_module_name;
+		goto err;
 
 	/* Even with CONFIG_STATIC_USERMODEHELPER we really want this path */
 	info->path = modprobe_path;
 
 	return call_usermodehelper_exec(info, UMH_WAIT_PROC | UMH_KILLABLE);
-
-free_module_name:
-	kfree(module_name);
-free_argv:
+err:
 	kfree(argv);
 
 	return -ENOMEM;
 }
 
+static int __init pkvm_request_early_module(char *module_name, char *module_path)
+{
+	int err = __pkvm_request_early_module(module_name, module_path);
+
+	if (!err)
+		return 0;
+
+	/* Already tried the default path */
+	if (*module_path == '\0')
+		return err;
+
+	pr_info("loading %s from %s failed, fallback to the default path\n",
+		module_name, module_path);
+
+	return __pkvm_request_early_module(module_name, "");
+}
+
 int __init pkvm_load_early_modules(void)
 {
 	char *token, *buf = early_pkvm_modules;
+	char *module_path = CONFIG_PKVM_MODULE_PATH;
 	int err;
 
 	while (true) {
@@ -672,7 +695,7 @@ int __init pkvm_load_early_modules(void)
 			break;
 
 		if (*token) {
-			err = pkvm_request_early_module(token);
+			err = pkvm_request_early_module(token, module_path);
 			if (err) {
 				pr_err("Failed to load pkvm module %s: %d\n",
 				       token, err);
@@ -772,6 +795,7 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 		{ &mod->data, KVM_PGTABLE_PROT_R | KVM_PGTABLE_PROT_W },
 	};
 	void *start, *end, *hyp_va;
+	struct arm_smccc_res res;
 	kvm_nvhe_reloc_t *endrel;
 	int ret, i, secs_first;
 	size_t offset, size;
@@ -801,12 +825,14 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 	end = secs_map[ARRAY_SIZE(secs_map) - 1].sec->end;
 	size = end - start;
 
-	hyp_va = (void *)kvm_call_hyp_nvhe(__pkvm_alloc_module_va, size >> PAGE_SHIFT);
-	if (!hyp_va) {
+	arm_smccc_1_1_hvc(KVM_HOST_SMCCC_FUNC(__pkvm_alloc_module_va),
+			  size >> PAGE_SHIFT, &res);
+	if (res.a0 != SMCCC_RET_SUCCESS || !res.a1) {
 		kvm_err("Failed to allocate hypervisor VA space for EL2 module\n");
 		module_put(this);
-		return -ENOMEM;
+		return res.a0 == SMCCC_RET_SUCCESS ? -ENOMEM : -EPERM;
 	}
+	hyp_va = (void *)res.a1;
 
 	/*
 	 * The token can be used for other calls related to this module.
@@ -818,6 +844,12 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 
 	endrel = (void *)mod->relocs + mod->nr_relocs * sizeof(*endrel);
 	kvm_apply_hyp_module_relocations(start, hyp_va, mod->relocs, endrel);
+
+	/*
+	 * Exclude EL2 module sections from kmemleak before making them
+	 * inaccessible.
+	 */
+	kmemleak_free_part(start, size);
 
 	ret = pkvm_map_module_sections(secs_map + secs_first, hyp_va,
 				       ARRAY_SIZE(secs_map) - secs_first);

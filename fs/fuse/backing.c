@@ -1186,40 +1186,36 @@ int fuse_handle_backing(struct fuse_entry_bpf *feb, struct inode **backing_inode
 int fuse_handle_bpf_prog(struct fuse_entry_bpf *feb, struct inode *parent,
 			 struct bpf_prog **bpf)
 {
-	struct fuse_inode *pi;
-
-	// Parent isn't presented, but we want to keep
-	// Don't touch bpf program at all in this case
-	if (feb->out.bpf_action == FUSE_ACTION_KEEP && !parent)
-		goto out;
-
-	if (*bpf) {
-		bpf_prog_put(*bpf);
-		*bpf = NULL;
-	}
+	struct bpf_prog *new_bpf = NULL;
 
 	switch (feb->out.bpf_action) {
-	case FUSE_ACTION_KEEP:
-		pi = get_fuse_inode(parent);
-		*bpf = pi->bpf;
-		if (*bpf)
-			bpf_prog_inc(*bpf);
+	case FUSE_ACTION_KEEP: {
+		/* Parent isn't presented, but we want to keep
+		 * Don't touch bpf program at all in this case
+		 */
+		if (!parent)
+			return 0;
+
+		new_bpf = get_fuse_inode(parent)->bpf;
+		if (new_bpf)
+			bpf_prog_inc(new_bpf);
 		break;
+	}
 
 	case FUSE_ACTION_REMOVE:
 		break;
 
 	case FUSE_ACTION_REPLACE: {
 		struct file *bpf_file = feb->bpf_file;
-		struct bpf_prog *bpf_prog = ERR_PTR(-EINVAL);
 
-		if (bpf_file && !IS_ERR(bpf_file))
-			bpf_prog = fuse_get_bpf_prog(bpf_file);
+		if (!bpf_file)
+			return -EINVAL;
+		if (IS_ERR(bpf_file))
+			return PTR_ERR(bpf_file);
 
-		if (IS_ERR(bpf_prog))
-			return PTR_ERR(bpf_prog);
-
-		*bpf = bpf_prog;
+		new_bpf = fuse_get_bpf_prog(bpf_file);
+		if (IS_ERR(new_bpf))
+			return PTR_ERR(new_bpf);
 		break;
 	}
 
@@ -1227,7 +1223,16 @@ int fuse_handle_bpf_prog(struct fuse_entry_bpf *feb, struct inode *parent,
 		return -EINVAL;
 	}
 
-out:
+	/* Cannot change existing program */
+	if (*bpf && new_bpf) {
+		bpf_prog_put(new_bpf);
+		return new_bpf == *bpf ? 0 : -EINVAL;
+	}
+
+	if (*bpf)
+		bpf_prog_put(*bpf);
+
+	*bpf = new_bpf;
 	return 0;
 }
 

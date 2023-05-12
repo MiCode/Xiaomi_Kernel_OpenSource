@@ -90,3 +90,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sched_pelt_multiplier);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_do_fork);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_do_exit);
 #endif
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_map_util_freq);

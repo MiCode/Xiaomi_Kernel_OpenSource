@@ -48,7 +48,7 @@ static void timer_of_irq_exit(struct of_timer_irq *of_irq)
  * Returns 0 on success, < 0 otherwise
  */
 static int timer_of_irq_init(struct device_node *np,
-				    struct of_timer_irq *of_irq)
+			     struct of_timer_irq *of_irq)
 {
 	int ret;
 	struct timer_of *to = container_of(of_irq, struct timer_of, of_irq);
@@ -108,7 +108,7 @@ static void timer_of_clk_exit(struct of_timer_clk *of_clk)
  * Returns 0 on success, < 0 otherwise
  */
 static int timer_of_clk_init(struct device_node *np,
-				    struct of_timer_clk *of_clk)
+			     struct of_timer_clk *of_clk)
 {
 	int ret;
 
@@ -152,7 +152,7 @@ static void timer_of_base_exit(struct of_timer_base *of_base)
 }
 
 static int timer_of_base_init(struct device_node *np,
-				     struct of_timer_base *of_base)
+			      struct of_timer_base *of_base)
 {
 	of_base->base = of_base->name ?
 		of_io_request_and_map(np, of_base->index, of_base->name) :

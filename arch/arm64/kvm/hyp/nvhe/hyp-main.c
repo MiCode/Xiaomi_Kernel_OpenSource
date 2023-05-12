@@ -30,14 +30,6 @@
 
 #include "../../sys_regs.h"
 
-/*
- * Host FPSIMD state. Written to when the guest accesses its own FPSIMD state,
- * and read when the guest state is live and we need to switch back to the host.
- *
- * Only valid when (fp_state == FP_STATE_GUEST_OWNED) in the hyp vCPU structure.
- */
-static DEFINE_PER_CPU(struct user_fpsimd_state, loaded_host_fpsimd_state);
-
 DEFINE_PER_CPU(struct kvm_nvhe_init_params, kvm_init_params);
 
 void __kvm_hyp_host_forward_smc(struct kvm_cpu_context *host_ctxt);
@@ -687,16 +679,24 @@ static void fpsimd_host_restore(void)
 
 	if (unlikely(is_protected_kvm_enabled())) {
 		struct pkvm_hyp_vcpu *hyp_vcpu = pkvm_get_loaded_hyp_vcpu();
-		struct user_fpsimd_state *host_fpsimd_state;
+		struct kvm_vcpu *vcpu = &hyp_vcpu->vcpu;
 
-		host_fpsimd_state = this_cpu_ptr(&loaded_host_fpsimd_state);
-
-		if (vcpu_has_sve(&hyp_vcpu->vcpu))
+		if (vcpu_has_sve(vcpu))
 			__hyp_sve_save_guest(hyp_vcpu);
 		else
 			__fpsimd_save_state(&hyp_vcpu->vcpu.arch.ctxt.fp_regs);
 
-		__fpsimd_restore_state(host_fpsimd_state);
+		if (system_supports_sve()) {
+			struct kvm_host_sve_state *sve_state = get_host_sve_state(vcpu);
+
+			write_sysreg_el1(sve_state->zcr_el1, SYS_ZCR);
+			pkvm_set_max_sve_vq();
+			__sve_restore_state(sve_state->sve_regs +
+					    sve_ffr_offset(kvm_host_sve_max_vl),
+					    &sve_state->fpsr);
+		} else {
+			__fpsimd_restore_state(get_host_fpsimd_state(vcpu));
+		}
 
 		hyp_vcpu->vcpu.arch.fp_state = FP_STATE_HOST_OWNED;
 	}
@@ -733,7 +733,6 @@ static void handle___pkvm_vcpu_load(struct kvm_cpu_context *host_ctxt)
 		*last_ran = hyp_vcpu->vcpu.vcpu_id;
 	}
 
-	hyp_vcpu->vcpu.arch.host_fpsimd_state = this_cpu_ptr(&loaded_host_fpsimd_state);
 	hyp_vcpu->vcpu.arch.fp_state = FP_STATE_HOST_OWNED;
 
 	if (pkvm_hyp_vcpu_is_protected(hyp_vcpu)) {
@@ -1153,12 +1152,11 @@ static void handle___pkvm_iommu_register(struct kvm_cpu_context *host_ctxt)
 	DECLARE_REG(phys_addr_t, dev_pa, host_ctxt, 3);
 	DECLARE_REG(size_t, dev_size, host_ctxt, 4);
 	DECLARE_REG(unsigned long, parent_id, host_ctxt, 5);
-	DECLARE_REG(void *, mem, host_ctxt, 6);
-	DECLARE_REG(size_t, mem_size, host_ctxt, 7);
+	DECLARE_REG(u8, flags, host_ctxt, 6);
+	DECLARE_REG(void *, mem, host_ctxt, 7);
 
 	cpu_reg(host_ctxt, 1) = __pkvm_iommu_register(dev_id, drv_id, dev_pa,
-						      dev_size, parent_id,
-						      mem, mem_size);
+						      dev_size, parent_id, flags, mem);
 }
 
 static void handle___pkvm_iommu_pm_notify(struct kvm_cpu_context *host_ctxt)
@@ -1264,6 +1262,17 @@ static void handle___pkvm_enable_event(struct kvm_cpu_context *host_ctxt)
 	cpu_reg(host_ctxt, 1) = __pkvm_enable_event(id, enable);
 }
 
+#ifdef CONFIG_ANDROID_ARM64_WORKAROUND_DMA_BEYOND_POC
+extern int __pkvm_host_set_stage2_memattr(phys_addr_t phys, bool force_nc);
+static void handle___pkvm_host_set_stage2_memattr(struct kvm_cpu_context *host_ctxt)
+{
+	DECLARE_REG(phys_addr_t, phys, host_ctxt, 1);
+	DECLARE_REG(bool, force_nc, host_ctxt, 2);
+
+	cpu_reg(host_ctxt, 1) = __pkvm_host_set_stage2_memattr(phys, force_nc);
+}
+#endif
+
 typedef void (*hcall_t)(struct kvm_cpu_context *);
 
 #define HANDLE_FUNC(x)	[__KVM_HOST_SMCCC_FUNC_##x] = (hcall_t)handle_##x
@@ -1316,6 +1325,9 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__pkvm_rb_swap_reader_page),
 	HANDLE_FUNC(__pkvm_rb_update_footers),
 	HANDLE_FUNC(__pkvm_enable_event),
+#ifdef CONFIG_ANDROID_ARM64_WORKAROUND_DMA_BEYOND_POC
+	HANDLE_FUNC(__pkvm_host_set_stage2_memattr),
+#endif
 };
 
 unsigned long pkvm_priv_hcall_limit __ro_after_init = __KVM_HOST_SMCCC_FUNC___pkvm_prot_finalize;
@@ -1328,7 +1340,7 @@ int reset_pkvm_priv_hcall_limit(void)
 		return -EACCES;
 
 	addr = hyp_fixmap_map(__hyp_pa(&pkvm_priv_hcall_limit));
-	*addr = KVM_HOST_SMCCC_FUNC(__pkvm_prot_finalize);
+	*addr = __KVM_HOST_SMCCC_FUNC___pkvm_prot_finalize;
 	hyp_fixmap_unmap();
 
 	return 0;
