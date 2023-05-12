@@ -1269,6 +1269,11 @@ config QTI_HW_KEY_MANAGER
 	 HWKM hardware to perform key operations from the kernel which will
 	 be used for storage encryption.
 
+config SERIAL_NUM
+	bool "Enable Serial Number Proc Interface"
+	help
+	Provide a interface for reading CPU serial number
+
 config QCOM_RTIC
 	bool "Enable Qualcomm Technologies, Inc. RTIC feature"
 	depends on QGKI

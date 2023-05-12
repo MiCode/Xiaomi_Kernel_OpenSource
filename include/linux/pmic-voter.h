@@ -3,12 +3,48 @@
  * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
  */
 
-#ifndef __PMIC_VOTER_H
-#define __PMIC_VOTER_H
+#ifndef __THUN_CHARGER_VOTER_H
+#define __THUN_CHARGER_VOTER_H
 
 #include <linux/mutex.h>
+#include <linux/debugfs.h>
+#include <linux/spinlock.h>
+#include <linux/bitops.h>
+#include <linux/slab.h>
+#include <linux/string.h>
 
-struct votable;
+#define NUM_MAX_CLIENTS		32
+
+struct client_vote {
+	bool	enabled;
+	int	value;
+};
+
+struct votable {
+	const char		*name;
+	const char		*override_client;
+	struct list_head	list;
+	struct client_vote	votes[NUM_MAX_CLIENTS];
+	int			num_clients;
+	int			type;
+	int			effective_client_id;
+	int			effective_result;
+	int			override_result;
+	struct mutex		vote_lock;
+	void			*data;
+	int			(*callback)(struct votable *votable,
+						void *data,
+						int effective_result,
+						const char *effective_client);
+	char			*client_strs[NUM_MAX_CLIENTS];
+	bool			voted_on;
+	struct dentry		*root;
+	struct dentry		*status_ent;
+	u32			force_val;
+	struct dentry		*force_val_ent;
+	bool			force_active;
+	struct dentry		*force_active_ent;
+};
 
 enum votable_type {
 	VOTE_MIN,

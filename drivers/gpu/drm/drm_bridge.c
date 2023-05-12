@@ -273,10 +273,14 @@ void drm_bridge_post_disable(struct drm_bridge *bridge)
 {
 	if (!bridge)
 		return;
-
+#ifdef CONFIG_BUILD_QGKI
+	mutex_lock(&bridge->lock);
+#endif
 	if (bridge->funcs->post_disable)
 		bridge->funcs->post_disable(bridge);
-
+#ifdef CONFIG_BUILD_QGKI
+	mutex_unlock(&bridge->lock);
+#endif
 	drm_bridge_post_disable(bridge->next);
 }
 EXPORT_SYMBOL(drm_bridge_post_disable);
@@ -324,11 +328,63 @@ void drm_bridge_pre_enable(struct drm_bridge *bridge)
 		return;
 
 	drm_bridge_pre_enable(bridge->next);
-
+#ifdef CONFIG_BUILD_QGKI
+	mutex_lock(&bridge->lock);
+#endif
 	if (bridge->funcs->pre_enable)
 		bridge->funcs->pre_enable(bridge);
+#ifdef CONFIG_BUILD_QGKI
+	mutex_unlock(&bridge->lock);
+#endif
 }
 EXPORT_SYMBOL(drm_bridge_pre_enable);
+
+/* BSP.LCM - 2022.06.08 - modify for LCM disp_param */
+#ifdef CONFIG_BUILD_QGKI
+void drm_bridge_disp_param_set(struct drm_bridge *bridge, int cmd)
+{
+	if (!bridge)
+		return;
+
+	drm_bridge_disp_param_set(bridge->next, cmd);
+
+	if (bridge->funcs->disp_param_set)
+		bridge->funcs->disp_param_set(bridge, cmd);
+}
+EXPORT_SYMBOL(drm_bridge_disp_param_set);
+
+int drm_bridge_disp_param_get(struct drm_bridge *bridge, char *buf)
+{
+	int rc = 0;
+
+	if (!bridge || !buf)
+	return rc;
+
+	drm_bridge_disp_param_get(bridge->next, buf);
+
+	if (bridge->funcs->disp_param_get)
+		return bridge->funcs->disp_param_get(bridge, buf);
+
+	return rc;
+}
+EXPORT_SYMBOL(drm_bridge_disp_param_get);
+/* end modify*/
+
+/*M17-LCM-20220603-add /sys/class/drm/card0-DSI-1/panel_info*/
+int drm_get_panel_info(struct drm_bridge *bridge, char *buf)
+{
+	int rc = 0;
+	if (!bridge)
+		return rc;
+
+	if (bridge->funcs->disp_get_panel_info)
+		return bridge->funcs->disp_get_panel_info(bridge, buf);
+
+	return rc;
+}
+EXPORT_SYMBOL(drm_get_panel_info);
+#endif
+/*M17-LCM-END-20220603*/
 
 /**
  * drm_bridge_enable - enables all bridges in the encoder chain

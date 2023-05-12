@@ -34,6 +34,14 @@
   __kfifo_from_user
   snd_soc_bytes_info_ext
 
+# required by exfat.ko
+  truncate_setsize
+  setattr_prepare
+  clear_nlink
+  set_nlink
+  d_splice_alias
+  igrab
+
 # required by aw8697.ko
   devm_gpio_free
 
@@ -107,3 +115,20 @@
 
 # required by incrementalfs.ko
   revert_creds
+
+# required by cifs.ko
+  kstrtobool_from_user
+  power_supply_register
+  power_supply_unregister
+  i2c_smbus_write_word_data
+  i2c_smbus_read_word_data
+  class_for_each_device
+  device_set_of_node_from_dev
+  gpiod_put
+  gpiod_get
+  orderly_poweroff
+  create_votable
+  vote
+  destroy_votable
+  typec_partner_set_identity
+  devm_iio_device_free

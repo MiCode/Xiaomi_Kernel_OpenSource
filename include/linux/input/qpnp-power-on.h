@@ -55,6 +55,10 @@ enum pon_restart_reason {
 	PON_RESTART_REASON_DMVERITY_CORRUPTED	= 0x04,
 	PON_RESTART_REASON_DMVERITY_ENFORCE	= 0x05,
 	PON_RESTART_REASON_KEYS_CLEAR		= 0x06,
+#ifdef CONFIG_HQ_QGKI
+	PON_RESTART_REASON_NORMAL		= 0x20,
+	PON_RESTART_REASON_PANIC		= 0x21,
+#endif
 };
 
 #if IS_ENABLED(CONFIG_INPUT_QPNP_POWER_ON)
@@ -65,7 +69,10 @@ int qpnp_pon_wd_config(bool enable);
 int qpnp_pon_set_restart_reason(enum pon_restart_reason reason);
 bool qpnp_pon_check_hard_reset_stored(void);
 int qpnp_pon_modem_pwr_off(enum pon_power_off_type type);
-
+#ifdef CONFIG_HQ_QGKI
+int qpnp_pon_is_lpk(void);
+int qpnp_pon_is_ps_hold_reset(void);
+#endif
 #else
 
 static int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
@@ -103,7 +110,15 @@ static inline int qpnp_pon_modem_pwr_off(enum pon_power_off_type type)
 {
 	return -ENODEV;
 }
-
+#ifdef CONFIG_HQ_QGKI
+static inline int qpnp_pon_is_lpk(void)
+{
+	return -ENODEV;
+}
+static inline int qpnp_pon_is_ps_hold_reset(void)
+{
+	return -ENODEV;
+}
 #endif
-
+#endif
 #endif

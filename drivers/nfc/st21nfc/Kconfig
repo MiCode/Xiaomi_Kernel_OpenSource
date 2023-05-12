@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config ST21NFC
+        tristate "ST Microelectronics ST21NFC/ST54 NFC Controller Driver"
+        depends on I2C
+        help
+        ST Microelectronics ST21NFC Near Field Communication controller support.

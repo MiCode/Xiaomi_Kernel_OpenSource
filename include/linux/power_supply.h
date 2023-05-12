@@ -194,6 +194,9 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_HVDCP_3,		/* Efficient High Voltage DCP */
 	POWER_SUPPLY_TYPE_USB_HVDCP_3P5,	/* Efficient High Voltage DCP */
 	POWER_SUPPLY_TYPE_USB_FLOAT,		/* Floating charger */
+	#ifdef CONFIG_BUILD_QGKI
+	POWER_SUPPLY_TYPE_BATT_VERIFY,
+	#endif
 };
 
 enum power_supply_usb_type {

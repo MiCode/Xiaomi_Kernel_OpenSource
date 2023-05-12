@@ -65,3 +65,7 @@ qseecom-mod-$(CONFIG_COMPAT)	+= compat_qseecom.o
 obj-$(CONFIG_PROFILER)			+= profiler.o
 obj-$(CONFIG_WIGIG_SENSING_SPI)	+= wigig_sensing.o
 obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
+obj-$(CONFIG_LDO_WL2866D)	+= wl2866d.o
+obj-$(CONFIG_HQ_SYSFS_SUPPORT) 	+= hqsysfs/
+obj-$(CONFIG_MI_FS)		+= xiaomi_fs/
+obj-$(CONFIG_SIMTRAY_STATUS)    += simtray.o

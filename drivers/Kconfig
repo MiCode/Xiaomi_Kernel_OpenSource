@@ -230,4 +230,9 @@ source "drivers/interconnect/Kconfig"
 
 source "drivers/counter/Kconfig"
 
+source "drivers/nfc/st21nfc/Kconfig"
+
+# BSP.AUDIO -2022.06.09- add headphone state node
+source "drivers/switch/Kconfig"
+# end modify
 endmenu

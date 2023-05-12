@@ -131,6 +131,7 @@
 #define GENERATE_ENUM(e)	e
 #define GENERATE_STRING(s)	#s
 
+extern int typec_partner_set_identity(struct typec_partner *partner);
 enum tcpm_state {
 	FOREACH_STATE(GENERATE_ENUM)
 };

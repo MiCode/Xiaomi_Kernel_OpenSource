@@ -1,0 +1,6 @@
+config MI_FS
+  bool "Enable Mi fs Driver"
+  default n
+  help
+    MI fs information driver includes specific information about hardware info
+

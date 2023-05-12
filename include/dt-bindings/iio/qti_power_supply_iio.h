@@ -154,4 +154,9 @@
 
 /* BMS */
 #define PSY_IIO_CLEAR_SOH			0x7c
+#define PSY_IIO_OTG_ENABLE			0x7d
+#define PSY_IIO_BOARD_TEMP			0x7e
+/*Charge PUMP*/
+#define PSY_IIO_APDO_MAX_VOLT       0x7f
+#define PSY_IIO_APDO_MAX_CURR       0x80
 #endif /* __QTI_POWER_SUPPLY_IIO_H__ */

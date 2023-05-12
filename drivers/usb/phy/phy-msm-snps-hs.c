@@ -619,7 +619,7 @@ static enum usb_charger_type usb_phy_drive_dp_pulse(struct usb_phy *uphy)
 	return 0;
 }
 
-static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
+int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
 {
 	int ret = 0;
 	struct msm_hsphy *phy = rdev_get_drvdata(rdev);
@@ -663,8 +663,9 @@ static int msm_hsphy_dpdm_regulator_enable(struct regulator_dev *rdev)
 
 	return ret;
 }
+EXPORT_SYMBOL(msm_hsphy_dpdm_regulator_enable);
 
-static int msm_hsphy_dpdm_regulator_disable(struct regulator_dev *rdev)
+int msm_hsphy_dpdm_regulator_disable(struct regulator_dev *rdev)
 {
 	int ret = 0;
 	struct msm_hsphy *phy = rdev_get_drvdata(rdev);
@@ -688,6 +689,7 @@ static int msm_hsphy_dpdm_regulator_disable(struct regulator_dev *rdev)
 
 	return ret;
 }
+EXPORT_SYMBOL(msm_hsphy_dpdm_regulator_disable);
 
 static int msm_hsphy_dpdm_regulator_is_enabled(struct regulator_dev *rdev)
 {

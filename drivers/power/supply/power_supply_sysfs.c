@@ -272,7 +272,7 @@ static ssize_t power_supply_show_property(struct device *dev,
 	enum power_supply_property psp = dev_attr_psp(attr);
 	union power_supply_propval value;
 
-	if (psp == POWER_SUPPLY_PROP_TYPE) {
+	if ((psp == POWER_SUPPLY_PROP_TYPE) && (strcmp(psy->desc->name, "usb") != 0)) {
 		value.intval = psy->desc->type;
 	} else {
 		ret = power_supply_get_property(psy, psp, &value);

@@ -58,6 +58,9 @@ struct erofs_sb_info {
 	/* threshold for decompression synchronously */
 	unsigned int max_sync_decompress_pages;
 
+	/* strategy of sync decompression (false - auto, true - force on) */
+	bool readahead_sync_decompress;
+
 	unsigned int shrinker_run_no;
 
 	/* current strategy of how to use managed cache */

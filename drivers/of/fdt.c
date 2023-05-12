@@ -851,7 +851,24 @@ const void * __init of_flat_dt_match_machine(const void *default_match,
 
 	return best_data;
 }
+#ifdef CONFIG_HQ_QGKI
+void __init early_init_dt_check_for_powerup_reason(unsigned long node)
+{
+	unsigned long pu_reason;
+	int len;
+	const __be32 *prop;
 
+	pr_debug("Looking for powerup reason properties...\n");
+
+	prop = of_get_flat_dt_prop(node, "pureason", &len);
+	if (!prop)
+		return;
+	pu_reason = of_read_ulong(prop, len/4);
+	early_init_dt_setup_pureason_arch(pu_reason);
+
+	pr_debug("Powerup reason %d\n", (int)pu_reason);
+}
+#endif
 #ifdef CONFIG_BLK_DEV_INITRD
 static void __early_init_dt_declare_initrd(unsigned long start,
 					   unsigned long end)
@@ -1115,7 +1132,9 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 		of_fdt_crc32 = crc32_be(~0, initial_boot_params,
 				fdt_totalsize(initial_boot_params));
 	}
-
+	#ifdef CONFIG_HQ_QGKI
+    early_init_dt_check_for_powerup_reason(node);
+    #endif
 	/* break now */
 	return 1;
 }

@@ -32,7 +32,9 @@
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
 #include <asm/sections.h>
-
+#ifdef CONFIG_HQ_QGKI
+#include <linux/input/qpnp-power-on.h>
+#endif
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
@@ -213,6 +215,10 @@ void panic(const char *fmt, ...)
 		buf[len - 1] = '\0';
 
 	pr_emerg("Kernel panic - not syncing: %s\n", buf);
+#ifdef CONFIG_HQ_QGKI
+	qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
+	qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+#endif
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*
 	 * Avoid nested stack-dumping if a panic occurs during oops processing

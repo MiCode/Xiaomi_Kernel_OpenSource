@@ -113,4 +113,9 @@ enum power_supply_typec_power_role {
 	QTI_POWER_SUPPLY_TYPEC_PR_SOURCE,
 };
 
+struct quick_charge {
+	enum power_supply_type adap_type;
+	enum power_supply_quick_charge_type adap_cap;
+};
+
 #endif /* __QTI_POWER_SUPPLY_H_ */

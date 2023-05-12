@@ -1018,6 +1018,13 @@ KBUILD_CPPFLAGS += $(KCPPFLAGS)
 KBUILD_AFLAGS   += $(KAFLAGS)
 KBUILD_CFLAGS   += $(KCFLAGS)
 
+# =============BSP.SYS add for miui root debugfs========
+ifeq ($(CONFIG_DEBUG_FS) , y)
+$(warning ###enable user root open debug_fs###)
+KBUILD_CFLAGS += -DCONFIG_DEBUG_FS
+endif
+# =============BSP.SYS add for miui root debugfs========
+
 KBUILD_LDFLAGS_MODULE += --build-id
 LDFLAGS_vmlinux += --build-id
 

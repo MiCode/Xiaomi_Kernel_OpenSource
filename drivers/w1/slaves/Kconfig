@@ -159,4 +159,10 @@ config W1_SLAVE_DS28E17
 
 	  If you are unsure, say N.
 
+config W1_SLAVE_SLG
+	tristate "SLG Battery Authentication 0xAC family support"
+	help
+	  Say Y here if you want to use a 1-wire
+	  SLG Battery Authentication device support
+
 endmenu

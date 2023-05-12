@@ -812,6 +812,11 @@
 #define SW_MUTE_DEVICE		0x0e  /* set = device disabled */
 #define SW_PEN_INSERTED		0x0f  /* set = pen inserted */
 #define SW_MACHINE_COVER	0x10  /* set = cover closed */
+/* BSP.AUDIO - 2022.07.14 -  add for 3.5mm to typec */
+#define SW_DUMP_UNUSE_1   	0x11
+#define SW_DUMP_UNUSE_2   	0x12
+#define SW_UNSUPPORT_INSERT	0x13  /* set = unsupported device inserted */
+/* end modify*/
 #define SW_MAX			0x3f
 #define SW_CNT			(SW_MAX+1)
 

@@ -1,0 +1,1 @@
+obj-$(CONFIG_VIRTUALSAR) 		+= virtualsar_driver.o

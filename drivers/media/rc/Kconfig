@@ -14,6 +14,16 @@ menuconfig RC_CORE
 
 	  Say Y when you have a TV or an IR device.
 
+config IR_SPI
+	tristate "SPI connected IR LED"
+	#depends on SPI && LIRC
+	#depends on OF || COMPILE_TEST
+	help
+	  Say Y if you want to use an IR LED connected through SPI bus.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ir-spi.
+
 if RC_CORE
 source "drivers/media/rc/keymaps/Kconfig"
 
@@ -307,16 +317,6 @@ config IR_REDRAT3
 
 	   To compile this driver as a module, choose M here: the
 	   module will be called redrat3.
-
-config IR_SPI
-	tristate "SPI connected IR LED"
-	depends on SPI && LIRC
-	depends on OF || COMPILE_TEST
-	help
-	  Say Y if you want to use an IR LED connected through SPI bus.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called ir-spi.
 
 config IR_STREAMZAP
 	tristate "Streamzap PC Remote IR Receiver"

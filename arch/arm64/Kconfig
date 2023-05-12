@@ -1723,6 +1723,12 @@ config CMDLINE_EXTEND
 	  The command-line arguments provided by the boot loader will be
 	  appended to the default kernel command string.
 
+config BUILD_QGKI
+	bool "Is QGKI build"
+	default n
+	help
+	  make the driver ko in GKI build mode but normal in QGKI build.
+
 config CMDLINE_FORCE
 	bool "Always use the default kernel command string"
 	help
@@ -1792,6 +1798,19 @@ config BUILD_ARM64_UNCOMPRESSED_KERNEL
 	  image may improve performance in
 	  certain situations.
 endchoice
+
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default y
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
+
+config HQ_QGKI
+	bool "Is QGKI build"
+	default n
+	help
+	  make the driver ko in GKI build mode but normal in QGKI build.
 
 config BUILD_ARM64_DT_OVERLAY
 	bool "enable DT overlay compilation support"

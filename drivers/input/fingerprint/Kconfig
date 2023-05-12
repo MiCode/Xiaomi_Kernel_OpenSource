@@ -1,0 +1,12 @@
+#
+# FingerprintCard fingerprint driver
+#
+menu "FingerprintCard fingerprint driver"
+config INPUT_FINGERPRINT
+       tristate "support driver fingerprint"
+       default n
+       help
+	fingerprint  device.
+source "drivers/input/fingerprint/fpc/Kconfig"
+source "drivers/input/fingerprint/goodix/Kconfig"
+endmenu

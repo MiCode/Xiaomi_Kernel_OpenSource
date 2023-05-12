@@ -59,7 +59,8 @@ enum snd_jack_types {
 };
 
 /* Keep in sync with definitions above */
-#define SND_JACK_SWITCH_TYPES 6
+#define SND_JACK_SWITCH_TYPES 9
+extern int get_usb_typec_mode(void);
 
 struct snd_jack {
 	struct list_head kctl_list;

@@ -1,6 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2004 Evgeniy Polyakov <zbr@ioremap.net>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  */
 
 #include <linux/delay.h>
@@ -25,6 +34,18 @@
 #include "w1_netlink.h"
 
 #define W1_FAMILY_DEFAULT	0
+
+#undef dev_dbg
+#define dev_dbg(dev, format, arg...)		\
+	dev_printk(KERN_DEBUG, dev, format, ##arg)
+
+#undef dev_err
+#define dev_err(dev, format, arg...)		\
+	dev_printk(KERN_ERR, dev, format, ##arg)
+
+#undef dev_info
+#define dev_info(dev, format, arg...)		\
+	dev_printk(KERN_DEBUG, dev, format, ##arg)
 
 static int w1_timeout = 10;
 module_param_named(timeout, w1_timeout, int, 0);
@@ -918,6 +939,7 @@ void w1_slave_found(struct w1_master *dev, u64 rn)
 	struct w1_slave *sl;
 	struct w1_reg_num *tmp;
 	u64 rn_le = cpu_to_le64(rn);
+    u8 id[8];
 
 	atomic_inc(&dev->refcnt);
 
@@ -932,6 +954,18 @@ void w1_slave_found(struct w1_master *dev, u64 rn)
 	}
 
 	atomic_dec(&dev->refcnt);
+
+	printk("w1_slave_found family id:%02X crc:%02X, id:%lX\n", tmp->family, tmp->crc, tmp->id);
+
+	memcpy(id, (u8 *)&rn_le, 8);
+	printk("w1 rn_le id:%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n", 
+			id[0], id[1], id[2], id[3], id[4], id[5], id[6], id[7]);
+
+	memcpy(id, (u8 *)&rn, 8);
+	printk("w1 id:%02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n", 
+			id[0], id[1], id[2], id[3], id[4], id[5], id[6], id[7]);
+			
+	printk("w1 crc = %02X, calc = %02X\n", tmp->crc, w1_calc_crc8((u8 *)&rn_le, 7));
 }
 
 /**
@@ -1013,7 +1047,10 @@ void w1_search(struct w1_master *dev, u8 search_type, w1_slave_found_callback cb
 
 			/* quit if no device responded */
 			if ( (triplet_ret & 0x03) == 0x03 )
+			{
+				printk("w1_triplet ret=%d, count=%d\n", triplet_ret, i);
 				break;
+			}
 
 			/* If both directions were valid, and we took the 0 path... */
 			if (triplet_ret == 0)
@@ -1057,6 +1094,8 @@ void w1_search(struct w1_master *dev, u8 search_type, w1_slave_found_callback cb
 			set_bit(W1_WARN_MAX_COUNT, &dev->flags);
 		}
 	}
+
+	printk("w1 last_device=%d slave_count=%d\n", last_device, slave_count);
 }
 
 void w1_search_process_cb(struct w1_master *dev, u8 search_type,

@@ -21,37 +21,6 @@ static LIST_HEAD(votable_list);
 
 static struct dentry *debug_root;
 
-struct client_vote {
-	bool	enabled;
-	int	value;
-};
-
-struct votable {
-	const char		*name;
-	const char		*override_client;
-	struct list_head	list;
-	struct client_vote	votes[NUM_MAX_CLIENTS];
-	int			num_clients;
-	int			type;
-	int			effective_client_id;
-	int			effective_result;
-	int			override_result;
-	struct mutex		vote_lock;
-	void			*data;
-	int			(*callback)(struct votable *votable,
-						void *data,
-						int effective_result,
-						const char *effective_client);
-	char			*client_strs[NUM_MAX_CLIENTS];
-	bool			voted_on;
-	struct dentry		*root;
-	struct dentry		*status_ent;
-	u32			force_val;
-	struct dentry		*force_val_ent;
-	bool			force_active;
-	struct dentry		*force_active_ent;
-};
-
 /**
  * vote_set_any()
  * @votable:	votable object
@@ -482,15 +451,18 @@ int vote(struct votable *votable, const char *client_str, bool enabled, int val)
 			|| (effective_result != votable->effective_result)) {
 		votable->effective_client_id = effective_id;
 		votable->effective_result = effective_result;
-		pr_debug("%s: effective vote is now %d voted by %s,%d\n",
+		pr_err("%s: effective vote is now %d voted by %s,%d\n",
 			votable->name, effective_result,
 			get_client_str(votable, effective_id),
 			effective_id);
 		if (votable->callback && !votable->force_active
-				&& (votable->override_result == -EINVAL))
-			rc = votable->callback(votable, votable->data,
-					effective_result,
-					get_client_str(votable, effective_id));
+				&& (votable->override_result == -EINVAL)) {
+				rc = votable->callback(votable, votable->data,
+						effective_result,
+						get_client_str(votable, effective_id));
+				pr_err("[%s]line = %d:vote \n", __FUNCTION__, __LINE__);
+		}
+
 	}
 
 	votable->voted_on = true;

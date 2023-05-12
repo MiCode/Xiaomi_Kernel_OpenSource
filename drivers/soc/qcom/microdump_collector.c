@@ -10,6 +10,13 @@
 #include <soc/qcom/ramdump.h>
 #include <linux/soc/qcom/smem.h>
 
+/* HQ-208762, xionghaifeng, 20220712, add for modem crash history begin */
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
+
+#define MAX_SSR_REASON_LEN	130U
+/* HQ-208762, xionghaifeng, 20220712, add for modem crash history end */
+
 #define SMEM_SSR_REASON_MSS0	421
 #define SMEM_SSR_DATA_MSS0	611
 #define SMEM_MODEM	1
@@ -20,6 +27,10 @@
  * user space.
  */
 
+/* HQ-208762, xionghaifeng, 20220712, add for modem crash history begin */
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct proc_dir_entry *last_modem_sfr_entry;
+/* HQ-208762, xionghaifeng, 20220712, add for modem crash history end */
 struct microdump_data {
 	struct ramdump_device *microdump_dev;
 	void *microdump_modem_notify_handler;
@@ -66,6 +77,11 @@ static int microdump_modem_notifier_nb(struct notifier_block *nb,
 	segment[1].v_address = (void __iomem *) crash_data;
 	segment[1].size = size_data;
 
+    /* HQ-208762, xionghaifeng, 20220712, add for modem crash history begin */
+    strlcpy(last_modem_sfr_reason, crash_reason, MAX_SSR_REASON_LEN);
+    pr_err("modem subsystem failure reason: %s.\n", last_modem_sfr_reason);
+    /* HQ-208762, xionghaifeng, 20220712, add for modem crash history end */
+
 	ret = do_ramdump(drv->microdump_dev, segment, 2);
 	if (ret)
 		pr_info("%s: do_ramdump() failed\n", __func__);
@@ -100,6 +116,27 @@ static void microdump_modem_ssr_unregister_notifier(struct microdump_data *drv)
 	drv->microdump_modem_notify_handler = NULL;
 }
 
+/* HQ-208762, xionghaifeng, 20220712, add for modem crash history begin */
+static int last_modem_sfr_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", last_modem_sfr_reason);
+	return 0;
+}
+
+static int last_modem_sfr_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, last_modem_sfr_proc_show, NULL);
+}
+
+static const struct file_operations last_modem_sfr_file_ops = {
+	.owner   = THIS_MODULE,
+	.open    = last_modem_sfr_proc_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+/* HQ-208762, xionghaifeng, 20220712, add for modem crash history end */
+
 /*
  * microdump_init() - Registers kernel module for microdump collector
  *
@@ -111,6 +148,12 @@ static void microdump_modem_ssr_unregister_notifier(struct microdump_data *drv)
 static int __init microdump_init(void)
 {
 	int ret = -ENOMEM;
+	/* HQ-208762, xionghaifeng, 20220712, add for modem crash history begin */
+	last_modem_sfr_entry = proc_create("last_mcrash", S_IFREG | S_IRUGO, NULL, &last_modem_sfr_file_ops);
+	if (!last_modem_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
+	/* HQ-208762, xionghaifeng, 20220712, add for modem crash history end */
 
 	drv = kzalloc(sizeof(struct microdump_data), GFP_KERNEL);
 	if (!drv)
@@ -141,6 +184,13 @@ out:
 
 static void __exit microdump_exit(void)
 {
+	/* HQ-208762, xionghaifeng, 20220712, add for modem crash history begin */
+	if (last_modem_sfr_entry) {
+			remove_proc_entry("last_mcrash", NULL);
+			last_modem_sfr_entry = NULL;
+	}
+	/* HQ-208762, xionghaifeng, 20220712, add for modem crash history end */
+
 	microdump_modem_ssr_unregister_notifier(drv);
 	destroy_ramdump_device(drv->microdump_dev);
 	kfree(drv);

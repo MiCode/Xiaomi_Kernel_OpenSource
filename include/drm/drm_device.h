@@ -299,7 +299,10 @@ struct drm_device {
 	 * &vga_switcheroo_client_ops.set_gpu_state callback
 	 */
 	enum switch_power_state switch_power_state;
-
+#ifdef CONFIG_BUILD_QGKI
+	int doze_state;
+	int pre_state;
+#endif
 	/**
 	 * @fb_helper:
 	 *

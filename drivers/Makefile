@@ -186,3 +186,6 @@ obj-$(CONFIG_SIOX)		+= siox/
 obj-$(CONFIG_GNSS)		+= gnss/
 obj-$(CONFIG_INTERCONNECT)	+= interconnect/
 obj-$(CONFIG_COUNTER)		+= counter/
+# BSP.AUDIO - 2022.06.09 - add headphone state node
+obj-$(CONFIG_SWITCH)            += switch/
+# end modify

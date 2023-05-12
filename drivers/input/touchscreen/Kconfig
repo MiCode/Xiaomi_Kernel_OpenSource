@@ -1333,4 +1333,10 @@ source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 
 source "drivers/input/touchscreen/nt36xxx/Kconfig"
 
+source "drivers/input/touchscreen/FT3519T/Kconfig"
+
+#BSP.TP - 2022.6.24 - Add for palm senser - Start Modify
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+#End Modify
+
 endif

@@ -11,6 +11,19 @@
 
 #include "w1_internal.h"
 
+#define WRITE_ONE_OUTPUT_L              (100L)
+#define WRITE_ONE_OUTPUT_H              16
+
+#define WRITE_ZERO_OUTPUT_L             (8500L)
+#define WRITE_ZERO_OUTPUT_H             (4500L)
+
+#define READ_BIT_OUTPUT_L               (100L)
+#define READ_BIT_OUTPUT_H               (2000L)
+#define READ_BIT_END                    11
+
+#define W1_BUS_RESET_DELAY              (70)
+#define W1_BUS_RESET_COUNT              3
+
 static int w1_delay_parm = 1;
 module_param_named(delay_coef, w1_delay_parm, int, 0);
 
@@ -72,22 +85,39 @@ EXPORT_SYMBOL_GPL(w1_touch_bit);
 static void w1_write_bit(struct w1_master *dev, int bit)
 {
 	unsigned long flags = 0;
+	u64 t;
 
-	if(w1_disable_irqs) local_irq_save(flags);
+	local_irq_save(flags);
 
 	if (bit) {
 		dev->bus_master->write_bit(dev->bus_master->data, 0);
-		w1_delay(6);
+
+		t = ktime_get_ns();
+		t += WRITE_ONE_OUTPUT_L;
+		while (ktime_get_ns() < t);
+
 		dev->bus_master->write_bit(dev->bus_master->data, 1);
-		w1_delay(64);
+
+		local_irq_restore(flags);
+
+		udelay(WRITE_ONE_OUTPUT_H);
 	} else {
 		dev->bus_master->write_bit(dev->bus_master->data, 0);
-		w1_delay(60);
-		dev->bus_master->write_bit(dev->bus_master->data, 1);
-		w1_delay(10);
-	}
 
-	if(w1_disable_irqs) local_irq_restore(flags);
+		//keep to low
+		t = ktime_get_ns();
+		t += WRITE_ZERO_OUTPUT_L;
+		while (ktime_get_ns() < t);
+
+		dev->bus_master->write_bit(dev->bus_master->data, 1);
+
+		local_irq_restore(flags);
+
+		//delay
+		t = ktime_get_ns();
+		t += WRITE_ZERO_OUTPUT_H;
+		while (ktime_get_ns() < t);
+	}
 }
 
 /**
@@ -160,18 +190,28 @@ static u8 w1_read_bit(struct w1_master *dev)
 {
 	int result;
 	unsigned long flags = 0;
+	u64 t;
 
 	/* sample timing is critical here */
 	local_irq_save(flags);
+
 	dev->bus_master->write_bit(dev->bus_master->data, 0);
-	w1_delay(6);
+
+	t = ktime_get_ns();
+	t += READ_BIT_OUTPUT_L;
+	while (ktime_get_ns() < t);
+
 	dev->bus_master->write_bit(dev->bus_master->data, 1);
-	w1_delay(9);
+
+	t = ktime_get_ns();
+	t += READ_BIT_OUTPUT_H;
+	while (ktime_get_ns() < t);
 
 	result = dev->bus_master->read_bit(dev->bus_master->data);
+
 	local_irq_restore(flags);
 
-	w1_delay(55);
+	udelay(READ_BIT_END);
 
 	return result & 0x1;
 }
@@ -311,42 +351,88 @@ u8 w1_read_block(struct w1_master *dev, u8 *buf, int len)
 EXPORT_SYMBOL_GPL(w1_read_block);
 
 /**
+ * wait_slave_release() - Wait slave release the bus
+ * @dev:	the master device
+ */
+static void wait_slave_release(struct w1_master *dev)
+{
+	int counter;
+	int result;
+
+	for(counter = 0; counter < 200; counter++)
+	{
+		result = dev->bus_master->read_bit(dev->bus_master->data) & 0x1;
+		if(result == 1)
+		{
+			break;
+		}
+		udelay(1);
+	}
+}
+
+/**
  * w1_reset_bus() - Issues a reset bus sequence.
  * @dev:	the master device
  * Return:	0=Device present, 1=No device present or error
  */
 int w1_reset_bus(struct w1_master *dev)
 {
-	int result;
-	unsigned long flags = 0;
+	int result = 1;
+	int counter = 0;
+	int retry = W1_BUS_RESET_COUNT;
+	int poweroff = 0;
 
-	if(w1_disable_irqs) local_irq_save(flags);
+RESET_AGAIN:
 
 	if (dev->bus_master->reset_bus)
 		result = dev->bus_master->reset_bus(dev->bus_master->data) & 0x1;
 	else {
 		dev->bus_master->write_bit(dev->bus_master->data, 0);
-		/* minimum 480, max ? us
-		 * be nice and sleep, except 18b20 spec lists 960us maximum,
-		 * so until we can sleep with microsecond accuracy, spin.
-		 * Feel free to come up with some other way to give up the
-		 * cpu for such a short amount of time AND get it back in
-		 * the maximum amount of time.
-		 */
-		w1_delay(500);
+		//delay 70us for 62.5kbps
+		udelay(W1_BUS_RESET_DELAY);
 		dev->bus_master->write_bit(dev->bus_master->data, 1);
-		w1_delay(70);
 
-		result = dev->bus_master->read_bit(dev->bus_master->data) & 0x1;
-		/* minimum 70 (above) + 430 = 500 us
-		 * There aren't any timing requirements between a reset and
-		 * the following transactions.  Sleeping is safe here.
-		 */
-		/* w1_delay(430); min required time */
-		msleep(1);
+		for(counter = 0; counter < 100; counter++)
+		{
+			result = dev->bus_master->read_bit(dev->bus_master->data) & 0x1;
+			if(result == 0)
+			{
+				break;
+			}
+		}
+		w1_delay(1);
 	}
 
-	if(w1_disable_irqs) local_irq_restore(flags);
+	if(result == 0)
+	{
+		//there is a slave, wait the bus release
+		wait_slave_release(dev);
+	}
+	else
+	{
+		retry--;
+		if(retry > 0)
+		{
+			msleep(2);
+			goto RESET_AGAIN;
+		}
+		else
+		{
+			if(poweroff == 0)
+			{
+				printk("[slg] slg reset failed, poweroff slg and retry again\n");
+				poweroff = 1;
+				dev->bus_master->write_bit(dev->bus_master->data, 0);
+				// delay 30ms let slg poweroff
+				msleep(30);
+				dev->bus_master->write_bit(dev->bus_master->data, 1);
+				// delay 10ms let slg poweron
+				msleep(10);
+				retry = W1_BUS_RESET_COUNT;
+				goto RESET_AGAIN;
+			}
+		}
+	}
 
 	return result;
 }

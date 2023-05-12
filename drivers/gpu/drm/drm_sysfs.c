@@ -25,6 +25,7 @@
 #include <drm/drm_print.h>
 #include <drm/drm_property.h>
 #include <drm/drm_sysfs.h>
+#include <drm/drm_encoder.h>
 
 #include "drm_internal.h"
 #include "drm_crtc_internal.h"
@@ -238,16 +239,237 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+#ifdef CONFIG_BUILD_QGKI
+/*M17-LCM-20220603-add /sys/class/drm/card0-DSI-1/panel_info*/
+extern int drm_get_panel_info(struct drm_bridge *bridge, char *name);
+static ssize_t panel_info_show(struct device *device,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int written = 0;
+	char pname[128] = {0};
+	struct drm_connector *connector = NULL;
+	struct drm_encoder *encoder = NULL;
+	struct drm_bridge *bridge = NULL;
+
+	connector = to_drm_connector(device);
+	if (!connector)
+		return written;
+
+	encoder = connector->encoder;
+	if (!encoder)
+		return written;
+
+	bridge = encoder->bridge;
+	if (!bridge)
+		return written;
+
+	written = drm_get_panel_info(bridge , pname);
+	if (written)
+		return snprintf(buf, PAGE_SIZE, "panel_name=%s\n", pname);
+
+	return written;
+
+}
+/*M17-LCM-END-20220603*/
+
+/* BSP.LCM - 2022.06.08 - modify for LCM disp_param */
+void drm_bridge_disp_param_set(struct drm_bridge *bridge, int cmd);
+static ssize_t disp_param_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	int param;
+	struct drm_connector *connector = NULL;
+	struct drm_encoder *encoder = NULL;
+	struct drm_bridge *bridge = NULL;
+
+	if (!device)
+		return count;
+
+	connector = to_drm_connector(device);
+	if (!connector)
+		return count;
+
+	encoder = connector->encoder;
+	if (!encoder)
+		return count;
+
+	bridge = encoder->bridge;
+	if (!bridge)
+		return count;
+	sscanf(buf, "0x%x", &param);
+
+	drm_bridge_disp_param_set(bridge, param);
+
+	return count;
+}
+
+int drm_bridge_disp_param_get(struct drm_bridge *bridge, char *buf);
+static ssize_t disp_param_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	int rc = 0;
+	char tmpbuf[PAGE_SIZE] = {0};
+	struct drm_connector *connector = NULL;
+	struct drm_encoder *encoder = NULL;
+	struct drm_bridge *bridge = NULL;
+
+	if (!device)
+		return rc;
+
+	connector = to_drm_connector(device);
+	if (!connector)
+		return rc;
+
+	encoder = connector->encoder;
+	if (!encoder)
+		return rc;
+
+	bridge = encoder->bridge;
+	if (!bridge)
+		return rc;
+
+	rc = drm_bridge_disp_param_get(bridge, tmpbuf);
+	if (rc)
+		return snprintf(buf, PAGE_SIZE, "%s\n", tmpbuf);
+
+	return rc;
+}
+/* end modify*/
+
+/* BSP.LCM - 2022.06.22 - modify for LCM add mipi_reg */
+static ssize_t mipi_reg_show(struct device *device,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	return dsi_display_mipi_reg_read(connector, buf);
+}
+
+static ssize_t mipi_reg_store(struct device *device,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	return dsi_display_mipi_reg_write(connector, (char *)buf, count);
+}
+
+/* end modify */
+
+/* BSP.LCM - 2022.07.15 - modify for LCM add hbm */
+static ssize_t hbm_show(struct device *device,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int hbm_status;
+	struct drm_connector *connector = to_drm_connector(device);
+	hbm_status = dsi_display_get_hbm_status(connector);
+	return sprintf(buf, "%u\n", hbm_status);
+}
+
+static ssize_t hbm_store(struct device *device,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int hbm_status;
+	ssize_t ret;
+
+	struct drm_connector *connector = to_drm_connector(device);
+
+	ret = kstrtoint(buf, 0, &hbm_status);
+	if (ret)
+		return ret;
+	ret = dsi_display_set_hbm(connector, hbm_status);
+
+	return ret ? ret : count;
+}
+/* end modify */
+
+/* BSP.LCM - 2022.07.13 - modify for LCM add doze_brightness */
+static ssize_t doze_brightness_show(struct device *device,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int doze_brightness;
+	struct drm_connector *connector = to_drm_connector(device);
+	doze_brightness = dsi_display_get_doze_brightness(connector);
+	return sprintf(buf, "%u\n", doze_brightness);
+}
+
+static ssize_t doze_brightness_store(struct device *device,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int doze_brightness;
+	ssize_t ret;
+
+	struct drm_connector *connector = to_drm_connector(device);
+
+	ret = kstrtoint(buf, 0, &doze_brightness);
+	if (ret)
+		return ret;
+	ret = dsi_display_set_doze_brightness(connector, doze_brightness);
+
+	return ret ? ret : count;
+}
+
+static ssize_t flat_mode_show(struct device *device,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int flat_mode;
+	struct drm_connector *connector = to_drm_connector(device);
+	flat_mode = dsi_display_get_flat_mode(connector);
+	return sprintf(buf, "%u\n", flat_mode);
+}
+
+static ssize_t flat_mode_store(struct device *device,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int flat_mode;
+	ssize_t ret;
+
+	struct drm_connector *connector = to_drm_connector(device);
+
+	ret = kstrtoint(buf, 0, &flat_mode);
+	if (ret)
+		return ret;
+	ret = dsi_display_set_flat_mode(connector, flat_mode);
+
+	return ret ? ret : count;
+}
+/* end modify */
+#endif
+
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
+#ifdef CONFIG_BUILD_QGKI
+static DEVICE_ATTR_RO(panel_info);
+static DEVICE_ATTR_RW(disp_param);
+static DEVICE_ATTR_RW(mipi_reg);
+static DEVICE_ATTR_RW(doze_brightness);
+static DEVICE_ATTR_RW(hbm);
+static DEVICE_ATTR_RW(flat_mode);
+#endif
 
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+#if IS_ENABLED(CONFIG_BUILD_QGKI)
+	&dev_attr_panel_info.attr,
+	&dev_attr_disp_param.attr,
+	&dev_attr_mipi_reg.attr,
+	&dev_attr_doze_brightness.attr,
+	&dev_attr_hbm.attr,
+	&dev_attr_flat_mode.attr,
+#endif
 	NULL
 };
 

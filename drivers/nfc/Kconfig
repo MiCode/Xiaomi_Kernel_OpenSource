@@ -59,6 +59,7 @@ source "drivers/nfc/st-nci/Kconfig"
 source "drivers/nfc/nxp-nci/Kconfig"
 source "drivers/nfc/s3fwrn5/Kconfig"
 source "drivers/nfc/st95hf/Kconfig"
+source "drivers/nfc/st21nfc/Kconfig"
 endmenu
 
 config NFC_QTI_I2C

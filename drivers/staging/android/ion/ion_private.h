@@ -50,6 +50,11 @@ extern struct dma_buf *ion_dmabuf_alloc(struct ion_device *dev, size_t len,
 					unsigned int flags);
 extern int ion_free(struct ion_buffer *buffer);
 
+extern struct dma_buf *ion_dmabuf_alloc_with_caller_pid(struct ion_device *dev, size_t len,
+					unsigned int heap_id_mask,
+					unsigned int flags,
+					int pid_info);
+
 /* ion heap helpers */
 extern int ion_heap_cleanup(struct ion_heap *heap);
 
