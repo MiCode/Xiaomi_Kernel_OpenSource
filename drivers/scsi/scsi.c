@@ -68,6 +68,7 @@
 
 #include "scsi_priv.h"
 #include "scsi_logging.h"
+#include "ufs/ufshcd.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/scsi.h>

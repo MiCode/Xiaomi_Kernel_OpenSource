@@ -723,6 +723,12 @@ config QCOM_SMP2P_SLEEPSTATE
 	  notifications from the remote to prevent suspend on the local
 	  processor.
 
+config SMP2P_SLEEPSTATE_TIME_100MS
+	bool "SMP2P Sleepstate TIME 100MS"
+	depends on QCOM_SMP2P
+	help
+	  When this option is enabled, wakeup time modify to 100ms.
+
 config QCOM_QDSS_BRIDGE
 	bool "Configure bridge driver for QTI/Qualcomm Technologies, Inc. MDM"
 	depends on MHI_BUS

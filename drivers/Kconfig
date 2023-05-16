@@ -101,6 +101,8 @@ source "drivers/hid/Kconfig"
 
 source "drivers/usb/Kconfig"
 
+source "drivers/usb_dagu/Kconfig"
+
 source "drivers/uwb/Kconfig"
 
 source "drivers/mmc/Kconfig"
@@ -217,6 +219,8 @@ source "drivers/tee/Kconfig"
 
 source "drivers/mux/Kconfig"
 
+source "drivers/airoha/Kconfig"
+
 source "drivers/opp/Kconfig"
 
 source "drivers/visorbus/Kconfig"
@@ -232,4 +236,11 @@ source "drivers/sensors/Kconfig"
 source "drivers/gpu/msm/Kconfig"
 
 source "drivers/energy_model/Kconfig"
+
 endmenu
+
+config USB_DAGU
+	tristate "USB dagu"
+	help
+	 Say Y here to enable dagu usb driver for usb3.0
+

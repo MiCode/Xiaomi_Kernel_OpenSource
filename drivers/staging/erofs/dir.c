@@ -1,14 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * linux/drivers/staging/erofs/dir.c
- *
  * Copyright (C) 2017-2018 HUAWEI, Inc.
- *             http://www.huawei.com/
- * Created by Gao Xiang <gaoxiang25@huawei.com>
- *
- * This file is subject to the terms and conditions of the GNU General Public
- * License.  See the file COPYING in the main directory of the Linux
- * distribution for more details.
+ *             https://www.huawei.com/
  */
 #include "internal.h"
 
@@ -33,19 +26,18 @@ static void debug_one_dentry(unsigned char d_type, const char *de_name,
 	memcpy(dbg_namebuf, de_name, de_namelen);
 	dbg_namebuf[de_namelen] = '\0';
 
-	debugln("found dirent %s de_len %u d_type %d", dbg_namebuf,
-		de_namelen, d_type);
+	erofs_dbg("found dirent %s de_len %u d_type %d", dbg_namebuf,
+		  de_namelen, d_type);
 #endif
 }
 
-static int erofs_fill_dentries(struct dir_context *ctx,
-	void *dentry_blk, unsigned *ofs,
-	unsigned nameoff, unsigned maxsize)
+static int erofs_fill_dentries(struct inode *dir, struct dir_context *ctx,
+			       void *dentry_blk, unsigned int *ofs,
+			       unsigned int nameoff, unsigned int maxsize)
 {
-	struct erofs_dirent *de = dentry_blk;
+	struct erofs_dirent *de = dentry_blk + *ofs;
 	const struct erofs_dirent *end = dentry_blk + nameoff;
 
-	de = dentry_blk + *ofs;
 	while (de < end) {
 		const char *de_name;
 		unsigned int de_namelen;
@@ -66,16 +58,18 @@ static int erofs_fill_dentries(struct dir_context *ctx,
 			de_namelen = le16_to_cpu(de[1].nameoff) - nameoff;
 
 		/* a corrupted entry is found */
-		if (unlikely(nameoff + de_namelen > maxsize ||
-			     de_namelen > EROFS_NAME_LEN)) {
+		if (nameoff + de_namelen > maxsize ||
+		    de_namelen > EROFS_NAME_LEN) {
+			erofs_err(dir->i_sb, "bogus dirent @ nid %llu",
+				  EROFS_I(dir)->nid);
 			DBG_BUGON(1);
-			return -EIO;
+			return -EFSCORRUPTED;
 		}
 
 		debug_one_dentry(d_type, de_name, de_namelen);
 		if (!dir_emit(ctx, de_name, de_namelen,
-					le64_to_cpu(de->nid), d_type))
-			/* stoped by some reason */
+			      le64_to_cpu(de->nid), d_type))
+			/* stopped by some reason */
 			return 1;
 		++de;
 		*ofs += sizeof(struct erofs_dirent);
@@ -89,62 +83,63 @@ static int erofs_readdir(struct file *f, struct dir_context *ctx)
 	struct inode *dir = file_inode(f);
 	struct address_space *mapping = dir->i_mapping;
 	const size_t dirsize = i_size_read(dir);
-	unsigned i = ctx->pos / EROFS_BLKSIZ;
-	unsigned ofs = ctx->pos % EROFS_BLKSIZ;
+	unsigned int i = ctx->pos / EROFS_BLKSIZ;
+	unsigned int ofs = ctx->pos % EROFS_BLKSIZ;
 	int err = 0;
 	bool initial = true;
 
 	while (ctx->pos < dirsize) {
 		struct page *dentry_page;
 		struct erofs_dirent *de;
-		unsigned nameoff, maxsize;
+		unsigned int nameoff, maxsize;
 
 		dentry_page = read_mapping_page(mapping, i, NULL);
 		if (dentry_page == ERR_PTR(-ENOMEM)) {
 			err = -ENOMEM;
 			break;
 		} else if (IS_ERR(dentry_page)) {
-			errln("fail to readdir of logical block %u of nid %llu",
-			      i, EROFS_V(dir)->nid);
-			err = PTR_ERR(dentry_page);
+			erofs_err(dir->i_sb,
+				  "fail to readdir of logical block %u of nid %llu",
+				  i, EROFS_I(dir)->nid);
+			err = -EFSCORRUPTED;
 			break;
 		}
 
-		lock_page(dentry_page);
 		de = (struct erofs_dirent *)kmap(dentry_page);
 
 		nameoff = le16_to_cpu(de->nameoff);
 
-		if (unlikely(nameoff < sizeof(struct erofs_dirent) ||
-			nameoff >= PAGE_SIZE)) {
-			errln("%s, invalid de[0].nameoff %u",
-				__func__, nameoff);
-
-			err = -EIO;
+		if (nameoff < sizeof(struct erofs_dirent) ||
+		    nameoff >= PAGE_SIZE) {
+			erofs_err(dir->i_sb,
+				  "invalid de[0].nameoff %u @ nid %llu",
+				  nameoff, EROFS_I(dir)->nid);
+			err = -EFSCORRUPTED;
 			goto skip_this;
 		}
 
-		maxsize = min_t(unsigned, dirsize - ctx->pos + ofs, PAGE_SIZE);
+		maxsize = min_t(unsigned int,
+				dirsize - ctx->pos + ofs, PAGE_SIZE);
 
 		/* search dirents at the arbitrary position */
-		if (unlikely(initial)) {
+		if (initial) {
 			initial = false;
 
 			ofs = roundup(ofs, sizeof(struct erofs_dirent));
-			if (unlikely(ofs >= nameoff))
+			if (ofs >= nameoff)
 				goto skip_this;
 		}
 
-		err = erofs_fill_dentries(ctx, de, &ofs, nameoff, maxsize);
+		err = erofs_fill_dentries(dir, ctx, de, &ofs,
+					  nameoff, maxsize);
 skip_this:
 		kunmap(dentry_page);
 
-		unlock_page(dentry_page);
 		put_page(dentry_page);
 
 		ctx->pos = blknr_to_addr(i) + ofs;
 
-		if (unlikely(err))
+		if (err)
 			break;
 		++i;
 		ofs = 0;
@@ -155,6 +150,5 @@ skip_this:
 const struct file_operations erofs_dir_fops = {
 	.llseek		= generic_file_llseek,
 	.read		= generic_read_dir,
-	.iterate	= erofs_readdir,
+	.iterate_shared	= erofs_readdir,
 };
-

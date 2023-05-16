@@ -301,6 +301,18 @@ export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
 
 include scripts/subarch.include
 
+LINK_DUM_MISYSINFO :=$(shell if [ ! -L "$(abspath $(srctree))/include/linux/misysinfofreader.h" ]; then \
+		ln -s -f $(abspath $(srctree))/include/dum/misysinfofreader.h $(abspath $(srctree))/include/linux/misysinfofreader.h;  \
+		mkdir -p $(abspath $(srctree))/drivers/staging/misysinfofreader; \
+		touch $(abspath $(srctree))/drivers/staging/misysinfofreader/Kconfig; \
+		touch $(abspath $(srctree))/drivers/staging/misysinfofreader/Makefile; fi;)
+
+LINK_DUM_KPERFEVENTS :=$(shell if [ ! -L "$(abspath $(srctree))/include/linux/kperfevents.h" ]; then \
+		ln -s -f $(abspath $(srctree))/include/dum/kperfevents.h $(abspath $(srctree))/include/linux/kperfevents.h; \
+		mkdir -p $(abspath $(srctree))/drivers/staging/kperfevents; \
+		touch $(abspath $(srctree))/drivers/staging/kperfevents/Kconfig; \
+		touch $(abspath $(srctree))/drivers/staging/kperfevents/Makefile; fi;)
+
 # Cross compiling and selecting different set of gcc/bin-utils
 # ---------------------------------------------------------------------------
 #

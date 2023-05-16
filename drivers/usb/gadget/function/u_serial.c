@@ -156,8 +156,7 @@ static struct portmaster {
  * usb_request or NULL if there is an error.
  */
 struct usb_request *
-gs_alloc_req(struct usb_ep *ep, unsigned int len, size_t extra_sz,
-		gfp_t kmalloc_flags)
+gs_alloc_req(struct usb_ep *ep, unsigned len, gfp_t kmalloc_flags)
 {
 	struct usb_request *req;
 
@@ -165,7 +164,7 @@ gs_alloc_req(struct usb_ep *ep, unsigned int len, size_t extra_sz,
 
 	if (req != NULL) {
 		req->length = len;
-		req->buf = kmalloc(len + extra_sz, kmalloc_flags);
+		req->buf = kmalloc(len, kmalloc_flags);
 		if (req->buf == NULL) {
 			usb_ep_free_request(ep, req);
 			return NULL;
@@ -507,7 +506,6 @@ static void gs_free_requests(struct usb_ep *ep, struct list_head *head,
 }
 
 static int gs_alloc_requests(struct usb_ep *ep, struct list_head *head,
-		size_t extra_sz,
 		void (*fn)(struct usb_ep *, struct usb_request *),
 		int *allocated)
 {
@@ -520,7 +518,7 @@ static int gs_alloc_requests(struct usb_ep *ep, struct list_head *head,
 	 * be as speedy as we might otherwise be.
 	 */
 	for (i = 0; i < n; i++) {
-		req = gs_alloc_req(ep, ep->maxpacket, extra_sz, GFP_ATOMIC);
+		req = gs_alloc_req(ep, ep->maxpacket, GFP_ATOMIC);
 		if (!req)
 			return list_empty(head) ? -ENOMEM : 0;
 		req->complete = fn;
@@ -542,8 +540,6 @@ static int gs_alloc_requests(struct usb_ep *ep, struct list_head *head,
  */
 static int gs_start_io(struct gs_port *port)
 {
-	struct usb_function	*f = &port->port_usb->func;
-	struct usb_composite_dev *cdev = f->config->cdev;
 	struct list_head	*head = &port->read_pool;
 	struct usb_ep		*ep = port->port_usb->out;
 	int			status;
@@ -555,13 +551,12 @@ static int gs_start_io(struct gs_port *port)
 	 * configurations may use different endpoints with a given port;
 	 * and high speed vs full speed changes packet sizes too.
 	 */
-	status = gs_alloc_requests(ep, head, 0, gs_read_complete,
+	status = gs_alloc_requests(ep, head, gs_read_complete,
 		&port->read_allocated);
 	if (status)
 		return status;
 
 	status = gs_alloc_requests(port->port_usb->in, &port->write_pool,
-			cdev->gadget->extra_buf_alloc,
 			gs_write_complete, &port->write_allocated);
 	if (status) {
 		gs_free_requests(ep, head, &port->read_allocated);

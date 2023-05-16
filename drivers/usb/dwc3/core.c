@@ -1009,6 +1009,7 @@ int dwc3_core_init(struct dwc3 *dwc)
 		 */
 		if (!dwc3_is_usb31(dwc)) {
 			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_SS;
+			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_HS;
 			reg |= DWC3_GUCTL1_PARKMODE_DISABLE_FSLS;
 		}
 
@@ -1589,7 +1590,7 @@ skip_clk_reset:
 
 	snprintf(dma_ipc_log_ctx_name, sizeof(dma_ipc_log_ctx_name),
 					"%s.ep_events", dev_name(dwc->dev));
-	dwc->dwc_dma_ipc_log_ctxt = ipc_log_context_create(2 * NUM_LOG_PAGES,
+	dwc->dwc_dma_ipc_log_ctxt = ipc_log_context_create(NUM_LOG_PAGES,
 						dma_ipc_log_ctx_name, 0);
 	if (!dwc->dwc_dma_ipc_log_ctxt)
 		dev_err(dwc->dev, "Error getting ipc_log_ctxt for ep_events\n");
@@ -1637,8 +1638,6 @@ static int dwc3_remove(struct platform_device *pdev)
 
 	ipc_log_context_destroy(dwc->dwc_ipc_log_ctxt);
 	dwc->dwc_ipc_log_ctxt = NULL;
-	ipc_log_context_destroy(dwc->dwc_dma_ipc_log_ctxt);
-	dwc->dwc_dma_ipc_log_ctxt = NULL;
 	count--;
 	dwc3_instance[dwc->index] = NULL;
 
@@ -1923,7 +1922,7 @@ static int dwc3_resume(struct device *dev)
 		 * which is now out of LPM. This allows runtime_suspend later.
 		 */
 		if (dwc->current_dr_role == DWC3_GCTL_PRTCAP_HOST &&
-		    dwc->ignore_wakeup_src_in_hostmode)
+		    dwc->host_poweroff_in_pm_suspend)
 			goto runtime_set_active;
 
 		return 0;

@@ -665,24 +665,20 @@ retry:
 
 	/* handle root hub init quirks ... */
 	val = roothub_a (ohci);
-	/* Configure for per-port over-current protection by default */
-	val &= ~RH_A_NOCP;
-	val |= RH_A_OCPM;
+	val &= ~(RH_A_PSM | RH_A_OCPM);
 	if (ohci->flags & OHCI_QUIRK_SUPERIO) {
-		/* NSC 87560 and maybe others.
-		 * Ganged power switching, no over-current protection.
-		 */
+		/* NSC 87560 and maybe others */
 		val |= RH_A_NOCP;
-		val &= ~(RH_A_POTPGT | RH_A_NPS | RH_A_PSM | RH_A_OCPM);
+		val &= ~(RH_A_POTPGT | RH_A_NPS);
+		ohci_writel (ohci, val, &ohci->regs->roothub.a);
 	} else if ((ohci->flags & OHCI_QUIRK_AMD756) ||
 			(ohci->flags & OHCI_QUIRK_HUB_POWER)) {
 		/* hub power always on; required for AMD-756 and some
-		 * Mac platforms.
+		 * Mac platforms.  ganged overcurrent reporting, if any.
 		 */
 		val |= RH_A_NPS;
+		ohci_writel (ohci, val, &ohci->regs->roothub.a);
 	}
-	ohci_writel(ohci, val, &ohci->regs->roothub.a);
-
 	ohci_writel (ohci, RH_HS_LPSC, &ohci->regs->roothub.status);
 	ohci_writel (ohci, (val & RH_A_NPS) ? 0 : RH_B_PPCM,
 						&ohci->regs->roothub.b);

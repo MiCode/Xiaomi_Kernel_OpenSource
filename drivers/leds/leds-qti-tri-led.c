@@ -411,7 +411,7 @@ static int qpnp_tri_led_register(struct qpnp_tri_led_chip *chip)
 		led->cdev.blink_set = qpnp_tri_led_set_blink;
 		led->cdev.default_trigger = led->default_trigger;
 		led->cdev.brightness = LED_OFF;
-		led->cdev.flags |= LED_KEEP_TRIGGER;
+		//led->cdev.flags |= LED_KEEP_TRIGGER;
 
 		rc = devm_led_classdev_register(chip->dev, &led->cdev);
 		if (rc < 0) {

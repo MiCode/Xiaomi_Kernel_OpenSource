@@ -485,11 +485,15 @@ static int i2c_pmic_read(struct regmap *map, unsigned int reg, void *val,
 			size_t val_count)
 {
 	int rc, retries = 0;
-
+#ifdef CONFIG_I2C_RETRY
+	do {
+		rc = regmap_bulk_read(map, reg, val, val_count);
+	} while (rc < 0 && retries++ < MAX_I2C_RETRIES);
+#else
 	do {
 		rc = regmap_bulk_read(map, reg, val, val_count);
 	} while (rc == -ENOTCONN && retries++ < MAX_I2C_RETRIES);
-
+#endif
 	if (retries > 1)
 		pr_err("i2c_pmic_read failed for %d retries, rc = %d\n",
 			retries - 1, rc);

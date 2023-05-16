@@ -24,6 +24,7 @@
 
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
+#include <linux/signal.h>
 
 #include "peripheral-loader.h"
 
@@ -614,6 +615,8 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	void *mdata_buf;
 	int ret;
 	struct scm_desc desc = {0};
+	sigset_t new_sigset;
+	sigset_t old_sigset;
 	struct pil_map_fw_info map_fw_info = {
 		.attrs = pil->attrs,
 		.region = region,
@@ -629,7 +632,16 @@ static int pil_init_image_trusted(struct pil_desc *pil,
 	if (ret)
 		return ret;
 
-	mdata_buf = pil->map_fw_mem(mdata_phys, size, map_data);
+	/* initialize the new signal mask with all signals*/
+	sigfillset(&new_sigset);
+
+	/* block all signals */
+	sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
+
+  	mdata_buf = pil->map_fw_mem(mdata_phys, size, map_data);
+	/* restore signal mask */
+	sigprocmask(SIG_SETMASK, &old_sigset, NULL);
+	
 	if (!mdata_buf) {
 		dev_err(pil->dev, "Failed to map memory for metadata.\n");
 		scm_pas_disable_bw();

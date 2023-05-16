@@ -83,6 +83,8 @@ obj-$(CONFIG_LEDS_LM3601X)		+= leds-lm3601x.o
 obj-$(CONFIG_LEDS_QTI_TRI_LED)		+= leds-qti-tri-led.o
 obj-$(CONFIG_LEDS_QPNP_FLASH_V2)        += leds-qpnp-flash-v2.o leds-qpnp-flash-common.o
 obj-$(CONFIG_LEDS_QPNP_VIBRATOR_LDO)	+= leds-qpnp-vibrator-ldo.o
+obj-$(CONFIG_LEDS_AW2015)		+= leds-aw2015.o
+obj-$(CONFIG_LEDS_AW22XXX)		+= leds-aw22xxx.o
 obj-$(CONFIG_LEDS_QPNP_VIBRATOR)	+= leds-qpnp-vibrator.o
 
 # LED SPI Drivers

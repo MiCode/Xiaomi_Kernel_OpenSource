@@ -1,7 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 obj-$(CONFIG_QPNP_SMB5)			+= step-chg-jeita.o battery.o qpnp-smb5.o smb5-lib.o pmic-voter.o storm-watch.o schgm-flash.o
+obj-$(CONFIG_QPNP_SMB5_DAGU)		+= step-chg-jeita-dagu.o battery.o qpnp-smb5-dagu.o smb5-lib-dagu.o pmic-voter.o storm-watch.o schgm-flash.o
+obj-$(CONFIG_QPNP_SMB5_PIPA)		+= step-chg-jeita-pipa.o battery.o qpnp-smb5-pipa.o smb5-lib-pipa.o pmic-voter.o storm-watch.o schgm-flash.o
+obj-$(CONFIG_QPNP_SMB5_PSYCHE)		+= step-chg-jeita-psyche.o battery.o qpnp-smb5-psyche.o smb5-lib-psyche.o pmic-voter.o storm-watch.o schgm-flash.o
+obj-$(CONFIG_QPNP_SMB5_POUSSIN)		+= step-chg-jeita-poussin.o battery.o qpnp-smb5-poussin.o smb5-lib-poussin.o pmic-voter.o storm-watch.o schgm-flash.o
+obj-$(CONFIG_QPNP_SMB5_MUNCH)		+= step-chg-jeita-munch.o battery.o qpnp-smb5-munch.o smb5-lib-munch.o pmic-voter.o storm-watch.o schgm-flash.o
 obj-$(CONFIG_SMB1390_CHARGE_PUMP_PSY)	+= smb1390-charger-psy.o pmic-voter.o
+obj-$(CONFIG_SMB1398_COMBO_CHARGE_PSY)	+= smb1398-charger-psy.o pmic-voter.o
 obj-$(CONFIG_SMB1355_SLAVE_CHARGER)	+= smb1355-charger.o pmic-voter.o
 obj-$(CONFIG_SMB1351_USB_CHARGER)	+= smb1351-charger.o pmic-voter.o battery.o
 obj-$(CONFIG_QPNP_SMB2)			+= step-chg-jeita.o battery.o qpnp-smb2.o smb-lib.o pmic-voter.o storm-watch.o
@@ -9,7 +15,19 @@ obj-$(CONFIG_SMB138X_CHARGER)		+= step-chg-jeita.o smb138x-charger.o smb-lib.o p
 obj-$(CONFIG_QPNP_FG_GEN3)		+= qpnp-fg-gen3.o fg-memif.o fg-util.o
 obj-$(CONFIG_QPNP_QNOVO5)		+= qpnp-qnovo5.o battery.o pmic-voter.o
 obj-$(CONFIG_QPNP_FG_GEN4)		+= qpnp-fg-gen4.o fg-memif.o fg-util.o fg-alg.o pmic-voter.o
+obj-$(CONFIG_QPNP_FG_GEN4_PIPA)		+= qpnp-fg-gen4-pipa.o fg-memif.o fg-util.o fg-alg.o pmic-voter.o
 obj-$(CONFIG_QPNP_QG)			+= qpnp-qg.o pmic-voter.o qg-util.o qg-soc.o qg-sdam.o qg-battery-profile.o qg-profile-lib.o fg-alg.o
 obj-$(CONFIG_HL6111R)			+= hl6111r.o
-obj-$(CONFIG_SMB1398_CHARGER)		+= smb1398-charger.o pmic-voter.o
+obj-$(CONFIG_FUEL_GAUGE_BQ27Z561)       += bq27z561_fg.o
+obj-$(CONFIG_FUEL_GAUGE_BQ27Z561_PSYCHE) += bq27z561_fg_psyche.o
+obj-$(CONFIG_FUEL_GAUGE_BQ27Z561_POUSSIN) += bq27z561_fg_poussin.o
+obj-$(CONFIG_FUEL_GAUGE_BQ27Z561_MUNCH) += bq27z561_fg_munch.o
+obj-$(CONFIG_DUAL_FUEL_GAUGE_BQ27Z561)  += bq27z561_fg.o dual_fuel_gauge_class.o
+obj-$(CONFIG_DUAL_FUEL_GAUGE_BQ27Z561_DAGU)  += bq27z561_fg_dagu.o dual_fuel_gauge_class_dagu.o
+obj-$(CONFIG_IDT_P9415)			+= idtp9415.o
+obj-$(CONFIG_IDT_P9418)			+= idtp9418.o
+obj-$(CONFIG_FUDA_1665)			+= nu1665.o
+obj-$(CONFIG_RX1619_TRIM)	+= rx1619_trim.o
+obj-$(CONFIG_RX1619)		+= rx1619.o
+obj-$(CONFIG_LN8282)			+= ln8282.o
 obj-$(CONFIG_QPNP_SMBLITE)		+= step-chg-jeita.o battery.o qpnp-smblite.o smblite-lib.o pmic-voter.o storm-watch.o schgm-flashlite.o

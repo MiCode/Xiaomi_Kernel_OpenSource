@@ -726,7 +726,7 @@ static void tcp_rtt_estimator(struct sock *sk, long mrtt_us)
 	struct tcp_sock *tp = tcp_sk(sk);
 	long m = mrtt_us; /* RTT */
 	u32 srtt = tp->srtt_us;
-
+	tp->seq_rtt_us = mrtt_us;
 	/*	The following amusing code comes from Jacobson's
 	 *	article in SIGCOMM '88.  Note that rtt and mdev
 	 *	are scaled versions of rtt and mean deviation.

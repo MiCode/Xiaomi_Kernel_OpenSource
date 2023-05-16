@@ -7,6 +7,7 @@
 #include <linux/refcount.h>
 #include <linux/ratelimit.h>
 
+
 struct key;
 
 /*
@@ -38,6 +39,8 @@ struct user_struct {
 	/* Hash table maintenance information */
 	struct hlist_node uidhash_node;
 	kuid_t uid;
+
+
 
 #if defined(CONFIG_PERF_EVENTS) || defined(CONFIG_BPF_SYSCALL) || \
     defined(CONFIG_NET)

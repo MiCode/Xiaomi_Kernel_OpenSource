@@ -1177,5 +1177,11 @@ config REGULATOR_PM8008
 	  This driver controls PM8008 PMIC chip and the voltage
 	  regulators found in Qualcomm Technologies Inc. PM8008
 	  PMIC.
+
+config I2C_RETRY
+	bool "Stub Regulator"
+	help
+	  This help control I2C retry functions
+
 endif
 

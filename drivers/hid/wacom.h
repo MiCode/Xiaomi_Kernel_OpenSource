@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * drivers/input/tablet/wacom.h
  *
@@ -78,10 +79,6 @@
  */
 
 /*
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
  */
 #ifndef WACOM_H
 #define WACOM_H
@@ -95,16 +92,31 @@
 #include <linux/usb/input.h>
 #include <linux/power_supply.h>
 #include <asm/unaligned.h>
+#include <linux/version.h>
 
 /*
  * Version Information
  */
-#define DRIVER_VERSION "v2.00"
+#ifndef WACOM_VERSION_SUFFIX
+#define WACOM_VERSION_SUFFIX ""
+#endif
+#define DRIVER_VERSION "v2.00"WACOM_VERSION_SUFFIX
 #define DRIVER_AUTHOR "Vojtech Pavlik <vojtech@ucw.cz>"
 #define DRIVER_DESC "USB Wacom tablet driver"
 
 #define USB_VENDOR_ID_WACOM	0x056a
 #define USB_VENDOR_ID_LENOVO	0x17ef
+
+#ifndef fallthrough
+#  if defined __has_attribute
+#    if __has_attribute(__fallthrough__)
+#      define fallthrough                    __attribute__((__fallthrough__))
+#    endif
+#  endif
+#endif
+#ifndef fallthrough
+#  define fallthrough                    do {} while (0)  /* fallthrough */
+#endif
 
 enum wacom_worker {
 	WACOM_WORKER_WIRELESS,

@@ -168,6 +168,60 @@ TRACE_EVENT(map_sg,
 	)
 );
 
+TRACE_EVENT(io_pgtable_free,
+
+	TP_PROTO(u64 *table_base, u64 *pudp, u64 pud, unsigned long iova, int block),
+
+	TP_ARGS(table_base, pudp, pud, iova, block),
+
+	TP_STRUCT__entry(
+		__field(u64*, table_base)
+		__field(u64*, pudp)
+		__field(u64, pud)
+		__field(u64, iova)
+		__field(int, block)
+	),
+
+	TP_fast_assign(
+		__entry->table_base = table_base;
+		__entry->pudp = pudp;
+		__entry->pud = pud;
+		__entry->iova = iova;
+		__entry->block = block;
+	),
+
+	TP_printk("IOMMU: Freeing %s io-pgtable at 0x%lx pud=0x%lx *pud=0x%lx iova=0x%lx blk=%d",
+			__entry->block ? "block" : "", __entry->table_base, __entry->pudp,
+			__entry->pud, __entry->iova, __entry->block
+	)
+);
+
+TRACE_EVENT(io_pgtable_install,
+
+	TP_PROTO(u64 *table_base, u64 *pudp, u64 pud, int block),
+
+	TP_ARGS(table_base, pudp, pud, block),
+
+	TP_STRUCT__entry(
+		__field(u64*, table_base)
+		__field(u64*, pudp)
+		__field(u64, pud)
+		__field(int, block)
+	),
+
+	TP_fast_assign(
+		__entry->table_base = table_base;
+		__entry->pudp = pudp;
+		__entry->pud = pud;
+		__entry->block = block;
+	),
+
+	TP_printk("IOMMU: Installed %s io-pgtable at 0x%lx pud=0x%lx *pud=0x%lx blk=%d",
+			__entry->block ? "block" : "", __entry->table_base, __entry->pudp,
+			__entry->pud, __entry->block
+	)
+);
+
 DECLARE_EVENT_CLASS(iommu_error,
 
 	TP_PROTO(struct device *dev, unsigned long iova, int flags),

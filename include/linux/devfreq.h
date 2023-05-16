@@ -173,10 +173,17 @@ struct devfreq {
 	unsigned int *trans_table;
 	unsigned long *time_in_state;
 	unsigned long last_stat_updated;
-
+	unsigned long flag;
+	void *ea_private;
 	struct srcu_notifier_head transition_notifier_list;
 	bool dev_suspended;
 };
+
+/*
+ * Per devfreq flags
+ */
+#define DF_NORMAL		0x0		/* nomal dev*/
+#define DF_GPU			0x00000002	/* I am an gpu dev */
 
 struct devfreq_freqs {
 	unsigned long old;

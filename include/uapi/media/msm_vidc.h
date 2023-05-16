@@ -358,6 +358,8 @@ enum msm_vidc_h264_color_primaries_values {
 	MSM_VIDC_SMPTE_240M = 7,
 	MSM_VIDC_GENERIC_FILM = 8,
 	MSM_VIDC_BT2020 = 9,
+	MSM_VIDC_DCIP3 = 11,
+	MSM_VIDC_D65P3 = 12,
 };
 
 enum msm_vidc_vp9_color_primaries_values {

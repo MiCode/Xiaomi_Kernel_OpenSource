@@ -270,7 +270,7 @@ static int msm_rtb_probe(struct platform_device *pdev)
 		msm_rtb.size = size;
 	}
 
-	if (msm_rtb.size <= 0 || msm_rtb.size > SZ_1M)
+	if (msm_rtb.size <= 0 || msm_rtb.size > SZ_4M)
 		return -EINVAL;
 
 	msm_rtb.rtb = dma_alloc_coherent(&pdev->dev, msm_rtb.size,

@@ -95,6 +95,8 @@ config LOCALVERSION
 	  object and source tree, in that order.  Your total string can
 	  be a maximum of 64 characters.
 
+
+
 config LOCALVERSION_AUTO
 	bool "Automatically append version information to the version string"
 	default y
@@ -1090,6 +1092,18 @@ config SCHED_CORE_CTL
 
 	  If unsure, say N here.
 
+config PERF_HUMANTASK
+       bool "enable feature humantask"
+       default n
+       help
+         support switch on/off of sched humantask.
+
+config PERF_CRITICAL_RT_TASK
+	bool "enable set rt binder thread" if EXPERT
+	default n
+	help
+	  speedui feature set BlastBufferQueue binder thread FIFO.
+
 menuconfig NAMESPACES
 	bool "Namespaces support" if EXPERT
 	depends on MULTIUSER
@@ -1481,6 +1495,12 @@ config ELF_CORE
 	bool "Enable ELF core dumps" if EXPERT
 	help
 	  Enable support for generating core dumps. Disabling saves about 4k.
+
+config SF_BINDER
+	default n
+	bool "surfaceflinger binder thread" if EXPERT
+	help
+	  Xiaomi restore surfaceflinger binder prio FIFO
 
 
 config PCSPKR_PLATFORM

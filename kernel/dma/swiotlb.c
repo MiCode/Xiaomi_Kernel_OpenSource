@@ -1027,7 +1027,7 @@ void *swiotlb_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
 
 	vaddr = dma_direct_alloc(dev, size, dma_handle, gfp, attrs);
 	if (!vaddr && !(attrs & (DMA_ATTR_STRONGLY_ORDERED |
-				DMA_ATTR_NO_KERNEL_MAPPING)))
+		DMA_ATTR_NO_KERNEL_MAPPING)))
 		vaddr = swiotlb_alloc_buffer(dev, size, dma_handle, attrs);
 	return vaddr;
 }

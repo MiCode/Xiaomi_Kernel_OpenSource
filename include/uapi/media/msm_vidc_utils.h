@@ -220,6 +220,8 @@ struct msm_vidc_enc_cvp_metadata_payload {
 #define MSM_VIDC_SMPTE_240M 7
 #define MSM_VIDC_GENERIC_FILM 8
 #define MSM_VIDC_BT2020 9
+#define MSM_VIDC_DCIP3 11
+#define MSM_VIDC_D65P3 12
 
 /* matrix_coeffs values */
 #define MSM_VIDC_MATRIX_RGB 0

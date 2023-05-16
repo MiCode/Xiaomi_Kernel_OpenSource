@@ -3,7 +3,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2020, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  */
 #include <linux/init.h>
@@ -462,7 +462,6 @@ fail:
 }
 EXPORT_SYMBOL(usb_diag_alloc_req);
 #define DWC3_MAX_REQUEST_SIZE (16 * 1024 * 1024)
-#define CI_MAX_REQUEST_SIZE   (16 * 1024)
 /**
  * usb_diag_request_size - Max request size for controller
  * @ch: Channel handler
@@ -472,16 +471,6 @@ EXPORT_SYMBOL(usb_diag_alloc_req);
  */
 int usb_diag_request_size(struct usb_diag_ch *ch)
 {
-	struct diag_context *ctxt = ch->priv_usb;
-	struct usb_composite_dev *cdev;
-
-	if (!ctxt)
-		return 0;
-
-	cdev = ctxt->cdev;
-	if (cdev->gadget->is_chipidea)
-		return CI_MAX_REQUEST_SIZE;
-
 	return DWC3_MAX_REQUEST_SIZE;
 }
 EXPORT_SYMBOL(usb_diag_request_size);
@@ -521,7 +510,7 @@ int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req)
 
 	if (list_empty(&ctxt->read_pool)) {
 		spin_unlock_irqrestore(&ctxt->lock, flags);
-		pr_err("%s: no requests available\n", __func__);
+		ERROR(ctxt->cdev, "%s: no requests available\n", __func__);
 		return -EAGAIN;
 	}
 
@@ -547,7 +536,8 @@ int usb_diag_read(struct usb_diag_ch *ch, struct diag_request *d_req)
 		list_add_tail(&req->list, &ctxt->read_pool);
 		/* 1 error message for every 10 sec */
 		if (__ratelimit(&rl))
-			pr_err("%s: cannot queue read request\n", __func__);
+			ERROR(ctxt->cdev, "%s: cannot queue read request\n",
+								__func__);
 
 		if (kref_put(&ctxt->kref, diag_context_release))
 			/* diag_context_release called spin_unlock already */
@@ -596,7 +586,7 @@ int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
 
 	if (list_empty(&ctxt->write_pool)) {
 		spin_unlock_irqrestore(&ctxt->lock, flags);
-		pr_err("%s: no requests available\n", __func__);
+		ERROR(ctxt->cdev, "%s: no requests available\n", __func__);
 		return -EAGAIN;
 	}
 
@@ -624,7 +614,8 @@ int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
 		ctxt->dpkts_tolaptop_pending--;
 		/* 1 error message for every 10 sec */
 		if (__ratelimit(&rl))
-			pr_err("%s: cannot queue read request\n", __func__);
+			ERROR(ctxt->cdev, "%s: cannot queue read request\n",
+								__func__);
 
 		if (kref_put(&ctxt->kref, diag_context_release))
 			/* diag_context_release called spin_unlock already */

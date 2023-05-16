@@ -2229,6 +2229,8 @@ reset:
 			fsg->bulk_out_enabled = 0;
 		}
 
+		/* allow usb LPM after eps are disabled */
+		usb_gadget_autopm_put_async(common->gadget);
 		common->fsg = NULL;
 		wake_up(&common->fsg_wait);
 	}
@@ -2292,6 +2294,9 @@ reset:
 static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct fsg_dev *fsg = fsg_from_func(f);
+
+	/* prevents usb LPM until thread runs to completion */
+	usb_gadget_autopm_get_async(fsg->common->gadget);
 
 	__raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE, fsg);
 	return USB_GADGET_DELAYED_STATUS;

@@ -1,0 +1,9 @@
+config KEYBOARD_NANO_8030_V2
+	tristate "Nanosic 8030 Keyboard for M82"
+	depends on I2C
+	help
+	  Say Y here if you have Nanosic 8030 I2C Keyboard.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the

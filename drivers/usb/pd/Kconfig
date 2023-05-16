@@ -19,6 +19,30 @@ config USB_PD_POLICY
 	  PD PHY driver in order to transmit and receive PD
 	  messages on its behalf.
 
+config USB_PD_POLICY_MUNCH
+	tristate "USB Power Delivery Protocol and Policy Engine"
+	depends on EXTCON
+	depends on TYPEC
+	select USB_PD
+	help
+          Say Y here to enable USB PD protocol and policy engine.
+	  This driver provides a class that implements the upper
+	  layers of the USB Power Delivery stack. It requires a
+	  PD PHY driver in order to transmit and receive PD
+	  messages on its behalf.
+
+config USB_PD_POLICY_DAGU
+	tristate "USB Power Delivery Protocol and Policy Engine"
+	depends on EXTCON
+	depends on TYPEC
+	select USB_PD
+	help
+          Say Y here to enable USB PD protocol and policy engine.
+	  This driver provides a class that implements the upper
+	  layers of the USB Power Delivery stack. It requires a
+	  PD PHY driver in order to transmit and receive PD
+	  messages on its behalf.
+
 config QPNP_USB_PDPHY
 	tristate "QPNP USB Power Delivery PHY"
 	depends on SPMI
@@ -27,5 +51,12 @@ config QPNP_USB_PDPHY
 	  which communicates over the SPMI bus.
 	  The is used to handle the PHY layer communication of the
 	  Power Delivery stack.
+
+config PS5169
+	tristate "Redriver PS5169"
+	depends on I2C
+	help
+		Say Y to support PS5169 for USB3.2.
+		PS5169 is a enhanced signal driver.
 
 endmenu

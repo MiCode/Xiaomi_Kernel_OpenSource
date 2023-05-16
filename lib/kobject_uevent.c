@@ -29,7 +29,6 @@
 #include <net/netlink.h>
 #include <net/net_namespace.h>
 
-
 u64 uevent_seqnum;
 #ifdef CONFIG_UEVENT_HELPER
 char uevent_helper[UEVENT_HELPER_PATH_LEN] = CONFIG_UEVENT_HELPER_PATH;
