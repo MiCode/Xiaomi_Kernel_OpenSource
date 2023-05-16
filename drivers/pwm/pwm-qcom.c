@@ -38,6 +38,8 @@
 #define PWM_UPDATE	0x10
 #define PWM_PERIOD_CNT	0x14
 
+#define PWM_FRAME_POLARITY_BIT	0
+
 enum {
 	ENABLE_STATUS0,
 	ENABLE_STATUS1,
@@ -53,6 +55,7 @@ struct pdm_pwm_priv_data {
 /*
  *struct pdm_pwm_frames - Information regarding per pdm frame
  * @frame_id: Id number associated with each frame.
+ * @polarity: Current polarity of the particular frame.
  * @reg_offset: offset of each frame from base pdm.
  * @current_period_ns: Current period of the particular frame.
  * @current_duty_ns: Current duty cycle of the particular frame.
@@ -62,6 +65,7 @@ struct pdm_pwm_priv_data {
  */
 struct pdm_pwm_frames {
 	u32	frame_id;
+	u32	polarity;
 	u32	reg_offset;
 	u64	current_period_ns;
 	u64	current_duty_ns;
@@ -140,13 +144,14 @@ static void pdm_pwm_get_state(struct pwm_chip *pwm_chip, struct pwm_device *pwm,
 				struct pdm_pwm_chip, pwm_chip);
 
 	state->enabled = chip->frames[pwm->hwpwm].is_enabled;
+	state->polarity = chip->frames[pwm->hwpwm].polarity;
 	state->period = chip->frames[pwm->hwpwm].current_period_ns;
 	state->duty_cycle = chip->frames[pwm->hwpwm].current_duty_ns;
 
 }
 
 static int pdm_pwm_config(struct pdm_pwm_chip *chip, u32 hw_idx,
-				int duty_ns, int period_ns)
+				int duty_ns, int period_ns, int polarity)
 {
 	unsigned long ctl1;
 	int current_period = period_ns, ret;
@@ -177,6 +182,12 @@ static int pdm_pwm_config(struct pdm_pwm_chip *chip, u32 hw_idx,
 	if (chip->frames[hw_idx].current_period_ns != period_ns) {
 		pr_err("Period cannot be updated, calculating dutycycle on old period\n");
 		current_period = chip->frames[hw_idx].current_period_ns;
+	}
+
+	if (chip->frames[hw_idx].polarity != polarity) {
+		regmap_update_bits(chip->regmap, chip->frames[hw_idx].reg_offset
+				+ PWM_CTL0, BIT(PWM_FRAME_POLARITY_BIT), polarity);
+		chip->frames[hw_idx].polarity = polarity;
 	}
 
 	ctl1 = DIV_ROUND_CLOSEST(chip->pwm_core_rate, chip->frames[hw_idx].current_freq);
@@ -306,8 +317,10 @@ static int pdm_pwm_apply(struct pwm_chip *pwm_chip, struct pwm_device *pwm,
 		return -EINVAL;
 
 	if (state->period != curr_state.period ||
-		state->duty_cycle != curr_state.duty_cycle) {
-		ret = pdm_pwm_config(chip, pwm->hwpwm, state->duty_cycle, state->period);
+		state->duty_cycle != curr_state.duty_cycle ||
+			state->polarity != curr_state.polarity) {
+		ret = pdm_pwm_config(chip, pwm->hwpwm, state->duty_cycle,
+					state->period, state->polarity);
 		if (ret) {
 			pr_err("%s: Failed to update PWM configuration\n",  __func__);
 			return ret;
@@ -453,6 +466,31 @@ static int duty_get(void *data, u64 *val)
 }
 DEFINE_DEBUGFS_ATTRIBUTE(pwm_duty_fops, duty_get, NULL, "%lld\n");
 
+static int get_polarity(struct seq_file *m, void *unused)
+{
+	struct pdm_pwm_frames *frame = m->private;
+	struct pdm_pwm_chip *chip = frame->pwm_chip;
+	u32 temp;
+
+	regmap_read(chip->regmap, frame->reg_offset + PWM_CTL0, &temp);
+	if (BIT(PWM_FRAME_POLARITY_BIT) & temp)
+		seq_puts(m, "PWM_POLARITY_INVERSED\n");
+	else
+		seq_puts(m, "PWM_POLARITY_NORMAL\n");
+
+	return 0;
+}
+
+static int print_polarity(struct inode *inode, struct file *file)
+{
+	return single_open(file, get_polarity, inode->i_private);
+};
+
+static const struct file_operations pwm_polarity_fops = {
+	.open = print_polarity,
+	.read = seq_read,
+};
+
 static int enabled(void *data, u64 *val)
 {
 	struct pdm_pwm_frames *frame = data;
@@ -549,6 +587,9 @@ static void pdm_dwm_debug_init(struct pwm_chip *pwm_chip)
 		debugfs_create_file("enabled", 0444, debugfs_frame_base,
 						&chip->frames[hw_idx], &pwm_enable_fops);
 
+		debugfs_create_file("polarity", 0444, debugfs_frame_base,
+						&chip->frames[hw_idx], &pwm_polarity_fops);
+
 		debugfs_create_file("current_duty", 0444, debugfs_frame_base,
 						&chip->frames[hw_idx], &pwm_duty_fops);
 
@@ -594,6 +635,8 @@ static int pdm_pwm_probe(struct platform_device *pdev)
 	chip->pwm_chip.base = -1;
 	chip->pwm_chip.npwm = chip->num_frames;
 	chip->pwm_chip.ops = &pdm_pwm_ops;
+	chip->pwm_chip.of_xlate = of_pwm_xlate_with_flags;
+	chip->pwm_chip.of_pwm_n_cells = 3;
 
 	rc = pwmchip_add(&chip->pwm_chip);
 	if (rc < 0) {
