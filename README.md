@@ -104,6 +104,7 @@
 | picasso-r-oss | Mi 10 Lite 5G, Redmi K30 5G, Mi 10 Lite Zoom | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [picasso-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/picasso-r-oss) |
 | pissarro-r-oss | Redmi Note 11 Pro, Redmi Note 11 Pro+ | Android R | MTK | [pissarro-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pissarro-r-oss) |
 | pine-p-oss | Redmi 7A | Android P | LA.UM.7.6.2.r1-08100-89xx.0 | [pine-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pine-p-oss) |
+| pipa-t-oss | Xiaomi Pad 6 | Android T | LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1 | [pipa-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pipa-t-oss) |
 | pisces-kk-oss | Mi 3 China Mobile | Android KK | tegra-17r18-android-4.2 | [pisces-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pisces-kk-oss) |
 | platina-o-oss | MI 8 Lite | Android O | LA.UM.6.2.r1-07400-sdm660.0 | [platina-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/platina-o-oss) |
 | polaris-o-oss | Mi MIX 2S | Android O | LA.UM.6.3.r1_r00455 | [polaris-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/polaris-o-oss) |
