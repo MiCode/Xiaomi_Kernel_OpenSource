@@ -2432,9 +2432,6 @@ static int ____sys_sendmsg(struct socket *sock, struct msghdr *msg_sys,
 	/* 20 is size of ipv6_pktinfo */
 	unsigned char *ctl_buf = ctl;
 	int ctl_len;
-#if IS_ENABLED(CONFIG_MTK_IPV6MAPV4_DEBUG)
-	void *old_msg_name = NULL;
-#endif
 	ssize_t err;
 
 	err = -ENOBUFS;
@@ -2482,9 +2479,6 @@ static int ____sys_sendmsg(struct socket *sock, struct msghdr *msg_sys,
 		err = sock_sendmsg_nosec(sock, msg_sys);
 		goto out_freectl;
 	}
-#if IS_ENABLED(CONFIG_MTK_IPV6MAPV4_DEBUG)
-	old_msg_name = msg_sys->msg_name;
-#endif
 	err = sock_sendmsg(sock, msg_sys);
 	/*
 	 * If this is sendmmsg() and sending to current destination address was
@@ -2492,11 +2486,7 @@ static int ____sys_sendmsg(struct socket *sock, struct msghdr *msg_sys,
 	 */
 	if (used_address && err >= 0) {
 		used_address->name_len = msg_sys->msg_namelen;
-	#if IS_ENABLED(CONFIG_MTK_IPV6MAPV4_DEBUG)
-		if (msg_sys->msg_name && old_msg_name == msg_sys->msg_name)
-	#else
 		if (msg_sys->msg_name)
-	#endif
 			memcpy(&used_address->name, msg_sys->msg_name,
 			       used_address->name_len);
 	}
