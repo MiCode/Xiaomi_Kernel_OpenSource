@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/of.h>
+#include <linux/dma-map-ops.h>
 #include <linux/qcom_dma_heap.h>
 #include <linux/msm_dma_iommu_mapping.h>
 #include <linux/qti-smmu-proxy-callbacks.h>
@@ -154,12 +155,15 @@ struct sg_table *qcom_sg_map_dma_buf(struct dma_buf_attachment *attachment,
 	if (attrs & DMA_ATTR_DELAYED_UNMAP) {
 		ret = msm_dma_map_sgtable(attachment->dev, table, direction,
 					  attachment->dmabuf, attrs);
-	} else {
+	} else if (!a->mapped) {
 		ret = dma_map_sgtable(attachment->dev, table, direction, attrs);
+	} else {
+		dev_err(attachment->dev, "Error: Dma-buf is already mapped!\n");
+		ret = -EBUSY;
 	}
 
 	if (ret) {
-		table = ERR_PTR(-ENOMEM);
+		table = ERR_PTR(ret);
 		goto err_map_sgtable;
 	}
 
@@ -286,6 +290,9 @@ static int sgl_sync_range(struct device *dev, struct scatterlist *sgl,
 			break;
 
 		if (i > 0) {
+			if (!get_dma_ops(dev))
+				return 0;
+
 			pr_warn_ratelimited("Partial cmo only supported with 1 segment\n"
 				"is dma_set_max_seg_size being set on dev:%s\n",
 				dev_name(dev));

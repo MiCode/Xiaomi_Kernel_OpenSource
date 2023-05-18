@@ -249,6 +249,9 @@ config QCOM_QMI_HELPERS
 source "drivers/soc/qcom/memshare/Kconfig"
 
 source "drivers/soc/qcom/hab/Kconfig"
+
+source "drivers/soc/qcom/hgsl/Kconfig"
+
 config QCOM_RMTFS_MEM
 	tristate "Qualcomm Remote Filesystem memory driver"
 	depends on ARCH_QCOM
@@ -468,6 +471,14 @@ config QCOM_MEM_HOOKS
 	  If unsure, say 'M' here to ensure that the hooks are compiled
 	  in.
 
+config QCOM_BALANCE_ANON_FILE_RECLAIM
+	bool "During reclaim treat anon and file backed pages equally"
+	depends on SWAP
+	help
+	  When performing memory reclaim treat anonymous and file backed pages
+	  equally.
+	  Swapping anonymous pages out to memory can be efficient enough to justify
+	  treating anonymous and file backed pages equally.
 
 config HYP_ASSIGN_DEBUG
 	bool "Enable caller tracking for hyp-assign"
@@ -494,6 +505,17 @@ config QCOM_SOCINFO
 	help
 	 Say yes here to support the Qualcomm socinfo driver, providing
 	 information about the SoC to user space.
+
+config SILENT_MODE
+	tristate "Driver support for  Silent mode feature on QCOM Chipsets"
+	depends on PM_SILENT_MODE
+	help
+	  Enables the support for Silent mode for QCOM chipsets. This feature
+	  monitors a chosen external interface, ex: GPIO, when signalled a
+	  state change, will update
+	  /sys/kernel/silent_boot/pm_silentmode_kernel_state and
+	  /sys/kernel/silent_boot/pm_silentmode_hw_state attribute to
+	  indicate the state transition from silent to non-silent.
 
 config QCOM_SOCINFO_DT
 	tristate "Qualcomm Technologies, Inc. DT based socinfo driver"
@@ -999,6 +1021,14 @@ config MSM_SYSTEM_HEALTH_MONITOR
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
 
+config QCOM_AOP_SET_DDR
+	tristate "Sysfs to communicate with AOP using QMP protocol"
+	help
+	  This options enables a driver which allows clients to send messages
+	  to Alway On processor using QMP transport. Users can echo a frequency
+	  into an exposed sysfs node to send to AOP. The driver expects the Cap
+	  frequency of DDR based on SKU.
+
 config MSM_PERFORMANCE
         tristate "msm performance driver to support userspace fmin/fmax request"
         help
@@ -1006,6 +1036,19 @@ config MSM_PERFORMANCE
           when requested by the userspace by changing the cpufreq policy
           fmin and fmax. The user space can request  the cpu freq change by
           writing cpu#:freq values
+
+config QTI_PLH_SCMI_CLIENT
+	tristate "Qualcomm Technologies Inc. SCMI client driver for PLH"
+	depends on MSM_PERFORMANCE && QTI_SCMI_PLH_PROTOCOL
+	default n
+	help
+	  SCMI client driver registers itself with SCMI framework for PLH
+	  vendor protocol, and also registers with the plh interface driver
+	  msm_performance.
+
+	  This driver deliver the PLH vendor protocol handle to interface
+	  driver, and interface driver will use this handle to communicate
+	  with CPUCP PLH.
 
 config QCOM_PANEL_EVENT_NOTIFIER
 	tristate "panel event notifier"

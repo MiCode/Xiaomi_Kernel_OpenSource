@@ -37,7 +37,7 @@ struct hyp_assign_debug_track {
 	u32 refcount;
 };
 
-#ifdef CONFIG_HYP_ASSIGN_DEBUG
+#if IS_ENABLED(CONFIG_HYP_ASSIGN_DEBUG)
 /*
  * Contains a pointer to struct hyp_assign_debug_track for each pfn which
  * is in an assigned state.
@@ -447,6 +447,14 @@ int hyp_assign_table(struct sg_table *table,
 
 	/* Save stacktrace & hyp_assign parameters */
 	track = alloc_debug_tracking(dest_vmids, dest_perms, dest_nelems);
+#if IS_ENABLED(CONFIG_HYP_ASSIGN_DEBUG)
+	if (!track) {
+		ret = -ENOMEM;
+		dma_unmap_single(qcom_secure_buffer_dev, dest_dma_addr,
+				 dest_vm_copy_size, DMA_TO_DEVICE);
+		goto out_free_dest;
+	}
+#endif /* CONFIG_HYP_ASSIGN_DEBUG */
 
 	trace_hyp_assign_info(source_vm_list, source_nelems, dest_vmids,
 			      dest_perms, dest_nelems);
@@ -483,37 +491,6 @@ out_free_source:
 	return ret;
 }
 EXPORT_SYMBOL(hyp_assign_table);
-
-int hyp_assign_phys(phys_addr_t addr, u64 size, u32 *source_vm_list,
-			int source_nelems, int *dest_vmids,
-			int *dest_perms, int dest_nelems)
-{
-	struct qcom_scm_vmperm *newvm = NULL;
-	u64 source_vm = 0;
-	int i, ret;
-
-	if (!qcom_secure_buffer_dev)
-		return -EPROBE_DEFER;
-	if (dest_nelems <= 0 || !source_nelems)
-		return -EINVAL;
-
-	newvm = kcalloc(dest_nelems, sizeof(struct qcom_scm_vmperm),
-				GFP_KERNEL);
-	if (!newvm)
-		return -ENOMEM;
-	for (i = 0; i < source_nelems; i++)
-		source_vm |= BIT(*(source_vm_list + i));
-
-	for (i = 0; i < dest_nelems; i++) {
-		newvm[i].vmid = *(dest_vmids + i);
-		newvm[i].perm = *(dest_perms + i);
-	}
-	ret = qcom_scm_assign_mem(addr, size, &source_vm, newvm, dest_nelems);
-	kfree(newvm);
-
-	return ret;
-}
-EXPORT_SYMBOL(hyp_assign_phys);
 
 const char *msm_secure_vmid_to_string(int secure_vmid)
 {
@@ -613,7 +590,7 @@ static struct platform_driver qcom_secure_buffer_driver = {
 
 static int __init qcom_secure_buffer_init(void)
 {
-#ifdef CONFIG_HYP_ASSIGN_DEBUG
+#if IS_ENABLED(CONFIG_HYP_ASSIGN_DEBUG)
 	failure_handle = create_dummy_stack();
 #endif
 

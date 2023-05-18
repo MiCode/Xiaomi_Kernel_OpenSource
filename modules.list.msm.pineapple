@@ -22,6 +22,7 @@ mem_buf.ko
 qcom-scm.ko
 pinctrl-msm.ko
 pinctrl-pineapple.ko
+pinctrl-cliffs.ko
 sched-walt.ko
 sched-walt-debug.ko
 thermal_pause.ko
@@ -47,11 +48,12 @@ stub-regulator.ko
 gdsc-regulator.ko
 gh_virt_wdt.ko
 gh_arm_drv.ko
-gh_ctrl.ko
+gh_cpusys_vm_mem_access.ko
 gh_dbl.ko
 gh_msgq.ko
 gh_rm_drv.ko
 gunyah.ko
+gunyah_loader.ko
 hwkm.ko
 crypto-qti.ko
 ufshcd-crypto-qti.ko
@@ -78,6 +80,7 @@ qcom-spmi-pmic.ko
 nvmem_qcom-spmi-sdam.ko
 rtc-pm8xxx.ko
 qcom-reboot-reason.ko
+pmic-pon-log.ko
 qrtr.ko
 qcom_aoss.ko
 msm_qmp.ko

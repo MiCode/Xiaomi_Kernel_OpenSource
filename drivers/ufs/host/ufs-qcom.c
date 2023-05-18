@@ -56,6 +56,7 @@
 
 #define	UFS_QCOM_IRQ_PRIME_MASK	0x80
 #define	UFS_QCOM_IRQ_SLVR_MASK	0x0f
+#define	UFS_QCOM_ESI_AFFINITY_MASK	0xf0
 
 #define UFS_QCOM_BER_TH_DEF_G1_G4	0
 #define UFS_QCOM_BER_TH_DEF_G5	3
@@ -78,6 +79,31 @@
 static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
 
 static DEFINE_PER_CPU(struct freq_qos_request, qos_min_req);
+
+int ufsqcom_dump_regs(struct ufs_hba *hba, size_t offset, size_t len,
+		     const char *prefix, enum ufshcd_res id)
+{
+	u32 *regs;
+	size_t pos;
+
+	if (offset % 4 != 0 || len % 4 != 0) /* keep readl happy */
+		return -EINVAL;
+
+	regs = kzalloc(len, GFP_ATOMIC);
+	if (!regs)
+		return -ENOMEM;
+
+	for (pos = 0; pos < len; pos += 4)
+		regs[pos / 4] = readl(hba->res[id].base + offset + pos);
+
+	print_hex_dump(KERN_ERR, prefix,
+		       len > 4 ? DUMP_PREFIX_OFFSET : DUMP_PREFIX_NONE,
+			   16, 4, regs, len, false);
+
+	kfree(regs);
+
+	return 0;
+}
 
 enum {
 	TSTBUS_UAWM,
@@ -115,7 +141,8 @@ static struct ufs_qcom_host *ufs_qcom_hosts[MAX_UFS_QCOM_HOSTS];
 static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 						       u32 clk_1us_cycles,
-						       u32 clk_40ns_cycles);
+						       u32 clk_40ns_cycles,
+						       bool scale_up);
 static void ufs_qcom_parse_limits(struct ufs_qcom_host *host);
 static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host);
 static void ufs_qcom_parse_wb(struct ufs_qcom_host *host);
@@ -720,8 +747,10 @@ static void ufs_qcom_select_unipro_mode(struct ufs_qcom_host *host)
 		   ufs_qcom_cap_qunipro(host) ? QUNIPRO_SEL : 0,
 		   REG_UFS_CFG1);
 
-	if (host->hw_ver.major >= 0x05)
+	if (host->hw_ver.major >= 0x05) {
 		ufshcd_rmwl(host->hba, QUNIPRO_G4_SEL, 0, REG_UFS_CFG0);
+		ufshcd_rmwl(host->hba, HCI_UAWM_OOO_DIS, 0, REG_UFS_CFG0);
+	}
 
 	/* make sure above configuration is applied before we return */
 	mb();
@@ -801,6 +830,7 @@ static int ufs_qcom_phy_power_on(struct ufs_hba *hba)
 		}
 		host->is_phy_pwr_on = true;
 	}
+
 	mutex_unlock(&host->phy_mutex);
 
 	return ret;
@@ -1174,19 +1204,19 @@ static int ufs_qcom_set_dme_vs_core_clk_ctrl_max_freq_mode(struct ufs_hba *hba)
 
 	switch (max_freq) {
 	case 403000000:
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 403, 16);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 403, 16, true);
 		break;
 	case 300000000:
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 300, 12);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 300, 12, true);
 		break;
 	case 201500000:
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 202, 8);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 202, 8, true);
 		break;
 	case 150000000:
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150, 6);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 150, 6, true);
 		break;
 	case 100000000:
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 100, 4);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 100, 4, true);
 		break;
 	default:
 		err = -EINVAL;
@@ -2119,9 +2149,6 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 			goto out;
 		}
 
-		/* Use the agreed gear */
-		host->hs_gear = dev_req_params->gear_tx;
-
 		/* enable the device ref clock before changing to HS mode */
 		if (!ufshcd_is_hs_mode(&hba->pwr_info) &&
 			ufshcd_is_hs_mode(dev_req_params))
@@ -2382,8 +2409,10 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 	if (host->disable_lpm)
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
 
+	hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
+
 #if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO_QTI)
-	hba->quirks |= UFSHCD_QUIRK_CUSTOM_CRYPTO_PROFILE;
+	hba->android_quirks |= UFSHCD_ANDROID_QUIRK_CUSTOM_CRYPTO_PROFILE;
 #endif
 }
 
@@ -2450,6 +2479,24 @@ static int ufs_qcom_unvote_qos_all(struct ufs_hba *hba)
 	return err;
 }
 
+static void ufs_qcom_wait_for_cq_hp_update(struct ufs_hba *hba)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	/*
+	 * Clock gating can race and turn off clocks before the CQ HP update
+	 * can be completed. This leads to CQ HP and TP out of sync and leads to
+	 * abort errors.
+	 * Loop and Sleep until the CQ Head update is done.
+	 * See ufs_qcom_esi_handler().
+	 */
+	if (is_mcq_enabled(hba)) {
+		while (atomic_read(&host->cqhp_update_pending))
+			/* Wait for 10 - 20 msec */
+			usleep_range(10 * 1000, 20 * 1000);
+	}
+}
+
 /**
  * ufs_qcom_setup_clocks - enables/disable clocks
  * @hba: host controller instance
@@ -2501,6 +2548,7 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			}
 		} else {
 			if (!ufs_qcom_is_link_active(hba)) {
+				ufs_qcom_wait_for_cq_hp_update(hba);
 				clk_disable_unprepare(host->core_unipro_clki->clk);
 				host->core_unipro_clki->enabled = on;
 
@@ -2713,7 +2761,7 @@ static int ufs_qcom_update_qos_constraints(struct qos_cpu_group *qcg,
 	return 0;
 }
 
-static void ufs_qcom_qos(struct ufs_hba *hba, int tag, bool is_scsi_cmd)
+static void ufs_qcom_qos(struct ufs_hba *hba, int tag)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct qos_cpu_group *qcg;
@@ -2958,6 +3006,15 @@ static void ufs_qcom_parse_irq_affinity(struct ufs_hba *hba)
 		if (!cpumask_subset(&host->def_mask, cpu_possible_mask)) {
 			dev_err(dev, "Invalid group silver mask\n");
 			host->def_mask.bits[0] = UFS_QCOM_IRQ_SLVR_MASK;
+		}
+		mask = 0;
+		of_property_read_u32(np, "qcom,esi-affinity-mask", &mask);
+		host->esi_affinity_mask.bits[0] = mask;
+		if (!cpumask_subset(&host->esi_affinity_mask,
+				    cpu_possible_mask)) {
+			dev_err(dev, "Invalid group ESI affinity mask\n");
+			host->esi_affinity_mask.bits[0] =
+					UFS_QCOM_ESI_AFFINITY_MASK;
 		}
 	}
 }
@@ -3298,6 +3355,20 @@ static void ufs_qcom_register_minidump(uintptr_t vaddr, u64 size,
 	}
 }
 
+/*
+ * ufs_qcom_parse_pbl_rst_workaround_flag - read bypass-pbl-rst-wa entry from DT
+ */
+static void ufs_qcom_parse_pbl_rst_workaround_flag(struct ufs_qcom_host *host)
+{
+	struct device_node *np = host->hba->dev->of_node;
+	const char *str  = "qcom,bypass-pbl-rst-wa";
+
+	if (!np)
+		return;
+
+	host->bypass_pbl_rst_wa = of_property_read_bool(np, str);
+}
+
 /**
  * ufs_qcom_init - bind phy with controller
  * @hba: host controller instance
@@ -3437,6 +3508,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		pm_runtime_forbid(host->hba->dev);
 
 	ufs_qcom_parse_wb(host);
+	ufs_qcom_parse_pbl_rst_workaround_flag(host);
 	ufs_qcom_set_caps(hba);
 	ufs_qcom_advertise_quirks(hba);
 
@@ -3471,12 +3543,6 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		dev_warn(dev, "%s: failed to configure the testbus %d\n",
 				__func__, err);
 
-	/*
-	 * Power up the PHY using the minimum supported gear (UFS_HS_G2).
-	 * Switching to max gear will be performed during reinit if supported.
-	 */
-	host->hs_gear = UFS_HS_G2;
-
 	ufs_qcom_init_sysfs(hba);
 
 	ut->tcd = devm_thermal_of_cooling_device_register(dev,
@@ -3509,6 +3575,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		ufs_qcom_register_minidump((uintptr_t)hba->host,
 					sizeof(struct Scsi_Host), "UFS_SHOST", 0);
 	}
+
 	return 0;
 
 out_disable_vccq_parent:
@@ -3536,7 +3603,8 @@ static void ufs_qcom_exit(struct ufs_hba *hba)
 
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 						       u32 clk_1us_cycles,
-						       u32 clk_40ns_cycles)
+						       u32 clk_40ns_cycles,
+						       bool scale_up)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err;
@@ -3559,12 +3627,14 @@ static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 	if (err)
 		return err;
 
-	core_clk_ctrl_reg &= ~mask;
-	core_clk_ctrl_reg |= clk_1us_cycles;
-	core_clk_ctrl_reg <<= offset;
+	core_clk_ctrl_reg &= ~(mask << offset);
+	core_clk_ctrl_reg |= clk_1us_cycles << offset;
 
 	/* Clear CORE_CLK_DIV_EN */
-	core_clk_ctrl_reg &= ~DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT;
+	if (scale_up)
+		core_clk_ctrl_reg |= DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT;
+	else
+		core_clk_ctrl_reg &= ~DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT;
 
 	err = ufshcd_dme_set(hba,
 			     UIC_ARG_MIB(DME_VS_CORE_CLK_CTRL),
@@ -3680,13 +3750,13 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 
 	switch (curr_freq) {
 	case 37500000:
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 38, 2);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 38, 2, false);
 		break;
 	case 75000000:
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 75, 3);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 75, 3, false);
 		break;
 	case 100000000:
-		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 100, 4);
+		err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba, 100, 4, false);
 		break;
 	default:
 		err = -EINVAL;
@@ -3712,6 +3782,7 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 		return 0;
 
 	if (status == PRE_CHANGE) {
+		ufs_qcom_wait_for_cq_hp_update(hba);
 		err = ufshcd_uic_hibern8_enter(hba);
 		if (err)
 			return err;
@@ -4180,6 +4251,61 @@ static void ufs_qcom_print_utp_hci_testbus(struct ufs_hba *hba)
 			16, 4, testbus, testbus_len, false);
 	kfree(testbus);
 }
+static void ufs_qcom_dump_mcq_hci_regs(struct ufs_hba *hba)
+{
+	/* RES_MCQ_1 */
+	ufsqcom_dump_regs(hba, 0x0, 256 * 4,
+			"MCQ HCI 1da0000-1da03f0 ", RES_MCQ);
+	usleep_range(1000, 1100);
+	/* RES_MCQ_2 */
+	ufsqcom_dump_regs(hba, 0x400, 256 * 4,
+			"MCQ HCI 1da0400-1da07f0 ", RES_MCQ);
+	usleep_range(1000, 1100);
+
+	/*RES_MCQ_VS */
+	ufsqcom_dump_regs(hba, 0x0, 5 * 4,
+			"MCQ VS 1da4000-1da4010 ", RES_MCQ_VS);
+	usleep_range(1000, 1100);
+
+	/* RES_MCQ_SQD_1 */
+	ufsqcom_dump_regs(hba, 0x0, 256 * 4,
+			"MCQ SQD 1da5000-1da53f0 ", RES_MCQ_SQD);
+	usleep_range(1000, 1100);
+	/* RES_MCQ_SQD_2 */
+	ufsqcom_dump_regs(hba, 0x400, 256 * 4,
+			"MCQ SQD 1da5400-1da57f0 ", RES_MCQ_SQD);
+	usleep_range(1000, 1100);
+	/* RES_MCQ_SQD_3 */
+	ufsqcom_dump_regs(hba, 0x800, 256 * 4,
+			"MCQ SQD 1da5800-1da5bf0 ", RES_MCQ_SQD);
+	usleep_range(1000, 1100);
+	/* RES_MCQ_SQD_4 */
+	ufsqcom_dump_regs(hba, 0xc00, 256 * 4,
+			"MCQ SQD 1da5c00-1da5ff0 ", RES_MCQ_SQD);
+	usleep_range(1000, 1100);
+
+	/* RES_MCQ_SQD_5 */
+	ufsqcom_dump_regs(hba, 0x1000, 256 * 4,
+			"MCQ SQD 1da6000-1da63f0 ", RES_MCQ_SQD);
+	usleep_range(1000, 1100);
+	/* RES_MCQ_SQD_6 */
+	ufsqcom_dump_regs(hba, 0x1400, 256 * 4,
+			"MCQ SQD 1da6400-1da67f0 ", RES_MCQ_SQD);
+	usleep_range(1000, 1100);
+	/* RES_MCQ_SQD_7 */
+	ufsqcom_dump_regs(hba, 0x1800, 256 * 4,
+			"MCQ SQD 1da6800-1da6bf0 ", RES_MCQ_SQD);
+	usleep_range(1000, 1100);
+	/* RES_MCQ_SQD_8 */
+	ufsqcom_dump_regs(hba, 0x1c00, 256 * 4,
+			"MCQ SQD 1da6c00-1da6ff0 ", RES_MCQ_SQD);
+}
+
+static void ufs_qcom_dump_mcq_dbg_regs(struct ufs_hba *hba)
+{
+	ufshcd_dump_regs(hba, UFS_RD_REG_MCQ, 64 * 4,
+			 "HCI MCQ Debug Registers ");
+}
 
 static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 {
@@ -4194,6 +4320,9 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 	ufshcd_dump_regs(hba, UFS_MEM_ICE, 29 * 4,
 			 "HCI Shared ICE Registers ");
 
+	if (is_mcq_enabled(hba))
+		ufs_qcom_dump_mcq_dbg_regs(hba);
+
 	/* sleep a bit intermittently as we are dumping too much data */
 	ufs_qcom_print_hw_debug_reg_all(hba, NULL, ufs_qcom_dump_regs_wrapper);
 
@@ -4202,6 +4331,11 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 
 	if (in_task()) {
 		usleep_range(1000, 1100);
+
+		if (is_mcq_enabled(hba)) {
+			ufs_qcom_dump_mcq_hci_regs(hba);
+			usleep_range(1000, 1100);
+		}
 		ufs_qcom_testbus_read(hba);
 		usleep_range(1000, 1100);
 		ufs_qcom_print_unipro_testbus(hba);
@@ -4380,13 +4514,6 @@ static void ufs_qcom_fixup_dev_quirks(struct ufs_hba *hba)
 	ufshcd_fixup_dev_quirks(hba, ufs_qcom_dev_fixups);
 }
 
-static void ufs_qcom_reinit_notify(struct ufs_hba *hba)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
-	phy_power_off(host->generic_phy);
-}
-
 /* Resources */
 static const struct ufshcd_res_info ufs_res_info[RES_MAX] = {
 	{.name = "ufs_mem",},
@@ -4539,9 +4666,26 @@ static irqreturn_t ufs_qcom_mcq_esi_handler(int irq, void *__hba)
 	struct ufs_hw_queue *hwq = &hba->uhq[id];
 
 	ufshcd_mcq_write_cqis(hba, 0x1, id);
+	atomic_add(1, &host->cqhp_update_pending);
 	ufshcd_mcq_poll_cqe_nolock(hba, hwq);
+	atomic_sub(1, &host->cqhp_update_pending);
 
 	return IRQ_HANDLED;
+}
+
+static void ufs_qcom_set_esi_affinity_hint(struct ufs_hba *hba, int irq)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	cpumask_t *affinity_mask = &host->esi_affinity_mask;
+	unsigned int set = IRQ_NO_BALANCING;
+	unsigned int clear = 0;
+	int ret;
+
+	irq_modify_status(irq, clear, set);
+	ret = irq_set_affinity_hint(irq, affinity_mask);
+	if (ret < 0)
+		dev_err(hba->dev, "%s: Failed to set affinity hint for ESI %d, err = %d\n",
+			__func__, irq, ret);
 }
 
 static int ufs_qcom_config_esi(struct ufs_hba *hba)
@@ -4579,6 +4723,10 @@ static int ufs_qcom_config_esi(struct ufs_hba *hba)
 			failed_desc = desc;
 			break;
 		}
+
+		/* dev_cmd queue does not worth esi affinity */
+		if (desc->irq != host->esi_base)
+			ufs_qcom_set_esi_affinity_hint(hba, desc->irq);
 	}
 
 	if (ret) {
@@ -4634,10 +4782,8 @@ static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 	.device_reset		= ufs_qcom_device_reset,
 	.config_scaling_param = ufs_qcom_config_scaling_param,
-	.setup_xfer_req         = ufs_qcom_qos,
 	.program_key		= ufs_qcom_ice_program_key,
 	.fixup_dev_quirks       = ufs_qcom_fixup_dev_quirks,
-	.reinit_notify		= ufs_qcom_reinit_notify,
 	.mcq_config_resource	= ufs_qcom_mcq_config_resource,
 	.get_hba_mac		= ufs_qcom_get_hba_mac,
 	.op_runtime_config	= ufs_qcom_op_runtime_config,
@@ -4906,12 +5052,28 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 	if (lrbp && lrbp->cmd && lrbp->cmd->cmnd[0]) {
 		struct request *rq = scsi_cmd_to_rq(lrbp->cmd);
 		int sz = rq ? blk_rq_sectors(rq) : 0;
-		ufs_qcom_log_str(host, "<,%x,%d,%x,%d\n",
-				lrbp->cmd->cmnd[0],
-				lrbp->task_tag,
-				ufshcd_readl(hba,
-					REG_UTP_TRANSFER_REQ_DOOR_BELL),
-				sz);
+
+		ufs_qcom_qos(hba, lrbp->task_tag);
+
+		if (is_mcq_enabled(hba)) {
+			u32 utag = (rq->mq_hctx->queue_num << BLK_MQ_UNIQUE_TAG_BITS) |
+						(rq->tag & BLK_MQ_UNIQUE_TAG_MASK);
+			u32 idx = blk_mq_unique_tag_to_hwq(utag) + 1;
+			struct ufs_hw_queue *hwq = &hba->uhq[idx];
+
+			ufs_qcom_log_str(host, "<,%x,%d,%d,%d\n",
+							lrbp->cmd->cmnd[0],
+							lrbp->task_tag,
+							hwq->id,
+							sz);
+		} else {
+			ufs_qcom_log_str(host, "<,%x,%d,%x,%d\n",
+							lrbp->cmd->cmnd[0],
+							lrbp->task_tag,
+							ufshcd_readl(hba,
+								REG_UTP_TRANSFER_REQ_DOOR_BELL),
+							sz);
+		}
 	}
 }
 
@@ -4922,14 +5084,28 @@ static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	if (lrbp && lrbp->cmd) {
-		int sz = scsi_cmd_to_rq(lrbp->cmd) ?
-				blk_rq_sectors(scsi_cmd_to_rq(lrbp->cmd)) : 0;
-		ufs_qcom_log_str(host, ">,%x,%d,%x,%d\n",
-				lrbp->cmd->cmnd[0],
-				lrbp->task_tag,
-				ufshcd_readl(hba,
-					REG_UTP_TRANSFER_REQ_DOOR_BELL),
-				sz);
+		struct request *rq = scsi_cmd_to_rq(lrbp->cmd);
+		int sz = rq ? blk_rq_sectors(rq) : 0;
+
+		if (is_mcq_enabled(hba)) {
+			u32 utag = (rq->mq_hctx->queue_num << BLK_MQ_UNIQUE_TAG_BITS) |
+						(rq->tag & BLK_MQ_UNIQUE_TAG_MASK);
+			u32 idx = blk_mq_unique_tag_to_hwq(utag) + 1;
+			struct ufs_hw_queue *hwq = &hba->uhq[idx];
+
+			ufs_qcom_log_str(host, ">,%x,%d,%d,%d\n",
+							lrbp->cmd->cmnd[0],
+							lrbp->task_tag,
+							hwq->id,
+							sz);
+		} else {
+			ufs_qcom_log_str(host, ">,%x,%d,%x,%d\n",
+							lrbp->cmd->cmnd[0],
+							lrbp->task_tag,
+							ufshcd_readl(hba,
+								REG_UTP_TRANSFER_REQ_DOOR_BELL),
+							sz);
+		}
 	}
 }
 
@@ -4974,6 +5150,11 @@ static void ufs_qcom_hook_check_int_errors(void *param, struct ufs_hba *hba,
 					hba->errors, hba->uic_error);
 }
 
+static void ufs_qcom_update_sdev(void *param, struct scsi_device *sdev)
+{
+	sdev->broken_fua = 1;
+}
+
 /*
  * Refer: common/include/trace/hooks/ufshcd.h for available hooks
  */
@@ -4989,6 +5170,7 @@ static void ufs_qcom_register_hooks(void)
 				ufs_qcom_hook_send_tm_command, NULL);
 	register_trace_android_vh_ufs_check_int_errors(
 				ufs_qcom_hook_check_int_errors, NULL);
+	register_trace_android_vh_ufs_update_sdev(ufs_qcom_update_sdev, NULL);
 }
 
 #ifdef CONFIG_ARM_QCOM_CPUFREQ_HW
@@ -5098,7 +5280,8 @@ static void ufs_qcom_shutdown(struct platform_device *pdev)
 	 * reset, so deassert ufs device reset line after UFS device shutdown
 	 * to ensure the UFS_RESET TLMM register value is POR value
 	 */
-	ufs_qcom_device_reset_ctrl(hba, false);
+	if (!host->bypass_pbl_rst_wa)
+		ufs_qcom_device_reset_ctrl(hba, false);
 }
 
 static const struct of_device_id ufs_qcom_of_match[] = {

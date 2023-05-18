@@ -16,7 +16,7 @@
 #include <linux/qcom_scm.h>
 
 #include <soc/qcom/secure_buffer.h>
-#include <linux/gunyah.h>
+#include <linux/gunyah_deprecated.h>
 
 #include "gh_secure_vm_virtio_backend.h"
 #include "gh_secure_vm_loader.h"
@@ -740,7 +740,7 @@ static const struct file_operations gh_dev_fops = {
 };
 
 static struct miscdevice gh_dev = {
-	.name = "gunyah",
+	.name = "qgunyah",
 	.minor = MISC_DYNAMIC_MINOR,
 	.fops = &gh_dev_fops,
 };

@@ -862,11 +862,20 @@ static inline const char *md_get_task_state(struct task_struct *tsk)
 static void md_dump_next_event(void)
 {
 	int cpu;
-	struct tick_device *device_dump = DEBUG_SYMBOL_LOOKUP(tick_cpu_device);
+	struct tick_device *device_dump;
+	struct clock_event_device *event_dev;
+
+	device_dump = DEBUG_SYMBOL_LOOKUP(tick_cpu_device);
+	if (!device_dump)
+		return;
 
 	for_each_possible_cpu(cpu) {
-		pr_emerg("CPU%d next event is %ld\n", cpu,
-			per_cpu(device_dump->evtdev, cpu)->next_event);
+		event_dev = per_cpu(device_dump->evtdev, cpu);
+		if (event_dev)
+			pr_emerg("CPU%d next event is %ld\n", cpu,
+				event_dev->next_event);
+		else
+			pr_emerg("CPU%d next event is not available\n", cpu);
 	}
 }
 
@@ -1211,6 +1220,13 @@ static void md_register_panic_data(void)
 {
 #ifdef CONFIG_QCOM_MINIDUMP_PANIC_MEMORY_INFO
 	struct dentry *minidump_dir = NULL;
+	int ret;
+
+	ret = md_minidump_memory_init();
+	if (ret) {
+		pr_err("Failed to look up all minidump memory symbols, rc: %d\n", ret);
+		return;
+	}
 
 	md_register_panic_entries(MD_MEMINFO_PAGES, "MEMINFO",
 				  &md_meminfo_seq_buf);

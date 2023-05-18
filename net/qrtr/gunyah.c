@@ -14,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/skbuff.h>
 #include <linux/gunyah/gh_rm_drv.h>
+#include <linux/gunyah/gh_vm.h>
 #include <linux/gunyah/gh_dbl.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/qcom_scm.h>
@@ -62,7 +63,9 @@ struct gunyah_pipe {
  * @size: fifo size.
  * @master: primary vm indicator.
  * @peer_name: name of vm peer.
- * @rm_nb: notifier block for vm status from rm
+ * @vm_nb: notifier block for vm status from rm
+ * @state_lock: lock to protect registered state
+ * @registered: state of endpoint
  * @label: label for gunyah resources
  * @tx_dbl: doorbell for tx notifications.
  * @rx_dbl: doorbell for rx notifications.
@@ -81,7 +84,10 @@ struct qrtr_gunyah_dev {
 	size_t size;
 	bool master;
 	u32 peer_name;
-	struct notifier_block rm_nb;
+	struct notifier_block vm_nb;
+	/* lock to protect registered */
+	struct mutex state_lock;
+	bool registered;
 
 	u32 label;
 	void *tx_dbl;
@@ -304,11 +310,15 @@ static bool gunyah_get_read_notify(struct qrtr_gunyah_dev *qdev)
 	return le32_to_cpu(*qdev->rx_pipe.read_notify);
 }
 
-static void gunyah_wait_for_tx_avail(struct qrtr_gunyah_dev *qdev)
+static int gunyah_wait_for_tx_avail(struct qrtr_gunyah_dev *qdev)
 {
+	int ret;
+
 	gunyah_set_tx_notify(qdev);
-	wait_event_timeout(qdev->tx_avail_notify,
-			   gunyah_tx_avail(&qdev->tx_pipe), 10 * HZ);
+	qrtr_gunyah_kick(qdev);
+	ret = wait_event_timeout(qdev->tx_avail_notify, gunyah_tx_avail(&qdev->tx_pipe), 10 * HZ);
+
+	return ret;
 }
 
 /* from qrtr to gunyah */
@@ -319,7 +329,7 @@ static int qrtr_gunyah_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 	int chunk_size;
 	int left_size;
 	int offset;
-	int rc;
+	int rc = 0;
 
 	qdev = container_of(ep, struct qrtr_gunyah_dev, ep);
 
@@ -328,7 +338,11 @@ static int qrtr_gunyah_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 	while (left_size > 0) {
 		tx_avail = gunyah_tx_avail(&qdev->tx_pipe);
 		if (!tx_avail) {
-			gunyah_wait_for_tx_avail(qdev);
+			if (!gunyah_wait_for_tx_avail(qdev)) {
+				dev_err(qdev->dev, "transport stalled\n");
+				rc = -ETIMEDOUT;
+				break;
+			}
 			continue;
 		}
 		if (tx_avail < left_size)
@@ -360,7 +374,7 @@ static int qrtr_gunyah_send(struct qrtr_endpoint *ep, struct sk_buff *skb)
 	gunyah_clr_tx_notify(qdev);
 	kfree_skb(skb);
 
-	return 0;
+	return (rc < 0) ? rc : 0;
 }
 
 static void qrtr_gunyah_read_new(struct qrtr_gunyah_dev *qdev)
@@ -518,46 +532,52 @@ static void qrtr_gunyah_unshare_mem(struct qrtr_gunyah_dev *qdev,
 		       __func__, qdev->res.start, resource_size(&qdev->res), ret);
 }
 
-static int qrtr_gunyah_rm_cb(struct notifier_block *nb, unsigned long cmd,
-			     void *data)
+static int qrtr_gunyah_vm_cb(struct notifier_block *nb, unsigned long cmd, void *data)
 {
-	struct gh_rm_notif_vm_status_payload *vm_status_payload;
-	struct qrtr_gunyah_dev *qdev;
+	struct qrtr_gunyah_dev *qdev = container_of(nb, struct qrtr_gunyah_dev, vm_nb);
 	gh_vmid_t peer_vmid;
 	gh_vmid_t self_vmid;
+	gh_vmid_t vmid;
 
-	qdev = container_of(nb, struct qrtr_gunyah_dev, rm_nb);
-
-	if (cmd != GH_RM_NOTIF_VM_STATUS)
+	if (!data)
 		return NOTIFY_DONE;
+	vmid = *((gh_vmid_t *)data);
 
-	vm_status_payload = data;
-	if (vm_status_payload->vm_status != GH_RM_VM_STATUS_READY &&
-	    vm_status_payload->vm_status != GH_RM_VM_STATUS_RESET)
-		return NOTIFY_DONE;
 	if (ghd_rm_get_vmid(qdev->peer_name, &peer_vmid))
 		return NOTIFY_DONE;
 	if (ghd_rm_get_vmid(GH_PRIMARY_VM, &self_vmid))
 		return NOTIFY_DONE;
-	if (peer_vmid != vm_status_payload->vmid)
+	if (peer_vmid != vmid)
 		return NOTIFY_DONE;
 
-	if (vm_status_payload->vm_status == GH_RM_VM_STATUS_READY) {
+	mutex_lock(&qdev->state_lock);
+	switch (cmd) {
+	case GH_VM_BEFORE_POWERUP:
+		if (qdev->registered)
+			break;
 		qrtr_gunyah_fifo_init(qdev);
-		if (qrtr_endpoint_register(&qdev->ep, QRTR_EP_NET_ID_AUTO,
-					   false, NULL)) {
+		if (qrtr_endpoint_register(&qdev->ep, QRTR_EP_NET_ID_AUTO, false, NULL)) {
 			pr_err("%s: endpoint register failed\n", __func__);
-			return NOTIFY_DONE;
+			break;
 		}
 		if (qrtr_gunyah_share_mem(qdev, self_vmid, peer_vmid)) {
 			pr_err("%s: failed to share memory\n", __func__);
-			return NOTIFY_DONE;
+			qrtr_endpoint_unregister(&qdev->ep);
+			break;
 		}
+		qdev->registered = true;
+		break;
+	case GH_VM_POWERUP_FAIL:
+		fallthrough;
+	case GH_VM_EARLY_POWEROFF:
+		if (qdev->registered) {
+			qrtr_endpoint_unregister(&qdev->ep);
+			qrtr_gunyah_unshare_mem(qdev, self_vmid, peer_vmid);
+			qdev->registered = false;
+		}
+		break;
 	}
-	if (vm_status_payload->vm_status == GH_RM_VM_STATUS_RESET) {
-		qrtr_endpoint_unregister(&qdev->ep);
-		qrtr_gunyah_unshare_mem(qdev, self_vmid, peer_vmid);
-	}
+	mutex_unlock(&qdev->state_lock);
 
 	return NOTIFY_DONE;
 }
@@ -724,6 +744,8 @@ static int qrtr_gunyah_probe(struct platform_device *pdev)
 	if (!qdev->ring.buf)
 		return -ENOMEM;
 
+	mutex_init(&qdev->state_lock);
+	qdev->registered = false;
 	spin_lock_init(&qdev->dbl_lock);
 
 	ret = of_property_read_u32(node, "gunyah-label", &qdev->label);
@@ -746,9 +768,9 @@ static int qrtr_gunyah_probe(struct platform_device *pdev)
 		if (ret)
 			qdev->peer_name = GH_SELF_VM;
 
-		qdev->rm_nb.notifier_call = qrtr_gunyah_rm_cb;
-		qdev->rm_nb.priority = INT_MAX;
-		gh_rm_register_notifier(&qdev->rm_nb);
+		qdev->vm_nb.notifier_call = qrtr_gunyah_vm_cb;
+		qdev->vm_nb.priority = INT_MAX;
+		gh_register_vm_notifier(&qdev->vm_nb);
 	}
 
 	dbl_label = qdev->label;
@@ -802,6 +824,7 @@ static int qrtr_gunyah_remove(struct platform_device *pdev)
 
 	if (!qdev->master)
 		return 0;
+	gh_unregister_vm_notifier(&qdev->vm_nb);
 
 	if (ghd_rm_get_vmid(qdev->peer_name, &peer_vmid))
 		return 0;

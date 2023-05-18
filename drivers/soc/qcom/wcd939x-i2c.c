@@ -28,6 +28,11 @@ enum {
 	WCD_USBSS_AUDIO_FSM,
 };
 
+enum {
+	WCD_USBSS_1_X,
+	WCD_USBSS_2_0,
+};
+
 struct wcd_usbss_reg_mask_val {
 	u16 reg;
 	u8 mask;
@@ -80,6 +85,138 @@ static struct kobj_attribute wcd_usbss_surge_period_attribute =
 static struct kobj_attribute wcd_usbss_standby_enable_attribute =
 	__ATTR(standby_mode, 0220, NULL, wcd_usbss_standby_store);
 
+/**
+ * wcd_usbss_sbu_switch_orientation() - Determine SBU switch orientation based on switch settings.
+ *
+ * This function is used to determine SBU switch orientation of the WCD USBSS. INVALID_ORIENTATION
+ * in enum wcd_usbss_sbu_switch_orientation represents an error state where none of the defined
+ * orientations can be inferred by the switch settings.
+ *
+ * Return: Returns an enum wcd_usbss_sbu_switch_orientation to client. INVALID_ORIENTATION is
+ *	   returned if the driver is not probed or if undefined switch settings are discovered.
+ */
+enum wcd_usbss_sbu_switch_orientation wcd_usbss_get_sbu_switch_orientation(void)
+{
+	unsigned int read_val = 0;
+
+	/* check if driver is probed and private context is init'ed */
+	if (wcd_usbss_ctxt_ == NULL)
+		return INVALID_ORIENTATION;
+
+	if (!wcd_usbss_ctxt_->regmap)
+		return INVALID_ORIENTATION;
+
+	regmap_read(wcd_usbss_ctxt_->regmap, WCD_USBSS_SWITCH_SELECT0, &read_val);
+	if ((read_val & 0x3) == 0x1)
+		return GND_SBU1_ORIENTATION_B;
+	if ((read_val & 0x3) == 0x2)
+		return GND_SBU2_ORIENTATION_A;
+	return INVALID_ORIENTATION;
+}
+EXPORT_SYMBOL(wcd_usbss_get_sbu_switch_orientation);
+
+/*
+ * wcd_usbss_set_switch_settings_enable() - Configure a specified WCD USBSS switch.
+ * @switch_type: Switch to be enabled/disabled.
+ * @switch_setting: Enable or disable.
+ *
+ * This function will set or reset a specific bit in the WCD_USBSS_SWITCH_SETTINGS_ENABLE register.
+ * There is a check that switch_type represents a bit in this register. Update the definition of
+ * enum wcd_usbss_switch_type switch_type if the bits in WCD_USBSS_SWITCH_SETTINGS_ENABLE change.
+ *
+ * Return : Returns int on whether the switch configuration happened or not. -ENODEV is returned if
+ *	    the driver is not probed.
+ */
+int wcd_usbss_set_switch_settings_enable(enum wcd_usbss_switch_type switch_type,
+					 enum wcd_usbss_switch_state switch_state)
+{
+	/* check if driver is probed and private context is initialized */
+	if (wcd_usbss_ctxt_ == NULL)
+		return -ENODEV;
+
+	if ((!wcd_usbss_ctxt_->regmap) || (switch_type < MIN_SWITCH_TYPE_NUM) ||
+	    (switch_type > MAX_SWITCH_TYPE_NUM) ||
+	    (switch_state != USBSS_SWITCH_DISABLE && switch_state != USBSS_SWITCH_ENABLE))
+		return -EINVAL;
+
+	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_SWITCH_SETTINGS_ENABLE,
+			   1 << switch_type, switch_state << switch_type);
+	return 0;
+}
+EXPORT_SYMBOL(wcd_usbss_set_switch_settings_enable);
+
+/*
+ * wcd_usbss_linearizer_rdac_cal_code_select() - Configure the linearizer calibration codes source.
+ *
+ * @source: HW (hardware) or SW (software).
+ *
+ * This function configures the linearizer to use SW or HW as the sources for the calibration codes.
+ *
+ * Return: Returns int on whether the switch configuration happened or not. -ENODEV is returned if
+ *	   the driver is not probed.
+ */
+int wcd_usbss_linearizer_rdac_cal_code_select(enum linearizer_rdac_cal_code_select source)
+{
+	/* check if driver is probed and private context is initialized */
+	if (wcd_usbss_ctxt_ == NULL)
+		return -ENODEV;
+
+	if ((!wcd_usbss_ctxt_->regmap) || (source != LINEARIZER_SOURCE_HW &&
+					   source != LINEARIZER_SOURCE_SW))
+		return -EINVAL;
+
+	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_FUNCTION_ENABLE, 0x4, source << 2);
+	return 0;
+}
+EXPORT_SYMBOL(wcd_usbss_linearizer_rdac_cal_code_select);
+
+/*
+ * wcd_usbss_set_linearizer_sw_tap() - Configure linearizer audio and ground software tap values.
+ *
+ * @aud_tap: 10-bit tap code for the L and R audio software tap registers.
+ * @gnd_tap: 10-bit tap code for the L and R ground software tap registers.
+ *
+ * This function writes tap values to the left and right tap registers for the audio and ground
+ * FETs. Note that the tap values are 10 bits and cannot exceed 0x3FF, but they can be 0.
+ *
+ * Return: Returns int on whether the switch configuration happened or not. -ENODEV is returned if
+ *	   the driver is not probed.
+ */
+int wcd_usbss_set_linearizer_sw_tap(uint32_t aud_tap, uint32_t gnd_tap)
+{
+	uint32_t lsb_mask = 0xFF, msb_shift = 8;
+
+	/* check if driver is probed and private context is initialized */
+	if (wcd_usbss_ctxt_ == NULL)
+		return -ENODEV;
+
+	if ((!wcd_usbss_ctxt_->regmap) || aud_tap > 0x3FF || gnd_tap > 0x3FF)
+		return -EINVAL;
+
+	/* Audio left */
+	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_TAP_AUD_L_LSB, 0xFF,
+			   aud_tap & lsb_mask);
+	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_TAP_AUD_L_MSB, 0x3,
+			   aud_tap >> msb_shift);
+	/* Audio right */
+	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_TAP_AUD_R_LSB, 0xFF,
+			   aud_tap & lsb_mask);
+	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_TAP_AUD_R_MSB, 0x3,
+			   aud_tap >> msb_shift);
+	/* Ground left */
+	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_TAP_GND_L_LSB, 0xFF,
+			   gnd_tap & lsb_mask);
+	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_TAP_GND_L_MSB, 0x3,
+			   gnd_tap >> msb_shift);
+	/* Ground right */
+	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_TAP_GND_R_LSB, 0xFF,
+			   gnd_tap & lsb_mask);
+	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_TAP_GND_R_MSB, 0x3,
+			   gnd_tap >> msb_shift);
+	return 0;
+}
+EXPORT_SYMBOL(wcd_usbss_set_linearizer_sw_tap);
+
 /*
  * wcd_usbss_is_in_reset_state - routine for using captured state to reset WCD USB-SS after surge
  *
@@ -131,6 +268,8 @@ static bool wcd_usbss_is_in_reset_state(void)
  */
 static int wcd_usbss_reset_routine(void)
 {
+	int i, ret;
+
 	/* Mark the cache as dirty to force a flush */
 	regcache_mark_dirty(wcd_usbss_ctxt_->regmap);
 	regcache_sync(wcd_usbss_ctxt_->regmap);
@@ -139,7 +278,21 @@ static int wcd_usbss_reset_routine(void)
 	/* Set RCO_EN: WCD_USBSS_USB_SS_CNTL Bit<3> --> 0x0 --> 0x1 */
 	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_USB_SS_CNTL, 0x8, 0x0);
 	regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_USB_SS_CNTL, 0x8, 0x8);
-	return wcd_usbss_switch_update(wcd_usbss_ctxt_->cable_type, wcd_usbss_ctxt_->cable_status);
+
+	/* replay each connected switch type individually */
+	for (i = 0; i < WCD_USBSS_CABLE_TYPE_MAX; i++) {
+		if (!(wcd_usbss_ctxt_->cable_status & BIT(i)))
+			continue;
+
+		ret = wcd_usbss_switch_update(i, WCD_USBSS_CABLE_CONNECT);
+		if (ret) {
+			dev_err(wcd_usbss_ctxt_->dev, "%s: switch_update cable_type:%d failed ret:%d\n",
+					__func__, i, ret);
+			return ret;
+		}
+	}
+
+	return 0;
 }
 
 static int wcd_usbss_standby_control(bool enter_standby)
@@ -204,8 +357,7 @@ static ssize_t wcd_usbss_surge_period_store(struct kobject *kobj,
 		return count;
 
 	/* Wake up thread if usb is connected and surge is enabled */
-	if (wcd_usbss_ctxt_->cable_status == WCD_USBSS_CABLE_CONNECT &&
-		wcd_usbss_ctxt_->surge_enable)
+	if (wcd_usbss_ctxt_->cable_status && wcd_usbss_ctxt_->surge_enable)
 		wake_up_process(wcd_usbss_ctxt_->surge_thread);
 
 	return count;
@@ -224,7 +376,7 @@ static ssize_t wcd_usbss_standby_store(struct kobject *kobj,
 	wcd_usbss_ctxt_->standby_enable = true;
 
 	if (enable) {
-		if (wcd_usbss_ctxt_->cable_status == WCD_USBSS_CABLE_DISCONNECT)
+		if (!wcd_usbss_ctxt_->cable_status)
 			wcd_usbss_standby_control(true);
 		else
 			wcd_usbss_standby_control(false);
@@ -244,7 +396,7 @@ static ssize_t wcd_usbss_standby_store(struct kobject *kobj,
 static int wcd_usbss_surge_kthread_fn(void *p)
 {
 	while (!kthread_should_stop()) {
-		if (wcd_usbss_ctxt_->cable_status == WCD_USBSS_CABLE_CONNECT &&
+		if (wcd_usbss_ctxt_->cable_status &&
 			wcd_usbss_ctxt_->surge_enable &&
 			wcd_usbss_is_in_reset_state())
 			wcd_usbss_reset_routine();
@@ -370,6 +522,7 @@ static int wcd_usbss_usbc_analog_setup_switches(struct wcd_usbss_ctxt *priv)
 	int rc = 0;
 	int mode;
 	struct device *dev;
+	bool cable_status_cache = false;
 
 	if (!priv)
 		return -EINVAL;
@@ -382,15 +535,23 @@ static int wcd_usbss_usbc_analog_setup_switches(struct wcd_usbss_ctxt *priv)
 	/* get latest mode again within locked context */
 	mode = atomic_read(&(priv->usbc_mode));
 
-	dev_dbg(dev, "%s: setting GPIOs active = %d\n",
-		__func__, mode != TYPEC_ACCESSORY_NONE);
+	dev_dbg(dev, "%s: setting GPIOs active = %d cable_status = %d mode = %d\n",
+		__func__, mode != TYPEC_ACCESSORY_NONE, priv->cable_status, mode);
 
 	switch (mode) {
 	/* add all modes WCD USBSS should notify for in here */
 	case TYPEC_ACCESSORY_AUDIO:
+		/*
+		 * If cable_type is already decided, update the cable_status to
+		 * avoid reconfiguration of AATC switch settings again
+		 */
+		if (priv->cable_status & (BIT(WCD_USBSS_AATC) |
+					  BIT(WCD_USBSS_GND_MIC_SWAP_AATC) |
+					  BIT(WCD_USBSS_HSJ_CONNECT)))
+			cable_status_cache = true;
 		/* notify call chain on event */
 		blocking_notifier_call_chain(&priv->wcd_usbss_notifier,
-					     mode, NULL);
+					     mode, &cable_status_cache);
 		break;
 	case TYPEC_ACCESSORY_NONE:
 		/* notify call chain on event */
@@ -453,6 +614,9 @@ static int wcd_usbss_switch_update_defaults(struct wcd_usbss_ctxt *priv)
 	regmap_update_bits(priv->regmap, WCD_USBSS_EQUALIZER1,
 			WCD_USBSS_EQUALIZER1_EQ_EN_MASK, 0x00);
 	regmap_update_bits(priv->regmap, WCD_USBSS_USB_SS_CNTL, 0x07, 0x05); /* Mode5: USB*/
+	if (wcd_usbss_ctxt_->version == WCD_USBSS_2_0)
+		regmap_update_bits(wcd_usbss_ctxt_->regmap, WCD_USBSS_PMP_OUT1,
+				0x40, 0x00);
 	/* Once plug-out done, restore to MANUAL mode */
 	audio_fsm_mode = WCD_USBSS_AUDIO_MANUAL;
 	return 0;
@@ -582,16 +746,12 @@ int wcd_usbss_audio_config(bool enable, enum wcd_usbss_config_type config_type,
 	if (!wcd_usbss_ctxt_->regmap)
 		return -EINVAL;
 
-	pr_info("%s: ctype = %d, connect_status = %d, power mode = %d\n",
-		__func__, wcd_usbss_ctxt_->cable_type, wcd_usbss_ctxt_->cable_status,
-		power_mode);
+	pr_info("%s: connect_status = 0x%x, power mode = %d\n",
+		__func__, wcd_usbss_ctxt_->cable_status, power_mode);
 
-	if (wcd_usbss_ctxt_->cable_status == WCD_USBSS_CABLE_DISCONNECT)
-		return 0;
-
-	if (wcd_usbss_ctxt_->cable_type != WCD_USBSS_AATC &&
-		wcd_usbss_ctxt_->cable_type != WCD_USBSS_GND_MIC_SWAP_AATC &&
-		wcd_usbss_ctxt_->cable_type != WCD_USBSS_HSJ_CONNECT)
+	if (!(wcd_usbss_ctxt_->cable_status & (BIT(WCD_USBSS_AATC) |
+					       BIT(WCD_USBSS_GND_MIC_SWAP_AATC) |
+					       BIT(WCD_USBSS_HSJ_CONNECT))))
 		return 0;
 
 	switch (config_type) {
@@ -620,7 +780,7 @@ EXPORT_SYMBOL(wcd_usbss_audio_config);
 int wcd_usbss_switch_update(enum wcd_usbss_cable_types ctype,
 							enum wcd_usbss_cable_status connect_status)
 {
-	int i = 0;
+	int i = 0, ret = 0;
 
 	/* check if driver is probed and private context is init'ed */
 	if (wcd_usbss_ctxt_ == NULL)
@@ -629,17 +789,51 @@ int wcd_usbss_switch_update(enum wcd_usbss_cable_types ctype,
 	if (!wcd_usbss_ctxt_->regmap)
 		return -EINVAL;
 
+	mutex_lock(&wcd_usbss_ctxt_->switch_update_lock);
+
 	pr_info("%s: ctype = %d, connect_status = %d\n",
 		__func__, ctype, connect_status);
 
-	wcd_usbss_ctxt_->cable_type = ctype;
-	wcd_usbss_ctxt_->cable_status = connect_status;
-
 	if (connect_status == WCD_USBSS_CABLE_DISCONNECT) {
-		wcd_usbss_switch_update_defaults(wcd_usbss_ctxt_);
-		wcd_usbss_dpdm_switch_update(false, false);
-		wcd_usbss_standby_control(true);
+		wcd_usbss_ctxt_->cable_status &= ~BIT(ctype);
+
+		switch (ctype) {
+		case WCD_USBSS_USB:
+			/* Keep DP/DM switch on but disable EQ */
+			wcd_usbss_dpdm_switch_update(true, false);
+			break;
+		case WCD_USBSS_DP_AUX_CC1:
+			fallthrough;
+		case WCD_USBSS_DP_AUX_CC2:
+			/* Disable AUX switches */
+			regmap_update_bits(wcd_usbss_ctxt_->regmap,
+					WCD_USBSS_SWITCH_SELECT0, 0xC0, 0x00);
+			regmap_update_bits(wcd_usbss_ctxt_->regmap,
+					WCD_USBSS_SWITCH_SETTINGS_ENABLE,
+					AUXP_M_EN_MASK, 0x00);
+			break;
+		case WCD_USBSS_AATC:
+			wcd_usbss_ctxt_->cable_status &= ~BIT(WCD_USBSS_GND_MIC_SWAP_AATC);
+			break;
+		case WCD_USBSS_GND_MIC_SWAP_AATC:
+			wcd_usbss_ctxt_->cable_status &= ~BIT(WCD_USBSS_AATC);
+			break;
+		default:
+			break;
+
+		}
+
+		/* reset to defaults when all cable types are disconnected */
+		if (!wcd_usbss_ctxt_->cable_status) {
+			wcd_usbss_switch_update_defaults(wcd_usbss_ctxt_);
+			if (config_standby) {
+				wcd_usbss_dpdm_switch_update(false, false);
+				wcd_usbss_standby_control(true);
+			}
+		}
 	} else if (connect_status == WCD_USBSS_CABLE_CONNECT) {
+		wcd_usbss_ctxt_->cable_status |= BIT(ctype);
+
 		wcd_usbss_standby_control(false);
 
 		switch (ctype) {
@@ -650,6 +844,9 @@ int wcd_usbss_switch_update(enum wcd_usbss_cable_types ctype,
 			/* Update power mode to mode 1 for AATC */
 			regmap_update_bits(wcd_usbss_ctxt_->regmap,
 				WCD_USBSS_USB_SS_CNTL, 0x07, 0x01);
+			if (wcd_usbss_ctxt_->version == WCD_USBSS_2_0)
+				regmap_update_bits(wcd_usbss_ctxt_->regmap,
+						WCD_USBSS_PMP_OUT1, 0x40, 0x40);
 			/* for AATC plug-in, change mode to FSM */
 			audio_fsm_mode = WCD_USBSS_AUDIO_FSM;
 			/* Disable all switches */
@@ -700,6 +897,9 @@ int wcd_usbss_switch_update(enum wcd_usbss_cable_types ctype,
 			/* Update power mode to mode 1 for AATC */
 			regmap_update_bits(wcd_usbss_ctxt_->regmap,
 				WCD_USBSS_USB_SS_CNTL, 0x07, 0x01);
+			if (wcd_usbss_ctxt_->version == WCD_USBSS_2_0)
+				regmap_update_bits(wcd_usbss_ctxt_->regmap,
+						WCD_USBSS_PMP_OUT1, 0x40, 0x40);
 			/* for GND MIC Swap, change mode to FSM */
 			audio_fsm_mode = WCD_USBSS_AUDIO_FSM;
 			/* Disable all switches */
@@ -730,6 +930,9 @@ int wcd_usbss_switch_update(enum wcd_usbss_cable_types ctype,
 			/* Update power mode to mode 1 for AATC */
 			regmap_update_bits(wcd_usbss_ctxt_->regmap,
 				WCD_USBSS_USB_SS_CNTL, 0x07, 0x01);
+			if (wcd_usbss_ctxt_->version == WCD_USBSS_2_0)
+				regmap_update_bits(wcd_usbss_ctxt_->regmap,
+						WCD_USBSS_PMP_OUT1, 0x40, 0x40);
 			/* Select MG2, GSBU1 */
 			regmap_update_bits(wcd_usbss_ctxt_->regmap,
 					WCD_USBSS_SWITCH_SELECT0, 0x03, 0x1);
@@ -740,6 +943,17 @@ int wcd_usbss_switch_update(enum wcd_usbss_cable_types ctype,
 			regmap_update_bits(wcd_usbss_ctxt_->regmap,
 					WCD_USBSS_SWITCH_SETTINGS_ENABLE, 0x07, 0x07);
 			break;
+		case WCD_USBSS_CHARGER:
+			/* Disable DN DP Switches */
+			regmap_update_bits(wcd_usbss_ctxt_->regmap,
+					WCD_USBSS_SWITCH_SETTINGS_ENABLE, 0x18, 0x00);
+			/* Select DN2 DP2 */
+			regmap_update_bits(wcd_usbss_ctxt_->regmap,
+					WCD_USBSS_SWITCH_SELECT0, 0x3C, 0x28);
+			/* Enable DN DP Switches */
+			regmap_update_bits(wcd_usbss_ctxt_->regmap,
+					WCD_USBSS_SWITCH_SETTINGS_ENABLE, 0x18, 0x18);
+			break;
 		case WCD_USBSS_DP_AUX_CC1:
 			fallthrough;
 		case WCD_USBSS_DP_AUX_CC2:
@@ -748,11 +962,17 @@ int wcd_usbss_switch_update(enum wcd_usbss_cable_types ctype,
 					WCD_USBSS_DISP_AUXP_CTL, 0x07, 0x05);
 			regmap_update_bits(wcd_usbss_ctxt_->regmap,
 					WCD_USBSS_DISP_AUXP_THRESH, 0xE0, 0xE0);
-			return wcd_usbss_display_port_switch_update(wcd_usbss_ctxt_, ctype);
+			ret = wcd_usbss_display_port_switch_update(wcd_usbss_ctxt_, ctype);
+			if (ret) /* clear DP AUX bit if DP switch update fails */
+				wcd_usbss_ctxt_->cable_status &= ~BIT(ctype);
+			break;
+		default:
+			break;
 		}
 	}
 
-	return 0;
+	mutex_unlock(&wcd_usbss_ctxt_->switch_update_lock);
+	return ret;
 }
 EXPORT_SYMBOL(wcd_usbss_switch_update);
 
@@ -826,6 +1046,29 @@ int wcd_usbss_unreg_notifier(struct notifier_block *nb,
 }
 EXPORT_SYMBOL(wcd_usbss_unreg_notifier);
 
+
+/*
+ * wcd_usbss_update_default_trim - update default trim for TP < 3
+ *
+ * Returns 0 on pass, or error code
+ */
+int wcd_usbss_update_default_trim(void)
+{
+	if (!wcd_usbss_ctxt_)
+		return -ENODEV;
+
+	if (!wcd_usbss_ctxt_->regmap)
+		return -EINVAL;
+
+	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_SW_LIN_CTRL_1, 0x01);
+	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_DC_TRIMCODE_1, 0x00);
+	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_DC_TRIMCODE_2, 0x00);
+	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_DC_TRIMCODE_3, 0x00);
+
+	return 0;
+}
+EXPORT_SYMBOL(wcd_usbss_update_default_trim);
+
 static void wcd_usbss_usbc_analog_work_fn(struct work_struct *work)
 {
 	struct wcd_usbss_ctxt *priv =
@@ -867,6 +1110,7 @@ static int wcd_usbss_probe(struct i2c_client *i2c)
 {
 	struct wcd_usbss_ctxt *priv;
 	int rc = 0, i;
+	unsigned int ver = 0;
 
 	priv = devm_kzalloc(&i2c->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -875,6 +1119,7 @@ static int wcd_usbss_probe(struct i2c_client *i2c)
 	priv->dev = &i2c->dev;
 	priv->client = i2c;
 	mutex_init(&priv->io_lock);
+	mutex_init(&priv->switch_update_lock);
 	i2c_set_clientdata(i2c, priv);
 
 	if (ARRAY_SIZE(supply_names) >= WCD_USBSS_SUPPLY_MAX) {
@@ -913,6 +1158,12 @@ static int wcd_usbss_probe(struct i2c_client *i2c)
 		dev_err(priv->dev, "Failed to initialize regmap: %d\n", rc);
 		goto err_data;
 	}
+	regmap_read(priv->regmap, WCD_USBSS_CHIP_ID1, &ver);
+	if (ver == 0x1) { /* Harmonium 2.0 */
+		regmap_update_bits(priv->regmap, WCD_USBSS_MG1_EN, 0x2, 0x0);
+		regmap_update_bits(priv->regmap, WCD_USBSS_MG2_EN, 0x2, 0x0);
+	}
+	priv->version = ver;
 
 	devm_regmap_qti_debugfs_register(priv->dev, priv->regmap);
 
@@ -972,6 +1223,7 @@ static void wcd_usbss_remove(struct i2c_client *i2c)
 	mutex_destroy(&priv->notification_lock);
 	mutex_destroy(&priv->io_lock);
 	mutex_destroy(&priv->standby_lock);
+	mutex_destroy(&priv->switch_update_lock);
 	dev_set_drvdata(&i2c->dev, NULL);
 	wcd_usbss_ctxt_ = NULL;
 }

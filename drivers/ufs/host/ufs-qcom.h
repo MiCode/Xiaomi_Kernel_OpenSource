@@ -90,6 +90,7 @@ enum {
 	 * added in HW Version 3.0.0
 	 */
 	UFS_AH8_CFG				= 0xFC,
+	UFS_RD_REG_MCQ			= 0xD00,
 	UFS_MEM_ICE				= 0x2600,
 	REG_UFS_DEBUG_SPARE_CFG			= 0x284C,
 
@@ -131,6 +132,7 @@ enum {
 
 /* bit definitions for REG_UFS_CFG0 register */
 #define QUNIPRO_G4_SEL		BIT(5)
+#define HCI_UAWM_OOO_DIS	BIT(0)
 
 /* bit definitions for REG_UFS_CFG1 register */
 #define QUNIPRO_SEL		BIT(0)
@@ -152,10 +154,6 @@ enum {
 #define TRLUT_HW_CGC_EN		BIT(5)
 #define TMRLUT_HW_CGC_EN	BIT(6)
 #define OCSC_HW_CGC_EN		BIT(7)
-
-/* bit definitions for REG_UFS_PARAM0 */
-#define MAX_HS_GEAR_MASK	GENMASK(6, 4)
-#define UFS_QCOM_MAX_GEAR(x)	FIELD_GET(MAX_HS_GEAR_MASK, (x))
 
 /* bit definition for UFS_UFS_TEST_BUS_CTRL_n */
 #define TEST_BUS_SUB_SEL_MASK	GENMASK(4, 0)  /* All XXX_SEL fields are 5 bits wide */
@@ -226,8 +224,6 @@ enum ufs_qcom_phy_init_type {
 
 #define PA_VS_CLK_CFG_REG	0x9004
 #define PA_VS_CLK_CFG_REG_MASK	0x1FF
-#define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_MASK_V4	0xFFF
-#define DME_VS_CORE_CLK_CTRL_MAX_CORE_CLK_1US_CYCLES_OFFSET_V4	0x10
 
 #define PA_VS_CORE_CLK_40NS_CYCLES	0x9007
 #define PA_VS_CORE_CLK_40NS_CYCLES_MASK	0x3F
@@ -606,15 +602,17 @@ struct ufs_qcom_host {
 	atomic_t therm_mitigation;
 	cpumask_t perf_mask;
 	cpumask_t def_mask;
+	cpumask_t esi_affinity_mask;
 	bool disable_wb_support;
 	struct ufs_qcom_ber_hist ber_hist[UFS_QCOM_BER_MODE_MAX];
 	struct list_head regs_list_head;
 	bool ber_th_exceeded;
 
-	u32 hs_gear;
-
 	int esi_base;
 	bool esi_enabled;
+
+	bool bypass_pbl_rst_wa;
+	atomic_t cqhp_update_pending;
 };
 
 static inline u32

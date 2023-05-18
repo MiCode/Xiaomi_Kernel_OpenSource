@@ -2736,7 +2736,6 @@ bool qcom_scm_multi_call_allow(struct device *dev, bool multicall_allowed)
 struct completion *qcom_scm_lookup_wq(struct qcom_scm *scm, u32 wq_ctx)
 {
 	struct completion *wq = NULL;
-	u32 wq_ctx_idr = wq_ctx;
 	unsigned long flags;
 	int err;
 
@@ -2753,8 +2752,7 @@ struct completion *qcom_scm_lookup_wq(struct qcom_scm *scm, u32 wq_ctx)
 
 	init_completion(wq);
 
-	err = idr_alloc_u32(&scm->waitq.idr, wq, &wq_ctx_idr,
-			    (wq_ctx_idr < U32_MAX ? : U32_MAX), GFP_ATOMIC);
+	err = idr_alloc_u32(&scm->waitq.idr, wq, &wq_ctx, wq_ctx, GFP_ATOMIC);
 	if (err < 0) {
 		devm_kfree(scm->dev, wq);
 		wq = ERR_PTR(err);
@@ -2818,6 +2816,36 @@ static irqreturn_t qcom_scm_irq_handler(int irq, void *p)
 	schedule_work(&scm->waitq.scm_irq_work);
 
 	return IRQ_HANDLED;
+}
+
+static int __qcom_multi_smc_init(struct qcom_scm *__scm,
+						struct platform_device *pdev)
+{
+	int ret = 0, irq;
+
+	spin_lock_init(&__scm->waitq.idr_lock);
+	idr_init(&__scm->waitq.idr);
+	if (of_device_is_compatible(__scm->dev->of_node, "qcom,scm-v1.1")) {
+		INIT_WORK(&__scm->waitq.scm_irq_work, scm_irq_work);
+
+		irq = platform_get_irq(pdev, 0);
+		if (irq < 0) {
+			dev_err(__scm->dev, "WQ IRQ is not specified: %d\n", irq);
+			return irq;
+		}
+
+		ret = devm_request_threaded_irq(__scm->dev, irq, NULL,
+			qcom_scm_irq_handler, IRQF_ONESHOT, "qcom-scm", __scm);
+		if (ret < 0) {
+			dev_err(__scm->dev, "Failed to request qcom-scm irq: %d\n", ret);
+			return ret;
+		}
+
+		/* Detect Multi SMC support present or not */
+		qcom_scm_query_wq_queue_info(__scm);
+	}
+
+	return ret;
 }
 
 /**
@@ -2888,7 +2916,7 @@ static int qcom_scm_probe(struct platform_device *pdev)
 {
 	struct qcom_scm *scm;
 	unsigned long clks;
-	int irq, ret;
+	int ret;
 
 	scm = devm_kzalloc(&pdev->dev, sizeof(*scm), GFP_KERNEL);
 	if (!scm)
@@ -2965,30 +2993,13 @@ static int qcom_scm_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, scm);
 
 	__scm = scm;
-	qcom_scm_query_wq_queue_info(__scm);
 	__scm->dev = &pdev->dev;
-
-	spin_lock_init(&__scm->waitq.idr_lock);
-	idr_init(&__scm->waitq.idr);
-	if (of_device_is_compatible(__scm->dev->of_node, "qcom,scm-v1.1")) {
-		INIT_WORK(&__scm->waitq.scm_irq_work, scm_irq_work);
-
-		irq = platform_get_irq(pdev, 0);
-		if (irq < 0) {
-			pr_err("IRQ not specified: %d\n", irq);
-			return irq;
-		}
-
-		ret = devm_request_threaded_irq(__scm->dev, irq, NULL,
-			qcom_scm_irq_handler, IRQF_ONESHOT, "qcom-scm", __scm);
-		if (ret < 0) {
-			pr_err("Failed to request qcom-scm irq: %d\n", ret);
-			return ret;
-		}
-	}
 
 	__qcom_scm_init();
 	__get_convention();
+	ret  = __qcom_multi_smc_init(scm, pdev);
+	if (ret)
+		return ret;
 
 	scm->restart_nb.notifier_call = qcom_scm_do_restart;
 	scm->restart_nb.priority = 130;

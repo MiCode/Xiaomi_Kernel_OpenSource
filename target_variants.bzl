@@ -1,14 +1,26 @@
 targets = [
     # keep sorted
     "gen3auto",
-    "kalama",
+    "autogvm",
     "pineapple",
+    "blair",
 ]
 
 la_variants = [
     # keep sorted
     "consolidate",
     "gki",
+]
+
+qx_variants = [
+    # keep sorted
+    "debug-defconfig",
+    "perf-defconfig",
+]
+
+qx_targets = [
+    # keep sorted
+    "gen4auto",
 ]
 
 le_targets = [
@@ -27,7 +39,6 @@ vm_types = [
 ]
 
 vm_target_bases = [
-    "kalama",
     "pineapple",
 ]
 
@@ -45,8 +56,11 @@ def get_all_la_variants():
 def get_all_le_variants():
     return [(t, v) for t in le_targets for v in le_variants]
 
+def get_all_qx_variants():
+    return [(t, v) for t in qx_targets for v in qx_variants]
+
 def get_all_vm_variants():
     return [(t, v) for t in vm_targets for v in vm_variants]
 
 def get_all_variants():
-    return get_all_la_variants() + get_all_le_variants() + get_all_vm_variants()
+    return get_all_la_variants() + get_all_le_variants() + get_all_qx_variants() + get_all_vm_variants()

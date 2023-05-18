@@ -52,6 +52,7 @@ static int scm_pas_bw_count;
 static DEFINE_MUTEX(scm_pas_bw_mutex);
 bool timeout_disabled;
 static bool mpss_dsm_mem_setup;
+static bool global_sync_mem_setup;
 static bool recovery_set_cb;
 
 struct adsp_data {
@@ -68,7 +69,7 @@ struct adsp_data {
 	bool auto_boot;
 	bool dma_phys_below_32b;
 	bool decrypt_shutdown;
-	bool needs_dsm_mem_setup;
+	bool hyp_assign_mem;
 
 	char **active_pd_names;
 	char **proxy_pd_names;
@@ -981,37 +982,75 @@ out:
 static int setup_mpss_dsm_mem(struct platform_device *pdev)
 {
 	struct qcom_scm_vmperm newvm[1];
+	struct of_phandle_iterator it;
+	struct resource res;
+	phys_addr_t mem_phys;
+	u64 curr_perm;
+	u64 mem_size;
+	int ret;
+
+	of_for_each_phandle(&it, ret, pdev->dev.of_node, "mpss_dsm_mem_reg", NULL, 0) {
+		ret = of_address_to_resource(it.node, 0, &res);
+		if (ret) {
+			dev_err(&pdev->dev, "address to resource failed for mpss_dsm_mem_reg[%d]\n",
+								it.cur_count);
+			return ret;
+		}
+
+		newvm[0].vmid = QCOM_SCM_VMID_MSS_MSA;
+		newvm[0].perm = QCOM_SCM_PERM_RW;
+		curr_perm = BIT(QCOM_SCM_VMID_HLOS);
+		mem_phys = res.start;
+		mem_size = resource_size(&res);
+		ret = qcom_scm_assign_mem(mem_phys, mem_size, &curr_perm, newvm, 1);
+		if (ret) {
+			dev_err(&pdev->dev, "hyp assign for mpss_dsm_mem_reg[%d] failed\n",
+				it.cur_count);
+			return ret;
+		}
+	}
+
+	mpss_dsm_mem_setup = true;
+	return 0;
+}
+
+static int setup_global_sync_mem(struct platform_device *pdev)
+{
+	struct qcom_scm_vmperm newvm[2];
 	struct device_node *node;
 	struct resource res;
 	phys_addr_t mem_phys;
 	u64 curr_perm;
 	u64 mem_size;
 	int ret;
-	newvm[0].vmid = QCOM_SCM_VMID_MSS_MSA;
-	newvm[0].perm = QCOM_SCM_PERM_RW;
-	curr_perm = BIT(QCOM_SCM_VMID_HLOS);
 
-	node = of_parse_phandle(pdev->dev.of_node, "mpss_dsm_mem_reg", 0);
+	curr_perm = BIT(QCOM_SCM_VMID_HLOS);
+	newvm[0].vmid = QCOM_SCM_VMID_HLOS;
+	newvm[0].perm = QCOM_SCM_PERM_RW;
+	newvm[1].vmid = QCOM_SCM_VMID_CDSP;
+	newvm[1].perm = QCOM_SCM_PERM_RW;
+
+	node = of_parse_phandle(pdev->dev.of_node, "global-sync-mem-reg", 0);
 	if (!node) {
-		dev_err(&pdev->dev, "mpss dsm mem region is missing\n");
+		dev_err(&pdev->dev, "global sync mem region is missing\n");
 		return -EINVAL;
 	}
 
 	ret = of_address_to_resource(node, 0, &res);
 	if (ret) {
-		dev_err(&pdev->dev, "address to resource failed for mpss dsm mem\n");
+		dev_err(&pdev->dev, "address to resource failed for global sync mem\n");
 		return ret;
 	}
 
 	mem_phys = res.start;
 	mem_size = resource_size(&res);
-	ret = qcom_scm_assign_mem(mem_phys, mem_size, &curr_perm, newvm, 1);
+	ret = qcom_scm_assign_mem(mem_phys, mem_size, &curr_perm, newvm, ARRAY_SIZE(newvm));
 	if (ret) {
-		dev_err(&pdev->dev, "hyp assign for mpss dsm mem failed\n");
+		dev_err(&pdev->dev, "hyp assign for global sync mem failed\n");
 		return ret;
 	}
 
-	mpss_dsm_mem_setup = true;
+	global_sync_mem_setup = true;
 	return 0;
 }
 
@@ -1071,11 +1110,20 @@ static int adsp_probe(struct platform_device *pdev)
 	if (ret < 0 && ret != -EINVAL)
 		return ret;
 
-	if (desc->needs_dsm_mem_setup && !mpss_dsm_mem_setup &&
+	if (desc->hyp_assign_mem && !mpss_dsm_mem_setup &&
 			!strcmp(fw_name, "modem.mdt")) {
 		ret = setup_mpss_dsm_mem(pdev);
 		if (ret) {
 			dev_err(&pdev->dev, "failed to setup mpss dsm mem\n");
+			return -EINVAL;
+		}
+	}
+
+	if (desc->hyp_assign_mem && !global_sync_mem_setup &&
+			!strcmp(fw_name, "cdsp.mdt")) {
+		ret = setup_global_sync_mem(pdev);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to setup global sync mem\n");
 			return -EINVAL;
 		}
 	}
@@ -1520,6 +1568,7 @@ static const struct adsp_data pineapple_cdsp_resource = {
 	.uses_elf64 = true,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
+	.hyp_assign_mem = true,
 	.ssr_name = "cdsp",
 	.sysmon_name = "cdsp",
 	.qmp_name = "cdsp",
@@ -1602,7 +1651,7 @@ static const struct adsp_data pineapple_mpss_resource = {
 	.uses_elf64 = true,
 	.has_aggre2_clk = false,
 	.auto_boot = false,
-	.needs_dsm_mem_setup = true,
+	.hyp_assign_mem = true,
 	.ssr_name = "mpss",
 	.sysmon_name = "modem",
 	.qmp_name = "modem",

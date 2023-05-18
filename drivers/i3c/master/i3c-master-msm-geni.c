@@ -16,7 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
-#include <linux/qcom-geni-se.h>
+#include <linux/soc/qcom/geni-se.h>
 #include <linux/qcom-geni-se-common.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/ipc_logging.h>
@@ -25,7 +25,6 @@
 #include <linux/irq.h>
 #include <linux/pm_wakeup.h>
 #include <linux/workqueue.h>
-#include <soc/qcom/boot_stats.h>
 
 #define SE_I3C_SCL_HIGH			0x268
 #define SE_I3C_TX_TRANS_LEN		0x26C
@@ -392,9 +391,10 @@ to_geni_i3c_master(struct i3c_master_controller *master)
  * clk_freq_out = t / t_cycle
  */
 static const struct geni_i3c_clk_fld geni_i3c_clk_map[] = {
-	{ KHZ(100),    19200,  7, 10, 11,  0,  0,  26},
-	{ KHZ(400),    19200,  1, 72, 168, 6,  7, 300},
-	{ KHZ(1000),   19200,  1,  3,  9,  7,  0,  18},
+/* op-freq, src-freq,  div,  i2c_high,  i2c_low, i3c_high, i3c_cyc i2c_cyc */
+	{ KHZ(100),    19200,  1, 76, 90,  7,  8,  192},
+	{ KHZ(400),    19200,  1, 12, 24,  7,  8,  48},
+	{ KHZ(1000),   19200,  1,  4,  9,  7,  8,  19},
 	{ KHZ(1920),   19200,  1,  4,  9,  7,  8,  19},
 	{ KHZ(3500),   19200,  1, 72, 168, 3, 4,  300},
 	{ KHZ(370),   100000, 20,  4,  7,  8, 14,  14},
@@ -2378,11 +2378,6 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	u32 proto, tx_depth;
 	int ret;
 	u32 se_mode, geni_ios;
-	char boot_marker[50];
-
-	snprintf(boot_marker, sizeof(boot_marker),
-			"M - I3C GENI Probe start");
-	place_marker(boot_marker);
 
 	gi3c = devm_kzalloc(&pdev->dev, sizeof(*gi3c), GFP_KERNEL);
 	if (!gi3c)
@@ -2535,10 +2530,6 @@ static int geni_i3c_probe(struct platform_device *pdev)
 	gi3c->hj_wq = alloc_workqueue("%s", 0, 0, dev_name(gi3c->se.dev));
 	geni_i3c_enable_hotjoin_irq(gi3c, true);
 
-	snprintf(boot_marker, sizeof(boot_marker),
-		"M - I3C GENI driver_0x%x Complete", gi3c->se.base);
-	place_marker(boot_marker);
-
 	I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev, "I3C probed:%d\n", ret);
 	return ret;
 
@@ -2594,6 +2585,16 @@ static int geni_i3c_remove(struct platform_device *pdev)
 
 static int geni_i3c_resume_early(struct device *dev)
 {
+	struct geni_i3c_dev *gi3c = dev_get_drvdata(dev);
+
+	if (gi3c->ibi.ibic_naon && !gi3c->ibi.naon_clk_en) {
+		if (geni_i3c_enable_naon_ibi_clks(gi3c, true)) {
+			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"%s:  NAON clock failure\n", __func__);
+			return -EAGAIN;
+		}
+	}
+
 	return 0;
 }
 
@@ -2648,6 +2649,14 @@ static int geni_i3c_runtime_resume(struct device *dev)
 static int geni_i3c_suspend_late(struct device *dev)
 {
 	struct geni_i3c_dev *gi3c = dev_get_drvdata(dev);
+
+	if (gi3c->ibi.ibic_naon && gi3c->ibi.naon_clk_en) {
+		if (geni_i3c_enable_naon_ibi_clks(gi3c, false)) {
+			I3C_LOG_ERR(gi3c->ipcl, true, gi3c->se.dev,
+				"%s:  NAON clock failure\n", __func__);
+			return -EAGAIN;
+		}
+	}
 
 	if (!pm_runtime_status_suspended(dev)) {
 		I3C_LOG_DBG(gi3c->ipcl, false, gi3c->se.dev,

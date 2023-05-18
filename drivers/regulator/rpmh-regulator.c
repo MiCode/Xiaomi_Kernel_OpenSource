@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
-/* Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved. */
+/* Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/bitops.h>
 #include <linux/err.h>
+#include <linux/ipc_logging.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -129,6 +130,16 @@ enum rpmh_regulator_reg_index {
 
 /* XOB voting registers are found in the VRM hardware module */
 #define CMD_DB_HW_XOB			CMD_DB_HW_VRM
+
+#define IPC_LOG_PAGES			10
+
+#define rpmh_reg_dbg(fmt, ...) \
+	do { \
+		ipc_log_string(rpmh_reg_ipc_log, fmt, ##__VA_ARGS__); \
+		pr_debug(fmt, ##__VA_ARGS__); \
+	} while (0)
+
+static void *rpmh_reg_ipc_log;
 
 /**
  * struct rpmh_regulator_request - rpmh request data
@@ -596,7 +607,7 @@ static void rpmh_regulator_req(struct rpmh_vreg *vreg,
 		}
 	}
 
-	pr_debug("%s\n", buf);
+	rpmh_reg_dbg("%s\n", buf);
 }
 
 /**
@@ -694,6 +705,63 @@ static void rpmh_regulator_aggregate_requests(struct rpmh_aggr_vreg *aggr_vreg,
 	rpmh_regulator_handle_disable_mode(aggr_vreg, req_sleep);
 }
 
+static void swap_cmds(struct tcs_cmd *cmd1, struct tcs_cmd *cmd2)
+{
+	struct tcs_cmd cmd_temp;
+
+	if (cmd1 == cmd2)
+		return;
+
+	cmd_temp = *cmd1;
+	*cmd1 = *cmd2;
+	*cmd2 = cmd_temp;
+}
+
+/**
+ * rpmh_regulator_reorder_cmds() - reorder tcs commands to ensure safe regulator
+ *		state transitions
+ * @aggr_vreg:		Pointer to the aggregated rpmh regulator resource
+ * @cmd:		TCS command array
+ * @len:		Number of elements in 'cmd' array
+ *
+ * LDO regulators can accidentally trigger over-current protection (OCP) when
+ * RPMh regulator requests are processed if the commands in the request are in
+ * an order that temporarily places the LDO in an incorrect state.  For example,
+ * if an LDO is disabled with mode=LPM, then executing the request
+ * [en=ON, mode=HPM] can trigger OCP after the first command is executed since
+ * it will result in the overall state: en=ON, mode=LPM.  This issue can be
+ * avoided by reordering the commands: [mode=HPM, en=ON].
+ *
+ * This function reorders the request command sequence to avoid invalid
+ * transient LDO states.
+ *
+ * Return: none
+ */
+static void rpmh_regulator_reorder_cmds(struct rpmh_aggr_vreg *aggr_vreg,
+					struct tcs_cmd *cmd, int len)
+{
+	enum rpmh_regulator_reg_index reg_index;
+	int i;
+
+	if (len == 1 || aggr_vreg->regulator_type != RPMH_REGULATOR_TYPE_VRM)
+		return;
+
+	for (i = 0; i < len; i++) {
+		reg_index = (cmd[i].addr - aggr_vreg->addr) >> 2;
+
+		if (reg_index == RPMH_REGULATOR_REG_VRM_ENABLE) {
+			if (cmd[i].data) {
+				/* Move enable command to end */
+				swap_cmds(&cmd[i], &cmd[len - 1]);
+			} else {
+				/* Move disable command to start */
+				swap_cmds(&cmd[i], &cmd[0]);
+			}
+			break;
+		}
+	}
+}
+
 /**
  * rpmh_regulator_send_aggregate_requests() - aggregate the requests from all
  *		regulators associated with an RPMh resource and send the request
@@ -760,6 +828,7 @@ rpmh_regulator_send_aggregate_requests(struct rpmh_vreg *vreg)
 					!= req_sleep.reg[i])) {
 				cmd[j].addr = aggr_vreg->addr + i * 4;
 				cmd[j].data = req_sleep.reg[i];
+				cmd[j].wait = true;
 				j++;
 				sent_mask |= BIT(i);
 			}
@@ -767,6 +836,8 @@ rpmh_regulator_send_aggregate_requests(struct rpmh_vreg *vreg)
 
 		/* Send the rpmh command if any register values differ. */
 		if (j > 0) {
+			rpmh_regulator_reorder_cmds(aggr_vreg, cmd, j);
+
 			rc = rpmh_write_async(aggr_vreg->dev,
 					RPMH_SLEEP_STATE, cmd, j);
 			if (rc) {
@@ -796,7 +867,7 @@ rpmh_regulator_send_aggregate_requests(struct rpmh_vreg *vreg)
 				!= req_active.reg[i] || resend_active)) {
 			cmd[j].addr = aggr_vreg->addr + i * 4;
 			cmd[j].data = req_active.reg[i];
-			cmd[j].wait = sleep_set_differs;
+			cmd[j].wait = true;
 			j++;
 			sent_mask |= BIT(i);
 
@@ -812,6 +883,8 @@ rpmh_regulator_send_aggregate_requests(struct rpmh_vreg *vreg)
 
 	/* Send the rpmh command if any register values differ. */
 	if (j > 0) {
+		rpmh_regulator_reorder_cmds(aggr_vreg, cmd, j);
+
 		if (sleep_set_differs) {
 			state = RPMH_WAKE_ONLY_STATE;
 			rc = rpmh_write_async(aggr_vreg->dev, state, cmd, j);
@@ -822,8 +895,6 @@ rpmh_regulator_send_aggregate_requests(struct rpmh_vreg *vreg)
 			}
 			rpmh_regulator_req(vreg, &req_active,
 				&aggr_vreg->aggr_req_active, sent_mask, state);
-			for (i = 0; i < j; i++)
-				cmd[j].wait = false;
 		}
 
 		state = RPMH_ACTIVE_ONLY_STATE;
@@ -2033,11 +2104,14 @@ static struct platform_driver rpmh_regulator_driver = {
 
 static int rpmh_regulator_init(void)
 {
+	rpmh_reg_ipc_log = ipc_log_context_create(IPC_LOG_PAGES, "rpmh_regulator", 0);
 	return platform_driver_register(&rpmh_regulator_driver);
 }
 
 static void rpmh_regulator_exit(void)
 {
+	if (rpmh_reg_ipc_log)
+		ipc_log_context_destroy(rpmh_reg_ipc_log);
 	platform_driver_unregister(&rpmh_regulator_driver);
 }
 

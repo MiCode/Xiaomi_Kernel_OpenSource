@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.*/
 
+#include <linux/dma-direct.h>
+#include <linux/dma-mapping.h>
 #include <linux/io.h>
 #include <linux/kmsg_dump.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/proc_fs.h>
@@ -13,9 +16,10 @@
 #include <linux/suspend.h>
 #include <linux/types.h>
 #include <linux/gunyah/gh_dbl.h>
+#include <linux/gunyah/gh_panic_notifier.h>
 #include <linux/gunyah/gh_rm_drv.h>
-#include <soc/qcom/secure_buffer.h>
 #include <linux/qcom_scm.h>
+#include <soc/qcom/secure_buffer.h>
 
 #include "dmesg_dumper_private.h"
 
@@ -35,8 +39,19 @@ static void qcom_ddump_to_shm(struct kmsg_dumper *dumper,
 	dev_warn(qdd->dev, "reason = %d\n", reason);
 	kmsg_dump_rewind(&qdd->iter);
 	memset(qdd->base, 0, qdd->size);
-	kmsg_dump_get_buffer(&qdd->iter, true, qdd->base, qdd->size, &len);
+	kmsg_dump_get_buffer(&qdd->iter, false, qdd->base, qdd->size, &len);
 	dev_warn(qdd->dev, "size of dmesg logbuf logged = %lld\n", len);
+}
+
+static int qcom_ddump_gh_panic_handler(struct notifier_block *nb,
+				 unsigned long cmd, void *data)
+{
+	struct qcom_dmesg_dumper *qdd;
+
+	qdd = container_of(nb, struct qcom_dmesg_dumper, gh_panic_nb);
+	qcom_ddump_to_shm(&qdd->dump, KMSG_DUMP_PANIC);
+
+	return NOTIFY_DONE;
 }
 
 static struct device_node *qcom_ddump_svm_of_parse(struct qcom_dmesg_dumper *qdd)
@@ -71,13 +86,29 @@ static int qcom_ddump_map_memory(struct qcom_dmesg_dumper *qdd)
 {
 	struct device *dev = qdd->dev;
 	struct device_node *np;
-	u32 size;
+	u32 size = 0;
 	int ret;
 
 	if (qdd->primary_vm) {
+		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+		if (ret) {
+			dev_err(dev, "%s: dma_set_mask_and_coherent failed\n", __func__);
+			return ret;
+		}
+
+		ret = of_reserved_mem_device_init_by_idx(dev, dev->of_node, 0);
+		if (ret) {
+			dev_err(dev, "%s: Failed to initialize CMA mem, ret %d\n", __func__, ret);
+			return ret;
+		}
+
 		ret = of_property_read_u32(qdd->dev->of_node, "shared-buffer-size", &size);
-		if (ret)
+		if (ret) {
+			dev_err(dev, "%s: Failed to get shared memory size, ret %d\n",
+					__func__, ret);
 			return -EINVAL;
+		}
+
 		qdd->size = size;
 	} else {
 		np = qcom_ddump_svm_of_parse(qdd);
@@ -157,7 +188,7 @@ static int qcom_ddump_share_mem(struct qcom_dmesg_dumper *qdd, gh_vmid_t self,
 	return ret;
 }
 
-static void qcom_ddump_unshare_mem(struct qcom_dmesg_dumper *qdd, gh_vmid_t self,
+static int qcom_ddump_unshare_mem(struct qcom_dmesg_dumper *qdd, gh_vmid_t self,
 			      gh_vmid_t peer)
 {
 	struct qcom_scm_vmperm dst_vmlist[] = {{self,
@@ -171,10 +202,11 @@ static void qcom_ddump_unshare_mem(struct qcom_dmesg_dumper *qdd, gh_vmid_t self
 
 	ret = qcom_scm_assign_mem(qdd->res.start, resource_size(&qdd->res),
 			&src_vmid, dst_vmlist, ARRAY_SIZE(dst_vmlist));
-	if (ret) {
+	if (ret)
 		dev_err(qdd->dev, "unshare mem assign call failed with %d\n",
 			ret);
-	}
+
+	return ret;
 }
 
 static int qcom_ddump_rm_cb(struct notifier_block *nb, unsigned long cmd,
@@ -182,8 +214,10 @@ static int qcom_ddump_rm_cb(struct notifier_block *nb, unsigned long cmd,
 {
 	struct gh_rm_notif_vm_status_payload *vm_status_payload;
 	struct qcom_dmesg_dumper *qdd;
+	dma_addr_t dma_handle;
 	gh_vmid_t peer_vmid;
 	gh_vmid_t self_vmid;
+	int ret;
 
 	qdd = container_of(nb, struct qcom_dmesg_dumper, rm_nb);
 
@@ -202,27 +236,41 @@ static int qcom_ddump_rm_cb(struct notifier_block *nb, unsigned long cmd,
 		return NOTIFY_DONE;
 
 	if (vm_status_payload->vm_status == GH_RM_VM_STATUS_READY) {
-		qdd->base = kzalloc(qdd->size, GFP_KERNEL);
+		qdd->base = dma_alloc_coherent(qdd->dev, qdd->size, &dma_handle, GFP_KERNEL);
 		if (!qdd->base) {
 			dev_err(qdd->dev, "Failed to alloc memory\n");
 			return NOTIFY_DONE;
 		}
 
-		qdd->res.start = virt_to_phys(qdd->base);
+		qdd->res.start = dma_to_phys(qdd->dev, dma_handle);
 		qdd->res.end = qdd->res.start + qdd->size - 1;
+		strscpy(qdd->md_entry.name, "VM_LOG", sizeof(qdd->md_entry.name));
+		qdd->md_entry.virt_addr = (uintptr_t)qdd->base;
+		qdd->md_entry.phys_addr = qdd->res.start;
+		qdd->md_entry.size = qdd->size;
+		ret = msm_minidump_add_region(&qdd->md_entry);
+		if (ret < 0)
+			dev_err(qdd->dev, "Failed to add vm log entry in minidump table %d\n", ret);
+
 		if (qcom_ddump_share_mem(qdd, self_vmid, peer_vmid)) {
-			kfree(qdd->base);
 			dev_err(qdd->dev, "Failed to share memory\n");
-			return NOTIFY_DONE;
+			goto free_mem;
 		}
 
 		vm_status_ready = true;
 	}
 
 	if (vm_status_payload->vm_status == GH_RM_VM_STATUS_RESET) {
-		qcom_ddump_unshare_mem(qdd, self_vmid, peer_vmid);
 		vm_status_ready = false;
+		if (!qcom_ddump_unshare_mem(qdd, self_vmid, peer_vmid))
+			goto free_mem;
 	}
+
+	return NOTIFY_DONE;
+
+free_mem:
+	dma_free_coherent(qdd->dev, qdd->size, qdd->base,
+			phys_to_dma(qdd->dev, qdd->res.start));
 
 	return NOTIFY_DONE;
 }
@@ -376,9 +424,16 @@ static int qcom_ddump_alive_log_probe(struct qcom_dmesg_dumper *qdd)
 		ret = qcom_ddump_encrypt_init(node);
 		if (ret)
 			goto err_unregister_wakeup_source;
+
+		qdd->gh_panic_nb.notifier_call = qcom_ddump_gh_panic_handler;
+		qdd->gh_panic_nb.priority = INT_MAX;
+		ret = gh_panic_notifier_register(&qdd->gh_panic_nb);
+		if (ret)
+			goto err_unregister_wakeup_source;
 	}
 
 	return 0;
+
 err_unregister_wakeup_source:
 	wakeup_source_unregister(qdd->wakeup_source);
 err_unregister_rx_dbl:
@@ -461,6 +516,8 @@ static int qcom_ddump_probe(struct platform_device *pdev)
 
 static int qcom_ddump_remove(struct platform_device *pdev)
 {
+	gh_vmid_t peer_vmid;
+	gh_vmid_t self_vmid;
 	int ret;
 	struct qcom_dmesg_dumper *qdd = platform_get_drvdata(pdev);
 
@@ -470,14 +527,28 @@ static int qcom_ddump_remove(struct platform_device *pdev)
 		if (qdd->primary_vm) {
 			remove_proc_entry(DDUMP_PROFS_NAME, NULL);
 		} else {
+			gh_panic_notifier_unregister(&qdd->gh_panic_nb);
 			wakeup_source_unregister(qdd->wakeup_source);
 			qcom_ddump_encrypt_exit();
 		}
 	}
 
 	if (qdd->primary_vm) {
-		kfree(qdd->base);
 		gh_rm_unregister_notifier(&qdd->rm_nb);
+		ret = ghd_rm_get_vmid(qdd->peer_name, &peer_vmid);
+		if (ret)
+			return ret;
+
+		ret = ghd_rm_get_vmid(GH_PRIMARY_VM, &self_vmid);
+		if (ret)
+			return ret;
+
+		ret = qcom_ddump_unshare_mem(qdd, self_vmid, peer_vmid);
+		if (ret)
+			return ret;
+
+		dma_free_coherent(qdd->dev, qdd->size, qdd->base,
+			phys_to_dma(qdd->dev, qdd->res.start));
 	} else {
 		ret = kmsg_dump_unregister(&qdd->dump);
 		if (ret)

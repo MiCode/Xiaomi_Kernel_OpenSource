@@ -11,6 +11,7 @@
 
 CONFIG_DIR=arch/${ARCH}/configs
 
+BRANCH=msm-kernel
 CONFIG_TARGET=msm.${MSM_ARCH}
 
 ################################################################################
@@ -71,6 +72,14 @@ if [ -z "${VARIANT}" ] || [ "${VARIANT}" == "default" ]; then
   VARIANT="${VARIANTS[0]}"
 fi
 
+if [ ! -z $MSM_ARCH ]; then
+  BRANCH+=-${MSM_ARCH}
+fi
+
+if [ ! -z $VARIANT ]; then
+  BRANCH+=-${VARIANT}
+fi
+
 if ( for v in "${VARIANTS[@]}"; do if [ "${v}" = "${VARIANT}" ]; then exit 1; fi; done; exit 0 ) ; then
   echo "Unsupported variant '${VARIANT}'"
   exit 1
@@ -89,7 +98,8 @@ function merge_defconfig_fragments() {
     return
   fi
   local output=$(mktemp)
-  KCONFIG_CONFIG=${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG} \
+  mkdir -p $(dirname ${OUT_DIR}/arch/${ARCH}/configs/${DEFCONFIG})
+  KCONFIG_CONFIG=${OUT_DIR}/arch/${ARCH}/configs/${DEFCONFIG} \
     ${KERNEL_DIR}/scripts/kconfig/merge_config.sh \
     -m -r -y ${DEFCONFIG_FRAGMENTS} | tee $output
   set +x
@@ -121,7 +131,7 @@ function check_merged_defconfig() {
     return
   fi
   local output=$(mktemp)
-  ${KERNEL_DIR}/scripts/diffconfig "${KERNEL_DIR}/arch/${ARCH}/configs/${DEFCONFIG}" ${OUT_DIR}/.config > $output
+  ${KERNEL_DIR}/scripts/diffconfig "${OUT_DIR}/arch/${ARCH}/configs/${DEFCONFIG}" ${OUT_DIR}/.config > $output
   set +x
   # Allow CONFIG_CMDLINE changes
   if grep -q -v -E -e "^\+" -e "^CMDLINE " $output; then
