@@ -39,6 +39,7 @@ uint32_t socinfo_get_serial_number(void);
 const char *socinfo_get_id_string(void);
 uint32_t socinfo_get_cluster_info(enum subset_cluster_type cluster);
 bool socinfo_get_part_info(enum subset_part_type part);
+int32_t socinfo_get_subpart_info(enum subset_part_type part, uint32_t *nIdx, uint32_t *part_info);
 int socinfo_get_oem_variant_id(void);
 #else
 static inline uint32_t socinfo_get_id(void)
@@ -63,6 +64,10 @@ uint32_t socinfo_get_cluster_info(enum subset_cluster_type cluster)
 bool socinfo_get_part_info(enum subset_part_type part)
 {
 	return false;
+}
+int32_t socinfo_get_subpart_info(enum subset_part_type part, uint32_t *nIdx, uint32_t *part_info)
+{
+	return -EINVAL;
 }
 int socinfo_get_oem_variant_id(void)
 {
