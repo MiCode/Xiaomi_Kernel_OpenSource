@@ -230,7 +230,7 @@ static struct socinfo {
 	__le32 hw_plat_oem_variant;
 } *socinfo;
 
-#define MAX_SOCINFO_ATTRS 45
+#define MAX_SOCINFO_ATTRS 50
 /* sysfs attributes */
 #define ATTR_DEFINE(param)	\
 	static DEVICE_ATTR(param, 0644,	\
@@ -892,6 +892,8 @@ CREATE_PART_FUNCTION(spss, PART_SPSS);
 CREATE_PART_FUNCTION(nav, PART_NAV);
 CREATE_PART_FUNCTION(comp1, PART_COMP1);
 CREATE_PART_FUNCTION(display1, PART_DISPLAY1);
+CREATE_PART_FUNCTION(nsp, PART_NSP);
+CREATE_PART_FUNCTION(eva, PART_EVA);
 
 /* Version 15 */
 static ssize_t
@@ -1340,6 +1342,8 @@ static void socinfo_populate_sysfs(struct qcom_socinfo *qcom_socinfo)
 		msm_custom_socinfo_attrs[i++] = &dev_attr_nav.attr;
 		msm_custom_socinfo_attrs[i++] = &dev_attr_comp1.attr;
 		msm_custom_socinfo_attrs[i++] = &dev_attr_display1.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_nsp.attr;
+		msm_custom_socinfo_attrs[i++] = &dev_attr_eva.attr;
 	case SOCINFO_VERSION(0, 13):
 		msm_custom_socinfo_attrs[i++] = &dev_attr_nproduct_id.attr;
 		msm_custom_socinfo_attrs[i++] = &dev_attr_chip_name.attr;
