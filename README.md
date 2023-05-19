@@ -169,4 +169,4 @@
 | daumier-s-oss | Xiaomi 12 Pro | Android S | alps-release-s0.mp1.tc8sp2-mt6983-V1.0.1_W53 |[daumier-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/daumier-s-oss) |
 | spes-r-oss | Redmi note 11 | Android R | Snapdragon_Mid_2020.SPF.1.0.1R_r00024.0 |[spes-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/spes-r-oss) |
 | moonstone-s-oss | Redmi POCO X5 5G | Android S | Snapdragon_Mid_2021.SPF.2.0_r2.0_00023.0 |[moonstone-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/moonstone-s-oss) |
-
+|  bsp-rembrandt-s-oss | Redmi K60E  | Android S | t-alps-release-s0.mp1.tc8sp2-mt6983-V1.0.1 |[ bsp-rembrandt-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-rembrandt-s-oss) |
