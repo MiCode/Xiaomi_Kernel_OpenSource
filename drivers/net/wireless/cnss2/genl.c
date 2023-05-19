@@ -92,8 +92,8 @@ static int cnss_genl_send_data(u8 type, char *file_name, u32 total_size,
 	int ret = 0;
 	char filename[CNSS_GENL_STR_LEN_MAX + 1];
 
-	cnss_pr_dbg("type: %u, file_name %s, total_size: %x, seg_id %u, end %u, data_len %u\n",
-		    type, file_name, total_size, seg_id, end, data_len);
+	cnss_pr_dbg_buf("type: %u, file_name %s, total_size: %x, seg_id %u, end %u, data_len %u\n",
+			type, file_name, total_size, seg_id, end, data_len);
 
 	if (!file_name)
 		strlcpy(filename, "default", sizeof(filename));
@@ -164,7 +164,7 @@ int cnss_genl_send_msg(void *buff, u8 type, char *file_name, u32 total_size)
 	u8 end = 0;
 	u8 retry;
 
-	cnss_pr_dbg("type: %u, total_size: %x\n", type, total_size);
+	cnss_pr_dbg_buf("type: %u, total_size: %x\n", type, total_size);
 
 	while (remaining) {
 		if (remaining > CNSS_GENL_DATA_LEN_MAX) {
