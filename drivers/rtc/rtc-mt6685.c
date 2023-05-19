@@ -39,10 +39,13 @@ static int rtc_show_alarm;
 module_param(rtc_show_time, int, 0644);
 module_param(rtc_show_alarm, int, 0644);
 
+#define MT6685_E3_HWID 0x30
+#define MT6685_E2_HWID 0x20
 
 static int mtk_rtc_write_trigger(struct mt6685_rtc *rtc);
 
 static int counter;
+static int hwid;
 
 void power_on_mclk(struct mt6685_rtc *rtc)
 {
@@ -379,6 +382,28 @@ exit:
 	dev_err(rtc->rtc_dev->dev.parent, "%s error\n", __func__);
 }
 
+static int mtk_rtc_update_alarm_irq_en(struct mt6685_rtc *rtc, int hardware_id, int value)
+{
+	int ret;
+
+	if (value == 0) {
+		ret =  rtc_update_bits(rtc,
+				rtc->addr_base + RTC_IRQ_EN,
+				RTC_IRQ_EN_ONESHOT_AL, value);
+	} else {
+		if (hardware_id >= MT6685_E3_HWID) {
+			ret =  rtc_update_bits(rtc,
+				rtc->addr_base + RTC_IRQ_EN,
+				RTC_IRQ_EN_ONESHOT_AL, RTC_IRQ_EN_AL);
+		} else {
+			ret =  rtc_update_bits(rtc,
+				rtc->addr_base + RTC_IRQ_EN,
+				RTC_IRQ_EN_ONESHOT_AL, RTC_IRQ_EN_ONESHOT_AL);
+		}
+	}
+	return ret;
+}
+
 static int mtk_rtc_restore_alarm(struct mt6685_rtc *rtc, struct rtc_time *tm)
 {
 	int ret;
@@ -419,10 +444,7 @@ static int mtk_rtc_restore_alarm(struct mt6685_rtc *rtc, struct rtc_time *tm)
 	if (ret < 0)
 		goto exit;
 
-	ret =  rtc_update_bits(rtc,
-				rtc->addr_base + RTC_IRQ_EN,
-				RTC_IRQ_EN_ONESHOT_AL,
-				RTC_IRQ_EN_ONESHOT_AL);
+	ret = mtk_rtc_update_alarm_irq_en(rtc, hwid, 1);
 	if (ret < 0)
 		goto exit;
 
@@ -597,7 +619,12 @@ static int mtk_rtc_is_alarm_irq(struct mt6685_rtc *rtc)
 					rtc->addr_base + RTC_BBPU, bbpu);
 		if (ret < 0)
 			dev_err(rtc->rtc_dev->dev.parent,
-				"%s error\n", __func__);
+				"%s: %d error\n", __func__, __LINE__);
+
+		ret = mtk_rtc_update_alarm_irq_en(rtc, hwid, 0);
+		if (ret < 0)
+			dev_err(rtc->rtc_dev->dev.parent,
+				"%s: %d error\n", __func__, __LINE__);
 		mtk_rtc_write_trigger(rtc);
 		power_down_mclk(rtc);
 		return RTC_ALSTA;
@@ -990,20 +1017,14 @@ static int mtk_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 		if (ret < 0)
 			goto exit;
 
-		ret =  rtc_update_bits(rtc,
-					 rtc->addr_base + RTC_IRQ_EN,
-					 RTC_IRQ_EN_ONESHOT_AL,
-					 RTC_IRQ_EN_ONESHOT_AL);
+		ret = mtk_rtc_update_alarm_irq_en(rtc, hwid, 1);
 		if (ret < 0)
 			goto exit;
-	} else {
-		ret = rtc_update_bits(rtc,
-					 rtc->addr_base + RTC_IRQ_EN,
-					 RTC_IRQ_EN_ONESHOT_AL, 0);
-
-		if (ret < 0)
-			goto exit;
-	}
+		} else {
+			ret = mtk_rtc_update_alarm_irq_en(rtc, hwid, 0);
+			if (ret < 0)
+				goto exit;
+		}
 
 	/* All alarm time register write to hardware after calling
 	 * mtk_rtc_write_trigger. This can avoid race condition if alarm
@@ -1252,6 +1273,13 @@ static int mtk_rtc_probe(struct platform_device *pdev)
 	};
 
 	enable_irq_wake(rtc->irq);
+
+	ret = rtc_read(rtc, HWCID, &hwid);
+	if (ret) {
+		hwid = MT6685_E3_HWID;
+		dev_err(&pdev->dev, "Failed to read mt6685 HWID\n");
+	};
+	hwid = hwid & HWCID_MASK;
 
 #ifdef SUPPORT_EOSC_CALI
 	rtc->cali_is_supported = true;

@@ -338,6 +338,29 @@ static int mtk_per_cpuidle_state_param(void *pData)
 	do_exit(0);
 	return 0;
 }
+
+static int mtk_per_cpuidle_s2dile_param(void *pData)
+{
+	int i;
+	struct cpuidle_driver *drv = cpuidle_get_driver();
+	struct MTK_CSTATE_INFO *info = (struct MTK_CSTATE_INFO *)pData;
+	int suspend_type = lpm_suspend_type_get();
+
+	if (!drv || !info)
+		return 0;
+
+	i = drv->state_count - 1;
+	if ((suspend_type == LPM_SUSPEND_S2IDLE) &&
+		!strcmp(drv->states[i].name, S2IDLE_STATE_NAME)) {
+		if (info->type == MTK_CPUIDLE_STATE_EN_SET) {
+			mtk_cpuidle_set_param(drv, i, IDLE_PARAM_EN,
+					      !!info->val);
+		}
+	}
+	do_exit(0);
+	return 0;
+}
+
 void mtk_cpuidle_state_enable(bool en)
 {
 	int cpu;
@@ -364,6 +387,34 @@ void mtk_cpuidle_state_enable(bool en)
 
 	cpuidle_resume_and_unlock();
 }
+
+int mtk_s2idle_state_enable(bool en)
+{
+	int cpu;
+	struct task_struct *task;
+
+	state_info.type = MTK_CPUIDLE_STATE_EN_SET;
+	state_info.val = (long)en;
+
+	cpuidle_pause_and_lock();
+
+	for_each_possible_cpu(cpu) {
+		task = kthread_create(mtk_per_cpuidle_s2dile_param,
+				&state_info, "mtk_s2idle_state_enable");
+		if (IS_ERR(task)) {
+			pr_info("[name:mtk_lpm][P] create s2idle change thread failed\n");
+			cpuidle_resume_and_unlock();
+			return -1;
+		}
+		kthread_bind(task, cpu);
+		wake_up_process(task);
+	}
+
+	cpuidle_resume_and_unlock();
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_s2idle_state_enable);
 
 unsigned long long mtk_cpuidle_state_last_dis_ms(void)
 {

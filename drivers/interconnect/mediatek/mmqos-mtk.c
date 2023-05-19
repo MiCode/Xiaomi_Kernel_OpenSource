@@ -83,7 +83,7 @@ static u32 chn_hrt_w_bw[MMQOS_MAX_COMM_NUM][MMQOS_COMM_CHANNEL_NUM] = {};
 static u32 chn_srt_w_bw[MMQOS_MAX_COMM_NUM][MMQOS_COMM_CHANNEL_NUM] = {};
 
 static void mmqos_update_comm_bw(struct device *dev,
-	u32 comm_port, u32 freq, u64 mix_bw, u64 bw_peak, bool qos_bound)
+	u32 comm_port, u32 freq, u64 mix_bw, u64 bw_peak, bool qos_bound, bool max_bwl)
 {
 	u32 comm_bw = 0;
 	u32 value;
@@ -92,6 +92,8 @@ static void mmqos_update_comm_bw(struct device *dev,
 		return;
 	if (mix_bw)
 		comm_bw = (mix_bw << 8) / freq;
+	if (max_bwl)
+		comm_bw = 0xfff;
 	if (comm_bw)
 		value = ((comm_bw > 0xfff) ? 0xfff : comm_bw) |
 			((bw_peak > 0 || !qos_bound) ? 0x1000 : 0x3000);
@@ -121,7 +123,8 @@ static void mmqos_update_setting(struct mtk_mmqos *mmqos)
 						comm_port->common->freq,
 						icc_to_MBps(comm_port->latest_mix_bw),
 						icc_to_MBps(comm_port->latest_peak_bw),
-						mmqos->qos_bound);
+						mmqos->qos_bound,
+						comm_port->hrt_type == HRT_MAX_BWL);
 				}
 				mutex_unlock(&comm_port->bw_lock);
 			}
@@ -249,7 +252,7 @@ static void update_hrt_bw(struct mtk_mmqos *mmqos)
 	list_for_each_entry(comm_node, &mmqos->comm_list, list) {
 		list_for_each_entry(comm_port,
 				    &comm_node->comm_port_list, list) {
-			if (comm_port->hrt_type != HRT_NONE) {
+			if (comm_port->hrt_type < HRT_TYPE_NUM) {
 				mutex_lock(&comm_port->bw_lock);
 				hrt_bw[comm_port->hrt_type] +=
 					icc_to_MBps(comm_port->latest_peak_bw);
@@ -333,7 +336,8 @@ static int mtk_mmqos_set(struct icc_node *src, struct icc_node *dst)
 				MASK_8(dst->id), comm_port_node->common->freq,
 				icc_to_MBps(comm_port_node->latest_mix_bw),
 				icc_to_MBps(comm_port_node->latest_peak_bw),
-				mmqos->qos_bound);
+				mmqos->qos_bound, comm_port_node->hrt_type == HRT_MAX_BWL);
+
 		mutex_unlock(&comm_port_node->bw_lock);
 		break;
 	case MTK_MMQOS_NODE_LARB:

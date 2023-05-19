@@ -51,6 +51,21 @@ config UFSTW_BOOT_ENABLED
 	  fTurboWriteEn and fTurboWriteBufferFlushDuringHibnerEnter flags
 	  are enabled at boot time.
 
+config UFS_MT6983_H8TIME
+	bool "Prolong Matisse projet(mt6983)'s Hibernate time to 1ms "
+	default n
+	depends on SCSI_UFSHCD
+	help
+	  This config is to distinguish mt6983 and mt6895 h8 time setting
+
+config UFS_MT6895_H8TIME
+	bool "Prolong MT6895's Hibernate time to 1.5ms"
+	default n
+	depends on SCSI_UFSHCD
+	help
+	  This config is for the compatibility between MT6895 and
+	  KLUDG4UHGC-B0E1/KLUEG8UHGC-B0E1i.
+
 config UFSHID
 	bool "UFS Host Initiated Defrag support"
 	depends on SCSI_UFSHCD && UFSFEATURE

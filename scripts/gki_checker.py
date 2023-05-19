@@ -30,18 +30,20 @@ g_symbol_pass = True
 g_file_pass = True
 options = None
 wiki = "https://wiki.mediatek.inc/display/KernelStandardization/GKI+checker"
+checker_version = "v2.0"
+default_google_sha = "41ff3fa8fff9"
 
 def create_compare_file(target, input_file, output_file_name):
     if target == "Config":
         # print "create "+ input_file +" config list"
         # get config from vmlinux
-        content = subprocess.check_output(options.config_tool+" "+input_file, shell=True)
+        content = subprocess.check_output(options.config_tool + " "+input_file, shell=True)
         with open(output_file_name, "wb") as f:
             f.write(content)
     elif target == "Symbol":
         # print "create " + input_file + " symbol list"
         # get System.map from vmlinux
-        cmd = options.nm_tool + " -n --print-size " + input_file + " | grep -v '\( [aNUw] \)\|\(__crc_\)\|\( \$[adt]\)\|\( \.L\)' > " + output_file_name
+        cmd = options.tool_chain + "llvm-nm -n --print-size " + input_file + " | grep -v '\( [aNUw] \)\|\(__crc_\)\|\( \$[adt]\)\|\( \.L\)' > " + output_file_name
         os.system(cmd)
 
 def write_dict_file(dict_cont, with_size, filename):
@@ -54,13 +56,13 @@ def write_dict_file(dict_cont, with_size, filename):
             for x in dict_cont.keys():
                 f.write(x +'\n')
 
-def compare_config(g_config, m_config):
+def compare_config(g_config_file, m_config_file):
     global g_config_pass
     nonset_config_info = re.compile("^(-|\+)# (CONFIG_\w*) is not set$")
     set_config_info = re.compile("^(-|\+)(CONFIG_\w*)=(.*)$")
     mt_info = re.compile("MT\d+|MTK|MEDIATEK")
 
-    cmd = "diff --strip-trailing-cr -EbwB --unified=0 " + g_config + " " + m_config
+    cmd = "diff --strip-trailing-cr -EbwB --unified=0 " + g_config_file + " " + m_config_file
     output = os.popen(cmd)
     diff_cont = output.read()
     output.close()
@@ -107,47 +109,52 @@ def compare_config(g_config, m_config):
                     else:
                         m_config[set_info.group(2)] = set_info.group(3)
                         # print("Worning!!", set_info.group(1), "set:", set_info.group(2), ", value:", set_info.group(3))
-                elif not mt_info.search(set_info.group(2)):
+                elif not mt_info.search(set_info.group(2)) and set_info.group(3) != "m":
                     m_config[set_info.group(2)] = set_info.group(3)
+                    # print("Worning!!", set_info.group(1), "set:", set_info.group(2), ", value:", set_info.group(3))
     if g_config:
-        print("Error: Addition Google config:")
+        print("Error: Addition Google config\n{ ", end="")
         g_config_pass = False
         # pprint(g_config)
+        for x in g_config.keys():
+            print(x, end=", ")
+        print("}")
         write_dict_file(g_config, True, "config/gki_cfg.txt")
     if m_config:
-        print("Error: Redundant MTK config:")
+        print("Error: Redundant MTK config\n{ ", end="")
         g_config_pass = False
         # pprint(m_config)
+        for x in m_config.keys():
+            print(x, end=", ")
+        print("}")
         write_dict_file(m_config, True, "config/mtk_cfg.txt")
 
 def get_gki_denyfile():
-    cmd = options.readelf_tool + " --debug-dump=decodedline "+ options.google_vmlinux + " | grep \:\$ | sort | uniq | less > " + options.checker_out + "file/tmp/vmfile.tmp"
+    # remove old denyfiles.txt
+    cmd = "rm -f " + options.checker_out + "file/tmp/gki_denyfiles.txt"
+    print(cmd)
     os.system(cmd)
-    gki_vmtmp_filename = options.checker_out + "file/tmp/vmfile.tmp"
-    gki_unsort_files_handle = open(gki_vmtmp_filename,"r")
-    gki_dyf_filename = options.checker_out + "file/tmp/gki_denyfile.tmp"
-    gki_denyfile = open(gki_dyf_filename,"w")
-    for line in gki_unsort_files_handle:
-        Is_CU = line[0:3]
-        Is_Decoded = line[0:12]
-        if Is_CU == "CU:":
-            file_name=line[4:len(line)-2]
-            if file_name in file_wlist:
-                continue
-            gki_denyfile.write(file_name+" \n")
-        else:
-            if Is_Decoded != "Decoded dump":
-                file_name=line[0:len(line)-2]
-                if file_name in file_wlist:
-                    continue
-                gki_denyfile.write(file_name+" \n")
-        #print(file_name+"after")
-    gki_unsort_files_handle.close()
-    gki_denyfile.close()
-    cmd = "cat " + gki_dyf_filename + " | sort | uniq | less > " + options.checker_out + "file/tmp/gki_denyfiles.txt"
+    # get redount strings in file path ex. out_abi/android12-5.10/common and replace "/" as "\/" cause sed
+    cmd = options.tool_chain + "llvm-dwarfdump --debug-info "+ options.google_vmlinux + " | grep -m 1 \"DW_AT_comp_dir\" | awk 'BEGIN {FS=\"\\\"\"} {print $2}'"
+    #print(cmd)
+    output = os.popen(cmd)
+    restr = output.read().splitlines()[0].replace("/","\/")
+    output.close()
+    # get denyfile
+    cmd = options.tool_chain + "llvm-dwarfdump --debug-info "+ options.google_vmlinux \
+    + " | grep \"DW_AT_decl_file\" | awk 'BEGIN {FS=\"\\\"\"} {print $2}' | sed 's/" \
+    + restr + "\///' | sort | uniq > " + options.checker_out + "file/tmp/tmp_gki_denyfiles.txt"
+    print(cmd)
     os.system(cmd)
-    # os.remove(gki_dyf_filename)
-    # os.remove(gki_vmtmp_filename)
+    tmp_list = []
+    with open(options.checker_out + "file/tmp/tmp_gki_denyfiles.txt", "r") as t:
+        for x in t:
+            tmp_list.append(os.path.normpath(x))
+    tmp_list.sort()
+    f = open(options.checker_out + "file/tmp/gki_denyfiles.txt", "w")
+    for x in tmp_list:
+        f.write(x)
+    f.close()
 
 '''
 # TODO report info, current not use
@@ -213,25 +220,48 @@ def verify_violation(diff_cont):
 '''
 
 def get_sha(vmlinux):
-    sha = ""
-    sha_error = True
+    sha_default = True
+    sha = default_google_sha
     sha_re = re.compile('^Linux version.*-g(\w*)-.*$')
-    content = subprocess.check_output("strings "+(vmlinux)+" | grep \"Linux version\"", shell=True).decode("utf-8")
-    for ctx in content.split("\n"):
+    # Get Goolge commit sha from google vmlinux
+    g_content = subprocess.check_output(options.tool_chain+"llvm-strings "+(vmlinux)+" | grep \"Linux version\"", shell=True).decode("utf-8")
+    for ctx in g_content.split("\n"):
         sha_info = sha_re.search(ctx)
         if sha_info:
-            sha_error = False
+            sha_default = False
             sha = sha_info.group(1)
+            print("Google SHA:" + sha)
             break
-    if sha_error:
-        print("Error: Can't get ACK_SHA, panic!!!")
-        sys.exit("Checker get ACK_SHA error!")
-    print("Get ACK_SHA:", sha)
+    # Get MTK commit tag from git commit message
+    try:
+        tag_re = re.compile('^.* ACK: Merge (.*)( \w*|-\w*) into .*$')
+        content = subprocess.check_output("git log --grep=" + sha + " | grep \"ACK: Merge\"", shell=True).decode("utf-8")
+        for ctx in content.split("\n"):
+            tag_info = tag_re.search(ctx)
+            if tag_info:
+                tag = tag_info.group(1)
+                try:
+                    subprocess.check_output("git remote remove ack", shell=True).decode("utf-8")
+                except subprocess.CalledProcessError as warn:
+                    print("No Need to remote remove ack!")
+                    #print(warn)
+                try:
+                    subprocess.check_output("git remote add ack --no-tags --mirror=fetch https://gerrit.mediatek.inc/kernel/common && git fetch ack " + tag, shell=True).decode("utf-8")
+                except subprocess.CalledProcessError as warn:
+                    print("No Need to fetch ack info!")
+                    #print(warn)
+                break
+    except subprocess.CalledProcessError as warn:
+        print("Not MP stage")
+        #print(warn)
+
+    if sha_default:
+        print("Warning: Can't get ACK_SHA!, Use default SHA:" + sha)
     return sha
 
 def filecompare(fileName):
-    ret = "matched"
     # DO NOT change the input file order, or the verify() will be wrong
+    # return true when file context are different
     # googlefile = google_path + fileName
     # mtkfile = mtk_path + fileName
     # cmd = "diff --strip-trailing-cr -EbwBu " + googlefile + " " + mtkfile
@@ -244,36 +274,39 @@ def filecompare(fileName):
         print("\nError: You should Not modify " + fileName)
         gcmd = "git show " + options.ACK_SHA + ":" + fileName
         mcmd = "git show HEAD:" + fileName
-        # goutput = os.popen(gcmd)
-        # gdiff_cont = goutput.read()
-        # google_file = open(options.checker_out + "file/google/" + fileName.replace("/","_"),"w")
-        # google_file.write(gdiff_cont)
-        # google_file.close()
+        goutput = os.popen(gcmd)
+        gdiff_cont = goutput.read()
+        google_file = open(options.checker_out + "file/google/" + fileName.replace("/","_"),"w")
+        google_file.write(gdiff_cont)
+        google_file.close()
 
-        # moutput = os.popen(mcmd)
-        # mdiff_cont = moutput.read()
-        # mtk_file = open(options.checker_out + "file/mtk/" + fileName.replace("/","_"),"w")
-        # mtk_file.write(mdiff_cont)
-        # mtk_file.close()
-        ret = "not matched"
-    return ret
+        moutput = os.popen(mcmd)
+        mdiff_cont = moutput.read()
+        mtk_file = open(options.checker_out + "file/mtk/" + fileName.replace("/","_"),"w")
+        mtk_file.write(mdiff_cont)
+        mtk_file.close()
+        return True
+    else:
+        return False
 
 def dump_diff_file():
     global g_file_pass
     options.ACK_SHA = get_sha(options.google_vmlinux)
     gki54_file = open(options.checker_out + "file/tmp/gki_denyfiles.txt","r")
-    # summry_file = open(options.checker_out + "file/summary.log","w")
+    summry_file = open(options.checker_out + "file/summary.log","w")
     print("Checking", end="")
     for idx, line in enumerate(gki54_file):
         if idx%100 == 99:
             print(".", end="", flush=True)
-        file_name=line[0:len(line)-2]
-        if filecompare(file_name)!="matched":
+        file_name = line.strip()
+        if file_name in file_wlist:
+            continue
+        if filecompare(file_name):
             g_file_pass = False
-            # summry_file.write(file_name+'\n')
-    print("", flush=True)
+            summry_file.write(file_name+'\n')
+    print("")
     gki54_file.close()
-    # summry_file.close()
+    summry_file.close()
 
 def is_hex_str(s):
     return set(s).issubset(string.hexdigits)
@@ -382,11 +415,11 @@ def compare_System_map(g_sysmap, m_sysmap):
         for x in g_s_report.keys():
             print(x, end=", ")
         print("}")
-        # write_dict_file(g_s_report, True, "symbol/gki_size_diff.txt")
+        write_dict_file(g_s_report, True, "symbol/gki_size_diff.txt")
     if m_s_report:
         g_symbol_pass = False
         # pprint(m_s_report)
-        # write_dict_file(m_s_report, True, "symbol/mtk_size_diff.txt")
+        write_dict_file(m_s_report, True, "symbol/mtk_size_diff.txt")
 
     # print("Remove symbols with different size but same name ")
     g_ns_report, m_ns_report = compare_symbols(g_ns_symbols, m_ns_symbols, False)
@@ -397,14 +430,14 @@ def compare_System_map(g_sysmap, m_sysmap):
         for x in g_ns_report.keys():
             print(x, end=", ")
         print("}")
-        # write_dict_file(g_ns_report, True, "symbol/gki_panic.txt")
+        write_dict_file(g_ns_report, True, "symbol/gki_panic.txt")
     if m_ns_report:
         print("Error: Redundant MTK Symbols:\n{ ", end="")
         g_symbol_pass = False
         for x in m_ns_report.keys():
             print(x, end=", ")
         print("}")
-        # write_dict_file(m_ns_report, True, "symbol/mtk_panic.txt")
+        write_dict_file(m_ns_report, True, "symbol/mtk_panic.txt")
 
 def remove_tmp(opt_type):
     try:
@@ -425,7 +458,7 @@ def checker_verify():
     print("For more detail, please check wiki:"+ wiki)
     return -1
 
-def white_list(filename):
+def read_white_list(filename):
     cfg=[]
     sbl=[]
     fil=[]
@@ -442,6 +475,61 @@ def white_list(filename):
                 sbl.append(sb[1])
     return cfg, sbl, fil
 
+def update_white_list(filename):
+    cfg=[]
+    sbl=[]
+    fil=[]
+    curr_path = os.path.dirname(os.path.abspath(__file__))
+    if os.path.exists(options.checker_out + "file/summary.log"):
+        os.remove(options.checker_out + "file/summary.log")
+    if os.path.exists(options.checker_out + "symbol/gki_size_diff.txt"):
+        os.remove(options.checker_out + "symbol/gki_size_diff.txt")
+    if os.path.exists(options.checker_out + "symbol/gki_panic.txt"):
+        os.remove(options.checker_out + "symbol/gki_panic.txt")
+    if os.path.exists(options.checker_out + "symbol/mtk_panic.txt"):
+        os.remove(options.checker_out + "symbol/mtk_panic.txt")
+    if os.path.exists(options.checker_out + "config/mtk_cfg.txt"):
+        os.remove(options.checker_out + "config/mtk_cfg.txt")
+    print("Update File white list")
+    get_gki_denyfile()
+    os.chdir(options.kernel_path)
+    dump_diff_file()
+    os.chdir(curr_path)
+    with open(options.checker_out + "file/summary.log","r") as f:
+        for line in f.readlines():
+            fil.append(line)
+    print("Update Symbol white list")
+    create_compare_file("Symbol", options.google_vmlinux, options.checker_out + "symbol/tmp/g_System.map")
+    create_compare_file("Symbol", options.mtk_vmlinux, options.checker_out + "symbol/tmp/m_System.map")
+    compare_System_map(options.checker_out + "symbol/tmp/g_System.map", options.checker_out + "symbol/tmp/m_System.map")
+    if os.path.exists(options.checker_out + "symbol/gki_size_diff.txt"):
+        with open(options.checker_out + "symbol/gki_size_diff.txt","r") as f:
+            for line in f.readlines():
+                sbl.append(line.split()[0]+'\n')
+    if os.path.exists(options.checker_out + "symbol/gki_panic.txt"):
+        with open(options.checker_out + "symbol/gki_panic.txt","r") as f:
+            for line in f.readlines():
+                sbl.append(line.split()[0]+'\n')
+    if os.path.exists(options.checker_out + "symbol/mtk_panic.txt"):
+        with open(options.checker_out + "symbol/mtk_panic.txt","r") as f:
+            for line in f.readlines():
+                sbl.append(line.split()[0]+'\n')
+    print("Update Config white list")
+    create_compare_file("Config", options.google_vmlinux, options.checker_out + "config/tmp/google_kconfig")
+    create_compare_file("Config", options.mtk_vmlinux, options.checker_out + "config/tmp/mtk_kconfig")
+    compare_config(options.checker_out + "config/tmp/google_kconfig", options.checker_out + "config/tmp/mtk_kconfig")
+    if os.path.exists(options.checker_out + "config/mtk_cfg.txt"):
+        with open(options.checker_out + "config/mtk_cfg.txt","r") as f:
+            for line in f.readlines():
+                cfg.append(line.split()[0]+'\n')
+    with open(filename, "w") as w:
+        for f in fil:
+            w.write("f " + f)
+        for s in sbl:
+            w.write("s " + s)
+        for c in cfg:
+            w.write("c " + c)
+
 def getExecuteOptions(self, args=[]):
     parser = OptionParser()
     croot = ""
@@ -454,10 +542,8 @@ def getExecuteOptions(self, args=[]):
                       help="Checker output folder")
     parser.add_option("-k", "--kpath", nargs=1, dest="kernel_path", default=croot+"/kernel-5.10/",
                       help="Kernel path")
-    parser.add_option("-n", "--nmt", nargs=1, dest="nm_tool", default=croot+"/prebuilts/clang/host/linux-x86/llvm-binutils-stable/llvm-nm",
-                      help="Symbol extract tool")
-    parser.add_option("-r", "--relf", nargs=1, dest="readelf_tool", default=croot+"/prebuilts/gcc/linux-x86/host/x86_64-linux-glibc2.17-4.8/x86_64-linux/bin/readelf",
-                      help="Elf extract tool")
+    parser.add_option("-t", "--tcpath", nargs=1, dest="tool_chain", default=croot+"/kernel/prebuilts-master/clang/host/linux-x86/clang-r416183b/bin/",
+                      help="Extract tool chain")
     parser.add_option("-c", "--ct", nargs=1, dest="config_tool", default=croot+"/kernel-5.10/scripts/extract-ikconfig",
                       help="Config extract script")
     parser.add_option("-g", "--gv", nargs=1, dest="google_vmlinux", default=croot+"/vendor/aosp_gki/kernel-5.10/aarch64/vmlinux-userdebug",
@@ -469,7 +555,7 @@ def getExecuteOptions(self, args=[]):
     parser.add_option("-w", "--white", nargs=1, dest="white_list", default=os.path.dirname(os.path.abspath(__file__))+"/gki_checker_white_list.txt",
                       help="white list location")
     parser.add_option("-o", "--opt", nargs=1, dest="opt", default="all",
-                      help="check option: config, file, symbol or all [default: all]")
+                      help="check option: 'config', 'file', 'symbol' or all(default)\n'update' for update white list.")
     (options, args) = parser.parse_args()
     return options
 
@@ -479,17 +565,22 @@ if __name__ == "__main__":
     curr_path = os.path.dirname(os.path.abspath(__file__))
     options = getExecuteOptions(sys.argv[1:])
     options.checker_out = os.path.abspath(options.checker_out)+'/'
+    #options.ACK_SHA = get_sha(options.google_vmlinux)
 
-    config_wlist ,symbol_wlist, file_wlist = white_list(options.white_list)
-
-    if options.opt == "config":
+    if options.opt == "update":
+        os.makedirs(options.checker_out+"file/google/", exist_ok=True)
+        os.makedirs(options.checker_out+"file/mtk/", exist_ok=True)
+        os.makedirs(options.checker_out+"file/tmp/", exist_ok=True)
+        os.makedirs(options.checker_out+"symbol/tmp/", exist_ok=True)
         os.makedirs(options.checker_out+"config/tmp/", exist_ok=True)
-        print("Check Config")
-        create_compare_file("Config", options.google_vmlinux, options.checker_out + "config/tmp/google_kconfig")
-        create_compare_file("Config", options.mtk_vmlinux, options.checker_out + "config/tmp/mtk_kconfig")
-        compare_config(options.checker_out + "config/tmp/google_kconfig", options.checker_out + "config/tmp/mtk_kconfig")
+        update_white_list(options.white_list)
+        remove_tmp("symbol/")
+        remove_tmp("file/")
         remove_tmp("config/")
-    elif options.opt == "file":
+    else:
+        config_wlist ,symbol_wlist, file_wlist = read_white_list(options.white_list)
+
+    if options.opt == "file":
         os.makedirs(options.checker_out+"file/google/", exist_ok=True)
         os.makedirs(options.checker_out+"file/mtk/", exist_ok=True)
         os.makedirs(options.checker_out+"file/tmp/", exist_ok=True)
@@ -499,6 +590,13 @@ if __name__ == "__main__":
         dump_diff_file()
         os.chdir(curr_path)
         remove_tmp("file/")
+    elif options.opt == "config":
+        os.makedirs(options.checker_out+"config/tmp/", exist_ok=True)
+        print("Check Config")
+        create_compare_file("Config", options.google_vmlinux, options.checker_out + "config/tmp/google_kconfig")
+        create_compare_file("Config", options.mtk_vmlinux, options.checker_out + "config/tmp/mtk_kconfig")
+        compare_config(options.checker_out + "config/tmp/google_kconfig", options.checker_out + "config/tmp/mtk_kconfig")
+        remove_tmp("config/")
     elif options.opt == "symbol":
         os.makedirs(options.checker_out+"symbol/tmp/", exist_ok=True)
         print("Check Symbol")
@@ -512,15 +610,15 @@ if __name__ == "__main__":
         os.makedirs(options.checker_out+"file/tmp/", exist_ok=True)
         os.makedirs(options.checker_out+"symbol/tmp/", exist_ok=True)
         os.makedirs(options.checker_out+"config/tmp/", exist_ok=True)
-        print("Check Symbol")
-        create_compare_file("Symbol", options.google_vmlinux, options.checker_out + "symbol/tmp/g_System.map")
-        create_compare_file("Symbol", options.mtk_vmlinux, options.checker_out + "symbol/tmp/m_System.map")
-        compare_System_map(options.checker_out + "symbol/tmp/g_System.map", options.checker_out + "symbol/tmp/m_System.map")
         print("Check file")
         get_gki_denyfile()
         os.chdir(options.kernel_path)
         dump_diff_file()
         os.chdir(curr_path)
+        print("Check Symbol")
+        create_compare_file("Symbol", options.google_vmlinux, options.checker_out + "symbol/tmp/g_System.map")
+        create_compare_file("Symbol", options.mtk_vmlinux, options.checker_out + "symbol/tmp/m_System.map")
+        compare_System_map(options.checker_out + "symbol/tmp/g_System.map", options.checker_out + "symbol/tmp/m_System.map")
         print("Check Config")
         create_compare_file("Config", options.google_vmlinux, options.checker_out + "config/tmp/google_kconfig")
         create_compare_file("Config", options.mtk_vmlinux, options.checker_out + "config/tmp/mtk_kconfig")
@@ -534,7 +632,7 @@ if __name__ == "__main__":
     mins, secs = divmod(elapsedTime.total_seconds(), 60)
     print("Total time elapsed: "+str(int(mins))+" mins, "+str(int(secs))+" secs")
 
-    if checker_verify():
+    if options.opt != "update" and checker_verify():
         sys.exit("Failed")
     else:
         sys.exit(0)

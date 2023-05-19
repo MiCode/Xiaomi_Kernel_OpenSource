@@ -22,12 +22,25 @@ DECLARE_HOOK(android_vh_shrink_slab_bypass,
 DECLARE_HOOK(android_vh_tune_inactive_ratio,
 	TP_PROTO(unsigned long *inactive_ratio, int file),
 	TP_ARGS(inactive_ratio, file))
-DECLARE_HOOK(android_vh_do_shrink_slab,
-	TP_PROTO(struct shrinker *shrinker, struct shrink_control *shrinkctl, int priority),
-	TP_ARGS(shrinker, shrinkctl, priority));
 DECLARE_RESTRICTED_HOOK(android_rvh_set_balance_anon_file_reclaim,
 			TP_PROTO(bool *balance_anon_file_reclaim),
 			TP_ARGS(balance_anon_file_reclaim), 1);
+DECLARE_HOOK(android_vh_page_referenced_check_bypass,
+	TP_PROTO(struct page *page, unsigned long nr_to_scan, int lru, bool *bypass),
+	TP_ARGS(page, nr_to_scan, lru, bypass));
+DECLARE_HOOK(android_vh_shrink_node_memcgs,
+	TP_PROTO(struct mem_cgroup *memcg, bool *skip),
+	TP_ARGS(memcg, skip));
+DECLARE_HOOK(android_vh_tune_memcg_scan_type,
+	TP_PROTO(struct mem_cgroup *memcg, char *scan_type),
+	TP_ARGS(memcg, scan_type));
+DECLARE_HOOK(android_vh_inactive_is_low,
+	TP_PROTO(unsigned long gb, unsigned long *inactive_ratio,
+		enum lru_list inactive_lru, bool *skip),
+	TP_ARGS(gb, inactive_ratio, inactive_lru, skip));
+DECLARE_HOOK(android_vh_snapshot_refaults,
+	TP_PROTO(struct lruvec *target_lruvec),
+	TP_ARGS(target_lruvec));
 #endif /* _TRACE_HOOK_VMSCAN_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>

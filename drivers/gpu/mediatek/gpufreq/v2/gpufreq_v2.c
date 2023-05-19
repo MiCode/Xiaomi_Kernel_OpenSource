@@ -171,7 +171,6 @@ unsigned int gpufreq_get_power_state(void)
 	return power_state;
 }
 EXPORT_SYMBOL(gpufreq_get_power_state);
-
 /***********************************************************************************
  * Function Name      : gpufreq_get_dvfs_state
  * Inputs             : -

@@ -20,6 +20,7 @@
 #include <linux/kernel.h> // round_up
 #include <linux/reboot.h>
 #include <linux/workqueue.h>
+#include <linux/tracepoint.h>
 
 #include "selinux/mkp_security.h"
 #include "selinux/mkp_policycap.h"
@@ -279,6 +280,7 @@ static void probe_android_vh_commit_creds(void *ignore, const struct task_struct
 
 	if (g_ro_cred_handle == 0)
 		return;
+
 	c.csc.uid.val = new->uid.val;
 	c.csc.gid.val = new->gid.val;
 	c.csc.euid.val = new->euid.val;
@@ -298,6 +300,7 @@ static void probe_android_vh_exit_creds(void *ignore, const struct task_struct *
 
 	if (g_ro_cred_handle == 0)
 		return;
+
 	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
 		(unsigned long)task->pid, 0, 0, 0, 0);
 }
@@ -310,6 +313,7 @@ static void probe_android_vh_override_creds(void *ignore, const struct task_stru
 
 	if (g_ro_cred_handle == 0)
 		return;
+
 	c.csc.uid.val = new->uid.val;
 	c.csc.gid.val = new->gid.val;
 	c.csc.euid.val = new->euid.val;
@@ -330,6 +334,7 @@ static void probe_android_vh_revert_creds(void *ignore, const struct task_struct
 
 	if (g_ro_cred_handle == 0)
 		return;
+
 	c.csc.uid.val = old->uid.val;
 	c.csc.gid.val = old->gid.val;
 	c.csc.euid.val = old->euid.val;
@@ -509,47 +514,50 @@ static void check_selinux_state(struct ratelimit_state *rs)
 		handle_mkp_err_action(MKP_POLICY_SELINUX_STATE);
 	}
 }
-static void check_cred(struct ratelimit_state *rs)
+
+static bool cred_is_not_matched(const struct cred *curr, pid_t index)
 {
-	struct task_struct *cur = NULL;
 	struct cred_sbuf_content *ro_cred_sharebuf_ptr = NULL;
 	struct cred_sbuf_content *target = NULL;
 
-	ratelimit_set_flags(rs, RATELIMIT_MSG_ON_RELEASE);
-	if (!__ratelimit(rs) && (g_ro_cred_handle == 0))
-		return;
-	cur = get_current();
 	ro_cred_sharebuf_ptr = (struct cred_sbuf_content *)page_address(cred_pages);
 
-	if (cur->pid > 32767) {
+	/* pid max */
+	if (index > 32767) {
 		MKP_ERR("pid is overflow\n");
-		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
-		return;
+		return false;
 	}
 
-	target = ro_cred_sharebuf_ptr + cur->pid;
+	/* Target for comparison */
+	target = ro_cred_sharebuf_ptr + index;
+
+	/* No valid cred or cleared */
 	if (target->csc.security == NULL) {
 		MKP_WARN("%s:%d: target security point to NULL\n", __func__, __LINE__);
-		return;
+		return false;
 	}
-	if (target->csc.uid.val != cur->cred->uid.val ||
-		target->csc.gid.val != cur->cred->gid.val ||
-		target->csc.euid.val != cur->cred->euid.val ||
-		target->csc.egid.val != cur->cred->egid.val ||
-		target->csc.fsuid.val != cur->cred->fsuid.val ||
-		target->csc.fsgid.val != cur->cred->fsgid.val ||
-		target->csc.security != cur->cred->security) {
-		MKP_ERR("%s:%d: cred is not matched\n", __func__, __LINE__);
+
+	/* Do comparison */
+	if (target->csc.uid.val != curr->uid.val ||
+		target->csc.gid.val != curr->gid.val ||
+		target->csc.euid.val != curr->euid.val ||
+		target->csc.egid.val != curr->egid.val ||
+		target->csc.fsuid.val != curr->fsuid.val ||
+		target->csc.fsgid.val != curr->fsgid.val ||
+		target->csc.security != curr->security) {
+
 #if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
-		MKP_ERR("CURRENT-%16lx:%16lx:%16lx:%16lx:%16lx:%16lx:%16lx\n",
-				(unsigned long)cur->cred->uid.val,
-				(unsigned long)cur->cred->gid.val,
-				(unsigned long)cur->cred->euid.val,
-				(unsigned long)cur->cred->egid.val,
-				(unsigned long)cur->cred->fsuid.val,
-				(unsigned long)cur->cred->fsgid.val,
-				(unsigned long)cur->cred->security);
-		MKP_ERR("@EXPECT-%16lx:%16lx:%16lx:%16lx:%16lx:%16lx:%16lx\n",
+		MKP_ERR("CURRENT-(%u)-%16lx:%16lx:%16lx:%16lx:%16lx:%16lx:%16lx\n",
+				current->pid,
+				(unsigned long)curr->uid.val,
+				(unsigned long)curr->gid.val,
+				(unsigned long)curr->euid.val,
+				(unsigned long)curr->egid.val,
+				(unsigned long)curr->fsuid.val,
+				(unsigned long)curr->fsgid.val,
+				(unsigned long)curr->security);
+		MKP_ERR("@EXPECT-(%u)-%16lx:%16lx:%16lx:%16lx:%16lx:%16lx:%16lx\n",
+				index,
 				(unsigned long)target->csc.uid.val,
 				(unsigned long)target->csc.gid.val,
 				(unsigned long)target->csc.euid.val,
@@ -558,10 +566,38 @@ static void check_cred(struct ratelimit_state *rs)
 				(unsigned long)target->csc.fsgid.val,
 				(unsigned long)target->csc.security);
 #endif
-		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
-		return;
+
+		return true;
 	}
+
+	return false;
 }
+
+static void check_cred(struct ratelimit_state *rs)
+{
+	struct task_struct *cur = NULL, *task;
+
+	ratelimit_set_flags(rs, RATELIMIT_MSG_ON_RELEASE);
+	if (!__ratelimit(rs) && (g_ro_cred_handle == 0))
+		return;
+
+	cur = get_current();
+	task = get_task_struct(cur->group_leader);
+
+	/* If this thread group is exiting, just bypass */
+	if (task->flags & PF_EXITING)
+		goto exit;
+
+	/* Start matching */
+	if (cred_is_not_matched(cur->cred, cur->pid)) {
+		MKP_ERR("%s:%d: cred is not matched\n", __func__, __LINE__);
+		handle_mkp_err_action(MKP_POLICY_TASK_CRED);
+	}
+
+exit:
+	put_task_struct(task);
+}
+
 static void probe_android_vh_check_mmap_file(void *ignore,
 	const struct file *file, unsigned long prot, unsigned long flag, unsigned long ret)
 {
@@ -604,6 +640,87 @@ int mkp_reboot_notifier_event(struct notifier_block *nb, unsigned long event, vo
 static struct notifier_block mkp_reboot_notifier = {
 	.notifier_call = mkp_reboot_notifier_event,
 };
+
+/* For probing interesting tracepoints */
+struct tracepoints_table {
+	const char *name;
+	void *func;
+	struct tracepoint *tp;
+	int policy;
+};
+
+static void mkp_task_newtask(void *ignore, struct task_struct *task, unsigned long clone_flags)
+{
+	int ret = -1;
+	struct cred_sbuf_content c;
+
+	if (g_ro_cred_handle == 0)
+		return;
+
+	c.csc.uid.val = task->cred->uid.val;
+	c.csc.gid.val = task->cred->gid.val;
+	c.csc.euid.val = task->cred->euid.val;
+	c.csc.egid.val = task->cred->egid.val;
+	c.csc.fsuid.val = task->cred->fsuid.val;
+	c.csc.fsgid.val = task->cred->fsgid.val;
+	c.csc.security = task->cred->security;
+	ret = mkp_update_sharebuf_4_argu(MKP_POLICY_TASK_CRED, g_ro_cred_handle,
+			(unsigned long)task->pid,
+			c.args[0], c.args[1], c.args[2], c.args[3]);
+}
+
+static struct tracepoints_table mkp_tracepoints[] = {
+{.name = "task_newtask", .func = mkp_task_newtask, .tp = NULL, .policy = MKP_POLICY_TASK_CRED},
+};
+
+#define FOR_EACH_INTEREST(i) \
+	for (i = 0; i < sizeof(mkp_tracepoints) / sizeof(struct tracepoints_table); i++)
+
+static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
+{
+	int i;
+
+	FOR_EACH_INTEREST(i) {
+		if (strcmp(mkp_tracepoints[i].name, tp->name) == 0)
+			mkp_tracepoints[i].tp = tp;
+	}
+}
+
+/*
+ * Find out interesting tracepoints and try to register them.
+ * Update policy_ctrl if needed.
+ */
+static void __init mkp_hookup_tracepoints(void)
+{
+	int i;
+	int ret;
+
+	/* Find out interesting tracepoints */
+	for_each_kernel_tracepoint(lookup_tracepoints, NULL);
+
+	/* Update policy control if needed */
+	FOR_EACH_INTEREST(i) {
+		if (policy_ctrl[i] != 0 && mkp_tracepoints[i].tp == NULL) {
+			MKP_ERR("%s not found for policy %d\n",
+				mkp_tracepoints[i].name, mkp_tracepoints[i].policy);
+			policy_ctrl[i] = 0;
+		}
+	}
+
+	/* Probing found tracepoints */
+	FOR_EACH_INTEREST(i) {
+		if (policy_ctrl[i] != 0 && mkp_tracepoints[i].tp != NULL) {
+			ret = tracepoint_probe_register(mkp_tracepoints[0].tp,
+							mkp_tracepoints[0].func,  NULL);
+			if (ret) {
+				MKP_ERR("Failed to register %s for policy %d\n",
+					mkp_tracepoints[i].name, mkp_tracepoints[i].policy);
+				policy_ctrl[i] = 0;
+			}
+		}
+	}
+}
+
 int __init mkp_demo_init(void)
 {
 	int ret = 0, ret_erri_line;
@@ -615,8 +732,13 @@ int __init mkp_demo_init(void)
 		return 0;
 	}
 
-	/* Set policy control*/
+	/* Set policy control */
 	mkp_set_policy();
+
+	/* Hook up interesting tracepoints and update corresponding policy_ctrl */
+	mkp_hookup_tracepoints();
+
+	/* Set up policy related operations */
 	if (policy_ctrl[MKP_POLICY_MKP] != 0)
 		ret = protect_mkp_self();
 

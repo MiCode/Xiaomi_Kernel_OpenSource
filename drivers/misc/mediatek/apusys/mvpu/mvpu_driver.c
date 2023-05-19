@@ -442,6 +442,15 @@ static int mvpu_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	dev_info(dev, "mvpu probe start\n");
+	ret = mvpu_plat_info_init(pdev);
+	if (!ret) {
+		dev_info(dev, "(f:%s/l:%d) mvpu get plat info pass\n",
+						__func__, __LINE__);
+	} else {
+		dev_info(dev, "(f:%s/l:%d) mvpu get plat info fail\n",
+						__func__, __LINE__);
+		return ret;
+	}
 
 	ret = mvpu_apusys_register(pdev);
 	if (!ret) {

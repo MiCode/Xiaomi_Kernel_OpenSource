@@ -154,6 +154,7 @@ void dcm_disable(unsigned int type)
 	mutex_unlock(&dcm_lock);
 
 }
+EXPORT_SYMBOL(dcm_disable);
 
 void dcm_restore(unsigned int type)
 {
@@ -205,7 +206,7 @@ void dcm_dump_state(int type)
 	int i;
 	struct DCM *dcm;
 
-	dcm_pr_info("\n******** dcm dump state *********\n");
+	dcm_pr_info("\n******** Kernel dcm dump state *********\n");
 	for (i = 0, dcm = &common_dcm_array[0]; i < NR_DCM_TYPE; i++, dcm++) {
 		if (type & dcm->typeid) {
 			dcm_pr_info("[%-16s 0x%08x] current state:%d (%d)\n",
@@ -214,6 +215,7 @@ void dcm_dump_state(int type)
 		}
 	}
 }
+EXPORT_SYMBOL(dcm_dump_state);
 
 #ifdef CONFIG_PM
 static ssize_t dcm_state_show(struct kobject *kobj, struct kobj_attribute *attr,

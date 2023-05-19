@@ -366,16 +366,25 @@ static unsigned int vcp_A_log_enable_set(unsigned int enable)
 		/*
 		 *disable/enable logger flag
 		 */
-		if ((ret == IPI_ACTION_DONE) && (enable == VCP_LOGGER_ON))
+		if ((ret == IPI_ACTION_DONE) && (enable == VCP_LOGGER_ON)) {
 			VCP_A_log_ctl->enable = 1;
-		else if ((ret == IPI_ACTION_DONE) && (enable == VCP_LOGGER_OFF))
+			pr_notice("[VCP] %s: turn on logger\n", __func__);
+		} else if ((ret == IPI_ACTION_DONE) && (enable == VCP_LOGGER_OFF)) {
 			VCP_A_log_ctl->enable = 0;
+			pr_notice("[VCP] %s: turn off logger or default off\n", __func__);
+		}
 
 		if (ret != IPI_ACTION_DONE) {
 			pr_notice("[VCP] %s: fail ret=%d\n", __func__, ret);
 			goto error;
 		}
 
+	} else if (driver_init_done) {
+		enable = (enable) ? VCP_LOGGER_ON : VCP_LOGGER_OFF;
+		if (enable == VCP_LOGGER_ON)
+			VCP_A_log_ctl->enable = 1;
+		else if (enable == VCP_LOGGER_OFF)
+			VCP_A_log_ctl->enable = 0;
 	}
 
 error:
@@ -734,33 +743,9 @@ static void vcp_logger_notify_ws(struct work_struct *ws)
 		udelay(1000);
 	} while (retrytimes > 0 && vcp_A_logger_inited);
 
-	/*enable logger flag*/
-	if (ret == IPI_ACTION_DONE)
-		VCP_A_log_ctl->enable = 1;
-	else {
-		/*vcp logger ipi init fail but still let logger dump*/
-		VCP_A_log_ctl->enable = 1;
-		pr_notice("[VCP]logger initial fail, ipi ret=%d\n", ret);
-	}
-
+	udelay(1000);
+	vcp_A_log_enable_set(VCP_A_log_ctl->enable);
 }
-
-static int vcp_logger_notify_callback(struct notifier_block *this,
-					unsigned long event, void *ptr)
-{
-	switch (event) {
-	case VCP_EVENT_READY:
-#if VCP_LOGGER_ENABLE
-	vcp_logger_notify_work[VCP_A_ID].flags = 1;
-	vcp_schedule_logger_work(&vcp_logger_notify_work[VCP_A_ID]);
-#endif
-	break;
-	}
-	return NOTIFY_DONE;
-}
-static struct notifier_block vcp_logger_notify = {
-	.notifier_call = vcp_logger_notify_callback,
-};
 
 /******************************************************************************
  * init vcp logger dram ctrl structure
@@ -821,8 +806,6 @@ int vcp_logger_init(phys_addr_t start, phys_addr_t limit)
 	mtk_ipi_register(&vcp_ipidev, IPI_IN_LOGGER_CTRL,
 			(void *)vcp_logger_ctrl_handler, NULL,
 			&msg_vcp_logger_ctrl);
-
-	vcp_A_register_notify(&vcp_logger_notify);
 
 	return last_ofs;
 

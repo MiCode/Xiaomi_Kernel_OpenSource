@@ -69,6 +69,8 @@ static DEFINE_SPINLOCK(usleep_range_lock);
 #endif
 
 
+
+
 EXPORT_TRACEPOINT_SYMBOL_GPL(hrtimer_expire_entry);
 EXPORT_TRACEPOINT_SYMBOL_GPL(hrtimer_expire_exit);
 
@@ -1741,7 +1743,7 @@ void update_process_times(int user_tick)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	end = sched_clock();
 	process_time = end - start;
-	if (process_time > 1000000L) // > 1ms
+	if (process_time > 5000000L) // > 5ms
 		pr_notice("irq_monitor: time: %lld func: %s line: %d "
 			, process_time, __func__, __LINE__);
 #endif
@@ -1768,11 +1770,14 @@ static inline void __run_timers(struct timer_base *base)
 	       time_after_eq(jiffies, base->next_expiry)) {
 		levels = collect_expired_timers(base, heads);
 		/*
-		 * The only possible reason for not finding any expired
-		 * timer at this clk is that all matching timers have been
-		 * dequeued.
+		 * The two possible reasons for not finding any expired
+		 * timer at this clk are that all matching timers have been
+		 * dequeued or no timer has been queued since
+		 * base::next_expiry was set to base::clk +
+		 * NEXT_TIMER_MAX_DELTA.
 		 */
-		WARN_ON_ONCE(!levels && !base->next_expiry_recalc);
+		WARN_ON_ONCE(!levels && !base->next_expiry_recalc
+			     && base->timers_pending);
 		base->clk++;
 		base->next_expiry = __next_timer_interrupt(base);
 
@@ -2077,6 +2082,33 @@ unsigned long msleep_interruptible(unsigned int msecs)
 EXPORT_SYMBOL(msleep_interruptible);
 
 /**
+ * usleep_range_state - Sleep for an approximate time in a given state
+ * @min:	Minimum time in usecs to sleep
+ * @max:	Maximum time in usecs to sleep
+ * @state:	State of the current task that will be while sleeping
+ *
+ * In non-atomic context where the exact wakeup time is flexible, use
+ * usleep_range_state() instead of udelay().  The sleep improves responsiveness
+ * by avoiding the CPU-hogging busy-wait of udelay(), and the range reduces
+ * power usage by allowing hrtimers to take advantage of an already-
+ * scheduled interrupt instead of scheduling a new one just for this sleep.
+ */
+void __sched usleep_range_state(unsigned long min, unsigned long max,
+				unsigned int state)
+{
+	ktime_t exp = ktime_add_us(ktime_get(), min);
+	u64 delta = (u64)(max - min) * NSEC_PER_USEC;
+
+
+	for (;;) {
+		__set_current_state(state);
+		/* Do not return before the requested sleep time has elapsed */
+		if (!schedule_hrtimeout_range(&exp, delta, HRTIMER_MODE_ABS))
+			break;
+	}
+}
+
+/**
  * usleep_range - Sleep for an approximate time
  * @min: Minimum time in usecs to sleep
  * @max: Maximum time in usecs to sleep
@@ -2094,7 +2126,6 @@ void __sched usleep_range(unsigned long min, unsigned long max)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	u64 temp_count = 0;
 	unsigned long flags = 0;
-
 	spin_lock_irqsave(&usleep_range_lock, flags);
 	usleep_range_count++;
 	if ((usleep_range_count % USLEEP_RANGE_HIS_RECORD_CNT) == 0)
@@ -2104,7 +2135,6 @@ void __sched usleep_range(unsigned long min, unsigned long max)
 	usleep_range_history[temp_count].timer_called = sched_clock();
 	spin_unlock_irqrestore(&usleep_range_lock, flags);
 #endif
-
 	for (;;) {
 		__set_current_state(TASK_UNINTERRUPTIBLE);
 		/* Do not return before the requested sleep time has elapsed */
@@ -2113,13 +2143,11 @@ void __sched usleep_range(unsigned long min, unsigned long max)
 	}
 }
 EXPORT_SYMBOL(usleep_range);
-
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 void dump_arch_timer_burst_history(void)
 {
 	int i;
 	unsigned long flags = 0;
-
 	spin_lock_irqsave(&usleep_range_lock, flags);
 	for (i = 0; i < USLEEP_RANGE_HIS_ARRAY_SIZE; i++)
 		pr_info("usleep_range_history[%d].caller %pS, call time: %lld",
@@ -2129,3 +2157,4 @@ void dump_arch_timer_burst_history(void)
 }
 EXPORT_SYMBOL(dump_arch_timer_burst_history);
 #endif
+

@@ -32,6 +32,8 @@ static int __init copy_xbc_key_value_list(char *dst, size_t size)
 	int ret = 0;
 
 	key = kzalloc(XBC_KEYLEN_MAX, GFP_KERNEL);
+	if (!key)
+		return -ENOMEM;
 
 	xbc_for_each_key_value(leaf, val) {
 		ret = xbc_node_compose_key(leaf, key, XBC_KEYLEN_MAX);
@@ -92,3 +94,22 @@ static int __init proc_boot_config_init(void)
 	return 0;
 }
 fs_initcall(proc_boot_config_init);
+
+#if defined(CONFIG_TARGET_PRODUCT_XAGA)
+int xaga_parse_cmdline(void)
+{
+	char *xaga = NULL, *xagapro = NULL;
+
+	xagapro = strnstr(saved_boot_config, "xagapro", strlen(saved_boot_config));
+  	if (xagapro)
+          	return 1;
+  	else{
+  		xaga = strnstr(saved_boot_config, "xaga", strlen(saved_boot_config));
+                if (xaga)
+                      return 2;
+          	else
+                      return 3;
+        }
+}
+EXPORT_SYMBOL(xaga_parse_cmdline);
+#endif

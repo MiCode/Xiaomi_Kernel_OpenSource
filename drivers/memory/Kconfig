@@ -216,6 +216,12 @@ config STM32_FMC2_EBI
 	  devices (like SRAM, ethernet adapters, FPGAs, LCD displays, ...) on
 	  SOCs containing the FMC2 External Bus Interface.
 
+config MI_MEMORY_SYSFS
+	tristate "show memory info"
+	default n
+	help
+	  This adds support for mi memory info.
+
 source "drivers/memory/samsung/Kconfig"
 source "drivers/memory/tegra/Kconfig"
 source "drivers/memory/mediatek/Kconfig"

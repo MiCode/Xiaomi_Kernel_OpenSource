@@ -200,7 +200,7 @@ void ccd_master_listen(struct mtk_ccd *ccd,
 }
 EXPORT_SYMBOL_GPL(ccd_master_listen);
 
-void ccd_worker_read(struct mtk_ccd *ccd,
+int ccd_worker_read(struct mtk_ccd *ccd,
 		     struct ccd_worker_item *read_obj)
 {
 	int ret;
@@ -219,13 +219,14 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	if (!srcmdev) {
 		dev_dbg(ccd->dev, "src ept is not exist\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
-		return;
+		return 0;
 	}
+	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
 		dev_dbg(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
-		return;
+		goto err_put;
 	}
 	kref_get(&srcmdev->rpdev.ept->refcount);
 	mutex_unlock(&mtk_subdev->endpoints_lock);
@@ -237,7 +238,9 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	if (atomic_read(&mept->ccd_mep_state) == CCD_MENDPOINT_DESTROY) {
 		dev_info(ccd->dev, "mept: %p src: %d is destroyed\n",
 			 mept, mept->mchinfo.chinfo.src);
-		goto err_ret;
+		kref_put(&mept->ept.refcount, __ept_release);
+		put_device(&srcmdev->rpdev.dev);
+		return -ENODATA;
 	}
 
 	if (atomic_read(&mept->ccd_cmd_sent) == 0) {
@@ -259,7 +262,9 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	if (atomic_read(&mept->ccd_mep_state) == CCD_MENDPOINT_DESTROY) {
 		dev_info(ccd->dev, "mept: %p src: %d would destroy\n",
 			 mept, mept->mchinfo.chinfo.src);
-		goto err_ret;
+		kref_put(&mept->ept.refcount, __ept_release);
+		put_device(&srcmdev->rpdev.dev);
+		return -ENODATA;
 	}
 
 	spin_lock(&mept->pending_sendq.queue_lock);
@@ -280,6 +285,9 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	kfree(ccd_params);
 err_ret:
 	kref_put(&mept->ept.refcount, __ept_release);
+err_put:
+	put_device(&srcmdev->rpdev.dev);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(ccd_worker_read);
 
@@ -303,11 +311,12 @@ void ccd_worker_write(struct mtk_ccd *ccd,
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		return;
 	}
+	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
 		dev_dbg(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
-		return;
+		goto err_put;
 	}
 	kref_get(&srcmdev->rpdev.ept->refcount);
 	mutex_unlock(&mtk_subdev->endpoints_lock);
@@ -337,6 +346,8 @@ void ccd_worker_write(struct mtk_ccd *ccd,
 
 err_ret:
 	kref_put(&mept->ept.refcount, __ept_release);
+err_put:
+	put_device(&srcmdev->rpdev.dev);
 	/* TBD: Free shared memory for additional buffer
 	 * If no buffer ready now, wait or not depending on parameter
 	 */

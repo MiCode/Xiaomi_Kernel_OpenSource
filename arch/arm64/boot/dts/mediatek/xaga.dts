@@ -1,0 +1,2 @@
+#include "mediatek/xaga-mt6895.dtsi"
+#include <xaga/cust.dtsi>

@@ -83,6 +83,39 @@ DEFINE_EVENT(dma_fence, dma_fence_wait_end,
 	TP_ARGS(fence)
 );
 
+
+//Add By XiaoMi
+DECLARE_EVENT_CLASS(dma_heap_class,
+	TP_PROTO(size_t len, unsigned int fd_flags,
+			  unsigned int heap_flags),
+	TP_ARGS(len, fd_flags, heap_flags),
+	TP_STRUCT__entry(
+		__field(size_t, len)
+		__field(unsigned int, fd_flags)
+		__field(unsigned int, heap_flags)
+	),
+	TP_fast_assign(
+		__entry->len = len;
+		__entry->fd_flags = fd_flags;
+		__entry->heap_flags = heap_flags;
+	),
+
+	TP_printk("len %zu fd_flags %u heap_flags %x\n",
+		__entry->len,
+		__entry->fd_flags,
+		__entry->heap_flags)
+
+);
+
+
+DEFINE_EVENT(dma_heap_class, dma_heap_buffer_alloc,
+	TP_PROTO(size_t len, unsigned int fd_flags,
+			  unsigned int heap_flags),
+
+	TP_ARGS(len, fd_flags, heap_flags)
+);
+//Add By XiaoMi End
+
 #endif /*  _TRACE_DMA_FENCE_H */
 
 /* This part must be outside protection */

@@ -235,8 +235,6 @@ static void md_cd_dump_debug_register(struct ccci_modem *md)
 
 	if (md_cd_plat_val_ptr.md_gen >= 6298)
 		md_dump_reg(md->index);
-	else if (md->hw_info->plat_ptr->md_dump_reg)
-		md->hw_info->plat_ptr->md_dump_reg(md->index);
 
 	md_cd_lock_modem_clock_src(0);
 
@@ -605,7 +603,8 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 		"[POWER OFF] MD MTCMOS OFF end: ret = %d\n", ret);
 
 	/* 1. power off srclkena for gen97 */
-	if (md_cd_plat_val_ptr.md_gen == 6297) {
+	if (md_cd_plat_val_ptr.md_gen == 6297 &&
+	    (md_cd_plat_val_ptr.power_flow_config & (1 << SRCCLKENA_SETTING_BIT))) {
 		ret = regmap_read(md->hw_info->plat_val->infra_ao_base,
 			INFRA_AO_MD_SRCCLKENA, &reg_value);
 		if (ret) {
