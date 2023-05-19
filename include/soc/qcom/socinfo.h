@@ -25,6 +25,7 @@ enum subset_part_type {
 	PART_NAV          = 12,
 	PART_COMP1        = 13,
 	PART_DISPLAY1     = 14,
+	PART_NSP	  = 15,
 	NUM_PARTS_MAX,
 };
 
