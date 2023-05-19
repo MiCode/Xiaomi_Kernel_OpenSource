@@ -538,8 +538,12 @@ struct utp_transfer_req_desc {
 	struct request_desc_header header;
 
 	/* DW 4-5*/
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	__le64  command_desc_base_addr;
+#else
 	__le32  command_desc_base_addr_lo;
 	__le32  command_desc_base_addr_hi;
+#endif
 
 	/* DW 6 */
 	__le16  response_upiu_length;

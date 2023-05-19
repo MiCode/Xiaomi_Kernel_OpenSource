@@ -16,6 +16,7 @@
 #include <linux/delay.h>
 #include <scsi/scsi_cmnd.h>
 #include <linux/bitfield.h>
+#include <linux/iopoll.h>
 #endif
 
 #define MAX_QUEUE_SUP GENMASK(7, 0)
@@ -38,8 +39,8 @@
 #define CQE_UCD_BA GENMASK_ULL(63, 7)
 
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-/* Max mcq register polling time in millisecond unit */
-#define MCQ_POLL_MS 500
+/* Max mcq register polling time in microseconds */
+#define MCQ_POLL_US 500000
 #endif
 
 static int rw_queue_count_set(const char *val, const struct kernel_param *kp)
@@ -366,6 +367,20 @@ unsigned long ufshcd_mcq_poll_cqe_nolock(struct ufs_hba *hba,
 EXPORT_SYMBOL_GPL(ufshcd_mcq_poll_cqe_nolock);
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+unsigned long ufshcd_mcq_poll_cqe_lock(struct ufs_hba *hba,
+				       struct ufs_hw_queue *hwq)
+{
+	unsigned long completed_reqs, flags;
+
+	spin_lock_irqsave(&hwq->cq_lock, flags);
+	completed_reqs = ufshcd_mcq_poll_cqe_nolock(hba, hwq);
+	spin_unlock_irqrestore(&hwq->cq_lock, flags);
+
+	return completed_reqs;
+}
+EXPORT_SYMBOL_GPL(ufshcd_mcq_poll_cqe_lock);
+#else
 unsigned long ufshcd_mcq_poll_cqe_lock(struct ufs_hba *hba,
 				       struct ufs_hw_queue *hwq)
 {
@@ -377,8 +392,6 @@ unsigned long ufshcd_mcq_poll_cqe_lock(struct ufs_hba *hba,
 
 	return completed_reqs;
 }
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-EXPORT_SYMBOL_GPL(ufshcd_mcq_poll_cqe_lock);
 #endif
 
 void ufshcd_mcq_make_queues_operational(struct ufs_hba *hba)
@@ -513,93 +526,73 @@ int ufshcd_mcq_init(struct ufs_hba *hba)
 	return 0;
 }
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-static int ufshcd_mcq_poll_register(void __iomem *reg, u32 mask,
-			u32 val, unsigned long timeout_ms)
-{
-	unsigned long timeout = jiffies + msecs_to_jiffies(timeout_ms);
-	int err = 0;
-
-	/* ignore bits that we don't intend to wait on */
-	val = val & mask;
-
-	while ((readl(reg) & mask) != val) {
-		usleep_range(10, 50);
-		if (time_after(jiffies, timeout)) {
-			err = -ETIMEDOUT;
-			break;
-		}
-	}
-
-	return err;
-}
-
 static int ufshcd_mcq_sq_stop(struct ufs_hba *hba, struct ufs_hw_queue *hwq)
 {
 	void __iomem *reg;
-	u32 i = hwq->id;
+	u32 id = hwq->id, val;
 	int err;
 
 	if (hba->quirks & UFSHCD_QUIRK_MCQ_BROKEN_RTC)
-		return FAILED;
+		return -ETIMEDOUT;
 
-	writel(SQ_STOP, mcq_opr_base(hba, OPR_SQD, i) + REG_SQRTC);
-	reg = mcq_opr_base(hba, OPR_SQD, i) + REG_SQRTS;
-	err = ufshcd_mcq_poll_register(reg, SQ_STS, SQ_STS, MCQ_POLL_MS);
+	writel(SQ_STOP, mcq_opr_base(hba, OPR_SQD, id) + REG_SQRTC);
+	reg = mcq_opr_base(hba, OPR_SQD, id) + REG_SQRTS;
+	err = read_poll_timeout(readl, val, val & SQ_STS, 20,
+				MCQ_POLL_US, false, reg);
 	if (err)
 		dev_err(hba->dev, "%s: failed. hwq-id=%d, err=%d\n",
-			__func__, i, err);
+			__func__, id, err);
 	return err;
 }
 
 static int ufshcd_mcq_sq_start(struct ufs_hba *hba, struct ufs_hw_queue *hwq)
 {
 	void __iomem *reg;
-	u32 i = hwq->id;
+	u32 id = hwq->id, val;
 	int err;
 
 	if (hba->quirks & UFSHCD_QUIRK_MCQ_BROKEN_RTC)
-		return FAILED;
+		return -ETIMEDOUT;
 
-	writel(SQ_START, mcq_opr_base(hba, OPR_SQD, i) + REG_SQRTC);
-	reg = mcq_opr_base(hba, OPR_SQD, i) + REG_SQRTS;
-	err = ufshcd_mcq_poll_register(reg, SQ_STS, 0, MCQ_POLL_MS);
+	writel(SQ_START, mcq_opr_base(hba, OPR_SQD, id) + REG_SQRTC);
+	reg = mcq_opr_base(hba, OPR_SQD, id) + REG_SQRTS;
+	err = read_poll_timeout(readl, val, !(val & SQ_STS), 20,
+				MCQ_POLL_US, false, reg);
 	if (err)
 		dev_err(hba->dev, "%s: failed. hwq-id=%d, err=%d\n",
-			__func__, i, err);
+			__func__, id, err);
 	return err;
 }
 
 /**
- * ufshcd_mcq_sq_cleanup - Clean up Submission Queue resources
+ * ufshcd_mcq_sq_cleanup - Clean up submission queue resources
  * associated with the pending command.
  * @hba - per adapter instance.
  * @task_tag - The command's task tag.
- * @result - Result of the Clean up operation.
  *
- * Returns 0 and result on completion. Returns error code if
- * the operation fails.
+ * Returns 0 for success; error code otherwise.
  */
-int ufshcd_mcq_sq_cleanup(struct ufs_hba *hba, int task_tag, int *result)
+int ufshcd_mcq_sq_cleanup(struct ufs_hba *hba, int task_tag)
 {
 	struct ufshcd_lrb *lrbp = &hba->lrb[task_tag];
 	struct scsi_cmnd *cmd = lrbp->cmd;
 	struct ufs_hw_queue *hwq;
 	void __iomem *reg, *opr_sqd_base;
-	u32 nexus, i;
+	u32 nexus, id, val;
 	int err;
 
 	if (hba->quirks & UFSHCD_QUIRK_MCQ_BROKEN_RTC)
-		return FAILED;
+		return -ETIMEDOUT;
 
 	if (task_tag != hba->nutrs - UFSHCD_NUM_RESERVED) {
 		if (!cmd)
-			return FAILED;
+			return -EINVAL;
 		hwq = ufshcd_mcq_req_to_hwq(hba, scsi_cmd_to_rq(cmd));
 	} else {
 		hwq = hba->dev_cmd_queue;
 	}
 
-	i = hwq->id;
+	id = hwq->id;
 
 	spin_lock(&hwq->sq_lock);
 
@@ -610,7 +603,7 @@ int ufshcd_mcq_sq_cleanup(struct ufs_hba *hba, int task_tag, int *result)
 
 	/* SQCTI = EXT_IID, IID, LUN, Task Tag */
 	nexus = lrbp->lun << 8 | task_tag;
-	opr_sqd_base = mcq_opr_base(hba, OPR_SQD, i);
+	opr_sqd_base = mcq_opr_base(hba, OPR_SQD, id);
 	writel(nexus, opr_sqd_base + REG_SQCTI);
 
 	/* SQRTCy.ICU = 1 */
@@ -618,43 +611,32 @@ int ufshcd_mcq_sq_cleanup(struct ufs_hba *hba, int task_tag, int *result)
 
 	/* Poll SQRTSy.CUS = 1. Return result from SQRTSy.RTC */
 	reg = opr_sqd_base + REG_SQRTS;
-	err = ufshcd_mcq_poll_register(reg, SQ_CUS, SQ_CUS, MCQ_POLL_MS);
-	if (err) {
-		dev_err(hba->dev, "%s: failed. hwq=%d, lun=0x%x, tag=%d\n",
-			__func__, i, lrbp->lun, task_tag);
-		*result = FIELD_GET(SQ_ICU_ERR_CODE_MASK, readl(reg));
-	}
+	err = read_poll_timeout(readl, val, val & SQ_CUS, 20,
+				MCQ_POLL_US, false, reg);
+	if (err)
+		dev_err(hba->dev, "%s: failed. hwq=%d, tag=%d err=%ld\n",
+			__func__, id, task_tag,
+			FIELD_GET(SQ_ICU_ERR_CODE_MASK, readl(reg)));
 
-	err = ufshcd_mcq_sq_start(hba, hwq);
+	if (ufshcd_mcq_sq_start(hba, hwq))
+		err = -ETIMEDOUT;
 
 unlock:
 	spin_unlock(&hwq->sq_lock);
 	return err;
 }
 
-static u64 ufshcd_mcq_get_cmd_desc_addr(struct ufs_hba *hba,
-					int task_tag)
-{
-	struct ufshcd_lrb *lrbp = &hba->lrb[task_tag];
-	__le32 hi = lrbp->utr_descriptor_ptr->command_desc_base_addr_hi;
-	__le32 lo = lrbp->utr_descriptor_ptr->command_desc_base_addr_lo;
-
-	return le64_to_cpu((__le64)hi << 32 | lo);
-}
-
 /**
- * ufshcd_mcq_nullify_cmd - Nullify utrd. Host controller does not fetch
- * transfer with Command Type = 0xF. post the Completion Queue with OCS=ABORTED.
- * @hba - per adapter instance.
- * @hwq - Hardware Queue of the nullified utrd.
+ * ufshcd_mcq_nullify_sqe - Nullify the submission queue entry.
+ * Write the sqe's Command Type to 0xF. The host controller will not
+ * fetch any sqe with Command Type = 0xF.
+ *
+ * @utrd - UTP Transfer Request Descriptor to be nullified.
  */
-static void ufshcd_mcq_nullify_cmd(struct ufs_hba *hba, struct ufs_hw_queue *hwq)
+static void ufshcd_mcq_nullify_sqe(struct utp_transfer_req_desc *utrd)
 {
-	struct utp_transfer_req_desc *utrd;
 	u32 dword_0;
 
-	utrd = (struct utp_transfer_req_desc *)(hwq->sqe_base_addr +
-			hwq->id * sizeof(struct utp_transfer_req_desc));
 	dword_0 = le32_to_cpu(utrd->header.dword_0);
 	dword_0 &= ~UPIU_COMMAND_TYPE_MASK;
 	dword_0 |= FIELD_PREP(UPIU_COMMAND_TYPE_MASK, 0xF);
@@ -662,7 +644,10 @@ static void ufshcd_mcq_nullify_cmd(struct ufs_hba *hba, struct ufs_hw_queue *hwq
 }
 
 /**
- * ufshcd_mcq_sqe_search - Search for the cmd in the Submission Queue (SQ)
+ * ufshcd_mcq_sqe_search - Search for the command in the submission queue
+ * If the command is in the submission queue and not issued to the device yet,
+ * nullify the sqe so the host controller will skip fetching the sqe.
+ *
  * @hba - per adapter instance.
  * @hwq - Hardware Queue to be searched.
  * @task_tag - The command's task tag.
@@ -671,13 +656,18 @@ static void ufshcd_mcq_nullify_cmd(struct ufs_hba *hba, struct ufs_hw_queue *hwq
  * (not fetched by the controller); returns false if the SQE is not in the SQ.
  */
 static bool ufshcd_mcq_sqe_search(struct ufs_hba *hba,
-		struct ufs_hw_queue *hwq, int task_tag)
+				  struct ufs_hw_queue *hwq, int task_tag)
 {
+	struct ufshcd_lrb *lrbp = &hba->lrb[task_tag];
 	struct utp_transfer_req_desc *utrd;
 	u32 mask = hwq->max_entries - 1;
+	__le64  cmd_desc_base_addr;
 	bool ret = false;
 	u64 addr, match;
 	u32 sq_head_slot;
+
+	if (hba->quirks & UFSHCD_QUIRK_MCQ_BROKEN_RTC)
+		return true;
 
 	spin_lock(&hwq->sq_lock);
 
@@ -686,13 +676,15 @@ static bool ufshcd_mcq_sqe_search(struct ufs_hba *hba,
 	if (sq_head_slot == hwq->sq_tail_slot)
 		goto out;
 
-	addr = ufshcd_mcq_get_cmd_desc_addr(hba, task_tag);
+	cmd_desc_base_addr = lrbp->utr_descriptor_ptr->command_desc_base_addr;
+	addr = le64_to_cpu(cmd_desc_base_addr) & CQE_UCD_BA;
+
 	while (sq_head_slot != hwq->sq_tail_slot) {
-		utrd = (struct utp_transfer_req_desc *)(hwq->sqe_base_addr +
-				sq_head_slot * sizeof(struct utp_transfer_req_desc));
-		match = le64_to_cpu((__le64)utrd->command_desc_base_addr_hi << 32 |
-				utrd->command_desc_base_addr_lo) & CQE_UCD_BA;
+		utrd = hwq->sqe_base_addr +
+				sq_head_slot * sizeof(struct utp_transfer_req_desc);
+		match = le64_to_cpu(utrd->command_desc_base_addr) & CQE_UCD_BA;
 		if (addr == match) {
+			ufshcd_mcq_nullify_sqe(utrd);
 			ret = true;
 			goto out;
 		}
@@ -720,7 +712,7 @@ int ufshcd_mcq_abort(struct scsi_cmnd *cmd)
 	struct ufs_hw_queue *hwq;
 	int err = FAILED;
 
-	if (!lrbp->cmd) {
+	if (!ufshcd_cmd_inflight(lrbp->cmd)) {
 		dev_err(hba->dev,
 			"%s: skip abort. cmd at tag %d already completed.\n",
 			__func__, tag);
@@ -742,15 +734,13 @@ int ufshcd_mcq_abort(struct scsi_cmnd *cmd)
 		 * a long time which resulted in command being aborted.
 		 */
 		dev_err(hba->dev, "%s: cmd found in sq. hwq=%d, tag=%d\n",
-				__func__, hwq->id, tag);
-		/* Set the Command Type to 0xF per the spec */
-		ufshcd_mcq_nullify_cmd(hba, hwq);
+			__func__, hwq->id, tag);
 		goto out;
 	}
 
 	/*
-	 * The command is not in the Submission Queue, and it is not
-	 * in the Completion Queue either. Query the device to see if
+	 * The command is not in the submission queue, and it is not
+	 * in the completion queue either. Query the device to see if
 	 * the command is being processed in the device.
 	 */
 	if (ufshcd_try_to_abort_task(hba, tag)) {
@@ -760,7 +750,7 @@ int ufshcd_mcq_abort(struct scsi_cmnd *cmd)
 	}
 
 	err = SUCCESS;
-	if (lrbp->cmd)
+	if (ufshcd_cmd_inflight(lrbp->cmd))
 		ufshcd_release_scsi_cmd(hba, lrbp);
 
 out:

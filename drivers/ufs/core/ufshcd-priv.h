@@ -82,12 +82,12 @@ struct ufs_hw_queue *ufshcd_mcq_req_to_hwq(struct ufs_hba *hba,
 unsigned long ufshcd_mcq_poll_cqe_lock(struct ufs_hba *hba,
 				       struct ufs_hw_queue *hwq);
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-int ufshcd_mcq_sq_cleanup(struct ufs_hba *hba, int task_tag, int *result);
-
+bool ufshcd_cmd_inflight(struct scsi_cmnd *cmd);
+int ufshcd_mcq_sq_cleanup(struct ufs_hba *hba, int task_tag);
 int ufshcd_mcq_abort(struct scsi_cmnd *cmd);
 int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag);
 void ufshcd_release_scsi_cmd(struct ufs_hba *hba,
-				struct ufshcd_lrb *lrbp);
+			     struct ufshcd_lrb *lrbp);
 #endif
 #if !IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 #define UFSHCD_MCQ_IO_QUEUE_OFFSET	1
