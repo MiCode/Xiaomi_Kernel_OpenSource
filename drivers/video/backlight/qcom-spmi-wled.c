@@ -3,7 +3,7 @@
  * Copyright (c) 2015, Sony Mobile Communications, AB.
  */
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"WLED: %s: " fmt, __func__
@@ -18,6 +18,8 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_address.h>
+#include <linux/power_supply.h>
+#include <linux/soc/qcom/battery_charger.h>
 #include <linux/regmap.h>
 #include <linux/spinlock.h>
 #include <linux/leds-qpnp-flash.h>
@@ -145,6 +147,9 @@
 #define WLED5_SINK_MOD_B_BRT_LSB_REG	0x63
 #define WLED5_SINK_MOD_B_BRT_MSB_REG	0x64
 
+#define WLED5_SINK_CABC_STRETCH_CTL_REG	0x57
+#define WLED5_SINK_EN_CABC_STRETCH	BIT(7)
+
 #define WLED5_SINK_MOD_SYNC_BIT_REG	0x65
 #define  WLED5_SINK_SYNC_MODA_BIT	BIT(0)
 #define  WLED5_SINK_SYNC_MODB_BIT	BIT(1)
@@ -178,10 +183,30 @@
 
 #define  WLED5_SINK_FLASH_SHDN_CLR_REG	0xb6
 
+#define WLED5_SINK_BRIGHTNESS_SLEW_RATE_CTL_REG	0xb8
+#define WLED5_EN_SLEW_CTL	BIT(7)
+#define WLED5_EN_EXP_LUT	BIT(6)
+#define WLED5_SLEW_RAMP_TIME_SEL	GENMASK(3, 0)
+
+#define  WLED5_SINK_DIG_HYS_FILT_REG	0xbc
+#define  WLED5_SINK_LSB_NOISE_THRESH	GENMASK(2, 0)
+
+#define WLED5_SINK_DIMMING_EXP_LUT0_LSB_REG	0xc0
+#define WLED5_SINK_DIMMING_EXP_LUT0_MSB_REG	0xc1
+#define WLED5_SINK_DIMMING_EXP_LUT1_LSB_REG	0xc2
+#define WLED5_SINK_DIMMING_EXP_LUT1_MSB_REG	0xc3
+#define WLED5_SINK_DIMMING_EXP_LUT_LSB_MASK	GENMASK(7, 0)
+#define WLED5_SINK_DIMMING_EXP_LUT_MSB_MASK	GENMASK(6, 0)
+
+#define WLED5_SINK_EXP_LUT_INDEX_REG	0xc9
+
+#define EXP_DIMMING_TABLE_SIZE	256
+
 enum wled_version {
 	WLED_PMI8998 = 4,
 	WLED_PM660L,
 	WLED_PM8150L,
+	WLED_PM7325B,
 };
 
 enum wled_flash_mode {
@@ -194,6 +219,7 @@ static const int version_table[] = {
 	[0] = WLED_PMI8998,
 	[1] = WLED_PM660L,
 	[2] = WLED_PM8150L,
+	[3] = WLED_PM7325B,
 };
 
 struct wled_config {
@@ -204,9 +230,11 @@ struct wled_config {
 	int string_cfg;
 	int mod_sel;
 	int cabc_sel;
+	int slew_ramp_time;
 	bool en_cabc;
 	bool ext_pfet_sc_pro_en;
 	bool auto_calib_enabled;
+	bool use_exp_dimming;
 };
 
 struct wled_flash_config {
@@ -220,6 +248,7 @@ struct wled {
 	struct platform_device *pdev;
 	struct regmap *regmap;
 	struct iio_channel **iio_channels;
+	struct power_supply *batt_psy;
 	struct mutex lock;
 	struct wled_config cfg;
 	ktime_t last_sc_event_time;
@@ -241,6 +270,7 @@ struct wled {
 	bool auto_calib_done;
 	bool force_mod_disable;
 	bool cabc_disabled;
+	bool use_psy;
 	int (*cabc_config)(struct wled *wled, bool enable);
 
 	struct led_classdev flash_cdev;
@@ -252,6 +282,7 @@ struct wled {
 	enum wled_flash_mode flash_mode;
 	u8 num_strings;
 	u32 leds_per_string;
+	u32 exp_map[EXP_DIMMING_TABLE_SIZE];
 };
 
 enum wled5_mod_sel {
@@ -299,7 +330,7 @@ static inline bool is_wled4(struct wled *wled)
 
 static inline bool is_wled5(struct wled *wled)
 {
-	if (*wled->version == WLED_PM8150L)
+	if (*wled->version == WLED_PM8150L || *wled->version == WLED_PM7325B)
 		return true;
 
 	return false;
@@ -329,7 +360,7 @@ static int wled_module_enable(struct wled *wled, int val)
 		return rc;
 
 	/* Force HFRC off */
-	if (*wled->version == WLED_PM8150L && val) {
+	if ((*wled->version == WLED_PM8150L) && val) {
 		rc = regmap_write(wled->regmap, wled->sink_addr +
 				  WLED5_SINK_FLASH_SHDN_CLR_REG, 0);
 		if (rc < 0)
@@ -372,15 +403,13 @@ static int wled_sync_toggle(struct wled *wled)
 
 	rc = regmap_update_bits(wled->regmap,
 			wled->sink_addr + WLED_SINK_SYNC,
-			WLED_SINK_SYNC_MASK, WLED_SINK_SYNC_MASK);
+			WLED_SINK_SYNC_MASK, WLED_SINK_SYNC_CLEAR);
 	if (rc < 0)
 		return rc;
 
-	rc = regmap_update_bits(wled->regmap,
+	return regmap_update_bits(wled->regmap,
 			wled->sink_addr + WLED_SINK_SYNC,
-			WLED_SINK_SYNC_MASK, WLED_SINK_SYNC_CLEAR);
-
-	return rc;
+			WLED_SINK_SYNC_MASK, WLED_SINK_SYNC_MASK);
 }
 
 static int wled5_sample_hold_control(struct wled *wled, u16 brightness,
@@ -454,20 +483,19 @@ static int wled5_set_brightness(struct wled *wled, u16 brightness)
 	if (rc < 0)
 		return rc;
 
-	/* Update brightness values to modulator in WLED5 */
-	val = (wled->cfg.mod_sel == MOD_A) ? WLED5_SINK_SYNC_MODA_BIT :
-		WLED5_SINK_SYNC_MODB_BIT;
-	rc = regmap_update_bits(wled->regmap,
-			wled->sink_addr + WLED5_SINK_MOD_SYNC_BIT_REG,
-			WLED5_SINK_SYNC_MASK, val);
-	if (rc < 0)
-		return rc;
-
 	val = 0;
 	rc = regmap_update_bits(wled->regmap,
 			wled->sink_addr + WLED5_SINK_MOD_SYNC_BIT_REG,
 			WLED_SINK_SYNC_MASK, val);
-	return rc;
+	/* Update brightness values to modulator in WLED5 */
+	if (rc < 0)
+		return rc;
+
+	val = (wled->cfg.mod_sel == MOD_A) ? WLED5_SINK_SYNC_MODA_BIT :
+		WLED5_SINK_SYNC_MODB_BIT;
+	return regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED5_SINK_MOD_SYNC_BIT_REG,
+			WLED5_SINK_SYNC_MASK, val);
 }
 
 static int wled4_set_brightness(struct wled *wled, u16 brightness)
@@ -538,6 +566,17 @@ static int wled_update_status(struct backlight_device *bl)
 				pr_err("wled enable failed rc:%d\n", rc);
 				goto unlock_mutex;
 			}
+
+			if (*wled->version == WLED_PM7325B) {
+				rc = regmap_update_bits(wled->regmap,
+					wled->sink_addr + WLED5_SINK_BRIGHTNESS_SLEW_RATE_CTL_REG,
+					WLED5_SLEW_RAMP_TIME_SEL,
+					wled->cfg.slew_ramp_time);
+				if (rc < 0) {
+					pr_err("Failed to write to SLEW_RATE_REGISTER rc:%d\n", rc);
+					goto unlock_mutex;
+				}
+			}
 		}
 
 		if (is_wled5(wled)) {
@@ -549,6 +588,16 @@ static int wled_update_status(struct backlight_device *bl)
 			}
 		}
 	} else {
+		if (*wled->version == WLED_PM7325B) {
+			rc = regmap_update_bits(wled->regmap,
+					wled->sink_addr + WLED5_SINK_BRIGHTNESS_SLEW_RATE_CTL_REG,
+					WLED5_SLEW_RAMP_TIME_SEL, 0);
+			if (rc < 0) {
+				pr_err("Failed to write to SLEW_RATE_REGISTER rc:%d\n", rc);
+				goto unlock_mutex;
+			}
+		}
+
 		rc = wled_module_enable(wled, brightness);
 		if (rc < 0) {
 			pr_err("wled disable failed rc:%d\n", rc);
@@ -640,8 +689,22 @@ static int wled5_cabc_config(struct wled *wled, bool enable)
 		return rc;
 	}
 
-	if (!wled->cfg.cabc_sel)
+	if (!wled->cfg.cabc_sel) {
 		wled->cabc_disabled = true;
+		if (*wled->version == WLED_PM7325B) {
+			rc = regmap_update_bits(wled->regmap,
+				wled->sink_addr + WLED5_SINK_CABC_STRETCH_CTL_REG,
+				WLED5_SINK_EN_CABC_STRETCH, 0);
+			if (rc < 0)
+				return rc;
+
+			rc = regmap_update_bits(wled->regmap,
+				wled->sink_addr + WLED5_SINK_DIG_HYS_FILT_REG,
+				WLED5_SINK_LSB_NOISE_THRESH, 0);
+			if (rc < 0)
+				return rc;
+		}
+	}
 
 	return 0;
 }
@@ -987,7 +1050,7 @@ static bool wled_auto_cal_required(struct wled *wled)
 
 static int wled_auto_calibrate_at_init(struct wled *wled)
 {
-	int rc;
+	int rc, delay_time_us;
 	bool fault_set;
 
 	if (!wled->cfg.auto_calib_enabled)
@@ -1000,6 +1063,23 @@ static int wled_auto_calibrate_at_init(struct wled *wled)
 	}
 
 	if (fault_set) {
+		wled_get_ovp_delay(wled, &delay_time_us);
+
+		if (delay_time_us < 20000)
+			usleep_range(delay_time_us, delay_time_us + 1000);
+		else
+			msleep(delay_time_us / 1000);
+
+		rc = wled_get_ovp_fault_status(wled, &fault_set);
+		if (rc < 0) {
+			pr_err("Error in getting OVP fault_sts, rc=%d\n", rc);
+			return rc;
+		}
+		if (!fault_set) {
+			pr_debug("WLED OVP fault cleared, not running auto calibration\n");
+			return rc;
+		}
+
 		mutex_lock(&wled->lock);
 		rc = wled_auto_calibrate(wled);
 		mutex_unlock(&wled->lock);
@@ -1094,6 +1174,78 @@ static inline u8 get_wled_safety_time(int time_ms)
 	}
 
 	return 0;
+}
+
+static int wled_read_exp_dimming_map(struct device_node *node, struct wled *wled)
+{
+	int rc = 0, len;
+
+	if (*wled->version != WLED_PM7325B) {
+		pr_err("Exponential dimming not supported for WLED version %d\n", *wled->version);
+		return 0;
+	}
+
+	len = of_property_count_elems_of_size(node, "qcom,exp-dimming-map", sizeof(u32));
+	if (len != EXP_DIMMING_TABLE_SIZE) {
+		pr_err("Invalid exponential map length: %d, must be 256 bytes length\n", len);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(node, "qcom,exp-dimming-map",
+					wled->exp_map, EXP_DIMMING_TABLE_SIZE);
+	if (rc < 0)
+		pr_err("Error in reading qcom,exp-dimming-map, rc=%d\n", rc);
+
+	return rc;
+}
+
+static int wled_program_exp_dimming(struct wled *wled)
+{
+	int rc = 0, i;
+	u8 val[4];
+
+	if (*wled->version != WLED_PM7325B) {
+		pr_err("Exponential dimming not supported for WLED version %d\n", *wled->version);
+		return 0;
+	}
+
+	wled_module_enable(wled, 0);
+
+	rc = regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED5_SINK_BRIGHTNESS_SLEW_RATE_CTL_REG,
+			WLED5_EN_EXP_LUT, WLED5_EN_EXP_LUT);
+	if (rc < 0) {
+		wled_module_enable(wled, 1);
+		return rc;
+	}
+
+	for (i = 0; i < EXP_DIMMING_TABLE_SIZE / 2; i++) {
+		val[0] = wled->exp_map[2 * i] & WLED5_SINK_DIMMING_EXP_LUT_LSB_MASK;
+		val[1] = (wled->exp_map[2 * i] >> 8) & WLED5_SINK_DIMMING_EXP_LUT_MSB_MASK;
+		val[2] = wled->exp_map[2 * i + 1] & WLED5_SINK_DIMMING_EXP_LUT_LSB_MASK;
+		val[3] = (wled->exp_map[2 * i + 1] >> 8) & WLED5_SINK_DIMMING_EXP_LUT_MSB_MASK;
+
+		rc = regmap_write(wled->regmap, wled->sink_addr + WLED5_SINK_EXP_LUT_INDEX_REG, i);
+		if (rc < 0)
+			goto exp_dimm_fail;
+
+		rc = regmap_bulk_write(wled->regmap,
+				wled->sink_addr + WLED5_SINK_DIMMING_EXP_LUT0_LSB_REG,
+				val, sizeof(val));
+		if (rc < 0)
+			goto exp_dimm_fail;
+	}
+
+	wled_module_enable(wled, 1);
+	return rc;
+
+exp_dimm_fail:
+	regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED5_SINK_BRIGHTNESS_SLEW_RATE_CTL_REG,
+			WLED5_EN_EXP_LUT, 0);
+
+	wled_module_enable(wled, 1);
+	return rc;
 }
 
 static int wled5_setup(struct wled *wled)
@@ -1195,6 +1347,24 @@ static int wled5_setup(struct wled *wled)
 	rc = wled_auto_calibrate_at_init(wled);
 	if (rc < 0)
 		return rc;
+
+	if (*wled->version == WLED_PM7325B) {
+		val = WLED5_EN_SLEW_CTL | wled->cfg.slew_ramp_time;
+		rc = regmap_update_bits(wled->regmap,
+			wled->sink_addr + WLED5_SINK_BRIGHTNESS_SLEW_RATE_CTL_REG,
+			WLED5_EN_SLEW_CTL | WLED5_SLEW_RAMP_TIME_SEL,
+			val);
+		if (rc < 0)
+			return rc;
+	}
+
+	if (wled->cfg.use_exp_dimming) {
+		rc = wled_program_exp_dimming(wled);
+		if (rc < 0) {
+			pr_err("Programming exponential dimming map failed, rc=%d\n", rc);
+			return rc;
+		}
+	}
 
 	if (wled->ovp_irq >= 0) {
 		rc = devm_request_threaded_irq(&wled->pdev->dev, wled->ovp_irq,
@@ -1368,9 +1538,11 @@ static const struct wled_config wled4_config_defaults = {
 	.string_cfg = 0xf,
 	.mod_sel = -EINVAL,
 	.cabc_sel = -EINVAL,
+	.slew_ramp_time = -EINVAL,
 	.en_cabc = 0,
 	.ext_pfet_sc_pro_en = 0,
 	.auto_calib_enabled = 0,
+	.use_exp_dimming = 0,
 };
 
 static const struct wled_config wled5_config_defaults = {
@@ -1381,9 +1553,11 @@ static const struct wled_config wled5_config_defaults = {
 	.string_cfg = 0xf,
 	.mod_sel = 0,
 	.cabc_sel = 0,
+	.slew_ramp_time = 6,	/* 256 ms */
 	.en_cabc = 0,
 	.ext_pfet_sc_pro_en = 0,
 	.auto_calib_enabled = 0,
+	.use_exp_dimming = 0,
 };
 
 struct wled_var_cfg {
@@ -1465,6 +1639,17 @@ static const struct wled_var_cfg wled5_mod_sel_cfg = {
 
 static const struct wled_var_cfg wled5_cabc_sel_cfg = {
 	.size = 4,
+};
+
+/* Applicable only for PM7325B */
+static const u32 wled5_slew_ramp_time_values[] = {
+	2, 4, 8, 64, 128, 192, 256, 320, 384, 448, 512, 704,
+	896, 1024, 2048, 4096,
+};
+
+static const struct wled_var_cfg wled5_slew_ramp_time_cfg = {
+	.values = wled5_slew_ramp_time_values,
+	.size = ARRAY_SIZE(wled5_slew_ramp_time_values),
 };
 
 static u32 wled_values(const struct wled_var_cfg *cfg, u32 idx)
@@ -1561,6 +1746,7 @@ static int wled_get_max_avail_current(struct led_classdev *led_cdev,
 	struct wled *wled;
 	int rc, ocv_mv, r_bat_mohms, i_bat_ma, i_sink_ma = 0, max_fsc_ma;
 	int64_t p_out_string, p_out, p_in, v_safe_mv, i_flash_ma, v_ph_mv;
+	union power_supply_propval prop = {};
 
 	if (!strcmp(led_cdev->name, "wled_switch"))
 		wled = container_of(led_cdev, struct wled, switch_cdev);
@@ -1576,26 +1762,59 @@ static int wled_get_max_avail_current(struct led_classdev *led_cdev,
 		return 0;
 	}
 
-	rc = wled_iio_get_prop(wled, OCV, &ocv_mv);
-	if (rc < 0) {
-		pr_err("Error in getting OCV rc=%d\n", rc);
-		return rc;
-	}
-	ocv_mv /= 1000;
+	if (wled->use_psy) {
+		if (!wled->batt_psy)
+			wled->batt_psy = power_supply_get_by_name("battery");
 
-	rc = wled_iio_get_prop(wled, IBAT, &i_bat_ma);
-	if (rc < 0) {
-		pr_err("Error in getting I_BAT rc=%d\n", rc);
-		return rc;
-	}
-	i_bat_ma /= 1000;
+		if (!wled->batt_psy) {
+			pr_err("Failed to get battery power supply\n");
+			return -ENODEV;
+		}
 
-	rc = wled_iio_get_prop(wled, RBATT, &r_bat_mohms);
-	if (rc < 0) {
-		pr_err("Error in getting R_BAT rc=%d\n", rc);
-		return rc;
+		rc = power_supply_get_property(wled->batt_psy, POWER_SUPPLY_PROP_VOLTAGE_OCV,
+				&prop);
+		if (rc < 0) {
+			pr_err("Failed to get battery OCV, rc=%d\n", rc);
+			return rc;
+		}
+		ocv_mv = prop.intval/1000;
+
+		rc = power_supply_get_property(wled->batt_psy, POWER_SUPPLY_PROP_CURRENT_NOW,
+				&prop);
+		if (rc < 0) {
+			pr_err("Failed to get battery current, rc=%d\n", rc);
+			return rc;
+		}
+		i_bat_ma = -prop.intval/1000;
+
+		rc = qti_battery_charger_get_prop("battery", BATTERY_RESISTANCE, &r_bat_mohms);
+		if (rc < 0) {
+			pr_err("Failed to get battery resistance, rc=%d\n", rc);
+			return rc;
+		}
+		r_bat_mohms /= 1000;
+	} else {
+		rc = wled_iio_get_prop(wled, OCV, &ocv_mv);
+		if (rc < 0) {
+			pr_err("Error in getting OCV rc=%d\n", rc);
+			return rc;
+		}
+		ocv_mv /= 1000;
+
+		rc = wled_iio_get_prop(wled, IBAT, &i_bat_ma);
+		if (rc < 0) {
+			pr_err("Error in getting I_BAT rc=%d\n", rc);
+			return rc;
+		}
+		i_bat_ma /= 1000;
+
+		rc = wled_iio_get_prop(wled, RBATT, &r_bat_mohms);
+		if (rc < 0) {
+			pr_err("Error in getting R_BAT rc=%d\n", rc);
+			return rc;
+		}
+		r_bat_mohms /= 1000;
 	}
-	r_bat_mohms /= 1000;
 
 	pr_debug("ocv: %d i_bat: %d r_bat: %d\n", ocv_mv, i_bat_ma,
 		r_bat_mohms);
@@ -2206,6 +2425,11 @@ static int wled_configure(struct wled *wled, struct device *dev)
 			.val_ptr = &cfg->cabc_sel,
 			.cfg = &wled5_cabc_sel_cfg,
 		},
+		{
+			.name = "qcom,slew-ramp-time",
+			.val_ptr = &cfg->slew_ramp_time,
+			.cfg = &wled5_slew_ramp_time_cfg,
+		},
 	};
 
 	const struct {
@@ -2215,6 +2439,7 @@ static int wled_configure(struct wled *wled, struct device *dev)
 		{ "qcom,en-cabc", &cfg->en_cabc, },
 		{ "qcom,ext-pfet-sc-pro", &cfg->ext_pfet_sc_pro_en, },
 		{ "qcom,auto-calibration", &cfg->auto_calib_enabled, },
+		{ "qcom,use-exp-dimming", &cfg->use_exp_dimming, },
 	};
 
 	prop_addr = of_get_address(dev->of_node, 0, NULL, NULL);
@@ -2287,6 +2512,15 @@ static int wled_configure(struct wled *wled, struct device *dev)
 			*bool_opts[i].val_ptr = true;
 	}
 
+	if (wled->cfg.use_exp_dimming) {
+		rc = wled_read_exp_dimming_map(dev->of_node, wled);
+		if (rc < 0) {
+			dev_err(&wled->pdev->dev,
+				"Reading exponential dimming map failed, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	wled->sc_irq = platform_get_irq_byname(wled->pdev, "sc-irq");
 	if (wled->sc_irq < 0)
 		dev_dbg(&wled->pdev->dev, "sc irq is not used\n");
@@ -2338,6 +2572,14 @@ static int wled_probe(struct platform_device *pdev)
 	if (!wled->version) {
 		dev_err(&pdev->dev, "Unknown device version\n");
 		return -ENODEV;
+	}
+
+	switch (*wled->version) {
+	case WLED_PM7325B:
+		wled->use_psy = true;
+		break;
+	default:
+		break;
 	}
 
 	rc = wled_configure(wled, &pdev->dev);
@@ -2413,6 +2655,7 @@ static const struct of_device_id wled_match_table[] = {
 	{ .compatible = "qcom,pm8150l-spmi-wled", .data = &version_table[2] },
 	{ .compatible = "qcom,pm6150l-spmi-wled", .data = &version_table[2] },
 	{ .compatible = "qcom,pm660l-spmi-wled",  .data = &version_table[1] },
+	{ .compatible = "qcom,pm7325b-spmi-wled", .data = &version_table[3] },
 	{ },
 };
 
