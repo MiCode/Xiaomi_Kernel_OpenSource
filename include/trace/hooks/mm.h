@@ -126,6 +126,9 @@ struct device;
 DECLARE_HOOK(android_vh_subpage_dma_contig_alloc,
 	TP_PROTO(bool *allow_subpage_alloc, struct device *dev, size_t *size),
 	TP_ARGS(allow_subpage_alloc, dev, size));
+DECLARE_HOOK(android_vh_no_iommu_config,
+	TP_PROTO(struct device *dev),
+	TP_ARGS(dev));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_MM_H */

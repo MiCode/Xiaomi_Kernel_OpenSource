@@ -135,8 +135,7 @@ static inline void cancel_dwork_unvote_cpufreq(struct ufs_hba *hba)
 	err = ufs_qcom_mod_min_cpufreq(host->config_cpu,
 				       host->min_cpu_scale_freq);
 	if (err < 0)
-		dev_err(hba->dev, "fail set cpufreq-fmin_def %d:\n",
-				err);
+		dev_err(hba->dev, "fail set cpufreq-fmin_def %d:\n", err);
 	else
 		host->cur_freq_vote = false;
 	dev_dbg(hba->dev, "%s,err=%d\n", __func__, err);
@@ -1314,9 +1313,8 @@ static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val)
 	put_online_cpus();
 	return ret;
 }
-
 static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host,
-					unsigned int cpu)
+					 unsigned int cpu)
 {
 	int ret;
 	struct cpufreq_policy *policy;
@@ -1331,7 +1329,7 @@ static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host,
 
 	req = &per_cpu(qos_min_req, cpu);
 	ret = freq_qos_add_request(&policy->constraints, req, FREQ_QOS_MIN,
-				FREQ_QOS_MIN_DEFAULT_VALUE);
+				   FREQ_QOS_MIN_DEFAULT_VALUE);
 	if (ret < 0)
 		dev_err(host->hba->dev, "Failed to add freq qos req\n");
 	cpufreq_cpu_put(policy);
@@ -1342,8 +1340,7 @@ static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host,
 static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
 {
 	struct ufs_qcom_host *host = container_of(to_delayed_work(work),
-							struct ufs_qcom_host,
-							fwork);
+						  struct ufs_qcom_host, fwork);
 	unsigned long cur_thres = atomic_read(&host->num_reqs_threshold);
 	unsigned int freq_val = -1;
 	int err = -1;
@@ -1361,7 +1358,7 @@ static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
 	err = ufs_qcom_mod_min_cpufreq(host->config_cpu, freq_val);
 	if (err < 0)
 		dev_err(host->hba->dev, "fail set cpufreq-fmin to %d: %u\n",
-				err, freq_val);
+			err, freq_val);
 	else if (freq_val == host->max_cpu_scale_freq)
 		host->cur_freq_vote = true;
 	else if (freq_val == host->min_cpu_scale_freq)
@@ -2373,6 +2370,7 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			atomic_set(&host->clks_on, on);
 		break;
 	}
+
 	ufs_qcom_log_str(host, "#,%d,%d,%d\n", status, on, err);
 
 	return err;
@@ -2871,22 +2869,22 @@ static int ufs_qcom_setup_qos(struct ufs_hba *hba)
 	int i, err;
 
 	for (i = 0; i < qr->num_groups; i++, qcg++) {
-		qcg->qos_req = kcalloc(cpumask_weight(&qcg->mask),
-					sizeof(struct dev_pm_qos_request),
-					GFP_KERNEL);
+		qcg->qos_req =
+			kcalloc(cpumask_weight(&qcg->mask),
+				sizeof(struct dev_pm_qos_request), GFP_KERNEL);
 		if (!qcg->qos_req) {
 			err = -ENOMEM;
 			if (!i)
 				return err;
 			goto free_mem;
 		}
-		dev_dbg(dev, "%s: qcg: 0x%08x | mask: 0x%08x | mask-wt: %d | qos_req: 0x%08x\n",
+		dev_dbg(dev,
+			"%s: qcg: 0x%08x | mask: 0x%08x | mask-wt: %d | qos_req: 0x%08x\n",
 			__func__, qcg, qcg->mask, cpumask_weight(&qcg->mask),
 			qcg->qos_req);
 		err = add_group_qos(qcg, S32_MAX);
 		if (err < 0) {
-			dev_err(dev, "Fail (%d) add qos-req: grp-%d\n",
-				err, i);
+			dev_err(dev, "Fail (%d) add qos-req: grp-%d\n", err, i);
 			if (!i) {
 				kfree(qcg->qos_req);
 				return err;
@@ -2901,7 +2899,8 @@ static int ufs_qcom_setup_qos(struct ufs_hba *hba)
 		cpu = cpumask_first((const struct cpumask *)&qcg->mask);
 		policy = cpufreq_cpu_get(cpu);
 		if (!policy) {
-			dev_err(dev, "Failed cpufreq policy,cpu=%d,mask=0x%08x\n",
+			dev_err(dev,
+				"Failed cpufreq policy,cpu=%d,mask=0x%08x\n",
 				__func__, cpu, qcg->mask);
 			host->cpufreq_dis = true;
 			host->config_cpu = -1;
@@ -4189,8 +4188,6 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	of_property_read_u32(np, "limit-phy-submode", &host->limit_phy_submode);
 	of_property_read_u32(np, "ufs-dev-types", &host->ufs_dev_types);
 
-	if (host->ufs_dev_types >= 2)
-		ufs_qcom_read_nvmem_cell(host);
 }
 
 /*
@@ -4855,7 +4852,6 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	err = ufs_cpufreq_status();
 	if (err)
 		return err;
-
 	/*
 	 * On qcom platforms, bootdevice is the primary storage
 	 * device. This device can either be eMMC or UFS.

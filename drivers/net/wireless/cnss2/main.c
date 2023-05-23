@@ -552,7 +552,7 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 		if (cfg) {
 			if (!cfg->dms_mac_addr_supported) {
 				cnss_pr_err("DMS MAC address not supported\n");
-				CNSS_ASSERT(0);
+				//CNSS_ASSERT(0);
 				return -EINVAL;
 			}
 		}
@@ -561,13 +561,13 @@ static int cnss_setup_dms_mac(struct cnss_plat_data *plat_priv)
 				break;
 
 			ret = cnss_qmi_get_dms_mac(plat_priv);
-			if (ret == 0)
+			if (ret != -EAGAIN)
 				break;
 			msleep(CNSS_DMS_QMI_CONNECTION_WAIT_MS);
 		}
-		if (!plat_priv->dms.mac_valid) {
+		if (!plat_priv->dms.nv_mac_not_prov && !plat_priv->dms.mac_valid) {
 			cnss_pr_err("Unable to get MAC from DMS after retries\n");
-			CNSS_ASSERT(0);
+			//CNSS_ASSERT(0);
 			return -EINVAL;
 		}
 	}
@@ -1586,6 +1586,20 @@ static const char *cnss_recovery_reason_to_str(enum cnss_recovery_reason reason)
 	return "UNKNOWN";
 };
 
+#ifdef CONFIG_CNSS2_DEBUG
+static bool cnss_link_down_self_recovery(void)
+{
+	/* Attempt self recovery only in production builds */
+	return false;
+}
+#else
+static bool cnss_link_down_self_recovery(void)
+{
+	cnss_pr_warn("PCI link down recovery failed. Force self recovery\n");
+	return true;
+}
+#endif
+
 static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			    enum cnss_recovery_reason reason)
 {
@@ -1624,6 +1638,9 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			clear_bit(CNSS_DRIVER_RECOVERY,
 				  &plat_priv->driver_state);
 			return 0;
+		} else {
+			if (cnss_link_down_self_recovery())
+				goto self_recovery;
 		}
 		break;
 	case CNSS_REASON_RDDM:
@@ -3147,9 +3164,12 @@ static ssize_t fs_ready_store(struct device *dev,
 {
 	int fs_ready = 0;
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
+	cnss_pr_err("fs_ready event!\n");
 
-	if (sscanf(buf, "%du", &fs_ready) != 1)
+	if (sscanf(buf, "%du", &fs_ready) != 1) {
+		cnss_pr_err("no parm to write to fs_ready!\n");
 		return -EINVAL;
+	}
 
 	cnss_pr_dbg("File system is ready, fs_ready is %d, count is %zu\n",
 		    fs_ready, count);
@@ -3163,6 +3183,8 @@ static ssize_t fs_ready_store(struct device *dev,
 		cnss_pr_dbg("QMI is bypassed\n");
 		return count;
 	}
+
+	cnss_pr_dbg("device ID 0x%lx\n", plat_priv->device_id);
 
 	switch (plat_priv->device_id) {
 	case QCA6290_DEVICE_ID:
@@ -3284,6 +3306,8 @@ static int cnss_create_sysfs_link(struct cnss_plat_data *plat_priv)
 {
 	struct device *dev = &plat_priv->plat_dev->dev;
 	int ret;
+
+	cnss_pr_err("start create cnss link\n");
 
 	ret = sysfs_create_link(kernel_kobj, &dev->kobj, "cnss");
 	if (ret) {
@@ -3538,6 +3562,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	const struct platform_device_id *device_id;
 	int retry = 0;
 
+	cnss_pr_err("cnss_probe!\n");
 	if (cnss_get_plat_priv(plat_dev)) {
 		cnss_pr_err("Driver is already initialized!\n");
 		ret = -EEXIST;

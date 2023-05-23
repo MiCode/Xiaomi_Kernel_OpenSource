@@ -12,6 +12,7 @@
 #include <../../../drivers/android/binder_internal.h>
 #include "../../../drivers/android/binder_trace.h"
 
+
 static void create_util_to_cost_pd(struct em_perf_domain *pd)
 {
 	int util, cpu = cpumask_first(to_cpumask(pd->cpus));
@@ -182,6 +183,7 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 			*end_index = 1;
 		return;
 	}
+
 
 	if (is_uclamp_boosted || per_task_boost ||
 		task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
@@ -1228,7 +1230,6 @@ static void walt_cfs_check_preempt_wakeup(void *unused, struct rq *rq, struct ta
 	struct walt_task_struct *wts_c = (struct walt_task_struct *) rq->curr->android_vendor_data1;
 	bool resched = false;
 	bool p_is_mvp, curr_is_mvp;
-
 	if (unlikely(walt_disabled))
 		return;
 

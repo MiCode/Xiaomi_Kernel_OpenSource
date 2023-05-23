@@ -548,7 +548,7 @@ static void register_suspend_context(void)
 #endif
 
 #ifdef CONFIG_ARM64
-static void register_irq_stack(void)
+void register_irq_stack(void)
 {
 	int cpu;
 	unsigned int i;
@@ -1298,7 +1298,6 @@ int msm_minidump_log_init(void)
 {
 	register_kernel_sections();
 	is_vmap_stack = IS_ENABLED(CONFIG_VMAP_STACK);
-	register_irq_stack();
 #ifdef CONFIG_QCOM_DYN_MINIDUMP_STACK
 	register_current_stack();
 	register_suspend_context();

@@ -1115,9 +1115,12 @@ static struct kgsl_process_private *kgsl_process_private_open(
 	 * private destroy is triggered but didn't complete. Retry creating
 	 * process private after sometime to allow previous destroy to complete.
 	 */
-	for (i = 0; (PTR_ERR_OR_ZERO(private) == -EEXIST) && (i < 50); i++) {
+	for (i = 0; (PTR_ERR_OR_ZERO(private) == -EEXIST) && (i < 100); i++) {
 		usleep_range(10, 100);
 		private = _process_private_open(device);
+	}
+	if (i >= 100) {
+		pr_info("kgsl: kgsl_process_private_open times = %d\n", i);
 	}
 
 	return private;
@@ -1240,7 +1243,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 static int kgsl_open_device(struct kgsl_device *device)
 {
 	int result = 0;
-
+	pr_info("kgsl: kgsl_open_device Enter\n");
 	mutex_lock(&device->mutex);
 	if (device->open_count == 0) {
 		result = device->ftbl->first_open(device);
@@ -1250,6 +1253,7 @@ static int kgsl_open_device(struct kgsl_device *device)
 	device->open_count++;
 out:
 	mutex_unlock(&device->mutex);
+	pr_info("kgsl: kgsl_open_device Exit\n");
 	return result;
 }
 

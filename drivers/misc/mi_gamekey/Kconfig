@@ -1,0 +1,5 @@
+config MI_GAMEKEY
+    tristate "xiaomi physical game key"
+    default n
+    help
+    xiaomi physical game key, can detect press on the key and key whether pop.

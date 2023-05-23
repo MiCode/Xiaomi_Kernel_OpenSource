@@ -802,7 +802,6 @@ struct msm_pcie_dev_t {
 	int drv_disable_pc_vote;
 	struct mutex drv_pc_lock;
 	struct completion speed_change_completion;
-
 	bool drv_supported;
 	bool panic_genspeed_mismatch;
 

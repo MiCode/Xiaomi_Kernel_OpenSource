@@ -1,0 +1,27 @@
+/***************************************
+ ****** Goodix Driver Description ******
+ **************************************/
+1. File Contents
+
+├── gh_common.c
+├── gh_common.h
+├── gh_platform.c
+├── gh_bus_access.c
+├── gh_customer.c
+├── gh_customer.h
+└── Makefile
+
+2. Description
+
+gh_common.c        The main file of drivers, register spi/i2c, device node, file operations.
+
+gh_platform.c      Specific the hardware control of fingerprint module.
+
+gh_bus_access.c    Specific the SPI/I2C communication method of fingerprint module.
+
+gh_customer.c      Specific the power current and voltage.
+
+3. How to build *.ko out of kernel source directory
+
+make ARCH=arm64 CROSS_COMPILE=<path_to_your_toolchain> KDIR=<kernel source dir>
+

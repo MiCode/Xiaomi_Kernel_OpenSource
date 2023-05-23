@@ -481,6 +481,7 @@ static void walt_sched_account_irqstart(int cpu, struct task_struct *curr)
 
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
+
 static void walt_sched_account_irqend(int cpu, struct task_struct *curr, u64 delta)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -1501,6 +1502,7 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 	return (delta * wrq->task_exec_scale) >> 10;
 }
 
+
 /* Convert busy time to frequency equivalent
  * Assumes load is scaled to 1024
  */
@@ -2184,6 +2186,7 @@ static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int even
 	update_task_pred_demand(rq, p, event);
 	if (event == PUT_PREV_TASK && p->state)
 		wts->iowaited = p->in_iowait;
+
 
 	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime,
 				&wrq->grp_time, wrq, wts);
@@ -3996,9 +3999,13 @@ static void android_rvh_try_to_wake_up_success(void *unused, struct task_struct 
 {
 	unsigned long flags;
 	int cpu = p->cpu;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (unlikely(walt_disabled))
 		return;
+
+	if (wts->mvp_list.prev == NULL && wts->mvp_list.next == NULL)
+		init_new_task_load(p);
 
 	raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
 	if (do_pl_notif(cpu_rq(cpu)))
