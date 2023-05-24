@@ -5679,19 +5679,36 @@ static int ufshcd_poll(struct Scsi_Host *shost, unsigned int queue_num)
 }
 
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-static void ufshcd_mcq_compl_pending_transfer(struct ufs_hba *hba)
+static void ufshcd_mcq_compl_pending_transfer(struct ufs_hba *hba, bool force_complete)
 {
+	struct ufs_hw_queue *hwq;
 	struct ufshcd_lrb *lrbp;
 	struct scsi_cmnd *cmd;
+	unsigned long flags;
+	u32 hwq_num, utag;
 	int tag;
 
 	for (tag = 0; tag < hba->nutrs; tag++) {
 		lrbp = &hba->lrb[tag];
 		cmd = lrbp->cmd;
+
 		if (ufshcd_cmd_inflight(cmd)) {
-			set_host_byte(cmd, DID_ERROR);
-			ufshcd_release_scsi_cmd(hba, lrbp);
-			scsi_done(cmd);
+			utag = blk_mq_unique_tag(scsi_cmd_to_rq(cmd));
+			hwq_num = blk_mq_unique_tag_to_hwq(utag);
+
+			if (force_complete) {
+				hwq = &hba->uhq[hwq_num + dev_cmd_queues];
+
+				spin_lock_irqsave(&hwq->cq_lock, flags);
+				if (lrbp->cmd) {
+					set_host_byte(cmd, DID_REQUEUE);
+					ufshcd_release_scsi_cmd(hba, lrbp);
+					scsi_done(cmd);
+				}
+				spin_unlock_irqrestore(&hwq->cq_lock, flags);
+			} else {
+				ufshcd_poll(hba->host, hwq_num);
+			}
 		}
 	}
 }
@@ -6262,18 +6279,22 @@ out:
 }
 
 /* Complete requests that have door-bell cleared */
-static void ufshcd_complete_requests(struct ufs_hba *hba)
-{
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+static void ufshcd_complete_requests(struct ufs_hba *hba, bool force_complete)
+{
 	if (is_mcq_enabled(hba))
-		ufshcd_mcq_compl_pending_transfer(hba);
+		ufshcd_mcq_compl_pending_transfer(hba, force_complete);
 	else
 		ufshcd_transfer_req_compl(hba);
-#else
-	ufshcd_transfer_req_compl(hba);
-#endif
 	ufshcd_tmc_handler(hba);
 }
+#else
+static void ufshcd_complete_requests(struct ufs_hba *hba)
+{
+	ufshcd_transfer_req_compl(hba);
+	ufshcd_tmc_handler(hba);
+}
+#endif
 
 /**
  * ufshcd_quirk_dl_nac_errors - This function checks if error handling is
@@ -6567,7 +6588,11 @@ static bool ufshcd_abort_all(struct ufs_hba *hba)
 
 out:
 	/* Complete the requests that are cleared by s/w */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	ufshcd_complete_requests(hba, false);
+#else
 	ufshcd_complete_requests(hba);
+#endif
 
 	return needs_reset;
 }
@@ -6607,7 +6632,11 @@ static void ufshcd_err_handler(struct work_struct *work)
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	ufshcd_err_handling_prepare(hba);
 	/* Complete requests that have door-bell cleared by h/w */
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	ufshcd_complete_requests(hba, false);
+#else
 	ufshcd_complete_requests(hba);
+#endif
 	spin_lock_irqsave(hba->host->host_lock, flags);
 again:
 	needs_restore = false;
@@ -7892,7 +7921,7 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 	ufshpb_toggle_state(hba, HPB_PRESENT, HPB_RESET);
 	ufshcd_hba_stop(hba);
 	hba->silence_err_logs = true;
-	ufshcd_complete_requests(hba);
+	ufshcd_complete_requests(hba, true);
 	hba->silence_err_logs = false;
 
 	if (hba->mcq_enabled) {
