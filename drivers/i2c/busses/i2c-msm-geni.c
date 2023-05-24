@@ -187,7 +187,6 @@ struct geni_i2c_dev {
 	enum i2c_se_mode se_mode;
 	bool cmd_done;
 	bool is_shared;
-	bool is_high_perf; /* To increase the performance voting for higher BW valuest */
 	u32 dbg_num;
 	struct dbg_buf_ctxt *dbg_buf_ptr;
 	bool is_le_vm;
@@ -643,6 +642,10 @@ static int geni_i2c_prepare(struct geni_i2c_dev *gi2c)
 				dev_info(gi2c->dev, "%s: RTL based SE\n", __func__);
 			}
 		}
+
+		if (gi2c->pm_ctrl_client)
+			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+				    "SMP: %s: pm_runtime_get_sync bypassed\n", __func__);
 	}
 	return 0;
 }
@@ -843,12 +846,34 @@ static void gi2c_gsi_cb_err(struct msm_gpi_dma_async_tx_cb_param *cb,
  */
 static void gi2c_gsi_tre_process(struct geni_i2c_dev *gi2c, struct gsi_tre_queue *gsi_tre)
 {
+	int wait_cnt = 0;
+
 	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 		    "%s:start unmap_cnt:%d rd_idx:%d\n",
 		    __func__, gsi_tre->unmap_msg_cnt, gsi_tre->msg_rd_idx);
 
 	if (gsi_tre->unmap_msg_cnt == gsi_tre->msg_rd_idx)
 		return;
+
+	/**
+	 * When irq context and thread context are running independently
+	 * on different cpu cores, read index is incremenated in irq context
+	 * by one core while thread context which is being processed on
+	 * another core is submitting quickly another descriptor for gsi hw.
+	 * In this scenario previous irq context execution is still in
+	 * progress and current descriptor wait for completion is cleared by
+	 * previous descriptor in irq context, resulting in race condition.
+	 * To solve this added explicit wait until irq context is processed
+	 * when descriptors reached to maximum.
+	 */
+	if (atomic_read(&gi2c->gsi_tx.msg_cnt) == MAX_NUM_TRE_MSGS) {
+		while (spin_is_locked(&gi2c->multi_tre_lock)) {
+			if (wait_cnt % 10 == 0)
+				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+					    "%s: wait_cnt:%d\n", __func__, wait_cnt);
+			wait_cnt++;
+		}
+	}
 
 	while (gsi_tre->unmap_msg_cnt < gsi_tre->msg_rd_idx) {
 		geni_se_common_iommu_unmap_buf(gi2c->wrapper_dev,
@@ -1887,10 +1912,6 @@ static int geni_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		}
 	}
 
-	if (gi2c->pm_ctrl_client)
-		I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
-			"SMP: %s: pm_runtime_get_sync bypassed\n", __func__);
-
 	// WAR : Complete previous pending cancel cmd
 	if (gi2c->prev_cancel_pending) {
 		ret = do_pending_cancel(gi2c);
@@ -2109,9 +2130,6 @@ static int geni_i2c_probe(struct platform_device *pdev)
 
 		gi2c->is_i2c_hub = of_property_read_bool(pdev->dev.of_node,
 					"qcom,i2c-hub");
-
-		gi2c->is_high_perf = of_property_read_bool(pdev->dev.of_node,
-					"qcom,high-perf");
 		/*
 		 * For I2C_HUB, qup-ddr voting not required and
 		 * core clk should be voted explicitly.
@@ -2138,14 +2156,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 			gi2c->is_i2c_rtl_based  = true;
 			dev_info(gi2c->dev, "%s: RTL based SE\n", __func__);
 		} else {
-			if (gi2c->is_high_perf)
-				ret = geni_se_common_resources_init(&gi2c->i2c_rsc,
-						I2C_CORE2X_VOTE, APPS_PROC_TO_QUP_VOTE,
-						(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
-			else
-				ret = geni_se_common_resources_init(&gi2c->i2c_rsc,
-						GENI_DEFAULT_BW, GENI_DEFAULT_BW,
-						Bps_to_icc(gi2c->clk_freq_out));
+			ret = geni_se_common_resources_init(&gi2c->i2c_rsc,
+					GENI_DEFAULT_BW, GENI_DEFAULT_BW,
+					Bps_to_icc(gi2c->clk_freq_out));
 			if (ret) {
 				dev_err(&pdev->dev, "%s: Error - resources_init ret:%d\n",
 							__func__, ret);

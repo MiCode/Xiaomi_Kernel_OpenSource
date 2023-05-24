@@ -4813,8 +4813,14 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 		 * HS path.  Only listen for if there are spoof
 		 * connect/disconnect commands.
 		 */
-		if (dwc && dwc->gadget->speed >= USB_SPEED_SUPER && !spoof)
-			return NOTIFY_DONE;
+		if (dwc && dwc->gadget->speed >= USB_SPEED_SUPER) {
+			if (mdwc->eud_active)
+				wcd_usbss_dpdm_switch_update(true, true);
+			else
+				wcd_usbss_dpdm_switch_update(false, false);
+			if(!spoof)
+				return NOTIFY_DONE;
+		}
 
 		mdwc->check_eud_state = true;
 	} else {
@@ -6854,7 +6860,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			dbg_event(0xFF, "SUSP put",
 				atomic_read(&mdwc->dev->power.usage_count));
 		} else if (test_and_clear_bit(CONN_DONE, &mdwc->inputs) && mdwc->wcd_usbss) {
-			if (dwc->gadget->speed >= USB_SPEED_SUPER)
+			if (mdwc->eud_active)
+				wcd_usbss_dpdm_switch_update(true, true);
+			else if (dwc->gadget->speed >= USB_SPEED_SUPER)
 				wcd_usbss_dpdm_switch_update(false, false);
 			else
 				wcd_usbss_dpdm_switch_update(true,
