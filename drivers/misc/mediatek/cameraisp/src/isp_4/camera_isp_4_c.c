@@ -41,6 +41,7 @@
 #include <linux/printk.h>
 #include <linux/ktime.h>
 #include <linux/seq_file.h>
+#include <soc/mediatek/smi.h>
 
 #include <mt-plat/sync_write.h> /* For mt65xx_reg_sync_writel(). */
 
@@ -13798,6 +13799,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 		if (g_ISPIntErr_SMI[irq_module] &
 			(DMA_ERR_ST | INT_ST_MASK_CAM_WARN | CQ_VS_ERR_ST)) {
 			pr_info("ERR:SMI_DUMP by module:%d\n", irq_module);
+			mtk_smi_dbg_hang_detect("camera_isp_cam");
 			g_ISPIntErr_SMI[irq_module] = 0;
 		}
 		break;
@@ -13810,7 +13812,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 		if (g_ISPIntErr_SMI[irq_module] &
 			(SV_IMGO_ERR | SV_IMGO_OVERRUN)) {
 			pr_info("ERR:SMI_DUMP by module:%d\n", irq_module);
-
+			mtk_smi_dbg_hang_detect("camera_isp_camsv");
 
 			g_ISPIntErr_SMI[irq_module] = 0;
 		}
