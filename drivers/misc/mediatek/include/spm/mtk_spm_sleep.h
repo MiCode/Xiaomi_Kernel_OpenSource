@@ -29,4 +29,8 @@ extern void spm_adsp_mem_unprotect(void);
 /* record last wakesta */
 extern u32 spm_get_last_wakeup_src(void);
 extern u32 spm_get_last_wakeup_misc(void);
+
+/* register callback */
+extern int RegisterConditionEnterSuspend(bool (*cb)(void));
+
 #endif /* __MTK_SPM_SLEEP_H__ */
