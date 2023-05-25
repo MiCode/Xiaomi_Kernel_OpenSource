@@ -144,8 +144,10 @@ static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
 
 	switch (cluster) {
 	case PPM_CLUSTER_LL:
-	if (s_ppm_thermal_cpuL_temp_cb)
+	if (s_ppm_thermal_cpuL_temp_cb) {
 		temp = s_ppm_thermal_cpuL_temp_cb() / 1000;
+		break;
+	}
 	else
 		break;
 	default:
