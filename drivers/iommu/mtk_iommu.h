@@ -236,5 +236,4 @@ uint64_t mtee_iova_to_phys(unsigned long iova, u32 tab_id, u32 *sr_info,
 }
 
 #endif
-
 #endif
