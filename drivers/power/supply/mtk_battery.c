@@ -217,7 +217,7 @@ int dump_pseudo100(enum charge_sel select)
 
 	bm_err("%s:select=%d\n", __func__, select);
 
-	if (select > MAX_CHARGE_RDC || select < 0)
+	if (select >= MAX_CHARGE_RDC || select < 0)
 		return 0;
 
 	for (i = 0; i < MAX_TABLE; i++) {
