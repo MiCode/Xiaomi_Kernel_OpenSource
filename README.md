@@ -159,6 +159,7 @@
 | zijin-s-oss | Xiaomi Civi 1S | Android S | LA.UM.9.14.r1-18300.05-LAHAINA.QSSI12.0-1 | [zijin-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zijin-s-oss) |
 | ziyi-s-oss | Xiaomi civi2 | Android S | LA.VENDOR.1.0.r1-13100-r1.0.r1_00037.0 | [ziyi-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ziyi-s-oss) |
 | munch-s-oss | Redmi K40S | Android S | LA.UM.9.12.r1-13300-SMxx50.QSSI12.0-1 | [munch-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/munch-s-oss) |
+| ice-s-oss | Redmi A1 | Android S | alps-mp-s0.mp1.tc8sp3-cs1-V1 | [ice-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ice-s-oss) |
 | rubens-s-oss | Redmi K50 | Android S | alps-release-s0.mp1.tc8sp2-mt6983 | [rubens-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/rubens-s-oss) |
 | socrates-t-oss | Redmi K60 Pro | Android T | LA.VENDOR.13.2.0.r1-07300-r1.0.r1_00020.0 |[socrates-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/socrates-t-oss) |
 | ruby-s-oss | Redmi Note12 Pro | Android S | alps-mp-s0.mp1.tc8sp-cs1-V1 |[ruby-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ruby-s-oss) |
