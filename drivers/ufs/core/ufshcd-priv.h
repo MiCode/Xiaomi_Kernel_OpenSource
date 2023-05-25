@@ -301,6 +301,16 @@ static inline int ufshcd_mcq_vops_config_esi(struct ufs_hba *hba)
 }
 
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+static inline int ufshcd_mcq_vops_config_cqid(struct ufs_hba *hba)
+{
+	if (hba->vops && hba->vops->config_cqid)
+		return hba->vops->config_cqid(hba);
+
+	return -EOPNOTSUPP;
+}
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 extern unsigned int dev_cmd_queues;
 #endif
 extern const struct ufs_pm_lvl_states ufs_pm_lvl_states[];
