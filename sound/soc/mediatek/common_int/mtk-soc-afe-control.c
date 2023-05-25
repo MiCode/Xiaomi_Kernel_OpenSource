@@ -53,6 +53,7 @@
 #include <sound/jack.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
+#include <mtk_spm_sleep.h>
 #if IS_ENABLED(CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT)
 #include "mtk-auddrv-scp-spkprotect-common.h"
 #endif
@@ -5219,7 +5220,7 @@ static int __init mtk_platform_sound_init(void)
 	ret = mtk_soc_voice_platform_init();
 	ret = mtk_soc_voice_bt_platform_init();
 	ret = mtk_voice_usb_driver_init();
-
+	ret = RegisterConditionEnterSuspend(ConditionEnterSuspend);
 	return ret;
 
 }

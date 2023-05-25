@@ -47,11 +47,9 @@
 #include "mtk-soc-pcm-platform.h"
 #include <linux/dma-mapping.h>
 #include <sound/pcm_params.h>
-/*
- * #ifndef ASOC_TEMP_BYPASS
- * #include "mtk_mcdi_api.h"
- * #endif
- */
+#ifndef ASOC_TEMP_BYPASS
+#include "mtk_mcdi_api.h"
+#endif
 
 #ifdef DEBUG_DEEP_BUFFER_DL
 #define DEBUG_DEEP_BUFFER_DL(format, args...) pr_debug(format, ##args)
@@ -322,11 +320,9 @@ static int mtk_deep_buffer_dl_close(struct snd_soc_component *component,
 
 	vcore_dvfs(&vcore_dvfs_enable, true);
 
-/*
- * #ifndef ASOC_TEMP_BYPASS
- *  system_idle_hint_request(SYSTEM_IDLE_HINT_USER_AUDIO, 0);
- * #endif
- */
+#ifndef ASOC_TEMP_BYPASS
+system_idle_hint_request(SYSTEM_IDLE_HINT_USER_AUDIO, 0);
+#endif
 	return 0;
 }
 
@@ -347,11 +343,9 @@ static int mtk_deep_buffer_dl_open(struct snd_soc_component *component,
 	       sizeof(struct snd_pcm_hardware));
 
 	AudDrv_Clk_On();
-/*
- * #ifndef ASOC_TEMP_BYPASS
- *	system_idle_hint_request(SYSTEM_IDLE_HINT_USER_AUDIO, 1);
- * #endif
- */
+#ifndef ASOC_TEMP_BYPASS
+system_idle_hint_request(SYSTEM_IDLE_HINT_USER_AUDIO, 1);
+#endif
 	pMemControl = Get_Mem_ControlT(deep_buffer_mem_blk);
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0, SNDRV_PCM_HW_PARAM_RATE,

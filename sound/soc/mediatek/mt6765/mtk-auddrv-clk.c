@@ -44,27 +44,21 @@
 
 #include <linux/delay.h>
 #include <linux/spinlock.h>
-
-/*
- * #ifndef ASOC_TEMP_BYPASS
- * #if defined(_MT_IDLE_HEADER) && !defined(CONFIG_FPGA_EARLY_PORTING)
- * #include <mtk_idle.h>
- * #endif
- * #endif
- */
+#ifndef ASOC_TEMP_BYPASS
+#if defined(_MT_IDLE_HEADER) && !defined(CONFIG_FPGA_EARLY_PORTING)
+#include <mtk_idle.h>
+#endif
+#endif
 #include <linux/err.h>
 #include <linux/platform_device.h>
-
-/*
- * #ifndef ASOC_TEMP_BYPASS
- * #define _MT_SPM_RESOURCE
- * #if defined(_MT_SPM_RESOURCE) && !defined(CONFIG_FPGA_EARLY_PORTING)
- * #include "mtk_spm_resource_req.h"
- * bool spm_resource_req(unsigned int user, unsigned int req_mask)
- *	__attribute__((weak));
- * #endif
- * #endif
- */
+#ifndef ASOC_TEMP_BYPASS
+#define _MT_SPM_RESOURCE
+#if defined(_MT_SPM_RESOURCE) && !defined(CONFIG_FPGA_EARLY_PORTING)
+#include "mtk_spm_resource_req.h"
+bool spm_resource_req(unsigned int user, unsigned int req_mask)
+	__attribute__((weak));
+#endif
+#endif
 /*****************************************************************************
  *                         D A T A   T Y P E S
  *****************************************************************************/
@@ -74,8 +68,7 @@ static int APLL2Counter;
 static int Aud_APLL_DIV_APLL1_cntr;
 static int Aud_APLL_DIV_APLL2_cntr;
 static unsigned int MCLKFS = 128;
-//static unsigned int MCLKFS_HDMI = 256;
-
+static unsigned int MCLKFS_HDMI = 256;
 int Aud_Core_Clk_cntr;
 int Aud_AFE_Clk_cntr;
 int Aud_I2S_Clk_cntr;
@@ -234,7 +227,6 @@ void AudDrv_Clk_Deinit(void *dev)
 {
 }
 EXPORT_SYMBOL(AudDrv_Clk_Deinit);
-#if 0
 #ifndef ASOC_TEMP_BYPASS
 #if defined(_MT_IDLE_HEADER) && !defined(CONFIG_FPGA_EARLY_PORTING)
 static int audio_idle_notify_call(struct notifier_block *nfb,
@@ -299,8 +291,6 @@ void AudDrv_Clk_Global_Variable_Init(void)
 #endif
 #endif
 }
-#endif  // end of temp disable code
-
 void AudDrv_Bus_Init(void)
 {
 	/* No need on 6759, system default set bit14 to 1 */
@@ -1213,7 +1203,6 @@ void AudDrv_HDMI_Clk_Off(void)
 
 void AudDrv_Emi_Clk_On(void)
 {
-#if 0
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	mutex_lock(&auddrv_pmic_mutex);
 	if (Aud_EMI_cntr == 0) {
@@ -1227,13 +1216,11 @@ void AudDrv_Emi_Clk_On(void)
 	Aud_EMI_cntr++;
 	mutex_unlock(&auddrv_pmic_mutex);
 #endif
-#endif  //end of temp disable
 }
 EXPORT_SYMBOL(AudDrv_Emi_Clk_On);
 
 void AudDrv_Emi_Clk_Off(void)
 {
-#if 0
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	mutex_lock(&auddrv_pmic_mutex);
 	Aud_EMI_cntr--;
@@ -1253,7 +1240,6 @@ void AudDrv_Emi_Clk_Off(void)
 	}
 	mutex_unlock(&auddrv_pmic_mutex);
 #endif
-#endif  //end of temp disable
 }
 EXPORT_SYMBOL(AudDrv_Emi_Clk_Off);
 
