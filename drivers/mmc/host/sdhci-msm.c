@@ -1709,6 +1709,9 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 	msm_host->dll_lock_bist_fail_wa =
 		of_property_read_bool(np, "qcom,dll_lock_bist_fail_wa");
 
+	msm_host->need_special_up_threshold =
+		of_property_read_bool(np, "qcom,need_special_up_threshold");
+
 	msm_host->crash_on_err =
 		of_property_read_bool(np, "qcom,enable_crash_on_err");
 

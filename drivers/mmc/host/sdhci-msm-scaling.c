@@ -208,8 +208,10 @@ void sdhci_msm_set_factors(struct mmc_host *mhost)
 	struct sdhci_host *shost = mmc_priv(mhost);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(shost);
 	struct sdhci_msm_host *host = sdhci_pltfm_priv(pltfm_host);
+	bool special_scale = host->need_special_up_threshold;
 
-	host->clk_scaling.upthreshold = MMC_DEVFRQ_DEFAULT_UP_THRESHOLD;
+	host->clk_scaling.upthreshold =
+		special_scale ? MMC_DEVFRQ_SPECIAL_UP_THRESHOLD : MMC_DEVFRQ_DEFAULT_UP_THRESHOLD;
 	host->clk_scaling.downthreshold = MMC_DEVFRQ_DEFAULT_DOWN_THRESHOLD;
 	host->clk_scaling.polling_delay_ms = MMC_DEVFRQ_DEFAULT_POLLING_MSEC;
 	host->clk_scaling.skip_clk_scale_freq_update = false;

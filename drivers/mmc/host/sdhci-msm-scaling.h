@@ -21,6 +21,8 @@ struct sdhci_msm_host;
 #define MMC_WRITE_BLOCK          24   /* adtc [31:0] data addr   R1  */
 #define MMC_WRITE_MULTIPLE_BLOCK 25   /* adtc                    R1  */
 #define MMC_DEVFRQ_DEFAULT_UP_THRESHOLD 35
+/* For targets with slower eMMC */
+#define MMC_DEVFRQ_SPECIAL_UP_THRESHOLD 75
 #define MMC_DEVFRQ_DEFAULT_DOWN_THRESHOLD 5
 #define MMC_DEVFRQ_DEFAULT_POLLING_MSEC 100
 #define MMC_SCALE_LOW_FREQ	50000000
