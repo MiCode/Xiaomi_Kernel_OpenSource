@@ -39,7 +39,7 @@ extern int clk_buf_ctrl(const char *xo_name, bool onoff);
 extern int clk_buf_hw_ctrl(const char *xo_name, bool onoff);
 extern int clk_buf_dump_log(void);
 extern int clk_buf_get_xo_en_sta(const char *xo_name);
-
+extern bool clk_buf_is_init_done(void);
 extern int srclken_dump_sta_log(void);
 extern int srclken_dump_cfg_log(void);
 extern int srclken_dump_last_sta_log(void);

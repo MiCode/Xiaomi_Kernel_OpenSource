@@ -204,6 +204,12 @@ static ssize_t __clk_buf_show_status_info(char *buf)
 	return len;
 }
 
+bool clk_buf_is_init_done(void)
+{
+	return clkbuf_ctl.init_done;
+}
+EXPORT_SYMBOL(clk_buf_is_init_done);
+
 int clk_buf_dump_log(void)
 {
 	char *buf = NULL;
