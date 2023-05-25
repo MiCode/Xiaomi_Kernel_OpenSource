@@ -48,7 +48,7 @@ void mtk_vcodec_mem_release(struct mtk_vcodec_queue *vcodec_queue)
 					dma_buf_put(vcodec_buffer->mem_priv);
 
 				atomic_set(&vcodec_buffer->ref_cnt, 0);
-			pr_info("Free %d dbuf = %p size = %d mem_priv = %lx ref_cnt = %d\n",
+				pr_debug("Free %d dbuf = %p size = %d mem_priv = %lx ref_cnt = %d\n",
 				 buffer, vcodec_buffer->dbuf,
 				 (unsigned int)vcodec_buffer->size,
 				 (unsigned long)vcodec_buffer->mem_priv,
@@ -138,7 +138,7 @@ void *mtk_vcodec_get_buffer(struct device *dev, struct mtk_vcodec_queue *vcodec_
 	mem_buff_data->cnt = 1;
 	mutex_unlock(&vcodec_queue->mmap_lock);
 
-	pr_info("[%s] nob:%d iova: %llx size: %d mem_priv: %lx useAlloc:%d, state: %d ref_cnt %d\n",
+	pr_debug("[%s] nob:%d iova: %llx size: %d mem_priv: %lx useAlloc:%d, state: %d refcnt %d\n",
 		__func__, vcodec_queue->num_buffers, mem_buff_data->iova,
 		(unsigned int)vcodec_buf->size,
 		(unsigned long)vcodec_buf->mem_priv, vcodec_buf->useAlloc,
@@ -171,7 +171,7 @@ int mtk_vcodec_free_buffer(struct mtk_vcodec_queue *vcodec_queue,
 	mutex_lock(&vcodec_queue->mmap_lock);
 	num_buf = vcodec_queue->num_buffers;
 
-	pr_info("Free buffer iova = %llx, len %u queue_num = %d\n",
+	pr_debug("Free buffer iova = %llx, len %u queue_num = %d\n",
 		mem_buff_data->iova, mem_buff_data->len, num_buf);
 	if (num_buf != 0U) {
 		for (i = 0; i < num_buf; i++) {
@@ -188,9 +188,9 @@ int mtk_vcodec_free_buffer(struct mtk_vcodec_queue *vcodec_queue,
 			if (mem_buff_data->iova == vcodec_buf->iova &&
 				mem_buff_data->len == vcodec_buf->size &&
 				atomic_read(&vcodec_buf->ref_cnt) == 1) {
-				pr_info("Free buffer index = %d iova = %llx, queue_num = %d\n",
+				pr_debug("Free buffer index = %d iova = %llx, queue_num = %d\n",
 					i, mem_buff_data->iova, num_buf);
-				pr_info("[%s] iova = %llx size = %d mem_priv = %lx, useAlloc:%d\n",
+				pr_debug("[%s] iova = %llx size = %d mem_priv = %lx, useAlloc:%d\n",
 				__func__, vcodec_buf->iova, (unsigned int)vcodec_buf->size,
 				(unsigned long)vcodec_buf->mem_priv, vcodec_buf->useAlloc);
 

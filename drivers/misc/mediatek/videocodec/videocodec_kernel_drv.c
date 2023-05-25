@@ -304,7 +304,7 @@ static int vcodec_mmap(struct file *file, struct vm_area_struct *vma)
 	unsigned long pfn;
 	unsigned long start = vma->vm_start;
 
-	pr_info("%s vma->start 0x%lx, vma->end 0x%lx, vma->pgoff 0x%lx, pa_start 0x%lx\n", __func__,
+	pr_debug("%s vma->start 0x%lx, vma->end 0x%lx, vma->pgoff 0x%lx, pa_strt 0x%lx\n", __func__,
 			(unsigned long)vma->vm_start,
 			(unsigned long)vma->vm_end,
 			(unsigned long)vma->vm_pgoff,

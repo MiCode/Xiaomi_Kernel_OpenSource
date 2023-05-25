@@ -135,7 +135,7 @@ void set_venc_opp(struct mtk_vcodec_dev *dev, u32 freq)
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
-		pr_info("[VENC] freq %lu, voltage %d", freq, volt);
+		pr_debug("[VENC] freq %lu, voltage %d", freq, volt);
 
 		ret = regulator_set_voltage(dev->venc_reg, volt, INT_MAX);
 		if (ret)
@@ -153,7 +153,7 @@ void set_venc_bw(struct mtk_vcodec_dev *dev, u64 target_bw)
 
 	for (i = 0; i < MTK_VENC_PORT_NUM; i++) {
 		mtk_icc_set_bw(dev->venc_qos_req[i], MBps_to_icc((u32)target_bw), 0);
-		pr_info("[VENC] port %d set larb %u bw",
+		pr_debug("[VENC] port %d set larb %u bw",
 			i, target_bw);
 	}
 }
@@ -254,7 +254,7 @@ void set_vdec_opp(struct mtk_vcodec_dev *dev, u32 freq)
 		volt = dev_pm_opp_get_voltage(opp);
 		dev_pm_opp_put(opp);
 
-		pr_info("[VDEC] freq %u, voltage %d", freq, volt);
+		pr_debug("[VDEC] freq %u, voltage %d", freq, volt);
 
 		ret = regulator_set_voltage(dev->vdec_reg, volt, INT_MAX);
 		if (ret)
@@ -271,7 +271,7 @@ void set_vdec_bw(struct mtk_vcodec_dev *dev, u64 target_bw)
 		return;
 	for (i = 0; i < MTK_VDEC_PORT_NUM; i++) {
 		mtk_icc_set_bw(dev->vdec_qos_req[i], MBps_to_icc((u32)target_bw), 0);
-		pr_info("[VDEC] port %d set larb %u bw",
+		pr_debug("[VDEC] port %d set larb %u bw",
 			i, target_bw);
 	}
 }
