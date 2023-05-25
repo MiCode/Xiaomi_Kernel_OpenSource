@@ -1203,6 +1203,17 @@ mtk_smi_larb_mt6789_bw_thrt_en[MTK_LARB_NR_MAX][2] = {
 	{0, 4}, {0, 6}, /*20*/
 };
 
+static u8 mtk_smi_larb_mt6765_bw_thrt_en[MTK_LARB_NR_MAX][2] = {
+	{4, 8},  /* Larb0 */
+	{0, 11}, /* Larb1 */
+	{0, 12}, /* Larb2 */
+	{0, 0}   /* Larb3 */
+};
+
+static u8 mtk_smi_larb_mt6765_cmd_group[MTK_LARB_NR_MAX][2] = {
+	{0, 5}, {0, 0}, {0, 0}, {0, 0}
+};
+
 static u8
 mtk_smi_larb_mt6789_bwl[MTK_LARB_NR_MAX][SMI_LARB_PORT_NR_MAX] = {
 	{0x2, 0x2, 0x28, 0x6,},
@@ -1810,8 +1821,12 @@ static const struct mtk_smi_larb_gen mtk_smi_larb_mt6765 = {
 	.config_port                = mtk_smi_larb_config_port_gen2_general,
 	.larb_direct_to_common_mask = 0,
 				      /*skip larb: none TODO*/
+	.has_grouping               = true,
+	.has_bw_thrt                = true,
 	.has_bwl                    = true,
 	.bwl                        = (u8 *)mtk_smi_larb_mt6765_bwl,
+	.cmd_group                  = (u8 *)mtk_smi_larb_mt6765_cmd_group,
+	.bw_thrt_en                 = (u8 *)mtk_smi_larb_mt6765_bw_thrt_en,
 	.misc = (struct mtk_smi_reg_pair *)mtk_smi_larb_mt6765_misc,
 };
 
