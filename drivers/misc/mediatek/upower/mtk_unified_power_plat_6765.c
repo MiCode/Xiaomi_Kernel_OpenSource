@@ -312,7 +312,7 @@ unsigned int cpufreq_get_cpu_level_upower(void)
 	/* free pdev */
 	if (pdev != NULL) {
 		of_platform_device_destroy(&pdev->dev, NULL);
-		of_dev_put(pdev);
+		put_device(&pdev->dev);
 	}
 
 	upower_info("CPU level: %d\n", lv);

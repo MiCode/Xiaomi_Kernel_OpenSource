@@ -354,7 +354,7 @@ static int get_devinfo(void)
 get_devinfo_end:
 	if (pdev != NULL) {
 		of_platform_device_destroy(&pdev->dev, NULL);
-		of_dev_put(pdev);
+		put_device(&pdev->dev);
 	}
 
 	FUNC_EXIT(FUNC_LV_HELP);

@@ -654,7 +654,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	/* free pdev */
 	if (pdev != NULL) {
 		of_platform_device_destroy(&pdev->dev, NULL);
-		of_dev_put(pdev);
+		put_device(&pdev->dev);
 	}
 
 	return lv;
