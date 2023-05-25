@@ -3457,9 +3457,16 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 	fdvt@1500b000 {
 		compatible = "mediatek,fdvt";
 		reg = <0 0x1500b000 0 0x1000>;
+		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		interrupts = <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH 0>;
+		power-domains = <&scpsys MT6761_POWER_DOMAIN_DIS>,
+			<&scpsys MT6761_POWER_DOMAIN_CAM>;
 		clocks = <&camsys CLK_CAM_FDVT>;
 		clock-names = "FD_CLK_CAM_FDVT";
+		iommus = <&iommu M4U_PORT_CAM_FD_RP>,
+			 <&iommu M4U_PORT_CAM_FD_WR>,
+			 <&iommu M4U_PORT_CAM_FD_RB>;
+		mediatek,larb = <&smi_larb2>;
 	};
 
 	cam_inner@1500d000 {
