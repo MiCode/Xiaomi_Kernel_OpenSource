@@ -8012,7 +8012,7 @@ static bool ISP_PM_QOS_CTRL_FUNC(unsigned int bIsOn, unsigned int module)
 {
 	int port = 0;
 
-	if (module > ISP_CAM_TYPE_CAM_AMOUNT) {
+	if (module >= ISP_CAM_TYPE_CAM_AMOUNT) {
 		log_err("HW_module: %d", module);
 		return MFALSE;
 	}
