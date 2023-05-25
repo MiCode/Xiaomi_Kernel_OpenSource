@@ -908,6 +908,8 @@ static int lcm_enable(struct drm_panel *panel)
 #define VBP (8)
 #define VAC (1920)
 #define HAC (1080)
+#define PHYSICAL_HEIGHT (132480)
+#define PHYSICAL_WIDTH (74520)
 static u32 fake_heigh = 1920;
 static u32 fake_width = 1080;
 static bool need_fake_resolution;
@@ -1015,6 +1017,8 @@ static struct mtk_panel_params ext_params = {
 	.corner_pattern_tp_size = sizeof(top_rc_pattern),
 	.corner_pattern_lt_addr = (void *)top_rc_pattern,
 #endif
+	.physical_width_um = PHYSICAL_WIDTH,
+	.physical_height_um = PHYSICAL_HEIGHT,
 };
 
 static struct mtk_panel_funcs ext_funcs = {
