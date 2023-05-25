@@ -118,6 +118,12 @@ void ccci_dump(void)
 EXPORT_SYMBOL(ccci_dump);
 #endif
 
+void (*notify_flightmode)(bool on);
+void md_notify_flightmode_cb_register(void *cb)
+{
+	notify_flightmode = cb;
+}
+EXPORT_SYMBOL(md_notify_flightmode_cb_register);
 unsigned int ccci_get_ap_plat_info(void)
 {
 	return ap_plat_info;
@@ -380,7 +386,6 @@ static void md1_pmic_setting_on(void)
 {
 	int ret, idx;
 
-	CCCI_BOOTUP_LOG(-1, TAG, "[POWER ON]%s start\n", __func__);
 	CCCI_NORMAL_LOG(-1, TAG, "[POWER ON]%s start\n", __func__);
 
 	for (idx = 0; idx < ARRAY_SIZE(md_reg_table); idx++) {
@@ -747,12 +752,16 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 static int md_cd_soft_power_off(struct ccci_modem *md, unsigned int mode)
 {
 	flight_mode_set_by_atf(md, true);
+	if (notify_flightmode)
+		notify_flightmode(true);
 	return 0;
 }
 
 static int md_cd_soft_power_on(struct ccci_modem *md, unsigned int mode)
 {
 	flight_mode_set_by_atf(md, false);
+	if (notify_flightmode)
+		notify_flightmode(false);
 	return 0;
 }
 
