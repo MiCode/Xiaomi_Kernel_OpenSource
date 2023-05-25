@@ -1824,16 +1824,16 @@ static int smc_turn_on_ulposc2(void)
 	return res.a0;
 }
 
-static int smc_turn_off_ulposc2(void)
+static int smc_turn_off_ulposc2(unsigned int is_init_done)
 {
 	struct arm_smccc_res res;
 
 	arm_smccc_smc(MTK_SIP_SCP_DVFS_CONTROL, ULPOSC2_TURN_OFF,
-		0, 0, 0, 0, 0, 0, &res);
+		is_init_done, 0, 0, 0, 0, 0, &res);
 	return res.a0;
 }
 
-static void turn_onoff_ulposc2(enum ulposc_onoff_enum on)
+static void turn_onoff_ulposc2(enum ulposc_onoff_enum on, unsigned int is_init_done)
 {
 	if (on) {
 		/* turn on ulposc */
@@ -1856,7 +1856,7 @@ static void turn_onoff_ulposc2(enum ulposc_onoff_enum on)
 		/* turn off ulposc */
 		if (dvfs.secure_access_scp) {
 			// In case we can't directly access dvfs.clk_hw->scp_clk_regmap
-			smc_turn_off_ulposc2();
+			smc_turn_off_ulposc2(is_init_done);
 		} else {
 			scp_reg_update(dvfs.clk_hw->scp_clk_regmap,
 				&dvfs.clk_hw->_ulposc2_cg, on);
@@ -1872,6 +1872,7 @@ static int __init mt_scp_dvfs_do_ulposc_cali_process(void)
 {
 	int ret = 0;
 	unsigned int i;
+	unsigned int is_init_done = 0;
 
 	if (!dvfs.ulposc_hw.do_ulposc_cali) {
 		pr_notice("[%s]: ulposc2 calibration is not done by AP\n",
@@ -1880,7 +1881,7 @@ static int __init mt_scp_dvfs_do_ulposc_cali_process(void)
 	}
 
 	for (i = 0; i < dvfs.ulposc_hw.cali_nums; i++) {
-		turn_onoff_ulposc2(ULPOSC_OFF);
+		turn_onoff_ulposc2(ULPOSC_OFF, is_init_done);
 
 		ret += scp_reg_update(dvfs.ulposc_hw.ulposc_regmap,
 			&dvfs.ulposc_hw.ulposc_regs->_con0,
@@ -1897,7 +1898,7 @@ static int __init mt_scp_dvfs_do_ulposc_cali_process(void)
 			return ret;
 		}
 
-		turn_onoff_ulposc2(ULPOSC_ON);
+		turn_onoff_ulposc2(ULPOSC_ON, is_init_done);
 
 		if (dvfs.vlpck_support)
 			ret = ulposc_cali_process_vlp(i, &dvfs.ulposc_hw.cali_val_ext[i], &dvfs.ulposc_hw.cali_val[i]);
@@ -1910,8 +1911,9 @@ static int __init mt_scp_dvfs_do_ulposc_cali_process(void)
 			return -ESCP_DVFS_CALI_FAILED;
 		}
 	}
-
-	turn_onoff_ulposc2(ULPOSC_OFF);
+	/* init completed  */
+	is_init_done = 1;
+	turn_onoff_ulposc2(ULPOSC_OFF, is_init_done);
 
 	pr_notice("[%s]: ulposc calibration all done\n", __func__);
 
