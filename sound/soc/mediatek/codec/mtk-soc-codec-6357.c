@@ -5530,6 +5530,9 @@ static int Audio_Mic1_Mode_Select_Set(struct snd_kcontrol *kcontrol,
 		/* Audio L preamplifier DCCEN */
 		Ana_Set_Reg(AUDENC_ANA_CON0,
 			    0x1 << 1, 0x1 << 1);
+	} else {
+		Ana_Set_Reg(AUDENC_ANA_CON0,
+			    0x1 << 0, 0x1 << 1);
 	}
 	return 0;
 }
@@ -5556,6 +5559,9 @@ static int Audio_Mic2_Mode_Select_Set(struct snd_kcontrol *kcontrol,
 		/* Audio R preamplifier DCCEN */
 		Ana_Set_Reg(AUDENC_ANA_CON1,
 			    0x1 << 1, 0x1 << 1);
+	} else {
+		Ana_Set_Reg(AUDENC_ANA_CON1,
+			    0x1 << 0, 0x1 << 1);
 	}
 	return 0;
 }
