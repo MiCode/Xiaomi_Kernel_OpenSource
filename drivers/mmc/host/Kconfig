@@ -1013,7 +1013,17 @@ config MMC_MTK_SW_CQHCI
 
 		If you want, say Y or M here.
 
-		f unsure, say N.
+		If unsure, say N.
+
+config MMC_MTK_SW_CQHCI_DEBUG
+	bool "SW CQHCI debugfor userdebug and eng load"
+	depends on MMC_MTK_SW_CQHCI
+	help
+		control SW CQHCI debug. Record more logs
+		for some seldom issue. It is only enabled
+		on userdebug and eng load.
+
+		If unsure, say N.
 
 config MMC_TOSHIBA_PCI
 	tristate "Toshiba Type A SD/MMC Card Interface Driver"

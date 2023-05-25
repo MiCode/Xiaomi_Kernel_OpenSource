@@ -177,6 +177,9 @@ struct swcq_host {
 	u8 crypto_cfg_register;
 	union swcqhci_crypto_cfg_entry *crypto_cfgs;
 #endif /* CONFIG_MMC_CRYPTO */
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI_DEBUG)
+	u32 recovery_cnt;
+#endif
 };
 
 int swcq_init(struct swcq_host *swcq_host, struct mmc_host *mmc);

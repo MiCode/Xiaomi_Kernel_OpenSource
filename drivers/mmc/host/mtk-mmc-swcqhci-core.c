@@ -334,6 +334,10 @@ int mmc_run_queue_thread(void *data)
 					mmc_mtk_biolog_check(mmc, q_cnt(swcq_host));
 				}
 #endif
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI_DEBUG)
+				if (swcq_host->recovery_cnt)
+					swcq_host->recovery_cnt = 0;
+#endif
 				mmc_cqe_request_done(mmc, done_mrq);
 			} else {
 				spin_lock(&swcq_host->lock);
@@ -498,6 +502,10 @@ static void swcq_recovery_start(struct mmc_host *mmc)
 	struct swcq_host *swcq_host = mmc->cqe_private;
 
 	dev_info(mmc_dev(mmc), "SWCQ recovery start");
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI_DEBUG)
+	swcq_host->recovery_cnt++;
+	BUG_ON(swcq_host->recovery_cnt > 3);
+#endif
 	if (swcq_host->ops->err_handle)
 		swcq_host->ops->err_handle(mmc);
 #if SWCQ_TUNING_CMD
