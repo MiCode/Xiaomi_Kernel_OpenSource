@@ -130,13 +130,14 @@ static void layering_rule_scenario_decision(struct drm_device *dev,
 }
 
 /* A OVL supports at most 1 yuv layers */
-static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
+static void filter_by_yuv_layers(struct drm_device *dev, struct drm_mtk_layering_info *disp_info)
 {
 	unsigned int disp_idx = 0, i = 0;
 	struct drm_mtk_layer_config *info;
 	unsigned int yuv_gpu_cnt;
 	unsigned int yuv_layer_gpu[MAX_PHY_OVL_CNT];
 	int yuv_layer_ovl = -1;
+	struct mtk_drm_private *priv = dev->dev_private;
 
 	for (disp_idx = 0 ; disp_idx < HRT_DISP_TYPE_NUM ; disp_idx++) {
 		yuv_layer_ovl = -1;
@@ -147,6 +148,15 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 			info = &(disp_info->input_config[disp_idx][i]);
 			if (mtk_is_gles_layer(disp_info, disp_idx, i))
 				continue;
+
+			/* display not support RGBA1010102 & DRM_FORMAT_ABGR16161616F) */
+			if ((priv->data->mmsys_id == MMSYS_MT6765
+				|| priv->data->mmsys_id == MMSYS_MT6761)
+					&& (info->src_fmt == DRM_FORMAT_RGBA1010102
+						|| info->src_fmt == DRM_FORMAT_ABGR16161616F)) {
+				mtk_rollback_layer_to_GPU(disp_info, disp_idx, i);
+				continue;
+			}
 
 			if (mtk_is_yuv(info->src_fmt)) {
 				if (info->secure == 1 &&
@@ -326,7 +336,7 @@ static bool filter_by_hw_limitation(struct drm_device *dev,
 
 	filter_by_wcg(dev, disp_info);
 
-	filter_by_yuv_layers(disp_info);
+	filter_by_yuv_layers(dev, disp_info);
 
 	/* Is this nessasary? */
 	filter_2nd_display(disp_info);
