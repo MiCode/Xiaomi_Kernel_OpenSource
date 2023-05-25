@@ -996,7 +996,7 @@ static int lcm_get_virtual_width(void)
 
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 443,
-	.vfp_low_power = 743,
+	.vfp_low_power = 1530,
 	.cust_esd_check = 0,
 	.esd_check_enable = 1,
 	.phy_timcon = {
