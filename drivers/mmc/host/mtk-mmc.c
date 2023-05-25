@@ -1420,14 +1420,16 @@ static void msdc_data_xfer_next(struct msdc_host *host,
 		}
 	}
 #endif
-	if (mrq && mrq->cmd && mmc_op_multi(mrq->cmd->opcode)
-		&& mrq->stop && !mrq->stop->error && !mrq->sbc) {
-		msdc_start_command(host, mrq, mrq->stop);
-		if (!host->use_cmd_intr)
-			msdc_command_resp_polling(host, mrq,
-				mrq->stop, CMD_TIMEOUT);
-	} else
-		msdc_request_done(host, mrq);
+	if (mrq && mrq->cmd) {
+		if (mmc_op_multi(mrq->cmd->opcode)
+			&& mrq->stop && !mrq->stop->error && !mrq->sbc) {
+			msdc_start_command(host, mrq, mrq->stop);
+			if (!host->use_cmd_intr)
+				msdc_command_resp_polling(host, mrq,
+					mrq->stop, CMD_TIMEOUT);
+		} else
+			msdc_request_done(host, mrq);
+	}
 }
 
 static bool msdc_data_xfer_done(struct msdc_host *host, u32 events,
