@@ -698,14 +698,16 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 				    255;
 			}
 			backlight_debug_log(led_data->level, level);
-			disp_pq_notify_backlight_changed((((1 <<
+			/*disp_pq_notify_backlight_changed((((1 <<
 					MT_LED_INTERNAL_LEVEL_BIT_CNT)
 							    - 1) * level +
 							   127) / 255);
 			disp_aal_notify_backlight_changed((((1 <<
 					MT_LED_INTERNAL_LEVEL_BIT_CNT)
 							    - 1) * level +
-							   127) / 255);
+							   127) / 255);*/
+			disp_pq_notify_backlight_changed(level);
+			disp_aal_notify_backlight_changed(level);//2022.4.24 zhangguoqing modify for 2047 bl
 		}
 	}
 #else

@@ -278,7 +278,7 @@ static int mtk_usb_extcon_set_vbus_v1(bool is_on) {
 	if (is_on) {
 		charger_dev_enable_otg(primary_charger, true);
 		charger_dev_set_boost_current_limit(primary_charger,
-			1500000);
+			1200000);  //2022.7.8 longcheer xugui modify boost current limit 1.2A for user version
 	} else {
 		charger_dev_enable_otg(primary_charger, false);
 	}
@@ -453,6 +453,10 @@ static void mtk_usb_extcon_detect_cable(struct work_struct *work)
 
 	/* at first we clean states which are no longer active */
 	if (id) {
+		if (extcon->c_role == DUAL_PROP_DR_DEVICE) {
+			pr_info("it's device mode, not need do anything!\n");
+			return ;
+		}
 		mtk_usb_extcon_set_vbus(extcon, false);
 		mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
 	} else {

@@ -34,6 +34,15 @@ config MTK_LM_MODE
 	  more than 4GB DRAM mapping.
 	  If you are not sure about this, set n
 
+config GC_GC6133C_II
+        bool "camera QVGA module 2"
+        help
+          Used for camera QVGA module 2
+config BYD_BF30A2_I
+        bool "camera QVGA module 1"
+        help
+          Used for camera QVGA module 1
+
 menu "Storage"
 source "drivers/misc/mediatek/blocktag/Kconfig"
 source "drivers/misc/mediatek/pidmap/Kconfig"
@@ -526,6 +535,15 @@ config MTK_MT6382_BDG
 	  Normal project will disable it first
 	  If you are not sure about this, do not set it to y
 
+config MTK_BOOT
+	bool "Mediatek GKI compatible enhancement"
+	default n
+	help
+	  For Mediatek GKI enhanced features.
+	  It's testing only, no any guarantee.
+	  Select "Y" if you want to use.
+	  Select "N" if you are not sure.
+
 source "drivers/misc/mediatek/met_drv/Kconfig"
 source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/aee/Kconfig"
@@ -560,4 +578,6 @@ menu "Misc"
 source "drivers/misc/mediatek/ext_gic/Kconfig"
 source "drivers/misc/mediatek/cirq/Kconfig"
 source "drivers/misc/mediatek/timer/Kconfig"
+# BSP.System - 2022.4.2 - add simtray status
+source "drivers/misc/mediatek/simtray/Kconfig"
 endmenu # Misc

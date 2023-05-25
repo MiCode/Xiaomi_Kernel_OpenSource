@@ -262,9 +262,9 @@ PVRSRVBridgeRGXDestroyRayContext(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psRGXDestroyRayContextOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psRGXDestroyRayContextIN->hRayContext,
-					    PVRSRV_HANDLE_TYPE_RGX_SERVER_RAY_CONTEXT);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psRGXDestroyRayContextIN->hRayContext,
+					      PVRSRV_HANDLE_TYPE_RGX_SERVER_RAY_CONTEXT);
 	if (unlikely((psRGXDestroyRayContextOUT->eError != PVRSRV_OK) &&
 		     (psRGXDestroyRayContextOUT->eError != PVRSRV_ERROR_RETRY)))
 	{

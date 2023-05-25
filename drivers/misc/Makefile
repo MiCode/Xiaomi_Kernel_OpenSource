@@ -60,3 +60,6 @@ obj-$(CONFIG_OCXL)		+= ocxl/
 obj-$(CONFIG_MISC_RTSX)		+= cardreader/
 obj-$(CONFIG_UID_SYS_STATS)	+= uid_sys_stats.o
 obj-y				+= mediatek/
+obj-$(CONFIG_ANT_CHECK)		+= ant_check.o
+obj-$(CONFIG_ANT_CHECK_DIV)	+= ant_check_div.o
+obj-y			        += mi-memory/

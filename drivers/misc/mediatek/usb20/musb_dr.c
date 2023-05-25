@@ -22,6 +22,7 @@
 #endif
 
 #define USB2_PORT 2
+static bool usb_ready_flag = 0;
 
 enum mt_usb_vbus_id_state {
 	MUSB_ID_FLOAT = 1,
@@ -105,6 +106,10 @@ static void mt_usb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	case MUSB_ID_GROUND:
 		mt_usb_set_vbus(otg_sx, 1);
 		musb->is_ready = true;
+		if (!usb_ready_flag) {
+			set_usb_rdy();
+			usb_ready_flag = 1;
+		}
 		otg_sx->sw_state |= MUSB_ID_GROUND;
 		mt_usb_host_connect(0);
 		break;
@@ -294,12 +299,13 @@ static int mt_usb_role_sx_set(struct device *dev, enum usb_role role)
 	if (!!(otg_sx->sw_state & MUSB_VBUS_VALID) ^ vbus_event) {
 		if (vbus_event) {
 			dev_info(dev, "%s: if vbus_event true\n", __func__);
-#ifdef CONFIG_MACH_MT6761
-			// phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE);
-			set_usb_phy_clear();
-#else
+//#ifdef CONFIG_MACH_MT6761
+//			// phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE);
+//			set_usb_phy_clear();
+//#else
 			phy_set_mode(glue->phy, PHY_MODE_USB_DEVICE);
-#endif
+			//set_usb_phy_mode(PHY_MODE_USB_DEVICE);
+//#endif
 			phy_power_on(glue->phy);
 			mt_usb_set_mailbox(otg_sx, MUSB_VBUS_VALID);
 		} else {

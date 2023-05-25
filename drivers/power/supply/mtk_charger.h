@@ -81,6 +81,15 @@ struct mtk_charger;
 
 #define MAX_ALG_NO 10
 
+/*longcheer 2022/6/7 nielianjie10 Percent 98 recharger */
+enum percent_98_rechg{
+	EVENT_RECHG_INIT = 0,
+	EVENT_RECHG_FULL,
+	EVENT_RECHG_START,
+	EVENT_RECHG_BLOCK
+};
+/*longcheer 2022/6/7 nielianjie10 Percent 98 recharger end*/
+
 enum bat_temp_state_enum {
 	BAT_TEMP_LOW = 0,
 	BAT_TEMP_NORMAL,
@@ -88,10 +97,22 @@ enum bat_temp_state_enum {
 };
 
 enum chg_dev_notifier_events {
+	EVENT_EOC,
 	EVENT_FULL,
 	EVENT_RECHARGE,
 	EVENT_DISCHARGE,
 };
+
+//begin 233028
+/* charger_manager notify charger_consumer */
+enum {
+        CHARGER_NOTIFY_EOC,
+        CHARGER_NOTIFY_START_CHARGING,
+        CHARGER_NOTIFY_STOP_CHARGING,
+        CHARGER_NOTIFY_ERROR,
+        CHARGER_NOTIFY_NORMAL,
+};
+//end 233028
 
 struct battery_thermal_protection_data {
 	int sm;
@@ -103,23 +124,30 @@ struct battery_thermal_protection_data {
 };
 
 /* sw jeita */
-#define JEITA_TEMP_ABOVE_T4_CV	4240000
-#define JEITA_TEMP_T3_TO_T4_CV	4240000
-#define JEITA_TEMP_T2_TO_T3_CV	4340000
-#define JEITA_TEMP_T1_TO_T2_CV	4240000
-#define JEITA_TEMP_T0_TO_T1_CV	4040000
-#define JEITA_TEMP_BELOW_T0_CV	4040000
-#define TEMP_T4_THRES  50
-#define TEMP_T4_THRES_MINUS_X_DEGREE 47
+#define JEITA_TEMP_ABOVE_T4_CV	4100000
+#define JEITA_TEMP_T3_TO_T4_CV	4100000
+#define JEITA_TEMP_T2_TO_T3_CV	4400000
+#define JEITA_TEMP_T1_TO_T2_CV	4400000
+#define JEITA_TEMP_T0_TO_T1_CV	4400000
+#define JEITA_TEMP_BELOW_T0_CV	4400000
+#define TEMP_T5_THRES  60
+#define TEMP_T4_THRES  58
+#define TEMP_T4_THRES_MINUS_X_DEGREE 56
 #define TEMP_T3_THRES  45
-#define TEMP_T3_THRES_MINUS_X_DEGREE 39
-#define TEMP_T2_THRES  10
+#define TEMP_T3_THRES_MINUS_X_DEGREE 43
+#define TEMP_T2_THRES  15
 #define TEMP_T2_THRES_PLUS_X_DEGREE 16
-#define TEMP_T1_THRES  0
-#define TEMP_T1_THRES_PLUS_X_DEGREE 6
+#define TEMP_T1_THRES  10
+#define TEMP_T1_THRES_PLUS_X_DEGREE 11
 #define TEMP_T0_THRES  0
-#define TEMP_T0_THRES_PLUS_X_DEGREE  0
+#define TEMP_T0_THRES_PLUS_X_DEGREE  1
 #define TEMP_NEG_10_THRES 0
+
+/*define jeita current*/
+#define JEITA_CURRENT_T3_TO_T4  1960000
+#define JEITA_CURRENT_T2_TO_T3  2000000
+#define JEITA_CURRENT_T1_TO_T2  1400000
+#define JEITA_CURRENT_T0_TO_T1  490000
 
 /*
  * Software JEITA
@@ -142,6 +170,7 @@ struct sw_jeita_data {
 	int sm;
 	int pre_sm;
 	int cv;
+	int curr;
 	bool charging;
 	bool error_recovery_flag;
 };
@@ -173,6 +202,13 @@ struct charger_custom_data {
 	int jeita_temp_t1_to_t2_cv;
 	int jeita_temp_t0_to_t1_cv;
 	int jeita_temp_below_t0_cv;
+
+        /*add jeita current parameters*/
+        int jeita_current_t3_to_t4;
+        int jeita_current_t2_to_t3;
+        int jeita_current_t1_to_t2;
+        int jeita_current_t0_to_t1;
+
 	int temp_t4_thres;
 	int temp_t4_thres_minus_x_degree;
 	int temp_t3_thres;

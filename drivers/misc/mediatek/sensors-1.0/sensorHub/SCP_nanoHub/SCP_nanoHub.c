@@ -2093,6 +2093,15 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
 				custData) + sizeof(req.set_cust_req.getInfo);
 			break;
+/*2020.4.11 longcheer liushuwen add start for sar TX_POWER*/
+		case CUST_ACTION_SET_TRACE:
+			req.set_cust_req.setTrace.action =
+				CUST_ACTION_SET_TRACE;
+			req.set_cust_req.setTrace.trace = *((int32_t *) data);
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData)+ sizeof(req.set_cust_req.setTrace);
+		break;
+ /*2020.4.11 longcheer liushuwen add end for sar TX_POWER*/
 		default:
 			return -1;
 		}

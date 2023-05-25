@@ -85,6 +85,9 @@ static int vsync_cnt;
 static const struct timeval FRAME_INTERVAL = { 0, 30000 };	/* 33ms */
 static bool no_update;
 static struct disp_session_input_config session_input;
+extern char *saved_command_line;
+extern int mtkts_lcm_get_hw_temp(void);
+char lcd_lockdown_info[32] = {0};
 
 /* macro definiton */
 #define ALIGN_TO(x, n)  (((x) + ((n) - 1)) & ~((n) - 1))
@@ -100,6 +103,8 @@ static struct disp_session_input_config session_input;
 #define DISP_DEFAULT_UI_LAYER_ID (DDP_OVL_LAYER_MUN-1)
 #define DISP_CHANGED_UI_LAYER_ID (DDP_OVL_LAYER_MUN-2)
 #define NOT_REFERENCED(x)   { (x) = (x); }
+void console_lock(void);
+void console_unlock(void);
 #ifdef CONFIG_MTK_AEE_FEATURE
 #define CHECK_RET(expr)    \
 do {                   \
@@ -185,7 +190,27 @@ static int _parse_tag_videolfb(void);
 #endif
 static void mtkfb_late_resume(void);
 static void mtkfb_early_suspend(void);
+#define WAIT_RESUME_TIMEOUT 200
+#define WAIT_SUSPEND_TIMEOUT 1500
+static struct fb_info *prim_fbi;
+static struct delayed_work prim_panel_work;
+static atomic_t prim_panel_is_on;
+static void prim_panel_off_delayed_work(struct work_struct *work)
+{
+	console_lock();
+	if (!lock_fb_info(prim_fbi)) {
+		console_unlock();
+		return;
+	}
 
+	if (atomic_read(&prim_panel_is_on)) {
+		fb_blank(prim_fbi, FB_BLANK_POWERDOWN);
+		atomic_set(&prim_panel_is_on, false);
+	}
+
+	unlock_fb_info(prim_fbi);
+	console_unlock();
+}
 
 void mtkfb_log_enable(int enable)
 {
@@ -256,6 +281,14 @@ static int mtkfb1_blank(int blank_mode, struct fb_info *info)
 static int mtkfb_blank(int blank_mode, struct fb_info *info)
 {
 	enum mtkfb_power_mode prev_pm = primary_display_get_power_mode();
+
+	if ((info == prim_fbi) && (blank_mode == FB_BLANK_UNBLANK) &&
+		atomic_read(&prim_panel_is_on)) {
+		atomic_set(&prim_panel_is_on, false);
+		cancel_delayed_work_sync(&prim_panel_work);
+		pr_debug("%s cancle delayed work, because the fpc is unlocked suceessfully fp\n", __func__);
+		return 0;
+	}
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
@@ -1796,6 +1829,28 @@ static struct fb_ops mtkfb1_ops = {
 	.fb_blank = mtkfb1_blank,
 };
 #endif
+
+extern ssize_t lcm_mipi_reg_write(char *buf, size_t count);
+extern ssize_t lcm_mipi_reg_read(char *buf);
+static ssize_t mipi_reg_show(struct device *dev,struct device_attribute *attr,char *buf)
+{
+	return lcm_mipi_reg_read(buf);
+}
+static ssize_t mipi_reg_store(struct device *dev,struct device_attribute *attr,const char *buf, size_t count)
+{
+	int rc = 0;
+	rc = lcm_mipi_reg_write((char *)buf, count);
+	return rc;
+}
+static DEVICE_ATTR_RW(mipi_reg);
+static struct attribute *fb_attrs[] = {
+	&dev_attr_mipi_reg.attr,
+	NULL,
+};
+static struct attribute_group fb_attr_group = {
+	.attrs = fb_attrs,
+};
+
 /*
  * ---------------------------------------------------------------------------
  * Sysfs interface
@@ -1804,13 +1859,20 @@ static struct fb_ops mtkfb1_ops = {
 
 static int mtkfb_register_sysfs(struct mtkfb_device *fbdev)
 {
+	int rc;
 	NOT_REFERENCED(fbdev);
+	rc = sysfs_create_group(&fbdev->dev->kobj, &fb_attr_group);
+	if (rc) {
+		pr_err("sysfs group creation failed, rc=%d\n", rc);
+		return rc;
+	}
 
 	return 0;
 }
 
 static void mtkfb_unregister_sysfs(struct mtkfb_device *fbdev)
 {
+	sysfs_remove_group(&fbdev->dev->kobj, &fb_attr_group);
 	NOT_REFERENCED(fbdev);
 }
 
@@ -2368,6 +2430,102 @@ static struct fb_info *allocate_fb_by_index(struct device *dev)
 }
 #endif
 
+//2022.04.2 longcheer zhangguoqing add for node start
+static ssize_t fb_lcd_name(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+   ssize_t ret = 0;
+	if(islcmconnected){
+		if(mtkfb_lcm_name != NULL){
+			sprintf(buf, "%s panel\n", mtkfb_lcm_name);
+		}else{
+			sprintf(buf, "Unknown panel!\n");
+		}
+	}else{
+			sprintf(buf, "no panel connected!\n");
+	}
+   ret = strlen(buf) + 1;
+   return ret;
+}
+
+//2022.05.2 add for therm ntc
+static ssize_t backlight_therm_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int temperature;
+	temperature = mtkts_lcm_get_hw_temp();
+	return sprintf(buf, "%d\n", temperature);
+}
+
+//2022.05.27 optimization lockdown info
+static int __init lockdown_info(char *str)
+{
+    strcpy(lcd_lockdown_info, str);
+    pr_info("lcd_lockdown_info : %s\n", lcd_lockdown_info);
+    return 1;
+}
+__setup("androidboot.lockdown=", lockdown_info);
+//2022.05.27 optimization lockdown info
+
+//2022.04.6 add for lockdown info
+static ssize_t lockdown_color_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+    ssize_t ret = 0;
+    if(0 == strlen(lcd_lockdown_info)) {
+        sprintf(buf,"%s\n","4743320151835700");
+    }
+    else
+        sprintf(buf,"%s\n",lcd_lockdown_info);
+    pr_info("lcd_lockdown_info : %s,buf:%d\n", lcd_lockdown_info,buf);
+    ret = strlen(buf) + 1;
+    return ret;
+}
+
+static DEVICE_ATTR(backlight_therm, 0444, backlight_therm_show, NULL);
+static DEVICE_ATTR(lcd_lockdown, 0664, lockdown_color_show, NULL);
+static DEVICE_ATTR(lcd_name, 0664, fb_lcd_name, NULL);
+
+static struct kobject *backlight_therm;
+static struct kobject *lcd_name;
+static int lcd_info_create_sysfs(void)
+{
+   int ret;
+
+   backlight_therm = kobject_create_and_add("thermal", NULL);
+   if(backlight_therm == NULL) {
+     pr_info(" backlight_therm kobject_create failed\n");
+     ret=-ENOMEM;
+     return ret;
+   }
+   ret=sysfs_create_file(backlight_therm, &dev_attr_backlight_therm.attr);
+   if(ret) {
+    pr_info("%s backlight_therm sysfs_create_file failed \n", __func__);
+    kobject_del(backlight_therm);
+   }
+
+   lcd_name = kobject_create_and_add("android_lcd", NULL);
+   if(lcd_name == NULL) {
+     pr_info(" lcd_name_create_sysfs_ failed\n");
+     ret=-ENOMEM;
+     return ret;
+   }
+   ret=sysfs_create_file(lcd_name, &dev_attr_lcd_name.attr);
+   if(ret) {
+    pr_info("%s, dev_attr_lcd_name failed \n", __func__);
+    kobject_del(lcd_name);
+   }
+
+   ret=sysfs_create_file(lcd_name, &dev_attr_lcd_lockdown.attr);
+   if(ret) {
+    pr_info("%s, dev_attr_lcd_lockdown failed \n", __func__);
+    kobject_del(lcd_name);
+   }
+
+   return 0;
+}
+//2022.04.2 longcheer zhangguoqing add for node end
+
 static int mtkfb_probe(struct platform_device *pdev)
 {
 	struct mtkfb_device *fbdev = NULL;
@@ -2419,6 +2577,14 @@ static int mtkfb_probe(struct platform_device *pdev)
 	fbdev->dev = &(pdev->dev);
 	dev_set_drvdata(&(pdev->dev), fbdev);
 
+	atomic_set(&fbdev->resume_pending, 0);
+	init_waitqueue_head(&fbdev->resume_wait_q);
+
+	fbdev->is_prim_panel = true;
+	prim_fbi = fbi;
+	atomic_set(&prim_panel_is_on, false);
+	INIT_DELAYED_WORK(&prim_panel_work, prim_panel_off_delayed_work);
+
 	DISPMSG("mtkfb_probe: fb_pa = %pa\n", &fb_base);
 
 	disp_hal_allocate_framebuffer(fb_base, (fb_base + vramsize - 1),
@@ -2462,6 +2628,10 @@ static int mtkfb_probe(struct platform_device *pdev)
 	}
 	init_state++;		/* 4 */
 	DISPMSG("\nmtkfb_fbinfo_init done\n");
+
+	//2022.04.2 longcheer zhangguoqing add for node start
+	lcd_info_create_sysfs();
+	//2022.04.2 longcheer zhangguoqing add for node end
 
 	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 		/* dal_init should after mtkfb_fbinfo_init, otherwise layer
@@ -2668,6 +2838,30 @@ static void mtkfb_late_resume(void)
 /*---------------------------------------------------------------------------*/
 #ifdef CONFIG_PM
 /*---------------------------------------------------------------------------*/
+static int mtkfb_pm_prepare(struct device *dev)
+{
+	struct mtkfb_device *fbdev = dev_get_drvdata(dev);
+
+	if (!fbdev)
+		return -ENODEV;
+	if (fbdev->is_prim_panel)
+		atomic_inc(&fbdev->resume_pending);
+	return 0;
+}
+
+static void mtkfb_pm_complete(struct device *dev)
+{
+	struct mtkfb_device *fbdev = dev_get_drvdata(dev);
+
+	if (!fbdev)
+		return;
+	if (fbdev->is_prim_panel) {
+		atomic_set(&fbdev->resume_pending, 0);
+		wake_up_all(&fbdev->resume_wait_q);
+	}
+	return;
+}
+
 int mtkfb_pm_suspend(struct device *device)
 {
 	/* pr_debug("calling %s()\n", __func__); */
@@ -2738,6 +2932,8 @@ static const struct of_device_id mtkfb_of_ids[] = {
 };
 
 static const struct dev_pm_ops mtkfb_pm_ops = {
+	.prepare = mtkfb_pm_prepare,
+	.complete = mtkfb_pm_complete,
 	.suspend = mtkfb_pm_suspend,
 	.resume = mtkfb_pm_resume,
 	.freeze = mtkfb_pm_freeze,
@@ -2854,6 +3050,46 @@ static void __exit mtkfb_cleanup(void)
 	MSG_FUNC_LEAVE();
 }
 
+/*
+ * mtkfb_prim_panel_unblank() - Unblank primary panel FB
+ * @timeout : >0 blank primary panel FB after timeout (ms)
+ */
+int mtkfb_prim_panel_unblank(int timeout)
+{
+	int ret = 0;
+	struct mtkfb_device *fbdev = NULL;
+
+	if (prim_fbi) {
+		fbdev = (struct mtkfb_device *)prim_fbi->par;
+		wait_event_timeout(fbdev->resume_wait_q,
+				!atomic_read(&fbdev->resume_pending),
+				msecs_to_jiffies(WAIT_RESUME_TIMEOUT));
+		console_lock();
+		if (!lock_fb_info(prim_fbi)) {
+			console_unlock();
+			return -ENODEV;
+		}
+		if (prim_fbi->blank == FB_BLANK_UNBLANK) {
+			unlock_fb_info(prim_fbi);
+			console_unlock();
+			return 0;
+		}
+		ret = fb_blank(prim_fbi, FB_BLANK_UNBLANK);
+		if (!ret) {
+			atomic_set(&prim_panel_is_on, true);
+			if (timeout > 0)
+				schedule_delayed_work(&prim_panel_work, msecs_to_jiffies(timeout));
+			else
+				schedule_delayed_work(&prim_panel_work, msecs_to_jiffies(WAIT_SUSPEND_TIMEOUT));
+		}
+		unlock_fb_info(prim_fbi);
+		console_unlock();
+		return ret;
+	}
+
+	pr_err("primary panel is not existed\n");
+	return -EINVAL;
+}
 
 module_init(mtkfb_init);
 module_exit(mtkfb_cleanup);

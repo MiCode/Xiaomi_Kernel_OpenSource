@@ -105,16 +105,20 @@
 
 	mtk_gauge: mtk_gauge {
 		compatible = "mediatek,mt6357-gauge";
-		charger = <&mt6370_chg>;
+		charger = <&mtk_charger_type>;
 		bootmode = <&chosen>;
 		io-channels = <&pmic_auxadc AUXADC_BAT_TEMP>,
-				<&pmic_auxadc AUXADC_BATADC>,
+				<&pmic_auxadc AUXADC_ISENSE>, /*modify 236364*/
 				<&pmic_auxadc AUXADC_VBIF>,
-				<&pmic_auxadc AUXADC_IMP>;
+				<&pmic_auxadc AUXADC_IMP>,
+				<&pmic_auxadc AUXADC_IMIX_R>,
+                                <&auxadc 2>;
 		io-channel-names = "pmic_battery_temp",
 				"pmic_battery_voltage",
 				"pmic_bif_voltage",
-				"pmic_ptim_voltage";
+				"pmic_ptim_voltage",
+				"pmic_ptim_r",
+                                "ap_batt_id";
 		nvmem-cells = <&fg_init>, <&fg_soc>;
 		nvmem-cell-names = "initialization", "state-of-charge";
 	};
@@ -123,7 +127,7 @@
 		compatible = "mediatek,mt6357-charger-type";
 		io-channels = <&pmic_auxadc AUXADC_VCDT>;
 		io-channel-names = "pmic_vbus";
-		bc12_active = <0>;
+		bc12_active = <1>;
 	};
 
 	mt6357_charger: mt6357_charger {

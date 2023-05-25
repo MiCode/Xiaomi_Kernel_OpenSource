@@ -17,6 +17,7 @@ struct mtk_chip_config {
 	u32 tx_mlsb;
 	u32 rx_mlsb;
 	u32 sample_sel;
+	u32 cs_pol;
 
 	//patch the parameter as customized
 	u32 cs_setuptime;

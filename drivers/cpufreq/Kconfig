@@ -350,4 +350,10 @@ config QORIQ_CPUFREQ
 	  which are capable of changing the CPU's frequency dynamically.
 
 endif
+
+config CPUMAXFREQ
+	bool "Enable CPUMAXFREQ Proc Interface"
+	help
+	Provide a interface for getting the maximum frequency supported by cpu core
+
 endmenu

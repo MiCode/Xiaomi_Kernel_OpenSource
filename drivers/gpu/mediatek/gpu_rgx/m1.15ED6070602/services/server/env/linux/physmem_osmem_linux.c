@@ -3002,6 +3002,13 @@ PMRUnlockSysPhysAddressesOSMem(PMR_IMPL_PRIVDATA pvPriv)
 	return eError;
 }
 
+static INLINE IMG_BOOL IsOffsetValid(const PMR_OSPAGEARRAY_DATA *psOSPageArrayData,
+                                     IMG_UINT32 ui32Offset)
+{
+	return (ui32Offset >> psOSPageArrayData->uiLog2AllocPageSize) <
+	    psOSPageArrayData->uiTotalNumOSPages;
+}
+
 /* Determine PA for specified offset into page array. */
 static IMG_DEV_PHYADDR GetOffsetPA(const PMR_OSPAGEARRAY_DATA *psOSPageArrayData,
                                    IMG_UINT32 ui32Offset)
@@ -3011,7 +3018,6 @@ static IMG_DEV_PHYADDR GetOffsetPA(const PMR_OSPAGEARRAY_DATA *psOSPageArrayData
 	IMG_UINT32 ui32InPageOffset = ui32Offset - (ui32PageIndex << ui32Log2AllocPageSize);
 	IMG_DEV_PHYADDR sPA;
 
-	PVR_ASSERT(ui32PageIndex < psOSPageArrayData->uiTotalNumOSPages);
 	PVR_ASSERT(ui32InPageOffset < (1U << ui32Log2AllocPageSize));
 
 	sPA.uiAddr = page_to_phys(psOSPageArrayData->pagearray[ui32PageIndex]);
@@ -3046,6 +3052,9 @@ PMRSysPhysAddrOSMem(PMR_IMPL_PRIVDATA pvPriv,
 	{
 		if (pbValid[uiIdx])
 		{
+			PVR_LOG_RETURN_IF_FALSE(IsOffsetValid(psOSPageArrayData, puiOffset[uiIdx]),
+			                        "puiOffset out of range", PVRSRV_ERROR_OUT_OF_RANGE);
+
 			psDevPAddr[uiIdx] = GetOffsetPA(psOSPageArrayData, puiOffset[uiIdx]);
 
 #if !defined(PVR_LINUX_PHYSMEM_USE_HIGHMEM_ONLY)

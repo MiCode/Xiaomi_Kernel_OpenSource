@@ -26,6 +26,7 @@ else
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb20
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 
 obj-$(CONFIG_CHARGER_CROS_USBPD)	+= cros_usbpd-charger.o
 obj-$(CONFIG_CHARGER_BQ25601) += bq25601.o
@@ -132,6 +133,9 @@ obj-$(CONFIG_CHARGER_TPS65090)	+= tps65090-charger.o
 obj-$(CONFIG_CHARGER_TPS65217)	+= tps65217_charger.o
 obj-$(CONFIG_AXP288_FUEL_GAUGE) += axp288_fuel_gauge.o
 obj-$(CONFIG_AXP288_CHARGER)	+= axp288_charger.o
+obj-$(CONFIG_CHARGER_SGM41513) += sgm41513_charger.o
+obj-$(CONFIG_CHARGER_ETA6963) += eta6963_charger.o
+obj-$(CONFIG_CHARGER_SC89601A) += sc89601a_charger.o
 
 ifeq ($(CONFIG_CUSTOM_BATTERY_EXTERNAL_CHANNEL),y)
 	obj-y += k6885v1_64_alpha/

@@ -90,6 +90,10 @@ config TOUCHSCREEN_MTK_NT36xxx
 	  module will be called.
 
 source "drivers/input/touchscreen/mediatek/NT36xxx/Kconfig"
+source "drivers/input/touchscreen/mediatek/nt36525b_spi/Kconfig"
+
+source "drivers/input/touchscreen/mediatek/chipone-tddi_9916/Kconfig"
+source "drivers/input/touchscreen/mediatek/focaltech_touch_spi/Kconfig"
 
 config TOUCHSCREEN_MTK_GT9XX_LM
 	bool "GT9XX_LM for Mediatek package"
@@ -202,4 +206,10 @@ config TOUCHSCREEN_GOODIX_BRL
 	  If unsure, say N.
 source "drivers/input/touchscreen/mediatek/goodix_berlin_driver/Kconfig"
 
+config TOUCHSCREEN_COMMON
+	bool "touchscreen for xiaomi C3S project"
+	depends on SPI
+	default n
+	help
+		Say Y here if you have a Xiaomi C3S touchscreen and want to enable support for the built-in touchscreen.
 endif

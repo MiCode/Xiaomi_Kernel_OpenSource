@@ -62,12 +62,13 @@ static void wake_up_power_misc(struct shutdown_controller *sdd)
 	sdd->timeout = true;
 	wake_up(&sdd->wait_que);
 }
-
+/*60度关机
 static void wake_up_overheat(struct shutdown_controller *sdd)
 {
 	sdd->overheat = true;
 	wake_up(&sdd->wait_que);
 }
+*/
 
 void set_shutdown_vbat_lt(int vbat_lt, int vbat_lt_lv1)
 {
@@ -537,7 +538,7 @@ int mtk_power_misc_psy_event(
 					"battery temperature >= %d,shutdown",
 					tmp);
 
-				wake_up_overheat(&sdc);
+				//wake_up_overheat(&sdc);
 			}
 		}
 	}

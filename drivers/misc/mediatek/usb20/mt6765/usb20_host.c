@@ -90,6 +90,7 @@ static int vbus_control;
 module_param(vbus_control, int, 0644);
 
 #ifdef CONFIG_MTK_MUSB_PHY
+//#if 1
 void set_usb_phy_mode(int mode)
 {
 	switch (mode) {
@@ -290,16 +291,20 @@ module_param(host_test_vbus_only, int, 0644);
 static int host_plug_test_triggered;
 void switch_int_to_device(struct musb *musb)
 {
+#if 0
 	irq_set_irq_type(iddig_eint_num, IRQF_TRIGGER_HIGH);
 	enable_irq(iddig_eint_num);
-	DBG(0, "%s is done\n", __func__);
+#endif
+	DBG(0, "%s is done mt6761\n", __func__);
 }
 
 void switch_int_to_host(struct musb *musb)
 {
+#if 0
 	irq_set_irq_type(iddig_eint_num, IRQF_TRIGGER_LOW);
 	enable_irq(iddig_eint_num);
-	DBG(0, "%s is done\n", __func__);
+#endif
+	DBG(0, "%s is done mt6761\n", __func__);
 }
 
 static void do_host_plug_test_work(struct work_struct *data)
@@ -380,7 +385,7 @@ static void do_host_work(struct work_struct *data)
 	int usb_clk_state = NO_CHANGE;
 	struct mt_usb_work *work =
 		container_of(data, struct mt_usb_work, dwork.work);
-	struct mt_usb_glue *glue = mtk_musb->glue;
+	 struct mt_usb_glue *glue = mtk_musb->glue;
 
 	/*
 	 * kernel_init_done should be set in
@@ -460,6 +465,7 @@ static void do_host_work(struct work_struct *data)
 				MUSB_DEVCTL, (devctl&(~MUSB_DEVCTL_SESSION)));
 
 		phy_set_mode(glue->phy, PHY_MODE_INVALID);
+		//set_usb_phy_mode(PHY_MODE_INVALID);
 
 		/* wait */
 		mdelay(5);
@@ -469,6 +475,7 @@ static void do_host_work(struct work_struct *data)
 				MUSB_DEVCTL, (devctl | MUSB_DEVCTL_SESSION));
 
 		phy_set_mode(glue->phy, PHY_MODE_USB_HOST);
+		//set_usb_phy_mode(PHY_MODE_USB_HOST);
 
 		musb_start(mtk_musb);
 
@@ -498,7 +505,9 @@ static void do_host_work(struct work_struct *data)
 
 		/* for no VBUS sensing IP */
 		phy_set_mode(glue->phy, PHY_MODE_INVALID);
+		//set_usb_phy_mode(PHY_MODE_INVALID);
 
+		msleep(100);
 		musb_stop(mtk_musb);
 
 		if (!typec_control && !host_plug_test_triggered)
@@ -511,7 +520,7 @@ static void do_host_work(struct work_struct *data)
 		}
 #endif
 		/* to make sure all event clear */
-		msleep(32);
+		msleep(132);
 
 		mtk_musb->xceiv->otg->state = OTG_STATE_B_IDLE;
 		/* switch to DEV state after turn off VBUS */

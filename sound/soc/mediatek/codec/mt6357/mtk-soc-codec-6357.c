@@ -64,8 +64,14 @@
 
 #include "mtk-soc-speaker-amp.h"
 
+#ifdef CONFIG_SND_SOC_FS1599
+#include "../../../codecs/fs1599/fsm_public.h"
+#endif
+
 /* Use analog setting to do dc compensation */
 #define ANALOG_HPTRIM
+/* used ext speaker lol */
+#define CONFIG_SND_SOC_DSPK_LOL_HP
 //#define ANALOG_HPTRIM_FOR_CUST
 //#define BYPASS_HPIMP
 /* HP IMPEDANCE Current Calibration from EFUSE */
@@ -76,6 +82,33 @@ static bool GetAdcStatus(void);
 static void TurnOffDacPower(void);
 static void TurnOnDacPower(int device);
 static void setDlMtkifSrc(bool enable);
+#ifdef CONFIG_SND_SOC_AW87XXX
+extern int aw87xxx_set_profile(int dev_index, char *profile);
+static char *aw_profile[] = { "Off", "Music", "Voice", "Fm", "Receiver" };
+enum aw87xxx_dev_index {
+	AW_DEV_0 = 0,
+};
+enum aw87xxx_scene_mode {
+	AW87XXX_OFF_MODE = 0,
+	AW87XXX_MUSIC_MODE = 1,
+	AW87XXX_VOICE_MODE = 2,
+	AW87XXX_FM_MODE = 3,
+	AW87XXX_RCV_MODE = 4,
+	AW87XXX_MODE_MAX = 5,
+};
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+enum fs1599_scene_mode {
+	FS1599_MUSIC_MODE = 0,
+	FS1599_VOICE_MODE = 1,
+	FS1599_VOIP_MODE = 2,
+	FS1599_RING_MODE = 3,
+	FS1599_FM_MODE = 4,
+	FS1599_BYPASS_MODE = 6,
+	FS1599_RCV_MODE = 15,
+	FS1599_MAX_MODE = 16,
+};
+#endif
 #ifndef ANALOG_HPTRIM
 static int SetDcCompenSation(bool enable);
 #endif
@@ -154,6 +187,9 @@ static const int mDcOffsetTrimChannel = 9;
 static bool mInitCodec;
 static unsigned int always_pull_down_enable;
 static unsigned int always_pull_low_off;
+#ifdef CONFIG_SND_SOC_AW87XXX
+extern int aw87xxx_add_codec_controls(void *codec);
+#endif
 int (*enable_dc_compensation)(bool enable) = NULL;
 int (*set_lch_dc_compensation)(int value) = NULL;
 int (*set_rch_dc_compensation)(int value) = NULL;
@@ -3415,6 +3451,34 @@ static int PMIC_REG_CLEAR_Get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+#if defined(CONFIG_SND_SOC_DSPK_LOL_HP)
+static int spk_amp_mode;
+static const char *spk_amp_type_str[] = {"SPEAKER_MODE", "RECIEVER_MODE", "FM_MODE", "VOICE_MODE"};
+static const struct soc_enum spk_amp_type_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(spk_amp_type_str), spk_amp_type_str);
+
+static int mt6357_spk_amp_mode_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s() = %d\n", __func__, spk_amp_mode);
+	ucontrol->value.integer.value[0] = spk_amp_mode;
+	return 0;
+}
+
+static int mt6357_spk_amp_mode_set(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+
+	if (ucontrol->value.enumerated.item[0] >= e->items)
+		return -EINVAL;
+
+	spk_amp_mode = ucontrol->value.integer.value[0];
+	pr_debug("%s() = %d\n", __func__, spk_amp_mode);
+	return 0;
+}
+#endif
+
 static void Voice_Amp_Change(bool enable)
 {
 	if (enable) {
@@ -3477,7 +3541,6 @@ static void Voice_Amp_Change(bool enable)
 			Ana_Set_Reg(AUDDEC_ANA_CON3, 0x009b, 0xffff);
 			/* disable Pull-down HPL/R to AVSS28_AUD */
 			hp_pull_down(false);
-
 		}
 	} else {
 		pr_debug("%s(), amp off\n", __func__);
@@ -3613,12 +3676,63 @@ static void Speaker_Amp_Change(bool enable)
 		Ana_Set_Reg(AUDDEC_ANA_CON4, 0x011b, 0xffff);
 		/* disable Pull-down HPL/R to AVSS28_AUD */
 		hp_pull_down(false);
+#if defined(CONFIG_SND_SOC_DSPK_LOL_HP)
+		if (1 == spk_amp_mode) {
+			pr_debug("%s(), spk_amp_audio_krcv()\n", __func__);
+#ifdef CONFIG_SND_SOC_AW87XXX
+			/* Receiver */
+			aw87xxx_set_profile(AW_DEV_0, aw_profile[AW87XXX_RCV_MODE]);
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+			fsm_set_scene(FS1599_RCV_MODE);
+			fsm_speaker_onn();
+#endif
+		} else if (2 == spk_amp_mode) {
+			pr_debug("%s(), spk_amp_audio_kfm()\n", __func__);
+#if defined(CONFIG_SND_SOC_AW87XXX)
+			aw87xxx_set_profile(AW_DEV_0, aw_profile[AW87XXX_FM_MODE]);
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+			fsm_set_scene(FS1599_FM_MODE);
+			fsm_speaker_onn();
+#endif
+		} else if (3 == spk_amp_mode) {
+			pr_debug("%s(), spk_amp_audio_kvoice()\n", __func__);
+#if defined(CONFIG_SND_SOC_AW87XXX)
+			aw87xxx_set_profile(AW_DEV_0, aw_profile[AW87XXX_VOICE_MODE]);
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+			fsm_set_scene(FS1599_VOICE_MODE);
+			fsm_speaker_onn();
+#endif
+		} else {
+			pr_debug("%s(), spk_amp_audio_kspk()\n", __func__);
+#ifdef CONFIG_SND_SOC_AW87XXX
+			/* Music */
+			aw87xxx_set_profile(AW_DEV_0, aw_profile[AW87XXX_MUSIC_MODE]);
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+			fsm_set_scene(FS1599_MUSIC_MODE);
+			fsm_speaker_onn();
+#endif
+		}
+#endif
 
 	} else {
 		pr_debug("%s(), enable %d\n", __func__, enable);
 		/* LOL mux to open */
 		Ana_Set_Reg(AUDDEC_ANA_CON4, 0x0000, 0x3 << 2);
 		if (GetDLStatus() == false) {
+#if defined(CONFIG_SND_SOC_DSPK_LOL_HP)
+			pr_debug("%s(), spk_amp_audio_off()\n", __func__);
+#ifdef CONFIG_SND_SOC_AW87XXX
+			/* Off */
+			aw87xxx_set_profile(AW_DEV_0, aw_profile[AW87XXX_OFF_MODE]);
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+			fsm_speaker_off();
+#endif
+#endif
 			/* Pull-down HPL/R to AVSS28_AUD */
 			hp_pull_down(true);
 
@@ -3899,6 +4013,47 @@ static void Headset_Speaker_Amp_Change(bool enable)
 #endif
 		/* disable Pull-down HPL/R to AVSS28_AUD */
 		hp_pull_down(false);
+#if defined(CONFIG_SND_SOC_DSPK_LOL_HP)
+		if (1 == spk_amp_mode) {
+			pr_debug("%s(), headset_spk_amp_audio_krcv()\n", __func__);
+#ifdef CONFIG_SND_SOC_AW87XXX
+			/* Receiver */
+			aw87xxx_set_profile(AW_DEV_0, aw_profile[AW87XXX_RCV_MODE]);
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+			fsm_set_scene(FS1599_RCV_MODE);
+			fsm_speaker_onn();
+#endif
+		} else if (2 == spk_amp_mode) {
+			pr_debug("%s(), headset_spk_amp_audio_kfm()\n", __func__);
+#if defined(CONFIG_SND_SOC_AW87XXX)
+			aw87xxx_set_profile(AW_DEV_0, aw_profile[AW87XXX_FM_MODE]);
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+			fsm_set_scene(FS1599_FM_MODE);
+			fsm_speaker_onn();
+#endif
+		} else if (3 == spk_amp_mode) {
+			pr_debug("%s(), headset_spk_amp_audio_kvoice()\n", __func__);
+#if defined(CONFIG_SND_SOC_AW87XXX)
+			aw87xxx_set_profile(AW_DEV_0, aw_profile[AW87XXX_VOICE_MODE]);
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+			fsm_set_scene(FS1599_VOICE_MODE);
+			fsm_speaker_onn();
+#endif
+		} else {
+			pr_debug("%s(), headset_spk_amp_audio_kspk()\n", __func__);
+#ifdef CONFIG_SND_SOC_AW87XXX
+			/* Music */
+			aw87xxx_set_profile(AW_DEV_0, aw_profile[AW87XXX_MUSIC_MODE]);
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+			fsm_set_scene(FS1599_MUSIC_MODE);
+			fsm_speaker_onn();
+#endif
+		}
+#endif
 
 	} else {
 		/* Pull-down HPL/R to AVSS28_AUD */
@@ -3909,6 +4064,16 @@ static void Headset_Speaker_Amp_Change(bool enable)
 		/* Audio left headphone input selection (00) open / open */
 		set_input_mux(0);
 		if (GetDLStatus() == false) {
+#if defined(CONFIG_SND_SOC_DSPK_LOL_HP)
+			pr_debug("%s(), headset_spk_amp_audio_off()\n", __func__);
+#ifdef CONFIG_SND_SOC_AW87XXX
+			/* Off */
+			aw87xxx_set_profile(AW_DEV_0, aw_profile[AW87XXX_OFF_MODE]);
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+			fsm_speaker_off();
+#endif
+#endif
 			Ana_Set_Reg(AUDDEC_ANA_CON6, 0x0000, 0x0001);
 			/* Disable Audio DAC */
 			Ana_Set_Reg(AUDDEC_ANA_CON0, 0x0000, 0x000f);
@@ -4426,6 +4591,10 @@ static const struct snd_kcontrol_new mt6357_snd_controls[] = {
 		     Audio_AmpR_Set),
 	SOC_ENUM_EXT("Audio_Amp_L_Switch", Audio_DL_Enum[1], Audio_AmpL_Get,
 		     Audio_AmpL_Set),
+#if defined(CONFIG_SND_SOC_DSPK_LOL_HP)
+	SOC_ENUM_EXT("SPK_AMP_MODE", spk_amp_type_enum,
+		     mt6357_spk_amp_mode_get, mt6357_spk_amp_mode_set),
+#endif
 	SOC_ENUM_EXT("Voice_Amp_Switch", Audio_DL_Enum[2], Voice_Amp_Get,
 		     Voice_Amp_Set),
 	SOC_ENUM_EXT("Speaker_Amp_Switch", Audio_DL_Enum[3],
@@ -5912,6 +6081,8 @@ static void mt6357_codec_init_reg(struct snd_soc_component *component)
 	Ana_Set_Reg(AUDDEC_ANA_CON3, 0x1 << 4, 0x1 << 4);
 	/* disable LO buffer left short circuit protection */
 	Ana_Set_Reg(AUDDEC_ANA_CON4, 0x1 << 4, 0x1 << 4);
+	/* AUDENC_ANA_CON10 bit12 EINTHIRENB 0:2M 1:500k */
+	Ana_Set_Reg(AUDENC_ANA_CON10, 0x1c07, 0xffff);//ALPS07489540
 	/* set gpio */
 	set_playback_gpio(false);
 	set_capture_gpio(false);
@@ -5979,6 +6150,17 @@ static int mt6357_component_probe(struct snd_soc_component *component)
 				   ARRAY_SIZE(mt6357_pmic_Test_controls));
 	snd_soc_add_component_controls(component, Audio_snd_auxadc_controls,
 				   ARRAY_SIZE(Audio_snd_auxadc_controls));
+#ifdef CONFIG_SND_SOC_AW87XXX
+	ret = aw87xxx_add_codec_controls((void *)component);
+	if (ret < 0) {
+		pr_err("%s: add_codec_controls failed, err %d\n",
+			__func__, ret);
+		return ret;
+	};
+#endif
+#ifdef CONFIG_SND_SOC_FS1599
+	fsm_add_codec_controls(component);
+#endif
 	/* here to set  private data */
 	mCodec_data = kzalloc(sizeof(struct mt6357_codec_priv), GFP_KERNEL);
 	if (!mCodec_data) {

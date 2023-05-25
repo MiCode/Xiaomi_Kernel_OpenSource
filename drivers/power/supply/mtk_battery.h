@@ -125,6 +125,11 @@ struct battery_data {
 	/* Add for Battery Service */
 	int bat_batt_vol;
 	int bat_batt_temp;
+	int mtbf_cur; //add 234935
+	int fake_soc; //add 239614
+	/* 2022.06.30 longcheer yuzhaohua add */
+	int set_temp_enable;
+	int set_temp_num;
 };
 
 enum fg_daemon_cmds {
@@ -1012,6 +1017,8 @@ extern void disable_fg(struct mtk_battery *gm);
 extern int get_shutdown_cond(struct mtk_battery *gm);
 extern int get_shutdown_cond_flag(struct mtk_battery *gm);
 extern void set_shutdown_cond_flag(struct mtk_battery *gm, int val);
+//begin 233028
+extern int battery_status_back(unsigned long event); //end 233028
 /*mtk_battery.c end */
 
 /* mtk_battery_algo.c */

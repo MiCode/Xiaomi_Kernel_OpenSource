@@ -58,6 +58,14 @@
 #include <linux/reboot.h>
 
 #include "mtk_charger.h"
+#include "mtk_battery.h"
+
+//longcheer 2022/6/7 nielianjie10 Percent 98 recharger
+#define recharger_val  98
+//longcheer 2022/7/19 nielianjie10 Wait time 5 times
+#define wait_time      5          //5 seconds each time
+
+static int recharger_flag = EVENT_RECHG_INIT;
 
 static int _uA_to_mA(int uA)
 {
@@ -126,6 +134,12 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	bool is_basic = false;
 	u32 ichg1_min = 0, aicr1_min = 0;
 	int ret;
+	// longcheer nielianjie10 2022/06/14 float charger type
+	int float_input_current = 1000000;         //float input current 1000 mA
+	int float_charger_current = 1000000;       //float charger current 1000 mA
+
+        struct power_supply     *battery_psy = power_supply_get_by_name("battery");//begin 234935
+        union power_supply_propval val = {0,}; //end 234935
 
 	select_cv(info);
 
@@ -189,10 +203,8 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		}
 	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
 		/* NONSTANDARD_CHARGER */
-		pdata->input_current_limit =
-			info->data.usb_charger_current;
-		pdata->charging_current_limit =
-			info->data.usb_charger_current;
+		pdata->input_current_limit = float_input_current;
+		pdata->charging_current_limit = float_charger_current;
 		is_basic = true;
 	}
 
@@ -236,10 +248,19 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 			&& info->chr_type == POWER_SUPPLY_TYPE_USB)
 			chr_debug("USBIF & STAND_HOST skip current check\n");
 		else {
-			if (info->sw_jeita.sm == TEMP_T0_TO_T1) {
-				pdata->input_current_limit = 500000;
-				pdata->charging_current_limit = 350000;
-			}
+			if (info->sw_jeita.sm == TEMP_T1_TO_T2 && info->chr_type != POWER_SUPPLY_TYPE_USB){ //modfiy 235618
+				pdata->input_current_limit = 1500000;
+				pdata->charging_current_limit = info->sw_jeita.curr;
+			} else if (info->sw_jeita.sm == TEMP_T0_TO_T1 ) {
+                                pdata->input_current_limit = 500000;
+                                pdata->charging_current_limit = info->sw_jeita.curr;
+                        }else if (info->sw_jeita.sm == TEMP_T3_TO_T4 && info->chr_type == POWER_SUPPLY_TYPE_USB_DCP){ //begin 235618
+				pdata->input_current_limit = info->sw_jeita.curr;
+				pdata->charging_current_limit = info->sw_jeita.curr;
+			} //end 235618
+
+                        chr_err("enable_sw_jeita,sw_jeita.curr=%d\n",
+                        info->sw_jeita.curr);
 		}
 	}
 
@@ -310,6 +331,23 @@ done:
 			pdata->input_current_limit, aicr1_min);
 		is_basic = true;
 	}
+	//degin	234935
+	if(pdata->input_current_limit < 1500000){
+                if (battery_psy) {
+                        ret = power_supply_get_property(battery_psy,
+                                POWER_SUPPLY_PROP_MTBF_CUR, &val);
+                        if (ret) {
+                                chr_err("get mtbf current failed!!\n");
+                        } else {
+				if(val.intval >= 1500){
+					chr_err("mtbf current limit is %d\n", val.intval);
+					pdata->input_current_limit = val.intval * 1000;
+				}
+			}
+		} else {
+                        chr_err("mtbf battery_psy not found\n");
+                }
+	} //end 234935
 
 	chr_err("m:%d chg1:%d,%d,%d,%d chg2:%d,%d,%d,%d type:%d:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",
 		info->config,
@@ -330,31 +368,125 @@ done:
 	return is_basic;
 }
 
+/* longcheer  2022/7/19 nielianjie10 add get gauge for battery info */
+int get_fg_batt_info(struct mtk_charger *info){
+	int fg_soc = 0;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	if (gm == NULL) {
+		chr_err("%s gm is null,get gm is false!\n", __func__);
+		fg_soc = get_uisoc(info);
+		chr_err("%s real_soc is uisoc, fg_soc = %d \n", __func__, fg_soc);
+	} else {
+		fg_soc = gm->soc;
+		chr_err("%s get gm is success, fg_soc = %d \n", __func__, fg_soc);
+	}
+
+	return fg_soc;
+}
+/* longcheer  2022/7/19 nielianjie10 add get gauge for battery info end*/
+/* longcheer  2022/7/19 nielianjie10 add wait update for soc */
+static int wait_fg_update_soc (bool flag, struct mtk_charger *info){
+	int loop;
+	int gauge_soc = 0;
+
+	if(flag == true){
+		for (loop = 0;loop < wait_time;loop++){
+			gauge_soc = get_fg_batt_info(info);
+			if (gauge_soc != 100){
+				msleep(5000);
+			}else return true;
+		}
+		return false;
+	} else return false;
+}
+/* longcheer  2022/7/19 nielianjie10 add wait update for soc end*/
+
 static int do_algorithm(struct mtk_charger *info)
 {
 	struct chg_alg_device *alg;
 	struct charger_data *pdata;
 	struct chg_alg_notify notify;
+	struct mtk_battery *gm;
 	bool is_basic = true;
-	bool chg_done = false;
-	int i;
-	int ret;
+	bool chg_done = false,block_flag = false;
+	int i,ret;
 	int val = 0;
+	int real_soc = 0;
+	int current_bat_temp = 0;
 
 	pdata = &info->chg_data[CHG1_SETTING];
 	charger_dev_is_charging_done(info->chg1_dev, &chg_done);
 	is_basic = select_charging_current_limit(info, &info->setting);
+	current_bat_temp = get_battery_temperature(info);
 
-	if (info->is_chg_done != chg_done) {
-		if (chg_done) {
-			charger_dev_do_event(info->chg1_dev, EVENT_FULL, 0);
-			chr_err("%s battery full\n", __func__);
-		} else {
-			charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
-			chr_err("%s battery recharge\n", __func__);
+	/*longcheer 2022/6/7 nielianjie10 Percent 98 recharger */
+	real_soc = get_fg_batt_info(info);
+
+	if (current_bat_temp < info->data.temp_t3_thres) {
+		if (info->is_chg_done != chg_done) {
+			if (chg_done) {
+				charger_dev_do_event(info->chg1_dev, EVENT_FULL, 0);
+				recharger_flag = EVENT_RECHG_FULL;
+				block_flag = true;
+				chr_err("%s %d  battery full\n", __func__,__LINE__);
+			} else {
+				if (recharger_flag == EVENT_RECHG_FULL && real_soc <= recharger_val) {
+					charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
+					recharger_flag = EVENT_RECHG_START;
+					chr_err("%s %d  battery recharge\n", __func__,__LINE__);
+				} else if (recharger_flag == EVENT_RECHG_BLOCK && real_soc <= recharger_val) {
+					charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
+					recharger_flag = EVENT_RECHG_START;
+					chr_err("%s %d real_soc:%d  <= recharger_val:%d ,battery recharge is success\n",
+						__func__,__LINE__,real_soc,recharger_val);
+				} else if(recharger_flag == EVENT_RECHG_FULL && real_soc > recharger_val) {
+					recharger_flag = EVENT_RECHG_BLOCK;
+					chr_err("%s %dreal_soc:%d  > recharger_val:%d ,battery recharge is block\n",
+						 __func__,__LINE__,real_soc,recharger_val);
+				} else if (recharger_flag == EVENT_RECHG_BLOCK && real_soc > recharger_val) {
+                                        chr_err("%s %d real_soc:%d  > recharger_val:%d ,battery recharge is block\n",
+                                                 __func__,__LINE__,real_soc,recharger_val);
+				}
+			}
 		}
-	}
 
+		chr_err("%s %d :block_flag = %d\n", __func__,__LINE__,block_flag);
+		switch (recharger_flag) {
+		case EVENT_RECHG_FULL:
+			if (real_soc <= recharger_val && block_flag == false) {
+				charger_dev_enable(info->chg1_dev, false);
+				charger_dev_enable(info->chg1_dev, true);
+				charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
+				recharger_flag = EVENT_RECHG_START;
+				chg_done = false;
+				chr_err("%s %d battery recharge\n", __func__,__LINE__);
+				break;
+			} else break;
+		case EVENT_RECHG_START:
+			break;
+		case EVENT_RECHG_BLOCK:
+			chg_done = info->is_chg_done;
+			break;
+		default:
+			break;
+		}
+	} else {
+        	if (info->is_chg_done != chg_done) {
+                	if (chg_done) {
+                        	charger_dev_do_event(info->chg1_dev, EVENT_FULL, 0);
+				recharger_flag = EVENT_RECHG_FULL;
+				block_flag = true;
+                        	chr_err("%s %d battery full\n", __func__,__LINE__);
+			} else {
+                        	charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
+				recharger_flag = EVENT_RECHG_START;
+                        	chr_err("%s %d battery recharge\n", __func__,__LINE__);
+                	}
+        	}
+	}
+	/*longcheer 2022/6/7 nielianjie10 Percent 98 recharger end*/
 	chr_err("%s is_basic:%d\n", __func__, is_basic);
 	if (is_basic != true) {
 		is_basic = true;
@@ -441,8 +573,10 @@ static int do_algorithm(struct mtk_charger *info)
 			info->setting.cv);
 	}
 
+	//longcheer 2022/6/7 nielianjie10 Percent 98 recharger
+	chr_info("%s recharger_flag = %d\n",__func__,recharger_flag);
 	if (pdata->input_current_limit == 0 ||
-	    pdata->charging_current_limit == 0)
+	    pdata->charging_current_limit == 0 || recharger_flag == EVENT_RECHG_BLOCK)
 		charger_dev_enable(info->chg1_dev, false);
 	else
 		charger_dev_enable(info->chg1_dev, true);
@@ -452,6 +586,9 @@ static int do_algorithm(struct mtk_charger *info)
 
 	if (info->chg2_dev != NULL)
 		charger_dev_dump_registers(info->chg2_dev);
+
+	//longcheer  2022/7/19 nielianjie add wait update for soc
+	wait_fg_update_soc(block_flag, info);
 
 	return 0;
 }
@@ -498,20 +635,28 @@ static int charger_dev_event(struct notifier_block *nb, unsigned long event,
 	case CHARGER_DEV_NOTIFY_EOC:
 		notify.evt = EVT_FULL;
 		notify.value = 0;
-	for (i = 0; i < 10; i++) {
-		alg = info->alg[i];
-		chg_alg_notifier_call(alg, &notify);
-	}
+		//begin 233028
+		battery_status_back(CHARGER_NOTIFY_EOC);
+		for (i = 0; i < 10; i++) {
+			alg = info->alg[i];
+			chg_alg_notifier_call(alg, &notify);
+		}//end 233028
 
 		break;
 	case CHARGER_DEV_NOTIFY_RECHG:
+		//begin 233028
+		battery_status_back(CHARGER_NOTIFY_START_CHARGING);//end 233028
 		pr_info("%s: recharge\n", __func__);
 		break;
 	case CHARGER_DEV_NOTIFY_SAFETY_TIMEOUT:
+		//begin 233028
+		battery_status_back(CHARGER_NOTIFY_ERROR);//end 233028
 		info->safety_timeout = true;
 		pr_info("%s: safety timer timeout\n", __func__);
 		break;
 	case CHARGER_DEV_NOTIFY_VBUS_OVP:
+		//begin 233028
+		battery_status_back(CHARGER_NOTIFY_ERROR);//end 233028
 		info->vbusov_stat = data->vbusov_stat;
 		pr_info("%s: vbus ovp = %d\n", __func__, info->vbusov_stat);
 		break;

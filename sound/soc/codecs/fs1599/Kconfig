@@ -1,0 +1,6 @@
+config SND_SOC_FS1599
+	tristate "SoC Audio for awinic FS1599N Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for FS1599N Smart K PA.
+

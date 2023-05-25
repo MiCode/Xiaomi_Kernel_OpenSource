@@ -527,7 +527,20 @@ config UID_SYS_STATS_DEBUG
 	default n
 	help
 	  Per TASK based io statistics exported to /proc/uid_io
-
+config ANT_CHECK
+	tristate "ant check gpio"
+	help
+	  Say 'y' here to include support for the QTI QPNP MISC
+	  peripheral. The MISC peripheral holds the USB ID interrupt
+	  and the driver provides an API to check if this interrupt
+	  is available on the current PMIC chip.
+config ANT_CHECK_DIV
+	tristate "ant check div gpio"
+	help
+	  Say 'y' here to include support for the QTI QPNP MISC
+	  peripheral. The MISC peripheral holds the USB ID interrupt
+	  and the driver provides an API to check if this interrupt
+	  is available on the current PMIC chip.
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
@@ -543,4 +556,5 @@ source "drivers/misc/cxl/Kconfig"
 source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/mediatek/Kconfig"
+source "drivers/misc/mi-memory/Kconfig"
 endmenu

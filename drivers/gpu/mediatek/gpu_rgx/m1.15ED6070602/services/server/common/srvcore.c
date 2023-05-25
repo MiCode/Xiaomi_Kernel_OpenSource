@@ -903,6 +903,9 @@ PVRSRV_ERROR PVRSRVGetMultiCoreInfoKM(CONNECTION_DATA *psConnection,
 	PVRSRV_ERROR eError = PVRSRV_ERROR_NOT_SUPPORTED;
 	PVR_UNREFERENCED_PARAMETER(psConnection);
 
+	//Initialise the Buffer
+	memset(pui64Caps, 0x00, (ui32CapsSize * sizeof(IMG_UINT64)));
+
 	if (psDeviceNode->pfnGetMultiCoreInfo != NULL)
 	{
 		eError = psDeviceNode->pfnGetMultiCoreInfo(psDeviceNode, ui32CapsSize, pui32NumCores, pui64Caps);

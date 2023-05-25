@@ -2356,6 +2356,32 @@ static int ptim_resist_get(struct mtk_gauge *gauge,
 	return ret;
 }
 
+#define BAT_ID_VOLT 1800000000
+#define BAT_ID_UP_R 200000
+static int batt_id_get(struct iio_channel *chan)
+{
+        int id_v = 0;
+        int id_r = 0;
+        int id_i = 0;
+        int ret;
+
+        if (!IS_ERR(chan)) {
+                ret = iio_read_channel_processed(chan, &id_v);
+                if (ret < 0)
+                        printk("[%s]read fail,ret=%d\n", __func__, ret);
+        } else {
+                printk("[%s]chan error\n", __func__);
+                ret = -ENOTSUPP;
+        }
+        id_v *= 1000000;
+        id_i = (BAT_ID_VOLT - id_v) / BAT_ID_UP_R;
+        if (id_i < 50)
+                return 1000000;/* if current is too low,return high R. */
+        id_r = id_v / id_i;
+        printk("lct chg:v=%d,i=%d,r=%d\n",id_v,id_i,id_r);
+        return id_r;
+}
+
 static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int val)
 {
@@ -3160,6 +3186,7 @@ static int mt6357_gauge_probe(struct platform_device *pdev)
 	struct mtk_gauge *gauge;
 	int ret;
 	struct iio_channel *chan_bat_temp;
+	struct iio_channel *chan_batt_id;
 
 	bm_err("%s: starts\n", __func__);
 
@@ -3225,6 +3252,15 @@ static int mt6357_gauge_probe(struct platform_device *pdev)
 			ret);
 	}
 
+        chan_batt_id = devm_iio_channel_get(
+                &pdev->dev, "ap_batt_id");
+        if (IS_ERR(chan_batt_id)) {
+                ret = PTR_ERR(chan_batt_id);
+                bm_err("chan_batt_id auxadc get fail, ret=%d\n",
+                        ret);
+        }
+
+	gauge->batt_id = batt_id_get(chan_batt_id);
 	gauge->hw_status.car_tune_value = 1000;
 	gauge->hw_status.r_fg_value = 50;
 	gauge->attr = mt6357_sysfs_field_tbl;

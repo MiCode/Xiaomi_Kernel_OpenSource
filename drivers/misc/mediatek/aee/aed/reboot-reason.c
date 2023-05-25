@@ -56,6 +56,33 @@ static const char *mrdump_get_cmd(void)
 	return aee_cmdline;
 }
 
+// 2022.06.29 longcheer wangchong add for cmdline backup start
+static const char *mrdump_get_cmd_backup(void)
+{
+	struct file *fd;
+	mm_segment_t fs;
+	loff_t pos = 0;
+
+	if (aee_cmdline[0] != 0)
+		return aee_cmdline;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+	fd = filp_open("/dev/cmdline_backup", O_RDONLY, 0);
+	if (IS_ERR(fd)) {
+		pr_info("kedump: Unable to open /dev/cmdline_backup (%ld)",
+			PTR_ERR(fd));
+		set_fs(fs);
+		return aee_cmdline;
+	}
+	vfs_read(fd, (void *)aee_cmdline, COMMAND_LINE_SIZE, &pos);
+	filp_close(fd, NULL);
+	fd = NULL;
+	set_fs(fs);
+	return aee_cmdline;
+}
+// 2022.06.29 longcheer wangchong add for cmdline backup end
+
 static int aee_rr_reboot_reason_proc_open(struct inode *inode,
 		struct file *file)
 {
@@ -94,7 +121,9 @@ static ssize_t powerup_reason_show(struct kobject *kobj,
 	char *br_ptr_e;
 
 	memset(boot_reason, 0x0, 64);
-	br_ptr = strstr(mrdump_get_cmd(), "androidboot.bootreason=");
+	br_ptr = strstr(mrdump_get_cmd(), "androidboot.bootreason=");          
+        br_ptr = strstr(mrdump_get_cmd_backup(), "androidboot.bootreason=");// 2022.06.29 longcheer wangchong add for cmdline backup
+
 	if (br_ptr) {
 		br_ptr_e = strstr(br_ptr, " ");
 		/* get boot reason */

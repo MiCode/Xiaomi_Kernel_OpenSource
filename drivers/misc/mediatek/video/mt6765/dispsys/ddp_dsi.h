@@ -164,6 +164,18 @@ enum DSI_PORCH_TYPE {
 	DSI_PORCH_NUM,
 };
 
+struct LCM_setting_table {
+	unsigned int cmd;
+	unsigned char count;
+	unsigned char para_list[64];
+};
+struct LCM_mipi_read_write {
+	unsigned int read_enable;
+	unsigned int read_count;
+	unsigned char read_buffer[64];
+	struct LCM_setting_table lcm_setting_table;
+};
+
 extern const struct LCM_UTIL_FUNCS PM_lcm_utils_dsi0;
 /* defined in mtkfb.c */
 extern bool is_ipoh_bootup;

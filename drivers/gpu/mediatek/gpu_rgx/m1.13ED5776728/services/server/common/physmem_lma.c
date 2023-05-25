@@ -760,7 +760,9 @@ PMRSysPhysAddrLocalMem(PMR_IMPL_PRIVDATA pvPriv,
 				uiAllocIndex = puiOffset[idx] >> uiLog2AllocSize;
 				uiInAllocOffset = puiOffset[idx] - (uiAllocIndex << uiLog2AllocSize);
 
-				PVR_ASSERT(uiAllocIndex < uiNumAllocs);
+				PVR_LOG_RETURN_IF_FALSE(uiAllocIndex < uiNumAllocs,
+					"puiOffset out of range", PVRSRV_ERROR_OUT_OF_RANGE);
+
 				PVR_ASSERT(uiInAllocOffset < (1ULL << uiLog2AllocSize));
 
 				psDevPAddr[idx].uiAddr = psLMAllocArrayData->pasDevPAddr[uiAllocIndex].uiAddr + uiInAllocOffset;

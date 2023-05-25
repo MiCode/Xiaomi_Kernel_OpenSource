@@ -698,6 +698,10 @@ static struct snd_soc_card mt_snd_soc_card_mt = {
 	.num_links = ARRAY_SIZE(mt_soc_dai_common),
 };
 
+#ifdef CONFIG_LCT_AUDIO_INFO
+extern int lct_audio_info_create_sysfs(void);
+#endif
+
 static int mt_soc_snd_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt_snd_soc_card_mt;
@@ -706,6 +710,10 @@ static int mt_soc_snd_probe(struct platform_device *pdev)
 #endif
 	int ret;
 	int daiLinkNum = 0;
+
+#ifdef CONFIG_LCT_AUDIO_INFO
+	lct_audio_info_create_sysfs();
+#endif
 
 	ret = mtk_spk_update_dai_link(mt_soc_extspk_dai, pdev);
 	if (ret) {

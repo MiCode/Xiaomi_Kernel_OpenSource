@@ -73,6 +73,8 @@ struct reg_sequence {
 	unsigned int delay_us;
 };
 
+#define KPD_EVENT 116
+
 #define	regmap_update_bits(map, reg, mask, val) \
 	regmap_update_bits_base(map, reg, mask, val, NULL, false, false)
 #define	regmap_update_bits_async(map, reg, mask, val)\

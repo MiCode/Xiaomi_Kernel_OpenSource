@@ -367,8 +367,9 @@ static PVRSRV_ERROR PMRDevPhysAddrDmaBuf(PMR_IMPL_PRIVDATA pvPriv,
 			ui32PageIndex = puiOffset[idx] >> PAGE_SHIFT;
 			ui32InPageOffset = puiOffset[idx] - ((IMG_DEVMEM_OFFSET_T)ui32PageIndex << PAGE_SHIFT);
 
+			PVR_LOG_RETURN_IF_FALSE(ui32PageIndex < psPrivData->ui32VirtPageCount,
+				"puiOffset out of range", PVRSRV_ERROR_OUT_OF_RANGE);
 
-			PVR_ASSERT(ui32PageIndex < psPrivData->ui32VirtPageCount);
 			PVR_ASSERT(ui32InPageOffset < PAGE_SIZE);
 			psDevPAddr[idx].uiAddr = psPrivData->pasDevPhysAddr[ui32PageIndex].uiAddr + ui32InPageOffset;
 		}

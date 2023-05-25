@@ -81,10 +81,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "pvr_ricommon.h"
 #include "pvrsrv_apphint.h"
 #include "oskm_apphint.h"
+#include "srvcore.h"
 #if defined(__linux__)
 #include "linux/kernel.h"
 #endif
 #else
+#include "srvcore_intern.h"
 #include "rgxdefs.h"
 #endif
 
@@ -877,8 +879,10 @@ DevmemDestroyContext(DEVMEM_CONTEXT *psCtx)
 		goto e1;
 	}
 
-	eError = BridgeDevmemIntCtxDestroy(GetBridgeHandle(psCtx->hDevConnection),
-			psCtx->hDevMemServerContext);
+	eError = DestroyServerResource(psCtx->hDevConnection,
+	                               NULL,
+	                               BridgeDevmemIntCtxDestroy,
+	                               psCtx->hDevMemServerContext);
 	if (bDoCheck)
 	{
 		PVR_LOG_GOTO_IF_ERROR(eError, "BridgeDevMemIntCtxDestroy", e1);
@@ -1289,8 +1293,11 @@ DevmemDestroyHeap(DEVMEM_HEAP *psHeap)
 		}
 	}
 
-	eError = BridgeDevmemIntHeapDestroy(GetBridgeHandle(psHeap->psCtx->hDevConnection),
-			psHeap->hDevMemServerHeap);
+	eError = DestroyServerResource(psHeap->psCtx->hDevConnection,
+	                               NULL,
+	                               BridgeDevmemIntHeapDestroy,
+	                               psHeap->hDevMemServerHeap);
+
 #if defined(PVRSRV_FORCE_UNLOAD_IF_BAD_STATE)
 	if (bDoCheck)
 #endif
@@ -1854,7 +1861,10 @@ IMG_INTERNAL PVRSRV_ERROR
 DevmemUnmakeLocalImportHandle(SHARED_DEV_CONNECTION hDevConnection,
 		IMG_HANDLE hLocalImportHandle)
 {
-	return BridgePMRUnmakeLocalImportHandle(GetBridgeHandle(hDevConnection), hLocalImportHandle);
+	return DestroyServerResource(hDevConnection,
+	                             NULL,
+	                             BridgePMRUnmakeLocalImportHandle,
+	                             hLocalImportHandle);
 }
 
 /*****************************************************************************
@@ -1921,8 +1931,10 @@ _Mapping_Unexport(DEVMEM_IMPORT *psImport,
 
 	PVR_ASSERT (psImport != NULL);
 
-	eError = BridgePMRUnexportPMR(GetBridgeHandle(psImport->hDevConnection),
-			hPMRExportHandle);
+	eError = DestroyServerResource(psImport->hDevConnection,
+	                               NULL,
+	                               BridgePMRUnexportPMR,
+	                               hPMRExportHandle);
 	PVR_ASSERT(eError == PVRSRV_OK);
 }
 

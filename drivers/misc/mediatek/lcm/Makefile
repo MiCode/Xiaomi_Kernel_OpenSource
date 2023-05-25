@@ -19,6 +19,7 @@ obj-$(CONFIG_MTK_LCM) += mt65xx_lcm_list.o        \
                          lcm_common.o             \
                          lcm_gpio.o               \
                          lcm_i2c.o                \
+                         tps65132.o               \
                          lcm_pmic.o               \
                          lcm_util.o
 

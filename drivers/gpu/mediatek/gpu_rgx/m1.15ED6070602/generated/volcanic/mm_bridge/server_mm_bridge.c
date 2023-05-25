@@ -200,7 +200,7 @@ PMRExportPMR_exit:
 			/* Lock over handle creation cleanup. */
 			LockHandle(KERNEL_HANDLE_BASE);
 
-			eError = PVRSRVReleaseHandleUnlocked(KERNEL_HANDLE_BASE,
+			eError = PVRSRVDestroyHandleUnlocked(KERNEL_HANDLE_BASE,
 							     (IMG_HANDLE) psPMRExportPMROUT->
 							     hPMRExport,
 							     PVRSRV_HANDLE_TYPE_PHYSMEM_PMR_EXPORT);
@@ -225,7 +225,7 @@ PMRExportPMR_exit:
 			LockHandle(psConnection->psProcessHandleBase->psHandleBase);
 
 			eError =
-			    PVRSRVReleaseHandleUnlocked(psConnection->psProcessHandleBase->
+			    PVRSRVDestroyHandleUnlocked(psConnection->psProcessHandleBase->
 							psHandleBase, hPMRExportInt,
 							PVRSRV_HANDLE_TYPE_PHYSMEM_PMR_EXPORT);
 			if ((eError != PVRSRV_OK) && (eError != PVRSRV_ERROR_RETRY))
@@ -306,8 +306,8 @@ PVRSRVBridgePMRUnexportPMR(IMG_UINT32 ui32DispatchTableEntry,
 	PVR_ASSERT(psPMRUnexportPMROUT->eError == PVRSRV_OK);
 
 	psPMRUnexportPMROUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psProcessHandleBase->psHandleBase,
-					    hPMRExportInt, PVRSRV_HANDLE_TYPE_PHYSMEM_PMR_EXPORT);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psProcessHandleBase->psHandleBase,
+					      hPMRExportInt, PVRSRV_HANDLE_TYPE_PHYSMEM_PMR_EXPORT);
 	if (unlikely((psPMRUnexportPMROUT->eError != PVRSRV_OK) &&
 		     (psPMRUnexportPMROUT->eError != PVRSRV_ERROR_RETRY)))
 	{
@@ -323,9 +323,9 @@ PVRSRVBridgePMRUnexportPMR(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(KERNEL_HANDLE_BASE);
 
 	psPMRUnexportPMROUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(KERNEL_HANDLE_BASE,
-					    (IMG_HANDLE) psPMRUnexportPMRIN->hPMRExport,
-					    PVRSRV_HANDLE_TYPE_PHYSMEM_PMR_EXPORT);
+	    PVRSRVDestroyHandleStagedUnlocked(KERNEL_HANDLE_BASE,
+					      (IMG_HANDLE) psPMRUnexportPMRIN->hPMRExport,
+					      PVRSRV_HANDLE_TYPE_PHYSMEM_PMR_EXPORT);
 	if (unlikely((psPMRUnexportPMROUT->eError != PVRSRV_OK) &&
 		     (psPMRUnexportPMROUT->eError != PVRSRV_ERROR_RETRY)))
 	{
@@ -502,9 +502,9 @@ PVRSRVBridgePMRUnmakeLocalImportHandle(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psProcessHandleBase->psHandleBase);
 
 	psPMRUnmakeLocalImportHandleOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psProcessHandleBase->psHandleBase,
-					    (IMG_HANDLE) psPMRUnmakeLocalImportHandleIN->hExtMem,
-					    PVRSRV_HANDLE_TYPE_DEVMEM_MEM_IMPORT);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psProcessHandleBase->psHandleBase,
+					      (IMG_HANDLE) psPMRUnmakeLocalImportHandleIN->hExtMem,
+					      PVRSRV_HANDLE_TYPE_DEVMEM_MEM_IMPORT);
 	if (unlikely((psPMRUnmakeLocalImportHandleOUT->eError != PVRSRV_OK) &&
 		     (psPMRUnmakeLocalImportHandleOUT->eError != PVRSRV_ERROR_RETRY)))
 	{
@@ -726,9 +726,9 @@ PVRSRVBridgePMRUnrefPMR(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psPMRUnrefPMROUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psPMRUnrefPMRIN->hPMR,
-					    PVRSRV_HANDLE_TYPE_PHYSMEM_PMR);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psPMRUnrefPMRIN->hPMR,
+					      PVRSRV_HANDLE_TYPE_PHYSMEM_PMR);
 	if (unlikely((psPMRUnrefPMROUT->eError != PVRSRV_OK) &&
 		     (psPMRUnrefPMROUT->eError != PVRSRV_ERROR_RETRY)))
 	{
@@ -761,9 +761,9 @@ PVRSRVBridgePMRUnrefUnlockPMR(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psPMRUnrefUnlockPMROUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psPMRUnrefUnlockPMRIN->hPMR,
-					    PVRSRV_HANDLE_TYPE_PHYSMEM_PMR);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psPMRUnrefUnlockPMRIN->hPMR,
+					      PVRSRV_HANDLE_TYPE_PHYSMEM_PMR);
 	if (unlikely((psPMRUnrefUnlockPMROUT->eError != PVRSRV_OK) &&
 		     (psPMRUnrefUnlockPMROUT->eError != PVRSRV_ERROR_RETRY)))
 	{
@@ -1480,7 +1480,7 @@ DevmemIntCtxCreate_exit:
 			/* Lock over handle creation cleanup. */
 			LockHandle(psConnection->psHandleBase);
 
-			eError = PVRSRVReleaseHandleUnlocked(psConnection->psHandleBase,
+			eError = PVRSRVDestroyHandleUnlocked(psConnection->psHandleBase,
 							     (IMG_HANDLE) psDevmemIntCtxCreateOUT->
 							     hDevMemServerContext,
 							     PVRSRV_HANDLE_TYPE_DEVMEMINT_CTX);
@@ -1526,9 +1526,10 @@ PVRSRVBridgeDevmemIntCtxDestroy(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psDevmemIntCtxDestroyOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psDevmemIntCtxDestroyIN->
-					    hDevmemServerContext, PVRSRV_HANDLE_TYPE_DEVMEMINT_CTX);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psDevmemIntCtxDestroyIN->
+					      hDevmemServerContext,
+					      PVRSRV_HANDLE_TYPE_DEVMEMINT_CTX);
 	if (unlikely
 	    ((psDevmemIntCtxDestroyOUT->eError != PVRSRV_OK)
 	     && (psDevmemIntCtxDestroyOUT->eError != PVRSRV_ERROR_RETRY)))
@@ -1661,9 +1662,9 @@ PVRSRVBridgeDevmemIntHeapDestroy(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psDevmemIntHeapDestroyOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psDevmemIntHeapDestroyIN->hDevmemHeap,
-					    PVRSRV_HANDLE_TYPE_DEVMEMINT_HEAP);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psDevmemIntHeapDestroyIN->hDevmemHeap,
+					      PVRSRV_HANDLE_TYPE_DEVMEMINT_HEAP);
 	if (unlikely((psDevmemIntHeapDestroyOUT->eError != PVRSRV_OK) &&
 		     (psDevmemIntHeapDestroyOUT->eError != PVRSRV_ERROR_RETRY)))
 	{
@@ -1830,9 +1831,9 @@ PVRSRVBridgeDevmemIntUnmapPMR(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psDevmemIntUnmapPMROUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psDevmemIntUnmapPMRIN->hMapping,
-					    PVRSRV_HANDLE_TYPE_DEVMEMINT_MAPPING);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psDevmemIntUnmapPMRIN->hMapping,
+					      PVRSRV_HANDLE_TYPE_DEVMEMINT_MAPPING);
 	if (unlikely((psDevmemIntUnmapPMROUT->eError != PVRSRV_OK) &&
 		     (psDevmemIntUnmapPMROUT->eError != PVRSRV_ERROR_RETRY)))
 	{
@@ -1963,11 +1964,14 @@ PVRSRVBridgeDevmemIntUnreserveRange(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psDevmemIntUnreserveRangeOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psDevmemIntUnreserveRangeIN->hReservation,
-					    PVRSRV_HANDLE_TYPE_DEVMEMINT_RESERVATION);
-	if (unlikely((psDevmemIntUnreserveRangeOUT->eError != PVRSRV_OK) &&
-		     (psDevmemIntUnreserveRangeOUT->eError != PVRSRV_ERROR_RETRY)))
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psDevmemIntUnreserveRangeIN->
+					      hReservation,
+					      PVRSRV_HANDLE_TYPE_DEVMEMINT_RESERVATION);
+	if (unlikely
+	    ((psDevmemIntUnreserveRangeOUT->eError != PVRSRV_OK)
+	     && (psDevmemIntUnreserveRangeOUT->eError != PVRSRV_ERROR_KERNEL_CCB_FULL)
+	     && (psDevmemIntUnreserveRangeOUT->eError != PVRSRV_ERROR_RETRY)))
 	{
 		PVR_DPF((PVR_DBG_ERROR,
 			 "%s: %s",

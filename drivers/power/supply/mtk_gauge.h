@@ -234,6 +234,7 @@ struct mtk_gauge {
 	struct mutex fg_mutex;
 
 	int irq_no[GAUGE_IRQ_MAX];
+	int batt_id;
 
 	bool vbat_l_en;
 	bool vbat_h_en;

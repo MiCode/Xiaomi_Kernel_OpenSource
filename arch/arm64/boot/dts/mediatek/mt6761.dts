@@ -807,7 +807,7 @@ firmware_class.path=/vendor/firmware";
 		compatible = "mediatek,pmic-accdet";
 	};
 
-	goodix_fp: fingerprint {
+       goodix_fp: fingerprint {
 		compatible = "mediatek,goodix-fp";
 	};
 
@@ -3039,7 +3039,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 	};
 
 	otg_iddig: otg_iddig{
-		compatible = "mediatek,usb_iddig_bi_eint";
+	//	compatible = "mediatek,usb_iddig_bi_eint";
 	};
 
 	odm: odm{
@@ -3231,19 +3231,22 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 		/* charging current */
 		usb_charger_current = <500000>;
-		ac_charger_current = <2050000>;
+		ac_charger_current = <1500000>;
 		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
-		charging_host_charger_current = <1500000>;
+		non_std_ac_charger_current = <1020000>;
+		charging_host_charger_current = <1500000>; //modify 241941
 		ta_ac_charger_current = <3000000>;
 		pd_charger_current = <500000>;
 
 		/* battery temperature protection */
-		temp_t4_threshold = <50>;
-		temp_t3_threshold = <45>;
+		temp_t4_threshold = <58>;
+		temp_t3_threshold = <48>;
+		temp_t2_threshold = <15>;
 		temp_t1_threshold = <0>;
 	};
-
+//* 2022.5.11 ruichaoqun edit start */
+/* remove pe* */
+#if 0
 	pe: pe {
 		compatible = "mediatek,charger,pe";
 		gauge = <&mtk_gauge>;
@@ -3288,6 +3291,8 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		dual_polling_ieoc = <450000>;
 		slave_mivr_diff = <100000>;
 	};
+#endif
+/* 2022.5.11ruichaoqun edit end */
 
 	pdc: pdc {
 		compatible = "mediatek,charger,pd";
@@ -3314,7 +3319,9 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		dual_polling_ieoc = <450000>;
 		slave_mivr_diff = <100000>;
 	};
-
+//* 2022.5.11 ruichaoqun edit start */
+/* remove pe* */
+#if 0
 	pe4: pe4 {
 		compatible = "mediatek,charger,pe4";
 		gauge = <&mtk_gauge>;
@@ -3345,11 +3352,12 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		dual_polling_ieoc = <450000>;
 		slave_mivr_diff = <100000>;
 	};
-
+#endif
+/* 2022.5.11ruichaoqun edit end */
 	charger: charger {
 		compatible = "mediatek,charger";
 		gauge = <&mtk_gauge>;
-		charger = <&mt6370_chg>;
+		charger = <&mtk_charger_type>;
 		bootmode = <&chosen>;
 		pmic = <&main_pmic>;
 
@@ -3357,28 +3365,37 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		charger_configuration= <0>;
 
 		/* common */
-		battery_cv = <4350000>;
+		battery_cv = <4400000>; //modify 233964
 		max_charger_voltage = <6500000>;
-		min_charger_voltage = <4600000>;
+		min_charger_voltage = <4400000>; //modify 233964
 
 		/* sw jeita */
-		/* enable_sw_jeita; */
-		jeita_temp_above_t4_cv = <4240000>;
-		jeita_temp_t3_to_t4_cv = <4240000>;
-		jeita_temp_t2_to_t3_cv = <4340000>;
-		jeita_temp_t1_to_t2_cv = <4240000>;
-		jeita_temp_t0_to_t1_cv = <4040000>;
-		jeita_temp_below_t0_cv = <4040000>;
-		temp_t4_thres = <50>;
-		temp_t4_thres_minus_x_degree = <47>;
+		enable_sw_jeita;
+                /*begin 234002*/
+                /*modify by HTH-228214 at 2022/4/21 begin*/
+		jeita_temp_above_t4_cv = <4100000>;
+		jeita_temp_t3_to_t4_cv = <4100000>;
+                /*modify by HTH-228214 at 2022/4/21 end*/
+		jeita_temp_t2_to_t3_cv = <4400000>;
+		jeita_temp_t1_to_t2_cv = <4400000>;
+		jeita_temp_t0_to_t1_cv = <4400000>;
+		jeita_temp_below_t0_cv = <4400000>;/*end 234002*/
+		/*begin 233964*/
+		jeita_current_t3_to_t4 = <1960000>;
+                jeita_current_t2_to_t3 = <2000000>;
+                jeita_current_t1_to_t2 = <1440000>;
+                jeita_current_t0_to_t1 = <490000>;
+		temp_t4_thres = <58>;
+		temp_t4_thres_minus_x_degree = <56>;/*end 233964*/
 		temp_t3_thres = <45>;
-		temp_t3_thres_minus_x_degree = <39>;
-		temp_t2_thres = <10>;
+		temp_t3_thres_minus_x_degree = <43>;
+                /*modify by HTH-228214 at 2022/4/21 end*/
+		temp_t2_thres = <15>;
 		temp_t2_thres_plus_x_degree = <16>;
-		temp_t1_thres = <0>;
-		temp_t1_thres_plus_x_degree = <6>;
+		temp_t1_thres = <10>;
+		temp_t1_thres_plus_x_degree = <11>;
 		temp_t0_thres = <0>;
-		temp_t0_thres_plus_x_degree = <0>;
+		temp_t0_thres_plus_x_degree = <1>;
 		temp_neg_10_thres = <0>;
 
 		/* battery temperature protection */
@@ -3390,8 +3407,8 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 		/* charging current */
 		usb_charger_current = <500000>;
-		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
+		ac_charger_current = <2048000>;
+		ac_charger_input_current = <2180000>;
 		charging_host_charger_current = <1500000>;
 
 		/* dynamic mivr */
@@ -3406,13 +3423,22 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		adapter_name = "pd_adapter";
 	};
 
+	eta6953: eta6953 {
+		compatible = "eta,eta6953_charger";
+	};
+
+	sgm41513: sgm41513 {
+		compatible = "sgm,sgm41513_charger";
+	};
+
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
-		charger = <&mt6370_chg>;
-		vbus-supply = <&otg_vbus>;
+		charger = <&mtk_charger_type>;
+		/*vbus-supply = <&otg_vbus>;
 		vbus-voltage = <5000000>;
-		vbus-current = <1800000>;
+		vbus-current = <1800000>;*/
 		dev-conn = <&usb>;
+		id-gpios = <&pio 41 0x0>;
 		mediatek,bypss-typec-sink = <1>;
 	};
 

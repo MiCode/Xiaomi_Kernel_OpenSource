@@ -528,7 +528,7 @@ static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 #ifdef PORT_NET_TRACE
 	rx_cb_time = sched_clock() - rx_cb_time;
 	total_time = sched_clock() - total_time;
-	trace_port_net_rx(port->md_id, PORT_RXQ_INDEX(port), port->rx_ch,
+	trace_port_net_rx(port->md_id, port->rxq_index, port->rx_ch,
 		(unsigned int)rx_cb_time, (unsigned int)total_time);
 #endif
 	return 0;

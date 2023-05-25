@@ -128,6 +128,12 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 		 *  ppwr_info->pin_state_on,
 		 * psensor_pwr->id[ppwr_info->pin]);
 		 */
+pr_err("zrlzaki sensor_idx = %d, pin=%d, pin_state_on=%d, hw_id =%d, sensor_name=%s,delay=%d\n",
+		   sensor_idx,
+		   ppwr_info->pin,
+		   ppwr_info->pin_state_on,
+		  psensor_pwr->id[ppwr_info->pin],
+                  ppwr_seq->name,ppwr_info->pin_on_delay);
 
 			if (pdev->set != NULL)
 				pdev->set(

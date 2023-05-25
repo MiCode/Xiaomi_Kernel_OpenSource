@@ -1,0 +1,54 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*charger start*/
+/* 2022.5.18 longcheer zhangfeng5 edit. begin */
+/* kenrel driver porting: remove eta6963 charger */
+&i2c5 {
+    status = "okay";
+	charger@6B {
+        compatible = "sc,sc89601a_charger";
+        reg = <0x6B>;
+        sc,sc89601a,usb-vlim = <4600>;
+        sc,sc89601a,usb-ilim = <500>;
+        sc,sc89601a,usb-vreg = <4400>;
+        sc,sc89601a,usb-ichg = <500>;
+        sc,sc89601a,precharge-current = <180>;
+        sc,sc89601a,termination-current = <240>;
+        sc,sc89601a,boost-voltage = <5150>;
+        sc,sc89601a,boost-current = <1200>;
+        sc,sc89601a,enable_term;
+        sc,sc89601a,stat-pin-ctrl = <3>;
+        sc,sc89601a,vac-ovp-threshold = <6500>;
+        };
+	charger1@1A {
+        compatible = "sgm,sgm41513_charger";
+        reg = <0x1A>;
+        sgm,sgm41513,usb-vlim = <4600>;
+        sgm,sgm41513,usb-ilim = <500>;
+        sgm,sgm41513,usb-vreg = <4400>;
+        sgm,sgm41513,usb-ichg = <500>;
+        sgm,sgm41513,precharge-current = <180>;
+        sgm,sgm41513,termination-current = <240>;
+        sgm,sgm41513,boost-voltage = <5150>;
+        sgm,sgm41513,boost-current = <1200>;
+        sgm,sgm41513,enable_term;
+        sgm,sgm41513,stat-pin-ctrl = <3>;
+        sgm,sgm41513,vac-ovp-threshold = <6500>;
+	}; 
+};
+/* 2022.5.18 longcheer zhangfeng5 edit. end */
+/*charger end*/
+
+/*End of this file, DO NOT ADD ANYTHING HERE*/
+

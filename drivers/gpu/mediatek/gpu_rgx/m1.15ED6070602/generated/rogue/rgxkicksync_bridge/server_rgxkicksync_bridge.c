@@ -179,10 +179,10 @@ PVRSRVBridgeRGXDestroyKickSyncContext(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psRGXDestroyKickSyncContextOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psRGXDestroyKickSyncContextIN->
-					    hKickSyncContext,
-					    PVRSRV_HANDLE_TYPE_RGX_SERVER_KICKSYNC_CONTEXT);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psRGXDestroyKickSyncContextIN->
+					      hKickSyncContext,
+					      PVRSRV_HANDLE_TYPE_RGX_SERVER_KICKSYNC_CONTEXT);
 	if (unlikely
 	    ((psRGXDestroyKickSyncContextOUT->eError != PVRSRV_OK)
 	     && (psRGXDestroyKickSyncContextOUT->eError != PVRSRV_ERROR_RETRY)))

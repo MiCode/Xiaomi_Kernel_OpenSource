@@ -17,5 +17,27 @@ config MTK_FINGERPRINT_SELECT
 	string "sensor type"
 	default "GF318M"
 
+config FINGERPRINT_SUPPORT
+	bool "Fingerprint"
+	default y
+	help
+	  Fingerprint driver enable/disable
+	  in the kernel.Say Y here if you want to
+	  use mediatek fingerprint driver,fingerprint
+	  driver will support fingerprint function
+
+config FPC_FINGERPRINT
+	bool "FPC Fingerprint"
+	default n
+	help
+	  FPC fingerprint FPC's 102x/104x device.
+
+source "drivers/input/fingerprint/silead/Kconfig"
+
+config GOODIX_FINGERPRINT
+	tristate "goodix fingerprint"
+	default n
+	help
+	  GOODIX fingerprint goodix device
 
 endmenu

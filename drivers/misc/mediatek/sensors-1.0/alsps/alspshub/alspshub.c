@@ -14,6 +14,11 @@
 
 
 #define ALSPSHUB_DEV_NAME     "alsps_hub_pl"
+#define MTK_OLD_FACTORY_CALIBRATION
+extern int tp_proximity(void);
+extern int32_t nvt_set_proximity_switch(uint8_t proximity_switch);
+extern int fts_set_proximity_switch(int proximity_switch);
+extern int cts_set_proximity_switch(int proximity_switch);
 
 struct alspshub_ipi_data {
 	struct work_struct init_done_work;
@@ -276,9 +281,9 @@ static void alspshub_init_done_work(struct work_struct *work)
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
 	int err = 0;
-#ifndef MTK_OLD_FACTORY_CALIBRATION
+//#ifndef MTK_OLD_FACTORY_CALIBRATION
 	int32_t cfg_data[2] = {0};
-#endif
+//#endif
 
 	if (atomic_read(&obj->scp_init_done) == 0) {
 		pr_err("wait for nvram to set calibration\n");
@@ -286,7 +291,7 @@ static void alspshub_init_done_work(struct work_struct *work)
 	}
 	if (atomic_xchg(&obj->first_ready_after_boot, 1) == 0)
 		return;
-#ifdef MTK_OLD_FACTORY_CALIBRATION
+#if 0 //#ifdef MTK_OLD_FACTORY_CALIBRATION
 	err = sensor_set_cmd_to_hub(ID_PROXIMITY,
 		CUST_ACTION_SET_CALI, &obj->ps_cali);
 	if (err < 0)
@@ -522,8 +527,16 @@ static int pshub_factory_clear_cali(void)
 static int pshub_factory_set_cali(int32_t offset)
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
+        int err = 0;
 
 	obj->ps_cali = offset;
+#ifdef MTK_OLD_FACTORY_CALIBRATION
+	err = sensor_set_cmd_to_hub(ID_PROXIMITY, CUST_ACTION_SET_CALI, &obj->ps_cali);
+	if(err < 0) {
+		pr_err("sensor_set_cmd_to_hub fail, (ID:%d), (action:%d)\n", ID_PROXIMITY, CUST_ACTION_RESET_CALI);
+		return -1;
+	}
+#endif
 	return 0;
 }
 static int pshub_factory_get_cali(int32_t *offset)
@@ -540,12 +553,12 @@ static int pshub_factory_set_threshold(int32_t threshold[2])
 #ifndef MTK_OLD_FACTORY_CALIBRATION
 	int32_t cfg_data[2] = {0};
 #endif
-	if (threshold[0] < threshold[1] || threshold[0] <= 0 ||
+	/*if (threshold[0] < threshold[1] || threshold[0] <= 0 ||
 		threshold[1] <= 0) {
 		pr_err("PS set threshold fail! invalid value:[%d, %d]\n",
 			threshold[0], threshold[1]);
 		return -1;
-	}
+	}*/
 
 	spin_lock(&calibration_lock);
 	atomic_set(&obj->ps_thd_val_high, (threshold[0] + obj->ps_cali));
@@ -676,6 +689,15 @@ static int als_flush(void)
 	return sensor_flush_to_hub(ID_LIGHT);
 }
 
+enum {
+	INVALID_LCD,
+	LCD1_CG1,
+	LCD2_CG1,
+	LCD2_CG2,
+} LCD_CG_TYPE;
+
+extern char lcd_lockdown_info[32];
+
 static int als_set_cali(uint8_t *data, uint8_t count)
 {
 	int32_t *buf = (int32_t *)data;
@@ -684,6 +706,17 @@ static int als_set_cali(uint8_t *data, uint8_t count)
 	spin_lock(&calibration_lock);
 	atomic_set(&obj->als_cali, buf[0]);
 	spin_unlock(&calibration_lock);
+
+	if ((strncmp(lcd_lockdown_info, "4743", 4) == 0) && (strncmp(lcd_lockdown_info+12, "57", 2) == 0))
+		*(data+24) = LCD1_CG1;
+	else if ((strncmp(lcd_lockdown_info, "5437", 4) == 0) && (strncmp(lcd_lockdown_info+12, "57", 2) == 0))
+		*(data+24) = LCD2_CG1;
+	else if ((strncmp(lcd_lockdown_info, "5437", 4) == 0) && (strncmp(lcd_lockdown_info+12, "69", 2) == 0))
+		*(data+24) = LCD2_CG2;
+	else
+		*(data+24) = INVALID_LCD;
+
+	count += 4;
 	return sensor_cfg_to_hub(ID_LIGHT, data, count);
 }
 
@@ -739,14 +772,54 @@ static int ps_open_report_data(int open)
 static int ps_enable_nodata(int en)
 {
 	int res = 0;
+	int ret = 0;
+	int tp_verison = 0;
 	struct alspshub_ipi_data *obj = obj_ipi_data;
+	
+	tp_verison = tp_proximity();
+	pr_notice("obj_ipi_data als enable value = %d tp = %d\n", en,tp_verison);
 
-	pr_debug("obj_ipi_data als enable value = %d\n", en);
-	if (en == true)
+	if (en == true){
 		WRITE_ONCE(obj->ps_android_enable, true);
-	else
+		if(tp_verison == 1){
+			ret = nvt_set_proximity_switch(1);
+			if(!ret){
+				pr_notice("nvt_set_proximity_switch = %d\n", en);
+			}
+		}else if(tp_verison == 2){
+			ret = fts_set_proximity_switch(1);
+			if(!ret){
+				pr_notice("fts_set_proximity_switch = %d\n", en);
+			}
+		}else if(tp_verison == 3){
+			ret = cts_set_proximity_switch(1);
+			if(!ret){
+				pr_notice("cts_set_proximity_switch = %d\n", en);
+			}
+		}else{
+			pr_notice("enable not_support_tp_version = %d\n", tp_verison);
+		}
+	} else {
 		WRITE_ONCE(obj->ps_android_enable, false);
-
+		if(tp_verison == 1){
+			ret = nvt_set_proximity_switch(0);
+			if(!ret){
+				pr_notice("nvt_set_proximity_switch = %d\n", en);
+			}
+		}else if(tp_verison == 2){
+			ret = fts_set_proximity_switch(0);
+			if(!ret){
+				pr_notice("fts_set_proximity_switch = %d\n", en);
+			}
+		}else if(tp_verison == 3){
+			ret = cts_set_proximity_switch(0);
+			if(!ret){
+				pr_notice("cts_set_proximity_switch = %d\n", en);
+			}
+		}else{
+			pr_notice("disable not_support_tp_version = %d\n", tp_verison);
+		}
+	}
 	res = sensor_enable_to_hub(ID_PROXIMITY, en);
 	if (res < 0) {
 		pr_err("als_enable_nodata is failed!!\n");
@@ -835,6 +908,16 @@ static int ps_set_cali(uint8_t *data, uint8_t count)
 	spin_unlock(&calibration_lock);
 	return sensor_cfg_to_hub(ID_PROXIMITY, data, count);
 }
+
+int ps_send_touch_event(int32_t data){
+	int32_t touch_event = data;
+	int err = sensor_cfg_to_hub(ID_PROXIMITY,(uint8_t *)&touch_event,sizeof(touch_event));
+	pr_notice("ps_send_touch_event = %d",touch_event);
+	if (err < 0)
+		pr_err("sensor_cfg_to_hub fail\n");
+	return err;
+}
+EXPORT_SYMBOL_GPL(ps_send_touch_event);
 
 static int scp_ready_event(uint8_t event, void *ptr)
 {

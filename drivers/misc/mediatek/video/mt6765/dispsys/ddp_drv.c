@@ -72,6 +72,8 @@
 
 #define OCCUPIED_BW_RATIO 1330
 
+extern char *saved_command_line;
+
 /* device and driver */
 static dev_t disp_devno;
 static struct cdev *disp_cdev;
@@ -529,6 +531,53 @@ static int disp_probe_1(void)
 	return ret;
 }
 
+/*********************************************************/
+//add product node for kernel logo
+//
+/*********************************************************/
+
+
+static char g_product_id[128];
+static struct kobject *msm_product_name = NULL;
+static ssize_t product_name_show(struct kobject *dev,
+		struct kobj_attribute *attr, char *buf)
+{
+   ssize_t ret = 0;
+   pr_info("product_name_show g_product_id =%s\n",g_product_id);
+   sprintf(buf, "%s\n", g_product_id);
+   ret = strlen(buf) + 1;
+   return ret;
+}
+static struct kobj_attribute dev_attr_product_name=
+      __ATTR(product_name, S_IRUGO, product_name_show, NULL);
+
+static int msm_product_name_create_sysfs(void){
+   int ret;
+   msm_product_name=kobject_create_and_add("android_product",NULL);
+   pr_info("msm_product_name_create_sysfs  g_product_id =%s,msm_product_name=%s\n",g_product_id,msm_product_name);
+
+   if(msm_product_name==NULL){
+     pr_info("msm_product_name_create_sysfs_failed\n");
+    ret=-ENOMEM;
+     return ret;
+  }
+   ret=sysfs_create_file(msm_product_name,&dev_attr_product_name.attr);
+   if(ret){
+    pr_info("%s failed \n",__func__);
+    kobject_del(msm_product_name);
+   }
+   return 0;
+}
+
+static int __init lcm_get_product_type(char *str)
+{
+  	strcpy(g_product_id, str);
+	pr_info("[: %s %d]androidboot.product.vendor.sku=%s \n",__FUNCTION__,__LINE__,g_product_id);
+  //	pr_info("board_id_hwname : %s\n", g_product_id);
+  	return 1;
+}
+__setup("androidboot.product.vendor.sku", lcm_get_product_type);
+
 static int disp_probe(struct platform_device *pdev)
 {
 	static unsigned int disp_probe_cnt;
@@ -556,6 +605,10 @@ static int disp_probe(struct platform_device *pdev)
 	pr_info("disp driver(1) disp_probe end\n");
 
 	disp_probe_1();
+
+	pr_info("%s+ msm_product_name_create_sysfs\n", __func__);
+
+	msm_product_name_create_sysfs();
 
 	return 0;
 }

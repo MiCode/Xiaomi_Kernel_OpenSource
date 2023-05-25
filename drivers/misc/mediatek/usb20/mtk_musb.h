@@ -6,7 +6,7 @@
 #ifndef __MUSB_MTK_MUSB_H__
 #define __MUSB_MTK_MUSB_H__
 
-#ifdef CONFIG_MTK_MUSB_PHY
+//#ifdef CONFIG_MTK_MUSB_PHY
 #ifdef CONFIG_OF
 extern struct musb *mtk_musb;
 
@@ -39,7 +39,7 @@ extern struct musb *mtk_musb;
 	USBPHY_WRITE32(offset, (USBPHY_READ32(offset)) & (~(mask)))
 
 #endif /* End of CONFIG_OF define */
-#endif /* End of CONFIG_MTK_MUSB_PHY */
+//#endif /* End of CONFIG_MTK_MUSB_PHY */
 
 struct musb;
 
@@ -77,6 +77,8 @@ extern void musb_session_restart(struct musb *musb);
 extern int mt_usb_dual_role_init(struct musb *musb);
 extern int mt_usb_dual_role_changed(struct musb *musb);
 #endif /* CONFIG_DUAL_ROLE_USB_INTF */
+extern int usb_rdy;
+extern void set_usb_rdy(void);
 extern bool is_usb_rdy(void);
 extern void Charger_Detect_Init(void);
 extern void Charger_Detect_Release(void);

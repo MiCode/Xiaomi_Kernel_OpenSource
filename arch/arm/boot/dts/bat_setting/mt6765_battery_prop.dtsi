@@ -67,7 +67,7 @@
 	/* Table numbers per battery */
 	MULTI_TEMP_GAUGE0 = <(1)>;
 	/* Multi gauge0 enable */
-	RBAT_PULL_UP_R = <(16900)>;
+	RBAT_PULL_UP_R = <(100000)>;
 	RBAT_PULL_UP_VOLT = <(1800)>;
 
 #include "mt6765_battery_table_ext.dtsi"

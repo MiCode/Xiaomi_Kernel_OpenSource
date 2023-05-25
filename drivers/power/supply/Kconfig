@@ -816,6 +816,32 @@ config CHARGER_BQ25601
 	  It depends on
 	  the config MTK_CHARGER.
 
+config CHARGER_SGM41513
+        bool "CHARGER_SGM41513"
+	default y
+        help
+          This is to enable MediaTek supports to SGM41513.
+          It depends on config MTK_SMART_BATTERY
+          and config MTK_SWCHR_SUPPORT
+          Set to Yes if SGM41513 is used.
+
+config CHARGER_ETA6963
+        bool "CHARGER_ETA6963"
+	default y
+        help
+          This is to enable MediaTek supports to ETA6963.
+          It depends on config MTK_SMART_BATTERY
+          and config MTK_SWCHR_SUPPORT
+          Set to Yes if ETA6963 is used.
+          
+config CHARGER_SC89601A
+ 	bool "Charger Driver for SouthChip SC89601A Charger IC"
+    help
+      This is to enable MediaTek supports to SouthChip SC89601A.
+      It depends on config MTK_SMART_BATTERY
+      and config MTK_SWCHR_SUPPORT
+      Set to Yes if SC89601A is used.
+
 config CUSTOM_BATTERY_EXTERNAL_CHANNEL
 	bool "customer external gauge test"
 	depends on MTK_PMIC_CHIP_MT6359P

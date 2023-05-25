@@ -30,6 +30,10 @@
 #include <linux/mfd/mt6357/registers.h>
 #include <linux/mfd/mt6357/core.h>
 
+#ifdef CONFIG_MTK_PMIC_NEW_ARCH
+#include <mt-plat/upmu_common.h>
+#endif
+
 #define MTK_PMIC_PWRKEY_INDEX	0
 #define MTK_PMIC_HOMEKEY_INDEX	1
 #define MTK_PMIC_MAX_KEY_COUNT	2
@@ -50,6 +54,8 @@
 #define HOMEKEY_RST_EN			0x1
 #define RST_DU_MASK				0x3
 #define INVALID_VALUE			0
+
+struct input_dev *kpd_input_dev; // add 238670
 
 struct mtk_pmic_keys_regs {
 	u32 deb_reg;
@@ -161,6 +167,14 @@ enum mtk_pmic_keys_lp_mode {
 	LP_TWOKEY,
 };
 
+/*2022.5.7 longcheer shixianhong add start*/
+/*add kpdpwr node*/
+unsigned long kpdpwr_status;
+const struct mtk_pmic_regs *pmic_regs_2;
+struct mtk_pmic_keys *keys_2;
+static struct platform_driver pmic_keys_pdrv;
+/*2022.5.7 longcheer shixianhong add end*/
+
 static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 		const struct mtk_pmic_regs *pmic_regs)
 {
@@ -184,6 +198,8 @@ static void mtk_pmic_keys_lp_reset_setup(struct mtk_pmic_keys *keys,
 		"mediatek,long-press-mode", &long_press_mode);
 	if (ret)
 		long_press_mode = LP_DISABLE;
+
+        pr_info("func = %s, long_press_mode = %d \n", __func__, long_press_mode);
 
 	switch (long_press_mode) {
 	case LP_ONEKEY:
@@ -250,6 +266,13 @@ static irqreturn_t mtk_pmic_keys_irq_handler_thread(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+
+void kpd_pmic_pwrkey_hal(unsigned long pressed) //begin 238670
+{
+	input_report_key(kpd_input_dev, KPD_EVENT, pressed);
+	input_sync(kpd_input_dev);
+	pr_err("kpd using PMIC, pressed = %d\n",pressed);
+} //end 238670
 
 static int mtk_pmic_key_setup(struct mtk_pmic_keys *keys,
 		struct mtk_pmic_keys_info *info)
@@ -340,6 +363,81 @@ static const struct of_device_id of_mtk_pmic_keys_match_tbl[] = {
 };
 MODULE_DEVICE_TABLE(of, of_mtk_pmic_keys_match_tbl);
 
+/*2022.5.7 longcheer shixianhong add start*/
+/*add kpdpwr node*/
+static ssize_t kpdpwr_reset_store(struct device_driver *ddri,
+		const char *buf, size_t count)
+{
+	int ret;
+	u32 pmic_rst_reg = pmic_regs_2->pmic_rst_reg;
+	u32 pwrkey_rst = PWRKEY_RST_EN << pmic_regs_2->pwrkey_rst_shift;
+	u32 homekey_rst =
+		HOMEKEY_RST_EN << pmic_regs_2->homekey_rst_shift;
+
+	ret = kstrtoul(buf, 10, &kpdpwr_status);
+	if (ret) {
+		pr_err("kpd call state: Invalid values\n");
+		return -EINVAL;
+	}
+
+	pr_err("kpdpwr_reset_store kpdpwr_status = %d\n", kpdpwr_status);
+
+//	if(kpdpwr_status){
+//		pr_err("enable LPRST\n");
+//		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x01);
+//		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x00);
+//		pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,
+//			CONFIG_KPD_PMIC_LPRST_TD);
+//
+//	}else{
+//		pr_err("disable LPRST\n");
+//		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x00);
+//		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x00);
+//	}
+        if(kpdpwr_status){
+		regmap_update_bits(keys_2->regmap, pmic_rst_reg,
+				   pwrkey_rst,
+				   pwrkey_rst);
+		regmap_update_bits(keys_2->regmap, pmic_rst_reg,
+				   homekey_rst,
+				   0);
+	}else{
+		regmap_update_bits(keys_2->regmap, pmic_rst_reg,
+				   pwrkey_rst,
+				   0);
+		regmap_update_bits(keys_2->regmap, pmic_rst_reg,
+				   homekey_rst,
+				   0);
+	}
+
+	return count;
+}
+
+static ssize_t kpdpwr_reset_show(struct device_driver *ddri, char *buf)
+{
+	ssize_t res;
+/*
+	long long reg_value;
+	reg_value = pmic_get_register_value(PMIC_RG_PWRKEY_RST_EN);
+	pr_err("kpdpwr_reset_show power = %lu\n", reg_value);
+
+        reg_value = pmic_get_register_value(PMIC_RG_HOMEKEY_RST_EN);
+	pr_err("kpdpwr_reset_show power = %lu\n", reg_value);
+
+        reg_value = pmic_get_register_value(PMIC_RG_PWRKEY_RST_TD);
+	pr_err("kpdpwr_reset_show power = %lu\n", reg_value);
+*/
+	res = snprintf(buf, PAGE_SIZE, "%ld\n", kpdpwr_status);
+	return res;
+}
+
+static DRIVER_ATTR_RW(kpdpwr_reset);
+
+static struct driver_attribute *kpd_attr_list[] = {
+	&driver_attr_kpdpwr_reset,
+};
+/*2022.5.7 longcheer shixianhong add end*/
+
 static int mtk_pmic_keys_probe(struct platform_device *pdev)
 {
 	int error, index = 0;
@@ -368,6 +466,12 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 		dev_err(keys->dev, "input allocate device fail.\n");
 		return -ENOMEM;
 	}
+
+	kpd_input_dev = devm_input_allocate_device(&pdev->dev);//begin 238670
+	if (!kpd_input_dev) {
+		pr_notice("input allocate device fail.\n");
+		return -ENOMEM;
+	} //end 238670
 
 	input_dev->name = "mtk-pmic-keys";
 	input_dev->id.bustype = BUS_HOST;
@@ -428,6 +532,21 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 	mtk_pmic_keys_lp_reset_setup(keys, mtk_pmic_regs);
 
 	platform_set_drvdata(pdev, keys);
+
+/*2022.5.7 longcheer shixianhong add start*/
+/*add kpdpwr node*/
+	pmic_regs_2 = mtk_pmic_regs;
+	keys_2 = devm_kzalloc(&pdev->dev, sizeof(*keys), GFP_KERNEL);
+	memcpy(keys_2, keys, sizeof(*keys));
+
+	error = driver_create_file(&pmic_keys_pdrv.driver, kpd_attr_list[0]);
+	if (error) {
+	    pr_info("driver_create_file (%s) = %d\n",
+	    kpd_attr_list[0]->attr.name, error);
+	}
+/*2022.5.7 longcheer shixianhong add end*/
+
+	kpd_input_dev = input_dev; //add 238670
 
 	return 0;
 }

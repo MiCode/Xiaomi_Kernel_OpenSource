@@ -130,6 +130,34 @@
 
 
 /* SENSOR CHIP VERSION */
+#define SAMS_S5K4H7_I_SENSOR_ID 0x487B
+#define SENSOR_DRVNAME_SAMS_S5K4H7_I "sams_s5k4h7_i"
+
+#define SC_SC800CS_II_SENSOR_ID 0xd126
+#define SENSOR_DRVNAME_SC_SC800CS_II "sc_sc800cs_ii"
+
+#define SAMS_S5K4H7_III_SENSOR_ID 0x487C
+#define SENSOR_DRVNAME_SAMS_S5K4H7_III "sams_s5k4h7_iii"
+
+#define SAMS_S5K5E9_I_SENSOR_ID 0x559b
+#define SENSOR_DRVNAME_SAMS_S5K5E9_I "sams_s5k5e9_i"
+
+#define SC_SC500CS_II_SENSOR_ID 0xee27
+#define SENSOR_DRVNAME_SC_SC500CS_II "sc_sc500cs_ii"
+
+#define SAMS_S5K5E9_III_SENSOR_ID 0x559c
+#define SENSOR_DRVNAME_SAMS_S5K5E9_III "sams_s5k5e9_iii"
+
+#define OV02B_SENSOR_ID   0x2B
+#define SENSOR_DRVNAME_OV02B_MIPI_RAW "ov02b_mipi_raw"
+
+#define SENSOR_DRVNAME_SAMS_S5K4H7_INDIA_I "sams_s5k4h7_india_i"
+#define SENSOR_DRVNAME_SC_SC800CS_INDIA_II "sc_sc800cs_india_ii"
+#define SENSOR_DRVNAME_SC_SC500CS_INDIA_II "sc_sc500cs_india_ii"
+#define SENSOR_DRVNAME_SAMS_S5K5E9_INDIA_I "sams_s5k5e9_india_i"
+#define SENSOR_DRVNAME_SAMS_S5K4H7_INDIA_III "sams_s5k4h7_india_iii"
+#define SENSOR_DRVNAME_SAMS_S5K5E9_INDIA_III "sams_s5k5e9_india_iii"
+
 /*IMX*/
 #define IMX766_SENSOR_ID                        0x0766
 #define IMX499_SENSOR_ID                        0x0499

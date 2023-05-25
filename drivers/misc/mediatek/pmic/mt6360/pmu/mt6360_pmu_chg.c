@@ -629,6 +629,7 @@ static int mt6360_chgdet_post_process(struct mt6360_pmu_chg_info *mpci)
 	if (ret < 0)
 		goto out;
 	usb_status = (ret & MT6360_MASK_USB_STATUS) >> MT6360_SHFT_USB_STATUS;
+
 	switch (usb_status) {
 	case MT6360_CHG_TYPE_UNDER_GOING:
 		dev_info(mpci->dev, "%s: under going...\n", __func__);

@@ -78,6 +78,7 @@ static unsigned int esd_check_mode;
 static unsigned int esd_check_enable;
 unsigned int esd_checking;
 static int te_irq;
+extern int esd_backlight_level;
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
@@ -96,6 +97,9 @@ static atomic_t esd_ext_te_1_event = ATOMIC_INIT(0);
 static unsigned int extd_esd_check_mode;
 static unsigned int extd_esd_check_enable;
 #endif
+
+extern void nvt_ts_esd_resume(int flag);
+extern char mtkfb_lcm_name[256];
 
 unsigned int get_esd_check_mode(void)
 {
@@ -594,7 +598,7 @@ static int primary_display_check_recovery_worker_kthread(void *data)
 	struct sched_param param = {.sched_priority = 87 };
 	int ret = 0;
 	int i = 0;
-	int esd_try_cnt = 5; /* 20; */
+	int esd_try_cnt = 20; /* 20; */
 	int recovery_done = 0;
 
 	DISPFUNC();
@@ -722,6 +726,13 @@ int primary_display_esd_recovery(void)
 	DISPDBG("[POWER]lcm suspend[begin]\n");
 	/*after dsi_stop, we should enable the dsi basic irq.*/
 	dsi_basic_irq_enable(DISP_MODULE_DSI0, NULL);
+
+	if (strnstr(mtkfb_lcm_name,"dsi_panel_c3s_43_02_0a_fhdp_video",strlen(mtkfb_lcm_name))) {
+		nvt_ts_esd_resume(0);
+		DISPCHECK("It is NVT IC, do tp suspend/resume\n");
+	} else{
+		DISPCHECK("It is not NVT IC, Skip\n");
+	}
 	disp_lcm_suspend(primary_get_lcm());
 	DISPCHECK("[POWER]lcm suspend[end]\n");
 
@@ -739,6 +750,12 @@ int primary_display_esd_recovery(void)
 
 	DISPDBG("[ESD]lcm recover[begin]\n");
 	disp_lcm_esd_recover(primary_get_lcm());
+	if (strnstr(mtkfb_lcm_name,"dsi_panel_c3s_43_02_0a_fhdp_video",strlen(mtkfb_lcm_name))) {
+		nvt_ts_esd_resume(1);
+		DISPCHECK("It is NVT IC, do tp suspend/resume\n");
+	} else{
+		DISPCHECK("It is not NVT IC, Skip\n");
+	}
 	DISPCHECK("[ESD]lcm recover[end]\n");
 	mmprofile_log_ex(mmp_r, MMPROFILE_FLAG_PULSE, 0, 8);
 
@@ -788,6 +805,7 @@ int primary_display_esd_recovery(void)
 		cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_CONFIG_DIRTY);
 		mdelay(40);
 	}
+	disp_lcm_set_backlight(primary_get_lcm(),NULL,esd_backlight_level);
 
 done:
 	primary_display_manual_unlock();

@@ -2251,13 +2251,13 @@ static int musb_gadget_vbus_draw
 }
 
 /* default value 0 */
-static int usb_rdy;
+int usb_rdy;
 void set_usb_rdy(void)
 {
 	DBG(0, "set usb_rdy, wake up bat\n");
 	usb_rdy = 1;
 }
-
+EXPORT_SYMBOL(set_usb_rdy);
 bool is_usb_rdy(void)
 {
 	if (usb_rdy)

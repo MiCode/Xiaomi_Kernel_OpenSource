@@ -206,6 +206,9 @@ static int spm_probe(struct platform_device *pdev)
 
 	/* Do initialization only one time */
 	spm_init_done = 1;
+	/* 2022.07.04 longcheer ruichaoqun modify */
+	if (is_pmic_mrv())
+		SMC_CALL(ARGS, SPM_ARGS_PMIC_MRV, 0, 0);
 
 	return 0;
 }
@@ -345,8 +348,6 @@ static int spm_module_init(void)
 
 	SMC_CALL(ARGS, SPM_ARGS_SPMFW_IDX, spm_get_spmfw_idx(), 0);
 
-	if (is_pmic_mrv())
-		SMC_CALL(ARGS, SPM_ARGS_PMIC_MRV, 0, 0);
 
 	return 0;
 }

@@ -15,6 +15,8 @@
 #include <linux/power_supply.h>
 #include <mtk_musb.h>
 #include <linux/reboot.h>
+#include "charger_class.h"
+#include "mtk_boot_common.h"
 
 /* ============================================================ */
 /* pmic control start*/
@@ -66,6 +68,8 @@
 #define R_CHARGER_1	330
 #define R_CHARGER_2	39
 
+#define RETRY_CHR_TYPE_8S     4
+
 struct mtk_charger_type {
 	struct mt6397_chip *chip;
 	struct regmap *regmap;
@@ -84,6 +88,7 @@ struct mtk_charger_type {
 
 	struct iio_channel *chan_vbus;
 	struct work_struct chr_work;
+	struct delayed_work retry_work; //add 247748
 
 	enum power_supply_usb_type type;
 
@@ -115,6 +120,9 @@ static enum power_supply_property mt_usb_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file begin */
+	POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE,
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file end */
 };
 
 void bc11_set_register_value(struct regmap *map,
@@ -149,6 +157,8 @@ static void hw_bc11_init(struct mtk_charger_type *info)
 #if IS_ENABLED(CONFIG_USB_MTK_HDRC)
 	int timeout = 200;
 #endif
+	//longcheer nielianjie10 2022/6/14
+	int chrdet = 0;
 	msleep(200);
 	if (info->first_connect == true) {
 #if IS_ENABLED(CONFIG_USB_MTK_HDRC)
@@ -169,6 +179,15 @@ static void hw_bc11_init(struct mtk_charger_type *info)
 		info->first_connect = false;
 	}
 
+	/* longcheer nielianjie10 2022/6/14 */
+	chrdet = bc11_get_register_value(info->regmap,
+		PMIC_RGS_CHRDET_ADDR,
+		PMIC_RGS_CHRDET_MASK,
+		PMIC_RGS_CHRDET_SHIFT);
+	pr_info("%s, chrdet : \n", __func__, chrdet);
+	if (chrdet == 0 )
+		return;
+	/* longcheer nielianjie10 2022/6/14 end */
 	/* RG_bc11_BIAS_EN=1 */
 	bc11_set_register_value(info->regmap,
 		PMIC_RG_BC11_BIAS_EN_ADDR,
@@ -464,11 +483,11 @@ static void dump_charger_name(int type)
 	case POWER_SUPPLY_TYPE_USB_CDP:
 		pr_info("charger type: %d, Charging USB Host\n", type);
 		break;
-#ifdef FIXME
+//#ifdef FIXME
 	case POWER_SUPPLY_TYPE_USB_FLOAT:
 		pr_info("charger type: %d, Non-standard Charger\n", type);
 		break;
-#endif
+//#endif
 	case POWER_SUPPLY_TYPE_USB_DCP:
 		pr_info("charger type: %d, Standard Charger\n", type);
 		break;
@@ -481,11 +500,15 @@ static void dump_charger_name(int type)
 static int get_charger_type(struct mtk_charger_type *info)
 {
 	enum power_supply_usb_type type;
+	int chrdet = 0;
 
 	hw_bc11_init(info);
 	if (hw_bc11_DCD(info)) {
-		info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
-		type = POWER_SUPPLY_USB_TYPE_DCP;
+		//longcheer nielianjie10 2022/6/14
+		info->psy_desc.type = POWER_SUPPLY_TYPE_USB_FLOAT;
+		type = POWER_SUPPLY_USB_TYPE_FLOAT;
+		//info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+		//type = POWER_SUPPLY_USB_TYPE_DCP;
 	} else {
 		if (hw_bc11_stepA2(info)) {
 			if (hw_bc11_stepB2(info)) {
@@ -501,6 +524,18 @@ static int get_charger_type(struct mtk_charger_type *info)
 		}
 	}
 
+	/* longcheer nielianjie10 2022/6/14 */
+	chrdet = bc11_get_register_value(info->regmap,
+		PMIC_RGS_CHRDET_ADDR,
+		PMIC_RGS_CHRDET_MASK,
+		PMIC_RGS_CHRDET_SHIFT);
+	pr_info("%s: chrdet : %d, \n", __func__, chrdet);
+	if (chrdet == 0) {
+		info->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+		type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+	}
+	/* longcheer nielianjie10 2022/6/14 end */
+
 	if (type != POWER_SUPPLY_USB_TYPE_DCP)
 		hw_bc11_done(info);
 	else
@@ -510,6 +545,27 @@ static int get_charger_type(struct mtk_charger_type *info)
 
 	return type;
 }
+
+#if 0  //begin 247748
+static int double_check_chr_type(struct mtk_charger_type *info)
+{
+	int ret = 0;
+
+	if (info == NULL)
+		return -EINVAL;
+
+	//longcheer 2022/07/1 nielianjie10  add double check chr_type in 8s
+	while (ret++ < RETRY_CHR_TYPE_8S) {
+		msleep(2000);
+		info->type = get_charger_type(info);
+		if ((info->psy_desc.type != POWER_SUPPLY_TYPE_USB_FLOAT)
+			|| (info->type != POWER_SUPPLY_USB_TYPE_FLOAT))
+			return ret;
+	}
+
+	return ret;
+}
+#endif //end 247748
 
 static int get_vbus_voltage(struct mtk_charger_type *info,
 	int *val)
@@ -565,6 +621,23 @@ void do_charger_detect(struct mtk_charger_type *info, bool en)
 	power_supply_changed(info->psy);
 }
 
+//247748 bengin
+static void do_chr_type_check_work(struct work_struct *data)
+{
+	struct mtk_charger_type *info = (struct mtk_charger_type *)container_of(
+                                     data, struct mtk_charger_type, retry_work.work);
+
+	if (info == NULL)
+                return;
+
+        info->type = get_charger_type(info);
+	pr_err("%s :TYPE_USB: %d,USB_TYPE :%d",__func__,info->psy_desc.type,info->type);
+	if ((info->psy_desc.type != POWER_SUPPLY_TYPE_USB_FLOAT)
+                        || (info->type != POWER_SUPPLY_USB_TYPE_FLOAT))
+		power_supply_changed(info->psy);
+}
+//247748 end
+
 static void do_charger_detection_work(struct work_struct *data)
 {
 	struct mtk_charger_type *info = (struct mtk_charger_type *)container_of(
@@ -586,22 +659,36 @@ static void do_charger_detection_work(struct work_struct *data)
 		if (info->bootmode == 8 || info->bootmode == 9) {
 			pr_info("%s: Unplug Charger/USB\n", __func__);
 
+/* //begin 238670
 #ifndef CONFIG_TCPC_CLASS
 			pr_info("%s: system_state=%d\n", __func__,
 				system_state);
 			if (system_state != SYSTEM_POWER_OFF)
 				kernel_power_off();
 #endif
+*/ //end 238670
 		}
 	}
 }
 
-
+extern void kpd_pmic_pwrkey_hal(unsigned long pressed);
 irqreturn_t chrdet_int_handler(int irq, void *data)
 {
 	struct mtk_charger_type *info = data;
 	unsigned int chrdet = 0;
+	int boot_mode = 0; //begin 238670
 
+	boot_mode = get_boot_mode();
+	/* 8 = KERNEL_POWER_OFF_CHARGING_BOOT */
+        /* 9 = LOW_POWER_OFF_CHARGING_BOOT */
+        if (boot_mode == 8 || boot_mode == 9) {
+                pr_notice("[chrdet_int_handler] Unplug Charger/USB\n");
+
+                kpd_pmic_pwrkey_hal(1);
+                mdelay(200);
+                kpd_pmic_pwrkey_hal(0);
+                mdelay(1500);
+	} //end 238670
 	chrdet = bc11_get_register_value(info->regmap,
 		PMIC_RGS_CHRDET_ADDR,
 		PMIC_RGS_CHRDET_MASK,
@@ -613,12 +700,16 @@ irqreturn_t chrdet_int_handler(int irq, void *data)
 		if (info->bootmode == 8 || info->bootmode == 9) {
 			pr_info("%s: Unplug Charger/USB\n", __func__);
 
+
+#if 0 //begin 238670
 #ifndef CONFIG_TCPC_CLASS
 			pr_info("%s: system_state=%d\n", __func__,
 				system_state);
 			if (system_state != SYSTEM_POWER_OFF)
 				kernel_power_off();
 #endif
+#endif //end 238670
+
 		}
 	}
 	pr_notice("%s: chrdet:%d\n", __func__, chrdet);
@@ -666,6 +757,7 @@ int psy_chr_type_set_property(struct power_supply *psy,
 			const union power_supply_propval *val)
 {
 	struct mtk_charger_type *info;
+	int ret = 0;
 
 	pr_notice("%s: prop:%d %d\n", __func__, psp, val->intval);
 
@@ -673,6 +765,15 @@ int psy_chr_type_set_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		info->type = get_charger_type(info);
+		//longcheer 2022/06/13 chencong1 add double check chr_type in 2s
+		if (info->psy_desc.type == POWER_SUPPLY_TYPE_USB_FLOAT
+			&& info->type == POWER_SUPPLY_USB_TYPE_FLOAT) {
+			//247748 begin
+			//ret = double_check_chr_type(info);
+			schedule_delayed_work(&info->retry_work, msecs_to_jiffies(5*2000));//247748 end
+			pr_notice("double check:%d: info->type:%d\n",
+					ret, info->type);
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -709,6 +810,10 @@ static int mt_usb_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
 	struct mtk_charger_type *info;
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file begin */
+	struct mtk_charger_type *info_temp;
+	struct power_supply *psy_temp;
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file end */
 
 	info = (struct mtk_charger_type *)power_supply_get_drvdata(psy);
 
@@ -726,6 +831,18 @@ static int mt_usb_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = 5000000;
 		break;
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file begin */
+	case POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE:
+		psy_temp = power_supply_get_by_name("mtk_charger_type");
+		if (psy_temp == NULL)
+		{
+			pr_err("[psy_usb]: get mtk_charger_type psy error.\n");
+			return -ENODEV;
+		}
+		info_temp = (struct mtk_charger_type *)power_supply_get_drvdata(psy_temp);
+		val->intval = info_temp->type;
+		break;
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file end */
 	default:
 		return -EINVAL;
 	}
@@ -749,6 +866,7 @@ static enum power_supply_usb_type mt6357_charger_usb_types[] = {
 	POWER_SUPPLY_USB_TYPE_SDP,
 	POWER_SUPPLY_USB_TYPE_DCP,
 	POWER_SUPPLY_USB_TYPE_CDP,
+	POWER_SUPPLY_USB_TYPE_FLOAT,
 };
 
 static char *mt6357_charger_supplied_to[] = {
@@ -886,6 +1004,8 @@ static int mt6357_charger_type_probe(struct platform_device *pdev)
 
 		INIT_WORK(&info->chr_work, do_charger_detection_work);
 		schedule_work(&info->chr_work);
+
+		INIT_DELAYED_WORK(&info->retry_work, do_chr_type_check_work); //add 247748
 
 		ret = devm_request_threaded_irq(&pdev->dev,
 			platform_get_irq_byname(pdev, "chrdet"), NULL,

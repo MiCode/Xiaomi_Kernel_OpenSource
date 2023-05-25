@@ -37,6 +37,7 @@ enum {
 	CHARGER_DEV_NOTIFY_EOC,
 	CHARGER_DEV_NOTIFY_RECHG,
 	CHARGER_DEV_NOTIFY_SAFETY_TIMEOUT,
+	CHARGER_DEV_NOTIFY_DISCHARGE,
 };
 
 struct charger_device {
@@ -54,6 +55,7 @@ struct charger_ops {
 	int (*suspend)(struct charger_device *dev, pm_message_t state);
 	int (*resume)(struct charger_device *dev);
 
+	int (*hiz_mode)(struct charger_device *dev, bool en);
 	/* cable plug in/out */
 	int (*plug_in)(struct charger_device *dev);
 	int (*plug_out)(struct charger_device *dev);
@@ -189,6 +191,7 @@ static inline void *charger_get_data(
 
 extern int charger_dev_enable(struct charger_device *charger_dev, bool en);
 extern int charger_dev_is_enabled(struct charger_device *charger_dev, bool *en);
+extern int charger_dev_set_hizmode(struct charger_device *chg_dev, bool en);
 extern int charger_dev_plug_in(struct charger_device *charger_dev);
 extern int charger_dev_plug_out(struct charger_device *charger_dev);
 extern int charger_dev_set_charging_current(

@@ -142,6 +142,8 @@ obj-$(CONFIG_MTK_LEDS) += leds/
 obj-$(CONFIG_MT6360_DBG) += subpmic/
 obj-$(CONFIG_MTK_CAMERA_ISP) += cameraisp/
 obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/
+obj-$(CONFIG_GC_GC6133C_II) += imgsensor/src/common/v1/gc_gc6133c_ii/
+obj-$(CONFIG_BYD_BF30A2_I) += imgsensor/src/common/v1/byd_bf30a2_i/
 ifdef CONFIG_MTK_V4L2_LENS
 obj-$(CONFIG_MTK_V4L2_LENS) += lens/
 else
@@ -189,6 +191,7 @@ obj-$(CONFIG_MTK_DFD_INTERNAL_DUMP) += dfd/
 obj-$(CONFIG_MTK_GIC_EXT) += ext_gic/
 obj-$(CONFIG_MTK_SYS_CIRQ) += cirq/
 obj-$(CONFIG_MTK_SECURITY_SW_SUPPORT) += masp/
+obj-$(CONFIG_MTK_BOOT) += boot/
 obj-y += rps/
 ifeq ($(CONFIG_MACH_MT6768),y)
 obj-y += spi_slave_drv/
@@ -199,3 +202,5 @@ obj-$(CONFIG_MTK_MDDP_SUPPORT) += mddp/
 obj-$(CONFIG_MTK_GATE_IC) += gate_ic/
 obj-$(CONFIG_MTK_FREQ_HOPPING) += freqhopping/
 obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
+# BSP.System - 2022.4.2 - add simtray status
+obj-y += simtray/

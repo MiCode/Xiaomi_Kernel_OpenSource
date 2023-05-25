@@ -21,6 +21,7 @@
 #include <linux/timer.h>
 #include <linux/fs.h>
 #include <linux/netdevice.h>
+#include <linux/ip.h>
 #include <linux/random.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
@@ -2950,11 +2951,12 @@ static int md_cd_send_skb(unsigned char hif_id, int qno,
 		sample_bytes[queue->index] += tx_bytes;
 		trace_cldma_tx(qno, ccci_h.channel, md_ctrl->txq[qno].budget,
 			tx_interal, total_time,
-			tx_bytes, 0, 0);
+			tx_bytes, 0, 0, ntohs(((struct iphdr *)skb->data)->id));
 		if (sample_time[queue->index] >= trace_sample_time) {
 			trace_cldma_tx(qno, ccci_h.channel, 0, 0, 0, 0,
 				sample_time[queue->index],
-				sample_bytes[queue->index]);
+				sample_bytes[queue->index],
+				ntohs(((struct iphdr *)skb->data)->id));
 			sample_time[queue->index] = 0;
 			sample_bytes[queue->index] = 0;
 		}

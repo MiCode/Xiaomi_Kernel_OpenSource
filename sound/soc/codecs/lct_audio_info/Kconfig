@@ -1,0 +1,5 @@
+config LCT_AUDIO_INFO
+	tristate "Show audio infomation"
+	help
+	  This option enables support for Show audio infomation.
+

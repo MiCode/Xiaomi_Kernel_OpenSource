@@ -1448,4 +1448,13 @@ config SND_SOC_SMARTPAINFO
 
 source "sound/soc/codecs/cs35l43/Kconfig"
 
+#add lct audio infomation
+source "sound/soc/codecs/lct_audio_info/Kconfig"
+
+#add aw87xxx pa
+source "sound/soc/codecs/aw87xxx/Kconfig"
+
+#add fs1599n
+source "sound/soc/codecs/fs1599/Kconfig"
+
 endmenu

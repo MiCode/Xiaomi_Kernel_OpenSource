@@ -91,7 +91,7 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #define I2C_I2C_LCD_BIAS_CHANNEL 0
 #define TPS_I2C_BUSNUM  I2C_I2C_LCD_BIAS_CHANNEL	/* for I2C channel 0 */
 #define I2C_ID_NAME "tps65132"
-#define TPS_ADDR 0x3E
+#define TPS_ADDR 0x7C
 
 #if defined(CONFIG_MTK_LEGACY)
 static struct i2c_board_info tps65132_board_info __initdata = { I2C_BOARD_INFO(I2C_ID_NAME, TPS_ADDR) };

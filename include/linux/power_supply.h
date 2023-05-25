@@ -64,7 +64,15 @@ enum {
 	POWER_SUPPLY_HEALTH_COOL,
 	POWER_SUPPLY_HEALTH_HOT,
 };
-
+//begin by gerrit 204153
+enum {
+	POWER_SUPPLY_BATTERY_TYPE_FIRST = 0,
+	POWER_SUPPLY_BATTERY_TYPE_SECOND,
+	POWER_SUPPLY_BATTERY_TYPE_THIRD,
+	POWER_SUPPLY_BATTERY_TYPE_FOURTH,
+  	POWER_SUPPLY_BATTERY_TYPE_UNKNOWN,
+};
+//end by gerrit 204153
 enum {
 	POWER_SUPPLY_TECHNOLOGY_UNKNOWN = 0,
 	POWER_SUPPLY_TECHNOLOGY_NiMH,
@@ -396,17 +404,24 @@ enum power_supply_property {
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	POWER_SUPPLY_PROP_CHARGE_CHARGER_STATE,
+	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	/* Properties of type `const char *' */
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_PTMC_ID,
 	POWER_SUPPLY_PROP_MANUFACTURER,
-	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_CYCLE_COUNTS,
 	/*
 	 * Add local extensions for properties with string values between
 	 * MODEL_NAME and SERIAL_NUMBER. Don't add below SERIAL_NUMBER.
 	 */
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file begin */
+	POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE,
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file end */
+	POWER_SUPPLY_PROP_MTBF_CUR, //add 234935
+	/* 2022.06.30 longcheer yuzhaohua add */
+	POWER_SUPPLY_PROP_SET_TEMP_ENABLE,
+	POWER_SUPPLY_PROP_SET_TEMP_NUM,
 };
 
 enum power_supply_type {
@@ -440,6 +455,7 @@ enum power_supply_usb_type {
 	POWER_SUPPLY_USB_TYPE_SDP,		/* Standard Downstream Port */
 	POWER_SUPPLY_USB_TYPE_DCP,		/* Dedicated Charging Port */
 	POWER_SUPPLY_USB_TYPE_CDP,		/* Charging Downstream Port */
+	POWER_SUPPLY_USB_TYPE_FLOAT,            /* Floating charger */
 	POWER_SUPPLY_USB_TYPE_ACA,		/* Accessory Charger Adapters */
 	POWER_SUPPLY_USB_TYPE_C,		/* Type C Port */
 	POWER_SUPPLY_USB_TYPE_PD,		/* Power Delivery Port */

@@ -63,7 +63,9 @@ static int pt_low_bat = BATTERY_PERCENT_LEVEL_0;
 static int pt_over_cur = BATTERY_OC_LEVEL_0;
 
 #ifdef CONFIG_MTK_FLASHLIGHT_PT_STRICT
-static int pt_strict = 1;
+//Modify by yuanhao for HTH-247829 start
+static int pt_strict = 0;
+//Modify by yuanhao for HTH-247829 end
 #else
 static int pt_strict; /* always be zero in C standard */
 #endif
@@ -585,6 +587,8 @@ static int pt_is_low(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 {
 	int is_low = 0;
 
+//Add by Andrew for HTH-236296 start
+/*
 	if (pt_low_bat != BATTERY_PERCENT_LEVEL_0
 			|| pt_low_vol != LOW_BATTERY_LEVEL_0
 			|| pt_over_cur != BATTERY_OC_LEVEL_0) {
@@ -592,7 +596,8 @@ static int pt_is_low(int pt_low_vol, int pt_low_bat, int pt_over_cur)
 		if (pt_strict)
 			is_low = 2;
 	}
-
+*/
+//Add by Andrew for HTH-236296 end
 	return is_low;
 }
 

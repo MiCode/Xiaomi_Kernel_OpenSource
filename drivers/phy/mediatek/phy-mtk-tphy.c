@@ -431,6 +431,20 @@ static void u2_phy_instance_set_mode_ext(struct mtk_tphy *tphy,
 				     struct mtk_phy_instance *instance,
 				     int submode);
 
+/*2022.04.15 longcheer wenfei get cmdline is_lcm_connected start*/
+static unsigned int is_lcmconnected;
+static int __init is_lcm_get(char *line)
+{
+	if (!strcmp(line, "1")) {
+		is_lcmconnected = 1;
+	} else {
+		is_lcmconnected = 0;
+	}
+	return 1;
+}
+__setup("is_lcm_connected=", is_lcm_get);
+/*2022.04.15 longcheer wenfei get cmdline is_lcm_connected end*/
+
 void cover_val_to_str(u32 val, u8 width, char *str)
 {
 	int i, temp;
@@ -1562,6 +1576,7 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 		return;
 	case PHY_MODE_USB_DEVICE:
 		tmp |= P2C_FORCE_IDDIG | P2C_RG_IDDIG;
+#if 0
 		device_property_read_u32(dev, "mediatek,eye-src",
 				 &instance->eye_src);
 		device_property_read_u32(dev, "mediatek,eye-vrt",
@@ -1572,6 +1587,20 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 				 &instance->eye_rev6);
 		device_property_read_u32(dev, "mediatek,eye-disc",
 				 &instance->eye_disc);
+#endif
+		if(is_lcmconnected == 0)
+		{
+			instance->eye_vrt = 4;
+			instance->eye_term = 4;
+			instance->eye_rev6 = 1;
+		}
+		else if(is_lcmconnected == 1)
+		{
+			dev_info(tphy->dev, "this case has lcm\n");
+			instance->eye_vrt = 7;
+			instance->eye_term = 7;
+			instance->eye_rev6 = 1;
+		}
 		u2_phy_props_set(tphy, instance);
 		break;
 	case PHY_MODE_USB_HOST:
@@ -1582,6 +1611,7 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 		tmp |= P2C_RG_VBUSVALID | P2C_RG_BVALID | P2C_RG_AVALID;
 		tmp &= ~P2C_RG_SESSEND;
 #endif
+#if 0
 		device_property_read_u32(dev, "mediatek,host-eye-src",
 				 &instance->eye_src);
 		device_property_read_u32(dev, "mediatek,host-eye-vrt",
@@ -1592,6 +1622,10 @@ static void u2_phy_instance_set_mode(struct mtk_tphy *tphy,
 				 &instance->eye_rev6);
 		device_property_read_u32(dev, "mediatek,host-eye-disc",
 				 &instance->eye_disc);
+#endif
+		instance->eye_vrt = 4;
+		instance->eye_term = 4;
+		instance->eye_rev6 = 1;
 		u2_phy_props_set(tphy, instance);
 		break;
 	case PHY_MODE_USB_OTG:

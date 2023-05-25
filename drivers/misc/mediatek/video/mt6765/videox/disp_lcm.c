@@ -12,11 +12,27 @@
 #include "disp_drv_platform.h"
 #include "ddp_manager.h"
 #include "disp_lcm.h"
+#include "disp_feature.h"
 
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
 #include <linux/of.h>
 #endif
 
+#include <linux/delay.h>
+/* 2022.04.18 longcheer add for display feature start */
+extern void DSI_set_cmdq_V2_Wrapper_DSI0(unsigned int cmd, unsigned char count,
+	unsigned char *para_list, unsigned char force_update);
+extern int do_lcm_vdo_lp_write(struct ddp_lcm_write_cmd_table *write_table,
+			unsigned int count);
+extern int do_lcm_vdo_lp_read(struct ddp_lcm_read_cmd_table *read_table);
+struct LCM_setting_table *hbm0_on,*hbm1_on,*hbm2_on;
+extern char mtkfb_lcm_name[256];
+extern unsigned int islcmconnected;
+extern void disp_aal_set_ess_level (int level);
+int esd_backlight_level;
+int is_hbm_on = 0;
+EXPORT_SYMBOL(is_hbm_on);
+/* 2022.04.18 longcheer add for display feature end */
 /* This macro and arrya is designed for multiple LCM support */
 /* for multiple LCM, we should assign I/F Port id in lcm driver, */
 /* such as DPI0, DSI0/1 */
@@ -1020,6 +1036,179 @@ void load_lcm_resources_from_DT(struct LCM_DRIVER *lcm_drv)
 }
 #endif
 
+/* 2022.04.18 longcheer add for display feature start */
+static void diff_panel_set_cmd(struct disp_lcm_handle *plcm)
+{
+	if (_is_lcm_inited(plcm)) {
+		if(strnstr(plcm->drv->name,"dsi_panel_c3s_43_02_0a",strlen(plcm->drv->name))){
+			hbm0_on = xinli_hbm0_on;
+			hbm1_on = xinli_hbm1_on;
+			hbm2_on = xinli_hbm2_on;
+		}
+		if(strnstr(plcm->drv->name,"dsi_panel_c3s_45_03_0b",strlen(plcm->drv->name))){
+			hbm0_on = helitai_hbm0_on;
+			hbm1_on = helitai_hbm1_on;
+			hbm2_on = helitai_hbm2_on;
+		}
+		if(strnstr(plcm->drv->name,"dsi_panel_c3s_36_0f_0c",strlen(plcm->drv->name))){
+			hbm0_on = tianma_hbm0_on;
+			hbm1_on = tianma_hbm1_on;
+			hbm2_on = tianma_hbm2_on;
+		}
+	}
+}
+static void display_feature_push_table(struct LCM_setting_table *table,
+		unsigned int count,
+		unsigned char force_update)
+{
+	unsigned int i;
+	unsigned int cmd;
+	for (i = 0; i < count; i++) {
+		cmd = table[i].cmd;
+		DSI_set_cmdq_V2_Wrapper_DSI0(cmd, table[i].count,
+				table[i].para_list, force_update);
+	}
+}
+
+static void dsi_display_set_hbm_cmd(size_t hbm_cmd)
+{
+    struct ddp_lcm_write_cmd_table dimming_on[1] = {
+            {0x53, 1, {0x2C} },
+	};
+
+    pr_info("hbm:_###_%s,set_hbm_cmd: %d\n",__func__, hbm_cmd);
+
+    switch(hbm_cmd) {
+        case 0x1: //hbm1 on
+            do_lcm_vdo_lp_write(dimming_on,1);
+            display_feature_push_table(hbm1_on,1,1);
+            is_hbm_on = 1;
+            break;
+        case 0x2: //hbm2 on
+//            do_lcm_vdo_lp_write(dimming_on,1);
+//            display_feature_push_table(hbm2_on,1,1);
+            is_hbm_on = 1;
+            break;
+        case 0x3://hbm off for thermal
+            is_hbm_on = 0;
+            break;
+        case 0x0://hbm off
+            do_lcm_vdo_lp_write(dimming_on,1);
+            display_feature_push_table(hbm0_on,1,1);
+            is_hbm_on = 0;
+            break;
+        default:
+            pr_err("unknow cmds: %d\n", hbm_cmd);
+            break;
+        }
+
+}
+
+/* 2022.04.18 longcheer add for display feature end */
+//2022.04.18 longcheer add for hbm start
+static ssize_t dsi_display_set_hbm(struct device *dev,struct device_attribute *attr,const char *buf,size_t len)
+{
+    int rc = 0;
+    int param = 0;
+
+    rc = kstrtoint(buf, 10, &param);
+    if (rc) {
+        pr_err("kstrtoint failed. rc=%d\n", rc);
+        return rc;
+    }
+
+    dsi_display_set_hbm_cmd(param);
+
+    return len;
+}
+
+int dsi_check_hbm_status (size_t status, size_t hbm_cmd)
+{
+    int rc = 0;
+
+    if (status == 0){ //read hbm status
+        if (is_hbm_on == 0){
+            return 2; // hbm off
+        }else if (is_hbm_on == 1){
+            return 3; //hbm on
+        }
+    }
+    else if (status == 1){ //wirite hbm
+      dsi_display_set_hbm_cmd(hbm_cmd);
+      pr_err("check hbm and write cmd!\n");
+    }
+
+   return rc ;
+}
+EXPORT_SYMBOL(dsi_check_hbm_status);
+
+static ssize_t dsi_display_set_cabc(struct device *dev,struct device_attribute *attr,const char *buf,size_t len)
+{
+        int rc = 0;
+        int param = 0;
+        rc = kstrtoint(buf, 10, &param);
+        if (rc) {
+                pr_err("kstrtoint failed. rc=%d\n", rc);
+                return rc;
+        }
+	pr_info("cabc:_###_%s,set_cabc_cmd: %d\n",__func__, param);
+        switch(param) {
+            case 0x1: //cabc ui on
+		disp_aal_set_ess_level(29);
+               break;
+            case 0x2: //cabc movie on
+		disp_aal_set_ess_level(88);
+               break;
+            case 0x03://cabc still on
+		disp_aal_set_ess_level(180);
+                break;
+            case 0x0://cabc off
+		disp_aal_set_ess_level(0);
+                break;
+             default:
+                pr_err("unknow cmds: %d\n", param);
+                break;
+        }
+        return len;
+}
+
+static DEVICE_ATTR(hbm_mode, 0644, NULL,dsi_display_set_hbm);
+static DEVICE_ATTR(cabc_mode, 0644, NULL,dsi_display_set_cabc );
+static struct kobject *dsi_display_hbm;
+static struct kobject *dsi_display_cabc;
+static int display_feature_create_sysfs(void)
+{
+   int ret;
+   dsi_display_hbm = kobject_create_and_add("display_hbm", NULL);
+   if(dsi_display_hbm == NULL) {
+     pr_info(" temp_create_sysfs_ failed\n");
+     ret=-ENOMEM;
+     return ret;
+   }
+
+   dsi_display_cabc = kobject_create_and_add("display_cabc", NULL);
+   if(dsi_display_cabc == NULL) {
+     pr_info(" temp_create_sysfs_ failed\n");
+     ret=-ENOMEM;
+     return ret;
+   }
+
+   ret=sysfs_create_file(dsi_display_hbm, &dev_attr_hbm_mode.attr);
+   if(ret) {
+    pr_info("%s failed \n", __func__);
+    kobject_del(dsi_display_hbm);
+   }
+
+   ret=sysfs_create_file(dsi_display_cabc, &dev_attr_cabc_mode.attr);
+   if(ret) {
+    pr_info("%s failed \n", __func__);
+    kobject_del(dsi_display_cabc);
+   }
+
+   return 0;
+}
+//2020.03.19 longcheer add for hbm end
+
 struct disp_lcm_handle *disp_lcm_probe(char *plcm_name,
 	enum LCM_INTERFACE_ID lcm_id, int is_lcm_inited)
 {
@@ -1143,8 +1332,12 @@ struct disp_lcm_handle *disp_lcm_probe(char *plcm_name,
 		load_lcm_resources_from_DT(plcm->drv);
 #endif
 
+	esd_backlight_level = 0;
+	diff_panel_set_cmd(plcm);
+	display_feature_create_sysfs();
 	plcm->drv->get_params(plcm->params);
 	plcm->lcm_if_id = plcm->params->lcm_if;
+
 
 	/* below code is for lcm driver forward compatible */
 	if (plcm->params->type == LCM_TYPE_DSI
@@ -1515,6 +1708,7 @@ int disp_lcm_set_backlight(struct disp_lcm_handle *plcm,
 		return -1;
 	}
 
+	esd_backlight_level = level;
 	return 0;
 }
 

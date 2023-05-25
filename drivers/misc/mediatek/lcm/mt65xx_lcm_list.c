@@ -21,6 +21,18 @@ enum LCM_DSI_MODE_CON lcm_dsi_mode;
 #define LCD_HW_ID_STATUS_ERROR  0x03
 
 struct LCM_DRIVER *lcm_driver_list[] = {
+#if defined(DSI_PANEL_C3S_43_02_0A_FHDP_VIDEO)
+	&dsi_panel_c3s_43_02_0a_fhdp_video,
+#endif
+#if defined(DSI_PANEL_C3S_45_03_0B_FHDP_VIDEO)
+	&dsi_panel_c3s_45_03_0b_fhdp_video,
+#endif
+#if defined(DSI_PANEL_C3S_36_0F_0C_FHDP_VIDEO)
+	&dsi_panel_c3s_36_0f_0c_fhdp_video,
+#endif
+#if defined(ICNL9911C_DSI_VDO_HDP_HELITAI)
+	&icnl9911c_dsi_vdo_hdp_helitai_drv,
+#endif
 #if defined(HX83102P_WXGA_VDO_INCELL_BOE)
 	&hx83102p_wxga_vdo_incell_boe_lcm_drv,
 #endif

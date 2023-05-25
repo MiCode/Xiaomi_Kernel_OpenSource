@@ -62,7 +62,7 @@ static int I2C_SET_FOR_BACKLIGHT  = 350;
 #define CONTROL_BL_TEMPERATURE
 #endif
 
-#define MT_LED_INTERNAL_LEVEL_BIT_CNT 10
+#define MT_LED_INTERNAL_LEVEL_BIT_CNT 11
 
 /******************************************************************************
  * for DISP backlight High resolution
@@ -89,6 +89,9 @@ static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level);
 static unsigned int limit = 255;
 static unsigned int limit_flag;
 static unsigned int last_level;
+//Start Thermal backlight raw brightness record  by Guchao 2022/07/09
+static unsigned int thermal_last_level=0;
+//End Thermal backlight raw brightness record  by Guchao 2022/07/09
 static unsigned int current_level;
 static DEFINE_MUTEX(bl_level_limit_mutex);
 
@@ -136,8 +139,9 @@ int setMaxbrightness(int max_level, int enable)
 	}
 #else
 	pr_info("Set max brightness go through AAL\n");
-	disp_bls_set_max_backlight(((((1 << LED_INTERNAL_LEVEL_BIT_CNT) -
-				      1) * max_level + 127) / 255));
+
+	disp_bls_set_max_backlight(max_level);
+
 #endif				/* endif CONFIG_MTK_AAL_SUPPORT */
 	return 0;
 }
@@ -179,9 +183,7 @@ static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 #endif
 #ifdef LED_INCREASE_LED_LEVEL_MTKPATCH
 	if (cust->mode == MT65XX_LED_MODE_CUST_BLS_PWM) {
-		mt_mt65xx_led_set_cust(cust,
-				       ((((1 << LED_INTERNAL_LEVEL_BIT_CNT) -
-					  1) * level + 127) / 255));
+		mt_mt65xx_led_set_cust(cust,level);
 	} else {
 		mt_mt65xx_led_set_cust(cust, level);
 	}
@@ -306,8 +308,8 @@ int mt65xx_leds_brightness_set(enum mt65xx_led_type type,
 	if (type < 0 || type >= MT65XX_LED_TYPE_TOTAL)
 		return -1;
 
-	if (level > LED_FULL)
-		level = LED_FULL;
+	if (level > 2047)
+		level = 2047;
 	else if (level < 0)
 		level = 0;
 
@@ -355,11 +357,23 @@ int backlight_brightness_set(int level)
 {
 	struct cust_mt65xx_led *cust_led_list = mt_get_cust_led_list();
 
-	if (level > ((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT) - 1))
-		level = ((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT) - 1);
+	if (level > 2047)
+		level = 2047;
 	else if (level < 0)
-		level = 0;
-
+        {
+//Start Thermal backlight raw brightness record  by Guchao 2022/07/09
+          level = thermal_last_level;
+          thermal_last_level=0;
+        }	
+        else
+        {
+          if(thermal_last_level==0)
+          {
+            thermal_last_level=last_level;
+          }
+        }  	    
+	pr_info(" backlight_brightness_set  last_level= %d, current_level=%d\n",last_level,current_level);
+//End Thermal backlight raw brightness record  by Guchao 2022/07/09	
 	if (MT65XX_LED_MODE_CUST_BLS_PWM ==
 	    cust_led_list[MT65XX_LED_TYPE_LCD].mode) {
 #ifdef CONTROL_BL_TEMPERATURE
@@ -384,10 +398,9 @@ int backlight_brightness_set(int level)
 		    mt_mt65xx_led_set_cust(&cust_led_list[MT65XX_LED_TYPE_LCD],
 					   level);
 	} else {
-		return mt65xx_led_set_cust(&cust_led_list[MT65XX_LED_TYPE_LCD],
-					   (level >>
-					    (MT_LED_INTERNAL_LEVEL_BIT_CNT -
-					     8)));
+
+	return mt65xx_led_set_cust(&cust_led_list[MT65XX_LED_TYPE_LCD], level);
+
 	}
 
 }
@@ -487,7 +500,7 @@ static int mt65xx_leds_probe(struct platform_device *pdev)
 #ifdef CONTROL_BL_TEMPERATURE
 
 	last_level = 0;
-	limit = 255;
+	limit = 2047;
 	limit_flag = 0;
 	current_level = 0;
 	pr_debug

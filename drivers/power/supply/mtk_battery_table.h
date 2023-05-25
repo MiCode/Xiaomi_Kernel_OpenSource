@@ -16,8 +16,10 @@
 /* customize */
 #define DIFFERENCE_FULLOCV_ITH	200	/* mA */
 #define MTK_CHR_EXIST			1
-#define KEEP_100_PERCENT		1
-#define R_FG_VALUE				5	/* mOhm */
+// 2022.7.20 longcheer nielianjie10  modify keep_100_percent
+#define KEEP_100_PERCENT		3
+// 2022.5.18 longcheer nielianjie10  modify R_FG_VALUE
+#define R_FG_VALUE			10	/* mOhm */
 #define EMBEDDED_SEL			0
 #define PMIC_SHUTDOWN_CURRENT	20	/* 0.01 mA */
 #define FG_METER_RESISTANCE		100
@@ -73,7 +75,8 @@
 #define DIFFERENCE_FULL_CV		1000 /*0.01%*/
 #define PSEUDO1_EN				1
 #define PSEUDO100_EN			1
-#define PSEUDO100_EN_DIS		1
+/* 2022.6.15 longcheer zhangfeng5 edit.fix fg inaccurecy */
+#define PSEUDO100_EN_DIS		0
 
 #define DIFF_SOC_SETTING				100	/* 0.01% */
 #define DIFF_BAT_TEMP_SETTING			1
@@ -220,21 +223,23 @@
 
 /* using current to limit uisoc in 100% case*/
 /* UI_FULL_LIMIT_ITH0 3000 means 300ma */
-#define UI_FULL_LIMIT_EN	0
+#define UI_FULL_LIMIT_EN	1
+//begin 233028
 #define UI_FULL_LIMIT_SOC0	9900
-#define UI_FULL_LIMIT_ITH0	2200
+#define UI_FULL_LIMIT_ITH0	4000
+//end 233028
 
-#define UI_FULL_LIMIT_SOC1	9900
-#define UI_FULL_LIMIT_ITH1	2200
+#define UI_FULL_LIMIT_SOC1	10000
+#define UI_FULL_LIMIT_ITH1	3500
 
-#define UI_FULL_LIMIT_SOC2	9900
-#define UI_FULL_LIMIT_ITH2	2200
+#define UI_FULL_LIMIT_SOC2	10000
+#define UI_FULL_LIMIT_ITH2	3500
 
-#define UI_FULL_LIMIT_SOC3	9900
-#define UI_FULL_LIMIT_ITH3	2200
+#define UI_FULL_LIMIT_SOC3	10000
+#define UI_FULL_LIMIT_ITH3	3500
 
-#define UI_FULL_LIMIT_SOC4	9900
-#define UI_FULL_LIMIT_ITH4	2200
+#define UI_FULL_LIMIT_SOC4	10000
+#define UI_FULL_LIMIT_ITH4	3500
 
 #define UI_FULL_LIMIT_TIME	99999
 
@@ -285,11 +290,11 @@
 /* Qmax for battery  */
 int g_Q_MAX[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
-	{ 2946, 2712, 2490, 1965},/*T0*/
-	{ 2796, 2851, 2468, 1984},/*T1*/
-	{ 2718, 2432, 2310, 1946},/*T2*/
-	{ 2535, 1991, 1858, 1873},/*T3*/
-	{ 2523, 1960, 1843, 1851},/*T4*/
+	{ 5071, 5071, 5071, 5071},/*T0*/
+	{ 5078, 5078, 5078, 5078},/*T1*/
+	{ 5053, 5053, 5053, 5053},/*T2*/
+	{ 5038, 5038, 5038, 5038},/*T3*/
+	{ 4992, 4992, 4992, 4992},/*T4*/
 	{ 2211, 1652, 1533, 1541},/*T5*/
 	{ 2201, 1642, 1523, 1531},/*T6*/
 	{ 2191, 1632, 1513, 1521},/*T7*/
@@ -398,9 +403,9 @@ int g_PON_SYS_IBOOT[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 int g_QMAX_SYS_VOL[MAX_TABLE][TOTAL_BATTERY_NUMBER] = {
 	/*bat1,   bat2,   bat3,    bat4*/
 	{33500, 33500, 33500, 33500},/*T0*/
-	{33500, 33500, 33500, 33500},/*T1*/
-	{33500, 33500, 33500, 33500},/*T2*/
-	{32900, 32900, 32900, 32900},/*T3*/
+	{34000, 34000, 34000, 34000},/*T1*/
+	{34000, 34000, 34000, 34000},/*T2*/
+	{33400, 33400, 33400, 33400},/*T3*/
 	{32800, 32800, 32800, 32800},/*T4*/
 	{33500, 33500, 33500, 33500},/*T5*/
 	{33500, 33500, 33500, 33500},/*T6*/
@@ -427,8 +432,9 @@ int g_temperature[MAX_TABLE] = {
 };
 
 
-#define BAT_NTC_10 1
+#define BAT_NTC_10 0
 #define BAT_NTC_47 0
+#define BAT_NTC_100 1
 
 #if (BAT_NTC_10 == 1)
 #define RBAT_PULL_UP_R             24000
@@ -438,7 +444,10 @@ int g_temperature[MAX_TABLE] = {
 #define RBAT_PULL_UP_R             61900
 #endif
 
-#define RBAT_PULL_UP_VOLT          2800
+#if (BAT_NTC_100 == 1)
+#define RBAT_PULL_UP_R             100000
+#endif
+#define RBAT_PULL_UP_VOLT          1800
 
 #define BIF_NTC_R 16000
 
@@ -494,7 +503,31 @@ struct fuelgauge_temperature Fg_Temperature_Table[21] = {
 };
 #endif
 
-
+#if (BAT_NTC_100 == 1)
+struct fuelgauge_temperature Fg_Temperature_Table[21] = {
+	    {-40, 4397119},
+	    {-35, 3088599},
+	    {-30, 2197225},
+	    {-25, 1581881},
+	    {-20, 1151037},
+	    {-15, 846579},
+	    {-10, 628988},
+	    {-5, 471632},
+	    {0, 357012},
+	    {5, 272500},
+	    {10, 209710},
+	    {15, 162651},
+	    {20, 127080},
+	    {25, 100000},
+	    {30, 79222},
+	    {35, 63167},
+	    {40, 50677},
+	    {45, 40904},
+	    {50, 33195},
+	    {55, 27091},
+	    {60, 22224}
+};
+#endif
 
 /* ============================================================
  * <DOD, Battery_Voltage> Table

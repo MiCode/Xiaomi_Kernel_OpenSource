@@ -15,11 +15,42 @@
  *     mediatek\custom\common\hal\imgsensor\src\sensorlist.cpp
  */
 struct IMGSENSOR_INIT_FUNC_LIST kdSensorList[MAX_NUM_OF_SUPPORT_SENSOR] = {
-#if defined(S5K4H7_MIPI_RAW)
-	{S5K4H7_SENSOR_ID,
-	SENSOR_DRVNAME_S5K4H7_MIPI_RAW,
-	S5K4H7_MIPI_RAW_SensorInit},
+#if defined(SAMS_S5K4H7_I)
+	{SAMS_S5K4H7_I_SENSOR_ID,
+	SENSOR_DRVNAME_SAMS_S5K4H7_I,
+	SAMS_S5K4H7_I_SensorInit},
 #endif
+#if defined(SC_SC800CS_II)
+        {SC_SC800CS_II_SENSOR_ID,
+        SENSOR_DRVNAME_SC_SC800CS_II,
+        SC_SC800CS_II_SensorInit},
+#endif
+#if defined(SAMS_S5K4H7_III)
+	{SAMS_S5K4H7_III_SENSOR_ID,
+	SENSOR_DRVNAME_SAMS_S5K4H7_III,
+	SAMS_S5K4H7_III_SensorInit},
+#endif
+#if defined(SAMS_S5K5E9_I)
+        {SAMS_S5K5E9_I_SENSOR_ID,
+        SENSOR_DRVNAME_SAMS_S5K5E9_I,
+        SAMS_S5K5E9_I_SensorInit},
+#endif
+#if defined(SC_SC500CS_II)
+        {SC_SC500CS_II_SENSOR_ID,
+        SENSOR_DRVNAME_SC_SC500CS_II,
+        SC_SC500CS_II_SensorInit},
+#endif
+#if defined(SAMS_S5K5E9_III)
+        {SAMS_S5K5E9_III_SENSOR_ID,
+        SENSOR_DRVNAME_SAMS_S5K5E9_III,
+        SAMS_S5K5E9_III_SensorInit},
+#endif
+#if defined(OV02B_MIPI_RAW)
+        {OV02B_SENSOR_ID,
+         SENSOR_DRVNAME_OV02B_MIPI_RAW,
+         OV02B_MIPI_RAW_SensorInit},
+#endif
+#if 0
 #if defined(S5K4H7SUB_MIPI_RAW)
 	{S5K4H7SUB_SENSOR_ID,
 	SENSOR_DRVNAME_S5K4H7SUB_MIPI_RAW,
@@ -753,7 +784,7 @@ struct IMGSENSOR_INIT_FUNC_LIST kdSensorList[MAX_NUM_OF_SUPPORT_SENSOR] = {
 	{OV8856_SENSOR_ID, SENSOR_DRVNAME_OV8856_MIPI_RAW_5MP,
 		OV8856_MIPI_RAW_SensorInit},
 #endif
-
+#endif
 	/*  ADD sensor driver before this line */
 	{0, {0}, NULL}, /* end of list */
 };

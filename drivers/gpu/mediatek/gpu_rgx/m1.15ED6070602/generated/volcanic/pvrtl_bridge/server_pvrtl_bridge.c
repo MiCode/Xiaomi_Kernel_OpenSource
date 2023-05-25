@@ -197,7 +197,7 @@ TLOpenStream_exit:
 			/* Lock over handle creation cleanup. */
 			LockHandle(psConnection->psHandleBase);
 
-			eError = PVRSRVReleaseHandleUnlocked(psConnection->psHandleBase,
+			eError = PVRSRVDestroyHandleUnlocked(psConnection->psHandleBase,
 							     (IMG_HANDLE) psTLOpenStreamOUT->hSD,
 							     PVRSRV_HANDLE_TYPE_PVR_TL_SD);
 			if (unlikely((eError != PVRSRV_OK) && (eError != PVRSRV_ERROR_RETRY)))
@@ -249,9 +249,9 @@ PVRSRVBridgeTLCloseStream(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psTLCloseStreamOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psTLCloseStreamIN->hSD,
-					    PVRSRV_HANDLE_TYPE_PVR_TL_SD);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psTLCloseStreamIN->hSD,
+					      PVRSRV_HANDLE_TYPE_PVR_TL_SD);
 	if (unlikely((psTLCloseStreamOUT->eError != PVRSRV_OK) &&
 		     (psTLCloseStreamOUT->eError != PVRSRV_ERROR_RETRY)))
 	{

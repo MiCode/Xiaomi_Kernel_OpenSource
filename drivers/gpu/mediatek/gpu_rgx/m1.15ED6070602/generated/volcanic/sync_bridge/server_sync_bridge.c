@@ -153,7 +153,7 @@ AllocSyncPrimitiveBlock_exit:
 			/* Lock over handle creation cleanup. */
 			LockHandle(psConnection->psHandleBase);
 
-			eError = PVRSRVReleaseHandleUnlocked(psConnection->psHandleBase,
+			eError = PVRSRVDestroyHandleUnlocked(psConnection->psHandleBase,
 							     (IMG_HANDLE)
 							     psAllocSyncPrimitiveBlockOUT->
 							     hSyncHandle,
@@ -200,9 +200,9 @@ PVRSRVBridgeFreeSyncPrimitiveBlock(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psFreeSyncPrimitiveBlockOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psFreeSyncPrimitiveBlockIN->hSyncHandle,
-					    PVRSRV_HANDLE_TYPE_SYNC_PRIMITIVE_BLOCK);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psFreeSyncPrimitiveBlockIN->hSyncHandle,
+					      PVRSRV_HANDLE_TYPE_SYNC_PRIMITIVE_BLOCK);
 	if (unlikely((psFreeSyncPrimitiveBlockOUT->eError != PVRSRV_OK) &&
 		     (psFreeSyncPrimitiveBlockOUT->eError != PVRSRV_ERROR_RETRY)))
 	{

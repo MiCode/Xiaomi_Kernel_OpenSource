@@ -68,6 +68,12 @@ static const char * const power_supply_health_text[] = {
 	"Safety timer expire", "Over current", "Warm", "Cool", "Hot"
 };
 
+/*modify by HTH-233782 at 2022/5/11 begin*/
+static char *battery_type[] = {
+        "cos-10k-5000mAh", "sunwoda-200k-5000mAh","cos-100k-5000mAh","sunwoda-330k-5000mAh","Unknown"
+};
+/*modify by HTH-233782 at 2022/5/11 end*/
+
 static const char * const power_supply_technology_text[] = {
 	"Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd",
 	"LiMn"
@@ -81,20 +87,15 @@ static const char * const power_supply_scope_text[] = {
 	"Unknown", "System", "Device"
 };
 
+/*modify by HTH-211906 at 2022/5/7 begin*/
 static const char * const power_supply_usbc_text[] = {
-	"Nothing attached", "Sink attached", "Powered cable w/ sink",
-	"Debug Accessory", "Audio Adapter", "Powered cable w/o sink",
-	"Source attached (default current)",
-	"Source attached (medium current)",
-	"Source attached (high current)",
-	"Debug Accessory Mode (default current)",
-	"Debug Accessory Mode (medium current)",
-	"Debug Accessory Mode (high current)",
-	"Non compliant",
-	"Non compliant (Rp-Default/Rp-Default)",
-	"Non compliant (Rp-1.5A/Rp-1.5A)",
-	"Non compliant (Rp-3A/Rp-3A)"
+		"Nothing attached",
+		"Source attached (default current)",
+		"Non compliant",
+		"Nothing attached",
+		"Source attached (default current)",
 };
+/*modify by HTH-211906 at 2022/5/7 end*/
 
 static const char * const power_supply_usbc_pr_text[] = {
 	"none", "dual power role", "sink", "source"
@@ -103,6 +104,21 @@ static const char * const power_supply_usbc_pr_text[] = {
 static const char * const power_supply_typec_src_rp_text[] = {
 	"Rp-Default", "Rp-1.5A", "Rp-3A"
 };
+
+/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file begin */
+static const char * const power_supply_quick_charge_type_text[] = {
+	"",
+	"0",/* SDP */
+	"0",/* CDP */
+	"0",/* DCP */
+	"",
+	"",
+	"",
+	"",
+	"",
+	"",
+};
+/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file end */
 
 static ssize_t power_supply_show_usb_type(struct device *dev,
 					  enum power_supply_usb_type *usb_types,
@@ -177,6 +193,11 @@ static ssize_t power_supply_show_property(struct device *dev,
 		ret = sprintf(buf, "%s\n",
 			      power_supply_health_text[value.intval]);
 		break;
+	/*modify by HTH-233782 at 2022/5/11 begin*/
+        case POWER_SUPPLY_PROP_BATTERY_TYPE:
+                ret = sprintf(buf, "%s\n", battery_type[value.intval]);
+                break;
+	/*modify by HTH-233782 at 2022/5/11 end*/
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		ret = sprintf(buf, "%s\n",
 			      power_supply_technology_text[value.intval]);
@@ -223,6 +244,11 @@ static ssize_t power_supply_show_property(struct device *dev,
 	case POWER_SUPPLY_PROP_MODEL_NAME ... POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		ret = sprintf(buf, "%s\n", value.strval);
 		break;
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file begin */
+	case POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE:
+		ret = sprintf(buf, "%s\n", power_supply_quick_charge_type_text[value.intval]);
+		break;
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file end */
 	default:
 		ret = sprintf(buf, "%d\n", value.intval);
 	}
@@ -513,13 +539,20 @@ static struct device_attribute power_supply_attrs[] = {
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
 	POWER_SUPPLY_ATTR(charge_charger_state),
+	POWER_SUPPLY_ATTR(battery_type),
 	/* Properties of type `const char *' */
 	POWER_SUPPLY_ATTR(model_name),
 	POWER_SUPPLY_ATTR(ptmc_id),
 	POWER_SUPPLY_ATTR(manufacturer),
-	POWER_SUPPLY_ATTR(battery_type),
 	POWER_SUPPLY_ATTR(cycle_counts),
 	POWER_SUPPLY_ATTR(serial_number),
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file begin */
+	POWER_SUPPLY_ATTR(quick_charge_type),
+	/* 2022.5.16 longcheer zhangfeng5 add quick_charge_type file end */
+	POWER_SUPPLY_ATTR(mtbf_cur), //add 234935
+	/* 2022.06.30 longcheer yuzhaohua add */
+        POWER_SUPPLY_ATTR(set_temp_enable),
+        POWER_SUPPLY_ATTR(set_temp_num),
 };
 
 static struct attribute *

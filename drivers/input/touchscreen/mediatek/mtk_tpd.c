@@ -10,6 +10,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/fb.h>
+#include <linux/delay.h>
 #ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
 #include <mtk_6306_gpio.h>
 #endif
@@ -541,6 +542,7 @@ static int tpd_probe(struct platform_device *pdev)
 	int ret = 0;
 #endif
 #endif
+	msleep(1);
 
 	TPD_DMESG("enter %s, %d\n", __func__, __LINE__);
 	pr_info("enter %s, %d\n", __func__, __LINE__);
@@ -605,8 +607,10 @@ static int tpd_probe(struct platform_device *pdev)
 
 	if (2560 == TPD_RES_X)
 		TPD_RES_X = 2048;
-	if (1600 == TPD_RES_Y)
-		TPD_RES_Y = 1536;
+	//if (1600 == TPD_RES_Y)
+	//	TPD_RES_Y = 1536;
+	TPD_RES_X = 719;
+	TPD_RES_Y = 1599;
 	pr_debug("mtk_tpd: TPD_RES_X = %lu, TPD_RES_Y = %lu\n",
 		TPD_RES_X, TPD_RES_Y);
 
@@ -637,7 +641,6 @@ static int tpd_probe(struct platform_device *pdev)
 		/* add tpd driver into list */
 		if (tpd_driver_list[i].tpd_device_name != NULL) {
 			tpd_driver_list[i].tpd_local_init();
-			/* msleep(1); */
 			if (tpd_load_status == 1) {
 				TPD_DMESG("%s, tpd_driver_name=%s\n", __func__,
 					  tpd_driver_list[i].tpd_device_name);

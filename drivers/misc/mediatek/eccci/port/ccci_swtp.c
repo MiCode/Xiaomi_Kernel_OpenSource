@@ -13,10 +13,12 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_gpio.h>
+#include <linux/input.h>
 
 #include <mt-plat/mtk_boot_common.h>
 #include "ccci_debug.h"
 #include "ccci_config.h"
+//#include "ccci_common_config.h"
 #include "ccci_modem.h"
 #include "ccci_swtp.h"
 #include "ccci_fsm.h"
@@ -44,6 +46,8 @@ static const char irq_name[][16] = {
 struct swtp_t swtp_data[SWTP_MAX_SUPPORT_MD];
 static const char rf_name[] = "RF_cable";
 #define MAX_RETRY_CNT 30
+
+struct input_dev *swtp_ipdev;
 
 static int swtp_send_tx_power(struct swtp_t *swtp)
 {
@@ -91,7 +95,8 @@ static int swtp_switch_state(int irq, struct swtp_t *swtp)
 			"%s:can't find match irq\n", __func__);
 		return -1;
 	}
-
+        CCCI_LEGACY_ALWAYS_LOG(swtp->md_id, SYS, "%s i %d %d\n",
+		__func__, i, swtp->eint_type[i]);
 	if (swtp->eint_type[i] == IRQ_TYPE_LEVEL_LOW) {
 		irq_set_irq_type(swtp->irq[i], IRQ_TYPE_LEVEL_HIGH);
 		swtp->eint_type[i] = IRQ_TYPE_LEVEL_HIGH;
@@ -100,10 +105,24 @@ static int swtp_switch_state(int irq, struct swtp_t *swtp)
 		swtp->eint_type[i] = IRQ_TYPE_LEVEL_LOW;
 	}
 
-	if (swtp->gpio_state[i] == SWTP_EINT_PIN_PLUG_IN)
+	if (swtp->gpio_state[i] == SWTP_EINT_PIN_PLUG_IN){
+                if(i == 0){
+			input_report_key(swtp_ipdev, KEY_ANT_UNCONNECT, 1);
+			input_report_key(swtp_ipdev, KEY_ANT_UNCONNECT, 0);
+			input_sync(swtp_ipdev);
+   
+	}	
 		swtp->gpio_state[i] = SWTP_EINT_PIN_PLUG_OUT;
-	else
+}
+	else{
+               if(i == 0){
+			input_report_key(swtp_ipdev, KEY_ANT_CONNECT, 1);
+			input_report_key(swtp_ipdev, KEY_ANT_CONNECT, 0);
+			input_sync(swtp_ipdev);
+   
+	}
 		swtp->gpio_state[i] = SWTP_EINT_PIN_PLUG_IN;
+}
 
 	swtp->tx_power_mode = SWTP_NO_TX_POWER;
 	for (i = 0; i < MAX_PIN_NUM; i++) {
@@ -148,6 +167,7 @@ static irqreturn_t swtp_irq_handler(int irq, void *data)
 	struct swtp_t *swtp = (struct swtp_t *)data;
 	int ret = 0;
 
+        pr_err("==== swtp_irq_func ====\n");	
 	ret = swtp_switch_state(irq, swtp);
 	if (ret < 0) {
 		CCCI_LEGACY_ERR_LOG(swtp->md_id, SYS,
@@ -293,6 +313,25 @@ SWTP_INIT_END:
 
 int swtp_init(int md_id)
 {
+        int ret = 0;
+        /*input system config*/
+	swtp_ipdev = input_allocate_device();
+	if (!swtp_ipdev) {
+		pr_err("swtp_init: input_allocate_device fail\n");
+		return -1;
+	}
+	swtp_ipdev->name = "swtp-input";
+	input_set_capability(swtp_ipdev, EV_KEY, KEY_ANT_CONNECT);
+	input_set_capability(swtp_ipdev, EV_KEY, KEY_ANT_UNCONNECT);
+	input_set_capability(swtp_ipdev, EV_KEY, DIV_ANT_CONNECT);
+	input_set_capability(swtp_ipdev, EV_KEY, DIV_ANT_UNCONNECT);
+	//set_bit(INPUT_PROP_NO_DUMMY_RELEASE, ant_info->ipdev->propbit);
+	ret = input_register_device(swtp_ipdev);
+	if (ret) {
+		pr_err("swtp_init: input_register_device fail rc=%d\n", ret);
+		return -1;
+	}
+	pr_info("swtp_init: input_register_device success \n");
 	/* parameter check */
 	if (md_id < 0 || md_id >= SWTP_MAX_SUPPORT_MD) {
 		CCCI_LEGACY_ERR_LOG(-1, SYS,

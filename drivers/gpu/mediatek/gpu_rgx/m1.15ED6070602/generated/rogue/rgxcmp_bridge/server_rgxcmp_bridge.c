@@ -331,10 +331,10 @@ PVRSRVBridgeRGXDestroyComputeContext(IMG_UINT32 ui32DispatchTableEntry,
 	LockHandle(psConnection->psHandleBase);
 
 	psRGXDestroyComputeContextOUT->eError =
-	    PVRSRVReleaseHandleStagedUnlock(psConnection->psHandleBase,
-					    (IMG_HANDLE) psRGXDestroyComputeContextIN->
-					    hComputeContext,
-					    PVRSRV_HANDLE_TYPE_RGX_SERVER_COMPUTE_CONTEXT);
+	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
+					      (IMG_HANDLE) psRGXDestroyComputeContextIN->
+					      hComputeContext,
+					      PVRSRV_HANDLE_TYPE_RGX_SERVER_COMPUTE_CONTEXT);
 	if (unlikely
 	    ((psRGXDestroyComputeContextOUT->eError != PVRSRV_OK)
 	     && (psRGXDestroyComputeContextOUT->eError != PVRSRV_ERROR_RETRY)))

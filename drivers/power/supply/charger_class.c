@@ -50,6 +50,15 @@ int charger_dev_is_enabled(struct charger_device *chg_dev, bool *en)
 }
 EXPORT_SYMBOL(charger_dev_is_enabled);
 
+int charger_dev_set_hizmode(struct charger_device *chg_dev, bool en)
+{
+        if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->hiz_mode)
+                return chg_dev->ops->hiz_mode(chg_dev, en);
+
+        return -ENOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_set_hizmode);
+
 int charger_dev_plug_in(struct charger_device *chg_dev)
 {
 	if (chg_dev != NULL && chg_dev->ops != NULL && chg_dev->ops->plug_in)

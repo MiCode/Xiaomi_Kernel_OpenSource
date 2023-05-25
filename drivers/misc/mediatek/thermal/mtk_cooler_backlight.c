@@ -27,6 +27,13 @@ static struct thermal_cooling_device
 
 static unsigned int g_cl_backlight_state[BACKLIGHT_COOLER_NR] = { 0 };
 extern int mt_leds_max_brightness_set(char *name, int percent, bool enable);
+//Start Thermal backlight set; by Guchao 2022/07/09
+extern int backlight_brightness_set(int level);
+//End Thermal backlight set; by Guchao 2022/07/09
+
+//Start Thermal backlight raw brightness record  by Guchao 2022/09/09
+extern int dsi_check_hbm_status (size_t status, size_t hbm_cmd);
+//End Thermal backlight raw brightness record  by Guchao 2022/09/09
 
 /* static unsigned int g_cl_backlight_last_state[BACKLIGHT_COOLER_NR] = {0}; */
 static unsigned int g_cl_id[BACKLIGHT_COOLER_NR];
@@ -39,7 +46,6 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 	if (g_backlight_last_level != g_backlight_level) {
 		mtk_cooler_backlight_dprintk("set brightness level = %d\n",
 				g_backlight_level);
-
 		switch (g_backlight_level) {
 		case 0:
 			/* 100% */
@@ -53,7 +59,16 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 				  defined(CONFIG_LEDS_MTK_I2C)
 			setMaxBrightness("lcd-backlight", 100, 0);
 			#else
-			setMaxbrightness(255, 0);
+                        //Start Thermal backlight set; by Guchao 2022/07/09
+			//setMaxbrightness(255, 0);
+                        backlight_brightness_set(-1);
+                        //End Thermal backlight set; by Guchao 2022/07/09 
+                        //Start Thermal backlight raw brightness record  by Guchao 2022/09/16
+                        if(dsi_check_hbm_status(0,0)==3)
+		        {
+		          dsi_check_hbm_status(1,2);
+		        }  
+                        //end Thermal backlight raw brightness record  by Guchao 2022/09/16                 
 			#endif
 			break;
 		case 1:
@@ -68,7 +83,10 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 				  defined(CONFIG_LEDS_MTK_I2C)
 			setMaxBrightness("lcd-backlight", 70, 0);
 			#else
-			setMaxbrightness(178, 1);
+                        //Start Thermal backlight set; by Guchao 2022/07/09
+			//setMaxbrightness(240, 1);
+                        backlight_brightness_set(1850);
+                        //End Thermal backlight set; by Guchao 2022/07/09                        
 			#endif
 			break;
 		case 2:
@@ -83,7 +101,10 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 				  defined(CONFIG_LEDS_MTK_I2C)
 			setMaxBrightness("lcd-backlight", 40, 1);
 			#else
-			setMaxbrightness(102, 1);
+                        //Start Thermal backlight set; by Guchao 2022/07/09
+			//setMaxbrightness(160, 1);
+                        backlight_brightness_set(1450);
+                        //End Thermal backlight set; by Guchao 2022/07/09                       
 			#endif
 			break;
 		case 3:
@@ -98,7 +119,10 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 				  defined(CONFIG_LEDS_MTK_I2C)
 			setMaxBrightness("lcd-backlight", 10, 1);
 			#else
-			setMaxbrightness(25, 1);
+                        //Start Thermal backlight set; by Guchao 2022/07/09
+			//setMaxbrightness(100, 1);
+                        backlight_brightness_set(1024);
+                        //End Thermal backlight set; by Guchao 2022/07/09                       
 			#endif
 			break;
 		default:
@@ -112,13 +136,20 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 				  defined(CONFIG_LEDS_MTK_I2C)
 			setMaxBrightness("lcd-backlight", 100, 0);
 			#else
-			setMaxbrightness(255, 0);
+                        //Start Thermal backlight set; by Guchao 2022/07/09
+			//setMaxbrightness(255, 0);
+                        backlight_brightness_set(-1);
+                        //End Thermal backlight set; by Guchao 2022/07/09
+                        if(dsi_check_hbm_status(0,0)==3)
+		        {
+		          dsi_check_hbm_status(1,2);
+		        }  
+                        //end Thermal backlight raw brightness record  by Guchao 2022/09/16                          
 			#endif
 			break;
 		}
 	}
 }
-
 	static int mtk_cl_backlight_get_max_state
 (struct thermal_cooling_device *cdev, unsigned long *state)
 {

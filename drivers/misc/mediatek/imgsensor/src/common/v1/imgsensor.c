@@ -47,6 +47,7 @@
 #include "imgsensor_proc.h"
 #include "imgsensor_clk.h"
 #include "imgsensor.h"
+#include <linux/string.h>
 
 #define PDAF_DATA_SIZE 4096
 
@@ -75,6 +76,16 @@ static DEFINE_MUTEX(gimgsensor_mutex);
 struct IMGSENSOR  gimgsensor;
 struct IMGSENSOR *pgimgsensor = &gimgsensor;
 MUINT32 last_id;
+
+
+unsigned char fusion_id_main[96] = {0};//hi1337
+unsigned char sn_main[96] = {0};//hi1337
+unsigned char fusion_id_front[96] = {0};
+unsigned char sn_front[96] = {0};
+unsigned char fusion_id_back2[48] = {0};
+unsigned char fusion_id_back3[48] = {0};
+unsigned char fusion_id_back4[48] = {0};
+char imgsensor_name[128] = {0};
 
 /*prevent imgsensor race condition in vulunerbility test*/
 struct mutex imgsensor_mutex;
@@ -484,6 +495,10 @@ static inline int imgsensor_check_is_alive(struct IMGSENSOR_SENSOR *psensor)
  ************************************************************************/
 int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 {
+    static int num1 = 0;
+    static int num2 = 0;
+    static int num3 = 0;
+    static int num4 = 0;
 	u32 drv_idx = 0;
 	int ret = -EIO;
 
@@ -595,6 +610,18 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 					    drv_idx,
 					    psensor_inst->psensor_name);
 
+					if(num1 == 0){	
+					    num1 = sprintf(imgsensor_name, "%s;", psensor_inst->psensor_name);
+					}
+					else if (num2 == 0){
+					    num2 = sprintf(imgsensor_name + num1, "%s;", psensor_inst->psensor_name);
+					}
+					else if (num3 == 0){
+					    num3 = sprintf(imgsensor_name + num1 + num2, "%s;", psensor_inst->psensor_name);
+					}
+					else if (num4 == 0){
+					    num4 = sprintf(imgsensor_name + num1 + num2 + num3, "%s", psensor_inst->psensor_name);
+					}					
 					ret = drv_idx;
 					break;
 				}
@@ -3004,12 +3031,128 @@ static struct platform_driver gimgsensor_platform_driver = {
 	}
 };
 
+
+static struct kobject * sensor_kobject;
+static ssize_t imgsensor_name_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	ssize_t ret = 0;
+	int num1 = 0;
+	int num2 = 0;
+	int num3 = 0;
+	//int num4 = 0;
+	struct IMGSENSOR_SENSOR* sensor;
+	char* dst[4];
+	unsigned int i=0;
+	//unsigned int j=0;
+	unsigned int len = 0;
+	char imgsensorname[128] = {0};
+	char* src_name = NULL;
+	//if(strlen(imgsensor_name) > 0){
+		strncpy(imgsensorname, imgsensor_name, strlen(imgsensor_name));
+		src_name = imgsensorname;
+	//  if(src_name != NULL)
+	   //{
+		len = strlen(src_name);
+		pr_err("[wpc] len:%d\n", len);
+		if(len > 0){
+		    for(i=0; ((i < 4) && (src_name != NULL)); i++) {
+			pr_err("[wpc] src_name :%s \n", src_name);
+			dst[i] = strsep(&src_name, ";");
+			pr_err("[wpc] dst[%d]:%s \n", i,  dst[i]);
+		    }
+		}
+	    
+		pr_err("[wpc] i:%d\n", i);
+		sensor = imgsensor_sensor_get_inst(IMGSENSOR_SENSOR_IDX_MAIN);
+		num1 = sprintf(buf, "WIDE=%s\n", sensor->inst.psensor_name);
+	    pr_err("[wpc] WIDE=%s\n", num1);
+
+		sensor = imgsensor_sensor_get_inst(IMGSENSOR_SENSOR_IDX_SUB);
+		num2 = sprintf(buf + num1, "FRONT=%s\n", sensor->inst.psensor_name);
+		pr_err("[wpc] FRONT=%s\n", num2);
+
+		if(IMGSENSOR_SENSOR_IDX_SUB2 == 3) {
+		    sensor = imgsensor_sensor_get_inst(IMGSENSOR_SENSOR_IDX_SUB2);
+		} else if (IMGSENSOR_SENSOR_IDX_MAIN3 == 3) {
+		    sensor = imgsensor_sensor_get_inst(IMGSENSOR_SENSOR_IDX_MAIN3);
+		}
+		num3 = sprintf(buf+num1+num2, "DEPTH=%s\n", sensor->inst.psensor_name);
+		pr_err("[wpc] DEPTH=%s\n", num3);
+	
+	   // } else {
+		//pr_err("[wpc] imgsensorname is NULL");
+	    //}
+	//}
+
+    ret = strlen(buf) + 1;
+    return ret;
+
+}
+static DEVICE_ATTR(sensor, 0664, imgsensor_name_show, NULL);
+static struct kobject * sensor_kobject;
+
+
+static ssize_t sensorid_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int i;
+	ssize_t size = 0;
+
+	//main
+	for (i = 0; i < 8; i++) {
+		sprintf(buf + 2*i, "%02x", fusion_id_main[i]);
+	}
+
+	size = strlen(buf) + 1;
+
+	//front
+	for (i = 0; i < 8; i++) {
+		sprintf(buf + size + 2*i, "%02x", fusion_id_front[i]);
+	}
+
+	return 100;
+
+}
+static DEVICE_ATTR(sensorid, 0664, sensorid_show, NULL);
+static ssize_t sensorsn_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    int i;
+    ssize_t size = 0;
+	//main
+	pr_err("[wpc] NULL sensor main3 =%02x.\n",sn_main[i]);
+
+    //strncpy(buf, "main:", 5);
+    for (i = 0; i < 7; i++) {
+		sprintf(buf + 2*i, "%02x", sn_main[i]);
+    }
+    size = strlen(buf) + 1;
+	//front
+    strncpy(buf + size, "1", 1);
+    for (i = 0; i < 7; i++) {
+		sprintf(buf + size + 2*i, "%02x", sn_front[i]);
+    }
+	//back2
+  /*
+	size = size + 6+ 2*i + 1;
+	strncpy(buf + size, "back2:", 6);//fusion_id_back2
+	for (i = 0; i < 12; i++) {
+		sprintf(buf + size + 6 + 2*i, "%02x", fusion_id_back2[i]);
+	}
+	size = size + 6 + 2*i + 1;
+  */
+	return 179;
+
+}
+
+static DEVICE_ATTR(sensorsn, 0664, sensorsn_show, NULL);
+
 /*
  * imgsensor_init()
  */
 static int __init imgsensor_init(void)
 {
-	pr_info("[camerahw_probe] start\n");
+	int ret;
+
+	PK_DBG("[camerahw_probe] start\n");
 
 	if (platform_driver_register(&gimgsensor_platform_driver)) {
 		PK_DBG("failed to register CAMERA_HW driver\n");
@@ -3030,6 +3173,18 @@ static int __init imgsensor_init(void)
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
 	imgsensor_dfs_ctrl(DFS_CTRL_ENABLE, NULL);
 #endif
+    sensor_kobject = kobject_create_and_add("android_camera", NULL);
+    if (sensor_kobject == NULL) {
+        pr_info("[imgsensor_init]Big error: sensor_kobject_create_sysfs_ failed\n");
+    } else {
+        ret = sysfs_create_file(sensor_kobject, &dev_attr_sensor.attr);
+		ret = sysfs_create_file(sensor_kobject, &dev_attr_sensorid.attr);
+		ret = sysfs_create_file(sensor_kobject, &dev_attr_sensorsn.attr);
+        if (ret) {
+        	pr_err("%s failed \n", __func__);
+        	kobject_del(sensor_kobject);
+        }
+    }
 
 	return 0;
 }
