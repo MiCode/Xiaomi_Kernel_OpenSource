@@ -23,6 +23,7 @@ extern "C" {
 #define PPM_CPI_CHECK_ENABLE		(1)
 #endif
 
+#define PPM_NOT_REGISTER_CALLBACK (1)
 #define DYNAMIC_TABLE2REAL_PERCENTAGE	(58)
 
 #define CORE_NUM_L	(4)
@@ -104,7 +105,7 @@ extern int cobra_init_done;
 extern unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
 					unsigned int cluster_num, unsigned int percentage);
 extern int ppm_platform_init(void);
-
+extern void *get_cpuhop_ppm_callback(void);
 /* COBRA algo */
 extern void ppm_cobra_update_core_limit(unsigned int cluster, int limit);
 extern void ppm_cobra_update_freq_limit(unsigned int cluster, int limit);
