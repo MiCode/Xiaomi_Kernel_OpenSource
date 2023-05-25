@@ -95,6 +95,11 @@ struct GpuUtilization_Ex {
 	unsigned int util_3d;
 	unsigned int util_ta;
 	unsigned int util_compute;
+	unsigned int util_iter;
+	unsigned int util_mcu;
+
+	unsigned long long delta_time;   // unit: ns
+	unsigned int freq;   // unit: kHz
 };
 
 bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
