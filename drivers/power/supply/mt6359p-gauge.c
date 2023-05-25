@@ -2582,9 +2582,9 @@ static int rtc_ui_soc_get(struct mtk_gauge *gauge,
 	*val = rtc_ui_soc;
 
 	if (rtc_ui_soc > 100 || rtc_ui_soc < 0)
-		bm_err("[%s]ERR!rtc=0x%x,ui_soc=%d\n", rtc_value, rtc_ui_soc);
+		bm_err("[%s]ERR!rtc=0x%x,ui_soc=%d\n", __func__, rtc_value, rtc_ui_soc);
 	else
-		bm_debug("[%s]rtc=0x%x,ui_soc=%d\n", rtc_value, rtc_ui_soc);
+		bm_debug("[%s]rtc=0x%x,ui_soc=%d\n", __func__, rtc_value, rtc_ui_soc);
 
 	return 0;
 }

@@ -2844,9 +2844,9 @@ static int rtc_ui_soc_get(struct mtk_gauge *gauge,
 	*val = rtc_ui_soc;
 
 	if (rtc_ui_soc > 100 || rtc_ui_soc < 0)
-		bm_err("[%s]ERR!rtc=0x%x,ui_soc=%d\n", rtc_value, rtc_ui_soc);
+		bm_err("[%s]ERR!rtc=0x%x,ui_soc=%d\n", __func__, rtc_value, rtc_ui_soc);
 	else
-		bm_debug("[%s]rtc=0x%x,ui_soc=%d\n", rtc_value, rtc_ui_soc);
+		bm_debug("[%s]rtc=0x%x,ui_soc=%d\n", __func__, rtc_value, rtc_ui_soc);
 
 	return 0;
 }
@@ -3467,7 +3467,7 @@ void dump_nag(struct mtk_gauge *gauge)
 		(INT_STATUS_NAG_C_DLTV_MASK << INT_STATUS_NAG_C_DLTV_SHIFT))
 		>> INT_STATUS_NAG_C_DLTV_SHIFT;
 
-	bm_err("nag %d %d %d %d %d %d %d %d %d\n",
+	bm_err("nag %d %d %d %d %d %d %d %d %d %d\n",
 		nag[0], nag[1], nag[2], nag[3], nag[4], nag[5],
 		nag[6], nag[7], nag[8], nag[9]);
 }
