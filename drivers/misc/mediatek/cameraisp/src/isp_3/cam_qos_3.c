@@ -54,7 +54,7 @@
 #endif
 
 struct icc_path *gCAM_BW_REQ[ISP_CAM_TYPE_CAM_AMOUNT][_rt_dma_max_];
-struct icc_path *gSV_BW_REQ[ISP_CAM_TYPE_CAMSV_AMOUNT - ISP_CAM_TYPE_CAM_AMOUNT][_rt_dma_max_];
+struct icc_path *gSV_BW_REQ[ISP_CAM_TYPE_CAMSV_AMOUNT - ISP_CAM_TYPE_CAM_AMOUNT];
 
 
 struct pm_qos_request isp_qos;
@@ -126,22 +126,14 @@ void mtk_pmqos_add(struct device *dev, enum ISP_CAM_TYPE_ENUM module, u32 portID
 
 	switch (module) {
 	case ISP_CAM_TYPE_CAMSV0:
+		gSV_BW_REQ[module - ISP_CAM_TYPE_CAMSV0] = mtk_icc_get(dev,
+			MASTER_LARB_PORT(m4u_port.l2_cam_imgo_s),
+			SLAVE_COMMON(0));
+		break;
 	case ISP_CAM_TYPE_CAMSV1:
-		switch (portID) {
-		case _camsv_imgo_:
-			gSV_BW_REQ[module - ISP_CAM_TYPE_CAMSV0][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(m4u_port.l2_cam_imgo_s),
-				SLAVE_COMMON(0));
-			break;
-		case _camsv2_imgo_:
-			gSV_BW_REQ[module - ISP_CAM_TYPE_CAMSV1][portID] = mtk_icc_get(dev,
-				MASTER_LARB_PORT(m4u_port.l2_cam_imgo_s2),
-				SLAVE_COMMON(0));
-			break;
-		default:
-			LOG_NOTICE("modlue(%d): unsupported port:%d\n", module, portID);
-			break;
-		}
+		gSV_BW_REQ[module - ISP_CAM_TYPE_CAMSV0] = mtk_icc_get(dev,
+			MASTER_LARB_PORT(m4u_port.l2_cam_imgo_s2),
+			SLAVE_COMMON(0));
 		break;
 	default:
 		switch (portID) {
@@ -273,7 +265,7 @@ void mtk_pmqos_set(enum ISP_CAM_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 		{
 			//BW_COMP_NONE
 			ret = mtk_icc_set_bw(
-				gSV_BW_REQ[module - ISP_CAM_TYPE_CAMSV0][portID],
+				gSV_BW_REQ[module - ISP_CAM_TYPE_CAMSV0],
 				MBps_to_icc(bw.avg), MBps_to_icc(bw.peak));
 
 			if (ret)
@@ -317,16 +309,17 @@ void mtk_pmqos_clr(enum ISP_CAM_TYPE_ENUM module)
 	case ISP_CAM_TYPE_CAMSV1:
 	{
 		for (portID = 0; portID < _rt_dma_max_; portID++) {
-			if (gCAM_BW_REQ[module][portID] == NULL)
+			if (gSV_BW_REQ[module - ISP_CAM_TYPE_CAMSV0] == NULL)
 				continue;
 
-			ret = mtk_icc_set_bw(gSV_BW_REQ[module - ISP_CAM_TYPE_CAMSV0][portID], 0, 0);
+			ret = mtk_icc_set_bw(gSV_BW_REQ[module - ISP_CAM_TYPE_CAMSV0], 0, 0);
 
 			if (ret)
 				LOG_NOTICE("SV module(%d): mtk_icc_set_bw(0, 0) failed(%d)\n",
 					module, ret);
 		}
 	}
+		break;
 	default:
 		LOG_NOTICE("unsupported module:%d\n", module);
 		break;
