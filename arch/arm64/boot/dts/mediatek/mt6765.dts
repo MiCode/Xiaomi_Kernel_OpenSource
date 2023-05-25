@@ -1042,10 +1042,10 @@ initcall_debug=1 pelt=8";
 
 		ppi-partitions {
 			ppi_cluster0: interrupt-partition-0 {
-				affinity = <&cpu0 &cpu1 &cpu2 &cpu3 &cpu4 &cpu5>;
+				affinity = <&cpu0 &cpu1 &cpu2 &cpu3>;
 			};
 			ppi_cluster1: interrupt-partition-1 {
-				affinity = <&cpu6 &cpu7>;
+				affinity = <&cpu4 &cpu5 &cpu6 &cpu7>;
 			};
 		};
 	};
