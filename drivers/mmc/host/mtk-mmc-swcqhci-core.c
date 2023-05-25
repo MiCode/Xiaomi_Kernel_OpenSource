@@ -100,9 +100,10 @@ int swcq_set_task(struct mmc_host *mmc, int task_id)
 	int flags;
 	int retry = 5;
 
-	WARN_ON(!mrq);
-	WARN_ON(!mrq->data);
-	flags = mrq->data->flags & MMC_DATA_READ ? 1 : 0;
+	if (mrq && mrq->data)
+		flags = mrq->data->flags & MMC_DATA_READ ? 1 : 0;
+	else
+		BUG_ON(1);
 #if MMC_SWCQ_DEBUG
 	dev_info(mmc_dev(mmc), "%s task_mrq[%d]=%08x, %s", __func__, task_id,
 		swcq_host->mrq[task_id], flags ? "read" : "write");
@@ -168,18 +169,31 @@ int swcq_poll_task(struct mmc_host *mmc, u32 *status)
 void swcq_err_handle(struct mmc_host *mmc, int task_id, int step, int err_type)
 {
 	struct swcq_host *swcq_host = mmc->cqe_private;
-	struct mmc_request *mrq = swcq_host->mrq[task_id];
-	struct mmc_queue_req *mqrq = container_of(mrq, struct mmc_queue_req,
-						  brq.mrq);
-	struct request *req = mmc_queue_req_to_req(mqrq);
-	struct request_queue *q = req->q;
-	struct mmc_queue *mq = q->queuedata;
+	struct mmc_request *mrq;
+	struct mmc_queue_req *mqrq;
+	struct request *req;
+	struct request_queue *q;
+	struct mmc_queue *mq;
 	unsigned long flags;
 	// 1 means start recovery,  2 means recovery done
 	int recovery_step = 0;
 	bool in_recovery = false;
 
-	WARN_ON(!mrq);
+	if (task_id < 0) {
+		dev_err(mmc_dev(mmc), "[%s]: Invalid task_id\n", __func__);
+		return;
+	}
+
+	mrq = swcq_host->mrq[task_id];
+	if (mrq) {
+		mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
+		req = mmc_queue_req_to_req(mqrq);
+		q = req->q;
+		mq = q->queuedata;
+	} else {
+		BUG_ON(1);
+	}
+
 	swcq_host->ops->dump_info(mmc);
 
 	while (1) {
@@ -295,6 +309,8 @@ int mmc_run_queue_thread(void *data)
 		switch (step) {
 		case MMC_SWCQ_DONE:
 			task_id = atomic_read(&swcq_host->ongoing_task.id);
+			if (task_id < 0)
+				break;
 			err = swcq_done_task(mmc, task_id);
 			if (!err) {
 				done_mrq = swcq_host->mrq[task_id];
@@ -329,6 +345,8 @@ int mmc_run_queue_thread(void *data)
 			break;
 		case MMC_SWCQ_RUN:
 			task_id = ffs(swcq_host->rdy_tsks) - 1;
+			if (task_id < 0)
+				break;
 			atomic_set(&swcq_host->ongoing_task.id, task_id);
 			err = swcq_run_task(mmc, task_id);
 			if (err)
@@ -380,7 +398,8 @@ int mmc_run_queue_thread(void *data)
 		continue;
 SWCQ_ERR_HANDLE:
 		if (err) {
-			dev_info(mmc_dev(mmc), "[%s]3: error: %d\n", __func__, err);
+			dev_info(mmc_dev(mmc), "[%s]: error:%d, task_id:%d\n",
+				__func__, err, task_id);
 			swcq_err_handle(mmc, task_id, step, err);
 		}
 	}
