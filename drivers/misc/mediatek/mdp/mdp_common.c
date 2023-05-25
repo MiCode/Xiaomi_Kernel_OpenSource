@@ -395,10 +395,7 @@ void cmdq_mdp_unlock_resource(struct work_struct *workItem)
 		} else {
 			CmdqResourceAvailableCB cb_func = res->availableCB;
 
-			/* before call callback, release lock at first */
-			mutex_unlock(&mdp_resource_mutex);
 			status = cb_func(res->lockEvent);
-			mutex_lock(&mdp_resource_mutex);
 
 			if (status < 0) {
 				/* Error status print */
@@ -476,10 +473,7 @@ static void cmdq_mdp_lock_res_impl(struct ResourceUnitStruct *res,
 		} else {
 			CmdqResourceReleaseCB cb_func = res->releaseCB;
 
-			/* release mutex before callback */
-			mutex_unlock(&mdp_resource_mutex);
 			status = cb_func(res->lockEvent);
-			mutex_lock(&mdp_resource_mutex);
 
 			if (status < 0) {
 				/* Error status print */
