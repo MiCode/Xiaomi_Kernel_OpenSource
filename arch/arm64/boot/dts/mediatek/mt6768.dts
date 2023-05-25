@@ -3762,6 +3762,8 @@ transparent_hugepage=never";
 		reg = <0 0x14002000 0 0x1000>;
 		mediatek,common-id = <0>;
 		smi-common;
+		disable-gals;
+		mmsys_config = <&mmsys_config>;
 		operating-points-v2 = <&opp_table_mm>;
 		power-domains = <&scpsys MT6768_POWER_DOMAIN_DISP>;
 		clocks = <&mmsys_config CLK_MM_SMI_COMM0>,
