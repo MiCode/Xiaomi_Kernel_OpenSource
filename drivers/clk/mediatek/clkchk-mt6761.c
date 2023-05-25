@@ -266,9 +266,9 @@ static int get_vcore_opp(void)
 static struct pvd_msk pvd_pwr_mask[] = {
 
 	{"topckgen", PWR_STA, 0x00000000},
-	{"infracfg", PWR_STA, BIT(6)},
-	{"apmixedsys", PWR_STA, 0x00000000},
-	{"audiosys", PWR_STA, 0x00000000},
+	{"infracfg_ao", PWR_STA, 0x00000000},
+	{"apmixed", PWR_STA, 0x00000000},
+	{"audclk", PWR_STA, 0x00000000},
 	{"mmsys_config", PWR_STA, BIT(3)},
 	{"camsys", PWR_STA, BIT(25)},
 	{"vcodecsys", PWR_STA, BIT(26)},
