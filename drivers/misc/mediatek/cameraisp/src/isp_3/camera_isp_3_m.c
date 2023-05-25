@@ -8025,8 +8025,8 @@ static bool ISP_PM_QOS_CTRL_FUNC(unsigned int bIsOn, unsigned int module)
 			G_PM_QOS[module].port_bw[port].avg = 0;
 			G_PM_QOS[module].port_bw[port].peak = 0;
 		}
+		log_inf("PM_QoS Clr BW: module[%d]\n", module);
 	}
-
 	if (G_PM_QOS[module].upd_flag && G_PM_QOS[module].sof_flag) {
 
 		ISP3_SetPMQOS(E_BW_UPDATE, module,
