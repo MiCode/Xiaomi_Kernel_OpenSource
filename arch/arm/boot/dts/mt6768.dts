@@ -2279,7 +2279,6 @@ transparent_hugepage=never clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_GCE>,
 			<&infracfg_ao CLK_IFR_GCE_26M>;
 		clock-names = "GCE", "GCE_TIMER";
-		power-domains = <&scpsys MT6768_POWER_DOMAIN_DISP>;
 		gce_mbox_bdg = <&gce_mbox_bdg>;
 		interconnects =
 			<&mmqos MASTER_LARB_PORT(M4U_PORT_MDP_RDMA0)
@@ -2331,6 +2330,7 @@ transparent_hugepage=never clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_GCE>,
 			<&infracfg_ao CLK_IFR_GCE_26M>;
 		clock-names = "gce", "gce-timer";
+		power-domains = <&scpsys MT6768_POWER_DOMAIN_DISP>;
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
@@ -2350,6 +2350,7 @@ transparent_hugepage=never clk_ignore_unused=1";
 		compatible = "mediatek,cmdq-test";
 		mediatek,gce = <&gce_mbox>;
 		mmsys_config = <&mmsys_config>;
+		devlink-supply = <&gce_mbox>;
 		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
 		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
