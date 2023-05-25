@@ -3034,6 +3034,7 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	if (!gcc_fps_margin && target_fps == 144)
 		target_time = max(target_time, (long long)vsync_duration_us_144);
 
+	gcc_window_size = clamp(gcc_window_size, 0, 100);
 	s32_target_time = target_time;
 	window_cnt = target_fps * gcc_window_size;
 	do_div(window_cnt, 100);
@@ -3111,6 +3112,7 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 		boost_info->quota_cnt += 1;
 	}
 	boost_info->quota_cur_idx = new_idx;
+	boost_info->quota_cnt = clamp(boost_info->quota_cnt, 0, QUOTA_MAX_SIZE);
 
 	/* remove outlier */
 	avg = boost_info->quota / boost_info->quota_cnt;
