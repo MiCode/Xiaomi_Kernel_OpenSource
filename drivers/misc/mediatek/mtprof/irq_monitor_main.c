@@ -50,7 +50,6 @@ static inline void irq_mon_msg_ftrace(const char *msg)
 #define pr_aee_sram(msg) do {} while (0)
 #endif
 
-
 void irq_mon_msg(unsigned int out, char *buf, ...)
 {
 	char msg[MAX_MSG_LEN];

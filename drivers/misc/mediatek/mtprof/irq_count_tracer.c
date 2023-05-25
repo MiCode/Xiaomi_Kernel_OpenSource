@@ -31,8 +31,6 @@
 
 #include "internal.h"
 
-
-
 static bool irq_count_tracer __read_mostly;
 static unsigned int irq_period_th1_ns = 666666; /* log */
 static unsigned int irq_period_th2_ns = 200000; /* aee */
