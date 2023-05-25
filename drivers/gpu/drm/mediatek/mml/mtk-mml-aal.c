@@ -257,30 +257,29 @@ static inline struct mml_comp_aal *comp_to_aal(struct mml_comp *comp)
 static s32 aal_prepare(struct mml_comp *comp, struct mml_task *task,
 		       struct mml_comp_config *ccfg)
 {
+	struct mml_frame_config *cfg = task->config;
+	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
+	struct mml_comp_aal *aal = comp_to_aal(comp);
 	struct aal_frame_data *aal_frm;
 
 	aal_frm = kzalloc(sizeof(*aal_frm), GFP_KERNEL);
 	ccfg->data = aal_frm;
 	aal_frm->reuse_curve.offs = aal_frm->offs_curve;
 	aal_frm->reuse_curve.offs_size = ARRAY_SIZE(aal_frm->offs_curve);
+	aal_frm->relay_mode = (!(dest->pq_config.en_dre) ||
+		dest->crop.r.width < aal->data->min_tile_width);
 	return 0;
 }
 
 static s32 aal_buf_prepare(struct mml_comp *comp, struct mml_task *task,
 			   struct mml_comp_config *ccfg)
 {
-	struct mml_frame_config *cfg = task->config;
-	struct mml_frame_dest *dest = &cfg->info.dest[ccfg->node->out_idx];
-	struct mml_comp_aal *aal = comp_to_aal(comp);
 	struct aal_frame_data *aal_frm = aal_frm_data(ccfg);
 	s32 ret = 0;
 
 	mml_pq_trace_ex_begin("%s", __func__);
 	mml_pq_msg("%s engine_id[%d] en_dre[%d]", __func__, comp->id,
-		   dest->pq_config.en_dre);
-
-	aal_frm->relay_mode = (!(dest->pq_config.en_dre) ||
-		dest->crop.r.width < aal->data->min_tile_width);
+		   !(aal_frm->relay_mode));
 
 	if (!(aal_frm->relay_mode))
 		ret = mml_pq_set_comp_config(task);
@@ -307,7 +306,8 @@ static s32 aal_tile_prepare(struct mml_comp *comp, struct mml_task *task,
 	func->for_func = tile_aal_for;
 	func->data = data;
 
-	func->enable_flag = dest->pq_config.en_dre;
+	func->enable_flag = dest->pq_config.en_dre &&
+		dest->crop.r.width >= aal->data->min_tile_width;
 
 	if ((cfg->info.dest_cnt == 1 ||
 	     !memcmp(&cfg->info.dest[0].crop,
