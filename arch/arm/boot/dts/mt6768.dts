@@ -1753,6 +1753,9 @@ transparent_hugepage=never clk_ignore_unused=1";
 		efuse_segment: segment@78 {
 			reg = <0x78 0x4>;
 		};
+		u2_phy_data: u2_phy_data {
+			reg = <0x1ac 0x4>;
+		};
 		efuse_ptpod: ptpod@c8 {
 			reg = <0xc8 0x3c>;
 		};
@@ -3242,6 +3245,12 @@ transparent_hugepage=never clk_ignore_unused=1";
 			reg = <0 0x11cc0800 0 0x100>;
 			clocks = <&clk26m>;
 			clock-names = "ref";
+			mediatek,discth = <0x7>;
+			mediatek,eye-vrt = <0x5>;
+			mediatek,eye-term = <0x5>;
+			nvmem-cells = <&u2_phy_data>;
+			nvmem-cell-names = "intr_cal";
+			nvmem-cell-masks = <0x1f>;
 			#phy-cells = <1>;
 			status = "okay";
 		};
