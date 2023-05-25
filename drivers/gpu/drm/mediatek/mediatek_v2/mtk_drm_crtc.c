@@ -12927,6 +12927,12 @@ int mtk_crtc_enter_tui(struct drm_crtc *crtc)
 
 	hrt_idx = _layering_rule_get_hrt_idx();
 	hrt_idx++;
+	/* mt6768 primary only has OVL0 for TUI project, */
+	/* first buffer drawn by repaint cannot be cycled, */
+	/* so need to skip the first frame */
+	/* drawn by repaint,otherwise a translation fault will occur */
+	if (priv->data->mmsys_id == MMSYS_MT6768)
+		hrt_idx++;
 	atomic_set(&priv->rollback_all, 1);
 	drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, crtc->dev);
 	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
@@ -13005,10 +13011,6 @@ int mtk_crtc_exit_tui(struct drm_crtc *crtc)
 	if (mtk_crtc->is_dual_pipe)
 		priv->ddp_comp[DDP_COMPONENT_OVL1]->blank_mode = false;
 
-	mtk_crtc->crtc_blank = false;
-
-	atomic_set(&priv->rollback_all, 0);
-
 	if (mtk_crtc_is_frame_trigger_mode(crtc)) {
 
 		mtk_drm_idlemgr_kick(__func__, crtc, 0);
@@ -13022,9 +13024,12 @@ int mtk_crtc_exit_tui(struct drm_crtc *crtc)
 			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 		cmdq_pkt_wfe(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		cmdq_pkt_wfe(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
-
+		if (priv->data->mmsys_id == MMSYS_MT6768)
+			cmdq_pkt_wait_no_clear(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+		else
+			cmdq_pkt_wfe(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 		cmdq_pkt_flush(cmdq_handle);
 		cmdq_pkt_destroy(cmdq_handle);
 
@@ -13040,6 +13045,8 @@ int mtk_crtc_exit_tui(struct drm_crtc *crtc)
 		cmdq_pkt_flush(cmdq_handle2);
 		cmdq_pkt_destroy(cmdq_handle2);
 	}
+	mtk_crtc->crtc_blank = false;
+	atomic_set(&priv->rollback_all, 0);
 
 	DDP_MUTEX_UNLOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
 
