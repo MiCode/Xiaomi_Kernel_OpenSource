@@ -598,6 +598,12 @@ long port_smem_ioctl(struct port_t *port, unsigned int cmd, unsigned long arg)
 		ret = put_user((unsigned int)smem_port->state,
 				(unsigned int __user *)arg);
 		break;
+	case CCCI_IOC_SMEM_POLL_EXIT:
+		CCCI_NORMAL_LOG(md_id, TAG,
+			"%s:into CCCI_IOC_SMEM_POLL_EXIT\n",
+			__func__);
+		ret = port_smem_rx_wakeup(port);
+		break;
 	default:
 		ret = -1;
 		break;
