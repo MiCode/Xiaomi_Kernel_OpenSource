@@ -2495,7 +2495,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_I2C_AP>,
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
-		clock-div = <5>;
+		clock-div = <1>;
 	};
 
 	i2c1: i2c1@11008000 {
@@ -2506,7 +2506,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_I2C_AP>,
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
-		clock-div = <5>;
+		clock-div = <1>;
 	};
 
 	i2c2: i2c2@11009000 {
@@ -2517,7 +2517,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_I2C_AP>,
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
-		clock-div = <5>;
+		clock-div = <1>;
 	};
 
 	i2c3: i2c3@1100f000 {
@@ -2528,7 +2528,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_I2C_AP>,
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
-		clock-div = <5>;
+		clock-div = <1>;
 	};
 
 	i2c4: i2c4@11011000 {
@@ -2539,7 +2539,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_I2C_AP>,
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
-		clock-div = <5>;
+		clock-div = <1>;
 	};
 
 	i2c5: i2c5@11016000 {
@@ -2550,7 +2550,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_I2C_AP>,
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
-		clock-div = <5>;
+		clock-div = <1>;
 	};
 
 	i2c6: i2c6@1100d000 {
@@ -2561,7 +2561,7 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		clocks = <&infracfg_ao CLK_IFR_I2C_AP>,
 			<&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "main", "dma";
-		clock-div = <5>;
+		clock-div = <1>;
 	};
 	i2c7: i2c7 {};
 	i2c8: i2c8 {};
