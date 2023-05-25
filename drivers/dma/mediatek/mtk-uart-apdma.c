@@ -134,10 +134,12 @@ static unsigned int mtk_uart_apdma_read(struct mtk_chan *c, unsigned int reg)
 
 static void mtk_uart_apdma_desc_free(struct virt_dma_desc *vd)
 {
-	struct dma_chan *chan = vd->tx.chan;
-	struct mtk_chan *c = to_mtk_uart_apdma_chan(chan);
+	struct mtk_uart_apdma_desc *d = NULL;
 
-	dev_info(c->vc.chan.device->dev, "skip free for NULL PTR issue\n");
+	if (vd) {
+		d = container_of(vd, struct mtk_uart_apdma_desc, vd);
+		kfree(d);
+	}
 }
 
 static void mtk_uart_apdma_start_tx(struct mtk_chan *c)
@@ -287,7 +289,7 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 	unsigned int status;
 	int ret;
 
-	ret = pm_runtime_resume_and_get(mtkd->ddev.dev);
+	ret = pm_runtime_get_sync(mtkd->ddev.dev);
 	if (ret < 0) {
 		pm_runtime_put_noidle(chan->device->dev);
 		return ret;
@@ -301,21 +303,18 @@ static int mtk_uart_apdma_alloc_chan_resources(struct dma_chan *chan)
 	ret = readx_poll_timeout(readl, c->base + VFF_EN,
 			  status, !status, 10, 100);
 	if (ret)
-		goto err_pm;
+		return ret;
 
 	ret = request_irq(c->irq, mtk_uart_apdma_irq_handler,
 			  IRQF_TRIGGER_NONE, KBUILD_MODNAME, chan);
 	if (ret < 0) {
 		dev_err(chan->device->dev, "Can't request dma IRQ\n");
-		ret = -EINVAL;
-		goto err_pm;
+		return -EINVAL;
 	}
 
 	if (mtkd->support_bits > VFF_ORI_ADDR_BITS_NUM)
 		mtk_uart_apdma_write(c, VFF_4G_SUPPORT, VFF_4G_SUPPORT_CLR_B);
 
-err_pm:
-	pm_runtime_put_noidle(mtkd->ddev.dev);
 	return ret;
 }
 
