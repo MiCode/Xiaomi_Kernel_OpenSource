@@ -22,6 +22,8 @@
 #include "cmdq-sec-iwc-common.h"
 #endif
 
+#define APU_MDLA_TRIGGER_MAILBOX (0x190e1600)
+
 #define WPE_BWLOG_HW_COMB (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)
 #define WPE_BWLOG_HW_COMB_ninA (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_A)
 #define WPE_BWLOG_HW_COMB_ninB (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_B)
@@ -1068,8 +1070,9 @@ int imgsys_cmdq_parser(struct swfrm_info_t *frm_info, struct cmdq_pkt *pkt,
 					__func__);
 			break;
 		case IMGSYS_CMD_WRITE:
-			if ((cmd->u.address < IMGSYS_REG_START) ||
-				(cmd->u.address > IMGSYS_REG_END)) {
+			if ((cmd->u.address != APU_MDLA_TRIGGER_MAILBOX) &&
+				((cmd->u.address < IMGSYS_REG_START) ||
+				(cmd->u.address > IMGSYS_REG_END))) {
 				pr_info(
 					"%s: [ERROR] WRITE with addr(0x%08lx) value(0x%08x) mask(0x%08x)\n",
 					__func__, cmd->u.address, cmd->u.value, cmd->u.mask);
