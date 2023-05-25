@@ -11589,9 +11589,9 @@ compat_get_isp_waitirq_data(struct compat_ISP_WAIT_IRQ_STRUCT __user *data32,
 	compat_uint_t tmp2;
 	compat_uint_t tmp3;
 	compat_uptr_t uptr;
-	struct ISP_IRQ_USER_STRUCT isp_irq_user_tmp;
-	struct ISP_IRQ_TIME_STRUCT isp_irq_time_tmp;
-	struct ISP_EIS_META_STRUCT isp_eis_meta_tmp;
+	struct ISP_IRQ_USER_STRUCT isp_irq_user_tmp = {0};
+	struct ISP_IRQ_TIME_STRUCT isp_irq_time_tmp = {0};
+	struct ISP_EIS_META_STRUCT isp_eis_meta_tmp = {0};
 	int err;
 
 	err = get_user(tmp, &data32->Clear);
@@ -11635,9 +11635,9 @@ compat_put_isp_waitirq_data(struct compat_ISP_WAIT_IRQ_STRUCT __user *data32,
 	compat_uint_t tmp;
 	compat_uint_t tmp2;
 	compat_uint_t tmp3;
-	struct ISP_IRQ_USER_STRUCT isp_irq_user_tmp;
-	struct ISP_IRQ_TIME_STRUCT isp_irq_time_tmp;
-	struct ISP_EIS_META_STRUCT isp_eis_meta_tmp;
+	struct ISP_IRQ_USER_STRUCT isp_irq_user_tmp = {0};
+	struct ISP_IRQ_TIME_STRUCT isp_irq_time_tmp = {0};
+	struct ISP_EIS_META_STRUCT isp_eis_meta_tmp = {0};
 	int err;
 
 	err = get_user(tmp, &data->Clear);
