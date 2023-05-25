@@ -35,9 +35,6 @@
 #define LOG_PROPERTY_SIZE 1024
 #define ROUND_N(X, N)   (((X) + ((N)-1)) & (~((N)-1)))    //only for N is exponential of 2
 
-#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
-#define VDEC_CHECK_ALIVE 1
-#endif
 #define MTK_VDEC_CHECK_ACTIVE_INTERVAL 2000 // ms
 
 struct mtk_vcodec_mem {
