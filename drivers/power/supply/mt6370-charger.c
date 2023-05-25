@@ -2594,6 +2594,7 @@ static int mt6370_safety_check(struct charger_device *chgdev, u32 polling_ieoc)
 		return ret;
 	}
 
+	polling_ieoc /= 1000;
 	if (adc_ibat <= polling_ieoc)
 		counter++;
 	else
