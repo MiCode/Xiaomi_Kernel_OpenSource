@@ -42,7 +42,7 @@
 #include <linux/ktime.h>
 #include <linux/seq_file.h>
 #include <soc/mediatek/smi.h>
-
+#include <linux/pm_domain.h>
 #include <mt-plat/sync_write.h> /* For mt65xx_reg_sync_writel(). */
 
 //#ifdef COFNIG_MTK_IOMMU
@@ -481,6 +481,8 @@ struct isp_device {
 	void __iomem *regs;
 	struct device *dev;
 	int irq;
+	int pm_domain_cnt;
+	struct device **pm_domain_devs;
 };
 
 struct isp_sec_dapc_reg {
@@ -3468,7 +3470,7 @@ static signed int ISP_DumpDIPReg(void)
 
 static inline void Prepare_Enable_ccf_clock(void)
 {
-	int ret;
+	int ret, i;
 	/* must keep this clk open order: CG_SCP_SYS_DIS-> CG_DISP0_SMI_COMMON
 	 * -> CG_SCP_SYS_ISP/CAM -> ISP clk
 	 */
@@ -3478,10 +3480,21 @@ static inline void Prepare_Enable_ccf_clock(void)
 	 */
 	LOG_INF("pm_runtime_get_sync +, G_u4EnableClockCount(%d), UserCount(%d)\n",
 			G_u4EnableClockCount, IspInfo.UserCount);
-	ret = pm_runtime_get_sync(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev);
-	LOG_INF("pm_runtime_get_sync -\n");
+	ret = pm_runtime_get_sync(isp_devs[ISP_CAMSYS_CONFIG_IDX].dev);
 	if (ret < 0)
-		LOG_INF("cannot pm runtime get ISP_IMGSYS_CONFIG_IDX mtcmos\n");
+		LOG_INF("cannot pm runtime get ISP_CAMSYS_CONFIG_IDX mtcmos\n");
+	for (i = 0; i < isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_cnt; i++) {
+		if (isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_devs[i]) {
+			ret = pm_runtime_get_sync(
+				isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_devs[i]);
+			if (ret < 0)
+				LOG_INF(
+				"cannot pm runtime get ISP_IMGSYS_CONFIG_IDX mtcmos(%d)\n", i);
+		} else {
+			LOG_INF("cannot find ISP_IMGSYS_CONFIG_IDX pm_domain_devs[%d]\n", i);
+		}
+	}
+	LOG_INF("pm_runtime_get_sync -\n");
 
 	ret = clk_prepare_enable(isp_clk.ISP_IMG_DIP);
 	if (ret)
@@ -3513,7 +3526,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 
 static inline void Disable_Unprepare_ccf_clock(void)
 {
-	int ret;
+	int ret, i;
 	/* must keep this clk close order: ISP clk
 	 * -> CG_SCP_SYS_ISP/CAM -> CG_DISP0_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
@@ -3529,10 +3542,20 @@ static inline void Disable_Unprepare_ccf_clock(void)
 
 	LOG_INF("pm_runtime_put_sync +, G_u4EnableClockCount(%d), UserCount(%d)\n",
 			G_u4EnableClockCount, IspInfo.UserCount);
-	ret = pm_runtime_put_sync(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev);
-	LOG_INF("pm_runtime_put_sync -\n");
+	for (i = isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_cnt - 1; i >= 0; i--) {
+		if (isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_devs[i]) {
+			ret = pm_runtime_put_sync(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev);
+			if (ret < 0)
+				LOG_INF(
+				"cannot pm runtime put ISP_IMGSYS_CONFIG_IDX mtcmos(%d)\n", i);
+		} else {
+			LOG_INF("cannot find ISP_IMGSYS_CONFIG_IDX pm_domain_devs[%d]\n", i);
+		}
+	}
+	ret = pm_runtime_put_sync(isp_devs[ISP_CAMSYS_CONFIG_IDX].dev);
 	if (ret < 0)
-		LOG_INF("cannot pm runtime put ISP_IMGSYS_CONFIG_IDX mtcmos\n");
+		LOG_INF("cannot pm runtime put ISP_CAMSYS_CONFIG_IDX mtcmos\n");
+	LOG_INF("pm_runtime_put_sync -\n");
 }
 #endif
 
@@ -8648,7 +8671,7 @@ static void ISP_add_device_link(struct platform_device *pDev)
 			continue;
 		}
 
-		if (of_property_read_u32(larb_node, "mediatek,smi-id", &larb_id))
+		if (of_property_read_u32(larb_node, "mediatek,larb-id", &larb_id))
 			LOG_INF("Error: get larb id from DTS fail!!\n");
 		else
 			LOG_INF("%s gets larb_id=%d\n",
@@ -8663,7 +8686,6 @@ static void ISP_add_device_link(struct platform_device *pDev)
 				pDev->dev.of_node->name, i, larb_id);
 	}
 }
-
 /******************************************************************************
  *
  *****************************************************************************/
@@ -8738,8 +8760,27 @@ static signed int ISP_probe(struct platform_device *pDev)
 		nr_isp_devs, pDev->dev.of_node->name,
 		(unsigned long)isp_dev->regs);
 
-	// power resource is all described in "imgsys" in dts.
-	if (strncmp(pDev->dev.of_node->name, "imgsys", strlen("imgsys")) == 0)
+	// power resource is all described in "imgsys" and "camsysisp" in dts.
+	if (strncmp(pDev->dev.of_node->name, "imgsys", strlen("imgsys")) == 0) {
+		int i;
+
+		isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_cnt =
+			of_count_phandle_with_args(
+				isp_devs[ISP_IMGSYS_CONFIG_IDX].dev->of_node,
+				"power-domains",
+				"#power-domain-cells");
+		pr_info("imgsys: power domain count(%d)\n",
+			isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_cnt);
+		isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_devs = devm_kcalloc(
+			isp_devs[ISP_IMGSYS_CONFIG_IDX].dev,
+			isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_cnt,
+			sizeof(*isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_devs), GFP_KERNEL);
+		for (i = 0; i < isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_cnt; i++) {
+			isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_devs[i] =
+				dev_pm_domain_attach_by_id(isp_devs[ISP_IMGSYS_CONFIG_IDX].dev, i);
+		}
+	}
+	if (strncmp(pDev->dev.of_node->name, "camsysisp", strlen("camsysisp")) == 0)
 		pm_runtime_enable(&pDev->dev);
 
 	/* get IRQ ID and request IRQ */
@@ -9013,7 +9054,16 @@ static signed int ISP_remove(struct platform_device *pDev)
 	/*  */
 	pr_info("- E.");
 
-	if (strncmp(pDev->dev.of_node->name, "imgsys", strlen("imgsys")) == 0)
+	if (strncmp(pDev->dev.of_node->name, "imgsys", strlen("imgsys")) == 0) {
+		int i;
+
+		for (i = 0; i < isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_cnt; i++) {
+			if (isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_devs[i])
+				dev_pm_domain_detach(
+					isp_devs[ISP_IMGSYS_CONFIG_IDX].pm_domain_devs[i], 1);
+		}
+	}
+	if (strncmp(pDev->dev.of_node->name, "camsysisp", strlen("camsysisp")) == 0)
 		pm_runtime_disable(&pDev->dev);
 
 	/* unregister char driver. */
@@ -10317,12 +10367,12 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 				(ErrStatus|WarnStatus);
 			g_ISPIntErr_SMI[ISP_IRQ_TYPE_INT_CAMSV_1_ST] =
 				g_ISPIntErr[ISP_IRQ_TYPE_INT_CAMSV_1_ST];
-			if ((camsv1_irq_errcount % 1000) == 0) {
+			if ((camsv1_irq_errcount % 100000) == 0) {
 				IRQ_LOG_KEEPER_LOG_INF(module, m_CurrentPPB, _LOG_ERR,
 					"CAMSV1:int_err:0x%x_0x%x\n",
 					WarnStatus, ErrStatus);
 			}
-			if (camsv1_irq_errcount == 1000)
+			if (camsv1_irq_errcount == 100000)
 				camsv1_irq_errcount = 1;
 			else
 				camsv1_irq_errcount += 1;
@@ -13797,7 +13847,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 	case ISP_IRQ_TYPE_INT_CAM_A_ST:
 	case ISP_IRQ_TYPE_INT_CAM_B_ST:
 		if (g_ISPIntErr_SMI[irq_module] &
-			(DMA_ERR_ST | INT_ST_MASK_CAM_WARN | CQ_VS_ERR_ST)) {
+			(DMA_ERR_ST | INT_ST_MASK_CAM_WARN | CQ_VS_ERR_ST | TG_ERR_ST)) {
 			pr_info("ERR:SMI_DUMP by module:%d\n", irq_module);
 			mtk_smi_dbg_hang_detect("camera_isp_cam");
 			g_ISPIntErr_SMI[irq_module] = 0;
