@@ -181,18 +181,24 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 			__clk_is_enabled(host->bus_clk), clk_get_rate(host->bus_clk));
 	if (host->src_clk_cg)
 		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
-			"[src_clk_cg]enable:%d freq:%lu\n",
+			"[src_clk_cg]enable:%d freq:%lu,",
 			__clk_is_enabled(host->src_clk_cg), clk_get_rate(host->src_clk_cg));
 
 	if (host->crypto_clk)
 		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
-			"[crypto_clk]enable:%d freq:%lu\n",
+			"[crypto_clk]enable:%d freq:%lu,",
 			__clk_is_enabled(host->crypto_clk), clk_get_rate(host->crypto_clk));
 
 	if (host->crypto_cg)
 		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
-			"[crypto_cg]enable:%d freq:%lu\n",
+			"[crypto_cg]enable:%d freq:%lu,",
 			__clk_is_enabled(host->crypto_cg), clk_get_rate(host->crypto_cg));
+
+	if (host->dvfsrc_vcore_power) {
+		n += scnprintf(&buf_ptr[n], sizeof(buffer) - n,
+			"[dvfs vcore] voltage: %d, req vcore: %d\n",
+			regulator_get_voltage(host->dvfsrc_vcore_power), host->req_vcore);
+	}
 
 	SPREAD_PRINTF(buff, size, m, "%s", buffer);
 }
@@ -1077,7 +1083,7 @@ static ssize_t mmc_debug_proc_write(struct file *file, const char *buf,
 		return -EINVAL;
 
 	cmd_buf[count] = '\0';
-	if (kstrtoul(cmd_buf, 15, &op))
+	if (kstrtoul(cmd_buf, 10, &op))
 		return -EINVAL;
 
 	if (op == MMCDBG_CMD_LIST_ENABLE) {

@@ -16,19 +16,18 @@ static int swcq_enable(struct mmc_host *mmc, struct mmc_card *card)
 	pr_info("%s", __func__);
 	mmc->cqe_on = true;
 	return 0;
-
 }
 
 static void swcq_off(struct mmc_host *mmc)
 {
-	mmc->cqe_on = false;
 	pr_info("%s", __func__);
+	mmc->cqe_on = false;
 }
 
 static void swcq_disable(struct mmc_host *mmc)
 {
-	mmc->cqe_on = false;
 	pr_info("%s", __func__);
+	mmc->cqe_on = false;
 }
 
 static void swcq_post_req(struct mmc_host *mmc, struct mmc_request *mrq)
@@ -398,8 +397,16 @@ int mmc_run_queue_thread(void *data)
 		continue;
 SWCQ_ERR_HANDLE:
 		if (err) {
-			dev_info(mmc_dev(mmc), "[%s]: error:%d, task_id:%d\n",
-				__func__, err, task_id);
+			dev_info(mmc_dev(mmc), "%s: S%d C%d P%08x Q%08x R%08x T%d,D%d, error: %d, task_id: %d\n",
+				__func__,
+				step,
+				atomic_read(&swcq_host->q_cnt),
+				swcq_host->pre_tsks,
+				swcq_host->qnd_tsks,
+				swcq_host->rdy_tsks,
+				swcq_tskid(swcq_host),
+				swcq_tskdone(swcq_host),
+				err, task_id);
 			swcq_err_handle(mmc, task_id, step, err);
 		}
 	}
