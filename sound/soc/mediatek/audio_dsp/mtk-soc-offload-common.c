@@ -44,7 +44,9 @@ static struct afe_offload_service_t afe_offload_service = {
 	.write_blocked   = false,
 	.enable          = false,
 	.drain           = false,
+	.draindone       = false,
 	.tswait          = false,
+	.pause_in_drain  = false,
 	.needdata        = false,
 	.decode_error    = false,
 	.volume          = 0x10000,
@@ -71,9 +73,6 @@ static struct snd_compr_stream *offload_stream;
 
 static struct device *offload_dev;
 
-
-static bool offload_playback_pause;
-static bool offload_playback_resume;
 #define use_wake_lock
 static unsigned long ringbuf_writebk;
 static unsigned long long ringbufbridge_writebk;
@@ -106,7 +105,10 @@ static void offloadservice_setwriteblocked(bool flag)
 
 static void offloadservice_releasewriteblocked(void)
 {
-	offload_stream->runtime->state = SNDRV_PCM_STATE_RUNNING;
+	if (afe_offload_block.state == OFFLOAD_STATE_DRAIN) {
+		// used to wakeup snd_compress_wait_for_drain
+		offload_stream->runtime->state = SNDRV_PCM_STATE_RUNNING;
+	}
 	wake_up(&offload_stream->runtime->sleep);
 }
 
@@ -216,7 +218,7 @@ static int mtk_compr_offload_draindone(void)
 		pr_info("%s\n", __func__);
 		/* gapless mode clear vars */
 		afe_offload_block.write_blocked_idx = 0;
-		afe_offload_block.drain_state       = AUDIO_DRAIN_ALL;
+		afe_offload_service.draindone = true;
 		/* for gapless */
 		offloadservice_setwriteblocked(false);
 		offloadservice_releasewriteblocked();
@@ -780,7 +782,7 @@ Error:
 static int mtk_compr_send_query_tstamp(void)
 {
 	mutex_lock(&afe_offload_service.ts_lock);
-	if (!afe_offload_service.tswait && !offload_playback_pause) {
+	if (!afe_offload_service.tswait && afe_offload_block.state != OFFLOAD_STATE_PAUSED) {
 		mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID),
 		AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_BYPASS_ACK,
 		OFFLOAD_TSTAMP, 0, 0, NULL);
@@ -809,7 +811,8 @@ static int mtk_compr_offload_pointer(struct snd_soc_component *component,
 		return 0;
 	}
 
-	if (afe_offload_block.state == OFFLOAD_STATE_RUNNING)
+	if (afe_offload_block.state == OFFLOAD_STATE_RUNNING ||
+	    afe_offload_block.state == OFFLOAD_STATE_DRAIN)
 		offloadservice_tswait(OFFLOAD_PCMCONSUMED);
 
 	if (!afe_offload_service.needdata) {
@@ -822,13 +825,12 @@ static int mtk_compr_offload_pointer(struct snd_soc_component *component,
 	if (afe_offload_service.write_blocked ||  /* Dram full */
 	    afe_offload_block.state == OFFLOAD_STATE_DRAIN) {
 		data = (afe_offload_block.transferred - (8 * USE_PERIODS_MAX));
-		if (afe_offload_block.drain_state == AUDIO_DRAIN_ALL) {
+		if (afe_offload_service.draindone)
 			tstamp->copied_total = data > 0 ? data : afe_offload_block.transferred;
-		} else {
+		else
 			tstamp->copied_total =	data > 0 ? data : 0;
-		}
 	}
-	if (offload_playback_pause) {
+	if (afe_offload_block.state == OFFLOAD_STATE_PAUSED) {
 		tstamp->copied_total =
 			afe_offload_block.transferred;
 	}
@@ -861,7 +863,6 @@ static int mtk_compr_offload_start(struct snd_compr_stream *stream)
 	int ret = 0;
 
 	afe_offload_block.state = OFFLOAD_STATE_PREPARE;
-	offload_playback_pause = false;
 	afe_offload_block.drain_state = AUDIO_DRAIN_NONE;
 	memset(&afe_offload_block.time_pcm, 0, sizeof(ktime_t));
 	ret = mtk_scp_ipi_send(get_dspscene_by_dspdaiid(ID), AUDIO_IPI_MSG_ONLY,
@@ -887,8 +888,7 @@ static int mtk_compr_offload_resume(struct snd_compr_stream *stream)
 			afe_offload_block.state = OFFLOAD_STATE_RUNNING;
 	}
 	offloadservice_releasewriteblocked();
-	offload_playback_pause = false;
-	offload_playback_resume = true;
+	afe_offload_service.pause_in_drain = false;
 	memset(&afe_offload_block.time_pcm, 0, sizeof(ktime_t));
 	mtk_compr_send_query_tstamp();
 	return 0;
@@ -903,6 +903,9 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 #ifdef use_wake_lock
 	mtk_compr_offload_int_wakelock(false);
 #endif
+	if (afe_offload_block.state == OFFLOAD_STATE_DRAIN)
+		afe_offload_service.pause_in_drain = true;
+
 	if ((afe_offload_block.transferred >= 8 * USE_PERIODS_MAX) ||
 	    (afe_offload_block.transferred < 8 * USE_PERIODS_MAX &&
 	     ((afe_offload_block.drain_state == AUDIO_DRAIN_EARLY_NOTIFY) ||
@@ -914,8 +917,11 @@ static int mtk_compr_offload_pause(struct snd_compr_stream *stream)
 					1, 0, NULL);
 		pr_debug("%s > transferred\n", __func__);
 	}
-	offload_playback_pause = true;
-	offload_playback_resume = false;
+	afe_offload_block.state = OFFLOAD_STATE_PAUSED;
+	if (afe_offload_service.pause_in_drain) {
+		pr_debug("%s paused in drain done, set PCM STATE to paused\n", __func__);
+		offload_stream->runtime->state = SNDRV_PCM_STATE_PAUSED;
+	}
 	return 0;
 }
 
@@ -926,7 +932,9 @@ static int mtk_compr_deinit_offload_service(struct afe_offload_service_t *servic
 	service->write_blocked = false;
 	service->enable = false;
 	service->drain = false;
+	service->draindone = false;
 	service->tswait = false;
+	service->pause_in_drain = false;
 	service->needdata = false;
 	service->decode_error = false;
 	service->pcmdump = false;
