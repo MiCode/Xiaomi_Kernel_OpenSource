@@ -297,6 +297,8 @@ static unsigned int g_log_def_constraint;
 #define ISP_REG_ADDR_TG2_INTER_ST (ISP_ADDR + 0x244C)
 #define ISP_REG_ADDR_IMGO_BASE_ADDR (ISP_ADDR + 0x3300)
 #define ISP_REG_ADDR_RRZO_BASE_ADDR (ISP_ADDR + 0x3320)
+#define ISP_REG_ADDR_AFO_XSIZE (ISP_ADDR + 0x3488)
+#define ISP_REG_ADDR_AFO_YSIZE (ISP_ADDR + 0x348C)
 #define ISP_REG_ADDR_DMA_DCM_STATUS (ISP_ADDR + 0x1A8)
 
 #define ISP_REG_ADDR_DMA_REQ_STATUS (ISP_ADDR + 0x1C0)
@@ -414,6 +416,9 @@ static unsigned int g_log_def_constraint;
 #define ISP_INNER_REG_ADDR_RRZ_D_VERT_INT_OFST (ISP_ADDR_CAMINF + 0xE7BC)
 #define ISP_INNER_REG_ADDR_RRZ_D_IN_IMG (ISP_ADDR_CAMINF + 0xE7A4)
 #define ISP_INNER_REG_ADDR_RRZ_D_OUT_IMG (ISP_ADDR_CAMINF + 0xE7A8)
+
+#define ISP_INNER_REG_ADDR_AFO_XSIZE (ISP_ADDR_CAMINF + 0xF488)
+#define ISP_INNER_REG_ADDR_AFO_YSIZE (ISP_ADDR_CAMINF + 0xF48C)
 
 /* camsv hw     no inner address to     read */
 /* #define ISP_INNER_REG_ADDR_IMGO_SV_XSIZE        (0) */
@@ -10138,7 +10143,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 			_fbc_chk[1].Reg_val = ISP_RD32(ISP_REG_ADDR_RRZO_FBC);
 			IRQ_LOG_KEEPER(
 				_IRQ, m_CurrentPPB, _LOG_INF,
-				"P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x, D_%d(%d/%d)_Filled(%d_%d_%d),D_%d(%d/%d)_Filled(%d_%d_%d) )\n",
+				"P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x, D_%d(%d/%d)_Filled(%d_%d_%d),D_%d(%d/%d)_Filled(%d_%d_%d) )\n",
 				sof_count[_PASS1], cur_v_cnt,
 				(unsigned int)(_fbc_chk[0].Reg_val),
 				(unsigned int)(_fbc_chk[1].Reg_val),
@@ -10146,6 +10151,10 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 				ISP_RD32(ISP_REG_ADDR_RRZO_BASE_ADDR),
 				ISP_RD32(ISP_INNER_REG_ADDR_IMGO_YSIZE),
 				ISP_RD32(ISP_INNER_REG_ADDR_RRZO_YSIZE),
+				ISP_RD32(ISP_REG_ADDR_AFO_XSIZE),
+				ISP_RD32(ISP_REG_ADDR_AFO_YSIZE),
+				ISP_RD32(ISP_INNER_REG_ADDR_AFO_XSIZE),
+				ISP_RD32(ISP_INNER_REG_ADDR_AFO_YSIZE),
 				ISP_RD32(ISP_REG_ADDR_TG_MAGIC_0),
 				ISP_RD32(ISP_REG_ADDR_DMA_DCM_STATUS),
 				_imgo_,
