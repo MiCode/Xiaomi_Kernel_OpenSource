@@ -3499,6 +3499,7 @@ pwrap: pwrap@1000d000 {
 		reg = <0 0x14002000 0 0x1000>;
 		mediatek,common-id = <0>;
 		smi-common;
+		disable-gals;
 		operating-points-v2 = <&opp_table_mm>;
 		power-domains = <&scpsys MT6765_POWER_DOMAIN_DIS>;
 		clocks = <&mmsys_config CLK_MM_SMI_COMM0>,
