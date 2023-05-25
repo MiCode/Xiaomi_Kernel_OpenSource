@@ -219,6 +219,8 @@ void mtk_idle_twam_enable(unsigned int event);
 
 void mtk_idle_twam_disable(void);
 
+void spm_set_by_flightmode(bool on);
+
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 extern void aee_rr_rec_spm_suspend_val(u32 val);
 extern void aee_rr_rec_deepidle_val(u32 val);
@@ -241,5 +243,6 @@ extern int mtk8250_request_to_wakeup(void);
 
 /* register cpu notifier */
 extern int mtk_idle_hotplug_cb_init(void);
+extern void md_notify_flightmode_cb_register(void *cb);
 
 #endif /* __MTK_IDLE_INTERNAL_H__ */

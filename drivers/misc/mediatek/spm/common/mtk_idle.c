@@ -160,6 +160,7 @@ static void mtk_idle_init(void)
 {
 	mtk_idle_sysfs_entry_node_add("idle_state"
 			, 0644, &idle_state_fops, NULL);
+	md_notify_flightmode_cb_register(spm_set_by_flightmode);
 }
 
 void mtk_cpuidle_framework_init(void)

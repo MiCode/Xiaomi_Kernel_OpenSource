@@ -15,11 +15,14 @@
 #endif
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>
+#include <mtk-clkbuf-dcxo.h>
+#include <mtk_clkbuf_ctl.h>
 
 #include <mtk_spm_internal.h>
 #if IS_ENABLED(CONFIG_MTK_UFS_SUPPORT)
 #include <ufs-mtk.h>
 #endif
+
 //#include <mt-plat/mtk_boot.h>
 
 /* --------------------------------------
@@ -76,8 +79,43 @@ bool __attribute__((weak)) mtk_idle_resource_pre_process(void)
 	return false;
 }
 
-/* External weak functions: implemented in clkbuf and thermal module */
-uint32_t __attribute__((weak)) clk_buf_bblpm_enter_cond(void) { return -1; }
+
+enum {
+	BBLPM_COND_SKIP	= (1 << 0),
+	BBLPM_COND_WCN	= (1 << 1),
+	BBLPM_COND_NFC	= (1 << 2),
+	BBLPM_COND_CEL	= (1 << 3),
+	BBLPM_COND_EXT	= (1 << 4),
+};
+static int spm_flightmode;
+
+void spm_set_by_flightmode(bool on)
+{
+	spm_flightmode = on;
+}
+EXPORT_SYMBOL(spm_set_by_flightmode);
+
+u32 clk_buf_bblpm_enter_cond(void)
+{
+	u32 bblpm_cond = 0;
+
+	if (!clk_buf_is_init_done()) {
+		bblpm_cond |= BBLPM_COND_SKIP;
+		return bblpm_cond;
+	}
+
+	if (!spm_flightmode)
+		bblpm_cond |= BBLPM_COND_CEL;
+
+	if (mtk_spm_read_register(SPM_PWRSTA) & (1 << 1))
+		bblpm_cond |= BBLPM_COND_WCN;
+
+	if (clk_buf_get_xo_en_sta("XO_NFC") == 1)
+		bblpm_cond |= BBLPM_COND_NFC;
+
+	return bblpm_cond;
+}
+EXPORT_SYMBOL(clk_buf_bblpm_enter_cond);
 
 /***********************************************************
  * local functions
