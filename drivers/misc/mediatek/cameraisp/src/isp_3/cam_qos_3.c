@@ -420,7 +420,7 @@ int ISP3_SetPMQOS(
 		break;
 	case E_CLK_CLR:
 		mtk_dfs_clr();
-		LOG_DBG("DFS_clr\n");
+		LOG_INF("DFS_clr\n");
 		break;
 	case E_CLK_UPDATE:
 	{

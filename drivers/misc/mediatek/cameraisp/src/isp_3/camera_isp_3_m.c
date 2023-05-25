@@ -11152,6 +11152,19 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 		}
 		break;
+	case ISP_CLR_ISPCLK:
+		{
+			if (copy_from_user(DebugFlag, (void *)Param,
+				sizeof(unsigned int)) == 0) {
+				log_inf("ISP PMQoS E_CLK_CLR %d\n", DebugFlag[0]);
+
+				ISP3_SetPMQOS(E_CLK_CLR, 0, &DebugFlag[0]);
+			} else {
+				log_err("ISP_CLR_ISPCLK copy_from_user failed\n");
+				Ret = -EFAULT;
+			}
+		}
+		break;
 	case ISP_GET_ISPCLK:
 		{
 			int result = 0;
