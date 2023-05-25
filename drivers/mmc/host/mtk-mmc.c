@@ -377,6 +377,8 @@ static inline void msdc_dma_setup(struct msdc_host *host, struct msdc_dma *dma,
 	struct scatterlist *sg;
 	struct mt_gpdma_desc *gpd;
 	struct mt_bdma_desc *bd;
+	struct mt_bdma_desc l_bd;
+	struct mt_bdma_desc *p_bd;
 
 	sg = data->sg;
 
@@ -396,31 +398,40 @@ static inline void msdc_dma_setup(struct msdc_host *host, struct msdc_dma *dma,
 		dma_len = sg_dma_len(sg);
 
 		/* init bd */
-		bd[j].bd_info &= ~BDMA_DESC_BLKPAD;
-		bd[j].bd_info &= ~BDMA_DESC_DWPAD;
-		bd[j].ptr = lower_32_bits(dma_address);
+		p_bd = &l_bd;
+		memset(p_bd, 0, sizeof(struct mt_bdma_desc));
+
+		p_bd->next = bd[j].next;
+		p_bd->bd_info &= ~BDMA_DESC_BLKPAD;
+		p_bd->bd_info &= ~BDMA_DESC_DWPAD;
+		p_bd->ptr = lower_32_bits(dma_address);
 		if (host->dev_comp->support_64g) {
-			bd[j].bd_info &= ~BDMA_DESC_PTR_H4;
-			bd[j].bd_info |= (upper_32_bits(dma_address) & 0xf)
+			p_bd->bd_info &= ~BDMA_DESC_PTR_H4;
+			p_bd->bd_info |= (upper_32_bits(dma_address) & 0xf)
 					 << 28;
 		}
 
 		if (host->dev_comp->support_64g) {
-			bd[j].bd_data_len &= ~BDMA_DESC_BUFLEN_EXT;
-			bd[j].bd_data_len |= (dma_len & BDMA_DESC_BUFLEN_EXT);
+			p_bd->bd_data_len &= ~BDMA_DESC_BUFLEN_EXT;
+			p_bd->bd_data_len |= (dma_len & BDMA_DESC_BUFLEN_EXT);
 		} else {
-			bd[j].bd_data_len &= ~BDMA_DESC_BUFLEN;
-			bd[j].bd_data_len |= (dma_len & BDMA_DESC_BUFLEN);
+			p_bd->bd_data_len &= ~BDMA_DESC_BUFLEN;
+			p_bd->bd_data_len |= (dma_len & BDMA_DESC_BUFLEN);
 		}
 
 		if (j == data->sg_count - 1) /* the last bd */
-			bd[j].bd_info |= BDMA_DESC_EOL;
+			p_bd->bd_info |= BDMA_DESC_EOL;
 		else
-			bd[j].bd_info &= ~BDMA_DESC_EOL;
+			p_bd->bd_info &= ~BDMA_DESC_EOL;
 
 		/* checksume need to clear first */
-		bd[j].bd_info &= ~BDMA_DESC_CHECKSUM;
-		bd[j].bd_info |= msdc_dma_calcs((u8 *)(&bd[j]), 16) << 8;
+		p_bd->bd_info &= ~BDMA_DESC_CHECKSUM;
+		p_bd->bd_info |= msdc_dma_calcs((u8 *) p_bd, 16) << 8;
+
+		/* re-store value to bd[j] */
+		bd[j].bd_info = p_bd->bd_info;
+		bd[j].ptr = p_bd->ptr;
+		bd[j].bd_data_len = p_bd->bd_data_len;
 	}
 
 	sdr_set_field(host->base + MSDC_DMA_CFG, MSDC_DMA_CFG_DECSEN, 1);
