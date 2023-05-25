@@ -22,6 +22,9 @@
 #include <../misc/mediatek/include/mt-plat/aee.h>
 
 #include <linux/kthread.h>
+#include <linux/of_address.h>
+/*mt6765*/
+#define MMSYS_HW_DCM_1ST_DIS_SET0 (0x124)
 
 /* mt8173 */
 #define SMI_LARB_MMU_EN		0xf00
@@ -108,6 +111,9 @@
 #define MTK_COMMON_NR_MAX	20
 #define SMI_LARB_MISC_NR		8
 #define SMI_COMMON_MISC_NR		13
+static s32 init_mtk_smi_mmsys_config(void);
+void __iomem *smi_mmsys_base;
+static u32 DISABLED_GALS;
 struct mtk_smi_reg_pair {
 	u16	offset;
 	u32	value;
@@ -572,7 +578,11 @@ static void mtk_smi_larb_config_port_gen2_general(struct device *dev)
 		writel_relaxed(readl_relaxed(larb->base + SMI_LARB_NONSEC_CON(i)) | 0x8,
 			larb->base + SMI_LARB_NONSEC_CON(i));
 	}
-
+	if (DISABLED_GALS) {
+		if (!larb->larbid && smi_mmsys_base) { /* mm-infra gals DCM */
+			writel(0x780000, smi_mmsys_base + MMSYS_HW_DCM_1ST_DIS_SET0);
+		}
+	}
 	wmb(); /* make sure settings are written */
 
 }
@@ -2969,6 +2979,32 @@ static const struct of_device_id mtk_smi_common_of_ids[] = {
 	{}
 };
 
+static s32 init_mtk_smi_mmsys_config(void)
+{
+	if (DISABLED_GALS) {
+		struct device_node *smi_node;
+		struct resource res;
+
+		smi_node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-mmsys_config");
+		if (!smi_node) {
+			pr_notice("Unable to parse mmsys_config\n");
+			return -ENOMEM;
+		}
+		smi_mmsys_base = of_iomap(smi_node, 0);
+		if (!smi_mmsys_base) {
+			pr_notice("Unable to parse or iomap mmsys_config\n");
+			return -ENOMEM;
+		}
+		if (of_address_to_resource(smi_node, 0, &res)) {
+			pr_notice("Unable to res mmsys_config\n");
+			return -EINVAL;
+		}
+		pr_notice("MMSYS base: VA=%p, PA=%pa\n", smi_mmsys_base, &res.start);
+		of_node_put(smi_node);
+	}
+	return 0;
+}
+
 static int mtk_smi_common_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -3091,6 +3127,11 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 		}
 	}
 
+	if (of_property_read_bool(dev->of_node, "disable-gals")) {
+		dev_notice(dev, "DISABLED_GALS\n");
+		DISABLED_GALS = true;
+	}
+	init_mtk_smi_mmsys_config();
 	return 0;
 }
 
