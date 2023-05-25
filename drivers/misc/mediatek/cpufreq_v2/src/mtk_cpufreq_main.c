@@ -1163,6 +1163,62 @@ static int _mt_cpufreq_target(struct cpufreq_policy *policy,
 	return 0;
 }
 
+static int mtk_cpufreq_get_cpu_power(unsigned long *power, unsigned long *KHz, struct device *dev)
+{
+	int j;
+	int ret,cpu;
+	int new_opp_idx = -1;
+	enum mt_cpu_dvfs_id cluster;
+	unsigned int lv;
+	u32 cap;
+	u64 tmp, MHz;
+	unsigned long mV;
+	struct opp_tbl_info *opp_tbl_info;
+	struct device_node *np;
+
+	if (!dev)
+		return -ENODEV;
+
+	np = of_node_get(dev->of_node);
+	if (!np)
+		return -EINVAL;
+
+	ret = of_property_read_u32(np, "dynamic-power-coefficient", &cap);
+	if (ret)
+		return -EINVAL;
+
+	cpu = of_cpu_node_to_id(np);
+	if (cpu < 0)
+		return -ENODEV;
+
+	of_node_put(np);
+
+	lv = _mt_cpufreq_get_cpu_level();
+
+	cluster = _get_cpu_dvfs_id(cpu);
+	opp_tbl_info = &opp_tbls[cluster][lv];
+
+	for (j = (opp_tbl_info->size-1); j >= 0; j--) {
+		if (opp_tbl_info->opp_tbl[j].cpufreq_khz > *KHz) {
+			new_opp_idx = j;
+			break;
+		}
+	}
+	*KHz = opp_tbl_info->opp_tbl[new_opp_idx].cpufreq_khz;
+	mV = (opp_tbl_info->opp_tbl[new_opp_idx].cpufreq_volt) / 100;
+
+	if (!mV)
+		return -EINVAL;
+
+	MHz = *KHz;
+	do_div(MHz , 1000);
+	tmp = (u64)cap * mV * mV * MHz;
+	do_div(tmp, 1000000000);
+	*power = (unsigned long)tmp;
+	tag_pr_info("Voltage in mV = %u, Frequency in KHz = %u, Power = %u\n", mV, *KHz, *power);
+	return 0;
+}
+
 #ifndef ONE_CLUSTER
 int cci_is_inited;
 #endif
@@ -1173,6 +1229,7 @@ static int _mt_cpufreq_init(struct cpufreq_policy *policy)
 	int pd_ret = -EINVAL;
 	unsigned long flags;
 	struct device *cpu_dev;
+	struct em_data_callback em_cb = EM_DATA_CB(mtk_cpufreq_get_cpu_power);
 
 	FUNC_ENTER(FUNC_LV_MODULE);
 
@@ -1277,7 +1334,7 @@ static int _mt_cpufreq_init(struct cpufreq_policy *policy)
 
 	if (dev_pm_opp_of_cpumask_add_table(policy->cpus))
 		tag_pr_notice("failed to add opp framework table\n");
-	pd_ret = dev_pm_opp_of_register_em(cpu_dev, policy->cpus);
+	pd_ret = em_dev_register_perf_domain(cpu_dev, NR_FREQ, &em_cb, policy->cpus, true);
 	tag_pr_notice("energy model register result %d\n", pd_ret);
 
 	if (pd_ret)
