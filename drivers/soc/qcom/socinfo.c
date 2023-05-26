@@ -233,7 +233,7 @@ static struct socinfo {
 #define MAX_SOCINFO_ATTRS 50
 /* sysfs attributes */
 #define ATTR_DEFINE(param)	\
-	static DEVICE_ATTR(param, 0644,	\
+	static DEVICE_ATTR(param, 0444,	\
 		   msm_get_##param,	\
 		   NULL)
 
