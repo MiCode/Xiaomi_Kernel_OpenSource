@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _DRIVERS_MMC_SDHCI_MSM_SCALING_H
@@ -23,6 +23,8 @@ struct sdhci_msm_host;
 #define MMC_DEVFRQ_DEFAULT_UP_THRESHOLD 35
 #define MMC_DEVFRQ_DEFAULT_DOWN_THRESHOLD 5
 #define MMC_DEVFRQ_DEFAULT_POLLING_MSEC 100
+#define MMC_SCALE_LOW_FREQ	50000000
+#define MMC_SCALE_HIGH_FREQ	200000000
 
 extern int mmc_select_bus_width(struct mmc_card *card);
 extern int mmc_select_hs(struct mmc_card *card);

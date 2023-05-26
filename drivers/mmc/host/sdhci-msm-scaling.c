@@ -154,12 +154,18 @@ void sdhci_msm_cqe_scaling_resume(struct mmc_host *mhost)
 	struct sdhci_host *shost = mmc_priv(mhost);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(shost);
 	struct sdhci_msm_host *host = sdhci_pltfm_priv(pltfm_host);
+	struct mmc_ios ios = shost->mmc->ios;
 
 	if (host->scaling_suspended == 1) {
 		sdhci_msm_mmc_resume_clk_scaling(mhost);
 		host->scaling_suspended = 0;
 	}
-	host->clk_scaling.curr_freq = 200000000;
+
+	if (ios.timing == MMC_TIMING_MMC_HS400)
+		host->clk_scaling.curr_freq = MMC_SCALE_HIGH_FREQ;
+
+	if (ios.timing == MMC_TIMING_MMC_DDR52)
+		host->clk_scaling.curr_freq = MMC_SCALE_LOW_FREQ;
 }
 EXPORT_SYMBOL(sdhci_msm_cqe_scaling_resume);
 
