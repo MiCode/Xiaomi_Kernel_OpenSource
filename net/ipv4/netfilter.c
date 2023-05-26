@@ -48,6 +48,11 @@ int ip_route_me_harder(struct net *net, struct sock *sk, struct sk_buff *skb, un
 		fl4.flowi4_oif = l3mdev_master_ifindex(dev);
 	fl4.flowi4_mark = skb->mark;
 	fl4.flowi4_flags = flags;
+
+	/* android vpn need uid to match sepolicy route when reroute because of
+	 * packets have been changed by mangle table's rules.
+	 */
+	fl4.flowi4_uid = sock_net_uid(net, sk);
 	rt = ip_route_output_key(net, &fl4);
 	if (IS_ERR(rt))
 		return PTR_ERR(rt);

@@ -1,4 +1,3 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 
 #ifndef __BQ2589X_HEADER__
 #define __BQ2589X_HEADER__
@@ -6,37 +5,65 @@
 /* Register 00h */
 #define BQ2589X_REG_00				0x00
 #define BQ2589X_ENHIZ_MASK			0x80
-#define BQ2589X_ENHIZ_SHIFT		    7
-#define BQ2589X_HIZ_ENABLE          1
-#define BQ2589X_HIZ_DISABLE         0
-#define BQ2589X_ENILIM_MASK		    0x40
-#define BQ2589X_ENILIM_SHIFT		6
-#define BQ2589X_ENILIM_ENABLE       1
-#define BQ2589X_ENILIM_DISABLE      0
+#define BQ2589X_ENHIZ_SHIFT			7
+#define BQ2589X_HIZ_ENABLE			1
+#define BQ2589X_HIZ_DISABLE			0
+#define BQ2589X_ENILIM_MASK			0x40
+#define BQ2589X_ENILIM_SHIFT			6
+#define BQ2589X_ENILIM_ENABLE			1
+#define BQ2589X_ENILIM_DISABLE			0
 
-#define BQ2589X_IINLIM_MASK		    0x3F
-#define BQ2589X_IINLIM_SHIFT		0
-#define BQ2589X_IINLIM_BASE         100
-#define BQ2589X_IINLIM_LSB          50
+#define BQ2589X_IINLIM_MASK			0x3F
+#define BQ2589X_IINLIM_SHIFT			0
+#define BQ2589X_IINLIM_BASE			100
+#define BQ2589X_IINLIM_LSB			50
 
 /* Register 01h */
 #define BQ2589X_REG_01				0x01
-#define BQ2589X_BHOT_MASK           0xC0
-#define BQ2589X_BHOT_SHIFT          6
-#define BQ2589X_BCOLD_MASK          0x20
-#define BQ2589X_BCOLD_SHIFT         5
+#if __BQ25890H__ || __BQ25898D__
+bool bq2589x_get_cdp_status(void);
+#define	BQ2589X_DPDAC_MASK			0xE0
+#define	BQ2589X_DPDAC_SHIFT			5
+#define BQ2589X_DP_HIZ				0x00
+#define BQ2589X_DP_0V				0x01
+#define BQ2589X_DP_0P6V				0x02
+#define BQ2589X_DP_1P2V				0x03
+#define BQ2589X_DP_2P0V				0x04
+#define BQ2589X_DP_2P7V				0x05
+#define BQ2589X_DP_3P3V				0x06
+#define BQ2589X_DP_SHORT			0x07
+
+#define	BQ2589X_DMDAC_MASK			0x1C
+#define	BQ2589X_DMDAC_SHIFT			2
+#define BQ2589X_DM_HIZ				0x00
+#define BQ2589X_DM_0V				0x01
+#define BQ2589X_DM_0P6V				0x02
+#define BQ2589X_DM_1P2V				0x03
+#define BQ2589X_DM_2P0V				0x04
+#define BQ2589X_DM_2P7V				0x05
+#define BQ2589X_DM_3P3V				0x06
+
+#define	BQ2589X_EN12V_MASK			0x02
+#define	BQ2589X_EN12V_SHIFT			1
+#define	BQ2589X_ENABLE_12V			1
+#define	BQ2589X_DISABLE_12V			0
+
+#define BQ2589X_VINDPMOS_MASK       0x01
+#define BQ2589X_VINDPMOS_SHIFT      0
+#define	BQ2589X_VINDPMOS_400MV		0
+#define	BQ2589X_VINDPMOS_600MV		1
+#else
 #define BQ2589X_VINDPMOS_MASK       0x1F
 #define BQ2589X_VINDPMOS_SHIFT      0
-
-#define BQ2589X_VINDPMOS_BASE       0
-#define BQ2589X_VINDPMOS_LSB        100
-
+#define	BQ2589X_VINDPMOS_BASE		0
+#define	BQ2589X_VINDPMOS_LSB		100
+#endif
 
 /* Register 0x02 */
 #define BQ2589X_REG_02              0x02
 #define BQ2589X_CONV_START_MASK      0x80
 #define BQ2589X_CONV_START_SHIFT     7
-#define BQ2589X_CONV_START           0
+#define BQ2589X_CONV_START           1
 #define BQ2589X_CONV_RATE_MASK       0x40
 #define BQ2589X_CONV_RATE_SHIFT      6
 #define BQ2589X_ADC_CONTINUE_ENABLE  1
@@ -45,7 +72,7 @@
 #define BQ2589X_BOOST_FREQ_MASK      0x20
 #define BQ2589X_BOOST_FREQ_SHIFT     5
 #define BQ2589X_BOOST_FREQ_1500K     0
-#define BQ2589X_BOOST_FREQ_500K      0
+#define BQ2589X_BOOST_FREQ_500K      1
 
 #define BQ2589X_ICOEN_MASK          0x10
 #define BQ2589X_ICOEN_SHIFT         4
@@ -71,8 +98,11 @@
 
 /* Register 0x03 */
 #define BQ2589X_REG_03              0x03
-#define BQ2589X_BAT_LOADEN_MASK     0x80
-#define BQ2589X_BAT_LOAEN_SHIFT     7
+#define BQ2589X_BAT_VOKOTG_EN_MASK   0x80
+#define BQ2589X_BAT_VOKOTG_EN_SHIFT  7
+#define BQ2589X_BAT_FORCE_DSEL_MASK  0x80
+#define BQ2589X_BAT_FORCE_DSEL_SHIFT 7
+
 #define BQ2589X_WDT_RESET_MASK      0x40
 #define BQ2589X_WDT_RESET_SHIFT     6
 #define BQ2589X_WDT_RESET           1
@@ -218,6 +248,9 @@
 #define BQ2589X_BOOSTV_BASE         4550
 #define BQ2589X_BOOSTV_LSB          64
 
+#define	BQ2589X_PFM_OTG_DIS_MASK	0x08
+#define	BQ2589X_PFM_OTG_DIS_SHIFT	3
+
 
 #define BQ2589X_BOOST_LIM_MASK      0x07
 #define BQ2589X_BOOST_LIM_SHIFT     0
@@ -235,6 +268,15 @@
 #define BQ2589X_REG_0B              0x0B
 #define BQ2589X_VBUS_STAT_MASK      0xE0
 #define BQ2589X_VBUS_STAT_SHIFT     5
+#define BQ2589X_VBUS_TYPE_NONE		0
+#define BQ2589X_VBUS_TYPE_SDP		1
+#define BQ2589X_VBUS_TYPE_CDP		2
+#define BQ2589X_VBUS_TYPE_DCP		3
+#define BQ2589X_VBUS_TYPE_HVDCP		4
+#define BQ2589X_VBUS_TYPE_UNKNOWN	5
+#define BQ2589X_VBUS_TYPE_NON_STD	6
+#define BQ2589X_VBUS_TYPE_OTG		7
+
 #define BQ2589X_CHRG_STAT_MASK      0x18
 #define BQ2589X_CHRG_STAT_SHIFT     3
 #define BQ2589X_CHRG_STAT_IDLE      0
@@ -357,5 +399,8 @@
 #define BQ2589X_TS_PROFILE_SHIFT    2
 #define BQ2589X_DEV_REV_MASK        0x03
 #define BQ2589X_DEV_REV_SHIFT       0
+
+
+
 
 #endif

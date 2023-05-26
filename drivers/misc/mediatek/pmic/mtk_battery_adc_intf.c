@@ -19,6 +19,8 @@
 #endif
 #include "include/pmic_auxadc.h"
 
+extern int bq2597x_get_battery_voltage(void);
+
 bool __attribute__ ((weak)) is_power_path_supported(void)
 {
 	pr_notice_once("%s: check mtk_charger\n", __func__);
@@ -28,6 +30,12 @@ bool __attribute__ ((weak)) is_power_path_supported(void)
 int pmic_get_battery_voltage(void)
 {
 	int bat = 0;
+	int ret = 0;
+
+	ret = bq2597x_get_battery_voltage();
+	if (ret > 2800 && ret < 4800) {
+		return ret;
+	}
 
 #if defined(CONFIG_POWER_EXT) || defined(CONFIG_FPGA_EARLY_PORTING)
 	bat = 4201;

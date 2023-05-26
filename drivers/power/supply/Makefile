@@ -8,6 +8,8 @@ else ifeq ($(CONFIG_MACH_MT6771),y)
 obj-y += mediatek/
 else ifeq ($(CONFIG_MACH_MT6781),y)
 obj-y += mediatek/
+obj-y += ti/
+obj-y += maxim/
 else ifeq ($(CONFIG_MACH_MT6785),y)
 obj-y += mediatek/
 else ifeq ($(CONFIG_MACH_MT6877),y)

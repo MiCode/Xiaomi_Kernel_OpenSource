@@ -149,6 +149,9 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	inst->vcu.ctx = ctx;
 	inst->vcu.handler = vcu_dec_ipi_handler;
+	*h_vdec = (unsigned long)inst;
+
+	mtk_vcodec_add_ctx_list(ctx);
 
 	err = vcu_dec_init(&inst->vcu);
 	if (err != 0) {
@@ -161,10 +164,11 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
 
-	*h_vdec = (unsigned long)inst;
 	return 0;
 
 error_free_inst:
+	if (ctx)
+		mtk_vcodec_del_ctx_list(ctx);
 	kfree(inst);
 	*h_vdec = (unsigned long)NULL;
 
@@ -178,6 +182,8 @@ static void vdec_deinit(unsigned long h_vdec)
 	mtk_vcodec_debug_enter(inst);
 
 	vcu_dec_deinit(&inst->vcu);
+
+	mtk_vcodec_del_ctx_list(inst->ctx);
 
 	kfree(inst);
 }

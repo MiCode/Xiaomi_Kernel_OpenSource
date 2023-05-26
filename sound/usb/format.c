@@ -218,6 +218,17 @@ static int parse_audio_format_rates_v1(struct snd_usb_audio *chip, struct audiof
 			     chip->usb_id == USB_ID(0x041e, 0x4068)))
 				rate = 8000;
 
+			if(chip->usb_id == USB_ID(0x12d1, 0x3a07) ||
+				chip->usb_id == USB_ID(0x2717, 0x3802)) {
+				if (!(fp->formats & (SNDRV_PCM_FORMAT_U16_BE |
+					SNDRV_PCM_FORMAT_U16_LE |
+					SNDRV_PCM_FORMAT_S16_LE | SNDRV_PCM_FORMAT_S16_BE)))
+					continue;
+
+				if (rate > 48000)
+					continue;
+			}
+
 			fp->rate_table[fp->nr_rates] = rate;
 			if (!fp->rate_min || rate < fp->rate_min)
 				fp->rate_min = rate;
@@ -321,6 +332,17 @@ static int parse_uac2_sample_rate_range(struct snd_usb_audio *chip,
 		}
 
 		for (rate = min; rate <= max; rate += res) {
+			if(chip->usb_id == USB_ID(0x12d1, 0x3a07) ||
+				chip->usb_id == USB_ID(0x2717, 0x3802)) {
+				if (!(fp->formats & (SNDRV_PCM_FORMAT_U16_BE |
+					SNDRV_PCM_FORMAT_U16_LE |
+					SNDRV_PCM_FORMAT_S16_LE | SNDRV_PCM_FORMAT_S16_BE)))
+					goto skip_rate;
+
+				if (rate > 48000)
+					goto skip_rate;
+			}
+
 			/* Filter out invalid rates on Focusrite devices */
 			if (USB_ID_VENDOR(chip->usb_id) == 0x1235 &&
 			    !focusrite_valid_sample_rate(chip, fp, rate))

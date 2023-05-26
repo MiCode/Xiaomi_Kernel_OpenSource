@@ -1,7 +1,15 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2021 MediaTek Inc.
-*/
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
 
 /*****************************************************************************
  *
@@ -47,6 +55,7 @@
 #include <linux/irqdesc.h>	/*irq_to_desc*/
 #include <linux/mfd/mt6358/core.h> /*mt6358_irq_get_virq*/
 #include <linux/vmalloc.h>
+#include <linux/iio/consumer.h>
 
 
 #include <linux/math64.h> /*div_s64*/
@@ -63,9 +72,6 @@
 #include <mtk_gauge_time_service.h>
 #include <mt-plat/upmu_common.h>
 #include <pmic_lbat_service.h>
-
-
-
 /* ============================================================ */
 /* define */
 /* ============================================================ */
@@ -94,6 +100,10 @@ static struct class *adc_cali_class;
 static int adc_cali_major;
 static dev_t adc_cali_devno;
 static struct cdev *adc_cali_cdev;
+static bool fastcharge_mode_enabled;
+static int fake_authentic = -EINVAL;
+static int fake_chip_ok = -EINVAL;
+bool suppld_maxim;
 
 static int adc_cali_slop[14] = {
 	1000, 1000, 1000, 1000, 1000, 1000,
@@ -104,7 +114,12 @@ static int adc_cali_offset[14] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 static int adc_cali_cal[1] = { 0 };
 static int battery_in_data[1] = { 0 };
 static int battery_out_data[1] = { 0 };
+static int fcc = 6000000;
+static int thermal_input_current = 3000000;
 static bool g_ADC_Cali;
+static struct wakeup_source *status_wakelock;
+
+struct power_supply *max_verify_psy;
 
 static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
@@ -112,24 +127,27 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
-	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
-	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,
+	POWER_SUPPLY_PROP_FAST_CHARGE_CURRENT,
+	POWER_SUPPLY_PROP_THERMAL_INPUT_CURRENT,
+	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
+	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
-	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
-};
-
-/* boot mode */
-struct tag_bootmode {
-	u32 size;
-	u32 tag;
-	u32 bootmode;
-	u32 boottype;
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_TYPEC_MODE,
+	POWER_SUPPLY_PROP_INPUT_SUSPEND,
+	POWER_SUPPLY_PROP_SET_TEMP_ENABLE,
+	POWER_SUPPLY_PROP_SET_TEMP_NUM,
+	POWER_SUPPLY_PROP_SHUTDOWN_DELAY,
+	POWER_SUPPLY_PROP_REAL_SOC,
 };
 
 /* weak function */
@@ -269,22 +287,12 @@ bool is_battery_init_done(void)
 	return gm.is_probe_done;
 }
 
-bool is_recovery_mode(void)
-{
-	int boot_mode = battery_get_boot_mode();
-
-	if (is_fg_disabled())
-		return false;
-
-	bm_debug("mtk_battery boot mode =%d\n", boot_mode);
-	if (boot_mode == RECOVERY_BOOT) {
-		gm.log_level = BMLOG_DEBUG_LEVEL;
-		fg_cust_data.daemon_log_level = BMLOG_DEBUG_LEVEL;
-		return true;
-	}
-
-	return false;
-}
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
 
 int battery_get_boot_mode(void)
 {
@@ -301,16 +309,35 @@ int battery_get_boot_mode(void)
 		} else {
 			tag = (struct tag_bootmode *)of_get_property(boot_node,
 								"atag,boot", NULL);
+	bm_err("[CHECK!]%s: tag:%d\n", __func__, tag);
 			if (!tag)
 				bm_err("%s: failed to get atag,boot\n", __func__);
 			else {
 				boot_mode = tag->bootmode;
 				gm.boot_mode = tag->bootmode;
+				bm_err("[CHECK!] %s: tag->bootmode:%d, boot_mode:%d, gm.boot_mode:%d\n", __func__, tag->bootmode, boot_mode, gm.boot_mode);
 			}
 		}
 	}
-	bm_debug("%s: boot mode=%d\n", __func__, boot_mode);
+	bm_err("%s: boot mode=%d\n", __func__, boot_mode);
 	return boot_mode;
+}
+
+bool is_recovery_mode(void)
+{
+	int boot_mode = battery_get_boot_mode();
+
+	if (is_fg_disabled())
+		return false;
+
+	bm_err("mtk_battery boot mode =%d\n", boot_mode);
+	if (boot_mode == RECOVERY_BOOT) {
+		gm.log_level = BMLOG_DEBUG_LEVEL;
+		fg_cust_data.daemon_log_level = BMLOG_DEBUG_LEVEL;
+		return true;
+	}
+
+	return false;
 }
 
 bool is_fg_disabled(void)
@@ -319,35 +346,6 @@ bool is_fg_disabled(void)
 }
 
 
-bool set_charge_power_sel(enum CHARGE_SEL select)
-{
-	/* select gm.charge_power_sel to CHARGE_NORMAL ,CHARGE_R1,CHARGE_R2 */
-	/* example: gm.charge_power_sel = CHARGE_NORMAL */
-
-	gm.charge_power_sel = select;
-
-	wakeup_fg_algo_cmd(FG_INTR_KERNEL_CMD,
-		FG_KERNEL_CMD_FORCE_BAT_TEMP, select);
-
-	return 0;
-}
-
-int dump_pseudo100(enum CHARGE_SEL select)
-{
-	int i = 0;
-
-	bm_err("%s:select=%d\n", __func__, select);
-
-	if (select > MAX_CHARGE_RDC || select < 0)
-		return 0;
-
-	for (i = 0; i < MAX_TABLE; i++) {
-		bm_err("%6d\n",
-			fg_table_cust_data.fg_profile[i].r_pseudo100.pseudo[select]);
-	}
-
-	return 0;
-}
 
 int register_battery_notifier(struct notifier_block *nb)
 {
@@ -417,6 +415,423 @@ signed int battery_meter_get_tempV(void)
 	return val;
 }
 
+extern signed int battery_get_id(void)
+{
+	return gm.battery_id;
+}
+
+static int bms_get_property(struct power_supply *psy,
+		enum power_supply_property psp, union power_supply_propval *val)
+{
+	//struct mt_charger *mtk_chg = power_supply_get_drvdata(psy);
+	int fgcurrent = 0;
+	bool b_ischarging = 0;
+	enum charger_type chr_type;
+
+
+	chr_type = mt_get_charger_type();
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_CHIP_OK:
+			val->intval = 2; //for J7A
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = 1;
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		b_ischarging = gauge_get_current(&fgcurrent);
+		if (b_ischarging == true)
+			fgcurrent = 0 - fgcurrent;
+
+		val->intval = fgcurrent * 100;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		val->intval = battery_get_bat_voltage();
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		val->intval = battery_get_bat_temperature();
+		val->intval = val->intval * 10;
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE_ID:
+		switch (gm.battery_id) {
+		case 0:
+			//val->intval = 68000;
+			val->strval = "ATL:68K";
+			break;
+		case 1:
+			//val->intval = 100000;
+			val->strval = "GY:100K";
+			break;
+		case 2:
+			//val->intval = 330000;
+			val->strval = "LW:330K";
+			break;
+		case 3:
+			val->intval = 1800000;
+			break;
+		default:
+			break;
+		}
+		break;
+	case POWER_SUPPLY_PROP_FASTCHARGE_MODE:
+		val->intval = fastcharge_mode_enabled;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = gm.algo_qmax * gm.aging_factor / 100;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		val->intval = 5000000;
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE:
+		val->intval = 140000;
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_TYPE:
+		pr_info("gm.battery_id :%d.\n", gm.battery_id);
+		switch (gm.battery_id) {
+		case 0:
+			val->strval = "k7sr_nvt";
+			break;
+		case 1:
+			val->strval = "k7sr_gy";
+			break;
+		case 2:
+			val->strval = "k7sr_xwd";
+			break;
+		case 3:
+			val->strval = "unknown";
+			break;
+		default:
+			break;
+		}
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		val->intval = gm.bat_cycle;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		if (gm.fixed_uisoc != 0xffff)
+			val->intval = gm.fixed_uisoc;
+		else
+			val->intval = battery_main.BAT_CAPACITY;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY_RAW:
+		if (gm.fixed_uisoc != 0xffff)
+			val->intval = gm.fixed_uisoc;
+		else {
+			if (chr_type != CHARGER_UNKNOWN)
+				val->intval = gm.soc_raw;
+			else
+				val->intval = battery_main.BAT_CAPACITY;
+		}
+		break;
+	case POWER_SUPPLY_PROP_SOC_DECIMAL:
+		val->intval = gm.soc_raw % 100;
+		break;
+	case POWER_SUPPLY_PROP_SOC_DECIMAL_RATE:
+		val->intval = charger_manager_get_soc_decimal_rate();
+		break;
+	case POWER_SUPPLY_PROP_MTK_SOC_DECIMAL_RATE:
+		val->intval = gm.soc_decimal_rate;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int bms_get_property_maxim(struct power_supply *psy,
+		enum power_supply_property psp, union power_supply_propval *val)
+{
+	//struct mt_charger *mtk_chg = power_supply_get_drvdata(psy);
+	int fgcurrent = 0;
+	bool b_ischarging = 0;
+	enum charger_type chr_type;
+
+	int rc = 0;
+	union power_supply_propval b_val = {0,};
+	if (max_verify_psy == NULL && suppld_maxim)
+			max_verify_psy = power_supply_get_by_name("batt_verify");
+	if (max_verify_psy == NULL || (!suppld_maxim)) {
+			pr_err("max_verify_psy is NULL\n");
+			return -ENODATA;
+		}
+
+	chr_type = mt_get_charger_type();
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_AUTHENTIC:
+		if (fake_authentic != -EINVAL) {
+			val->intval = fake_authentic;
+			break;
+		}
+
+		rc = power_supply_get_property(max_verify_psy,
+		POWER_SUPPLY_PROP_AUTHEN_RESULT, &b_val);
+		if (rc)
+			return rc;
+		val->intval = b_val.intval;
+		//chip->battery_authentic_result = b_val.intval;
+		break;
+	case POWER_SUPPLY_PROP_ROMID:
+		rc = power_supply_get_property(max_verify_psy,
+		POWER_SUPPLY_PROP_ROMID, &b_val);
+		if (rc)
+			return rc;
+		memcpy(val->arrayval, b_val.arrayval, 8);
+		//memcpy(chip->ds_romid, b_val.arrayval, 8);
+		break;
+	case POWER_SUPPLY_PROP_DS_STATUS:
+		rc = power_supply_get_property(max_verify_psy,
+		POWER_SUPPLY_PROP_DS_STATUS, &b_val);
+		if (rc)
+			return rc;
+		memcpy(val->arrayval, b_val.arrayval, 8);
+		//memcpy(chip->ds_status, b_val.arrayval, 8);
+		break;
+	case POWER_SUPPLY_PROP_PAGE0_DATA:
+		rc = power_supply_get_property(max_verify_psy,
+		POWER_SUPPLY_PROP_PAGE0_DATA, &b_val);
+		if (rc)
+			return rc;
+		memcpy(val->arrayval, b_val.arrayval, 16);
+		//memcpy(chip->ds_page0, b_val.arrayval, 16);
+		break;
+	case POWER_SUPPLY_PROP_CHIP_OK:
+		if (fake_chip_ok != -EINVAL) {
+			val->intval = fake_chip_ok;
+			break;
+		}
+
+		rc = power_supply_get_property(max_verify_psy,
+		POWER_SUPPLY_PROP_CHIP_OK, &b_val);
+		if (rc)
+			return rc;
+		val->intval = b_val.intval;
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = 1;
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		b_ischarging = gauge_get_current(&fgcurrent);
+		if (b_ischarging == true)
+			fgcurrent = 0 - fgcurrent;
+
+		val->intval = fgcurrent * 100;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		val->intval = battery_get_bat_voltage();
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		val->intval = battery_get_bat_temperature();
+		val->intval = val->intval * 10;
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE_ID:
+		pr_err("%s : %d : POWER_SUPPLY_PROP_RESISTANCE_ID  gm.battery_id :%d.\n", __func__, __LINE__, gm.battery_id);
+		switch (gm.battery_id) {
+		case 0:
+			//val->intval = 330000;
+			val->strval = "ATL:68K";
+			break;
+		case 1:
+			//val->intval = 100000;
+			val->strval = "GY:100K";
+			break;
+		case 2:
+			//val->intval = 68000;
+			val->strval = "LW:330K";
+			break;
+		case 3:
+			val->intval = 1800000;
+			break;
+		default:
+			break;
+		}
+		break;
+	case POWER_SUPPLY_PROP_FASTCHARGE_MODE:
+		val->intval = fastcharge_mode_enabled;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		val->intval = gm.algo_qmax * gm.aging_factor / 100;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		val->intval = 5000000;
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE:
+		val->intval = 140000;
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_TYPE:
+		pr_info("gm.battery_id :%d.\n", gm.battery_id);
+		switch (gm.battery_id) {
+		case 0:
+			val->strval = "k7sr_nvt_5000mAh";
+			break;
+		case 1:
+			val->strval = "k7sr_gy_5000mAh";
+			break;
+		case 2:
+			val->strval = "k7sr_xwd_5000mAh";
+			break;
+		case 3:
+			val->strval = "unknown";
+			break;
+		default:
+			break;
+		}
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		val->intval = gm.maxim_cycle_count;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY:
+		if (gm.fixed_uisoc != 0xffff)
+			val->intval = gm.fixed_uisoc;
+		else
+			val->intval = battery_main.BAT_CAPACITY;
+		break;
+	case POWER_SUPPLY_PROP_CAPACITY_RAW:
+		if (gm.fixed_uisoc != 0xffff)
+			val->intval = gm.fixed_uisoc;
+		else {
+			if (chr_type != CHARGER_UNKNOWN)
+				val->intval = gm.soc_raw;
+			else
+				val->intval = battery_main.BAT_CAPACITY;
+		}
+		break;
+	case POWER_SUPPLY_PROP_SOC_DECIMAL:
+		val->intval = gm.soc_raw % 100;
+		break;
+	case POWER_SUPPLY_PROP_SOC_DECIMAL_RATE:
+		val->intval = charger_manager_get_soc_decimal_rate();
+		break;
+	case POWER_SUPPLY_PROP_MTK_SOC_DECIMAL_RATE:
+		val->intval = gm.soc_decimal_rate;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int bms_set_property(struct power_supply *psy,
+			enum power_supply_property psp,
+			const union power_supply_propval *val)
+{
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_FASTCHARGE_MODE:
+		fastcharge_mode_enabled = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_MTK_SOC_DECIMAL_RATE:
+		gm.soc_decimal_rate = val->intval;
+		wakeup_fg_algo_cmd(FG_INTR_KERNEL_CMD, FG_KERNEL_CMD_CHG_DECIMAL_RATE, gm.soc_decimal_rate);
+		break;
+	default:
+		rc = -EINVAL;
+		break;
+	}
+
+	if (suppld_maxim) {
+		if (psp == POWER_SUPPLY_PROP_AUTHENTIC) {
+			fake_authentic = !!val->intval;
+			rc = 0;
+		} else if (psp == POWER_SUPPLY_PROP_CHIP_OK) {
+			fake_chip_ok = !!val->intval;
+			rc = 0;
+		}
+	}
+	return rc;
+
+}
+
+static int bms_prop_is_writeable(struct power_supply *psy,
+			enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_FASTCHARGE_MODE:
+	case POWER_SUPPLY_PROP_MTK_SOC_DECIMAL_RATE:
+		return 1;
+	default:
+		break;
+	}
+
+	if (suppld_maxim) {
+		if ((psp == POWER_SUPPLY_PROP_AUTHENTIC) ||
+			(psp == POWER_SUPPLY_PROP_CHIP_OK))
+			return 1;
+	}
+	return 0;
+}
+
+static enum power_supply_property bms_properties_maxim[] = {
+	POWER_SUPPLY_PROP_AUTHENTIC,
+	POWER_SUPPLY_PROP_ROMID,
+	POWER_SUPPLY_PROP_DS_STATUS,
+	POWER_SUPPLY_PROP_PAGE0_DATA,
+	POWER_SUPPLY_PROP_CHIP_OK,
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_RESISTANCE_ID,
+	POWER_SUPPLY_PROP_FASTCHARGE_MODE,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_RESISTANCE,
+	POWER_SUPPLY_PROP_BATTERY_TYPE,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
+	POWER_SUPPLY_PROP_SOC_DECIMAL,
+	POWER_SUPPLY_PROP_SOC_DECIMAL_RATE,
+	POWER_SUPPLY_PROP_MTK_SOC_DECIMAL_RATE,
+	POWER_SUPPLY_PROP_CAPACITY_RAW,
+	POWER_SUPPLY_PROP_CAPACITY,
+};
+
+static enum power_supply_property bms_properties[] = {
+	POWER_SUPPLY_PROP_CHIP_OK,
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_RESISTANCE_ID,
+	POWER_SUPPLY_PROP_FASTCHARGE_MODE,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_RESISTANCE,
+	POWER_SUPPLY_PROP_BATTERY_TYPE,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
+	POWER_SUPPLY_PROP_SOC_DECIMAL,
+	POWER_SUPPLY_PROP_SOC_DECIMAL_RATE,
+	POWER_SUPPLY_PROP_MTK_SOC_DECIMAL_RATE,
+	POWER_SUPPLY_PROP_CAPACITY_RAW,
+	POWER_SUPPLY_PROP_CAPACITY,
+};
+
+struct bms_data bms_main = {
+	.psd = {
+		.name = "bms",
+		.type = POWER_SUPPLY_TYPE_BMS,
+		.properties = bms_properties,
+		.num_properties = ARRAY_SIZE(bms_properties),
+		.get_property = bms_get_property,
+		.set_property = bms_set_property,
+		.property_is_writeable = bms_prop_is_writeable,
+	},
+};
+
+struct bms_data bms_main_maxim = {
+	.psd = {
+		.name = "bms",
+		.type = POWER_SUPPLY_TYPE_BMS,
+		.properties = bms_properties_maxim,
+		.num_properties = ARRAY_SIZE(bms_properties_maxim),
+		.get_property = bms_get_property_maxim,
+		.set_property = bms_set_property,
+		.property_is_writeable = bms_prop_is_writeable,
+	},
+};
+
 signed int battery_meter_get_VSense(void)
 {
 	if (is_fg_disabled())
@@ -447,21 +862,69 @@ void battery_update_psd(struct battery_data *bat_data)
 	bat_data->BAT_batt_temp = battery_get_bat_temperature();
 }
 
-static int battery_get_property(struct power_supply *psy,
+static int battery_psy_get_property(struct power_supply *psy,
 	enum power_supply_property psp,
 	union power_supply_propval *val)
 {
 	int ret = 0;
 	int fgcurrent = 0;
 	bool b_ischarging = 0;
+	int input_suspend;
+	struct power_supply	*usb_psy;
+	union power_supply_propval pval = {0};
+	union power_supply_propval real_type = {0};
+	union power_supply_propval pd_active = {0};
+	/* 2020.12.31 longcheer jiangshitian bat FAMMI start */
+	union power_supply_propval chg_flag_unin = {0,};
+	/* 2020.12.31 longcheer jiangshitian bat FAMMI end */
 
 	struct battery_data *data =
 		container_of(psy->desc, struct battery_data, psd);
+	enum charger_type chr_type;
+
+	chr_type = mt_get_charger_type();
 
 	switch (psp) {
+	case POWER_SUPPLY_PROP_SET_TEMP_ENABLE:
+		pr_err("%s  %d POWER_SUPPLY_PROP_MAIN_CAM_TEMP ...... \n", __func__, __LINE__);
+		val->intval = charger_manager_get_prop_set_temp_enable();
+		break;
+	case POWER_SUPPLY_PROP_SET_TEMP_NUM:
+		pr_err("%s  %d POWER_SUPPLY_PROP_MAIN_CAM_TEMP ...... \n", __func__, __LINE__);
+		val->intval = charger_manager_get_prop_set_temp_num();
+		break;
 	case POWER_SUPPLY_PROP_STATUS:
 		val->intval = data->BAT_STATUS;
+#if 0
+		input_suspend = charger_manager_is_input_suspend();
+		if (input_suspend || chr_type == CHARGER_UNKNOWN)
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+#endif
+//ww add charging status start
+		input_suspend = charger_manager_is_input_suspend();
+		usb_psy = power_supply_get_by_name("usb");
+		if(!usb_psy){
+			pr_err("usb_psy is NULL!\n");
+			return 0;
+		}
+		power_supply_get_property(usb_psy,
+		POWER_SUPPLY_PROP_REAL_TYPE, &real_type);
+		power_supply_get_property(usb_psy,
+		POWER_SUPPLY_PROP_PD_ACTIVE, &pd_active);
+		if(val->intval == POWER_SUPPLY_STATUS_FULL){
+			val->intval = POWER_SUPPLY_STATUS_FULL;
+		}else if(input_suspend){
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		}else if(((val->intval == POWER_SUPPLY_STATUS_DISCHARGING) ||
+			(val->intval == POWER_SUPPLY_STATUS_NOT_CHARGING)) && (real_type.intval > 0)){
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+		}else if(pd_active.intval){
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+		}else if(data->BAT_batt_vol < 3300){
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		}
 		break;
+//ww add charging status end
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = data->BAT_HEALTH;/* do not change before*/
 		break;
@@ -472,17 +935,12 @@ static int battery_get_property(struct power_supply *psy,
 		val->intval = data->BAT_TECHNOLOGY;
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
-		val->intval = gm.bat_cycle;
+		if (suppld_maxim)
+			val->intval = gm.maxim_cycle_count;
+		else
+			val->intval = gm.bat_cycle;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		/* 1 = META_BOOT, 4 = FACTORY_BOOT 5=ADVMETA_BOOT */
-		/* 6= ATE_factory_boot */
-		if (gm.boot_mode == 1 || gm.boot_mode == 4
-			|| gm.boot_mode == 5 || gm.boot_mode == 6) {
-			val->intval = 75;
-			break;
-		}
-
 		if (gm.fixed_uisoc != 0xffff)
 			val->intval = gm.fixed_uisoc;
 		else
@@ -490,7 +948,7 @@ static int battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		b_ischarging = gauge_get_current(&fgcurrent);
-		if (b_ischarging == false)
+		if (b_ischarging == true)
 			fgcurrent = 0 - fgcurrent;
 
 		val->intval = fgcurrent * 100;
@@ -513,6 +971,35 @@ static int battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = gm.tbat_precise;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		/* 2021.09.26 longcheer zhenghao bat FAMMI start */
+		#if 0
+		val->intval = charger_manager_is_input_suspend();
+		#else
+		ret = power_supply_get_property(psy,POWER_SUPPLY_PROP_CHARGING_ENABLED, &chg_flag_unin);
+		if(chg_flag_unin.intval)
+		{
+			val->intval = 0;
+		}
+		else
+		{
+			val->intval = 1;
+		}
+		#endif
+		/* 2021.09.26 longcheer zhenghao bat FAMMI end */
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		val->intval = charger_manager_get_prop_system_temp_level();
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
+		val->intval = charger_manager_get_prop_system_temp_level_max();
+		break;
+	case POWER_SUPPLY_PROP_FAST_CHARGE_CURRENT:
+		val->intval = fcc;
+		break;
+	case POWER_SUPPLY_PROP_THERMAL_INPUT_CURRENT:
+		val->intval = thermal_input_current;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 		val->intval = check_cap_level(data->BAT_CAPACITY);
@@ -539,11 +1026,14 @@ static int battery_get_property(struct power_supply *psy,
 				time_to_full, remain_ui, remain_mah,
 				fgcurrent, q_max_now);
 
-			val->intval = abs(time_to_full);
+			val->intval = abs(time_to_full);			
 		}
+		pr_err("time_to_full = %d\n", val->intval);
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		val->intval = 5000000;
+		/*
 		if (check_cap_level(data->BAT_CAPACITY) ==
 			POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN)
 			val->intval = 0;
@@ -562,16 +1052,136 @@ static int battery_get_property(struct power_supply *psy,
 				q_max_uah = 100001;
 			}
 			val->intval = q_max_uah;
-		}
+		}*/
 		break;
-
-
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		if (data->BAT_STATUS == POWER_SUPPLY_STATUS_CHARGING)
+			val->intval = 1;
+		else
+			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_TYPEC_MODE:
+		val->intval = data->BAT_STATUS;
+		input_suspend = charger_manager_is_input_suspend();
+		if (input_suspend || chr_type == CHARGER_UNKNOWN)
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		break;
+	case POWER_SUPPLY_PROP_SHUTDOWN_DELAY:
+		power_supply_get_property(data->psy, POWER_SUPPLY_PROP_CAPACITY, &pval);
+		gauge_get_current(&fgcurrent);
+		if (pval.intval > 0 && pval.intval <= 1){
+			pr_info("vbat_uv: %d, is_charging: %d, shutdown_delay0: %d, UI_soc:%d",	data->BAT_batt_vol, data->BAT_STATUS, val->intval,pval.intval);
+		/*add for HTH-268226 by changhongjie at 2023/1/9 start*/
+			if (data->BAT_STATUS == POWER_SUPPLY_STATUS_CHARGING && val->intval){
+				if (data->BAT_batt_vol <= 3300) {
+					pr_info("vbat_uv: %d, is_charging: %d, shutdown_delay1: %d, UI_soc:%d",	data->BAT_batt_vol, data->BAT_STATUS, val->intval,pval.intval);
+					kernel_power_off();
+				} else {
+					val->intval = 0;
+				}
+				data->BAT_CAPACITY = 1;
+			} else {
+				if (data->BAT_batt_vol > 3450) {
+					data->BAT_CAPACITY = 1;
+				} else if (data->BAT_batt_vol > 3300) {
+					if (data->BAT_STATUS != POWER_SUPPLY_STATUS_CHARGING){
+						val->intval = 1;
+						pr_info("vbat_uv: %d, is_charging: %d, shutdown_delay2: %d, UI_soc:%d",data->BAT_batt_vol, data->BAT_STATUS, val->intval, pval.intval);
+					}
+					data->BAT_CAPACITY = 1;
+				} else {
+					pr_info("vbat_uv: %d, is_charging: %d, shutdown_delay3: %d, UI_soc:%d",	data->BAT_batt_vol, data->BAT_STATUS, val->intval,pval.intval);
+					kernel_power_off();
+				}
+			}
+		}else if(data->BAT_batt_vol <= 3320 && fgcurrent > 0){
+			pr_info("vbat_uv: %d, is_charging: %d, shutdown_delay4: %d, UI_soc:%d",	data->BAT_batt_vol, data->BAT_STATUS, val->intval,pval.intval);
+			val->intval = 1;
+		}else{
+			val->intval = 0;
+		}
+		if(gm.tbat_precise < 50 && data->BAT_CAPACITY >1){
+			pr_info("temp is %d, too low and uisoc is %d, not 0\n",gm.tbat_precise,data->BAT_CAPACITY);
+			val->intval = 0;
+		}
+        /*add for HTH-268226 by changhongjie at 2023/1/9 end*/
+		break;
+	case POWER_SUPPLY_PROP_REAL_SOC:
+		val->intval = battery_get_soc();
+		break;
 	default:
 		ret = -EINVAL;
 		break;
 	}
-
 	return ret;
+}
+
+static int battery_psy_set_property(struct power_supply *psy,
+			enum power_supply_property psp,
+			const union power_supply_propval *val)
+{
+	int rc = 0;
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_SET_TEMP_ENABLE:
+		pr_err(" POWER_SUPPLY_PROP_SET_TEMP_ENABLE:%d",val->intval);
+		charger_manager_set_prop_set_temp_enable(val->intval);
+		break;
+	case POWER_SUPPLY_PROP_SET_TEMP_NUM:
+		pr_err("POWER_SUPPLY_PROP_SET_TEMP_NUM:%d",val->intval);
+		charger_manager_set_prop_set_temp_num(val->intval);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		/* 2020.12.31 longcheer jiangshitian bat FAMMI start */
+		#if 0
+		charger_manager_set_input_suspend(val->intval);
+		#else
+		pr_err("POWER_SUPPLY_PROP_INPUT_SUSPEND: %s:%d  value = %d\n", __func__, __LINE__, val->intval);
+		if(val->intval)
+			mtk_chaging_enable_write(0);
+		else
+			mtk_chaging_enable_write(1);
+		#endif
+		/* 2020.12.31 longcheer jiangshitian bat FAMMI end */
+		break;
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		mtk_chaging_enable_write(val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		charger_manager_set_prop_system_temp_level(val->intval);
+		break;
+	case POWER_SUPPLY_PROP_FAST_CHARGE_CURRENT:
+		fcc = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_THERMAL_INPUT_CURRENT:
+		thermal_input_current = val->intval;
+		break;
+	default:
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+
+}
+
+static int battery_prop_is_writeable(struct power_supply *psy,
+			enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_SET_TEMP_ENABLE:
+	case POWER_SUPPLY_PROP_SET_TEMP_NUM:
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+	case POWER_SUPPLY_PROP_FAST_CHARGE_CURRENT:
+	case POWER_SUPPLY_PROP_THERMAL_INPUT_CURRENT:
+		return 1;
+	default:
+		break;
+	}
+
+	return 0;
 }
 
 /* battery_data initialization */
@@ -581,13 +1191,15 @@ struct battery_data battery_main = {
 		.type = POWER_SUPPLY_TYPE_BATTERY,
 		.properties = battery_props,
 		.num_properties = ARRAY_SIZE(battery_props),
-		.get_property = battery_get_property,
+		.get_property = battery_psy_get_property,
+		.set_property = battery_psy_set_property,
+		.property_is_writeable = battery_prop_is_writeable,
 		},
 
 	.BAT_STATUS = POWER_SUPPLY_STATUS_DISCHARGING,
 	.BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD,
 	.BAT_PRESENT = 1,
-	.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION,
+	.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO,
 	.BAT_CAPACITY = -1,
 	.BAT_batt_vol = 0,
 	.BAT_batt_temp = 0,
@@ -598,7 +1210,7 @@ void evb_battery_init(void)
 	battery_main.BAT_STATUS = POWER_SUPPLY_STATUS_FULL;
 	battery_main.BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD;
 	battery_main.BAT_PRESENT = 1;
-	battery_main.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION;
+	battery_main.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO;
 	battery_main.BAT_CAPACITY = 100;
 	battery_main.BAT_batt_vol = 4200;
 	battery_main.BAT_batt_temp = 22;
@@ -656,9 +1268,47 @@ void battery_update(struct battery_data *bat_data)
 	struct power_supply *bat_psy = bat_data->psy;
 
 	battery_update_psd(&battery_main);
-	bat_data->BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION;
-	bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD;
+	bat_data->BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO;
+
+	if(gm.tbat_precise >= 600)
+	{
+		bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_OVERHEAT;
+	}
+	else if( gm.tbat_precise >= 580 && gm.tbat_precise < 600)
+	{
+		bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_HOT;
+	}
+	else if( gm.tbat_precise >= 450 && gm.tbat_precise < 580)
+	{
+		bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_WARM;
+	}
+	else if( gm.tbat_precise >= 150 && gm.tbat_precise < 450)
+	{
+		bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD;
+	}
+	else if( gm.tbat_precise >= 0 && gm.tbat_precise < 150)
+	{
+		bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_COOL;
+	}
+	else if(gm.tbat_precise < 0)
+	{
+		bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_COLD;
+	}
+
 	bat_data->BAT_PRESENT = 1;
+
+	if (bat_data->BAT_CAPACITY == 100 && upmu_get_rgs_chrdet() != 0 &&
+		bat_data->BAT_STATUS != POWER_SUPPLY_STATUS_DISCHARGING &&
+		bat_data->CHG_FULL_STATUS == true) {
+		bat_data->BAT_STATUS = POWER_SUPPLY_STATUS_FULL;
+		if (chg_get_fastcharge_mode())
+			chg_set_fastcharge_mode(false);
+		bm_err("battery_update set FULL! ui:%d chr:%d %d\n",
+			bat_data->BAT_CAPACITY, upmu_get_rgs_chrdet(), bat_data->BAT_STATUS);
+
+		bm_trace("battery_update status: ui:%d chr:%d status%d\n",
+			bat_data->BAT_CAPACITY, upmu_get_rgs_chrdet(), bat_data->BAT_STATUS);
+	}
 
 #if defined(CONFIG_MTK_DISABLE_GAUGE)
 	return;
@@ -1039,12 +1689,12 @@ static void dump_daemon_table(struct seq_file *m)
 		seq_puts(m, "idx: maH, voltage, R1, R2, percentage\n");
 		ptr = &ptable2->fg_profile[j].fg_profile[0];
 		for (i = 0; i < 100; i++) {
-			seq_printf(m, "%d: %d %d %d %d %d\n",
+			seq_printf(m, "%d: %d %d %d %d\n",
 				i,
 				ptr[i].mah,
 				ptr[i].voltage,
 				ptr[i].resistance,
-				ptr[i].charge_r.rdc[0],
+//				ptr[i].resistance2,
 				ptr[i].percentage);
 		}
 	}
@@ -1054,12 +1704,12 @@ static void dump_daemon_table(struct seq_file *m)
 	seq_puts(m, "idx: maH, voltage, R1, R2, percentage\n");
 	ptr = &gm.fg_data.fg_table_cust_data.fg_profile_temperature_0[0];
 	for (i = 0; i < 100; i++) {
-		seq_printf(m, "%d: %d %d %d %d %d\n",
+		seq_printf(m, "%d: %d %d %d %d\n",
 			i,
 			ptr[i].mah,
 			ptr[i].voltage,
 			ptr[i].resistance,
-			ptr[i].charge_r.rdc[0],
+//			ptr[i].resistance2,
 			ptr[i].percentage);
 
 	}
@@ -1069,12 +1719,12 @@ static void dump_daemon_table(struct seq_file *m)
 	seq_puts(m, "idx: maH, voltage, R, R2, percentage\n");
 	ptr = &gm.fg_data.fg_table_cust_data.fg_profile_temperature_1[0];
 	for (i = 0; i < 100; i++) {
-		seq_printf(m, "%d: %d %d %d %d %d\n",
+		seq_printf(m, "%d: %d %d %d %d\n",
 			i,
 			ptr[i].mah,
 			ptr[i].voltage,
 			ptr[i].resistance,
-			ptr[i].charge_r.rdc[0],
+//			ptr[i].resistance2,
 			ptr[i].percentage);
 	}
 
@@ -1117,12 +1767,12 @@ static void dump_kernel_table(struct seq_file *m)
 
 		seq_puts(m, "idx: maH, voltage, R1, R2, percentage\n");
 		for (i = 0; i < 100; i++) {
-			seq_printf(m, "%d: %d %d %d %d %d\n",
+			seq_printf(m, "%d: %d %d %d %d\n",
 				i,
 				ptr[i].mah,
 				ptr[i].voltage,
 				ptr[i].resistance,
-				ptr[i].charge_r.rdc[0],
+//				ptr[i].resistance2,
 				ptr[i].percentage);
 		}
 	}
@@ -1136,12 +1786,12 @@ static void dump_kernel_table(struct seq_file *m)
 		ptr = &ptable1->fg_profile_temperature_1[0];
 		seq_puts(m, "tmp1 idx: maH, voltage, R1, R2, percentage\n");
 		for (i = 0; i < 100; i++) {
-			seq_printf(m, "%d: %d %d %d %d %d\n",
+			seq_printf(m, "%d: %d %d %d %d\n",
 				i,
 				ptr[i].mah,
 				ptr[i].voltage,
 				ptr[i].resistance,
-				ptr[i].charge_r.rdc[0],
+//				ptr[i].resistance2,
 				ptr[i].percentage);
 		}
 	}
@@ -1402,15 +2052,15 @@ unsigned int TempConverBattThermistor(int temp)
 	int i;
 	unsigned int TBatt_R_Value = 0xffff;
 
-	if (temp >= Fg_Temperature_Table[20].BatteryTemp) {
-		TBatt_R_Value = Fg_Temperature_Table[20].TemperatureR;
+	if (temp >= Fg_Temperature_Table[22].BatteryTemp) {
+		TBatt_R_Value = Fg_Temperature_Table[22].TemperatureR;
 	} else if (temp <= Fg_Temperature_Table[0].BatteryTemp) {
 		TBatt_R_Value = Fg_Temperature_Table[0].TemperatureR;
 	} else {
 		RES1 = Fg_Temperature_Table[0].TemperatureR;
 		TMP1 = Fg_Temperature_Table[0].BatteryTemp;
 
-		for (i = 0; i <= 20; i++) {
+		for (i = 0; i <= 22; i++) {
 			if (temp <= Fg_Temperature_Table[i].BatteryTemp) {
 				RES2 = Fg_Temperature_Table[i].TemperatureR;
 				TMP2 = Fg_Temperature_Table[i].BatteryTemp;
@@ -1443,13 +2093,13 @@ int BattThermistorConverTemp(int Res)
 
 	if (Res >= Fg_Temperature_Table[0].TemperatureR) {
 		TBatt_Value = -400;
-	} else if (Res <= Fg_Temperature_Table[20].TemperatureR) {
+	} else if (Res <= Fg_Temperature_Table[22].TemperatureR) {
 		TBatt_Value = 600;
 	} else {
 		RES1 = Fg_Temperature_Table[0].TemperatureR;
 		TMP1 = Fg_Temperature_Table[0].BatteryTemp;
 
-		for (i = 0; i <= 20; i++) {
+		for (i = 0; i <= 22; i++) {
 			if (Res >= Fg_Temperature_Table[i].TemperatureR) {
 				RES2 = Fg_Temperature_Table[i].TemperatureR;
 				TMP2 = Fg_Temperature_Table[i].BatteryTemp;
@@ -1600,6 +2250,7 @@ int force_get_tbat_internal(bool update)
 	bool fg_current_state = false;
 	int bat_temperature_volt_temp = 0;
 	int vol_cali = 0;
+	int set_temp_enabled = 0;
 
 	static int pre_bat_temperature_volt_temp, pre_bat_temperature_volt;
 	static int pre_fg_current_temp;
@@ -1737,6 +2388,11 @@ int force_get_tbat_internal(bool update)
 		bat_temperature_val = pre_bat_temperature_val;
 	}
 
+	set_temp_enabled = charger_manager_get_prop_set_temp_enable();
+	if(set_temp_enabled == 1)
+		bat_temperature_val = charger_manager_get_prop_set_temp_num();
+	//bat_temperature_val = 400;
+	bm_err("[force_get_tbat][err] bat_temperature_val:%d , set_temp_enabled :%d\n",bat_temperature_val,set_temp_enabled);
 	gm.tbat_precise = bat_temperature_val;
 
 	return bat_temperature_val / 10;
@@ -1801,7 +2457,7 @@ int force_get_tbat(bool update)
 	}
 
 	gm.ntc_disable_nafg = false;
-	bm_debug("[%s] t:%d precise:%d\n", __func__,
+	bm_err("[%s] t:%d precise:%d\n", __func__,
 		bat_temperature_val, gm.tbat_precise);
 
 	return bat_temperature_val;
@@ -1946,10 +2602,6 @@ int wakeup_fg_algo(unsigned int flow_state)
 		wakeup_fg_algo_recovery(flow_state);
 		return 0;
 	}
-
-	zcv_filter_add(&gm.zcvf);
-	zcv_filter_dump(&gm.zcvf);
-	zcv_check(&gm.zcvf);
 
 	gm3_log_notify(flow_state);
 
@@ -2346,128 +2998,7 @@ void exec_BAT_EC(int cmd, int param)
 			}
 		}
 		break;
-	case 600:
-		{
-			fg_cust_data.aging_diff_max_threshold = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, aging_diff_max_threshold:%d\n",
-				cmd, param);
-		}
-		break;
-	case 601:
-		{
-			fg_cust_data.aging_diff_max_level = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, aging_diff_max_level:%d\n",
-				cmd, param);
-		}
-		break;
-	case 602:
-		{
-			fg_cust_data.aging_factor_t_min = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, aging_factor_t_min:%d\n",
-				cmd, param);
-		}
-		break;
-	case 603:
-		{
-			fg_cust_data.cycle_diff = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, cycle_diff:%d\n",
-				cmd, param);
-		}
-		break;
-	case 604:
-		{
-			fg_cust_data.aging_count_min = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, aging_count_min:%d\n",
-				cmd, param);
-		}
-		break;
-	case 605:
-		{
-			fg_cust_data.default_score = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, default_score:%d\n",
-				cmd, param);
-		}
-		break;
-	case 606:
-		{
-			fg_cust_data.default_score_quantity = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, default_score_quantity:%d\n",
-				cmd, param);
-		}
-		break;
-	case 607:
-		{
-			fg_cust_data.fast_cycle_set = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, fast_cycle_set:%d\n",
-				cmd, param);
-		}
-		break;
-	case 608:
-		{
-			fg_cust_data.level_max_change_bat = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, level_max_change_bat:%d\n",
-				cmd, param);
-		}
-		break;
-	case 609:
-		{
-			fg_cust_data.diff_max_change_bat = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, diff_max_change_bat:%d\n",
-				cmd, param);
-		}
-		break;
-	case 610:
-		{
-			fg_cust_data.aging_tracking_start = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, aging_tracking_start:%d\n",
-				cmd, param);
-		}
-		break;
-	case 611:
-		{
-			fg_cust_data.max_aging_data = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, max_aging_data:%d\n",
-				cmd, param);
-		}
-		break;
-	case 612:
-		{
-			fg_cust_data.max_fast_data = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, max_fast_data:%d\n",
-				cmd, param);
-		}
-		break;
-	case 613:
-		{
-			fg_cust_data.fast_data_threshold_score = param;
-			bm_err(
-				"exe_BAT_EC cmd %d, fast_data_threshold_score:%d\n",
-				cmd, param);
-		}
-		break;
-	case 614:
-		{
-			bm_err(
-				"exe_BAT_EC cmd %d,FG_KERNEL_CMD_AG_LOG_TEST=%d\n",
-				cmd, param);
 
-			fg_test_ag_cmd(99);
-
-		}
-		break;
 	case 701:
 		{
 			fg_cust_data.pseudo1_en = param;
@@ -3283,43 +3814,6 @@ void exec_BAT_EC(int cmd, int param)
 			wakeup_fg_algo(FG_INTR_CHR_FULL);
 		}
 		break;
-	case 800:
-		{
-
-			bm_err(
-				"exe_BAT_EC cmd %d, charge_power_sel =%d\n",
-				cmd, param);
-
-			set_charge_power_sel(param);
-		}
-		break;
-	case 801:
-		{
-			bm_err(
-				"exe_BAT_EC cmd %d, charge_power_sel =%d\n",
-				cmd, param);
-
-			dump_pseudo100(param);
-		}
-		break;
-	case 802:
-		{
-			fg_cust_data.zcv_com_vol_limit = param;
-
-			bm_err(
-				"exe_BAT_EC cmd %d,zcv_com_vol_limit =%d\n",
-				cmd, param);
-		}
-		break;
-	case 803:
-		{
-			fg_cust_data.sleep_current_avg = param;
-
-			bm_err(
-				"exe_BAT_EC cmd %d,sleep_current_avg =%d\n",
-				cmd, param);
-		}
-		break;
 
 
 	default:
@@ -3731,7 +4225,7 @@ static ssize_t store_reset_aging_factor(
 		}
 		if (val == 0)
 			gm.is_reset_aging_factor = false;
-		else if (val == 1) {
+		else {
 			gm.is_reset_aging_factor = true;
 			wakeup_fg_algo_cmd(FG_INTR_KERNEL_CMD,
 				FG_KERNEL_CMD_RESET_AGING_FACTOR, 0);
@@ -3807,98 +4301,6 @@ static ssize_t store_BAT_EC(
 	return size;
 }
 static DEVICE_ATTR(BAT_EC, 0664, show_BAT_EC, store_BAT_EC);
-
-
-
-static ssize_t show_BAT_HEALTH(
-	struct device *dev, struct device_attribute *attr, char *buf)
-{
-	bm_err("%s\n", __func__);
-
-	return 0;
-}
-
-
-static ssize_t store_BAT_HEALTH(
-	struct device *dev, struct device_attribute *attr,
-	const char *buf, size_t size)
-{
-	char copy_str[7], buf_str[350];
-	char *s = buf_str, *pch;
-	/* char *ori = buf_str; */
-	int chr_size = 0;
-	int i = 0, j = 0, count = 0, value[50];
-
-
-	bm_err("%s, size =%d, str=%s\n", __func__, size, buf);
-
-	if (size < 90 || size > 350) {
-		bm_err("%s error, size mismatch\n", __func__);
-		return -1;
-	} else {
-		for (i = 0; i < strlen(buf); i++) {
-			if (buf[i] == ',')
-				j++;
-		}
-		if (j != 46) {
-			bm_err("%s error, invalid input\n", __func__);
-			return -1;
-		}
-	}
-
-	strncpy(buf_str, buf, size);
-	/* bm_err("%s, copy str=%s\n", __func__, buf_str); */
-
-	if (buf != NULL && size != 0) {
-
-		pch = strchr(s, ',');
-		while (pch != NULL) {
-			memset(copy_str, 0, 7);
-			copy_str[6] = '\0';
-
-			chr_size = pch - s;
-			if (count == 0)
-				strncpy(copy_str, s, chr_size);
-			else
-				strncpy(copy_str, s+1, chr_size-1);
-
-			kstrtoint(copy_str, 10, &value[count]);
-			/* bm_err("::%s::count:%d,%d\n", copy_str, count, value[count]); */
-			s = pch;
-			pch = strchr(pch + 1, ',');
-			count++;
-		}
-	}
-
-	if (count == 46) {
-		for (i = 0; i < 43; i++)
-			gm.bh_data.data[i] = value[i];
-
-		for (i = 0; i < 3; i++)
-			gm.bh_data.times[i].tv_sec = value[i+43];
-
-	bm_err("%s count=%d,serial=%d,source=%d,42:%d, value43:[%d, %ld],value45[%d %ld]\n",
-		__func__,
-		count, gm.bh_data.data[0], gm.bh_data.data[1],
-		gm.bh_data.data[42],
-		value[43], gm.bh_data.times[0].tv_sec,
-		value[45], gm.bh_data.times[2].tv_sec);
-
-		wakeup_fg_algo_cmd(
-			FG_INTR_KERNEL_CMD,
-			FG_KERNEL_CMD_SEND_BH_DATA, 0);
-
-		mdelay(4);
-		bm_err("%s wakeup DONE~~~\n", __func__);
-	} else
-		bm_err("%s count=%d, number not match\n", __func__, count);
-
-
-	return size;
-
-}
-
-static DEVICE_ATTR(BAT_HEALTH, 0664, show_BAT_HEALTH, store_BAT_HEALTH);
 
 static ssize_t show_FG_Battery_CurrentConsumption(
 struct device *dev, struct device_attribute *attr,
@@ -3981,40 +4383,49 @@ static int battery_callback(
 	switch (event) {
 	case CHARGER_NOTIFY_EOC:
 		{
-/* CHARGING FULL */
+			/* CHARGING FULL */
+			battery_main.CHG_FULL_STATUS = true;
 			notify_fg_chr_full();
+			battery_update(&battery_main);
+			__pm_relax(status_wakelock);
 		}
 		break;
 	case CHARGER_NOTIFY_START_CHARGING:
 		{
-/* START CHARGING */
+			/* START CHARGING */
+			if (!status_wakelock->active)
+				__pm_stay_awake(status_wakelock);
 			fg_sw_bat_cycle_accu();
-
+			battery_main.CHG_FULL_STATUS = false;
 			battery_main.BAT_STATUS = POWER_SUPPLY_STATUS_CHARGING;
 			battery_update(&battery_main);
 		}
 		break;
 	case CHARGER_NOTIFY_STOP_CHARGING:
 		{
-/* STOP CHARGING */
+			/* STOP CHARGING */
 			fg_sw_bat_cycle_accu();
+			battery_main.CHG_FULL_STATUS = false;
 			battery_main.BAT_STATUS =
 			POWER_SUPPLY_STATUS_DISCHARGING;
 			battery_update(&battery_main);
+			__pm_relax(status_wakelock);
 		}
 		break;
 	case CHARGER_NOTIFY_ERROR:
 		{
-/* charging enter error state */
-		battery_main.BAT_STATUS = POWER_SUPPLY_STATUS_NOT_CHARGING;
-		battery_update(&battery_main);
+			/* charging enter error state */
+			battery_main.CHG_FULL_STATUS = false;
+			battery_main.BAT_STATUS = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			battery_update(&battery_main);
 		}
 		break;
 	case CHARGER_NOTIFY_NORMAL:
 		{
-/* charging leave error state */
-		battery_main.BAT_STATUS = POWER_SUPPLY_STATUS_CHARGING;
-		battery_update(&battery_main);
+			/* charging leave error state */
+			battery_main.CHG_FULL_STATUS = false;
+			battery_main.BAT_STATUS = POWER_SUPPLY_STATUS_CHARGING;
+			battery_update(&battery_main);
 
 		}
 		break;
@@ -4397,6 +4808,7 @@ static int __init battery_probe(struct platform_device *dev)
 	int ret_device_file = 0;
 	int ret;
 	struct class_device *class_dev = NULL;
+	struct device_node *np = dev->dev.of_node;
 	const char *fg_swocv_v = NULL;
 	char fg_swocv_v_tmp[10];
 	int fg_swocv_v_len = 0;
@@ -4411,6 +4823,7 @@ static int __init battery_probe(struct platform_device *dev)
 	int boot_voltage_len = 0;
 
 	battery_lock = wakeup_source_register(NULL, "battery wakelock");
+	status_wakelock = wakeup_source_register(NULL, "status wakelock");
 	__pm_stay_awake(battery_lock);
 
 /********* adc_cdev **********/
@@ -4430,7 +4843,7 @@ static int __init battery_probe(struct platform_device *dev)
 					adc_cali_devno,
 					NULL, ADC_CALI_DEVNAME);
 /*****************************/
-
+	suppld_maxim = of_property_read_bool(np, "suppld-maxim");
 	mtk_battery_init(dev);
 
 	/* Power supply class */
@@ -4445,6 +4858,29 @@ static int __init battery_probe(struct platform_device *dev)
 	}
 	bm_err("[BAT_probe] power_supply_register Battery Success !!\n");
 #endif
+
+	if (suppld_maxim) {
+		max_verify_psy = power_supply_get_by_name("batt_verify");
+		bms_main_maxim.psy =
+			power_supply_register(
+				&(dev->dev), &bms_main_maxim.psd, NULL);
+		if (IS_ERR(bms_main_maxim.psy)) {
+			bm_err("[BAT_probe] power_supply_register BMS Fail !!\n");
+			ret = PTR_ERR(bms_main_maxim.psy);
+			return ret;
+		}
+	} else {
+		bms_main.psy =
+			power_supply_register(
+				&(dev->dev), &bms_main.psd, NULL);
+		if (IS_ERR(bms_main.psy)) {
+			bm_err("[BAT_probe] power_supply_register BMS Fail !!\n");
+			ret = PTR_ERR(bms_main.psy);
+			return ret;
+		}
+	}
+	bm_err("[BAT_probe] power_supply_register BMS Success !!\n");
+
 	ret = device_create_file(&(dev->dev), &dev_attr_Battery_Temperature);
 	ret = device_create_file(&(dev->dev), &dev_attr_UI_SOC);
 
@@ -4463,8 +4899,6 @@ static int __init battery_probe(struct platform_device *dev)
 		&dev_attr_FG_daemon_disable);
 	ret_device_file = device_create_file(&(dev->dev),
 		&dev_attr_BAT_EC);
-	ret_device_file = device_create_file(&(dev->dev),
-		&dev_attr_BAT_HEALTH);
 	ret_device_file = device_create_file(&(dev->dev),
 		&dev_attr_FG_Battery_CurrentConsumption);
 	ret_device_file = device_create_file(&(dev->dev),
@@ -4608,6 +5042,8 @@ static int battery_suspend(struct platform_device *dev, pm_message_t state)
 	if (gm.enable_tmp_intr_suspend == 0) {
 		gauge_enable_interrupt(FG_RG_INT_EN_BAT_TEMP_H, 0);
 		gauge_enable_interrupt(FG_RG_INT_EN_BAT_TEMP_L, 0);
+		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_IRQ_EN_MIN, 0);
+		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_EN_MIN, 0);
 		enable_bat_temp_det(0);
 	}
 
@@ -4623,10 +5059,6 @@ static int battery_suspend(struct platform_device *dev, pm_message_t state)
 
 static int battery_resume(struct platform_device *dev)
 {
-	zcv_filter_add(&gm.zcvf);
-	zcv_filter_dump(&gm.zcvf);
-	zcv_check(&gm.zcvf);
-
 	bm_err("******** %s!! iavg=%d ***GM3 disable:%d %d %d %d***\n",
 		__func__,
 		gm.hw_status.iavg_intr_flag,
@@ -4649,6 +5081,8 @@ static int battery_resume(struct platform_device *dev)
 	if (gm.enable_tmp_intr_suspend == 0) {
 		gauge_enable_interrupt(FG_RG_INT_EN_BAT_TEMP_H, 1);
 		gauge_enable_interrupt(FG_RG_INT_EN_BAT_TEMP_L, 1);
+		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_IRQ_EN_MIN, 1);
+		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_EN_MIN, 1);
 		enable_bat_temp_det(1);
 	}
 
@@ -4710,6 +5144,7 @@ static int __init battery_init(void)
 
 	bm_err("[%s] Initialization : DONE\n",
 		__func__);
+	pr_err("%s: %d ,%d\n",__func__,fg_table_cust_data.temperature_tb0,fg_table_cust_data.temperature_tb1);
 
 	return 0;
 }

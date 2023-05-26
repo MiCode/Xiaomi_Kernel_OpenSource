@@ -1,6 +1,16 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * Power Delivery Managert Driver
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #include "inc/tcpm.h"
@@ -157,19 +167,6 @@ uint8_t tcpm_inquire_typec_local_rp(struct tcpc_device *tcpc)
 	return tcpc->typec_local_rp_level;
 }
 
-int tcpm_typec_set_wake_lock(struct tcpc_device *tcpc, bool user_lock)
-{
-	int ret;
-
-	mutex_lock(&tcpc->access_lock);
-	ret = tcpci_set_wake_lock(
-		tcpc, tcpc->wake_lock_pd, user_lock);
-	tcpc->wake_lock_user = user_lock;
-	mutex_unlock(&tcpc->access_lock);
-
-	return ret;
-}
-
 int tcpm_typec_set_usb_sink_curr(struct tcpc_device *tcpc, int curr)
 {
 	bool force_sink_vbus = true;
@@ -299,42 +296,56 @@ bool tcpm_inquire_pd_connected(struct tcpc_device *tcpc)
 	return pd_port->pe_data.pd_connected;
 }
 
-bool tcpm_inquire_pd_prev_connected(struct tcpc_device *tcpc)
+bool tcpm_inquire_pd_prev_connected(
+	struct tcpc_device *tcpc)
 {
 	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->pe_data.pd_prev_connected;
 }
 
-uint8_t tcpm_inquire_pd_data_role(struct tcpc_device *tcpc)
+uint8_t tcpm_inquire_pd_data_role(
+	struct tcpc_device *tcpc)
 {
 	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->data_role;
 }
 
-uint8_t tcpm_inquire_pd_power_role(struct tcpc_device *tcpc)
+uint8_t tcpm_inquire_pd_power_role(
+	struct tcpc_device *tcpc)
 {
 	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->power_role;
 }
 
-uint8_t tcpm_inquire_pd_vconn_role(struct tcpc_device *tcpc)
+uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc)
+{
+	struct pd_port *pd_port = &tcpc->pd_port;
+
+	return pd_port->pe_state_curr;
+}
+
+uint8_t tcpm_inquire_pd_vconn_role(
+	struct tcpc_device *tcpc)
 {
 	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->vconn_role;
 }
 
-uint8_t tcpm_inquire_pd_pe_ready(struct tcpc_device *tcpc)
+uint8_t tcpm_inquire_pd_pe_ready(
+	struct tcpc_device *tcpc)
 {
 	struct pd_port *pd_port = &tcpc->pd_port;
 
 	return pd_port->pe_data.pe_ready;
 }
 
-uint8_t tcpm_inquire_cable_current(struct tcpc_device *tcpc)
+uint8_t tcpm_inquire_cable_current(
+	struct tcpc_device *tcpc)
 {
 	struct pd_port *pd_port = &tcpc->pd_port;
 
@@ -1798,6 +1809,8 @@ static const char * const bk_event_ret_name[] = {
 	"Recovery",
 	"BIST",
 	"PEBusy",
+	"Discard",
+	"Unexpected",
 
 	"Wait",
 	"Reject",
@@ -1940,11 +1953,14 @@ static int tcpm_put_tcp_dpm_event_bk(
 	while (1) {
 		ret = __tcpm_put_tcp_dpm_event_bk(
 			tcpc, event, tout_ms, data, size);
-
-		if ((ret != TCP_DPM_RET_TIMEOUT) || (retry == 0))
-			break;
-
-		retry--;
+		if (retry > 0 &&
+		    (ret == TCP_DPM_RET_TIMEOUT ||
+		    ret == TCP_DPM_RET_DROP_DISCARD ||
+		    ret == TCP_DPM_RET_DROP_UNEXPECTED)) {
+			retry--;
+			continue;
+		}
+		break;
 	}
 
 	mutex_unlock(&pd_port->tcpm_bk_lock);

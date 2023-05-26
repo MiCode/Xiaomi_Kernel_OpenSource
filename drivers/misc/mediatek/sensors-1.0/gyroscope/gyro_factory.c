@@ -6,6 +6,9 @@
 #define pr_fmt(fmt) "<GYRO_FAC> " fmt
 
 #include "inc/gyro_factory.h"
+#ifdef CONFIG_CUSTOM_KERNEL_SENSOR_CAL
+#include "../sensor_cal/sensor_cal_file_io.h"
+#endif
 
 struct gyro_factory_private {
 	uint32_t gain;
@@ -131,33 +134,41 @@ static long gyro_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 		data_buf[0] = sensor_data.x;
 		data_buf[1] = sensor_data.y;
 		data_buf[2] = sensor_data.z;
-		pr_debug("GYROSCOPE_IOCTL_SET_CALI: (%d, %d, %d)!\n",
-			 data_buf[0], data_buf[1], data_buf[2]);
+#ifdef CONFIG_CUSTOM_KERNEL_SENSOR_CAL
+		if(data_buf[0] == 0 && data_buf[1] == 0 && data_buf[2] == 0) {
+			err = sensor_calibration_read(ID_GYROSCOPE , data_buf);
+			if(err) {
+				pr_debug("GYROSCOPE_IOCTL_SET_CALI NULL\n");
+				return -EINVAL;
+			} else {
+				pr_debug("GYROSCOPE calibration read success\n");
+			}
+		} else {
+			err = sensor_calibration_save(ID_GYROSCOPE, data_buf);
+			if(err) {
+				pr_debug("GYROSCOPE_IOCTL_SET_CALI NULL\n");
+				return -EINVAL;
+			} else {
+				pr_debug("GYROSCOPE calibration save success\n");
+			}
+		}
+		pr_debug("GYROSCOPE_IOCTL_SET_CALI: (%d, %d, %d)!\n", data_buf[0],
+			data_buf[1], data_buf[2]);
 		if (gyro_factory.fops != NULL &&
 		    gyro_factory.fops->set_cali != NULL) {
 			err = gyro_factory.fops->set_cali(data_buf);
 			if (err < 0) {
 				pr_err("GYROSCOPE_IOCTL_SET_CALI FAIL!\n");
 				return -EINVAL;
-			}
+			} else {
+				pr_debug("GYROSCOPE_IOCTL_SET_CALI success!\n");
+				}
 		} else {
-			pr_err("GYROSCOPE_IOCTL_SET_CALI NULL\n");
+			pr_debug("GYROSCOPE_IOCTL_SET_CALI NULL\n");
 			return -EINVAL;
 		}
 		return 0;
-	case GYROSCOPE_IOCTL_CLR_CALI:
-		if (gyro_factory.fops != NULL &&
-		    gyro_factory.fops->clear_cali != NULL) {
-			err = gyro_factory.fops->clear_cali();
-			if (err < 0) {
-				pr_err("GYROSCOPE_IOCTL_CLR_CALI FAIL!\n");
-				return -EINVAL;
-			}
-		} else {
-			pr_err("GYROSCOPE_IOCTL_CLR_CALI NULL\n");
-			return -EINVAL;
-		}
-		return 0;
+#endif
 	case GYROSCOPE_IOCTL_GET_CALI:
 		if (gyro_factory.fops != NULL &&
 		    gyro_factory.fops->get_cali != NULL) {

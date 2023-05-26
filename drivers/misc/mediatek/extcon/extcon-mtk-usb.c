@@ -394,8 +394,8 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 		}
 		break;
 	case TCP_NOTIFY_DR_SWAP:
-		dev_info(dev, "%s dr_swap, new role=%d\n",
-				__func__, noti->swap_state.new_role);
+		dev_info(dev, "%s dr_swap, new role=%d, extcon c_role=%d\n",
+				__func__, noti->swap_state.new_role, extcon->c_role);
 		if (noti->swap_state.new_role == PD_ROLE_UFP &&
 				extcon->c_role == DUAL_PROP_DR_HOST) {
 			dev_info(dev, "switch role to device\n");
@@ -405,6 +405,10 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 				extcon->c_role == DUAL_PROP_DR_DEVICE) {
 			dev_info(dev, "switch role to host\n");
 			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_NONE);
+			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
+		} else if (noti->swap_state.new_role == PD_ROLE_DFP &&
+				extcon->c_role == DUAL_PROP_DR_NONE) {//adapt with XIAOMI dongle
+			dev_info(dev, "switch role to host for MI dongle\n");
 			mtk_usb_extcon_set_role(extcon, DUAL_PROP_DR_HOST);
 		}
 		break;

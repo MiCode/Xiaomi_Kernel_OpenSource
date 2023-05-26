@@ -8,7 +8,7 @@
 		rt-tcpc,name = "type_c_port0"; /* tcpc_device's name */
 		rt-tcpc,role_def = <5>; /* 0: Unknown, 1: SNK, 2: SRC */
 					/* 3: DRP, 4: Try.SRC, 5: Try.SNK */
-		rt-tcpc,rp_level = <0>; /* 0: Default, 1: 1.5, 2: 3.0 */
+		rt-tcpc,rp_level = <1>; /* 0: Default, 1: 1.5, 2: 3.0 */
 		rt-tcpc,vconn_supply  = <1>;  /* 0: Never, 1: Always, */
 					      /* 2: EMarkOnly, 3: StartOnly */
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
@@ -16,8 +16,8 @@
 #else
 		rt-tcpc,notifier_supply_num = <2>;
 #endif
-		rt1711pd,intr_gpio = <&pio 41 0x0>;
-		rt1711pd,intr_gpio_num = <41>;
+		rt1711pd,intr_gpio = <&pio 6 0x0>;
+		rt1711pd,intr_gpio_num = <6>;
 		pd-data {
 			pd,vid = <0x29cf>;
 			pd,pid = <0x1711>;

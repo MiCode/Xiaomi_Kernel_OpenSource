@@ -1,6 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2017 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #ifndef TCPM_PD_H_
@@ -127,7 +135,7 @@ enum pd_battery_reference {
 
 /* SCEDB, Source_Capabilities_Extended */
 
-#define PD_SCEDB_SIZE	24
+#define PD_SCEDB_SIZE	25
 
 #define PD_SCEDB_VR(load_step, ioc)	\
 	((load_step) | (ioc << 2))
@@ -179,6 +187,7 @@ struct pd_source_cap_ext {
 	uint8_t	source_inputs;	/* bit field */
 	uint8_t	batteries;
 	uint8_t	source_pdp;
+	uint8_t	epr_source_pdp;
 };
 
 /* GBSDB, Get_Battery_Status */

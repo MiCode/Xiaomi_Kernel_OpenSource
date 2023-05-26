@@ -7523,7 +7523,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		mtk_drm_cwb_init(&mtk_crtc->base);
 
 	mtk_disp_chk_recover_init(&mtk_crtc->base);
-
+	mi_disp_esd_chk_init(&mtk_crtc->base);
 	mtk_drm_fake_vsync_init(&mtk_crtc->base);
 
 #ifdef MTK_FB_MMDVFS_SUPPORT

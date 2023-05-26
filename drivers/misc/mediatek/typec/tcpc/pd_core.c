@@ -270,9 +270,9 @@ static inline void pd_parse_pdata_src_cap_ext(
 #ifdef CONFIG_USB_PD_REV30_SRC_CAP_EXT_LOCAL
 	int ret = 0;
 
-	ret = of_property_read_u32_array(np, "pd,source-cap-ext",
-		(u32 *) &pd_port->src_cap_ext,
-		sizeof(struct pd_source_cap_ext)/4);
+	ret = of_property_read_u8_array(np, "pd,source-cap-ext",
+		(u8 *)&pd_port->src_cap_ext, PD_SCEDB_SIZE);
+ 
 
 	if (ret < 0)
 		pr_err("%s get source-cap-ext fail\n", __func__);
@@ -773,6 +773,7 @@ int pd_reset_protocol_layer(struct pd_port *pd_port, bool sop_only)
 
 int pd_set_rx_enable(struct pd_port *pd_port, uint8_t enable)
 {
+	pd_port->rx_cap = enable;
 	return tcpci_set_rx_enable(pd_port->tcpc, enable);
 }
 
@@ -1007,6 +1008,7 @@ void pd_handle_hard_reset_recovery(struct pd_port *pd_port)
 {
 	/* Stop NoResponseTimer and reset HardResetCounter to zero */
 	pd_port->pe_data.hard_reset_counter = 0;
+	pd_port->pe_data.retry_cnt = 0;
 	pd_disable_timer(pd_port, PD_TIMER_NO_RESPONSE);
 
 #ifdef CONFIG_USB_PD_RENEGOTIATION_COUNTER
@@ -1328,6 +1330,33 @@ void pd_lock_msg_output(struct pd_port *pd_port)
 	pd_port->msg_output_lock = true;
 
 	pd_dbg_info_lock();
+}
+
+void pd_add_miss_msg(struct pd_port *pd_port,struct pd_event *pd_event,
+				uint8_t msg)
+{
+	struct pd_msg *pd_msg = pd_event->pd_msg;
+	struct pd_msg * miss_msg = NULL;
+	uint8_t sop_type = 0;
+	struct pd_event evt = {
+		.event_type = PD_EVT_CTRL_MSG,
+		.msg = msg,
+		.pd_msg = NULL,
+	};
+	if (pd_msg != NULL) {
+		sop_type = pd_msg->frame_type;
+	}
+	pd_put_event(pd_port->tcpc,&evt,true);
+	miss_msg = pd_alloc_msg(pd_port->tcpc);
+	if (miss_msg == NULL) {
+		return;
+	}
+	if (pd_msg != NULL)
+		memcpy(miss_msg,pd_msg,sizeof(struct pd_msg));
+
+	pd_put_pd_msg_event(pd_port->tcpc,miss_msg);
+	pd_port->pe_data.msg_id_rx[sop_type]--;
+	return;
 }
 
 void pd_unlock_msg_output(struct pd_port *pd_port)

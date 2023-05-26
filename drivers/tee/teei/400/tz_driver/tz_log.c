@@ -1,7 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * Copyright (C) 2015 Google, Inc.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  */
 
@@ -20,9 +28,6 @@
 #include <linux/seq_file.h>
 
 #include <teei_client_main.h>
-#ifdef CONFIG_MTK_TEE_SANITY
-#include <tee_sanity.h>
-#endif
 #include "tz_log.h"
 #include "nt_smc_call.h"
 #include "notify_queue.h"
@@ -174,7 +179,10 @@ static void tz_driver_dump_logs(struct tz_log_state *s)
 		 * if log level >= KERN_INFO)
 		 */
 
-		IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
+		if (likely(is_teei_ready()))
+			IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
+		else
+			IMSG_PRINTK("[TZ_LOG] %s", s->line_buffer);
 
 		/*
 		 * Dump early log to boot log buffer

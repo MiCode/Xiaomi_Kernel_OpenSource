@@ -80,6 +80,11 @@ int ccci_log_write(const char *fmt, ...)
 			CCCI_LOG_MAX_WRITE - write_len,
 			fmt, args);
 	va_end(args);
+	if (write_len >= CCCI_LOG_MAX_WRITE) {
+		pr_notice("%s-%d: string too long, write_len(%d) is over max(%d)\n",
+			__func__, __LINE__, write_len, CCCI_LOG_MAX_WRITE);
+		write_len = CCCI_LOG_MAX_WRITE - 1;
+	}
 
 	spin_lock_irqsave(&ccci_log_buf.write_lock, flags);
 	if (ccci_log_buf.write_pos + write_len > CCCI_LOG_BUF_SIZE) {
@@ -142,16 +147,19 @@ int ccci_log_write_raw(unsigned int set_flags, const char *fmt, ...)
 
 	if (set_flags & CCCI_DUMP_CURR_FLAG) {
 		write_len += scnprintf(temp_log + write_len,
-						CCCI_LOG_MAX_WRITE - write_len,
-						"[%d:%s]",
-						current->pid, current->comm);
+				CCCI_LOG_MAX_WRITE - write_len,
+				"[%d:%s]", current->pid, current->comm);
 	}
 
 	va_start(args, fmt);
 	write_len += vsnprintf(temp_log + write_len,
-					CCCI_LOG_MAX_WRITE - write_len,
-					fmt, args);
+			CCCI_LOG_MAX_WRITE - write_len, fmt, args);
 	va_end(args);
+	if (write_len >= CCCI_LOG_MAX_WRITE) {
+		pr_notice("%s-%d: string too long, write_len(%d) is over max(%d)\n",
+			__func__, __LINE__, write_len, CCCI_LOG_MAX_WRITE);
+		write_len = CCCI_LOG_MAX_WRITE - 1;
+	}
 
 	spin_lock_irqsave(&ccci_log_buf.write_lock, flags);
 	if (ccci_log_buf.write_pos + write_len > CCCI_LOG_BUF_SIZE) {
@@ -1155,11 +1163,14 @@ int ccci_event_log(const char *fmt, ...)
 			current->comm);
 
 	va_start(args, fmt);
-	write_len += vsnprintf(temp_log
-					+ write_len,
-					CCCI_LOG_MAX_WRITE - write_len,
-					fmt, args);
+	write_len += vsnprintf(temp_log + write_len,
+			CCCI_LOG_MAX_WRITE - write_len, fmt, args);
 	va_end(args);
+	if (write_len >= CCCI_LOG_MAX_WRITE) {
+		pr_notice("%s-%d: string too long, write_len(%d) is over max(%d)\n",
+			__func__, __LINE__, write_len, CCCI_LOG_MAX_WRITE);
+		write_len = CCCI_LOG_MAX_WRITE - 1;
+	}
 
 	spin_lock_irqsave(&ccci_event_buffer.lock, flags);
 

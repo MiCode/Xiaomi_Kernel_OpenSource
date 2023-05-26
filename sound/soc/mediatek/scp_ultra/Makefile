@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0
 
 # MTK Platform Support
-
+ifeq ($(CONFIG_MACH_MT6781),y)
+MTK_PLATFORM := mt6781
+else
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
 
 ifeq ($(CONFIG_MTK_ULTRASND_PROXIMITY),y)
 subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/common

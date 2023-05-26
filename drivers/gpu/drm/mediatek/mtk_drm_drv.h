@@ -259,6 +259,10 @@ extern struct platform_driver mtk_lvds_driver;
 extern struct platform_driver mtk_lvds_tx_driver;
 extern struct platform_driver mtk_disp_dsc_driver;
 extern struct lcm_fps_ctx_t lcm_fps_ctx[MAX_CRTC];
+
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
+
 extern struct platform_driver mtk_disp_merge_driver;
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 extern struct platform_driver mtk_dp_tx_driver;

@@ -22,7 +22,7 @@
 #include "mtk_drm_ddp_addon.h"
 #include <linux/pm_wakeup.h>
 #include "mtk_disp_pmqos.h"
-
+#include "mi_disp_esd_check.h"
 
 #define MAX_CRTC 3
 #define OVL_LAYER_NR 12L
@@ -664,6 +664,7 @@ struct mtk_drm_crtc {
 	wait_queue_head_t crtc_status_wq;
 	struct mtk_panel_ext *panel_ext;
 	struct mtk_drm_esd_ctx *esd_ctx;
+	struct mi_esd_ctx *mi_esd_ctx;
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	struct mtk_drm_gem_obj *round_corner_gem;
 	struct mtk_drm_gem_obj *round_corner_gem_l;

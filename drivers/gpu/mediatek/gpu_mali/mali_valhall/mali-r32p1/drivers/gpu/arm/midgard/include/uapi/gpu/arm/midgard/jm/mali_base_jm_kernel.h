@@ -766,6 +766,9 @@ typedef __u8 base_jd_prio;
  */
 #define BASE_JD_PRIO_REALTIME    ((base_jd_prio)3)
 
+/* Invalid atom priority (max uint8_t value) */
+#define BASE_JD_PRIO_INVALID ((base_jd_prio)255)
+
 /* Count of the number of priority levels. This itself is not a valid
  * base_jd_prio setting
  */

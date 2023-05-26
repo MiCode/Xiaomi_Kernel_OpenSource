@@ -1,0 +1,68 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fpc_tee@0 {
+		compatible = "fpc,fpc_spi";
+		reg = <0>;
+		fpc,enable-wakeup;
+		spi-max-frequency = <10000000>;
+		netlink-event = <31>;
+		status = "okay";
+	};
+};
+
+&fpsensor_finger {
+	pinctrl-names =  "fpsensor_fpc_rst_low", "fpsensor_fpc_rst_high","fpsensor_fpc_power_low", "fpsensor_fpc_power_high";
+	pinctrl-0 = <&fpsensor_fpc_rst_low>;
+	pinctrl-1 = <&fpsensor_fpc_rst_high>;
+	pinctrl-2 = <&fpsensor_fpc_power_low>;
+	pinctrl-3 = <&fpsensor_fpc_power_high>;
+	status = "okay";
+};
+
+&pio {
+	fpsensor_fpc_rst_low: fpsensor_fpc_rst_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	fpsensor_fpc_rst_high: fpsensor_fpc_rst_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	fpsensor_fpc_power_low: fpsensor_fpc_power_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO56__FUNC_GPIO56>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	fpsensor_fpc_power_high: fpsensor_fpc_power_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO56__FUNC_GPIO56>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+};
+

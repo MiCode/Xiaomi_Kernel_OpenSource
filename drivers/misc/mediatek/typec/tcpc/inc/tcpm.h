@@ -1,6 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #ifndef TCPM_H_
@@ -538,6 +546,8 @@ enum tcp_dpm_return_code {
 	TCP_DPM_RET_DROP_ERROR_REOCVERY,
 	TCP_DPM_RET_DROP_SEND_BIST,
 	TCP_DPM_RET_DROP_PE_BUSY,	/* SinkTXNg*/
+	TCP_DPM_RET_DROP_DISCARD,
+	TCP_DPM_RET_DROP_UNEXPECTED,
 
 	TCP_DPM_RET_WAIT,
 	TCP_DPM_RET_REJECT,
@@ -848,9 +858,6 @@ extern uint8_t tcpm_inquire_typec_attach_state(struct tcpc_device *tcpc);
 extern uint8_t tcpm_inquire_typec_role(struct tcpc_device *tcpc);
 extern uint8_t tcpm_inquire_typec_local_rp(struct tcpc_device *tcpc);
 
-extern int tcpm_typec_set_wake_lock(
-	struct tcpc_device *tcpc, bool user_lock);
-
 extern int tcpm_typec_set_usb_sink_curr(
 	struct tcpc_device *tcpc, int curr);
 
@@ -886,6 +893,9 @@ extern uint8_t tcpm_inquire_pd_data_role(
 	struct tcpc_device *tcpc);
 
 extern uint8_t tcpm_inquire_pd_power_role(
+	struct tcpc_device *tcpc);
+
+extern uint8_t tcpm_inquire_pd_state_curr(
 	struct tcpc_device *tcpc);
 
 extern uint8_t tcpm_inquire_pd_vconn_role(
@@ -1394,6 +1404,12 @@ static inline uint8_t tcpm_inquire_pd_data_role(
 }
 
 static inline uint8_t tcpm_inquire_pd_power_role(
+	struct tcpc_device *tcpc)
+{
+	return 0;
+}
+
+static inline uint8_t tcpm_inquire_pd_state_curr(
 	struct tcpc_device *tcpc)
 {
 	return 0;

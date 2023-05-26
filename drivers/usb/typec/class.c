@@ -1021,7 +1021,7 @@ static ssize_t data_role_store(struct device *dev,
 		return ret;
 
 	mutex_lock(&port->port_type_lock);
-	if (port->cap->data != TYPEC_PORT_DRD) {
+	if (port->port_type != TYPEC_PORT_DRP) {
 		ret = -EOPNOTSUPP;
 		goto unlock_and_ret;
 	}

@@ -1,7 +1,15 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2015-2016, Linaro Limited
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  */
 #ifndef TEE_PRIVATE_H
@@ -135,10 +143,10 @@ extern struct dma_buf *dma_buf_export(
 				const struct dma_buf_export_info *exp_info);
 
 extern int dma_buf_fd(struct dma_buf *dmabuf, int flags);
-
 extern long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 extern int tee_k_open(struct file *filp);
 extern int tee_k_release(struct file *filp);
 
 extern struct tee_device *isee_get_teedev(void);
+
 #endif /*TEE_PRIVATE_H*/

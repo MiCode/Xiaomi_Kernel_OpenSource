@@ -45,6 +45,15 @@ static int charger_resume(struct device *dev)
 	return 0;
 }
 */
+int charger_dev_get_vendor_id(struct charger_device *chg_dev, u32 *vendor_id)
+{
+  	if (chg_dev != NULL && chg_dev->ops != NULL &&
+  	    chg_dev->ops->get_vendor_id)
+  		return chg_dev->ops->get_vendor_id(chg_dev, vendor_id);
+  
+  	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_get_vendor_id);
 
 static void charger_device_release(struct device *dev)
 {

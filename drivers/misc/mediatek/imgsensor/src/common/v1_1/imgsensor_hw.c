@@ -219,7 +219,20 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 
 			mdelay(ppwr_info->pin_on_delay);
 		}
-
+#if (defined __XIAOMI_CAMERA__)
+			if ((sensor_idx == IMGSENSOR_SENSOR_IDX_SUB || sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2) &&
+				ppwr_info->pin ==IMGSENSOR_HW_PIN_AVDD)
+			{
+				PK_DBG("when open front or ultra camera,macro camera need in standby status");
+				pdev = phw->pdev[psensor_pwr->id[IMGSENSOR_HW_PIN_DOVDD]];
+				if (pdev->set != NULL)
+					pdev->set(
+					pdev->pinstance,
+					IMGSENSOR_SENSOR_IDX_MAIN3,
+					IMGSENSOR_HW_PIN_DOVDD,
+					IMGSENSOR_HW_PIN_STATE_LEVEL_1800);
+			}
+#endif
 		ppwr_info++;
 		pin_cnt++;
 	}
@@ -241,13 +254,38 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 				pdev =
 				phw->pdev[psensor_pwr->id[ppwr_info->pin]];
 
-				if (pdev->set != NULL)
-					pdev->set(pdev->pinstance,
-					sensor_idx,
-				ppwr_info->pin, ppwr_info->pin_state_off);
+				if ((sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN
+				    || sensor_idx == IMGSENSOR_SENSOR_IDX_SUB
+				    || sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2)
+				    && ppwr_info->pin ==IMGSENSOR_HW_PIN_DOVDD) {
+				    pr_info("when close back front or ultra camera,iovdd need set to on");
+				    if (pdev->set != NULL)
+						pdev->set(pdev->pinstance,
+						sensor_idx,
+						ppwr_info->pin, ppwr_info->pin_state_on);
+				} else {
+				    if (pdev->set != NULL)
+						pdev->set(pdev->pinstance,
+						sensor_idx,
+						ppwr_info->pin, ppwr_info->pin_state_off);
+				}
 			}
 
 			mdelay(ppwr_info->pin_on_delay);
+#if (defined __XIAOMI_CAMERA__)
+			if ((sensor_idx == IMGSENSOR_SENSOR_IDX_SUB || sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2) &&
+				ppwr_info->pin ==IMGSENSOR_HW_PIN_AVDD)
+				{
+					PK_DBG("when close front or ultra camera,macro camera iovdd need set to low");
+					pdev = phw->pdev[psensor_pwr->id[IMGSENSOR_HW_PIN_DOVDD]];
+					if (pdev->set != NULL)
+							pdev->set(
+							pdev->pinstance,
+							IMGSENSOR_SENSOR_IDX_MAIN3,
+							IMGSENSOR_HW_PIN_DOVDD,
+							IMGSENSOR_HW_PIN_STATE_LEVEL_0);
+				}
+#endif
 		}
 	}
 

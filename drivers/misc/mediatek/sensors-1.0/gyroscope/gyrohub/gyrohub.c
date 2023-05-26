@@ -13,7 +13,7 @@
 
 /* name must different with gsensor gyrohub */
 #define GYROHUB_DEV_NAME    "gyro_hub"
-
+#define MTK_OLD_FACTORY_CALIBRATION
 static struct gyro_init_info gyrohub_init_info;
 struct platform_device *gyroPltFmDev;
 static int gyrohub_init_flag = -1;
@@ -193,7 +193,7 @@ static int gyrohub_ReadGyroData(char *buf, int bufsize)
 	return 0;
 
 }
-
+#if 0
 static int gyrohub_ReadChipInfo(char *buf, int bufsize)
 {
 	u8 databuf[10];
@@ -225,28 +225,21 @@ static int gyrohub_ReadAllReg(char *buf, int bufsize)
 	}
 	return 0;
 }
-
+#endif
 static ssize_t chipinfo_show(struct device_driver *ddri, char *buf)
 {
-	struct gyrohub_ipi_data *obj = obj_ipi_data;
-	char strbuf[GYROHUB_BUFSIZE];
-	int err = 0;
+	//char strbuf[ACCELHUB_BUFSIZE];
+	int res;
+	struct sensorInfo_t devinfo;
 
-	if (obj == NULL) {
-		pr_err("obj is null!!\n");
-		return 0;
+	gyrohub_SetPowerMode(true);
+	msleep(50);
+
+	res = sensor_set_cmd_to_hub(ID_GYROSCOPE, CUST_ACTION_GET_SENSOR_INFO, &devinfo);
+	if(res < 0) {
+		pr_err("Get gyro info err\n");
 	}
-	err = gyrohub_ReadAllReg(strbuf, GYROHUB_BUFSIZE);
-	if (err < 0) {
-		pr_debug("gyrohub_ReadAllReg fail!!\n");
-		return 0;
-	}
-	err = gyrohub_ReadChipInfo(strbuf, GYROHUB_BUFSIZE);
-	if (err < 0) {
-		pr_debug("gyrohub_ReadChipInfo fail!!\n");
-		return 0;
-	}
-	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
+	return snprintf(buf, PAGE_SIZE, "%s\n", devinfo.name);
 }
 
 static ssize_t sensordata_show(struct device_driver *ddri,
@@ -434,9 +427,9 @@ static void scp_init_work_done(struct work_struct *work)
 {
 	struct gyrohub_ipi_data *obj = obj_ipi_data;
 	int err = 0;
-#ifndef MTK_OLD_FACTORY_CALIBRATION
+//#ifndef MTK_OLD_FACTORY_CALIBRATION
 	int32_t cfg_data[12] = {0};
-#endif
+//#endif
 
 	if (atomic_read(&obj->scp_init_done) == 0) {
 		pr_err("scp is not ready to send cmd\n");
@@ -444,7 +437,8 @@ static void scp_init_work_done(struct work_struct *work)
 	}
 	if (atomic_xchg(&obj->first_ready_after_boot, 1) == 0)
 		return;
-#ifdef MTK_OLD_FACTORY_CALIBRATION
+#if 0
+//#ifdef MTK_OLD_FACTORY_CALIBRATION
 	err = gyrohub_WriteCalibration_scp(obj->static_cali);
 	if (err < 0)
 		pr_err("gyrohub_WriteCalibration_scp fail\n");
@@ -620,6 +614,7 @@ static int gyrohub_factory_get_cali(int32_t data[3])
 		return -1;
 	}
 #else
+	init_completion(&obj->calibration_done);
 	err = wait_for_completion_timeout(&obj->calibration_done,
 		msecs_to_jiffies(3000));
 	if (!err) {
@@ -647,7 +642,7 @@ static int gyrohub_factory_do_self_test(void)
 	ret = sensor_selftest_to_hub(ID_GYROSCOPE);
 	if (ret < 0)
 		return -1;
-
+	init_completion(&obj->selftest_done);
 	ret = wait_for_completion_timeout(&obj->selftest_done,
 					  msecs_to_jiffies(3000));
 	if (!ret)

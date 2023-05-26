@@ -204,8 +204,10 @@ static bool pd_vdm_state_transit(
 
 	if (vdm_cmdt == CMDT_INIT) {	/* Recv */
 		if (!vdm_is_state_transition_available(
-			pd_port, true, state_transition))
-			return false;
+			pd_port, true, state_transition)) {
+			PE_TRANSIT_STATE(pd_port, PE_UFP_VDM_SEND_NAK);
+			return true;
+		}
 
 		return pd_vdm_state_transit_rx(pd_port, state_transition);
 	}

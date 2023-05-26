@@ -8,6 +8,7 @@ flashlight-y += flashlight-device.o
 obj-$(CONFIG_MTK_FLASHLIGHT)             += flashlight.o
 obj-$(CONFIG_MTK_V4L2_FLASHLIGHT)        += mtk-composite.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LED191)      += flashlights-led191.o
+obj-$(CONFIG_MTK_FLASHLIGHT_OCP8132)   += flashlights-ocp8132.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LM3642)      += flashlights-lm3642.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LM3643)      += flashlights-lm3643.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LM3644)      += flashlights-lm3644.o
@@ -23,6 +24,7 @@ obj-$(CONFIG_MTK_FLASHLIGHT_DUMMY_GPIO)  += flashlights-dummy-gpio.o
 
 ccflags-$(CONFIG_MTK_FLASHLIGHT_DEBUG)     := -DDEBUG
 ccflags-$(CONFIG_MTK_FLASHLIGHT_SYWT78)    += -DCONFIG_MTK_FLASHLIGHT_SYWT78
+ccflags-$(CONFIG_MTK_FLASHLIGHT_OCP8132) += -DCONFIG_MTK_FLASHLIGHT_OCP8132
 ccflags-$(CONFIG_MTK_FLASHLIGHT_PT)        += -DCONFIG_MTK_FLASHLIGHT_PT
 ccflags-$(CONFIG_MTK_FLASHLIGHT_PT_STRICT) += -DCONFIG_MTK_FLASHLIGHT_PT_STRICT
 ccflags-$(CONFIG_MTK_FLASHLIGHT_DLPT)      += -DCONFIG_MTK_FLASHLIGHT_DLPT

@@ -1,6 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2017 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #include "inc/tcpci.h"
@@ -350,6 +358,15 @@ int tcpci_is_vsafe0v(struct tcpc_device *tcpc)
 }
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
+int tcpci_get_chip_id(struct tcpc_device *tcpc, uint32_t *chip_id)
+{
+	if (tcpc->ops->get_chip_id == NULL)
+		return -ENOTSUPP;
+	else
+		tcpc->ops->get_chip_id(tcpc, chip_id);
+
+	return 0;
+}
 #ifdef CONFIG_WATER_DETECTION
 int tcpci_is_water_detected(struct tcpc_device *tcpc)
 {

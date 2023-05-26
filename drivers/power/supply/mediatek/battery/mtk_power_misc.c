@@ -1,7 +1,16 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2021 MediaTek Inc.
-*/
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
 
 #ifndef _DEA_MODIFY_
 #include <linux/errno.h>
@@ -62,13 +71,13 @@ static void wake_up_power_misc(struct shutdown_controller *sdd)
 	sdd->timeout = true;
 	wake_up(&sdd->wait_que);
 }
-
+#if 0 // zhushaoan rmeove overheat kernel shutdown
 static void wake_up_overheat(struct shutdown_controller *sdd)
 {
 	sdd->overheat = true;
 	wake_up(&sdd->wait_que);
 }
-
+#endif
 void set_shutdown_vbat_lt(int vbat_lt, int vbat_lt_lv1)
 {
 	g_vbat_lt = vbat_lt;
@@ -537,7 +546,7 @@ int mtk_power_misc_psy_event(
 					"battery temperature >= %d,shutdown",
 					tmp);
 
-				wake_up_overheat(&sdc);
+				//wake_up_overheat(&sdc); // zhushaoan rmeove overheat kernel shutdown
 			}
 		}
 	}

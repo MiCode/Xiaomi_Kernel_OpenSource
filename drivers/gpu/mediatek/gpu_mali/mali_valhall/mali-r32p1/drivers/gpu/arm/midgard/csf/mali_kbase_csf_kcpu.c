@@ -641,10 +641,13 @@ static int kbase_csf_queue_group_suspend_prepare(
 		struct tagged_addr *page_array;
 		u64 start, end, i;
 
-		if (!(reg->flags & BASE_MEM_SAME_VA) ||
-				reg->nr_pages < nr_pages ||
-				kbase_reg_current_backed_size(reg) !=
-					reg->nr_pages) {
+		if (((reg->flags & KBASE_REG_ZONE_MASK) != KBASE_REG_ZONE_SAME_VA) ||
+		    (kbase_reg_current_backed_size(reg) < nr_pages) ||
+		    !(reg->flags & KBASE_REG_CPU_WR) ||
+		    (reg->gpu_alloc->type != KBASE_MEM_TYPE_NATIVE) ||
+		    (reg->flags & KBASE_REG_DONT_NEED) ||
+		    (reg->flags & KBASE_REG_ACTIVE_JIT_ALLOC) ||
+		    (reg->flags & KBASE_REG_NO_USER_FREE)) {
 			ret = -EINVAL;
 			goto out_clean_pages;
 		}

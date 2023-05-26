@@ -1287,3 +1287,4 @@ void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
 		ret = mtk_crtc_user_cmd(crtc, ccorr1_default_comp, BYPASS_CCORR, &bypass);
 	DDPFUNC("ret = %d", ret);
 }
+

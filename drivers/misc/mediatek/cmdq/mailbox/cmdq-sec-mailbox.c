@@ -1759,7 +1759,7 @@ static int __init cmdq_sec_init(void)
 	return err;
 }
 
-#ifdef CMDQ_GP_SUPPORT
+#if defined(CMDQ_GP_SUPPORT) || defined(CMDQ_SECURE_MTEE_SUPPORT)
 static s32 cmdq_sec_late_init_wsm(void *data)
 {
 	struct cmdq_sec *cmdq;

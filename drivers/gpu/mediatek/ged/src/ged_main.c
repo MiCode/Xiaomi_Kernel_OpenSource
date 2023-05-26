@@ -185,6 +185,14 @@ static long ged_dispatch(struct file *pFile,
 					psBridgePackageKM->ui32FunctionID)) {
 				inputBufferSize = sizeof(int) +
 				sizeof(uint32_t) * GE_ALLOC_STRUCT_NUM;
+				// hardcode region_num = GE_ALLOC_STRUCT_NUM,
+				// need check input buffer size
+				if (psBridgePackageKM->i32InBufferSize <
+					inputBufferSize) {
+					GED_LOGE("Failed to regoin_num,it must be %d\n",
+						GE_ALLOC_STRUCT_NUM);
+					goto dispatch_exit;
+				}
 			}
 
 			if (inputBufferSize <= KMALLOC_MAX_SIZE)

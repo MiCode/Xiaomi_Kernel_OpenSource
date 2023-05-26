@@ -1,0 +1,36 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+&i2c6 {
+        speaker_amp: speaker_amp@34 {
+                status = "disabled";
+        };
+};
+
+&i2c6 {
+/* FSM FS16XX Smart K PA */
+	/*audio pa*/
+	fs16xx@34 {
+		compatible = "foursemi,fs16xx";
+		reg = <0x34>;
+		fsm,rst-gpio = <&pio 165 0>;
+		status = "okay";
+	};
+	/*audio rev pa*/
+	fs16xx@35 {
+		compatible = "foursemi,fs16xx";
+		reg = <0x35>;
+		fsm,rst-gpio = <&pio 164 0>;
+		status = "okay";
+	};
+/* FSM FS16XX Smart K PA End */
+};

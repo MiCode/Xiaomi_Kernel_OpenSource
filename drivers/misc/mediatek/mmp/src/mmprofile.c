@@ -2263,12 +2263,12 @@ static int mmprofile_mmap(struct file *file, struct vm_area_struct *vma)
 	} else if (mmprofile_globals.selected_buffer ==
 		MMPROFILE_PRIMARY_BUFFER) {
 
+		mmprofile_init_buffer();
+
 		/* check user space buffer length */
 		if ((vma->vm_end - vma->vm_start) !=
 			mmprofile_globals.buffer_size_bytes)
 			return -EINVAL;
-
-		mmprofile_init_buffer();
 
 		if (!bmmprofile_init_buffer)
 			return -EAGAIN;

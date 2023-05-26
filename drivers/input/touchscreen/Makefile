@@ -56,6 +56,8 @@ obj-$(CONFIG_TOUCHSCREEN_MX25)		+= fsl-imx25-tcq.o
 obj-$(CONFIG_TOUCHSCREEN_MC13783)	+= mc13783_ts.o
 obj-$(CONFIG_TOUCHSCREEN_MCS5000)	+= mcs5000_ts.o
 obj-$(CONFIG_TOUCHSCREEN_MELFAS_MIP4)	+= melfas_mip4.o
+obj-$(CONFIG_TOUCHSCREEN_MTK)		+= mediatek/
+
 ifeq ($(CONFIG_MACH_MT6739),y)
 obj-$(CONFIG_TOUCHSCREEN_MTK)		+= mediatek/
 else

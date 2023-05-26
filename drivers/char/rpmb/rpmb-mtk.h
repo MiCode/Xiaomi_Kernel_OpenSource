@@ -40,6 +40,7 @@ extern struct msdc_host *mtk_msdc_host[];
 #define RPMB_IOCTL_SOTER_READ_DATA    6
 #define RPMB_IOCTL_SOTER_GET_CNT      7
 #define RPMB_IOCTL_SOTER_GET_WR_SIZE      8
+#define RPMB_IOCTL_SOTER_SET_KEY      9
 
 struct rpmb_infor {
 	unsigned int size;

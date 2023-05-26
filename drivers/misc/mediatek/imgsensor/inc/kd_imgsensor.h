@@ -604,6 +604,36 @@
 #define SENSOR_DRVNAME_OV13B10_MIPI_RAW         "ov13b10_mipi_raw"
 #define SENSOR_DRVNAME_OV02B10_MIPI_RAW         "ov02b10_mipi_raw"
 
+#define S5KHM2SD_MAIN_OFILM_SENSOR_ID   0xFAD2
+#define S5KHM2SD_MAIN_SEMCO_SENSOR_ID   0xFAD3
+#define OV64B40_MAIN_SUNNY_SENSOR_ID    0x6442
+#define OV64B40_MAIN_AAC_SENSOR_ID      0x6443
+#define OV64B40_MAIN_OFILM_SENSOR_ID    0x6444
+#define IMX471_FRONT_SUNNY_SENSOR_ID    0x471
+#define IMX471_FRONT_OFILM_SENSOR_ID    0x472
+#define IMX355_ULTRA_OFILM_SENSOR_ID    0x355
+#define S5K4H7_ULTRA_SUNNY_SENSOR_ID    0x487B
+#define OV02B1B_DEPTH_SUNNY_SENSOR_ID   0x2B
+#define OV02B1B_DEPTH_TRULY_SENSOR_ID   0x2C
+#define OV02B1B_DEPTH_SUNNY2_SENSOR_ID  (0x2B + 2)
+#define GC02M1_MACRO_OFILM_SENSOR_ID    0x2E0
+#define GC02M1_MACRO_AAC_SENSOR_ID      0x2E1
+
+#define SENSOR_DRVNAME_S5KHM2SD_MAIN_OFILM_MIPI_RAW "s5khm2sd_main_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_S5KHM2SD_MAIN_SEMCO_MIPI_RAW "s5khm2sd_main_semco_mipi_raw"
+#define SENSOR_DRVNAME_OV64B40_MAIN_SUNNY_MIPI_RAW  "ov64b40_main_sunny_mipi_raw"
+#define SENSOR_DRVNAME_OV64B40_MAIN_AAC_MIPI_RAW    "ov64b40_main_aac_mipi_raw"
+#define SENSOR_DRVNAME_OV64B40_MAIN_OFILM_MIPI_RAW   "ov64b40_main_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_IMX471_FRONT_SUNNY_MIPI_RAW  "imx471_front_sunny_mipi_raw"
+#define SENSOR_DRVNAME_IMX471_FRONT_OFILM_MIPI_RAW  "imx471_front_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_IMX355_ULTRA_OFILM_MIPI_RAW  "imx355_ultra_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_S5K4H7_ULTRA_SUNNY_MIPI_RAW  "s5k4h7_ultra_sunny_mipi_raw"
+#define SENSOR_DRVNAME_OV02B1B_DEPTH_SUNNY_MIPI_RAW "ov02b1b_depth_sunny_mipi_raw"
+#define SENSOR_DRVNAME_OV02B1B_DEPTH_TRULY_MIPI_RAW "ov02b1b_depth_truly_mipi_raw"
+#define SENSOR_DRVNAME_OV02B1B_DEPTH_SUNNY2_MIPI_RAW "ov02b1b_depth_sunny2_mipi_raw"
+#define SENSOR_DRVNAME_GC02M1_MACRO_OFILM_MIPI_RAW  "gc02m1_macro_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_GC02M1_MACRO_AAC_MIPI_RAW    "gc02m1_macro_aac_mipi_raw"
+
 /******************************************************************************
  *
  ******************************************************************************/

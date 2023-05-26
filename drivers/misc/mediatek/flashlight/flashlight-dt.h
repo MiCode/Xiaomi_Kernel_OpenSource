@@ -10,6 +10,7 @@
 #define DUMMY_DTNAME      "mediatek,flashlights_dummy"
 #define DUMMY_DTNAME_I2C  "mediatek,flashlights_dummy_i2c"
 #define LED191_DTNAME     "mediatek,flashlights_led191"
+#define OCP8132_DTNAME     "mediatek,flashlights_ocp8132"
 #define LM3642_DTNAME     "mediatek,flashlights_lm3642"
 #define LM3642_DTNAME_I2C "mediatek,strobe_main"
 #define LM3643_DTNAME     "mediatek,flashlights_lm3643"

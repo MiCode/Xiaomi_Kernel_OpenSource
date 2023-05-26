@@ -427,6 +427,8 @@ int mtk_ccci_handle_port_list(int status, char *name)
 	struct sk_buff *skb = NULL;
 
 	channel = mtk_ccci_request_port(name);
+	if (channel < 0)
+		return -1;
 	ret = find_port_by_channel(channel, &port);
 	if (ret)
 		return -1;

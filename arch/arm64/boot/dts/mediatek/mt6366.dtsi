@@ -507,6 +507,8 @@
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
 			regulator-enable-ramp-delay = <270>;
+                        regulator-always-on;
+                        regulator-boot-no;
 		};
 		mt_pmic_va12_ldo_reg: ldo_va12 {
 			regulator-name = "va12";

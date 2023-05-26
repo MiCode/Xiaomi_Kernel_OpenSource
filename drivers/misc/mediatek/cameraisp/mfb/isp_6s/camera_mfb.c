@@ -3246,6 +3246,9 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				goto EXIT;
 			}
 
+			/* Protect the Multi Process */
+			mutex_lock(&gMfbMsfMutex);
+
 			if (copy_from_user(
 				g_MsfEnqueReq_Struct.MsfFrameConfig,
 				(void *)mfb_MsfReq.m_pMsfConfig,
@@ -3258,9 +3261,6 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			}
 			msf_get_reqs(mfb_MsfReq.exec, &reqs);
 			pUserInfo->reqs = reqs;
-
-			/* Protect the Multi Process */
-			mutex_lock(&gMfbMsfMutex);
 
 			spin_lock_irqsave(
 				&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MSF_ST]),

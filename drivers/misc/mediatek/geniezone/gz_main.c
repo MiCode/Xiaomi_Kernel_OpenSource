@@ -718,6 +718,7 @@ static long tz_client_tee_service(struct file *file, void __user *arg,
 			}
 
 			kfree(param[i].mem.buffer);
+			param[i].mem.buffer = NULL;
 			break;
 		}
 	}

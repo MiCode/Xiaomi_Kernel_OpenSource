@@ -1,7 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015-2016, Linaro Limited
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  */
 #include <linux/version.h>
@@ -48,7 +56,8 @@ static void tee_shm_release(struct tee_shm *shm)
 	} else {
 		struct tee_shm_pool_mgr *poolm;
 
-		if ((shm->flags & TEE_SHM_DMA_BUF) || (shm->flags & TEE_SHM_DMA_KERN_BUF))
+		if ((shm->flags & TEE_SHM_DMA_BUF) ||
+				(shm->flags & TEE_SHM_DMA_KERN_BUF))
 			poolm = &teedev->pool->dma_buf_mgr;
 		else
 			poolm = &teedev->pool->private_mgr;
@@ -79,6 +88,11 @@ static void tee_shm_op_release(struct dma_buf *dmabuf)
 	tee_shm_release(shm);
 }
 
+static void *tee_shm_op_kmap_atomic(struct dma_buf *dmabuf, unsigned long pgnum)
+{
+	return NULL;
+}
+
 static void *tee_shm_op_kmap(struct dma_buf *dmabuf, unsigned long pgnum)
 {
 	return NULL;
@@ -102,6 +116,7 @@ static struct dma_buf_ops tee_shm_dma_buf_ops = {
 	.map_dma_buf = tee_shm_op_map_dma_buf,
 	.unmap_dma_buf = tee_shm_op_unmap_dma_buf,
 	.release = tee_shm_op_release,
+	.map_atomic = tee_shm_op_kmap_atomic,
 	.map = tee_shm_op_kmap,
 	.mmap = tee_shm_op_mmap,
 };

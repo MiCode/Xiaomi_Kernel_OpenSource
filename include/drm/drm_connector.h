@@ -1185,6 +1185,8 @@ struct drm_connector {
 	 * The calculated checksum value of first 127 bytes of associated EDID.
 	 */
 	u8 checksum;
+
+	int panel_event;
 };
 
 #define obj_to_connector(x) container_of(x, struct drm_connector, base)

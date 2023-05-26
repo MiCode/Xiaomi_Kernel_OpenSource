@@ -39,6 +39,10 @@
 
 #include "internal.h"
 
+#ifdef CONFIG_PSTORE_LAST_KMSG
+#include <linux/proc_fs.h>
+#endif
+
 #define	PSTORE_NAMELEN	64
 
 static DEFINE_SPINLOCK(allpstore_lock);
@@ -297,6 +301,25 @@ bool pstore_is_mounted(void)
 	return pstore_sb != NULL;
 }
 
+// 2022.12.22 longcheer chengyuan@longcheer.com add by HTH-268532 start
+#ifdef CONFIG_PSTORE_LAST_KMSG
+static char *console_buffer;
+static ssize_t console_bufsize;
+static ssize_t last_kmsg_read(struct file *file, char __user *buf,
+		size_t len, loff_t *offset)
+{
+	return simple_read_from_buffer(buf, len, offset,
+			console_buffer, console_bufsize);
+}
+
+static const struct file_operations last_kmsg_fops = {
+	.owner          = THIS_MODULE,
+	.read           = last_kmsg_read,
+	.llseek         = default_llseek,
+};
+#endif
+// 2022.12.22 longcheer chengyuan@longcheer.com add by HTH-268532 end
+
 /*
  * Make a regular file in the root directory of our file system.
  * Load it up with "size" bytes of data from "buf".
@@ -402,7 +425,14 @@ int pstore_mkfile(struct dentry *root, struct pstore_record *record)
 	spin_lock_irqsave(&allpstore_lock, flags);
 	list_add(&private->list, &allpstore);
 	spin_unlock_irqrestore(&allpstore_lock, flags);
-
+// 2022.12.22 longcheer chengyuan@longcheer.com add by HTH-268532 start
+	#ifdef CONFIG_PSTORE_LAST_KMSG
+        if (record->type == PSTORE_TYPE_CONSOLE) {
+            console_buffer = record->buf;
+            console_bufsize = size;
+        }
+    #endif
+// 2022.12.22 longcheer chengyuan@longcheer.com add by HTH-268532 end
 	return 0;
 
 fail_private:
@@ -488,6 +518,12 @@ static struct file_system_type pstore_fs_type = {
 int __init pstore_init_fs(void)
 {
 	int err;
+// 2022.12.22 longcheer chengyuan@longcheer.com add by HTH-268532 start
+
+    #ifdef CONFIG_PSTORE_LAST_KMSG
+    struct proc_dir_entry *last_kmsg_entry = NULL;
+    #endif
+// 2022.12.22 longcheer chengyuan@longcheer.com add by HTH-268532 end
 
 	/* Create a convenient mount point for people to access pstore */
 	err = sysfs_create_mount_point(fs_kobj, "pstore");
@@ -497,7 +533,15 @@ int __init pstore_init_fs(void)
 	err = register_filesystem(&pstore_fs_type);
 	if (err < 0)
 		sysfs_remove_mount_point(fs_kobj, "pstore");
-
+// 2022.12.22 longcheer chengyuan@longcheer.com add by HTH-268532 start
+    #ifdef CONFIG_PSTORE_LAST_KMSG
+	last_kmsg_entry = proc_create_data("last_kmsg", S_IFREG | S_IRUGO,
+	NULL, &last_kmsg_fops, NULL);
+	if (!last_kmsg_entry) {
+		pr_err("Failed to create last_kmsg\n");
+	}
+    #endif
+// 2022.12.22 longcheer chengyuan@longcheer.com add by HTH-268532 end
 out:
 	return err;
 }

@@ -500,6 +500,7 @@ struct mtk_vcodec_dev {
 	struct workqueue_struct *encode_workqueue;
 	int int_cond;
 	int int_type;
+	struct mutex ctx_mutex;
 	struct mutex dev_mutex;
 	wait_queue_head_t queue;
 

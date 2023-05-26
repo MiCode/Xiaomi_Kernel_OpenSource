@@ -340,7 +340,6 @@ static int do_algorithm(struct mtk_charger *info)
 	int i;
 	int ret;
 	int val = 0;
-
 	pdata = &info->chg_data[CHG1_SETTING];
 	charger_dev_is_charging_done(info->chg1_dev, &chg_done);
 	is_basic = select_charging_current_limit(info, &info->setting);
@@ -354,7 +353,6 @@ static int do_algorithm(struct mtk_charger *info)
 			chr_err("%s battery recharge\n", __func__);
 		}
 	}
-
 	chr_err("%s is_basic:%d\n", __func__, is_basic);
 	if (is_basic != true) {
 		is_basic = true;
@@ -362,7 +360,6 @@ static int do_algorithm(struct mtk_charger *info)
 			alg = info->alg[i];
 			if (alg == NULL)
 				continue;
-
 			if (!info->enable_hv_charging ||
 			    pdata->charging_current_limit == 0 ||
 			    pdata->input_current_limit == 0) {
@@ -373,7 +370,6 @@ static int do_algorithm(struct mtk_charger *info)
 					dev_name(&alg->dev), val);
 				continue;
 			}
-
 			if (chg_done != info->is_chg_done) {
 				if (chg_done) {
 					notify.evt = EVT_FULL;
@@ -385,14 +381,12 @@ static int do_algorithm(struct mtk_charger *info)
 				chg_alg_notifier_call(alg, &notify);
 				chr_err("%s notify:%d\n", __func__, notify.evt);
 			}
-
 			chg_alg_set_current_limit(alg, &info->setting);
 			ret = chg_alg_is_algo_ready(alg);
 
 			chr_err("%s %s ret:%s\n", __func__,
 				dev_name(&alg->dev),
 				chg_alg_state_to_str(ret));
-
 			if (ret == ALG_INIT_FAIL || ret == ALG_TA_NOT_SUPPORT) {
 				/* try next algorithm */
 				continue;
@@ -431,7 +425,6 @@ static int do_algorithm(struct mtk_charger *info)
 		}
 	}
 	info->is_chg_done = chg_done;
-
 	if (is_basic == true) {
 		charger_dev_set_input_current(info->chg1_dev,
 			pdata->input_current_limit);

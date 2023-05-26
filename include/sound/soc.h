@@ -410,6 +410,7 @@ struct snd_soc_ops;
 struct snd_soc_pcm_runtime;
 struct snd_soc_dai;
 struct snd_soc_dai_driver;
+struct snd_soc_platform;
 struct snd_soc_dai_link;
 struct snd_soc_component;
 struct snd_soc_component_driver;
@@ -468,6 +469,10 @@ void snd_soc_unregister_component(struct device *dev);
 struct snd_soc_component *snd_soc_lookup_component(struct device *dev,
 						   const char *driver_name);
 
+int snd_soc_platform_read(struct snd_soc_platform *platform,
+					unsigned int reg);
+int snd_soc_platform_write(struct snd_soc_platform *platform,
+					unsigned int reg, unsigned int val);
 int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num);
 #ifdef CONFIG_SND_SOC_COMPRESS
 int snd_soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num);
@@ -595,6 +600,8 @@ struct snd_kcontrol *snd_soc_cnew(const struct snd_kcontrol_new *_template,
 struct snd_kcontrol *snd_soc_card_get_kcontrol(struct snd_soc_card *soc_card,
 					       const char *name);
 int snd_soc_add_component_controls(struct snd_soc_component *component,
+	const struct snd_kcontrol_new *controls, unsigned int num_controls);
+int snd_soc_add_platform_controls(struct snd_soc_platform *platform,
 	const struct snd_kcontrol_new *controls, unsigned int num_controls);
 int snd_soc_add_card_controls(struct snd_soc_card *soc_card,
 	const struct snd_kcontrol_new *controls, int num_controls);
@@ -902,6 +909,15 @@ struct snd_soc_dai_link_component {
 	const char *name;
 	struct device_node *of_node;
 	const char *dai_name;
+};
+
+struct snd_soc_platform {
+	struct device *dev;
+	const struct snd_soc_platform_driver *driver;
+
+	struct list_head list;
+
+	struct snd_soc_component component;
 };
 
 enum snd_soc_async_ops {

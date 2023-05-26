@@ -186,8 +186,6 @@ int ccu_memcpy(void *dest, void *src, int length);
 
 int ccu_memclr(void *dest, int length);
 
-int ccu_read_info_reg(int regNo);
-
 int32_t ccu_get_current_fps(void);
 
 void ccu_get_sensor_i2c_info(struct ccu_i2c_info *sensor_info);

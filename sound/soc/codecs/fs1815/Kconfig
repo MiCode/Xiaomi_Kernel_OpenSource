@@ -1,0 +1,5 @@
+config SND_SOC_FS18XX
+	tristate "SoC Audio for foursemi FS18XX Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for FS18XX Smart K PA.

@@ -895,8 +895,8 @@ extern const base_jd_prio
 kbasep_js_relative_priority_to_atom[KBASE_JS_ATOM_SCHED_PRIO_COUNT];
 
 /**
- * kbasep_js_atom_prio_to_sched_prio(): - Convert atom priority (base_jd_prio)
- *                                        to relative ordering
+ * kbasep_js_atom_prio_to_sched_prio - Convert atom priority (base_jd_prio)
+ *                                     to relative ordering.
  * @atom_prio: Priority ID to translate.
  *
  * Atom priority values for @ref base_jd_prio cannot be compared directly to
@@ -924,17 +924,31 @@ static inline int kbasep_js_atom_prio_to_sched_prio(base_jd_prio atom_prio)
 
 	return kbasep_js_atom_priority_to_relative[atom_prio];
 }
-
+/**
+ * kbasep_js_sched_prio_to_atom_prio - Convert relative scheduler priority
+ *                                     to atom priority (base_jd_prio).
+ *
+ * @sched_prio: Relative scheduler priority to translate.
+ *
+ * This function will convert relative scheduler priority back into base_jd_prio
+ * values. It takes values which priorities are monotonically increasing
+ * and converts them to the corresponding base_jd_prio values. If an invalid number is
+ * passed in (i.e. not within the expected range) an error code is returned instead.
+ *
+ * The mapping is 1:1 and the size of the valid input range is the same as the
+ * size of the valid output range, i.e.
+ * KBASE_JS_ATOM_SCHED_PRIO_COUNT == BASE_JD_NR_PRIO_LEVELS
+ *
+ * Return: On success: a value in the inclusive range
+ *         0..BASE_JD_NR_PRIO_LEVELS-1. On failure: BASE_JD_PRIO_INVALID.
+ */
 static inline base_jd_prio kbasep_js_sched_prio_to_atom_prio(int sched_prio)
 {
-	unsigned int prio_idx;
-
-	KBASE_DEBUG_ASSERT(sched_prio >= 0 &&
-			sched_prio < KBASE_JS_ATOM_SCHED_PRIO_COUNT);
-
-	prio_idx = (unsigned int)sched_prio;
-
-	return kbasep_js_relative_priority_to_atom[prio_idx];
+	if (likely(sched_prio >= 0 && sched_prio < KBASE_JS_ATOM_SCHED_PRIO_COUNT))
+		return kbasep_js_relative_priority_to_atom[sched_prio];
+	/* Invalid priority value if reached here */
+	WARN(true, "Unknown JS scheduling priority %d", sched_prio);
+	return BASE_JD_PRIO_INVALID;
 }
 
 /**

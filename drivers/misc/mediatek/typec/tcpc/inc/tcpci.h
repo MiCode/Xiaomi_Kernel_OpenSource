@@ -1,6 +1,14 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #ifndef __LINUX_RT_TCPC_H
@@ -25,6 +33,8 @@
 #include "pd_core.h"
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
+#define SC2150A_DID                    0x0000
+
 #define PE_STATE_FULL_NAME	0
 
 #define TCPC_LOW_RP_DUTY		(100)		/* 10 % */
@@ -32,8 +42,6 @@
 
 /* provide to TCPC interface */
 extern int tcpci_report_usb_port_changed(struct tcpc_device *tcpc);
-extern int tcpci_set_wake_lock(
-	struct tcpc_device *tcpc, bool pd_lock, bool user_lock);
 extern int tcpci_report_power_control(struct tcpc_device *tcpc, bool en);
 extern int tcpc_typec_init(struct tcpc_device *tcpc, uint8_t typec_role);
 extern void tcpc_typec_deinit(struct tcpc_device *tcpc);
@@ -61,6 +69,7 @@ static inline int tcpci_check_vbus_valid(struct tcpc_device *tcpc)
 
 int tcpci_check_vbus_valid_from_ic(struct tcpc_device *tcpc);
 int tcpci_check_vsafe0v(struct tcpc_device *tcpc, bool detect_en);
+int tcpci_get_chip_id(struct tcpc_device *tcpc, uint32_t *chip_id);
 int tcpci_alert_status_clear(struct tcpc_device *tcpc, uint32_t mask);
 int tcpci_fault_status_clear(struct tcpc_device *tcpc, uint8_t status);
 int tcpci_set_alert_mask(struct tcpc_device *tcpc, uint32_t mask);

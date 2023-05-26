@@ -35,14 +35,14 @@ static int ccci_get_adc_info(struct device *dev)
 					__func__);
 			return -EPROBE_DEFER;
 		}
-		CCCI_ERROR_LOG(-1, TAG, "fail to get iio channel (%d)", ret);
+		CCCI_ERROR_LOG(-1, TAG, "fail to get iio channel (%d)\n", ret);
 		goto Fail;
 	}
 	adc_num = md_channel->channel->channel;
 	ret = iio_read_channel_raw(md_channel, &val);
 	iio_channel_release(md_channel);
 	if (ret < 0) {
-		CCCI_ERROR_LOG(-1, TAG, "iio_read_channel_raw fail");
+		CCCI_ERROR_LOG(-1, TAG, "iio_read_channel_raw fail\n");
 		goto Fail;
 	}
 
@@ -62,8 +62,32 @@ EXPORT_SYMBOL(ccci_get_adc_num);
 
 int ccci_get_adc_val(void)
 {
-	return adc_val;
+	int ret, val;
+	struct iio_channel *md_channel;
+
+	md_channel = iio_channel_get(&md_adc_pdev->dev, "md-channel");
+
+	ret = IS_ERR(md_channel);
+	if (ret) {
+		if (PTR_ERR(md_channel) == -EPROBE_DEFER) {
+			CCCI_ERROR_LOG(-1, TAG, "%s EPROBE_DEFER\r\n",
+					__func__);
+			return -EPROBE_DEFER;
+		}
+		CCCI_ERROR_LOG(-1, TAG, "fail to get iio channel (%d)\n", ret);
+		return adc_val;
+	}
+	ret = iio_read_channel_raw(md_channel, &val);
+	iio_channel_release(md_channel);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, TAG, "iio_read_channel_raw fail\n");
+		return adc_val;
+	}
+
+	CCCI_NORMAL_LOG(0, TAG, "%s val = %d\n", __func__, val);
+	return val;
 }
+
 EXPORT_SYMBOL(ccci_get_adc_val);
 
 int get_auxadc_probe(struct platform_device *pdev)
@@ -72,7 +96,7 @@ int get_auxadc_probe(struct platform_device *pdev)
 
 	ret = ccci_get_adc_info(&pdev->dev);
 	if (ret < 0) {
-		CCCI_ERROR_LOG(-1, TAG, "ccci get adc info fail");
+		CCCI_ERROR_LOG(-1, TAG, "ccci get adc info fail\n");
 		return ret;
 	}
 	md_adc_pdev = pdev;
@@ -102,7 +126,7 @@ static int __init ccci_auxadc_init(void)
 
 	ret = platform_driver_register(&ccci_auxadc_driver);
 	if (ret) {
-		CCCI_ERROR_LOG(-1, TAG, "ccci auxadc driver init fail %d", ret);
+		CCCI_ERROR_LOG(-1, TAG, "ccci auxadc driver init fail %d\n", ret);
 		return ret;
 	}
 	return 0;

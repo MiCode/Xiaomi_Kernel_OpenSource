@@ -40,6 +40,7 @@ enum adapter_event {
 	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
 	MTK_TYPEC_WD_STATUS,
 	MTK_TYPEC_HRESET_STATUS,
+	MTK_PD_UVDM,
 };
 
 enum adapter_property {
@@ -52,6 +53,7 @@ enum adapter_cap_type {
 	MTK_PD,
 	MTK_PD_APDO,
 	MTK_CAP_TYPE_UNKNOWN,
+	MTK_PD_APDO_REGAIN,
 };
 
 enum adapter_return_value {
@@ -61,6 +63,7 @@ enum adapter_return_value {
 	MTK_ADAPTER_REJECT,
 	MTK_ADAPTER_ERROR,
 	MTK_ADAPTER_ADJUST,
+	MTK_ADAPTER_VERIFYING,
 };
 
 
@@ -75,6 +78,46 @@ struct adapter_properties {
 	const char *alias_name;
 };
 
+// xiaomi Add
+enum uvdm_state {
+	USBPD_UVDM_DISCONNECT,
+	USBPD_UVDM_CHARGER_VERSION,
+	USBPD_UVDM_CHARGER_VOLTAGE,
+	USBPD_UVDM_CHARGER_TEMP,
+	USBPD_UVDM_SESSION_SEED,
+	USBPD_UVDM_AUTHENTICATION,
+	USBPD_UVDM_VERIFIED,
+	USBPD_UVDM_REMOVE_COMPENSATION,
+	USBPD_UVDM_CONNECT,
+	USBPD_UVDM_NAN_ACK,
+};
+
+#define USB_PD_MI_SVID			0x2717
+#define USBPD_UVDM_SS_LEN		4
+#define USBPD_UVDM_VERIFIED_LEN		1
+
+#define VDM_HDR(svid, cmd0, cmd1) \
+		(((svid) << 16) | (0 << 15) | ((cmd0) << 8) \
+		| (cmd1))
+#define UVDM_HDR_CMD(hdr)	((hdr) & 0xFF)
+
+#define USBPD_VDM_RANDOM_NUM		4
+#define USBPD_VDM_REQUEST		0x1
+#define USBPD_ACK			0x2
+
+struct usbpd_vdm_data {
+	int ta_version;
+	int ta_temp;
+	int ta_voltage;
+	unsigned long s_secert[USBPD_UVDM_SS_LEN];
+	unsigned long digest[USBPD_UVDM_SS_LEN];
+};
+
+// need same with tcpm.h
+#define PD_ROLE_SINK_FOR_ADAPTER   0
+#define PD_ROLE_SOURCE_FOR_ADAPTER 1
+// xiaomi Add
+
 struct adapter_device {
 	struct adapter_properties props;
 	const struct adapter_ops *ops;
@@ -82,6 +125,17 @@ struct adapter_device {
 	struct device dev;
 	struct srcu_notifier_head evt_nh;
 	void	*driver_data;
+	uint32_t adapter_svid;				// xiaomi Add
+	uint32_t adapter_id;				// xiaomi Add
+	uint32_t adapter_fw_ver;			// xiaomi Add
+	uint32_t adapter_hw_ver;			// xiaomi Add
+	struct   usbpd_vdm_data   vdm_data;	// xiaomi Add
+	int  uvdm_state;					// xiaomi Add
+	bool verify_process;				// xiaomi Add
+	bool verifed;						// xiaomi Add
+	uint8_t role;						// xiaomi Add
+	uint8_t current_state;				// xiaomi Add
+	uint32_t received_pdos[7];			// xiaomi Add
 
 };
 
@@ -97,6 +151,15 @@ struct adapter_ops {
 	int (*get_cap)(struct adapter_device *dev, enum adapter_cap_type type,
 		struct adapter_power_cap *cap);
 	int (*get_output)(struct adapter_device *dev, int *mV, int *mA);
+	int (*set_cap_bq)(struct adapter_device *dev, enum adapter_cap_type type,
+		int mV, int mA);// xiaomi Add
+	int (*get_svid)(struct adapter_device *dev);// xiaomi Add
+	//int (*get_id)(struct adapter_device *dev);// xiaomi Add
+	int (*request_vdm_cmd)(struct adapter_device *dev, enum uvdm_state cmd, unsigned char *data, unsigned int data_len);// xiaomi Add
+	int (*get_power_role)(struct adapter_device *dev);// xiaomi Add
+	int (*get_current_state)(struct adapter_device *dev);// xiaomi Add
+	int (*get_pdos)(struct adapter_device *dev);// xiaomi Add
+	int (*set_pd_verify_process)(struct adapter_device *dev, int verify_in_process);// xiaomi Add
 
 };
 
@@ -136,7 +199,16 @@ extern int adapter_dev_set_cap(struct adapter_device *adapter_dev,
 extern int adapter_dev_get_cap(struct adapter_device *adapter_dev,
 	enum adapter_cap_type type,
 	struct adapter_power_cap *cap);
-
+extern int adapter_dev_set_cap_bq(struct adapter_device *adapter_dev,
+	enum adapter_cap_type type,
+	int mV, int mA);// xiaomi Add
+extern int adapter_dev_get_svid(struct adapter_device *adapter_dev);// xiaomi Add
+extern int adapter_dev_get_id(struct adapter_device *adapter_dev);// xiaomi Add
+extern int adapter_dev_request_vdm_cmd(struct adapter_device *adapter_dev,
+	enum uvdm_state cmd,
+	unsigned char *data,
+	unsigned int data_len);// xiaomi Add
+ 
 
 #endif /*LINUX_POWER_ADAPTER_CLASS_H*/
 

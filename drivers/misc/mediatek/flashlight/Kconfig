@@ -42,6 +42,17 @@ config MTK_FLASHLIGHT_LED191
 
 	  Say M here if you want to compile this driver as a module.
 
+	config MTK_FLASHLIGHT_OCP8132
+	tristate "Mediatek flashlightocp8132 gpio driver"
+	depends on MTK_FLASHLIGHT
+	help
+	  This is flashlight ocp8132 gpio driver for camera.
+
+	  Say Y here if you want a driver IC with GPIO interface.
+	  Select this only if your board has this IC.
+
+	  Say M here if you want to compile this driver as a module.
+
 config MTK_FLASHLIGHT_LM3642
 	tristate "Mediatek flashlight with driver IC (TI LM3642)"
 	depends on MTK_FLASHLIGHT
@@ -104,17 +115,6 @@ config MTK_FLASHLIGHT_MT6336
 	  This is for the flashlight driver IC (Mediatek MT6336).
 
 	  Say Y here if you want a flashlight driver IC MT6336.
-	  Select this only if your board has this IC.
-
-	  Say M here if you want to compile this driver as a module.
-
-config MTK_FLASHLIGHT_MT6370
-	tristate "Mediatek flashlight with driver IC (Mediatek MT6370)"
-	depends on MTK_FLASHLIGHT && RT_FLASHLIGHT
-	help
-	  This is for the flashlight driver IC (Mediatek MT6370).
-
-	  Say Y here if you want a flashlight driver IC MT6370.
 	  Select this only if your board has this IC.
 
 	  Say M here if you want to compile this driver as a module.

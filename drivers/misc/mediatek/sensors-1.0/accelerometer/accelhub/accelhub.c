@@ -12,6 +12,7 @@
 #include <hwmsensor.h>
 
 #define DEBUG 1
+#define MTK_OLD_FACTORY_CALIBRATION
 #define SW_CALIBRATION
 #define ACCELHUB_AXIS_X 0
 #define ACCELHUB_AXIS_Y 1
@@ -166,7 +167,7 @@ static int accelhub_WriteCalibration(int dat[ACCELHUB_AXES_NUM])
 	return err;
 }
 #endif
-
+#if 0
 static int accelhub_ReadAllReg(char *buf, int bufsize)
 {
 	int err = 0;
@@ -193,7 +194,7 @@ static int accelhub_ReadChipInfo(char *buf, int bufsize)
 	sprintf(buf, "ACCELHUB Chip");
 	return 0;
 }
-
+#endif
 static int accelhub_ReadSensorData(char *buf, int bufsize)
 {
 	struct accelhub_ipi_data *obj = obj_ipi_data;
@@ -228,15 +229,20 @@ static int accelhub_ReadSensorData(char *buf, int bufsize)
 }
 static ssize_t chipinfo_show(struct device_driver *ddri, char *buf)
 {
-	char strbuf[ACCELHUB_BUFSIZE];
+	//char strbuf[ACCELHUB_BUFSIZE];
+	int res;
+	struct sensorInfo_t devinfo;
 
 	accelhub_SetPowerMode(true);
 	msleep(50);
 
-	accelhub_ReadAllReg(strbuf, ACCELHUB_BUFSIZE);
-
-	accelhub_ReadChipInfo(strbuf, ACCELHUB_BUFSIZE);
-	return snprintf(buf, PAGE_SIZE, "%s\n", strbuf);
+	res = sensor_set_cmd_to_hub(ID_ACCELEROMETER, CUST_ACTION_GET_SENSOR_INFO, &devinfo);
+	if(res < 0) {
+		pr_err("Get gsensor info err\n");
+	//accelhub_ReadAllReg(strbuf, ACCELHUB_BUFSIZE);
+	}
+	//accelhub_ReadChipInfo(strbuf, ACCELHUB_BUFSIZE);
+	return snprintf(buf, PAGE_SIZE, "%s\n", devinfo.name);
 }
 
 static ssize_t sensordata_show(struct device_driver *ddri, char *buf)
@@ -261,6 +267,28 @@ static ssize_t cali_show(struct device_driver *ddri, char *buf)
 	return len;
 }
 
+static ssize_t cali_store(struct device_driver *ddri, const char *buf, size_t count)
+{
+	struct accelhub_ipi_data *obj = obj_ipi_data;
+	int res = 0;
+	int data[3];
+	if(obj == NULL) {
+		pr_err("obj is null\n");
+		return 0;
+	}
+	if(sscanf(buf, "%d %d %d", &data[0], &data[1], &data[2])) {
+		res = sensor_set_cmd_to_hub(ID_ACCELEROMETER, CUST_ACTION_SET_CALI, data);
+		if(res < 0) {
+			pr_err("sensor_set_cmd_to_hub fail, (ID:%d),(action:%d)\n", ID_ACCELEROMETER, CUST_ACTION_SET_CALI);
+			return 0;
+		}
+	} else {
+		pr_err("invalid content:%s, length = %zu\n", buf, count);
+		return 0;
+	}
+	return count;
+}
+
 static ssize_t trace_store(struct device_driver *ddri, const char *buf,
 				 size_t count)
 {
@@ -272,7 +300,7 @@ static ssize_t trace_store(struct device_driver *ddri, const char *buf,
 		pr_err("obj is null!!\n");
 		return 0;
 	}
-	if (sscanf(buf, "0x%x", &trace) == 1) {
+	if (sscanf(buf, "%d", &trace) == 1) {
 		atomic_set(&obj->trace, trace);
 		res = sensor_set_cmd_to_hub(ID_ACCELEROMETER,
 					    CUST_ACTION_SET_TRACE, &trace);
@@ -347,7 +375,7 @@ static ssize_t test_cali_store(struct device_driver *ddri, const char *buf,
 
 static DRIVER_ATTR_RO(chipinfo);
 static DRIVER_ATTR_RO(sensordata);
-static DRIVER_ATTR_RO(cali);
+static DRIVER_ATTR_RW(cali);
 static DRIVER_ATTR_WO(trace);
 static DRIVER_ATTR_RW(chip_orientation);
 static DRIVER_ATTR_WO(test_cali);
@@ -398,9 +426,9 @@ static void scp_init_work_done(struct work_struct *work)
 {
 	int err = 0;
 	struct accelhub_ipi_data *obj = obj_ipi_data;
-#ifndef MTK_OLD_FACTORY_CALIBRATION
+//#ifndef MTK_OLD_FACTORY_CALIBRATION
 	int32_t cfg_data[6] = {0};
-#endif
+//#endif
 
 	if (atomic_read(&obj->scp_init_done) == 0) {
 		pr_debug("scp is not ready to send cmd\n");
@@ -408,7 +436,7 @@ static void scp_init_work_done(struct work_struct *work)
 	}
 	if (atomic_xchg(&obj->first_ready_after_boot, 1) == 0)
 		return;
-#ifdef MTK_OLD_FACTORY_CALIBRATION
+#if 0 //#ifdef MTK_OLD_FACTORY_CALIBRATION
 	err = accelhub_WriteCalibration_scp(obj->static_cali);
 	if (err < 0)
 		pr_err("accelhub_WriteCalibration_scp fail\n");
@@ -563,6 +591,7 @@ static int gsensor_factory_get_cali(int32_t data[3])
 		return -1;
 	}
 #else
+	init_completion(&obj->calibration_done);
 	err = wait_for_completion_timeout(&obj->calibration_done,
 					  msecs_to_jiffies(3000));
 	if (!err) {
@@ -591,6 +620,7 @@ static int gsensor_factory_do_self_test(void)
 	if (ret < 0)
 		return -1;
 
+	init_completion(&obj->selftest_done);
 	ret = wait_for_completion_timeout(&obj->selftest_done,
 					  msecs_to_jiffies(3000));
 	if (!ret)

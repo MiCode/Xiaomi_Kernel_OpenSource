@@ -2103,6 +2103,54 @@ int ut_rpmb_req_write_data(struct mmc_card *card,
 	return ret;
 }
 EXPORT_SYMBOL(ut_rpmb_req_write_data);
+
+int ut_rpmb_req_set_key(struct mmc_card *card, struct s_rpmb *param)
+{
+    struct emmc_rpmb_req rpmb_req;
+    int ret;
+    rpmb_req.type = RPMB_PROGRAM_KEY;
+    rpmb_req.blk_cnt = 1;
+    rpmb_req.data_frame = (u8 *)param;
+    ret = emmc_rpmb_req_handle(card, &rpmb_req);
+    if (ret)
+	MSG(ERR, "%s, rpmb_req_handle IO err(%x)\n", __func__, ret);
+    return ret;
+}
+EXPORT_SYMBOL(ut_rpmb_req_set_key);
+
+
+int ut_rpmb_req_set_key_ufs(u8 *frame)
+{
+    struct rpmb_data data;
+    struct rpmb_dev *rawdev_ufs_rpmb;
+    int ret;
+    rawdev_ufs_rpmb = ufs_mtk_rpmb_get_raw_dev();
+    data.ocmd.frames = rpmb_alloc_frames(1);
+    if (data.ocmd.frames == NULL)
+	return RPMB_ALLOC_ERROR;
+    data.ocmd.nframes = 1;
+    data.req_type = RPMB_PROGRAM_KEY;
+    data.icmd.nframes = 1;
+    data.icmd.frames = (struct rpmb_frame *)frame;
+    ret = rpmb_cmd_req(rawdev_ufs_rpmb, &data);
+    if (ret)
+	MSG(ERR, "%s: rpmb_cmd_req IO error, ret %d (0x%x)\n",
+	    __func__, ret, ret);
+    /*
+     *   * Microtrust TEE will check write counter in the first frame,
+     *	 * thus we copy response frame to the first frame.
+     *	     */
+    memcpy(frame, data.ocmd.frames, 512);
+    if (data.ocmd.frames->result) {
+	MSG(ERR, "%s, result error!!! (%x)\n", __func__,
+	    cpu_to_be16(data.ocmd.frames->result));
+	ret = RPMB_RESULT_ERROR;
+    }
+    kfree(data.ocmd.frames);
+    MSG(DBG_INFO, "%s: ret 0x%x\n", __func__, ret);
+    return ret;
+}
+EXPORT_SYMBOL(ut_rpmb_req_set_key_ufs);
 #endif /* CONFIG_MICROTRUST_TEE_SUPPORT */
 
 /*
@@ -2735,7 +2783,8 @@ long rpmb_ioctl_ufs(struct file *file, unsigned int cmd, unsigned long arg)
 
 #if (defined(CONFIG_MICROTRUST_TEE_SUPPORT))
 	if ((cmd == RPMB_IOCTL_SOTER_WRITE_DATA) ||
-		(cmd == RPMB_IOCTL_SOTER_READ_DATA)) {
+		(cmd == RPMB_IOCTL_SOTER_READ_DATA) ||
+		(cmd == RPMB_IOCTL_SOTER_SET_KEY)) {
 		if (rpmb_buffer == NULL) {
 			MSG(ERR, "%s, rpmb_buffer is NULL!\n", __func__);
 			return -1;
@@ -2916,7 +2965,24 @@ long rpmb_ioctl_ufs(struct file *file, unsigned int cmd, unsigned long arg)
 			err = RPMB_ALLOC_ERROR;
 
 		break;
-
+	case RPMB_IOCTL_SOTER_SET_KEY:
+		MSG(DBG_INFO, "%s, cmd = RPMB_IOCTL_SOTER_WRITE_DATA\n",
+		    __func__);
+		err = ut_rpmb_req_set_key_ufs(rpmbinfor.data_frame);
+		if (err) {
+		    MSG(ERR,
+			"%s, Microtrust rpmb write request IO error!!!(%x)\n",
+			__func__, err);
+		    return err;
+		}
+		err = copy_to_user((void *)arg,
+		    rpmb_buffer, 4 + rpmbinfor.size);
+		if (err) {
+		    MSG(ERR, "%s, copy to user user failed: %x\n",
+			__func__, err);
+		    return -EFAULT;
+		}
+		break;
 #endif
 	default:
 		MSG(ERR, "%s, wrong ioctl code (%d)!!!\n", __func__, cmd);
@@ -3021,7 +3087,8 @@ long rpmb_ioctl_emmc(struct file *file, unsigned int cmd, unsigned long arg)
 
 #if (defined(CONFIG_MICROTRUST_TEE_SUPPORT))
 	if ((cmd == RPMB_IOCTL_SOTER_WRITE_DATA) ||
-		(cmd == RPMB_IOCTL_SOTER_READ_DATA)) {
+		(cmd == RPMB_IOCTL_SOTER_READ_DATA) ||
+		(cmd == RPMB_IOCTL_SOTER_SET_KEY)) {
 		if (rpmb_buffer == NULL) {
 			MSG(ERR, "%s, rpmb_buffer is NULL!\n", __func__);
 			ret = -1;
@@ -3188,6 +3255,23 @@ long rpmb_ioctl_emmc(struct file *file, unsigned int cmd, unsigned long arg)
 			goto end;
 		}
 
+		break;
+
+	case RPMB_IOCTL_SOTER_SET_KEY:
+		ret = ut_rpmb_req_set_key(card,
+		    (struct s_rpmb *)(rpmbinfor.data_frame));
+		if (ret) {
+		    MSG(ERR, "%s, Microtrust rpmb set key req err(%x)\n",
+			__func__, ret);
+		    return ret;
+		}
+		ret = copy_to_user((void *)arg, rpmb_buffer,
+		    4 + rpmbinfor.size);
+		if (ret) {
+		    MSG(ERR, "%s, copy to user user failed: %x\n",
+			__func__, ret);
+		    return -EFAULT;
+		}
 		break;
 
 #endif

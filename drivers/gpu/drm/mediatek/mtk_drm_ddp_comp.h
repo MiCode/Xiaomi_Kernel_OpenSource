@@ -211,6 +211,7 @@ enum mtk_ddp_io_cmd {
 	PMQOS_UPDATE_BW,
 	OVL_REPLACE_BOOTUP_MVA,
 	BACKUP_INFO_CMP,
+	ESD_RESTORE_BACKLIGHT,
 	LCM_RESET,
 	DSI_SET_BL,
 	DSI_SET_BL_AOD,
@@ -336,6 +337,8 @@ struct mtk_ddp_comp {
 	u32 qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;
+
+	struct mutex panel_lock;
 };
 
 static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,

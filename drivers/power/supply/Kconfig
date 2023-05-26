@@ -567,13 +567,13 @@ config CHARGER_BQ24735
 	help
 	  Say Y to enable support for the TI BQ24735 battery charger.
 
-config CHARGER_BQ25890
-	tristate "TI BQ25890 battery charger driver"
+config CHARGER_BQ2589X
+	tristate "TI BQ2589X battery charger driver"
 	depends on I2C
 	depends on GPIOLIB || COMPILE_TEST
 	select REGMAP_I2C
 	help
-	  Say Y to enable support for the TI BQ25890 battery charger.
+	  Say Y to enable support for the TI BQ2589X battery charger.
 
 config CHARGER_SC8551
 	tristate "Southchip SC8551 battery charger driver"
@@ -849,6 +849,8 @@ endif
 if MACH_MT6781
 source "drivers/power/supply/mediatek/battery/Kconfig"
 source "drivers/power/supply/mediatek/charger/Kconfig"
+source "drivers/power/supply/ti/Kconfig"
+source "drivers/power/supply/maxim/Kconfig"
 endif
 
 if MACH_MT6833
@@ -880,5 +882,4 @@ if MACH_MT6785
 source "drivers/power/supply/mediatek/battery/Kconfig"
 source "drivers/power/supply/mediatek/charger/Kconfig"
 endif
-
 endif # POWER_SUPPLY

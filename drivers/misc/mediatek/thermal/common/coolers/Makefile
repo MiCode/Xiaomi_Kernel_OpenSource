@@ -38,6 +38,7 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/ppm_v3/src/mach/$(PDIR)
+ccflags-y  += -I$(srctree)/drivers/power/supply/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/video/include
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
@@ -92,6 +93,7 @@ obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
 ifeq ($(CONFIG_MTK_DUAL_CHARGER_SUPPORT),y)
 	obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
 endif
+
 obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
@@ -108,13 +110,14 @@ endif
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
 obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
+
 obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785" "mt6781"))
 ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
     obj-$(CONFIG_THERMAL) += mtk_cooler_mutt.o
 endif
@@ -123,6 +126,12 @@ ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/mt-plat/
 
 obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v2.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
+
+obj-$(CONFIG_THERMAL) += mtk_cooler_gpu_cus.o
+ifeq ($(CONFIG_MTK_VPU_SUPPORT),y)
+	obj-$(CONFIG_THERMAL) += mtk_cooler_vpu_cus.o
+endif
+obj-$(CONFIG_THERMAL) += mtk_cooler_char_curr_cus.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
@@ -136,7 +145,6 @@ endif
 
 obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
-
 
 obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o

@@ -18,6 +18,7 @@ enum adapter_ret {
 	ADAPTER_REJECT,
 	ADAPTER_ERROR,
 	ADAPTER_ADJUST,
+	ADAPTER_VERIFYING,
 };
 
 extern int charger_is_chip_enabled(bool *en);
@@ -52,5 +53,5 @@ extern int adapter_is_support_pd(void);
 extern int set_charger_manager(struct charger_manager *info);
 extern int enable_vbus_ovp(bool en);
 extern int wake_up_charger(void);
-
+extern struct charger_manager *p_info;
 #endif /* __MTK_INTF_H */

@@ -1,7 +1,15 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2021 MediaTek Inc.
-*/
+ * Copyright (C) 2015 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
 
 #include <linux/module.h>
 #include <linux/stat.h>
@@ -40,7 +48,6 @@ static ssize_t gauge_show_name(struct device *dev,
 		       gauge_dev->props.alias_name ?
 		       gauge_dev->props.alias_name : "anonymous");
 }
-
 /*
 static int gauge_suspend(struct device *dev, pm_message_t state)
 {
@@ -68,7 +75,6 @@ static int gauge_resume(struct device *dev)
 	return ret;
 }
 */
-
 int gauge_dev_initial(struct gauge_device *gauge_dev)
 {
 	int ret = -ENOTSUPP;
@@ -1047,10 +1053,8 @@ static int __init gauge_class_init(void)
 		return PTR_ERR(gauge_class);
 	}
 	gauge_class->dev_groups = gauge_groups;
-	/*
-	gauge_class->suspend = gauge_suspend;
-	gauge_class->resume = gauge_resume;
-	*/
+//	gauge_class->suspend = gauge_suspend;
+//	gauge_class->resume = gauge_resume;
 	return 0;
 }
 

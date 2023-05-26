@@ -7,7 +7,7 @@
 #define __MT_PWM_H__
 
 #include <linux/types.h>
-#include <mach/mtk_pwm_hal.h>
+#include <mt-plat/mt6781/include/mach/mtk_pwm_hal.h>
 
 struct pwm_easy_config {
 	u32 pwm_no;

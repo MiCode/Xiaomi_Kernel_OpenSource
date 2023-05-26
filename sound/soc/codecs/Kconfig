@@ -1447,5 +1447,7 @@ config SND_SOC_SMARTPAINFO
 	  If unsure, say N.
 
 source "sound/soc/codecs/cs35l43/Kconfig"
+source "sound/soc/codecs/fs1815/Kconfig"
+source "sound/soc/codecs/aw87xxx/Kconfig"
 
 endmenu

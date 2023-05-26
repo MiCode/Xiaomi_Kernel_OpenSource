@@ -1,8 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015-2016, Linaro Limited
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
  *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License Version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 #include <linux/module.h>
 #include <linux/device.h>
@@ -76,7 +83,6 @@ static struct file *teec_open_dev(const char *devname, const char *capabilities)
 		IMSG_ERROR("No memory for struct file!\n");
 		return NULL;
 	}
-
 	memset(file, 0, sizeof(struct file));
 
 	err = tee_k_open(file);
@@ -110,7 +116,6 @@ static struct file *teec_open_dev(const char *devname, const char *capabilities)
 exit:
 	tee_k_release(file);
 	kfree(file);
-
 	return ERR_PTR(err);
 }
 
@@ -653,10 +658,13 @@ TEEC_Result TEEC_RegisterSharedMemory(struct TEEC_Context *ctx,
 		s = 8;
 
 	tee_ctx = ctx->fd->private_data;
+
 	mutex_lock(&tee_ctx->mutex);
-	tee_shm = isee_shm_kalloc(tee_ctx, s, TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
-	if (IS_ERR(shm)) {
-		IMSG_ERROR("%s:%d Failed to get tee_shm!\n", __func__, __LINE__);
+
+	tee_shm = isee_shm_kalloc(tee_ctx, s,
+				TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
+	if (IS_ERR(tee_shm)) {
+		IMSG_ERROR("%s Failed to get tee_shm!\n", __func__);
 		mutex_unlock(&tee_ctx->mutex);
 		return TEEC_ERROR_GENERIC;
 	}
@@ -723,15 +731,17 @@ TEEC_Result TEEC_AllocateSharedMemory(struct TEEC_Context *ctx,
 
 	mutex_lock(&tee_ctx->mutex);
 
-	tee_shm = isee_shm_kalloc(tee_ctx, s, TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
-	if (IS_ERR(shm)) {
-		IMSG_ERROR("%s:%d Failed to get tee_shm!\n", __func__, __LINE__);
+	tee_shm = isee_shm_kalloc(tee_ctx, s,
+				TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
+	if (IS_ERR(tee_shm)) {
+		IMSG_ERROR("%s Failed to get tee_shm!\n", __func__);
 		mutex_unlock(&tee_ctx->mutex);
 		return TEEC_ERROR_GENERIC;
 	}
 
 	shm->id = tee_shm->id;
 	shm->priv = tee_shm;
+
 	shm->buffer = tee_shm->kaddr;
 	shm->shadow_buffer = NULL;
 	shm->alloced_size = s;

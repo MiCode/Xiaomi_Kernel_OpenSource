@@ -43,9 +43,9 @@ static kgid_t gid = KGIDT_INIT(1000);
 static DEFINE_SEMAPHORE(sem_mutex);
 
 static int kernelmode;
-static unsigned int interval; /* seconds, 0 : no auto polling */
+static unsigned int interval = 2; /* seconds, 0 : no auto polling */
 static int num_trip = 1;
-static int trip_temp[10] = { 125000, 110000, 100000, 90000, 80000,
+static int trip_temp[10] = { 120000, 110000, 100000, 90000, 80000,
 				70000, 65000, 60000, 55000, 50000 };
 
 static int g_THERMAL_TRIP[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };

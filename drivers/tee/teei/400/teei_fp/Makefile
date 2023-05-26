@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2020, MICROTRUST Incorporated
+# Copyright (c) 2015-2019, MICROTRUST Incorporated
 # All Rights Reserved.
 #
 # This program is free software; you can redistribute it and/or

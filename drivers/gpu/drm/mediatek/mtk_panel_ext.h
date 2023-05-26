@@ -120,6 +120,10 @@ enum FPS_CHANGE_INDEX {
 	DYNFPS_DSI_MIPI_CLK = 4,
 };
 
+enum LCM_SEND_CMD_MODE {
+	LCM_SEND_IN_CMD = 0,
+	LCM_SEND_IN_VDO,
+};
 struct dsc_rc_range_parameters {
 	/**
 	 * @range_min_qp: Min Quantization Parameters allowed for this range
@@ -218,6 +222,8 @@ struct dynamic_fps_params {
 	unsigned int vact_timing_fps;
 	unsigned int data_rate;
 	struct dfps_switch_cmd dfps_cmd_table[MAX_DYN_CMD_NUM];
+	enum LCM_SEND_CMD_MODE send_mode;
+	unsigned int send_cmd_need_delay;
 };
 
 struct mtk_panel_params {
@@ -264,6 +270,9 @@ struct mtk_panel_params {
 	//Settings for LFR Function:
 	unsigned int lfr_enable;
 	unsigned int lfr_minimum_fps;
+	int err_flag_irq_gpio;
+ 	int err_flag_irq_flags;
+	int mi_esd_check_enable;
 };
 
 struct mtk_panel_ext {
@@ -281,6 +290,8 @@ struct mtk_panel_ctx {
 struct mtk_panel_funcs {
 	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
 		void *handle, unsigned int level);
+	int (*get_panel_info)(struct drm_panel *panel,char *buf);
+
 	int (*set_aod_light_mode)(void *dsi_drv, dcs_write_gce cb,
 		void *handle, unsigned int mode);
 	int (*set_backlight_grp_cmdq)(void *dsi_drv, dcs_grp_write_gce cb,
@@ -346,12 +357,18 @@ struct mtk_panel_funcs {
 	 */
 	unsigned long (*doze_get_mode_flags)(
 		struct drm_panel *panel, int aod_en);
-
+    	void (*esd_restore_backlight)(struct drm_panel *panel);
 	int (*hbm_set_cmdq)(struct drm_panel *panel, void *dsi_drv,
 			    dcs_write_gce cb, void *handle, bool en);
 	void (*hbm_get_state)(struct drm_panel *panel, bool *state);
 	void (*hbm_get_wait_state)(struct drm_panel *panel, bool *wait);
 	bool (*hbm_set_wait_state)(struct drm_panel *panel, bool wait);
+	int (*hbm_control)(struct drm_panel *panel, bool en);
+	int (*aod_control)(bool en);
+	int (*panel_set_crc_srgb)(struct drm_panel *panel);
+	int (*panel_set_crc_p3)(struct drm_panel *panel);
+	int (*panel_set_crc_off)(struct drm_panel *panel);
+	int (*k7s_dsi_poweron)(struct drm_panel *panel);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);

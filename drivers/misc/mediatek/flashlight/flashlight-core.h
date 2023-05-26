@@ -102,6 +102,8 @@ struct flashlight_dev {
 	int low_pt_level;
 	int charger_status;
 	int sw_disable_status;
+	int need_cooler;
+	int cooler_level;
 };
 
 /* device arguments */
@@ -135,6 +137,8 @@ int flashlight_get_part_id(int part_index);
 int flashlight_get_type_index(int type_id);
 int flashlight_get_ct_index(int ct_id);
 int flashlight_get_part_index(int part_id);
+int flashlight_get_max_duty(void);
+int flashlight_set_cooler_level(int level);
 
 /* verify id and index */
 int flashlight_verify_type_index(int type_index);

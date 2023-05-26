@@ -17,7 +17,7 @@ static struct situation_init_info sarhub_init_info;
 static DEFINE_SPINLOCK(calibration_lock);
 struct sarhub_ipi_data {
 	bool factory_enable;
-
+	atomic_t  trace ;
 	int32_t cali_data[3];
 	int8_t cali_status;
 	struct completion calibration_done;
@@ -182,6 +182,90 @@ static int sar_recv_data(struct data_unit_t *event, void *reserved)
 	return err;
 }
 
+static ssize_t sar_trace_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t res = 0;
+	struct sarhub_ipi_data *obj = obj_ipi_data;
+
+	if (!obj_ipi_data) {
+		pr_err("obj_ipi_data is null!!\n");
+		return 0;
+	}
+
+	res = snprintf(buf, PAGE_SIZE, "%d\n", atomic_read(&obj->trace));
+	return res;
+}
+
+static ssize_t sar_trace_store(struct device *dev,
+	struct device_attribute *attr, const char *buf,size_t count)
+{
+	int trace = 0;
+	struct sarhub_ipi_data *obj = obj_ipi_data;
+	int res = 0;
+	int ret = 0;
+
+	if (!obj) {
+		pr_err("obj_ipi_data is null!!\n");
+		return 0;
+	}
+
+	ret = sscanf(buf, "%d", &trace);
+	if (ret != 1) {
+		pr_err("invalid content: '%s', length = %zu\n", buf, count);
+		return count;
+	}
+	atomic_set(&obj->trace, trace);
+	res = sensor_set_cmd_to_hub(ID_SAR,
+				CUST_ACTION_SET_TRACE, &trace);
+	if (res < 0) {
+		pr_err("sensor_set_cmd_to_hub fail,(ID: %d),(action: %d)\n",
+				ID_SAR, CUST_ACTION_SET_TRACE);
+		return count;
+	}
+	return count;
+}
+
+static DEVICE_ATTR_RW(sar_trace);
+
+static int sarhub_probe(struct platform_device *pdev)
+{
+	int ret;
+	struct device *dev;
+
+	pr_err("sarhub_probe\n");
+
+	dev = &pdev->dev;
+
+	ret = device_create_file(dev, &dev_attr_sar_trace);
+	if(ret != 0) {
+		pr_err("device create fail\n");
+		return ret;
+	}
+	pr_err("sarhub_probe ok\n");
+
+	return 0;
+}
+
+static int sarhub_remove(struct platform_device *pdev)
+{
+	device_remove_file(&(pdev->dev), &dev_attr_sar_trace);
+
+	return 0;
+}
+
+static struct platform_device sarhub_device = {
+	.name = "sar_hub_s",
+	.id = -1,
+};
+
+static struct platform_driver sarhub_driver = {
+        .probe = sarhub_probe,
+        .remove = sarhub_remove,
+        .driver = {
+                .name = "sar_hub_s",
+        },
+};
 
 static int sarhub_local_init(void)
 {
@@ -191,11 +275,11 @@ static int sarhub_local_init(void)
 
 	struct sarhub_ipi_data *obj;
 
-	pr_debug("%s\n", __func__);
+	pr_err("%s\n", __func__);
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
 	if (!obj) {
-		err = -ENOMEM;
-		goto exit;
+		return -ENOMEM;
+		//goto exit;
 	}
 
 	memset(obj, 0, sizeof(*obj));
@@ -233,12 +317,20 @@ static int sarhub_local_init(void)
 		pr_err("SCP_sensorHub_data_registration fail!!\n");
 		goto exit;
 	}
+	err = platform_driver_register(&sarhub_driver);
+	if (err) {
+		pr_err("sarhub_local_init add driver error\n");
+		goto exit;
+	}
 	return 0;
 exit:
-	return -1;
+	kfree(obj);
+	obj_ipi_data = NULL;
+	return err;
 }
 static int sarhub_local_uninit(void)
 {
+	platform_driver_unregister(&sarhub_driver);
 	return 0;
 }
 
@@ -250,6 +342,11 @@ static struct situation_init_info sarhub_init_info = {
 
 static int __init sarhub_init(void)
 {
+		pr_err("sarhub_initl!!\n");
+	if (platform_device_register(&sarhub_device)) {
+		pr_err("sar platform device error\n");
+		return -1;
+	}
 	situation_driver_add(&sarhub_init_info, ID_SAR);
 	return 0;
 }

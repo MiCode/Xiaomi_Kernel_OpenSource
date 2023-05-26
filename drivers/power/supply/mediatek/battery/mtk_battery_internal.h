@@ -1,7 +1,16 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2021 MediaTek Inc.
-*/
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
 
 #ifndef __MTK_BATTERY_INTF_H__
 #define __MTK_BATTERY_INTF_H__
@@ -33,19 +42,20 @@
 #define UNIT_TRANS_60 60
 
 #define MAX_TABLE 10
-#define MAX_CHARGE_RDC 5
 
 /* ============================================================ */
 /* power misc related */
 /* ============================================================ */
+/*add for HTH-268226 by changhongjie at 2023/1/9 start*/
 #define BAT_VOLTAGE_LOW_BOUND 3400
+/*add for HTH-268226 by changhongjie at 2023/1/9 end*/
 #define BAT_VOLTAGE_HIGH_BOUND 3450
-#define LOW_TMP_BAT_VOLTAGE_LOW_BOUND 3350
+#define LOW_TMP_BAT_VOLTAGE_LOW_BOUND 3300
 #define SHUTDOWN_TIME 40
 #define AVGVBAT_ARRAY_SIZE 30
 #define INIT_VOLTAGE 3450
-#define BATTERY_SHUTDOWN_TEMPERATURE 60
-
+#define BATTERY_SHUTDOWN_TEMPERATURE 70
+#define BM_DAEMON_DEFAULT_LOG_LEVEL 3
 /* ============================================================ */
 /* typedef and Struct*/
 /* ============================================================ */
@@ -98,7 +108,7 @@ do {\
 	}						\
 } while (0)
 
-#define BM_DAEMON_DEFAULT_LOG_LEVEL 3
+
 
 enum gauge_hw_version {
 	GAUGE_HW_V1000 = 1000,
@@ -581,7 +591,14 @@ struct fuel_gauge_custom_data {
 	int record_log;
 
 };
+extern bool suppld_maxim;
 
+enum {
+	BATTERY_VENDOR_NVT = 0,
+	BATTERY_VENDOR_GY = 1,
+	BATTERY_VENDOR_XWD = 2,
+	BATTERY_VENDOR_UNKNOWN = 3
+};
 struct FUELGAUGE_TEMPERATURE {
 	signed int BatteryTemp;
 	signed int TemperatureR;
@@ -594,7 +611,7 @@ enum CHARGE_SEL {
 	CHARGE_R3,
 	CHARGE_R4,
 };
-
+#define MAX_CHARGE_RDC 5
 struct FUELGAUGE_CHARGER_STRUCT {
 	int rdc[MAX_CHARGE_RDC];
 };
@@ -607,6 +624,7 @@ struct FUELGAUGE_PROFILE_STRUCT {
 	unsigned int mah;
 	unsigned short voltage;
 	unsigned short resistance; /* Ohm*/
+//	unsigned short resistance2; /* Ohm*/
 	unsigned int percentage;
 	struct FUELGAUGE_CHARGER_STRUCT charge_r;
 };
@@ -659,8 +677,13 @@ struct battery_data {
 	/* Add for Battery Service */
 	int BAT_batt_vol;
 	int BAT_batt_temp;
+	bool CHG_FULL_STATUS;
 };
-
+struct bms_data {
+	struct power_supply_desc psd;
+	struct power_supply *psy;
+	struct power_supply_config cfg;
+};
 struct BAT_EC_Struct {
 	int fixed_temp_en;
 	int fixed_temp_value;
@@ -811,6 +834,7 @@ struct mtk_battery {
 /*battery status*/
 	int soc;
 	int ui_soc;
+	int soc_raw;
 	int d_saved_car;
 	int tbat_precise;
 
@@ -877,6 +901,9 @@ struct mtk_battery {
 	int bat_cycle_thr;
 	int bat_cycle_car;
 	int bat_cycle_ncar;
+/* maxim cycle */
+	int cycle_count;
+	int maxim_cycle_count;
 
 /* cust req ocv data */
 	int algo_qmax;
@@ -986,12 +1013,15 @@ extern void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg);
 extern int interpolation(int i1, int b1, int i2, int b2, int i);
 extern struct mtk_battery *get_mtk_battery(void);
 extern void battery_update_psd(struct battery_data *bat_data);
+extern int wakeup_fg_algo(unsigned int flow_state);
+extern int wakeup_fg_algo_cmd(unsigned int flow_state, int cmd, int para1);
 extern int wakeup_fg_algo_atomic(unsigned int flow_state);
 extern unsigned int TempToBattVolt(int temp, int update);
 extern int fg_get_battery_temperature_for_zcv(void);
 extern int battery_get_charger_zcv(void);
 extern bool is_fg_disabled(void);
 extern int battery_notifier(int event);
+extern int charger_manager_get_soc_decimal_rate(void);
 extern bool set_charge_power_sel(enum CHARGE_SEL select);
 
 /* pmic */
@@ -1058,6 +1088,7 @@ extern void gm3_log_init(void);
 extern void gm3_log_notify(unsigned int interrupt);
 extern void gm3_log_dump(bool force);
 extern void gm3_log_dump_nafg(int type);
+extern void mtk_chaging_enable_write(int en);
 
 
 /* query function , review */
@@ -1067,6 +1098,13 @@ extern int gauge_enable_interrupt(int intr_number, int en);
 /* GM25 Plug out API */
 int en_intr_VBATON_UNDET(int en);
 int reg_VBATON_UNDET(void (*callback)(void));
+
+/*Get batt resistance */
+extern int battery_get_bat_resistance_id(void);
+ 
+/* ffc */
+extern int chg_get_fastcharge_mode(void);
+extern int chg_set_fastcharge_mode(bool enable);
 
 /* boot mode */
 int battery_get_boot_mode(void);

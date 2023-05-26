@@ -730,6 +730,9 @@ struct pe_data {		/* reset after detached */
 	bool reset_vdm_state;
 	bool power_cable_present;
 	bool during_swap;	/* pr or dr swap */
+#ifdef CONFIG_SUPPORT_PISEN_ADAPTER
+	int retry_cnt;
+#endif /* CONFIG_SUPPORT_PISEN_ADAPTER */
 
 #ifdef CONFIG_USB_PD_REV30
 	bool cable_rev_discovered;
@@ -846,6 +849,10 @@ struct pd_port {
 	struct tcpc_device *tcpc;
 	struct mutex pd_lock;
 
+	/* miss msg */
+	bool miss_msg;
+	uint8_t rx_cap;
+
 	/* PD */
 	bool msg_output_lock;
 
@@ -861,7 +868,6 @@ struct pd_port {
 	uint8_t data_role;
 	uint8_t power_role;
 	uint8_t vconn_role;
-
 	struct pe_data pe_data;
 
 #ifdef CONFIG_USB_PD_ERROR_RECOVERY_ONCE
@@ -1605,6 +1611,8 @@ enum {	/* pd_traffic_control */
 #define PD30_SINK_TX_OK		TYPEC_CC_RP_3_0
 #define PD30_SINK_TX_NG		TYPEC_CC_RP_1_5
 
+void pd_add_miss_msg(struct pd_port *pd_port,struct pd_event *pd_event,
+				uint8_t msg);
 void pd_set_sink_tx(struct pd_port *pd_port, uint8_t cc);
 void pd_sync_sop_spec_revision(struct pd_port *pd_port);
 void pd_sync_sop_prime_spec_revision(struct pd_port *pd_port, uint8_t rev);

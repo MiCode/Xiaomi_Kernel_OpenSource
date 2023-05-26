@@ -14,6 +14,7 @@
 
 
 #define ALSPSHUB_DEV_NAME     "alsps_hub_pl"
+#define MTK_OLD_FACTORY_CALIBRATION
 
 struct alspshub_ipi_data {
 	struct work_struct init_done_work;
@@ -29,6 +30,7 @@ struct alspshub_ipi_data {
 	u8		ps;
 	int		ps_cali;
 	atomic_t	als_cali;
+	atomic_t	blackbox_cali;
 	atomic_t	ps_thd_val_high;
 	atomic_t	ps_thd_val_low;
 	ulong		enable;
@@ -276,9 +278,9 @@ static void alspshub_init_done_work(struct work_struct *work)
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
 	int err = 0;
-#ifndef MTK_OLD_FACTORY_CALIBRATION
+//#ifndef MTK_OLD_FACTORY_CALIBRATION
 	int32_t cfg_data[2] = {0};
-#endif
+//#endif
 
 	if (atomic_read(&obj->scp_init_done) == 0) {
 		pr_err("wait for nvram to set calibration\n");
@@ -286,7 +288,7 @@ static void alspshub_init_done_work(struct work_struct *work)
 	}
 	if (atomic_xchg(&obj->first_ready_after_boot, 1) == 0)
 		return;
-#ifdef MTK_OLD_FACTORY_CALIBRATION
+#if 0 //#ifdef MTK_OLD_FACTORY_CALIBRATION
 	err = sensor_set_cmd_to_hub(ID_PROXIMITY,
 		CUST_ACTION_SET_CALI, &obj->ps_cali);
 	if (err < 0)
@@ -304,6 +306,7 @@ static void alspshub_init_done_work(struct work_struct *work)
 
 	spin_lock(&calibration_lock);
 	cfg_data[0] = atomic_read(&obj->als_cali);
+	cfg_data[1] = atomic_read(&obj->blackbox_cali);
 	spin_unlock(&calibration_lock);
 	err = sensor_cfg_to_hub(ID_LIGHT,
 		(uint8_t *)cfg_data, sizeof(cfg_data));
@@ -354,6 +357,7 @@ static int als_recv_data(struct data_unit_t *event, void *reserved)
 	else if (event->flush_action == CALI_ACTION) {
 		spin_lock(&calibration_lock);
 		atomic_set(&obj->als_cali, event->data[0]);
+		atomic_set(&obj->blackbox_cali, event->data[1]);
 		spin_unlock(&calibration_lock);
 		err = als_cali_report(event->data);
 	}
@@ -438,6 +442,7 @@ static int alshub_factory_set_cali(int32_t offset)
 	if (err < 0)
 		pr_err("sensor_cfg_to_hub fail\n");
 	atomic_set(&obj->als_cali, offset);
+	atomic_set(&obj->blackbox_cali, offset);
 	als_cali_report(&cfg_data);
 
 	return err;
@@ -448,6 +453,7 @@ static int alshub_factory_get_cali(int32_t *offset)
 	struct alspshub_ipi_data *obj = obj_ipi_data;
 
 	*offset = atomic_read(&obj->als_cali);
+	*offset = atomic_read(&obj->blackbox_cali);
 	return 0;
 }
 static int pshub_factory_enable_sensor(bool enable_disable,
@@ -522,8 +528,16 @@ static int pshub_factory_clear_cali(void)
 static int pshub_factory_set_cali(int32_t offset)
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
+	int err = 0;
 
 	obj->ps_cali = offset;
+#ifdef MTK_OLD_FACTORY_CALIBRATION
+	err = sensor_set_cmd_to_hub(ID_PROXIMITY, CUST_ACTION_SET_CALI, &obj->ps_cali);
+	if(err < 0) {
+		pr_err("sensor_set_cmd_to_hub fail, (ID:%d), (action:%d)\n", ID_PROXIMITY, CUST_ACTION_RESET_CALI);
+		return -1;
+	}
+#endif  
 	return 0;
 }
 static int pshub_factory_get_cali(int32_t *offset)
@@ -540,13 +554,14 @@ static int pshub_factory_set_threshold(int32_t threshold[2])
 #ifndef MTK_OLD_FACTORY_CALIBRATION
 	int32_t cfg_data[2] = {0};
 #endif
+/*
 	if (threshold[0] < threshold[1] || threshold[0] <= 0 ||
 		threshold[1] <= 0) {
 		pr_err("PS set threshold fail! invalid value:[%d, %d]\n",
 			threshold[0], threshold[1]);
 		return -1;
 	}
-
+*/
 	spin_lock(&calibration_lock);
 	atomic_set(&obj->ps_thd_val_high, (threshold[0] + obj->ps_cali));
 	atomic_set(&obj->ps_thd_val_low, (threshold[1] + obj->ps_cali));
@@ -683,6 +698,7 @@ static int als_set_cali(uint8_t *data, uint8_t count)
 
 	spin_lock(&calibration_lock);
 	atomic_set(&obj->als_cali, buf[0]);
+	atomic_set(&obj->blackbox_cali, buf[1]);
 	spin_unlock(&calibration_lock);
 	return sensor_cfg_to_hub(ID_LIGHT, data, count);
 }

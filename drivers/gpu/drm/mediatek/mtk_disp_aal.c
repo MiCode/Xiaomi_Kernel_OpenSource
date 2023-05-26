@@ -64,7 +64,7 @@ struct timeval start, end;
 /* To enable debug log: */
 /* # echo aal_dbg:1 > /sys/kernel/debug/dispsys */
 int aal_dbg_en;
-static int g_max_backlight = 1023;
+static int g_max_backlight = 2047;
 
 static DECLARE_WAIT_QUEUE_HEAD(g_aal_hist_wq);
 static DEFINE_SPINLOCK(g_aal_clock_lock);

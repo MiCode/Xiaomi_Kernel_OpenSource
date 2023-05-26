@@ -794,36 +794,6 @@ int ccu_flushLog(int argc, int *argv)
 	return 0;
 }
 
-int ccu_read_info_reg(int regNo)
-{
-	int *offset;
-
-	if (regNo < 0 || regNo >= 32) {
-		LOG_ERR("Invalid regNo : %d\n", regNo);
-		return 0;
-	}
-
-	offset = (int *)(uintptr_t)(ccu_base + 0x80 + regNo * 4);
-
-	LOG_DBG("%s: %x\n", __func__, (unsigned int)(*offset));
-
-	return *offset;
-}
-
-void ccu_write_info_reg(int regNo, int val)
-{
-	int *offset;
-
-	if (regNo < 0 || regNo >= 32) {
-		LOG_ERR("invalid regNo");
-		return;
-	}
-
-	offset = (int *)(uintptr_t)(ccu_base + 0x80 + regNo * 4);
-	*offset = val;
-	LOG_DBG("%s: %x\n", __func__, (unsigned int)(*offset));
-}
-
 int ccu_read_struct_size(uint32_t *structSizes, uint32_t structCnt)
 {
 	int i;

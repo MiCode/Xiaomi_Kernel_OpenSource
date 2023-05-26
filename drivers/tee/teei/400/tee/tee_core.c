@@ -1,7 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015-2016, Linaro Limited
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
  */
 
@@ -124,12 +132,12 @@ static int tee_open(struct inode *inode, struct file *filp)
 	filp->private_data = ctx;
 	return 0;
 }
-
 int tee_k_release(struct file *filp)
 {
 	teedev_close_context(filp->private_data);
 	return 0;
 }
+
 
 static int tee_release(struct inode *inode, struct file *filp)
 {
@@ -262,7 +270,7 @@ static int params_from_user(struct tee_context *ctx, struct tee_param *params,
 
 			if ((ip.a >= shm->size) || (ip.b > shm->size)
 					|| ((ip.a + ip.b) > shm->size)) {
-				IMSG_ERROR("Inval param in %s\n", __func__);
+				IMSG_ERROR("Inval param %s\n", __func__);
 				return -EINVAL;
 			}
 
@@ -684,7 +692,7 @@ static int tee_ioctl_shm_id(struct tee_context *ctx, unsigned long uaddr)
 	mutex_unlock(&teedev->mutex);
 
 	if (shm_found == 0) {
-		IMSG_ERROR("Failed to find the shm with uaddr =%llx\n", uaddr);
+		IMSG_ERROR("Failed to find shm with uaddr = %llx\n", uaddr);
 		return -EINVAL;
 	}
 
@@ -708,7 +716,6 @@ static int tee_ioctl_shm_release(struct tee_context *ctx, unsigned long arg)
 
 	return 0;
 }
-
 
 long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -779,6 +786,8 @@ static int tee_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct tee_shm *shm = NULL;
 	int retVal = 0;
 
+	mutex_lock(&ctx->mutex);
+
 	shm = isee_shm_kalloc(ctx, size, TEE_SHM_MAPPED | TEE_SHM_DMA_KERN_BUF);
 	if (IS_ERR(shm)) {
 		IMSG_ERROR("Failed to alloc shm %d\n", PTR_ERR(shm));
@@ -787,18 +796,18 @@ static int tee_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 
 	retVal = remap_pfn_range(vma, vma->vm_start, shm->paddr >> PAGE_SHIFT,
-					size, vma->vm_page_prot);
+				size, vma->vm_page_prot);
 
 	if (retVal != 0) {
 		IMSG_ERROR("Failed to remap the shm %d\n", retVal);
 		isee_shm_kfree(shm);
 	} else
 		shm->uaddr = vma->vm_start;
-
 exit:
+	mutex_unlock(&ctx->mutex);
+
 	return retVal;
 }
-
 
 static const struct file_operations tee_fops = {
 	.owner = THIS_MODULE,

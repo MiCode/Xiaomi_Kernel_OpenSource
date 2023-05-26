@@ -70,11 +70,16 @@
 
 /* Query request retries */
 #define QUERY_REQ_RETRIES 3
-/* Query request timeout */
-#define QUERY_REQ_TIMEOUT 1500 /* 1.5 seconds */
+
+#ifdef CONFIG_FPGA_EARLY_PORTING
+#define QUERY_REQ_TIMEOUT 1000  /* unit: ms, align as BootROM */
+#else
+/* Max Query Req cmd timeout = 1.7s * 32QueueDepth = 55s */
+#define QUERY_REQ_TIMEOUT 55000   /* unit: ms, depend on vendor's requirement */
+#endif
 
 /* Task management command timeout */
-#define TM_CMD_TIMEOUT	100 /* msecs */
+#define TM_CMD_TIMEOUT	500 /* msecs */
 
 /* maximum number of retries for a general UIC command  */
 #define UFS_UIC_COMMAND_RETRIES 3
@@ -8740,8 +8745,12 @@ set_link_active:
 	ufshcd_vreg_set_hpm(hba);
 	if (ufshcd_is_link_hibern8(hba) && !ufshcd_uic_hibern8_exit(hba))
 		ufshcd_set_link_active(hba);
-	else if (ufshcd_is_link_off(hba))
+	else if (ufshcd_is_link_off(hba)){
+#if defined(CONFIG_MI_MEMORY_SYSFS)
+		ufsdbg_set_err_state("ufshcd_link_off_fail\n");
+#endif
 		ufshcd_host_reset_and_restore(hba);
+	}
 set_dev_active:
 	if (!ufshcd_set_dev_pwr_mode(hba, UFS_ACTIVE_PWR_MODE))
 		ufshcd_disable_auto_bkops(hba);
@@ -8753,8 +8762,15 @@ enable_gating:
 	ufshcd_crypto_resume(hba, pm_op);
 out:
 	hba->pm_op_in_progress = 0;
-	if (ret)
+	if (ret){
+#if defined(CONFIG_MI_MEMORY_SYSFS)
+		dev_info(hba->dev, "ufshcd_suspend_fail\n");
+		if(ret != -EAGAIN){
+			ufsdbg_set_err_state("ufshcd_suspend_fail\n");
+		}
+#endif
 		ufshcd_update_evt_hist(hba, UFS_EVT_SUSPEND_ERR, (u32)ret);
+	}
 	return ret;
 }
 

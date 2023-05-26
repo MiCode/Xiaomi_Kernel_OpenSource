@@ -2,10 +2,10 @@
 /*
  * Copyright (c) 2021 MediaTek Inc.
 */
-
+#include <linux/power/mtk_intf_mi.h>
 #include "mtk_intf.h"
 
-static struct charger_manager *pinfo;
+static struct charger_manager *pinfo = NULL;
 
 int charger_is_chip_enabled(bool *en)
 {
@@ -127,6 +127,105 @@ int adapter_set_cap_end(int mV, int mA)
 
 	return ADAPTER_OK;
 }
+
+// xiaomi add
+int adapter_get_cap_bq(struct pps_cap_bq *cap)
+{
+	struct adapter_power_cap tacap = {0};
+	int ret = 0, i = 0;
+
+	ret = adapter_dev_get_cap(p_info->pd_adapter, MTK_PD, &tacap);
+	if (ret == MTK_ADAPTER_VERIFYING)
+		return ADAPTER_VERIFYING;
+	else if (ret != MTK_ADAPTER_OK)
+		return ADAPTER_ERROR;
+
+	cap->selected_cap_idx = tacap.selected_cap_idx;
+	cap->nr = tacap.nr;
+
+	for (i = 0; i < tacap.nr; i++) {
+		cap->max_mv[i] = tacap.max_mv[i];
+		cap->min_mv[i] = tacap.min_mv[i];
+		cap->ma[i] = tacap.ma[i];
+		cap->maxwatt[i] = tacap.maxwatt[i];
+		cap->minwatt[i] = tacap.minwatt[i];
+		cap->type[i] = tacap.type[i];
+	}
+
+	return ADAPTER_OK;
+}
+
+int adapter_get_pps_cap_bq(struct pps_cap_bq *cap)
+{
+	struct adapter_power_cap tacap = {0};
+	int i;
+
+	adapter_dev_get_cap(p_info->pd_adapter, MTK_PD_APDO, &tacap);
+
+	cap->selected_cap_idx = tacap.selected_cap_idx;
+	cap->nr = tacap.nr;
+	cap->pdp = tacap.pdp;
+
+	for (i = 0; i < tacap.nr; i++) {
+		cap->pwr_limit[i] = tacap.pwr_limit[i];
+		cap->max_mv[i] = tacap.max_mv[i];
+		cap->min_mv[i] = tacap.min_mv[i];
+		cap->ma[i] = tacap.ma[i];
+		cap->maxwatt[i] = tacap.maxwatt[i];
+		cap->minwatt[i] = tacap.minwatt[i];
+		cap->type[i] = tacap.type[i];
+	}
+
+	return 0;
+}
+
+int adapter_set_1st_cap_bq(int mV, int mA)
+{
+	return adapter_dev_set_cap_bq(p_info->pd_adapter,
+		MTK_PD_APDO_START, mV, mA);
+}
+
+int adapter_set_cap_bq(int mV, int mA)
+{
+	int ret;
+
+	ret = adapter_dev_set_cap_bq(p_info->pd_adapter, MTK_PD_APDO, mV, mA);
+	if (ret == MTK_ADAPTER_REJECT)
+		return ADAPTER_REJECT;
+	else if (ret != 0)
+		return ADAPTER_ERROR;
+
+	return ADAPTER_OK;
+}
+
+int adapter_set_cap_start_bq(int mV, int mA)
+{
+	int ret;
+
+	ret = adapter_dev_set_cap_bq(p_info->pd_adapter, MTK_PD_APDO_START, mV, mA);
+	if (ret == MTK_ADAPTER_REJECT)
+		return ADAPTER_REJECT;
+	else if (ret == MTK_ADAPTER_VERIFYING)
+		return ADAPTER_VERIFYING;
+	else if (ret != 0)
+		return ADAPTER_ERROR;
+
+	return ADAPTER_OK;
+}
+
+int adapter_set_cap_end_bq(int mV, int mA)
+{
+	int ret;
+
+	ret = adapter_dev_set_cap_bq(p_info->pd_adapter, MTK_PD_APDO_END, mV, mA);
+	if (ret == MTK_ADAPTER_REJECT)
+		return ADAPTER_REJECT;
+	else if (ret != 0)
+		return ADAPTER_ERROR;
+
+	return ADAPTER_OK;
+}
+// xiaomi add
 
 int adapter_get_output(int *mV, int *mA)
 {

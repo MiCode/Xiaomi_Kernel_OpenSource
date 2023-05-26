@@ -489,12 +489,13 @@ EXPORT_SYMBOL(mtk_ccci_request_port);
 
 int find_port_by_channel(int index, struct port_t **port)
 {
-	if (index < ARRAY_SIZE(md1_ccci_ports)) {
-		*port = &md1_ccci_ports[index];
-		return 0;
+	if (index < 0 || index >= ARRAY_SIZE(md1_ccci_ports)) {
+		CCCI_ERROR_LOG(-1, PORT, "%s: invalid index = %d\n",
+				__func__, index);
+		return -EINVAL;
 	}
-	CCCI_ERROR_LOG(-1, PORT, "cannot find port by index %d\n", index);
-	return -1;
+	*port = &md1_ccci_ports[index];
+	return 0;
 }
 
 int mtk_ccci_open_port(int index)

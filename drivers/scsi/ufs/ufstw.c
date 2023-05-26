@@ -536,6 +536,7 @@ bool ufstw_need_flush(struct ufsf_feature *ufsf)
 	 * Only return need_flush to break runtime/system suspend.
 	 */
 	if (work_busy(&tw->tw_flush_h8_work.work)) {
+		ERR_MSG("work_busy: tw_flush_h8_work");
 		need_flush = true;
 		goto out_put;
 	}
@@ -550,8 +551,10 @@ bool ufstw_need_flush(struct ufsf_feature *ufsf)
 	}
 
 	/* No need flush */
-	if (tw->tw_available_buffer_size >= tw->flush_th_max)
+	if (tw->tw_available_buffer_size >= tw->flush_th_max){
+		ERR_MSG("tw: no need flush");
 		goto out_put;
+	}
 
 	/* Need flush, check device flush method */
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_WRITE_BOOSETER_FLUSH) {
@@ -570,6 +573,7 @@ bool ufstw_need_flush(struct ufsf_feature *ufsf)
 	} else {
 		/* Other device recover WB by hibernate */
 		schedule_delayed_work(&tw->tw_flush_h8_work, 0);
+		ERR_MSG("schedule_delayed_work: tw_flush_h8_work");
 		need_flush = true;
 	}
 

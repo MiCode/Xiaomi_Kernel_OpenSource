@@ -20,6 +20,7 @@
 
 #include <drm/drm_sysfs.h>
 #include <drm/drmP.h>
+#include <drm/drm_connector.h>
 #include "drm_internal.h"
 
 #define to_drm_minor(d) dev_get_drvdata(d)
@@ -229,16 +230,127 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+static ssize_t panel_event_show(struct device *device,
+                           struct device_attribute *attr,
+                           char *buf)
+{
+ssize_t ret = 0;
+        struct drm_connector *connector = to_drm_connector(device);
+        if (!connector) {
+                pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+                return ret;
+        }
+
+        return snprintf(buf, PAGE_SIZE, "%d\n", connector->panel_event);
+}
+
+extern ssize_t dsi_display_get_panel_info(struct drm_connector *connector, char *buf);
+static ssize_t panel_info_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+		pr_err("%s, the connector is null\n", __func__);
+		return 0;
+	}
+	return dsi_display_get_panel_info(connector, buf);
+}
+extern ssize_t lcm_mipi_reg_write(char *buf, size_t count);
+extern ssize_t lcm_mipi_reg_read(char *buf);
+static ssize_t mipi_reg_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	pr_info("%s, k7s project \n", __func__);
+	return lcm_mipi_reg_read(buf);
+}
+static ssize_t mipi_reg_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	int rc = 0;
+	pr_info("%s, k7s project \n", __func__);
+	rc = lcm_mipi_reg_write((char *)buf, count);
+	return rc;
+}
+static atomic64_t g_param = ATOMIC64_INIT(0);
+extern ssize_t dsi_panel_set_disp_param(struct drm_connector* connector, u32 cmd);
+ssize_t mi_dsi_display_set_disp_param(struct drm_connector *connector,
+			u32 param_type)
+{
+	int ret = 0;
+	if (!connector) {
+		pr_err("Invalid display ptr\n");
+		return -EINVAL;
+	}
+	atomic64_set(&g_param, param_type);
+	ret = dsi_panel_set_disp_param(connector, param_type);
+	return ret;
+}
+ssize_t mi_dsi_display_get_disp_param(struct drm_connector *connector,
+			char *buf)
+{
+	u32 param = (u32)atomic64_read(&g_param);
+	return snprintf(buf, PAGE_SIZE, "0x%08X\n", param);
+}
+ssize_t mi_drm_sysfs_set_disp_param(struct drm_connector *connector,
+			u32 param_type)
+{
+	int ret = 0;
+	ret = mi_dsi_display_set_disp_param(connector, param_type);
+	return ret;
+}
+ssize_t mi_drm_sysfs_get_disp_param(struct drm_connector *connector,
+			char *buf)
+{
+	return mi_dsi_display_get_disp_param(connector, buf);
+}
+static ssize_t disp_param_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	ssize_t ret = 0;
+	int32_t param;
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+		pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+		return ret;
+	}
+	sscanf(buf, "0x%x", &param);
+	ret = mi_drm_sysfs_set_disp_param(connector, param);
+	return count;
+}
+static ssize_t disp_param_show(struct device *device,
+			   struct device_attribute *attr,
+			   char *buf)
+{
+	ssize_t ret = 0;
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+		pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+		return ret;
+	}
+	return mi_drm_sysfs_get_disp_param(connector, buf);
+}
+
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
+static DEVICE_ATTR_RO(panel_event);
+static DEVICE_ATTR_RO(panel_info);
+static DEVICE_ATTR_RW(mipi_reg);
+static DEVICE_ATTR_RW(disp_param);
 
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
-	&dev_attr_modes.attr,
+	&dev_attr_panel_info.attr,
+	&dev_attr_mipi_reg.attr,
+	&dev_attr_disp_param.attr,
+	&dev_attr_panel_event.attr,
 	NULL
 };
 
@@ -383,7 +495,7 @@ int drm_class_device_register(struct device *dev)
 		return -ENOENT;
 
 	dev->class = drm_class;
-	return device_register(dev);
+	return device_register(dev);	
 }
 EXPORT_SYMBOL_GPL(drm_class_device_register);
 

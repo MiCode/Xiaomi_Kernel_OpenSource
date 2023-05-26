@@ -248,22 +248,17 @@ int kbase_sync_fence_out_create(struct kbase_jd_atom *katom, int tl_fd)
 	/* create a fd representing the fence */
 	fd = get_unused_fd_flags(O_RDWR | O_CLOEXEC);
 	if (fd < 0) {
+		sync_pt_free(pt);
 		sync_fence_put(fence);
+		katom->fence = NULL;
 		goto out;
 	}
+
+	/* Place the successfully created fence in katom */
+	katom->fence = fence;
 
 	/* bind fence to the new fd */
 	sync_fence_install(fence, fd);
-
-	katom->fence = sync_fence_fdget(fd);
-	if (katom->fence == NULL) {
-		/* The only way the fence can be NULL is if userspace closed it
-		 * for us, so we don't need to clear it up
-		 */
-		fd = -EINVAL;
-		goto out;
-	}
-
 out:
 	fput(tl_file);
 

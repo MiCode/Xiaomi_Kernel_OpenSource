@@ -539,6 +539,9 @@ static int __init ppm_sysboost_policy_init(void)
 		case BOOST_BY_BOOT_TIME_OPT:
 			sysboost_data[i].user_name = "BOOT_TIME_OPT";
 			break;
+		case BOOST_BY_XM_THERMAL:
+			sysboost_data[i].user_name = "XM_THERM";
+			break;
 		case BOOST_BY_UT:
 		default:
 			sysboost_data[i].user_name = "UT";
@@ -563,6 +566,10 @@ static int __init ppm_sysboost_policy_init(void)
 
 	ppm_info("@%s: register %s done!\n", __func__, sysboost_policy.name);
 
+	sysboost_policy.is_enabled = true;
+	FUNC_EXIT(FUNC_LV_POLICY);
+
+	return ret;
 out:
 	sysboost_policy.is_enabled = false;
 	FUNC_EXIT(FUNC_LV_POLICY);

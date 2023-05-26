@@ -2,6 +2,13 @@ source "drivers/misc/mediatek/Kconfig.default"
 source "drivers/misc/mediatek/usb20/Kconfig"
 source "drivers/misc/mediatek/cqdma/Kconfig"
 
+
+config BACKLIGHT_SUPPORT_2047_FEATURE
+        bool "enable backlight level 2047"
+        default n
+        help
+          If unsure, set N.
+
 config MTK_PLATFORM
 	string "MTK platform name"
 

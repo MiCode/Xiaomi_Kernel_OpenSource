@@ -1,7 +1,15 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2021 MediaTek Inc.
-*/
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
 #ifndef __MTK_CHARGER_INTF_H__
 #define __MTK_CHARGER_INTF_H__
 
@@ -14,9 +22,13 @@
 #include <linux/timer.h>
 #include <linux/wait.h>
 #include <linux/alarmtimer.h>
+#include <linux/kthread.h>
+#include <linux/power_supply.h>
 #include <mt-plat/v1/charger_type.h>
 #include <mt-plat/v1/mtk_charger.h>
 #include <mt-plat/v1/mtk_battery.h>
+
+#include <linux/power_supply.h>
 
 #include <mtk_gauge_time_service.h>
 
@@ -74,9 +86,12 @@ do {								\
 #define CHR_PE30	(0x000B)
 #define CHR_PE40	(0x000C)
 #define CHR_PDC		(0x000D)
-#define CHR_PE50_READY	(0x000E)
-#define CHR_PE50_RUNNING	(0x000F)
-#define CHR_PE50	(0x0010)
+#define CHR_XM_PD_PM		(0x000E)
+#define CHR_XM_QC3		(0x000F)
+#define CHR_XM_QC20		(0x0010)
+#define CHR_PE50_READY		(0x0011)
+#define CHR_PE50_RUNNING	(0x0012)
+#define CHR_PE50		(0x0013)
 
 /* charging abnormal status */
 #define CHG_VBUS_OV_STATUS	(1 << 0)
@@ -86,6 +101,59 @@ do {								\
 #define CHG_ST_TMO_STATUS	(1 << 4)
 #define CHG_BAT_LT_STATUS	(1 << 5)
 #define CHG_TYPEC_WD_STATUS	(1 << 6)
+
+/* registers parameter */
+// mode
+#define XMUSB350_MODE_QC20_V5			0x01
+#define XMUSB350_MODE_QC20_V9			0x02
+#define XMUSB350_MODE_QC20_V12			0x03
+#define XMUSB350_MODE_QC30_V5			0x04
+#define XMUSB350_MODE_QC3_PLUS_V5		0x05
+
+/*wireless charger type*/
+enum wireless_chg_state {
+	WIRELESS_NULL = 0,
+	WIRELESS_SDP,
+	WIRELESS_CDP,
+	WIRELESS_CHG_CDP,
+	WIRELESS_CHG_DCP,
+	WIRELESS_CHG_HVDCP,
+};
+
+/* QC35 charger type */
+enum xmusb350_chg_type {
+	QC35_NA = 0,
+	QC35_OCP = 0x1,
+	QC35_FLOAT = 0x2,
+	QC35_SDP = 0x3,
+	QC35_CDP = 0x4,
+	QC35_DCP = 0x5,
+	QC35_HVDCP_20 = 0x6,
+	QC35_HVDCP_30 = 0x7,
+	QC35_HVDCP_3_PLUS_18 = 0x8,
+	QC35_HVDCP_3_PLUS_27 = 0x9,
+	QC35_HVDCP_30_18 = 0xA,
+	QC35_HVDCP_30_27 = 0xB,
+	QC35_PD = 0xC,
+	QC35_PD_DR = 0xD,
+	QC35_HVDCP = 0x10,
+	QC35_UNKNOW = 0x11,
+};
+
+/* HVDCP type */
+enum hvdcp_status{
+	HVDCP_NULL,
+	HVDCP,
+	HVDCP_3,
+};
+
+enum hvdcp3_type {
+	HVDCP3_NONE = 0,
+	HVDCP3_CLASSA_18W,
+	HVDCP3_CLASSB_27W,
+	HVDCP3_P_CLASSA_18W,
+	HVDCP3_P_CLASSB_27W,
+};
 
 /* charger_algorithm notify charger_dev */
 enum {
@@ -119,8 +187,10 @@ enum {
  */
 enum sw_jeita_state_enum {
 	TEMP_BELOW_T0 = 0,
+	TEMP_TN1_TO_T0,
 	TEMP_T0_TO_T1,
-	TEMP_T1_TO_T2,
+	TEMP_T1_TO_T1P5,
+	TEMP_T1P5_TO_T2,
 	TEMP_T2_TO_T3,
 	TEMP_T3_TO_T4,
 	TEMP_ABOVE_T4
@@ -130,6 +200,7 @@ struct sw_jeita_data {
 	int sm;
 	int pre_sm;
 	int cv;
+	int pre_cv;
 	bool charging;
 	bool error_recovery_flag;
 };
@@ -139,6 +210,12 @@ enum bat_temp_state_enum {
 	BAT_TEMP_LOW = 0,
 	BAT_TEMP_NORMAL,
 	BAT_TEMP_HIGH
+};
+
+enum {
+	NORMAL,
+	STEP_A_TR,
+	STEP_B_TR,
 };
 
 struct battery_thermal_protection_data {
@@ -161,12 +238,13 @@ struct charger_custom_data {
 	int usb_charger_current_configured;
 	int usb_charger_current;
 	int ac_charger_current;
+	int usb_unlimited_current;
 	int ac_charger_input_current;
+	int qc_charger_input_current;
 	int non_std_ac_charger_current;
 	int charging_host_charger_current;
 	int apple_1_0a_charger_current;
 	int apple_2_1a_charger_current;
-	int usb_unlimited_current;
 	int ta_ac_charger_current;
 	int pd_charger_current;
 
@@ -179,8 +257,10 @@ struct charger_custom_data {
 	int jeita_temp_above_t4_cv;
 	int jeita_temp_t3_to_t4_cv;
 	int jeita_temp_t2_to_t3_cv;
-	int jeita_temp_t1_to_t2_cv;
+	int jeita_temp_t1p5_to_t2_cv;
+	int jeita_temp_t1_to_t1p5_cv;
 	int jeita_temp_t0_to_t1_cv;
+	int jeita_temp_tn1_to_t0_cv;
 	int jeita_temp_below_t0_cv;
 	int temp_t4_thres;
 	int temp_t4_thres_minus_x_degree;
@@ -188,11 +268,21 @@ struct charger_custom_data {
 	int temp_t3_thres_minus_x_degree;
 	int temp_t2_thres;
 	int temp_t2_thres_plus_x_degree;
+	int temp_t1p5_thres;
+	int temp_t1p5_thres_plus_x_degree;
 	int temp_t1_thres;
 	int temp_t1_thres_plus_x_degree;
 	int temp_t0_thres;
 	int temp_t0_thres_plus_x_degree;
+	int temp_tn1_thres;
+	int temp_tn1_thres_plus_x_degree;
 	int temp_neg_10_thres;
+	int temp_t3_to_t4_fcc;
+	int temp_t2_to_t3_fcc;
+	int temp_t1p5_to_t2_fcc;
+	int temp_t1_to_t1p5_fcc;
+	int temp_t0_to_t1_fcc;
+	int temp_tn1_to_t0_fcc;
 
 	/* battery temperature protection */
 	int mtk_temperature_recharge_support;
@@ -228,12 +318,26 @@ struct charger_custom_data {
 	int low_temp_to_leave_pe40;
 	int low_temp_to_enter_pe40;
 
+#ifdef CONFIG_BQ2597X_CHARGE_PUMP
+	/* xiaomi pps */
+	int xm_pps_single_charger_input_current;	/* ma */
+	int xm_pps_single_charger_current;
+	int xm_pps_dual_charger_input_current;
+	int xm_pps_dual_charger_chg1_current;
+	int xm_pps_dual_charger_chg2_current;
+	int xm_pps_max_vbus;
+	int xm_pps_max_ibus;
+	int xm_pps_single_charger_current_non_verified_pps;	/* ma */
+#endif
+
 	/* pe4.0 cable impedance threshold (mohm) */
 	u32 pe40_r_cable_1a_lower;
 	u32 pe40_r_cable_2a_lower;
 	u32 pe40_r_cable_3a_lower;
 
 	/* dual charger */
+	u32 chg1_ta_ac_charger_input_current;
+	u32 chg2_ta_ac_charger_input_current;
 	u32 chg1_ta_ac_charger_current;
 	u32 chg2_ta_ac_charger_current;
 	int slave_mivr_diff;
@@ -267,6 +371,32 @@ struct charger_custom_data {
 
 	int vsys_watt;
 	int ibus_err;
+	int set_cap_delay;
+
+	/* vote */
+	int enable_vote;
+	int enable_cv_step;
+	int step_a;
+	int step_b;
+	int current_a;
+	int current_b;
+	int current_max;
+	int step_hy_down_a;
+	int step_hy_down_b;
+
+	/* ffc */
+	int enable_ffc;
+	int non_ffc_ieoc;
+	int non_ffc_cv;
+	int ffc_ieoc;
+	int ffc_ieoc_warm;
+	int ffc_ieoc_warm_temp_thres;
+	int ffc_cv;
+	int ffc_ieoc2;
+	int ffc_ieoc_warm2;
+
+	/* battery verify */
+	int batt_unverify_fcc_ua;
 };
 
 struct charger_data {
@@ -281,12 +411,21 @@ struct charger_data {
 	int junction_temp_max;
 };
 
+enum chg_data_idx_enum {
+	CHG1_SETTING,
+	CHG2_SETTING,
+	DVCHG1_SETTING,
+	DVCHG2_SETTING,
+	CHGS_SETTING_MAX,
+};
+
 struct charger_manager {
 	bool init_done;
 	const char *algorithm_name;
 	struct platform_device *pdev;
 	void	*algorithm_data;
 	int usb_state;
+	int usb_type;
 	bool usb_unlimited;
 	bool disable_charger;
 
@@ -308,11 +447,17 @@ struct charger_manager {
 	struct charger_data dvchg2_data;
 
 	struct adapter_device *pd_adapter;
-
+#ifdef CONFIG_XMUSB350_DET_CHG
+	int xmusb_vid;
+#endif
 
 	enum charger_type chr_type;
+	enum hvdcp_status hvdcp_type;
+	enum wireless_chg_state wireless_status;
+	int hvdcp_check_count;
 	bool can_charging;
 	int cable_out_cnt;
+	int temp_level;
 
 	int (*do_algorithm)(struct charger_manager *cm);
 	int (*plug_in)(struct charger_manager *cm);
@@ -325,7 +470,7 @@ struct charger_manager {
 	struct srcu_notifier_head evt_nh;
 	/* receive from battery */
 	struct notifier_block psy_nb;
-
+	bool swjeita_enable_dual_charging;
 	/* common info */
 	int battery_temp;
 
@@ -382,9 +527,14 @@ struct charger_manager {
 
 	/* pd */
 	bool leave_pdc;
+	bool stop_pdc_with_dis_hv;
 	struct mtk_pdc pdc;
 	bool disable_pd_dual;
 	bool is_pdc_run;
+
+	/* Ra Rp detection */
+	bool ra_detected;
+	int	rp_lvl;
 
 	int pd_type;
 	bool pd_reset;
@@ -416,17 +566,102 @@ struct charger_manager {
 	/* dynamic mivr */
 	bool enable_dynamic_mivr;
 
-	struct smartcharging sc;
+	/* input suspend*/
+	bool is_input_suspend;
 
+	/*thermal level*/
+	int system_temp_level;
+	int system_temp_level_max;
+        int set_temp_enable;
+	int set_temp_num;
 
-	/*daemon related*/
-	struct sock *daemo_nl_sk;
-	u_int g_scd_pid;
-	struct scd_cmd_param_t_1 sc_data;
+	int	 *thermal_mitigation_dcp;
+	int	 *thermal_mitigation_qc3p5;
+	int	 *thermal_mitigation_qc3;
+	int	 *thermal_mitigation_qc3_classb;
+	int	 *thermal_mitigation_qc2;
+	int	 *thermal_mitigation_pd_base;
 
-	bool force_disable_pp[TOTAL_CHARGER];
-	bool enable_pp[TOTAL_CHARGER];
-	struct mutex pp_lock[TOTAL_CHARGER];
+	struct power_supply	*usb_psy;
+	struct power_supply	*battery_psy;
+	struct power_supply	*bq_psy;
+	struct power_supply	*bms_psy;
+	struct power_supply	*main_psy;
+	struct power_supply	*batt_verify_psy;
+
+	/*delay work*/
+	struct delayed_work	pd_hard_reset_work;
+	struct delayed_work	charger_type_recheck_work;
+	struct delayed_work dcp_confirm_work;
+	struct work_struct	batt_verify_update_work;
+
+	/* vote */
+	int effective_fcc;
+
+	/* step chg */
+	int step_flag;
+
+	/* ffc */
+	int ffc_ieoc;
+	int ffc_cv;
+
+	/* soc decimal rate */
+	int     *dec_rate_seq;
+	int     dec_rate_len;
+
+	/* charger type recheck related */
+	int			recheck_charger;
+	int			precheck_charger_type;
+	int			real_charger_type;
+	int			check_count;
+	bool			use_xmusb350_do_apsd;
+
+	bool disable_soc_decimal;
+
+	/* flag to confirm dcp type to fix some qc3 detection error issue */
+	bool			dcp_confirmed;
+
+	/* battery verify */
+	bool			batt_verified;
+
+	/* pd verify in */
+	bool			pd_verify_in_process;
+
+	int			mode_bf;
+
+	/* plug in time*/
+	struct timespec plugintime;
+
+	bool force_disable_pp[CHG2_SETTING + 1];
+	bool enable_pp[CHG2_SETTING + 1];
+	struct mutex pp_lock[CHG2_SETTING + 1];
+};
+
+/* Power Supply */
+struct mt_charger {
+	struct device *dev;
+	struct power_supply_desc chg_desc;
+	struct power_supply_config chg_cfg;
+	struct power_supply *chg_psy;
+	struct power_supply_desc ac_desc;
+	struct power_supply_config ac_cfg;
+	struct power_supply *ac_psy;
+	struct power_supply_desc usb_desc;
+	struct power_supply_config usb_cfg;
+	struct power_supply *usb_psy;
+	struct power_supply *bms_psy;
+	struct power_supply_desc main_desc;
+	struct power_supply_config main_cfg;
+	struct power_supply *main_psy;
+	struct power_supply *charger_identify_psy;
+	struct chg_type_info *cti;
+	bool chg_online; /* Has charger in or not */
+	bool vbus_disable;
+	enum charger_type chg_type;
+	enum hvdcp_status	hvdcp_type;
+	struct charger_device *chg1_dev;
+
+	struct delayed_work	clear_soc_decimal_rate_work;
 };
 
 /* charger related module interface */
@@ -452,9 +687,24 @@ extern int pmic_enable_hw_vbus_ovp(bool enable);
 extern bool pmic_is_battery_exist(void);
 
 
+/* ffc */
+extern int chg_get_fastcharge_mode(void);
+extern int chg_set_fastcharge_mode(bool enable);
+
+/* soc decimal */
+int get_disable_soc_decimal_flag(void);
+
 extern void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 	void *val);
 
+/* maxim */
+extern bool suppld_maxim;
+
+int mtk_charger_set_prop_type_recheck(const union power_supply_propval *val);
+int mtk_charger_get_prop_type_recheck(union power_supply_propval *val);
+
+int mtk_charger_set_prop_pd_verify_process(const union power_supply_propval *val);
+int mtk_charger_get_prop_pd_verify_process(union power_supply_propval *val);
 
 /* FIXME */
 enum usb_state_enum {
@@ -463,17 +713,11 @@ enum usb_state_enum {
 	USB_CONFIGURED
 };
 
-#if defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6893) \
-	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6785) \
-	|| defined(CONFIG_MACH_MT6853)
-bool is_usb_rdy(struct device *dev);
-#else
 bool __attribute__((weak)) is_usb_rdy(void)
 {
 	pr_info("%s is not defined\n", __func__);
 	return false;
 }
-#endif
 
 /* procfs */
 #define PROC_FOPS_RW(name)						\

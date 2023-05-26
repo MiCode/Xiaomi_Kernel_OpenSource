@@ -10,6 +10,8 @@
  * #define pr_debug pr_info
  */
 
+static uint64_t mtk_vcu_va_cnt;
+
 struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
 	struct device *cmdq_dev)
 {
@@ -84,6 +86,7 @@ void *mtk_vcu_set_buffer(struct mtk_vcu_queue *vcu_queue,
 	struct dma_buf *dbuf = NULL;
 	int op;
 
+	mutex_lock(&vcu_queue->mmap_lock);
 	pr_debug("[%s] %d iova = %llx src_vb = %p dst_vb = %p\n",
 		__func__, vcu_queue->num_buffers, mem_buff_data->iova,
 		src_vb, dst_vb);
@@ -93,10 +96,10 @@ void *mtk_vcu_set_buffer(struct mtk_vcu_queue *vcu_queue,
 		mem_buff_data->len == 0U || num_buffers >= CODEC_MAX_BUFFER) {
 		pr_info("Set buffer fail: buffer len = %u num_buffers = %d !!\n",
 			   mem_buff_data->len, num_buffers);
+		mutex_unlock(&vcu_queue->mmap_lock);
 		return ERR_PTR(-EINVAL);
 	}
 
-	mutex_lock(&vcu_queue->mmap_lock);
 	for (buffer = 0; buffer < num_buffers; buffer++) {
 		vcu_buffer = &vcu_queue->bufs[buffer];
 		if (mem_buff_data->iova == (u64)vcu_buffer->iova) {
@@ -164,15 +167,16 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 	struct mtk_vcu_mem *vcu_buffer;
 	unsigned int buffers;
 
+	mutex_lock(&vcu_queue->mmap_lock);
 	buffers = vcu_queue->num_buffers;
 	if (mem_buff_data->len > CODEC_ALLOCATE_MAX_BUFFER_SIZE ||
 		mem_buff_data->len == 0U || buffers >= CODEC_MAX_BUFFER) {
 		pr_info("Get buffer fail: buffer len = %u num_buffers = %d !!\n",
 			   mem_buff_data->len, buffers);
+		mutex_unlock(&vcu_queue->mmap_lock);
 		return ERR_PTR(-EINVAL);
 	}
 
-	mutex_lock(&vcu_queue->mmap_lock);
 	vcu_buffer = &vcu_queue->bufs[buffers];
 	vcu_buffer->mem_priv = vcu_queue->mem_ops->alloc(vcu_queue->dev, 0,
 		mem_buff_data->len, 0, 0);
@@ -188,15 +192,19 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 
 	mem_buff_data->iova = *(dma_addr_t *)dma_addr;
 	vcu_buffer->iova = *(dma_addr_t *)dma_addr;
-	mem_buff_data->va = CODEC_MSK((unsigned long)cook);
+	mtk_vcu_va_cnt++;
+	if (mtk_vcu_va_cnt == 0)
+		mtk_vcu_va_cnt++;
+	vcu_buffer->va_id = mtk_vcu_va_cnt;
+	mem_buff_data->va = vcu_buffer->va_id;
 	mem_buff_data->pa = 0;
 	vcu_queue->num_buffers++;
 	mutex_unlock(&vcu_queue->mmap_lock);
 	atomic_set(&vcu_buffer->ref_cnt, 1);
 
-	pr_debug("[%s] Num_buffers = %d iova = %llx va = %llx size = %d mem_priv = %lx\n",
+	pr_debug("[%s] Num_buffers = %d iova = %llx va = %llx va_id = %lld size = %d mem_priv = %lx\n",
 		__func__, vcu_queue->num_buffers, mem_buff_data->iova,
-		mem_buff_data->va, (unsigned int)vcu_buffer->size,
+		cook, vcu_buffer->va_id, (unsigned int)vcu_buffer->size,
 		(unsigned long)vcu_buffer->mem_priv);
 
 	return vcu_buffer->mem_priv;
@@ -248,14 +256,14 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 				vcu_queue->mem_ops->cookie(
 				    vcu_buffer->mem_priv);
 
-			if (mem_buff_data->va == CODEC_MSK((unsigned long)cook) &&
-			mem_buff_data->iova == *(dma_addr_t *)dma_addr &&
-				mem_buff_data->len == vcu_buffer->size &&
-				atomic_read(&vcu_buffer->ref_cnt) == 1) {
-				pr_debug("Free buff = %d iova = %llx va = %llx, queue_num = %d\n",
-						 buffer, mem_buff_data->iova,
-						 mem_buff_data->va,
-						 num_buffers);
+			if (mem_buff_data->va == vcu_buffer->va_id &&
+			    mem_buff_data->iova == *(dma_addr_t *)dma_addr &&
+			    mem_buff_data->len == vcu_buffer->size &&
+			    atomic_read(&vcu_buffer->ref_cnt) == 1) {
+				pr_debug("Free buff = %d iova = %llx va = %llx va_id = %llx, queue_num = %d\n",
+						buffer, mem_buff_data->iova,
+						cook, mem_buff_data->va,
+						num_buffers);
 				vcu_queue->mem_ops->put(vcu_buffer->mem_priv);
 				atomic_dec(&vcu_buffer->ref_cnt);
 

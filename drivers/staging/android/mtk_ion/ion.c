@@ -2826,33 +2826,21 @@ struct ion_buffer *ion_drv_file_to_buffer(struct file *file)
 {
 	struct dma_buf *dmabuf;
 	struct ion_buffer *buffer = NULL;
-	const char *pathname = NULL;
 
-	if (!file)
-		goto file2buf_exit;
-	if (!(file->f_path.dentry))
-		goto file2buf_exit;
+	if (!file || !is_dma_buf_file(file))
+		return ERR_PTR(-EINVAL);
 
-	pathname = file->f_path.dentry->d_name.name;
-	if (!pathname)
-		goto file2buf_exit;
-
-	if (strstr(pathname, "dmabuf")) {
-		dmabuf = file->private_data;
-		if (!dmabuf) {
-			IONMSG("%s warnning, dmabuf is NULL\n", __func__);
-			goto file2buf_exit;
-		}
-		if (dmabuf->ops == &dma_buf_ops)
-			buffer = dmabuf->priv;
+	dmabuf = file->private_data;
+	if (!dmabuf) {
+		IONMSG("%s warnning, dmabuf is NULL\n", __func__);
+		return ERR_PTR(-EINVAL);
+	}
+	if (dmabuf->ops == &dma_buf_ops) {
+		buffer = dmabuf->priv;
+		return buffer;
 	}
 
-file2buf_exit:
-
-	if (buffer)
-		return buffer;
-	else
-		return ERR_PTR(-EINVAL);
+	return ERR_PTR(-EINVAL);
 }
 
 /* ===================================== */

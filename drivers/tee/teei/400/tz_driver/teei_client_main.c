@@ -1,8 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * All Rights Reserved.
  *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
 
 #define IMSG_TAG "[tz_driver]"
@@ -71,7 +78,7 @@ DECLARE_SEMA(pm_sema, 0);
 DECLARE_COMPLETION(boot_decryto_lock);
 
 #ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
-#define TZ_PREFER_BIND_CORE (6)
+#define TZ_PREFER_BIND_CORE (7)
 #endif
 
 #define TEEI_RT_POLICY			(0x01)
@@ -186,7 +193,6 @@ static void *teei_cpu_write_owner;
 
 int teei_set_switch_pri(unsigned long policy)
 {
-#ifdef DYNAMIC_SET_PRIORITY
 	struct sched_param param = {.sched_priority = 50 };
 	int retVal = 0;
 
@@ -212,9 +218,6 @@ int teei_set_switch_pri(unsigned long policy)
 	}
 
 	return retVal;
-#else
-	return 0;
-#endif
 }
 
 void teei_cpus_read_lock(void)
@@ -231,18 +234,14 @@ void teei_cpus_read_unlock(void)
 
 void teei_cpus_write_lock(void)
 {
-#ifdef ISEE_FP_SINGLE_CHANNEL
 	cpus_write_lock();
 	teei_cpu_write_owner = current;
-#endif
 }
 
 void teei_cpus_write_unlock(void)
 {
-#ifdef ISEE_FP_SINGLE_CHANNEL
 	teei_cpu_write_owner = NULL;
 	cpus_write_unlock();
-#endif
 }
 
 struct tz_driver_state *get_tz_drv_state(void)
@@ -686,13 +685,13 @@ static long teei_config_ioctl(struct file *file,
 
 			TEEI_BOOT_FOOTPRINT("TEEI start to load driver TAs");
 
+			teei_ta_flags = param.flag;
 			if (param.uuid_count > MAX_DRV_UUIDS) {
 				IMSG_ERROR("TEEI uuid_count is invalid(%u)!\n",
 					(unsigned int)(param.uuid_count));
 				return -EINVAL;
 			}
 
-			teei_ta_flags = param.flag;
 			for (i = 0; i < param.uuid_count; i++) {
 				if ((teei_ta_flags >> i) & (0x01))
 					tz_load_ta_by_str(param.uuids[i]);

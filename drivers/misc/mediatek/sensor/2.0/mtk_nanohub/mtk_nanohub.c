@@ -680,6 +680,14 @@ static void mtk_nanohub_init_sensor_info(void)
 	strlcpy(p->name, "ois", sizeof(p->name));
 	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
+#ifdef CONFIG_MTK_ULTRASND_PROXIMITY
+	p = &sensor_state[SENSOR_TYPE_ELLIPTIC_FUSION];
+	p->sensorType = SENSOR_TYPE_ELLIPTIC_FUSION;
+	p->gain = 1;
+	strlcpy(p->name, "prox", sizeof(p->name));
+	strlcpy(p->vendor, "ellip", sizeof(p->vendor));
+#endif
+
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
@@ -2800,6 +2808,19 @@ static void mtk_nanohub_shutdown(struct platform_device *pdev)
 	}
 	mutex_unlock(&sensor_state_mtx);
 }
+
+int elliptic_io_open_port(int portid)
+{
+	pr_debug("ELUS sensor_enable_to_hub (1)");
+	return mtk_nanohub_enable_to_hub(ID_ELLIPTIC_FUSION, 1);
+}
+
+int elliptic_io_close_port(int portid)
+{
+	pr_debug("ELUS sensor_enable_to_hub (0)");
+	return mtk_nanohub_enable_to_hub(ID_ELLIPTIC_FUSION, 0);
+}
+
 
 static struct platform_device mtk_nanohub_pdev = {
 	.name = "mtk_nanohub",

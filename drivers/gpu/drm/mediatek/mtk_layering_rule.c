@@ -127,7 +127,7 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 	unsigned int disp_idx = 0, i = 0;
 	struct drm_mtk_layer_config *info;
 	unsigned int yuv_gpu_cnt;
-	unsigned int yuv_layer_gpu[12];
+	unsigned int yuv_layer_gpu[MAX_PHY_OVL_CNT];
 	int yuv_layer_ovl = -1;
 
 	for (disp_idx = 0 ; disp_idx < HRT_TYPE_NUM ; disp_idx++) {
@@ -144,9 +144,13 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 				if (info->secure == 1 &&
 				    yuv_layer_ovl < 0) {
 					yuv_layer_ovl = i;
-				} else {
+				} else if (yuv_gpu_cnt < MAX_PHY_OVL_CNT) {
 					yuv_layer_gpu[yuv_gpu_cnt] = i;
 					yuv_gpu_cnt++;
+				} else {
+					DDPPR_ERR("%s: yuv_gpu_cnt %d over MAX_PHY_OVL_CNT\n",
+						__func__, yuv_gpu_cnt);
+					return;
 				}
 			}
 		}
@@ -643,7 +647,9 @@ static void calc_clip_y(struct drm_mtk_layer_config *cfg)
 static void backup_input_config(struct drm_mtk_layering_info *disp_info)
 {
 	unsigned int size = 0;
+	unsigned long flags = 0;
 
+	spin_lock_irqsave(&hrt_table_lock, flags);
 	/* free before use */
 	if (g_input_config != 0) {
 		kfree(g_input_config);
@@ -651,21 +657,25 @@ static void backup_input_config(struct drm_mtk_layering_info *disp_info)
 	}
 
 	if (disp_info->layer_num[HRT_PRIMARY] <= 0 ||
-	    disp_info->input_config[HRT_PRIMARY] == NULL)
+	    disp_info->input_config[HRT_PRIMARY] == NULL) {
+		spin_unlock_irqrestore(&hrt_table_lock, flags);
 		return;
+	}
 
 	/* memory allocate */
 	size = sizeof(struct drm_mtk_layer_config) *
 	       disp_info->layer_num[HRT_PRIMARY];
-	g_input_config = kzalloc(size, GFP_KERNEL);
+	g_input_config = kzalloc(size, GFP_ATOMIC);
 
 	if (g_input_config == 0) {
 		DDPPR_ERR("%s: allocate memory fail\n", __func__);
+		spin_unlock_irqrestore(&hrt_table_lock, flags);
 		return;
 	}
 
 	/* memory copy */
 	memcpy(g_input_config, disp_info->input_config[HRT_PRIMARY], size);
+	spin_unlock_irqrestore(&hrt_table_lock, flags);
 }
 
 static void fbdc_pre_calculate(struct drm_mtk_layering_info *disp_info)
