@@ -1519,6 +1519,10 @@ retry:
 	/* pwq determined, queue */
 	trace_workqueue_queue_work(req_cpu, pwq, work);
 
+#if IS_ENABLED(CONFIG_MTK_PANIC_ON_WARN)
+	trace_printk("wq queue work dbg cpu:%d, pwq:%px, work:%px function: %px [%pS]\n",
+			req_cpu, pwq, work, work->func, work->func);
+#endif
 	if (WARN_ON(!list_empty(&work->entry)))
 		goto out;
 
