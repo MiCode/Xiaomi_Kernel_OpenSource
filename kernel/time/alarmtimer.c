@@ -35,6 +35,8 @@
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 #include <linux/sched/clock.h>
+#include <linux/sched.h>
+#define MAX_ALARM_CNT	10000ULL
 #endif
 
 /**
@@ -393,10 +395,60 @@ void alarm_start(struct alarm *alarm, ktime_t start)
 {
 	struct alarm_base *base = &alarm_bases[alarm->type];
 	unsigned long flags;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	static unsigned long long duration_us;
+	static unsigned long long tfd_isalarm;
+	static int tfd_isalarm_cnt;
+	static int tfd_isalarm_comm_cnt;
+	static char comm[TASK_COMM_LEN];
+	static pid_t tfd_pid;
+#endif
 
 	spin_lock_irqsave(&base->lock, flags);
 	alarm->node.expires = start;
 	alarmtimer_enqueue(base, alarm);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	/* warn_on when timeout is less than 50us */
+	duration_us = ktime_us_delta(alarm->node.expires, base->get_ktime());
+	WARN_ON_ONCE(duration_us < 1000000ULL / MAX_ALARM_CNT);
+
+	if (tfd_isalarm) {
+		if (sched_clock() - tfd_isalarm > 1000000000ULL) {
+			if (tfd_isalarm_cnt > MAX_ALARM_CNT) {
+				WARN_ON_ONCE(tfd_isalarm_cnt > MAX_ALARM_CNT);
+				pr_info("tfd_isalarm %lld sched_clock %lld tfd_isalarm_cnt %d comm %-15.15s cnt %d\n",
+					tfd_isalarm, sched_clock(),
+					tfd_isalarm_cnt,
+					comm, tfd_isalarm_comm_cnt);
+			}
+			tfd_isalarm = 0;
+			tfd_isalarm_cnt = 0;
+			tfd_isalarm_comm_cnt = 0;
+		}
+	}
+
+	if (duration_us < 1000000ULL / MAX_ALARM_CNT) {
+		struct task_struct *t = current;
+		pid_t pid = t->pid;
+
+		if (!tfd_isalarm) {
+			pr_info("jiffies %lu expire %lld now %lld duration %lld comm %-15.15s cnt %d\n",
+				jiffies, alarm->node.expires, ktime_get(),
+				duration_us, t->comm,
+				tfd_isalarm_comm_cnt);
+				tfd_isalarm = sched_clock();
+		}
+
+		if (!tfd_isalarm_cnt) {
+			strncpy(comm, t->comm, strlen(t->comm));
+			tfd_pid = pid;
+			tfd_isalarm_cnt++;
+		} else if (tfd_isalarm_cnt && (pid == tfd_pid))
+			tfd_isalarm_comm_cnt++;
+
+		tfd_isalarm_cnt++;
+	}
+#endif
 	hrtimer_start(&alarm->timer, alarm->node.expires, HRTIMER_MODE_ABS);
 	spin_unlock_irqrestore(&base->lock, flags);
 
