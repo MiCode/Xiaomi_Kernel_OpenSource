@@ -4917,7 +4917,7 @@ static u16 imx888_seamless_custom6[] = {
 	// 0x3087, 0x31, // pd dt for 12bit: 0x31
 };
 
-tatic u16 imx888_seamless_custom7[] = {
+static u16 imx888_seamless_custom7[] = {
 	// 0x0112, 0x0C,
 	// 0x0113, 0x0C,
 	// 0x0114, 0x02,
