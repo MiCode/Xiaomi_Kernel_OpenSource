@@ -926,7 +926,7 @@ struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client)
 		pkt->dev = client->chan->mbox->dev;
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	if (client && cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+	if (client)
 		cmdq_pkt_perf_begin(pkt);
 
 	if (!cmdq_util_is_prebuilt_client(client))
@@ -2020,6 +2020,9 @@ void cmdq_pkt_perf_begin(struct cmdq_pkt *pkt)
 	dma_addr_t pa;
 	struct cmdq_pkt_buffer *buf;
 
+	if (!cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+		return;
+
 	if (!pkt->buf_size)
 		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
 			return;
@@ -2036,6 +2039,9 @@ void cmdq_pkt_perf_end(struct cmdq_pkt *pkt)
 {
 	dma_addr_t pa;
 	struct cmdq_pkt_buffer *buf;
+
+	if (!cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+		return;
 
 	if (!pkt->buf_size)
 		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
@@ -2238,8 +2244,7 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 		return 0;
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
-		cmdq_pkt_perf_end(pkt);
+	cmdq_pkt_perf_end(pkt);
 
 #ifdef CMDQ_SECURE_SUPPORT
 	if (pkt->sec_data) {
