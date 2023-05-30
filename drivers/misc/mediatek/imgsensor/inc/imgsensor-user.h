@@ -32,6 +32,7 @@ enum {
 	PAD_SRC_HDR0,
 	PAD_SRC_HDR1,
 	PAD_SRC_HDR2,
+	PAD_SRC_FLICKER,
 	PAD_SRC_GENERAL0,
 	PAD_MAXCNT,
 	PAD_ERR = 0xffff,
@@ -353,6 +354,7 @@ struct mtk_mbus_frame_desc_entry_csi2 {
 	u16 hsize;
 	u16 vsize;
 	u16 user_data_desc;
+	u16 valid_bit;
 };
 
 struct mtk_mbus_frame_desc_entry {
@@ -364,7 +366,7 @@ struct mtk_mbus_frame_desc_entry {
 	} bus;
 };
 
-#define MTK_FRAME_DESC_ENTRY_MAX 8
+#define MTK_FRAME_DESC_ENTRY_MAX 16
 enum mtk_mbus_frame_desc_type {
 	MTK_MBUS_FRAME_DESC_TYPE_PLATFORM,
 	MTK_MBUS_FRAME_DESC_TYPE_PARALLEL,
@@ -387,6 +389,12 @@ struct mtk_csi_param {
 	__u8 not_fixed_trail_settle;
 	__u32 dphy_csi2_resync_dmy_cycle;
 	__u8 not_fixed_dphy_settle;
+};
+
+struct mtk_sensor_saturation_info {
+	__u32 gain_ratio;
+	__u32 OB_pedestal;
+	__u32 saturation_level;
 };
 
 struct mtk_n_1_mode {
@@ -438,6 +446,24 @@ struct mtk_sensor_mode_config_info {
 	__u32 current_scenario_id;
 	__u32 count;
 	struct mtk_sensor_mode_info seamless_scenario_infos[SENSOR_SCENARIO_ID_MAX];
+};
+
+struct mtk_DCG_gain_ratio_table {
+	__u32 scenario_id;
+	int size;
+	__u32 *p_buf;
+};
+
+struct mtk_DCG_gain_ratio_range_by_scenario {
+	__u32 scenario_id;
+	__u32 min_gain_ratio;
+	__u32 max_gain_ratio;
+};
+
+struct mtk_DCG_type_by_scenario {
+	__u32 scenario_id;
+	__u32 dcg_mode;
+	__u32 dcg_gain_mode;
 };
 
 /* GET */
@@ -564,6 +590,18 @@ struct mtk_sensor_mode_config_info {
 
 #define VIDIOC_MTK_G_FS_FRAME_LENGTH_INFO \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 43, struct mtk_fs_frame_length_info)
+
+#define VIDIOC_MTK_G_DCG_GAIN_RATIO_TABLE_SIZE_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 44, struct mtk_DCG_gain_ratio_table)
+
+#define VIDIOC_MTK_G_DCG_GAIN_RATIO_TABLE_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 45, struct mtk_DCG_gain_ratio_table)
+
+#define VIDIOC_MTK_G_DCG_GAIN_RATIO_RANGE_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 46, struct mtk_DCG_gain_ratio_range_by_scenario)
+
+#define VIDIOC_MTK_G_DCG_TYPE_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 47, struct mtk_DCG_type_by_scenario)
 
 /* SET */
 

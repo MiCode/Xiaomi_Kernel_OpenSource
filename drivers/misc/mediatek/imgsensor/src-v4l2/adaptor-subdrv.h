@@ -130,6 +130,17 @@ struct eeprom_info_struct {
 	u8 *preload_xtalk_table;
 };
 
+struct dcg_info_struct {
+	enum IMGSENSOR_DCG_MODE dcg_mode;
+	enum IMGSENSOR_DCG_GAIN_MODE dcg_gain_mode;
+	enum IMGSENSOR_DCG_GAIN_BASE dcg_gain_base;
+	u32 dcg_gain_ratio_min;
+	u32 dcg_gain_ratio_max;
+	u32 dcg_gain_ratio_step;
+	u32 *dcg_gain_table;
+	u32 dcg_gain_table_size;
+};
+
 struct subdrv_mode_struct {
 	u16 *mode_setting_table;
 	u32 mode_setting_len;
@@ -169,6 +180,9 @@ struct subdrv_mode_struct {
 	u32 dig_gain_min;
 	u32 dig_gain_max;
 	u32 dig_gain_step;
+
+	struct mtk_sensor_saturation_info *saturation_info;
+	struct dcg_info_struct dcg_info;
 };
 
 #define REG_ADDR_MAXCNT 3
@@ -211,6 +225,7 @@ struct subdrv_static_ctx {
 	u32 dig_gain_min;
 	u32 dig_gain_max;
 	u32 dig_gain_step;
+	struct mtk_sensor_saturation_info *saturation_info;
 
 	u32 frame_length_max;
 	u8 ae_effective_frame;
@@ -242,6 +257,7 @@ struct subdrv_static_ctx {
 	u16 reg_addr_auto_extend;
 	u16 reg_addr_frame_count;
 	u16 reg_addr_fast_mode;
+	u16 reg_addr_dcg_ratio;
 
 	u16 *init_setting_table;
 	u32 init_setting_len;
