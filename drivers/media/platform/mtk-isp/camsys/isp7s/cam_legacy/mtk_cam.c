@@ -817,6 +817,9 @@ static int update_scen_param(struct mtk_cam_ctx *ctx,
 			config_param->exp_order = MTKCAM_IPI_ORDER_NE_SE;
 			break;
 		}
+	} else if (mtk_cam_scen_is_dcg(scen)) {
+		config_param->sw_feature = MTKCAM_IPI_SW_FEATURE_VHDR;
+		config_param->exp_order = MTKCAM_IPI_ORDER_NE_SE;
 	} else {
 		config_param->sw_feature = MTKCAM_IPI_SW_FEATURE_NORMAL;
 		config_param->exp_order = MTKCAM_IPI_ORDER_NE_SE;
