@@ -2020,6 +2020,24 @@ void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx)
 	vdec_check_release_lock(ctx);
 }
 
+static bool mtk_vdec_dvfs_params_change(struct mtk_vcodec_ctx *ctx)
+{
+	bool need_update = false;
+
+	if (ctx->state == MTK_STATE_HEADER) {
+		if (!ctx->is_active)
+			need_update = true;
+
+		if (ctx->dec_param_change & MTK_DEC_PARAM_OPERATING_RATE) {
+			need_update = true;
+			ctx->dec_param_change &= (~MTK_DEC_PARAM_OPERATING_RATE);
+		}
+
+	}
+
+	return need_update;
+}
+
 /*
  * check decode ctx is active or not
  * active: ctx is decoding frame
@@ -2064,9 +2082,9 @@ void mtk_vdec_check_alive_work(struct work_struct *ws)
 			return;
 		}
 		ctx->is_active = 1;
-		mtk_vdec_dvfs_update_active_state(ctx);
+		mtk_vdec_dvfs_update_dvfs_params(ctx);
 		kfree(caws);
-		mtk_v4l2_debug(0, "[VDVFS] %s [%d] is active now", __func__, ctx->id);
+		mtk_v4l2_debug(0, "[VDVFS] %s [%d] is active/update_params now", __func__, ctx->id);
 	} else { // timer trigger case
 		list_for_each(item, &dev->vdec_dvfs_inst) {
 		inst = list_entry(item, struct vcodec_inst, list);
@@ -2079,14 +2097,14 @@ void mtk_vdec_check_alive_work(struct work_struct *ws)
 				if (ctx->is_active) {
 					need_update = true;
 					ctx->is_active = 0;
-					mtk_vdec_dvfs_update_active_state(ctx);
+					mtk_vdec_dvfs_update_dvfs_params(ctx);
 					mtk_v4l2_debug(0, "[VDVFS] ctx %d inactive", ctx->id);
 				}
 			} else {
 				if (!ctx->is_active) {
 					need_update = true;
 					ctx->is_active = 1;
-					mtk_vdec_dvfs_update_active_state(ctx);
+					mtk_vdec_dvfs_update_dvfs_params(ctx);
 					mtk_v4l2_debug(0, "[VDVFS] ctx %d active", ctx->id);
 				}
 				ctx->last_decoded_frame_cnt = ctx->decoded_frame_cnt;
@@ -3319,7 +3337,7 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 
 #ifdef VDEC_CHECK_ALIVE
 	/* ctx resume, queue work for check alive timer */
-	if (!ctx->is_active && ctx->state == MTK_STATE_HEADER) {
+	if (mtk_vdec_dvfs_params_change(ctx)) {
 		retrigger_ctx_work = kzalloc(sizeof(*retrigger_ctx_work), GFP_KERNEL);
 		INIT_WORK(&retrigger_ctx_work->work, mtk_vdec_check_alive_work);
 		retrigger_ctx_work->ctx = ctx;
