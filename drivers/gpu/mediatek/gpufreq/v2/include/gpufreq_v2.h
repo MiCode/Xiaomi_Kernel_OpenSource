@@ -131,21 +131,22 @@ enum gpuppm_reserved_idx {
 };
 
 enum gpuppm_limiter {
-	LIMIT_SEGMENT      = 0,
-	LIMIT_DEBUG        = 1,
-	LIMIT_GPM3         = 2,
-	LIMIT_TEMPER_COMP  = 3,
-	LIMIT_PEAK_POWER   = 4,
-	LIMIT_THERMAL_AP   = 5,
-	LIMIT_THERMAL_EB   = 6,
-	LIMIT_SRAMRC       = 7,
-	LIMIT_BATT_OC      = 8,
-	LIMIT_BATT_PERCENT = 9,
-	LIMIT_LOW_BATT     = 10,
-	LIMIT_PBM          = 11,
-	LIMIT_APIBOOST     = 12,
-	LIMIT_FPSGO        = 13,
-	LIMIT_NUM          = 14,
+	LIMIT_SEGMENT       = 0,
+	LIMIT_DEBUG         = 1,
+	LIMIT_GPM3          = 2,
+	LIMIT_TEMPER_COMP   = 3,
+	LIMIT_PEAK_POWER_AP = 4,
+	LIMIT_PEAK_POWER_EB = 5,
+	LIMIT_THERMAL_AP    = 6,
+	LIMIT_THERMAL_EB    = 7,
+	LIMIT_SRAMRC        = 8,
+	LIMIT_BATT_OC       = 9,
+	LIMIT_BATT_PERCENT  = 10,
+	LIMIT_LOW_BATT      = 11,
+	LIMIT_PBM           = 12,
+	LIMIT_APIBOOST      = 13,
+	LIMIT_FPSGO         = 14,
+	LIMIT_NUM           = 15,
 };
 
 enum gpuppm_limit_type {
@@ -446,8 +447,6 @@ unsigned int gpufreq_get_leakage_power(enum gpufreq_target target, unsigned int 
 unsigned int gpufreq_get_dynamic_power(enum gpufreq_target target,
 	unsigned int freq, unsigned int volt);
 int gpufreq_set_limit(enum gpufreq_target target,
-	enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
-int gpufreq_set_limit_nolock(enum gpufreq_target target,
 	enum gpuppm_limiter limiter, int ceiling_info, int floor_info);
 int gpufreq_get_cur_limit_idx(enum gpufreq_target target,enum gpuppm_limit_type limit);
 unsigned int gpufreq_get_cur_limiter(enum gpufreq_target target, enum gpuppm_limit_type limit);
