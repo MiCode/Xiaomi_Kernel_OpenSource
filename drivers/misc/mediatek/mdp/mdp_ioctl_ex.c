@@ -976,6 +976,9 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 		goto done;
 	}
 
+	/* prevent ioctl release when waiting for task done */
+	cmdq_remove_handle_from_handle_active(handle);
+
 	do {
 		/* wait for task done */
 		status = cmdq_mdp_wait(handle, NULL);
