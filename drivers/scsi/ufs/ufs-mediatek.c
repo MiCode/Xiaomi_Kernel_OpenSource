@@ -1056,6 +1056,8 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	bool clk_pwr_off = false;
 	int ret = 0;
+	struct ufs_hba_private *hba_priv =
+			(struct ufs_hba_private *)hba->android_vendor_data1;
 
 	/*
 	 * In case ufs_mtk_init() is not yet done, simply ignore.
@@ -1094,6 +1096,10 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 				mtk_btag_ufs_clk_gating(on);
 #endif
 		}
+
+		if (hba_priv->is_mcq_enabled)
+			ufs_mtk_mcq_disable_irq(hba);
+
 	} else if (on && status == POST_CHANGE) {
 		phy_power_on(host->mphy);
 		ufs_mtk_setup_ref_clk(hba, on);
@@ -1104,6 +1110,9 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 		if (host->qos_enabled)
 			mtk_btag_ufs_clk_gating(on);
 #endif
+
+		if (hba_priv->is_mcq_enabled)
+			ufs_mtk_mcq_enable_irq(hba);
 	}
 
 	return ret;

@@ -393,6 +393,8 @@ void ufs_mtk_mcq_host_dts(struct ufs_hba *hba);
 void ufs_mtk_mcq_get_irq(struct platform_device *pdev);
 void ufs_mtk_mcq_request_irq(struct ufs_hba *hba);
 void ufs_mtk_mcq_set_irq_affinity(struct ufs_hba *hba);
+void ufs_mtk_mcq_disable_irq(struct ufs_hba *hba);
+void ufs_mtk_mcq_enable_irq(struct ufs_hba *hba);
 int ufs_mtk_mcq_memory_alloc(struct ufs_hba *hba);
 int ufs_mtk_mcq_install_tracepoints(void);
 

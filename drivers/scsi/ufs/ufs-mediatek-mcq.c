@@ -1267,6 +1267,48 @@ void ufs_mtk_mcq_set_irq_affinity(struct ufs_hba *hba)
 	}
 }
 
+void ufs_mtk_mcq_disable_irq(struct ufs_hba *hba)
+{
+	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
+	struct blk_mq_tag_set *tag_set = &hba->host->tag_set;
+	struct blk_mq_queue_map	*map = &tag_set->map[HCTX_TYPE_DEFAULT];
+	unsigned int nr = map->nr_queues;
+	unsigned int q_index, cpu, irq;
+
+	if (!hba_priv->is_mcq_enabled)
+		return;
+
+	if (hba_priv->mcq_nr_intr == 0)
+		return;
+
+	for (cpu = 0; cpu < nr; cpu++) {
+		q_index = map->mq_map[cpu];
+		irq = hba_priv->mcq_intr_info[q_index].intr;
+		disable_irq(irq);
+	}
+}
+
+void ufs_mtk_mcq_enable_irq(struct ufs_hba *hba)
+{
+	struct ufs_hba_private *hba_priv = (struct ufs_hba_private *)hba->android_vendor_data1;
+	struct blk_mq_tag_set *tag_set = &hba->host->tag_set;
+	struct blk_mq_queue_map	*map = &tag_set->map[HCTX_TYPE_DEFAULT];
+	unsigned int nr = map->nr_queues;
+	unsigned int q_index, cpu, irq;
+
+	if (!hba_priv->is_mcq_enabled)
+		return;
+
+	if (hba_priv->mcq_nr_intr == 0)
+		return;
+
+	for (cpu = 0; cpu < nr; cpu++) {
+		q_index = map->mq_map[cpu];
+		irq = hba_priv->mcq_intr_info[q_index].intr;
+		enable_irq(irq);
+	}
+}
+
 int ufs_mtk_mcq_memory_alloc(struct ufs_hba *hba)
 {
 	size_t usel_size, ucel_size;
