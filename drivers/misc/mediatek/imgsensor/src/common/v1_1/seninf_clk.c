@@ -292,8 +292,12 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 
 	seninf_clk_check(pclk);
 
-	for (i = 0; pmclk->freq != gseninf_clk_freq[i]; i++)
+	for (i = 0; ((i < SENINF_CLK_IDX_FREQ_IDX_NUM) &&
+				(pmclk->freq != gseninf_clk_freq[i])); i++)
 		;
+
+	if (i >= SENINF_CLK_IDX_FREQ_IDX_NUM)
+		return -EFAULT;
 
 	idx_tg = pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM;
 	idx_freq = i + SENINF_CLK_IDX_FREQ_MIN_NUM;
@@ -395,8 +399,12 @@ int seninf_sys_clk_set(struct SENINF_CLK *pclk,
 
 	seninf_clk_check(pclk);
 
-	for (i = 0; freq != gseninf_clk_freq[i]; i++)
+	for (i = 0; ((i < SENINF_CLK_IDX_FREQ_IDX_NUM) &&
+				(freq != gseninf_clk_freq[i])); i++)
 		;
+
+	if (i >= SENINF_CLK_IDX_FREQ_IDX_NUM)
+		return -EFAULT;
 
 	freq_idx = SENINF_CLK_IDX_FREQ_MIN_NUM + i;
 	seninf_idx = SENINF_CLK_IDX_SYS_TOP_MUX_SENINF + seninf_port;
