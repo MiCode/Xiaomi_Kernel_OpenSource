@@ -21,9 +21,11 @@
  *===================================================================
  *******************************************************************/
 #include "s5khp3spmipiraw_Sensor.h"
-#define S5KHP3SP_LOG_INF(format, args...) pr_info(LOG_TAG "[%s] " format, __func__, ##args)
 static void set_group_hold(void *arg, u8 en);
 static u16 get_gain2reg(u32 gain);
+static void s5khp3sp_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
+static void s5khp3sp_get_stagger_target_scenario(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static void s5khp3sp_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static void s5khp3sp_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
@@ -35,6 +37,8 @@ static int open(struct subdrv_ctx *ctx);
 static struct subdrv_feature_control feature_control_list[] = {
 	{SENSOR_FEATURE_SET_TEST_PATTERN, s5khp3sp_set_test_pattern},
 	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, s5khp3sp_set_test_pattern_data},
+	{SENSOR_FEATURE_SEAMLESS_SWITCH, s5khp3sp_seamless_switch},
+	{SENSOR_FEATURE_GET_STAGGER_TARGET_SCENARIO, s5khp3sp_get_stagger_target_scenario},
 };
 
 static struct eeprom_info_struct eeprom_info[] = {
@@ -160,19 +164,26 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 			.channel = 0,
 			.data_type = 0x2c,
 			.hsize = 0x0ff0,
+			.vsize = 0x0bf4,
+		},
+	},
+};
+
+static struct mtk_mbus_frame_desc_entry frame_desc_cus6[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2c,
+			.hsize = 0x0ff0,
 			.vsize = 0x08f8,
 		},
 	},
 };
 
 //1000 base for dcg gain ratio
-static u32 s5khp3sp_dcg_ratio_table_cus2[] = {1000};
-
-static u32 s5khp3sp_dcg_ratio_table_cus3[] = {8000};
-
-static u32 s5khp3sp_dcg_ratio_table_cus4[] = {8000};
-
 static u32 s5khp3sp_dcg_ratio_table_cus5[] = {8000};
+
+static u32 s5khp3sp_dcg_ratio_table_cus6[] = {8000};
 
 static struct mtk_sensor_saturation_info imgsensor_saturation_info = {
 	.gain_ratio = 1000,
@@ -187,18 +198,24 @@ static struct mtk_sensor_saturation_info imgsensor_saturation_info_cus2 = {
 };
 
 static struct mtk_sensor_saturation_info imgsensor_saturation_info_cus3 = {
-	.gain_ratio = 8000,
+	.gain_ratio = 1000,
 	.OB_pedestal = 256,
 	.saturation_level = 4092,
 };
 
 static struct mtk_sensor_saturation_info imgsensor_saturation_info_cus4 = {
-	.gain_ratio = 8000,
+	.gain_ratio = 1000,
 	.OB_pedestal = 256,
 	.saturation_level = 4092,
 };
 
 static struct mtk_sensor_saturation_info imgsensor_saturation_info_cus5 = {
+	.gain_ratio = 8000,
+	.OB_pedestal = 256,
+	.saturation_level = 4092,
+};
+
+static struct mtk_sensor_saturation_info imgsensor_saturation_info_cus6 = {
 	.gain_ratio = 8000,
 	.OB_pedestal = 256,
 	.saturation_level = 4092,
@@ -226,13 +243,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 16320,
 			.full_h = 12288,
 			.x0_offset = 0,
-			.y0_offset = 24,
+			.y0_offset = 0,
 			.w0_size = 16320,
-			.h0_size = 12240,
+			.h0_size = 12288,
 			.scale_w = 4080,
-			.scale_h = 3060,
+			.scale_h = 3072,
 			.x1_offset = 0,
-			.y1_offset = 0,
+			.y1_offset = 6,
 			.w1_size = 4080,
 			.h1_size = 3060,
 			.x2_tg_offset = 0,
@@ -257,10 +274,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
 		.hdr_group = PARAM_UNDEFINED,
 		.hdr_mode = HDR_NONE,
-		.pclk = 2000000000,
-		.linelength = 19696,
-		.framelength = 6225,
-		.max_framerate = 300,
+		.pclk = 1760000000,
+		.linelength = 18720,
+		.framelength = 6255,
+		.max_framerate = 150,
 		.mipi_pixel_rate = 930240000,
 		.readout_length = 0,
 		.read_margin = 0,
@@ -268,13 +285,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 16320,
 			.full_h = 12288,
 			.x0_offset = 0,
-			.y0_offset = 24,
+			.y0_offset = 0,
 			.w0_size = 16320,
-			.h0_size = 12240,
+			.h0_size = 12288,
 			.scale_w = 8160,
-			.scale_h = 6120,
+			.scale_h = 6144,
 			.x1_offset = 0,
-			.y1_offset = 0,
+			.y1_offset = 12,
 			.w1_size = 8160,
 			.h1_size = 6120,
 			.x2_tg_offset = 0,
@@ -297,7 +314,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
-		.hdr_group = 1,
+		.hdr_group = 2,
 		.hdr_mode = HDR_NONE,
 		.pclk = 2000000000,
 		.linelength = 15008,
@@ -310,13 +327,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 16320,
 			.full_h = 12288,
 			.x0_offset = 0,
-			.y0_offset = 1552,
+			.y0_offset = 1536,
 			.w0_size = 16320,
-			.h0_size = 9184,
+			.h0_size = 9216,
 			.scale_w = 4080,
-			.scale_h = 2296,
+			.scale_h = 2304,
 			.x1_offset = 0,
-			.y1_offset = 0,
+			.y1_offset = 4,
 			.w1_size = 4080,
 			.h1_size = 2296,
 			.x2_tg_offset = 0,
@@ -351,14 +368,14 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.imgsensor_winsize_info = {
 			.full_w = 16320,
 			.full_h = 12288,
-			.x0_offset = 2400,
-			.y0_offset = 2904,
-			.w0_size = 11520,
-			.h0_size = 6480,
+			.x0_offset = 480,
+			.y0_offset = 1792,
+			.w0_size = 15360,
+			.h0_size = 8704,
 			.scale_w = 1920,
-			.scale_h = 1080,
+			.scale_h = 1088,
 			.x1_offset = 0,
-			.y1_offset = 0,
+			.y1_offset = 4,
 			.w1_size = 1920,
 			.h1_size = 1080,
 			.x2_tg_offset = 0,
@@ -394,13 +411,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 16320,
 			.full_h = 12288,
 			.x0_offset = 0,
-			.y0_offset = 1552,
+			.y0_offset = 1536,
 			.w0_size = 16320,
-			.h0_size = 9184,
+			.h0_size = 9216,
 			.scale_w = 4080,
-			.scale_h = 2296,
+			.scale_h = 2304,
 			.x1_offset = 0,
-			.y1_offset = 0,
+			.y1_offset = 4,
 			.w1_size = 4080,
 			.h1_size = 2296,
 			.x2_tg_offset = 0,
@@ -435,10 +452,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.imgsensor_winsize_info = {
 			.full_w = 16320,
 			.full_h = 12288,
-			.x0_offset = 2040,
-			.y0_offset = 2256,
-			.w0_size = 12240,
-			.h0_size = 7776,
+			.x0_offset = 0,
+			.y0_offset = 960,
+			.w0_size = 16320,
+			.h0_size = 10368,
 			.scale_w = 2040,
 			.scale_h = 1296,
 			.x1_offset = 0,
@@ -457,16 +474,16 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 2,
 		.csi_param = {0},
 	},
-	{//custom2
+	{//custom2 LN2
 		.frame_desc = frame_desc_cus2,
 		.num_entries = ARRAY_SIZE(frame_desc_cus2),
 		.mode_setting_table = addr_data_pair_custom2,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom2),
-		.seamless_switch_group = PARAM_UNDEFINED,
-		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
-		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
+		.seamless_switch_group = 1,
+		.seamless_switch_mode_setting_table = s5khp3sp_seamless_custom2,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(s5khp3sp_seamless_custom2),
 		.hdr_group = 1,
-		.hdr_mode = HDR_RAW_DCG_COMPOSE_RAW12,
+		.hdr_mode = HDR_NONE,
 		.pclk = 2000000000,
 		.linelength = 16848,
 		.framelength = 3952,
@@ -478,13 +495,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 16320,
 			.full_h = 12288,
 			.x0_offset = 0,
-			.y0_offset = 24,
+			.y0_offset = 0,
 			.w0_size = 16320,
-			.h0_size = 12240,
+			.h0_size = 12288,
 			.scale_w = 4080,
-			.scale_h = 3060,
+			.scale_h = 3072,
 			.x1_offset = 0,
-			.y1_offset = 0,
+			.y1_offset = 6,
 			.w1_size = 4080,
 			.h1_size = 3060,
 			.x2_tg_offset = 0,
@@ -500,27 +517,17 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {0},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW12_Gr,
 		.saturation_info = &imgsensor_saturation_info_cus2,
-		.dcg_info = {
-			.dcg_mode = IMGSENSOR_DCG_COMPOSE,
-			.dcg_gain_mode = IMGSENSOR_DCG_RATIO_MODE,
-			.dcg_gain_base = IMGSENSOR_DCG_GAIN_HCG_BASE,
-			.dcg_gain_ratio_min = 1000,
-			.dcg_gain_ratio_max = 1000,
-			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = s5khp3sp_dcg_ratio_table_cus2,
-			.dcg_gain_table_size = sizeof(s5khp3sp_dcg_ratio_table_cus2),
-		},
 	},
-	{//custom3
+	{//custom3 2X
 		.frame_desc = frame_desc_cus3,
 		.num_entries = ARRAY_SIZE(frame_desc_cus3),
 		.mode_setting_table = addr_data_pair_custom3,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom3),
-		.seamless_switch_group = PARAM_UNDEFINED,
-		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
-		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
-		.hdr_group = PARAM_UNDEFINED,
-		.hdr_mode = HDR_RAW_DCG_COMPOSE_RAW12,
+		.seamless_switch_group = 1,
+		.seamless_switch_mode_setting_table = s5khp3sp_seamless_custom3,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(s5khp3sp_seamless_custom3),
+		.hdr_group = 1,
+		.hdr_mode = HDR_NONE,
 		.pclk = 1760000000,
 		.linelength = 12496,
 		.framelength = 4688,
@@ -532,13 +539,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 16320,
 			.full_h = 12288,
 			.x0_offset = 4080,
-			.y0_offset = 3084,
+			.y0_offset = 3080,
 			.w0_size = 8160,
-			.h0_size = 6120,
+			.h0_size = 6128,
 			.scale_w = 4080,
-			.scale_h = 3060,
+			.scale_h = 3064,
 			.x1_offset = 0,
-			.y1_offset = 0,
+			.y1_offset = 2,
 			.w1_size = 4080,
 			.h1_size = 3060,
 			.x2_tg_offset = 0,
@@ -554,30 +561,20 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {0},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW12_Gr,
 		.saturation_info = &imgsensor_saturation_info_cus3,
-		.dcg_info = {
-			.dcg_mode = IMGSENSOR_DCG_COMPOSE,
-			.dcg_gain_mode = IMGSENSOR_DCG_RATIO_MODE,
-			.dcg_gain_base = IMGSENSOR_DCG_GAIN_HCG_BASE,
-			.dcg_gain_ratio_min = 8000,
-			.dcg_gain_ratio_max = 8000,
-			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = s5khp3sp_dcg_ratio_table_cus3,
-			.dcg_gain_table_size = sizeof(s5khp3sp_dcg_ratio_table_cus3),
-		},
 	},
-	{//custom4
+	{//custom4 4X
 		.frame_desc = frame_desc_cus4,
 		.num_entries = ARRAY_SIZE(frame_desc_cus4),
 		.mode_setting_table = addr_data_pair_custom4,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom4),
-		.seamless_switch_group = PARAM_UNDEFINED,
-		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
-		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
-		.hdr_group = PARAM_UNDEFINED,
-		.hdr_mode = HDR_RAW_DCG_COMPOSE_RAW12,
+		.seamless_switch_group = 1,
+		.seamless_switch_mode_setting_table = s5khp3sp_seamless_custom4,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(s5khp3sp_seamless_custom4),
+		.hdr_group = 1,
+		.hdr_mode = HDR_NONE,
 		.pclk = 2000000000,
-		.linelength = 16848,
-		.framelength = 3952,
+		.linelength = 20320,
+		.framelength = 3279,
 		.max_framerate = 300,
 		.mipi_pixel_rate = 930240000,
 		.readout_length = 0,
@@ -585,14 +582,14 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.imgsensor_winsize_info = {
 			.full_w = 16320,
 			.full_h = 12288,
-			.x0_offset = 0,
-			.y0_offset = 24,
-			.w0_size = 16320,
-			.h0_size = 12240,
+			.x0_offset = 6120,
+			.y0_offset = 4608,
+			.w0_size = 4080,
+			.h0_size = 3072,
 			.scale_w = 4080,
-			.scale_h = 3060,
+			.scale_h = 3072,
 			.x1_offset = 0,
-			.y1_offset = 0,
+			.y1_offset = 6,
 			.w1_size = 4080,
 			.h1_size = 3060,
 			.x2_tg_offset = 0,
@@ -608,26 +605,70 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {0},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW12_Gr,
 		.saturation_info = &imgsensor_saturation_info_cus4,
-		.dcg_info = {
-			.dcg_mode = IMGSENSOR_DCG_COMPOSE,
-			.dcg_gain_mode = IMGSENSOR_DCG_RATIO_MODE,
-			.dcg_gain_base = IMGSENSOR_DCG_GAIN_HCG_BASE,
-			.dcg_gain_ratio_min = 8000,
-			.dcg_gain_ratio_max = 8000,
-			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = s5khp3sp_dcg_ratio_table_cus4,
-			.dcg_gain_table_size = sizeof(s5khp3sp_dcg_ratio_table_cus4),
-		},
 	},
-	{//custom5
+	{//custom5 capture iDCG
 		.frame_desc = frame_desc_cus5,
 		.num_entries = ARRAY_SIZE(frame_desc_cus5),
 		.mode_setting_table = addr_data_pair_custom5,
 		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom5),
+		.seamless_switch_group = 1,
+		.seamless_switch_mode_setting_table = s5khp3sp_seamless_custom5,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(s5khp3sp_seamless_custom5),
+		.hdr_group = 1,
+		.hdr_mode = HDR_RAW_DCG_COMPOSE_RAW12,
+		.pclk = 2000000000,
+		.linelength = 16848,
+		.framelength = 3952,
+		.max_framerate = 300,
+		.mipi_pixel_rate = 930240000,
+		.readout_length = 0,
+		.read_margin = 0,
+		.imgsensor_winsize_info = {
+			.full_w = 16320,
+			.full_h = 12288,
+			.x0_offset = 0,
+			.y0_offset = 0,
+			.w0_size = 16320,
+			.h0_size = 12288,
+			.scale_w = 4080,
+			.scale_h = 3072,
+			.x1_offset = 0,
+			.y1_offset = 6,
+			.w1_size = 4080,
+			.h1_size = 3060,
+			.x2_tg_offset = 0,
+			.y2_tg_offset = 0,
+			.w2_tg_size = 4080,
+			.h2_tg_size = 3060,
+		},
+		.pdaf_cap = FALSE,
+		.imgsensor_pd_info = PARAM_UNDEFINED,
+		.ae_binning_ratio = 4,
+		.fine_integ_line = 0,
+		.delay_frame = 2,
+		.csi_param = {0},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW12_Gr,
+		.saturation_info = &imgsensor_saturation_info_cus5,
+		.dcg_info = {
+			.dcg_mode = IMGSENSOR_DCG_COMPOSE,
+			.dcg_gain_mode = IMGSENSOR_DCG_RATIO_MODE,
+			.dcg_gain_base = IMGSENSOR_DCG_GAIN_LCG_BASE,
+			.dcg_gain_ratio_min = 8000,
+			.dcg_gain_ratio_max = 8000,
+			.dcg_gain_ratio_step = 0,
+			.dcg_gain_table = s5khp3sp_dcg_ratio_table_cus5,
+			.dcg_gain_table_size = sizeof(s5khp3sp_dcg_ratio_table_cus5),
+		},
+	},
+	{//custom6 video iDCG
+		.frame_desc = frame_desc_cus6,
+		.num_entries = ARRAY_SIZE(frame_desc_cus6),
+		.mode_setting_table = addr_data_pair_custom6,
+		.mode_setting_len = ARRAY_SIZE(addr_data_pair_custom6),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
-		.hdr_group = PARAM_UNDEFINED,
+		.hdr_group = 2,
 		.hdr_mode = HDR_RAW_DCG_COMPOSE_RAW12,
 		.pclk = 2000000000,
 		.linelength = 16848,
@@ -640,13 +681,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 16320,
 			.full_h = 12288,
 			.x0_offset = 0,
-			.y0_offset = 1552,
+			.y0_offset = 1536,
 			.w0_size = 16320,
-			.h0_size = 9184,
+			.h0_size = 9216,
 			.scale_w = 4080,
-			.scale_h = 2296,
+			.scale_h = 2304,
 			.x1_offset = 0,
-			.y1_offset = 0,
+			.y1_offset = 4,
 			.w1_size = 4080,
 			.h1_size = 2296,
 			.x2_tg_offset = 0,
@@ -661,16 +702,16 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 2,
 		.csi_param = {0},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW12_Gr,
-		.saturation_info = &imgsensor_saturation_info_cus5,
+		.saturation_info = &imgsensor_saturation_info_cus6,
 		.dcg_info = {
 			.dcg_mode = IMGSENSOR_DCG_COMPOSE,
 			.dcg_gain_mode = IMGSENSOR_DCG_RATIO_MODE,
-			.dcg_gain_base = IMGSENSOR_DCG_GAIN_HCG_BASE,
+			.dcg_gain_base = IMGSENSOR_DCG_GAIN_LCG_BASE,
 			.dcg_gain_ratio_min = 8000,
 			.dcg_gain_ratio_max = 8000,
 			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = s5khp3sp_dcg_ratio_table_cus5,
-			.dcg_gain_table_size = sizeof(s5khp3sp_dcg_ratio_table_cus5),
+			.dcg_gain_table = s5khp3sp_dcg_ratio_table_cus6,
+			.dcg_gain_table_size = sizeof(s5khp3sp_dcg_ratio_table_cus6),
 		},
 	},
 };
@@ -696,7 +737,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_Gr,
 	.ana_gain_def = BASEGAIN * 4,
 	.ana_gain_min = BASEGAIN * 1,
-	.ana_gain_max = BASEGAIN * 16,
+	.ana_gain_max = BASEGAIN * 128,
 	.ana_gain_type = 2,
 	.ana_gain_step = 1,
 	.ana_gain_table = s5khp3sp_ana_gain_table,
@@ -719,7 +760,7 @@ static struct subdrv_static_ctx static_ctx = {
 
 	.pdaf_type = PDAF_SUPPORT_NA,
 	.hdr_type = HDR_SUPPORT_STAGGER_FDOL|HDR_SUPPORT_DCG|HDR_SUPPORT_LBMF,
-	.seamless_switch_support = FALSE,
+	.seamless_switch_support = TRUE,
 	.temperature_support = FALSE,
 	.g_temp = PARAM_UNDEFINED,
 	.g_gain2reg = get_gain2reg,
@@ -762,6 +803,7 @@ static struct subdrv_ops ops = {
 	.get_frame_desc = common_get_frame_desc,
 	.get_csi_param = common_get_csi_param,
 	.update_sof_cnt = common_update_sof_cnt,
+	.vsync_notify = vsync_notify,
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
@@ -798,6 +840,126 @@ static void set_group_hold(void *arg, u8 en)
 static u16 get_gain2reg(u32 gain)
 {
 	return gain * 32 / BASEGAIN;
+}
+
+static void s5khp3sp_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+{
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id;
+	u32 *ae_ctrl = NULL;
+	u64 *feature_data = (u64 *)para;
+
+	if (feature_data == NULL) {
+		DRV_LOGE(ctx, "input scenario is null!");
+		return;
+	}
+	scenario_id = *feature_data;
+	if ((feature_data + 1) != NULL)
+		ae_ctrl = (u32 *)((uintptr_t)(*(feature_data + 1)));
+	else
+		DRV_LOGE(ctx, "no ae_ctrl input");
+
+	check_current_scenario_id_bound(ctx);
+	DRV_LOG_MUST(ctx, "E: set seamless switch %u %u\n", ctx->current_scenario_id, scenario_id);
+	if (!ctx->extend_frame_length_en)
+		DRV_LOGE(ctx, "please extend_frame_length before seamless_switch!\n");
+	ctx->extend_frame_length_en = FALSE;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		return;
+	}
+	if (ctx->s_ctx.mode[scenario_id].seamless_switch_group == 0 ||
+		ctx->s_ctx.mode[scenario_id].seamless_switch_group !=
+			ctx->s_ctx.mode[ctx->current_scenario_id].seamless_switch_group) {
+		DRV_LOGE(ctx, "seamless_switch not supported\n");
+		return;
+	}
+	if (ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_table == NULL) {
+		DRV_LOGE(ctx, "Please implement seamless_switch setting\n");
+		return;
+	}
+
+	ctx->is_seamless = TRUE;
+	update_mode_info(ctx, scenario_id);
+
+	subdrv_i2c_wr_u8(ctx, 0x0104, 0x01);
+	subdrv_i2c_wr_u8(ctx, 0x0b30, 0x01);
+	// subdrv_i2c_wr_u8(ctx, 0x3247, 0x04);// enable lbmf fast mode
+	i2c_table_write(ctx,
+		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_table,
+		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_len);
+
+	if (ae_ctrl) {
+		switch (ctx->s_ctx.mode[scenario_id].hdr_mode) {
+		case HDR_RAW_STAGGER_2EXP:
+			set_multi_shutter_frame_length(ctx, ae_ctrl, 2, 0);
+			set_multi_gain(ctx, ae_ctrl + 5, 2);
+			break;
+		case HDR_RAW_STAGGER_3EXP:
+			set_multi_shutter_frame_length(ctx, ae_ctrl, 3, 0);
+			set_multi_gain(ctx, ae_ctrl + 5, 3);
+			break;
+		default:
+			set_shutter(ctx, *ae_ctrl);
+			set_gain(ctx, *(ae_ctrl + 5));
+			break;
+		}
+	}
+	subdrv_i2c_wr_u8(ctx, 0x0b30, 0x00);
+
+	ctx->fast_mode_on = TRUE;
+	ctx->ref_sof_cnt = ctx->sof_cnt;
+	ctx->is_seamless = FALSE;
+	DRV_LOG(ctx, "X: set seamless switch done\n");
+}
+
+static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
+{
+	// u8 lbmf_lut_ctl = 0;
+
+	DRV_LOG_MUST(ctx, "sof_cnt(%u) ctx->ref_sof_cnt(%u) ctx->fast_mode_on(%d)",
+		sof_cnt, ctx->ref_sof_cnt, ctx->fast_mode_on);
+	if (ctx->fast_mode_on && (sof_cnt > ctx->ref_sof_cnt)) {
+		ctx->fast_mode_on = FALSE;
+		ctx->ref_sof_cnt = 0;
+		DRV_LOG(ctx, "seamless_switch disabled.");
+		set_i2c_buffer(ctx, 0x0b30, 0x00);
+		commit_i2c_buffer(ctx);
+	}
+	return 0;
+}
+
+static void s5khp3sp_get_stagger_target_scenario(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+{
+	u64 *feature_data = (u64 *)para;
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id = *feature_data;
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode = *(feature_data + 1);
+	u32 *pScenarios = (u32 *)(feature_data + 2);
+	int i = 0;
+	u32 group = 0;
+
+	if (ctx->s_ctx.hdr_type == HDR_SUPPORT_NA)
+		return;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		return;
+	}
+	group = ctx->s_ctx.mode[scenario_id].hdr_group;
+	if (scenario_id == SENSOR_SCENARIO_ID_NORMAL_PREVIEW)
+		group = 1;
+	for (i = 0; i < ctx->s_ctx.sensor_mode_num; i++) {
+		if (group != 0 && i != scenario_id &&
+		(ctx->s_ctx.mode[i].hdr_group == group) &&
+		(ctx->s_ctx.mode[i].hdr_mode == hdr_mode)) {
+			*pScenarios = i;
+			DRV_LOG_MUST(ctx, "sid(input/output):%u/%u, hdr_mode:%u\n",
+				scenario_id, *pScenarios, hdr_mode);
+			break;
+		}
+	}
 }
 
 static void s5khp3sp_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
