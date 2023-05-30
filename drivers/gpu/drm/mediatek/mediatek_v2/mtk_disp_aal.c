@@ -95,7 +95,7 @@ static struct workqueue_struct *aal_flip_wq;
 static struct workqueue_struct *aal_refresh_wq;
 
 static int g_aal_backlight_set;
-
+static int g_ori_aal_backlight_notified;
 enum AAL_UPDATE_HIST {
 	UPDATE_NONE = 0,
 	UPDATE_SINGLE,
@@ -479,7 +479,14 @@ void disp_aal_notify_backlight_changed(int trans_backlight, int max_backlight)
 	}
 
 	spin_lock_irqsave(&g_aal_hist_lock, flags);
-	g_aal_hist.backlight = trans_backlight;
+
+	if (m_new_pq_persist_property[DISP_PQ_GAMMA_SILKY_BRIGHTNESS] &&
+		(atomic_read(&g_aal_force_relay) == 1)) {
+		g_aal_hist.backlight = g_ori_aal_backlight_notified;
+	} else
+		g_aal_hist.backlight = trans_backlight;
+
+	AALAPI_LOG("trans_bl:%d, hist.bl:%d\n", trans_backlight, g_aal_hist.backlight);
 	g_aal_hist.serviceFlags |= service_flags;
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 	// always notify aal service for LED changed
@@ -518,6 +525,7 @@ int led_brightness_changed_event_to_aal(struct notifier_block *nb, unsigned long
 	struct led_conf_info *led_conf;
 
 	led_conf = (struct led_conf_info *)v;
+	g_ori_aal_backlight_notified = led_conf->cdev.brightness;
 
 	switch (event) {
 	case LED_BRIGHTNESS_CHANGED:
@@ -3206,6 +3214,8 @@ static void mtk_aal_bypass(struct mtk_ddp_comp *comp, int bypass,
 
 }
 
+extern void mtk_dmdp_aal_bypass(struct mtk_ddp_comp *comp, int bypass,
+	struct cmdq_pkt *handle);
 static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	unsigned int cmd, void *data)
 {
@@ -3241,6 +3251,16 @@ static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		int *value = data;
 
 		mtk_aal_bypass(comp, *value, handle);
+		if (g_aal_fo->mtk_dre30_support) {
+			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+			struct drm_crtc *crtc = &mtk_crtc->base;
+			struct mtk_drm_private *priv = crtc->dev->dev_private;
+			struct mtk_ddp_comp *comp_dmdp_aal0 =
+				priv->ddp_comp[DDP_COMPONENT_DMDP_AAL0];
+
+			mtk_dmdp_aal_bypass(comp_dmdp_aal0, *value, handle);
+		}
+
 		if (comp->mtk_crtc->is_dual_pipe) {
 			struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 			struct drm_crtc *crtc = &mtk_crtc->base;
@@ -3248,6 +3268,15 @@ static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			struct mtk_ddp_comp *comp_aal1 = priv->ddp_comp[DDP_COMPONENT_AAL1];
 
 			mtk_aal_bypass(comp_aal1, *value, handle);
+			if (g_aal_fo->mtk_dre30_support) {
+				struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+				struct drm_crtc *crtc = &mtk_crtc->base;
+				struct mtk_drm_private *priv = crtc->dev->dev_private;
+				struct mtk_ddp_comp *comp_dmdp_aal1 =
+					priv->ddp_comp[DDP_COMPONENT_DMDP_AAL1];
+
+				mtk_dmdp_aal_bypass(comp_dmdp_aal1, *value, handle);
+			}
 		}
 
 	}
