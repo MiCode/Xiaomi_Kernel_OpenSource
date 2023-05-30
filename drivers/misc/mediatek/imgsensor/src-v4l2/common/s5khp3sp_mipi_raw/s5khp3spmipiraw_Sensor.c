@@ -376,10 +376,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.hdr_group = PARAM_UNDEFINED,
 		.hdr_mode = HDR_NONE,
 		.pclk = 2000000000,
-		.linelength = 6784,
-		.framelength = 1224,
+		.linelength = 5952,
+		.framelength = 1400,
 		.max_framerate = 2400,
-		.mipi_pixel_rate = 1160064000,
+		.mipi_pixel_rate = 1751040000,
 		.readout_length = 0,
 		.read_margin = 0,
 		.imgsensor_winsize_info = {
@@ -418,10 +418,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.hdr_group = PARAM_UNDEFINED,
 		.hdr_mode = HDR_NONE,
 		.pclk = 2000000000,
-		.linelength = 12288,
-		.framelength = 2710,
+		.linelength = 10400,
+		.framelength = 3188,
 		.max_framerate = 600,
-		.mipi_pixel_rate = 1138176000,
+		.mipi_pixel_rate = 1751040000,
 		.readout_length = 0,
 		.read_margin = 0,
 		.imgsensor_winsize_info = {
@@ -919,8 +919,8 @@ static void s5khp3sp_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 
 	check_current_scenario_id_bound(ctx);
 	DRV_LOG_MUST(ctx, "E: set seamless switch %u %u\n", ctx->current_scenario_id, scenario_id);
-	if (!ctx->extend_frame_length_en)
-		DRV_LOGE(ctx, "please extend_frame_length before seamless_switch!\n");
+	// if (!ctx->extend_frame_length_en)
+		// DRV_LOGE(ctx, "please extend_frame_length before seamless_switch!\n");
 	ctx->extend_frame_length_en = FALSE;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
@@ -944,7 +944,6 @@ static void s5khp3sp_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 
 	subdrv_i2c_wr_u8(ctx, 0x0104, 0x01);
 	subdrv_i2c_wr_u8(ctx, 0x0b30, 0x01);
-	// subdrv_i2c_wr_u8(ctx, 0x3247, 0x04);// enable lbmf fast mode
 	i2c_table_write(ctx,
 		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_table,
 		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_len);
@@ -965,12 +964,12 @@ static void s5khp3sp_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 			break;
 		}
 	}
-	subdrv_i2c_wr_u8(ctx, 0x0b30, 0x00);
+	subdrv_i2c_wr_u8(ctx, 0x0104, 0x00);
 
 	ctx->fast_mode_on = TRUE;
 	ctx->ref_sof_cnt = ctx->sof_cnt;
 	ctx->is_seamless = FALSE;
-	DRV_LOG(ctx, "X: set seamless switch done\n");
+	DRV_LOG_MUST(ctx, "X: set seamless switch done\n");
 }
 
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
@@ -1067,7 +1066,7 @@ static void s5khp3sp_sensor_init(struct subdrv_ctx *ctx)
 {
 	DRV_LOG(ctx, "E\n");
 	subdrv_i2c_wr_u16(ctx, 0xFCFC, 0x4000);
-	subdrv_i2c_wr_u16(ctx, 0x0000, 0x0004);
+	subdrv_i2c_wr_u16(ctx, 0x0000, 0x0008);
 	subdrv_i2c_wr_u16(ctx, 0x0000, 0x1B73);
 	subdrv_i2c_wr_u16(ctx, 0x6012, 0x0001);
 	subdrv_i2c_wr_u16(ctx, 0x7002, 0x0008);
