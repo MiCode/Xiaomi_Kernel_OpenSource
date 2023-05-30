@@ -804,7 +804,7 @@ static ssize_t reclaim_policy_store(struct kobject *kobj,
 static KOBJ_ATTR_RW(reclaim_policy);
 //-----------------------------------------------------------------------------
 
-static ssize_t mem_allocate_policy_show(struct kobject *kobj,
+static ssize_t mem_allocate_from_tail_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
@@ -825,7 +825,7 @@ static ssize_t mem_allocate_policy_show(struct kobject *kobj,
 	return pos;
 }
 
-static ssize_t mem_allocate_policy_store(struct kobject *kobj,
+static ssize_t mem_allocate_from_tail_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
@@ -843,7 +843,7 @@ static ssize_t mem_allocate_policy_store(struct kobject *kobj,
 
 	return count;
 }
-static KOBJ_ATTR_RW(mem_allocate_policy);
+static KOBJ_ATTR_RW(mem_allocate_from_tail);
 //-----------------------------------------------------------------------------
 
 
@@ -1251,7 +1251,7 @@ GED_ERROR ged_hal_init(void)
 		goto ERROR;
 	}
 
-	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_mem_allocate_policy);
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_mem_allocate_from_tail);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("Failed to create mem_allocate_policy entry!\n");
 		goto ERROR;
@@ -1292,7 +1292,7 @@ void ged_hal_exit(void)
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_window_size);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_frequency_adjust);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_reclaim_policy);
-	ged_sysfs_remove_file(hal_kobj, &kobj_attr_mem_allocate_policy);
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_mem_allocate_from_tail);
 #ifdef GED_DCS_POLICY
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dcs_mode);
 #endif
