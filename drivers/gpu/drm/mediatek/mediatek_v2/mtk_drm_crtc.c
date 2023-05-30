@@ -13382,6 +13382,11 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (mtk_crtc->is_mml)
 		mtk_drm_wait_mml_submit_done(&(mtk_crtc->mml_cb));
 
+	if (mtk_crtc_state->lye_state.need_repaint) {
+		drm_trigger_repaint(DRM_REPAINT_FOR_SWITCH_DECOUPLE_MIRROR, crtc->dev);
+		CRTC_MMP_MARK(0, mml_dbg, cb_data->hrt_idx, MMP_MML_REPAINT);
+	}
+
 #if IS_ENABLED(CONFIG_MTK_DISP_DEBUG)
 	if (g_wr_reg.after_commit == 1) {
 		int k;

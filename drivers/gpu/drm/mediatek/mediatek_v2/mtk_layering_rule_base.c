@@ -3422,6 +3422,8 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 		}
 	}
 	lye_state.lc_tgt_layer = 0;
+	lye_state.need_repaint = l_rule_info->need_repaint;
+	l_rule_info->need_repaint = false;
 
 	if (get_layering_opt(LYE_OPT_SPHRT))
 		disp_idx = l_info->disp_idx;
@@ -4004,7 +4006,6 @@ static void check_is_mml_layer(const int disp_idx,
 	struct drm_mtk_layer_config *c = NULL;
 	int i = 0;
 	enum MTK_LAYERING_CAPS mml_capacity = DISP_MML_CAPS_MASK;
-	bool transition = false;
 
 	if (!dev || !disp_info || !scn_decision_flag)
 		return;
@@ -4021,9 +4022,6 @@ static void check_is_mml_layer(const int disp_idx,
 
 		c->layer_caps |= query_MML(dev, crtc, &(disp_info->mml_cfg[disp_idx][i]));
 
-		if (MTK_MML_DISP_MDP_LAYER & c->layer_caps)
-			transition = true;
-
 		if (MML_FMT_IS_YUV(disp_info->mml_cfg[disp_idx][i].src.format))
 			c->layer_caps |= MTK_DISP_SRC_YUV_LAYER;
 
@@ -4037,7 +4035,7 @@ static void check_is_mml_layer(const int disp_idx,
 					    disp_info->layer_num[disp_idx] - 1;
 				} else {
 					c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
-					c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+					c->layer_caps |= MTK_MML_DISP_MDP_LAYER;
 				}
 			}
 		}
@@ -4078,7 +4076,7 @@ static void check_is_mml_layer(const int disp_idx,
 		     mtk_crtc->mml_ir_state == MML_IR_IDLE)) {
 			c->layer_caps &= ~MTK_MML_DISP_DECOUPLE_LAYER;
 			c->layer_caps |= MTK_MML_DISP_MDP_LAYER;
-			transition = true;
+			l_rule_info->need_repaint = true;
 			DDPINFO("Use MDP for IR-DC transition\n");
 			DRM_MMP_MARK(layering, 0x331, 4);
 		}
@@ -4104,9 +4102,6 @@ static void check_is_mml_layer(const int disp_idx,
 				disp_info->gles_tail[disp_idx] = i;
 		}
 	}
-
-	if (transition == true)
-		drm_trigger_repaint(DRM_REPAINT_FOR_SWITCH_DECOUPLE_MIRROR, dev);
 
 	if (disp_info->gles_head[disp_idx] != -1) {
 		int adjusted_gles_head = -1;
