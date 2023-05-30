@@ -36,6 +36,11 @@ void arm_smmu_debug_dump_debugchain(struct device *dev, void __iomem *debugchain
 	long chain_length = 0, index = 0;
 	u64 val;
 
+	if (debugchain_base == NULL) {
+		dev_dbg(dev, "Debugchain base not implemented\n");
+		return;
+	}
+
 	chain_length = arm_smmu_debug_qtb_debugchain_load(debugchain_base);
 	dev_info(dev, "Dumping Debug chain: Length : %d\n", chain_length);
 	/* First read is to dump away the 0xDEADBEEF value */

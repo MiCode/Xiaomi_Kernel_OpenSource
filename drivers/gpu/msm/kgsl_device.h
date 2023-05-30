@@ -327,6 +327,19 @@ struct kgsl_device {
 	struct kobject bcl_data_kobj;
 	/** @idle_jiffies: Latest idle jiffies */
 	unsigned long idle_jiffies;
+
+	/** @work_period_timer: Timer to capture application GPU work stats */
+	struct timer_list work_period_timer;
+	/** work_period_lock: Lock to protect process application GPU work periods */
+	spinlock_t work_period_lock;
+	/** work_period_ws: Worker thread to emulate application GPU work event */
+	struct work_struct work_period_ws;
+	/** @flags: Flags for gpu_period stats */
+	unsigned long flags;
+	struct {
+		u64 begin;
+		u64 end;
+	} gpu_period;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
@@ -504,6 +517,8 @@ struct kgsl_process_private {
 	 * @reclaim_lock: Mutex lock to protect KGSL_PROC_PINNED_STATE
 	 */
 	struct mutex reclaim_lock;
+	/** @period: Stats for GPU utilization */
+	struct gpu_work_period *period;
 	/**
 	 * @cmd_count: The number of cmds that are active for the process
 	 */

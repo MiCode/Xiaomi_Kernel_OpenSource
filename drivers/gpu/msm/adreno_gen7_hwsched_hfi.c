@@ -7,6 +7,7 @@
 #include <linux/dma-fence-array.h>
 #include <linux/iommu.h>
 #include <linux/sched/clock.h>
+#include <soc/qcom/msm_performance.h>
 
 #include "adreno.h"
 #include "adreno_gen7.h"
@@ -148,8 +149,10 @@ static void log_profiling_info(struct adreno_device *adreno_dev, u32 *rcvd)
 	struct hfi_ts_retire_cmd *cmd = (struct hfi_ts_retire_cmd *)rcvd;
 	struct kgsl_context *context;
 	struct retire_info info = {0};
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	context = kgsl_context_get(KGSL_DEVICE(adreno_dev), cmd->ctxt_id);
+	context = kgsl_context_get(device, cmd->ctxt_id);
 	if (context == NULL)
 		return;
 
@@ -159,7 +162,16 @@ static void log_profiling_info(struct adreno_device *adreno_dev, u32 *rcvd)
 	info.submitted_to_rb = cmd->submitted_to_rb;
 	info.sop = cmd->sop;
 	info.eop = cmd->eop;
+	if (GMU_VER_MINOR(gmu->ver.hfi) < 4)
+		info.active = cmd->eop - cmd->sop;
+	else
+		info.active = cmd->active;
 	info.retired_on_gmu = cmd->retired_on_gmu;
+
+	/* protected GPU work must not be reported */
+	if  (!(context->flags & KGSL_CONTEXT_SECURE))
+		kgsl_work_period_update(device, context->proc_priv->period,
+					     info.active);
 
 	trace_adreno_cmdbatch_retired(context, &info, 0, 0, 0);
 
@@ -1133,7 +1145,6 @@ static void reset_hfi_mem_records(struct adreno_device *adreno_dev)
 static void reset_hfi_queues(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct hfi_queue_table *tbl = gmu->hfi.hfi_mem->hostptr;
 	u32 i;
 
@@ -1144,17 +1155,7 @@ static void reset_hfi_queues(struct adreno_device *adreno_dev)
 		if (hdr->status == HFI_QUEUE_STATUS_DISABLED)
 			continue;
 
-		if (hdr->read_index != hdr->write_index) {
-			/* Don't capture snapshot again in reset path */
-			if (!device->snapshot || device->snapshot->recovered) {
-				dev_err(&gmu->pdev->dev,
-				"HFI queue[%d] is not empty before close: rd=%d,wt=%d\n",
-					i, hdr->read_index, hdr->write_index);
-
-				gmu_core_fault_snapshot(device);
-			}
-			hdr->read_index = hdr->write_index;
-		}
+		hdr->read_index = hdr->write_index;
 	}
 }
 
@@ -1174,8 +1175,6 @@ void gen7_hwsched_hfi_stop(struct adreno_device *adreno_dev)
 
 	/* Drain the debug queue before we reset HFI queues */
 	gen7_hwsched_process_dbgq(adreno_dev, false);
-
-	reset_hfi_queues(adreno_dev);
 
 	kgsl_pwrctrl_axi(KGSL_DEVICE(adreno_dev), false);
 
@@ -1345,6 +1344,8 @@ int gen7_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
+
+	reset_hfi_queues(adreno_dev);
 
 	ret = gen7_gmu_hfi_start(adreno_dev);
 	if (ret)
@@ -1702,6 +1703,10 @@ static void gen7_add_profile_events(struct adreno_device *adreno_dev,
 
 	cmdobj->submit_ticks = time->ticks;
 
+	msm_perf_events_update(MSM_PERF_GFX, MSM_PERF_SUBMIT,
+		pid_nr(context->proc_priv->pid),
+		context->id, drawobj->timestamp,
+		!!(drawobj->flags & KGSL_DRAWOBJ_END_OF_FRAME));
 	trace_adreno_cmdbatch_submitted(drawobj, &info, time->ticks,
 		(unsigned long) time_in_s, time_in_ns / 1000, 0);
 

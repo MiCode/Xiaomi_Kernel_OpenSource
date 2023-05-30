@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -549,6 +549,7 @@ struct dwc3_msm {
 	int			gsi_reg_offset_cnt;
 
 	struct notifier_block	dpdm_nb;
+	struct notifier_block	panic_nb;
 	struct regulator	*dpdm_reg;
 
 	u64			dummy_gsi_db;
@@ -5015,6 +5016,41 @@ static int dwc3_msm_debug_init(struct dwc3_msm *mdwc)
 	return 0;
 }
 
+static int dwc3_usb_panic_notifier(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	struct dwc3_msm *mdwc = container_of(this, struct dwc3_msm, panic_nb);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	const struct debugfs_reg32 *dwc3_regs = dwc->regset->regs;
+	int size = dwc->regset->nregs, i;
+
+	ipc_log_string(mdwc->dwc_dma_ipc_log_ctxt, "[Reg_Name: Offset\t Value]");
+	for (i = 0; i < size; i++)
+		dump_dwc3_regs(dwc3_regs[i].name, dwc3_regs[i].offset,
+					dwc3_readl(dwc->regs, dwc3_regs[i].offset));
+
+	size = ARRAY_SIZE(qscratch_reg);
+	for (i = 0; i < size ; i++)
+		dump_dwc3_regs(qscratch_reg[i].name, qscratch_reg[i].offset + QSCRATCH_REG_OFFSET,
+					dwc3_msm_read_reg(mdwc->base, qscratch_reg[i].offset
+							+ QSCRATCH_REG_OFFSET));
+	return NOTIFY_DONE;
+}
+
+static int dwc3_usb_register_panic_hdlr(struct dwc3_msm *mdwc)
+{
+	mdwc->panic_nb.notifier_call  = dwc3_usb_panic_notifier;
+	mdwc->panic_nb.priority = INT_MAX;
+	return atomic_notifier_chain_register(&panic_notifier_list,
+			&mdwc->panic_nb);
+}
+
+static void dwc3_usb_unregister_panic_hdlr(struct dwc3_msm *mdwc)
+{
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+			&mdwc->panic_nb);
+}
+
 static void dwc3_host_complete(struct device *dev);
 static int dwc3_host_prepare(struct device *dev);
 static int dwc3_core_prepare(struct device *dev);
@@ -5188,7 +5224,86 @@ static int dwc3_msm_smmu_fault_handler(struct iommu_domain *domain, struct devic
 	* we just use it to dump the registers for debugging purposes.
 	*/
 	return -ENOSYS;
+}
 
+static int dwc3_msm_check_extcon_prop(struct platform_device *pdev)
+{
+	struct dwc3_msm	*mdwc = platform_get_drvdata(pdev);
+	struct device_node *node = mdwc->dev->of_node;
+	int ret = 0;
+
+	/* Check charger detection type to obtain charger type */
+	if (of_get_property(node, "io-channel-names", NULL))
+		mdwc->apsd_source = IIO;
+	else if (of_get_property(node, "usb-role-switch", NULL))
+		mdwc->apsd_source = REMOTE_PROC;
+	else
+		mdwc->apsd_source = PSY;
+
+	if (of_property_read_bool(node, "extcon")) {
+		ret = dwc3_msm_extcon_register(mdwc);
+		if (ret)
+			return ret;
+
+		/*
+		 * dpdm regulator will be turned on to perform apsd
+		 * (automatic power source detection). dpdm regulator is
+		 * used to float (or high-z) dp/dm lines. Do not reset
+		 * controller/phy if regulator is turned on.
+		 * if dpdm is not present controller can be reset
+		 * as this controller may not be used for charger detection.
+		 */
+		mdwc->dpdm_reg = devm_regulator_get_optional(&pdev->dev,
+				"dpdm");
+		if (IS_ERR(mdwc->dpdm_reg)) {
+			dev_dbg(mdwc->dev, "assume cable is not connected\n");
+			mdwc->dpdm_reg = NULL;
+		}
+
+		if (!mdwc->vbus_active && mdwc->dpdm_reg &&
+				regulator_is_enabled(mdwc->dpdm_reg)) {
+			mdwc->dpdm_nb.notifier_call = dwc_dpdm_cb;
+			regulator_register_notifier(mdwc->dpdm_reg,
+					&mdwc->dpdm_nb);
+		} else {
+			if (!mdwc->role_switch)
+				queue_delayed_work(mdwc->sm_usb_wq,
+							&mdwc->sm_work, 0);
+		}
+	}
+
+	if (!mdwc->role_switch && !mdwc->extcon) {
+		switch (mdwc->dr_mode) {
+		case USB_DR_MODE_OTG:
+			if (of_property_read_bool(node,
+						"qcom,default-mode-host")) {
+				dev_dbg(mdwc->dev, "%s: start host mode\n",
+								__func__);
+				mdwc->id_state = DWC3_ID_GROUND;
+			} else if (of_property_read_bool(node,
+						"qcom,default-mode-none")) {
+				dev_dbg(mdwc->dev, "%s: stay in none mode\n",
+								__func__);
+			} else {
+				dev_dbg(mdwc->dev, "%s: start peripheral mode\n",
+								__func__);
+				mdwc->vbus_active = true;
+			}
+			break;
+		case USB_DR_MODE_HOST:
+			mdwc->id_state = DWC3_ID_GROUND;
+			break;
+		case USB_DR_MODE_PERIPHERAL:
+			fallthrough;
+		default:
+			mdwc->vbus_active = true;
+			break;
+		}
+
+		dwc3_ext_event_notify(mdwc);
+	}
+
+	return ret;
 }
 
 static int dwc3_msm_probe(struct platform_device *pdev)
@@ -5478,76 +5593,11 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* Check charger detection type to obtain charger type */
-	if (of_get_property(mdwc->dev->of_node, "io-channel-names", NULL))
-		mdwc->apsd_source = IIO;
-	else if (of_get_property(mdwc->dev->of_node, "usb-role-switch", NULL))
-		mdwc->apsd_source = REMOTE_PROC;
-	else
-		mdwc->apsd_source = PSY;
+	if (dwc3_usb_register_panic_hdlr(mdwc))
+		dev_err(mdwc->dev, "dwc3-msm kernel panic notifier registration failed\n");
 
-	if (of_property_read_bool(node, "extcon")) {
-		ret = dwc3_msm_extcon_register(mdwc);
-		if (ret)
-			goto put_dwc3;
-
-		/*
-		 * dpdm regulator will be turned on to perform apsd
-		 * (automatic power source detection). dpdm regulator is
-		 * used to float (or high-z) dp/dm lines. Do not reset
-		 * controller/phy if regulator is turned on.
-		 * if dpdm is not present controller can be reset
-		 * as this controller may not be used for charger detection.
-		 */
-		mdwc->dpdm_reg = devm_regulator_get_optional(&pdev->dev,
-				"dpdm");
-		if (IS_ERR(mdwc->dpdm_reg)) {
-			dev_dbg(mdwc->dev, "assume cable is not connected\n");
-			mdwc->dpdm_reg = NULL;
-		}
-
-		if (!mdwc->vbus_active && mdwc->dpdm_reg &&
-				regulator_is_enabled(mdwc->dpdm_reg)) {
-			mdwc->dpdm_nb.notifier_call = dwc_dpdm_cb;
-			regulator_register_notifier(mdwc->dpdm_reg,
-					&mdwc->dpdm_nb);
-		} else {
-			if (!mdwc->role_switch)
-				queue_delayed_work(mdwc->sm_usb_wq,
-							&mdwc->sm_work, 0);
-		}
-	}
-
-	if (!mdwc->role_switch && !mdwc->extcon) {
-		switch (mdwc->dr_mode) {
-		case USB_DR_MODE_OTG:
-			if (of_property_read_bool(node,
-						"qcom,default-mode-host")) {
-				dev_dbg(mdwc->dev, "%s: start host mode\n",
-								__func__);
-				mdwc->id_state = DWC3_ID_GROUND;
-			} else if (of_property_read_bool(node,
-						"qcom,default-mode-none")) {
-				dev_dbg(mdwc->dev, "%s: stay in none mode\n",
-								__func__);
-			} else {
-				dev_dbg(mdwc->dev, "%s: start peripheral mode\n",
-								__func__);
-				mdwc->vbus_active = true;
-			}
-			break;
-		case USB_DR_MODE_HOST:
-			mdwc->id_state = DWC3_ID_GROUND;
-			break;
-		case USB_DR_MODE_PERIPHERAL:
-			/* fall through */
-		default:
-			mdwc->vbus_active = true;
-			break;
-		}
-
-		dwc3_ext_event_notify(mdwc);
-	}
+	if (dwc3_msm_check_extcon_prop(pdev))
+		goto put_dwc3;
 
 	return 0;
 
@@ -5636,6 +5686,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	destroy_workqueue(mdwc->sm_usb_wq);
 	destroy_workqueue(mdwc->dwc3_wq);
 
+	dwc3_usb_unregister_panic_hdlr(mdwc);
 	ipc_log_context_destroy(mdwc->dwc_ipc_log_ctxt);
 	mdwc->dwc_ipc_log_ctxt = NULL;
 	ipc_log_context_destroy(mdwc->dwc_dma_ipc_log_ctxt);

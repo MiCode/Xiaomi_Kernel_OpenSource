@@ -95,3 +95,7 @@ gh_virt_wdt.ko
 minidump.ko
 bq27xxx_battery.ko
 bq27xxx_battery_i2c.ko
+crypto-qti-common.ko
+crypto-qti-hwkm.ko
+hwkm.ko
+tmecom-intf.ko

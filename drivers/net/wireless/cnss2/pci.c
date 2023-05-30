@@ -838,7 +838,7 @@ static int cnss_setup_bus_bandwidth(struct cnss_plat_data *plat_priv,
 		return -EINVAL;
 	}
 
-	cnss_pr_vdbg("Bandwidth vote to %d, save %d\n", bw, save);
+	cnss_pr_buf("Bandwidth vote to %d, save %d\n", bw, save);
 
 	list_for_each_entry(bus_bw_info, &plat_priv->icc.list_head, list) {
 		ret = icc_set_bw(bus_bw_info->icc_path,
@@ -3092,6 +3092,8 @@ int cnss_pci_register_driver_hdlr(struct cnss_pci_data *pci_priv,
 	if (ret) {
 		clear_bit(CNSS_DRIVER_LOADING, &plat_priv->driver_state);
 		pci_priv->driver_ops = NULL;
+	} else {
+		set_bit(CNSS_DRIVER_REGISTERED, &plat_priv->driver_state);
 	}
 
 	return ret;
@@ -3108,7 +3110,7 @@ int cnss_pci_unregister_driver_hdlr(struct cnss_pci_data *pci_priv)
 	set_bit(CNSS_DRIVER_UNLOADING, &plat_priv->driver_state);
 	cnss_pci_dev_shutdown(pci_priv);
 	pci_priv->driver_ops = NULL;
-
+	clear_bit(CNSS_DRIVER_REGISTERED, &plat_priv->driver_state);
 	return 0;
 }
 
@@ -5077,10 +5079,23 @@ void cnss_pci_clear_dump_info(struct cnss_pci_data *pci_priv)
 
 void cnss_pci_device_crashed(struct cnss_pci_data *pci_priv)
 {
+	struct cnss_plat_data *plat_priv;
+
 	if (!pci_priv)
 		return;
 
-	cnss_device_crashed(&pci_priv->pci_dev->dev);
+	plat_priv = pci_priv->plat_priv;
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL\n");
+		return;
+	}
+
+	/* Call recovery handler in the DRIVER_RECOVERY event context
+	 * instead of scheduling work. In that way complete recovery
+	 * will be done as part of DRIVER_RECOVERY event and get
+	 * serialized with other events.
+	 */
+	cnss_recovery_handler(plat_priv);
 }
 
 static int cnss_mhi_pm_runtime_get(struct mhi_controller *mhi_ctrl)

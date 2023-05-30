@@ -31,9 +31,9 @@
 #include <asm/cacheflush.h>
 #include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
-#include <soc/qcom/smcinvoke_object.h>
+#include <soc/qcom/smci_object.h>
 #include <misc/qseecom_kernel.h>
-#include <soc/qcom/IClientEnv.h>
+#include <soc/qcom/smci_clientenv.h>
 
 #define CREATE_TRACE_POINTS
 #include "trace_smcinvoke.h"
@@ -77,15 +77,15 @@
 
 #define CBOBJ_MAX_RETRIES 50
 #define FOR_ARGS(ndxvar, counts, section) \
-	for (ndxvar = OBJECT_COUNTS_INDEX_##section(counts); \
-		ndxvar < (OBJECT_COUNTS_INDEX_##section(counts) \
-		+ OBJECT_COUNTS_NUM_##section(counts)); \
+	for (ndxvar = SMCI_OBJECT_COUNTS_INDEX_##section(counts); \
+		ndxvar < (SMCI_OBJECT_COUNTS_INDEX_##section(counts) \
+		+ SMCI_OBJECT_COUNTS_NUM_##section(counts)); \
 		++ndxvar)
 
 #define TZCB_BUF_OFFSET(tzcb_req) (sizeof(tzcb_req->result) + \
 			sizeof(struct smcinvoke_msg_hdr) + \
 			sizeof(union smcinvoke_tz_args) * \
-			OBJECT_COUNTS_TOTAL(tzcb_req->hdr.counts))
+			SMCI_OBJECT_COUNTS_TOTAL(tzcb_req->hdr.counts))
 
 /*
  * +ve uhandle : either remote obj or mem obj, decided by f_ops
@@ -495,7 +495,7 @@ static int smcinvoke_release_tz_object(struct qtee_shm *in_shm, struct qtee_shm 
 	in_buf = in_shm->vaddr;
 	out_buf = out_shm->vaddr;
 	hdr.tzhandle = tzhandle;
-	hdr.op = OBJECT_OP_RELEASE;
+	hdr.op = SMCI_OBJECT_OP_RELEASE;
 	hdr.counts = 0;
 	*(struct smcinvoke_msg_hdr *)in_buf = hdr;
 
@@ -739,7 +739,7 @@ static int release_mem_obj_locked(int32_t tzhandle)
 
 	if (!mem_obj) {
 		pr_err("memory object not found\n");
-		return OBJECT_ERROR_BADOBJ;
+		return SMCI_OBJECT_ERROR_BADOBJ;
 	}
 
 	if (is_mem_regn_obj)
@@ -747,7 +747,7 @@ static int release_mem_obj_locked(int32_t tzhandle)
 	else
 		kref_put(&mem_obj->mem_map_obj_ref_cnt, del_mem_map_obj_locked);
 
-	return OBJECT_OK;
+	return SMCI_OBJECT_OK;
 }
 
 static void free_pending_cbobj_locked(struct kref *kref)
@@ -773,7 +773,7 @@ static int get_pending_cbobj_locked(uint16_t srvr_id, int16_t obj_id)
 
 	if (!server) {
 		pr_err("%s, server id : %u not found\n", __func__, srvr_id);
-		return OBJECT_ERROR_BADOBJ;
+		return SMCI_OBJECT_ERROR_BADOBJ;
 	}
 
 	head = &server->pending_cbobjs;
@@ -785,7 +785,7 @@ static int get_pending_cbobj_locked(uint16_t srvr_id, int16_t obj_id)
 
 	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
 	if (!obj) {
-		ret = OBJECT_ERROR_KMEM;
+		ret = SMCI_OBJECT_ERROR_KMEM;
 		goto out;
 	}
 
@@ -837,7 +837,7 @@ static int release_tzhandle_locked(int32_t tzhandle)
 	else if (TZHANDLE_IS_CB_OBJ(tzhandle))
 		return put_pending_cbobj_locked(TZHANDLE_GET_SERVER(tzhandle),
 				TZHANDLE_GET_OBJID(tzhandle));
-	return OBJECT_ERROR;
+	return SMCI_OBJECT_ERROR;
 }
 
 static void release_tzhandles(const int32_t *tzhandles, size_t len)
@@ -855,7 +855,7 @@ static void delete_cb_txn_locked(struct kref *kref)
 	struct smcinvoke_cb_txn *cb_txn = container_of(kref,
 			struct smcinvoke_cb_txn, ref_cnt);
 
-	if (OBJECT_OP_METHODID(cb_txn->cb_req->hdr.op) == OBJECT_OP_RELEASE)
+	if (SMCI_OBJECT_OP_METHODID(cb_txn->cb_req->hdr.op) == SMCI_OBJECT_OP_RELEASE)
 		release_tzhandle_locked(cb_txn->cb_req->hdr.tzhandle);
 
 	kfree(cb_txn->cb_req);
@@ -1171,9 +1171,9 @@ static int32_t smcinvoke_release_mem_obj_locked(void *buf, size_t buf_len)
 {
 	struct smcinvoke_tzcb_req *msg = buf;
 
-	if (msg->hdr.counts != OBJECT_COUNTS_PACK(0, 0, 0, 0)) {
+	if (msg->hdr.counts != SMCI_OBJECT_COUNTS_PACK(0, 0, 0, 0)) {
 		pr_err("Invalid object count in %s\n", __func__);
-		return OBJECT_ERROR_INVALID;
+		return SMCI_OBJECT_ERROR_INVALID;
 	}
 
 	trace_release_mem_obj_locked(msg->hdr.tzhandle, buf_len);
@@ -1183,7 +1183,7 @@ static int32_t smcinvoke_release_mem_obj_locked(void *buf, size_t buf_len)
 
 static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 {
-	int ret = OBJECT_OK;
+	int ret = SMCI_OBJECT_OK;
 	struct smcinvoke_tzcb_req *msg = buf;
 	struct {
 		uint64_t p_addr;
@@ -1195,10 +1195,10 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 	struct dma_buf_attachment *buf_attach = NULL;
 	struct sg_table *sgt = NULL;
 
-	if (msg->hdr.counts != OBJECT_COUNTS_PACK(0, 1, 1, 1) ||
+	if (msg->hdr.counts != SMCI_OBJECT_COUNTS_PACK(0, 1, 1, 1) ||
 			(buf_len - msg->args[0].b.offset < msg->args[0].b.size)) {
 		pr_err("Invalid counts received for mapping mem obj\n");
-		return OBJECT_ERROR_INVALID;
+		return SMCI_OBJECT_ERROR_INVALID;
 	}
 	/* args[0] = BO, args[1] = OI, args[2] = OO */
 	ob = buf + msg->args[0].b.offset;
@@ -1210,7 +1210,7 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 	if (!mem_obj) {
 		mutex_unlock(&g_smcinvoke_lock);
 		pr_err("Memory object not found\n");
-		return OBJECT_ERROR_BADOBJ;
+		return SMCI_OBJECT_ERROR_BADOBJ;
 	}
 
 	if (!mem_obj->p_addr) {
@@ -1218,7 +1218,7 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 		buf_attach = dma_buf_attach(mem_obj->dma_buf,
 				&smcinvoke_pdev->dev);
 		if (IS_ERR(buf_attach)) {
-			ret = OBJECT_ERROR_KMEM;
+			ret = SMCI_OBJECT_ERROR_KMEM;
 			pr_err("dma buf attach failed, ret: %d\n", ret);
 			goto out;
 		}
@@ -1228,21 +1228,21 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 		if (IS_ERR(sgt)) {
 			pr_err("mapping dma buffers failed, ret: %d\n",
 					PTR_ERR(sgt));
-			ret = OBJECT_ERROR_KMEM;
+			ret = SMCI_OBJECT_ERROR_KMEM;
 			goto out;
 		}
 		mem_obj->sgt = sgt;
 
 		/* contiguous only => nents=1 */
 		if (sgt->nents != 1) {
-			ret = OBJECT_ERROR_INVALID;
+			ret = SMCI_OBJECT_ERROR_INVALID;
 			pr_err("sg enries are not contigous, ret: %d\n", ret);
 			goto out;
 		}
 		mem_obj->p_addr = sg_dma_address(sgt->sgl);
 		mem_obj->p_addr_len = sgt->sgl->length;
 		if (!mem_obj->p_addr) {
-			ret = OBJECT_ERROR_INVALID;
+			ret = SMCI_OBJECT_ERROR_INVALID;
 			pr_err("invalid physical address, ret: %d\n", ret);
 			goto out;
 		}
@@ -1265,7 +1265,7 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 		kref_put(&mem_obj->mem_map_obj_ref_cnt, del_mem_map_obj_locked);
 
 		if (ret) {
-			ret = OBJECT_ERROR_INVALID;
+			ret = SMCI_OBJECT_ERROR_INVALID;
 			goto out;
 		}
 
@@ -1273,7 +1273,7 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 				SMCINVOKE_MEM_RGN_OBJ)) {
 			mutex_unlock(&g_smcinvoke_lock);
 			pr_err("Memory object not found\n");
-			return OBJECT_ERROR_BADOBJ;
+			return SMCI_OBJECT_ERROR_BADOBJ;
 		}
 
 		mem_obj->mem_map_obj_id = next_mem_map_obj_id_locked();
@@ -1285,7 +1285,7 @@ static int32_t smcinvoke_map_mem_region(void *buf, size_t buf_len)
 	ob->perms = SMCINVOKE_MEM_PERM_RW;
 	*oo = TZHANDLE_MAKE_LOCAL(MEM_MAP_SRVR_ID, mem_obj->mem_map_obj_id);
 out:
-	if (ret != OBJECT_OK)
+	if (ret != SMCI_OBJECT_OK)
 		kref_put(&mem_obj->mem_map_obj_ref_cnt, del_mem_map_obj_locked);
 	mutex_unlock(&g_smcinvoke_lock);
 	return ret;
@@ -1296,16 +1296,16 @@ static int32_t smcinvoke_sleep(void *buf, size_t buf_len)
 struct smcinvoke_tzcb_req *msg = buf;
 	uint32_t sleepTimeMs_val = 0;
 
-	if (msg->hdr.counts != OBJECT_COUNTS_PACK(1, 0, 0, 0) ||
+	if (msg->hdr.counts != SMCI_OBJECT_COUNTS_PACK(1, 0, 0, 0) ||
 	    (buf_len - msg->args[0].b.offset < msg->args[0].b.size)) {
 		pr_err("Invalid counts received for sleeping in hlos\n");
-		return OBJECT_ERROR_INVALID;
+		return SMCI_OBJECT_ERROR_INVALID;
 	}
 
 	/* Time in miliseconds is expected from tz */
 	sleepTimeMs_val = *((uint32_t *)(buf + msg->args[0].b.offset));
 	msleep(sleepTimeMs_val);
-	return OBJECT_OK;
+	return SMCI_OBJECT_OK;
 }
 
 static void process_kernel_obj(void *buf, size_t buf_len)
@@ -1313,18 +1313,18 @@ static void process_kernel_obj(void *buf, size_t buf_len)
 	struct smcinvoke_tzcb_req *cb_req = buf;
 
 	switch (cb_req->hdr.op) {
-	case OBJECT_OP_MAP_REGION:
+	case SMCI_OBJECT_OP_MAP_REGION:
 		cb_req->result = smcinvoke_map_mem_region(buf, buf_len);
 		break;
-	case OBJECT_OP_YIELD:
-		cb_req->result = OBJECT_OK;
+	case SMCI_OBJECT_OP_YIELD:
+		cb_req->result = SMCI_OBJECT_OK;
 		break;
-	case OBJECT_OP_SLEEP:
+	case SMCI_OBJECT_OP_SLEEP:
 		cb_req->result = smcinvoke_sleep(buf, buf_len);
 		break;
 	default:
 		pr_err(" invalid operation for tz kernel object\n");
-		cb_req->result = OBJECT_ERROR_INVALID;
+		cb_req->result = SMCI_OBJECT_ERROR_INVALID;
 		break;
 	}
 }
@@ -1334,9 +1334,9 @@ static void process_mem_obj(void *buf, size_t buf_len)
 	struct smcinvoke_tzcb_req *cb_req = buf;
 
 	mutex_lock(&g_smcinvoke_lock);
-	cb_req->result = (cb_req->hdr.op == OBJECT_OP_RELEASE) ?
+	cb_req->result = (cb_req->hdr.op == SMCI_OBJECT_OP_RELEASE) ?
 			smcinvoke_release_mem_obj_locked(buf, buf_len) :
-			OBJECT_ERROR_INVALID;
+			SMCI_OBJECT_ERROR_INVALID;
 	mutex_unlock(&g_smcinvoke_lock);
 }
 
@@ -1387,8 +1387,8 @@ static int invoke_cmd_handler(int cmd, phys_addr_t in_paddr, size_t in_buf_len,
  */
 static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 {
-	/* ret is going to TZ. Provide values from OBJECT_ERROR_<> */
-	int ret = OBJECT_ERROR_DEFUNCT;
+	/* ret is going to TZ. Provide values from SMCI_OBJECT_ERROR_<> */
+	int ret = SMCI_OBJECT_ERROR_DEFUNCT;
 	int cbobj_retries = 0;
 	long timeout_jiff;
 	bool wait_interrupted = false;
@@ -1410,7 +1410,7 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 		return process_mem_obj(buf, buf_len);
 	} else if (!TZHANDLE_IS_CB_OBJ(cb_req->hdr.tzhandle)) {
 		pr_err("Request object is not a callback object\n");
-		cb_req->result = OBJECT_ERROR_INVALID;
+		cb_req->result = SMCI_OBJECT_ERROR_INVALID;
 		return;
 	}
 
@@ -1422,7 +1422,7 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 	tmp_cb_req = kmemdup(buf, buf_len, GFP_KERNEL);
 	if (!tmp_cb_req) {
 		/* we need to return error to caller so fill up result */
-		cb_req->result = OBJECT_ERROR_KMEM;
+		cb_req->result = SMCI_OBJECT_ERROR_KMEM;
 		pr_err("failed to create copy of request, set result: %d\n",
 				cb_req->result);
 		return;
@@ -1430,7 +1430,7 @@ static void process_tzcb_req(void *buf, size_t buf_len, struct file **arr_filp)
 
 	cb_txn = kzalloc(sizeof(*cb_txn), GFP_KERNEL);
 	if (!cb_txn) {
-		cb_req->result = OBJECT_ERROR_KMEM;
+		cb_req->result = SMCI_OBJECT_ERROR_KMEM;
 		pr_err("failed to allocate memory for request, result: %d\n",
 				cb_req->result);
 		kfree(tmp_cb_req);
@@ -1532,10 +1532,10 @@ out:
 	hash_del(&cb_txn->hash);
 	if (ret == 0) {
 		pr_err("CBObj timed out! No more retries\n");
-		cb_req->result = Object_ERROR_TIMEOUT;
+		cb_req->result = SMCI_OBJECT_ERROR_TIMEOUT;
 	} else if (ret == -ERESTARTSYS) {
 		pr_err("wait event interruped, ret: %d\n", ret);
-		cb_req->result = OBJECT_ERROR_ABORT;
+		cb_req->result = SMCI_OBJECT_ERROR_ABORT;
 	} else {
 		if (cb_txn->state == SMCINVOKE_REQ_PROCESSED) {
 			/*
@@ -1544,11 +1544,11 @@ out:
 			 */
 		} else if (!srvr_info ||
 			srvr_info->state == SMCINVOKE_SERVER_STATE_DEFUNCT) {
-			cb_req->result = OBJECT_ERROR_DEFUNCT;
+			cb_req->result = SMCI_OBJECT_ERROR_DEFUNCT;
 			pr_err("server invalid, res: %d\n", cb_req->result);
 		} else {
 			pr_err("%s: unexpected event happened, ret:%d\n", __func__, ret);
-			cb_req->result = OBJECT_ERROR_ABORT;
+			cb_req->result = SMCI_OBJECT_ERROR_ABORT;
 		}
 	}
 	--cb_reqs_inflight;
@@ -1572,7 +1572,7 @@ static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 	int32_t temp_fd = UHANDLE_NULL;
 	union smcinvoke_tz_args *tz_args = NULL;
 	size_t offset = sizeof(struct smcinvoke_msg_hdr) +
-			OBJECT_COUNTS_TOTAL(req->counts) *
+			SMCI_OBJECT_COUNTS_TOTAL(req->counts) *
 			sizeof(union smcinvoke_tz_args);
 
 	if (offset > buf_size)
@@ -1581,7 +1581,7 @@ static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 	tz_args = (union smcinvoke_tz_args *)
 			(buf + sizeof(struct smcinvoke_msg_hdr));
 
-	tz_args += OBJECT_COUNTS_NUM_BI(req->counts);
+	tz_args += SMCI_OBJECT_COUNTS_NUM_BI(req->counts);
 
 	if (args_buf == NULL)
 		return 0;
@@ -1608,7 +1608,7 @@ static int marshal_out_invoke_req(const uint8_t *buf, uint32_t buf_size,
 		}
 		tz_args++;
 	}
-	tz_args += OBJECT_COUNTS_NUM_OI(req->counts);
+	tz_args += SMCI_OBJECT_COUNTS_NUM_OI(req->counts);
 
 	FOR_ARGS(i, req->counts, OO) {
 		/*
@@ -1657,7 +1657,7 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 	int ret = 0, cmd, retry_count = 0;
 	u64 response_type;
 	unsigned int data;
-	struct file *arr_filp[OBJECT_COUNTS_MAX_OO] = {NULL};
+	struct file *arr_filp[SMCI_OBJECT_COUNTS_MAX_OO] = {NULL};
 
 	*tz_acked = false;
 	/* buf size should be page aligned */
@@ -1706,7 +1706,7 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 		mutex_unlock(&g_smcinvoke_lock);
 
 		if (cmd == SMCINVOKE_CB_RSP_CMD)
-			release_filp(arr_filp, OBJECT_COUNTS_MAX_OO);
+			release_filp(arr_filp, SMCI_OBJECT_COUNTS_MAX_OO);
 
 		if (ret || !is_inbound_req(response_type))
 			break;
@@ -1758,14 +1758,14 @@ static size_t compute_in_msg_size(const struct smcinvoke_cmd_req *req,
 	uint32_t i = 0;
 
 	size_t total_size = sizeof(struct smcinvoke_msg_hdr) +
-			OBJECT_COUNTS_TOTAL(req->counts) *
+			SMCI_OBJECT_COUNTS_TOTAL(req->counts) *
 			sizeof(union smcinvoke_tz_args);
 
 	/* Computed total_size should be 8 bytes aligned from start of buf */
 	total_size = ALIGN(total_size, SMCINVOKE_ARGS_ALIGN_SIZE);
 
 	/* each buffer has to be 8 bytes aligned */
-	while (i < OBJECT_COUNTS_NUM_buffers(req->counts))
+	while (i < SMCI_OBJECT_COUNTS_NUM_BUFFERS(req->counts))
 		total_size = size_add(total_size,
 				size_align(args_buf[i++].b.size,
 				SMCINVOKE_ARGS_ALIGN_SIZE));
@@ -1783,7 +1783,7 @@ static int marshal_in_invoke_req(const struct smcinvoke_cmd_req *req,
 			tzhandle, req->op, req->counts};
 	uint32_t offset = sizeof(struct smcinvoke_msg_hdr) +
 			sizeof(union smcinvoke_tz_args) *
-			OBJECT_COUNTS_TOTAL(req->counts);
+			SMCI_OBJECT_COUNTS_TOTAL(req->counts);
 	union smcinvoke_tz_args *tz_args = NULL;
 
 	if (buf_size < offset)
@@ -1855,7 +1855,7 @@ static int marshal_in_tzcb_req(const struct smcinvoke_cb_txn *cb_txn,
 	size_t tzcb_req_len = cb_txn->cb_req_bytes;
 	size_t tz_buf_offset = TZCB_BUF_OFFSET(tzcb_req);
 	size_t user_req_buf_offset = sizeof(union smcinvoke_arg) *
-			OBJECT_COUNTS_TOTAL(tzcb_req->hdr.counts);
+			SMCI_OBJECT_COUNTS_TOTAL(tzcb_req->hdr.counts);
 
 	if (tz_buf_offset > tzcb_req_len) {
 		ret = -EINVAL;
@@ -1958,7 +1958,7 @@ static int marshal_out_tzcb_req(const struct smcinvoke_accept *user_req,
 		struct file **arr_filp)
 {
 	int ret = -EINVAL, i = 0;
-	int32_t tzhandles_to_release[OBJECT_COUNTS_MAX_OO] = {0};
+	int32_t tzhandles_to_release[SMCI_OBJECT_COUNTS_MAX_OO] = {0};
 	struct smcinvoke_tzcb_req *tzcb_req = cb_txn->cb_req;
 	union smcinvoke_tz_args *tz_args = tzcb_req->args;
 
@@ -2017,7 +2017,7 @@ out:
 			release_tzhandles(&tz_args[i].handle, 1);
 	}
 	if (ret)
-		release_tzhandles(tzhandles_to_release, OBJECT_COUNTS_MAX_OO);
+		release_tzhandles(tzhandles_to_release, SMCI_OBJECT_COUNTS_MAX_OO);
 	return ret;
 }
 
@@ -2188,7 +2188,7 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 		 * we return local error to TA
 		 */
 		if (ret && cb_txn->cb_req->result == 0)
-			cb_txn->cb_req->result = OBJECT_ERROR_UNAVAIL;
+			cb_txn->cb_req->result = SMCI_OBJECT_ERROR_UNAVAIL;
 
 		cb_txn->state = SMCINVOKE_REQ_PROCESSED;
 		mutex_lock(&g_smcinvoke_lock);
@@ -2199,7 +2199,7 @@ static long process_accept_req(struct file *filp, unsigned int cmd,
 		 * if marshal_out fails, we should let userspace release
 		 * any ref/obj it created for CB processing
 		 */
-		if (ret && OBJECT_COUNTS_NUM_OO(user_args.counts))
+		if (ret && SMCI_OBJECT_COUNTS_NUM_OO(user_args.counts))
 			goto out;
 	}
 start_waiting_for_requests:
@@ -2256,7 +2256,7 @@ start_waiting_for_requests:
 					server_obj->server_id);
 			if (ret) {
 				pr_err("failed to marshal in the callback request\n");
-				cb_txn->cb_req->result = OBJECT_ERROR_UNAVAIL;
+				cb_txn->cb_req->result = SMCI_OBJECT_ERROR_UNAVAIL;
 				cb_txn->state = SMCINVOKE_REQ_PROCESSED;
 				mutex_lock(&g_smcinvoke_lock);
 				kref_put(&cb_txn->ref_cnt, delete_cb_txn_locked);
@@ -2301,12 +2301,12 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	 * Hold reference to remote object until invoke op is not
 	 * completed. Release once invoke is done.
 	 */
-	struct file *filp_to_release[OBJECT_COUNTS_MAX_OO] = {NULL};
+	struct file *filp_to_release[SMCI_OBJECT_COUNTS_MAX_OO] = {NULL};
 	/*
 	 * If anything goes wrong, release alloted tzhandles for
 	 * local objs which could be either CBObj or MemObj.
 	 */
-	int32_t tzhandles_to_release[OBJECT_COUNTS_MAX_OO] = {0};
+	int32_t tzhandles_to_release[SMCI_OBJECT_COUNTS_MAX_OO] = {0};
 	bool tz_acked = false;
 	uint32_t context_type = tzobj->context_type;
 
@@ -2336,15 +2336,15 @@ static long process_invoke_req(struct file *filp, unsigned int cmd,
 	}
 
 	if (context_type == SMCINVOKE_OBJ_TYPE_TZ_OBJ &&
-			tzobj->tzhandle == SMCINVOKE_TZ_ROOT_OBJ &&
-			(req.op == IClientEnv_OP_notifyDomainChange ||
-			req.op == IClientEnv_OP_registerWithCredentials)) {
+		tzobj->tzhandle == SMCINVOKE_TZ_ROOT_OBJ &&
+		(req.op == SMCI_CLIENTENV_OP_NOTIFYDOMAINCHANGE ||
+		req.op == SMCI_CLIENTENV_OP_REGISTERWITHCREDENTIALS)) {
 		pr_err("invalid rootenv op\n");
 		return -EINVAL;
 	}
 
-	nr_args = OBJECT_COUNTS_NUM_buffers(req.counts) +
-			OBJECT_COUNTS_NUM_objects(req.counts);
+	nr_args = SMCI_OBJECT_COUNTS_NUM_BUFFERS(req.counts) +
+			SMCI_OBJECT_COUNTS_NUM_OBJECTS(req.counts);
 
 	if (nr_args) {
 		args_buf = kcalloc(nr_args, req.argsize, GFP_KERNEL);
@@ -2443,9 +2443,9 @@ out:
 	trace_process_invoke_req_result(ret, req.result, tzobj->tzhandle,
 			req.op, req.counts);
 
-	release_filp(filp_to_release, OBJECT_COUNTS_MAX_OO);
+	release_filp(filp_to_release, SMCI_OBJECT_COUNTS_MAX_OO);
 	if (ret)
-		release_tzhandles(tzhandles_to_release, OBJECT_COUNTS_MAX_OO);
+		release_tzhandles(tzhandles_to_release, SMCI_OBJECT_COUNTS_MAX_OO);
 	qtee_shmbridge_free_shm(&in_shm);
 	qtee_shmbridge_free_shm(&out_shm);
 	kfree(args_buf);

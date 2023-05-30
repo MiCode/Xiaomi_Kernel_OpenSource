@@ -557,28 +557,31 @@ int gen7_hfi_send_ifpc_feature_ctrl(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-int gen7_hfi_start(struct adreno_device *adreno_dev)
+static void reset_hfi_queues(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
 	struct hfi_queue_table *tbl = mem_addr->hostptr;
 	struct hfi_queue_header *hdr;
-	int result, i;
+	unsigned int i;
 
-	/* Force read_index to the write_index no matter what */
+	/* Flush HFI queues */
 	for (i = 0; i < HFI_QUEUE_MAX; i++) {
 		hdr = &tbl->qhdr[i];
 		if (hdr->status == HFI_QUEUE_STATUS_DISABLED)
 			continue;
 
-		if (hdr->read_index != hdr->write_index) {
-			dev_err(&gmu->pdev->dev,
-				"HFI Q[%d] Index Error: read:0x%X write:0x%X\n",
-				i, hdr->read_index, hdr->write_index);
-			hdr->read_index = hdr->write_index;
-		}
+		hdr->read_index = hdr->write_index;
 	}
+}
+
+int gen7_hfi_start(struct adreno_device *adreno_dev)
+{
+	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	int result;
+
+	reset_hfi_queues(adreno_dev);
 
 	result = gen7_hfi_send_generic_req(adreno_dev, &gmu->hfi.dcvs_table);
 	if (result)
@@ -625,28 +628,11 @@ err:
 void gen7_hfi_stop(struct adreno_device *adreno_dev)
 {
 	struct gen7_gmu_device *gmu = to_gen7_gmu(adreno_dev);
-	struct kgsl_memdesc *mem_addr = gmu->hfi.hfi_mem;
-	struct hfi_queue_table *tbl = mem_addr->hostptr;
-	struct hfi_queue_header *hdr;
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int i;
-
-	/* Flush HFI queues */
-	for (i = 0; i < HFI_QUEUE_MAX; i++) {
-		hdr = &tbl->qhdr[i];
-		if (hdr->status == HFI_QUEUE_STATUS_DISABLED)
-			continue;
-
-		if (hdr->read_index != hdr->write_index)
-			dev_err(&gmu->pdev->dev,
-			"HFI queue[%d] is not empty before close: rd=%d,wt=%d\n",
-				i, hdr->read_index, hdr->write_index);
-	}
 
 	kgsl_pwrctrl_axi(device, false);
 
 	clear_bit(GMU_PRIV_HFI_STARTED, &gmu->flags);
-
 }
 
 /* HFI interrupt handler */

@@ -783,7 +783,7 @@ static bool geni_se_check_bus_bw_noc(struct geni_se_device *geni_se_dev)
 	unsigned long new_bus_bw;
 	bool bus_bw_update = false;
 
-	new_bus_bw = max(geni_se_dev->cur_ib_noc, geni_se_dev->cur_ab_noc) /
+	new_bus_bw = KHz(max(geni_se_dev->cur_ib_noc, geni_se_dev->cur_ab_noc)) /
 							DEFAULT_BUS_WIDTH;
 
 	for (i = 0; i < geni_se_dev->bus_bw_set_size_noc; i++) {
@@ -1231,7 +1231,7 @@ int geni_se_resources_init(struct se_geni_rsc *rsc,
 		/* To reduce the higher ab values from individual drivers */
 		rsc->ab = ab/2;
 		rsc->ib = ab;
-		rsc->ab_noc = 0;
+		rsc->ab_noc = ib;
 		rsc->ib_noc = ib;
 		INIT_LIST_HEAD(&rsc->ab_list_noc);
 		INIT_LIST_HEAD(&rsc->ib_list_noc);

@@ -479,16 +479,6 @@ config QSEECOM
           Manager (SCM) interface. It exposes APIs for both userspace and
           kernel clients.
 
-config HDCP_QSEECOM
-        tristate "QTI High-Bandwidth Digital Content Protection Module"
-        depends on QSEECOM
-        help
-          This module implements HDCP 2.2 features over external interfaces
-          such as the DisplayPort interface. It exposes APIs for the interface
-          driver to communicate with QTI Secure Execution Environment (QSEE)
-          via the QSEECOM Driver and also communicates with the Receiver via
-          APIs exposed by the interface driver.
-
 config WIGIG_SENSING_SPI
 	tristate "Sensing over 60GHz using wil6210 / SPI bus"
 	depends on SPI && WIL6210
@@ -536,4 +526,5 @@ source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
 source "drivers/misc/isl97900_led/Kconfig"
 source "drivers/misc/uacce/Kconfig"
+source "drivers/misc/hdcp/Kconfig"
 endmenu

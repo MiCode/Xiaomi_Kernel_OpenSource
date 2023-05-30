@@ -215,6 +215,7 @@ config QCOM_RIMPS
 config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
+	select REGMAP_MMIO
 	help
 	  Last Level Cache Controller(LLCC) driver for platforms such as,
 	  SDM845. This provides interfaces to clients that use the LLCC.

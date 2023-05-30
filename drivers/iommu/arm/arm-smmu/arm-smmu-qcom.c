@@ -1488,24 +1488,24 @@ static struct qsmmuv500_tbu_device *qtb500_impl_init(struct qsmmuv500_tbu_device
 	qtb->no_halt = of_property_read_bool(dev->of_node, "qcom,no-qtb-atos-halt");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "debugchain-base");
-	if (!res) {
-		dev_info(dev, "Unable to get the debugchain-base\n");
-		return ERR_PTR(-EINVAL);
-	}
 
-	qtb->debugchain_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(qtb->debugchain_base)) {
-		dev_info(dev, "devm_ioremap failure, overlapping regs\n");
-
-		/*
-		 * use ioremap for qtb's sharing same debug chain register space
-		 * for eg : sf and hf qtb's on mmnoc.
-		 */
-		qtb->debugchain_base = ioremap(res->start, resource_size(res));
+	if (res) {
+		qtb->debugchain_base = devm_ioremap_resource(dev, res);
 		if (IS_ERR(qtb->debugchain_base)) {
-			dev_err(dev, "unable to ioremap the debugchain-base\n");
-			return ERR_PTR(-EINVAL);
+			dev_info(dev, "devm_ioremap failure, overlapping regs\n");
+
+			/*
+			 * use devm_ioremap for qtb's sharing same debug chain register space
+			 * for eg : sf and hf qtb's on mmnoc.
+			 */
+			qtb->debugchain_base = devm_ioremap(dev, res->start, resource_size(res));
+			if (qtb->debugchain_base == NULL) {
+				dev_err(dev, "unable to ioremap the debugchain-base\n");
+				return ERR_PTR(-EINVAL);
+			}
 		}
+	} else {
+		qtb->debugchain_base = NULL;
 	}
 
 	return &qtb->tbu;
@@ -2287,7 +2287,14 @@ static int qsmmuv500_tbu_register(struct device *dev, void *cookie)
 		}
 	}
 
-	qsmmuv500_tbu_testbus_init(tbu);
+	/*
+	 * Create testbus debugfs only if debugchain base
+	 * property is set in devicetree in case of qtb500.
+	 */
+
+	if (!of_device_is_compatible(tbu->dev->of_node, "qcom,qtb500") ||
+			to_qtb500(tbu)->debugchain_base)
+		qsmmuv500_tbu_testbus_init(tbu);
 	qsmmuv500_capturebus_init(tbu);
 	return 0;
 }

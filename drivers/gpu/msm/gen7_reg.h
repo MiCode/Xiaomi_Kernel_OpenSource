@@ -109,6 +109,8 @@
 #define GEN7_CP_IB2_REM_SIZE             0x92d
 #define GEN7_CP_ALWAYS_ON_COUNTER_LO     0x980
 #define GEN7_CP_ALWAYS_ON_COUNTER_HI     0x981
+#define GEN7_CP_ALWAYS_ON_CONTEXT_LO     0x982
+#define GEN7_CP_ALWAYS_ON_CONTEXT_HI     0x983
 #define GEN7_CP_AHB_CNTL                 0x98d
 #define GEN7_CP_RL_ERROR_DETAILS_0       0x9b4
 #define GEN7_CP_RL_ERROR_DETAILS_1       0x9cf

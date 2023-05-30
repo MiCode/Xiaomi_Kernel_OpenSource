@@ -24,6 +24,7 @@
 #include <linux/module.h>
 #include <linux/cdev.h>
 #include <linux/list.h>
+#include <linux/arch_topology.h>
 #include <linux/hash.h>
 #include <linux/msm_ion.h>
 #include <soc/qcom/secure_buffer.h>
@@ -148,6 +149,10 @@
 #define IS_CACHE_ALIGNED(x) (((x) & ((L1_CACHE_BYTES)-1)) == 0)
 #ifndef ION_FLAG_CACHED
 #define ION_FLAG_CACHED (1)
+#endif
+
+#ifndef topology_cluster_id
+#define topology_cluster_id(cpu) topology_physical_package_id(cpu)
 #endif
 
 #define ADSP_DOMAIN_ID (0)
@@ -349,11 +354,6 @@ struct secure_vm {
 struct gid_list {
 	unsigned int *gids;
 	unsigned int gidcount;
-};
-
-struct qos_cores {
-	int *coreno;
-	int corecount;
 };
 
 struct fastrpc_file;
@@ -582,13 +582,16 @@ struct fastrpc_apps {
 	/* Non-secure subsystem like CDSP will use regular client */
 	struct wakeup_source *wake_source;
 	uint32_t duplicate_rsp_err_cnt;
-	struct qos_cores silvercores;
 	uint32_t max_size_limit;
 	struct hlist_head frpc_devices;
 	struct hlist_head frpc_drivers;
 	void *ramdump_handle;
 	bool enable_ramdump;
 	struct mutex mut_uid;
+	/* Number of lowest capacity cores for given platform */
+	unsigned int lowest_capacity_core_count;
+	/* Flag to check if PM QoS vote needs to be done for only one core */
+	bool single_core_latency_vote;
 };
 
 struct fastrpc_mmap {
@@ -615,6 +618,7 @@ struct fastrpc_mmap {
 	struct timespec64 map_end_time;
 	/* Mapping for fastrpc shell */
 	bool is_filemap;
+	unsigned int ctx_refs; /* Indicates reference count for context map */
 };
 
 enum fastrpc_perfkeys {
@@ -1305,6 +1309,8 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, int fd, uintptr_t va,
 		if ((fd < 0 || map->fd == fd) && map->raddr == va &&
 			map->raddr + map->len == va + len &&
 			map->refs == 1 &&
+			/* Remove if only one reference map and no context map */
+			!map->ctx_refs &&
 			/* Skip unmap if it is fastrpc shell memory */
 			!map->is_filemap) {
 			match = map;
@@ -1345,7 +1351,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 				map->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
 		spin_lock_irqsave(&me->hlock, irq_flags);
 		map->refs--;
-		if (!map->refs)
+		if (!map->refs && !map->ctx_refs)
 			hlist_del_init(&map->hn);
 		spin_unlock_irqrestore(&me->hlock, irq_flags);
 		if (map->refs > 0) {
@@ -1356,7 +1362,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 		}
 	} else {
 		map->refs--;
-		if (!map->refs)
+		if (!map->refs && !map->ctx_refs)
 			hlist_del_init(&map->hn);
 		if (map->refs > 0 && !flags)
 			return;
@@ -1495,6 +1501,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, struct dma_buf *
 	map->buf = buf;
 	map->frpc_md_index = -1;
 	map->is_filemap = false;
+	map->ctx_refs = 0;
 	ktime_get_real_ts64(&map->map_start_time);
 	if (mflags == ADSP_MMAP_HEAP_ADDR ||
 				mflags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
@@ -2239,8 +2246,11 @@ static void context_free(struct smq_invoke_ctx *ctx)
 	spin_unlock(&ctx->fl->hlock);
 
 	mutex_lock(&ctx->fl->map_mutex);
-	for (i = 0; i < nbufs; ++i)
+	for (i = 0; i < nbufs; ++i) {
+		if (ctx->maps[i] && ctx->maps[i]->ctx_refs)
+			ctx->maps[i]->ctx_refs--;
 		fastrpc_mmap_free(ctx->maps[i], 0);
+	}
 	mutex_unlock(&ctx->fl->map_mutex);
 
 	fastrpc_buf_free(ctx->buf, 1);
@@ -2471,7 +2481,7 @@ static void fastrpc_ramdump_collection(int cid)
 		hlist_del_init(&buf->hn_init);
 
 		spin_lock(&me->hlock);
-		if (chan->buf->virt)
+		if (chan->buf && chan->buf->virt)
 			memset(chan->buf->virt, 0, MINI_DUMP_DBG_SIZE);
 		spin_unlock(&me->hlock);
 		if (fl) {
@@ -2621,6 +2631,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			err = fastrpc_mmap_create(ctx->fl, ctx->fds[i], NULL,
 					ctx->attrs[i], buf, len,
 					mflags, &ctx->maps[i]);
+		if (ctx->maps[i])
+			ctx->maps[i]->ctx_refs++;
 		mutex_unlock(&ctx->fl->map_mutex);
 		if (err)
 			goto bail;
@@ -2647,9 +2659,14 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 			err = fastrpc_mmap_create(ctx->fl, ctx->fds[i], NULL,
 					FASTRPC_ATTR_NOVA, 0, 0, dmaflags,
 					&ctx->maps[i]);
+		if (!err && ctx->maps[i])
+			ctx->maps[i]->ctx_refs++;
 		if (err) {
-			for (j = bufs; j < i; j++)
+			for (j = bufs; j < i; j++) {
+				if (ctx->maps[j] && ctx->maps[j]->ctx_refs)
+					ctx->maps[j]->ctx_refs--;
 				fastrpc_mmap_free(ctx->maps[j], 0);
+			}
 			mutex_unlock(&ctx->fl->map_mutex);
 			goto bail;
 		}
@@ -2978,6 +2995,8 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			}
 		} else {
 			mutex_lock(&ctx->fl->map_mutex);
+			if (ctx->maps[i]->ctx_refs)
+				ctx->maps[i]->ctx_refs--;
 			fastrpc_mmap_free(ctx->maps[i], 0);
 			mutex_unlock(&ctx->fl->map_mutex);
 			ctx->maps[i] = NULL;
@@ -2988,8 +3007,11 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 		if (!fdlist[i])
 			break;
 		if (!fastrpc_mmap_find(ctx->fl, (int)fdlist[i], NULL, 0, 0,
-					0, 0, &mmap))
+					0, 0, &mmap)){
+			if (mmap && mmap->ctx_refs)
+				mmap->ctx_refs--;
 			fastrpc_mmap_free(mmap, 0);
+		}
 	}
 	mutex_unlock(&ctx->fl->map_mutex);
 	if (ctx->crc && crclist && rpra)
@@ -3164,6 +3186,26 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns, xo_time_in_us);
  bail:
 	return err;
+}
+
+/*
+ * fastrpc_lowest_capacity_corecount - Counts number of cores corresponding
+ * to cluster id 0. If a core is defective or unavailable, skip counting
+ * that core.
+ * @me : pointer to fastrpc_apps.
+ */
+
+static void fastrpc_lowest_capacity_corecount(struct fastrpc_apps *me)
+{
+	unsigned int cpu = 0;
+
+	cpu =  cpumask_first(cpu_possible_mask);
+	for_each_cpu(cpu, cpu_possible_mask) {
+		if (topology_cluster_id(cpu) == 0)
+			me->lowest_capacity_core_count++;
+	}
+	ADSPRPC_INFO("lowest capacity core count: %u\n",
+					me->lowest_capacity_core_count);
 }
 
 static void fastrpc_init(struct fastrpc_apps *me)
@@ -5775,7 +5817,7 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 		return 0;
 
 	if (fl->qos_request && fl->dev_pm_qos_req) {
-		for (ii = 0; ii < me->silvercores.corecount; ii++) {
+		for (ii = 0; ii < me->lowest_capacity_core_count; ii++) {
 			if (!dev_pm_qos_request_active(&fl->dev_pm_qos_req[ii]))
 				continue;
 			dev_pm_qos_remove_request(&fl->dev_pm_qos_req[ii]);
@@ -6162,9 +6204,10 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_add_head(&fl->hn, &me->drivers);
 	spin_unlock_irqrestore(&me->hlock, irq_flags);
-	fl->dev_pm_qos_req = kcalloc(me->silvercores.corecount,
-				sizeof(struct dev_pm_qos_request),
-				GFP_KERNEL);
+	if (me->lowest_capacity_core_count)
+		fl->dev_pm_qos_req = kzalloc((me->lowest_capacity_core_count) *
+						sizeof(struct dev_pm_qos_request),
+							GFP_KERNEL);
 	init_completion(&fl->shutdown);
 	return 0;
 }
@@ -6353,7 +6396,7 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 	int err = 0;
 	unsigned int latency;
 	struct fastrpc_apps *me = &gfa;
-	u32 silver_core_count = me->silvercores.corecount, ii = 0, cpu;
+	unsigned int cpu;
 
 	VERIFY(err, !IS_ERR_OR_NULL(fl) && !IS_ERR_OR_NULL(fl->apps));
 	if (err) {
@@ -6375,22 +6418,29 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 			err = -EINVAL;
 			goto bail;
 		}
-
-		VERIFY(err, me->silvercores.coreno && fl->dev_pm_qos_req);
-		if (err)
+		VERIFY(err, (me->lowest_capacity_core_count && fl->dev_pm_qos_req));
+		if (err) {
+			ADSPRPC_INFO("Skipping PM QoS latency voting, core count: %u\n",
+						me->lowest_capacity_core_count);
+			err = -EINVAL;
 			goto bail;
+		}
+		/*
+		 * Add voting request for all possible cores corresponding to cluster
+		 * id 0. If DT property 'qcom,single-core-latency-vote' is enabled
+		 * then add voting request for only one core of cluster id 0.
+		 */
+		for (cpu = 0; cpu < me->lowest_capacity_core_count; cpu++) {
 
-		for (ii = 0; ii < silver_core_count; ii++) {
-			cpu = me->silvercores.coreno[ii];
 			if (!fl->qos_request) {
 				err = dev_pm_qos_add_request(
 						get_cpu_device(cpu),
-						&fl->dev_pm_qos_req[ii],
+						&fl->dev_pm_qos_req[cpu],
 						DEV_PM_QOS_RESUME_LATENCY,
 						latency);
 			} else {
 				err = dev_pm_qos_update_request(
-						&fl->dev_pm_qos_req[ii],
+						&fl->dev_pm_qos_req[cpu],
 						latency);
 			}
 			/* PM QoS request APIs return 0 or 1 on success */
@@ -7383,39 +7433,6 @@ bail:
 	}
 }
 
-static void init_qos_cores_list(struct device *dev, char *prop_name,
-						struct qos_cores *silvercores)
-{
-	int err = 0;
-	u32 len = 0, i = 0;
-	u32 *coreslist = NULL;
-
-	if (!of_find_property(dev->of_node, prop_name, &len))
-		goto bail;
-	if (len == 0)
-		goto bail;
-	len /= sizeof(u32);
-	VERIFY(err, NULL != (coreslist = kcalloc(len, sizeof(u32),
-						 GFP_KERNEL)));
-	if (err)
-		goto bail;
-	for (i = 0; i < len; i++) {
-		err = of_property_read_u32_index(dev->of_node, prop_name, i,
-								&coreslist[i]);
-		if (err) {
-			pr_err("adsprpc: %s: failed to read QOS cores list\n",
-								 __func__);
-			goto bail;
-		}
-	}
-	silvercores->coreno = coreslist;
-	silvercores->corecount = len;
-bail:
-	if (err) {
-		kfree(coreslist);
-	}
-}
-
 static void fastrpc_init_privileged_gids(struct device *dev, char *prop_name,
 						struct gid_list *gidlist)
 {
@@ -7549,9 +7566,14 @@ static int fastrpc_probe(struct platform_device *pdev)
 							&gcinfo[0].rhvm);
 		fastrpc_init_privileged_gids(dev, "qcom,fastrpc-gids",
 					&me->gidlist);
-		init_qos_cores_list(dev, "qcom,qos-cores",
-							&me->silvercores);
-
+		/*
+		 * Check if latency voting for only one core
+		 * is enabled for the platform
+		 */
+		me->single_core_latency_vote = of_property_read_bool(dev->of_node,
+							"qcom,single-core-latency-vote");
+		if (me->single_core_latency_vote)
+			me->lowest_capacity_core_count = 1;
 		of_property_read_u32(dev->of_node, "qcom,rpc-latency-us",
 			&me->latency);
 		if (of_get_property(dev->of_node,
@@ -7964,6 +7986,7 @@ static int __init fastrpc_device_init(void)
 		goto bus_device_register_bail;
 	}
 	me->fastrpc_bus_register = true;
+	fastrpc_lowest_capacity_corecount(me);
 	VERIFY(err, 0 == platform_driver_register(&fastrpc_driver));
 	if (err)
 		goto register_bail;
