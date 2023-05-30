@@ -202,6 +202,7 @@ int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_CHIST0];
 	struct drm_crtc *crtc = private->crtc[0];
 	int i = 0;
+	int ret = 0;
 
 	if (comp == NULL) {
 		DDPPR_ERR("%s, null pointer!\n", __func__);
@@ -239,8 +240,12 @@ int mtk_drm_ioctl_set_chist_config(struct drm_device *dev, void *data,
 	}
 	present_fence[index_of_chist(comp->id)] = 0;
 	need_restore = 1;
+	mtk_drm_idlemgr_kick(__func__, crtc, 1);
+	ret = mtk_crtc_user_cmd(crtc, comp, CHIST_CONFIG, data);
+	mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
 	DDPINFO("%s --\n", __func__);
-	return mtk_crtc_user_cmd(crtc, comp, CHIST_CONFIG, data);
+	return ret;
+
 }
 
 static void disp_chist_set_interrupt(struct mtk_ddp_comp *comp,
