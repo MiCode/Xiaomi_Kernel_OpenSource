@@ -23,12 +23,12 @@
 #define DEBUG_BUFFER_SIZE 10240
 #endif
 
-extern void disp_color_set_bypass(struct drm_crtc *crtc, int bypass);
-extern void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass);
-extern void disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass);
-extern void disp_dither_set_bypass(struct drm_crtc *crtc, int bypass);
-extern void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
-extern void disp_dither_set_color_detect(struct drm_crtc *crtc, int enable);
+extern int disp_color_set_bypass(struct drm_crtc *crtc, int bypass);
+extern int disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass);
+extern int disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass);
+extern int disp_dither_set_bypass(struct drm_crtc *crtc, int bypass);
+extern int disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
+extern int disp_dither_set_color_detect(struct drm_crtc *crtc, int enable);
 extern void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 	unsigned int gain[3], unsigned int bl, void *param);
 extern void mtk_aal_regdump(void);

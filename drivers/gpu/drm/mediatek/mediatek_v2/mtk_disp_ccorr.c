@@ -1866,16 +1866,16 @@ struct platform_driver mtk_disp_ccorr_driver = {
 		},
 };
 
-void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
+int disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret;
+	int ret = 0;
 
 	if (g_ccorr_relay_value[index_of_ccorr(default_comp->id)] == bypass &&
 		g_ccorr_relay_value[index_of_ccorr(ccorr1_default_comp->id)] == bypass)
-		return;
+		return ret;
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_CCORR, &bypass);
-
 	DDPINFO("%s : ret = %d", __func__, ret);
+	return ret;
 }
 
 void mtk_ccorr_regdump(void)

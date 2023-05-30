@@ -2171,35 +2171,36 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 
 	if (m_old_pq_persist_property[DISP_PQ_COLOR_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_COLOR_BYPASS])
-		disp_color_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_COLOR_BYPASS]);
+		ret |= disp_color_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_COLOR_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_CCORR_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_CCORR_BYPASS])
-		disp_ccorr_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_CCORR_BYPASS]);
+		ret |= disp_ccorr_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_CCORR_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_GAMMA_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_GAMMA_BYPASS])
-		disp_gamma_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_GAMMA_BYPASS]);
+		ret |= disp_gamma_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_GAMMA_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_DITHER_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_DITHER_BYPASS])
-		disp_dither_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_DITHER_BYPASS]);
+		ret |= disp_dither_set_bypass(crtc,
+			m_new_pq_persist_property[DISP_PQ_DITHER_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_AAL_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_AAL_BYPASS])
-		disp_aal_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_AAL_BYPASS]);
+		ret |= disp_aal_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_AAL_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_C3D_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_C3D_BYPASS])
-		disp_c3d_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_C3D_BYPASS]);
+		ret |= disp_c3d_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_C3D_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_TDSHP_BYPASS] !=
 		m_new_pq_persist_property[DISP_PQ_TDSHP_BYPASS])
-		disp_tdshp_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_TDSHP_BYPASS]);
+		ret |= disp_tdshp_set_bypass(crtc, m_new_pq_persist_property[DISP_PQ_TDSHP_BYPASS]);
 
 	if (m_old_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT] !=
 		m_new_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT])
-		disp_dither_set_color_detect(crtc,
+		ret |= disp_dither_set_color_detect(crtc,
 			m_new_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT]);
 
 	DDPFUNC("-");

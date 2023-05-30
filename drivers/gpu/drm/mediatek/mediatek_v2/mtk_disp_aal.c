@@ -4479,15 +4479,15 @@ void disp_aal_debug(const char *opt)
 	}
 }
 
-void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass)
+int disp_aal_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret;
+	int ret = 0;
 
 	if (atomic_read(&g_aal_force_relay) == bypass)
-		return;
+		return ret;
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_AAL, &bypass);
-
 	DDPINFO("%s : ret = %d", __func__, ret);
+	return ret;
 }
 
 int mtk_drm_ioctl_aal_set_trigger_state(struct drm_device *dev, void *data,

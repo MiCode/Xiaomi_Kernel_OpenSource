@@ -1225,11 +1225,11 @@ struct platform_driver mtk_disp_gamma_driver = {
 		},
 };
 
-void disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass)
+int disp_gamma_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret;
+	int ret = 0;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_GAMMA, &bypass);
-
 	DDPINFO("%s : ret = %d", __func__, ret);
+	return ret;
 }

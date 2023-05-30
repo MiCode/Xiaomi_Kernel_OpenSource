@@ -950,11 +950,11 @@ struct platform_driver mtk_disp_tdshp_driver = {
 		},
 };
 
-void disp_tdshp_set_bypass(struct drm_crtc *crtc, int bypass)
+int disp_tdshp_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret;
+	int ret = 0;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_TDSHP, &bypass);
-
 	DDPINFO("%s : ret = %d", __func__, ret);
+	return ret;
 }
