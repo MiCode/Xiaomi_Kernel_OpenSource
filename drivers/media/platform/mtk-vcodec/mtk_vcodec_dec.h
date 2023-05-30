@@ -20,18 +20,18 @@
  * @index       : frame buffer index in vb2 queue
  */
 struct vdec_fb {
-	struct mtk_vcodec_mem   fb_base[VIDEO_MAX_PLANES];
+	struct mtk_vcodec_mem fb_base[VIDEO_MAX_PLANES];
 	unsigned int    status;
 	unsigned int    num_planes;
-	long long timestamp;
+	long long       timestamp;
 	unsigned int    index;
 	enum v4l2_field field;
 	enum mtk_frame_type frame_type;
 	int             general_buf_fd;
-	struct  dma_buf *dma_general_buf;
+	struct dma_buf *dma_general_buf;
 	dma_addr_t dma_general_addr;
 	int             meta_buf_fd;
-	struct          dma_buf *dma_meta_buf;
+	struct dma_buf *dma_meta_buf;
 	dma_addr_t dma_meta_addr;
 	int slice_done_count;
 };
