@@ -478,13 +478,15 @@
 		compatible = "mediatek,imgsensor";
 		sensor-names = "imx766_mipi_raw",
 				"imx709_mipi_raw",
-				"imx866_mipi_raw";
+				"imx866_mipi_raw",
+				"imx888_mipi_raw";
 		reg = <0x1a>;
 		#thermal-sensor-cells = <0>;
 
 		reindex-match = "imx766_mipi_raw",
 				"imx709_mipi_raw",
-				"imx866_mipi_raw";
+				"imx866_mipi_raw",
+				"imx888_mipi_raw";
 
 		reindex-to = <0>;
 
