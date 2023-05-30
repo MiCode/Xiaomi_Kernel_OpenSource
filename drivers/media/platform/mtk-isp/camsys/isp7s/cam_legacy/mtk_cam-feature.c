@@ -28,14 +28,14 @@ bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx)
 }
 
 int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
-			       struct mtk_cam_scen *prev)
+			       struct mtk_cam_scen *prev, bool bpp_changed)
 {
 	struct mtk_cam_scen *cur = &raw_pipe->user_res.raw_res.scen;
 	int res = EXPOSURE_CHANGE_NONE;
 	int exp = 1, exp_prev = 1;
 
-	dev_dbg(raw_pipe->subdev.dev, "%s scen: cur(%s) prev(%s)\n",
-			__func__, cur->dbg_str, prev->dbg_str);
+	dev_dbg(raw_pipe->subdev.dev, "%s scen: cur(%s) prev(%s) bpp_changed(%d)\n",
+			__func__, cur->dbg_str, prev->dbg_str, bpp_changed);
 
 	exp = mtk_cam_scen_get_exp_num(cur);
 	exp_prev = mtk_cam_scen_get_exp_num(prev);
@@ -48,8 +48,12 @@ int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
 		return SUBSPL_MODE_CHANGE;
 	}
 
-	if (exp == exp_prev)
-		return EXPOSURE_CHANGE_NONE;
+	if (exp == exp_prev) {
+		if (bpp_changed)
+			return EXPOSURE_CHANGE_1_to_1;
+		else
+			return EXPOSURE_CHANGE_NONE;
+	}
 
 	if ((mtk_cam_scen_is_mstream(cur) && mtk_cam_scen_is_mstream(prev)) ||
 	    (mtk_cam_scen_is_mstream_m2m(cur) && mtk_cam_scen_is_mstream_m2m(prev))) {

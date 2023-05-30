@@ -411,7 +411,7 @@ static inline bool mtk_cam_scen_is_lbmf(struct mtk_cam_scen *scen)
 bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx);
 bool mtk_cam_feature_change_is_mstream(int feature_change);
 int mtk_cam_get_feature_switch(struct mtk_raw_pipeline *raw_pipe,
-			       struct mtk_cam_scen *prev);
+			       struct mtk_cam_scen *prev, bool bpp_changed);
 bool mtk_cam_hw_is_otf(struct mtk_cam_ctx *ctx);
 bool mtk_cam_hw_is_dc(struct mtk_cam_ctx *ctx);
 bool mtk_cam_hw_is_offline(struct mtk_cam_ctx *ctx);
