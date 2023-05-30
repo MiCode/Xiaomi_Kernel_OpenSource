@@ -56,7 +56,7 @@ module_param(mml_path_mode, int, 0644);
 int mml_racing;
 module_param(mml_racing, int, 0644);
 
-int mml_racing_rsz = 1;
+int mml_racing_rsz;
 module_param(mml_racing_rsz, int, 0644);
 
 enum topology_scenario {
