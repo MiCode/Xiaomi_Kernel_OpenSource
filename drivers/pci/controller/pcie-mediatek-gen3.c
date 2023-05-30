@@ -1299,7 +1299,6 @@ int mtk_pcie_remove_port(int port)
 }
 EXPORT_SYMBOL(mtk_pcie_remove_port);
 
-#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
 static void pcie_android_rvh_do_serror(void *data, struct pt_regs *regs,
 				       unsigned int esr, int *ret)
 {
@@ -1342,7 +1341,6 @@ static void pcie_android_rvh_do_serror(void *data, struct pt_regs *regs,
 	if (val & PCIE_AXI_READ_ERR)
 		*ret = 1;
 }
-#endif
 
 /**
  * mtk_pcie_dump_link_info() - Dump PCIe RC information
@@ -1834,14 +1832,12 @@ static struct platform_driver mtk_pcie_driver = {
 
 static int mtk_pcie_init_func(void *pvdev)
 {
-#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
 	int err = 0;
 
 	err = register_trace_android_rvh_do_serror(
 			pcie_android_rvh_do_serror, NULL);
 	if (err)
 		pr_info("register pcie android_rvh_do_serror failed!\n");
-#endif
 
 	return platform_driver_register(&mtk_pcie_driver);
 }
