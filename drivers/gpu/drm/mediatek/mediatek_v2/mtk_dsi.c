@@ -11585,20 +11585,4 @@ done:
 	return ret;
 }
 
-void debug_dsi(struct drm_crtc *crtc, unsigned int offset, unsigned int mask)
-{
-	struct mtk_dsi *dsi = NULL;
-
-	if (!crtc) {
-		DDPPR_ERR("find crtc fail\n");
-		return;
-	}
-	dsi = pm_get_mtk_dsi(crtc);
-	if (!dsi) {
-		DDPPR_ERR("%s NULL dsi\n", __func__);
-		return;
-	}
-
-	writel(mask, dsi->regs + offset);
-}
 /* ******************* end PanelMaster ***************** */
