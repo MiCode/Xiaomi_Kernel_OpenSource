@@ -221,11 +221,12 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		return;
 	}
+	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
 		dev_dbg(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
-		return;
+		goto err_put;
 	}
 	kref_get(&srcmdev->rpdev.ept->refcount);
 	mutex_unlock(&mtk_subdev->endpoints_lock);
@@ -280,6 +281,8 @@ void ccd_worker_read(struct mtk_ccd *ccd,
 	kfree(ccd_params);
 err_ret:
 	kref_put(&mept->ept.refcount, __ept_release);
+err_put:
+	put_device(&srcmdev->rpdev.dev);
 }
 EXPORT_SYMBOL_GPL(ccd_worker_read);
 
@@ -303,11 +306,12 @@ void ccd_worker_write(struct mtk_ccd *ccd,
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		return;
 	}
+	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
 		dev_dbg(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
-		return;
+		goto err_put;
 	}
 	kref_get(&srcmdev->rpdev.ept->refcount);
 	mutex_unlock(&mtk_subdev->endpoints_lock);
@@ -337,6 +341,8 @@ void ccd_worker_write(struct mtk_ccd *ccd,
 
 err_ret:
 	kref_put(&mept->ept.refcount, __ept_release);
+err_put:
+	put_device(&srcmdev->rpdev.dev);
 	/* TBD: Free shared memory for additional buffer
 	 * If no buffer ready now, wait or not depending on parameter
 	 */

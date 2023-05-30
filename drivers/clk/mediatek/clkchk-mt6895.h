@@ -60,7 +60,12 @@ enum chk_sys_id {
 	gce_m = 49,
 	mdp = 50,
 	mdp1 = 51,
-	chk_sys_num = 52,
+	img_subcomm0 = 52,
+	img_subcomm1 = 53,
+	cam_mm_subcomm0 = 54,
+	cam_mdp_subcomm1 = 55,
+	cam_sys_subcomm1 = 56,
+	chk_sys_num = 57,
 };
 
 #ifdef CONFIG_MTK_DVFSRC_HELPER

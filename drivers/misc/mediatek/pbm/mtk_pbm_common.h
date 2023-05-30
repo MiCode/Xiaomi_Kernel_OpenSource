@@ -43,6 +43,7 @@ struct cpu_pbm_policy {
 	unsigned int               power_weight;
 	unsigned int               max_perf_state;
 	unsigned int               power;
+	unsigned int               freq;
 	struct freq_qos_request    qos_req;
 	struct cpufreq_policy      *policy;
 	struct em_perf_domain      *em;

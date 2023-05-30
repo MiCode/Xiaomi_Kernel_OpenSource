@@ -952,7 +952,7 @@ static void radeon_pm_setup_for_suspend(struct radeonfb_info *rinfo)
 	tmp = INPLL( pllMCLK_MISC) | MCLK_MISC__EN_MCLK_TRISTATE_IN_SUSPEND;
 	OUTPLL( pllMCLK_MISC, tmp);
 
-	/* BUS_CNTL1__MOBILE_PLATORM_SEL setting is northbridge chipset
+	/* BUS_CNTL1__MOBILE_XXX_SEL setting is northbridge chipset
 	 * and radeon chip dependent. Thus we only enable it on Mac for
 	 * now (until we get more info on how to compute the correct
 	 * value for various X86 bridges).

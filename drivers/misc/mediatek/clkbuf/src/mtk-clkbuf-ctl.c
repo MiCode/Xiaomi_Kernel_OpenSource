@@ -30,6 +30,12 @@ static bool _clk_buf_check(void)
 	return clk_buf_get_init_sta();
 }
 
+int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req)
+{
+	return 0;
+}
+EXPORT_SYMBOL(clk_buf_voter_ctrl_by_id);
+
 int clk_buf_set_xo_ctrl(u32 id, bool onoff)
 {
 	if (_clk_buf_check())

@@ -71,6 +71,9 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 	const struct v4l2_format *fmt = &node->active_fmt;
 	unsigned int size;
 	int i;
+	int min_buf_sz;
+
+	min_buf_sz = ALIGN(IMG_MIN_WIDTH, IMG_PIX_ALIGN) * IMG_MIN_HEIGHT;
 
 	/* Check the limitation of buffer size */
 	if (max_buffer_count)
@@ -83,7 +86,7 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 	    vq->type == V4L2_BUF_TYPE_META_CAPTURE)
 		size = fmt->fmt.meta.buffersize;
 	else
-		size = fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
+		size = min_buf_sz;
 
 	/* Add for q.create_bufs with fmt.g_sizeimage(p) / 2 test */
 	if (*num_planes) {
@@ -93,11 +96,27 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 		/* TBC: subsampling configuration */
 		if (is_raw_subdev(node->uid.pipe_id)) {
 			raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
-			if (raw_pipeline && raw_pipeline->feature_pending &&
-				fmt->fmt.pix_mp.num_planes > 1) {
+			if (raw_pipeline && node->desc.id == MTK_RAW_MAIN_STREAM_OUT) {
+				if (raw_pipeline->dynamic_exposure_num_max >
+				    fmt->fmt.pix_mp.num_planes) {
+					*num_planes = raw_pipeline->dynamic_exposure_num_max;
+					for (i = 0; i < *num_planes; i++)
+						sizes[i] = size;
+				} else if (raw_pipeline && raw_pipeline->user_res.raw_res.feature &&
+					fmt->fmt.pix_mp.num_planes > 1) {
+					*num_planes = fmt->fmt.pix_mp.num_planes;
+
+					for (i = 0; i < *num_planes; i++)
+						sizes[i] = size;
+				} else {
+					*num_planes = 1;
+					sizes[0] = size;
+				}
+			} else if (raw_pipeline && raw_pipeline->user_res.raw_res.feature
+				&& fmt->fmt.pix_mp.num_planes > 1) {
 				*num_planes = fmt->fmt.pix_mp.num_planes;
 				for (i = 0; i < *num_planes; i++)
-					sizes[i] = fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
+					sizes[i] = size;
 			} else {
 				*num_planes = 1;
 				sizes[0] = size;
@@ -106,6 +125,9 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 			*num_planes = 1;
 			sizes[0] = size;
 		} else if (is_mraw_subdev(node->uid.pipe_id)) {
+			*num_planes = 1;
+			sizes[0] = size;
+		} else {
 			*num_planes = 1;
 			sizes[0] = size;
 		}
@@ -565,476 +587,6 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 	return NULL;
 }
 
-int mtk_cam_fill_img_buf(struct mtkcam_ipi_img_output *img_out,
-						struct v4l2_format *f, dma_addr_t daddr)
-{
-	u32 pixelformat = f->fmt.pix_mp.pixelformat;
-	u32 width = f->fmt.pix_mp.width;
-	u32 height = f->fmt.pix_mp.height;
-	struct v4l2_plane_pix_format *plane = &f->fmt.pix_mp.plane_fmt[0];
-	u32 stride = plane->bytesperline;
-	u32 aligned_width;
-	unsigned int addr_offset = 0;
-	int i;
-	(void) width;
-
-	if (is_mtk_format(pixelformat)) {
-		const struct mtk_format_info *info;
-
-		info = mtk_format_info(pixelformat);
-		if (!info)
-			return -EINVAL;
-
-		aligned_width = stride / info->bpp[0];
-		if (info->mem_planes == 1) {
-			if (is_yuv_ufo(pixelformat)) {
-				aligned_width = ALIGN(width, 64);
-				img_out->buf[0][0].iova = daddr;
-				img_out->fmt.stride[0] = aligned_width * info->bit_r_num
-							 / info->bit_r_den;
-				img_out->buf[0][0].size = img_out->fmt.stride[0] * height;
-				img_out->buf[0][0].size += img_out->fmt.stride[0] * height / 2;
-				img_out->buf[0][0].size += ALIGN((aligned_width / 64), 8) * height;
-				img_out->buf[0][0].size += ALIGN((aligned_width / 64), 8) * height
-							   / 2;
-				img_out->buf[0][0].size += sizeof(struct UfbcBufferHeader);
-
-				pr_debug("plane:%d stride:%d plane_size:%d addr:0x%x\n",
-					0, img_out->fmt.stride[0], img_out->buf[0][0].size,
-					img_out->buf[0][0].iova);
-			} else if (is_raw_ufo(pixelformat)) {
-				aligned_width = ALIGN(width, 64);
-				img_out->buf[0][0].iova = daddr;
-				img_out->fmt.stride[0] = aligned_width * info->bit_r_num /
-							 info->bit_r_den;
-				img_out->buf[0][0].size = img_out->fmt.stride[0] * height;
-				img_out->buf[0][0].size += ALIGN((aligned_width / 64), 8) * height;
-				img_out->buf[0][0].size += sizeof(struct UfbcBufferHeader);
-
-				pr_debug("plane:%d stride:%d plane_size:%d addr:0x%x\n",
-					0, img_out->fmt.stride[0], img_out->buf[0][0].size,
-					img_out->buf[0][0].iova);
-			} else {
-				for (i = 0; i < info->comp_planes; i++) {
-					unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
-					unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
-
-					img_out->buf[0][i].iova = daddr + addr_offset;
-					img_out->fmt.stride[i] = info->bpp[i] *
-						DIV_ROUND_UP(aligned_width, hdiv);
-					img_out->buf[0][i].size = img_out->fmt.stride[i]
-						* DIV_ROUND_UP(height, vdiv);
-					addr_offset += img_out->buf[0][i].size;
-					pr_debug("plane:%d stride:%d plane_size:%d addr:0x%x\n",
-						i, img_out->fmt.stride[i], img_out->buf[0][i].size,
-						img_out->buf[0][i].iova);
-				}
-			}
-		} else {
-			pr_debug("do not support non contiguous mplane\n");
-		}
-	} else {
-		const struct v4l2_format_info *info;
-
-		info = v4l2_format_info(pixelformat);
-		if (!info)
-			return -EINVAL;
-
-		aligned_width = stride / info->bpp[0];
-		if (info->mem_planes == 1) {
-			for (i = 0; i < info->comp_planes; i++) {
-				unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
-				unsigned int vdiv = (i == 0) ? 1 : info->vdiv;
-
-				img_out->buf[0][i].iova = daddr + addr_offset;
-				img_out->fmt.stride[i] = info->bpp[i] *
-					DIV_ROUND_UP(aligned_width, hdiv);
-				img_out->buf[0][i].size = img_out->fmt.stride[i]
-					* DIV_ROUND_UP(height, vdiv);
-				addr_offset += img_out->buf[0][i].size;
-				pr_debug("stride:%d plane_size:%d addr:0x%x\n",
-					img_out->fmt.stride[i], img_out->buf[0][i].size,
-					img_out->buf[0][i].iova);
-			}
-		} else {
-			pr_debug("do not support non contiguous mplane\n");
-		}
-	}
-
-	return 0;
-}
-
-void mtk_cam_mstream_buf_update(struct mtk_cam_request *req,
-				unsigned int pipe_id,
-				struct mtk_raw_pipeline *raw_pipline,
-				unsigned int desc_id,
-				int buf_plane_idx,
-				struct vb2_buffer *vb,
-				struct v4l2_format *f)
-{
-	struct mtk_cam_request_stream_data *req_stream_data =
-		mtk_cam_req_get_s_data(req, pipe_id, 0);
-	struct mtkcam_ipi_frame_param *frame_param =
-		&req_stream_data->frame_params;
-	struct mtk_cam_request_stream_data *req_stream_data_mstream =
-		mtk_cam_req_get_s_data(req, pipe_id, 1);
-	struct mtkcam_ipi_frame_param *mstream_frame_param =
-		&req_stream_data_mstream->frame_params;
-	int i = buf_plane_idx;
-	struct mtk_cam_buffer *buf = mtk_cam_vb2_buf_to_dev_buf(vb);
-	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
-
-	if (i >= 2) {
-		pr_info("mstream buffer plane over 2\n");
-		return;
-	}
-
-	mstream_frame_param->raw_param.exposure_num = 1;
-	frame_param->raw_param.exposure_num = 2;
-
-	if (mtk_cam_feature_is_mstream_m2m(raw_pipline->feature_pending)) {
-		/**
-		 * MSTREAM_SE_NE M2M orientation
-		 * First exposure:
-		 * Input = SE(RAWI2 node buffer through RAWI2),
-		 * Output = SE(IMGO node buffer)
-		 * hw_scenario -> MTKCAM_IPI_HW_PATH_OFFLINE_M2M
-		 *
-		 * Second exposure:
-		 * Intput = NE(RAWI2 buffer through RAWI6) + SE(IMGO buffer through RAWI2),
-		 * Output = NE(IMGO node buffer)
-		 * hw_scenario -> MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER
-		 */
-
-		mstream_frame_param->raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_OFFLINE_M2M;
-		frame_param->raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER;
-
-		if ((raw_pipline->feature_pending & MSTREAM_NE_SE) == MSTREAM_NE_SE) {
-			if (i == 0) {
-				if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT) {
-					int in_node;
-					unsigned int desc_id =
-						node->desc.id - MTK_RAW_SOURCE_BEGIN;
-
-					// 3. 1st exp NE output
-					mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
-						buf->daddr;
-					mstream_frame_param->img_outs[desc_id].buf[0][0].size =
-						f->fmt.pix_mp.plane_fmt[0].sizeimage;
-
-					// SE output
-					frame_param->img_outs[desc_id].buf[0][0].iova =
-						buf->daddr + f->fmt.pix_mp.plane_fmt[0].sizeimage;
-					frame_param->img_outs[desc_id].buf[0][0].size =
-						f->fmt.pix_mp.plane_fmt[0].sizeimage;
-
-					pr_debug("mstream ne_se m2m ne imgo:0x%x size:%d se imgo:0x%x size:%d\n",
-					mstream_frame_param->img_outs[desc_id].buf[0][0].iova,
-					mstream_frame_param->img_outs[desc_id].buf[0][0].size,
-					frame_param->img_outs[desc_id].buf[0][0].iova,
-					frame_param->img_outs[desc_id].buf[0][0].size);
-
-					/**
-					 * 4. 2nd exp SE Intput =
-					 * SE(RAWI2 buffer through RAWI6)(step2) +
-					 * NE(IMGO buffer through RAWI2)
-					 */
-					in_node = MTKCAM_IPI_RAW_RAWI_2;
-
-					frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova = buf->daddr;
-					frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
-						f->fmt.pix_mp.plane_fmt[i].sizeimage;
-
-					pr_debug("mstream ne_se m2m se rawi2:0x%x size:%d\n",
-						frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].
-						buf[0].iova, frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].
-						buf[0].size);
-				} else if (node->desc.id == MTK_RAW_RAWI_2_IN) {
-					// 1. 1st exp NE input
-					int in_node = MTKCAM_IPI_RAW_RAWI_2;
-
-					mstream_frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova = buf->daddr;
-					mstream_frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
-						f->fmt.pix_mp.plane_fmt[0].sizeimage;
-
-					pr_debug("mstream ne_se m2m ne rawi2:0x%x size:%d\n",
-						mstream_frame_param->img_ins[
-						in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
-						mstream_frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size);
-				}
-			} else if (i == 1) {
-				if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT) {
-					/* main stream numplane is 1, not entering here */
-				} else if (node->desc.id == MTK_RAW_RAWI_2_IN) {
-					// 2. SE input
-					int in_node = MTKCAM_IPI_RAW_RAWI_6;
-
-					frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova = buf->daddr +
-						f->fmt.pix_mp.plane_fmt[i].sizeimage;
-					frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
-						f->fmt.pix_mp.plane_fmt[i].sizeimage;
-
-					pr_debug("mstream ne_se m2m se rawi6:0x%x size:%d\n",
-						frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].
-						buf[0].iova, frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size);
-				}
-			}
-		} else { // MSTREAM_SE_NE
-			if (i == 0) {
-				if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT) {
-					int in_node;
-					unsigned int desc_id =
-						node->desc.id - MTK_RAW_SOURCE_BEGIN;
-
-
-					// 3. 1st exp SE output
-					// as normal 1 exposure flow
-					mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
-						buf->daddr + f->fmt.pix_mp.plane_fmt[i].sizeimage;
-					mstream_frame_param->img_outs[desc_id].buf[0][0].size =
-						f->fmt.pix_mp.plane_fmt[i].sizeimage;
-
-					// 2nd exp NE output
-					frame_param->img_outs[desc_id].buf[0][0].iova = buf->daddr;
-					frame_param->img_outs[desc_id].buf[0][0].size =
-						f->fmt.pix_mp.plane_fmt[i].sizeimage;
-
-					pr_debug("mstream se_ne m2m se imgo:0x%x size:%d ne imgo:0x%x size:%d\n",
-					mstream_frame_param->img_outs[desc_id].buf[0][0].iova,
-					mstream_frame_param->img_outs[desc_id].buf[0][0].size,
-					frame_param->img_outs[desc_id].buf[0][0].iova,
-					frame_param->img_outs[desc_id].buf[0][0].size);
-
-					/**
-					 * 4. 2nd exp NE Intput =
-					 * NE(RAWI2 buffer through RAWI6)(step2) +
-					 * SE(IMGO buffer through RAWI2)
-					 */
-					in_node = MTKCAM_IPI_RAW_RAWI_2;
-					frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova =
-						buf->daddr + f->fmt.pix_mp.plane_fmt[i].sizeimage;
-					frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
-						f->fmt.pix_mp.plane_fmt[i].sizeimage;
-
-					pr_debug("mstream se_ne m2m ne rawi2:0x%x size:%d\n",
-						frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
-						frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size);
-				} else if (node->desc.id == MTK_RAW_RAWI_2_IN) {
-					// 1. 1st exp SE input
-					int in_node = MTKCAM_IPI_RAW_RAWI_2;
-
-					mstream_frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova =
-						buf->daddr + f->fmt.pix_mp.plane_fmt[i].sizeimage;
-					mstream_frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
-						f->fmt.pix_mp.plane_fmt[i].sizeimage;
-
-					pr_debug("mstream se_ne m2m se rawi2:0x%x size:%d\n",
-						mstream_frame_param->img_ins[
-						in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
-						mstream_frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size);
-				}
-			} else if (i == 1) {
-				if (node->desc.id == MTK_RAW_MAIN_STREAM_OUT) {
-					/* main stream numplane is 1, not entering here */
-				} else if (node->desc.id == MTK_RAW_RAWI_2_IN) {
-					// 2. 2nd exp NE input
-					int in_node = MTKCAM_IPI_RAW_RAWI_6;
-
-					frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova = buf->daddr;
-					frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size =
-						f->fmt.pix_mp.plane_fmt[i].sizeimage;
-
-					pr_debug("mstream se_ne m2m ne rawi6:0x%x size:%d\n",
-						frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
-						frame_param->img_ins[in_node -
-						MTKCAM_IPI_RAW_RAWI_2].buf[0].size);
-				}
-			}
-		}
-	} else {
-		if ((raw_pipline->feature_pending & MSTREAM_NE_SE) == MSTREAM_NE_SE)
-			frame_param->raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_NE_SE;
-		else
-			frame_param->raw_param.hardware_scenario =
-			MTKCAM_IPI_HW_PATH_ON_THE_FLY_MSTREAM_SE_NE;
-
-		// imgo mstream buffer layout is fixed plane[0]=NE, plane[1]=SE
-		if ((raw_pipline->feature_pending & MSTREAM_NE_SE) == MSTREAM_NE_SE) {
-			if (i == 0) { // normal output NE(plane[0]) first
-				// as normal 1 exposure flow
-				mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
-					buf->daddr;
-				mstream_frame_param->img_outs[desc_id].buf[0][0].size =
-					f->fmt.pix_mp.plane_fmt[i].sizeimage;
-
-				pr_debug("mstream ne_se ne imgo:0x%x size:%d\n",
-				mstream_frame_param->img_outs[desc_id].buf[0][0].iova,
-				mstream_frame_param->img_outs[desc_id].buf[0][0].size);
-			} else if (i == 1) { // then SE
-				// in = NE output
-				int in_node = MTKCAM_IPI_RAW_RAWI_2;
-
-				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-				.iova = mstream_frame_param->img_outs[desc_id].buf[0][0]
-				.iova;
-				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-				.size = f->fmt.pix_mp.plane_fmt[0].sizeimage;
-				// out = SE output
-				frame_param->img_outs[desc_id].buf[0][0].iova =
-					buf->daddr + f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				frame_param->img_outs[desc_id].buf[0][0].size =
-					f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				pr_debug("mstream ne_se se rawi:0x%x size:%d, imgo:0x%x size:%d\n",
-					frame_param->img_ins[in_node -
-					MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
-					frame_param->img_ins[in_node -
-					MTKCAM_IPI_RAW_RAWI_2].buf[0].size,
-					frame_param->img_outs[desc_id].buf[0][0].iova,
-					frame_param->img_outs[desc_id].buf[0][0].size);
-			}
-		} else {
-			if (i == 0) { // normal output SE(plane[1]) first
-				mstream_frame_param->img_outs[desc_id].buf[0][0].iova =
-					buf->daddr + f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				mstream_frame_param->img_outs[desc_id].buf[0][0].size =
-					f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				pr_debug("mstream se_ne se imgo:0x%x size:%d\n",
-				mstream_frame_param->img_outs[desc_id].buf[0][0].iova,
-				mstream_frame_param->img_outs[desc_id].buf[0][0].size);
-			} else if (i == 1) { // then NE
-				// in = SE output
-				int in_node = MTKCAM_IPI_RAW_RAWI_2;
-
-				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-				.iova = mstream_frame_param->img_outs[desc_id].buf[0][0]
-				.iova;
-				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-					.size = f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				// out = NE out
-				frame_param->img_outs[desc_id].buf[0][0].iova =
-					buf->daddr;
-				frame_param->img_outs[desc_id].buf[0][0].size =
-					f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				pr_debug("mstream se_ne ne rawi:0x%x size:%d, imgo:0x%x size:%d\n",
-					frame_param->img_ins[in_node -
-					MTKCAM_IPI_RAW_RAWI_2].buf[0].iova,
-					frame_param->img_ins[in_node -
-					MTKCAM_IPI_RAW_RAWI_2].buf[0].size,
-					frame_param->img_outs[desc_id].buf[0][0].iova,
-					frame_param->img_outs[desc_id].buf[0][0].size);
-			}
-		}
-	}
-}
-
-int mtk_cam_hdr_buf_update(struct vb2_buffer *vb,
-		enum hdr_scenario_id scenario,
-			   struct mtk_cam_request *req,
-			   unsigned int pipe_id,
-			   struct mtk_raw_pipeline *raw_pipline)
-
-{
-	struct mtk_cam_buffer *buf = mtk_cam_vb2_buf_to_dev_buf(vb);
-	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
-	struct v4l2_format *f = &node->active_fmt;
-	unsigned int desc_id;
-	int i;
-	struct mtk_cam_request_stream_data *req_stream_data =
-		mtk_cam_req_get_s_data(req, pipe_id, 0);
-	struct mtkcam_ipi_frame_param *frame_param =
-		&req_stream_data->frame_params;
-
-	if (scenario != STAGGER_M2M)
-		desc_id = node->desc.id - MTK_RAW_SOURCE_BEGIN;
-	else
-		desc_id = node->desc.id - MTK_RAW_RAWI_2_IN;
-
-	for (i = 0 ; i < vb->num_planes; i++) {
-		vb->planes[i].data_offset =
-			i * f->fmt.pix_mp.plane_fmt[i].sizeimage;
-		if (mtk_cam_feature_is_mstream(raw_pipline->feature_pending) ||
-				mtk_cam_feature_is_mstream_m2m(raw_pipline->feature_pending)) {
-			mtk_cam_mstream_buf_update(req, pipe_id, raw_pipline,
-						desc_id, i, vb, f);
-		} else if (mtk_cam_get_sensor_exposure_num(raw_pipline->feature_pending) == 3) {
-			if (i == 0) { /* camsv1*/
-				int in_node = MTKCAM_IPI_RAW_RAWI_2;
-
-				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-				.iova = buf->daddr + vb->planes[i].data_offset;
-				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-					.size = f->fmt.pix_mp.plane_fmt[i].sizeimage;
-			} else if (i == 1) { /*camsv2*/
-				int in_node = MTKCAM_IPI_RAW_RAWI_3;
-
-				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-				.iova = buf->daddr + vb->planes[i].data_offset;
-				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-					.size = f->fmt.pix_mp.plane_fmt[i].sizeimage;
-			} else if (i == 2) { /*raw*/
-				if (scenario == STAGGER_M2M) {
-					int in_node = MTKCAM_IPI_RAW_RAWI_6;
-
-					frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-						.iova = buf->daddr + vb->planes[i].data_offset;
-					frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-						.size = f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				} else {
-					frame_param->img_outs[desc_id].buf[0][0].iova =
-						buf->daddr + vb->planes[i].data_offset;
-				}
-			}
-		} else if (mtk_cam_get_sensor_exposure_num(raw_pipline->feature_pending) == 2) {
-			if (i == 0) { /* camsv1*/
-				int in_node = MTKCAM_IPI_RAW_RAWI_2;
-
-				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-				.iova = buf->daddr + vb->planes[i].data_offset;
-				frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-					.size = f->fmt.pix_mp.plane_fmt[i].sizeimage;
-			} else if (i == 1) { /*raw*/
-				if (scenario == STAGGER_M2M) {
-					int in_node = MTKCAM_IPI_RAW_RAWI_6;
-
-					frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-						.iova = buf->daddr + vb->planes[i].data_offset;
-					frame_param->img_ins[in_node - MTKCAM_IPI_RAW_RAWI_2].buf[0]
-						.size = f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				} else {
-					frame_param->img_outs[desc_id].buf[0][0].iova =
-						buf->daddr + vb->planes[i].data_offset;
-				}
-			}
-		}
-	}
-
-	return 0;
-}
 static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 {
 	struct mtk_cam_device *cam = vb2_get_drv_priv(vb->vb2_queue);
@@ -1049,17 +601,12 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	unsigned int dma_port;
 	unsigned int width, height, stride;
 	void *vaddr;
-	int i;
-	unsigned int pixelformat;
-	struct v4l2_format *f;
-	struct v4l2_selection *s;
-	struct mtkcam_ipi_img_output *img_out;
 	struct mtkcam_ipi_frame_param *frame_param;
 	struct mtkcam_ipi_meta_input *meta_in;
 	struct mtkcam_ipi_meta_output *meta_out;
 	struct mtk_camsv_frame_params *sv_frame_params;
 	struct mtk_raw_pipeline *raw_pipline;
-	int raw_feature;
+
 
 	dma_port = node->desc.dma_port;
 	pipe_id = node->uid.pipe_id;
@@ -1069,228 +616,8 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 	raw_pipline = mtk_cam_dev_get_raw_pipeline(cam, pipe_id);
 	mtk_cam_s_data_set_vbuf(req_stream_data, buf, node->desc.id);
 
-	if (raw_pipline)
-		raw_feature = raw_pipline->feature_pending;
-	else
-		raw_feature = 0;
-
-	dev_dbg(dev, "%s: node:%d fd:%d idx:%d, raw_feature:0x%x\n", __func__,
-		node->desc.id, buf->vbb.request_fd, buf->vbb.vb2_buf.index,
-		raw_feature);
-
-	f = mtk_cam_s_data_get_vfmt(req_stream_data, node->desc.id);
-	if (!f) {
-		dev_info(cam->dev,
-			 "%s:%s:pipe(%d):%s: can't find the vfmt field to save\n",
-			 __func__, req->req.debug_str, node->uid.pipe_id, node->desc.name);
-		return;
-	}
-
-	if (req_stream_data->vdev_fmt_update & (1 << node->desc.id)) {
-		mtk_cam_video_set_fmt(node, f, true);
-		node->active_fmt = *f;
-	} else {
-		*f = node->active_fmt;
-		dev_dbg(cam->dev,
-			"%s:%s:pipe(%d):%s:save v4l2 fmt: pixelfmt(0x%x), w(%d), h(%d)\n",
-			__func__, req->req.debug_str, node->uid.pipe_id, node->desc.name,
-			f->fmt.pix_mp.pixelformat, f->fmt.pix_mp.width,
-			f->fmt.pix_mp.height);
-	}
-
-	s = mtk_cam_s_data_get_vsel(req_stream_data, node->desc.id);
-	if (!s) {
-		dev_info(cam->dev,
-			 "%s:%s:pipe(%d):%s: can't find the vsel field to save\n",
-			 __func__, req->req.debug_str, node->uid.pipe_id,
-			 node->desc.name);
-		return;
-	}
-
-	if (req_stream_data->vdev_selection_update & (1 << node->desc.id)) {
-		node->pending_crop = *s;
-		dev_dbg(cam->dev,
-			"%s:%s:pipe(%d):%s: apply pending vidioc_s_selection (%d,%d,%d,%d)\n",
-			__func__, req->req.debug_str, node->uid.pipe_id, node->desc.name,
-			node->pending_crop.r.left, node->pending_crop.r.top,
-			node->pending_crop.r.width, node->pending_crop.r.height);
-	} else {
-		*s = node->pending_crop;
-	}
-
 	/* update buffer internal address */
 	switch (dma_port) {
-	case MTKCAM_IPI_RAW_RAWI_2:
-		if (raw_feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK &&
-			raw_feature & MTK_CAM_FEATURE_HDR_MASK) {
-			if (mtk_cam_feature_is_stagger_m2m(raw_feature)) {
-				mtk_cam_hdr_buf_update(vb, STAGGER_M2M,
-						req, pipe_id, raw_pipline);
-				frame_param->raw_param.hardware_scenario =
-					MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER;
-				frame_param->raw_param.exposure_num =
-					mtk_cam_get_sensor_exposure_num(
-						raw_feature);
-			} else if (mtk_cam_feature_is_mstream_m2m(
-					raw_feature)) {
-				mtk_cam_hdr_buf_update(vb, MSTREAM_M2M,
-							req, pipe_id,
-							raw_pipline);
-			}
-		} else {
-			desc_id = node->desc.id - MTK_RAW_RAWI_2_IN;
-			frame_param->img_ins[desc_id].buf[0].iova = buf->daddr;
-			frame_param->raw_param.hardware_scenario =
-				MTKCAM_IPI_HW_PATH_OFFLINE_M2M;
-		}
-		break;
-	case MTKCAM_IPI_RAW_IMGO:
-		/* TODO: support sub-sampling multi-plane buffer */
-		desc_id = node->desc.id-MTK_RAW_SOURCE_BEGIN;
-		frame_param->img_outs[desc_id].buf[0][0].iova = buf->daddr;
-		frame_param->img_outs[desc_id].buf[0][0].ccd_fd = vb->planes[0].m.fd;
-		if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_BPC)
-			frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_BPC;
-		else if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_FUS)
-			frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_FUS;
-		else if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_DGN)
-			frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_DGN;
-		else if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_LSC)
-			frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_LSC;
-		else if (raw_pipline->res_config.raw_path == V4L2_MTK_CAM_RAW_PATH_SELECT_LTM)
-			frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_AFTER_LTM;
-		else
-			/* un-processed raw frame */
-			frame_param->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_UNPROCESSED;
-
-		dev_dbg(dev, "%s: node:%d fd:%d idx:%d raw_path(%d) ipi imgo_path_sel(%d))\n",
-			__func__, node->desc.id, buf->vbb.request_fd, buf->vbb.vb2_buf.index,
-			raw_pipline->res_config.raw_path, frame_param->raw_param.imgo_path_sel);
-
-		pixelformat = f->fmt.pix_mp.pixelformat;
-		if (is_raw_ufo(pixelformat)) {
-			img_out = &frame_param->img_outs[desc_id];
-			mtk_cam_fill_img_buf(img_out, f, buf->daddr);
-		}
-		if ((raw_feature & MTK_CAM_FEATURE_HDR_MASK) &&
-			!(raw_feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK)) {
-			int feature =
-				raw_feature & MTK_CAM_FEATURE_HDR_MASK;
-			enum hdr_scenario_id scenario;
-
-			if (feature == MSTREAM_NE_SE ||
-			    feature == MSTREAM_SE_NE)
-				scenario = MSTREAM;
-			else
-				scenario = STAGGER_ON_THE_FLY;
-
-			mtk_cam_hdr_buf_update(vb, scenario, req, pipe_id, raw_pipline);
-		} else if (mtk_cam_feature_is_mstream_m2m(
-					raw_feature)) {
-			mtk_cam_hdr_buf_update(vb, MSTREAM_M2M,
-						req, pipe_id,
-						raw_pipline);
-		}
-		if (raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
-			for (i = 0 ; i < vb->num_planes; i++) {
-				vb->planes[i].data_offset =
-					i * f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				frame_param->img_outs[desc_id].buf[i][0].iova =
-					buf->daddr + vb->planes[i].data_offset;
-			}
-			/*FOR 16 subsample ratios - FIXME*/
-			if (raw_feature == HIGHFPS_16_SUBSAMPLE)
-				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 16; i++)
-					frame_param->img_outs[desc_id].buf[i][0].iova =
-					buf->daddr + i * f->fmt.pix_mp.plane_fmt[0].sizeimage;
-			/*FOR 32 subsample ratios - FIXME*/
-			if (raw_feature == HIGHFPS_32_SUBSAMPLE)
-				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 32; i++)
-					frame_param->img_outs[desc_id].buf[i][0].iova =
-					buf->daddr + i * f->fmt.pix_mp.plane_fmt[0].sizeimage;
-		}
-		break;
-	case MTKCAM_IPI_RAW_YUVO_1:
-	case MTKCAM_IPI_RAW_YUVO_2:
-	case MTKCAM_IPI_RAW_YUVO_3:
-	case MTKCAM_IPI_RAW_YUVO_4:
-	case MTKCAM_IPI_RAW_YUVO_5:
-	case MTKCAM_IPI_RAW_RZH1N2TO_1:
-	case MTKCAM_IPI_RAW_RZH1N2TO_2:
-	case MTKCAM_IPI_RAW_RZH1N2TO_3:
-	case MTKCAM_IPI_RAW_DRZS4NO_1:
-	case MTKCAM_IPI_RAW_DRZS4NO_2:
-	case MTKCAM_IPI_RAW_DRZS4NO_3:
-		/* TODO: support sub-sampling multi-plane buffer */
-		desc_id = node->desc.id - MTK_RAW_SOURCE_BEGIN;
-		img_out = &frame_param->img_outs[desc_id];
-		img_out->buf[0][0].ccd_fd = vb->planes[0].m.fd;
-		mtk_cam_fill_img_buf(img_out, f, buf->daddr);
-		if (raw_feature & MTK_CAM_FEATURE_SUBSAMPLE_MASK) {
-			int comp_planes = 1;
-
-			if (is_mtk_format(f->fmt.pix_mp.pixelformat)) {
-				const struct mtk_format_info *mtk_info =
-					mtk_format_info(f->fmt.pix_mp.pixelformat);
-				comp_planes = mtk_info->comp_planes;
-			} else {
-				const struct v4l2_format_info *v4l2_info =
-					v4l2_format_info(f->fmt.pix_mp.pixelformat);
-				comp_planes = v4l2_info->comp_planes;
-			}
-
-			for (i = 1 ; i < vb->num_planes; i++) {
-				int plane;
-				unsigned int offset =
-					i * f->fmt.pix_mp.plane_fmt[i].sizeimage;
-				vb->planes[i].data_offset = offset;
-
-				img_out->buf[i][0].iova = buf->daddr + offset;
-				img_out->buf[i][0].size = img_out->buf[0][0].size;
-				for (plane = 1 ; plane < comp_planes; plane++) {
-					img_out->buf[i][plane].iova =
-						img_out->buf[i][plane-1].iova +
-						img_out->buf[i][plane-1].size;
-					img_out->buf[i][plane].size =
-						img_out->buf[0][plane].size;
-				}
-			}
-			/*FOR 16 subsample ratios - FIXME*/
-			if (raw_feature == HIGHFPS_16_SUBSAMPLE) {
-				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 16; i++) {
-					int p;
-					unsigned int oft =
-						i * f->fmt.pix_mp.plane_fmt[0].sizeimage;
-					img_out->buf[i][0].iova = buf->daddr + oft;
-					img_out->buf[i][0].size = img_out->buf[0][0].size;
-					for (p = 1 ; p < comp_planes; p++) {
-						img_out->buf[i][p].iova =
-							img_out->buf[i][p-1].iova +
-							img_out->buf[i][p-1].size;
-						img_out->buf[i][p].size =
-							img_out->buf[0][p].size;
-					}
-				}
-			}
-			/*FOR 32 subsample ratios - FIXME*/
-			if (raw_feature == HIGHFPS_32_SUBSAMPLE)
-				for (i = MAX_SUBSAMPLE_PLANE_NUM; i < 32; i++) {
-					int p;
-					unsigned int oft =
-						i * f->fmt.pix_mp.plane_fmt[0].sizeimage;
-					img_out->buf[i][0].iova = buf->daddr + oft;
-					img_out->buf[i][0].size = img_out->buf[0][0].size;
-					for (p = 1 ; p < comp_planes; p++) {
-						img_out->buf[i][p].iova =
-							img_out->buf[i][p-1].iova +
-							img_out->buf[i][p-1].size;
-						img_out->buf[i][p].size =
-							img_out->buf[0][p].size;
-					}
-				}
-		}
-		break;
-
 	case MTKCAM_IPI_RAW_META_STATS_CFG:
 		desc_id = node->desc.id-MTK_RAW_SINK_NUM;
 		meta_in = &frame_param->meta_inputs[desc_id];
@@ -1748,6 +1075,15 @@ int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_BAYER14:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER14:
+	case MTKCAM_IPI_IMG_FMT_BAYER16:
+	case MTKCAM_IPI_IMG_FMT_BAYER10_UNPACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER12_UNPACKED:
+	case MTKCAM_IPI_IMG_FMT_BAYER14_UNPACKED:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER8:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER10:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER12:
+	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER14:
 	case MTKCAM_IPI_IMG_FMT_YUYV:
 	case MTKCAM_IPI_IMG_FMT_YVYU:
 	case MTKCAM_IPI_IMG_FMT_UYVY:
@@ -1794,19 +1130,22 @@ int mtk_cam_get_fmt_size_factor(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_YUV_P212_PACKED:
 	case MTKCAM_IPI_IMG_FMT_YVU_P212_PACKED:
 		return 200;
-	case V4L2_PIX_FMT_MTISP_BAYER8_UFBC:
-	case V4L2_PIX_FMT_MTISP_BAYER10_UFBC:
-	case V4L2_PIX_FMT_MTISP_BAYER12_UFBC:
-	case V4L2_PIX_FMT_MTISP_BAYER14_UFBC:
-		return 100;
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER8_3P:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P:
+	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER10_3P_PACKED:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_RGB_8B_3P:
+	case MTKCAM_IPI_IMG_FMT_RGB_10B_3P:
+	case MTKCAM_IPI_IMG_FMT_RGB_12B_3P:
+	case MTKCAM_IPI_IMG_FMT_RGB_10B_3P_PACKED:
+	case MTKCAM_IPI_IMG_FMT_RGB_12B_3P_PACKED:
 		return 300;
 	default:
+		pr_info("%s unsupport format(%d)", __func__, ipi_fmt);
 		break;
 	}
-	return -1;
+	return 100;
 }
 
 int mtk_cam_fill_pixfmt_mp(struct v4l2_pix_format_mplane *pixfmt,
@@ -2073,7 +1412,7 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 	q->type = video->desc.buf_type;
 	q->io_modes = VB2_MMAP | VB2_DMABUF;
 
-	if (q->type == V4L2_BUF_TYPE_META_OUTPUT)
+	if (q->type == V4L2_BUF_TYPE_META_OUTPUT || video->desc.id == MTK_RAW_META_OUT_1)
 		q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	else
 		/**
@@ -2298,10 +1637,17 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 	struct v4l2_format *vfmt;
 	struct mtk_cam_request_stream_data *stream_data;
 	s32 fd;
+	struct mtk_raw_pipeline *raw_pipeline;
+	int raw_feature = 0;
 
 	if (!vb2_is_busy(node->vdev.queue)) {
 		/* Get the valid format */
-		mtk_cam_video_set_fmt(node, f, true);
+		raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
+		if (raw_pipeline)
+			raw_feature = raw_pipeline->user_res.raw_res.feature;
+
+		mtk_cam_video_set_fmt(node, f, raw_feature);
+
 		/* Configure to video device */
 		node->active_fmt = *f;
 		return 0;
@@ -2335,33 +1681,18 @@ int mtk_cam_vidioc_s_fmt(struct file *file, void *fh,
 	return 0;
 }
 
-int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, bool active)
+int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, int raw_feature)
 {
 	struct mtk_cam_device *cam = video_get_drvdata(&node->vdev);
-	struct mtk_raw_pipeline *raw_pipeline;
 	const struct v4l2_format *dev_fmt;
 	struct v4l2_format try_fmt;
 	s32 request_fd, i;
 	u32 bytesperline, sizeimage;
-	int raw_feature = 0;
 	u32 is_hdr = 0, is_hdr_m2m = 0;
 
-	raw_pipeline = mtk_cam_dev_get_raw_pipeline(cam, node->uid.pipe_id);
-	if (raw_pipeline) {
-		if (active) {
-			/* set format */
-			raw_feature = raw_pipeline->feature_pending;
-			dev_dbg(cam->dev,
-				"%s:pipe(%d) read feature(0x%x) from pending\n",
-				__func__, raw_pipeline->id, raw_feature);
-		} else {
-			/* try format */
-			raw_feature = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
-			dev_dbg(cam->dev,
-				"%s:pipe(%d) read feature(0x%x) from pix_mp\n",
-				__func__, raw_pipeline->id, raw_feature);
-		}
-	}
+	dev_dbg(cam->dev,
+			"%s:pipe(%d):%s:feature(0x%x)\n",
+			__func__, node->uid.pipe_id, node->desc.name, raw_feature);
 
 	request_fd = mtk_cam_fmt_get_request(&f->fmt.pix_mp);
 	memset(&try_fmt, 0, sizeof(try_fmt));
@@ -2392,6 +1723,7 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 		else
 			is_hdr = 1;
 	}
+
 	/* support 1/2/3 plane */
 	/* Note: vhdr m2m main stream is implicitly multiple plane */
 	/* but not nego through try format */
@@ -2423,6 +1755,7 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format 
 		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 3);
 	else
 		cal_image_pix_mp(node->desc.id, &try_fmt.fmt.pix_mp, 0);
+
 	/* subsample */
 	if (node->desc.id >= MTK_RAW_MAIN_STREAM_OUT &&
 		node->desc.id < MTK_RAW_RZH1N2TO_1_OUT &&
@@ -2482,8 +1815,13 @@ int mtk_cam_vidioc_try_fmt(struct file *file, void *fh,
 			   struct v4l2_format *f)
 {
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	int raw_feature = 0;
 
-	mtk_cam_video_set_fmt(node, f, false);
+	if (is_raw_subdev(node->uid.pipe_id))
+		raw_feature = mtk_cam_fmt_get_raw_feature(&f->fmt.pix_mp);
+
+	mtk_cam_video_set_fmt(node, f, raw_feature);
+
 	return 0;
 }
 

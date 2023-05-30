@@ -3,7 +3,7 @@
  * IOMMU API for ARM architected SMMU implementations.
  *
  * Copyright (C) 2013 ARM Limited
- *
+ * Copyright (C) 2022 XiaoMi, Inc.
  * Author: Will Deacon <will.deacon@arm.com>
  *
  * This driver currently supports:
@@ -65,7 +65,7 @@ module_param(disable_bypass, bool, S_IRUGO);
 MODULE_PARM_DESC(disable_bypass,
 	"Disable bypass streams such that incoming transactions from devices that are not attached to an iommu domain will report an abort back to the device and will not be allowed to pass through the SMMU.");
 
-#define s2cr_init_val (struct arm_smmu_s2cr){				\
+#define (s2cr_init_val)(struct arm_smmu_s2cr){				\
 	.type = disable_bypass ? S2CR_TYPE_FAULT : S2CR_TYPE_BYPASS,	\
 }
 
@@ -1271,7 +1271,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct io_pgtable_ops *ops= smmu_domain->pgtbl_ops;
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
 	struct device *dev = smmu->dev;
 	void __iomem *reg;
 	u32 tmp;
@@ -1500,7 +1500,7 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
-	switch(domain->type) {
+	switch (domain->type) {
 	case IOMMU_DOMAIN_UNMANAGED:
 		switch (attr) {
 		case DOMAIN_ATTR_NESTING:
@@ -1532,7 +1532,7 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 
 	mutex_lock(&smmu_domain->init_mutex);
 
-	switch(domain->type) {
+	switch (domain->type) {
 	case IOMMU_DOMAIN_UNMANAGED:
 		switch (attr) {
 		case DOMAIN_ATTR_NESTING:

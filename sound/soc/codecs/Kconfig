@@ -59,6 +59,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_CS35L34
 	imply SND_SOC_CS35L35
 	imply SND_SOC_CS35L36
+	imply SND_SOC_CS35L41
 	imply SND_SOC_CS42L42
 	imply SND_SOC_CS42L51_I2C
 	imply SND_SOC_CS42L52
@@ -576,6 +577,10 @@ config SND_SOC_CS35L35
 
 config SND_SOC_CS35L36
 	tristate "Cirrus Logic CS35L36 CODEC"
+	depends on I2C
+
+config SND_SOC_CS35L41
+	tristate "Cirrus Logic CS35L41 CODEC"
 	depends on I2C
 
 config SND_SOC_CS42L42

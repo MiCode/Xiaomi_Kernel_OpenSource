@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2021-2022 XiaoMi, Inc.
+ */
+
+#include "mediatek/xaga-mt6895.dtsi"
+&memory_ssmr_features {
+	svp-region-based-size = <0 0x2000000>;
+	svp-page-based-size = <0 0x19000000>;
+};
+#include <xaga/cust.dtsi>

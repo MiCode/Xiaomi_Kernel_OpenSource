@@ -1987,3 +1987,45 @@ config FAKE_ASYM32_CPU
 	  the capability to run 32bit user space program.
 	  This feature should not be enabled in MP project. If you don't know,
 	  say N.
+
+config BUILD_XIAOMI_CAMERA_IMAGE_NAMES
+	string "To distinguish different project name"
+	help
+	  For Camera to distinguish project names.
+
+config HWCONF_MANAGER_ENABLE
+	tristate "Hardware configuration and monitor information compile control"
+	default n
+	help
+	It provides HWCONF_MANAGER to be compiled in kernel
+
+config HWCONF_MANAGER
+	bool "Hardware configuration and monitor information"
+	default n
+	help
+	It provides all kinds of components configuration information and
+	monitor values.
+
+config TARGET_PRODUCT_MATISSE
+	bool "Product Name Matisse For Add one more resistance"
+	default n
+	help
+	Product Name Matisse For Add one more resistance.
+
+config TARGET_PRODUCT_RUBENS
+	bool "Product Name Rubens For Add one more resistance"
+	default n
+	help
+	Product Name Rubens For Add one more resistance.
+
+config TARGET_PRODUCT_XAGA
+	bool "Product Name XAGA"
+	default n
+	help
+	Product Name XAGA.
+
+config BUILD_XIAOMI_CAMERA_IMAGE_NAMES
+	string "To distinguish different project name"
+	help
+	  For Camera to distinguish project names.
+

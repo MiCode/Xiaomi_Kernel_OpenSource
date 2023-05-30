@@ -1,0 +1,163 @@
+&mtk_leds {
+	compatible = "mediatek,disp-leds";
+
+	backlight {
+		label = "lcd-backlight";
+		led_mode = <4>;
+		max-brightness = <4095>;
+		max-hw-brightness = <4095>;
+		default-state = "half";
+	};
+};
+
+&i2c6 {
+	gate_ic: gate_ic@11 {
+		compatible = "mediatek,MI_I2C_LCD_BIAS";
+		label = "lcd-backlight";
+		pwm_config = <0 1 0 0 0>;
+		reg = <0x11>;
+		id = <6>;
+		status = "okay";
+	};
+};
+
+&mt6368_vrf18_aif {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+};
+
+&pio {
+	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO41__FUNC_GPIO41>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO41__FUNC_GPIO41>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO40__FUNC_DSI_TE>;
+		};
+	};
+
+	mtkfb_pins_lcm_dvdd_en1: lcm_dvdd_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_dvdd_en0: lcm_dvdd_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_cam_en1: lcm_cam_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO158__FUNC_GPIO158>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	mtkfb_pins_lcm_cam_en0: lcm_cam_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO158__FUNC_GPIO158>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+
+&mtkfb {
+	pinctrl-names = "lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "lcm_dvdd_en1_gpio",
+		"lcm_dvdd_en0_gpio","lcm_cam_en1_gpio",
+		"lcm_cam_en0_gpio";
+	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-3 = <&mtkfb_pins_lcm_dvdd_en1>;
+	pinctrl-4 = <&mtkfb_pins_lcm_dvdd_en0>;
+	pinctrl-5 = <&mtkfb_pins_lcm_cam_en1>;
+	pinctrl-6 = <&mtkfb_pins_lcm_cam_en0>;
+	status = "okay";
+};
+&dispsys_config {
+	pinctrl-names =
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "lcm_dvdd_en1_gpio",
+		"lcm_dvdd_en0_gpio";
+	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-3 = <&mtkfb_pins_lcm_dvdd_en1>;
+	pinctrl-4 = <&mtkfb_pins_lcm_dvdd_en0>;
+	pinctrl-5 = <&mtkfb_pins_lcm_cam_en1>;
+	pinctrl-6 = <&mtkfb_pins_lcm_cam_en0>;
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "l16_42_02_0a_dsc_vdo,lcm";
+		reg = <0>;
+		reset-gpios = <&pio 41 0>;
+		dvdd-gpios = <&pio 118 0>;
+		cam-gpios = <&pio 158 0>;
+		leden-gpios = <&pio 215 0>;
+		vrf18-supply = <&mt6368_vrf18_aif>;
+		pinctrl-names = "default";
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel2@0 {
+		compatible = "l16_36_02_0b_dsc_vdo,lcm";
+		reg = <1>;
+		reset-gpios = <&pio 41 0>;
+		dvdd-gpios = <&pio 118 0>;
+		cam-gpios = <&pio 158 0>;
+		leden-gpios = <&pio 215 0>;
+		vrf18-supply = <&mt6368_vrf18_aif>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};
+
+&disp_aal0 {
+	mtk_dre30_support = <1>;
+};
+
+&disp_aal1 {
+	mtk_dre30_support = <1>;
+};
+

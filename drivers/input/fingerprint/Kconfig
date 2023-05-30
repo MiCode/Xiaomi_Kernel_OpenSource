@@ -1,0 +1,77 @@
+#
+#Fingerprint
+#
+menu "Fingerprint support"
+	depends on INPUT
+
+config MTK_FINGERPRINT_SUPPORT
+	tristate "Mediatek Fingerprint"
+	default n
+	help
+	  Fingerprint mtk driver enable/disable
+	  in the kernel.Say Y here if you want to
+	  use mediatek fingerprint driver,fingerprint
+	  driver will support fingerprint function
+
+config SPI_MT65XX
+	tristate "MediaTek SPI controller"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	help
+	  This selects the MediaTek(R) SPI bus driver.
+	  If you want to use MediaTek(R) SPI interface,
+	  say Y or M here.If you are not sure, say N.
+	  SPI drivers for Mediatek MT65XX and MT81XX series ARM SoCs.
+
+if MTK_FINGERPRINT_SUPPORT
+config MTK_FINGERPRINT_SELECT
+	string "sensor type"
+	default "GF318M"
+
+
+config FPC_FINGERPRINT
+	tristate "FPC Fingerprint"
+	default n
+	help
+	  FPC fingerprint FPC's FPC1542 device.
+
+config GOODIX_CAP_FINGERPRINT
+	tristate "Goodix CAP Fingerprint"
+	default n
+	help
+	  Goodix Fingerprint chip GF3626ZS9 TEE driver
+
+config GOODIX_FINGERPRINT
+	tristate "Goodix Fingerprint"
+	default n
+	help
+	  Goodix Fingerprint chip GW9628Fx2/GW9668/GW9578 TEE driver
+
+config GOODIX_SENSOR_TYPE
+	string "SENSOR_TYPE"
+	default "GF5216"
+	help
+	  Must input sensor type, or default is
+	  GF316M GF318M GF3118M GF518M GF5118M
+	  GF516M GF816M GF3208 GF3206 GF3266
+	  GF3288 GF5206 GF5216 GF5208 GF3626ZS9
+
+config GOODIX_G6_SENSOR
+	tristate "Goodix Fingerprint G6 sensor"
+	default n
+	help
+	  Goodix Fingerprint G6 sensor
+
+config TEMP_FP_FLAG
+	tristate "Temp Fp Flag"
+	default n
+	help
+	  Temp To Disable Fp Unblank Function
+
+config BUILD_PRODUCT_NAME
+	string "build product for L11/L11A/L16/L2M"
+	default "matisse"
+	help
+	  build product for L11/L11A/L16/L2M
+
+endif
+endmenu

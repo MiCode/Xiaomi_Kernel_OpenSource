@@ -474,7 +474,6 @@ struct mtk_vcodec_ctx {
 
 	bool is_flushing;
 	unsigned int eos_type;
-	void *dec_eos_vb;
 	u64 early_eos_ts;
 
 	int int_cond[MTK_VDEC_HW_NUM];
@@ -641,6 +640,8 @@ struct mtk_vcodec_dev {
 	struct regulator *venc_reg;
 	struct venc_larb_port venc_ports[MTK_VENC_HW_NUM];
 
+	int vdec_op_rate_cnt;
+	//int venc_op_rate_cnt;
 	int vdec_tput_cnt;
 	int venc_tput_cnt;
 	int vdec_cfg_cnt;
@@ -653,6 +654,8 @@ struct mtk_vcodec_dev {
 	struct vcodec_perf *venc_tput;
 	//struct vcodec_config *vdec_cfg;
 	struct vcodec_config *venc_cfg;
+	struct vcodec_op_rate *vdec_dflt_op_rate;
+	//struct vcodec_op_rate *venc_dflt_op_rate;
 	struct list_head vdec_dvfs_inst;
 	struct list_head venc_dvfs_inst;
 	struct dvfs_params vdec_dvfs_params;
@@ -664,6 +667,9 @@ struct mtk_vcodec_dev {
  *	struct ion_client *ion_venc_client;
  **/
 	struct list_head log_param_list;
+	struct list_head prop_param_list;
+	struct mutex log_param_mutex;
+	struct mutex prop_param_mutex;
 };
 
 static inline struct mtk_vcodec_ctx *fh_to_ctx(struct v4l2_fh *fh)
@@ -864,5 +870,7 @@ static inline struct mtk_vcodec_ctx *ctrl_to_ctx(struct v4l2_ctrl *ctrl)
 	(V4L2_CID_MPEG_MTK_BASE+47)
 #define V4L2_CID_MPEG_MTK_REAL_TIME_PRIORITY \
 	(V4L2_CID_MPEG_MTK_BASE+48)
+#define V4L2_CID_MPEG_MTK_VCP_PROP \
+	(V4L2_CID_MPEG_MTK_BASE+49)
 
 #endif /* _MTK_VCODEC_DRV_H_ */

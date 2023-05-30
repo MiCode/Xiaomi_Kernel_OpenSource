@@ -230,7 +230,8 @@ struct GED_KPI_MEOW_DVFS_FREQ_PRED {
 };
 static struct GED_KPI_MEOW_DVFS_FREQ_PRED *g_psGIFT;
 
-static int g_target_fps_default = GED_KPI_MAX_FPS;
+int g_target_fps_default = GED_KPI_MAX_FPS;
+int g_target_time_default = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
 
 #define GED_KPI_TOTAL_ITEMS 128
 #define GED_KPI_UID(pid, wnd) (pid | ((unsigned long)wnd))
@@ -261,8 +262,6 @@ static unsigned int is_GED_KPI_enabled = 1;
 
 static unsigned int g_force_gpu_dvfs_fallback;
 static int g_fb_dvfs_threshold = 80;
-static int idle_fw_set_flag;
-
 module_param(g_fb_dvfs_threshold, int, 0644);
 
 // module_param(gx_dfps, uint, 0644);
@@ -301,7 +300,7 @@ unsigned int g_eb_workload;
 unsigned int g_eb_coef;
 
 int pid_sysui;
-int pid_sf;
+int pid_sf; 
 
 /* ------------------------------------------------------------------- */
 void (*ged_kpi_output_gfx_info2_fp)(long long t_gpu, unsigned int cur_freq
@@ -747,11 +746,17 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 #endif /* GED_KPI_DEBUG */
 		}
 
-		psHead->target_fps = target_fps;
 		psHead->target_fps_margin = target_fps_margin;
 		psHead->eara_fps_margin = eara_fps_margin;
 		psHead->t_cpu_fpsgo = cpu_time;
-		psHead->t_cpu_target = GED_KPI_SEC_DIVIDER/target_fps;
+		if (target_fps > 0 && target_fps <= GED_KPI_FPS_LIMIT) {
+			psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/target_fps);
+			psHead->target_fps = target_fps;
+		} else {
+			psHead->t_cpu_target = (int)((int)GED_KPI_SEC_DIVIDER/g_target_fps_default);
+			psHead->target_fps = -1;
+		}
+
 		psHead->t_gpu_target = psHead->t_cpu_target;
 		psHead->frc_client = client;
 		ret = GED_TRUE;
@@ -1004,14 +1009,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					psTimeStamp->i32FrameID);
 				goto work_cb_end;
 			}
-			/* set fw idle time if display Hz change */
-			if (idle_fw_set_flag == 1) {
-				if (g_target_fps_default <= 60)
-					mtk_set_gpu_idle(0);
-				else
-					mtk_set_gpu_idle(5);
-				idle_fw_set_flag = 0;
-			}
 
 			/* new data */
 			psKPI->pid = psTimeStamp->pid;
@@ -1185,7 +1182,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					ged_get_cur_limiter_floor();
 
 				cur_3D_done = psKPI->ullTimeStamp2;
-				if (psTimeStamp->i32GPUloading) {
+				if (psTimeStamp->i32GPUloading
+					|| psHead->pid != pid_sysui) {
 					/* not fallback mode */
 
 					/* choose which loading to calc. t_gpu */
@@ -1238,6 +1236,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						g_eb_coef = mtk_gpueb_dvfs_set_feedback_info(
 							psKPI->gpu_done_interval, util_ex,
 							ged_kpi_get_cur_fps());
+						ged_log_perf_trace_counter("eb_coef",
+							+(long long)g_eb_coef, 5566, 0, 0);
 					}
 				} else {
 					psKPI->t_gpu
@@ -1272,6 +1272,16 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				} else {
 					if (ged_is_fdvfs_support())
 						mtk_gpueb_dvfs_set_frame_base_dvfs(0);
+				}
+			}
+			if (main_head == psHead) {
+				if (psHead->target_fps == -1) {
+					psKPI->t_gpu_target = g_target_time_default;
+					ged_log_perf_trace_counter("target_fps_fb",
+						g_target_fps_default, 5566, 0, 0);
+				} else {
+					ged_log_perf_trace_counter("target_fps_fb",
+						psHead->target_fps, 5566, 0, 0);
 				}
 			}
 
@@ -1493,6 +1503,10 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 	case GED_SET_TARGET_FPS:
 
 		target_FPS = psTimeStamp->i32FrameID;
+
+		ged_log_perf_trace_counter("target_fps_fpsgo",
+				(target_FPS&0x000000ff), 5566, 0, 0);
+
 		ulID = psTimeStamp->ullWnd;
 		eara_fps_margin = psTimeStamp->i32QedBuffer_length;
 		psHead = (struct GED_KPI_HEAD *)ged_hashtable_find(gs_hashtable
@@ -1911,12 +1925,15 @@ void ged_dfrc_fps_limit_cb(unsigned int target_fps)
 	g_target_fps_default =
 		(target_fps > 0 && target_fps <= GED_KPI_FPS_LIMIT) ?
 		target_fps : g_target_fps_default;
+	g_target_time_default = GED_KPI_SEC_DIVIDER / g_target_fps_default;
 #ifdef GED_KPI_DEBUG
-	GED_LOGI("[GED_KPI] dfrc_fps %d\n", g_target_fps_default);
+	GED_LOGI("[GED_KPI] dfrc_fps:%d, dfrc_time %u\n",
+		g_target_fps_default, g_target_time_default);
 #endif /* GED_KPI_DEBUG */
-
-	idle_fw_set_flag = 1;
-
+	if (target_fps <= 60)
+		mtk_set_gpu_idle(0);
+	else
+		mtk_set_gpu_idle(5);
 }
 /* ------------------------------------------------------------------- */
 GED_ERROR ged_kpi_system_init(void)

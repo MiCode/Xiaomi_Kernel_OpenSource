@@ -168,6 +168,7 @@ struct mml_frame_info {
 	uint8_t dest_cnt;	/* should be < MML_MAX_OUTPUTS */
 	int8_t mode;	/* one of mml_mode */
 	uint8_t layer_id;
+	bool alpha;	/* alpha channel preserve */
 };
 
 struct mml_frame_size {

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2022 XiaoMi, Inc.
  */
 /*****************************************************************************
  *
@@ -28,7 +29,7 @@
  * @param data Buffer
  * @return size of data
  */
-unsigned int read_imx766_LRC(struct subdrv_ctx *ctx, BYTE *data);
+unsigned int read_imx766_LRC(struct subdrv_ctx *ctx, BYTE * data);
 
 /*
  * DCC

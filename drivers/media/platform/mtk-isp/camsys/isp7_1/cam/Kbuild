@@ -17,6 +17,9 @@ subdir-ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp \
 ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6983-larb-port.h),)
   subdir-ccflags-y += -DCAMSYS_TF_DUMP_71_1
 endif
+ifeq ($(BUILD_TARGET_PRODUCT),$(filter $(BUILD_TARGET_PRODUCT), xaga vnd_xaga))
+subdir-ccflags-y +=-DXAGA_CAM
+endif
 
 # MTEE part
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public

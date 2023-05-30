@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2021 MediaTek Inc.
+ * Copyright (C) 2022 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)    "mtk_iommu: secure " fmt
@@ -67,7 +68,7 @@ static int mtk_iommu_hw_is_valid(uint32_t type, uint32_t id, uint32_t bank)
 		return SMC_IOMMU_FAIL;
 	}
 
-	switch (type) {
+		switch (type) {
 		case MM_IOMMU:
 			if (id >= MM_IOMMU_NUM) {
 				pr_err("%s MM_IOMMU id is invalid, %u\n", __func__, id);

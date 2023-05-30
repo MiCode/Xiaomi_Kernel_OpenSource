@@ -49,6 +49,10 @@ struct mtk_imgsys_cb_param {
 	struct task_timestamp taskTs;
 	void (*user_cmdq_cb)(struct cmdq_cb_data data, uint32_t subfidx, bool isLastTaskInReq);
 	void (*user_cmdq_err_cb)(struct cmdq_cb_data data, uint32_t fail_subfidx, bool isHWhang);
+	int req_fd;
+	int req_no;
+	int frm_no;
+	u32 hw_comb;
 	s32 err;
 	u32 frm_idx;
 	u32 frm_num;
@@ -165,6 +169,9 @@ void mtk_imgsys_mmqos_uninit(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmqos_set(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				bool isSet);
+void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
+				struct swfrm_info_t *frm_info,
+				bool isSet);
 void mtk_imgsys_mmqos_reset(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_mmdvfs_mmqos_cal(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
@@ -183,5 +190,6 @@ bool imgsys_cmdq_ts_enable(void);
 u32 imgsys_wpe_bwlog_enable(void);
 bool imgsys_cmdq_ts_dbg_enable(void);
 bool imgsys_dvfs_dbg_enable(void);
+bool imgsys_quick_onoff_enable(void);
 
 #endif /* _MTK_IMGSYS_CMDQ_H_ */

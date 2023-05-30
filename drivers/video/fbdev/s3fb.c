@@ -76,7 +76,7 @@ static const int s3_memsizes[] = {4096, 0, 3072, 8192, 2048, 6144, 1024, 512};
 
 static const char * const s3_names[] = {"S3 Unknown", "S3 Trio32", "S3 Trio64", "S3 Trio64V+",
 			"S3 Trio64UV+", "S3 Trio64V2/DX", "S3 Trio64V2/GX",
-			"S3 Plato/PX", "S3 Aurora64V+", "S3 Virge",
+			"S3 xxx/PX", "S3 Aurora64V+", "S3 Virge",
 			"S3 Virge/VX", "S3 Virge/DX", "S3 Virge/GX",
 			"S3 Virge/GX2", "S3 Virge/GX2+", "",
 			"S3 Trio3D/1X", "S3 Trio3D/2X", "S3 Trio3D/2X",
@@ -89,7 +89,7 @@ static const char * const s3_names[] = {"S3 Unknown", "S3 Trio32", "S3 Trio64", 
 #define CHIP_767_TRIO64UVP	0x04
 #define CHIP_775_TRIO64V2_DX	0x05
 #define CHIP_785_TRIO64V2_GX	0x06
-#define CHIP_551_PLATO_PX	0x07
+#define CHIP_XXX	0x07
 #define CHIP_M65_AURORA64VP	0x08
 #define CHIP_325_VIRGE		0x09
 #define CHIP_988_VIRGE_VX	0x0A
@@ -1481,7 +1481,7 @@ static const struct pci_device_id s3_devices[] = {
 	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x8812), .driver_data = CHIP_M65_AURORA64VP},
 	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x8814), .driver_data = CHIP_767_TRIO64UVP},
 	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x8901), .driver_data = CHIP_XXX_TRIO64V2_DXGX},
-	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x8902), .driver_data = CHIP_551_PLATO_PX},
+	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x8902), .driver_data = CHIP_XXX},
 
 	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x5631), .driver_data = CHIP_325_VIRGE},
 	{PCI_DEVICE(PCI_VENDOR_ID_S3, 0x883D), .driver_data = CHIP_988_VIRGE_VX},

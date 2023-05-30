@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2019 MediaTek Inc.
-
+// Copyright (C) 2022 XiaoMi, Inc.
 /*****************************************************************************
  *
  * Filename:
@@ -3990,7 +3990,7 @@ static int feature_control(struct subdrv_ctx *ctx,
 		night_mode(ctx, (BOOL) (*feature_data));
 		break;
 	case SENSOR_FEATURE_SET_GAIN:
-		set_gain(ctx, (UINT32) * feature_data);
+		set_gain(ctx, (UINT32) *feature_data);
 		break;
 	case SENSOR_FEATURE_SET_FLASHLIGHT:
 		break;

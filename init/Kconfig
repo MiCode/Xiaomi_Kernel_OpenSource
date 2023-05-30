@@ -37,6 +37,12 @@ config LD_VERSION
 	int
 	default $(shell,$(LD) --version | $(srctree)/scripts/ld-version.sh)
 
+config MIHW
+	bool "MI driver"
+	default n
+	help
+	  Mi driver code
+
 config CC_IS_CLANG
 	def_bool $(success,echo "$(CC_VERSION_TEXT)" | grep -q clang)
 

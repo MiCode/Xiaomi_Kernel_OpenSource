@@ -1,0 +1,255 @@
+CS35L41 Speaker Amplifier
+
+Required properties:
+
+  - compatible : "cirrus,cs35l41"
+                 "cirrus,cs35l40"
+
+  - reg : the SPI chip select line for the device
+
+  - VA-supply, VP-supply : power supplies for the device,
+    as covered in
+    Documentation/devicetree/bindings/regulator/regulator.txt.
+
+
+  Boost hardware configuration:
+
+      These three properties should be used together to specify the external
+      component configuration of the part. See section 4.3.6 of the datasheet
+      for details regarding how these values are used to configure the
+      digital boost converter's control loop.
+
+      - cirrus,boost-peak-milliamp : Boost-converter peak current limit in mA.
+      Configures the peak current by monitoring the current through the boost FET.
+      Range starts at 1600 mA and goes to a maximum of 4500 mA with increments
+      of 50 mA.
+      (Default) 4.50 Amps
+
+      - cirrus,boost-ind-nanohenry : Boost inductor value, expressed in nH. Valid
+      values include 1000, 1200, 1500 and 2200.
+
+      - cirrus,boost-cap-microfarad : Total equivalent boost capacitance on the VBST
+      and VAMP pins, derated at 11 volts DC. The value must be rounded to the
+      nearest integer and expressed in uF.
+
+
+Optional properties:
+  - cirrus,sclk-force-output : Audio serial port SCLK force
+  output control. Forces the SCLK to continue to drive even
+  if no ASP_TXn channels are enabled.
+
+  - cirrus,lrclk-force-output : Audio serial port LRCLK force
+  output control. Forces the LRCLK to continue to drive even
+  if no ASP_TXn channels are enabled.
+
+  - cirrus,right-channel-amp : Boolean to determine which channel
+  the amplifier is to receive the audio data on. If present the
+  amplifier receives data on the right channel of I2S data.
+  If not present the amplifier receives data on the left
+  channel of I2S data
+
+  - cirrus,boost-ctl-millivolt : Boost Voltage Value. Configures the
+  boost converter's output voltage in mV. The range is from 2550 mV to
+  11000 mV with increments of 50 mV.
+  (Default) VP
+
+  - cirrus,amp-gain-zc : Boolean to determine whether to use the amplifier
+  gain-change zero-crossing feature. If the feature is enabled, any
+  user-controlled amplifier gain change will occur on a zero-crossing point.
+  (Default) Disabled
+
+  - cirrus,asp-sdout-hiz : Audio serial port SDOUT Hi-Z control. Sets the Hi-Z
+  configuration for SDOUT pin of amplifier.
+
+  0 = Logic 0 during unused slots, and while all transmit channels disabled
+  1 = Hi-Z during unused slots but logic 0 while all transmit channels disabled
+  2 = (Default) Logic 0 during unused slots, but Hi-Z while all transmit channels disabled
+  3 = Hi-Z during unused slots and while all transmit channels disabled
+
+  - cirrus,temp-warn-threshold : Amplifier overtemperature warning threshold.
+  Configures the threshold at which the overtemperature warning condition occurs.
+  When the threshold is met, the ovetemperature warning attenuation is applied
+  and the TEMP_WARN_EINT interrupt status bit is set.
+  If TEMP_WARN_MASK = 0, INTb is asserted.
+
+  0 = 105C
+  1 = 115C
+  2 = 125C (Default)
+  3 = 135C
+
+  - cirrus,hw-noise-gate-select : Hardware Noise Gate feature. Each bit selects
+  a different block for detection.
+
+  000000 - All noise gating functionality disabled
+  xxxxx1 - Amplifier noise gating detection enabled
+  xxxx1x - Boost converter DCM detection enabled
+  xxx1xx - VMON low power mode detection enabled
+  xx1xxx - IMON low power mode detection enabled
+  x1xxxx - VP brownout prevention detection enabled
+  1xxxxx - VBST brownout prevention detection enabled
+
+  - cirrus,hw-noise-gate-delay : Time that the incoming audio signal must be
+  below the noise gate threshold prior to entering a noise gated state
+
+  0 = 5 ms
+  1 = 10 ms
+  2 = 25 ms
+  3 = 50 ms (default)
+  4 = 100 ms
+  5 = 250 ms
+  6 = 500 ms
+  7 = 1 s
+
+  - cirrus,hw-noise-gate-threshold : Threshold of audio signal input which the
+  noise gate considers the input audio to be at a low enough level to be
+  valid to enter a noise gating state of operation.
+
+  0 = 0.654 mVpk
+  1 = 0.328 mVpk
+  2 = 0.164 mVpk
+  3 = 0.082 mVpk (default)
+  4 = 0.041 mVpk
+  5 = 0.021 mVpk
+  6 = 0.010 mVpk
+  7 = True zero data (no LSB dither)
+
+  - cirrus,dsp-noise-gate-enable : DSP Noise Gate feature. If present, noise
+  gate feature will be enabled.
+
+  - cirrus,dsp-noise-gate-threshold : Threshold of audio signal input which the
+  noise gate considers the input audio to be at a low enough level to be
+  valid to enter a noise gating state of operation.
+
+  0 = -66 dBFS
+  1 = -72 dBFS
+  2 = -78 dBFS
+  3 = -84 dBFS (default)
+  4 = -90 dBFS
+  5 = -96 dBFS
+  6 = -102 dBFS
+  7 = -108 dBFS
+
+  - cirrus,dsp-noise-gate-delay : Time that the incoming audio signal must be
+  below the noise gate threshold prior to entering a noise gated state
+
+  0 = 5 ms
+  1 = 10 ms
+  2 = 25 ms
+  3 = 50 ms (default)
+  4 = 100 ms
+  5 = 250 ms
+  6 = 500 ms
+  7 = 1 s
+  8 = 5 s
+  9 = 10 s
+  10 = 20 s
+  11 = 30 s
+  12 = 40 s
+  13 = 50 s
+  14 = 60 s
+  15 = 120 s
+
+  - cirrus,tuning-has-prefix : Add ALSA component name prefix to
+  DSP firmware tuning file name.
+  For example, if the AMP prefix is 'Left' and FW set to 'Protection'
+  the driver will look for a .bin file named 
+    Left-cs35l41-dsp1-spk-prot.bin
+
+  - cirrus,fwname-use-revid : Add Rev ID prefix to DSP firmware file name.
+  For example, if FW is set to 'Protection'
+    CS35l41 Rev A: cs35l41-revA-dsp1-spk-prot.wmfw
+    CS35l41 Rev B0: cs35l41-revB0-dsp1-spk-prot.wmfw
+    CS35l41 Rev B2: cs35l41-revB2-dsp1-spk-prot.wmfw
+
+  - cirrus,fast-switch : Specify file names for Fast Use Case Switching DSP
+    feature.  Files names are comma-separated strings.
+
+  - cirrus,invert-pcm : Inverts the polarity of the audio signal output from
+    the Class-D amplifier.
+
+Optional H/G Algorithm sub-node:
+
+  The cs35l41 node can have a single "cirrus,classh-internal-algo" sub-node
+  that will disable automatic control of the internal H/G Algorithm.
+
+  It is strongly recommended that the Datasheet be referenced when adjusting
+  or using these Class H Algorithm controls over the internal Algorithm.
+  Serious damage can occur to the Device and surrounding components.
+
+  - cirrus,classh-internal-algo : Sub-node for the Internal Class H Algorithm
+  See Section 4.4 Internal Class H Algorithm in the Datasheet.
+  If not used, the device manages the ClassH Algorithm internally.
+
+Optional properties for the "cirrus,classh-internal-algo" Sub-node
+
+  Section 7.9 Boost Control
+  - cirrus,classh-bst-overide : Boolean
+  - cirrus,classh-bst-max-limit
+
+  Above two controls are unavailable for cs35l41l (Low voltage variant)
+
+  Section 7.17 Class H, Weak-FET Control
+  - cirrus,classh-headroom
+  - cirrus,classh-release-rate
+  - cirrus,classh-mem-depth
+  - cirrus,classh-wk-fet-delay
+  - cirrus,classh-wk-fet-thld
+
+
+Optional GPIO1 sub-node:
+
+The cs35l41 node can have an single "cirrus,gpio-config1" sub-node for
+configuring the GPIO1 pin.
+
+- cirrus,gpio-polarity-invert : Boolean which specifies whether the GPIO1
+level is inverted. If this property is not present the level is not inverted.
+
+- cirrus,gpio-output-enable : Boolean which specifies whether the GPIO1 pin
+is configured as an output. If this property is not present the
+pin will be configured as an input.
+
+- cirrus,gpio-src-select : Configures the function of the GPIO1 pin.
+Note that the options are different from the GPIO2 pin.
+
+0 = High Impedance (Default)
+1 = GPIO
+2 = Sync
+3 = MCLK input
+
+
+Optional GPIO2 sub-node:
+
+The cs35l41 node can have an single "cirrus,gpio-config2" sub-node for
+configuring the GPIO1 pin.
+
+- cirrus,gpio-polarity-invert : Boolean which specifies whether the GPIO2
+level is inverted. If this property is not present the level is not inverted.
+
+- cirrus,gpio-output-enable : Boolean which specifies whether the GPIO2 pin
+is configured as an output. If this property is not present the
+pin will be configured as an input.
+
+- cirrus,gpio-src-select : Configures the function of the GPIO2 pin.
+Note that the options are different from the GPIO1 pin.
+
+0 = High Impedance (Default)
+1 = GPIO
+2 = Open Drain INTB
+3 = MCLK input
+4 = Push-pull INTB (active low)
+5 = Push-pull INT (active high)
+
+
+Example:
+
+cs35l41: cs35l41@2 {
+	compatible = "cirrus,cs35l41";
+	reg = <2>;
+	VA-supply = <&dummy_vreg>;
+	VP-supply = <&dummy_vreg>;
+
+	cirrus,boost-peak-milliamp = <4500>;
+	cirrus,boost-ind-nanohenry = <1000>;
+	cirrus,boost-cap-microfarad = <15>;
+	cirrus,fast-switch = "sample_fast_switch1.txt", "sample_fast_switch2.txt";
+};

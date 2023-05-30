@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * IOMMU API for ARM architected SMMUv3 implementations.
- *
+ * 
  * Copyright (C) 2015 ARM Limited
- *
+ * Copyright (C) 2022 XiaoMi, Inc.
  * Author: Will Deacon <will.deacon@arm.com>
  *
  * This driver is powered by bad coffee and bombay mix.
@@ -2459,7 +2459,7 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		}
 		break;
 	case IOMMU_DOMAIN_DMA:
-		switch(attr) {
+		switch (attr) {
 		case DOMAIN_ATTR_DMA_USE_FLUSH_QUEUE:
 			smmu_domain->non_strict = *(int *)data;
 			break;

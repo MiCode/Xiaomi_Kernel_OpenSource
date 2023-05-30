@@ -19,6 +19,9 @@
 #include <linux/dma-heap.h>
 #include <uapi/linux/dma-heap.h>
 
+//Add By XiaoMi
+#include <trace/events/dma_fence.h>
+//Add By XiaoMi End
 #define DEVNAME "dma_heap"
 
 #define NUM_HEAP_MINORS 128
@@ -88,6 +91,9 @@ struct dma_buf *dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
 	 * Allocations from all heaps have to begin
 	 * and end on page boundaries.
 	 */
+//Add By XiaoMi
+	trace_dma_heap_buffer_alloc(len,fd_flags,heap_flags);
+//Add By XiaoMi End
 	len = PAGE_ALIGN(len);
 	if (!len)
 		return ERR_PTR(-EINVAL);

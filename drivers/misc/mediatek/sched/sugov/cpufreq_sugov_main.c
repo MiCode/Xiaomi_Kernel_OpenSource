@@ -86,7 +86,7 @@ static bool sugov_should_update_freq(struct sugov_policy *sg_policy, u64 time)
 	 */
 
 	delta_ns = time - sg_policy->last_freq_update_time;
-	return delta_ns >= sg_policy->min_rate_limit_ns;
+	return delta_ns >= READ_ONCE(sg_policy->min_rate_limit_ns);
 }
 
 static bool sugov_up_down_rate_limit(struct sugov_policy *sg_policy, u64 time,
@@ -179,7 +179,7 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	unsigned int freq = policy->cpuinfo.max_freq;
 	unsigned long next_freq = 0;
 
-	mtk_map_util_freq((void *)sg_policy, util, freq, max, &next_freq);
+	mtk_map_util_freq((void *)sg_policy, util, freq, policy->related_cpus, &next_freq);
 	if (next_freq) {
 		freq = next_freq;
 	} else {
@@ -490,6 +490,8 @@ void mtk_set_cpu_min_opp(int cpu, unsigned long min_util)
 	}
 
 	pd = em_cpu_get(cpu);
+	if (!pd)
+		return;
 	scale_cpu = arch_scale_cpu_capacity(cpu);
 	ps = &pd->table[pd->nr_perf_states - 1];
 	freq = map_util_freq(min_util, ps->frequency, scale_cpu);
@@ -738,8 +740,8 @@ static DEFINE_MUTEX(min_rate_lock);
 static void update_min_rate_limit_ns(struct sugov_policy *sg_policy)
 {
 	mutex_lock(&min_rate_lock);
-	sg_policy->min_rate_limit_ns = min(sg_policy->up_rate_delay_ns,
-					   sg_policy->down_rate_delay_ns);
+	WRITE_ONCE(sg_policy->min_rate_limit_ns, min(sg_policy->up_rate_delay_ns,
+					   sg_policy->down_rate_delay_ns));
 	mutex_unlock(&min_rate_lock);
 }
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2021 MediaTek Inc.
+ * Copyright (C) 2022 XiaoMi, Inc.
  */
 
 #define pr_fmt(fmt)    "mtk_iommu: test " fmt
@@ -1176,7 +1177,7 @@ static int iommu_test_dom_probe(struct platform_device *pdev)
 	size_t size = (6 * SZ_1M + PAGE_SIZE * 3);
 
 	pr_info("%s start, dev:%s\n", __func__, dev_name(&pdev->dev));
-	dma_set_mask_and_coherent(&pdev->dev,DMA_BIT_MASK(34));
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
 	for (i = 0; i < TEST_NUM; i++) {
 		cpu_addr[i] = dma_alloc_attrs(&pdev->dev, size, &dma_addr[i], GFP_KERNEL, DMA_ATTR_WRITE_COMBINE);
 		pr_info("dev:%s, alloc iova success, iova:%pa, size:0x%zx\n", dev_name(&pdev->dev), &dma_addr[i], size);

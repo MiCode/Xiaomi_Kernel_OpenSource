@@ -12,6 +12,7 @@
 #define IMGSYS_DVFS_ENABLE     (1)
 #define IMGSYS_QOS_ENABLE      (1)
 #define IMGSYS_QOS_SET_REAL    (0)
+#define IMGSYS_QOS_SET_BY_SCEN (1)
 
 #define IMGSYS_SECURE_ENABLE   (1)
 
@@ -49,7 +50,20 @@
 
 #define IMGSYS_QOS_UPDATE_FREQ	1000
 #define IMGSYS_QOS_BLANK_INT	100
-#define IMGSYS_QOS_FACTOR		10
+#define IMGSYS_QOS_FACTOR		13
+
+#define IMGSYS_QOS_FHD_SIZE		(1920*1080/2)
+#define IMGSYS_QOS_4K_SIZE		(4000*2000/2)
+#define IMGSYS_QOS_FHD_30_BW_0	0//1328
+#define IMGSYS_QOS_FHD_30_BW_1	0//905
+#define IMGSYS_QOS_FHD_60_BW_0	2458
+#define IMGSYS_QOS_FHD_60_BW_1	1355
+#define IMGSYS_QOS_4K_30_BW_0	0//2350
+#define IMGSYS_QOS_4K_30_BW_1	0//1258
+#define IMGSYS_QOS_4K_60_BW_0	2244
+#define IMGSYS_QOS_4K_60_BW_1	2360
+#define IMGSYS_QOS_VSS_BW_0		10000
+#define IMGSYS_QOS_VSS_BW_1		0
 
 enum mtk_imgsys_event {
 	/* HW event */
@@ -875,13 +889,15 @@ static struct imgsys_dvfs_group  dvfs_group[MTK_IMGSYS_DVFS_GROUP] = {
 	{0, (IMGSYS_ENG_WPE_LITE
 			|IMGSYS_ENG_TRAW
 			|IMGSYS_ENG_LTR
-			|IMGSYS_ENG_XTR
 			|IMGSYS_ENG_ME)},
 	{1, (IMGSYS_ENG_WPE_TNR
 			|IMGSYS_ENG_DIP)},
 	{2, (IMGSYS_ENG_WPE_EIS
 			|IMGSYS_ENG_PQDIP_A
-			|IMGSYS_ENG_PQDIP_B)}
+			|IMGSYS_ENG_PQDIP_B)},
+	{3, (IMGSYS_ENG_XTR
+			|IMGSYS_ENG_ADL_A
+			|IMGSYS_ENG_ADL_B)}
 };
 
 static struct imgsys_dvfs_group  qos_group[MTK_IMGSYS_QOS_GROUP] = {

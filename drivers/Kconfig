@@ -30,6 +30,8 @@ source "drivers/block/Kconfig"
 
 source "drivers/nvme/Kconfig"
 
+source "drivers/mihw/Kconfig"
+
 source "drivers/misc/Kconfig"
 
 source "drivers/ide/Kconfig"
@@ -235,4 +237,6 @@ source "drivers/interconnect/Kconfig"
 source "drivers/counter/Kconfig"
 
 source "drivers/most/Kconfig"
+
+source "drivers/p73-spi/Kconfig"
 endmenu

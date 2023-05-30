@@ -327,17 +327,15 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 	}
 
 	/* hwui */
-	if (!f_render->hwui) {
-		h_info = fpsgo_search_and_add_hwui_info(f_render->pid, 0);
-		if (h_info) {
-			f_render->hwui = RENDER_INFO_HWUI_TYPE;
-			if (f_render->pLoading)
-				f_render->pLoading->hwui = RENDER_INFO_HWUI_TYPE;
-		} else {
-			f_render->hwui = RENDER_INFO_HWUI_NONE;
-			if (f_render->pLoading)
-				f_render->pLoading->hwui = RENDER_INFO_HWUI_NONE;
-		}
+	h_info = fpsgo_search_and_add_hwui_info(f_render->pid, 0);
+	if (h_info) {
+		f_render->hwui = RENDER_INFO_HWUI_TYPE;
+		if (f_render->pLoading)
+			f_render->pLoading->hwui = RENDER_INFO_HWUI_TYPE;
+	} else {
+		f_render->hwui = RENDER_INFO_HWUI_NONE;
+		if (f_render->pLoading)
+			f_render->pLoading->hwui = RENDER_INFO_HWUI_NONE;
 	}
 
 	if (!f_render->queue_SF) {

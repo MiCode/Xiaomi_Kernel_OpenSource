@@ -14,6 +14,7 @@ struct reviser_remote_info {
 	bool init;
 };
 struct reviser_remote_lock {
+	struct mutex mutex_cmd;
 	struct mutex mutex_ipi;
 	struct mutex mutex_mgr;
 	spinlock_t lock_rx;

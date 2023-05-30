@@ -60,6 +60,7 @@ struct pd_sta {
 struct regbase {
 	u32 phys;
 	void __iomem *virt;
+	int id;
 	const char *name;
 	int pg;
 	const char *pn;
@@ -67,6 +68,7 @@ struct regbase {
 
 struct regname {
 	struct regbase *base;
+	int id;
 	u32 ofs;
 	const char *name;
 };
@@ -88,6 +90,7 @@ struct clkchk_ops {
 	bool (*is_pwr_on)(struct provider_clk *pvdck);
 	void (*devapc_dump)(void);
 	void (*dump_hwv_history)(struct regmap *regmap, u32 id);
+	void (*get_bus_reg)(void);
 	void (*dump_bus_reg)(struct regmap *regmap, u32 ofs);
 	void (*dump_hwv_pll_reg)(struct regmap *regmap, u32 shift);
 	bool (*is_cg_chk_pwr_on)(void);

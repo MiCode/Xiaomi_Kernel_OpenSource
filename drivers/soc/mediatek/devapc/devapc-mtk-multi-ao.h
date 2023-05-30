@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2022 XiaoMi, Inc.
  */
 
 #ifndef __DEVAPC_MTK_MULTI_4_H__
@@ -30,7 +31,7 @@
 #define devapc_log(p, s, fmt, args...) \
 	(p += scnprintf(p, sizeof(s) - strlen(s), fmt, ##args))
 
-#define UNUSED(x)		(void)(x)
+#define UNUSED(x)		((void)(x))
 
 #define RETRY_COUNT	3
 

@@ -3,6 +3,7 @@
   * Goodix Touchscreen Driver
   *
   * Copyright (C) 2019 - 2020 Goodix, Inc.
+  * Copyright (C) 2022 XiaoMi, Inc.
   * License terms: GNU General Public License (GPL) version 2
   *
   */

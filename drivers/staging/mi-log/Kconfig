@@ -1,0 +1,3 @@
+config MI_LOG
+	tristate "mi log"
+	default m

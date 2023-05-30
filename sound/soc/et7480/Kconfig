@@ -1,0 +1,13 @@
+#
+# et7480 type-c switch device configuration
+#
+config USB_SWITCH_ET7480
+	tristate "TYPE-C switch for MediaTek MT6338 ACCDET driver"
+	depends on I2C
+	help
+	  TYPE-C switch for ACCDET means Accessory Detection technology,
+	  MediaTek develop it for ASoC codec soc-jack
+	  detection mechanism. Select N if you don't
+	  have jack on board.
+
+

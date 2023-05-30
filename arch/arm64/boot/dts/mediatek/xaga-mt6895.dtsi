@@ -1,0 +1,624 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2021-2022 XiaoMi, Inc.
+ */
+
+/*
+this file is only for attribution of xaga
+*/
+#include "mediatek/xiaomi-mt6895-common.dtsi"
+#include "mediatek/xaga_mt6895_camera_v4l2.dtsi"
+#include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/thermal/thermal.h>
+
+&u2port0 {
+	mediatek,eye-term = <3>;
+	mediatek,eye-vrt = <3>;
+	mediatek,rev6 = <2>;
+	mediatek,discth = <0xb>;
+	mediatek,eye-term-host = <3>;
+	mediatek,eye-vrt-host = <3>;
+	mediatek,rev6-host = <3>;
+};
+
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio =	<&pio 42 0>;
+	};
+};
+
+&pio {
+	// ln8000-master
+	ln8000_master_int_default: ln8000_master_int_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO13__FUNC_GPIO13>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+	ln8000_master_int_suspend: ln8000_master_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO13__FUNC_GPIO13>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+	// ln8000-slave
+	ln8000_slave_int_default: ln8000_slave_int_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+	ln8000_slave_int_suspend: ln8000slave_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+};
+
+&i2c9 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	sc8551_i2c9@66 {
+		compatible = "sc8551_i2c9";
+		reg = <0x66>;
+		sc8551_irq_gpio = <&pio 13 0x0>;
+		ac_ovp = <13000>;
+		bus_ovp = <12300>;
+		bus_ocp = <4500>;
+		bat_ovp = <5000>;
+		bat_ocp = <8000>;
+	};
+
+        sc8561_master@64 {
+        	compatible = "sc8561_master";
+        	reg = <0x64>;
+        	sc8561_irq_gpio = <&pio 13 0x0>;
+	};
+
+		ln8000@51 {
+		compatible = "lionsemi,ln8000";
+		reg = <0x51>;
+		/* bank <bit-idx> <flags: active-low> */
+		//irq-gpios = <&tlmm 55 0x2002>;
+		pinctrl-names = "ln8000_master_irq";
+		pinctrl-0 = <&ln8000_master_int_default &ln8000_master_int_suspend>;
+		charger_name = "tertiary_chg";
+		//interrupt-parent = <&tlmm>;
+		//interrupts = <55 0x2002>;
+		//pinctrl-names = "default";
+		//pinctrl-0 = <&ln8000_int_default ln8000_int_suspend>;
+		//ln8000_charger,irq_index = <296>;
+		ln8000_irq_gpio = <&pio 13 0x0>;
+		/* device configuration */
+		ln8000_charger,bat-ovp-threshold = <4660>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4625>;
+		ln8000_charger,bus-ovp-threshold = <13000>;
+		ln8000_charger,bus-ovp-alarm-threshold = <11000>;
+		ln8000_charger,bus-ocp-threshold = <3750>;
+		ln8000_charger,bus-ocp-alarm-threshold = <3500>;
+		ln8000_charger,ntc-alarm-cfg  = <226>;
+		/* protection enable/disable flags
+		 *   vbat-ovp-disable
+		 *   vbat-reg-disable
+		 *   iin-ocp-disable
+		 *   iin-reg-disable
+		 *   tbus-mon-disable
+		 *   tbat-mon-disable
+		 *   tdie-prot-disable
+		 *   tdie-reg-disable
+		 *   revcurr-prot-disable
+		 */
+		ln8000_charger,tdie-prot-disable;
+		ln8000_charger,tbus-mon-disable;
+		ln8000_charger,tbat-mon-disable;
+		ln8000_charger,iin-ocp-disable;
+		ln8000_charger,iin-reg-disable;
+		ln8000_charger,tdie-reg-disable;
+		ln8000_charger,vbat-reg-disable;
+	};
+};
+
+&i2c7 {
+	clock-frequency = <400000>;
+	status = "okay";
+	bq28z610@55 {
+		compatible = "bq28z610";
+		reg = <0x55>;
+		enable_shutdown_delay;
+		normal_shutdown_vbat_1s = <3400>;
+		critical_shutdown_vbat_1s = <3310>;
+		cool_critical_shutdown_vbat_1s = <3290>;
+		old_critical_shutdown_vbat_1s = <3300>;
+		report_full_rsoc_1s = <9700>;
+		soc_gap_1s = <2>;
+		soc_decimal_rate = <
+			0  38
+			10 35
+			20 33
+			30 33
+			40 33
+			50 33
+			60 33
+			70 30
+			80 25
+			90 20
+			95 10 >;
+	};
+
+	sc8551_i2c7@66 {
+		compatible = "sc8551_i2c7";
+		reg = <0x66>;
+		sc8551_irq_gpio = <&pio 14 0x0>;
+		ac_ovp = <13000>;
+		bus_ovp = <12300>;
+		bus_ocp = <4500>;
+		bat_ovp = <5000>;
+		bat_ocp = <8000>;
+	};
+
+        sc8561_slave@65 {
+		compatible = "sc8561_slave";
+		reg = <0x65>;
+		sc8561_irq_gpio = <&pio 14 0x0>;
+	};
+
+	ln8000-secondary@51 {
+		compatible = "lionsemi,ln8000-secondary";
+		reg = <0x51>;
+		pinctrl-names = "ln8000_slave_irq";
+		pinctrl-0 = <&ln8000_slave_int_default &ln8000_slave_int_suspend>;
+		charger_name = "quaternary_chg";
+		/* bank <bit-idx> <flags: active-low> */
+		//irq-gpios = <&tlmm 55 0x2002>;
+		//interrupt-parent = <&tlmm>;
+		//interrupts = <55 0x2002>;
+		//pinctrl-names = "default";
+		//pinctrl-0 = <&ln8000_int_default &ln8000_int_suspend>;
+		//ln8000_charger,irq_index = <296>;
+		ln8000_irq_gpio = <&pio 14 0x0>;
+		/* device configuration */
+		ln8000_charger,bat-ovp-threshold = <4660>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4625>;
+		ln8000_charger,bus-ovp-threshold = <13000>;
+		ln8000_charger,bus-ovp-alarm-threshold = <11000>;
+		ln8000_charger,bus-ocp-threshold = <3750>;
+		ln8000_charger,bus-ocp-alarm-threshold = <3500>;
+		ln8000_charger,ntc-alarm-cfg  = <226>;
+		/* protection enable/disable flags
+		 *   vbat-ovp-disable
+		 *   vbat-reg-disable
+		 *   iin-ocp-disable
+		 *   iin-reg-disable
+		 *   tbus-mon-disable
+		 *   tbat-mon-disable
+		 *   tdie-prot-disable
+		 *   tdie-reg-disable
+		 *   revcurr-prot-disable
+		 */
+		ln8000_charger,tdie-prot-disable;
+		ln8000_charger,tbus-mon-disable;
+		ln8000_charger,tbat-mon-disable;
+		ln8000_charger,iin-ocp-disable;
+		ln8000_charger,iin-reg-disable;
+		ln8000_charger,tdie-reg-disable;
+		ln8000_charger,vbat-reg-disable;
+	};
+};
+
+&charger {
+		max_charger_voltage = <12000000>;
+		fv = <4450>;
+		fv_ffc = <4480>;
+		iterm = <200>;
+		iterm_ffc = <800>;
+		iterm_ffc_warm = <900>;
+		usb_charger_current = <500000>;
+		ac_charger_current = <1500000>;
+		ac_charger_input_current = <1500000>;
+		charging_host_charger_current = <1500000>;
+		pd2_input_current = <1700000>;
+		ffc_low_tbat = <150>;
+		ffc_high_tbat = <480>;
+		ffc_medium_tbat = <350>;
+		ffc_high_soc = <95>;
+		step_fallback_hyst = <25>;
+		step_forward_hyst = <5>;
+		jeita_fallback_hyst = <5>;
+		jeita_forward_hyst = <5>;
+		xaga_product;
+		mt6368_moscon1_control;
+		jeita_fcc_cfg = <(-100)	0	4200	1000	747
+				1	50	4200	2390	2390
+				51	100	4200	3386	3386
+				101	150	4200	5826	5826
+				151	480	4200    12400   12400
+				481	600	4200	2490	2490>;
+		jeita_fv_cfg = <(-100)	0	4440
+				1	50	4450
+				51	100	4450
+				101	150	4450
+				151	480	4480
+				481	600	4100>;
+		step_chg_cfg_low_cycle = <3000	3595	12310
+					3596	4090	12310
+					4091	4190	12310
+					4191	4290	8875
+					4291	4390	7380
+					4391	4480	5786>;
+		step_chg_cfg_high_cycle = <3000	3595	12310
+					3596	3850	12310
+					3851	4150	12310
+					4151	4300	8875
+					4301	4400	7380
+					4401	4480	5786>;
+		thermal_limit_dcp = <1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1700 1600 1400 1200>;
+		thermal_limit_qc2 = <2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2000 1500 1500 1000 500>;
+		thermal_limit_qc3_18w = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+		thermal_limit_qc3_27w = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+		thermal_limit_qc35 = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+		thermal_limit_pd = <12400 10000 9000 8000 7400 6100 5600 5000 4400 3500 3000 2400 2000 1500 1000 500>;
+};
+
+&xagapro_charger {
+		max_charger_voltage = <12000000>;
+		fv = <4445>;
+		fv_ffc = <4500>;
+		iterm = <200>;
+		iterm_ffc = <2160>;
+		iterm_ffc_warm = <3370>;
+		usb_charger_current = <500000>;
+		ac_charger_current = <1500000>;
+		ac_charger_input_current = <1500000>;
+		charging_host_charger_current = <1500000>;
+		pd2_input_current = <1700000>;
+		ffc_low_tbat = <150>;
+		ffc_high_tbat = <480>;
+		ffc_medium_tbat = <350>;
+		ffc_high_soc = <95>;
+		step_fallback_hyst = <25>;
+		step_forward_hyst = <5>;
+		jeita_fallback_hyst = <5>;
+		jeita_forward_hyst = <5>;
+		max_fcc = <21500>;
+		xagapro_product;
+		mt6368_moscon1_control;
+		jeita_fcc_cfg = <(-100)	0	4150	2150	860
+				1	50	4150	3010	3010
+				51	100	4150	5160	5160
+				101	150	4150	8600	8600
+				151	480	4150    21500   21500
+				481	600	4150	2150	2150>;
+		jeita_fv_cfg = <(-100)	0	4440
+				1	50	4440
+				51	100	4446
+				101	150	4446
+				151	480	4500
+				481	600	4100>;
+		step_chg_cfg_low_cycle = <3000	3595	21430
+					3596	4090	21430
+					4091	4140	18910
+					4141	4240	15930
+					4241	4390	12360
+					4391	4500	8460>;
+		step_chg_cfg_high_cycle = <3000	3595	21430
+					3596	4080	21430
+					4081	4120	18910
+					4121	4250	15930
+					4251	4400	12360
+					4401	4500	8460>;
+		thermal_limit_dcp = <1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1800 1700 1600 1400 1200>;
+		thermal_limit_qc2 = <2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2500 2000 1500 1500 1000 500>;
+		thermal_limit_qc3_18w = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+		thermal_limit_qc3_27w = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+		thermal_limit_qc35 = <2500 2500 2500 2500 2500 2500 2400 2300 2200 2100 1500 1000 800 700 600 500>;
+		thermal_limit_pd = <21500 17500	16000 12000 10500 10300	10000 8000 6800	6000 5000 4000 3000 2000 1000 500>;
+};
+
+&lk_charger {
+		/* charging current */
+		usb_charger_current = <500000>;
+		ac_charger_current = <1800000>;
+		ac_charger_input_current = <1800000>;
+		non_std_ac_charger_current = <500000>;
+		charging_host_charger_current = <1500000>;
+		ta_ac_charger_current = <3000000>;
+		pd_charger_current = <500000>;
+		pre_charger_current = <250000>;
+
+		/* battery temperature protection */
+		temp_t4_threshold = <60>;
+		temp_t3_threshold = <45>;
+		temp_t1_threshold = <(-10)>;
+
+		boot_battery_voltage = <3600000>;
+	};
+        
+&mtk_gauge {
+        DISABLE_MTKBATTERY = <(1)>;
+};
+
+&pd_cp_manager {
+		compatible = "pd_cp_manager";
+		fv = <4450>;
+		fv_ffc = <4475>;
+		max_fcc = <12400>;
+		max_vbus = <12000>;
+		max_ibus = <6200>;
+		fcc_low_hyst = <100>;
+		fcc_high_hyst = <10>;
+		low_tbat = <100>;
+		high_tbat = <480>;
+		high_vbat = <4400>;
+		high_soc = <95>;
+		low_fcc = <2000>;
+		cv_vbat = <4440>;
+		cv_vbat_ffc = <4470>;
+		cv_ibat = <2000>;
+		cv_ibat_bypass = <1300>;
+		vbus_low_gap_div = <400>;
+		vbus_high_gap_div = <600>;
+		min_pdo_vbus = <8000>;
+		max_pdo_vbus = <11000>;
+
+};
+
+&xagapro_PCM {
+		compatible = "xagapro_PCM";
+		fv = <4450>;
+		fv_ffc = <4495>;
+		max_fcc = <21500>;
+		max_vbus = <21000>;
+		max_ibus = <6200>;
+		fcc_low_hyst = <120>;
+		fcc_high_hyst = <0>;
+		low_tbat = <100>;
+		high_tbat = <480>;
+		high_vbat = <4400>;
+		high_soc = <95>;
+		low_fcc = <2000>;
+		cv_vbat = <4440>;
+		cv_vbat_ffc = <4490>;
+		cv_ibat = <2500>;
+		vbus_low_gap_div = <500>;
+		vbus_high_gap_div = <600>;
+		min_pdo_vbus = <8000>;
+		max_pdo_vbus = <21000>;
+		mt6375_control_gpio = <&pio 11 0x0>;
+};
+
+&mtee_svp {
+	mtee: MTEE {
+                   compatible = "mediatek,mtk_svp_on_mtee_support";
+	};
+
+	svp: SecureVideoPath {
+                   compatible = "mediatek,mtk_sec_video_path_support";
+	};
+};
+
+&pmic_adc {
+	vin3_open {
+		channel = <AUXADC_VIN3>;
+		pures = <ADC_PURES_100K>;
+	};
+};
+
+&tboard_thermistor8 {
+		compatible = "generic-adc-thermal";
+		#thermal-sensor-cells = <0>;
+		io-channels = <&pmic_adc AUXADC_VIN3>;
+		io-channel-names = "sensor-channel";
+		temperature-lookup-table = <
+			(-40000) 1760
+			(-39000) 1757
+			(-38000) 1754
+			(-37000) 1751
+			(-36000) 1747
+			(-35000) 1744
+			(-34000) 1740
+			(-33000) 1736
+			(-32000) 1731
+			(-31000) 1727
+			(-30000) 1722
+			(-29000) 1716
+			(-28000) 1711
+			(-27000) 1705
+			(-26000) 1699
+			(-25000) 1693
+			(-24000) 1686
+			(-23000) 1679
+			(-22000) 1672
+			(-21000) 1664
+			(-20000) 1656
+			(-19000) 1648
+			(-18000) 1639
+			(-17000) 1630
+			(-16000) 1620
+			(-15000) 1610
+			(-14000) 1599
+			(-13000) 1588
+			(-12000) 1577
+			(-11000) 1565
+			(-10000) 1553
+			(-9000) 1540
+			(-8000) 1527
+			(-7000) 1514
+			(-6000) 1500
+			(-5000) 1485
+			(-4000) 1470
+			(-3000) 1455
+			(-2000) 1439
+			(-1000) 1423
+			0 1406
+			1000 1389
+			2000 1372
+			3000 1354
+			4000 1335
+			5000 1317
+			6000 1298
+			7000 1279
+			8000 1259
+			9000 1239
+			10000 1219
+			11000 1198
+			12000 1178
+			13000 1157
+			14000 1136
+			15000 1115
+			16000 1093
+			17000 1072
+			18000 1050
+			19000 1029
+			20000 1007
+			21000 986
+			22000 964
+			23000 943
+			24000 921
+			25000 900
+			26000 879
+			27000 858
+			28000 837
+			29000 816
+			30000 796
+			31000 775
+			32000 755
+			33000 736
+			34000 716
+			35000 697
+			36000 678
+			37000 659
+			38000 641
+			39000 623
+			40000 605
+			41000 588
+			42000 571
+			43000 555
+			44000 538
+			45000 523
+			46000 507
+			47000 492
+			48000 477
+			49000 463
+			50000 449
+			51000 435
+			52000 422
+			53000 409
+			54000 396
+			55000 384
+			56000 372
+			57000 360
+			58000 349
+			59000 338
+			60000 327
+			61000 317
+			62000 307
+			63000 297
+			64000 288
+			65000 279
+			66000 270
+			67000 261
+			68000 253
+			69000 245
+			70000 237
+			71000 230
+			72000 222
+			73000 215
+			74000 209
+			75000 202
+			76000 196
+			77000 189
+			78000 183
+			79000 178
+			80000 172
+			81000 167
+			82000 161
+			83000 156
+			84000 151
+			85000 147
+			86000 142
+			87000 138
+			88000 133
+			89000 129
+			90000 125
+			91000 121
+			92000 118
+			93000 114
+			94000 111
+			95000 107
+			96000 104
+			97000 101
+			98000 98
+			99000 95
+			100000 92
+			101000 89
+			102000 87
+			103000 84
+			104000 81
+			105000 79
+			106000 77
+			107000 74
+			108000 72
+			109000 70
+			110000 68
+			111000 66
+			112000 64
+			113000 62
+			114000 61
+			115000 59
+			116000 57
+			117000 56
+			118000 54
+			119000 52
+			120000 51
+			121000 50
+			122000 48
+			123000 47
+			124000 46
+			125000 44>;
+};
+
+&thermal_zones {
+	backlight_therm: backlight_therm {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tboard_thermistor8>;
+	};
+};
+
+/*Audio Config tfa start  */
+&spk1 {
+	irq-gpio = <&pio 19 0>;
+	spk-sw-gpio = <&pio 160 0>;
+};
+
+&spk2 {
+	irq-gpio = <&pio 15 0>;
+	/delete-property/ spk-sw-gpio;
+};
+/*Audio Config tfa end*/
+
+&accdet {
+	/* accdet micbias voltage: 0x09:2.85v 0x08:2.8v 0x07,
+	 * 2.7v;0x05,2.5v;0x02,1.9v
+	 */
+	accdet-mic-vol = <8>;
+
+	/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
+	accdet-mic-mode = <2>;
+};
+
+&aw8697_haptic {
+	aw86927_vib_bst_vol_default = < 0x53 >;
+	aw86927_vib_bst_vol_ram = < 0x53 >;
+	aw86927_vib_bst_vol_rtp = < 0x53 >;
+};
+
+#include "mediatek/xiaomi-mt6895-xaga-display.dtsi"
+#include "mediatek/xaga-mt6895-touch.dtsi"

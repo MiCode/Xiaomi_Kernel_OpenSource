@@ -195,8 +195,6 @@ mtk_addon_get_scenario_data_dual(const char *source, struct drm_crtc *crtc,
 	if (mtk_crtc->path_data && mtk_crtc->path_data->addon_data_dual)
 		return &mtk_crtc->path_data->addon_data_dual[scn];
 
-	DDPPR_ERR("[%s] crtc%d cannot get addon data\n", source,
-		  drm_crtc_index(crtc));
 	return NULL;
 }
 

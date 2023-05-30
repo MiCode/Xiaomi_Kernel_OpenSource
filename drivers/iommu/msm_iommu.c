@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
- *
+ * Copyright (C) 2022 XiaoMi, Inc.
  * Author: Stepan Moskovchenko <stepanm@codeaurora.org>
  */
 
@@ -26,7 +26,7 @@
 #include "msm_iommu_hw-8xxx.h"
 #include "msm_iommu.h"
 
-#define MRC(reg, processor, op1, crn, crm, op2)				\
+#define (MRC)(reg, processor, op1, crn, crm, op2)				\
 __asm__ __volatile__ (							\
 "   mrc   "   #processor "," #op1 ", %0,"  #crn "," #crm "," #op2 "\n"  \
 : "=r" (reg))

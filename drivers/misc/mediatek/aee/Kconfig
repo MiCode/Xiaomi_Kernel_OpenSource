@@ -44,3 +44,11 @@ config MTK_AVOID_TRUNCATE_COREDUMP
 	  coredump after receiving signal 9. And ensure coredump file is complete
 	  when occurring suspend issue. Beyond that, it will avoid task race condition
 	  issue after NE task early exit, which will cause aed KE issue.
+
+config MTK_AEE_UT
+	tristate "control AED debug file"
+	help
+	  MTK_AEE_UT is the kernel config of aed-debug.c
+	  aed-debug.c is AEE UT test case file, just for generate some vendor
+	  exception to test AEE dump flow, include in KE, HWT, HW_reboot, EE,
+	  and kernelAPI exception

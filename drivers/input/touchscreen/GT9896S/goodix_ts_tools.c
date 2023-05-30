@@ -2,6 +2,7 @@
  * Goodix Tools Dirver Module
  *
  * Copyright (C) 2019 - 2020 Goodix, Inc.
+ * Copyright (C) 2022 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

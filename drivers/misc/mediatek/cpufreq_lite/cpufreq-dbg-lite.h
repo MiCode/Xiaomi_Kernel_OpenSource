@@ -35,3 +35,4 @@ static const struct proc_ops name##_proc_fops = {\
 {__stringify(name), &name ## _proc_fops, g_ ## name}
 
 extern int mtk_eem_init(struct platform_device *pdev);
+extern int mtk_devinfo_init(struct platform_device *pdev);

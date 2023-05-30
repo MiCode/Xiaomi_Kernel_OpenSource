@@ -15,6 +15,7 @@
 #include <media/videobuf2-v4l2.h>
 
 #include "mtk_cam-ipi.h"
+#include "mtk_camera-videodev2.h"
 
 #define MAX_PLANE_NUM 3
 #define MAX_SUBSAMPLE_PLANE_NUM 8
@@ -219,6 +220,16 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc);
 void mtk_cam_set_meta_stats_info(u32 dma_port, void *vaddr,
 				 struct mtk_raw_pde_config *pde_cfg);
 
-int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, bool active);
+int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node, struct v4l2_format *f, int feature);
+
+int is_mtk_format(u32 pixelformat);
+
+int is_yuv_ufo(u32 pixelformat);
+
+int is_raw_ufo(u32 pixelformat);
+
+int is_fullg_rb(u32 pixelformat);
+
+const struct mtk_format_info *mtk_format_info(u32 format);
 
 #endif /*__MTK_CAM_VIDEO_H*/

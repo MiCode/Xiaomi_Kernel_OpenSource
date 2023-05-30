@@ -350,6 +350,7 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 root=/dev/ram \
+                        8250.nr_uarts=4 \
 			vmalloc=400M swiotlb=noforce \
 			cma=64M \
 			firmware_class.path=/vendor/firmware pelt=8 ";
@@ -5566,7 +5567,7 @@
 			vib-supply = <&mt6368_vibr>;
 		};
 
-		goodix_fp: fingerprint {
+		fingerprint: fingerprint {
 			compatible = "mediatek,goodix-fp";
 		};
 	};

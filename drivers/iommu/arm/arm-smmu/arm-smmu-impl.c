@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 // Miscellaneous Arm SMMU implementation and integration quirks
 // Copyright (C) 2019 Arm Limited
-
+// Copyright (C) 2022 XiaoMi, Inc.
 #define pr_fmt(fmt) "arm-smmu: " fmt
 
 #include <linux/bitfield.h>
@@ -12,7 +12,7 @@
 
 static int arm_smmu_gr0_ns(int offset)
 {
-	switch(offset) {
+	switch (offset) {
 	case ARM_SMMU_GR0_sCR0:
 	case ARM_SMMU_GR0_sACR:
 	case ARM_SMMU_GR0_sGFSR:

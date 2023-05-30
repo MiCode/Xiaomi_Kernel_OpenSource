@@ -30,8 +30,8 @@ static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 					unsigned int leng)
 {
 	int i;
-	unsigned int srinfo_r = 0, axi_id_r = 0;
-	unsigned int srinfo_w = 0, axi_id_w = 0;
+	unsigned int srinfo_r = 0, axi_id_r = 0, err_case_r = 0;
+	unsigned int srinfo_w = 0, axi_id_w = 0, err_case_w = 0;
 	bool bypass;
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 3);
 
@@ -40,6 +40,11 @@ static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 			srinfo_w = dump[i].value;
 		else if (dump[i].offset == 0x3D8)
 			srinfo_r = dump[i].value;
+
+		if (dump[i].offset == 0x1D0)
+			err_case_w = dump[i].value;
+		else if (dump[i].offset == 0x3D0)
+			err_case_r = dump[i].value;
 
 		if (srinfo_w == 3) {
 			if (dump[i].offset == 0x1E4) {
@@ -61,6 +66,8 @@ static irqreturn_t emi_mpu_isr_hook(unsigned int emi_id,
 	if (srinfo_r == 3 && !axi_id_is_gpu(axi_id_r))
 		bypass = true;
 	else if (srinfo_w == 3 && !axi_id_is_gpu(axi_id_w))
+		bypass = true;
+	else if (err_case_w == 0 && err_case_r == 0)
 		bypass = true;
 	else
 		bypass = false;

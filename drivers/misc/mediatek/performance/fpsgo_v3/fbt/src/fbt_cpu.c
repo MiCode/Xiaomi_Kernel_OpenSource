@@ -387,6 +387,8 @@ static int _gdfrc_fps_limit;
 
 static struct fbt_sjerk sjerk;
 
+static struct workqueue_struct *wq_jerk;
+
 static int nsec_to_100usec(unsigned long long nsec)
 {
 	unsigned long long husec;
@@ -576,6 +578,9 @@ static struct fbt_thread_loading *fbt_list_loading_add(int pid,
 	unsigned long flags;
 	atomic_t *loading_cl;
 	int i, err_exit = 0;
+
+	if (cluster_num <= 0)
+		return NULL;
 
 	obj = kzalloc(sizeof(struct fbt_thread_loading), GFP_KERNEL);
 	if (!obj) {
@@ -2224,7 +2229,10 @@ static enum hrtimer_restart fbt_jerk_tfn(struct hrtimer *timer)
 	struct fbt_jerk *jerk;
 
 	jerk = container_of(timer, struct fbt_jerk, timer);
-	schedule_work(&jerk->work);
+	if (wq_jerk)
+		queue_work(wq_jerk, &jerk->work);
+	else
+		schedule_work(&jerk->work);
 	return HRTIMER_NORESTART;
 }
 
@@ -2990,7 +2998,7 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 		int target_fps, int fps_margin, unsigned long long t_Q2Q,
 		unsigned int gpu_loading, int blc_wt,
-		long long t_cpu, int target_fpks, int max_iso_cap, int cooler_on)
+		long long t_cpu, int target_fpks, int max_iso_cap, int cooler_on, int pid)
 {
 	long long target_time = div64_s64(1000000000, target_fpks + gcc_fps_margin * 10);
 	int gcc_down_window, gcc_up_window;
@@ -3012,8 +3020,20 @@ int fbt_eva_gcc(struct fbt_boost_info *boost_info,
 
 	gcc_down_window = target_fps * gcc_down_sec_pct;
 	do_div(gcc_down_window, 100);
+	if (gcc_down_window <= 0) {
+		gcc_down_window = 1;
+		FPSGO_LOGE(
+		"%s error: pid:%d, target_fps:%d, gcc_down_sec_pct:%d",
+		__func__, pid, target_fps, gcc_down_sec_pct);
+	}
 	gcc_up_window = target_fps * gcc_up_sec_pct;
 	do_div(gcc_up_window, 100);
+	if (gcc_up_window <= 0) {
+		gcc_up_window = 1;
+		FPSGO_LOGE(
+		"%s error: pid:%d, target_fps:%d, gcc_up_sec_pct:%d",
+		__func__, pid, target_fps, gcc_up_sec_pct);
+	}
 
 	if (boost_info->gcc_target_fps != target_fps && !cooler_on) {
 		boost_info->gcc_target_fps = target_fps;
@@ -3273,7 +3293,7 @@ static int fbt_boost_policy(
 				boost_info,
 				target_fps, fps_margin, thread_info->Q2Q_time,
 				gpu_loading, blc_wt, t_cpu_cur,
-				target_fpks, isolation_cap, cooler_on);
+				target_fpks, isolation_cap, cooler_on, pid);
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->gcc_count, "gcc_count");
 		fpsgo_systrace_c_fbt(pid, buffer_id, gcc_boost, "gcc_boost");
 		fpsgo_systrace_c_fbt(pid, buffer_id, boost_info->correction, "correction");
@@ -3989,6 +4009,9 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 
 	spin_lock_irqsave(&loading_slock, flags2);
 	list_for_each_entry_safe(pos, next, &loading_list, entry) {
+		if (pos == NULL || pos->loading_cl == NULL)
+			continue;
+
 		if (atomic_read(&pos->last_cb_ts) != 0) {
 			loading_result =
 				fbt_est_loading(new_ts,
@@ -4016,7 +4039,8 @@ void fpsgo_ctrl2fbt_cpufreq_cb(int cid, unsigned long freq)
 				goto SKIP;
 
 			for (i = 0; i < cluster_num; i++) {
-				if (clus_status[i])
+				if (clus_status[i] || pos->lastest_loading_cl[idx] == NULL ||
+					pos->lastest_obv_cl[idx] == NULL)
 					continue;
 
 				loading_result =
@@ -4844,6 +4868,9 @@ struct fbt_thread_loading *fbt_xgff_list_loading_add(int pid,
 	unsigned long flags;
 	atomic_t *loading_cl;
 	int i, err_exit = 0;
+
+	if (cluster_num <= 0)
+		return NULL;
 
 	obj = kzalloc(sizeof(struct fbt_thread_loading), GFP_KERNEL);
 	if (!obj) {
@@ -6192,6 +6219,8 @@ int __init fbt_cpu_init(void)
 
 	INIT_LIST_HEAD(&loading_list);
 	INIT_LIST_HEAD(&blc_list);
+
+	wq_jerk = alloc_workqueue("fbt_cpu", WQ_HIGHPRI | WQ_MEM_RECLAIM | WQ_UNBOUND, 0);
 
 	/* sub-module initialization */
 	init_xgf();

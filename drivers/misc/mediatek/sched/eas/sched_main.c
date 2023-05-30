@@ -29,14 +29,18 @@ int mtk_sched_asym_cpucapacity  =  1;
 static inline void sched_asym_cpucapacity_init(void)
 {
 	struct perf_domain *pd;
-	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+	struct root_domain *rd;
 	int pd_count = 0;
+
+	preempt_disable();
+	rd = cpu_rq(smp_processor_id())->rd;
 
 	rcu_read_lock();
 	pd = rcu_dereference(rd->pd);
 	for (; pd; pd = pd->next)
 		pd_count++;
 	rcu_read_unlock();
+	preempt_enable();
 	if (pd_count <= 1)
 		mtk_sched_asym_cpucapacity = 0;
 }
@@ -53,7 +57,7 @@ static void sched_task_util_hook(void *data, struct sched_entity *se)
 		p = container_of(se, struct task_struct, se);
 		sa = &se->avg;
 
-		trace_sched_task_util(p->pid, p->comm,
+		trace_sched_task_util(p->pid,
 				sa->util_avg, sa->util_est.enqueued, sa->util_est.ewma);
 	}
 }

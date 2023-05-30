@@ -17,6 +17,16 @@
 #define MAX_MUX_NUM (10)
 #define MAX_HOPPING_CLK_NUM (2)
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+#include "../../misc/mediatek/mmp/mmprofile.h"
+
+struct mmdvfs_mmp_events_t {
+	mmp_event mmdvfs;
+	mmp_event freq_change;
+};
+static struct mmdvfs_mmp_events_t mmdvfs_mmp_events;
+#endif
+
 enum {
 	ACTION_DEFAULT,
 	ACTION_IHDM, /* Voltage Increase: Hopping First, Decrease: MUX First*/
@@ -46,6 +56,8 @@ struct mmdvfs_drv_data {
 	u32 voltages[MAX_OPP_NUM];
 	u32 num_voltages;
 };
+
+static struct regulator *vcore_reg_id;
 
 
 static u32 log_level;
@@ -162,6 +174,11 @@ static void set_all_clk(struct mmdvfs_drv_data *drv_data,
 	blocking_notifier_call_chain(&mmdvfs_notifier_list, opp_level, NULL);
 	if (log_level & 1 << log_freq)
 		pr_notice("set clk to opp level:%d\n", opp_level);
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_log_ex(
+		mmdvfs_mmp_events.freq_change,
+		MMPROFILE_FLAG_PULSE, vol_inc, opp_level);
+#endif
 }
 
 static int regulator_event_notify(struct notifier_block *nb,
@@ -231,7 +248,8 @@ int mmdvfs_dbg_clk_set(int step, bool is_force)
 {
 	struct mmdvfs_drv_data *drv_data;
 	s32 ret = 0;
-	u64 volt = 0;
+	u32 v_real = 0;
+	int volt = 0;
 	s32 last_force_step;
 
 	if (!dbg_data) {
@@ -280,11 +298,21 @@ int mmdvfs_dbg_clk_set(int step, bool is_force)
 				|| (last_force_step >= 0 && step < last_force_step)) {
 				regulator_set_voltage(
 					dbg_data->reg, volt, INT_MAX);
+				if (!IS_ERR(vcore_reg_id)) {
+					v_real = regulator_get_voltage(vcore_reg_id);
+					pr_notice("%s: step=%d volt=%llu r_volt=%d is_force=%d\n",
+							__func__, step, volt, v_real, is_force);
+				}
 				set_all_clk(drv_data, volt, true);
 			} else {
 				set_all_clk(drv_data, volt, false);
 				regulator_set_voltage(
 					dbg_data->reg, volt, INT_MAX);
+				if (!IS_ERR(vcore_reg_id)) {
+					v_real = regulator_get_voltage(vcore_reg_id);
+					pr_notice("%s: step=%d volt=%llu r_volt=%d is_force=%d\n",
+							__func__, step, volt, v_real, is_force);
+				}
 			}
 		} else {
 			regulator_set_voltage(dbg_data->reg, volt, INT_MAX);
@@ -413,6 +441,18 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	unsigned long freq;
 	struct dev_pm_opp *opp;
 
+#if IS_ENABLED(CONFIG_MMPROFILE)
+	mmprofile_enable(1);
+	if (mmdvfs_mmp_events.mmdvfs == 0) {
+		mmdvfs_mmp_events.mmdvfs =
+			mmprofile_register_event(MMP_ROOT_EVENT, "MMDVFS");
+		mmdvfs_mmp_events.freq_change =	mmprofile_register_event(
+			mmdvfs_mmp_events.mmdvfs, "freq_change");
+		mmprofile_enable_event_recursive(mmdvfs_mmp_events.mmdvfs, 1);
+	}
+	mmprofile_start(1);
+#endif
+
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data)
 		return -ENOMEM;
@@ -495,6 +535,13 @@ static int mmdvfs_probe(struct platform_device *pdev)
 	ret = devm_regulator_register_notifier(reg, &drv_data->nb);
 	if (ret)
 		pr_notice("Failed to register notifier: %d\n", ret);
+
+	vcore_reg_id = regulator_get(dev, "_vcore");
+	if (IS_ERR(vcore_reg_id)) {
+		pr_info("regulator_get vcore_reg_id failed: %d\n",
+				PTR_ERR(vcore_reg_id));
+	}
+
 	return ret;
 }
 

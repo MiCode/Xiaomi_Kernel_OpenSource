@@ -30,7 +30,6 @@
 module_param(mtk_v4l2_dbg_level, int, S_IRUGO | S_IWUSR);
 module_param(mtk_vcodec_dbg, bool, S_IRUGO | S_IWUSR);
 module_param(mtk_vcodec_vcp, int, S_IRUGO | S_IWUSR);
-module_param(mtk_venc_property, charp, 0644);
 char mtk_venc_property_prev[1024];
 char mtk_venc_vcp_log_prev[1024];
 
@@ -39,13 +38,25 @@ static int mtk_vcodec_vcp_log_write(const char *val, const struct kernel_param *
 {
 	pr_info("%s, val: %s, len: %d", __func__, val, strlen(val));
 	if (!(val == NULL || strlen(val) == 0))
-		mtk_vcodec_set_log(dev_ptr, val);
+		mtk_vcodec_set_log(dev_ptr, val, MTK_VCODEC_LOG_INDEX_LOG);
 	return 0;
 }
 static struct kernel_param_ops vcodec_vcp_log_param_ops = {
 	.set = mtk_vcodec_vcp_log_write,
 };
 module_param_cb(mtk_venc_vcp_log, &vcodec_vcp_log_param_ops, &mtk_venc_vcp_log, 0644);
+
+static int mtk_vcodec_vcp_property_write(const char *val, const struct kernel_param *kp)
+{
+	pr_info("%s, val: %s, len: %d", __func__, val, strlen(val));
+	if (!(val == NULL || strlen(val) == 0))
+		mtk_vcodec_set_log(dev_ptr, val, MTK_VCODEC_LOG_INDEX_PROP);
+	return 0;
+}
+static struct kernel_param_ops vcodec_vcp_prop_param_ops = {
+	.set = mtk_vcodec_vcp_property_write,
+};
+module_param_cb(mtk_venc_property, &vcodec_vcp_prop_param_ops, &mtk_venc_property, 0644);
 
 
 static int fops_vcodec_open(struct file *file)
@@ -283,7 +294,6 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 	if (!dev)
 		return -ENOMEM;
 
-	dev_ptr = dev;
 	INIT_LIST_HEAD(&dev->ctx_list);
 	dev->plat_dev = pdev;
 #if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
@@ -489,6 +499,15 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
+	if (!pdev->dev.dma_parms) {
+		pdev->dev.dma_parms =
+			devm_kzalloc(&pdev->dev, sizeof(*pdev->dev.dma_parms), GFP_KERNEL);
+	}
+	if (pdev->dev.dma_parms) {
+		ret = dma_set_max_seg_size(&pdev->dev, (unsigned int)DMA_BIT_MASK(34));
+		if (ret)
+			dev_info(&pdev->dev, "Failed to set DMA segment size\n");
+	}
 #endif
 	mtk_v4l2_debug(0, "encoder registered as /dev/video%d",
 				   vfd_enc->num);
@@ -509,6 +528,8 @@ static int mtk_vcodec_enc_probe(struct platform_device *pdev)
 #endif
 
 	INIT_LIST_HEAD(&dev->log_param_list);
+	INIT_LIST_HEAD(&dev->prop_param_list);
+	dev_ptr = dev;
 
 	return 0;
 

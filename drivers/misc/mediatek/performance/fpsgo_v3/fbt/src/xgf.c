@@ -79,7 +79,7 @@ int fstb_fps_num = TARGET_FPS_LEVEL;
 EXPORT_SYMBOL(fstb_fps_num);
 int fstb_fps_choice[TARGET_FPS_LEVEL] = {20, 25, 30, 40, 45, 60, 90, 120, 144, 240};
 EXPORT_SYMBOL(fstb_fps_choice);
-int fstb_consider_deq = 1;
+int fstb_consider_deq;
 EXPORT_SYMBOL(fstb_consider_deq);
 
 module_param(xgf_sp_name, charp, 0644);
@@ -1529,7 +1529,12 @@ static int xgf_tid_overlap(int tid, int rpid, int uboost)
 	struct xgf_render *render_iter;
 	struct hlist_node *n;
 
-	if (!tid || tid < 0 || uboost)
+	if (!tid || tid < 0) {
+		ret = 1;
+		goto out;
+	}
+
+	if (rpid == tid)
 		goto out;
 
 	hlist_for_each_entry_safe(render_iter, n, &xgf_renders, hlist) {
@@ -1704,6 +1709,8 @@ int fpsgo_fbt2xgf_get_dep_list_num(int pid, unsigned long long bufID)
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
 
+		xgf_add_pid2prev_dep(render_iter, pid);
+
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
 
@@ -1876,7 +1883,7 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 			continue;
 
 		xgf_r_uboost = xgf_uboost_case(render_iter);
-		if (xgf_uboost_case(render_iter) && xgf_uboost)
+		if (xgf_r_uboost && xgf_uboost)
 			xgf_add_pid2prev_dep(render_iter, render_iter->parent);
 
 		if (render_iter->spid)
@@ -1884,6 +1891,8 @@ int fpsgo_fbt2xgf_get_dep_list(int pid, int count,
 
 		if (xgf_cfg_spid)
 			xgf_wspid_list_add2prev(render_iter);
+
+		xgf_add_pid2prev_dep(render_iter, pid);
 
 		out_rbn = rb_first(&render_iter->out_deps_list);
 		pre_rbn = rb_first(&render_iter->prev_deps_list);
@@ -2034,7 +2043,8 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 	unsigned long long now_ts = xgf_get_time();
 	long long diff, check_period, recycle_period;
 	struct xgf_hw_event *hw_iter;
-	struct hlist_node *hw_t;
+	struct hlist_node *hw_t, *r_t;
+	struct xgf_render *r_iter;
 
 	/* over 1 seconds since last check2recycle */
 	check_period = NSEC_PER_SEC;
@@ -2070,6 +2080,25 @@ void fpsgo_fstb2xgf_do_recycle(int fstb_active)
 
 		hlist_del(&hw_iter->hlist);
 		xgf_free(hw_iter);
+	}
+
+	hlist_for_each_entry_safe(r_iter, r_t, &xgf_renders, hlist) {
+		diff = now_ts - r_iter->queue.end_ts;
+		if (diff >= check_period) {
+			xgf_clean_deps_list(r_iter, INNER_DEPS);
+			xgf_clean_deps_list(r_iter, OUTER_DEPS);
+			xgf_clean_deps_list(r_iter, PREVI_DEPS);
+			xgf_reset_render_sector(r_iter);
+			xgf_reset_render_hw_list(r_iter);
+
+			if (r_iter->ema2_pt) {
+				xgf_ema2_free(r_iter->ema2_pt);
+				r_iter->ema2_pt = 0;
+			}
+
+			hlist_del(&r_iter->hlist);
+			xgf_free(r_iter);
+		}
 	}
 
 out:
@@ -3376,7 +3405,7 @@ Reget:
 	index = xgf_atomic_inc_return(xgf_event_index);
 
 	/* protection for if xgf_nr_cpus in error condition */
-	if (unlikely(index < 0)) {
+	if (unlikely(index <= 0)) {
 		xgf_atomic_set(xgf_event_index, 0);
 		return;
 	}
@@ -3438,7 +3467,7 @@ static void fstb_buffer_record_waking_switch_timer(int cpu, int event,
 Reget:
 	index = atomic_inc_return(&fstb_event_data_idx);
 
-	if (unlikely(index < 0)) {
+	if (unlikely(index <= 0)) {
 		atomic_set(&fstb_event_data_idx, 0);
 		return;
 	}

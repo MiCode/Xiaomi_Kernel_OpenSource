@@ -362,6 +362,9 @@ static int mt6983_mt6338_init(struct snd_soc_pcm_runtime *rtd)
 static int mt6983_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				      struct snd_pcm_hw_params *params)
 {
+	//struct snd_interval *rate = hw_param_interval(params,
+    //                                   SNDRV_PCM_HW_PARAM_RATE);
+
 	dev_info(rtd->dev, "%s(), fix format to 32bit\n", __func__);
 
 	/* fix BE i2s format to 32bit, clean param mask first */
@@ -369,6 +372,8 @@ static int mt6983_i2s_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			     0, SNDRV_PCM_FORMAT_LAST);
 
 	params_set_format(params, SNDRV_PCM_FORMAT_S32_LE);
+
+	//rate->min = rate->max = 96000;///////////////////////
 	return 0;
 }
 

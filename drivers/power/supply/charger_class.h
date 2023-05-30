@@ -80,6 +80,7 @@ struct charger_ops {
 	/* enable/disable charger */
 	int (*enable)(struct charger_device *dev, bool en);
 	int (*is_enabled)(struct charger_device *dev, bool *en);
+	int (*is_bypass_enabled)(struct charger_device *dev, bool *en);
 
 	/* enable/disable chip */
 	int (*enable_chip)(struct charger_device *dev, bool en);
@@ -155,6 +156,7 @@ struct charger_ops {
 
 	/* OTG */
 	int (*enable_otg)(struct charger_device *dev, bool en);
+	int (*enable_otg_regulator)(struct charger_device *dev, bool en);
 	int (*enable_discharge)(struct charger_device *dev, bool en);
 	int (*set_boost_current_limit)(struct charger_device *dev, u32 uA);
 
@@ -182,6 +184,7 @@ struct charger_ops {
 	int (*get_ibat_adc)(struct charger_device *dev, u32 *ibat);
 	int (*get_tchg_adc)(struct charger_device *dev, int *tchg_min,
 		int *tchg_max);
+	int (*get_ts_temp)(struct charger_device *dev, int *value);
 	int (*get_zcv)(struct charger_device *dev, u32 *uV);
 
 	/* TypeC */
@@ -200,6 +203,24 @@ struct charger_ops {
 	int (*get_property)(struct charger_device *dev,
 			    enum charger_property prop,
 			    union charger_propval *val);
+	int (*set_dpdm_voltage)(struct charger_device *dev, int dp, int dm);
+	/* For XMUSB350 */
+	int (*update_chgtype)(struct charger_device *dev, int type);
+	int (*qc3_dpdm_pulse)(struct charger_device *dev, int type, int count);
+	int (*select_qc_mode)(struct charger_device *dev, int type);
+	int (*switch_swusb_mode)(struct charger_device *dev, int en);
+
+	/* For SC8561 */
+	int (*cp_set_mode)(struct charger_device *dev, int value);
+	int (*cp_device_init)(struct charger_device *dev, int value);
+	int (*cp_get_vbatt)(struct charger_device *dev, u32 *vbatt);
+	int (*cp_get_ibatt)(struct charger_device *dev, u32 *ibatt);
+	int (*cp_enable_adc)(struct charger_device *dev, bool en);
+	int (*cp_get_bypass_support)(struct charger_device *chg_dev, bool *enabled);
+
+	/* For LN8000 */
+	int (*enable_bypass)(struct charger_device *dev, bool en);
+	int (*cp_reset_check)(struct charger_device *chg_dev);
 };
 
 static inline void *charger_dev_get_drvdata(
@@ -233,6 +254,9 @@ static inline void *charger_get_data(
 
 extern int charger_dev_enable(struct charger_device *charger_dev, bool en);
 extern int charger_dev_is_enabled(struct charger_device *charger_dev, bool *en);
+extern int charger_dev_is_bypass_enabled(struct charger_device *charger_dev, bool *en);
+extern int charger_dev_cp_get_bypass_support(struct charger_device *charger_dev, bool *en);
+extern int charger_dev_cp_reset_check(struct charger_device *charger_dev);
 extern int charger_dev_plug_in(struct charger_device *charger_dev);
 extern int charger_dev_plug_out(struct charger_device *charger_dev);
 extern int charger_dev_set_charging_current(
@@ -287,6 +311,8 @@ extern int charger_dev_enable_chg_type_det(
 	struct charger_device *charger_dev, bool en);
 extern int charger_dev_enable_otg(
 	struct charger_device *charger_dev, bool en);
+extern int charger_dev_enable_otg_regulator(
+	struct charger_device *charger_dev, bool en);
 extern int charger_dev_enable_discharge(
 	struct charger_device *charger_dev, bool en);
 extern int charger_dev_set_boost_current_limit(
@@ -337,6 +363,8 @@ extern int charger_dev_get_ibat(
 extern int charger_dev_get_temperature(
 	struct charger_device *charger_dev, int *tchg_min,
 		int *tchg_max);
+extern int charger_dev_get_ts_temp(
+	struct charger_device *charger_dev, int *value);
 extern int charger_dev_set_direct_charging_ibusoc(
 	struct charger_device *charger_dev, u32 ua);
 extern int charger_dev_set_direct_charging_vbusov(
@@ -373,7 +401,7 @@ extern int charger_dev_set_property(struct charger_device *dev,
 extern int charger_dev_get_property(struct charger_device *dev,
 				    enum charger_property prop,
 				    union charger_propval *val);
-
+extern int charger_dev_set_dpdm_voltage(struct charger_device *dev, int dp, int dm);
 /* For buck1 FPWM */
 extern int charger_dev_enable_hidden_mode(struct charger_device *dev, bool en);
 
@@ -386,5 +414,18 @@ extern int unregister_charger_device_notifier(
 extern int charger_dev_notify(
 	struct charger_device *charger_dev, int event);
 
+/* For XMUSB350 */
+extern int charger_dev_update_chgtype(struct charger_device *dev, int type);
+extern int charger_dev_qc3_dpdm_pulse(struct charger_device *dev, int type, int count);
+extern int charger_dev_select_qc_mode(struct charger_device *dev, int type);
+extern int charger_dev_switch_swusb_mode(struct charger_device *dev, int en);
+
+extern int charger_dev_cp_set_mode(struct charger_device *charger_dev, int value);
+
+extern int charger_dev_cp_device_init(struct charger_device *charger_dev, int value);
+extern int charger_dev_cp_get_vbatt(struct charger_device *charger_dev, u32 *vbatt);
+
+extern int charger_dev_cp_get_ibatt(struct charger_device *charger_dev, u32 *ibatt);
+extern int charger_dev_cp_enable_adc(struct charger_device *dev, bool en);
 
 #endif /*LINUX_POWER_CHARGER_CLASS_H*/

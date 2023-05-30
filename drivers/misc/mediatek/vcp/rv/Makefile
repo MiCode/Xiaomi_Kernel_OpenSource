@@ -16,3 +16,4 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vcp/rv
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-y += -I$(srctree)/drivers/clk/mediatek

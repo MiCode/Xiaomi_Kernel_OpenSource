@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2007-2010 Advanced Micro Devices, Inc.
+ * Copyright (C) 2022 XiaoMi, Inc.
  * Author: Joerg Roedel <jroedel@suse.de>
  *         Leo Duran <leo.duran@amd.com>
  */
@@ -3133,7 +3134,7 @@ void amd_iommu_enable_device_erratum(struct pci_dev *pdev, u32 erratum)
 EXPORT_SYMBOL(amd_iommu_enable_device_erratum);
 
 int amd_iommu_device_info(struct pci_dev *pdev,
-                          struct amd_iommu_device_info *info)
+			struct amd_iommu_device_info *info)
 {
 	int max_pasids;
 	int pos;

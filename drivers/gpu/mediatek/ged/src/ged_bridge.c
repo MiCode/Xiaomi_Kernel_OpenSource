@@ -63,8 +63,16 @@ int ged_bridge_monitor_3D_fence(
 	struct GED_BRIDGE_IN_MONITOR3DFENCE *psMonitor3DFenceINT,
 	struct GED_BRIDGE_OUT_MONITOR3DFENCE *psMonitor3DFenceOUT)
 {
-	psMonitor3DFenceOUT->eError =
-		ged_monitor_3D_fence_add(psMonitor3DFenceINT->fd);
+	if (psMonitor3DFenceINT->dump_flag == 1) {
+		mtk_gpu_fence_debug_dump(
+			psMonitor3DFenceINT->fd,
+			psMonitor3DFenceINT->pid,
+			psMonitor3DFenceINT->eType);
+		psMonitor3DFenceOUT->eError = GED_OK;
+	} else {
+		psMonitor3DFenceOUT->eError =
+			ged_monitor_3D_fence_add(psMonitor3DFenceINT->fd);
+	}
 	return 0;
 }
 //-----------------------------------------------------------------------------
