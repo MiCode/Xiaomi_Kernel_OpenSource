@@ -147,6 +147,13 @@ void get_readout_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *readout_time);
 void get_exposure_count_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *scenario_exp_cnt);
+void get_dcg_gain_ratio_table_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *size, void *data);
+void get_dcg_gain_ratio_range_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *min_gain, u64 *max_gain);
+void get_dcg_type_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+		u64 *dcg_mode, u64 *dcg_gain_mode);
 
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 void subdrv_ctx_init(struct subdrv_ctx *ctx);

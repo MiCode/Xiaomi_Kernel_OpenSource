@@ -743,8 +743,10 @@ void set_gain(struct subdrv_ctx *ctx, u32 gain)
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
 
 	/* check boundary of gain */
-	gain = max(gain, ctx->s_ctx.ana_gain_min);
-	gain = min(gain, ctx->s_ctx.ana_gain_max);
+	gain = max(gain,
+		ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_min);
+	gain = min(gain,
+		ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_max);
 	/* mapping of gain to register value */
 	if (ctx->s_ctx.g_gain2reg != NULL)
 		rg_gain = ctx->s_ctx.g_gain2reg(gain);
@@ -793,8 +795,10 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	}
 	for (i = 0; i < exp_cnt; i++) {
 		/* check boundary of gain */
-		gains[i] = max(gains[i], ctx->s_ctx.ana_gain_min);
-		gains[i] = min(gains[i], ctx->s_ctx.ana_gain_max);
+		gains[i] = max(gains[i],
+			ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_min);
+		gains[i] = min(gains[i],
+			ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_max);
 		/* mapping of gain to register value */
 		if (ctx->s_ctx.g_gain2reg != NULL)
 			gains[i] = ctx->s_ctx.g_gain2reg(gains[i]);
@@ -1539,6 +1543,60 @@ void get_exposure_count_by_scenario(struct subdrv_ctx *ctx,
 	*scenario_exp_cnt = exp_cnt;
 }
 
+void get_dcg_gain_ratio_table_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *size, void *data)
+{
+	u32 *gain_ratio_table;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		*size = 0;
+		return;
+	}
+
+	gain_ratio_table = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_table;
+	if (data == NULL)
+		*size = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_table_size;
+	else
+		memcpy(data, (void *)gain_ratio_table,
+			ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_table_size);
+}
+
+void get_dcg_gain_ratio_range_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *min_gain_ratio, u64 *max_gain_ratio)
+{
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+	*min_gain_ratio = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_ratio_min;
+	*max_gain_ratio = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_ratio_max;
+}
+
+void get_dcg_type_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+		u64 *dcg_mode, u64 *dcg_gain_mode)
+{
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+
+	hdr_mode = ctx->s_ctx.mode[scenario_id].hdr_mode;
+	if (hdr_mode != HDR_RAW_DCG_RAW && hdr_mode != HDR_RAW_DCG_COMPOSE_RAW12
+		&& hdr_mode != HDR_RAW_DCG_COMPOSE_RAW14) {
+		DRV_LOG(ctx, "This mode doesn't support DCG:%u, hdr_mode:%u\n",
+			scenario_id, hdr_mode);
+		}
+	*dcg_mode = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_mode;
+	*dcg_gain_mode = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_mode;
+}
+
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 {
 	u8 i = 0;
@@ -1616,6 +1674,8 @@ void subdrv_ctx_init(struct subdrv_ctx *ctx)
 			ctx->s_ctx.mode[i].dig_gain_max = ctx->s_ctx.dig_gain_max;
 		if (!ctx->s_ctx.mode[i].min_exposure_line)
 			ctx->exposure_min = ctx->s_ctx.mode[i].min_exposure_line;
+		if (!ctx->s_ctx.mode[i].saturation_info)
+			ctx->s_ctx.mode[i].saturation_info = ctx->s_ctx.saturation_info;
 	}
 }
 
@@ -1704,8 +1764,21 @@ int common_get_info(struct subdrv_ctx *ctx,
 	sensor_info->MIPIsensorType = ctx->s_ctx.mipi_sensor_type;
 	sensor_info->SensorOutputDataFormat =
 		ctx->s_ctx.mode[scenario_id].sensor_output_dataformat;
-	for (i = 0; i < ctx->s_ctx.sensor_mode_num; i++)
+	for (i = 0; i < ctx->s_ctx.sensor_mode_num; i++) {
 		sensor_info->DelayFrame[i] = ctx->s_ctx.mode[i].delay_frame;
+		if (ctx->s_ctx.mode[i].saturation_info) {
+			sensor_info->gain_ratio[i] =
+				ctx->s_ctx.mode[i].saturation_info->gain_ratio;
+			sensor_info->OB_pedestals[i] =
+				ctx->s_ctx.mode[i].saturation_info->OB_pedestal;
+			sensor_info->saturation_level[i] =
+				ctx->s_ctx.mode[i].saturation_info->saturation_level;
+		} else {
+			sensor_info->gain_ratio[i] = 1000;
+			sensor_info->OB_pedestals[i] = ctx->s_ctx.ob_pedestal;
+			sensor_info->saturation_level[i] = 1023;
+		}
+	}
 	sensor_info->SensorDrivingCurrent = ctx->s_ctx.isp_driving_current;
 	sensor_info->IHDR_Support = 0;
 	sensor_info->IHDR_LE_FirstLine = 0;
@@ -2106,6 +2179,22 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		get_exposure_count_by_scenario(ctx,
 			(enum SENSOR_SCENARIO_ID_ENUM)*feature_data,
 			(u32 *)(feature_data + 1));
+		break;
+	case SENSOR_FEATURE_GET_DCG_GAIN_RATIO_TABLE_BY_SCENARIO:
+		get_dcg_gain_ratio_table_by_scenario(ctx,
+		(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+		feature_data+1,
+			(void *)(uintptr_t)(*(feature_data + 2)));
+		break;
+	case SENSOR_FEATURE_GET_DCG_GAIN_RATIO_RANGE_BY_SCENARIO:
+		get_dcg_gain_ratio_range_by_scenario(ctx,
+			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+			feature_data + 1, feature_data + 2);
+		break;
+	case SENSOR_FEATURE_GET_DCG_TYPE_BY_SCENARIO:
+		get_dcg_type_by_scenario(ctx,
+			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+			feature_data + 1, feature_data + 2);
 		break;
 	default:
 		break;
