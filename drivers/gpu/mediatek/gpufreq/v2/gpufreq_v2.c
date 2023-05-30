@@ -924,6 +924,61 @@ done:
 EXPORT_SYMBOL(gpufreq_set_limit);
 
 /***********************************************************************************
+ * Function Name      : gpufreq_set_limit_nolock
+ * Inputs             : target          - Target of GPU DVFS (GPU, STACK, DEFAULT)
+ *                      limiter         - Pre-defined user that set limit to GPU DVFS
+ *                      ceiling_info    - Upper limit info (oppidx, freq, volt, power, ...)
+ *                      floor_info      - Lower limit info (oppidx, freq, volt, power, ...)
+ * Outputs            : -
+ * Returns            : GPUFREQ_SUCCESS - Success
+ *                      GPUFREQ_EINVAL  - Failure
+ *                      GPUFREQ_ENOENT  - Null implementation
+ * Description        : Set ceiling and floor limit to GPU DVFS by specified limiter
+ *                      It will immediately trigger DVFS if current OPP violates limit
+ *                      This is no mutex lock version for atomic context and GPUEB mode only
+ ***********************************************************************************/
+int gpufreq_set_limit_nolock(enum gpufreq_target target,
+	enum gpuppm_limiter limiter, int ceiling_info, int floor_info)
+{
+	struct gpufreq_ipi_data send_msg = {};
+	int ret = GPUFREQ_ENOENT;
+
+	GPUFREQ_TRACE_START("target=%d, limiter=%d, ceiling_info=%d, floor_info=%d",
+		target, limiter, ceiling_info, floor_info);
+
+	ret = gpufreq_validate_target(&target);
+	if (ret)
+		goto done;
+
+	/* implement on EB */
+	if (g_gpueb_support) {
+		send_msg.cmd_id = CMD_SET_LIMIT;
+		send_msg.target = target;
+		send_msg.u.setlimit.limiter = limiter;
+		send_msg.u.setlimit.ceiling_info = ceiling_info;
+		send_msg.u.setlimit.floor_info = floor_info;
+
+		if (!gpufreq_ipi_to_gpueb(send_msg))
+			ret = g_recv_msg.u.return_value;
+		else
+			ret = GPUFREQ_EINVAL;
+	}
+
+done:
+	if (unlikely(ret == GPUFREQ_ENOENT))
+		GPUFREQ_LOGW("null gpufreq platform function pointer (ENOENT)");
+	else if (unlikely(ret))
+		GPUFREQ_LOGE("fail to set %s limiter: %d, ceiling_info: %d, floor_info: %d (%d)",
+			target == TARGET_STACK ? "STACK" : "GPU",
+			limiter, ceiling_info, floor_info, ret);
+
+	GPUFREQ_TRACE_END();
+
+	return ret;
+}
+EXPORT_SYMBOL(gpufreq_set_limit_nolock);
+
+/***********************************************************************************
  * Function Name      : gpufreq_get_cur_limit_idx
  * Inputs             : target    - Target of GPU DVFS (GPU, STACK, DEFAULT)
  *                      limit     - Type of limit (GPUPPM_CEILING, GPUPPM_FLOOR)
