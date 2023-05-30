@@ -336,6 +336,14 @@ enum mtk_cam_frame_order {
 	MTK_CAM_FRAME_W_BAYER,
 };
 
+enum mtk_cam_stagger_type {
+	MTK_CAM_STAGGER_NONE,
+	MTK_CAM_STAGGER_NORMAL,
+	MTK_CAM_STAGGER_DCG_SENSOR_MERGE,
+	MTK_CAM_STAGGER_DCG_AP_MERGE,
+	MTK_CAM_STAGGER_LBMF,
+};
+
 /**
  * struct mtk_cam_scen_normal - common properties
  *         in different scenario
@@ -356,6 +364,7 @@ struct mtk_cam_scen_normal {
 	__u8 w_chn_enabled:4;
 	__u8 frame_order:4;
 	__u8 mem_saving:4;
+	__u8 stagger_type:4;
 };
 
 enum mtk_cam_mstream_type {
