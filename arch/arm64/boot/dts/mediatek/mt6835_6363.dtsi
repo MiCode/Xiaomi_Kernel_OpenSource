@@ -1,0 +1,407 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ */
+#include <dt-bindings/iio/adc/mediatek,mt6375_adc.h>
+#include <dt-bindings/iio/adc/mediatek,mt6375_auxadc.h>
+#include <dt-bindings/mfd/mt6375.h>
+#include <dt-bindings/power/mt6375-gauge.h>
+#include "mediatek/mt6363.dtsi"
+#include "mediatek/mt6368.dtsi"
+#include "mediatek/cust_mt6835_msdc.dtsi"
+
+&tboard_thermistor1 {
+	compatible = "mediatek,mt6685-tia-ntc";
+	reg = <0 0x1c023554 0 0x4>; /* TIA DATA T0 */
+};
+
+&tboard_thermistor2 {
+	compatible = "mediatek,mt6685-tia-ntc";
+	reg = <0 0x1c023558 0 0x4>; /* TIA DATA T1 */
+};
+
+&tboard_thermistor3 {
+	compatible = "mediatek,mt6685-tia-ntc";
+	reg = <0 0x1c02355c 0 0x4>; /* TIA DATA T2 */
+};
+
+&tsx_thermistor {
+	compatible = "mediatek,mt6685-tia-ntc";
+	reg = <0 0x1c02354c 0 0x4>; /* TIA DATA TSX */
+};
+
+&mt6363_temp {
+	io-channels =
+		<&pmic_adc AUXADC_CHIP_TEMP>,
+		<&pmic_adc AUXADC_VCORE_TEMP>,
+		<&pmic_adc AUXADC_VPROC_TEMP>,
+		<&pmic_adc AUXADC_VGPU_TEMP>;
+	io-channel-names =
+		"pmic6363_ts1",
+		"pmic6363_ts2",
+		"pmic6363_ts3",
+		"pmic6363_ts4";
+
+	#thermal-sensor-cells = <1>;
+	nvmem-cells = <&mt6363_thermal_efuse>;
+	nvmem-cell-names = "mt6363_e_data";
+};
+
+&mt6368_temp {
+	io-channels =
+		<&mt6368_adc AUXADC_CHIP_TEMP>,
+		<&mt6368_adc AUXADC_VCORE_TEMP>,
+		<&mt6368_adc AUXADC_VPROC_TEMP>,
+		<&mt6368_adc AUXADC_VGPU_TEMP>;
+	io-channel-names =
+		"pmic6368_ts1",
+		"pmic6368_ts2",
+		"pmic6368_ts3",
+		"pmic6368_ts4";
+
+	#thermal-sensor-cells = <1>;
+	nvmem-cells = <&mt6368_thermal_efuse>;
+	nvmem-cell-names = "mt6368_e_data";
+};
+
+&thermal_zones {
+	pmic6363_vio18 {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6363_temp 0>;
+	};
+	pmic6363_vs1_vs3 {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6363_temp 1>;
+	};
+	pmic6363_bk3_bk7 {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6363_temp 2>;
+	};
+	pmic6363_vs2 {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6363_temp 3>;
+	};
+	pmic6368_buck1 {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6368_temp 0>;
+	};
+	pmic6368_vpa {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6368_temp 1>;
+	};
+	pmic6368_vcn33_1 {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6368_temp 2>;
+	};
+	pmic6368_vrf18_aif {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6368_temp 3>;
+	};
+	ap_ntc: ap-ntc {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tboard_thermistor1>;
+	};
+	ltepa_ntc: ltepa-ntc {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tboard_thermistor2>;
+	};
+	nrpa_ntc: nrpa-ntc {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tboard_thermistor3>;
+	};
+	tsx_ntc: tsx-ntc {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tsx_thermistor>;
+	};
+};
+
+&gpufreq {
+	mt6377-support = <0>;
+	_vcore-supply = <&mt6363_vbuck2>;
+	_vgpu-supply = <&mt6363_vbuck5>;
+	_vsram-supply = <&mt6363_vbuck4>;
+};
+
+&dvfsrc_helper {
+	vcore-supply = <&mt6363_vbuck2>;
+};
+
+&scp_dvfs {
+	sshub-vcore-supply = <&mt6363_vbuck2_sshub>; // TODO: comment for bring up
+	sshub-vsram-supply = <&mt6363_vbuck4_sshub >; // TODO: comment for bring up
+};
+
+&scp {
+	vscp0-supply = <&mt6363_vbuck2_sshub>;
+};
+
+&ufshci {
+	vcc-supply = <&mt6363_vemc>;
+
+	/* porting vccq/vccq2 to disable unused vufs */
+	vccq-supply = <&mt6363_vufs12>;
+	vccq2-supply = <&mt6363_vufs18>;
+};
+
+&mmdvfs {
+	_vcore-supply = <&mt6363_vbuck2>;
+};
+
+&pmic_oc_debug {
+	interrupt-parent = <&main_pmic>;
+};
+
+&mt6375 {
+	mt6375_auxadc: auxadc {
+		compatible = "mediatek,pmic-auxadc",
+			     "mediatek,mt6375-auxadc";
+		interrupts = <MT6375_GM30_EVT>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		#io-channel-cells = <1>;
+		io-channels = <&mt6375_adc MT6375_ADC_VBAT>,
+			      <&mt6375_auxadc MT6375_AUXADC_BATSNS_DBG>;
+		io-channel-names = "chg_vbat", "auxadc_vbat";
+		charger = <&mt6375_chg>;
+		isink_load-supply = <&mt6363_isink_load>;
+		imix_r {
+			val = <90>;
+		};
+	};
+
+	mtk_gauge: mtk_gauge {
+		charger = <&mt6375_chg>;
+	};
+
+	lbat_service {
+		compatible = "mediatek,mt6375-lbat-service";
+		interrupts-extended = <&mt6375_auxadc RG_INT_STATUS_BAT_H>,
+				      <&mt6375_auxadc RG_INT_STATUS_BAT_L>;
+		interrupt-names = "bat_h", "bat_l";
+		resistance-ratio = <4 1>;
+	};
+
+	mt6375_batoc_throttle: mtk_battery_oc_throttling {
+		compatible = "mediatek,mt6375-battery_oc_throttling";
+		interrupts-extended = <&mtk_gauge MT6375_IRQ_FG_CUR_H>,
+				      <&mtk_gauge MT6375_IRQ_FG_CUR_L>;
+		interrupt-names = "fg_cur_h", "fg_cur_l";
+		oc-thd-h = <6800>;
+		oc-thd-l = <8000>;
+	};
+};
+
+&mtk_gauge {
+	compatible = "mediatek,mt6375-gauge";
+	interrupt-controller;
+	#interrupt-cells = <1>;
+	bootmode = <&chosen>;
+	nvmem-cells = <&fg_init>, <&fg_soc>;
+	nvmem-cell-names = "initialization", "state-of-charge";
+	io-channels = <&mt6375_auxadc MT6375_AUXADC_BATSNS>,
+		      <&mt6375_auxadc MT6375_AUXADC_BATON>,
+		      <&mt6375_auxadc MT6375_AUXADC_IMP>,
+		      <&mt6375_auxadc MT6375_AUXADC_IMIX_R>,
+		      <&mt6375_auxadc MT6375_AUXADC_VREF>;
+	io-channel-names = "bat_volt", "bat_temp", "ptim_bat_volt",
+			   "ptim_r", "vref";
+	interrupts-extended = <&mt6375 MT6375_GM30_EVT>,
+			      <&mtk_gauge RG_INT_STATUS_FG_BAT_H>,
+			      <&mtk_gauge RG_INT_STATUS_FG_BAT_L>,
+			      <&mt6375_auxadc RG_INT_STATUS_BAT2_H>,
+			      <&mt6375_auxadc RG_INT_STATUS_BAT2_L>,
+			      <&mt6375_auxadc RG_INT_STATUS_NAG_C_DLTV>,
+			      <&mtk_gauge RG_INT_STATUS_BATON_BAT_OUT>,
+			      <&mtk_gauge RG_INT_STATUS_FG_ZCV>,
+			      <&mtk_gauge RG_INT_STATUS_FG_N_CHARGE_L>,
+			      <&mtk_gauge RG_INT_STATUS_FG_IAVG_H>,
+			      <&mtk_gauge RG_INT_STATUS_FG_IAVG_L>,
+			      <&mt6375_auxadc RG_INT_STATUS_BAT_TEMP_H>,
+			      <&mt6375_auxadc RG_INT_STATUS_BAT_TEMP_L>;
+	interrupt-names = "GM30_EVT", "COULOMB_H", "COULOMB_L",
+			  "VBAT2_H", "VBAT2_L", "NAFG", "BAT_OUT", "ZCV",
+			  "FG_N_CHARGE_L", "FG_IAVG_H", "FG_IAVG_L", "BAT_TMP_H",
+			  "BAT_TMP_L";
+};
+
+&spmi {
+	pmic@4 {
+		mt6363_dynamic_loading_throttling: mtk_dynamic_loading_throttling {
+			compatible = "mediatek,mt6363-dynamic_loading_throttling";
+			/* charger: mtk_charger_thread */
+			mediatek,charger = <&lk_charger>;
+			/* 2000~2900mV, one gear per 100mV */
+			uvlo-level = <2600>;
+			io-channels = <&mt6375_auxadc MT6375_AUXADC_IMP>,
+				      <&mt6375_auxadc MT6375_AUXADC_IMIX_R>,
+				      <&mt6375_auxadc MT6375_AUXADC_BATSNS>;
+			io-channel-names = "pmic_ptim",
+					   "pmic_imix_r",
+					   "pmic_batadc";
+			bootmode = <&chosen>;
+		};
+	};
+};
+
+&mddriver {
+/* for md pmic voltage setting*/
+	md-vmodem-supply = <&mt6363_vbuck6>;
+	md-vmodem = <825000 825000>;
+	md-vsram-supply = <&mt6363_vsram_modem>;
+	md-vsram = <825000 825000>;
+	md-vdigrf-supply = <&mt6363_vbuck1>;
+	md-vdigrf = <700000 700000>;
+};
+
+&cpuhvfs {
+	/* regulator */
+	proc1-supply = <&mt6368_vbuck4>; //L
+	proc2-supply = <&mt6368_vbuck2>; //B
+	proc3-supply = <&mt6368_vbuck4>; //DSU
+};
+
+&irtx_pwm {
+	pwm-supply = "mt6368_vio28";
+};
+
+&regulator_vibrator {
+	vib-supply = <&mt6368_vibr>;
+};
+
+&spi3 {
+	goodix@0 {
+		vtouch-supply = <&mt6368_vtp>;
+	};
+};
+
+&ssusb {
+	vusb33-supply = <&mt6368_vusb>;
+};
+
+&mmc0 {
+	vmmc-supply = <&mt6363_vemc>;
+	vqmmc-supply = <&mt6363_vufs18>;
+};
+
+&mmc1 {
+	vmmc-supply = <&mt6368_vmch_eint_high>;
+	vqmmc-supply = <&mt6368_vmc>;
+};
+
+/delete-node/ &mt6368_vmch_eint_low;
+/delete-node/ &mt6368_vmch;
+
+&mt6363_vbuck1 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck2 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck4 {
+	regulator-always-on;
+};
+
+&mt6363_vbuck6 {
+	regulator-always-on;
+};
+
+&mt6363_vsram_digrf {
+	regulator-always-on;
+};
+
+&mt6363_vsram_modem {
+	regulator-always-on;
+};
+
+&mt6363_vsram_cpub {
+	regulator-always-on;
+};
+
+&mt6363_vsram_cpul {
+	regulator-always-on;
+};
+
+&mt6363_vm18 {
+	regulator-always-on;
+};
+
+&mt6363_vrf12 {
+	regulator-always-on;
+};
+
+&mt6363_vio075 {
+	/delete-property/ regulator-always-on;
+};
+
+&mt6363_va15 {
+	/delete-property/ regulator-always-on;
+};
+
+&mt6363_vaux18 {
+	regulator-always-on;
+};
+
+&mt6363_vcn15 {
+	regulator-always-on;
+};
+
+&mt6368_vbuck2 {
+	regulator-always-on;
+};
+
+&mt6368_vbuck3 {
+	regulator-always-on;
+};
+
+&mt6368_vbuck4 {
+	regulator-always-on;
+};
+
+&gps {
+	gnss-pmic = <6363>;
+};
+
+&pe {
+	gauge = <&mtk_gauge>;
+};
+
+&pe2 {
+	gauge = <&mtk_gauge>;
+};
+
+&pdc {
+	gauge = <&mtk_gauge>;
+};
+
+&pe4 {
+	gauge = <&mtk_gauge>;
+};
+
+&pe5 {
+	gauge = <&mtk_gauge>;
+};
+
+&charger {
+	gauge = <&mtk_gauge>;
+};
+
+&mt6375_chg {
+	pmic-uvlo = <&mt6363_dynamic_loading_throttling>;
+};
+
+#include "mediatek/bat_setting/mt6835_battery_prop.dtsi"
+/delete-node/ &mt6363_vbuck1_sshub;

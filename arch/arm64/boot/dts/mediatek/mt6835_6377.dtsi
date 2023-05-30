@@ -1,0 +1,333 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2022 MediaTek Inc.
+ */
+#include "mediatek/mt6377.dtsi"
+#include "mediatek/cust_mt6835_msdc.dtsi"
+
+&tboard_thermistor1 {
+	reg = <0 0x1c023528 0 0x4>; /* TIA DATA T0 */
+};
+
+&tboard_thermistor2 {
+	reg = <0 0x1c023520 0 0x4>; /* TIA DATA T1 */
+};
+
+&tboard_thermistor3 {
+	reg = <0 0x1c02351c 0 0x4>; /* TIA DATA T2 */
+};
+
+&tsx_thermistor {
+	reg = <0 0x1c023530 0 0x4>; /* TIA DATA TSX */
+};
+
+&spmi {
+	pmic@4 {
+		mt6377_dynamic_loading_throttling: mtk_dynamic_loading_throttling {
+			compatible = "mediatek,mt6377-dynamic_loading_throttling";
+			/* charger: mtk_charger_thread */
+			mediatek,charger = <&lk_charger>;
+			/* 2000~2900mV, one gear per 100mV */
+			uvlo-level = <2600>;
+			io-channels = <&pmic_adc AUXADC_IMP>,
+				      <&pmic_adc AUXADC_IMIX_R>,
+				      <&pmic_adc AUXADC_BATADC>;
+			io-channel-names = "pmic_ptim",
+					   "pmic_imix_r",
+					   "pmic_batadc";
+			bootmode = <&chosen>;
+		};
+
+		mt6377_batoc_throttle: mtk_battery_oc_throttling {
+			compatible = "mediatek,mt6377-battery_oc_throttling";
+			oc-thd-h = <6800>;
+			oc-thd-l = <8000>;
+		};
+	};
+
+	mt6319_3: mt6319@3 {
+		compatible = "mediatek,mt6319";
+		reg = <0x3 SPMI_USID>;
+
+		extbuck-debug {
+			compatible = "mediatek,spmi-pmic-debug";
+		};
+		mt6319_3_regulator: mt6319-3-regulator {
+			compatible = "mediatek,mt6315_3-regulator";
+			buck-size = <3>;
+			buck1-modeset-mask = <0x3>;
+
+			mt6319_3_vbuck1: 3-vbuck1 {
+				regulator-compatible = "vbuck1";
+				regulator-name = "3_vbuck1";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
+			};
+			mt6319_3_vbuck3: 3-vbuck3 {
+				regulator-compatible = "vbuck3";
+				regulator-name = "3_vbuck3";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+			};
+			mt6319_3_vbuck4: 3-vbuck4 {
+				regulator-compatible = "vbuck4";
+				regulator-name = "3_vbuck4";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
+			};
+		};
+	};
+};
+
+&mt6377_temp {
+	io-channels =
+		<&pmic_adc AUXADC_CHIP_TEMP>,
+		<&pmic_adc AUXADC_VCORE_TEMP>,
+		<&pmic_adc AUXADC_VPROC_TEMP>,
+		<&pmic_adc AUXADC_VGPU_TEMP>;
+	io-channel-names =
+		"pmic6377_ts1",
+		"pmic6377_ts2",
+		"pmic6377_ts3",
+		"pmic6377_ts4";
+
+	#thermal-sensor-cells = <1>;
+	nvmem-cells = <&mt6377_thermal_efuse>;
+	nvmem-cell-names = "mt6377_e_data";
+};
+
+&thermal_zones {
+	pmic6377_vs1 {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6377_temp 0>;
+	};
+	pmic6377_vbuck2 {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6377_temp 1>;
+	};
+	pmic6377_vemc {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6377_temp 2>;
+	};
+	pmic6377_vmch {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&mt6377_temp 3>;
+	};
+	ap_ntc: ap_ntc {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tboard_thermistor1>;
+	};
+	ltepa_ntc: ltepa_ntc {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tboard_thermistor2>;
+	};
+	nrpa_ntc: nrpa_ntc {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tboard_thermistor3>;
+	};
+	tsx_ntc: tsx_ntc {
+		polling-delay = <0>; /* milliseconds */
+		polling-delay-passive = <0>; /* milliseconds */
+		thermal-sensors = <&tsx_thermistor>;
+	};
+};
+
+&gpufreq {
+	mt6377-support = <1>;
+	_vcore-supply = <&mt6377_vbuck3>;
+	_vgpu-supply = <&mt6319_3_vbuck3>;
+	_vsram-supply = <&mt6377_vsram_others>;
+};
+
+&dvfsrc_helper {
+	vcore-supply = <&mt6377_vbuck3>;
+};
+
+&scp_dvfs {
+	sshub-vcore-supply = <&mt6377_vbuck3_sshub>;
+	sshub-vsram-supply = <&mt6377_vsram_others_sshub>;
+};
+
+&scp {
+	vscp0-supply = <&mt6377_vbuck3_sshub>;
+};
+
+&ufshci {
+	vcc-supply = <&mt6377_vemc>;
+};
+
+&mmdvfs {
+	_vcore-supply = <&mt6377_vbuck3>;
+};
+
+&pmic_oc_debug {
+	interrupt-parent = <&main_pmic>;
+};
+
+&mddriver {
+/* for md pmic voltage setting*/
+	md-vmodem-supply = <&mt6319_3_vbuck1>;
+	md-vmodem = <825000 825000>;
+	md-vsram-supply = <&mt6319_3_vbuck4>;
+	md-vsram = <825000 825000>;
+	md-vdigrf-supply = <&mt6377_vbuck5>;
+	md-vdigrf = <700000 700000>;
+};
+
+&cpuhvfs {
+	/* regulator */
+	proc1-supply = <&mt6377_vbuck4>; //L
+	proc2-supply = <&mt6377_vbuck1>; //B
+	proc3-supply = <&mt6377_vbuck4>; //DSU
+};
+
+&irtx_pwm {
+	pwm-supply = "mt6377_vio28";
+};
+
+&regulator_vibrator {
+	vib-supply = <&mt6377_vibr>;
+};
+
+&spi3 {
+	goodix@0 {
+		vtouch-supply = <&mt6377_vtp>;
+	};
+};
+
+&ssusb {
+	vusb33-supply = <&mt6377_vusb>;
+};
+
+&mmc0 {
+	vmmc-supply = <&mt6377_vemc>;
+	vqmmc-supply = <&mt6377_vufs>;
+};
+
+&mmc1 {
+	vmmc-supply = <&mt6377_vmch_eint_high>;
+	vqmmc-supply = <&mt6377_vmc>;
+};
+
+/delete-node/ &mt6377_vmch_eint_low;
+/delete-node/ &mt6377_vmch;
+
+&mt6377_vbuck1 {
+	regulator-always-on;
+};
+
+&mt6377_vbuck3 {
+	regulator-always-on;
+};
+
+&mt6377_vbuck4 {
+	regulator-always-on;
+};
+
+&mt6377_vbuck5 {
+	regulator-always-on;
+};
+
+&mt6377_vbuck6 {
+	regulator-always-on;
+};
+
+&mt6377_vbif28 {
+	regulator-always-on;
+};
+
+&mt6377_vufs {
+	regulator-always-on;
+};
+
+&mt6377_vrfva12 {
+	regulator-always-on;
+};
+
+&mt6377_vrfio18 {
+	regulator-always-on;
+};
+
+/delete-node/ &mt6377_vbuck4_sshub;
+
+&srclken_rc {
+	suspend-ctl = "XO_SOC";
+	md1-ctl = "XO_CEL";
+	gps-ctl = "XO_WCN";
+	mcu-ctl = "XO_WCN";
+	nfc-ctl = "XO_NFC";
+	ufs-ctl = "XO_SOC";
+
+	mediatek,enable;
+};
+
+&clock_buffer_ctrl {
+	/delete-property/ mediatek,xo-buf-hwbblpm-mask;
+	/delete-property/ mediatek,xo-buf-hwbblpm-bypass;
+};
+
+&mt6377_clock_buffer {
+	mediatek,xo-buf-support = <1 1 1 1 1 1 1>;
+	mediatek,xo-voter-support;
+	mediatek,dcxo-spmi-rw;
+	mediatek,pmrc-en-support;
+	clkbuf_ctl = <&clock_buffer_ctrl>;
+
+	mediatek,enable;
+};
+
+&mt6685_clock_buffer {
+	/delete-property/ compatible;
+	/delete-property/ mediatek,enable;
+};
+
+&mt6685_rtc {
+	status = "disabled";
+};
+
+&pe {
+	gauge = <&mtk_gauge>;
+};
+
+&pe2 {
+	gauge = <&mtk_gauge>;
+};
+
+&pe4 {
+	gauge = <&mtk_gauge>;
+};
+
+&pe5 {
+	gauge = <&mtk_gauge>;
+};
+
+&pdc {
+	gauge = <&mtk_gauge>;
+};
+
+&charger {
+	gauge = <&mtk_gauge>;
+};
+
+&mt6375_chg {
+	pmic-uvlo = <&mt6377_dynamic_loading_throttling>;
+};
+
+&gps {
+	gnss-pmic = <6377>;
+};

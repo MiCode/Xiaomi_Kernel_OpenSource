@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2022 MediaTek Inc.
+ * Author: Chuan-Wen Chen <chuan-wen.chen@mediatek.com>
+ */
+
+&clkitg {
+	status = "okay";
+	bring-up {
+		compatible = "mediatek,clk-bring-up";
+		clocks =
+			<&topckgen_clk CLK_TOP_AXI_SEL>,
+			<&topckgen_clk CLK_TOP_AXIP_SEL>,
+			<&topckgen_clk CLK_TOP_DPMAIF_MAIN_SEL>,
+			<&topckgen_clk CLK_TOP_PWM_SEL>,
+			<&topckgen_clk CLK_TOP_MCUPM_SEL>,
+			<&topckgen_clk CLK_TOP_MEM_SUBP_SEL>,
+			<&topckgen_clk CLK_TOP_NFI1X_SEL>,
+			<&infracfg_ao_clk CLK_IFRAO_CCIF5_MD>,
+			<&infracfg_ao_clk CLK_IFRAO_CCIF4_AP>,
+			<&infracfg_ao_clk CLK_IFRAO_RG_MEM_SUB_CK>,
+			<&infracfg_ao_clk CLK_IFRAO_AES_TOP0>,
+			<&infracfg_ao_clk CLK_IFRAOP_DCM_RG_FORCE>,
+			<&nemi_reg_clk CLK_NEMI_REG_BUS_MON_MODE>,
+			<&pericfg_ao_clk CLK_PERAOP_BTIF_BCLK>,
+			<&vlp_cksys_clk CLK_VLP_CK_PWRAP_ULPOSC_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CK_PWM_VLP_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CK_AXI_VLP_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CK_DBGAO_26M_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CK_SRCK_SEL>,
+			<&vlp_cksys_clk CLK_VLP_CK_SRAMRC_SEL>;
+
+	};
+
+};
