@@ -13484,8 +13484,18 @@
 
 	cpu_power_throttling: cpu_power_throttling {
 		compatible = "mediatek,cpu-power-throttling";
-		lbat_cpu_limit = <900000 900000 1300000>;
-		oc_cpu_limit = <900000 900000 1300000>;
+		lbat-max-level = <3>;
+		lbat-limit-freq-lv1 = < 2147483647  2147483647  2147483647>;
+		lbat-limit-freq-lv2 = < 2147483647  2147483647  2147483647>;
+		lbat-limit-freq-lv3 = < 2147483647  2147483647  3050000>;
+
+		oc-max-level = <1>;
+		oc-limit-freq-lv1 = < 900000  900000 1300000>;
+
+		soc-max-level = <3>;
+		soc-limit-freq-lv1 = < 2147483647  2147483647  2147483647>;
+		soc-limit-freq-lv2 = < 2147483647  2147483647  2147483647>;
+		soc-limit-freq-lv3 = < 2147483647  2147483647  3050000>;
 	};
 
 	ppc: ppc {
