@@ -13488,6 +13488,12 @@
 		oc_cpu_limit = <900000 900000 1300000>;
 	};
 
+	ppc: ppc {
+		compatible = "mediatek,mt6985-ppc";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "ppc_segment";
+	};
+
 	md_power_throttling: md_power_throttling {
 		compatible = "mediatek,md-power-throttling";
 		lbat_md_reduce_tx = <6>;
