@@ -8569,7 +8569,7 @@
 			operating-points-v2 = <&gpu_mali_opp>;
 			#cooling-cells = <2>;
 			ged-supply = <&ged>;
-			firmware-idle-hysteresis-time-ms = <50>;
+			firmware-idle-hysteresis-time-ms = <0>;
 			sleep-mode-enable = <0xff>;
 			pending-submission-mode = <1>;
 			default-glb-pwroff-timeout-us = <300>;
