@@ -2729,14 +2729,6 @@ static int mtk_cam_calc_pending_res(struct mtk_cam_device *cam,
 	mtk_raw_resource_calc(cam, res_cfg, prate, res_cfg->res_plan, res_user->sensor_res.width,
 			      res_user->sensor_res.height, &width, &height);
 
-	if (res_user->raw_res.bin && !res_cfg->bin_enable) {
-		dev_info(cam->dev,
-			 "%s:pipe(%d): res calc failed on fource bin: user(%d)/bin_enable(%d)\n",
-			 __func__, pipe_id, res_user->raw_res.bin,
-			 res_cfg->bin_enable);
-		return -EINVAL;
-	}
-
 	if (res_cfg->raw_num_used > res_cfg->hwn_limit_max ||
 	    res_cfg->raw_num_used < res_cfg->hwn_limit_min) {
 		dev_info(cam->dev,
