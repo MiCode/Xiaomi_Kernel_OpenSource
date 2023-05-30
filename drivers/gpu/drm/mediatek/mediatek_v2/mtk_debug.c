@@ -2162,10 +2162,8 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	memset(pq_persist_property, 0, sizeof(pq_persist_property));
 	memcpy(pq_persist_property, (unsigned int *)data, sizeof(pq_persist_property));
 
-	for (i = 0; i < DISP_PQ_PROPERTY_MAX; i++) {
-		m_old_pq_persist_property[i] = m_new_pq_persist_property[i];
+	for (i = 0; i < DISP_PQ_PROPERTY_MAX; i++)
 		m_new_pq_persist_property[i] = pq_persist_property[i];
-	}
 
 	DDPFUNC("+");
 
@@ -2203,7 +2201,66 @@ int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 		ret |= disp_dither_set_color_detect(crtc,
 			m_new_pq_persist_property[DISP_PQ_DITHER_COLOR_DETECT]);
 
+	if (ret == 0) {
+		for (i = 0; i < DISP_PQ_PROPERTY_MAX; i++)
+			m_old_pq_persist_property[i] = m_new_pq_persist_property[i];
+	}
+
 	DDPFUNC("-");
+
+	return ret;
+}
+
+int mtk_drm_set_disp_pq_unrelay(struct drm_crtc *crtc)
+{
+	int ret = 0;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *comp;
+	struct cmdq_pkt *handle;
+	int i, j;
+
+	DDPFUNC("+");
+
+	handle = cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
+	if (!handle) {
+		DDPPR_ERR("%s:%d NULL cmdq handle\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	if (m_old_pq_persist_property[DISP_PQ_COLOR_BYPASS] ||
+		m_old_pq_persist_property[DISP_PQ_CCORR_BYPASS] ||
+		m_old_pq_persist_property[DISP_PQ_GAMMA_BYPASS] ||
+		m_old_pq_persist_property[DISP_PQ_DITHER_BYPASS] ||
+		m_old_pq_persist_property[DISP_PQ_AAL_BYPASS] ||
+		m_old_pq_persist_property[DISP_PQ_C3D_BYPASS] ||
+		m_old_pq_persist_property[DISP_PQ_TDSHP_BYPASS]) {
+
+		DDPFUNC("force display pq unrelay\n");
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+			if (comp && comp->funcs && comp->funcs->bypass)
+				mtk_ddp_comp_bypass(comp, 0, handle);
+		}
+
+		if (mtk_crtc->is_dual_pipe) {
+			for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+				if (comp && comp->funcs && comp->funcs->bypass)
+					mtk_ddp_comp_bypass(comp, 0, handle);
+			}
+		}
+
+		cmdq_pkt_flush(handle);
+
+		m_old_pq_persist_property[DISP_PQ_COLOR_BYPASS] = 0;
+		m_old_pq_persist_property[DISP_PQ_CCORR_BYPASS] = 0;
+		m_old_pq_persist_property[DISP_PQ_GAMMA_BYPASS] = 0;
+		m_old_pq_persist_property[DISP_PQ_DITHER_BYPASS] = 0;
+		m_old_pq_persist_property[DISP_PQ_AAL_BYPASS] = 0;
+		m_old_pq_persist_property[DISP_PQ_C3D_BYPASS] = 0;
+		m_old_pq_persist_property[DISP_PQ_TDSHP_BYPASS] = 0;
+	}
+
+	cmdq_pkt_destroy(handle);
+	DDPFUNC("-(ret: %d)", ret);
 
 	return ret;
 }

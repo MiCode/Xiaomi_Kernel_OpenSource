@@ -3306,26 +3306,24 @@ static void mtk_color_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 static void mtk_color_bypass(struct mtk_ddp_comp *comp, int bypass,
 	struct cmdq_pkt *handle)
 {
-	struct mtk_disp_color *color = comp_to_color(comp);
+	if (comp == NULL) {
+		DDPPR_ERR("%s, null pointer!", __func__);
+		return;
+	}
 
 	DDPINFO("%s: bypass: %d\n", __func__, bypass);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_COLOR_CFG_MAIN,
-		       COLOR_BYPASS_ALL | COLOR_SEQ_SEL, ~0);
 
-	/* disable R2Y/Y2R in Color Wrapper */
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_COLOR_CM1_EN(color), 0, 0x1);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_COLOR_CM2_EN(color), 0, 0x1);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_COLOR_START(color), 0x3, 0x3);
+	g_color_bypass = bypass;
 
-	/*
-	 * writel(0, comp->regs + DISP_COLOR_CM1_EN);
-	 * writel(0, comp->regs + DISP_COLOR_CM2_EN);
-	 * writel(0x1, comp->regs + DISP_COLOR_START(color));
-	 */
+	if (bypass) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_COLOR_CFG_MAIN,
+			(1 << 7), 0xFF); /* bypass all */
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_COLOR_CFG_MAIN,
+			(0 << 7), 0xFF); /* resume all */
+	}
 }
 
 void disp_color_write_pos_main_for_dual_pipe(struct mtk_ddp_comp *comp,

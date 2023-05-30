@@ -59,6 +59,8 @@ enum mtk_pq_persist_property {
 int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 
+int mtk_drm_set_disp_pq_unrelay(struct drm_crtc *crtc);
+
 extern int mtk_disp_hrt_bw_dbg(void);
 
 struct cb_data_store {

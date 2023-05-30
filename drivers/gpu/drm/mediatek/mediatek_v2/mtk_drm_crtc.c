@@ -10654,6 +10654,11 @@ void mtk_drm_crtc_suspend(struct drm_crtc *crtc)
 		mtk_crtc->sec_on = false;
 	}
 
+	if (index == 0) {
+		DDPINFO("%s unrelay disp pq before crtc disable\n", __func__);
+		mtk_drm_set_disp_pq_unrelay(crtc);
+	}
+
 	mtk_drm_crtc_disable(crtc, true);
 
 	mtk_crtc_disable_plane_setting(mtk_crtc);
