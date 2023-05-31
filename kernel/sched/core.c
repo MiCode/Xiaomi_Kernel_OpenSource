@@ -155,6 +155,11 @@ const_debug unsigned int sysctl_sched_nr_migrate = SCHED_NR_MIGRATE_BREAK;
 __read_mostly int scheduler_running;
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+LIST_HEAD(pending_lists);
+DEFINE_SPINLOCK(pending_lists_lock);
+#endif
+
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 void (*mtk_irq_log_store)(const char *, int) = NULL;
 void mtk_register_irq_log_store(void (*fn)(const char*, int))
 {
@@ -2454,7 +2459,11 @@ static int migration_cpu_stop(void *data)
 	struct rq *rq = this_rq();
 	bool complete = false;
 	struct rq_flags rf;
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	struct task_struct *pending_task = NULL;
+	struct set_affinity_pending *mypending = NULL;
+	unsigned long spin_flags;
+ #endif
 	/*
 	 * The original target CPU might have gone down and we might
 	 * be on another CPU but it doesn't matter.
@@ -2540,6 +2549,25 @@ static int migration_cpu_stop(void *data)
 out:
 	if (pending)
 		pending->stop_pending = false;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (!list_empty(&pending_lists)){
+		printk_deferred("%s:curr task pid=%d,process:%s,ptr=%p,migration_disable=%d,%s,%s\n",
+				__func__,p->pid,p->comm,p,p->migration_disabled,((pending==NULL)?"is nul":"not null"),
+				((task_rq(p) == rq)?"task_rq=rq":"task_rq!=rq"));
+		spin_lock_irqsave(&pending_lists_lock, spin_flags);
+		list_for_each_entry(pending_task, &pending_lists, pending_list){
+			pending_task = get_task_struct(pending_task);
+			if (pending_task)
+				printk_deferred("%s:pending pid=%d,process:%s ,ptr=%p,migration_disable=%d\n",
+						__func__,pending_task->pid,pending_task->comm,pending_task,
+						pending_task->migration_disabled);
+			 mypending=pending_task->migration_pending;
+			if (mypending)
+				printk_deferred("%s:pending done:%u\n",__func__,mypending->done.done);
+		}
+		spin_unlock_irqrestore(&pending_lists_lock, spin_flags);
+	}
+ #endif
 	task_rq_unlock(rq, p, &rf);
 
 	if (complete)
@@ -2794,7 +2822,11 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 {
 	struct set_affinity_pending my_pending = { }, *pending = NULL;
 	bool stop_pending, complete = false;
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	struct task_struct *pending_task = NULL;
+	unsigned int pdone = UINT_MAX;
+	unsigned long spin_flags;
+#endif
 	/* Can the task run on the task's current CPU? If so, we're done */
 	if (cpumask_test_cpu(task_cpu(p), &p->cpus_mask)) {
 		struct task_struct *push_task = NULL;
@@ -2895,6 +2927,9 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 
 		if (flags & SCA_MIGRATE_ENABLE)
 			return 0;
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		pending_task = p;
+#endif
 	} else {
 
 		if (!is_migration_disabled(p)) {
@@ -2910,10 +2945,40 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 
 		if (complete)
 			complete_all(&pending->done);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		if (!complete)
+			printk_deferred("%s:pid=%d,process=%s,ptr=%p,migration_disable=%d,stop_pending=%u,flag=0x%02x",
+					 __func__,p->pid,p->comm,p,p->migration_disabled,
+					pending->stop_pending,flags);
+ #endif
 	}
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	pdone = pending->done.done;
+	if (pending_task && !pdone){
+		spin_lock_irqsave(&pending_lists_lock, spin_flags);
+		if (pending_task){
+			list_add(&pending_task->pending_list,&pending_lists);
+			printk_deferred("%s:list add pid=%d,process=%s,ptr=%p,migration_disable=%d,pending done:%u,pdone=%u",
+			 __func__,pending_task->pid,pending_task->comm,pending_task,
+			 pending_task->migration_disabled,pending->done.done,pdone);
+		}
+		spin_unlock_irqrestore(&pending_lists_lock, spin_flags);
+	}
+#endif
 	wait_for_completion(&pending->done);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (pending_task && !pdone){
+		spin_lock_irqsave(&pending_lists_lock, spin_flags);
+		pending_task = get_task_struct(pending_task);
+		if (pending_task){
+			list_del(&pending_task->pending_list);
+			printk_deferred("%s:list del pid=%d,process=%s,ptr=%p,migration_disable=%d,pdone=%u,pending done:%u",
+			 __func__,pending_task->pid,pending_task->comm,pending_task,
+			pending_task->migration_disabled,pdone,pending->done.done);
+		}
+		spin_unlock_irqrestore(&pending_lists_lock, spin_flags);
+	}
+#endif
 	if (refcount_dec_and_test(&pending->refs))
 		wake_up_var(&pending->refs); /* No UaF, just an address */
 

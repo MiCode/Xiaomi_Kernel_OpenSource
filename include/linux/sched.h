@@ -745,6 +745,10 @@ struct task_struct {
 	 */
 	struct thread_info		thread_info;
 #endif
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	/* debug cgroup lock     */
+	struct list_head                pending_list;
+ #endif
 	unsigned int			__state;
 
 #ifdef CONFIG_PREEMPT_RT
