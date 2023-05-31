@@ -4,7 +4,6 @@
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/blocktag/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
-ccflags-y += -I$(srctree)/drivers/scsi/ufs/vendor
 
 # The link order is important here. ufshcd-core must initialize
 # before vendor drivers.

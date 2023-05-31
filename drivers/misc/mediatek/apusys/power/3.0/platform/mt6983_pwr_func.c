@@ -257,13 +257,14 @@ static int aputop_show_opp_tbl(struct seq_file *s, void *unused)
 	size = tbl.tbl_size;
 
 	// first line
-	seq_printf(s, "\n| # | %s |", buck_name[0]);
+	seq_printf(s, "\n| # | %s | %s|", buck_name[0], buck_name[1]);
 	for (i = 0 ; i < PLL_NUM ; i++)
 		seq_printf(s, " %s |", pll_name[i]);
 
 	seq_puts(s, "\n");
 	for (i = 0 ; i < size ; i++) {
-		seq_printf(s, "| %d |   %d  |", i, tbl.opp[i].vapu);
+		seq_printf(s, "| %d |   %06d  |   %06d  |",
+			i, tbl.opp[i].vapu, tbl.opp[i].vsram);
 
 		for (j = 0 ; j < PLL_NUM ; j++)
 			seq_printf(s, "  %07d |", tbl.opp[i].pll_freq[j]);
@@ -297,7 +298,7 @@ static int aputop_show_curr_status(struct seq_file *s, void *unused)
 	}
 
 	for (i = 0 ; i < BUCK_NUM ; i++) {
-		seq_printf(s, "%s : opp %d , %d(mV)\n",
+		seq_printf(s, "%s : opp %d , %d(uV)\n",
 				buck_name[i],
 				info.buck_opp[i],
 				info.buck_volt[i]);
@@ -486,7 +487,8 @@ int mt6983_chip_data_remote_sync(struct plat_cfg_data *plat_cfg)
 	uint32_t reg_data = 0x0;
 
 	reg_data = (plat_cfg->aging_flag & 0xf)
-		| ((plat_cfg->hw_id & 0xf) << 4);
+		| ((plat_cfg->hw_id & 0xf) << 4)
+		| ((plat_cfg->vsram_vb_en & 0xff) << 8);
 
 	pr_info("%s 0x%08x\n", __func__, reg_data);
 	apu_writel(reg_data, spare_reg_base + PLAT_CFG_SYNC_REG);

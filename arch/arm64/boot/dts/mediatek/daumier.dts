@@ -1,0 +1,2 @@
+#include "mediatek/daumier-mt6983.dtsi"
+#include <daumier/cust.dtsi>

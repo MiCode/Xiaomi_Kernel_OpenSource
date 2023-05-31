@@ -61,8 +61,9 @@ struct fscmd_s {
 };
 
 static struct fscmd_s gHis_Log;
-static spinlock_t gHis_lock;
-static int dump_bit; /* the top idx we store log currently */
+static DEFINE_RWLOCK(gHis_rwlock);
+static atomic_t nr_dump = ATOMIC_INIT(0);
+
 //system call we trace on
 struct nr_talbe_s {
 	char name[8];
@@ -132,32 +133,32 @@ static struct nr_talbe_s *fscmd_get_nr_table(int target_idx)
 
 	return NULL;
 }
+
 static void fscmd_add_log(struct fscmd_log_s *log)
 {
 	int next_idx = 0;
 	struct fscmd_log_s *cmdlog = NULL;
+	unsigned long flags;
 
-	if (!dump_bit) {
-		spin_lock(&gHis_lock);
-		if (log->syscall_nr == __NR_read || log->syscall_nr == __NR_write) {
-			next_idx = (gHis_Log.cur_idx[LOG_TYPE_RW] + 1);
-			next_idx %= (gHis_Log.cout[LOG_TYPE_RW]);
-			gHis_Log.cur_idx[LOG_TYPE_RW] = next_idx;
-			cmdlog = gHis_Log.trace[LOG_TYPE_RW] + next_idx;
-		} else {
-			next_idx = (gHis_Log.cur_idx[LOG_TYPE_OTHER] + 1);
-			next_idx %= (gHis_Log.cout[LOG_TYPE_OTHER]);
-			gHis_Log.cur_idx[LOG_TYPE_OTHER] = next_idx;
-			cmdlog = gHis_Log.trace[LOG_TYPE_OTHER] + next_idx;
-		}
-
-		cmdlog->time = log->time;
-		cmdlog->type = log->type;
-		cmdlog->syscall_nr = log->syscall_nr;
-		cmdlog->pid = log->pid;
-		get_task_comm(cmdlog->comm, current);
-		spin_unlock(&gHis_lock);
+	write_lock_irqsave(&gHis_rwlock, flags);
+	if (log->syscall_nr == __NR_read || log->syscall_nr == __NR_write) {
+		next_idx = (gHis_Log.cur_idx[LOG_TYPE_RW] + 1);
+		next_idx %= (gHis_Log.cout[LOG_TYPE_RW]);
+		gHis_Log.cur_idx[LOG_TYPE_RW] = next_idx;
+		cmdlog = gHis_Log.trace[LOG_TYPE_RW] + next_idx;
+	} else {
+		next_idx = (gHis_Log.cur_idx[LOG_TYPE_OTHER] + 1);
+		next_idx %= (gHis_Log.cout[LOG_TYPE_OTHER]);
+		gHis_Log.cur_idx[LOG_TYPE_OTHER] = next_idx;
+		cmdlog = gHis_Log.trace[LOG_TYPE_OTHER] + next_idx;
 	}
+
+	cmdlog->time = log->time;
+	cmdlog->type = log->type;
+	cmdlog->syscall_nr = log->syscall_nr;
+	cmdlog->pid = log->pid;
+	get_task_comm(cmdlog->comm, current);
+	write_unlock_irqrestore(&gHis_rwlock, flags);
 }
 
 void fscmd_trace_sys_enter(void *data,
@@ -165,7 +166,7 @@ void fscmd_trace_sys_enter(void *data,
 {
 	struct nr_talbe_s *pt = fscmd_get_nr_table(id);
 
-	if (pt != NULL) {
+	if (pt != NULL && !atomic_read(&nr_dump)) {
 		struct fscmd_log_s syscall;
 
 		syscall.syscall_nr = id;
@@ -181,7 +182,7 @@ void fscmd_trace_sys_exit(void *data,
 {
 	struct nr_talbe_s *pt = fscmd_get_nr_table(regs->syscallno);
 
-	if (pt != NULL) {
+	if (pt != NULL && !atomic_read(&nr_dump)) {
 		struct fscmd_log_s syscall;
 
 		syscall.syscall_nr = regs->syscallno;
@@ -192,57 +193,43 @@ void fscmd_trace_sys_exit(void *data,
 	}
 }
 
-size_t mtk_fscmd_usedmem(char **buff, unsigned long *size,
+static void ghistory_struct_logdump(char **buff, unsigned long *size,
+	struct seq_file *seq, int log_type)
+{
+	int i, idx;
+	struct nr_talbe_s *pt = NULL;
+
+	for (i = 0, idx = 0; i < (gHis_Log.cout[log_type]); i++) {
+		pt = fscmd_get_nr_table(gHis_Log.trace[log_type][idx].syscall_nr);
+		idx = (gHis_Log.cur_idx[log_type] + i + 1) % (gHis_Log.cout[log_type]);
+		SPREAD_PRINTF(buff, size, seq,
+			"%llu,%s,%s,%d,%s\n",
+			gHis_Log.trace[log_type][idx].time,
+			(gHis_Log.trace[log_type][idx].type == FSCMD_SYSCALL_ENTRY)?"i":"o",
+			pt->name,
+			gHis_Log.trace[log_type][idx].pid,
+			gHis_Log.trace[log_type][idx].comm);
+	}
+}
+
+void mtk_fscmd_show(char **buff, unsigned long *size,
 	struct seq_file *seq)
 {
-	int i = 0, idx = 0;
-	size_t size_l = sizeof(gHis_Log);
-	struct nr_talbe_s *pt = NULL;
+	int i = 0;
+	unsigned long flags;
 	// start dump the farthest log in ring-buffer
+	atomic_inc(&nr_dump);
+	read_lock_irqsave(&gHis_rwlock, flags);
 	SPREAD_PRINTF(buff, size, seq,
-			"time,entry/exit,syscall,pid,func,\n");
-	spin_lock(&gHis_lock);
-	dump_bit = 1;
-	spin_unlock(&gHis_lock);
-	for (i = 0, idx = 0; i < (gHis_Log.cout[LOG_TYPE_OTHER]); i++) {
-		pt = fscmd_get_nr_table(gHis_Log.trace[LOG_TYPE_OTHER][idx].syscall_nr);
-		idx = (gHis_Log.cur_idx[LOG_TYPE_OTHER] + i + 1) % (gHis_Log.cout[LOG_TYPE_RW]);
-		SPREAD_PRINTF(buff, size, seq,
-			"%llu,%s,%s,%d,%s\n",
-			gHis_Log.trace[LOG_TYPE_OTHER][idx].time,
-			(gHis_Log.trace[LOG_TYPE_OTHER][idx].type == FSCMD_SYSCALL_ENTRY)?"i":"o",
-			pt->name,
-			gHis_Log.trace[LOG_TYPE_OTHER][idx].pid,
-			gHis_Log.trace[LOG_TYPE_OTHER][idx].comm);
-	}
+		"time,entry/exit,syscall,pid,func,\n");
+	for (i = 0; i < LOG_TYPE_ENTRY; i++)
+		ghistory_struct_logdump(buff, size, seq, i);
 
-	for (i = 0, idx = 0; i < gHis_Log.cout[LOG_TYPE_RW]; i++) {
-		pt = fscmd_get_nr_table(gHis_Log.trace[LOG_TYPE_RW][idx].syscall_nr);
-		idx = (gHis_Log.cur_idx[LOG_TYPE_RW] + i + 1) % gHis_Log.cout[LOG_TYPE_RW];
-		SPREAD_PRINTF(buff, size, seq,
-			"%llu,%s,%s,%d,%s\n",
-			gHis_Log.trace[LOG_TYPE_RW][idx].time,
-			(gHis_Log.trace[LOG_TYPE_RW][idx].type == FSCMD_SYSCALL_ENTRY)?"i":"o",
-			pt->name,
-			gHis_Log.trace[LOG_TYPE_RW][idx].pid,
-			gHis_Log.trace[LOG_TYPE_RW][idx].comm);
-	}
-
-	spin_lock(&gHis_lock);
-	dump_bit = 0;
-	spin_unlock(&gHis_lock);
-	return size_l;
+	read_unlock_irqrestore(&gHis_rwlock, flags);
+	atomic_dec(&nr_dump);
 }
 
 int mtk_fscmd_init(void)
 {
-	int ret = 0;
-
-	ret = ghistory_struct_init();
-	if (ret)
-		return ret;
-
-	dump_bit = 0;
-	spin_lock_init(&gHis_lock);
-	return ret;
+	return ghistory_struct_init();
 }

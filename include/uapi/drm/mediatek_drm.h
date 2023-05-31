@@ -125,10 +125,10 @@ struct msync_parameter_table {
 #define COLOR_TUNING_INDEX 19
 #define THSHP_TUNING_INDEX 24
 #define THSHP_PARAM_MAX 146 /* TDSHP_3_0 */
-#define PARTIAL_Y_INDEX 22
-#define GLOBAL_SAT_SIZE 22
-#define CONTRAST_SIZE 22
-#define BRIGHTNESS_SIZE 22
+#define PARTIAL_Y_INDEX 11
+#define GLOBAL_SAT_SIZE 101
+#define CONTRAST_SIZE 201
+#define BRIGHTNESS_SIZE 511
 #define PARTIAL_Y_SIZE 16
 #define PQ_HUE_ADJ_PHASE_CNT 4
 #define PQ_SAT_ADJ_PHASE_CNT 4
@@ -486,6 +486,12 @@ struct DISP_DITHER_PARAM {
 #define DRM_MTK_GET_PQ_CAPS 0x54
 #define DRM_MTK_SET_PQ_CAPS 0x55
 
+/* CWB */
+#define DRM_MTK_SET_CWB_ROI 0x56
+#define DRM_MTK_SET_CWB_STATUS 0x57
+#define DRM_MTK_GET_CWB_IMAGE 0x58
+
+
 /* C3D */
 #define DISP_C3D_1DLUT_SIZE 32
 
@@ -731,6 +737,10 @@ struct DRM_DISP_CCORR_COEF_T {
 	unsigned int offset[3];
 	int FinalBacklight;
 	int silky_bright_flag;
+
+	uint32_t crccoef0;
+	uint32_t crccoef1;
+	uint32_t dcthreshold;
 };
 
 enum drm_disp_gamma_id_t {
@@ -1119,6 +1129,20 @@ struct mtk_drm_pq_caps_info {
 			DRM_MTK_GET_PQ_CAPS, struct mtk_drm_pq_caps_info)
 #define DRM_IOCTL_MTK_SET_PQ_CAPS    DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_MTK_SET_PQ_CAPS, struct mtk_drm_pq_caps_info)
+
+struct mtk_cwb_roi {
+	int x;
+	int y;
+	int width;
+	int height;
+};
+
+#define DRM_IOCTL_MTK_SET_CWB_ROI DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_SET_CWB_ROI, struct mtk_cwb_roi)
+#define DRM_IOCTL_MTK_SET_CWB_STATUS  DRM_IOWR(DRM_COMMAND_BASE + \
+			DRM_MTK_SET_CWB_STATUS, unsigned int)
+#define DRM_IOCTL_MTK_GET_CWB_IMAGE DRM_IOWR(DRM_COMMAND_BASE + \
+		    DRM_MTK_GET_CWB_IMAGE, uint8_t)
 
 /* AAL IOCTL */
 #define AAL_HIST_BIN            33	/* [0..32] */

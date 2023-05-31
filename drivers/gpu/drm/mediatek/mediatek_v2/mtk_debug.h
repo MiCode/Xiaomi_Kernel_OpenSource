@@ -33,6 +33,7 @@ extern void mtk_trans_gain_to_gamma(struct drm_crtc *crtc,
 	unsigned int gain[3], unsigned int bl);
 
 extern unsigned int m_new_pq_persist_property[32];
+extern unsigned int g_gamma_data_mode;
 enum mtk_pq_persist_property {
 	DISP_PQ_COLOR_BYPASS,
 	DISP_PQ_CCORR_BYPASS,
@@ -49,6 +50,12 @@ enum mtk_pq_persist_property {
 
 int mtk_drm_ioctl_pq_get_persist_property(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
+int mtk_drm_ioctl_set_cwb_roi(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
+int mtk_drm_ioctl_set_cwb_status(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
+int mtk_drm_ioctl_get_cwb_image(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
 
 extern int mtk_disp_hrt_bw_dbg(void);
 
@@ -59,11 +66,19 @@ struct disp_rect {
 	u32 width;
 	u32 height;
 };
+
+struct mtk_cwb_buf {
+	unsigned int type;
+	unsigned char *cwb_buf;
+};
+
 void disp_dbg_probe(void);
 void disp_dbg_init(struct drm_device *drm_dev);
 void disp_dbg_deinit(void);
 void mtk_drm_cwb_backup_copy_size(void);
 int mtk_dprec_mmp_dump_ovl_layer(struct mtk_plane_state *plane_state);
+int mtk_dprec_mmp_dump_wdma_layer(struct drm_crtc *crtc,
+	struct drm_framebuffer *wb_fb);
 int mtk_dprec_mmp_dump_cwb_buffer(struct drm_crtc *crtc,
 	void *buffer, unsigned int buf_idx);
 int disp_met_set(void *data, u64 val);
@@ -75,6 +90,7 @@ unsigned int mtk_dbg_get_lfr_update_value(void);
 unsigned int mtk_dbg_get_lfr_vse_dis_value(void);
 unsigned int mtk_dbg_get_lfr_skip_num_value(void);
 unsigned int mtk_dbg_get_lfr_dbg_value(void);
+int hrt_lp_switch_get(void);
 #endif
 
 #endif

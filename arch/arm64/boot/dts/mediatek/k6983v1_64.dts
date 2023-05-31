@@ -26,6 +26,10 @@
 	};
 };
 
+&utos {
+       microtrust,real-drv = <1>;
+};
+
 &mtk_leds {
 	compatible = "mediatek,i2c-leds";
 
@@ -316,17 +320,17 @@
 		};
 	};
 
-	mtkfb_pins_lcm_led_en1: lcm_led_en1_gpio {
+	mtkfb_pins_lcm_dvdd_en1: lcm_dvdd_en1_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO68__FUNC_GPIO68>;
+			pinmux = <PINMUX_GPIO193__FUNC_GPIO193>;
 			slew-rate = <1>;
 			output-high;
 		};
 	};
 
-	mtkfb_pins_lcm_led_en0: lcm_led_en0_gpio {
+	mtkfb_pins_lcm_dvdd_en0: lcm_dvdd_en0_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO68__FUNC_GPIO68>;
+			pinmux = <PINMUX_GPIO193__FUNC_GPIO193>;
 			slew-rate = <1>;
 			output-low;
 		};
@@ -337,7 +341,7 @@
 	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
 		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
 		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
-		"mode_te_te", "lcm_led_en1_gpio", "lcm_led_en0_gpio";
+		"mode_te_te", "lcm_dvdd_en1_gpio", "lcm_dvdd_en0_gpio";
 	pinctrl-0 = <&mtkfb_pins_lcd_bias_enp1>;
 	pinctrl-1 = <&mtkfb_pins_lcd_bias_enp0>;
 	pinctrl-2 = <&mtkfb_pins_lcd_bias_enn1>;
@@ -345,18 +349,20 @@
 	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
 	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
 	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
-	pinctrl-7 = <&mtkfb_pins_lcm_led_en1>;
-	pinctrl-8 = <&mtkfb_pins_lcm_led_en0>;
+	pinctrl-7 = <&mtkfb_pins_lcm_dvdd_en1>;
+	pinctrl-8 = <&mtkfb_pins_lcm_dvdd_en0>;
 
 	status = "okay";
 };
 &dispsys_config {
 	pinctrl-names =
 		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
-		"mode_te_te";
+		"mode_te_te", "lcm_dvdd_en1_gpio", "lcm_dvdd_en0_gpio";
 	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
 	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
 	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-3 = <&mtkfb_pins_lcm_dvdd_en1>;
+	pinctrl-4 = <&mtkfb_pins_lcm_dvdd_en0>;
 	status = "okay";
 };
 
@@ -365,40 +371,17 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	panel1@0 {
-		compatible = "jdi,nt36672e,vdo,120hz";
+		compatible = "samsung,fhdp,cmd,120hz";
 		reg = <0>;
 		pm-enable-gpios = <&pio 68 0>;
 		reset-gpios = <&pio 86 0>;
+		dvdd-gpios = <&pio 193 0>;
+		vibr-supply = <&mt6373_vibr>;
+		vaud18-supply = <&mt6373_vaud18>;
 		gate-ic = <4831>;
 		pinctrl-names = "default";
 		port {
 			panel_in1: endpoint {
-				remote-endpoint = <&dsi_out>;
-			};
-		};
-	};
-	panel2@0 {
-		compatible = "truly,td4330,cmd";
-		reg = <1>;
-		pm-enable-gpios = <&pio 68 0>;
-		reset-gpios = <&pio 86 0>;
-		gate-ic = <4831>;
-		pinctrl-names = "default";
-		port {
-			panel_in2: endpoint {
-				remote-endpoint = <&dsi_out>;
-			};
-		};
-	};
-	panel3@0 {
-		compatible = "tianma,nt36672e,vdo,120hz";
-		reg = <2>;
-		pm-enable-gpios = <&pio 68 0>;
-		reset-gpios = <&pio 86 0>;
-		gate-ic = <4831>;
-		pinctrl-names = "default";
-		port {
-			panel_in3: endpoint {
 				remote-endpoint = <&dsi_out>;
 			};
 		};
@@ -446,6 +429,11 @@
 	racing-enable;
 };
 
+&ispdvfs {
+	en_vb = <1>;
+};
+
 #include <k6983v1_64/cust.dtsi>
 #include "mediatek/cust_mt6983_touch_1080x2400.dtsi"
 #include "mediatek/cust_mt6983_camera_v4l2.dtsi"
+#include "mediatek/cust_mt6983_nfc_nxp.dtsi"

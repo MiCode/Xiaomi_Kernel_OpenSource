@@ -27,6 +27,8 @@
 #define CAMSV_EXP_ORDER_SHIFT 20
 #define CAMSV_GROUP_AMOUNT 4
 
+#define CAMSV_CHECK_TS 0
+
 enum mtkcam_sv_hw_path_control {
 	MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW = MTKCAM_IPI_HW_PATH_OFFLINE_M2M + 2,
 };
@@ -251,7 +253,7 @@ struct device *mtk_cam_find_sv_dev(
 	struct mtk_cam_device *cam, unsigned int sv_mask);
 int mtk_cam_sv_dev_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx, unsigned int hw_scen,
-	unsigned int exp_order);
+	unsigned int exp_order, unsigned int pixelmode);
 int mtk_cam_sv_dev_stream_on(
 	struct mtk_cam_ctx *ctx, unsigned int idx,
 	unsigned int streaming, unsigned int hw_scen);
@@ -289,10 +291,12 @@ int mtk_cam_sv_enquehwbuf(struct mtk_camsv_device *dev,
 	dma_addr_t ba, unsigned int seq_no);
 bool mtk_cam_sv_finish_buf(struct mtk_cam_request_stream_data *s_data);
 int mtk_cam_find_sv_dev_index(struct mtk_cam_ctx *ctx, unsigned int idx);
-int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx, u64 ts_ns);
+int mtk_cam_sv_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns);
+int mtk_cam_sv_apply_all_buffers(struct mtk_cam_ctx *ctx);
 int mtk_cam_sv_apply_next_buffer(struct mtk_cam_ctx *ctx, unsigned int pipe_id, u64 ts_ns);
 int mtk_cam_sv_rgbw_apply_next_buffer(
 	struct mtk_cam_request_stream_data *s_data);
+int mtk_cam_sv_apply_switch_buffers(struct mtk_cam_ctx *ctx);
 int mtk_cam_sv_write_rcnt(struct mtk_cam_ctx *ctx, unsigned int pipe_id);
 int mtk_cam_sv_cal_cfg_info(struct mtk_cam_ctx *ctx,
 	const struct v4l2_format *img_fmt, struct mtk_camsv_frame_params *params);

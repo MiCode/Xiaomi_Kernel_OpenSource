@@ -634,14 +634,17 @@ static ssize_t saving_store(struct device *dev,
 {
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
 	struct mtu3 *mtu = ssusb->u3d;
-	int saving;
+	int mode;
 
-	if (kstrtoint(buf, 10, &saving))
+	if (kstrtoint(buf, 10, &mode))
 		return -EINVAL;
 
-	mtu->is_ep_saving = saving ? 1 : 0;
+	if (mode < MTU3_EP_SLOT_DEFAULT || mode > MTU3_EP_SLOT_MAX)
+		return -EINVAL;
 
-	dev_info(dev, "saving mode %d\n", mtu->is_ep_saving);
+	mtu->ep_slot_mode = mode;
+
+	dev_info(dev, "slot mode %d\n", mtu->ep_slot_mode);
 
 	return count;
 }
@@ -653,7 +656,7 @@ static ssize_t saving_show(struct device *dev,
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
 	struct mtu3 *mtu = ssusb->u3d;
 
-	return sprintf(buf, "%d\n", mtu->is_ep_saving);
+	return sprintf(buf, "%d\n", mtu->ep_slot_mode);
 }
 static DEVICE_ATTR_RW(saving);
 

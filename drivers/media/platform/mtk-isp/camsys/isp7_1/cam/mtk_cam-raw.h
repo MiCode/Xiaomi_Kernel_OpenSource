@@ -11,6 +11,8 @@
 #include "mtk_cam-video.h"
 #include "mtk_camera-v4l2-controls.h"
 
+struct mtk_cam_request_stream_data;
+
 #define RAW_PIPELINE_NUM 3
 #define SCQ_DEADLINE_MS  15 // ~1/2 frame length
 #define SCQ_DEFAULT_CLK_RATE 208 // default 208MHz
@@ -173,7 +175,7 @@ struct mtk_cam_ctx;
  */
 
 struct mtk_raw_pde_config {
-	struct mtk_cam_pde_info pde_info;
+	struct mtk_cam_pde_info pde_info[CAM_CTRL_NUM];
 };
 
 struct mtk_cam_resource_config {
@@ -248,6 +250,7 @@ struct mtk_raw_pipeline {
 	struct v4l2_ctrl_handler ctrl_handler;
 	s64 feature_pending;
 	s64 feature_active;
+	int dynamic_exposure_num_max;
 	bool enqueued_tg_flash_req; /* need a better way to collect the request */
 	struct mtk_cam_tg_flash_config tg_flash_config;
 	/* TODO: merge or integrate with mtk_cam_resource_config */
@@ -260,6 +263,7 @@ struct mtk_raw_pipeline {
 	struct mtk_cam_mstream_exposure mstream_exposure;
 	/* stagger */
 	enum hdr_scenario_id stagger_path;
+	enum hdr_scenario_id stagger_path_pending;
 	/* pde module */
 	struct mtk_raw_pde_config pde_config;
 	s64 hw_mode;
@@ -273,6 +277,7 @@ struct mtk_raw_device {
 	void __iomem *base;
 	void __iomem *base_inner;
 	void __iomem *yuv_base;
+	void __iomem *yuv_base_inner;
 	unsigned int num_clks;
 	struct clk **clks;
 #ifdef CONFIG_PM_SLEEP
@@ -306,12 +311,23 @@ struct mtk_yuv_device {
 	struct device *dev;
 	unsigned int id;
 	void __iomem *base;
+	void __iomem *base_inner;
 	unsigned int num_clks;
 	struct clk **clks;
 #ifdef CONFIG_PM_SLEEP
 	struct notifier_block pm_notifier;
 #endif
 };
+
+/* AE information */
+struct mtk_ae_debug_data {
+	u64 OBC_R1_Sum[4];
+	u64 OBC_R2_Sum[4];
+	u64 OBC_R3_Sum[4];
+	u64 AA_Sum[4];
+	u64 LTM_Sum[4];
+};
+
 /*
  * struct mtk_raw - the raw information
  *
@@ -323,6 +339,11 @@ struct mtk_raw {
 	struct device *devs[RAW_PIPELINE_NUM];
 	struct device *yuvs[RAW_PIPELINE_NUM];
 	struct mtk_raw_pipeline pipelines[RAW_PIPELINE_NUM];
+};
+
+struct mtk_raw_stagger_select {
+	int stagger_path;
+	int enabled_raw;
 };
 
 static inline struct mtk_raw_pipeline*
@@ -348,6 +369,8 @@ void stagger_enable(struct mtk_raw_device *dev);
 
 void stagger_disable(struct mtk_raw_device *dev);
 
+void dbload_force(struct mtk_raw_device *dev);
+
 void toggle_db(struct mtk_raw_device *dev);
 
 void enable_tg_db(struct mtk_raw_device *dev, int en);
@@ -355,6 +378,8 @@ void enable_tg_db(struct mtk_raw_device *dev, int en);
 void initialize(struct mtk_raw_device *dev, int is_slave);
 
 void stream_on(struct mtk_raw_device *dev, int on);
+
+void immediate_stream_off(struct mtk_raw_device *dev);
 
 void apply_cq(struct mtk_raw_device *dev,
 	      int initial, dma_addr_t cq_addr,
@@ -365,6 +390,9 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 		signed int hw_scene);
 
 void reset(struct mtk_raw_device *dev);
+
+void dump_aa_info(struct mtk_cam_ctx *ctx,
+				 struct mtk_ae_debug_data *ae_info);
 
 int mtk_raw_call_pending_set_fmt(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_format *fmt);
@@ -409,6 +437,7 @@ int
 mtk_cam_res_copy_fmt_to_user(struct mtk_raw_pipeline *pipeline,
 			     struct mtk_cam_resource *res_user,
 			     struct v4l2_mbus_framefmt *src);
+
 
 #ifdef CAMSYS_TF_DUMP_71_1
 int

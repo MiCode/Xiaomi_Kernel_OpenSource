@@ -69,8 +69,15 @@ EXPORT_SYMBOL_GPL(mt6368_set_mtkaif_protocol);
 static void mt6368_set_playback_gpio(struct mt6368_priv *priv)
 {
 	/* set gpio mosi mode, clk / data / sync */
-	regmap_write(priv->regmap, MT6368_GPIO_MODE4_CLR, 0x38);
-	regmap_write(priv->regmap, MT6368_GPIO_MODE4_SET, 0x8);
+	unsigned int reg_value = 0;
+
+	regmap_read(priv->regmap, MT6368_GPIO_MODE4, &reg_value);
+	/* only reset the IO mode if necessary */
+	if ((reg_value & 0x38) != 0x8) {
+		regmap_write(priv->regmap, MT6368_GPIO_MODE4_CLR, 0x38);
+		regmap_write(priv->regmap, MT6368_GPIO_MODE4_SET, 0x8);
+	}
+
 	regmap_write(priv->regmap, MT6368_GPIO_MODE5_CLR, 0x3f);
 	regmap_write(priv->regmap, MT6368_GPIO_MODE5_SET, 0x9);
 	regmap_write(priv->regmap, MT6368_GPIO_MODE6_CLR, 0x3f);
@@ -253,7 +260,7 @@ void mt6368_mtkaif_calibration_enable(struct snd_soc_component *cmpnt)
 	regmap_update_bits(priv->regmap, MT6368_AUDIO_DIG_CFG0,
 			   RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK_MASK_SFT,
 			   1 << RG_AUD_PAD_TOP_DAT_MISO_LOOPBACK_SFT);
-	regmap_update_bits(priv->regmap, MT6368_AUDIO_DIG_CFG1,
+	regmap_update_bits(priv->regmap, MT6368_AUDIO_DIG_CFG2,
 			   RG_AUD_PAD_TOP_DAT_MISO3_LOOPBACK_MASK_SFT,
 			   1 << RG_AUD_PAD_TOP_DAT_MISO3_LOOPBACK_SFT);
 }
@@ -2685,7 +2692,7 @@ static int mt_pga_l_event(struct snd_soc_dapm_widget *w,
 	/* if vow is enabled, always set volume as 4(24dB) */
 	mic_gain_l = priv->vow_enable ? 4 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1];
-	dev_dbg(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_l %d, mux_pga %d\n",
+	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_l %d, mux_pga %d\n",
 		__func__, event, mic_type, mic_gain_l, mux_pga);
 
 	switch (event) {
@@ -2750,7 +2757,7 @@ static int mt_pga_r_event(struct snd_soc_dapm_widget *w,
 	/* if vow is enabled, always set volume as 4(24dB) */
 	mic_gain_r = priv->vow_enable ? 4 :
 		     priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2];
-	dev_dbg(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_r %d, mux_pga %d\n",
+	dev_info(priv->dev, "%s(), event = 0x%x, mic_type %d, mic_gain_r %d, mux_pga %d\n",
 		__func__, event, mic_type, mic_gain_r, mux_pga);
 
 	switch (event) {
@@ -4755,6 +4762,14 @@ static void calculate_lr_trim_code(struct mt6368_priv *priv)
 		goto EXIT;
 	}
 
+	/* prevent divid to 0 */
+	if ((trim_l[0] == trim_l[1]) ||
+		(trim_r[0] == trim_r[1])) {
+		hpl_trim_code = trim_l_code[1];
+		hpr_trim_code = trim_r_code[1];
+		goto EXIT;
+	}
+
 	/* start step2, calculate approximate solution*/
 	/* l-channel, find trim offset per trim code step */
 	trim_l_code[2] = (((abs(trim_l[0]) * 2) /
@@ -5642,7 +5657,10 @@ static int mt6368_codec_probe(struct snd_soc_component *cmpnt)
 
 static void mt6368_codec_remove(struct snd_soc_component *cmpnt)
 {
-	snd_soc_component_exit_regmap(cmpnt);
+	struct mt6368_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	cmpnt->regmap = NULL;
+	dev_info(priv->dev, "%s(), codec removed\n", __func__);
 }
 
 static const struct snd_soc_component_driver mt6368_soc_component_driver = {

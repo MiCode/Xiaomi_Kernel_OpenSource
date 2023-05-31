@@ -116,7 +116,7 @@ static ssize_t debug_ops_store(struct device *dev,
 	struct seninf_ctx *ctx;
 	int csi_port = -1;
 	int rg_idx = -1;
-	u32 val;
+	u64 val;
 
 	if (!sbuf)
 		goto ERR_DEBUG_OPS_STORE;
@@ -146,7 +146,7 @@ static ssize_t debug_ops_store(struct device *dev,
 		if (rg_idx < 0)
 			goto ERR_DEBUG_OPS_STORE;
 
-		ret = kstrtouint(arg[REG_OPS_CMD_VAL], 0, &val);
+		ret = kstrtoull(arg[REG_OPS_CMD_VAL], 0, &val);
 		if (ret)
 			goto ERR_DEBUG_OPS_STORE;
 
@@ -491,6 +491,8 @@ static int seninf_core_probe(struct platform_device *pdev)
 		return ret;
 	}
 	dev_dbg(dev, "registered irq=%d\n", irq);
+	/* flag for err detection */
+	core->err_detect_init_flag = 0;
 
 	/* default platform properties */
 	core->cphy_settle_delay_dt = SENINF_CPHY_SETTLE_DELAY_DT;
@@ -716,6 +718,15 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		*v4l2_subdev_get_try_format(sd, cfg, fmt->pad) = fmt->format;
+		dev_dbg(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
+			fmt->pad,
+			fmt->format.code,
+			fmt->format.width,
+			fmt->format.height,
+			fmt->which,
+			format->code,
+			format->width,
+			format->height);
 	} else {
 		/* NOTE: update vcinfo once the SINK format changed */
 		if (fmt->pad == PAD_SINK)
@@ -727,17 +738,17 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 
 		if (bSinkFormatChanged && !ctx->is_test_model)
 			mtk_cam_seninf_get_vcinfo(ctx);
-	}
 
-	dev_info(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
-		 fmt->pad,
-		fmt->format.code,
-		fmt->format.width,
-		fmt->format.height,
-		fmt->which,
-		format->code,
-		format->width,
-		format->height);
+		dev_info(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
+			fmt->pad,
+			fmt->format.code,
+			fmt->format.width,
+			fmt->format.height,
+			fmt->which,
+			format->code,
+			format->width,
+			format->height);
+	}
 
 	return 0;
 }
@@ -1173,7 +1184,7 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 
 	core->csi_irq_en_flag = 0;
 	core->vsync_irq_en_flag = 0;
-
+	core->err_detect_termination_flag = 1;
 	list_for_each_entry(ctx_, &core->list, list) {
 		ctx_->data_not_enough_flag = 0;
 		ctx_->err_lane_resync_flag = 0;
@@ -1189,9 +1200,72 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 		ctx_->ecc_err_corrected_cnt = 0;
 		ctx_->fifo_overrun_cnt = 0;
 		ctx_->size_err_cnt = 0;
+#ifdef ERR_DETECT_TEST
+		ctx_->test_cnt = 0;
+#endif
 	}
 
 	return 0;
+}
+
+static int mtk_senif_get_ccu_phandle(struct seninf_core *core)
+{
+	struct device *dev = core->dev;
+	struct device_node *node;
+	int ret = 0;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_fsync_ccu");
+	if (node == NULL) {
+		dev_info(dev, "of_find mediatek,camera_fsync_ccu fail\n");
+		ret = PTR_ERR(node);
+		goto out;
+	}
+
+	ret = of_property_read_u32(node, "mediatek,ccu_rproc",
+				   &core->rproc_ccu_phandle);
+	if (ret) {
+		dev_info(dev, "fail to get rproc_ccu_phandle:%d\n", ret);
+		ret = -EINVAL;
+		goto out;
+	}
+
+out:
+	return ret;
+}
+
+static int mtk_senif_power_ctrl_ccu(struct seninf_core *core, int on_off)
+{
+	int ret;
+
+	if (on_off) {
+		ret = mtk_senif_get_ccu_phandle(core);
+		if (ret)
+			goto out;
+		core->rproc_ccu_handle = rproc_get_by_phandle(core->rproc_ccu_phandle);
+		if (core->rproc_ccu_handle == NULL) {
+			dev_info(core->dev, "Get ccu handle fail\n");
+			ret = PTR_ERR(core->rproc_ccu_handle);
+			goto out;
+		}
+
+		ret = rproc_boot(core->rproc_ccu_handle);
+		if (ret)
+			dev_info(core->dev, "boot ccu rproc fail\n");
+
+		if (core->dfs.reg)
+			regulator_enable(core->dfs.reg);
+	} else {
+		if (core->dfs.reg && regulator_is_enabled(core->dfs.reg))
+			regulator_disable(core->dfs.reg);
+
+		if (core->rproc_ccu_handle) {
+			rproc_shutdown(core->rproc_ccu_handle);
+			ret = 0;
+		} else
+			ret = -EINVAL;
+	}
+out:
+	return ret;
 }
 
 static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
@@ -1201,9 +1275,17 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 #endif
 	int ret;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct seninf_core *core;
 
-	if (ctx->streaming == enable)
+	core = dev_get_drvdata(ctx->dev->parent);
+	dev_info(ctx->dev, "%s\n",__func__);
+	if (ctx->streaming == enable){
+		/* for continuous detection */
+		if (core->err_detect_init_flag)
+			g_seninf_ops->_enable_stream_err_detect(ctx);
+
 		return 0;
+	}
 
 	if (ctx->is_test_model)
 		return set_test_model(ctx, enable);
@@ -1214,7 +1296,8 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	if (enable) {
-		debug_err_detect_initialize(ctx);
+		if (!(core->err_detect_init_flag))
+			debug_err_detect_initialize(ctx);
 		get_mbus_config(ctx, ctx->sensor_sd);
 
 		get_pixel_rate(ctx, ctx->sensor_sd, &ctx->mipi_pixel_rate);
@@ -1224,10 +1307,12 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 					ctx->sensor_pad_idx, &ctx->buffered_pixel_rate);
 
 		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
+		mtk_senif_power_ctrl_ccu(core, 1);
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
 			pm_runtime_put_noidle(ctx->dev);
+			mtk_senif_power_ctrl_ccu(core, 0);
 			return ret;
 		}
 
@@ -1273,7 +1358,9 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		mtk_cam_seninf_release_mux(ctx);
 		seninf_dfs_set(ctx, 0);
 		g_seninf_ops->_poweroff(ctx);
+		ctx->dbg_last_dump_req = 0;
 		pm_runtime_put_sync(ctx->dev);
+		mtk_senif_power_ctrl_ccu(core, 0);
 	}
 
 	ctx->streaming = enable;
@@ -1281,7 +1368,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 }
 
 static const struct v4l2_subdev_pad_ops seninf_subdev_pad_ops = {
-	.link_validate = mtk_cam_link_validate,
+	.link_validate = mtk_cam_seninf_link_validate,
 	.init_cfg = mtk_cam_seninf_init_cfg,
 	.set_fmt = mtk_cam_seninf_set_fmt,
 	.get_fmt = mtk_cam_seninf_get_fmt,
@@ -1465,13 +1552,10 @@ static const struct v4l2_ctrl_ops seninf_ctrl_ops = {
 static int seninf_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
-	struct seninf_core *core;
-
-	core = dev_get_drvdata(ctx->dev->parent);
 
 	mutex_lock(&ctx->mutex);
 	ctx->open_refcnt++;
-	core->pid = find_get_pid(current->pid);
+	ctx->pid = find_get_pid(current->pid);
 
 	if (ctx->open_refcnt == 1)
 		dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
@@ -1797,9 +1881,6 @@ static int runtime_suspend(struct device *dev)
 				clk_disable_unprepare(ctx->core->clk[i]);
 		} while (i);
 		seninf_core_pm_runtime_put(core);
-		if (ctx->core->dfs.reg && regulator_is_enabled(ctx->core->dfs.reg))
-			regulator_disable(ctx->core->dfs.reg);
-
 	}
 
 	mutex_unlock(&core->mutex);
@@ -1818,8 +1899,6 @@ static int runtime_resume(struct device *dev)
 	core->refcnt++;
 
 	if (core->refcnt == 1) {
-		if (ctx->core->dfs.reg)
-			regulator_enable(ctx->core->dfs.reg);
 		seninf_core_pm_runtime_get_sync(core);
 		for (i = 0; i < CLK_TOP_SENINF_END; i++) {
 			if (core->clk[i])
@@ -1968,11 +2047,46 @@ int mtk_cam_seninf_check_timeout(struct v4l2_subdev *sd, u64 time_after_sof)
 	return ret;
 }
 
+u64 mtk_cam_seninf_get_frame_time(struct v4l2_subdev *sd, u32 seq_id)
+{
+	u64 tmp = 33000;
+	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+	int val = 0;
 
-int mtk_cam_seninf_dump(struct v4l2_subdev *sd)
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
+	if (ctrl) {
+		val = v4l2_ctrl_g_ctrl(ctrl);
+		if (val > 0)
+			tmp = val;
+	}
+	return tmp * 1000;
+}
+
+int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id)
 {
 	int ret = 0;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+	int val = 0;
+
+	if (ctx->dbg_last_dump_req != 0 &&
+		ctx->dbg_last_dump_req == seq_id) {
+		dev_info(ctx->dev, "%s skip duplicate dump for req %u\n", __func__, seq_id);
+		return 0;
+	}
+
+	ctx->dbg_last_dump_req = seq_id;
+	ctx->dbg_timeout = 0; //in us
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
+	if (ctrl) {
+		val = v4l2_ctrl_g_ctrl(ctrl);
+		if (val > 0)
+			ctx->dbg_timeout = val;
+	}
 
 	ret = pm_runtime_get_sync(ctx->dev);
 	if (ret < 0) {

@@ -1673,6 +1673,7 @@
   trace_event_reg
   trace_handle_return
   __traceiter_android_rvh_account_irq
+  __traceiter_android_rvh_binder_transaction
   __traceiter_android_rvh_build_perf_domains
   __traceiter_android_rvh_can_migrate_task
   __traceiter_android_rvh_check_preempt_wakeup
@@ -1749,6 +1750,15 @@
   __traceiter_android_vh_ufs_send_command
   __traceiter_android_vh_ufs_update_sdev
   __traceiter_binder_transaction_received
+  __traceiter_block_bio_complete
+  __traceiter_block_bio_queue
+  __traceiter_block_getrq
+  __traceiter_block_rq_complete
+  __traceiter_block_rq_insert
+  __traceiter_block_rq_issue
+  __traceiter_block_rq_merge
+  __traceiter_block_rq_requeue
+  __traceiter_block_split
   __traceiter_cpu_frequency_limits
   __traceiter_cpu_idle
   __traceiter_dwc3_complete_trb
@@ -1763,6 +1773,7 @@
   __traceiter_usb_gadget_connect
   __traceiter_usb_gadget_disconnect
   __tracepoint_android_rvh_account_irq
+  __tracepoint_android_rvh_binder_transaction
   __tracepoint_android_rvh_build_perf_domains
   __tracepoint_android_rvh_can_migrate_task
   __tracepoint_android_rvh_check_preempt_wakeup
@@ -1852,6 +1863,15 @@
   __tracepoint_android_vh_ufs_update_sdev
   __tracepoint_android_vh_vmpressure
   __tracepoint_binder_transaction_received
+  __tracepoint_block_bio_complete
+  __tracepoint_block_bio_queue
+  __tracepoint_block_getrq
+  __tracepoint_block_rq_complete
+  __tracepoint_block_rq_insert
+  __tracepoint_block_rq_issue
+  __tracepoint_block_rq_merge
+  __tracepoint_block_rq_requeue
+  __tracepoint_block_split
   __tracepoint_cpu_frequency_limits
   __tracepoint_cpu_idle
   __tracepoint_dwc3_complete_trb

@@ -28,6 +28,10 @@
 	vqmmc-supply = <&mt6368_vmc>;
 	no-mmc;
 	no-sdio;
+	mediatek,mmc-qos;
+	interconnects = <&dvfsrc MT6873_MASTER_UFS &dvfsrc MT6873_SLAVE_DDR_EMI>;
+	interconnect-names = "msdc-perf-bw";
+	required-opps = <&dvfsrc_freq_opp3>;
 };
 
 &mmc2 {

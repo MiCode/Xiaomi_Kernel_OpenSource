@@ -34,6 +34,9 @@
 #include <linux/arm-smccc.h>
 #include <asm/barrier.h>
 #include <soc/mediatek/smi.h>
+#if IS_ENABLED(CONFIG_MTK_SMI)
+#include <../misc/mediatek/smi/mtk-smi-dbg.h>
+#endif
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 #include <../misc/mediatek/iommu/iommu_debug.h>
 #endif
@@ -232,6 +235,7 @@
 
 #define MTK_IOMMU_ISR_COUNT_MAX			5
 #define MTK_IOMMU_ISR_DISABLE_TIME		10
+#define MTK_IOMMU_TF_IOVA_DUMP_NUM		5
 
 #define MMU_MAU_REG_BACKUP_SIZE		(100 * sizeof(unsigned int))
 
@@ -258,6 +262,9 @@ static bool pd_sta[MM_IOMMU_NUM];
 static spinlock_t tlb_locks[MM_IOMMU_NUM];
 static struct notifier_block mtk_pd_notifiers[MM_IOMMU_NUM];
 static bool hypmmu_type2_en;
+static struct mutex init_mutexs[PGTBALE_NUM];
+static struct mutex group_mutexs[MTK_IOMMU_GROUP_MAX];
+static atomic_t init_once_flag = ATOMIC_INIT(0);
 
 static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 
@@ -295,6 +302,7 @@ static int mtk_iommu_hw_init(const struct mtk_iommu_data *data);
 static LIST_HEAD(m4ulist);	/* List all the M4U HWs */
 static LIST_HEAD(mm_iommu_list);	/* List apu iommu HWs */
 static LIST_HEAD(apu_iommu_list);	/* List mm iommu HWs */
+static bool share_pgtable;
 
 #define for_each_m4u(data, head)  list_for_each_entry(data, head, list)
 
@@ -487,6 +495,9 @@ static const struct mtk_iommu_iova_region mt6983_multi_dom_apu[] = {
 	{ .iova_base = SZ_1G, .size = (SZ_1G * 3ULL), .type = NORMAL}, /* 2,APU_CODE:3GB */
 	{ .iova_base = 0x106000000ULL, .size = SZ_32M, .type = NORMAL}, /* 3,LK_RESV:32MB */
 };
+
+static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
+					  dma_addr_t iova);
 
 uint64_t mtee_iova_to_phys(unsigned long iova, u32 tab_id, u32 *sr_info,
 				u64 *pa, u32 *type, u32 *lvl)
@@ -801,8 +812,6 @@ static void mtk_iommu_isr_record(struct mtk_iommu_data *data)
 	}
 }
 
-static void __mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data);
-
 static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 {
 	u32 tlb_en = readl_relaxed(data->base + REG_MMU_INVALIDATE);
@@ -813,7 +822,6 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 	if (range && (tlb_en & F_MMU_INV_RANGE)) {
 		pr_warn("%s, TLB flush Range timed out, need to extend time!!(%d, %d)\n", __func__,
 			data->plat_data->iommu_type, data->plat_data->iommu_id);
-		__mtk_dump_reg_for_hang_issue(data);
 		mtk_smi_dbg_hang_detect("iommu");
 		pr_warn("%s, dump: 0x20:0x%x, 0x12c:0x%x\n",
 			__func__, readl_relaxed(data->base + REG_MMU_INVALIDATE),
@@ -822,7 +830,6 @@ static void mtk_iommu_tlb_flush_check(struct mtk_iommu_data *data, bool range)
 	} else if (!range && (tlb_en & F_ALL_INVLD)) {
 		pr_warn("%s, TLB flush All timed out, need to extend time!!(%d, %d)\n", __func__,
 			data->plat_data->iommu_type, data->plat_data->iommu_id);
-		__mtk_dump_reg_for_hang_issue(data);
 		mtk_smi_dbg_hang_detect("iommu");
 		pr_warn("%s, dump: 0x20:0x%x, 0x12c:0x%x\n",
 			__func__, readl_relaxed(data->base + REG_MMU_INVALIDATE),
@@ -937,8 +944,9 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 		ret = readl_poll_timeout_atomic(data->base + REG_MMU_CPE_DONE,
 						tmp, tmp != 0, 10, 1000);
 		if (ret) {
-			pr_warn("Partial TLB flush timed out, (%d, %d)\n",
-				data->plat_data->iommu_type, data->plat_data->iommu_id);
+			pr_warn("Partial TLB flush timed out, (%d, %d), iova:0x%llx,0x%x\n",
+				data->plat_data->iommu_type, data->plat_data->iommu_id,
+				iova, size);
 			if (MTK_IOMMU_HAS_FLAG(data->plat_data, TLB_SYNC_EN))
 				mtk_iommu_tlb_flush_check(data, true);
 			else
@@ -954,6 +962,38 @@ static void mtk_iommu_tlb_flush_range_sync(unsigned long iova, size_t size,
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	mtk_iommu_tlb_sync_trace(iova, size, iommu_ids);
+#endif
+}
+
+static void mtk_iommu_dump_tf_iova(struct mtk_iommu_data *data,
+		enum iommu_bank bank, u64 fault_iova)
+{
+	u64 tf_iova_tmp, hw_pa[TAB_TYPE_NUM] = { 0 };
+	phys_addr_t fake_pa;
+	u32 sr_info[TAB_TYPE_NUM] = { 0 };
+	u32 pg_type[TAB_TYPE_NUM] = { 0 };
+	u32 lvl[TAB_TYPE_NUM] = { 0 };
+	int i;
+
+	for (i = 0, tf_iova_tmp = fault_iova; i < MTK_IOMMU_TF_IOVA_DUMP_NUM; i++) {
+		if (i > 0)
+			tf_iova_tmp -= SZ_4K;
+		fake_pa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
+		if (hypmmu_type2_en == true)
+			hw_pa[NS_TAB] = mtee_iova_to_phys(tf_iova_tmp,
+						data->plat_data->tab_id,
+						sr_info, hw_pa, pg_type, lvl);
+		pr_err("error, type2_en:%d, index:%d, lvl:%u, pg_type:0x%x, falut_iova:0x%lx, fault_pa:0x%llx ~ 0x%llx\n",
+			   hypmmu_type2_en, i, lvl[NS_TAB], pg_type[NS_TAB], tf_iova_tmp,
+			   (u64)fake_pa, hw_pa[NS_TAB]);
+		if (!fake_pa && i > 0)
+			break;
+	}
+
+#if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
+	/* skip dump when fault iova = 0 */
+	if (fault_iova)
+		mtk_iova_map_dump(fault_iova, data->plat_data->tab_id);
 #endif
 }
 
@@ -998,10 +1038,11 @@ static irqreturn_t mtk_iommu_dump_sec_bank(struct mtk_iommu_data *data,
 
 	layer = fault_iova & F_MMU_FAULT_VA_LAYER_BIT;
 	write = fault_iova & F_MMU_FAULT_VA_WRITE_BIT;
-	report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
 	pr_info("%s fault iova=0x%llx pa=0x%llx layer=%d %s\n",
 		dev_name(dev), fault_iova, fault_pa, layer,
 		write ? "write" : "read");
+	mtk_iommu_dump_tf_iova(data, bank, fault_iova);
+	report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
 
 	mtk_iommu_tlb_flush_all(data);
 
@@ -1190,11 +1231,10 @@ static void mtk_iommu_isr_other(struct mtk_iommu_data *data,
 	}
 }
 
-static phys_addr_t mtk_iommu_iova_to_phys(struct iommu_domain *domain,
-					  dma_addr_t iova);
 static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 {
 	struct mtk_iommu_data *data = dev_id;
+	struct mtk_iommu_domain *dom = data->m4u_dom;
 	void __iomem *base = data->base; /* bank0 base */
 	struct device *dev = data->dev; /* bank0 dev */
 	u32 int_state0, int_state1, regval, va34_32, pa34_32, table_base;
@@ -1204,15 +1244,9 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 	int ret;
 #endif
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-	int i;
 	int id = data->plat_data->iommu_id;
 	enum mtk_iommu_type type = data->plat_data->iommu_type;
-	u64 tf_iova_tmp, hw_pa[TAB_TYPE_NUM] = { 0 };
-	phys_addr_t fake_pa;
-	u32 sr_info[TAB_TYPE_NUM] = { 0 }, pg_type[TAB_TYPE_NUM] = { 0 }, lvl[TAB_TYPE_NUM] = { 0 };
-	#define TF_IOVA_DUMP_NUM	5
 #else
-	struct mtk_iommu_domain *dom = data->m4u_dom;
 	unsigned int fault_larb, fault_port, sub_comm = 0;
 #endif
 
@@ -1258,26 +1292,12 @@ static irqreturn_t mtk_iommu_isr(int irq, void *dev_id)
 		fault_pa |= (u64)pa34_32 << 32;
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
-		for (i = 0, tf_iova_tmp = fault_iova; i < TF_IOVA_DUMP_NUM; i++) {
-			if (i > 0)
-				tf_iova_tmp -= SZ_4K;
-			fake_pa = mtk_iommu_iova_to_phys(&data->m4u_dom->domain, tf_iova_tmp);
-			if (hypmmu_type2_en == true)
-				hw_pa[NS_TAB] = mtee_iova_to_phys(tf_iova_tmp,
-							data->plat_data->tab_id,
-							sr_info, hw_pa, pg_type, lvl);
-			pr_err("error, type2_en:%d, index:%d, lvl:%u, pg_type:0x%x, falut_iova:0x%lx, fault_pa:0x%llx ~ 0x%llx\n",
-			       hypmmu_type2_en, i, lvl[NS_TAB], pg_type[NS_TAB], tf_iova_tmp,
-			       (u64)fake_pa, hw_pa[NS_TAB]);
-			if (!fake_pa && i > 0)
-				break;
-		}
-		if (fault_iova) /* skip dump when fault iova = 0 */
-			mtk_iova_map_dump(fault_iova, data->plat_data->tab_id);
-		report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
-		pr_info("%s base:0x%x fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s\n",
+		pr_info("%s base:0x%x fault type=0x%x iova=0x%llx pa=0x%llx layer=%d %s, pgtable=0x%x, tfrp_pa=0x%llx, 0x114=0x%x\n",
 			dev_name(dev), table_base, int_state1, fault_iova, fault_pa,
-			layer, write ? "write" : "read");
+			layer, (write ? "write" : "read"), dom->cfg.arm_v7s_cfg.ttbr,
+			data->protect_base, readl_relaxed(base + REG_MMU_IVRP_PADDR));
+		mtk_iommu_dump_tf_iova(data, IOMMU_BK0, fault_iova);
+		report_custom_iommu_fault(fault_iova, fault_pa, regval, type, id);
 #else
 		fault_port = F_MMU_INT_ID_PORT_ID(regval);
 		if (MTK_IOMMU_HAS_FLAG(data->plat_data, HAS_SUB_COMM)) {
@@ -1526,6 +1546,31 @@ static void mtk_iommu_domain_free(struct iommu_domain *domain)
 	kfree(to_mtk_domain(domain));
 }
 
+static int mtk_iommu_set_dev_dma(struct device *dev)
+{
+	int ret = 0;
+
+	if (!dev)
+		return -EINVAL;
+
+	if (!dev->dma_parms) {
+		dev->dma_parms = devm_kzalloc(dev,
+					      sizeof(*dev->dma_parms),
+					      GFP_KERNEL);
+		if (!dev->dma_parms)
+			return -ENOMEM;
+	}
+
+	ret = dma_set_max_seg_size(dev,
+				   (unsigned int)DMA_BIT_MASK(34));
+	if (ret) {
+		dev_info(dev, "Failed to set DMA segment size\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int mtk_iommu_attach_device(struct iommu_domain *domain,
 				   struct device *dev)
 {
@@ -1533,15 +1578,20 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct device *m4udev = data->dev;
-	int ret, domid;
+	int tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
+	int domid, ret = 0;
 
 	domid = mtk_iommu_get_domain_id(dev, data->plat_data);
 	if (domid < 0)
 		return domid;
 
+	mutex_lock(&init_mutexs[tab_id]);
+
 	if (!dom->data) {
-		if (mtk_iommu_domain_finalise(dom, data, domid))
-			return -ENODEV;
+		if (mtk_iommu_domain_finalise(dom, data, domid)) {
+			ret = -ENODEV;
+			goto out_unlock;
+		}
 		dom->data = data;
 		dom->tab_id = MTK_M4U_TO_TAB(fwspec->ids[0]);
 		pr_info("%s, set mtk_iommu_domain, data:(%d,%d), tab_id:%d\n",
@@ -1556,7 +1606,7 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 				"%s, PM fail:%d, dom:%d, iommu_dev:(%d,%d), user_dev:%s\n",
 				__func__, ret, domid, data->plat_data->iommu_type,
 				data->plat_data->iommu_id, dev_name(dev));
-			return ret;
+			goto out_unlock;
 		}
 		/*
 		 * Because m4u_dom is used by mtk_iommu_isr, we must set it before
@@ -1568,7 +1618,7 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 		if (ret) {
 			dev_err(data->dev, "HW init fail %d in attach\n", ret);
 			pm_runtime_put(m4udev);
-			return ret;
+			goto out_unlock;
 		}
 		writel(dom->cfg.arm_v7s_cfg.ttbr & MMU_PT_ADDR_MASK,
 		       data->base + REG_MMU_PT_BASE_ADDR);
@@ -1586,8 +1636,11 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 	}
 
 	mtk_iommu_config(data, dev, true, domid);
+	mtk_iommu_set_dev_dma(dev);
 
-	return 0;
+out_unlock:
+	mutex_unlock(&init_mutexs[tab_id]);
+	return ret;
 }
 
 static void mtk_iommu_detach_device(struct iommu_domain *domain,
@@ -1603,6 +1656,7 @@ static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
 {
 	struct mtk_iommu_domain *dom = to_mtk_domain(domain);
 	int ret;
+	int retry_count = 0;
 
 	/* The "4GB mode" M4U physically can not use the lower remap of Dram. */
 	if (dom->data->enable_4GB)
@@ -1610,6 +1664,26 @@ static int mtk_iommu_map(struct iommu_domain *domain, unsigned long iova,
 
 	/* Synchronize with the tlb_lock */
 	ret = dom->iop->map(dom->iop, iova, paddr, size, prot, gfp);
+	//retry if atomic alloc memory fail, most wait 4ms at atomic or 64ms at normal.
+	while (ret == -ENOMEM && (gfp & GFP_ATOMIC) != 0 && retry_count < 8) {
+		pr_info("%s, retry #3 map alloc memory %d\n", __func__, retry_count + 1);
+		if (in_atomic() || irqs_disabled() || in_interrupt()) {
+			ret = dom->iop->map(dom->iop, iova, paddr, size, prot, gfp);
+		} else {
+			//if not in atomic ctx, wait memory reclaim.
+			gfp_t ignore_atomic = (gfp & ~GFP_ATOMIC) | GFP_KERNEL;
+			ret = dom->iop->map(dom->iop, iova, paddr, size, prot, ignore_atomic);
+		}
+		if (ret == -ENOMEM) {
+			retry_count ++;
+			if (in_atomic() || irqs_disabled() || in_interrupt()) {
+				udelay(500);
+			} else {
+				usleep_range(8000, 10*1000);
+			}
+		}
+	}
+
 	return ret;
 }
 
@@ -1749,6 +1823,7 @@ static struct iommu_group *mtk_iommu_device_group(struct device *dev)
 	if (domid < 0)
 		return ERR_PTR(domid);
 
+	mutex_lock(&group_mutexs[domid]);
 	group = data->m4u_group[domid];
 	if (!group) {
 		pr_info("%s create group, data:(%d,%d)-->(%d,%d), dev:%s, domid:%d\n", __func__,
@@ -1761,6 +1836,8 @@ static struct iommu_group *mtk_iommu_device_group(struct device *dev)
 	} else {
 		iommu_group_ref_get(group);
 	}
+	mutex_unlock(&group_mutexs[domid]);
+
 	return group;
 }
 
@@ -1967,6 +2044,19 @@ static int mtk_iommu_pd_callback(struct notifier_block *nb,
 
 	return NOTIFY_OK;
 }
+
+static int mtk_iommu_dbg_hang_cb(struct notifier_block *nb,
+				 unsigned long action, void *data)
+{
+	mtk_iommu_dbg_hang_detect(MM_IOMMU, DISP_IOMMU);
+	mtk_iommu_dbg_hang_detect(MM_IOMMU, MDP_IOMMU);
+	return NOTIFY_OK;
+}
+
+static int register_dbg_notifier;
+static struct notifier_block mtk_iommu_dbg_hang_nb = {
+		.notifier_call = mtk_iommu_dbg_hang_cb,
+};
 
 /********** mtk iommu MAU start **********/
 static inline void iommu_set_field_by_mask(void __iomem *m4u_base,
@@ -2369,6 +2459,14 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	data->dev = dev;
 	data->plat_data = of_device_get_match_data(dev);
 
+	if (!atomic_cmpxchg(&init_once_flag, 0, 1)) {
+		for (i = 0; i < PGTBALE_NUM; i++)
+			mutex_init(&init_mutexs[i]);
+
+		for (i = 0; i < MTK_IOMMU_GROUP_MAX; i++)
+			mutex_init(&group_mutexs[i]);
+	}
+
 	/* Protect memory. HW will access here while translation fault.*/
 	protect = devm_kzalloc(dev, MTK_PROTECT_PA_ALIGN * 2, GFP_KERNEL);
 	if (!protect)
@@ -2633,6 +2731,7 @@ skip_smi:
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, SHARE_PGTABLE)) {
 		list_add_tail(&data->list, &m4ulist);
 		data->hw_list = &m4ulist;
+		share_pgtable = true;
 	} else {
 		list_add_tail(&data->list, data->plat_data->hw_list);
 		data->hw_list = data->plat_data->hw_list;
@@ -2679,6 +2778,15 @@ skip_smi:
 			pr_info("%s notifier err, dev:%s\n", __func__, dev_name(dev));
 	}
 
+#if IS_ENABLED(CONFIG_MTK_SMI)
+	if (data->plat_data->iommu_type == MM_IOMMU) {
+		if (register_dbg_notifier != 1) {
+			mtk_smi_dbg_register_notifier(&mtk_iommu_dbg_hang_nb);
+			register_dbg_notifier = 1;
+		}
+	}
+#endif
+
 	mtk_iommu_isr_pause_timer_init(data);
 
 	pr_info("%s done dev:%s, head:%lx\n", __func__, dev_name(dev),
@@ -2723,6 +2831,7 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 	struct mtk_iommu_data *data = dev_get_drvdata(dev);
 	struct mtk_iommu_suspend_reg *reg = &data->reg;
 	void __iomem *base = data->base;
+	unsigned long flags;
 
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, PM_OPS_SKIP))
 		return 0;
@@ -2730,6 +2839,15 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 	/* skip read register when hw_init is not finish. */
 	if (!data->m4u_dom) {
 		clk_disable_unprepare(data->bclk);
+		return 0;
+	}
+
+	spin_lock_irqsave(&data->tlb_lock, flags);
+	if (!mtk_iommu_power_get(data)) {
+		pr_notice("%s, iommu:(%d,%d) power off dev:%s\n",
+			  __func__, data->plat_data->iommu_type, data->plat_data->iommu_id,
+			  dev_name(data->dev));
+		spin_unlock_irqrestore(&data->tlb_lock, flags);
 		return 0;
 	}
 
@@ -2752,6 +2870,9 @@ static int __maybe_unused mtk_iommu_runtime_suspend(struct device *dev)
 		mtk_iommu_mau_reg_backup(data);
 #endif
 
+	mtk_iommu_power_put(data);
+	spin_unlock_irqrestore(&data->tlb_lock, flags);
+
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	mtk_iommu_pm_trace(dev, false);
 #endif
@@ -2766,6 +2887,7 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 	struct mtk_iommu_suspend_reg *reg = &data->reg;
 	struct mtk_iommu_domain *m4u_dom = data->m4u_dom;
 	void __iomem *base = data->base;
+	unsigned long flags;
 	int ret;
 
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, PM_OPS_SKIP))
@@ -2783,6 +2905,15 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 	 */
 	if (!m4u_dom)
 		return 0;
+
+	spin_lock_irqsave(&data->tlb_lock, flags);
+	if (!mtk_iommu_power_get(data)) {
+		pr_notice("%s, iommu:(%d,%d) power off dev:%s\n",
+			  __func__, data->plat_data->iommu_type, data->plat_data->iommu_id,
+			  dev_name(data->dev));
+		spin_unlock_irqrestore(&data->tlb_lock, flags);
+		return 0;
+	}
 
 	writel_relaxed(reg->tbw_id, base + REG_MMU_TBW_ID);
 	writel_relaxed(reg->wr_len_ctrl, base + REG_MMU_WR_LEN_CTRL);
@@ -2803,6 +2934,9 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 	if (MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_MAU_EN))
 		mtk_iommu_mau_reg_restore(data);
 #endif
+
+	mtk_iommu_power_put(data);
+	spin_unlock_irqrestore(&data->tlb_lock, flags);
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_DBG)
 	mtk_iommu_pm_trace(dev, true);
@@ -2871,7 +3005,7 @@ static int mtk_dump_rs_sta_info(const struct mtk_iommu_data *data, int mmu)
 }
 #endif
 
-static void __mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
+static void mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 {
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
 	int cnt, ret, i;
@@ -2931,47 +3065,45 @@ static void __mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 		data->plat_data->iommu_id);
 }
 
-void mtk_dump_reg_for_hang_issue(enum mtk_iommu_type type, int	id)
+void mtk_iommu_dbg_hang_detect(enum mtk_iommu_type type, int id)
 {
 	struct list_head *hw_list;
 	struct mtk_iommu_data *data;
 
-	pr_info("%s start, (%d,%d)\n", __func__, type, id);
-	switch (type) {
-	case MM_IOMMU:
-		hw_list = &mm_iommu_list;
-		break;
-	case APU_IOMMU:
-		hw_list = &apu_iommu_list;
-		break;
-	default:
-		pr_err("%s failed, type is invalid, %d\n", type);
-		return;
+	if (!share_pgtable) {
+		switch (type) {
+		case MM_IOMMU:
+			hw_list = &mm_iommu_list;
+			break;
+		case APU_IOMMU:
+			hw_list = &apu_iommu_list;
+			break;
+		default:
+			pr_err("%s failed, type is invalid, %d\n", type);
+			return;
+		}
+	} else {
+		hw_list = &m4ulist;
 	}
 
 	for_each_m4u(data, hw_list) {
 		if (data->plat_data->iommu_type == type && data->plat_data->iommu_id == id) {
-			bool has_pm = !!data->dev->pm_domain;
-
-			if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN)) {
-				if ((data->plat_data->iommu_type == MM_IOMMU &&
-					pd_sta[data->plat_data->iommu_id] == POWER_OFF_STA) ||
-					(data->plat_data->iommu_type != MM_IOMMU &&
-					pm_runtime_get_if_in_use(data->dev) <= 0)) {
-					continue;
-				}
+			if (!mtk_iommu_power_get(data)) {
+				pr_notice("%s, iommu:(%d,%d) power off dev:%s\n",
+					  __func__, type, id, dev_name(data->dev));
+				return;
 			}
 
-			__mtk_dump_reg_for_hang_issue(data);
+			mtk_dump_reg_for_hang_issue(data);
 
-			if (has_pm && !MTK_IOMMU_HAS_FLAG(data->plat_data, IOMMU_CLK_AO_EN) &&
-				data->plat_data->iommu_type != MM_IOMMU)
-				pm_runtime_put(data->dev);
+			mtk_iommu_power_put(data);
+			return;
 		}
 	}
 
+	pr_info("%s, (%d,%d) no dump\n", __func__, type, id);
 }
-EXPORT_SYMBOL_GPL(mtk_dump_reg_for_hang_issue);
+EXPORT_SYMBOL_GPL(mtk_iommu_dbg_hang_detect);
 
 static const struct dev_pm_ops mtk_iommu_pm_ops = {
 	SET_RUNTIME_PM_OPS(mtk_iommu_runtime_suspend, mtk_iommu_runtime_resume, NULL)

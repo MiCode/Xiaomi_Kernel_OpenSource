@@ -5,6 +5,7 @@
 #define __MTK_CAM_SENINF_H__
 
 #include <linux/kthread.h>
+#include <linux/remoteproc.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-fwnode.h>
@@ -19,6 +20,7 @@
 #define CSI_EFUSE_SET
 //#define SENINF_UT_DUMP
 
+#define ERR_DETECT_TEST
 struct seninf_ctx;
 
 struct seninf_mux {
@@ -43,6 +45,7 @@ struct seninf_vc {
 	u8 enable;
 	u16 exp_hsize;
 	u16 exp_vsize;
+	u8 bit_depth;
 };
 
 struct seninf_vcinfo {
@@ -65,6 +68,9 @@ struct mtk_seninf_work {
 		unsigned int sof;
 		void *data_ptr;
 	} data;
+	struct work_irq_status_data {
+		u64 time_mono;
+	} irq_status_data;
 };
 
 struct seninf_core {
@@ -85,6 +91,10 @@ struct seninf_core {
 	void __iomem *reg_ana;
 	int refcnt;
 
+	/* CCU control flow */
+	phandle rproc_ccu_phandle;
+	struct rproc *rproc_ccu_handle;
+
 	/* platform properties */
 	int cphy_settle_delay_dt;
 	int dphy_settle_delay_dt;
@@ -96,14 +106,28 @@ struct seninf_core {
 	struct kthread_worker seninf_worker;
 	struct task_struct *seninf_kworker_task;
 
-	/* record pid */
-	struct pid *pid;
 	/* mipi error detection count */
-	unsigned int detection_cnt;
+	unsigned int data_not_enough_detection_cnt;
+	unsigned int err_lane_resync_detection_cnt;
+	unsigned int crc_err_detection_cnt;
+	unsigned int ecc_err_double_detection_cnt;
+	unsigned int ecc_err_corrected_detection_cnt;
+	/* seninf_mux fifo overrun irq */
+	unsigned int fifo_overrun_detection_cnt;
+	/* cam_mux h/v size irq */
+	unsigned int size_err_detection_cnt;
+#ifdef ERR_DETECT_TEST	
+	/* enable csi err detect flag */
+	unsigned int err_detect_test_flag;
+#endif
 	/* enable csi irq flag */
 	unsigned int csi_irq_en_flag;
 	/* enable vsync irq flag */
 	unsigned int vsync_irq_en_flag;
+	/* flags for continuous detection */
+	unsigned int err_detect_init_flag;
+	unsigned int err_detect_termination_flag;
+
 };
 
 struct seninf_ctx {
@@ -199,6 +223,13 @@ struct seninf_ctx {
 	unsigned int ecc_err_corrected_flag;
 	unsigned int fifo_overrun_flag;
 	unsigned int size_err_flag;
+	unsigned int dbg_timeout;
+	unsigned int dbg_last_dump_req;
+#ifdef ERR_DETECT_TEST
+	unsigned int test_cnt;
+#endif
+	/* record pid */
+	struct pid *pid;
 };
 
 #endif

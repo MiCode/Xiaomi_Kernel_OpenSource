@@ -12,6 +12,14 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
+source "drivers/input/touchscreen/L2m_fts_spi/Kconfig"
+source "drivers/input/touchscreen/L11_fts_spi/Kconfig"
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+source "drivers/input/touchscreen/L11a_fts_spi/Kconfig"
+source "drivers/input/touchscreen/NVT36672C/Kconfig"
+source "drivers/input/touchscreen/goodix_9916/Kconfig"
+source "drivers/input/touchscreen/L12a_fts_spi/Kconfig"
+
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
 	depends on INPUT

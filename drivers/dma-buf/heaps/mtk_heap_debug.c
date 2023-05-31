@@ -199,6 +199,7 @@ struct proc_dir_entry *dma_heap_proc_root;
 struct proc_dir_entry *dma_heaps_dir;
 struct proc_dir_entry *dma_heaps_all_entry;
 struct proc_dir_entry *dma_heaps_stats;
+struct proc_dir_entry *dma_heaps_stat_pid;
 #endif
 
 
@@ -837,7 +838,7 @@ static void dma_heap_attach_dump(const struct dma_buf *dmabuf,
 		if (!dev_iommu_fwspec_get(attach_obj->dev)) {
 			if (!dump_all_attach)
 				continue;
-		} else {
+		} else if (attach_obj->sgt) {
 			iova = sg_dma_address(attach_obj->sgt->sgl);
 		}
 
@@ -1007,12 +1008,75 @@ int dmabuf_rbtree_dbg_add_cb(const struct dma_buf *dmabuf, void *priv)
 	return 0;
 }
 
+static noinline
+void dmabuf_rbtree_add_all_pid(struct dump_fd_data *fddata,
+			       struct dma_heap *heap,
+			       struct seq_file *s, int pid)
+{
+	int ret = 0;
+	int found_vma = 0;
+	int found_fd = 0;
+	struct pid *pid_s;
+	struct task_struct *p;
+
+	pid_s = find_get_pid(pid);
+	if (!pid_s) {
+		dmabuf_dump(s, "%s: fail pid:%d\n", __func__, pid);
+		return;
+	}
+
+	p = get_pid_task(pid_s, PIDTYPE_PID);
+	if (!p) {
+		put_pid(pid_s);
+		dmabuf_dump(s, "%s: fail pid:%d\n", __func__, pid);
+		return;
+	}
+
+	/* spin lock */
+	task_lock(p);
+	fddata->constd.p = p;
+
+	fddata->err = 0;
+	fddata->ret = 0;
+	ret = dmabuf_rbtree_add_vmas(fddata);
+	found_vma = fddata->ret;
+	if (ret)
+		dmabuf_dump(s, "%s: add vma fail:%d\n", __func__, ret);
+
+	fddata->ret = 0;
+	fddata->err = 0;
+	iterate_fd(p->files, 0, dmabuf_rbtree_add_fd_cb, &fddata->constd);
+	found_fd = fddata->ret;
+	if (fddata->err)
+		dmabuf_dump(s, "[E] %s#%d pid:%d(%s) err:%d\n",
+			    __func__, __LINE__, p->pid, p->comm, fddata->err);
+
+	if (found_vma || found_fd)
+		if (!pid_map_get_name(fddata, p->pid))
+			ret = add_pid_map_entry(fddata, p->pid, p->comm);
+
+	if (dmabuf_rb_check)
+		dmabuf_dump(s, "\tpid:%d(%s) added, err val:%d\n\n",
+			    p->pid, p->comm,
+			    fddata->err);
+
+	task_unlock(p);
+	put_task_struct(p);
+	put_pid(pid_s);
+}
+
 /* add 'noinline' to let it show in callstack */
 static noinline
-struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap, struct seq_file *s)
+struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap,
+					   struct seq_file *s, int pid)
 {
 	struct task_struct *p;
 	struct dump_fd_data *fddata;
+	int *pids;
+	unsigned int pid_max = 0;
+	unsigned int pid_count = 0;
+	unsigned long long cur_ts1;
+	unsigned long long cur_ts2;
 
 	fddata = kzalloc(sizeof(*fddata), DMA_HEAP_DUMP_ALLOC_GFP);
 	if (!fddata)
@@ -1026,59 +1090,48 @@ struct dump_fd_data *dmabuf_rbtree_add_all(struct dma_heap *heap, struct seq_fil
 	spin_lock_init(&fddata->splock);
 
 	get_each_dmabuf(dmabuf_rbtree_dbg_add_cb, fddata);
-	read_lock(&tasklist_lock);
-	spin_lock(&fddata->splock);
-	for_each_process(p) {
-		int ret = 0;
-		int found_vma = 0;
-		int found_fd = 0;
+	if (pid > 0) {
+		dmabuf_rbtree_add_all_pid(fddata, heap, s, pid);
+		return fddata;
+	}
 
+	cur_ts1 = sched_clock();
+	rcu_read_lock();
+	for_each_process(p)
+		pid_max++;
+
+	if (pid_max <= 0) {
+		rcu_read_unlock();
+		return fddata;
+	}
+	pids = kcalloc(pid_max, sizeof(*pids), DMA_HEAP_DUMP_ALLOC_GFP);
+	if (!pids) {
+		rcu_read_unlock();
+		kfree(fddata);
+		dmabuf_dump(s, "%s: no memory\n", __func__);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	for_each_process(p) {
 		if (fatal_signal_pending(p))
 			continue;
 
-		/* spin lock */
-		task_lock(p);
-		fddata->constd.p = p;
-
-		fddata->err = 0;
-		fddata->ret = 0;
-		ret = dmabuf_rbtree_add_vmas(fddata);
-		found_vma = fddata->ret;
-		if (ret)
-			dmabuf_dump(s, "%s: add vma fail:%d\n", __func__, ret);
-
-		fddata->ret = 0;
-		fddata->err = 0;
-		iterate_fd(p->files, 0, dmabuf_rbtree_add_fd_cb, &fddata->constd);
-		found_fd = fddata->ret;
-		if (fddata->err)
-			dmabuf_dump(s, "[E] %s#%d pid:%d(%s) err:%d\n",
-				    __func__, __LINE__, p->pid, p->comm, fddata->err);
-
-		if (found_vma || found_fd) {
-			if (!pid_map_get_name(fddata, p->pid)) {
-				ret = add_pid_map_entry(fddata, p->pid, p->comm);
-				if (ret) {
-					task_unlock(p);
-					goto out;
-				}
-			}
-		} else {
-			/* No dmabuf, continue to next task */
-			task_unlock(p);
-			continue;
-		}
-
-		if (dmabuf_rb_check)
-			dmabuf_dump(s, "\tpid:%d(%s) added, err val:%d\n\n",
-				    p->pid, p->comm,
-				    fddata->err);
-		task_unlock(p);
+		pids[pid_count++] = p->pid;
+		if (pid_count >= pid_max)
+			break;
 	}
-out:
-	spin_unlock(&fddata->splock);
-	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
+	cur_ts2 = sched_clock();
+	if (dmabuf_rb_check)
+		dmabuf_dump(s, "%s: time:%lu max:%d count:%d\n", __func__,
+			    cur_ts2 - cur_ts1, pid_max, pid_count);
 
+	while (pid_count) {
+		dmabuf_rbtree_add_all_pid(fddata, heap, s, pids[pid_count-1]);
+		pid_count--;
+	}
+
+	kfree(pids);
 	return fddata;
 }
 
@@ -1203,7 +1256,8 @@ static void dmabuf_rbtree_dump_buf(struct dump_fd_data *fddata, unsigned long fl
 
 /* add 'noinline' to let it show in callstack */
 static noinline
-void dmabuf_rbtree_dump_all(struct dma_heap *heap, unsigned long flag, struct seq_file *s)
+void dmabuf_rbtree_dump_all(struct dma_heap *heap, unsigned long flag,
+			    struct seq_file *s, int pid)
 {
 	struct dump_fd_data *fddata;
 	unsigned long long time1, time2, time3;
@@ -1212,7 +1266,7 @@ void dmabuf_rbtree_dump_all(struct dma_heap *heap, unsigned long flag, struct se
 	debug_alloc_sz = 0;
 	time1 = get_current_time_ms();
 
-	fddata = dmabuf_rbtree_add_all(heap, s);
+	fddata = dmabuf_rbtree_add_all(heap, s, pid);
 	if (IS_ERR_OR_NULL(fddata)) {
 		dmabuf_dump(s, "[%s]err: no memory\n", __func__);
 		return;
@@ -1272,7 +1326,7 @@ pool_dump_done:
 		goto rb_dump_done;
 
 	dmabuf_dump(s, "\n");
-	dmabuf_rbtree_dump_all(heap, flag, s);
+	dmabuf_rbtree_dump_all(heap, flag, s, -1);
 rb_dump_done:
 
 	return;
@@ -1356,7 +1410,7 @@ static inline void mtk_dmabuf_dump_all(struct seq_file *s, int flag)
 
 static void mtk_dmabuf_stats_show(struct seq_file *s, int flag)
 {
-	dmabuf_rbtree_dump_all(NULL, flag | HEAP_DUMP_STATS, s);
+	dmabuf_rbtree_dump_all(NULL, flag | HEAP_DUMP_STATS, s, -1);
 }
 
 #if IS_ENABLED(CONFIG_PROC_FS)
@@ -1530,6 +1584,45 @@ static ssize_t heap_stats_proc_write(struct file *file, const char *buf,
 	return count;
 }
 
+static int g_stat_pid;
+static int heap_stat_pid_proc_show(struct seq_file *s, void *v)
+{
+	int pid = g_stat_pid;
+
+	if (!s)
+		return -EINVAL;
+
+	if (pid > 0) {
+		g_stat_pid = 0;
+		dmabuf_rbtree_dump_all(NULL, HEAP_DUMP_STATS, s, pid);
+	}
+
+	return 0;
+}
+
+
+static int heap_stat_pid_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, heap_stat_pid_proc_show, PDE_DATA(inode));
+}
+
+static ssize_t heap_stat_pid_proc_write(struct file *file, const char *buf,
+					size_t count, loff_t *data)
+{
+	int pid = 0;
+	char line[64] = {0};
+	size_t size = (count > sizeof(line)) ? sizeof(line) : count;
+
+	if (copy_from_user(line, buf, size))
+		return 0;
+
+	if (sscanf(line, "pid:%d\n", &pid) != 1)
+		return 0;
+
+	g_stat_pid = pid;
+	return count;
+}
+
 static const struct proc_ops dma_heap_proc_fops = {
 	.proc_open = dma_heap_proc_open,
 	.proc_read = seq_read,
@@ -1550,6 +1643,14 @@ static const struct proc_ops heap_stats_proc_fops = {
 	.proc_open = heap_stats_proc_open,
 	.proc_read = seq_read,
 	.proc_write = heap_stats_proc_write,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+static const struct proc_ops heap_stat_pid_proc_fops = {
+	.proc_open = heap_stat_pid_proc_open,
+	.proc_read = seq_read,
+	.proc_write = heap_stat_pid_proc_write,
 	.proc_lseek = seq_lseek,
 	.proc_release = single_release,
 };
@@ -1646,6 +1747,18 @@ static int dma_buf_init_procfs(void)
 		return -1;
 	}
 	pr_info("create debug file for stats\n");
+
+	dma_heaps_stat_pid = proc_create_data("rss_pid",
+					      S_IFREG | 0666,
+					      dma_heap_proc_root,
+					      &heap_stat_pid_proc_fops,
+					      NULL);
+	if (!dma_heaps_stat_pid) {
+		pr_info("%s failed to create procfs rss_pid dir:%ld\n",
+			__func__, PTR_ERR(dma_heaps_stat_pid));
+		return -1;
+	}
+	pr_info("create debug file for stats_pid\n");
 
 	return ret;
 }

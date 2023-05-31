@@ -401,8 +401,7 @@ static inline bool pd_process_timer_msg(
 #if !CONFIG_USB_PD_DBG_IGRONE_TIMEOUT
 	case PD_TIMER_SINK_WAIT_CAP:
 	case PD_TIMER_PS_TRANSITION:
-		if ((pd_port->pe_state_curr != PE_SNK_DISCOVERY) &&
-			(pe_data->hard_reset_counter <= PD_HARD_RESET_COUNT)) {
+		if (pe_data->hard_reset_counter <= PD_HARD_RESET_COUNT) {
 			PE_TRANSIT_STATE(pd_port, PE_SNK_HARD_RESET);
 			return true;
 		}

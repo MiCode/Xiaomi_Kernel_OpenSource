@@ -239,6 +239,89 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 #endif
 }
 
+static void mtk_venc_hw_break(struct mtk_vcodec_dev *dev, int core_id)
+{
+	void __iomem *reg_base = NULL;
+	bool timeout_fg = false;
+	struct timespec64 tv_start;
+	struct timespec64 tv_end;
+	s32 usec, timeout = 100000;
+
+	mtk_v4l2_debug(3, "[%s]+", __func__);
+
+	if (core_id == MTK_VENC_CORE_0)
+		reg_base = dev->enc_reg_base[VENC_SYS];
+	if (core_id == MTK_VENC_CORE_1)
+		reg_base = dev->enc_reg_base[VENC_C1_SYS];
+
+
+	if (reg_base != NULL) {
+		if ((readl(reg_base + 0x00EC)) == 0) {
+			mtk_v4l2_debug(3, "[%s] Core %d normal power off\n", __func__, core_id);
+			return;
+		}
+
+		mtk_v4l2_err("[%s] core %d abnormal power off\n", __func__, core_id);
+
+		writel(0xc0000000, (dev->enc_reg_base[VENC_SYS] + 0x5040));
+		writel(1, (reg_base + 0x1228));
+
+		mtk_venc_do_gettimeofday(&tv_start);
+		while ((readl(reg_base + 0x1228) & 0x7FFFFDFC) != 0) {
+			mtk_v4l2_debug(3, "[%s] wait core %d stop value 0x%x\n", __func__,
+					core_id, readl(reg_base + 0x1228));
+			mtk_venc_do_gettimeofday(&tv_end);
+			usec = (tv_end.tv_sec - tv_start.tv_sec) * 1000000
+				+ (tv_end.tv_nsec - tv_start.tv_nsec);
+			if (usec > timeout) {
+				timeout_fg = true;
+				break;
+			}
+		}
+
+		if (!timeout_fg)
+			return;
+
+		mtk_v4l2_err("venc core %d hw break timeout =>\n", core_id);
+		mtk_v4l2_err("0x0: 0x%x, 0x14: 0x%x, 0x24: 0x%x, 0x28: 0x%x, 0x2C: 0x%x, 0x64: 0x%x, 0x6C: 0x%x",
+			readl(reg_base), readl(reg_base + 0x14), readl(reg_base + 0x24),
+			readl(reg_base + 0x28), readl(reg_base + 0x2C),
+			readl(reg_base + 0x64), readl(reg_base + 0x6C));
+		mtk_v4l2_err("0x70: 0x%x, 0x74: 0x%x, 0x78: 0x%x, 0x7C: 0x%x, 0x80: 0x%x, 0x84: 0x%x",
+			readl(reg_base + 0x70), readl(reg_base + 0x74),
+			readl(reg_base + 0x78), readl(reg_base + 0x7C),
+			readl(reg_base + 0x80), readl(reg_base + 0x84));
+		mtk_v4l2_err("0x88: 0x%x, 0x8C: 0x%x, 0x90: 0x%x, 0x94: 0x%x",
+			readl(reg_base + 0x88), readl(reg_base + 0x8C),
+			readl(reg_base + 0x90), readl(reg_base + 0x94));
+		mtk_v4l2_err("0x108: 0x%x",
+			readl(reg_base + 0x108));
+		mtk_v4l2_err("0x200: 0x%x 0x204: 0x%x, 0x208: 0x%x, 0x20C: 0x%x, 0x210: 0x%x, 0x214: 0x%x, 0x218: 0x%x, 0x21C: 0x%x, 0x220: 0x%x",
+			readl(reg_base + 0x200), readl(reg_base + 0x204),
+			readl(reg_base + 0x208), readl(reg_base + 0x20C),
+			readl(reg_base + 0x210), readl(reg_base + 0x214),
+			readl(reg_base + 0x218), readl(reg_base + 0x21C),
+			readl(reg_base + 0x220));
+		mtk_v4l2_err("0xE0: 0x%x, 0x1B0: 0x%x, 0x1B4: 0x%x, 0x1170: 0x%x",
+			readl(reg_base + 0xE0), readl(reg_base + 0x1B0),
+			readl(reg_base + 0x1B4), readl(reg_base + 0x1170));
+		mtk_v4l2_err("0x11B8: 0x%x 0x11BC: 0x%x, 0x1280: 0x%x, 0x1284: 0x%x, 0x1288: 0x%x",
+			readl(reg_base + 0x11B8), readl(reg_base + 0x11BC),
+			readl(reg_base + 0x1280), readl(reg_base + 0x1284),
+			readl(reg_base + 0x1288));
+		mtk_v4l2_err("0x132C: 0x%x 0x1330: 0x%x, 0x1334: 0x%x, 0x1338: 0x%x, 0x133C: 0x%x, 0x1340: 0x%x, 0x1344: 0x%x, 0x1348: 0x%x",
+			readl(reg_base + 0x132C), readl(reg_base + 0x1330),
+			readl(reg_base + 0x1334), readl(reg_base + 0x1338),
+			readl(reg_base + 0x133C), readl(reg_base + 0x1340),
+			readl(reg_base + 0x1344), readl(reg_base + 0x1348));
+		mtk_v4l2_err("0x1420: 0x%x, 0x1424: 0x%x", readl(reg_base + 0x1420),
+			readl(reg_base + 0x1424));
+		mtk_v4l2_err("0x13c: 0x%x, 0x484: 0x%x, 0x568: 0x%x",
+			readl(reg_base + 0x13c), readl(reg_base + 0x484), readl(reg_base + 0x568));
+	}
+	mtk_v4l2_debug(3, "[%s]-", __func__);
+}
+
 void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 {
 	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
@@ -249,6 +332,8 @@ void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 	unsigned long flags;
 
 	dev = ctx->dev;
+
+	mtk_venc_hw_break(dev, core_id);
 
 	if (ctx->use_slbc == 1)
 		slbc_power_off(&ctx->sram_data);
@@ -342,6 +427,29 @@ static int mtk_venc_translation_fault_callback(
 			readl(reg_base + 0x1424));
 		mtk_v4l2_err("0x13c: 0x%x, 0x484: 0x%x, 0x568: 0x%x",
 			readl(reg_base + 0x13c), readl(reg_base + 0x484), readl(reg_base + 0x568));
+
+		//soc base address as VENC_SYS
+		if (larb_id == 7) {
+			mtk_v4l2_err("0x4064: 0x%x, 0x406c : 0x%x, 0x4074: 0x%x, 0x52c0: 0x%x",
+				readl(reg_base + 0x4064), readl(reg_base + 0x406c),
+				readl(reg_base + 0x4074), readl(reg_base + 0x52c0));
+		} else if (larb_id == 8) {
+			reg_base = dev->enc_reg_base[VENC_SYS];
+			spin_lock_irqsave(&dev->enc_power_lock[MTK_VENC_CORE_0], flags);
+			if (dev->enc_is_power_on[MTK_VENC_CORE_0] == false) {
+				mtk_v4l2_err("hw %d power is off !!", MTK_VENC_CORE_0);
+				spin_unlock_irqrestore(&dev->enc_power_lock[MTK_VENC_CORE_0],
+					flags);
+				spin_unlock_irqrestore(&dev->enc_power_lock[hw_id], flags);
+				return -1;
+			}
+			if (reg_base != NULL) {
+				mtk_v4l2_err("0x4064: 0x%x, 0x406c : 0x%x, 0x4074: 0x%x, 0x52c0: 0x%x",
+					readl(reg_base + 0x4064), readl(reg_base + 0x406c),
+					readl(reg_base + 0x4074), readl(reg_base + 0x52c0));
+			}
+			spin_unlock_irqrestore(&dev->enc_power_lock[MTK_VENC_CORE_0], flags);
+		}
 	}
 
 	spin_unlock_irqrestore(&dev->enc_power_lock[hw_id], flags);

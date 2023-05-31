@@ -118,6 +118,8 @@ struct scp {
 	struct regmap *smi_common;
 	struct regmap *vlpcfg;
 	struct regmap *mfgrpc;
+	struct regmap *nemi;
+	struct regmap *semi;
 	struct regmap *hwv_regmap;
 	struct scp_ctrl_reg ctrl_reg;
 };

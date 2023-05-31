@@ -48,5 +48,5 @@ void mtk_cam_dvfs_update_clk(struct mtk_cam_device *cam);
 
 void mtk_cam_qos_init(struct mtk_cam_device *cam);
 void mtk_cam_qos_bw_reset(struct mtk_cam_ctx *ctx, unsigned int enabled_sv);
-void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas);
+void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool force);
 #endif

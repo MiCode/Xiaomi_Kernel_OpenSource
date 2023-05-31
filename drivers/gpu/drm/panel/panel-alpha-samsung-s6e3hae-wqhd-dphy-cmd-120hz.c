@@ -158,6 +158,9 @@ module_exit(_lcm_i2c_exit);
 
 
 #define DATA_RATE		1360
+#define DYN_DATA_RATE		650
+#define FHDP_120HZ_DYN_RATE	750
+#define FHDP_60HZ_DYN_RATE	510
 #define MODE0_FPS		60
 #define MODE1_FPS		120
 #define MODE2_FPS		60
@@ -188,9 +191,9 @@ struct lcm {
 	struct gpio_desc *bias_neg;
 	bool prepared;
 	bool enabled;
-
+	bool wqhd_en;
+	unsigned int dynamic_fps;
 	unsigned int gate_ic;
-
 	int error;
 };
 
@@ -277,58 +280,122 @@ struct LCM_setting_table {
 	unsigned char para_list[130];
 };
 
-#if (PANEL_2K)
-static struct LCM_setting_table init_setting[] = {
-    /* DSC setting */
-	{0x9D, 01, {0x01} },
-	{0x9E, 120, {0x11, 0x00, 0x00, 0x89, 0x30, 0x80, 0x0C, 0x80,
-		0x05, 0xA0, 0x00, 0x19, 0x02, 0xD0, 0x02, 0xD0,
-		0x02, 0x00, 0x02, 0x68, 0x00, 0x20, 0x02, 0xBE,
-		0x00, 0x0A, 0x00, 0x0C, 0x04, 0x00, 0x03, 0x0D,
-		0x18, 0x00, 0x10, 0xF0, 0x03, 0x0C, 0x20, 0x00,
-		0x06, 0x0B, 0x0B, 0x33, 0x0E, 0x1C, 0x2A, 0x38,
-		0x46, 0x54, 0x62, 0x69, 0x70, 0x77, 0x79, 0x7B,
-		0x7D, 0x7E, 0x01, 0x02, 0x01, 0x00, 0x09, 0x40,
-		0x09, 0xBE, 0x19, 0xFC, 0x19, 0xFA, 0x19, 0xF8,
-		0x1A, 0x38, 0x1A, 0x78, 0x1A, 0xB6, 0x2A, 0xF6,
-		0x2B, 0x34, 0x2B, 0x74, 0x3B, 0x74, 0x6B, 0xF4,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00} },
-	{0x11, 01, {0x00} },
-	{REGFLAG_DELAY, 120, {} },
-	/* common setting */
-	{0x35, 01, {0x00} },
-	/* page address set */
-	{0x2A, 04, {0x00, 0x00, 0x05, 0x9F} },
-	{0x2B, 04, {0x00, 0x00, 0x0c, 0x7F} },
-	/*frequency select 120hz */
-	{0xF0, 02, {0x5A, 0x5A} },
-	{0x60, 01, {0x00} },
-	{0xF7, 01, {0x0F} },
-	{0xF0, 02, {0xA5, 0xA5} },
 
-	/* dimming setting */
-	{0xF0, 02, {0x5A, 0x5A} },
-	/* dimming speed setting */
-	{0xB0, 01, {0x0E} },
-	{0x94, 01, {0x28} },
-	/* elvss dim setting */
-	{0xB0, 01, {0x0D} },
-	{0x94, 01, {0x60} },
-	{0x53, 01, {0x28} },
-	{0x51, 02, {0x03, 0xFF} },
-	{0xF7, 01, {0x0F} },
-	{0xF0, 02, {0xA5, 0xA5} },
+static struct LCM_setting_table mode_120hz_setting[] = {
+	/* frequency select 120hz */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0x60, 01, {0x00}},
+	{0xF7, 01, {0x0F}},
+	{0xF0, 02, {0xA5, 0xA5}},
 
-	{0x29, 01, {0x00} },
-	{REGFLAG_END_OF_TABLE, 0x00, {} }
+	/* TE fixed */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0xB0, 03, {0x00, 0x01, 0xBD}},
+	{0xBD, 01, {0x83}},
+	{0xB0, 03, {0x00, 0x2D, 0xBD}},
+	{0xBD, 01, {0x04}},
+	{0xF7, 01, {0x0F}},
+	{0xF0, 02, {0xA5, 0xA5}},
+	{REGFLAG_END_OF_TABLE, 0x00, {}}
 };
 
-#else
+static struct LCM_setting_table mode_60hz_setting[] = {
+	/* frequency select 60hz */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0x60, 01, {0x08}},
+	{0xF7, 01, {0x0F}},
+	{0xF0, 02, {0xA5, 0xA5}},
 
-static struct LCM_setting_table init_setting[] = {
+	/* TE fixed */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0xB0, 03, {0x00, 0x01, 0xBD}},
+	{0xBD, 01, {0x83}},
+	{0xB0, 03, {0x00, 0x2D, 0xBD}},
+	{0xBD, 01, {0x04}},
+	{0xF7, 01, {0x0F}},
+	{0xF0, 02, {0xA5, 0xA5}},
+	{REGFLAG_END_OF_TABLE, 0x00, {}}
+};
+
+static struct LCM_setting_table mode_wqhd_setting[] = {
+	/* WQHD DSC setting */
+	{0x9D, 01, {0x01}},
+	{0x9E, 120, {0x11, 0x00, 0x00, 0x89, 0x30, 0x80, 0x0C, 0x80,
+			0x05, 0xA0, 0x00, 0x19, 0x02, 0xD0, 0x02, 0xD0,
+			0x02, 0x00, 0x02, 0x68, 0x00, 0x20, 0x02, 0xBE,
+			0x00, 0x0A, 0x00, 0x0C, 0x04, 0x00, 0x03, 0x0D,
+			0x18, 0x00, 0x10, 0xF0, 0x03, 0x0C, 0x20, 0x00,
+			0x06, 0x0B, 0x0B, 0x33, 0x0E, 0x1C, 0x2A, 0x38,
+			0x46, 0x54, 0x62, 0x69, 0x70, 0x77, 0x79, 0x7B,
+			0x7D, 0x7E, 0x01, 0x02, 0x01, 0x00, 0x09, 0x40,
+			0x09, 0xBE, 0x19, 0xFC, 0x19, 0xFA, 0x19, 0xF8,
+			0x1A, 0x38, 0x1A, 0x78, 0x1A, 0xB6, 0x2A, 0xF6,
+			0x2B, 0x34, 0x2B, 0x74, 0x3B, 0x74, 0x6B, 0xF4,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
+	{0x11, 01, {0x00}},
+	{REGFLAG_DELAY, 120, {} },
+	/* common setting */
+	{0x35, 01, {0x00}},
+	/* page address set */
+	{0x2A, 04, {0x00, 0x00, 0x05, 0x9F}},
+	{0x2B, 04, {0x00, 0x00, 0x0c, 0x7F}},
+	/* scaler setting WQHD */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0xC3, 01, {0x4C}},
+	{0xF0, 02, {0xA5, 0xA5}},
+	/* VLIN1 set 7.6V */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0xB0, 03, {0x00, 0x0A, 0xB1}},
+	{0xB1, 01, {0x38}},
+	{0xF0, 02, {0xA5, 0xA5}},
+
+	/* dimming setting */
+	{0xF0, 02, {0x5A, 0x5A}},
+	/* dimming speed setting */
+	{0xB0, 01, {0x0E}},
+	{0x94, 01, {0x28}},
+	/* elvss dim setting */
+	{0xB0, 01, {0x0D}},
+	{0x94, 01, {0x60}},
+	{0x53, 01, {0x28}},
+	{0x51, 02, {0x00, 0x00}},
+	{0xF7, 01, {0x0F}},
+	{0xF0, 02, {0xA5, 0xA5}},
+
+	/* FFC setting */
+	{0xFC, 02, {0x5A, 0x5A}},
+	{0xB0, 03, {0x00, 0x2A, 0xC5}},
+	{0xC5, 28, {0x11, 0x10, 0x50, 0x05, 0x47, 0x4B, 0x46, 0x5A,
+			0x4D, 0x9A, 0x4C, 0x0C, 0x47, 0x4B, 0x46, 0x5A,
+			0x4D, 0x9A, 0x4C, 0x0C, 0x47, 0x4B, 0x46, 0x5A,
+			0x4D, 0x9A, 0x4C, 0x0C}},
+	{0xFC, 02, {0xA5, 0xA5}},
+
+	/* Err_flag setting */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0xB0, 03, {0x00, 0x4C, 0xF4}},
+	{0xF4, 01, {0xF0}},
+	{0xE5, 01, {0x1D}},
+	{0xED, 03, {0x45, 0x4C, 0x20}},
+	{0xF0, 02, {0xA5, 0xA5}},
+
+	{0x29, 01, {0x00}},
+
+	/* TE fixed */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0xB0, 03, {0x00, 0x01, 0xBD}},
+	{0xBD, 01, {0x83}},
+	{0xB0, 03, {0x00, 0x2D, 0xBD}},
+	{0xBD, 01, {0x04}},
+	{0xF7, 01, {0x0F}},
+	{0xF0, 02, {0xA5, 0xA5}},
+	{REGFLAG_END_OF_TABLE, 0x00, {}}
+};
+
+static struct LCM_setting_table mode_fhdp_setting[] = {
 	/* FHDP DSC setting */
 	{0x9D, 01, {0x01}},
 	{0x9E, 120, {0x11, 0x00, 0x00, 0x89, 0x30, 0x80, 0x09, 0x60,
@@ -353,14 +420,15 @@ static struct LCM_setting_table init_setting[] = {
 	/* page address set */
 	{0x2A, 04, {0x00, 0x00, 0x05, 0x9F}},
 	{0x2B, 04, {0x00, 0x00, 0x0c, 0x7F}},
-	/* frequency select 60hz */
-	{0xF0, 02, {0x5A, 0x5A}},
-	{0x60, 01, {0x08}},
-	{0xF7, 01, {0x0F}},
-	{0xF0, 02, {0xA5, 0xA5}},
 	/* scaler setting FHDP */
 	{0xF0, 02, {0x5A, 0x5A}},
 	{0xC3, 01, {0x4D}},
+	{0xF0, 02, {0xA5, 0xA5}},
+
+	/* VLIN1 set 7.6V */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0xB0, 03, {0x00, 0x0A, 0xB1}},
+	{0xB1, 01, {0x38}},
 	{0xF0, 02, {0xA5, 0xA5}},
 
 	/* dimming setting */
@@ -372,14 +440,41 @@ static struct LCM_setting_table init_setting[] = {
 	{0xB0, 01, {0x0D}},
 	{0x94, 01, {0x60}},
 	{0x53, 01, {0x28}},
-	{0x51, 02, {0x03, 0xFF}},
+	{0x51, 02, {0x00, 0x00}},
 	{0xF7, 01, {0x0F}},
 	{0xF0, 02, {0xA5, 0xA5}},
 
+	/* FFC setting */
+	{0xFC, 02, {0x5A, 0x5A}},
+	{0xB0, 03, {0x00, 0x2A, 0xC5}},
+	{0xC5, 28, {0x11, 0x10, 0x50, 0x05, 0x47, 0x4B, 0x46, 0x5A,
+			0x4D, 0x9A, 0x4C, 0x0C, 0x47, 0x4B, 0x46, 0x5A,
+			0x4D, 0x9A, 0x4C, 0x0C, 0x47, 0x4B, 0x46, 0x5A,
+			0x4D, 0x9A, 0x4C, 0x0C}},
+	{0xFC, 02, {0xA5, 0xA5}},
+
+	/* Err_flag setting */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0xB0, 03, {0x00, 0x4C, 0xF4}},
+	{0xF4, 01, {0xF0}},
+	{0xE5, 01, {0x1D}},
+	{0xED, 03, {0x45, 0x4C, 0x20}},
+	{0xF0, 02, {0xA5, 0xA5}},
+
 	{0x29, 01, {0x00}},
+
+	/* TE fixed */
+	{0xF0, 02, {0x5A, 0x5A}},
+	{0xB0, 03, {0x00, 0x01, 0xBD}},
+	{0xBD, 01, {0x83}},
+	{0xB0, 03, {0x00, 0x2D, 0xBD}},
+	{0xBD, 01, {0x04}},
+	{0xF7, 01, {0x0F}},
+	{0xF0, 02, {0xA5, 0xA5}},
 	{REGFLAG_END_OF_TABLE, 0x00, {}}
+
 };
-#endif
+
 static void push_table(struct lcm *ctx, struct LCM_setting_table *table, unsigned int count)
 {
 	unsigned int i, j;
@@ -427,7 +522,22 @@ static void lcm_panel_init(struct lcm *ctx)
 	udelay(10 * 1000);
 	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
 
-	push_table(ctx, init_setting, sizeof(init_setting) / sizeof(struct LCM_setting_table));
+	if (ctx->wqhd_en)
+		push_table(ctx, mode_wqhd_setting,
+			sizeof(mode_wqhd_setting) / sizeof(struct LCM_setting_table));
+	else
+		push_table(ctx, mode_fhdp_setting,
+			sizeof(mode_fhdp_setting) / sizeof(struct LCM_setting_table));
+
+	if (ctx->dynamic_fps == 60) {
+		push_table(ctx, mode_60hz_setting,
+			sizeof(mode_60hz_setting) / sizeof(struct LCM_setting_table));
+	} else if (ctx->dynamic_fps == 120) {
+		push_table(ctx, mode_120hz_setting,
+			sizeof(mode_120hz_setting) / sizeof(struct LCM_setting_table));
+	}
+
+
 	pr_info("%s-\n", __func__);
 }
 
@@ -496,15 +606,6 @@ static int lcm_prepare(struct drm_panel *panel)
 	if (ctx->prepared)
 		return 0;
 
-	// lcd reset H -> L -> L
-	ctx->reset_gpio = devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
-	gpiod_set_value(ctx->reset_gpio, 1);
-	usleep_range(10000, 10001);
-	gpiod_set_value(ctx->reset_gpio, 0);
-	msleep(20);
-	gpiod_set_value(ctx->reset_gpio, 1);
-	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
-	// end
 	if (ctx->gate_ic == 0) {
 		ctx->bias_pos =
 			devm_gpiod_get_index(ctx->dev, "bias", 0, GPIOD_OUT_HIGH);
@@ -560,8 +661,8 @@ static int lcm_enable(struct drm_panel *panel)
 }
 
 #if (SUPPORT_RES_SWITCH)
-static const struct drm_display_mode default_mode = {
-	.clock = 288750,
+static const struct drm_display_mode wqhd_120hz_mode = {
+	.clock = 582000,
 	.hdisplay = HACT_WQHD,
 	.hsync_start = HACT_WQHD + MODE1_HFP,
 	.hsync_end = HACT_WQHD + MODE1_HFP + MODE1_HSA,
@@ -572,8 +673,8 @@ static const struct drm_display_mode default_mode = {
 	.vtotal = VACT_WQHD + MODE1_VFP + MODE1_VSA + MODE1_VBP,
 };
 
-static const struct drm_display_mode performence_mode = {
-	.clock = 582000,
+static const struct drm_display_mode wqhd_60hz_mode = {
+	.clock = 288750,
 	.hdisplay = HACT_WQHD,
 	.hsync_start = HACT_WQHD + MODE1_HFP,
 	.hsync_end = HACT_WQHD + MODE1_HFP + MODE1_HSA,
@@ -625,8 +726,8 @@ static struct mtk_panel_params ext_params = {
 		.para_list[0] = 0x9f,
 	},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
-	.physical_width_um = 70200,
-	.physical_height_um = 152100,
+	.physical_width_um = 69552,
+	.physical_height_um = 154560,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
@@ -664,6 +765,13 @@ static struct mtk_panel_params ext_params = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = DATA_RATE,
+	.dyn_fps = {
+		.data_rate = DYN_DATA_RATE,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = DYN_DATA_RATE + 10,
+	},
 };
 
 static struct mtk_panel_params ext_params_120hz = {
@@ -676,8 +784,8 @@ static struct mtk_panel_params ext_params_120hz = {
 		.para_list[0] = 0x9f,
 	},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
-	.physical_width_um = 70200,
-	.physical_height_um = 152100,
+	.physical_width_um = 69552,
+	.physical_height_um = 154560,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
@@ -715,6 +823,13 @@ static struct mtk_panel_params ext_params_120hz = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = DATA_RATE,
+	.dyn_fps = {
+		.data_rate = DATA_RATE,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = DATA_RATE + 10,
+	},
 };
 #endif
 
@@ -728,8 +843,8 @@ static struct mtk_panel_params ext_params_fhdp = {
 		.para_list[0] = 0x9f,
 	},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
-	.physical_width_um = 70200,
-	.physical_height_um = 152100,
+	.physical_width_um = 69552,
+	.physical_height_um = 154560,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
@@ -767,6 +882,13 @@ static struct mtk_panel_params ext_params_fhdp = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = DATA_RATE,
+	.dyn_fps = {
+		.data_rate = FHDP_60HZ_DYN_RATE,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = FHDP_60HZ_DYN_RATE + 10,
+	},
 };
 
 #if (SUPPORT_RES_SWITCH)
@@ -780,8 +902,8 @@ static struct mtk_panel_params ext_params_120hz_fhdp = {
 		.para_list[0] = 0x9f,
 	},
 	.lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3,
-	.physical_width_um = 70200,
-	.physical_height_um = 152100,
+	.physical_width_um = 69552,
+	.physical_height_um = 154560,
 	.output_mode = MTK_PANEL_DSC_SINGLE_PORT,
 	.dsc_params = {
 		.enable = 1,
@@ -819,6 +941,13 @@ static struct mtk_panel_params ext_params_120hz_fhdp = {
 		.rc_tgt_offset_lo = 3,
 		},
 	.data_rate = DATA_RATE,
+	.dyn_fps = {
+		.data_rate = FHDP_120HZ_DYN_RATE,
+	},
+	.dyn = {
+		.switch_en = 1,
+		.data_rate = FHDP_120HZ_DYN_RATE + 10,
+	},
 };
 #endif
 
@@ -899,74 +1028,6 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb,
 	return 0;
 }
 
-static struct LCM_setting_table mode_120hz_setting[] = {
-	/* frequency select 120hz */
-	{0xF0, 02, {0x5A, 0x5A}},
-	{0x60, 01, {0x00}},
-	{0xF7, 01, {0x0F}},
-	{0xF0, 02, {0xA5, 0xA5}},
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
-};
-
-static struct LCM_setting_table mode_60hz_setting[] = {
-	/* frequency select 60hz */
-	{0xF0, 02, {0x5A, 0x5A}},
-	{0x60, 01, {0x08}},
-	{0xF7, 01, {0x0F}},
-	{0xF0, 02, {0xA5, 0xA5}},
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
-};
-
-static struct LCM_setting_table mode_wqhd_setting[] = {
-	/* WQHD DSC setting */
-	{0x9D, 01, {0x01}},
-	{0x9E, 120, {0x11, 0x00, 0x00, 0x89, 0x30, 0x80, 0x0C, 0x80,
-			0x05, 0xA0, 0x00, 0x19, 0x02, 0xD0, 0x02, 0xD0,
-			0x02, 0x00, 0x02, 0x68, 0x00, 0x20, 0x02, 0xBE,
-			0x00, 0x0A, 0x00, 0x0C, 0x04, 0x00, 0x03, 0x0D,
-			0x18, 0x00, 0x10, 0xF0, 0x03, 0x0C, 0x20, 0x00,
-			0x06, 0x0B, 0x0B, 0x33, 0x0E, 0x1C, 0x2A, 0x38,
-			0x46, 0x54, 0x62, 0x69, 0x70, 0x77, 0x79, 0x7B,
-			0x7D, 0x7E, 0x01, 0x02, 0x01, 0x00, 0x09, 0x40,
-			0x09, 0xBE, 0x19, 0xFC, 0x19, 0xFA, 0x19, 0xF8,
-			0x1A, 0x38, 0x1A, 0x78, 0x1A, 0xB6, 0x2A, 0xF6,
-			0x2B, 0x34, 0x2B, 0x74, 0x3B, 0x74, 0x6B, 0xF4,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
-	/* scaler setting WQHD */
-	{0xF0, 02, {0x5A, 0x5A}},
-	{0xC3, 01, {0x4C}},
-	{0xF0, 02, {0xA5, 0xA5}},
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
-};
-
-static struct LCM_setting_table mode_fhdp_setting[] = {
-	/* FHDP DSC setting */
-	{0x9D, 01, {0x01}},
-	{0x9E, 120, {0x11, 0x00, 0x00, 0x89, 0x30, 0x80, 0x09, 0x60,
-			0x04, 0x38, 0x00, 0x20, 0x02, 0x1C, 0x02, 0x1C,
-			0x02, 0x00, 0x02, 0x0E, 0x00, 0x20, 0x03, 0x15,
-			0x00, 0x07, 0x00, 0x0C, 0x03, 0x19, 0x03, 0x2E,
-			0x18, 0x00, 0x10, 0xF0, 0x03, 0x0C, 0x20, 0x00,
-			0x06, 0x0B, 0x0B, 0x33, 0x0E, 0x1C, 0x2A, 0x38,
-			0x46, 0x54, 0x62, 0x69, 0x70, 0x77, 0x79, 0x7B,
-			0x7D, 0x7E, 0x01, 0x02, 0x01, 0x00, 0x09, 0x40,
-			0x09, 0xBE, 0x19, 0xFC, 0x19, 0xFA, 0x19, 0xF8,
-			0x1A, 0x38, 0x1A, 0x78, 0x1A, 0xB6, 0x2A, 0xF6,
-			0x2B, 0x34, 0x2B, 0x74, 0x3B, 0x74, 0x6B, 0xF4,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}},
-	/* scaler setting FHDP */
-	{0xF0, 02, {0x5A, 0x5A}},
-	{0xC3, 01, {0x4D}},
-	{0xF0, 02, {0xA5, 0xA5}},
-	{REGFLAG_END_OF_TABLE, 0x00, {}}
-};
-
 static void mode_switch_to_120(struct drm_panel *panel,
 	enum MTK_PANEL_MODE_SWITCH_STAGE stage)
 {
@@ -976,6 +1037,7 @@ static void mode_switch_to_120(struct drm_panel *panel,
 	if (stage == BEFORE_DSI_POWERDOWN) {
 		push_table(ctx, mode_120hz_setting,
 			sizeof(mode_120hz_setting) / sizeof(struct LCM_setting_table));
+		ctx->dynamic_fps = 120;
 	}
 }
 
@@ -988,6 +1050,7 @@ static void mode_switch_to_60(struct drm_panel *panel,
 	if (stage == BEFORE_DSI_POWERDOWN) {
 		push_table(ctx, mode_60hz_setting,
 			sizeof(mode_60hz_setting) / sizeof(struct LCM_setting_table));
+		ctx->dynamic_fps = 60;
 	}
 }
 
@@ -1001,6 +1064,7 @@ static void mode_switch_to_wqhd(struct drm_panel *panel,
 		push_table(ctx, mode_wqhd_setting,
 			sizeof(mode_wqhd_setting) / sizeof(struct LCM_setting_table));
 	}
+	ctx->wqhd_en = true;
 }
 
 static void mode_switch_to_fhdp(struct drm_panel *panel,
@@ -1013,6 +1077,7 @@ static void mode_switch_to_fhdp(struct drm_panel *panel,
 		push_table(ctx, mode_fhdp_setting,
 			sizeof(mode_fhdp_setting) / sizeof(struct LCM_setting_table));
 	}
+	ctx->wqhd_en = false;
 }
 
 static int mode_switch(struct drm_panel *panel,
@@ -1020,8 +1085,6 @@ static int mode_switch(struct drm_panel *panel,
 		unsigned int dst_mode, enum MTK_PANEL_MODE_SWITCH_STAGE stage)
 {
 	int ret = 0;
-	int ret1 = 0;
-	int ret2 = 0;
 	bool isFpsChange = false;
 	bool isResChange = false;
 	struct drm_display_mode *m_dst = get_mode_by_id(connector, dst_mode);
@@ -1039,25 +1102,27 @@ static int mode_switch(struct drm_panel *panel,
 	pr_info("%s cur_mode vrefresh = %d, vdisplay = %d, vdisplay = %d\n",
 		__func__, drm_mode_vrefresh(m_cur), m_cur->vdisplay, m_cur->hdisplay);
 
-	if (isFpsChange) {
-		if (drm_mode_vrefresh(m_dst) == MODE0_FPS)
-			mode_switch_to_60(panel, stage);
-		else if (drm_mode_vrefresh(m_dst) == MODE1_FPS)
-			mode_switch_to_120(panel, stage);
-		else
-			ret1 = 1;
-	}
-
 	if (isResChange) {
 		if (m_dst->hdisplay == HACT_WQHD && m_dst->vdisplay == VACT_WQHD)
 			mode_switch_to_wqhd(panel, stage);
 		else if (m_dst->hdisplay == HACT_FHDP && m_dst->vdisplay == VACT_FHDP)
 			mode_switch_to_fhdp(panel, stage);
 		else
-			ret2 = 1;
-	}
-	ret = ret1 || ret2;
+			ret |= 1;
 
+		isFpsChange = 1;//if change res, need config fps
+
+		pr_info("%s: if change res, need config fps\n", __func__);
+	}
+
+	if (isFpsChange) {
+		if (drm_mode_vrefresh(m_dst) == MODE0_FPS)
+			mode_switch_to_60(panel, stage);
+		else if (drm_mode_vrefresh(m_dst) == MODE1_FPS)
+			mode_switch_to_120(panel, stage);
+		else
+			ret |= 1;
+	}
 	return ret;
 }
 
@@ -1123,26 +1188,26 @@ static int lcm_get_modes(struct drm_panel *panel, struct drm_connector *connecto
 #endif
 
 #if (SUPPORT_RES_SWITCH)
-	mode0 = drm_mode_duplicate(connector->dev, &default_mode);
+	mode0 = drm_mode_duplicate(connector->dev, &wqhd_120hz_mode);
 	if (!mode0) {
 		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
-			default_mode.hdisplay, default_mode.vdisplay,
-			drm_mode_vrefresh(&default_mode));
+			wqhd_120hz_mode.hdisplay, wqhd_120hz_mode.vdisplay,
+			drm_mode_vrefresh(&wqhd_120hz_mode));
 		return -ENOMEM;
 	}
 	drm_mode_set_name(mode0);
-	mode0->type = DRM_MODE_TYPE_DRIVER;
+	mode0->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
 	drm_mode_probed_add(connector, mode0);
 
-	mode1 = drm_mode_duplicate(connector->dev, &performence_mode);
+	mode1 = drm_mode_duplicate(connector->dev, &wqhd_60hz_mode);
 	if (!mode1) {
 		dev_info(connector->dev->dev, "failed to add mode %ux%ux@%u\n",
-			performence_mode.hdisplay, performence_mode.vdisplay,
-			drm_mode_vrefresh(&performence_mode));
+			wqhd_60hz_mode.hdisplay, wqhd_60hz_mode.vdisplay,
+			drm_mode_vrefresh(&wqhd_60hz_mode));
 		return -ENOMEM;
 	}
 	drm_mode_set_name(mode1);
-	mode1->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+	mode1->type = DRM_MODE_TYPE_DRIVER;
 	drm_mode_probed_add(connector, mode1);
 #endif
 
@@ -1269,6 +1334,8 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 	}
 	ctx->prepared = true;
 	ctx->enabled = true;
+	ctx->dynamic_fps = 120;
+	ctx->wqhd_en = true;
 
 	drm_panel_init(&ctx->panel, dev, &lcm_drm_funcs, DRM_MODE_CONNECTOR_DSI);
 
@@ -1281,7 +1348,7 @@ static int lcm_probe(struct mipi_dsi_device *dsi)
 #if defined(CONFIG_MTK_PANEL_EXT)
 	//mtk_panel_tch_handle_reg(&ctx->panel);
 #if (PANEL_2K)
-	ret = mtk_panel_ext_create(dev, &ext_params, &ext_funcs, &ctx->panel);
+	ret = mtk_panel_ext_create(dev, &ext_params_120hz, &ext_funcs, &ctx->panel);
 #else
 	ret = mtk_panel_ext_create(dev, &ext_params_fhdp, &ext_funcs, &ctx->panel);
 #endif

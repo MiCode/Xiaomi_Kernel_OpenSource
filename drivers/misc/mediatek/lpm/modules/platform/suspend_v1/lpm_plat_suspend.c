@@ -11,6 +11,7 @@
 #include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/cpu_pm.h>
+#include <linux/cpu.h>
 #include <linux/syscore_ops.h>
 #include <linux/suspend.h>
 #include <linux/interrupt.h>
@@ -25,6 +26,9 @@
 #include <linux/cpuidle.h>
 #include <linux/pm_qos.h>
 #include <uapi/linux/sched/types.h>
+#include <linux/hrtimer.h>
+#include <linux/ktime.h>
+
 
 #include <lpm.h>
 #include <lpm_module.h>
@@ -32,6 +36,7 @@
 #include <lpm_type.h>
 #include <lpm_call_type.h>
 #include <lpm_dbg_common_v1.h>
+#include <mtk_cpuidle_status.h>
 
 #include "lpm_plat.h"
 #include "lpm_plat_comm.h"
@@ -289,28 +294,39 @@ struct mtk_lpm_abort_control {
 };
 static struct mtk_lpm_abort_control mtk_lpm_ac[CPU_NUMBER];
 static int mtk_lpm_in_suspend;
+static struct hrtimer lpm_hrtimer[NR_CPUS];
+static enum hrtimer_restart lpm_hrtimer_timeout(struct hrtimer *timer)
+{
+	if (mtk_lpm_in_suspend) {
+		pr_info("[name:spm&][SPM] wakeup system due to not entering suspend\n");
+		pm_system_wakeup();
+	}
+	return HRTIMER_NORESTART;
+}
 static int mtk_lpm_monitor_thread(void *data)
 {
 	struct sched_param param = {.sched_priority = 99 };
 	struct mtk_lpm_abort_control *lpm_ac;
+	ktime_t kt;
 
 	lpm_ac = (struct mtk_lpm_abort_control *)data;
+	kt = ktime_set(5, 100000);
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 	allow_signal(SIGKILL);
 
-	msleep_interruptible(5000);
-
-	pm_system_wakeup();
-	if (mtk_lpm_in_suspend == 1)
-		pr_info("[name:spm&][SPM] wakeup system due to not entering suspend(%d)\n",
-				lpm_ac->cpu);
+	if (mtk_lpm_in_suspend) {
+		hrtimer_start(&lpm_hrtimer[lpm_ac->cpu], kt, HRTIMER_MODE_REL);
+		msleep_interruptible(5000);
+		hrtimer_cancel(&lpm_hrtimer[lpm_ac->cpu]);
+	} else {
+		msleep_interruptible(5000);
+	}
 
 	spin_lock(&lpm_abort_locker);
 	if (cpumask_test_cpu(lpm_ac->cpu, &abort_cpumask))
 		cpumask_clear_cpu(lpm_ac->cpu, &abort_cpumask);
 	spin_unlock(&lpm_abort_locker);
-
 	do_exit(0);
 }
 
@@ -320,7 +336,8 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 {
 	struct timespec64 ts;
 	struct rtc_time tm;
-	int i;
+	int ret;
+	int cpu;
 
 	ktime_get_ts64(&ts);
 	rtc_time64_to_tm(ts.tv_sec, &tm);
@@ -333,33 +350,54 @@ static int lpm_spm_suspend_pm_event(struct notifier_block *notifier,
 	case PM_POST_HIBERNATION:
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
+                ret = mtk_s2idle_state_enable(1);
+		if (ret)
+			return NOTIFY_BAD;
+		cpu_hotplug_disable();
 		suspend_online_cpus = num_online_cpus();
 		cpumask_clear(&abort_cpumask);
 		mtk_lpm_in_suspend = 1;
-		for (i = 0; i < suspend_online_cpus; i++) {
-			cpumask_set_cpu(i, &abort_cpumask);
-			mtk_lpm_ac[i].ts = kthread_create(mtk_lpm_monitor_thread,
-					&mtk_lpm_ac[i], "LPM-%d", i);
-			mtk_lpm_ac[i].cpu = i;
-			if (!IS_ERR(mtk_lpm_ac[i].ts)) {
-				kthread_bind(mtk_lpm_ac[i].ts, i);
-				wake_up_process(mtk_lpm_ac[i].ts);
+		get_online_cpus();
+		for_each_online_cpu(cpu) {
+			mtk_lpm_ac[cpu].ts = kthread_create(mtk_lpm_monitor_thread,
+					&mtk_lpm_ac[cpu], "LPM-%d", cpu);
+			mtk_lpm_ac[cpu].cpu = cpu;
+			if (!IS_ERR(mtk_lpm_ac[cpu].ts)) {
+				cpumask_set_cpu(cpu, &abort_cpumask);
+				kthread_bind(mtk_lpm_ac[cpu].ts, cpu);
+				wake_up_process(mtk_lpm_ac[cpu].ts);
 			} else {
-				pr_info("[name:spm&][SPM] create LPM monitor thread fail\n");
+				pr_info("[name:spm&][SPM] create LPM monitor thread %d fail\n",
+											cpu);
+				mtk_lpm_in_suspend = 0;
+				/* terminate previously created threads */
+				spin_lock(&lpm_abort_locker);
+				if (!cpumask_empty(&abort_cpumask)) {
+					for_each_cpu(cpu, &abort_cpumask) {
+						send_sig(SIGKILL, mtk_lpm_ac[cpu].ts, 0);
+					}
+				}
+				spin_unlock(&lpm_abort_locker);
+				put_online_cpus();
 				return NOTIFY_BAD;
 			}
+
 		}
+		put_online_cpus();
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
+		cpu_hotplug_enable();
+		/* make sure the rest of callback proceeds*/
+		mtk_s2idle_state_enable(0);
 		mtk_lpm_in_suspend = 0;
+		spin_lock(&lpm_abort_locker);
 		if (!cpumask_empty(&abort_cpumask)) {
 			pr_info("[name:spm&][SPM] check cpumask %*pb\n",
 					cpumask_pr_args(&abort_cpumask));
-			for (i = 0; i < suspend_online_cpus; i++) {
-				if (cpumask_test_cpu(i, &abort_cpumask))
-					send_sig(SIGKILL, mtk_lpm_ac[i].ts, 0);
-			}
+			for_each_cpu(cpu, &abort_cpumask)
+				send_sig(SIGKILL, mtk_lpm_ac[cpu].ts, 0);
 		}
+		spin_unlock(&lpm_abort_locker);
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
@@ -372,9 +410,8 @@ static struct notifier_block lpm_spm_suspend_pm_notifier_func = {
 
 #define MTK_LPM_SLEEP_COMPATIBLE_STRING "mediatek,sleep"
 static int spm_irq_number = -1;
-static irqreturn_t spm_irq0_handler(int irq, void *dev_id)
+static irqreturn_t spm_irq_handler(int irq, void *dev_id)
 {
-	pm_system_wakeup();
 	return IRQ_HANDLED;
 }
 
@@ -405,15 +442,19 @@ static int lpm_init_spm_irq(void)
 		pr_info("[name:spm&][SPM] failed to get spm irq\n");
 		goto FINISHED;
 	}
-/* Do not re-register spm irq handler again when TWAM presents */
-#if !IS_ENABLED(CONFIG_MTK_SPMTWAM)
-	ret = request_irq(irq, spm_irq0_handler,
-		IRQF_NO_SUSPEND, "spm-irq", NULL);
+
+	ret = request_irq(irq, spm_irq_handler, 0, "spm-irq", NULL);
 	if (ret) {
 		pr_info("[name:spm&][SPM] failed to install spm irq handler, ret = %d\n", ret);
 		goto FINISHED;
 	}
-#endif
+
+	ret = enable_irq_wake(irq);
+	if (ret) {
+		pr_info("[name:spm&][SPM] failed to enable spm irq wake, ret = %d\n", ret);
+		goto FINISHED;
+	}
+
 	/* tell ATF spm driver that spm irq pending number */
 	spm_irq_number = virq_to_hwirq(irq);
 	ret = lpm_smc_spm(MT_SPM_SMC_UID_SET_PENDING_IRQ_INIT,
@@ -449,12 +490,15 @@ static int lpm_s2idle_barrier(void)
 
 	cpu_latency_qos_add_request(&lpm_qos_request, s2idle_block_value);
 
+        mtk_s2idle_state_enable(0);
+
 	return 0;
 }
 
 int __init lpm_model_suspend_init(void)
 {
 	int ret;
+	int i;
 
 	int suspend_type = lpm_suspend_type_get();
 
@@ -493,6 +537,10 @@ int __init lpm_model_suspend_init(void)
 		return ret;
 	}
 
+	for (i = 0; i < CPU_NUMBER; i++) {
+		hrtimer_init(&lpm_hrtimer[i], CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		lpm_hrtimer[i].function = lpm_hrtimer_timeout;
+	}
 #endif /* CONFIG_PM */
 
 	return 0;

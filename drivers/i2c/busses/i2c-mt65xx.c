@@ -22,6 +22,7 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/pm_qos.h>
 #include <linux/scatterlist.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -48,6 +49,8 @@
 #define I2C_HFIFO_ADDR_CLR		0x0002
 #define I2C_FIFO_ADDR_CLR_MCH		0x0004
 #define I2C_DELAY_LEN			0x0002
+#define I2C_ST_START_CON		0x8001
+#define I2C_FS_START_CON		0x1800
 #define I2C_TIME_CLR_VALUE		0x0000
 #define I2C_TIME_DEFAULT_VALUE		0x0003
 #define I2C_TIME_HS_SPEED_VALUE		0x0080
@@ -277,6 +280,7 @@ struct mtk_i2c {
 	struct clk *clk_arb;		/* Arbitrator clock for i2c */
 	bool have_pmic;			/* can use i2c pins from PMIC */
 	bool use_push_pull;		/* IO config push-pull mode */
+	bool duty_adjust;
 
 	u16 irq_stat;			/* interrupt status */
 	unsigned int clk_src_div;
@@ -292,6 +296,7 @@ struct mtk_i2c {
 	bool ignore_restart_irq;
 	struct mtk_i2c_ac_timing ac_timing;
 	const struct mtk_i2c_compatible *dev_comp;
+	struct pm_qos_request i2c_qos_request;
 };
 
 /**
@@ -308,6 +313,36 @@ struct i2c_spec_values {
 	unsigned int min_su_dat_ns;
 };
 
+#if defined (PLATO_CAM)
+static struct i2c_spec_values spec;
+static struct i2c_spec_values standard_mode_spec = {
+	.min_low_ns = 4700 + I2C_STANDARD_MODE_BUFFER,
+	.min_su_sta_ns = 4700 + I2C_STANDARD_MODE_BUFFER,
+	.max_hd_dat_ns = 3450 - I2C_STANDARD_MODE_BUFFER,
+	.min_su_dat_ns = 250 + I2C_STANDARD_MODE_BUFFER,
+};
+
+static struct i2c_spec_values fast_mode_spec = {
+	.min_low_ns = 1300 + I2C_FAST_MODE_BUFFER,
+	.min_su_sta_ns = 600 + I2C_FAST_MODE_BUFFER,
+	.max_hd_dat_ns = 900 - I2C_FAST_MODE_BUFFER,
+	.min_su_dat_ns = 100 + I2C_FAST_MODE_BUFFER,
+};
+
+static struct i2c_spec_values fast_mode_plus_spec = {
+	.min_low_ns = 500 + I2C_FAST_MODE_PLUS_BUFFER,
+	.min_su_sta_ns = 260 + I2C_FAST_MODE_PLUS_BUFFER,
+	.max_hd_dat_ns = 400 - I2C_FAST_MODE_PLUS_BUFFER,
+	.min_su_dat_ns = 50 + I2C_FAST_MODE_PLUS_BUFFER,
+};
+
+static struct i2c_spec_values hs_mode_spec = {
+	.min_low_ns = 160 + I2C_HS_MODE_BUFFER,
+	.min_su_sta_ns = 160 + I2C_HS_MODE_BUFFER,
+	.max_hd_dat_ns = 70 - I2C_HS_MODE_BUFFER,
+	.min_su_dat_ns = 10 + I2C_HS_MODE_BUFFER,
+};
+#else
 static const struct i2c_spec_values standard_mode_spec = {
 	.min_low_ns = 4700 + I2C_STANDARD_MODE_BUFFER,
 	.min_su_sta_ns = 4700 + I2C_STANDARD_MODE_BUFFER,
@@ -335,6 +370,8 @@ static const struct i2c_spec_values hs_mode_spec = {
 	.max_hd_dat_ns = 70 - I2C_HS_MODE_BUFFER,
 	.min_su_dat_ns = 10 + I2C_HS_MODE_BUFFER,
 };
+#endif
+
 
 static const struct i2c_adapter_quirks mt6577_i2c_quirks = {
 	.flags = I2C_AQ_COMB_WRITE_THEN_READ,
@@ -592,6 +629,7 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 {
 	u16 control_reg;
 	u16 intr_stat_reg;
+	u16 ext_conf_val;
 
 	mtk_i2c_writew(i2c, I2C_CHN_CLR_FLAG, OFFSET_START);
 	intr_stat_reg = mtk_i2c_readw(i2c, OFFSET_INTR_STAT);
@@ -632,8 +670,13 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 	if (i2c->dev_comp->ltiming_adjust)
 		mtk_i2c_writew(i2c, i2c->ltiming_reg, OFFSET_LTIMING);
 
+	if (i2c->speed_hz <= I2C_MAX_STANDARD_MODE_FREQ)
+		ext_conf_val = I2C_ST_START_CON;
+	else
+		ext_conf_val = I2C_FS_START_CON;
+
 	if (i2c->dev_comp->timing_adjust) {
-		mtk_i2c_writew(i2c, i2c->ac_timing.ext, OFFSET_EXT_CONF);
+		ext_conf_val = i2c->ac_timing.ext;
 		mtk_i2c_writew(i2c, i2c->ac_timing.inter_clk_div,
 			       OFFSET_CLOCK_DIV);
 		mtk_i2c_writew(i2c, I2C_SCL_MIS_COMP_VALUE,
@@ -658,6 +701,7 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 				       OFFSET_HS_STA_STO_AC_TIMING);
 		}
 	}
+	mtk_i2c_writew(i2c, ext_conf_val, OFFSET_EXT_CONF);
 
 	/* If use i2c pin from PMIC mt6397 side, need set PATH_DIR first */
 	if (i2c->have_pmic)
@@ -672,6 +716,39 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 	mtk_i2c_writew(i2c, I2C_DELAY_LEN, OFFSET_DELAY_LEN);
 }
 
+#if defined (PLATO_CAM)
+static struct i2c_spec_values *mtk_i2c_get_spec(unsigned int speed,struct mtk_i2c *i2c)
+{
+	if (speed <= I2C_MAX_STANDARD_MODE_FREQ){
+		spec = standard_mode_spec;
+		if(i2c->duty_adjust){
+			spec.min_low_ns -= I2C_STANDARD_MODE_BUFFER;
+		}
+		return &spec;
+	}
+	else if (speed <= I2C_MAX_FAST_MODE_FREQ){
+		spec = fast_mode_spec;
+		if(i2c->duty_adjust){
+			spec.min_low_ns -= I2C_FAST_MODE_BUFFER*2;
+		}
+		return &spec;
+	}
+	else if (speed <= I2C_MAX_FAST_MODE_PLUS_FREQ){
+		spec = fast_mode_plus_spec;
+		if(i2c->duty_adjust){
+			spec.min_low_ns -= I2C_FAST_MODE_PLUS_BUFFER;
+		}
+		return &spec;
+	}
+	else{
+		spec = hs_mode_spec;
+		if(i2c->duty_adjust){
+			spec.min_low_ns -= I2C_HS_MODE_BUFFER;
+		}
+		return &spec;
+	}
+}
+#else
 static const struct i2c_spec_values *mtk_i2c_get_spec(unsigned int speed)
 {
 	if (speed <= I2C_MAX_STANDARD_MODE_FREQ)
@@ -683,6 +760,7 @@ static const struct i2c_spec_values *mtk_i2c_get_spec(unsigned int speed)
 	else
 		return &hs_mode_spec;
 }
+#endif
 
 static int mtk_i2c_max_step_cnt(unsigned int target_speed)
 {
@@ -722,7 +800,11 @@ static int mtk_i2c_check_ac_timing(struct mtk_i2c *i2c,
 	if (i2c->dev_comp->ltiming_adjust)
 		max_sta_cnt = 0x100;
 
+#if defined (PLATO_CAM)
+	spec = mtk_i2c_get_spec(check_speed,i2c);
+#else
 	spec = mtk_i2c_get_spec(check_speed);
+#endif
 
 	if (i2c->dev_comp->ltiming_adjust)
 		clk_ns = 1000000000 / clk_src;
@@ -792,6 +874,9 @@ static int mtk_i2c_check_ac_timing(struct mtk_i2c *i2c,
 			(sda_max + sda_min) / 2;
 	}
 
+	printk(KERN_ERR "%s: i2c-%d high_cnt = %d ,low_cnt = %d,\n",__func__,i2c->adap.nr, high_cnt,low_cnt);
+	printk(KERN_ERR "%s: i2c-%d min_low_ns=%d\n",__func__,i2c->adap.nr, spec->min_low_ns);
+
 	return 0;
 }
 
@@ -836,6 +921,7 @@ static int mtk_i2c_calculate_speed(struct mtk_i2c *i2c, unsigned int clk_src,
 	 * sample_cnt * step_cnt >= opt_div
 	 * optimizing for sample_cnt * step_cnt being minimal
 	 */
+
 	for (sample_cnt = 1; sample_cnt <= MAX_SAMPLE_CNT_DIV; sample_cnt++) {
 		step_cnt = DIV_ROUND_UP(opt_div, sample_cnt);
 		cnt_mul = step_cnt * sample_cnt;
@@ -1037,6 +1123,8 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		if (i2c->ch_offset_i2c == I2C_OFFSET_SCP) {
 			dev_dbg(i2c->dev, "Not_support_dma! msgs->len:%d,fifo_size:%d\n",
 					msgs->len, i2c->dev_comp->fifo_size);
+			if (i2c->op == I2C_MASTER_CONTINUOUS_WR)
+				kfree(msgs->buf);
 			return -EPERM;
 		}
 		isDMA = true;
@@ -1295,7 +1383,6 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 			dma_unmap_single(i2c->dev, wpaddr,
 					 msgs->len, DMA_TO_DEVICE);
 
-			kfree(msgs->buf);
 		} else if (i2c->op == I2C_MASTER_WRRD) {
 			dma_unmap_single(i2c->dev, wpaddr, msgs->len,
 					 DMA_TO_DEVICE);
@@ -1305,6 +1392,10 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 			i2c_put_dma_safe_msg_buf(dma_wr_buf, msgs, true);
 			i2c_put_dma_safe_msg_buf(dma_rd_buf, (msgs + 1), true);
 		}
+	}
+
+	if (i2c->op == I2C_MASTER_CONTINUOUS_WR) {
+		kfree(msgs->buf);
 	}
 
 	if (ret == 0) {
@@ -1335,7 +1426,8 @@ static int mtk_i2c_do_transfer(struct mtk_i2c *i2c, struct i2c_msg *msgs,
 		}
 		return -ENXIO;
 	}
-	if ((i2c->op != I2C_MASTER_WR) && (isDMA == false)) {
+	if ((i2c->op != I2C_MASTER_WR) &&
+			(i2c->op != I2C_MASTER_CONTINUOUS_WR) && (isDMA == false)) {
 		if (i2c->op == I2C_MASTER_WRRD) {
 			data_size = (msgs + 1)->len;
 			ptr = (msgs + 1)->buf;
@@ -1360,6 +1452,10 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
 	u8 *dma_multi_wr_buf;
 	struct i2c_msg multi_msg[1];
 	struct mtk_i2c *i2c = i2c_get_adapdata(adap);
+
+	/* update qos to prevent deep idle during transfer */
+	if (adap->nr == 5)
+		cpu_latency_qos_update_request(&i2c->i2c_qos_request, 150);
 
 	ret = mtk_i2c_clock_enable(i2c);
 	if (ret)
@@ -1454,6 +1550,9 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
 
 err_exit:
 	mtk_i2c_clock_disable(i2c);
+	if (adap->nr == 5)
+		cpu_latency_qos_update_request(&i2c->i2c_qos_request,
+			PM_QOS_DEFAULT_VALUE);
 	return ret;
 }
 
@@ -1525,6 +1624,8 @@ static int mtk_i2c_parse_dt(struct device_node *np, struct mtk_i2c *i2c)
 	i2c->have_pmic = of_property_read_bool(np, "mediatek,have-pmic");
 	i2c->use_push_pull =
 		of_property_read_bool(np, "mediatek,use-push-pull");
+	i2c->duty_adjust = of_property_read_bool(np, "mediatek,duty-adjust");
+	printk(KERN_ERR "%s:i2c-%d i2c->duty_adjust = %d\n",__func__,i2c->adap.nr, i2c->duty_adjust);
 
 	return 0;
 }
@@ -1643,6 +1744,10 @@ static int mtk_i2c_probe(struct platform_device *pdev)
 	}
 	mtk_i2c_init_hw(i2c);
 	mtk_i2c_clock_disable(i2c);
+
+	/* register qos to prevent deep idle during transfer */
+	cpu_latency_qos_add_request(&i2c->i2c_qos_request,
+		PM_QOS_DEFAULT_VALUE);
 
 	ret = devm_request_irq(&pdev->dev, irq, mtk_i2c_irq,
 			       IRQF_NO_SUSPEND | IRQF_TRIGGER_NONE,

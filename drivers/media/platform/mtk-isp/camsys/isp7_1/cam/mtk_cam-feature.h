@@ -132,6 +132,11 @@ static inline bool mtk_cam_feature_change_is_mstream(int feature_change)
 	return false;
 }
 
+static inline bool mtk_cam_feature_is_switchable_hdr(int feature)
+{
+	return mtk_cam_feature_is_stagger(feature) || mtk_cam_feature_is_mstream(feature);
+}
+
 bool mtk_cam_is_time_shared(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_hsf(struct mtk_cam_ctx *ctx);
 bool mtk_cam_is_m2m(struct mtk_cam_ctx *ctx);
