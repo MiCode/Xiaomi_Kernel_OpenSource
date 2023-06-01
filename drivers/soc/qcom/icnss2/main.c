@@ -4210,8 +4210,8 @@ static int icnss_smmu_fault_handler(struct iommu_domain *domain,
 
 	icnss_trigger_recovery(&priv->pdev->dev);
 
-	/* IOMMU driver requires non-zero return value to print debug info. */
-	return -EINVAL;
+	/* IOMMU driver requires -ENOSYS return value to print debug info. */
+	return -ENOSYS;
 }
 
 static int icnss_smmu_dt_parse(struct icnss_priv *priv)
