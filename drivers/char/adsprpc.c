@@ -4017,6 +4017,7 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	unsigned int gid = 0, one_mb = 1024*1024;
 	unsigned int dsp_userpd_memlen = 3 * one_mb;
 	struct fastrpc_buf *init_mem;
+	struct fastrpc_channel_ctx *chan = &gcinfo[fl->cid];
 
 	struct {
 		int pgid;
@@ -4060,6 +4061,14 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 			goto bail;
 	}
 	inbuf.pageslen = 1;
+
+	/* Restrict Signed offload to DSP if unsigned offload is enabled except CDSP */
+	if (chan->unsigned_support && fl->cid != CDSP_DOMAIN_ID && !fl->is_unsigned_pd) {
+		err = -ECONNREFUSED;
+		ADSPRPC_ERR(
+			"Restrict signed offload for domain: %d\n", fl->cid);
+		goto bail;
+	}
 
 	/* Untrusted apps are not allowed to offload to signedPD on DSP. */
 	if (fl->untrusted_process) {
