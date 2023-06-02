@@ -12,6 +12,8 @@
 #include <../../../drivers/android/binder_internal.h>
 #include "../../../drivers/android/binder_trace.h"
 
+
+
 static void create_util_to_cost_pd(struct em_perf_domain *pd)
 {
 	int util, cpu = cpumask_first(to_cpumask(pd->cpus));
@@ -215,6 +217,8 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		bool *energy_eval_needed, bool *ignore_cluster)
 {
 	int i = 0;
+
+
 	*order_index = 0;
 	*end_index = 0;
 
@@ -236,6 +240,8 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 			*end_index = 1;
 		return;
 	}
+
+
 
 	if (is_uclamp_boosted || per_task_boost ||
 		task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
@@ -1061,12 +1067,16 @@ fail:
 	return -EPERM;
 }
 
+
+
 static void
 walt_select_task_rq_fair(void *unused, struct task_struct *p, int prev_cpu,
 				int sd_flag, int wake_flags, int *target_cpu)
 {
 	int sync;
 	int sibling_count_hint;
+
+
 
 	if (unlikely(walt_disabled))
 		return;
@@ -1411,6 +1421,8 @@ static void walt_cfs_replace_next_task_fair(void *unused, struct rq *rq, struct 
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	struct walt_task_struct *wts;
 	struct task_struct *mvp;
+
+
 
 	if (unlikely(walt_disabled))
 		return;

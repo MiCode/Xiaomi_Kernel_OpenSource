@@ -1,0 +1,9 @@
+config FINGERPRINT_FPC_1540
+	tristate "Finger print card fpc"
+	default m
+	depends on MODULES
+	help
+	  Say Y here to enable support for retrieving self-test reports.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here.
+

@@ -1,0 +1,6 @@
+config ISPV3
+    tristate "XIAOMI isp for SN/MFNR capture and SN video support"
+    depends on PCI
+    depends on PCI_MSM
+    help
+      Enable support for XIAOMI isp SN/MFNR capture and SN video

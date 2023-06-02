@@ -18,7 +18,7 @@ struct usb_repeater  {
 
 	struct list_head	head;
 	int	(*reset)(struct usb_repeater *x, bool bring_out_of_reset);
-	int	(*init)(struct usb_repeater *x);
+	int	(*init)(struct usb_repeater *x, unsigned int flags);
 	int	(*suspend)(struct usb_repeater *r, int suspend);
 	int	(*powerup)(struct usb_repeater *r);
 	int	(*powerdown)(struct usb_repeater *r);
@@ -60,10 +60,10 @@ static inline int usb_repeater_reset(struct usb_repeater *r,
 		return 0;
 }
 
-static inline int usb_repeater_init(struct usb_repeater *r)
+static inline int usb_repeater_init(struct usb_repeater *r, unsigned int flags)
 {
 	if (r && r->init != NULL)
-		return r->init(r);
+		return r->init(r, flags);
 	else
 		return 0;
 }

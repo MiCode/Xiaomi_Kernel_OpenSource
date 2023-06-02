@@ -1913,6 +1913,7 @@ static int dcc_dt_parse(struct dcc_drvdata *drvdata, struct device_node *np)
 			str_dcc_data_sink[drvdata->data_sink[curr_link_list]]);
 		}
 	}
+	drvdata->qad_output[drvdata->curr_list] = 1;
 
 	prop = of_get_property(np, "qcom,link-list", &len);
 	if (prop) {

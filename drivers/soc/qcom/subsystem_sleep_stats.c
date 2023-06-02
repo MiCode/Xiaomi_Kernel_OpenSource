@@ -389,6 +389,7 @@ static const struct file_operations stats_data_fops = {
 	.unlocked_ioctl =	stats_data_ioctl,
 };
 
+
 static int subsystem_stats_probe(struct platform_device *pdev)
 {
 	struct sleep_stats_data *stats_data;
@@ -535,6 +536,7 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, stats_data);
 
+
 	return 0;
 
 fail:
@@ -561,6 +563,7 @@ static int subsystem_stats_remove(struct platform_device *pdev)
 	class_destroy(stats_data->stats_class);
 	cdev_del(&stats_data->stats_cdev);
 	unregister_chrdev_region(stats_data->dev_no, 1);
+
 
 	return 0;
 }

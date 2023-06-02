@@ -974,6 +974,13 @@ config LEDS_ACER_A500
 	  This option enables support for the Power Button LED of
 	  Acer Iconia Tab A500.
 
+config LEDS_AW_22XXX
+	tristate "LED Support for AW22XXX"
+	depends on LEDS_CLASS && I2C
+	help
+	  this option enables support for the AW 22XXX RGB LED connected
+	  through I2C. Say Y to enable support for the AW 22XXX LED
+
 config LEDS_QPNP_VIBRATOR_LDO
 	tristate "Vibrator-LDO support for QPNP PMIC"
 	depends on LEDS_CLASS && MFD_SPMI_PMIC
@@ -981,6 +988,13 @@ config LEDS_QPNP_VIBRATOR_LDO
 	  This option enables device driver support for the vibrator-ldo
 	  peripheral found on Qualcomm Technologies, Inc. QPNP PMICs.
 	  The vibrator-ldo peripheral is capable of driving ERM vibrators.
+
+config LEDS_AW2033
+	tristate "LED Support for AW2033"
+	depends on LEDS_CLASS && I2C
+	help
+		this option enables support for the AW2033 RGB LED connected
+		through I2C. Say Y to enable support for the AW2033 LED
 
 comment "LED Triggers"
 source "drivers/leds/trigger/Kconfig"

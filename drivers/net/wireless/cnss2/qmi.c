@@ -12,6 +12,7 @@
 #include "main.h"
 #include "qmi.h"
 #include "genl.h"
+#include "hwid.h"
 
 #define WLFW_SERVICE_INS_ID_V01		1
 #define WLFW_CLIENT_ID			0x4b4e454c
@@ -49,6 +50,7 @@
 #define QMI_WLFW_MAX_RECV_BUF_SIZE	SZ_8K
 #define IMSPRIVATE_SERVICE_MAX_MSG_LEN	SZ_8K
 #define DMS_QMI_MAX_MSG_LEN		SZ_256
+#define DMS_MAC_NOT_PROVISIONED		16
 #define MAX_SHADOW_REG_RESERVED		2
 #define MAX_NUM_SHADOW_REG_V3	(QMI_WLFW_MAX_NUM_SHADOW_REG_V3_USAGE_V01 - \
 				 MAX_SHADOW_REG_RESERVED)
@@ -249,6 +251,30 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 		cnss_pr_dbg("WAKE MSI base data is %d\n", req->wake_msi);
 		req->wake_msi_valid = 1;
 	}
+
+#ifdef CONFIG_WIFI_THREE_ANTENNA
+	req->gpios_valid = 1;
+	/* Format of GPIO configuration -
+	*
+	* A_UINT32 default_output_val:1, - GPIO default Output value if direction is output
+	* reserved1:7, - reserved bits
+	* sw_func:4, - GPIO pin software function selection
+	* pull:2, - GPIO Pull, TLMM_GPIO_CFGn.GPIO_PULL
+	* func:4, - GPIO pin function, TLMM_GPIO_CFGn.FUNC_SEL
+	* drive:3, - GPIO Drive, TLMM_GPIO_CFGn.DRV_STRENGTH
+	* dir:1, - GPIO pin direction: PLAT_GPIO_DIR_INPUT/PLAT_GPIO_DIR_OUTPUT,
+	* TLMM_GPIO_CFGn.GPIO_OE
+	* reserved0:2, - reserved bits
+	* gpio_num:8; - GPIO pin number
+	*/
+	/* 1st GPIO,set default GPIO config*/
+	req->gpios[0] = 0x38242F01;
+
+	/* The Nth GPIO if any, and update req->gpios_len accordingly
+	* Ensure gpios_len less than QMI_WLFW_MAX_NUM_GPIO_V01
+	*/
+	req->gpios_len = 1;
+#endif
 
 	req->bdf_support_valid = 1;
 	req->bdf_support = 1;
@@ -573,17 +599,16 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 {
 	char filename_tmp[MAX_FIRMWARE_NAME_LEN];
 	int ret = 0;
+	uint32_t hw_platform_ver = 0;
+	uint32_t hw_country_ver = 0;
+	hw_country_ver = get_hw_country_version();
+	hw_platform_ver = get_hw_version_platform();
 
 	switch (bdf_type) {
 	case CNSS_BDF_ELF:
 		/* Board ID will be equal or less than 0xFF in GF mask case */
 		if (plat_priv->board_info.board_id == 0xFF) {
-			if (plat_priv->chip_info.chip_id & CHIP_ID_GF_MASK)
-				snprintf(filename_tmp, filename_len,
-					 ELF_BDF_FILE_NAME_GF);
-			else
-				snprintf(filename_tmp, filename_len,
-					 ELF_BDF_FILE_NAME);
+			snprintf(filename_tmp, filename_len, ELF_BDF_FILE_NAME);
 		} else if (plat_priv->board_info.board_id < 0xFF) {
 			if (plat_priv->chip_info.chip_id & CHIP_ID_GF_MASK)
 				snprintf(filename_tmp, filename_len,
@@ -3114,7 +3139,7 @@ int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv)
 
 	if  (!test_bit(CNSS_QMI_DMS_CONNECTED, &plat_priv->driver_state)) {
 		cnss_pr_err("DMS QMI connection not established\n");
-		return -EINVAL;
+		return -EAGAIN;
 	}
 	cnss_pr_dbg("Requesting DMS MAC address");
 
@@ -3145,9 +3170,15 @@ int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv)
 	}
 
 	if (resp.resp.result != QMI_RESULT_SUCCESS_V01) {
-		cnss_pr_err("QMI_DMS_GET_MAC_ADDRESS_REQ_V01 failed, result: %d, err: %d\n",
-			    resp.resp.result, resp.resp.error);
-		ret = -resp.resp.result;
+                if (resp.resp.error == DMS_MAC_NOT_PROVISIONED) {
+                        cnss_pr_err("NV MAC address is not provisioned");
+                        plat_priv->dms.nv_mac_not_prov = 1;
+                        ret = -resp.resp.result;
+                } else {
+                        cnss_pr_err("QMI_DMS_GET_MAC_ADDRESS_REQ_V01 failed, result: %d, err: %d\n",
+                                    resp.resp.result, resp.resp.error);
+                        ret = -EAGAIN;
+                }
 		goto out;
 	}
 	if (!resp.mac_address_valid ||

@@ -29,3 +29,11 @@ obj-$(CONFIG_INPUT_MISC)	+= misc/
 obj-$(CONFIG_INPUT_APMPOWER)	+= apm-power.o
 
 obj-$(CONFIG_RMI4_CORE)		+= rmi4/
+obj-$(CONFIG_STMVL53L5)		+= stmvl53l5/
+obj-$(CONFIG_INPUT_FINGERPRINT) += fingerprint/
+
+ifeq ($(TARGET_PRODUCT), marble)
+    KBUILD_CPPFLAGS += -DCONFIG_TARGET_PRODUCT_MARBLE
+    KBUILD_CPPFLAGS += -DQCOM_HAPTIC_F0_PROTECT
+endif
+

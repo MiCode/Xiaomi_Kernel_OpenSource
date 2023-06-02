@@ -189,6 +189,9 @@ DECLARE_HOOK(android_vh_pcplist_add_cma_pages_bypass,
 DECLARE_HOOK(android_vh_subpage_dma_contig_alloc,
 	TP_PROTO(bool *allow_subpage_alloc, struct device *dev, size_t *size),
 	TP_ARGS(allow_subpage_alloc, dev, size));
+DECLARE_HOOK(android_vh_no_iommu_config,
+	TP_PROTO(struct device *dev),
+	TP_ARGS(dev));
 DECLARE_HOOK(android_vh_handle_pte_fault_end,
 	TP_PROTO(struct vm_fault *vmf, unsigned long highest_memmap_pfn),
 	TP_ARGS(vmf, highest_memmap_pfn));

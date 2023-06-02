@@ -20,6 +20,8 @@
 #include <soc/qcom/qseecomi.h>
 #include <linux/qtee_shmbridge.h>
 #include <linux/proc_fs.h>
+#include <linux/wait.h>
+#include <linux/poll.h>
 
 /* QSEE_LOG_BUF_SIZE = 32K */
 #define QSEE_LOG_BUF_SIZE 0x8000
@@ -471,6 +473,7 @@ static uint64_t qseelog_shmbridge_handle;
 static struct encrypted_log_info enc_qseelog_info;
 static struct encrypted_log_info enc_tzlog_info;
 
+extern wait_queue_head_t tzdbg_log_wq;
 /*
  * Debugfs data structure and functions
  */
@@ -1037,7 +1040,20 @@ static int _disp_encrpted_log_stats(struct encrypted_log_info *enc_log_info,
 	return len;
 }
 
-static int _disp_tz_log_stats(size_t count)
+static int check_tz_log_state(struct tzdbg_log_t *log, struct tzdbg_log_pos_t *log_start,
+struct tzdbg_log_v2_t *log_v2, struct tzdbg_log_pos_v2_t *log_start_v2)
+{
+	int ret = 0;
+	if (!tzdbg.is_enlarged_buf){
+		if (!(log_start->offset == log->log_pos.offset && log_start->wrap == log->log_pos.wrap))
+			ret = 1;
+	} else {
+		if (!(log_start_v2->offset == log_v2->log_pos.offset && log_start_v2->wrap == log_v2->log_pos.wrap))
+			ret = 1;
+	}
+	return ret;
+}
+static int _disp_tz_log_stats(size_t count, bool check_state)
 {
 	static struct tzdbg_log_pos_v2_t log_start_v2 = {0};
 	static struct tzdbg_log_pos_t log_start = {0};
@@ -1051,6 +1067,9 @@ static int _disp_tz_log_stats(size_t count)
 	log_v2_ptr = (struct tzdbg_log_v2_t *)((unsigned char *)tzdbg.diag_buf +
 			tzdbg.diag_buf->ring_off -
 			offsetof(struct tzdbg_log_v2_t, log_buf));
+
+	if(check_state)
+		return check_tz_log_state(log_ptr, &log_start, log_v2_ptr, &log_start_v2);
 
 	if (!tzdbg.is_enlarged_buf)
 		return _disp_log_stats(log_ptr, &log_start,
@@ -1123,10 +1142,18 @@ static int _disp_rm_log_stats(size_t count)
 	return __disp_rm_log_stats(log_ptr, log_len);
 }
 
-static int _disp_qsee_log_stats(size_t count)
+static int _disp_qsee_log_stats(size_t count, bool check_state)
 {
 	static struct tzdbg_log_pos_t log_start = {0};
 	static struct tzdbg_log_pos_v2_t log_start_v2 = {0};
+	uint32_t log_len;
+	if(check_state){
+		if (!tzdbg.is_enlarged_buf)
+			log_len = QSEE_LOG_BUF_SIZE - sizeof(struct tzdbg_log_pos_t);
+		else
+			log_len = QSEE_LOG_BUF_SIZE_V2 - sizeof(struct tzdbg_log_pos_v2_t);
+		return check_tz_log_state(g_qsee_log, &log_start, g_qsee_log_v2, &log_start_v2);
+	}
 
 	if (!tzdbg.is_enlarged_buf)
 		return _disp_log_stats(g_qsee_log, &log_start,
@@ -1209,14 +1236,14 @@ static ssize_t tzdbg_fs_read_unencrypted(int tz_id, char __user *buf,
 	case TZDBG_LOG:
 		if (TZBSP_DIAG_MAJOR_VERSION_LEGACY <
 				(tzdbg.diag_buf->version >> 16)) {
-			len = _disp_tz_log_stats(count);
+			len = _disp_tz_log_stats(count, false);
 			*offp = 0;
 		} else {
 			len = _disp_tz_log_stats_legacy();
 		}
 		break;
 	case TZDBG_QSEE_LOG:
-		len = _disp_qsee_log_stats(count);
+		len = _disp_qsee_log_stats(count, false);
 		*offp = 0;
 		break;
 	case TZDBG_HYP_GENERAL:
@@ -1281,6 +1308,55 @@ static ssize_t tzdbg_fs_read_encrypted(int tz_id, char __user *buf,
 	return ret;
 }
 
+static int is_tzlog_ready(int tz_id){
+	int ret = 0;
+	struct tzbsp_encr_log_t *encr_log_head = NULL;
+	struct encrypted_log_info *enc_log_info = NULL;
+	uint32_t size = 0;
+	uint32_t log_id = 0;
+
+	if (tzdbg.is_encrypted_log_enabled){
+		if ((!tzdbg.is_full_encrypted_tz_logs_supported)
+                    && (tzdbg.is_full_encrypted_tz_logs_enabled))
+			pr_info("TZ not supporting full encrypted log functionality\n");
+		switch (tz_id){
+			case TZDBG_LOG:
+				enc_log_info = &enc_qseelog_info;
+				log_id = ENCRYPTED_TZ_LOG_ID;
+				break;
+			case TZDBG_QSEE_LOG:
+				enc_log_info = &enc_tzlog_info;
+				log_id = ENCRYPTED_QSEE_LOG_ID;
+				break;
+			default:
+				pr_info("No support listen tz_id:%d \n", tz_id);
+		}
+		ret = qcom_scm_request_encrypted_log(enc_log_info->paddr,
+					enc_log_info->size, log_id, tzdbg.is_full_encrypted_tz_logs_supported,
+					tzdbg.is_full_encrypted_tz_logs_enabled);
+		if (ret)
+			return 0;
+		encr_log_head = (struct tzbsp_encr_log_t *)(enc_log_info->vaddr);
+		size = encr_log_head->encr_log_buff_size;
+
+		ret = size;
+	} else {
+		switch (tz_id) {
+			case TZDBG_LOG:
+				// update tz_log ring buffer
+				memcpy_fromio((void *)tzdbg.diag_buf, tzdbg.virt_iobase, debug_rw_buf_size);
+				ret = _disp_tz_log_stats(0, true);
+				break;
+			case TZDBG_QSEE_LOG:
+				ret = _disp_qsee_log_stats(0, true);
+				break;
+			default:
+				pr_info("No support listen tz_id:%d \n", tz_id);
+		}
+	}
+	return ret;
+}
+
 static ssize_t tzdbg_fs_read(struct file *file, char __user *buf,
 	size_t count, loff_t *offp)
 {
@@ -1312,11 +1388,32 @@ static int tzdbg_procfs_release(struct inode *inode, struct file *file)
 	return single_release(inode, file);
 }
 
+static __poll_t tzdbg_procfs_poll(struct file *file, struct poll_table_struct *wait)
+{
+	struct seq_file *seq = file->private_data;
+	int tz_id = TZDBG_STATS_MAX;
+	if (seq)
+		tz_id = *(int *)(seq->private);
+	else {
+		pr_err("%s: Seq data null unable to proceed\n", __func__);
+		return 0;
+	}
+
+	if (tz_id == TZDBG_LOG){
+		if(is_tzlog_ready(tz_id))
+			return EPOLLIN | EPOLLRDNORM;
+		poll_wait(file, &tzdbg_log_wq, wait);
+	}
+
+	return 0;
+}
+
 struct proc_ops tzdbg_fops = {
 	.proc_flags   = PROC_ENTRY_PERMANENT,
 	.proc_read    = tzdbg_fs_read,
 	.proc_open    = tzdbg_procfs_open,
 	.proc_release = tzdbg_procfs_release,
+	.proc_poll	  = tzdbg_procfs_poll,
 };
 
 /*

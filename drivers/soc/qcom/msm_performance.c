@@ -28,6 +28,7 @@
 #include <linux/errno.h>
 #include <linux/topology.h>
 
+
 #include <linux/scmi_protocol.h>
 #include <linux/scmi_plh.h>
 #include <linux/scmi_gplaf.h>
@@ -167,6 +168,7 @@ static ssize_t get_silver_core_boost(struct kobject *kobj,
 static ssize_t set_silver_core_boost(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf,
 	size_t count);
+
 
 static struct kobj_attribute cpu_min_freq_attr =
 	__ATTR(cpu_min_freq, 0644, get_cpu_min_freq, set_cpu_min_freq);
@@ -468,10 +470,11 @@ static ssize_t set_cpu_min_freq(struct kobject *kobj,
 	int i, j, ntokens = 0;
 	unsigned int val, cpu;
 	const char *cp = buf;
+
 	struct cpu_status *i_cpu_stats;
 	struct cpufreq_policy policy;
-	struct freq_qos_request *req;
 	int ret = 0;
+
 
 	if (!ready_for_freq_updates) {
 		ret = freq_qos_request_init();
@@ -524,9 +527,7 @@ static ssize_t set_cpu_min_freq(struct kobject *kobj,
 			continue;
 
 		if (cpu_online(i)) {
-			req = &per_cpu(qos_req_min, i);
-			if (freq_qos_update_request(req, i_cpu_stats->min) < 0)
-				break;
+
 		}
 
 		for_each_cpu(j, policy.related_cpus)
@@ -536,6 +537,8 @@ static ssize_t set_cpu_min_freq(struct kobject *kobj,
 
 	return count;
 }
+
+
 
 static ssize_t get_cpu_min_freq(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
@@ -2083,6 +2086,8 @@ static int __init msm_performance_init(void)
 	init_pmu_counter();
 
 	dest = ioremap(GPLAF_SP_ADDR, GPLAF_SP_SIZE);
+
+
 	return 0;
 }
 MODULE_LICENSE("GPL v2");

@@ -1343,6 +1343,10 @@ source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 
 source "drivers/input/touchscreen/nt36xxx/Kconfig"
 
+source "drivers/input/touchscreen/goodix_9916/Kconfig"
+
+source "drivers/input/touchscreen/goodix_9916_l9s/Kconfig"
+
 source "drivers/input/touchscreen/goodix_berlin_driver/Kconfig"
 
 endif

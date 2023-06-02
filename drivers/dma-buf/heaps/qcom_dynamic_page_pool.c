@@ -225,7 +225,6 @@ static int dynamic_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 
 	if (!nr_to_scan)
 		only_scan = 1;
-
 	mutex_lock(&pool_list_lock);
 	list_for_each_entry(pool, &pool_list, list) {
 		if (only_scan) {
@@ -243,7 +242,6 @@ static int dynamic_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 		}
 	}
 	mutex_unlock(&pool_list_lock);
-
 	return nr_total;
 }
 

@@ -8,6 +8,7 @@
 #include "walt.h"
 #include "trace.h"
 
+
 static DEFINE_PER_CPU(cpumask_var_t, walt_local_cpu_mask);
 
 static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task,
@@ -24,6 +25,7 @@ static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task
 	int cluster;
 	int order_index = (boost_on_big && num_sched_clusters > 1) ? 1 : 0;
 	bool best_cpu_lt = true;
+
 
 	if (unlikely(walt_disabled))
 		return;
@@ -139,6 +141,8 @@ static inline bool walt_should_honor_rt_sync(struct rq *rq, struct task_struct *
 		rq->rt.rt_nr_running <= 2;
 }
 
+
+
 static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int cpu,
 					int sd_flag, int wake_flags, int *new_cpu)
 {
@@ -148,6 +152,7 @@ static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int c
 	bool sync = !!(wake_flags & WF_SYNC);
 	int ret, target = -1, this_cpu;
 	struct cpumask *lowest_mask;
+
 
 	if (unlikely(walt_disabled))
 		return;
