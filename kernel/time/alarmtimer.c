@@ -410,12 +410,10 @@ void alarm_start(struct alarm *alarm, ktime_t start)
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	/* warn_on when timeout is less than 50us */
 	duration_us = ktime_us_delta(alarm->node.expires, base->get_ktime());
-	WARN_ON_ONCE(duration_us < 1000000ULL / MAX_ALARM_CNT);
 
 	if (tfd_isalarm) {
 		if (sched_clock() - tfd_isalarm > 1000000000ULL) {
 			if (tfd_isalarm_cnt > MAX_ALARM_CNT) {
-				WARN_ON_ONCE(tfd_isalarm_cnt > MAX_ALARM_CNT);
 				pr_info("tfd_isalarm %lld sched_clock %lld tfd_isalarm_cnt %d comm %-15.15s cnt %d\n",
 					tfd_isalarm, sched_clock(),
 					tfd_isalarm_cnt,

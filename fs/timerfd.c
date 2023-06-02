@@ -240,12 +240,10 @@ static int timerfd_setup(struct timerfd_ctx *ctx, int flags,
 				duration_us = ktime_to_ns(texp) / 1000;
 			else
 				duration_us = ktime_us_delta(texp, ktime_get());
-			WARN_ON_ONCE(duration_us < 1000000ULL / MAX_NORMAL_CNT);
 
 			if (tfd_normal) {
 				if (sched_clock() - tfd_normal > 1000000000ULL) {
 					if (tfd_normal_cnt > MAX_NORMAL_CNT) {
-						WARN_ON_ONCE(tfd_normal_cnt > MAX_NORMAL_CNT);
 						pr_info("tfd_normal %lld sched_clock %lld tfd_normal_cnt %d comm %-15.15s cnt %d\n",
 							tfd_normal, sched_clock(),
 							tfd_normal_cnt, comm,
