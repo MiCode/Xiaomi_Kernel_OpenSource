@@ -163,6 +163,7 @@
 | ice-s-oss | Redmi POCO C50 | Android S | alps-mp-s0.mp1.tc8sp3-cs1-V1 | [ice-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ice-s-oss) |
 | rubens-s-oss | Redmi K50 | Android S | alps-release-s0.mp1.tc8sp2-mt6983 | [rubens-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/rubens-s-oss) |
 | socrates-t-oss | Redmi K60 Pro | Android T | LA.VENDOR.13.2.0.r1-07300-r1.0.r1_00020.0 |[socrates-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/socrates-t-oss) |
+| marble-s-oss | Redmi Note 12 Turbo | Android S | LA.VENDOR.1.0.r1-19000-r2.0.r1_00029.0 |[marble-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/marble-s-oss) |
 | ruby-s-oss | Redmi Note12 Pro | Android S | alps-mp-s0.mp1.tc8sp-cs1-V1 |[ruby-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ruby-s-oss) |
 | mayfly-s-oss | Xiaomi 12S | Android S | LA.VENDOR.1.0.r1-13100-r1.0.r1_00037.0 |[mayfly-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mayfly-s-oss) |
 | mondrian-s-oss | Redmi K60 | Android S | LA.VENDOR.1.0.r1-11900-r1.0.r1_00029.0 |[mondrian-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/mondrian-s-oss) |
