@@ -8917,8 +8917,6 @@ static void ufshcd_config_mcq(struct ufs_hba *hba)
 	int ret;
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	u32 intrs;
-	struct ufs_hw_queue *hwq;
-	int i;
 #endif
 
 	ret = ufshcd_mcq_vops_config_esi(hba);
@@ -8932,16 +8930,6 @@ static void ufshcd_config_mcq(struct ufs_hba *hba)
 	ufshcd_enable_intr(hba, intrs);
 #else
 	ufshcd_enable_intr(hba, UFSHCD_ENABLE_MCQ_INTRS);
-#endif
-
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	ret = ufshcd_mcq_vops_config_cqid(hba);
-	if (ret) {
-		for (i = 0; i < hba->nr_hw_queues; i++) {
-			hwq = &hba->uhq[i];
-			hwq->cqid = i;
-		}
-	}
 #endif
 
 	ufshcd_mcq_make_queues_operational(hba);
