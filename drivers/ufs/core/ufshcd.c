@@ -3178,11 +3178,7 @@ retry:
 		 * not trigger any race conditions.
 		 */
 		hba->dev_cmd.complete = NULL;
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 		err = ufshcd_get_tr_ocs(lrbp, NULL);
-#else
-		err = ufshcd_get_tr_ocs(lrbp, hba->dev_cmd.cqe);
-#endif
 		if (!err)
 			err = ufshcd_dev_cmd_completion(hba, lrbp);
 	} else {
@@ -3278,7 +3274,6 @@ static int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 		goto out;
 
 	hba->dev_cmd.complete = &wait;
-	hba->dev_cmd.cqe = NULL;
 
 	ufshcd_add_query_upiu_trace(hba, UFS_QUERY_SEND, lrbp->ucd_req_ptr);
 
@@ -5536,9 +5531,7 @@ void ufshcd_compl_one_cqe(struct ufs_hba *hba, int task_tag,
 {
 	struct ufshcd_lrb *lrbp;
 	struct scsi_cmnd *cmd;
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	enum utp_ocs ocs;
-#endif
 
 	lrbp = &hba->lrb[task_tag];
 	lrbp->compl_time_stamp = ktime_get();
@@ -5557,15 +5550,11 @@ void ufshcd_compl_one_cqe(struct ufs_hba *hba, int task_tag,
 		   lrbp->command_type == UTP_CMD_TYPE_UFS_STORAGE) {
 		if (hba->dev_cmd.complete) {
 			trace_android_vh_ufs_compl_command(hba, lrbp);
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 			if (cqe) {
 				ocs = le32_to_cpu(cqe->status) & MASK_OCS;
 				lrbp->utr_descriptor_ptr->header.dword_2 =
 					cpu_to_le32(ocs);
 			}
-#else
-			hba->dev_cmd.cqe = cqe;
-#endif
 			ufshcd_add_command_trace(hba, task_tag, UFS_DEV_COMP);
 			complete(hba->dev_cmd.complete);
 			ufshcd_clk_scaling_update_busy(hba);
