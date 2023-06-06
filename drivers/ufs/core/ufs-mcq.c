@@ -22,12 +22,7 @@
 #define MAX_QUEUE_SUP GENMASK(7, 0)
 #define UFS_MCQ_MIN_RW_QUEUES 2
 #define UFS_MCQ_MIN_READ_QUEUES 0
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-#define UFS_MCQ_MAX_DEV_CMD_QUEUES 1
-#define UFS_MCQ_MIN_DEV_CMD_QUEUES 0
-#else
 #define UFS_MCQ_NUM_DEV_CMD_QUEUES 1
-#endif
 #define UFS_MCQ_MIN_POLL_QUEUES 0
 #define QUEUE_EN_OFFSET 31
 #define QUEUE_ID_OFFSET 16
@@ -91,24 +86,6 @@ module_param_cb(poll_queues, &poll_queue_count_ops, &poll_queues, 0644);
 MODULE_PARM_DESC(poll_queues,
 		 "Number of poll queues used for r/w. Default value is 1");
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-static int dev_cmd_queue_count_set(const char *val, const struct kernel_param *kp)
-{
-	return param_set_uint_minmax(val, kp,
-				     UFS_MCQ_MIN_DEV_CMD_QUEUES,
-				     UFS_MCQ_MAX_DEV_CMD_QUEUES);
-}
-
-static const struct kernel_param_ops dev_cmd_queue_count_ops = {
-	.set = dev_cmd_queue_count_set,
-	.get = param_get_uint,
-};
-
-unsigned int dev_cmd_queues = 1;
-module_param_cb(dev_cmd_queues, &dev_cmd_queue_count_ops, &dev_cmd_queues, 0644);
-MODULE_PARM_DESC(dev_cmd_queues,
-		 "Number of queues used for dev command. Default value is 1");
-#endif
 /**
  * ufshcd_mcq_config_mac - Set the #Max Activ Cmds.
  * @hba: per adapter instance
@@ -146,11 +123,7 @@ struct ufs_hw_queue *ufshcd_mcq_req_to_hwq(struct ufs_hba *hba,
 	u32 hwq = blk_mq_unique_tag_to_hwq(utag);
 
 	/* uhq[0] is used to serve device commands */
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	return &hba->uhq[hwq + dev_cmd_queues];
-#else
 	return &hba->uhq[hwq + UFSHCD_MCQ_IO_QUEUE_OFFSET];
-#endif
 }
 
 /**
@@ -194,16 +167,11 @@ static int ufshcd_mcq_config_nr_queues(struct ufs_hba *hba)
 #if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 	/* maxq is 0 based value */
 	hba_maxq = FIELD_GET(MAX_QUEUE_SUP, hba->mcq_capabilities) + 1;
-
-	tot_queues = dev_cmd_queues + read_queues + poll_queues +
-				rw_queues;
-
 #else
 	hba_maxq = FIELD_GET(MAX_QUEUE_SUP, hba->mcq_capabilities);
-
+#endif
 	tot_queues = UFS_MCQ_NUM_DEV_CMD_QUEUES + read_queues + poll_queues +
 			rw_queues;
-#endif
 
 	if (hba_maxq < tot_queues) {
 		dev_err(hba->dev, "Total queues (%d) exceeds HC capacity (%d)\n",
@@ -211,11 +179,7 @@ static int ufshcd_mcq_config_nr_queues(struct ufs_hba *hba)
 		return -EOPNOTSUPP;
 	}
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	rem = hba_maxq - dev_cmd_queues;
-#else
 	rem = hba_maxq - UFS_MCQ_NUM_DEV_CMD_QUEUES;
-#endif
 
 	if (rw_queues) {
 		hba->nr_queues[HCTX_TYPE_DEFAULT] = rw_queues;
@@ -241,11 +205,7 @@ static int ufshcd_mcq_config_nr_queues(struct ufs_hba *hba)
 	for (i = 0; i < HCTX_MAX_TYPES; i++)
 		host->nr_hw_queues += hba->nr_queues[i];
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	hba->nr_hw_queues = host->nr_hw_queues + dev_cmd_queues;
-#else
 	hba->nr_hw_queues = host->nr_hw_queues + UFS_MCQ_NUM_DEV_CMD_QUEUES;
-#endif
 	return 0;
 }
 
@@ -512,15 +472,8 @@ int ufshcd_mcq_init(struct ufs_hba *hba)
 
 	/* The very first HW queue serves device commands */
 	hba->dev_cmd_queue = &hba->uhq[0];
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	if (dev_cmd_queues) {
-		/* Give dedicated dev_cmd_queue the minimal number of entries */
-		hba->dev_cmd_queue->max_entries = MAX_DEV_CMD_ENTRIES;
-	}
-#else
 	/* Give dev_cmd_queue the minimal number of entries */
 	hba->dev_cmd_queue->max_entries = MAX_DEV_CMD_ENTRIES;
-#endif
 
 	host->host_tagset = 1;
 	return 0;

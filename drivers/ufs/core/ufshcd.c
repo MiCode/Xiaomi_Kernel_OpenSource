@@ -5665,11 +5665,7 @@ static int ufshcd_poll(struct Scsi_Host *shost, unsigned int queue_num)
 	struct ufs_hw_queue *hwq;
 
 	if (is_mcq_enabled(hba)) {
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-		hwq = &hba->uhq[queue_num + dev_cmd_queues];
-#else
 		hwq = &hba->uhq[queue_num + UFSHCD_MCQ_IO_QUEUE_OFFSET];
-#endif
 
 		return ufshcd_mcq_poll_cqe_lock(hba, hwq);
 	}
@@ -5712,7 +5708,7 @@ static void ufshcd_mcq_compl_pending_transfer(struct ufs_hba *hba, bool force_co
 			hwq_num = blk_mq_unique_tag_to_hwq(utag);
 
 			if (force_complete) {
-				hwq = &hba->uhq[hwq_num + dev_cmd_queues];
+				hwq = &hba->uhq[hwq_num + UFSHCD_MCQ_IO_QUEUE_OFFSET];
 
 				spin_lock_irqsave(&hwq->cq_lock, flags);
 				if (lrbp->cmd) {
