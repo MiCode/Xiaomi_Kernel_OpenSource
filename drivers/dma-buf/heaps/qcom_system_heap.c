@@ -391,17 +391,19 @@ struct page *qcom_sys_heap_alloc_largest_available(struct dynamic_page_pool **po
 	int i;
 
 	for (i = 0; i < NUM_ORDERS; i++) {
+		unsigned long flags;
+
 		if (size <  (PAGE_SIZE << orders[i]))
 			continue;
 		if (max_order < orders[i])
 			continue;
 
-		mutex_lock(&pools[i]->mutex);
+		spin_lock_irqsave(&pools[i]->lock, flags);
 		if (pools[i]->high_count)
 			page = dynamic_page_pool_remove(pools[i], true);
 		else if (pools[i]->low_count)
 			page = dynamic_page_pool_remove(pools[i], false);
-		mutex_unlock(&pools[i]->mutex);
+		spin_unlock_irqrestore(&pools[i]->lock, flags);
 
 		if (!page)
 			page = alloc_pages(pools[i]->gfp_mask, pools[i]->order);
@@ -457,8 +459,8 @@ static struct dma_buf *system_heap_allocate(struct dma_heap *heap,
 			goto free_buffer;
 
 		page = qcom_sys_heap_alloc_largest_available(sys_heap->pool_list,
-							     size_remaining,
-							     max_order);
+									size_remaining,
+									max_order);
 		if (!page)
 			goto free_buffer;
 

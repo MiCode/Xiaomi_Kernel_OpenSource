@@ -824,6 +824,21 @@ config RN5T618_POWER
 	  This driver can also be built as a module. If so, the module will be
 	  called rn5t618_power.
 
+config MI_WIRELESS
+	tristate "mi wirless config"
+	help
+	  Say Y here to enable mi wireless
+
+config MI_ENABLE_DP
+	tristate "enable or disable displayPort config"
+	help
+	  Say Y here to enable create node to support dp function
+
+config WIRELESS_REVERSE_CLOSE
+	tristate "mi wirless reverse close"
+	help
+	  Say Y here to disable mi wireless reverse charge
+
 config BATTERY_ACER_A500
 	tristate "Acer Iconia Tab A500 battery driver"
 	depends on MFD_ACER_A500_EC
@@ -861,6 +876,11 @@ config CHARGER_SURFACE
 	  Say M or Y here to include AC status support for 7th-generation
 	  Microsoft Surface devices, i.e. Surface Pro 7, Surface Laptop 3,
 	  Surface Book 3, and Surface Laptop Go.
+
+config MI_DTPT
+	tristate "mi dtpt config"
+        help
+          Say Y here to enable mi dtpt
 
 source "drivers/power/supply/qcom/Kconfig"
 

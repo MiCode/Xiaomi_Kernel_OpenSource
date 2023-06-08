@@ -182,5 +182,7 @@ obj-$(CONFIG_REGULATOR_RPMH) += rpmh-regulator.o
 obj-$(CONFIG_REGULATOR_STUB) += stub-regulator.o
 obj-$(CONFIG_REGULATOR_DEBUG_CONTROL) += debug-regulator.o
 obj-$(CONFIG_REGULATOR_QTI_OCP_NOTIFIER) += qti-ocp-notifier.o
+obj-$(CONFIG_REGULATOR_WL2866D) += wl2866d.o
+obj-$(CONFIG_REGULATOR_WillSemi_WL2866D) += wl2866d_willsemi.o
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG

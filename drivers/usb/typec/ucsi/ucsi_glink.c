@@ -27,6 +27,7 @@
 #define UC_UCSI_READ_BUF_REQ		0x11
 #define UC_UCSI_WRITE_BUF_REQ		0x12
 #define UC_UCSI_USBC_NOTIFY_IND		0x13
+#define UC_UCSI_USBC_NOTIFY_CID		0x18
 
 /* Generic definitions */
 #define CMD_PENDING			1
@@ -93,6 +94,10 @@ struct ucsi_dev {
 	struct work_struct		setup_work;
 	atomic_t			state;
 };
+
+static enum typec_accessory last_acc = TYPEC_ACCESSORY_NONE;
+static enum cid_accessory last_cid_status = CID_ACCESSORY_UNKNOWN;
+static enum charging_accessory last_charging_sts = CHG_ACCESSORY_UNKNOWN;
 
 static void *ucsi_ipc_log;
 static RAW_NOTIFIER_HEAD(ucsi_glink_notifier);
@@ -246,6 +251,52 @@ static int handle_ucsi_notify(struct ucsi_dev *udev, void *data, size_t len)
 	return 0;
 }
 
+static int handle_ucsi_notify_cid(struct ucsi_dev *udev, void *data, size_t len)
+{
+	u32 status = 0;
+	u32 cid_status = 0;
+	u32 charging_status = 0;
+	struct constat_info_entry *entry;
+	struct ucsi_notify_ind_msg *msg_ptr;
+
+	if (len != sizeof(*msg_ptr)) {
+		pr_err("Incorrect received length %zu expected %u\n", len,
+			sizeof(*msg_ptr));
+		return -EINVAL;
+	}
+
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -1;
+
+	msg_ptr = data;
+	status = msg_ptr->notification;
+	cid_status = (status & 1);
+	charging_status = ((status >> 1) & 1);
+	pr_err("handle_ucsi_notify_cid::status: 0x%x, cid_status: %d, charging_status: %d\n", status, cid_status, charging_status);
+	INIT_LIST_HEAD(&entry->node);
+	if (cid_status)
+		entry->constat_info.cid_status = CID_ACCESSORY_CNT;
+	else
+		entry->constat_info.cid_status = CID_ACCESSORY_DISCNT;
+
+	if (charging_status)
+		entry->constat_info.charging_sts = CHG_ACCESSORY_CHARGING;
+	else
+		entry->constat_info.charging_sts = CHG_ACCESSORY_DISCHARGING;
+
+	entry->constat_info.acc = last_acc;
+	last_cid_status = entry->constat_info.cid_status;
+	last_charging_sts = entry->constat_info.charging_sts;
+
+	mutex_lock(&udev->notify_lock);
+	list_add_tail(&entry->node, &udev->constat_info_list);
+	mutex_unlock(&udev->notify_lock);
+
+	schedule_work(&udev->notify_work);
+	return 0;
+}
+
 static int ucsi_callback(void *priv, void *data, size_t len)
 {
 	struct pmic_glink_hdr *hdr = data;
@@ -260,6 +311,8 @@ static int ucsi_callback(void *priv, void *data, size_t len)
 		handle_ucsi_write_ack(udev, data, len);
 	else if (hdr->opcode == UC_UCSI_USBC_NOTIFY_IND)
 		handle_ucsi_notify(udev, data, len);
+	else if (hdr->opcode == UC_UCSI_USBC_NOTIFY_CID)
+		handle_ucsi_notify_cid(udev, data, len);
 	else
 		pr_err("Unknown message opcode: %d\n", hdr->opcode);
 
@@ -435,6 +488,10 @@ static void ucsi_qti_notify(struct ucsi_dev *udev, unsigned int offset,
 			entry->constat_info.acc = TYPEC_ACCESSORY_NONE;
 			break;
 		}
+
+		entry->constat_info.cid_status = last_cid_status;
+		entry->constat_info.charging_sts = last_charging_sts;
+		last_acc = entry->constat_info.acc;
 
 		mutex_lock(&udev->notify_lock);
 		list_add_tail(&entry->node, &udev->constat_info_list);

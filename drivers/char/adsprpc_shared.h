@@ -972,6 +972,7 @@ struct fastrpc_mmap {
 	struct timespec64 map_end_time;
 	/* Mapping for fastrpc shell */
 	bool is_filemap;
+	char *servloc_name;			/* Indicate which daemon mapped this */
 };
 
 enum fastrpc_perfkeys {

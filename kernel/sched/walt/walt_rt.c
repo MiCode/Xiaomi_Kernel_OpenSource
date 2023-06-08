@@ -30,6 +30,7 @@ static void long_running_rt_task_notifier(void *unused, struct rq *rq)
 {
 	struct task_struct *curr = rq->curr;
 	unsigned int cpu = raw_smp_processor_id();
+	const char* unlimited_comm = "gh-watchdog, rcu_exp_gp_kthr";
 
 	if (!sysctl_sched_long_running_rt_task_ms)
 		return;
@@ -63,6 +64,10 @@ static void long_running_rt_task_notifier(void *unused, struct rq *rq)
 				per_cpu(rt_task_arrival_time, cpu),
 				rq->clock_task -
 				per_cpu(rt_task_arrival_time, cpu));
+		if(unlikely(strstr(unlimited_comm, curr->comm))) {
+			printk_deferred("let unlimited RT task: %s run\n", curr->comm);
+			return;
+		}
 		BUG();
 	}
 }
@@ -231,7 +236,6 @@ enum rt_fastpaths {
 	SYNC_WAKEUP,
 	CLUSTER_PACKING_FASTPATH,
 };
-
 
 static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int cpu,
 					int sd_flag, int wake_flags, int *new_cpu)

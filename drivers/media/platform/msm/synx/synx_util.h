@@ -516,6 +516,16 @@ void synx_util_log_error(u32 id, s32 h_synx, s32 err);
 int synx_util_init_table(void);
 
 /**
+ * @brief: Function to release bound external fences
+ *
+ * This releases the external fence entries and
+ * does a corresponding bind_ops->deregister
+ *
+ * @param synx_obj : Pointer to synx object
+ */
+void release_bound_synxs(struct synx_coredata *synx_obj);
+
+/**
  * @brief: Function to save data in hash table
  *
  * @param key  : Unique key for the entry

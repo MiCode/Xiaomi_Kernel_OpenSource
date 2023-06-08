@@ -82,6 +82,7 @@ u64 walt_sched_clock(void)
 		return sched_clock_last;
 	return sched_clock();
 }
+EXPORT_SYMBOL(walt_sched_clock);
 
 static void walt_resume(void)
 {
@@ -2277,6 +2278,7 @@ static inline void run_walt_irq_work_rollover(u64 old_window_start, struct rq *r
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
+
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
 {

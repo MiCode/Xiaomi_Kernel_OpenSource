@@ -9,8 +9,22 @@
 #include <linux/errno.h>
 #include <linux/usb/typec.h>
 
+enum cid_accessory {
+	CID_ACCESSORY_UNKNOWN,
+	CID_ACCESSORY_CNT,
+	CID_ACCESSORY_DISCNT,
+};
+
+enum charging_accessory {
+	CHG_ACCESSORY_UNKNOWN,
+	CHG_ACCESSORY_CHARGING,
+	CHG_ACCESSORY_DISCHARGING,
+};
+
 struct ucsi_glink_constat_info {
 	enum typec_accessory acc;
+	enum cid_accessory cid_status;
+	enum charging_accessory charging_sts;
 };
 
 struct notifier_block;
