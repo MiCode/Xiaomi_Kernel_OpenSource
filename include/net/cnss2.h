@@ -321,4 +321,7 @@ extern void cnss_thermal_cdev_unregister(struct device *dev, int tcdev_id);
 extern int cnss_get_curr_therm_cdev_state(struct device *dev,
 					  unsigned long *thermal_state,
 					  int tcdev_id);
+extern int cnss_update_time_sync_period(struct device *dev,
+					 uint32_t time_sync_period);
+extern int cnss_reset_time_sync_period(struct device *dev);
 #endif /* _NET_CNSS2_H */
