@@ -20,7 +20,7 @@ MakeZip() {
     fi
     cp -af $MainPath/out/arch/arm64/boot/Image.gz-dtb $Any
     sed -i "s/kernel.string=.*/kernel.string=$KERNEL_NAME by Abdul7852/g" anykernel.sh
-    zip -r9 $MainPath/"NoVA-Balance-$ZIP_KERNEL_VERSION.zip" * -x .git README.md *placeholder
+    zip -r9 $MainPath/"Stock-Xiaomi-$ZIP_KERNEL_VERSION.zip" * -x .git README.md *placeholder
     cd $MainPath
 }
 
