@@ -2263,7 +2263,8 @@ static int msm_geni_serial_handle_dma_rx(struct uart_port *uport, bool drop_rx)
 	tport = &uport->state->port;
 	ret = tty_insert_flip_string(tport, (unsigned char *)(msm_port->rx_buf), rx_bytes);
 	if (ret != rx_bytes) {
-		dev_err(uport->dev, "%s: ret %d rx_bytes %d\n", __func__, ret, rx_bytes);
+		UART_LOG_DBG(msm_port->ipc_log_rx, uport->dev, "%s: ret %d rx_bytes %d\n",
+			     __func__, ret, rx_bytes);
 		msm_geni_update_uart_error_code(msm_port, UART_ERROR_RX_TTY_INSERT_FAIL);
 		WARN_ON_ONCE(1);
 	}
