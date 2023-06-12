@@ -30,12 +30,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_arm64_serror_panic,
 	TP_PROTO(struct pt_regs *regs, unsigned long esr),
 	TP_ARGS(regs, esr), 1);
 
-#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
-DECLARE_RESTRICTED_HOOK(android_rvh_do_serror,
-	TP_PROTO(struct pt_regs *regs, unsigned int esr, int *ret),
-	TP_ARGS(regs, esr, ret), 1);
-#endif
-
 #endif /* _TRACE_HOOK_TRAPS_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
