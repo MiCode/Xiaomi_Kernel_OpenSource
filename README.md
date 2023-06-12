@@ -148,6 +148,7 @@
 | vangogh-q-oss | Mi 10 Lite 5G, Mi 10 Lite Zoom | Android Q | LA.UM.8.13.r1-04700-SAIPAN.0 | [vangogh-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/vangogh-q-oss) |
 | vayu-r-oss | Redmi POCO X3 Pro | Android R | LA.UM.9.1.r1-07000-SMxxx0.0 | [vayu-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/vayu-r-oss) |  
 | venus-r-oss | Mi 11 | Android R | LA.UM.9.14.r1-10000-LAHAINA.0 | [venus-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/venus-r-oss) |
+| veux-r-oss | Redmi Note 11E Pro, Redmi Note 11 Pro 5G, Redmi Note 11 Pro+ 5G | Android R | LA.UM.9.16.r1-07900-MANNAR.0-1 | [veux-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/veux-r-oss) |
 | vili-r-oss | Xiaomi 11T Pro | Android R | LA.UM.9.14.r1-16700-LAHAINA.0 | [vili-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/vili-r-oss) |
 | violet-p-oss | Redmi Note 7Pro | Android P | LA.UM.7.9.r1-03500-sm6150.0 | [violet-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/violet-p-oss) |
 | violet-q-oss | Redmi Note 7 Pro | Android Q | LA.UM.8.9.r1-04400-SM6xx.0-1 | [violet-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/violet-q-oss) |
