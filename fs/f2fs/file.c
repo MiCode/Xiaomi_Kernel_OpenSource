@@ -19,6 +19,7 @@
 #include <linux/pagevec.h>
 #include <linux/uio.h>
 #include <linux/uuid.h>
+#include <linux/uidgid.h>
 #include <linux/file.h>
 #include <linux/nls.h>
 
@@ -30,6 +31,7 @@
 #include "gc.h"
 #include "trace.h"
 #include <trace/events/f2fs.h>
+#include <trace/events/android_fs.h>
 
 static vm_fault_t f2fs_filemap_fault(struct vm_fault *vmf)
 {
@@ -195,6 +197,10 @@ static inline enum cp_reason_type need_do_checkpoint(struct inode *inode)
 		cp_reason = CP_HARDLINK;
 	else if (is_sbi_flag_set(sbi, SBI_NEED_CP))
 		cp_reason = CP_SB_NEED_CP;
+#ifdef CONFIG_F2FS_CP_OPT
+	else if (f2fs_parent_inode_xattr_set(inode))
+		cp_reason = CP_PARENT_XATTR_SET;
+#endif
 	else if (file_wrong_pino(inode))
 		cp_reason = CP_WRONG_PINO;
 	else if (!f2fs_space_for_roll_forward(sbi))
@@ -253,12 +259,16 @@ static int f2fs_do_sync_file(struct file *file, loff_t start, loff_t end,
 		.for_reclaim = 0,
 	};
 	unsigned int seq_id = 0;
+	ktime_t start_time, delta;
+	unsigned long long duration;
 
 	if (unlikely(f2fs_readonly(inode->i_sb) ||
 				is_sbi_flag_set(sbi, SBI_CP_DISABLED)))
 		return 0;
 
 	trace_f2fs_sync_file_enter(inode);
+
+	start_time = ktime_get();
 
 	if (S_ISDIR(inode->i_mode))
 		goto go_write;
@@ -305,6 +315,7 @@ go_write:
 	up_read(&F2FS_I(inode)->i_sem);
 
 	if (cp_reason) {
+		stat_inc_cp_reason(sbi, cp_reason);
 		/* all the dirty node pages should be flushed for POR */
 		ret = f2fs_sync_fs(inode->i_sb, 1);
 
@@ -363,8 +374,28 @@ flush_out:
 	}
 	f2fs_update_time(sbi, REQ_TIME);
 out:
+	delta = ktime_sub(ktime_get(), start_time);
+	duration = (unsigned long long) ktime_to_ns(delta) / (1000 * 1000);
+
+	/* print slow fsync spend more than 1s */
+	if (duration > 1000) {
+		char *file_path, file_pathbuf[MAX_TRACE_PATHBUF_LEN];
+
+		file_path = android_fstrace_get_pathname(file_pathbuf,
+				MAX_TRACE_PATHBUF_LEN, inode);
+		pr_info("[f2fs] slow fsync: %llu ms, cp_reason: %s, "
+			"datasync = %d, ret = %d, comm: %s: (uid %u, gid %u), "
+			"entry: %s", duration, f2fs_cp_reasons[cp_reason],
+			datasync, ret, current->comm,
+			from_kuid_munged(&init_user_ns, current_fsuid()),
+			from_kgid_munged(&init_user_ns, current_fsgid()),
+			file_path);
+	}
+
 	trace_f2fs_sync_file_exit(inode, cp_reason, datasync, ret);
 	f2fs_trace_ios(NULL, 1);
+	stat_inc_sync_file_count(sbi);
+
 	return ret;
 }
 
@@ -777,6 +808,10 @@ int f2fs_truncate(struct inode *inode)
 		return -EIO;
 	}
 
+	err = dquot_initialize(inode);
+	if (err)
+		return err;
+
 	/* we should check inline_data size */
 	if (!f2fs_may_inline_data(inode)) {
 		err = f2fs_convert_inline_inode(inode);
@@ -858,7 +893,8 @@ static void __setattr_copy(struct inode *inode, const struct iattr *attr)
 	if (ia_valid & ATTR_MODE) {
 		umode_t mode = attr->ia_mode;
 
-		if (!in_group_p(inode->i_gid) && !capable(CAP_FSETID))
+		if (!in_group_p(inode->i_gid) &&
+			!capable_wrt_inode_uidgid(inode, CAP_FSETID))
 			mode &= ~S_ISGID;
 		set_acl_inode(inode, mode);
 	}
@@ -1206,7 +1242,7 @@ static int __clone_blkaddrs(struct inode *src_inode, struct inode *dst_inode,
 			if (ret)
 				return ret;
 
-			ret = f2fs_get_node_info(sbi, dn.nid, &ni);
+			ret = f2fs_get_node_info(sbi, dn.nid, &ni, false);
 			if (ret) {
 				f2fs_put_dnode(&dn);
 				return ret;

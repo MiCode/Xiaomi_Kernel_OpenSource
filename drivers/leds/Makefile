@@ -101,3 +101,4 @@ obj-$(CONFIG_LEDS_USER)			+= uleds.o
 
 # LED Triggers
 obj-$(CONFIG_LEDS_TRIGGERS)		+= trigger/
+#obj-$(CONFIG_WT_FEATURE_AW8624_VIB) 	+= aw8624.o

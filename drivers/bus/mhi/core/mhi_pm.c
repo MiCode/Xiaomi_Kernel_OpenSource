@@ -394,7 +394,8 @@ int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl)
 
 		read_lock_irq(&mhi_chan->lock);
 		/* only ring DB if ring is not empty */
-		if (tre_ring->base && tre_ring->wp  != tre_ring->rp)
+		if (tre_ring->base && tre_ring->wp  != tre_ring->rp &&
+		    mhi_chan->ch_state == MHI_CH_STATE_ENABLED)
 			mhi_ring_chan_db(mhi_cntrl, mhi_chan);
 		read_unlock_irq(&mhi_chan->lock);
 	}
@@ -1063,8 +1064,8 @@ void mhi_control_error(struct mhi_controller *mhi_cntrl)
 				sfr_info->buf_addr);
 	}
 
-	/* link is not down if device is in RDDM */
-	transition_state = (mhi_cntrl->ee == MHI_EE_RDDM) ?
+	/* link is not down if device supports RDDM */
+	transition_state = (mhi_cntrl->rddm_supported) ?
 		MHI_PM_DEVICE_ERR_DETECT : MHI_PM_LD_ERR_FATAL_DETECT;
 
 	write_lock_irq(&mhi_cntrl->pm_lock);
@@ -1521,6 +1522,8 @@ int mhi_pm_fast_resume(struct mhi_controller *mhi_cntrl, bool notify_client)
 		/* check EP is in proper state */
 		if (mhi_cntrl->link_status(mhi_cntrl, mhi_cntrl->priv_data)) {
 			MHI_ERR("Unable to access EP Config space\n");
+			write_unlock_irq(&mhi_cntrl->pm_lock);
+			tasklet_enable(&mhi_cntrl->mhi_event->task);
 			return -EIO;
 		}
 

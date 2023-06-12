@@ -238,16 +238,126 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+#ifdef CONFIG_WT_QGKI
+static ssize_t mipi_reg_show(struct device *device,
+							  struct device_attribute *attr,
+							  char *buf)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	return dsi_display_mipi_reg_read(connector, buf);
+}
+
+static ssize_t mipi_reg_store(struct device *device,
+							  struct device_attribute *attr,
+							  const char *buf, size_t count)
+{
+	struct drm_connector *connector = to_drm_connector(device);
+	return dsi_display_mipi_reg_write(connector, (char *)buf, count);;
+}
+
+static ssize_t hbm_show(struct device *device,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int hbm_status;
+	struct drm_connector *connector = to_drm_connector(device);
+	hbm_status = dsi_display_get_hbm_status(connector);
+	return sprintf(buf, "%u\n", hbm_status);
+}
+
+static ssize_t hbm_store(struct device *device,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int hbm_status;
+	ssize_t ret;
+
+	struct drm_connector *connector = to_drm_connector(device);
+
+	ret = kstrtoint(buf, 0, &hbm_status);
+	if (ret)
+		return ret;
+	ret = dsi_display_set_hbm(connector, hbm_status);
+
+	return ret ? ret : count;
+}
+
+static ssize_t doze_brightness_show(struct device *device,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int doze_brightness;
+	struct drm_connector *connector = to_drm_connector(device);
+	doze_brightness = dsi_display_get_doze_brightness(connector);
+	return sprintf(buf, "%u\n", doze_brightness);
+}
+
+static ssize_t doze_brightness_store(struct device *device,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int doze_brightness;
+	ssize_t ret;
+
+	struct drm_connector *connector = to_drm_connector(device);
+
+	ret = kstrtoint(buf, 0, &doze_brightness);
+	if (ret)
+		return ret;
+	ret = dsi_display_set_doze_brightness(connector, doze_brightness);
+
+	return ret ? ret : count;
+}
+
+static ssize_t flat_mode_show(struct device *device,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int flat_mode;
+	struct drm_connector *connector = to_drm_connector(device);
+	flat_mode = dsi_display_get_flat_mode(connector);
+	return sprintf(buf, "%u\n", flat_mode);
+}
+
+static ssize_t flat_mode_store(struct device *device,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	int flat_mode;
+	ssize_t ret;
+
+	struct drm_connector *connector = to_drm_connector(device);
+
+	ret = kstrtoint(buf, 0, &flat_mode);
+	if (ret)
+		return ret;
+	ret = dsi_display_set_flat_mode(connector, flat_mode);
+
+	return ret ? ret : count;
+}
+#endif
+
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
-
+#ifdef CONFIG_WT_QGKI
+static DEVICE_ATTR_RW(mipi_reg);
+static DEVICE_ATTR_RW(hbm);
+static DEVICE_ATTR_RW(doze_brightness);
+static DEVICE_ATTR_RW(flat_mode);
+#endif
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+#if IS_ENABLED(CONFIG_WT_QGKI)
+	&dev_attr_mipi_reg.attr,
+	&dev_attr_hbm.attr,
+	&dev_attr_doze_brightness.attr,
+	&dev_attr_flat_mode.attr,
+#endif
 	NULL
 };
 

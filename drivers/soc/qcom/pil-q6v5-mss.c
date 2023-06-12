@@ -205,6 +205,8 @@ static int modem_powerup(const struct subsys_desc *subsys)
 			pil_shutdown(&drv->q6->desc);
 			pil_disable_all_irqs(drv);
 	}
+
+	return ret;
 }
 
 static void modem_crash_shutdown(const struct subsys_desc *subsys)
@@ -260,7 +262,7 @@ static int modem_ramdump(int enable, const struct subsys_desc *subsys)
 
 static irqreturn_t modem_wdog_bite_intr_handler(int irq, void *dev_data)
 {
-	struct modem_data *drv = subsys_to_drv(dev_data);
+	struct modem_data *drv = dev_data;
 
 	if (drv->ignore_errors)
 		return IRQ_HANDLED;

@@ -268,11 +268,6 @@ struct kgsl_mem_entry {
 	char metadata[KGSL_GPUOBJ_ALLOC_METADATA_MAX + 1];
 	struct work_struct work;
 	/**
-	 * @mapped: The number of bytes in this entry that are mapped to
-	 * userspace
-	 */
-	u64 mapped;
-	/**
 	 * @map_count: Count how many vmas this object is mapped in - used for
 	 * debugfs accounting
 	 */
@@ -453,6 +448,8 @@ void kgsl_mem_entry_destroy(struct kref *kref);
 void kgsl_get_egl_counts(struct kgsl_mem_entry *entry,
 			int *egl_surface_count, int *egl_image_count);
 
+unsigned long kgsl_get_dmabuf_inode_number(struct kgsl_mem_entry *entry);
+
 struct kgsl_mem_entry * __must_check
 kgsl_sharedmem_find(struct kgsl_process_private *private, uint64_t gpuaddr);
 
@@ -563,6 +560,16 @@ kgsl_mem_entry_put(struct kgsl_mem_entry *entry)
 	if (entry)
 		kref_put(&entry->refcount, kgsl_mem_entry_destroy);
 }
+
+/**
+ * kgsl_mem_entry_put_deferred() - Puts refcount and triggers deferred
+ * mem_entry destroy when refcount is the last refcount.
+ * @entry: memory entry to be put.
+ *
+ * Use this to put a memory entry when we don't want to block
+ * the caller while destroying memory entry.
+ */
+void kgsl_mem_entry_put_deferred(struct kgsl_mem_entry *entry);
 
 /*
  * kgsl_addr_range_overlap() - Checks if 2 ranges overlap

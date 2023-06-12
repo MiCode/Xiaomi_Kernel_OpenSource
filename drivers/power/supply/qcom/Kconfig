@@ -91,6 +91,38 @@ config SMB1351_USB_CHARGER
 	  notification support. The driver controls SMB1351 via I2C and
 	  supports device-tree interface.
 
+config BQ2589X_CHARGER
+	tristate "TI BQ2589X Battery Charger"
+	depends on I2C
+	default n
+	help
+	  Say Y to include support for BQ2589X Battery Charger.
+
+config FUEL_GAUGE_BQ27Z561
+	tristate "TI bq27z561 battery gauge driver"
+	depends on I2C
+	default n
+	help
+	  Say Y to enable support for TI bq27z561 fuel gauge driver
+
+config CHARGER_SC8551
+	tristate "SC8551 Divider Charger Driver"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable support of sc8551 divider charger
+	  It is mainly used as divider charger for
+	  direct charge
+
+config CHARGER_LN8000
+	tristate "LN8000 Divider Charger Driver"
+	depends on I2C
+	default n
+	help
+	  Say Y here to enable support of ln8000 divider charger
+	  It is mainly used as divider charger for
+	  direct charge
+
 config SMB358_CHARGER
 	tristate "SMB358 Battery Charger"
 	depends on I2C
@@ -101,6 +133,19 @@ config SMB358_CHARGER
 	  The driver supports charger enable/disable.
 	  The driver reports the charger status via the power supply framework.
 	  A charger status change triggers an IRQ via the device STAT pin.
+
+config DISABLE_TEMP_PROTECT
+	bool "control of TEMP protect"
+	default n
+	help
+	  Say Y here to enable a function which disabled TEMP protect...
+	  WARNNING:Only SCM could open it.
+
+config WT_CHG
+	tristate "wt chg"
+	default n
+	help
+	  Say Y to enable support for WT_CHG charger driver
 
 config QTI_QBG
 	tristate "QTI Battery Gauge"

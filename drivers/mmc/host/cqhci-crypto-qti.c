@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, Linux Foundation. All rights reserved.
+ * Copyright (c) 2020 - 2021, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,7 @@ static struct cqhci_host_crypto_variant_ops __maybe_unused cqhci_crypto_qti_vari
 	.disable = cqhci_crypto_qti_disable,
 	.resume = cqhci_crypto_qti_resume,
 	.debug = cqhci_crypto_qti_debug,
+	.recovery_finish = cqhci_crypto_qti_recovery_finish,
 };
 
 static bool ice_cap_idx_valid(struct cqhci_host *host,
@@ -212,7 +213,6 @@ int cqhci_host_init_crypto_qti_spec(struct cqhci_host *host,
 
 	host->mmc->ksm = keyslot_manager_create(host->mmc->parent,
 				       cqhci_num_keyslots(host), ksm_ops,
-				       BLK_CRYPTO_FEATURE_STANDARD_KEYS |
 				       BLK_CRYPTO_FEATURE_WRAPPED_KEYS,
 				       crypto_modes_supported,
 				       host);
@@ -315,6 +315,12 @@ EXPORT_SYMBOL(cqhci_crypto_qti_set_vops);
 int cqhci_crypto_qti_resume(struct cqhci_host *host)
 {
 	return crypto_qti_resume(host->crypto_vops->priv);
+}
+
+int cqhci_crypto_qti_recovery_finish(struct cqhci_host *host)
+{
+	keyslot_manager_reprogram_all_keys(host->mmc->ksm);
+	return 0;
 }
 
 MODULE_DESCRIPTION("Vendor specific CQHCI Crypto Engine Support");

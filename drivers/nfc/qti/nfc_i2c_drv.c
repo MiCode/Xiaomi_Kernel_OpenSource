@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
  */
 
 #include "nfc_common.h"
-
+#include <linux/hardware_info.h>
 /**
  * i2c_disable_irq()
  *
@@ -279,7 +279,6 @@ int nfc_i2c_dev_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	pr_debug("%s: enter\n", __func__);
 
 	//retrieve details of gpios from dt
-
 	ret = nfc_parse_dt(&client->dev, &nfc_gpio, &nfc_ldo, PLATFORM_IF_I2C);
 	if (ret) {
 		pr_err("%s : failed to parse dt\n", __func__);
@@ -452,7 +451,14 @@ int nfc_i2c_dev_suspend(struct device *device)
 {
 	struct i2c_client *client = to_i2c_client(device);
 	struct nfc_dev *nfc_dev = i2c_get_clientdata(client);
-	struct i2c_dev *i2c_dev = &nfc_dev->i2c_dev;
+	struct i2c_dev *i2c_dev = NULL;
+
+	if (!nfc_dev) {
+		pr_err("%s: device doesn't exist anymore\n", __func__);
+		return -ENODEV;
+	}
+
+	i2c_dev = &nfc_dev->i2c_dev;
 
 	NFCLOG_IPC(nfc_dev, false, "%s: irq_enabled = %d", __func__,
 							i2c_dev->irq_enabled);
@@ -468,7 +474,14 @@ int nfc_i2c_dev_resume(struct device *device)
 {
 	struct i2c_client *client = to_i2c_client(device);
 	struct nfc_dev *nfc_dev = i2c_get_clientdata(client);
-	struct i2c_dev *i2c_dev = &nfc_dev->i2c_dev;
+	struct i2c_dev *i2c_dev = NULL;
+
+	if (!nfc_dev) {
+		pr_err("%s: device doesn't exist anymore\n", __func__);
+		return -ENODEV;
+	}
+
+	i2c_dev = &nfc_dev->i2c_dev;
 
 	NFCLOG_IPC(nfc_dev, false, "%s: irq_wake_up = %d", __func__,
 							i2c_dev->irq_wake_up);
@@ -508,14 +521,30 @@ static struct i2c_driver nfc_i2c_dev_driver = {
 
 MODULE_DEVICE_TABLE(of, nfc_i2c_dev_match_table);
 
+#ifdef CONFIG_WT_QGKI
+extern char *saved_command_line;
+#endif
 static int __init nfc_i2c_dev_init(void)
 {
 	int ret = 0;
-
-	ret = i2c_add_driver(&nfc_i2c_dev_driver);
-	if (ret != 0)
+#ifdef CONFIG_WT_QGKI
+   // printk("board_id found in cmdline : %s\n", saved_command_line);
+	if(strstr(saved_command_line,"board_id=S88008BA1")||strstr(saved_command_line,"board_id=S88007AA1")){
+		printk(" loading nfc SN100 \n");
+	    ret = i2c_add_driver(&nfc_i2c_dev_driver);
+	    if (ret != 0)
 		pr_err("NFC I2C add driver error ret %d\n", ret);
+	    return ret;
+	 }
+	 else{
+		   printk("not support SN100 nfc    ");
+		    return -1;
+	 }
+#else
+ printk("GKI loading nfc SN100 \n");
+ ret = i2c_add_driver(&nfc_i2c_dev_driver);
 	return ret;
+#endif
 }
 
 module_init(nfc_i2c_dev_init);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <asm/arch_timer.h>
@@ -371,28 +371,23 @@ static int tsens_dbg_log_bus_id_data(struct tsens_device *data,
 		offset += TSENS_DEBUG_OFFSET_ROW;
 	}
 
-	loop = 0;
-	while (loop < TSENS_DEBUG_LOOP_COUNT) {
-		offset = TSENS_DEBUG_OFFSET_ROW *
-				TSENS_DEBUG_STATUS_REG_START;
-		TSENS_DUMP(tmdev, "Start of TSENS TM dump %d\n",
-					loop);
-		/* Limited dump of the registers for the temperature */
-		for (i = 0; i < TSENS_DEBUG_LOOP_COUNT; i++) {
-			r1 = readl_relaxed(controller_id_addr + offset);
-			r2 = readl_relaxed(controller_id_addr +
-				(offset + TSENS_DEBUG_OFFSET_WORD1));
-			r3 = readl_relaxed(controller_id_addr +
-				(offset + TSENS_DEBUG_OFFSET_WORD2));
-			r4 = readl_relaxed(controller_id_addr +
-				(offset + TSENS_DEBUG_OFFSET_WORD3));
+	offset = TSENS_DEBUG_OFFSET_ROW *
+			TSENS_DEBUG_STATUS_REG_START;
+	TSENS_DUMP(tmdev, "%s", "Start of TSENS TM dump\n");
+	/* Limited dump of the registers for the temperature */
+	for (i = 0; i < TSENS_DEBUG_LOOP_COUNT; i++) {
+		r1 = readl_relaxed(controller_id_addr + offset);
+		r2 = readl_relaxed(controller_id_addr +
+			(offset + TSENS_DEBUG_OFFSET_WORD1));
+		r3 = readl_relaxed(controller_id_addr +
+			(offset + TSENS_DEBUG_OFFSET_WORD2));
+		r4 = readl_relaxed(controller_id_addr +
+			(offset + TSENS_DEBUG_OFFSET_WORD3));
 
 		TSENS_DUMP(tmdev,
 			"ctrl:%d:0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
 				cntrl_id, offset, r1, r2, r3, r4);
-			offset += TSENS_DEBUG_OFFSET_ROW;
-		}
-		loop++;
+		offset += TSENS_DEBUG_OFFSET_ROW;
 	}
 
 	return 0;

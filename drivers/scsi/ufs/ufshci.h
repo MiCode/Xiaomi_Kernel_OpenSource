@@ -427,6 +427,7 @@ enum {
 	UTP_CMD_TYPE_SCSI		= 0x0,
 	UTP_CMD_TYPE_UFS		= 0x1,
 	UTP_CMD_TYPE_DEV_MANAGE		= 0x2,
+	UTP_CMD_TYPE_SCSI_VENDOR_HY	= 0xb,
 };
 
 /* To accommodate UFS2.0 required Command type */

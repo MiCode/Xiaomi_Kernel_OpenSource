@@ -172,7 +172,7 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 static inline int arm_smmu_rpm_get(struct arm_smmu_device *smmu)
 {
 	if (pm_runtime_enabled(smmu->dev))
-		return pm_runtime_get_sync(smmu->dev);
+		return pm_runtime_resume_and_get(smmu->dev);
 
 	return 0;
 }
@@ -5115,9 +5115,9 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	 * management code in GKI results in slow unmap calls. To alleviate
 	 * that, we can remove the latency incurred by enabling/disabling the
 	 * power resources, by always keeping them on.
+	 *
 	 */
-	if (IS_ENABLED(CONFIG_ARM_SMMU_POWER_ALWAYS_ON) &&
-	    of_property_read_bool(dev->of_node, "qcom,power-always-on"))
+	if (IS_ENABLED(CONFIG_ARM_SMMU_POWER_ALWAYS_ON))
 		arm_smmu_power_on(smmu->pwr);
 
 	/*
@@ -5176,8 +5176,7 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	arm_smmu_power_off(smmu, smmu->pwr);
 
 	/* Remove the extra reference that was taken in the probe function */
-	if (IS_ENABLED(CONFIG_ARM_SMMU_POWER_ALWAYS_ON) &&
-	    of_property_read_bool(pdev->dev.of_node, "qcom,power-always-on"))
+	if (IS_ENABLED(CONFIG_ARM_SMMU_POWER_ALWAYS_ON))
 		arm_smmu_power_off(smmu, smmu->pwr);
 
 	arm_smmu_exit_power_resources(smmu->pwr);

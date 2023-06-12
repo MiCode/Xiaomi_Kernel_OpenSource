@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -65,6 +65,7 @@ struct eud_chip {
 	int				eud_irq;
 	unsigned int			extcon_id;
 	unsigned int			int_status;
+	unsigned int			int_mask;
 	bool				usb_attach;
 	bool				chgr_enable;
 	void __iomem			*eud_reg_base;
@@ -92,7 +93,7 @@ static inline void msm_eud_enable_irqs(struct eud_chip *chip)
 {
 	/* Enable vbus, chgr & safe mode warning interrupts */
 	writel_relaxed(EUD_INT_VBUS | EUD_INT_CHGR | EUD_INT_SAFE_MODE,
-			chip->eud_reg_base + EUD_REG_INT1_EN_MASK);
+			chip->eud_reg_base + chip->int_mask);
 }
 
 static int msm_eud_hw_is_enabled(struct platform_device *pdev)
@@ -506,7 +507,7 @@ static irqreturn_t handle_eud_irq(int irq, void *data)
 	struct eud_chip *chip = data;
 	u8 reg;
 	u32 int_mask_en1 = readl_relaxed(chip->eud_reg_base +
-					EUD_REG_INT1_EN_MASK);
+					chip->int_mask);
 
 	/* read status register and find out which interrupt triggered */
 	reg = readb_relaxed(chip->eud_reg_base + EUD_REG_INT_STATUS_1);
@@ -704,6 +705,11 @@ static int msm_eud_probe(struct platform_device *pdev)
 
 	if (chip->secure_eud_en && check_eud_mode_mgr2(chip))
 		enable = 1;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "interrupt-mask",
+			&chip->int_mask);
+	if (ret)
+		chip->int_mask = EUD_REG_INT1_EN_MASK;
 
 	ret = uart_add_one_port(&eud_uart_driver, port);
 	if (ret) {

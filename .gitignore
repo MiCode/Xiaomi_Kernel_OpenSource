@@ -148,7 +148,7 @@ x509.genkey
 /compile_commands.json
 
 # generated defconfigs
-arch/*/configs/vendor/*_defconfig
+#arch/*/configs/vendor/*_defconfig
 
 # vendor device tree directories
 arch/arm64/boot/dts/vendor

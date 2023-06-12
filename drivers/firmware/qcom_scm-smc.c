@@ -1020,6 +1020,27 @@ int __qcom_scm_sec_wdog_trigger(struct device *dev)
 	return ret ? : desc.res[0];
 }
 
+#ifdef CONFIG_TLB_CONF_HANDLER
+int __qcom_scm_tlb_conf_handler(struct device *dev, unsigned long addr)
+{
+	int ret;
+
+#define SCM_TLB_CONFLICT_CMD	0x1F
+	struct qcom_scm_desc desc = {
+	.svc = QCOM_SCM_SVC_MP,
+	.cmd = SCM_TLB_CONFLICT_CMD,
+	.owner = ARM_SMCCC_OWNER_SIP,
+	};
+
+	desc.args[0] = addr;
+	desc.arginfo = QCOM_SCM_ARGS(1);
+
+	ret = qcom_scm_call_atomic(dev, &desc);
+
+	return ret ? : desc.res[0];
+}
+#endif
+
 void __qcom_scm_disable_sdi(struct device *dev)
 {
 	int ret;
@@ -2321,7 +2342,7 @@ int __qcom_scm_invoke_smc_legacy(struct device *dev, phys_addr_t in_buf,
 	desc.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_RW,
 					QCOM_SCM_VAL);
 
-	ret = qcom_scm_call(dev, &desc);
+	ret = qcom_scm_call_noretry(dev, &desc);
 
 	if (result)
 		*result = desc.res[1];
@@ -2353,7 +2374,7 @@ int __qcom_scm_invoke_smc(struct device *dev, phys_addr_t in_buf,
 	desc.arginfo = QCOM_SCM_ARGS(4, QCOM_SCM_RW, QCOM_SCM_VAL, QCOM_SCM_RW,
 					QCOM_SCM_VAL);
 
-	ret = qcom_scm_call(dev, &desc);
+	ret = qcom_scm_call_noretry(dev, &desc);
 
 	if (result)
 		*result = desc.res[1];
@@ -2382,7 +2403,7 @@ int __qcom_scm_invoke_callback_response(struct device *dev, phys_addr_t out_buf,
 	desc.args[1] = out_buf_size;
 	desc.arginfo = QCOM_SCM_ARGS(2, QCOM_SCM_RW, QCOM_SCM_VAL);
 
-	ret = qcom_scm_call(dev, &desc);
+	ret = qcom_scm_call_noretry(dev, &desc);
 
 	if (result)
 		*result = desc.res[1];

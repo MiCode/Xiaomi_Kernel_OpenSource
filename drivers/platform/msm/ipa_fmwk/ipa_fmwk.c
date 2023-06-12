@@ -251,6 +251,9 @@ struct ipa_fmwk_contex {
 	int (*ipa_usb_xdci_resume)(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 		enum ipa_usb_teth_prot teth_prot);
 
+	bool (*ipa_usb_is_teth_prot_connected)(
+		enum ipa_usb_teth_prot usb_teth_prot);
+
 	/* ipa_wdi3 APIs */
 	int (*ipa_wdi_init)(struct ipa_wdi_init_in_params *in,
 		struct ipa_wdi_init_out_params *out);
@@ -308,6 +311,8 @@ struct ipa_fmwk_contex {
 	int (*ipa_reg_uc_rdyCB)(struct ipa_wdi_uc_ready_params *param);
 
 	int (*ipa_dereg_uc_rdyCB)(void);
+
+	bool (*ipa_wdi_is_tx1_used)(void);
 
 	/* ipa_gsb APIs*/
 	int (*ipa_bridge_init)(struct ipa_bridge_init_params *params, u32 *hdl);
@@ -422,11 +427,14 @@ struct ipa_fmwk_contex {
 	int (*ipa_eth_client_set_perf_profile)(struct ipa_eth_client *client,
 		struct ipa_eth_perf_profile *profile);
 
-	int (*ipa_eth_client_conn_evt)(struct ipa_ecm_msg *msg);
-
-	int (*ipa_eth_client_disconn_evt)(struct ipa_ecm_msg *msg);
 	int (*ipa_get_default_aggr_time_limit)(enum ipa_client_type client,
 		u32 *default_aggr_time_limit);
+
+	enum ipa_client_type (*ipa_eth_get_ipa_client_type_from_eth_type)(
+		enum ipa_eth_client_type eth_client_type, enum ipa_eth_pipe_direction dir);
+
+	bool (*ipa_eth_client_exist)(
+		enum ipa_eth_client_type eth_client_type, int inst_id);
 };
 
 static struct ipa_fmwk_contex *ipa_fmwk_ctx;
@@ -1056,7 +1064,8 @@ int ipa_fmwk_register_ipa_usb(const struct ipa_usb_data *in)
 		ipa_fmwk_ctx->ipa_usb_xdci_disconnect ||
 		ipa_fmwk_ctx->ipa_usb_deinit_teth_prot ||
 		ipa_fmwk_ctx->ipa_usb_xdci_suspend ||
-		ipa_fmwk_ctx->ipa_usb_xdci_resume) {
+		ipa_fmwk_ctx->ipa_usb_xdci_resume ||
+		ipa_fmwk_ctx->ipa_usb_is_teth_prot_connected) {
 		pr_err("ipa_usb APIs were already initialized\n");
 		return -EPERM;
 	}
@@ -1066,6 +1075,8 @@ int ipa_fmwk_register_ipa_usb(const struct ipa_usb_data *in)
 	ipa_fmwk_ctx->ipa_usb_deinit_teth_prot = in->ipa_usb_deinit_teth_prot;
 	ipa_fmwk_ctx->ipa_usb_xdci_suspend = in->ipa_usb_xdci_suspend;
 	ipa_fmwk_ctx->ipa_usb_xdci_resume = in->ipa_usb_xdci_resume;
+	ipa_fmwk_ctx->ipa_usb_is_teth_prot_connected =
+		in->ipa_usb_is_teth_prot_connected;
 
 	pr_info("ipa_usb registered successfully\n");
 
@@ -1153,6 +1164,17 @@ int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 }
 EXPORT_SYMBOL(ipa_usb_xdci_resume);
 
+bool ipa_usb_is_teth_prot_connected(enum ipa_usb_teth_prot usb_teth_prot)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_usb_is_teth_prot_connected,
+		usb_teth_prot);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_usb_is_teth_prot_connected);
+
 /* registration API for IPA wdi3 module */
 int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 {
@@ -1175,7 +1197,8 @@ int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 		|| ipa_fmwk_ctx->ipa_wdi_release_smmu_mapping
 		|| ipa_fmwk_ctx->ipa_wdi_get_stats
 		|| ipa_fmwk_ctx->ipa_get_wdi_version
-		|| ipa_fmwk_ctx->ipa_wdi_sw_stats) {
+		|| ipa_fmwk_ctx->ipa_wdi_sw_stats
+		|| ipa_fmwk_ctx->ipa_wdi_is_tx1_used) {
 		pr_err("ipa_wdi3 APIs were already initialized\n");
 		return -EPERM;
 	}
@@ -1197,6 +1220,7 @@ int ipa_fmwk_register_ipa_wdi3(const struct ipa_wdi3_data *in)
 	ipa_fmwk_ctx->ipa_wdi_get_stats = in->ipa_wdi_get_stats;
 	ipa_fmwk_ctx->ipa_wdi_sw_stats = in->ipa_wdi_sw_stats;
 	ipa_fmwk_ctx->ipa_get_wdi_version = in->ipa_get_wdi_version;
+	ipa_fmwk_ctx->ipa_wdi_is_tx1_used = in->ipa_wdi_is_tx1_used;
 
 	pr_info("ipa_wdi3 registered successfully\n");
 
@@ -1216,6 +1240,16 @@ int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
 	return ret;
 }
 EXPORT_SYMBOL(ipa_wdi_init);
+
+bool ipa_wdi_is_tx1_used(void)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN(ipa_wdi_is_tx1_used);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_wdi_is_tx1_used);
 
 int ipa_wdi_cleanup(void)
 {
@@ -2124,8 +2158,8 @@ int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in)
 		|| ipa_fmwk_ctx->ipa_eth_client_reg_intf
 		|| ipa_fmwk_ctx->ipa_eth_client_unreg_intf
 		|| ipa_fmwk_ctx->ipa_eth_client_set_perf_profile
-		|| ipa_fmwk_ctx->ipa_eth_client_conn_evt
-		|| ipa_fmwk_ctx->ipa_eth_client_disconn_evt) {
+		|| ipa_fmwk_ctx->ipa_eth_get_ipa_client_type_from_eth_type
+		|| ipa_fmwk_ctx->ipa_eth_client_exist) {
 		pr_err("ipa_eth APIs were already initialized\n");
 		return -EPERM;
 	}
@@ -2140,9 +2174,10 @@ int ipa_fmwk_register_ipa_eth(const struct ipa_eth_data *in)
 	ipa_fmwk_ctx->ipa_eth_client_unreg_intf = in->ipa_eth_client_unreg_intf;
 	ipa_fmwk_ctx->ipa_eth_client_set_perf_profile =
 		in->ipa_eth_client_set_perf_profile;
-	ipa_fmwk_ctx->ipa_eth_client_conn_evt = in->ipa_eth_client_conn_evt;
-	ipa_fmwk_ctx->ipa_eth_client_disconn_evt =
-		in->ipa_eth_client_disconn_evt;
+	ipa_fmwk_ctx->ipa_eth_get_ipa_client_type_from_eth_type =
+		in->ipa_eth_get_ipa_client_type_from_eth_type;
+	ipa_fmwk_ctx->ipa_eth_client_exist =
+		in->ipa_eth_client_exist;
 
 	pr_info("ipa_eth registered successfully\n");
 
@@ -2241,28 +2276,6 @@ int ipa_eth_client_set_perf_profile(struct ipa_eth_client *client,
 }
 EXPORT_SYMBOL(ipa_eth_client_set_perf_profile);
 
-int ipa_eth_client_conn_evt(struct ipa_ecm_msg *msg)
-{
-	int ret;
-
-	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_conn_evt,
-		msg);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_eth_client_conn_evt);
-
-int ipa_eth_client_disconn_evt(struct ipa_ecm_msg *msg)
-{
-	int ret;
-
-	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_disconn_evt,
-		msg);
-
-	return ret;
-}
-EXPORT_SYMBOL(ipa_eth_client_disconn_evt);
-
 int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
 				u32 *default_aggr_time_limit)
 {
@@ -2274,6 +2287,30 @@ int ipa_get_default_aggr_time_limit(enum ipa_client_type client,
 	return ret;
 }
 EXPORT_SYMBOL(ipa_get_default_aggr_time_limit);
+
+enum ipa_client_type ipa_eth_get_ipa_client_type_from_eth_type(
+	enum ipa_eth_client_type eth_client_type, enum ipa_eth_pipe_direction dir)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_get_ipa_client_type_from_eth_type,
+		eth_client_type, dir);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_eth_get_ipa_client_type_from_eth_type);
+
+bool ipa_eth_client_exist(
+	enum ipa_eth_client_type eth_client_type, int inst_id)
+{
+	int ret;
+
+	IPA_FMWK_DISPATCH_RETURN_DP(ipa_eth_client_exist,
+		eth_client_type, inst_id);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_eth_client_exist);
 
 /* module functions */
 static int __init ipa_fmwk_init(void)

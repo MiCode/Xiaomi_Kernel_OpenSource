@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "clk: %s: " fmt, __func__
@@ -105,6 +105,7 @@ static const char *const gcc_debug_mux_parent_names[] = {
 	"gcc_usb_phy_cfg_ahb2phy_clk",
 	"gcc_xo_div4_clk",
 	"gcc_xo_pcie_link_clk",
+	"mc_cc_debug_mux",
 	"measure_only_ipa_2x_clk",
 	"measure_only_snoc_clk",
 };
@@ -156,6 +157,7 @@ static int gcc_debug_mux_sels[] = {
 	0x31,		/* gcc_usb_phy_cfg_ahb2phy_clk */
 	0x63,		/* gcc_xo_div4_clk */
 	0x77,		/* gcc_xo_pcie_link_clk */
+	0x73,		/* ddrss_gcc_debug_clk (mc_cc_debug_mux) */
 	0xAC,		/* measure_only_ipa_2x_clk */
 	0x109,		/* measure_only_snoc_clk */
 };

@@ -440,7 +440,7 @@ int wlfw_send_soc_wake_msg(struct icnss_priv *priv,
 	if (test_bit(ICNSS_FW_DOWN, &priv->state))
 		return -EINVAL;
 
-	icnss_pr_dbg("Sending soc wake msg, type: 0x%x\n",
+	icnss_pr_soc_wake("Sending soc wake msg, type: 0x%x\n",
 		     type);
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
@@ -656,7 +656,9 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 		goto out;
 	}
 
-	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	ret = qmi_txn_wait(&txn,
+			   priv->ctrl_params.qmi_timeout +
+			   msecs_to_jiffies(priv->wlan_en_delay_ms));
 	if (ret < 0) {
 		icnss_qmi_fatal_err("Capability resp wait failed with ret %d\n",
 				    ret);
@@ -976,6 +978,22 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 	return ret;
 }
 
+static char *icnss_bdf_type_to_str(enum icnss_bdf_type bdf_type)
+{
+	switch (bdf_type) {
+	case ICNSS_BDF_BIN:
+		return "BDF";
+	case ICNSS_BDF_ELF:
+		return "BDF";
+	case ICNSS_BDF_REGDB:
+		return "REGDB";
+	case ICNSS_BDF_DUMMY:
+		return "BDF";
+	default:
+		return "UNKNOWN";
+	}
+};
+
 int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type)
 {
 	struct wlfw_bdf_download_req_msg_v01 *req;
@@ -987,8 +1005,8 @@ int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type)
 	unsigned int remaining;
 	int ret = 0;
 
-	icnss_pr_dbg("Sending BDF download message, state: 0x%lx, type: %d\n",
-		     priv->state, bdf_type);
+	icnss_pr_dbg("Sending %s download message, state: 0x%lx, type: %d\n",
+		     icnss_bdf_type_to_str(bdf_type), priv->state, bdf_type);
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
 	if (!req)
@@ -1012,7 +1030,8 @@ int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type)
 
 	ret = request_firmware(&fw_entry, filename, &priv->pdev->dev);
 	if (ret) {
-		icnss_pr_err("Failed to load BDF: %s\n", filename);
+		icnss_pr_err("Failed to load %s: %s ret:%d\n",
+			     icnss_bdf_type_to_str(bdf_type), filename, ret);
 		goto err_req_fw;
 	}
 
@@ -1020,7 +1039,8 @@ int icnss_wlfw_bdf_dnld_send_sync(struct icnss_priv *priv, u32 bdf_type)
 	remaining = fw_entry->size;
 
 bypass_bdf:
-	icnss_pr_dbg("Downloading BDF: %s, size: %u\n", filename, remaining);
+	icnss_pr_dbg("Downloading %s: %s, size: %u\n",
+		     icnss_bdf_type_to_str(bdf_type), filename, remaining);
 
 	while (remaining) {
 		req->valid = 1;
@@ -1046,8 +1066,8 @@ bypass_bdf:
 		ret = qmi_txn_init(&priv->qmi, &txn,
 				   wlfw_bdf_download_resp_msg_v01_ei, resp);
 		if (ret < 0) {
-			icnss_pr_err("Failed to initialize txn for BDF download request, err: %d\n",
-				      ret);
+			icnss_pr_err("Failed to initialize txn for %s download request, err: %d\n",
+				     icnss_bdf_type_to_str(bdf_type), ret);
 			goto err_send;
 		}
 
@@ -1058,21 +1078,22 @@ bypass_bdf:
 			 wlfw_bdf_download_req_msg_v01_ei, req);
 		if (ret < 0) {
 			qmi_txn_cancel(&txn);
-			icnss_pr_err("Failed to send respond BDF download request, err: %d\n",
-				      ret);
+			icnss_pr_err("Failed to send respond %s download request, err: %d\n",
+				     icnss_bdf_type_to_str(bdf_type), ret);
 			goto err_send;
 		}
 
 		ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
 		if (ret < 0) {
-			icnss_pr_err("Failed to wait for response of BDF download request, err: %d\n",
-				      ret);
+			icnss_pr_err("Failed to wait for response of %s download request, err: %d\n",
+				     icnss_bdf_type_to_str(bdf_type), ret);
 			goto err_send;
 		}
 
 		if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
-			icnss_pr_err("BDF download request failed, result: %d, err: %d\n",
-				      resp->resp.result, resp->resp.error);
+			icnss_pr_err("%s download request failed, result: %d, err: %d\n",
+				     icnss_bdf_type_to_str(bdf_type), resp->resp.result,
+				     resp->resp.error);
 			ret = -resp->resp.result;
 			goto err_send;
 		}
@@ -1250,8 +1271,8 @@ int icnss_wlfw_qdss_dnld_send_sync(struct icnss_priv *priv)
 	ret = request_firmware(&fw_entry, filename,
 			       &priv->pdev->dev);
 	if (ret) {
-		icnss_pr_err("Failed to load QDSS: %s\n",
-			     filename);
+		icnss_pr_err("Failed to load QDSS: %s ret:%d\n",
+			     filename, ret);
 		goto err_req_fw;
 	}
 
@@ -1390,7 +1411,9 @@ int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 		goto out;
 	}
 
-	ret = qmi_txn_wait(&txn, priv->ctrl_params.qmi_timeout);
+	ret = qmi_txn_wait(&txn,
+			   priv->ctrl_params.qmi_timeout +
+			   msecs_to_jiffies(priv->wlan_en_delay_ms));
 	if (ret < 0) {
 		icnss_qmi_fatal_err("Mode resp wait failed with ret %d\n", ret);
 		goto out;
@@ -2059,6 +2082,14 @@ int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv)
 	}
 
 	req->mem_seg_len = priv->qdss_mem_seg_len;
+
+	if (priv->qdss_mem_seg_len > QMI_WLFW_MAX_NUM_MEM_SEG) {
+		icnss_pr_err("Invalid seg len %u\n",
+			     priv->qdss_mem_seg_len);
+		ret = -EINVAL;
+		goto out;
+	}
+
 	for (i = 0; i < req->mem_seg_len; i++) {
 		icnss_pr_dbg("Memory for FW, va: 0x%pK, pa: %pa, size: 0x%zx, type: %u\n",
 			     qdss_mem[i].va, &qdss_mem[i].pa,
@@ -2450,6 +2481,13 @@ static void wlfw_qdss_trace_req_mem_ind_cb(struct qmi_handle *qmi,
 	}
 
 	priv->qdss_mem_seg_len = ind_msg->mem_seg_len;
+
+	if (priv->qdss_mem_seg_len > QMI_WLFW_MAX_NUM_MEM_SEG) {
+		icnss_pr_err("Invalid seg len %u\n",
+			     priv->qdss_mem_seg_len);
+		return;
+	}
+
 	for (i = 0; i < priv->qdss_mem_seg_len; i++) {
 		icnss_pr_dbg("QDSS requests for memory, size: 0x%x, type: %u\n",
 			     ind_msg->mem_seg[i].size,
@@ -3098,6 +3136,13 @@ int wlfw_host_cap_send_sync(struct icnss_priv *priv)
 	req->host_build_type_valid = 1;
 	req->host_build_type = icnss_get_host_build_type();
 
+	if (priv->wlan_en_delay_ms >= 100) {
+		icnss_pr_dbg("Setting WLAN_EN delay: %d ms\n",
+			     priv->wlan_en_delay_ms);
+		req->wlan_enable_delay_valid = 1;
+		req->wlan_enable_delay = priv->wlan_en_delay_ms;
+	}
+
 	ret = qmi_txn_init(&priv->qmi, &txn,
 			   wlfw_host_cap_resp_msg_v01_ei, resp);
 	if (ret < 0) {
@@ -3210,5 +3255,80 @@ int icnss_wlfw_get_info_send_sync(struct icnss_priv *plat_priv, int type,
 out:
 	kfree(req);
 	kfree(resp);
+	return ret;
+}
+
+int wlfw_subsys_restart_level_msg(struct icnss_priv *penv, uint8_t type)
+{
+	int ret;
+	struct wlfw_subsys_restart_level_req_msg_v01 *req;
+	struct wlfw_subsys_restart_level_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (!penv)
+		return -ENODEV;
+
+	if (test_bit(ICNSS_FW_DOWN, &penv->state))
+		return -EINVAL;
+
+	icnss_pr_dbg("Sending subsystem restart level, type: 0x%x\n", type);
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	req->restart_level_type_valid = 1;
+	req->restart_level_type = type;
+
+	penv->stats.restart_level_req++;
+
+	ret = qmi_txn_init(&penv->qmi, &txn,
+			   wlfw_subsys_restart_level_resp_msg_v01_ei, resp);
+	if (ret < 0) {
+		icnss_pr_err("Fail to init txn for subsystem restart level, resp %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_send_request(&penv->qmi, NULL, &txn,
+			       QMI_WLFW_SUBSYS_RESTART_LEVEL_REQ_V01,
+			       WLFW_SUBSYS_RESTART_LEVEL_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_subsys_restart_level_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		icnss_pr_err("Fail to send subsystem restart level %d\n",
+			     ret);
+		goto out;
+	}
+
+	ret = qmi_txn_wait(&txn, penv->ctrl_params.qmi_timeout);
+	if (ret < 0) {
+		icnss_pr_err("Subsystem restart level timed out with ret %d\n",
+			     ret);
+		goto out;
+
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		icnss_pr_err("Subsystem restart level request rejected,result:%d error:%d\n",
+			     resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto out;
+	}
+
+	penv->stats.restart_level_resp++;
+
+	kfree(resp);
+	kfree(req);
+	return 0;
+
+out:
+	kfree(req);
+	kfree(resp);
+	penv->stats.restart_level_err++;
 	return ret;
 }

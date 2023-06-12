@@ -689,6 +689,152 @@ static const struct attribute_group ufs_sysfs_flags_group = {
 	.attrs = ufs_sysfs_device_flags,
 };
 
+static ssize_t enable_tw_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	bool flag;
+	u8 index = 0, ret = 0;
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	pm_runtime_get_sync(hba->dev);
+	if (ufshcd_is_wb_flags(QUERY_FLAG_IDN_WB_EN))
+		index = ufshcd_wb_get_query_index(hba);
+
+	if(VENDOR_IS_SAMSUNG)
+		ret = ufshcd_query_flag_sel(hba, UPIU_QUERY_OPCODE_READ_FLAG,
+			    QUERY_FLAG_IDN_WB_EN, index, 1, &flag);
+	else
+		ret = ufshcd_query_flag_sel(hba, UPIU_QUERY_OPCODE_READ_FLAG,
+			    QUERY_FLAG_IDN_WB_EN, index, 0, &flag);
+
+	if (ret) {
+		pm_runtime_put_sync(hba->dev);
+		return -EINVAL;
+	}
+	pm_runtime_put_sync(hba->dev);
+	return snprintf(buf, PAGE_SIZE, "%s\n", flag ? "1" : "0"); \
+}
+
+static ssize_t enable_tw_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	unsigned int value;
+
+	if (kstrtouint(buf, 0, &value))
+		return -EINVAL;
+
+	if (ufshcd_wb_ctrl(hba, (bool)value))
+		return -EINVAL;
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(enable_tw);
+
+
+
+static ssize_t enable_flush_en_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	bool flag;
+	u8 index = 0, ret = 0;
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	pm_runtime_get_sync(hba->dev);
+	if (ufshcd_is_wb_flags(QUERY_FLAG_IDN_WB_BUFF_FLUSH_EN))
+		index = ufshcd_wb_get_query_index(hba);
+
+	if(VENDOR_IS_SAMSUNG)
+		ret = ufshcd_query_flag_sel(hba, UPIU_QUERY_OPCODE_READ_FLAG,
+			    QUERY_FLAG_IDN_WB_BUFF_FLUSH_EN, index, 1, &flag);
+	else
+		ret = ufshcd_query_flag_sel(hba, UPIU_QUERY_OPCODE_READ_FLAG,
+			    QUERY_FLAG_IDN_WB_BUFF_FLUSH_EN, index, 0, &flag);
+
+	if (ret) {
+		pm_runtime_put_sync(hba->dev);
+		return -EINVAL;
+	}
+	pm_runtime_put_sync(hba->dev);
+	return snprintf(buf, PAGE_SIZE, "%s\n", flag ? "1" : "0"); \
+}
+
+static ssize_t enable_flush_en_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+#ifdef CONFIG_WT_QGKI
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	unsigned int value;
+
+	if (kstrtouint(buf, 0, &value))
+		return -EINVAL;
+
+	ufshcd_wb_toggle_flush(hba, (bool)value);
+#endif
+	return count;
+}
+
+static DEVICE_ATTR_RW(enable_flush_en);
+
+
+static ssize_t enable_autoflush_in_h8_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	bool flag;
+	u8 index = 0, ret = 0;
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	pm_runtime_get_sync(hba->dev);
+	if (ufshcd_is_wb_flags(QUERY_FLAG_IDN_WB_BUFF_FLUSH_DURING_HIBERN8))
+		index = ufshcd_wb_get_query_index(hba);
+
+	if(VENDOR_IS_SAMSUNG)
+		ret = ufshcd_query_flag_sel(hba, UPIU_QUERY_OPCODE_READ_FLAG,
+			    QUERY_FLAG_IDN_WB_BUFF_FLUSH_DURING_HIBERN8, index, 1, &flag);
+	else
+		ret = ufshcd_query_flag_sel(hba, UPIU_QUERY_OPCODE_READ_FLAG,
+			    QUERY_FLAG_IDN_WB_BUFF_FLUSH_DURING_HIBERN8, index, 0, &flag);
+
+	if (ret) {
+		pm_runtime_put_sync(hba->dev);
+		return -EINVAL;
+	}
+	pm_runtime_put_sync(hba->dev);
+	return snprintf(buf, PAGE_SIZE, "%s\n", flag ? "1" : "0"); \
+}
+
+static ssize_t enable_autoflush_in_h8_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+#ifdef CONFIG_WT_QGKI
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	unsigned int value;
+
+	if (kstrtouint(buf, 0, &value))
+		return -EINVAL;
+
+	if (ufshcd_wb_toggle_flush_during_h8(hba, (bool)value))
+		return -EINVAL;
+#endif
+	return count;
+}
+
+static DEVICE_ATTR_RW(enable_autoflush_in_h8);
+
+
+static struct attribute *ufs_sysfs_device_tw[] = {
+	&dev_attr_enable_tw.attr,
+	&dev_attr_enable_flush_en.attr,
+	&dev_attr_enable_autoflush_in_h8.attr,
+	NULL,
+};
+
+static const struct attribute_group ufs_sysfs_tw_group = {
+	.name = "ufstw",
+	.attrs = ufs_sysfs_device_tw,
+};
+
 static inline bool ufshcd_is_wb_attrs(enum attr_idn idn)
 {
 	return ((idn >= QUERY_ATTR_IDN_WB_FLUSH_STATUS) &&
@@ -775,6 +921,7 @@ static const struct attribute_group *ufs_sysfs_groups[] = {
 	&ufs_sysfs_power_descriptor_group,
 	&ufs_sysfs_string_descriptors_group,
 	&ufs_sysfs_flags_group,
+	&ufs_sysfs_tw_group,
 	&ufs_sysfs_attributes_group,
 	NULL,
 };

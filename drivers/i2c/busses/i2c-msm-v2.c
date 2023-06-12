@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014-2019, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2019, 2020-2021 The Linux Foundation. All rights reserved.
  */
 
 /*
@@ -2488,7 +2488,7 @@ static int i2c_msm_rsrcs_irq_init(struct platform_device *pdev,
 		return irq;
 	}
 
-	ret = request_irq(irq, i2c_msm_qup_isr, IRQF_TRIGGER_HIGH,
+	ret = request_irq(irq, i2c_msm_qup_isr, IRQF_TRIGGER_HIGH | IRQF_EARLY_RESUME,
 						"i2c-msm-v2-irq", ctrl);
 	if (ret) {
 		dev_err(ctrl->dev, "error request_irq(irq_num:%d ) ret:%d\n",

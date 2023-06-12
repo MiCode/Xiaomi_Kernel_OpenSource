@@ -491,14 +491,14 @@ struct dwc3_msm {
 	bool			use_pdc_interrupts;
 	enum dwc3_id_state	id_state;
 	unsigned long		use_pwr_event_for_wakeup;
+#define PWR_EVENT_SS_WAKEUP		BIT(0)
+#define PWR_EVENT_HS_WAKEUP		BIT(1)
+
 	unsigned long		lpm_flags;
 #define MDWC3_SS_PHY_SUSPEND		BIT(0)
 #define MDWC3_ASYNC_IRQ_WAKE_CAPABILITY	BIT(1)
 #define MDWC3_POWER_COLLAPSE		BIT(2)
 #define MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP BIT(3)
-
-#define PWR_EVENT_SS_WAKEUP		BIT(0)
-#define PWR_EVENT_HS_WAKEUP		BIT(1)
 
 	struct extcon_nb	*extcon;
 	int			ext_idx;
@@ -3156,13 +3156,15 @@ static void dwc3_msm_set_pwr_events(struct dwc3_msm *mdwc, bool on)
 		 */
 		if (mdwc->use_pwr_event_for_wakeup & PWR_EVENT_HS_WAKEUP)
 			irq_mask |= PWR_EVNT_LPM_OUT_L2_MASK;
-		if (mdwc->use_pwr_event_for_wakeup & PWR_EVENT_SS_WAKEUP)
+		if ((mdwc->use_pwr_event_for_wakeup & PWR_EVENT_SS_WAKEUP)
+					&& !(mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND))
 			irq_mask |= (PWR_EVNT_POWERDOWN_OUT_P3_MASK |
 						PWR_EVNT_LPM_OUT_RX_ELECIDLE_IRQ_MASK);
 	} else {
 		if (mdwc->use_pwr_event_for_wakeup & PWR_EVENT_HS_WAKEUP)
 			irq_mask &= ~PWR_EVNT_LPM_OUT_L2_MASK;
-		if (mdwc->use_pwr_event_for_wakeup & PWR_EVENT_SS_WAKEUP)
+		if ((mdwc->use_pwr_event_for_wakeup & PWR_EVENT_SS_WAKEUP)
+					&& !(mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND))
 			irq_mask &= ~(PWR_EVNT_POWERDOWN_OUT_P3_MASK |
 						PWR_EVNT_LPM_OUT_RX_ELECIDLE_IRQ_MASK);
 	}
@@ -3330,16 +3332,14 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 
 	/*
 	 * When operating in HS host mode, check if pwr event IRQ is
-	 * required for wakep.
+	 * required for wakeup.
 	 */
-	if (mdwc->in_host_mode && no_active_ss &&
-			(mdwc->use_pwr_event_for_wakeup & PWR_EVENT_HS_WAKEUP))
+	if (mdwc->in_host_mode && (mdwc->use_pwr_event_for_wakeup
+						& PWR_EVENT_HS_WAKEUP))
 		mdwc->lpm_flags |= MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP;
 
-	if (mdwc->lpm_flags & MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP) {
+	if (mdwc->lpm_flags & MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP)
 		dwc3_msm_set_pwr_events(mdwc, true);
-		enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
-	}
 
 	/* make sure above writes are completed before turning off clocks */
 	wmb();
@@ -3374,17 +3374,19 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 
 	dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_NONE);
 
-	/*
-	 * release wakeup source with timeout to defer system suspend to
-	 * handle case where on USB cable disconnect, SUSPEND and DISCONNECT
-	 * event is received.
-	 */
-	if (mdwc->lpm_to_suspend_delay) {
-		dev_dbg(mdwc->dev, "defer suspend with %d(msecs)\n",
-					mdwc->lpm_to_suspend_delay);
-		pm_wakeup_event(mdwc->dev, mdwc->lpm_to_suspend_delay);
-	} else {
-		pm_relax(mdwc->dev);
+	if (!(mdwc->in_restart && mdwc->vbus_active)) {
+		/*
+		 * release wakeup source with timeout to defer system suspend to
+		 * handle case where on USB cable disconnect, SUSPEND and DISCONNECT
+		 * event is received.
+		 */
+		if (mdwc->lpm_to_suspend_delay) {
+			dev_dbg(mdwc->dev, "defer suspend with %d(msecs)\n",
+						mdwc->lpm_to_suspend_delay);
+			pm_wakeup_event(mdwc->dev, mdwc->lpm_to_suspend_delay);
+		} else {
+			pm_relax(mdwc->dev);
+		}
 	}
 
 	atomic_set(&dwc->in_lpm, 1);
@@ -3407,6 +3409,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse,
 		}
 		mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 	}
+
+	if (mdwc->lpm_flags & MDWC3_USE_PWR_EVENT_IRQ_FOR_WAKEUP)
+		enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 	dbg_event(0xFF, "Ctl Sus", atomic_read(&dwc->in_lpm));
@@ -4067,6 +4072,7 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	struct dwc3_msm *mdwc = enb->mdwc;
 	char *eud_str;
 	const char *edev_name;
+	bool is_cdp;
 
 	if (!edev || !mdwc)
 		return NOTIFY_DONE;
@@ -4092,11 +4098,20 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	}
 
 	/*
+	 * In case of ADSP based charger detection driving a pulse on
+	 * DP to ensure proper CDP detection will be taken care by
+	 * ADSP.
+	 */
+	is_cdp = ((mdwc->apsd_source == IIO) &&
+		(get_chg_type(mdwc) == POWER_SUPPLY_TYPE_USB_CDP)) ||
+		((mdwc->apsd_source == PSY) &&
+		(get_chg_type(mdwc) == POWER_SUPPLY_USB_TYPE_CDP));
+
+	/*
 	 * Drive a pulse on DP to ensure proper CDP detection
 	 * and only when the vbus connect event is a valid one.
 	 */
-	if (get_chg_type(mdwc) == POWER_SUPPLY_USB_TYPE_CDP &&
-			mdwc->vbus_active && !mdwc->check_eud_state) {
+	if (is_cdp && mdwc->vbus_active && !mdwc->check_eud_state) {
 		dev_dbg(mdwc->dev, "Connected to CDP, pull DP up\n");
 		mdwc->hs_phy->charger_detect(mdwc->hs_phy);
 	}

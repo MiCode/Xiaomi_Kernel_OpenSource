@@ -175,7 +175,8 @@ int a6xx_init(struct adreno_device *adreno_dev)
 	/* If the memory type is DDR 4, override the existing configuration */
 	if (of_fdt_get_ddrtype() == 0x7) {
 		if (adreno_is_a642(adreno_dev) ||
-			adreno_is_a642l(adreno_dev))
+			adreno_is_a642l(adreno_dev) ||
+			adreno_is_a643(adreno_dev))
 			adreno_dev->highest_bank_bit = 14;
 		else if ((adreno_is_a650(adreno_dev) ||
 				adreno_is_a660(adreno_dev)))
@@ -323,6 +324,9 @@ static bool __disable_cx_regulator_wait(struct regulator *reg,
 
 	regulator_disable(reg);
 
+	if (IS_ENABLED(CONFIG_ARM_SMMU_POWER_ALWAYS_ON))
+		return true;
+
 	for (;;) {
 		if (adreno_is_a619_holi(adreno_dev))
 			adreno_read_gmu_wrapper(adreno_dev,
@@ -347,24 +351,25 @@ static bool __disable_cx_regulator_wait(struct regulator *reg,
 	}
 }
 
-bool a6xx_cx_regulator_disable_wait(struct regulator *reg,
+void a6xx_cx_regulator_disable_wait(struct regulator *reg,
 				struct kgsl_device *device, u32 timeout)
 {
-	bool ret;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	if (IS_ERR_OR_NULL(reg))
-		return true;
+		return;
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(reg, REGULATOR_MODE_IDLE);
 
-	ret = __disable_cx_regulator_wait(reg, device, timeout);
+	if (!__disable_cx_regulator_wait(reg, device, timeout)) {
+		dev_err(device->dev, "GPU CX wait timeout. Dumping CX votes:\n");
+		/* Dump the cx regulator consumer list */
+		qcom_clk_dump(NULL, reg, false);
+	}
 
 	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CX_GDSC))
 		regulator_set_mode(reg, REGULATOR_MODE_NORMAL);
-
-	return ret;
 }
 
 static void set_holi_sptprac_clock(struct adreno_device *adreno_dev, bool enable)
@@ -818,8 +823,12 @@ void a6xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A6XX_CP_CHICKEN_DBG, 0x1);
 		kgsl_regwrite(device, A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0);
 
-		/* Set dualQ + disable afull for A660, A642 GPU but not for A642L */
-		if (!adreno_is_a642l(adreno_dev))
+		/*
+		 * Set dualQ + disable afull for A660, A642 GPU but
+		 * not for A642L and A643
+		 */
+		if (!adreno_is_a642l(adreno_dev) ||
+			!adreno_is_a643(adreno_dev))
 			kgsl_regwrite(device, A6XX_UCHE_CMDQ_CONFIG, 0x66906);
 	}
 
@@ -2594,8 +2603,8 @@ static void a619_holi_regulator_disable_poll(struct kgsl_device *device)
 	/* Remove the vote for the vdd parent supply */
 	kgsl_regulator_set_voltage(device->dev, pwr->gx_gdsc_parent, 0);
 
-	if (!a6xx_cx_regulator_disable_wait(pwr->cx_gdsc, device, 200))
-		dev_err(device->dev, "Regulator vddcx is stuck on\n");
+	a6xx_cx_regulator_disable_wait(pwr->cx_gdsc, device, 200);
+
 }
 
 const struct adreno_gpudev adreno_a6xx_gpudev = {

@@ -203,6 +203,14 @@ source "drivers/input/rmi4/Kconfig"
 
 endif
 
+config FINGERPRINT
+	bool "fingerprint "
+	default n
+	help
+	  Say Y here if you have a 
+          If unsure, say N.
+source "drivers/input/fingerprint/Kconfig"
+
 menu "Hardware I/O ports"
 
 source "drivers/input/serio/Kconfig"

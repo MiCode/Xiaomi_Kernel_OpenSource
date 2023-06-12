@@ -9,11 +9,10 @@
 
 enum msm_pcie_config {
 	MSM_PCIE_CONFIG_INVALID = 0,
-	MSM_PCIE_CONFIG_NO_CFG_RESTORE = 0x1,
-	MSM_PCIE_CONFIG_LINKDOWN = 0x2,
-	MSM_PCIE_CONFIG_NO_RECOVERY = 0x4,
-	MSM_PCIE_CONFIG_NO_L1SS_TO = 0x8,
-	MSM_PCIE_CONFIG_NO_DRV_PC = 0x10,
+	MSM_PCIE_CONFIG_LINKDOWN = BIT(0),
+	MSM_PCIE_CONFIG_NO_RECOVERY = BIT(1),
+	MSM_PCIE_CONFIG_NO_L1SS_TO = BIT(2),
+	MSM_PCIE_CONFIG_NO_DRV_PC = BIT(3),
 };
 
 enum msm_pcie_pm_opt {
@@ -34,6 +33,7 @@ enum msm_pcie_event {
 	MSM_PCIE_EVENT_L1SS_TIMEOUT = BIT(3),
 	MSM_PCIE_EVENT_DRV_CONNECT = BIT(4),
 	MSM_PCIE_EVENT_DRV_DISCONNECT = BIT(5),
+	MSM_PCIE_EVENT_LINK_RECOVER = BIT(6),
 };
 
 enum msm_pcie_trigger {
@@ -175,16 +175,6 @@ int msm_pcie_register_event(struct msm_pcie_register_event *reg);
 int msm_pcie_deregister_event(struct msm_pcie_register_event *reg);
 
 /**
- * msm_pcie_recover_config - recover config space.
- * @dev:	pci device structure
- *
- * This function recovers the config space of both RC and Endpoint.
- *
- * Return: 0 on success, negative value on error
- */
-int msm_pcie_recover_config(struct pci_dev *dev);
-
-/**
  * msm_pcie_enumerate - enumerate Endpoints.
  * @rc_idx:	RC that Endpoints connect to.
  *
@@ -193,28 +183,6 @@ int msm_pcie_recover_config(struct pci_dev *dev);
  * Return: 0 on success, negative value on error
  */
 int msm_pcie_enumerate(u32 rc_idx);
-
-/**
- * msm_pcie_recover_config - recover config space.
- * @dev:	pci device structure
- *
- * This function recovers the config space of both RC and Endpoint.
- *
- * Return: 0 on success, negative value on error
- */
-int msm_pcie_recover_config(struct pci_dev *dev);
-
-/**
- * msm_pcie_shadow_control - control the shadowing of PCIe config space.
- * @dev:	pci device structure
- * @enable:	shadowing should be enabled or disabled
- *
- * This function gives PCIe endpoint device drivers the control to enable
- * or disable the shadowing of PCIe config space.
- *
- * Return: 0 on success, negative value on error
- */
-int msm_pcie_shadow_control(struct pci_dev *dev, bool enable);
 
 /*
  * msm_pcie_debug_info - run a PCIe specific debug testcase.
@@ -286,17 +254,7 @@ static inline int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 	return -ENODEV;
 }
 
-static inline int msm_pcie_recover_config(struct pci_dev *dev)
-{
-	return -ENODEV;
-}
-
 static inline int msm_pcie_enumerate(u32 rc_idx)
-{
-	return -ENODEV;
-}
-
-static inline int msm_pcie_shadow_control(struct pci_dev *dev, bool enable)
 {
 	return -ENODEV;
 }

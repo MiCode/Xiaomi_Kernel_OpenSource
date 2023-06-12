@@ -32,6 +32,7 @@
 #include <linux/posix-timers.h>
 #include <linux/rseq.h>
 #include <linux/android_kabi.h>
+#include <linux/pkg_stat.h>
 #include <linux/android_vendor.h>
 
 /* task_struct member predeclarations (sorted alphabetically): */
@@ -1471,6 +1472,10 @@ struct task_struct {
 	ANDROID_KABI_RESERVE(6);
 	ANDROID_KABI_RESERVE(7);
 	ANDROID_KABI_RESERVE(8);
+
+#ifdef CONFIG_MIGT
+	struct package_runtime_info pkg;
+#endif
 
 	/*
 	 * New fields for task_struct should be added above here, so that

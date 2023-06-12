@@ -168,8 +168,15 @@ static void tmc_pages_free(struct tmc_pages *tmc_pages,
 			__free_page(tmc_pages->pages[i]);
 	}
 
-	kfree(tmc_pages->pages);
-	kfree(tmc_pages->daddrs);
+	if (is_vmalloc_addr(tmc_pages->pages))
+		vfree(tmc_pages->pages);
+	else
+		kfree(tmc_pages->pages);
+
+	if (is_vmalloc_addr(tmc_pages->daddrs))
+		vfree(tmc_pages->daddrs);
+	else
+		kfree(tmc_pages->daddrs);
 	tmc_pages->pages = NULL;
 	tmc_pages->daddrs = NULL;
 	tmc_pages->nr_pages = 0;
@@ -195,14 +202,24 @@ static int tmc_pages_alloc(struct tmc_pages *tmc_pages,
 	nr_pages = tmc_pages->nr_pages;
 	tmc_pages->daddrs = kcalloc(nr_pages, sizeof(*tmc_pages->daddrs),
 					 GFP_KERNEL);
-	if (!tmc_pages->daddrs)
-		return -ENOMEM;
+	if (!tmc_pages->daddrs) {
+		tmc_pages->daddrs = vmalloc(sizeof(*tmc_pages->daddrs) * nr_pages);
+		if (!tmc_pages->daddrs)
+			return -ENOMEM;
+	}
+
 	tmc_pages->pages = kcalloc(nr_pages, sizeof(*tmc_pages->pages),
 					 GFP_KERNEL);
 	if (!tmc_pages->pages) {
-		kfree(tmc_pages->daddrs);
-		tmc_pages->daddrs = NULL;
-		return -ENOMEM;
+		tmc_pages->pages = vmalloc(sizeof(*tmc_pages->pages) * nr_pages);
+		if (!tmc_pages->pages) {
+			if (is_vmalloc_addr(tmc_pages->daddrs))
+				vfree(tmc_pages->daddrs);
+			else
+				kfree(tmc_pages->daddrs);
+			tmc_pages->daddrs = NULL;
+			return -ENOMEM;
+		}
 	}
 
 	for (i = 0; i < nr_pages; i++) {
@@ -1706,8 +1723,6 @@ static int tmc_enable_etr_sink_sysfs(struct coresight_device *csdev)
 
 	if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
 		tmc_etr_byte_cntr_start(drvdata->byte_cntr);
-	if (drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE)
-		etr_pcie_start(drvdata->byte_cntr);
 
 	if (drvdata->out_mode == TMC_ETR_OUT_MODE_PCIE
 			&& drvdata->pcie_path == TMC_ETR_PCIE_SW_PATH)
@@ -2203,7 +2218,9 @@ static int _tmc_disable_etr_sink(struct coresight_device *csdev,
 				spin_unlock_irqrestore(&drvdata->spinlock,
 					flags);
 				tmc_etr_bam_disable(drvdata);
+				mutex_unlock(&drvdata->mem_lock);
 				usb_qdss_close(drvdata->usbch);
+				mutex_lock(&drvdata->mem_lock);
 				drvdata->usbch = NULL;
 				goto out;
 			} else {

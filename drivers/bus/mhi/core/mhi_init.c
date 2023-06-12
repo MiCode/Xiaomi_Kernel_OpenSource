@@ -92,9 +92,12 @@ struct mhi_controller *find_mhi_controller_by_name(const char *name)
 
 const char *to_mhi_pm_state_str(enum MHI_PM_STATE state)
 {
-	int index = find_last_bit((unsigned long *)&state, 32);
+	int index;
 
-	if (index >= ARRAY_SIZE(mhi_pm_state_str))
+	if (state)
+		index = __fls(state);
+
+	if (!state || index >= ARRAY_SIZE(mhi_pm_state_str))
 		return "Invalid State";
 
 	return mhi_pm_state_str[index];
@@ -1060,7 +1063,16 @@ void mhi_deinit_chan_ctxt(struct mhi_controller *mhi_cntrl,
 	vfree(buf_ring->base);
 
 	buf_ring->base = tre_ring->base = NULL;
+	tre_ring->ctxt_wp = NULL;
 	chan_ctxt->rbase = 0;
+	chan_ctxt->rlen = 0;
+	chan_ctxt->rp = chan_ctxt->wp = chan_ctxt->rbase;
+	tre_ring->rp = tre_ring->wp = tre_ring->base;
+	buf_ring->rp = buf_ring->wp = buf_ring->base;
+
+	/* Update to all cores */
+	smp_wmb();
+
 }
 
 int mhi_init_chan_ctxt(struct mhi_controller *mhi_cntrl,

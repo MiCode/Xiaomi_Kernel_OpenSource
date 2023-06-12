@@ -44,6 +44,7 @@
 #include <soc/qcom/ramdump.h>
 #include <linux/soc/qcom/smem.h>
 #include <linux/soc/qcom/smem_state.h>
+#include <trace/events/trace_msm_ssr_event.h>
 #include "main.h"
 #include "qmi.h"
 #include "debug.h"
@@ -72,7 +73,14 @@
 #define ICNSS_BDF_TYPE_DEFAULT         ICNSS_BDF_ELF
 
 #define PROBE_TIMEOUT                 15000
-#define WLFW_TIMEOUT			msecs_to_jiffies(3000)
+
+#ifdef CONFIG_ICNSS2_DEBUG
+static unsigned long qmi_timeout = 3000;
+module_param(qmi_timeout, ulong, 0600);
+#define WLFW_TIMEOUT                    msecs_to_jiffies(qmi_timeout)
+#else
+#define WLFW_TIMEOUT                    msecs_to_jiffies(3000)
+#endif
 
 static struct icnss_priv *penv;
 static struct work_struct wpss_loader;
@@ -187,6 +195,8 @@ char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "M3_DUMP_UPLOAD";
 	case ICNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
 		return "QDSS_TRACE_REQ_DATA";
+	case ICNSS_DRIVER_EVENT_SUBSYS_RESTART_LEVEL:
+		return "SUBSYS_RESTART_LEVEL";
 	case ICNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -292,9 +302,9 @@ int icnss_soc_wake_event_post(struct icnss_priv *priv,
 	if (!priv)
 		return -ENODEV;
 
-	icnss_pr_dbg("Posting event: %s(%d), %s, flags: 0x%x, state: 0x%lx\n",
-		     icnss_soc_wake_event_to_str(type), type, current->comm,
-		     flags, priv->state);
+	icnss_pr_soc_wake("Posting event: %s(%d), %s, flags: 0x%x, state: 0x%lx\n",
+			  icnss_soc_wake_event_to_str(type),
+			  type, current->comm, flags, priv->state);
 
 	if (type >= ICNSS_SOC_WAKE_EVENT_MAX) {
 		icnss_pr_err("Invalid Event type: %d, can't post", type);
@@ -331,9 +341,9 @@ int icnss_soc_wake_event_post(struct icnss_priv *priv,
 	else
 		ret = wait_for_completion_interruptible(&event->complete);
 
-	icnss_pr_dbg("Completed event: %s(%d), state: 0x%lx, ret: %d/%d\n",
-		     icnss_soc_wake_event_to_str(type), type, priv->state, ret,
-		     event->ret);
+	icnss_pr_soc_wake("Completed event: %s(%d), state: 0x%lx, ret: %d/%d\n",
+			  icnss_soc_wake_event_to_str(type),
+			  type, priv->state, ret, event->ret);
 
 	spin_lock_irqsave(&priv->soc_wake_msg_lock, irq_flags);
 	if (ret == -ERESTARTSYS && event->ret == ICNSS_EVENT_PENDING) {
@@ -1085,6 +1095,25 @@ static int icnss_qdss_trace_req_data_hdlr(struct icnss_priv *priv,
 	return ret;
 }
 
+static int icnss_subsys_restart_level_type(struct icnss_priv *priv,
+					   void *data)
+{
+	int ret = 0;
+	struct icnss_subsys_restart_level_data *event_data = data;
+
+	if (!priv)
+		return -ENODEV;
+
+	if (!data)
+		return -EINVAL;
+
+	ret = wlfw_subsys_restart_level_msg(priv, event_data->restart_level);
+
+	kfree(data);
+
+	return ret;
+}
+
 static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
 {
 	int ret = 0;
@@ -1093,8 +1122,8 @@ static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
 		return -ENODEV;
 
 	if (atomic_inc_not_zero(&priv->soc_wake_ref_count)) {
-		icnss_pr_dbg("SOC awake after posting work, Ref count: %d",
-			     atomic_read(&priv->soc_wake_ref_count));
+		icnss_pr_soc_wake("SOC awake after posting work, Ref count: %d",
+				  atomic_read(&priv->soc_wake_ref_count));
 		return 0;
 	}
 
@@ -1108,16 +1137,13 @@ static int icnss_event_soc_wake_request(struct icnss_priv *priv, void *data)
 static int icnss_event_soc_wake_release(struct icnss_priv *priv, void *data)
 {
 	int ret = 0;
-	int count = 0;
 
 	if (!priv)
 		return -ENODEV;
 
-	count = atomic_dec_return(&priv->soc_wake_ref_count);
-
-	if (count) {
-		icnss_pr_dbg("Wake release not called. Ref count: %d",
-			     count);
+	if (atomic_dec_if_positive(&priv->soc_wake_ref_count)) {
+		icnss_pr_soc_wake("Wake release not called. Ref count: %d",
+				  priv->soc_wake_ref_count);
 		return 0;
 	}
 
@@ -1520,6 +1546,9 @@ static void icnss_driver_event_work(struct work_struct *work)
 			ret = icnss_qdss_trace_req_data_hdlr(priv,
 							     event->data);
 			break;
+		case ICNSS_DRIVER_EVENT_SUBSYS_RESTART_LEVEL:
+			ret = icnss_subsys_restart_level_type(priv, event->data);
+			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
 			kfree(event);
@@ -1568,10 +1597,10 @@ static void icnss_soc_wake_msg_work(struct work_struct *work)
 		list_del(&event->list);
 		spin_unlock_irqrestore(&priv->soc_wake_msg_lock, flags);
 
-		icnss_pr_dbg("Processing event: %s%s(%d), state: 0x%lx\n",
-			     icnss_soc_wake_event_to_str(event->type),
-			     event->sync ? "-sync" : "", event->type,
-			     priv->state);
+		icnss_pr_soc_wake("Processing event: %s%s(%d), state: 0x%lx\n",
+				  icnss_soc_wake_event_to_str(event->type),
+				  event->sync ? "-sync" : "", event->type,
+				  priv->state);
 
 		switch (event->type) {
 		case ICNSS_SOC_WAKE_REQUEST_EVENT:
@@ -1590,10 +1619,10 @@ static void icnss_soc_wake_msg_work(struct work_struct *work)
 
 		priv->stats.soc_wake_events[event->type].processed++;
 
-		icnss_pr_dbg("Event Processed: %s%s(%d), ret: %d, state: 0x%lx\n",
-			     icnss_soc_wake_event_to_str(event->type),
-			     event->sync ? "-sync" : "", event->type, ret,
-			     priv->state);
+		icnss_pr_soc_wake("Event Processed: %s%s(%d), ret: %d, state: 0x%lx\n",
+				  icnss_soc_wake_event_to_str(event->type),
+				  event->sync ? "-sync" : "", event->type, ret,
+				  priv->state);
 
 		spin_lock_irqsave(&priv->soc_wake_msg_lock, flags);
 		if (event->sync) {
@@ -1656,6 +1685,36 @@ static void icnss_update_state_send_modem_shutdown(struct icnss_priv *priv,
 	}
 }
 
+static char *icnss_subsys_notify_state_to_str(enum subsys_notif_type code)
+{
+	switch (code) {
+	case SUBSYS_BEFORE_SHUTDOWN:
+		return "BEFORE_SHUTDOWN";
+	case SUBSYS_AFTER_SHUTDOWN:
+		return "AFTER_SHUTDOWN";
+	case SUBSYS_BEFORE_POWERUP:
+		return "BEFORE_POWERUP";
+	case SUBSYS_AFTER_POWERUP:
+		return "AFTER_POWERUP";
+	case SUBSYS_BEFORE_AUTH_AND_RESET:
+		return "BEFORE_AUTH_AND_RESET";
+	case SUBSYS_RAMDUMP_NOTIFICATION:
+		return "RAMDUMP_NOTIFICATION";
+	case SUBSYS_POWERUP_FAILURE:
+		return "POWERUP_FAILURE";
+	case SUBSYS_PROXY_VOTE:
+		return "PROXY_VOTE";
+	case SUBSYS_PROXY_UNVOTE:
+		return "PROXY_UNVOTE";
+	case SUBSYS_SOC_RESET:
+		return "SOC_RESET";
+	case SUBSYS_NOTIF_TYPE_COUNT:
+		return "NOTIF_TYPE_COUNT";
+	default:
+		return "UNKNOWN";
+	}
+};
+
 static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 				  unsigned long code,
 				  void *data)
@@ -1666,7 +1725,8 @@ static int icnss_wpss_notifier_nb(struct notifier_block *nb,
 					       wpss_ssr_nb);
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
-	icnss_pr_vdbg("WPSS-Notify: event %lu\n", code);
+	icnss_pr_vdbg("WPSS-Notify: event %s(%lu)\n",
+		      icnss_subsys_notify_state_to_str(code), code);
 
 	if (code == SUBSYS_AFTER_SHUTDOWN) {
 		icnss_pr_info("Collecting msa0 segment dump\n");
@@ -1723,7 +1783,8 @@ static int icnss_modem_notifier_nb(struct notifier_block *nb,
 					       modem_ssr_nb);
 	struct icnss_uevent_fw_down_data fw_down_data = {0};
 
-	icnss_pr_vdbg("Modem-Notify: event %lu\n", code);
+	icnss_pr_vdbg("Modem-Notify: event %s(%lu)\n",
+		      icnss_subsys_notify_state_to_str(code), code);
 
 	if (code == SUBSYS_AFTER_SHUTDOWN) {
 		icnss_pr_info("Collecting msa0 segment dump\n");
@@ -2182,14 +2243,14 @@ static int icnss_send_smp2p(struct icnss_priv *priv,
 	value <<= ICNSS_SMEM_SEQ_NO_POS;
 	value |= msg_id;
 
-	icnss_pr_vdbg1("Sending SMP2P value: 0x%X\n", value);
+	icnss_pr_smp2p("Sending SMP2P value: 0x%X\n", value);
 
 	ret = qcom_smem_state_update_bits(
 			priv->smp2p_info.smem_state,
 			ICNSS_SMEM_VALUE_MASK,
 			value);
 	if (ret)
-		icnss_pr_vdbg1("Error in SMP2P send ret: %d\n", ret);
+		icnss_pr_smp2p("Error in SMP2P send ret: %d\n", ret);
 
 	return ret;
 }
@@ -2225,17 +2286,23 @@ static int icnss_tcdev_set_cur_state(struct thermal_cooling_device *tcdev,
 	if (!penv->ops || !penv->ops->set_therm_cdev_state)
 		return 0;
 
+	if (thermal_state > icnss_tcdev->max_thermal_state)
+		return -EINVAL;
+
 	icnss_pr_vdbg("Cooling device set current state: %ld,for cdev id %d",
 		      thermal_state, icnss_tcdev->tcdev_id);
 
 	mutex_lock(&penv->tcdev_lock);
-	icnss_tcdev->curr_thermal_state = thermal_state;
 	ret = penv->ops->set_therm_cdev_state(dev, thermal_state,
 					      icnss_tcdev->tcdev_id);
+	if (!ret)
+		icnss_tcdev->curr_thermal_state = thermal_state;
 	mutex_unlock(&penv->tcdev_lock);
-	if (ret)
+	if (ret) {
 		icnss_pr_err("Setting Current Thermal State Failed: %d,for cdev id %d",
 			     ret, icnss_tcdev->tcdev_id);
+		return ret;
+	}
 
 	return 0;
 }
@@ -2681,10 +2748,17 @@ EXPORT_SYMBOL(icnss_get_mhi_state);
 int icnss_set_fw_log_mode(struct device *dev, uint8_t fw_log_mode)
 {
 	int ret;
-	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_priv *priv;
 
 	if (!dev)
 		return -ENODEV;
+
+	priv = dev_get_drvdata(dev);
+
+	if (!priv) {
+		icnss_pr_err("Platform driver not initialized\n");
+		return -EINVAL;
+	}
 
 	if (test_bit(ICNSS_FW_DOWN, &penv->state) ||
 	    !test_bit(ICNSS_FW_READY, &penv->state)) {
@@ -2705,10 +2779,12 @@ EXPORT_SYMBOL(icnss_set_fw_log_mode);
 
 int icnss_force_wake_request(struct device *dev)
 {
-	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_priv *priv;
 
 	if (!dev)
 		return -ENODEV;
+
+	priv = dev_get_drvdata(dev);
 
 	if (!priv) {
 		icnss_pr_err("Platform driver not initialized\n");
@@ -2716,12 +2792,12 @@ int icnss_force_wake_request(struct device *dev)
 	}
 
 	if (atomic_inc_not_zero(&priv->soc_wake_ref_count)) {
-		icnss_pr_dbg("SOC already awake, Ref count: %d",
-			     atomic_read(&priv->soc_wake_ref_count));
+		icnss_pr_soc_wake("SOC already awake, Ref count: %d",
+				  atomic_read(&priv->soc_wake_ref_count));
 		return 0;
 	}
 
-	icnss_pr_dbg("Calling SOC Wake request");
+	icnss_pr_soc_wake("Calling SOC Wake request");
 
 	icnss_soc_wake_event_post(priv, ICNSS_SOC_WAKE_REQUEST_EVENT,
 				  0, NULL);
@@ -2732,21 +2808,24 @@ EXPORT_SYMBOL(icnss_force_wake_request);
 
 int icnss_force_wake_release(struct device *dev)
 {
-	struct icnss_priv *priv = dev_get_drvdata(dev);
+	struct icnss_priv *priv;
 
 	if (!dev)
 		return -ENODEV;
+
+	priv = dev_get_drvdata(dev);
 
 	if (!priv) {
 		icnss_pr_err("Platform driver not initialized\n");
 		return -EINVAL;
 	}
 
-	icnss_pr_dbg("Calling SOC Wake response");
+	icnss_pr_soc_wake("Calling SOC Wake response");
 
-	if (icnss_atomic_dec_if_greater_one(&priv->soc_wake_ref_count)) {
-		icnss_pr_dbg("SOC previous release pending, Ref count: %d",
-			     atomic_read(&priv->soc_wake_ref_count));
+	if (atomic_read(&priv->soc_wake_ref_count) &&
+	    icnss_atomic_dec_if_greater_one(&priv->soc_wake_ref_count)) {
+		icnss_pr_soc_wake("SOC previous release pending, Ref count: %d",
+				  atomic_read(&priv->soc_wake_ref_count));
 		return 0;
 	}
 
@@ -3080,7 +3159,7 @@ int icnss_trigger_recovery(struct device *dev)
 	}
 
 	if (priv->device_id == WCN6750_DEVICE_ID) {
-		icnss_pr_vdbg1("Initiate Root PD restart");
+		icnss_pr_vdbg("Initiate Root PD restart");
 		ret = icnss_send_smp2p(priv, ICNSS_TRIGGER_SSR);
 		if (!ret)
 			set_bit(ICNSS_HOST_TRIGGERED_PDR, &priv->state);
@@ -3162,7 +3241,7 @@ int icnss_exit_power_save(struct device *dev)
 {
 	struct icnss_priv *priv = dev_get_drvdata(dev);
 
-	icnss_pr_vdbg1("Calling Exit Power Save\n");
+	icnss_pr_vdbg("Calling Exit Power Save\n");
 
 	if (test_bit(ICNSS_PD_RESTART, &priv->state) ||
 	    !test_bit(ICNSS_MODE_ON, &priv->state))
@@ -3303,9 +3382,12 @@ static void icnss_wpss_load(struct work_struct *wpss_load_work)
 {
 	struct icnss_priv *priv = icnss_get_plat_priv();
 
+	icnss_pr_dbg("Start WPSS Boot\n");
+
 	priv->subsys = subsystem_get("wpss");
-	if (IS_ERR(priv->subsys))
-		icnss_pr_err("Failed to load wpss subsys");
+	if (IS_ERR_OR_NULL(priv->subsys))
+		icnss_pr_err("Failed to load wpss subsys, ret: %d",
+			     PTR_ERR(priv->subsys));
 }
 
 static inline void icnss_wpss_unload(struct icnss_priv *priv)
@@ -3341,11 +3423,33 @@ static ssize_t wpss_boot_store(struct device *dev,
 	return count;
 }
 
+static ssize_t wlan_en_delay_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct icnss_priv *priv = dev_get_drvdata(dev);
+	uint32_t wlan_en_delay  = 0;
+
+	if (priv->device_id != WCN6750_DEVICE_ID)
+		return count;
+
+	if (sscanf(buf, "%du", &wlan_en_delay) != 1) {
+		icnss_pr_err("Failed to read wlan_en_delay");
+		return -EINVAL;
+	}
+
+	icnss_pr_dbg("WLAN_EN delay: %dms", wlan_en_delay);
+	priv->wlan_en_delay_ms = wlan_en_delay;
+
+	return count;
+}
+
 static DEVICE_ATTR_WO(qdss_tr_start);
 static DEVICE_ATTR_WO(qdss_tr_stop);
 static DEVICE_ATTR_WO(qdss_conf_download);
 static DEVICE_ATTR_WO(hw_trc_override);
 static DEVICE_ATTR_WO(wpss_boot);
+static DEVICE_ATTR_WO(wlan_en_delay);
 
 static struct attribute *icnss_attrs[] = {
 	&dev_attr_qdss_tr_start.attr,
@@ -3353,6 +3457,7 @@ static struct attribute *icnss_attrs[] = {
 	&dev_attr_qdss_conf_download.attr,
 	&dev_attr_hw_trc_override.attr,
 	&dev_attr_wpss_boot.attr,
+	&dev_attr_wlan_en_delay.attr,
 	NULL,
 };
 
@@ -3657,6 +3762,8 @@ static int icnss_smmu_fault_handler(struct iommu_domain *domain,
 
 	if (test_bit(ICNSS_FW_READY, &priv->state)) {
 		fw_down_data.crashed = true;
+		icnss_call_driver_uevent(priv, ICNSS_UEVENT_SMMU_FAULT,
+					 &fw_down_data);
 		icnss_call_driver_uevent(priv, ICNSS_UEVENT_FW_DOWN,
 					 &fw_down_data);
 	}
@@ -3805,7 +3912,7 @@ static inline void  icnss_get_smp2p_info(struct icnss_priv *priv)
 					    "wlan-smp2p-out",
 					    &priv->smp2p_info.smem_bit);
 	if (IS_ERR(priv->smp2p_info.smem_state)) {
-		icnss_pr_vdbg1("Failed to get smem state %d",
+		icnss_pr_smp2p("Failed to get smem state %d",
 			     PTR_ERR(priv->smp2p_info.smem_state));
 	}
 
@@ -3831,6 +3938,33 @@ static inline bool icnss_use_nv_mac(struct icnss_priv *priv)
 	return of_property_read_bool(priv->pdev->dev.of_node,
 				     "use-nv-mac");
 }
+
+#ifdef CONFIG_ICNSS2_RESTART_LEVEL_NOTIF
+static void pil_restart_level_notifier(void *ignore,
+				       int restart_level,
+				       const char *fw)
+{
+	struct icnss_subsys_restart_level_data *restart_level_data;
+
+	icnss_pr_err("PIL Notifier, restart_level: %d, FW:%s",
+		     restart_level, fw);
+
+	restart_level_data = kzalloc(sizeof(*restart_level_data), GFP_ATOMIC);
+
+	if (!restart_level_data)
+		return;
+
+	if (!strcmp(fw, "wpss")) {
+		if (restart_level == RESET_SUBSYS_COUPLED)
+			restart_level_data->restart_level = ICNSS_ENABLE_M3_SSR;
+		else
+			restart_level_data->restart_level = ICNSS_DISABLE_M3_SSR;
+
+		icnss_driver_event_post(penv, ICNSS_DRIVER_EVENT_SUBSYS_RESTART_LEVEL,
+					0, restart_level_data);
+	}
+}
+#endif
 
 static int icnss_probe(struct platform_device *pdev)
 {
@@ -3948,6 +4082,9 @@ static int icnss_probe(struct platform_device *pdev)
 		icnss_pr_dbg("NV MAC feature is %s\n",
 			     priv->use_nv_mac ? "Mandatory":"Not Mandatory");
 		INIT_WORK(&wpss_loader, icnss_wpss_load);
+#ifdef CONFIG_ICNSS2_RESTART_LEVEL_NOTIF
+		register_trace_pil_restart_level(pil_restart_level_notifier, NULL);
+#endif
 	}
 
 	INIT_LIST_HEAD(&priv->icnss_tcdev_list);
@@ -3979,6 +4116,9 @@ static int icnss_remove(struct platform_device *pdev)
 		icnss_dms_deinit(priv);
 		icnss_genl_exit();
 		icnss_runtime_pm_deinit(priv);
+#ifdef CONFIG_ICNSS2_RESTART_LEVEL_NOTIF
+		unregister_trace_pil_restart_level(pil_restart_level_notifier, NULL);
+#endif
 	}
 
 	device_init_wakeup(&priv->pdev->dev, false);

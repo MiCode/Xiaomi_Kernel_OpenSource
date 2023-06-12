@@ -79,7 +79,24 @@ static struct wakeup_source deleted_ws = {
 };
 
 static DEFINE_IDA(wakeup_ida);
-
+/**
+ * wakeup_source_prepare - Prepare a new wakeup source for initialization.
+ * @ws: Wakeup source to prepare.
+ * @name: Pointer to the name of the new wakeup source.
+ *
+ * Callers must ensure that the @name string won't be freed when @ws is still in
+ * use.
+ */
+#ifdef CONFIG_WT_QGKI
+void wakeup_source_prepare(struct wakeup_source *ws, const char *name)
+{
+	if (ws) {
+		memset(ws, 0, sizeof(*ws));
+		ws->name = name;
+	}
+}
+EXPORT_SYMBOL_GPL(wakeup_source_prepare);
+#endif
 /**
  * wakeup_source_create - Create a struct wakeup_source object.
  * @name: Name of the new wakeup source.
@@ -114,6 +131,24 @@ err_ws:
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(wakeup_source_create);
+
+/**
+ * wakeup_source_drop - Prepare a struct wakeup_source object for destruction.
+ * @ws: Wakeup source to prepare for destruction.
+ *
+ * Callers must ensure that __pm_stay_awake() or __pm_wakeup_event() will never
+ * be run in parallel with this function for the same wakeup source object.
+ */
+#ifdef CONFIG_WT_QGKI
+void wakeup_source_drop(struct wakeup_source *ws)
+{
+	if (!ws)
+		return;
+
+	__pm_relax(ws);
+}
+EXPORT_SYMBOL_GPL(wakeup_source_drop);
+#endif
 
 /*
  * Record wakeup_source statistics being deleted into a dummy wakeup_source.
@@ -857,11 +892,11 @@ void pm_print_active_wakeup_sources(void)
 	struct wakeup_source *ws;
 	int srcuidx, active = 0;
 	struct wakeup_source *last_activity_ws = NULL;
-
+        /*CHK95931,lizhenhua.wt,MODIFY,20210831,add debug log*/
 	srcuidx = srcu_read_lock(&wakeup_srcu);
 	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
 		if (ws->active) {
-			pm_pr_dbg("active wakeup source: %s\n", ws->name);
+			pr_info("active wakeup source: %s\n", ws->name);
 			active = 1;
 		} else if (!active &&
 			   (!last_activity_ws ||
@@ -872,7 +907,7 @@ void pm_print_active_wakeup_sources(void)
 	}
 
 	if (!active && last_activity_ws)
-		pm_pr_dbg("last active wakeup source: %s\n",
+		  pr_info("last active wakeup source: %s\n",
 			last_activity_ws->name);
 	srcu_read_unlock(&wakeup_srcu, srcuidx);
 }

@@ -1761,8 +1761,7 @@ void a6xx_gmu_suspend(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 
@@ -2243,9 +2242,8 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	/* Pool to make sure that the CX is off */
-	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	/* Poll to make sure that the CX is off */
+	a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 
@@ -2324,9 +2322,8 @@ clks_gdsc_off:
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
 gdsc_off:
-	/* Pool to make sure that the CX is off */
-	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	/* Poll to make sure that the CX is off */
+	a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 
@@ -2664,11 +2661,11 @@ int a6xx_gmu_probe(struct kgsl_device *device,
 		return ret;
 	/*
 	 * Voting for apb_pclk will enable power and clocks required for
-	 * QDSS path to function. However, if CORESIGHT is not enabled,
+	 * QDSS path to function. However, if QCOM_KGSL_QDSS_STM is not enabled,
 	 * QDSS is essentially unusable. Hence, if QDSS cannot be used,
 	 * don't vote for this clock.
 	 */
-	if (!IS_ENABLED(CONFIG_CORESIGHT)) {
+	if (!IS_ENABLED(CONFIG_QCOM_KGSL_QDSS_STM)) {
 		for (i = 0; i < ret; i++) {
 			if (!strcmp(gmu->clks[i].id, "apb_pclk")) {
 				gmu->clks[i].clk = NULL;
@@ -2809,9 +2806,8 @@ static int a6xx_gmu_power_off(struct adreno_device *adreno_dev)
 
 	clk_bulk_disable_unprepare(gmu->num_clks, gmu->clks);
 
-	/* Pool to make sure that the CX is off */
-	if (!a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000))
-		dev_err(&gmu->pdev->dev, "GMU CX gdsc off timeout\n");
+	/* Poll to make sure that the CX is off */
+	a6xx_cx_regulator_disable_wait(gmu->cx_gdsc, device, 5000);
 
 	a6xx_rdpm_cx_freq_update(gmu, 0);
 

@@ -34,5 +34,5 @@ obj-$(CONFIG_PPC_EPAPR_HV_BYTECHAN) += ehv_bytechan.o
 obj-$(CONFIG_GOLDFISH_TTY)	+= goldfish.o
 obj-$(CONFIG_MIPS_EJTAG_FDC_TTY) += mips_ejtag_fdc.o
 obj-$(CONFIG_VCC)		+= vcc.o
-
+obj-$(CONFIG_PRESS_KEY_TRIGGER_PANIC)	+= trigger_panic.o
 obj-y += ipwireless/

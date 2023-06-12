@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/reset.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/pinctrl/qcom-pinctrl.h>
 
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
@@ -28,6 +29,9 @@
 #if defined(CONFIG_SDC_QTI)
 #include "../core/core.h"
 #endif
+#include <linux/proc_fs.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
 
 #define CORE_MCI_VERSION		0x50
 #define CORE_VERSION_MAJOR_SHIFT	28
@@ -163,6 +167,10 @@
 #define CQHCI_VENDOR_CFG1	0xA00
 #define CQHCI_VENDOR_DIS_RST_ON_CQ_EN	(0x3 << 13)
 #define RCLK_TOGGLE BIT(2)
+
+/* enum for writing to TLMM_NORTH_SPARE register as defined by pinctrl API */
+#define TLMM_NORTH_SPARE	2
+#define TLMM_NORTH_SPARE_CORE_IE	BIT(15)
 
 struct sdhci_msm_offset {
 	u32 core_hc_mode;
@@ -471,6 +479,7 @@ struct sdhci_msm_host {
 };
 
 static struct sdhci_msm_host *sdhci_slot[2];
+static int sdhci_irq_gpio = 0;
 
 static int sdhci_msm_update_qos_constraints(struct qos_cpu_group *qcg,
 					enum constraint type);
@@ -934,7 +943,7 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 
 			mclk_freq = ROUND(dll_clock * cycle_cnt, TCXO_FREQ);
 
-			if (dll_clock < 192000000)
+			if (dll_clock < 100000000)
 				pr_err("%s: %s: Non standard clk freq =%u\n",
 				mmc_hostname(mmc), __func__, dll_clock);
 
@@ -1495,9 +1504,6 @@ static int sdhci_msm_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	const struct sdhci_msm_offset *msm_offset =
 					sdhci_priv_msm_offset(host);
 
-	core_vendor_spec = readl_relaxed(host->ioaddr +
-			msm_offset->core_vendor_spec);
-
 	if (!sdhci_msm_is_tuning_needed(host)) {
 		msm_host->use_cdr = false;
 		sdhci_msm_set_cdr(host, false);
@@ -1523,6 +1529,9 @@ static int sdhci_msm_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		msm_set_clock_rate_for_bus_mode(host, ios.clock);
 		host->flags &= ~SDHCI_HS400_TUNING;
 	}
+
+	core_vendor_spec = readl_relaxed(host->ioaddr +
+			msm_offset->core_vendor_spec);
 
 	/* Make sure that PWRSAVE bit is set to '0' during tuning */
 	writel_relaxed((core_vendor_spec & ~CORE_CLK_PWRSAVE),
@@ -1833,6 +1842,8 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 	struct device_node *np = dev->of_node;
 	int ice_clk_table_len;
 	u32 *ice_clk_table = NULL;
+	enum of_gpio_flags flags;
+	sdhci_irq_gpio = of_get_named_gpio_flags(np, "cd-gpios", 0, &flags);
 
 	msm_host->vreg_data = devm_kzalloc(dev, sizeof(struct
 						    sdhci_msm_vreg_data),
@@ -2226,6 +2237,7 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 	struct sdhci_msm_vreg_data *curr_slot;
 	struct sdhci_msm_reg_data *vreg_table[2];
 	struct mmc_host *mmc = msm_host->mmc;
+	u32 val = 0;
 
 	curr_slot = msm_host->vreg_data;
 	if (!curr_slot) {
@@ -2241,6 +2253,20 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 	if (!enable && vreg_table[1]->is_always_on && !mmc->card)
 		vreg_table[1]->is_always_on = false;
 
+	if (!enable && !(mmc->caps & MMC_CAP_NONREMOVABLE)) {
+
+		/*
+		 * Disable Receiver of the Pad to avoid crowbar currents
+		 * when Pad power supplies are collapsed. Provide SW control
+		 * on the core_ie of SDC2 Pads. SW write 1’b0
+		 * into the bit 15 of register TLMM_NORTH_SPARE.
+		 */
+
+		val = msm_spare_read(TLMM_NORTH_SPARE);
+		val &= ~TLMM_NORTH_SPARE_CORE_IE;
+		msm_spare_write(TLMM_NORTH_SPARE, val);
+	}
+
 	for (i = 0; i < ARRAY_SIZE(vreg_table); i++) {
 		if (vreg_table[i]) {
 			if (enable)
@@ -2250,6 +2276,20 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 			if (ret)
 				goto out;
 		}
+	}
+
+	if (enable && !(mmc->caps & MMC_CAP_NONREMOVABLE)) {
+
+		/*
+		 * Disable Receiver of the Pad to avoid crowbar currents
+		 * when Pad power supplies are collapsed. Provide SW control
+		 * on the core_ie of SDC2 Pads. SW write 1’b1
+		 * into the bit 15 of register TLMM_NORTH_SPARE.
+		 */
+
+		val = msm_spare_read(TLMM_NORTH_SPARE);
+		val |= TLMM_NORTH_SPARE_CORE_IE;
+		msm_spare_write(TLMM_NORTH_SPARE, val);
 	}
 out:
 	return ret;
@@ -2687,8 +2727,8 @@ static void sdhci_msm_registers_restore(struct sdhci_host *host)
 			host->ioaddr + msm_offset->core_pwrctl_mask);
 
 	if (cq_host)
-		cqhci_writel(cq_host, msm_host->cqe_regs.cqe_vendor_cfg1,
-				CQHCI_VENDOR_CFG1);
+		cqhci_writel(cq_host, msm_host->cqe_regs.cqe_vendor_cfg1 &
+				~CMDQ_SEND_STATUS_TRIGGER, CQHCI_VENDOR_CFG1);
 
 	if (((ios.timing == MMC_TIMING_MMC_HS400) ||
 			(ios.timing == MMC_TIMING_MMC_HS200) ||
@@ -3490,6 +3530,7 @@ static void sdhci_msm_hw_reset(struct sdhci_host *host)
 	if (ret)
 		dev_err(&pdev->dev, "%s: core_reset deassert failed, err = %d\n",
 				__func__, ret);
+	usleep_range(200, 210);
 
 	sdhci_msm_registers_restore(host);
 	msm_host->reg_store = false;
@@ -4214,6 +4255,45 @@ static void sdhci_msm_set_caps(struct sdhci_msm_host *msm_host)
 	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
 	msm_host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_NEED_RSP_BUSY;
 }
+static int sim_card_status_show(struct seq_file *m, void *v)
+{
+	int gpio_value;
+
+	gpio_value = gpio_get_value_cansleep(sdhci_irq_gpio);
+
+	pr_debug("%s: gpio_value is %d\n", __func__, gpio_value);
+
+	seq_printf(m, "%d\n", gpio_value);
+
+	return 0;
+}
+
+static int sim_card_status_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, sim_card_status_show, NULL);
+}
+
+static const struct file_operations sim_card_status_fops = {
+	.open        = sim_card_status_proc_open,
+	.read        = seq_read,
+	.llseek      = seq_lseek,
+	.release     = single_release,
+};
+
+static int sim_card_tray_create_proc(void)
+{
+	struct proc_dir_entry *status_entry;
+
+	status_entry = proc_create("sd_tray_gpio_value", 0, NULL, &sim_card_status_fops);
+	if (!status_entry){
+		return -ENOMEM;
+	}
+	return 0;
+}
+static void sim_card_tray_remove_proc(void)
+{
+	remove_proc_entry("sd_tray_gpio_value", NULL);
+}
 
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
@@ -4457,6 +4537,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	 * in GIC.
 	 */
 	mb();
+	if(!strcmp(mmc_hostname(host->mmc), "mmc0")){
+		sim_card_tray_create_proc();
+	}
 
 	/* Setup IRQ for handling power/voltage tasks with PMIC */
 	msm_host->pwr_irq = platform_get_irq_byname(pdev, "pwr_irq");
@@ -4566,6 +4649,9 @@ bus_clk_disable:
 		clk_disable_unprepare(msm_host->bus_clk);
 pltfm_free:
 	sdhci_pltfm_free(pdev);
+	if(!strcmp(mmc_hostname(host->mmc), "mmc0")){
+		sim_card_tray_remove_proc();
+	}
 	return ret;
 }
 

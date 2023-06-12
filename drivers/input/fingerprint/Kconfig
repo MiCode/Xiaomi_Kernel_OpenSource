@@ -1,0 +1,26 @@
+#
+# Input device configuration
+config FINGERPRINT_GOODIX_FOD
+	tristate "fingerprint goodix"
+	default n
+	help
+	  Say Y here if you have a goodix
+          If unsure, say N.
+source "drivers/input/fingerprint/goodix/Kconfig"
+
+
+config FINGERPRINT_FPC
+	tristate "fingerprint fpc"
+	default n
+	help
+	  Say Y here if you have a fpc
+          If unsure, say N.
+source "drivers/input/fingerprint/fpc/Kconfig"
+
+config FINGERPRINT_SILEAD
+	tristate "fingerprint silead"
+	default n
+	help
+	  Say Y here if you have a silead
+          If unsure, say N.
+source "drivers/input/fingerprint/silead/Kconfig"

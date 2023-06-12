@@ -1,5 +1,15 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+KDIR	:= /lib/modules/$(shell uname -r)/build
+# +Bug670847,caijiaqi.wt,MODIFY,20210723, add sc8551 code
+obj-$(CONFIG_BQ2589X_CHARGER)	+= bq2589x_charger.o
+obj-$(CONFIG_WT_CHG)	+= wt_chg.o
+obj-$(CONFIG_CHARGER_SC8551)	+= pd_policy_manager.o
+obj-$(CONFIG_CHARGER_SC8551)	+= sc8551_charger.o
+obj-$(CONFIG_CHARGER_LN8000)	+= ln8000_charger.o
+obj-$(CONFIG_CHARGER_LN8000)	+= ln8000_charger_2.o
+obj-$(CONFIG_FUEL_GAUGE_BQ27Z561)	+= bq27z561.o
+
 obj-$(CONFIG_QPNP_SMB5) += qpnp-smb5-main.o
 qpnp-smb5-main-y += step-chg-jeita.o battery.o qpnp-smb5.o smb5-lib.o pmic-voter.o storm-watch.o schgm-flash.o battery-profile-loader.o smb5-iio.o
 obj-$(CONFIG_QPNP_QG)	+= qcom-qpnp-qg.o

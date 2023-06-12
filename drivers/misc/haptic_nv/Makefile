@@ -1,0 +1,2 @@
+obj-$(CONFIG_AWINIC_HAPTIC_NV) 	+= aw8624.o
+

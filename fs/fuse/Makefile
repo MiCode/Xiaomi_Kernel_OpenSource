@@ -8,4 +8,7 @@ obj-$(CONFIG_CUSE) += cuse.o
 obj-$(CONFIG_VIRTIO_FS) += virtiofs.o
 
 fuse-objs := dev.o dir.o file.o inode.o control.o xattr.o acl.o readdir.o
+ifeq	($(CONFIG_PASSTHROUGH_SYSTEM)_$(CONFIG_REGION_IS_CN),y_y)
+	fuse-objs += passthrough.o
+endif
 virtiofs-y += virtio_fs.o

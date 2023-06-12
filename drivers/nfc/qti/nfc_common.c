@@ -8,6 +8,34 @@
 #include <linux/delay.h>
 #include "nfc_common.h"
 
+#include <linux/hardware_info.h>
+
+#define SN_NFC_INFO_LEN 20
+
+char sn_nfc_version[HARDWARE_MAX_ITEM_LONGTH];
+
+static int sn_set_nfc_fw(long nfc_info_addr)
+{
+    char *tmp = NULL;
+    int ret = 0;
+
+	memset(sn_nfc_version, 0x00, HARDWARE_MAX_ITEM_LONGTH);
+
+    tmp = memdup_user((char __user*)nfc_info_addr,SN_NFC_INFO_LEN);
+    if (IS_ERR(tmp)) {
+			pr_err("%s: memdup_user failed\n",
+				__func__);
+			ret = PTR_ERR(tmp);
+			return ret;
+	}
+
+	memcpy(sn_nfc_version,tmp,SN_NFC_INFO_LEN);
+#ifdef CONFIG_WT_QGKI
+	hardwareinfo_set_prop(HARDWARE_NFC, sn_nfc_version);
+#endif
+	kfree(tmp);
+    return ret;
+}
 
 int nfc_parse_dt(struct device *dev, struct platform_gpio *nfc_gpio,
 		 struct platform_ldo *ldo, uint8_t interface)
@@ -677,6 +705,9 @@ long nfc_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 	case NFC_GET_PLATFORM_TYPE:
 		ret = nfc_dev->interface;
 		break;
+	case SN100_SET_NFC_INFO:
+	    ret = sn_set_nfc_fw(arg);
+	    break;
 	default:
 		pr_err("%s bad cmd %lu\n", __func__, arg);
 		ret = -ENOIOCTLCMD;

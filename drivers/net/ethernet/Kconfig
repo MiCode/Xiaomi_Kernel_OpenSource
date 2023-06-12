@@ -187,11 +187,18 @@ config QPS615
 	tristate "QPS615 driver"
 	select PHYLINK
 	select PAGE_POOL
-	default m
 	help
-	  Say M here to compile this driver as a dynamically loadable kernel
-	  module. The DLKM will be called qps615_drv.ko.
-	  NTN3 is a PCIe switch for 2 emac interfaces to send Internet Packets
-	  to SDX65 host.
+	  QPS615 is a PCIe Ethernet switch IC with DUAL NIC
+	  support and allows to connect upto two endpoints.
+	  Each NIC port supports multiple MII interfaces and
+	  each port has a capable of 10Gbps data rate.
 
+config QPS615_IOSS
+	tristate "QPS615_IOSS glue driver for QPS615 driver"
+	depends on QPS615
+	help
+	  QPS615_IOSS is a glue layer on top of QPS615
+	  module to enable IPA offload data path between
+	  backhaul and NIC Ports and endpoints. Helps to
+	  achieve high data rates with more power savings.
 endif # ETHERNET

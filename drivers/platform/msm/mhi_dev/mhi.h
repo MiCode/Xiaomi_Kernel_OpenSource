@@ -271,6 +271,8 @@ struct mhi_config {
 
 /* maximum transfer completion events buffer */
 #define NUM_TR_EVENTS_DEFAULT			128
+#define NUM_CMD_EVENTS_DEFAULT			20
+
 
 /* Set flush threshold to 80% of event buf size */
 #define MHI_CMPL_EVT_FLUSH_THRSHLD(n) ((n * 8) / 10)
@@ -354,7 +356,8 @@ enum mhi_dev_ch_operation {
 enum mhi_dev_tr_compl_evt_type {
 	SEND_EVENT_BUFFER,
 	SEND_EVENT_RD_OFFSET,
-	SEND_MSI
+	SEND_MSI,
+	SEND_CMD_CMP,
 };
 
 enum mhi_dev_transfer_type {
@@ -404,7 +407,7 @@ struct mhi_dev_ring {
 	/* ring_ctx_shadow -> tracking ring_ctx in the host */
 	union mhi_dev_ring_ctx			*ring_ctx_shadow;
 	struct msi_buf_cb_data		msi_buffer;
-	void (*ring_cb)(struct mhi_dev *dev,
+	int (*ring_cb)(struct mhi_dev *dev,
 			union mhi_dev_ring_element_type *el,
 			void *ctx);
 };
@@ -448,6 +451,18 @@ struct event_req {
 	void			(*msi_cb)(void *req);
 	struct list_head	list;
 	u32			flush_num;
+	bool		is_cmd_cpl;
+};
+
+struct mhi_cmd_cmpl_ctx {
+	/* Indices for completion event buffer */
+	uint32_t			cmd_buf_rp;
+	uint32_t			cmd_buf_wp;
+	uint32_t			cmd_buf_size;
+	bool				mem_allocated;
+	struct list_head	cmd_req_buffers;
+	struct event_req		*ereqs;
+	union mhi_dev_ring_element_type *cmd_events;
 };
 
 struct mhi_dev_channel {
@@ -493,7 +508,10 @@ struct mhi_dev_channel {
 	uint32_t			pend_wr_count;
 	uint32_t			msi_cnt;
 	uint32_t			flush_req_cnt;
+	uint32_t			pend_flush_cnt;
 	bool				skip_td;
+	bool				db_pending;
+	bool				reset_pending;
 };
 
 /* Structure device for mhi dev */
@@ -531,6 +549,7 @@ struct mhi_dev {
 	struct mhi_dev_ring		*ring;
 	int				mhi_irq;
 	struct mhi_dev_channel		*ch;
+	struct mhi_cmd_cmpl_ctx			*cmd_ctx;
 
 	int				ctrl_int;
 	int				cmd_int;
@@ -757,7 +776,7 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
  * @ring_cb:	callback function.
  */
 void mhi_ring_set_cb(struct mhi_dev_ring *ring,
-			void (*ring_cb)(struct mhi_dev *dev,
+			int (*ring_cb)(struct mhi_dev *dev,
 			union mhi_dev_ring_element_type *el, void *ctx));
 
 /**

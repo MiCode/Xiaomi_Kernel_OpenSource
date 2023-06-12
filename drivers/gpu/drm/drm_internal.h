@@ -209,6 +209,24 @@ int drm_syncobj_timeline_signal_ioctl(struct drm_device *dev, void *data,
 int drm_syncobj_query_ioctl(struct drm_device *dev, void *data,
 			    struct drm_file *file_private);
 
+int dsi_display_disp_param_get(struct drm_connector *connector,
+			       u32 *param_type);
+int dsi_display_disp_param_set(struct drm_connector *connector,
+			       u32 param_type);
+ssize_t dsi_display_mipi_reg_write(struct drm_connector *connector,
+				   char *buf, size_t count);
+ssize_t dsi_display_mipi_reg_read(struct drm_connector *connector,
+				  char *buf);
+ssize_t dsi_display_set_hbm(struct drm_connector *connector,
+			int hbm_status);
+ssize_t dsi_display_get_hbm_status(struct drm_connector *connector);
+ssize_t dsi_display_set_doze_brightness(struct drm_connector *connector,
+			int doze_brightness);
+ssize_t dsi_display_get_doze_brightness(struct drm_connector *connector);
+ssize_t dsi_display_set_flat_mode(struct drm_connector *connector,
+			int flat_mode);
+ssize_t dsi_display_get_flat_mode(struct drm_connector *connector);
+
 /* drm_framebuffer.c */
 void drm_framebuffer_print_info(struct drm_printer *p, unsigned int indent,
 				const struct drm_framebuffer *fb);

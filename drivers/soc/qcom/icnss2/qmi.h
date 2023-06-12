@@ -195,6 +195,10 @@ void icnss_dms_deinit(struct icnss_priv *priv)
 {
 }
 
+int wlfw_subsys_restart_level_msg(struct icnss_priv *penv, uint8_t type)
+{
+	return 0;
+}
 #else
 int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv);
 int icnss_connect_to_fw_server(struct icnss_priv *priv, void *data);
@@ -248,6 +252,7 @@ int icnss_wlfw_wlan_mac_req_send_sync(struct icnss_priv *priv,
 				      u8 *mac, u32 mac_len);
 int icnss_dms_init(struct icnss_priv *priv);
 void icnss_dms_deinit(struct icnss_priv *priv);
+int wlfw_subsys_restart_level_msg(struct icnss_priv *penv, uint8_t type);
 #endif
 
 #endif /* __ICNSS_QMI_H__*/

@@ -1634,6 +1634,7 @@
   of_find_node_opts_by_path
   of_find_node_with_property
   of_find_property
+  of_find_spi_device_by_node
   of_fwnode_ops
   of_genpd_add_provider_onecell
   of_genpd_add_provider_simple
@@ -2170,6 +2171,7 @@
   smpboot_unregister_percpu_thread
   snd_card_free
   snd_card_new
+  snd_card_ref
   snd_card_register
   snd_compr_stop_error
   snd_ctl_add
@@ -2214,7 +2216,9 @@
   snd_soc_card_get_kcontrol
   snd_soc_component_async_complete
   snd_soc_component_disable_pin
+  snd_soc_component_enable_pin
   snd_soc_component_force_enable_pin
+  snd_soc_component_get_pin_status
   snd_soc_component_init_regmap
   snd_soc_component_read
   snd_soc_component_read32

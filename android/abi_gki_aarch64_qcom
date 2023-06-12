@@ -218,7 +218,9 @@
   clk_prepare
   clk_put
   clk_register
+  clk_restore_context
   clk_round_rate
+  clk_save_context
   clk_set_parent
   clk_set_rate
   clk_sync_state
@@ -939,6 +941,7 @@
   fsl8250_handle_irq
   fs_kobj
   fsstack_copy_attr_all
+  ftrace_set_clr_event
   full_name_hash
   fwnode_connection_find_match
   fwnode_get_parent
@@ -1082,6 +1085,11 @@
   i2c_register_driver
   i2c_smbus_read_byte
   i2c_smbus_write_byte
+  i2c_smbus_read_word_data
+  i2c_smbus_write_i2c_block_data
+  i2c_smbus_read_i2c_block_data
+  i2c_smbus_read_byte_data
+  i2c_smbus_write_byte_data
   __i2c_smbus_xfer
   i2c_smbus_xfer
   __i2c_transfer
@@ -2440,6 +2448,8 @@
   timer_unstable_counter_workaround
   timespec64_to_jiffies
   _totalram_pages
+  trace_array_create
+  trace_array_destroy
   __trace_bprintk
   trace_define_field
   trace_event_buffer_commit
@@ -2892,3 +2902,6 @@
   pcie_capability_clear_and_set_word
   pci_device_is_present
   pci_find_bus
+  class_for_each_device
+  typec_partner_set_identity
+  device_set_of_node_from_dev

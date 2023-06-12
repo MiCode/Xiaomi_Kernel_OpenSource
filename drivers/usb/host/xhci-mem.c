@@ -1923,6 +1923,11 @@ static int sec_event_ring_cleanup(struct xhci_hcd *xhci, unsigned int intr_num)
 		return -EINVAL;
 	}
 
+	if (!xhci->sec_erst) {
+		xhci_err(xhci, "secondary ring is NULL or not initialized\n");
+		return -EINVAL;
+	}
+
 	size =
 	sizeof(struct xhci_erst_entry)*(xhci->sec_erst[intr_num].num_entries);
 	if (xhci->sec_erst[intr_num].entries) {
@@ -2065,6 +2070,7 @@ no_bw:
 	xhci->hw_ports = NULL;
 	xhci->rh_bw = NULL;
 	xhci->ext_caps = NULL;
+	xhci->port_caps = NULL;
 
 	xhci->page_size = 0;
 	xhci->page_shift = 0;
@@ -2246,6 +2252,15 @@ static void xhci_add_in_port(struct xhci_hcd *xhci, unsigned int num_ports,
 
 	if (major_revision == 0x03) {
 		rhub = &xhci->usb3_rhub;
+		/*
+		 * Some hosts incorrectly use sub-minor version for minor
+		 * version (i.e. 0x02 instead of 0x20 for bcdUSB 0x320 and 0x01
+		 * for bcdUSB 0x310). Since there is no USB release with sub
+		 * minor version 0x301 to 0x309, we can assume that they are
+		 * incorrect and fix it here.
+		 */
+		if (minor_revision > 0x00 && minor_revision < 0x10)
+			minor_revision <<= 4;
 	} else if (major_revision <= 0x02) {
 		rhub = &xhci->usb2_rhub;
 	} else {

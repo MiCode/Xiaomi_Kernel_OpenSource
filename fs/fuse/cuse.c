@@ -34,7 +34,11 @@
 
 #define pr_fmt(fmt) "CUSE: " fmt
 
+#if defined(CONFIG_PASSTHROUGH_SYSTEM) && defined(CONFIG_REGION_IS_CN)
+#include "fuse.h"
+#else
 #include <linux/fuse.h>
+#endif
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/file.h>
@@ -624,6 +628,8 @@ static int __init cuse_init(void)
 	cuse_channel_fops.owner		= THIS_MODULE;
 	cuse_channel_fops.open		= cuse_channel_open;
 	cuse_channel_fops.release	= cuse_channel_release;
+	/* CUSE is not prepared for FUSE_DEV_IOC_CLONE */
+	cuse_channel_fops.unlocked_ioctl	= NULL;
 
 	cuse_class = class_create(THIS_MODULE, "cuse");
 	if (IS_ERR(cuse_class))

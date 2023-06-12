@@ -39,7 +39,7 @@
 #include <sound/soc-dpcm.h>
 #include <sound/soc-topology.h>
 #include <sound/initval.h>
-
+#include <linux/hardware_info.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/asoc.h>
 
@@ -67,6 +67,12 @@ static LIST_HEAD(unbind_card_list);
  */
 struct snd_soc_dai_link_component null_dailink_component[0];
 EXPORT_SYMBOL_GPL(null_dailink_component);
+
+static DEFINE_MUTEX(smartpa_mutex);
+int smartpa_type=INVALD;
+EXPORT_SYMBOL(smartpa_type);
+module_param(smartpa_type, int, 0664);
+MODULE_PARM_DESC(smartpa_type, "show smartpa type");
 
 /*
  * This is a timeout to do a DAPM powerdown after a stream is closed().
@@ -2736,6 +2742,43 @@ static void snd_soc_component_setup_regmap(struct snd_soc_component *component)
 		component->val_bytes = val_bytes;
 }
 
+struct device *audio_device = NULL;
+int snd_soc_set_smartpa_type(const char * name, int pa_type)
+{
+	pr_info("%s driver set smartpa type is : %d",name,pa_type);
+	mutex_lock(&smartpa_mutex);
+	switch(pa_type) {
+	case FS16XX:
+		smartpa_type=FS16XX;
+		break;
+	case FS1962:
+		smartpa_type=FS1962;
+#ifdef CONFIG_WT_QGKI
+		hardwareinfo_set_prop(HARDWARE_SMARTPA, "FS1962");
+#endif
+		break;
+	case AW88261:
+		smartpa_type=AW88261;
+#ifdef CONFIG_WT_QGKI
+		hardwareinfo_set_prop(HARDWARE_SMARTPA, "AW88261");
+#endif
+		break;
+	case TAS2558:
+		smartpa_type=TAS2558;
+		break;
+	default:
+		pr_info("this PA does not support\n\r");
+#ifdef CONFIG_WT_QGKI
+		hardwareinfo_set_prop(HARDWARE_SMARTPA, "unknown");
+#endif
+		break;
+	}
+	mutex_unlock(&smartpa_mutex);
+	return smartpa_type;
+}
+EXPORT_SYMBOL_GPL(snd_soc_set_smartpa_type);
+
+
 #ifdef CONFIG_REGMAP
 
 /**
@@ -3205,7 +3248,7 @@ int snd_soc_of_parse_audio_routing(struct snd_soc_card *card,
 	if (!routes) {
 		dev_err(card->dev,
 			"ASoC: Could not allocate DAPM route table\n");
-		return -EINVAL;
+		return -ENOMEM;
 	}
 
 	for (i = 0; i < num_routes; i++) {

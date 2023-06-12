@@ -398,6 +398,10 @@ struct drm_bridge {
 	const struct drm_bridge_funcs *funcs;
 	/** @driver_private: pointer to the bridge driver's internal context */
 	void *driver_private;
+#if IS_ENABLED(CONFIG_WT_QGKI)
+       /** [K6S][LCM]快速亮屏方案(2/2) */
+	struct mutex lock;
+#endif
 };
 
 void drm_bridge_add(struct drm_bridge *bridge);

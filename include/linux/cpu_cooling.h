@@ -18,6 +18,8 @@
 #include <linux/cpumask.h>
 
 struct cpufreq_policy;
+//ExtR HONGMI-90116,wufa@wingtech.com,add,20210908,add mi_thermal node
+void cpu_limits_set_level(unsigned int cpu, unsigned int max_freq);
 
 #ifdef CONFIG_CPU_THERMAL
 /**

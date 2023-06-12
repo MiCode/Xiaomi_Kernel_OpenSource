@@ -89,12 +89,39 @@ struct cpufreq_cooling_device {
 	struct list_head node;
 	struct time_in_idle *idle_time;
 	struct freq_qos_request qos_req;
+	//ExtR HONGMI-90116,wufa@wingtech.com,add,20210908,add mi_thermal node
+	struct thermal_cooling_device *cdev;
 };
 
 static DEFINE_IDA(cpufreq_ida);
 static DEFINE_MUTEX(cooling_list_lock);
 static LIST_HEAD(cpufreq_cdev_list);
 
+//ExtR HONGMI-90116,wufa@wingtech.com,add,20210908,add mi_thermal node
+void cpu_limits_set_level(unsigned int cpu, unsigned int max_freq)
+{
+	struct cpufreq_cooling_device *cpufreq_cdev;
+	struct thermal_cooling_device *cdev;
+	unsigned int cdev_cpu;
+	unsigned int level;
+	
+	list_for_each_entry(cpufreq_cdev, &cpufreq_cdev_list, node) {
+	    sscanf(cpufreq_cdev->cdev->type, "thermal-cpufreq-%d", &cdev_cpu);
+		if (cdev_cpu == cpu) {
+			for (level = 0; level <= cpufreq_cdev->max_level; level++) {
+				int target_freq = cpufreq_cdev->freq_table[level].frequency;
+				if (max_freq >= target_freq) {
+					cdev = cpufreq_cdev->cdev;
+					if (cdev)
+						cdev->ops->set_cur_state(cdev, level);
+					break;
+				}
+			}
+			break;
+		}
+	}
+}
+//ExtR HONGMI-90116,wufa@wingtech.com,add,20210908,add mi_thermal node
 /* Below code defines functions to be used for cpufreq as cooling device */
 
 /**
@@ -320,6 +347,7 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 				 unsigned long state)
 {
 	struct cpufreq_cooling_device *cpufreq_cdev = cdev->devdata;
+	int ret;
 
 	/* Request state should be less than max_level */
 	if (WARN_ON(state > cpufreq_cdev->max_level))
@@ -329,10 +357,12 @@ static int cpufreq_set_cur_state(struct thermal_cooling_device *cdev,
 	if (cpufreq_cdev->cpufreq_state == state)
 		return 0;
 
-	cpufreq_cdev->cpufreq_state = state;
+	ret = freq_qos_update_request(&cpufreq_cdev->qos_req,
+			cpufreq_cdev->freq_table[state].frequency);
+	if (ret > 0)
+		cpufreq_cdev->cpufreq_state = state;
 
-	return freq_qos_update_request(&cpufreq_cdev->qos_req,
-				cpufreq_cdev->freq_table[state].frequency);
+	return ret;
 }
 
 /**
@@ -629,7 +659,8 @@ __cpufreq_cooling_register(struct device_node *np,
 						  cooling_ops);
 	if (IS_ERR(cdev))
 		goto remove_qos_req;
-
+    //ExtR HONGMI-90116,wufa@wingtech.com,add,20210908,add mi_thermal node
+    cpufreq_cdev->cdev = cdev;
 	mutex_lock(&cooling_list_lock);
 	list_add(&cpufreq_cdev->node, &cpufreq_cdev_list);
 	mutex_unlock(&cooling_list_lock);

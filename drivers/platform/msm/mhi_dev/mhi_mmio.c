@@ -601,13 +601,18 @@ EXPORT_SYMBOL(mhi_dev_mmio_reset);
 
 int mhi_dev_restore_mmio(struct mhi_dev *dev)
 {
+	int rc = 0;
 	uint32_t i, reg_cntl_value;
 	void *reg_cntl_addr;
 
 	if (WARN_ON(!dev))
 		return -EINVAL;
 
-	mhi_dev_mmio_mask_interrupts(dev);
+	mhi_dev_mmio_disable_ctrl_interrupt(dev);
+
+	mhi_dev_mmio_disable_cmdb_interrupt(dev);
+
+	mhi_dev_mmio_mask_erdb_interrupts(dev);
 
 	for (i = 0; i < (MHI_DEV_MMIO_RANGE/4); i++) {
 		reg_cntl_addr = dev->mmio_base_addr +
@@ -618,11 +623,25 @@ int mhi_dev_restore_mmio(struct mhi_dev *dev)
 
 	mhi_dev_mmio_clear_interrupts(dev);
 
+	for (i = 0; i < MHI_MASK_ROWS_CH_EV_DB; i++) {
+		/* Enable channel interrupt whose mask is enabled */
+		if (dev->chdb[i].mask) {
+			mhi_log(MHI_MSG_VERBOSE,
+				"Enabling id: %d, chdb mask  0x%x\n",
+							i, dev->chdb[i].mask);
+
+			rc = mhi_dev_mmio_write(dev, MHI_CHDB_INT_MASK_A7_n(i),
+							dev->chdb[i].mask);
+			if (rc) {
+				mhi_log(MHI_MSG_VERBOSE,
+					"Error writing enable for A7\n");
+				return rc;
+			}
+		}
+	}
+
 	/* Mask and enable control interrupt */
 	mhi_dev_mmio_enable_ctrl_interrupt(dev);
-
-	/*Enable chdb interrupt*/
-	mhi_dev_mmio_enable_chdb_interrupts(dev);
 
 	/*Enable cmdb interrupt*/
 	mhi_dev_mmio_enable_cmdb_interrupt(dev);

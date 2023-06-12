@@ -133,6 +133,8 @@ static DEFINE_MUTEX(sd_ref_mutex);
 static struct kmem_cache *sd_cdb_cache;
 static mempool_t *sd_cdb_pool;
 static mempool_t *sd_page_pool;
+#define SD_NUM 6
+extern struct gendisk *ufs_disk[];
 
 static const char *sd_cache_types[] = {
 	"write through", "none", "write back",
@@ -932,8 +934,10 @@ static blk_status_t sd_setup_write_zeroes_cmnd(struct scsi_cmnd *cmd)
 		}
 	}
 
-	if (sdp->no_write_same)
+	if (sdp->no_write_same) {
+		rq->rq_flags |= RQF_QUIET;
 		return BLK_STS_TARGET;
+	}
 
 	if (sdkp->ws16 || lba > 0xffffffff || nr_blocks > 0xffff)
 		return sd_setup_write_same16_cmnd(cmd, false);
@@ -3274,6 +3278,7 @@ static int sd_format_disk_name(char *prefix, int index, char *buf, int buflen)
 	return 0;
 }
 
+extern int ufs_ffu(struct scsi_device *sdev) __attribute__((weak));
 /**
  *	sd_probe - called during driver initialization and whenever a
  *	new scsi device is attached to the system. It is called once
@@ -3299,7 +3304,9 @@ static int sd_probe(struct device *dev)
 	struct gendisk *gd;
 	int index;
 	int error;
+	static int num = 0;
 
+	printk("kook---sd_enter\n");
 	scsi_autopm_get_device(sdp);
 	error = -ENODEV;
 	if (sdp->type != TYPE_DISK &&
@@ -3335,7 +3342,9 @@ static int sd_probe(struct device *dev)
 		sdev_printk(KERN_WARNING, sdp, "SCSI disk (sd) name length exceeded.\n");
 		goto out_free_index;
 	}
-
+	printk("kook---sd_enter_1\n");
+	if(num < SD_NUM)
+		ufs_disk[num++] = gd;
 	sdkp->device = sdp;
 	sdkp->driver = &sd_template;
 	sdkp->disk = gd;
@@ -3355,11 +3364,11 @@ static int sd_probe(struct device *dev)
 	sdkp->dev.parent = dev;
 	sdkp->dev.class = &sd_disk_class;
 	dev_set_name(&sdkp->dev, "%s", dev_name(dev));
-
+	printk("kook---sd_enter-2\n");
 	error = device_add(&sdkp->dev);
 	if (error)
 		goto out_free_index;
-
+	printk("kook---sd_enter-3\n");
 	get_device(dev);
 	dev_set_drvdata(dev, sdkp);
 
@@ -3369,7 +3378,7 @@ static int sd_probe(struct device *dev)
 	gd->fops = &sd_fops;
 	gd->private_data = &sdkp->driver;
 	gd->queue = sdkp->device->request_queue;
-
+	printk("kook---sd_enter-4\n");
 	/* defaults, until the device tells us otherwise */
 	sdp->sector_size = 512;
 	sdkp->capacity = 0;
@@ -3383,7 +3392,7 @@ static int sd_probe(struct device *dev)
 	sdkp->max_medium_access_timeouts = SD_MAX_MEDIUM_TIMEOUTS;
 
 	sd_revalidate_disk(gd);
-
+	printk("kook---sd_enter-5\n");
 	gd->flags = GENHD_FL_EXT_DEVT;
 	if (sdp->removable) {
 		gd->flags |= GENHD_FL_REMOVABLE;
@@ -3399,13 +3408,19 @@ static int sd_probe(struct device *dev)
 	device_add_disk(dev, gd, NULL);
 	if (sdkp->capacity)
 		sd_dif_config_host(sdkp);
-
+	printk("kook---sd_enter-6\n");
 	sd_revalidate_disk(gd);
 
 	if (sdkp->security) {
 		sdkp->opal_dev = init_opal_dev(sdp, &sd_sec_submit);
 		if (sdkp->opal_dev)
 			sd_printk(KERN_NOTICE, sdkp, "supports TCG Opal\n");
+	}
+	printk("kook---ffu_pre\n");
+	/*for some device , boot LUN can not support write buffer cmd. We shall check LUN config for every project*/
+	if (ufs_ffu && sdp->lun == 0) {
+		printk("kook---ffu_enter\n");
+		ufs_ffu(sdp);
 	}
 
 	sd_printk(KERN_NOTICE, sdkp, "Attached SCSI %sdisk\n",

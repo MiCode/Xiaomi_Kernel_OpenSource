@@ -35,7 +35,7 @@
 
 #define SCM_DLOAD_FULLDUMP		QCOM_DOWNLOAD_FULLDUMP
 #define SCM_EDLOAD_MODE			QCOM_DOWNLOAD_EDL
-#define SCM_DLOAD_MINIDUMP		QCOM_DOWNLOAD_MINIDUMP
+#define SCM_DLOAD_MINIDUMP		0x40
 #define SCM_DLOAD_BOTHDUMPS	(SCM_DLOAD_FULLDUMP | SCM_DLOAD_MINIDUMP)
 
 #define DL_MODE_PROP "qcom,msm-imem-download_mode"
@@ -57,11 +57,17 @@ static struct nvmem_cell *nvmem_cell;
  * There is no API from TZ to re-enable the registers.
  * So the SDI cannot be re-enabled when it already by-passed.
  */
+
+//BUG-682073,chenhengshi.wt,20210819,modify,control dload mode by WT_FINAL_RELEASE
+#ifdef WT_FINAL_RELEASE
+static int download_mode = 0;
+#else
 static int download_mode = 1;
+#endif
 static struct kobject dload_kobj;
 
 static int in_panic;
-static int dload_type = SCM_DLOAD_FULLDUMP;
+static int dload_type = SCM_DLOAD_BOTHDUMPS;
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
@@ -431,8 +437,14 @@ static void msm_restart_prepare(const char *cmd)
 	else
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
 
-	if (cmd != NULL) {
+	if (in_panic) {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
+	} else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
+//// CHK-95946,chenhengshi.wt,2021.8.13, change adb reboot bootloader and reboot dm-verity warm
+#ifndef WT_FINAL_RELEASE
+			qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+#endif
 			reason = PON_RESTART_REASON_BOOTLOADER;
 			__raw_writel(0x77665500, restart_reason);
 		} else if (!strncmp(cmd, "recovery", 8)) {
@@ -442,6 +454,9 @@ static void msm_restart_prepare(const char *cmd)
 			reason = PON_RESTART_REASON_RTC;
 			__raw_writel(0x77665503, restart_reason);
 		} else if (!strcmp(cmd, "dm-verity device corrupted")) {
+#ifndef WT_FINAL_RELEASE
+			qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
+#endif
 			reason = PON_RESTART_REASON_DMVERITY_CORRUPTED;
 			__raw_writel(0x77665508, restart_reason);
 		} else if (!strcmp(cmd, "dm-verity enforcing")) {
@@ -459,8 +474,10 @@ static void msm_restart_prepare(const char *cmd)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
 		} else if (!strncmp(cmd, "edl", 3)) {
-			enable_emergency_dload_mode();
+			if(0)
+				enable_emergency_dload_mode();
 		} else {
+                        qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
 			__raw_writel(0x77665501, restart_reason);
 		}
 
@@ -469,6 +486,9 @@ static void msm_restart_prepare(const char *cmd)
 		else
 			qpnp_pon_set_restart_reason(
 				(enum pon_restart_reason)reason);
+	} else {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
+		__raw_writel(0x77665501, restart_reason);
 	}
 
 	/*outer_flush_all is not supported by 64bit kernel*/

@@ -86,6 +86,9 @@ extern void qcom_scm_cpu_power_down(u32 flags);
 extern void qcom_scm_cpu_hp(u32 flags);
 extern int qcom_scm_sec_wdog_deactivate(void);
 extern int qcom_scm_sec_wdog_trigger(void);
+#ifdef CONFIG_TLB_CONF_HANDLER
+extern int qcom_scm_tlb_conf_handler(unsigned long addr);
+#endif
 extern void qcom_scm_disable_sdi(void);
 extern int qcom_scm_set_remote_state(u32 state, u32 id);
 extern int qcom_scm_spin_cpu(void);
@@ -231,6 +234,9 @@ static inline void qcom_scm_cpu_power_down(u32 flags) {}
 static inline void qcom_scm_cpu_hp(u32 flags) {}
 static inline int qcom_scm_sec_wdog_deactivate(void) { return -ENODEV; }
 static inline int qcom_scm_sec_wdog_trigger(void) { return -ENODEV; }
+#ifdef CONFIG_TLB_CONF_HANDLER
+static inline int qcom_scm_tlb_conf_handler(unsigned long addr) { return -ENODEV; }
+#endif
 static inline void qcom_scm_disable_sdi(void) {}
 static inline u32 qcom_scm_set_remote_state(u32 state, u32 id)
 		{ return -ENODEV; }

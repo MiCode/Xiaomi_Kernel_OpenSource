@@ -674,7 +674,8 @@ static void etr_pcie_client_cb(struct mhi_dev_client_cb_data *cb_data)
 	byte_cntr_data = cb_data->user_data;
 	if (!byte_cntr_data)
 		return;
-
+	if (tmcdrvdata->pcie_path != TMC_ETR_PCIE_SW_PATH)
+		return;
 	switch (cb_data->ctrl_info) {
 	case  MHI_STATE_CONNECTED:
 		if (cb_data->channel == byte_cntr_data->pcie_out_chan) {

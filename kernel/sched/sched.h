@@ -3440,3 +3440,10 @@ static inline void walt_irq_work_queue(struct irq_work *work)
 	irq_work_queue(work);
 }
 #endif
+
+#ifdef CONFIG_MIGT
+void __weak migt_monitot_init(struct task_struct *tsk)
+{
+	return;
+}
+#endif

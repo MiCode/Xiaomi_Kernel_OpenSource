@@ -4,6 +4,12 @@
 #
 menu "Qualcomm SoC drivers"
 
+config DEBUG_POLICY_STATUS
+	bool "read debug policy status"
+	default n
+	help
+	  This driver read debug policy status using Qualcomm scm_call2 interface
+
 config QCOM_AOSS_QMP
 	tristate "Qualcomm AOSS Driver"
 	depends on ARCH_QCOM || COMPILE_TEST
@@ -550,6 +556,11 @@ config MSM_REMOTEQDSS
 	  events. Provide a sysfs interface for debug tools to dynamically
 	  enable/disable these events. Interface located in
 	  /sys/class/remoteqdss.
+
+config CPUMAXFREQ
+	bool "Enable CPUMAXFREQ Proc Interface"
+	help
+	  Provide a interface for getting the maximum frequency supported by cpu core
 
 config QCOM_SMEM_STATE
 	bool
@@ -1345,6 +1356,16 @@ config MSM_SEB_RPMSG
 	  opened by remote processor. It doesn't maintain state machine
 	  and is probed when Slate opens channel and removed when the
 	  channel is closed by remote processor.
+
+config SDX_EXT_IPC
+	tristate "QCOM external ipc driver"
+	help
+      This enables the module to help modem communicate with external
+      Application processor connected to Qualcomm Technologies, Inc
+      modem chipset. The modem and APQ can understand each other's
+      state by reading ipc gpios.
+
+      If unsure, say N.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 

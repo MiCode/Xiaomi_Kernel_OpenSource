@@ -55,6 +55,7 @@ obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-$(CONFIG_PCI_ENDPOINT_TEST)	+= pci_endpoint_test.o
 obj-$(CONFIG_OCXL)		+= ocxl/
 obj-y				+= cardreader/
+obj-$(CONFIG_AWINIC_HAPTIC_NV)  += haptic_nv/
 obj-$(CONFIG_PVPANIC)   	+= pvpanic.o
 obj-$(CONFIG_HABANA_AI)		+= habanalabs/
 obj-$(CONFIG_XILINX_SDFEC)	+= xilinx_sdfec.o
@@ -65,3 +66,8 @@ qseecom-mod-$(CONFIG_COMPAT)	+= compat_qseecom.o
 obj-$(CONFIG_PROFILER)			+= profiler.o
 obj-$(CONFIG_WIGIG_SENSING_SPI)	+= wigig_sensing.o
 obj-$(CONFIG_HISI_HIKEY_USB)	+= hisi_hikey_usb.o
+#bug676398, xuxinyu@wt, 20210724,hardware info start
+obj-$(CONFIG_HARDWARE_INFO) += hardware_info.o
+#bug675398, xuxinyu@wt, 20210724,hardware info  end
+obj-$(CONFIG_MI_MEMORY_SYSFS)	+= mi-memory/
+obj-$(CONFIG_SIMTRAY_STATUS) += simtray.o

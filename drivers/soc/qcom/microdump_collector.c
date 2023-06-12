@@ -9,7 +9,10 @@
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/ramdump.h>
 #include <linux/soc/qcom/smem.h>
-
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
+ 
+#define MAX_SSR_REASON_LEN	130U
 #define SMEM_SSR_REASON_MSS0	421
 #define SMEM_SSR_DATA_MSS0	611
 #define SMEM_MODEM	1
@@ -20,6 +23,8 @@
  * user space.
  */
 
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct proc_dir_entry *last_modem_sfr_entry;
 struct microdump_data {
 	struct ramdump_device *microdump_dev;
 	void *microdump_modem_notify_handler;
@@ -66,6 +71,10 @@ static int microdump_modem_notifier_nb(struct notifier_block *nb,
 	segment[1].v_address = (void __iomem *) crash_data;
 	segment[1].size = size_data;
 
+ 
+    strlcpy(last_modem_sfr_reason, crash_reason, MAX_SSR_REASON_LEN);
+    pr_err("modem subsystem failure reason: %s.\n", last_modem_sfr_reason);
+
 	ret = do_ramdump(drv->microdump_dev, segment, 2);
 	if (ret)
 		pr_info("%s: do_ramdump() failed\n", __func__);
@@ -100,6 +109,25 @@ static void microdump_modem_ssr_unregister_notifier(struct microdump_data *drv)
 	drv->microdump_modem_notify_handler = NULL;
 }
 
+static int last_modem_sfr_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", last_modem_sfr_reason);
+	return 0;
+}
+
+static int last_modem_sfr_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, last_modem_sfr_proc_show, NULL);
+}
+
+static const struct file_operations last_modem_sfr_file_ops = {
+	.owner   = THIS_MODULE,
+	.open    = last_modem_sfr_proc_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = single_release,
+};
+
 /*
  * microdump_init() - Registers kernel module for microdump collector
  *
@@ -112,6 +140,10 @@ static int __init microdump_init(void)
 {
 	int ret = -ENOMEM;
 
+    last_modem_sfr_entry = proc_create("last_mcrash", S_IFREG | S_IRUGO, NULL, &last_modem_sfr_file_ops);
+	if (!last_modem_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
 	drv = kzalloc(sizeof(struct microdump_data), GFP_KERNEL);
 	if (!drv)
 		goto out;
@@ -141,6 +173,10 @@ out:
 
 static void __exit microdump_exit(void)
 {
+    if (last_modem_sfr_entry) {
+            remove_proc_entry("last_mcrash", NULL);
+            last_modem_sfr_entry = NULL;
+	}
 	microdump_modem_ssr_unregister_notifier(drv);
 	destroy_ramdump_device(drv->microdump_dev);
 	kfree(drv);

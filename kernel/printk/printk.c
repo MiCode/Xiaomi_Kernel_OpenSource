@@ -877,11 +877,14 @@ static ssize_t devkmsg_write(struct kiocb *iocb, struct iov_iter *from)
 	if (devkmsg_log & DEVKMSG_LOG_MASK_OFF)
 		return len;
 
+// CHK-95949,chenhengshi.wt,2021.8.13,add wt final release control init log print
+#ifdef WT_FINAL_RELEASE
 	/* Ratelimit when not explicitly enabled. */
 	if (!(devkmsg_log & DEVKMSG_LOG_MASK_ON)) {
 		if (!___ratelimit(&user->rs, current->comm))
 			return ret;
 	}
+#endif
 
 	buf = kmalloc(len+1, GFP_KERNEL);
 	if (buf == NULL)

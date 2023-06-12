@@ -190,7 +190,10 @@ static void __br_handle_local_finish(struct sk_buff *skb)
 /* note: already called with rcu_read_lock */
 static int br_handle_local_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
 {
-	__br_handle_local_finish(skb);
+	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
+
+	if (p->state != BR_STATE_DISABLED)
+		__br_handle_local_finish(skb);
 
 	/* return 1 to signal the okfn() was called so it's ok to use the skb */
 	return 1;
@@ -340,6 +343,19 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
 
 forward:
 	switch (p->state) {
+	case BR_STATE_DISABLED:
+		if (skb->protocol == htons(ETH_P_PAE)) {
+			if (ether_addr_equal(p->br->dev->dev_addr, dest))
+				skb->pkt_type = PACKET_HOST;
+
+			if (NF_HOOK(NFPROTO_BRIDGE, NF_BR_PRE_ROUTING,
+				    dev_net(skb->dev), NULL, skb, skb->dev, NULL,
+				    br_handle_local_finish) == 1) {
+				return RX_HANDLER_PASS;
+			}
+		}
+		goto drop;
+
 	case BR_STATE_FORWARDING:
 	case BR_STATE_LEARNING:
 		if (ether_addr_equal(p->br->dev->dev_addr, dest))

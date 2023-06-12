@@ -78,6 +78,11 @@
 
 #define UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8                0x40000
 
+#define MANUFACTURE_ID_EQUAL(a, b)	!!(a == b)
+
+/*only for samsung*/
+#define VENDOR_IS_SAMSUNG	MANUFACTURE_ID_EQUAL(hba->dev_info.wmanufacturerid, UFS_VENDOR_SAMSUNG)
+
 struct ufs_hba;
 
 enum dev_cmd_type {
@@ -565,6 +570,37 @@ struct ufshcd_req_stat {
 	u64 count;
 };
 
+#ifdef CONFIG_DEBUG_FS
+struct debugfs_files {
+	struct dentry *debugfs_root;
+	struct dentry *stats_folder;
+	struct dentry *tag_stats;
+	struct dentry *err_stats;
+	struct dentry *show_hba;
+	struct dentry *host_regs;
+	struct dentry *dump_dev_desc;
+	struct dentry *dump_string_desc_serial;
+	struct dentry *dump_heatlth_desc;
+	struct dentry *power_mode;
+	struct dentry *dme_local_read;
+	struct dentry *dme_peer_read;
+	struct dentry *dbg_print_en;
+	struct dentry *req_stats;
+	struct dentry *query_stats;
+	u32 dme_local_attr_id;
+	u32 dme_peer_attr_id;
+	struct dentry *reset_controller;
+	struct dentry *err_state;
+	bool err_occurred;
+#ifdef CONFIG_UFS_FAULT_INJECTION
+	struct dentry *err_inj_scenario;
+	struct dentry *err_inj_stats;
+	u32 err_inj_scenario_mask;
+	struct fault_attr fail_attr;
+#endif
+};
+#endif
+
 /* tag stats statistics types */
 enum ts_types {
 	TS_NOT_SUPPORTED = -1,
@@ -921,6 +957,9 @@ struct ufs_hba {
 	/* Keeps information of the UFS device connected to this host */
 	struct ufs_dev_info dev_info;
 	bool auto_bkops_enabled;
+#ifdef CONFIG_DEBUG_FS
+	struct debugfs_files debugfs_files;
+#endif
 	struct ufs_vreg_info vreg_info;
 	struct list_head clk_list_head;
 
@@ -1495,6 +1534,14 @@ static inline u8 ufshcd_scsi_to_upiu_lun(unsigned int scsi_lun)
 		return scsi_lun & UFS_UPIU_MAX_UNIT_NUM_ID;
 }
 
+int ufshcd_query_flag_sel(struct ufs_hba *hba, enum query_opcode opcode,
+		enum flag_idn idn, u8 index, u8 selector, bool *flag_res);
+
+#ifdef CONFIG_UFS_WB
+int ufshcd_wb_ctrl(struct ufs_hba *hba, bool enable);
+int ufshcd_wb_toggle_flush_during_h8(struct ufs_hba *hba, bool set);
+void ufshcd_wb_toggle_flush(struct ufs_hba *hba, bool enable);
+#endif
 
 int ufshcd_dump_regs(struct ufs_hba *hba, size_t offset, size_t len,
 		     const char *prefix);
@@ -1502,4 +1549,5 @@ int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
 int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
 int ufshcd_read_string_desc(struct ufs_hba *hba, u8 desc_index,
 			    u8 **buf, bool ascii);
+char *ufs_get_serial(void);
 #endif /* End of Header */

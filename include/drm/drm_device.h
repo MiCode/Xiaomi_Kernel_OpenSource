@@ -300,6 +300,10 @@ struct drm_device {
 	 */
 	enum switch_power_state switch_power_state;
 
+#if IS_ENABLED(CONFIG_WT_QGKI)
+	int doze_state;
+	int pre_state;
+#endif
 	/**
 	 * @fb_helper:
 	 *

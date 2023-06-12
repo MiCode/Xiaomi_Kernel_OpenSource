@@ -686,14 +686,16 @@ static int subsystem_powerup(struct subsys_device *dev, void *data)
 		notify_each_subsys_device(&dev, 1, SUBSYS_POWERUP_FAILURE,
 								NULL);
 		if (system_state == SYSTEM_RESTART
-			|| system_state == SYSTEM_POWER_OFF)
+			|| system_state == SYSTEM_POWER_OFF) {
 			WARN(1, "SSR aborted: %s, system reboot/shutdown is under way\n",
 				name);
-		else if (!dev->desc->ignore_ssr_failure)
+		} else if (!dev->desc->ignore_ssr_failure) {
 			panic("[%s:%d]: Powerup error: %s!",
 				current->comm, current->pid, name);
-		else
-			pr_err("Powerup failure on %s\n", name);
+		} else {
+			pr_err("Powerup failure on %s(rc:%d)\n", name, ret);
+			dump_stack();
+		}
 		return ret;
 	}
 
@@ -1460,6 +1462,12 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	strlcpy(subsys->desc->fw_name, desc->name,
 			sizeof(subsys->desc->fw_name));
 
+//BUG-682073,chenhengshi.wt,20210819,add,ro.wt_final_release
+#ifdef WT_FINAL_RELEASE
+	subsys->restart_level = RESET_SUBSYS_COUPLED;
+#else
+	subsys->restart_level = RESET_SOC;
+#endif
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 	subsys->early_notify = subsys_get_early_notif_info(desc->name);
 

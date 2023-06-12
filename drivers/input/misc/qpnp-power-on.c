@@ -26,6 +26,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/hardware_info.h>	//bug676398, xuxinyu@wt, 20200724, ADD, add hardware board id info
 
 #define PMIC_VER_8941				0x01
 #define PMIC_VERSION_REG			0x0105
@@ -147,6 +148,7 @@ enum qpnp_pon_version {
 
 #define QPNP_PON_UVLO_DLOAD_EN			BIT(7)
 #define QPNP_PON_SMPL_EN			BIT(7)
+#define QPNP_PON_KPDPWR_ON			BIT(0)
 
 /* Limits */
 #define QPNP_PON_S1_TIMER_MAX			10256
@@ -163,6 +165,9 @@ enum qpnp_pon_version {
 #define QPNP_KEY_STATUS_DELAY			msecs_to_jiffies(250)
 
 #define QPNP_PON_BUFFER_SIZE			9
+
+#define QPNP_PON_SET_PS_HOLD			0x2
+#define QPNP_PON_SET_POWER_KEY			0x80
 
 #define QPNP_POFF_REASON_UVLO			13
 
@@ -244,6 +249,7 @@ struct qpnp_pon {
 	bool			resin_pon_reset;
 	ktime_t			kpdpwr_last_release_time;
 	bool			legacy_hard_reset_offset;
+	bool			log_kpd_event;
 };
 
 static struct qpnp_pon *sys_reset_dev;
@@ -839,6 +845,60 @@ int qpnp_pon_is_warm_reset(void)
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
 
+int qpnp_pon_is_ps_hold_reset(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	int reg = 0;
+
+	if (!pon)
+		return 0;
+
+	rc = regmap_read(pon->regmap, QPNP_POFF_REASON1(pon), &reg);
+	if (rc) {
+		dev_err(pon->dev,
+				"Unable to read addr=%x, rc(%d)\n",
+				QPNP_POFF_REASON1(pon), rc);
+		return 0;
+	}
+
+	dev_info(pon->dev, "hw_reset reason1 is 0x%x\n", reg);
+
+	/* The bit 1 is 1, means by PS_HOLD/MSM controlled shutdown */
+	if (reg & QPNP_PON_SET_PS_HOLD)
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_ps_hold_reset);
+
+int qpnp_pon_is_lpk(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	int rc;
+	int reg = 0;
+
+	if (!pon)
+		return 0;
+
+	rc = regmap_read(pon->regmap, QPNP_POFF_REASON1(pon), &reg);
+	if (rc) {
+		dev_err(pon->dev,
+				"Unable to read addr=%x, rc(%d)\n",
+				QPNP_POFF_REASON1(pon), rc);
+		return 0;
+	}
+
+	dev_info(pon->dev,
+		"hw_reset reason1 is 0x%x\n", reg);
+
+	/* The bit 7 is 1, means the off reason is powerkey */
+	if (reg & QPNP_PON_SET_POWER_KEY)
+		return 1;
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_lpk);
+
 /**
  * qpnp_pon_wd_config() - configure the watch dog behavior for warm reset
  * @enable: to enable or disable the PON watch dog
@@ -1027,8 +1087,8 @@ static int qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	default:
 		return -EINVAL;
 	}
-
-	pr_debug("PMIC input: code=%d, status=0x%02X\n", cfg->key_code,
+// CHK-95947,chenhengshi.wt,2021.8.13,open keycode kernel log
+	pr_err("PMIC input: code=%d, status=0x%02X\n", cfg->key_code,
 		pon_rt_sts);
 	key_status = pon_rt_sts & pon_rt_bit;
 
@@ -1041,6 +1101,10 @@ static int qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	 * Simulate a press event in case release event occurred without a press
 	 * event
 	 */
+	if (pon->log_kpd_event && (cfg->pon_type == PON_KPDPWR))
+		pr_info_ratelimited("PMIC input: KPDPWR status=0x%02x, KPDPWR_ON=%d\n",
+			pon_rt_sts, (pon_rt_sts & QPNP_PON_KPDPWR_ON));
+
 	if (!cfg->old_state && !key_status) {
 		input_report_key(pon->pon_input, cfg->key_code, 1);
 		input_sync(pon->pon_input);
@@ -1446,6 +1510,7 @@ static int qpnp_pon_config_kpdpwr_init(struct qpnp_pon *pon,
 				       struct device_node *node)
 {
 	int rc;
+	uint pon_rt_sts;
 
 	cfg->state_irq = platform_get_irq_byname(pdev, "kpdpwr");
 	if (cfg->state_irq < 0) {
@@ -1482,6 +1547,16 @@ static int qpnp_pon_config_kpdpwr_init(struct qpnp_pon *pon,
 	} else {
 		cfg->s2_cntl_addr = QPNP_PON_KPDPWR_S2_CNTL(pon);
 		cfg->s2_cntl2_addr = QPNP_PON_KPDPWR_S2_CNTL2(pon);
+	}
+
+	if (pon->log_kpd_event) {
+		/* Read PON_RT_STS status during driver initialization. */
+		rc = qpnp_pon_read(pon, QPNP_PON_RT_STS(pon), &pon_rt_sts);
+		if (rc < 0)
+			pr_err("failed to read QPNP_PON_RT_STS rc=%d\n", rc);
+
+		pr_info("KPDPWR status at init=0x%02x, KPDPWR_ON=%d\n",
+			pon_rt_sts, (pon_rt_sts & QPNP_PON_KPDPWR_ON));
 	}
 
 	return 0;
@@ -2004,6 +2079,37 @@ static struct kernel_param_ops dload_on_uvlo_ops = {
 
 module_param_cb(dload_on_uvlo, &dload_on_uvlo_ops, &dload_on_uvlo, 0600);
 
+int qpnp_pon_uvlo_get(int mask)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+	uint reg;
+	int rc;
+
+	if (!pon)
+		return -ENODEV;
+
+	rc = qpnp_pon_read(pon, QPNP_PON_XVDD_RB_SPARE(pon), &reg);
+	if (rc)
+		return rc;
+
+	return (mask & reg);
+}
+EXPORT_SYMBOL(qpnp_pon_uvlo_get);
+
+int qpnp_pon_uvlo_set(int val, int mask)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+
+	if (!pon)
+		return -ENODEV;
+
+	if (mask >= 0x80)
+		return -ENODEV;
+
+	return qpnp_pon_masked_write(pon, QPNP_PON_XVDD_RB_SPARE(pon), mask, val);
+}
+EXPORT_SYMBOL(qpnp_pon_uvlo_set);
+
 #if defined(CONFIG_DEBUG_FS)
 
 static int qpnp_pon_debugfs_uvlo_get(void *data, u64 *val)
@@ -2343,6 +2449,54 @@ static int qpnp_pon_parse_dt_power_off_config(struct qpnp_pon *pon)
 	return 0;
 }
 
+#ifdef CONFIG_WT_QGKI
+//bug676398, xuxinyu@wt, 20200724, ADD, add hardware board id info,start
+extern char board_id[HARDWARE_MAX_ITEM_LONGTH];
+void probe_board_and_set(void)
+{
+	char* boardid_start;
+	char boardid_info[HARDWARE_MAX_ITEM_LONGTH];
+
+	boardid_start = strstr(saved_command_line,"board_id=");
+	memset(boardid_info, 0, HARDWARE_MAX_ITEM_LONGTH);
+	if(boardid_start != NULL)
+	{
+        strncpy(boardid_info, boardid_start+sizeof("board_id=")-1, 9);//skip the header "board_id="
+	}
+	else
+	{
+		sprintf(boardid_info, "boarid not define!");
+	}
+	strlcpy(board_id, boardid_info, HARDWARE_MAX_ITEM_LONGTH);
+}
+
+extern char hardware_id[HARDWARE_MAX_ITEM_LONGTH];
+void probe_hardware_and_set(void)
+{
+	char* hw_id_start;
+	char hw_id_info[HARDWARE_MAX_ITEM_LONGTH];
+	int len = 0;
+
+	hw_id_start = strstr(saved_command_line,"hwversion=");
+	memset(hw_id_info, 0, HARDWARE_MAX_ITEM_LONGTH);
+	if(hw_id_start != NULL)
+	{
+        hw_id_start += strlen("hwversion=");
+        len = strstr(hw_id_start," ") - hw_id_start;
+        if(len < 9)
+            strncpy(hw_id_info, hw_id_start, len);//skip the header "hwversion="
+        else
+			sprintf(hw_id_info, "hardware id len too long!");
+	}
+	else
+	{
+		sprintf(hw_id_info, "hardware id not define!");
+	}
+	strlcpy(hardware_id, hw_id_info, HARDWARE_MAX_ITEM_LONGTH);
+}
+//bug676398, xuxinyu@wt, 20200724, ADD, add hardware board id info,end
+#endif
+
 static int qpnp_pon_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2466,6 +2620,8 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		pon->is_spon = true;
 	}
 
+	pon->log_kpd_event = of_property_read_bool(dev->of_node, "qcom,log-kpd-event");
+
 	/* Register the PON configurations */
 	rc = qpnp_pon_config_init(pon, pdev);
 	if (rc)
@@ -2484,6 +2640,13 @@ static int qpnp_pon_probe(struct platform_device *pdev)
 		modem_reset_dev = pon;
 
 	qpnp_pon_debugfs_init(pon);
+
+#ifdef CONFIG_WT_QGKI
+	//bug676398, xuxinyu@wt, 20200724, ADD, add hardware board id info,start
+	probe_board_and_set();
+	probe_hardware_and_set();
+	//bug676398, xuxinyu@wt, 20200724, ADD, add hardware board id info,end
+#endif
 
 	return 0;
 }

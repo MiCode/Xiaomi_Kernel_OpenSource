@@ -14,7 +14,8 @@
 
 extern void *icnss_ipc_log_context;
 extern void *icnss_ipc_log_long_context;
-extern void *icnss_ipc_log_long1_context;
+extern void *icnss_ipc_log_smp2p_context;
+extern void *icnss_ipc_soc_wake_context;
 
 #define icnss_ipc_log_string(_x...)                                     \
 	ipc_log_string(icnss_ipc_log_context, _x)
@@ -22,8 +23,11 @@ extern void *icnss_ipc_log_long1_context;
 #define icnss_ipc_log_long_string(_x...)                                \
 	ipc_log_string(icnss_ipc_log_long_context, _x)
 
-#define icnss_ipc_log_long1_string(_x...)                                \
-	ipc_log_string(icnss_ipc_log_long1_context, _x)
+#define icnss_ipc_log_smp2p_string(_x...)                                \
+	ipc_log_string(icnss_ipc_log_smp2p_context, _x)
+
+#define icnss_ipc_soc_wake_string(_x...)                                \
+	ipc_log_string(icnss_ipc_soc_wake_context, _x)
 
 #define icnss_pr_err(_fmt, ...) do {                                    \
 	printk("%s" pr_fmt(_fmt), KERN_ERR, ##__VA_ARGS__);             \
@@ -54,9 +58,14 @@ extern void *icnss_ipc_log_long1_context;
 	icnss_ipc_log_long_string(pr_fmt(_fmt), ##__VA_ARGS__);         \
 	} while (0)
 
-#define icnss_pr_vdbg1(_fmt, ...) do {                                   \
+#define icnss_pr_smp2p(_fmt, ...) do {                                  \
 	pr_debug(_fmt, ##__VA_ARGS__);                                  \
-	icnss_ipc_log_long1_string(pr_fmt(_fmt), ##__VA_ARGS__);         \
+	icnss_ipc_log_smp2p_string(pr_fmt(_fmt), ##__VA_ARGS__);        \
+	} while (0)
+
+#define icnss_pr_soc_wake(_fmt, ...) do {                               \
+	pr_debug(_fmt, ##__VA_ARGS__);                                  \
+	icnss_ipc_soc_wake_string(pr_fmt(_fmt), ##__VA_ARGS__);         \
 	} while (0)
 
 #elif defined(DEBUG)
@@ -72,9 +81,15 @@ extern void *icnss_ipc_log_long1_context;
 				  ##__VA_ARGS__);                       \
 	} while (0)
 
-#define icnss_pr_vdbg1(_fmt, ...) do {                                   \
-	pr_debug(_fmt, ##__VA_ARGS__);           \
-	icnss_ipc_log_long1_string("%s" pr_fmt(_fmt), "",                \
+#define icnss_pr_smp2p(_fmt, ...) do {                                  \
+	pr_debug(_fmt, ##__VA_ARGS__);                                  \
+	icnss_ipc_log_smp2p_string("%s" pr_fmt(_fmt), "",               \
+				  ##__VA_ARGS__);                       \
+	} while (0)
+
+#define icnss_pr_soc_wake(_fmt, ...) do {                               \
+	pr_debug(_fmt, ##__VA_ARGS__);                                  \
+	icnss_ipc_soc_wake_string("%s" pr_fmt(_fmt), "",                \
 				  ##__VA_ARGS__);                       \
 	} while (0)
 
@@ -91,9 +106,15 @@ extern void *icnss_ipc_log_long1_context;
 				  ##__VA_ARGS__);                       \
 	} while (0)
 
-#define icnss_pr_vdbg1(_fmt, ...) do {                                   \
+#define icnss_pr_smp2p(_fmt, ...) do {                                  \
 	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);        \
-	icnss_ipc_log_long1_string("%s" pr_fmt(_fmt), "",                \
+	icnss_ipc_log_smp2p_string("%s" pr_fmt(_fmt), "",               \
+				  ##__VA_ARGS__);                       \
+	} while (0)
+
+#define icnss_pr_soc_wake(_fmt, ...) do {                               \
+	no_printk("%s" pr_fmt(_fmt), KERN_DEBUG, ##__VA_ARGS__);        \
+	icnss_ipc_soc_wake_string("%s" pr_fmt(_fmt), "",                \
 				  ##__VA_ARGS__);                       \
 	} while (0)
 

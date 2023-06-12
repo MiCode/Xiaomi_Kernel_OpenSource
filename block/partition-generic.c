@@ -459,6 +459,8 @@ static int drop_partitions(struct gendisk *disk, struct block_device *bdev)
 	return 0;
 }
 
+extern void get_info_of_partition(char* part_name, int part_number, sector_t from, sector_t size) __attribute__((weak));
+
 int rescan_partitions(struct gendisk *disk, struct block_device *bdev)
 {
 	struct parsed_partitions *state = NULL;
@@ -568,6 +570,8 @@ rescan:
 		part = add_partition(disk, p, from, size,
 				     state->parts[p].flags,
 				     &state->parts[p].info);
+		if (get_info_of_partition)
+			get_info_of_partition(state->name, p, from, size);
 		if (IS_ERR(part)) {
 			printk(KERN_ERR " %s: p%d could not be added: %ld\n",
 			       disk->disk_name, p, -PTR_ERR(part));

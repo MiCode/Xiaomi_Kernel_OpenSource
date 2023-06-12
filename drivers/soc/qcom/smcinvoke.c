@@ -18,6 +18,7 @@
 #include <linux/cdev.h>
 #include <linux/uaccess.h>
 #include <linux/dma-buf.h>
+#include <linux/delay.h>
 #include <linux/kref.h>
 #include <linux/signal.h>
 #include <linux/msm_ion.h>
@@ -49,6 +50,9 @@
 #define SMCINVOKE_MEM_MAP_OBJ           0
 #define SMCINVOKE_MEM_RGN_OBJ           1
 #define SMCINVOKE_MEM_PERM_RW           6
+#define SMCINVOKE_SCM_EBUSY_WAIT_MS 30
+#define SMCINVOKE_SCM_EBUSY_MAX_RETRY 67
+
 
 /* TZ defined values - Start */
 #define SMCINVOKE_INVOKE_PARAM_ID       0x224
@@ -1288,7 +1292,7 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 				bool *tz_acked,
 				struct qtee_shm *in_shm, struct  qtee_shm *out_shm)
 {
-	int ret = 0, cmd;
+	int ret = 0, cmd, retry_count = 0;
 	u64 response_type;
 	unsigned int data;
 	struct file *arr_filp[OBJECT_COUNTS_MAX_OO] = {NULL};
@@ -1311,9 +1315,20 @@ static int prepare_send_scm_msg(const uint8_t *in_buf, phys_addr_t in_paddr,
 	while (1) {
 		mutex_lock(&g_smcinvoke_lock);
 
-		ret = invoke_cmd_handler(cmd, in_paddr, in_buf_len, out_buf,
-			out_paddr, out_buf_len, &req->result, &response_type,
-			&data, in_shm, out_shm);
+		do {
+			ret = invoke_cmd_handler(cmd, in_paddr, in_buf_len, out_buf,
+				out_paddr, out_buf_len, &req->result, &response_type,
+				&data, in_shm, out_shm);
+
+			if (ret == -EBUSY) {
+				pr_err("Secure side is busy,will retry after 30 ms\n");
+				mutex_unlock(&g_smcinvoke_lock);
+				msleep(SMCINVOKE_SCM_EBUSY_WAIT_MS);
+				mutex_lock(&g_smcinvoke_lock);
+			}
+
+		} while ((ret == -EBUSY) &&
+			(retry_count++ < SMCINVOKE_SCM_EBUSY_MAX_RETRY));
 
 		if (!ret && !is_inbound_req(response_type)) {
 			/* dont marshal if Obj returns an error */

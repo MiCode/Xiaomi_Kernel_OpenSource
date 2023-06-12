@@ -47,9 +47,13 @@
 #define PCIE20_PARF_CLKREQ_OVERRIDE	0x2B0
 #define PCIE20_PARF_CLKREQ_IN_OVERRIDE_STS	BIT(5)
 #define PCIE20_PARF_CLKREQ_OE_OVERRIDE_STS	BIT(4)
-#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_VAL	BIT(3)
+#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_VAL_MASK	BIT(3)
+#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_VAL_ASSERT	0
+#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_VAL_DEASSERT	1
 #define PCIE20_PARF_CLKREQ_OE_OVERRIDE_VAL	BIT(2)
-#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_ENABLE	BIT(1)
+#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_ENABLE_MASK	BIT(1)
+#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_ENABLE_DIS	0
+#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_ENABLE_EN	1
 #define PCIE20_PARF_CLKREQ_OE_OVERRIDE_ENABLE	BIT(0)
 
 #define PCIE20_PARF_SLV_ADDR_MSB_CTRL  0x2C0
@@ -407,7 +411,6 @@ struct ep_pcie_dev_t {
 	bool			     conf_ipa_msi_iatu;
 
 	struct ep_pcie_register_event *event_reg;
-	struct work_struct	     handle_perst_work;
 	struct work_struct           handle_bme_work;
 	struct work_struct           handle_d3cold_work;
 

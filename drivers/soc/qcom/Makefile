@@ -91,6 +91,7 @@ obj-$(CONFIG_QPNP_PBS) += qpnp-pbs.o
 obj-$(CONFIG_MSM_SPCOM) += spcom.o
 obj-$(CONFIG_QCOM_CDSP_RM) += cdsprm.o
 obj-$(CONFIG_QCOM_FSA4480_I2C) += fsa4480-i2c.o
+obj-$(CONFIG_CPUMAXFREQ) += cpumaxfreq.o
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QCOM_GUESTVM) += guestvm_loader.o
 obj-$(CONFIG_QCOM_HYP_CORE_CTL) += hyp_core_ctl.o
@@ -103,6 +104,7 @@ obj-$(CONFIG_QCOM_WDT_CORE) += qcom_wdt_core.o
 obj-$(CONFIG_QCOM_SOC_WATCHDOG) += qcom_soc_wdt.o
 obj-$(CONFIG_MSM_HAB) += hab/
 obj-$(CONFIG_QCOM_HGSL) += hgsl/
+obj-$(CONFIG_SDX_EXT_IPC) += sdx_ext_ipc.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
@@ -126,3 +128,8 @@ obj-$(CONFIG_QCOM_CX_IPEAK) += cx_ipeak.o
 obj-$(CONFIG_GNSS_SIRF)		+= gnsssirf/
 obj-$(CONFIG_MSM_SEB) += slate_events_bridge.o
 obj-$(CONFIG_MSM_SEB_RPMSG) += slate_events_bridge_rpmsg.o
+obj-y += serial_num.o
+obj-y += secboot_fuse.o
+obj-y += cpu_feature_id.o
+obj-$(CONFIG_DEBUG_POLICY_STATUS) += dp_status.o
+obj-y += last_kmsg.o

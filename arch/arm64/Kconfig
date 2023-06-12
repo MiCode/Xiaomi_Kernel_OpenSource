@@ -510,7 +510,7 @@ config ARM64_ERRATUM_1024718
 	help
 	  This option adds a workaround for ARM Cortex-A55 Erratum 1024718.
 
-	  Affected Cortex-A55 cores (r0p0, r0p1, r1p0) could cause incorrect
+	  Affected Cortex-A55 cores (all revisions) could cause incorrect
 	  update of the hardware dirty bit when the DBM/AP bits are updated
 	  without a break-before-make. The workaround is to disable the usage
 	  of hardware DBM locally on the affected cores. CPUs not affected by
@@ -1784,6 +1784,20 @@ config BUILD_ARM64_UNCOMPRESSED_KERNEL
 	  certain situations.
 endchoice
 
+config BOOT_INFO
+	bool "Boot information from bootloader"
+	default n
+	help
+	  On embedded linux device, we try to collect more information from
+	  bootloader to kernel. eg. powerup reason.
+
+config WT_QGKI
+	bool "IS QGKI build"
+	default n
+	help
+	  make the driver ko in GKI build mode but normal in QGKI build.
+
+
 config BUILD_ARM64_DT_OVERLAY
 	bool "enable DT overlay compilation support"
 	depends on OF
@@ -1792,6 +1806,14 @@ config BUILD_ARM64_DT_OVERLAY
 	  compilation. Enabling this option sets
 	  required flags to add DT overlay in the
 	  compilation.
+
+config TLB_CONF_HANDLER
+	bool "enable handler for TLB conflict"
+	help
+	  This option enables graceful handling of TLB
+	  conflict in EL2. Say yes here to enable TLB
+	  conflict handler.
+	  If unsure, Say n.
 
 config SYSVIPC_COMPAT
 	def_bool y

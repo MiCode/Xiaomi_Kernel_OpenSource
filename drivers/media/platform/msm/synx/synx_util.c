@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 #define pr_fmt(fmt) "synx: " fmt
 
@@ -158,8 +158,8 @@ void synx_util_object_destroy(struct synx_coredata *synx_obj)
 		data = bind_desc->external_data;
 		bind_ops = synx_util_get_bind_ops(type);
 		if (!bind_ops) {
-			pr_err("bind ops fail id: %d, type: %u, err: %d\n",
-				sync_id, type, rc);
+			pr_err("bind ops fail id: %d, type: %u\n",
+				sync_id, type);
 			continue;
 		}
 
