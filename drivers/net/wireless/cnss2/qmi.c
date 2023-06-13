@@ -2741,9 +2741,9 @@ static void cnss_wlfw_fw_mem_file_save_ind_cb(struct qmi_handle *qmi_wlfw,
 		cnss_pr_err("Spurious indication\n");
 		return;
 	}
-	cnss_pr_dbg("QMI fw_mem_file_save: source: %d  mem_seg: %d type: %u len: %u\n",
-		    ind_msg->source, ind_msg->mem_seg_valid,
-		    ind_msg->mem_seg[0].type, ind_msg->mem_seg_len);
+	cnss_pr_dbg_buf("QMI fw_mem_file_save: source: %d  mem_seg: %d type: %u len: %u\n",
+			ind_msg->source, ind_msg->mem_seg_valid,
+			ind_msg->mem_seg[0].type, ind_msg->mem_seg_len);
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 	if (!event_data)
@@ -2765,9 +2765,9 @@ static void cnss_wlfw_fw_mem_file_save_ind_cb(struct qmi_handle *qmi_wlfw,
 				cnss_pr_err("FW Mem file save ind cannot have multiple mem types\n");
 				goto free_event_data;
 			}
-			cnss_pr_dbg("seg-%d: addr 0x%llx size 0x%x\n",
-				    i, ind_msg->mem_seg[i].addr,
-				    ind_msg->mem_seg[i].size);
+			cnss_pr_dbg_buf("seg-%d: addr 0x%llx size 0x%x\n",
+					i, ind_msg->mem_seg[i].addr,
+					ind_msg->mem_seg[i].size);
 		}
 	}
 
