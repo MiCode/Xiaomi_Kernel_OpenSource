@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  * Copyright (c) 2016-2017, Linaro Ltd
  *
@@ -494,10 +494,10 @@ static void glink_helioscom_tx_write(struct glink_helioscom *glink,
 	}
 }
 
-static void glink_helioscom_send_read_notify(struct glink_helioscom *glink)
+static int glink_helioscom_send_read_notify(struct glink_helioscom *glink)
 {
 	struct glink_helioscom_msg msg = { 0 };
-	int ret;
+	int ret = 0;
 
 	msg.cmd = cpu_to_le16(HELIOSCOM_CMD_READ_NOTIF);
 	msg.param1 = 0;
@@ -505,15 +505,23 @@ static void glink_helioscom_send_read_notify(struct glink_helioscom *glink)
 
 	GLINK_INFO(glink, "Cmd size in words = %d\n", sizeof(msg)/WORD_SIZE);
 
-	ret = helioscom_fifo_write(glink->helioscom_handle, sizeof(msg)/WORD_SIZE,
-								&msg);
+	do {
+		ret = helioscom_fifo_write(glink->helioscom_handle, sizeof(msg)/WORD_SIZE,
+									&msg);
+		if (ret < 0) {
+			if (ret == -ECANCELED)
+				usleep_range(TX_WAIT_US, TX_WAIT_US + 1000);
+		}
+	} while (ret == -ECANCELED);
+
 	if (ret < 0) {
-		GLINK_ERR(glink, "%s: Error %d writing data\n",
-							__func__, ret);
-		return;
+		GLINK_ERR(glink, "%s: Error %d writing data\n", __func__, ret);
+		return ret;
 	}
 
 	glink_helioscom_update_tx_avail(glink, sizeof(msg)/WORD_SIZE);
+
+	return ret;
 }
 
 static int glink_helioscom_tx(struct glink_helioscom *glink, void *data,
@@ -539,7 +547,13 @@ static int glink_helioscom_tx(struct glink_helioscom *glink, void *data,
 
 		if (!glink->sent_read_notify) {
 			glink->sent_read_notify = true;
-			glink_helioscom_send_read_notify(glink);
+			ret = glink_helioscom_send_read_notify(glink);
+			if (ret < 0) {
+				glink->sent_read_notify = false;
+				if (ret == -EBUSY)
+					ret = -ENXIO;
+				goto out;
+			}
 		}
 		/* Wait without holding the tx_lock */
 		mutex_unlock(&glink->tx_lock);
@@ -556,7 +570,6 @@ static int glink_helioscom_tx(struct glink_helioscom *glink, void *data,
 
 out:
 	mutex_unlock(&glink->tx_lock);
-
 	return ret;
 }
 
@@ -741,6 +754,7 @@ static int glink_helioscom_send_final(struct glink_helioscom_channel *channel,
 	int size = len;
 	int chunk_size = 0;
 	int left_size = 0;
+	int ret = 0;
 	void *short_data;
 	u32 command_size = 0;
 	struct {
@@ -802,12 +816,19 @@ static int glink_helioscom_send_final(struct glink_helioscom_channel *channel,
 
 		if (atomic_read(&glink->in_reset)) {
 			mutex_unlock(&glink->tx_lock);
-			return -EINVAL;
+			return -ENXIO;
 		}
 
 		if (!glink->sent_read_notify) {
 			glink->sent_read_notify = true;
-			glink_helioscom_send_read_notify(glink);
+			ret = glink_helioscom_send_read_notify(glink);
+			if (ret < 0) {
+				glink->sent_read_notify = false;
+				if (ret == -EBUSY)
+					ret = -ENXIO;
+				mutex_unlock(&glink->tx_lock);
+				return ret;
+			}
 		}
 
 		/* Wait without holding the tx_lock */
