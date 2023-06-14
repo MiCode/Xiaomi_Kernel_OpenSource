@@ -27,6 +27,7 @@
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/smci_object.h>
 #include <linux/smcinvoke.h>
+#include <trace/events/rproc_qcom.h>
 
 #include "../soc/qcom/helioscom.h"
 
@@ -528,6 +529,8 @@ static int helios_load(struct rproc *rproc, const struct firmware *fw)
 	struct qtee_shm shm;
 	int ret;
 
+	trace_rproc_qcom_event(dev_name(helios->dev), "helios_load", "enter");
+
 	ret = qtee_shmbridge_allocate_shm(fw->size, &shm);
 	if (ret) {
 		pr_err("Shmbridge memory allocation failed\n");
@@ -555,6 +558,7 @@ static int helios_load(struct rproc *rproc, const struct firmware *fw)
 
 tzapp_com_failed:
 	qtee_shmbridge_free_shm(&shm);
+	trace_rproc_qcom_event(dev_name(helios->dev), "helios_load", "exit");
 	return ret;
 }
 
@@ -571,6 +575,8 @@ static int helios_start(struct rproc *rproc)
 	struct tzapp_helios_req helios_tz_req;
 	int ret;
 
+	trace_rproc_qcom_event(dev_name(helios->dev), "helios_start", "enter");
+
 	helios_tz_req.tzapp_helios_cmd = HELIOS_RPROC_IMAGE_LOAD;
 	helios_tz_req.address_fw = 0;
 	helios_tz_req.size_fw = 0;
@@ -586,6 +592,7 @@ static int helios_start(struct rproc *rproc)
 	pr_err("Helios is booted up!\n");
 	helios->is_ready = true;
 
+	trace_rproc_qcom_event(dev_name(helios->dev), "helios_start", "exit");
 	return 0;
 
 image_load_failed:
@@ -719,6 +726,8 @@ static int helios_stop(struct rproc *rproc)
 	struct qcom_helios *helios = (struct qcom_helios *)rproc->priv;
 	int ret = 0;
 
+	trace_rproc_qcom_event(dev_name(helios->dev), "helios_stop", "enter");
+
 	/* In case of crash, STOP operation is dummy */
 	if (rproc->state == RPROC_CRASHED) {
 		pr_err("Helios is crashed! Skip stop and collect ramdump directly.\n");
@@ -733,6 +742,7 @@ static int helios_stop(struct rproc *rproc)
 	}
 
 	pr_info("Helios Stop is %s\n", ret ? "failed" : "success");
+	trace_rproc_qcom_event(dev_name(helios->dev), "helios_stop", "exit");
 	return ret;
 }
 
