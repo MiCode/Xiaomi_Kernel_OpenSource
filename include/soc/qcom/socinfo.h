@@ -25,6 +25,8 @@ enum subset_part_type {
 	PART_NAV          = 12,
 	PART_COMP1        = 13,
 	PART_DISPLAY1     = 14,
+	PART_NSP	  = 15,
+	PART_EVA	  = 16,
 	NUM_PARTS_MAX,
 };
 
@@ -39,6 +41,10 @@ uint32_t socinfo_get_serial_number(void);
 const char *socinfo_get_id_string(void);
 uint32_t socinfo_get_cluster_info(enum subset_cluster_type cluster);
 bool socinfo_get_part_info(enum subset_part_type part);
+int socinfo_get_part_count(enum subset_part_type part);
+int socinfo_get_subpart_info(enum subset_part_type part,
+		u32 *part_info,
+		u32 num_parts);
 int socinfo_get_oem_variant_id(void);
 #else
 static inline uint32_t socinfo_get_id(void)
@@ -63,6 +69,16 @@ uint32_t socinfo_get_cluster_info(enum subset_cluster_type cluster)
 bool socinfo_get_part_info(enum subset_part_type part)
 {
 	return false;
+}
+int socinfo_get_part_count(enum subset_part_type part)
+{
+	return -EINVAL;
+}
+int socinfo_get_subpart_info(enum subset_part_type part,
+		u32 *part_info,
+		u32 num_parts)
+{
+	return -EINVAL;
 }
 int socinfo_get_oem_variant_id(void)
 {
