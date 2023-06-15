@@ -175,3 +175,4 @@
 | xaga-s-oss | Redmi Note 11T Pro | Android S | alps-release-s0.mp1.tc8sp2-mt6983 |[xaga-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/xaga-s-oss) |
 | bsp-plato-s-oss | Xiaomi 12T | Android S | t-alps-release-s0.mp1.tc8sp2-mt6983-V1.0.1 |[bsp-plato-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-plato-s-oss) |
 | ishtar-t-oss | Xiaomi 13 Ultra | Android T | LA.VENDOR.13.2.0.r1-07300-KAILUA.0 |[ishtar-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ishtar-t-oss) |
+| fuxi-t-oss | Xiaomi 13 | Android T | LA.VENDOR.13.2.0.r1-07300-KAILUA.0 |[fuxi-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/fuxi-t-oss) |
