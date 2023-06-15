@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
 
@@ -45,7 +46,6 @@ static int cc_set_cur_state(struct thermal_cooling_device *cdev,
 {
 	struct cc_limits_data *cc_cdev = cdev->devdata;
 	int idx = 0, ret = 0;
-
 	if (state > cc_cdev->map_freq_ct)
 		return -EINVAL;
 
@@ -54,7 +54,7 @@ static int cc_set_cur_state(struct thermal_cooling_device *cdev,
 
 	cc_cdev->thermal_state = state;
 
-	for (idx = 0; idx < CPU_MAP_CT; idx++) {
+	for (idx = 0; (idx < CPU_MAP_CT) && (cc_cdev->cpu_map[idx] != -1) ; idx++) {
 		pr_debug("Mitigate CPU:%d to freq:%lu\n", cc_cdev->cpu_map[idx],
 				cc_cdev->map_freq[state].frequency[idx]);
 		ret = freq_qos_update_request(&cc_cdev->cc_qos_req[idx],
@@ -281,18 +281,88 @@ static int cc_init(struct device_node *np, int *cpus)
 		}
 	}
 	snprintf(cc_cdev->cdev_name, THERMAL_NAME_LENGTH,
-			"thermal-cluster-%d-%d", cpus[0], cpus[1]);
+			np->name);
 	cc_cdev->cdev = thermal_of_cooling_device_register(
 					np, cc_cdev->cdev_name, cc_cdev,
 					&cc_cooling_ops);
 	list_add(&cc_cdev->node, &cc_cdev_list);
 	mutex_unlock(&cc_list_lock);
-
 	return 0;
 cc_err_exit:
 	mutex_unlock(&cc_list_lock);
 	for (idx = 0; idx < CPU_MAP_CT; idx++)
 		freq_qos_remove_request(&cc_cdev->cc_qos_req[idx]);
+	kfree(cc_cdev->map_freq);
+	kfree(cc_cdev);
+
+	return ret;
+}
+
+static int cc_init_single_cluster(struct device_node *np, int cpu)
+{
+	struct cc_limits_data *cc_cdev;
+	int ret = 0;
+	struct cpufreq_policy *policy;
+	int freq_count = 0, i;
+	struct limits_freq_map *freq_map = NULL;
+
+	policy = cpufreq_cpu_get(cpu);
+	if (!policy) {
+		pr_err("No policy for CPU:%d. Defer.\n", cpu);
+		return -EPROBE_DEFER;
+	}
+
+	cc_cdev = kzalloc(sizeof(*cc_cdev), GFP_KERNEL);
+	if (!cc_cdev)
+		goto cc_err_exit;
+
+	freq_count = cpufreq_table_count_valid_entries(policy);
+	if (!freq_count) {
+		pr_debug("CPU%d freq policy table count error%d\n",
+			cpu, freq_count);
+		goto cc_err_exit;
+	}
+
+	freq_map = kcalloc(freq_count, sizeof(*freq_map), GFP_KERNEL);
+
+	for (i = 0; i < freq_count; i++) {
+		if (policy->freq_table_sorted ==
+				CPUFREQ_TABLE_SORTED_ASCENDING)
+			freq_map[i].frequency[0] =
+			policy->freq_table[freq_count - i - 1].frequency;
+		else
+			freq_map[i].frequency[0] =
+				policy->freq_table[i].frequency;
+	}
+
+	cc_cdev->thermal_state = 0;
+	cc_cdev->map_freq_ct = freq_count - 1;
+	cc_cdev->cpu_map[0] = cpu;
+	cc_cdev->map_freq = freq_map;
+
+	ret = freq_qos_add_request(&policy->constraints,
+			   &cc_cdev->cc_qos_req[0], FREQ_QOS_MAX,
+			   cc_cdev->map_freq[0].frequency[0]);
+	cpufreq_cpu_put(policy);
+	if (ret < 0) {
+		pr_err("CPU%d Failed to add freq constraint (%d)\n",
+				cc_cdev->cpu_map[0], ret);
+		goto cc_err_exit;
+	}
+
+	snprintf(cc_cdev->cdev_name, THERMAL_NAME_LENGTH,
+			np->name);
+	cc_cdev->cdev = thermal_of_cooling_device_register(
+					np, cc_cdev->cdev_name, cc_cdev,
+					&cc_cooling_ops);
+	if (!IS_ERR(cc_cdev->cdev))
+		list_add(&cc_cdev->node, &cc_cdev_list);
+	return 0;
+
+cc_err_exit:;
+	if (policy)
+		cpufreq_cpu_put(policy);
+	freq_qos_remove_request(&cc_cdev->cc_qos_req[0]);
 	kfree(cc_cdev->map_freq);
 	kfree(cc_cdev);
 
@@ -305,23 +375,55 @@ static int cc_cooling_probe(struct platform_device *pdev)
 	struct device_node *np = dev->of_node;
 	struct device_node *dev_phandle, *subsys_np = NULL;
 	struct device *cpu_dev;
-	int ret = 0, idx = 0, cpu;
-	u32 cpu_map[CPU_MAP_CT];
+	int ret = 0, idx = 0, count = 0, cpu;
+	int cpu_count = 0, first_cluster = 0;
+	int cpu_map[CPU_MAP_CT] = { -1, -1};
 
 	for_each_available_child_of_node(np, subsys_np) {
-		for (idx = 0; idx < CPU_MAP_CT; idx++) {
-			dev_phandle = of_parse_phandle(subsys_np, "qcom,cpus",
+		cpu_count = of_count_phandle_with_args(subsys_np, "qcom,cluster0",
+							NULL);
+		for (idx = 0; idx < cpu_count; idx++) {
+			dev_phandle = of_parse_phandle(subsys_np, "qcom,cluster0",
 							idx);
 			for_each_possible_cpu(cpu) {
 				cpu_dev = get_cpu_device(cpu);
 				if (cpu_dev && cpu_dev->of_node ==
 						dev_phandle) {
-					cpu_map[idx] = cpu;
+					cpu_map[count] = cpu;
+					first_cluster = 1;
+					count++;
 					break;
 				}
 			}
+			if (first_cluster == 1)
+				break;
 		}
-		ret = cc_init(subsys_np, cpu_map);
+
+		cpu_count = of_count_phandle_with_args(subsys_np, "qcom,cluster1",
+							NULL);
+		for (idx = 0; idx < cpu_count; idx++) {
+			dev_phandle = of_parse_phandle(subsys_np, "qcom,cluster1",
+							idx);
+			for_each_possible_cpu(cpu) {
+				cpu_dev = get_cpu_device(cpu);
+				if (cpu_dev && cpu_dev->of_node ==
+						dev_phandle) {
+					cpu_map[count] = cpu;
+					count++;
+					break;
+				}
+			}
+			if ((first_cluster && count == 2) ||
+				(!first_cluster && (count == 1)))
+				break;
+		}
+		if (count == 0) {
+			dev_err(dev, "No cluster avaliable\n");
+			return -EINVAL;
+		} else if (count == 2)
+			ret = cc_init(subsys_np, cpu_map);
+		else
+			ret = cc_init_single_cluster(subsys_np, cpu_map[0]);
 	}
 
 	return ret;
