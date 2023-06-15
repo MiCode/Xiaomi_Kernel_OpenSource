@@ -27,6 +27,7 @@ void synx_external_callback(s32 sync_obj, int status, void *data)
 	struct synx_coredata *synx_obj;
 	struct synx_client *client = NULL;
 	struct synx_external_data *bind_data = data;
+	struct hash_key_data *entry = NULL;
 
 	if (!bind_data) {
 		pr_err("invalid payload from sync external obj %d\n",
@@ -44,9 +45,22 @@ void synx_external_callback(s32 sync_obj, int status, void *data)
 	synx_data = synx_util_acquire_handle(client, bind_data->h_synx);
 	synx_obj = synx_util_obtain_object(synx_data);
 	if (!synx_obj || !synx_obj->fence) {
-		pr_err("[sess: %u] invalid callback from external obj %d handle %d\n",
-			client->id, sync_obj, bind_data->h_synx);
-		goto fail;
+		pr_info("[sess: %u] invalid cb ext_id %d h_synx %d status %d\n",
+			client->id, sync_obj, bind_data->h_synx, status);
+		entry = synx_util_retrieve_data(sync_obj,
+							SYNX_CAMERA_ID_TBL);
+		if (entry) {
+			pr_info("[sess: %u] ext_id %d h_synx %d found in tbl\n",
+				client->id, sync_obj, bind_data->h_synx);
+			synx_obj = (struct synx_coredata *)entry->data;
+			if (!synx_obj) {
+				goto put_cam_tbl_entry;
+			}
+		} else {
+			pr_info("[sess: %u] ext_id %d h_synx %d missing in tbl\n",
+				client->id, sync_obj, bind_data->h_synx);
+			goto fail;
+		}
 	}
 
 	pr_debug("[sess: %u] external callback from %d on handle %d\n",
@@ -60,6 +74,13 @@ void synx_external_callback(s32 sync_obj, int status, void *data)
 	else
 		synx_signal_core(synx_obj, status, true, sync_obj);
 	mutex_unlock(&synx_obj->obj_lock);
+
+put_cam_tbl_entry:
+	if (entry) {
+		spin_lock_bh(&camera_tbl_lock);
+		kref_put(&entry->refcount, synx_util_destroy_data);
+		spin_unlock_bh(&camera_tbl_lock);
+	}
 
 fail:
 	synx_util_release_handle(synx_data);
@@ -205,6 +226,7 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 	u32 idx = 0;
 	s32 sync_id;
 	u32 type;
+	int num_bound_synxs;
 	struct synx_external_data *data = NULL;
 	struct synx_bind_desc bind_descs[SYNX_MAX_NUM_BINDINGS];
 	struct bind_operations *bind_ops = NULL;
@@ -222,7 +244,9 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 	if (synx_obj->num_bound_synxs > 0) {
 		memset(bind_descs, 0,
 			sizeof(struct synx_bind_desc) * SYNX_MAX_NUM_BINDINGS);
-		for (i = 0; i < synx_obj->num_bound_synxs; i++) {
+		num_bound_synxs = synx_obj->num_bound_synxs;
+		synx_obj->num_bound_synxs = 0;
+		for (i = 0; i < num_bound_synxs; i++) {
 			/* signal invoked by external sync obj */
 			if (cb_signal &&
 				(ext_sync_id ==
@@ -251,7 +275,6 @@ int synx_signal_core(struct synx_coredata *synx_obj,
 			memset(&synx_obj->bound_synxs[i], 0,
 				sizeof(struct synx_bind_desc));
 		}
-		synx_obj->num_bound_synxs = 0;
 	}
 
 	for (i = 0; i < idx; i++) {
@@ -945,6 +968,7 @@ int synx_bind(struct synx_session session_id,
 	memcpy(&synx_obj->bound_synxs[bound_idx],
 		   &external_sync, sizeof(struct synx_external_desc));
 	synx_obj->bound_synxs[bound_idx].external_data = data;
+	synx_util_get_object(synx_obj);
 	synx_obj->num_bound_synxs++;
 	mutex_unlock(&synx_obj->obj_lock);
 
@@ -971,13 +995,16 @@ int synx_bind(struct synx_session session_id,
 		}
 	}
 
+	mutex_lock(&synx_obj->obj_lock);
 	if (rc) {
-		mutex_lock(&synx_obj->obj_lock);
 		memset(&synx_obj->bound_synxs[bound_idx], 0,
 			sizeof(struct synx_external_desc));
 		synx_obj->num_bound_synxs--;
+		synx_util_put_object(synx_obj);
 		goto free;
 	}
+	synx_util_put_object(synx_obj);
+	mutex_unlock(&synx_obj->obj_lock);
 
 	synx_util_release_handle(synx_data);
 	synx_put_client(client);

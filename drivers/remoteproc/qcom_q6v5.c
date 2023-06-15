@@ -15,11 +15,151 @@
 #include <linux/remoteproc.h>
 #include <linux/delay.h>
 #include "qcom_common.h"
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
 #include "qcom_q6v5.h"
 #include <trace/events/rproc_qcom.h>
 
 #define Q6V5_PANIC_DELAY_MS	200
+#define MAX_SSR_REASON_LEN	256U
+#define MAX_CRASH_REASON    256
 
+static int crash_num = 0;
+static bool ramdump_state = false;
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct proc_dir_entry *last_modem_sfr_entry = NULL;
+static struct proc_dir_entry *ramdump_state_sfr_entry = NULL;
+static char modem_crash_reason[MAX_CRASH_REASON][MAX_SSR_REASON_LEN]={"0"};
+
+/* modem crash history entry */
+static int last_modem_sfr_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", last_modem_sfr_reason);
+	return 0;
+}
+
+static int last_modem_sfr_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, last_modem_sfr_proc_show, NULL);
+}
+
+static const struct proc_ops last_modem_sfr_file_ops = {
+	//.owner   = THIS_MODULE,
+	.proc_open    = last_modem_sfr_proc_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = single_release,
+};
+
+/* ramdump state entry */
+static int ramdump_state_proc_clear(struct seq_file *m, void *v)
+{
+	ramdump_state = true;
+	pr_err("ramdump state change\n");
+	seq_printf(m, "%s\n", "null");
+	return 0;
+}
+
+static int ramdump_state_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ramdump_state_proc_clear, NULL);
+}
+
+static const struct proc_ops ramdump_state_file_ops = {
+	//.owner   = THIS_MODULE,
+	.proc_open    = ramdump_state_proc_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = single_release,
+};
+/*  modem power feature start ********************/
+struct sleep_stats {
+	u32 stat_type;
+	u32 count;
+	u64 last_entered_at;
+	u64 last_exited_at;
+	u64 accumulated;
+};
+static struct proc_dir_entry *modem_sleep_stats_sfr_entry = NULL;
+static int modem_sleep_stats_proc_show(struct seq_file *m, void *v)
+{
+	struct sleep_stats *stat;
+	u64 accumulated = 0;
+	stat = qcom_smem_get(1, 605, NULL); //refer to static struct subsystem_data subsystems[] 
+	if (IS_ERR(stat))
+		return PTR_ERR(stat);
+
+	accumulated = stat->accumulated;
+	/*
+	 * If a subsystem is in sleep when reading the sleep stats adjust
+	 * the accumulated sleep duration to show actual sleep time.
+	 */
+	if (stat->last_entered_at > stat->last_exited_at)
+		accumulated += arch_timer_read_counter()
+			       - stat->last_entered_at;
+
+	seq_printf(m, "Count = %u\n", stat->count);
+	seq_printf(m, "Last Entered At = %llu\n", stat->last_entered_at);
+	seq_printf(m, "Last Exited At = %llu\n", stat->last_exited_at);
+	seq_printf(m, "Accumulated Duration = %llu\n", accumulated);
+	return 0;
+}
+
+static int modem_sleep_stats_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, modem_sleep_stats_proc_show, NULL);
+}
+
+static const struct proc_ops modem_sleep_stats_file_ops = {
+	//.owner   = THIS_MODULE,
+	.proc_open    = modem_sleep_stats_proc_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = single_release,
+};
+
+/*  modem power feature end ********************/
+
+/*  apss power feature start ********************/
+static struct proc_dir_entry *apss_sleep_stats_sfr_entry = NULL;
+static int apss_sleep_stats_proc_show(struct seq_file *m, void *v)
+{
+	struct sleep_stats *stat;
+	u64 accumulated = 0;
+	stat = qcom_smem_get(-1, 631, NULL); //refer to static struct subsystem_data subsystems[] 
+	if (IS_ERR(stat))
+		return PTR_ERR(stat);
+
+	accumulated = stat->accumulated;
+	/*
+	 * If a subsystem is in sleep when reading the sleep stats adjust
+	 * the accumulated sleep duration to show actual sleep time.
+	 */
+	if (stat->last_entered_at > stat->last_exited_at)
+		accumulated += arch_timer_read_counter()
+			       - stat->last_entered_at;
+
+	seq_printf(m, "Count = %u\n", stat->count);
+	seq_printf(m, "Last Entered At = %llu\n", stat->last_entered_at);
+	seq_printf(m, "Last Exited At = %llu\n", stat->last_exited_at);
+	seq_printf(m, "Accumulated Duration = %llu\n", accumulated);
+	return 0;
+}
+
+static int apss_sleep_stats_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, apss_sleep_stats_proc_show, NULL);
+}
+
+static const struct proc_ops apss_sleep_stats_file_ops = {
+	//.owner   = THIS_MODULE,
+	.proc_open    = apss_sleep_stats_proc_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = single_release,
+};
+
+/*  apss power feature end ********************/
 /**
  * qcom_q6v5_prepare() - reinitialize the qcom_q6v5 context before start
  * @q6v5:	reference to qcom_q6v5 context to be reinitialized
@@ -28,7 +168,35 @@
  */
 int qcom_q6v5_prepare(struct qcom_q6v5 *q6v5)
 {
+	if (last_modem_sfr_entry == NULL) {
+		last_modem_sfr_entry = proc_create("last_mcrash", S_IFREG | S_IRUGO, NULL, &last_modem_sfr_file_ops);
+	}
+	if (!last_modem_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
+	if (ramdump_state_sfr_entry == NULL) {
+		ramdump_state_sfr_entry = proc_create("ramdump_state", S_IFREG | S_IRUGO | S_IWUGO, NULL, &ramdump_state_file_ops);
+	}
+	if (!ramdump_state_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry ramdump_state\n");
+	}
 	reinit_completion(&q6v5->start_done);
+	/*  modem power feature start ********************/
+	if (modem_sleep_stats_sfr_entry == NULL) {
+		modem_sleep_stats_sfr_entry = proc_create("modem_sleep_stats", S_IFREG | S_IRUGO, NULL, &modem_sleep_stats_file_ops);
+	}
+	if (!modem_sleep_stats_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry modem_sleep_stats\n");
+	}
+	/*  modem power feature end ********************/
+        /*  apss power feature start ********************/
+	if (apss_sleep_stats_sfr_entry == NULL) {
+		apss_sleep_stats_sfr_entry = proc_create("apss_sleep_stats", S_IFREG | S_IRUGO, NULL, &apss_sleep_stats_file_ops);
+	}
+	if (!apss_sleep_stats_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry apss_sleep_stats\n");
+	}
+	/*  apss power feature end ********************/
 	reinit_completion(&q6v5->stop_done);
 
 	q6v5->running = true;
@@ -98,6 +266,7 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 	struct qcom_q6v5 *q6v5 = data;
 	size_t len;
 	char *msg;
+	int temp_num;
 
 	/* Sometimes the stop triggers a watchdog rather than a stop-ack */
 	if (!q6v5->running) {
@@ -107,13 +276,41 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 	}
 
 	msg = qcom_smem_get(QCOM_SMEM_HOST_ANY, q6v5->crash_reason, &len);
-	if (!IS_ERR(msg) && len > 0 && msg[0])
+	if (!IS_ERR(msg) && len > 0 && msg[0]){
 		dev_err(q6v5->dev, "watchdog received: %s\n", msg);
-	else
+		dev_err(q6v5->dev, "subsystem failure reason: %s. \n", msg);
+		strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+		if (ramdump_state)
+			strlcpy(modem_crash_reason[crash_num++], msg, MAX_SSR_REASON_LEN);
+	}else {
 		dev_err(q6v5->dev, "watchdog without message\n");
+		dev_err(q6v5->dev, "subsystem failure reason: watchdog without message. \n");
+		//strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+	}
 
 	q6v5->running = false;
+	if (strstr(msg, "Xiaomi ERR_FATAL code: 0x00080000") != NULL)
+		q6v5->rproc->dump_conf = RPROC_COREDUMP_DISABLED;
+	else
+		q6v5->rproc->dump_conf = RPROC_COREDUMP_ENABLED;
+
+	temp_num = crash_num-1;
+	while((temp_num--) && crash_num && (crash_num >= 10))
+	{
+		if(!strcmp(modem_crash_reason[crash_num-1],modem_crash_reason[temp_num]))
+		{
+			crash_num = crash_num-1;
+			q6v5->rproc->dump_conf = RPROC_COREDUMP_DISABLED;
+			pr_err("qcom_q6v5.c :in compare, same crash reason to skip dump");
+			break;
+		}else if (!temp_num){
+			q6v5->rproc->dump_conf = RPROC_COREDUMP_ENABLED;
+			break;
+		}
+	}
+
 	trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_wdog", msg);
+	dev_err(q6v5->dev, "rproc coredump state: %s\n", q6v5->rproc->dump_conf);
 	dev_err(q6v5->dev, "rproc recovery state: %s\n",
 		q6v5->rproc->recovery_disabled ?
 		"disabled and lead to device crash" :
@@ -136,6 +333,7 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 	struct qcom_q6v5 *q6v5 = data;
 	size_t len;
 	char *msg;
+	int temp_num;
 
 	if (!q6v5->running) {
 		dev_info(q6v5->dev, "received fatal irq while q6 is offline\n");
@@ -143,13 +341,40 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 	}
 
 	msg = qcom_smem_get(QCOM_SMEM_HOST_ANY, q6v5->crash_reason, &len);
-	if (!IS_ERR(msg) && len > 0 && msg[0])
+	if (!IS_ERR(msg) && len > 0 && msg[0]){
 		dev_err(q6v5->dev, "fatal error received: %s\n", msg);
-	else
+		dev_err(q6v5->dev, "subsystem failure reason: %s. \n", msg);
+		strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+		if (ramdump_state)
+			strlcpy(modem_crash_reason[crash_num++], msg, MAX_SSR_REASON_LEN);
+	}else {
 		dev_err(q6v5->dev, "fatal error without message\n");
+		dev_err(q6v5->dev, "subsystem failure reason: fatal error without message. \n");
+		//strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+	}
 
 	q6v5->running = false;
+	if (strstr(msg, "Xiaomi ERR_FATAL code: 0x00080000") != NULL)
+		q6v5->rproc->dump_conf = RPROC_COREDUMP_DISABLED;
+	else
+		q6v5->rproc->dump_conf = RPROC_COREDUMP_ENABLED;
+
+	temp_num = crash_num-1;
+	while((temp_num--) && crash_num && (crash_num >= 10))
+	{
+		if(!strcmp(modem_crash_reason[crash_num-1],modem_crash_reason[temp_num]))
+		{
+			crash_num = crash_num-1;
+			q6v5->rproc->dump_conf = RPROC_COREDUMP_DISABLED;
+			pr_err("qcom_q6v5.c :in compare, same crash reason to skip dump");
+			break;
+		}else if (!temp_num){
+			q6v5->rproc->dump_conf = RPROC_COREDUMP_ENABLED;
+			break;
+		}
+	}
 	trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_fatal", msg);
+	dev_err(q6v5->dev, "rproc coredump state: %s\n", q6v5->rproc->dump_conf);
 	dev_err(q6v5->dev, "rproc recovery state: %s\n",
 		q6v5->rproc->recovery_disabled ? "disabled and lead to device crash" :
 		"enabled and kick reovery process");
@@ -227,6 +452,28 @@ int qcom_q6v5_request_stop(struct qcom_q6v5 *q6v5, struct qcom_sysmon *sysmon)
 {
 	int ret;
 
+	if (last_modem_sfr_entry) {
+		remove_proc_entry("last_mcrash", NULL);
+		last_modem_sfr_entry = NULL;
+	}
+	if (ramdump_state_sfr_entry) {
+		remove_proc_entry("ramdump_state", NULL);
+		ramdump_state_sfr_entry = NULL;
+	}
+
+       /*  modem power feature start ********************/
+	if (modem_sleep_stats_sfr_entry) {
+		remove_proc_entry("modem_sleep_stats", NULL);
+		modem_sleep_stats_sfr_entry = NULL;
+	}
+	 /*  modem power feature end ********************/
+
+         /*  apss power feature start ********************/
+	if (apss_sleep_stats_sfr_entry) {
+		remove_proc_entry("apss_sleep_stats", NULL);
+		apss_sleep_stats_sfr_entry = NULL;
+	}
+	 /*  apss power feature end ********************/
 	q6v5->running = false;
 
 	/* Don't perform SMP2P dance if sysmon already shut
@@ -281,6 +528,36 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 	int ret;
 	struct resource *res;
 
+	if (last_modem_sfr_entry == NULL) {
+		last_modem_sfr_entry = proc_create("last_mcrash", S_IFREG | S_IRUGO, NULL, &last_modem_sfr_file_ops);
+	}
+	if (!last_modem_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
+
+	if (ramdump_state_sfr_entry == NULL) {
+		ramdump_state_sfr_entry = proc_create("ramdump_state", S_IFREG | S_IRUGO | S_IWUGO, NULL, &ramdump_state_file_ops);
+	}
+	if (!ramdump_state_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry ramdump_state\n");
+	}
+
+       /*  modem power feature start ********************/
+        if (modem_sleep_stats_sfr_entry == NULL) {
+		modem_sleep_stats_sfr_entry = proc_create("modem_sleep_stats", S_IFREG | S_IRUGO, NULL, &modem_sleep_stats_file_ops);
+	}
+	if (!modem_sleep_stats_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry modem_sleep_stats\n");
+	}
+	/*  modem power feature end ********************/
+  	/*  apss power feature start ********************/
+        if (apss_sleep_stats_sfr_entry == NULL) {
+		apss_sleep_stats_sfr_entry = proc_create("apss_sleep_stats", S_IFREG | S_IRUGO, NULL, &apss_sleep_stats_file_ops);
+	}
+	if (!apss_sleep_stats_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry apss_sleep_stats\n");
+	}
+	/*  apss power feature end ********************/
 	q6v5->rproc = rproc;
 	q6v5->dev = &pdev->dev;
 	q6v5->crash_reason = crash_reason;

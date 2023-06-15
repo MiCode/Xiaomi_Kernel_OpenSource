@@ -1,6 +1,10 @@
 build.config.msm.kalama
+build.config.msm.nuwa
+build.config.msm.fuxi
 build.config.msm.cinder
 build.config.msm.kalama.vm
+build.config.msm.nuwa.vm
+build.config.msm.fuxi.vm
 build.config.msm.gen3auto
 build.config.msm.autogvm
 build.config.msm.gen3auto.lxc

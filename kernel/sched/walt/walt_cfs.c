@@ -13,6 +13,15 @@
 #include <../../../drivers/android/binder_internal.h>
 #include "../../../drivers/android/binder_trace.h"
 
+// MIUI ADD:
+typedef struct binder_transaction_extra {
+	int from_pid;
+	int from_tid;
+	u64 times_record;
+	u64 boost;
+}transaction_extra;
+// END
+
 static void create_util_to_cost_pd(struct em_perf_domain *pd)
 {
 	int util, cpu = cpumask_first(to_cpumask(pd->cpus));
@@ -1016,6 +1025,72 @@ static void walt_binder_low_latency_set(void *unused, struct task_struct *task,
 
 }
 
+
+// MIUI ADD:
+static void binder_transaction_init_hook(void *data, struct binder_transaction *t)
+{
+	transaction_extra *te = kzalloc(sizeof(*te), GFP_ATOMIC);
+	if (!te)
+		return;
+	te->times_record = trace_clock_local();
+	te->from_pid = current->tgid;
+	te->from_tid = current->pid;
+	t->android_vendor_data1 = (u64)te;
+}
+
+static void binder_txn_latency_free_hook(void *data,
+					struct binder_transaction *t,
+					int from_proc,
+					int from_thread,
+					int to_proc,
+					int to_thread)
+{
+	transaction_extra *te = (transaction_extra *)t->android_vendor_data1;
+	if (te)  {
+		kfree(te);
+		t->android_vendor_data1 = 0;
+	}
+}
+
+static void binder_print_transaction_info_hook(void *data,
+						struct seq_file *m,
+						struct binder_proc *proc,
+						const char *prefix,
+						struct binder_transaction *t)
+{
+	transaction_extra *te = NULL;
+	struct binder_proc *to_proc = NULL;
+	int from_pid = 0;
+	int from_tid = 0;
+	int to_pid = 0;
+	int to_tid = 0;
+	u64 now;
+	u64 duration = 0;
+
+	te = (transaction_extra *)t->android_vendor_data1;
+	if (!te)
+		return;
+	to_proc = t->to_proc;
+	from_pid = t->from ? (t->from->proc ? t->from->proc->pid : 0) : te->from_pid;
+	from_tid = t->from ? t->from->pid : te->from_tid;
+	to_pid = to_proc ? to_proc->pid : 0;
+	to_tid = t->to_thread ? t->to_thread->pid : 0;
+	now = trace_clock_local();
+	if (te->times_record > 0)
+		duration = now > te->times_record ? (now - te->times_record) : 0;
+	seq_printf(m,
+		"MIUI%s: from %5d:%5d to %5d:%5d context:%s code:%3d duration:%6lld.%02lld s\n",
+		prefix,
+		from_pid, from_tid,
+		to_pid, to_tid,
+		proc->context->name,
+		t->code,
+		duration / 1000000000,
+		duration % 1000000000 / 10000000
+	);
+}
+// END
+
 static void binder_set_priority_hook(void *data,
 				struct binder_transaction *bndrtrans, struct task_struct *task)
 {
@@ -1027,7 +1102,13 @@ static void binder_set_priority_hook(void *data,
 		return;
 
 	if (bndrtrans && bndrtrans->need_reply && current_wts->boost == TASK_BOOST_STRICT_MAX) {
-		bndrtrans->android_vendor_data1  = wts->boost;
+		// MIUI MOD:
+		//bndrtrans->android_vendor_data1  = wts->boost;
+		transaction_extra *te = (transaction_extra *)bndrtrans->android_vendor_data1;
+		if (!te)
+			return;
+		te->boost = wts->boost;
+		// END
 		wts->boost = TASK_BOOST_STRICT_MAX;
 	}
 }
@@ -1040,8 +1121,15 @@ static void binder_restore_priority_hook(void *data,
 	if (unlikely(walt_disabled))
 		return;
 
-	if (bndrtrans && wts->boost == TASK_BOOST_STRICT_MAX)
-		wts->boost = bndrtrans->android_vendor_data1;
+	// MIUI MOD:
+	if (bndrtrans && wts->boost == TASK_BOOST_STRICT_MAX) {
+		//wts->boost = bndrtrans->android_vendor_data1;
+		transaction_extra *te = (transaction_extra *)bndrtrans->android_vendor_data1;
+		if (!te)
+			return;
+		wts->boost = te->boost;
+	}
+	// END
 }
 
 /*
@@ -1382,4 +1470,10 @@ void walt_cfs_init(void)
 
 	register_trace_android_rvh_check_preempt_wakeup(walt_cfs_check_preempt_wakeup, NULL);
 	register_trace_android_rvh_replace_next_task_fair(walt_cfs_replace_next_task_fair, NULL);
+
+	// MIUI ADD:
+	register_trace_android_vh_binder_transaction_init(binder_transaction_init_hook, NULL);
+	register_trace_android_vh_binder_print_transaction_info(binder_print_transaction_info_hook, NULL);
+	register_trace_binder_txn_latency_free(binder_txn_latency_free_hook, NULL);
+	// END
 }

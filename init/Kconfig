@@ -614,6 +614,12 @@ config TASK_DELAY_ACCT
 
 	  Say N if unsure.
 
+config MIHW
+	bool "MI driver"
+	default n
+	help
+	  Mi driver code
+
 config TASK_XACCT
 	bool "Enable extended accounting over taskstats"
 	depends on TASKSTATS

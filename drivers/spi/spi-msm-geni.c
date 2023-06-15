@@ -22,7 +22,7 @@
 #include <linux/pinctrl/consumer.h>
 
 #define SPI_NUM_CHIPSELECT	(4)
-#define SPI_XFER_TIMEOUT_MS	(250)
+#define SPI_XFER_TIMEOUT_MS	(1500)
 #define SPI_AUTO_SUSPEND_DELAY	(250)
 #define SPI_XFER_TIMEOUT_OFFSET	(250)
 /* SPI SE specific registers */
@@ -2104,6 +2104,15 @@ static int spi_geni_probe(struct platform_device *pdev)
 			return ret;
 		}
 
+        /* to remove the votes doing icc enable/disable */
+        ret = geni_icc_enable(spi_rsc);
+         if (ret) {
+             dev_err(&pdev->dev, "%s: icc enable failed ret:%d\n",
+                                  __func__, ret);
+             return ret;
+         }
+
+
 		geni_mas->geni_pinctrl = devm_pinctrl_get(&pdev->dev);
 		if (IS_ERR_OR_NULL(geni_mas->geni_pinctrl)) {
 			dev_err(&pdev->dev, "No pinctrl config specified!\n");
@@ -2163,6 +2172,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 			goto spi_geni_probe_err;
 		}
 
+		irq_set_status_flags(geni_mas->irq, IRQ_NOAUTOEN);
 		ret = devm_request_irq(&pdev->dev, geni_mas->irq,
 			geni_spi_irq, IRQF_TRIGGER_HIGH, "spi_geni", geni_mas);
 		if (ret) {

@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  */
-
+#define DEBUG
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
@@ -27,6 +27,7 @@
 #define FSA4480_DELAY_L_MIC     0x0E
 #define FSA4480_DELAY_L_SENSE   0x0F
 #define FSA4480_DELAY_L_AGND    0x10
+#define FSA4480_FUNCTION_ENABLE   0x12
 #define FSA4480_RESET           0x1E
 
 struct fsa4480_priv {
@@ -130,6 +131,7 @@ static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
 	int rc = 0;
 	int mode;
 	struct device *dev;
+	int value = 0;
 
 	if (!fsa_priv)
 		return -EINVAL;
@@ -144,10 +146,33 @@ static int fsa4480_usbc_analog_setup_switches(struct fsa4480_priv *fsa_priv)
 	dev_dbg(dev, "%s: setting GPIOs active = %d\n",
 		__func__, mode != TYPEC_ACCESSORY_NONE);
 
+	regmap_write(fsa_priv->regmap, FSA4480_RESET, 0x01);
+	msleep(10);
 	switch (mode) {
 	/* add all modes FSA should notify for in here */
 	case TYPEC_ACCESSORY_AUDIO:
 		/* activate switches */
+		regmap_write(fsa_priv->regmap, FSA4480_SLOW_L, 0x4f);
+		regmap_read(fsa_priv->regmap, FSA4480_SLOW_L, &value);
+		dev_dbg(fsa_priv->dev, "%s: reg[0x08]=0x%x\n",__func__, value);
+		regmap_write(fsa_priv->regmap, FSA4480_SLOW_R, 0x4f);
+		regmap_read(fsa_priv->regmap, FSA4480_SLOW_R, &value);
+		dev_dbg(fsa_priv->dev, "%s: reg[0x09]=0x%x\n",__func__, value);
+		regmap_write(fsa_priv->regmap, FSA4480_SLOW_MIC, 0x4f);
+		regmap_read(fsa_priv->regmap, FSA4480_SLOW_MIC, &value);
+		dev_dbg(fsa_priv->dev, "%s: reg[0x0a]=0x%x\n",__func__, value);
+		regmap_write(fsa_priv->regmap, FSA4480_SLOW_SENSE, 0x4f);
+		regmap_read(fsa_priv->regmap, FSA4480_SLOW_SENSE, &value);
+		dev_dbg(fsa_priv->dev, "%s: reg[0x0b]=0x%x\n",__func__, value);
+		regmap_write(fsa_priv->regmap, FSA4480_SLOW_GND, 0x4f);
+		regmap_read(fsa_priv->regmap, FSA4480_SLOW_GND, &value);
+		dev_dbg(fsa_priv->dev, "%s: reg[0x0c]=0x%x\n",__func__, value);
+
+		regmap_write(fsa_priv->regmap, FSA4480_FUNCTION_ENABLE, 0x08);
+		dev_dbg(fsa_priv->dev, "%s: set reg[0x12] done.\n",__func__);
+		regmap_read(fsa_priv->regmap, FSA4480_FUNCTION_ENABLE, &value);
+		dev_dbg(fsa_priv->dev, "%s: reg[0x12]=0x%x\n",__func__, value);
+
 		fsa4480_usbc_update_settings(fsa_priv, 0x00, 0x9F);
 
 		/* notify call chain on event */
@@ -289,7 +314,7 @@ int fsa4480_switch_event(struct device_node *node,
 		else
 			switch_control = 0x7;
 		fsa4480_usbc_update_settings(fsa_priv, switch_control, 0x9F);
-		break;
+		return 1;
 	case FSA_USBC_ORIENTATION_CC1:
 		fsa4480_usbc_update_settings(fsa_priv, 0x18, 0xF8);
 		return fsa4480_validate_display_port_settings(fsa_priv);

@@ -19,8 +19,8 @@ static int __maybe_unused two = 2;
 static int __maybe_unused four = 4;
 static int one_hundred = 100;
 static int one_thousand = 1000;
+static int three_thousand = 3000;
 static int one_thousand_twenty_four = 1024;
-static int two_thousand = 2000;
 
 /*
  * CFS task prio range is [100 ... 139]
@@ -1003,7 +1003,7 @@ struct ctl_table walt_table[] = {
 		.mode		= 0644,
 		.proc_handler	= sched_long_running_rt_task_ms_handler,
 		.extra1		= SYSCTL_ZERO,
-		.extra2		= &two_thousand,
+		.extra2		= &three_thousand,
 	},
 	{
 		.procname	= "sched_ed_boost",
@@ -1014,7 +1014,7 @@ struct ctl_table walt_table[] = {
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= &one_hundred,
 	},
-	{
+    {
 		.procname	= "sched_em_inflate_pct",
 		.data		= &sysctl_em_inflate_pct,
 		.maxlen		= sizeof(unsigned int),

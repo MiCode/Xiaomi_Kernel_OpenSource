@@ -19357,6 +19357,15 @@ int cfg80211_external_auth_request(struct net_device *dev,
 		    params->ssid.ssid))
 		goto nla_put_failure;
 
+	if (!is_zero_ether_addr(params->tx_addr)) {
+		if (!wiphy_ext_feature_isset(&rdev->wiphy,
+			    NL80211_EXT_FEATURE_AUTH_TX_RANDOM_TA))
+			return -EINVAL;
+
+		if (nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, params->tx_addr))
+			goto nla_put_failure;
+	}
+
 	genlmsg_end(msg, hdr);
 	genlmsg_unicast(wiphy_net(&rdev->wiphy), msg,
 			wdev->conn_owner_nlportid);
