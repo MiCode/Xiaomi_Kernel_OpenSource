@@ -212,6 +212,7 @@ config SND_SOC_ALL_CODECS
         imply SND_SOC_AA006
 	imply SND_SOC_BB007
 	imply SND_SOC_TFA9879
+	imply SND_SOC_SIA8159
 	imply SND_SOC_TLV320ADCX140
 	imply SND_SOC_TLV320AIC23_I2C
 	imply SND_SOC_TLV320AIC23_SPI
@@ -1381,6 +1382,14 @@ config SND_SOC_AA006
 config SND_SOC_TFA9879
 	tristate "NXP Semiconductors TFA9879 amplifier"
 	depends on I2C
+
+config SND_SOC_SIA8159
+	tristate "SoC Audio for SIA8159 speaker amplifier"
+	depends on I2C
+	help
+	  This option enables support for SIA8159 speaker
+	  amplifier. It is a speaker which connect with MTK
+	  PMIC device which has no speaker protection.
 
 config SND_SOC_BB007
 	tristate "Support BB007 driver"

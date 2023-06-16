@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (C) 2022 XiaoMi, Inc.
+#
+# MI_HARDWARE_ID info
+#
+config MI_HARDWARE_ID
+	tristate "Register xiaomi hwid module"
+	default n
+	help
+	  This adds support for mi hwid.
+

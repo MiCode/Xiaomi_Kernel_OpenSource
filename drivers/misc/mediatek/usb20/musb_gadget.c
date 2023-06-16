@@ -1426,7 +1426,8 @@ static int musb_gadget_enable
 	/* workaround for f_fs use after free issue */
 	if (!musb_ffs_state_valid(musb_ep)) {
 		DBG(0, "f_fs is invalid, do not enable ep!\n");
-		return -EINVAL;
+		status = -EINVAL;
+		goto fail;
 	}
 
 	musb_ep_select(mbase, epnum);
@@ -2874,10 +2875,6 @@ void musb_g_reset(struct musb *musb)
 	/* clear HR */
 	else if (devctl & MUSB_DEVCTL_HR)
 		musb_writeb(mbase, MUSB_DEVCTL, MUSB_DEVCTL_SESSION);
-
-	/* active wake lock */
-	if (!musb->usb_lock->active)
-		__pm_stay_awake(musb->usb_lock);
 
 	/* re-init interrupt setting */
 	musb->intrrxe = 0;

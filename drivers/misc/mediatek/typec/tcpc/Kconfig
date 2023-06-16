@@ -52,6 +52,24 @@ config TCPC_MT6360
 	  Also Support Power Delivery
 	  Say N to disable
 
+config TCPC_WUSB3801
+	tristate "MediaTek WUSB3801 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	help
+	  Say Y to enable WUSB3801
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_FUSB303
+	tristate "MediaTek FUSB303 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	help
+	  Say Y to enable FUSB303
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
 config TCPC_MT6362
 	tristate "MT6362 SPMI TCPC driver"
 	depends on TCPC_CLASS

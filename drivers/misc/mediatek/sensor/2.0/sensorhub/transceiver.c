@@ -797,6 +797,9 @@ static int transceiver_pm_notifier_call(struct notifier_block *notifier,
 	case PM_POST_SUSPEND:
 		transceiver_comm_with(SENSOR_TYPE_INVALID,
 			SENS_COMM_CTRL_UNMASK_NOTIFY_CMD, NULL, 0);
+		//Added to send flush command to light sensor.
+		transceiver_comm_with(SENSOR_TYPE_LIGHT,
+			SENS_COMM_CTRL_FLUSH_CMD, NULL, 0);
 		timesync_resume();
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:

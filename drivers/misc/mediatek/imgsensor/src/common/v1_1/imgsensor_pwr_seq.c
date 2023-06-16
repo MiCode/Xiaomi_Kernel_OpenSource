@@ -11,6 +11,34 @@
 
 /* Legacy design */
 struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
+/* L83 */
+#if defined(GC08A3_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_GC08A3_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_High, 1},
+			{AVDD, Vol_High, 2},
+			{SensorMCLK, Vol_High, 2},
+			{RST, Vol_High, 1}
+		},
+    },
+#endif
+#if defined(HI846_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_HI846_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{AVDD, Vol_High, 1},
+			{DVDD, Vol_1200, 2},
+			{SensorMCLK, Vol_High, 2},
+			{RST, Vol_High, 1}
+		},
+    },
+#endif
+/* L83 end */
 #if defined(IMX766_MIPI_RAW)
 	{
 		SENSOR_DRVNAME_IMX766_MIPI_RAW,

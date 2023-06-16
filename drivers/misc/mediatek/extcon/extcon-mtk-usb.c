@@ -42,8 +42,6 @@ static void mtk_usb_extcon_update_role(struct work_struct *work)
 	cur_dr = extcon->c_role;
 	new_dr = role->d_role;
 
-	dev_info(extcon->dev, "cur_dr(%d) new_dr(%d)\n", cur_dr, new_dr);
-
 	/* none -> device */
 	if (cur_dr == USB_ROLE_NONE &&
 			new_dr == USB_ROLE_DEVICE) {
@@ -120,8 +118,6 @@ static bool usb_is_online(struct mtk_extcon_info *extcon)
 		return false;
 	}
 
-	dev_info(extcon->dev, "online=%d, type=%d\n", pval.intval, tval.intval);
-
 	if (pval.intval && (tval.intval == POWER_SUPPLY_TYPE_USB ||
 			tval.intval == POWER_SUPPLY_TYPE_USB_CDP))
 		return true;
@@ -170,7 +166,6 @@ static int mtk_usb_extcon_psy_init(struct mtk_extcon_info *extcon)
 
 	extcon->usb_psy = devm_power_supply_get_by_phandle(dev, "charger");
 	if (IS_ERR_OR_NULL(extcon->usb_psy)) {
-		dev_err(dev, "fail to get usb_psy\n");
 		return -EINVAL;
 	}
 
@@ -193,21 +188,17 @@ static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 							bool is_on)
 {
 	struct regulator *vbus = extcon->vbus;
-	struct device *dev = extcon->dev;
 	int ret;
 
 	/* vbus is optional */
 	if (!vbus || extcon->vbus_on == is_on)
 		return 0;
 
-	dev_info(dev, "vbus turn %s\n", is_on ? "on" : "off");
-
 	if (is_on) {
 		if (extcon->vbus_vol) {
 			ret = regulator_set_voltage(vbus,
 					extcon->vbus_vol, extcon->vbus_vol);
 			if (ret) {
-				dev_err(dev, "vbus regulator set voltage failed\n");
 				return ret;
 			}
 		}
@@ -216,14 +207,12 @@ static int mtk_usb_extcon_set_vbus(struct mtk_extcon_info *extcon,
 			ret = regulator_set_current_limit(vbus,
 					extcon->vbus_cur, extcon->vbus_cur);
 			if (ret) {
-				dev_err(dev, "vbus regulator set current failed\n");
 				return ret;
 			}
 		}
 
 		ret = regulator_enable(vbus);
 		if (ret) {
-			dev_err(dev, "vbus regulator enable failed\n");
 			return ret;
 		}
 	} else {
@@ -242,23 +231,16 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 	struct tcp_notify *noti = data;
 	struct mtk_extcon_info *extcon =
 			container_of(nb, struct mtk_extcon_info, tcpc_nb);
-	struct device *dev = extcon->dev;
 	bool vbus_on;
 
 	switch (event) {
 	case TCP_NOTIFY_SOURCE_VBUS:
-		dev_info(dev, "source vbus = %dmv\n",
-				 noti->vbus_state.mv);
 		vbus_on = (noti->vbus_state.mv) ? true : false;
 		mtk_usb_extcon_set_vbus(extcon, vbus_on);
 		break;
 	case TCP_NOTIFY_TYPEC_STATE:
-		dev_info(dev, "old_state=%d, new_state=%d\n",
-				noti->typec_state.old_state,
-				noti->typec_state.new_state);
 		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
-			dev_info(dev, "Type-C SRC plug in\n");
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_HOST);
 		} else if (!(extcon->bypss_typec_sink) &&
 			noti->typec_state.old_state == TYPEC_UNATTACHED &&
@@ -266,7 +248,6 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 			noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC ||
 			noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
 			noti->typec_state.new_state == TYPEC_ATTACHED_DBGACC_SNK)) {
-			dev_info(dev, "Type-C SINK plug in\n");
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC ||
 			noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
@@ -274,21 +255,16 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 			noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
 			noti->typec_state.old_state == TYPEC_ATTACHED_DBGACC_SNK) &&
 			noti->typec_state.new_state == TYPEC_UNATTACHED) {
-			dev_info(dev, "Type-C plug out\n");
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 		}
 		break;
 	case TCP_NOTIFY_DR_SWAP:
-		dev_info(dev, "%s dr_swap, new role=%d\n",
-				__func__, noti->swap_state.new_role);
 		if (noti->swap_state.new_role == PD_ROLE_UFP &&
 				extcon->c_role == USB_ROLE_HOST) {
-			dev_info(dev, "switch role to device\n");
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_DEVICE);
 		} else if (noti->swap_state.new_role == PD_ROLE_DFP &&
 				extcon->c_role == USB_ROLE_DEVICE) {
-			dev_info(dev, "switch role to host\n");
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_NONE);
 			mtk_usb_extcon_set_role(extcon, USB_ROLE_HOST);
 		}

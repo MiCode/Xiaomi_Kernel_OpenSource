@@ -1,0 +1,205 @@
+&mtk_leds {
+	compatible = "mediatek,disp-leds";
+	backlight {
+		label = "lcd-backlight";
+		led_mode = <4>;
+		gate_enable = <1>;
+		pwm_config = <0 1 0 0 0>;
+		max-brightness = <2047>;
+		led-bits = <11>;
+		trans-bits = <11>;
+		default-state = "half";
+	};
+};
+
+&i2c6 {
+	gate_ic: gate_ic@11 {
+		compatible = "mediatek,MI_I2C_LCD_BIAS";
+		label = "lcd-backlight";
+		pwm_config = <0 1 0 0 0>;
+		max-brightness = <2047>;
+		reg = <0x11>;
+		led_mode = <4>;
+		led-bits = <11>;
+		id = <6>;
+		status = "okay";
+	};
+};
+
+&pio {
+	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO150__FUNC_GPIO150>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO150__FUNC_GPIO150>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO151__FUNC_GPIO151>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO151__FUNC_GPIO151>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_rst_out1_gpio: lcm_rst_out1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO85__FUNC_GPIO85>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	mtkfb_pins_lcm_rst_out0_gpio: lcm_rst_out0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO85__FUNC_GPIO85>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO83__FUNC_DSI_TE>;
+		};
+	};
+
+	mtkfb_pins_lcm_ktzen_en1: lcm_ktzen_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	mtkfb_pins_lcm_ktzen_en0: lcm_ktzen_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO12__FUNC_GPIO12>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+
+	mtkfb_pins_lcm_cam_en1: lcm_cam_en1_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO153__FUNC_GPIO153>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	mtkfb_pins_lcm_cam_en0: lcm_cam_en0_gpio {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO153__FUNC_GPIO153>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+&mtkfb {
+	pinctrl-names = "lcd_bias_enp1_gpio", "lcd_bias_enp0_gpio",
+		"lcd_bias_enn1_gpio", "lcd_bias_enn0_gpio",
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "lcm_ktzen_en1_gpio", "lcm_ktzen_en0_gpio",
+		"lcm_cam_en1_gpio", "lcm_cam_en0_gpio" ;
+	pinctrl-0 = <&mtkfb_pins_lcd_bias_enp1>;
+	pinctrl-1 = <&mtkfb_pins_lcd_bias_enp0>;
+	pinctrl-2 = <&mtkfb_pins_lcd_bias_enn1>;
+	pinctrl-3 = <&mtkfb_pins_lcd_bias_enn0>;
+	pinctrl-4 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-5 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-6 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-7 = <&mtkfb_pins_lcm_ktzen_en1>;
+	pinctrl-8 = <&mtkfb_pins_lcm_ktzen_en0>;
+	pinctrl-9 = <&mtkfb_pins_lcm_cam_en1>;
+	pinctrl-10 = <&mtkfb_pins_lcm_cam_en0>;
+	status = "okay";
+};
+
+&dispsys_config {
+	pinctrl-names =
+		"lcm_rst_out1_gpio", "lcm_rst_out0_gpio",
+		"mode_te_te", "lcm_ktzen_en1_gpio", "lcm_ktzen_en0_gpio",
+		"lcm_cam_en1_gpio", "lcm_cam_en0_gpio" ;
+	pinctrl-0 = <&mtkfb_pins_lcm_rst_out1_gpio>;
+	pinctrl-1 = <&mtkfb_pins_lcm_rst_out0_gpio>;
+	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
+	pinctrl-3 = <&mtkfb_pins_lcm_ktzen_en1>;
+	pinctrl-4 = <&mtkfb_pins_lcm_ktzen_en0>;
+	pinctrl-5 = <&mtkfb_pins_lcm_cam_en1>;
+	pinctrl-6 = <&mtkfb_pins_lcm_cam_en0>;
+	status = "okay";
+};
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel1@0 {
+		compatible = "l83_36_02_0a_cphy_vdo,lcm";
+		reg = <0>;
+		reset-gpios = <&pio 85 0>;
+		vio18-supply = <&mt6358_vio18_reg>;
+		ktzen-gpios = <&pio 12 0>;//ktz8866 EN
+		//GPIO150 ENP; GPIO151 ENN
+		bias-gpios = <&pio 150 0>,
+			<&pio 151 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel2@0 {
+		compatible = "l83_44_02_0b_cphy_vdo,lcm";
+		reg = <1>;
+		reset-gpios = <&pio 85 0>;
+		vio18-supply = <&mt6358_vio18_reg>;
+		ktzen-gpios = <&pio 12 0>;//ktz8866 EN
+		//GPIO150 ENP; GPIO151 ENN
+		bias-gpios = <&pio 150 0>,
+			<&pio 151 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel3@0 {
+		compatible = "l83_44_02_0c_cphy_vdo,lcm";
+		reg = <2>;
+		reset-gpios = <&pio 85 0>;
+		vio18-supply = <&mt6358_vio18_reg>;
+		ktzen-gpios = <&pio 12 0>;//ktz8866 EN
+		//GPIO150 ENP; GPIO151 ENN
+		bias-gpios = <&pio 150 0>,
+			<&pio 151 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in3: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in1>;
+			};
+		};
+	};
+};

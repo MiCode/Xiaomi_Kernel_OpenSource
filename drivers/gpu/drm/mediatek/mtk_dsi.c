@@ -177,36 +177,6 @@ struct mtk_dsi_driver_data {
 	bool has_size_ctl;
 };
 
-struct mtk_dsi {
-	struct mtk_ddp_comp ddp_comp;
-	struct device *dev;
-	struct mipi_dsi_host host;
-	struct drm_encoder encoder;
-	struct drm_bridge bridge;
-	struct drm_bridge *next_bridge;
-	struct drm_connector *connector;
-	struct phy *phy;
-
-	void __iomem *regs;
-
-	struct clk *engine_clk;
-	struct clk *digital_clk;
-	struct clk *hs_clk;
-
-	u32 data_rate;
-
-	unsigned long mode_flags;
-	enum mipi_dsi_pixel_format format;
-	unsigned int lanes;
-	struct videomode vm;
-	struct mtk_phy_timing phy_timing;
-	int refcount;
-	bool enabled;
-	u32 irq_data;
-	wait_queue_head_t irq_wait_queue;
-	const struct mtk_dsi_driver_data *driver_data;
-};
-
 static inline struct mtk_dsi *bridge_to_dsi(struct drm_bridge *b)
 {
 	return container_of(b, struct mtk_dsi, bridge);

@@ -99,6 +99,7 @@ struct mtk_drm_private {
 	enum MTK_DRM_SESSION_MODE session_mode;
 	atomic_t crtc_present[MAX_CRTC];
 	atomic_t crtc_sf_present[MAX_CRTC];
+	atomic_t crtc_rel_present[MAX_CRTC];
 
 	struct device_node *mutex_node;
 	struct device *mutex_dev;
@@ -179,6 +180,7 @@ struct mtk_drm_private {
 	struct mml_drm_ctx *mml_ctx;
 	atomic_t mml_job_done;
 	wait_queue_head_t signal_mml_job_done_wq;
+	unsigned int *dummy_table_backup;
 
 	unsigned int seg_id;
 };
@@ -311,6 +313,8 @@ extern struct platform_driver mtk_disp_inlinerotate_driver;
 extern struct platform_driver mtk_mmlsys_bypass_driver;
 extern struct mtk_drm_disp_sec_cb disp_sec_cb;
 extern struct mtk_drm_disp_mtee_cb disp_mtee_cb;
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
 
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);

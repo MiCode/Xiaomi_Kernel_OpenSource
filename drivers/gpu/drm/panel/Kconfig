@@ -28,6 +28,36 @@ config DRM_PANEL_ASUS_Z00T_TM5P5_NT35596
 	  NT35596 1080x1920 video mode panel as found in some Asus
 	  Zenfone 2 Laser Z00T devices.
 
+config DRM_PANEL_L83_36_02_0A_CPHY_VDO
+	tristate "DRM_PANEL_L83_36_02_0A_CPHY_VDO panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for DRM_PANEL_L83_36_02_0A_CPHY_VDO Plus panel.
+	  The panel has a 1080x2460 resolution and uses 24-bits RGB per pixel.
+	  It provides a MIPI DSI interface to host.
+
+config DRM_PANEL_L83_44_02_0B_CPHY_VDO
+	tristate "DRM_PANEL_L83_44_02_0B_CPHY_VDO panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for DRM_PANEL_L83_44_02_0B_CPHY_VDO Plus panel.
+	  The panel has a 1080x2460 resolution and uses 24-bits RGB per pixel.
+	  It provides a MIPI DSI interface to host.
+
+config DRM_PANEL_L83_44_02_0C_CPHY_VDO
+	tristate "DRM_PANEL_L83_44_02_0C_CPHY_VDO panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for DRM_PANEL_L83_44_02_0C_CPHY_VDO Plus panel.
+	  The panel has a 1080x2460 resolution and uses 24-bits RGB per pixel.
+	  It provides a MIPI DSI interface to host.
+
 config DRM_PANEL_BOE_HIMAX8279D
 	tristate "Boe Himax8279d panel"
 	depends on OF

@@ -62,7 +62,10 @@
 //#include "swpm_me.h"
 //#include "include/pmic_api_buck.h"
 #include <../drivers/gpu/drm/mediatek/mml/mtk-mml.h>
-
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_disp_log.h"
+#endif
 #include "../mml/mtk-mml.h"
 #include "../mml/mtk-mml-drm-adaptor.h"
 #include "../mml/mtk-mml-driver.h"
@@ -85,6 +88,8 @@
 void disp_dbg_deinit(void);
 void disp_dbg_probe(void);
 void disp_dbg_init(struct drm_device *dev);
+atomic_t resume_pending;
+wait_queue_head_t resume_wait_q;
 
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
@@ -3693,6 +3698,13 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 				  __func__);
 	}
 
+#ifdef CONFIG_MI_DISP
+	if (!mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_WCG) &&
+			params) {
+		caps_info->lcm_color_mode = params->lcm_color_mode;
+	}
+#endif
+
 	if (params) {
 		caps_info->min_luminance = params->min_luminance;
 		caps_info->average_luminance = params->average_luminance;
@@ -5910,6 +5922,13 @@ static int __init mtk_drm_init(void)
 {
 	int ret;
 	int i;
+
+#ifdef CONFIG_MI_DISP
+	mi_disp_feature_init();
+#endif
+#ifdef CONFIG_MI_DISP_LOG
+	mi_disp_log_init();
+#endif
 
 	DDPINFO("%s+\n", __func__);
 	for (i = 0; i < ARRAY_SIZE(mtk_drm_drivers); i++) {

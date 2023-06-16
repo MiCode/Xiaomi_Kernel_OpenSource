@@ -32,6 +32,9 @@
 #include "mtk-cmdq-ext.h"
 #endif
 
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_print.h"
+#endif
 #include "mtk_drm_arr.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_crtc.h"
@@ -58,6 +61,7 @@
 #include "mtk_disp_ccorr.h"
 #include "mtk_debug.h"
 #include "platform/mtk_drm_6789.h"
+
 
 /* *****Panel_Master*********** */
 #include "mtk_fbconfig_kdebug.h"
@@ -3344,7 +3348,7 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 		return;
 	}
 
-	DDPMSG("%s++ from %u to %u\n", __func__,
+	DISP_TIME_INFO("no delay from %u to %u\n",
 		old_mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX],
 		mtk_state->prop_val[CRTC_PROP_DISP_MODE_IDX]);
 

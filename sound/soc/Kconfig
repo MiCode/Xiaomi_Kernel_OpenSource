@@ -78,6 +78,9 @@ source "sound/soc/xilinx/Kconfig"
 source "sound/soc/xtensa/Kconfig"
 source "sound/soc/zte/Kconfig"
 
+# Audio Switch
+source "sound/soc/et7480/Kconfig
+
 # Supported codecs
 source "sound/soc/codecs/Kconfig"
 

@@ -126,9 +126,12 @@ extern void usb_prepare_enable_clock(bool enable);
 extern void mt_usb_dev_disconnect(void);
 
 /* usb host mode wakeup */
-#define USB_WAKEUP_DEC_CON1	0x404
-#define USB1_CDEN		BIT(0)
-#define USB1_CDDEBOUNCE(x)	(((x) & 0xf) << 1)
+#define USB_WK_CTRL		0x420
+#define USB_CDEN		BIT(6)
+#define USB_IP_SLEEP		BIT(12)
+#define USB_CDDEBOUNCE(x)	(((x) & 0xf) << 28)
+#define MISC_CONFIG		0xf08
+#define USB_CD_CLR		BIT(7)
 #endif
 
 /* MUSB phy set */

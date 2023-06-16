@@ -31,7 +31,9 @@
 #include "mtk_drm_assert.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_trace.h"
-
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_feature.h"
+#endif
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
 
@@ -152,7 +154,6 @@ static void esd_cmdq_timeout_cb(struct cmdq_cb_data data)
 	mtk_drm_crtc_dump(crtc);
 }
 
-
 int _mtk_esd_check_read(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -160,6 +161,7 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	struct mtk_panel_ext *panel_ext = NULL;
 	struct cmdq_pkt *cmdq_handle = NULL, *cmdq_handle2 = NULL;
 	struct mtk_drm_esd_ctx *esd_ctx = NULL;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	int ret = 0;
 
 	DDPINFO("[ESD]ESD read panel\n");
@@ -173,6 +175,11 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 
 	if (mtk_drm_is_idle(crtc) && mtk_dsi_is_cmd_mode(output_comp))
 		return 0;
+	if (mtk_drm_helper_get_opt(priv->helper_opt,
+				   MTK_DRM_OPT_ESD_CHECK_SWITCH)) {
+		DDPINFO("[ESD]ESD read panel closed for helper\n");
+		return 0;
+	}
 
 	mtk_ddp_comp_io_cmd(output_comp, NULL, REQ_PANEL_EXT, &panel_ext);
 	if (unlikely(!(panel_ext && panel_ext->params))) {
@@ -238,7 +245,10 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	esd_ctx = mtk_crtc->esd_ctx;
 	esd_ctx->chk_sta = 0;
 
-	cmdq_pkt_flush(cmdq_handle);
+	if (mtk_dsi_is_cmd_mode(output_comp)) { /*cmd mode*/
+	} else {
+		cmdq_pkt_flush(cmdq_handle);
+	}
 
 	CRTC_MMP_MARK(drm_crtc_index(crtc), esd_check, 2, 4);
 
@@ -261,8 +271,14 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		goto done;
 	}
 
-	ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
-				  (void *)mtk_crtc);
+	if (mtk_dsi_is_cmd_mode(output_comp)) { /*cmd mode*/
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
+					  (void *)mtk_crtc);
+	} else { /*video mode*/
+		ret = mtk_ddp_comp_io_cmd(output_comp, NULL, ESD_CHECK_CMP,
+					  (void *)mtk_crtc);
+	}
+
 done:
 	cmdq_pkt_destroy(cmdq_handle);
 	return ret;
@@ -412,6 +428,17 @@ done:
 	return ret;
 }
 
+static atomic_t panel_dead;
+int get_panel_dead_flag(void) {
+	return atomic_read(&panel_dead);
+}
+EXPORT_SYMBOL(get_panel_dead_flag);
+
+void set_panel_dead_flag(int value) {
+	atomic_set(&panel_dead, value);
+}
+EXPORT_SYMBOL(set_panel_dead_flag);
+
 static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
@@ -419,6 +446,8 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	struct cmdq_pkt *cmdq_handle = NULL;
 	int ret = 0;
+
+	atomic_set(&panel_dead, 1);
 
 	CRTC_MMP_EVENT_START(drm_crtc_index(crtc), esd_recovery, 0, 0);
 	if (crtc->state && !crtc->state->active) {
@@ -512,10 +541,14 @@ static int mtk_drm_esd_recover(struct drm_crtc *crtc)
 
 	cmdq_pkt_destroy(cmdq_handle);
 done:
+	atomic_set(&panel_dead, 0);
 	CRTC_MMP_EVENT_END(drm_crtc_index(crtc), esd_recovery, 0, ret);
 
 	return 0;
 }
+
+struct mtk_drm_esd_ctx *g_esd_ctx;
+EXPORT_SYMBOL(g_esd_ctx);
 
 static int mtk_drm_esd_check_worker_kthread(void *data)
 {
@@ -528,6 +561,8 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 	int i = 0;
 	int recovery_flg = 0;
 	bool check_te = false, te_timeout = false;
+
+	g_esd_ctx = esd_ctx;
 
 	sched_setscheduler(current, SCHED_RR, &param);
 

@@ -462,7 +462,8 @@ static void mtk_rtc_reset_bbpu_alarm_status(struct mt6397_rtc *rtc)
 	u32 bbpu;
 	int ret;
 
-	bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN | RTC_BBPU_RESET_AL;
+	pr_err("[RTC] %s, alarm_sta_clr_bit = %u\n", __func__, rtc->data->alarm_sta_clr_bit);
+	bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN | rtc->data->alarm_sta_clr_bit;
 	ret = regmap_write(rtc->regmap, rtc->addr_base + RTC_BBPU, bbpu);
 	if (ret < 0)
 		goto exit;
@@ -1160,15 +1161,18 @@ static SIMPLE_DEV_PM_OPS(mt6397_pm_ops, mt6397_rtc_suspend,
 
 static const struct mtk_rtc_data mt6358_rtc_data = {
 	.wrtgr = RTC_WRTGR_MT6358,
+	.alarm_sta_clr_bit = RTC_BBPU_CLR,
 	.spare_reg_fields = mtk_rtc_spare_reg_fields,
 };
 
 static const struct mtk_rtc_data mt6397_rtc_data = {
 	.wrtgr = RTC_WRTGR_MT6397,
+	.alarm_sta_clr_bit = RTC_BBPU_RESET_AL,
 };
 
 static const struct mtk_rtc_data mt6359p_rtc_data = {
 	.wrtgr = RTC_WRTGR_MT6358,
+	.alarm_sta_clr_bit = RTC_BBPU_RESET_AL,
 	.spare_reg_fields	= mtk_rtc_spare_reg_fields,
 #ifdef SUPPORT_EOSC_CALI
 	.cali_reg_fields	= mt6359_cali_reg_fields,

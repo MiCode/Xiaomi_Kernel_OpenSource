@@ -124,6 +124,7 @@ int get_battery_temperature(struct mtk_charger *info)
 	struct power_supply *bat_psy = NULL;
 	int ret = 0;
 	int tmp_ret = 0;
+	static int pre_temp = 0;
 
 	bat_psy = info->bat_psy;
 
@@ -140,6 +141,12 @@ int get_battery_temperature(struct mtk_charger *info)
 		tmp_ret = power_supply_get_property(bat_psy,
 			POWER_SUPPLY_PROP_TEMP, &prop);
 		ret = prop.intval / 10;
+		if(pre_temp != ret)
+		{
+			pre_temp = ret;
+			power_supply_changed(bat_psy);
+			chr_err("pre_temp, ret : %d, %d\n", pre_temp, ret);
+		}
 	}
 
 	chr_debug("%s:%d\n", __func__,

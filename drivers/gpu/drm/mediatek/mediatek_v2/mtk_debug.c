@@ -40,6 +40,10 @@
 #include "mtk_drm_arr.h"
 #include "mtk_drm_graphics_base.h"
 
+#ifdef CONFIG_MI_DISP_FOD_SYNC
+#include "mi_disp/mi_drm_crtc.h"
+#endif
+
 #define DISP_REG_CONFIG_MMSYS_CG_SET(idx) (0x104 + 0x10 * (idx))
 #define DISP_REG_CONFIG_MMSYS_CG_CLR(idx) (0x108 + 0x10 * (idx))
 #define DISP_REG_CONFIG_DISP_FAKE_ENG_EN(idx) (0x200 + 0x20 * (idx))
@@ -55,6 +59,8 @@
 #define SMI_LARB_NON_SEC_CON(port) (0x380 + 4 * (port))
 #define GET_M4U_PORT 0x1F
 #define MTK_CWB_NO_EFFECT_HRT_MAX_WIDTH 128
+#define DSI_SELF_PAT_CON0	0x178
+#define DSI_SELF_PAT_CON1	0x17c
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkfb_dbgfs;
@@ -189,6 +195,37 @@ static int prepare_fake_layer_buffer(struct drm_crtc *crtc)
 	}
 	fake_layer->init = true;
 	DDPMSG("%s init done\n", __func__);
+
+	return 0;
+}
+
+static int prepare_fake_layer_buffer_rgba(struct drm_crtc *crtc, char r, char g, char b, char a)
+{
+	unsigned int i;
+	size_t size;
+	struct mtk_drm_gem_obj *mtk_gem;
+	struct drm_mode_fb_cmd2 mode = { 0 };
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_fake_layer *fake_layer = &mtk_crtc->fake_layer;
+
+	mode.width = crtc->state->adjusted_mode.hdisplay;
+	mode.height = crtc->state->adjusted_mode.vdisplay;
+	mode.pixel_format = DRM_FORMAT_RGBA8888;
+	mode.pitches[0] = mode.width
+		* mtk_get_format_bpp(mode.pixel_format);
+	size = mode.width * mode.height
+		* mtk_get_format_bpp(mode.pixel_format);
+
+	for (i = 0; i < PRIMARY_OVL_PHY_LAYER_NR; i++) {
+		mtk_gem = mtk_drm_gem_create(crtc->dev, size, true);
+		draw_RGBA8888_buffer(mtk_gem->kvaddr, mode.width, mode.height,
+			r, g, b, a);
+		fake_layer->fake_layer_buf[i] =
+			mtk_drm_framebuffer_create(crtc->dev, &mode,
+						&mtk_gem->base);
+	}
+	fake_layer->init = true;
+	DDPINFO("%s 0x%x,0x%x,0x%x,0x%x init done\n", __func__, r, g, b, a);
 
 	return 0;
 }
@@ -419,6 +456,9 @@ int mtkfb_set_backlight_level(unsigned int level)
 		DDPPR_ERR("%s failed to find crtc\n", __func__);
 		return -EINVAL;
 	}
+#ifdef CONFIG_MI_DISP_FOD_SYNC
+	ret = mi_drm_bl_wait_for_completion(crtc, level);
+#endif
 	ret = mtk_drm_setbacklight(crtc, level);
 
 	return ret;
@@ -822,13 +862,13 @@ static void mtk_ddic_send_cb(struct cmdq_cb_data data)
 }
 
 int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
-			bool blocking)
+			bool blocking, bool queueing)
 {
 	struct drm_crtc *crtc;
 	struct mtk_drm_crtc *mtk_crtc;
 	struct mtk_drm_private *private;
 	struct mtk_ddp_comp *output_comp;
-	struct cmdq_pkt *cmdq_handle;
+	struct cmdq_pkt *cmdq_handle = NULL;
 	bool is_frame_mode;
 	struct mtk_cmdq_cb_data *cb_data;
 	int index = 0;
@@ -857,25 +897,26 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 	private = crtc->dev->dev_private;
 	mtk_crtc = to_mtk_crtc(crtc);
 
-	mutex_lock(&private->commit.lock);
-	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	if (!queueing) {
+		mutex_lock(&private->commit.lock);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
-	if (!mtk_crtc->enabled) {
-		DDPMSG("crtc%d disable skip %s\n",
-			drm_crtc_index(&mtk_crtc->base), __func__);
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		mutex_unlock(&private->commit.lock);
-		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 1);
-		return -EINVAL;
-	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
-		DDPMSG("skip %s, ddp_mode: NO_USE\n",
-			__func__);
-		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		mutex_unlock(&private->commit.lock);
-		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 2);
-		return -EINVAL;
+		if (!mtk_crtc->enabled) {
+			DDPPR_ERR("crtc%d disable skip %s\n",
+				drm_crtc_index(&mtk_crtc->base), __func__);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 1);
+			return -EINVAL;
+		} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+			DDPPR_ERR("skip %s, ddp_mode: NO_USE\n",
+				__func__);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 2);
+			return -EINVAL;
+		}
 	}
-
 	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 	if (unlikely(!output_comp)) {
 		DDPPR_ERR("%s:invalid output comp\n", __func__);
@@ -890,62 +931,70 @@ int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
 	CRTC_MMP_MARK(index, ddic_send_cmd, 1, 0);
 
 	/* Kick idle */
-	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+	if (!queueing) {
+		mtk_drm_idlemgr_kick(__func__, crtc, 0);
 
-	CRTC_MMP_MARK(index, ddic_send_cmd, 2, 0);
+		CRTC_MMP_MARK(index, ddic_send_cmd, 2, 0);
 
-	mtk_crtc_pkt_create(&cmdq_handle, crtc,
-			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+		mtk_crtc_pkt_create(&cmdq_handle, crtc,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
-	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
-		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_SECOND_PATH, 0);
-	else
-		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
-			DDP_FIRST_PATH, 0);
+		if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+				DDP_SECOND_PATH, 0);
+		else
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+				DDP_FIRST_PATH, 0);
 
-	if (is_frame_mode) {
-		cmdq_pkt_clear_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-		cmdq_pkt_wfe(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		cmdq_pkt_clear_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		if (is_frame_mode) {
+			cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+			cmdq_pkt_wfe(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		}
 	}
-
 	/* DSI_SEND_DDIC_CMD */
-	if (output_comp)
+	if (output_comp && !cmd_msg->is_package)
 		ret = mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
 		DSI_SEND_DDIC_CMD, cmd_msg);
+	else if (output_comp && cmd_msg->is_package)
+		ret = mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+		DSI_SEND_DDIC_CMD_PACK_, cmd_msg);
 
-	if (is_frame_mode) {
-		cmdq_pkt_set_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
-		cmdq_pkt_set_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
-		cmdq_pkt_set_event(cmdq_handle,
-			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
-	}
-
-	if (blocking) {
-		cmdq_pkt_flush(cmdq_handle);
-		cmdq_pkt_destroy(cmdq_handle);
-	} else {
-		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
-		if (!cb_data) {
-			DDPPR_ERR("%s:cb data creation failed\n", __func__);
-			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-			mutex_unlock(&private->commit.lock);
-			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 4);
-			return -EINVAL;
+	if (!queueing) {
+		if (is_frame_mode) {
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
 		}
 
-		cb_data->cmdq_handle = cmdq_handle;
-		cmdq_pkt_flush_threaded(cmdq_handle, mtk_ddic_send_cb, cb_data);
+		if (blocking) {
+			cmdq_pkt_flush(cmdq_handle);
+			cmdq_pkt_destroy(cmdq_handle);
+		} else {
+			cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+			if (!cb_data) {
+				DDPPR_ERR("%s:cb data creation failed\n", __func__);
+				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+				mutex_unlock(&private->commit.lock);
+				CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 4);
+				return -EINVAL;
+			}
+
+			cb_data->cmdq_handle = cmdq_handle;
+			cmdq_pkt_flush_threaded(cmdq_handle, mtk_ddic_send_cb, cb_data);
+		}
 	}
 	DDPMSG("%s -\n", __func__);
-	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-	mutex_unlock(&private->commit.lock);
+	if (!queueing) {
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+	}
 	CRTC_MMP_EVENT_END(index, ddic_send_cmd, (unsigned long)crtc,
 			blocking);
 
@@ -1166,7 +1215,7 @@ void ddic_dsi_send_cmd_test(unsigned int case_num)
 		}
 	}
 
-	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true);
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
 	if (ret != 0) {
 		DDPPR_ERR("mtk_ddic_dsi_send_cmd error\n");
 		goto  done;
@@ -1238,7 +1287,7 @@ void ddic_dsi_send_switch_pgt(unsigned int cmd_num, u8 addr,
 		}
 	}
 
-	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true);
+	ret = mtk_ddic_dsi_send_cmd(cmd_msg, true, false);
 	if (ret != 0) {
 		DDPPR_ERR("mtk_ddic_dsi_send_cmd error\n");
 		goto  done;
@@ -2405,6 +2454,49 @@ static void process_dbg_opt(const char *opt)
 		mtk_crtc->fake_layer.fake_layer_mask = mask;
 
 		DDPINFO("fake_layer:0x%x enable\n", mask);
+	} else if (!strncmp(opt, "fake_layer_rgba:", 16)) {
+		unsigned int mask;
+		unsigned int pixel;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		int ret = 0;
+		char r, g, b, a;
+
+		ret = sscanf(opt, "fake_layer_rgba:0x%x,0x%x\n", &mask,&pixel);
+		if (ret != 2) {
+			DDPPR_ERR("%d error to parse cmd %s\n",
+					__LINE__, opt);
+			return;
+		}
+
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		mtk_drm_idlemgr_kick(__func__, crtc, 1);
+		mtk_drm_set_idlemgr(crtc, 0, 1);
+
+		r = pixel >> 24 & 0xFF;
+		g = pixel >> 16 & 0xFF;
+		b = pixel >> 8 & 0xFF;
+		a = pixel & 0xFF;
+
+		if(mask != 0)
+			prepare_fake_layer_buffer_rgba(crtc, r, g, b, a);
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		if (!mask && mtk_crtc->fake_layer.fake_layer_mask)
+			mtk_crtc->fake_layer.first_dis = true;
+		mtk_crtc->fake_layer.fake_layer_mask = mask;
+		msleep(20);
+		drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, drm_dev);
+		msleep(20);
+		drm_trigger_repaint(DRM_REPAINT_FOR_IDLE, drm_dev);
+
+		DDPINFO("fake_layer_rgba:0x%x 0x%x enable\n", mask, pixel);
 	} else if (!strncmp(opt, "mipi_ccci:", 10)) {
 		unsigned int en, ret;
 
@@ -2847,35 +2939,6 @@ static void process_dbg_opt(const char *opt)
 		params->lcm_color_mode = (fake_hdr_en) ?
 			MTK_DRM_COLOR_MODE_DISPLAY_P3 : MTK_DRM_COLOR_MODE_NATIVE;
 		DDPINFO("set panel color_mode to %d\n", params->lcm_color_mode);
-	} else if (strncmp(opt, "esd_check", 9) == 0) {
-		unsigned int esd_check_en = 0;
-		struct drm_crtc *crtc;
-		struct mtk_drm_crtc *mtk_crtc;
-		struct mtk_drm_esd_ctx *esd_ctx;
-		int ret;
-
-		ret = sscanf(opt, "esd_check:%u\n", &esd_check_en);
-		if (ret != 1) {
-			DDPPR_ERR("%d error to parse cmd %s\n", __LINE__, opt);
-			return;
-		}
-
-		/* this debug cmd only for crtc0 */
-		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
-					typeof(*crtc), head);
-		if (!crtc) {
-			DDPPR_ERR("find crtc fail\n");
-			return;
-		}
-
-		mtk_crtc = to_mtk_crtc(crtc);
-		esd_ctx = mtk_crtc->esd_ctx;
-		if (esd_ctx != NULL) {
-			esd_ctx->chk_en = esd_check_en;
-			DDPINFO("set esd_check_en to %d\n", esd_check_en);
-		} else {
-			DDPINFO("esd_ctx is null!\n");
-		}
 	} else if (strncmp(opt, "mml_debug:", 10) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
@@ -2936,6 +2999,9 @@ static void process_dbg_opt(const char *opt)
 		else if (strncmp(opt + 16, "-1", 2) == 0)
 			g_mml_mode = MML_MODE_NOT_SUPPORT;
 		DDPMSG("mml_mode:%d", g_mml_mode);
+
+	} else if (strncmp(opt,"ddp_aee",7) == 0) {
+		DDPAEE("%s dpp_aee debug", __func__);
 	} else if (strncmp(opt, "force_mml:", 10) == 0) {
 		struct drm_crtc *crtc;
 		struct mtk_drm_crtc *mtk_crtc;
@@ -2984,6 +3050,37 @@ static void process_dbg_opt(const char *opt)
 
 		if (mtk_crtc)
 			mtk_crtc->mml_cmd_ir = mml_cmd_ir;
+	} else if (strncmp(opt, "dsi_pattern:", 12) == 0) {
+		struct mtk_ddp_comp *comp;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+		bool en = false;
+
+		/* this debug cmd only for crtc0 */
+		crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+					typeof(*crtc), head);
+		if (!crtc) {
+			DDPPR_ERR("find crtc fail\n");
+			return;
+		}
+
+		mtk_crtc = to_mtk_crtc(crtc);
+		comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+		if (strncmp(opt + 12, "1", 1) == 0)
+			en = true;
+		else if (strncmp(opt + 12, "0", 1) == 0)
+			en = false;
+
+		DDPMSG("dsi_pattern: %d\n", en);
+
+		if (en) {
+			writel(0x000000c61, comp->regs + DSI_SELF_PAT_CON0);
+			writel(0x00fff0fff, comp->regs + DSI_SELF_PAT_CON1);
+		} else {
+			writel(0x000000c60, comp->regs + DSI_SELF_PAT_CON0);
+			writel(0x00fff0fff, comp->regs + DSI_SELF_PAT_CON1);
+		}
 	}
 }
 
@@ -3730,3 +3827,288 @@ void get_disp_dbg_buffer(unsigned long *addr, unsigned long *size,
 		*start = 0;
 	}
 }
+
+#ifdef CONFIG_MI_DISP
+int mtk_ddic_dsi_wait_te_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
+			bool blocking)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *private;
+	struct mtk_ddp_comp *output_comp;
+	struct cmdq_pkt *cmdq_handle;
+	bool is_frame_mode;
+	struct mtk_cmdq_cb_data *cb_data;
+	int index = 0;
+	int ret = 0;
+
+	DDPMSG("%s +\n", __func__);
+
+	/* This cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	index = drm_crtc_index(crtc);
+
+	CRTC_MMP_EVENT_START(index, ddic_send_cmd, (unsigned long)crtc,
+				blocking);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 0);
+		return -EINVAL;
+	}
+
+	private = crtc->dev->dev_private;
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	mutex_lock(&private->commit.lock);
+	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+	if (!mtk_crtc->enabled) {
+		DDPMSG("crtc%d disable skip %s\n",
+			drm_crtc_index(&mtk_crtc->base), __func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 1);
+		return -EINVAL;
+	} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+		DDPMSG("skip %s, ddp_mode: NO_USE\n",
+			__func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 2);
+		return -EINVAL;
+	}
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPPR_ERR("%s:invalid output comp\n", __func__);
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 3);
+		return -EINVAL;
+	}
+
+	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
+
+	CRTC_MMP_MARK(index, ddic_send_cmd, 1, 0);
+
+	/* Kick idle */
+	mtk_drm_idlemgr_kick(__func__, crtc, 0);
+
+	CRTC_MMP_MARK(index, ddic_send_cmd, 2, 0);
+
+	mtk_crtc_pkt_create(&cmdq_handle, crtc,
+			mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+
+	if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_SECOND_PATH, 0);
+	else
+		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+			DDP_FIRST_PATH, 0);
+
+	if (is_frame_mode) {
+		cmdq_pkt_clear_event(cmdq_handle,
+				     mtk_crtc->gce_obj.event[EVENT_TE]);
+
+		if (mtk_drm_lcm_is_connect())
+			cmdq_pkt_wfe(cmdq_handle,
+					 mtk_crtc->gce_obj.event[EVENT_TE]);
+	}
+	if (is_frame_mode) {
+		cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+		cmdq_pkt_wfe(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_clear_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+	}
+
+	/* DSI_SEND_DDIC_CMD */
+	if (output_comp)
+		ret = mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+		DSI_SEND_DDIC_CMD, cmd_msg);
+
+	if (is_frame_mode) {
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+		cmdq_pkt_set_event(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+	}
+
+	if (blocking) {
+		cmdq_pkt_flush(cmdq_handle);
+		cmdq_pkt_destroy(cmdq_handle);
+	} else {
+		cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+		if (!cb_data) {
+			DDPPR_ERR("%s:cb data creation failed\n", __func__);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 4);
+			return -EINVAL;
+		}
+
+		cb_data->cmdq_handle = cmdq_handle;
+		cmdq_pkt_flush_threaded(cmdq_handle, mtk_ddic_send_cb, cb_data);
+	}
+	DDPMSG("%s -\n", __func__);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+	mutex_unlock(&private->commit.lock);
+	CRTC_MMP_EVENT_END(index, ddic_send_cmd, (unsigned long)crtc,
+			blocking);
+
+	return ret;
+}
+
+int mtk_ddic_dsi_send_cmd_queue(struct mtk_ddic_dsi_msg *cmd_msg,
+			bool blocking, bool queueing, bool need_lock)
+{
+	struct drm_crtc *crtc;
+	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_private *private;
+	struct mtk_ddp_comp *output_comp;
+	struct cmdq_pkt *cmdq_handle = NULL;
+	bool is_frame_mode;
+	struct mtk_cmdq_cb_data *cb_data;
+	int index = 0;
+	int ret = 0;
+
+	DDPMSG("%s +\n", __func__);
+
+	/* This cmd only for crtc0 */
+	crtc = list_first_entry(&(drm_dev)->mode_config.crtc_list,
+			typeof(*crtc), head);
+	index = drm_crtc_index(crtc);
+
+	CRTC_MMP_EVENT_START(index, ddic_send_cmd, (unsigned long)crtc,
+				blocking);
+
+	if (!crtc) {
+		DDPPR_ERR("find crtc fail\n");
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 0);
+		return -EINVAL;
+	}
+
+	private = crtc->dev->dev_private;
+	mtk_crtc = to_mtk_crtc(crtc);
+
+	if(need_lock) {
+		mutex_lock(&private->commit.lock);
+		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+
+		if (!mtk_crtc->enabled) {
+			DDPPR_ERR("crtc%d disable skip %s\n",
+					drm_crtc_index(&mtk_crtc->base), __func__);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 1);
+			return -EINVAL;
+		} else if (mtk_crtc->ddp_mode == DDP_NO_USE) {
+			DDPPR_ERR("skip %s, ddp_mode: NO_USE\n",
+					__func__);
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+			CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 2);
+			return -EINVAL;
+		}
+	}
+
+	output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+	if (unlikely(!output_comp)) {
+		DDPPR_ERR("%s:invalid output comp\n", __func__);
+		if (need_lock) {
+			DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+			mutex_unlock(&private->commit.lock);
+		}
+		CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 3);
+		return -EINVAL;
+	}
+
+	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
+
+	CRTC_MMP_MARK(index, ddic_send_cmd, 1, 0);
+
+	if(need_lock) {
+		/* Kick idle */
+		DDPMSG("%s ,kick idle\n", __func__);
+		mtk_drm_idlemgr_kick(__func__, crtc, 0);
+	}
+
+	CRTC_MMP_MARK(index, ddic_send_cmd, 2, 0);
+
+	if (!queueing) {
+		mtk_crtc_pkt_create(&cmdq_handle, crtc,
+				mtk_crtc->gce_obj.client[CLIENT_CFG]);
+
+		if (mtk_crtc_with_sub_path(crtc, mtk_crtc->ddp_mode))
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+				DDP_SECOND_PATH, 0);
+		else
+			mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
+				DDP_FIRST_PATH, 0);
+
+		if (is_frame_mode) {
+			cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+			cmdq_pkt_wfe(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			cmdq_pkt_clear_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+		}
+	}
+	/* DSI_SEND_DDIC_CMD */
+	if (output_comp && !cmd_msg->is_package)
+		ret = mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+		DSI_SEND_DDIC_CMD, cmd_msg);
+	else if (output_comp && cmd_msg->is_package)
+		ret = mtk_ddp_comp_io_cmd(output_comp, cmdq_handle,
+		DSI_SEND_DDIC_CMD_PACK_, cmd_msg);
+
+	if (!queueing) {
+		if (is_frame_mode) {
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_DIRTY]);
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_CABC_EOF]);
+			cmdq_pkt_set_event(cmdq_handle,
+				mtk_crtc->gce_obj.event[EVENT_STREAM_BLOCK]);
+		}
+
+		if (blocking) {
+			cmdq_pkt_flush(cmdq_handle);
+			cmdq_pkt_destroy(cmdq_handle);
+		} else {
+			cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+			if (!cb_data) {
+				DDPPR_ERR("%s:cb data creation failed\n", __func__);
+				DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+				mutex_unlock(&private->commit.lock);
+				CRTC_MMP_EVENT_END(index, ddic_send_cmd, 0, 4);
+				return -EINVAL;
+			}
+
+			cb_data->cmdq_handle = cmdq_handle;
+			cmdq_pkt_flush_threaded(cmdq_handle, mtk_ddic_send_cb, cb_data);
+		}
+	}
+	DDPMSG("%s -\n", __func__);
+
+	if(need_lock) {
+		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+		mutex_unlock(&private->commit.lock);
+	}
+
+	CRTC_MMP_EVENT_END(index, ddic_send_cmd, (unsigned long)crtc,
+			blocking);
+
+	return ret;
+}
+EXPORT_SYMBOL(mtk_ddic_dsi_wait_te_send_cmd);
+EXPORT_SYMBOL(mtk_ddic_dsi_send_cmd_queue);
+EXPORT_SYMBOL(mtk_ddic_dsi_read_cmd);
+EXPORT_SYMBOL(mtk_ddic_dsi_send_cmd);
+#endif

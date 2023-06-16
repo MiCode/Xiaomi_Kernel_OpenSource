@@ -86,6 +86,10 @@ obj-$(CONFIG_DRM_PANEL_SAMSUNG_S68FC01_VDO_AOD) += panel-samsung-s68fc01-vdo-aod
 obj-$(CONFIG_DRM_PANEL_ALPHA_SAMSUNG_S6E3HAE_CMD_120HZ) += panel-alpha-samsung-s6e3hae-wqhd-dphy-cmd-120hz.o
 obj-$(CONFIG_DRM_PANEL_TIANMA_NT36672C_CPHY_VDO_90HZ_RT4801) += panel-tianma-nt36672c-cphy-vdo-90hz-rt4801.o
 obj-$(CONFIG_DRM_PANEL_NT37801_MSYNC2_RTE) += panel-nt37801-msync2-rte.o
+obj-$(CONFIG_DRM_PANEL_L83_36_02_0A_CPHY_VDO) += leds-ktz8866.o
+obj-$(CONFIG_DRM_PANEL_L83_36_02_0A_CPHY_VDO) += panel-l83-36-02-0a-cphy-vdo.o
+obj-$(CONFIG_DRM_PANEL_L83_44_02_0B_CPHY_VDO) += panel-l83-44-02-0b-cphy-vdo.o
+obj-$(CONFIG_DRM_PANEL_L83_44_02_0C_CPHY_VDO) += panel-l83-44-02-0c-cphy-vdo.o
 
 mediatek-drm-gateic-y := mtk_drm_panel_i2c.o \
 		  mtk_drm_gateic_rt4801h.o \
@@ -107,3 +111,25 @@ obj-$(CONFIG_DRM_MEDIATEK_PANEL) += mediatek-drm-gateic.o
 obj-$(CONFIG_DRM_MEDIATEK_PANEL) += mediatek-drm-panel-drv.o
 
 ccflags-$(CONFIG_DRM_MEDIATEK_PANEL) += -I$(srctree)/drivers/leds/
+
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
+             -I$(srctree)/drivers/misc/mediatek/smi/			\
+             -I$(srctree)/drivers/misc/mediatek/mmp/			\
+             -I$(srctree)/drivers/misc/mediatek/mmdvfs/			\
+             -I$(srctree)/drivers/misc/mediatek/pmic/			\
+             -I$(srctree)/drivers/iommu/				\
+             -I$(srctree)/drivers/devfreq/				\
+             -I$(srctree)/drivers/gpu/drm/				\
+             -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/ \
+             -I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
+             -I$(srctree)/drivers/misc/mediatek/leds/ \
+             -I$(srctree)/drivers/misc/mediatek/leds/$(MTK_PLATFORM) \
+             -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/ \
+             -I$(srctree)/drivers/misc/mediatek/iommu/ \
+             -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/ \
+             -I$(srctree)/drivers/misc/mediatek/slbc/ \
+             -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/ \
+             -I$(srctree)/drivers/misc/mediatek/clkbuf/v1/inc/ \
+             -I$(srctree)/drivers/misc/mediatek/scp/include/ \
+             -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/mi_disp/ \
+             -I$(srctree)/drivers/gpu/drm/mediatek/mediatek_v2/ \

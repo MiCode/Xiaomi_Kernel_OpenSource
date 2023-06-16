@@ -19,7 +19,7 @@
 	/* System shutdown current */
 	FG_METER_RESISTANCE = <(70)>;
 	/* The resistance of PCB */
-	CAR_TUNE_VALUE = <(101)>;
+	CAR_TUNE_VALUE = <(100)>;
 	/* Tune value for current measurement */
 	PMIC_MIN_VOL = <(33500)>;
 	/* vboot voltage for gauge 0%*/
@@ -68,6 +68,6 @@
 	MULTI_TEMP_GAUGE0 = <(1)>;
 	/* Multi gauge0 enable */
 	RBAT_PULL_UP_VOLT = <(2800)>;
-#include "mt6789_battery_table.dtsi"
+#include "mt6789_battery_table_ext.dtsi"
 #include "mt6789_battery_prop_dim2_ext.dtsi"
 };

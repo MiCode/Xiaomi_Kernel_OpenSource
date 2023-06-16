@@ -385,6 +385,11 @@ config AXP288_FUEL_GAUGE
 	  monitoring as well as alerts for battery over/under voltage and
 	  over/under temperature.
 
+config BAT_ID_ADC
+	tristate "BAT_ID_ADC"
+	help
+	  BAT_ID_ADC
+
 config BATTERY_MAX17040
 	tristate "Maxim MAX17040 Fuel Gauge"
 	depends on I2C
@@ -611,6 +616,14 @@ config CHARGER_BQ2415X
 
 	  You'll need this driver to charge batteries on e.g. Nokia
 	  RX-51/N900.
+
+config CHARGER_BQ2589X
+	tristate "TI BQ2589X battery charger driver"
+	depends on I2C
+	depends on GPIOLIB || COMPILE_TEST
+	select REGMAP_I2C
+	help
+	  Say Y to enable support for the TI BQ2589X battery charger.
 
 config CHARGER_BQ24190
 	tristate "TI BQ24190 battery charger driver"

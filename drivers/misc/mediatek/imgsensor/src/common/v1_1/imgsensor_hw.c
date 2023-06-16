@@ -19,7 +19,6 @@ char * const imgsensor_hw_pin_names[] = {
 	"rst",
 	"vcama",
 	"vcama1",
-	"vcamaf",
 	"vcamd",
 	"vcamio",
 	"mipi_switch_en",
@@ -130,8 +129,8 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 				}
 			} else {
 				PK_DBG("NOTICE: imgsensor_hw_cfg hw_pin:%s, id:%d\n",
-					str_prop_name, IMGSENSOR_HW_ID_NONE);
-				ppwr_info->id = IMGSENSOR_HW_ID_NONE;
+					str_prop_name, ppwr_info->pin);
+				// ppwr_info->id = IMGSENSOR_HW_ID_NONE;
 			}
 			ppwr_info++;
 		}

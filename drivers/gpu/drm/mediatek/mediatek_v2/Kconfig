@@ -47,3 +47,5 @@ config MTK_RECU_FENCE_LOCK
 	  reduced to zero in fence signal flow because of linux fence
 	  limitation. So the option will control whether display run
 	  workaround flow.
+
+source "drivers/gpu/drm/mediatek/mediatek_v2/mi_disp/Kconfig"

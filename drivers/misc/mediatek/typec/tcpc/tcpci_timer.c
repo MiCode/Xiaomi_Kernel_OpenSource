@@ -1239,11 +1239,13 @@ void tcpc_enable_timer(struct tcpc_device *tcpc, uint32_t timer_id)
 
 	tout = tcpc_timer_timeout[timer_id];
 #if PD_DYNAMIC_SENDER_RESPONSE
+#if IS_ENABLED(CONFIG_USB_POWER_DELIVERY)
 	if ((timer_id == PD_TIMER_SENDER_RESPONSE) &&
 		(tout > tcpc->tx_time_diff) && (tcpc->tx_time_diff > 2000)) {
 		tout -= (tcpc->tx_time_diff - 2000);
 		tcpc->tx_time_diff = 0;
 	}
+#endif
 #endif
 
 #if CONFIG_USB_PD_RANDOM_FLOW_DELAY

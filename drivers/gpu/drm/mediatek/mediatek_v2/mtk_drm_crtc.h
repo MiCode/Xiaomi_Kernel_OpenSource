@@ -29,7 +29,6 @@
 #include "mtk_drm_ddp_addon.h"
 #include "mtk_disp_pmqos.h"
 #include "slbc_ops.h"
-
 #define MAX_CRTC 3
 #define OVL_LAYER_NR 12L
 #define OVL_PHY_LAYER_NR 4L
@@ -118,8 +117,10 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_TE1_EN (DISP_SLOT_DSI_STATE_DBG7_2 + 0x4)
 #define DISP_SLOT_SIZE (DISP_SLOT_TE1_EN + 0x4)
 
+#ifndef CONFIG_MI_DISP
 #if DISP_SLOT_SIZE > CMDQ_BUF_ALLOC_SIZE
 #error "DISP_SLOT_SIZE exceed CMDQ_BUF_ALLOC_SIZE"
+#endif
 #endif
 
 #define to_mtk_crtc(x) container_of(x, struct mtk_drm_crtc, base)
@@ -482,6 +483,42 @@ enum CWB_BUFFER_TYPE {
 	IMAGE_ONLY,
 	CARRY_METADATA,
 	BUFFER_TYPE_NR,
+};
+
+struct lcm {
+	struct device *dev;
+	struct drm_panel panel;
+	struct backlight_device *backlight;
+	struct gpio_desc *reset_gpio;
+	struct gpio_desc *bias_pos;
+	struct gpio_desc *bias_neg;
+	struct gpio_desc *dvdd_gpio;
+	struct gpio_desc *cam_gpio;
+	struct gpio_desc *leden_gpio;
+	struct gpio_desc *ktzen_gpio;
+	struct delayed_work esd_enable_delayed_work;
+
+	bool prepared;
+	bool enabled;
+	bool hbm_en;
+	bool wqhd_en;
+	bool dc_status;
+	bool hbm_enabled;
+
+	int error;
+	const char *panel_info;
+	int dynamic_fps;
+	u32 doze_brightness_state;
+
+	struct pinctrl *pinctrl_gpios;
+	struct pinctrl_state *err_flag_irq;
+
+	u32 max_brightness_clone;
+	struct mutex panel_lock;
+	int bl_max_level;
+	int gir_status;
+	int spr_status;
+	int crc_level;
 };
 
 struct mtk_crtc_path_data {

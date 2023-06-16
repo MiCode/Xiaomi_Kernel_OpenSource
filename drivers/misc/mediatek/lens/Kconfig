@@ -285,3 +285,12 @@ config MTK_LENS_WV511AAF_SUPPORT
 	  This config is used to enable the corresponding
 	  lens driver for the camera sensor module
 	  Set as y if the driver is used in this project
+
+config MTK_LENS_CN3927AF_SUPPORT
+        tristate "CN3927AF Lens Driver"
+        depends on MTK_LENS
+        help
+          CN3927AF Lens Driver
+          This config is used to enable the corresponding
+          lens driver for the camera sensor module
+          Set as y if the driver is used in this project

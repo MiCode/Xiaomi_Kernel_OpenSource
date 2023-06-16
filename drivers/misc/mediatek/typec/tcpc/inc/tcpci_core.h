@@ -233,6 +233,8 @@ struct tcpc_ops {
 	int (*alert_vendor_defined_handler)(struct tcpc_device *tcpc);
 	int (*set_auto_dischg_discnt)(struct tcpc_device *tcpc, bool en);
 	int (*get_vbus_voltage)(struct tcpc_device *tcpc, u32 *vbus);
+	int (*set_role)(struct tcpc_device *tcpc, int status);
+	int (*get_mode)(struct tcpc_device *tcpc, int *typec_mode);
 
 #if CONFIG_TCPC_VSAFE0V_DETECT_IC
 	int (*is_vsafe0v)(struct tcpc_device *tcpc);

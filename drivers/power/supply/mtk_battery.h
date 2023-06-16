@@ -36,6 +36,11 @@
 
 #define BMLOG_DEFAULT_LEVEL BMLOG_DEBUG_LEVEL
 
+#define TEMP_TABLE_ITEM_NUM   27
+#define SHUTDOWN_DELAY_VOL_LOW_COLD   3290
+#define SHUTDOWN_DELAY_VOL_LOW   3350
+#define SHUTDOWN_DELAY_VOL_HIGH   3450
+
 #define bm_err(fmt, args...)   \
 do {\
 	if (bat_get_debug_level() >= BMLOG_ERROR_LEVEL) {\
@@ -112,12 +117,20 @@ enum battery_property {
 	BAT_PROP_INIT_DONE,
 	BAT_PROP_FG_RESET,
 	BAT_PROP_LOG_LEVEL,
+	BAT_PROP_BAT_ID,
+	BAT_PROP_SHUTDOWN_DELAY,
+	BAT_PROP_SMART_BATT,
+	BAT_PROP_NIGHT_CHARGING,
+	BAT_PROP_INPUT_SUSPEND,
 };
 
 struct battery_data {
 	struct power_supply_desc psd;
 	struct power_supply_config psy_cfg;
 	struct power_supply *psy;
+	struct power_supply_desc bms_psd;
+	struct power_supply_config bms_psy_cfg;
+	struct power_supply *bms_psy;
 	struct power_supply *chg_psy;
 	struct notifier_block battery_nb;
 	int bat_status;
@@ -1074,6 +1087,15 @@ struct mtk_battery {
 	int (*resume)(struct mtk_battery *gm);
 
 	int log_level;
+	int thermal_level;
+	int fake_tbat;
+	int fake_soc;
+	/*shutdown delay*/
+	bool shutdown_delay;
+	bool fake_shutdown_delay_enable;
+	/*smart batt*/
+	int diff_fv_val;
+	int fake_cycle_count;
 };
 
 struct mtk_battery_sysfs_field_info {
@@ -1083,6 +1105,35 @@ struct mtk_battery_sysfs_field_info {
 		struct mtk_battery_sysfs_field_info *attr, int val);
 	int (*get)(struct mtk_battery *gm,
 		struct mtk_battery_sysfs_field_info *attr, int *val);
+};
+
+#define BMS_SYSFS_FIELD_RW(_name, _prop)	\
+{									 \
+	.attr	= __ATTR(_name, 0644, bms_sysfs_show, bms_sysfs_store),\
+	.prop	= _prop,	\
+	.set	= _name##_set,						\
+	.get	= _name##_get,						\
+}
+#define BMS_SYSFS_FIELD_RO(_name, _prop)	\
+{			\
+	.attr   = __ATTR(_name, 0444, bms_sysfs_show, bms_sysfs_store),\
+	.prop   = _prop,				  \
+	.get	= _name##_get,						\
+}
+enum bms_property {
+	BMS_PROP_SOC_DECIMAL,
+	BMS_PROP_SOC_DECIMAL_RATE,
+	BMS_PROP_SOH,
+	BMS_PROP_RESISTANCE,
+};
+
+struct mtk_bms_sysfs_field_info {
+	struct device_attribute attr;
+	enum bms_property prop;
+	int (*set)(struct mtk_battery *gm,
+		struct mtk_bms_sysfs_field_info *attr, int val);
+	int (*get)(struct mtk_battery *gm,
+		struct mtk_bms_sysfs_field_info *attr, int *val);
 };
 
 /* coulomb service */
@@ -1147,5 +1198,10 @@ extern void do_fg_algo(struct mtk_battery *gm, unsigned int intr_num);
 extern void fg_bat_temp_int_internal(struct mtk_battery *gm);
 /* mtk_battery_algo.c end */
 extern void disable_all_irq(struct mtk_battery *gm);
+
+#define SWD_MIN_VOLTAGE				1302450
+#define SWD_MAX_VOLTAGE				1439550
+#define COSMX_MIN_VOLTAGE			848350
+#define COSMX_MAX_VOLTAGE			937650
 
 #endif /* __MTK_BATTERY_INTF_H__ */

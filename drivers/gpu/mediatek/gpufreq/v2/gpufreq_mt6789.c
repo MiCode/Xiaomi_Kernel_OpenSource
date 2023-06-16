@@ -26,6 +26,9 @@
 #include <linux/printk.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
 
 #include <gpufreq_v2.h>
 #include <gpufreq_history_common.h>
@@ -645,12 +648,6 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 	if (power == POWER_ON && g_gpu.power_count == 1) {
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_01);
 
-		//set way_en, 0x1021504c [12:11] = 0x1 when power on
-		val = readl(g_infra_bcrm_base + 0x4C);
-		val |= (1UL << 11);
-		val |= (1UL << 12);
-		writel(val, g_infra_bcrm_base + 0x4C);
-
 		/* control Buck */
 		ret = __gpufreq_buck_control(POWER_ON);
 		if (unlikely(ret)) {
@@ -683,11 +680,6 @@ int __gpufreq_power_control(enum gpufreq_power_state power)
 		g_dvfs_state &= ~DVFS_POWEROFF;
 	} else if (power == POWER_OFF && g_gpu.power_count == 0) {
 		__gpufreq_footprint_power_step(GPUFREQ_POWER_STEP_05);
-
-		//set way_en, 0x1021504c [12] = 0x1 when power off
-		val = readl(g_infra_bcrm_base + 0x4C);
-		val |= (1UL << 12);
-		writel(val, g_infra_bcrm_base + 0x4C);
 
 		/* freeze DVFS when power off */
 		g_dvfs_state |= DVFS_POWEROFF;
@@ -1865,10 +1857,38 @@ static void __gpufreq_external_cg_control(void)
 static int __gpufreq_clock_control(enum gpufreq_power_state power)
 {
 	int ret = GPUFREQ_SUCCESS;
+	int i = 0;
 
 	GPUFREQ_TRACE_START("power=%d", power);
 
 	if (power == POWER_ON) {
+
+		ret = clk_prepare_enable(g_clk->clk_mux);
+		if (unlikely(ret)) {
+			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+				"fail to enable clk_mux (%d)", ret);
+			goto done;
+		}
+
+		__gpufreq_switch_clksrc(CLOCK_MAIN);
+		if (readl(g_topckgen_base + 0x50) & 0x40000) {
+			udelay(10);
+		} else {
+			GPUFREQ_LOGI("switch clock_main fail,switch again");
+
+			while ((~readl(g_topckgen_base + 0x50)) & 0x40000) {
+
+				__gpufreq_switch_clksrc(CLOCK_MAIN);
+				udelay(10);
+
+				if (++i > 5) {
+					__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
+					"fail to switch clock_main (%d)", i);
+					goto done;
+				}
+			}
+		}
+
 		ret = clk_prepare_enable(g_clk->subsys_bg3d);
 		if (unlikely(ret)) {
 			__gpufreq_abort(GPUFREQ_CCF_EXCEPTION,
@@ -1876,14 +1896,13 @@ static int __gpufreq_clock_control(enum gpufreq_power_state power)
 			goto done;
 		}
 
-		__gpufreq_switch_clksrc(CLOCK_MAIN);
-
 		__gpufreq_external_cg_control();
 
 		g_gpu.cg_count++;
 	} else {
-		__gpufreq_switch_clksrc(CLOCK_SUB);
 		clk_disable_unprepare(g_clk->subsys_bg3d);
+		__gpufreq_switch_clksrc(CLOCK_SUB);
+		clk_disable_unprepare(g_clk->clk_mux);
 		g_gpu.cg_count--;
 	}
 
@@ -2395,29 +2414,29 @@ static int __gpufreq_buck_control(enum gpufreq_power_state power)
 
 	/* power on */
 	if (power == POWER_ON) {
+		ret = regulator_enable(g_pmic->reg_vgpu);
+		if (unlikely(ret)) {
+			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to enable VGPU (%d)", ret);
+			goto done;
+		}
 		ret = regulator_enable(g_pmic->reg_vsram_gpu);
 		if (unlikely(ret)) {
 			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to enable VSRAM_GPU (%d)",
 			ret);
 			goto done;
 		}
-		ret = regulator_enable(g_pmic->reg_vgpu);
-		if (unlikely(ret)) {
-			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to enable VGPU (%d)", ret);
-			goto done;
-		}
 		g_gpu.buck_count++;
 	/* power off */
 	} else {
-		ret = regulator_disable(g_pmic->reg_vgpu);
-		if (unlikely(ret)) {
-			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to disable VGPU (%d)", ret);
-			goto done;
-		}
 		ret = regulator_disable(g_pmic->reg_vsram_gpu);
 		if (unlikely(ret)) {
 			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to disable VSRAM_GPU (%d)",
 			ret);
+			goto done;
+		}
+		ret = regulator_disable(g_pmic->reg_vgpu);
+		if (unlikely(ret)) {
+			__gpufreq_abort(GPUFREQ_PMIC_EXCEPTION, "fail to disable VGPU (%d)", ret);
 			goto done;
 		}
 		g_gpu.buck_count--;
@@ -3059,10 +3078,10 @@ static void __gpufreq_avs_adjustment(void)
 	 * Freq (MHz) | Signedoff Volt (V) | Efuse name | Efuse address
 	 * ============================================================
 	 * 1100       | 0.85               | PTPOD16    | 0x11C1_05C0
-	 * 700        | 0.65               | PTPOD17    | 0x11C1_05C4
-	 * 390        | 0.575              | PTPOD18    | 0x11C1_05C8
+	 * 700        | 0.7                | PTPOD17    | 0x11C1_05C4
+	 * 390        | 0.625              | PTPOD18    | 0x11C1_05C8
 	 *
-	 * 0.575 will not be lowered, but will increase according to
+	 * 0.625 will not be lowered, but will increase according to
 	 * the binning result for rescue yeild.
 	 */
 
@@ -3232,9 +3251,9 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	/* init working OPP range */
 	segment_id = g_gpu.segment_id;
 	if (segment_id == MT6789_SEGMENT)
-		g_gpu.segment_upbound = 0;
+		g_gpu.segment_upbound = 7;
 	else
-		g_gpu.segment_upbound = 8;
+		g_gpu.segment_upbound = 0;
 	g_gpu.segment_lowbound = SIGNED_OPP_GPU_NUM - 1;
 	g_gpu.signed_opp_num = SIGNED_OPP_GPU_NUM;
 
@@ -3316,18 +3335,47 @@ static void __iomem *__gpufreq_of_ioremap(const char *node_name, int idx)
 static int __gpufreq_init_segment_id(struct platform_device *pdev)
 {
 	unsigned int efuse_id = 0x0;
-	unsigned int segment_id = 0;
+	unsigned int segment_id = ENG_SEGMENT;
 	int ret = GPUFREQ_SUCCESS;
 
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		GPUFREQ_LOGE("fail to get efuse_segment_cell (%ld)", PTR_ERR(efuse_cell));
+		ret = PTR_ERR(efuse_cell);
+		goto done;
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		GPUFREQ_LOGE("fail to get efuse_buf (%ld)", PTR_ERR(efuse_buf));
+		ret = PTR_ERR(efuse_buf);
+		goto done;
+	}
+
+	efuse_id = (*efuse_buf & 0xFF);
+	kfree(efuse_buf);
+#else
+	efuse_id = 0x0;
+#endif /* CONFIG_MTK_DEVINFO */
+
 	switch (efuse_id) {
-	default:
+	case 0x1:
 		segment_id = MT6789_SEGMENT;
-		GPUFREQ_LOGW("unknown efuse id: 0x%x", efuse_id);
+		break;
+	default:
+		segment_id = ENG_SEGMENT;
 		break;
 	}
 
 	GPUFREQ_LOGI("efuse_id: 0x%x, segment_id: %d", efuse_id, segment_id);
 
+done:
 	g_gpu.segment_id = segment_id;
 
 	return ret;

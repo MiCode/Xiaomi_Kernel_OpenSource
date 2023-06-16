@@ -131,18 +131,27 @@
 /* threshold */
 #define HWOCV_SWOCV_DIFF			300
 #define HWOCV_SWOCV_DIFF_LT			1500
-#define HWOCV_SWOCV_DIFF_LT_TEMP	5
-#define HWOCV_OLDOCV_DIFF			400
-#define HWOCV_OLDOCV_DIFF_CHR		800
+#define HWOCV_SWOCV_DIFF_LT_TEMP		5
+
 #define SWOCV_OLDOCV_DIFF			300
-#define SWOCV_OLDOCV_DIFF_CHR		800
-#define VBAT_OLDOCV_DIFF			1000
-#define SWOCV_OLDOCV_DIFF_EMB		1000	/* 100mV */
+#define SWOCV_OLDOCV_DIFF_CHR			800
+#define SWOCV_OLDOCV_DIFF_EMB			1000	/* 100mV */
 
-#define VIR_OLDOCV_DIFF_EMB			10000	/* 1000mV */
-#define VIR_OLDOCV_DIFF_EMB_LT		10000	/* 1000mV */
-#define VIR_OLDOCV_DIFF_EMB_TMP		5
+#ifdef CONFIG_FACTORY_BUILD
+	#define HWOCV_OLDOCV_DIFF			0
+	#define HWOCV_OLDOCV_DIFF_CHR			0
+	#define VBAT_OLDOCV_DIFF			0
+	#define VIR_OLDOCV_DIFF_EMB			0
+	#define VIR_OLDOCV_DIFF_EMB_LT			0
+#else
+	#define HWOCV_OLDOCV_DIFF			400
+	#define HWOCV_OLDOCV_DIFF_CHR			800
+	#define VBAT_OLDOCV_DIFF			1000
+	#define VIR_OLDOCV_DIFF_EMB			10000	/* 1000mV */
+	#define VIR_OLDOCV_DIFF_EMB_LT			10000	/* 1000mV */
+#endif
 
+#define VIR_OLDOCV_DIFF_EMB_TMP			5
 #define TNEW_TOLD_PON_DIFF			5
 #define TNEW_TOLD_PON_DIFF2			15
 #define PMIC_SHUTDOWN_TIME			30
@@ -447,8 +456,10 @@ int g_temperature[MAX_TABLE] = {
 };
 
 
-#define BAT_NTC_10 1
+#define BAT_NTC_10 0
 #define BAT_NTC_47 0
+
+#define BAT_NTC_100 1
 
 #if (BAT_NTC_10 == 1)
 #define RBAT_PULL_UP_R             24000
@@ -456,6 +467,10 @@ int g_temperature[MAX_TABLE] = {
 
 #if (BAT_NTC_47 == 1)
 #define RBAT_PULL_UP_R             61900
+#endif
+
+#if (BAT_NTC_100 == 1)
+#define RBAT_PULL_UP_R             100000
 #endif
 
 #define RBAT_PULL_UP_VOLT          2800
@@ -514,6 +529,37 @@ struct fg_temp fg_temp_table[21] = {
 };
 #endif
 
+#if (BAT_NTC_100 == 1)
+struct fg_temp fg_temp_table[TEMP_TABLE_ITEM_NUM] = {
+		{-40, 4251000},
+		{-35, 3005000},
+		{-30, 2149000},
+		{-25, 1554000},
+		{-20, 1135000},
+		{-15, 837800},
+		{-10, 624100},
+		{-5, 469100},
+		{0, 355600},
+		{5, 271800},
+		{10, 209400},
+		{15, 162500},
+		{20, 127000},
+		{25, 100000},
+		{30, 79230},
+		{35, 63180},
+		{40, 50680},
+		{45, 40900},
+		{50, 33190},
+		{55, 27090},
+		{60, 22220},
+		{65, 18320},
+		{70, 15180},
+		{75, 12640},
+		{80, 10580},
+		{85, 8887},
+		{90, 7500}
+};
+#endif
 
 
 /* ============================================================

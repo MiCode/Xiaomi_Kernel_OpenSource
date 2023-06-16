@@ -28,6 +28,7 @@
 #include <sound/jack.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/mfd/mt6358/core.h>
+#include <linux/debugfs.h>
 #include "mt6358-accdet.h"
 #include "mt6358.h"
 
@@ -63,6 +64,47 @@
 #define EINT_PLUG_OUT			(0)
 #define EINT_PLUG_IN			(1)
 #define EINT_MOISTURE_DETECTED	(2)
+
+/* Audio Start */
+#define MEDIA_PREVIOUS_SCAN_CODE 257
+#define MEDIA_NEXT_SCAN_CODE 258
+/* Audio End */
+
+/* add headset_status */
+#define HEADSET_STATUS_RECORD
+#ifdef HEADSET_STATUS_RECORD
+#define HEADSET_STATUS_RECORD_INDEX_PLUGIN (0)
+#define HEADSET_STATUS_RECORD_INDEX_KEY_PREVIOUS (1)
+#define HEADSET_STATUS_RECORD_INDEX_KEY_NEXT (2)
+#define HEADSET_STATUS_RECORD_INDEX_KEY_MEDIA (3)
+#define HEADSET_STATUS_RECORD_INDEX_PLUGOUT (4)
+
+#define HEADSET_EVENT_PLUGIN_HEADPHONE (0)
+#define HEADSET_EVENT_PLUGIN_MICROPHONE (4)
+#define HEADSET_EVENT_PLUGIN_JACK (8)
+
+#define HEADSET_EVENT_KEY_PREVIOUS_DOWN (0)
+#define HEADSET_EVENT_KEY_PREVIOUS_UP (4)
+
+#define HEADSET_EVENT_KEY_NEXT_DOWN (0)
+#define HEADSET_EVENT_KEY_NEXT_UP (4)
+
+#define HEADSET_EVENT_KEY_MEDIA_DOWN (0)
+#define HEADSET_EVENT_KEY_MEDIA_UP (4)
+
+#define HEADSET_EVENT_PLUGOUT_HEADPHONE (0)
+#define HEADSET_EVENT_PLUGOUT_MICROPHONE (4)
+#define HEADSET_EVENT_PLUGOUT_JACK (8)
+
+#define DEBUGFS_DIR_NAME "accdet"
+#define DEBUGFS_HEADSET_STATUS_FILE_NAME "headset_status"
+#define HEADSET_EVENT_MAX (5)
+#define HEADSET_EVENT_OFFSET_MAX (12)
+static u16 headset_status[HEADSET_EVENT_MAX] = {0,0,0,0,0};
+static u32 headphone_status = 0;
+static u32 microphone_status = 0;
+static struct dentry* accdet_debugfs_dir;
+#endif
 
 struct mt63xx_accdet_data {
 	u32 base;
@@ -181,7 +223,70 @@ static void config_eint_init_by_mode(void);
 static u32 get_triggered_eint(void);
 static void send_status_event(u32 cable_type, u32 status);
 static inline void accdet_eint_high_level_support(void);
+
+#ifdef HEADSET_STATUS_RECORD
+static ssize_t headset_status_read(struct file *filp, char __user *buffer,
+	size_t count, loff_t *ppos);
+static ssize_t headset_status_write(struct file *filp, const char __user *buffer,
+	size_t count, loff_t *ppos);
+static void add_headset_event(u32 event_index, u32 event_offset);
+#endif
+
 /* global function declaration */
+#ifdef HEADSET_STATUS_RECORD
+static void add_headset_event(u32 event_index, u32 event_offset) {
+	u16 status;
+
+	if (event_index >= HEADSET_EVENT_MAX) {
+		return;
+	}
+
+	status = (headset_status[event_index] & (0xF << event_offset));
+	status += (0x1 << event_offset);
+	if (status > (0xF << event_offset)) {
+		status = (0xF << event_offset);
+	}
+
+	headset_status[event_index] = (headset_status[event_index] & (~(0xF << event_offset)))
+								  + status;
+
+	return;
+}
+
+static ssize_t headset_status_read(struct file *filp, char __user *buffer,
+	size_t count, loff_t *ppos) {
+	char buf[64];
+
+	sprintf(buf, "0x%04x 0x%04x 0x%04x 0x%04x 0x%04x\n",
+		headset_status[0], headset_status[1],
+		headset_status[2], headset_status[3],
+		headset_status[4]);
+
+	return simple_read_from_buffer(buffer, count, ppos, buf, strlen(buf));
+}
+
+static ssize_t headset_status_write(struct file *filp, const char __user *buffer,
+	size_t count, loff_t *ppos) {
+	char buf[4];
+	size_t buf_size = min(count, sizeof(buf) - 1);
+
+	if (copy_from_user(buf, buffer, buf_size))
+		return -EFAULT;
+
+	if (strncmp(buf, "0", 1) == 0) {
+		memset(headset_status, 0, sizeof(headset_status));
+	}
+
+	return count;
+}
+
+static const struct file_operations accdet_headset_status_fops = {
+    .owner = THIS_MODULE,
+    .read = headset_status_read,
+    .write = headset_status_write,
+};
+#endif
+
 inline u32 accdet_read(u32 addr)
 {
 	u32 val = 0;
@@ -778,18 +883,30 @@ static void send_key_event(u32 keycode, u32 flag)
 
 	switch (keycode) {
 	case DW_KEY:
+#ifdef HEADSET_STATUS_RECORD
+		add_headset_event(HEADSET_STATUS_RECORD_INDEX_KEY_NEXT,
+			flag ? HEADSET_EVENT_KEY_NEXT_DOWN : HEADSET_EVENT_KEY_NEXT_UP);
+#endif
 		if (flag != 0)
 			report = SND_JACK_BTN_1;
 		snd_soc_jack_report(&accdet->jack, report,
 				SND_JACK_BTN_1);
 		break;
 	case UP_KEY:
+#ifdef HEADSET_STATUS_RECORD
+		add_headset_event(HEADSET_STATUS_RECORD_INDEX_KEY_PREVIOUS,
+			flag ? HEADSET_EVENT_KEY_PREVIOUS_DOWN : HEADSET_EVENT_KEY_PREVIOUS_UP);
+#endif
 		if (flag != 0)
 			report = SND_JACK_BTN_2;
 		snd_soc_jack_report(&accdet->jack, report,
 				SND_JACK_BTN_2);
 		break;
 	case MD_KEY:
+#ifdef HEADSET_STATUS_RECORD
+		add_headset_event(HEADSET_STATUS_RECORD_INDEX_KEY_MEDIA,
+			flag ? HEADSET_EVENT_KEY_MEDIA_DOWN : HEADSET_EVENT_KEY_MEDIA_UP);
+#endif
 		if (flag != 0)
 			report = SND_JACK_BTN_0;
 		snd_soc_jack_report(&accdet->jack, report,
@@ -810,8 +927,25 @@ static void send_status_event(u32 cable_type, u32 status)
 
 	switch (cable_type) {
 	case HEADSET_NO_MIC:
-		if (status)
+#ifdef HEADSET_STATUS_RECORD
+		if (headphone_status != status) {
+			headphone_status = status;
+			add_headset_event(
+				status ? HEADSET_STATUS_RECORD_INDEX_PLUGIN : HEADSET_STATUS_RECORD_INDEX_PLUGOUT,
+				status ? HEADSET_EVENT_PLUGIN_HEADPHONE : HEADSET_EVENT_PLUGOUT_HEADPHONE);
+		}
+#endif
+		if (status) {
+#ifdef HEADSET_STATUS_RECORD
+			if (microphone_status != status) {
+				microphone_status = status;
+				add_headset_event(
+					status ? HEADSET_STATUS_RECORD_INDEX_PLUGIN : HEADSET_STATUS_RECORD_INDEX_PLUGOUT,
+					status ? HEADSET_EVENT_PLUGIN_MICROPHONE : HEADSET_EVENT_PLUGOUT_MICROPHONE);
+			}
+#endif
 			report = SND_JACK_HEADPHONE;
+		}
 		else
 			report = 0;
 		snd_soc_jack_report(&accdet->jack, report,
@@ -834,6 +968,14 @@ static void send_status_event(u32 cable_type, u32 status)
 		 * reported for slow plug-in case
 		 */
 		if (status == 0) {
+#ifdef HEADSET_STATUS_RECORD
+			if (headphone_status != status) {
+				headphone_status = status;
+				add_headset_event(
+					status ? HEADSET_STATUS_RECORD_INDEX_PLUGIN : HEADSET_STATUS_RECORD_INDEX_PLUGOUT,
+					status ? HEADSET_EVENT_PLUGIN_HEADPHONE : HEADSET_EVENT_PLUGOUT_HEADPHONE);
+			}
+#endif
 			report = 0;
 			snd_soc_jack_report(&accdet->jack, report,
 					SND_JACK_HEADPHONE);
@@ -842,7 +984,14 @@ static void send_status_event(u32 cable_type, u32 status)
 			report = SND_JACK_MICROPHONE;
 		else
 			report = 0;
-
+#ifdef HEADSET_STATUS_RECORD
+		if (microphone_status != status) {
+			microphone_status = status;
+			add_headset_event(
+				status ? HEADSET_STATUS_RECORD_INDEX_PLUGIN : HEADSET_STATUS_RECORD_INDEX_PLUGOUT,
+				status ? HEADSET_EVENT_PLUGIN_MICROPHONE : HEADSET_EVENT_PLUGOUT_MICROPHONE);
+		}
+#endif
 		snd_soc_jack_report(&accdet->jack, report,
 				SND_JACK_MICROPHONE);
 		pr_info("accdet MICROPHONE(4-pole) %s\n",
@@ -1967,8 +2116,8 @@ static void accdet_init_once(void)
 		accdet_update_bit(RG_AUDPWDBMICBIAS1_ADDR,
 				RG_AUDMICBIAS1DCSW1PEN_SFT);
 	}
-	/* enable analog fast discharge */
 
+/* disable analog fast discharge
 	if (accdet_dts.eint_pol == IRQ_TYPE_LEVEL_LOW) {
 		reg = accdet_read(RG_AUDSPARE_ADDR);
 		accdet_write(RG_AUDSPARE_ADDR, reg |
@@ -1978,6 +2127,7 @@ static void accdet_init_once(void)
 		reg = accdet_read(RG_AUDSPARE_ADDR);
 		accdet_write(RG_AUDSPARE_ADDR, (reg & (0xE0)));
 	}
+*/
 
 	if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_EINT_IRQ)) {
 		config_eint_init_by_mode();
@@ -2073,9 +2223,9 @@ int mt6358_accdet_init(struct snd_soc_component *component,
 	}
 
 	accdet->jack.jack->input_dev->id.bustype = BUS_HOST;
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, KEY_VOLUMEDOWN);
-	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, KEY_VOLUMEUP);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_1, MEDIA_NEXT_SCAN_CODE);
+	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_2, MEDIA_PREVIOUS_SCAN_CODE);
 	snd_jack_set_key(accdet->jack.jack, SND_JACK_BTN_3, KEY_VOICECOMMAND);
 
 	snd_soc_component_set_jack(component, &accdet->jack, NULL);
@@ -2317,6 +2467,15 @@ static int mt6358_accdet_probe(struct platform_device *pdev)
 	mod_timer(&accdet_init_timer, (jiffies + ACCDET_INIT_WAIT_TIMER));
 	pr_info("%s done!\n", __func__);
 
+#ifdef HEADSET_STATUS_RECORD
+	// new headset status record
+	accdet_debugfs_dir = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
+	if (!IS_ERR(accdet_debugfs_dir)) {
+		debugfs_create_file(DEBUGFS_HEADSET_STATUS_FILE_NAME, 0666,
+			accdet_debugfs_dir, NULL, &accdet_headset_status_fops);
+	}
+#endif
+
 	return 0;
 
 err_create_workqueue:
@@ -2354,6 +2513,24 @@ static long mt_accdet_unlocked_ioctl(struct file *file, unsigned int cmd,
 	}
 	return 0;
 }
+
+#if IS_ENABLED(CONFIG_USB_SWITCH_ET7480)
+void accdet_eint_callback_wrapper(unsigned int plug_status)
+{
+	int ret = 0;
+
+	pr_info("%s: call ex eint handler, plug_status %d\n", __func__, plug_status);
+
+	accdet->cur_eint_state = (plug_status == 1 ? EINT_PLUG_IN : EINT_PLUG_OUT);
+
+	pr_info("accdet %s(), cur_eint_state=%d\n", __func__, accdet->cur_eint_state);
+
+	ret = queue_work(accdet->eint_workqueue, &accdet->eint_work);
+
+	pr_info("%s: exit queue work\n", __func__);
+}
+EXPORT_SYMBOL(accdet_eint_callback_wrapper);
+#endif
 
 static const struct file_operations accdet_fops = {
 	.owner = THIS_MODULE,

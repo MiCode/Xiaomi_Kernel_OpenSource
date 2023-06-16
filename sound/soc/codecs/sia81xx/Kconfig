@@ -1,0 +1,5 @@
+config SND_SOC_SIA8159
+	tristate "SoC Audio for sia SIA8159 class D PA"
+	depends on I2C
+	help
+	  This option enables support for SIA8159 class D PA.

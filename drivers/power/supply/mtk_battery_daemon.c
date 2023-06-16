@@ -2715,7 +2715,8 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 		/* todo */
 		int is_charger_exist = 0;
 
-		if (gm->bs_data.bat_status == POWER_SUPPLY_STATUS_CHARGING)
+		if (gm->bs_data.bat_status == POWER_SUPPLY_STATUS_CHARGING
+		|| gm->bs_data.bat_status == POWER_SUPPLY_STATUS_FULL)
 			is_charger_exist = true;
 		else
 			is_charger_exist = false;
@@ -4173,15 +4174,15 @@ unsigned int TempConverBattThermistor(struct mtk_battery *gm, int temp)
 	ptable = gm->tmp_table;
 
 
-	if (temp >= ptable[20].BatteryTemp) {
-		TBatt_R_Value = ptable[20].TemperatureR;
+	if (temp >= ptable[TEMP_TABLE_ITEM_NUM-1].BatteryTemp) {
+		TBatt_R_Value = ptable[TEMP_TABLE_ITEM_NUM-1].TemperatureR;
 	} else if (temp <= ptable[0].BatteryTemp) {
 		TBatt_R_Value = ptable[0].TemperatureR;
 	} else {
 		RES1 = ptable[0].TemperatureR;
 		TMP1 = ptable[0].BatteryTemp;
 
-		for (i = 0; i <= 20; i++) {
+		for (i = 0; i <= TEMP_TABLE_ITEM_NUM-1; i++) {
 			if (temp <= ptable[i].BatteryTemp) {
 				RES2 = ptable[i].TemperatureR;
 				TMP2 = ptable[i].BatteryTemp;

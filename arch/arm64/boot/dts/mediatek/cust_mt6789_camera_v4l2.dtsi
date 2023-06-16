@@ -70,7 +70,7 @@
 	};
 };
 
-/* CAMERA AF */
+/* CAMERA AF
 &i2c8 {
 	camera_main_af_mtk:camera_main_af@72 {
 		compatible = "mediatek,camera_main_af";
@@ -99,4 +99,4 @@
 	camaf_m3_pmic-supply = <&rt5133_gpio1>;
 	status = "okay";
 };
-/* CAMERA AF end */
+CAMERA AF end */

@@ -16,6 +16,7 @@
 #include "mt6789-afe-clk.h"
 #include "mt6789-afe-gpio.h"
 #include "../../codecs/mt6358.h"
+#include "../../codecs/sia81xx/sipa_aux_dev_if.h"
 
 #if IS_ENABLED(CONFIG_SND_SOC_MT6366_ACCDET)
 #include "../../codecs/mt6358-accdet.h"
@@ -49,6 +50,17 @@ static const struct soc_enum mt6789_spk_type_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6789_spk_i2s_type_str),
 			    mt6789_spk_i2s_type_str),
 };
+
+extern int get_type_c_hph_direction(void);
+
+static int type_c_hph_direction_get (struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	int direction = get_type_c_hph_direction();
+	pr_debug("%s() = %d\n", __func__, direction);
+	ucontrol->value.integer.value[0] = direction;
+	return 0;
+}
 
 static int mt6789_spk_type_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
@@ -121,6 +133,8 @@ static const struct snd_kcontrol_new mt6789_mt6366_controls[] = {
 		     mt6789_spk_i2s_out_type_get, NULL),
 	SOC_ENUM_EXT("MTK_SPK_I2S_IN_TYPE_GET", mt6789_spk_type_enum[1],
 		     mt6789_spk_i2s_in_type_get, NULL),
+	SOC_SINGLE_EXT("USB Headset Direction", SND_SOC_NOPM, 0, 1, 0,
+			type_c_hph_direction_get, NULL),
 };
 
 /*
@@ -1197,6 +1211,12 @@ static int mt6789_mt6366_dev_probe(struct platform_device *pdev)
 #endif
 
 	card->dev = &pdev->dev;
+
+	//add for sia init
+     ret = soc_aux_init_only_sia81xx(pdev, card);
+	if (ret)
+		dev_err(&pdev->dev, "%s soc_aux_init_only_sia81xx fail %d\n",
+			__func__, ret);
 
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret)

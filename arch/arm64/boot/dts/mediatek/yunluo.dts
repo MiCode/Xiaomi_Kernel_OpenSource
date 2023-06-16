@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (C) 2022 XiaoMi, Inc.
+ */
+
+#include "mediatek/yunluo-mt6789.dtsi"
+#include <yunluo/cust.dtsi>
+#include <dt-bindings/gpio/gpio.h>
+
+&gpio_keys {
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpio_keys_pins>;
+
+	hall_key {
+		label = "hall_key";
+		gpios = <&pio 5 GPIO_ACTIVE_LOW>;
+		linux,code = <0>;
+		wakeup-source;
+		gpio-key,wakeup = <1>;
+		linux,input-type = <5>;
+		debounce_interval = <20>;
+	};
+};
+
+&pio {
+	gpio_keys_pins: gpio_keys_pins {
+		hall_pins {
+			pinmux = <PINMUX_GPIO5__FUNC_GPIO5>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+};

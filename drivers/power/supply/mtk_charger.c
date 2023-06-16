@@ -62,6 +62,9 @@
 
 #include "mtk_charger.h"
 #include "mtk_battery.h"
+#include "pmic_voter.h"
+
+static struct mtk_charger *pinfo = NULL;
 
 struct tag_bootmode {
 	u32 size;
@@ -475,7 +478,22 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 		info->data.charging_host_charger_current =
 					CHARGING_HOST_CHARGER_CURRENT;
 	}
-
+	/*fast charger current*/
+	if (of_property_read_u32(np, "fast_charger_current", &val) >= 0) 
+		info->data.fast_charger_current = val;
+	else {
+		chr_err("use default FAST_CHARGER_CURRENT:%d\n",
+			FAST_CHARGER_CURRENT);
+		info->data.fast_charger_current = FAST_CHARGER_CURRENT;
+	}
+	/*float charger current*/
+	if (of_property_read_u32(np, "float_charger_current", &val) >= 0)
+		info->data.float_charger_current = val;
+	else {
+		chr_err("use default FLOAT_CHARGER_CURRENT:%d\n",
+			FLOAT_CHARGER_CURRENT);
+		info->data.float_charger_current = FLOAT_CHARGER_CURRENT;
+	}
 	/* dynamic mivr */
 	info->enable_dynamic_mivr =
 			of_property_read_bool(np, "enable_dynamic_mivr");
@@ -505,6 +523,46 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	/* fast charging algo support indicator */
 	info->enable_fast_charging_indicator =
 			of_property_read_bool(np, "enable_fast_charging_indicator");
+	/*xiaomi dynamic mivr*/
+	if (of_property_read_u32(np, "ffc_cv_1", &val) >= 0)
+		info->ffc_cv_1 = val;
+	else {
+		chr_err("use default ffc_cv_1: %d\n", FFC_CV_1);
+		info->ffc_cv_1 = FFC_CV_1;
+	}
+	if (of_property_read_u32(np, "ffc_cv_2", &val) >= 0)
+		info->ffc_cv_2 = val;
+	else {
+		chr_err("use default ffc_cv_2: %d\n", FFC_CV_2);
+		info->ffc_cv_2 = FFC_CV_2;
+	}
+	if (of_property_read_u32(np, "ffc_cv_3", &val) >= 0)
+		info->ffc_cv_3 = val;
+	else {
+		chr_err("use default ffc_cv_3: %d\n", FFC_CV_3);
+		info->ffc_cv_3 = FFC_CV_3;
+	}
+	if (of_property_read_u32(np, "chg_cycle_count_level1", &val) >= 0)
+		info->chg_cycle_count_level1 = val;
+	else {
+		chr_err("use chg_cycle_count_level1: %d\n",
+			CHG_CYCLEC_COUNT_LEVEL1);
+		info->chg_cycle_count_level1 = CHG_CYCLEC_COUNT_LEVEL1;
+	}
+	if (of_property_read_u32(np, "chg_cycle_count_level2", &val) >= 0)
+		info->chg_cycle_count_level2 = val;
+	else {
+		chr_err("use chg_cycle_count_level2: %d\n",
+			CHG_CYCLEC_COUNT_LEVEL2);
+		info->chg_cycle_count_level2 = CHG_CYCLEC_COUNT_LEVEL2;
+	}
+	if (of_property_read_u32(np, "chg_cycle_count_level3", &val) >= 0)
+		info->chg_cycle_count_level3 = val;
+	else {
+		chr_err("use chg_cycle_count_level3: %d\n",
+			CHG_CYCLEC_COUNT_LEVEL3);
+		info->chg_cycle_count_level3 = CHG_CYCLEC_COUNT_LEVEL3;
+	}
 }
 
 static void mtk_charger_start_timer(struct mtk_charger *info)
@@ -563,7 +621,7 @@ static void check_battery_exist(struct mtk_charger *info)
 static void check_dynamic_mivr(struct mtk_charger *info)
 {
 	int i = 0, ret = 0;
-	int vbat = 0;
+	//int vbat = 0;
 	bool is_fast_charge = false;
 	struct chg_alg_device *alg = NULL;
 
@@ -581,20 +639,70 @@ static void check_dynamic_mivr(struct mtk_charger *info)
 			break;
 		}
 	}
-
+#if 0
 	if (!is_fast_charge) {
 		vbat = get_battery_voltage(info);
 		if (vbat < info->data.min_charger_voltage_2 / 1000 - 200)
 			charger_dev_set_mivr(info->chg1_dev,
-				info->data.min_charger_voltage_2);
+			info->data.min_charger_voltage_2);
 		else if (vbat < info->data.min_charger_voltage_1 / 1000 - 200)
 			charger_dev_set_mivr(info->chg1_dev,
-				info->data.min_charger_voltage_1);
+			info->data.min_charger_voltage_1);
 		else
 			charger_dev_set_mivr(info->chg1_dev,
-				info->data.min_charger_voltage);
+			info->data.min_charger_voltage);
 	}
+#endif
 }
+
+void smart_batt_set_diff_fv(int val)
+{
+	if(pinfo == NULL)
+		return;
+	chr_err("%s diff_fv_val=%d\n", __func__, val);
+	pinfo->diff_fv_val = val;
+}
+EXPORT_SYMBOL(smart_batt_set_diff_fv);
+
+void night_charging_set_flag(bool night_charging)
+{
+	if(pinfo == NULL)
+		return;
+	pinfo->night_charging = night_charging;
+	chr_err("%s pinfo->night_charging=%d\n", __func__, pinfo->night_charging);
+}
+EXPORT_SYMBOL(night_charging_set_flag);
+int night_charging_get_flag()
+{
+	if(pinfo ==NULL)
+		return 0;
+	chr_err("%s pinfo->night_charging=%d\n", __func__, pinfo->night_charging);
+	return pinfo->night_charging;
+}
+EXPORT_SYMBOL(night_charging_get_flag);
+
+int input_suspend_get_flag(void)
+{
+	if(pinfo ==NULL)
+		return 0;
+	chr_err("%s pinfo->input_suspend=%d\n", __func__, pinfo->input_suspend);
+	return pinfo->input_suspend;
+}
+EXPORT_SYMBOL(input_suspend_get_flag);
+extern bool is_input_suspend;
+int input_suspend_set_flag(int val)
+{
+	int input_suspend = 0;
+
+	input_suspend = !!val;
+	if (pinfo) {
+		pinfo->input_suspend = input_suspend;
+		is_input_suspend = input_suspend;
+	}
+	chr_err("%s %d input_suspend =%d\n", __func__, val, pinfo->input_suspend);
+	return 0;
+}
+EXPORT_SYMBOL(input_suspend_set_flag);
 
 /* sw jeita */
 void do_sw_jeita_state_machine(struct mtk_charger *info)
@@ -1942,7 +2050,6 @@ int mtk_chg_enable_vbus_ovp(bool enable)
 	return ret;
 }
 EXPORT_SYMBOL(mtk_chg_enable_vbus_ovp);
-
 /* return false if vbus is over max_charger_voltage */
 static bool mtk_chg_check_vbus(struct mtk_charger *info)
 {
@@ -2395,6 +2502,9 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	pdata1->input_current_limit_by_aicl = -1;
 	pdata2->disable_charging_count = 0;
 
+	info->charge_full = false;
+	info->recharge = false;
+
 	notify.evt = EVT_PLUG_OUT;
 	notify.value = 0;
 	for (i = 0; i < MAX_ALG_NO; i++) {
@@ -2404,8 +2514,15 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	memset(&info->sc.data, 0, sizeof(struct scd_cmd_param_t_1));
 	wakeup_sc_algo_cmd(&info->sc.data, SC_EVENT_PLUG_OUT, 0);
 	charger_dev_set_input_current(info->chg1_dev, 100000);
-	charger_dev_set_mivr(info->chg1_dev, info->data.min_charger_voltage);
+	//charger_dev_set_mivr(info->chg1_dev, info->data.min_charger_voltage);
 	charger_dev_plug_out(info->chg1_dev);
+	charger_dev_do_event(info->chg1_dev, EVENT_DISCHARGE, 0);
+	vote(info->icl_votable, ICL_VOTER, false, 0);
+	if (info->jeita_support) {
+		cancel_delayed_work_sync(&info->charge_monitor_work);
+		reset_step_jeita_charge(info);
+		chr_err("%s cancel_monitor_delayed_work_sync\n", __func__);
+	}
 	mtk_charger_force_disable_power_path(info, CHG1_SETTING, true);
 
 	if (info->enable_vbat_mon)
@@ -2436,6 +2553,8 @@ static int mtk_charger_plug_in(struct mtk_charger *info,
 	info->stop_6pin_re_en = false;
 	info->batpro_done = false;
 
+	info->charge_full = false;
+
 	chr_err("mtk_is_charger_on plug in, type:%d\n", chr_type);
 
 	vbat = get_battery_voltage(info);
@@ -2452,6 +2571,10 @@ static int mtk_charger_plug_in(struct mtk_charger *info,
 	info->sc.disable_in_this_plug = false;
 	wakeup_sc_algo_cmd(&info->sc.data, SC_EVENT_PLUG_IN, 0);
 	charger_dev_plug_in(info->chg1_dev);
+	if (info->jeita_support) {
+		schedule_delayed_work(&info->charge_monitor_work, msecs_to_jiffies(2000));
+		chr_err("%s schedule_monitor_delayed_work\n", __func__);
+	}
 	mtk_charger_force_disable_power_path(info, CHG1_SETTING, false);
 
 	return 0;
@@ -2461,7 +2584,6 @@ static int mtk_charger_plug_in(struct mtk_charger *info,
 static bool mtk_is_charger_on(struct mtk_charger *info)
 {
 	int chr_type;
-
 	chr_type = get_charger_type(info);
 	if (chr_type == POWER_SUPPLY_TYPE_UNKNOWN) {
 		if (info->chr_type != POWER_SUPPLY_TYPE_UNKNOWN) {
@@ -2571,7 +2693,7 @@ static void charger_status_check(struct mtk_charger *info)
 	info->is_charging = charging;
 }
 
-
+#if 0
 static char *dump_charger_type(int chg_type, int usb_type)
 {
 	switch (chg_type) {
@@ -2588,10 +2710,13 @@ static char *dump_charger_type(int chg_type, int usb_type)
 		return "std";
 	//case POWER_SUPPLY_TYPE_USB_FLOAT:
 	//	return "nonstd";
+	case POWER_SUPPLY_TYPE_USB_PD:
+		return "hvdcp";
 	default:
 		return "unknown";
 	}
 }
+#endif
 
 static int charger_routine_thread(void *arg)
 {
@@ -2646,18 +2771,6 @@ static int charger_routine_thread(void *arg)
 
 		if (vbat_min != 0)
 			vbat_min = vbat_min / 1000;
-
-		chr_err("Vbat=%d vbats=%d vbus:%d ibus:%d I=%d T=%d uisoc:%d type:%s>%s pd:%d swchg_ibat:%d cv:%d\n",
-			get_battery_voltage(info),
-			vbat_min,
-			get_vbus(info),
-			get_ibus(info),
-			get_battery_current(info),
-			info->battery_temp,
-			get_uisoc(info),
-			dump_charger_type(info->chr_type, info->usb_type),
-			dump_charger_type(get_charger_type(info), get_usb_type(info)),
-			info->pd_type, get_ibat(info), chg_cv);
 
 		is_charger_on = mtk_is_charger_on(info);
 
@@ -3337,7 +3450,7 @@ static char *mtk_charger_supplied_to[] = {
 static int mtk_charger_probe(struct platform_device *pdev)
 {
 	struct mtk_charger *info = NULL;
-	int i;
+	int i, ret = 0;
 	char *name = NULL;
 	struct netlink_kernel_cfg cfg = {
 		.input = chg_nl_data_handler,
@@ -3349,7 +3462,10 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (!info)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, info);
+	pinfo = info;
 	info->pdev = pdev;
+	info->diff_fv_val = 0;
+	info->night_charging = false;
 
 	mtk_charger_parse_dt(info, &pdev->dev);
 
@@ -3474,6 +3590,13 @@ static int mtk_charger_probe(struct platform_device *pdev)
 		register_adapter_device_notifier(info->pd_adapter,
 						 &info->pd_nb);
 	}
+
+	ret = step_jeita_init(info, &pdev->dev);
+	if (ret < 0) {
+		chr_err("failed to register step_jeita charge\n");
+		info->jeita_support = false;
+	} else
+		info->jeita_support = true;
 
 	info->sc.daemo_nl_sk = netlink_kernel_create(&init_net, NETLINK_CHG, &cfg);
 

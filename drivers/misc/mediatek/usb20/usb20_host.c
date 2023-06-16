@@ -358,6 +358,7 @@ static void do_host_work(struct work_struct *data)
 		container_of(data, struct mt_usb_work, dwork.work);
 	/* struct mt_usb_glue *glue = mtk_musb->glue; */
 
+	__pm_stay_awake(mtk_musb->usb_lock);
 	/*
 	 * kernel_init_done should be set in
 	 * early-init stage through init.$platform.usb.rc
@@ -457,6 +458,7 @@ static void do_host_work(struct work_struct *data)
 			queue_delayed_work(mtk_musb->st_wq,
 						&host_plug_test_work, 0);
 		usb_clk_state = OFF_TO_ON;
+		mtk_musb->xceiv->otg->state = OTG_STATE_A_HOST;
 	}  else if (!host_on && mtk_musb->is_host) {
 		/* switch from host -> device */
 		/* for device no disconnect interrupt */
@@ -512,6 +514,10 @@ static void do_host_work(struct work_struct *data)
 		/* clock no change : clk_prepare_cnt -1 */
 		usb_prepare_clock(false);
 	}
+
+	mdelay(1000);
+	__pm_relax(mtk_musb->usb_lock);
+
 	/* free mt_usb_work */
 	kfree(work);
 }

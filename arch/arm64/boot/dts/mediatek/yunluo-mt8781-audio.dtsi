@@ -1,0 +1,148 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+&odm {
+	si_pa_L_one: si_pa_L_one{
+		compatible = "si,sia81xx";
+		si,si_pa_type = "sia81x9";
+		si,si_pa_disable_pin = <1>;
+		channel_num = <0>;
+                owi_mode = <1>;
+		};
+	si_pa_L_two: si_pa_L_two{
+		compatible = "si,sia81xx";
+		si,si_pa_type = "sia81x9";
+		si,si_pa_disable_pin = <1>;
+		channel_num = <1>;
+                owi_mode = <1>;
+		};
+	si_pa_R_one: si_pa_R_one{
+		compatible = "si,sia81xx";
+		si,si_pa_type = "sia81x9";
+		si,si_pa_disable_pin = <1>;
+		channel_num = <2>;
+                owi_mode = <1>;
+		};
+	si_pa_R_two: si_pa_R_two{
+		compatible = "si,sia81xx";
+		si,si_pa_type = "sia81x9";
+		si,si_pa_disable_pin = <1>;
+		channel_num = <3>;
+                owi_mode = <1>;
+		};
+ };
+&sound {
+	si,sia81xx-max-num = <4>;
+	si,sia81xx-aux-devs = <&si_pa_L_one>,<&si_pa_L_two>,<&si_pa_R_one>,<&si_pa_R_two>;
+	si,sia81xx-aux-devs-prefix = "SpkrLeft One","SpkrLeft Two","SpkrRight One","SpkrRight Two";
+};
+
+&i2c3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c3_pin>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <400000>;
+	mediatek,use-open-drain;
+
+	sipa_i2c_L_one: sipa_i2c@28{
+		compatible = "si,sia81xx-i2c";
+		reg = <0x28>;
+		si,sipa-dev = <&si_pa_L_one>;
+		status = "okay";
+		};
+
+	sipa_i2c_L_two: sipa_i2c@29{
+		compatible = "si,sia81xx-i2c";
+		reg = <0x29>;
+		si,sipa-dev = <&si_pa_L_two>;
+		status = "okay";
+		};
+};
+
+&i2c7{
+    #address-cells = <1>;
+    #size-cells = <0>;
+	clock-frequency = <400000>;
+	mediatek,use-open-drain;
+
+	sipa_i2c_R_one: sipa_i2c@28{
+		compatible = "si,sia81xx-i2c";
+		reg = <0x28>;
+		si,sipa-dev = <&si_pa_R_one>;
+		status = "okay";
+		};
+
+	sipa_i2c_R_two: sipa_i2c@29{
+		compatible = "si,sia81xx-i2c";
+		reg = <0x29>;
+		si,sipa-dev = <&si_pa_R_two>;
+		status = "okay";
+		};
+};
+
+&pio {
+	i2c3_pin: i2c3_pin {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO137__FUNC_SDA3>,
+				 <PINMUX_GPIO136__FUNC_SCL3>;
+				 bias-pull-up;
+		};
+	};
+};
+
+/* Audio Switch start */
+&pio {
+	uart_gpio_enable: uart_gpio_enable@gpio111 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO111__FUNC_GPIO111>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	uart_gpio_disable: uart_gpio_disable@gpio111 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO111__FUNC_GPIO111>;
+			slew-rate = <1>;
+			bias-disable;
+			output-high;
+		};
+	};
+};
+
+&i2c6 {
+	et7480: et7480@42 {
+		status = "ok";
+		compatible = "mediatek,et7480-audioswitch";
+		reg = <0x42>;
+		pinctrl-names = "uart_enable", "uart_disable";
+		pinctrl-0 = <&uart_gpio_enable>;
+		pinctrl-1 = <&uart_gpio_disable>;
+	};
+};
+
+&accdet {
+	/* accdet micbias voltage: 0x09:2.85v 0x08:2.8v 0x07,
+	 * 2.7v;0x05,2.5v;0x02,1.9v
+	 */
+	accdet-mic-vol = <5>;
+
+	/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
+	accdet-mic-mode = <1>;
+
+	et7480-i2c-handle = <&et7480>;
+};
+/* Audio Switch end */
+

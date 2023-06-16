@@ -9,9 +9,11 @@
 #include <linux/alarmtimer.h>
 #include "charger_class.h"
 #include "adapter_class.h"
+#include "pmic_voter.h"
 #include "mtk_charger_algorithm_class.h"
 #include <linux/power_supply.h>
 #include "mtk_smartcharging.h"
+#include "step_jeita_charge.h"
 
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
@@ -45,6 +47,12 @@ do {								\
 	}							\
 } while (0)
 
+#define is_between(left, right, value)				\
+			(((left) >= (right) && (left) >= (value)	\
+				&& (value) >= (right))			\
+			|| ((left) <= (right) && (left) <= (value)	\
+				&& (value) <= (right)))
+
 struct mtk_charger;
 struct charger_data;
 #define BATTERY_CV 4350000
@@ -56,9 +64,11 @@ struct charger_data;
 #define USB_CHARGER_CURRENT_CONFIGURED		500000 /* 500mA */
 #define USB_CHARGER_CURRENT			500000 /* 500mA */
 #define AC_CHARGER_CURRENT			2050000
-#define AC_CHARGER_INPUT_CURRENT		3200000
+#define AC_CHARGER_INPUT_CURRENT		2050000
 #define NON_STD_AC_CHARGER_CURRENT		500000
-#define CHARGING_HOST_CHARGER_CURRENT		650000
+#define CHARGING_HOST_CHARGER_CURRENT		1500000
+#define FAST_CHARGER_CURRENT			3600000
+#define FLOAT_CHARGER_CURRENT			1000000
 
 /* dynamic mivr */
 #define V_CHARGER_MIN_1 4400000 /* 4.4 V */
@@ -126,6 +136,14 @@ struct battery_thermal_protection_data {
 #define TEMP_T0_THRES_PLUS_X_DEGREE  0
 #define TEMP_NEG_10_THRES 0
 
+/*xiaomi dynamic mivr*/
+#define FFC_CV_1 4450000
+#define FFC_CV_2 4434000
+#define FFC_CV_3 4416000
+#define CHG_CYCLEC_COUNT_LEVEL1 1
+#define CHG_CYCLEC_COUNT_LEVEL2 100
+#define CHG_CYCLEC_COUNT_LEVEL3 300
+
 /*
  * Software JEITA
  * T0: -10 degree Celsius
@@ -174,6 +192,8 @@ struct charger_custom_data {
 	int ac_charger_current;
 	int ac_charger_input_current;
 	int charging_host_charger_current;
+	int fast_charger_current;
+	int float_charger_current;
 
 	/* sw jeita */
 	int jeita_temp_above_t4_cv;
@@ -375,6 +395,47 @@ struct mtk_charger {
 	bool force_disable_pp[CHG2_SETTING + 1];
 	bool enable_pp[CHG2_SETTING + 1];
 	struct mutex pp_lock[CHG2_SETTING + 1];
+
+	/*vote*/
+	struct votable	*fcc_votable;
+	struct votable	*fv_votable;
+	struct votable	*icl_votable;
+	struct votable	*iterm_votable;
+	/*jeita*/
+	struct delayed_work charge_monitor_work;
+	bool jeita_support;
+	bool bbc_charge_done;
+	bool bbc_charge_enable;
+	int thermal_level;
+	int last_thermal_level;
+	int thermal_limit[THERMAL_LIMIT_TUPLE][THERMAL_LIMIT_COUNT];
+	int thermal_current;
+	struct step_jeita_cfg0 jeita_fv_cfg[STEP_JEITA_TUPLE_COUNT];
+	struct step_jeita_cfg1 jeita_fcc_cfg[STEP_JEITA_TUPLE_COUNT];
+	int step_fallback_hyst;
+	int step_forward_hyst;
+	int jeita_fallback_hyst;
+	int jeita_forward_hyst;
+	int jeita_chg_index[2];
+	int jeita_chg_fcc;
+	int current_now;
+	int vbat_now;
+	int temp_now;
+	int soc;
+	bool charge_full;
+	bool recharge;
+	struct power_supply *battery_psy;
+	int diff_fv_val;
+	bool night_charging;
+	int cycle_count;
+	int ffc_cv_1;
+	int ffc_cv_2;
+	int ffc_cv_3;
+	int chg_cycle_count_level1;
+	int chg_cycle_count_level2;
+	int chg_cycle_count_level3;
+	bool is_bat_ovp;
+	int input_suspend;
 };
 
 static inline int mtk_chg_alg_notify_call(struct mtk_charger *info,
@@ -418,9 +479,14 @@ extern int get_charger_input_current(struct mtk_charger *info,
 extern int get_charger_zcv(struct mtk_charger *info,
 	struct charger_device *chg);
 extern void _wake_up_charger(struct mtk_charger *info);
-
+extern void smart_batt_set_diff_fv(int val);
+extern void night_charging_set_flag(bool night_charging);
+extern int night_charging_get_flag(void);
+extern int input_suspend_set_flag(int val);
+extern int input_suspend_get_flag(void);
 /* functions for other */
 extern int mtk_chg_enable_vbus_ovp(bool enable);
+extern int charger_manager_enable_chg_type_det(bool en);
 
 
 #endif /* __MTK_CHARGER_H */

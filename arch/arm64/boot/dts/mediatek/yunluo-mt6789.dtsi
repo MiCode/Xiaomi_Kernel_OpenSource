@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2021 MediaTek Inc.
+ * Copyright (C) 2022 XiaoMi, Inc.
+ */
+
+#include "mediatek/xiaomi-mt6789-common.dtsi"
+#include "yunluo-mt8781-audio.dtsi"
+
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio =	<&pio 7 0>;
+	};
+};
+
+&u2port0 {
+	mediatek,eye-vrt = <7>;
+	mediatek,eye-term = <4>;
+	mediatek,rev6 = <0x3>;
+	mediatek,discth = <0xf>;
+	mediatek,eye-vrt-host = <7>;
+	mediatek,eye-term-host = <4>;
+	mediatek,rev6-host = <0x3>;
+	mediatek,discth-host = <0xf>;
+};

@@ -905,6 +905,9 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb, u8 devctl)
 			if (!musb->is_active)
 				break;
 		case OTG_STATE_B_PERIPHERAL:
+			#ifdef CONFIG_FACTORY_BUILD
+				break;
+			#endif
 			musb_g_suspend(musb);
 			musb->is_active = otg->gadget->b_hnp_enable;
 			if (musb->is_active) {
@@ -3138,16 +3141,16 @@ static void usb_dpidle_request(int mode)
 }
 #endif
 
-#ifdef DISABLE_FOR_BRING_UP
 #if IS_ENABLED(CONFIG_USB_MTK_OTG)
 static struct regmap *pericfg;
+static struct regmap *infracg;
 
 static void mt_usb_wakeup(struct musb *musb, bool enable)
 {
 	u32 tmp;
 	bool is_con = musb->port1_status & USB_PORT_STAT_CONNECTION;
 
-	if (IS_ERR_OR_NULL(pericfg)) {
+	if (IS_ERR_OR_NULL(pericfg) || IS_ERR_OR_NULL(infracg)) {
 		DBG(0, "init fail");
 		return;
 	}
@@ -3155,24 +3158,37 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 	DBG(0, "connection=%d\n", is_con);
 
 	if (enable) {
-		regmap_read(pericfg, USB_WAKEUP_DEC_CON1, &tmp);
-		tmp |= USB1_CDDEBOUNCE(0x8) | USB1_CDEN;
-		regmap_write(pericfg, USB_WAKEUP_DEC_CON1, tmp);
-
-		tmp = musb_readw(musb->mregs, RESREG);
+		tmp = musb_readl(musb->mregs, RESREG);
 		if (is_con)
 			tmp &= ~HSTPWRDWN_OPT;
 		else
 			tmp |= HSTPWRDWN_OPT;
-		musb_writew(musb->mregs, RESREG, tmp);
+		musb_writel(musb->mregs, RESREG, tmp);
+
+		regmap_read(infracg, MISC_CONFIG, &tmp);
+		tmp |= USB_CD_CLR;
+		regmap_write(infracg, MISC_CONFIG, tmp);
+
+		mdelay(5);
+
+		regmap_read(pericfg, USB_WK_CTRL, &tmp);
+		tmp |= USB_CDDEBOUNCE(0x8) | USB_CDEN;
+		regmap_write(pericfg, USB_WK_CTRL, tmp);
+
+		mdelay(5);
+
+		regmap_read(infracg, MISC_CONFIG, &tmp);
+		tmp &= ~USB_CD_CLR;
+		regmap_write(infracg, MISC_CONFIG, tmp);
 	} else {
-		regmap_read(pericfg, USB_WAKEUP_DEC_CON1, &tmp);
-		tmp &= ~(USB1_CDEN | USB1_CDDEBOUNCE(0xf));
-		regmap_write(pericfg, USB_WAKEUP_DEC_CON1, tmp);
+		regmap_read(pericfg, USB_WK_CTRL, &tmp);
+		tmp &= ~(USB_CDEN | USB_CDDEBOUNCE(0x8));
+		regmap_write(pericfg, USB_WK_CTRL, tmp);
 
 		tmp = musb_readw(musb->mregs, RESREG);
 		tmp &= ~HSTPWRDWN_OPT;
 		musb_writew(musb->mregs, RESREG, tmp);
+
 		if (is_con && !musb->is_active) {
 			DBG(0, "resume with device connected\n");
 			musb->is_active = 1;
@@ -3184,8 +3200,7 @@ static int mt_usb_wakeup_init(struct musb *musb)
 {
 	struct device_node *node;
 
-	node = of_find_compatible_node(NULL, NULL,
-					"mediatek,mt6765-usb20");
+	node = musb->glue->dev->of_node;
 
 	if (!node) {
 		DBG(0, "map node failed\n");
@@ -3199,10 +3214,16 @@ static int mt_usb_wakeup_init(struct musb *musb)
 		return PTR_ERR(pericfg);
 	}
 
+	infracg = syscon_regmap_lookup_by_phandle(node,
+					"infracg");
+	if (IS_ERR(infracg)) {
+		DBG(0, "fail to get infracg regs\n");
+		return PTR_ERR(infracg);
+	}
+
 	return 0;
 }
 #endif
-#endif /* End of if 0  */
 
 static u32 cable_mode = CABLE_MODE_NORMAL;
 #ifndef FPGA_PLATFORM
@@ -4212,7 +4233,7 @@ static int mt_usb_init(struct musb *musb)
 #if IS_ENABLED(CONFIG_USB_MTK_OTG)
 	mt_usb_otg_init(musb);
 	/* enable host suspend mode */
-	/* mt_usb_wakeup_init(musb); */
+	mt_usb_wakeup_init(musb);
 	musb->host_suspend = true;
 #endif
 	DBG(0, "%s done\n", __func__);
@@ -4285,7 +4306,7 @@ static const struct musb_platform_ops mt_usb_ops = {
 	.prepare_clk = mt_usb_prepare_clk,
 	.unprepare_clk = mt_usb_unprepare_clk,
 #if IS_ENABLED(CONFIG_USB_MTK_OTG)
-	/* .enable_wakeup = mt_usb_wakeup, */
+	.enable_wakeup = mt_usb_wakeup,
 #endif
 };
 

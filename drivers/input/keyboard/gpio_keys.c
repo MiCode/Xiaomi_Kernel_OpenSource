@@ -114,6 +114,7 @@ static int get_n_events_by_type(int type)
  * Return value of this function can be used to allocate bitmap
  * large enough to hold all bits for given type.
  */
+ #if 0
 static const unsigned long *get_bm_events_by_type(struct input_dev *dev,
 						  int type)
 {
@@ -121,6 +122,7 @@ static const unsigned long *get_bm_events_by_type(struct input_dev *dev,
 
 	return (type == EV_KEY) ? dev->keybit : dev->swbit;
 }
+#endif
 
 /**
  * gpio_keys_disable_button() - disables given GPIO button
@@ -135,6 +137,7 @@ static const unsigned long *get_bm_events_by_type(struct input_dev *dev,
  * this function to avoid races when concurrent threads are
  * disabling buttons at the same time.
  */
+ #if 0
 static void gpio_keys_disable_button(struct gpio_button_data *bdata)
 {
 	if (!bdata->disabled) {
@@ -151,6 +154,7 @@ static void gpio_keys_disable_button(struct gpio_button_data *bdata)
 		bdata->disabled = true;
 	}
 }
+#endif
 
 /**
  * gpio_keys_enable_button() - enables given GPIO button
@@ -162,6 +166,7 @@ static void gpio_keys_disable_button(struct gpio_button_data *bdata)
  * this function to avoid races with concurrent threads trying
  * to enable the same button at the same time.
  */
+ #if 0
 static void gpio_keys_enable_button(struct gpio_button_data *bdata)
 {
 	if (bdata->disabled) {
@@ -169,6 +174,7 @@ static void gpio_keys_enable_button(struct gpio_button_data *bdata)
 		bdata->disabled = false;
 	}
 }
+#endif
 
 /**
  * gpio_keys_attr_show_helper() - fill in stringified bitmap of buttons
@@ -228,6 +234,7 @@ static ssize_t gpio_keys_attr_show_helper(struct gpio_keys_drvdata *ddata,
  * GPIO buttons accordingly. Returns 0 on success and negative error
  * on failure.
  */
+#if 0
 static ssize_t gpio_keys_attr_store_helper(struct gpio_keys_drvdata *ddata,
 					   const char *buf, unsigned int type)
 {
@@ -264,6 +271,7 @@ static ssize_t gpio_keys_attr_store_helper(struct gpio_keys_drvdata *ddata,
 		}
 	}
 
+
 	mutex_lock(&ddata->disable_lock);
 
 	for (i = 0; i < ddata->pdata->nbuttons; i++) {
@@ -284,6 +292,8 @@ out:
 	bitmap_free(bits);
 	return error;
 }
+#endif
+
 
 #define ATTR_SHOW_FN(name, type, only_disabled)				\
 static ssize_t gpio_keys_show_##name(struct device *dev,		\
@@ -299,8 +309,8 @@ static ssize_t gpio_keys_show_##name(struct device *dev,		\
 
 ATTR_SHOW_FN(keys, EV_KEY, false);
 ATTR_SHOW_FN(switches, EV_SW, false);
-ATTR_SHOW_FN(disabled_keys, EV_KEY, true);
-ATTR_SHOW_FN(disabled_switches, EV_SW, true);
+//ATTR_SHOW_FN(disabled_keys, EV_KEY, true);
+//ATTR_SHOW_FN(disabled_switches, EV_SW, true);
 
 /*
  * ATTRIBUTES:
@@ -328,8 +338,8 @@ static ssize_t gpio_keys_store_##name(struct device *dev,		\
 	return count;							\
 }
 
-ATTR_STORE_FN(disabled_keys, EV_KEY);
-ATTR_STORE_FN(disabled_switches, EV_SW);
+//ATTR_STORE_FN(disabled_keys, EV_KEY);
+//ATTR_STORE_FN(disabled_switches, EV_SW);
 
 /*
  * ATTRIBUTES:
@@ -337,18 +347,18 @@ ATTR_STORE_FN(disabled_switches, EV_SW);
  * /sys/devices/platform/gpio-keys/disabled_keys [rw]
  * /sys/devices/platform/gpio-keys/disables_switches [rw]
  */
-static DEVICE_ATTR(disabled_keys, S_IWUSR | S_IRUGO,
-		   gpio_keys_show_disabled_keys,
-		   gpio_keys_store_disabled_keys);
-static DEVICE_ATTR(disabled_switches, S_IWUSR | S_IRUGO,
-		   gpio_keys_show_disabled_switches,
-		   gpio_keys_store_disabled_switches);
+//static DEVICE_ATTR(disabled_keys, S_IWUSR | S_IRUGO,
+//		   gpio_keys_show_disabled_keys,
+//		   gpio_keys_store_disabled_keys);
+//static DEVICE_ATTR(disabled_switches, S_IWUSR | S_IRUGO,
+//		   gpio_keys_show_disabled_switches,
+//		   gpio_keys_store_disabled_switches);
 
 static struct attribute *gpio_keys_attrs[] = {
 	&dev_attr_keys.attr,
 	&dev_attr_switches.attr,
-	&dev_attr_disabled_keys.attr,
-	&dev_attr_disabled_switches.attr,
+	//&dev_attr_disabled_keys.attr,
+	//&dev_attr_disabled_switches.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(gpio_keys);

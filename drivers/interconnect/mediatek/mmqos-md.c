@@ -20,6 +20,7 @@ static int mmqos_req_md_type(void *data)
 	int ret = 0;
 
 	while (retry_cnt < MMQOS_MD_REQ_RETRY_MAX) {
+
 #if IS_ENABLED(CONFIG_MTK_ECCCI_DRIVER)
 		ret = exec_ccci_kern_func_by_md_id(
 			MD_SYS1, MD_NR_BAND_ACTIVATE_INFO, NULL, 0);

@@ -58,6 +58,10 @@
 #include <linux/reboot.h>
 
 #include "mtk_charger.h"
+#include "pmic_voter.h"
+
+#define QC11W_INPUT_CURR  1400000
+#define QC11W_CHARGE_CURR  2400000
 
 static int _uA_to_mA(int uA)
 {
@@ -123,6 +127,10 @@ static bool support_fast_charging(struct mtk_charger *info)
 	return ret;
 }
 
+bool qc_11w_detect;
+bool mtbf_test;
+EXPORT_SYMBOL(qc_11w_detect);
+EXPORT_SYMBOL(mtbf_test);
 static bool select_charging_current_limit(struct mtk_charger *info,
 	struct chg_limit_setting *setting)
 {
@@ -146,6 +154,15 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		goto done;
 	}
 
+	if (mtbf_test && info->chr_type == POWER_SUPPLY_TYPE_USB) {
+		pdata->input_current_limit =
+					info->data.charging_host_charger_current;
+		pdata->charging_current_limit =
+					info->data.charging_host_charger_current;
+		is_basic = true;
+		goto done;
+	}
+
 	if (info->water_detected) {
 		pdata->input_current_limit = info->data.usb_charger_current;
 		pdata->charging_current_limit = info->data.usb_charger_current;
@@ -164,7 +181,8 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		&& (info->chr_type == POWER_SUPPLY_TYPE_USB ||
 		info->chr_type == POWER_SUPPLY_TYPE_USB_CDP)
 		) {
-		pdata->input_current_limit = 100000; /* 100mA */
+		pdata->input_current_limit = 500000; /* 500mA */
+		pdata->charging_current_limit = 500000;
 		is_basic = true;
 		goto done;
 	}
@@ -196,12 +214,24 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		}
 	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB &&
 	    info->usb_type == POWER_SUPPLY_USB_TYPE_DCP) {
-		/* NONSTANDARD_CHARGER */
+		/* NONSTANDARD_CHARGER  && FLOAT*/
 		pdata->input_current_limit =
-			info->data.usb_charger_current;
+			info->data.float_charger_current;
 		pdata->charging_current_limit =
-			info->data.usb_charger_current;
+			info->data.float_charger_current;
 		is_basic = true;
+	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB_PD) {
+		/* HVDCP_CHARGER */
+		if(qc_11w_detect){
+			chr_err("now adpter is qc_11w\n");
+			pdata->input_current_limit = QC11W_INPUT_CURR;
+			pdata->charging_current_limit = QC11W_CHARGE_CURR; //qc_11w
+			is_basic = true;
+		}else{
+			pdata->input_current_limit = info->data.ac_charger_input_current;
+			pdata->charging_current_limit = info->data.fast_charger_current;
+			is_basic = true;
+		}
 	} else {
 		/*chr_type && usb_type cannot match above, set 500mA*/
 		pdata->input_current_limit =
@@ -359,6 +389,9 @@ done:
 	return is_basic;
 }
 
+
+bool is_input_suspend;
+EXPORT_SYMBOL(is_input_suspend);
 static int do_algorithm(struct mtk_charger *info)
 {
 	struct chg_alg_device *alg;
@@ -378,15 +411,12 @@ static int do_algorithm(struct mtk_charger *info)
 		if (chg_done) {
 			charger_dev_do_event(info->chg1_dev, EVENT_FULL, 0);
 			info->polling_interval = CHARGING_FULL_INTERVAL;
-			chr_err("%s battery full\n", __func__);
 		} else {
 			charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
 			info->polling_interval = CHARGING_INTERVAL;
-			chr_err("%s battery recharge\n", __func__);
 		}
 	}
 
-	chr_err("%s is_basic:%d\n", __func__, is_basic);
 	if (is_basic != true) {
 		is_basic = true;
 		for (i = 0; i < MAX_ALG_NO; i++) {
@@ -468,16 +498,19 @@ static int do_algorithm(struct mtk_charger *info)
 	info->is_chg_done = chg_done;
 
 	if (is_basic == true) {
-		charger_dev_set_input_current(info->chg1_dev,
+		if(is_input_suspend)
+			charger_dev_set_input_current(info->chg1_dev, 0);
+		else
+			charger_dev_set_input_current(info->chg1_dev,
 			pdata->input_current_limit);
-		charger_dev_set_charging_current(info->chg1_dev,
-			pdata->charging_current_limit);
-
+		vote(info->fcc_votable, FCC_VOTER, true, pdata->charging_current_limit / 1000);
 		chr_debug("%s:old_cv=%d,cv=%d, vbat_mon_en=%d\n",
 			__func__,
 			info->old_cv,
 			info->setting.cv,
 			info->setting.vbat_mon_en);
+		/* not use mtk default code modify cv voltage */
+#if 0
 		if (info->old_cv == 0 || (info->old_cv != info->setting.cv)
 		    || info->setting.vbat_mon_en == 0) {
 			charger_dev_enable_6pin_battery_charging(
@@ -495,6 +528,7 @@ static int do_algorithm(struct mtk_charger *info)
 					info->chg1_dev, true);
 			}
 		}
+#endif
 	}
 
 	if (pdata->input_current_limit == 0 ||
@@ -504,7 +538,12 @@ static int do_algorithm(struct mtk_charger *info)
 		alg = get_chg_alg_by_name("pe5");
 		ret = chg_alg_is_algo_ready(alg);
 		if (!(ret == ALG_READY || ret == ALG_RUNNING))
-			charger_dev_enable(info->chg1_dev, true);
+		{
+			if(info->is_bat_ovp || info->charge_full)
+				charger_dev_enable(info->chg1_dev,  false);
+			else
+				charger_dev_enable(info->chg1_dev,  true);
+		}
 	}
 
 	if (info->chg1_dev != NULL)
@@ -535,7 +574,10 @@ static int enable_charging(struct mtk_charger *info,
 		charger_dev_enable(info->chg1_dev, false);
 		charger_dev_do_event(info->chg1_dev, EVENT_DISCHARGE, 0);
 	} else {
-		charger_dev_enable(info->chg1_dev, true);
+			if(info->is_bat_ovp || info->charge_full)
+				charger_dev_enable(info->chg1_dev,  false);
+			else
+				charger_dev_enable(info->chg1_dev,  true);
 		charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
 	}
 
@@ -651,9 +693,62 @@ static int dvchg2_dev_event(struct notifier_block *nb, unsigned long event,
 	return NOTIFY_OK;
 }
 
+static int mt_charger_fcc_vote_callback(struct votable *votable, void *data, int value, const char *client)
+{
+	struct mtk_charger *mpci = data;
+	int ret = 0;
+
+	if (value > 3600)
+		value = 3600 * 1000;
+	else
+		value = value * 1000;
+
+	ret = charger_dev_set_charging_current(mpci->chg1_dev, value);
+	if (ret) {
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mt_charger_fv_vote_callback(struct votable *votable, void *data, int value, const char *client)
+{
+	struct mtk_charger *mpci = data;
+	int ret = 0;
+
+	mpci->data.battery_cv = value;
+	ret = charger_dev_set_constant_voltage(mpci->chg1_dev, value * 1000);
+	if (ret) {
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mtk_charger_create_votable(struct mtk_charger *mpci)
+{
+	int rc = 0;
+
+	mpci->fcc_votable = create_votable("CHARGER_FCC", VOTE_MIN, mt_charger_fcc_vote_callback, mpci);
+	if (IS_ERR(mpci->fcc_votable)) {
+		return -1;
+	}
+
+	mpci->fv_votable = create_votable("CHARGER_FV", VOTE_MIN, mt_charger_fv_vote_callback, mpci);
+	if (IS_ERR(mpci->fv_votable)) {
+		return -1;
+	}
+
+	return rc;
+}
 
 int mtk_basic_charger_init(struct mtk_charger *info)
 {
+	int ret = 0;
+
+	ret = mtk_charger_create_votable(info);
+	if (ret)
+		chr_err("failed to create charger voter\n");
 
 	info->algo.do_algorithm = do_algorithm;
 	info->algo.enable_charging = enable_charging;
