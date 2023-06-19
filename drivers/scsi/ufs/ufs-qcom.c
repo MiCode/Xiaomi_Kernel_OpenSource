@@ -27,14 +27,13 @@
 #include <soc/qcom/minidump.h>
 #include <linux/nvmem-consumer.h>
 
+
+#define CREATE_TRACE_POINTS
+#include "ufs-qcom-trace.h"
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
 #include "unipro.h"
 #include "ufs-qcom.h"
-
-#define CREATE_TRACE_POINTS
-#include "ufs-qcom-trace.h"
-
 #include "ufshci.h"
 #include "ufs_quirks.h"
 #include "ufshcd-crypto-qti.h"
@@ -2320,27 +2319,14 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 			err = ufs_qcom_set_bus_vote(hba, true);
 			if (ufs_qcom_is_link_hibern8(hba))
 				ufs_qcom_phy_set_src_clk_h8_exit(phy);
-
-			if (!host->ref_clki->enabled) {
-				err = clk_prepare_enable(host->ref_clki->clk);
-				if (!err)
-					host->ref_clki->enabled = on;
-				else
-					ufs_qcom_msg(ERR, hba->dev,
-						"%s: Fail dev-ref-clk enabled, ret=%d\n",
-						__func__, err);
-				}
-
-			if (!host->core_unipro_clki->enabled) {
-				err = clk_prepare_enable(host->core_unipro_clki->clk);
-				if (!err)
-					host->core_unipro_clki->enabled = on;
-				else
-					ufs_qcom_msg(ERR, hba->dev,
-						"%s: Fail core-unipro-clk enabled, ret=%d\n",
-						__func__, err);
-			}
-
+			/* Device ref clk should be enabled before Unipro clock */
+			err = clk_prepare_enable(host->ref_clki->clk);
+			if (!err)
+				host->ref_clki->enabled = on;
+			else
+				ufs_qcom_msg(ERR, hba->dev,
+					"%s: Fail dev-ref-clk enabled, ret=%d\n",
+					__func__, err);
 		} else {
 			if (!ufs_qcom_is_link_active(hba)) {
 				clk_disable_unprepare(host->core_unipro_clki->clk);

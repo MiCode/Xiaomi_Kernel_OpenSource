@@ -707,7 +707,7 @@ config QCOM_WATCHDOG_BARK_TIME
 	depends on QCOM_WDT_CORE
 	int "Qualcomm Technologies, Inc. Watchdog bark time in ms"
 	default 11000
-	range 11000 11000
+	range 11000 15000
 	help
 	  The amount of time, in milliseconds, that should elapse after
 	  a watchdog timer reset before a bark interrupt is sent from the
@@ -1279,6 +1279,12 @@ config ICNSS2_DEBUG
 	  primarily includes providing additional verbose logs for certain
 	  features, enabling kernel panic for certain cases to aid the
 	  debugging, and enabling any other debug mechanisms.
+config QCOM_MINIDUMP_LAST_KMSG
+       bool "export /proc/last_kmsg"
+       depends on QCOM_MINIDUMP
+       help
+         When the option is enabled, last_kmsg will export a proc filesystem
+         interface /proc/last_kmsg.
 
 config RENAME_DEVICES
 	tristate "Rename  block and network device names"

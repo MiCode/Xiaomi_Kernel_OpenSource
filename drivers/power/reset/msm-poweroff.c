@@ -62,7 +62,13 @@ static int download_mode = 1;
 static struct kobject dload_kobj;
 
 static int in_panic;
+
+#ifdef CONFIG_LAST_LOG_MINIDUMP
+static int dload_type = SCM_DLOAD_BOTHDUMPS;
+#else
 static int dload_type = SCM_DLOAD_FULLDUMP;
+#endif
+
 static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
@@ -129,9 +135,27 @@ static struct kobj_type reset_ktype = {
 	.sysfs_ops	= &reset_sysfs_ops,
 };
 
+static void update_panic_reboot_reason(void)
+{
+	u8 reason = PON_RESTART_REASON_PANIC;
+
+	pr_info("%s entered\n", __func__);
+	if (reason && nvmem_cell)
+		nvmem_cell_write(nvmem_cell, &reason, sizeof(reason));
+	else
+		qpnp_pon_set_restart_reason(
+			(enum pon_restart_reason)reason);
+
+	/*outer_flush_all is not supported by 64bit kernel*/
+#ifndef CONFIG_ARM64
+	outer_flush_all();
+#endif
+}
+
 static int panic_prep_restart(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
+	update_panic_reboot_reason();
 	in_panic = 1;
 	return NOTIFY_DONE;
 }
@@ -149,7 +173,6 @@ static void set_dload_mode(int on)
 		/* Make sure the download cookie is updated */
 		mb();
 	}
-
 	qcom_scm_set_download_mode(on ? dload_type : 0,
 				   tcsr_boot_misc_detect ? : 0);
 
@@ -159,29 +182,6 @@ static void set_dload_mode(int on)
 static bool get_dload_mode(void)
 {
 	return dload_mode_enabled;
-}
-
-static void enable_emergency_dload_mode(void)
-{
-	if (emergency_dload_mode_addr) {
-		__raw_writel(EMERGENCY_DLOAD_MAGIC1,
-				emergency_dload_mode_addr);
-		__raw_writel(EMERGENCY_DLOAD_MAGIC2,
-				emergency_dload_mode_addr +
-				sizeof(unsigned int));
-		__raw_writel(EMERGENCY_DLOAD_MAGIC3,
-				emergency_dload_mode_addr +
-				(2 * sizeof(unsigned int)));
-
-		/* Need disable the pmic wdt, then the emergency dload mode
-		 * will not auto reset.
-		 */
-		qpnp_pon_wd_config(0);
-		/* Make sure all the cookied are flushed to memory */
-		mb();
-	}
-
-	qcom_scm_set_download_mode(SCM_EDLOAD_MODE, tcsr_boot_misc_detect ?: 0);
 }
 
 static int dload_set(const char *val, const struct kernel_param *kp)
@@ -382,6 +382,7 @@ static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
 		return -EINVAL;
 	}
 
+    pr_err("%s: dload_type=0x%x\n", __func__, dload_type);
 	mutex_lock(&tcsr_lock);
 	/*Overwrite TCSR reg*/
 	set_dload_mode(dload_type);
@@ -417,7 +418,7 @@ static void msm_restart_prepare(const char *cmd)
 		if (get_dload_mode() ||
 			((cmd != NULL && cmd[0] != '\0') &&
 			!strcmp(cmd, "edl")))
-			need_warm_reset = true;
+			need_warm_reset = false;
 	} else {
 		need_warm_reset = (get_dload_mode() ||
 				(cmd != NULL && cmd[0] != '\0'));
@@ -459,18 +460,19 @@ static void msm_restart_prepare(const char *cmd)
 			if (!ret)
 				__raw_writel(0x6f656d00 | (code & 0xff),
 					     restart_reason);
-		} else if (!strncmp(cmd, "edl", 3)) {
-			enable_emergency_dload_mode();
 		} else {
+			reason = PON_RESTART_REASON_NORMAL;
 			__raw_writel(0x77665501, restart_reason);
 		}
-
-		if (reason && nvmem_cell)
-			nvmem_cell_write(nvmem_cell, &reason, sizeof(reason));
-		else
-			qpnp_pon_set_restart_reason(
-				(enum pon_restart_reason)reason);
+	} else {
+		reason = PON_RESTART_REASON_NORMAL;
+		__raw_writel(0x77665501, restart_reason);
 	}
+	if (reason && nvmem_cell)
+		nvmem_cell_write(nvmem_cell, &reason, sizeof(reason));
+	else
+		qpnp_pon_set_restart_reason(
+			(enum pon_restart_reason)reason);
 
 	/*outer_flush_all is not supported by 64bit kernel*/
 #ifndef CONFIG_ARM64

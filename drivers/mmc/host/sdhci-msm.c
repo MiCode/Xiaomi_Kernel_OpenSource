@@ -2480,7 +2480,7 @@ static int sdhci_msm_setup_vreg(struct sdhci_msm_host *msm_host,
 	/* Disable always_on regulator during reboot/shutdown */
 	if (mmc->card &&
 		mmc->card->ext_csd.power_off_notification == EXT_CSD_NO_POWER_NOTIFICATION)
-		return ret;
+		vreg_table[1]->is_always_on = false;
 
 	if (!enable && !(mmc->caps & MMC_CAP_NONREMOVABLE)) {
 

@@ -1538,7 +1538,7 @@ static const struct msm_pingroup khaje_groups[] = {
 };
 
 static const int khaje_reserved_gpios[] = {
-	0, 1, 2, 3, 14, 15, 16, 17, -1
+	14, 15, 16, 17, -1
 };
 
 static const struct msm_gpio_wakeirq_map khaje_mpm_map[] = {

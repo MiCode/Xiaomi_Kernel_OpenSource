@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menu "No PMI Technologies, Inc. Charger and Fuel Gauge support"
+
+config BQ2589X_CHARGER
+	tristate "TI BQ2589X Battery Charger"
+	depends on I2C_MSM_GENI
+	help
+	  Say Y to include support for BQ2589X Battery Charger.
+
+config CHARGER_SC8551
+	tristate "SC8551 Divider Charger Driver"
+	depends on I2C_MSM_GENI
+	help
+	  Say Y here to enable support of sc8551 divider charger
+	  It is mainly used as divider charger for
+	  direct charge
+
+config FG_SM5602
+	tristate "sm5602 fuel Gauge support"
+	depends on I2C_MSM_GENI
+	help
+	  This adds support for battery fuel gauge sm5602.
+	  The fuelgauge calculates and determines the battery state of charge
+	  according to battery open circuit voltage.
+
+config CHARGER_PD_POLICY
+	tristate "Charger PD Policy control"
+	depends on TCPC_RT1711H
+	help
+	  Say Y here to enable support of sc8551 divider charger
+	  It is mainly used as divider charger for
+	  direct charge
+
+config LN8000_CHARGER
+	tristate "ln LN8000 Battery Charger"
+	depends on I2C
+	help
+	  Say Y to include support for LN8000 Battery Charger.
+
+config QCOM_PMIC_VOTER
+	tristate "QCOM pmic voter driver"
+	help
+	  Say Y to include support for QCOM pmic voter driver.
+
+endmenu

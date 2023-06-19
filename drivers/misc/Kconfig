@@ -522,4 +522,23 @@ source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
 source "drivers/misc/uacce/Kconfig"
 source "drivers/misc/pvpanic/Kconfig"
+# BSP.System - 2022.4.2 - add simtray status
+source "drivers/misc/simtray/Kconfig"
+
+config ANT_CHECK
+       tristate "ant check gpio"
+       help
+         Say 'y' here to include support for the QTI QPNP MISC
+         peripheral. The MISC peripheral holds the USB ID interrupt
+         and the driver provides an API to check if this interrupt
+         is available on the current PMIC chip.
+
+config ANT_CHECK_DIV
+       tristate "ant check div gpio"
+       help
+         Say 'y' here to include support for the QTI QPNP MISC
+         peripheral. The MISC peripheral holds the USB ID interrupt
+         and the driver provides an API to check if this interrupt
+         is available on the current PMIC chip.
+
 endmenu

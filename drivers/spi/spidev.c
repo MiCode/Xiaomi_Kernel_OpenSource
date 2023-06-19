@@ -115,7 +115,9 @@ spidev_sync_write(struct spidev_data *spidev, size_t len)
 	struct spi_transfer	t = {
 			.tx_buf		= spidev->tx_buffer,
 			.len		= len,
-			.speed_hz	= spidev->speed_hz,
+			.speed_hz	= 960000,	//spidev->speed_hz
+			//.delay_usecs = 0,
+			//.cs_change   = 0,
 		};
 	struct spi_message	m;
 
@@ -155,6 +157,16 @@ spidev_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 	spidev = filp->private_data;
 
 	mutex_lock(&spidev->buf_lock);
+	/* 2021.08.18 longcheer xugui added for buffer kmalloc size begin */
+	if (!spidev->rx_buffer) {
+		spidev->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->rx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto read_unlock;
+		}
+	}
+	/* 2021.08.18 longcheer xugui added for buffer kmalloc size end */
 	status = spidev_sync_read(spidev, count);
 	if (status > 0) {
 		unsigned long	missing;
@@ -165,6 +177,12 @@ spidev_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
 		else
 			status = status - missing;
 	}
+/* 2021.08.18 longcheer xugui added for buffer kmalloc size begin */
+	kfree(spidev->rx_buffer);
+	spidev->rx_buffer = NULL;
+
+read_unlock:
+/* 2021.08.18 longcheer xugui added for buffer kmalloc size end */
 	mutex_unlock(&spidev->buf_lock);
 
 	return status;
@@ -180,17 +198,36 @@ spidev_write(struct file *filp, const char __user *buf,
 	unsigned long		missing;
 
 	/* chipselect only toggles at start or end of operation */
-	if (count > bufsiz)
+	/* 2021.08.18 longcheer xugui removed for buffer kmalloc size begin */
+	/*if (count > bufsiz)
 		return -EMSGSIZE;
+	*/
+	/* 2021.08.18 longcheer xugui removed for buffer kmalloc size end */
 
 	spidev = filp->private_data;
 
 	mutex_lock(&spidev->buf_lock);
+	/* 2021.08.18 longcheer xugui added for buffer kmalloc size begin */
+	if (!spidev->tx_buffer) {
+		spidev->tx_buffer = kmalloc(count, GFP_KERNEL);
+		if (!spidev->tx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto write_unlock;
+		}
+	}
+	/* 2021.08.18 longcheer xugui added for buffer kmalloc size end */
 	missing = copy_from_user(spidev->tx_buffer, buf, count);
 	if (missing == 0)
 		status = spidev_sync_write(spidev, count);
 	else
 		status = -EFAULT;
+/* 2021.08.18 longcheer xugui added for buffer kmalloc size begin */
+	kfree(spidev->tx_buffer);
+	spidev->tx_buffer = NULL;
+
+write_unlock:
+/* 2021.08.18 longcheer xugui added for buffer kmalloc size end */
 	mutex_unlock(&spidev->buf_lock);
 
 	return status;
@@ -216,6 +253,24 @@ static int spidev_message(struct spidev_data *spidev,
 	 * We walk the array of user-provided transfers, using each one
 	 * to initialize a kernel version of the same transfer.
 	 */
+	/* 2021.08.18 longcheer xugui added for buffer kmalloc size begin */
+	if (!spidev->rx_buffer) {
+		spidev->rx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->rx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto rxbuffer_err;
+		}
+	}
+	if (!spidev->tx_buffer) {
+		spidev->tx_buffer = kmalloc(bufsiz, GFP_KERNEL);
+		if (!spidev->tx_buffer) {
+			dev_dbg(&spidev->spi->dev, "open/ENOMEM\n");
+			status = -ENOMEM;
+			goto txbuffer_err;
+		}
+	}
+	/* 2021.08.18 longcheer xugui added for buffer kmalloc size end */
 	tx_buf = spidev->tx_buffer;
 	rx_buf = spidev->rx_buffer;
 	total = 0;
@@ -313,6 +368,14 @@ static int spidev_message(struct spidev_data *spidev,
 	status = total;
 
 done:
+/* 2021.08.18 longcheer xugui added for buffer kfree size begin */
+	kfree(spidev->tx_buffer);
+	spidev->tx_buffer = NULL;
+txbuffer_err:
+	kfree(spidev->rx_buffer);
+	spidev->rx_buffer = NULL;
+rxbuffer_err:
+/* 2021.08.18 longcheer xugui added for buffer kfree size end */
 	kfree(k_xfers);
 	return status;
 }
@@ -578,6 +641,8 @@ static int spidev_open(struct inode *inode, struct file *filp)
 		goto err_find_dev;
 	}
 
+/* 2021.08.18 longcheer xugui removed for buffer kmalloc size begin */
+/*
 	if (!spidev->tx_buffer) {
 		spidev->tx_buffer = kmalloc(bufsiz, GFP_KERNEL);
 		if (!spidev->tx_buffer) {
@@ -595,6 +660,8 @@ static int spidev_open(struct inode *inode, struct file *filp)
 			goto err_alloc_rx_buf;
 		}
 	}
+*/
+/* 2021.08.18 longcheer xugui removed for buffer kmalloc size end */
 
 	spidev->users++;
 	filp->private_data = spidev;
@@ -603,9 +670,13 @@ static int spidev_open(struct inode *inode, struct file *filp)
 	mutex_unlock(&device_list_lock);
 	return 0;
 
+/* 2021.08.18 longcheer xugui removed for buffer kmalloc size begin */
+/*
 err_alloc_rx_buf:
 	kfree(spidev->tx_buffer);
 	spidev->tx_buffer = NULL;
+*/
+/* 2021.08.18 longcheer xugui removed for buffer kmalloc size end */
 err_find_dev:
 	mutex_unlock(&device_list_lock);
 	return status;
@@ -629,11 +700,15 @@ static int spidev_release(struct inode *inode, struct file *filp)
 	spidev->users--;
 	if (!spidev->users) {
 
+/* 2021.08.18 longcheer xugui removed for buffer kmalloc size begin */
+/*
 		kfree(spidev->tx_buffer);
 		spidev->tx_buffer = NULL;
 
 		kfree(spidev->rx_buffer);
 		spidev->rx_buffer = NULL;
+*/
+/* 2021.08.18 longcheer xugui removed for buffer kmalloc size end */
 
 		if (dofree)
 			kfree(spidev);
@@ -682,6 +757,7 @@ static const struct spi_device_id spidev_spi_ids[] = {
 	{ .name = "m53cpld" },
 	{ .name = "spi-petra" },
 	{ .name = "spi-authenta" },
+	{ .name = "ir-spi" },
 	{},
 };
 MODULE_DEVICE_TABLE(spi, spidev_spi_ids);
@@ -698,6 +774,7 @@ static const struct of_device_id spidev_dt_ids[] = {
 	{ .compatible = "micron,spi-authenta" },
 	{ .compatible = "qcom,spi-msm-codec-slave" },
 	{ .compatible = "qcom,si5518-clk" },
+	{ .compatible = "lc,ir-spi" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, spidev_dt_ids);

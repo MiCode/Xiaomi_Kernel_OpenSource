@@ -171,6 +171,11 @@ config INPUT_APMPOWER
 	  To compile this driver as a module, choose M here: the
 	  module will be called apm-power.
 
+config INPUT_FINGERPRINT
+        tristate "fingerprint drvier support"
+        help
+          say y here to enable  fingerprint driver support!
+
 comment "Input Device Drivers"
 
 source "drivers/input/keyboard/Kconfig"
@@ -194,6 +199,10 @@ menu "Hardware I/O ports"
 source "drivers/input/serio/Kconfig"
 
 source "drivers/input/gameport/Kconfig"
+
+source "drivers/input/fingerprint/fpc/Kconfig"
+
+source "drivers/input/fingerprint/goodix/Kconfig"
 
 endmenu
 

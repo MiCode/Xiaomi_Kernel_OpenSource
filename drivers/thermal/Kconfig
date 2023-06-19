@@ -467,6 +467,13 @@ depends on (ARCH_QCOM && OF) || COMPILE_TEST
 source "drivers/thermal/qcom/Kconfig"
 endmenu
 
+config MI_THERMAL_INTERFACE
+	tristate "xiaomi thermal control interface"
+	depends on THERMAL
+	default n
+	help
+	  This is xiaomi thermal control interface.
+
 config UNIPHIER_THERMAL
 	tristate "Socionext UniPhier thermal driver"
 	depends on ARCH_UNIPHIER || COMPILE_TEST

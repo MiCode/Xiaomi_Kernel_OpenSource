@@ -1,0 +1,5 @@
+config SIMTRAY_STATUS
+	tristate "Xiaomi SIM tray status"
+	default n
+	help
+	  Say 'm' here to support SIM tray GPIO detection

@@ -6093,7 +6093,7 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 		/* USB root hub device */
 		if (event == USB_DEVICE_ADD) {
 			pm_runtime_use_autosuspend(&udev->dev);
-			pm_runtime_set_autosuspend_delay(&udev->dev, 1000);
+			pm_runtime_set_autosuspend_delay(&udev->dev, 3000);
 		}
 	}
 

@@ -87,6 +87,12 @@
 
 #define USB_HSPHY_VDD_HPM_LOAD			30000	/* uA */
 
+u32 panel_info = 1;
+//longcheer nielianjie10 2022.10.13 battery verify to check lcd status
+#if IS_ENABLED(CONFIG_FACTORY_BUILD)
+EXPORT_SYMBOL(panel_info);
+#endif
+
 struct msm_hsphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -133,6 +139,16 @@ struct msm_hsphy {
 	u8			param_ovrd2;
 	u8			param_ovrd3;
 };
+
+static void get_panel_info(void)
+{
+	struct device_node *panel_node;
+	panel_node = of_find_node_by_path("/soc/xiaomi_touch");
+	if (!panel_node)
+		return;
+
+	of_property_read_u32(panel_node, "get_panel_info", &panel_info);
+}
 
 static void msm_hsphy_enable_clocks(struct msm_hsphy *phy, bool on)
 {
@@ -839,14 +855,24 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		}
 	}
 
+	get_panel_info(); //get_panel_info
+	pr_err("panel_info=%d\n", panel_info);
+
 	phy->phy_reset = devm_reset_control_get(dev, "phy_reset");
 	if (IS_ERR(phy->phy_reset))
 		return PTR_ERR(phy->phy_reset);
 
-	phy->param_override_seq_cnt = of_property_count_elems_of_size(
+	if (panel_info == 1)
+		phy->param_override_seq_cnt = of_property_count_elems_of_size(
 					dev->of_node,
 					"qcom,param-override-seq",
 					sizeof(*phy->param_override_seq));
+	if (panel_info == 0)
+		phy->param_override_seq_cnt = of_property_count_elems_of_size(
+					dev->of_node,
+					"qcom,param-override-seq-no-panel",
+					sizeof(*phy->param_override_seq));
+
 	if (phy->param_override_seq_cnt > 0) {
 		phy->param_override_seq = devm_kcalloc(dev,
 					phy->param_override_seq_cnt,
@@ -860,8 +886,14 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 
-		ret = of_property_read_u32_array(dev->of_node,
+		if (panel_info == 1)
+			ret = of_property_read_u32_array(dev->of_node,
 				"qcom,param-override-seq",
+				phy->param_override_seq,
+				phy->param_override_seq_cnt);
+		if (panel_info == 0)
+			ret = of_property_read_u32_array(dev->of_node,
+				"qcom,param-override-seq-no-panel",
 				phy->param_override_seq,
 				phy->param_override_seq_cnt);
 		if (ret) {

@@ -268,19 +268,42 @@ int sched_busy_hyst_handler(struct ctl_table *table, int write,
  *
  * Update average with latest nr_running value for CPU
  */
+struct sched_avg_data {
+	u64 sched_clk;
+	u64 last_time;
+};
+
+struct sched_avg_data avg_clk[1024][8];
+int avg_idx = 0;
+
 void sched_update_nr_prod(int cpu, int enq)
 {
 	u64 diff;
-	u64 curr_time;
+	u64 curr_time, ktime;
 	unsigned long flags, nr_running;
 
 	spin_lock_irqsave(&per_cpu(nr_lock, cpu), flags);
 	nr_running = per_cpu(nr, cpu);
 	curr_time = sched_clock();
+	ktime = ktime_get_ns();
 	diff = curr_time - per_cpu(last_time, cpu);
+	if ((s64)diff < 0) {
+		int i;
+		for (i = 0; i < 1024; i++) {
+			trace_printk("SC=%llu LT=%llu, SC=%llu LT=%llu, SC=%llu LT=%llu, SC=%llu LT=%llu, SC=%llu LT=%llu, SC=%llu LT=%llu, SC=%llu LT=%llu, SC=%llu LT=%llu, SC=%llu LT=%llu\n",
+				     avg_clk[i][0].sched_clk, avg_clk[i][0].last_time, avg_clk[i][1].sched_clk, avg_clk[i][1].last_time,
+				     avg_clk[i][2].sched_clk, avg_clk[i][2].last_time, avg_clk[i][3].sched_clk, avg_clk[i][3].last_time,
+				     avg_clk[i][4].sched_clk, avg_clk[i][4].last_time, avg_clk[i][5].sched_clk, avg_clk[i][5].last_time,
+				     avg_clk[i][6].sched_clk, avg_clk[i][6].last_time, avg_clk[i][7].sched_clk, avg_clk[i][7].last_time);
+		}
+	}
+
 	BUG_ON((s64)diff < 0);
 	per_cpu(last_time, cpu) = curr_time;
 	per_cpu(nr, cpu) = cpu_rq(cpu)->nr_running;
+	avg_clk[avg_idx][cpu].sched_clk = curr_time;
+	avg_clk[avg_idx][cpu].last_time = ktime;
+	avg_idx = (avg_idx + 1) % 1024;
 
 	if (per_cpu(nr, cpu) > per_cpu(nr_max, cpu))
 		per_cpu(nr_max, cpu) = per_cpu(nr, cpu);

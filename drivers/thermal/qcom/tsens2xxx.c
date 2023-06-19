@@ -454,7 +454,7 @@ static int tsens2xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 			(tm_sensor->hw_id * TSENS_TM_SN_ADDR_OFFSET)));
 	}
 
-	if (low_temp != INT_MIN) {
+	if (low_temp != -INT_MAX) {
 		tmdev->sensor[tm_sensor->hw_id].thr_state.low_temp = low_temp;
 		reg_cntl = readl_relaxed((TSENS_TM_SN_UPPER_LOWER_THRESHOLD
 				(tmdev->tsens_tm_addr)) +
@@ -490,7 +490,7 @@ static int tsens2xxx_set_trip_temp(struct tsens_sensor *tm_sensor,
 		}
 	}
 
-	if (low_temp != INT_MIN) {
+	if (low_temp != -INT_MAX) {
 		rc = tsens_tm_activate_trip_type(tm_sensor,
 				TSENS_TRIP_CONFIGURABLE_LOW,
 				THERMAL_DEVICE_ENABLED);

@@ -50,6 +50,23 @@ const char *migrate_type_names[] = {
 
 #define NEW_TASK_ACTIVE_TIME 100000000
 
+struct clock_data {
+	u64 latest_clock;
+	u64 window_start;
+	u64 rq_clock;
+	u64 sched_clock;
+	u64 ktime;
+	u64 caller1;
+	u64 caller2;
+	u64 caller3;
+	u64 caller4;
+	int cpu;
+	int src_cpu;
+	bool lock;
+} clk[4096];
+int clk_idx;
+
+
 unsigned int sysctl_sched_user_hint;
 static u64 sched_clock_last;
 static bool walt_clock_suspended;
@@ -409,11 +426,21 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 	struct walt_rq *wrq = (struct walt_rq *) rq->android_vendor_data1;
 	u64 old_window_start = wrq->window_start;
 	bool full_window;
+	int cpu = cpu_of(rq);
+	int i;
 
 	if (wallclock < wrq->latest_clock) {
 		printk_deferred("WALT-BUG CPU%d; wallclock=%llu(0x%llx) is lesser than latest_clock=%llu(0x%llx)",
 				rq->cpu, wallclock, wallclock, wrq->latest_clock,
 				wrq->latest_clock);
+		for (i = 0; i<4096; i++) {
+			trace_printk("cpu=[%d-->%d]: ws=%llu lat_clk=%llu sched=%llu rq=%llu ktime=%llu lock=%d callr=%ps <- %ps <- %ps <- %ps \n",
+		     clk[i].src_cpu, clk[i].cpu, clk[i].window_start,
+		     clk[i].latest_clock, clk[i].sched_clock, clk[i].rq_clock,
+		     clk[i].ktime, clk[i].lock, (void *)clk[i].caller1, (void *)clk[i].caller2,
+		     (void *)clk[i].caller3, (void *)clk[i].caller4);
+
+		}
 		WALT_PANIC(1);
 	}
 	delta = wallclock - wrq->window_start;
@@ -421,6 +448,14 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 		printk_deferred("WALT-BUG CPU%d; wallclock=%llu(0x%llx) is lesser than window_start=%llu(0x%llx)",
 				rq->cpu, wallclock, wallclock,
 				wrq->window_start, wrq->window_start);
+		for (i = 0; i<4096; i++) {
+			trace_printk("cpu=[%d-->%d]: ws=%llu lat_clk=%llu sched=%llu rq=%llu ktime=%llu lock=%d callr=%ps <- %ps <- %ps <- %ps \n",
+		     clk[i].src_cpu, clk[i].cpu, clk[i].window_start,
+		     clk[i].latest_clock, clk[i].sched_clock, clk[i].rq_clock,
+		     clk[i].ktime, clk[i].lock, (void *)clk[i].caller1, (void *)clk[i].caller2,
+		     (void *)clk[i].caller3, (void *)clk[i].caller4);
+
+		}
 		WALT_PANIC(1);
 	}
 	wrq->latest_clock = wallclock;
@@ -429,7 +464,21 @@ update_window_start(struct rq *rq, u64 wallclock, int event)
 
 	nr_windows = div64_u64(delta, sched_ravg_window);
 	wrq->window_start += (u64)nr_windows * (u64)sched_ravg_window;
+	
+	clk[clk_idx].window_start =  wrq->window_start;
+	clk[clk_idx].latest_clock = wrq->latest_clock;
+	clk[clk_idx].sched_clock = walt_sched_clock();
+	clk[clk_idx].rq_clock = walt_rq_clock(rq);
+	clk[clk_idx].ktime = ktime_get_ns();
+	clk[clk_idx].lock = raw_spin_is_locked(&rq->__lock);
+	clk[clk_idx].src_cpu = smp_processor_id();
+	clk[clk_idx].cpu = cpu;
+	clk[clk_idx].caller1 = CALLER_ADDR1;
+	clk[clk_idx].caller2 = CALLER_ADDR2;
+	clk[clk_idx].caller3 = CALLER_ADDR3;
+	clk[clk_idx].caller4 = CALLER_ADDR4;
 
+	clk_idx = (clk_idx + 1) % 4096;
 	wrq->prev_window_size = sched_ravg_window;
 
 	full_window = nr_windows > 1;
@@ -4709,6 +4758,7 @@ static void walt_init(struct work_struct *work)
 	}
 
 	topology_clear_scale_freq_source(SCALE_FREQ_SOURCE_ARCH, cpu_online_mask);
+
 }
 
 static DECLARE_WORK(walt_init_work, walt_init);

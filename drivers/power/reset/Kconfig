@@ -325,6 +325,11 @@ config NVMEM_REBOOT_MODE
 	  then the bootloader can read it and take different
 	  action according to the mode.
 
+config LAST_LOG_MINIDUMP
+	bool "support last log keep in minidump partition"
+	help
+	  support last dmesg and last logcat keep in minidump partition
+
 config POWER_RESET_QCOM_VM
 	tristate "Qualcomm Technologies, Inc. MSM VM power-off driver"
 	depends on OF

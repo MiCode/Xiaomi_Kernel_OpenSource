@@ -862,6 +862,14 @@ config CHARGER_SURFACE
 	  Microsoft Surface devices, i.e. Surface Pro 7, Surface Laptop 3,
 	  Surface Book 3, and Surface Laptop Go.
 
+config NOPMI_CHARGER
+	tristate "NOPMI Charger Support"
+	depends on FG_SM5602 && BQ2589X_CHARGER
+	help
+	  Say Y to include support for NOPMI Charger.
+
 source "drivers/power/supply/qcom/Kconfig"
+source "drivers/power/supply/nopmi/Kconfig"
+source "drivers/power/supply/battery_secret/Kconfig"
 
 endif # POWER_SUPPLY

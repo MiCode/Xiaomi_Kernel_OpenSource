@@ -1,0 +1,12 @@
+config BATT_VERIFY_BY_DS28E16
+	tristate "ds28e16 as encryption IC"
+	depends on ONEWIRE_GPIO
+	default n
+	help
+		It needs a onewire physical controller to work.
+
+config ONEWIRE_GPIO
+	tristate "Onewire GPIO Driver"
+	default n
+	help
+		It's an onewire driver.
