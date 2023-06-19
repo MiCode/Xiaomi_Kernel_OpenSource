@@ -14,6 +14,8 @@ mgk_module_outs = [
     "drivers/power/reset/syscon-reboot-mode.ko",
     "drivers/tee/tee.ko",
     "drivers/thermal/thermal-generic-adc.ko",
+    "net/wireless/cfg80211.ko",
+    "net/mac80211/mac80211.ko",
 ]
 
 mgk_module_eng_outs = [

@@ -32,6 +32,7 @@
 #include <linux/units.h>
 #include <trace/events/power.h>
 #include <trace/hooks/cpufreq.h>
+#include <trace/hooks/thermal.h>
 
 static LIST_HEAD(cpufreq_policy_list);
 
@@ -1537,8 +1538,10 @@ static int cpufreq_online(unsigned int cpu)
 	if (cpufreq_driver->ready)
 		cpufreq_driver->ready(policy);
 
-	if (cpufreq_thermal_control_enabled(cpufreq_driver))
+	if (cpufreq_thermal_control_enabled(cpufreq_driver)) {
 		policy->cdev = of_cpufreq_cooling_register(policy);
+		trace_android_vh_thermal_register(policy);
+	}
 
 	pr_debug("initialization complete\n");
 
@@ -1623,6 +1626,7 @@ static void __cpufreq_offline(unsigned int cpu, struct cpufreq_policy *policy)
 
 	if (cpufreq_thermal_control_enabled(cpufreq_driver)) {
 		cpufreq_cooling_unregister(policy->cdev);
+		trace_android_vh_thermal_unregister(policy);
 		policy->cdev = NULL;
 	}
 
@@ -2144,6 +2148,7 @@ unsigned int cpufreq_driver_fast_switch(struct cpufreq_policy *policy,
 	arch_set_freq_scale(policy->related_cpus, freq,
 			    policy->cpuinfo.max_freq);
 	cpufreq_stats_record_transition(policy, freq);
+	cpufreq_times_record_transition(policy, freq);
 	trace_android_rvh_cpufreq_transition(policy);
 
 	if (trace_cpu_frequency_enabled()) {
