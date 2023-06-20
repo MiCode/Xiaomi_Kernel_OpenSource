@@ -235,26 +235,19 @@ gh_rm_vm_get_id(gh_vmid_t vmid, u32 *n_entries)
 	};
 	struct gh_vm_get_id_resp_entry *resp_entries, *temp_entry;
 	size_t resp_payload_size, resp_entries_size = 0;
-	int ret, i;
+	int err, reply_err_code, i;
 
 	if (!n_entries)
 		return ERR_PTR(-EINVAL);
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_GET_ID,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_GET_ID,
 				&req_payload, sizeof(req_payload),
 				(void **)&resp_payload, &resp_payload_size);
-	if (ret) {
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		err = PTR_ERR(resp_payload);
 		pr_err("%s: GET_ID failed with err: %d\n",
-			__func__, ret);
-		return ERR_PTR(ret);
-	}
-
-	if (resp_payload_size < sizeof(*resp_payload) ||
-		resp_payload_size != struct_size(resp_payload,
-		resp_entries, resp_payload->n_id_entries)) {
-		if (resp_payload_size)
-			kfree(resp_payload);
-		return ERR_PTR(-EBADMSG);
+			__func__, err);
+		return ERR_PTR(err);
 	}
 
 	/* The response payload should contain all the resource entries */
@@ -291,6 +284,7 @@ static int gh_rm_vm_lookup_name_uri(gh_rm_msgid_t msg_id, const char *data,
 	struct gh_vm_lookup_resp_payload *resp_payload;
 	struct gh_vm_lookup_char_req_payload *req_payload;
 	size_t resp_payload_size, req_payload_size;
+	int reply_err_code;
 	int ret = 0;
 
 	if (!data || !vmid)
@@ -305,20 +299,12 @@ static int gh_rm_vm_lookup_name_uri(gh_rm_msgid_t msg_id, const char *data,
 	req_payload->size = size;
 	memcpy(req_payload->data, data, size);
 
-	ret = gh_rm_call(rm, msg_id, req_payload, req_payload_size,
+	reply_err_code = gh_rm_call(rm, msg_id, req_payload, req_payload_size,
 				  (void **)&resp_payload, &resp_payload_size);
 
-	if (ret) {
-		pr_err("%s: lookup name/uri failed with err: %d\n", __func__, ret);
-		goto out;
-	}
-
-	if (resp_payload_size < sizeof(*resp_payload) ||
-		resp_payload_size != struct_size(resp_payload,
-		resp_entries, resp_payload->n_id_entries)) {
-		if (resp_payload_size)
-			kfree(resp_payload);
-		ret = -EBADMSG;
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s: lookup name/uri failed with err: %d\n", __func__, (int)ret);
 		goto out;
 	}
 
@@ -343,25 +329,20 @@ static int gh_rm_vm_lookup_guid(const u8 *data, gh_vmid_t *vmid)
 {
 	struct gh_vm_lookup_resp_payload *resp_payload;
 	size_t resp_payload_size;
+	int reply_err_code;
 	int ret = 0;
 
 	if (!data || !vmid)
 		return -EINVAL;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_GUID, (void *)data,
+	reply_err_code =
+		gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_LOOKUP_GUID, (void *)data,
 			   16, (void **)&resp_payload, &resp_payload_size);
 
-	if (ret) {
-		pr_err("%s: lookup guid failed with err: %d\n", __func__, ret);
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s: lookup guid failed with err: %d\n", __func__, (int)ret);
 		return ret;
-	}
-
-	if (resp_payload_size < sizeof(*resp_payload) ||
-		resp_payload_size != struct_size(resp_payload,
-		resp_entries, resp_payload->n_id_entries)) {
-		if (resp_payload_size)
-			kfree(resp_payload);
-		return -EBADMSG;
 	}
 
 	if (resp_payload->n_id_entries == 1) {
@@ -425,6 +406,7 @@ int gh_rm_vm_lookup(enum gh_vm_lookup_type type, const void *data, size_t size,
 int gh_rm_get_this_vmid(gh_vmid_t *vmid)
 {
 	static gh_vmid_t cached_vmid = GH_VMID_INVAL;
+	int reply_err_code;
 	size_t resp_size;
 	__le32 *resp;
 	int ret;
@@ -434,19 +416,17 @@ int gh_rm_get_this_vmid(gh_vmid_t *vmid)
 		return 0;
 	}
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_GET_VMID, NULL, 0,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_GET_VMID, NULL, 0,
 			(void **)&resp, &resp_size);
 
-	if (ret) {
+	if (reply_err_code || IS_ERR_OR_NULL(resp)) {
+		ret = PTR_ERR(resp);
 		pr_err("%s: failed with err: %d\n", __func__, ret);
 		return ret;
 	}
 
-	if (resp_size != sizeof(*resp)) {
-		if (resp_size)
-			kfree(resp);
+	if (resp_size != sizeof(*resp))
 		return -EBADMSG;
-	}
 
 	*vmid = cached_vmid = lower_16_bits(le32_to_cpu(*resp));
 	kfree(resp);
@@ -472,13 +452,14 @@ struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid)
 	};
 	struct gh_vm_get_state_resp_payload *resp_payload;
 	struct gh_vm_status *gh_vm_status;
-	int err = 0;
+	int err, reply_err_code = 0;
 	size_t resp_payload_size;
 
-	err = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_GET_STATE,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_GET_STATE,
 				&req_payload, sizeof(req_payload),
 				(void **)&resp_payload, &resp_payload_size);
-	if (err) {
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		err = PTR_ERR(resp_payload);
 		pr_err("%s: Failed to call VM_GET_STATE: %d\n",
 			__func__, err);
 		if (resp_payload) {
@@ -491,8 +472,6 @@ struct gh_vm_status *gh_rm_vm_get_status(gh_vmid_t vmid)
 	if (resp_payload_size != sizeof(*resp_payload)) {
 		pr_err("%s: Invalid size received for VM_GET_STATE: %u\n",
 			__func__, resp_payload_size);
-		if (resp_payload_size)
-			kfree(resp_payload);
 		gh_vm_status = ERR_PTR(-EINVAL);
 		goto out;
 	}
@@ -523,22 +502,27 @@ int gh_rm_vm_set_status(struct gh_vm_status gh_vm_status)
 		.app_status = gh_vm_status.app_status,
 	};
 	size_t resp_payload_size;
-	int ret = 0;
+	int reply_err_code = 0;
 	void *resp;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_SET_STATUS,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_SET_STATUS,
 				&req_payload, sizeof(req_payload),
 				&resp, &resp_payload_size);
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Failed to call VM_SET_STATUS: %d\n",
+			__func__, PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
 		pr_err("%s: VM_SET_STATUS returned error: %d\n",
-			__func__, ret);
-		return ret;
+			__func__, reply_err_code);
+		return reply_err_code;
 	}
 
 	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for VM_SET_STATUS: %u\n",
 			__func__, resp_payload_size);
-		kfree(resp);
 		return -EINVAL;
 	}
 
@@ -645,15 +629,16 @@ gh_rm_vm_get_hyp_res(gh_vmid_t vmid, u32 *n_entries)
 	};
 	struct gh_vm_get_hyp_res_resp_entry *resp_entries;
 	size_t resp_payload_size, resp_entries_size;
-	int err;
+	int err, reply_err_code;
 
 	if (!n_entries)
 		return ERR_PTR(-EINVAL);
 
-	err = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_GET_HYP_RESOURCES,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_GET_HYP_RESOURCES,
 				&req_payload, sizeof(req_payload),
 				(void **)&resp_payload, &resp_payload_size);
-	if (err) {
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		err = PTR_ERR(resp_payload);
 		pr_err("%s: GET_HYP_RESOURCES failed with err: %d\n",
 			__func__, err);
 		return ERR_PTR(err);
@@ -704,7 +689,7 @@ static int gh_rm_vm_irq_notify(const gh_vmid_t *vmids, unsigned int num_vmids,
 	void *resp;
 	struct gh_vm_irq_notify_req_payload *req_payload;
 	size_t resp_payload_size, req_payload_size;
-	int ret = 0;
+	int ret = 0, reply_err_code;
 	unsigned int i;
 
 
@@ -732,21 +717,26 @@ static int gh_rm_vm_irq_notify(const gh_vmid_t *vmids, unsigned int num_vmids,
 	}
 
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_IRQ_NOTIFY,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_IRQ_NOTIFY,
 			  req_payload, req_payload_size,
 			  &resp, &resp_payload_size);
 	kfree(req_payload);
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send IRQ_NOTIFY to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
 		pr_err("%s: IRQ_NOTIFY returned error: %d\n", __func__,
-			ret);
-		return ret;
+			reply_err_code);
+		return reply_err_code;
 	}
 
 	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for IRQ_NOTIFY: %u\n",
 			__func__, resp_payload_size);
 		ret = -EINVAL;
-		kfree(resp);
 	}
 
 	return ret;
@@ -766,16 +756,17 @@ int gh_rm_vm_irq_lend(gh_vmid_t vmid, int virq, int label,
 	struct gh_vm_irq_lend_resp_payload *resp_payload;
 	struct gh_vm_irq_lend_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int ret = 0;
+	int ret = 0, reply_err_code;
 
 	req_payload.vmid = vmid;
 	req_payload.virq = virq;
 	req_payload.label = label;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_IRQ_LEND,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_IRQ_LEND,
 				&req_payload, sizeof(req_payload),
 				(void **)&resp_payload, &resp_payload_size);
-	if (ret) {
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
 		pr_err("%s: VM_IRQ_LEND failed with err: %d\n",
 			__func__, ret);
 		return ret;
@@ -784,14 +775,13 @@ int gh_rm_vm_irq_lend(gh_vmid_t vmid, int virq, int label,
 	if (resp_payload_size != sizeof(*resp_payload)) {
 		pr_err("%s: Invalid size received for VM_IRQ_LEND: %u\n",
 			__func__, resp_payload_size);
-		if (resp_payload_size)
-			kfree(resp_payload);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	if (virq_handle)
 		*virq_handle = resp_payload->virq;
-
+out:
 	kfree(resp_payload);
 	return ret;
 }
@@ -824,25 +814,30 @@ int gh_rm_vm_irq_release(gh_virq_handle_t virq_handle)
 {
 	struct gh_vm_irq_release_req_payload req_payload = {0};
 	void *resp;
-	int ret = 0;
+	int ret = 0, reply_err_code;
 	size_t resp_payload_size;
 
 	req_payload.virq_handle = virq_handle;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_IRQ_RELEASE,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_IRQ_RELEASE,
 			  &req_payload, sizeof(req_payload),
 			  &resp, &resp_payload_size);
 
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send IRQ_RELEASE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
 		pr_err("%s: IRQ_RELEASE returned error: %d\n", __func__,
-			ret);
-		return ret;
+			reply_err_code);
+		return reply_err_code;
 	}
 
 	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for IRQ_RELEASE: %u\n",
 			__func__, resp_payload_size);
-		kfree(resp);
 		ret = -EINVAL;
 	}
 
@@ -882,7 +877,7 @@ int gh_rm_vm_irq_accept(gh_virq_handle_t virq_handle, int virq)
 	struct gh_vm_irq_accept_resp_payload *resp_payload;
 	struct gh_vm_irq_accept_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int ret;
+	int ret, reply_err_code;
 
 	/* -1 is valid for virq if requesting for a new number */
 	if (virq < -1)
@@ -891,10 +886,11 @@ int gh_rm_vm_irq_accept(gh_virq_handle_t virq_handle, int virq)
 	req_payload.virq_handle = virq_handle;
 	req_payload.virq = virq;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_IRQ_ACCEPT,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_IRQ_ACCEPT,
 				&req_payload, sizeof(req_payload),
 				(void **)&resp_payload, &resp_payload_size);
-	if (ret) {
+	if (reply_err_code || IS_ERR_OR_NULL(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
 		pr_err("%s: VM_IRQ_ACCEPT failed with err: %d\n",
 			__func__, ret);
 		return ret;
@@ -903,13 +899,12 @@ int gh_rm_vm_irq_accept(gh_virq_handle_t virq_handle, int virq)
 	if (virq == -1 && resp_payload_size != sizeof(*resp_payload)) {
 		pr_err("%s: Invalid size received for VM_IRQ_ACCEPT: %u\n",
 			__func__, resp_payload_size);
-		if (resp_payload_size)
-			kfree(resp_payload);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto out;
 	}
 
 	ret = virq == -1 ? resp_payload->virq : virq;
-
+out:
 	kfree(resp_payload);
 	return ret;
 }
@@ -936,25 +931,30 @@ int gh_rm_vm_irq_reclaim(gh_virq_handle_t virq_handle)
 {
 	struct gh_vm_irq_reclaim_req_payload req_payload = {0};
 	void *resp;
-	int ret = 0;
+	int ret = 0, reply_err_code;
 	size_t resp_payload_size;
 
 	req_payload.virq_handle = virq_handle;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_IRQ_RECLAIM,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_IRQ_RECLAIM,
 			  &req_payload, sizeof(req_payload),
 			  &resp, &resp_payload_size);
 
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send IRQ_RELEASE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
 		pr_err("%s: IRQ_RELEASE returned error: %d\n", __func__,
-			ret);
-		return ret;
+			reply_err_code);
+		return reply_err_code;
 	}
 
 	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for IRQ_RELEASE: %u\n",
 			__func__, resp_payload_size);
-		kfree(resp);
 		ret = -EINVAL;
 	}
 
@@ -978,7 +978,7 @@ int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid)
 	struct gh_vm_allocate_req_payload req_payload = {0};
 	size_t resp_payload_size;
 	struct gh_vm_property vm_prop = {0};
-	int err, ret;
+	int err, reply_err_code;
 
 	/* Look up for the vm_name<->vmid pair if already present.
 	 * If so, return.
@@ -998,13 +998,14 @@ int gh_rm_vm_alloc_vmid(enum gh_vm_names vm_name, int *vmid)
 
 	req_payload.vmid = *vmid;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_ALLOCATE,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_ALLOCATE,
 				&req_payload, sizeof(req_payload),
 				(void **)&resp_payload, &resp_payload_size);
-	if (ret) {
+	if (reply_err_code || IS_ERR(resp_payload)) {
+		err = PTR_ERR(resp_payload);
 		pr_err("%s: VM_ALLOCATE failed with err: %d\n",
-			__func__, ret);
-		return ret;
+			__func__, err);
+		return err;
 	}
 
 	if (resp_payload &&
@@ -1045,16 +1046,17 @@ int gh_rm_vm_dealloc_vmid(gh_vmid_t vmid)
 		.vmid = vmid,
 	};
 	size_t resp_payload_size;
-	int ret;
+	int err, reply_err_code;
 	void *resp;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_DEALLOCATE,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_DEALLOCATE,
 				&req_payload, sizeof(req_payload),
 				&resp, &resp_payload_size);
-	if (ret) {
+	if (reply_err_code || IS_ERR(resp)) {
+		err = reply_err_code;
 		pr_err("%s: VM_DEALLOCATE failed with err: %d\n",
-			__func__, ret);
-		return ret;
+			__func__, err);
+		return err;
 	}
 
 	if (resp_payload_size) {
@@ -1100,17 +1102,24 @@ int gh_rm_vm_config_image(gh_vmid_t vmid, u16 auth_mech, u32 mem_handle,
 		.dtb_size_high = dtb_size >> 32,
 	};
 	size_t resp_payload_size;
-	int ret = 0;
+	int err, reply_err_code = 0;
 	void *resp;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_CONFIG_IMAGE,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_CONFIG_IMAGE,
 				&req_payload, sizeof(req_payload),
 				&resp, &resp_payload_size);
 
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send VM_CONFIG_IMAGE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
+		err = reply_err_code;
 		pr_err("%s: VM_CONFIG_IMAGE failed with err: %d\n",
-			__func__, ret);
-		return ret;
+			__func__, err);
+		return err;
 	}
 
 	if (resp_payload_size) {
@@ -1140,7 +1149,7 @@ int gh_rm_vm_auth_image(gh_vmid_t vmid, ssize_t n_entries,
 	struct gh_vm_auth_param_entry *dest_entry;
 	size_t resp_payload_size;
 	size_t req_payload_size;
-	int ret = 0, n_entry;
+	int err, reply_err_code = 0, n_entry;
 	void *req_buf;
 	void *resp;
 
@@ -1160,15 +1169,22 @@ int gh_rm_vm_auth_image(gh_vmid_t vmid, ssize_t n_entries,
 		dest_entry[n_entry].auth_param = entry[n_entry].auth_param;
 	}
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_AUTH_IMAGE,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_AUTH_IMAGE,
 				req_buf, req_payload_size,
 				&resp, &resp_payload_size);
 
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send VM_AUTH_IMAGE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
+		err = reply_err_code;
 		pr_err("%s: VM_AUTH_IMAGE failed with err: %d\n",
-			__func__, ret);
+			__func__, err);
 		kfree(req_buf);
-		return ret;
+		return err;
 	}
 
 	if (resp_payload_size) {
@@ -1197,17 +1213,24 @@ int ghd_rm_vm_init(gh_vmid_t vmid)
 		.vmid = vmid,
 	};
 	size_t resp_payload_size;
-	int ret = 0;
+	int err, reply_err_code = 0;
 	void *resp;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_INIT,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_INIT,
 				&req_payload, sizeof(req_payload),
 				&resp, &resp_payload_size);
 
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send VM_INIT to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
+		err = reply_err_code;
 		pr_err("%s: VM_INIT failed with err: %d\n",
-			__func__, ret);
-		return ret;
+			__func__, err);
+		return err;
 	}
 
 	if (resp_payload_size) {
@@ -1233,23 +1256,22 @@ int ghd_rm_vm_start(int vmid)
 	struct gh_vm_start_resp_payload *resp_payload;
 	struct gh_vm_start_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int ret = 0;
+	int reply_err_code = 0;
 
 	req_payload.vmid = (gh_vmid_t) vmid;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_START,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_START,
 				&req_payload, sizeof(req_payload),
 				(void **)&resp_payload, &resp_payload_size);
-	if (ret) {
+	if (reply_err_code) {
 		pr_err("%s: VM_START failed with err: %d\n",
-			__func__, ret);
-		return ret;
+			__func__, reply_err_code);
+		return reply_err_code;
 	}
 
 	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for VM_START: %u\n",
 			__func__, resp_payload_size);
-		kfree(resp_payload);
 		return -EINVAL;
 	}
 
@@ -1268,7 +1290,7 @@ int ghd_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags)
 {
 	struct gh_vm_stop_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int ret = 0;
+	int err, reply_err_code;
 	void *resp;
 
 	if (stop_reason >= GH_VM_STOP_MAX) {
@@ -1281,12 +1303,13 @@ int ghd_rm_vm_stop(gh_vmid_t vmid, u32 stop_reason, u8 flags)
 	req_payload.stop_reason = stop_reason;
 	req_payload.flags = flags;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_STOP,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_STOP,
 				&req_payload, sizeof(req_payload),
 				&resp, &resp_payload_size);
-	if (ret) {
-		pr_err("%s: VM_STOP failed with err: %d\n", __func__, ret);
-		return ret;
+	if (reply_err_code || IS_ERR(resp)) {
+		err = reply_err_code;
+		pr_err("%s: VM_STOP failed with err: %d\n", __func__, err);
+		return err;
 	}
 
 	if (resp_payload_size) {
@@ -1314,16 +1337,17 @@ int ghd_rm_vm_reset(gh_vmid_t vmid)
 		.vmid = vmid,
 	};
 	size_t resp_payload_size;
-	int ret;
+	int err, reply_err_code;
 	void *resp;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_RESET,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_RESET,
 				&req_payload, sizeof(req_payload),
 				&resp, &resp_payload_size);
-	if (ret) {
+	if (reply_err_code || IS_ERR(resp)) {
+		err = reply_err_code;
 		pr_err("%s: VM_RESET failed with err: %d\n",
-			__func__, ret);
-		return ret;
+			__func__, err);
+		return err;
 	}
 
 	if (resp_payload_size) {
@@ -1346,23 +1370,28 @@ int gh_rm_console_open(gh_vmid_t vmid)
 	void *resp;
 	struct gh_vm_console_common_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int ret = 0;
+	int reply_err_code = 0;
 
 	req_payload.vmid = vmid;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_OPEN,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_OPEN,
 			  &req_payload, sizeof(req_payload),
 			  &resp, &resp_payload_size);
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send CONSOLE_OPEN to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
 		pr_err("%s: CONSOLE_OPEN returned error: %d\n", __func__,
-			ret);
-		return ret;
+			reply_err_code);
+		return reply_err_code;
 	}
 
 	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for CONSOLE_OPEN: %u\n",
 			__func__, resp_payload_size);
-		kfree(resp);
 		return -EINVAL;
 	}
 
@@ -1379,23 +1408,28 @@ int gh_rm_console_close(gh_vmid_t vmid)
 	void *resp;
 	struct gh_vm_console_common_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int ret = 0;
+	int reply_err_code = 0;
 
 	req_payload.vmid = vmid;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_CLOSE,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_CLOSE,
 			  &req_payload, sizeof(req_payload),
 			  &resp, &resp_payload_size);
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send CONSOLE_CLOSE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
 		pr_err("%s: CONSOLE_CLOSE returned error: %d\n", __func__,
-			ret);
-		return ret;
+			reply_err_code);
+		return reply_err_code;
 	}
 
 	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for CONSOLE_CLOSE: %u\n",
 			__func__, resp_payload_size);
-		kfree(resp);
 		return -EINVAL;
 	}
 
@@ -1414,7 +1448,7 @@ int gh_rm_console_write(gh_vmid_t vmid, const char *buf, size_t size)
 	void *resp;
 	struct gh_vm_console_write_req_payload *req_payload;
 	size_t resp_payload_size;
-	int ret = 0;
+	int reply_err_code = 0;
 	size_t req_payload_size = sizeof(*req_payload) + size;
 
 	if (size < 1 || size > (U32_MAX - sizeof(*req_payload)))
@@ -1429,21 +1463,26 @@ int gh_rm_console_write(gh_vmid_t vmid, const char *buf, size_t size)
 	req_payload->num_bytes = size;
 	memcpy(req_payload->data, buf, size);
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_WRITE,
 		   req_payload, req_payload_size,
 		   &resp, &resp_payload_size);
 	kfree(req_payload);
 
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send CONSOLE_WRITE to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
 		pr_err("%s: CONSOLE_WRITE returned error: %d\n", __func__,
-			ret);
-		return ret;
+			reply_err_code);
+		return reply_err_code;
 	}
 
 	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for CONSOLE_WRITE: %u\n",
 			__func__, resp_payload_size);
-		kfree(resp);
 		return -EINVAL;
 	}
 
@@ -1460,24 +1499,29 @@ int gh_rm_console_flush(gh_vmid_t vmid)
 	void *resp;
 	struct gh_vm_console_common_req_payload req_payload = {0};
 	size_t resp_payload_size;
-	int ret = 0;
+	int reply_err_code = 0;
 
 	req_payload.vmid = vmid;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_CONSOLE_FLUSH,
 				&req_payload, sizeof(req_payload),
 				&resp, &resp_payload_size);
 
-	if (ret) {
+	if (IS_ERR(resp)) {
+		pr_err("%s: Unable to send CONSOLE_FLUSH to RM: %d\n", __func__,
+			PTR_ERR(resp));
+		return PTR_ERR(resp);
+	}
+
+	if (reply_err_code) {
 		pr_err("%s: CONSOLE_FLUSH returned error: %d\n", __func__,
-			ret);
-		return ret;
+			reply_err_code);
+		return reply_err_code;
 	}
 
 	if (resp_payload_size) {
 		pr_err("%s: Invalid size received for CONSOLE_FLUSH: %u\n",
 			__func__, resp_payload_size);
-		kfree(resp);
 		return -EINVAL;
 	}
 
@@ -1647,7 +1691,7 @@ int gh_rm_mem_qcom_lookup_sgl(u8 mem_type, gh_label_t label,
 	void *req_buf;
 	unsigned int n_mem_attr_entries = 0;
 	u32 fn_id = GH_RM_RPC_MSG_ID_CALL_MEM_QCOM_LOOKUP_SGL;
-	int ret = 0;
+	int ret = 0, gh_ret;
 
 	if ((mem_type != GH_RM_MEM_TYPE_NORMAL &&
 	     mem_type != GH_RM_MEM_TYPE_IO) || !acl_desc ||
@@ -1672,9 +1716,10 @@ int gh_rm_mem_qcom_lookup_sgl(u8 mem_type, gh_label_t label,
 	gh_rm_populate_mem_request(req_buf, fn_id, acl_desc, sgl_desc, 0,
 				   mem_attr_desc);
 
-	ret = gh_rm_call(rm, fn_id, req_buf, req_payload_size,
+	gh_ret = gh_rm_call(rm, fn_id, req_buf, req_payload_size,
 				(void **)&resp_payload, &resp_size);
-	if (ret) {
+	if (gh_ret || IS_ERR(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
 		pr_err("%s failed with err: %d\n",  __func__, ret);
 		goto err_rm_call;
 	}
@@ -1682,13 +1727,13 @@ int gh_rm_mem_qcom_lookup_sgl(u8 mem_type, gh_label_t label,
 	if (resp_size != sizeof(*resp_payload)) {
 		ret = -EINVAL;
 		pr_err("%s invalid size received %u\n", __func__, resp_size);
-		if (resp_size)
-			kfree(resp_payload);
-		goto err_rm_call;
+		goto err_resp_size;
 	}
 
 	*handle = resp_payload->memparcel_handle;
 
+err_resp_size:
+	kfree(resp_payload);
 err_rm_call:
 	kfree(req_buf);
 	return ret;
@@ -1701,7 +1746,7 @@ static int gh_rm_mem_release_helper(u32 fn_id, gh_memparcel_handle_t handle,
 	struct gh_mem_release_req_payload req_payload = {};
 	void *resp;
 	size_t resp_size;
-	int ret;
+	int ret, gh_ret;
 
 	if ((fn_id == GH_RM_RPC_MSG_ID_CALL_MEM_RELEASE) &&
 	    (flags & ~GH_RM_MEM_RELEASE_VALID_FLAGS))
@@ -1713,15 +1758,11 @@ static int gh_rm_mem_release_helper(u32 fn_id, gh_memparcel_handle_t handle,
 	req_payload.memparcel_handle = handle;
 	req_payload.flags = flags;
 
-	ret = gh_rm_call(rm, fn_id, &req_payload, sizeof(req_payload), &resp, &resp_size);
-	if (ret) {
+	gh_ret = gh_rm_call(rm, fn_id, &req_payload, sizeof(req_payload), &resp, &resp_size);
+	if (gh_ret) {
+		ret = PTR_ERR(resp);
 		pr_err("%s failed with err: %d\n", __func__, ret);
 		return ret;
-	}
-
-	if (resp_size) {
-		kfree(resp);
-		return -EBADMSG;
 	}
 
 	return 0;
@@ -1985,7 +2026,7 @@ struct gh_sgl_desc *gh_rm_mem_accept(gh_memparcel_handle_t handle, u8 mem_type,
 	struct gh_sgl_fragment *gather;
 	bool accept_in_progress = false;
 	bool multi_call;
-	int ret;
+	int ret, gh_ret;
 
 	trace_gh_rm_mem_accept(mem_type, flags, label, acl_desc, sgl_desc,
 			       mem_attr_desc, &handle, map_vmid, trans_type);
@@ -2011,9 +2052,10 @@ struct gh_sgl_desc *gh_rm_mem_accept(gh_memparcel_handle_t handle, u8 mem_type,
 	}
 
 	do {
-		ret = gh_rm_call(rm, fn_id, req_payload, req_payload_size,
-				 (void **)&resp_payload, &resp_payload_size);
-		if (ret) {
+		gh_ret = gh_rm_call(rm, fn_id, req_payload, req_payload_size,
+					  (void **)&resp_payload, &resp_payload_size);
+		if (gh_ret || IS_ERR(resp_payload)) {
+			ret = PTR_ERR(resp_payload);
 			pr_err("%s failed with error: %d\n", __func__, ret);
 			goto err_rm_call;
 		}
@@ -2021,16 +2063,14 @@ struct gh_sgl_desc *gh_rm_mem_accept(gh_memparcel_handle_t handle, u8 mem_type,
 
 		if (gh_rm_mem_accept_check_resp(resp_payload, resp_payload_size, !!sgl_desc)) {
 			ret = -EINVAL;
-			if (resp_payload_size) {
-				kfree(resp_payload);
-			break;
-		}
 			goto err_rm_call;
 		}
 
 		/* Expected when !!sgl_desc */
-		if (!resp_payload_size)
+		if (!resp_payload_size) {
+			kfree(resp_payload);
 			break;
+		}
 
 		if (gh_sgl_fragment_append(gather, (struct gh_sgl_desc *)resp_payload)) {
 			ret = -ENOMEM;
@@ -2042,14 +2082,14 @@ struct gh_sgl_desc *gh_rm_mem_accept(gh_memparcel_handle_t handle, u8 mem_type,
 	if (multi_call && flags & GH_RM_MEM_ACCEPT_DONE) {
 		req_payload->flags |= GH_RM_MEM_ACCEPT_DONE;
 
-		ret = gh_rm_call(rm, fn_id, req_payload, req_payload_size,
-				 (void **)&resp_payload, &resp_payload_size);
-		if (ret) {
+		gh_ret = gh_rm_call(rm, fn_id, req_payload, req_payload_size,
+					  (void **)&resp_payload, &resp_payload_size);
+		if (gh_ret || IS_ERR(resp_payload)) {
+			ret = PTR_ERR(resp_payload);
 			pr_err("%s failed with error: %d\n", __func__, ret);
 			goto err_rm_call;
 		}
-		if (resp_payload_size)
-			kfree(resp_payload);
+		kfree(resp_payload);
 	}
 
 	if (!sgl_desc) {
@@ -2091,7 +2131,7 @@ EXPORT_SYMBOL(gh_rm_mem_accept);
 int gh_rm_mem_append(gh_memparcel_handle_t handle, u8 flags,
 		struct gh_sgl_entry *sgl_entries, u32 n_sgl_entries)
 {
-	int ret = 0;
+	int gh_ret, ret = 0;
 	size_t req_payload_size, resp_payload_size;
 	void *req_buf, *resp_payload;
 	struct gh_mem_append_req_payload_hdr *req_hdr;
@@ -2116,11 +2156,13 @@ int gh_rm_mem_append(gh_memparcel_handle_t handle, u8 flags,
 	memcpy(req_sgl_desc->sgl_entries, sgl_entries,
 	       sizeof(*sgl_entries) * n_sgl_entries);
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_MEM_APPEND,
-			 req_buf, req_payload_size,
-			 &resp_payload, &resp_payload_size);
-	if (ret) {
-		pr_err("%s failed with error: %d\n", __func__, ret);
+	gh_ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_MEM_APPEND,
+				req_buf, req_payload_size,
+				&resp_payload, &resp_payload_size);
+	if (gh_ret || IS_ERR(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s failed with error: %d\n", __func__,
+		       PTR_ERR(resp_payload));
 		goto free_req_buf;
 	}
 
@@ -2128,9 +2170,9 @@ int gh_rm_mem_append(gh_memparcel_handle_t handle, u8 flags,
 		ret = -EINVAL;
 		pr_err("%s: Invalid size received: %u\n",
 			__func__, resp_payload_size);
-		kfree(resp_payload);
 	}
 
+	kfree(resp_payload);
 free_req_buf:
 	kfree(req_buf);
 	return ret;
@@ -2150,7 +2192,7 @@ static int gh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
 	void *req_buf;
 	size_t req_payload_size, resp_payload_size;
 	u16 req_sgl_entries, req_acl_entries, req_mem_attr_entries = 0;
-	int ret = 0;
+	int gh_ret, ret = 0;
 	int idx, next;
 
 	if ((mem_type != GH_RM_MEM_TYPE_NORMAL &&
@@ -2190,18 +2232,18 @@ static int gh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
 	gh_rm_populate_mem_request(req_buf, fn_id, acl_desc, sgl_desc, 0,
 				   mem_attr_desc);
 
-	ret = gh_rm_call(rm, fn_id, req_buf, req_payload_size,
-			 (void **)&resp_payload, &resp_payload_size);
-	if (ret) {
-		pr_err("%s failed with error: %d\n", __func__, ret);
+	gh_ret = gh_rm_call(rm, fn_id, req_buf, req_payload_size,
+				  (void **)&resp_payload, &resp_payload_size);
+	if (gh_ret || IS_ERR(resp_payload)) {
+		ret = PTR_ERR(resp_payload);
+		pr_err("%s failed with error: %d\n", __func__,
+		       PTR_ERR(resp_payload));
 		goto err_rm_call;
 	}
 
 	if (resp_payload_size != sizeof(*resp_payload)) {
 		ret = -EINVAL;
-		if (resp_payload_size)
-			kfree(resp_payload);
-		goto err_rm_call;
+		goto err_resp_size;
 	}
 
 	for (idx = req_sgl_entries; idx < sgl_desc->n_sgl_entries; idx = next) {
@@ -2224,6 +2266,7 @@ static int gh_rm_mem_share_lend_helper(u32 fn_id, u8 mem_type, u8 flags,
 
 err_mem_append:
 	ghd_rm_mem_reclaim(resp_payload->memparcel_handle, 0);
+err_resp_size:
 	kfree(resp_payload);
 err_rm_call:
 	kfree(req_buf);
@@ -2397,7 +2440,7 @@ int gh_rm_mem_notify(gh_memparcel_handle_t handle, u8 flags,
 	size_t n_vmid_entries = 0, req_vmid_desc_size = 0, req_payload_size;
 	size_t resp_size;
 	unsigned int i;
-	int ret = 0;
+	int ret = 0, gh_ret;
 
 	trace_gh_rm_mem_notify(handle, flags, mem_info_tag, vmid_desc);
 
@@ -2434,13 +2477,12 @@ int gh_rm_mem_notify(gh_memparcel_handle_t handle, u8 flags,
 				vmid_desc->vmid_entries[i].vmid;
 	}
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_MEM_NOTIFY, req_buf,
-			 req_payload_size, &resp_payload, &resp_size);
-	if (ret)
+	gh_ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_MEM_NOTIFY, req_buf,
+				  req_payload_size, &resp_payload, &resp_size);
+	if (gh_ret) {
+		ret = PTR_ERR(resp_payload);
 		pr_err("%s failed with err: %d\n", __func__, ret);
-
-	if (WARN_ON(resp_size))
-		kfree(resp_payload);
+	}
 
 	kfree(req_buf);
 	return ret;
@@ -2461,7 +2503,7 @@ int gh_rm_vm_set_time_base(gh_vmid_t vmid)
 	struct timespec64 ts_ref;
 	u64 ts_ns_ref;
 	u64 qtime_ref;
-	int ret = 0;
+	int reply_err_code = 0;
 	void *resp;
 
 	req_payload.vmid = (gh_vmid_t) vmid;
@@ -2477,13 +2519,13 @@ int gh_rm_vm_set_time_base(gh_vmid_t vmid)
 	req_payload.arch_timer_ref_low = (u32) qtime_ref;
 	req_payload.arch_timer_ref_high = (u32) (qtime_ref >> 32);
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_SET_TIME_BASE,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_SET_TIME_BASE,
 				&req_payload, sizeof(req_payload),
 				&resp, &resp_payload_size);
-	if (ret) {
+	if (reply_err_code) {
 		pr_err("%s: VM_SET_TIME_BASE failed with err: %d\n",
-			__func__, ret);
-		return ret;
+			__func__, reply_err_code);
+		return reply_err_code;
 	}
 
 	if (resp_payload_size) {
@@ -2507,27 +2549,26 @@ int gh_rm_minidump_get_info(void)
 	struct gh_minidump_get_info_req_payload req_payload = {};
 	struct gh_minidump_get_info_resp_payload *resp_payload;
 	size_t resp_size;
-	int ret = 0;
+	int ret = 0, reply_err_code;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_GET_INFO,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_GET_INFO,
 				  &req_payload, sizeof(req_payload),
 				  (void **)&resp_payload, &resp_size);
-	if (ret) {
-		pr_err("%s failed with err: 0x%llx %d\n", __func__, resp_payload, ret);
+	if (reply_err_code || IS_ERR(resp_payload)) {
+		pr_err("%s failed with err: 0x%llx %d\n", __func__, resp_payload, reply_err_code);
+		ret = PTR_ERR(resp_payload);
 		goto err_rm_call;
 	}
-
 	if (resp_size != sizeof(*resp_payload)) {
 		ret = -EINVAL;
 		pr_err("%s: Invalid size received: %u\n", __func__, resp_size);
-		if (resp_size)
-			kfree(resp_payload);
-		goto err_rm_call;
+		goto err_resp_size;
 	}
 
 	pr_debug("%s: slot num: %d\n", __func__, resp_payload->slot_num);
 	ret = resp_payload->slot_num;
 
+err_resp_size:
 	kfree(resp_payload);
 err_rm_call:
 	return ret;
@@ -2552,7 +2593,7 @@ int gh_rm_minidump_register_range(phys_addr_t base_ipa, size_t region_size,
 	struct gh_minidump_register_range_resp_payload *resp_payload;
 	void *req_buf;
 	size_t resp_size, req_size;
-	int ret = 0;
+	int ret = 0, reply_err_code;
 
 	if (!name)
 		return -EINVAL;
@@ -2570,24 +2611,26 @@ int gh_rm_minidump_register_range(phys_addr_t base_ipa, size_t region_size,
 	req_hdr->name_offset = sizeof(*req_hdr) + 8;
 	memcpy(req_buf + sizeof(*req_hdr), name, name_size);
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_REGISTER_RANGE,
+	reply_err_code =
+		gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_REGISTER_RANGE,
 			   req_buf, req_size, (void **)&resp_payload,  &resp_size);
-	if (ret) {
-		pr_err("%s failed with err: 0x%llx %d\n", __func__, resp_payload, ret);
+	if (reply_err_code || IS_ERR(resp_payload)) {
+		pr_err("%s failed with err: 0x%llx %d\n", __func__, resp_payload, reply_err_code);
+		ret = PTR_ERR(resp_payload);
 		goto err_rm_call;
 	}
 
 	if (resp_size != sizeof(*resp_payload)) {
 		ret = -EINVAL;
 		pr_err("%s: Invalid size received: %u\n", __func__, resp_size);
-		if (resp_size)
-			kfree(resp_payload);
-		goto err_rm_call;
+		goto err_resp_size;
 	}
 	ret = resp_payload->slot_num;
 
 	pr_debug("%s: slot num: %d\n", __func__, resp_payload->slot_num);
 
+err_resp_size:
+	kfree(resp_payload);
 err_rm_call:
 	kfree(req_buf);
 	return ret;
@@ -2607,18 +2650,17 @@ int gh_rm_minidump_deregister_slot(uint16_t slot_num)
 	struct gh_minidump_deregister_slot_req_payload req_payload = {};
 	void *resp;
 	size_t resp_size;
-	int ret;
+	int reply_err_code;
 
 	req_payload.slot_num = slot_num;
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_DEREGISTER_SLOT,
+	reply_err_code = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_DEREGISTER_SLOT,
 			  &req_payload, sizeof(req_payload), &resp, &resp_size);
-	if (ret) {
-		pr_err("%s failed with err: 0x%llx %d\n", __func__, resp, ret);
-		return ret;
+	if (reply_err_code || IS_ERR(resp)) {
+		pr_err("%s failed with err: 0x%llx %d\n", __func__, resp, reply_err_code);
+		return PTR_ERR(resp);
 	}
 	if (resp_size) {
-		kfree(resp);
 		pr_err("%s: Invalid size received: %u\n", __func__, resp_size);
 		return -EINVAL;
 	}
@@ -2639,7 +2681,7 @@ EXPORT_SYMBOL(gh_rm_minidump_deregister_slot);
  */
 int gh_rm_minidump_get_slot_from_name(uint16_t starting_slot, const char *name, size_t name_size)
 {
-	int ret = -EINVAL;
+	int reply_err_code, ret = -EINVAL;
 	struct gh_minidump_get_slot_req_payload *req_payload;
 	struct gh_minidump_get_slot_resp_payload *resp_payload;
 	size_t req_size, resp_size;
@@ -2659,24 +2701,23 @@ int gh_rm_minidump_get_slot_from_name(uint16_t starting_slot, const char *name, 
 	req_payload->starting_slot = starting_slot;
 	memcpy(req_buf + sizeof(*req_payload), name, name_size);
 
-	ret = gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_GET_SLOT_NUMBER,
+	reply_err_code =
+		gh_rm_call(rm, GH_RM_RPC_MSG_ID_CALL_VM_MINIDUMP_GET_SLOT_NUMBER,
 			   req_buf, req_size, (void **)&resp_payload,  &resp_size);
 
-	if (ret) {
-		pr_err("%s failed with err: 0x%llx %d\n", __func__, resp_payload, ret);
+	if (reply_err_code || IS_ERR(resp_payload)) {
+		pr_err("%s failed with err: 0x%llx %d\n", __func__, resp_payload, reply_err_code);
+		ret = PTR_ERR(resp_payload);
 		goto err_rm_call;
 	}
 
 	if (resp_size != sizeof(*resp_payload)) {
 		ret = -EINVAL;
-		if (resp_size)
-			kfree(resp_payload);
 		pr_err("%s: Invalid size received: %u\n", __func__, resp_size);
 		goto err_rm_call;
 	}
 	ret = resp_payload->slot_number;
 
-	kfree(resp_payload);
 err_rm_call:
 	kfree(req_buf);
 	return ret;
