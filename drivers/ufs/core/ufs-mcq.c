@@ -169,14 +169,12 @@ static int ufshcd_mcq_config_nr_queues(struct ufs_hba *hba)
 	u32 hba_maxq, rem, tot_queues;
 	struct Scsi_Host *host = hba->host;
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	/* maxq is 0 based value */
-	hba_maxq = FIELD_GET(MAX_QUEUE_SUP, hba->mcq_capabilities) + 1;
-	tot_queues = read_queues + poll_queues + rw_queues;
-#else
 	/* maxq is 0 based value */
 	hba_maxq = FIELD_GET(MAX_QUEUE_SUP, hba->mcq_capabilities) + 1;
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	tot_queues = read_queues + poll_queues + rw_queues;
+#else
 	tot_queues = UFS_MCQ_NUM_DEV_CMD_QUEUES + read_queues + poll_queues +
 			rw_queues;
 #endif

@@ -5669,7 +5669,11 @@ static void ufshcd_mcq_compl_pending_transfer(struct ufs_hba *hba,
 
 		utag = blk_mq_unique_tag(scsi_cmd_to_rq(cmd));
 		hwq_num = blk_mq_unique_tag_to_hwq(utag);
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+		hwq = &hba->uhq[hwq_num];
+#else
 		hwq = &hba->uhq[hwq_num + UFSHCD_MCQ_IO_QUEUE_OFFSET];
+#endif
 
 		if (force_compl) {
 			ufshcd_mcq_compl_all_cqes_lock(hba, hwq);
