@@ -382,6 +382,13 @@ enum msm_usb_irq {
 	USB_MAX_IRQ
 };
 
+enum icc_paths {
+	USB_DDR,
+	USB_IPA,
+	DDR_USB,
+	USB_MAX_PATH
+};
+
 enum bus_vote {
 	BUS_VOTE_NONE,
 	BUS_VOTE_NOMINAL,
@@ -394,7 +401,7 @@ static const char * const icc_path_names[] = {
 	"usb-ddr", "usb-ipa", "ddr-usb",
 };
 
-static const struct {
+static struct {
 	u32 avg, peak;
 } bus_vote_values[BUS_VOTE_MAX][3] = {
 	/* usb_ddr avg/peak, usb_ipa avg/peak, apps_usb avg/peak */
@@ -483,8 +490,14 @@ struct extcon_nb {
 #define WAIT_FOR_LPM		3
 #define CONN_DONE		4
 
-#define PM_QOS_SAMPLE_SEC	2
-#define PM_QOS_THRESHOLD	400
+/* reduce interval which allow device enter perf mode quickly for KPI test */
+#define PM_QOS_DEFAULT_SAMPLE_MS	100
+/* better choose high speed data which will cover super speed, ignore low/full */
+#define PM_QOS_DEFAULT_SAMPLE_THRESHOLD	200
+
+/* below setting will be used after device enters perf mode */
+#define PM_QOS_PERF_SAMPLE_MS	2000
+#define PM_QOS_PERF_SAMPLE_THRESHOLD	400
 
 struct dwc3_msm {
 	struct device *dev;
@@ -612,6 +625,16 @@ struct dwc3_msm {
 
 	bool			wcd_usbss;
 	bool			dynamic_disable;
+
+	struct dentry *dbg_dir;
+#define PM_QOS_REQ_DYNAMIC	0
+#define PM_QOS_REQ_PERF		1
+#define PM_QOS_REQ_DEFAULT	2
+	u8 qos_req_state;
+#define PM_QOS_REC_MAX_RECORD	50
+	bool qos_rec_start;
+	u8 qos_rec_index;
+	u32 qos_rec_irq[PM_QOS_REC_MAX_RECORD];
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -4326,9 +4349,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	 */
 	dwc3_pwr_event_handler(mdwc);
 
-	if (cpu_latency_qos_request_active(&mdwc->pm_qos_req_dma))
-		schedule_delayed_work(&mdwc->perf_vote_work,
-			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+	msm_dwc3_perf_vote_enable(mdwc, true);
 
 	dwc3_msm_set_clk_sel(mdwc);
 
@@ -4423,17 +4444,6 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 		usb_phy_set_suspend(mdwc->hs_phy, 1);
 		mdwc->hs_phy->flags &= ~PHY_SUS_OVERRIDE;
 		return;
-	}
-
-	if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER) {
-		if (mdwc->vbus_active || mdwc->id_state == DWC3_ID_GROUND) {
-			dwc3_set_ssphy_orientation_flag(mdwc);
-			usb_redriver_notify_connect(mdwc->redriver,
-				mdwc->ss_phy->flags & PHY_LANE_A ?
-					ORIENTATION_CC1 : ORIENTATION_CC2);
-		} else {
-			usb_redriver_notify_disconnect(mdwc->redriver);
-		}
 	}
 
 	dbg_log_string("exit: mdwc->inputs:%lx\n", mdwc->inputs);
@@ -5551,7 +5561,31 @@ int dwc3_msm_release_ss_lane(struct device *dev)
 }
 EXPORT_SYMBOL(dwc3_msm_release_ss_lane);
 
-static int dwc3_msm_debug_init(struct dwc3_msm *mdwc)
+static int qos_rec_irq_read(struct seq_file *s, void *p)
+{
+	struct dwc3_msm *mdwc = s->private;
+	int i;
+
+	for (i = 0; i < PM_QOS_REC_MAX_RECORD; i++)
+		seq_printf(s, "%d ", mdwc->qos_rec_irq[i]);
+
+	seq_puts(s, "\n");
+
+	return 0;
+}
+
+static int qos_rec_irq_open(struct inode *inode,
+		struct file *file)
+{
+	return single_open(file, qos_rec_irq_read, inode->i_private);
+}
+
+static const struct file_operations qos_rec_irq_ops = {
+	.open	= qos_rec_irq_open,
+	.read	= seq_read,
+};
+
+static void dwc3_msm_debug_init(struct dwc3_msm *mdwc)
 {
 	char ipc_log_ctx_name[40];
 
@@ -5574,7 +5608,20 @@ static int dwc3_msm_debug_init(struct dwc3_msm *mdwc)
 	if (!dwc_trace_ipc_log_ctxt)
 		dev_err(mdwc->dev, "Error getting trace_ipc_log_ctxt for ep_events\n");
 
-	return 0;
+	mdwc->dbg_dir = debugfs_create_dir(dev_name(mdwc->dev), NULL);
+	if (!mdwc->dbg_dir)
+		return;
+	debugfs_create_u8("qos_req_state", 0644, mdwc->dbg_dir, &mdwc->qos_req_state);
+	debugfs_create_bool("qos_rec_start", 0644, mdwc->dbg_dir, &mdwc->qos_rec_start);
+	debugfs_create_u8("qos_rec_index", 0644, mdwc->dbg_dir, &mdwc->qos_rec_index);
+	debugfs_create_file("qos_rec_irq", 0444, mdwc->dbg_dir, mdwc, &qos_rec_irq_ops);
+}
+
+static void dwc3_msm_debug_exit(struct dwc3_msm *mdwc)
+{
+	ipc_log_context_destroy(mdwc->dwc_ipc_log_ctxt);
+	ipc_log_context_destroy(mdwc->dwc_dma_ipc_log_ctxt);
+	debugfs_remove_recursive(mdwc->dbg_dir);
 }
 
 static void dwc3_host_complete(struct device *dev);
@@ -5746,6 +5793,68 @@ static int dwc3_msm_parse_core_params(struct dwc3_msm *mdwc, struct device_node 
 	return ret;
 }
 
+static int dwc3_msm_interconnect_vote_populate(struct dwc3_msm *mdwc)
+{
+	int ret_nom = 0, i = 0, j = 0, count = 0;
+	int ret_svs = 0, ret = 0;
+	u32 *vv_nom, *vv_svs;
+
+	count = of_property_count_strings(mdwc->dev->of_node,
+						"interconnect-names");
+	if (count < 0) {
+		dev_err(mdwc->dev, "No interconnects found.\n");
+		return -EINVAL;
+	}
+
+	/* 2 signifies the two types of values avg & peak */
+	vv_nom = kzalloc(count * 2 * sizeof(*vv_nom), GFP_KERNEL);
+	if (!vv_nom)
+		return -ENOMEM;
+
+	vv_svs = kzalloc(count * 2 * sizeof(*vv_svs), GFP_KERNEL);
+	if (!vv_svs)
+		return -ENOMEM;
+
+	/* of_property_read_u32_array returns 0 on success */
+	ret_nom = of_property_read_u32_array(mdwc->dev->of_node,
+				"qcom,interconnect-values-nom",
+					vv_nom, count * 2);
+	if (ret_nom) {
+		dev_err(mdwc->dev, "Nominal values not found.\n");
+		ret = ret_nom;
+		goto icc_err;
+	}
+
+	ret_svs = of_property_read_u32_array(mdwc->dev->of_node,
+				"qcom,interconnect-values-svs",
+					vv_svs, count * 2);
+	if (ret_svs) {
+		dev_err(mdwc->dev, "Svs values not found.\n");
+		ret = ret_svs;
+		goto icc_err;
+	}
+
+	for (i = USB_DDR; i < count && i < USB_MAX_PATH; i++) {
+		/* Updating votes NOMINAL */
+		bus_vote_values[BUS_VOTE_NOMINAL][i].avg
+						= vv_nom[j];
+		bus_vote_values[BUS_VOTE_NOMINAL][i].peak
+						= vv_nom[j+1];
+		/* Updating votes SVS */
+		bus_vote_values[BUS_VOTE_SVS][i].avg
+						= vv_svs[j];
+		bus_vote_values[BUS_VOTE_SVS][i].peak
+						= vv_svs[j+1];
+		j += 2;
+	}
+icc_err:
+	/* freeing the temporary resource */
+	kfree(vv_nom);
+	kfree(vv_svs);
+
+	return ret;
+}
+
 static int dwc3_msm_parse_params(struct dwc3_msm *mdwc, struct device_node *node)
 {
 	struct device_node *diag_node, *wcd_node;
@@ -5787,6 +5896,10 @@ static int dwc3_msm_parse_params(struct dwc3_msm *mdwc, struct device_node *node
 
 	mdwc->dis_sending_cm_l1_quirk = of_property_read_bool(node,
 				"qcom,dis-sending-cm-l1-quirk");
+
+	ret = dwc3_msm_interconnect_vote_populate(mdwc);
+	if (ret)
+		dev_err(dev, "Using default bus votes\n");
 
 	/* use default as nominal bus voting */
 	mdwc->default_bus_vote = BUS_VOTE_NOMINAL;
@@ -6214,10 +6327,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	destroy_workqueue(mdwc->sm_usb_wq);
 	destroy_workqueue(mdwc->dwc3_wq);
 
-	ipc_log_context_destroy(mdwc->dwc_ipc_log_ctxt);
-	mdwc->dwc_ipc_log_ctxt = NULL;
-	ipc_log_context_destroy(mdwc->dwc_dma_ipc_log_ctxt);
-	mdwc->dwc_dma_ipc_log_ctxt = NULL;
+	dwc3_msm_debug_exit(mdwc);
 
 	kfree(mdwc->xhci_pm_ops);
 	kfree(mdwc->dwc3_pm_ops);
@@ -6366,18 +6476,35 @@ static void msm_dwc3_perf_vote_work(struct work_struct *w)
 						perf_vote_work.work);
 	struct irq_desc *irq_desc = irq_to_desc(mdwc->core_irq);
 	unsigned int new = irq_desc->tot_count;
+	unsigned int count = new - mdwc->irq_cnt;
+	unsigned int threshold = PM_QOS_DEFAULT_SAMPLE_THRESHOLD;
+	unsigned long delay = PM_QOS_DEFAULT_SAMPLE_MS;
 	bool in_perf_mode = false;
 
-	if (new - mdwc->irq_cnt >= PM_QOS_THRESHOLD)
+	if (mdwc->qos_rec_start && mdwc->qos_rec_index < PM_QOS_REC_MAX_RECORD)
+		mdwc->qos_rec_irq[mdwc->qos_rec_index++] = count;
+
+	if (mdwc->perf_mode)
+		threshold = PM_QOS_PERF_SAMPLE_THRESHOLD;
+
+	if (mdwc->qos_req_state == PM_QOS_REQ_PERF ||
+	    (mdwc->qos_req_state == PM_QOS_REQ_DYNAMIC && count >= threshold))
 		in_perf_mode = true;
 
 	pr_debug("%s: in_perf_mode:%u, interrupts in last sample:%u\n",
-		 __func__, in_perf_mode, new - mdwc->irq_cnt);
+		 __func__, in_perf_mode, count);
 
 	mdwc->irq_cnt = new;
 	msm_dwc3_perf_vote_update(mdwc, in_perf_mode);
-	schedule_delayed_work(&mdwc->perf_vote_work,
-			msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+
+	/*
+	 * in PM_QOS_REQ_DEFAULT and PM_QOS_REQ_PERF, both delay is 100ms,
+	 * it will compare irq differences.
+	 */
+	if (mdwc->qos_req_state == PM_QOS_REQ_DYNAMIC && in_perf_mode)
+		delay = PM_QOS_PERF_SAMPLE_MS;
+
+	schedule_delayed_work(&mdwc->perf_vote_work, msecs_to_jiffies(delay));
 }
 
 static void msm_dwc3_perf_vote_enable(struct dwc3_msm *mdwc, bool enable)
@@ -6388,13 +6515,16 @@ static void msm_dwc3_perf_vote_enable(struct dwc3_msm *mdwc, bool enable)
 		/* make sure when enable work, save a valid start irq count */
 		mdwc->irq_cnt = irq_desc->tot_count;
 
-		/* start in perf mode for better performance initially for host/device mode */
-		msm_dwc3_perf_vote_update(mdwc, true);
+		/* start default mode intially */
+		mdwc->perf_mode = false;
+		cpu_latency_qos_add_request(&mdwc->pm_qos_req_dma,
+					    PM_QOS_DEFAULT_VALUE);
 		schedule_delayed_work(&mdwc->perf_vote_work,
-				msecs_to_jiffies(1000 * PM_QOS_SAMPLE_SEC));
+				msecs_to_jiffies(PM_QOS_DEFAULT_SAMPLE_MS));
 	} else {
 		cancel_delayed_work_sync(&mdwc->perf_vote_work);
 		msm_dwc3_perf_vote_update(mdwc, false);
+		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 	}
 }
 
@@ -6504,13 +6634,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			atomic_read(&mdwc->dev->power.usage_count));
 		pm_runtime_mark_last_busy(mdwc->dev);
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
-		cpu_latency_qos_add_request(&mdwc->pm_qos_req_dma,
-					    PM_QOS_DEFAULT_VALUE);
-		msm_dwc3_perf_vote_enable(mdwc, true);
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off host\n", __func__);
-		msm_dwc3_perf_vote_enable(mdwc, false);
-		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 
 		ret = pm_runtime_resume_and_get(&mdwc->dwc3->dev);
 		if (ret < 0) {
@@ -6659,14 +6784,9 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		}
 
 		usb_role_switch_set_role(mdwc->dwc3_drd_sw, USB_ROLE_DEVICE);
-		cpu_latency_qos_add_request(&mdwc->pm_qos_req_dma,
-					    PM_QOS_DEFAULT_VALUE);
 		clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
-		msm_dwc3_perf_vote_enable(mdwc, true);
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off gadget\n", __func__);
-		msm_dwc3_perf_vote_enable(mdwc, false);
-		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 
 		dwc3_override_vbus_status(mdwc, false);
 		mdwc->in_device_mode = false;

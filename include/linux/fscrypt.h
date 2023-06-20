@@ -182,6 +182,8 @@ struct fscrypt_operations {
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);
+
+	ANDROID_OEM_DATA_ARRAY(1, 4);
 };
 
 static inline struct fscrypt_info *fscrypt_get_info(const struct inode *inode)
@@ -365,6 +367,7 @@ int __fscrypt_prepare_rename(struct inode *old_dir, struct dentry *old_dentry,
 			     unsigned int flags);
 int __fscrypt_prepare_lookup(struct inode *dir, struct dentry *dentry,
 			     struct fscrypt_name *fname);
+int fscrypt_prepare_lookup_partial(struct inode *dir, struct dentry *dentry);
 int __fscrypt_prepare_readdir(struct inode *dir);
 int __fscrypt_prepare_setattr(struct dentry *dentry, struct iattr *attr);
 int fscrypt_prepare_setflags(struct inode *inode,
@@ -675,6 +678,12 @@ static inline int __fscrypt_prepare_rename(struct inode *old_dir,
 static inline int __fscrypt_prepare_lookup(struct inode *dir,
 					   struct dentry *dentry,
 					   struct fscrypt_name *fname)
+{
+	return -EOPNOTSUPP;
+}
+
+static inline int fscrypt_prepare_lookup_partial(struct inode *dir,
+						 struct dentry *dentry)
 {
 	return -EOPNOTSUPP;
 }

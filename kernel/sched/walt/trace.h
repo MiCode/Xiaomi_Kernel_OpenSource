@@ -722,10 +722,10 @@ TRACE_EVENT(waltgov_util_update,
 TRACE_EVENT(waltgov_next_freq,
 	    TP_PROTO(unsigned int cpu, unsigned long util, unsigned long max, unsigned int raw_freq,
 		     unsigned int freq, unsigned int policy_min_freq, unsigned int policy_max_freq,
-		     unsigned int cached_raw_freq, bool need_freq_update, unsigned int driving_cpu,
-		     unsigned int reason),
+		     unsigned int cached_raw_freq, bool need_freq_update, bool thermal_isolated,
+		     unsigned int driving_cpu, unsigned int reason),
 	    TP_ARGS(cpu, util, max, raw_freq, freq, policy_min_freq, policy_max_freq,
-		    cached_raw_freq, need_freq_update, driving_cpu, reason),
+		    cached_raw_freq, need_freq_update, thermal_isolated, driving_cpu, reason),
 	    TP_STRUCT__entry(
 		    __field(unsigned int, cpu)
 		    __field(unsigned long, util)
@@ -736,6 +736,7 @@ TRACE_EVENT(waltgov_next_freq,
 		    __field(unsigned int, policy_max_freq)
 		    __field(unsigned int, cached_raw_freq)
 		    __field(bool, need_freq_update)
+		    __field(bool, thermal_isolated)
 		    __field(unsigned int, rt_util)
 		    __field(unsigned int, driving_cpu)
 		    __field(unsigned int, reason)
@@ -750,11 +751,12 @@ TRACE_EVENT(waltgov_next_freq,
 		    __entry->policy_max_freq	= policy_max_freq;
 		    __entry->cached_raw_freq	= cached_raw_freq;
 		    __entry->need_freq_update	= need_freq_update;
+		    __entry->thermal_isolated	= thermal_isolated;
 		    __entry->rt_util		= cpu_util_rt(cpu_rq(cpu));
 		    __entry->driving_cpu	= driving_cpu;
 		    __entry->reason		= reason;
 	    ),
-	    TP_printk("cpu=%u util=%lu max=%lu raw_freq=%lu freq=%u policy_min_freq=%u policy_max_freq=%u cached_raw_freq=%u need_update=%d rt_util=%u driv_cpu=%u reason=0x%x",
+	    TP_printk("cpu=%u util=%lu max=%lu raw_freq=%lu freq=%u policy_min_freq=%u policy_max_freq=%u cached_raw_freq=%u need_update=%d thermal_isolated=%d rt_util=%u driv_cpu=%u reason=0x%x",
 		      __entry->cpu,
 		      __entry->util,
 		      __entry->max,
@@ -764,6 +766,7 @@ TRACE_EVENT(waltgov_next_freq,
 		      __entry->policy_max_freq,
 		      __entry->cached_raw_freq,
 		      __entry->need_freq_update,
+		      __entry->thermal_isolated,
 		      __entry->rt_util,
 		      __entry->driving_cpu,
 		      __entry->reason)
@@ -842,9 +845,10 @@ TRACE_EVENT(walt_nohz_balance_kick,
 
 TRACE_EVENT(walt_newidle_balance,
 
-	TP_PROTO(int this_cpu, int busy_cpu, int pulled, bool help_min_cap, bool enough_idle),
+	TP_PROTO(int this_cpu, int busy_cpu, int pulled, bool help_min_cap, bool enough_idle,
+		struct task_struct *p),
 
-	TP_ARGS(this_cpu, busy_cpu, pulled, help_min_cap, enough_idle),
+	TP_ARGS(this_cpu, busy_cpu, pulled, help_min_cap, enough_idle, p),
 
 	TP_STRUCT__entry(
 		__field(int, cpu)
@@ -857,6 +861,7 @@ TRACE_EVENT(walt_newidle_balance,
 		__field(u64, avg_idle)
 		__field(bool, enough_idle)
 		__field(int, overload)
+		__field(int, pid)
 	),
 
 	TP_fast_assign(
@@ -870,14 +875,15 @@ TRACE_EVENT(walt_newidle_balance,
 		__entry->avg_idle	= cpu_rq(this_cpu)->avg_idle;
 		__entry->enough_idle	= enough_idle;
 		__entry->overload	= cpu_rq(this_cpu)->rd->overload;
+		__entry->pid		= p ? p->pid : -1;
 	),
 
-	TP_printk("cpu=%d busy_cpu=%d pulled=%d nr_running=%u rt_nr_running=%u nr_iowait=%d help_min_cap=%d avg_idle=%llu enough_idle=%d overload=%d",
+	TP_printk("cpu=%d busy_cpu=%d pulled=%d nr_running=%u rt_nr_running=%u nr_iowait=%d help_min_cap=%d avg_idle=%llu enough_idle=%d overload=%d pid=%d",
 			__entry->cpu, __entry->busy_cpu, __entry->pulled,
 			__entry->nr_running, __entry->rt_nr_running,
 			__entry->nr_iowait, __entry->help_min_cap,
 			__entry->avg_idle, __entry->enough_idle,
-			__entry->overload)
+			__entry->overload, __entry->pid)
 );
 
 TRACE_EVENT(walt_lb_cpu_util,

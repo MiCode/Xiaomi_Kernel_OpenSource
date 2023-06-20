@@ -403,7 +403,7 @@ static int msm_geni_serial_runtime_suspend(struct device *dev);
 static int msm_geni_serial_get_ver_info(struct uart_port *uport);
 static bool handle_rx_dma_xfer(u32 s_irq_status, struct uart_port *uport);
 static void msm_geni_serial_allow_rx(struct msm_geni_serial_port *port);
-static int uart_line_id;
+static unsigned char uart_line_id;
 
 #define GET_DEV_PORT(uport) \
 	container_of(uport, struct msm_geni_serial_port, uport)
@@ -4438,7 +4438,7 @@ static int msm_geni_serial_read_dtsi(struct platform_device *pdev,
 static int msm_geni_serial_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	int line;
+	int line, i = 0;
 	struct msm_geni_serial_port *dev_port;
 	struct uart_port *uport;
 	struct uart_driver *drv;
@@ -4460,11 +4460,29 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 			if (line < 0)
 				line = 0;
 		} else {
+			if (uart_line_id >= (1 << GENI_UART_NR_PORTS) - 1) {
+				dev_err(&pdev->dev,
+					"All UART ports already initialized\n");
+				return -ENODEV;
+			}
+
 			line = of_alias_get_id(pdev->dev.of_node, "hsuart");
-			/* for non alias hsuart use uart_line_id in get_port_from_line */
-			if (line < 0)
-				dev_dbg(&pdev->dev, "%s: non alias hsuart\n", __func__);
-			line = uart_line_id;
+			if (line < 0) {
+				for (i = (GENI_UART_NR_PORTS - 1); i >= 0; i--) {
+					if ((uart_line_id  & (1 << i)) == 0) {
+						line = i;
+						break;
+					}
+				}
+			}
+
+			if (uart_line_id & (1 << line)) {
+				dev_err(&pdev->dev, "Already used line %d\n", line);
+				return -ENODEV;
+			}
+
+			if (line >= 0 && line < GENI_UART_NR_PORTS)
+				uart_line_id |= (1 << line) & 0xFF;
 		}
 	} else {
 		line = pdev->id;
@@ -4474,7 +4492,7 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	dev_port = get_port_from_line(line, is_console);
 	if (IS_ERR_OR_NULL(dev_port)) {
 		ret = PTR_ERR(dev_port);
-		dev_err(&pdev->dev, "Invalid line ret:%d\n", ret);
+		dev_err(&pdev->dev, "Invalid line %d(%d)\n", line, ret);
 		goto exit_geni_serial_probe;
 	}
 
@@ -4502,9 +4520,6 @@ static int msm_geni_serial_probe(struct platform_device *pdev)
 	ret = msm_geni_serial_read_dtsi(pdev, dev_port);
 	if (ret)
 		goto exit_geni_serial_probe;
-
-	if (!drv->cons)
-		uart_line_id++;
 
 	dev_port->tx_fifo_depth = DEF_FIFO_DEPTH_WORDS;
 	dev_port->rx_fifo_depth = DEF_FIFO_DEPTH_WORDS;

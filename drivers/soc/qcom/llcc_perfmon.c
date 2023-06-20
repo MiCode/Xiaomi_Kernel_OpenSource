@@ -388,7 +388,7 @@ static ssize_t perfmon_configure_store(struct device *dev, struct device_attribu
 
 	token = strsep((char **)&buf, delim);
 	/* Getting filter information if provided */
-	if (strlen(token) == strlen("FILTERX")) {
+	if (token && strlen(token) == strlen("FILTERX")) {
 		if (llcc_priv->fltr_logic != multiple_filtr) {
 			pr_err("Error Multifilter configuration not present\n");
 			goto out_configure;
@@ -523,7 +523,7 @@ static ssize_t perfmon_remove_store(struct device *dev, struct device_attribute 
 	}
 
 	/* Getting filter information if provided */
-	if (strlen(token) == strlen("FILTERX")) {
+	if (token && strlen(token) == strlen("FILTERX")) {
 		if (llcc_priv->fltr_logic != multiple_filtr) {
 			pr_err("Error! Multifilter configuration not present\n");
 			goto out_remove_store_err;
@@ -940,7 +940,7 @@ static ssize_t perfmon_start_store(struct device *dev, struct device_attribute *
 		const char *buf, size_t count)
 {
 	struct llcc_perfmon_private *llcc_priv = dev_get_drvdata(dev);
-	uint32_t val = 0, mask_val, offset;
+	uint32_t val = 0, mask_val, offset, cntr_num = DUMP_NUM_COUNTERS_MASK;
 	unsigned long start;
 	int ret = 0;
 
@@ -973,6 +973,8 @@ static ssize_t perfmon_start_store(struct device *dev, struct device_attribute *
 						HRTIMER_MODE_REL_PINNED);
 		}
 
+		cntr_num = (((llcc_priv->configured_cntrs - 1) & DUMP_NUM_COUNTERS_MASK) <<
+				DUMP_NUM_COUNTERS_SHIFT);
 	} else {
 		if (llcc_priv->expires)
 			hrtimer_cancel(&llcc_priv->hrtimer);
@@ -997,6 +999,10 @@ static ssize_t perfmon_start_store(struct device *dev, struct device_attribute *
 		/* For RUMI environment where clock node is not available */
 		llcc_bcast_modify(llcc_priv, offset, val, mask_val);
 	}
+
+	/* Updating total counters to dump info, based on configured counters */
+	offset = PERFMON_NUM_CNTRS_DUMP_CFG(llcc_priv->drv_ver);
+	llcc_bcast_write(llcc_priv, offset, cntr_num);
 
 	mutex_unlock(&llcc_priv->mutex);
 	return count;

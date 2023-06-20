@@ -93,7 +93,7 @@ static u64 gh_sec_load_metadata(struct gh_sec_vm_dev *vm_dev,
 	void *metadata_start;
 	u64 image_start_addr = 0;
 	size_t mdata_size = 0;
-	u64 image_end_addr;
+	u64 image_end_addr = 0;
 	u64 image_size = 0;
 	u32 max_paddr = 0;
 	u64 moffset = 0;
@@ -307,7 +307,7 @@ long gh_vm_ioctl_set_fw_name(struct gh_vm *vm, unsigned long arg)
 
 	scnprintf(vm->fw_name, ARRAY_SIZE(vm->fw_name),
 						"%s", vm_fw_name.name);
-
+	gh_uevent_notify_change(GH_EVENT_CREATE_VM, vm);
 	mutex_unlock(&vm->vm_lock);
 	return ret;
 

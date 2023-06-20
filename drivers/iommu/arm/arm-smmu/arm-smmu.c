@@ -2854,6 +2854,22 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 	reg = arm_smmu_gr0_read(smmu, ARM_SMMU_GR0_sGFSR);
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_sGFSR, reg);
 
+#if defined CONFIG_QTI_QUIN_GVM
+	/*
+	 * Reset stream mapping groups for unused sme's: Initial values mark all SMRn as
+	 * invalid and all S2CRn as bypass unless overridden.
+	 */
+	for (i = 0; i < smmu->num_mapping_groups; ++i)
+		if (!smmu->s2crs[i].pinned)
+			arm_smmu_write_sme(smmu, i);
+
+	/* Make sure only unpinned context banks are disabled and clear CB_FSR  */
+	for (i = 0; i < smmu->num_context_banks; ++i)
+		if (!smmu->s2crs[i].pinned) {
+			arm_smmu_write_context_bank(smmu, i);
+			arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, ARM_SMMU_FSR_FAULT);
+		}
+#else
 	/*
 	 * Reset stream mapping groups: Initial values mark all SMRn as
 	 * invalid and all S2CRn as bypass unless overridden.
@@ -2866,6 +2882,7 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 		arm_smmu_write_context_bank(smmu, i);
 		arm_smmu_cb_write(smmu, i, ARM_SMMU_CB_FSR, ARM_SMMU_FSR_FAULT);
 	}
+#endif
 
 	/* Invalidate the TLB, just in case */
 	arm_smmu_gr0_write(smmu, ARM_SMMU_GR0_TLBIALLH, QCOM_DUMMY_VAL);
@@ -3032,50 +3049,6 @@ static int arm_smmu_handoff_cbs(struct arm_smmu_device *smmu)
 	kfree(handoff_smrs);
 
 	return 0;
-}
-
-static int arm_smmu_parse_impl_def_registers(struct arm_smmu_device *smmu)
-{
-	struct device *dev = smmu->dev;
-	int i, ntuples, ret;
-	u32 *tuples;
-	struct arm_smmu_impl_def_reg *regs, *regit;
-
-	if (!of_find_property(dev->of_node, "attach-impl-defs", &ntuples))
-		return 0;
-
-	ntuples /= sizeof(u32);
-	if (ntuples % 2) {
-		dev_err(dev,
-			"Invalid number of attach-impl-defs registers: %d\n",
-			ntuples);
-		return -EINVAL;
-	}
-
-	regs = devm_kmalloc_array(dev, ntuples, sizeof(*regs), GFP_KERNEL);
-	if (!regs)
-		return -ENOMEM;
-
-	tuples = kmalloc_array(ntuples * 2, sizeof(*tuples), GFP_KERNEL);
-	if (!tuples)
-		return -ENOMEM;
-
-	ret = of_property_read_u32_array(dev->of_node, "attach-impl-defs",
-					tuples, ntuples);
-	if (ret)
-		goto out;
-
-	for (i = 0, regit = regs; i < ntuples; i += 2, ++regit) {
-		regit->offset = tuples[i];
-		regit->value = tuples[i + 1];
-	}
-
-	smmu->impl_def_attach_registers = regs;
-	smmu->num_impl_def_attach_registers = ntuples / 2;
-
-out:
-	kfree(tuples);
-	return ret;
 }
 
 static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
@@ -3552,10 +3525,6 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 	if (err)
 		goto out_power_off;
 
-	err = arm_smmu_parse_impl_def_registers(smmu);
-	if (err)
-		goto out_power_off;
-
 	if (smmu->version == ARM_SMMU_V2) {
 		if (smmu->num_context_banks > smmu->num_context_irqs) {
 			dev_err(dev,
@@ -3590,6 +3559,11 @@ static int arm_smmu_device_probe(struct platform_device *pdev)
 
 	/* QCOM Additions */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		err = -ENXIO;
+		dev_err(dev, "Failed to get mem resource\n");
+		goto out_power_off;
+	}
 	smmu->phys_addr = res->start;
 	err = arm_smmu_handoff_cbs(smmu);
 	if (err)

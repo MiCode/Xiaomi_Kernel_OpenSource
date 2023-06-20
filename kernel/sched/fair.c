@@ -58,6 +58,8 @@
 
 #include <trace/hooks/sched.h>
 
+EXPORT_TRACEPOINT_SYMBOL_GPL(sched_stat_runtime);
+
 /*
  * Targeted preemption latency for CPU-bound tasks:
  *
@@ -867,6 +869,9 @@ void post_init_entity_util_avg(struct task_struct *p)
 	}
 
 	sa->runnable_avg = sa->util_avg;
+
+	/* Hook before this se's util is attached to cfs_rq's util */
+	trace_android_rvh_post_init_entity_util_avg(se);
 }
 
 #else /* !CONFIG_SMP */
@@ -10133,6 +10138,16 @@ static inline void calculate_imbalance(struct lb_env *env, struct sd_lb_stats *s
 
 		sds->avg_load = (sds->total_load * SCHED_CAPACITY_SCALE) /
 				sds->total_capacity;
+
+		/*
+		 * If the local group is more loaded than the average system
+		 * load, don't try to pull any tasks.
+		 */
+		if (local->avg_load >= sds->avg_load) {
+			env->imbalance = 0;
+			return;
+		}
+
 	}
 
 	/*

@@ -948,9 +948,6 @@ static int __check_page_state_visitor(u64 addr, u64 end, u32 level,
 	struct check_walk_data *d = arg;
 	kvm_pte_t pte = *ptep;
 
-	if (kvm_pte_valid(pte) && !addr_is_allowed_memory(kvm_pte_to_phys(pte)))
-		return -EINVAL;
-
 	return d->get_page_state(pte, addr) == d->desired ? 0 : -EPERM;
 }
 
@@ -974,6 +971,9 @@ static enum pkvm_page_state host_get_page_state(kvm_pte_t pte, u64 addr)
 
 	if (is_memory && hyp_phys_to_page(addr)->flags & MODULE_OWNED_PAGE)
 	       return PKVM_MODULE_DONT_TOUCH;
+
+	if (!addr_is_allowed_memory(addr))
+		return PKVM_NOPAGE;
 
 	if (!kvm_pte_valid(pte) && pte)
 		return PKVM_NOPAGE;
@@ -2362,19 +2362,6 @@ bool __pkvm_check_ioguard_page(struct pkvm_hyp_vcpu *hyp_vcpu)
 	if ((end & PAGE_MASK) != (ipa & PAGE_MASK))
 		ret &= __check_ioguard_page(hyp_vcpu, end);
 	guest_unlock_component(vm);
-
-	return ret;
-}
-
-int host_stage2_protect_pages_locked(phys_addr_t addr, u64 size)
-{
-	int ret;
-
-	hyp_assert_lock_held(&host_mmu.lock);
-
-	ret = __host_check_page_state_range(addr, size, PKVM_PAGE_OWNED);
-	if (!ret)
-		ret = host_stage2_set_owner_locked(addr, size, PKVM_ID_PROTECTED);
 
 	return ret;
 }

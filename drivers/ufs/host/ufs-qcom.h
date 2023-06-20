@@ -108,6 +108,8 @@ enum {
 	UFS_DBG_RD_REG_TMRLUT			= 0x700,
 	UFS_UFS_DBG_RD_REG_OCSC			= 0x800,
 
+	UFS_UFS_DBG_RAM_CTL			= 0x1000,
+	UFS_UFS_DBG_RAM_RD_FATA_DWn		= 0x1024,
 	UFS_UFS_DBG_RD_DESC_RAM			= 0x1500,
 	UFS_UFS_DBG_RD_PRDT_RAM			= 0x1700,
 	UFS_UFS_DBG_RD_RESP_RAM			= 0x1800,
@@ -608,7 +610,6 @@ struct ufs_qcom_host {
 	struct list_head regs_list_head;
 	bool ber_th_exceeded;
 
-	int esi_base;
 	bool esi_enabled;
 
 	bool bypass_pbl_rst_wa;

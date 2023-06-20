@@ -123,6 +123,7 @@
 #define MAX_THREADS FUTEX_TID_MASK
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(task_newtask);
+EXPORT_TRACEPOINT_SYMBOL_GPL(task_rename);
 
 /*
  * Protected counters by write_lock_irq(&tasklist_lock)
@@ -625,6 +626,7 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 	if (retval)
 		goto out;
 
+	mt_clear_in_rcu(mas.tree);
 	mas_for_each(&old_mas, mpnt, ULONG_MAX) {
 		struct file *file;
 
@@ -711,6 +713,8 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 	retval = arch_dup_mmap(oldmm, mm);
 loop_out:
 	mas_destroy(&mas);
+	if (!retval)
+		mt_set_in_rcu(mas.tree);
 out:
 	mmap_write_unlock(mm);
 	flush_tlb_mm(oldmm);
@@ -1061,6 +1065,7 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 	android_init_vendor_data(tsk, 1);
 	android_init_oem_data(tsk, 1);
 
+	trace_android_vh_dup_task_struct(tsk, orig);
 	return tsk;
 
 free_stack:

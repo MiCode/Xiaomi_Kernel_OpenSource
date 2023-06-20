@@ -54,6 +54,8 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/mmap.h>
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/mm.h>
 
 #include "internal.h"
 
@@ -2309,7 +2311,7 @@ do_mas_align_munmap(struct ma_state *mas, struct vm_area_struct *vma,
 	int count = 0;
 	int error = -ENOMEM;
 	MA_STATE(mas_detach, &mt_detach, 0, 0);
-	mt_init_flags(&mt_detach, MT_FLAGS_LOCK_EXTERN);
+	mt_init_flags(&mt_detach, mas->tree->ma_flags & MT_FLAGS_LOCK_MASK);
 	mt_set_external_lock(&mt_detach, &mm->mmap_lock);
 
 	if (mas_preallocate(mas, vma, GFP_KERNEL))
@@ -2744,6 +2746,8 @@ expanded:
 
 	vma_set_page_prot(vma);
 
+	trace_android_vh_mmap_region(vma, addr);
+
 	validate_mm(mm);
 	return addr;
 
@@ -3097,6 +3101,7 @@ void exit_mmap(struct mm_struct *mm)
 	 */
 	set_bit(MMF_OOM_SKIP, &mm->flags);
 	mmap_write_lock(mm);
+	mt_clear_in_rcu(&mm->mm_mt);
 	free_pgtables(&tlb, &mm->mm_mt, vma, FIRST_USER_ADDRESS,
 		      USER_PGTABLES_CEILING);
 	tlb_finish_mmu(&tlb);

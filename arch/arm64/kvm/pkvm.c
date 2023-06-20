@@ -506,6 +506,7 @@ static int __init finalize_pkvm(void)
 	 * at, which would end badly once inaccessible.
 	 */
 	kmemleak_free_part(__hyp_bss_start, __hyp_bss_end - __hyp_bss_start);
+	kmemleak_free_part(__hyp_data_start, __hyp_data_end - __hyp_data_start);
 	kmemleak_free_part_phys(hyp_mem_base, hyp_mem_size);
 
 	ret = pkvm_drop_host_privileges();
@@ -844,6 +845,12 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 	endrel = (void *)mod->relocs + mod->nr_relocs * sizeof(*endrel);
 	kvm_apply_hyp_module_relocations(start, hyp_va, mod->relocs, endrel);
 
+	/*
+	 * Exclude EL2 module sections from kmemleak before making them
+	 * inaccessible.
+	 */
+	kmemleak_free_part(start, size);
+
 	ret = pkvm_map_module_sections(secs_map + secs_first, hyp_va,
 				       ARRAY_SIZE(secs_map) - secs_first);
 	if (ret) {
@@ -863,11 +870,11 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(__pkvm_load_el2_module);
+EXPORT_SYMBOL(__pkvm_load_el2_module);
 
 int __pkvm_register_el2_call(unsigned long hfn_hyp_va)
 {
 	return kvm_call_hyp_nvhe(__pkvm_register_hcall, hfn_hyp_va);
 }
-EXPORT_SYMBOL_GPL(__pkvm_register_el2_call);
+EXPORT_SYMBOL(__pkvm_register_el2_call);
 #endif /* CONFIG_MODULES */

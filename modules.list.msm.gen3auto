@@ -5,6 +5,7 @@ llcc-qcom.ko
 mem_buf.ko
 mem_buf_dev.ko
 mem_buf_msgq.ko
+debug_symbol.ko
 minidump.ko
 msm_qmp.ko
 msm_dma_iommu_mapping.ko
@@ -54,7 +55,7 @@ icc-bcm-voter.ko
 icc-rpmh.ko
 qnoc-qos.ko
 qnoc-sm8150.ko
-qnoc-sc8180x.ko
+qnoc-sc8180x-auto.ko
 icc-debug.ko
 qcom-cpufreq-hw.ko
 socinfo.ko
@@ -74,3 +75,4 @@ micrel.ko
 stmmac.ko
 stmmac-platform.ko
 dwmac-qcom-eth.ko
+crypto-qti-common.ko

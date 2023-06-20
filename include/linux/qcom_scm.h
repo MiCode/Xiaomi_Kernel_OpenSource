@@ -150,6 +150,7 @@ extern int qcom_scm_spin_cpu(void);
 extern void qcom_scm_set_download_mode(enum qcom_download_mode mode, phys_addr_t tcsr_boot_misc);
 extern int qcom_scm_get_download_mode(unsigned int *mode, phys_addr_t tcsr_boot_misc);
 extern int qcom_scm_config_cpu_errata(void);
+extern void qcom_scm_phy_update_scm_level_shifter(u32 val);
 
 extern int qcom_scm_pas_init_image(u32 peripheral, dma_addr_t metadata);
 extern int qcom_scm_pas_mem_setup(u32 peripheral, phys_addr_t addr,
@@ -304,4 +305,5 @@ extern int qcom_scm_lmh_dcvsh(u32 payload_fn, u32 payload_reg, u32 payload_val,
 extern int qcom_scm_lmh_profile_change(u32 profile_id);
 extern bool qcom_scm_lmh_dcvsh_available(void);
 
+extern int qcom_scm_prefetch_tgt_ctrl(bool en);
 #endif

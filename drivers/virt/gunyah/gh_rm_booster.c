@@ -15,7 +15,7 @@
 #define BOOSTER_TIMEOUT_MSEC	5000
 
 struct gh_rm_booster_dev {
-	bool in_boost;
+	u32 boost_cnt;
 	int vmid;
 	int orig_cpu;
 	struct device *dev;
@@ -68,6 +68,11 @@ static void gh_boost_rmfreq(int cpu)
 	int ret;
 
 	policy = cpufreq_cpu_get(cpu);
+	if (!policy) {
+		dev_err(rm_status->dev, "Failed to get RM cpufreq policy\n");
+		return;
+	}
+
 	/* Always have target cpu's max freq as boosted freq. */
 	ret = freq_qos_add_request(&policy->constraints,
 				   &rm_status->gh_rm_boost_req,
@@ -101,6 +106,17 @@ static void gh_configure_rm(struct gh_rm_notif_vm_status_payload *status)
 	case GH_RM_VM_STATUS_AUTH:
 		cancel_delayed_work_sync(&rm_status->booster_release_work);
 		mutex_lock(&rm_booster_lock);
+		rm_status->boost_cnt++;
+		schedule_delayed_work(&rm_status->booster_release_work,
+				msecs_to_jiffies(BOOSTER_TIMEOUT_MSEC));
+		if (rm_status->boost_cnt > 1) {
+			mutex_unlock(&rm_booster_lock);
+			dev_dbg(rm_status->dev,
+				"VM%d found Gunyah RM booster already activated\n",
+				status->vmid);
+			break;
+		}
+
 		dest_cpu = target_cpu;
 		if (dest_cpu != rm_status->orig_cpu) {
 			if (rm_status->vcpu_cap_id == GH_CAPID_INVAL ||
@@ -113,10 +129,6 @@ static void gh_configure_rm(struct gh_rm_notif_vm_status_payload *status)
 		}
 
 		gh_boost_rmfreq(dest_cpu);
-		rm_status->in_boost = true;
-		/* set a 5s timer to release booster */
-		schedule_delayed_work(&rm_status->booster_release_work,
-				msecs_to_jiffies(BOOSTER_TIMEOUT_MSEC));
 		mutex_unlock(&rm_booster_lock);
 		dev_dbg(rm_status->dev,
 			"Gunyah RM booster activated by VM%d\n", status->vmid);
@@ -125,13 +137,21 @@ static void gh_configure_rm(struct gh_rm_notif_vm_status_payload *status)
 		fallthrough;
 	case GH_RM_VM_STATUS_RUNNING:
 		mutex_lock(&rm_booster_lock);
-		if (!rm_status->in_boost) {
+		if (!rm_status->boost_cnt) {
 			mutex_unlock(&rm_booster_lock);
 			break;
 		}
 
+		rm_status->boost_cnt--;
+		if (rm_status->boost_cnt) {
+			mutex_unlock(&rm_booster_lock);
+			dev_dbg(rm_status->dev,
+				"VM%d will not deactivate Gunyah RM booster\n",
+				status->vmid);
+			break;
+		}
+
 		gh_resume_rm_status();
-		rm_status->in_boost = false;
 		mutex_unlock(&rm_booster_lock);
 		cancel_delayed_work_sync(&rm_status->booster_release_work);
 		dev_dbg(rm_status->dev,
@@ -160,14 +180,14 @@ static int gh_rm_boost_nb_handler(struct notifier_block *this,
 static void gh_rm_booster_release_func(struct work_struct *work)
 {
 	mutex_lock(&rm_booster_lock);
-	if (!rm_status || !rm_status->in_boost) {
+	if (!rm_status || rm_status->boost_cnt == 0) {
 		mutex_unlock(&rm_booster_lock);
 		return;
 	}
 
 	dev_dbg(rm_status->dev, "Gunyah RM booster released\n");
 	gh_resume_rm_status();
-	rm_status->in_boost = false;
+	rm_status->boost_cnt = 0;
 	mutex_unlock(&rm_booster_lock);
 }
 
@@ -229,7 +249,7 @@ static int gh_rm_booster_probe(struct platform_device *pdev)
 	if (target_cpu >= num_possible_cpus())
 		target_cpu = num_possible_cpus() - 1;
 
-	rm_status->in_boost = false;
+	rm_status->boost_cnt = 0;
 	rm_status->vcpu_cap_id = GH_CAPID_INVAL;
 	gh_rm_booster_populate_res();
 
@@ -251,7 +271,7 @@ static int gh_rm_booster_remove(struct platform_device *pdev)
 	cancel_delayed_work_sync(&rm_status->booster_release_work);
 
 	mutex_lock(&rm_booster_lock);
-	if (rm_status->in_boost)
+	if (rm_status->boost_cnt)
 		gh_resume_rm_status();
 
 	kfree(rm_status);
