@@ -4681,8 +4681,8 @@ static int ufs_qcom_mcq_config_resource(struct ufs_hba *hba)
 		if (IS_ERR(res->base)) {
 			dev_err(hba->dev, "Failed to map res %s, err=%d\n",
 					 res->name, (int)PTR_ERR(res->base));
-			ret = PTR_ERR(res->base);
 			res->base = NULL;
+			ret = PTR_ERR(res->base);
 			return ret;
 		}
 	}
