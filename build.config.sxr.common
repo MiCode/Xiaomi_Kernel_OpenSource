@@ -1,7 +1,7 @@
 ################################################################################
 # Common configuration for building kernel for SXR products
-if [[ "${MSM_ARCH}" == "anorak" || "${MSM_ARCH}" == "waipio_le" ]]; then
-	DEFCONFIG="gki_defconfig"
+if [[ "${MSM_ARCH}" == "anorak" ]]; then
+    DEFCONFIG="gki_defconfig"
 else
 	DEFCONFIG="generic_sxr_defconfig"
 fi
