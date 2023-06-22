@@ -9,7 +9,7 @@ Any="$(pwd)/../Any"
 # Make flashable zip
 MakeZip() {
     if [ ! -d $Any ]; then
-        git clone https://github.com/Wahid7852/Anykernel.git $Any
+        git clone https://github.com/Amit152505/AnyKernel.git $Any
         cd $Any
     else
         cd $Any
@@ -19,8 +19,8 @@ MakeZip() {
         git reset --hard origin/master
     fi
     cp -af $MainPath/out/arch/arm64/boot/Image.gz-dtb $Any
-    sed -i "s/kernel.string=.*/kernel.string=$KERNEL_NAME by Abdul7852/g" anykernel.sh
-    zip -r9 $MainPath/"Stock-Xiaomi-$ZIP_KERNEL_VERSION.zip" * -x .git README.md *placeholder
+    sed -i "s/kernel.string=.*/kernel.string=$KERNEL_NAME by STOCK/g" anykernel.sh
+    zip -r9 $MainPath/"XIAOMI-Stock-$ZIP_KERNEL_VERSION.zip" * -x .git README.md *placeholder
     cd $MainPath
 }
 
@@ -29,7 +29,7 @@ MakeZip() {
 Clone_Proton() {
  
     if [ ! -d $Proton ]; then
-        git clone --depth=1 https://github.com/kdrag0n/proton-clang -b master $Proton
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang.git -b master $Proton
     else
         cd $Proton
         git fetch origin master
@@ -60,7 +60,7 @@ Clone_Azure() {
 HeadCommit="$(git log --pretty=format:'%h' -1)"
 export ARCH="arm64"
 export SUBARCH="arm64"
-export KBUILD_BUILD_USER="Abdul7852"
+export KBUILD_BUILD_USER="AmitBN"
 export KBUILD_BUILD_HOST="-Stable"
 Defconfig="begonia_user_defconfig"
 KERNEL_NAME=$(cat "$MainPath/arch/arm64/configs/$Defconfig" | grep "CONFIG_LOCALVERSION=" | sed 's/CONFIG_LOCALVERSION="-*//g' | sed 's/"*//g' )
@@ -75,9 +75,9 @@ Build_Proton() {
     TIME=$(date +"%m%d%H%M")
     BUILD_START=$(date +"%s")
 
-    make  -j$(nproc --all)  O=out ARCH=arm64 SUBARCH=arm64 $Defconfig
+    make  -j8$(nproc --all)  O=out ARCH=arm64 SUBARCH=arm64 $Defconfig
     exec 2> >(tee -a out/error.log >&2)
-    make  -j$(nproc --all)  O=out \
+    make  -j8$(nproc --all)  O=out \
                             PATH="$Proton/bin:/usr/bin:$PATH" \
                             CC=clang \
                             AS=llvm-as \
@@ -97,9 +97,9 @@ Build_Azure() {
     TIME=$(date +"%m%d%H%M")
     BUILD_START=$(date +"%s")
 
-    make  -j$(nproc --all)  O=out ARCH=arm64 SUBARCH=arm64 $Defconfig
+    make  -j8$(nproc --all)  O=out ARCH=arm64 SUBARCH=arm64 $Defconfig
     exec 2> >(tee -a out/error.log >&2)
-    make  -j$(nproc --all)  O=out \
+    make  -j8$(nproc --all)  O=out \
                             PATH="$Azure/bin:/usr/bin:$PATH" \
                             CC=clang \
 			    LLVM=1 \
