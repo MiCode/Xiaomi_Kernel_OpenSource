@@ -142,6 +142,7 @@ void dvfsrc_update_md_scenario(bool blank)
 {
 	switch (spm_get_spmfw_idx()) {
 	case SPMFW_LP4X_2CH_3600:
+	case SPMFW_LP4X_2CH_3200:
 	case SPMFW_LP4_2CH_3200:
 		if (blank) {
 			dvfsrc_write(DVFSRC_EMI_MD2SPM0_T, 0x0000003F);

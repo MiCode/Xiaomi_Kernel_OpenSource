@@ -506,6 +506,15 @@ static ssize_t spi_store(struct device *dev, struct device_attribute *attr,
 set:
 	buf += 3;
 	mdata = spi_master_get_devdata(spi->master);
+
+	reg_val = readl(mdata->base + SPI_PAD_SEL_REG);
+	reg_val |= 0x7;
+
+	writel(reg_val, mdata->base + SPI_PAD_SEL_REG);
+	reg_val = readl(mdata->base + SPI_PAD_SEL_REG);
+
+	pr_err("%s() now SPI_PAD_SEL_REG=0x%x.\n", __func__, reg_val);
+
 	mt_spi_enable_master_clk(spi);
 	if (!strncmp(buf, "setuptime=", 10))
 		pr_info("%s() setuptime cannot be set by cmd.\n", __func__);

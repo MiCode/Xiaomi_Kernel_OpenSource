@@ -26,8 +26,10 @@
 #else
 		mt-tcpc,notifier_supply_num = <2>;
 #endif
-		mt6370pd,intr_gpio = <&pio 24 0x0>;
-		mt6370pd,intr_gpio_num = <24>;
+/* Huaqin modify for HQ-123199 by shiwenlong at 2021/4/4 start */
+		mt6370pd,intr_gpio = <&pio 41 0x0>;
+		mt6370pd,intr_gpio_num = <41>;
+/* Huaqin modify for HQ-123199 by shiwenlong at 2021/4/4 end */
 		pd-data {
 			pd,vid = <0x29cf>;
 			pd,pid = <0x5081>;

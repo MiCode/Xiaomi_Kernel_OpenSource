@@ -31,6 +31,7 @@
 #define GPIOF_EXPORT_DIR_FIXED	(GPIOF_EXPORT)
 #define GPIOF_EXPORT_DIR_CHANGEABLE (GPIOF_EXPORT | GPIOF_EXPORT_CHANGEABLE)
 
+#define GPIOF_CAM_SUB2_ID	79
 /**
  * struct gpio - a structure describing a GPIO with configuration
  * @gpio:	the GPIO number

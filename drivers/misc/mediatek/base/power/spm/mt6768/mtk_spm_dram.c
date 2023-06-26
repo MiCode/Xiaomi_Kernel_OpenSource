@@ -115,6 +115,7 @@ static int spm_dram_golden_setting_cmp(bool en)
 		ddrphy_num = ARRAY_SIZE(ddrphy_setting_lp4_2ch);
 		break;
 	case SPMFW_LP4X_2CH_3600:
+	case SPMFW_LP4X_2CH_3200:
 		ddrphy_setting = ddrphy_setting_lp4_2ch;
 		ddrphy_num = ARRAY_SIZE(ddrphy_setting_lp4_2ch);
 		break;
@@ -170,6 +171,8 @@ static void spm_dram_type_check(void)
 		spmfw_idx = SPMFW_LP4_2CH_3200;
 	else if (ddr_type == TYPE_LPDDR4X && ddr_hz == 3600)
 		spmfw_idx = SPMFW_LP4X_2CH_3600;
+	else if (ddr_type == TYPE_LPDDR4X && ddr_hz == 3200)
+		spmfw_idx = SPMFW_LP4X_2CH_3200;
 	else if (ddr_type == TYPE_LPDDR3 && ddr_hz == 1866)
 		spmfw_idx = SPMFW_LP3_1CH_1866;
 

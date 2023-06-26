@@ -35,6 +35,7 @@ struct alspshub_ipi_data {
 
 	/*data */
 	u16		als;
+  	u32		als_data_action_data_cpy;
 	u8		ps;
 	int		ps_cali;
 	atomic_t	als_cali;
@@ -46,6 +47,9 @@ struct alspshub_ipi_data {
 	bool ps_factory_enable;
 	bool als_android_enable;
 	bool ps_android_enable;
+	/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 start*/
+	bool ps_power_status;
+	/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 end*/
 	struct wakeup_source ps_wake_lock;
 };
 
@@ -63,6 +67,9 @@ static struct alsps_init_info alspshub_init_info = {
 };
 
 static DEFINE_MUTEX(alspshub_mutex);
+/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 start*/
+static DEFINE_MUTEX(alspshub_ps_power_mutex);
+/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 end*/
 static DEFINE_SPINLOCK(calibration_lock);
 
 enum {
@@ -320,6 +327,9 @@ static void alspshub_init_done_work(struct work_struct *work)
 		pr_err("sensor_cfg_to_hub als fail\n");
 #endif
 }
+ /*Huaqin modify for HQ-12367 by luozeng at 2021.3.31 start*/
+extern int ps_event_report_t(struct data_unit_t *pevent, int status, int64_t time_stamp);
+/*Huaqin modify for HQ-12367 by luozeng at 2021.3.31 end*/
 static int ps_recv_data(struct data_unit_t *event, void *reserved)
 {
 	int err = 0;
@@ -333,8 +343,9 @@ static int ps_recv_data(struct data_unit_t *event, void *reserved)
 	else if (event->flush_action == DATA_ACTION &&
 			READ_ONCE(obj->ps_android_enable) == true) {
 		__pm_wakeup_event(&obj->ps_wake_lock, msecs_to_jiffies(100));
-		err = ps_data_report_t(event->proximity_t.oneshot,
-			SENSOR_STATUS_ACCURACY_HIGH,
+		/*Huaqin modify for HQ-12367 by luozeng at 2021.3.31 start*/
+		err = ps_event_report_t(event, SENSOR_STATUS_ACCURACY_HIGH,
+		/*Huaqin modify for HQ-12367 by luozeng at 2021.3.31 end*/
 			(int64_t)event->time_stamp);
 	} else if (event->flush_action == CALI_ACTION) {
 		spin_lock(&calibration_lock);
@@ -357,10 +368,15 @@ static int als_recv_data(struct data_unit_t *event, void *reserved)
 		err = als_flush_report();
 	else if ((event->flush_action == DATA_ACTION) &&
 			READ_ONCE(obj->als_android_enable) == true)
+	{
 		err = als_data_report_t(event->light,
 				SENSOR_STATUS_ACCURACY_MEDIUM,
 				(int64_t)event->time_stamp);
-	else if (event->flush_action == CALI_ACTION) {
+
+        spin_lock(&calibration_lock);
+        obj->als_data_action_data_cpy = event->light;
+        spin_unlock(&calibration_lock);
+	}else if (event->flush_action == CALI_ACTION) {
 		spin_lock(&calibration_lock);
 		atomic_set(&obj->als_cali, event->data[0]);
 		spin_unlock(&calibration_lock);
@@ -386,7 +402,8 @@ static int alshub_factory_enable_sensor(bool enable_disable,
 {
 	int err = 0;
 	struct alspshub_ipi_data *obj = obj_ipi_data;
-
+    /*Huaqin modify for HQ-123670 by luozeng at 2021.4.26 start*/
+	int android_enable = 0;
 	if (enable_disable == true)
 		WRITE_ONCE(obj->als_factory_enable, true);
 	else
@@ -399,11 +416,18 @@ static int alshub_factory_enable_sensor(bool enable_disable,
 			return -1;
 		}
 	}
+    android_enable = READ_ONCE(obj->als_android_enable);
+    if(android_enable == false){
+    pr_err("%s: android_enable[%u] execute power request[%s]\n", __func__, android_enable, (enable_disable == true)?("on"):("off"));
 	err = sensor_enable_to_hub(ID_LIGHT, enable_disable);
 	if (err) {
 		pr_err("sensor_enable_to_hub failed!\n");
 		return -1;
 	}
+    }else{
+        pr_err("%s: android_enable[%u] ignore power request[%s]\n", __func__, android_enable, (enable_disable == true)?("on"):("off"));
+        }
+    /*Huaqin modify for HQ-123670 by luozeng at 2021.4.26 end*/
 	mutex_lock(&alspshub_mutex);
 	if (enable_disable)
 		set_bit(CMC_BIT_ALS, &obj->enable);
@@ -414,18 +438,29 @@ static int alshub_factory_enable_sensor(bool enable_disable,
 }
 static int alshub_factory_get_data(int32_t *data)
 {
+/*Huaqin modify for HQ-12367 by luozeng at 2021.3.31 start*/
 	int err = 0;
 	struct data_unit_t data_t;
 
 	err = sensor_get_data_from_hub(ID_LIGHT, &data_t);
 	if (err < 0)
 		return -1;
-	*data = data_t.light;
+	*data = data_t.data[1];
 	return 0;
 }
+/*Huaqin modify for HQ-12367 by luozeng at 2021.3.31 end*/
 static int alshub_factory_get_raw_data(int32_t *data)
 {
-	return alshub_factory_get_data(data);
+	int err = 0;
+	struct data_unit_t data_t;
+
+	err = sensor_get_data_from_hub(ID_LIGHT, &data_t);
+	if (err < 0)
+		return -1;
+	 /*Huaqin modify for HQ-123572 by luozeng at 2021.4.21start*/
+	*data = data_t.light;
+	 /*Huaqin modify for HQ-123572 by luozeng at 2021.4.21end*/
+	return 0;
 }
 static int alshub_factory_enable_calibration(void)
 {
@@ -452,6 +487,19 @@ static int alshub_factory_set_cali(int32_t offset)
 	return err;
 
 }
+
+
+static int alshub_factory_set_cali_0lux(int32_t offset)
+{
+	int err = 0;
+	int32_t cfg_data;
+
+	cfg_data = offset;
+	als_0lux_cali_report(&cfg_data);
+	return err;
+
+}
+
 static int alshub_factory_get_cali(int32_t *offset)
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
@@ -459,6 +507,69 @@ static int alshub_factory_get_cali(int32_t *offset)
 	*offset = atomic_read(&obj->als_cali);
 	return 0;
 }
+
+static int pshub_factory_set_factory_flag(int32_t flag)
+{
+	int res = 0;
+
+	res = sensor_set_cmd_to_hub(ID_PROXIMITY, CUST_ACTION_SET_FACTORY, &flag);
+	if (res < 0) {
+		pr_err("sensor_set_cmd_to_hub fail,(ID: %d),(action: %d)\n",
+			ID_PROXIMITY, CUST_ACTION_SET_FACTORY);
+		return 0;
+	}
+
+	return res;
+}
+/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 start*/
+static int ps_sensor_enable_request(const char *called_func, int en, int force)
+{
+    bool  ps_factory_enable_tmp;
+    bool  ps_android_enable_tmp;
+    bool  ps_power_status_tmp;
+    int ret = 0;
+    int en_bool = !!en;
+    int err;
+	struct alspshub_ipi_data *obj = obj_ipi_data;
+
+	mutex_lock(&alspshub_ps_power_mutex);
+    ps_factory_enable_tmp = READ_ONCE(obj->ps_factory_enable);
+    ps_android_enable_tmp = READ_ONCE(obj->ps_android_enable);
+    ps_power_status_tmp = READ_ONCE(obj->ps_power_status);
+
+    pr_info("%s: ps_android_enable_tmp[%d] ps_factory_enable_tmp[%d] ps_power_status_tmp[%d], called by: %s, force[%d] en[%d]\n", __func__, ps_android_enable_tmp, 
+            ps_factory_enable_tmp, ps_power_status_tmp, called_func, force, en);
+
+    if (en){
+        pr_info("%s: Psensor power on request\n", __func__);
+        if (!(((true == ps_android_enable_tmp) || (true == ps_factory_enable_tmp)) && (false == ps_power_status_tmp)) && (0 == force)){
+            pr_info("%s: Psensor is powered on, ignore power on again request\n", __func__);
+            mutex_unlock(&alspshub_ps_power_mutex);
+            return ret;
+        }
+    }else {
+        pr_info("%s: Psensor power down request\n", __func__);
+        if (!(((false == ps_android_enable_tmp) && (false == ps_factory_enable_tmp)) && (true == ps_power_status_tmp)) && (0 == force)){
+            pr_info("%s: Psensor is powered down, ignore power down again request\n", __func__);
+            mutex_unlock(&alspshub_ps_power_mutex);
+            return ret;
+        }
+    }
+
+    pr_info("%s: Psensor power request[%d] exec, force[%d] \n", __func__, en_bool, force);
+    err = sensor_enable_to_hub(ID_PROXIMITY, en);
+    if (err) {
+        pr_err("sensor_enable_to_hub failed!\n");
+        ret = -1;
+    }else {
+        pr_info("%s: Psensor power request[%d] exec done!\n", __func__, en_bool);
+        WRITE_ONCE(obj->ps_power_status, en_bool);
+    }
+	mutex_unlock(&alspshub_ps_power_mutex);
+
+    return ret;
+}
+/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 end*/
 static int pshub_factory_enable_sensor(bool enable_disable,
 			int64_t sample_periods_ms)
 {
@@ -471,12 +582,19 @@ static int pshub_factory_enable_sensor(bool enable_disable,
 			pr_err("sensor_set_delay_to_hub failed!\n");
 			return -1;
 		}
-	}
-	err = sensor_enable_to_hub(ID_PROXIMITY, enable_disable);
-	if (err) {
-		pr_err("sensor_enable_to_hub failed!\n");
-		return -1;
-	}
+	/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 start*/
+		WRITE_ONCE(obj->ps_factory_enable, true);
+	}else {
+		WRITE_ONCE(obj->ps_factory_enable, false);
+    }
+	 /*Huaqin modify for HQ-123572 by luozeng at 2021.4.20 start*/
+    err = ps_sensor_enable_request(__func__, enable_disable, 0);
+    if (err) {
+        pr_err("ps_sensor_enable_request failed!\n");
+        return -1;
+    }
+  	/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 end*/
+	 /*Huaqin modify for HQ-123572 by luozeng at 2021.4.20 end*/
 	mutex_lock(&alspshub_mutex);
 	if (enable_disable)
 		set_bit(CMC_BIT_PS, &obj->enable);
@@ -505,8 +623,56 @@ static int pshub_factory_get_raw_data(int32_t *data)
 	*data = data_t.proximity_t.steps;
 	return 0;
 }
-static int pshub_factory_enable_calibration(void)
+/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 start*/
+#define PSENSOR_CALI_NORMAL  0
+#define PSENSOR_CALI_FORCE_POWER_DOWN 1
+
+static int pshub_factory_enable_calibration(int32_t type)
 {
+	struct alspshub_ipi_data *obj = obj_ipi_data;
+    bool  ps_factory_enable_tmp;
+    bool  ps_android_enable_tmp;
+    bool  ps_power_status_tmp;
+    int ret = 0;
+
+	mutex_lock(&alspshub_ps_power_mutex);
+    ps_factory_enable_tmp = READ_ONCE(obj->ps_factory_enable);
+    ps_android_enable_tmp = READ_ONCE(obj->ps_android_enable);
+    ps_power_status_tmp = READ_ONCE(obj->ps_power_status);
+	mutex_unlock(&alspshub_ps_power_mutex);
+
+    pr_info("%s: ps_android_enable_tmp[%d] ps_factory_enable_tmp[%d] ps_power_status_tmp[%d]\n", __func__, ps_android_enable_tmp, 
+            ps_factory_enable_tmp, ps_power_status_tmp);
+    if (PSENSOR_CALI_NORMAL == type){
+        pr_info("%s: ps enable cali: normal!\n", __func__);
+        if ((ps_android_enable_tmp) && (ps_factory_enable_tmp)){
+            pr_err("%s: psensor enabled by android and factory! cali failed! PS calibration must be performed in the disabled state\n", __func__);
+            return -EACCES;
+        }else if (ps_android_enable_tmp){
+            pr_err("%s: psensor enabled by android! cali failed! PS calibration must be performed in the disabled state\n", __func__);
+            return -EAGAIN;
+        }else if (ps_factory_enable_tmp){
+            pr_err("%s: psensor enabled by factory! cali failed! PS calibration must be performed in the disabled state\n", __func__);
+            return -EBUSY;
+        }
+    }else if (PSENSOR_CALI_FORCE_POWER_DOWN == type){
+        pr_info("%s: ps enable cali: force power down!\n", __func__);
+        WRITE_ONCE(obj->ps_factory_enable, false);
+        /* WRITE_ONCE(obj->ps_power_status, false); */
+        pr_info("%s: After ps_android_enable_tmp[%d] ps_factory_enable_tmp[%d] ps_power_status_tmp[%d]\n", __func__, ps_android_enable_tmp, 
+            ps_factory_enable_tmp, ps_power_status_tmp);
+        pr_info("%s: ps enable cali: sensor power down!\n", __func__);
+        
+        ret = ps_sensor_enable_request(__func__, 0, 1);
+        if (ret < 0) {
+            pr_err("ps_sensor_enable_request is failed!!\n");
+            return -1;
+        }
+    }else {
+        pr_info("%s: ps enable cali: type invalid, please check!\n", __func__);
+        return -EINVAL;
+    }
+/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 end*/
 	return sensor_calibration_to_hub(ID_PROXIMITY);
 }
 static int pshub_factory_clear_cali(void)
@@ -600,7 +766,9 @@ static struct alsps_factory_fops alspshub_factory_fops = {
 	.als_clear_cali = alshub_factory_clear_cali,
 	.als_set_cali = alshub_factory_set_cali,
 	.als_get_cali = alshub_factory_get_cali,
+	.als_set_cali_0lux = alshub_factory_set_cali_0lux,
 
+	.ps_set_factory_flag = pshub_factory_set_factory_flag,
 	.ps_enable_sensor = pshub_factory_enable_sensor,
 	.ps_get_data = pshub_factory_get_data,
 	.ps_get_raw_data = pshub_factory_get_raw_data,
@@ -755,12 +923,13 @@ static int ps_enable_nodata(int en)
 		WRITE_ONCE(obj->ps_android_enable, true);
 	else
 		WRITE_ONCE(obj->ps_android_enable, false);
-
-	res = sensor_enable_to_hub(ID_PROXIMITY, en);
+/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 start*/
+	res = ps_sensor_enable_request(__func__, en, 0);
 	if (res < 0) {
-		pr_err("als_enable_nodata is failed!!\n");
+		pr_err("ps_sensor_enable_request is failed!!\n");
 		return -1;
 	}
+/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 end*/
 
 	mutex_lock(&alspshub_mutex);
 	if (en)
@@ -906,6 +1075,9 @@ static int alspshub_probe(struct platform_device *pdev)
 	WRITE_ONCE(obj->als_android_enable, false);
 	WRITE_ONCE(obj->ps_factory_enable, false);
 	WRITE_ONCE(obj->ps_android_enable, false);
+/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 start*/
+	WRITE_ONCE(obj->ps_power_status, false);
+/*Huaqin modify for HQ-123670 by baoguangxiu at 2021.5.7 end*/
 
 	clear_bit(CMC_BIT_ALS, &obj->enable);
 	clear_bit(CMC_BIT_PS, &obj->enable);

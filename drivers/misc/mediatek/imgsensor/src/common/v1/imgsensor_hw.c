@@ -101,12 +101,17 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 	struct IMGSENSOR_HW_SENSOR_POWER *psensor_pwr =
 	    &phw->sensor_pwr[sensor_idx];
 
+#if (defined __SELENE_COMMON__) || (defined FACTORY_CAMERA_MODE)
+	struct IMGSENSOR_HW_SENSOR_POWER *psensor_pwr_Mi =
+		&phw->sensor_pwr[IMGSENSOR_SENSOR_IDX_SUB2];
+#endif
+
 	struct IMGSENSOR_HW_POWER_SEQ    *ppwr_seq = ppower_sequence;
 	struct IMGSENSOR_HW_POWER_INFO   *ppwr_info;
 	struct IMGSENSOR_HW_DEVICE       *pdev;
 	int                               pin_cnt = 0;
 
-/*	while (ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
+	while (ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
 		ppwr_seq->name != NULL) {
 		if (!strcmp(ppwr_seq->name, PLATFORM_POWER_SEQ_NAME)) {
 			if (sensor_idx == ppwr_seq->_idx)
@@ -120,13 +125,12 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 
 	if (ppwr_seq->name == NULL)
 		return IMGSENSOR_RETURN_ERROR;
-*/
+
 
 	ppwr_info = ppwr_seq->pwr_info;
 
 	while (ppwr_info->pin != IMGSENSOR_HW_PIN_NONE &&
 		ppwr_info < ppwr_seq->pwr_info + IMGSENSOR_HW_POWER_INFO_MAX) {
-
 		if (pwr_status == IMGSENSOR_HW_POWER_STATUS_ON &&
 		   ppwr_info->pin != IMGSENSOR_HW_PIN_UNDEF) {
 			pdev = phw->pdev[psensor_pwr->id[ppwr_info->pin]];
@@ -146,6 +150,46 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 				    ppwr_info->pin_state_on);
 
 			mdelay(ppwr_info->pin_on_delay);
+
+#if (defined __SELENE_COMMON__) || (defined FACTORY_CAMERA_MODE)
+		if (sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN &&
+			ppwr_info->pin ==IMGSENSOR_HW_PIN_DOVDD)
+		{
+			while (ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
+				ppwr_seq->name != NULL) {
+				if (!strcmp(ppwr_seq->name, PLATFORM_POWER_SEQ_NAME)) {
+					if (sensor_idx == ppwr_seq->_idx)
+						break;
+				} else {
+					if (!strcmp(ppwr_seq->name, "gc02m1b_sunny_mipi_raw") || !strcmp(ppwr_seq->name, "ov02b1b_ofilm_mipi_raw"))
+						break;
+				}
+				ppwr_seq++;
+			}
+
+			pdev = phw->pdev[psensor_pwr_Mi->id[IMGSENSOR_HW_PIN_DOVDD]];
+
+			if (pdev->set != NULL)
+				pdev->set(
+				    pdev->pinstance,
+				    IMGSENSOR_SENSOR_IDX_SUB2,
+				    IMGSENSOR_HW_PIN_DOVDD,
+				    IMGSENSOR_HW_PIN_STATE_LEVEL_1800);
+			}
+
+		if ((sensor_idx == IMGSENSOR_SENSOR_IDX_SUB || sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2) &&
+		    ppwr_info->pin ==IMGSENSOR_HW_PIN_AVDD)
+		{
+		    pdev = phw->pdev[psensor_pwr_Mi->id[IMGSENSOR_HW_PIN_DOVDD]];
+
+		    if (pdev->set != NULL)
+		        pdev->set(
+		            pdev->pinstance,
+		            IMGSENSOR_SENSOR_IDX_SUB2,
+		            IMGSENSOR_HW_PIN_DOVDD,
+		            IMGSENSOR_HW_PIN_STATE_LEVEL_1800);
+		}
+#endif
 		}
 
 		ppwr_info++;
@@ -168,6 +212,34 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 					    sensor_idx,
 					    ppwr_info->pin,
 					    ppwr_info->pin_state_off);
+
+#if (defined __SELENE_COMMON__) || (defined FACTORY_CAMERA_MODE)
+	if (sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN &&
+		ppwr_info->pin ==IMGSENSOR_HW_PIN_DOVDD)
+	{
+		pdev = phw->pdev[psensor_pwr_Mi->id[IMGSENSOR_HW_PIN_DOVDD]];
+
+				if (pdev->set != NULL)
+					pdev->set(
+					    pdev->pinstance,
+					    IMGSENSOR_SENSOR_IDX_SUB2,
+					    IMGSENSOR_HW_PIN_DOVDD,
+					    IMGSENSOR_HW_PIN_STATE_LEVEL_0);
+	}
+
+	if ((sensor_idx == IMGSENSOR_SENSOR_IDX_SUB || sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2) &&
+	    ppwr_info->pin ==IMGSENSOR_HW_PIN_AVDD)
+	{
+	    pdev = phw->pdev[psensor_pwr_Mi->id[IMGSENSOR_HW_PIN_DOVDD]];
+
+	    if (pdev->set != NULL)
+	        pdev->set(
+	            pdev->pinstance,
+	            IMGSENSOR_SENSOR_IDX_SUB2,
+	            IMGSENSOR_HW_PIN_DOVDD,
+	            IMGSENSOR_HW_PIN_STATE_LEVEL_0);
+	}
+#endif
 			}
 		}
 	}

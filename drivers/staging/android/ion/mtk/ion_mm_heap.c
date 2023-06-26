@@ -1195,6 +1195,8 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	int i;
 	bool has_orphaned = false;
 	struct ion_mm_buffer_info *bug_info;
+	unsigned long uncached_total = 0;
+	unsigned long cached_total = 0;
 	unsigned long long current_ts;
 
 	current_ts = sched_clock();
@@ -1214,6 +1216,12 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 			 pool->low_count, pool->order,
 			 (1 << pool->order) * PAGE_SIZE *
 			 pool->low_count);
+
+		uncached_total += (1 << pool->order) * PAGE_SIZE *
+			pool->high_count;
+		uncached_total += (1 << pool->order) * PAGE_SIZE *
+			pool->low_count;
+
 		pool = sys_heap->cached_pools[i];
 		ION_DUMP(s,
 			 "%d order %u highmem pages in cached_pool = %lu total\n",
@@ -1225,7 +1233,20 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 			 pool->low_count, pool->order,
 			 (1 << pool->order) * PAGE_SIZE *
 			 pool->low_count);
+
+		cached_total += (1 << pool->order) * PAGE_SIZE *
+			 pool->high_count;
+		cached_total += (1 << pool->order) * PAGE_SIZE *
+			 pool->low_count;
 	}
+
+	ION_DUMP(s,
+		"uncached pool = %lu cached pool = %lu\n",
+		uncached_total, cached_total);
+	ION_DUMP(s,
+		"pool total (uncached + cached) = %lu\n",
+		uncached_total + cached_total);
+
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		ION_DUMP(s, "mm_heap_freelist total_size=%zu\n",
 			 ion_heap_freelist_size(heap));

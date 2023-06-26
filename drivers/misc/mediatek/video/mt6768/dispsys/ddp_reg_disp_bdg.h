@@ -126,7 +126,11 @@ struct DSI_TX_TXRX_CON_REG {
 	unsigned LANE_NUM : 4;
 	unsigned DIS_EOT : 1;
 	unsigned BLLP_EN : 1;
-	unsigned RSV_08 : 8;
+	unsigned TE_FREERUN : 1;
+	unsigned EXT_TE_EN : 1;
+	unsigned EXT_TE_EDGE_SEL : 1;
+	unsigned TE_AUTO_SYNC : 1;
+	unsigned MAX_RTN_SIZE : 4;
 	unsigned HSTX_CKLP_EN : 1;
 	unsigned RSV_17 : 12;
 	unsigned BTA_TIMEOUT_CHK_EN : 1;
@@ -403,16 +407,28 @@ struct DSI_TX_SHADOW_STA_REG {
 	unsigned RSV_02 : 30;
 };
 struct DSI_VM_CMD_CON0_REG {
-	unsigned int VM_CMD_EN	:1;
-	unsigned int LONG_PKT	:1;
-	unsigned int TIME_SEL	:1;
-	unsigned int TS_VSA_EN	:1;
-	unsigned int TS_VBP_EN	:1;
-	unsigned int TS_VFP_EN	:1;
-	unsigned int RSV_07	:2;
-	unsigned int CM_DATA_ID :8;
-	unsigned int CM_DATA_0	:8;
-	unsigned int CM_DATA_1	:8;
+	unsigned VM_CMD_EN : 1;
+	unsigned LONG_PKT : 1;
+	unsigned TIME_SEL : 1;
+	unsigned TS_VSA_EN : 1;
+	unsigned TS_VBP_EN : 1;
+	unsigned TS_VFP_EN : 1;
+	unsigned RSV_07 : 2;
+	unsigned CM_DATA_ID : 8;
+	unsigned CM_DATA_0 : 8;
+	unsigned CM_DATA_1 : 8;
+};
+
+struct DSI_VM_CMD_CON1_REG {
+	unsigned VM_CMD_NEW_WC_SEL : 1;
+	unsigned RSV_01 : 15;
+	unsigned VM_CMD_NEW_WC : 16;
+};
+
+struct DSI_TARGET_NL_REG {
+	unsigned TARGET_NL : 15;
+	unsigned RSV_15 : 1;
+	unsigned TARGET_NL_EN : 1;
 };
 
 struct DSI_TX_BUF_CON0_REG {
@@ -539,7 +555,9 @@ struct BDG_TX_REGS {
 	unsigned int DSI_TX_VM_CMD_DATA8;			/* 013C */
 	unsigned int DSI_TX_VM_CMD_DATAC;			/* 0140 */
 	struct DSI_TX_CKSM_OUT_REG DSI_TX_CKSM_OUT;		/* 0144 */
-	unsigned int RSV_0148[10];				/* 0148..016C */
+	unsigned int RSV_0148[7];				/* 0148..0160 */
+	struct DSI_TX_TIME_CON1_REG DSI_TX_STATE_DBG7;		/* 0164 */
+	unsigned int RSV_0168[2];				/* 0168..016C */
 	struct DSI_TX_DEBUG_SEL_REG DSI_TX_DEBUG_SEL;		/* 0170 */
 	unsigned int RSV_0174;					/* 0174 */
 	struct DSI_TX_SELF_PAT_CON0_REG DSI_TX_SELF_PAT_CON0;	/* 0178 */
@@ -563,7 +581,10 @@ struct BDG_TX_REGS {
 	struct DSI_RESYNC_CON_REG DSI_RESYNC_CON;		/* 01F0 */
 	unsigned int RSV_01F4[3];				/* 01F4..01FC */
 	struct DSI_VM_CMD_CON0_REG DSI_VM_CMD_CON0;		/* 0200 */
-	unsigned int RSV_204[127];				/* 0204..03FC */
+	struct DSI_VM_CMD_CON1_REG DSI_VM_CMD_CON1;		/* 0204 */
+	unsigned int RSV_208[62];				/* 0208..02FC */
+	struct DSI_TARGET_NL_REG DSI_TARGET_NL;			/* 0300 */
+	unsigned int RSV_304[63];				/* 0304..03FC */
 	struct DSI_TX_BUF_CON0_REG DSI_TX_BUF_CON0;		/* 0400 */
 	struct DSI_TX_BUF_CON1_REG DSI_TX_BUF_CON1;		/* 0404 */
 	unsigned int RSV_0408[2];				/* 0408..040C */
@@ -592,6 +613,13 @@ struct MIPI_RX_POST_CTRL_REG {
 	unsigned RSV_10 : 22;
 };
 
+struct TE_OUT_CON_REG {
+	unsigned TE_OUT_SEL : 6;
+	unsigned RSV_01 : 2;
+	unsigned TE_OUT_INV : 1;
+	unsigned TE_OUT_MASK : 1;
+};
+
 struct BDG_DISPSYS_CONFIG_REGS {
 	unsigned int RSV_0000[64];				/* 0000..00FC */
 	struct MMSYS_CON_REG MMSYS_CG_CON0;			/* 0100 */
@@ -601,6 +629,9 @@ struct BDG_DISPSYS_CONFIG_REGS {
 	struct MMSYS_CON_REG MMSYS_HW_DCM_2ND_DIS0;		/* 0140 */
 	unsigned int RSV_0144[11];				/* 0144..016C */
 	struct MIPI_RX_POST_CTRL_REG MIPI_RX_POST_CTRL;		/* 0170 */
+	struct MMSYS_CON_REG DDI_POST_CTRL;			/* 0174 */
+	unsigned int RSV_0178[12];				/* 0178..01a4 */
+	struct TE_OUT_CON_REG TE_OUT_CON;			/* 01a8 */
 };
 
 struct DISP_DSC_CON_REG {
@@ -742,10 +773,24 @@ struct SYSREG_RST_CTRL_REG {
 	unsigned REG_16 : 16;
 };
 
+struct SYSREG_IRQ_CTRL_REG {
+	unsigned REG_00 : 31;
+	unsigned RG_IRQ_STATUS31_MTCMOS_PWR_ACK : 1;
+};
+
 struct RST_CLR_SET_REG {
 	unsigned REG_00 : 7;
 	unsigned REG_07 : 1;
 	unsigned REG_08 : 24;
+};
+
+struct IRQ_MSK_CLR_SET_REG {
+	unsigned REG_00 : 4;
+	unsigned REG_04 : 1;
+	unsigned REG_05 : 5;
+	unsigned REG_10 : 1;
+	unsigned REG_11 : 20;
+	unsigned REG_31 : 1;
 };
 
 struct DISP_SYSREG_REG {
@@ -753,7 +798,8 @@ struct DISP_SYSREG_REG {
 };
 
 struct SYSREG_LDO_CTRL0_REG {
-	unsigned REG_00 : 31;
+	unsigned REG_00 : 30;
+	unsigned RG_LDO_TRIM_BY_EFUSE : 1;
 	unsigned RG_PHYLDO_MASKB : 1;
 };
 
@@ -769,16 +815,22 @@ struct BDG_SYSREG_CTRL_REGS {
 	struct SYSREG_PWR_CTRL_REG SYSREG_PWR_CTRL;		/* 0008 */
 	unsigned int RSV_000C;					/* 000C */
 	struct SYSREG_RST_CTRL_REG SYSREG_RST_CTRL;		/* 0010 */
-	unsigned int RSV_0014[20];				/* 0014..0060 */
+	unsigned int RSV_0014[2];				/* 0014..001C */
+	struct SYSREG_IRQ_CTRL_REG SYSREG_IRQ_CTRL2;		/* 001C */
+	struct SYSREG_IRQ_CTRL_REG SYSREG_IRQ_CTRL3;		/* 0020 */
+	unsigned int RSV_0024[16];				/* 0024..0060 */
 	struct DISP_SYSREG_REG RST_DG_CTRL;			/* 0064 */
 	struct RST_CLR_SET_REG RST_SET;				/* 0068 */
 	struct RST_CLR_SET_REG RST_CLR;				/* 006C */
-	unsigned int RSV_0070[4];				/* 0070..007C */
+	struct IRQ_MSK_CLR_SET_REG IRQ_MSK_SET;			/* 0070 */
+	struct IRQ_MSK_CLR_SET_REG IRQ_MSK_CLR;			/* 0074 */
+	unsigned int RSV_0070[2];				/* 0078..007C */
 	struct DISP_SYSREG_REG DISP_MISC0;			/* 0080 */
 	struct DISP_SYSREG_REG DISP_MISC1;			/* 0084 */
 	unsigned int RSV_0088[7];				/* 0088..00A0 */
 	struct SYSREG_LDO_CTRL0_REG SYSREG_LDO_CTRL0;		/* 00A4 */
 	struct SYSREG_LDO_CTRL1_REG SYSREG_LDO_CTRL1;		/* 00A8 */
+	struct DISP_SYSREG_REG LDO_STATUS;			/* 00AC */
 };
 
 struct CLK_CFG_REG {
@@ -794,22 +846,38 @@ struct BDG_TOPCKGEN_REGS {
 	struct CLK_CFG_REG CLK_CFG_0_CLR;			/* 0018 */
 };
 
+struct AP_PLL_CON_REG {
+	unsigned RSV_00 : 32;
+};
+
+struct PLLON_CON_REG {
+	unsigned RSV_00 : 32;
+};
+
 struct MAINPLL_CON_REG {
 	unsigned RSV_00 : 32;
 };
 
 struct BDG_APMIXEDSYS_REGS {
-	unsigned int RSV_0000[134];				/* 0000..0004 */
+	unsigned int RSV_0000[3];				/* 0000..0008 */
+	struct AP_PLL_CON_REG AP_PLL_CON3;			/* 00c */
+	struct AP_PLL_CON_REG AP_PLL_CON4;			/* 010 */
+	struct AP_PLL_CON_REG AP_PLL_CON5;			/* 014 */
+	unsigned int RSV_0018[14];				/* 0018..004c */
+	struct PLLON_CON_REG PLLON_CON0;			/* 050 */
+	struct PLLON_CON_REG PLLON_CON1;			/* 054 */
+	unsigned int RSV_0058[112];				/* 0058..0214 */
 	struct MAINPLL_CON_REG MAINPLL_CON0;			/* 0218 */
 	struct MAINPLL_CON_REG MAINPLL_CON1;			/* 021C */
-	unsigned int RSV_0220;					/* 0220 */
+	unsigned int RSV_0220;			/* 0220 */
 	struct MAINPLL_CON_REG MAINPLL_CON3;			/* 0224 */
 };
 
 struct GPIO_MODE1_REG {
 	unsigned RSV_00 : 16;
 	unsigned GPIO12 : 3;
-	unsigned RSV_19 : 13;
+	unsigned RSV_19 : 5;
+	unsigned RSV_24 : 8;
 };
 
 struct BDG_GPIO_REGS {
@@ -817,13 +885,19 @@ struct BDG_GPIO_REGS {
 	struct GPIO_MODE1_REG GPIO_MODE1;			/* 0310 */
 };
 
-struct DCM_ON_REG {
+struct EFUSE_REG {
 	unsigned RSV_00 : 32;
 };
 
 struct BDG_EFUSE_REGS {
-	unsigned int RSV_0000[288];				/* 0000..047C */
-	struct DCM_ON_REG DCM_ON;				/* 0480 */
+	unsigned int RSV_0000[74];				/* 0000..0124 */
+	struct EFUSE_REG STATUS;				/* 0128 */
+	unsigned int RSV_012C[213];				/* 012C..047C */
+	struct EFUSE_REG DCM_ON;				/* 0480 */
+	unsigned int RSV_0484[279];				/* 0484..08DC */
+	struct EFUSE_REG TRIM1;					/* 08E0 */
+	struct EFUSE_REG TRIM2;					/* 08E4 */
+	struct EFUSE_REG TRIM3;					/* 08E8 */
 };
 
 struct DISP_RDMA_GLOBAL_CON_REG {
@@ -1170,6 +1244,26 @@ struct MIPI_TX_SW_CTL_EN_REG {
 	unsigned RSV_01 : 31;
 };
 
+struct MIPI_TX_SW_LPTX_PRE_OE_REG {
+	unsigned DSI_SW_LPTX_PRE_OE : 1;
+	unsigned RSV_01 : 31;
+};
+
+struct MIPI_TX_SW_LPTX_OE_REG {
+	unsigned DSI_SW_LPTX_OE : 1;
+	unsigned RSV_01 : 31;
+};
+
+struct MIPI_TX_SW_LPTX_DP_REG {
+	unsigned DSI_SW_LPTX_DP : 1;
+	unsigned RSV_01 : 31;
+};
+
+struct MIPI_TX_SW_LPTX_DN_REG {
+	unsigned DSI_SW_LPTX_DN : 1;
+	unsigned RSV_01 : 31;
+};
+
 struct BDG_MIPI_TX_REGS {
 	unsigned int RSV_0000[3];				/* 0000..0008 */
 	struct MIPI_TX_LANE_CON_REG MIPI_TX_LANE_CON;		/* 000C */
@@ -1190,22 +1284,42 @@ struct BDG_MIPI_TX_REGS {
 	struct MIPI_TX_CKMODE_EN_REG MIPI_TX_D2_CKMODE_EN;	/* 0128 */
 	unsigned int RSV_012C[6];				/* 012C..0140 */
 	struct MIPI_TX_SW_CTL_EN_REG MIPI_TX_D2_SW_CTL_EN;	/* 0144 */
-	unsigned int RSV_0148[56];				/* 0148..0224 */
+	struct MIPI_TX_SW_LPTX_PRE_OE_REG MIPI_TX_D2_SW_LPTX_PRE_OE;	/* 0148 */
+	struct MIPI_TX_SW_LPTX_OE_REG MIPI_TX_D2_SW_LPTX_OE;	/* 014c */
+	struct MIPI_TX_SW_LPTX_DP_REG MIPI_TX_D2_SW_LPTX_DP;	/* 0150 */
+	struct MIPI_TX_SW_LPTX_DN_REG MIPI_TX_D2_SW_LPTX_DN;	/* 0154 */
+	unsigned int RSV_0158[52];				/* 0158..0224 */
 	struct MIPI_TX_CKMODE_EN_REG MIPI_TX_D0_CKMODE_EN;	/* 0228 */
 	unsigned int RSV_022C[6];				/* 022C..0240 */
 	struct MIPI_TX_SW_CTL_EN_REG MIPI_TX_D0_SW_CTL_EN;	/* 0244 */
-	unsigned int RSV_0248[56];				/* 0248..0324 */
+	struct MIPI_TX_SW_LPTX_PRE_OE_REG MIPI_TX_D0_SW_LPTX_PRE_OE;	/* 0248 */
+	struct MIPI_TX_SW_LPTX_OE_REG MIPI_TX_D0_SW_LPTX_OE;	/* 024c */
+	struct MIPI_TX_SW_LPTX_DP_REG MIPI_TX_D0_SW_LPTX_DP;	/* 0250 */
+	struct MIPI_TX_SW_LPTX_DN_REG MIPI_TX_D0_SW_LPTX_DN;	/* 0254 */
+	unsigned int RSV_0258[52];				/* 0258..0324 */
 	struct MIPI_TX_CKMODE_EN_REG MIPI_TX_CK_CKMODE_EN;	/* 0328 */
 	unsigned int RSV_032C[6];				/* 032C..0340 */
 	struct MIPI_TX_SW_CTL_EN_REG MIPI_TX_CK_SW_CTL_EN;	/* 0344 */
-	unsigned int RSV_0348[56];				/* 0348..0424 */
+	struct MIPI_TX_SW_LPTX_PRE_OE_REG MIPI_TX_CK_SW_LPTX_PRE_OE;	/* 0348 */
+	struct MIPI_TX_SW_LPTX_OE_REG MIPI_TX_CK_SW_LPTX_OE;	/* 034c */
+	struct MIPI_TX_SW_LPTX_DP_REG MIPI_TX_CK_SW_LPTX_DP;	/* 0350 */
+	struct MIPI_TX_SW_LPTX_DN_REG MIPI_TX_CK_SW_LPTX_DN;	/* 0354 */
+	unsigned int RSV_0358[52];				/* 0358..0424 */
 	struct MIPI_TX_CKMODE_EN_REG MIPI_TX_D1_CKMODE_EN;	/* 0428 */
 	unsigned int RSV_042C[6];				/* 042C..0440 */
 	struct MIPI_TX_SW_CTL_EN_REG MIPI_TX_D1_SW_CTL_EN;	/* 0444 */
-	unsigned int RSV_0448[56];				/* 0448..0524 */
+	struct MIPI_TX_SW_LPTX_PRE_OE_REG MIPI_TX_D1_SW_LPTX_PRE_OE;	/* 0448 */
+	struct MIPI_TX_SW_LPTX_OE_REG MIPI_TX_D1_SW_LPTX_OE;	/* 044c */
+	struct MIPI_TX_SW_LPTX_DP_REG MIPI_TX_D1_SW_LPTX_DP;	/* 0450 */
+	struct MIPI_TX_SW_LPTX_DN_REG MIPI_TX_D1_SW_LPTX_DN;	/* 0454 */
+	unsigned int RSV_0458[52];				/* 0458..0524 */
 	struct MIPI_TX_CKMODE_EN_REG MIPI_TX_D3_CKMODE_EN;	/* 0528 */
 	unsigned int RSV_052C[6];				/* 052C..0540 */
 	struct MIPI_TX_SW_CTL_EN_REG MIPI_TX_D3_SW_CTL_EN;	/* 0544 */
+	struct MIPI_TX_SW_LPTX_PRE_OE_REG MIPI_TX_D3_SW_LPTX_PRE_OE;	/* 0548 */
+	struct MIPI_TX_SW_LPTX_OE_REG MIPI_TX_D3_SW_LPTX_OE;	/* 054c */
+	struct MIPI_TX_SW_LPTX_DP_REG MIPI_TX_D3_SW_LPTX_DP;	/* 0550 */
+	struct MIPI_TX_SW_LPTX_DN_REG MIPI_TX_D3_SW_LPTX_DN;	/* 0554 */
 };
 
 /**

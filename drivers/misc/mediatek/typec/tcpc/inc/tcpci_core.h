@@ -22,6 +22,7 @@
 #include <linux/notifier.h>
 #include <linux/semaphore.h>
 #include <linux/spinlock.h>
+#include <linux/usb/typec.h>
 
 #include "tcpm.h"
 #include "tcpci_timer.h"
@@ -40,28 +41,28 @@
 #define PE_EVENT_DBG_ENABLE	1
 #define PE_STATE_INFO_ENABLE	1
 #define TCPC_INFO_ENABLE	1
-#define TCPC_TIMER_DBG_EN	0
-#define TCPC_TIMER_INFO_EN	0
+#define TCPC_TIMER_DBG_EN	1
+#define TCPC_TIMER_INFO_EN	1	
 #define PE_INFO_ENABLE		1
-#define TCPC_DBG_ENABLE		0
-#define TCPC_DBG2_ENABLE	0
+#define TCPC_DBG_ENABLE		1
+#define TCPC_DBG2_ENABLE	1	
 #define DPM_INFO_ENABLE		1
 #define DPM_INFO2_ENABLE	1
-#define DPM_DBG_ENABLE		0
+#define DPM_DBG_ENABLE		1	
 #define PD_ERR_ENABLE		1
-#define PE_DBG_ENABLE		0
-#define TYPEC_DBG_ENABLE	0
+#define PE_DBG_ENABLE		1
+#define TYPEC_DBG_ENABLE	1	
 
 
 #define DP_INFO_ENABLE		1
 #define DP_DBG_ENABLE		1
 
-#define UVDM_INFO_ENABLE		1
+#define UVDM_INFO_ENABLE	1
 #define TCPM_DBG_ENABLE		1
 
 #ifdef CONFIG_USB_PD_ALT_MODE_RTDC
-#define DC_INFO_ENABLE			1
-#define DC_DBG_ENABLE			1
+#define DC_INFO_ENABLE		1
+#define DC_DBG_ENABLE		1
 #endif	/* CONFIG_USB_PD_ALT_MODE_RTDC */
 
 #define TCPC_ENABLE_ANYMSG	\
@@ -77,7 +78,7 @@
 
 /* Disable VDM DBG Msg */
 #define PE_STATE_INFO_VDM_DIS	0
-#define PE_EVT_INFO_VDM_DIS		0
+#define PE_EVT_INFO_VDM_DIS	0
 #define PE_DBG_RESET_VDM_DIS	1
 
 #define PD_BUG_ON(x)	WARN_ON(x)
@@ -153,6 +154,9 @@ struct tcpc_desc {
 #define TCPC_REG_ALERT_RX_MASK	\
 	(TCPC_REG_ALERT_RX_STATUS | TCPC_REG_ALERT_RX_BUF_OVF)
 
+#define TCPC_REG_ALERT_RX_ALL_MASK	\
+	(TCPC_REG_ALERT_RX_MASK | TCPC_REG_ALERT_RX_HARD_RST)
+
 #define TCPC_REG_ALERT_HRESET_SUCCESS	\
 	(TCPC_REG_ALERT_TX_SUCCESS | TCPC_REG_ALERT_TX_FAILED)
 
@@ -176,6 +180,8 @@ struct tcpc_desc {
 #define TCPC_FLAGS_WATCHDOG_EN			(1<<8)
 #define TCPC_FLAGS_WATER_DETECTION		(1<<9)
 #define TCPC_FLAGS_CABLE_TYPE_DETECTION		(1<<10)
+#define TCPC_FLAGS_VCONN_SAFE5V_ONLY		(1<<11)
+#define TCPC_FLAGS_ALERT_V10			(1<<12)
 
 enum tcpc_cc_pull {
 	TYPEC_CC_RA = 0,
@@ -218,6 +224,8 @@ struct tcpc_ops {
 	int (*get_fault_status)(struct tcpc_device *tcpc, uint8_t *status);
 	int (*get_cc)(struct tcpc_device *tcpc, int *cc1, int *cc2);
 	int (*set_cc)(struct tcpc_device *tcpc, int pull);
+	int (*set_role)(struct tcpc_device *tcpc, int status);
+	int (*get_mode)(struct tcpc_device *tcpc, int *typec_mode);
 	int (*set_polarity)(struct tcpc_device *tcpc, int polarity);
 	int (*set_low_rp_duty)(struct tcpc_device *tcpc, bool low_rp);
 	int (*set_vconn)(struct tcpc_device *tcpc, int enable);
@@ -238,11 +246,11 @@ struct tcpc_ops {
 	int (*is_low_power_mode)(struct tcpc_device *tcpc);
 	int (*set_low_power_mode)(struct tcpc_device *tcpc, bool en, int pull);
 #endif /* CONFIG_TCPC_LOW_POWER_MODE */
-
+/*K19A HQ-135321 K19A for VtsHalUsbV1_0TargetTest fail by langjunjun at 2021/6/6 start*/
 #ifdef CONFIG_TCPC_IDLE_MODE
 	int (*set_idle_mode)(struct tcpc_device *tcpc, bool en);
 #endif /* CONFIG_TCPC_IDLE_MODE */
-
+/*K19A HQ-135321 K19A for VtsHalUsbV1_0TargetTest fail by langjunjun at 2021/6/6 end*/
 	int (*set_watchdog)(struct tcpc_device *tcpc, bool en);
 
 #ifdef CONFIG_TCPC_INTRST_EN
@@ -354,6 +362,7 @@ struct tcpc_device {
 	/* For TCPC TypeC */
 	uint8_t typec_state;
 	uint8_t typec_role;
+	uint8_t typec_role_new;
 	uint8_t typec_attach_old;
 	uint8_t typec_attach_new;
 	uint8_t typec_local_cc;
@@ -419,6 +428,9 @@ struct tcpc_device {
 
 	uint32_t tcpc_flags;
 
+	struct typec_capability typec_caps;
+	struct typec_port *typec_port;
+/*K19A HQ-135321 K19A for VtsHalUsbV1_0TargetTest fail by langjunjun at 2021/6/6 start*/
 #ifdef CONFIG_DUAL_ROLE_USB_INTF
 	struct dual_role_phy_instance *dr_usb;
 	uint8_t dual_role_supported_modes;
@@ -427,6 +439,11 @@ struct tcpc_device {
 	uint8_t dual_role_dr;
 	uint8_t dual_role_vconn;
 #endif /* CONFIG_DUAL_ROLE_USB_INTF */
+/*K19A HQ-135321 K19A for VtsHalUsbV1_0TargetTest fail by langjunjun at 2021/6/6 end*/
+	struct usb_pd_identity partner_ident;
+	struct typec_partner_desc partner_desc;
+	struct typec_partner *partner;
+	bool pd_capable;
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 	/* Event */
@@ -513,14 +530,47 @@ struct tcpc_device {
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 };
 
-
 #define to_tcpc_device(obj) container_of(obj, struct tcpc_device, dev)
 
+#ifdef CONFIG_USB_POWER_DELIVERY
+static inline uint8_t pd_get_rev(struct pd_port *pd_port, uint8_t sop_type)
+{
+	uint8_t pd_rev = PD_REV20;
+#ifdef CONFIG_USB_PD_REV30_SYNC_SPEC_REV
+	struct pe_data *pe_data = &pd_port->pe_data;
+	struct tcpc_device *tcpc = pd_port->tcpc;
+
+	if (sop_type == TCPC_TX_SOP) {
+		pd_rev = pd_port->pd_revision[0];
+	} else {
+		if (pe_data->explicit_contract || pe_data->cable_rev_discovered)
+			pd_rev = pd_port->pd_revision[1];
+		else if (tcpc->tcpc_flags & TCPC_FLAGS_PD_REV30)
+			pd_rev = PD_REV30;
+	}
+#endif	/* CONFIG_USB_PD_REV30_SYNC_SPEC_REV */
+
+	return pd_rev;
+}
+
+static inline bool pd_check_rev30(struct pd_port *pd_port)
+{
+	return pd_get_rev(pd_port, TCPC_TX_SOP) >= PD_REV30;
+}
+#endif /* CONFIG_USB_POWER_DELIVERY */
+
 #ifdef CONFIG_PD_DBG_INFO
-#define RT_DBG_INFO	pd_dbg_info
+#define __RT_DBG_INFO	pd_dbg_info
 #else
-#define RT_DBG_INFO	pr_info
+#define __RT_DBG_INFO	pr_info
 #endif /* CONFIG_PD_DBG_INFO */
+
+#ifdef CONFIG_TCPC_LOG_WITH_PORT_NAME
+#define RT_DBG_INFO(format, args...)	__RT_DBG_INFO(format,	\
+						      tcpc->desc.name, ##args)
+#else
+#define RT_DBG_INFO(format, args...)	__RT_DBG_INFO(format, ##args)
+#endif /* CONFIG_TCPC_LOG_WITH_PORT_NAME */
 
 #if TYPEC_DBG_ENABLE
 #define TYPEC_DBG(format, args...)		\
@@ -642,14 +692,14 @@ struct tcpc_device {
 
 #if UVDM_INFO_ENABLE
 #define UVDM_INFO(format, args...)	\
-	RT_DBG_INFO(CONFIG_TCPC_DBG_PRESTR "UVDM:" format, ## args)
+	RT_DBG_INFO(CONFIG_TCPC_DBG_PRESTR "UVDM:" format, ##args)
 #else
 #define UVDM_INFO(format, args...)
 #endif
 
 #if TCPM_DBG_ENABLE
 #define TCPM_DBG(format, args...)	\
-	RT_DBG_INFO(CONFIG_TCPC_DBG_PRESTR "TCPM:" format, ## args)
+	RT_DBG_INFO(CONFIG_TCPC_DBG_PRESTR "TCPM:" format, ##args)
 #else
 #define TCPM_DBG(format, args...)
 #endif
@@ -658,14 +708,14 @@ struct tcpc_device {
 
 #if DC_INFO_ENABLE
 #define DC_INFO(format, args...)	\
-	RT_DBG_INFO(CONFIG_TCPC_DBG_PRESTR "DC> " format, ## args)
+	RT_DBG_INFO(CONFIG_TCPC_DBG_PRESTR "DC> " format, ##args)
 #else
 #define DC_INFO(format, args...)
 #endif
 
 #if DC_DBG_ENABLE
 #define DC_DBG(format, args...)	\
-	RT_DBG_INFO(CONFIG_TCPC_DBG_PRESTR "DC> " format, ## args)
+	RT_DBG_INFO(CONFIG_TCPC_DBG_PRESTR "DC> " format, ##args)
 #else
 #define DC_DBG(format, args...)
 #endif

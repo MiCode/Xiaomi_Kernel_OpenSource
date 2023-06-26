@@ -37,7 +37,7 @@
 	atag,videolfb-fps= <6000>;
 	atag,videolfb-vramSize= <0x017e8000>;
 	atag,videolfb-lcmname=
-		"nt36672c_fhdp_dsi_vdo_60hz_shenchao_wo_dsc_lcm_drv";
+		"nt36672c_fhdp_dsi_vdo_60hz_wo_dsc_shenchao_lcm_drv";
 };
 
 &odm {
@@ -250,21 +250,41 @@
 };
 
 &spi1 {
+	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
-	spislv@2 {
-		compatible = "mediatek,hifi4dsp-spi";
-		spi-max-frequency = <1000000>;
-		spi-pin-mode = <0>;
-		/*tick-dly = <1>;*/
-		ick-dly = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&spislv_pins_default>;
+
+	spislv@0 {
+		compatible = "mediatek,spi_slave";
 		reg = <0>;
-		status = "okay";
+		spi-max-frequency = <55000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		low-speed-tick-delay = /bits/ 8 <1>;
+		low-speed-early-trans = /bits/ 8 <0>;
+		high-speed-tick-delay = /bits/ 8 <1>;
+		high-speed-early-trans = /bits/ 8 <1>;
+		slave-drive-strength = /bits/ 8 <3>;
+
+	};
+};
+
+&pio {
+	spislv_pins_default: spislv_mode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO85__FUNC_SPI1_A_MI>,
+				<PINMUX_GPIO86__FUNC_SPI1_A_CSB>,
+				<PINMUX_GPIO87__FUNC_SPI1_A_MO>,
+				<PINMUX_GPIO88__FUNC_SPI1_A_CLK>;
+			drive-strength = <3>;
+		};
 	};
 };
 /* DISPSYS GPIO standardization end*/
 
-#include <k69v1_64_6382/cust.dtsi>
+#include <k69v1_64/cust.dtsi>
 #include "mediatek/cust_mt6768_camera.dtsi"
 #include "mediatek/cust_mt6768_touch_1080x2160.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/

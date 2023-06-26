@@ -18,9 +18,12 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+/*K19A HQ-135321 K19A for VtsHalUsbV1_0TargetTest fail by langjunjun at 2021/6/6 start*/
+#include <linux/usb/class-dual-role.h>
+/*K19A HQ-135321 K19A for VtsHalUsbV1_0TargetTest fail by langjunjun at 2021/6/6 end*/
 #include "inc/tcpci.h"
 #include "inc/tcpci_typec.h"
-
+/*K19A HQ-135321 K19A for VtsHalUsbV1_0TargetTest fail by langjunjun at 2021/6/6 start*/
 #ifdef CONFIG_DUAL_ROLE_USB_INTF
 static enum dual_role_property tcpc_dual_role_props[] = {
 	DUAL_ROLE_PROP_SUPPORTED_MODES,
@@ -58,7 +61,6 @@ static int tcpc_dual_role_get_prop(struct dual_role_phy_instance *dual_role,
 	}
 	return ret;
 }
-
 static	int tcpc_dual_role_prop_is_writeable(
 	struct dual_role_phy_instance *dual_role, enum dual_role_property prop)
 {
@@ -101,7 +103,7 @@ static int tcpc_dual_role_set_prop_pr(
 	default:
 		return 0;
 	}
-
+/*K19A HQ-135321 K19A for VtsHalUsbV1_0TargetTest fail by langjunjun at 2021/6/6 end*/
 	if (val == tcpc->dual_role_pr) {
 		pr_info("%s wrong role (%d->%d)\n",
 			__func__, tcpc->dual_role_pr, val);
@@ -180,7 +182,7 @@ static int tcpc_dual_role_set_prop_vconn(
 
 	return ret;
 }
-
+/*K19A HQ-135321 K19A for VtsHalUsbV1_0TargetTest fail by langjunjun at 2021/6/6 start*/
 #else	/* TypeC Only */
 
 static int tcpc_dual_role_set_prop_mode(
@@ -289,3 +291,5 @@ int tcpc_dual_role_phy_init(
 	return 0;
 }
 #endif /* CONFIG_DUAL_ROLE_USB_INTF */
+/*K19A HQ-135321 K19A for VtsHalUsbV1_0TargetTest fail by langjunjun at 2021/6/6 end*/
+

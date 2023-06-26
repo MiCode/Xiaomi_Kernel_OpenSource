@@ -11,6 +11,10 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 #include "imgsensor_cfg_table.h"
+#if defined(MERLIN_MSM_CAMERA_HW_INFO) || defined(LANCELOT_MSM_CAMERA_HW_INFO)\
+|| defined(GALAHAD_MSM_CAMERA_HW_INFO) || defined(SHIVA_MSM_CAMERA_HW_INFO) || defined(SELENE_MSM_CAMERA_HW_INFO)
+#include "hq_imgsensor_hw_register_info.h"
+#endif
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/cdev.h>
@@ -21,6 +25,7 @@
 #include <linux/workqueue.h>
 #include <linux/init.h>
 #include <linux/types.h>
+#include <linux/hqsysfs.h>
 
 #undef CONFIG_MTK_SMI_EXT
 #ifdef CONFIG_MTK_SMI_EXT
@@ -596,7 +601,10 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 					    psensor->inst.sensor_idx,
 					    drv_idx,
 					    psensor_inst->psensor_name);
-
+#if defined(MERLIN_MSM_CAMERA_HW_INFO) || defined(LANCELOT_MSM_CAMERA_HW_INFO) \
+|| defined(GALAHAD_MSM_CAMERA_HW_INFO) || defined(SHIVA_MSM_CAMERA_HW_INFO) || defined(SELENE_MSM_CAMERA_HW_INFO)
+					hq_imgsensor_sensor_hw_register(psensor, psensor_inst);
+#endif
 					ret = drv_idx;
 					break;
 				}
@@ -1262,11 +1270,11 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			FeatureParaLen > FEATURE_CONTROL_MAX_DATA_SIZE)
 			return -EINVAL;
 
-		pFeaturePara = kmalloc(FeatureParaLen, GFP_KERNEL);
+		pFeaturePara = kmalloc(FeatureParaLen + 32, GFP_KERNEL);
 		if (pFeaturePara == NULL)
 			return -ENOMEM;
 
-		memset(pFeaturePara, 0x0, FeatureParaLen);
+		memset(pFeaturePara, 0x0, FeatureParaLen + 32);
 	}
 
 	/* copy from user */

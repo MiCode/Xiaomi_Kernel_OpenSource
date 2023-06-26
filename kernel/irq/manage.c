@@ -1089,9 +1089,18 @@ setup_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
 		.sched_priority = MAX_USER_RT_PRIO/2,
 	};
 
+	/* Huaqin modify for HQ-140507 by zhangjiangbin at 2021/06/30 start */
+	char name[30];
+	
 	if (!secondary) {
-		t = kthread_create(irq_thread, new, "irq/%d-%s", irq,
+		if (strcmp(new->name, "NVT-ts") != 0) {
+			t = kthread_create(irq_thread, new, "irq/%d-%s", irq,
 				   new->name);
+		} else {
+			printk("setup_irq_thread kthread_create_on_cpu %s", new->name);
+			sprintf(name, "irq/%d-%s", irq, new->name);
+			t = kthread_create_on_cpu(irq_thread, new, 7, name);
+		}
 	} else {
 		t = kthread_create(irq_thread, new, "irq/%d-s-%s", irq,
 				   new->name);
@@ -1101,6 +1110,11 @@ setup_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
 	if (IS_ERR(t))
 		return PTR_ERR(t);
 
+	if (strcmp(new->name, "NVT-ts") == 0) {
+		param.sched_priority = MAX_RT_PRIO - 1;
+	}
+	/* Huaqin modify for HQ-140507 by zhangjiangbin at 2021/06/30 end */
+	
 	sched_setscheduler_nocheck(t, SCHED_FIFO, &param);
 
 	/*

@@ -156,6 +156,7 @@ struct layering_rule_ops {
 	bool (*adjust_hrt_level)(struct disp_layer_info
 			*disp_info);
 	void (*adjust_hrt_scen)(struct disp_layer_info *disp_info);
+	void (*clear_layer)(struct disp_layer_info *disp_info);
 };
 
 #define HRT_GET_DVFS_LEVEL(hrt_num) (hrt_num & 0xF)

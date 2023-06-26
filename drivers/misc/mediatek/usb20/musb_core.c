@@ -125,7 +125,9 @@ int musb_fake_CDP;
  * init.$platform.usb.rc
  */
 int kernel_init_done;
+/* Huaqin add/modify/del for WXYFB-996 by wangqi at 2021/3/31 start */
 int musb_force_on;
+/* Huaqin add/modify/del for WXYFB-996 by wangqi at 2021/3/31 end */
 int musb_host_dynamic_fifo = 1;
 int musb_host_dynamic_fifo_usage_msk;
 bool musb_host_db_enable;
@@ -2142,7 +2144,7 @@ irqreturn_t musb_interrupt(struct musb *musb)
 				static DEFINE_RATELIMIT_STATE(rlmt, HZ, 2);
 				static int skip_cnt;
 
-				if (host_tx_refcnt_dec(ep_num) < 0) {
+				if (musb_host_db_enable && host_tx_refcnt_dec(ep_num) < 0) {
 					int ref_cnt;
 
 					musb_host_db_workaround_cnt++;

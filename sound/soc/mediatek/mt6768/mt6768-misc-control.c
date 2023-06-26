@@ -23,6 +23,10 @@
 #define SGEN_MUTE_CH1_KCONTROL_NAME "Audio_SineGen_Mute_Ch1"
 #define SGEN_MUTE_CH2_KCONTROL_NAME "Audio_SineGen_Mute_Ch2"
 
+/*K19A code for WXYFB-1010 by xuqingli at 2021/4/20 start*/
+  extern int fsm_add_control(struct snd_soc_platform *platform);
+/*K19A code for WXYFB-1010 by xuqingli at 2021/4/20 end*/
+
 static const char * const mt6768_sgen_mode_str[] = {
 	"I0I1",   "I2",     "I3I4",   "I5I6",
 	"I7I8",   "I9",     "I10I11", "I12I13",
@@ -1249,6 +1253,10 @@ int mt6768_add_misc_control(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				      mt6768_afe_speech_controls,
 				      ARRAY_SIZE(mt6768_afe_speech_controls));
+/*K19A code for WXYFB-1010 by xuqingli at 2021/4/20 start*/
+  	fsm_add_control(platform);
+/*K19A code for WXYFB-1010 by xuqingli at 2021/4/20 end*/
+
 #if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 	snd_soc_add_platform_controls(platform,
 				      mt6768_afe_bargein_controls,

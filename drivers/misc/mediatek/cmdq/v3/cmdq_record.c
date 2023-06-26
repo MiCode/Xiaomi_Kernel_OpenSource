@@ -1451,6 +1451,8 @@ s32 cmdq_op_poll_v3(struct cmdqRecStruct *handle, u32 addr, u32 value,
 	if (!handle)
 		return -EINVAL;
 
+	CMDQ_MSG("%s REC:0x%p value:0x%08x addr:0x%08x,mask:0x%08x\n",__func__,handle, value, addr,mask);
+
 	cmdq_op_assign(handle, &handle->arg_value, condition_value);
 	cmdq_op_assign(handle, &arg_loop_debug, 0);
 	cmdq_op_do_while(handle);
@@ -1566,6 +1568,8 @@ s32 cmdq_op_read_to_data_register(struct cmdqRecStruct *handle, u32 hw_addr,
 	u32 arg_a_i, arg_b_i;
 	u32 arg_a_type, arg_b_type;
 
+	CMDQ_MSG("%s REC:0x%p dst_data_reg:%d hw_addr:%d\n",__func__,handle, dst_data_reg, hw_addr);
+
 	if (dst_data_reg < CMDQ_DATA_REG_JPEG_DST) {
 		op_code = CMDQ_CODE_READ_S;
 		arg_a_i = dst_data_reg + CMDQ_GPR_V3_OFFSET;
@@ -1595,6 +1599,9 @@ s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 #ifdef CMDQ_GPR_SUPPORT
 	enum cmdq_code op_code;
 	u32 arg_b_i;
+
+
+	CMDQ_MSG("%s REC:0x%p src_data_reg:%d hw_addr:%d\n",__func__,handle, src_data_reg, hw_addr);
 
 	if (src_data_reg < CMDQ_DATA_REG_JPEG_DST) {
 		op_code = CMDQ_CODE_WRITE_S;
@@ -1694,6 +1701,8 @@ s32 cmdq_op_write_from_reg_ex(struct cmdqRecStruct *handle,
 
 	if (!handle)
 		return -EINVAL;
+
+	CMDQ_MSG("%s REC:0x%p write_reg:0x%08x from_reg:0x%08x\n",__func__,handle, write_reg, from_reg);
 
 	do {
 		status = cmdq_op_read_reg(handle, from_reg,
@@ -1822,6 +1831,8 @@ s32 cmdq_op_read_reg_to_mem(struct cmdqRecStruct *handle,
 	}
 #endif
 
+	CMDQ_MSG("%s REC:0x%p slot_index:0x%08x addr:0x%08x\n",__func__,handle, slot_index, addr);
+
 	do {
 		status = cmdq_op_read_reg(handle, addr,
 			&handle->arg_value, ~0);
@@ -1848,6 +1859,8 @@ s32 cmdq_op_read_mem_to_reg(struct cmdqRecStruct *handle,
 
 	if (!handle)
 		return -EINVAL;
+
+	CMDQ_MSG("%s REC:0x%p slot_index:0x%08x addr:0x%08x\n",__func__,handle, slot_index, addr);
 
 	do {
 		status = cmdq_create_variable_if_need(handle,
@@ -2658,6 +2671,8 @@ static s32 cmdq_append_logic_command(struct cmdqRecStruct *handle,
 		return status;
 	}
 
+	CMDQ_MSG("%s REC:0x%p arg_a:0x%p arg_b:0x%08x arg_c:0x%08x s_op:0x%08x\n",__func__,handle, arg_a,arg_b,arg_c, s_op);
+
 	do {
 		u32 cpr_offset = CMDQ_CPR_STRAT_ID + CMDQ_THR_CPR_MAX *
 			handle->thread;
@@ -2819,6 +2834,8 @@ s32 cmdq_op_backup_CPR(struct cmdqRecStruct *handle, CMDQ_VARIABLE cpr,
 	CMDQ_VARIABLE pa_cpr = CMDQ_TASK_TEMP_CPR_VAR;
 	const dma_addr_t dramAddr = h_backup_slot + slot_index * sizeof(u32);
 
+	CMDQ_MSG("%s REC:0x%p slot_index:%d\n",__func__,handle,slot_index);
+
 	cmdq_op_assign(handle, &pa_cpr, (u32)dramAddr);
 	cmdq_append_command(handle, CMDQ_CODE_WRITE_S,
 		(u32)pa_cpr, (u32)cpr, 1, 1);
@@ -2834,6 +2851,8 @@ s32 cmdq_op_backup_TPR(struct cmdqRecStruct *handle,
 	const CMDQ_VARIABLE arg_tpr = (CMDQ_BIT_VAR<<CMDQ_DATA_BIT) |
 		CMDQ_TPR_ID;
 	const dma_addr_t dramAddr = h_backup_slot + slot_index * sizeof(u32);
+
+	CMDQ_MSG("%s REC:0x%p slot_index:%d\n",__func__,handle,slot_index);
 
 	cmdq_op_assign(handle, &pa_cpr, (u32)dramAddr);
 	cmdq_append_command(handle, CMDQ_CODE_WRITE_S,
@@ -3668,7 +3687,7 @@ s32 cmdqBackupAllocateSlot(cmdqBackupSlotHandle *p_h_backup_slot, u32 slotCount)
 	return cmdq_alloc_mem(p_h_backup_slot, slotCount);
 }
 
-s32 cmdqBackupReadSlot(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
+s32 cmdqBackupReadSlotext(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
 	u32 *value)
 {
 	return cmdq_cpu_read_mem(h_backup_slot, slot_index, value);
@@ -3685,7 +3704,7 @@ s32 cmdqBackupFreeSlot(cmdqBackupSlotHandle h_backup_slot)
 	return cmdq_free_mem(h_backup_slot);
 }
 
-s32 cmdqRecBackupRegisterToSlot(struct cmdqRecStruct *handle,
+s32 cmdqRecBackupRegisterToSlotext(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 regAddr)
 {
 	return cmdq_op_read_reg_to_mem(handle, h_backup_slot, slot_index,

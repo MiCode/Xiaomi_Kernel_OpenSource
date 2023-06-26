@@ -1,6 +1,7 @@
 config MTK_CHARGER
 	bool "MediaTek Charging Driver"
 	depends on MEDIATEK_SOLUTION
+	default n
 	help
 	  Say yes here to enable MediaTek charging driver.
 	  This driver contains charging control flow and
@@ -9,6 +10,7 @@ config MTK_CHARGER
 
 config POWER_EXT
 	bool "MediaTek Power Ext"
+	default n
 	help
 	  Check this if the device is not powered by battery.
 	  For example, if the device is powered by AC adapter.
@@ -17,6 +19,7 @@ config POWER_EXT
 
 config MTK_SWCHR_SUPPORT
 	bool "MediaTek switch charger"
+	default n
 	depends on MTK_CHARGER
 	help
 	  This is to enable switching charger control flow.
@@ -26,6 +29,7 @@ config MTK_SWCHR_SUPPORT
 
 config MTK_KERNEL_POWER_OFF_CHARGING
 	bool "MTK kernel power off charging"
+	default n
 	depends on MTK_CHARGER
 	help
 	  yes : support KPOC feature, power off charging would running by
@@ -35,6 +39,7 @@ config MTK_KERNEL_POWER_OFF_CHARGING
 
 config MTK_PUMP_EXPRESS_PLUS_SUPPORT
 	bool "MediaTek PUMP EXPRESS PLUS"
+	default n
 	depends on MTK_CHARGER
 	help
 	  Fast charging technology using switch charger and current pattern
@@ -44,6 +49,7 @@ config MTK_PUMP_EXPRESS_PLUS_SUPPORT
 
 config MTK_PUMP_EXPRESS_PLUS_20_SUPPORT
 	bool "MediaTek PUMP EXPRESS PLUS 2.0"
+	default n
 	depends on MTK_CHARGER
 	help
 	  Fast charging technology using switch charger and current pattern
@@ -52,19 +58,9 @@ config MTK_PUMP_EXPRESS_PLUS_20_SUPPORT
 	  Set Yes to enable PE+2.0
 	  Set No to disable PE+2.0
 
-config MTK_PUMP_EXPRESS_50_SUPPORT
-	bool "Mediatek Pump Express 5.0"
-	select RT_PROP_CHGALGO
-	depends on MTK_CHARGER
-	help
-	  Fast charging technology using divider charger to achieve better
-	  charging ability. It has higher charging efficiency and better
-	  thermal performance than using switching charger.
-	  Set Yes to enable PE5.0
-	  Set No to disable PE5.0
-
 config MTK_DUAL_CHARGER_SUPPORT
 	bool "MediaTek dual charger support"
+	default n
 	depends on MTK_CHARGER
 	help
 	  Use two charging ICs (master and slave) to charge the system.
@@ -74,6 +70,7 @@ config MTK_DUAL_CHARGER_SUPPORT
 
 config SWCHR_POWER_PATH
 	bool "External charger IC supports powerpath"
+	default n
 	depends on MTK_CHARGER
 	help
 	  Set Yes if the external charger IC
@@ -110,6 +107,7 @@ config CHARGER_MT6362
 
 config CHARGER_RT9465
 	bool "Charger Driver for Richtek RT9465 Charger IC"
+	default n
 	depends on MTK_CHARGER
 	help
 	  Say Yes to enable Richtek RT9465 driver.
@@ -119,6 +117,7 @@ config CHARGER_RT9465
 
 config CHARGER_RT9458
 	bool "Charger Driver for Richtek RT9458 Charger IC"
+	default n
 	depends on MTK_SWCHR_SUPPORT
 	help
 	  Say Y to enable
@@ -126,18 +125,20 @@ config CHARGER_RT9458
 	  It depends on
 	  the config MTK_SWCHR_SUPPORT.
 
-config CHARGER_RT9466
-	bool "Charger Driver for Richtek RT9466 Charger IC"
+config SMB1351_USB_CHARGER
+	bool "Charger Driver for SMB1351  Charger IC"
 	default n
-	depends on MTK_SWCHR_SUPPORT
+	depends on MTK_CHARGER
 	help
-	  Say Yes to enable
-	  Say No to disable
-	  Richtek RT9466 driver.
-	  It depends on config  MTK_SWCHR_SUPPORT.
+	  Say Yes to enable SMB1351 driver.
+          It is mainly used as slave IC for dual charger
+          application.
+          It depends on config MTK_CHARGER.
+
 
 config CHARGER_RT9467
 	bool "Charger Driver for Richtek RT9467 Charger IC"
+	default n
 	depends on MTK_CHARGER
 	help
 	  Say Yes to enable Richtek RT9467 driver.
@@ -147,6 +148,7 @@ config CHARGER_RT9467
 
 config CHARGER_RT9471
 	bool "Charger Driver for Richtek RT9471 Charger IC"
+	default n
 	depends on MTK_CHARGER
 	help
 	  Say Yes to enable Richtek RT9471 charger driver.
@@ -154,25 +156,9 @@ config CHARGER_RT9471
 	  which RT9470D, RT9471D and RT9472D support BC1.2
 	  It depends on config MTK_CHARGER.
 
-config CHARGER_RT9759
-	bool "Richtek RT9759 Divider Charger Driver"
-	depends on MTK_CHARGER
-	help
-	  Say Y here to enable support of rt9759 divider charger
-	  It is mainly used as divider charger for
-	  direct charge
-	  It depends on config MTK_CHARGER
-
-config RT_PROP_CHGALGO
-	bool "Richtek Proprietary Charging Algorithm"
-	help
-	  Say Y to enable
-	  Richtek Proprietary charging algorithm
-	  Say N to disable
-	  Richtek Proprietary charging algorithm
-
 config MTK_CHARGER_UNLIMITED
 	bool "MediaTek Charger Unlimited"
+	default n
 	depends on MTK_CHARGER
 	help
 	  Say Yes to release charging current restrictions.
@@ -196,11 +182,17 @@ config CHARGER_BQ25601
 	  and config MTK_SWCHR_SUPPORT
 	  Set to Yes if BQ25601 is used.
 
-config LOAD_SWITCH_RT9750
-	bool "Load Switch Driver for Richtek RT9750"
-	depends on MTK_CHARGER
+config CHARGER_BQ2589X_CHARGER
+	bool "CHARGER_BQ2589X_CHARGER"
 	help
-	  Say Yes to enable Richtek RT9750 driver.
-	  It is a load switch,
-	  which is good for direct charge.
-	  It depends on config MTK_CHARGER.
+	  This is to enable MediaTek supports to BQ2589X.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if BQ2589X is used.
+config CHARGER_SC8551_CHARGER
+	bool "CHARGER_SC8551_CHARGER"
+	help
+	  This is to enable MediaTek supports to sc8551.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if SC8551 is used.

@@ -1060,9 +1060,9 @@ static int fgauge_read_current(
 		bm_debug("[%s] final current=%d (ratio=%d)\n",
 			__func__,
 			 dvalue, gauge_dev->fg_cust_data->car_tune_value);
-
+/*K19A HQ-123457 K19A charger of profile by wangqi at 2021/4/20 start*/
 		*data = dvalue;
-
+/*K19A HQ-123457 K19A charger of profile by wangqi at 2021/4/20 end*/
 	return 0;
 }
 

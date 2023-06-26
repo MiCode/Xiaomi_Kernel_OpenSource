@@ -22,11 +22,11 @@
 #include <linux/cpu.h>
 #include <linux/delay.h>
 #include <linux/sched.h>
-
+/*K19A HQ-140788 K19A for typec mode by langjunjun at 2021/6/11 start*/
 #ifdef CONFIG_DUAL_ROLE_USB_INTF
 #include <linux/usb/class-dual-role.h>
 #endif /* CONFIG_DUAL_ROLE_USB_INTF */
-
+/*K19A HQ-140788 K19A for typec mode by langjunjun at 2021/6/11 end*/
 #include "tcpci_core.h"
 
 #ifdef CONFIG_PD_DBG_INFO

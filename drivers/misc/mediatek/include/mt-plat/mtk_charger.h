@@ -40,8 +40,6 @@ enum {
 	SLAVE_CHARGER = 1,
 	TOTAL_CHARGER = 2,
 	DIRECT_CHARGER = 10,
-	MAIN_DIVIDER_CHARGER = 20,
-	SLAVE_DIVIDER_CHARGER = 21,
 };
 
 struct charger_consumer {
@@ -114,8 +112,25 @@ extern int charger_manager_get_zcv(
 	int idx,
 	u32 *uV);
 extern int charger_manager_enable_chg_type_det(
-	struct charger_consumer *consumer,
 	bool en);
+extern int charger_manager_get_ibus(int *ibus);
+extern int charger_manager_set_input_suspend(int suspend);
+/*K19A-75 charge by wangchao at 2021/4/15 start*/
+extern int charger_manager_set_hiz_enable(int hiz_enable);
+/*K19A-75 charge by wangchao at 2021/4/15 end*/
+extern int charger_manager_is_input_suspend(void);
+extern int charger_manager_get_prop_system_temp_level(void);
+extern int charger_manager_get_prop_system_temp_level_max(void);
+extern void charger_manager_set_prop_system_temp_level(int temp_level);
+
+
+
+extern int charger_manager_check_ra_detected(void);
+extern void charger_manager_set_ra_detected(int val);
+extern int charger_manager_pd_is_online(void);
+extern int charger_manager_pe2_is_online(void);
+extern int charger_manager_pe4_is_online(void);
+extern enum hvdcp_status charger_manager_check_hvdcp_status(void);
 extern int mtk_chr_is_charger_exist(unsigned char *exist);
 extern bool is_power_path_supported(void);
 extern int charger_get_vbus(void);

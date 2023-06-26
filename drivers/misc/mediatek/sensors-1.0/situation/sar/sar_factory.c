@@ -84,8 +84,10 @@ static long sar_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 					"SAR_IOCTL_READ_SENSORDATA read data fail!\n");
 				return -EINVAL;
 			}
-			pr_debug("SAR_IOCTL_READ_SENSORDATA: (%d, %d, %d)!\n",
+			/*k19a debug log by luozeng at 2021.3.18 start*/
+                  	pr_err("SAR_IOCTL_READ_SENSORDATA: (%d, %d, %d)!\n",
 				data_buf[0], data_buf[1], data_buf[2]);
+                  	/*k19a debug log by luozeng at 2021.3.18 end*/
 			sensor_data.x = data_buf[0];
 			sensor_data.y = data_buf[1];
 			sensor_data.z = data_buf[2];

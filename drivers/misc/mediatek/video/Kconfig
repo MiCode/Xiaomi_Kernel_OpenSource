@@ -167,3 +167,11 @@ config MTK_DRE30_SUPPORT
 	  display visual enhancement ver.3.
 	  This feature requires the cowork of AAL user-space algorithm process.
 	  Please also turn on MTK_AAL_SUPPORT amd MTK_DRE30_SUPPORT in ProjectConfig.mk.
+
+# Huaqin add for HQ-124138 by liunianliang at 2021/04/29 start
+config MI_ERRFLAG_ESD_CHECK_ENABLE
+	bool "err flag pin to do esd check"
+	default n
+	help
+	  do esd check with err flag pin
+# Huaqin add for HQ-124138 by liunianliang at 2021/04/29 end

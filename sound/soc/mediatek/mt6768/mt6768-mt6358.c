@@ -15,13 +15,27 @@
 #include "mt6768-afe-gpio.h"
 #include "../../codecs/mt6358.h"
 #include "../common/mtk-sp-spk-amp.h"
-
+/* K19A BSP.Audio bring up second PA by zhagpeng at 2021/3/5 start*/
+#include "../fs1815n/fsm_public.h"
+/* K19A BSP.Audio bring up second PA by zhagpeng at 2021/3/5 end*/
+/*K19A code for HQ-128766 by zhangpeng at 2021.4.3 start*/
+#include "../fs1815n/fsm-dev.h"
+/*K19A code for HQ-128766 by zhangpeng at 2021.4.3 end*/
 /*
  * if need additional control for the ext spk amp that is connected
  * after Lineout Buffer / HP Buffer on the codec, put the control in
  * mt6768_mt6358_spk_amp_event()
  */
 #define EXT_SPK_AMP_W_NAME "Ext_Speaker_Amp"
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start*/
+#define EXT_RCV_AMP_W_NAME "Ext_Reciver_Amp"    // ALPS05007528
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 end*/
+
+/*K19A code for WXYFB-1001 by zhangpeng at 2021.3.19 start*/
+static const char *awinic = "awinic";
+static const char *foursemi = "foursemi";
+extern char *get_audio_pa_vendor(void);
+/*K19A code for WXYFB-1001 by zhangpeng at 2021.3.19 end*/
 
 static const char *const mt6768_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_RICHTEK_RT5509_STR,
@@ -38,6 +52,106 @@ static const struct soc_enum mt6768_spk_type_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6768_spk_i2s_type_str),
 			    mt6768_spk_i2s_type_str),
 };
+
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start*/
+#if defined(CONFIG_SND_SOC_AW87559)
+static const char *const mode_function[] = { "Off", "Music", "Voice", "Fm", "Rcv" };
+static SOC_ENUM_SINGLE_EXT_DECL(aw87xxx_mode, mode_function);
+
+enum aw87xxx_scene_mode {
+	AW87XXX_OFF_MODE = 0,
+	AW87XXX_MUSIC_MODE = 1,
+	AW87XXX_VOICE_MODE = 2,
+	AW87XXX_FM_MODE = 3,
+	AW87XXX_RCV_MODE = 4,
+	AW87XXX_MODE_MAX = 5,
+};
+enum {
+	AW87XXX_LEFT_CHANNEL = 0,
+	AW87XXX_RIGHT_CHANNEL = 1,
+};
+
+extern unsigned char aw87xxx_show_current_mode(int32_t channel);
+extern int aw87xxx_audio_scene_load(uint8_t mode, int32_t channel);
+/*K19A code for WXYFB-991 by zhangpeng at 2021.3.18 end*/
+
+static int aw87559_mode_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	unsigned char current_mode;
+	current_mode = aw87xxx_show_current_mode(AW87XXX_LEFT_CHANNEL);
+	ucontrol->value.integer.value[0] = current_mode;
+	pr_info("%s: get mode:%d\n", __func__, current_mode);
+	return 0;
+}
+
+static int aw87559_mode_set(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	unsigned char set_mode;
+	set_mode = ucontrol->value.integer.value[0];
+	ret = aw87xxx_audio_scene_load(set_mode, AW87XXX_LEFT_CHANNEL);
+	if (ret < 0) {
+		pr_err("%s: mode:%d set failed\n", __func__, set_mode);
+		return -EPERM;
+	}
+	pr_info("%s: set mode:%d success", __func__, set_mode);
+	return 0;
+}
+
+static int aw87389_mode_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	unsigned char current_mode;
+	current_mode = aw87xxx_show_current_mode(AW87XXX_RIGHT_CHANNEL);
+	ucontrol->value.integer.value[0] = current_mode;
+	pr_info("%s: get mode:%d\n", __func__, current_mode);
+	return 0;
+}
+
+static int aw87389_mode_set(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	unsigned char set_mode;
+	set_mode = ucontrol->value.integer.value[0];
+	ret = aw87xxx_audio_scene_load(set_mode, AW87XXX_RIGHT_CHANNEL);
+	if (ret < 0) {
+		pr_err("%s: mode:%d set failed\n", __func__, set_mode);
+		return -EPERM;
+	}
+	pr_info("%s: set mode:%d success", __func__, set_mode);
+	return 0;
+}
+#endif
+
+static int rcv_amp_mode;
+static const char *rcv_amp_type_str[] = {"SPEAKER_MODE", "RECIEVER_MODE"};
+static const struct soc_enum rcv_amp_type_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(rcv_amp_type_str), rcv_amp_type_str);
+
+static int mt6768_rcv_amp_mode_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	pr_info("%s() = %d\n", __func__, rcv_amp_mode);
+	ucontrol->value.integer.value[0] = rcv_amp_mode;
+	return 0;
+}
+
+static int mt6768_rcv_amp_mode_set(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+
+	if (ucontrol->value.enumerated.item[0] >= e->items)
+		return -EINVAL;
+
+	rcv_amp_mode = ucontrol->value.integer.value[0];
+	pr_info("%s() = %d\n", __func__, rcv_amp_mode);
+	return 0;
+}
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 end*/
 
 static int mt6768_spk_type_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
@@ -70,6 +184,59 @@ static int mt6768_spk_i2s_in_type_get(struct snd_kcontrol *kcontrol,
 }
 
 static int mt6768_mt6358_spk_amp_event(struct snd_soc_dapm_widget *w,
+					struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_dapm_context *dapm = w->dapm;
+	struct snd_soc_card *card = dapm->card;
+
+	dev_info(card->dev, "%s(), event %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		/* spk amp on control */
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start*/
+		if (strcmp((const char *)get_audio_pa_vendor(), awinic) == 0) {
+#if defined(CONFIG_SND_SOC_AW87559)
+			pr_info("%s(), aw87559_audio_kspk()\n", __func__);
+			aw87xxx_audio_scene_load(AW87XXX_MUSIC_MODE, AW87XXX_LEFT_CHANNEL);
+#endif
+		} else if (strcmp((const char *)get_audio_pa_vendor(), foursemi) == 0) {
+#ifdef CONFIG_SND_SOC_FS16XX
+			pr_info("%s(), fsm audio spk:music\n", __func__);
+			fsm_speaker_onn(FSM_SCENE_MUSIC);
+#endif
+		} else {
+			pr_err("Please check out start PA");
+		}
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 end*/
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		/* spk amp off control */
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start*/
+		if (strcmp((const char *)get_audio_pa_vendor(), awinic) == 0) {
+			#if defined(CONFIG_SND_SOC_AW87559)
+			pr_info("%s(), aw87559_audio_off()\n", __func__);
+			aw87xxx_audio_scene_load(AW87XXX_OFF_MODE, AW87XXX_LEFT_CHANNEL);
+			#endif
+		} else if (strcmp((const char *)get_audio_pa_vendor(), foursemi) == 0) {
+#ifdef CONFIG_SND_SOC_FS16XX
+			pr_info("%s(), fsm_audio_off\n", __func__);
+			fsm_speaker_off();
+#endif
+		} else {
+			pr_err("Please check out off PA");
+		}
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 end*/
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+};
+
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start */
+static int mt6768_mt6358_rcv_amp_event(struct snd_soc_dapm_widget *w,
 				       struct snd_kcontrol *kcontrol,
 				       int event)
 {
@@ -81,9 +248,49 @@ static int mt6768_mt6358_spk_amp_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
 		/* spk amp on control */
+/*K19A code for WXYFB-1001 by zhangpeng at 2021.3.19 start*/
+		if (strcmp((const char *)get_audio_pa_vendor(), awinic) == 0) {
+#ifdef CONFIG_SND_SOC_AW87559
+			if (rcv_amp_mode) {
+				pr_info("%s(), aw87xxx_audio_rcv \n", __func__);
+				aw87xxx_audio_scene_load(AW87XXX_RCV_MODE, AW87XXX_RIGHT_CHANNEL);
+			} else {
+				pr_info("%s(), aw87xxx_audio_spk \n", __func__);
+				aw87xxx_audio_scene_load(AW87XXX_MUSIC_MODE, AW87XXX_RIGHT_CHANNEL);
+			};
+#endif
+		} else if (strcmp((const char *)get_audio_pa_vendor(), foursemi) == 0) {
+#ifdef CONFIG_SND_SOC_FS16XX
+			if (rcv_amp_mode) {
+				pr_err("%s(), fsm_audio rcv()\n", __func__);
+				fsm_speaker_onn(FSM_SCENE_RCV);
+			} else {
+				pr_err("%s(), fsm_audio spk:music\n", __func__);
+				fsm_speaker_onn(FSM_SCENE_MUSIC);
+			};
+#endif
+		} else {
+			pr_err("Please check out off PA");
+		}
+/*K19A code for WXYFB-1001 by zhangpeng at 2021.3.19 end*/
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* spk amp off control */
+/*K19A code for WXYFB-1001 by zhangpeng at 2021.3.19 start*/
+		if (strcmp((const char *)get_audio_pa_vendor(), awinic) == 0) {
+#ifdef CONFIG_SND_SOC_AW87559
+			pr_info("%s(), aw87xxx_audio_off \n", __func__);
+			aw87xxx_audio_scene_load(AW87XXX_OFF_MODE, AW87XXX_RIGHT_CHANNEL);
+#endif
+		} else if (strcmp((const char *)get_audio_pa_vendor(), foursemi) == 0) {
+#ifdef CONFIG_SND_SOC_FS16XX
+			pr_info("%s(), fsm audio off()\n", __func__);
+			fsm_speaker_off();
+#endif
+		} else {
+			pr_err("Please check out off PA");
+		}
+/*K19A code for WXYFB-1001 by zhangpeng at 2021.3.19 end*/
 		break;
 	default:
 		break;
@@ -94,24 +301,69 @@ static int mt6768_mt6358_spk_amp_event(struct snd_soc_dapm_widget *w,
 
 static const struct snd_soc_dapm_widget mt6768_mt6358_widgets[] = {
 	SND_SOC_DAPM_SPK(EXT_SPK_AMP_W_NAME, mt6768_mt6358_spk_amp_event),
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start*/
+	SND_SOC_DAPM_SPK(EXT_RCV_AMP_W_NAME, mt6768_mt6358_rcv_amp_event),// ALPS05007528
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 end*/
 };
 
 static const struct snd_soc_dapm_route mt6768_mt6358_routes[] = {
 	{EXT_SPK_AMP_W_NAME, NULL, "LINEOUT L"},
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start*/
+	{EXT_RCV_AMP_W_NAME, NULL, "Receiver"},// ALPS05007528
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 end*/
 	{EXT_SPK_AMP_W_NAME, NULL, "LINEOUT L HSSPK"},
 	{EXT_SPK_AMP_W_NAME, NULL, "Headphone L Ext Spk Amp"},
-	{EXT_SPK_AMP_W_NAME, NULL, "Headphone R Ext Spk Amp"},
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start*/
+	{EXT_RCV_AMP_W_NAME, NULL, "Headphone R Ext Spk Amp"},// ALPS05007528
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 end*/
 };
 
 static const struct snd_kcontrol_new mt6768_mt6358_controls[] = {
 	SOC_DAPM_PIN_SWITCH(EXT_SPK_AMP_W_NAME),
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start*/
+	SOC_DAPM_PIN_SWITCH(EXT_RCV_AMP_W_NAME),// ALPS05007528
+	SOC_ENUM_EXT("RCV_AMP_MODE", rcv_amp_type_enum,
+		     mt6768_rcv_amp_mode_get, mt6768_rcv_amp_mode_set),// ALPS05007528
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 end*/
 	SOC_ENUM_EXT("MTK_SPK_TYPE_GET", mt6768_spk_type_enum[0],
 		     mt6768_spk_type_get, NULL),
 	SOC_ENUM_EXT("MTK_SPK_I2S_OUT_TYPE_GET", mt6768_spk_type_enum[1],
 		     mt6768_spk_i2s_out_type_get, NULL),
 	SOC_ENUM_EXT("MTK_SPK_I2S_IN_TYPE_GET", mt6768_spk_type_enum[1],
 		     mt6768_spk_i2s_in_type_get, NULL),
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start*/
+#if defined(CONFIG_SND_SOC_AW87559)
+	SOC_ENUM_EXT("aw87xxx_rcv_switch",aw87xxx_mode ,
+			aw87389_mode_get, aw87389_mode_set),
+	SOC_ENUM_EXT("aw87xxx_spk_switch",aw87xxx_mode ,
+			aw87559_mode_get, aw87559_mode_set),
+#endif
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 end*/
 };
+
+
+
+#ifdef CONFIG_TARGET_PRODUCT_MERLINCOMMON
+static int cs35l41_dailink_init(struct snd_soc_pcm_runtime *rtd)
+{
+	struct snd_soc_card *card = rtd->card;
+	struct snd_soc_codec *spk_cdc = rtd->codec_dais[0]->codec;
+	struct snd_soc_dapm_context *cs35l41_dapm = snd_soc_codec_get_dapm(spk_cdc);
+	//dev_info(card->dev, "%s: found codec[%s]\n", __func__, dev_name(spk_cdc->dev));
+	snd_soc_dapm_ignore_suspend(cs35l41_dapm, "AMP Playback");
+	snd_soc_dapm_ignore_suspend(cs35l41_dapm, "AMP Capture");
+	snd_soc_dapm_ignore_suspend(cs35l41_dapm, "DSP1");
+	snd_soc_dapm_ignore_suspend(cs35l41_dapm, "Main AMP");
+	snd_soc_dapm_ignore_suspend(cs35l41_dapm, "ASPRX1");
+	snd_soc_dapm_ignore_suspend(cs35l41_dapm, "ASPRX2");
+	snd_soc_dapm_ignore_suspend(cs35l41_dapm, "ASPTX1");
+	snd_soc_dapm_ignore_suspend(cs35l41_dapm, "ASPTX2");
+	snd_soc_dapm_ignore_suspend(cs35l41_dapm, "SPK");
+	snd_soc_dapm_sync(cs35l41_dapm);
+	dev_info(card->dev, "%s: dapm ignore suspend[%s]\n", __func__, dev_name(spk_cdc->dev));
+	return 0;
+}
+#endif
 
 /*
  * define mtk_spk_i2s_mck node in dts when need mclk,
@@ -274,7 +526,9 @@ static int mt6768_mt6358_init(struct snd_soc_pcm_runtime *rtd)
 
 	/* disable ext amp connection */
 	snd_soc_dapm_disable_pin(dapm, EXT_SPK_AMP_W_NAME);
-
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 start*/
+    snd_soc_dapm_disable_pin(dapm, EXT_RCV_AMP_W_NAME);// ALPS05007528
+/*K19A code for HQ-123483 by zhangpeng at 2021.3.22 end*/
 	return 0;
 }
 
@@ -545,6 +799,35 @@ static struct snd_soc_dai_link mt6768_mt6358_dai_links[] = {
 		.ignore_suspend = 1,
 		.init = mt6768_mt6358_init,
 	},
+#ifdef CONFIG_TARGET_PRODUCT_MERLINCOMMON
+	{
+		.name = "I2S3",
+		.cpu_dai_name = "I2S3",
+		.codec_dai_name = "cs35l41-pcm",
+		.codec_name = "spi3.0",
+		.dai_fmt = SND_SOC_DAIFMT_I2S |
+			SND_SOC_DAIFMT_CBS_CFS |
+			SND_SOC_DAIFMT_NB_NF,
+		.no_pcm = 1,
+		.dpcm_playback = 1,
+		.ignore_suspend = 1,
+		.be_hw_params_fixup = mt6768_i2s_hw_params_fixup,
+		.init = &cs35l41_dailink_init,
+	},
+	{
+		.name = "I2S0",
+		.cpu_dai_name = "I2S0",
+		.codec_dai_name = "cs35l41-pcm",
+		.codec_name = "spi3.0",
+		.dai_fmt = SND_SOC_DAIFMT_I2S |
+			SND_SOC_DAIFMT_CBS_CFS |
+			SND_SOC_DAIFMT_NB_NF,
+		.no_pcm = 1,
+		.dpcm_capture = 1,
+		.ignore_suspend = 1,
+		.be_hw_params_fixup = mt6768_i2s_hw_params_fixup,
+	},
+#else
 	{
 		.name = "I2S3",
 		.cpu_dai_name = "I2S3",
@@ -565,6 +848,7 @@ static struct snd_soc_dai_link mt6768_mt6358_dai_links[] = {
 		.ignore_suspend = 1,
 		.be_hw_params_fixup = mt6768_i2s_hw_params_fixup,
 	},
+#endif
 	{
 		.name = "I2S1",
 		.cpu_dai_name = "I2S1",
@@ -772,46 +1056,15 @@ static struct snd_soc_card mt6768_mt6358_soc_card = {
 static int mt6768_mt6358_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6768_mt6358_soc_card;
-	struct device_node *platform_node, *codec_node, *spk_node = NULL;
-	struct snd_soc_dai_link *spk_out_dai_link, *spk_iv_dai_link = NULL;
-	int ret = 0;
-	int i = 0;
-	int spk_out_dai_link_idx, spk_iv_dai_link_idx = 0;
+	struct device_node *platform_node, *codec_node;
+	int ret;
+	int i;
 
-	ret = mtk_spk_update_info(card, pdev,
-				  &spk_out_dai_link_idx, &spk_iv_dai_link_idx,
-				  &mt6768_mt6358_i2s_ops);
+	ret = mtk_spk_update_dai_link(card, pdev, &mt6768_mt6358_i2s_ops);
 	if (ret) {
-		dev_err(&pdev->dev, "%s(), mtk_spk_update_info error\n",
+		dev_err(&pdev->dev, "%s(), mtk_spk_update_dai_link error\n",
 			__func__);
 		return -EINVAL;
-	}
-
-	spk_out_dai_link = &mt6768_mt6358_dai_links[spk_out_dai_link_idx];
-	spk_iv_dai_link = &mt6768_mt6358_dai_links[spk_iv_dai_link_idx];
-	if (!spk_out_dai_link->codec_dai_name &&
-	    !spk_iv_dai_link->codec_dai_name) {
-		spk_node = of_get_child_by_name(pdev->dev.of_node,
-					"mediatek,speaker-codec");
-		if (!spk_node) {
-			dev_err(&pdev->dev,
-				"spk_codec of_get_child_by_name fail\n");
-			return -EINVAL;
-		}
-		ret = snd_soc_of_get_dai_link_codecs(
-				&pdev->dev, spk_node, spk_out_dai_link);
-		if (ret < 0) {
-			dev_err(&pdev->dev,
-				"i2s out get_dai_link_codecs fail\n");
-			return -EINVAL;
-		}
-		ret = snd_soc_of_get_dai_link_codecs(
-				&pdev->dev, spk_node, spk_iv_dai_link);
-		if (ret < 0) {
-			dev_err(&pdev->dev,
-				"i2s in get_dai_link_codecs fail\n");
-			return -EINVAL;
-		}
 	}
 
 	platform_node = of_parse_phandle(pdev->dev.of_node,
@@ -834,9 +1087,7 @@ static int mt6768_mt6358_dev_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	for (i = 0; i < card->num_links; i++) {
-		if (mt6768_mt6358_dai_links[i].codec_name ||
-		    i == spk_out_dai_link_idx ||
-		    i == spk_iv_dai_link_idx)
+		if (mt6768_mt6358_dai_links[i].codec_name)
 			continue;
 		mt6768_mt6358_dai_links[i].codec_of_node = codec_node;
 	}

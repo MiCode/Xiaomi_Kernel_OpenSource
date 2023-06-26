@@ -5,6 +5,7 @@
 config TCPC_CLASS
 	bool "TypeC Port Controller Device Class"
 	select MTK_USB_TYPEC
+	select TYPEC
 	help
 	  Say Y to enable
 	  Typec Port
@@ -59,6 +60,16 @@ config TCPC_MT6370
 	default n
 	help
 	  Say Y to enable MediaTek MT6370
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_WUSB3801
+	bool "MediaTek WUSB3801 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable WUSB3801
 	  TypeC port Controller
 	  Also Support Power Delivery
 	  Say N to disable

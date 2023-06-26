@@ -51,7 +51,8 @@
 #define SHUTDOWN_TIME 40
 #define AVGVBAT_ARRAY_SIZE 30
 #define INIT_VOLTAGE 3450
-#define BATTERY_SHUTDOWN_TEMPERATURE 60
+
+#define BATTERY_SHUTDOWN_TEMPERATURE 61
 
 /* ============================================================ */
 /* typedef and Struct*/
@@ -105,7 +106,7 @@ do {\
 	}						\
 } while (0)
 
-#define BM_DAEMON_DEFAULT_LOG_LEVEL 3
+#define BM_DAEMON_DEFAULT_LOG_LEVEL 8
 
 enum gauge_hw_version {
 	GAUGE_HW_V1000 = 1000,
@@ -228,7 +229,6 @@ enum Fg_kernel_cmds {
 	FG_KERNEL_CMD_SAVE_DEBUG_PARAM,
 	FG_KERNEL_CMD_REQ_CHANGE_AGING_DATA,
 	FG_KERNEL_CMD_AG_LOG_TEST,
-	FG_KERNEL_CMD_CHG_DECIMAL_RATE,
 
 	FG_KERNEL_CMD_FROM_USER_NUMBER
 
@@ -307,9 +307,6 @@ enum daemon_cmd_int_data {
 	FG_GET_CURR_2 = 4,
 	FG_GET_REFRESH = 5,
 	FG_GET_IS_AGING_RESET = 6,
-	FG_GET_SOC_DECIMAL_RATE = 7,
-	FG_GET_DIFF_SOC_SET = 8,
-	FG_GET_IS_FORCE_FULL = 9,
 	FG_GET_MAX,
 	FG_SET_ANCHOR = 999,
 	FG_SET_SOC = FG_SET_ANCHOR + 1,
@@ -327,7 +324,6 @@ enum daemon_cmd_int_data {
 	FG_SET_OCV_Vtemp = FG_SET_ANCHOR + 13,
 	FG_SET_OCV_SOC = FG_SET_ANCHOR + 14,
 	FG_SET_CON0_SOFF_VALID = FG_SET_ANCHOR + 15,
-	FG_SET_ZCV_INTR_EN = FG_SET_ANCHOR + 16,
 	FG_SET_DATA_MAX,
 };
 
@@ -612,6 +608,12 @@ struct battery_data {
 	int BAT_batt_temp;
 };
 
+struct bms_data {
+	struct power_supply_desc psd;
+	struct power_supply *psy;
+	struct power_supply_config cfg;
+};
+
 struct BAT_EC_Struct {
 	int fixed_temp_en;
 	int fixed_temp_value;
@@ -705,7 +707,9 @@ struct mtk_battery {
 
 /*custom related*/
 	int battery_id;
-
+/* Huaqin add for HQ-124361 by miaozhichao at 2021/5/14 start */
+	bool shutdown_delay;
+/* Huaqin add for HQ-124361 by miaozhichao at 2021/5/14 end */
 /*simulator log*/
 	struct simulator_log log;
 
@@ -741,9 +745,6 @@ struct mtk_battery {
 	bool disable_mtkbattery;
 	bool cmd_disable_nafg;
 	bool ntc_disable_nafg;
-
-/*battery full*/
-	bool is_force_full;
 
 /*battery plug out*/
 	bool disable_plug_int;
@@ -805,7 +806,6 @@ struct mtk_battery {
 
 	bool is_reset_aging_factor;
 	int aging_factor;
-	int soc_decimal_rate;
 
 	struct timespec uisoc_oldtime;
 

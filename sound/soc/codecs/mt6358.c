@@ -627,6 +627,8 @@ static void capture_gpio_set(struct mt6358_priv *priv)
 			   0xffff, 0x0249);
 	regmap_update_bits(priv->regmap, MT6358_GPIO_MODE3,
 			   0xffff, 0x0249);
+	regmap_update_bits(priv->regmap, MT6358_SMT_CON1,
+			   0x0ff0, 0x0ff0);
 }
 
 static void capture_gpio_reset(struct mt6358_priv *priv)
@@ -643,6 +645,9 @@ static void capture_gpio_reset(struct mt6358_priv *priv)
 			   0xffff, 0x0000);
 	regmap_update_bits(priv->regmap, MT6358_GPIO_DIR0,
 			   0xf << 12, 0x0);
+	/* reset GPIO SMT mode */
+	regmap_update_bits(priv->regmap, MT6358_SMT_CON1,
+			   0x0ff0, 0x0000);
 }
 
 /* use only when not govern by DAPM */
@@ -1821,7 +1826,9 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 				0xff, 0x0004);
 
 	/* Audio left headphone input multiplexor selection : LOL */
-	set_hp_l_input_mux(priv, HP_INPUT_MUX_LOL);
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 start*/
+	//set_hp_l_input_mux(priv, HP_INPUT_MUX_LOL);
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 end*/
 
 	/* Disable headphone short-circuit protection */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
@@ -1887,12 +1894,19 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 	/* Set LOL gain to normal gain step by step */
 	regmap_write(priv->regmap, MT6358_ZCD_CON1, DL_GAIN_N_10DB_REG);
 
-	/* Switch HPL MUX to Line-out */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-			0x3 << 8, 0x01 << 8);
-	/* Switch HPR MUX to DAC-R */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-			0x3 << 10, 0x2 << 10);
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 start*/
+	// /* Switch HPL MUX to Line-out */
+	// regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
+			// 0x3 << 8, 0x01 << 8);
+	// /* Switch HPR MUX to DAC-R */
+	// regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
+			// 0x3 << 10, 0x2 << 10);
+	/* Switch HPL MUX to HS */
+	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON0, 0x3300);
+	/* Switch HPR MUX to LOL */
+	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON0, 0x3700);
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 end*/
+
 	/* Enable HP aux output stage */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON1,
 			0xff, 0x0c);
@@ -1963,11 +1977,20 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x1, 0x1);
 	udelay(100);
 
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 start*/
 	/* Switch LOL MUX to audio DAC */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-			0x3 << 2, 0x2 << 2);
+			0x3 << 2, 0x1 << 2);
+	/* Switch HS MUX to audio DAC */
+	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON6, 0x009b);
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 end*/
 
+/*K19A code for WXYFB-1015 by xuqingli at 2021/4/20 start*/
+    //lch inverse
+	regmap_update_bits(priv->regmap, MT6358_AFUNC_AUD_CON0,
+		0x4000, 0x1<<10);
 	/* Disable Pull-down HPL/R to AVSS28_AUD */
+/*K19A code for WXYFB-1015 by xuqingli at 2021/4/20 start*/
 	hp_pull_down(priv, false);
 
 	return 0;
@@ -2071,6 +2094,8 @@ static int mtk_hp_spk_disable(struct mt6358_priv *priv)
 	/* Set HP CMFB gate rstb */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON4,
 			0x1 << 6, 0x0);
+        /* Switch HS MUX to audio DAC */
+        regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON6, 0x0090);
 	/* disable Pull-down HPL/R to AVSS28_AUD */
 	hp_pull_down(priv, false);
 
@@ -2270,7 +2295,9 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
-
+/*K19A code for WXYFB-1015 by xuqingli at 2021/5/8 start*/
+	uint32_t reg_value = 0;
+/*K19A code for WXYFB-1015 by xuqingli at 2021/5/8 end*/
 	dev_info(priv->dev, "%s(), event 0x%x, mux %u\n",
 		 __func__,
 		 event,
@@ -2342,14 +2369,27 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
 				   0x1, 0x1);
 
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 start*/
 		/* Enable Audio DAC  */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON0, 0x0009);
+		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON0, 0x000F);
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 end*/
+
 		/* Enable low-noise mode of DAC */
 		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x0001);
-	    /* Switch LOL MUX to audio DAC */
-		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-				   0x3 << 2, 0x2 << 2);
 
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 start*/
+		/* Switch LOL MUX to audio DAC */
+		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
+				0x3 << 2, 0x1 << 2);
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 end*/
+
+/*K19A code for WXYFB-1015 by xuqingli at 2021/5/8 start*/
+    //lch inverse
+	 regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0,0xCFA1);
+	//add by mtk for debug 
+        regmap_read(priv->regmap, MT6358_AFUNC_AUD_CON0, &reg_value);
+        dev_info(priv->dev, "%s(), MT6358_AFUNC_AUD_CON0 0x%x, \n",__func__,reg_value);
+/*K19A code for WXYFB-1015 by xuqingli at 2021/5/8 end*/
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* Switch LOL MUX to open */
@@ -2476,8 +2516,11 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
 				   0x1, 0x1);
 
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 start*/
 		/* Enable Audio DAC  */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON0, 0x0009);
+		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON0, 0x000F);
+/*K19A code for K19A-56 by zhangpeng at 2021/4/20 end*/
+
 		/* Enable low-noise mode of DAC */
 		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x0001);
 		/* Switch HS MUX to audio DAC */
@@ -6668,7 +6711,9 @@ static int mt6358_codec_init_reg(struct mt6358_priv *priv)
 			   0x1 << RG_AUDLOLSCDISABLE_VAUDP15_SFT);
 
 	/* gpio miso driving set to 4mA */
-	regmap_write(priv->regmap, MT6358_DRV_CON3, 0x8888);
+	/* regmap_write(priv->regmap, MT6358_DRV_CON3, 0x8888);*/
+	/* gpio miso driving set to 8mA */
+	regmap_write(priv->regmap, MT6358_DRV_CON3, 0xaaaa);
 
 	/* set gpio */
 	playback_gpio_reset(priv);

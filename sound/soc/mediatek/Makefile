@@ -134,3 +134,10 @@ obj-y += $(AUDIO_PLATFORM)/
 # AP include path
 subdir-ccflags-y += -Werror -I$(src)/$(AUDIO_PLATFORM)
 endif
+
+#K19A code for WXYFB-991 by zhangpeng at 2021.3.18 start
+obj-$(CONFIG_SND_SOC_AW87559) += aw87559/
+#K19A code for WXYFB-991 by zhangpeng at 2021.3.18 end
+#K19A code for WXYFB-1001 by zhangpeng at 2021.3.19 start
+obj-$(CONFIG_SND_SOC_FS16XX) += fs1815n/
+#K19A code for WXYFB-1001 by zhangpeng at 2021.3.19 end

@@ -51,7 +51,7 @@ struct accelhub_ipi_data {
 	atomic_t first_ready_after_boot;
 	bool factory_enable;
 	bool android_enable;
-	struct completion calibration_done;
+//	struct completion calibration_done;
 	struct completion selftest_done;
 };
 
@@ -485,7 +485,7 @@ static int gsensor_recv_data(struct data_unit_t *event, void *reserved)
 		obj->static_cali_status =
 			(uint8_t)event->accelerometer_t.status;
 		spin_unlock(&calibration_lock);
-		complete(&obj->calibration_done);
+		//complete(&obj->calibration_done);
 	} else if (event->flush_action == TEST_ACTION) {
 		atomic_set(&obj->selftest_status,
 			event->accelerometer_t.status);
@@ -559,7 +559,7 @@ static int gsensor_factory_set_cali(int32_t data[3])
 }
 static int gsensor_factory_get_cali(int32_t data[3])
 {
-	int err = 0;
+//	int err = 0;
 #ifndef MTK_OLD_FACTORY_CALIBRATION
 	struct accelhub_ipi_data *obj = obj_ipi_data;
 	uint8_t status = 0;
@@ -572,12 +572,14 @@ static int gsensor_factory_get_cali(int32_t data[3])
 		return -1;
 	}
 #else
-	err = wait_for_completion_timeout(&obj->calibration_done,
-					  msecs_to_jiffies(3000));
-	if (!err) {
-		pr_err("%s fail!\n", __func__);
-		return -1;
-	}
+
+
+	//err = wait_for_completion_timeout(&obj->calibration_done,msecs_to_jiffies(3000));
+	//if (!err) {
+	//	pr_err("%s fail!\n", __func__);
+	//	return -1;
+	//}
+
 	spin_lock(&calibration_lock);
 	data[ACCELHUB_AXIS_X] = obj->static_cali[ACCELHUB_AXIS_X];
 	data[ACCELHUB_AXIS_Y] = obj->static_cali[ACCELHUB_AXIS_Y];
@@ -780,7 +782,7 @@ static int accelhub_probe(struct platform_device *pdev)
 	atomic_set(&obj->selftest_status, 0);
 	WRITE_ONCE(obj->factory_enable, false);
 	WRITE_ONCE(obj->android_enable, false);
-	init_completion(&obj->calibration_done);
+//	init_completion(&obj->calibration_done);
 	init_completion(&obj->selftest_done);
 	scp_power_monitor_register(&scp_ready_notifier);
 	err = scp_sensorHub_data_registration(ID_ACCELEROMETER,

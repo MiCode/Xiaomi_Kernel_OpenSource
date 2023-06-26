@@ -94,13 +94,10 @@ enum LCM_IOCTL {
 	LCM_IOCTL_NULL = 0,
 };
 
-
-
 enum LCM_Send_Cmd_Mode {
 	LCM_SEND_IN_CMD = 0,
 	LCM_SEND_IN_VDO
 };
-
 
 /* DBI related enumerations */
 
@@ -384,8 +381,8 @@ struct LCM_UFOE_CONFIG_PARAMS {
 /* ------------------------------------------------------------------------- */
 
 struct LCM_DSC_CONFIG_PARAMS {
+	unsigned int ver; /* [7:4] major [3:0] minor */
 	unsigned int slice_width;
-	unsigned int slice_hight;
 	unsigned int bit_per_pixel;
 	unsigned int slice_mode;
 	unsigned int rgb_swap;
@@ -394,11 +391,13 @@ struct LCM_DSC_CONFIG_PARAMS {
 	unsigned int bit_per_channel;
 	unsigned int rct_on;
 	unsigned int bp_enable;
-
+	unsigned int pic_height; /* need to check */
+	unsigned int pic_width;  /* need to check */
+	unsigned int slice_height;
+	unsigned int chunk_size;
 	unsigned int dec_delay;
 	unsigned int xmit_delay;
 	unsigned int scale_value;
-
 	unsigned int increment_interval;
 	unsigned int line_bpg_offset;
 	unsigned int decrement_interval;
@@ -406,10 +405,14 @@ struct LCM_DSC_CONFIG_PARAMS {
 	unsigned int slice_bpg_offset;
 	unsigned int initial_offset;
 	unsigned int final_offset;
-
 	unsigned int flatness_minqp;
 	unsigned int flatness_maxqp;
-	unsigned int rc_mode1_size;
+	unsigned int rc_model_size;
+	unsigned int rc_edge_factor;
+	unsigned int rc_quant_incr_limit0;
+	unsigned int rc_quant_incr_limit1;
+	unsigned int rc_tgt_offset_hi;
+	unsigned int rc_tgt_offset_lo;
 };
 
 
@@ -536,7 +539,6 @@ struct dynamic_fps_info {
 	/*unsigned int idle_check_interval;*//*ms*/
 };
 
-
 /*DynFPS*/
 enum DynFPS_LEVEL {
 	DFPS_LEVEL0 = 0,
@@ -590,7 +592,6 @@ struct dfps_info {
 	/*real fps during active*/
 	unsigned int vact_timing_fps_dyn;
 };
-
 
 struct LCM_DSI_PARAMS {
 	enum LCM_DSI_MODE_CON mode;
@@ -742,7 +743,6 @@ struct LCM_DSI_PARAMS {
 	/*for ARR*/
 	unsigned int dynamic_fps_levels;
 	struct dynamic_fps_info dynamic_fps_table[DYNAMIC_FPS_LEVELS];
-
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	/****DynFPS start****/
 	unsigned int dfps_enable;
@@ -797,7 +797,6 @@ struct LCM_PARAMS {
 	unsigned int min_luminance;
 	unsigned int average_luminance;
 	unsigned int max_luminance;
-
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	enum LCM_Send_Cmd_Mode sendmode;
 #endif
@@ -973,7 +972,6 @@ struct LCM_UTIL_FUNCS {
 		void *cmdq, unsigned int cmd,
 		unsigned char count, unsigned char *para_list,
 		unsigned char force_update, enum LCM_Send_Cmd_Mode sendmode);
-
 };
 enum LCM_DRV_IOCTL_CMD {
 	LCM_DRV_IOCTL_ENABLE_CMD_MODE = 0x100,
@@ -1005,6 +1003,7 @@ struct LCM_DRIVER {
 	void (*set_pwm)(unsigned int divider);
 	unsigned int (*get_pwm)(unsigned int divider);
 	void (*set_backlight_mode)(unsigned int mode);
+	void (*set_hw_info)(void);
 	/* ///////////////////////// */
 
 	int (*adjust_fps)(void *cmdq, int fps, struct LCM_PARAMS *params);

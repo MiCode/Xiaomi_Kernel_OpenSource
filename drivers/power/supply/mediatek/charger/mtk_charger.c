@@ -73,21 +73,190 @@
 
 #include "mtk_charger_intf.h"
 #include "mtk_charger_init.h"
+#include "mtk_switch_charging.h"
 
+#define THERMAL_MAX 25
+
+bool thermal_is_500;
 static struct charger_manager *pinfo;
 static struct list_head consumer_head = LIST_HEAD_INIT(consumer_head);
+/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/29 start*/
+extern int hq_selene_pcba_config;
+/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/29 end*/
+
+/* Huaqin modify for HQ-131628 by shujiawang at 2021/05/10 start */
+extern bool tp_charger_status;
+/* Huaqin modify for HQ-131628 by shujiawang at 2021/05/10 end */
+
 static DEFINE_MUTEX(consumer_mutex);
-
-
-bool mtk_is_TA_support_pd_pps(struct charger_manager *pinfo)
+#if defined(TARGET_PRODUCT_LANCELOT) || defined(TARGET_PRODUCT_SHIVA)
+typedef enum {
+	PCBA_UNKNOW = 0,
+	PCBA_J19_P0_1_CN = 0x10,
+	PCBA_J19_P0_1_INDIA,
+	PCBA_J19_P0_1_GLOBAL,
+	PCBA_J19_P1_CN,
+	PCBA_J19_P1_INDIA,
+	PCBA_J19_P1_GLOBAL,
+	PCBA_J19_P2_CN,
+	PCBA_J19_P2_INDIA,
+	PCBA_J19_P2_GLOBAL,
+	PCBA_J19_MP_CN,
+	PCBA_J19_MP_INDIA,
+	PCBA_J19_MP_GLOBAL,
+	PCBA_J19_END,
+	PCBA_J19A_P0_1_GLOBAL = 0x30,
+	PCBA_J19A_P1_GLOBAL,
+	PCBA_J19A_P2_GLOBAL,
+	PCBA_J19A_MP_GLOBAL,
+	PCBA_J19A_END,
+	PCBA_J19P_P2_INDIA = 0x50,
+	PCBA_J19P_MP_INDIA,
+	PCBA_J19P_END,
+	PCBA_END,
+} PCBA_CONFIG;
+#elif defined(TARGET_PRODUCT_SELENE)
+/* Huaqin modify for HQ-147481 by liunianliang at 2021/07/27 start */
+typedef enum
 {
-	if (pinfo->enable_pe_4 == false && pinfo->enable_pe_5 == false)
-		return false;
+	PCBA_UNKNOW = 0,
 
-	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
-		return true;
-	return false;
-}
+	PCBA_K19A_P0_GLOBAL = 1,
+	PCBA_K19A_P0_LA,
+	PCBA_K19B_P0_IN,
+	PCBA_K19B_P0_CN,
+	PCBA_K19D_P0_GLOBAL,
+	PCBA_K19C_P0_GLOBAL,
+	PCBA_K19C_P0_IN,
+	PCBA_K19L_P0_LA,
+	PCBA_K19S_P0_CN,
+	PCBA_K19S_P0_GLOBAL,
+	PCBA_K19T_P0_IN,
+	PCBA_K19U_P0_GLOBAL,
+	PCBA_K19V_P0_LA,
+
+	PCBA_K19A_P0_1_GLOBAL = 14,
+	PCBA_K19A_P0_1_LA,
+	PCBA_K19B_P0_1_IN,
+	PCBA_K19B_P0_1_CN,
+	PCBA_K19D_P0_1_GLOBAL,
+	PCBA_K19C_P0_1_GLOBAL,
+	PCBA_K19C_P0_1_IN,
+	PCBA_K19L_P0_1_LA,
+	PCBA_K19S_P0_1_CN,
+	PCBA_K19S_P0_1_GLOBAL,
+	PCBA_K19T_P0_1_IN,
+	PCBA_K19U_P0_1_GLOBAL,
+	PCBA_K19V_P0_1_LA,
+
+	PCBA_K19A_P1_GLOBAL = 27,
+	PCBA_K19A_P1_LA,
+	PCBA_K19B_P1_IN,
+	PCBA_K19B_P1_CN,
+	PCBA_K19D_P1_GLOBAL,
+	PCBA_K19C_P1_GLOBAL,
+	PCBA_K19C_P1_IN,
+	PCBA_K19L_P1_LA,
+	PCBA_K19S_P1_CN,
+	PCBA_K19S_P1_GLOBAL,
+	PCBA_K19T_P1_IN,
+	PCBA_K19U_P1_GLOBAL,
+	PCBA_K19V_P1_LA,
+
+	PCBA_K19A_P1_1_GLOBAL = 40,
+	PCBA_K19A_P1_1_LA,
+	PCBA_K19B_P1_1_IN,
+	PCBA_K19B_P1_1_CN,
+	PCBA_K19D_P1_1_GLOBAL,
+	PCBA_K19C_P1_1_GLOBAL,
+	PCBA_K19C_P1_1_IN,
+	PCBA_K19L_P1_1_LA,
+	PCBA_K19S_P1_1_CN,
+	PCBA_K19S_P1_1_GLOBAL,
+	PCBA_K19T_P1_1_IN,
+	PCBA_K19U_P1_1_GLOBAL,
+	PCBA_K19V_P1_1_LA,
+
+	PCBA_K19A_P2_GLOBAL = 53,
+	PCBA_K19A_P2_LA,
+	PCBA_K19B_P2_IN,
+	PCBA_K19B_P2_CN,
+	PCBA_K19D_P2_GLOBAL,
+	PCBA_K19C_P2_GLOBAL,
+	PCBA_K19C_P2_IN,
+	PCBA_K19L_P2_LA,
+	PCBA_K19S_P2_CN,
+	PCBA_K19S_P2_GLOBAL,
+	PCBA_K19T_P2_IN,
+	PCBA_K19U_P2_GLOBAL,
+	PCBA_K19V_P2_LA,
+
+	PCBA_K19A_MP_GLOBAL = 66,
+	PCBA_K19A_MP_LA,
+	PCBA_K19B_MP_IN,
+	PCBA_K19B_MP_CN,
+	PCBA_K19D_MP_GLOBAL,
+	PCBA_K19C_MP_GLOBAL,
+	PCBA_K19C_MP_IN,
+	PCBA_K19L_MP_LA,
+	PCBA_K19S_MP_CN,
+	PCBA_K19S_MP_GLOBAL,
+	PCBA_K19T_MP_IN,
+	PCBA_K19U_MP_GLOBAL,
+	PCBA_K19V_MP_LA,
+
+	PCBA_END,
+} PCBA_CONFIG;
+/* Huaqin modify for HQ-147481 by liunianliang at 2021/07/27 end */
+#else
+typedef enum {
+	PCBA_UNKNOW = 0,
+	PCBA_J15S_P0_CN = 0x10,
+	PCBA_J15S_P1_CN,
+	PCBA_J15S_P1_1_CN,
+	PCBA_J15S_P2_CN,
+	PCBA_J15S_MP_CN,
+	PCBA_J15S_CN_END = 0x2F,
+	PCBA_J15S_P0_INDIA = 0x30,
+	PCBA_J15S_P1_INDIA,
+	PCBA_J15S_P1_1_INDIA,
+	PCBA_J15S_P2_INDIA,
+	PCBA_J15S_MP_INDIA,
+	PCBA_J15S_INDIA_END = 0x4F,
+	PCBA_J15S_P0_GLOBAL = 0x50,
+	PCBA_J15N_P1_1_GLOBAL_NFC,
+	PCBA_J15S_P2_GLOBAL,
+	PCBA_J15N_P2_GLOBAL_NFC,
+	PCBA_J15S_P2_1_GLOBAL,
+	PCBA_J15N_P2_1_GLOBAL_NFC,
+	PCBA_J15S_MP_GLOBAL,
+	PCBA_J15N_MP_GLOBAL_NFC,
+	PCBA_J15S_GLOBAL_END = 0x6F,
+	PCBA_END,
+} PCBA_CONFIG;
+#endif
+PCBA_CONFIG get_huaqin_pcba_config(void);
+PCBA_CONFIG pcba_to_thermal = PCBA_UNKNOW;
+
+/*K19A HQ-129052 K19A charger of thermal by wangqi at 2021/6/20 start*/
+static int thermal_mitigation_dcp[THERMAL_MAX] = {2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000,
+												  2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 1600000, 1600000, 1600000, 1200000};
+
+static int thermal_mitigation_qc2[THERMAL_MAX] = {2000000, 1500000, 1400000, 1300000, 1300000, 1200000, 1100000, 1000000, 900000, 900000, 900000, 900000,
+												  900000, 1200000, 1100000, 1000000, 900000, 800000, 800000, 700000, 600000, 500000, 500000, 500000, 500000};
+
+static int thermal_mitigation_qc3[THERMAL_MAX] = {3000000, 2200000, 2100000, 2000000, 1900000, 1800000, 1600000, 1500000, 1400000, 1400000, 1400000, 1400000,
+												  900000, 1800000, 1700000, 1500000, 1500000, 1200000, 1200000,  1100000,  900000,  900000, 900000, 900000, 900000};
+
+static int thermal_mitigation_dcp_cn[THERMAL_MAX] = {2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000,
+												2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 2000000, 1600000, 1600000, 1600000, 1200000};
+
+static int thermal_mitigation_qc2_cn[THERMAL_MAX] = {2000000, 1400000, 1400000, 1300000, 1200000, 1200000, 1100000, 1000000, 900000, 900000, 900000, 900000,
+												500000, 1200000, 1100000, 1000000, 900000, 800000, 800000, 700000, 600000, 500000, 500000, 500000, 500000};
+
+static int thermal_mitigation_qc3_cn[THERMAL_MAX] = {3000000, 2600000, 2500000, 2400000, 2200000, 2000000, 1800000, 1800000, 1800000, 1800000, 1800000, 1400000,
+												1000000, 2200000, 1800000, 1400000, 1200000, 1000000, 800000, 800000, 800000, 800000, 600000, 400000, 300000};
+/*K19A HQ-129052 K19A charger of thermal by wangqi at 2021/6/20 end*/
 
 bool is_power_path_supported(void)
 {
@@ -129,6 +298,7 @@ void BATTERY_SetUSBState(int usb_state_value)
 		}
 	}
 }
+EXPORT_SYMBOL_GPL(BATTERY_SetUSBState);
 
 unsigned int set_chr_input_current_limit(int current_limit)
 {
@@ -304,10 +474,6 @@ int charger_manager_enable_high_voltage_charging(
 
 	pr_info("%s: user: %s, en = %d\n", __func__, dev_name(consumer->dev),
 		info->enable_hv_charging);
-
-	if (mtk_pe50_get_is_connect(info) && !info->enable_hv_charging)
-		mtk_pe50_stop_algo(info, true);
-
 	_wake_up_charger(info);
 
 	return 0;
@@ -401,6 +567,78 @@ int charger_manager_enable_charging(struct charger_consumer *consumer,
 	return ret;
 }
 
+#define DUAL_CHG_VOLT_PD 7000
+#define DUAL_CHG_CURRENT_MIN 1800000
+#define DUAL_CHG_CURRENT_MAX 2000000
+#define DUAL_CHG_CURRENT_MIN_PD 1600000
+#define DUAL_CHG_CURRENT_MIN_PE2 1500000
+int _charger_manager_set_input_current_limit(struct charger_manager *info,
+	int idx, int input_current)
+{
+	if (info != NULL) {
+		struct charger_data *pdata;
+		struct sw_jeita_data *sw_jeita = &info->sw_jeita;
+//		struct switch_charging_alg_data *swchgalg = info->algorithm_data;
+		int dual_chg_current_min = DUAL_CHG_CURRENT_MIN;
+		int dual_chg_current_max = DUAL_CHG_CURRENT_MAX;
+
+		if (info->data.parallel_vbus) {
+			if (idx == TOTAL_CHARGER) {
+				info->chg1_data.thermal_input_current_limit =
+					input_current;
+				info->chg2_data.thermal_input_current_limit =
+					input_current;
+
+			if (mtk_pe20_get_is_enable(pinfo) && mtk_pe20_get_is_connect(pinfo))
+				dual_chg_current_min = DUAL_CHG_CURRENT_MIN_PE2;
+			else if (pinfo->usb_psy->desc->type == POWER_SUPPLY_TYPE_USB_DCP)
+				dual_chg_current_min = DUAL_CHG_CURRENT_MAX;
+
+			if (dual_chg_current_min <= input_current &&
+				input_current < dual_chg_current_max) {
+				info->chg1_data.thermal_input_current_limit =
+					input_current * 2 - DUAL_CHG_CURRENT_MAX;
+				info->chg2_data.thermal_input_current_limit =
+					DUAL_CHG_CURRENT_MAX;
+			}
+
+			if (sw_jeita->sm == TEMP_T3_TO_T4 &&
+					!info->swjeita_enable_dual_charging) {
+					info->chg1_data.thermal_input_current_limit =
+						input_current * 2;
+					info->chg2_data.thermal_input_current_limit = 0;
+				}
+			} else
+				return -ENOTSUPP;
+		} else {
+			if (idx == MAIN_CHARGER)
+				pdata = &info->chg1_data;
+			else if (idx == SLAVE_CHARGER)
+				pdata = &info->chg2_data;
+			else
+				return -ENOTSUPP;
+			pdata->thermal_input_current_limit = input_current;
+		}
+
+		chr_err("%s: idx:%d en:%d\n", __func__, idx, input_current);
+		_mtk_charger_change_current_setting(info);
+		_wake_up_charger(info);
+		return 0;
+	}
+	return 0;
+}
+
+int charger_manager_set_input_current_limit(struct charger_consumer *consumer,
+	int idx, int input_current)
+{
+	struct charger_manager *info = consumer->cm;
+
+	_charger_manager_set_input_current_limit(info, idx, input_current);
+	return -EBUSY;
+}
+
+#if 0
+//fix me
 int charger_manager_get_input_current_limit(struct charger_consumer *consumer,
 	int idx, int *input_current)
 {
@@ -444,10 +682,6 @@ int charger_manager_set_input_current_limit(struct charger_consumer *consumer,
 				pdata = &info->chg1_data;
 			else if (idx == SLAVE_CHARGER)
 				pdata = &info->chg2_data;
-			else if (idx == MAIN_DIVIDER_CHARGER)
-				pdata = &info->dvchg1_data;
-			else if (idx == SLAVE_DIVIDER_CHARGER)
-				pdata = &info->dvchg2_data;
 			else
 				return -ENOTSUPP;
 			pdata->thermal_input_current_limit = input_current;
@@ -461,6 +695,25 @@ int charger_manager_set_input_current_limit(struct charger_consumer *consumer,
 	}
 	return -EBUSY;
 }
+#endif
+
+/*K19A HQ-129052 K19A charger of thermal by wangqi at 2021/7/1 start*/
+ int charger_manager_set_charging_current_thermal_limit(
+ 	struct charger_manager *info, int idx, int charging_current)
+ {
+
+ 	if (info != NULL) {
+ 		struct charger_data *pdata;
+ 		pdata = &info->chg1_data;
+ 		pdata->thermal_charging_current_limit = charging_current;
+		chr_err("%s: charging_current_limit:%d\n", __func__, charging_current);
+ 		_mtk_charger_change_current_setting(info);
+		_wake_up_charger(info);
+		return 0;
+ 	}
+ 	return -EBUSY;
+}
+/*K19A HQ-129052 K19A charger of thermal by wangqi at 2021/7/1 end*/
 
 int charger_manager_set_charging_current_limit(
 	struct charger_consumer *consumer, int idx, int charging_current)
@@ -477,11 +730,11 @@ int charger_manager_set_charging_current_limit(
 		else
 			return -ENOTSUPP;
 
-		pdata->thermal_charging_current_limit = charging_current;
+		// pdata->thermal_charging_current_limit = charging_current;
 		chr_err("%s: dev:%s idx:%d en:%d\n", __func__,
 			dev_name(consumer->dev), idx, charging_current);
-		_mtk_charger_change_current_setting(info);
-		_wake_up_charger(info);
+		// _mtk_charger_change_current_setting(info);
+		// _wake_up_charger(info);
 		return 0;
 	}
 	return -EBUSY;
@@ -506,10 +759,6 @@ int charger_manager_get_charger_temperature(struct charger_consumer *consumer,
 			pdata = &info->chg1_data;
 		else if (idx == SLAVE_CHARGER)
 			pdata = &info->chg2_data;
-		else if (idx == MAIN_DIVIDER_CHARGER)
-			pdata = &info->dvchg1_data;
-		else if (idx == SLAVE_DIVIDER_CHARGER)
-			pdata = &info->dvchg2_data;
 		else
 			return -ENOTSUPP;
 
@@ -581,43 +830,245 @@ int charger_manager_get_zcv(struct charger_consumer *consumer, int idx, u32 *uV)
 	return 0;
 }
 
-int charger_manager_enable_chg_type_det(struct charger_consumer *consumer,
-	bool en)
+int charger_manager_enable_chg_type_det(bool en)
 {
-	struct charger_manager *info = consumer->cm;
-	struct charger_device *chg_dev = NULL;
+	struct charger_device *chg_dev;
 	int ret = 0;
+	chg_dev = get_charger_by_name("primary_chg");
+	if (chg_dev != NULL) {
 
-	if (info != NULL) {
-		switch (info->data.bc12_charger) {
-		case MAIN_CHARGER:
-			chg_dev = info->chg1_dev;
-			break;
-		case SLAVE_CHARGER:
-			chg_dev = info->chg2_dev;
-			break;
-		default:
-			chg_dev = info->chg1_dev;
-			chr_err("%s: invalid number, use main charger as default\n",
-				__func__);
-			break;
-		}
-
-		chr_err("%s: chg%d is doing bc12\n", __func__,
-			info->data.bc12_charger + 1);
+		chr_err("%s: chg1_dev is doing bc12\n", __func__);
 		ret = charger_dev_enable_chg_type_det(chg_dev, en);
 		if (ret < 0) {
-			chr_err("%s: en chgdet fail, en = %d\n", __func__, en);
+			chr_err("%s: en chgdet fail, en = %d rc = %d\n", __func__, en, ret);
 			return ret;
 		}
 	} else
 		chr_err("%s: charger_manager is null\n", __func__);
+	return 0;
+}
 
+int charger_manager_pd_is_online(void)
+{
+	if (pinfo == NULL)
+		return 0;
 
+	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
+		pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30 ||
+		pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
+		return 1;
+	else
+		return 0;
+}
+int charger_manager_pe4_is_online(void)
+{
+	if (pinfo == NULL)
+		return 0;
+
+	if (mtk_pe40_get_is_connect(pinfo))
+		return 1;
+	else
+		return 0;
+}
+int charger_manager_pe2_is_online(void)
+{
+	if (pinfo == NULL)
+		return 0;
+
+	if (mtk_pe20_get_is_enable(pinfo) && mtk_pe20_get_is_connect(pinfo))
+		return 1;
+	else
+		return 0;
+}
+enum hvdcp_status charger_manager_check_hvdcp_status(void)
+{
+	if (pinfo == NULL)
+		return false;
+
+	return pinfo->hvdcp_type;
+}
+
+int charger_manager_get_ibus(int *ibus)
+{
+	if (pinfo == NULL)
+		return false;
+
+	charger_dev_get_ibus(pinfo->chg1_dev, ibus);
 
 	return 0;
 }
 
+int charger_manager_set_input_suspend(int suspend)
+{
+	pr_info("%s suspend: %d.\n", __func__, suspend);
+
+	if (pinfo == NULL)
+		return false;
+
+	if (suspend) {
+		charger_dev_set_suspend(pinfo->chg1_dev, true);
+/*K19A WXYFB-604 K19A charger by wangqi at 2021/4/6 start*/
+		charger_dev_enable(pinfo->chg1_dev, false);
+/*K19A WXYFB-604 K19A charger by wangqi at 2021/4/6 end*/
+//		charger_dev_enable_powerpath(pinfo->chg1_dev, false);
+		pinfo->is_input_suspend = true;
+	} else {
+		charger_dev_set_suspend(pinfo->chg1_dev, false);
+/*K19A WXYFB-604 K19A charger by wangqi at 2021/4/6 start*/
+		charger_dev_enable(pinfo->chg1_dev, true);
+/*K19A WXYFB-604 K19A charger by wangqi at 2021/4/6 end*/
+//		charger_dev_enable_powerpath(pinfo->chg1_dev, true);
+		pinfo->is_input_suspend = false;
+	}
+	// if (pinfo->usb_psy)
+	// 	power_supply_changed(pinfo->usb_psy);
+	return 0;
+}
+
+/*K19A-75 charge by wangchao at 2021/4/15 start*/
+int charger_manager_set_hiz_enable(int hiz_enable)
+{
+	pr_info("%s : %d.\n", __func__, hiz_enable);
+
+	if (pinfo == NULL)
+		return false;
+
+	if (hiz_enable) {
+		charger_dev_enable_hz(pinfo->chg1_dev, true);
+		pinfo->is_input_suspend = true;
+	} else {
+		charger_dev_enable_hz(pinfo->chg1_dev, false);
+		pinfo->is_input_suspend = false;
+	}
+	// if (pinfo->usb_psy)
+	// 	power_supply_changed(pinfo->usb_psy);
+	return 0;
+}
+/*K19A-75 charge by wangchao at 2021/4/15 end*/
+
+int charger_manager_is_input_suspend(void)
+{
+	if (pinfo == NULL)
+		return false;
+
+	return pinfo->is_input_suspend;
+}
+int charger_manager_get_prop_system_temp_level(void)
+{
+	if (pinfo == NULL)
+		return false;
+
+	return pinfo->system_temp_level;
+}
+
+int charger_manager_get_prop_system_temp_level_max(void)
+{
+	if (pinfo == NULL)
+		return false;
+
+	return pinfo->system_temp_level_max;
+}
+
+void charger_manager_set_prop_system_temp_level(int temp_level)
+{
+	int thermal_icl_ua = 0;
+	bool is_cn = false;
+
+	if (pinfo == NULL)
+		return ;
+
+	pcba_to_thermal = get_huaqin_pcba_config();
+
+#if defined(TARGET_PRODUCT_LANCELOT) || defined(TARGET_PRODUCT_SHIVA)
+	if (pcba_to_thermal == PCBA_J19_MP_CN)
+		is_cn = true;
+#elif defined(TARGET_PRODUCT_SELENE)
+	/* Huaqin modify for HQ-147481 by liunianliang at 2021/07/27 start */
+	if (pcba_to_thermal == PCBA_K19B_MP_CN || pcba_to_thermal == PCBA_K19S_MP_CN)
+	/* Huaqin modify for HQ-147481 by liunianliang at 2021/07/27 end */
+		is_cn = true;
+#else
+	if (pcba_to_thermal == PCBA_J15S_MP_CN)
+		is_cn = true;
+#endif
+	pr_err("thermal_pcba is %d, is_cn:%d\n", pcba_to_thermal, is_cn);
+	if (temp_level > pinfo->system_temp_level_max)
+		pinfo->system_temp_level = pinfo->system_temp_level_max;
+	else
+		pinfo->system_temp_level = temp_level;
+
+	if (is_cn == true) {
+		switch (pinfo->usb_psy->desc->type) {
+		case POWER_SUPPLY_TYPE_USB_HVDCP:
+			thermal_icl_ua = thermal_mitigation_qc2_cn[pinfo->system_temp_level];
+			break;
+		case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+			thermal_icl_ua = thermal_mitigation_qc3_cn[pinfo->system_temp_level];
+			break;
+		case POWER_SUPPLY_TYPE_USB_DCP:
+		default:
+			thermal_icl_ua = thermal_mitigation_dcp_cn[pinfo->system_temp_level];
+			break;
+		}
+	} else {
+		switch (pinfo->usb_psy->desc->type) {
+		case POWER_SUPPLY_TYPE_USB_HVDCP:
+			thermal_icl_ua = thermal_mitigation_qc2[pinfo->system_temp_level];
+			break;
+		case POWER_SUPPLY_TYPE_USB_HVDCP_3:
+			thermal_icl_ua = thermal_mitigation_qc3[pinfo->system_temp_level];
+			break;
+		case POWER_SUPPLY_TYPE_USB_DCP:
+		default:
+			thermal_icl_ua = thermal_mitigation_dcp[pinfo->system_temp_level];
+			break;
+		}
+	}
+
+	if (pinfo->system_temp_level == 0)
+		thermal_icl_ua = -1;
+	if (thermal_icl_ua == 500000) {
+		thermal_is_500 = true;
+	} else {
+		thermal_is_500 = false;
+	}
+  	/*K19A HQ-124114 K19A charger enable jeita by wangqi at 2021/4/27 start*/
+	pr_err("%s, battery_temp: %d system_temp_level:%d thermal_icl_ua:%d usb_type:%d\n", __func__,pinfo->battery_temp,
+			pinfo->system_temp_level, thermal_icl_ua, pinfo->usb_psy->desc->type);
+	/*K19A HQ-124114 K19A charger enable jeita by wangqi at 2021/4/27 end*/
+	// pr_err("%s, system_temp_level:%d thermal_icl_ua:%d \n", __func__,
+	// 		pinfo->system_temp_level, thermal_icl_ua);
+
+
+	// charger_manager_set_charging_current_thermal_limit(pinfo,
+	// 		MAIN_CHARGER, thermal_icl_ua);
+/*
+	_charger_manager_set_input_current_limit(pinfo,
+			MAIN_CHARGER, thermal_icl_ua); */
+	//_charger_manager_set_input_current_limit(pinfo,
+		//	MAIN_CHARGER, thermal_icl_ua);
+	if(pinfo->usb_psy->desc->type == POWER_SUPPLY_TYPE_USB_HVDCP_3){
+		/* charger_manager_set_charging_current_thermal_limit(pinfo,
+	 			MAIN_CHARGER, thermal_icl_ua);*/
+		_charger_manager_set_input_current_limit(pinfo,
+				MAIN_CHARGER, thermal_icl_ua);
+	}else{
+		_charger_manager_set_input_current_limit(pinfo,
+				MAIN_CHARGER, thermal_icl_ua);
+	}
+}
+
+int charger_manager_check_ra_detected(void)
+{
+	if (pinfo == NULL)
+		return false;
+
+	return pinfo->ra_detected;
+}
+void charger_manager_set_ra_detected(int val)
+{
+	pinfo->ra_detected = val;
+}
 int register_charger_manager_notifier(struct charger_consumer *consumer,
 	struct notifier_block *nb)
 {
@@ -780,29 +1231,26 @@ unregister:
 
 void mtk_charger_get_atm_mode(struct charger_manager *info)
 {
-	char atm_str[64] = {0};
-	char *ptr = NULL, *ptr_e = NULL;
-	char keyword[] = "androidboot.atm=";
-	int size = 0;
+	char atm_str[64];
+	char *ptr, *ptr_e;
 
-	info->atm_enabled = false;
-
-	ptr = strstr(saved_command_line, keyword);
+	memset(atm_str, 0x0, sizeof(atm_str));
+	ptr = strstr(saved_command_line, "androidboot.atm=");
 	if (ptr != 0) {
 		ptr_e = strstr(ptr, " ");
-		if (ptr_e == NULL)
-			goto end;
 
-		size = ptr_e - (ptr + strlen(keyword));
-		if (size <= 0)
-			goto end;
-		strncpy(atm_str, ptr + strlen(keyword), size);
-		atm_str[size] = '\0';
+		if (ptr_e != 0) {
+			strncpy(atm_str, ptr + 16, ptr_e - ptr - 16);
+			atm_str[ptr_e - ptr - 16] = '\0';
+		}
 
 		if (!strncmp(atm_str, "enable", strlen("enable")))
 			info->atm_enabled = true;
-	}
-end:
+		else
+			info->atm_enabled = false;
+	} else
+		info->atm_enabled = false;
+
 	pr_info("%s: atm_enabled = %d\n", __func__, info->atm_enabled);
 }
 
@@ -866,35 +1314,65 @@ int charger_get_vbus(void)
 	return vchr;
 }
 
+/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 start*/
+int hq_config()
+{
+	int config;
+
+	if(hq_selene_pcba_config >= 0 && hq_selene_pcba_config <= 2)
+		config = K19A;
+	else if(hq_selene_pcba_config == 3 || hq_selene_pcba_config == 4)
+		config = K19B;
+	else if(hq_selene_pcba_config == 11)
+	/* K19SFAC-41 code for K19T by wanglicheng at 20210929 start */
+		config = K19T;
+	/* K19SFAC-41 code for K19T by wanglicheng at 20210929 end */
+	else if(hq_selene_pcba_config == 9 || hq_selene_pcba_config == 10)
+		config = K19S;
+	else if(hq_selene_pcba_config == 12)
+		config = K19U;
+	else if(hq_selene_pcba_config == 13)
+		config = K19V;
+	else
+		config = K19D;
+	printk("%s: config = %d",__func__,config);
+	return config;
+}
+void hq_jeita_config(struct charger_manager *info)
+{
+	struct sw_jeita_data *sw_jeita;
+	sw_jeita = &info->sw_jeita;
+
+	if(hq_config() == K19B){
+		switch(sw_jeita->sm){
+			case TEMP_BELOW_T0:
+				info->data.jeita_temp_below_t0_cc = JEITA_TEMP_BELOW_T0_CC_CN;
+				break;
+			case TEMP_T0_TO_T1:
+				info->data.jeita_temp_t0_to_t1_cc = JEITA_TEMP_T0_TO_T1_CC_CN;
+				break;
+			case TEMP_T1_TO_T2:
+				info->data.jeita_temp_t1_to_t2_cc = JEITA_TEMP_T1_TO_T2_CC_CN;
+				break;
+			case TEMP_T2_TO_T3:
+				info->data.jeita_temp_t2_to_t3_cc = JEITA_TEMP_T2_TO_T3_CC_CN;
+				break;
+			case TEMP_T3_TO_T4:
+				info->data.jeita_temp_t3_to_t4_cc = JEITA_TEMP_T3_TO_T4_CC_CN;
+				break;
+			default:
+				break;
+		}
+		printk("%s: temp_level = %d",__func__,sw_jeita->sm);
+	}
+	else
+		return;
+
+}
+/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 end*/
 /* internal algorithm common function end */
 
 /* sw jeita */
-void sw_jeita_state_machine_init(struct charger_manager *info)
-{
-	struct sw_jeita_data *sw_jeita;
-
-	if (info->enable_sw_jeita == true) {
-		sw_jeita = &info->sw_jeita;
-		info->battery_temp = battery_get_bat_temperature();
-
-		if (info->battery_temp >= info->data.temp_t4_thres)
-			sw_jeita->sm = TEMP_ABOVE_T4;
-		else if (info->battery_temp > info->data.temp_t3_thres)
-			sw_jeita->sm = TEMP_T3_TO_T4;
-		else if (info->battery_temp >= info->data.temp_t2_thres)
-			sw_jeita->sm = TEMP_T2_TO_T3;
-		else if (info->battery_temp >= info->data.temp_t1_thres)
-			sw_jeita->sm = TEMP_T1_TO_T2;
-		else if (info->battery_temp >= info->data.temp_t0_thres)
-			sw_jeita->sm = TEMP_T0_TO_T1;
-		else
-			sw_jeita->sm = TEMP_BELOW_T0;
-
-		chr_err("[SW_JEITA] tmp:%d sm:%d\n",
-			info->battery_temp, sw_jeita->sm);
-	}
-}
-
 void do_sw_jeita_state_machine(struct charger_manager *info)
 {
 	struct sw_jeita_data *sw_jeita;
@@ -910,7 +1388,9 @@ void do_sw_jeita_state_machine(struct charger_manager *info)
 
 		sw_jeita->sm = TEMP_ABOVE_T4;
 		sw_jeita->charging = false;
-	} else if (info->battery_temp > info->data.temp_t3_thres) {
+	/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 start*/
+	} else if (info->battery_temp >= info->data.temp_t3_thres) {
+	/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 end*/
 		/* control 45 degree to normal behavior */
 		if ((sw_jeita->sm == TEMP_ABOVE_T4)
 		    && (info->battery_temp
@@ -920,6 +1400,13 @@ void do_sw_jeita_state_machine(struct charger_manager *info)
 				info->data.temp_t4_thres);
 
 			sw_jeita->charging = false;
+                /*HQ-166871  code for K19u by wanglicheng at 20211210 start */
+//		}else if(info->battery_temp >= info->data.temp_t4_thres_minus_x_degree) {
+		}else if(info->battery_temp >= 58) {
+			sw_jeita->charging = false;
+			sw_jeita->sm = TEMP_ABOVE_T4;
+			chr_err("[SW_JEITA]wlc now temprature is %d, te_thres_minus: %d !!\n",info->battery_temp, info->data.temp_t4_thres_minus_x_degree);
+                /*HQ-166871 code for K19u by wanglicheng at 20211210 end */
 		} else {
 			chr_err("[SW_JEITA] Battery Temperature between %d and %d !!\n",
 				info->data.temp_t3_thres,
@@ -928,89 +1415,72 @@ void do_sw_jeita_state_machine(struct charger_manager *info)
 			sw_jeita->sm = TEMP_T3_TO_T4;
 		}
 	} else if (info->battery_temp >= info->data.temp_t2_thres) {
-		if (((sw_jeita->sm == TEMP_T3_TO_T4)
-		     && (info->battery_temp
-			 >= info->data.temp_t3_thres_minus_x_degree))
-		    || ((sw_jeita->sm == TEMP_T1_TO_T2)
-			&& (info->battery_temp
-			    <= info->data.temp_t2_thres_plus_x_degree))) {
-			chr_err("[SW_JEITA] Battery Temperature not recovery to normal temperature charging mode yet!!\n");
-		} else {
 			chr_err("[SW_JEITA] Battery Normal Temperature between %d and %d !!\n",
 				info->data.temp_t2_thres,
 				info->data.temp_t3_thres);
 			sw_jeita->sm = TEMP_T2_TO_T3;
-		}
 	} else if (info->battery_temp >= info->data.temp_t1_thres) {
-		if ((sw_jeita->sm == TEMP_T0_TO_T1
-		     || sw_jeita->sm == TEMP_BELOW_T0)
-		    && (info->battery_temp
-			<= info->data.temp_t1_thres_plus_x_degree)) {
-			if (sw_jeita->sm == TEMP_T0_TO_T1) {
-				chr_err("[SW_JEITA] Battery Temperature between %d and %d !!\n",
-					info->data.temp_t1_thres_plus_x_degree,
-					info->data.temp_t2_thres);
-			}
-			if (sw_jeita->sm == TEMP_BELOW_T0) {
-				chr_err("[SW_JEITA] Battery Temperature between %d and %d,not allow charging yet!!\n",
-					info->data.temp_t1_thres,
-					info->data.temp_t1_thres_plus_x_degree);
-				sw_jeita->charging = false;
-			}
-		} else {
 			chr_err("[SW_JEITA] Battery Temperature between %d and %d !!\n",
 				info->data.temp_t1_thres,
 				info->data.temp_t2_thres);
 
 			sw_jeita->sm = TEMP_T1_TO_T2;
-		}
 	} else if (info->battery_temp >= info->data.temp_t0_thres) {
-		if ((sw_jeita->sm == TEMP_BELOW_T0)
-		    && (info->battery_temp
-			<= info->data.temp_t0_thres_plus_x_degree)) {
-			chr_err("[SW_JEITA] Battery Temperature between %d and %d,not allow charging yet!!\n",
-				info->data.temp_t0_thres,
-				info->data.temp_t0_thres_plus_x_degree);
-
-			sw_jeita->charging = false;
-		} else {
 			chr_err("[SW_JEITA] Battery Temperature between %d and %d !!\n",
 				info->data.temp_t0_thres,
 				info->data.temp_t1_thres);
 
 			sw_jeita->sm = TEMP_T0_TO_T1;
-		}
+	/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 start*/	
+	} else if (info->battery_temp >= info->data.temp_neg_10_thres) {
+			chr_err("[SW_JEITA] Battery Temperature between %d and %d !!\n",
+				info->data.temp_neg_10_thres,
+				info->data.temp_t0_thres);
+
+			sw_jeita->sm = TEMP_BELOW_T0;
 	} else {
 		chr_err("[SW_JEITA] Battery below low Temperature(%d) !!\n",
-			info->data.temp_t0_thres);
-		sw_jeita->sm = TEMP_BELOW_T0;
+			info->data.temp_neg_10_thres);
+
+		sw_jeita->sm = TEMP_BELOW_NEG_T0;
 		sw_jeita->charging = false;
 	}
-
+	hq_jeita_config(info);
+	/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 end*/
 	/* set CV after temperature changed */
 	/* In normal range, we adjust CV dynamically */
 	if (sw_jeita->sm != TEMP_T2_TO_T3) {
 		if (sw_jeita->sm == TEMP_ABOVE_T4)
 			sw_jeita->cv = info->data.jeita_temp_above_t4_cv;
-		else if (sw_jeita->sm == TEMP_T3_TO_T4)
+		else if (sw_jeita->sm == TEMP_T3_TO_T4) {
+			sw_jeita->cc = info->data.jeita_temp_t3_to_t4_cc;
 			sw_jeita->cv = info->data.jeita_temp_t3_to_t4_cv;
-		else if (sw_jeita->sm == TEMP_T2_TO_T3)
+		} else if (sw_jeita->sm == TEMP_T2_TO_T3) {
+			sw_jeita->cc = info->data.jeita_temp_t2_to_t3_cc;
 			sw_jeita->cv = 0;
-		else if (sw_jeita->sm == TEMP_T1_TO_T2)
+		} else if (sw_jeita->sm == TEMP_T1_TO_T2) {
+			sw_jeita->cc = info->data.jeita_temp_t1_to_t2_cc;
 			sw_jeita->cv = info->data.jeita_temp_t1_to_t2_cv;
-		else if (sw_jeita->sm == TEMP_T0_TO_T1)
+		} else if (sw_jeita->sm == TEMP_T0_TO_T1) {
+			sw_jeita->cc = info->data.jeita_temp_t0_to_t1_cc;
 			sw_jeita->cv = info->data.jeita_temp_t0_to_t1_cv;
-		else if (sw_jeita->sm == TEMP_BELOW_T0)
+		/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 start*/
+		} else if (sw_jeita->sm == TEMP_BELOW_T0) {
+			sw_jeita->cc = info->data.jeita_temp_below_t0_cc;
 			sw_jeita->cv = info->data.jeita_temp_below_t0_cv;
-		else
+		} else if (sw_jeita->sm == TEMP_BELOW_NEG_T0) {
+			sw_jeita->cv = info->data.jeita_temp_below_t0_cv;
+		/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 end*/
+		}else
 			sw_jeita->cv = info->data.battery_cv;
 	} else {
+		sw_jeita->cc = info->data.jeita_temp_t2_to_t3_cc;
 		sw_jeita->cv = 0;
 	}
 
-	chr_err("[SW_JEITA]preState:%d newState:%d tmp:%d cv:%d\n",
+	chr_err("[SW_JEITA]preState:%d newState:%d tmp:%d cv:%d cc:%d\n",
 		sw_jeita->pre_sm, sw_jeita->sm, info->battery_temp,
-		sw_jeita->cv);
+		sw_jeita->cv, sw_jeita->cc);
 }
 
 static ssize_t show_sw_jeita(struct device *dev, struct device_attribute *attr,
@@ -1031,10 +1501,8 @@ static ssize_t store_sw_jeita(struct device *dev, struct device_attribute *attr,
 	if (kstrtoint(buf, 10, &temp) == 0) {
 		if (temp == 0)
 			pinfo->enable_sw_jeita = false;
-		else {
+		else
 			pinfo->enable_sw_jeita = true;
-			sw_jeita_state_machine_init(pinfo);
-		}
 
 	} else {
 		chr_err("%s: format error!\n", __func__);
@@ -1083,35 +1551,6 @@ static ssize_t store_pe20(struct device *dev, struct device_attribute *attr,
 }
 
 static DEVICE_ATTR(pe20, 0644, show_pe20, store_pe20);
-
-static ssize_t show_pe40(struct device *dev, struct device_attribute *attr,
-					       char *buf)
-{
-	struct charger_manager *pinfo = dev->driver_data;
-
-	chr_err("%s: %d\n", __func__, pinfo->enable_pe_4);
-	return sprintf(buf, "%d\n", pinfo->enable_pe_4);
-}
-
-static ssize_t store_pe40(struct device *dev, struct device_attribute *attr,
-						const char *buf, size_t size)
-{
-	struct charger_manager *pinfo = dev->driver_data;
-	signed int temp;
-
-	if (kstrtoint(buf, 10, &temp) == 0) {
-		if (temp == 0)
-			pinfo->enable_pe_4 = false;
-		else
-			pinfo->enable_pe_4 = true;
-
-	} else {
-		chr_err("%s: format error!\n", __func__);
-	}
-	return size;
-}
-
-static DEVICE_ATTR(pe40, 0644, show_pe40, store_pe40);
 
 /* pump express series end*/
 
@@ -1267,6 +1706,7 @@ int charger_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 
 void mtk_charger_int_handler(void)
 {
+	int temp;
 	chr_err("%s\n", __func__);
 
 	if (pinfo == NULL) {
@@ -1285,8 +1725,14 @@ void mtk_charger_int_handler(void)
 		chr_err("cable_out_cnt=%d\n", pinfo->cable_out_cnt);
 		mutex_unlock(&pinfo->cable_out_lock);
 		charger_manager_notifier(pinfo, CHARGER_NOTIFY_STOP_CHARGING);
-	} else
-		charger_manager_notifier(pinfo, CHARGER_NOTIFY_START_CHARGING);
+	} else {
+		temp = battery_get_bat_temperature();
+		pr_err("dhx---temp:%d\n", temp);
+		/*K19A HQ-133625 K19A charger of status by wangqi at 2021/4/29 start*/
+		if (temp >= -10 && temp <= 60)
+		/*K19A HQ-133625 K19A charger of status by wangqi at 2021/4/29 end*/
+			charger_manager_notifier(pinfo, CHARGER_NOTIFY_START_CHARGING);
+	}
 
 	chr_err("wake_up_charger\n");
 	_wake_up_charger(pinfo);
@@ -1324,7 +1770,6 @@ static int mtk_charger_plug_out(struct charger_manager *info)
 	chr_err("%s\n", __func__);
 	info->chr_type = CHARGER_UNKNOWN;
 	info->charger_thread_polling = false;
-	info->pd_reset = false;
 
 	pdata1->disable_charging_count = 0;
 	pdata1->input_current_limit_by_aicl = -1;
@@ -1401,7 +1846,7 @@ static bool mtk_chg_check_vbus(struct charger_manager *info)
 	if (vchr > info->data.max_charger_voltage) {
 		chr_err("%s: vbus(%d mV) > %d mV\n", __func__, vchr / 1000,
 			info->data.max_charger_voltage / 1000);
-		return false;
+		return true;
 	}
 
 	return true;
@@ -1590,32 +2035,6 @@ static void mtk_chg_get_tchg(struct charger_manager *info)
 			pdata->junction_temp_max = tchg_max;
 		}
 	}
-
-	if (info->dvchg1_dev) {
-		pdata = &info->dvchg1_data;
-		ret = charger_dev_get_adc(info->dvchg1_dev, ADC_CHANNEL_TEMP_JC,
-					  &tchg_min, &tchg_max);
-		if (ret < 0) {
-			pdata->junction_temp_min = -127;
-			pdata->junction_temp_max = -127;
-		} else {
-			pdata->junction_temp_min = tchg_min;
-			pdata->junction_temp_max = tchg_max;
-		}
-	}
-
-	if (info->dvchg2_dev) {
-		pdata = &info->dvchg2_data;
-		ret = charger_dev_get_adc(info->dvchg2_dev, ADC_CHANNEL_TEMP_JC,
-					  &tchg_min, &tchg_max);
-		if (ret < 0) {
-			pdata->junction_temp_min = -127;
-			pdata->junction_temp_max = -127;
-		} else {
-			pdata->junction_temp_min = tchg_min;
-			pdata->junction_temp_max = tchg_max;
-		}
-	}
 }
 
 static void charger_check_status(struct charger_manager *info)
@@ -1725,9 +2144,10 @@ static void kpoc_power_off_check(struct charger_manager *info)
 			vbus = battery_get_vbus();
 			if (vbus >= 0 && vbus < 2500 && !mt_charger_plugin()) {
 				chr_err("Unplug Charger/USB in KPOC mode, shutdown\n");
+				msleep(4000);
 				chr_err("%s: system_state=%d\n", __func__,
 					system_state);
-				if (system_state != SYSTEM_POWER_OFF)
+			//	if (system_state != SYSTEM_POWER_OFF)
 					kernel_power_off();
 			}
 		}
@@ -1755,6 +2175,7 @@ static int charger_pm_event(struct notifier_block *notifier,
 			pinfo->endtime.tv_nsec != 0) {
 			chr_err("%s: alarm timeout, wake up charger\n",
 				__func__);
+			__pm_relax(&pinfo->charger_wakelock);
 			pinfo->endtime.tv_sec = 0;
 			pinfo->endtime.tv_nsec = 0;
 			_wake_up_charger(pinfo);
@@ -1777,17 +2198,13 @@ static enum alarmtimer_restart
 {
 	struct charger_manager *info =
 	container_of(alarm, struct charger_manager, charger_timer);
-	unsigned long flags;
 
 	if (info->is_suspend == false) {
 		chr_err("%s: not suspend, wake up charger\n", __func__);
 		_wake_up_charger(info);
 	} else {
 		chr_err("%s: alarm timer timeout\n", __func__);
-		spin_lock_irqsave(&info->slock, flags);
-		if (!info->charger_wakelock.active)
-			__pm_stay_awake(&info->charger_wakelock);
-		spin_unlock_irqrestore(&info->slock, flags);
+		__pm_stay_awake(&info->charger_wakelock);
 	}
 
 	return ALARMTIMER_NORESTART;
@@ -1830,6 +2247,16 @@ static void mtk_charger_init_timer(struct charger_manager *info)
 #endif /* CONFIG_PM */
 }
 
+static void hvdcp_vbus_check(struct charger_manager *info)
+{
+	int vbus;
+
+	vbus = battery_get_vbus();
+	// if (vbus > 7400) {
+	// 	charger_dev_set_hvdcp_dpdm(info->chg1_dev);
+	// }
+}
+
 static int charger_routine_thread(void *arg)
 {
 	struct charger_manager *info = arg;
@@ -1846,10 +2273,10 @@ static int charger_routine_thread(void *arg)
 		if (!info->charger_wakelock.active)
 			__pm_stay_awake(&info->charger_wakelock);
 		spin_unlock_irqrestore(&info->slock, flags);
-
 		info->charger_thread_timeout = false;
 		bat_current = battery_get_bat_current();
 		chg_current = pmic_get_charging_current();
+		hvdcp_vbus_check(info);
 		chr_err("Vbat=%d,Ibat=%d,I=%d,VChr=%d,T=%d,Soc=%d:%d,CT:%d:%d hv:%d pd:%d:%d\n",
 			battery_get_bat_voltage(), bat_current, chg_current,
 			battery_get_vbus(), battery_get_bat_temperature(),
@@ -1858,10 +2285,16 @@ static int charger_routine_thread(void *arg)
 			info->enable_hv_charging, info->pd_type,
 			info->pd_reset);
 
+		if (info->pd_reset == true) {
+			mtk_pe40_plugout_reset(info);
+			info->pd_reset = false;
+		}
+
 		is_charger_on = mtk_is_charger_on(info);
 
 		if (info->charger_thread_polling == true)
 			mtk_charger_start_timer(info);
+
 
 		charger_update_data(info);
 		check_battery_exist(info);
@@ -1869,16 +2302,21 @@ static int charger_routine_thread(void *arg)
 		charger_check_status(info);
 		kpoc_power_off_check(info);
 
+		/* Huaqin modify for HQ-131628 by shujiawang at 2021/05/10 start */
 		if (is_disable_charger() == false) {
 			if (is_charger_on == true) {
+				tp_charger_status = true;
 				if (info->do_algorithm)
 					info->do_algorithm(info);
 				wakeup_sc_algo_cmd(&pinfo->sc.data, SC_EVENT_CHARGING, 0);
-			} else
+			} else{
+				tp_charger_status = false;
 				wakeup_sc_algo_cmd(&pinfo->sc.data, SC_EVENT_STOP_CHARGING, 0);
-		} else
+			}
+		} else{
 			chr_debug("disable charging\n");
-
+		}
+		/* Huaqin modify for HQ-131628 by shujiawang at 2021/05/11 end */
 		spin_lock_irqsave(&info->slock, flags);
 		__pm_relax(&info->charger_wakelock);
 		spin_unlock_irqrestore(&info->slock, flags);
@@ -1895,7 +2333,6 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 {
 	struct device_node *np = dev->of_node;
 	u32 val;
-
 	chr_err("%s: starts\n", __func__);
 
 	if (!np) {
@@ -1928,7 +2365,6 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 	info->enable_pe_plus = of_property_read_bool(np, "enable_pe_plus");
 	info->enable_pe_2 = of_property_read_bool(np, "enable_pe_2");
 	info->enable_pe_4 = of_property_read_bool(np, "enable_pe_4");
-	info->enable_pe_5 = of_property_read_bool(np, "enable_pe_5");
 	info->enable_type_c = of_property_read_bool(np, "enable_type_c");
 	info->enable_dynamic_mivr =
 			of_property_read_bool(np, "enable_dynamic_mivr");
@@ -1950,6 +2386,7 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 		chr_err("use default V_CHARGER_MAX:%d\n", V_CHARGER_MAX);
 		info->data.max_charger_voltage = V_CHARGER_MAX;
 	}
+	info->data.max_charger_voltage = 10500000;
 	info->data.max_charger_voltage_setting = info->data.max_charger_voltage;
 
 	if (of_property_read_u32(np, "min_charger_voltage", &val) >= 0)
@@ -2085,7 +2522,60 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 					TA_AC_CHARGING_CURRENT;
 	}
 
+	/*K19A HQ-124491 K19A for ffc parameters by langjunjun at 2021/6/15 start*/
+	info->enable_sw_ffc =  of_property_read_bool(np, "enable_sw_ffc");
+
+	if (of_property_read_u32(np, "ffc_cv_1", &val) >= 0)
+		info->ffc_cv_1 = val;
+	if (of_property_read_u32(np, "ffc_cv_2", &val) >= 0)
+		info->ffc_cv_2 = val;
+	if (of_property_read_u32(np, "ffc_cv_3", &val) >= 0)
+		info->ffc_cv_3 = val;
+	if (of_property_read_u32(np, "ffc_cv_4", &val) >= 0)
+		info->ffc_cv_4 = val;
+
+	if (of_property_read_u32(np, "chg_cycle_count_level1", &val) >= 0)
+		info->chg_cycle_count_level1 = val;
+	if (of_property_read_u32(np, "chg_cycle_count_level2", &val) >= 0)
+		info->chg_cycle_count_level2 = val;
+	if (of_property_read_u32(np, "chg_cycle_count_level3", &val) >= 0)
+		info->chg_cycle_count_level3 = val;
+	if (of_property_read_u32(np, "chg_cycle_count_level4", &val) >= 0)
+		info->chg_cycle_count_level4 = val;
+	/*K19A HQ-124491 K19A for ffc parameters by langjunjun at 2021/6/15 end*/
+
 	/* sw jeita */
+	if (of_property_read_u32(np, "jeita_temp_t3_to_t4_cc", &val) >= 0) {
+		info->data.jeita_temp_t3_to_t4_cc = val;
+		chr_err("use JEITA_TEMP_T3_TO_T4_CC:%d\n",
+			info->data.jeita_temp_t3_to_t4_cc);
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t2_to_t3_cc", &val) >= 0) {
+		info->data.jeita_temp_t2_to_t3_cc = val;
+		chr_err("use default JEITA_TEMP_T2_TO_T3_CC:%d\n",
+			info->data.jeita_temp_t2_to_t3_cc);
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t1_to_t2_cc", &val) >= 0) {
+		info->data.jeita_temp_t1_to_t2_cc = val;
+		chr_err("use default JEITA_TEMP_T1_TO_T2_CC:%d\n",
+			info->data.jeita_temp_t1_to_t2_cc);
+	}
+
+	if (of_property_read_u32(np, "jeita_temp_t0_to_t1_cc", &val) >= 0) {
+		info->data.jeita_temp_t0_to_t1_cc = val;
+		chr_err("use default JEITA_TEMP_T0_TO_T1_CC:%d\n",
+			info->data.jeita_temp_t0_to_t1_cc);
+	}
+	/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 start*/
+	if (of_property_read_u32(np, "jeita_temp_below_t0_cc", &val) >= 0) {
+		info->data.jeita_temp_below_t0_cc = val;
+		chr_err("use default jeita_temp_below_t0_cc:%d\n",
+			info->data.jeita_temp_below_t0_cc);
+	}
+	/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 end*/
+
 	if (of_property_read_u32(np, "jeita_temp_above_t4_cv", &val) >= 0)
 		info->data.jeita_temp_above_t4_cv = val;
 	else {
@@ -2220,7 +2710,9 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 	}
 
 	if (of_property_read_u32(np, "temp_neg_10_thres", &val) >= 0)
-		info->data.temp_neg_10_thres = val;
+	/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 start*/
+		info->data.temp_neg_10_thres = -10;
+	/*K19A HQ-124114 K19A charger of jeita by wangqi at 2021/4/16 end*/
 	else {
 		chr_err("use default TEMP_NEG_10_THRES:%d\n",
 			TEMP_NEG_10_THRES);
@@ -2607,12 +3099,9 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 		info->data.bc12_charger = DEFAULT_BC12_CHARGER;
 	}
 
-	if (strcmp(info->algorithm_name, "SwitchCharging2") == 0) {
-		chr_err("found SwitchCharging2\n");
-		mtk_switch_charging_init2(info);
-	}
-
 	chr_err("algorithm name:%s\n", info->algorithm_name);
+
+	info->system_temp_level_max = THERMAL_MAX - 1;
 
 	return 0;
 }
@@ -2983,9 +3472,6 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	ret = device_create_file(&(pdev->dev), &dev_attr_pe20);
 	if (ret)
 		goto _out;
-	ret = device_create_file(&(pdev->dev), &dev_attr_pe40);
-	if (ret)
-		goto _out;
 
 	/* Battery warning */
 	ret = device_create_file(&(pdev->dev), &dev_attr_BatteryNotify);
@@ -3121,7 +3607,6 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 			break;
 		};
 	}
-	mtk_pe50_notifier_call(pinfo, MTK_PE50_NOTISRC_TCP, evt, val);
 }
 
 static int proc_dump_log_show(struct seq_file *m, void *v)
@@ -3720,11 +4205,9 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->chg1_data.input_current_limit_by_aicl = -1;
 	info->chg2_data.thermal_charging_current_limit = -1;
 	info->chg2_data.thermal_input_current_limit = -1;
-	info->dvchg1_data.thermal_input_current_limit = -1;
-	info->dvchg2_data.thermal_input_current_limit = -1;
 
 	info->sw_jeita.error_recovery_flag = true;
-
+	info->is_input_suspend = false;
 	mtk_charger_init_timer(info);
 
 	kthread_run(charger_routine_thread, info, "charger_thread");
@@ -3760,13 +4243,9 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (mtk_pe40_init(info) == false)
 		info->enable_pe_4 = false;
 
-	if (mtk_pe50_init(info) < 0)
-		info->enable_pe_5 = false;
-
 	mtk_pdc_init(info);
 	charger_ftm_init();
 	mtk_charger_get_atm_mode(info);
-	sw_jeita_state_machine_init(info);
 
 #ifdef CONFIG_MTK_CHARGER_UNLIMITED
 	info->usb_unlimited = true;
@@ -3809,6 +4288,10 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 	info->chg1_consumer =
 		charger_manager_get_by_name(&pdev->dev, "charger_port1");
+	info->usb_psy = power_supply_get_by_name("usb");
+	if (!info->usb_psy) {
+		chr_err("%s: get power supply failed\n", __func__);
+	}
 	info->init_done = true;
 	_wake_up_charger(info);
 
@@ -3817,9 +4300,6 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 static int mtk_charger_remove(struct platform_device *dev)
 {
-	struct charger_manager *info = platform_get_drvdata(dev);
-
-	mtk_pe50_deinit(info);
 	return 0;
 }
 

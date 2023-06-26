@@ -198,7 +198,9 @@ static int mmc_init_crypto_spec(struct mmc_host *host,
 {
 	int err;
 	u32 count;
-	unsigned int crypto_modes_supported[BLK_ENCRYPTION_MODE_MAX];
+	/* K19A HQ-135324 fix vts by feiwen at 2021.5.19 start */
+	unsigned int crypto_modes_supported[BLK_ENCRYPTION_MODE_MAX] = {0};
+	/* K19A HQ-135324 fix vts by feiwen at 2021.5.19 end */
 
 	if (!(host->caps2 & MMC_CAP2_CRYPTO)) {
 		err = -ENODEV;

@@ -80,17 +80,22 @@
 #include <mtk_battery_table.h>
 #include "simulator_kernel.h"
 #endif
-
+#include <linux/iio/consumer.h>
+#include <linux/of_platform.h> /*of_find_node_by_name*/
 
 
 /* ============================================================ */
 /* global variable */
 /* ============================================================ */
 struct mtk_battery gm;
-
+int mtk_qmax_aging;
 /* ============================================================ */
 /* gauge hal interface */
 /* ============================================================ */
+/*K19A HQ-123457 K19A charger of profile by wangqi at 2021/4/22 start*/
+extern int hq_config(void);
+/*K19A HQ-123457 K19A charger of profile by wangqi at 2021/4/22 start*/
+
 bool gauge_get_current(int *bat_current)
 {
 	bool is_charging = false;
@@ -357,10 +362,11 @@ bool __attribute__ ((weak)) mt_usb_is_device(void)
 /* custom setting */
 /* ============================================================ */
 #ifdef MTK_GET_BATTERY_ID_BY_AUXADC
+int my_battery_id_voltage;
 void fgauge_get_profile_id(void)
 {
+
 	int id_volt = 0;
-	int id = 0;
 	int ret = 0;
 	int auxadc_voltage = 0;
 	struct iio_channel *channel;
@@ -371,13 +377,15 @@ void fgauge_get_profile_id(void)
 	if (!batterty_node) {
 		bm_err("[%s] of_find_node_by_name fail\n", __func__);
 		return;
-	}
+	} else
+		bm_err("[%s] find battery node success \n", __func__);
 
 	battery_dev = of_find_device_by_node(batterty_node);
 	if (!battery_dev) {
 		bm_err("[%s] of_find_device_by_node fail\n", __func__);
 		return;
-	}
+	} else
+		bm_err("[%s] find battery dev success \n", __func__);
 
 	channel = iio_channel_get(&(battery_dev->dev), "batteryID-channel");
 	if (IS_ERR(channel)) {
@@ -385,11 +393,14 @@ void fgauge_get_profile_id(void)
 		bm_err("[%s] iio channel not found %d\n",
 		__func__, ret);
 		return;
-	}
+	} else
+		bm_err("[%s] get channel success\n", __func__);
 
 	if (channel)
 		ret = iio_read_channel_processed(channel, &auxadc_voltage);
-
+	else{
+		bm_err("[%s] no channel to processed \n", __func__);
+	}
 
 	if (ret <= 0) {
 		bm_err("[%s] iio_read_channel_processed failed\n", __func__);
@@ -397,29 +408,38 @@ void fgauge_get_profile_id(void)
 	}
 
 	bm_err("[%s]auxadc_voltage is %d\n", __func__, auxadc_voltage);
-	id_volt = auxadc_voltage * 1500 / 4096;
-	bm_err("[%s]battery_id_voltage is %d\n", __func__, id_volt);
+	id_volt = (auxadc_voltage * 1500 / 4096) * 1000;
+	pr_err("[%s]battery_id_voltage is %d\n", __func__, id_volt);
 
-	if ((sizeof(g_battery_id_voltage) /
-		sizeof(int)) != TOTAL_BATTERY_NUMBER) {
-		bm_debug("[%s]error! voltage range incorrect!\n",
-			__func__);
-		return;
+	my_battery_id_voltage = id_volt;
+	/*K19A HQ-123457 K19A charger of profile by wangqi at 2021/4/22 start*/
+	if (id_volt >= SWD_MIN_VOLTAGE && id_volt <= SWD_MAX_VOLTAGE) {
+		gm.battery_id = 0;
+	if(hq_config()== 1)
+		gm.battery_id = 2;
+	}else if (id_volt >= COSMX_MIN_VOLTAGE && id_volt <= COSMX_MAX_VOLTAGE) {
+		gm.battery_id = 1;
+		/* K19SFAC-41 code for K19T by wanglicheng at 20210929 start */
+		if(hq_config()== 4)
+			gm.battery_id = 5;
+		/* K19SFAC-41 code for K19T by wanglicheng at 20210929 end */
+	} else if (id_volt >= SWD_SEC_MIN_VOLTAGE && id_volt <= SWD_SEC_MAX_VOLTAGE) {
+		gm.battery_id = 3;
+		/* K19SFAC-41 code for K19T by wanglicheng at 20210929 start */
+		if(hq_config()== 4)
+			gm.battery_id = 4;
+		/* K19SFAC-41 code for K19T by wanglicheng at 20210929 end */
+	}else if (id_volt >= SECRET_MIN_VOLTAGE && id_volt <= SECRET_MAX_VOLTAGE) {
+		gm.battery_id = 4;
+	}else {
+		gm.battery_id = 5;
 	}
+	/*K19A HQ-123457 K19A charger of profile by wangqi at 2021/4/22 end*/
+	pr_err("[%s]Battery id (%d) volt (%d)\n",
+		__func__, gm.battery_id, id_volt);
 
-	for (id = 0; id < TOTAL_BATTERY_NUMBER; id++) {
-		if (id_volt < g_battery_id_voltage[id]) {
-			gm.battery_id = id;
-			break;
-		} else if (g_battery_id_voltage[id] == -1) {
-			gm.battery_id = TOTAL_BATTERY_NUMBER - 1;
-		}
-	}
-
-	bm_debug("[%s]Battery id (%d)\n",
-		__func__,
-		gm.battery_id);
 }
+
 #elif defined(MTK_GET_BATTERY_ID_BY_GPIO)
 void fgauge_get_profile_id(void)
 {
@@ -923,7 +943,7 @@ void fg_custom_init_from_dts(struct platform_device *dev)
 	fgauge_get_profile_id();
 	bat_id = gm.battery_id;
 
-	bm_err("%s\n", __func__);
+	bm_err("%s bat_id = %d\n", __func__, bat_id);
 
 	fg_read_dts_val(np, "MULTI_BATTERY", &(multi_battery), 1);
 	fg_read_dts_val(np, "ACTIVE_TABLE", &(active_table), 1);
@@ -949,8 +969,6 @@ void fg_custom_init_from_dts(struct platform_device *dev)
 		&(fg_cust_data.shutdown_system_iboot), 1);
 
 	/*hw related */
-	fg_read_dts_val(np, "CAR_TUNE_VALUE", &(fg_cust_data.car_tune_value),
-		UNIT_TRANS_10);
 	fg_read_dts_val(np, "FG_METER_RESISTANCE",
 		&(fg_cust_data.fg_meter_resistance), 1);
 	ret = fg_read_dts_val(np, "COM_FG_METER_RESISTANCE",
@@ -2678,36 +2696,6 @@ void fg_daemon_comm_INT_data(char *rcv, char *ret)
 			gm.is_reset_aging_factor = 0;
 		}
 		break;
-	case FG_GET_SOC_DECIMAL_RATE:
-		{
-			int decimal_rate = gm.soc_decimal_rate;
-
-			memcpy(&pret->output,
-				&decimal_rate, sizeof(decimal_rate));
-			bm_debug("[FG_GET_SOC_DECIMAL_RATE]soc_decimal_rate:%d %d\n",
-				decimal_rate, gm.soc_decimal_rate);
-		}
-		break;
-	case FG_GET_DIFF_SOC_SET:
-		{
-			/* 1 = 0.01%, 50 = 0.5% */
-			int soc_setting = 1;
-
-			memcpy(&pret->output,
-				&soc_setting, sizeof(soc_setting));
-		}
-		break;
-	case FG_GET_IS_FORCE_FULL:
-		{
-			/* 1 = trust customer full condition */
-			/* 0 = using gauge ori full flow */
-			int force_full = gm.is_force_full;
-
-			memcpy(&pret->output,
-				&force_full, sizeof(force_full));
-		}
-		break;
-
 	case FG_SET_SOC:
 		{
 			gm.soc = (prcv->input + 50) / 100;
@@ -2734,6 +2722,10 @@ void fg_daemon_comm_INT_data(char *rcv, char *ret)
 		}
 		break;
 	case FG_SET_QMAX_T_AGING:
+		{
+			mtk_qmax_aging = prcv->input;
+			pr_err("dhx--qmx = %d\n", mtk_qmax_aging);
+		}
 		break;
 	case FG_SET_SAVED_CAR:
 		{
@@ -2743,6 +2735,7 @@ void fg_daemon_comm_INT_data(char *rcv, char *ret)
 	case FG_SET_AGING_FACTOR:
 		{
 			gm.aging_factor = prcv->input;
+			pr_err("dhx--aging_factor = %d\n", gm.aging_factor);
 		}
 		break;
 	case FG_SET_QMAX:
@@ -2787,16 +2780,6 @@ void fg_daemon_comm_INT_data(char *rcv, char *ret)
 
 			bm_err("set GAUGE_MONITOR_SOFF_VALIDTIME ori:%d, new:%d\n",
 				ori_value, prcv->input);
-		}
-		break;
-	case FG_SET_ZCV_INTR_EN:
-		{
-			int zcv_intr_en = prcv->input;
-
-			if (zcv_intr_en == 0 || zcv_intr_en == 1)
-				gauge_set_zcv_interrupt_en(zcv_intr_en);
-
-			bm_err("set zcv_interrupt_en %d\n", zcv_intr_en);
 		}
 		break;
 	default:
@@ -3110,7 +3093,6 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 		{
 			unsigned int ptim_bat_vol = 0;
 			signed int ptim_R_curr = 0;
-			int curr_bat_vol = 0;
 
 			if (gm.init_flag == 1) {
 				_do_ptim();
@@ -3121,15 +3103,8 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 			} else {
 				ptim_bat_vol = gm.ptim_lk_v;
 				ptim_R_curr = gm.ptim_lk_i;
-
-				curr_bat_vol =
-					battery_get_bat_voltage() * 10;
-				if (gm.ptim_lk_v == 0)
-					ptim_bat_vol = curr_bat_vol;
-
-				bm_err("[fr] PTIM_LK V %d I %d,curr_bat_vol=%d\n",
-					ptim_bat_vol, ptim_R_curr,
-					curr_bat_vol);
+				bm_warn("[fr] PTIM_LK V %d I %d\n",
+					ptim_bat_vol, ptim_R_curr);
 			}
 			ptim_vbat = ptim_bat_vol;
 			ptim_i = ptim_R_curr;

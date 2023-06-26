@@ -209,7 +209,6 @@ ifeq ($(CONFIG_MTK_VPU_SUPPORT),y)
 	obj-$(CONFIG_THERMAL) += mtk_cooler_vpu_cus.o
 endif
 obj-$(CONFIG_THERMAL) += mtk_cooler_char_curr_cus.o
-
 obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
 #obj-$(CONFIG_THERMAL) += mtk_cooler_NR.o

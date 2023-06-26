@@ -1,0 +1,1 @@
+obj-$(CONFIG_TOUCHSCREEN_FTS_XIAOMI) += focaltech_test_ft8722.o

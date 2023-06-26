@@ -68,7 +68,10 @@
 #include "disp_recovery.h"
 #include "disp_partial.h"
 #include "ddp_dsi.h"
-
+#include "ddp_disp_bdg.h"
+/*K19S code for HQ-168893 by gaoxue at 2021/11/23 start*/
+bool esd_flag;
+/*K19S code for HQ-168893 by gaoxue at 2021/11/23 end*/
 /* For abnormal check */
 static struct task_struct *primary_display_check_task;
 /* used for blocking check task  */
@@ -80,6 +83,17 @@ static atomic_t _check_task_wakeup = ATOMIC_INIT(0);
 static wait_queue_head_t esd_ext_te_wq;
 /* For EXT TE EINT Check */
 static atomic_t esd_ext_te_event = ATOMIC_INIT(0);
+
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+atomic_t lcm_ready = ATOMIC_INIT(0);
+atomic_t lcm_valid_irq = ATOMIC_INIT(0);
+/* Huaqin modify for HQ-144782 by caogaojie at 2021/07/05 start */
+bool g_trigger_disp_esd_recovery;
+/* Huaqin modify for HQ-144782 by caogaojie at 2021/07/05 end */
+#endif
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 end */
+
 static unsigned int esd_check_mode;
 static unsigned int esd_check_enable;
 unsigned int esd_checking;
@@ -186,6 +200,7 @@ int _esd_check_config_handle_cmd(struct cmdqRecStruct *qhandle)
 	return ret;
 }
 
+
 /**
  * For Vdo Mode Read LCM Check
  * Config cmdq_handle_config_esd
@@ -203,6 +218,8 @@ int _esd_check_config_handle_vdo(struct cmdqRecStruct *qhandle)
 	/*cmdq_task_set_timeout(qhandle, 200);*/
 	/* wait stream eof first */
 	/* cmdqRecWait(qhandle, CMDQ_EVENT_DISP_RDMA0_EOF); */
+	if (bdg_is_bdg_connected() == 1)
+		cmdqRecClearEventToken(qhandle, CMDQ_EVENT_DSI_TE);
 	cmdqRecWait(qhandle, CMDQ_EVENT_MUTEX0_STREAM_EOF);
 
 	primary_display_manual_lock();
@@ -225,14 +242,12 @@ int _esd_check_config_handle_vdo(struct cmdqRecStruct *qhandle)
 	/* mutex sof wait*/
 	ddp_mutex_set_sof_wait(dpmgr_path_get_mutex(phandle), qhandle, 0);
 
-	primary_display_manual_unlock();
-
 	/* 6.flush instruction */
 	dprec_logger_start(DPREC_LOGGER_ESD_CMDQ, 0, 0);
 	ret = cmdqRecFlush(qhandle);
 	dprec_logger_done(DPREC_LOGGER_ESD_CMDQ, 0, 0);
-
 	DISPINFO("[ESD]%s ret=%d\n", __func__, ret);
+	primary_display_manual_unlock();
 
 	if (ret)
 		ret = 1;
@@ -242,11 +257,35 @@ int _esd_check_config_handle_vdo(struct cmdqRecStruct *qhandle)
 /* For EXT TE EINT Check */
 static irqreturn_t _esd_check_ext_te_irq_handler(int irq, void *data)
 {
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+	DISPCHECK("[ESD] _esd_check_ext_te_irq_handler start");
+	mmprofile_log_ex(ddp_mmp_get_events()->esd_vdo_eint,
+		MMPROFILE_FLAG_PULSE, 0, 0);
+	if(atomic_read(&lcm_ready)){
+		if(atomic_read(&lcm_valid_irq)){
+			atomic_set(&lcm_valid_irq, 0);
+			DISPCHECK("[ESD]%s   invalid irq, skip\n", __func__);
+		}
+		else{
+			atomic_set(&esd_ext_te_event, 1);
+			DISPCHECK("[ESD]%s\n", __func__);
+			wake_up_interruptible(&esd_ext_te_wq);
+		}
+	}
+	else
+        /* Huaqin modify for HQ-139071 by caogaojie at 2021/06/07 start */
+		atomic_set(&lcm_valid_irq, 1);
+	/* Huaqin modify for HQ-139071 by caogaojie at 2021/06/07 end */
+		DISPCHECK("[ESD] _esd_check_ext_te_irq_handler lcm not ready, skip");
+#else
 	mmprofile_log_ex(ddp_mmp_get_events()->esd_vdo_eint,
 		MMPROFILE_FLAG_PULSE, 0, 0);
 	atomic_set(&esd_ext_te_event, 1);
 	DISPINFO("[ESD]%s\n", __func__);
 	wake_up_interruptible(&esd_ext_te_wq);
+#endif
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 end */
 	return IRQ_HANDLED;
 }
 
@@ -264,6 +303,25 @@ void primary_display_switch_esd_mode(int mode)
 
 int do_esd_check_eint(void)
 {
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+	int ret = 0;
+/* Huaqin modify for HQ-144782 by caogaojie at 2021/07/05 start */
+	DISPCHECK("[ESD]ESD check eint, g_trigger_disp_esd_recovery is %d\n",
+		g_trigger_disp_esd_recovery);
+/* Huaqin modify for HQ-144782 by caogaojie at 2021/07/05 end */
+	enable_irq(te_irq);
+
+	if (wait_event_interruptible_timeout(esd_ext_te_wq,
+		atomic_read(&esd_ext_te_event), HZ / 2) > 0)
+		ret = 1; /* esd check fail */
+	else
+		ret = 0; /* esd check pass */
+
+	atomic_set(&esd_ext_te_event, 0);
+
+	disable_irq(te_irq);
+#else
 	int ret = 0;
 	mmp_event mmp_te = ddp_mmp_get_events()->esd_extte;
 
@@ -281,8 +339,11 @@ int do_esd_check_eint(void)
 	atomic_set(&esd_ext_te_event, 0);
 
 	primary_display_switch_esd_mode(GPIO_DSI_MODE);
-
-	return ret;
+#endif
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 end */
+/* Huaqin modify for HQ-144782 by caogaojie at 2021/07/05 start */
+	return ret || g_trigger_disp_esd_recovery;
+/* Huaqin modify for HQ-144782 by caogaojie at 2021/07/05 end */
 }
 
 int do_esd_check_dsi_te(void)
@@ -310,8 +371,8 @@ int do_esd_check_read(void)
 		primary_display_is_video_mode(), GPIO_DSI_MODE);
 
 	/* only cmd mode read & with disable mmsys clk will kick */
-	if (disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS) &&
-	    !primary_display_is_video_mode())
+	if ((disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS) &&
+	    !primary_display_is_video_mode()) || bdg_is_bdg_connected() == 1)
 		primary_display_idlemgr_kick((char *)__func__, 1);
 
 	/* 0.create esd check cmdq */
@@ -368,7 +429,6 @@ int do_lcm_vdo_lp_read(struct ddp_lcm_read_cmd_table *read_table)
 	int ret = 0;
 	int i = 0;
 	struct cmdqRecStruct *handle;
-
 	static cmdqBackupSlotHandle read_Slot[2] = {0, 0};
 	int h = 0;
 
@@ -532,7 +592,6 @@ int do_lcm_vdo_lp_write(struct ddp_lcm_write_cmd_table *write_table,
 
 		/* 6.flush instruction */
 		ret = cmdqRecFlush(handle);
-
 	} else {
 		DISPINFO("Not support cmd mode\n");
 	}
@@ -565,7 +624,11 @@ DISPTORY:
 int primary_display_esd_check(void)
 {
 	int ret = 0;
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifndef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
 	unsigned int mode;
+#endif
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 end */
 	mmp_event mmp_te = ddp_mmp_get_events()->esd_extte;
 	mmp_event mmp_rd = ddp_mmp_get_events()->esd_rdlcm;
 	mmp_event mmp_chk = ddp_mmp_get_events()->esd_check_t;
@@ -590,6 +653,8 @@ int primary_display_esd_check(void)
 		/* use TE for esd check */
 		mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_START, 0, 0);
 
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifndef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
 		if (primary_display_is_video_mode()) {
 			mode = get_esd_check_mode();
 			if (mode == GPIO_EINT_MODE) {
@@ -603,6 +668,11 @@ int primary_display_esd_check(void)
 			}
 		} else
 			ret = do_esd_check_eint();
+#else
+		ret = do_esd_check_eint();
+		DISPCHECK("[ESD]disp_lcm_esd_check_eint--------ret=%d\n",ret);
+#endif
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 end */
 
 		mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_END, 0, ret);
 
@@ -628,7 +698,7 @@ int primary_display_esd_check(void)
 	mmprofile_log_ex(mmp_rd, MMPROFILE_FLAG_END, 0, ret);
 
 done:
-	DISPINFO("[ESD]ESD check %s\n", ret ? "fail" : "pass");
+	DISPCHECK("[ESD]ESD check %s\n", ret ? "fail" : "pass");
 	mmprofile_log_ex(mmp_chk, MMPROFILE_FLAG_END, 0, ret);
 	dprec_logger_done(DPREC_LOGGER_ESD_CHECK, 0, 0);
 	return ret;
@@ -640,11 +710,20 @@ static int primary_display_check_recovery_worker_kthread(void *data)
 	int ret = 0;
 	int i = 0;
 	int esd_try_cnt = 5; /* 20; */
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifndef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
 	int recovery_done = 0;
+/*K19S code for HQ-168893 by gaoxue at 2021/11/23 start*/
+	esd_flag = false;
+/*K19S code for HQ-168893 by gaoxue at 2021/11/23 end*/
+#endif
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 end */
 
 	DISPFUNC();
 	sched_setscheduler(current, SCHED_RR, &param);
 
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifndef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
 	while (1) {
 		msleep(2000); /* 2s */
 		ret = wait_event_interruptible(_check_task_wq,
@@ -703,6 +782,35 @@ static int primary_display_check_recovery_worker_kthread(void *data)
 		if (kthread_should_stop())
 			break;
 	}
+#else
+	while (1) {
+next:		if(!atomic_read(&lcm_ready)){
+	/* Huaqin modify for HQ-161950 by jiangyue at 2021/11/05 start */
+			msleep(700);
+	/* Huaqin modify for HQ-161950 by jiangyue at 2021/11/05 end */
+			continue;
+		}
+		DISPINFO("[ESD] primary_display_check_recovery_worker_kthread start 2");
+		i = 0; /* repeat */
+		do {
+			DISPINFO("[ESD] do_esd_check_eint start");
+			ret = do_esd_check_eint();
+			if (!ret) /* success */
+				break;
+
+			DISPERR(
+				"[ESD]esd check fail, will do esd recovery. try=%d\n",
+				i);
+/*K19S code for HQ-168893 by gaoxue at 2021/11/23 start*/
+			esd_flag = true;
+			DISPERR("[ESD]Now esd_flag = %d\n",esd_flag);
+/*K19S code for HQ-168893 by gaoxue at 2021/11/23 end*/
+			primary_display_esd_recovery();
+			goto next;
+		} while (++i < esd_try_cnt);
+	}
+#endif
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 end */
 	return 0;
 }
 
@@ -717,6 +825,13 @@ int primary_display_esd_recovery(void)
 	dprec_logger_start(DPREC_LOGGER_ESD_RECOVERY, 0, 0);
 	mmprofile_log_ex(mmp_r, MMPROFILE_FLAG_START, 0, 0);
 	DISPCHECK("[ESD]ESD recovery begin\n");
+
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+	atomic_set(&lcm_ready, 0);
+	DISPERR("[ESD] atomic_set(&lcm_ready, 0)\n");
+#endif
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 end */
 
 	primary_display_manual_lock();
 	mmprofile_log_ex(mmp_r, MMPROFILE_FLAG_PULSE,
@@ -733,9 +848,10 @@ int primary_display_esd_recovery(void)
 		primary_display_idlemgr_kick((char *)__func__, 0);
 		mmprofile_log_ex(mmp_r, MMPROFILE_FLAG_PULSE, 0, 2);
 
-		/* blocking flush before stop trigger loop */
-		_blocking_flush();
 	}
+	/* blocking flush before stop trigger loop */
+	_blocking_flush();
+
 
 	mmprofile_log_ex(mmp_r, MMPROFILE_FLAG_PULSE, 0, 3);
 
@@ -774,18 +890,45 @@ int primary_display_esd_recovery(void)
 
 	DISPDBG("[ESD]dsi power reset[begine]\n");
 	dpmgr_path_dsi_power_off(primary_get_dpmgr_handle(), NULL);
+	if (bdg_is_bdg_connected() == 1) {
+		struct disp_ddp_path_config *data_config;
+
+		bdg_common_deinit(DISP_BDG_DSI0, NULL);
+
+
+		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
+		bdg_common_init(DISP_BDG_DSI0, data_config, NULL);
+		mipi_dsi_rx_mac_init(DISP_BDG_DSI0, data_config, NULL);
+	}
+
 	dpmgr_path_dsi_power_on(primary_get_dpmgr_handle(), NULL);
 	if (!primary_display_is_video_mode())
 		dpmgr_path_ioctl(primary_get_dpmgr_handle(), NULL,
 				DDP_DSI_ENABLE_TE, NULL);
+	dpmgr_path_reset(primary_get_dpmgr_handle(), CMDQ_DISABLE);
 	DISPCHECK("[ESD]dsi power reset[end]\n");
+	if (bdg_is_bdg_connected() == 1) {
+		struct disp_ddp_path_config *data_config;
 
+//		extern ddp_dsi_config(enum DISP_MODULE_ENUM module,
+//		struct disp_ddp_path_config *config, void *cmdq);
 
+		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
+		data_config->dst_dirty = 1;
+		dpmgr_path_config(primary_get_dpmgr_handle(), data_config, NULL);
+//		ddp_dsi_config(DISP_MODULE_DSI0, data_config, NULL);
 
+		data_config->dst_dirty = 0;
+	}
 	DISPDBG("[ESD]lcm recover[begin]\n");
 	disp_lcm_esd_recover(primary_get_lcm());
 	DISPCHECK("[ESD]lcm recover[end]\n");
 	mmprofile_log_ex(mmp_r, MMPROFILE_FLAG_PULSE, 0, 8);
+	if (bdg_is_bdg_connected() == 1 && get_mt6382_init()) {
+		DISPCHECK("set 6382 mode start\n");
+		bdg_tx_set_mode(DISP_BDG_DSI0, NULL, get_bdg_tx_mode());
+		bdg_tx_start(DISP_BDG_DSI0, NULL);
+	}
 
 	DISPDBG("[ESD]start dpmgr path[begin]\n");
 	if (disp_partial_is_support()) {
@@ -834,11 +977,26 @@ int primary_display_esd_recovery(void)
 		mdelay(40);
 	}
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	primary_display_update_cfg_id(0);
+	DISPCHECK("%s,cfg_id = 0\n", __func__);
+#endif
+
 done:
 	primary_display_manual_unlock();
 	DISPCHECK("[ESD]ESD recovery end\n");
 	mmprofile_log_ex(mmp_r, MMPROFILE_FLAG_END, 0, 0);
 	dprec_logger_done(DPREC_LOGGER_ESD_RECOVERY, 0, 0);
+
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+	atomic_set(&lcm_ready, 1);
+/* Huaqin modify for HQ-139071 by caogaojie at 2021/06/10 start */
+	atomic_set(&lcm_valid_irq, 1);
+/* Huaqin modify for HQ-139071 by caogaojie at 2021/06/10 end */
+	DISPERR("[ESD] atomic_set(&lcm_ready, 1)\n");
+#endif
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 end */
 	return ret;
 }
 
@@ -850,18 +1008,38 @@ void primary_display_requset_eint(void)
 	params = primary_get_lcm()->params;
 	if (params->dsi.customization_esd_check_enable == 0) {
 		node = of_find_compatible_node(NULL, NULL,
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+				"mediatek, dsi_err-flag");
+#else
 				"mediatek, DSI_TE-eint");
+#endif
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 end */
 		if (!node) {
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
 			DISPERR(
-				"[ESD][%s] can't find DSI_TE eint compatible node\n",
+				"[ESD][%s] can't find dsi_err-flag eint compatible node\n",
 				    __func__);
+#else
+			DISPERR(
+				"[ESD][%s] can't find DSI_TE-eint eint compatible node\n",
+				    __func__);
+#endif
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 end */
 			return;
 		}
 
 		/* 1.register irq handler */
 		te_irq = irq_of_parse_and_map(node, 0);
 		if (request_irq(te_irq, _esd_check_ext_te_irq_handler,
-				IRQF_TRIGGER_RISING, "DSI_TE-eint", NULL)) {
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifdef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
+				IRQF_TRIGGER_FALLING, "dsi_err-flag", NULL)) {
+#else
+				IRQF_TRIGGER_FALLING, "DSI_TE-eint", NULL)) {
+#endif
+/* Huaqin modify for HQ-124138 by dongtingchi at 2021/04/29 end */
 			DISPERR("[ESD]EINT IRQ LINE NOT AVAILABLE!\n");
 			return;
 		}
@@ -889,7 +1067,11 @@ void primary_display_check_recovery_init(void)
 			/* esd check init */
 			init_waitqueue_head(&esd_ext_te_wq);
 			primary_display_requset_eint();
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 start */
+#ifndef CONFIG_MI_ERRFLAG_ESD_CHECK_ENABLE
 			set_esd_check_mode(GPIO_EINT_MODE);
+#endif
+/* Huaqin add for HQ-124138 by dongtingchi at 2021/04/29 end */
 			primary_display_esd_check_enable(1);
 		} else {
 			atomic_set(&_check_task_wakeup, 1);
@@ -900,6 +1082,7 @@ void primary_display_check_recovery_init(void)
 
 void primary_display_esd_check_enable(int enable)
 {
+	DISPERR("[ESD]%s\n", __func__);
 	if (_need_do_esd_check()) {
 		if (enable) {
 			esd_check_enable = 1;

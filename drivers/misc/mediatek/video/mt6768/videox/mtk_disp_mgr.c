@@ -1221,6 +1221,13 @@ int _ioctl_get_display_caps(unsigned long arg)
 						RSZ_ALIGNMENT_MARGIN;
 		caps_info.rsz_in_max[1] = RSZ_IN_MAX_HEIGHT;
 	}
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS*/
+	if (primary_display_is_support_DynFPS()) {
+		caps_info.disp_feature |= DISP_FEATURE_DYNFPS;
+		DISPMSG("%s,support DynFPS feature\n", __func__);
+	}
+#endif
 
 	if (copy_to_user(argp, &caps_info, sizeof(caps_info))) {
 		DISPERR("[FB]: copy_to_user failed! line:%d\n",
@@ -1416,6 +1423,39 @@ int _ioctl_set_session_mode(unsigned long arg)
 	return set_session_mode(&config_info, 0);
 }
 
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+/*--------------------------DynFPS start-------------------*/
+int _ioctl_get_multi_configs(unsigned long arg)
+{
+	int ret = 0;
+	void __user *argp = (void __user *)arg;
+	struct multi_configs multi_cfgs;
+
+	if (copy_from_user(&multi_cfgs,
+			argp, sizeof(multi_cfgs))) {
+		DISPERR("[dfps] copy_from_user failed! line:%d\n",
+			__LINE__);
+		return -EFAULT;
+	}
+
+	ret = primary_display_get_multi_configs(&multi_cfgs);
+
+	if (ret != 0) {
+		DISPERR("[dfps] %s fail! line:%d\n", __func__, __LINE__);
+		ret = -EFAULT;
+		return ret;
+	}
+	if (copy_to_user(argp, &multi_cfgs, sizeof(multi_cfgs))) {
+		DISPERR("[dfps] copy_to_user failed! line:%d\n", __LINE__);
+		ret = -EFAULT;
+	}
+
+	return ret;
+
+}
+/*--------------------------DynFPS end-------------------*/
+#endif
+
 const char *_session_ioctl_spy(unsigned int cmd)
 {
 	switch (cmd) {
@@ -1495,6 +1535,8 @@ const char *_session_ioctl_spy(unsigned int cmd)
 		return "DISP_IOCTL_QUERY_VALID_LAYER";
 	case DISP_IOCTL_FRAME_CONFIG:
 		return "DISP_IOCTL_FRAME_CONFIG";
+	case DISP_IOCTL_GET_MULTI_CONFIGS:
+		return "DISP_IOCTL_GET_MULTI_CONFIGS";
 	default:
 		{
 			return "unknown";
@@ -1571,6 +1613,10 @@ long mtk_disp_mgr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	{
 		return _ioctl_set_scenario(arg);
 	}
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	case DISP_IOCTL_GET_MULTI_CONFIGS:
+		return _ioctl_get_multi_configs(arg);
+#endif
 	case DISP_IOCTL_AAL_EVENTCTL:
 	case DISP_IOCTL_AAL_GET_HIST:
 	case DISP_IOCTL_AAL_INIT_REG:

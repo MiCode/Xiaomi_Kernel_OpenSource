@@ -50,9 +50,9 @@ bat_gm30: battery{
 /*	Pseudo 100% percentage at T0*/
 	g_FG_PSEUDO100_T1 = <(100)>;
 /*	Pseudo 100% percentage at T1*/
-	g_FG_PSEUDO100_T2 = <(100)>;
+	g_FG_PSEUDO100_T2 = <(95)>;
 /*	Pseudo 100% percentage at T2*/
-	g_FG_PSEUDO100_T3 = <(100)>;
+	g_FG_PSEUDO100_T3 = <(95)>;
 /*	Pseudo 100% percentage at T3*/
 	g_FG_PSEUDO100_T4 = <(100)>;
 /*	Pseudo 100% percentage at T4*/

@@ -27,6 +27,7 @@
 #include <linux/signal_types.h>
 #include <linux/mm_types_task.h>
 #include <linux/task_io_accounting.h>
+#include <linux/pkg_stat.h>
 
 /* task_struct member predeclarations (sorted alphabetically): */
 struct audit_context;
@@ -579,6 +580,7 @@ struct ravg {
 	u64 mark_start;
 	u32 sum, demand;
 	u32 sum_history[RAVG_HIST_SIZE_MAX];
+	u64 proc_load;
 	u32 curr_window, prev_window;
 	u16 active_windows;
 };
@@ -1384,6 +1386,10 @@ struct task_struct {
 	unsigned short inherit_cnt:14;
 	short nice_backup;
 	atomic_t inherit_types;
+#endif
+
+#ifdef CONFIG_MIGT
+	struct package_runtime_info pkg;
 #endif
 
 	/*

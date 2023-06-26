@@ -523,6 +523,10 @@ struct fb_info {
 	} *apertures;
 
 	bool skip_vt_switch; /* no VT switch on suspend/resume required */
+
+	/* begin modify for unlock speed */
+	int blank;
+	/* end modify for unlock speed */
 };
 
 static inline struct apertures_struct *alloc_apertures(unsigned int max_num) {

@@ -1,0 +1,5 @@
+config SND_SOC_FS16XX
+	tristate "SoC Audio for fs1815n Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for fs1815n.

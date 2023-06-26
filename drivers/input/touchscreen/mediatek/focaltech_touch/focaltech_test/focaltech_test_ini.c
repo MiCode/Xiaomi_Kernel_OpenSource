@@ -1,96 +1,131 @@
 /************************************************************************
- * Copyright (C) 2012-2019, Focaltech Systems (R)£¬All Rights Reserved.
- *
- * File Name: focaltech_test_ini.c
- *
- * Author: Focaltech Driver Team
- *
- * Created: 2016-08-01
- *
- * Abstract: parsing function of INI file
- *
- ************************************************************************/
+* Copyright (C) 2012-2019, Focaltech Systems (R)£¬All Rights Reserved.
+*
+* File Name: focaltech_test_ini.c
+*
+* Author: Focaltech Driver Team
+*
+* Created: 2016-08-01
+*
+* Abstract: parsing function of INI file
+*
+************************************************************************/
 #include "focaltech_test.h"
 
 /*****************************************************************************
- * Private constant and macro definitions using #define
- *****************************************************************************/
+* Private constant and macro definitions using #define
+*****************************************************************************/
 struct ini_ic_type ic_types[] = {
-	{"FT5X46", 0x54000002},	{"FT5X46i", 0x54010002},
-	{"FT5526", 0x54020002},	{"FT3X17", 0x54030002},
-	{"FT5436", 0x54040002},	{"FT3X27", 0x54050002},
-	{"FT5526i", 0x54060002},       {"FT5416", 0x54070002},
-	{"FT5426", 0x54080002},	{"FT5435", 0x54090002},
-	{"FT7681", 0x540A0002},	{"FT7661", 0x540B0002},
-	{"FT7511", 0x540C0002},	{"FT7421", 0x540D0002},
-	{"FT7311", 0x54100002},	{"FT3327DQQ-001", 0x41000082},
+	{"FT5X46",  0x54000002},
+	{"FT5X46i", 0x54010002},
+	{"FT5526",  0x54020002},
+	{"FT3X17",  0x54030002},
+	{"FT5436",  0x54040002},
+	{"FT3X27",  0x54050002},
+	{"FT5526i", 0x54060002},
+	{"FT5416",  0x54070002},
+	{"FT5426",  0x54080002},
+	{"FT5435",  0x54090002},
+	{"FT7681",  0x540A0002},
+	{"FT7661",  0x540B0002},
+	{"FT7511",  0x540C0002},
+	{"FT7421",  0x540D0002},
+	{"FT7311",  0x54100002},
+	{"FT3327DQQ-001", 0x41000082},
 	{"FT5446DQS-W01", 0x40000082},
 
-	{"FT5452", 0x55000081},	{"FT3518", 0x55010081},
-	{"FT3558", 0x55020081},	{"FT3528", 0x55030081},
-	{"FT5536", 0x55040081},
+	{"FT5452",  0x55000081},
+	{"FT3518",  0x55010081},
+	{"FT3558",  0x55020081},
+	{"FT3528",  0x55030081},
+	{"FT5536",  0x55040081},
 
-	{"FT5472", 0x8F000083},	{"FT5446U", 0x8F010083},
-	{"FT5456U", 0x8F020083},       {"FT3417U", 0x8F030083},
-	{"FT5426U", 0x8F040083},       {"FT3428", 0x8F050083},
+	{"FT5472",  0x8F000083},
+	{"FT5446U", 0x8F010083},
+	{"FT5456U", 0x8F020083},
+	{"FT3417U", 0x8F030083},
+	{"FT5426U", 0x8F040083},
+	{"FT3428",  0x8F050083},
 	{"FT3437U", 0x8F060083},
 
-	{"FT5822", 0x58000001},	{"FT5626", 0x58010001},
-	{"FT5726", 0x58020001},	{"FT5826B", 0x58030001},
-	{"FT3617", 0x58040001},	{"FT3717", 0x58050001},
-	{"FT7811", 0x58060001},	{"FT5826S", 0x58070001},
-	{"FT3517U", 0x58090001},       {"FT3557", 0x580A0001},
+	{"FT5822",  0x58000001},
+	{"FT5626",  0x58010001},
+	{"FT5726",  0x58020001},
+	{"FT5826B", 0x58030001},
+	{"FT3617",  0x58040001},
+	{"FT3717",  0x58050001},
+	{"FT7811",  0x58060001},
+	{"FT5826S", 0x58070001},
+	{"FT3517U", 0x58090001},
+	{"FT3557",  0x580A0001},
 
-	{"FT6X36", 0x63000003},	{"FT3X07", 0x63010003},
-	{"FT6416", 0x63020003},	{"FT6336G/U", 0x63030003},
-	{"FT7401", 0x63040003},	{"FT3407U", 0x63050003},
-	{"FT6236U", 0x63060003},       {"FT6436U", 0x63070003},
+	{"FT6X36",  0x63000003},
+	{"FT3X07",  0x63010003},
+	{"FT6416",  0x63020003},
+	{"FT6336G/U", 0x63030003},
+	{"FT7401",  0x63040003},
+	{"FT3407U", 0x63050003},
+	{"FT6236U", 0x63060003},
+	{"FT6436U", 0x63070003},
 
-	{"FT3267", 0x63080004},	{"FT3367", 0x63090004},
+	{"FT3267",  0x63080004},
+	{"FT3367",  0x63090004},
 
-	{"FT6216", 0x64000084},	{"FT7302", 0x64010084},
-	{"FT7202", 0x64020084},	{"FT3308", 0x64030084},
+	{"FT6216",  0x64000084},
+	{"FT7302",  0x64010084},
+	{"FT7202",  0x64020084},
+	{"FT3308",  0x64030084},
 
-	{"FT8607", 0x81000009},	{"FT8716", 0x82000005},
-	{"FT8716U", 0x44000005},       {"FT8716F", 0x8A000005},
-	{"FT8613", 0x4500000C},
+	{"FT8607",  0x81000009},
+	{"FT8716",  0x82000005},
+	{"FT8716U", 0x44000005},
+	{"FT8716F", 0x8A000005},
+	{"FT8613",  0x4500000C},
 
-	{"FT8736", 0x83000006},
+	{"FT8736",  0x83000006},
 
-	{"FT8006M", 0x87000007},       {"FT8201", 0x87010010},
-	{"FT7250", 0x8702001A},
+	{"FT8006M", 0x87000007},
+	{"FT8201",  0x87010010},
+	{"FT7250",  0x8702001A},
 
-	{"FT8006U", 0x8900000B},       {"FT8006S", 0x8901000B},
+	{"FT8006U", 0x8900000B},
+	{"FT8006S", 0x8901000B},
 	{"FT8006S-AA", 0x9B000019},
 
-	{"FT8719", 0x8E00000D},	{"FT8615", 0x9100000F},
+	{"FT8719",  0x8E00000D},
+	{"FT8615",  0x9100000F},
 
-	{"FT8739", 0x8D00000E},
+	{"FT8739",  0x8D00000E},
 
 	{"FT8006P", 0x93000011},
 
-	{"FT7251", 0x8C000012},	{"FT7252", 0x92000013},
+	{"FT7251", 0x8C000012},
+	{"FT7252", 0x92000013},
 
 	{"FT8613S", 0x94000014},
 
-	{"FT8756", 0x95000015},	{"FT8656", 0x95010018},
+	{"FT8756", 0x95000015},
+	{"FT8656", 0x95010018},
 
 	{"FT8302", 0x97000016},
 
 	{"FT8009", 0x98000017},
 
-	{"FT3068", 0x65010085},	{"FT3168", 0x65020085},
-	{"FT3067", 0x65030085},	{"FT3268", 0x65040085},
-	{"FT6346U", 0x65050085},       {"FT6346G", 0x65060085},
+	{"FT3068", 0x65010085},
+	{"FT3168", 0x65020085},
+	{"FT3067", 0x65030085},
+	{"FT3268", 0x65040085},
+	{"FT6346U", 0x65050085},
+	{"FT6346G", 0x65060085},
 };
 
 /*****************************************************************************
- * Global variable or extern global variabls/functions
- *****************************************************************************/
+* Global variable or extern global variabls/functions
+*****************************************************************************/
 
 /*****************************************************************************
- * Static function prototypes
- *****************************************************************************/
+* Static function prototypes
+*****************************************************************************/
 /* Works only for digits and letters, but small and fast */
 #define TOLOWER(x) ((x) | 0x20)
 static int fts_strncmp(const char *cs, const char *ct, int count)
@@ -98,7 +133,7 @@ static int fts_strncmp(const char *cs, const char *ct, int count)
 	u8 c1 = 0, c2 = 0;
 
 	while (count) {
-		if ((*cs == '\0') || (*ct == '\0'))
+		if  ((*cs == '\0') || (*ct == '\0'))
 			return -1;
 		c1 = TOLOWER(*cs++);
 		c2 = TOLOWER(*ct++);
@@ -114,8 +149,7 @@ static int fts_strncmp(const char *cs, const char *ct, int count)
 
 static int isspace(int x)
 {
-	if (x == ' ' || x == '\t' || x == '\n' || x == '\f' || x == '\b' ||
-	    x == '\r')
+	if (x == ' ' || x == '\t' || x == '\n' || x == '\f' || x == '\b' || x == '\r')
 		return 1;
 	else
 		return 0;
@@ -131,20 +165,20 @@ static int isdigit(int x)
 
 static long fts_atol(char *nptr)
 {
-	int c;      /* current char */
+	int c; /* current char */
 	long total; /* current total */
-	int sign;   /* if ''-'', then negative, otherwise positive */
+	int sign; /* if ''-'', then negative, otherwise positive */
 	/* skip whitespace */
 	while (isspace((int)(unsigned char)*nptr))
 		++nptr;
-	c = (int)(unsigned char)*nptr++;
+	c = (int)(unsigned char) *nptr++;
 	sign = c; /* save sign indication */
 	if (c == '-' || c == '+')
-		c = (int)(unsigned char)*nptr++; /* skip sign */
+		c = (int)(unsigned char) *nptr++; /* skip sign */
 	total = 0;
 	while (isdigit(c)) {
-		total = 10 * total + (c - '0');  /* accumulate digit */
-		c = (int)(unsigned char)*nptr++; /* get next char */
+		total = 10 * total + (c - '0'); /* accumulate digit */
+		c = (int)(unsigned char) *nptr++; /* get next char */
 	}
 	if (sign == '-')
 		return -total;
@@ -162,19 +196,18 @@ static int fts_test_get_ini_size(char *config_name)
 	struct file *pfile = NULL;
 	struct inode *inode = NULL;
 	off_t fsize = 0;
-	char filepath[FILE_NAME_LENGTH] = {0};
+	char filepath[FILE_NAME_LENGTH] = { 0 };
 
 	FTS_TEST_FUNC_ENTER();
 
 	memset(filepath, 0, sizeof(filepath));
-	snprintf(filepath, FILE_NAME_LENGTH, "%s%s", FTS_INI_FILE_PATH,
-		 config_name);
+	snprintf(filepath, FILE_NAME_LENGTH, "%s%s",
+			 FTS_INI_FILE_PATH, config_name);
 
-	if (pfile == NULL)
+	if (NULL == pfile)
 		pfile = filp_open(filepath, O_RDONLY, 0);
 	if (IS_ERR(pfile)) {
-		FTS_TEST_ERROR("error occurred while opening file %s.",
-			       filepath);
+		FTS_TEST_ERROR("error occured while opening file %s.",  filepath);
 		return -EIO;
 	}
 
@@ -197,21 +230,20 @@ static int fts_test_read_ini_data(char *config_name, char *config_buf)
 	struct file *pfile = NULL;
 	struct inode *inode = NULL;
 	off_t fsize = 0;
-	char filepath[FILE_NAME_LENGTH] = {0};
+	char filepath[FILE_NAME_LENGTH] = { 0 };
 	loff_t pos = 0;
 	mm_segment_t old_fs;
 
 	FTS_TEST_FUNC_ENTER();
 
 	memset(filepath, 0, sizeof(filepath));
-	snprintf(filepath, FILE_NAME_LENGTH, "%s%s", FTS_INI_FILE_PATH,
-		 config_name);
-	if (pfile == NULL)
+	snprintf(filepath, FILE_NAME_LENGTH, "%s%s",
+			 FTS_INI_FILE_PATH, config_name);
+	if (NULL == pfile) {
 		pfile = filp_open(filepath, O_RDONLY, 0);
-
+	}
 	if (IS_ERR(pfile)) {
-		FTS_TEST_ERROR("error occurred while opening file %s.",
-			       filepath);
+		FTS_TEST_ERROR("error occured while opening file %s.",  filepath);
 		return -EIO;
 	}
 
@@ -246,7 +278,7 @@ static int fts_test_get_ini_default(struct ini_data *ini, char *fwname)
 	}
 
 	ini->data = vmalloc(inisize + 1);
-	if (ini->data == NULL) {
+	if (NULL == ini->data) {
 		FTS_TEST_ERROR("malloc memory for ini data fail");
 		return -ENOMEM;
 	}
@@ -258,23 +290,22 @@ static int fts_test_get_ini_default(struct ini_data *ini, char *fwname)
 		FTS_TEST_ERROR("read ini file fail");
 		return -ENODATA;
 	}
-	ini->data[inisize] = '\n'; /* last line is null line */
+	ini->data[inisize] = '\n';  /* last line is null line */
 
 	return 0;
 }
 
-static int fts_test_get_ini_via_request_firmware(struct ini_data *ini,
-						 char *fwname)
+static int fts_test_get_ini_via_request_firmware(struct ini_data *ini, char *fwname)
 {
 	int ret = 0;
 	const struct firmware *fw = NULL;
 	struct device *dev = &fts_data->input_dev->dev;
 
 	ret = request_firmware(&fw, fwname, dev);
-	if (ret == 0) {
+	if (0 == ret) {
 		FTS_TEST_INFO("firmware request(%s) success", fwname);
 		ini->data = vmalloc(fw->size + 1);
-		if (ini->data == NULL) {
+		if (NULL == ini->data) {
 			FTS_TEST_ERROR("ini->data buffer vmalloc fail");
 			ret = -ENOMEM;
 		} else {
@@ -293,6 +324,7 @@ static int fts_test_get_ini_via_request_firmware(struct ini_data *ini,
 
 	return ret;
 }
+
 
 static void str_space_remove(char *str)
 {
@@ -318,21 +350,21 @@ static void print_ini_data(struct ini_data *ini)
 	struct ini_keyword *keyword = NULL;
 	struct fts_test *tdata = fts_ftest;
 
-	if (tdata && tdata->ts_data && (tdata->ts_data->log_level < 10))
+	if (tdata && tdata->ts_data && (tdata->ts_data->log_level < 10)) {
 		return;
-
+	}
 
 	if (!ini || !ini->tmp) {
 		FTS_TEST_DBG("ini is null");
 		return;
 	}
 
-	FTS_TEST_DBG("section num:%d, keyword num total:%d", ini->section_num,
-		     ini->keyword_num_total);
+	FTS_TEST_DBG("section num:%d, keyword num total:%d",
+				 ini->section_num, ini->keyword_num_total);
 	for (i = 0; i < ini->section_num; i++) {
 		section = &ini->section[i];
-		FTS_TEST_DBG("section name:[%s] keyword num:%d", section->name,
-			     section->keyword_num);
+		FTS_TEST_DBG("section name:[%s] keyword num:%d",
+					 section->name, section->keyword_num);
 		for (j = 0; j < section->keyword_num; j++) {
 			keyword = &section->keyword[j];
 			FTS_TEST_DBG("%s=%s", keyword->name, keyword->value);
@@ -350,19 +382,17 @@ static int ini_get_line(char *filedata, char *line_data, int *line_len)
 	for (i = 0; i < MAX_INI_LINE_LEN; i++) {
 		if (('\n' == filedata[i]) || ('\r' == filedata[i])) {
 			line_data[line_length++] = '\0';
-			if (('\n' == filedata[i + 1]) ||
-			    ('\r' == filedata[i + 1])) {
+			if (('\n' == filedata[i + 1]) || ('\r' == filedata[i + 1])) {
 				line_length++;
 			}
 			break;
+		} else {
+			line_data[line_length++] = filedata[i];
 		}
-		line_data[line_length++] = filedata[i];
-
 	}
 
 	if (i >= MAX_INI_LINE_LEN) {
-		FTS_TEST_ERROR("line length(%d)>max(%d)", line_length,
-			       MAX_INI_LINE_LEN);
+		FTS_TEST_ERROR("line length(%d)>max(%d)", line_length, MAX_INI_LINE_LEN);
 		return -ENODATA;
 	}
 
@@ -370,13 +400,13 @@ static int ini_get_line(char *filedata, char *line_data, int *line_len)
 	str_space_remove(line_data);
 
 	/* confirm line type */
-	if (('\0' == line_data[0]) || ('#' == line_data[0]))
+	if (('\0' == line_data[0]) || ('#' == line_data[0])) {
 		type = LINE_OTHER;
-	else if ('[' == line_data[0])
+	} else if ('[' == line_data[0]) {
 		type = LINE_SECTION;
-	else
+	} else {
 		type = LINE_KEYWORD; /* key word */
-
+	}
 
 	*line_len = line_length;
 	return type;
@@ -399,21 +429,19 @@ static int ini_parse_keyword(struct ini_data *ini, char *line_buffer)
 		return -ENODATA;
 	}
 
-	if ((ini->section_num > 0) &&
-	    (ini->section_num < MAX_INI_SECTION_NUM)) {
+	if ((ini->section_num > 0) && (ini->section_num < MAX_INI_SECTION_NUM)) {
 		section = &ini->section[ini->section_num - 1];
 	}
 
-	if (section == NULL) {
+	if (NULL == section) {
 		FTS_TEST_ERROR("section is null");
 		return -ENODATA;
 	}
 
 	offset = ini->keyword_num_total;
 	if (offset > MAX_KEYWORD_NUM) {
-		FTS_TEST_ERROR(
-			"keyword num(%d)>max(%d),please check MAX_KEYWORD_NUM",
-			ini->keyword_num_total, MAX_KEYWORD_NUM);
+		FTS_TEST_ERROR("keyword num(%d)>max(%d),please check MAX_KEYWORD_NUM",
+					   ini->keyword_num_total, MAX_KEYWORD_NUM);
 		return -ENODATA;
 	}
 	memcpy(ini->tmp[offset].name, &line_buffer[0], i);
@@ -436,24 +464,21 @@ static int ini_parse_section(struct ini_data *ini, char *line_buffer)
 		return -EINVAL;
 	}
 
-	if ((ini->section_num < 0) ||
-	    (ini->section_num >= MAX_INI_SECTION_NUM)) {
+	if ((ini->section_num < 0) || (ini->section_num >= MAX_INI_SECTION_NUM)) {
 		FTS_TEST_ERROR("section_num(%d) fail", ini->section_num);
 		return -EINVAL;
 	}
 	section = &ini->section[ini->section_num];
 	memcpy(section->name, line_buffer + 1, length - 2);
 	section->name[length - 2] = '\0';
-	FTS_TEST_INFO("section:%s, keyword offset:%d", section->name,
-		      ini->keyword_num_total);
-	section->keyword =
-		(struct ini_keyword *)&ini->tmp[ini->keyword_num_total];
+	FTS_TEST_INFO("section:%s, keyword offset:%d",
+				  section->name, ini->keyword_num_total);
+	section->keyword = (struct ini_keyword *)&ini->tmp[ini->keyword_num_total];
 	section->keyword_num = 0;
 	ini->section_num++;
 	if (ini->section_num > MAX_INI_SECTION_NUM) {
-		FTS_TEST_ERROR(
-			"section num(%d)>max(%d), please check MAX_INI_SECTION_NUM",
-			ini->section_num, MAX_INI_SECTION_NUM);
+		FTS_TEST_ERROR("section num(%d)>max(%d), please check MAX_INI_SECTION_NUM",
+					   ini->section_num, MAX_INI_SECTION_NUM);
 		return -ENOMEM;
 	}
 
@@ -464,7 +489,7 @@ static int ini_init_inidata(struct ini_data *ini)
 {
 	int pos = 0;
 	int ret = 0;
-	char line_buffer[MAX_INI_LINE_LEN] = {0};
+	char line_buffer[MAX_INI_LINE_LEN] = { 0 };
 	int line_len = 0;
 
 	if (!ini || !ini->data || !ini->tmp) {
@@ -509,8 +534,7 @@ static int ini_get_key(char *section_name, char *key_name, char *value)
 	int log_level = fts_ftest->ts_data->log_level;
 
 	if (log_level >= 10) {
-		FTS_TEST_DBG("section name:%s, key name:%s", section_name,
-			     key_name);
+		FTS_TEST_DBG("section name:%s, key name:%s", section_name, key_name);
 		FTS_TEST_DBG("section num:%d", ini->section_num);
 	}
 
@@ -524,20 +548,18 @@ static int ini_get_key(char *section_name, char *key_name, char *value)
 
 		if (log_level >= 10) {
 			FTS_TEST_DBG("section name:%s keyword num:%d",
-				     section->name, section->keyword_num);
+						 section->name, section->keyword_num);
 		}
 		for (j = 0; j < section->keyword_num; j++) {
 			keyword = &section->keyword[j];
 			key_len = strlen(key_name);
 			if (key_len == strlen(keyword->name)) {
-				if (fts_strncmp(keyword->name, key_name,
-						     key_len) == 0) {
+				if (0 == fts_strncmp(keyword->name, key_name, key_len)) {
 					key_len = strlen(keyword->value);
 					memcpy(value, keyword->value, key_len);
 					if (log_level >= 3) {
 						FTS_TEST_DBG("section:%s,%s=%s",
-							     section_name,
-							     key_name, value);
+									 section_name, key_name, value);
 					}
 
 					return key_len;
@@ -563,57 +585,54 @@ static int ini_get_string_value(char *section_name, char *key_name, char *rval)
 int get_keyword_value(char *section, char *name, int *value)
 {
 	int ret = 0;
-	char str[MAX_KEYWORD_VALUE_LEN] = {0};
+	char str[MAX_KEYWORD_VALUE_LEN] = { 0 };
 
 	ret = ini_get_string_value(section, name, str);
 	if (ret > 0) {
-		/* search successfully, so change value, otherwise keep default
-		 */
+		/* search successfully, so change value, otherwise keep default */
 		*value = fts_atoi(str);
 	}
 
 	return ret;
 }
 
-static void fts_init_buffer(int *buffer, int value, int len, bool key_check,
-			    int key_value, int key_len)
+static void fts_init_buffer(int *buffer, int value, int len, bool key_check, int key_value, int key_len)
 {
 	int i = 0;
 	int va_len = 0;
 
-	if (buffer == NULL) {
+	if (NULL == buffer) {
 		FTS_TEST_ERROR("buffer is null\n");
 		return;
 	}
 
 	va_len = len - key_len;
 	if (va_len < 0) {
-		FTS_TEST_ERROR("total len(0x%x) less key len(0x%x)\n", len,
-			       key_len);
+		FTS_TEST_ERROR("total len(0x%x) less key len(0x%x)\n", len, key_len);
 		return;
 	}
 
-	for (i = 0; i < len; i++)
+	for (i = 0; i < len; i++) {
 		buffer[i] = value;
-
+	}
 
 	if (key_check) {
-		for (i = 0; i < key_len; i++)
+		for (i = 0; i < key_len; i++) {
 			buffer[va_len + i] = key_value;
-
+		}
 	}
+
 }
 
-static int get_test_item(char name[][MAX_KEYWORD_NAME_LEN], int length,
-			 int *val)
+static int get_test_item(char name[][MAX_KEYWORD_NAME_LEN], int length, int *val)
 {
 	int i = 0;
 	int ret = 0;
 	int tmpval = 0;
 
 	if (length > TEST_ITEM_COUNT_MAX) {
-		FTS_TEST_SAVE_ERR("test item count(%d) > max(%d)\n", length,
-				  TEST_ITEM_COUNT_MAX);
+		FTS_TEST_SAVE_ERR("test item count(%d) > max(%d)\n",
+						  length, TEST_ITEM_COUNT_MAX);
 		return -EINVAL;
 	}
 
@@ -633,16 +652,14 @@ static int get_test_item(char name[][MAX_KEYWORD_NAME_LEN], int length,
 	return 0;
 }
 
-static int get_basic_threshold(char name[][MAX_KEYWORD_NAME_LEN], int length,
-			       int *val)
+static int get_basic_threshold(char name[][MAX_KEYWORD_NAME_LEN], int length, int *val)
 {
 	int i = 0;
 	int ret = 0;
 	struct fts_test *tdata = fts_ftest;
 	int log_level = tdata->ts_data->log_level;
 
-	FTS_TEST_INFO("basic_thr string length(%d), count(%d)\n", length,
-		      tdata->basic_thr_count);
+	FTS_TEST_INFO("basic_thr string length(%d), count(%d)\n", length, tdata->basic_thr_count);
 	if (length > fts_ftest->basic_thr_count) {
 		FTS_TEST_SAVE_ERR("basic_thr string length > count\n");
 		return -EINVAL;
@@ -654,8 +671,7 @@ static int get_basic_threshold(char name[][MAX_KEYWORD_NAME_LEN], int length,
 			if (ret < 0) {
 				FTS_TEST_DBG("basic thr:%s not found", name[i]);
 			} else {
-				FTS_TEST_DBG("basic thr:%s=%d", name[i],
-					     val[i]);
+				FTS_TEST_DBG("basic thr:%s=%d", name[i], val[i]);
 			}
 		}
 	}
@@ -663,12 +679,11 @@ static int get_basic_threshold(char name[][MAX_KEYWORD_NAME_LEN], int length,
 	return 0;
 }
 
-static void get_detail_threshold(char *key_name, bool is_prex, int *thr,
-				 int node_num)
+static void get_detail_threshold(char *key_name, bool is_prex, int *thr, int node_num)
 {
-	char str[MAX_KEYWORD_VALUE_LEN] = {0};
-	char str_temp[MAX_KEYWORD_NAME_LEN] = {0};
-	char str_tmp[MAX_KEYWORD_VALUE_ONE_LEN] = {0};
+	char str[MAX_KEYWORD_VALUE_LEN] = { 0 };
+	char str_temp[MAX_KEYWORD_NAME_LEN] = { 0 };
+	char str_tmp[MAX_KEYWORD_VALUE_ONE_LEN] = { 0 };
 	struct fts_test *tdata = fts_ftest;
 	int divider_pos = 0;
 	int index = 0;
@@ -690,11 +705,9 @@ static void get_detail_threshold(char *key_name, bool is_prex, int *thr,
 	}
 	for (i = 0; i < tx_num + 1; i++) {
 		if (is_prex) {
-			snprintf(str_temp, MAX_KEYWORD_NAME_LEN, "%s%d",
-				 key_name, (i + 1));
+			snprintf(str_temp, MAX_KEYWORD_NAME_LEN, "%s%d", key_name, (i + 1));
 		} else {
-			snprintf(str_temp, MAX_KEYWORD_NAME_LEN, "%s",
-				 key_name);
+			snprintf(str_temp, MAX_KEYWORD_NAME_LEN, "%s", key_name);
 		}
 		divider_pos = ini_get_string_value("SpecialSet", str_temp, str);
 		if (divider_pos <= 0)
@@ -706,9 +719,8 @@ static void get_detail_threshold(char *key_name, bool is_prex, int *thr,
 			if (',' == str[j]) {
 				thr_pos = i * rx_num + k;
 				if (thr_pos >= node_num) {
-					FTS_TEST_ERROR(
-						"key:%s %d,dthr_num(%d>=%d) fail",
-						key_name, i, thr_pos, node_num);
+					FTS_TEST_ERROR("key:%s %d,dthr_num(%d>=%d) fail",
+								   key_name, i, thr_pos, node_num);
 					break;
 				}
 				thr[thr_pos] = (short)(fts_atoi(str_tmp));
@@ -743,15 +755,12 @@ static int init_node_valid(void)
 	chy = tdata->node.rx_num;
 	node_num = tdata->node.node_num;
 	fts_init_buffer(tdata->node_valid, 1, node_num, false, 0, 0);
-	if ((tdata->func->hwtype == IC_HW_INCELL) ||
-	    (tdata->func->hwtype == IC_HW_MC_SC)) {
+	if ((tdata->func->hwtype == IC_HW_INCELL) || (tdata->func->hwtype == IC_HW_MC_SC)) {
 		for (cnt = 0; cnt < node_num; cnt++) {
 			i = cnt / chy + 1;
 			j = cnt % chy + 1;
-			snprintf(str, MAX_KEYWORD_NAME_LEN,
-				 "InvalidNode[%d][%d]", i, j);
-			get_keyword_value("INVALID_NODE", str,
-					  &tdata->node_valid[cnt]);
+			snprintf(str, MAX_KEYWORD_NAME_LEN, "InvalidNode[%d][%d]", i, j);
+			get_keyword_value("INVALID_NODE", str, &tdata->node_valid[cnt]);
 		}
 	}
 
@@ -763,17 +772,13 @@ static int init_node_valid(void)
 		for (cnt = 0; cnt < node_num; cnt++) {
 			i = (cnt >= chy) ? 2 : 1;
 			j = (cnt >= chy) ? (cnt - chy + 1) : (cnt + 1);
-			snprintf(str, MAX_KEYWORD_NAME_LEN,
-				 "InvalidNodeS[%d][%d]", i, j);
-			get_keyword_value("INVALID_NODES", str,
-					  &tdata->node_valid_sc[cnt]);
+			snprintf(str, MAX_KEYWORD_NAME_LEN, "InvalidNodeS[%d][%d]", i, j);
+			get_keyword_value("INVALID_NODES", str, &tdata->node_valid_sc[cnt]);
 		}
 	}
 
-	print_buffer(tdata->node_valid, tdata->node.node_num,
-		     tdata->node.rx_num);
-	print_buffer(tdata->node_valid_sc, tdata->sc_node.node_num,
-		     tdata->sc_node.rx_num);
+	print_buffer(tdata->node_valid, tdata->node.node_num, tdata->node.rx_num);
+	print_buffer(tdata->node_valid_sc, tdata->sc_node.node_num, tdata->sc_node.rx_num);
 	return 0;
 }
 
@@ -807,8 +812,7 @@ static int get_test_threshold_incell(void)
 	bool raw_key_check = thr->basic.rawdata_vkey_check;
 	bool cb_key_check = thr->basic.cb_vkey_check;
 
-	tdata->basic_thr_count =
-		sizeof(struct incell_threshold_b) / sizeof(int);
+	tdata->basic_thr_count = sizeof(struct incell_threshold_b) / sizeof(int);
 	/* get standard basic threshold */
 	ret = get_basic_threshold(bthr_name_incell, length, (int *)&thr->basic);
 	if (ret < 0) {
@@ -826,26 +830,18 @@ static int get_test_threshold_incell(void)
 	}
 
 	/* init buffer */
-	fts_init_buffer(thr->rawdata_max, thr->basic.rawdata_max, node_num,
-			raw_key_check, thr->basic.rawdata_max_vk, key_num);
-	fts_init_buffer(thr->rawdata_min, thr->basic.rawdata_min, node_num,
-			raw_key_check, thr->basic.rawdata_min_vk, key_num);
+	fts_init_buffer(thr->rawdata_max, thr->basic.rawdata_max, node_num, raw_key_check, thr->basic.rawdata_max_vk, key_num);
+	fts_init_buffer(thr->rawdata_min, thr->basic.rawdata_min, node_num, raw_key_check, thr->basic.rawdata_min_vk, key_num);
 	if (tdata->func->rawdata2_support) {
-		fts_init_buffer(thr->rawdata2_max, thr->basic.rawdata2_max,
-				node_num, false, 0, 0);
-		fts_init_buffer(thr->rawdata2_min, thr->basic.rawdata2_min,
-				node_num, false, 0, 0);
+		fts_init_buffer(thr->rawdata2_max, thr->basic.rawdata2_max, node_num, false, 0, 0);
+		fts_init_buffer(thr->rawdata2_min, thr->basic.rawdata2_min, node_num, false, 0, 0);
 	}
-	fts_init_buffer(thr->cb_max, thr->basic.cb_max, node_num, cb_key_check,
-			thr->basic.cb_max_vk, key_num);
-	fts_init_buffer(thr->cb_min, thr->basic.cb_min, node_num, cb_key_check,
-			thr->basic.cb_min_vk, key_num);
+	fts_init_buffer(thr->cb_max, thr->basic.cb_max, node_num, cb_key_check, thr->basic.cb_max_vk, key_num);
+	fts_init_buffer(thr->cb_min, thr->basic.cb_min, node_num, cb_key_check, thr->basic.cb_min_vk, key_num);
 
 	/* detail threshold */
-	get_detail_threshold("RawData_Max_Tx", true, thr->rawdata_max,
-			     node_num);
-	get_detail_threshold("RawData_Min_Tx", true, thr->rawdata_min,
-			     node_num);
+	get_detail_threshold("RawData_Max_Tx", true, thr->rawdata_max, node_num);
+	get_detail_threshold("RawData_Min_Tx", true, thr->rawdata_min, node_num);
 	get_detail_threshold("CB_Max_Tx", true, thr->cb_max, node_num);
 	get_detail_threshold("CB_Min_Tx", true, thr->cb_min, node_num);
 
@@ -857,9 +853,9 @@ static void print_thr_incell(void)
 	struct fts_test *tdata = fts_ftest;
 	struct incell_threshold *thr = &tdata->ic.incell.thr;
 
-	if (tdata->ts_data->log_level < 3)
+	if (tdata->ts_data->log_level < 3) {
 		return;
-
+	}
 
 	FTS_TEST_DBG("short_res_min:%d", thr->basic.short_res_min);
 	FTS_TEST_DBG("short_res_vk_min:%d", thr->basic.short_res_vk_min);
@@ -879,10 +875,8 @@ static void print_thr_incell(void)
 	FTS_TEST_DBG("rawdata_min_vk:%d", thr->basic.rawdata_min_vk);
 	FTS_TEST_DBG("rawdata_max_vk:%d", thr->basic.rawdata_max_vk);
 	FTS_TEST_DBG("lcdnoise_frame:%d", thr->basic.lcdnoise_frame);
-	FTS_TEST_DBG("lcdnoise_coefficient:%d",
-		     thr->basic.lcdnoise_coefficient);
-	FTS_TEST_DBG("lcdnoise_coefficient_vkey:%d",
-		     thr->basic.lcdnoise_coefficient_vkey);
+	FTS_TEST_DBG("lcdnoise_coefficient:%d", thr->basic.lcdnoise_coefficient);
+	FTS_TEST_DBG("lcdnoise_coefficient_vkey:%d", thr->basic.lcdnoise_coefficient_vkey);
 
 	FTS_TEST_DBG("open_nmos:%d", thr->basic.open_nmos);
 	FTS_TEST_DBG("keyshort_k1:%d", thr->basic.keyshort_k1);
@@ -890,16 +884,13 @@ static void print_thr_incell(void)
 	FTS_TEST_DBG("rawdata2_min:%d", thr->basic.rawdata2_min);
 	FTS_TEST_DBG("rawdata2_max:%d", thr->basic.rawdata2_max);
 
-	print_buffer(thr->rawdata_min, tdata->node.node_num,
-		     tdata->node.rx_num);
-	print_buffer(thr->rawdata_max, tdata->node.node_num,
-		     tdata->node.rx_num);
+
+	print_buffer(thr->rawdata_min, tdata->node.node_num, tdata->node.rx_num);
+	print_buffer(thr->rawdata_max, tdata->node.node_num, tdata->node.rx_num);
 	print_buffer(thr->cb_min, tdata->node.node_num, tdata->node.rx_num);
 	print_buffer(thr->cb_max, tdata->node.node_num, tdata->node.rx_num);
-	print_buffer(thr->rawdata2_min, tdata->node.node_num,
-		     tdata->node.rx_num);
-	print_buffer(thr->rawdata2_max, tdata->node.node_num,
-		     tdata->node.rx_num);
+	print_buffer(thr->rawdata2_min, tdata->node.node_num, tdata->node.rx_num);
+	print_buffer(thr->rawdata2_max, tdata->node.node_num, tdata->node.rx_num);
 }
 
 static int ini_init_test_incell(void)
@@ -911,6 +902,7 @@ static int ini_init_test_incell(void)
 		FTS_TEST_SAVE_ERR("get incell test item fail\n");
 		return ret;
 	}
+
 
 	ret = get_test_threshold_incell();
 	if (ret < 0) {
@@ -969,78 +961,46 @@ static int get_test_threshold_mc_sc(void)
 	}
 
 	/* init buffer */
-	fts_init_buffer(thr->rawdata_h_min, thr->basic.rawdata_h_min, node_num,
-			false, 0, 0);
-	fts_init_buffer(thr->rawdata_h_max, thr->basic.rawdata_h_max, node_num,
-			false, 0, 0);
+	fts_init_buffer(thr->rawdata_h_min, thr->basic.rawdata_h_min, node_num, false, 0, 0);
+	fts_init_buffer(thr->rawdata_h_max, thr->basic.rawdata_h_max, node_num, false, 0, 0);
 	if (tdata->func->rawdata2_support) {
-		fts_init_buffer(thr->rawdata_l_min, thr->basic.rawdata_l_min,
-				node_num, false, 0, 0);
-		fts_init_buffer(thr->rawdata_l_max, thr->basic.rawdata_l_max,
-				node_num, false, 0, 0);
+		fts_init_buffer(thr->rawdata_l_min, thr->basic.rawdata_l_min, node_num, false, 0, 0);
+		fts_init_buffer(thr->rawdata_l_max, thr->basic.rawdata_l_max, node_num, false, 0, 0);
 	}
-	fts_init_buffer(thr->tx_linearity_max, thr->basic.uniformity_tx_hole,
-			node_num, false, 0, 0);
+	fts_init_buffer(thr->tx_linearity_max, thr->basic.uniformity_tx_hole, node_num, false, 0, 0);
 	fts_init_buffer(thr->tx_linearity_min, 0, node_num, false, 0, 0);
-	fts_init_buffer(thr->rx_linearity_max, thr->basic.uniformity_rx_hole,
-			node_num, false, 0, 0);
+	fts_init_buffer(thr->rx_linearity_max, thr->basic.uniformity_rx_hole, node_num, false, 0, 0);
 	fts_init_buffer(thr->rx_linearity_min, 0, node_num, false, 0, 0);
-	fts_init_buffer(thr->scap_cb_off_min, thr->basic.scap_cb_off_min,
-			sc_num, false, 0, 0);
-	fts_init_buffer(thr->scap_cb_off_max, thr->basic.scap_cb_off_max,
-			sc_num, false, 0, 0);
-	fts_init_buffer(thr->scap_cb_on_min, thr->basic.scap_cb_on_min, sc_num,
-			false, 0, 0);
-	fts_init_buffer(thr->scap_cb_on_max, thr->basic.scap_cb_on_max, sc_num,
-			false, 0, 0);
-	fts_init_buffer(thr->scap_rawdata_off_min,
-			thr->basic.scap_rawdata_off_min, sc_num, false, 0, 0);
-	fts_init_buffer(thr->scap_rawdata_off_max,
-			thr->basic.scap_rawdata_off_max, sc_num, false, 0, 0);
-	fts_init_buffer(thr->scap_rawdata_on_min,
-			thr->basic.scap_rawdata_on_min, sc_num, false, 0, 0);
-	fts_init_buffer(thr->scap_rawdata_on_max,
-			thr->basic.scap_rawdata_on_max, sc_num, false, 0, 0);
-	fts_init_buffer(thr->panel_differ_min, thr->basic.panel_differ_min,
-			node_num, false, 0, 0);
-	fts_init_buffer(thr->panel_differ_max, thr->basic.panel_differ_max,
-			node_num, false, 0, 0);
+	fts_init_buffer(thr->scap_cb_off_min, thr->basic.scap_cb_off_min, sc_num, false, 0, 0);
+	fts_init_buffer(thr->scap_cb_off_max, thr->basic.scap_cb_off_max, sc_num, false, 0, 0);
+	fts_init_buffer(thr->scap_cb_on_min, thr->basic.scap_cb_on_min, sc_num, false, 0, 0);
+	fts_init_buffer(thr->scap_cb_on_max, thr->basic.scap_cb_on_max, sc_num, false, 0, 0);
+	fts_init_buffer(thr->scap_rawdata_off_min, thr->basic.scap_rawdata_off_min, sc_num, false, 0, 0);
+	fts_init_buffer(thr->scap_rawdata_off_max, thr->basic.scap_rawdata_off_max, sc_num, false, 0, 0);
+	fts_init_buffer(thr->scap_rawdata_on_min, thr->basic.scap_rawdata_on_min, sc_num, false, 0, 0);
+	fts_init_buffer(thr->scap_rawdata_on_max, thr->basic.scap_rawdata_on_max, sc_num, false, 0, 0);
+	fts_init_buffer(thr->panel_differ_min, thr->basic.panel_differ_min, node_num, false, 0, 0);
+	fts_init_buffer(thr->panel_differ_max, thr->basic.panel_differ_max, node_num, false, 0, 0);
 
 	/* detail threshold */
-	get_detail_threshold("RawData_Min_High_Tx", true, thr->rawdata_h_min,
-			     node_num);
-	get_detail_threshold("RawData_Max_High_Tx", true, thr->rawdata_h_max,
-			     node_num);
+	get_detail_threshold("RawData_Min_High_Tx", true, thr->rawdata_h_min, node_num);
+	get_detail_threshold("RawData_Max_High_Tx", true, thr->rawdata_h_max, node_num);
 	if (tdata->func->rawdata2_support) {
-		get_detail_threshold("RawData_Min_Low_Tx", true,
-				     thr->rawdata_l_min, node_num);
-		get_detail_threshold("RawData_Max_Low_Tx", true,
-				     thr->rawdata_l_max, node_num);
+		get_detail_threshold("RawData_Min_Low_Tx", true, thr->rawdata_l_min, node_num);
+		get_detail_threshold("RawData_Max_Low_Tx", true, thr->rawdata_l_max, node_num);
 	}
-	get_detail_threshold("Tx_Linearity_Max_Tx", true, thr->tx_linearity_max,
-			     node_num);
-	get_detail_threshold("Rx_Linearity_Max_Tx", true, thr->rx_linearity_max,
-			     node_num);
-	get_detail_threshold("ScapCB_OFF_Min_", true, thr->scap_cb_off_min,
-			     sc_num);
-	get_detail_threshold("ScapCB_OFF_Max_", true, thr->scap_cb_off_max,
-			     sc_num);
-	get_detail_threshold("ScapCB_ON_Min_", true, thr->scap_cb_on_min,
-			     sc_num);
-	get_detail_threshold("ScapCB_ON_Max_", true, thr->scap_cb_on_max,
-			     sc_num);
-	get_detail_threshold("ScapRawData_OFF_Min_", true,
-			     thr->scap_rawdata_off_min, sc_num);
-	get_detail_threshold("ScapRawData_OFF_Max_", true,
-			     thr->scap_rawdata_off_max, sc_num);
-	get_detail_threshold("ScapRawData_ON_Min_", true,
-			     thr->scap_rawdata_on_min, sc_num);
-	get_detail_threshold("ScapRawData_ON_Max_", true,
-			     thr->scap_rawdata_on_max, sc_num);
-	get_detail_threshold("Panel_Differ_Min_Tx", true, thr->panel_differ_min,
-			     node_num);
-	get_detail_threshold("Panel_Differ_Max_Tx", true, thr->panel_differ_max,
-			     node_num);
+	get_detail_threshold("Tx_Linearity_Max_Tx", true, thr->tx_linearity_max, node_num);
+	get_detail_threshold("Rx_Linearity_Max_Tx", true, thr->rx_linearity_max, node_num);
+	get_detail_threshold("ScapCB_OFF_Min_", true, thr->scap_cb_off_min, sc_num);
+	get_detail_threshold("ScapCB_OFF_Max_", true, thr->scap_cb_off_max, sc_num);
+	get_detail_threshold("ScapCB_ON_Min_", true, thr->scap_cb_on_min, sc_num);
+	get_detail_threshold("ScapCB_ON_Max_", true, thr->scap_cb_on_max, sc_num);
+	get_detail_threshold("ScapRawData_OFF_Min_", true, thr->scap_rawdata_off_min, sc_num);
+	get_detail_threshold("ScapRawData_OFF_Max_", true, thr->scap_rawdata_off_max, sc_num);
+	get_detail_threshold("ScapRawData_ON_Min_", true, thr->scap_rawdata_on_min, sc_num);
+	get_detail_threshold("ScapRawData_ON_Max_", true, thr->scap_rawdata_on_max, sc_num);
+	get_detail_threshold("Panel_Differ_Min_Tx", true, thr->panel_differ_min, node_num);
+	get_detail_threshold("Panel_Differ_Max_Tx", true, thr->panel_differ_max, node_num);
 
 	return 0;
 }
@@ -1050,9 +1010,9 @@ static void print_thr_mc_sc(void)
 	struct fts_test *tdata = fts_ftest;
 	struct mc_sc_threshold *thr = &tdata->ic.mc_sc.thr;
 
-	if (tdata->ts_data->log_level < 3)
+	if (tdata->ts_data->log_level < 3) {
 		return;
-
+	}
 
 	FTS_TEST_DBG("rawdata_h_min:%d", thr->basic.rawdata_h_min);
 	FTS_TEST_DBG("rawdata_h_max:%d", thr->basic.rawdata_h_max);
@@ -1062,62 +1022,41 @@ static void print_thr_mc_sc(void)
 	FTS_TEST_DBG("rawdata_set_lfreq:%d", thr->basic.rawdata_set_lfreq);
 	FTS_TEST_DBG("uniformity_check_tx:%d", thr->basic.uniformity_check_tx);
 	FTS_TEST_DBG("uniformity_check_rx:%d", thr->basic.uniformity_check_rx);
-	FTS_TEST_DBG("uniformity_check_min_max:%d",
-		     thr->basic.uniformity_check_min_max);
+	FTS_TEST_DBG("uniformity_check_min_max:%d", thr->basic.uniformity_check_min_max);
 	FTS_TEST_DBG("uniformity_tx_hole:%d", thr->basic.uniformity_tx_hole);
 	FTS_TEST_DBG("uniformity_rx_hole:%d", thr->basic.uniformity_rx_hole);
-	FTS_TEST_DBG("uniformity_min_max_hole:%d",
-		     thr->basic.uniformity_min_max_hole);
+	FTS_TEST_DBG("uniformity_min_max_hole:%d", thr->basic.uniformity_min_max_hole);
 	FTS_TEST_DBG("scap_cb_off_min:%d", thr->basic.scap_cb_off_min);
 	FTS_TEST_DBG("scap_cb_off_max:%d", thr->basic.scap_cb_off_max);
-	FTS_TEST_DBG("scap_cb_wp_off_check:%d",
-		     thr->basic.scap_cb_wp_off_check);
+	FTS_TEST_DBG("scap_cb_wp_off_check:%d", thr->basic.scap_cb_wp_off_check);
 	FTS_TEST_DBG("scap_cb_on_min:%d", thr->basic.scap_cb_on_min);
 	FTS_TEST_DBG("scap_cb_on_max:%d", thr->basic.scap_cb_on_max);
 	FTS_TEST_DBG("scap_cb_wp_on_check:%d", thr->basic.scap_cb_wp_on_check);
-	FTS_TEST_DBG("scap_rawdata_off_min:%d",
-		     thr->basic.scap_rawdata_off_min);
-	FTS_TEST_DBG("scap_rawdata_off_max:%d",
-		     thr->basic.scap_rawdata_off_max);
-	FTS_TEST_DBG("scap_rawdata_wp_off_check:%d",
-		     thr->basic.scap_rawdata_wp_off_check);
+	FTS_TEST_DBG("scap_rawdata_off_min:%d", thr->basic.scap_rawdata_off_min);
+	FTS_TEST_DBG("scap_rawdata_off_max:%d", thr->basic.scap_rawdata_off_max);
+	FTS_TEST_DBG("scap_rawdata_wp_off_check:%d", thr->basic.scap_rawdata_wp_off_check);
 	FTS_TEST_DBG("scap_rawdata_on_min:%d", thr->basic.scap_rawdata_on_min);
 	FTS_TEST_DBG("scap_rawdata_on_max:%d", thr->basic.scap_rawdata_on_max);
-	FTS_TEST_DBG("scap_rawdata_wp_on_check:%d",
-		     thr->basic.scap_rawdata_wp_on_check);
+	FTS_TEST_DBG("scap_rawdata_wp_on_check:%d", thr->basic.scap_rawdata_wp_on_check);
 	FTS_TEST_DBG("short_cg:%d", thr->basic.short_cg);
 	FTS_TEST_DBG("short_cc:%d", thr->basic.short_cc);
 	FTS_TEST_DBG("panel_differ_min:%d", thr->basic.panel_differ_min);
 	FTS_TEST_DBG("panel_differ_max:%d", thr->basic.panel_differ_max);
 
-	print_buffer(thr->rawdata_h_min, tdata->node.node_num,
-		     tdata->node.rx_num);
-	print_buffer(thr->rawdata_h_max, tdata->node.node_num,
-		     tdata->node.rx_num);
-	print_buffer(thr->rawdata_l_min, tdata->node.node_num,
-		     tdata->node.rx_num);
-	print_buffer(thr->rawdata_l_max, tdata->node.node_num,
-		     tdata->node.rx_num);
-	print_buffer(thr->scap_cb_off_min, tdata->sc_node.node_num,
-		     tdata->sc_node.rx_num);
-	print_buffer(thr->scap_cb_off_max, tdata->sc_node.node_num,
-		     tdata->sc_node.rx_num);
-	print_buffer(thr->scap_cb_on_min, tdata->sc_node.node_num,
-		     tdata->sc_node.rx_num);
-	print_buffer(thr->scap_cb_on_max, tdata->sc_node.node_num,
-		     tdata->sc_node.rx_num);
-	print_buffer(thr->scap_rawdata_off_min, tdata->sc_node.node_num,
-		     tdata->sc_node.rx_num);
-	print_buffer(thr->scap_rawdata_off_max, tdata->sc_node.node_num,
-		     tdata->sc_node.rx_num);
-	print_buffer(thr->scap_rawdata_on_min, tdata->sc_node.node_num,
-		     tdata->sc_node.rx_num);
-	print_buffer(thr->scap_rawdata_on_max, tdata->sc_node.node_num,
-		     tdata->sc_node.rx_num);
-	print_buffer(thr->panel_differ_min, tdata->node.node_num,
-		     tdata->node.rx_num);
-	print_buffer(thr->panel_differ_max, tdata->node.node_num,
-		     tdata->node.rx_num);
+	print_buffer(thr->rawdata_h_min, tdata->node.node_num, tdata->node.rx_num);
+	print_buffer(thr->rawdata_h_max, tdata->node.node_num, tdata->node.rx_num);
+	print_buffer(thr->rawdata_l_min, tdata->node.node_num, tdata->node.rx_num);
+	print_buffer(thr->rawdata_l_max, tdata->node.node_num, tdata->node.rx_num);
+	print_buffer(thr->scap_cb_off_min, tdata->sc_node.node_num, tdata->sc_node.rx_num);
+	print_buffer(thr->scap_cb_off_max, tdata->sc_node.node_num, tdata->sc_node.rx_num);
+	print_buffer(thr->scap_cb_on_min, tdata->sc_node.node_num, tdata->sc_node.rx_num);
+	print_buffer(thr->scap_cb_on_max, tdata->sc_node.node_num, tdata->sc_node.rx_num);
+	print_buffer(thr->scap_rawdata_off_min, tdata->sc_node.node_num, tdata->sc_node.rx_num);
+	print_buffer(thr->scap_rawdata_off_max, tdata->sc_node.node_num, tdata->sc_node.rx_num);
+	print_buffer(thr->scap_rawdata_on_min, tdata->sc_node.node_num, tdata->sc_node.rx_num);
+	print_buffer(thr->scap_rawdata_on_max, tdata->sc_node.node_num, tdata->sc_node.rx_num);
+	print_buffer(thr->panel_differ_min, tdata->node.node_num, tdata->node.rx_num);
+	print_buffer(thr->panel_differ_max, tdata->node.node_num, tdata->node.rx_num);
 }
 
 static int ini_init_test_mc_sc(void)
@@ -1185,27 +1124,20 @@ static int get_test_threshold_sc(void)
 	}
 
 	/* init buffer */
-	fts_init_buffer(thr->rawdata_min, thr->basic.rawdata_min, node_num,
-			false, 0, 0);
-	fts_init_buffer(thr->rawdata_max, thr->basic.rawdata_max, node_num,
-			false, 0, 0);
+	fts_init_buffer(thr->rawdata_min, thr->basic.rawdata_min, node_num, false, 0, 0);
+	fts_init_buffer(thr->rawdata_max, thr->basic.rawdata_max, node_num, false, 0, 0);
 	fts_init_buffer(thr->cb_min, thr->basic.cb_min, node_num, false, 0, 0);
 	fts_init_buffer(thr->cb_max, thr->basic.cb_max, node_num, false, 0, 0);
 	fts_init_buffer(thr->dcb_sort, 0, node_num, false, 0, 0);
-	fts_init_buffer(thr->dcb_base, thr->basic.dcb_base, node_num, false, 0,
-			0);
+	fts_init_buffer(thr->dcb_base, thr->basic.dcb_base, node_num, false, 0, 0);
 
 	/* detail threshold */
-	get_detail_threshold("RawDataTest_Min", false, thr->rawdata_min,
-			     node_num);
-	get_detail_threshold("RawDataTest_Max", false, thr->rawdata_max,
-			     node_num);
+	get_detail_threshold("RawDataTest_Min", false, thr->rawdata_min, node_num);
+	get_detail_threshold("RawDataTest_Max", false, thr->rawdata_max, node_num);
 	get_detail_threshold("CbTest_Min", false, thr->cb_min, node_num);
 	get_detail_threshold("CbTest_Max", false, thr->cb_max, node_num);
-	get_detail_threshold("DeltaCxTest_Sort", false, thr->dcb_sort,
-			     node_num);
-	get_detail_threshold("DeltaCbTest_Base", false, thr->dcb_base,
-			     node_num);
+	get_detail_threshold("DeltaCxTest_Sort", false, thr->dcb_sort, node_num);
+	get_detail_threshold("DeltaCbTest_Base", false, thr->dcb_base, node_num);
 
 	return 0;
 }
@@ -1215,9 +1147,9 @@ static void print_thr_sc(void)
 	struct fts_test *tdata = fts_ftest;
 	struct sc_threshold *thr = &tdata->ic.sc.thr;
 
-	if (tdata->ts_data->log_level < 3)
+	if (tdata->ts_data->log_level < 3) {
 		return;
-
+	}
 
 	FTS_TEST_DBG("rawdata_min:%d", thr->basic.rawdata_min);
 	FTS_TEST_DBG("rawdata_max:%d", thr->basic.rawdata_max);
@@ -1240,10 +1172,8 @@ static void print_thr_sc(void)
 	FTS_TEST_DBG("dcb_cs5:%d", thr->basic.dcb_cs5);
 	FTS_TEST_DBG("dcb_cs6:%d", thr->basic.dcb_cs6);
 
-	print_buffer(thr->rawdata_min, tdata->node.node_num,
-		     tdata->node.rx_num);
-	print_buffer(thr->rawdata_max, tdata->node.node_num,
-		     tdata->node.rx_num);
+	print_buffer(thr->rawdata_min, tdata->node.node_num, tdata->node.rx_num);
+	print_buffer(thr->rawdata_max, tdata->node.node_num, tdata->node.rx_num);
 	print_buffer(thr->cb_min, tdata->node.node_num, tdata->node.rx_num);
 	print_buffer(thr->cb_max, tdata->node.node_num, tdata->node.rx_num);
 	print_buffer(thr->dcb_sort, tdata->node.node_num, tdata->node.rx_num);
@@ -1278,12 +1208,11 @@ static u32 ini_get_ic_code(char *ic_name)
 	int ic_types_len = 0;
 
 	ini_icname_len = strlen(ic_name);
-	type_size = ARRAY_SIZE(ic_types);
+	type_size = sizeof(ic_types) / sizeof(ic_types[0]);
 	for (i = 0; i < type_size; i++) {
 		ic_types_len = strlen(ic_name);
 		if (ini_icname_len == ic_types_len) {
-			if (0 ==
-			    strncmp(ic_name, ic_types[i].ic_name, ic_types_len))
+			if (0 == strncmp(ic_name, ic_types[i].ic_name, ic_types_len))
 				return ic_types[i].ic_type;
 		}
 	}
@@ -1292,9 +1221,10 @@ static u32 ini_get_ic_code(char *ic_name)
 	return 0;
 }
 
+
 static void ini_init_interface(struct ini_data *ini)
 {
-	char str[MAX_KEYWORD_VALUE_LEN] = {0};
+	char str[MAX_KEYWORD_VALUE_LEN] = { 0 };
 	u32 value = 0;
 	struct fts_test *tdata = fts_ftest;
 
@@ -1306,7 +1236,7 @@ static void ini_init_interface(struct ini_data *ini)
 	ini->ic_code = value;
 	FTS_TEST_INFO("ic name:%s, ic code:%x", ini->ic_name, ini->ic_code);
 
-	if (tdata->func->hwtype == IC_HW_MC_SC) {
+	if (IC_HW_MC_SC == tdata->func->hwtype) {
 		get_value_interface("Normalize_Type", &value);
 		tdata->normalize = (u8)value;
 		FTS_TEST_DBG("normalize:%d", tdata->normalize);
@@ -1339,8 +1269,7 @@ static int ini_init_test(struct ini_data *ini)
 		ret = ini_init_test_sc();
 		break;
 	default:
-		FTS_TEST_SAVE_ERR("test ic type(%d) fail\n",
-				  tdata->func->hwtype);
+		FTS_TEST_SAVE_ERR("test ic type(%d) fail\n", tdata->func->hwtype);
 		ret = -EINVAL;
 		break;
 	}
@@ -1373,7 +1302,7 @@ int fts_test_get_testparam_from_ini(char *config_name)
 	ini->section_num = 0;
 
 	ini->tmp = vmalloc(sizeof(struct ini_keyword) * MAX_KEYWORD_NUM);
-	if (ini->tmp == NULL) {
+	if (NULL == ini->tmp) {
 		FTS_TEST_ERROR("malloc memory for ini tmp fail");
 		ret = -ENOMEM;
 		goto get_ini_err;

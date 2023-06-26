@@ -773,13 +773,16 @@ static int tcp_error(struct net *net, struct nf_conn *tmpl,
 	 */
 	/* FIXME: Source route IP option packets --RR */
 	if (net->ct.sysctl_checksum && hooknum == NF_INET_PRE_ROUTING &&
+		//gro on: clatd checksum fail patch: not from clatd or
+		//ip_summed is not unnecessary
+		(skb_shinfo(skb)->gso_size != 1 ||
+		skb->ip_summed != CHECKSUM_UNNECESSARY) &&
 	    nf_checksum(skb, hooknum, dataoff, IPPROTO_TCP, pf)) {
 		if (LOG_INVALID(net, IPPROTO_TCP))
 			nf_log_packet(net, pf, 0, skb, NULL, NULL, NULL,
 				  "nf_ct_tcp: bad TCP checksum ");
 		return -NF_ACCEPT;
 	}
-
 	/* Check TCP flags. */
 	tcpflags = (tcp_flag_byte(th) & ~(TCPHDR_ECE|TCPHDR_CWR|TCPHDR_PSH));
 	if (!tcp_valid_flags[tcpflags]) {

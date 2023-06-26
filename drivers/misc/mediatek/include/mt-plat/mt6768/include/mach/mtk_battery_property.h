@@ -18,11 +18,11 @@
 #define DIFFERENCE_FULLOCV_ITH	200	/* mA */
 #define MTK_CHR_EXIST 1
 #define KEEP_100_PERCENT 1
-#define R_FG_VALUE	5				/* mOhm */
+#define R_FG_VALUE	10				/* mOhm */
 #define EMBEDDED_SEL 0
 #define PMIC_SHUTDOWN_CURRENT 20	/* 0.01 mA */
 #define FG_METER_RESISTANCE	100
-#define CAR_TUNE_VALUE	100 /*1.00 */
+#define CAR_TUNE_VALUE	99 /*1.00 */
 #define NO_BAT_TEMP_COMPENSATE 0
 /* NO_BAT_TEMP_COMPENSATE 1 = don't need bat_temper compensate, */
 /* but fg_meter_resistance still use for SWOCV */
@@ -76,13 +76,13 @@
 #define DIFFERENCE_FULL_CV 1000 /*0.01%*/
 #define PSEUDO1_EN 1
 #define PSEUDO100_EN 1
-#define PSEUDO100_EN_DIS 1
+#define PSEUDO100_EN_DIS 0
 
 #define DIFF_SOC_SETTING 50	/* 0.01% */
 #define DIFF_BAT_TEMP_SETTING 1
 #define DIFF_BAT_TEMP_SETTING_C 10
 #define DISCHARGE_TRACKING_TIME 10
-#define CHARGE_TRACKING_TIME 60
+#define CHARGE_TRACKING_TIME 30
 #define DIFFERENCE_FULLOCV_VTH	1000	/* 0.1mV */
 #define CHARGE_PSEUDO_FULL_LEVEL 8000
 #define FULL_TRACKING_BAT_INT2_MULTIPLY 6
@@ -92,7 +92,7 @@
 #define VBAT2_DET_TIME 5
 #define VBAT2_DET_COUNTER 6
 #define VBAT2_DET_VOLTAGE1	34500
-#define VBAT2_DET_VOLTAGE2	32000
+#define VBAT2_DET_VOLTAGE2	33000
 #define VBAT2_DET_VOLTAGE3	35000
 
 /* PCB setting */
@@ -139,9 +139,10 @@
 #define SWOCV_OLDOCV_DIFF_CHR	800
 #define VBAT_OLDOCV_DIFF	1000
 #define SWOCV_OLDOCV_DIFF_EMB	1000	/* 100mV */
-
-#define VIR_OLDOCV_DIFF_EMB	10000	/* 1000mV */
-#define VIR_OLDOCV_DIFF_EMB_LT	10000	/* 1000mV */
+/*K19A HQHW-951 K19A for sync soc by langjunjun at 2021/6/22 start*/
+#define VIR_OLDOCV_DIFF_EMB	2000	/* 200mV */
+#define VIR_OLDOCV_DIFF_EMB_LT	2000	/* 200mV */
+/*K19A HQHW-951 K19A for sync soc by langjunjun at 2021/6/22 end*/
 #define VIR_OLDOCV_DIFF_EMB_TMP	5
 
 #define TNEW_TOLD_PON_DIFF	5

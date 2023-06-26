@@ -52,7 +52,7 @@ struct fscrypt_mode fscrypt_modes[] = {
 
 static DEFINE_MUTEX(fscrypt_mode_key_setup_mutex);
 
-static struct fscrypt_mode *
+struct fscrypt_mode *
 select_encryption_mode(const union fscrypt_policy *policy,
 		       const struct inode *inode)
 {
@@ -364,7 +364,7 @@ static int fscrypt_setup_v2_file_key(struct fscrypt_info *ci,
  * to create an fscrypt_info for the same inode), and to synchronize the master
  * key being removed with a new inode starting to use it.
  */
-static int setup_file_encryption_key(struct fscrypt_info *ci,
+int setup_file_encryption_key(struct fscrypt_info *ci,
 				     struct key **master_key_ret)
 {
 	struct key *key;
@@ -462,7 +462,7 @@ out_release_key:
 	return err;
 }
 
-static void put_crypt_info(struct fscrypt_info *ci)
+void put_crypt_info(struct fscrypt_info *ci)
 {
 	struct key *key;
 

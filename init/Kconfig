@@ -1610,6 +1610,12 @@ config MEMBARRIER
 
 	  If unsure, say Y.
 
+config MIHW
+	bool "MI driver"
+	default n
+	help
+	  Mi driver code
+
 config EMBEDDED
 	bool "Embedded system"
 	option allnoconfig_y

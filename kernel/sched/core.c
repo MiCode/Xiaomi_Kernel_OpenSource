@@ -3454,6 +3454,10 @@ static void __sched_fork(unsigned long clone_flags, struct task_struct *p)
 	INIT_LIST_HEAD(&p->se.group_node);
 	walt_init_new_task_load(p);
 
+#ifdef CONFIG_MIGT
+	migt_monitor_init(p);
+#endif
+
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	p->se.cfs_rq			= NULL;
 #endif
@@ -4583,6 +4587,52 @@ again:
 	BUG();
 }
 
+/* Huaqin add for HQ-131657 by liunianliang at 2021/06/03 start */
+#ifdef ENABLE_MIUI_DEBUGGING
+static unsigned long __read_mostly tracing_mark_write_addr = 0;
+static inline void __mt_update_tracing_mark_write_addr(void)
+{
+	if (unlikely(tracing_mark_write_addr == 0))
+		tracing_mark_write_addr = kallsyms_lookup_name("tracing_mark_write");
+
+}
+
+void trace_begin(char *name)
+{
+
+	__mt_update_tracing_mark_write_addr();
+	preempt_disable();
+	event_trace_printk(tracing_mark_write_addr,"B|%d|%s\n",current->tgid,name);
+	preempt_enable();
+}
+
+void trace_end()
+{
+
+	__mt_update_tracing_mark_write_addr();
+	preempt_disable();
+	event_trace_printk(tracing_mark_write_addr,"E\n");
+	preempt_enable();
+}
+
+void record_trace_callback()
+{
+	int i = 0 ;
+	char caller[256] = {0};
+	unsigned long caller_ip;
+	for (i = 0; i < 10; i++)
+	{
+		caller_ip = (unsigned long)ftrace_return_address(i);
+		sprint_symbol(caller,caller_ip);
+		trace_begin(caller);
+	}
+	for (i = 0 ; i < 10; i++)
+		trace_end();
+
+}
+#endif
+/* Huaqin add for HQ-131657 by liunianliang at 2021/06/03 end */
+
 /*
  * __schedule() is the main scheduler function.
  *
@@ -4634,6 +4684,14 @@ static void __sched notrace __schedule(bool preempt)
 	cpu = smp_processor_id();
 	rq = cpu_rq(cpu);
 	prev = rq->curr;
+
+/* Huaqin add for HQ-131657 by liunianliang at 2021/06/03 start */
+#ifdef ENABLE_MIUI_DEBUGGING
+	if ((prev->state & TASK_UNINTERRUPTIBLE) == TASK_UNINTERRUPTIBLE) {
+		record_trace_callback();
+	}
+#endif
+/* Huaqin add for HQ-131657 by liunianliang at 2021/06/03 end */
 
 	schedule_debug(prev);
 

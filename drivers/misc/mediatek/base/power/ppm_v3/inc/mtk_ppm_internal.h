@@ -166,6 +166,9 @@ enum {
 enum ppm_policy {
 	PPM_POLICY_PTPOD = 0, /* highest priority */
 	PPM_POLICY_UT,
+	/*K19A HQ-123203 K19A config thermal farmework by denggang at 2021/04/16 start*/
+	PPM_POLICY_SYS_BOOST,
+	/*K19A HQ-123203 K19A config thermal farmework by denggang at 2021/04/16 end*/
 	PPM_POLICY_FORCE_LIMIT,
 	PPM_POLICY_PWR_THRO,
 	PPM_POLICY_THERMAL,
@@ -173,7 +176,6 @@ enum ppm_policy {
 	PPM_POLICY_HARD_USER_LIMIT,
 	PPM_POLICY_USER_LIMIT,
 	PPM_POLICY_LCM_OFF,
-	PPM_POLICY_SYS_BOOST,
 	PPM_POLICY_HICA,
 
 	NR_PPM_POLICIES,

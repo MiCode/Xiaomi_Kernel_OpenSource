@@ -38,6 +38,7 @@
 #include "mt_emi_api.h"
 #endif
 
+static unsigned int lp4x_highfreq_3600;
 static unsigned int lp4_highest_freq;
 
 void __iomem *DRAMC_AO_CHA_BASE_ADDR;
@@ -743,7 +744,7 @@ int dram_steps_freq(unsigned int step)
 		if (DRAM_TYPE == TYPE_LPDDR3)
 			freq = 1866;
 		else if (DRAM_TYPE == TYPE_LPDDR4X)
-			freq = 3600;
+			freq = (lp4x_highfreq_3600) ? 3600 : 3200;
 		else if (DRAM_TYPE == TYPE_LPDDR4)
 			freq = lp4_highest_freq;
 		break;
@@ -874,7 +875,12 @@ static int dram_probe(struct platform_device *pdev)
 #else
 	DRAM_TYPE = TYPE_LPDDR4X;
 #endif
-	dramc_info("dram type =%d\n", DRAM_TYPE);
+	if (get_dram_data_rate() == 3600)
+		lp4x_highfreq_3600 = 1;
+	else
+		lp4x_highfreq_3600 = 0;
+
+	dramc_info("lp4x_highfreq_3600 = %d\n", lp4x_highfreq_3600);
 
 	if (!DRAM_TYPE) {
 		dramc_info("dram type error !!\n");

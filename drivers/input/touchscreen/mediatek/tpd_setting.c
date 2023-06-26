@@ -73,5 +73,8 @@ module_param(tpd_em_sample_cnt, int, 0664);
 int tpd_load_status;
 module_param(tpd_load_status, int, 0664);
 
+int tpd_init_status;
+module_param(tpd_init_status, int, 0664);
+
 int tpd_em_asamp = 1;
 module_param(tpd_em_asamp, int, 0664);

@@ -309,7 +309,7 @@ int dsp_spi_write(u32 addr, void *value, int len, u32 speed)
 	struct spi_device *spi = hifi4dsp_spi_data.spi_bus_data[0];
 	void *tx_store;
 
-	pr_notice("%s addr = 0x%08x, len = %d\n", __func__, addr, len);
+	//pr_notice("%s addr = 0x%08x, len = %d\n", __func__, addr, len);
 	xfer_speed = speed;
 	mutex_lock(&hifi4dsp_bus_lock);
 spi_config_write:
@@ -373,7 +373,7 @@ int dsp_spi_read(u32 addr, void *value, int len, u32 speed)
 	int type = default_spi_trans_mode;
 	struct spi_device *spi = hifi4dsp_spi_data.spi_bus_data[0];
 
-	pr_notice("%s addr = 0x%08x, len = %d\n", __func__, addr, len);
+	//pr_notice("%s addr = 0x%08x, len = %d\n", __func__, addr, len);
 	xfer_speed = speed;
 	mutex_lock(&hifi4dsp_bus_lock);
 spi_config_read:

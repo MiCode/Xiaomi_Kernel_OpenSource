@@ -290,6 +290,17 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
 				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ \
 				  -e s/sh[234].*/sh/ -e s/aarch64.*/arm64/ )
 
+# Make sure the kernel could be compiled successfully
+LINK_DUM :=$(shell if [ ! -L "$(abspath $(srctree))/include/linux/rtmm.h" ]; then \
+		ln -s -f $(abspath $(srctree))/include/dum/rtmm.h $(abspath $(srctree))/include/linux/rtmm.h; \
+		ln -s -f $(abspath $(srctree))/include/dum/ktrace.h $(abspath $(srctree))/include/linux/ktrace.h; \
+		mkdir -p $(abspath $(srctree))/drivers/staging/rtmm; \
+		touch $(abspath $(srctree))/drivers/staging/rtmm/Kconfig; \
+		touch $(abspath $(srctree))/drivers/staging/rtmm/Makefile; \
+		mkdir -p $(abspath $(srctree))/drivers/staging/ktrace; \
+		touch $(abspath $(srctree))/drivers/staging/ktrace/Kconfig; \
+		touch $(abspath $(srctree))/drivers/staging/ktrace/Makefile; fi;)
+
 # Cross compiling and selecting different set of gcc/bin-utils
 # ---------------------------------------------------------------------------
 #
@@ -968,6 +979,41 @@ include scripts/Makefile.ubsan
 KBUILD_CPPFLAGS += $(ARCH_CPPFLAGS) $(KCPPFLAGS)
 KBUILD_AFLAGS   += $(ARCH_AFLAGS)   $(KAFLAGS)
 KBUILD_CFLAGS   += $(ARCH_CFLAGS)   $(KCFLAGS)
+
+# =============FACTORY==================================
+# Add macros only for factory version
+ifeq ($(strip $(FACTORY_VERSION_MODE)) , true)
+KBUILD_CFLAGS += -DFACTORY_VERSION_ENABLE
+endif
+# =============FACTORY==================================
+
+# Huaqin add for HQ-131657 by liunianliang at 2021/06/03 start
+ifeq ($(strip $(ENABLE_MIUI_DEBUGGING)), true)
+KBUILD_CFLAGS += -DENABLE_MIUI_DEBUGGING
+endif
+# Huaqin add for HQ-131657 by liunianliang at 2021/06/03 end
+
+# =============PROJECT==================================
+# Add macros by TARGET_PRODUCT for different projects
+ifeq ($(strip $(TARGET_PRODUCT)) , lancelot)
+# Define macros here only for lancelot project
+KBUILD_CFLAGS += -DTARGET_PRODUCT_LANCELOT
+else ifeq ($(strip $(TARGET_PRODUCT)) , shiva)
+# Define macros here only for shiva project
+KBUILD_CFLAGS += -DTARGET_PRODUCT_SHIVA
+else
+endif
+
+ifeq ($(strip $(TARGET_PRODUCT)) , selene)
+# Define macros here only for selene project
+KBUILD_CFLAGS += -DTARGET_PRODUCT_SELENE
+endif
+
+ifneq (,$(filter merlin merlinin merlinnfc, $(TARGET_PRODUCT)))
+# Define macros here only for merlin common project
+KBUILD_CFLAGS += -DTARGET_PRODUCT_MERLINCOMMON
+endif
+# =============PROJECT==================================
 
 # Use --build-id when available.
 LDFLAGS_BUILD_ID := $(patsubst -Wl$(comma)%,%,\

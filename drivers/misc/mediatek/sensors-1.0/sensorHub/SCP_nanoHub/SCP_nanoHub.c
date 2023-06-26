@@ -862,13 +862,13 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].sensorType =
 		SENSOR_TYPE_PICK_UP_GESTURE;
-	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONESHOT;
+	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONCHANGE;
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].timestamp_filter = false;
 
-	mSensorState[SENSOR_TYPE_WAKE_GESTURE].sensorType =
-		SENSOR_TYPE_WAKE_GESTURE;
-	mSensorState[SENSOR_TYPE_WAKE_GESTURE].rate = SENSOR_RATE_ONESHOT;
-	mSensorState[SENSOR_TYPE_WAKE_GESTURE].timestamp_filter = false;
+	//mSensorState[SENSOR_TYPE_WAKE_GESTURE].sensorType =
+	//	SENSOR_TYPE_WAKE_GESTURE;
+	//mSensorState[SENSOR_TYPE_WAKE_GESTURE].rate = SENSOR_RATE_ONESHOT;
+	//mSensorState[SENSOR_TYPE_WAKE_GESTURE].timestamp_filter = false;
 
 	mSensorState[SENSOR_TYPE_ANSWER_CALL].sensorType =
 		SENSOR_TYPE_ANSWER_CALL;
@@ -912,7 +912,7 @@ static void SCP_sensorHub_init_sensor_state(void)
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
-		uint8_t sensor_type)
+		int sensor_type)
 {
 	uint8_t alt = mSensorState[sensor_type].alt;
 	bool enable = 0;
@@ -1021,8 +1021,7 @@ static int SCP_sensorHub_flush(int handle)
 static int SCP_sensorHub_report_raw_data(struct data_unit_t *data_t)
 {
 	struct SCP_sensorHub_data *obj = obj_data;
-	int err = 0;
-	uint8_t sensor_type = 0, sensor_id = 0;
+	int err = 0, sensor_type = 0, sensor_id = 0;
 	atomic_t *p_flush_count = NULL;
 	bool raw_enable = 0;
 	int64_t raw_enable_time = 0;
@@ -1069,8 +1068,8 @@ static int SCP_sensorHub_report_raw_data(struct data_unit_t *data_t)
 static int SCP_sensorHub_report_alt_data(struct data_unit_t *data_t)
 {
 	struct SCP_sensorHub_data *obj = obj_data;
-	int err = 0;
-	uint8_t alt = 0, alt_id, sensor_type = 0, sensor_id = 0;
+	int err = 0, sensor_type = 0, sensor_id = 0, alt_id;
+	uint8_t alt = 0;
 	atomic_t *p_flush_count = NULL;
 	bool alt_enable = 0;
 	int64_t alt_enable_time = 0;
@@ -1543,6 +1542,10 @@ int sensor_get_data_from_hub(uint8_t sensorType,
 	case ID_LIGHT:
 		data->time_stamp = data_t->time_stamp;
 		data->light = data_t->light;
+		/*Huaqin modify for HQ-12367 by luozeng at 2021.3.31 start*/
+		data->data[1] = data_t->data[1];
+        printk_ratelimited(KERN_ERR "light: data[0] = %d, data[1] = %d\n", data->light, data->data[1]);
+		/*Huaqin modify for HQ-12367 by luozeng at 2021.3.31 end*/
 		break;
 	case ID_PROXIMITY:
 		data->time_stamp = data_t->time_stamp;
@@ -1867,10 +1870,20 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
 				custData) + sizeof(req.set_cust_req.getInfo);
 			break;
-		default:
-			return -1;
-		}
-		break;
+
+    // new add for lcm info
+    case CUST_ACTION_LCM_INFO:
+    req.set_cust_req.lcm_info.action = CUST_ACTION_LCM_INFO;
+    req.set_cust_req.lcm_info.lcm_info = (*(int *)data);
+    printk("zch req.set_cust_req.lcm_info.lcm_info = %d\n", req.set_cust_req.lcm_info.lcm_info);
+    len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+    custData) + sizeof(req.set_cust_req.lcm_info);
+    break;
+
+    default:
+    return -1;
+    }
+    break;
 	case ID_PROXIMITY:
 		req.set_cust_req.sensorType = ID_PROXIMITY;
 		req.set_cust_req.action = SENSOR_HUB_SET_CUST;
@@ -1940,6 +1953,23 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 				CUST_ACTION_GET_SENSOR_INFO;
 			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
 				custData) + sizeof(req.set_cust_req.getInfo);
+			break;
+		// new add for sec cali psensor
+		case CUST_ACTION_SEC_PCAL:
+			req.set_cust_req.sec_pcali.action = CUST_ACTION_SEC_PCAL;
+			req.set_cust_req.sec_pcali.sec_pcali = (*(int *)data);
+			printk("zch req.set_cust_req.sec_pcal.sec_pcal = %d\n", req.set_cust_req.sec_pcali.sec_pcali);
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+			custData) + sizeof(req.set_cust_req.sec_pcali);
+			break;
+
+		case CUST_ACTION_SET_FACTORY:
+			req.set_cust_req.setFactory.action =
+				CUST_ACTION_SET_FACTORY;
+			req.set_cust_req.setFactory.factory =
+				*((int32_t *) data);
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.setFactory);
 			break;
 		default:
 			return -1;

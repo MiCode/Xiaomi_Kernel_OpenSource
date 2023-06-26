@@ -127,6 +127,23 @@ static inline int getAFInfo(__user struct stAF_MotorInfo *pstMotorInfo)
 	return 0;
 }
 
+static int s4AF_WriteReg_Directly(u16 a_u2Data)
+{
+	int i4RetValue = 0;
+
+	char puSendCmd[2] = {(char)(a_u2Data >> 8), (char)(a_u2Data & 0xFF)};
+
+	g_pstAF_I2Cclient->addr = AF_I2C_SLAVE_ADDR;
+	g_pstAF_I2Cclient->addr = g_pstAF_I2Cclient->addr >> 1;
+
+	i4RetValue = i2c_master_send(g_pstAF_I2Cclient, puSendCmd, 2);
+	if (i4RetValue < 0) {
+			LOG_INF("I2C send Reg failed!!\n");
+			return -1;
+	}
+	return 0;
+}
+
 static int initdrv(void)
 {
 	int i4RetValue = 0;
@@ -310,4 +327,13 @@ int DW9800WAF_GetFileName(unsigned char *pFileName)
 	pFileName[0] = '\0';
 	#endif
 	return 1;
+}
+void DW9800WAF_SetI2Cclient_first(struct i2c_client *pstAF_I2Cclient,
+			  spinlock_t *pAF_SpinLock)
+{
+	g_pstAF_I2Cclient = pstAF_I2Cclient;
+	LOG_INF("Start DW9800w Power down mode!\n");
+	s4AF_WriteReg_Directly(0x0201);
+	LOG_INF("End DW9800w Power down mode!\n");
+	LOG_INF("End\n");
 }

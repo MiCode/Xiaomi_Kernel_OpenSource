@@ -67,7 +67,8 @@
 #undef TPD_RES_Y
 extern unsigned long TPD_RES_X;
 extern unsigned long TPD_RES_Y;
-extern int tpd_load_status;	/* 0: failed, 1: success */
+extern int tpd_load_status;
+extern int tpd_init_status;	/* 0: failed, 1: success */
 extern int tpd_mode;
 extern int tpd_mode_axis;
 extern int tpd_mode_min;

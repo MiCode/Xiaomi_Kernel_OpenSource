@@ -44,7 +44,7 @@ static int mtk_cl_backlight_get_max_state
 	return 0;
 }
 
-	static int mtk_cl_backlight_get_cur_state
+static int mtk_cl_backlight_get_cur_state
 (struct thermal_cooling_device *cdev, unsigned long *state)
 {
 	*state = g_backlight_level;
@@ -56,10 +56,10 @@ static int mtk_cl_backlight_set_cur_state
 {
 	int enable = (state == MAX_BACKLIGHT_BRIGHTNESS) ? 0 : 1;
 
+	printk("[%s]: --lyd_thmal, set max brightness = %d\n", __func__, state);
 	setMaxbrightness(state, enable);
 	g_backlight_level = state;
-	mtk_cooler_backlight_dprintk("%s: %d\n", g_backlight_level);
-
+	mtk_cooler_backlight_dprintk("%u\n", g_backlight_level);
 	return 0;
 }
 

@@ -51,6 +51,19 @@ void kpd_get_keymap_state(u16 state[])
 
 }
 
+void long_press_reboot(unsigned long long_press_is_reboot)
+{
+	if (long_press_is_reboot == 0) {
+		kpd_info("disable  LPRST\n");
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x00);
+		pmic_set_register_value(PMIC_RG_HOMEKEY_RST_EN, 0x00);
+	} else {
+		long_press_reboot_function_setting();
+	}
+
+	return;
+}
+
 /********************************************************************/
 void long_press_reboot_function_setting(void)
 {

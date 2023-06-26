@@ -331,9 +331,12 @@ s32 cmdqBackupAllocateSlot(cmdqBackupSlotHandle *p_h_backup_slot,
  */
 s32 cmdq_cpu_read_mem(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
 	u32 *value);
-s32 cmdqBackupReadSlot(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
+s32 cmdqBackupReadSlotext(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
 	u32 *value);
-
+#define cmdqBackupReadSlot(h_backup_slot, slot_index, value)                      \
+do {                                                                                       \
+	 cmdqBackupReadSlotext(h_backup_slot, slot_index, value);                              \
+} while (0)
 /* Use CPU to write value into 32-bit register backup slot by index directly.
  */
 s32 cmdq_cpu_write_mem(cmdqBackupSlotHandle h_backup_slot,
@@ -357,9 +360,12 @@ s32 cmdqBackupFreeSlot(cmdqBackupSlotHandle h_backup_slot);
  */
 s32 cmdq_op_read_reg_to_mem(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 addr);
-s32 cmdqRecBackupRegisterToSlot(struct cmdqRecStruct *handle,
+s32 cmdqRecBackupRegisterToSlotext(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 addr);
-
+#define cmdqRecBackupRegisterToSlot(handle, h_backup_slot, slot_index, addr)                      \
+do {                                                                                       \
+	cmdqRecBackupRegisterToSlotext(handle,h_backup_slot, slot_index, addr);                   \
+} while (0)
 /* Insert instructions to write 32-bit HW register
  * from a backup slot.
  * You can use cmdq_cpu_read_mem() to retrieve the result

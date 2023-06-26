@@ -2421,3 +2421,10 @@ walt_task_in_cum_window_demand(struct rq *rq, struct task_struct *p)
 #endif
 
 #include "sched_plus.h"
+
+#ifdef CONFIG_MIGT
+void __weak migt_monitot_init(struct task_struct *tsk)
+{
+	return;
+}
+#endif

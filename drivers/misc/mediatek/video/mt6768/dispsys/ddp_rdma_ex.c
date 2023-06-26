@@ -615,10 +615,16 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 			frame_rate = 30;
 	}
 
+	DDPMSG("%s, frame_rate=%u\n", __func__, frame_rate);
+
 	/* get fifo parameters */
 	switch (rdma_golden_setting->mmsys_clk) {
 	case MMSYS_CLK_LOW:
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		mmsysclk = 312;
+#else
 		mmsysclk = 230;
+#endif
 		break;
 	case MMSYS_CLK_HIGH:
 		mmsysclk = 457;
@@ -653,9 +659,19 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 		fifo_off_drs_leave = 1;
 		fifo_off_spm = 50; /* 10 times*/
 		fifo_off_dvfs = 2;
-		if (is_wrot_sram)
-			fifo_off_ultra = 50;
-		else if (is_rsz_sram)
+
+		if (is_wrot_sram) {
+			if (rdma_golden_setting->dst_height > 2340)
+				fifo_off_ultra = 40;
+			else if (rdma_golden_setting->dst_height > 2400)
+				fifo_off_ultra = 30;
+			else
+				fifo_off_ultra = 50;
+
+			if (rdma_golden_setting->dst_height > 2340 &&
+				rdma_golden_setting->fps == 90)
+				fifo_off_ultra = 30;
+		} else if (is_rsz_sram)
 			fifo_off_ultra = 10;
 		else
 			fifo_off_ultra = 0;
@@ -677,11 +693,19 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 
 		do_div(consume_rate, 1000);
 	}
+
 	consume_rate *= 1250;
 	do_div(consume_rate, 16*1000);
 	consume_rate_div_tmp = consume_rate;
 	do_div(consume_rate_div_tmp, 100);
 	consume_rate_div = DIV_ROUND_UP((unsigned int)consume_rate_div_tmp, 10);
+
+	DDPMSG("%s, w=%d, h=%d, fps=%d, consume=%ull\n",
+		__func__,
+		rdma_golden_setting->dst_width,
+		rdma_golden_setting->dst_height,
+		rdma_golden_setting->fps,
+		consume_rate_div);
 
 	preultra_low = (preultra_low_us + fifo_off_ultra) * consume_rate_div;
 
@@ -792,6 +816,11 @@ void rdma_set_ultra_l(unsigned int idx, unsigned int bpp, void *handle,
 	/* In video mode, output_valid_fifo_threshold = 0 */
 	if (primary_display_is_video_mode())
 		output_valid_fifo_threshold = 0;
+
+	if (output_valid_fifo_threshold > fifo_valid_size)
+		DDPERR(
+		"RDMA golden setting is invalid!! output_valid_fifo_threshold=%d, fifo_valid_size=%d\n",
+		__func__, output_valid_fifo_threshold, fifo_valid_size);
 
 	DISP_REG_SET(handle, idx * DISP_RDMA_INDEX_OFFSET +
 		DISP_REG_RDMA_FIFO_CON,

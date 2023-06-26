@@ -39,9 +39,32 @@ extern int GT9772AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 extern long GT9772AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 				unsigned long a_u4Param);
 extern int GT9772AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+#define CN3927AF_SetI2Cclient CN3927AF_SetI2Cclient_Main3
+#define CN3927AF_Ioctl CN3927AF_Ioctl_Main3
+#define CN3927AF_Release CN3927AF_Release_Main3
+#define CN3927AF_GetFileName CN3927AF_GetFileName_Main3
+extern int CN3927AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				 spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long CN3927AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+			   unsigned long a_u4Param);
+extern int CN3927AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int CN3927AF_GetFileName(unsigned char *pFileName);
+extern void CN3927AF_WriteReg(struct i2c_client *pstAF_I2Cclient, u16 a_u2Data);
 extern int GT9772AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
 				int *pAF_Opened);
 extern int GT9772AF_GetFileName(unsigned char *pFileName);
 
 extern void AFRegulatorCtrl(int Stage);
+#define DW9714VAF_SetI2Cclient DW9714VAF_SetI2Cclient_Main3
+#define DW9714VAF_Ioctl DW9714VAF_Ioctl_Main3
+#define DW9714VAF_Release DW9714VAF_Release_Main3
+#define DW9714VAF_GetFileName DW9714VAF_GetFileName_Main3
+extern int DW9714VAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				 spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long DW9714VAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+			   unsigned long a_u4Param);
+extern int DW9714VAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int DW9714VAF_GetFileName(unsigned char *pFileName);
+extern void DW9714VAF_SwitchToPowerDown(struct i2c_client *pstAF_I2Cclient, bool disable);
+
 #endif

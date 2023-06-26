@@ -47,6 +47,8 @@ unsigned int get_idlemgr_flag(void);
 unsigned int set_idlemgr(unsigned int flag, int need_lock);
 unsigned int get_us_perline(unsigned int width);
 unsigned int time_to_line(unsigned int ms, unsigned int width);
+unsigned long long disp_lp_set_idle_check_interval(
+	unsigned long long new_interval);
 /******************************** for met************************************/
 /*return 0: not enter ultra lowpower state which means mipi pll enable*/
 /*return 1: enter ultra lowpower state whicn means mipi pll disable*/

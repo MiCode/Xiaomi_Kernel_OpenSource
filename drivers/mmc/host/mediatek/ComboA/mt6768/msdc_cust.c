@@ -1157,6 +1157,20 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 	host->mmc = mmc;
 	host->hw = kzalloc(sizeof(struct msdc_hw), GFP_KERNEL);
 
+	if (of_property_read_s32(np, "req_vcore", &host->vcore_opp)) {
+		pr_notice("%s: failed to get req_vcore", __func__);
+		host->vcore_opp = -1;
+	} else {
+		pr_notice("msdc%d:get req_vcore:%d", host->id, host->vcore_opp);
+		/* init VCORE QOS */
+		host->req_vcore = devm_kzalloc(&pdev->dev,
+			sizeof(*host->req_vcore), GFP_KERNEL);
+		if (!host->req_vcore)
+			return -ENOMEM;
+
+		pm_qos_add_request(host->req_vcore, PM_QOS_VCORE_OPP,
+			PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+	}
 	/* iomap register */
 	host->base = of_iomap(np, 0);
 	if (!host->base) {

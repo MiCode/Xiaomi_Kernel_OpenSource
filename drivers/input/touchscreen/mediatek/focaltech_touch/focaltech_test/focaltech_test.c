@@ -16,44 +16,54 @@
  */
 
 /************************************************************************
- *
- * File Name: focaltech_test.c
- *
- * Author: Focaltech Driver Team
- *
- * Created: 2016-08-01
- *
- * Modify:
- *
- * Abstract: create char device and proc node for  the comm between APK and TP
- *
- ************************************************************************/
+*
+* File Name: focaltech_test.c
+*
+* Author: Focaltech Driver Team
+*
+* Created: 2016-08-01
+*
+* Modify:
+*
+* Abstract: create char device and proc node for  the comm between APK and TP
+*
+************************************************************************/
 
 /*****************************************************************************
- * Included header files
- *****************************************************************************/
+* Included header files
+*****************************************************************************/
 #include "focaltech_test.h"
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <linux/uaccess.h>
 
 /*****************************************************************************
- * Private constant and macro definitions using #define
- *****************************************************************************/
+* Private constant and macro definitions using #define
+*****************************************************************************/
 
 /*****************************************************************************
- * Global variable or extern global variabls/functions
- *****************************************************************************/
+* Global variable or extern global variabls/functions
+*****************************************************************************/
 struct fts_test *fts_ftest;
 
 struct test_funcs *test_func_list[] = {
-	&test_func_ft8201,
+	&test_func_ft8719,
 };
 
-/*****************************************************************************
- * Static function prototypes
- *****************************************************************************/
+#define TP_ITO_TEST		"tp_selftest"
+
+static struct proc_dir_entry *ft8719_selftest_entry;
+char ito_test_result[16] = "0F-1F-2F-3F-4F\n";
+
+static struct proc_dir_entry *gtp_lockdown_info;
 
 /*****************************************************************************
- * functions body
- *****************************************************************************/
+* Static function prototypes
+*****************************************************************************/
+
+/*****************************************************************************
+* functions body
+*****************************************************************************/
 void sys_delay(int ms)
 {
 	msleep(ms);
@@ -87,11 +97,11 @@ void print_buffer(int *buffer, int length, int line_num)
 	int cnt = 0;
 	struct fts_test *tdata = fts_ftest;
 
-	if (tdata && tdata->ts_data && (tdata->ts_data->log_level < 3))
+	if (tdata && tdata->ts_data && (tdata->ts_data->log_level < 3)) {
 		return;
+	}
 
-
-	if ((buffer == NULL) || (length <= 0)) {
+	if ((NULL == buffer) || (length <= 0)) {
 		FTS_TEST_DBG("buffer/length(%d) fail", length);
 		return;
 	}
@@ -103,24 +113,24 @@ void print_buffer(int *buffer, int length, int line_num)
 	for (i = 0; i < length; i = i + tmpline) {
 		cnt = 0;
 		for (j = 0; j < tmpline; j++) {
-			cnt += snprintf(tmpbuf + cnt, tmplen - cnt, "%5d ",
-					buffer[i + j]);
+			cnt += snprintf(tmpbuf + cnt, tmplen - cnt, "%5d ", buffer[i + j]);
 			if ((cnt >= tmplen) || ((i + j + 1) >= length))
 				break;
 		}
 		FTS_TEST_DBG("%s", tmpbuf);
 	}
 
-
-	kfree(tmpbuf);
-	tmpbuf = NULL;
-
+	if (tmpbuf) {
+		kfree(tmpbuf);
+		tmpbuf = NULL;
+	}
 }
 
 /********************************************************************
  * test read/write interface
  *******************************************************************/
-static int fts_test_bus_read(u8 *cmd, int cmdlen, u8 *data, int datalen)
+static int fts_test_bus_read(
+	u8 *cmd, int cmdlen, u8 *data, int datalen)
 {
 	int ret = 0;
 
@@ -174,12 +184,12 @@ int fts_test_read(u8 addr, u8 *readbuf, int readlen)
 	if (packet_remainder)
 		packet_num++;
 
-	if (byte_num < BYTES_PER_TIME)
+	if (byte_num < BYTES_PER_TIME) {
 		packet_length = byte_num;
-	else
+	} else {
 		packet_length = BYTES_PER_TIME;
-
-
+	}
+	/* FTS_TEST_DBG("packet num:%d, remainder:%d", packet_num, packet_remainder); */
 
 	ret = fts_test_bus_read(&addr, 1, &readbuf[offset], packet_length);
 	if (ret < 0) {
@@ -188,12 +198,13 @@ int fts_test_read(u8 addr, u8 *readbuf, int readlen)
 	}
 	for (i = 1; i < packet_num; i++) {
 		offset += packet_length;
-		if ((i == (packet_num - 1)) && packet_remainder)
+		if ((i == (packet_num - 1)) && packet_remainder) {
 			packet_length = packet_remainder;
+		}
 
+		ret = fts_test_bus_read(&addr, 1, &readbuf[offset],
+								packet_length);
 
-		ret = fts_test_bus_read(NULL, 0, &readbuf[offset],
-					packet_length);
 		if (ret < 0) {
 			FTS_TEST_ERROR("read buffer fail");
 			return ret;
@@ -225,21 +236,21 @@ int fts_test_write(u8 addr, u8 *writebuf, int writelen)
 	if (packet_remainder)
 		packet_num++;
 
-	if (byte_num < BYTES_PER_TIME)
+	if (byte_num < BYTES_PER_TIME) {
 		packet_length = byte_num;
-	else
+	} else {
 		packet_length = BYTES_PER_TIME;
-
-
+	}
+	/* FTS_TEST_DBG("packet num:%d, remainder:%d", packet_num, packet_remainder); */
 
 	data[0] = addr;
 	for (i = 0; i < packet_num; i++) {
-		if (i != 0)
+		if (i != 0) {
 			data[0] = addr + 1;
-
-		if ((i == (packet_num - 1)) && packet_remainder)
+		}
+		if ((i == (packet_num - 1)) && packet_remainder) {
 			packet_length = packet_remainder;
-
+		}
 		memcpy(&data[1], &writebuf[offset], packet_length);
 
 		ret = fts_test_bus_write(data, packet_length + 1);
@@ -269,7 +280,7 @@ int enter_work_mode(void)
 	FTS_TEST_FUNC_ENTER();
 
 	ret = fts_test_read_reg(DEVIDE_MODE_ADDR, &mode);
-	if ((ret >= 0) && (mode == 0x00))
+	if ((ret >= 0) && (0x00 == mode))
 		return 0;
 
 	for (i = 0; i < ENTER_WORK_FACTORY_RETRIES; i++) {
@@ -277,14 +288,12 @@ int enter_work_mode(void)
 		if (ret >= 0) {
 			sys_delay(FACTORY_TEST_DELAY);
 			for (j = 0; j < 20; j++) {
-				ret = fts_test_read_reg(DEVIDE_MODE_ADDR,
-							&mode);
-				if ((ret >= 0) && (mode == 0x00)) {
-					FTS_TEST_INFO(
-						"enter work mode success");
+				ret = fts_test_read_reg(DEVIDE_MODE_ADDR, &mode);
+				if ((ret >= 0) && (0x00 == mode)) {
+					FTS_TEST_INFO("enter work mode success");
 					return 0;
-				}
-				sys_delay(FACTORY_TEST_DELAY);
+				} else
+					sys_delay(FACTORY_TEST_DELAY);
 			}
 		}
 
@@ -308,7 +317,7 @@ int enter_factory_mode(void)
 	int j = 0;
 
 	ret = fts_test_read_reg(DEVIDE_MODE_ADDR, &mode);
-	if ((ret >= 0) && (mode == 0x40))
+	if ((ret >= 0) && (0x40 == mode))
 		return 0;
 
 	for (i = 0; i < ENTER_WORK_FACTORY_RETRIES; i++) {
@@ -316,15 +325,13 @@ int enter_factory_mode(void)
 		if (ret >= 0) {
 			sys_delay(FACTORY_TEST_DELAY);
 			for (j = 0; j < 20; j++) {
-				ret = fts_test_read_reg(DEVIDE_MODE_ADDR,
-							&mode);
-				if ((ret >= 0) && (mode == 0x40)) {
-					FTS_TEST_INFO(
-						"enter factory mode success");
+				ret = fts_test_read_reg(DEVIDE_MODE_ADDR, &mode);
+				if ((ret >= 0) && (0x40 == mode)) {
+					FTS_TEST_INFO("enter factory mode success");
 					sys_delay(200);
 					return 0;
-				}
-				sys_delay(FACTORY_TEST_DELAY);
+				} else
+					sys_delay(FACTORY_TEST_DELAY);
 			}
 		}
 
@@ -354,7 +361,7 @@ int read_mass_data(u8 addr, int byte_num, int *buf)
 	u8 *data = NULL;
 
 	data = (u8 *)fts_malloc(byte_num * sizeof(u8));
-	if (data == NULL) {
+	if (NULL == data) {
 		FTS_TEST_SAVE_ERR("mass data buffer malloc fail\n");
 		return -ENOMEM;
 	}
@@ -367,9 +374,9 @@ int read_mass_data(u8 addr, int byte_num, int *buf)
 		goto read_massdata_err;
 	}
 
-	for (i = 0; i < byte_num; i = i + 2)
+	for (i = 0; i < byte_num; i = i + 2) {
 		buf[i >> 1] = (int)(short)((data[i] << 8) + data[i + 1]);
-
+	}
 
 	ret = 0;
 read_massdata_err:
@@ -394,14 +401,12 @@ int short_get_adcdata_incell(u8 retval, u8 ch_num, int byte_num, int *adc_buf)
 
 	sys_delay(ch_num * FACTORY_TEST_DELAY);
 	for (times = 0; times < FACTORY_TEST_RETRY; times++) {
-		ret = fts_test_read_reg(FACTORY_REG_SHORT_TEST_STATE,
-					&short_state);
+		ret = fts_test_read_reg(FACTORY_REG_SHORT_TEST_STATE, &short_state);
 		if ((ret >= 0) && (retval == short_state))
 			break;
-
-		FTS_TEST_DBG("reg%x=%x,retry:%d",
-				     FACTORY_REG_SHORT_TEST_STATE, short_state,
-				     times);
+		else
+			FTS_TEST_DBG("reg%x=%x,retry:%d",
+						 FACTORY_REG_SHORT_TEST_STATE, short_state, times);
 
 		sys_delay(FACTORY_TEST_RETRY_DELAY);
 	}
@@ -412,9 +417,9 @@ int short_get_adcdata_incell(u8 retval, u8 ch_num, int byte_num, int *adc_buf)
 	}
 
 	ret = read_mass_data(FACTORY_REG_SHORT_ADDR, byte_num, adc_buf);
-	if (ret)
+	if (ret) {
 		FTS_TEST_SAVE_ERR("get short(adc) data fail\n");
-
+	}
 
 adc_err:
 	FTS_TEST_FUNC_EXIT();
@@ -437,10 +442,9 @@ int wait_state_update(u8 retval)
 		ret = fts_test_read_reg(FACTORY_REG_PARAM_UPDATE_STATE, &state);
 		if ((ret >= 0) && (retval == state))
 			break;
-
-		FTS_TEST_DBG("reg%x=%x,retry:%d",
-				     FACTORY_REG_PARAM_UPDATE_STATE, state,
-				     times);
+		else
+			FTS_TEST_DBG("reg%x=%x,retry:%d", \
+						 FACTORY_REG_PARAM_UPDATE_STATE, state, times);
 	}
 
 	if (times >= FACTORY_TEST_RETRY) {
@@ -463,12 +467,12 @@ int start_scan(void)
 	int times = 0;
 	struct fts_test *tdata = fts_ftest;
 
-	if ((tdata == NULL) || (tdata->func == NULL)) {
+	if ((NULL == tdata) || (NULL == tdata->func)) {
 		FTS_TEST_SAVE_ERR("test/func is null\n");
 		return -EINVAL;
 	}
 
-	if (tdata->func->startscan_mode == SCAN_SC) {
+	if (SCAN_SC == tdata->func->startscan_mode) {
 		/* sc ic */
 		addr = FACTORY_REG_SCAN_ADDR2;
 		val = 0x01;
@@ -491,10 +495,10 @@ int start_scan(void)
 		sys_delay(FACTORY_TEST_DELAY);
 
 		ret = fts_test_read_reg(addr, &val);
-		if ((ret >= 0) && (val == finish_val))
+		if ((ret >= 0) && (val == finish_val)) {
 			break;
-
-		FTS_TEST_DBG("reg%x=%x,retry:%d", addr, val, times);
+		} else
+			FTS_TEST_DBG("reg%x=%x,retry:%d", addr, val, times);
 	}
 
 	if (times >= FACTORY_TEST_RETRY) {
@@ -505,15 +509,19 @@ int start_scan(void)
 	return 0;
 }
 
-static int read_rawdata(u8 off_addr, u8 off_val, u8 rawdata_addr, int byte_num,
-			int *data)
+static int read_rawdata(
+	u8 off_addr,
+	u8 off_val,
+	u8 rawdata_addr,
+	int byte_num,
+	int *data)
 {
 	int ret = 0;
 
 	/* set line addr or rawdata start addr */
 	ret = fts_test_write_reg(off_addr, off_val);
 	if (ret < 0) {
-		FTS_TEST_SAVE_ERR("write line/start addr fail\n");
+		FTS_TEST_SAVE_ERR("wirte line/start addr fail\n");
 		return ret;
 	}
 
@@ -535,7 +543,7 @@ int get_rawdata(int *data)
 	int byte_num = 0;
 	struct fts_test *tdata = fts_ftest;
 
-	if ((tdata == NULL) || (tdata->func == NULL)) {
+	if ((NULL == tdata) || (NULL == tdata->func)) {
 		FTS_TEST_SAVE_ERR("test/func is null\n");
 		return -EINVAL;
 	}
@@ -555,11 +563,11 @@ int get_rawdata(int *data)
 	}
 
 	/* read rawdata */
-	if (tdata->func->hwtype == IC_HW_INCELL) {
+	if (IC_HW_INCELL == tdata->func->hwtype) {
 		val = 0xAD;
 		addr = FACTORY_REG_LINE_ADDR;
 		rawdata_addr = FACTORY_REG_RAWDATA_ADDR;
-	} else if (tdata->func->hwtype == IC_HW_MC_SC) {
+	} else if (IC_HW_MC_SC == tdata->func->hwtype) {
 		val = 0xAA;
 		addr = FACTORY_REG_LINE_ADDR;
 		rawdata_addr = FACTORY_REG_RAWDATA_ADDR_MC_SC;
@@ -598,12 +606,11 @@ int chip_clb(void)
 	while (times++ < FACTORY_TEST_RETRY) {
 		sys_delay(FACTORY_TEST_RETRY_DELAY);
 		ret = fts_test_read_reg(FACTORY_REG_CLB, &val);
-		if ((ret == 0) && (val == 0x02)) {
+		if ((0 == ret) && (0x02 == val)) {
 			/* clb ok */
 			break;
-		}
-		FTS_TEST_DBG("reg%x=%x,retry:%d", FACTORY_REG_CLB, val,
-				     times);
+		} else
+			FTS_TEST_DBG("reg%x=%x,retry:%d", FACTORY_REG_CLB, val, times);
 	}
 
 	if (times >= FACTORY_TEST_RETRY) {
@@ -632,7 +639,7 @@ int get_cb_incell(u16 saddr, int byte_num, int *cb_buf)
 	u8 *data = NULL;
 
 	data = (u8 *)fts_malloc(byte_num * sizeof(u8));
-	if (data == NULL) {
+	if (NULL == data) {
 		FTS_TEST_SAVE_ERR("cb buffer malloc fail\n");
 		return -ENOMEM;
 	}
@@ -643,17 +650,16 @@ int get_cb_incell(u16 saddr, int byte_num, int *cb_buf)
 		packet_num++;
 	read_num = BYTES_PER_TIME;
 
-	FTS_TEST_INFO("cb packet:%d,remainder:%d", packet_num,
-		      packet_remainder);
+	FTS_TEST_INFO("cb packet:%d,remainder:%d", packet_num, packet_remainder);
 	cb_addr = FACTORY_REG_CB_ADDR;
 	for (i = 0; i < packet_num; i++) {
 		offset = read_num * i;
 		addr = saddr + offset;
 		addr_h = (addr >> 8) & 0xFF;
 		addr_l = addr & 0xFF;
-		if ((i == (packet_num - 1)) && packet_remainder)
+		if ((i == (packet_num - 1)) && packet_remainder) {
 			read_num = packet_remainder;
-
+		}
 
 		ret = fts_test_write_reg(FACTORY_REG_CB_ADDR_H, addr_h);
 		if (ret) {
@@ -673,9 +679,9 @@ int get_cb_incell(u16 saddr, int byte_num, int *cb_buf)
 		}
 	}
 
-	for (i = 0; i < byte_num; i++)
+	for (i = 0; i < byte_num; i++) {
 		cb_buf[i] = data[i];
-
+	}
 
 TEST_CB_ERR:
 	fts_free(data);
@@ -695,21 +701,21 @@ int get_cb_sc(int byte_num, int *cb_buf, enum byte_mode mode)
 	struct fts_test *tdata = fts_ftest;
 	u8 *cb = NULL;
 
-	if ((tdata == NULL) || (tdata->func == NULL)) {
+	if ((NULL == tdata) || (NULL == tdata->func)) {
 		FTS_TEST_SAVE_ERR("test/func is null\n");
 		return -EINVAL;
 	}
 
 	cb = (u8 *)fts_malloc(byte_num * sizeof(u8));
-	if (cb == NULL) {
+	if (NULL == cb) {
 		FTS_TEST_SAVE_ERR("malloc memory for cb buffer fail\n");
 		return -ENOMEM;
 	}
 
-	if (tdata->func->hwtype == IC_HW_MC_SC) {
+	if (IC_HW_MC_SC == tdata->func->hwtype) {
 		cb_addr = FACTORY_REG_MC_SC_CB_ADDR;
 		off_addr = FACTORY_REG_MC_SC_CB_ADDR_OFF;
-	} else if (tdata->func->hwtype == IC_HW_SC) {
+	} else if (IC_HW_SC == tdata->func->hwtype) {
 		cb_addr = FACTORY_REG_SC_CB_ADDR;
 		off_addr = FACTORY_REG_SC_CB_ADDR_OFF;
 	}
@@ -721,12 +727,11 @@ int get_cb_sc(int byte_num, int *cb_buf, enum byte_mode mode)
 	read_num = BYTES_PER_TIME;
 	offset = 0;
 
-	FTS_TEST_INFO("cb packet:%d,remainder:%d", packet_num,
-		      packet_remainder);
+	FTS_TEST_INFO("cb packet:%d,remainder:%d", packet_num, packet_remainder);
 	for (i = 0; i < packet_num; i++) {
-		if ((i == (packet_num - 1)) && packet_remainder)
+		if ((i == (packet_num - 1)) && packet_remainder) {
 			read_num = packet_remainder;
-
+		}
 
 		ret = fts_test_write_reg(off_addr, offset);
 		if (ret < 0) {
@@ -743,14 +748,14 @@ int get_cb_sc(int byte_num, int *cb_buf, enum byte_mode mode)
 		offset += read_num;
 	}
 
-	if (mode == DATA_ONE_BYTE) {
-		for (i = 0; i < byte_num; i++)
+	if (DATA_ONE_BYTE == mode) {
+		for (i = 0; i < byte_num; i++) {
 			cb_buf[i] = cb[i];
-
-	} else if (mode == DATA_TWO_BYTE) {
-		for (i = 0; i < byte_num; i = i + 2)
+		}
+	} else if (DATA_TWO_BYTE == mode) {
+		for (i = 0; i < byte_num; i = i + 2) {
 			cb_buf[i >> 1] = (int)(((int)(cb[i]) << 8) + cb[i + 1]);
-
+		}
 	}
 
 	ret = 0;
@@ -773,27 +778,25 @@ bool compare_data(int *data, int min, int max, int min_vk, int max_vk, bool key)
 	}
 
 	for (i = 0; i < node_va; i++) {
-		if (tdata->node_valid[i] == 0)
+		if (0 == tdata->node_valid[i])
 			continue;
 
 		if ((data[i] < min) || (data[i] > max)) {
-			FTS_TEST_SAVE_ERR(
-				"test fail,node(%4d,%4d)=%5d,range=(%5d,%5d)\n",
-				i / rx + 1, i % rx + 1, data[i], min, max);
+			FTS_TEST_SAVE_ERR("test fail,node(%4d,%4d)=%5d,range=(%5d,%5d)\n",
+							  i / rx + 1, i % rx + 1, data[i], min, max);
 			result = false;
 		}
 	}
 
 	if (key) {
 		for (i = node_va; i < tdata->node.node_num; i++) {
-			if (tdata->node_valid[i] == 0)
+			if (0 == tdata->node_valid[i])
 				continue;
 
 			if ((data[i] < min_vk) || (data[i] > max_vk)) {
-				FTS_TEST_SAVE_ERR(
-					"test fail,node(%4d,%4d)=%5d,range=(%5d,%5d)\n",
-					i / rx + 1, i % rx + 1, data[i], min_vk,
-					max_vk);
+				FTS_TEST_SAVE_ERR("test fail,node(%4d,%4d)=%5d,range=(%5d,%5d)\n",
+								  i / rx + 1, i % rx + 1,
+								  data[i], min_vk, max_vk);
 				result = false;
 			}
 		}
@@ -815,18 +818,16 @@ bool compare_array(int *data, int *min, int *max, bool key)
 		return false;
 	}
 
-	if (!key)
+	if (!key) {
 		node_num -= tdata->node.key_num;
-
+	}
 	for (i = 0; i < node_num; i++) {
-		if (tdata->node_valid[i] == 0)
+		if (0 == tdata->node_valid[i])
 			continue;
 
 		if ((data[i] < min[i]) || (data[i] > max[i])) {
-			FTS_TEST_SAVE_ERR(
-				"test fail,node(%4d,%4d)=%5d,range=(%5d,%5d)\n",
-				i / rx + 1, i % rx + 1, data[i], min[i],
-				max[i]);
+			FTS_TEST_SAVE_ERR("test fail,node(%4d,%4d)=%5d,range=(%5d,%5d)\n",
+							  i / rx + 1, i % rx + 1, data[i], min[i], max[i]);
 			result = false;
 		}
 	}
@@ -850,17 +851,17 @@ void show_data(int *data, bool key)
 	FTS_TEST_FUNC_ENTER();
 	for (i = 0; i < tx_num; i++) {
 		FTS_TEST_SAVE_INFO("Ch/Tx_%02d:  ", i + 1);
-		for (j = 0; j < rx_num; j++)
+		for (j = 0; j < rx_num; j++) {
 			FTS_TEST_SAVE_INFO("%5d, ", data[i * rx_num + j]);
-
+		}
 		FTS_TEST_SAVE_INFO("\n");
 	}
 
 	if (key) {
 		FTS_TEST_SAVE_INFO("Ch/Tx_%02d:  ", tx_num + 1);
-		for (i = tx_num * rx_num; i < node_num; i++)
-			FTS_TEST_SAVE_INFO("%5d, ", data[i]);
-
+		for (i = tx_num * rx_num; i < node_num; i++) {
+			FTS_TEST_SAVE_INFO("%5d, ",  data[i]);
+		}
 		FTS_TEST_SAVE_INFO("\n");
 	}
 	FTS_TEST_FUNC_EXIT();
@@ -883,8 +884,7 @@ int mapping_switch(u8 mapping)
 		}
 
 		if (val != mapping) {
-			ret = fts_test_write_reg(FACTORY_REG_NOMAPPING,
-						 mapping);
+			ret = fts_test_write_reg(FACTORY_REG_NOMAPPING, mapping);
 			if (ret < 0) {
 				FTS_TEST_ERROR("write 0x54 register fail");
 				return ret;
@@ -906,7 +906,9 @@ bool get_fw_wp(u8 wp_ch_sel, enum wp_type water_proof_type)
 		fw_wp_state = !(wp_ch_sel & 0x20);
 		break;
 	case WATER_PROOF_ON_TX:
-
+		/* Bit6:  0-check Rx+Tx in wp mode  1-check one channel
+		   Bit2:  0-check Tx in wp mode;  1-check Rx in wp mode
+		*/
 		fw_wp_state = (!(wp_ch_sel & 0x40) || !(wp_ch_sel & 0x04));
 		break;
 	case WATER_PROOF_ON_RX:
@@ -917,13 +919,14 @@ bool get_fw_wp(u8 wp_ch_sel, enum wp_type water_proof_type)
 		fw_wp_state = !(wp_ch_sel & 0x80);
 		break;
 	case WATER_PROOF_OFF_TX:
-
-		fw_wp_state = ((0x0 == (wp_ch_sel & 0x03)) ||
-			       (0x02 == (wp_ch_sel & 0x03)));
+		/* Bit1-0:  00-check Tx in non-wp mode
+					01-check Rx in non-wp mode
+					10:check Rx+Tx in non-wp mode
+		*/
+		fw_wp_state = ((0x0 == (wp_ch_sel & 0x03)) || (0x02 == (wp_ch_sel & 0x03)));
 		break;
 	case WATER_PROOF_OFF_RX:
-		fw_wp_state = ((0x01 == (wp_ch_sel & 0x03)) ||
-			       (0x02 == (wp_ch_sel & 0x03)));
+		fw_wp_state = ((0x01 == (wp_ch_sel & 0x03)) || (0x02 == (wp_ch_sel & 0x03)));
 		break;
 	default:
 		break;
@@ -962,18 +965,18 @@ int get_rawdata_mc_sc(enum wp_type wp, int *data)
 	int byte_num = 0;
 	struct fts_test *tdata = fts_ftest;
 
-	if ((tdata == NULL) || (tdata->func == NULL)) {
+	if ((NULL == tdata) || (NULL == tdata->func)) {
 		FTS_TEST_SAVE_ERR("test/func is null\n");
 		return -EINVAL;
 	}
 
 	addr = FACTORY_REG_LINE_ADDR;
 	rawdata_addr = FACTORY_REG_RAWDATA_ADDR_MC_SC;
-	if (wp == WATER_PROOF_ON)
+	if (WATER_PROOF_ON == wp) {
 		val = 0xAC;
-	else
+	} else {
 		val = 0xAB;
-
+	}
 
 	byte_num = tdata->sc_node.node_num * 2;
 	ret = read_rawdata(addr, val, rawdata_addr, byte_num, data);
@@ -990,7 +993,7 @@ int get_rawdata_mc(u8 fre, u8 fir, int *rawdata)
 	int ret = 0;
 	int i = 0;
 
-	if (rawdata == NULL) {
+	if (NULL == rawdata) {
 		FTS_TEST_SAVE_ERR("rawdata buffer is null\n");
 		return -EINVAL;
 	}
@@ -1039,13 +1042,12 @@ int short_get_adc_data_mc(u8 retval, int byte_num, int *adc_buf, u8 mode)
 	for (i = 0; i < FACTORY_TEST_RETRY; i++) {
 		sys_delay(FACTORY_TEST_RETRY_DELAY);
 
-		ret = fts_test_read_reg(FACTROY_REG_SHORT_TEST_EN,
-					&short_state);
+		ret = fts_test_read_reg(FACTROY_REG_SHORT_TEST_EN, &short_state);
 		if ((ret >= 0) && (retval == short_state))
 			break;
-
-		FTS_TEST_DBG("reg%x=%x,retry:%d",
-				     FACTROY_REG_SHORT_TEST_EN, short_state, i);
+		else
+			FTS_TEST_DBG("reg%x=%x,retry:%d",
+						 FACTROY_REG_SHORT_TEST_EN, short_state, i);
 	}
 	if (i >= FACTORY_TEST_RETRY) {
 		FTS_TEST_SAVE_ERR("short test timeout, ADC data not OK\n");
@@ -1054,9 +1056,9 @@ int short_get_adc_data_mc(u8 retval, int byte_num, int *adc_buf, u8 mode)
 	}
 
 	ret = read_mass_data(FACTORY_REG_SHORT_ADDR_MC, byte_num, adc_buf);
-	if (ret < 0)
+	if (ret < 0) {
 		FTS_TEST_SAVE_ERR("get short(adc) data fail\n");
-
+	}
 
 	FTS_TEST_DBG("adc data:\n");
 	print_buffer(adc_buf, byte_num / 2, 0);
@@ -1073,29 +1075,26 @@ bool compare_mc_sc(bool tx_check, bool rx_check, int *data, int *min, int *max)
 
 	if (rx_check) {
 		for (i = 0; i < tdata->sc_node.rx_num; i++) {
-			if (tdata->node_valid_sc[i] == 0)
+			if (0 == tdata->node_valid_sc[i])
 				continue;
 
 			if ((data[i] < min[i]) || (data[i] > max[i])) {
-				FTS_TEST_SAVE_ERR(
-					"test fail,rx%d=%5d,range=(%5d,%5d)\n",
-					i + 1, data[i], min[i], max[i]);
+				FTS_TEST_SAVE_ERR("test fail,rx%d=%5d,range=(%5d,%5d)\n",
+								  i + 1, data[i], min[i], max[i]);
 				result = false;
 			}
 		}
 	}
 
 	if (tx_check) {
-		for (i = tdata->sc_node.rx_num; i < tdata->sc_node.node_num;
-		     i++) {
-			if (tdata->node_valid_sc[i] == 0)
+		for (i = tdata->sc_node.rx_num; i < tdata->sc_node.node_num; i++) {
+			if (0 == tdata->node_valid_sc[i])
 				continue;
 
 			if ((data[i] < min[i]) || (data[i] > max[i])) {
-				FTS_TEST_SAVE_INFO(
-					"test fail,tx%d=%5d,range=(%5d,%5d)\n",
-					i - tdata->sc_node.rx_num + 1, data[i],
-					min[i], max[i]);
+				FTS_TEST_SAVE_INFO("test fail,tx%d=%5d,range=(%5d,%5d)\n",
+								   i - tdata->sc_node.rx_num + 1,
+								   data[i], min[i], max[i]);
 				result = false;
 			}
 		}
@@ -1110,15 +1109,15 @@ void show_data_mc_sc(int *data)
 	struct fts_test *tdata = fts_ftest;
 
 	FTS_TEST_SAVE_INFO("SCap Rx: ");
-	for (i = 0; i < tdata->sc_node.rx_num; i++)
+	for (i = 0; i < tdata->sc_node.rx_num; i++) {
 		FTS_TEST_SAVE_INFO("%5d, ", data[i]);
-
+	}
 	FTS_TEST_SAVE_INFO("\n");
 
 	FTS_TEST_SAVE_INFO("SCap Tx: ");
-	for (i = tdata->sc_node.rx_num; i < tdata->sc_node.node_num; i++)
+	for (i = tdata->sc_node.rx_num; i < tdata->sc_node.node_num; i++) {
 		FTS_TEST_SAVE_INFO("%5d, ", data[i]);
-
+	}
 	FTS_TEST_SAVE_INFO("\n");
 }
 /* mc_sc end*/
@@ -1127,20 +1126,19 @@ void show_data_mc_sc(int *data)
 static int fts_test_save_test_data(char *file_name, char *data_buf, int len)
 {
 	struct file *pfile = NULL;
-	char filepath[FILE_NAME_LENGTH] = {0};
+	char filepath[FILE_NAME_LENGTH] = { 0 };
 	loff_t pos;
 	mm_segment_t old_fs;
 
 	FTS_TEST_FUNC_ENTER();
 	memset(filepath, 0, sizeof(filepath));
-	snprintf(filepath, FILE_NAME_LENGTH, "%s%s", FTS_INI_FILE_PATH,
-		 file_name);
-	if (pfile == NULL)
+	snprintf(filepath, FILE_NAME_LENGTH, "%s%s", FTS_INI_FILE_PATH, file_name);
+	snprintf(filepath, FILE_NAME_LENGTH, "%s%s", "/sdcard/", file_name);
+	if (NULL == pfile) {
 		pfile = filp_open(filepath, O_TRUNC | O_CREAT | O_RDWR, 0);
-
+	}
 	if (IS_ERR(pfile)) {
-		FTS_TEST_ERROR("error occurred while opening file %s.",
-			       filepath);
+		FTS_TEST_ERROR("error occured while opening file %s.",  filepath);
 		return -EIO;
 	}
 
@@ -1161,7 +1159,7 @@ static int fts_test_malloc_free_data_txt(struct fts_test *tdata, bool allocate)
 #if TXT_SUPPORT
 	if (true == allocate) {
 		tdata->testresult = vmalloc(TXT_BUFFER_LEN);
-		if (tdata->testresult == NULL) {
+		if (NULL == tdata->testresult) {
 			FTS_TEST_ERROR("tdata->testresult malloc fail\n");
 			return -ENOMEM;
 		}
@@ -1169,8 +1167,8 @@ static int fts_test_malloc_free_data_txt(struct fts_test *tdata, bool allocate)
 		tdata->testresult_len = 0;
 		FTS_TEST_SAVE_INFO("FW version:0x%02x\n", tdata->fw_ver);
 		FTS_TEST_SAVE_INFO("tx_num:%d, rx_num:%d, key_num:%d\n",
-				   tdata->node.tx_num, tdata->node.rx_num,
-				   tdata->node.key_num);
+						   tdata->node.tx_num, tdata->node.rx_num,
+						   tdata->node.key_num);
 	} else {
 		if (tdata->testresult) {
 			vfree(tdata->testresult);
@@ -1205,7 +1203,6 @@ static void fts_test_save_data_csv(struct fts_test *tdata)
 	csv_buffer = vmalloc(CSV_BUFFER_LEN);
 	if (!csv_buffer) {
 		FTS_TEST_ERROR("csv_buffer malloc fail\n");
-		return;
 	}
 
 	line2_buffer = vmalloc(CSV_LINE2_BUFFER_LEN);
@@ -1216,10 +1213,11 @@ static void fts_test_save_data_csv(struct fts_test *tdata)
 
 	FTS_TEST_INFO("test item count:%d", td->item_count);
 	/* line 1 */
-	csv_length += snprintf(
-		csv_buffer + csv_length, CSV_BUFFER_LEN - csv_length,
-		"ECC, 85, 170, IC Name, %s, IC Code, %x\n", tdata->ini.ic_name,
-		(tdata->ini.ic_code >> IC_CODE_OFFSET));
+	csv_length += snprintf(csv_buffer + csv_length, \
+						   CSV_BUFFER_LEN - csv_length, \
+						   "ECC, 85, 170, IC Name, %s, IC Code, %x\n", \
+						   tdata->ini.ic_name, \
+						   (tdata->ini.ic_code >> IC_CODE_OFFSET));
 
 	/* line 2 */
 	for (i = 0; i < td->item_count; i++) {
@@ -1228,15 +1226,12 @@ static void fts_test_save_data_csv(struct fts_test *tdata)
 			node_num = tdata->sc_node.node_num;
 			/* set max len of tx/rx to column */
 			rx = (tdata->sc_node.tx_num > tdata->sc_node.rx_num)
-				     ? tdata->sc_node.tx_num
-				     : tdata->sc_node.rx_num;
+				 ? tdata->sc_node.tx_num : tdata->sc_node.rx_num;
 		} else {
 			if (info->key_support && (tdata->node.key_num > 0))
-				node_num = (tdata->node.tx_num + 1) *
-					   tdata->node.rx_num;
+				node_num = (tdata->node.tx_num + 1) * tdata->node.rx_num;
 			else
-				node_num =
-					tdata->node.tx_num * tdata->node.rx_num;
+				node_num = tdata->node.tx_num * tdata->node.rx_num;
 			rx = tdata->node.rx_num;
 		}
 
@@ -1249,30 +1244,31 @@ static void fts_test_save_data_csv(struct fts_test *tdata)
 		}
 
 		for (j = 1; j <= data_count; j++) {
-			line2_length +=
-				snprintf(line2_buffer + line2_length,
-					 CSV_LINE2_BUFFER_LEN - line2_length,
-					 "%s, %d, %d, %d, %d, %d, ", info->name,
-					 info->code, tx, rx, start_line, j);
+			line2_length += snprintf(line2_buffer + line2_length, \
+									 CSV_LINE2_BUFFER_LEN - line2_length, \
+									 "%s, %d, %d, %d, %d, %d, ", \
+									 info->name, info->code, tx, rx,
+									 start_line, j);
 			start_line += tx;
 			csv_item_count++;
 		}
 	}
 
-	csv_length +=
-		snprintf(csv_buffer + csv_length, CSV_BUFFER_LEN - csv_length,
-			 "TestItem Num, %d, ", csv_item_count);
+	csv_length += snprintf(csv_buffer + csv_length, \
+						   CSV_BUFFER_LEN - csv_length, \
+						   "TestItem Num, %d, ", \
+						   csv_item_count);
 
 	if (line2_length > 0) {
-		csv_length += snprintf(csv_buffer + csv_length,
-				       CSV_BUFFER_LEN - csv_length, "%s",
-				       line2_buffer);
+		csv_length += snprintf(csv_buffer + csv_length, \
+							   CSV_BUFFER_LEN - csv_length, \
+							   "%s", line2_buffer);
 	}
 
 	/* line 3 ~ 10  "\n" */
-	csv_length +=
-		snprintf(csv_buffer + csv_length, CSV_BUFFER_LEN - csv_length,
-			 "\n\n\n\n\n\n\n\n\n");
+	csv_length += snprintf(csv_buffer + csv_length, \
+						   CSV_BUFFER_LEN - csv_length, \
+						   "\n\n\n\n\n\n\n\n\n");
 
 	/* line 11 ~ data area */
 	for (i = 0; i < td->item_count; i++) {
@@ -1286,35 +1282,30 @@ static void fts_test_save_data_csv(struct fts_test *tdata)
 			offset = 0;
 			for (j = 0; j < info->datalen; j++) {
 				for (k = 0; k < tdata->sc_node.node_num; k++) {
-					csv_length += snprintf(
-						csv_buffer + csv_length,
-						CSV_BUFFER_LEN - csv_length,
-						"%d, ", info->data[offset + k]);
+					csv_length += snprintf(csv_buffer + csv_length, \
+										   CSV_BUFFER_LEN - csv_length, \
+										   "%d, ", info->data[offset + k]);
 					if ((k + 1) == tdata->sc_node.rx_num) {
-						csv_length += snprintf(
-							csv_buffer + csv_length,
-							CSV_BUFFER_LEN -
-								csv_length,
-							"\n");
+						csv_length += snprintf(csv_buffer + csv_length, \
+											   CSV_BUFFER_LEN - csv_length, \
+											   "\n");
 					}
 				}
-				csv_length += snprintf(
-					csv_buffer + csv_length,
-					CSV_BUFFER_LEN - csv_length, "\n");
+				csv_length += snprintf(csv_buffer + csv_length, \
+									   CSV_BUFFER_LEN - csv_length, \
+									   "\n");
 				offset += k;
 				j += k;
 			}
 		} else {
 			for (j = 0; j < info->datalen; j++) {
-				csv_length +=
-					snprintf(csv_buffer + csv_length,
-						 CSV_BUFFER_LEN - csv_length,
-						 "%d, ", info->data[j]);
+				csv_length += snprintf(csv_buffer + csv_length, \
+									   CSV_BUFFER_LEN - csv_length, \
+									   "%d, ", info->data[j]);
 				if (((j + 1) % tdata->node.rx_num) == 0) {
-					csv_length += snprintf(
-						csv_buffer + csv_length,
-						CSV_BUFFER_LEN - csv_length,
-						"\n");
+					csv_length += snprintf(csv_buffer + csv_length, \
+										   CSV_BUFFER_LEN - csv_length,
+										   "\n");
 				}
 			}
 		}
@@ -1340,27 +1331,26 @@ static void fts_test_save_result_txt(struct fts_test *tdata)
 #if TXT_SUPPORT
 	if (!tdata || !tdata->testresult) {
 		FTS_TEST_ERROR("test result is null");
-		return;
 	}
 
 	FTS_TEST_INFO("test result length in txt:%d", tdata->testresult_len);
 	fts_test_save_test_data(FTS_TXT_FILE_NAME, tdata->testresult,
-				tdata->testresult_len);
+							tdata->testresult_len);
 #endif
 }
 
 /*****************************************************************************
- * Name: fts_test_save_data
- * Brief: Save test data.
- *        If multi-data of MC, length of data package must be tx*rx,(tx+1)*rx
- *        If multi-data of MC-SC, length of data package should be (tx+rx)*2
- *        Need fill 0 when no actual data
- * Input:
- * Output:
- * Return:
- *****************************************************************************/
+* Name: fts_test_save_data
+* Brief: Save test data.
+*		If multi-data of MC, length of data package must be tx*rx,(tx+1)*rx
+*		If multi-data of MC-SC, length of data package should be (tx+rx)*2
+*		Need fill 0 when no actual data
+* Input:
+* Output:
+* Return:
+*****************************************************************************/
 void fts_test_save_data(char *name, int code, int *data, int datacnt,
-			bool mc_sc, bool key, bool result)
+						bool mc_sc, bool key, bool result)
 {
 	int datalen = datacnt;
 	struct fts_test *tdata = fts_ftest;
@@ -1369,7 +1359,7 @@ void fts_test_save_data(char *name, int code, int *data, int datacnt,
 
 	if (!name || !data) {
 		FTS_TEST_ERROR("name/data is null");
-		return;
+		return ;
 	}
 
 	strlcpy(info->name, name, TEST_ITEM_NAME_MAX - 1);
@@ -1382,21 +1372,19 @@ void fts_test_save_data(char *name, int code, int *data, int datacnt,
 			datalen = tdata->sc_node.node_num * 2;
 		} else {
 			if (key && (tdata->node.key_num > 0))
-				datalen = (tdata->node.tx_num + 1) *
-					  tdata->node.rx_num;
+				datalen = (tdata->node.tx_num + 1) * tdata->node.rx_num;
 			else
-				datalen =
-					tdata->node.tx_num * tdata->node.rx_num;
+				datalen = tdata->node.tx_num * tdata->node.rx_num;
+
 		}
 	}
 
 	FTS_TEST_DBG("name:%s,len:%d", name, datalen);
 	info->data = fts_malloc(datalen * sizeof(int));
 	if (!info->data) {
-		FTS_TEST_ERROR("malloc memory for item(%d) data fail",
-			       td->item_count);
+		FTS_TEST_ERROR("malloc memory for item(%d) data fail", td->item_count);
 		info->datalen = 0;
-		return;
+		return ;
 	}
 	memcpy(info->data, data, datalen * sizeof(int));
 	info->datalen = datalen;
@@ -1410,9 +1398,9 @@ static void fts_test_free_data(struct fts_test *tdata)
 	struct fts_test_data *td = &tdata->testdata;
 
 	for (i = 0; i < td->item_count; i++) {
-		if (td->info[i].data)
+		if (td->info[i].data) {
 			fts_free(td->info[i].data);
-
+		}
 	}
 }
 
@@ -1532,16 +1520,14 @@ static int fts_test_malloc_free_thr(struct fts_test *tdata, bool allocate)
 {
 	int ret = 0;
 
-	if ((tdata == NULL) || (tdata->func == NULL)) {
+	if ((NULL == tdata) || (NULL == tdata->func)) {
 		FTS_TEST_SAVE_ERR("tdata/func is NULL\n");
 		return -EINVAL;
 	}
 
 	if (true == allocate) {
-		fts_malloc_r(tdata->node_valid,
-			     tdata->node.node_num * sizeof(int));
-		fts_malloc_r(tdata->node_valid_sc,
-			     tdata->sc_node.node_num * sizeof(int));
+		fts_malloc_r(tdata->node_valid, tdata->node.node_num * sizeof(int));
+		fts_malloc_r(tdata->node_valid_sc, tdata->sc_node.node_num * sizeof(int));
 	} else {
 		fts_free(tdata->node_valid);
 		fts_free(tdata->node_valid_sc);
@@ -1558,8 +1544,7 @@ static int fts_test_malloc_free_thr(struct fts_test *tdata, bool allocate)
 		ret = fts_test_malloc_free_sc(tdata, allocate);
 		break;
 	default:
-		FTS_TEST_SAVE_ERR("test ic type(%d) fail\n",
-				  tdata->func->hwtype);
+		FTS_TEST_SAVE_ERR("test ic type(%d) fail\n", tdata->func->hwtype);
 		ret = -EINVAL;
 		break;
 	}
@@ -1590,9 +1575,9 @@ static int get_tx_rx_num(u8 tx_rx_reg, u8 *ch_num, u8 ch_num_max)
 
 	for (i = 0; i < 3; i++) {
 		ret = fts_test_read_reg(tx_rx_reg, ch_num);
-		if ((ret < 0) || (*ch_num > ch_num_max))
+		if ((ret < 0) || (*ch_num > ch_num_max)) {
 			sys_delay(50);
-		else
+		} else
 			break;
 	}
 
@@ -1615,37 +1600,36 @@ static int get_key_num(int *key_num_en, int max_key_num)
 
 	ret = fts_test_read_reg(FACTORY_REG_LEFT_KEY, &key_en);
 	if (ret >= 0) {
-		if (key_en & 0x01)
+		if (key_en & 0x01) {
 			(*key_num_en)++;
+		}
 
-
-		if (key_en & 0x02)
+		if (key_en & 0x02) {
 			(*key_num_en)++;
+		}
 
-
-		if (key_en & 0x04)
+		if (key_en & 0x04) {
 			(*key_num_en)++;
-
+		}
 	}
 
 	ret = fts_test_read_reg(FACTORY_REG_RIGHT_KEY, &key_en);
 	if (ret >= 0) {
-		if (key_en & 0x01)
+		if (key_en & 0x01) {
 			(*key_num_en)++;
+		}
 
-
-		if (key_en & 0x02)
+		if (key_en & 0x02) {
 			(*key_num_en)++;
+		}
 
-
-		if (key_en & 0x04)
+		if (key_en & 0x04) {
 			(*key_num_en)++;
-
+		}
 	}
 
 	if (*key_num_en > max_key_num) {
-		FTS_TEST_ERROR("get key num, fw:%d > max:%d", *key_num_en,
-			       max_key_num);
+		FTS_TEST_ERROR("get key num, fw:%d > max:%d", *key_num_en, max_key_num);
 		return -EIO;
 	}
 
@@ -1660,15 +1644,14 @@ static int get_channel_num(struct fts_test *tdata)
 	int key_num = 0;
 
 	/* node structure */
-	if (tdata->func->hwtype == IC_HW_SC) {
+	if (IC_HW_SC == tdata->func->hwtype) {
 		ret = get_tx_rx_num(FACTORY_REG_CH_NUM_SC, &tx_num, NUM_MAX_SC);
 		if (ret < 0) {
 			FTS_TEST_ERROR("get channel number fail");
 			return ret;
 		}
 
-		ret = get_tx_rx_num(FACTORY_REG_KEY_NUM_SC, &rx_num,
-				    KEY_NUM_MAX);
+		ret = get_tx_rx_num(FACTORY_REG_KEY_NUM_SC, &rx_num, KEY_NUM_MAX);
 		if (ret < 0) {
 			FTS_TEST_ERROR("get key number fail");
 			return ret;
@@ -1692,20 +1675,20 @@ static int get_channel_num(struct fts_test *tdata)
 			return ret;
 		}
 
-		if (tdata->func->hwtype == IC_HW_INCELL) {
+		if (IC_HW_INCELL == tdata->func->hwtype) {
 			ret = get_key_num(&key_num, tdata->func->key_num_total);
 			if (ret < 0) {
 				FTS_TEST_ERROR("get key_num fail");
 				return ret;
 			}
-		} else if (tdata->func->hwtype == IC_HW_MC_SC) {
+		} else if (IC_HW_MC_SC == tdata->func->hwtype) {
 			key_num = tdata->func->key_num_total;
 		}
 		tdata->node.tx_num = tx_num;
 		tdata->node.rx_num = rx_num;
-		if (tdata->func->hwtype == IC_HW_INCELL)
+		if (IC_HW_INCELL == tdata->func->hwtype)
 			tdata->node.channel_num = tx_num * rx_num;
-		else if (tdata->func->hwtype == IC_HW_MC_SC)
+		else if (IC_HW_MC_SC == tdata->func->hwtype)
 			tdata->node.channel_num = tx_num + rx_num;
 		tdata->node.node_num = tx_num * rx_num;
 	}
@@ -1716,17 +1699,15 @@ static int get_channel_num(struct fts_test *tdata)
 
 	/* sc node structure */
 	tdata->sc_node = tdata->node;
-	if (tdata->func->hwtype == IC_HW_MC_SC) {
+	if (IC_HW_MC_SC == tdata->func->hwtype) {
 		if (tdata->v3_pattern) {
-			ret = get_tx_rx_num(FACTORY_REG_CHX_NUM_NOMAP, &tx_num,
-					    TX_NUM_MAX);
+			ret = get_tx_rx_num(FACTORY_REG_CHX_NUM_NOMAP, &tx_num, TX_NUM_MAX);
 			if (ret < 0) {
 				FTS_TEST_ERROR("get no-mappint tx_num fail");
 				return ret;
 			}
 
-			ret = get_tx_rx_num(FACTORY_REG_CHY_NUM_NOMAP, &rx_num,
-					    TX_NUM_MAX);
+			ret = get_tx_rx_num(FACTORY_REG_CHY_NUM_NOMAP, &rx_num, TX_NUM_MAX);
 			if (ret < 0) {
 				FTS_TEST_ERROR("get no-mapping rx_num fail");
 				return ret;
@@ -1749,9 +1730,9 @@ static int get_channel_num(struct fts_test *tdata)
 		return -EIO;
 	}
 
-	FTS_TEST_INFO("node_num:%d, tx:%d, rx:%d, key:%d", tdata->node.node_num,
-		      tdata->node.tx_num, tdata->node.rx_num,
-		      tdata->node.key_num);
+	FTS_TEST_INFO("node_num:%d, tx:%d, rx:%d, key:%d",
+				  tdata->node.node_num, tdata->node.tx_num,
+				  tdata->node.rx_num, tdata->node.key_num);
 	return 0;
 }
 
@@ -1760,7 +1741,7 @@ static int fts_test_init_basicinfo(struct fts_test *tdata)
 	int ret = 0;
 	u8 val = 0;
 
-	if ((tdata == NULL) || (tdata->func == NULL)) {
+	if ((NULL == tdata) || (NULL == tdata->func)) {
 		FTS_TEST_SAVE_ERR("tdata/func is NULL\n");
 		return -EINVAL;
 	}
@@ -1768,7 +1749,7 @@ static int fts_test_init_basicinfo(struct fts_test *tdata)
 	fts_test_read_reg(REG_FW_VERSION, &val);
 	tdata->fw_ver = val;
 
-	if (tdata->func->hwtype == IC_HW_INCELL) {
+	if (IC_HW_INCELL == tdata->func->hwtype) {
 		fts_test_read_reg(REG_VA_TOUCH_THR, &val);
 		tdata->va_touch_thr = val;
 		fts_test_read_reg(REG_VKEY_TOUCH_THR, &val);
@@ -1782,9 +1763,9 @@ static int fts_test_init_basicinfo(struct fts_test *tdata)
 		return ret;
 	}
 
-	if (tdata->func->hwtype == IC_HW_MC_SC) {
+	if (IC_HW_MC_SC == tdata->func->hwtype) {
 		fts_test_read_reg(FACTORY_REG_PATTERN, &val);
-		tdata->v3_pattern = (val == 1) ? true : false;
+		tdata->v3_pattern = (1 == val) ? true : false;
 		fts_test_read_reg(FACTORY_REG_NOMAPPING, &val);
 		tdata->mapping = val;
 	}
@@ -1836,9 +1817,8 @@ static int fts_test_main_init(void)
 	tdata->buffer_length *= sizeof(int) * 2;
 	FTS_TEST_INFO("test buffer length:%d", tdata->buffer_length);
 	tdata->buffer = (int *)fts_malloc(tdata->buffer_length);
-	if (tdata->buffer == NULL) {
-		FTS_TEST_ERROR("test buffer(%d) malloc fail",
-			       tdata->buffer_length);
+	if (NULL == tdata->buffer) {
+		FTS_TEST_ERROR("test buffer(%d) malloc fail", tdata->buffer_length);
 		return -ENOMEM;
 	}
 	memset(tdata->buffer, 0, tdata->buffer_length);
@@ -1868,6 +1848,7 @@ static int fts_test_main_exit(void)
 	FTS_TEST_FUNC_EXIT();
 	return 0;
 }
+
 
 /*
  * fts_test_get_testparams - get test parameter from ini
@@ -1922,11 +1903,11 @@ static int fts_test_entry(char *ini_file_name)
 	}
 
 	/* Start testing according to the test configuration */
-	if (true == fts_test_start())
+	if (true == fts_test_start()) {
 		FTS_TEST_SAVE_INFO("\n\n=======Tp test pass.\n");
-	else
+	} else {
 		FTS_TEST_SAVE_INFO("\n\n=======Tp test failure.\n");
-
+	}
 
 	ret = 0;
 test_err:
@@ -1935,17 +1916,39 @@ test_err:
 	return ret;
 }
 
-static ssize_t fts_test_show(struct device *dev, struct device_attribute *attr,
-			     char *buf)
+static int gtp_lockdown_proc_show(struct seq_file *file, void *data)
+{
+		char temp[40] = {0};
+
+		sprintf(temp, "%s\n", "473132014A0F3200");
+		seq_printf(file, "%s\n", temp);
+
+		return 0;
+}
+
+static int gtp_lockdown_proc_open (struct inode *inode, struct file *file)
+{
+		return single_open(file, gtp_lockdown_proc_show, NULL);
+}
+
+static const struct file_operations lockdown_proc_ops = {
+	.owner = THIS_MODULE,
+	.open = gtp_lockdown_proc_open,
+	.read = seq_read,
+};
+
+static ssize_t fts_test_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
 {
 	return -EPERM;
 }
 
-static ssize_t fts_test_store(struct device *dev, struct device_attribute *attr,
-			      const char *buf, size_t count)
+static ssize_t fts_test_store(
+	struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
 {
 	int ret = 0;
-	char fwname[FILE_NAME_LENGTH] = {0};
+	char fwname[FILE_NAME_LENGTH] = { 0 };
 	struct fts_ts_data *ts_data = fts_data;
 	struct input_dev *input_dev;
 
@@ -1968,15 +1971,15 @@ static ssize_t fts_test_store(struct device *dev, struct device_attribute *attr,
 #endif
 
 	ret = fts_enter_test_environment(1);
-	if (ret < 0)
+	if (ret < 0) {
 		FTS_ERROR("enter test environment fail");
-	else
+	} else {
 		fts_test_entry(fwname);
-
+	}
 	ret = fts_enter_test_environment(0);
-	if (ret < 0)
+	if (ret < 0) {
 		FTS_ERROR("enter normal environment fail");
-
+	}
 
 #if defined(FTS_ESDCHECK_EN) && (FTS_ESDCHECK_EN)
 	fts_esdcheck_switch(ENABLE);
@@ -1989,15 +1992,18 @@ static ssize_t fts_test_store(struct device *dev, struct device_attribute *attr,
 }
 
 /*  test from test.ini
- *    example:echo "***.ini" > fts_test
- */
-static DEVICE_ATTR(fts_test, 0644, fts_test_show, fts_test_store);
+*	example:echo "***.ini" > fts_test
+*/
+static DEVICE_ATTR(fts_test, S_IRUGO | S_IWUSR, fts_test_show, fts_test_store);
 
-static struct attribute *fts_test_attributes[] = {&dev_attr_fts_test.attr,
-						  NULL};
+static struct attribute *fts_test_attributes[] = {
+	&dev_attr_fts_test.attr,
+	NULL
+};
 
 static struct attribute_group fts_test_attribute_group = {
-	.attrs = fts_test_attributes};
+	.attrs = fts_test_attributes
+};
 
 static int fts_test_func_init(struct fts_ts_data *ts_data)
 {
@@ -2005,16 +2011,16 @@ static int fts_test_func_init(struct fts_ts_data *ts_data)
 	int j = 0;
 	int ic_stype = ts_data->ic_info.ids.type;
 	struct test_funcs *func = test_func_list[0];
-	int func_count = ARRAY_SIZE(test_func_list);
+	int func_count = sizeof(test_func_list) / sizeof(test_func_list[0]);
 
 	FTS_TEST_INFO("init test function");
-	if (func_count == 0) {
+	if (0 == func_count) {
 		FTS_TEST_SAVE_ERR("test functions list is NULL, fail\n");
 		return -ENODATA;
 	}
 
-	fts_ftest = kzalloc(sizeof(*fts_ftest), GFP_KERNEL);
-	if (fts_ftest == NULL) {
+	fts_ftest = (struct fts_test *)kzalloc(sizeof(*fts_ftest), GFP_KERNEL);
+	if (NULL == fts_ftest) {
 		FTS_TEST_ERROR("malloc memory for test fail");
 		return -ENOMEM;
 	}
@@ -2022,16 +2028,15 @@ static int fts_test_func_init(struct fts_ts_data *ts_data)
 	for (i = 0; i < func_count; i++) {
 		func = test_func_list[i];
 		for (j = 0; j < FTX_MAX_COMPATIBLE_TYPE; j++) {
-			if (func->ctype[j] == 0)
+			if (0 == func->ctype[j])
 				break;
 			else if (func->ctype[j] == ic_stype) {
-				FTS_TEST_INFO("match test function,type:%x",
-					      (int)func->ctype[j]);
+				FTS_TEST_INFO("match test function,type:%x", (int)func->ctype[j]);
 				fts_ftest->func = func;
 			}
 		}
 	}
-	if (fts_ftest->func == NULL) {
+	if (NULL == fts_ftest->func) {
 		FTS_TEST_ERROR("no test function match, can't test");
 		return -ENODATA;
 	}
@@ -2040,11 +2045,79 @@ static int fts_test_func_init(struct fts_ts_data *ts_data)
 	return 0;
 }
 
+static int ft8719_tp_selftest_show(struct seq_file *file, void *data)
+{
+	seq_printf(file, "0%c-1%c-2%c-3%c-4%c\n",
+		ito_test_result[1],
+		ito_test_result[10],
+		ito_test_result[7],
+		ito_test_result[13],
+		ito_test_result[4]);
+	return 0;
+}
+
+static int ft8719_tp_selftest_open(struct inode *inode, struct file *file)
+{
+	int ret = 0;
+	char fwname[FILE_NAME_LENGTH] = "Conf_MultipleTest.ini";
+	struct fts_ts_data *ts_data = fts_data;
+	struct input_dev *input_dev;
+
+	if (ts_data->suspended) {
+		FTS_INFO("In suspend, no test, return now");
+		return -EINVAL;
+	}
+
+	input_dev = ts_data->input_dev;
+	FTS_TEST_DBG("fwname:%s.", fwname);
+
+	mutex_lock(&input_dev->mutex);
+	fts_irq_disable();
+
+#if defined(FTS_ESDCHECK_EN) && (FTS_ESDCHECK_EN)
+	fts_esdcheck_switch(DISABLE);
+#endif
+
+	ret = fts_enter_test_environment(1);
+	if (ret < 0) {
+		FTS_ERROR("enter test environment fail");
+	} else {
+		printk("[%s]: --------ITO test start-------\n", __func__);
+		fts_test_entry(fwname);
+	}
+	ret = fts_enter_test_environment(0);
+	if (ret < 0) {
+		FTS_ERROR("enter normal environment fail");
+	}
+
+#if defined(FTS_ESDCHECK_EN) && (FTS_ESDCHECK_EN)
+	fts_esdcheck_switch(ENABLE);
+#endif
+
+	fts_irq_enable();
+	mutex_unlock(&input_dev->mutex);
+
+	printk("[%s]: --------ITO test end-------\n", __func__);
+	return single_open(file, ft8719_tp_selftest_show, NULL);
+}
+
+static const struct file_operations tp_selftest_fops = {
+	.open = ft8719_tp_selftest_open,
+	.read  = seq_read,
+};
+
 int fts_test_init(struct fts_ts_data *ts_data)
 {
 	int ret = 0;
 
 	FTS_TEST_FUNC_ENTER();
+#ifdef FTS_GET_TP_DIFFER
+	ret = fts_tp_differ_proc();
+	if (ret) {
+		FTS_TEST_ERROR("[focal] %s() - ERROR: create fts_tp_differ proc()  failed.",  __func__);
+	}
+#endif
+
 	/* get test function, must be the first step */
 	ret = fts_test_func_init(ts_data);
 	if (ret < 0) {
@@ -2052,15 +2125,25 @@ int fts_test_init(struct fts_ts_data *ts_data)
 		return ret;
 	}
 
-	ret = sysfs_create_group(&ts_data->dev->kobj,
-				 &fts_test_attribute_group);
-	if (ret != 0) {
+	ft8719_selftest_entry = proc_create("tp_selftest", 0666, NULL, &tp_selftest_fops);
+	if (ft8719_selftest_entry == NULL) {
+		printk("[%s]: proc create tp_selftest_entry fail!\n", __func__);
+	}
+
+	gtp_lockdown_info = proc_create("tp_lockdown_info", 0644, NULL, &lockdown_proc_ops);
+	if (!gtp_lockdown_info)
+	   FTS_TEST_ERROR("create proc entry tp_lockdown_info failed\n");
+	else
+	   FTS_TEST_ERROR("create proc entry tp_lockdown_info success\n");
+
+	ret = sysfs_create_group(&ts_data->dev->kobj, &fts_test_attribute_group);
+	if (0 != ret) {
 		FTS_TEST_ERROR("sysfs(test) create fail");
-		sysfs_remove_group(&ts_data->dev->kobj,
-				   &fts_test_attribute_group);
+		sysfs_remove_group(&ts_data->dev->kobj, &fts_test_attribute_group);
 	} else {
 		FTS_TEST_DBG("sysfs(test) create successfully");
 	}
+
 	FTS_TEST_FUNC_EXIT();
 
 	return ret;

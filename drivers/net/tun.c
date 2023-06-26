@@ -1508,6 +1508,16 @@ drop:
 		return -EINVAL;
 	}
 
+	//gro on: clatd checksum fail patch
+	//if is nornal and gro packet, not calculate tcp's checksum
+	if (pi.flags & htons(0xF000)) {  //this is normal packet or GRO packet
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
+		if (pi.flags & htons(0x0F00)) {  //this is GRO packet
+			skb_shinfo(skb)->gso_size = 1;
+			skb_shinfo(skb)->gso_type = 1;
+		}
+	}
+
 	switch (tun->flags & TUN_TYPE_MASK) {
 	case IFF_TUN:
 		if (tun->flags & IFF_NO_PI) {

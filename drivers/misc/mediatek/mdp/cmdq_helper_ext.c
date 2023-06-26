@@ -4480,6 +4480,16 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 				CMDQ_ERR(
 					"task may not execute handle:%p pkt:%p exec:%#x %#x",
 					handle, handle->pkt, va[0], va[1]);
+		if (va && (va[0] == 0xdeaddead || va[1] == 0xdeaddead))
+			CMDQ_ERR(
+				"task may not execute handle:%p pkt:%p exec:%#x %#x",
+				handle, handle->pkt, va[0], va[1]);
+		if (va) {
+			if (va[0] == 0xdeaddead || va[1] == 0xdeaddead) {
+				CMDQ_ERR(
+					"task may not execute handle:%p pkt:%p exec:%#x %#x",
+					handle, handle->pkt, va[0], va[1]);
+				cmdq_dump_pkt(handle->pkt, 0, true);
 			} else {
 				u32 cost = va[1] < va[0] ?
 					~va[0] + va[1] : va[1] - va[0];
@@ -4827,9 +4837,16 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 	u32 i;
 	s32 chan_id;
 	struct cmdq_client *clt;
+	int thread_cnt;
+
+	thread_cnt = of_count_phandle_with_args(
+		dev->of_node, "mboxes", "#mbox-cells");
+	CMDQ_LOG("thread count:%d\n", thread_cnt);
+	if (thread_cnt <= 0)
+		thread_cnt = CMDQ_MAX_THREAD_COUNT;
 
 	/* for display we start from thread 0 */
-	for (i = 0; i < CMDQ_MAX_THREAD_COUNT; i++) {
+	for (i = 0; i < thread_cnt; i++) {
 		clt = cmdq_mbox_create(dev, i);
 		if (!clt || IS_ERR(clt)) {
 			CMDQ_MSG("register mbox stop:0x%p idx:%u\n", clt, i);

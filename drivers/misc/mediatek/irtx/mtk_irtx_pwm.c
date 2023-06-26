@@ -191,7 +191,7 @@ static ssize_t dev_char_write(struct file *file, const char __user *buf,
 	int total_time = 0;
 	int *buf_ptr;
 
-	pr_info("%s() irtx write len=0x%x, pwm=%d\n", __func__,
+	printk("%s() --lyd, irtx write len=0x%x, pwm=%d\n", __func__,
 		(unsigned int)count, (unsigned int)irtx_pwm_config.pwm_no);
 	if (count == 0) {
 		ret = 0;
@@ -376,9 +376,12 @@ static int irtx_probe(struct platform_device *plat_dev)
 
 	if (plat_dev->dev.of_node == NULL) {
 		pr_notice("%s() irtx OF node is NULL!\n", __func__);
+		printk("--lyd, %s() irtx OF node is NULL!\n", __func__);
 		ret = -1;
 		goto exit;
 	}
+
+	printk("[%s]: --lyd, enter probe......\n", __func__);
 
 	of_property_read_u32(plat_dev->dev.of_node, "major", &major);
 	of_property_read_u32(plat_dev->dev.of_node, "pwm_ch",

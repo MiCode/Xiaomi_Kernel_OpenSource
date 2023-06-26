@@ -80,9 +80,8 @@ enum DISP_HELPER_OPT {
 	DISP_OPT_OVL_SBCH,
 	DISP_OPT_GMO_OPTIMIZE,
 	DISP_OPT_TUI_MODE, /* 0: single-window; 1: multi-window */
-
-	DISP_OPT_6382_DBG,
-
+	/*DynFPS*/
+	DISP_OPT_DYNAMIC_FPS,
 	DISP_OPT_NUM
 };
 

@@ -366,14 +366,17 @@ static void fw_free_buf(struct firmware_buf *buf)
 
 /* direct firmware loading support */
 static char fw_path_para[256];
+/*K19A code for WXYFB-991 by zhangpeng at 2021.3.18 start */
 static const char * const fw_path[] = {
 	fw_path_para,
+	"/system/vendor/firmware",
+	"/system/etc/firmware",
 	"/lib/firmware/updates/" UTS_RELEASE,
 	"/lib/firmware/updates",
 	"/lib/firmware/" UTS_RELEASE,
 	"/lib/firmware"
 };
-
+/*K19A code for WXYFB-991 by zhangpeng at 2021.3.18 end */
 /*
  * Typical usage is that passing 'firmware_class.path=$CUSTOMIZED_PATH'
  * from kernel command line because firmware_class is generally built in

@@ -33,7 +33,9 @@ static void __iomem *EMI_MPU_BASE;
 
 static struct emi_info_t emi_info;
 static unsigned int emi_dcm;
-
+/* Huaqin modify for HQ-123324 by luocheng at 2021/04/23 start */
+char ddr_id[10];
+/* Huaqin modify for HQ-123324 by luocheng at 2021/04/23 end */
 static int emi_probe(struct platform_device *pdev);
 
 static int ddr_info_show(struct seq_file *m, void *v)
@@ -252,6 +254,10 @@ static int __init emi_ctrl_init(void)
 	pr_info("[EMI] rk_num(%d)\n", get_rk_num());
 	for (i = 0; i < get_rk_num(); i++)
 		pr_info("[EMI] rank%d_size(0x%x)", i, get_rank_size(i));
+
+	/* Huaqin modify for HQ-123324 by luocheng at 2021/04/28 start */
+	sprintf(ddr_id, "0x%02x", get_dram_mr(5));
+	/* Huaqin modify for HQ-123324 by luocheng at 2021/04/28 end */
 
 	return 0;
 }

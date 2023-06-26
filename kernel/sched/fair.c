@@ -7510,6 +7510,10 @@ static int start_cpu(struct task_struct *p, bool prefer_idle,
 	if (rd->min_cap_orig_cpu < 0)
 		return -1;
 
+	if (game_vip_task(p)) {
+		return rd->max_cap_orig_cpu;
+	}
+
 	if (boosted && (task_util(p) >= stune_task_threshold))
 		return boosted ? rd->max_cap_orig_cpu : rd->min_cap_orig_cpu;
 
@@ -7859,6 +7863,9 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 				if (real_spare_cap <= target_orig_max_spare_cap)
 					continue;
 
+			if (game_vip_task(p) &&
+				(best_idle_cpu != -1 || target_cpu != -1 || best_active_cpu != -1))
+				break;
 			/*
 			 * If little core will use frequency
 			 * higher than truning point, store it
@@ -8187,7 +8194,8 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 		 * all if(prefer_idle) blocks.
 		 */
 		prefer_idle = sched_feat(EAS_PREFER_IDLE) ?
-				(schedtune_prefer_idle(p) > 0) : 0;
+				(schedtune_prefer_idle(p) > 0) ||
+                  		game_vip_task(p) : 0;
 
 		eenv->max_cpu_count = EAS_CPU_BKP + 1;
 
@@ -8196,7 +8204,7 @@ static int find_energy_efficient_cpu(struct sched_domain *sd,
 					      boosted, prefer_idle);
 
 		/* Immediately return a found idle CPU for a prefer_idle task */
-		if (prefer_idle && target_cpu >= 0 && idle_cpu(target_cpu) &&
+		if ((prefer_idle || game_vip_task(p)) && target_cpu >= 0 && idle_cpu(target_cpu) &&
 			!cpu_isolated(target_cpu))
 			return target_cpu;
 

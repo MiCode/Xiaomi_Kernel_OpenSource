@@ -168,4 +168,15 @@ config TOUCHSCREEN_MTK_GT9157
 
 source "drivers/input/touchscreen/mediatek/GT9157/Kconfig"
 
+
+source "drivers/input/touchscreen/mediatek/NT36672C/Kconfig"
+# Huaqin add for HQ-147450 by feiwen at 2021/7/23 start
+source "drivers/input/touchscreen/mediatek/focaltech_touch_k19a/Kconfig"
+# Huaqin add for HQ-147450 by feiwen at 2021/7/23 end
+
+source "drivers/input/touchscreen/mediatek/NT36xxx_HOSTDL_SPI/Kconfig"
+source "drivers/input/touchscreen/mediatek/focaltech_touch/Kconfig"
+source "drivers/input/touchscreen/mediatek/xiaomi/Kconfig"
+source "drivers/input/touchscreen/mediatek/NT36672/Kconfig"
+source "drivers/input/touchscreen/mediatek/FT8719P/Kconfig"
 endif

@@ -680,6 +680,8 @@ wdma_golden_setting(enum DISP_MODULE_ENUM module,
 			frame_rate = 30;
 	}
 
+	DDPMSG("%s, frame_rate=%u\n", __func__, frame_rate);
+
 	/* DISP_REG_WDMA_SMI_CON */
 	regval = 0;
 	regval |= REG_FLD_VAL(SMI_CON_FLD_THRESHOLD, 7);

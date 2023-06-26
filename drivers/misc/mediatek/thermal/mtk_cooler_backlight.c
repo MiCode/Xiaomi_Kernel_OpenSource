@@ -46,52 +46,44 @@ static void mtk_cl_backlight_set_max_brightness_limit(void)
 	if (g_backlight_last_level != g_backlight_level) {
 		mtk_cooler_backlight_dprintk("set brightness level = %d\n",
 				g_backlight_level);
+
+#ifdef FACTORY_VERSION_ENABLE
 		switch (g_backlight_level) {
 		case 0:
-			/* 100% */
-			#if defined(CONFIG_LEDS_MTK_DISP) || \
-				defined(CONFIG_LEDS_MTK_PWM)
-			setMaxBrightness("lcd-backlight", 100, 0);
-			#else
-			setMaxbrightness(255, 0);
-			#endif
+			setMaxbrightness(255, 0);	/* 100% */
 			break;
 		case 1:
-			/* 70% */
-			#if defined(CONFIG_LEDS_MTK_DISP) || \
-				defined(CONFIG_LEDS_MTK_PWM)
-			setMaxBrightness("lcd-backlight", 70, 0);
-			#else
-			setMaxbrightness(178, 0);
-			#endif
+			setMaxbrightness(178, 1);	/* 70% */
 			break;
 		case 2:
-			/* 40% */
-			#if defined(CONFIG_LEDS_MTK_DISP) || \
-				defined(CONFIG_LEDS_MTK_PWM)
-			setMaxBrightness("lcd-backlight", 40, 1);
-			#else
-			setMaxbrightness(102, 1);
-			#endif
+			setMaxbrightness(102, 1);	/* 40% */
 			break;
 		case 3:
-			/* 10% */
-			#if defined(CONFIG_LEDS_MTK_DISP) || \
-				defined(CONFIG_LEDS_MTK_PWM)
-			setMaxBrightness("lcd-backlight", 10, 1);
-			#else
-			setMaxbrightness(25, 1);
-			#endif
+			setMaxbrightness(25, 1);	/* 10% */
 			break;
 		default:
-			#if defined(CONFIG_LEDS_MTK_DISP) || \
-				defined(CONFIG_LEDS_MTK_PWM)
-			setMaxBrightness("lcd-backlight", 100, 0);
-			#else
 			setMaxbrightness(255, 0);
-			#endif
 			break;
 		}
+#else
+		switch (g_backlight_level) {
+		case 0:
+			setMaxbrightness(2047, 0);	/* 100% */
+			break;
+		case 1:
+			setMaxbrightness(1432, 1);	/* 70% */
+			break;
+		case 2:
+			setMaxbrightness(818, 1);	/* 40% */
+			break;
+		case 3:
+			setMaxbrightness(204, 1);	/* 10% */
+			break;
+		default:
+			setMaxbrightness(2047, 0);
+			break;
+		}
+#endif
 	}
 }
 

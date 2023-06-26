@@ -127,6 +127,15 @@ static char *sensor_attr_devnode(struct device *dev, umode_t *mode)
 	return kasprintf(GFP_KERNEL, "sensor/%s", dev_name(dev));
 }
 #endif
+
+static ssize_t architecture_show(struct class *class,
+                    struct class_attribute *attr,
+                                char *buf)
+{
+    return scnprintf(buf, PAGE_SIZE, "MTK:1.0\n");
+}
+static CLASS_ATTR_RO(architecture);
+
 static int __init sensor_attr_init(void)
 {
 	int err;
@@ -137,6 +146,11 @@ static int __init sensor_attr_init(void)
 		err = -EIO;
 		return err;
 	}
+    err = class_create_file(sensor_attr_class, &class_attr_architecture);
+    if (err){
+        printk(KERN_ERR "%s:Fail to creat architecture class file\n", __func__);
+        return err;
+    }
 	sensor_attr_major = register_chrdev(0, "sensor", &sensor_attr_fops);
 	if (sensor_attr_major < 0)
 		goto fail_printk;

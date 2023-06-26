@@ -1,7 +1,9 @@
 # In case the platform does NOT support this type of sensors
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensors-1.0/hwmon/include
-
+#Huaqin modify for HQ-123670 by luozeng at 2021.4.26 start*/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensors-1.0/sensorHub/inc_v1
+#Huaqin modify for HQ-123670 by luozeng at 2021.4.26 end*/
 obj-y	+= situation.o
 obj-$(CONFIG_MTK_INPKHUB)	+=	inpocket/
 obj-$(CONFIG_MTK_STATHUB) 	+= 	stationary/

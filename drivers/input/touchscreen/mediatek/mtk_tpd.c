@@ -430,15 +430,15 @@ static int tpd_fb_notifier_callback(
 
 	evdata = data;
 	/* If we aren't interested in this event, skip it immediately ... */
-	if (event != FB_EVENT_BLANK)
-		return 0;
+//	if (event != FB_EVENT_BLANK)
+//		return 0;
 
 	blank = *(int *)evdata->data;
 	TPD_DMESG("fb_notify(blank=%d)\n", blank);
 	switch (blank) {
 	case FB_BLANK_UNBLANK:
 		TPD_DMESG("LCD ON Notify\n");
-		if (g_tpd_drv && tpd_suspend_flag) {
+		if (g_tpd_drv && tpd_suspend_flag && (event == FB_EVENT_BLANK)) {
 			err = queue_work(touch_resume_workqueue,
 						&touch_resume_work);
 			if (!err) {
@@ -449,7 +449,7 @@ static int tpd_fb_notifier_callback(
 		break;
 	case FB_BLANK_POWERDOWN:
 		TPD_DMESG("LCD OFF Notify\n");
-		if (g_tpd_drv && !tpd_suspend_flag) {
+		if (g_tpd_drv && !tpd_suspend_flag && (event == FB_EARLY_EVENT_BLANK)) {
 			err = cancel_work_sync(&touch_resume_work);
 			if (!err)
 				TPD_DMESG("cancel resume_workqueue failed\n");
@@ -466,7 +466,7 @@ static int tpd_fb_notifier_callback(
 int tpd_driver_add(struct tpd_driver_t *tpd_drv)
 {
 	int i;
-
+		TPD_DMESG("touch driver tpd_driver_add\n");
 	if (g_tpd_drv != NULL) {
 		TPD_DMESG("touch driver exist\n");
 		return -1;
@@ -640,7 +640,8 @@ static int tpd_probe(struct platform_device *pdev)
 		/* add tpd driver into list */
 		if (tpd_driver_list[i].tpd_device_name != NULL) {
 			tpd_driver_list[i].tpd_local_init();
-			/* msleep(1); */
+			TPD_DMESG("%s, tpd_driver_name=%s\n", __func__, tpd_driver_list[i].tpd_device_name);
+			/*msleep(10);*/
 			if (tpd_load_status == 1) {
 				TPD_DMESG("%s, tpd_driver_name=%s\n", __func__,
 					  tpd_driver_list[i].tpd_device_name);

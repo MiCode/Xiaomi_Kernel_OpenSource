@@ -450,10 +450,10 @@ void cmdq_dev_init_device_tree(struct device_node *node)
 {
 	int status;
 	u32 mmsys_dummy_reg_offset_value = 0;
-	u32 thread_count = 16;
+	u32 thread_count = CMDQ_MAX_THREAD_COUNT;
 	struct cmdq_dts_setting *dts_setting = cmdq_core_get_dts_setting();
 
-	gThreadCount = 16;
+	gThreadCount = thread_count;
 	gMMSYSDummyRegOffset = 0;
 	cmdq_core_init_dts_data();
 	status = of_property_read_u32(node, "thread_count", &thread_count);

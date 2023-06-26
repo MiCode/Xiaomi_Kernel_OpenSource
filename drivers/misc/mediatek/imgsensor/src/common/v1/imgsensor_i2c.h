@@ -28,11 +28,11 @@
 
 #define IMGSENSOR_I2C_BUFF_MODE_DEV      IMGSENSOR_I2C_DEV_2
 
-#ifdef IMGSENSOR_I2C_1000K
+//#ifdef IMGSENSOR_I2C_1000K
 #define IMGSENSOR_I2C_SPEED              1000
-#else
-#define IMGSENSOR_I2C_SPEED              400
-#endif
+//#else
+//#define IMGSENSOR_I2C_SPEED              400
+//#endif
 
 struct IMGSENSOR_I2C_STATUS {
 	u8 reserved:7;

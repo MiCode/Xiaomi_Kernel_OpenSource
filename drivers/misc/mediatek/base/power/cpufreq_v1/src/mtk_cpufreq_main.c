@@ -1780,6 +1780,7 @@ static struct platform_driver _mt_cpufreq_pdrv = {
 };
 
 /* Module driver */
+extern unsigned long cpufreq_max_freq;
 static int __init _mt_cpufreq_tbl_init(void)
 {
 	unsigned int lv = _mt_cpufreq_get_cpu_level();
@@ -1816,6 +1817,8 @@ static int __init _mt_cpufreq_tbl_init(void)
 				table[i].driver_data = i;
 				table[i].frequency =
 				opp_tbl_info->opp_tbl[i].cpufreq_khz;
+				if (cpufreq_max_freq < table[i].frequency)
+					cpufreq_max_freq = table[i].frequency;
 			}
 
 			table[opp_tbl_info->size].driver_data = i;

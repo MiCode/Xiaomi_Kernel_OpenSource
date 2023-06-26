@@ -354,3 +354,6 @@ config SND_SOC_MTK_AUDIO_DSP
 	  that can be used with other platforms
 	  Select Y if you have such device.
 	  If unsure select "N".
+
+source "sound/soc/mediatek/aw87559/Kconfig"
+source "sound/soc/mediatek/fs1815n/Kconfig"

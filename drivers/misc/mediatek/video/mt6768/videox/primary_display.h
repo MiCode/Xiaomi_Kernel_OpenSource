@@ -62,6 +62,9 @@ extern unsigned int arr_fps_backup;
 extern unsigned int arr_fps_enable;
 extern unsigned int round_corner_offset_enable;
 
+extern bool g_force_cfg;
+extern unsigned int g_force_cfg_id;
+
 struct DISP_LAYER_INFO {
 	unsigned int id;
 	unsigned int curr_en;
@@ -225,9 +228,9 @@ enum mtkfb_power_mode {
 
 struct display_primary_path_context {
 	enum DISP_POWER_STATE state;
-	unsigned int lcm_fps;
+	unsigned int lcm_fps;/*real fps * 100*/
 	unsigned int dynamic_fps;
-	int lcm_refresh_rate;
+	unsigned int lcm_refresh_rate; /*real fps*/
 	int max_layer;
 	int need_trigger_overlay;
 	int need_trigger_ovl1to2;
@@ -273,6 +276,20 @@ struct display_primary_path_context {
 #endif
 	enum mtkfb_power_mode pm;
 	enum lcm_power_state lcm_ps;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS start*/
+	int active_cfg;
+	struct mutex dynfps_lock;
+	struct multi_configs multi_cfg_table;
+	cmdqBackupSlotHandle config_id_slot;
+	unsigned int first_cfg;
+	/*DynFPS end*/
+#endif
+/* Huaqin add for HQ-179522 by jiangyue at 2022/01/24 start */
+	/* change vfp for ap dsi and 6382 at same time */
+	bool vfp_chg_sync_bdg;
+/* Huaqin add for HQ-179522 by jiangyue at 2022/01/24 end */
 };
 
 static inline char *lcm_power_state_to_string(enum lcm_power_state ps)
@@ -311,6 +328,7 @@ static inline char *power_mode_to_string(enum mtkfb_power_mode pm)
 
 typedef int (*PRIMARY_DISPLAY_CALLBACK) (unsigned int user_data);
 
+enum mtkfb_power_mode primary_display_get_power_mode_nolock(void);
 struct display_primary_path_context *_get_context(void);
 void _primary_path_lock(const char *caller);
 void _primary_path_unlock(const char *caller);
@@ -490,4 +508,30 @@ extern unsigned int dump_output;
 extern unsigned int dump_output_comp;
 extern void *composed_buf;
 extern struct completion dump_buf_comp;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+/**************function for DynFPS start************************/
+unsigned int primary_display_is_support_DynFPS(void);
+unsigned int primary_display_get_default_disp_fps(int need_lock);
+unsigned int primary_display_get_def_timing_fps(int need_lock);
+int primary_display_get_cfg_fps(
+	int config_id, unsigned int *fps, unsigned int *vact_timing_fps);
+unsigned int primary_display_get_current_cfg_id(void);
+void primary_display_update_cfg_id(int cfg_id);
+void primary_display_init_multi_cfg_info(void);
+int primary_display_get_multi_configs(struct multi_configs *p_cfgs);
+void primary_display_dynfps_chg_fps(int cfg_id);
+void primary_display_dynfps_get_vfp_info(
+	unsigned int *vfp, unsigned int *vfp_for_lp);
+
+#if 0
+bool primary_display_need_update_golden_fps(
+	unsigned int last_fps, unsigned int new_fps);
+bool primary_display_need_update_hrt_fps(
+	unsigned int last_fps, unsigned int new_fps);
+#endif
+
+/**************function for DynFPS end************************/
+#endif
+
 #endif

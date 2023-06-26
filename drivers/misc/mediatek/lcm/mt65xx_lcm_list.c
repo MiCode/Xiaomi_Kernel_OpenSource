@@ -28,6 +28,46 @@ enum LCM_DSI_MODE_CON lcm_dsi_mode;
 #define LCD_HW_ID_STATUS_ERROR  0x03
 
 struct LCM_DRIVER *lcm_driver_list[] = {
+/* Huaqin add for HQ-148596 by caogaojie at 2021/9/27 start */
+#if defined(DSI_PANEL_K19A_36_03_0C_DSC_VDO)
+	&dsi_panel_k19a_36_03_0c_dsc_vdo_lcm_drv,
+#endif
+/* Huaqin add for HQ-148596 by caogaojie at 2021/9/27 end */
+/*K19A HQ-123492 K19A LCD bring up by caogaojie at 2021/3/27 start*/
+#if defined(DSI_PANEL_K19A_36_02_0A_DSC_VDO)
+	&dsi_panel_k19a_36_02_0a_dsc_vdo_lcm_drv,
+#endif
+/*K19A HQ-123492 K19A LCD bring up by caogaojie at 2021/3/27 end*/
+
+/* Huaqin add for HQ-123491 by caogaojie at 2021/3/29 start */
+#if defined(DSI_PANEL_K19A_43_02_0B_DSC_VDO)
+        &dsi_panel_k19a_43_02_0b_dsc_vdo_lcm_drv,
+#endif
+/* Huaqin add for HQ-123491 by caogaojie at 2021/3/29 end */
+#if defined(FT8719_FHDP_DSI_VDO_HUAXING_J19)
+	&ft8719_fhdp_dsi_vdo_huaxing_j19_lcm_drv,
+#endif
+#if defined(NT36672A_FHDP_DSI_VDO_TIANMA_J19)
+	&nt36672A_fhdp_dsi_vdo_tianma_j19_lcm_drv,
+#endif
+#if defined(NT36672A_FHDP_DSI_VDO_DIJING_J19)
+	&nt36672A_fhdp_dsi_vdo_dijing_j19_lcm_drv,
+#endif
+#if defined(NT36672D_FHDP_DSI_VDO_DIJING_J19)
+	&nt36672D_fhdp_dsi_vdo_dijing_j19_lcm_drv,
+#endif
+#if defined(NT36672A_FHDP_DSI_VDO_TIANMA_G6)
+	&nt36672A_fhdp_dsi_vdo_tianma_lcm_drv_G6,
+#endif
+#if defined(FT8719_FHDP_DSI_VDO_XINLI)
+	&ft8719_fhdp_dsi_vdo_xinli_lcm_drv,
+#endif
+#if defined(NT36672A_FHDP_DSI_VDO_TIANMA)
+	&nt36672A_fhdp_dsi_vdo_tianma_lcm_drv,
+#endif
+#if defined(NT36672D_FHDP_DSI_VDO_TIANMA)
+    &nt36672D_fhdp_dsi_vdo_tianma_lcm_drv,
+#endif
 #if defined(ES6311_ANX6585_ZIGZAG_WXGA)
 	&es6311_anx6585_zigzag_wxga_lcm_drv,
 #endif
@@ -1257,10 +1297,6 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_lcm_drv,
 #endif
 
-#if defined(NT36672C_FHDP_DSI_VDO_60HZ_WO_DSC_SHENCHAO)
-	&nt36672c_fhdp_dsi_vdo_60hz_wo_dsc_shenchao_lcm_drv,
-#endif
-
 #if defined(OTM1287_WXGA_DSI_VDO_AUO_GUOXIAN)
 	&otm1287_wxga_dsi_vdo_auo_guoxian_lcm_drv,
 #endif
@@ -1299,6 +1335,14 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 
 #if defined(FT8756_FHDP_DSI_VDO_AUO_RT4801)
 	&ft8756_fhdp_dsi_vdo_auo_rt4801_lcm_drv,
+#endif
+
+#if defined(NT36672C_FHDP_DSI_VDO_90HZ_SHENCHAO)
+	&nt36672c_fhdp_dsi_vdo_90hz_shenchao_lcm_drv,
+#endif
+
+#if defined(NT36672C_FHDP_DSI_VDO_90HZ_SHENCHAO_6382)
+	&nt36672c_fhdp_dsi_vdo_90hz_shenchao_6382_lcm_drv,
 #endif
 };
 

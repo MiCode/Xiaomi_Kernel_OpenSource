@@ -1306,8 +1306,20 @@ static int spi_init_queue(struct spi_controller *ctlr)
 	ctlr->busy = false;
 
 	kthread_init_worker(&ctlr->kworker);
-	ctlr->kworker_task = kthread_run(kthread_worker_fn, &ctlr->kworker,
+	/* Huaqin modify for HQ-131657 by liunianliang at 2021/06/03 start */
+	if (strcmp(dev_name(&ctlr->dev), "spi5") != 0) {
+		ctlr->kworker_task = kthread_run(kthread_worker_fn, &ctlr->kworker,
 					 "%s", dev_name(&ctlr->dev));
+	} else {
+		#define CPU6 6
+		ctlr->kworker_task = kthread_create_on_cpu(kthread_worker_fn, &ctlr->kworker,
+					CPU6, dev_name(&ctlr->dev));
+		if (!IS_ERR(ctlr->kworker_task)) {
+			wake_up_process(ctlr->kworker_task);
+		}
+	}
+	/* Huaqin modify for HQ-131657 by liunianliang at 2021/06/03 end */
+
 	if (IS_ERR(ctlr->kworker_task)) {
 		dev_err(&ctlr->dev, "failed to create message pump task\n");
 		return PTR_ERR(ctlr->kworker_task);
@@ -1622,7 +1634,8 @@ static int of_spi_parse_dt(struct spi_controller *ctlr, struct spi_device *spi,
 		return rc;
 	}
 	spi->max_speed_hz = value;
-
+	printk("[%s]: lyd_spi, spi name = %s\n", __func__, nc->name);
+	printk("[%s]: lyd_spi, spi speed = %d\n", __func__, value);
 	return 0;
 }
 
