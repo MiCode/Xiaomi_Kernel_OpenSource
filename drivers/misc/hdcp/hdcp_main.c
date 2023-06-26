@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "hdcp_main.h"
@@ -28,6 +28,7 @@ void select_interface(bool use_smcinvoke)
 		ta_interface.trusted_app_hdcp2_app_process_msg = &hdcp2_app_process_msg_smcinvoke;
 		ta_interface.trusted_app_hdcp2_app_enable_encryption =
 						&hdcp2_app_enable_encryption_smcinvoke;
+		ta_interface.trusted_app_hdcp2_app_timeout = &hdcp2_app_timeout_smcinvoke;
 		ta_interface.trusted_app_hdcp2_app_query_stream = &hdcp2_app_query_stream_smcinvoke;
 		ta_interface.trusted_app_hdcp2_app_stop = &hdcp2_app_stop_smcinvoke;
 		ta_interface.trusted_app_hdcp2_feature_supported =
@@ -48,6 +49,7 @@ void select_interface(bool use_smcinvoke)
 		ta_interface.trusted_app_hdcp2_app_start = &hdcp2_app_start_qseecom;
 		ta_interface.trusted_app_hdcp2_app_start_auth = &hdcp2_app_start_auth_qseecom;
 		ta_interface.trusted_app_hdcp2_app_process_msg = &hdcp2_app_process_msg_qseecom;
+		ta_interface.trusted_app_hdcp2_app_timeout = &hdcp2_app_timeout_qseecom;
 		ta_interface.trusted_app_hdcp2_app_enable_encryption =
 						&hdcp2_app_enable_encryption_qseecom;
 		ta_interface.trusted_app_hdcp2_app_query_stream = &hdcp2_app_query_stream_qseecom;
