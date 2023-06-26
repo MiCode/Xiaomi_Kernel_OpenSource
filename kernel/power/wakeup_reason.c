@@ -297,13 +297,8 @@ static void print_wakeup_sources(void)
 	spin_unlock_irqrestore(&wakeup_reason_lock, flags);
 }
 
-#if IS_ENABLED(CONFIG_MTK_MBRAINK_EXPORT_DEPENDED)
-ssize_t last_resume_reason_show(struct kobject *kobj,
-				       struct kobj_attribute *attr, char *buf)
-#else
 static ssize_t last_resume_reason_show(struct kobject *kobj,
 					struct kobj_attribute *attr, char *buf)
-#endif
 {
 	ssize_t buf_offset = 0;
 	struct wakeup_irq_node *n;
@@ -331,9 +326,6 @@ static ssize_t last_resume_reason_show(struct kobject *kobj,
 
 	return buf_offset;
 }
-#if IS_ENABLED(CONFIG_MTK_MBRAINK_EXPORT_DEPENDED)
-EXPORT_SYMBOL(last_resume_reason_show);
-#endif
 
 static ssize_t last_suspend_time_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
