@@ -5856,6 +5856,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 	char single_line[] = "----------------";
 	char title[] = "=========================";
 	unsigned long irq_flags = 0;
+	size_t total_size = 0;
 
 	fileinfo = kzalloc(DEBUGFS_SIZE, GFP_KERNEL);
 	if (!fileinfo) {
@@ -5979,6 +5980,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 				"0x%-20lX|0x%-20llX|0x%-20zu|0x%-17llX\n\n",
 				map->va, map->phys,
 				map->size, map->flags);
+			total_size += map->size;
 		}
 		mutex_unlock(&fl->map_mutex);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
@@ -6010,6 +6012,11 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		}
 		mutex_unlock(&fl->map_mutex);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"\n%s %s = 0x%-20zu %s\n", single_line,
+			" Total Map size ", total_size, single_line);
+		total_size = 0;
+
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"\n======%s %s %s======\n", title,
 			" LIST OF BUFS ", title);
 		spin_lock(&fl->hlock);
@@ -6040,8 +6047,11 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 				DEBUGFS_SIZE - len,
 				"0x%-17p|0x%-17llX|%-19zu|0x%-17llX\n",
 				buf->virt, (uint64_t)buf->phys, buf->size, buf->flags);
+			total_size += buf->size;
 		}
-
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"\n%s %s = 0x%-20zu %s\n", single_line,
+			" Total BUF size ", total_size, single_line);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"\n%s %s %s\n", title,
 			" LIST OF PENDING SMQCONTEXTS ", title);
