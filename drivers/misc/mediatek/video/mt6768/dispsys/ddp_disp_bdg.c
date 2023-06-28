@@ -1183,7 +1183,7 @@ int bdg_tx_phy_config(enum DISP_BDG_ENUM module,
 	/* hs_trail = 80ns+4*UI */
 	hs_trail = 80 + 4 * ui;
 	timcon0.HS_TRAIL = (hs_trail > cycle_time) ?
-				NS_TO_CYCLE(hs_trail, cycle_time) + 1 : 2;
+				NS_TO_CYCLE(hs_trail, cycle_time) : 2;
 
 	/* hs_exit > 100ns (spec) */
 	/* hs_exit = 120ns */
@@ -1213,7 +1213,7 @@ int bdg_tx_phy_config(enum DISP_BDG_ENUM module,
 
 	/* clk_trail > 60ns (spec) */
 	/* clk_trail = 100ns */
-	timcon2.CLK_TRAIL = NS_TO_CYCLE(100, cycle_time) + 1;
+	timcon2.CLK_TRAIL = NS_TO_CYCLE(100, cycle_time);
 	if (timcon2.CLK_TRAIL < 2)
 		timcon2.CLK_TRAIL = 2;
 

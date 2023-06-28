@@ -1208,8 +1208,9 @@ int set_task_util_min(pid_t pid, unsigned int util_min)
 	int ret = -EINVAL;
 
 	struct sched_attr attr = {
-		.sched_flags =
-			SCHED_FLAG_KEEP_PARAMS | SCHED_FLAG_UTIL_CLAMP_MIN,
+		.sched_flags =  SCHED_FLAG_KEEP_PARAMS |
+				SCHED_FLAG_UTIL_CLAMP_MIN |
+				SCHED_FLAG_RESET_ON_FORK,
 		.sched_util_min = util_min,
 	};
 

@@ -341,19 +341,6 @@ enum kbase_atom_exit_protected_state {
 };
 
 /**
- * struct kbase_ext_res - Contains the info for external resources referred
- *                        by an atom, which have been mapped on GPU side.
- * @gpu_address:          Start address of the memory region allocated for
- *                        the resource from GPU virtual address space.
- * @alloc:                pointer to physical pages tracking object, set on
- *                        mapping the external resource on GPU side.
- */
-struct kbase_ext_res {
-	u64 gpu_address;
-	struct kbase_mem_phy_alloc *alloc;
-};
-
-/**
  * struct kbase_jd_atom  - object representing the atom, containing the complete
  *                         state and attributes of an atom.
  * @work:                  work item for the bottom half processing of the atom,
@@ -386,7 +373,8 @@ struct kbase_ext_res {
  *                         each allocation is read in order to enforce an
  *                         overall physical memory usage limit.
  * @nr_extres:             number of external resources referenced by the atom.
- * @extres:                pointer to the location containing info about
+ * @extres:                Pointer to @nr_extres VA regions containing the external
+ *                         resource allocation and other information.
  *                         @nr_extres external resources referenced by the atom.
  * @device_nr:             indicates the coregroup with which the atom is
  *                         associated, when
@@ -516,7 +504,7 @@ struct kbase_jd_atom {
 #endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 	u16 nr_extres;
-	struct kbase_ext_res *extres;
+	struct kbase_va_region **extres;
 
 	u32 device_nr;
 	u64 jc;

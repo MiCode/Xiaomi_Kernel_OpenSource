@@ -254,7 +254,7 @@ static int pps_request_thread_fn(void *data)
 		while (!wait_event_timeout(pd_port->pps_request_wait_que,
 					!atomic_read(&pd_port->pps_request) ||
 					kthread_should_stop(),
-					msecs_to_jiffies(7*1000))) {
+					msecs_to_jiffies(7531))) {
 			pd_put_deferred_tcp_event(tcpc, &tcp_event);
 		}
 	}

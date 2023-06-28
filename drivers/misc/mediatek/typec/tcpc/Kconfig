@@ -62,6 +62,26 @@ config TCPC_MT6370
 	  Also Support Power Delivery
 	  Say N to disable
 
+config TCPC_WUSB3801
+	bool "MediaTek WUSB3801 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable WUSB3801
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_HUSB320
+	bool "MediaTek HUSB320 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable HUSB320
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
 config PD_DBG_INFO
 	bool "TCPC power delivery debug information"
 	depends on TCPC_CLASS

@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
+ I2C_DEV_IDX_2  iic 0
+ I2C_DEV_IDX_1   iic  2
+ I2C_DEV_IDX_3  iic  4
  */
 
 #include "eeprom_i2c_dev.h"
@@ -9,7 +12,7 @@ static enum EEPROM_I2C_DEV_IDX gi2c_dev_sel[IMGSENSOR_SENSOR_IDX_MAX_NUM] = {
 	I2C_DEV_IDX_1, /* main */
 	I2C_DEV_IDX_2, /* sub */
 	I2C_DEV_IDX_3, /* main2 */
-	I2C_DEV_IDX_1, /* sub2 */
+	I2C_DEV_IDX_2, /* sub2 */
 	I2C_DEV_IDX_3, /* main3 */
 };
 

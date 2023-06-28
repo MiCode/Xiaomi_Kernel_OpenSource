@@ -5,13 +5,13 @@
 
 #define pr_fmt(fmt) "[sarhub] " fmt
 
-#include <hwmsensor.h>
 #include "sarhub.h"
 #include <situation.h>
 #include <SCP_sensorHub.h>
 #include <linux/notifier.h>
 #include "include/scp.h"
 #include "sar_factory.h"
+#include <hwmsensor.h>
 
 static struct situation_init_info sarhub_init_info;
 static DEFINE_SPINLOCK(calibration_lock);
@@ -68,9 +68,14 @@ static int sar_factory_get_data(int32_t sensor_data[3])
 	return err;
 }
 
-static int sar_factory_enable_calibration(void)
+int sar_factory_enable_calibration(void)
 {
 	return sensor_calibration_to_hub(ID_SAR);
+}
+
+static int sar_factory_set_cali(int32_t data[3])
+{
+	return 0;
 }
 
 static int sar_factory_get_cali(int32_t data[3])
@@ -103,6 +108,7 @@ static struct sar_factory_fops sarhub_factory_fops = {
 	.enable_sensor = sar_factory_enable_sensor,
 	.get_data = sar_factory_get_data,
 	.enable_calibration = sar_factory_enable_calibration,
+	.set_cali = sar_factory_set_cali,
 	.get_cali = sar_factory_get_cali,
 };
 
@@ -153,20 +159,48 @@ static int sar_flush(void)
 	return sensor_flush_to_hub(ID_SAR);
 }
 
+static int sar_set_cali(uint8_t *data, uint8_t count)
+{
+	int32_t *buf = (int32_t *)data;
+	struct sarhub_ipi_data *obj = obj_ipi_data;
+
+	spin_lock(&calibration_lock);
+	obj->cali_data[0] = buf[0];
+	obj->cali_data[1] = buf[1];
+	obj->cali_data[2] = buf[2];
+	spin_unlock(&calibration_lock);
+
+	pr_err("buf[0 1 2] = [%d %d %d]\n", obj->cali_data[0],
+		obj->cali_data[1], obj->cali_data[2]);
+
+	return sensor_cfg_to_hub(ID_SAR, data, count);
+}
+
 static int sar_recv_data(struct data_unit_t *event, void *reserved)
 {
 	struct sarhub_ipi_data *obj = obj_ipi_data;
-	int32_t value[3] = {0};
+	int32_t value[8] = {0};
 	int err = 0;
 
 	if (event->flush_action == FLUSH_ACTION)
 		err = situation_flush_report(ID_SAR);
 	else if (event->flush_action == DATA_ACTION) {
-		value[0] = event->sar_event.data[0];
-		value[1] = event->sar_event.data[1];
-		value[2] = event->sar_event.data[2];
+		value[0] = event->data[0];
+		value[1] = event->data[1];
+		value[2] = event->data[2];
+		value[3] = event->data[3];
+		value[4] = event->data[4];
+		value[5] = event->data[5];
+		value[6] = event->data[6];
+		value[7] = event->data[7];
 		err = sar_data_report_t(value, (int64_t)event->time_stamp);
 	} else if (event->flush_action == CALI_ACTION) {
+		value[0] = event->sar_event.x_bias;
+		value[1] = event->sar_event.y_bias;
+		value[2] = event->sar_event.z_bias;
+		pr_err("value[0 1 2] = [%d %d %d]\n", value[0], value[1], value[2]);
+		err = sar_cali_report(value);
+
 		spin_lock(&calibration_lock);
 		obj->cali_data[0] =
 			event->sar_event.x_bias;
@@ -206,6 +240,7 @@ static int sarhub_local_init(void)
 	ctl.open_report_data = sar_open_report_data;
 	ctl.batch = sar_batch;
 	ctl.flush = sar_flush;
+	ctl.set_cali = sar_set_cali;
 	ctl.is_support_wake_lock = true;
 	ctl.is_support_batch = false;
 	err = situation_register_control_path(&ctl, ID_SAR);

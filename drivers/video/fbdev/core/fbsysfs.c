@@ -494,6 +494,77 @@ static ssize_t show_bl_curve(struct device *device,
 }
 #endif
 
+#define SYSFS_SET_LCM_CABC_MODE _IOW('O', 29, unsigned int)
+#define SYSFS_GET_LCM_CABC_MODE _IOR('O', 30, unsigned int)
+extern int fb_lcm_cabc_op(struct fb_info *info, unsigned int cmd, unsigned long arg);
+static ssize_t store_lcm_cabc(struct device *device,
+			      struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct fb_info *fb_info = dev_get_drvdata(device);
+	int data, err;
+	if (!fb_info)
+		return -ENODEV;
+	err = kstrtoint(buf, 10, &data);
+	if (err)
+		return err;
+	console_lock();
+	printk("set cabc = %d\n", data);
+	err = fb_lcm_cabc_op(fb_info, SYSFS_SET_LCM_CABC_MODE, (unsigned long)&data);
+	console_unlock();
+	return count;
+}
+
+static ssize_t show_lcm_cabc(struct device *device,
+			     struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fb_info = dev_get_drvdata(device);
+	int data, err;
+	if (!fb_info)
+		return -ENODEV;
+	err = fb_lcm_cabc_op(fb_info, SYSFS_GET_LCM_CABC_MODE, (unsigned long)&data);
+	printk("get cabc = %d\n", data);
+	return(snprintf(buf, PAGE_SIZE, "%d\n", data));
+}
+
+unsigned int hbm_mode;
+extern char *saved_command_line;
+extern int ktd_hbm_set(enum backlight_hbm_mode hbm_mode);
+extern int ti_hbm_set(enum backlight_hbm_mode hbm_mode);
+static ssize_t show_hbm_state(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+
+	ret = snprintf(buf, 128, "hbm_mode:%d\n", hbm_mode);
+
+	return ret;
+}
+
+static ssize_t store_hbm_state(struct device *dev, struct device_attribute *attr, const char *buf, size_t len)
+{
+	extern char *saved_command_line;
+	int bkl_id = 0;
+	char *bkl_ptr = (char *)strnstr(saved_command_line, ":bklic=", strlen(saved_command_line));
+	bkl_ptr += strlen(":bklic=");
+	bkl_id = simple_strtol(bkl_ptr, NULL, 10);
+
+	sscanf(buf, "%d", &hbm_mode);
+
+	if (hbm_mode >= HBM_MODE_LEVEL_MAX)
+		hbm_mode = HBM_MODE_LEVEL_MAX - 1;
+	if (hbm_mode < HBM_MODE_DEFAULT)
+		hbm_mode = HBM_MODE_DEFAULT;
+
+	if (bkl_id == 1) {
+		ti_hbm_set((enum backlight_hbm_mode)hbm_mode);
+		printk("[%s]: Ti, set hbm_mode = %d\n", __func__, hbm_mode);
+	} else {
+		ktd_hbm_set((enum backlight_hbm_mode)hbm_mode);
+		printk("[%s]: ktd, set hbm_mode = %d\n", __func__, hbm_mode);
+	}
+	return len;
+}
+
 /* When cmap is added back in it should be a binary attribute
  * not a text one. Consideration should also be given to converting
  * fbdev to use configfs instead of sysfs */
@@ -513,6 +584,8 @@ static struct device_attribute device_attrs[] = {
 #ifdef CONFIG_FB_BACKLIGHT
 	__ATTR(bl_curve, S_IRUGO|S_IWUSR, show_bl_curve, store_bl_curve),
 #endif
+	__ATTR(cabc, S_IRUGO|S_IWUSR, show_lcm_cabc, store_lcm_cabc),
+	__ATTR(hbm, S_IRUGO|S_IWUSR, show_hbm_state, store_hbm_state),
 };
 
 int fb_init_device(struct fb_info *fb_info)

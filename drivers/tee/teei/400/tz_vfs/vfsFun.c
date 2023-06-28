@@ -65,9 +65,9 @@ struct vfs_dev *vfs_devp;
 int wait_for_vfs_done(void)
 {
 #ifdef VFS_RDWR_SEM
-	down_interruptible(&VFS_wr_sem);
+	down(&VFS_wr_sem);
 #else
-	wait_for_completion_interruptible(&VFS_wr_comp);
+	wait_for_completion(&VFS_wr_comp);
 #endif
 	return 0;
 }

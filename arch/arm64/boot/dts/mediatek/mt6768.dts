@@ -755,7 +755,7 @@ page_owner=on loop.max_part=7";
 				  "syscon", "simple-mfd";
 		reg = <0 0x10007000 0 0x1000>;
 		interrupts = <GIC_SPI 156 IRQ_TYPE_LEVEL_LOW>;
-		mediatek,rg_dfd_timeout = <0x1ffff>;
+		mediatek,rg_dfd_timeout = <0xa0>;
 		#reset-cells = <1>;
 		reboot-mode {
 			compatible = "syscon-reboot-mode";
@@ -2367,7 +2367,17 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		io-channels = <&auxadc 1>;
 		io-channel-names = "thermistor-ch1";
 	};
+	tboard_thermistor3: thermal-sensor3 {
+		compatible = "mediatek,mtboard-thermistor3";
+		io-channels = <&auxadc 2>;
+		io-channel-names = "thermistor-ch2";
+	};
 
+	tboard_thermistor4: thermal-sensor4 {
+		compatible = "mediatek,mtboard-thermistor4";
+		io-channels = <&auxadc 3>;
+		io-channel-names = "thermistor-ch3";
+	};
 	drcc: drcc {
 		compatible = "mediatek,drcc";
 		state = <255>;
@@ -3131,7 +3141,11 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 			"TOP_ULPOSC1_D2",
 			"TOP_ULPOSC1_D8";
 	};
-
+	//+ req309  shouzhongli.wt 2023.01.08  add swtp proc, start
+        swtp: swtp {
+		compatible = "mediatek, swtp-eint";
+	};
+        //- req309  shouzhongli.wt 2023.01.08  add swtp proc, end
 	dsi_te: dsi_te {
 		compatible = "mediatek, dsi_te-eint";
 		status = "disabled";
@@ -3669,6 +3683,17 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		};
 	};
 
+	camera_af_hw_node: camera_af_hw_node {
+		compatible = "mediatek,camera_af_lens";
+	};
+
+	flashlights_aw3641e: flashlights_aw3641e {
+		compatible = "awinic,aw3641e";
+		flash-en-gpio = <&pio 8 0>;
+		flash-sel-gpio = <&pio 107 0>;
+
+	};
+
 	camsv1@1a050000 {
 		compatible = "mediatek,camsv1";
 		reg = <0 0x1a050000 0 0x1000>;
@@ -3722,7 +3747,10 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		compatible = "simple-bus";
 		/* reserved for overlay by odm */
 	};
-
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio = <&pio 18 0>;
+	};
 	memory_ssmr_features: memory-ssmr-features {
 		compatible = "mediatek,memory-ssmr-features";
 		svp-region-based-size = <0 0x10000000>;
@@ -3764,23 +3792,24 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 		/* charging current */
 		usb_charger_current = <500000>;
-		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
+		ac_charger_current = <1500000>;
+		ac_charger_input_current = <2000000>;
+		non_std_ac_charger_current = <1000000>;
 		charging_host_charger_current = <1500000>;
-		ta_ac_charger_current = <3000000>;
+		ta_ac_charger_current = <1500000>;
 		pd_charger_current = <500000>;
+		default_charger_current = <250000>;
 
 		/* battery temperature protection */
-		temp_t4_threshold = <50>;
+		temp_t4_threshold = <58>;
 		temp_t3_threshold = <45>;
 		temp_t1_threshold = <0>;
 	};
 
 	charger: charger {
 		compatible = "mediatek,charger";
-		algorithm_name = "SwitchCharging";
-		/* enable_sw_jeita; */
+		algorithm_name = "SwitchCharging2";
+		enable_sw_jeita;
 		/* enable_pe_plus; */
 		/* enable_pe_2; */
 		/* enable_pe_3; */
@@ -3792,8 +3821,8 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		bootmode = <&chosen>;
 
 		/* common */
-		battery_cv = <4350000>;
-		max_charger_voltage = <6500000>;
+		battery_cv = <4434000>;
+		max_charger_voltage = <10000000>;
 		min_charger_voltage = <4600000>;
 
 		/* dynamic mivr */
@@ -3806,29 +3835,33 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		usb_charger_current_unconfigured = <70000>;
 		usb_charger_current_configured = <500000>;
 		usb_charger_current = <500000>;
-		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
+		ac_charger_current = <2300000>;
+		ac_charger_input_current = <2000000>;
+		non_std_ac_charger_current = <1000000>;
 		charging_host_charger_current = <1500000>;
 		apple_1_0a_charger_current = <650000>;
 		apple_2_1a_charger_current = <800000>;
 		ta_ac_charger_current = <3000000>;
+		pd_charger_current = <3600000>;
 
 		/* sw jeita */
-		jeita_temp_above_t4_cv = <4240000>;
-		jeita_temp_t3_to_t4_cv = <4240000>;
-		jeita_temp_t2_to_t3_cv = <4340000>;
-		jeita_temp_t1_to_t2_cv = <4240000>;
-		jeita_temp_t0_to_t1_cv = <4040000>;
-		jeita_temp_below_t0_cv = <4040000>;
-		temp_t4_thres = <50>;
-		temp_t4_thres_minus_x_degree = <47>;
-		temp_t3_thres = <45>;
-		temp_t3_thres_minus_x_degree = <39>;
+		jeita_temp_above_t5_cv = <4084000>;
+		jeita_temp_t4_to_t5_cv = <4084000>;
+		jeita_temp_t3_to_t4_cv = <4434000>;
+		jeita_temp_t2_to_t3_cv = <4434000>;
+		jeita_temp_t1_to_t2_cv = <4434000>;
+		jeita_temp_t0_to_t1_cv = <4434000>;
+		jeita_temp_below_t0_cv = <4434000>;
+		temp_t5_thres = <60>;
+		temp_t5_thres_minus_x_degree = <59>;
+		temp_t4_thres = <45>;
+		temp_t4_thres_minus_x_degree = <43>;
+		temp_t3_thres = <15>;
+		temp_t3_thres_minus_x_degree = <14>;
 		temp_t2_thres = <10>;
-		temp_t2_thres_plus_x_degree = <16>;
-		temp_t1_thres = <0>;
-		temp_t1_thres_plus_x_degree = <6>;
+		temp_t2_thres_plus_x_degree = <9>;
+		temp_t1_thres = <5>;
+		temp_t1_thres_plus_x_degree = <4>;
 		temp_t0_thres = <0>;
 		temp_t0_thres_plus_x_degree = <0>;
 		temp_neg_10_thres = <0>;
@@ -3837,8 +3870,16 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		enable_min_charge_temp;
 		min_charge_temp = <0>;
 		min_charge_temp_plus_x_degree = <6>;
-		max_charge_temp = <50>;
-		max_charge_temp_minus_x_degree = <47>;
+		max_charge_temp = <60>;
+		max_charge_temp_minus_x_degree = <59>;
+
+		/* cycle count */
+		enable_sw_fcc;
+		ffc_cv_1 = <4450000>;
+		ffc_cv_2 = <4434000>;
+		ffc_cv_3 = <4418000>;
+		chg_cycle_count_level1 = <100>;
+		chg_cycle_count_level2 = <300>;
 
 		/* PE */
 		ta_12v_support;
@@ -3891,7 +3932,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 		/* PD */
 		pd_vbus_low_bound = <5000000>;
-		pd_vbus_upper_bound = <5000000>;
+		pd_vbus_upper_bound = <9000000>;
 		pd_ichg_level_threshold = <1000000>; /* uA */
 		pd_stop_battery_soc = <80>;
 
@@ -3927,7 +3968,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 	irtx_pwm:irtx_pwm {
 		compatible = "mediatek,irtx-pwm";
-		pwm_ch = <0>;
+		pwm_ch = <1>;
 		pwm_data_invert = <0>;
 	};
 
@@ -3941,6 +3982,13 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	touch: touch {
 		compatible = "goodix,touch";
 	};
+
+	xiaomi_touch{
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
+	};
+
 
 	nfc:nfc {
 		compatible = "mediatek,nfc-gpio-v2";
@@ -4176,7 +4224,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #include "mediatek/mt6358.dtsi"
 #include "mediatek/cust_mt6768_msdc.dtsi"
 #include "mediatek/mt6370.dtsi"
-#include "mediatek/mt6370_pd.dtsi"
+//#include "mediatek/mt6370_pd.dtsi"
 #include "mediatek/cust_mt6768_msdc.dtsi"
 #ifdef CONFIG_CHARGER_RT9471
 #include "mediatek/rt9471.dtsi"

@@ -20,3 +20,4 @@ obj-$(CONFIG_MMC_TEST)		+= mmc_test.o
 obj-$(CONFIG_SDIO_UART)		+= sdio_uart.o
 obj-$(CONFIG_MMC_CRYPTO)	+= mmc_crypto.o crypto.o
 obj-$(CONFIG_MMC_BLOCK_IO_LOG)	+= mtk_mmc_block.o
+obj-y						+= ffu-mi.o

@@ -35,6 +35,7 @@ static int ti_lmu_enable_hw(struct ti_lmu *lmu, enum ti_lmu_id id)
 	int ret;
 
 	if (gpio_is_valid(lmu->en_gpio)) {
+		pr_err("[bkl] %s before devm_gpio_request_one\n", __func__);
 		ret = devm_gpio_request_one(lmu->dev, lmu->en_gpio,
 					    GPIOF_OUT_INIT_HIGH, "lmu_hwen");
 		if (ret) {
@@ -59,6 +60,8 @@ static int ti_lmu_enable_hw(struct ti_lmu *lmu, enum ti_lmu_id id)
 
 static void ti_lmu_disable_hw(struct ti_lmu *lmu)
 {
+	pr_err("[bkl] ENTER %s\n", __func__);
+
 	if (gpio_is_valid(lmu->en_gpio))
 		gpio_set_value(lmu->en_gpio, 0);
 }
@@ -177,6 +180,17 @@ static int ti_lmu_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 	struct ti_lmu *lmu;
 	int ret;
 
+    extern char *saved_command_line;
+    int bkl_id = 0;
+    char *bkl_ptr = (char *)strnstr(saved_command_line, ":bklic=", strlen(saved_command_line));
+    bkl_ptr += strlen(":bklic=");
+    bkl_id = simple_strtol(bkl_ptr, NULL, 10);
+
+	printk("[%s]: *liuyundong*, bkl_id = %d\n", __func__, bkl_id);
+    if (bkl_id != 1) {
+		return -ENODEV;
+	}
+	pr_err("[bkl] %s enter\n", __func__);
 	match = of_match_device(ti_lmu_of_match, dev);
 	if (!match)
 		return -ENODEV;
@@ -205,6 +219,9 @@ static int ti_lmu_probe(struct i2c_client *cl, const struct i2c_device_id *id)
 
 	/* HW enable pin control and additional power up sequence if required */
 	lmu->en_gpio = of_get_named_gpio(dev->of_node, "enable-gpios", 0);
+
+	pr_err("[bkl] %s lmu->en_gpio = %d\n", __func__, lmu->en_gpio);
+
 	ret = ti_lmu_enable_hw(lmu, id->driver_data);
 	if (ret)
 		return ret;

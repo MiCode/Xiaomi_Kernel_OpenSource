@@ -4,7 +4,6 @@
  */
 
 #include "gpio.h"
-
 struct GPIO_PINCTRL gpio_pinctrl_list_cam[GPIO_CTRL_STATE_MAX_NUM_CAM] = {
 	/* Main */
 	{"pnd1"},
@@ -118,6 +117,10 @@ static enum IMGSENSOR_RETURN gpio_init(void *pinstance)
 
 					ret = IMGSENSOR_RETURN_ERROR;
 				}
+				pr_info(
+					    "SSSS %s : pinctrl err, %s\n",
+					    __func__,
+					    str_pinctrl_name);
 			}
 		}
 	}
@@ -138,6 +141,11 @@ static enum IMGSENSOR_RETURN gpio_init(void *pinstance)
 			gpio_pinctrl_list_switch[i].ppinctrl_lookup_names);
 			ret = IMGSENSOR_RETURN_ERROR;
 		}
+		
+		pr_info(
+		"SSSS %s : MIPI SWITCH pinctrl err, %s\n",
+		__func__,
+		gpio_pinctrl_list_switch[i].ppinctrl_lookup_names);
 	}
 #endif
 

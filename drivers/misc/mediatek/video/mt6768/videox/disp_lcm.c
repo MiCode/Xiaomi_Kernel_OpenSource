@@ -12,7 +12,7 @@
 #include "disp_drv_platform.h"
 #include "ddp_manager.h"
 #include "disp_lcm.h"
-
+#include <linux/hardware_info.h>
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
 #include <linux/of.h>
 #endif
@@ -26,6 +26,9 @@
 /* support dfps num 2 60/90 */
 #define DFPS_LEVEL 2
 #endif
+
+extern char Lcm_name[HARDWARE_MAX_ITEM_LONGTH];
+
 int _lcm_count(void)
 {
 	return lcm_count;
@@ -1042,6 +1045,10 @@ struct disp_lcm_handle *disp_lcm_probe(char *plcm_name,
 	DISPFUNC();
 	DISPCHECK("plcm_name=%s is_lcm_inited %d\n", plcm_name, is_lcm_inited);
 
+	if(1 == is_lcm_inited) {
+           strncpy(Lcm_name, plcm_name, strlen(plcm_name)+1);
+	}
+
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
 	if (check_lcm_node_from_DT() == 0) {
 		lcm_drv = &lcm_common_drv;
@@ -1717,6 +1724,50 @@ int disp_lcm_set_lcm_cmd(struct disp_lcm_handle *plcm, void *cmdq_handle,
 		}
 
 		return 0;
+	}
+
+	DISPERR("lcm_drv is null\n");
+	return -1;
+}
+
+int disp_lcm_set_lcm_cabc_cmd(struct disp_lcm_handle *plcm, void *cmdq_handle,
+	unsigned int *lcm_cmd, unsigned int *lcm_count, unsigned int level)
+{
+	struct LCM_DRIVER *lcm_drv = NULL;
+
+	DISPFUNC();
+	if (_is_lcm_inited(plcm)) {
+		lcm_drv = plcm->drv;
+		if (lcm_drv->set_lcm_cabc_cmd) {
+			DISPDBG("disp set_cabc_level = %d\n", level);
+			lcm_drv->set_lcm_cabc_cmd(cmdq_handle, lcm_cmd,
+				lcm_count, level);
+		} else {
+			DISPERR("FATAL ERROR, lcm_drv->set_lcm_cabc_cmd is null\n");
+			return -1;
+		}
+
+		return 0;
+	}
+
+	DISPERR("lcm_drv is null\n");
+	return -1;
+}
+
+int disp_lcm_get_cabc(struct disp_lcm_handle *plcm, int *status)
+{
+	struct LCM_DRIVER *lcm_drv = NULL;
+	DISPFUNC();
+	if (_is_lcm_inited(plcm)) {
+		lcm_drv = plcm->drv;
+		if (lcm_drv->get_cabc_status) {
+			lcm_drv->get_cabc_status(status);
+		} else {
+			DISPERR("FATAL ERROR, lcm_drv->get_cabc_status is null\n");
+			return -1;
+		}
+
+	return 0;
 	}
 
 	DISPERR("lcm_drv is null\n");

@@ -350,6 +350,16 @@ int tcpci_is_vsafe0v(struct tcpc_device *tcpc)
 }
 #endif /* CONFIG_TCPC_VSAFE0V_DETECT_IC */
 
+int tcpci_get_chip_id(struct tcpc_device *tcpc, uint32_t *chip_id)
+{
+	if (tcpc->ops->get_chip_id == NULL)
+		return -ENOTSUPP;
+	else
+		tcpc->ops->get_chip_id(tcpc, chip_id);
+
+	return 0;
+}
+
 #ifdef CONFIG_WATER_DETECTION
 int tcpci_is_water_detected(struct tcpc_device *tcpc)
 {

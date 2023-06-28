@@ -31,6 +31,7 @@ struct sar_factory_fops {
 	int (*get_data)(int32_t sensor_data[3]);
 	int (*enable_calibration)(void);
 	int (*get_cali)(int32_t data[3]);
+	int (*set_cali)(int32_t data[3]);
 };
 
 struct sar_factory_public {

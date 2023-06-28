@@ -441,6 +441,15 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Werror=return-type -Wno-format-security \
 		   -std=gnu89
+
+ifeq ($(strip $(WT_COMPILE_FACTORY_VERSION)), yes)
+ KBUILD_CFLAGS  += -DWT_COMPILE_FACTORY_VERSION
+endif
+
+ifeq ($(strip $(FACTORY_BUILD)), 1)
+ KBUILD_CFLAGS  += -DFACTORY_BUILD
+endif
+
 KBUILD_CPPFLAGS := -D__KERNEL__
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
@@ -1083,8 +1092,7 @@ endif
 PHONY += prepare0
 
 ifeq ($(KBUILD_EXTMOD),)
-core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/
-
+core-y		+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/ block/ wt_sys/
 vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, $(init-y) $(init-m) \
 		     $(core-y) $(core-m) $(drivers-y) $(drivers-m) \
 		     $(net-y) $(net-m) $(libs-y) $(libs-m) $(virt-y)))

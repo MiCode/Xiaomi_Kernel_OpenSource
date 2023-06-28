@@ -621,10 +621,11 @@ int primary_display_esd_check(void)
 	mmprofile_log_ex(mmp_rd, MMPROFILE_FLAG_END, 0, ret);
 
 done:
-	if (ret)
+	if (ret) {
 		DISPERR("[ESD]ESD check fail!\n");
-	else
+	} else {
 		DISPINFO("[ESD]ESD check pass!\n");
+	}
 
 	mmprofile_log_ex(mmp_chk, MMPROFILE_FLAG_END, 0, ret);
 	dprec_logger_done(DPREC_LOGGER_ESD_CHECK, 0, 0);
@@ -638,6 +639,7 @@ static int primary_display_check_recovery_worker_kthread(void *data)
 	int i = 0;
 	int esd_try_cnt = 5; /* 20; */
 	int recovery_done = 0;
+	int last_level;
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
@@ -675,20 +677,27 @@ static int primary_display_check_recovery_worker_kthread(void *data)
 			if (!ret) /* success */
 				break;
 
-			DISPERR(
-				"[ESD]esd check fail, will do esd recovery. try=%d\n",
-				i);
+			DISPERR("[ESD] esd check fail, will do esd recovery. try=%d\n", i);
+			DISPDBG("[ESD]backlignt off[begin]\n");
+			last_level=get_last_backlight_level();
+			backlight_brightness_set(0);
+			mdelay(200);
+			DISPDBG("[ESD] backlignt off[end]\n");
+
 			primary_display_esd_recovery();
+
+			mdelay(200);
+			DISPDBG("[ESD]backlignt on[begin]\n");
+			backlight_brightness_set(last_level);
+			DISPDBG("[ESD] backlignt on[end]\n");
 			recovery_done = 1;
 		} while (++i < esd_try_cnt);
 
 		if (ret == 1) {
-			DISPERR(
-				"[ESD]LCM recover fail. Try time:%d. Disable esd check\n",
-				esd_try_cnt);
+			DISPERR("[ESD] LCM recover fail. Try time:%d. Disable esd check\n", esd_try_cnt);
 			primary_display_esd_check_enable(0);
 		} else if (recovery_done == 1) {
-			DISPCHECK("[ESD]esd recovery success\n");
+			DISPCHECK("[ESD] esd recovery success\n");
 			recovery_done = 0;
 		}
 		esd_checking = 0;

@@ -161,8 +161,13 @@ static void __ion_cache_mmp_end(enum ION_CACHE_SYNC_TYPE sync_type,
 static int vma_is_ion_node(struct vm_area_struct *vma)
 {
 	struct dma_buf *dmabuf;
+	struct file *file;
 
 	if (unlikely(!vma))
+		return 0;
+
+	file = vma->vm_file;
+	if (!file || !is_dma_buf_file(file))
 		return 0;
 
 	dmabuf = vma->vm_private_data;
@@ -189,7 +194,6 @@ static int ion_check_user_va(unsigned long va, size_t size)
 	if (unlikely(va_end < va_start))
 		return 0;
 
-	down_read(&current->mm->mmap_sem);
 	vma = find_vma(current->mm, va_start);
 	if (!vma || va_start < vma->vm_start ||
 	    va_end > vma->vm_end) {
@@ -197,7 +201,6 @@ static int ion_check_user_va(unsigned long va, size_t size)
 	} else {
 		ret = vma_is_ion_node(vma);
 	}
-	up_read(&current->mm->mmap_sem);
 
 	return ret;
 }
@@ -229,10 +232,6 @@ static int __ion_is_user_va(unsigned long va, size_t size)
 		}
 	}
 
-	/* add more check */
-	if (ret)
-		ret = ion_check_user_va(va, size);
-
 	return ret;
 }
 
@@ -241,6 +240,7 @@ static int __cache_sync_by_range(struct ion_client *client,
 				 unsigned long start, size_t size,
 				 int is_kernel_addr)
 {
+	bool lock_vma = false;
 	char ion_name[200];
 	int ret = 0;
 
@@ -256,14 +256,23 @@ static int __cache_sync_by_range(struct ion_client *client,
 
 	/* userspace va check */
 	ret  = __ion_is_user_va(start, size);
+	if (ret) {
+		lock_vma = true;
+		down_read(&current->mm->mmap_sem);
+		ret = ion_check_user_va(start, size);
+	}
+
 	if (!ret) {
+		if (lock_vma) {
+			up_read(&current->mm->mmap_sem);
+			lock_vma = false;
+		}
 		scnprintf(ion_name, 199,
-			  "CRDISPATCH_KEY(%s),(%d) sz/addr %zx/%lx is_kernel_addr:%d",
+			  "CRDISPATCH_KEY(%s),(%d) sz %zx is_kernel_addr:%d",
 			  (*client->dbg_name) ?
 			  client->dbg_name : client->name,
-			  (unsigned int)current->pid, size, start, is_kernel_addr);
+			  (unsigned int)current->pid, size, is_kernel_addr);
 		IONMSG("%s %s\n", __func__, ion_name);
-		//aee_kernel_warning(ion_name, "[ION]: Wrong Address Range");
 		return -EFAULT;
 	}
 
@@ -294,6 +303,10 @@ start_sync:
 			__inval_dcache_area((void *)start, size);
 		break;
 	default:
+		if (lock_vma) {
+			up_read(&current->mm->mmap_sem);
+			lock_vma = false;
+		}
 		IONMSG("%s err type. (%d):clt(%s)cache(%d)\n",
 		       __func__, (unsigned int)current->pid,
 		       client->dbg_name, sync_type);
@@ -301,6 +314,10 @@ start_sync:
 		break;
 	}
 
+	if (lock_vma) {
+		up_read(&current->mm->mmap_sem);
+		lock_vma = false;
+	}
 	__ion_cache_mmp_end(sync_type, size);
 
 	return 0;

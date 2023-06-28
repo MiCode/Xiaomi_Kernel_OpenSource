@@ -1,0 +1,33 @@
+/*mono dtsi config*/
+&i2c1 {
+/* AWINIC AW87XXX Smart K PA */
+	aw87xxx_pa@5C {
+		compatible = "awinic,aw87xxx_pa";
+		reg = <0x5C>;
+		reset-gpio = <&pio 1 0>;
+		dev_index = < 0 >;
+		status = "okay";
+	};
+/* AWINIC AW87XXX Smart K PA End */
+};
+
+/*stereo dtsi config*/
+&i2c1 {
+/* AWINIC AW87XXX Smart K PA */
+	aw87xxx_pa@5C {
+		compatible = "awinic,aw87xxx_pa";
+		reg = <0x5C>;
+		reset-gpio = <&pio 1 0>;
+		dev_index = < 0 >;
+		status = "okay";
+	};
+
+	aw87xxx_pa@59 {
+		compatible = "awinic,aw87xxx_pa";
+		reg = <0x59>;
+	/*	reset-gpio = <&pio 7 0>;*/
+		dev_index = < 1 >;
+		status = "okay";
+	};
+/* AWINIC AW87XXX Smart K PA End */
+};

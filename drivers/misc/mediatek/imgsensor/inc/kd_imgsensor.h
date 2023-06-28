@@ -114,6 +114,33 @@
  *
  ************************************************************************/
 
+#define SENSOR_DRVNAME_S5KJNS_SUNNY_MIPI_RAW          "s5kjns_sunny_mipi_raw"
+#define S5KJNS_SUNNY_SENSOR_ID                         0x38ef
+#define SENSOR_DRVNAME_OV50D40_TRULY_MIPI_RAW         "ov50d40_truly_mipi_raw"
+#define OV50D40_TRULY_SENSOR_ID                        0x565044
+#define SENSOR_DRVNAME_OV8856_SUNNY_MIPI_RAW          "ov8856_sunny_mipi_raw"
+#define OV8856_SUNNY_SENSOR_ID                         0x885a
+#define SENSOR_DRVNAME_OV8856_OFILM_MIPI_RAW          "ov8856_ofilm_mipi_raw"
+#define OV8856_OFILM_SENSOR_ID                         0x885a+1
+#define SENSOR_DRVNAME_IMX355_SUNNY_MIPI_RAW          "imx355_sunny_mipi_raw"
+#define IMX355_SUNNY_SENSOR_ID                         0x356
+#define SENSOR_DRVNAME_SC820CS_TRULY_MIPI_RAW         "sc820cs_truly_mipi_raw"
+#define SC820CS_TRULY_SENSOR_ID                        0xd155
+#define SENSOR_DRVNAME_SC202CS_SUNNY_MIPI_RAW         "sc202cs_sunny_mipi_raw"
+#define SC202CS_SUNNY_SENSOR_ID                        0xeb52
+#define SENSOR_DRVNAME_OV02B10_TRULY_MIPI_RAW         "ov02b10_truly_mipi_raw"
+#define OV02B10_TRULY_SENSOR_ID                        0x0015
+
+// add for india
+#define S5KJNS_SUNNY_SENSOR_INDIA_ID                          (0x38ef+1)
+#define OV50D40_TRULY_SENSOR_INDIA_ID                         (0x565044+1)
+#define OV8856_SUNNY_SENSOR_INDIA_ID                          (0x885a+2)
+#define OV8856_OFILM_SENSOR_INDIA_ID                          (0x885a+3)
+#define IMX355_SUNNY_SENSOR_INDIA_ID                          (0x356+1)
+#define SC820CS_TRULY_SENSOR_INDIA_ID                         (0xd155+1)
+#define SC202CS_SUNNY_SENSOR_INDIA_ID                         (0xeb52+1)
+#define OV02B10_TRULY_SENSOR_INDIA_ID                         (0x0015+1)
+
 /* Onyx */
 #define OV13B10LN_SENSOR_ID                       0x0D42
 #define SENSOR_DRVNAME_OV13B10LN_MIPI_RAW         "ov13b10ln_mipi_raw"

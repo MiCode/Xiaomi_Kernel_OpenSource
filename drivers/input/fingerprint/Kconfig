@@ -17,5 +17,12 @@ config MTK_FINGERPRINT_SELECT
 	string "sensor type"
 	default "GF318M"
 
+config GOODIX_FINGERPRINT
+	bool "Mediatek Fingerprint"
+	default n
+
+config FPC_FINGERPRINT
+	bool "Mediatek Fingerprint"
+	default n
 
 endmenu

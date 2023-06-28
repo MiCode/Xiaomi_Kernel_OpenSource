@@ -12,7 +12,6 @@
 
 #define IMGSENSOR_DEV_NAME "kd_camera_hw"
 
-
 #define IMGSENSOR_HW_POWER_INFO_MAX	12
 #define IMGSENSOR_HW_SENSOR_MAX_NUM	8
 

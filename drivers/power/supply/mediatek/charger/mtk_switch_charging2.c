@@ -66,6 +66,8 @@ struct tag_bootmode {
 	u32 boottype;
 };
 
+extern int get_mtbf_current(void);
+
 static int _uA_to_mA(int uA)
 {
 	if (uA == -1)
@@ -111,6 +113,7 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 	struct device_node *boot_node = NULL;
 	struct tag_bootmode *tag = NULL;
 	int boot_mode = 11;//UNKNOWN_BOOT
+	int mtbf_current;
 
 	dev = &(info->pdev->dev);
 	if (dev != NULL) {
@@ -189,15 +192,16 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 
 	if (info->atm_enabled == true && (info->chr_type == STANDARD_HOST ||
 	    info->chr_type == CHARGING_HOST)) {
-		pdata->input_current_limit = 100000; /* 100mA */
+		pdata->input_current_limit = 500000; /* 500mA */
+		pdata->charging_current_limit = 400000;
 		goto done;
 	}
 
 	if (is_typec_adapter(info)) {
 		if (adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL)
 			== 3000) {
-			pdata->input_current_limit = 3000000;
-			pdata->charging_current_limit = 3000000;
+			pdata->input_current_limit = 2000000;
+			pdata->charging_current_limit = 2300000;
 		} else if (adapter_dev_get_property(info->pd_adapter,
 			TYPEC_RP_LEVEL) == 1500) {
 			pdata->input_current_limit = 1500000;
@@ -241,6 +245,11 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 				info->data.non_std_ac_charger_current;
 		pdata->charging_current_limit =
 				info->data.non_std_ac_charger_current;
+	} else if (info->chr_type == HVDCP_CHARGER) {
+		pdata->input_current_limit =
+				info->data.ac_charger_input_current;
+		pdata->charging_current_limit =
+				info->data.pd_charger_current;
 	} else if (info->chr_type == STANDARD_CHARGER) {
 		pdata->input_current_limit =
 				info->data.ac_charger_input_current;
@@ -274,10 +283,10 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 		    && info->chr_type == STANDARD_HOST)
 			chr_err("USBIF & STAND_HOST skip current check\n");
 		else {
-			if (info->sw_jeita.sm == TEMP_T0_TO_T1) {
-				pdata->input_current_limit = 500000;
-				pdata->charging_current_limit = 350000;
-			}
+			chr_err("%s: jeita-cc:%d  current_limit:%d\n", __func__,
+			info->sw_jeita.cc,
+			pdata->charging_current_limit);
+			pdata->charging_current_limit =min(info->sw_jeita.cc, pdata->charging_current_limit);
 		}
 	}
 
@@ -289,6 +298,8 @@ static void swchg_select_charging_current_limit(struct charger_manager *info)
 			pdata->input_current_limit =
 					pdata->thermal_input_current_limit;
 	}
+
+	pdata->charging_current_limit = min(pdata->charging_current_limit,info->thermal_mitigation_current);
 
 	if (pdata->input_current_limit_by_aicl != -1 &&
 	    !mtk_pe20_get_is_connect(info) && !mtk_pe_get_is_connect(info) &&
@@ -310,7 +321,7 @@ done:
 	chr_err("force:%d thermal:%d,%d pe4:%d,%d,%d setting:%d %d sc:%d,%d,%d type:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d\n",
 		_uA_to_mA(pdata->force_charging_current),
 		_uA_to_mA(pdata->thermal_input_current_limit),
-		_uA_to_mA(pdata->thermal_charging_current_limit),
+		_uA_to_mA(info->thermal_mitigation_current),
 		_uA_to_mA(info->pe4.pe4_input_current_limit),
 		_uA_to_mA(info->pe4.pe4_input_current_limit_setting),
 		_uA_to_mA(info->pe4.input_current_limit),
@@ -322,6 +333,16 @@ done:
 		info->chr_type, info->usb_unlimited,
 		IS_ENABLED(CONFIG_USBIF_COMPLIANCE), info->usb_state,
 		pdata->input_current_limit_by_aicl, info->atm_enabled);
+
+	mtbf_current = get_mtbf_current();
+	if(mtbf_current == 1500){
+		if ( info->chr_type == STANDARD_HOST || info->chr_type == CHARGING_HOST) {
+			pdata->charging_current_limit = mtbf_current * 1000;
+			pdata->input_current_limit = mtbf_current * 1000;
+			chr_err("pdata->charging_current_limit = %d, pdata->input_current_limit = %d, gm.mtbf_current= %d\n",
+				pdata->charging_current_limit, pdata->input_current_limit, mtbf_current);
+		}
+	}
 
 	charger_dev_set_input_current(info->chg1_dev,
 					pdata->input_current_limit);
@@ -353,15 +374,85 @@ done:
 	mutex_unlock(&swchgalg->ichg_aicr_access_mutex);
 }
 
-static void swchg_select_cv(struct charger_manager *info)
+static u32 swchg_get_cycle_count_level(struct charger_manager *info)
 {
-	u32 constant_voltage;
+	struct power_supply *psy;
+	union power_supply_propval val;
+	u32 ffc_constant_voltage = 0;
+	int ret;
+	psy = power_supply_get_by_name("battery");
+	if (!psy) {
+		chr_err("%s: failed to get battery psy\n", __func__);
+		return PTR_ERR(psy);
+	}
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CYCLE_COUNT, &val);
+	if (ret) {
+		chr_err("%s: failed to get prop: %d\n", __func__, POWER_SUPPLY_PROP_CYCLE_COUNT);
+		return ret;
+	}
+	chr_err("%s: prop cycle count = %d\n", __func__, val.intval);
+	if (val.intval >=0 && val.intval < info->data.cycle_count_level1)
+		ffc_constant_voltage = info->data.ffc_cv_1;
+	else if (val.intval >= info->data.cycle_count_level1 &&
+		val.intval < info->data.cycle_count_level2)
+		ffc_constant_voltage = info->data.ffc_cv_2;
+	else if (val.intval >= info->data.cycle_count_level2)
+		ffc_constant_voltage = info->data.ffc_cv_3;
+	return ffc_constant_voltage;
+}
 
+static bool swchg_select_cv(struct charger_manager *info)
+{
+	struct power_supply *bat_psy;
+	u32 constant_voltage;
+	u32 ffc_constant_voltage;
+	int ret = 0;
+	u32 bat_vol = 0;
+	union power_supply_propval val = {0,};
+
+	bat_psy = power_supply_get_by_name("battery");
+	if (!bat_psy) {
+  		pr_err("%s %d: get power supply failed!\n", __func__, __LINE__);
+		return true;
+	}
+	ret = power_supply_get_property(bat_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_NOW, &val);
+	if (ret)
+		pr_err("Failed to read volt\n");
+	else
+		bat_vol = val.intval / 1000;
+
+	ffc_constant_voltage = swchg_get_cycle_count_level(info);
+	if (info->enable_sw_fcc) {
+		if (ffc_constant_voltage != 0) {
+			if (info->enable_sw_jeita && info->sw_jeita.cv != 0)
+				ffc_constant_voltage = ffc_constant_voltage > info->sw_jeita.cv ?
+							info->sw_jeita.cv : ffc_constant_voltage;
+			chr_err("%s: ffc constant voltage = %d, temp:%d\n",
+			 __func__, ffc_constant_voltage, info->battery_temp);
+
+			if ((ffc_constant_voltage == info->data.jeita_temp_t4_to_t5_cv) &&
+                            (bat_vol > 4100)){
+				chr_err("high temp bat_vol > cv\n");
+				info->is_high_temp = true;
+				return false;
+			} else {
+				charger_dev_set_constant_voltage(info->chg1_dev, ffc_constant_voltage);
+			}
+
+			chr_err("swchg_select_cv bat = %d, is_high_temp = %d\n", bat_vol, info->is_high_temp);
+			if ((info->is_high_temp && bat_vol > 4000) &&
+                            (ffc_constant_voltage == info->data.jeita_temp_t4_to_t5_cv))
+				return false;
+			info->is_high_temp = false;
+			return true;
+		}
+	}	
 	if (info->enable_sw_jeita)
 		if (info->sw_jeita.cv != 0) {
 			charger_dev_set_constant_voltage(info->chg1_dev,
 							info->sw_jeita.cv);
-			return;
+			return true;
 		}
 
 	/* dynamic cv*/
@@ -369,6 +460,7 @@ static void swchg_select_cv(struct charger_manager *info)
 	mtk_get_dynamic_cv(info, &constant_voltage);
 
 	charger_dev_set_constant_voltage(info->chg1_dev, constant_voltage);
+	return true;
 }
 
 static void swchg_turn_on_charging(struct charger_manager *info)
@@ -417,7 +509,9 @@ static void swchg_turn_on_charging(struct charger_manager *info)
 			charging_enable = false;
 			chr_err("[charger]charging current is set 0mA, turn off charging !\n");
 		} else {
-			swchg_select_cv(info);
+			if (!swchg_select_cv(info)) {
+				charging_enable = false;
+			}
 		}
 	}
 
@@ -681,9 +775,28 @@ static int select_pdc_charging_current_limit(struct charger_manager *info)
 	pdata = &info->chg1_data;
 
 	pdata->input_current_limit =
-		info->data.pd_charger_current;
+		info->data.ac_charger_input_current;
 	pdata->charging_current_limit =
 		info->data.pd_charger_current;
+
+
+	if (info->chr_type == STANDARD_HOST || info->chr_type == CHARGING_HOST) {
+		pdata->input_current_limit = 1500000;
+		pdata->charging_current_limit = 1500000;
+		chr_err("is_usb_pd, enter current\n");
+	}
+
+	if (info->enable_sw_jeita) {
+		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
+		    && info->chr_type == STANDARD_HOST)
+			chr_err("USBIF & STAND_HOST skip current check\n");
+		else {
+			chr_err("%s: jeita-cc:%d  current_limit:%d\n", __func__,
+			info->sw_jeita.cc,
+			pdata->charging_current_limit);
+			pdata->charging_current_limit =min(info->sw_jeita.cc, pdata->charging_current_limit);
+		}
+	}
 
 	sc_select_charging_current(info, pdata);
 
@@ -694,6 +807,8 @@ static int select_pdc_charging_current_limit(struct charger_manager *info)
 					pdata->thermal_input_current_limit;
 	}
 
+	pdata->charging_current_limit = min(pdata->charging_current_limit,info->thermal_mitigation_current);
+
 	ret = charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
 	if (ret != -ENOTSUPP && pdata->charging_current_limit < ichg1_min)
 		pdata->charging_current_limit = 0;
@@ -702,10 +817,10 @@ static int select_pdc_charging_current_limit(struct charger_manager *info)
 	if (ret != -ENOTSUPP && pdata->input_current_limit < aicr1_min)
 		pdata->input_current_limit = 0;
 
-	chr_err("force:%d thermal:%d,%d setting:%d %d sc:%d %d %d type:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d\n",
+	chr_err("pdc_force:%d thermal:%d,%d setting:%d %d sc:%d %d %d type:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d\n",
 		_uA_to_mA(pdata->force_charging_current),
 		_uA_to_mA(pdata->thermal_input_current_limit),
-		_uA_to_mA(pdata->thermal_charging_current_limit),
+		_uA_to_mA(info->thermal_mitigation_current),
 		_uA_to_mA(pdata->input_current_limit),
 		_uA_to_mA(pdata->charging_current_limit),
 		info->sc.pre_ibat,
@@ -724,8 +839,8 @@ static int mtk_switch_chr_pdc_run(struct charger_manager *info)
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 	struct pdc_data *data = NULL;
 	int ret = 0;
+	bool chg_done = false;
 
-	charger_dev_enable(info->chg1_dev, true);
 	select_pdc_charging_current_limit(info);
 
 	data = pdc_get_data();
@@ -735,16 +850,32 @@ static int mtk_switch_chr_pdc_run(struct charger_manager *info)
 	data->pd_vbus_low_bound = pdata->pd_vbus_low_bound;
 	data->pd_vbus_upper_bound = pdata->pd_vbus_upper_bound;
 
-	data->battery_cv = pdata->battery_cv;
-	if (info->enable_sw_jeita) {
-		if (info->sw_jeita.cv != 0)
-			data->battery_cv = info->sw_jeita.cv;
+	if (!swchg_select_cv(info)) {
+		charger_dev_enable(info->chg1_dev, false);
+		chr_err("set cv error stop charger!\n");
+		if (info->is_pdc_run) {
+			goto stop;
+		} else {
+			swchgalg->state = CHR_CC;
+			return 0;
+		}
 	}
+	charger_dev_enable(info->chg1_dev, true);
 
 	if (info->enable_hv_charging == false)
 		goto stop;
 	info->is_pdc_run = true;
 	ret = pdc_run();
+
+	charger_dev_is_charging_done(info->chg1_dev, &chg_done);
+	if (chg_done) {
+		chr_err("leave pdc\n");
+		info->leave_pdc = true;
+		info->is_pdc_run = false;
+		swchgalg->state = CHR_BATFULL;
+		charger_dev_do_event(info->chg1_dev, EVENT_EOC, 0);
+		chr_err("battery full!\n");
+	}
 
 	if (ret == 2 &&
 		info->chg1_data.thermal_charging_current_limit == -1 &&
@@ -918,12 +1049,12 @@ static int mtk_switch_chr_err(struct charger_manager *info)
 
 	if (info->enable_sw_jeita) {
 		if ((info->sw_jeita.sm == TEMP_BELOW_T0) ||
-			(info->sw_jeita.sm == TEMP_ABOVE_T4))
+			(info->sw_jeita.sm == TEMP_ABOVE_T5))
 			info->sw_jeita.error_recovery_flag = false;
 
 		if ((info->sw_jeita.error_recovery_flag == false) &&
 			(info->sw_jeita.sm != TEMP_BELOW_T0) &&
-			(info->sw_jeita.sm != TEMP_ABOVE_T4)) {
+			(info->sw_jeita.sm != TEMP_ABOVE_T5)) {
 			info->sw_jeita.error_recovery_flag = true;
 			swchgalg->state = CHR_CC;
 			get_monotonic_boottime(&swchgalg->charging_begin_time);
@@ -977,7 +1108,7 @@ static int mtk_switch_charging_run(struct charger_manager *info)
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 	int ret = 0;
 
-	chr_err("%s [%d %d], timer=%d\n", __func__, swchgalg->state,
+	chr_err("%s2 [%d %d], timer=%d\n", __func__, swchgalg->state,
 		info->pd_type,
 		swchgalg->total_charging_time);
 

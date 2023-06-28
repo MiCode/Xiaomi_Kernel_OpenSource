@@ -30,7 +30,7 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 			{IMGSENSOR_HW_ID_MCLK, IMGSENSOR_HW_PIN_MCLK},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_AVDD},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DOVDD},
-			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_DVDD},
+			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DVDD},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_PDN},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_RST},
 			{IMGSENSOR_HW_ID_NONE, IMGSENSOR_HW_PIN_NONE},
@@ -54,9 +54,9 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 		IMGSENSOR_I2C_DEV_2,
 		{
 			{IMGSENSOR_HW_ID_MCLK, IMGSENSOR_HW_PIN_MCLK},
-			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_AVDD},
+			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_AVDD},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DOVDD},
-			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DVDD},
+			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_DVDD},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_PDN},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_RST},
 			{IMGSENSOR_HW_ID_NONE, IMGSENSOR_HW_PIN_NONE},
@@ -69,7 +69,6 @@ struct IMGSENSOR_HW_CFG imgsensor_custom_config[] = {
 			{IMGSENSOR_HW_ID_MCLK, IMGSENSOR_HW_PIN_MCLK},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_AVDD},
 			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DOVDD},
-			{IMGSENSOR_HW_ID_REGULATOR, IMGSENSOR_HW_PIN_DVDD},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_PDN},
 			{IMGSENSOR_HW_ID_GPIO, IMGSENSOR_HW_PIN_RST},
 			{IMGSENSOR_HW_ID_NONE, IMGSENSOR_HW_PIN_NONE},
@@ -112,7 +111,7 @@ struct IMGSENSOR_HW_POWER_SEQ platform_power_sequence[] = {
 				0
 			},
 		},
-		IMGSENSOR_SENSOR_IDX_SUB,
+		IMGSENSOR_SENSOR_IDX_SUB2,
 	},
 	{
 		PLATFORM_POWER_SEQ_NAME,
@@ -141,6 +140,115 @@ struct IMGSENSOR_HW_POWER_SEQ platform_power_sequence[] = {
 
 /* Legacy design */
 struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
+#if defined(S5KJNS_SUNNY_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_S5KJNS_SUNNY_MIPI_RAW,
+		{
+			{RST, Vol_Low, 0},
+			{DOVDD, Vol_1800, 0},
+			{DVDD, Vol_1100, 1},
+			{AVDD, Vol_2800, 0},
+			{RST, Vol_High, 1},
+			{SensorMCLK, Vol_High, 13}
+		},
+	},
+#endif
+#if defined(OV50D40_TRULY_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV50D40_TRULY_MIPI_RAW,
+		{
+			{RST, Vol_Low, 0},
+			{AVDD, Vol_2800, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 5}
+		},
+	},
+#endif
+#if defined(OV8856_SUNNY_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV8856_SUNNY_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{AVDD, Vol_2800, 1},
+			{RST, Vol_High, 1},
+			{SensorMCLK, Vol_High, 1}
+		},
+	},
+#endif
+#if defined(OV8856_OFILM_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV8856_OFILM_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{AVDD, Vol_2800, 1},
+			{RST, Vol_High, 1},
+			{SensorMCLK, Vol_High, 1}
+		},
+	},
+#endif
+
+
+#if defined(IMX355_SUNNY_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_IMX355_SUNNY_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{AVDD, Vol_2800, 1},
+			{SensorMCLK, Vol_High, 1},
+			{RST, Vol_High, 1},
+		},
+	},
+#endif
+
+#if defined(SC820CS_TRULY_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_SC820CS_TRULY_MIPI_RAW,
+		{
+			{RST, Vol_Low, 1},
+			{DOVDD, Vol_1800, 1},
+			{DVDD, Vol_1200, 1},
+			{AVDD, Vol_2800, 1},
+			{RST, Vol_High, 4},
+			{SensorMCLK, Vol_High, 4}
+		},
+	},
+#endif
+#if defined(SC202CS_SUNNY_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_SC202CS_SUNNY_MIPI_RAW,
+		{
+			{RST, Vol_Low, 0},
+			{DOVDD, Vol_1800, 0},
+			{AVDD, Vol_2800, 0},
+			{PDN, Vol_High, 1},
+			{RST, Vol_High, 1},
+			{RST, Vol_Low, 1},
+			{RST, Vol_High, 1},
+			{SensorMCLK, Vol_High, 4}
+		},
+	},
+#endif
+#if defined(OV02B10_TRULY_MIPI_RAW)
+	{
+		SENSOR_DRVNAME_OV02B10_TRULY_MIPI_RAW,
+		{
+			{RST, Vol_Low, 0},
+			{DOVDD, Vol_1800, 0},
+			{AVDD, Vol_2800, 1},
+			{SensorMCLK, Vol_High, 5},
+			{PDN, Vol_High, 4},
+			{RST, Vol_High, 5}
+		},
+	},
+#endif
 #if defined(S5K4H7_MIPI_RAW)
 	{
 		SENSOR_DRVNAME_S5K4H7_MIPI_RAW,
@@ -745,6 +853,7 @@ struct IMGSENSOR_HW_POWER_SEQ sensor_power_sequence[] = {
 		},
 	},
 #endif
+
 	/* add new sensor before this line */
 	{NULL,},
 };

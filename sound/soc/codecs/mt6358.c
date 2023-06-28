@@ -28,6 +28,8 @@
 #include <mach/mtk_pmic.h>
 #include <mt-plat/mtk_auxadc_intf.h>
 
+#include <sound/jack.h>
+
 #ifndef CONFIG_MTK_PMIC_WRAP	/* y: use regmap, else use legacy api */
 #ifdef CONFIG_MTK_PMIC_WRAP_HAL	/* y: legacy api is defined */
 #include <mach/mtk_pmic_wrap.h>
@@ -39,6 +41,10 @@
 #endif
 
 #include "mt6358.h"
+
+#ifdef CONFIG_SND_JACK_INPUT_DEV_RUBY
+#define USB_3_5_UNSUPPORT 1
+#endif
 
 enum {
 	AUDIO_ANALOG_VOLUME_HSOUTL,
@@ -183,6 +189,10 @@ struct mt6358_priv {
 	/* vow dmic low power mode, 1: enable, 0: disable */
 	int vow_dmic_lp;
 };
+
+#ifdef USB_3_5_UNSUPPORT
+extern struct snd_soc_jack g_usb_3_5_jack;
+#endif
 
 /* static function declaration */
 static int mt6358_print_register(struct mt6358_priv *priv)
@@ -1493,7 +1503,7 @@ static int mt_aif_in_event(struct snd_soc_dapm_widget *w,
 		/* sdm audio fifo clock power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0006);
 		/* scrambler clock on enable, invert left channel */
-		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xCFA1);
+		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xCBA1);
 		/* sdm power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0003);
 		/* sdm fifo enable */
@@ -3178,7 +3188,7 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 		}
 		/* Enable MICBIAS0, MISBIAS0 = 1P9V */
 		regmap_update_bits(priv->regmap, MT6358_AUDENC_ANA_CON9,
-				   0xff, 0x21);
+				   0xff, 0x71);
 	}
 
 	/* mic bias 1 */
@@ -3189,7 +3199,7 @@ static int mt6358_amic_enable(struct mt6358_priv *priv)
 				     MT6358_AUDENC_ANA_CON10, 0x0161);
 		else
 			regmap_write(priv->regmap,
-				     MT6358_AUDENC_ANA_CON10, 0x0061);
+				     MT6358_AUDENC_ANA_CON10, 0x0071);
 	}
 
 	/* set mic pga gain */
@@ -7203,10 +7213,20 @@ static int get_hp_current_calibrate_val(struct mt6358_priv *priv)
 	return value;
 }
 
+#ifdef CONFIG_SND_SOC_AW87XXX
+extern int aw87xxx_add_codec_controls(void *codec);
+#endif
+
 static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 {
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+#ifdef CONFIG_SND_SOC_AW87XXX
+	int err = 0;
+#endif
 
+#ifdef USB_3_5_UNSUPPORT
+	int status = 0;
+#endif
 	snd_soc_component_init_regmap(cmpnt, priv->regmap);
 
 	/* add codec controls */
@@ -7222,6 +7242,13 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 	snd_soc_add_component_controls(cmpnt,
 				       mt6358_snd_vow_controls,
 				       ARRAY_SIZE(mt6358_snd_vow_controls));
+#ifdef CONFIG_SND_SOC_AW87XXX
+	err = aw87xxx_add_codec_controls((void *)cmpnt);
+	if (err < 0) {
+		pr_err("%s: add_codec_controls failed, err %d\n", __func__, err);
+		return err;
+	};
+#endif
 
 	mt6358_codec_init_reg(priv);
 
@@ -7233,6 +7260,15 @@ static int mt6358_codec_probe(struct snd_soc_component *cmpnt)
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 3;
 
 	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
+
+#ifdef USB_3_5_UNSUPPORT
+	pr_warn("%s: snd_soc_card_jack_new\n", __func__);
+	status = snd_soc_card_jack_new(cmpnt->card, "USB_3_5 Jack", (SND_JACK_VIDEOOUT | SND_JACK_HEADSET),
+                                   &g_usb_3_5_jack, NULL, 0);
+	if (status) {
+		pr_err("%s: Failed to create new jack USB_3_5 Jack\n", __func__);
+	}
+#endif
 
 	return 0;
 }

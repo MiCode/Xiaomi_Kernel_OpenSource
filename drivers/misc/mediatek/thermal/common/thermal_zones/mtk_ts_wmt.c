@@ -111,8 +111,8 @@ static unsigned int tm_wfd_stat;
 static struct task_struct *pg_task;
 
 /* + Cooler info + */
-static int g_num_trip;
-static char g_bind0[20] = { 0 };
+static int g_num_trip = 1;
+static char g_bind0[20] = "mtktswmt-sysrst";
 static char g_bind1[20] = { 0 };
 static char g_bind2[20] = { 0 };
 static char g_bind3[20] = { 0 };

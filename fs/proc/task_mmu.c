@@ -1772,7 +1772,7 @@ static int deactivate_pte_range(pmd_t *pmd, unsigned long addr,
 	return 0;
 }
 
-static int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
+int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
 				unsigned long end, struct mm_walk *walk)
 {
 	struct vm_area_struct *vma = walk->private;

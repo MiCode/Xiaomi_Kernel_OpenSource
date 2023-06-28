@@ -58,11 +58,11 @@ static int I2C_SET_FOR_BACKLIGHT  = 350;
 /****************************************************************************
  * function prototypes
  ***************************************************************************/
-#ifndef CONTROL_BL_TEMPERATURE
-#define CONTROL_BL_TEMPERATURE
+#ifndef M19A_THERMAL_BL_CONTROL
+#define M19A_THERMAL_BL_CONTROL
 #endif
 
-#define MT_LED_INTERNAL_LEVEL_BIT_CNT 10
+#define MT_LED_INTERNAL_LEVEL_BIT_CNT 11
 
 /******************************************************************************
  * for DISP backlight High resolution
@@ -82,6 +82,52 @@ static int mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level);
 /****************************************************************************
  * add API for temperature control
  ***************************************************************************/
+#ifdef M19A_THERMAL_BL_CONTROL
+#define FULL_PERCENT  100
+#define MAX_BACKLIGHT_LEVEL_11BIT  2047
+
+static int g_percent;
+static int g_limit_bl_level;
+static int g_last_level;
+static int g_thermal_limit_enabled;
+static DEFINE_MUTEX(g_thermal_limit_mutex);
+
+int thermal_set_brightness_percent(int percent, int enable)
+{
+	struct cust_mt65xx_led *cust_led_list = mt_get_cust_led_list();
+	int bl_level;
+
+	mutex_lock(&g_thermal_limit_mutex);
+	g_percent = percent;
+	g_limit_bl_level = MAX_BACKLIGHT_LEVEL_11BIT * g_percent / FULL_PERCENT;
+	g_thermal_limit_enabled = enable;
+
+	if (g_thermal_limit_enabled) {
+		if (g_last_level > g_limit_bl_level) {
+			bl_level = g_limit_bl_level;
+		} else {
+			mutex_unlock(&g_thermal_limit_mutex);
+			pr_info("%s: line:%d: Nothing to do. enable = %d, percent = %d, g_limit_bl_level = %d, g_last_level = %d\n",
+					__func__, __LINE__, g_thermal_limit_enabled, g_percent, g_limit_bl_level, g_last_level);
+
+			return 0;
+		}
+	} else {
+		bl_level = g_last_level;
+	}
+
+	mutex_unlock(&g_thermal_limit_mutex);
+
+	pr_info("%s: line:%d: New state: enable = %d, percent = %d, g_limit_bl_level = %d, g_last_level = %d, thermal bl_level = %d\n",
+			__func__, __LINE__, g_thermal_limit_enabled, g_percent, g_limit_bl_level, g_last_level, bl_level);
+
+	if (bl_level != 0)
+		mt65xx_led_set_cust(&cust_led_list[MT65XX_LED_TYPE_LCD], bl_level);
+
+	return 0;
+}
+EXPORT_SYMBOL(thermal_set_brightness_percent);
+#endif
 
 #ifdef CONTROL_BL_TEMPERATURE
 
@@ -354,11 +400,34 @@ EXPORT_SYMBOL(mt65xx_leds_brightness_set);
 int backlight_brightness_set(int level)
 {
 	struct cust_mt65xx_led *cust_led_list = mt_get_cust_led_list();
+	int bl_level;
 
 	if (level > ((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT) - 1))
 		level = ((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT) - 1);
 	else if (level < 0)
 		level = 0;
+
+#ifdef M19A_THERMAL_BL_CONTROL
+	mutex_lock(&g_thermal_limit_mutex);
+	g_last_level = level;
+
+	if (g_thermal_limit_enabled) {
+		if (g_last_level > g_limit_bl_level) {
+			bl_level = g_limit_bl_level;
+		} else {
+			bl_level = g_last_level;
+		}
+	} else {
+		bl_level = g_last_level;
+	}
+
+	mutex_unlock(&g_thermal_limit_mutex);
+
+	pr_info("%s: line:%d: enable = %d, percent = %d, g_limit_bl_level = %d, g_last_level = %d, thermal bl_level = %d\n",
+			__func__, __LINE__, g_thermal_limit_enabled, g_percent, g_limit_bl_level, g_last_level, bl_level);
+#else
+	bl_level = level;
+#endif
 
 	if (MT65XX_LED_MODE_CUST_BLS_PWM ==
 	    cust_led_list[MT65XX_LED_TYPE_LCD].mode) {
@@ -382,16 +451,19 @@ int backlight_brightness_set(int level)
 
 		return
 		    mt_mt65xx_led_set_cust(&cust_led_list[MT65XX_LED_TYPE_LCD],
-					   level);
+					   bl_level);
 	} else {
-		return mt65xx_led_set_cust(&cust_led_list[MT65XX_LED_TYPE_LCD],
-					   (level >>
-					    (MT_LED_INTERNAL_LEVEL_BIT_CNT -
-					     8)));
+		return mt65xx_led_set_cust(&cust_led_list[MT65XX_LED_TYPE_LCD], bl_level);
 	}
 
 }
 EXPORT_SYMBOL(backlight_brightness_set);
+
+int get_last_backlight_level(void) {
+	return g_last_level;
+}
+EXPORT_SYMBOL(get_last_backlight_level);
+
 #ifdef CONFIG_BACKLIGHT_SUPPORT_LP8557
 static int led_i2c_probe(struct i2c_client *client,
 		const struct i2c_device_id *id);
@@ -493,6 +565,13 @@ static int mt65xx_leds_probe(struct platform_device *pdev)
 	pr_debug
 	    ("last_level= %d, limit= %d, limit_flag= %d, current_level= %d\n",
 	     last_level, limit, limit_flag, current_level);
+#endif
+
+#ifdef M19A_THERMAL_BL_CONTROL
+	g_percent = FULL_PERCENT;
+	g_limit_bl_level = MAX_BACKLIGHT_LEVEL_11BIT;
+	g_last_level = 0;
+	g_thermal_limit_enabled = 0;
 #endif
 
 	return 0;

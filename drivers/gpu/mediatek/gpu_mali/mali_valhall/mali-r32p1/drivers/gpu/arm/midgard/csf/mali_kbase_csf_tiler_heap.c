@@ -214,7 +214,7 @@ static int create_chunk(struct kbase_csf_tiler_heap *const heap,
 		err = init_chunk(heap, chunk, link_with_prev);
 		if (unlikely(err)) {
 			kbase_gpu_vm_lock(kctx);
-			chunk->region->flags &= ~KBASE_REG_NO_USER_FREE;
+			kbase_va_region_no_user_free_put(kctx, chunk->region);
 			kbase_mem_free_region(kctx, chunk->region);
 			kbase_gpu_vm_unlock(kctx);
 		}
@@ -254,7 +254,7 @@ static void delete_chunk(struct kbase_csf_tiler_heap *const heap,
 	lockdep_assert_held(&kctx->csf.tiler_heaps.lock);
 
 	kbase_gpu_vm_lock(kctx);
-	chunk->region->flags &= ~KBASE_REG_NO_USER_FREE;
+	kbase_va_region_no_user_free_put(kctx, chunk->region);
 	kbase_mem_free_region(kctx, chunk->region);
 	kbase_gpu_vm_unlock(kctx);
 	list_del(&chunk->link);

@@ -63,6 +63,8 @@
 #include <mtk_gauge_time_service.h>
 #include <mt-plat/upmu_common.h>
 #include <pmic_lbat_service.h>
+#include <linux/hardware_info.h>
+#include <linux/iio/consumer.h>
 
 
 
@@ -106,6 +108,9 @@ static int battery_in_data[1] = { 0 };
 static int battery_out_data[1] = { 0 };
 static bool g_ADC_Cali;
 
+#define MAX_BAT_NUM   2
+static char* battery_name[MAX_BAT_NUM+1] = {"battery_NVT_5000mAh", "battery_COS_5000mAh", "BATTERY_NOT_STANDARD"};
+
 static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
@@ -113,15 +118,20 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_SHUTDOWN_DELAY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_CURRENT_AVG,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX,
+	POWER_SUPPLY_PROP_BATTERY_TYPE,
 };
 
 /* boot mode */
@@ -262,6 +272,22 @@ int gauge_enable_interrupt(int intr_number, int en)
 	mutex_unlock(&gm.pmic_intr_mutex);
 
 	return 0;
+}
+
+int get_battery_id_vol(struct platform_device *dev)
+{
+	int val = 0;
+	int ret = 0;
+
+	gm.bat_id = iio_channel_get(&dev->dev, "battery_id");
+
+	if(!IS_ERR_OR_NULL(gm.bat_id)){
+		ret = iio_read_channel_processed(gm.bat_id, &val);
+		if(ret < 0)
+		bm_err("[%s]real fail,ret = %d\n", __func__, ret);
+	}
+	bm_err("[%s]battery_vol = %d\n", __func__, val);
+	return val;
 }
 
 bool is_battery_init_done(void)
@@ -447,13 +473,22 @@ void battery_update_psd(struct battery_data *bat_data)
 	bat_data->BAT_batt_temp = battery_get_bat_temperature();
 }
 
+#define SHUTDOWN_DELAY_VOL	3400
+bool mtk_shutdown_delay_enable;
+int charger_manager_set_input_suspend(int val);
+int charger_manager_is_input_suspend(void);
+
 static int battery_get_property(struct power_supply *psy,
 	enum power_supply_property psp,
 	union power_supply_propval *val)
 {
 	int ret = 0;
 	int fgcurrent = 0;
+	int vbat_mv;
 	bool b_ischarging = 0;
+	static bool shutdown_delay_cancel;
+	static bool last_shutdown_delay;
+	static bool shutdown_delay;
 
 	struct battery_data *data =
 		container_of(psy->desc, struct battery_data, psd);
@@ -461,6 +496,9 @@ static int battery_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		val->intval = data->BAT_STATUS;
+		if (gm.input_suspend == 1){
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		}
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = data->BAT_HEALTH;/* do not change before*/
@@ -483,10 +521,49 @@ static int battery_get_property(struct power_supply *psy,
 			break;
 		}
 
-		if (gm.fixed_uisoc != 0xffff)
+		if (gm.fixed_uisoc != 0xffff){
 			val->intval = gm.fixed_uisoc;
+		}
 		else
 			val->intval = data->BAT_CAPACITY;
+		vbat_mv = battery_get_bat_voltage();
+		if (mtk_shutdown_delay_enable) {
+			if (val->intval <= 1) {
+				bm_err("shutdown_delay=%d,vbat_mv=%d,BAT_STATUS=%d,shutdown_delay_cancel=%d\n",
+					shutdown_delay,vbat_mv,data->BAT_STATUS,shutdown_delay_cancel);
+				if (vbat_mv <= SHUTDOWN_DELAY_VOL
+					&& data->BAT_STATUS != POWER_SUPPLY_STATUS_CHARGING) {
+					shutdown_delay = true;
+					val->intval = 1;
+				} else if (data->BAT_STATUS == POWER_SUPPLY_STATUS_CHARGING
+								&& shutdown_delay) {
+					shutdown_delay = false;
+					shutdown_delay_cancel = true;
+					val->intval = 1;
+				} else {
+					shutdown_delay = false;
+					//if (shutdown_delay_cancel)
+						val->intval = 1;
+				}
+				if (data->BAT_STATUS == POWER_SUPPLY_STATUS_CHARGING
+								&& (vbat_mv < 3350)) {
+				    pr_err("%s plug_in shutdown\n", __func__);
+					kernel_power_off();
+				}
+			} else {
+				shutdown_delay = false;
+				shutdown_delay_cancel = false;
+			}
+			if (last_shutdown_delay != shutdown_delay) {
+				last_shutdown_delay = shutdown_delay;
+				if (data->psy)
+					power_supply_changed(data->psy);
+					bm_err("shutdown power off !");
+			}
+		}
+		break;
+	case POWER_SUPPLY_PROP_SHUTDOWN_DELAY:
+		val->intval = shutdown_delay;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		b_ischarging = gauge_get_current(&fgcurrent);
@@ -513,6 +590,9 @@ static int battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = gm.tbat_precise;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		val->intval = charger_manager_is_input_suspend();
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
 		val->intval = check_cap_level(data->BAT_CAPACITY);
@@ -544,27 +624,17 @@ static int battery_get_property(struct power_supply *psy,
 		ret = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		if (check_cap_level(data->BAT_CAPACITY) ==
-			POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN)
-			val->intval = 0;
-		else {
-			int q_max_mah = 0;
-			int q_max_uah = 0;
-
-			q_max_mah =
-				fg_table_cust_data.fg_profile[
-				gm.battery_id].q_max / 10;
-
-			q_max_uah = q_max_mah * 1000;
-			if (q_max_uah <= 100000) {
-				bm_debug("%s q_max_mah:%d q_max_uah:%d\n",
-					__func__, q_max_mah, q_max_uah);
-				q_max_uah = 100001;
-			}
-			val->intval = q_max_uah;
-		}
-		break;
-
+			val->intval = 4900000;
+			break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+			val->intval = charger_manager_get_prop_system_temp_level();
+			break ;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX:
+			val->intval = charger_manager_get_prop_system_temp_level_max();
+			break ;
+	case POWER_SUPPLY_PROP_BATTERY_TYPE:
+			val->strval = battery_name[gm.battery_id];
+			break ;
 
 	default:
 		ret = -EINVAL;
@@ -572,6 +642,43 @@ static int battery_get_property(struct power_supply *psy,
 	}
 
 	return ret;
+}
+
+static int battery_set_prop(struct power_supply *psy,
+		enum power_supply_property psp,
+		const union power_supply_propval *val)
+{
+	int ret;
+	switch (psp) {
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+		charger_manager_set_input_suspend(val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+			charger_manager_set_prop_system_temp_level(val->intval);
+			break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+			gm.bat_cycle = val->intval;
+			break;
+	default:
+			pr_err("set prop %d is not supported in battery\n",psy);
+			ret = -EINVAL;
+			break ;
+	}
+	return ret;
+}
+
+static int battery_prop_is_writeable(struct power_supply *psy,
+		enum power_supply_property psp)
+{
+	switch (psp){
+	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
+			return 1;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+			return 1;
+	default:
+			break;
+	}
+	return 0;
 }
 
 /* battery_data initialization */
@@ -582,12 +689,14 @@ struct battery_data battery_main = {
 		.properties = battery_props,
 		.num_properties = ARRAY_SIZE(battery_props),
 		.get_property = battery_get_property,
+		.set_property = battery_set_prop,
+		.property_is_writeable = battery_prop_is_writeable,
 		},
 
 	.BAT_STATUS = POWER_SUPPLY_STATUS_DISCHARGING,
 	.BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD,
 	.BAT_PRESENT = 1,
-	.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION,
+	.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO,
 	.BAT_CAPACITY = -1,
 	.BAT_batt_vol = 0,
 	.BAT_batt_temp = 0,
@@ -598,7 +707,7 @@ void evb_battery_init(void)
 	battery_main.BAT_STATUS = POWER_SUPPLY_STATUS_FULL;
 	battery_main.BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD;
 	battery_main.BAT_PRESENT = 1;
-	battery_main.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION;
+	battery_main.BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO;
 	battery_main.BAT_CAPACITY = 100;
 	battery_main.BAT_batt_vol = 4200;
 	battery_main.BAT_batt_temp = 22;
@@ -651,12 +760,37 @@ bool fg_interrupt_check(void)
 	return true;
 }
 
+static void battery_report_full(struct battery_data *bat_data)
+{
+	static struct charger_device *primary_charger;
+	bool chg_done = false;
+	if (!primary_charger) {
+		primary_charger = get_charger_by_name("primary_chg");
+		if(primary_charger == NULL){
+			pr_err("get_charger_by_name :primary_chg failed!\n");
+			return ;
+		}
+	}
+	charger_dev_is_charging_done(primary_charger, &chg_done);
+	if (bat_data->BAT_CAPACITY == 100 && upmu_get_rgs_chrdet() != 0
+		&& bat_data->BAT_STATUS != POWER_SUPPLY_STATUS_DISCHARGING
+		&& chg_done) {
+		bat_data->BAT_STATUS = POWER_SUPPLY_STATUS_FULL;
+		bm_err("battery_update set FULL! ui:%d chr:%d %d done:%d\n",
+			bat_data->BAT_CAPACITY, upmu_get_rgs_chrdet(),
+			bat_data->BAT_STATUS, chg_done);
+	}
+	bm_err("battery_update status: ui:%d chr:%d status%d done:%d temp:%d\n",
+		bat_data->BAT_CAPACITY, upmu_get_rgs_chrdet(), bat_data->BAT_STATUS,chg_done,bat_data->BAT_batt_temp);
+}
+
 void battery_update(struct battery_data *bat_data)
 {
 	struct power_supply *bat_psy = bat_data->psy;
 
+	battery_report_full(bat_data);
 	battery_update_psd(&battery_main);
-	bat_data->BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LION;
+	bat_data->BAT_TECHNOLOGY = POWER_SUPPLY_TECHNOLOGY_LIPO;
 	bat_data->BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD;
 	bat_data->BAT_PRESENT = 1;
 
@@ -1681,8 +1815,8 @@ int force_get_tbat_internal(bool update)
 		fg_meter_res_value, fg_r_value, gm.no_bat_temp_compensate);
 
 		if (pre_bat_temperature_val2 == 0) {
-			pre_bat_temperature_volt_temp =
-				bat_temperature_volt_temp;
+			pre_bat_temperature_volt_temp = 
+							bat_temperature_volt_temp;
 			pre_bat_temperature_volt = bat_temperature_volt;
 			pre_fg_current_temp = fg_current_temp;
 			pre_fg_current_state = fg_current_state;
@@ -3973,6 +4107,136 @@ static DEVICE_ATTR(
 	show_Power_Off_Voltage, store_Power_Off_Voltage);
 
 
+static ssize_t show_StopCharging_Test(
+struct device *dev, struct device_attribute *attr, char *buf)
+{
+	if (gm.pbat_consumer != NULL) {
+		charger_manager_enable_charging(gm.pbat_consumer, 0, 0);
+	}
+
+	bm_err("show_StopCharging_Test\n");
+	return sprintf(buf, "chr=0\n");
+}
+
+static ssize_t store_StopCharging_Test(
+	struct device *dev, struct device_attribute *attr,
+				       const char *buf, size_t size)
+{
+	return -1;
+}
+
+static DEVICE_ATTR(
+	StopCharging_Test, 0664,
+	show_StopCharging_Test, store_StopCharging_Test);
+
+static ssize_t show_StartCharging_Test(
+struct device *dev, struct device_attribute *attr, char *buf)
+{
+	if (gm.pbat_consumer != NULL) {
+		charger_manager_enable_charging(gm.pbat_consumer, 0, 1);
+	}
+
+	bm_err("show_StartCharging_Test\n");
+	return sprintf(buf, "chr=1\n");
+}
+
+static ssize_t store_StartCharging_Test(
+	struct device *dev, struct device_attribute *attr,
+				       const char *buf, size_t size)
+{
+	return -1;
+}
+
+static DEVICE_ATTR(
+	StartCharging_Test, 0664,
+	show_StartCharging_Test, store_StartCharging_Test);
+
+int get_mtbf_current(void)
+{
+	return gm.mtbf_current;
+}
+
+static ssize_t show_mtbf_current(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", gm.mtbf_current);
+}
+
+static ssize_t store_mtbf_current(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int val = -1;
+	int ret;
+	bm_err("[%s]\n", __func__);
+	if (buf != NULL && size != 0) {
+		bm_err("[%s] buf is %s\n", __func__, buf);
+		ret = kstrtoint(buf, 10, &val);
+		if (ret < 0) {
+			bm_err(	"[%s] val is %d ??\n", __func__, val);
+			val = -1;
+		}
+		gm.mtbf_current = val < 0 ? -1 : val;
+		bm_err(	"%s=%d\n", __func__, val);
+	}
+	return size;
+}
+
+static DEVICE_ATTR(mtbf_current, 0664, show_mtbf_current, store_mtbf_current);
+
+
+int get_shipmode_status(void)
+{
+	bm_err(	"%s get ship_mode:%d\n", __func__, gm.ship_mode);
+	return gm.ship_mode;
+}
+
+static ssize_t show_shipmode_count_reset(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	bm_err(	"%s show ship_mode:%d\n", __func__, gm.ship_mode);
+	return sprintf(buf, "%d\n", gm.ship_mode);
+}
+
+static ssize_t store_shipmode_count_reset(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int val = 0;
+	int ret;
+	bm_err("[%s]\n", __func__);
+	if (buf != NULL && size != 0) {
+		bm_err("[%s] buf is %s\n", __func__, buf);
+		ret = kstrtoint(buf, 10, &val);
+		if (ret < 0) {
+			bm_err(	"[%s] val is %d ??\n", __func__, val);
+			val = 0;
+		}
+		gm.ship_mode = val;
+		bm_err(	"%s store ship_mode:%d\n", __func__, val);
+	}
+	return size;
+}
+
+static DEVICE_ATTR(shipmode_count_reset, 0664, show_shipmode_count_reset, store_shipmode_count_reset);
+
+int charger_manager_set_input_suspend(int val)
+{
+	bm_err("%s val = %d\n", __func__, val);
+	val = (val > 0) ? 0 : 1;
+	gm.input_suspend = !val;
+	if (gm.pbat_consumer != NULL){
+		charger_manager_enable_charging(gm.pbat_consumer,0, val);
+		charger_manager_enable_charging(gm.pbat_consumer,1, val);
+		charger_manager_enable_hz(gm.pbat_consumer,0, gm.input_suspend);
+	}
+	bm_err("%s input_suspend = %d\n", __func__, gm.input_suspend);
+	return 0;
+}
+
+int charger_manager_is_input_suspend(void)
+{
+	return gm.input_suspend;
+}
+
 static int battery_callback(
 	struct notifier_block *nb, unsigned long event, void *v)
 {
@@ -3982,7 +4246,10 @@ static int battery_callback(
 	case CHARGER_NOTIFY_EOC:
 		{
 /* CHARGING FULL */
-			notify_fg_chr_full();
+			battery_main.BAT_STATUS = POWER_SUPPLY_STATUS_FULL;
+			battery_update(&battery_main);
+                	notify_fg_chr_full();
+                	bm_err("charge status = %s\n", battery_main.BAT_STATUS);	
 		}
 		break;
 	case CHARGER_NOTIFY_START_CHARGING:
@@ -4430,8 +4697,9 @@ static int __init battery_probe(struct platform_device *dev)
 					adc_cali_devno,
 					NULL, ADC_CALI_DEVNAME);
 /*****************************/
-
+	gm.battery_id_vol = get_battery_id_vol(dev);
 	mtk_battery_init(dev);
+	hardwareinfo_set_prop(HARDWARE_BMS_GAUGE, "mt6358_gauge");
 
 	/* Power supply class */
 #if !defined(CONFIG_MTK_DISABLE_GAUGE)
@@ -4554,6 +4822,13 @@ static int __init battery_probe(struct platform_device *dev)
 		register_charger_manager_notifier(gm.pbat_consumer, &gm.bat_nb);
 	}
 
+	gm.mtbf_current = -1;
+	gm.ship_mode = 0;
+	gm.input_suspend = false;
+	ret = device_create_file(&battery_main.psy->dev, &dev_attr_shipmode_count_reset);
+	ret = device_create_file(&battery_main.psy->dev, &dev_attr_mtbf_current);
+	ret = device_create_file(&battery_main.psy->dev, &dev_attr_StopCharging_Test);
+	ret = device_create_file(&battery_main.psy->dev, &dev_attr_StartCharging_Test);
 	battery_debug_init();
 
 	__pm_relax(battery_lock);
@@ -4608,6 +4883,8 @@ static int battery_suspend(struct platform_device *dev, pm_message_t state)
 	if (gm.enable_tmp_intr_suspend == 0) {
 		gauge_enable_interrupt(FG_RG_INT_EN_BAT_TEMP_H, 0);
 		gauge_enable_interrupt(FG_RG_INT_EN_BAT_TEMP_L, 0);
+		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_IRQ_EN_MIN, 0);
+		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_EN_MIN, 0);
 		enable_bat_temp_det(0);
 	}
 
@@ -4649,6 +4926,8 @@ static int battery_resume(struct platform_device *dev)
 	if (gm.enable_tmp_intr_suspend == 0) {
 		gauge_enable_interrupt(FG_RG_INT_EN_BAT_TEMP_H, 1);
 		gauge_enable_interrupt(FG_RG_INT_EN_BAT_TEMP_L, 1);
+		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_IRQ_EN_MIN, 1);
+		pmic_set_register_value(PMIC_AUXADC_BAT_TEMP_EN_MIN, 1);
 		enable_bat_temp_det(1);
 	}
 

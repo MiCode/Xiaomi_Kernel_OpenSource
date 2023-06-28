@@ -132,15 +132,11 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
-#ifdef DYNAMIC_SET_PRIORITY
 		teei_cpus_write_lock();
-#endif
 
 		ret  = send_fp_command((void *)arg, args_len + 16);
 
-#ifdef DYNAMIC_SET_PRIORITY
 		teei_cpus_write_unlock();
-#endif
 
 		if (ret) {
 			IMSG_ERROR("transfer data to ta failed.\n");

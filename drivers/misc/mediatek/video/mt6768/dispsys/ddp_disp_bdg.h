@@ -22,7 +22,7 @@
 #ifdef _HIGH_FRM_	 //for cmd 120Hz
 #define RXTX_RATIO		(299)
 #else
-#define RXTX_RATIO		(225) //for vdo 90Hz
+#define RXTX_RATIO		(223) //for vdo 90Hz	380:225
 //#define RXTX_RATIO		(230) //for vdo 120Hz
 #endif
 

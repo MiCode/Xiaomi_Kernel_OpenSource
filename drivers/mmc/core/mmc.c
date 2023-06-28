@@ -419,9 +419,11 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			ext_csd[EXT_CSD_SEC_CNT + 3] << 24;
 
 		/* Cards with density > 2GiB are sector addressed */
-		if (card->ext_csd.sectors > (2u * 1024 * 1024 * 1024) / 512)
-			mmc_card_set_blockaddr(card);
-	}
+        if (card->ext_csd.sectors > (2u * 1024 * 1024 * 1024) / 512){
+            mmc_card_set_blockaddr(card);
+        }
+        pr_info("mv card->ext_csd.sectors=%d\n",card->ext_csd.sectors);
+    }
 
 	card->ext_csd.strobe_support = ext_csd[EXT_CSD_STROBE_SUPPORT];
 	card->ext_csd.raw_card_type = ext_csd[EXT_CSD_CARD_TYPE];
@@ -813,6 +815,8 @@ MMC_DEV_ATTR(pre_eol_info, "0x%02x\n", card->ext_csd.pre_eol_info);
 MMC_DEV_ATTR(life_time, "0x%02x 0x%02x\n",
 	card->ext_csd.device_life_time_est_typ_a,
 	card->ext_csd.device_life_time_est_typ_b);
+MMC_DEV_ATTR(life_time_est_typ_a, "0x%x\n",card->ext_csd.device_life_time_est_typ_a);
+MMC_DEV_ATTR(life_time_est_typ_b, "0x%x\n",card->ext_csd.device_life_time_est_typ_b);
 MMC_DEV_ATTR(serial, "0x%08x\n", card->cid.serial);
 MMC_DEV_ATTR(enhanced_area_offset, "%llu\n",
 		card->ext_csd.enhanced_area_offset);
@@ -854,7 +858,157 @@ static ssize_t mmc_dsr_show(struct device *dev,
 }
 
 static DEVICE_ATTR(dsr, S_IRUGO, mmc_dsr_show, NULL);
+static int calc_mem_size(void)
+ {
+     int temp_size;
+     temp_size = (int)totalram_pages/1024; //page size 4K
 
+     if ((temp_size > 0*256) && (temp_size <= 1*256))
+         return 1;
+     else if ((temp_size > 1*256) && (temp_size <= 2*256))
+         return 2;
+     else if ((temp_size > 2*256) && (temp_size <= 3*256))
+         return 3;
+     else if ((temp_size > 3*256) && (temp_size <= 4*256))
+         return 4;
+     else if ((temp_size > 4*256) && (temp_size <= 6*256))
+         return 6;
+     else if ((temp_size > 6*256) && (temp_size <= 8*256))
+         return 8;
+     else
+         return 0;
+ }
+
+static int calc_mmc_size(struct mmc_card *card)
+{
+    int temp_size;
+    temp_size = (int)card->ext_csd.sectors/2/1024/1024; //sector size 512B
+
+    if ((temp_size > 8) && (temp_size <= 16))
+        return 16;
+    else if ((temp_size > 16) && (temp_size <= 32))
+        return 32;
+    else if ((temp_size > 32) && (temp_size <= 64))
+        return 64;
+    else if ((temp_size > 64) && (temp_size <= 128))
+        return 128;
+    else if ((temp_size > 128) && (temp_size <= 256))
+        return 256;
+    else
+        return 0;
+}
+
+static ssize_t flash_name_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    struct mmc_card *card = mmc_dev_to_card(dev);
+    char *vendor_name = NULL;
+    char *emcp_name = NULL;
+
+    switch (card->cid.manfid) {
+        case 0x11:
+            vendor_name = "Toshiba";
+            break;
+        case 0x13:
+            vendor_name = "Micron";
+            break;
+        case 0x15:
+            vendor_name = "Samsung";
+            break;
+        case 0x45:
+            vendor_name = "Sandisk";
+            break;
+        case 0x70:
+            vendor_name = "Kingston";
+            break;
+        case 0x90:
+            vendor_name = "Hynix";
+            break;
+        case 0x8F:
+            vendor_name = "UNIC";
+            break;
+        case 0xF4:
+            vendor_name = "BIWIN";
+            break;
+        case 0xD6:
+            vendor_name = "HOSIN";
+            if (strncmp(card->cid.prod_name, "MMC64G", strlen("MMC64G")) == 0)
+                emcp_name = "HG-EMC064-N1510";
+            else if (strncmp(card->cid.prod_name, "MMC128", strlen("MMC128")) == 0)
+                emcp_name = "HG-EMC128-N1510";
+            else
+                emcp_name = NULL;
+            break;
+        case 0x9b:
+            vendor_name = "YMTC";
+            if (strncmp(card->cid.prod_name, "Y2P064", strlen("Y2P064")) == 0)
+                emcp_name = "YMEC7A2TB2A2C3";
+            else if (strncmp(card->cid.prod_name, "Y0S064", strlen("Y0S064")) == 0)
+                emcp_name = "YMEC7B0TE1A2C3";
+            else if (strncmp(card->cid.prod_name, "Y2P128", strlen("Y2P128")) == 0)
+                emcp_name = "YMEC8A2TB3A2C3";
+            else if (strncmp(card->cid.prod_name, "Y0S128", strlen("Y0S128")) == 0)
+                emcp_name = "YMEC8B0TE2A2C3";
+            else if (strncmp(card->cid.prod_name, "Y0S256", strlen("Y0S256")) == 0)
+                emcp_name = "YMEC9B0TE3A2C3";
+            else
+                emcp_name = NULL;
+            break;
+        default:
+            vendor_name = "Unknown";
+            break;
+}
+
+    if (emcp_name == NULL)
+        emcp_name = card->cid.prod_name;
+    return sprintf(buf, "%s_%s_%dGB_%dGB\n",vendor_name, emcp_name, calc_mem_size(), calc_mmc_size(card));
+}
+
+static DEVICE_ATTR(flash_name, S_IRUGO, flash_name_show, NULL);
+
+static ssize_t vendor_name_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    struct mmc_card *card = mmc_dev_to_card(dev);
+    char *vendor_name = NULL;
+
+    switch (card->cid.manfid) {
+        case 0x11:
+            vendor_name = "Toshiba";
+            break;
+        case 0x13:
+            vendor_name = "Micron";
+            break;
+        case 0x15:
+            vendor_name = "Samsung";
+            break;
+        case 0x45:
+            vendor_name = "Sandisk";
+            break;
+        case 0x70:
+            vendor_name = "Kingston";
+            break;
+        case 0x90:
+            vendor_name = "Hynix";
+            break;
+        case 0x8F:
+            vendor_name = "UNIC";
+            break;
+        case 0xF4:
+            vendor_name = "BIWIN";
+            break;
+        case 0xD6:
+            vendor_name = "HOSIN";
+            break;
+        case 0x9b:
+            vendor_name = "YMTC";
+            break;
+        default:
+            vendor_name = "Unknown";
+            break;
+    }
+
+    return sprintf(buf, "%s\n",vendor_name);
+}
+static DEVICE_ATTR(vendor, S_IRUGO, vendor_name_show, NULL);
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
 	&dev_attr_csd.attr,
@@ -881,6 +1035,10 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_rca.attr,
 	&dev_attr_dsr.attr,
 	&dev_attr_cmdq_en.attr,
+	&dev_attr_life_time_est_typ_a.attr,
+	&dev_attr_life_time_est_typ_b.attr,
+	&dev_attr_flash_name.attr,
+	&dev_attr_vendor.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(mmc_std);
@@ -1582,6 +1740,7 @@ static int mmc_hs200_tuning(struct mmc_card *card)
  * In the case of a resume, "oldcard" will contain the card
  * we're trying to reinitialise.
  */
+extern struct mmc_card *mv_card;
 static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	struct mmc_card *oldcard)
 {
@@ -1681,7 +1840,13 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		if (err)
 			goto free_card;
 	}
-
+        if(!mv_card) {
+        mv_card = card;
+        pr_info("mv_card NULL\n");
+    }
+        else {
+        pr_info("mv_card OK!\n");
+    }
 	/*
 	 * handling only for cards supporting DSR and hosts requesting
 	 * DSR configuration

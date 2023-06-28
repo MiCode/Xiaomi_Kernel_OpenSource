@@ -17,6 +17,7 @@
 #include <mt-plat/v1/charger_type.h>
 #include <mt-plat/v1/mtk_battery.h>
 #include <mach/mtk_battery_property.h>
+#include <mt-plat/mtk_boot.h>
 #else
 #include <string.h>
 #include "simulator_kernel.h"
@@ -387,18 +388,18 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 				if (IS_ENABLED(
 					LOW_TEMP_DISABLE_LOW_BAT_SHUTDOWN)) {
 					if (tmp >= LOW_TEMP_THRESHOLD) {
-						down_to_low_bat = 1;
+					//	down_to_low_bat = 1;
 						bm_err("normal tmp, battery voltage is low shutdown\n");
 						notify_fg_shutdown();
 					} else if (sdd->avgvbat <=
 						LOW_TMP_BAT_VOLTAGE_LOW_BOUND) {
-						down_to_low_bat = 1;
+					//	down_to_low_bat = 1;
 						bm_err("cold tmp, battery voltage is low shutdown\n");
 						notify_fg_shutdown();
 					} else
 						bm_err("low temp disable low battery sd\n");
 				} else {
-					down_to_low_bat = 1;
+				//	down_to_low_bat = 1;
 					bm_err("[%s]avg vbat is low to shutdown\n",
 						__func__);
 					notify_fg_shutdown();
@@ -507,7 +508,9 @@ static int power_misc_routine_thread(void *arg)
 			bm_err("%s battery overheat~ power off\n",
 				__func__);
 			mutex_lock(&system_transition_mutex);
+			if((battery_get_boot_mode() != KERNEL_POWER_OFF_CHARGING_BOOT) && (battery_get_boot_mode() != LOW_POWER_OFF_CHARGING_BOOT)){
 			kernel_power_off();
+			}
 			mutex_unlock(&system_transition_mutex);
 			fix_coverity = 1;
 			return 1;
@@ -534,14 +537,13 @@ int mtk_power_misc_psy_event(
 			tmp = val.intval / 10;
 			if (tmp >= BATTERY_SHUTDOWN_TEMPERATURE) {
 				bm_err(
-					"battery temperature >= %d,shutdown",
+                                  "battery temperature >= %d,shutdown",
 					tmp);
-
+                          
 				wake_up_overheat(&sdc);
 			}
-		}
+                }          
 	}
-
 	return NOTIFY_DONE;
 }
 

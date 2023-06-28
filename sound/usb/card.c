@@ -760,8 +760,9 @@ static int usb_audio_probe(struct usb_interface *intf,
 	usb_set_intfdata(intf, chip);
 
 	/* enable auto suspend */
-	if (snd_usb_support_autosuspend_quirk(dev))
+	/*if (snd_usb_support_autosuspend_quirk(dev))
 		usb_enable_autosuspend(dev);
+	*/
 	device_wakeup_enable(&dev->dev);
 
 	atomic_dec(&chip->active);

@@ -227,3 +227,11 @@ config CHARGER_MM8013
 	  Say Y to enable
 	  mm8013 driver.
 	  Set to Yes if MM8013 is used.
+
+config CHARGER_SYV690
+	bool "CHARGER_SYV690"
+	help
+	  This is to enable MediaTek supports to SYV690.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if SYV690 is used.

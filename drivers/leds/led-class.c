@@ -65,6 +65,48 @@ unlock:
 }
 static DEVICE_ATTR_RW(brightness);
 
+static ssize_t brightness_clone_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", led_cdev->brightness_clone);
+}
+
+static ssize_t brightness_clone_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+	unsigned long state;
+	ssize_t ret;
+	char *envp[2];
+
+	if (led_cdev == NULL) {
+		pr_err("%s: led_cdev pointer is NULL\n", __func__);
+		return -ENODEV;
+	}
+
+	ret = kstrtoul(buf, 10, &state);
+	if (ret)
+		return ret;
+
+	led_cdev->brightness_clone = (int)state;
+
+	envp[0] = "SOURCE=sysfs";
+	envp[1] = NULL;
+
+	if (led_cdev->dev == NULL) {
+		pr_err("%s: led_cdev->dev pointer is NULL\n", __func__);
+		return -ENODEV;
+	}
+
+	kobject_uevent_env(&led_cdev->dev->kobj, KOBJ_CHANGE, envp);
+	sysfs_notify(&led_cdev->dev->kobj, NULL, "brightness_clone");
+
+	return size;
+}
+static DEVICE_ATTR_RW(brightness_clone);
+
 static ssize_t max_brightness_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -87,6 +129,7 @@ static const struct attribute_group led_trigger_group = {
 
 static struct attribute *led_class_attrs[] = {
 	&dev_attr_brightness.attr,
+	&dev_attr_brightness_clone.attr,
 	&dev_attr_max_brightness.attr,
 	NULL,
 };

@@ -162,7 +162,14 @@ void _ddic_test_write(void)
 		};
 
 	do_lcm_vdo_lp_write(write_table, 5);
+}
 
+void _ddic_esd_test_write(void)
+{
+	struct ddp_lcm_write_cmd_table write_table[1] = {
+		{0x28, 1, {0x00} },
+	};
+	do_lcm_vdo_lp_write(write_table, 1);
 }
 
 void _ddic_test_read_write(void)
@@ -373,12 +380,16 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
-		if (test_type < 1)
+		if (test_type < 1) {
 			_ddic_test_read();
-		else if (test_type > 1 && test_type < 5)
+		} else if (test_type > 1 && test_type < 5) {
 			_ddic_test_write();
-		else if (test_type > 10)
+		} else if (test_type == 6) {
+			pr_info("_ddic_esd_test_write %d.\n", test_type);
+			_ddic_esd_test_write();
+		} else if (test_type > 10) {
 			_ddic_test_read_write();
+		}
 
 	} else if (strncmp(opt, "partial:", 8) == 0) {
 		ret = sscanf(opt, "partial:%d,%d,%d,%d,%d\n", &dbg_force_roi,

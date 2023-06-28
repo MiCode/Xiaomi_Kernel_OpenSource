@@ -29,32 +29,6 @@
 
 static struct proc_dir_entry *aee_rr_file;
 
-static char aee_cmdline[COMMAND_LINE_SIZE];
-
-static const char *mrdump_get_cmd(void)
-{
-	struct file *fd;
-	mm_segment_t fs;
-	loff_t pos = 0;
-
-	if (aee_cmdline[0] != 0)
-		return aee_cmdline;
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-	fd = filp_open("/proc/cmdline", O_RDONLY, 0);
-	if (IS_ERR(fd)) {
-		pr_info("kedump: Unable to open /proc/cmdline (%ld)",
-			PTR_ERR(fd));
-		set_fs(fs);
-		return aee_cmdline;
-	}
-	vfs_read(fd, (void *)aee_cmdline, COMMAND_LINE_SIZE, &pos);
-	filp_close(fd, NULL);
-	fd = NULL;
-	set_fs(fs);
-	return aee_cmdline;
-}
 
 static int aee_rr_reboot_reason_proc_open(struct inode *inode,
 		struct file *file)
@@ -94,7 +68,7 @@ static ssize_t powerup_reason_show(struct kobject *kobj,
 	char *br_ptr_e;
 
 	memset(boot_reason, 0x0, 64);
-	br_ptr = strstr(mrdump_get_cmd(), "androidboot.bootreason=");
+	br_ptr = strstr(saved_command_line, "androidboot.bootreason=");
 	if (br_ptr) {
 		br_ptr_e = strstr(br_ptr, " ");
 		/* get boot reason */
@@ -109,7 +83,7 @@ static ssize_t powerup_reason_show(struct kobject *kobj,
 #endif
 		if (!strncmp(boot_reason, "2sec_reboot",
 					strlen("2sec_reboot"))) {
-			br_ptr = strstr(mrdump_get_cmd(),
+			br_ptr = strstr(saved_command_line,
 					"has_battery_removed=1");
 			if (!br_ptr)
 				return snprintf(buf, sizeof(boot_reason),

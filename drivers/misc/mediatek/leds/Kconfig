@@ -23,6 +23,12 @@ config BACKLIGHT_SUPPORT_LP8557
 	  Set n to disable.
 	  For pwm external backlight.
 
+config KTD3136_SUPPORT
+    tristate "Kinetic KTD3136"
+    default n
+    help
+      Say y here to support Kinetic backlight IC KTD3136.
+
 config BACKLIGHT_SUPPORT_LM3697
 	bool "LM3697(DW8832) Support"
 	default n
@@ -31,6 +37,13 @@ config BACKLIGHT_SUPPORT_LM3697
 	  Set y to support.
 	  Set n to disable.
 	  Charge pump driver for external backlight.
+
+config LM3697_SUPPORT
+    tristate "TI LM3697"
+    default n
+	select BACKLIGHT_CLASS_DEVICE
+    help
+      Say y here to support TI backlight IC LM3697.
 
 config LEDS_MT6357
 	tristate "LED Support for Mediatek MT6357 PMIC"

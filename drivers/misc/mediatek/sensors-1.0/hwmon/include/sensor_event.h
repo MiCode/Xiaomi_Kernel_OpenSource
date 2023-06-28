@@ -26,7 +26,7 @@ struct sensor_event {
 	int8_t status;
 	int8_t reserved;
 	union {
-		int32_t word[6];
+		int32_t word[8];
 		int8_t byte[0];
 	};
 } __packed;

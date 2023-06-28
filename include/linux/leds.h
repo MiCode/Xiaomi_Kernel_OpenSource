@@ -29,8 +29,8 @@ struct device;
 enum led_brightness {
 	LED_OFF		= 0,
 	LED_ON		= 1,
-	LED_HALF	= 127,
-	LED_FULL	= 255,
+	LED_HALF	= 1023, //127
+	LED_FULL	= 2047, //255
 };
 
 struct led_classdev {
@@ -38,6 +38,8 @@ struct led_classdev {
 	enum led_brightness	 brightness;
 	enum led_brightness	 max_brightness;
 	int			 flags;
+
+	int brightness_clone;
 
 	/* Lower 16 bits reflect status */
 #define LED_SUSPENDED		BIT(0)

@@ -24,7 +24,7 @@
 #include "mtk_thermal_timer.h"
 #include "mt-plat/mtk_thermal_platform.h"
 #include <linux/uidgid.h>
-#include <tmp_bts.h>
+#include "../../mt6768/inc/tmp_bts.h"
 #include <linux/slab.h>
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 #include <linux/iio/consumer.h>
@@ -60,7 +60,7 @@ static kgid_t gid = KGIDT_INIT(1000);
 static DEFINE_SEMAPHORE(sem_mutex);
 
 static unsigned int interval = 1;	/* seconds, 0 : no auto polling */
-static int trip_temp[10] = { 120000, 110000, 100000, 90000, 80000,
+static int trip_temp[10] = { 100000, 96000, 95000, 90000, 80000,
 				70000, 65000, 60000, 55000, 50000 };
 
 static struct thermal_zone_device *thz_dev;
@@ -68,8 +68,8 @@ static int mtkts_bts_debug_log;
 static int kernelmode;
 static int g_THERMAL_TRIP[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-static int num_trip;
-static char g_bind0[20] = {"mtktsAP-sysrst"};
+static int num_trip = 1;
+static char g_bind0[20] = "mtktsAP-sysrst";
 static char g_bind1[20] = { 0 };
 static char g_bind2[20] = { 0 };
 static char g_bind3[20] = { 0 };
@@ -108,7 +108,7 @@ do {                                    \
 pr_debug("[Thermal/TZ/BTS]" fmt, ##args)
 
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
-struct iio_channel *thermistor_ch0;
+struct iio_channel *thermistor_ch3;
 #endif
 /* #define INPUT_PARAM_FROM_USER_AP */
 
@@ -137,7 +137,12 @@ struct BTS_TEMPERATURE {
 	__s32 TemperatureR;
 };
 
+#if defined(CONFIG_WT_FIRE_THERMAL_NTC)
+static int g_RAP_pull_up_R = 100000;
+#else
 static int g_RAP_pull_up_R = BTS_RAP_PULL_UP_R;
+#endif
+
 static int g_TAP_over_critical_low = BTS_TAP_OVER_CRITICAL_LOW;
 static int g_RAP_pull_up_voltage = BTS_RAP_PULL_UP_VOLTAGE;
 static int g_RAP_ntc_table = BTS_RAP_NTC_TABLE;
@@ -523,7 +528,7 @@ static __s32 mtkts_bts_thermistor_conver_temp(__s32 Res)
 			((RES1 - Res) * TMP2)), 1000, (RES1 - RES2));
 #else
 		TAP_Value = (((Res - RES2) * TMP1) + ((RES1 - Res) * TMP2))
-								/ (RES1 - RES2);
+										   / (RES1 - RES2);
 #endif
 	}
 
@@ -556,7 +561,7 @@ static __s32 mtk_ts_bts_volt_to_temp(__u32 dwVolt)
 		TRes = g_TAP_over_critical_low;
 	} else {
 		/* TRes = (39000*dwVolt) / (1800-dwVolt); */
-		/* TRes = (RAP_PULL_UP_R*dwVolt) / (RAP_PULL_UP_VOLT-dwVolt); */
+		/* TRes = (RAP_PULL_UP_R*dwVolt) / (RAP_PULL_UP_VOLT-dwVolt); */		
 		TRes = ((long long)g_RAP_pull_up_R * dwVolt) /
 					(g_RAP_pull_up_voltage * 100 - dwVolt);
 	}
@@ -566,13 +571,18 @@ static __s32 mtk_ts_bts_volt_to_temp(__u32 dwVolt)
 	} else {
 		/* TRes = (39000*dwVolt) / (1800-dwVolt); */
 		/* TRes = (RAP_PULL_UP_R*dwVolt) / (RAP_PULL_UP_VOLT-dwVolt); */
+
+#if defined(CONFIG_WT_FIRE_THERMAL_NTC)
+
+		g_RAP_pull_up_R = 100000;
+		
+#endif
 		TRes = (g_RAP_pull_up_R * dwVolt) /
 					(g_RAP_pull_up_voltage - dwVolt);
-	}
+	}	
 #endif
 	/* ------------------------------------------------------------------ */
 	g_AP_TemperatureR = TRes;
-
 	/* convert register to temperature */
 	BTS_TMP = mtkts_bts_thermistor_conver_temp(TRes);
 
@@ -588,12 +598,12 @@ static int get_hw_bts_temp(void)
 	int ret = 0, output;
 #else
 	int ret = 0, data[4], i, ret_value = 0, ret_temp = 0, output;
-	int times = 1, Channel = g_RAP_ADC_channel; /* 6752=0(AUX_IN0_NTC) */
+	int times = 1, Channel = g_RAP_ADC_channel; /* 6752=0(AUX_IN3_NTC) */
 	static int valid_temp;
 #endif
 
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
-	ret = iio_read_channel_processed(thermistor_ch0, &val);
+	ret = iio_read_channel_processed(thermistor_ch3, &val);
 	if (ret < 0) {
 		mtkts_bts_printk("Busy/Timeout, IIO ch read failed %d\n", ret);
 		return ret;
@@ -649,12 +659,12 @@ static int get_hw_bts_temp(void)
 #if defined(APPLY_AUXADC_CALI_DATA)
 		ret += auxadc_cali_temp;
 		mtkts_bts_dprintk(
-			"[thermal_auxadc_get_data(AUX_IN0_NTC)]: ret_temp=%d\n",
+			"[thermal_auxadc_get_data(AUX_IN3_NTC)]: ret_temp=%d\n",
 			auxadc_cali_temp);
 #else
 		ret += ret_temp;
 		mtkts_bts_dprintk(
-			"[thermal_auxadc_get_data(AUX_IN0_NTC)]: ret_temp=%d\n",
+			"[thermal_auxadc_get_data(AUX_IN3_NTC)]: ret_temp=%d\n",
 			ret_temp);
 #endif
 	}
@@ -1239,7 +1249,7 @@ struct file *file, const char __user *buffer, size_t count, loff_t *data)
 			/* check unsupport pin value, if unsupport,
 			 * set channel = 1 as default setting.
 			 */
-			g_RAP_ADC_channel = AUX_IN0_NTC;
+			g_RAP_ADC_channel = AUX_IN3_NTC;
 		else {
 			/* check if there is any param input,
 			 * if not using default g_RAP_ADC_channel:1
@@ -1248,7 +1258,8 @@ struct file *file, const char __user *buffer, size_t count, loff_t *data)
 				g_RAP_ADC_channel =
 					ptr_mtktsbts_parm_data->adc_channel;
 			else
-				g_RAP_ADC_channel = AUX_IN0_NTC;
+				g_RAP_ADC_channel = AUX_IN3_NTC;
+
 		}
 		mtkts_bts_dprintk("adc_channel=%d\n",
 					ptr_mtktsbts_parm_data->adc_channel);
@@ -1352,14 +1363,14 @@ static int mtkts_bts_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	thermistor_ch0 = devm_kzalloc(&pdev->dev, sizeof(*thermistor_ch0),
+	thermistor_ch3 = devm_kzalloc(&pdev->dev, sizeof(*thermistor_ch3),
 		GFP_KERNEL);
-	if (!thermistor_ch0)
+	if (!thermistor_ch3)
 		return -ENOMEM;
 
 
-	thermistor_ch0 = iio_channel_get(&pdev->dev, "thermistor-ch0");
-	ret = IS_ERR(thermistor_ch0);
+	thermistor_ch3 = iio_channel_get(&pdev->dev, "thermistor-ch3");
+	ret = IS_ERR(thermistor_ch3);
 	if (ret) {
 		mtkts_bts_printk("[%s] fail to get auxadc iio ch0: %d\n",
 			__func__, ret);
@@ -1393,13 +1404,13 @@ static int mtkts_bts_probe(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_OF
-const struct of_device_id mt_thermistor_of_match[2] = {
-	{.compatible = "mediatek,mtboard-thermistor1",},
+const struct of_device_id mt_thermistor_of_match4[2] = {
+	{.compatible = "mediatek,mtboard-thermistor4",},
 	{},
 };
 #endif
 
-#define THERMAL_THERMISTOR_NAME    "mtboard-thermistor1"
+#define THERMAL_THERMISTOR_NAME    "mtboard-thermistor4"
 static struct platform_driver mtk_thermal_bts_driver = {
 	.remove = NULL,
 	.shutdown = NULL,
@@ -1409,7 +1420,7 @@ static struct platform_driver mtk_thermal_bts_driver = {
 	.driver = {
 		.name = THERMAL_THERMISTOR_NAME,
 #ifdef CONFIG_OF
-		.of_match_table = mt_thermistor_of_match,
+		.of_match_table = mt_thermistor_of_match4,
 #endif
 	},
 };

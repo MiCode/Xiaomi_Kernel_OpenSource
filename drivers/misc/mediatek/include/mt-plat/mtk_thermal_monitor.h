@@ -111,6 +111,7 @@ extern struct proc_dir_entry *mtk_thermal_get_proc_drv_therm_dir_entry(void);
 extern int setMaxBrightness(char *name, int percent, bool enable);
 #else
 extern int setMaxbrightness(int max_level, int enable);
+extern int thermal_set_brightness_percent(int percent, int enable);
 #endif
 
 extern void machine_power_off(void);

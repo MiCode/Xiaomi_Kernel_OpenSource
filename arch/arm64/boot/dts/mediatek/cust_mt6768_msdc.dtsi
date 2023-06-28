@@ -96,7 +96,7 @@
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
 	sd-uhs-ddr50;
-	cd-gpios = <&pio 18 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&pio 18 GPIO_ACTIVE_HIGH>;
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
 	no-mmc;

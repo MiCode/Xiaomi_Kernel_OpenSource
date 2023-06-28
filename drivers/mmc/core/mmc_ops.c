@@ -24,6 +24,8 @@
 #include "mmc_ops.h"
 
 #define MMC_OPS_TIMEOUT_MS	(10 * 60 * 1000) /* 10 minute timeout */
+#define CMD_TIMEOUT         (HZ/10 * 5)	/* 100ms x5 */
+#define DAT_TIMEOUT         (HZ    * 5)	/* 1000ms x5 */
 
 static const u8 tuning_blk_pattern_4bit[] = {
 	0xff, 0x0f, 0xff, 0x00, 0xff, 0xcc, 0xc3, 0xcc,
@@ -459,7 +461,8 @@ static int mmc_poll_for_busy(struct mmc_card *card, unsigned int timeout_ms,
 	/* We have an unspecified cmd timeout, use the fallback value. */
 	if (!timeout_ms)
 		timeout_ms = MMC_OPS_TIMEOUT_MS;
-
+	else if (timeout_ms < DAT_TIMEOUT)
+		timeout_ms = DAT_TIMEOUT;
 	/*
 	 * In cases when not allowed to poll by using CMD13 or because we aren't
 	 * capable of polling by using ->card_busy(), then rely on waiting the
@@ -579,7 +582,7 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 
 	/* Let's try to poll to find out when the command is completed. */
 	err = mmc_poll_for_busy(card, timeout_ms, send_status, retry_crc_err);
-	if (err)
+	if (err && err != -ETIMEDOUT)
 		goto out;
 
 out_tim:

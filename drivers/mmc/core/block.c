@@ -45,7 +45,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
-
+#include <linux/mmc/ffu.h>
 #include <linux/uaccess.h>
 
 #include "mtk_mmc_block.h"
@@ -3130,13 +3130,13 @@ static int mmc_blk_probe(struct mmc_card *card)
 {
 	struct mmc_blk_data *md, *part_md;
 	char cap_str[10];
-
+	pr_info("mmc_blk_probe start\n");
 	/*
 	 * Check that the card supports the command class(es) we need.
 	 */
 	if (!(card->csd.cmdclass & CCC_BLOCK_READ))
 		return -ENODEV;
-
+	pr_info("mmc_blk_probe not return -ENODEV\n");
 	mmc_fixup_device(card, mmc_blk_fixups);
 
 	card->complete_wq = alloc_workqueue("mmc_complete",
@@ -3145,11 +3145,13 @@ static int mmc_blk_probe(struct mmc_card *card)
 		pr_err("Failed to create mmc completion workqueue");
 		return -ENOMEM;
 	}
-
+	pr_info("mmc_blk_probe not return -ENODEV\n");
+	
 	md = mmc_blk_alloc(card);
 	if (IS_ERR(md))
 		return PTR_ERR(md);
-
+	pr_info("mmc_blk_probe not return PTR_ERR\n");
+	
 	string_get_size((u64)get_capacity(md->disk), 512, STRING_UNITS_2,
 			cap_str, sizeof(cap_str));
 	pr_info("%s: %s %s %s %s\n",
@@ -3158,17 +3160,20 @@ static int mmc_blk_probe(struct mmc_card *card)
 
 	if (mmc_blk_alloc_parts(card, md))
 		goto out;
-
+	pr_info("mmc_blk_probe mmc_blk_alloc_parts ok\n");
+	
 	dev_set_drvdata(&card->dev, md);
 
 	if (mmc_add_disk(md))
 		goto out;
-
+	pr_info("mmc_blk_probe mmc_add_disk ok\n");
+	
 	list_for_each_entry(part_md, &md->part, part) {
 		if (mmc_add_disk(part_md))
 			goto out;
 	}
-
+	pr_info("mmc_blk_probe mmc_add_disk list_for_each_entry ok\n");
+	
 	/* Add two debugfs entries */
 	mmc_blk_add_debugfs(card, md);
 
@@ -3189,6 +3194,11 @@ static int mmc_blk_probe(struct mmc_card *card)
 	else
 		mmc_boot_type = 2;
 
+	pr_info("mmc_ffu enter\n");
+	/*
+	 * ffu function location
+	 */
+	mmc_ffu(card);
 #ifdef CONFIG_MMC_SD_IOSCHED
 	if (card->type == MMC_TYPE_SD
 		&& md->disk->queue

@@ -30,6 +30,8 @@ void pdc_init_table(void)
 	else
 		chr_err("mtk_is_pdc_ready is fail\n");
 
+	pd->cap.selected_cap_idx = 1; //9V 2A
+
 	chr_err("[%s] nr:%d default:%d\n", __func__, pd->cap.nr,
 	pd->cap.selected_cap_idx);
 }
@@ -188,6 +190,11 @@ int pdc_setup(int idx)
 		if (oldmA > pd->cap.ma[idx])
 			charger_set_input_current(pd->cap.ma[idx] * 1000);
 
+		//max set 9V2A
+		if (pd->cap.max_mv[idx] > 9000)
+			pd->cap.max_mv[idx] = 9000;
+		if (pd->cap.ma[idx] > 2000)
+			pd->cap.ma[idx] = 2000;
 		ret = adapter_set_cap(pd->cap.max_mv[idx], pd->cap.ma[idx]);
 
 		if (ret == ADAPTER_OK) {
@@ -317,7 +324,7 @@ int pdc_get_setting(int *newvbus, int *newcur,
 
 	if (pd_min_watt <= 5000000)
 		pd_min_watt = 5000000;
-
+/*
 	if ((now_max_watt >= pd_max_watt) || chg1_mivr) {
 		*newidx = pd->pd_boost_idx;
 		boost = true;
@@ -329,7 +336,10 @@ int pdc_get_setting(int *newvbus, int *newcur,
 		boost = false;
 		buck = false;
 	}
-
+*/
+	*newidx = selected_idx;
+	boost = false;
+	buck = false;
 	*newvbus = cap->max_mv[*newidx];
 	*newcur = cap->ma[*newidx];
 
@@ -375,6 +385,16 @@ int pdc_check_leave(void)
 		__func__, max_mv, vbus, ibus, pd->pd_idx,
 		PD_MIN_WATT, mivr1 / 1000, mivr_state);
 
+	if ((vbus < (mivr1 / 1000)) && mivr_state) {
+		chr_err("[%s] MIVR occurred, ibus can't draw much higher current", __func__);
+		goto leave;
+	}
+	return 0;
+
+leave:
+	pdc_stop();
+	return 2;
+/*
 	if (max_mv * ibus <= PD_MIN_WATT) {
 		if (mivr_state)
 			chr_err("[%s] MIVR occurred, ibus can't draw much higher current",
@@ -387,6 +407,7 @@ int pdc_check_leave(void)
 leave:
 	pdc_stop();
 	return 2;
+*/
 }
 
 int pdc_init(void)
@@ -474,7 +495,7 @@ int pdc_set_current(void)
 
 int pdc_set_cv(void)
 {
-	charger_set_constant_voltage(pd->data.battery_cv);
+	//charger_set_constant_voltage(pd->data.battery_cv);
 
 	return 0;
 }
@@ -492,7 +513,7 @@ int pdc_run(void)
 	ret = pdc_get_setting(&vbus, &cur, &idx);
 
 	if (ret != -1 && idx != -1) {
-		pd->pdc_input_current_limit_setting =  cur * 1000;
+		//pd->pdc_input_current_limit_setting =  cur * 1000;
 		pdc_set_current();
 		pdc_setup(idx);
 	}

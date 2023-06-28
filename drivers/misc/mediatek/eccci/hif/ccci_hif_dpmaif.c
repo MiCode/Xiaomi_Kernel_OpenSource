@@ -2795,8 +2795,6 @@ static inline int cs_type(struct sk_buff *skb)
 			skb->ip_summed);
 		return 0;
 	} else if (packet_type == IPV4_VERSION) {
-		if (iph->check == 0)
-			return 0; /* No HW check sum */
 		if (skb->ip_summed == CHECKSUM_NONE ||
 			skb->ip_summed == CHECKSUM_UNNECESSARY ||
 			skb->ip_summed == CHECKSUM_COMPLETE)
@@ -3769,6 +3767,13 @@ int dpmaif_late_init(unsigned char hif_id)
 			dpmaif_ctrl->dpmaif_irq_id, ret);
 		return ret;
 	}
+#ifdef MT6297
+	ret = irq_set_irq_wake(dpmaif_ctrl->dpmaif_irq_id, 1);
+	if (ret)
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"irq_set_irq_wake dpmaif irq(%d) error %d\n",
+			dpmaif_ctrl->dpmaif_irq_id, ret);
+#endif
 	atomic_set(&dpmaif_ctrl->dpmaif_irq_enabled, 1); /* init */
 	dpmaif_disable_irq(dpmaif_ctrl);
 

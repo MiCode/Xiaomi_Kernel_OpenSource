@@ -73,6 +73,9 @@ endif
 ifeq ($(CONFIG_TOUCHSCREEN_MTK_GT5688),y)
 obj-$(CONFIG_TOUCHSCREEN_MTK)		+= mediatek/
 endif
+ifeq ($(CONFIG_MACH_MT6768),y)
+obj-$(CONFIG_TOUCHSCREEN_MTK)           += mediatek/
+endif
 obj-$(CONFIG_TOUCHSCREEN_MTK_NT36572_COMMON)   +=  nt36572_common/
 obj-$(CONFIG_TOUCHSCREEN_MIGOR)		+= migor_ts.o
 obj-$(CONFIG_TOUCHSCREEN_MMS114)	+= mms114.o

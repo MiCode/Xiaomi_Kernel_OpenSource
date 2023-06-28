@@ -562,10 +562,11 @@ enum DynFPS_LEVEL {
 	DFPS_LEVEL0 = 0,
 	DFPS_LEVEL1,
 	DFPS_LEVEL2,
+	DFPS_LEVEL3,
 	DFPS_LEVELNUM,
 };
 
-#define DFPS_LEVELS 3
+#define DFPS_LEVELS 4
 enum FPS_CHANGE_INDEX {
 	DYNFPS_NOT_DEFINED = 0,
 	DYNFPS_DSI_VFP = 1,
@@ -1000,7 +1001,12 @@ struct LCM_UTIL_FUNCS {
 		void *cmdq, unsigned int cmd,
 		unsigned char count, unsigned char *para_list,
 		unsigned char force_update, enum LCM_Send_Cmd_Mode sendmode);
-
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	void (*dsi_send_vmcmd)(
+		void *cmdq, unsigned int cmd,
+		unsigned char count, unsigned char *para_list,
+		unsigned char force_update);
+#endif
 };
 enum LCM_DRV_IOCTL_CMD {
 	LCM_DRV_IOCTL_ENABLE_CMD_MODE = 0x100,
@@ -1036,6 +1042,10 @@ struct LCM_DRIVER {
 	void (*set_pwm)(unsigned int divider);
 	unsigned int (*get_pwm)(unsigned int divider);
 	void (*set_backlight_mode)(unsigned int mode);
+
+	void (*set_lcm_cabc_cmd)(void *handle, unsigned int *lcm_cmd,
+		unsigned int *lcm_count, unsigned int level);
+	void (*get_cabc_status)(int *status);
 	/* ///////////////////////// */
 
 	int (*adjust_fps)(void *cmdq, int fps, struct LCM_PARAMS *params);

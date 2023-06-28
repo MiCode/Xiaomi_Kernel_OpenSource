@@ -18,6 +18,7 @@
 #include <linux/uidgid.h>
 #include <mtk_cooler_setting.h>
 #include <linux/debugfs.h>
+#include <mtk_cooler_mutt_gen97.h>
 
 
 /****************************************************************************
@@ -36,6 +37,7 @@
 #define TMC_IMS_ONLY_LEVEL		(TMC_COOLER_LV7)
 #define TMC_NO_IMS_LEVEL		(TMC_COOLER_LV8)
 #define TMC_MD_OFF_LEVEL		(0xFF)
+#if 0
 #define TMC_CA_CTRL_CA_ON \
 	(TMC_CTRL_CMD_CA_CTRL | TMC_CA_ON << 8)
 #define TMC_CA_CTRL_CA_OFF \
@@ -74,6 +76,8 @@
 	| (TMC_TW_PWR_REDUCE_NR_MAX_TX_EVENT << 16)	\
 	| (pwr << 24))
 
+#endif
+
 #if 0
 /*
  * No UL data(except IMS): active = 1; suspend = 255; bit0 in reserved =0;
@@ -84,7 +88,9 @@
 #endif
 
 /* State of "MD off & noIMS" are not included. */
-#define MAX_NUM_INSTANCE_MTK_COOLER_MUTT  8
+
+//#define MAX_NUM_INSTANCE_MTK_COOLER_MUTT  8
+
 #define MAX_NUM_TX_PWR_LV  3
 
 #define MTK_CL_MUTT_GET_LIMIT(limit, state) \
@@ -113,7 +119,7 @@ do { \
 
 /* LOG */
 #define mtk_cooler_mutt_dprintk_always(fmt, args...) \
-pr_debug("[Thermal/TC/mutt]" fmt, ##args)
+pr_notice("[Thermal/TC/mutt]" fmt, ##args)
 
 #define mtk_cooler_mutt_dprintk(fmt, args...) \
 do { \
@@ -139,7 +145,7 @@ static const struct file_operations clmutt_ ## name ## _proc_fops = {         \
 	.release	= single_release,                                     \
 	.write	= clmutt_ ## name ## _proc_write,                             \
 }
-
+#if 0
 enum mutt_type {
 	MUTT_LTE,
 	MUTT_NR,
@@ -148,6 +154,7 @@ enum mutt_type {
 };
 
 /*enum mapping must be align with MD site*/
+
 enum tmc_ctrl_cmd_enum {
 	TMC_CTRL_CMD_THROTTLING = 0,
 	TMC_CTRL_CMD_CA_CTRL,
@@ -213,6 +220,7 @@ enum tmc_tx_pwr_event_enum {
 	TMC_TW_PWR_REDUCE_NR_MAX_TX_EVENT,
 	TMC_TW_PWR_EVENT_MAX_NUM,
 };
+#endif
 
 #if FEATURE_THERMAL_DIAG
 /*
@@ -409,7 +417,7 @@ static void clmutt_cooler_param_reset(unsigned long mdoff_state)
 	}
 }
 
-static unsigned int clmutt_level_selection(int lv, unsigned int type)
+unsigned int clmutt_level_selection(int lv, unsigned int type)
 {
 	unsigned int ctrl_lv = 0;
 
@@ -450,7 +458,7 @@ static unsigned int clmutt_level_selection(int lv, unsigned int type)
 		? ctrl_lv | TMC_COOLER_LV_RAT_NR
 		: ctrl_lv | TMC_COOLER_LV_RAT_LTE;
 
-	mtk_cooler_mutt_dprintk(
+	mtk_cooler_mutt_dprintk_always(
 		"[%s] type(%d) lv(%d):ctrl_lv: 0x%08x\n",
 		__func__, type, lv, ctrl_lv);
 

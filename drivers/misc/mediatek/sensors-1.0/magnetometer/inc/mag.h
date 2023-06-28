@@ -84,6 +84,7 @@ struct mag_control_path {
 	bool is_report_input_direct;
 	bool is_support_batch;
 	bool is_use_common_factory;
+	bool is_support_nfc;
 	struct mag_libinfo_t libinfo;
 };
 

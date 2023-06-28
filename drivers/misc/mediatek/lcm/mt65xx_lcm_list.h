@@ -339,6 +339,10 @@ extern struct LCM_DRIVER otm1911a_fhdp_dsi_vdo_truly_rt4801_lcm_drv;
 extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_120hz_shenchao_6382_lcm_drv;
 extern struct LCM_DRIVER nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_jdi_lcm_drv;
 
+extern struct LCM_DRIVER dsi_panel_m19a_36_02_0a_dsc_vdo_lcm_drv;
+extern struct LCM_DRIVER dsi_panel_m19a_42_03_0b_dsc_vdo_lcm_drv;
+extern struct LCM_DRIVER virtual_dsi_vdo_default_drv;
+
 #ifdef BUILD_LK
 extern void mdelay(unsigned long msec);
 #endif

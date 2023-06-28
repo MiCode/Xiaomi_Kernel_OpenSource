@@ -2208,7 +2208,7 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
 		hs_trail = 80 + 4 * ui;
 		timcon0.HS_TRAIL = (hs_trail > cycle_time) ?
 				(NS_TO_CYCLE(hs_trail, cycle_time) +
-				NS_TO_CYCLE_MOD(hs_trail, cycle_time) + 1) : 2;
+				NS_TO_CYCLE_MOD(hs_trail, cycle_time)) : 2;
 
 		/* hs_exit > 100ns (spec) */
 		/* hs_exit = 120ns */
@@ -2240,7 +2240,7 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
 
 		/* clk_trail > 60ns (spec) */
 		/* clk_trail = 100ns */
-		timcon2.CLK_TRAIL = NS_TO_CYCLE(100, cycle_time) + 1;
+		timcon2.CLK_TRAIL = NS_TO_CYCLE(100, cycle_time);
 		if (timcon2.CLK_TRAIL < 2)
 			timcon2.CLK_TRAIL = 2;
 		timcon2.CONT_DET = 0;
@@ -5197,6 +5197,7 @@ int ddp_dsi_set_lcm_utils(enum DISP_MODULE_ENUM module,
 
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	utils->dsi_dynfps_send_cmd = DSI_dynfps_send_cmd;
+	utils->dsi_send_vmcmd = DSI_send_vmcmd_cmd;
 #endif
 
 	lcm_drv->set_util_funcs(utils);
@@ -6898,6 +6899,7 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 #ifdef CONFIG_MTK_MT6382_BDG
 		unsigned char stopdsi[] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x00
 		unsigned char setcmd[] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x14
+		unsigned char setrxcmd[] = {0x31, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x70
 		unsigned char reset0[] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x10
 		unsigned char reset1[] = {0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00}; //ID 0x10
 #endif
@@ -6947,21 +6949,28 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 #ifdef CONFIG_MTK_MT6382_BDG
 		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x00, 7,
 				stopdsi, 1);
+		cmdq_pkt_sleep_by_poll(((struct cmdqRecStruct *)cmdq_trigger_handle)->pkt,
+				CMDQ_US_TO_TICK(80));
 		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x10, 7,
 				reset1, 1);
 		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x10, 7,
 				reset0, 1);
 		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x14, 7,
 				setcmd, 1);
+		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x70, 7,
+				setrxcmd, 1);
 #endif
 	} else if (state == CMDQ_START_VDO_MODE) {
 #ifdef CONFIG_MTK_MT6382_BDG
 		unsigned char setvdo[] = {0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00}; //ID 0x14
 		unsigned char stopdsi[] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x00
 		unsigned char startdsi[] = {0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00}; //ID 0x00
+		unsigned char setrxvdo[] = {0x31, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00}; //ID 0x70
 
 		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x14, 7,
 				setvdo, 1);
+		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x70, 7,
+				setrxvdo, 1);
 		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x00, 7,
 				stopdsi, 1);
 		DSI_send_cmd_cmd(cmdq_trigger_handle, DISP_MODULE_DSI0, 1, 0x79, 0x00, 7,
@@ -8182,6 +8191,16 @@ void DSI_dynfps_send_cmd(
 		DSI_send_cmd_cmd(cmdq, DISP_MODULE_DSI0, false, REGFLAG_ESCAPE_ID,
 		cmd, count, para_list, force_update);
 	}
+}
+
+void DSI_send_vmcmd_cmd(
+	void *cmdq, unsigned int cmd,
+	unsigned char count, unsigned char *para_list,
+	unsigned char force_update)
+{
+	DSI_send_cmd_cmd(cmdq, DISP_MODULE_DSI0, false, REGFLAG_ESCAPE_ID,
+		cmd, count, para_list, force_update);
+
 }
 
 /*-------------------------------DynFPS end------------------------------*/

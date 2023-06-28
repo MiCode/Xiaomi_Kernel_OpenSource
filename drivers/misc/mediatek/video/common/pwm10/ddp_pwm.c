@@ -590,8 +590,8 @@ int disp_pwm_set_backlight_cmdq(enum disp_pwm_id_t id,
 		if ((old_pwm == 0 || level_1024 == 0 || abs_diff > 64) &&
 			old_pwm != level_1024) {
 			/* Print information if backlight is changed */
-			PWM_NOTICE("(id = 0x%x, level_1024 = %d), old = %d",
-				id, level_1024, old_pwm);
+			/* PWM_NOTICE("(id = 0x%x, level_1024 = %d), old = %d",
+				id, level_1024, old_pwm); */
 		}
 
 		max_level_1024 = disp_pwm_get_max_backlight(id);

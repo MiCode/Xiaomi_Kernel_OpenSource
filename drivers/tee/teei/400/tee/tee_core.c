@@ -105,11 +105,10 @@ int tee_k_open(struct file *filp)
 	if (IS_ERR(ctx))
 		return PTR_ERR(ctx);
 
-	mutex_init(&ctx->mutex);
-
 	filp->private_data = ctx;
 	return 0;
 }
+
 
 static int tee_open(struct inode *inode, struct file *filp)
 {
@@ -262,7 +261,7 @@ static int params_from_user(struct tee_context *ctx, struct tee_param *params,
 
 			if ((ip.a >= shm->size) || (ip.b > shm->size)
 					|| ((ip.a + ip.b) > shm->size)) {
-				IMSG_ERROR("Inval param in %s\n", __func__);
+				IMSG_ERROR("Inval param %s\n", __func__);
 				return -EINVAL;
 			}
 
@@ -779,6 +778,8 @@ static int tee_mmap(struct file *filp, struct vm_area_struct *vma)
 	struct tee_shm *shm = NULL;
 	int retVal = 0;
 
+	mutex_lock(&ctx->mutex);
+
 	shm = isee_shm_kalloc(ctx, size, TEE_SHM_MAPPED | TEE_SHM_DMA_KERN_BUF);
 	if (IS_ERR(shm)) {
 		IMSG_ERROR("Failed to alloc shm %d\n", PTR_ERR(shm));
@@ -796,6 +797,8 @@ static int tee_mmap(struct file *filp, struct vm_area_struct *vma)
 		shm->uaddr = vma->vm_start;
 
 exit:
+	mutex_unlock(&ctx->mutex);
+
 	return retVal;
 }
 

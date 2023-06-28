@@ -12,6 +12,7 @@ enum charger_type {
 	CHARGING_HOST,
 	NONSTANDARD_CHARGER,	/* AC : 450mA~1A */
 	STANDARD_CHARGER,	/* AC : ~1A */
+	HVDCP_CHARGER,
 	APPLE_2_1A_CHARGER, /* 2.1A apple charger */
 	APPLE_1_0A_CHARGER, /* 1A apple charger */
 	APPLE_0_5A_CHARGER, /* 0.5A apple charger */

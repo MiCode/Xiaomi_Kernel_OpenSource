@@ -37,6 +37,10 @@ config SND_JACK_INPUT_DEV
 	depends on SND_JACK
 	default y if INPUT=y || INPUT=SND
 
+config SND_JACK_INPUT_DEV_RUBY
+        tristate "CONFIG_SND_JACK_INPUT_DEV_RUBY"
+        default n
+
 config SND_OSSEMUL
 	bool "Enable OSS Emulation"
 	select SOUND_OSS_CORE

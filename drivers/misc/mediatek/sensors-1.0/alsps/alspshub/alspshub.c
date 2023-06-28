@@ -11,6 +11,8 @@
 #include <SCP_sensorHub.h>
 #include "SCP_power_monitor.h"
 #include <linux/pm_wakeup.h>
+#include "tpd_notify.h"
+
 
 
 #define ALSPSHUB_DEV_NAME     "alsps_hub_pl"
@@ -29,6 +31,7 @@ struct alspshub_ipi_data {
 	u8		ps;
 	int		ps_cali;
 	atomic_t	als_cali;
+	atomic_t	als_leak_cali;
 	atomic_t	ps_thd_val_high;
 	atomic_t	ps_thd_val_low;
 	ulong		enable;
@@ -38,6 +41,12 @@ struct alspshub_ipi_data {
 	bool als_android_enable;
 	bool ps_android_enable;
 	struct wakeup_source *ps_wake_lock;
+
+	/* The backlight level notifier block */
+	struct notifier_block backlight_nb;
+	int backlight_level;
+	struct work_struct backlight_level_work;
+	struct workqueue_struct *backlight_level_workqueue;
 };
 
 static struct alspshub_ipi_data *obj_ipi_data;
@@ -70,6 +79,10 @@ enum {
 	CMC_TRC_CVT_PS = 0x0040,
 	CMC_TRC_DEBUG = 0x8000,
 } CMC_TRC;
+
+
+extern int backlight_level_register_notifier(struct notifier_block *nb);
+extern int backlight_level_unregister_notifier(struct notifier_block *nb);
 
 long alspshub_read_ps(u8 *ps)
 {
@@ -293,14 +306,14 @@ static void alspshub_init_done_work(struct work_struct *work)
 		pr_err("sensor_set_cmd_to_hub fail,(ID: %d),(action: %d)\n",
 			ID_PROXIMITY, CUST_ACTION_SET_CALI);
 #else
-	spin_lock(&calibration_lock);
+	/*spin_lock(&calibration_lock);
 	cfg_data[0] = atomic_read(&obj->ps_thd_val_high);
 	cfg_data[1] = atomic_read(&obj->ps_thd_val_low);
 	spin_unlock(&calibration_lock);
 	err = sensor_cfg_to_hub(ID_PROXIMITY,
 		(uint8_t *)cfg_data, sizeof(cfg_data));
 	if (err < 0)
-		pr_err("sensor_cfg_to_hub ps fail\n");
+		pr_err("sensor_cfg_to_hub ps fail\n");*/
 
 	spin_lock(&calibration_lock);
 	cfg_data[0] = atomic_read(&obj->als_cali);
@@ -354,7 +367,11 @@ static int als_recv_data(struct data_unit_t *event, void *reserved)
 	else if (event->flush_action == CALI_ACTION) {
 		spin_lock(&calibration_lock);
 		atomic_set(&obj->als_cali, event->data[0]);
+		atomic_set(&obj->als_leak_cali, event->data[1]);
 		spin_unlock(&calibration_lock);
+
+		pr_err("als_recv_data, data[0] = %d, data[1] = %d\n", event->data[0], event->data[1]);
+
 		err = als_cali_report(event->data);
 	}
 	return err;
@@ -422,6 +439,11 @@ static int alshub_factory_enable_calibration(void)
 {
 	return sensor_calibration_to_hub(ID_LIGHT);
 }
+int alshub_factory_enable_leak_calibration(void)
+{
+	pr_err("enter alshub_factory_enable_leak_calibration\n");
+	return sensor_leak_calibration_to_hub(ID_LIGHT);
+}
 static int alshub_factory_clear_cali(void)
 {
 	return 0;
@@ -443,11 +465,14 @@ static int alshub_factory_set_cali(int32_t offset)
 	return err;
 
 }
-static int alshub_factory_get_cali(int32_t *offset)
+static int alshub_factory_get_cali(int32_t data[2])
 {
 	struct alspshub_ipi_data *obj = obj_ipi_data;
 
-	*offset = atomic_read(&obj->als_cali);
+	data[0] = atomic_read(&obj->als_cali);
+	data[1] = atomic_read(&obj->als_leak_cali);
+	
+	pr_err("alshub_factory_get_cali alscali: %d, leakoffset %d\n", data[0], data[1]);
 	return 0;
 }
 static int pshub_factory_enable_sensor(bool enable_disable,
@@ -588,6 +613,7 @@ static struct alsps_factory_fops alspshub_factory_fops = {
 	.als_get_data = alshub_factory_get_data,
 	.als_get_raw_data = alshub_factory_get_raw_data,
 	.als_enable_calibration = alshub_factory_enable_calibration,
+	.als_enable_leak_calibration = alshub_factory_enable_leak_calibration,
 	.als_clear_cali = alshub_factory_clear_cali,
 	.als_set_cali = alshub_factory_set_cali,
 	.als_get_cali = alshub_factory_get_cali,
@@ -683,6 +709,7 @@ static int als_set_cali(uint8_t *data, uint8_t count)
 
 	spin_lock(&calibration_lock);
 	atomic_set(&obj->als_cali, buf[0]);
+	atomic_set(&obj->als_leak_cali, buf[1]);
 	spin_unlock(&calibration_lock);
 	return sensor_cfg_to_hub(ID_LIGHT, data, count);
 }
@@ -736,6 +763,65 @@ static int ps_open_report_data(int open)
 	return 0;
 }
 
+static struct blocking_notifier_head ps_enable_nb;
+
+int ps_enable_register_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&ps_enable_nb, nb);
+}
+EXPORT_SYMBOL(ps_enable_register_notifier);
+
+int ps_enable_unregister_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&ps_enable_nb, nb);
+}
+EXPORT_SYMBOL(ps_enable_unregister_notifier);
+
+int ps_enable_notifier_call_chain(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(&ps_enable_nb, val, v);
+}
+EXPORT_SYMBOL(ps_enable_notifier_call_chain);
+
+
+
+int ps_send_touch_event(int32_t data){
+	int32_t touch_event = data;
+	int err = sensor_cfg_to_hub(ID_PROXIMITY,(uint8_t *)&touch_event,sizeof(touch_event));
+	pr_notice("ps_send_touch_event = %d",touch_event);
+	if (err < 0)
+		pr_err("sensor_cfg_to_hub fail\n");
+	return err;
+}
+EXPORT_SYMBOL_GPL(ps_send_touch_event);
+
+
+struct notifier_block proxmity_ready_nb;
+
+
+static int ps_recive_touch_event_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	int32_t ps_touch_event;
+
+	pr_info("jyx %s: touch event level = %d\n", __func__, (int)event);
+	ps_touch_event = (int32_t)event;
+	ps_send_touch_event(ps_touch_event);
+
+	return 0;
+}
+
+int ps_register_recive_touch_event_callback(void)
+{
+	pr_info("jyx %s\n", __func__);
+
+	memset(&proxmity_ready_nb, 0, sizeof(proxmity_ready_nb));
+	proxmity_ready_nb.notifier_call = ps_recive_touch_event_notifier_callback;
+
+	return tpd_register_client(&proxmity_ready_nb);
+}
+
+
 static int ps_enable_nodata(int en)
 {
 	int res = 0;
@@ -752,6 +838,8 @@ static int ps_enable_nodata(int en)
 		pr_err("als_enable_nodata is failed!!\n");
 		return -1;
 	}
+
+	ps_enable_notifier_call_chain((unsigned long)en, NULL);
 
 	mutex_lock(&alspshub_mutex);
 	if (en)
@@ -856,6 +944,55 @@ static struct scp_power_monitor scp_ready_notifier = {
 	.name = "alsps",
 	.notifier_call = scp_ready_event,
 };
+
+static void backlight_level_work_func(struct work_struct *work)
+{
+	int ret = 0;
+	struct alspshub_ipi_data *obj = obj_ipi_data;
+
+	pr_info("alspshub %s: level = %d\n", __func__, obj->backlight_level);
+    
+	ret = sensor_backlight_level_to_hub(ID_LIGHT, &obj->backlight_level);
+	if (ret < 0) {
+		pr_err("%s is failed!!\n", __func__);
+		return;
+	}
+
+	return;
+}
+
+/**
+ * This callback gets called when backlight changed.
+ */
+static int backlight_level_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	int err = 0;
+	struct alspshub_ipi_data *obj = obj_ipi_data;
+
+	obj->backlight_level = (int)event;
+
+	err = queue_work(obj->backlight_level_workqueue, &obj->backlight_level_work);
+	if (err < 0) {
+		pr_err("%s is failed!!\n", __func__);
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * alspshub register a notifier for backlight level when probe.
+ */
+static int alspshub_register_backlight(struct alspshub_ipi_data *obj)
+{
+	pr_info("%s\n", __func__);
+
+	memset(&obj->backlight_nb, 0, sizeof(obj->backlight_nb));
+	obj->backlight_nb.notifier_call = backlight_level_notifier_callback;
+
+	return backlight_level_register_notifier(&obj->backlight_nb);
+}
 
 static int alspshub_probe(struct platform_device *pdev)
 {
@@ -987,7 +1124,16 @@ static int alspshub_probe(struct platform_device *pdev)
 	}
 
 	alspshub_init_flag = 0;
+
+	err = alspshub_register_backlight(obj);
+	if (err) {
+		pr_err("alspshub_register_backlight fail = %d\n", err);
+	}
+	obj->backlight_level_workqueue = create_singlethread_workqueue("alspshub_backlight_level");
+	INIT_WORK(&obj->backlight_level_work, backlight_level_work_func);
+
 	pr_debug("%s: OK\n", __func__);
+	
 	return 0;
 
 exit_create_attr_failed:
@@ -1070,6 +1216,10 @@ static int __init alspshub_init(void)
 		return -1;
 	}
 	alsps_driver_add(&alspshub_init_info);
+	if (ps_register_recive_touch_event_callback()) {
+		pr_err("jyx %s fail ret\n", __func__);
+		return -1;
+	}
 	return 0;
 }
 

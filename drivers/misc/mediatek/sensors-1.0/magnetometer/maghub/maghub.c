@@ -526,6 +526,35 @@ static int maghub_factory_do_self_test(void)
 	return atomic_read(&obj->selftest_status);
 }
 
+static bool mag_get_boardid(void)
+{
+	char board_id[64];
+	char *br_ptr;
+	char *br_ptr_e;
+	bool has_nfc = false;
+	memset(board_id, 0x0, 64);
+	br_ptr = strstr(saved_command_line, "androidboot.board_id=");
+	if (br_ptr != 0) {
+		br_ptr_e = strstr(br_ptr, " ");
+		/* get board id */
+		if (br_ptr_e != 0) {
+			strncpy(board_id, br_ptr + 21,
+					br_ptr_e - br_ptr - 21);
+			board_id[br_ptr_e - br_ptr - 21] = '\0';
+		}
+		printk(" board_id = %s ", board_id);
+		/* if it is vida board */
+		if ((!strncmp(board_id, "S98029AA1",strlen("S98029AA1"))) ||
+				(!strncmp(board_id, "S98029BA1",strlen("S98029BA1")))) {
+			has_nfc = true;
+		}
+	} else {
+		has_nfc = false;
+	}
+
+	return has_nfc;
+}
+
 static struct mag_factory_fops maghub_factory_fops = {
 	.enable_sensor = maghub_factory_enable_sensor,
 	.get_data = maghub_factory_get_data,
@@ -598,6 +627,9 @@ static int maghub_probe(struct platform_device *pdev)
 	ctl.is_support_batch = true;
 #else
 #endif
+
+	ctl.is_support_nfc = mag_get_boardid();
+	printk(" ctl.is_support_nfc = %d ", ctl.is_support_nfc);
 
 	err = mag_register_control_path(&ctl);
 	if (err) {

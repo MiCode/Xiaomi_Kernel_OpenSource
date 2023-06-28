@@ -72,13 +72,39 @@
 #include <mtk_battery_table.h>
 #include "simulator_kernel.h"
 #endif
-
-
+#include <linux/hardware_info.h>
+#include <linux/iio/consumer.h>
 
 /* ============================================================ */
 /* global variable */
 /* ============================================================ */
 struct mtk_battery gm;
+
+#define HARDWARE_MAX_ITEM_LONGTH 64 
+char charge_board_id[HARDWARE_MAX_ITEM_LONGTH];
+char charge_hardware_id[HARDWARE_MAX_ITEM_LONGTH];
+
+struct board_information
+{
+	int boardid_gpio_mixed_value;
+	char project_name[16];
+};
+
+static struct board_information board_id_arr[] = {
+	{0x0, "S98019AA1"},
+	{0x1, "S98029AA1"},
+	{0x2, "S98019EA1"},
+	{0x3, "S98019OP1"},
+	{0x4, "S98019JA1"},
+	{0x5, "S98019JP1"},
+	{0x6, "S98019BA1"},
+	{0x7, "S98029BA1"},
+	{0x8, "S98019FA1"},
+	{0x9, "S98019PP1"},
+	{0xA, "S98019KA1"},
+	{0xB, "S98019KP1"},
+	{0xff, "Unknown"},
+};
 
 /* ============================================================ */
 /* gauge hal interface */
@@ -89,6 +115,87 @@ void __attribute__ ((weak))
   		void (EINT_FUNC_PTR) (void))
 {
 	/*work around for mt6768*/
+}
+
+static char* boardid_get(void)
+{
+          char* s1 = "";
+          char* s2 = "not found";
+          char *ptr = NULL;
+          s1 = strstr(saved_command_line, "board_id=");
+          if(!s1){
+                  printk("board_id not found in cmdline\n");
+                  return s2;
+          }
+          s1 += strlen("board_id=");
+          ptr = s1;
+          while(*ptr != ' ' && *ptr != '\0'){
+                  ptr++;
+          }
+          strncpy(charge_board_id, s1, ptr-s1);
+          charge_board_id[ptr-s1] = '\0';
+          s1 = charge_board_id;
+          //printk("board_id found in cmdline:%s\n",board_id);
+          return s1;
+}
+
+static char* hwid_get(void)
+{
+          char* s1 = "";
+          char* s2 = "not found";
+          char *ptr = NULL;
+          s1 = strstr(saved_command_line, "hw_id=");
+          if(!s1){
+                  printk("hw_id not found in cmdline\n");
+                  return s2;
+          }
+          s1 += strlen("hw_id=");
+          ptr = s1;
+          while(*ptr != ' ' && *ptr != '\0'){
+                  ptr++;
+          }
+          strncpy(charge_hardware_id, (const char *)s1, ptr-s1);
+          charge_hardware_id[ptr-s1] = '\0';
+          s1 = charge_hardware_id;
+          //printk("hw_id found in cmdline:%s\n",s1);
+          return s1;
+}
+
+static int baton_pullup_R(void)
+{
+	int hwid_gpio_mixed_val = 0xff,array_length = 0;
+	int i,pullup_R = 100000;
+
+	boardid_get();
+	hwid_get();
+
+	array_length = sizeof(board_id_arr)/sizeof(board_id_arr[0]);
+	for (i = 0; i < array_length; i++)
+	{
+		if(strcmp(charge_board_id, board_id_arr[i].project_name) == 0) {
+			hwid_gpio_mixed_val = board_id_arr[i].boardid_gpio_mixed_value;
+			break;
+		}
+
+	}
+	bm_err("%s: %d hw:%s\n",__func__, hwid_gpio_mixed_val, charge_hardware_id);
+
+	if (strstr(charge_hardware_id, "9_1_90") || strstr(charge_hardware_id, "9_1_10") || strstr(charge_hardware_id, "9_1_11")) {
+		pullup_R = 22000;
+		bm_err("%s: is P0 %d\n",__func__, pullup_R);
+	} else if ((strcmp(charge_hardware_id, "98019_1_12") == 0) ||
+                   (strcmp(charge_hardware_id, "98029_1_12") == 0)) {
+		if (hwid_gpio_mixed_val == 0x1 || hwid_gpio_mixed_val == 0x2) {
+			pullup_R = 22000;
+		} else {
+			pullup_R = 100000;
+		}
+		bm_err("%s: is P1 %d\n",__func__, pullup_R);
+	} else {
+		pullup_R = 100000;
+		bm_err("%s: is P2 %d\n",__func__, pullup_R);
+	}
+	return pullup_R;
 }
 
 bool gauge_get_current(int *bat_current)
@@ -596,68 +703,40 @@ bool __attribute__ ((weak)) mt_usb_is_device(void)
 /* custom setting */
 /* ============================================================ */
 #ifdef MTK_GET_BATTERY_ID_BY_AUXADC
+#define MAX_BAT_NUM   2
+struct bat_id_vol_range {
+	int low;
+	int high;
+};
+
+struct bat_id_vol_range bat_id_vol_table[MAX_BAT_NUM] = {{393,500},{532,667}};
+
 void fgauge_get_profile_id(void)
 {
-	int id_volt = 0;
-	int id = 0;
-	int ret = 0;
-	int auxadc_voltage = 0;
-	struct iio_channel *channel;
-	struct device_node *batterty_node;
-	struct platform_device *battery_dev;
+	int i;
 
-	batterty_node = of_find_node_by_name(NULL, "battery");
-	if (!batterty_node) {
-		bm_err("[%s] of_find_node_by_name fail\n", __func__);
-		return;
-	}
-
-	battery_dev = of_find_device_by_node(batterty_node);
-	if (!battery_dev) {
-		bm_err("[%s] of_find_device_by_node fail\n", __func__);
-		return;
-	}
-
-	channel = iio_channel_get(&(battery_dev->dev), "batteryID-channel");
-	if (IS_ERR(channel)) {
-		ret = PTR_ERR(channel);
-		bm_err("[%s] iio channel not found %d\n",
-		__func__, ret);
-		return;
-	}
-
-	if (channel)
-		ret = iio_read_channel_processed(channel, &auxadc_voltage);
-
-
-	if (ret <= 0) {
-		bm_err("[%s] iio_read_channel_processed failed\n", __func__);
-		return;
-	}
-
-	bm_err("[%s]auxadc_voltage is %d\n", __func__, auxadc_voltage);
-	id_volt = auxadc_voltage * 1500 / 4096;
-	bm_err("[%s]battery_id_voltage is %d\n", __func__, id_volt);
-
-	if ((sizeof(g_battery_id_voltage) /
-		sizeof(int)) != TOTAL_BATTERY_NUMBER) {
-		bm_debug("[%s]error! voltage range incorrect!\n",
-			__func__);
-		return;
-	}
-
-	for (id = 0; id < TOTAL_BATTERY_NUMBER; id++) {
-		if (id_volt < g_battery_id_voltage[id]) {
-			gm.battery_id = id;
+	for(i = 0; i < MAX_BAT_NUM; i++){
+		if(gm.battery_id_vol > bat_id_vol_table[i].low && gm.battery_id_vol < bat_id_vol_table[i].high)
 			break;
-		} else if (g_battery_id_voltage[id] == -1) {
-			gm.battery_id = TOTAL_BATTERY_NUMBER - 1;
-		}
 	}
 
-	bm_debug("[%s]Battery id (%d)\n",
-		__func__,
-		gm.battery_id);
+	switch(i){
+	case 0:
+		hardwareinfo_set_prop(HARDWARE_BATTERY_ID, "battery_NVT_5000mAh");
+		bm_err("[%s]switch to battery_id = %d\n", __func__, i);
+		break;
+	case 1:
+		hardwareinfo_set_prop(HARDWARE_BATTERY_ID, "battery_COS_5000mAh");
+		bm_err("[%s]switch to battery_id = %d\n", __func__, i);
+		break;
+	default:
+		hardwareinfo_set_prop(HARDWARE_BATTERY_ID, "unknown_battery");
+		bm_err("[%s]switch to battery_id = %d\n", __func__, i);
+		break;
+	}
+	bm_err("[%s]battery_id = %d\n",__func__, i);
+
+	gm.battery_id  = i;
 }
 #elif defined(MTK_GET_BATTERY_ID_BY_GPIO)
 void fgauge_get_profile_id(void)
@@ -1046,12 +1125,11 @@ void fg_custom_init_from_header(void)
 
 	}
 
-
 	/* fg_custom_init_dump(); */
 
 	/* init battery temperature table */
 	gm.rbat.type = 10;
-	gm.rbat.rbat_pull_up_r = RBAT_PULL_UP_R;
+	gm.rbat.rbat_pull_up_r = baton_pullup_R();
 	gm.rbat.rbat_pull_up_volt = RBAT_PULL_UP_VOLT;
 	gm.rbat.bif_ntc_r = BIF_NTC_R;
 
@@ -1248,6 +1326,7 @@ static void fg_custom_part_ntc_table(const struct device_node *np,
 #endif
 }
 
+extern bool mtk_shutdown_delay_enable;
 void fg_custom_init_from_dts(struct platform_device *dev)
 {
 	struct device_node *np = dev->dev.of_node;
@@ -1260,6 +1339,9 @@ void fg_custom_init_from_dts(struct platform_device *dev)
 	bat_id = gm.battery_id;
 
 	bm_err("%s\n", __func__);
+
+	mtk_shutdown_delay_enable = of_property_read_bool(np, "shutdown-delay-enable");
+	bm_err("mtk_shutdown_delay_enable:%d\n", mtk_shutdown_delay_enable);
 
 	fg_read_dts_val(np, "MULTI_BATTERY", &(multi_battery), 1);
 	fg_read_dts_val(np, "ACTIVE_TABLE", &(active_table), 1);
@@ -1287,6 +1369,7 @@ void fg_custom_init_from_dts(struct platform_device *dev)
 	/*hw related */
 	fg_read_dts_val(np, "CAR_TUNE_VALUE", &(fg_cust_data.car_tune_value),
 		UNIT_TRANS_10);
+	bm_err("Use [cali_car_tune] :%d \n", fg_cust_data.car_tune_value);
 	fg_read_dts_val(np, "FG_METER_RESISTANCE",
 		&(fg_cust_data.fg_meter_resistance), 1);
 	ret = fg_read_dts_val(np, "COM_FG_METER_RESISTANCE",
@@ -2771,10 +2854,20 @@ void fg_drv_update_hw_status(void)
 	int fg_current_iavg;
 	bool valid = false;
 	static unsigned int cnt;
+	signed int gain_error = 0, gain_add = 0;
+	int ret = 0;
 	ktime_t ktime = ktime_set(60, 0);
 
 	bm_debug("[%s]=>\n", __func__);
 
+	ret = pmic_read_interface((MT6358_FGADC_ANA_ELR0), (&gain_error),
+                  (PMIC_RG_FGADC_GAINERROR_CAL_MASK),
+                  (PMIC_RG_FGADC_GAINERROR_CAL_SHIFT));
+
+	ret = pmic_read_interface((MT6358_FGADC_GAIN_CON0), (&gain_add),
+                  (PMIC_FG_GAIN_MASK), (PMIC_FG_GAIN_SHIFT));
+
+	bm_err("[%s]type: 0x%x 0x%x!\n", __func__, gain_error, gain_add);
 
 	if (gauge_get_hw_version() >= GAUGE_HW_V1000 &&
 	gauge_get_hw_version() < GAUGE_HW_V2000)

@@ -321,6 +321,12 @@ static inline char *power_mode_to_string(enum mtkfb_power_mode pm)
 typedef int (*PRIMARY_DISPLAY_CALLBACK) (unsigned int user_data);
 
 struct display_primary_path_context *_get_context(void);
+
+int _set_lcm_cmd_by_cmdq(unsigned int *lcm_cmd, unsigned int *lcm_count,
+	unsigned int *lcm_value);
+int _set_lcm_cabc_cmd_by_cmdq(unsigned int *lcm_cmd, unsigned int *lcm_count,
+	unsigned int level);
+
 void _primary_path_lock(const char *caller);
 void _primary_path_unlock(const char *caller);
 int primary_display_init(char *lcm_name, unsigned int lcm_fps,
@@ -405,6 +411,10 @@ int primary_display_get_original_height(void);
 int primary_display_lcm_ATA(void);
 int primary_display_setbacklight(unsigned int level);
 int primary_display_setbacklight_nolock(unsigned int level);
+
+int primary_display_set_cabc(unsigned int level);
+int primary_display_get_cabc(int *status);
+
 int primary_display_set_lcm_hbm(bool en);
 int primary_display_hbm_wait(bool en);
 int primary_display_setlcm_func_call(

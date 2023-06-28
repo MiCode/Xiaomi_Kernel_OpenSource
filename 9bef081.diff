@@ -1,0 +1,108 @@
+From 9bef081cc296e8448057a83221bcb263d4622c64 Mon Sep 17 00:00:00 2001
+From: Clement Lecigne <clecigne@google.com>
+Date: Fri, 13 Jan 2023 13:07:45 +0100
+Subject: [PATCH] UPSTREAM: ALSA: pcm: Move rwsem lock inside snd_ctl_elem_read to prevent UAF
+
+commit 56b88b50565cd8b946a2d00b0c83927b7ebb055e upstream.
+
+Takes rwsem lock inside snd_ctl_elem_read instead of snd_ctl_elem_read_user
+like it was done for write in commit 1fa4445f9adf1 ("ALSA: control - introduce
+snd_ctl_notify_one() helper"). Doing this way we are also fixing the following
+locking issue happening in the compat path which can be easily triggered and
+turned into an use-after-free.
+
+64-bits:
+snd_ctl_ioctl
+  snd_ctl_elem_read_user
+    [takes controls_rwsem]
+    snd_ctl_elem_read [lock properly held, all good]
+    [drops controls_rwsem]
+
+32-bits:
+snd_ctl_ioctl_compat
+  snd_ctl_elem_write_read_compat
+    ctl_elem_write_read
+      snd_ctl_elem_read [missing lock, not good]
+
+CVE-2023-0266 was assigned for this issue.
+
+Bug: 265303544
+Cc: stable@kernel.org # 5.13+
+Signed-off-by: Clement Lecigne <clecigne@google.com>
+Reviewed-by: Jaroslav Kysela <perex@perex.cz>
+Link: https://lore.kernel.org/r/20230113120745.25464-1-tiwai@suse.de
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Signed-off-by: Lee Jones <joneslee@google.com>
+Change-Id: Ib0e85251a8fe47a52706fa5aaa2ea034370979fe
+---
+
+diff --git a/sound/core/control.c b/sound/core/control.c
+index 6a8fd993..3ef27b4 100644
+--- a/sound/core/control.c
++++ b/sound/core/control.c
+@@ -1177,14 +1177,19 @@
+ 	const u32 pattern = 0xdeadbeef;
+ 	int ret;
+ 
++	down_read(&card->controls_rwsem);
+ 	kctl = snd_ctl_find_id(card, &control->id);
+-	if (kctl == NULL)
+-		return -ENOENT;
++	if (kctl == NULL) {
++		ret = -ENOENT;
++		goto unlock;
++	}
+ 
+ 	index_offset = snd_ctl_get_ioff(kctl, &control->id);
+ 	vd = &kctl->vd[index_offset];
+-	if (!(vd->access & SNDRV_CTL_ELEM_ACCESS_READ) || kctl->get == NULL)
+-		return -EPERM;
++	if (!(vd->access & SNDRV_CTL_ELEM_ACCESS_READ) || kctl->get == NULL) {
++		ret = -EPERM;
++		goto unlock;
++	}
+ 
+ 	snd_ctl_build_ioff(&control->id, kctl, index_offset);
+ 
+@@ -1194,7 +1199,7 @@
+ 	info.id = control->id;
+ 	ret = __snd_ctl_elem_info(card, kctl, &info, NULL);
+ 	if (ret < 0)
+-		return ret;
++		goto unlock;
+ #endif
+ 
+ 	if (!snd_ctl_skip_validation(&info))
+@@ -1204,7 +1209,7 @@
+ 		ret = kctl->get(kctl, control);
+ 	snd_power_unref(card);
+ 	if (ret < 0)
+-		return ret;
++		goto unlock;
+ 	if (!snd_ctl_skip_validation(&info) &&
+ 	    sanity_check_elem_value(card, control, &info, pattern) < 0) {
+ 		dev_err(card->dev,
+@@ -1212,8 +1217,11 @@
+ 			control->id.iface, control->id.device,
+ 			control->id.subdevice, control->id.name,
+ 			control->id.index);
+-		return -EINVAL;
++		ret = -EINVAL;
++		goto unlock;
+ 	}
++unlock:
++	up_read(&card->controls_rwsem);
+ 	return ret;
+ }
+ 
+@@ -1227,9 +1235,7 @@
+ 	if (IS_ERR(control))
+ 		return PTR_ERR(control);
+ 
+-	down_read(&card->controls_rwsem);
+ 	result = snd_ctl_elem_read(card, control);
+-	up_read(&card->controls_rwsem);
+ 	if (result < 0)
+ 		goto error;
+ 

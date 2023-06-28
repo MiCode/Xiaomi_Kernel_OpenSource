@@ -25,6 +25,10 @@ enum {
 	CONFIG_CMD_CFG_DATA     = 3,
 	CONFIG_CMD_CALIBRATE    = 4,
 	CONFIG_CMD_SELF_TEST    = 5,
+	CONFIG_CMD_SET_LCDNAME  = 6,
+	CONFIG_CMD_REG_DATA     = 7,
+	CONFIG_CMD_LEAK_CALIBRATE = 8,
+	CONFIG_CMD_BACKLIGHT_LEVEL = 9,
 };
 
 struct ConfigCmd {
@@ -348,6 +352,7 @@ struct SCP_SENSOR_HUB_SET_CONFIG_REQ {
 	uint32_t bufferSize;
 	uint64_t ap_timestamp;
 	uint64_t arch_counter;
+	uint64_t ap_ts_sec;
 	/* uint32_t    reserved[8]; */
 };
 
@@ -367,6 +372,8 @@ enum CUST_ACTION {
 	CUST_ACTION_SHOW_ALSVAL,
 	CUST_ACTION_SET_FACTORY,
 	CUST_ACTION_GET_SENSOR_INFO,
+	CUST_ACTION_SET_REG,
+	CUST_ACTION_GET_REG,
 };
 
 struct SCP_SENSOR_HUB_CUST {
@@ -421,6 +428,16 @@ struct SCP_SENSOR_HUB_SETPS_THRESHOLD {
  * typedef SCP_SENSOR_HUB_CUST SCP_SENSOR_HUB_SHOW_ALSLV;
  * typedef SCP_SENSOR_HUB_CUST SCP_SENSOR_HUB_SHOW_ALSVAL;
  */
+
+struct SCP_SENSOR_HUB_SET_REG {
+	enum CUST_ACTION action;
+	uint32_t data[2];
+};
+
+struct SCP_SENSOR_HUB_GET_REG {
+	enum CUST_ACTION action;
+	uint32_t data[2];
+};
 
 struct SCP_SENSOR_HUB_GET_RAW_DATA {
 	enum CUST_ACTION action;
@@ -477,6 +494,8 @@ struct SCP_SENSOR_HUB_SET_CUST_REQ {
 		struct SCP_SENSOR_HUB_SHOW_ALSVAL showAlsval;
 		struct SCP_SENSOR_HUB_SET_FACTORY setFactory;
 		struct scp_sensor_hub_get_sensor_info getInfo;
+		struct SCP_SENSOR_HUB_SET_REG setReg;
+		struct SCP_SENSOR_HUB_GET_REG getReg;
 	};
 };
 
@@ -489,6 +508,8 @@ struct SCP_SENSOR_HUB_SET_CUST_RSP {
 		uint32_t custData[11];
 		struct SCP_SENSOR_HUB_GET_RAW_DATA getRawData;
 		struct scp_sensor_hub_get_sensor_info getInfo;
+		struct SCP_SENSOR_HUB_SET_REG setReg;
+		struct SCP_SENSOR_HUB_GET_REG getReg;
 	};
 };
 
@@ -545,6 +566,8 @@ int sensor_batch_to_hub(uint8_t sensorType,
 int sensor_flush_to_hub(uint8_t sensorType);
 int sensor_cfg_to_hub(uint8_t sensorType, uint8_t *data, uint8_t count);
 int sensor_calibration_to_hub(uint8_t sensorType);
+int sensor_leak_calibration_to_hub(uint8_t sensorType);
+int sensor_backlight_level_to_hub(uint8_t handle, int *data);
 int sensor_selftest_to_hub(uint8_t sensorType);
 
 #endif

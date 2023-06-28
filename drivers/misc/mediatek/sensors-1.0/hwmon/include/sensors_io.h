@@ -119,7 +119,7 @@ struct compat_biometric_threshold {
 #define ALSPS_PS_ENABLE_CALI _IO(ALSPS, 0x18)
 #define ALSPS_IOCTL_ALS_GET_CALI _IOW(ALSPS, 0x19, int)
 #define ALSPS_ALS_SET_CALI _IOW(ALSPS, 0x20, int)
-
+#define ALSPS_ALS_ENABLE_LEAK_CALI _IO(ALSPS, 0x21)
 #ifdef CONFIG_COMPAT
 #define COMPAT_ALSPS_SET_PS_MODE _IOW(ALSPS, 0x01, compat_int_t)
 #define COMPAT_ALSPS_GET_PS_RAW_DATA _IOR(ALSPS, 0x04, compat_int_t)
@@ -141,7 +141,7 @@ struct compat_biometric_threshold {
 #define COMPAT_ALSPS_PS_ENABLE_CALI _IO(ALSPS, 0x18)
 #define COMPAT_ALSPS_IOCTL_ALS_GET_CALI _IOR(ALSPS, 0x19, compat_int_t)
 #define COMPAT_ALSPS_IOCTL_ALS_SET_CALI _IOR(ALSPS, 0x20, compat_int_t)
-
+#define COMPAT_ALSPS_ALS_ENABLE_LEAK_CALI _IO(ALSPS, 0x21)
 #endif
 
 #define GYROSCOPE 0x86
@@ -222,4 +222,9 @@ struct compat_biometric_threshold {
 #define COMPAT_SAR_IOCTL_ENABLE_CALI _IO(SAR, 0x04)
 #endif
 
+#define SARALGO 0x92
+#define SARALGO_IOCTL_INIT _IOW(SARALGO, 0x01, int)
+#define SARALGO_IOCTL_READ_SENSORDATA _IOR(SARALGO, 0x02, int)
+#define SARALGO_IOCTL_STEP _IOW(SARALGO, 0x03, int)
+#define SARALGO_TOP_IOCTL_INIT _IOW(SARALGO, 0x04, int)
 #endif

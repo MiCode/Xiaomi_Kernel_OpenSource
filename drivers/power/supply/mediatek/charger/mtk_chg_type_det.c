@@ -42,8 +42,10 @@
 #include <mt-plat/v1/mtk_charger.h>
 #include <pmic.h>
 #include <tcpm.h>
+#include <tcpci.h>
 
 #include "mtk_charger_intf.h"
+#include "../../../../input/touchscreen/mediatek/tpd_notify.h"
 
 struct tag_bootmode {
 	u32 size;
@@ -97,6 +99,7 @@ struct chg_type_info {
 	struct power_supply *chr_psy;
 	struct notifier_block psy_nb;
 #endif
+	int typec_mode;
 };
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
@@ -115,6 +118,7 @@ static const char * const mtk_chg_type_name[] = {
 	"Charging USB Host",
 	"Non-standard Charger",
 	"Standard Charger",
+	"HVDCP Charger",
 	"Apple 2.1A Charger",
 	"Apple 1.0A Charger",
 	"Apple 0.5A Charger",
@@ -129,6 +133,7 @@ static void dump_charger_name(enum charger_type type)
 	case CHARGING_HOST:
 	case NONSTANDARD_CHARGER:
 	case STANDARD_CHARGER:
+	case HVDCP_CHARGER:
 	case APPLE_2_1A_CHARGER:
 	case APPLE_1_0A_CHARGER:
 	case APPLE_0_5A_CHARGER:
@@ -242,8 +247,9 @@ static int mt_charger_get_property(struct power_supply *psy,
 			pr_info("%s: Charger Type: CHARGER_UNKNOWN\n", __func__);
 			break;
 		default:
+			break;
+		}
 		break;
-	}
 	default:
 		return -EINVAL;
 	}
@@ -265,6 +271,24 @@ static void usb_extcon_detect_cable(struct work_struct *work)
 		extcon_set_state_sync(info->edev, EXTCON_USB, false);
 }
 #endif
+
+int get_usb_present(void)
+{
+	int ret = 0;
+	union power_supply_propval propval;
+	struct power_supply *charger = NULL;
+	charger = power_supply_get_by_name("charger");
+	if (!charger) {
+		pr_err("%s: get power supply failed\n", __func__);
+		return -EINVAL;
+	}
+	ret = power_supply_get_property(charger,POWER_SUPPLY_PROP_ONLINE, &propval);
+	if (ret < 0)
+		pr_err("%s: psy type get failed, ret = %d\n", __func__, ret);
+	else
+		pr_err("%s: PRESENT = %d\n", __func__, propval.intval);
+	return propval.intval;
+}
 
 static int mt_charger_set_property(struct power_supply *psy,
 	enum power_supply_property psp, const union power_supply_propval *val)
@@ -312,7 +336,11 @@ static int mt_charger_set_property(struct power_supply *psy,
 		if ((mtk_chg->chg_type == STANDARD_HOST) ||
 			(mtk_chg->chg_type == CHARGING_HOST) ||
 			(mtk_chg->chg_type == NONSTANDARD_CHARGER)) {
-				mt_usb_connect_v1();
+				if (get_boot_mode() != KERNEL_POWER_OFF_CHARGING_BOOT &&
+					get_boot_mode() != LOW_POWER_OFF_CHARGING_BOOT) {
+					pr_info("Not Skip usb_ready\n");
+					mt_usb_connect_v1();
+			}
 			#ifdef CONFIG_EXTCON_USB_CHG
 			info->vbus_state = 1;
 			#endif
@@ -363,10 +391,95 @@ static int mt_ac_get_property(struct power_supply *psy,
 	return 0;
 }
 
+#ifdef CONFIG_TCPC_CLASS
+uint8_t  typec_cc_orientation = 0;
+struct tcp_ny_typec_state typec_state;
+
+int tcpc_cc_orientation(void)
+{
+	if(typec_cc_orientation != 0) {
+		return typec_cc_orientation;
+	} else {
+		return -2;
+	}
+}
+uint8_t get_typec_orientation(void)
+{
+	if (typec_state.new_state != TYPEC_UNATTACHED){
+		if (tcpc_cc_orientation() >= 0){
+			pr_info("%s  typec_orientation = %d!\n", __func__, tcpc_cc_orientation());
+			return tcpc_cc_orientation();
+		} else {
+			pr_info("%s  pd typec polarity = %d!\n", __func__, typec_state.polarity);
+			return typec_state.polarity + 1;
+		}
+	} else {
+		pr_info("%s  set typec polarity TYPEC_UNATTACHED!\n", __func__);
+		return 0;
+	}
+}
+#endif
+
+static int get_source_mode(struct tcp_notify *noti)
+{
+	switch (noti->typec_state.rp_level) {
+	case TYPEC_CC_VOLT_SNK_1_5:
+		return POWER_SUPPLY_TYPEC_SOURCE_MEDIUM;
+	case TYPEC_CC_VOLT_SNK_3_0:
+		return POWER_SUPPLY_TYPEC_SOURCE_HIGH;
+	case TYPEC_CC_VOLT_SNK_DFT:
+		return POWER_SUPPLY_TYPEC_SOURCE_DEFAULT;
+	default:
+		break;
+	}
+	return POWER_SUPPLY_TYPEC_NONE;
+}
+
+enum quick_charge_type {
+	QUICK_CHARGE_NORMAL = 0,
+	QUICK_CHARGE_FAST,
+	QUICK_CHARGE_FLASH,
+	QUICK_CHARGE_TURPE,
+	QUICK_CHARGE_MAX,
+};
+
+struct quick_charge {
+	enum charger_type adap_type;
+	enum quick_charge_type adap_cap;
+};
+
+struct quick_charge adapter_cap[6] = {
+	{ STANDARD_HOST,		QUICK_CHARGE_NORMAL },
+	{ CHARGING_HOST,		QUICK_CHARGE_NORMAL },
+	{ STANDARD_CHARGER,		QUICK_CHARGE_NORMAL },
+	{ NONSTANDARD_CHARGER,		QUICK_CHARGE_NORMAL },
+	{ HVDCP_CHARGER,		QUICK_CHARGE_FAST},
+	{0, 0},
+};
+
+static int mtk_get_quick_charge_type(enum charger_type type)
+{
+	int i = 0;
+	if (!type)
+		return 0;
+
+	while (adapter_cap[i].adap_type !=0) {
+		if (type == adapter_cap[i].adap_type){
+			pr_err("%s quick charge type = %d\n", __func__, adapter_cap[i].adap_cap);
+			return adapter_cap[i].adap_cap;
+		}
+		i++;
+	}
+	return 0;
+}
+
+extern int battery_tmp;
 static int mt_usb_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
 	struct mt_charger *mtk_chg = power_supply_get_drvdata(psy);
+	struct charger_data *pdata = NULL;
+	struct charger_manager *info = NULL;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -381,6 +494,83 @@ static int mt_usb_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = 5000000;
+		break;
+	case POWER_SUPPLY_PROP_REAL_TYPE:
+		if(charger_manager_pd_is_online()){
+			pr_info("%s  real type is pd !\n", __func__);
+			val->intval = POWER_SUPPLY_TYPE_USB_PD;
+			break;
+		}
+		switch (mtk_chg->chg_type) {
+		case STANDARD_HOST:
+			val->intval = POWER_SUPPLY_TYPE_USB;
+			break;
+		case CHARGING_HOST:
+			val->intval = POWER_SUPPLY_TYPE_USB_CDP;
+			break;
+		case STANDARD_CHARGER:
+			val->intval = POWER_SUPPLY_TYPE_USB_DCP;
+			break;
+		case NONSTANDARD_CHARGER:
+			val->intval = POWER_SUPPLY_TYPE_USB_FLOAT;
+			break;
+		case HVDCP_CHARGER:
+			val->intval = POWER_SUPPLY_TYPE_USB_HVDCP;
+			break;
+		default:
+			val->intval = POWER_SUPPLY_TYPE_UNKNOWN;
+			break;
+		}
+		break;
+		//+ add quick charger type sysfs
+	case POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE:
+		if(charger_manager_pd_is_online()){
+			pr_info("%s  quick charger type is pd , chg_type = %d, mtk_chg->chg_online = %d!\n", __func__, mtk_chg->chg_type, mtk_chg->chg_online);
+			if (mtk_chg->chg_type != CHARGER_UNKNOWN)
+				val->intval = QUICK_CHARGE_FAST;
+			else {
+				val->intval = QUICK_CHARGE_NORMAL;
+			}
+			if (battery_tmp >= 48)
+			val->intval = QUICK_CHARGE_NORMAL;
+			break;
+		}
+		pr_info("%s  chg_type = %d \n", __func__,mtk_chg->chg_type);
+		val->intval = mtk_get_quick_charge_type(mtk_chg->chg_type);
+		if (battery_tmp >= 48)
+			val->intval = QUICK_CHARGE_NORMAL;
+		break;
+		//- add quick charger type sysfs
+#ifdef CONFIG_TCPC_CLASS
+	case POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION:
+		val->intval = get_typec_orientation();
+		break;
+#endif
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		val->intval = battery_get_vbus();
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_NOW:
+		if (mtk_chg->chg_type != CHARGER_UNKNOWN) {
+			info = mtk_chg->cti->chg_consumer->cm;
+			if (info != NULL) {
+				pdata = &info->chg1_data;
+				if (pdata != NULL) {
+					val->intval = pdata->input_current_limit;
+				} else {
+					val->intval = 0;
+				}
+			} else {
+				val->intval = 0;
+			}
+		} else {
+			val->intval = 0;
+		}
+		break;
+	case POWER_SUPPLY_PROP_TYPEC_MODE:
+		val->intval = mtk_chg->cti->typec_mode;
+		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = get_usb_present();
 		break;
 	default:
 		return -EINVAL;
@@ -401,11 +591,23 @@ static enum power_supply_property mt_usb_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_REAL_TYPE,
+	//+ add quick charger type sysfs
+	POWER_SUPPLY_PROP_QUICK_CHARGE_TYPE,
+	//- add quick charger type sysfs
+#ifdef CONFIG_TCPC_CLASS
+	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION,
+#endif
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_NOW,
+	POWER_SUPPLY_PROP_TYPEC_MODE,
+	POWER_SUPPLY_PROP_PRESENT,
 };
 
 static void tcpc_power_off_work_handler(struct work_struct *work)
 {
 	pr_info("%s\n", __func__);
+	msleep(4000);
 	kernel_power_off();
 }
 
@@ -418,18 +620,26 @@ static void charger_in_work_handler(struct work_struct *work)
 #ifdef CONFIG_TCPC_CLASS
 static void plug_in_out_handler(struct chg_type_info *cti, bool en, bool ignore)
 {
+	struct charger_manager *info = NULL;
 	mutex_lock(&cti->chgdet_lock);
 	if (cti->chgdet_en == en)
 		goto skip;
 	cti->chgdet_en = en;
 	cti->ignore_usb = ignore;
 	cti->plugin = en;
+
+	info = cti->chg_consumer->cm;
+	if (info != NULL) {
+		info->is_high_temp = false;
+	}
+
 	atomic_inc(&cti->chgdet_cnt);
 	wake_up_interruptible(&cti->waitq);
 skip:
 	mutex_unlock(&cti->chgdet_lock);
 }
 
+extern int is_pd_hardreset;
 static int pd_tcp_notifier_call(struct notifier_block *pnb,
 				unsigned long event, void *data)
 {
@@ -476,36 +686,88 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 		    noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC)) {
 			pr_info("%s USB Plug in, pol = %d\n", __func__,
 					noti->typec_state.polarity);
+			if (cti->tcpc->ops->get_mode != NULL) {
+				cti->tcpc->ops->get_mode(cti->tcpc,&cti->typec_mode);
+			} else {
+				cti->typec_mode = get_source_mode(noti);
+			}
+			pr_info("typec_mode = %d \n",cti->typec_mode);
 			plug_in_out_handler(cti, true, false);
+			tpd_charger_detect_notifier_call_chain(TPD_DETECT_USB_IN,NULL);
 		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK ||
 		    noti->typec_state.old_state == TYPEC_ATTACHED_CUSTOM_SRC ||
 		    noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC ||
-		    noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO)
+		    noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO || 
+		    noti->typec_state.old_state == TYPEC_ATTACHED_DEBUG ||
+		    noti->typec_state.old_state == TYPEC_ATTACHED_SRC)
 			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			if (cti->tcpc_kpoc) {
-				vbus = battery_get_vbus();
-				pr_info("%s KPOC Plug out, vbus = %d\n",
-					__func__, vbus);
+				pr_info("%s KPOC Plug out\n",__func__);
+				if (mt_get_charger_type() == CHARGING_HOST ||
+					(mt_get_charger_type() == HVDCP_CHARGER) ||
+					(mt_get_charger_type() == STANDARD_CHARGER)){
+					msleep(2000);
+					vbus = battery_get_vbus();
+					pr_info("%s KPOC Plug out vbus = %d\n",__func__,vbus);
+					if (vbus > 4500){
+						pr_err("%s KPOC CDP or HVDCP,retry\n",__func__);
+						break;
+					}
+				}
 				mtk_chg_ac->chg_type = CHARGER_UNKNOWN;
 				mtk_chg_usb->chg_type = CHARGER_UNKNOWN;
 				power_supply_changed(ac_psy);
 				power_supply_changed(usb_psy);
 				queue_work_on(cpumask_first(cpu_online_mask),
-					      cti->pwr_off_wq,
-					      &cti->pwr_off_work);
+							cti->pwr_off_wq,
+							&cti->pwr_off_work);
 				break;
 			}
+			if (is_pd_hardreset == 1 && (mt_get_charger_type() == NONSTANDARD_CHARGER))
+			{
+				msleep(4000);
+				vbus = battery_get_vbus();
+				pr_err("%s hardreset, vbus = %d\n", __func__, vbus);
+				if (vbus > 4500) {
+					pr_err("%s no plug, retry\n",__func__);
+					is_pd_hardreset = 0;
+					break;
+				}
+			}
+			is_pd_hardreset = 0;
+
+			cti->typec_mode = POWER_SUPPLY_TYPEC_NONE;
 			pr_info("%s USB Plug out\n", __func__);
 			plug_in_out_handler(cti, false, false);
+			tpd_charger_detect_notifier_call_chain(TPD_DETECT_USB_OUT,NULL);
 		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SRC &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
 			pr_info("%s Source_to_Sink\n", __func__);
+			cti->typec_mode = POWER_SUPPLY_TYPEC_SINK;
 			plug_in_out_handler(cti, true, true);
-		}  else if (noti->typec_state.old_state == TYPEC_ATTACHED_SNK &&
+		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_SNK &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
 			pr_info("%s Sink_to_Source\n", __func__);
+			if (cti->tcpc->ops->get_mode != NULL) {
+				cti->tcpc->ops->get_mode(cti->tcpc,&cti->typec_mode);
+			} else {
+				cti->typec_mode = get_source_mode(noti);
+			}
+			pr_info("typec_mode = %d \n",cti->typec_mode);
 			plug_in_out_handler(cti, false, true);
+		} else if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+				(noti->typec_state.new_state == TYPEC_ATTACHED_SRC ||
+				noti->typec_state.new_state == TYPEC_ATTACHED_DEBUG)) {
+			pr_info("%s otg plug in !\n", __func__);
+			cti->typec_mode = POWER_SUPPLY_TYPEC_SINK;
+		} else if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+				noti->typec_state.new_state == TYPEC_ATTACHED_AUDIO) {
+			pr_info("%s audio in !\n",__func__);
+			cti->typec_mode = POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER;
 		}
+		typec_state.new_state = noti->typec_state.new_state;
+		if (noti->typec_state.new_state != TYPEC_UNATTACHED)
+			typec_state.polarity = noti->typec_state.polarity;
 		break;
 	}
 	return NOTIFY_OK;
@@ -551,7 +813,6 @@ static int chgdet_task_threadfn(void *data)
 		}
 
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
-		if (cti->chg_consumer)
 			charger_manager_enable_chg_type_det(cti->chg_consumer,
 							attach);
 #else

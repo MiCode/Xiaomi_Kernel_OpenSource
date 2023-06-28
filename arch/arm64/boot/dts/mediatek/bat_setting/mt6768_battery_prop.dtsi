@@ -4,13 +4,13 @@
 */
 bat_gm30: battery{
 	compatible = "mediatek,bat_gm30";
-	DIFFERENCE_FULLOCV_ITH = <(200)>;
+	DIFFERENCE_FULLOCV_ITH = <(256)>;
 /*	Charging termination current*/
 	SHUTDOWN_1_TIME = <(30)>;
 /*	If ui_soc shows 1% more than X minites, system will shutdown*/
 	KEEP_100_PERCENT = <(1)>;
 /*	The ui_soc will keep 100% until SOC drop X percents after unplugged*/
-	R_FG_VALUE = <(5)>;
+	R_FG_VALUE = <(10)>;
 /*	R_sense resistance*/
 	EMBEDDED_SEL = <(0)>;
 /*	Configures whether using embedded battery or not*/
@@ -34,10 +34,8 @@ bat_gm30: battery{
 /*	Battery temperature T2*/
 	TEMPERATURE_T3 = <(0)>;
 /*	Battery temperature T3*/
-	TEMPERATURE_T4 = <(-6)>;
+	TEMPERATURE_T4 = <(-10)>;
 /*	Battery temperature T4*/
-	TEMPERATURE_T5 = <(-10)>;
-/*	Battery temperature T5*/
 	g_FG_PSEUDO100_T0 = <(100)>;
 /*	Pseudo 100% percentage at T0*/
 	g_FG_PSEUDO100_T1 = <(100)>;
@@ -62,9 +60,17 @@ bat_gm30: battery{
 /*	compensate R_sense resistance*/
 	enable_tmp_intr_suspend = <(0)>;
 /* Enable update temp when suspend */
-	ACTIVE_TABLE = <(6)>;
+	ACTIVE_TABLE = <(5)>;
 /* Table numbers per battery*/
 	MULTI_TEMP_GAUGE0 = <(1)>;
+
+/*battery_id*/
+	io-channels = <&auxadc 4>;
+	io-channel-names = "battery_id";
+
 /* Multi gauge0 enable*/
-#include "mt6768_battery_table.dtsi"
+	shutdown-delay-enable;
+
+#include "mt6768_battery_fire_NVT_5000mah.dtsi"
+#include "mt6768_battery_fire_COS_5000mah.dtsi"
 };

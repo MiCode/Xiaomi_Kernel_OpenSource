@@ -34,6 +34,7 @@ struct charger_data;
 
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
+#define HIGH_TEMP_CHARGING_INTERVAL 4
 
 #define CHRLOG_ERROR_LEVEL   1
 #define CHRLOG_DEBUG_LEVEL   2
@@ -111,11 +112,12 @@ enum {
 
 /*
  * Software JEITA
- * T0: -10 degree Celsius
- * T1: 0 degree Celsius
+ * T0: 0 degree Celsius
+ * T1: 5 degree Celsius
  * T2: 10 degree Celsius
- * T3: 45 degree Celsius
- * T4: 50 degree Celsius
+ * T3: 15 degree Celsius
+ * T4: 45 degree Celsius
+ * T5: 60 degree Celsius
  */
 enum sw_jeita_state_enum {
 	TEMP_BELOW_T0 = 0,
@@ -123,13 +125,15 @@ enum sw_jeita_state_enum {
 	TEMP_T1_TO_T2,
 	TEMP_T2_TO_T3,
 	TEMP_T3_TO_T4,
-	TEMP_ABOVE_T4
+	TEMP_T4_TO_T5,
+	TEMP_ABOVE_T5
 };
 
 struct sw_jeita_data {
 	int sm;
 	int pre_sm;
 	int cv;
+	int cc;
 	bool charging;
 	bool error_recovery_flag;
 };
@@ -176,12 +180,15 @@ struct charger_custom_data {
 	int max_dmivr_charger_current;
 
 	/* sw jeita */
-	int jeita_temp_above_t4_cv;
+	int jeita_temp_above_t5_cv;
+	int jeita_temp_t4_to_t5_cv;
 	int jeita_temp_t3_to_t4_cv;
 	int jeita_temp_t2_to_t3_cv;
 	int jeita_temp_t1_to_t2_cv;
 	int jeita_temp_t0_to_t1_cv;
 	int jeita_temp_below_t0_cv;
+	int temp_t5_thres;
+	int temp_t5_thres_minus_x_degree;
 	int temp_t4_thres;
 	int temp_t4_thres_minus_x_degree;
 	int temp_t3_thres;
@@ -267,6 +274,13 @@ struct charger_custom_data {
 
 	int vsys_watt;
 	int ibus_err;
+
+	/* cycyle count*/
+	int ffc_cv_1;
+	int ffc_cv_2;
+	int ffc_cv_3;
+	int cycle_count_level1;
+	int cycle_count_level2;
 };
 
 struct charger_data {
@@ -328,6 +342,7 @@ struct charger_manager {
 
 	/* common info */
 	int battery_temp;
+	int last_batt_tmp;
 
 	/* sw jeita */
 	bool enable_sw_jeita;
@@ -416,8 +431,13 @@ struct charger_manager {
 	/* dynamic mivr */
 	bool enable_dynamic_mivr;
 
+	bool is_high_temp;
+
 	struct smartcharging sc;
 
+	int system_temp_level;
+	int system_temp_level_max;
+	int thermal_mitigation_current;
 
 	/*daemon related*/
 	struct sock *daemo_nl_sk;
@@ -427,6 +447,9 @@ struct charger_manager {
 	bool force_disable_pp[TOTAL_CHARGER];
 	bool enable_pp[TOTAL_CHARGER];
 	struct mutex pp_lock[TOTAL_CHARGER];
+
+	/* cycyle count*/
+	bool enable_sw_fcc;
 };
 
 /* charger related module interface */

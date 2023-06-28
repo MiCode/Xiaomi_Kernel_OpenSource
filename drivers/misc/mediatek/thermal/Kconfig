@@ -23,3 +23,9 @@ config MTK_LEGACY_THERMAL_PLATFORM
 	  drivers. Config platform name for your
 	  selection. It's used for legacy thermal
 	  drivers only.
+
+config WT_FIRE_THERMAL_NTC
+	bool "Thermal switch for query modem RF temp"
+	default y
+	help
+	S98019AA1 ntc use

@@ -41,7 +41,7 @@ static inline long ioctl(struct file *filp, unsigned int cmd, void *arg)
 	old_fs = get_fs();
 	set_fs(KERNEL_DS);
 
-	ret = tee_ioctl(filp, cmd, (unsigned long)arg);
+        ret = tee_ioctl(filp, cmd, (unsigned long)arg);
 
 	set_fs(old_fs);
 
@@ -71,7 +71,7 @@ static struct file *teec_open_dev(const char *devname, const char *capabilities)
 	struct tee_ioctl_set_hostname_arg arg;
 	int err;
 
-	file = kzalloc(sizeof(struct file), GFP_KERNEL);
+        file = kzalloc(sizeof(struct file), GFP_KERNEL);
 	if (file == NULL) {
 		IMSG_ERROR("No memory for struct file!\n");
 		return NULL;
@@ -654,9 +654,11 @@ TEEC_Result TEEC_RegisterSharedMemory(struct TEEC_Context *ctx,
 
 	tee_ctx = ctx->fd->private_data;
 	mutex_lock(&tee_ctx->mutex);
-	tee_shm = isee_shm_kalloc(tee_ctx, s, TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
-	if (IS_ERR(shm)) {
-		IMSG_ERROR("%s:%d Failed to get tee_shm!\n", __func__, __LINE__);
+
+	tee_shm = isee_shm_kalloc(tee_ctx, s,
+				TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
+	if (IS_ERR(tee_shm)) {
+		IMSG_ERROR("%s Failed to get tee_shm!\n", __func__);
 		mutex_unlock(&tee_ctx->mutex);
 		return TEEC_ERROR_GENERIC;
 	}
@@ -723,9 +725,10 @@ TEEC_Result TEEC_AllocateSharedMemory(struct TEEC_Context *ctx,
 
 	mutex_lock(&tee_ctx->mutex);
 
-	tee_shm = isee_shm_kalloc(tee_ctx, s, TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
-	if (IS_ERR(shm)) {
-		IMSG_ERROR("%s:%d Failed to get tee_shm!\n", __func__, __LINE__);
+	tee_shm = isee_shm_kalloc(tee_ctx, s,
+			TEE_SHM_DMA_KERN_BUF | TEE_SHM_MAPPED);
+	if (IS_ERR(tee_shm)) {
+		IMSG_ERROR("%s Failed to get tee_shm!\n", __func__);
 		mutex_unlock(&tee_ctx->mutex);
 		return TEEC_ERROR_GENERIC;
 	}

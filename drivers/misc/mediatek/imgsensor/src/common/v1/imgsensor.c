@@ -14,6 +14,7 @@
 #include <linux/workqueue.h>
 #include <linux/init.h>
 #include <linux/types.h>
+#include <linux/hardware_info.h>
 
 #undef CONFIG_MTK_SMI_EXT
 #ifdef CONFIG_MTK_SMI_EXT
@@ -464,6 +465,37 @@ static inline int imgsensor_check_is_alive(struct IMGSENSOR_SENSOR *psensor)
 	} else {
 		pr_info(" Sensor found ID = 0x%x\n", sensorID);
 		err = ERROR_NONE;
+		if (psensor_inst->sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN) {
+			hardwareinfo_set_prop(HARDWARE_BACK_CAM, psensor_inst->psensor_name);
+			if (!strcmp("s5kjns_sunny_mipi_raw", (char *)psensor_inst->psensor_name)) {
+				hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID, "sunny");
+			} else if (!strcmp("ov50d40_truly_mipi_raw", (char *)psensor_inst->psensor_name)){
+				hardwareinfo_set_prop(HARDWARE_BACK_CAM_MOUDULE_ID, "truly");
+			}
+		} else if (psensor_inst->sensor_idx == IMGSENSOR_SENSOR_IDX_SUB) {
+		        hardwareinfo_set_prop(HARDWARE_FRONT_CAM, psensor_inst->psensor_name);
+			if (!strcmp("ov8856_sunny_mipi_raw", (char *)psensor_inst->psensor_name)) {
+				hardwareinfo_set_prop(HARDWARE_FRONT_CAM_MOUDULE_ID, "sunny");
+			} else if (!strcmp("ov8856_ofilm_mipi_raw", (char *)psensor_inst->psensor_name)){
+				hardwareinfo_set_prop(HARDWARE_FRONT_CAM_MOUDULE_ID, "ofilm");
+			}
+		} else if (psensor_inst->sensor_idx == IMGSENSOR_SENSOR_IDX_SUB2) {
+		        //hardwareinfo_set_prop(HARDWARE_BACK_MACRO_CAM, psensor_inst->psensor_name);
+			if (!strcmp("sc202cs_sunny_mipi_raw", (char *)psensor_inst->psensor_name)) {
+				hardwareinfo_set_prop(HARDWARE_BACK_MACRO_CAM, "sc202pcs_sunny_mipi_raw");
+				hardwareinfo_set_prop(HARDWARE_BACK_MACRO_CAM_MOUDULE_ID, "sunny");
+			} else if (!strcmp("ov02b10_truly_mipi_raw", (char *)psensor_inst->psensor_name)){
+                                hardwareinfo_set_prop(HARDWARE_BACK_MACRO_CAM, psensor_inst->psensor_name);
+				hardwareinfo_set_prop(HARDWARE_BACK_MACRO_CAM_MOUDULE_ID, "truly");
+			}
+		} else if (psensor_inst->sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2) {
+		        hardwareinfo_set_prop(HARDWARE_BACK_WIDE_CAM, psensor_inst->psensor_name);
+			if (!strcmp("imx355_sunny_mipi_raw", (char *)psensor_inst->psensor_name)) {
+				hardwareinfo_set_prop(HARDWARE_BACK_WIDE_CAM_MOUDULE_ID, "sunny");
+			} else if (!strcmp("sc820cs_truly_mipi_raw", (char *)psensor_inst->psensor_name)){
+				hardwareinfo_set_prop(HARDWARE_BACK_WIDE_CAM_MOUDULE_ID, "truly");
+			}
+		}
 	}
 
 	if (err != ERROR_NONE)

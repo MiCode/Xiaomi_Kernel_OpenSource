@@ -59,7 +59,7 @@
 #error "SENSOR_DATA_SIZE > SENSOR_IPI_PACKET_SIZE, out of memory"
 #endif
 
-#define SYNC_TIME_CYCLC 10000
+#define SYNC_TIME_CYCLC 1000
 #define SYNC_TIME_START_CYCLC 3000
 #define SCP_sensorHub_DEV_NAME "SCP_sensorHub"
 
@@ -516,7 +516,7 @@ static void SCP_sensorHub_sync_time_work(struct work_struct *work)
 
 	sensor_send_timestamp_to_hub();
 	mod_timer(&obj->sync_time_timer,
-		jiffies +  msecs_to_jiffies(SYNC_TIME_CYCLC));
+		jiffies + msecs_to_jiffies(SYNC_TIME_CYCLC));
 }
 
 static void SCP_sensorHub_sync_time_func(struct timer_list *t)
@@ -860,7 +860,7 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].sensorType =
 		SENSOR_TYPE_PICK_UP_GESTURE;
-	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONESHOT;
+	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONCHANGE;
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].timestamp_filter = false;
 
 	mSensorState[SENSOR_TYPE_WAKE_GESTURE].sensorType =
@@ -907,6 +907,15 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_SAR].sensorType = SENSOR_TYPE_SAR;
 	mSensorState[SENSOR_TYPE_SAR].timestamp_filter = false;
+
+	mSensorState[SENSOR_TYPE_SAR_ALGO].sensorType = SENSOR_TYPE_SAR_ALGO;
+	mSensorState[SENSOR_TYPE_SAR_ALGO].rate = SENSOR_RATE_ONCHANGE;
+	mSensorState[SENSOR_TYPE_SAR_ALGO].timestamp_filter = false;
+
+	mSensorState[SENSOR_TYPE_SAR_ALGO_TOP].sensorType = SENSOR_TYPE_SAR_ALGO_TOP;
+	mSensorState[SENSOR_TYPE_SAR_ALGO_TOP].rate = SENSOR_RATE_ONCHANGE;
+	mSensorState[SENSOR_TYPE_SAR_ALGO_TOP].timestamp_filter = false;
+
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
@@ -1255,16 +1264,21 @@ static int sensor_send_timestamp_wake_locked(void)
 	int len;
 	int err = 0;
 	uint64_t now_time, arch_counter;
+	struct timespec ts;
 
 	/* send_timestamp_to_hub is process context, disable irq is safe */
 	local_irq_disable();
 	now_time = ktime_get_boot_ns();
 	arch_counter = arch_counter_get_cntvct();
+	getnstimeofday(&ts);
+
 	local_irq_enable();
 	req.set_config_req.sensorType = 0;
 	req.set_config_req.action = SENSOR_HUB_SET_TIMESTAMP;
 	req.set_config_req.ap_timestamp = now_time;
 	req.set_config_req.arch_counter = arch_counter;
+	req.set_config_req.ap_ts_sec = ts.tv_sec;
+	pr_debug("send to scp sec = %lld", ts.tv_sec);
 	pr_debug("sync ap boottime=%lld\n", now_time);
 	len = sizeof(req.set_config_req);
 	err = scp_sensorHub_req_send(&req, &len, 1);
@@ -1277,7 +1291,6 @@ static int sensor_send_timestamp_to_hub(void)
 {
 	int err = 0;
 	struct SCP_sensorHub_data *obj = obj_data;
-
 	if (READ_ONCE(rtc_compensation_suspend)) {
 		pr_err("rtc_compensation_suspend suspend,drop time sync\n");
 		return 0;
@@ -1436,6 +1449,34 @@ int sensor_cfg_to_hub(uint8_t handle, uint8_t *data, uint8_t count)
 	return ret;
 }
 
+int sensor_backlight_level_to_hub(uint8_t handle, int *data)
+{
+	struct ConfigCmd *cmd = NULL;
+	int ret = 0;
+
+	if (handle > ID_SENSOR_MAX_HANDLE) {
+		pr_err("invalid handle %d\n", handle);
+		ret = -1;
+	} else {
+		cmd = vzalloc(sizeof(struct ConfigCmd) + sizeof(int));
+		if (cmd == NULL)
+			return -1;
+		cmd->evtType = EVT_NO_SENSOR_CONFIG_EVENT;
+		cmd->sensorType = handle + ID_OFFSET;
+		cmd->cmd = CONFIG_CMD_BACKLIGHT_LEVEL;
+		memcpy(cmd->data, data, sizeof(int));
+		ret = nanohub_external_write((const uint8_t *)cmd,
+			sizeof(struct ConfigCmd) + sizeof(int));
+		if (ret < 0) {
+			pr_err("failed set backlight_level:%d, cmd:%d\n",
+				handle, cmd->cmd);
+			ret =  -1;
+		}
+		vfree(cmd);
+	}
+	return ret;
+}
+
 int sensor_calibration_to_hub(uint8_t handle)
 {
 	uint8_t sensor_type = handle + ID_OFFSET;
@@ -1445,6 +1486,28 @@ int sensor_calibration_to_hub(uint8_t handle)
 	if (mSensorState[sensor_type].sensorType) {
 		init_sensor_config_cmd(&cmd, sensor_type);
 		cmd.cmd = CONFIG_CMD_CALIBRATE;
+		ret = nanohub_external_write((const uint8_t *)&cmd,
+			sizeof(struct ConfigCmd));
+		if (ret < 0) {
+			pr_err("failed calibration handle:%d\n",
+				handle);
+			return -1;
+		}
+	} else {
+		pr_err("unhandle handle=%d, is inited?\n", handle);
+		return -1;
+	}
+	return 0;
+}
+
+int sensor_leak_calibration_to_hub(uint8_t handle)
+{
+	uint8_t sensor_type = handle + ID_OFFSET;
+	struct ConfigCmd cmd;
+	int ret = 0;
+	if (mSensorState[sensor_type].sensorType) {
+		init_sensor_config_cmd(&cmd, sensor_type);
+		cmd.cmd = CONFIG_CMD_LEAK_CALIBRATE;
 		ret = nanohub_external_write((const uint8_t *)&cmd,
 			sizeof(struct ConfigCmd));
 		if (ret < 0) {
@@ -1736,6 +1799,16 @@ int sensor_get_data_from_hub(uint8_t sensorType,
 		data->sar_event.data[1] = data_t->sar_event.data[1];
 		data->sar_event.data[2] = data_t->sar_event.data[2];
 		break;
+	case ID_SAR_ALGO:
+		data->time_stamp = data_t->time_stamp;
+		data->data[0] = data_t->data[0];
+		pr_err("HTP saralgo status %d \n",data->data[0]);
+		break;
+	case ID_SAR_ALGO_TOP:
+		data->time_stamp = data_t->time_stamp;
+		data->data[0] = data_t->data[0];
+		pr_err("HTP saralgo status %d \n",data->data[0]);
+		break;
 	default:
 		err = -1;
 		break;
@@ -1749,6 +1822,7 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 	union SCP_SENSOR_HUB_DATA req;
 	int len = 0, err = 0;
 	struct SCP_SENSOR_HUB_GET_RAW_DATA *pGetRawData;
+	struct SCP_SENSOR_HUB_GET_REG *GetRegData;
 
 	req.get_data_req.sensorType = sensorType;
 	req.get_data_req.action = SENSOR_HUB_SET_CUST;
@@ -2093,6 +2167,37 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
 				custData) + sizeof(req.set_cust_req.getInfo);
 			break;
+		case CUST_ACTION_SET_REG:
+			req.set_cust_req.setReg.action = CUST_ACTION_SET_REG;
+			req.set_cust_req.setReg.data[0] = (uint32_t)(*((int8_t *) data + 0));
+			req.set_cust_req.setReg.data[1] = (uint32_t)(*((int8_t *) data + 1));
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.setReg);
+			break;
+		case CUST_ACTION_GET_REG:
+			req.set_cust_req.getReg.action = CUST_ACTION_GET_REG;
+			req.set_cust_req.setReg.data[0] = (uint32_t)(*((int8_t *) data + 0));
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.getReg);
+			err = scp_sensorHub_req_send(&req, &len, 1);
+			if (err == 0) {
+				if ((req.set_cust_rsp.action !=
+					SENSOR_HUB_SET_CUST)
+					|| (req.set_cust_rsp.errCode != 0)) {
+					pr_err("scp_sHub_req_send fail!\n");
+					return -1;
+				}
+				if (req.set_cust_rsp.getReg.action !=
+					CUST_ACTION_GET_REG) {
+					pr_err("scp_sHub_req_send fail!\n");
+					return -1;
+				}
+				GetRegData = &req.set_cust_rsp.getReg;
+				*((uint8_t *) data) = GetRegData->data[0];
+			} else {
+				pr_err("scp_sensorHub_req_send failed!\n");
+			}
+			return 0;
 		default:
 			return -1;
 		}

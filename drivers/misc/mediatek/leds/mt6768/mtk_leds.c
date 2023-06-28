@@ -53,6 +53,11 @@ u16 pmic_set_register_value(u32 flagname, u32 val)
 }
 #endif
 
+#if defined(CONFIG_KTD3136_SUPPORT) && defined(CONFIG_LM3697_SUPPORT)
+extern int ktd3137_brightness_set(int brightness);
+extern int lm3697_set_brightness(int brightness);
+#endif
+
 static DEFINE_MUTEX(leds_mutex);
 static DEFINE_MUTEX(leds_pmic_mutex);
 
@@ -156,6 +161,12 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 	int mode, data;
 	int pwm_config[5] = { 0 };
 
+	extern char *saved_command_line;
+	int bkl_id = 0;
+	char *bkl_ptr = (char *)strnstr(saved_command_line, ":bklic=", strlen(saved_command_line));
+	bkl_ptr += strlen(":bklic=");
+	bkl_id = simple_strtol(bkl_ptr, NULL, 10);
+
 	if (pled_dtsi)
 		goto out;
 
@@ -235,6 +246,18 @@ struct cust_mt65xx_led *get_cust_led_dtsi(void)
 			pled_dtsi[i].data =
 			   (long)chargepump_set_backlight_level;
 			LEDS_DEBUG("BL set by chargepump\n");
+#elif defined(CONFIG_KTD3136_SUPPORT) && defined(CONFIG_LM3697_SUPPORT)
+			pr_info("[%s]: bkl_id = %d\n", __func__, bkl_id);
+			if (bkl_id == 24) {
+				pled_dtsi[i].data = (long)ktd3137_brightness_set;
+				pr_info("[%s]: backlight is ktd3136 contrl!\n", __func__);
+			} else if (bkl_id == 1) {
+				pled_dtsi[i].data = (long)lm3697_set_brightness;
+				pr_info("[%s]: backlight is lm3697 contrl!\n", __func__);
+			} else {
+				pled_dtsi[i].data = (long)mtkfb_set_backlight_level;
+				pr_info("[%s]: backlight is mtkfb_set_backlight_level contrl!\n", __func__);
+			}
 #else
 			pled_dtsi[i].data = (long)mtkfb_set_backlight_level;
 #endif
@@ -263,6 +286,46 @@ struct cust_mt65xx_led *mt_get_cust_led_list(void)
 	struct cust_mt65xx_led *cust_led_list = get_cust_led_dtsi();
 	return cust_led_list;
 }
+
+static struct blocking_notifier_head backlight_level_nb;
+
+/**
+ * backlight_level_register_notifier - get notified of backlight level
+ * @nb: notifier block with the notifier to call on backlight level
+ *
+ * @return 0 on success, otherwise a negative error code
+ *
+ * Register a notifier to get notified when backlight level changed.
+ */
+int backlight_level_register_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&backlight_level_nb, nb);
+}
+EXPORT_SYMBOL(backlight_level_register_notifier);
+
+/**
+ * backlight_level_unregister_notifier - unregister a backlight level notifier
+ * @nb: notifier block to unregister
+ *
+ * @return 0 on success, otherwise a negative error code
+ *
+ * Register a notifier to get notified when backlight level changed.
+ */
+int backlight_level_unregister_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&backlight_level_nb, nb);
+}
+EXPORT_SYMBOL(backlight_level_unregister_notifier);
+
+/**
+ * backlight_level_notifier_call_chain - notify clients of fb_events
+ *
+ */
+int backlight_level_notifier_call_chain(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(&backlight_level_nb, val, v);
+}
+EXPORT_SYMBOL(backlight_level_notifier_call_chain);
 
 /****************************************************************************
  * internal functions
@@ -820,8 +883,9 @@ int mt_mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 	case MT65XX_LED_MODE_CUST_LCM:
 		if (strcmp(cust->name, "lcd-backlight") == 0)
 			bl_brightness_hal = level;
-		LEDS_DEBUG("%s backlight control by LCM\n", __func__);
+		//LEDS_DEBUG("%s backlight control by LCM ,level = %d\n", __func__, level);
 		/* warning for this API revork */
+        backlight_level_notifier_call_chain((unsigned long)level, NULL);
 		return ((cust_brightness_set) (cust->data)) (level, bl_div_hal);
 
 	case MT65XX_LED_MODE_CUST_BLS_PWM:
@@ -857,7 +921,6 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 	    container_of(led_cdev, struct mt65xx_led_data, cdev);
 	/* unsigned long flags; */
 	/* spin_lock_irqsave(&leds_lock, flags); */
-
 	/* do something only when level is changed */
 	if (led_data->level == level) {
 		LEDS_DEBUG("no level change,do nothing\n");
@@ -871,18 +934,18 @@ void mt_mt65xx_led_set(struct led_classdev *led_cdev, enum led_brightness level)
 		schedule_work(&led_data->work);
 		return;
 	}
+
 	if (level != 0 && level * CONFIG_LIGHTNESS_MAPPING_VALUE < 255)
 		level = 1;
 	else
 		level = (level * CONFIG_LIGHTNESS_MAPPING_VALUE) / 255;
-
 	backlight_debug_log(led_data->level, level);
 	disp_pq_notify_backlight_changed((((1 << MT_LED_INTERNAL_LEVEL_BIT_CNT)
-					    - 1) * level + 127) / 255);
+					    - 1) * level + 1023) / 2047);
 #ifdef CONFIG_MTK_AAL_SUPPORT
 	disp_aal_notify_backlight_changed((((1 <<
 					MT_LED_INTERNAL_LEVEL_BIT_CNT)
-					    - 1) * level + 127) / 255);
+					    - 1) * level + 1023) / 2047);
 #else
 	if (led_data->cust.mode == MT65XX_LED_MODE_CUST_BLS_PWM)
 		mt_mt65xx_led_set_cust(&led_data->cust,

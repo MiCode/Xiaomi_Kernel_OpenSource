@@ -1,0 +1,41 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+&odm{
+	si_pa_L: si_pa_L{
+		compatible = "si,sia81xx";
+		si,si_pa_type = "sia8152s";
+		si,si_pa_disable_pin = <1>;
+		channel_num = <0>;
+	};
+
+};
+
+&sound {
+	si,sia81xx-max-num = <1>;
+	si,sia81xx-aux-devs = <&si_pa_L>;
+	si,sia81xx-aux-devs-prefix = "SpkrLeft";
+};
+
+&i2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <400000>;
+	mediatek,use-open-drain;
+
+	sipa_i2c_L: sipa_i2c@58{
+		compatible = "si,sia81xx-i2c";
+		reg = <0x58>;
+		dev_index = < 0 >;
+		si,sipa-dev = <&si_pa_L>;
+		status = "okay";
+	};
+};

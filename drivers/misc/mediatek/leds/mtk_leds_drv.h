@@ -15,6 +15,10 @@
 int setMaxbrightness(int max_level, int enable);
 #endif
 
+#ifdef M19A_THERMAL_BL_CONTROL
+int thermal_set_brightness_percent(int percent, int enable);
+#endif
+
 extern int mt65xx_leds_brightness_set(enum mt65xx_led_type type,
 		enum led_brightness level);
 #ifdef CONFIG_MTK_LEDS

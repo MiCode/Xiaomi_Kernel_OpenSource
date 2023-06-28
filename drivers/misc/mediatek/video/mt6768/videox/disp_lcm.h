@@ -59,9 +59,14 @@ int disp_lcm_is_video_mode(struct disp_lcm_handle *plcm);
 int disp_lcm_is_inited(struct disp_lcm_handle *plcm);
 unsigned int disp_lcm_ATA(struct disp_lcm_handle *plcm);
 void *disp_lcm_switch_mode(struct disp_lcm_handle *plcm, int mode);
+
 int disp_lcm_set_lcm_cmd(struct disp_lcm_handle *plcm,
 	void *cmdq_handle, unsigned int *lcm_cmd,
-			 unsigned int *lcm_count, unsigned int *lcm_value);
+			unsigned int *lcm_count, unsigned int *lcm_value);
+int disp_lcm_set_lcm_cabc_cmd(struct disp_lcm_handle *plcm,
+	void *cmdq_handle, unsigned int *lcm_cmd,
+			unsigned int *lcm_count, unsigned int level);
+int disp_lcm_get_cabc(struct disp_lcm_handle *plcm, int *status);
 
 int disp_lcm_is_partial_support(struct disp_lcm_handle *plcm);
 int disp_lcm_validate_roi(struct disp_lcm_handle *plcm,

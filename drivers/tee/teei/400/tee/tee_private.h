@@ -131,8 +131,10 @@ extern void dma_buf_detach(struct dma_buf *dmabuf,
 
 extern void dma_buf_put(struct dma_buf *dmabuf);
 
+#if KERNEL_VERSION(4, 4, 1) <= LINUX_VERSION_CODE
 extern struct dma_buf *dma_buf_export(
 				const struct dma_buf_export_info *exp_info);
+#endif
 
 extern int dma_buf_fd(struct dma_buf *dmabuf, int flags);
 
@@ -141,4 +143,5 @@ extern int tee_k_open(struct file *filp);
 extern int tee_k_release(struct file *filp);
 
 extern struct tee_device *isee_get_teedev(void);
+
 #endif /*TEE_PRIVATE_H*/

@@ -207,4 +207,6 @@ int mmc_hw_reset(struct mmc_host *host);
 int mmc_sw_reset(struct mmc_host *host);
 void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card);
 
+extern int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd);
+
 #endif /* LINUX_MMC_CORE_H */

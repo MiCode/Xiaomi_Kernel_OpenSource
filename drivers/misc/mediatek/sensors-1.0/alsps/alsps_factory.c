@@ -35,6 +35,8 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 	uint32_t enable = 0;
 	int threshold_data[2] = {0, 0};
 	int als_cali = 0;
+	int als_cali_data[2] = {0, 0};
+	struct SENSOR_DATA sensor_data = {0};
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
 		err = !access_ok(VERIFY_WRITE, (void __user *)arg,
@@ -129,6 +131,19 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 			}
 		} else {
 			pr_err("ALSPS_ALS_ENABLE_CALI NULL\n");
+			return -EINVAL;
+		}
+		return 0;
+	case ALSPS_ALS_ENABLE_LEAK_CALI:
+		if (alsps_factory.fops != NULL &&
+		    alsps_factory.fops->als_enable_leak_calibration != NULL) {
+			err = alsps_factory.fops->als_enable_leak_calibration();
+			if (err < 0) {
+				pr_err("ALSPS_ALS_ENABLE_LEAK_CALI FAIL!\n");
+				return -EINVAL;
+			}
+		} else {
+			pr_err("ALSPS_ALS_ENABLE_LEAK_CALI NULL\n");
 			return -EINVAL;
 		}
 		return 0;
@@ -248,16 +263,18 @@ static long alsps_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 	case ALSPS_IOCTL_ALS_GET_CALI:
 		if (alsps_factory.fops != NULL &&
 			alsps_factory.fops->als_get_cali != NULL) {
-			err = alsps_factory.fops->als_get_cali(&data);
+			err = alsps_factory.fops->als_get_cali(als_cali_data);
 			if (err < 0) {
 				pr_err("ALSPS_IOCTL_ALS_GET_CALI FAIL!\n");
 				return -EINVAL;
-			}
+			}			
 		} else {
 			pr_err("ALSPS_IOCTL_ALS_GET_CALI NULL\n");
 			return -EINVAL;
 		}
-		if (copy_to_user(ptr, &data, sizeof(data)))
+	    sensor_data.x = als_cali_data[0];
+		sensor_data.y = als_cali_data[1];
+		if (copy_to_user(ptr, &sensor_data, sizeof(sensor_data)))
 			return -EFAULT;
 		return 0;
 	case ALSPS_IOCTL_CLR_CALI:
@@ -321,6 +338,7 @@ static long alsps_factory_compat_ioctl(struct file *file,
 	case COMPAT_ALSPS_ALS_ENABLE_CALI:
 	case COMPAT_ALSPS_PS_ENABLE_CALI:
 	case COMPAT_ALSPS_IOCTL_ALS_SET_CALI:
+	case COMPAT_ALSPS_ALS_ENABLE_LEAK_CALI:
 		err = file->f_op->unlocked_ioctl(file, cmd,
 						 (unsigned long)arg32);
 		break;

@@ -11,6 +11,8 @@ source "drivers/connector/Kconfig"
 
 source "drivers/gnss/Kconfig"
 
+source "drivers/nfc/Kconfig"
+
 source "drivers/mtd/Kconfig"
 
 source "drivers/of/Kconfig"

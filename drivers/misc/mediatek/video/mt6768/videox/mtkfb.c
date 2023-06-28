@@ -190,6 +190,134 @@ static int _parse_tag_videolfb(void);
 static void mtkfb_late_resume(void);
 static void mtkfb_early_suspend(void);
 
+#define WAIT_RESUME_TIMEOUT 200
+#define WAIT_SUSPEND_TIMEOUT 1500
+struct fb_info *prim_fbi;
+static struct delayed_work prim_panel_work;
+static atomic_t prim_panel_is_on;
+//static struct wake_lock prim_panel_wakelock;
+static void prim_panel_off_delayed_work(struct work_struct *work)
+{
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+	console_lock();
+#endif
+	if (!lock_fb_info(prim_fbi)) {
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+		console_unlock();
+#endif
+		return;
+	}
+	printk("[XMFP] prim_panel_off_delayed_work close FB\n");
+	if (atomic_read(&prim_panel_is_on)) {
+		printk("[XMFP] prim_panel_is_on = %d \n", atomic_read(&prim_panel_is_on));
+		fb_blank(prim_fbi, FB_BLANK_POWERDOWN);
+		atomic_set(&prim_panel_is_on, false);
+	//wake_unlock(&prim_panel_wakelock);
+	}
+	unlock_fb_info(prim_fbi);
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+	console_unlock();
+#endif
+}
+
+ /*
+ * mdss_prim_panel_fb_unblank() - Unblank primary panel FB
+ * @timeout : >0 blank primary panel FB after timeout (ms)
+ */
+int mdss_prim_panel_fb_unblank(int timeout)
+{
+	int ret = 0;
+	struct mtkfb_device *mfd = NULL;
+	printk("[XMFP] Enter %s\n", __func__);
+	if (prim_fbi) {
+		mfd = (struct mtkfb_device *)prim_fbi->par;
+		ret = wait_event_timeout(mfd->resume_wait_q,
+				!atomic_read(&mfd->resume_pending),
+				msecs_to_jiffies(WAIT_RESUME_TIMEOUT));
+		if (!ret) {
+			printk("[XMFP] Primary fb resume timeout\n");
+			return -ETIMEDOUT;
+		}
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+		console_lock();
+#endif
+		if (!lock_fb_info(prim_fbi)) {
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+			console_unlock();
+#endif
+			printk("[XMFP]  !lock_fb_info(prim_fbi) %s_%d\n", __func__,
+					__LINE__);
+			return -ENODEV;
+		}
+		if (prim_fbi->blank == FB_BLANK_UNBLANK) {
+			unlock_fb_info(prim_fbi);
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+			console_unlock();
+#endif
+			printk("[XMFP] %s_%d\n", __func__, __LINE__);
+			return 0;
+		}
+		//wake_lock(&prim_panel_wakelock);
+		ret = fb_blank(prim_fbi, FB_BLANK_UNBLANK);
+		printk("[XMFP] fb_blank(prim_fbi, FB_BLANK_UNBLANK) %s , ret  = %d\n",
+				__func__, ret);
+		if (!ret) {
+			atomic_set(&prim_panel_is_on, true);
+			if (timeout > 0) {
+					printk("SXF %s ,timeout  = %d\n", __func__, timeout);
+					schedule_delayed_work(&prim_panel_work, msecs_to_jiffies(timeout));
+			}	else
+					schedule_delayed_work(&prim_panel_work, msecs_to_jiffies(WAIT_SUSPEND_TIMEOUT));
+		}
+		unlock_fb_info(prim_fbi);
+#ifdef CONFIG_FRAMEBUFFER_CONSOLE
+		console_unlock();
+#endif
+		printk("SXF Exit %s\n", __func__);
+		return ret;
+	}
+	pr_err("[XMFP] primary panel is not existed\n");
+	return -EINVAL;
+}
+static int mdss_fb_pm_prepare(struct device *dev)
+{
+	struct mtkfb_device *mfd = dev_get_drvdata(dev);
+	if (!mfd)
+		return -ENODEV;
+	atomic_inc(&mfd->resume_pending);
+	return 0;
+}
+static void mdss_fb_pm_complete(struct device *dev)
+{
+	struct mtkfb_device *mfd = dev_get_drvdata(dev);
+	if (!mfd)
+		return;
+	atomic_set(&mfd->resume_pending, 0);
+	wake_up_all(&mfd->resume_wait_q);
+	return;
+}
+
+static ssize_t mtkfb_get_panel_info(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+	int lcm_name_len = 0;
+
+	lcm_name_len = strlen(mtkfb_lcm_name);
+	pr_info("%s mtkfb_lcm_name is:%s.\n", __func__, mtkfb_lcm_name);
+	ret = snprintf(buf, lcm_name_len+1, "%s\n", mtkfb_lcm_name);
+
+	return ret;
+}
+
+static DEVICE_ATTR(panel_info, 0644, mtkfb_get_panel_info, NULL);
+static struct attribute *mtk_fb_attrs[] = {
+	&dev_attr_panel_info.attr,
+	NULL,
+};
+
+static struct attribute_group mtk_fb_attr_group = {
+	.attrs = mtk_fb_attrs,
+};
 
 void mtkfb_log_enable(int enable)
 {
@@ -260,6 +388,17 @@ static int mtkfb_blank(int blank_mode, struct fb_info *info)
 {
 	enum mtkfb_power_mode prev_pm = primary_display_get_power_mode();
 
+	printk("[XMFP] Enter %s_ %d blank_mode =%d , prim_panel_is_on =%d \n", __func__, __LINE__,
+				blank_mode, atomic_read(&prim_panel_is_on));
+	if ((info == prim_fbi) && (blank_mode == FB_BLANK_UNBLANK /*|| blank_mode ==FB_BLANK_NORMAL*/)
+				&& atomic_read(&prim_panel_is_on)) {
+		atomic_set(&prim_panel_is_on, false);
+		//wake_unlock(&prim_panel_wakelock);
+		cancel_delayed_work(&prim_panel_work);
+		printk("SXF Exit %s_ %d\n", __func__, __LINE__);
+		return 0;
+	}
+
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 	case FB_BLANK_NORMAL:
@@ -297,7 +436,6 @@ static int mtkfb_blank(int blank_mode, struct fb_info *info)
 	}
 	return 0;
 }
-
 
 int mtkfb_set_backlight_level(unsigned int level)
 {
@@ -1570,6 +1708,32 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 		return 0;
 	}
+	case SYSFS_SET_LCM_CABC_MODE:
+	{
+		int lcm_cabc_level = 0;
+		lcm_cabc_level = *(int*)arg;
+		//DISPDBG("set_cabc_level = %d", lcm_cabc_level);
+		DISPERR("set_cabc_level = %d", lcm_cabc_level);
+		if(primary_display_set_cabc(lcm_cabc_level))
+		{
+			MTKFB_LOG("[MTKFB]: set CABC fail! line:%d\n",
+				__LINE__);
+			r = -EFAULT;
+		}
+		return r;
+	}
+	case SYSFS_GET_LCM_CABC_MODE:
+	{
+		int lcm_cabc_status = 0;
+		if(primary_display_get_cabc(&lcm_cabc_status)){
+			MTKFB_LOG("[MTKFB]: get CABC fail! line:%d\n",
+				__LINE__);
+			r = -EFAULT;
+		}
+		DISPERR("get_cabc_level = %d", lcm_cabc_status);
+		memcpy((void*)arg, (void*)&lcm_cabc_status, sizeof(int));
+		return r;
+	}
 	default:
 		DISPWARN(
 			"%s Not support, info=0x%p, cmd=0x%08x, arg=0x%08lx\n",
@@ -2643,6 +2807,12 @@ static int mtkfb_probe(struct platform_device *pdev)
 
 	fbdev->state = MTKFB_ACTIVE;
 
+	atomic_set(&fbdev->resume_pending, 0);
+	init_waitqueue_head(&fbdev->resume_wait_q);
+	prim_fbi = fbi;
+	atomic_set(&prim_panel_is_on, false);
+	INIT_DELAYED_WORK(&prim_panel_work, prim_panel_off_delayed_work);
+
 	if (!strcmp(mtkfb_find_lcm_driver(),
 		"nt35521_hd_dsi_vdo_truly_rt5081_drv")) {
 #ifdef CONFIG_MTK_CCCI_DRIVER
@@ -2650,6 +2820,10 @@ static int mtkfb_probe(struct platform_device *pdev)
 			MD_DISPLAY_DYNAMIC_MIPI, mipi_clk_change);
 #endif
 	}
+
+	r = sysfs_create_group(&fbi->dev->kobj, &mtk_fb_attr_group);
+	if (r)
+		pr_err("sysfs group creat failed, rc = %d\n", r);
 
 	MSG_FUNC_LEAVE();
 	pr_info("disp driver(2) %s end\n", __func__);
@@ -2671,8 +2845,13 @@ static int mtkfb_remove(struct platform_device *pdev)
 	MSG_FUNC_ENTER();
 	/* FIXME: wait till completion of pending events */
 
+	atomic_set(&prim_panel_is_on, false);
+	cancel_delayed_work(&prim_panel_work);
+
 	fbdev->state = MTKFB_DISABLED;
 	mtkfb_free_resources(fbdev, saved_state);
+
+	sysfs_remove_group(&fbdev->fb_info->dev->kobj, &mtk_fb_attr_group);
 
 	MSG_FUNC_LEAVE();
 	return 0;
@@ -2875,6 +3054,9 @@ static const struct dev_pm_ops mtkfb_pm_ops = {
 	.poweroff = mtkfb_pm_suspend,
 	.restore = mtkfb_pm_resume,
 	.restore_noirq = mtkfb_pm_restore_noirq,
+
+	.prepare = mdss_fb_pm_prepare,
+	.complete = mdss_fb_pm_complete,
 };
 
 static struct platform_driver mtkfb_driver = {

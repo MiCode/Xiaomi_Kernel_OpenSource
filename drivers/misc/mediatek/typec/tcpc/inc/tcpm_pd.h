@@ -127,7 +127,7 @@ enum pd_battery_reference {
 
 /* SCEDB, Source_Capabilities_Extended */
 
-#define PD_SCEDB_SIZE	24
+#define PD_SCEDB_SIZE	25
 
 #define PD_SCEDB_VR(load_step, ioc)	\
 	((load_step) | (ioc << 2))
@@ -179,6 +179,7 @@ struct pd_source_cap_ext {
 	uint8_t	source_inputs;	/* bit field */
 	uint8_t	batteries;
 	uint8_t	source_pdp;
+	uint8_t	epr_source_pdp;
 };
 
 /* GBSDB, Get_Battery_Status */

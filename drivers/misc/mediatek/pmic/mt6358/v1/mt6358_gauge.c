@@ -499,22 +499,44 @@ static signed int fg_get_current_iavg(
 
 void enable_dwa(bool enable)
 {
+	int dwa_rst_sw = 0, dwa_rst_mode = 0;
+	int reg_0x88_bit8 = 0, reg_0x88_bit5 = 0;
+	int ret = 0;
+	dwa_rst_sw = pmic_get_register_value(PMIC_FG_DWA_RST_SW);
+	dwa_rst_mode = pmic_get_register_value(PMIC_FG_DWA_RST_MODE);
+	bm_err("[%s] Before enable dwa_rst_sw %d dwa_rst_mode %d ", __func__, dwa_rst_sw, dwa_rst_mode);
 	if (enable == true) {
 		pmic_set_register_value(PMIC_FG_DWA_RST_SW, 0);
 		pmic_set_register_value(PMIC_FG_DWA_RST_MODE, 0);
 		pmic_config_interface(PMIC_RG_SPARE_ADDR, 0x0000, 0x0001, 0x5);
-
+		ret = pmic_read_interface((PMIC_RG_SPARE_ADDR), (&reg_0x88_bit5),
+						(0x0001),
+						(0x5));
+		ret = pmic_read_interface((PMIC_RG_SPARE_ADDR), (&reg_0x88_bit8),
+						(0x0001),
+						(0x8));
+		bm_err("[%s] enable == true reg_0x88_bit5 %d reg_0x88_bit8 %d ", __func__, reg_0x88_bit5, reg_0x88_bit8);
 	} else {
 		pmic_set_register_value(PMIC_FG_DWA_RST_SW, 1);
 		pmic_set_register_value(PMIC_FG_DWA_RST_MODE, 1);
 		pmic_config_interface(PMIC_RG_SPARE_ADDR, 0x0001, 0x0001, 0x5);
-
+		pmic_config_interface(PMIC_RG_SPARE_ADDR, 0x0001, 0x0001, 0x8);
+		ret = pmic_read_interface((PMIC_RG_SPARE_ADDR), (&reg_0x88_bit5),
+						(0x0001),
+						(0x5));
+		ret = pmic_read_interface((PMIC_RG_SPARE_ADDR), (&reg_0x88_bit8),
+						(0x0001),
+						(0x8));
+		bm_err("[%s] enable == false reg_0x88_bit5 %d reg_0x88_bit8 %d ", __func__, reg_0x88_bit5, reg_0x88_bit8);
 	}
+	dwa_rst_sw = pmic_get_register_value(PMIC_FG_DWA_RST_SW);
+	dwa_rst_mode = pmic_get_register_value(PMIC_FG_DWA_RST_MODE);
+	bm_err("[%s] After enable dwa_rst_sw %d dwa_rst_mode %d ", __func__, dwa_rst_sw, dwa_rst_mode);
 }
 
 static signed int convert_current(
 	struct gauge_device *gauge_dev,
-	unsigned short current_reg)
+	long long current_reg)
 {
 	signed int dvalue = 0;
 	long long Temp_Value = 0;
@@ -572,6 +594,15 @@ void iavg_check(struct gauge_device *gauge_dev,
 	int valid_bit;
 
 	int iavg;
+	unsigned short iavg_check;
+
+	iavg_check = pmic_get_register_value(PMIC_FG_CIC2);
+	fg_iavg_reg_27_16 = pmic_get_register_value(PMIC_FG_IAVG_27_16);
+
+	fg_iavg_reg_15_00 = pmic_get_register_value(PMIC_FG_IAVG_15_00);
+	offset_reg = pmic_get_register_value(PMIC_FG_OFFSET);
+	bm_err("[%s] iavg check %d offset_reg %d iavg 27_16 %d iavg 15_00 %d \n",
+	__func__, iavg_check, offset_reg, fg_iavg_reg_27_16, fg_iavg_reg_15_00);
 
 	/* Read HW Raw Data
 	 *(1)	 Set READ command
@@ -620,6 +651,8 @@ void iavg_check(struct gauge_device *gauge_dev,
 
 	/* iavg */
 	valid_bit = pmic_get_register_value(PMIC_FG_IAVG_VLD);
+	bm_err("[%s] iavg_reg: %lld  offset_reg: %lld valid: %d\r \n",__func__,
+		iavg_reg, offset_reg, valid_bit);
 
 	if (valid_bit == 1) {
 		fg_iavg_reg_27_16 =
@@ -629,6 +662,8 @@ void iavg_check(struct gauge_device *gauge_dev,
 		pmic_get_register_value(PMIC_FG_IAVG_15_00);
 
 		fg_iavg_reg = fg_iavg_reg_27_16;
+		bm_err("[%s] fg_iavg_reg_27_16: %d  fg_iavg_reg_15_00: %d \r \n",__func__,
+			fg_iavg_reg_27_16, fg_iavg_reg_15_00);
 
 		fg_iavg_reg =
 		((long long)fg_iavg_reg << 16) + fg_iavg_reg_15_00;
@@ -3276,6 +3311,8 @@ void iavg_workaround(struct gauge_device *gauge_dev,
 	enum gauge_event evt)
 {
 	int iavg_less, offset_less;
+	int gain_error = 0,gain_add = 0;
+	int ret = 0;
 
 	iavg_check(gauge_dev, &offset_less, &iavg_less);
 
@@ -3291,6 +3328,11 @@ void iavg_workaround(struct gauge_device *gauge_dev,
 			else
 				enable_dwa(true);
 		}
+	} else {
+		if (evt == EVT_INT_BAT_INT2_HT ||
+			evt == EVT_INT_BAT_INT2_LT) {
+			enable_dwa(true);
+		}  
 	}
 
 	bm_err(
@@ -3301,6 +3343,22 @@ void iavg_workaround(struct gauge_device *gauge_dev,
 		upmu_get_reg_value(MT6358_FGADC_ANA_CON0)
 		);
 
+	ret = pmic_read_interface((MT6358_FGADC_ANA_ELR0), (&gain_error),
+        (PMIC_RG_FGADC_GAINERROR_CAL_MASK),
+        (PMIC_RG_FGADC_GAINERROR_CAL_SHIFT));
+
+	ret = pmic_read_interface((MT6358_FGADC_GAIN_CON0), (&gain_add),
+           (PMIC_FG_GAIN_MASK),
+           (PMIC_FG_GAIN_SHIFT));
+
+	if (gain_error != gain_add) {
+		ret = pmic_config_interface((MT6358_FGADC_GAIN_CON0),(gain_error),
+                   (PMIC_FG_GAIN_MASK),
+                   (PMIC_FG_GAIN_SHIFT));
+	bm_err(
+            "[%s]type: 0x%x 0x%x!\n",
+            __func__, gain_error, gain_add);
+        }
 
 }
 

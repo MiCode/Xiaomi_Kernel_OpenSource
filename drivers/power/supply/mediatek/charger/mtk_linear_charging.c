@@ -332,12 +332,12 @@ static int mtk_linear_chr_err(struct charger_manager *info)
 
 	if (info->enable_sw_jeita) {
 		if ((info->sw_jeita.sm == TEMP_BELOW_T0) ||
-			(info->sw_jeita.sm == TEMP_ABOVE_T4))
+			(info->sw_jeita.sm == TEMP_ABOVE_T5))
 			info->sw_jeita.error_recovery_flag = false;
 
 		if ((info->sw_jeita.error_recovery_flag == false) &&
 			(info->sw_jeita.sm != TEMP_BELOW_T0) &&
-			(info->sw_jeita.sm != TEMP_ABOVE_T4)) {
+			(info->sw_jeita.sm != TEMP_ABOVE_T5)) {
 			info->sw_jeita.error_recovery_flag = true;
 			algo_data->state = CHR_CC;
 			get_monotonic_boottime(&algo_data->charging_begin_time);

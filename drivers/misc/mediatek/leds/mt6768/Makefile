@@ -12,5 +12,9 @@
 #
 
 obj-$(CONFIG_MTK_LEDS) := mtk_leds.o
+obj-$(CONFIG_KTD3136_SUPPORT) += ktd3136_bl.o
+
+obj-$(CONFIG_LM3697_SUPPORT) += ti-lmu-backlight-core.o
+obj-$(CONFIG_LM3697_SUPPORT) += ti-lmu-backlight-data.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include

@@ -40,11 +40,11 @@
 /* ============================================================ */
 #define BAT_VOLTAGE_LOW_BOUND 3400
 #define BAT_VOLTAGE_HIGH_BOUND 3450
-#define LOW_TMP_BAT_VOLTAGE_LOW_BOUND 3350
+#define LOW_TMP_BAT_VOLTAGE_LOW_BOUND 3300
 #define SHUTDOWN_TIME 40
 #define AVGVBAT_ARRAY_SIZE 30
 #define INIT_VOLTAGE 3450
-#define BATTERY_SHUTDOWN_TEMPERATURE 60
+#define BATTERY_SHUTDOWN_TEMPERATURE 58
 
 /* ============================================================ */
 /* typedef and Struct*/
@@ -778,6 +778,9 @@ struct mtk_battery {
 
 /*custom related*/
 	int battery_id;
+	int bat_id_channel;
+	int battery_id_vol;
+	struct iio_channel *bat_id;
 
 	struct zcv_filter zcvf;
 
@@ -939,6 +942,9 @@ struct mtk_battery {
 	struct battery_temperature_table rbat;
 
 	struct fgd_cmd_param_t_custom fg_data;
+	int mtbf_current;
+	bool input_suspend;
+	int ship_mode;
 };
 
 

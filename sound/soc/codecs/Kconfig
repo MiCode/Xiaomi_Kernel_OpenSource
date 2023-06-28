@@ -1325,6 +1325,18 @@ config SND_SOC_AW87339
 	  PMIC device which has no speaker protection
 	  function.
 
+config SND_SOC_AW87XXX
+	tristate "SoC Audio for awinic AW87XXX Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for AW87XXX Smart K PA.
+
+config SND_SOC_SIA8152S
+	tristate "SoC Audio for awinic SIA8152S Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for SIA8152S Smart K PA.
+
 config SND_SOC_LM4857
 	tristate
 

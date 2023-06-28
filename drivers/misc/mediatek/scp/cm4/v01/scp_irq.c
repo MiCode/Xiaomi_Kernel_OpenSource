@@ -17,6 +17,8 @@
 #include <mt-plat/aee.h>
 #endif
 
+#include "situation.h"
+
 /*
  * handler for wdt irq for scp
  * dump scp register
@@ -44,6 +46,9 @@ irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 		unsigned long tmp;
 
 		scp_A_wdt_handler();
+		sar_exception_data_report();
+		sar_algo_exception_data_report();
+		sar_algo_top_exception_data_report();
 		if (scp_set_reset_status() == RESET_STATUS_STOP) {
 			pr_debug("[SCP] CM4 WDT handler start to reset scp...\n");
 			scp_send_reset_wq(RESET_TYPE_WDT);
