@@ -23,6 +23,7 @@ struct vcp_status_fp {
 };
 
 extern int pwclkcnt;
+extern bool is_suspending;
 int mmup_enable_count(void);
 void vcp_set_fp(struct vcp_status_fp *fp);
 phys_addr_t vcp_get_reserve_mem_phys_ex(enum vcp_reserve_mem_id_t id);

@@ -179,12 +179,14 @@ struct wrot_data {
 	u32 fifo;
 	u32 tile_width;
 	u32 sram_size;
+	u8 rb_swap;	/* version for rb channel swap behavior */
 };
 
 static const struct wrot_data mml_wrot_data = {
 	.fifo = 256,
 	.tile_width = 512,
 	.sram_size = 512 * 1024,
+	.rb_swap = 1,
 };
 
 struct mml_comp_wrot {
@@ -1008,9 +1010,15 @@ static s32 wrot_config_frame(struct mml_comp *comp, struct mml_task *task,
 	if (cfg->alpharot) {
 		wrot_frm->mat_en = 0;
 
-		/* TODO: check if still need this sw workaround */
-		if (!MML_FMT_COMPRESS(src_fmt) || MML_FMT_10BIT(src_fmt))
-			out_swap ^= MML_FMT_SWAP(src_fmt);
+		if (wrot->data->rb_swap == 1) {
+			if (!MML_FMT_COMPRESS(src_fmt) && !MML_FMT_10BIT(src_fmt))
+				out_swap ^= MML_FMT_SWAP(src_fmt);
+			else if (MML_FMT_COMPRESS(src_fmt) && !MML_FMT_10BIT(src_fmt))
+				out_swap =
+					(MML_FMT_SWAP(src_fmt) == MML_FMT_SWAP(dest_fmt)) ? 1 : 0;
+			else if (MML_FMT_COMPRESS(src_fmt) && MML_FMT_10BIT(src_fmt))
+				out_swap = out_swap ? 0 : 1;
+		}
 	}
 
 	mml_msg("use config %p wrot %p", cfg, wrot);

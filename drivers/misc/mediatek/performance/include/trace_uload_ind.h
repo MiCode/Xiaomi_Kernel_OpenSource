@@ -17,16 +17,16 @@ TP_PROTO(char *str1, char *str2),
 TP_ARGS(str1, str2),
 
 TP_STRUCT__entry(
-__field(char *, str1)
-__field(char *, str2)
+	__string(str1, str1)
+	__string(str2, str2)
 ),
 
 TP_fast_assign(
-__entry->str1 = str1;
-__entry->str2 = str2;
+	__assign_str(str1, str1);
+	__assign_str(str2, str2);
 ),
 
-TP_printk("%s%s", __entry->str1, __entry->str2)
+TP_printk("%s%s", __get_str(str1), __get_str(str2))
 );
 
 #endif

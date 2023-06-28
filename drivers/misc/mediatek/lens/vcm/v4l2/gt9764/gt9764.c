@@ -303,7 +303,11 @@ static int gt9764_probe(struct i2c_client *client)
 		return ret;
 	}
 
+#if defined(PEARL_CAM)
+	gt9764->vdd = devm_regulator_get(dev, "fan53870-l6");
+#else
 	gt9764->vdd = devm_regulator_get(dev, "vdd");
+#endif
 	if (IS_ERR(gt9764->vdd)) {
 		ret = PTR_ERR(gt9764->vdd);
 		if (ret != -EPROBE_DEFER)

@@ -89,3 +89,8 @@ obj-y					+= mtk-isp/
 
 obj-$(CONFIG_MTK_CAMERA_FD_ISP7)	+= mtk-aie/
 
+subdir-ccflags-y += -D__XIAOMI_CAMERA__
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"daumier")
+subdir-ccflags-y += -DDAUMIER_CAM
+endif
+

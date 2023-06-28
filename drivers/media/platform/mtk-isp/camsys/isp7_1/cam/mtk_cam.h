@@ -85,6 +85,7 @@ struct mtk_raw_pipeline;
 #define MTK_CAM_REQ_S_DATA_FLAG_RAW_HDL_COMPLETE	BIT(7)
 
 #define MTK_CAM_REQ_S_DATA_FLAG_SENSOR_HDL_DELAYED	BIT(8)
+#define MTK_CAM_REQ_S_DATA_FLAG_INCOMPLETE BIT(9)
 
 #define v4l2_subdev_format_request_fd(x) x->reserved[0]
 #define v4l2_frame_interval_which(x) x->reserved[0]
@@ -432,13 +433,16 @@ struct mtk_cam_ctx {
 	struct mtk_cam_working_buf_list processing_img_buffer_list;
 
 	atomic_t enqueued_frame_seq_no;
+	atomic_t composed_delay_seq_no;
 	unsigned int composed_frame_seq_no;
 	unsigned int dequeued_frame_seq_no;
-
+	unsigned int component_dequeued_frame_seq_no;
 	/* mstream */
 	unsigned int enqueued_request_cnt;
 	unsigned int next_sof_mask_frame_seq_no;
+	unsigned int next_sof_frame_seq_no;
 	unsigned int working_request_seq;
+	bool trigger_next_drain;
 
 	unsigned int sv_dequeued_frame_seq_no[MAX_SV_PIPES_PER_STREAM];
 
@@ -454,6 +458,7 @@ struct mtk_cam_ctx {
 	atomic_t watchdog_cnt;
 	atomic_t watchdog_dumped;
 	atomic_t watchdog_dump_cnt;
+	u64 watchdog_time_diff_ns;
 	struct timer_list watchdog_timer;
 	struct work_struct watchdog_work;
 
@@ -474,6 +479,9 @@ struct mtk_cam_device {
 	//struct platform_device *scp_pdev; /* only for scp case? */
 	phandle rproc_phandle;
 	struct rproc *rproc_handle;
+
+	phandle rproc_ccu_phandle;
+	struct rproc *rproc_ccu_handle;
 
 	struct workqueue_struct *link_change_wq;
 	unsigned int composer_cnt;
@@ -871,6 +879,18 @@ int mtk_cam_link_validate(struct v4l2_subdev *sd,
 			  struct media_link *link,
 			  struct v4l2_subdev_format *source_fmt,
 			  struct v4l2_subdev_format *sink_fmt);
+int mtk_cam_seninf_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt);
+int mtk_cam_sv_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt);
+int mtk_cam_mraw_link_validate(struct v4l2_subdev *sd,
+			  struct media_link *link,
+			  struct v4l2_subdev_format *source_fmt,
+			  struct v4l2_subdev_format *sink_fmt);
 
 struct mtk_cam_request *mtk_cam_get_req(struct mtk_cam_ctx *ctx,
 					unsigned int frame_seq_no);
@@ -888,12 +908,15 @@ int get_main_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
 int get_sub_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
 int get_last_sv_pipe_id(struct mtk_cam_device *cam, int used_dev_mask);
 
+int mtk_cam_dc_last_camsv(int raw_id);
+
 struct mtk_raw_device *get_master_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave_raw_dev(struct mtk_cam_device *cam,
 					 struct mtk_raw_pipeline *pipe);
 struct mtk_raw_device *get_slave2_raw_dev(struct mtk_cam_device *cam,
 					  struct mtk_raw_pipeline *pipe);
+struct mtk_yuv_device *get_yuv_dev(struct mtk_raw_device *raw_dev);
 struct mtk_camsv_device *get_camsv_dev(struct mtk_cam_device *cam,
 					struct mtk_camsv_pipeline *pipe);
 struct mtk_mraw_device *get_mraw_dev(struct mtk_cam_device *cam,

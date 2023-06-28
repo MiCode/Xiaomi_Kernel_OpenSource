@@ -30,6 +30,8 @@ enum MTK_CAMSYS_IRQ_EVENT {
 	CAMSYS_IRQ_FRAME_DONE,
 	CAMSYS_IRQ_SUBSAMPLE_SENSOR_SET,
 	CAMSYS_IRQ_FRAME_DROP,
+	CAMSYS_IRQ_FRAME_START_DCIF_MAIN,
+	CAMSYS_IRQ_FRAME_SKIPPED,
 
 	/* with error_data */
 	CAMSYS_IRQ_ERROR,
@@ -140,6 +142,10 @@ struct mtk_camsys_ctrl {
 	/* resource ctrl */
 	struct mtk_camsys_dvfs dvfs_info;
 };
+void mtk_camsys_composed_delay_enque(struct mtk_raw_device *raw_dev,
+				       struct mtk_cam_ctx *ctx,
+				       struct mtk_cam_request_stream_data *req_stream_data);
+
 void mtk_camsys_state_delete(struct mtk_cam_ctx *ctx,
 				struct mtk_camsys_sensor_ctrl *sensor_ctrl,
 				struct mtk_cam_request *req);
@@ -158,6 +164,8 @@ void mtk_cam_initial_sensor_setup(struct mtk_cam_request *req,
 					struct mtk_cam_ctx *ctx);
 void mtk_cam_mstream_initial_sensor_setup(struct mtk_cam_request *req,
 					struct mtk_cam_ctx *ctx);
+void mtk_cam_mstream_mark_incomplete_frame(struct mtk_cam_ctx *ctx,
+			struct mtk_cam_request_stream_data *incomplete_s_data);
 void mtk_cam_req_ctrl_setup(struct mtk_raw_pipeline *raw_pipe,
 			    struct mtk_cam_request *req);
 int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx); /* ctx_stream_on */

@@ -550,7 +550,6 @@ struct iio_trigger *viio_trigger_alloc(const char *fmt, va_list vargs)
 		irq_modify_status(trig->subirq_base + i,
 				  IRQ_NOREQUEST | IRQ_NOAUTOEN, IRQ_NOPROBE);
 	}
-	get_device(&trig->dev);
 
 	return trig;
 
@@ -706,3 +705,22 @@ void iio_device_unregister_trigger_consumer(struct iio_dev *indio_dev)
 	if (indio_dev->trig)
 		iio_trigger_put(indio_dev->trig);
 }
+
+#ifdef CFG_MTK_MIUS
+
+int iio_triggered_buffer_postenable(struct iio_dev *indio_dev)
+{
+	return iio_trigger_attach_poll_func(indio_dev->trig,
+					    indio_dev->pollfunc);
+}
+EXPORT_SYMBOL(iio_triggered_buffer_postenable);
+
+int iio_triggered_buffer_predisable(struct iio_dev *indio_dev)
+{
+	return iio_trigger_detach_poll_func(indio_dev->trig,
+					     indio_dev->pollfunc);
+}
+EXPORT_SYMBOL(iio_triggered_buffer_predisable);
+
+
+#endif

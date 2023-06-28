@@ -387,8 +387,10 @@ free_map:
 	m->map = NULL;
 	kfree(map);
 out:
-	if (ret)
+	if (ret) {
+		mdw_exception("map device va fail, size(%u) align(%u)\n", m->size, m->align);
 		dma_buf_put(m->dbuf);
+	}
 	mutex_unlock(&m->mtx);
 
 	return ret;

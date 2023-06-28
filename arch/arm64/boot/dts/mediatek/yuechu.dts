@@ -1,0 +1,2 @@
+#include "mediatek/yuechu-mt6895.dtsi"
+#include <yuechu/cust.dtsi>

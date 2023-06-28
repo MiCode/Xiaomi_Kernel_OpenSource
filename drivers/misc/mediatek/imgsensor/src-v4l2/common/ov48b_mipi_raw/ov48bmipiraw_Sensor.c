@@ -478,7 +478,8 @@ static void set_max_framerate_video(struct subdrv_ctx *ctx, UINT16 framerate,
 
 static kal_uint32 streaming_control(struct subdrv_ctx *ctx, kal_bool enable)
 {
-	LOG_INF("streaming_enable(0=Sw Standby,1=streaming): %d\n", enable);
+	LOG_INF("streaming_enable(0=Sw Standby,1=streaming): %d 0x%08x 0x%08x\n", enable,
+		read_cmos_sensor_8(ctx, 0x481B), read_cmos_sensor_8(ctx, 0x3812));
 	if (enable) {
 		write_cmos_sensor_8(ctx, 0x0100, 0X01);
 		ctx->is_streaming = KAL_TRUE;
@@ -3338,9 +3339,10 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
-	csi_param->legacy_phy = 1;
-	csi_param->not_fixed_trail_settle = 1;
-	csi_param->cphy_settle = 0x12;
+	csi_param->legacy_phy = 0;
+	csi_param->not_fixed_trail_settle = 0;
+	//csi_param->cphy_settle = 0x1b;
+	csi_param->cphy_settle = 98;
 	return 0;
 }
 

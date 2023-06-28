@@ -11,7 +11,7 @@
 #include <imsg_log.h>
 
 #define TZ_LOG_SIZE           (PAGE_SIZE * 64)
-#define TZ_LINE_BUFFER_SIZE   256
+#define TZ_LINE_BUFFER_SIZE   512
 
 #define TZ_LOG_RATELIMIT_INTERVAL	(1 * HZ)
 #define TZ_LOG_RATELIMIT_BURST		200

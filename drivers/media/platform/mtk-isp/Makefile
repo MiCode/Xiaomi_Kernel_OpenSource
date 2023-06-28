@@ -3,3 +3,8 @@ obj-m += mtk-hcp/
 obj-m += imgsys/
 obj-y += camsys/
 obj-m += mtk-ipesys-me/
+
+subdir-ccflags-y += -D__XIAOMI_CAMERA__
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"yuechu")
+subdir-ccflags-y += -DYUECHU_CAM
+endif

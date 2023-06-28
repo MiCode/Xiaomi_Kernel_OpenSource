@@ -17,6 +17,7 @@
 #include <linux/timekeeping.h>
 #include <linux/usb/composite.h>
 #include <trace/hooks/sound.h>
+#include <linux/pm_wakeup.h>
 
 #include "usb_boost.h"
 #include "xhci-trace.h"
@@ -103,6 +104,7 @@ static int trigger_cnt_disabled;
 static int enabled;
 static int inited;
 static struct class *usb_boost_class;
+static struct wakeup_source *usb_boost_ws;
 static int cpu_freq_dft_para[_ATTR_PARA_RW_MAXID] = {1, 3, 300, 0};
 static int cpu_core_dft_para[_ATTR_PARA_RW_MAXID] = {1, 3, 300, 0};
 static int dram_vcore_dft_para[_ATTR_PARA_RW_MAXID] = {1, 3, 300, 0};
@@ -829,8 +831,10 @@ void xhci_urb_giveback_dbg(void *unused, struct urb *urb)
 {
 	switch (usb_endpoint_type(&urb->ep->desc)) {
 	case USB_ENDPOINT_XFER_BULK:
-		if (urb->actual_length >= 8192)
+		if (urb->actual_length >= 8192) {
+			__pm_wakeup_event(usb_boost_ws, 10000);
 			usb_boost();
+		}
 		break;
 	case USB_ENDPOINT_XFER_ISOC:
 		update_time_audio();
@@ -871,6 +875,8 @@ int usb_boost_init(void)
 	INIT_WORK(&audio_boost_inst.work, audio_boost_work);
 	/* default off */
 	audio_boost_inst.request_func = __request_empty;
+	/* wakelock */
+	usb_boost_ws = wakeup_source_register(NULL, "usb_boost");
 
 	create_sys_fs();
 	default_setting();

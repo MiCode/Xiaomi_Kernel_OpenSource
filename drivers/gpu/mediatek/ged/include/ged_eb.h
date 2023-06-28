@@ -63,6 +63,7 @@ enum gpu_fastdvfs_share_info {
 	FASTDVFS_COMMIT_VIRTUAL_FREQUENCY = 39,
 	FASTDVFS_COMMIT_TYPE = 40,
 	FASTDVFS_SET_TARGET_MARGIN = 41,
+	FASTDVFS_TA_3D_COEF = 42,
 
 	MAX_FASTDVFS_SHARE_INFO
 };
@@ -181,6 +182,10 @@ enum gpu_fastdvfs_share_info {
 #define SYSRAM_GPU_SET_TARGET_MARGIN \
 (                                      \
 (FASTDVFS_SET_TARGET_MARGIN*SYSRAM_LOG_SIZE) \
+)
+#define SYSRAM_GPU_TA_3D_COEF \
+(                                      \
+(FASTDVFS_TA_3D_COEF*SYSRAM_LOG_SIZE) \
 )
 
 enum action_map {

@@ -477,7 +477,7 @@ static void collect_procs_anon(struct page *page, struct list_head *to_kill,
 	struct anon_vma *av;
 	pgoff_t pgoff;
 
-	av = page_lock_anon_vma_read(page);
+	av = page_lock_anon_vma_read(page, NULL);
 	if (av == NULL)	/* Not actually mapped anymore */
 		return;
 
@@ -1938,6 +1938,7 @@ retry:
 	else if (ret == 0)
 		if (soft_offline_free_page(page) && try_again) {
 			try_again = false;
+			flags &= ~MF_COUNT_INCREASED;
 			goto retry;
 		}
 

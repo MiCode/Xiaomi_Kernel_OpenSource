@@ -31,6 +31,8 @@
 
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
 #include <linux/interconnect.h>
@@ -60,6 +62,56 @@ static unsigned int prev_freq[CM_MGR_CPU_CLUSTER];
 static int cm_mgr_init_done;
 static int cm_mgr_idx = -1;
 spinlock_t cm_mgr_lock;
+
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+void __iomem *csram_base;
+
+
+static void cm_get_base_addr(void)
+{
+	int ret = 0;
+	struct device_node *dn = NULL;
+	struct platform_device *pdev = NULL;
+	struct resource *csram_res = NULL;
+
+	/* get cpufreq driver base address */
+	dn = of_find_node_by_name(NULL, "cpuhvfs");
+	if (!dn) {
+		ret = -ENOMEM;
+		pr_info("find cpuhvfs node failed\n");
+		return;
+	}
+
+	pdev = of_find_device_by_node(dn);
+	of_node_put(dn);
+	if (!pdev) {
+		ret = -ENODEV;
+		pr_info("cpuhvfs is not ready\n");
+		return;
+	}
+
+	csram_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!csram_res) {
+		ret = -ENODEV;
+		pr_info("cpuhvfs resource is not found\n");
+		return;
+	}
+
+	csram_base = ioremap(csram_res->start, resource_size(csram_res));
+	if (IS_ERR_OR_NULL((void *)csram_base)) {
+		ret = -ENOMEM;
+		pr_info("find csram base failed\n");
+		return;
+	}
+}
+
+void csram_write(unsigned int offs, unsigned int val)
+{
+	if (IS_ERR_OR_NULL((void *)csram_base))
+		return;
+	__raw_writel(val, csram_base + (offs));
+}
+#endif
 
 u32 cm_mgr_get_perfs_mt6983(int num)
 {
@@ -133,6 +185,16 @@ void cm_mgr_perf_platform_set_status_mt6983(int enable)
 {
 	unsigned long expires;
 	int down_local;
+	int cm_thresh;
+	unsigned int dsu_perf;
+
+
+	cm_thresh = get_cm_step_num();
+	csram_write(OFFS_CM_THRESH, cm_thresh);
+
+	dsu_perf = get_dsu_perf();
+	csram_write(OFFS_DSU_PERF, dsu_perf);
+
 
 	if (enable || pm_qos_update_request_status) {
 		expires = jiffies + CM_MGR_PERF_TIMEOUT_MS;
@@ -147,21 +209,26 @@ void cm_mgr_perf_platform_set_status_mt6983(int enable)
 
 		perf_now = ktime_get();
 
+		csram_write(OFFS_CM_HINT, 0x3);
+
 		if (cm_mgr_get_dram_opp_base() == -1) {
 			cm_mgr_dram_opp = 0;
 			cm_mgr_set_dram_opp_base(cm_mgr_get_num_perf());
-			icc_set_bw(cm_mgr_get_bw_path(), 0,
+			if (!cm_thresh)
+				icc_set_bw(cm_mgr_get_bw_path(), 0,
 					cm_mgr_perfs[cm_mgr_dram_opp]);
 		} else {
 			if (cm_mgr_dram_opp > 0) {
 				cm_mgr_dram_opp--;
-				icc_set_bw(cm_mgr_get_bw_path(), 0,
+				if (!cm_thresh)
+					icc_set_bw(cm_mgr_get_bw_path(), 0,
 						cm_mgr_perfs[cm_mgr_dram_opp]);
 			}
 		}
 
 		pm_qos_update_request_status = enable;
 	} else {
+		csram_write(OFFS_CM_HINT, 0x2);
 		down_local = debounce_times_perf_down_local_get();
 		if (down_local < 0)
 			return;
@@ -171,7 +238,8 @@ void cm_mgr_perf_platform_set_status_mt6983(int enable)
 		if (down_local <
 				debounce_times_perf_down_get()) {
 			if (cm_mgr_get_dram_opp_base() < 0) {
-				icc_set_bw(cm_mgr_get_bw_path(), 0, 0);
+				if (!cm_thresh)
+					icc_set_bw(cm_mgr_get_bw_path(), 0, 0);
 				pm_qos_update_request_status = enable;
 				debounce_times_perf_down_local_set(-1);
 				goto trace;
@@ -186,12 +254,15 @@ void cm_mgr_perf_platform_set_status_mt6983(int enable)
 			cm_mgr_dram_opp = cm_mgr_get_dram_opp_base() *
 				debounce_times_perf_down_local_get() /
 				debounce_times_perf_down_get();
-			icc_set_bw(cm_mgr_get_bw_path(), 0,
+
+			if (!cm_thresh)
+				icc_set_bw(cm_mgr_get_bw_path(), 0,
 					cm_mgr_perfs[cm_mgr_dram_opp]);
 		} else {
 			cm_mgr_dram_opp = -1;
 			cm_mgr_set_dram_opp_base(cm_mgr_dram_opp);
-			icc_set_bw(cm_mgr_get_bw_path(), 0, 0);
+			if (!cm_thresh)
+				icc_set_bw(cm_mgr_get_bw_path(), 0, 0);
 			pm_qos_update_request_status = enable;
 			debounce_times_perf_down_local_set(-1);
 		}
@@ -209,6 +280,7 @@ static void cm_mgr_perf_platform_set_force_status(int enable)
 {
 	unsigned long expires;
 	int down_force_local;
+
 
 	if (enable || pm_qos_update_request_status) {
 		expires = jiffies + CM_MGR_PERF_TIMEOUT_MS;
@@ -377,6 +449,9 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	pr_info("#@# %s(%d) cm_mgr_num_array %d\n",
 			__func__, __LINE__, cm_mgr_get_num_array());
 
+#if IS_ENABLED(CONFIG_MTK_CM_IPI)
+	cm_get_base_addr();
+#endif
 	ret = cm_mgr_check_dts_setting(pdev);
 	if (ret) {
 		pr_info("[CM_MGR] FAILED TO GET DTS DATA(%d)\n", ret);

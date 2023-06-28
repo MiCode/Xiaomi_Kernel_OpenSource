@@ -64,12 +64,6 @@ module_param(mml_racing_wdone_eoc, int, 0644);
 int mml_hw_perf;
 module_param(mml_hw_perf, int, 0644);
 
-#define mml_msg_qos(fmt, args...) \
-do { \
-	if (mml_qos_log) \
-		pr_notice("[mml]" fmt "\n", ##args); \
-} while (0)
-
 #if IS_ENABLED(CONFIG_MTK_MML_DEBUG)
 /* Assign bit to dump in/out buffer frame
  * bit 0: dump input
@@ -428,9 +422,10 @@ static void dump_inout(struct mml_task *task)
 	u32 i;
 
 	get_frame_str(frame, sizeof(frame), &cfg->info.src);
-	mml_log("in:%s plane:%hhu%s%s job %u mode %hhu",
+	mml_log("in:%s plane:%hhu%s%s%s job %u mode %hhu",
 		frame,
 		task->buf.src.cnt,
+		cfg->info.alpha ? " alpha" : "",
 		task->buf.src.fence ? " fence" : "",
 		task->buf.src.flush ? " flush" : "",
 		task->job.jobid,
@@ -586,18 +581,6 @@ static void mml_core_qos_set(struct mml_task *task, u32 pipe, u32 throughput, u3
 	}
 }
 
-static void mml_core_qos_clear(struct mml_task *task, u32 pipe)
-{
-	const struct mml_topology_path *path = task->config->path[pipe];
-	struct mml_comp *comp;
-	u32 i;
-
-	for (i = 0; i < path->node_cnt; i++) {
-		comp = path->nodes[i].comp;
-		call_hw_op(comp, qos_clear);
-	}
-}
-
 static u64 time_dur_us(const struct timespec64 *lhs, const struct timespec64 *rhs)
 {
 	struct timespec64 delta = timespec64_sub(*lhs, *rhs);
@@ -719,6 +702,8 @@ static void mml_core_dvfs_begin(struct mml_task *task, u32 pipe)
 	/* note the running task not always current begin task */
 	task_pipe_tmp = list_first_entry_or_null(&path_clt->tasks,
 		typeof(*task_pipe_tmp), entry_clt);
+	/* clear so that qos set api report max bw */
+	task_pipe_tmp->bandwidth = 0;
 	mml_core_qos_set(task_pipe_tmp->task, pipe, throughput, tput_up);
 
 	mml_trace_end();
@@ -777,10 +762,6 @@ static void mml_core_dvfs_end(struct mml_task *task, u32 pipe)
 		 */
 		list_del_init(&task_pipe_cur->entry_clt);
 
-		/* clear port qos, skip for racing mode since ports are same */
-		if (!racing_mode)
-			mml_core_qos_clear(task_pipe_cur->task, pipe);
-
 		if (task == task_pipe_cur->task) {
 			/* found ending one, stops delete */
 			break;
@@ -829,13 +810,17 @@ done:
 	path_clt->throughput = throughput;
 	tput_up = mml_qos_update_tput(task->config->mml);
 	if (throughput) {
+		/* clear so that qos set api report max bw */
+		task_pipe_cur->bandwidth = 0;
 		mml_core_qos_set(task_pipe_cur->task, pipe, throughput, tput_up);
 		bandwidth = task_pipe_cur->bandwidth;
 	}
 keep:
-	mml_msg_qos("task dvfs end %s new task %p throughput %u bandwidth %u pixel %u",
+	mml_msg_qos("task dvfs end %s %s task %p throughput %u bandwidth %u pixel %u",
 		racing_mode ? "racing" : "update",
-		task_pipe_cur ? task_pipe_cur->task : NULL, throughput, bandwidth, max_pixel);
+		task_pipe_cur ? "new" : "last",
+		task_pipe_cur ? task_pipe_cur->task : task,
+		throughput, bandwidth, max_pixel);
 exit:
 	if (overdue)
 		mml_trace_tag_end(MML_TTAG_OVERDUE);
@@ -1617,8 +1602,7 @@ static s32 check_label_idx(struct mml_task_reuse *reuse,
 	return 0;
 }
 
-static void add_reuse_label(struct mml_task_reuse *reuse,
-			      u16 *label_idx, u32 value)
+void add_reuse_label(struct mml_task_reuse *reuse, u16 *label_idx, u32 value)
 {
 	*label_idx = reuse->label_idx;
 	reuse->labels[reuse->label_idx].val = value;
@@ -1658,6 +1642,85 @@ s32 mml_write(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
 void mml_update(struct mml_task_reuse *reuse, u16 label_idx, u32 value)
 {
 	reuse->labels[label_idx].val = value;
+}
+
+static s32 mml_reuse_add_offset(struct mml_task_reuse *reuse,
+	struct mml_reuse_array *reuses)
+{
+	struct cmdq_reuse *anchor, *last;
+	u64 offset = 0, off_begin = 0;
+	u32 reuses_idx;
+
+	if (reuse->label_idx < 2 || !reuses->idx)
+		goto add;
+
+	anchor = &reuse->labels[reuse->label_idx - 2];
+	last = anchor + 1;
+	if (last->va < anchor->va)
+		goto add;
+
+	offset = (u64)(last->va - anchor->va);
+	if (offset > MML_REUSE_OFFSET_MAX) {
+		offset = 0;
+		goto add;
+	}
+
+	/* if offset match or no last offset, use same mml_reuse_offset and
+	 * increase the count only instead of add new one into reuse array
+	 */
+	reuses_idx = reuses->idx - 1;
+	if (!reuses->offs[reuses_idx].offset && reuses->offs[reuses_idx].cnt) {
+		reuses->offs[reuses_idx].offset = offset;
+		/* reduce current label since it can offset by previous */
+		reuse->label_idx--;
+		goto inc;
+	}
+
+	off_begin = reuses->offs[reuses_idx].offset * reuses->offs[reuses_idx].cnt;
+	if (offset && offset == off_begin) {
+		if (!reuses->offs[reuses_idx].cnt)
+			mml_err("%s reuse idx %u no count offset %u", __func__, reuses_idx, offset);
+		/* reduce current label since it can offset by previous */
+		reuse->label_idx--;
+		goto inc;
+	}
+
+	/* use last(new) label and clear offset since this is new mml_reuse_offset */
+	offset = 0;
+
+add:
+	if (reuses->idx >= reuses->offs_size) {
+		mml_err("%s label idx %u but reuse array full %u",
+			__func__, reuse->label_idx - 1, reuses->idx);
+		return -ENOMEM;
+	}
+	reuse->labels[reuse->label_idx - 1].op = 0;
+	reuses->offs[reuses->idx].offset = (u16)offset;
+	reuses->offs[reuses->idx].label_idx = reuse->label_idx - 1;
+	/* increase reuse array index to next item */
+	reuses->idx++;
+
+inc:
+	reuses->offs[reuses->idx - 1].cnt++;
+	return 0;
+}
+
+s32 mml_write_array(struct cmdq_pkt *pkt, dma_addr_t addr, u32 value, u32 mask,
+	struct mml_task_reuse *reuse, struct mml_pipe_cache *cache,
+	struct mml_reuse_array *reuses)
+{
+	mml_write(pkt, addr, value, mask, reuse, cache,
+		&reuses->offs[reuses->idx].label_idx);
+	return mml_reuse_add_offset(reuse, reuses);
+}
+
+void mml_update_array(struct mml_task_reuse *reuse,
+	struct mml_reuse_array *reuses, u32 reuse_idx, u32 off_idx, u32 value)
+{
+	struct cmdq_reuse *label = &reuse->labels[reuses->offs[reuse_idx].label_idx];
+	u64 *va = label->va + reuses->offs[reuse_idx].offset * off_idx;
+
+	*va = (*va & GENMASK(63, 32)) | value;
 }
 
 noinline int tracing_mark_write(char *fmt, ...)

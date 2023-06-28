@@ -1650,11 +1650,12 @@ static long writeback_sb_inodes(struct super_block *sb,
 	};
 	unsigned long start_time = jiffies;
 	long write_chunk;
-	long wrote = 0;  /* count both pages and inodes */
+	long total_wrote = 0;  /* count both pages and inodes */
 
 	while (!list_empty(&wb->b_io)) {
 		struct inode *inode = wb_inode(wb->b_io.prev);
 		struct bdi_writeback *tmp_wb;
+		long wrote;
 
 		if (inode->i_sb != sb) {
 			if (work->sb) {
@@ -1730,7 +1731,9 @@ static long writeback_sb_inodes(struct super_block *sb,
 
 		wbc_detach_inode(&wbc);
 		work->nr_pages -= write_chunk - wbc.nr_to_write;
-		wrote += write_chunk - wbc.nr_to_write;
+		wrote = write_chunk - wbc.nr_to_write - wbc.pages_skipped;
+		wrote = wrote < 0 ? 0 : wrote;
+		total_wrote += wrote;
 
 		if (need_resched()) {
 			/*
@@ -1752,7 +1755,7 @@ static long writeback_sb_inodes(struct super_block *sb,
 		tmp_wb = inode_to_wb_and_lock_list(inode);
 		spin_lock(&inode->i_lock);
 		if (!(inode->i_state & I_DIRTY_ALL))
-			wrote++;
+			total_wrote++;
 		requeue_inode(inode, tmp_wb, &wbc);
 		inode_sync_complete(inode);
 		spin_unlock(&inode->i_lock);
@@ -1766,14 +1769,14 @@ static long writeback_sb_inodes(struct super_block *sb,
 		 * bail out to wb_writeback() often enough to check
 		 * background threshold and other termination conditions.
 		 */
-		if (wrote) {
+		if (total_wrote) {
 			if (time_is_before_jiffies(start_time + HZ / 10UL))
 				break;
 			if (work->nr_pages <= 0)
 				break;
 		}
 	}
-	return wrote;
+	return total_wrote;
 }
 
 static long __writeback_inodes_wb(struct bdi_writeback *wb,
@@ -2338,7 +2341,7 @@ void __mark_inode_dirty(struct inode *inode, int flags)
 out_unlock_inode:
 	spin_unlock(&inode->i_lock);
 }
-EXPORT_SYMBOL(__mark_inode_dirty);
+EXPORT_SYMBOL_NS(__mark_inode_dirty, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /*
  * The @s_sync_lock is used to serialise concurrent sync operations
@@ -2504,7 +2507,7 @@ void try_to_writeback_inodes_sb(struct super_block *sb, enum wb_reason reason)
 	__writeback_inodes_sb_nr(sb, get_nr_dirty_pages(), reason, true);
 	up_read(&sb->s_umount);
 }
-EXPORT_SYMBOL(try_to_writeback_inodes_sb);
+EXPORT_SYMBOL_NS(try_to_writeback_inodes_sb, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /**
  * sync_inodes_sb	-	sync sb inode pages
@@ -2571,7 +2574,7 @@ int write_inode_now(struct inode *inode, int sync)
 	might_sleep();
 	return writeback_single_inode(inode, &wbc);
 }
-EXPORT_SYMBOL(write_inode_now);
+EXPORT_SYMBOL_NS(write_inode_now, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /**
  * sync_inode - write an inode and its pages to disk.
@@ -2608,4 +2611,4 @@ int sync_inode_metadata(struct inode *inode, int wait)
 
 	return sync_inode(inode, &wbc);
 }
-EXPORT_SYMBOL(sync_inode_metadata);
+EXPORT_SYMBOL_NS(sync_inode_metadata, ANDROID_GKI_VFS_EXPORT_ONLY);

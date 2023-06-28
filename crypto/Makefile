@@ -4,7 +4,7 @@
 #
 
 obj-$(CONFIG_CRYPTO) += crypto.o
-crypto-y := api.o cipher.o compress.o memneq.o
+crypto-y := api.o cipher.o compress.o
 
 obj-$(CONFIG_CRYPTO_ENGINE) += crypto_engine.o
 obj-$(CONFIG_CRYPTO_FIPS) += fips.o
@@ -211,7 +211,7 @@ UBSAN_SANITIZE_jitterentropy-fips.o = n
 # module that is in scope for FIPS 140-2 certification
 #
 crypto-fips-objs := drbg.o ecb.o cbc.o ctr.o cts.o gcm.o xts.o hmac.o cmac.o \
-		    memneq.o gf128mul.o aes_generic.o lib-crypto-aes.o \
+		    gf128mul.o aes_generic.o lib-crypto-aes.o \
 		    jitterentropy.o jitterentropy-kcapi.o \
 		    sha1_generic.o sha256_generic.o sha512_generic.o \
 		    lib-sha1.o lib-crypto-sha256.o
@@ -239,11 +239,14 @@ fips140-objs := \
 	fips140-refs.o \
 	fips140-selftests.o \
 	crypto-fips.a
+fips140-$(CONFIG_CRYPTO_FIPS140_MOD_EVAL_TESTING) += \
+	fips140-eval-testing.o
 obj-m += fips140.o
 
 CFLAGS_fips140-alg-registration.o += $(FIPS140_CFLAGS)
 CFLAGS_fips140-module.o += $(FIPS140_CFLAGS)
 CFLAGS_fips140-selftests.o += $(FIPS140_CFLAGS)
+CFLAGS_fips140-eval-testing.o += $(FIPS140_CFLAGS)
 
 hostprogs-always-y := fips140_gen_hmac
 HOSTLDLIBS_fips140_gen_hmac := -lcrypto -lelf

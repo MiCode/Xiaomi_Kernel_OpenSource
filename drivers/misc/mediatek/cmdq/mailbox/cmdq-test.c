@@ -625,6 +625,43 @@ static void cmdq_test_mbox_write_dma(
 	cmdq_msg("%s end", __func__);
 }
 
+static void cmdq_test_mbox_write_dma_cpr(
+	struct cmdq_test *test, const bool secure, u32 cnt)
+{
+	struct cmdq_client *clt = secure ? test->sec : test->clt;
+	struct cmdq_pkt *pkt;
+	u32 *dma_va;
+	dma_addr_t dma_pa;
+	s32 i;
+	const u32 pattern = 0xbeef0000;
+
+	cmdq_msg("%s in", __func__);
+	dma_va = cmdq_mbox_buf_alloc(clt, &dma_pa);
+	cmdq_msg("dma pa %#lx", (unsigned long)dma_pa);
+	pkt = cmdq_pkt_create(clt);
+	for (i = 0; i < cnt; i++) {
+		cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX3, pattern + i);
+		cmdq_pkt_assign_command(pkt, CMDQ_CPR_STRAT_ID + i * 2, (u32)dma_pa + i * 4);
+		cmdq_pkt_assign_command(pkt, CMDQ_CPR_STRAT_ID + i * 2 + 1, (u32)(dma_pa >> 32));
+		cmdq_pkt_write_reg_indriect(pkt, CMDQ_CPR_STRAT_ID + CMDQ_CPR64 + i,
+			CMDQ_THR_SPR_IDX3, U32_MAX);
+		*(dma_va + i) = 0xdead0000 + i;
+	}
+
+	cmdq_pkt_flush(pkt);
+	cmdq_pkt_destroy(pkt);
+
+	for (i = 0; i < cnt; i++) {
+		if (*(dma_va + i) != pattern + i)
+			cmdq_err("data %u: %#x fail", i, *(dma_va + i));
+		else
+			cmdq_msg("data %u: %#x match", i, *(dma_va + i));
+	}
+
+	cmdq_mbox_buf_free(test->clt, dma_va, dma_pa);
+	cmdq_msg("%s end", __func__);
+}
+
 static void cmdq_test_mbox_sync_token_flush(struct timer_list *t)
 {
 	u32	val;
@@ -1270,7 +1307,9 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 #endif
 	cmdq_mbox_enable(test->clt->chan);
 	cmdq_mbox_enable(test->loop->chan);
+#ifdef CMDQ_SECURE_SUPPORT
 	cmdq_sec_mbox_enable(test->sec->chan);
+#endif
 
 	switch (id) {
 	case 0:
@@ -1364,11 +1403,16 @@ cmdq_test_trigger(struct cmdq_test *test, const s32 sec, const s32 id)
 		cmdq_test_mbox_vcp(test, false);
 		cmdq_test_mbox_vcp(test, true);
 		break;
+	case 23:
+		cmdq_test_mbox_write_dma_cpr(test, sec, 3);
+		break;
 	default:
 		break;
 	}
 
+#ifdef CMDQ_SECURE_SUPPORT
 	cmdq_sec_mbox_disable(test->sec->chan);
+#endif
 	cmdq_mbox_disable(test->loop->chan);
 	cmdq_mbox_disable(test->clt->chan);
 	cmdq_thread_timeout_restore(thread, backup);

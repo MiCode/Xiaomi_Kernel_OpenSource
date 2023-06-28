@@ -11,6 +11,7 @@ ccflags-y += -I$(srctree)/drivers/media/platform/mtk-isp/mtk-ipesys-me/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(srctree)/drivers/iommu
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/iommu
+ccflags-y += -I$(srctree)/include/soc/mediatek
 
 
 ifneq ($(wildcard $(srctree)/include/dt-bindings/memory/mt6983-larb-port.h),)

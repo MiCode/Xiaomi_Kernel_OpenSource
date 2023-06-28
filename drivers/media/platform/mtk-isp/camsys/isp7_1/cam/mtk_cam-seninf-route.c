@@ -351,11 +351,13 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	ctrl->p_new.p = csi_param;
 
 	ret = get_ctrl(ctrl);
-	dev_info(ctx->dev, "%s get_ctrl ret:%d 0x%x|0x%x|0x%x|0x%x\n", __func__,
+	dev_info(ctx->dev, "%s get_ctrl ret:%d %d|%d|%d|%d|%d|%d\n", __func__,
 		ret, csi_param->cphy_settle,
 		csi_param->dphy_clk_settle,
 		csi_param->dphy_data_settle,
-		csi_param->dphy_trail);
+		csi_param->dphy_trail,
+		csi_param->not_fixed_trail_settle,
+		csi_param->legacy_phy);
 
 	return 0;
 }
@@ -401,6 +403,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		vc->vc = fd.entry[i].bus.csi2.channel;
 		vc->dt = fd.entry[i].bus.csi2.data_type;
 		desc = fd.entry[i].bus.csi2.user_data_desc;
+		vc->dt_remap_to_type = fd.entry[i].bus.csi2.dt_remap_to_type;
 
 		switch (desc) {
 		case VC_3HDR_Y:

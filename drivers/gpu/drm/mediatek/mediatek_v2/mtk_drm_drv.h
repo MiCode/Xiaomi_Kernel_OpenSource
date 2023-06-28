@@ -99,6 +99,7 @@ struct mtk_drm_private {
 	enum MTK_DRM_SESSION_MODE session_mode;
 	atomic_t crtc_present[MAX_CRTC];
 	atomic_t crtc_sf_present[MAX_CRTC];
+	atomic_t crtc_rel_present[MAX_CRTC];
 
 	struct device_node *mutex_node;
 	struct device *mutex_dev;
@@ -113,6 +114,7 @@ struct mtk_drm_private {
 	struct device_node *comp_node[DDP_COMPONENT_ID_MAX];
 	struct mtk_ddp_comp *ddp_comp[DDP_COMPONENT_ID_MAX];
 	const struct mtk_mmsys_driver_data *data;
+	unsigned int panel_power_src_vio18;
 
 	struct {
 		struct drm_atomic_state *state;
@@ -179,6 +181,9 @@ struct mtk_drm_private {
 	struct mml_drm_ctx *mml_ctx;
 	atomic_t mml_job_done;
 	wait_queue_head_t signal_mml_job_done_wq;
+	unsigned int *dummy_table_backup;
+  
+	unsigned int seg_id;
 };
 
 struct mtk_drm_property {
@@ -268,6 +273,8 @@ extern struct platform_driver mtk_disp_dli_async_driver;
 extern struct platform_driver mtk_disp_inlinerotate_driver;
 extern struct platform_driver mtk_mmlsys_bypass_driver;
 extern struct mtk_drm_disp_sec_cb disp_sec_cb;
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
 
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);
@@ -292,6 +299,8 @@ int lcm_fps_ctx_update(unsigned long long cur_ns,
 		unsigned int crtc_id, unsigned int mode);
 int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
 bool mtk_drm_lcm_is_connect(void);
+bool mtk_crtc_alloc_sram(struct mtk_drm_crtc *mtk_crtc);
+
 int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 	unsigned int *fps);
 struct mml_drm_ctx *mtk_drm_get_mml_drm_ctx(struct drm_device *dev,

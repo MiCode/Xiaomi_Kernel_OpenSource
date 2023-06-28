@@ -17,6 +17,8 @@
 #define MAX_MRAW_VIDEO_DEV_NUM 2
 #define USING_MRAW_SCQ 1
 
+#define MRAW_CHECK_TS 0
+
 #define MRAW_WRITE_BITS(RegAddr, RegName, FieldName, FieldValue) do {\
 	union RegName reg;\
 	\
@@ -223,6 +225,7 @@ struct mtk_mraw_pipeline {
 
 	/* seninf pad index */
 	u32 seninf_padidx;
+	u64 ts_mraw;
 
 	unsigned int cammux_id;
 };
@@ -248,6 +251,10 @@ struct mtk_mraw_device {
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;
 	unsigned int is_enqueued;
+	u64 fbc_iszero_cnt;
+	u64 last_wcnt;
+	u64 wcnt_no_dup_cnt;
+	unsigned int is_fbc_cnt_zero_happen;
 };
 
 struct mtk_mraw {
@@ -272,7 +279,7 @@ int mtk_cam_mraw_pipeline_config(struct mtk_cam_ctx *ctx, unsigned int idx);
 struct device *mtk_cam_find_mraw_dev(
 	struct mtk_cam_device *cam, unsigned int mraw_mask);
 int mtk_cam_mraw_update_all_buffer_ts(struct mtk_cam_ctx *ctx, u64 ts_ns);
-int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx);
+int mtk_cam_mraw_apply_all_buffers(struct mtk_cam_ctx *ctx, bool is_check_ts);
 int mtk_cam_mraw_apply_next_buffer(struct mtk_cam_ctx *ctx, unsigned int pipe_id, u64 ts_ns);
 int mtk_cam_mraw_dev_config(
 	struct mtk_cam_ctx *ctx, unsigned int idx);
@@ -310,6 +317,15 @@ int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data);
 #endif
 void mtk_cam_mraw_update_param(struct mtkcam_ipi_frame_param *frame_param,
 	struct mtk_mraw_pipeline *mraw_pipline);
+void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
+	unsigned int *width, unsigned int *height);
+void mtk_cam_mraw_get_mbn_size(struct mtk_cam_device *cam, unsigned int pipe_id,
+	unsigned int *width, unsigned int *height);
+void mtk_cam_mraw_get_cpi_size(struct mtk_cam_device *cam, unsigned int pipe_id,
+	unsigned int *width, unsigned int *height);
+void mraw_check_fbc_no_deque(struct mtk_cam_ctx *ctx,
+	struct mtk_mraw_device *mraw_dev,
+	int fbc_cnt, int write_cnt, unsigned int dequeued_frame_seq_no);
 
 extern struct platform_driver mtk_cam_mraw_driver;
 

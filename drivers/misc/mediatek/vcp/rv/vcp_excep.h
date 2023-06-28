@@ -31,7 +31,7 @@ struct vcp_status_reg {
 	uint32_t sp_latch;
 };
 
-extern void vcp_dump_last_regs(void);
+extern void vcp_dump_last_regs(int mmup_enable);
 extern void vcp_aed(enum VCP_RESET_TYPE type, enum vcp_core_id id);
 extern void vcp_aed_reset(enum vcp_excep_id type, enum vcp_core_id id);
 extern void vcp_aed_reset_inplace(enum vcp_excep_id type,

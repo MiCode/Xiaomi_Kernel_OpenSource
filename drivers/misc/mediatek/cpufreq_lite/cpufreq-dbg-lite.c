@@ -168,6 +168,7 @@ static int mtk_cpudvfs_init(void)
 	if (ret)
 		pr_info("eem dbg init fail: %d\n", ret);
 #endif
+	mtk_devinfo_init(pdev);
 	return 0;
 }
 module_init(mtk_cpudvfs_init);

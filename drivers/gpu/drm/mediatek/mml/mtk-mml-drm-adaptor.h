@@ -15,6 +15,10 @@
 struct mml_drm_ctx;
 struct cmdq_pkt;
 
+/* default lcm pixel, helps calculate HRT bandwidth */
+#define MML_DEFAULT_PANEL_PX	(1080 * 2412)
+#define MML_HRT_FPS		120
+
 struct mml_drm_param {
 	/* [in]set true if display uses dual pipe */
 	bool dual;
@@ -78,6 +82,19 @@ bool mml_drm_ctx_idle(struct mml_drm_ctx *ctx);
  * @ctx:	The drm context instance.
  */
 void mml_drm_put_context(struct mml_drm_ctx *ctx);
+
+/*
+ * mml_drm_set_panel_pixel - Set pixel count of display panel (lcm) pixel count
+ * This value helps mml calculate HRT bandwidth. See frame_calc_layer_hrt for
+ * more detail.
+ *
+ * Note this API also update currecnt existing frame config HRT base on new
+ * panel pixel count.
+ *
+ * @ctx:	The drm context instance.
+ * @pixel:	Pixel count of panel. Default value is 1080 * 2412.
+ */
+void mml_drm_set_panel_pixel(struct mml_drm_ctx *ctx, u32 pixel);
 
 /*
  * mml_drm_racing_config_sync - append event sync instructions to disp pkt

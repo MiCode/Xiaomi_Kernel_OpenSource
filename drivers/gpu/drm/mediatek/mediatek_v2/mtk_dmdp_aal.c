@@ -35,6 +35,9 @@
 #define DMDP_AAL_R2Y_00		0x04D4
 
 #define AAL_EN BIT(0)
+
+static atomic_t g_dmdp_aal_force_relay = ATOMIC_INIT(0);
+
 static int g_dre30_support;
 struct mtk_dmdp_aal_data {
 	bool support_shadow;
@@ -86,16 +89,23 @@ static void mtk_dmdp_aal_stop(struct mtk_ddp_comp *comp,
 static void mtk_dmdp_aal_bypass(struct mtk_ddp_comp *comp, int bypass,
 	struct cmdq_pkt *handle)
 {
-	DDPINFO("%s : bypass = %d\n", __func__, bypass);
+	DDPINFO("%s : bypass = %d g_dre30_support = %d\n",
+			__func__, bypass, g_dre30_support);
+	atomic_set(&g_dmdp_aal_force_relay, bypass);
+	if (g_dre30_support) {
+		if (bypass == 1) {
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_EN,
+				   AAL_EN, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
+				   0x400003, ~0);
+		} else if (bypass == 0) {
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_EN,
+				   AAL_EN, ~0);
+			cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
+				   0x00400022, ~0);
+		}
 
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_EN,
-		       AAL_EN, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DMDP_AAL_CFG,
-		       0x400003, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DMDP_AAL_CFG_MAIN, 0, ~0);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DMDP_AAL_DRE_BILATERAL, 0, ~0);
+	}
 }
 
 static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
@@ -113,7 +123,7 @@ static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 
 	DDPINFO("%s: 0x%08x\n", __func__, val);
 
-	if (g_dre30_support == 0)
+	if (g_dre30_support == 0 || atomic_read(&g_dmdp_aal_force_relay) == 1)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DMDP_AAL_CFG, 1, 0x1);
 	else
@@ -132,6 +142,10 @@ static void mtk_dmdp_aal_config(struct mtk_ddp_comp *comp,
 			comp->regs_pa + DMDP_AAL_Y2R_00, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DMDP_AAL_R2Y_00, 0, ~0);
+	DDPINFO("%s: g_dmdp_aal_force_relay[%d]",
+		__func__, atomic_read(&g_dmdp_aal_force_relay));
+	DDPINFO("%s: DMDP_AAL_CFG = 0x%08x comp_id:%d\n",
+			__func__, readl(comp->regs + DMDP_AAL_CFG), comp->id);
 }
 
 void mtk_dmdp_aal_first_cfg(struct mtk_ddp_comp *comp,
@@ -165,6 +179,7 @@ struct aal_backup { /* structure for backup AAL register value */
 	unsigned int DRE1_TILE_00;
 	unsigned int TILE_01;
 	unsigned int TILE_02;
+	unsigned int AAL_CFG;
 };
 static struct aal_backup g_aal_backup;
 
@@ -237,11 +252,19 @@ static void ddp_aal_dre_backup(struct mtk_ddp_comp *comp)
 		readl(comp->regs + DMDP_AAL_DRE_MAPPING_00);
 }
 
+static void ddp_aal_cfg_backup(struct mtk_ddp_comp *comp)
+{
+	g_aal_backup.AAL_CFG = readl(comp->regs + DMDP_AAL_CFG);
+	DDPINFO("%s g_aal_backup.AAL_CFG = 0x%08x",
+			__func__, g_aal_backup.AAL_CFG);
+}
+
 static void mtk_dmdp_aal_backup(struct mtk_ddp_comp *comp)
 {
 	DDPINFO("%s\n", __func__);
 	ddp_aal_dre_backup(comp);
 	ddp_aal_dre3_backup(comp);
+	ddp_aal_cfg_backup(comp);
 	atomic_set(&g_aal_initialed, 1);
 }
 
@@ -300,6 +323,13 @@ static void ddp_aal_dre_restore(struct mtk_ddp_comp *comp)
 		comp->regs + DMDP_AAL_DRE_MAPPING_00);
 }
 
+static void ddp_aal_cfg_restore(struct mtk_ddp_comp *comp)
+{
+	writel(g_aal_backup.AAL_CFG, comp->regs + DMDP_AAL_CFG);
+	DDPINFO("%s g_aal_backup.AAL_CFG = 0x%08x",
+			__func__, g_aal_backup.AAL_CFG);
+}
+
 static void mtk_dmdp_aal_restore(struct mtk_ddp_comp *comp)
 {
 	if (atomic_read(&g_aal_initialed) != 1)
@@ -308,6 +338,8 @@ static void mtk_dmdp_aal_restore(struct mtk_ddp_comp *comp)
 	DDPINFO("%s\n", __func__);
 	ddp_aal_dre_restore(comp);
 	ddp_aal_dre3_restore(comp);
+	ddp_aal_cfg_restore(comp);
+
 }
 
 static void mtk_dmdp_aal_prepare(struct mtk_ddp_comp *comp)

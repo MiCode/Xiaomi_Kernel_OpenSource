@@ -23,6 +23,7 @@
 #include "mtk_drm_drv.h"
 #include "mtk_disp_color.h"
 #include "mtk_dump.h"
+#include "mtk_disp_ccorr.h"
 
 #define UNUSED(expr) (void)(expr)
 #define index_of_color(module) ((module == DDP_COMPONENT_COLOR0) ? 0 : 1)
@@ -57,9 +58,13 @@ static struct DISPLAY_COLOR_REG g_color_reg;
 static int g_color_reg_valid;
 //for DISP_COLOR_TUNING
 static unsigned int g_width;
+
+bool g_legacy_color_cust;
+
 #define C1_OFFSET (0)
 #define color_get_offset(module) (0)
 #define is_color1_module(module) (0)
+struct drm_mtk_ccorr_caps g_ccorr_caps;
 
 enum COLOR_IOCTL_CMD {
 	SET_PQPARAM = 0,
@@ -1216,6 +1221,7 @@ struct DISP_PQ_PARAM *get_Color_config(int id)
 
 struct DISPLAY_PQ_T *get_Color_index(void)
 {
+	g_legacy_color_cust = true;
 	return &g_Color_Index;
 }
 
@@ -1304,16 +1310,16 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			/* to keep the wide-gamut range */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x03);
+				0x03, 0x03);
 		} else {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x01);
+				0x03, 0x03);
 		}
 
 		/* also set no rounding on Y2R */
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x11, 0x11);
+			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x01, 0x01);
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
@@ -1334,10 +1340,10 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_COLOR_G_PIC_ADJ_MAIN_1,
 		(g_Color_Index.BRIGHTNESS[pq_param_p->u4Brightness] << 16) |
-		g_Color_Index.CONTRAST[pq_param_p->u4Contrast], 0x07FF01FF);
+		g_Color_Index.CONTRAST[pq_param_p->u4Contrast], 0x07FF03FF);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_COLOR_G_PIC_ADJ_MAIN_2,
-		g_Color_Index.GLOBAL_SAT[pq_param_p->u4SatGain], 0x000001FF);
+		g_Color_Index.GLOBAL_SAT[pq_param_p->u4SatGain], 0x000003FF);
 
 	/* Partial Y Function */
 	for (index = 0; index < 8; index++) {
@@ -1702,13 +1708,22 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 
 	if (g_color_bypass[id] == 0) {
 		if (color->data->support_color21 == true) {
-			cmdq_pkt_write(handle, comp->cmdq_base,
-				comp->regs_pa + DISP_COLOR_CFG_MAIN,
-				(1 << 21)
-				| (g_Color_Index.LSP_EN << 20)
-				| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
-				| (wide_gamut_en << 8)
-				| (0 << 7), 0x003081FF);
+			if (g_legacy_color_cust)
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DISP_COLOR_CFG_MAIN,
+					(1 << 21)
+					| (g_Color_Index.LSP_EN << 20)
+					| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
+					| (wide_gamut_en << 8)
+					| (0 << 7), 0x003081FF);
+			else
+				cmdq_pkt_write(handle, comp->cmdq_base,
+					comp->regs_pa + DISP_COLOR_CFG_MAIN,
+					(1 << 21)
+					| (color_reg->LSP_EN << 20)
+					| (color_reg->S_GAIN_BY_Y_EN << 15)
+					| (wide_gamut_en << 8)
+					| (0 << 7), 0x003081FF);
 		} else {
 			/* disable wide_gamut */
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1727,16 +1742,16 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 			/* to keep the wide-gamut range */
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x03);
+				0x03, 0x03);
 		} else {
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				comp->regs_pa + DISP_COLOR_CM1_EN(color),
-				0x01, 0x01);
+				0x03, 0x03);
 		}
 
 		/* also set no rounding on Y2R */
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x11, 0x11);
+			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x01, 0x01);
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN,
@@ -1757,10 +1772,10 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_COLOR_G_PIC_ADJ_MAIN_1,
 		(color_reg->BRIGHTNESS << 16) | color_reg->CONTRAST,
-		0x07FF01FF);
+		0x07FF03FF);
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_COLOR_G_PIC_ADJ_MAIN_2,
-		color_reg->GLOBAL_SAT, 0x000001FF);
+		color_reg->GLOBAL_SAT, 0x000003FF);
 
 	/* Partial Y Function */
 	for (index = 0; index < 8; index++) {
@@ -1995,13 +2010,22 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 		reg_index = 0;
 		for (i = 0; i < S_GAIN_BY_Y_CONTROL_CNT; i++) {
 			for (j = 0; j < S_GAIN_BY_Y_HUE_PHASE_CNT; j += 4) {
-				u4Temp = (g_Color_Index.S_GAIN_BY_Y[i][j]) +
-					(g_Color_Index.S_GAIN_BY_Y[i][j + 1]
-					<< 8) +
-					(g_Color_Index.S_GAIN_BY_Y[i][j + 2]
-					<< 16) +
-					(g_Color_Index.S_GAIN_BY_Y[i][j + 3]
-					<< 24);
+				if (g_legacy_color_cust)
+					u4Temp = (g_Color_Index.S_GAIN_BY_Y[i][j]) +
+						(g_Color_Index.S_GAIN_BY_Y[i][j + 1]
+						<< 8) +
+						(g_Color_Index.S_GAIN_BY_Y[i][j + 2]
+						<< 16) +
+						(g_Color_Index.S_GAIN_BY_Y[i][j + 3]
+						<< 24);
+				else
+					u4Temp = (color_reg->S_GAIN_BY_Y[i][j]) +
+						(color_reg->S_GAIN_BY_Y[i][j + 1]
+						<< 8) +
+						(color_reg->S_GAIN_BY_Y[i][j + 2]
+						<< 16) +
+						(color_reg->S_GAIN_BY_Y[i][j + 3]
+						<< 24);
 
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa +
@@ -2130,10 +2154,10 @@ static void mtk_color_config(struct mtk_ddp_comp *comp,
 		       comp->regs_pa + DISP_COLOR_HEIGHT(color), cfg->h, ~0);
 
 	// set color_8bit_switch register
-	if (cfg->bpc == 8)
+	if (cfg->source_bpc == 8)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN, (0x1 << 25), (0x1 << 25));
-	else if (cfg->bpc == 10)
+	else if (cfg->source_bpc == 10)
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CFG_MAIN, (0x0 << 25), (0x1 << 25));
 	else
@@ -2694,15 +2718,20 @@ int mtk_drm_ioctl_read_sw_reg(struct drm_device *dev, void *data,
 		private->ddp_comp[DDP_COMPONENT_GAMMA0];
 	struct mtk_ddp_comp *aal_comp =
 		private->ddp_comp[DDP_COMPONENT_AAL0];
-#if defined(CCORR_SUPPORT)
-	struct mtk_ddp_comp *ccorr_comp =
-		private->ddp_comp[DDP_COMPONENT_CCORR0];
-#endif
 	struct mtk_ddp_comp *disp_tdshp_comp =
 		private->ddp_comp[DDP_COMPONENT_TDSHP0];
 	unsigned int ret = 0;
 	unsigned int reg_id = rParams->reg;
 	struct resource res;
+#if defined(CCORR_SUPPORT)
+	struct mtk_ddp_comp *ccorr_comp;
+
+	mtk_get_ccorr_caps(&g_ccorr_caps);
+	if (g_ccorr_caps.ccorr_number != 2)
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR0];
+	else
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR1];
+#endif
 
 	if (reg_id >= SWREG_PQDS_DS_EN && reg_id <= SWREG_PQDS_GAIN_0) {
 		ret = (unsigned int)g_PQ_DS_Param.param
@@ -2961,8 +2990,13 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_COLOR0];
 	unsigned long flags;
-	struct mtk_ddp_comp *ccorr_comp =
-		private->ddp_comp[DDP_COMPONENT_CCORR0];
+	struct mtk_ddp_comp *ccorr_comp;
+
+	mtk_get_ccorr_caps(&g_ccorr_caps);
+	if (g_ccorr_caps.ccorr_number != 2)
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR0];
+	else
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR1];
 
 	pa = (unsigned int)rParams->reg;
 
@@ -2981,9 +3015,10 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 		rParams->val = readl(va) & rParams->mask;
 
 		// For CCORR COEF, real values need to right shift one bit
-		if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
+	/*	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
 			pa <= ccorr_comp->regs_pa + CCORR_REG(4))
 			rParams->val = rParams->val >> 1;
+	*/
 
 		spin_unlock_irqrestore(&g_color_clock_lock, flags);
 	} else {
@@ -3009,19 +3044,27 @@ int mtk_drm_ioctl_write_reg(struct drm_device *dev, void *data,
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_COLOR0];
 	struct drm_crtc *crtc = private->crtc[0];
 	struct DISP_WRITE_REG *wParams = data;
-	struct mtk_ddp_comp *ccorr_comp =
-		private->ddp_comp[DDP_COMPONENT_CCORR0];
-	unsigned int pa = (unsigned int)wParams->reg;
+	struct mtk_ddp_comp *ccorr_comp;
+	unsigned int pa;
+
+	mtk_get_ccorr_caps(&g_ccorr_caps);
+	if (g_ccorr_caps.ccorr_number != 2)
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR0];
+	else
+		ccorr_comp = private->ddp_comp[DDP_COMPONENT_CCORR1];
+
+	pa = (unsigned int)wParams->reg;
 
 	if (color_is_reg_addr_valid(comp, pa) < 0) {
 		DDPPR_ERR("reg write, addr invalid, pa:0x%x\n", pa);
 		return -EFAULT;
 	}
 
-	// For 6885 CCORR COEF, real values need to left shift one bit
+/*	// For 6885 CCORR COEF, real values need to left shift one bit
 	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
 		pa <= ccorr_comp->regs_pa + CCORR_REG(4))
 		wParams->val = wParams->val << 1;
+	*/
 
 	return mtk_crtc_user_cmd(crtc, comp, WRITE_REG, data);
 }
@@ -3134,26 +3177,19 @@ static void mtk_color_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 static void mtk_color_bypass(struct mtk_ddp_comp *comp, int bypass,
 	struct cmdq_pkt *handle)
 {
-	struct mtk_disp_color *color = comp_to_color(comp);
+	DDPINFO("%s: bypass %d\n", __func__, bypass);
 
-	DDPINFO("%s: bypass: %d\n", __func__, bypass);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_COLOR_CFG_MAIN,
-		       COLOR_BYPASS_ALL | COLOR_SEQ_SEL, ~0);
+	g_color_bypass[index_of_color(comp->id)] = bypass;
 
-	/* disable R2Y/Y2R in Color Wrapper */
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_COLOR_CM1_EN(color), 0, 0x1);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_COLOR_CM2_EN(color), 0, 0x1);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_COLOR_START(color), 0x3, 0x3);
-
-	/*
-	 * writel(0, comp->regs + DISP_COLOR_CM1_EN);
-	 * writel(0, comp->regs + DISP_COLOR_CM2_EN);
-	 * writel(0x1, comp->regs + DISP_COLOR_START(color));
-	 */
+	if (bypass) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_COLOR_CFG_MAIN,
+			(1 << 7), 0xFF); /* bypass all */
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_COLOR_CFG_MAIN,
+			(0 << 7), 0xFF); /* resume all */
+	}
 }
 
 void disp_color_write_pos_main_for_dual_pipe(struct mtk_ddp_comp *comp,
@@ -3405,9 +3441,52 @@ void mtk_color_dump(struct mtk_ddp_comp *comp)
 {
 	void __iomem *baddr = comp->regs;
 
+	//DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
+	//mtk_serial_dump_reg(baddr, 0x400, 3);
+	//mtk_serial_dump_reg(baddr, 0xC50, 2);
 	DDPDUMP("== %s REGS:0x%x ==\n", mtk_dump_comp_str(comp), comp->regs_pa);
-	mtk_serial_dump_reg(baddr, 0x400, 3);
-	mtk_serial_dump_reg(baddr, 0xC50, 2);
+	mtk_cust_dump_reg(baddr, 0x400, 0x404, 0x408, 0x40C);
+	mtk_cust_dump_reg(baddr, 0x410, 0x418, 0x41C, 0x420);
+	mtk_cust_dump_reg(baddr, 0x428, 0x42C, 0x430, 0x434);
+	mtk_cust_dump_reg(baddr, 0x438, 0x484, 0x488, 0x48C);
+	mtk_cust_dump_reg(baddr, 0x490, 0x494, 0x498, 0x49C);
+	mtk_cust_dump_reg(baddr, 0x4A0, 0x4A4, 0x4A8, 0x4AC);
+	mtk_cust_dump_reg(baddr, 0x4B0, 0x4B4, 0x4B8, 0x4BC);
+	mtk_cust_dump_reg(baddr, 0x620, 0x624, 0x628, 0x62C);
+	mtk_cust_dump_reg(baddr, 0x630, 0x740, 0x74C, 0x768);
+	mtk_cust_dump_reg(baddr, 0x76C, 0x79C, 0x7E0, 0x7E4);
+	mtk_cust_dump_reg(baddr, 0x7E8, 0x7EC, 0x7F0, 0x7FC);
+	mtk_cust_dump_reg(baddr, 0x800, 0x804, 0x808, 0x80C);
+	mtk_cust_dump_reg(baddr, 0x810, 0x814, 0x818, 0x81C);
+	mtk_cust_dump_reg(baddr, 0x820, 0x824, 0x828, 0x82C);
+	mtk_cust_dump_reg(baddr, 0x830, 0x834, 0x838, 0x83C);
+	mtk_cust_dump_reg(baddr, 0x840, 0x844, 0x848, 0x84C);
+	mtk_cust_dump_reg(baddr, 0x850, 0x854, 0x858, 0x85C);
+	//lepin
+	mtk_cust_dump_reg(baddr, 0x860, 0x864, 0x868, 0x86C);
+	mtk_cust_dump_reg(baddr, 0x870, 0x874, 0x878, 0x87C);
+	mtk_cust_dump_reg(baddr, 0x880, 0x884, 0x888, 0x88C);
+	mtk_cust_dump_reg(baddr, 0x890, 0x894, 0x898, 0x89C);
+	mtk_cust_dump_reg(baddr, 0x8A0, 0x8A4, 0x8A8, 0x8AC);
+	mtk_cust_dump_reg(baddr, 0x8B0, 0x8B4, 0x8B8, 0x8BC);
+	mtk_cust_dump_reg(baddr, 0x8C0, 0x8C4, 0x8C8, 0x8CC);
+	mtk_cust_dump_reg(baddr, 0x8D0, 0x8D4, 0x8D8, 0x8DC);
+	mtk_cust_dump_reg(baddr, 0x8E0, 0x8E4, 0x8E8, 0x8EC);
+	mtk_cust_dump_reg(baddr, 0x8F0, 0x8F4, 0x8F8, 0x8FC);
+	mtk_cust_dump_reg(baddr, 0x900, 0x904, 0x908, 0x90C);
+	mtk_cust_dump_reg(baddr, 0x910, 0x914, -1, -1);
+	//
+	mtk_cust_dump_reg(baddr, 0xC00, 0xC04, 0xC08, 0xC0C);
+	mtk_cust_dump_reg(baddr, 0xC10, 0xC14, 0xC18, 0xC28);
+	mtk_cust_dump_reg(baddr, 0xC50, 0xC54, 0xC60, 0xCA0);
+	mtk_cust_dump_reg(baddr, 0xCB0, 0xCF0, 0xCF4, 0xCF8);
+	mtk_cust_dump_reg(baddr, 0xCFC, 0xD00, 0xD04, 0xD08);
+	mtk_cust_dump_reg(baddr, 0xD0C, 0xD10, 0xD14, 0xD18);
+	mtk_cust_dump_reg(baddr, 0xD1C, 0xD20, 0xD24, 0xD28);
+	mtk_cust_dump_reg(baddr, 0xD2C, 0xD30, 0xD34, 0xD38);
+	mtk_cust_dump_reg(baddr, 0xD3C, 0xD40, 0xD44, 0xD48);
+	mtk_cust_dump_reg(baddr, 0xD4C, 0xD50, 0xD54, 0xD58);
+	mtk_cust_dump_reg(baddr, 0xD5C, -1, -1, -1);
 }
 
 static int mtk_disp_color_bind(struct device *dev, struct device *master,
@@ -3480,6 +3559,8 @@ static int mtk_disp_color_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add component: %d\n", ret);
 		mtk_ddp_comp_pm_disable(&priv->ddp_comp);
 	}
+
+	g_legacy_color_cust = false;
 	DDPINFO("%s-\n", __func__);
 
 	return ret;

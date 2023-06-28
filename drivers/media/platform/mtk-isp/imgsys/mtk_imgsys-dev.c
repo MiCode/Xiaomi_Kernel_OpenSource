@@ -756,7 +756,7 @@ static void mtk_imgsys_desc_fill_dmabuf(struct mtk_imgsys_pipe *pipe,
 	struct v4l2_ext_plane *plane;
 
 	for (i = 0; i < FRAME_BUF_MAX; i++) {
-		for (j = 0; j < IMGBUF_MAX_PLANES; j++) {
+		for (j = 0; j < fparams->bufs[i].buf.num_planes; j++) {
 			plane = &fparams->bufs[i].buf.planes[j];
 			if (plane->m.dma_buf.fd == 0)
 				continue;
@@ -845,7 +845,7 @@ static void mtk_imgsys_desc_iova(struct mtk_imgsys_pipe *pipe,
 	IMGSYS_SYSTRACE_BEGIN("%s\n", __func__);
 
 	for (i = 0; i < FRAME_BUF_MAX; i++) {
-		for (j = 0; j < IMGBUF_MAX_PLANES; j++) {
+		for (j = 0; j < fparams->bufs[i].buf.num_planes; j++) {
 			if (fparams->bufs[i].buf.planes[j].m.dma_buf.fd == 0)
 				continue;
 
@@ -1284,7 +1284,7 @@ static void mtk_imgsys_std2desc_fill_bufinfo(struct mtk_imgsys_pipe *pipe,
 	ipidma->fparams[0][0].bufs[0].fmt.fmt.pix_mp.pixelformat =
 					dev_buf->fmt.fmt.pix_mp.pixelformat;
 
-	for (i = 0; i < IMGBUF_MAX_PLANES; i++) {
+	for (i = 0; i < ipidma->fparams[0][0].bufs[0].buf.num_planes; i++) {
 		vfmt = &dev_buf->fmt.fmt.pix_mp.plane_fmt[i];
 		bfmt =
 		&ipidma->fparams[0][0].bufs[0].fmt.fmt.pix_mp.plane_fmt[i];

@@ -11,16 +11,15 @@
 enum RC_CTRL_CMD {
 	HW = 0,
 	SW_OFF,
-	SW_BBLPM,
 	SW_FPM,
 	SW_LPM,
+	SW_BBLPM = 3,
 	MAX_RC_REQ_NUM
 };
 
 static const char * const rc_req_list[] = {
 	"HW",
 	"SW_OFF",
-	"SW_BBLPM",
 	"SW_FPM",
 	"SW_LPM",
 };
@@ -39,8 +38,6 @@ struct clkbuf_misc {
 extern int clk_buf_ctrl(const char *xo_name, bool onoff);
 extern int clk_buf_hw_ctrl(const char *xo_name, bool onoff);
 extern int clk_buf_voter_ctrl_by_id(const uint8_t subsys_id, enum RC_CTRL_CMD rc_req);
-extern int clk_buf_set_by_flightmode(bool on);
-extern int clk_buf_control_bblpm(bool on);
 extern int clk_buf_dump_log(void);
 extern int clk_buf_get_xo_en_sta(const char *xo_name);
 extern int clk_buf_bblpm_enter_cond(void);

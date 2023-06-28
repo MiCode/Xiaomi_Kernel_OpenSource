@@ -491,6 +491,8 @@ void check_for_migration(struct task_struct *p)
 			return;
 
 		pd = em_cpu_get(cpu);
+		if (!pd)
+			return;
 		thre_idx = (pd->nr_perf_states >> 3) - 1;
 		if (thre_idx >= 0)
 			thre = pd->table[thre_idx].frequency;
@@ -526,7 +528,6 @@ void check_for_migration(struct task_struct *p)
 		} else {
 #if IS_ENABLED(CONFIG_MTK_SCHED_BIG_TASK_ROTATE)
 			int thre_rot = 0, thre_rot_idx = 0;
-
 			thre_rot_idx = (pd->nr_perf_states >> 1) - 1;
 			if (thre_rot_idx >= 0)
 				thre_rot = pd->table[thre_rot_idx].frequency;

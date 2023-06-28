@@ -88,17 +88,18 @@ struct cmdq_sec_helper_fp *cmdq_sec_helper;
 
 #define VCP_TO_SPM_REG_PA			(0x1ec24098)
 #define VCP_USER_CNT		(8)
-#define MMINFRA_BASE			(0x1e800000)
-#define MMINFRA_MBIST_DELSEL10	(MMINFRA_BASE + 0xa28)
-#define MMINFRA_MBIST_DELSEL11	(MMINFRA_BASE + 0xa2c)
-#define MMINFRA_MBIST_DELSEL12	(MMINFRA_BASE + 0xa30)
-#define MMINFRA_MBIST_DELSEL13	(MMINFRA_BASE + 0xa34)
-#define MMINFRA_MBIST_DELSEL14	(MMINFRA_BASE + 0xa38)
-#define MMINFRA_MBIST_DELSEL15	(MMINFRA_BASE + 0xa3c)
-#define MMINFRA_MBIST_DELSEL16	(MMINFRA_BASE + 0xa40)
-#define MMINFRA_MBIST_DELSEL17	(MMINFRA_BASE + 0xa44)
-#define MMINFRA_MBIST_DELSEL18	(MMINFRA_BASE + 0xa48)
-#define MMINFRA_MBIST_DELSEL19	(MMINFRA_BASE + 0xa4c)
+#define MMINFRA_BASE		((dma_addr_t)0x1e800000)
+#define MMINFRA_MBIST_DELSEL10	0xa28
+#define MMINFRA_MBIST_DELSEL11	0xa2c
+#define MMINFRA_MBIST_DELSEL12	0xa30
+#define MMINFRA_MBIST_DELSEL13	0xa34
+#define MMINFRA_MBIST_DELSEL14	0xa38
+#define MMINFRA_MBIST_DELSEL15	0xa3c
+#define MMINFRA_MBIST_DELSEL16	0xa40
+#define MMINFRA_MBIST_DELSEL17	0xa44
+#define MMINFRA_MBIST_DELSEL18	0xa48
+#define MMINFRA_MBIST_DELSEL19	0xa4c
+
 
 #define	MDP_VCP_BUF_SIZE 0x80000
 
@@ -111,6 +112,7 @@ struct vcp_control {
 	struct workqueue_struct *vcp_wq;
 	atomic_t		vcp_usage;
 	atomic_t		vcp_power;
+	void __iomem	*mminfra_base;
 };
 struct vcp_control vcp;
 
@@ -316,6 +318,10 @@ static void cmdq_vcp_is_ready(void)
 
 void cmdq_vcp_enable(bool en)
 {
+	if (!vcp.mminfra_base) {
+		cmdq_msg("%s not support", __func__);
+		return;
+	}
 	mutex_lock(&vcp.vcp_mutex);
 	if (en) {
 		if (atomic_inc_return(&vcp.vcp_usage) == 1)
@@ -323,15 +329,13 @@ void cmdq_vcp_enable(bool en)
 		if (atomic_read(&vcp.vcp_power) <= 0) {
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 			dma_addr_t buf_pa = vcp_get_reserve_mem_phys_ex(GCE_MEM_ID);
-			void __iomem	*rg_base;
 
 			vcp_register_feature_ex(GCE_FEATURE_ID);
 			atomic_inc(&vcp.vcp_power);
 			mutex_unlock(&vcp.vcp_mutex);
 			cmdq_msg("[VCP] power on VCP");
 			cmdq_vcp_is_ready();
-			rg_base = ioremap(MMINFRA_MBIST_DELSEL10, 0x1000);
-			writel(CMDQ_PACK_IOVA(buf_pa), rg_base);
+			writel(CMDQ_PACK_IOVA(buf_pa), vcp.mminfra_base + MMINFRA_MBIST_DELSEL10);
 #endif
 			return;
 		}
@@ -368,7 +372,7 @@ EXPORT_SYMBOL(cmdq_get_vcp_buf);
 
 static dma_addr_t cmdq_get_vcp_dummy(enum CMDQ_VCP_ENG_ENUM engine)
 {
-	const u32 reg[VCP_USER_CNT] = {
+	const dma_addr_t offset[VCP_USER_CNT] = {
 		MMINFRA_MBIST_DELSEL12, MMINFRA_MBIST_DELSEL13,
 		MMINFRA_MBIST_DELSEL14, MMINFRA_MBIST_DELSEL15,
 		MMINFRA_MBIST_DELSEL16, MMINFRA_MBIST_DELSEL17,
@@ -376,7 +380,8 @@ static dma_addr_t cmdq_get_vcp_dummy(enum CMDQ_VCP_ENG_ENUM engine)
 
 	if (engine < 0 || engine >= VCP_USER_CNT)
 		return 0;
-	return reg[engine];
+
+	return MMINFRA_BASE + offset[engine];
 }
 
 u32 cmdq_pkt_vcp_reuse_val(enum CMDQ_VCP_ENG_ENUM engine, u32 buf_offset, u16 size)
@@ -442,10 +447,14 @@ static void cmdq_dump_vcp_reg(struct cmdq_pkt *pkt)
 {
 	int eng;
 	unsigned long eng_bit;
-	void __iomem	*rg_base;
 	dma_addr_t addr;
 	u32 val;
 	struct cmdq_vcp_inst *vcp_inst = (struct cmdq_vcp_inst *)&val;
+
+	if (!vcp.mminfra_base) {
+		cmdq_msg("%s not support", __func__);
+		return;
+	}
 
 	if (!pkt)
 		return;
@@ -455,12 +464,18 @@ static void cmdq_dump_vcp_reg(struct cmdq_pkt *pkt)
 		addr = cmdq_get_vcp_dummy(eng);
 		if (!addr)
 			continue;
-		rg_base = ioremap(addr, 0x1000);
-		val = readl(rg_base);
+		val = readl(vcp.mminfra_base + (addr - MMINFRA_BASE));
 		cmdq_msg("%s vcp eng:%d, addr[%pa]=%#x enable:%d enter:%d error:%d",
 			__func__, eng, &addr, val,
 			vcp_inst->enable, vcp_inst->enter, vcp_inst->error);
 	}
+}
+
+static bool cmdq_pkt_is_exec(struct cmdq_pkt *pkt)
+{
+	if (pkt && pkt->task_alloc && !pkt->rec_irq)
+		return true;
+	return false;
 }
 
 void cmdq_mbox_pool_set_limit(struct cmdq_client *cl, u32 limit)
@@ -757,9 +772,10 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 
 	list_for_each_entry_safe(buf, tmp, &pkt->buf, list_entry) {
 		list_del(&buf->list_entry);
-		if (!CMDQ_BUF_ADDR(buf))
+		if (!pkt->dev || !buf->va_base || !CMDQ_BUF_ADDR(buf))
 			cmdq_err("pkt:0x%p pa:%pa iova:%pa",
 			pkt, &buf->pa_base, &buf->iova_base);
+		buf->alloc_time = 0;
 		if (buf->use_pool) {
 			if (pkt->cur_pool.pool)
 				cmdq_mbox_pool_free_impl(pkt->cur_pool.pool,
@@ -864,7 +880,7 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 	if (client)
 		mutex_lock(&client->chan_mutex);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	if (pkt && pkt->task_alloc && !pkt->rec_irq) {
+	if (cmdq_pkt_is_exec(pkt)) {
 		if (client && client->chan) {
 			s32 thread_id = cmdq_mbox_chan_id(client->chan);
 
@@ -1246,6 +1262,9 @@ void cmdq_pkt_reuse_buf_va(struct cmdq_pkt *pkt, struct cmdq_reuse *reuse,
 
 	for (i = 0; i < count; i++) {
 		switch (reuse[i].op) {
+		case 0:
+			/* for case client update itself, skip it */
+			break;
 		case CMDQ_CODE_READ:
 		case CMDQ_CODE_MOVE:
 		case CMDQ_CODE_WRITE:
@@ -1330,7 +1349,6 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 	cmd_size = src->cmd_buf_size;
 
 	if (cmdq_pkt_is_finalized(src)) {
-		reduce_size = 2 * CMDQ_INST_SIZE;
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 		if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
 			reduce_size += 2 * CMDQ_INST_SIZE;
@@ -1388,6 +1406,10 @@ s32 cmdq_pkt_copy(struct cmdq_pkt *dst, struct cmdq_pkt *src)
 		dst->avail_buf_size -= CMDQ_CMD_BUFFER_SIZE;
 		dst->buf_size -= CMDQ_CMD_BUFFER_SIZE;
 	}
+
+	dst->task_alloc = false;
+	dst->rec_irq = 0;
+	cmdq_pkt_refinalize(dst);
 
 	dst->cl = cl;
 	dst->dev = dev;
@@ -2109,6 +2131,16 @@ s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt)
 {
 	struct cmdq_pkt_buffer *buf;
 	struct cmdq_instruction *inst;
+	s64 off = CMDQ_JUMP_PASS >> gce_shift_bit;
+
+	if (!cmdq_pkt_is_finalized(pkt))
+		return 0;
+
+	if (cmdq_pkt_is_exec(pkt)) {
+		cmdq_err("pkt still running, skip refinalize");
+		dump_stack();
+		return 0;
+	}
 
 	if (!cmdq_pkt_is_finalized(pkt))
 		return 0;
@@ -2118,10 +2150,11 @@ s32 cmdq_pkt_refinalize(struct cmdq_pkt *pkt)
 	if (inst->op != CMDQ_CODE_JUMP || inst->arg_a != 1)
 		return 0;
 
-	pkt->cmd_buf_size -= CMDQ_INST_SIZE;
-	pkt->avail_buf_size += CMDQ_INST_SIZE;
+	inst->arg_a = 0;
+	inst->arg_c = CMDQ_GET_ARG_C(off);
+	inst->arg_b = CMDQ_GET_ARG_B(off);
 
-	return cmdq_pkt_jump(pkt, CMDQ_JUMP_PASS);
+	return 0;
 }
 EXPORT_SYMBOL(cmdq_pkt_refinalize);
 
@@ -2491,6 +2524,7 @@ s32 cmdq_pkt_flush_async(struct cmdq_pkt *pkt,
 	pkt->err_cb.cb = cmdq_pkt_err_dump_cb;
 	pkt->err_cb.data = pkt;
 
+	pkt->rec_irq = 0;
 	pkt->rec_submit = sched_clock();
 #else
 	pkt->cb.cb = cb;
@@ -3092,7 +3126,7 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
 		if (list_is_last(&buf->list_entry, &pkt->buf)) {
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
-		} else if (cnt > 2 && !(curr_pa >= CMDQ_BUF_ADDR(buf) &&
+		} else if (cnt > 0 && !(curr_pa >= CMDQ_BUF_ADDR(buf) &&
 			curr_pa < CMDQ_BUF_ADDR(buf) + CMDQ_BUF_ALLOC_SIZE)) {
 			cmdq_util_user_msg(client ? client->chan : NULL,
 				"buffer %u:%p va:0x%p pa:%pa iova:%pa alloc_time:%#llu %#018llx (skip detail) %#018llx",
@@ -3234,6 +3268,9 @@ int cmdq_helper_init(void)
 {
 	cmdq_msg("%s enter", __func__);
 	mutex_init(&vcp.vcp_mutex);
+	if (gce_in_vcp)
+		vcp.mminfra_base = ioremap(MMINFRA_BASE, 0x1000);
+
 	timer_setup(&vcp.vcp_timer, cmdq_vcp_off, 0);
 	INIT_WORK(&vcp.vcp_work, cmdq_vcp_off_work);
 	vcp.vcp_wq = create_singlethread_workqueue(

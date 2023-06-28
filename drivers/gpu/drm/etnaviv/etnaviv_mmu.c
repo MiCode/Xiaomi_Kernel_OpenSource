@@ -197,6 +197,7 @@ static int etnaviv_iommu_find_iova(struct etnaviv_iommu_context *context,
 		 */
 		list_for_each_entry_safe(m, n, &list, scan_node) {
 			etnaviv_iommu_remove_mapping(context, m);
+			etnaviv_iommu_context_put(m->context);
 			m->context = NULL;
 			list_del_init(&m->mmu_node);
 			list_del_init(&m->scan_node);
@@ -280,6 +281,12 @@ void etnaviv_iommu_unmap_gem(struct etnaviv_iommu_context *context,
 	WARN_ON(mapping->use);
 
 	mutex_lock(&context->lock);
+
+	/* Bail if the mapping has been reaped by another thread */
+	if (!mapping->context) {
+		mutex_unlock(&context->lock);
+		return;
+	}
 
 	/* If the vram node is on the mm, unmap and remove the node */
 	if (mapping->vram_node.mm == &context->mm)

@@ -2092,7 +2092,7 @@ static kal_uint16 capture_setting_array[] = {
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
 	0x0804, 0x0200,
-	0x0810, 0x0011,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 normal_video_setting_array[] = {
@@ -2207,6 +2207,8 @@ static kal_uint16 hs_video_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 slim_video_setting_array[] = {
@@ -2263,6 +2265,8 @@ static kal_uint16 slim_video_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 custom1_setting_array[] = {
@@ -2319,6 +2323,8 @@ static kal_uint16 custom1_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 custom2_setting_array[] = {
@@ -2375,6 +2381,8 @@ static kal_uint16 custom2_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 custom3_setting_array[] = {
@@ -2431,6 +2439,8 @@ static kal_uint16 custom3_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 custom4_setting_array[] = {
@@ -2487,6 +2497,8 @@ static kal_uint16 custom4_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 static kal_uint16 custom5_setting_array[] = {
@@ -2543,6 +2555,8 @@ static kal_uint16 custom5_setting_array[] = {
 	0x0B30, 0x0000,
 	0x0B32, 0x0000,
 	0x0B34, 0x0001,
+	0x0804, 0x0200,
+	0x0810, 0x0020,
 };
 
 /* VC2 for PDAF */
@@ -3093,6 +3107,8 @@ static void sensor_init(struct subdrv_ctx *ctx)
 
 	/* set pdaf DT to 0x2B */
 	write_cmos_sensor_8(ctx, 0x0116, 0x2B);
+	/* set MIPI auto ctrl */
+	write_cmos_sensor(ctx, 0x0804, 0x0000);
 }
 
 static void preview_setting(struct subdrv_ctx *ctx)
@@ -4798,22 +4814,10 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
-	csi_param->legacy_phy = 1;
-	csi_param->not_fixed_trail_settle = 1;
+	csi_param->legacy_phy = 0;
+	csi_param->not_fixed_trail_settle = 0;
+	csi_param->dphy_trail = 0;
 
-	switch (scenario_id) {
-	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
-	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-		csi_param->dphy_trail = 0x1;
-		break;
-	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
-		csi_param->legacy_phy = 0;
-		csi_param->dphy_trail = 0x1;
-		break;
-	default:
-		csi_param->dphy_trail = 0;
-		break;
-	}
 	return 0;
 }
 

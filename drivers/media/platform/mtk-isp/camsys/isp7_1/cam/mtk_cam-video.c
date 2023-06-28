@@ -16,6 +16,10 @@
 #include "mtk_cam_vb2-dma-contig.h"
 #include "mtk_cam-trace.h"
 
+/* For end point race condition */
+#include <linux/platform_data/mtk_ccd.h>
+static struct mtk_ccd *g_ccd;
+
 /*
  * Note
  *	differt dma(fmt) would have different bus_size
@@ -46,7 +50,6 @@ int mtk_cam_yuv_dma_bus_size(int bpp, int pixel_mode_shift)
 	return bus_size / 8; /* in bytes */
 }
 
-static inline
 int mtk_cam_dmao_xsize(int w, unsigned int ipi_fmt, int pixel_mode_shift)
 {
 	const int is_fg		= mtk_cam_is_fullg(ipi_fmt);
@@ -229,7 +232,7 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 	struct media_entity *entity = &node->vdev.entity;
 	struct mtk_cam_ctx *ctx = NULL;
 	struct device *dev = cam->dev;
-	int ret;
+	int ret, is_first_ctx = 0;
 
 	/* check entity is linked */
 	if (!node->enabled) {
@@ -240,17 +243,35 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 		goto fail_return_buffer;
 	}
 
+	is_first_ctx = !cam->composer_cnt;
+	if (is_first_ctx) {
+		/* power on the remote proc device */
+		if (!cam->rproc_handle)  {
+			/* Get the remote proc device of composers */
+			cam->rproc_handle =
+				rproc_get_by_phandle(cam->rproc_phandle);
+			if (!cam->rproc_handle) {
+				dev_info(cam->dev,
+					"fail to get rproc_handle\n");
+				ret = -ENOLINK;
+				goto fail_return_buffer;
+			}
+			g_ccd = (struct mtk_ccd *)cam->rproc_handle->priv;
+		}
+	}
+
+	mutex_lock(g_ccd->ccd_open_mutex);
 	if (!entity->pipe) {
 		ctx = mtk_cam_start_ctx(cam, node);
 		if (!ctx) {
-			ret = -ENOLINK;
-			goto fail_return_buffer;
+			mutex_unlock(g_ccd->ccd_open_mutex);
+			return -ENOLINK;
 		}
 	} else {
 		ctx = mtk_cam_find_ctx(cam, entity);
 		if (WARN_ON(!ctx)) {
-			ret = -ENOLINK;
-			goto fail_return_buffer;
+			mutex_unlock(g_ccd->ccd_open_mutex);
+			return -ENOLINK;
 		}
 	}
 
@@ -265,14 +286,21 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 				ctx->session_created = 1;
 			} else {
 				complete(&ctx->session_complete);
-				ret = -EBUSY;
-				goto fail_stop_ctx;
+				ctx->streaming_node_cnt--;
+				ctx->streaming_pipe &= ~(1 << node->uid.pipe_id);
+				cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
+				mtk_cam_dev_req_cleanup(ctx, node->uid.pipe_id,
+								VB2_BUF_STATE_QUEUED);
+				mtk_cam_stop_ctx(ctx, entity);
+				mutex_unlock(g_ccd->ccd_open_mutex);
+				return -EBUSY;
 			}
 		}
 #endif
 
 	dev_dbg(dev, "%s:%s:ctx(%d): node:%d count info:%d\n", __func__,
 		node->desc.name, ctx->stream_id, node->desc.id, ctx->streaming_node_cnt);
+	mutex_unlock(g_ccd->ccd_open_mutex);
 
 	if (ctx->streaming_node_cnt < ctx->enabled_node_cnt)
 		return 0;
@@ -290,7 +318,7 @@ static int mtk_cam_vb2_start_streaming(struct vb2_queue *vq,
 fail_destroy_session:
 	if (ctx->session_created)
 		isp_composer_destroy_session(ctx);
-fail_stop_ctx:
+
 	ctx->streaming_node_cnt--;
 	ctx->streaming_pipe &= ~(1 << node->uid.pipe_id);
 	cam->streaming_pipe &= ~(1 << node->uid.pipe_id);
@@ -1843,38 +1871,8 @@ int mtk_cam_vidioc_meta_enum_fmt(struct file *file, void *fh,
 int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 			      struct v4l2_format *f)
 {
-	struct mtk_cam_device *cam = video_drvdata(file);
 	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
-	struct mtk_cam_dev_node_desc *desc = &node->desc;
-	const struct v4l2_format *default_fmt =
-		&desc->fmts[desc->default_fmt_idx].vfmt;
-	struct mtk_raw_pde_config *pde_cfg;
-	struct mtk_cam_pde_info *pde_info;
 
-	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG) {
-		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
-		pde_info = &pde_cfg->pde_info;
-		if (pde_info->pd_table_offset) {
-			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize
-				+ pde_info->pdi_max_size;
-			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
-				node->desc.dma_port,
-				node->active_fmt.fmt.meta.buffersize);
-		}
-	}
-	if (node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0) {
-		pde_cfg = &cam->raw.pipelines[node->uid.pipe_id].pde_config;
-		pde_info = &pde_cfg->pde_info;
-		if (pde_info->pd_table_offset) {
-			node->active_fmt.fmt.meta.buffersize =
-				default_fmt->fmt.meta.buffersize
-				+ pde_info->pdo_max_size;
-			dev_dbg(cam->dev, "PDE: node(%d), enlarge meta size()",
-				node->desc.dma_port,
-				node->active_fmt.fmt.meta.buffersize);
-		}
-	}
 	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
 	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;
 

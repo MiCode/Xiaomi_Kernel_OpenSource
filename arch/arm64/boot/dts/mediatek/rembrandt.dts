@@ -1,0 +1,2 @@
+#include "mediatek/rembrandt-mt6895.dtsi"
+#include <rembrandt/cust.dtsi>

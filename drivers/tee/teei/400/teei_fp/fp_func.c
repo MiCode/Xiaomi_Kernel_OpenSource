@@ -30,6 +30,9 @@
 
 #define IMSG_TAG "[teei_fp]"
 #include <imsg_log.h>
+#ifdef PLATO_CPU_BOOST
+#define ISEE_FP_SINGLE_CHANNEL
+#endif
 
 struct fp_dev {
 	struct cdev cdev;
@@ -132,13 +135,13 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
-#ifdef DYNAMIC_SET_PRIORITY
+#ifdef ISEE_FP_SINGLE_CHANNEL
 		teei_cpus_write_lock();
 #endif
 
 		ret  = send_fp_command((void *)arg, args_len + 16);
 
-#ifdef DYNAMIC_SET_PRIORITY
+#ifdef ISEE_FP_SINGLE_CHANNEL
 		teei_cpus_write_unlock();
 #endif
 

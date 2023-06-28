@@ -3024,7 +3024,7 @@ kal_uint16 addr_data_pair_init_ov48b2q[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -3148,7 +3148,7 @@ kal_uint16 addr_data_pair_preview_ov48b2q[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -3287,7 +3287,7 @@ kal_uint16 addr_data_pair_capture_ov48b2q[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -3566,7 +3566,7 @@ kal_uint16 addr_data_pair_video_ov48b2q[] = {
 	0x3012, 0x31, //; bit[7:4] 3: 3-trio, 4: 4-lane
 	0x4802, 0x02, //; bit[1]: hs_trail_sel
 	0x4850, 0x40, //; bit[0]: DHY1.2
-	0x481b, 0x20, //; CPHY Post = 32*7 UI
+	0x481b, 0x26, //; CPHY Post = 32*7 UI
 	0x4826, 0x60, //; CPHY HS_Prepare = 96 ns
 	0x4831, 0x60, //; CPHY HS_Prepare
 	0x4860, 0x01, //; CPHY enable
@@ -3714,7 +3714,7 @@ kal_uint16 addr_data_pair_hs_video_ov48b2q[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -3727,7 +3727,9 @@ kal_uint16 addr_data_pair_hs_video_ov48b2q[] = {
 #ifdef ROTATION_180
 /* PD setting when mirror on */
 	 0x3680, 0x04,
+	 0x3810, 0x00,
 	 0x3811, 0x04,
+	 0x3812, 0x00,
 	 0x3813, 0x01,
 	 0x383D, 0x03,
 	 0x3820, 0x07,
@@ -3850,7 +3852,7 @@ kal_uint16 addr_data_pair_slim_video_ov48b2q[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -4003,7 +4005,7 @@ kal_uint16 addr_data_pair_custom1[] = {
 	0x3012, 0x31, //; bit[7:4] 3: 3-trio, 4: 4-lane
 	0x4802, 0x02, //; bit[1]: hs_trail_sel
 	0x4850, 0x40, //; bit[0]: DHY1.2
-	0x481b, 0x20, //; CPHY Post = 32*7 UI
+	0x481b, 0x26, //; CPHY Post = 32*7 UI
 	0x4826, 0x60, //; CPHY HS_Prepare = 96 ns
 	0x4831, 0x60, //; CPHY HS_Prepare
 	0x4860, 0x01, //; CPHY enable
@@ -4142,7 +4144,7 @@ kal_uint16 addr_data_pair_custom2[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -4299,7 +4301,7 @@ kal_uint16 addr_data_pair_custom3[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -4456,7 +4458,7 @@ kal_uint16 addr_data_pair_custom4[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -4500,8 +4502,6 @@ kal_uint16 addr_data_pair_custom4[] = {
 };
 
 kal_uint16 addr_data_pair_custom5[] = {
-
-	0x0100, 0x00,
 	0x0304, 0x00,
 	0x0305, 0xfa,//;b4;A6; 1200 Msps
 	0x0344, 0x01,
@@ -4597,9 +4597,6 @@ kal_uint16 addr_data_pair_custom5[] = {
 	0x5d0f, 0x06,//;02
 	0x5d10, 0x02,//;04
 	0x3046, 0x01,
-
-	0x0100, 0x01,
-
 #ifdef CPHY_3TRIO
 /* C-Phy init setting */
 	 0x0301, 0xc0,//bit[3]: pll_divpix
@@ -4610,7 +4607,7 @@ kal_uint16 addr_data_pair_custom5[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -4622,14 +4619,23 @@ kal_uint16 addr_data_pair_custom5[] = {
 #endif
 #ifdef ROTATION_180
 // @@ Disable Mirror & Flip
-	0x3811, 0x05,
-	0x3813, 0x02,
-	0x383d, 0x04,
-	0x3820, 0x42, //;03
-	0x3821, 0x1d, //;14
-
+	// 0x5004, 0x01,
+	// 0x5C01, 0x04,
+	// 0x3680, 0x00,
+	// 0x3810, 0x00,
+	// 0x3811, 0x05,
+	// 0x3812, 0x00,
+	// 0x3813, 0x02,
+	// 0x383d, 0x04,
+	// 0x3820, 0x42, //;03
+	// 0x3821, 0x1d, //;14
 //@@ Enable Mirror & Flip
+	0x5004, 0x01,
+	0x5C01, 0x04,
+	0x3680, 0x00,
+	0x3810, 0x00,
 	0x3811, 0x04, //;05
+	0x3812, 0x00,
 	0x3813, 0x01, //;02
 	0x383d, 0x03, //;04
 	0x3820, 0x46, //;07;03
@@ -4638,7 +4644,6 @@ kal_uint16 addr_data_pair_custom5[] = {
 };
 
 kal_uint16 addr_data_pair_custom6[] = {
-	0x0100, 0x00,
 	0x0304, 0x00,
 	0x0305, 0xfa, //;b4;A6; 1200 Msps
 	0x0344, 0x01,
@@ -4734,7 +4739,6 @@ kal_uint16 addr_data_pair_custom6[] = {
 	0x5d0f, 0x06,//;02
 	0x5d10, 0x02,//;04
 	0x3046, 0x01,
-	0x0100, 0x01,
 #ifdef CPHY_3TRIO
 /* C-Phy init setting */
 	 0x0301, 0xc0,//bit[3]: pll_divpix
@@ -4745,7 +4749,7 @@ kal_uint16 addr_data_pair_custom6[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -4757,13 +4761,17 @@ kal_uint16 addr_data_pair_custom6[] = {
 #endif
 #ifdef ROTATION_180
 	//@@ Disable Mirror & Flip
-	0x3811, 0x05,
-	0x3813, 0x04,//;02
-	0x383d, 0x04,
-	0x3820, 0x42,//;03
-	0x3821, 0x1d,//;14
+	// 0x3810, 0x00,
+	// 0x3811, 0x05,
+	// 0x3812, 0x00,
+	// 0x3813, 0x04,//;02
+	// 0x383d, 0x04,
+	// 0x3820, 0x42,//;03
+	// 0x3821, 0x1d,//;14
 	//@@ Enable Mirror & Flip
+	0x3810, 0x00,
 	0x3811, 0x04, //;05
+	0x3812, 0x00,
 	0x3813, 0x03, //;01;02
 	0x383d, 0x03, //;04
 	0x3820, 0x46, //;07;03
@@ -4771,7 +4779,6 @@ kal_uint16 addr_data_pair_custom6[] = {
 #endif
 };
 kal_uint16 addr_data_pair_custom7[] = {
-	0x0100, 0x00,
 	0x0304, 0x00,
 	0x0305, 0xa5,//792Msps
 	0x0344, 0x01,
@@ -4867,7 +4874,6 @@ kal_uint16 addr_data_pair_custom7[] = {
 	0x5d0f, 0x02,
 	0x5d10, 0x04,
 	0x3046, 0x01,
-	0x0100, 0x01,
 #ifdef CPHY_3TRIO
 /* C-Phy init setting */
 	0x0301, 0xc0, //; bit[3]: pll_divpix
@@ -4878,7 +4884,7 @@ kal_uint16 addr_data_pair_custom7[] = {
 	0x3012, 0x31, //; bit[7:4] 3: 3-trio, 4: 4-lane
 	0x4802, 0x02, //; bit[1]: hs_trail_sel
 	0x4850, 0x40, //; bit[0]: DHY1.2
-	0x481b, 0x20, //; CPHY Post = 32*7 UI
+	0x481b, 0x26, //; CPHY Post = 32*7 UI
 	0x4826, 0x60, //; CPHY HS_Prepare = 96 ns
 	0x4831, 0x60, //; CPHY HS_Prepare
 	0x4860, 0x01, //; CPHY enable
@@ -4889,15 +4895,18 @@ kal_uint16 addr_data_pair_custom7[] = {
 	0x4889, 0x01, //; CPHY control
 #endif
 #ifdef ROTATION_180
-	//Disa	le Mirror & Flip
-	0x3811,	0x05,
-	0x3813,	0x02,
-	0x383d,	0x04,
-	0x3820,	0x03,
-	0x3821,	0x14,
-
-	//0xEnab,0x	e Mirror & Flip
+	//Disable Mirror & Flip
+	// 0x3810, 0x00,
+	// 0x3811,	0x05,
+	// 0x3812, 0x00,
+	// 0x3813,	0x02,
+	// 0x383d,	0x04,
+	// 0x3820,	0x03,
+	// 0x3821,	0x14,
+	//Enable Mirror & Flip
+	0x3810, 0x00,
 	0x3811,	0x04, //;05
+	0x3812, 0x00,
 	0x3813,	0x01, //;02
 	0x383d,	0x03, //;04
 	0x3820,	0x07, //;03
@@ -4905,8 +4914,6 @@ kal_uint16 addr_data_pair_custom7[] = {
 #endif
 };
 kal_uint16 addr_data_pair_custom8[] = {
-
-	0x0100,	0x00,
 	0x0304, 0x00,
 	0x0305, 0xa5, // 792Msps
 	0x0344, 0x01,
@@ -5002,7 +5009,6 @@ kal_uint16 addr_data_pair_custom8[] = {
 	0x5d0f, 0x02,
 	0x5d10, 0x04,
 	0x3046, 0x01,
-	0x0100, 0x01,
 #ifdef CPHY_3TRIO
 /* C-Phy init setting */
 	 0x0301, 0xc0,//bit[3]: pll_divpix
@@ -5013,7 +5019,7 @@ kal_uint16 addr_data_pair_custom8[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -5025,13 +5031,17 @@ kal_uint16 addr_data_pair_custom8[] = {
 #endif
 #ifdef ROTATION_180
 //@@ Disable Mirror & Flip
-	0x3811, 0x05,
-	0x3813, 0x02,
-	0x383d, 0x04,
-	0x3820, 0x03,
-	0x3821, 0x14,
+	// 0x3810, 0x00,
+	// 0x3811, 0x05,
+	// 0x3812, 0x00,
+	// 0x3813, 0x02,
+	// 0x383d, 0x04,
+	// 0x3820, 0x03,
+	// 0x3821, 0x14,
 //@@ Enable Mirror & Flip
+	0x3810, 0x00,
 	0x3811, 0x04,//;05
+	0x3812, 0x00,
 	0x3813, 0x01,//;02
 	0x383d, 0x03,//;04
 	0x3820, 0x07,//;03
@@ -5152,7 +5162,7 @@ kal_uint16 addr_data_pair_custom9[] = {
 	0x3012, 0x31, //; bit[7:4] 3: 3-trio, 4: 4-lane
 	0x4802, 0x02, //; bit[1]: hs_trail_sel
 	0x4850, 0x40, //; bit[0]: DHY1.2
-	0x481b, 0x20, //; CPHY Post = 32*7 UI
+	0x481b, 0x26, //; CPHY Post = 32*7 UI
 	0x4826, 0x60, //; CPHY HS_Prepare = 96 ns
 	0x4831, 0x60, //; CPHY HS_Prepare
 	0x4860, 0x01, //; CPHY enable
@@ -5291,7 +5301,7 @@ kal_uint16 addr_data_pair_custom10[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -5450,7 +5460,7 @@ kal_uint16 addr_data_pair_custom11[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable
@@ -5609,7 +5619,7 @@ kal_uint16 addr_data_pair_custom12[] = {
 	 0x3012, 0x31,//bit[7:4] 3: 3-trio, 4: 4-lane
 	 0x4802, 0x02,//bit[1]: hs_trail_sel
 	 0x4850, 0x40,//bit[0]: DHY1.2
-	 0x481b, 0x20,//CPHY Post = 32*7 UI
+	 0x481b, 0x26,//CPHY Post = 32*7 UI
 	 0x4826, 0x60,//CPHY HS_Prepare = 96 ns
 	 0x4831, 0x60,//CPHY HS_Prepare
 	 0x4860, 0x01,//CPHY enable

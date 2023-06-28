@@ -10,14 +10,24 @@
 #include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
 
+#ifdef __GENKSYMS__
+struct thermal_zone_device;
+#else
+/* struct thermal_zone_device */
+#include <linux/thermal.h>
+#endif /* __GENKSYMS__ */
 DECLARE_HOOK(android_vh_enable_thermal_genl_check,
 	TP_PROTO(int event, int tz_id, int *enable_thermal_genl),
 	TP_ARGS(event, tz_id, enable_thermal_genl));
 
-struct thermal_zone_device;
 DECLARE_HOOK(android_vh_thermal_pm_notify_suspend,
 	     TP_PROTO(struct thermal_zone_device *tz, int *irq_wakeable),
 	     TP_ARGS(tz, irq_wakeable));
+
+struct thermal_cooling_device;
+DECLARE_HOOK(android_vh_disable_thermal_cooling_stats,
+	TP_PROTO(struct thermal_cooling_device *cdev, bool *disable_stats),
+	TP_ARGS(cdev, disable_stats));
 
 #endif /* _TRACE_HOOK_THERMAL_H */
 /* This part must be outside protection */

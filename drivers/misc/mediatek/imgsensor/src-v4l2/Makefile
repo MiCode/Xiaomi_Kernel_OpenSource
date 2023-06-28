@@ -51,6 +51,11 @@ endef
 
 $(foreach drv,$(subst $\",,$(CONFIG_CUSTOM_KERNEL_IMGSENSOR)),$(eval $(call FILTER_DRV,$(drv))))
 
+# XIAOMI ADD START
+include $(IMGSENSOR_DRIVER_PATH)/async-setting/async_setting.mk
+include $(IMGSENSOR_DRIVER_PATH)/async-setting/task-queue/task_queue.mk
+# XIAOMI ADD END
+
 ifneq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(FRAME_SYNC)/frame_sync_drv.mk),)
 $(info framesync_drv: $(FRAME_SYNC))
 include $(IMGSENSOR_DRIVER_PATH)/$(FRAME_SYNC)/frame_sync_drv.mk

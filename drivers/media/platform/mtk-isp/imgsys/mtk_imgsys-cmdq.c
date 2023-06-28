@@ -47,6 +47,9 @@ module_param(imgsys_qos_blank_int, int, 0644);
 int imgsys_qos_factor;
 module_param(imgsys_qos_factor, int, 0644);
 
+int imgsys_quick_onoff_en;
+module_param(imgsys_quick_onoff_en, int, 0644);
+
 struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off;
 #if IMGSYS_SECURE_ENABLE
@@ -136,7 +139,9 @@ void imgsys_cmdq_streamon(struct mtk_imgsys_dev *imgsys_dev)
 {
 	u32 idx = 0;
 
-	dev_info(imgsys_dev->dev, "%s: cmdq stream on (%d)\n", __func__, is_stream_off);
+	dev_info(imgsys_dev->dev,
+		"%s: cmdq stream on (%d) quick_pwr(%d)\n",
+		__func__, is_stream_off, imgsys_quick_onoff_enable());
 	is_stream_off = 0;
 
 	cmdq_mbox_enable(imgsys_clt[0]->chan);
@@ -157,7 +162,8 @@ void imgsys_cmdq_streamoff(struct mtk_imgsys_dev *imgsys_dev)
 	u32 idx = 0;
 
 	dev_info(imgsys_dev->dev,
-		"%s: cmdq stream off (%d) idx(%d)\n", __func__, is_stream_off, idx);
+		"%s: cmdq stream off (%d) idx(%d) quick_pwr(%d)\n",
+		__func__, is_stream_off, idx, imgsys_quick_onoff_enable());
 	is_stream_off = 1;
 
 	#if CMDQ_STOP_FUNC
@@ -833,7 +839,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 				pkt_ts_num = 0;
 
 				/* Assign task priority according to is_time_shared */
-				if (frm_info->user_info[frm_idx].is_time_shared)
+				if (frm_info->user_info[frm_idx].task_type == IMG_TASK_TIMESHARED)
 					pkt->priority = IMGSYS_PRI_LOW;
 				else
 					pkt->priority = IMGSYS_PRI_HIGH;
@@ -874,7 +880,7 @@ int imgsys_cmdq_sendtask(struct mtk_imgsys_dev *imgsys_dev,
 			/* Check for packing gce task */
 			pkt_ofst[task_cnt] = pkt->cmd_buf_size - CMDQ_INST_SIZE;
 			task_cnt++;
-			if ((frm_info->user_info[frm_idx].is_time_shared)
+			if ((frm_info->user_info[frm_idx].task_type == IMG_TASK_TIMESHARED)
 				|| (frm_info->user_info[frm_idx].is_secFrm)
 				|| (frm_info->user_info[frm_idx].is_earlycb)
 				|| ((frm_idx + 1) == frm_num)) {
@@ -1444,6 +1450,7 @@ void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
 				bool isSet)
 {
 	struct mtk_imgsys_qos *qos_info = &imgsys_dev->qos_info;
+	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 	u32 hw_comb = 0;
 	u64 pixel_sz = 0;
 	u32 fps = 0;
@@ -1457,7 +1464,34 @@ void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
 
 	if (is_stream_off == 0) {
 		if (isSet == 1) {
-			if ((hw_comb & (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) ==
+			if (dvfs_info->vss_task_cnt != 0) {
+				bw_final[0] = IMGSYS_QOS_VSS_BW_0;
+				bw_final[1] = IMGSYS_QOS_VSS_BW_1;
+				if (qos_info->bw_total[0][0] != bw_final[0]) {
+					dev_info(qos_info->dev,
+						"[%s] L9_0 idx=%d, path=%p, bw=%d/%d; L12_1 idx=%d, path=%p, bw=%d/%d,\n",
+						__func__,
+						IMGSYS_L9_COMMON_0,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].bw,
+						bw_final[0],
+						IMGSYS_L12_COMMON_1,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].bw,
+						bw_final[1]);
+					// Save for capture bw
+					qos_info->bw_total[0][0] = bw_final[0];
+					qos_info->bw_total[0][1] = bw_final[1];
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
+					MBps_to_icc(qos_info->bw_total[0][0]));
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L12_COMMON_1].bw),
+					MBps_to_icc(qos_info->bw_total[0][1]));
+				}
+			} else if ((hw_comb & (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) ==
 				(IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)) {
 				if (fps == 30) {
 					if (pixel_sz > IMGSYS_QOS_4K_SIZE) {
@@ -1500,6 +1534,33 @@ void mtk_imgsys_mmqos_set_by_scen(struct mtk_imgsys_dev *imgsys_dev,
 						bw_final[1]);
 					qos_info->qos_path[IMGSYS_L9_COMMON_0].bw = bw_final[0];
 					qos_info->qos_path[IMGSYS_L12_COMMON_1].bw = bw_final[1];
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
+					0);
+					mtk_icc_set_bw(
+					qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+					MBps_to_icc(qos_info->qos_path[IMGSYS_L12_COMMON_1].bw),
+					0);
+				}
+			}
+		} else if (isSet == 0) {
+			if (dvfs_info->vss_task_cnt == 0) {
+				if (qos_info->bw_total[0][0] != 0) {
+					dev_info(qos_info->dev,
+						"[%s] L9_0 idx=%d, path=%p, bw=%d/%d; L12_1 idx=%d, path=%p, bw=%d/%d,\n",
+						__func__,
+						IMGSYS_L9_COMMON_0,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
+						qos_info->qos_path[IMGSYS_L9_COMMON_0].bw,
+						bw_final[0],
+						IMGSYS_L12_COMMON_1,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].path,
+						qos_info->qos_path[IMGSYS_L12_COMMON_1].bw,
+						bw_final[1]);
+					// Clear for capture bw
+					qos_info->bw_total[0][0] = 0;
+					qos_info->bw_total[0][1] = 0;
 					mtk_icc_set_bw(
 					qos_info->qos_path[IMGSYS_L9_COMMON_0].path,
 					MBps_to_icc(qos_info->qos_path[IMGSYS_L9_COMMON_0].bw),
@@ -1818,9 +1879,10 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
 		if (user_cnt == 1) {
-			dev_info(dvfs_info->dev,
-				"[%s] isPowerOn(%d) user(%d)\n",
-				__func__, isPowerOn, user_cnt);
+			if (!imgsys_quick_onoff_enable())
+				dev_info(dvfs_info->dev,
+					"[%s] isPowerOn(%d) user(%d)\n",
+					__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
@@ -1836,9 +1898,10 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 	} else {
 		user_cnt = atomic_dec_return(&imgsys_dev->imgsys_user_cnt);
 		if (user_cnt == 0) {
-			dev_info(dvfs_info->dev,
-				"[%s] isPowerOn(%d) user(%d)\n",
-				__func__, isPowerOn, user_cnt);
+			if (!imgsys_quick_onoff_enable())
+				dev_info(dvfs_info->dev,
+					"[%s] isPowerOn(%d) user(%d)\n",
+					__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
@@ -1881,5 +1944,10 @@ bool imgsys_cmdq_ts_dbg_enable(void)
 bool imgsys_dvfs_dbg_enable(void)
 {
 	return imgsys_dvfs_dbg_en;
+}
+
+bool imgsys_quick_onoff_enable(void)
+{
+	return imgsys_quick_onoff_en;
 }
 

@@ -74,7 +74,16 @@ MODULE_PARM_DESC(debug_dump_fbc, "debug: dump fbc");
 #define TGO_MAX_PXLMODE		8
 #define FRZ_PXLMODE_THRES		71
 #define MHz		1000000
-#define MTK_CAMSYS_PROC_DEFAULT_PIXELMODE 2
+#define MTK_CAMSYS_PROC_DEFAULT_PIXELMODE	2
+#define DC_DEFAULT_CAMSV_PIXELMODE			8
+
+#define MTK_RAW_H_LATENCY				36
+#define MTK_RAW_W_OVERHEAD_SINGLE		3
+#define MTK_RAW_W_OVERHEAD_2_RAW		5
+#define MTK_RAW_W_OVERHEAD_3_RAW		10
+
+#define DC_SUPPORT_RAW_FEATURE_MASK	\
+	(STAGGER_2_EXPOSURE_LE_SE | STAGGER_2_EXPOSURE_SE_LE)
 
 #define sizeof_u32(__struct__) ((sizeof(__struct__) + sizeof(u32) - 1)/ \
 				sizeof(u32))
@@ -184,31 +193,31 @@ enum cam_stagger_raw_select {
 static const struct cam_stagger_order stagger_mode_plan[] = {
 	[STAGGER_STREAM_PLAN_OTF_ALL] = {
 		.stagger_select = {
-			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_ON_THE_FLY},
-			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_ON_THE_FLY},
-			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_ON_THE_FLY},
-			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_ON_THE_FLY}
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = HW_MODE_ON_THE_FLY},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = HW_MODE_ON_THE_FLY},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = HW_MODE_ON_THE_FLY},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = HW_MODE_ON_THE_FLY}
 			} },
 	[STAGGER_STREAM_PLAN_OFF_ALL] = {
 		.stagger_select = {
-			{.raw_select = RAW_SELECTION_C, .mode_decision = STAGGER_OFFLINE},
-			{.raw_select = RAW_SELECTION_C, .mode_decision = STAGGER_OFFLINE},
-			{.raw_select = RAW_SELECTION_C, .mode_decision = STAGGER_OFFLINE},
-			{.raw_select = RAW_SELECTION_C, .mode_decision = STAGGER_OFFLINE}
+			{.raw_select = RAW_SELECTION_C, .mode_decision = HW_MODE_OFFLINE},
+			{.raw_select = RAW_SELECTION_C, .mode_decision = HW_MODE_OFFLINE},
+			{.raw_select = RAW_SELECTION_C, .mode_decision = HW_MODE_OFFLINE},
+			{.raw_select = RAW_SELECTION_C, .mode_decision = HW_MODE_OFFLINE}
 			} },
 	[STAGGER_STREAM_PLAN_OTF_DCIF_OFF_2EXP] = {
 		.stagger_select = {
-			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_ON_THE_FLY},
-			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_DCIF},
-			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_OFFLINE},
-			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_OFFLINE}
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = HW_MODE_ON_THE_FLY},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = HW_MODE_DIRECT_COUPLED},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = HW_MODE_OFFLINE},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = HW_MODE_OFFLINE}
 			} },
 	[STAGGER_STREAM_PLAN_OTF_DCIF_OFF_3EXP] = {
 		.stagger_select = {
-			{.raw_select = RAW_SELECTION_AB_AUTO, .mode_decision = STAGGER_ON_THE_FLY},
-			{.raw_select = RAW_SELECTION_C, .mode_decision = STAGGER_DCIF},
-			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_OFFLINE},
-			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = STAGGER_OFFLINE}
+			{.raw_select = RAW_SELECTION_AB_AUTO, .mode_decision = HW_MODE_ON_THE_FLY},
+			{.raw_select = RAW_SELECTION_C, .mode_decision = HW_MODE_DIRECT_COUPLED},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = HW_MODE_OFFLINE},
+			{.raw_select = RAW_SELECTION_AUTO, .mode_decision = HW_MODE_OFFLINE}
 			} },
 };
 
@@ -223,10 +232,64 @@ static const struct v4l2_mbus_framefmt mfmt_default = {
 	.quantization = V4L2_QUANTIZATION_DEFAULT,
 };
 
-static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
-				  struct mtk_cam_resource_config *res,
-				  s64 pixel_rate, int res_plan,
-				  int in_w, int in_h, int *out_w, int *out_h);
+static int mtk_raw_pde_get_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct mtk_raw_pipeline *pipeline;
+	struct mtk_cam_pde_info *pde_info_user;
+	struct device *dev;
+	int i;
+
+	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	dev = pipeline->raw->devs[pipeline->id];
+
+	for (i = CAM_SET_CTRL; i < CAM_CTRL_NUM; i++) {
+		pde_info_user =
+			(struct mtk_cam_pde_info *)ctrl->p_new.p + i;
+		pde_info_user->pdo_max_size =
+			pipeline->pde_config.pde_info[i].pdo_max_size;
+		pde_info_user->pdi_max_size =
+			pipeline->pde_config.pde_info[i].pdi_max_size;
+		pde_info_user->pd_table_offset =
+			pipeline->pde_config.pde_info[i].pd_table_offset;
+		pde_info_user->meta_cfg_size =
+			pipeline->pde_config.pde_info[i].meta_cfg_size;
+		pde_info_user->meta_0_size =
+			pipeline->pde_config.pde_info[i].meta_0_size;
+		dev_dbg(dev,
+			"%s:type[%s] pdo/pdi/offset/cfg_sz/0_sz:%d/%d/%d/%d/%d\n",
+			__func__, i == CAM_SET_CTRL ? "SET" : "TRY",
+			pde_info_user->pdo_max_size,
+			pde_info_user->pdi_max_size,
+			pde_info_user->pd_table_offset,
+			pde_info_user->meta_cfg_size,
+			pde_info_user->meta_0_size);
+	}
+	return 0;
+}
+
+static inline int mtk_pixelmode_val(int pxl_mode)
+{
+	int val = 0;
+
+	switch (pxl_mode) {
+	case 1:
+		val = 0;
+		break;
+	case 2:
+		val = 1;
+		break;
+	case 4:
+		val = 2;
+		break;
+	case 8:
+		val = 3;
+		break;
+	default:
+		break;
+	}
+
+	return val;
+}
 
 static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 {
@@ -276,6 +339,8 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 			break;
 		}
 		mutex_unlock(&pipeline->try_res_config.resource_lock);
+	} else if (ctrl->id == V4L2_CID_MTK_CAM_PDE_INFO) {
+		mtk_raw_pde_get_ctrl(ctrl);
 	} else if (ctrl->id == V4L2_CID_MTK_CAM_SYNC_ID) {
 		mutex_lock(&pipeline->res_config.resource_lock);
 		*ctrl->p_new.p_s64 = pipeline->sync_id;
@@ -313,20 +378,6 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 	dev_dbg(dev, "%s:pipe(%d):id(%s) val(%d)\n",
 		__func__, pipeline->id, ctrl->name, ctrl->val);
 	return ret;
-}
-
-static s64 mtk_cam_get_stagger_path(s64 hw_mode)
-{
-	switch (hw_mode) {
-	case ON_THE_FLY:
-		return STAGGER_ON_THE_FLY;
-	case DCIF:
-		return STAGGER_DCIF;
-	default:
-		break;
-	}
-
-	return STAGGER_ON_THE_FLY;
 }
 
 int
@@ -410,11 +461,14 @@ int mtk_cam_raw_res_store(struct mtk_raw_pipeline *pipeline,
 		pipeline->res_config.raw_num_used = 1;
 		pipeline->res_config.bin_enable = 0;
 		pipeline->res_config.tgo_pxl_mode = 1;
+		pipeline->res_config.tgo_pxl_mode_before_raw = 1;
 		pipeline->res_config.raw_path = 0;
 		pipeline->res_config.hwn_limit_min = 1;
 		pipeline->res_config.raw_feature = res_user->raw_res.feature;
 		pipeline->feature_pending = res_user->raw_res.feature;
 		pipeline->feature_active = res_user->raw_res.feature;
+		pipeline->hw_mode = res_user->raw_res.hw_mode;
+		pipeline->hw_mode_pending = res_user->raw_res.hw_mode;
 		return 0;
 	}
 
@@ -477,7 +531,7 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 			 struct v4l2_mbus_framefmt *sink_fmt)
 {
 	s64 prate = 0;
-	int width, height;
+	int width, height, fps;
 	struct device *dev = pipeline->raw->devs[pipeline->id];
 
 	res_cfg->bin_limit = res_user->raw_res.bin; /* 1: force bin on */
@@ -490,6 +544,17 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	res_cfg->res_plan = res_user->raw_res.strategy;
 	res_cfg->raw_feature = res_user->raw_res.feature;
 	res_cfg->raw_path = res_user->raw_res.path_sel;
+	res_cfg->hw_mode = res_user->raw_res.hw_mode;
+
+	// currently only support normal & stagger 2-exp
+	if (res_cfg->hw_mode != 0) {
+		if (res_cfg->raw_feature & ~DC_SUPPORT_RAW_FEATURE_MASK) {
+			dev_info(dev, "feature(%d) not support hw_mode(%d)",
+				res_cfg->raw_feature, res_cfg->hw_mode);
+			res_cfg->hw_mode = HW_MODE_DEFAULT;
+			res_user->raw_res.hw_mode = HW_MODE_DEFAULT;
+		}
+	}
 
 	if (res_user->sensor_res.cust_pixel_rate)
 		prate = res_user->sensor_res.cust_pixel_rate;
@@ -505,6 +570,10 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 					 res_user->sensor_res.interval.denominator,
 					 res_user->sensor_res.interval.numerator,
 					 res_user->sensor_res.pixel_rate);
+
+	fps = res_user->sensor_res.interval.denominator;
+	do_div(fps, res_user->sensor_res.interval.numerator);
+
 	/*worst case throughput prepare for stagger dynamic switch exposure num*/
 	if (mtk_cam_feature_is_stagger(res_cfg->raw_feature)) {
 		if (mtk_cam_feature_is_2_exposure(res_cfg->raw_feature)) {
@@ -523,8 +592,8 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 	}
 	mtk_raw_resource_calc(dev_get_drvdata(pipeline->raw->cam_dev),
 			      res_cfg, prate,
-			      res_cfg->res_plan, sink_fmt->width,
-			      sink_fmt->height, &width, &height);
+			      res_cfg->res_plan, fps,
+			      sink_fmt->width, sink_fmt->height, &width, &height);
 
 	if (res_user->raw_res.bin && !res_cfg->bin_enable) {
 		dev_info(dev,
@@ -548,12 +617,13 @@ mtk_cam_raw_try_res_ctrl(struct mtk_raw_pipeline *pipeline,
 		res_user->raw_res.bin = res_cfg->bin_enable;
 	else
 		res_user->raw_res.bin = res_cfg->bin_limit;
+	res_user->sensor_res.driver_buffered_pixel_rate = prate;
 
 	dev_info(dev,
-		 "%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/pixelmode(%d)/strategy(%d)\n",
+		 "%s:pipe(%d): res calc result: raw_used(%d)/bin(%d)/pixelmode(%d)/strategy(%d)/buffered_prate(%lld)\n",
 		 __func__, pipeline->id, res_user->raw_res.raw_used,
 		 res_user->raw_res.bin, res_user->raw_res.pixel_mode,
-		 res_user->raw_res.strategy);
+		 res_user->raw_res.strategy, prate);
 
 	/**
 	 * Other output not reveal to user now:
@@ -588,6 +658,7 @@ static int mtk_cam_raw_set_res_ctrl(struct v4l2_ctrl *ctrl)
 
 	ret = mtk_cam_raw_res_store(pipeline, res_user);
 	pipeline->user_res = *res_user;
+
 	if (pipeline->subdev.entity.stream_count) {
 		/* If the pipeline is streaming, pending the change */
 		dev_dbg(dev, "%s:pipe(%d): pending res calc has not been supported except bin\n",
@@ -679,6 +750,81 @@ static int mtk_raw_set_res_ctrl(struct device *dev, struct v4l2_ctrl *ctrl,
 	return ret;
 }
 
+static int mtk_raw_pde_try_set_ctrl(struct v4l2_ctrl *ctrl,
+				    enum mtk_cam_ctrl_type ctrl_type)
+{
+	struct mtk_raw_pipeline *pipeline;
+	struct mtk_cam_pde_info *pde_info_pipe;
+	struct mtk_cam_pde_info *pde_info_user;
+	struct device *dev;
+	struct mtk_cam_video_device *node;
+	struct mtk_cam_dev_node_desc *desc;
+	const struct v4l2_format *default_fmt;
+	bool is_reset;
+
+	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
+	dev = pipeline->raw->devs[pipeline->id];
+
+	pde_info_pipe = &pipeline->pde_config.pde_info[ctrl_type];
+	pde_info_user =
+		(struct mtk_cam_pde_info *)ctrl->p_new.p + ctrl_type;
+
+	if (!pde_info_user->pdo_max_size || !pde_info_user->pdi_max_size)
+		is_reset = true;
+	else
+		is_reset = false;
+
+	pde_info_pipe->pdo_max_size = pde_info_user->pdo_max_size;
+	pde_info_pipe->pdi_max_size = pde_info_user->pdi_max_size;
+
+	/* meta config */
+	node = &pipeline->vdev_nodes[MTK_RAW_META_IN - MTK_RAW_SINK_NUM];
+	desc = &node->desc;
+	default_fmt = &desc->fmts[desc->default_fmt_idx].vfmt;
+	if (!is_reset) {
+		pde_info_pipe->pd_table_offset = default_fmt->fmt.meta.buffersize;
+		pde_info_pipe->meta_cfg_size = default_fmt->fmt.meta.buffersize +
+						pde_info_pipe->pdi_max_size;
+		if (ctrl_type == CAM_SET_CTRL)
+			node->active_fmt.fmt.meta.buffersize =
+				pde_info_pipe->meta_cfg_size;
+	} else {
+		if (ctrl_type == CAM_SET_CTRL)
+			node->active_fmt.fmt.meta.buffersize =
+				default_fmt->fmt.meta.buffersize;
+	}
+
+	/* meta 0 */
+	node = &pipeline->vdev_nodes[MTK_RAW_META_OUT_0 - MTK_RAW_SINK_NUM];
+	desc = &node->desc;
+	default_fmt = &desc->fmts[desc->default_fmt_idx].vfmt;
+	if (!is_reset) {
+		pde_info_pipe->meta_0_size = default_fmt->fmt.meta.buffersize +
+						pde_info_pipe->pdo_max_size;
+		if (ctrl_type == CAM_SET_CTRL)
+			node->active_fmt.fmt.meta.buffersize = pde_info_pipe->meta_0_size;
+	} else {
+		if (ctrl_type == CAM_SET_CTRL)
+			node->active_fmt.fmt.meta.buffersize =
+				default_fmt->fmt.meta.buffersize;
+	}
+
+	if (!is_reset) {
+		dev_dbg(dev,
+			"%s:type[%s] pdo/pdi/offset/cfg_sz/0_sz:%d/%d/%d/%d/%d\n",
+			__func__, ctrl_type == CAM_SET_CTRL ? "SET" : "TRY",
+			pde_info_pipe->pdo_max_size, pde_info_pipe->pdi_max_size,
+			pde_info_pipe->pd_table_offset, pde_info_pipe->meta_cfg_size,
+			pde_info_pipe->meta_0_size);
+	} else {
+		memset(pde_info_pipe, 0, sizeof(*pde_info_pipe));
+		dev_dbg(dev, "%s:type[%s] reset pde\n",
+			__func__, ctrl_type == CAM_SET_CTRL ? "SET" : "TRY");
+	}
+
+	return 0;
+}
+
 static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct device *dev;
@@ -730,6 +876,9 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_CAM_TG_FLASH_CFG:
 		ret = mtk_cam_tg_flash_try_ctrl(ctrl);
+		break;
+	case V4L2_CID_MTK_CAM_PDE_INFO:
+		ret = mtk_raw_pde_try_set_ctrl(ctrl, CAM_TRY_CTRL);
 		break;
 	/* skip control value checks */
 	case V4L2_CID_MTK_CAM_MSTREAM_EXPOSURE:
@@ -789,15 +938,18 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_CAM_CAMSYS_HW_MODE:
 	{
-		pipeline->hw_mode = *ctrl->p_new.p_s64;
+		pipeline->hw_mode_pending = *ctrl->p_new.p_s64;
 
 		dev_dbg(dev,
 			"%s:pipe(%d):streaming(%d), hw_mode(0x%x)\n",
 			__func__, pipeline->id, pipeline->subdev.entity.stream_count,
-			pipeline->hw_mode);
+			pipeline->hw_mode_pending);
 
 		ret = 0;
 	}
+		break;
+	case V4L2_CID_MTK_CAM_PDE_INFO:
+		ret = mtk_raw_pde_try_set_ctrl(ctrl, CAM_SET_CTRL);
 		break;
 	default:
 		ret = mtk_raw_set_res_ctrl(pipeline->raw->devs[pipeline->id],
@@ -813,85 +965,6 @@ static const struct v4l2_ctrl_ops cam_ctrl_ops = {
 	.g_volatile_ctrl = mtk_raw_get_ctrl,
 	.s_ctrl = mtk_raw_set_ctrl,
 	.try_ctrl = mtk_raw_try_ctrl,
-};
-
-static int mtk_raw_pde_get_ctrl(struct v4l2_ctrl *ctrl)
-{
-	struct mtk_raw_pipeline *pipeline;
-	struct mtk_raw_pde_config *pde_cfg;
-	struct mtk_cam_pde_info *pde_info_p;
-	struct device *dev;
-	int ret = 0;
-
-	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
-	pde_cfg = &pipeline->pde_config;
-	pde_info_p = ctrl->p_new.p;
-	dev = pipeline->raw->devs[pipeline->id];
-
-	switch (ctrl->id) {
-	case V4L2_CID_MTK_CAM_PDE_INFO:
-		pde_info_p->pdo_max_size = pde_cfg->pde_info.pdo_max_size;
-		pde_info_p->pdi_max_size = pde_cfg->pde_info.pdi_max_size;
-		pde_info_p->pd_table_offset = pde_cfg->pde_info.pd_table_offset;
-		break;
-	default:
-		dev_info(dev, "%s(id:0x%x,val:%d) is not handled\n",
-			 __func__, ctrl->id, ctrl->val);
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-
-static int mtk_raw_pde_set_ctrl(struct v4l2_ctrl *ctrl)
-{
-	struct mtk_raw_pipeline *pipeline;
-	struct mtk_raw_pde_config *pde_cfg;
-	struct mtk_cam_pde_info *pde_info_p;
-	struct device *dev;
-	int ret = 0;
-	struct mtk_cam_video_device *node;
-	struct mtk_cam_dev_node_desc *desc;
-	const struct v4l2_format *default_fmt;
-
-	pipeline = mtk_cam_ctrl_handler_to_raw_pipeline(ctrl->handler);
-	pde_cfg = &pipeline->pde_config;
-	pde_info_p = ctrl->p_new.p;
-	dev = pipeline->raw->devs[pipeline->id];
-
-	node = &pipeline->vdev_nodes[MTK_RAW_META_IN - MTK_RAW_SINK_NUM];
-	desc = &node->desc;
-	default_fmt = &desc->fmts[desc->default_fmt_idx].vfmt;
-
-	switch (ctrl->id) {
-	case V4L2_CID_MTK_CAM_PDE_INFO:
-		if (!pde_info_p->pdo_max_size || !pde_info_p->pdi_max_size) {
-			dev_info(dev,
-				 "%s:pdo_max_sz(%d)/pdi_max_sz(%d) cannot be 0\n",
-				 __func__, pde_info_p->pdo_max_size,
-				 pde_info_p->pdi_max_size);
-			ret = -EINVAL;
-			break;
-		}
-
-		pde_cfg->pde_info.pdo_max_size = pde_info_p->pdo_max_size;
-		pde_cfg->pde_info.pdi_max_size = pde_info_p->pdi_max_size;
-		pde_cfg->pde_info.pd_table_offset =
-			default_fmt->fmt.meta.buffersize;
-		break;
-	default:
-		dev_info(dev, "%s(id:0x%x,val:%d) is not handled\n",
-			 __func__, ctrl->id, ctrl->val);
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-
-static const struct v4l2_ctrl_ops cam_pde_ctrl_ops = {
-	.g_volatile_ctrl = mtk_raw_pde_get_ctrl,
-	.s_ctrl = mtk_raw_pde_set_ctrl,
-	.try_ctrl = mtk_raw_pde_set_ctrl,
 };
 
 static const struct v4l2_ctrl_config hwn_limit = {
@@ -1104,16 +1177,17 @@ static const struct v4l2_ctrl_config mtk_cam_tg_flash_enable = {
 };
 
 static const struct v4l2_ctrl_config cfg_pde_info = {
-	.ops = &cam_pde_ctrl_ops,
+	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_PDE_INFO,
 	.name = "pde information",
 	.type = V4L2_CTRL_TYPE_INTEGER,
-	.flags = V4L2_CTRL_FLAG_VOLATILE,
+	.flags = V4L2_CTRL_FLAG_VOLATILE|V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.min = 0,
 	.max = 0x1fffffff,
 	.step = 1,
 	.def = 0,
-	.dims = {sizeof_u32(struct mtk_cam_pde_info)},
+	/* CAM_TRY_CTRL + CAM_SET_CTRL */
+	.dims = {CAM_CTRL_NUM * sizeof_u32(struct mtk_cam_pde_info)},
 };
 
 static const struct v4l2_ctrl_config mtk_camsys_hw_mode = {
@@ -1124,7 +1198,7 @@ static const struct v4l2_ctrl_config mtk_camsys_hw_mode = {
 	.min = 0,
 	.max = 0x7FFFFFFF,
 	.step = 1,
-	.def = DEFAULT,
+	.def = HW_MODE_DEFAULT,
 };
 
 void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
@@ -1149,6 +1223,19 @@ void trigger_rawi(struct mtk_raw_device *dev, struct mtk_cam_ctx *ctx,
 
 	writel_relaxed(cmd, dev->base + REG_CTL_RAWI_TRIG);
 	wmb(); /* TBC */
+}
+
+/*stagger case seamless switch case*/
+void dbload_force(struct mtk_raw_device *dev)
+{
+	u32 val;
+
+	val = readl_relaxed(dev->base + REG_CTL_MISC);
+	writel_relaxed(val | CTL_DB_LOAD_FORCE, dev->base + REG_CTL_MISC);
+	writel_relaxed(val | CTL_DB_LOAD_FORCE, dev->base_inner + REG_CTL_MISC);
+	wmb(); /* TBC */
+	dev_info(dev->dev, "%s: 0x%x->0x%x\n", __func__,
+		val, val | CTL_DB_LOAD_FORCE);
 }
 
 void apply_cq(struct mtk_raw_device *dev,
@@ -1278,7 +1365,7 @@ void reset(struct mtk_raw_device *dev)
 
 	if (ret < 0 && !is_dma_idle(dev)) {
 		dev_info(dev->dev,
-			 "%s: timeout: tg_sen_mode: 0x%x, ctl_en: 0x%x, mod6_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x\n",
+			 "%s: timeout: tg_sen_mode: 0x%x, ctl_en: 0x%x, mod6_en: 0x%x, ctl_sw_ctl:0x%x, frame_no:0x%x,rst_stat:0x%x,rst_stat2:0x%x,yuv_rst_stat:0x%x,cg_con:0x%x,sw_rst:0x%x\n",
 			 __func__,
 			 readl(dev->base + REG_TG_SEN_MODE),
 			 readl(dev->base + REG_CTL_EN),
@@ -1287,7 +1374,9 @@ void reset(struct mtk_raw_device *dev)
 			 readl(dev->base + REG_FRAME_SEQ_NUM),
 			 readl(dev->base + REG_DMA_SOFT_RST_STAT),
 			 readl(dev->base + REG_DMA_SOFT_RST_STAT2),
-			 readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT));
+			 readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT),
+			 readl(dev->cam->base + REG_CAMSYS_CG_CON),
+			 readl(dev->cam->base + REG_CAMSYS_SW_RST));
 
 		/* check dma cmd cnt */
 		mtk_cam_sw_reset_check(dev->dev, dev->base + CAMDMATOP_BASE,
@@ -1357,6 +1446,85 @@ static void reset_reg(struct mtk_raw_device *dev)
 			 readl_relaxed(dev->base + REG_CTL_SW_PASS1_DONE));
 }
 
+void dump_aa_info(struct mtk_cam_ctx *ctx,
+					struct mtk_ae_debug_data *ae_info)
+{
+	struct mtk_raw_device *raw_dev = NULL;
+	struct mtk_raw_pipeline *pipe = ctx->pipe;
+	int i;
+
+	for (i = 0; i < ctx->cam->num_raw_drivers; i++) {
+		if (pipe->enabled_raw & (1 << i)) {
+			struct device *dev = ctx->cam->raw.devs[i];
+
+			raw_dev = dev_get_drvdata(dev);
+			ae_info->OBC_R1_Sum[0] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_L);
+			ae_info->OBC_R2_Sum[0] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R2_R_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R2_R_SUM_L);
+			ae_info->OBC_R3_Sum[0] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R3_R_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R3_R_SUM_L);
+			ae_info->LTM_Sum[0] +=
+				((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_R_MSB) << 32) |
+				readl(raw_dev->base + REG_LTM_AE_DEBUG_R_LSB);
+			ae_info->AA_Sum[0] +=
+				((u64)readl(raw_dev->base + REG_AA_R_SUM_H) << 32) |
+				readl(raw_dev->base + REG_AA_R_SUM_L);
+
+			ae_info->OBC_R1_Sum[1] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_L);
+			ae_info->OBC_R2_Sum[1] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R2_B_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R2_B_SUM_L);
+			ae_info->OBC_R3_Sum[1] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R3_B_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R3_B_SUM_L);
+			ae_info->LTM_Sum[1] +=
+				((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_B_MSB) << 32) |
+				readl(raw_dev->base + REG_LTM_AE_DEBUG_B_LSB);
+			ae_info->AA_Sum[1] +=
+				((u64)readl(raw_dev->base + REG_AA_B_SUM_H) << 32) |
+				readl(raw_dev->base + REG_AA_B_SUM_L);
+
+			ae_info->OBC_R1_Sum[2] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_L);
+			ae_info->OBC_R2_Sum[2] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R2_GR_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R2_GR_SUM_L);
+			ae_info->OBC_R3_Sum[2] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R3_GR_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R3_GR_SUM_L);
+			ae_info->LTM_Sum[2] +=
+				((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_MSB) << 32) |
+				readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_LSB);
+			ae_info->AA_Sum[2] +=
+				((u64)readl(raw_dev->base + REG_AA_GR_SUM_H) << 32) |
+				readl(raw_dev->base + REG_AA_GR_SUM_L);
+
+			ae_info->OBC_R1_Sum[3] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_L);
+			ae_info->OBC_R2_Sum[3] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R2_GB_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R2_GB_SUM_L);
+			ae_info->OBC_R3_Sum[3] +=
+				((u64)readl(raw_dev->base + OFFSET_OBC_R3_GB_SUM_H) << 32) |
+				readl(raw_dev->base + OFFSET_OBC_R3_GB_SUM_L);
+			ae_info->LTM_Sum[3] +=
+				((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_MSB) << 32) |
+				readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_LSB);
+			ae_info->AA_Sum[3] +=
+				((u64)readl(raw_dev->base + REG_AA_GB_SUM_H) << 32) |
+				readl(raw_dev->base + REG_AA_GB_SUM_L);
+		}
+	}
+}
+
 static int reset_msgfifo(struct mtk_raw_device *dev)
 {
 	atomic_set(&dev->is_fifo_overflow, 0);
@@ -1388,6 +1556,7 @@ void set_fifo_threshold(void __iomem *dma_base)
 	int fifo_size = 0;
 
 	fifo_size = readl_relaxed(dma_base + DMA_OFFSET_CON0) & 0xFFF;
+
 	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(fifo_size, 1/4, 1/8),
 			dma_base + DMA_OFFSET_CON1);
 	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(fifo_size, 1/2, 3/8),
@@ -1448,12 +1617,16 @@ void enable_tg_db(struct mtk_raw_device *dev, int en)
 	}
 }
 
-
 static void init_dma_threshold(struct mtk_raw_device *dev)
 {
 	struct mtk_cam_device *cam_dev;
+	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
+	bool is_srt = mtk_cam_is_srt(dev->pipeline->hw_mode);
+	unsigned int raw_urgent, yuv_urgent;
 
 	cam_dev = dev->cam;
+
+	dev_info(dev->dev, "%s: SRT:%d\n", __func__, is_srt);
 
 	set_fifo_threshold(dev->base + REG_IMGO_R1_BASE);
 	set_fifo_threshold(dev->base + REG_FHO_R1_BASE);
@@ -1508,27 +1681,44 @@ static void init_dma_threshold(struct mtk_raw_device *dev)
 	set_fifo_threshold(dev->base + REG_PDI_R1_BASE);
 	set_fifo_threshold(dev->base + REG_AAI_R1_BASE);
 	set_fifo_threshold(dev->base + REG_CACI_R1_BASE);
+	set_fifo_threshold(dev->base + REG_RAWI_R5_BASE);
 	set_fifo_threshold(dev->base + REG_RAWI_R6_BASE);
 
-	writel_relaxed(0x1, cam_dev->base + REG_HALT1_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_HALT2_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_HALT3_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_HALT4_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_HALT5_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_HALT6_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_ULTRA_HALT1_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_ULTRA_HALT2_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_ULTRA_HALT3_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_ULTRA_HALT4_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_ULTRA_HALT5_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_ULTRA_HALT6_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_PREULTRA_HALT1_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_PREULTRA_HALT2_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_PREULTRA_HALT3_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_PREULTRA_HALT4_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_PREULTRA_HALT5_EN);
-	writel_relaxed(0x1, cam_dev->base + REG_PREULTRA_HALT6_EN);
+	// TODO: move HALT1,2 to camsv
+	writel_relaxed(CAMSV_1_WDMA_PORT, cam_dev->base + REG_HALT1_EN);
+	writel_relaxed(CAMSV_2_WDMA_PORT, cam_dev->base + REG_HALT2_EN);
 
+	switch (dev->id) {
+	case MTKCAM_SUBDEV_RAW_0:
+		raw_urgent = REG_HALT5_EN;
+		yuv_urgent = REG_HALT6_EN;
+		break;
+	case MTKCAM_SUBDEV_RAW_1:
+		raw_urgent = REG_HALT7_EN;
+		yuv_urgent = REG_HALT8_EN;
+		break;
+	case MTKCAM_SUBDEV_RAW_2:
+		raw_urgent = REG_HALT9_EN;
+		yuv_urgent = REG_HALT10_EN;
+		break;
+	default:
+		dev_info(dev->dev, "%s: unknown raw id %d\n", __func__, dev->id);
+		return;
+	}
+
+	if (is_srt) {
+		writel_relaxed(0x0, cam_dev->base + raw_urgent);
+		writel_relaxed(0x0, cam_dev->base + yuv_urgent);
+
+		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, true);
+		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, true);
+	} else {
+		writel_relaxed(RAW_WDMA_PORT, cam_dev->base + raw_urgent);
+		writel_relaxed(YUV_WDMA_PORT, cam_dev->base + yuv_urgent);
+
+		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, false);
+		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, false);
+	}
 }
 
 int get_fps_ratio(struct mtk_raw_device *dev)
@@ -1803,7 +1993,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			fps_ratio = get_fps_ratio(dev);
 			dev_info(dev->dev, "VF on - REG_TG_TIME_STAMP_CNT val:%d fps(30x):%d\n",
 			val, fps_ratio);
-			if (dev->stagger_en)
+			if (mtk_cam_feature_is_stagger(feature))
 				writel_relaxed(SCQ_DEADLINE_MS * 3 * 1000 * SCQ_DEFAULT_CLK_RATE /
 				(val * 2) / fps_ratio, dev->base + REG_SCQ_START_PERIOD);
 			else
@@ -1820,6 +2010,9 @@ void stream_on(struct mtk_raw_device *dev, int on)
 			mtk_cam_set_topdebug_rdyreq(dev->dev, dev->base, dev->yuv_base,
 				TG_OVERRUN);
 			dev->overrun_debug_dump_cnt = 0;
+			enable_tg_db(dev, 0);
+			enable_tg_db(dev, 1);
+			toggle_db(dev);
 			if (feature & MTK_CAM_FEATURE_TIMESHARE_MASK ||
 				feature & MTK_CAM_FEATURE_OFFLINE_M2M_MASK) {
 				dev_info(dev->dev, "[%s] M2M view finder disable\n", __func__);
@@ -1875,6 +2068,40 @@ void stream_on(struct mtk_raw_device *dev, int on)
 
 		reset_reg(dev);
 	}
+}
+
+static int mtk_raw_required_freq_chk(int twin_en, int fps,
+			int width, int height, int pixel_mode, int clk_frq)
+{
+	uint64_t require = 0, require_percent = 0;
+	uint64_t capable = clk_frq;
+
+	capable *= pixel_mode;
+
+	require = width * (height + MTK_RAW_H_LATENCY) * fps;
+	require_percent = require;
+	do_div(require_percent, 100);
+
+	switch (twin_en) {
+	case 1:
+		require += require_percent * MTK_RAW_W_OVERHEAD_2_RAW;
+		break;
+	case 2:
+		require += require_percent * MTK_RAW_W_OVERHEAD_3_RAW;
+		break;
+	default:
+		require += require_percent * MTK_RAW_W_OVERHEAD_SINGLE;
+		break;
+	}
+
+	pr_info("%s: twin %d fps %d w %d h %d pxl_mode %d clk %d",
+		__func__, twin_en, fps, width, height, pixel_mode, clk_frq);
+	pr_info("%s: require %llu, capable %llu", __func__, require, capable);
+
+	if (capable < require)
+		return -1;
+
+	return 0;
 }
 
 static int mtk_raw_linebuf_chk(bool b_twin, bool b_bin, bool b_frz, bool b_qbn,
@@ -1942,10 +2169,11 @@ static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
 	if (!debug_raw)
 		return;
 
-	dev_dbg(cam->dev, "%s:before:BIN/FRZ/HWN/CLK/pxl=%d/%d(%d)/%d/%d/%d, clk:%d\n",
-		__func__, res->bin_enable, res->frz_enable, res->frz_ratio,
+	dev_dbg(cam->dev, "%s:before:BIN/FRZ/HWN/CLK/pxl/pxl(seninf):", __func__);
+	dev_dbg(cam->dev, "%d/%d(%d)/%d/%d/%d/%d, clk:%d\n",
+		res->bin_enable, res->frz_enable, res->frz_ratio,
 		res->raw_num_used, *clk_idx, res->tgo_pxl_mode,
-		res->clk_target);
+		res->tgo_pxl_mode_before_raw, res->clk_target);
 
 	if (debug_raw_num > 0) {
 		dev_info(cam->dev, "DEBUG: force raw_num_used: %d\n",
@@ -1957,6 +2185,7 @@ static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
 		dev_info(cam->dev, "DEBUG: force debug_pixel_mode (log2): %d\n",
 			 debug_pixel_mode);
 		res->tgo_pxl_mode = debug_pixel_mode;
+		res->tgo_pxl_mode_before_raw = debug_pixel_mode;
 	}
 
 	if (debug_clk_idx >= 0) {
@@ -1966,10 +2195,11 @@ static void mtk_raw_update_debug_param(struct mtk_cam_device *cam,
 		res->clk_target = clk->clklv[debug_clk_idx];
 	}
 
-	dev_dbg(cam->dev, "%s:after:BIN/FRZ/HWN/CLK/pxl=%d/%d(%d)/%d/%d/%d, clk:%d\n",
+	dev_dbg(cam->dev,
+		"%s:after:BIN/FRZ/HWN/CLK/pxl/pxl(seninf)=%d/%d(%d)/%d/%d/%d/%d, clk:%d\n",
 		__func__, res->bin_enable, res->frz_enable, res->frz_ratio,
 		res->raw_num_used, *clk_idx, res->tgo_pxl_mode,
-		res->clk_target);
+		res->tgo_pxl_mode_before_raw, res->clk_target);
 
 }
 
@@ -1985,23 +2215,26 @@ static bool is_cbn_en(int bin_flag)
 	}
 }
 
-static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
-				  struct mtk_cam_resource_config *res,
-				  s64 pixel_rate, int res_plan,
-				  int in_w, int in_h, int *out_w, int *out_h)
+bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
+			   struct mtk_cam_resource_config *res,
+			   s64 pixel_rate, int res_plan, int fps,
+			   int in_w, int in_h, int *out_w, int *out_h)
 {
 	struct mtk_camsys_dvfs *clk = &cam->camsys_ctrl.dvfs_info;
 	u64 eq_throughput = clk->clklv[0];
 	int res_step_type = 0;
 	int tgo_pxl_mode = 1;
+	int tgo_pxl_mode_before_raw = 1;
 	int pixel_mode[MTK_CAMSYS_RES_STEP_NUM] = {0};
 	int bin_temp = 0, frz_temp = 0, hwn_temp = 0;
 	int bin_en = 0, frz_en = 0, twin_en = 0, clk_cur = 0;
 	int idx = 0, clk_res = 0, idx_res = 0;
 	bool res_found = false;
 	int lb_chk_res = -1;
+	int required_freq_chk_res = -1;
 	int frz_ratio = 100;
 	int p;
+	bool find_max = 0;
 
 	res->res_plan = res_plan;
 	res->pixel_rate = pixel_rate;
@@ -2069,11 +2302,21 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 					res->frz_limit < FRZ_PXLMODE_THRES
 					? res->frz_limit : FRZ_PXLMODE_THRES;
 		}
-		if (res->raw_feature & MTK_CAM_FEATURE_TIMESHARE_MASK) {
+		if (res->raw_feature & MTK_CAM_FEATURE_TIMESHARE_MASK ||
+			res->hw_mode == HW_MODE_DIRECT_COUPLED) {
+			if (res->raw_feature & MTK_CAM_FEATURE_TIMESHARE_MASK)
+				find_max = true;
+
 			tgo_pxl_mode = mtk_raw_pixelmode_calc(MTK_CAMSYS_PROC_DEFAULT_PIXELMODE,
-					twin_en, bin_en, frz_en, res->frz_ratio);
+				twin_en, bin_en, frz_en, res->frz_ratio);
 			pixel_mode[idx] = tgo_pxl_mode;
-			if (lb_chk_res == LB_CHECK_OK) {
+
+			required_freq_chk_res = mtk_raw_required_freq_chk(
+				twin_en, fps, in_w, in_h, tgo_pxl_mode, clk->clklv[clk_cur]);
+
+			if ((lb_chk_res == LB_CHECK_OK) &&
+				(find_max || res_found == false) &&
+				(required_freq_chk_res == 0)) {
 				res->bin_enable = bin_en;
 				res->frz_enable = frz_en;
 				res->raw_num_used = twin_en + 1;
@@ -2115,31 +2358,22 @@ static bool mtk_raw_resource_calc(struct mtk_cam_device *cam,
 	}
 
 	tgo_pxl_mode = pixel_mode[idx_res];
-	switch (tgo_pxl_mode) {
-	case 1:
-		res->tgo_pxl_mode = 0;
-		break;
-	case 2:
-		res->tgo_pxl_mode = 1;
-		break;
-	case 4:
-		res->tgo_pxl_mode = 2;
-		break;
-	case 8:
-		res->tgo_pxl_mode = 3;
-		break;
-	default:
-		break;
-	}
+	res->tgo_pxl_mode = mtk_pixelmode_val(tgo_pxl_mode);
+
+	tgo_pxl_mode_before_raw = (res->hw_mode == HW_MODE_DIRECT_COUPLED) ?
+		DC_DEFAULT_CAMSV_PIXELMODE : tgo_pxl_mode;
+	res->tgo_pxl_mode_before_raw = mtk_pixelmode_val(tgo_pxl_mode_before_raw);
 
 	mtk_raw_update_debug_param(cam, res, &clk_res);
 
 	eq_throughput = ((u64)(1 << res->tgo_pxl_mode)) * res->clk_target;
 	if (res_found) {
-		dev_info(cam->dev, "Res-end:%d BIN/FRZ/HWN/CLK/pxl=%d/%d(%d)/%d/%d/%d:%10llu, clk:%d\n",
+		dev_info(cam->dev, "Res-end:%d BIN/FRZ/HWN/CLK/pxl/pxl(seninf):", idx_res);
+		dev_info(cam->dev,
+			"Res-end:%d %d/%d(%d)/%d/%d/%d/%d:%10llu, clk:%d\n",
 			idx_res, res->bin_enable, res->frz_enable, res->frz_ratio,
-			res->raw_num_used, clk_res, res->tgo_pxl_mode, eq_throughput,
-			res->clk_target);
+			res->raw_num_used, clk_res, res->tgo_pxl_mode,
+			res->tgo_pxl_mode_before_raw, eq_throughput, res->clk_target);
 	} else {
 		dev_dbg(cam->dev, "[%s] Error resource result; use %dMhz\n",
 			__func__, clk->clklv[clk_cur]);
@@ -2165,7 +2399,6 @@ static void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev,
 				       int dequeued_frame_seq_no);
 static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 					  int dequeued_frame_seq_no);
-
 static void raw_handle_error(struct mtk_raw_device *raw_dev,
 			     struct mtk_camsys_irq_info *data)
 {
@@ -2255,6 +2488,10 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		goto ctx_not_found;
 	}
 
+	/* SRT err interrupt */
+	if (irq_status & P1_DONE_OVER_SOF_INT_ST)
+		dev_dbg(dev, "P1_DONE_OVER_SOF_INT_ST");
+
 	irq_info.irq_type = 0;
 	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = frame_idx;
@@ -2269,20 +2506,31 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_AFO_DONE;
 		/* enable AFO_DONE_EN at backend manually */
 	}
+
+	/* Frame skipped */
+	if (irq_status & P1_SKIP_FRAME_INT_ST)
+		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_SKIPPED;
+
 	/* Frame done */
 	if (irq_status & SW_PASS1_DON_ST) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DONE;
 		raw_dev->overrun_debug_dump_cnt = 0;
 	}
 	/* Frame start */
-	if (irq_status & SOF_INT_ST) {
+	if (irq_status & SOF_INT_ST || irq_status & DCIF_SUB_SOF_INT_EN) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 
-		raw_dev->cur_vsync_idx = 0;
 		raw_dev->sof_count++;
+		raw_dev->cur_vsync_idx = 0;
+		raw_dev->last_sof_time_ns = irq_info.ts_ns;
 		irq_info.write_cnt = ((fbc_fho_ctl2 & WCNT_BIT_MASK) >> 8) - 1;
 		irq_info.fbc_cnt = (fbc_fho_ctl2 & CNT_BIT_MASK) >> 16;
 	}
+
+	/* DCIF main sof */
+	if (irq_status & DCIF_SOF_INT_EN)
+		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START_DCIF_MAIN;
+
 	/* Vsync interrupt */
 	if (irq_status & VS_INT_ST)
 		raw_dev->vsync_count++;
@@ -2462,18 +2710,12 @@ void raw_irq_handle_dma_err(struct mtk_raw_device *raw_dev, int dequeued_frame_s
 				       "RAWI_R2",
 				       dbg_RAWI_R2, ARRAY_SIZE(dbg_RAWI_R2));
 
-	if (raw_dev->pipeline->pde_config.pde_info.pd_table_offset) {
-		dev_dbg_ratelimited(raw_dev->dev,
-				    "DMA_ERR:%x,PDI_R1:%x,PDO_R1:%x\n",
-			readl_relaxed(raw_dev->base + 0x4060),
-			readl_relaxed(raw_dev->base + REG_PDI_R1_BASE + DMA_OFFSET_ERR_STAT),
-			readl_relaxed(raw_dev->base + REG_PDO_R1_BASE + DMA_OFFSET_ERR_STAT)
-			);
-		dev_dbg_ratelimited(raw_dev->dev,
-				    "TG_FRMSIZE_ST:%x,TG_FRMSIZE_ST_R:%x\n",
-			readl_relaxed(raw_dev->base + 0x0738),
-			readl_relaxed(raw_dev->base + 0x076c)
-			);
+	if (raw_dev->pipeline->pde_config.pde_info[CAM_SET_CTRL].pd_table_offset) {
+		dev_info_ratelimited(raw_dev->dev,
+				     "TG_FRMSIZE_ST:%x,TG_FRMSIZE_ST_R:%x\n",
+				     readl_relaxed(raw_dev->base + 0x0738),
+				     readl_relaxed(raw_dev->base + 0x076c));
+
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
 				       "PDO_R1", dbg_PDO_R1, ARRAY_SIZE(dbg_PDO_R1));
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
@@ -2580,7 +2822,7 @@ static void raw_irq_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 		dev_info(raw_dev->dev, "%s: req(%d) can't be found for dump\n",
 			__func__, dequeued_frame_seq_no);
 		if (0 && raw_dev->sof_count > 3 && ctx->seninf)
-			mtk_cam_seninf_dump(ctx->seninf);
+			mtk_cam_seninf_dump(ctx->seninf, (u32)dequeued_frame_seq_no);
 	}
 }
 
@@ -2766,6 +3008,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 					pdev->dev.of_node, "mediatek,larbs", NULL);
 	dev_info(dev, "larb_num:%d\n", larbs);
 
+	raw->larb_pdev = NULL;
 	for (i = 0; i < larbs; i++) {
 		larb_node = of_parse_phandle(
 					pdev->dev.of_node, "mediatek,larbs", i);
@@ -2786,6 +3029,8 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 						DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
 		if (!link)
 			dev_info(dev, "unable to link smi larb%d\n", i);
+		else
+			raw->larb_pdev = larb_pdev;
 	}
 
 #ifdef CONFIG_PM_SLEEP
@@ -2866,12 +3111,11 @@ static int raw_stagger_select(struct mtk_cam_ctx *ctx,
 		ctx_chk = &cam->ctxs[i];
 		if (ctx_chk != ctx && ctx_chk->streaming && mtk_cam_is_stagger(ctx_chk)) {
 			for (m = 0; m < STAGGER_MAX_STREAM_NUM; m++) {
-				mode = (pipe_hw_mode) ?
-					mtk_cam_get_stagger_path(pipe_hw_mode) :
-					stagger_order.stagger_select[m].mode_decision;
+				mode = stagger_order.stagger_select[m].mode_decision;
 				dev_info(cam->dev, "[%s:stagger check] i:%d/m:%d; mode:%d\n",
 				__func__, i, m, mode);
-				if (mode == ctx_chk->pipe->stagger_path) {
+				// TODO: hw_mode or hw_mode_pending
+				if (mode == ctx_chk->pipe->hw_mode) {
 					stagger_order_mask[m] = 1;
 					break;
 				}
@@ -2888,12 +3132,11 @@ static int raw_stagger_select(struct mtk_cam_ctx *ctx,
 	for (i = 0; i < stagger_ctx_num + 1; i++) {
 		if (stagger_order_mask[i] == 0) {
 			stagger_select = stagger_order.stagger_select[i];
-			result->stagger_path = (pipe_hw_mode) ?
-				mtk_cam_get_stagger_path(pipe_hw_mode) :
-				stagger_select.mode_decision;
-			dev_info(cam->dev, "[%s:plan:%d] raw_status 0x%x, stagger_select_raw_mask:0x%x mode:0x%x\n",
+			result->hw_mode = (pipe_hw_mode == HW_MODE_DEFAULT) ?
+				stagger_select.mode_decision : pipe_hw_mode;
+			dev_info(cam->dev, "[%s:plan:%d] raw_status 0x%x, stagger_select_raw_mask:0x%x hw mode:0x%x\n",
 				__func__, i, raw_status, stagger_select.raw_select,
-				result->stagger_path);
+				result->hw_mode);
 		}
 	}
 
@@ -2923,11 +3166,11 @@ int mtk_cam_raw_stagger_select(struct mtk_cam_ctx *ctx,
 
 	selected = raw_stagger_select(ctx,
 				raw_status,
-				pipe->hw_mode,
+				ctx->pipe->hw_mode,
 				&result);
 
-	ctx->pipe->stagger_path_pending = result.stagger_path;
-	ctx->pipe->stagger_path = ctx->pipe->stagger_path_pending;
+	ctx->pipe->hw_mode = result.hw_mode;
+	ctx->pipe->hw_mode_pending = result.hw_mode;
 	pipe->enabled_raw |= result.enabled_raw;
 
 	return selected;
@@ -2941,7 +3184,6 @@ static int mtk_cam_s_data_raw_stagger_select(struct mtk_cam_request_stream_data 
 	bool selected;
 	struct mtk_raw_stagger_select *result;
 	struct mtk_cam_req_raw_pipe_data *s_raw_pipe_data;
-
 
 	ctx = mtk_cam_s_data_get_ctx(s_data);
 	pipe = ctx->pipe;
@@ -2959,7 +3201,7 @@ static int mtk_cam_s_data_raw_stagger_select(struct mtk_cam_request_stream_data 
 				pipe->hw_mode,
 				result);
 
-	ctx->pipe->stagger_path_pending = result->stagger_path;
+	ctx->pipe->hw_mode_pending = result->hw_mode;
 	s_raw_pipe_data->enabled_raw |= result->enabled_raw;
 
 	return selected;
@@ -2972,7 +3214,7 @@ int mtk_cam_s_data_raw_select(struct mtk_cam_request_stream_data *s_data,
 	struct mtk_cam_ctx *ctx;
 	struct mtk_cam_device *cam;
 	struct mtk_raw_pipeline *pipe;
-	int raw_status = 0;
+	int raw_used = 0;
 	bool selected = false;
 	int feature;
 
@@ -2981,11 +3223,13 @@ int mtk_cam_s_data_raw_select(struct mtk_cam_request_stream_data *s_data,
 	cam = ctx->cam;
 	pipe = ctx->pipe;
 
-	raw_status = mtk_raw_available_resource(pipe->raw);
-	raw_status &= ~pipe->enabled_raw;
+	if (pipe->enabled_raw & MTKCAM_SUBDEV_RAW_MASK)
+		raw_used = MTKCAM_SUBDEV_RAW_MASK & ~pipe->enabled_raw;
+	else
+		raw_used = mtk_raw_available_resource(pipe->raw);
 
 	if (mtk_cam_feature_is_stagger(feature))
-		selected = mtk_cam_s_data_raw_stagger_select(s_data, raw_status);
+		selected = mtk_cam_s_data_raw_stagger_select(s_data, raw_used);
 
 	mtk_raw_available_resource(pipe->raw);
 
@@ -3102,6 +3346,10 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		ctx->pipe = pipe;
 		ctx->used_raw_num++;
 		pipe->feature_active = pipe->user_res.raw_res.feature;
+
+		ctx->pipe->hw_mode = pipe->res_config.hw_mode;
+		ctx->pipe->hw_mode_pending = pipe->res_config.hw_mode;
+
 		for (i = 0; i < ARRAY_SIZE(pipe->vdev_nodes); i++) {
 			if (!pipe->vdev_nodes[i].enabled)
 				continue;
@@ -3117,9 +3365,9 @@ static int mtk_raw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		}
 	}
 
-	dev_info(raw->cam_dev, "%s:raw-%d: en %d, dev 0x%x dmas 0x%x\n",
+	dev_info(raw->cam_dev, "%s:raw-%d: en %d, dev 0x%x dmas 0x%x hw_mode %d\n",
 		 __func__, pipe->id, enable, pipe->enabled_raw,
-		 pipe->enabled_dmas);
+		 pipe->enabled_dmas, ctx->pipe->hw_mode);
 
 	return 0;
 }
@@ -3228,7 +3476,7 @@ bool mtk_raw_fmt_get_res(struct v4l2_subdev *sd,
 		return false;
 	}
 
-	dev_dbg(sd->v4l2_dev->dev, "%s:sensor:%d/%d/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld\n",
+	dev_dbg(sd->v4l2_dev->dev, "%s:sensor:%d/%d/%lld/%d/%d, raw:%d/%d/%d/%d/%d/%d/%d/%d/%lld/%d\n",
 		__func__,
 		res->sensor_res.hblank, res->sensor_res.vblank,
 		res->sensor_res.pixel_rate,	res->sensor_res.interval.denominator,
@@ -3236,7 +3484,7 @@ bool mtk_raw_fmt_get_res(struct v4l2_subdev *sd,
 		res->raw_res.feature, res->raw_res.bin, res->raw_res.path_sel,
 		res->raw_res.raw_max, res->raw_res.raw_min, res->raw_res.raw_used,
 		res->raw_res.strategy, res->raw_res.pixel_mode,
-		res->raw_res.throughput);
+		res->raw_res.throughput, res->raw_res.hw_mode);
 
 	return res;
 }
@@ -3663,6 +3911,51 @@ int mtk_raw_try_pad_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt)
+{
+	// return V4L2_PIX_FMT_MTISP for matching
+	// length returned by mtk_cam_get_pixel_bits()
+	// with ipi_fmt returned by mtk_cam_get_sensor_fmt()
+
+	switch (fmt & SENSOR_FMT_MASK) {
+	case MEDIA_BUS_FMT_SBGGR8_1X8:
+		return V4L2_PIX_FMT_SBGGR8;
+	case MEDIA_BUS_FMT_SGBRG8_1X8:
+		return V4L2_PIX_FMT_SGBRG8;
+	case MEDIA_BUS_FMT_SGRBG8_1X8:
+		return V4L2_PIX_FMT_SGRBG8;
+	case MEDIA_BUS_FMT_SRGGB8_1X8:
+		return V4L2_PIX_FMT_SRGGB8;
+	case MEDIA_BUS_FMT_SBGGR10_1X10:
+		return V4L2_PIX_FMT_MTISP_SBGGR10;
+	case MEDIA_BUS_FMT_SGBRG10_1X10:
+		return V4L2_PIX_FMT_MTISP_SGBRG10;
+	case MEDIA_BUS_FMT_SGRBG10_1X10:
+		return V4L2_PIX_FMT_MTISP_SGRBG10;
+	case MEDIA_BUS_FMT_SRGGB10_1X10:
+		return V4L2_PIX_FMT_MTISP_SGRBG10;
+	case MEDIA_BUS_FMT_SBGGR12_1X12:
+		return V4L2_PIX_FMT_MTISP_SBGGR12;
+	case MEDIA_BUS_FMT_SGBRG12_1X12:
+		return V4L2_PIX_FMT_MTISP_SGBRG12;
+	case MEDIA_BUS_FMT_SGRBG12_1X12:
+		return V4L2_PIX_FMT_MTISP_SGRBG12;
+	case MEDIA_BUS_FMT_SRGGB12_1X12:
+		return V4L2_PIX_FMT_MTISP_SRGGB12;
+	case MEDIA_BUS_FMT_SBGGR14_1X14:
+		return V4L2_PIX_FMT_MTISP_SBGGR14;
+	case MEDIA_BUS_FMT_SGBRG14_1X14:
+		return V4L2_PIX_FMT_MTISP_SGBRG14;
+	case MEDIA_BUS_FMT_SGRBG14_1X14:
+		return V4L2_PIX_FMT_MTISP_SGRBG14;
+	case MEDIA_BUS_FMT_SRGGB14_1X14:
+		return V4L2_PIX_FMT_MTISP_SRGGB14;
+	default:
+		break;
+	}
+	return V4L2_PIX_FMT_MTISP_SBGGR14;
+}
+
 static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 				struct v4l2_subdev_pad_config *cfg,
 				struct v4l2_subdev_format *fmt,
@@ -3672,6 +3965,7 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 		container_of(sd, struct mtk_raw_pipeline, subdev);
 	struct mtk_raw *raw = pipe->raw;
 	struct v4l2_mbus_framefmt *mf;
+	unsigned int sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_UNKNOWN;
 
 	if (!sd || !fmt) {
 		dev_dbg(raw->cam_dev, "%s: Required sd(%p), fmt(%p)\n",
@@ -3687,7 +3981,7 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 
 
 	if (!mtk_raw_try_fmt(sd, fmt) &&
-			!mtk_cam_feature_is_pure_m2m(
+		!mtk_cam_feature_is_pure_m2m(
 			pipe->feature_pending)) {
 		mf = mtk_raw_pipeline_get_fmt(pipe, cfg, fmt->pad, fmt->which);
 		fmt->format = *mf;
@@ -3708,9 +4002,39 @@ static int mtk_raw_call_set_fmt(struct v4l2_subdev *sd,
 		struct v4l2_format *img_fmt;
 
 		if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
-			img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].pending_fmt;
+			img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].sink_fmt_for_dc_rawi;
 			img_fmt->fmt.pix_mp.width = mf->width;
 			img_fmt->fmt.pix_mp.height = mf->height;
+
+			sink_ipi_fmt = mtk_cam_get_sensor_fmt(mf->code);
+
+			if (sink_ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
+				dev_info(raw->cam_dev,
+					"%s: sink_ipi_fmt not found\n");
+
+				sink_ipi_fmt = MTKCAM_IPI_IMG_FMT_BAYER14;
+			}
+
+			img_fmt->fmt.pix_mp.pixelformat =
+				mtk_cam_get_rawi_sensor_pixel_fmt(mf->code);
+
+			img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline =
+				mtk_cam_dmao_xsize(mf->width, sink_ipi_fmt, 3);
+			img_fmt->fmt.pix_mp.plane_fmt[0].sizeimage =
+				img_fmt->fmt.pix_mp.plane_fmt[0].bytesperline *
+				img_fmt->fmt.pix_mp.height;
+
+			img_fmt = &pipe->vdev_nodes[MTK_RAW_SINK].pending_fmt;
+
+			img_fmt->fmt.pix_mp.width = mf->width;
+			img_fmt->fmt.pix_mp.height = mf->height;
+
+			dev_dbg(raw->cam_dev,
+				"%s: sd:%s update sink pad format %dx%d code 0x%x\n",
+				__func__, sd->name,
+				img_fmt->fmt.pix_mp.width,
+				img_fmt->fmt.pix_mp.height,
+				mf->code);
 		}
 
 		source_mf = mtk_raw_pipeline_get_fmt(pipe, cfg,
@@ -3852,11 +4176,11 @@ unsigned int mtk_raw_get_hdr_scen_id(
 	unsigned int hw_scen =
 		(1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
 
-	if (ctx->pipe->stagger_path == STAGGER_ON_THE_FLY)
+	if (mtk_cam_hw_is_otf(ctx))
 		hw_scen = (1 << MTKCAM_IPI_HW_PATH_ON_THE_FLY_DCIF_STAGGER);
-	else if (ctx->pipe->stagger_path == STAGGER_DCIF)
+	else if (mtk_cam_hw_is_dc(ctx))
 		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_SRT_DCIF_STAGGER);
-	else if (ctx->pipe->stagger_path == STAGGER_OFFLINE)
+	else if (mtk_cam_hw_is_offline(ctx))
 		hw_scen = (1 << MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER);
 
 	return hw_scen;
@@ -5594,7 +5918,7 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	v4l2_ctrl_new_std(ctrl_hdlr, &cam_ctrl_ops,
 				    V4L2_CID_VBLANK, 0, 65535, 1, 0);
 
-	// PDE
+	/* pde module ctrl */
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_pde_info, NULL);
 
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &mtk_feature, NULL);
@@ -5630,11 +5954,10 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	pipe->feature_pending = mtk_feature.def;
 	pipe->sync_id = frame_sync_id.def;
 	pipe->sensor_mode_update = cfg_res_update.def;
-	pipe->pde_config.pde_info.pdo_max_size = cfg_pde_info.def;
-	pipe->pde_config.pde_info.pdi_max_size = cfg_pde_info.def;
-	pipe->pde_config.pde_info.pd_table_offset = cfg_pde_info.def;
+	memset(&pipe->pde_config, cfg_pde_info.def, sizeof(pipe->pde_config));
 	pipe->subdev.ctrl_handler = ctrl_hdlr;
 	pipe->hw_mode = mtk_camsys_hw_mode.def;
+	pipe->hw_mode_pending = mtk_camsys_hw_mode.def;
 }
 
 static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
@@ -5648,7 +5971,11 @@ static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
 	int ret;
 
 	pipe->id = id;
-	pipe->dynamic_exposure_num_max = 3;
+#ifdef XAGA_CAM
+	pipe->dynamic_exposure_num_max = 1;
+#else 
+        pipe->dynamic_exposure_num_max = 3;
+#endif
 
 	/* Initialize subdev */
 	v4l2_subdev_init(sd, &mtk_raw_subdev_ops);
@@ -5754,6 +6081,7 @@ int mtk_raw_setup_dependencies(struct mtk_raw *raw)
 		raw_dev = dev_get_drvdata(consumer);
 		yuv_dev = dev_get_drvdata(supplier);
 		raw_dev->yuv_base = yuv_dev->base;
+		raw_dev->yuv_base_inner = yuv_dev->base_inner;
 
 		link = device_link_add(consumer, supplier,
 				       DL_FLAG_AUTOREMOVE_CONSUMER |
@@ -5855,6 +6183,7 @@ static int mtk_raw_probe(struct platform_device *pdev)
 
 	raw_dev->fifo_size =
 		roundup_pow_of_two(8 * sizeof(struct mtk_camsys_irq_info));
+
 	raw_dev->msg_buffer = devm_kzalloc(dev, raw_dev->fifo_size, GFP_KERNEL);
 	if (!raw_dev->msg_buffer)
 		return -ENOMEM;
@@ -6117,6 +6446,19 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 		return PTR_ERR(drvdata->base);
 	}
 
+	/* base inner register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "inner_base");
+	if (!res) {
+		dev_dbg(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	drvdata->base_inner = devm_ioremap_resource(dev, res);
+	if (IS_ERR(drvdata->base_inner)) {
+		dev_dbg(dev, "failed to map register inner base\n");
+		return PTR_ERR(drvdata->base_inner);
+	}
+
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_dbg(dev, "failed to get irq\n");
@@ -6158,6 +6500,7 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 					pdev->dev.of_node, "mediatek,larbs", NULL);
 	dev_info(dev, "larb_num:%d\n", larbs);
 
+	drvdata->larb_pdev = NULL;
 	for (i = 0; i < larbs; i++) {
 		larb_node = of_parse_phandle(
 					pdev->dev.of_node, "mediatek,larbs", i);
@@ -6178,6 +6521,8 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 						DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
 		if (!link)
 			dev_info(dev, "unable to link smi larb%d\n", i);
+		else
+			drvdata->larb_pdev = larb_pdev;
 	}
 
 #ifdef CONFIG_PM_SLEEP
@@ -6277,6 +6622,9 @@ static int mtk_yuv_runtime_resume(struct device *dev)
 #ifdef CAMSYS_TF_DUMP_71_1
 int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 {
+#define REG_YSIZE_OFFSET	0x14
+#define REG_STRDIE_OFFSET	0x18
+
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
 	struct device *dev = raw_dev->dev;
 	struct mtk_cam_ctx *ctx;
@@ -6285,6 +6633,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	unsigned int dequeued_frame_seq_no_inner;
 	unsigned int rawi_inner_addr, rawi_inner_addr_msb;
 	unsigned int inner_addr, inner_addr_msb, size;
+	unsigned int stride, ysize;
 
 	dequeued_frame_seq_no_inner =
 		readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
@@ -6300,7 +6649,13 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	dev_info(dev, "M4U TF port %d iova %pad frame_seq_no %d raw id %d vf %d\n",
 		port, &mva, dequeued_frame_seq_no_inner, raw_dev->id, atomic_read(&raw_dev->vf_en));
 
+	dev_info(dev, "feature_active 0x%x feature_pending 0x%x\n",
+		ctx->pipe->feature_active, ctx->pipe->feature_pending);
+
+	dev_info(dev, "--Outer FBC\n");
 	mtk_cam_raw_dump_fbc(raw_dev->dev, raw_dev->base, raw_dev->yuv_base);
+	dev_info(dev, "--Inner FBC\n");
+	mtk_cam_raw_dump_fbc(raw_dev->dev, raw_dev->base_inner, raw_dev->yuv_base_inner);
 
 	dev_info(raw_dev->dev,
 		 "[Outter] TG PATHCFG/SENMODE FRMSIZE/R GRABPXL/LIN:%x/%x %x/%x %x/%x\n",
@@ -6361,7 +6716,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->base_inner + REG_CQ_THR0_BASEADDR_MSB);
 		size = readl_relaxed(raw_dev->base_inner + REG_CQ_THR0_DESC_SIZE);
 		dev_info(raw_dev->dev,
-			 "CQ_THR0_inner_addr_msb:%d, CQ_THR0_inner_addr:%08x, size:0x%x\n",
+			 "CQ_THR0_inner_addr_msb:0x%x, CQ_THR0_inner_addr:%08x, size:0x%x\n",
 			inner_addr_msb, inner_addr, size);
 
 		inner_addr =
@@ -6370,7 +6725,7 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->base_inner + REG_CQ_SUB_THR0_BASEADDR_MSB_2);
 		size = readl_relaxed(raw_dev->base_inner + REG_CQ_SUB_THR0_DESC_SIZE_2);
 		dev_info(raw_dev->dev,
-			 "CQ_SUB_THR0_2_inner_addr_msb:%d, CQ_SUB_THR0_2_inner_addr:%08x, size:0x%x\n",
+			 "CQ_SUB_THR0_2: inner_addr_msb:0x%x, inner_addr:%08x, size:0x%x\n",
 			inner_addr_msb, inner_addr, size);
 		break;
 	case M4U_PORT_L16_CAM2_RAWI_R2:
@@ -6381,9 +6736,15 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->base_inner + REG_RAWI_R2_BASE);
 		rawi_inner_addr_msb =
 				readl_relaxed(raw_dev->base_inner + REG_RAWI_R2_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->base_inner +
+					REG_RAWI_R2_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->base_inner +
+					REG_RAWI_R2_BASE + REG_YSIZE_OFFSET);
 		dev_info(raw_dev->dev,
-			 "rawi_r2_inner_addr_msb:%d, rawi_r2_inner_addr:%08x\n",
-			rawi_inner_addr_msb, rawi_inner_addr);
+			 "rawi_r2: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			rawi_inner_addr_msb, rawi_inner_addr, stride, ysize);
 
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
 				"RAWI_R2", dbg_RAWI_R2, ARRAY_SIZE(dbg_RAWI_R2));
@@ -6396,17 +6757,92 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 				readl_relaxed(raw_dev->base_inner + REG_RAWI_R3_BASE);
 		rawi_inner_addr_msb =
 				readl_relaxed(raw_dev->base_inner + REG_RAWI_R3_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->base_inner +
+					REG_RAWI_R3_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->base_inner +
+					REG_RAWI_R3_BASE + REG_YSIZE_OFFSET);
 		dev_info(raw_dev->dev,
-			 "rawi_r3_inner_addr_msb:%d, rawi_r3_inner_addr:%08x\n",
-			 rawi_inner_addr_msb, rawi_inner_addr);
+			 "rawi_r3: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 rawi_inner_addr_msb, rawi_inner_addr, stride, ysize);
 
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
 				"RAWI_R3", dbg_RAWI_R3, ARRAY_SIZE(dbg_RAWI_R3));
+		break;
+	case M4U_PORT_L16_CAM2_RAWI_R5:
+	case M4U_PORT_L27_CAM2_RAWI_R5:
+	case M4U_PORT_L28_CAM2_RAWI_R5:
+		// M4U_PORT CAM2_RAWI_R5
+		rawi_inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_RAWI_R5_BASE);
+		rawi_inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_RAWI_R5_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->base_inner +
+					REG_RAWI_R5_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->base_inner +
+					REG_RAWI_R5_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "rawi_r5: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 rawi_inner_addr_msb, rawi_inner_addr, stride, ysize);
+
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
+				"RAWI_R5", dbg_RAWI_R5, ARRAY_SIZE(dbg_RAWI_R5));
+		break;
+	case M4U_PORT_L16_CAM2_AAI_R1:
+	case M4U_PORT_L27_CAM2_AAI_R1:
+	case M4U_PORT_L28_CAM2_AAI_R1:
+		// M4U_PORT CAM2_RAWI_R6
+		rawi_inner_addr =
+				readl_relaxed(raw_dev->base_inner + REG_RAWI_R6_BASE);
+		rawi_inner_addr_msb =
+				readl_relaxed(raw_dev->base_inner + REG_RAWI_R6_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->base_inner +
+					REG_RAWI_R6_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->base_inner +
+					REG_RAWI_R6_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "rawi_r6: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 rawi_inner_addr_msb, rawi_inner_addr, stride, ysize);
+		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->base + CAMDMATOP_BASE,
+				"RAWI_R6", dbg_RAWI_R6, ARRAY_SIZE(dbg_RAWI_R6));
 		break;
 	case M4U_PORT_L17_CAM3_YUVO_R1:
 	case M4U_PORT_L29_CAM3_YUVO_R1:
 	case M4U_PORT_L30_CAM3_YUVO_R1:
 		// M4U_PORT CAM3_YUVO_R1 : yuvo_r1 + yuvbo_r1
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R1_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVO_R1_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVO_R1_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvo_r1: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R1_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVBO_R1_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVBO_R1_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvbo_r1: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"YUVO_R1", dbg_YUVO_R1, ARRAY_SIZE(dbg_YUVO_R1));
 		break;
@@ -6414,6 +6850,34 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	case M4U_PORT_L29_CAM3_YUVO_R3:
 	case M4U_PORT_L30_CAM3_YUVO_R3:
 		// M4U_PORT CAM3_YUVO_R3 : yuvo_r3 + yuvbo_r3
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R3_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R3_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVO_R3_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVO_R3_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvo_r3: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R3_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R3_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVBO_R3_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVBO_R3_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvbo_r3: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"YUVO_R3", dbg_YUVO_R3, ARRAY_SIZE(dbg_YUVO_R3));
 		break;
@@ -6421,6 +6885,62 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	case M4U_PORT_L29_CAM3_YUVCO_R1:
 	case M4U_PORT_L30_CAM3_YUVCO_R1:
 		// M4U_PORT CAM3_YUVCO_R1 : yuvco_r1 + yuvdo_r1 + yuvco_r3 + yuvdo_r3
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVCO_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVCO_R1_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVCO_R1_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVCO_R1_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvco_r1: inner_addr_msb:0x%x, inner_addr:%08x\n, stride:0x%x, ysize:0x%x",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVDO_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVDO_R1_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVDO_R1_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVDO_R1_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvdo_r1: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVCO_R3_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVCO_R3_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVCO_R3_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVCO_R3_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvco_r3: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVDO_R3_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVDO_R3_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVDO_R3_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVDO_R3_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvdo_r3: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"YUVCO_R1", dbg_YUVCO_R1, ARRAY_SIZE(dbg_YUVCO_R1));
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
@@ -6431,6 +6951,90 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	case M4U_PORT_L30_CAM3_YUVO_R2:
 		// M4U_PORT CAM3_YUVO_R2 : yuvo_r2 + yuvbo_r2 + yuvo_r4 + yuvbo_r4
 		//                           + yuvo_r5 + yuvbo_r5
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R2_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R2_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVO_R2_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVO_R2_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvo_r2: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R2_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R2_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVBO_R2_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVBO_R2_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvbo_r2: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R4_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R4_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVO_R4_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVO_R4_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvo_r4: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R4_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R4_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVBO_R4_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVBO_R4_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvbo_r4: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R5_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVO_R5_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVO_R5_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVO_R5_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvo_r5: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R5_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_YUVBO_R5_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVBO_R5_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_YUVBO_R5_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "yuvbo_r5: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"YUVO_R2", dbg_YUVO_R2, ARRAY_SIZE(dbg_YUVO_R2));
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
@@ -6443,6 +7047,76 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	case M4U_PORT_L30_CAM3_RZH1N2TO_R1:
 		// M4U_PORT CAM3_RZH1N2TO_R1 : rzh1n2to_r1 + rzh1n2tbo_r1 + rzh1n2to_r2
 		//                               + rzh1n2to_r3 + rzh1n2tbo_r3
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TO_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TO_R1_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_RZH1N2TO_R1_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_RZH1N2TO_R1_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "rzh1n2to_r1: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TBO_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TBO_R1_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_RZH1N2TBO_R1_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_RZH1N2TBO_R1_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "rzh1n2tbo_r1: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TO_R2_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TO_R2_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_RZH1N2TO_R2_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_RZH1N2TO_R2_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "rzh1n2to_r2: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TO_R3_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TO_R3_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_RZH1N2TO_R3_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_RZH1N2TO_R3_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "rzh1n2to_r3: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TBO_R3_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_RZH1N2TBO_R3_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_RZH1N2TBO_R3_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_RZH1N2TBO_R3_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "rzh1n2tbo_r3: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"RZH1N2TO_R1", dbg_RZH1N2TO_R1, ARRAY_SIZE(dbg_RZH1N2TO_R1));
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
@@ -6455,6 +7129,62 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	case M4U_PORT_L30_CAM3_DRZS4NO_R1:
 		// M4U_PORT CAM3_DRZS4NO_R1 : drzs4no_r1 + drzs4no_r2 + drzs4no_r3
 		//                               + lmvo_r1 + actso_r1
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R1_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_DRZS4NO_R1_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_DRZS4NO_R1_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "drzs4no_r1: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R2_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R2_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_DRZS4NO_R2_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_DRZS4NO_R2_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "drzs4no_r2: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R3_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_DRZS4NO_R3_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_DRZS4NO_R3_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_DRZS4NO_R3_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "drzs4no_r3: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_ACTSO_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_ACTSO_R1_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_ACTSO_R1_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_ACTSO_R1_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "actso_r1: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"DRZS4NO_R1", dbg_DRZS4NO_R1, ARRAY_SIZE(dbg_DRZS4NO_R1));
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
@@ -6462,14 +7192,26 @@ int mtk_cam_translation_fault_callback(int port, dma_addr_t mva, void *data)
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"DRZS4NO_R3", dbg_DRZS4NO_R3, ARRAY_SIZE(dbg_DRZS4NO_R3));
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
-				"LMVO_R1", dbg_LMVO_R1, ARRAY_SIZE(dbg_LMVO_R1));
-		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"ACTSO_R1", dbg_ACTSO_R1, ARRAY_SIZE(dbg_ACTSO_R1));
 		break;
 	case M4U_PORT_L17_CAM3_TNCSO_R1:
 	case M4U_PORT_L29_CAM3_TNCSO_R1:
 	case M4U_PORT_L30_CAM3_TNCSO_R1:
 		// M4U_PORT CAM3_TNCSO_R1 : tncso_r1 + tncsbo_r1 + tncsho_r1 + tncsyo_r1
+		inner_addr =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_TNCSYO_R1_BASE);
+		inner_addr_msb =
+				readl_relaxed(raw_dev->yuv_base_inner + REG_TNCSYO_R1_BASE_MSB);
+		stride =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_TNCSYO_R1_BASE + REG_STRDIE_OFFSET);
+		ysize =
+				readl_relaxed(raw_dev->yuv_base_inner +
+					REG_TNCSYO_R1_BASE + REG_YSIZE_OFFSET);
+		dev_info(raw_dev->dev,
+			 "tncsyo_r1: inner_addr_msb:0x%x, inner_addr:%08x, stride:0x%x, ysize:0x%x\n",
+			 inner_addr_msb, inner_addr, stride, ysize);
+
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,
 				"TNCSO_R1", dbg_TNCSO_R1, ARRAY_SIZE(dbg_TNCSO_R1));
 		mtk_cam_dump_dma_debug(raw_dev->dev, raw_dev->yuv_base + CAMDMATOP_BASE,

@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
+/* TOUCH start */
+
+&spi2 {
+	status = "okay";
+        fifo_no_irq_support;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	syna@0 {
+		status = "ok";
+		compatible = "synaptics,tcm-spi";
+		reg = <0x0>;
+                spi-max-frequency = <5000000>;
+		interrupt-parent = <&pio>;
+		interrupts = <135 0x2008>;
+		synaptics,avdd-name = "avdd";
+		avdd-supply = <&mt6368_vtp>;
+		synaptics,iovdd-name = "iovdd";
+		iovdd-supply = <&mt6368_vrf18_aif>;
+		synaptics,irq-gpio = <&pio 135 0x2008>;
+		synaptics,reset-gpio = <&pio 3 0x0>;
+		synaptics,irq-on-state = <0>;
+		synaptics,spi-mode = <0>;
+		synaptics,byte-delay-us = <0>;
+		synaptics,block-delay-us = <0>;
+		synaptics,power-delay-ms = <200>;
+		synaptics,reset-delay-ms = <200>;
+		synaptics,ubl-max-freq = <5000000>;
+		synaptics,ubl-byte-delay-us = <20>;
+		pinctrl-names = "default","pmx_syna_spi_mode";
+		pinctrl-0 = <&syna_reset_gpio_default &syna_tcm_eint_init>;
+		pinctrl-1 = <&ts_spics_mode>;
+		synaptics,game-mode-array =
+                        <1 0 0 0 0>;  /* MAX MIN DEF SET GET    */
+		synaptics,active-mode-array =
+                        <1 0 0 0 0>;  /* MAX MIN DEF SET GET    */
+		synaptics,up-threshold-array =
+                        <4 0 2 0 0>;  /* MAX MIN DEF SET GET    */
+		synaptics,tolerance-array =
+                        <4 0 2 0 0>;  /* MAX MIN DEF SET GET    */
+		synaptics,edge-filter-array =
+                        <3 0 2 2 2>;  /* MAX MIN DEF SET GET    */
+		synaptics,panel-orien-array =
+                        <3 0 0 0 0>;  /* MAX MIN DEF SET GET    */
+		synaptics,report-rate-array =
+                        <4 0 2 0 0>;  /* MAX MIN DEF SET GET    */
+		synaptics,cornerfilter-area-step-array = <0 100 170 250>; /* step 0 to step 3 */
+		synaptics,cornerzone-filter-hor1-array =
+                /* B0:Type, B1:pos, B2:x0, B3:y0, B4:x1, B5:y1, B6:reserved, B7: reserved */
+                        <0 0 0 0 170 170 0 0>,
+                        <0 1 0 0 0 0 0 0>,
+                        <0 2 0 2229 170 2399 0 0>,
+                        <0 3 0 0 0 0 0 0>;
+		synaptics,cornerzone-filter-hor2-array =
+                /* B0:Type, B1:pos, B2:x0, B3:y0, B4:x1, B5:y1, B6:reserved, B7: reserved */
+                        <0 0 0 0 0 0 0 0>,
+                        <0 1 909 0 1079 170 0 0>,
+                        <0 2 0 0 0 0 0 0>,
+                        <0 3 909 2229 1079 2399 0 0>;
+		synaptics,cornerzone-filter-ver-array =
+                /* B0:Type, B1:pos, B2:x0, B3:y0, B4:x1, B5:y1, B6:reserved, B7: reserved */
+                        <0 0 0 0 0 0 0 0>,
+                        <0 1 0 0 0 0 0 0>,
+                        <0 2 0 2099 150 2399 0 0>,
+                        <0 3 929 2099 1079 2399 0 0>;
+		synaptics,deadzone-filter-hor-array =
+                /* B0:Type, B1:pos, B2:x0, B3:y0, B4:x1, B5:y1, B6:reserved, B7: reserved */
+                        <2 0 0 0 1079 0 0 0>,
+                        <2 1 0 2399 1079 2399 0 0>,
+                        <2 2 0 0 0 0 0 0>,
+                        <2 3 0 0 0 0 0 0>;
+		synaptics,deadzone-filter-ver-array =
+                /* B0:Type, B1:pos, B2:x0, B3:y0, B4:x1, B5:y1, B6:reserved, B7: reserved */
+                        <2 0 0 0 0 0 0 0>,
+                        <2 1 0 0 0 0 0 0>,
+                        <2 2 0 0 0 2399 0 0>,
+                        <2 3 1079 0 1079 2399 0 0>;
+		synaptics,edgezone-filter-hor-array =
+                /* B0:Type, B1:pos, B2:x0, B3:y0, B4:x1, B5:y1, B6:reserved, B7: reserved */
+                        <1 0 0 0 1079 40 0 0>,
+                        <1 1 0 2359 1079 2399 0 0>,
+                        <1 2 0 0 40 2399 0 0>,
+                        <1 3 1039 0 1079 2399 0 0>;
+		synaptics,edgezone-filter-ver-array =
+                /* B0:Type, B1:pos, B2:x0, B3:y0, B4:x1, B5:y1, B6:reserved, B7: reserved */
+                        <1 0 0 0 0 0 0 0>,
+                        <1 1 0 0 0 0 0 0>,
+                        <1 2 0 0 40 2399 0 0>,
+                        <1 3 1039 0 1079 2399 0 0>;
+		synaptics,panel-display-resolution = <1079 2399>;  /* X  Y*/
+	};
+};
+&mt6368_vtp {
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3300000>;
+};
+
+&mt6368_vrf18_aif {
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+};
+
+&pio {
+	syna_tcm_eint_init: syna_tcm_eint_init {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO135__FUNC_GPIO135>;
+                        bias-pull-up;
+			input_enable;
+		};
+	};
+	syna_reset_gpio_default: syna_reset_gpio_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO3__FUNC_GPIO3>;
+			bias-disable;
+			output-low;
+		};
+	};
+	ts_spics_mode: ts_spics_mode{
+		pins_cmd_dat{
+			pinmux = <PINMUX_GPIO110__FUNC_SPI2_A_CSB>;
+			drive-strength = <2>;
+		};
+	};
+};
+/* TOUCH end */

@@ -20,9 +20,12 @@
 #include <linux/hrtimer.h>
 #include <linux/ktime.h>
 
+#include <uapi/linux/sched/types.h>
+
 #include <audio_log.h>
 #include <audio_assert.h>
 #include <audio_ipi_platform.h>
+
 
 #if IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT)
 #include <adsp_helper.h>
@@ -940,14 +943,20 @@ static int dsp_process_msg_thread(void *data)
 
 	unsigned long flags = 0;
 	int retval = 0;
+	struct sched_param param = { 0 };
 
 	if (msg_queue == NULL) {
 		pr_info("msg_queue == NULL!! return");
 		return -EFAULT;
 	}
 
-	set_user_nice(current, -20); /* normal thread highest priority */
-
+	//set_user_nice(current, -20); /* normal thread highest priority */
+	/* set to RT Thread */
+	param.sched_priority = 4;
+	retval = sched_setscheduler(current, SCHED_FIFO, &param);
+	if (retval != 0) {
+		pr_err("sched set RT thread failed");
+	}
 	while (msg_queue->thread_enable && !kthread_should_stop()) {
 		/* wait until element pushed */
 		retval = dsp_get_queue_element(msg_queue, &p_dsp_msg, &idx_msg);

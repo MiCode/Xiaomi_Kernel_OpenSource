@@ -209,6 +209,8 @@ static unsigned int init_power_on_num;
 static struct mtk_smi_pd *smi_pd_ctrl[MAX_PD_CTRL_NUM];
 static unsigned int smi_pd_ctrl_num;
 
+static struct mtk_smi_larb *larb_clamp_ctrl[MTK_LARB_NR_MAX];
+
 static void power_reset_imp(struct mtk_smi_pd *smi_pd)
 {
 	int i;
@@ -273,6 +275,36 @@ static int mtk_smi_pd_callback(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static void mtk_smi_larb_clamp_update(struct mtk_smi_larb *larb, bool on)
+{
+	int i;
+	u32 clamp_reg = on ? SMI_CLAMP_EN_SET : SMI_CLAMP_EN_CLR;
+
+	/* enable related SMI common port */
+	for (i = 0; i < LARB_MAX_COMMON; i++) {
+		struct mtk_smi *common;
+
+		if (larb->comm_port_id[i] >= 0 && larb->smi_common_dev[i]) {
+			common = dev_get_drvdata(larb->smi_common_dev[i]);
+			writel(1 << larb->comm_port_id[i],
+				common->base + clamp_reg);
+		} else {
+			break;
+		}
+	}
+}
+
+void mtk_smi_larb_clamp(u32 larb_id, bool on)
+{
+	struct mtk_smi_larb *larb = larb_clamp_ctrl[larb_id];
+
+	if (!larb) {
+		pr_notice("%s: larb %d not enable clamp ctrl\n", __func__, larb_id);
+		return;
+	}
+	mtk_smi_larb_clamp_update(larb, on);
+}
+EXPORT_SYMBOL_GPL(mtk_smi_larb_clamp);
 
 void mtk_smi_common_bw_set(struct device *dev, const u32 port, const u32 val)
 {
@@ -418,6 +450,26 @@ static void mtk_smi_clk_disable(const struct mtk_smi *smi)
 	clk_disable_unprepare(smi->clk_smi);
 	clk_disable_unprepare(smi->clk_apb);
 }
+
+int mtk_smi_larb_ultra_dis(struct device *larbdev, bool is_dis)
+{
+	struct mtk_smi_larb *larb;
+	u32 val;
+
+	if (unlikely(!larbdev))
+		return -EINVAL;
+	larb = dev_get_drvdata(larbdev);
+
+	if (unlikely(!larb))
+		return -ENODEV;
+
+	val = is_dis ? 0xffffffff : 0x0;
+	writel(val, larb->base + SMI_LARB_DISABLE_ULTRA);
+	pr_info("[SMI]larb:%d set dis_ultra:%d\n", larb->larbid, is_dis);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mtk_smi_larb_ultra_dis);
 
 int mtk_smi_larb_get(struct device *larbdev)
 {
@@ -1143,7 +1195,25 @@ mtk_smi_larb_mt6983_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
@@ -1151,27 +1221,9 @@ mtk_smi_larb_mt6983_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
@@ -1219,9 +1271,9 @@ mtk_smi_larb_mt6879_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
@@ -1235,9 +1287,9 @@ mtk_smi_larb_mt6879_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
@@ -1256,13 +1308,13 @@ mtk_smi_larb_mt6895_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
@@ -1274,6 +1326,12 @@ mtk_smi_larb_mt6895_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
+	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
@@ -1284,13 +1342,7 @@ mtk_smi_larb_mt6895_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
-	 {SMI_LARB_SW_FLAG, 0x1},},
+	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 	 {SMI_LARB_SW_FLAG, 0x1}, {SMI_LARB_DISABLE_ULTRA, 0xffffffff},},
 	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
@@ -1627,6 +1679,11 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 	ret = component_add(dev, &mtk_smi_larb_component_ops);
 	of_property_read_u32(dev->of_node, "mediatek,larb-id", &larb->larbid);
 
+	if (of_property_read_bool(dev->of_node, "larb-clamp-ctrl-enable")) {
+		larb_clamp_ctrl[larb->larbid] = larb;
+		dev_notice(dev, "Found clamp SMI LARB%d\n", larb->larbid);
+	}
+
 	if (of_property_read_bool(dev->of_node, "init-power-on")) {
 		ret = pm_runtime_get_sync(dev);
 		init_power_on_dev[init_power_on_num++] = &larb->smi;
@@ -1651,7 +1708,7 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
-	int ret, i;
+	int ret;
 
 	atomic_inc(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
@@ -1659,16 +1716,8 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 			larb->larbid, atomic_read(&larb->smi.ref_count));
 
 	/* enable related SMI common port */
-	for (i = 0; i < LARB_MAX_COMMON; i++) {
-		struct mtk_smi *common;
+	/* mtk_smi_larb_clamp_update(larb, false); */
 
-		if (larb->comm_port_id[i] >= 0 && larb->smi_common_dev[i]) {
-			common = dev_get_drvdata(larb->smi_common_dev[i]);
-
-			writel(1 << larb->comm_port_id[i],
-				common->base + SMI_CLAMP_EN_CLR);
-		}
-	}
 
 	ret = mtk_smi_clk_enable(&larb->smi);
 	if (ret < 0) {
@@ -1702,7 +1751,6 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
-	int i;
 
 	atomic_dec(&larb->smi.ref_count);
 	if (log_level & 1 << log_config_bit)
@@ -1723,16 +1771,8 @@ static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 
 	mtk_smi_clk_disable(&larb->smi);
 	/* disable related SMI common port */
-	for (i = 0; i < LARB_MAX_COMMON; i++) {
-		struct mtk_smi *common;
+	/* mtk_smi_larb_clamp_update(larb, true); */
 
-		if (larb->comm_port_id[i] >= 0 && larb->smi_common_dev[i]) {
-			common = dev_get_drvdata(larb->smi_common_dev[i]);
-
-			writel(1 << larb->comm_port_id[i],
-				common->base + SMI_CLAMP_EN_SET);
-		}
-	}
 	return 0;
 }
 
@@ -2330,6 +2370,12 @@ static int __maybe_unused mtk_smi_common_suspend(struct device *dev)
 
 	mtk_smi_clk_disable(common);
 	atomic_dec(&common->ref_count);
+
+	if (atomic_read(&common->ref_count)) {
+		dev_notice(dev, "Error: comm(%d) ref count=%d on suspend\n",
+			common->commid, atomic_read(&common->ref_count));
+	}
+
 	return 0;
 }
 

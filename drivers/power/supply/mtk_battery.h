@@ -112,6 +112,10 @@ enum battery_property {
 	BAT_PROP_INIT_DONE,
 	BAT_PROP_FG_RESET,
 	BAT_PROP_LOG_LEVEL,
+	BAT_PROP_NIGHT_CHARGING,
+	BAT_PROP_INPUT_SUSPEND,
+	BAT_PROP_SMART_BATT,
+	BAT_PROP_SHIPMODE,
 };
 
 struct battery_data {
@@ -128,6 +132,7 @@ struct battery_data {
 	/* Add for Battery Service */
 	int bat_batt_vol;
 	int bat_batt_temp;
+	int bat_current;
 };
 
 struct VersionControl {
@@ -900,6 +905,7 @@ struct mtk_battery {
 	struct sock *mtk_battery_sk;
 
 	struct mtk_battery_algo algo;
+	struct power_supply *ti_bms_psy;
 
 	u_int fgd_pid;
 
@@ -919,6 +925,7 @@ struct mtk_battery {
 	bool disableGM30;
 	bool ntc_disable_nafg;
 	bool cmd_disable_nafg;
+        bool shipmode_flag;
 
 	/*battery plug in out*/
 	int chr_type;
@@ -964,7 +971,6 @@ struct mtk_battery {
 
 	/* charge full interrupt */
 	struct timespec64 chr_full_handler_time;
-	bool b_EOC;
 
 	/* battery temperature interrupt */
 	int bat_tmp_int_gap;
@@ -1074,6 +1080,9 @@ struct mtk_battery {
 	int (*resume)(struct mtk_battery *gm);
 
 	int log_level;
+	int thermal_level;
+	int diff_fv_val;
+        bool night_charging;
 };
 
 struct mtk_battery_sysfs_field_info {

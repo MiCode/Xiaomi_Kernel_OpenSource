@@ -778,6 +778,39 @@ static int mtk_dsp_pcm_close(struct snd_soc_component *component,
 	return ret;
 }
 
+/*
+  allocate dsp copy buffer
+  @param: @action true: allocate buffer false: free buffer
+
+ */
+
+static int mtk_dsp_manage_copybuf(bool action,
+			          struct mtk_base_dsp_mem *dsp_mep,
+			          unsigned int size)
+{
+	if (dsp_mep == NULL)
+		return -ENOSYS;;
+
+	if (action == true) {
+		if (size == 0)
+			return ENOSYS;
+		if (dsp_mep->dsp_copy_buf != NULL)
+			return ENOSYS;
+		dsp_mep->dsp_copy_buf = vmalloc(size);
+		if (!dsp_mep)
+			return -ENOMEM;
+		//pr_info("%s size = %u\n,", __func__, size);
+	} else {
+		if (dsp_mep->dsp_copy_buf == NULL)
+			return ENOSYS;
+		vfree(dsp_mep->dsp_copy_buf);
+		dsp_mep->dsp_copy_buf = NULL;
+		//pr_info("%s free dsp_copy_buf\n", __func__);
+	}
+	return 0;
+}
+
+
 static int mtk_dsp_pcm_hw_params(struct snd_soc_component *component,
 		struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
@@ -824,6 +857,14 @@ static int mtk_dsp_pcm_hw_params(struct snd_soc_component *component,
 		}
 
 	}
+
+	// allocate copy buffer
+	ret = mtk_dsp_manage_copybuf(true, &dsp->dsp_mem[id], params_buffer_bytes(params));
+	if (ret) {
+		pr_info("%s ret = %d\n", __func__, ret);
+		return -1;
+	}
+
 
 #ifdef DEBUG_VERBOSE
 	dump_audio_dsp_dram(&dsp->dsp_mem[id].msg_atod_share_buf);
@@ -902,6 +943,11 @@ static int mtk_dsp_pcm_hw_free(struct snd_soc_component *component,
 		if (!ret)
 			release_snd_dmabuffer(&substream->dma_buffer);
 	}
+
+	// free copy buffer
+	ret = mtk_dsp_manage_copybuf(false, &dsp->dsp_mem[id], 0);
+	if (ret)
+		pr_info("%s ret = %d\n", __func__, ret);
 
 	/* release dsp memory */
 	ret = reset_audiobuffer_hw(&dsp->dsp_mem[id].adsp_buf);
@@ -1033,6 +1079,7 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	struct ringbuf_bridge *buf_bridge =
 		&(dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 	unsigned long flags = 0;
+	void* dsp_copy_buf = dsp_mem->dsp_copy_buf;
 	spinlock_t *ringbuf_lock = &dsp_mem->ringbuf_lock;
 	const char *task_name = get_str_by_dsp_dai_id(id);
 
@@ -1049,24 +1096,31 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 		return -1;
 	}
 
+	if (dsp_copy_buf == NULL)
+		return ENOMEM;
+
 	Ringbuf_Check(ringbuf);
 	Ringbuf_Bridge_Check(
 		&dsp_mem->adsp_buf.aud_buffer.buf_bridge);
 
+	// copy user space memory
+	copy_from_user(dsp_copy_buf, buf, copy_size);
+
 	spin_lock_irqsave(ringbuf_lock, flags);
 	availsize = RingBuf_getFreeSpace(ringbuf);
-	spin_unlock_irqrestore(ringbuf_lock, flags);
 	if (availsize < copy_size) {
 		pr_info("%s, id = %d, fail copy_size = %d availsize = %d\n",
 			__func__, id, copy_size, RingBuf_getFreeSpace(ringbuf));
 		dump_rbuf_s("check dlcopy", &dsp_mem->ring_buf);
 		dump_rbuf_bridge_s("check dlcopy",
 			   &dsp_mem->adsp_buf.aud_buffer.buf_bridge);
+		spin_unlock_irqrestore(ringbuf_lock, flags);
 		return -1;
 	}
 
-	RingBuf_copyFromUserLinear(ringbuf, buf, copy_size);
+	RingBuf_copyFromLinear(ringbuf, dsp_copy_buf, copy_size);
 	RingBuf_Bridge_update_writeptr(buf_bridge, copy_size);
+	spin_unlock_irqrestore(ringbuf_lock, flags);
 
 	/* send audio_hw_buffer to SCP side*/
 	ipi_audio_buf = (void *)dsp_mem->msg_atod_share_buf.va_addr;
@@ -1270,7 +1324,10 @@ void audio_irq_handler(int irq, void *data, int core_id)
 		goto IRQ_ERROR;
 	}
 
-	tasklet_schedule(&dsp->dsp_tasklet[core_id]);
+	audio_dsp_tasklet(dsp, core_id);
+
+	//tasklet_schedule(&dsp->dsp_tasklet[core_id]);
+
 	return;
 IRQ_ERROR:
 	pr_info("IRQ_ERROR irq[%d] data[%p] core_id[%d] dsp[%p]\n",

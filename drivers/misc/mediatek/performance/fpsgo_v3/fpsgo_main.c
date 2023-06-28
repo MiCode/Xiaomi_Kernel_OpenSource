@@ -28,6 +28,7 @@
 #include "uboost.h"
 #include "gbe_common.h"
 
+
 #define CREATE_TRACE_POINTS
 
 #define TARGET_UNLIMITED_FPS 240
@@ -316,7 +317,6 @@ void fpsgo_notify_qudeq(int qudeq,
 
 	FPSGO_LOGI("[FPSGO_CTRL] qudeq %d-%d, id %llu pid %d\n",
 		qudeq, startend, id, pid);
-
 	if (!fpsgo_is_enable())
 		return;
 
@@ -353,7 +353,6 @@ void fpsgo_notify_connect(int pid,
 	FPSGO_LOGI(
 		"[FPSGO_CTRL] connect pid %d, id %llu, API %d\n",
 		pid, id, connectedAPI);
-
 	vpPush =
 		(struct FPSGO_NOTIFIER_PUSH_TAG *)
 		fpsgo_alloc_atomic(sizeof(struct FPSGO_NOTIFIER_PUSH_TAG));
@@ -603,7 +602,6 @@ void fpsgo_switch_enable(int enable)
 int fpsgo_is_force_enable(void)
 {
 	int temp_onoff;
-
 	mutex_lock(&notify_lock);
 	temp_onoff = fpsgo_force_onoff;
 	mutex_unlock(&notify_lock);

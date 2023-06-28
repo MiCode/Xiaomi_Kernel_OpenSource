@@ -45,6 +45,8 @@
 #include <mtk_low_battery_throttling.h>
 #endif
 
+static DEFINE_MUTEX(gpufreq_dump_lock);
+
 /**
  * ===============================================
  * Local Function Declaration
@@ -277,6 +279,7 @@ EXPORT_SYMBOL(gpufreq_check_bus_idle);
  ***********************************************************************************/
 void gpufreq_dump_infra_status(void)
 {
+	mutex_lock(&gpufreq_dump_lock);
 	gpufreq_dump_dvfs_status();
 
 	/* implement on AP */
@@ -284,6 +287,7 @@ void gpufreq_dump_infra_status(void)
 		gpufreq_fp->dump_infra_status();
 	else
 		GPUFREQ_LOGE("null gpufreq platform function pointer (ENOENT)");
+	mutex_unlock(&gpufreq_dump_lock);
 }
 EXPORT_SYMBOL(gpufreq_dump_infra_status);
 
@@ -858,6 +862,7 @@ int gpufreq_power_control(enum gpufreq_power_state power)
 
 	GPUFREQ_TRACE_START("power=%d", power);
 
+	mutex_lock(&gpufreq_dump_lock);
 	if (!gpufreq_power_ctrl_enable()) {
 		GPUFREQ_LOGD("power control is disabled");
 		ret = GPUFREQ_SUCCESS;
@@ -895,6 +900,7 @@ done:
 
 	GPUFREQ_TRACE_END();
 
+	mutex_unlock(&gpufreq_dump_lock);
 	return ret;
 }
 EXPORT_SYMBOL(gpufreq_power_control);
