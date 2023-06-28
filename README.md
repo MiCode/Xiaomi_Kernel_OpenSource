@@ -157,6 +157,7 @@
 | willow-p-oss | Redmi Note 8T | Android P | LA.UM.7.11.r1-02700-NICOBAR.0 | [willow-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/willow-p-oss) |
 | ysl-o-oss | Redmi S2 | Android O | LA.UM.6.6.r1-06200-89xx.0 | [ysl-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ysl-o-oss) |
 | ysl-p-oss | Redmi S2 | Android P | LA.UM.7.6.r1-03900-89xx.0 | [ysl-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ysl-p-oss) |
+| yuechu-t-oss | Xiaomi Civi3 | Android T | bsp-t-alps-release-s0.mp1.tc8sp2-mt6983-V1.0.1_W53 | [yuechu-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/yuechu-t-oss) |
 | zeus-s-oss | Mi 12, Mi 12 Pro | Android S | LA.VENDOR.1.0.r1-09100-r1.0.r1 | [zeus-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zeus-s-oss) |
 | zijin-s-oss | Xiaomi Civi 1S | Android S | LA.UM.9.14.r1-18300.05-LAHAINA.QSSI12.0-1 | [zijin-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/zijin-s-oss) |
 | ziyi-s-oss | Xiaomi civi2 | Android S | LA.VENDOR.1.0.r1-13100-r1.0.r1_00037.0 | [ziyi-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ziyi-s-oss) |
