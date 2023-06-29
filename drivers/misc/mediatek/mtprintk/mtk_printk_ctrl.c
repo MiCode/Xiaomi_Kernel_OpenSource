@@ -134,7 +134,7 @@ static ssize_t mt_printk_ctrl_write(struct file *filp,
 	switch (val) {
 #ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 	case 0:
-		mt_disable_uart();
+		//mt_disable_uart();
 		break;
 	case 1:
 		mt_enable_uart();

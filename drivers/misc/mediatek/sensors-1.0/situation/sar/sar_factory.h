@@ -36,8 +36,9 @@
 struct sar_factory_fops {
 	int (*enable_sensor)(bool enabledisable,
 			int64_t sample_periods_ms);
-	int (*get_data)(int32_t sensor_data[3]);
+	int (*get_data)(int32_t sensor_data[8]);
 	int (*enable_calibration)(void);
+	int (*set_cali)(int32_t data[3]);
 	int (*get_cali)(int32_t data[3]);
 };
 

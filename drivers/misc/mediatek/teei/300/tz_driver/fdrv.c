@@ -104,12 +104,12 @@ int fdrv_notify(struct teei_fdrv *fdrv)
 
 	init_completion(wait_completion);
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	retVal = add_work_entry(SMC_CALL_TYPE, N_INVOKE_T_NQ, 0, 0, 0);
 	if (retVal != 0) {
 		IMSG_ERROR("TEEI: Failed to add_work_entry[%s]\n", __func__);
-		cpus_read_unlock();
+		teei_cpus_read_unlock();
 		kfree(wait_completion);
 		return retVal;
 	}
@@ -120,7 +120,7 @@ int fdrv_notify(struct teei_fdrv *fdrv)
 
 	if (retVal != 0) {
 		IMSG_ERROR("TEEI: Failed to add one nq to n_t_buffer\n");
-		cpus_read_unlock();
+		teei_cpus_read_unlock();
 		kfree(wait_completion);
 		return retVal;
 	}
@@ -129,7 +129,7 @@ int fdrv_notify(struct teei_fdrv *fdrv)
 
 	wait_for_completion(wait_completion);
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	kfree(wait_completion);
 

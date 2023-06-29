@@ -1097,6 +1097,16 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 	if (IS_ERR_OR_NULL(buffer))
 		return 0;
 
+	/*
+	 * secure heap buffer struct is different with mm_heap buffer,
+	 * and it isn't public, don't dump here.
+	 *
+	 * only dump supported heap type in ion_mm_heap.c
+	 */
+	if (buffer->heap->type != (unsigned int)ION_HEAP_TYPE_MULTIMEDIA &&
+	    buffer->heap->type != (unsigned int)ION_HEAP_TYPE_SYSTEM)
+		return 0;
+
 	bug_info = (struct ion_mm_buffer_info *)buffer->priv_virt;
 	if (bug_info) {
 		pid = bug_info->pid;
@@ -1195,6 +1205,8 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	int i;
 	bool has_orphaned = false;
 	struct ion_mm_buffer_info *bug_info;
+	unsigned long uncached_total = 0;
+	unsigned long cached_total = 0;
 	unsigned long long current_ts;
 
 	current_ts = sched_clock();
@@ -1214,6 +1226,12 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 			 pool->low_count, pool->order,
 			 (1 << pool->order) * PAGE_SIZE *
 			 pool->low_count);
+
+		uncached_total += (1 << pool->order) * PAGE_SIZE *
+			pool->high_count;
+		uncached_total += (1 << pool->order) * PAGE_SIZE *
+			pool->low_count;
+
 		pool = sys_heap->cached_pools[i];
 		ION_DUMP(s,
 			 "%d order %u highmem pages in cached_pool = %lu total\n",
@@ -1225,7 +1243,20 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 			 pool->low_count, pool->order,
 			 (1 << pool->order) * PAGE_SIZE *
 			 pool->low_count);
+
+		cached_total += (1 << pool->order) * PAGE_SIZE *
+			 pool->high_count;
+		cached_total += (1 << pool->order) * PAGE_SIZE *
+			 pool->low_count;
 	}
+
+	ION_DUMP(s,
+		"uncached pool = %lu cached pool = %lu\n",
+		uncached_total, cached_total);
+	ION_DUMP(s,
+		"pool total (uncached + cached) = %lu\n",
+		uncached_total + cached_total);
+
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		ION_DUMP(s, "mm_heap_freelist total_size=%zu\n",
 			 ion_heap_freelist_size(heap));
@@ -1341,9 +1372,8 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 
 			client->dbg_hnd_cnt++;
 			ION_DUMP(s,
-				 "\thandle=0x%p (id: %d), buffer=0x%p/0x%lx, heap=%u, fd=%4d, ts: %lldms (%d)\n",
+				 "\thandle=0x%p (id: %d), buffer=0x%p, heap=%u, fd=%4d, ts: %lldms (%d)\n",
 				 handle, handle->id, handle->buffer,
-				 (unsigned long)handle->buffer,
 				 handle->buffer->heap->id,
 				 handle->dbg.fd,
 				 handle->dbg.user_ts,

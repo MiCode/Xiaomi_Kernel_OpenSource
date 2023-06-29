@@ -260,33 +260,7 @@ static void __iomem *g_toprgu;
 
 unsigned int mt_gpufreq_get_shader_present(void)
 {
-	static int shader_present = -1;
-	unsigned int segment_id = 0;
-
-	if (shader_present != -1)
-		return shader_present;
-
-	segment_id = __mt_gpufreq_get_segment_id();
-
-	switch (segment_id) {
-	case MT6781_SEGMENT:
-		shader_present = MT_GPU_SHADER_PRESENT_2;
-		break;
-	case MT6781M_SEGMENT:
-		shader_present = MT_GPU_SHADER_PRESENT_2;
-		break;
-	case MT6781T_SEGMENT:
-		shader_present = MT_GPU_SHADER_PRESENT_2;
-		break;
-	default:
-		shader_present = MT_GPU_SHADER_PRESENT_2;
-		gpufreq_pr_info("@%s: invalid segment_id(%d)\n",
-				__func__, segment_id);
-	}
-	gpufreq_pr_info("@%s: segment_id=%d shader_present=%d\n",
-			__func__, segment_id, shader_present);
-
-	return shader_present;
+	return MT_GPU_SHADER_PRESENT_2;
 }
 
 
@@ -1753,52 +1727,25 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 	static int segment_id = -1;
 
 	segment_id = MT6781_SEGMENT;
-#if 0// MT6781 has only one segment, check segment code if need to enable this in the future
-	if (segment_id != -1)
-		return segment_id;
-
-	efuse_id = (get_devinfo_with_index(30) & 0xFF);
-
-	switch (efuse_id) {
-	case 0x01:
-	case 0x02:
-		segment_id = MT6781_SEGMENT;    /* 5G-C */
-		break;
-	case 0x03:
-	case 0x04:
-		segment_id = MT6781M_SEGMENT;    /* 5G-CM */
-		break;
-	default:
-		segment_id = MT6781_SEGMENT;
-		gpufreq_pr_info("@%s: invalid efuse_id(0x%x)\n",
-				__func__, efuse_id);
-	}
-
-	gpufreq_pr_info("@%s: efuse_id=0x%x segment_id=%d\n",
-			__func__, efuse_id, segment_id);
-#endif
 
 	return segment_id;
 }
 
 static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
 {
-#if 0// MT6781 has only one segment, check segment code if need to enable this in the future
 	unsigned int efuse_id;
-
-	efuse_id = ((get_devinfo_with_index(209) >> 9) & 0x3);
+	efuse_id = ((get_devinfo_with_index(69) >> 28) & 0x3);
 	switch (efuse_id) {
-	case 0x2: // EFUSE 0x11C105E8[10:9] = 2'b10
-		return g_opp_table_segment_2;
-	case 0x1: // EFUSE 0x11C105E8[10:9] = 2'b01
-		return g_opp_table_segment_3;
-	default:
-		gpufreq_pr_debug("@%s: invalid efuse_id(0x%x)\n",
-				__func__, efuse_id);
+	case 0x2: // EFUSE 0X11CB05CC[29:28] = 2'b10
 		return g_opp_table_segment_1;
+	case 0x1: // EFUSE 0X11CB05CC[29:28] = 2'b01
+		return g_opp_table_segment_1;
+	default:
+		//use default table
+		return g_opp_table_segment_0;
 	}
-#endif
-	return g_opp_table_segment_1;
+
+	return g_opp_table_segment_0;
 }
 
 /**
@@ -3049,14 +2996,6 @@ static void __mt_gpufreq_init_table(void)
 
 	/* determine max_opp/num/segment_table... by segment  */
 	//MT6781 has only one segment
-	#if 0
-	if (segment_id == MT6781_SEGMENT)
-		g_segment_max_opp_idx = 11;
-	else if (segment_id == MT6781M_SEGMENT)
-		g_segment_max_opp_idx = 24;
-	else
-		g_segment_max_opp_idx = 0;
-	#endif
 	g_segment_max_opp_idx = 0;
     /// @}
 	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;

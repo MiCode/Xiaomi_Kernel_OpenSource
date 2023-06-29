@@ -1200,6 +1200,18 @@ config SND_SOC_SIA8109
 	  amplifier. It is a speaker which connect with MTK
 	  PMIC device which has no speaker protection.
 
+config SND_SMARTPA_AW882XX
+	tristate "SoC Audio for awinic aw882xxseries"
+	depends on I2C
+	help
+	  This option enables support for aw882xxseries Smart PA.
+
+config SND_SOC_AW87XXX
+       tristate "SoC Audio for awinic AW87XXX Smart K PA"
+       depends on I2C
+       help
+         This option enables support for AW87XXX Smart K PA.
+
 config SND_SOC_LM4857
 	tristate
 

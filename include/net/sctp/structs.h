@@ -441,7 +441,7 @@ struct sctp_af {
 					 int saddr);
 	void		(*from_sk)	(union sctp_addr *,
 					 struct sock *sk);
-	void		(*from_addr_param) (union sctp_addr *,
+	bool		(*from_addr_param) (union sctp_addr *,
 					    union sctp_addr_param *,
 					    __be16 port, int iif);
 	int		(*to_addr_param) (const union sctp_addr *,
@@ -1269,6 +1269,7 @@ struct sctp_endpoint {
 	__u16 active_key_id;
 	__u8  auth_enable:1,
 	      prsctp_enable:1,
+	      asconf_enable:1,
 	      reconf_enable:1;
 
 	__u8  strreset_enable;

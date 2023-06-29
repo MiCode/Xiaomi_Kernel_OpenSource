@@ -172,6 +172,8 @@ struct mdp_pmqos_record {
 #define MDP_TOTAL_THREAD 16
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 #define MDP_THREAD_START (CMDQ_MIN_SECURE_THREAD_ID + 2)
+#define MDP_MAX_METADATA_COUNT_SIZE   ( \
+	(0xFFFFFFFF) / (sizeof(struct cmdqSecAddrMetadataStruct)))
 #else
 #define MDP_THREAD_START CMDQ_DYNAMIC_THREAD_ID_START
 #endif

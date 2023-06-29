@@ -425,6 +425,13 @@ static ssize_t mag_show_libinfo(struct device *dev,
 	return sizeof(struct mag_libinfo_t);
 }
 
+static ssize_t mag_show_nfcinfo(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct mag_context *cxt = mag_context_obj;
+	return snprintf(buf, PAGE_SIZE, "%d\n", cxt->mag_ctl.is_support_nfc);
+}
+
 static int msensor_remove(struct platform_device *pdev)
 {
 	pr_debug("%s\n", __func__);
@@ -569,6 +576,7 @@ DEVICE_ATTR(magflush, 0644, mag_show_flush, mag_store_flush);
 DEVICE_ATTR(magcali, 0644, mag_show_cali, mag_store_cali);
 DEVICE_ATTR(magdevnum, 0644, mag_show_sensordevnum, NULL);
 DEVICE_ATTR(maglibinfo, 0644, mag_show_libinfo, NULL);
+DEVICE_ATTR(magnfcinfo, 0644, mag_show_nfcinfo, NULL);
 
 static struct attribute *mag_attributes[] = {
 	&dev_attr_magdev.attr,
@@ -578,6 +586,7 @@ static struct attribute *mag_attributes[] = {
 	&dev_attr_magcali.attr,
 	&dev_attr_magdevnum.attr,
 	&dev_attr_maglibinfo.attr,
+	&dev_attr_magnfcinfo.attr,
 	NULL
 };
 
@@ -617,6 +626,7 @@ int mag_register_control_path(struct mag_control_path *ctl)
 	       sizeof(cxt->mag_ctl.libinfo.libname));
 	cxt->mag_ctl.libinfo.layout = ctl->libinfo.layout;
 	cxt->mag_ctl.libinfo.deviceid = ctl->libinfo.deviceid;
+	cxt->mag_ctl.is_support_nfc = ctl->is_support_nfc;
 
 	if (cxt->mag_ctl.set_delay == NULL || cxt->mag_ctl.enable == NULL ||
 	    cxt->mag_ctl.open_report_data == NULL) {

@@ -157,6 +157,7 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 					yuv_gpu_cnt++;
 				}
 			}
+
 		}
 
 		if (yuv_gpu_cnt == 0)

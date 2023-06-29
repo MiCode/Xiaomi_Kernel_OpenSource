@@ -814,6 +814,7 @@ int gyro_cali_report(struct gyro_data *data)
 	event.word[1] = data->y;
 	event.word[2] = data->z;
 
+	pr_info("gyro_cali_report[%d %d %d]", event.word[0], event.word[1], event.word[2]);
 	err = sensor_input_event(gyro_context_obj->mdev.minor, &event);
 	return err;
 }

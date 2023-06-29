@@ -48,6 +48,8 @@
 #include "pmic_auxadc.h"
 #endif /* end of #if PMIC_ACCDET_KERNEL */
 
+#include <linux/panel_notifier.h>
+
 /********************grobal variable definitions******************/
 #if PMIC_ACCDET_CTP
 #define CONFIG_ACCDET_EINT_IRQ
@@ -82,6 +84,9 @@
 #define EINT_PIN_MOISTURE_DETECTED (2)
 #define EINT_PIN_THING_IN	(3)
 #define ANALOG_FASTDISCHARGE_SUPPORT
+
+#define MEDIA_PREVIOUS_SCAN_CODE 257
+#define MEDIA_NEXT_SCAN_CODE 258
 
 #ifdef CONFIG_ACCDET_EINT_IRQ
 enum pmic_eint_ID {
@@ -904,19 +909,19 @@ static void send_key_event(u32 keycode, u32 flag)
 {
 	switch (keycode) {
 	case DW_KEY:
-		input_report_key(accdet_input_dev, KEY_VOLUMEDOWN, flag);
+		input_report_key(accdet_input_dev, MEDIA_NEXT_SCAN_CODE, flag);
 		input_sync(accdet_input_dev);
-		pr_debug("accdet KEY_VOLUMEDOWN %d\n", flag);
+		pr_debug("accdet MEDIA_NEXT_SCAN_CODE %d\n", flag);
 		break;
 	case UP_KEY:
-		input_report_key(accdet_input_dev, KEY_VOLUMEUP, flag);
+		input_report_key(accdet_input_dev, MEDIA_PREVIOUS_SCAN_CODE, flag);
 		input_sync(accdet_input_dev);
-		pr_debug("accdet KEY_VOLUMEUP %d\n", flag);
+		pr_debug("accdet MEDIA_PREVIOUS_SCAN_CODE %d\n", flag);
 		break;
 	case MD_KEY:
-		input_report_key(accdet_input_dev, KEY_PLAYPAUSE, flag);
+		input_report_key(accdet_input_dev, KEY_MEDIA, flag);
 		input_sync(accdet_input_dev);
-		pr_debug("accdet KEY_PLAYPAUSE %d\n", flag);
+		pr_debug("accdet KEY_MEDIA %d\n", flag);
 		break;
 	case AS_KEY:
 		input_report_key(accdet_input_dev, KEY_VOICECOMMAND, flag);
@@ -1254,17 +1259,23 @@ static void dis_micbias_work_callback(struct work_struct *work)
 }
 #endif /* end of #if PMIC_ACCDET_KERNEL */
 
+extern int earjack_notifier_call_chain(unsigned long val, void *v);
 #if PMIC_ACCDET_KERNEL
 static void eint_work_callback(struct work_struct *work)
 #else
 static void eint_work_callback(void)
 #endif
 {
+	int tp_state;
 	pr_info("accdet %s(),DCC EINT func\n", __func__);
 
 	if (cur_eint_state == EINT_PIN_PLUG_IN) {
 		pr_info("accdet cur: plug-in, cur_eint_state = %d\n",
 			cur_eint_state);
+		/*notify tp_palm mode */
+		tp_state = EINT_PIN_PLUG_IN;
+		earjack_notifier_call_chain(EARJACK_STATE_ENABLE, &tp_state);
+
 		mutex_lock(&accdet_eint_irq_sync_mutex);
 		eint_accdet_sync_flag = true;
 		mutex_unlock(&accdet_eint_irq_sync_mutex);
@@ -1290,6 +1301,10 @@ static void eint_work_callback(void)
 	} else {
 		pr_info("accdet cur:plug-out, cur_eint_state = %d\n",
 			cur_eint_state);
+		/*notify tp_palm mode*/
+		tp_state = EINT_PIN_PLUG_OUT;
+		earjack_notifier_call_chain(EARJACK_STATE_DISABLE, &tp_state);
+
 		mutex_lock(&accdet_eint_irq_sync_mutex);
 		eint_accdet_sync_flag = false;
 		mutex_unlock(&accdet_eint_irq_sync_mutex);
@@ -2370,9 +2385,9 @@ int mt_accdet_probe(struct platform_device *dev)
 	}
 
 	__set_bit(EV_KEY, accdet_input_dev->evbit);
-	__set_bit(KEY_PLAYPAUSE, accdet_input_dev->keybit);
-	__set_bit(KEY_VOLUMEDOWN, accdet_input_dev->keybit);
-	__set_bit(KEY_VOLUMEUP, accdet_input_dev->keybit);
+	__set_bit(KEY_MEDIA, accdet_input_dev->keybit);
+	__set_bit(MEDIA_NEXT_SCAN_CODE, accdet_input_dev->keybit);
+	__set_bit(MEDIA_PREVIOUS_SCAN_CODE, accdet_input_dev->keybit);
 	__set_bit(KEY_VOICECOMMAND, accdet_input_dev->keybit);
 
 	__set_bit(EV_SW, accdet_input_dev->evbit);

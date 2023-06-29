@@ -43,15 +43,11 @@ int als_data_report_t(int value, int status, int64_t time_stamp)
 		err = sensor_input_event(cxt->als_mdev.minor, &event);
 		cxt->is_get_valid_als_data_after_enable = true;
 	}
-	if (value != last_als_report_data) {
-		event.handle = ID_LIGHT;
-		event.flush_action = DATA_ACTION;
-		event.word[0] = value;
-		event.status = status;
-		err = sensor_input_event(cxt->als_mdev.minor, &event);
-		if (err >= 0)
-			last_als_report_data = value;
-	}
+	event.handle = ID_LIGHT;
+	event.flush_action = DATA_ACTION;
+	event.word[0] = value;
+	event.status = status;
+	err = sensor_input_event(cxt->als_mdev.minor, &event);
 	return err;
 }
 int als_data_report(int value, int status)
@@ -67,7 +63,9 @@ int als_cali_report(int *value)
 	event.handle = ID_LIGHT;
 	event.flush_action = CALI_ACTION;
 	event.word[0] = value[0];
+	event.word[1] = value[1];
 	err = sensor_input_event(alsps_context_obj->als_mdev.minor, &event);
+	pr_info("als_cali_report, cali[0] = %d, cali[1] = %d\n", event.word[0], event.word[1]);
 	return err;
 }
 
@@ -636,6 +634,36 @@ static ssize_t als_store_cali(struct device *dev,
 	return count;
 }
 
+
+static ssize_t als_store_lcdinfo(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct alsps_context *cxt = NULL;
+	int err = 0;
+	uint8_t *lcdtype_buf = NULL;
+
+	lcdtype_buf = vzalloc(count);
+	if (!lcdtype_buf)
+		return -ENOMEM;
+	memcpy(lcdtype_buf, buf, count);
+
+	mutex_lock(&alsps_context_obj->alsps_op_mutex);
+	cxt = alsps_context_obj;
+
+		if (cxt->als_ctl.als_set_lcdinfo != NULL)
+			err = cxt->als_ctl.als_set_lcdinfo(lcdtype_buf, count);
+		else
+			pr_err("DON'T SUPPORT ALS GET LCDINFO\n");
+		if (err < 0)
+			pr_err("als get lcdinfo err %d\n", err);
+
+	mutex_unlock(&alsps_context_obj->alsps_op_mutex);
+	if (err)
+		return err;
+	else
+		return count;
+}
+
 #if !defined(CONFIG_NANOHUB) || !defined(CONFIG_MTK_ALSPSHUB)
 static int ps_enable_and_batch(void)
 {
@@ -996,11 +1024,13 @@ DEVICE_ATTR(alsbatch, 0644, als_show_batch, als_store_batch);
 DEVICE_ATTR(alsflush, 0644, als_show_flush, als_store_flush);
 DEVICE_ATTR(alsdevnum, 0644, als_show_devnum, NULL);
 DEVICE_ATTR(alscali, 0644, NULL, als_store_cali);
+DEVICE_ATTR(alslcd, 0644, NULL, als_store_lcdinfo);
 DEVICE_ATTR(psactive, 0644, ps_show_active, ps_store_active);
 DEVICE_ATTR(psbatch, 0644, ps_show_batch, ps_store_batch);
 DEVICE_ATTR(psflush, 0644, ps_show_flush, ps_store_flush);
 DEVICE_ATTR(psdevnum, 0644, ps_show_devnum, NULL);
 DEVICE_ATTR(pscali, 0644, NULL, ps_store_cali);
+
 
 static struct attribute *als_attributes[] = {
 	&dev_attr_alsactive.attr,
@@ -1008,6 +1038,7 @@ static struct attribute *als_attributes[] = {
 	&dev_attr_alsflush.attr,
 	&dev_attr_alsdevnum.attr,
 	&dev_attr_alscali.attr,
+	&dev_attr_alslcd.attr,
 	NULL
 };
 
@@ -1158,6 +1189,7 @@ int als_register_control_path(struct als_control_path *ctl)
 	cxt->als_ctl.batch = ctl->batch;
 	cxt->als_ctl.flush = ctl->flush;
 	cxt->als_ctl.set_cali = ctl->set_cali;
+	cxt->als_ctl.als_set_lcdinfo = ctl->als_set_lcdinfo;
 	cxt->als_ctl.rgbw_enable = ctl->rgbw_enable;
 	cxt->als_ctl.rgbw_batch = ctl->rgbw_batch;
 	cxt->als_ctl.rgbw_flush = ctl->rgbw_flush;

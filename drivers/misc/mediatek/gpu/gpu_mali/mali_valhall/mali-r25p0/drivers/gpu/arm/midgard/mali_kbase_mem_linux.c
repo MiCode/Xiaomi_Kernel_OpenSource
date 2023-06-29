@@ -1535,7 +1535,7 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 		return NULL;
 	}
 
-	handle = ion_import_dma_buf_fd(kctx->kbdev->client, fd);
+	handle = ion_import_dma_buf(kctx->kbdev->client, dma_buf);
 
 	if (IS_ERR(handle)) {
 		dev_warn(kctx->kbdev->dev, "import ion handle failed!\n");

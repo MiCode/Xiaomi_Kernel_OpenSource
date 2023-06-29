@@ -194,8 +194,18 @@ static int tcpci_alert_recv_msg(struct tcpc_device *tcpc_dev)
 	struct pd_msg *pd_msg;
 	enum tcpm_transmit_type type;
 
+	int rv = 0;
+	uint32_t chip_id = 0;
 	const uint32_t alert_rx =
 		TCPC_REG_ALERT_RX_STATUS | TCPC_REG_ALERT_RX_BUF_OVF;
+
+
+  /*	int rv = 0;
+	uint32_t chip_id = 0;  */
+	rv = tcpci_get_chip_id(tcpc_dev, &chip_id);
+	if (!rv && (SC2150A_DID == chip_id)) {
+		tcpci_set_rx_enable(tcpc_dev, PD_RX_CAP_PE_STARTUP);
+	}
 
 	pd_msg = pd_alloc_msg(tcpc_dev);
 	if (pd_msg == NULL) {
@@ -209,6 +219,10 @@ static int tcpci_alert_recv_msg(struct tcpc_device *tcpc_dev)
 		TCPC_INFO("recv_msg failed: %d\r\n", retval);
 		pd_free_msg(tcpc_dev, pd_msg);
 		return retval;
+		}
+
+	if (!rv && (SC2150A_DID == chip_id)) {
+		tcpci_set_rx_enable(tcpc_dev, tcpc_dev->pd_port.rx_cap);
 	}
 
 	pd_msg->frame_type = (uint8_t) type;
@@ -336,9 +350,12 @@ static inline bool tcpci_check_hard_reset_complete(
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 {
-	int rv, i;
-	uint32_t alert_status;
-	uint32_t alert_mask;
+
+	int rv = 0, i = 0;
+	uint32_t alert_status = 0;
+	uint32_t alert_mask = 0;
+	uint32_t chip_id ;
+
 
 	rv = tcpci_get_alert_status(tcpc_dev, &alert_status);
 	if (rv)
@@ -354,7 +371,9 @@ static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 			  alert_status, alert_mask);
 #endif /* CONFIG_USB_PD_DBG_ALERT_STATUS */
 
-	alert_status &= alert_mask;
+	rv = tcpci_get_chip_id(tcpc_dev, &chip_id);
+	if (rv || (SC2150A_DID != chip_id))
+		alert_status &= alert_mask;
 
 	tcpci_alert_status_clear(tcpc_dev,
 		alert_status & (~TCPC_REG_ALERT_RX_MASK));

@@ -189,6 +189,7 @@ static long gyro_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 	case GYROSCOPE_IOCTL_ENABLE_CALI:
 		if (gyro_factory.fops != NULL &&
 		    gyro_factory.fops->enable_calibration != NULL) {
+			pr_info("Enter GYROSCOPE_IOCTL_ENABLE_CALI\n");
 			err = gyro_factory.fops->enable_calibration();
 			if (err < 0) {
 				pr_err(

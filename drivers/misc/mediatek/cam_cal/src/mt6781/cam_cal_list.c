@@ -18,32 +18,23 @@
 
 #define MAX_EEPROM_SIZE_16K 0x4000
 
+
+extern unsigned int ov02b1b_sunny_read_otp_info(struct i2c_client *client,
+                 unsigned int addr, unsigned char *data, unsigned int size);
+extern unsigned int ov02b1b_truly_read_otp_info(struct i2c_client *client,
+                 unsigned int addr, unsigned char *data, unsigned int size);
+
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
-	{OV48B_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{S5K3P9SP_SENSOR_ID, 0xA0, Common_read_region},
-	{OV13B10_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{IMX355_SENSOR_ID, 0xA8, Common_read_region},
-	{OV02B10_SENSOR_ID, 0xA4, Common_read_region},
-	/*Below is commom sensor */
-	{IMX586_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K,
-		BL24SA64_write_region},
-	{IMX576_SENSOR_ID, 0xA2, Common_read_region},
-	{IMX519_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX319_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{S5K3M5SX_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K,
-		BL24SA64_write_region},
-	{IMX686_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{HI846_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{S5KGD1SP_SENSOR_ID, 0xA8, Common_read_region, MAX_EEPROM_SIZE_16K},
-	{S5K2T7SP_SENSOR_ID, 0xA4, Common_read_region},
-	{IMX386_SENSOR_ID, 0xA0, Common_read_region},
-	{S5K2L7_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX398_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX350_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX386_MONO_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX499_SENSOR_ID, 0xA0, Common_read_region},
-	{IMX481_SENSOR_ID, 0xA4, Common_read_region, DEFAULT_MAX_EEPROM_SIZE_8K,
-		BL24SA64_write_region},
+	{S5KHM2SD_MAIN_SUNNY_SENSOR_ID, 0xA2, Common_read_region},
+	{S5KHM2SD_MAIN_OFILM_SENSOR_ID, 0xA2, Common_read_region},
+	{HI1634Q_FRONT_OFILM_SENSOR_ID, 0xA2, Common_read_region},
+	{HI1634Q_FRONT_QTECH_SENSOR_ID, 0xA2, Common_read_region},
+	{OV8856_ULTRA_AAC_SENSOR_ID, 0xA0, Common_read_region},
+	{IMX355_ULTRA_SUNNY_SENSOR_ID, 0xA0, Common_read_region},
+	{OV02B1B_DEPTH_SUNNY_SENSOR_ID, 0xFF, ov02b1b_sunny_read_otp_info},
+	{OV02B1B_DEPTH_TRULY_SENSOR_ID, 0xFF, ov02b1b_truly_read_otp_info},
+	{GC02M1_MACRO_OFILM_SENSOR_ID, 0xA4, Common_read_region},
+	{GC02M1_MACRO_AAC_SENSOR_ID, 0xA4, Common_read_region},
 	/*  ADD before this line */
 	{0, 0, 0}       /*end of list */
 };

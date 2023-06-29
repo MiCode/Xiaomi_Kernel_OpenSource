@@ -15,6 +15,7 @@
 #include "ufs.h"
 #include "ufshcd.h"
 
+#define UFS_MTK_PLATFORM_VCC_ALWAYS_ON
 #ifndef CONFIG_FPGA_EARLY_PORTING
 /* If SPM function not ready, comment this define */
 //#define SPM_READY //MT6781 no need SPM

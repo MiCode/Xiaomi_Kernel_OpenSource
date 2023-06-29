@@ -123,11 +123,12 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		IMSG_INFO("CMD FP MEM CLEAR.\n");
 		break;
 	case CMD_FP_CMD:
-	if (copy_from_user((void *)args, (void *)arg, 16)) {
-		IMSG_ERROR("copy args from user failed.\n");
-		up(&fp_api_lock);
-		return -EFAULT;
-	}
+		if (copy_from_user((void *)args, (void *)arg, 16)) {
+			IMSG_ERROR("copy args from user failed.\n");
+			up(&fp_api_lock);
+			return -EFAULT;
+		}
+
 		/* TODO compute args length */
 		/* [11-15] is the length of data */
 		args_len = *((unsigned int *)(args + 12));
@@ -138,7 +139,12 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
+		teei_cpus_write_lock();
+
 		ret  = send_fp_command((void *)arg, args_len + 16);
+
+		teei_cpus_write_unlock();
+
 		if (ret) {
 			IMSG_ERROR("transfer data to ta failed.\n");
 			up(&fp_api_lock);
@@ -151,6 +157,11 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		IMSG_DEBUG("case CMD_FP_LOAD_TEE\n");
 #endif
 		complete(&boot_decryto_lock);
+		break;
+	case CMD_TEEI_SET_PRI:
+		ret = teei_set_switch_pri(arg);
+		if (ret != 0)
+			IMSG_ERROR("Failed to teei_set_switch_pri %d\n", ret);
 		break;
 	default:
 		up(&fp_api_lock);

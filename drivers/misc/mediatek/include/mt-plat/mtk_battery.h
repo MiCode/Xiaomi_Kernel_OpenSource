@@ -61,6 +61,7 @@ extern int unregister_battery_notifier(struct notifier_block *nb);
 
 
 /* battery common interface */
+extern signed int battery_get_FG_bat_voltage(void);
 extern signed int battery_get_bat_voltage(void);
 extern signed int battery_get_bat_current(void);
 extern signed int battery_get_bat_current_mA(void);

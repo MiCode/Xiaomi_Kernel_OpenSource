@@ -153,6 +153,9 @@ struct tcpc_desc {
 #define TCPC_REG_ALERT_RX_MASK	\
 	(TCPC_REG_ALERT_RX_STATUS | TCPC_REG_ALERT_RX_BUF_OVF)
 
+#define TCPC_REG_ALERT_RX_ALL_MASK	\
+	(TCPC_REG_ALERT_RX_MASK | TCPC_REG_ALERT_RX_HARD_RST)
+
 #define TCPC_REG_ALERT_HRESET_SUCCESS	\
 	(TCPC_REG_ALERT_TX_SUCCESS | TCPC_REG_ALERT_TX_FAILED)
 
@@ -176,7 +179,18 @@ struct tcpc_desc {
 #define TCPC_FLAGS_WATCHDOG_EN			(1<<8)
 #define TCPC_FLAGS_WATER_DETECTION		(1<<9)
 #define TCPC_FLAGS_CABLE_TYPE_DETECTION		(1<<10)
+#define TYPEC_CC_PULL(rp_lvl, res)	((rp_lvl & 0x03) << 3 | (res & 0x07))
 
+
+
+
+
+enum tcpc_rp_lvl {
+	TYPEC_RP_DFT,
+	TYPEC_RP_1_5,
+	TYPEC_RP_3_0,
+	TYPEC_RP_RSV,
+};
 enum tcpc_cc_pull {
 	TYPEC_CC_RA = 0,
 	TYPEC_CC_RP = 1,
@@ -184,13 +198,20 @@ enum tcpc_cc_pull {
 	TYPEC_CC_OPEN = 3,
 	TYPEC_CC_DRP = 4,	/* from Rd */
 
-	TYPEC_CC_RP_DFT = 1,		/* 0x00 + 1 */
-	TYPEC_CC_RP_1_5 = 9,		/* 0x08 + 1*/
-	TYPEC_CC_RP_3_0 = 17,		/* 0x10 + 1 */
+ //	TYPEC_CC_RP_DFT = 1,		/* 0x00 + 1 */
+ //	TYPEC_CC_RP_1_5 = 9,		/* 0x08 + 1*/
+ //	TYPEC_CC_RP_3_0 = 17,		/* 0x10 + 1 */
+	TYPEC_CC_RP_DFT = TYPEC_CC_PULL(TYPEC_RP_DFT, TYPEC_CC_RP),
+	TYPEC_CC_RP_1_5 = TYPEC_CC_PULL(TYPEC_RP_1_5, TYPEC_CC_RP),
+	TYPEC_CC_RP_3_0 = TYPEC_CC_PULL(TYPEC_RP_3_0, TYPEC_CC_RP),
 
-	TYPEC_CC_DRP_DFT = 4,		/* 0x00 + 4 */
-	TYPEC_CC_DRP_1_5 = 12,		/* 0x08 + 4 */
-	TYPEC_CC_DRP_3_0 = 20,		/* 0x10 + 4 */
+
+ //	TYPEC_CC_DRP_DFT = 4,		/* 0x00 + 4 */
+ //	TYPEC_CC_DRP_1_5 = 12,		/* 0x08 + 4 */
+ //	TYPEC_CC_DRP_3_0 = 20,		/* 0x10 + 4 */
+	TYPEC_CC_DRP_DFT = TYPEC_CC_PULL(TYPEC_RP_DFT, TYPEC_CC_DRP),
+	TYPEC_CC_DRP_1_5 = TYPEC_CC_PULL(TYPEC_RP_1_5, TYPEC_CC_DRP),
+	TYPEC_CC_DRP_3_0 = TYPEC_CC_PULL(TYPEC_RP_3_0, TYPEC_CC_DRP),
 };
 
 #define TYPEC_CC_PULL_GET_RES(pull)		(pull & 0x07)
@@ -210,9 +231,11 @@ struct tcpc_ops {
 	int (*init)(struct tcpc_device *tcpc, bool sw_reset);
 	int (*init_alert_mask)(struct tcpc_device *tcpc);
 	int (*alert_status_clear)(struct tcpc_device *tcpc, uint32_t mask);
+//  int (*get_chip_id)(struct tcpc_device *tcpc, uint32_t *chip_id);
 	int (*fault_status_clear)(struct tcpc_device *tcpc, uint8_t status);
 	int (*set_alert_mask)(struct tcpc_device *tcpc, uint32_t mask);
 	int (*get_alert_mask)(struct tcpc_device *tcpc, uint32_t *mask);
+	int (*get_chip_id)(struct tcpc_device *tcpc, uint32_t *chip_id);
 	int (*get_alert_status)(struct tcpc_device *tcpc, uint32_t *alert);
 	int (*get_power_status)(struct tcpc_device *tcpc, uint16_t *pwr_status);
 	int (*get_fault_status)(struct tcpc_device *tcpc, uint8_t *status);

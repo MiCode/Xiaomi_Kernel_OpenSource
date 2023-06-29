@@ -175,3 +175,5 @@ obj-$(CONFIG_MTK_MDDP_SUPPORT) += mddp/
 obj-$(CONFIG_MTK_USB2JTAG_SUPPORT) += usb2jtag/
 obj-y += subpmic/
 obj-$(CONFIG_MTK_OTP) += otp/
+obj-$(CONFIG_INPUT_AW862XX_HAPTIC) += haptic_nv/
+obj-$(CONFIG_MTK_ULTRASND_PROXIMITY) += elliptic/

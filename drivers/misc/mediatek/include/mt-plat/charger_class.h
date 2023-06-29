@@ -141,6 +141,8 @@ struct charger_ops {
 	/* charger type detection */
 	int (*enable_chg_type_det)(struct charger_device *dev, bool en);
 
+	/* QC20 rerun apsd */
+	int (*rerun_apsd)(struct charger_device *dev, bool en);
 	/* run AICL */
 	int (*run_aicl)(struct charger_device *dev, u32 *uA);
 
@@ -158,6 +160,7 @@ struct charger_ops {
 	int (*get_adc_accuracy)(struct charger_device *dev,
 				enum adc_channel chan, int *min, int *max);
 	int (*get_vbus_adc)(struct charger_device *dev, u32 *vbus);
+	int (*get_vbat_adc)(struct charger_device *dev, u32 *vbat);
 	int (*get_ibus_adc)(struct charger_device *dev, u32 *ibus);
 	int (*get_ibat_adc)(struct charger_device *dev, u32 *ibat);
 	int (*get_tchg_adc)(struct charger_device *dev, int *tchg_min,
@@ -175,6 +178,7 @@ struct charger_ops {
 	int (*enable_hz)(struct charger_device *dev, bool en);
 
 	int (*enable_bleed_discharge)(struct charger_device *dev, bool en);
+	int (*set_hvdcp_enable)(struct charger_device *dev, bool en);
 };
 
 static inline void *charger_dev_get_drvdata(
@@ -258,6 +262,8 @@ extern int charger_dev_enable_safety_timer(
 	struct charger_device *charger_dev, bool en);
 extern int charger_dev_enable_chg_type_det(
 	struct charger_device *charger_dev, bool en);
+extern int charger_dev_rerun_apsd(
+	struct charger_device *charger_dev, bool en);
 extern int charger_dev_enable_otg(
 	struct charger_device *charger_dev, bool en);
 extern int charger_dev_enable_discharge(
@@ -303,6 +309,8 @@ extern int charger_dev_get_adc_accuracy(struct charger_device *charger_dev,
 /* Prefer use charger_dev_get_adc api */
 extern int charger_dev_get_vbus(
 	struct charger_device *charger_dev, u32 *vbus);
+extern int charger_dev_get_vbat(
+	struct charger_device *charger_dev, u32 *vbat);
 extern int charger_dev_get_ibus(
 	struct charger_device *charger_dev, u32 *ibus);
 extern int charger_dev_get_ibat(
@@ -344,6 +352,9 @@ extern int charger_dev_get_ctd_dischg_status(struct charger_device *dev,
 					     u8 *status);
 
 extern int charger_dev_enable_bleed_discharge(struct charger_device *dev,
+					      bool en);
+
+extern int charger_dev_set_hvdcp_enable(struct charger_device *dev,
 					      bool en);
 
 /* For buck1 FPWM */

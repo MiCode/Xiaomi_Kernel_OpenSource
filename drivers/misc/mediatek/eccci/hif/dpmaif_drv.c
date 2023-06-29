@@ -712,6 +712,7 @@ int drv_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt)
 {
 	unsigned int ul_update;
 	int count = 0;
+	unsigned int check_value;
 
 	ul_update = (drb_wcnt & 0x0000ffff);
 	ul_update |= DPMAIF_UL_ADD_UPDATE;
@@ -719,13 +720,21 @@ int drv_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt)
 	while (1) {
 		if ((DPMA_READ_PD_UL(DPMAIF_ULQ_ADD_DESC_CH_n(q_num)) &
 			DPMAIF_UL_ADD_NOT_READY) == 0) {
+
+#ifndef MT6297
+			check_value = DPMA_READ_PD_UL(DPMAIF_ULQSAR_n(q_num));
+			if (check_value == 0)
+				CCCI_ERROR_LOG(0, TAG, "q%d ulq addr = 0x%x\n",
+					q_num, DPMA_READ_PD_UL(DPMAIF_ULQSAR_n(q_num)));
+#endif
+
 			DPMA_WRITE_PD_UL(DPMAIF_ULQ_ADD_DESC_CH_n(q_num),
 				ul_update);
 			break;
 		}
 		if (++count >= 1600000) {
-			CCCI_ERROR_LOG(0, TAG, "drb_add rdy poll fail: 0x%x\n",
-				DPMA_READ_PD_UL(DPMAIF_PD_UL_DBG_STA2));
+			CCCI_ERROR_LOG(0, TAG, "q%d drb_add rdy poll fail: 0x%x\n",
+				q_num, DPMA_READ_PD_UL(DPMAIF_PD_UL_DBG_STA2));
 			dpmaif_ctrl->ops->dump_status(
 				DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
 			return HW_REG_CHK_FAIL;
@@ -735,8 +744,8 @@ int drv_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt)
 	while ((DPMA_READ_PD_UL(DPMAIF_ULQ_ADD_DESC_CH_n(q_num)) &
 		DPMAIF_UL_ADD_NOT_READY) == DPMAIF_UL_ADD_NOT_READY) {
 		if (++count >= 1600000) {
-			CCCI_ERROR_LOG(0, TAG, "drb_add fail: 0x%x\n",
-				DPMA_READ_PD_UL(DPMAIF_PD_UL_DBG_STA2));
+			CCCI_ERROR_LOG(0, TAG, "q%d drb_add fail: 0x%x\n",
+				q_num, DPMA_READ_PD_UL(DPMAIF_PD_UL_DBG_STA2));
 			break;
 		}
 	}

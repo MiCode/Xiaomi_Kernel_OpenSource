@@ -558,6 +558,13 @@ config CHARGER_SMB347
 	  Say Y to include support for Summit Microelectronics SMB347
 	  Battery Charger.
 
+config MTK_DISABLE_TEMP_PROTECT
+	bool "control of TEMP protect"
+	default n
+	help
+	  Say Y here to enable a function which disabled TEMP protect...
+	  WARNNING:Only SCM could open it.
+
 config CHARGER_TPS65090
 	tristate "TPS65090 battery charger driver"
 	depends on MFD_TPS65090

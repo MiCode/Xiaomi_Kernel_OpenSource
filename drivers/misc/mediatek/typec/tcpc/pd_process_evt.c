@@ -630,11 +630,24 @@ static inline bool pe_is_valid_pd_msg_id(struct pd_port *pd_port,
 		}
 	}
 
+
+  /*	if (((pd_port->pe_data.msg_id_rx[sop_type] + 2) % PD_MSG_ID_MAX) == msg_id) {
+		PE_INFO("Miss Msg!!!\n");
+		pd_port->miss_msg = true;
+	}  */
+
+
 	if (pd_port->pe_data.msg_id_rx[sop_type] == msg_id) {
 		PE_INFO("Repeat msg: %c:%d:%d\r\n",
 			(pd_event->event_type == PD_EVT_CTRL_MSG) ? 'C' : 'D',
 			pd_event->msg, msg_id);
 		return false;
+	}
+
+         if (((pd_port->pe_data.msg_id_rx[sop_type] + 2) % PD_MSG_ID_MAX) 
+		 					== msg_id) {
+         	PE_INFO("Miss Msg!!!\n");
+            pd_port->miss_msg = true;
 	}
 
 	pd_port->pe_data.msg_id_rx[sop_type] = msg_id;
@@ -833,6 +846,8 @@ bool pd_process_event(
 	bool ret = false;
 	struct pd_msg *pd_msg = pd_event->pd_msg;
 	uint8_t tii = pe_check_trap_in_idle_state(pd_port, pd_event);
+	int rv = 0;
+	uint32_t chip_id = 0;
 
 	if (tii < TII_PE_RUNNING)
 		return tii;
@@ -856,6 +871,27 @@ bool pd_process_event(
 			PE_TRANSIT_STATE(pd_port, PE_ERROR_RECOVERY);
 			return true;
 		}
+
+	}
+
+		rv = tcpci_get_chip_id(pd_port->tcpc_dev, &chip_id);
+		if (!rv && (SC2150A_DID == chip_id) &&pd_port->miss_msg) {
+			if (pd_port->pe_pd_state == PE_SNK_TRANSITION_SINK) {
+				pd_add_miss_msg(pd_port,pd_event,PD_CTRL_PS_RDY);
+			} else if (pd_port->pe_pd_state == PE_SNK_SELECT_CAPABILITY){
+				switch (pd_event->msg) {
+				case PD_CTRL_PS_RDY:
+					pd_add_miss_msg(pd_port,pd_event,PD_CTRL_ACCEPT);
+					break;
+				case PD_DATA_SOURCE_CAP:
+					pd_add_miss_msg(pd_port,pd_event,PD_CTRL_REJECT);
+					break;
+				}
+			}
+			pd_port->miss_msg = false;
+			return false;
+		
+
 	}
 
 	pd_copy_msg_data_from_evt(pd_port, pd_event);

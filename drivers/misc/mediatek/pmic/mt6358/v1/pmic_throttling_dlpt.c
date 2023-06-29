@@ -585,7 +585,7 @@ void exec_battery_percent_callback(
 			, __func__, g_battery_percent_stop);
 	} else {
 #ifdef DISABLE_DLPT_FEATURE
-		for (i = 0; i < BPCB_NUM; i++) {
+		for (i = BATTERY_PERCENT_PRIO_GPU + 1; i < BPCB_NUM; i++) {
 			if (bpcb_tb[i].bpcb != NULL) {
 				bpcb_tb[i].bpcb(battery_percent_level);
 				pr_info("[%s] prio_val=%d,battery_percent_level=%d\n"

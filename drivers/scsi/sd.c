@@ -134,7 +134,8 @@ static DEFINE_MUTEX(sd_ref_mutex);
 static struct kmem_cache *sd_cdb_cache;
 static mempool_t *sd_cdb_pool;
 static mempool_t *sd_page_pool;
-
+#define SD_NUM  6
+extern struct gendisk *ufs_disk[];
 static const char *sd_cache_types[] = {
 	"write through", "none", "write back",
 	"write back, no read (daft)"
@@ -3425,7 +3426,7 @@ static int sd_probe(struct device *dev)
 	struct gendisk *gd;
 	int index;
 	int error;
-
+	static int num = 0;
 	scsi_autopm_get_device(sdp);
 	error = -ENODEV;
 	if (sdp->type != TYPE_DISK &&
@@ -3469,6 +3470,9 @@ static int sd_probe(struct device *dev)
 		sdev_printk(KERN_WARNING, sdp, "SCSI disk (sd) name length exceeded.\n");
 		goto out_free_index;
 	}
+
+	if(num < SD_NUM)
+		ufs_disk[num++] = gd;
 
 	sdkp->device = sdp;
 	sdkp->driver = &sd_template;

@@ -14,6 +14,8 @@
 #define pr_fmt(fmt) "<SITUATION> " fmt
 
 #include "situation.h"
+#include "sar/sar_factory.h"
+#include <linux/vmalloc.h>
 
 static struct situation_context *situation_context_obj;
 
@@ -156,6 +158,31 @@ int situation_notify(int handle)
 {
 	return situation_data_report_t(handle, 1, 0);
 }
+
+int sar_cali_report(int32_t value[3])
+{
+	struct sensor_event event;
+	int err = 0;
+	int index = -1;
+
+	memset(&event, 0, sizeof(struct sensor_event));
+
+	index = handle_to_index(ID_SAR);
+	if (index < 0) {
+		pr_err("[%s] invalid index\n", __func__);
+		return -1;
+	}
+	event.handle = ID_SAR;
+	event.flush_action = CALI_ACTION;
+	event.word[0] = value[0];
+	event.word[1] = value[1];
+	event.word[2] = value[2];
+	err = sensor_input_event(situation_context_obj->mdev.minor, &event);
+	pr_info("cali[0] = %d, cali[1] = %d, cali[2] = %d\n", event.word[0], event.word[1], event.word[2]);
+	return err;
+}
+
+
 int situation_flush_report(int handle)
 {
 	struct sensor_event event;
@@ -419,12 +446,115 @@ static ssize_t situation_show_flush(struct device *dev,
 	return len;
 }
 
+static ssize_t situcali_show(struct device *dev, 
+    struct device_attribute *attr,char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", 0);
+}
+	
+static ssize_t situcali_store(struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+		struct situation_context *cxt = NULL;
+		int index = -1;
+		int err = 0;
+		uint8_t *cali_buf = NULL;
+
+		index = handle_to_index(ID_SAR);
+	    if (index < 0) {
+		    pr_err("[%s] invalid index\n", __func__);
+		   return -1;
+	    }
+		cali_buf = vzalloc(count);
+		if (cali_buf == NULL)
+			return -EFAULT;
+		memcpy(cali_buf, buf, count);
+
+		mutex_lock(&situation_context_obj->situation_op_mutex);
+		cxt = situation_context_obj;
+		if (cxt->ctl_context[index].situation_ctl.set_cali != NULL)
+			err = cxt->ctl_context[index].situation_ctl.set_cali(cali_buf, count);
+		else
+			pr_err("DON'T SUPPORT SITUATION COMMONVERSION FLUSH\n");
+		if (err < 0)
+			pr_err("situ set cali err %d\n", err);
+		mutex_unlock(&situation_context_obj->situation_op_mutex);
+		vfree(cali_buf);
+		return count;
+}
 static ssize_t situation_show_devnum(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%d\n", 0);	/* TODO: why +5? */
 }
 
+int sar_factory_enable_calibration(void);
+
+static ssize_t testcali_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int enable = 0, ret = 0;
+
+	ret = kstrtoint(buf, 10, &enable);
+	if (ret != 0) {
+		pr_debug("kstrtoint fail\n");
+		return 0;
+	}
+	if (enable == 1)
+		sar_factory_enable_calibration();
+	return count;
+}
+
+static ssize_t regcfg_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct situation_context *cxt = NULL;
+	int index = -1;
+	int err = 0;
+	uint32_t temp;
+	uint8_t value[3];
+	uint8_t *temp_buf = NULL;
+
+	index = handle_to_index(ID_SAR);
+	if (index < 0) {
+		pr_err("[%s] invalid index\n", __func__);
+	   return -1;
+	}
+
+	err = sscanf(buf, "%4hhx %4hx\n", &value[0], &temp);
+	if (err < 0) {
+		pr_debug("%s param error: err = %d\n", __func__, err);
+		return err;
+	}
+	pr_err("regcfg_store!addr = 0x%x, value = 0x%x\n", value[0], temp);
+
+	value[1] = (temp & 0xFF00) >> 8;
+	value[2] = temp & 0x00FF;
+
+	/*err = sscanf(buf, "%4hhx %4hhx %4hhx\n", &value[0], &value[1], &value[2]);
+	if (err < 0) {
+		pr_debug("%s param error: err = %d\n", __func__, err);
+		return err;
+	}*/
+
+	pr_err("regcfg_store!addr = 0x%x, value = %x %x\n", value[0], value[1], value[2]);
+
+	temp_buf = vzalloc(sizeof(value));
+	if (!temp_buf)
+		return -ENOMEM;
+	memcpy(temp_buf, value, sizeof(value));
+	mutex_lock(&situation_context_obj->situation_op_mutex);
+	cxt = situation_context_obj;
+	if (cxt->ctl_context[index].situation_ctl.set_reg != NULL)
+		err = cxt->ctl_context[index].situation_ctl.set_reg(temp_buf, count);
+	else
+		pr_err("DON'T SUPPORT SITUATION SET REG\n");
+	if (err < 0)
+		pr_err("situ set reg err %d\n", err);
+	mutex_unlock(&situation_context_obj->situation_op_mutex);
+	vfree(temp_buf);
+	return count;
+}
 
 static int situation_real_driver_init(void)
 {
@@ -520,13 +650,18 @@ DEVICE_ATTR(situactive, 0644,
 DEVICE_ATTR(situbatch, 0644, situation_show_batch, situation_store_batch);
 DEVICE_ATTR(situflush, 0644, situation_show_flush, situation_store_flush);
 DEVICE_ATTR(situdevnum, 0644, situation_show_devnum, NULL);
-
+DEVICE_ATTR(situcali, 0644, situcali_show, situcali_store);
+DEVICE_ATTR(testcali, 0644, NULL, testcali_store);
+DEVICE_ATTR(regcfg, 0644, NULL, regcfg_store);
 
 static struct attribute *situation_attributes[] = {
 	&dev_attr_situactive.attr,
 	&dev_attr_situbatch.attr,
 	&dev_attr_situflush.attr,
+	&dev_attr_situcali.attr,
 	&dev_attr_situdevnum.attr,
+	&dev_attr_testcali.attr,
+	&dev_attr_regcfg.attr,
 	NULL
 };
 
@@ -578,6 +713,8 @@ int situation_register_control_path(struct situation_control_path *ctl,
 		ctl->open_report_data;
 	cxt->ctl_context[index].situation_ctl.batch = ctl->batch;
 	cxt->ctl_context[index].situation_ctl.flush = ctl->flush;
+	cxt->ctl_context[index].situation_ctl.set_cali = ctl->set_cali;
+	cxt->ctl_context[index].situation_ctl.set_reg = ctl->set_reg;
 	cxt->ctl_context[index].situation_ctl.is_support_wake_lock =
 		ctl->is_support_wake_lock;
 	cxt->ctl_context[index].situation_ctl.is_support_batch =

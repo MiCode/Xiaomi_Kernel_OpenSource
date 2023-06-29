@@ -25,6 +25,7 @@
 #include <mt-plat/charger_type.h>
 #include <mt-plat/mtk_battery.h>
 #include <mach/mtk_battery_property.h>
+#include <mt-plat/mtk_boot.h>
 #else
 #include <string.h>
 #include "simulator_kernel.h"
@@ -395,18 +396,25 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 				if (IS_ENABLED(
 					LOW_TEMP_DISABLE_LOW_BAT_SHUTDOWN)) {
 					if (tmp >= LOW_TEMP_THRESHOLD) {
+#ifdef WT_COMPILE_FACTORY_VERSION
 						down_to_low_bat = 1;
+#endif
 						bm_err("normal tmp, battery voltage is low shutdown\n");
 						notify_fg_shutdown();
 					} else if (sdd->avgvbat <=
 						LOW_TMP_BAT_VOLTAGE_LOW_BOUND) {
+#ifdef WT_COMPILE_FACTORY_VERSION
 						down_to_low_bat = 1;
+#endif
 						bm_err("cold tmp, battery voltage is low shutdown\n");
 						notify_fg_shutdown();
 					} else
 						bm_err("low temp disable low battery sd\n");
 				} else {
+#ifdef WT_COMPILE_FACTORY_VERSION
 					down_to_low_bat = 1;
+#endif
+
 					bm_err("[%s]avg vbat is low to shutdown\n",
 						__func__);
 					notify_fg_shutdown();
@@ -501,10 +509,9 @@ void power_misc_handler(void *arg)
 static int power_misc_routine_thread(void *arg)
 {
 	struct shutdown_controller *sdd = arg;
-	int ret = 0;
 
 	while (1) {
-		ret = wait_event_interruptible(sdd->wait_que, (sdd->timeout == true)
+		wait_event_interruptible(sdd->wait_que, (sdd->timeout == true)
 			|| (sdd->overheat == true));
 		if (sdd->timeout == true) {
 			sdd->timeout = false;
@@ -515,7 +522,9 @@ static int power_misc_routine_thread(void *arg)
 			bm_err("%s battery overheat~ power off\n",
 				__func__);
 			mutex_lock(&pm_mutex);
-			kernel_power_off();
+			if ((get_boot_mode() != KERNEL_POWER_OFF_CHARGING_BOOT) && (get_boot_mode() != LOW_POWER_OFF_CHARGING_BOOT)) {
+				kernel_power_off();
+			}
 			mutex_unlock(&pm_mutex);
 			fix_coverity = 1;
 			return 1;
@@ -527,6 +536,7 @@ static int power_misc_routine_thread(void *arg)
 	return 0;
 }
 
+#define MAX_TEMP_DETECTION_TIMES 3
 int mtk_power_misc_psy_event(
 	struct notifier_block *nb, unsigned long event, void *v)
 {
@@ -534,19 +544,25 @@ int mtk_power_misc_psy_event(
 	union power_supply_propval val;
 	int ret;
 	int tmp = 0;
+	int cnt = 0;
 
 	if (strcmp(psy->desc->name, "battery") == 0) {
-		ret = psy->desc->get_property(
-			psy, POWER_SUPPLY_PROP_TEMP, &val);
-		if (!ret) {
-			tmp = val.intval / 10;
-			if (tmp >= BATTERY_SHUTDOWN_TEMPERATURE) {
-				bm_err(
-					"battery temperature >= %d,shutdown",
-					tmp);
-
-				wake_up_overheat(&sdc);
+		while (cnt < MAX_TEMP_DETECTION_TIMES) {
+			ret = psy->desc->get_property(
+				psy, POWER_SUPPLY_PROP_TEMP, &val);
+			if (!ret) {
+				tmp = val.intval / 10;
+				if (tmp >= BATTERY_SHUTDOWN_TEMPERATURE) {
+					bm_err("battery temperature >= %d,cnt = %d\n,will shutdown.\n",tmp,cnt);
+					cnt++;
+				} else {
+					break;
+				}
 			}
+		}
+		if (cnt >= MAX_TEMP_DETECTION_TIMES) {
+			bm_err("battery temperature >= %d,shutdown",tmp);
+			wake_up_overheat(&sdc);
 		}
 	}
 

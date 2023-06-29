@@ -440,7 +440,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 
 	// FIXME
 	//max_backlight = disp_pwm_get_max_backlight(DISP_PWM0);
-	max_backlight = 2048;
+	max_backlight = 2047;
 	if (bl_1024 > max_backlight)
 		bl_1024 = max_backlight;
 
@@ -1297,6 +1297,7 @@ int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
 	int backlight_value = 0;
 	struct DISP_AAL_PARAM *param = (struct DISP_AAL_PARAM *) data;
 	bool delay_refresh = false;
+
 
 	if (debug_skip_set_param) {
 		pr_notice("skip_set_param for debug\n");

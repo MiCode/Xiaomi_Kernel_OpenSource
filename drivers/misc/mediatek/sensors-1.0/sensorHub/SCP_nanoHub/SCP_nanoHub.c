@@ -70,7 +70,7 @@
 #error "SENSOR_DATA_SIZE > SENSOR_IPI_PACKET_SIZE, out of memory"
 #endif
 
-#define SYNC_TIME_CYCLC 10000
+#define SYNC_TIME_CYCLC 2000
 #define SYNC_TIME_START_CYCLC 3000
 #define SCP_sensorHub_DEV_NAME "SCP_sensorHub"
 
@@ -866,7 +866,7 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].sensorType =
 		SENSOR_TYPE_PICK_UP_GESTURE;
-	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONESHOT;
+	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONCHANGE;
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].timestamp_filter = false;
 
 	mSensorState[SENSOR_TYPE_WAKE_GESTURE].sensorType =
@@ -913,6 +913,10 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_SAR].sensorType = SENSOR_TYPE_SAR;
 	mSensorState[SENSOR_TYPE_SAR].timestamp_filter = false;
+#ifdef CONFIG_MTK_ULTRASND_PROXIMITY
+    mSensorState[SENSOR_TYPE_ELLIPTIC_FUSION].sensorType = SENSOR_TYPE_ELLIPTIC_FUSION;
+    mSensorState[SENSOR_TYPE_ELLIPTIC_FUSION].timestamp_filter = false;
+#endif
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
@@ -1261,16 +1265,19 @@ static int sensor_send_timestamp_wake_locked(void)
 	int len;
 	int err = 0;
 	uint64_t now_time, arch_counter;
+	struct timespec ts;
 
 	/* send_timestamp_to_hub is process context, disable irq is safe */
 	local_irq_disable();
 	now_time = ktime_get_boot_ns();
 	arch_counter = arch_counter_get_cntvct();
+	getnstimeofday(&ts);
 	local_irq_enable();
 	req.set_config_req.sensorType = 0;
 	req.set_config_req.action = SENSOR_HUB_SET_TIMESTAMP;
 	req.set_config_req.ap_timestamp = now_time;
 	req.set_config_req.arch_counter = arch_counter;
+	req.set_config_req.ap_ts_sec = ts.tv_sec;
 	pr_debug("sync ap boottime=%lld\n", now_time);
 	len = sizeof(req.set_config_req);
 	err = scp_sensorHub_req_send(&req, &len, 1);
@@ -1442,7 +1449,115 @@ int sensor_cfg_to_hub(uint8_t handle, uint8_t *data, uint8_t count)
 	return ret;
 }
 
+int sensor_reg_to_hub(uint8_t handle, uint8_t *data, uint8_t count)
+{
+	struct ConfigCmd *cmd = NULL;
+	int ret = 0;
+
+	if (handle > ID_SENSOR_MAX_HANDLE) {
+		pr_err("invalid handle %d\n", handle);
+		ret = -1;
+	} else {
+		cmd = vzalloc(sizeof(struct ConfigCmd) + count);
+		if (cmd == NULL)
+			return -1;
+		cmd->evtType = EVT_NO_SENSOR_CONFIG_EVENT;
+		cmd->sensorType = handle + ID_OFFSET;
+		cmd->cmd = CONFIG_CMD_REG_DATA;
+		memcpy(cmd->data, data, count);
+		ret = nanohub_external_write((const uint8_t *)cmd,
+			sizeof(struct ConfigCmd) + count);
+		if (ret < 0) {
+			pr_err("failed cfg data handle:%d, cmd:%d\n",
+				handle, cmd->cmd);
+			ret =  -1;
+		}
+		vfree(cmd);
+	}
+	return ret;
+}
+
+int sensor_backlight_level_to_hub(uint8_t handle, int *data)
+{
+	struct ConfigCmd *cmd = NULL;
+	int ret = 0;
+
+	if (handle > ID_SENSOR_MAX_HANDLE) {
+		pr_err("invalid handle %d\n", handle);
+		ret = -1;
+	} else {
+		cmd = vzalloc(sizeof(struct ConfigCmd) + sizeof(int));
+		if (cmd == NULL)
+			return -1;
+		cmd->evtType = EVT_NO_SENSOR_CONFIG_EVENT;
+		cmd->sensorType = handle + ID_OFFSET;
+		cmd->cmd = CONFIG_CMD_BACKLIGHT_LEVEL;
+		memcpy(cmd->data, data, sizeof(int));
+		ret = nanohub_external_write((const uint8_t *)cmd,
+			sizeof(struct ConfigCmd) + sizeof(int));
+		if (ret < 0) {
+			pr_err("failed set backlight_level:%d, cmd:%d\n",
+				handle, cmd->cmd);
+			ret =  -1;
+		}
+		vfree(cmd);
+	}
+	return ret;
+}
+
+int sensor_set_lcdname_to_hub(uint8_t handle, uint8_t *data, uint8_t count)
+{
+	struct ConfigCmd *cmd = NULL;
+	int ret = 0;
+
+	if (handle > ID_SENSOR_MAX_HANDLE) {
+		pr_err("invalid handle %d\n", handle);
+		ret = -1;
+	} else {
+		cmd = vzalloc(sizeof(struct ConfigCmd) + count);
+		if (cmd == NULL)
+			return -1;
+		cmd->evtType = EVT_NO_SENSOR_CONFIG_EVENT;
+		cmd->sensorType = handle + ID_OFFSET;
+		cmd->cmd = CONFIG_CMD_SET_LCDNAME;
+		memcpy(cmd->data, data, count);
+		ret = nanohub_external_write((const uint8_t *)cmd,
+			sizeof(struct ConfigCmd) + count);
+		if (ret < 0) {
+			pr_err("failed set lcdname handle:%d, cmd:%d\n",
+				handle, cmd->cmd);
+			ret =  -1;
+		}
+		vfree(cmd);
+	}
+	return ret;
+}
+
 int sensor_calibration_to_hub(uint8_t handle)
+{
+	uint8_t sensor_type = handle + ID_OFFSET;
+	struct ConfigCmd cmd;
+	int ret = 0;
+
+	pr_info("Enter sensor_calibration_to_hub, sensor_type = %d\n", sensor_type);
+	if (mSensorState[sensor_type].sensorType) {
+		init_sensor_config_cmd(&cmd, sensor_type);
+		cmd.cmd = CONFIG_CMD_CALIBRATE;
+		ret = nanohub_external_write((const uint8_t *)&cmd,
+			sizeof(struct ConfigCmd));
+		if (ret < 0) {
+			pr_err("failed calibration handle:%d\n",
+				handle);
+			return -1;
+		}
+	} else {
+		pr_err("unhandle handle=%d, is inited?\n", handle);
+		return -1;
+	}
+	return 0;
+}
+
+int sensor_leak_calibration_to_hub(uint8_t handle)
 {
 	uint8_t sensor_type = handle + ID_OFFSET;
 	struct ConfigCmd cmd;
@@ -1450,7 +1565,7 @@ int sensor_calibration_to_hub(uint8_t handle)
 
 	if (mSensorState[sensor_type].sensorType) {
 		init_sensor_config_cmd(&cmd, sensor_type);
-		cmd.cmd = CONFIG_CMD_CALIBRATE;
+		cmd.cmd = CONFIG_CMD_LEAK_CALIBRATE;
 		ret = nanohub_external_write((const uint8_t *)&cmd,
 			sizeof(struct ConfigCmd));
 		if (ret < 0) {
@@ -1738,9 +1853,14 @@ int sensor_get_data_from_hub(uint8_t sensorType,
 		break;
 	case ID_SAR:
 		data->time_stamp = data_t->time_stamp;
-		data->sar_event.data[0] = data_t->sar_event.data[0];
-		data->sar_event.data[1] = data_t->sar_event.data[1];
-		data->sar_event.data[2] = data_t->sar_event.data[2];
+		data->data[0] = data_t->data[0];
+		data->data[1] = data_t->data[1];
+		data->data[2] = data_t->data[2];
+		data->data[3] = data_t->data[3];
+		data->data[4] = data_t->data[4];
+		data->data[5] = data_t->data[5];
+		data->data[6] = data_t->data[6];
+		data->data[7] = data_t->data[7];
 		break;
 	default:
 		err = -1;
@@ -2485,6 +2605,18 @@ static int nanohub_delete_attr(struct device_driver *driver)
 		driver_remove_file(driver, nanohub_attr_list[idx]);
 
 	return err;
+}
+
+int elliptic_io_open_port(int portid)
+{
+	pr_debug("ELUS sensor_enable_to_hub (1)");
+	return sensor_enable_to_hub(ID_ELLIPTIC_FUSION, 1);
+}
+
+int elliptic_io_close_port(int portid)
+{
+	pr_debug("ELUS sensor_enable_to_hub (0)");
+	return sensor_enable_to_hub(ID_ELLIPTIC_FUSION, 0);
 }
 
 static struct platform_device sensorHub_device = {

@@ -580,6 +580,28 @@
 #define SENSOR_DRVNAME_OV13B10_MIPI_RAW         "ov13b10_mipi_raw"
 #define SENSOR_DRVNAME_OV02B10_MIPI_RAW         "ov02b10_mipi_raw"
 
+#define S5KHM2SD_MAIN_SUNNY_SENSOR_ID   0xFAD2
+#define S5KHM2SD_MAIN_OFILM_SENSOR_ID   0xFAD3
+#define HI1634Q_FRONT_OFILM_SENSOR_ID   0x1634
+#define HI1634Q_FRONT_QTECH_SENSOR_ID   0x1635
+#define OV8856_ULTRA_AAC_SENSOR_ID		0x885a
+#define IMX355_ULTRA_SUNNY_SENSOR_ID    0x355
+#define OV02B1B_DEPTH_SUNNY_SENSOR_ID   0x2B
+#define OV02B1B_DEPTH_TRULY_SENSOR_ID   0x2C
+#define GC02M1_MACRO_OFILM_SENSOR_ID    0x2E0
+#define GC02M1_MACRO_AAC_SENSOR_ID      0x2E1
+
+#define SENSOR_DRVNAME_S5KHM2SD_MAIN_SUNNY_MIPI_RAW "s5khm2sd_main_sunny_mipi_raw"
+#define SENSOR_DRVNAME_S5KHM2SD_MAIN_OFILM_MIPI_RAW "s5khm2sd_main_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_HI1634Q_FRONT_OFILM_MIPI_RAW "hi1634q_front_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_HI1634Q_FRONT_QTECH_MIPI_RAW "hi1634q_front_qtech_mipi_raw"
+#define SENSOR_DRVNAME_OV8856_ULTRA_AAC_MIPI_RAW	"ov8856_ultra_aac_mipi_raw"
+#define SENSOR_DRVNAME_IMX355_ULTRA_SUNNY_MIPI_RAW  "imx355_ultra_sunny_mipi_raw"
+#define SENSOR_DRVNAME_OV02B1B_DEPTH_SUNNY_MIPI_RAW "ov02b1b_depth_sunny_mipi_raw"
+#define SENSOR_DRVNAME_OV02B1B_DEPTH_TRULY_MIPI_RAW "ov02b1b_depth_truly_mipi_raw"
+#define SENSOR_DRVNAME_GC02M1_MACRO_OFILM_MIPI_RAW  "gc02m1_macro_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_GC02M1_MACRO_AAC_MIPI_RAW    "gc02m1_macro_aac_mipi_raw"
+
 /******************************************************************************
  *
  ******************************************************************************/

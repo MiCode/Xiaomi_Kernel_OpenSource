@@ -649,7 +649,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 
 	/* DISP_RDMA_FIFO_CON */
 	if (gsc->is_vdo_mode)
-		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = 0;
+		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = 500;
 	else
 		gs[GS_RDMA_OUTPUT_VALID_FIFO_TH] = gs[GS_RDMA_PRE_ULTRA_TH_LOW];
 	gs[GS_RDMA_FIFO_SIZE] = fifo_size;

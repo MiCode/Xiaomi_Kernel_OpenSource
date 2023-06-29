@@ -942,9 +942,9 @@ void fgr_construct_battery_profile(int table_idx)
 		temp_profile_p[i].resistance =
 		interpolation(low_temp, low_profile_p[i].resistance,
 		high_temp, high_profile_p[i].resistance, temperature);
-		temp_profile_p[i].resistance2 =
-		interpolation(low_temp, low_profile_p[i].resistance2,
-		high_temp, high_profile_p[i].resistance2, temperature);
+		temp_profile_p[i].charge_r.rdc[0] =
+		interpolation(low_temp, low_profile_p[i].charge_r.rdc[0],
+		high_temp, high_profile_p[i].charge_r.rdc[0], temperature);
 
 	}
 

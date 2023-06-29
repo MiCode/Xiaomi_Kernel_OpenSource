@@ -176,7 +176,7 @@ uint8_t tcpm_inquire_typec_role(
 uint8_t tcpm_inquire_typec_local_rp(
 	struct tcpc_device *tcpc_dev)
 {
-	uint8_t level;
+/*	uint8_t level;
 
 	switch (tcpc_dev->typec_local_rp_level) {
 	case TYPEC_CC_RP_1_5:
@@ -191,7 +191,8 @@ uint8_t tcpm_inquire_typec_local_rp(
 		break;
 	}
 
-	return level;
+	return level;   */
+	return tcpc_dev->typec_local_rp_level;
 }
 
 int tcpm_typec_set_wake_lock(
@@ -239,17 +240,17 @@ int tcpm_typec_set_rp_level(
 	struct tcpc_device *tcpc_dev, uint8_t level)
 {
 	int ret = 0;
-	uint8_t res;
+/*	uint8_t res;
 
 	if (level == 2)
 		res = TYPEC_CC_RP_3_0;
 	else if (level == 1)
 		res = TYPEC_CC_RP_1_5;
 	else
-		res = TYPEC_CC_RP_DFT;
+		res = TYPEC_CC_RP_DFT;  */
 
 	tcpci_lock_typec(tcpc_dev);
-	ret = tcpc_typec_set_rp_level(tcpc_dev, res);
+	ret = tcpc_typec_set_rp_level(tcpc_dev, level);
 	tcpci_unlock_typec(tcpc_dev);
 
 	return ret;
@@ -358,6 +359,14 @@ uint8_t tcpm_inquire_pd_power_role(
 	struct pd_port *pd_port = &tcpc_dev->pd_port;
 
 	return pd_port->power_role;
+}
+
+uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc_dev)
+{
+	struct pd_port *pd_port = &tcpc_dev->pd_port;
+
+	return pd_port->pe_state_curr;
 }
 
 uint8_t tcpm_inquire_pd_vconn_role(

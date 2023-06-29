@@ -592,6 +592,11 @@ static int __do_dump_share_fd(
 		return 0;
 
 	bug_info = (struct ion_sec_buffer_info *)buffer->priv_virt;
+
+	if (!bug_info ||
+	    buffer->heap->type != (unsigned int)ION_HEAP_TYPE_MULTIMEDIA_SEC)
+		return 0;
+
 	if (!buffer->handle_count)
 		ION_DUMP(
 			 s,

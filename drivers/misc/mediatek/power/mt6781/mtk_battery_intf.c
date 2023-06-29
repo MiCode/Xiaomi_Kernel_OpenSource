@@ -82,8 +82,27 @@ signed int battery_get_bat_voltage(void)
 	return pmic_get_battery_voltage();
 }
 
+signed int battery_get_FG_bat_voltage(void)
+{
+	int ret = 0;
+	union power_supply_propval propval;
+	struct power_supply *bms = NULL;
+	/* Get BMS power supply */
+	bms = power_supply_get_by_name("bms");
+	if (!bms) {
+		pr_err("%s: get power supply failed\n", __func__);
+		return -EINVAL;
+	}
+	ret = power_supply_get_property(bms,POWER_SUPPLY_PROP_VOLTAGE_NOW,&propval);
+	if (ret < 0)
+		pr_err("%s: psy type failed, ret = %d\n", __func__, ret);
+	else
+		pr_err("%s: current_now = %d\n", __func__, propval.intval);
+	return propval.intval;
+}
 signed int battery_get_bat_current(void)
 {
+#if 0
 	int curr_val;
 	bool is_charging;
 
@@ -91,6 +110,23 @@ signed int battery_get_bat_current(void)
 	if (is_charging == false)
 		curr_val = 0 - curr_val;
 	return curr_val;
+#else
+	int ret = 0;
+	union power_supply_propval propval;
+	struct power_supply *bms = NULL;
+	/* Get BMS power supply */
+	bms = power_supply_get_by_name("bms");
+	if (!bms) {
+		pr_err("%s: get power supply failed\n", __func__);
+		return -EINVAL;
+	}
+	ret = power_supply_get_property(bms,POWER_SUPPLY_PROP_CURRENT_NOW,&propval);
+	if (ret < 0)
+		pr_err("%s: psy type failed, ret = %d\n", __func__, ret);
+	else
+		pr_err("%s: current_now = %d\n", __func__, propval.intval);
+	return propval.intval;
+#endif
 }
 
 signed int battery_get_bat_current_mA(void)
@@ -100,18 +136,38 @@ signed int battery_get_bat_current_mA(void)
 
 signed int battery_get_soc(void)
 {
+#if 0
 	struct mtk_battery *gm = get_mtk_battery();
 
 	if (gm != NULL)
 		return gm->soc;
 	else
 		return 50;
+#else
+	int ret = 0;
+	union power_supply_propval propval;
+	struct power_supply *bms = NULL;
+	/* Get BMS power supply */
+	bms = power_supply_get_by_name("bms");
+	if (!bms) {
+		pr_err("%s: get power supply failed\n", __func__);
+		return -EINVAL;
+	}
+	ret = power_supply_get_property(bms,POWER_SUPPLY_PROP_CAPACITY,&propval);
+	if (ret < 0)
+		pr_err("%s: psy type failed, ret = %d\n", __func__, ret);
+	else
+		pr_err("%s: capacity = %d\n", __func__, propval.intval);
+	return propval.intval;
+#endif
 }
 
 signed int battery_get_uisoc(void)
 {
+	int ret = 0;
 	int boot_mode = get_boot_mode();
-	struct mtk_battery *gm = get_mtk_battery();
+	union power_supply_propval propval;
+	struct power_supply *bms = NULL;
 
 	if ((boot_mode == META_BOOT) ||
 		(boot_mode == ADVMETA_BOOT) ||
@@ -119,19 +175,51 @@ signed int battery_get_uisoc(void)
 		(boot_mode == ATE_FACTORY_BOOT))
 		return 75;
 
-	if (gm != NULL)
-		return gm->ui_soc;
-	else
+	bms = power_supply_get_by_name("bms");
+	if (!bms) {
+		pr_err("%s %d: get power supply failed!\n", __func__, __LINE__);
 		return 50;
+	}
+
+	ret = power_supply_get_property(bms,POWER_SUPPLY_PROP_CAPACITY,&propval);
+	if (ret < 0){
+		pr_err("%s %d: psy type failed, ret = %d, default uisoc:50!\n", __func__, __LINE__, ret);
+		return 50;
+	}else{
+		pr_err("%s: capacity = %d\n", __func__, propval.intval);
+		return propval.intval;
+	}
 }
 
 signed int battery_get_bat_temperature(void)
 {
+#if 0
 	/* TODO */
 	if (is_battery_init_done())
 		return force_get_tbat(true);
 	else
 		return -127;
+#else
+#ifdef CONFIG_MTK_DISABLE_TEMP_PROTECT
+	return 25;
+#else
+	int ret = 0;
+	union power_supply_propval propval;
+	struct power_supply *bms = NULL;
+	/* Get BMS power supply */
+	bms = power_supply_get_by_name("bms");
+	if (!bms) {
+		pr_err("%s: get power supply failed\n", __func__);
+		return 25;
+	}
+	ret = power_supply_get_property(bms,POWER_SUPPLY_PROP_TEMP,&propval);
+	if (ret < 0)
+		pr_err("%s: psy type failed, ret = %d\n", __func__, ret);
+	else
+		pr_err("%s: temp = %d\n", __func__, propval.intval);
+	return propval.intval / 10;
+#endif
+#endif
 }
 
 signed int battery_get_ibus(void)

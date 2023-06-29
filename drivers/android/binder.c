@@ -71,7 +71,7 @@
 #include <linux/pid_namespace.h>
 #include <linux/security.h>
 #include <linux/spinlock.h>
-
+#include <linux/delayacct.h>
 #include <uapi/linux/android/binder.h>
 #include <uapi/linux/sched/types.h>
 #include "binder_alloc.h"
@@ -80,6 +80,10 @@
 #ifdef CONFIG_MTK_TASK_TURBO
 #include <mt-plat/turbo_common.h>
 #endif
+
+//MIUI ADD:
+#include "linux/trace_clock.h"
+//END
 
 #ifdef BINDER_WATCHDOG
 static DEFINE_MUTEX(mtk_binder_main_lock);
@@ -112,10 +116,18 @@ static DEFINE_SPINLOCK(binder_dead_nodes_lock);
 
 static struct dentry *binder_debugfs_dir_entry_root;
 static struct dentry *binder_debugfs_dir_entry_proc;
+//MIUI ADD:
+static struct dentry *binder_debugfs_dir_entry_proc_transaction;
+//END
 static atomic_t binder_last_id;
 
 static int proc_show(struct seq_file *m, void *unused);
 DEFINE_SHOW_ATTRIBUTE(proc);
+
+//MIUI ADD:
+static int proc_transaction_show(struct seq_file *m, void *unused);
+DEFINE_SHOW_ATTRIBUTE(proc_transaction);
+//END
 
 /* This is only defined in include/asm-arm/sizes.h */
 #ifndef SZ_1K
@@ -503,6 +515,9 @@ struct binder_priority {
  * @files                 files_struct for process
  *                        (protected by @files_lock)
  * @files_lock            mutex to protect @files
+ * @cred                  struct cred associated with the `struct file`
+ *                        in binder_open()
+ *                        (invariant after initialized)
  * @deferred_work_node:   element for binder_deferred_list
  *                        (protected by binder_deferred_lock)
  * @deferred_work:        bitmap of deferred work to perform
@@ -529,6 +544,8 @@ struct binder_priority {
  * @default_priority:     default scheduler priority
  *                        (invariant after initialized)
  * @debugfs_entry:        debugfs node
+ * @debugfs_transaction_entry: miui debugfs node
+ * @binderfs_transaction_entry: miui process binderfs log file
  * @alloc:                binder allocator bookkeeping
  * @context:              binder_context for this proc
  *                        (invariant after initialized)
@@ -550,6 +567,7 @@ struct binder_proc {
 	struct task_struct *tsk;
 	struct files_struct *files;
 	struct mutex files_lock;
+	const struct cred *cred;
 	struct hlist_node deferred_work_node;
 	int deferred_work;
 	bool is_dead;
@@ -563,6 +581,10 @@ struct binder_proc {
 	int tmp_ref;
 	struct binder_priority default_priority;
 	struct dentry *debugfs_entry;
+	//MIUI ADD:
+	struct dentry *debugfs_transaction_entry;
+	struct dentry *binderfs_transaction_entry;
+	//END
 	struct binder_alloc alloc;
 	struct binder_context *context;
 	spinlock_t inner_lock;
@@ -639,6 +661,11 @@ struct binder_transaction {
 	int debug_id;
 	struct binder_work work;
 	struct binder_thread *from;
+	//MIUI ADD:
+	int async_from_pid;
+	int async_from_tid;
+	u64 timesRecord;
+	//END
 	struct binder_transaction *from_parent;
 	struct binder_proc *to_proc;
 	struct binder_thread *to_thread;
@@ -1834,7 +1861,11 @@ static void binder_transaction_priority(struct task_struct *task,
 	t->saved_priority.prio = task->normal_prio;
 
 	if (!inherit_rt && is_rt_policy(desired_prio.sched_policy)) {
-		desired_prio.prio = NICE_TO_PRIO(0);
+		// MIUI MOD:
+		// We boost some app process to FIFO, but binder out thread
+		// from fifo has low priority, so we modify priority higher.
+		// desired_prio.prio = NICE_TO_PRIO(0);
+		desired_prio.prio = NICE_TO_PRIO(-18);
 		desired_prio.sched_policy = SCHED_NORMAL;
 	}
 
@@ -2566,6 +2597,18 @@ static int binder_inc_ref_for_node(struct binder_proc *proc,
 	}
 	ret = binder_inc_ref_olocked(ref, strong, target_list);
 	*rdata = ref->data;
+	if (ret && ref == new_ref) {
+		/*
+		 * Cleanup the failed reference here as the target
+		 * could now be dead and have already released its
+		 * references by now. Calling on the new reference
+		 * with strong=0 and a tmp_refs will not decrement
+		 * the node. The new_ref gets kfree'd below.
+		 */
+		binder_cleanup_ref_olocked(new_ref);
+		ref = NULL;
+	}
+
 	binder_proc_unlock(proc);
 	if (new_ref && ref != new_ref)
 		/*
@@ -3169,7 +3212,7 @@ static int binder_translate_binder(struct flat_binder_object *fp,
 		ret = -EINVAL;
 		goto done;
 	}
-	if (security_binder_transfer_binder(proc->tsk, target_proc->tsk)) {
+	if (security_binder_transfer_binder(proc->cred, target_proc->cred)) {
 		ret = -EPERM;
 		goto done;
 	}
@@ -3215,7 +3258,7 @@ static int binder_translate_handle(struct flat_binder_object *fp,
 				  proc->pid, thread->pid, fp->handle);
 		return -EINVAL;
 	}
-	if (security_binder_transfer_binder(proc->tsk, target_proc->tsk)) {
+	if (security_binder_transfer_binder(proc->cred, target_proc->cred)) {
 		ret = -EPERM;
 		goto done;
 	}
@@ -3299,7 +3342,7 @@ static int binder_translate_fd(int fd,
 		ret = -EBADF;
 		goto err_fget;
 	}
-	ret = security_binder_transfer_file(proc->tsk, target_proc->tsk, file);
+	ret = security_binder_transfer_file(proc->cred, target_proc->cred, file);
 	if (ret < 0) {
 		ret = -EPERM;
 		goto err_security;
@@ -3567,6 +3610,13 @@ static struct binder_node *binder_get_node_refs_for_txn(
 	return target_node;
 }
 
+//MIUI ADD:
+static inline u64 binder_clock(void)
+{
+	return trace_clock_local();
+}
+//END
+
 static void binder_transaction(struct binder_proc *proc,
 			       struct binder_thread *thread,
 			       struct binder_transaction_data *tr, int reply,
@@ -3744,8 +3794,8 @@ static void binder_transaction(struct binder_proc *proc,
 #ifdef BINDER_WATCHDOG
 		strncpy(e->service, target_node->name, MAX_SERVICE_NAME_LEN);
 #endif
-		if (security_binder_transaction(proc->tsk,
-						target_proc->tsk) < 0) {
+		if (security_binder_transaction(proc->cred,
+						target_proc->cred) < 0) {
 			return_error = BR_FAILED_REPLY;
 			return_error_param = -EPERM;
 			return_error_line = __LINE__;
@@ -3852,10 +3902,23 @@ static void binder_transaction(struct binder_proc *proc,
 	t->tthrd = target_thread ? target_thread->pid : 0;
 	t->log_idx = log_idx;
 #endif
+	//MIUI MOD:
+	/*
 	if (!reply && !(tr->flags & TF_ONE_WAY))
 		t->from = thread;
 	else
 		t->from = NULL;
+	*/
+	if (!reply && !(tr->flags & TF_ONE_WAY)) {
+		t->from = thread;
+		t->async_from_pid = -1;
+		t->async_from_tid = -1;
+	} else {
+		t->from = NULL;
+		t->async_from_pid = thread->proc->pid;
+		t->async_from_tid = thread->pid;
+	}
+	//END
 	t->sender_euid = task_euid(proc->tsk);
 	t->to_proc = target_proc;
 	t->to_thread = target_thread;
@@ -4191,6 +4254,9 @@ static void binder_transaction(struct binder_proc *proc,
 			goto err_dead_proc_or_thread;
 		}
 		BUG_ON(t->buffer->async_transaction != 0);
+		//MIUI ADD:
+		t->timesRecord = in_reply_to->timesRecord;
+		//END
 		binder_pop_transaction_ilocked(target_thread, in_reply_to);
 		binder_enqueue_thread_work_ilocked(target_thread, &t->work);
 		binder_inner_proc_unlock(target_proc);
@@ -4218,6 +4284,9 @@ static void binder_transaction(struct binder_proc *proc,
 		t->need_reply = 1;
 		t->from_parent = thread->transaction_stack;
 		thread->transaction_stack = t;
+		//MIUI ADD:
+		t->timesRecord = binder_clock();
+		//END
 		binder_inner_proc_unlock(proc);
 		if (!binder_proc_transaction(t, target_proc, target_thread)) {
 			binder_inner_proc_lock(proc);
@@ -4229,6 +4298,9 @@ static void binder_transaction(struct binder_proc *proc,
 		BUG_ON(target_node == NULL);
 		BUG_ON(t->buffer->async_transaction != 1);
 		binder_enqueue_thread_work(thread, tcomplete);
+		//MIUI ADD:
+		t->timesRecord = binder_clock();
+		//END
 		if (!binder_proc_transaction(t, target_proc, NULL))
 			goto err_dead_proc_or_thread;
 	}
@@ -5410,6 +5482,7 @@ static void binder_free_proc(struct binder_proc *proc)
 	}
 	binder_alloc_deferred_release(&proc->alloc);
 	put_task_struct(proc->tsk);
+	put_cred(proc->cred);
 	binder_stats_deleted(BINDER_STAT_PROC);
 	kfree(proc);
 }
@@ -5472,6 +5545,10 @@ static int binder_thread_release(struct binder_proc *proc,
 			t = t->to_parent;
 		} else if (t->from == thread) {
 			t->from = NULL;
+			//MIUI ADD:
+			t->async_from_pid = -1;
+			t->async_from_tid = -1;
+			//END
 			t = t->from_parent;
 		} else
 			BUG();
@@ -5615,7 +5692,7 @@ static int binder_ioctl_set_ctx_mgr(struct file *filp,
 		ret = -EBUSY;
 		goto out;
 	}
-	ret = security_binder_set_context_mgr(proc->tsk);
+	ret = security_binder_set_context_mgr(proc->cred);
 	if (ret < 0)
 		goto out;
 	if (uid_valid(context->binder_context_mgr_uid)) {
@@ -5736,7 +5813,9 @@ static long binder_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case BINDER_WRITE_READ:
+		delayacct_binder_start();
 		ret = binder_ioctl_write_read(filp, cmd, arg, thread);
+		delayacct_binder_end();
 		if (ret)
 			goto err;
 		break;
@@ -5927,6 +6006,9 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	struct binder_device *binder_dev;
 	struct binderfs_info *info;
 	struct dentry *binder_binderfs_dir_entry_proc = NULL;
+	//MIUI ADD:
+	struct dentry *binder_binderfs_dir_entry_proc_transaction = NULL;
+	//END
 
 	binder_debug(BINDER_DEBUG_OPEN_CLOSE, "%s: %d:%d\n", __func__,
 		     current->group_leader->pid, current->pid);
@@ -5939,6 +6021,7 @@ static int binder_open(struct inode *nodp, struct file *filp)
 	get_task_struct(current->group_leader);
 	proc->tsk = current->group_leader;
 	mutex_init(&proc->files_lock);
+	proc->cred = get_cred(filp->f_cred);
 	INIT_LIST_HEAD(&proc->todo);
 	if (binder_supported_policy(current->policy)) {
 		proc->default_priority.sched_policy = current->policy;
@@ -5953,6 +6036,9 @@ static int binder_open(struct inode *nodp, struct file *filp)
 		binder_dev = nodp->i_private;
 		info = nodp->i_sb->s_fs_info;
 		binder_binderfs_dir_entry_proc = info->proc_log_dir;
+		//MIUI ADD:
+		binder_binderfs_dir_entry_proc_transaction = info->proc_transaction_log_dir;
+		//END
 	} else {
 		binder_dev = container_of(filp->private_data,
 					  struct binder_device, miscdev);
@@ -6016,7 +6102,35 @@ static int binder_open(struct inode *nodp, struct file *filp)
 			}
 		}
 	}
+	//MIUI ADD:
+	if (binder_debugfs_dir_entry_proc_transaction) {
+		char strbuf[11];
+		snprintf(strbuf, sizeof(strbuf), "%u", proc->pid);
+		proc->debugfs_transaction_entry = debugfs_create_file(strbuf, 0444,
+			binder_debugfs_dir_entry_proc_transaction,
+			(void *)(unsigned long)proc->pid,
+			&proc_transaction_fops);
+	}
 
+	if (binder_binderfs_dir_entry_proc_transaction) {
+		char strbuf[11];
+		struct dentry *binderfs_transaction_entry;
+
+		snprintf(strbuf, sizeof(strbuf), "%u", proc->pid);
+		binderfs_transaction_entry = binderfs_create_file(binder_binderfs_dir_entry_proc_transaction,
+			strbuf, &proc_transaction_fops, (void *)(unsigned long)proc->pid);
+		if (!IS_ERR(binderfs_transaction_entry)) {
+			proc->binderfs_transaction_entry = binderfs_transaction_entry;
+		} else {
+			int error;
+
+			error = PTR_ERR(binderfs_transaction_entry);
+			if (error != -EEXIST) {
+				pr_warn("Unable to create file %s in binderfs (error %d)\n",
+					strbuf, error);
+			}
+		}
+	}
 	return 0;
 }
 
@@ -6056,6 +6170,13 @@ static int binder_release(struct inode *nodp, struct file *filp)
 	struct binder_proc *proc = filp->private_data;
 
 	debugfs_remove(proc->debugfs_entry);
+	//MIUI ADD:
+	debugfs_remove(proc->debugfs_transaction_entry);
+	if (proc->binderfs_transaction_entry) {
+		binderfs_remove_file(proc->binderfs_transaction_entry);
+		proc->binderfs_transaction_entry = NULL;
+	}
+	//END
 
 	if (proc->binderfs_entry) {
 		binderfs_remove_file(proc->binderfs_entry);
@@ -6888,6 +7009,178 @@ int binder_timeout_log_show(struct seq_file *m, void *unused);
 DEFINE_SHOW_ATTRIBUTE(binder_timeout_log);
 #endif
 
+//MIUI ADD:
+static void print_binder_proc_transaction_ilocked(
+				struct seq_file *m,
+				struct binder_proc *proc,
+				const char *prefix,
+				struct binder_transaction *t,
+				u64 timesRecord)
+{
+	struct binder_proc *to_proc = NULL;
+	int from_pid = 0;
+	int from_tid = 0;
+	int to_pid = 0;
+	int to_tid = 0;
+
+	spin_lock(&t->lock);
+	to_proc = t->to_proc;
+	from_pid = t->from ? (t->from->proc ? t->from->proc->pid : 0) : t->async_from_pid;
+	from_tid = t->from ? t->from->pid : t->async_from_tid;
+	to_pid = to_proc ? to_proc->pid : 0;
+	to_tid = t->to_thread ? t->to_thread->pid : 0;
+
+	seq_printf(m,
+		"%s: from %5d:%5d to %5d:%5d context:%s code:%3d duration:%6lld.%02lld s\n",
+		prefix,
+		from_pid, from_tid,
+		to_pid, to_tid,
+		proc->context->name,
+		t->code,
+		timesRecord > t->timesRecord ? (timesRecord - t->timesRecord) / 1000000000 : 0,
+		timesRecord > t->timesRecord ? (timesRecord - t->timesRecord) % 1000000000 / 10000000 : 0
+	);
+	spin_unlock(&t->lock);
+}
+
+static void print_binder_proc_work_transaction_ilocked(
+				struct seq_file *m,
+				struct binder_proc *proc,
+				const char *prefix,
+				struct binder_work *w,
+				u64 timesRecord)
+{
+	struct binder_transaction *t = NULL;
+	switch (w->type) {
+	case BINDER_WORK_TRANSACTION:
+		t = container_of(w, struct binder_transaction, work);
+		print_binder_proc_transaction_ilocked(
+				m, proc, prefix, t, timesRecord);
+		break;
+	default:
+		break;
+	}
+}
+
+static void print_binder_proc_transaction_info(struct seq_file *m,
+			      struct binder_proc *proc, u64 timesRecord)
+{
+	struct binder_work *w = NULL;
+	struct rb_node *n = NULL;
+	struct binder_node *last_node = NULL;
+	size_t start_pos = m->count;
+	size_t header_pos = m->count;
+
+	binder_inner_proc_lock(proc);
+	for (n = rb_first(&proc->threads); n != NULL; n = rb_next(n)) {
+		struct binder_thread *thread = rb_entry(n, struct binder_thread, rb_node);
+		struct binder_transaction *t = thread->transaction_stack;
+		while (t) {
+			if (t->from == thread) {
+				print_binder_proc_transaction_ilocked(m, proc,
+						 "outgoing transaction", t, timesRecord);
+				t = t->from_parent;
+			} else if (t->to_thread == thread) {
+				print_binder_proc_transaction_ilocked(m, proc,
+						 "incoming transaction", t, timesRecord);
+				t = t->to_parent;
+			} else {
+				t = NULL;
+			}
+		}
+	}
+
+	//one way
+	for (n = rb_first(&proc->nodes); n != NULL; n = rb_next(n)) {
+		struct binder_node *node = rb_entry(n, struct binder_node, rb_node);
+		/*
+		 * take a temporary reference on the node so it
+		 * survives and isn't removed from the tree
+		 * while we print it.
+		 */
+		binder_inc_node_tmpref_ilocked(node);
+		/* Need to drop inner lock to take node lock */
+		binder_inner_proc_unlock(proc);
+		if (last_node)
+			binder_put_node(last_node);
+		binder_node_inner_lock(node);
+		list_for_each_entry(w, &node->async_todo, entry)
+			print_binder_proc_work_transaction_ilocked(m, proc,
+						 "pending async transaction", w, timesRecord);
+		binder_node_inner_unlock(node);
+		last_node = node;
+		binder_inner_proc_lock(proc);
+	}
+	binder_inner_proc_unlock(proc);
+
+	if (last_node) {
+		binder_put_node(last_node);
+	}
+
+	binder_inner_proc_lock(proc);
+	list_for_each_entry(w, &proc->todo, entry)
+		print_binder_proc_work_transaction_ilocked(m, proc,
+						 "pending transaction", w, timesRecord);
+	binder_inner_proc_unlock(proc);
+
+	if (m->count == header_pos) {
+		m->count = start_pos;
+	}
+}
+
+static void print_binder_proc_info(struct seq_file *m, struct binder_proc *proc)
+{
+	struct binder_thread *thread = NULL;
+	int ready_threads = 0;
+	int count = 0;
+	struct rb_node *n;
+	size_t free_async_space = binder_alloc_get_free_async_space(&proc->alloc);
+	size_t free_space = binder_alloc_get_free_space(&proc->alloc);
+
+	seq_printf(m, "pid(%d)\t", proc->pid);
+	seq_printf(m, "context(%s)\t", proc->context->name);
+	binder_inner_proc_lock(proc);
+	for (n = rb_first(&proc->threads); n != NULL; n = rb_next(n))
+		count++;
+
+	list_for_each_entry(thread, &proc->waiting_threads, waiting_thread_node)
+		ready_threads++;
+
+	seq_printf(m, "threads(%d)\t", count);
+	seq_printf(m, "requested_threads(%d+%d/%d)\t ready_threads(%d)\t"
+		"free_space(%zd)\tfree_async_space(%zd)\n", proc->requested_threads,
+		proc->requested_threads_started, proc->max_threads,
+		ready_threads,
+		free_space,
+		free_async_space);
+	binder_inner_proc_unlock(proc);
+}
+
+static int proc_transaction_show(struct seq_file *m, void *unused)
+{
+	struct binder_proc *proc;
+	u64 now = 0;
+	int pid = (unsigned long)m->private;
+	seq_printf(m, "proc %d\n", pid);
+	seq_puts(m, "binder transaction info:\n");
+	mutex_lock(&binder_procs_lock);
+	now = binder_clock();
+	hlist_for_each_entry(proc, &binder_procs, proc_node) {
+		if (proc->pid == pid) {
+			print_binder_proc_transaction_info(m, proc, now);
+		}
+	}
+	seq_puts(m, "\nbinder proc state:\n");
+	hlist_for_each_entry(proc, &binder_procs, proc_node) {
+		if (proc->pid == pid) {
+			print_binder_proc_info(m, proc);
+		}
+	}
+	mutex_unlock(&binder_procs_lock);
+
+	return 0;
+}
+//END
 const struct file_operations binder_fops = {
 	.owner = THIS_MODULE,
 	.poll = binder_poll,
@@ -6947,9 +7240,14 @@ static int __init binder_init(void)
 #endif
 
 	binder_debugfs_dir_entry_root = debugfs_create_dir("binder", NULL);
-	if (binder_debugfs_dir_entry_root)
+	if (binder_debugfs_dir_entry_root) {
 		binder_debugfs_dir_entry_proc = debugfs_create_dir("proc",
 						 binder_debugfs_dir_entry_root);
+		//MIUI ADD:
+		binder_debugfs_dir_entry_proc_transaction = debugfs_create_dir("proc_transaction",
+						 binder_debugfs_dir_entry_root);
+		//END
+	}
 
 	if (binder_debugfs_dir_entry_root) {
 		debugfs_create_file("state",

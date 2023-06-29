@@ -43,6 +43,9 @@
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 #include "../scp_spk/mtk-scp-spk-common.h"
 #endif
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+#include "../scp_ultra/mtk-scp-ultra-common.h"
+#endif
 
 /* FORCE_FPGA_ENABLE_IRQ use irq in fpga */
 /* #define FORCE_FPGA_ENABLE_IRQ */
@@ -5812,6 +5815,9 @@ static int mt6781_afe_pcm_dev_probe(struct platform_device *pdev)
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
 	defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 	audio_set_dsp_afe(afe);
+#endif
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	ultra_set_afe_base(afe);
 #endif
 
 	return 0;

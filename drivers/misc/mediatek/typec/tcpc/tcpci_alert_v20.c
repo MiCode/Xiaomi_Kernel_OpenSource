@@ -359,6 +359,7 @@ static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 	int rv, i;
 	uint32_t alert_status;
 	uint32_t alert_mask;
+	uint32_t chip_id;
 
 	rv = tcpci_get_alert_status(tcpc_dev, &alert_status);
 	if (rv)
@@ -379,7 +380,9 @@ static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 			  alert_status, alert_mask);
 #endif /* CONFIG_USB_PD_DBG_ALERT_STATUS */
 
-	alert_status &= alert_mask;
+	rv = tcpci_get_chip_id(tcpc_dev, &chip_id);
+	if (rv || (SC2150A_DID != chip_id))
+		alert_status &= alert_mask;
 
 	tcpci_alert_status_clear(tcpc_dev,
 		alert_status & (~TCPC_REG_ALERT_RX_MASK));

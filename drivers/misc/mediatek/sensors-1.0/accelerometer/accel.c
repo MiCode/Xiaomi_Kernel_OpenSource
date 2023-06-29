@@ -755,7 +755,7 @@ int acc_cali_report(struct acc_data *data)
 	event.word[0] = data->x;
 	event.word[1] = data->y;
 	event.word[2] = data->z;
-	/* pr_err("x:%d,y:%d,z:%d,time:%lld\n", x, y, z, nt); */
+	pr_info("acc_cali_report, x:%d, y:%d, z:%d\n", event.word[0], event.word[1], event.word[2]);
 	err = sensor_input_event(acc_context_obj->mdev.minor, &event);
 	return err;
 }

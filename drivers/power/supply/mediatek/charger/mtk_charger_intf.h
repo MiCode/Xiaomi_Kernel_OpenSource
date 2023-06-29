@@ -119,25 +119,67 @@ enum {
 
 /*
  * Software JEITA
- * T0: -10 degree Celsius
- * T1: 0 degree Celsius
+ * T0: 0 degree Celsius
+ * T1: 5 degree Celsius
  * T2: 10 degree Celsius
- * T3: 45 degree Celsius
- * T4: 50 degree Celsius
+ * T3: 15 degree Celsius
+ * T4: 35 degree Celsius
+ * T5: 48 degree Celsius
+ * T6: 60 degree Celsius
  */
 enum sw_jeita_state_enum {
-	TEMP_BELOW_T0 = 0,
+	TEMP_BELOW_NEG_10 = 0,
+	TEMP_NEG_10_TO_T0,	
 	TEMP_T0_TO_T1,
 	TEMP_T1_TO_T2,
 	TEMP_T2_TO_T3,
 	TEMP_T3_TO_T4,
-	TEMP_ABOVE_T4
+	TEMP_T4_TO_T5,
+	TEMP_T5_TO_T6,	
+	TEMP_ABOVE_T6
 };
+
+
+enum sw_jeita_state_enum_lcd_on {
+	LCD_ON_BELOW_NEG_10 = 0,
+	LCD_ON_NEG_10_TO_T0,
+	LCD_ON_T0_TO_T1,
+	LCD_ON_T1_TO_T2,
+	LCD_ON_T2_TO_T3,
+	LCD_ON_T3_TO_T4,
+	LCD_ON_T4_TO_T5,
+	LCD_ON_T5_TO_T6,
+	LCD_ON_T6_TO_T7,
+	LCD_ON_T7_TO_T8,
+	LCD_ON_T8_TO_T9,
+	LCD_ON_ABOVE_T9
+};
+
+enum sw_jeita_state_enum_lcd_off {
+	LCD_OFF_BELOW_NEG_10 = 0,
+	LCD_OFF_NEG_10_TO_T0,
+	LCD_OFF_T0_TO_T1,
+	LCD_OFF_T1_TO_T2,
+	LCD_OFF_T2_TO_T3,
+	LCD_OFF_T3_TO_T4,
+	LCD_OFF_T4_TO_T5,
+	LCD_OFF_T5_TO_T6,
+	LCD_OFF_T6_TO_T7,
+	LCD_OFF_ABOVE_T7
+};
+
 
 struct sw_jeita_data {
 	int sm;
 	int pre_sm;
 	int cv;
+
+	int cc;
+	int lcd_on_sm;
+	int pre_lcd_on_sm;
+	int lcd_off_sm;
+	int pre_lcd_off_sm;
+
 	bool charging;
 	bool error_recovery_flag;
 };
@@ -176,6 +218,7 @@ struct charger_custom_data {
 	int apple_2_1a_charger_current;
 	int ta_ac_charger_current;
 	int pd_charger_current;
+	int check_hv_current;
 
 	/* dynamic mivr */
 	int min_charger_voltage_1;
@@ -183,12 +226,18 @@ struct charger_custom_data {
 	int max_dmivr_charger_current;
 
 	/* sw jeita */
-	int jeita_temp_above_t4_cv;
+	int jeita_temp_above_t6_cv;
+	int jeita_temp_t5_to_t6_cv;
+	int jeita_temp_t4_to_t5_cv;
 	int jeita_temp_t3_to_t4_cv;
 	int jeita_temp_t2_to_t3_cv;
 	int jeita_temp_t1_to_t2_cv;
 	int jeita_temp_t0_to_t1_cv;
 	int jeita_temp_below_t0_cv;
+	int temp_t6_thres;
+	int temp_t6_thres_minus_x_degree;
+	int temp_t5_thres;
+	int temp_t5_thres_minus_x_degree;
 	int temp_t4_thres;
 	int temp_t4_thres_minus_x_degree;
 	int temp_t3_thres;
@@ -315,11 +364,12 @@ struct charger_manager {
 	struct charger_data dvchg2_data;
 
 	struct adapter_device *pd_adapter;
-
+	struct delayed_work enable_hv_work;
 
 	enum charger_type chr_type;
 	bool can_charging;
 	int cable_out_cnt;
+	int pd_verify_in_process;
 
 	int (*do_algorithm)(struct charger_manager *cm);
 	int (*plug_in)(struct charger_manager *cm);
@@ -335,6 +385,8 @@ struct charger_manager {
 
 	/* common info */
 	int battery_temp;
+        int pre_batt_tmp;
+	int iterm_curr;
 
 	/* sw jeita */
 	bool enable_sw_jeita;
@@ -346,7 +398,8 @@ struct charger_manager {
 	bool cmd_discharging;
 	bool safety_timeout;
 	bool vbusov_stat;
-
+	bool cp_status;
+	bool stop_charging;
 	/* battery warning */
 	unsigned int notify_code;
 	unsigned int notify_test_mode;
@@ -424,7 +477,10 @@ struct charger_manager {
 
 	struct smartcharging sc;
 
-
+	bool jeita_lcd_on_off;
+	int system_temp_level;
+	int system_temp_level_max;
+	int thermal_mitigation_current;
 	/*daemon related*/
 	struct sock *daemo_nl_sk;
 	u_int g_scd_pid;

@@ -440,12 +440,19 @@ static struct mutex open_isp_mutex;
 //-3x1_sub_common : 0x1a00c408[24:19]
 //-4x1_sub_common : 0x1a00d404[24:19]
 //-4x1_sub_common : 0x1a00d40c[24:19]
+#define CAM_3X1_SUB_COMMON_C400 (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs + 0xc400)
 #define CAM_3X1_SUB_COMMON_C404 (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs + 0xc404)
 #define CAM_3X1_SUB_COMMON_C408 (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs + 0xc408)
+
+#define CAM_4X1_SUB_COMMON_D400 (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs + 0xd400)
 #define CAM_4X1_SUB_COMMON_D404 (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs + 0xd404)
+#define CAM_4X1_SUB_COMMON_D408 (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs + 0xd408)
 #define CAM_4X1_SUB_COMMON_D40C (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs + 0xd40c)
 
 #define CAM_4X1_SUB_COMMON_EN_D110 (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs + 0xd110)
+
+#define CAMSYS_MAIN_CAMSYS_SW_RST (isp_devs[ISP_CAMSYS_CONFIG_IDX].regs + 0x000c)
+#define CAMSYS_RAWB_CAMSYS_SW_RST (isp_devs[ISP_CAMSYS_RAWB_CONFIG_IDX].regs + 0x000c)
 #endif
 
 #define ISP_CAMSYS_RAWA_CONFIG_BASE (isp_devs[ISP_CAMSYS_RAWA_CONFIG_IDX].regs)
@@ -1084,7 +1091,14 @@ static void cam_subsys_debug_dump(enum subsys_id sys_id)
 			ISP_RD32(CAMSYS_REG_CG_SET),
 			ISP_RD32(CAMSYS_REG_CG_CLR));
 #ifdef SUB_COMMON_CLR
-		ISP_SMI_CG_Dump("cam_subsys_debug_dump", false);
+		LOG_INF("3X1_SUB_COMMON_C400= 0x%x\n", ISP_RD32(CAM_3X1_SUB_COMMON_C400));
+		LOG_INF("3X1_SUB_COMMON_C404= 0x%x\n", ISP_RD32(CAM_3X1_SUB_COMMON_C404));
+		LOG_INF("3X1_SUB_COMMON_C408= 0x%x\n", ISP_RD32(CAM_3X1_SUB_COMMON_C408));
+
+		LOG_INF("4X1_SUB_COMMON_D400= 0x%x\n", ISP_RD32(CAM_4X1_SUB_COMMON_D400));
+		LOG_INF("4X1_SUB_COMMON_D404= 0x%x\n", ISP_RD32(CAM_4X1_SUB_COMMON_D404));
+		LOG_INF("4X1_SUB_COMMON_D408= 0x%x\n", ISP_RD32(CAM_4X1_SUB_COMMON_D408));
+		LOG_INF("4X1_SUB_COMMON_D40C= 0x%x\n", ISP_RD32(CAM_4X1_SUB_COMMON_D40C));
 #endif
 	break;
 	default:
@@ -2200,6 +2214,26 @@ static inline void smi_control_clock_mtcmos(bool en)
 #endif
 		}
 #ifdef SUB_COMMON_CLR
+		/* Reset 4x1 sub common & dump.
+		 * [26:27]: SUB_COMMON_4X1_RST. 1 means reset; 0 means not clear.
+		 */
+		tmp_reg = ISP_RD32(CAMSYS_MAIN_CAMSYS_SW_RST);
+		tmp_reg = tmp_reg | 0x4000000;
+		ISP_WR32(CAMSYS_MAIN_CAMSYS_SW_RST, tmp_reg);
+
+		ISP_SMI_CG_Dump("after SUB_COMMON_4X1_RST reset", false);
+
+
+		/* Reset CAMSYS_RAWB & dump.
+		 * [0:1]: LARBX_RST. 1 means reset; 0 means not clear.
+		 */
+		tmp_reg = 0;
+		tmp_reg = ISP_RD32(CAMSYS_RAWB_CAMSYS_SW_RST);
+		tmp_reg = tmp_reg | 0x1;
+		ISP_WR32(CAMSYS_RAWB_CAMSYS_SW_RST, tmp_reg);
+
+
+		tmp_reg = 0;
 		tmp_reg = ISP_RD32(CAM_4X1_SUB_COMMON_EN_D110);
 		tmp_reg = tmp_reg | 0x4000;
 		ISP_WR32(CAM_4X1_SUB_COMMON_EN_D110, tmp_reg);
@@ -2223,13 +2257,28 @@ static inline void smi_control_clock_mtcmos(bool en)
 #ifdef SUB_COMMON_CLR
 		ISP_SMI_CG_Dump("after disable larb17", false);
 
-		udelay(10); // delay 10us
+		udelay(20); // delay 10us
 
 		tmp_reg = ISP_RD32(CAM_4X1_SUB_COMMON_EN_D110);
 		tmp_reg = tmp_reg & 0xFFFFBFFF;
 		ISP_WR32(CAM_4X1_SUB_COMMON_EN_D110, tmp_reg);
 
 		ISP_SMI_CG_Dump("after CAM_4X1_SUB_COMMON_EN_D110 ostd en set 0", false);
+
+		/* Release 4x1 sub common & dump */
+		tmp_reg = 0;
+		tmp_reg = ISP_RD32(CAMSYS_MAIN_CAMSYS_SW_RST);
+		tmp_reg = tmp_reg & 0xFBFFFFFF;
+		ISP_WR32(CAMSYS_MAIN_CAMSYS_SW_RST, tmp_reg);
+
+		ISP_SMI_CG_Dump("after SUB_COMMON_4X1_RST release", false);
+
+
+		/* Release CAMSYS_RAWB_CAMSYS_SW_RST & dump */
+		tmp_reg = 0;
+		tmp_reg = ISP_RD32(CAMSYS_RAWB_CAMSYS_SW_RST);
+		tmp_reg = tmp_reg & 0xFFFFFFFE;
+		ISP_WR32(CAMSYS_RAWB_CAMSYS_SW_RST, tmp_reg);
 #endif
 	}
 #endif

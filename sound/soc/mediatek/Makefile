@@ -16,6 +16,9 @@ subdir-ccflags-y += -Werror
 obj-$(CONFIG_SND_SOC_MTK_SCP_SMARTPA) += scp_spk/
 obj-$(CONFIG_SND_SOC_MTK_SCP_SMARTPA) += utility/
 
+#scp ultra sound related code
+obj-$(CONFIG_MTK_ULTRASND_PROXIMITY) += scp_ultra/
+
 #scp vow bargein related code
 obj-$(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) += scp_vow/
 
@@ -111,7 +114,6 @@ endif
 
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/scp/$(AUDIO_PLATFORM)/
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/audio_ipi/$(AUDIO_PLATFORM)/
-
 
 # Common include path
 subdir-ccflags-y += -Werror -I$(src)/common_int

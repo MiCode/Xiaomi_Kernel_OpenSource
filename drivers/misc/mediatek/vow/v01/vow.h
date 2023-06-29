@@ -90,7 +90,7 @@
 
 #define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
 #define VOW_EXTRA_DATA_SIZE            0x100 /* 256 */
-#define VOW_ENGINE_INFO_LENGTH_BYTE    40
+#define VOW_ENGINE_INFO_LENGTH_BYTE    64
 
 /* below is control message */
 #define VOW_SET_CONTROL               _IOW(VOW_IOC_MAGIC, 0x03, unsigned int)

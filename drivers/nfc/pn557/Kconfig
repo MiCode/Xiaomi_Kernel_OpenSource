@@ -1,0 +1,15 @@
+config NXP_NFC_SN1XX
+	bool "Nxp NFC sn1xx Controller"
+	---help---
+	  You'll have to say Y if your computer contains an sn1xx I2C device that
+	  you want to use under Linux.
+
+	  You can say N here if you don't have any sn1xx I2C connected to your computer.
+
+config NXP_NFC_PN8XT
+	bool "Nxp NFC pn8xt Controller"
+	---help---
+	  You'll have to say Y if your computer contains an pn8xt I2C device that
+	  you want to use under Linux.
+
+	  You can say N here if you don't have any pn8xt I2C connected to your computer.

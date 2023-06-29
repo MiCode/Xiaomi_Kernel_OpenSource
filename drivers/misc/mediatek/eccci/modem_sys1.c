@@ -1407,6 +1407,21 @@ static void md_cd_sysfs_init(struct ccci_modem *md)
 			ccci_md_attr_md_smem.attr.name, ret);
 }
 
+/* weak function for compatibility */
+int __weak ccci_modem_suspend_noirq(struct device *dev)
+{
+	CCCI_NORMAL_LOG(-1, TAG,
+		"%s:weak function\n", __func__);
+	return 0;
+}
+
+int __weak ccci_modem_resume_noirq(struct device *dev)
+{
+	CCCI_NORMAL_LOG(-1, TAG,
+		"%s:weak function\n", __func__);
+	return 0;
+}
+
 static struct syscore_ops ccci_modem_sysops = {
 	.suspend = ccci_modem_syssuspend,
 	.resume = ccci_modem_sysresume,
@@ -1516,6 +1531,8 @@ static const struct dev_pm_ops ccci_modem_pm_ops = {
 	.poweroff = ccci_modem_pm_suspend,
 	.restore = ccci_modem_pm_resume,
 	.restore_noirq = ccci_modem_pm_restore_noirq,
+	.suspend_noirq = ccci_modem_suspend_noirq,
+	.resume_noirq = ccci_modem_resume_noirq,
 };
 
 #ifdef CONFIG_OF

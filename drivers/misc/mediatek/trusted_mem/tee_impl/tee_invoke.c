@@ -39,6 +39,18 @@
 #include "tee_impl/tee_ops.h"
 #include "tee_impl/tee_regions.h"
 
+#ifdef CONFIG_MTK_IOMMU_V2
+#include <mach/pseudo_m4u.h>
+
+enum mtk_iommu_sec_id {
+	SEC_ID_SEC_CAM = 0,
+	SEC_ID_SVP,
+	SEC_ID_SDSP,
+	SEC_ID_WFD,
+	SEC_ID_COUNT
+};
+#endif
+
 #define TEE_CMD_LOCK() mutex_lock(&tee_lock)
 #define TEE_CMD_UNLOCK() mutex_unlock(&tee_lock)
 static DEFINE_MUTEX(tee_lock);
@@ -94,6 +106,7 @@ int tee_directly_invoke_cmd(struct trusted_driver_cmd_params *invoke_params)
 	&& defined(CONFIG_MTK_SVP_ON_MTEE_SUPPORT)
 int secmem_fr_set_svp_region(u64 pa, u32 size, int remote_region_type)
 {
+	int ret;
 	struct trusted_driver_cmd_params cmd_params = {0};
 
 	cmd_params.cmd = CMD_SEC_MEM_SET_SVP_REGION;
@@ -104,7 +117,13 @@ int secmem_fr_set_svp_region(u64 pa, u32 size, int remote_region_type)
 	if (pa == 0 & size == 0)
 		return TMEM_OK;
 
-	return tee_directly_invoke_cmd(&cmd_params);
+	ret = tee_directly_invoke_cmd(&cmd_params);
+
+#ifdef CONFIG_MTK_IOMMU_V2
+	pseudo_m4u_sec_init(SEC_ID_SVP);
+#endif
+
+	return ret;
 }
 
 int secmem_fr_set_wfd_region(u64 pa, u32 size, int remote_region_type)

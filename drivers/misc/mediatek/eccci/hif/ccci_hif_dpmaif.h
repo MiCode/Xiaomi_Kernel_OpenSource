@@ -409,7 +409,7 @@ struct hif_dpmaif_ctrl {
 	struct timer_list traffic_monitor;
 	char traffic_started;
 #endif
-
+	atomic_t suspend_flag;
 };
 
 static inline int ccci_dpma_hif_send_skb(unsigned char hif_id, int tx_qno,
@@ -486,6 +486,8 @@ void dpmaif_stop_hw(void);
 #ifdef CONFIG_MTK_GIC_V3_EXT
 extern void mt_irq_dump_status(int irq);
 #endif
+extern int dpmaif_suspend_noirq(struct device *dev);
+extern int dpmaif_resume_noirq(struct device *dev);
 
 /* =======================================================
  *

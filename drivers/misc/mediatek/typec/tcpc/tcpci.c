@@ -117,6 +117,16 @@ int tcpci_check_vsafe0v(
 	return ret;
 }
 
+int tcpci_get_chip_id(struct tcpc_device *tcpc, uint32_t *chip_id)
+{
+	if (tcpc->ops->get_chip_id == NULL)
+		return -ENOTSUPP;
+	else
+		tcpc->ops->get_chip_id(tcpc, chip_id);
+
+	return 0;
+}
+
 int tcpci_alert_status_clear(
 	struct tcpc_device *tcpc, uint32_t mask)
 {
@@ -229,12 +239,17 @@ int tcpci_get_cc(struct tcpc_device *tcpc)
 
 int tcpci_set_cc(struct tcpc_device *tcpc, int pull)
 {
-	PD_BUG_ON(tcpc->ops->set_cc == NULL);
+ /*	PD_BUG_ON(tcpc->ops->set_cc == NULL);
 
 #ifdef CONFIG_USB_PD_DBG_ALWAYS_LOCAL_RP
 	if (pull == TYPEC_CC_RP)
-		pull = tcpc->typec_local_rp_level;
-#endif /* CONFIG_USB_PD_DBG_ALWAYS_LOCAL_RP */
+		pull = tcpc->typec_local_rp_level;  */
+// #ifdef CONFIG_TYPEC_CHECK_LEGACY_CABLE
+#ifdef CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP
+	uint8_t rp_lvl = TYPEC_RP_DFT, res = TYPEC_CC_DRP;
+#endif /* CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP */
+// #endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
+
 
 #ifdef CONFIG_TYPEC_CHECK_LEGACY_CABLE
 	if (pull == TYPEC_CC_DRP && tcpc->typec_legacy_cable) {
@@ -247,17 +262,27 @@ int tcpci_set_cc(struct tcpc_device *tcpc, int pull)
 #endif	/* CONFIG_TYPEC_CHECK_LEGACY_CABLE2 */
 			pull = TYPEC_CC_RP_1_5;
 		TCPC_DBG2("LC->Toggling (%d)\r\n", pull);
+		} else if (!tcpc->typec_legacy_cable) {
+#endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
+#ifdef CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP
+		rp_lvl = TYPEC_CC_PULL_GET_RP_LVL(pull);
+		res = TYPEC_CC_PULL_GET_RES(pull);
+		pull = TYPEC_CC_PULL(rp_lvl == TYPEC_RP_DFT ?
+			tcpc->typec_local_rp_level : rp_lvl, res);
+#endif /* CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP */
+#ifdef CONFIG_TYPEC_CHECK_LEGACY_CABLE	
 	}
 #endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
 
-	if (pull & TYPEC_CC_DRP) {
+/*   if (pull & TYPEC_CC_DRP) {
 		tcpc->typec_remote_cc[0] =
 		tcpc->typec_remote_cc[1] =
 			TYPEC_CC_DRP_TOGGLING;
 	}
 
 	tcpc->typec_local_cc = pull;
-	return tcpc->ops->set_cc(tcpc, pull);
+	return tcpc->ops->set_cc(tcpc, pull);   */
+	return __tcpci_set_cc(tcpc, pull);
 }
 
 int tcpci_set_polarity(struct tcpc_device *tcpc, int polarity)
@@ -595,14 +620,20 @@ int tcpci_source_vbus(
 	if (ma < 0) {
 		if (mv != 0) {
 			switch (tcpc->typec_local_rp_level) {
-			case TYPEC_CC_RP_1_5:
+		/*	case TYPEC_CC_RP_1_5:
 				ma = 1500;
-				break;
-			case TYPEC_CC_RP_3_0:
+				break;			
+			case TYPEC_CC_RP_3_0:  */
+			case TYPEC_RP_3_0:
+			
 				ma = 3000;
 				break;
+			case TYPEC_RP_1_5:
+				ma = 1500;
+				break;
+			case TYPEC_RP_DFT:
 			default:
-			case TYPEC_CC_RP_DFT:
+		//	case TYPEC_CC_RP_DFT:
 				ma = CONFIG_TYPEC_SRC_CURR_DFT;
 				break;
 			}

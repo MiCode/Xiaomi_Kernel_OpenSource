@@ -489,10 +489,9 @@ static int gauge_coulomb_thread(void *arg)
 {
 	unsigned long flags = 0;
 	struct timespec start, end, duraction;
-	int ret = 0;
 
 	while (1) {
-		ret = wait_event_interruptible(wait_que, (coulomb_thread_timeout == true));
+		wait_event(wait_que, (coulomb_thread_timeout == true));
 		coulomb_thread_timeout = false;
 		get_monotonic_boottime(&start);
 		ft_trace("[%s]=>\n", __func__);
@@ -509,11 +508,11 @@ static int gauge_coulomb_thread(void *arg)
 		duraction = timespec_sub(end, start);
 
 		ft_trace(
-			"%s time:%d ms %d %d, ret=%d\n",
+			"%s time:%d ms %d %d\n",
 			__func__,
 			(int)(duraction.tv_nsec / 1000000),
 			(int)(sstart[0].tv_nsec / 1000000),
-			(int)(sstart[1].tv_nsec / 1000000), ret);
+			(int)(sstart[1].tv_nsec / 1000000));
 
 		if (fix_coverity == 1)
 			break;
@@ -524,15 +523,18 @@ static int gauge_coulomb_thread(void *arg)
 
 void gauge_coulomb_service_init(void)
 {
-	ft_trace("gauge coulomb_service_init\n");
-	INIT_LIST_HEAD(&coulomb_head_minus);
-	INIT_LIST_HEAD(&coulomb_head_plus);
-	mutex_init(&coulomb_lock);
-	mutex_init(&hw_coulomb_lock);
-	spin_lock_init(&slock);
-	wakeup_source_init(&wlock, "gauge coulomb wakelock");
-	init_waitqueue_head(&wait_que);
-	kthread_run(gauge_coulomb_thread, NULL, "gauge_coulomb_thread");
+
+	if (IS_ENABLED(CONFIG_MTK_DISABLE_GAUGE)) {
+		pr_err("gauge coulomb_service_init\n");
+	}else{
+		INIT_LIST_HEAD(&coulomb_head_minus);
+		INIT_LIST_HEAD(&coulomb_head_plus);
+		mutex_init(&coulomb_lock);
+		mutex_init(&hw_coulomb_lock);
+		spin_lock_init(&slock);
+		wakeup_source_init(&wlock, "gauge coulomb wakelock");
+		init_waitqueue_head(&wait_que);
+			kthread_run(gauge_coulomb_thread, NULL, "gauge_coulomb_thread");
 
 	pmic_register_interrupt_callback(
 		FG_BAT1_INT_L_NO, wake_up_gauge_coulomb);
@@ -542,9 +544,10 @@ void gauge_coulomb_service_init(void)
 	init = true;
 
 #ifdef _DEA_MODIFY_
-	wait_que.function = gauge_coulomb_int_handler;
-	INIT_LIST_HEAD(&wait_que.list);
-	wait_que.name = "gauge coulomb service";
+		wait_que.function = gauge_coulomb_int_handler;
+		INIT_LIST_HEAD(&wait_que.list);
+		wait_que.name = "gauge coulomb service";
 #endif
+	}
 
 }

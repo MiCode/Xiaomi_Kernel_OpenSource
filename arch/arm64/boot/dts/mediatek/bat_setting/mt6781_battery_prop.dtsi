@@ -74,5 +74,7 @@ bat_gm30: battery{
 /* Table numbers per battery*/
 	MULTI_TEMP_GAUGE0 = <(1)>;
 /* Multi gauge0 enable*/
+   	shutdown-delay-enable;
+/*Extb HONGMI-91730,lvyuanchuan wt.ADD,20221026,add for shutdown after delay time 30s*/
 #include "mt6781_battery_table.dtsi"
 };

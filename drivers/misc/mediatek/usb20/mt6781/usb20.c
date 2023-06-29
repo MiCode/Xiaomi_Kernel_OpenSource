@@ -1676,7 +1676,7 @@ static int __init mt_usb_init(struct musb *musb)
 	mt_usb_otg_init(musb);
 	/* enable host suspend mode */
 	mt_usb_wakeup_init(musb);
-	musb->host_suspend = true;
+	musb->host_suspend = false;
 #endif
 	return 0;
 }

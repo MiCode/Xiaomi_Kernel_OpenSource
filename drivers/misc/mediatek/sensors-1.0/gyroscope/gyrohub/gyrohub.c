@@ -516,6 +516,8 @@ static int gyro_recv_data(struct data_unit_t *event, void *reserved)
 		data.x = event->gyroscope_t.x_bias;
 		data.y = event->gyroscope_t.y_bias;
 		data.z = event->gyroscope_t.z_bias;
+		pr_info("Gyrocali, cali[0] = %d, cali[1] = %d, cali[2] = %d\n",
+			event->gyroscope_t.x_bias, event->gyroscope_t.y_bias, event->gyroscope_t.z_bias );
 		if (event->gyroscope_t.status == 0)
 			err = gyro_cali_report(&data);
 		spin_lock(&calibration_lock);
@@ -587,6 +589,7 @@ static int gyrohub_factory_get_raw_data(int32_t data[3])
 }
 static int gyrohub_factory_enable_calibration(void)
 {
+	pr_info("Enter gyrohub_factory_enable_calibration\n");
 	return sensor_calibration_to_hub(ID_GYROSCOPE);
 }
 static int gyrohub_factory_clear_cali(void)

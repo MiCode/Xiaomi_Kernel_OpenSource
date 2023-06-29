@@ -39,6 +39,7 @@ static long sar_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 {
 	long err = 0;
 	void __user *ptr = (void __user *)arg;
+	int32_t sar_buf[8] = {0};
 	int32_t data_buf[3] = {0};
 	struct SENSOR_DATA sensor_data = {0};
 	uint32_t flag = 0;
@@ -78,19 +79,16 @@ static long sar_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 	case SAR_IOCTL_READ_SENSORDATA:
 		if (sar_factory.fops != NULL &&
 		    sar_factory.fops->get_data != NULL) {
-			err = sar_factory.fops->get_data(data_buf);
+			err = sar_factory.fops->get_data(sar_buf);
 			if (err < 0) {
 				pr_err(
 					"SAR_IOCTL_READ_SENSORDATA read data fail!\n");
 				return -EINVAL;
 			}
-			pr_debug("SAR_IOCTL_READ_SENSORDATA: (%d, %d, %d)!\n",
-				data_buf[0], data_buf[1], data_buf[2]);
-			sensor_data.x = data_buf[0];
-			sensor_data.y = data_buf[1];
-			sensor_data.z = data_buf[2];
-			if (copy_to_user(ptr, &sensor_data,
-							sizeof(sensor_data)))
+			pr_err("SAR_IOCTL_READ_SENSORDATA: (%d, %d, %d, %d, %d, %d, %d, %d)!\n",
+				sar_buf[0], sar_buf[1], sar_buf[2], sar_buf[3], sar_buf[4], sar_buf[5], sar_buf[6], sar_buf[7]);
+			if (copy_to_user(ptr, sar_buf,
+							sizeof(sar_buf)))
 				return -EFAULT;
 		} else {
 			pr_err("SAR_IOCTL_READ_SENSORDATA NULL\n");
@@ -100,6 +98,7 @@ static long sar_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 	case SAR_IOCTL_ENABLE_CALI:
 		if (sar_factory.fops != NULL &&
 		    sar_factory.fops->enable_calibration != NULL) {
+			pr_info("enter SAR_IOCTL_ENABLE_CALI\n");
 			err = sar_factory.fops->enable_calibration();
 			if (err < 0) {
 				pr_err(
@@ -129,6 +128,9 @@ static long sar_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 		sensor_data.x = data_buf[0];
 		sensor_data.y = data_buf[1];
 		sensor_data.z = data_buf[2];
+
+		msleep(500);
+
 		if (copy_to_user(ptr, &sensor_data, sizeof(sensor_data)))
 			return -EFAULT;
 		return 0;

@@ -20,6 +20,8 @@
 #include "imgsensor_sensor.h"
 #include "imgsensor_hw.h"
 
+static DEFINE_MUTEX(gimgsensor_hw_mutex);
+
 enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 {
 	struct IMGSENSOR_HW_SENSOR_POWER      *psensor_pwr;
@@ -93,7 +95,8 @@ enum IMGSENSOR_RETURN imgsensor_hw_release_all(struct IMGSENSOR_HW *phw)
 	}
 	return IMGSENSOR_RETURN_SUCCESS;
 }
-
+static int count = 0;
+extern open_count;
 static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 		struct IMGSENSOR_HW             *phw,
 		enum   IMGSENSOR_SENSOR_IDX      sensor_idx,
@@ -139,12 +142,35 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 	       ppwr_info < ppwr_seq->pwr_info + IMGSENSOR_HW_POWER_INFO_MAX) {
 
 		if (pwr_status == IMGSENSOR_HW_POWER_STATUS_ON) {
+#if (defined __XIAOMI_CAMERA__)
+			mutex_lock(&gimgsensor_hw_mutex);
+			if((sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN || sensor_idx == IMGSENSOR_SENSOR_IDX_SUB2) && ppwr_info->pin == IMGSENSOR_HW_PIN_DOVDD)
+			{
+				count ++;
+				if(count > open_count)
+				count --;
+			}
+			mutex_unlock(&gimgsensor_hw_mutex);
+			if ((sensor_idx == IMGSENSOR_SENSOR_IDX_SUB || sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2 ||
+				 sensor_idx == IMGSENSOR_SENSOR_IDX_SUB2) && ppwr_info->pin == IMGSENSOR_HW_PIN_AVDD)
+			{
+				PK_DBG("when open front, ultra or depth camera,macro camera need in standby status");
+				pdev = phw->pdev[psensor_pwr->id[IMGSENSOR_HW_PIN_DOVDD]];
+				if (pdev->set != NULL)
+					pdev->set(
+					pdev->pinstance,
+					IMGSENSOR_SENSOR_IDX_MAIN3,
+					IMGSENSOR_HW_PIN_DOVDD,
+					IMGSENSOR_HW_PIN_STATE_LEVEL_1800);
+				mdelay(1);
+			}
+#endif
 			if (ppwr_info->pin != IMGSENSOR_HW_PIN_UNDEF) {
 				pdev =
 				phw->pdev[psensor_pwr->id[ppwr_info->pin]];
 
 				if (__ratelimit(&ratelimit))
-					PK_DBG(
+					pr_err(
 					"sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_on %d, delay %u",
 					sensor_idx,
 					ppwr_info->pin,
@@ -170,23 +196,50 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 			pin_cnt--;
 
 			if (__ratelimit(&ratelimit))
-				PK_DBG(
+				pr_err(
 				"sensor_idx %d, ppwr_info->pin %d, ppwr_info->pin_state_off %d, delay %u",
 				sensor_idx,
 				ppwr_info->pin,
 				ppwr_info->pin_state_off,
 				ppwr_info->pin_on_delay);
 
+#if (defined __XIAOMI_CAMERA__)
+			if ((sensor_idx == IMGSENSOR_SENSOR_IDX_SUB || sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2 ||
+				 sensor_idx == IMGSENSOR_SENSOR_IDX_SUB2) && ppwr_info->pin == IMGSENSOR_HW_PIN_AVDD)
+				{
+					PK_DBG("when close front, ultra or depth camera,macro camera iovdd need set to low");
+					pdev = phw->pdev[psensor_pwr->id[IMGSENSOR_HW_PIN_DOVDD]];
+					if (pdev->set != NULL)
+							pdev->set(
+							pdev->pinstance,
+							IMGSENSOR_SENSOR_IDX_MAIN3,
+							IMGSENSOR_HW_PIN_DOVDD,
+							IMGSENSOR_HW_PIN_STATE_LEVEL_0);
+					mdelay(1);
+				}
+#endif
+
 			if (ppwr_info->pin != IMGSENSOR_HW_PIN_UNDEF) {
 				pdev =
 				phw->pdev[psensor_pwr->id[ppwr_info->pin]];
-
+			if(sensor_idx == IMGSENSOR_SENSOR_IDX_SUB2 && ppwr_info->pin == IMGSENSOR_HW_PIN_DOVDD && count == 2)
+			{
+				PK_DBG("DualCamera Poweroff depth not powerdown dovdd !\n");
+			}else{
 				if (pdev->set != NULL)
 					pdev->set(pdev->pinstance,
 					sensor_idx,
 				ppwr_info->pin, ppwr_info->pin_state_off);
 			}
-
+			}
+			mutex_lock(&gimgsensor_hw_mutex);
+			if((sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN || sensor_idx == IMGSENSOR_SENSOR_IDX_SUB2) && ppwr_info->pin == IMGSENSOR_HW_PIN_DOVDD)
+			{
+				count --;
+				if(count < 0)
+				count == 0;
+			}
+			mutex_unlock(&gimgsensor_hw_mutex);
 			mdelay(ppwr_info->pin_on_delay);
 		}
 	}

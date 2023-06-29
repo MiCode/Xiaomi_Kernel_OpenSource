@@ -1441,6 +1441,9 @@ static int mtk_mipi_tx_pll_prepare_mt6781(struct clk_hw *hw)
 				1);
 #endif
 
+	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_VOLTAGE_SEL,
+		FLD_RG_DSI_HSTX_LDO_REF_SEL, 0xD << 6);
+
 	/* step 1: SDM_RWR_ON / SDM_ISO_EN */
 	mtk_mipi_tx_update_bits(mipi_tx, MIPITX_PLL_PWR,
 				FLD_AD_DSI_PLL_SDM_PWR_ON, 1);

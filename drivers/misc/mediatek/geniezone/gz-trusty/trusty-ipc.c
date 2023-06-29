@@ -405,6 +405,7 @@ static struct tipc_msg_buf *vds_get_txbuf(struct tipc_virtio_dev *vds,
 static int vds_select_cpu(struct tipc_virtio_dev *vds, uint32_t cpu_affinity)
 {
 	int cpu = 0;
+	uint32_t online_cpus = (uint32_t)cpumask_bits(cpu_online_mask)[0];
 
 	WARN_ON(!mutex_is_locked(&vds->lock));
 
@@ -415,22 +416,31 @@ static int vds_select_cpu(struct tipc_virtio_dev *vds, uint32_t cpu_affinity)
 	if (cpu_affinity == 0) {
 		cpu = smp_processor_id();
 	} else if (cpu_affinity == (uint32_t)(-1)) {
-		cpu = ffs(vds->default_cpumask & atomic_read(&vds->allowed_cpus)) - 1;
+		cpu = ffs(online_cpus & atomic_read(&vds->allowed_cpus) &
+			  vds->default_cpumask) - 1;
 
-		if (!cpu_possible(cpu))
-			cpu =  ffs(vds->default_cpumask) - 1;
+		if (!cpu_online(cpu))
+			cpu = fls(online_cpus &
+				  atomic_read(&vds->allowed_cpus)) - 1;
+
+		if (!cpu_online(cpu))
+			cpu = fls(online_cpus) - 1;
 	} else if (cpu_affinity > 0) {
-		cpu = ffs(cpu_affinity & atomic_read(&vds->allowed_cpus)) - 1;
+		cpu = ffs(online_cpus & atomic_read(&vds->allowed_cpus) &
+			  cpu_affinity) - 1;
 
-		if (!cpu_possible(cpu))
-			cpu =  ffs(cpu_affinity & 0xff) - 1;
+		if (!cpu_online(cpu))
+			cpu = fls(online_cpus & cpu_affinity) - 1;
+
+		if (!cpu_online(cpu))
+			cpu = fls(online_cpus) - 1;
 	}
 	preempt_enable_no_resched();
 
 	dev_dbg(&vds->vdev->dev,
-		"%s: select cpu %d, affinity 0x%x, allowed 0x%x, default 0x%x\n",
-		__func__, cpu, cpu_affinity, atomic_read(&vds->allowed_cpus),
-		vds->default_cpumask);
+		"%s: select cpu %d, o:0x%x, u:0x%x, a:0x%x, d:0x%x\n",
+		__func__, cpu, online_cpus, cpu_affinity,
+		atomic_read(&vds->allowed_cpus), vds->default_cpumask);
 
 	return cpu;
 }
@@ -550,7 +560,7 @@ static struct tipc_chan *vds_create_channel(struct tipc_virtio_dev *vds,
 	mutex_init(&chan->lock);
 	kref_init(&chan->refcount);
 	chan->state = TIPC_DISCONNECTED;
-	chan->cpu_affinity = 0;
+	chan->cpu_affinity = -1;
 
 	ret = vds_add_channel(vds, chan);
 	if (ret) {
@@ -1373,7 +1383,7 @@ static int tipc_open_channel(struct tipc_dn_chan **o_dn, const char *port)
 
 	dn->tee_id = vds->tee_id;
 	dn->state = TIPC_DISCONNECTED;
-	dn->cpumask = 0;
+	dn->cpumask = -1;
 
 	dn->chan = vds_create_channel(vds, &_dn_ops, dn);
 	if (IS_ERR(dn->chan)) {
@@ -1902,8 +1912,8 @@ static void _rxvq_cb(struct virtqueue *rxvq)
 	}
 
 	/* tell the other size that we added rx buffers */
-	if (msg_cnt)
-		virtqueue_kick(rxvq);
+	//if (msg_cnt)
+	//	virtqueue_kick(rxvq);
 }
 
 static void _txvq_cb(struct virtqueue *txvq)

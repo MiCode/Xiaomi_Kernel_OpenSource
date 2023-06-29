@@ -105,6 +105,46 @@ static int call_notifier(int event, struct mtk_led_data *led_dat)
 	return err;
 }
 
+static struct blocking_notifier_head backlight_level_nb;
+
+/**
+ * backlight_level_register_notifier - get notified of backlight level
+ * @nb: notifier block with the notifier to call on backlight level
+ *
+ * @return 0 on success, otherwise a negative error code
+ *
+ * Register a notifier to get notified when backlight level changed.
+ */
+int backlight_level_register_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&backlight_level_nb, nb);
+}
+EXPORT_SYMBOL(backlight_level_register_notifier);
+
+/**
+ * backlight_level_unregister_notifier - unregister a backlight level notifier
+ * @nb: notifier block to unregister
+ *
+ * @return 0 on success, otherwise a negative error code
+ *
+ * Register a notifier to get notified when backlight level changed.
+ */
+int backlight_level_unregister_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&backlight_level_nb, nb);
+}
+EXPORT_SYMBOL(backlight_level_unregister_notifier);
+
+/**
+ * backlight_level_notifier_call_chain - notify clients of fb_events
+ *
+ */
+int backlight_level_notifier_call_chain(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(&backlight_level_nb, val, v);
+}
+EXPORT_SYMBOL(backlight_level_notifier_call_chain);
+
 /****************************************************************************
  * DEBUG MACROS
  ***************************************************************************/
@@ -237,10 +277,7 @@ int mt_leds_brightness_set(char *name, int level)
 	}
 	led_dat = container_of(leds_info->leds[index],
 		struct mtk_led_data, desp);
-	led_Level = (
-		(((1 << led_dat->conf.led_bits) - 1) * level
-		+ (((1 << led_dat->conf.trans_bits) - 1) / 2))
-		/ ((1 << led_dat->conf.trans_bits) - 1));
+	led_Level = level;
 	led_level_disp_set(led_dat, led_Level);
 	led_dat->last_level = led_Level;
 
@@ -283,6 +320,8 @@ led_dat->brightness = brightness;
 	led_level_disp_set(led_dat, brightness);
 	led_dat->last_level = brightness;
 #endif
+
+	backlight_level_notifier_call_chain((unsigned long)brightness, NULL);
 	return 0;
 
 }

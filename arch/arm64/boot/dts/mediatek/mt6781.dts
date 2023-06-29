@@ -425,7 +425,7 @@
 		reserve-memory-scp_share {
 			compatible = "mediatek,reserve-memory-scp_share";
 			no-map;
-			size = <0 0x00300000>; /*3 MB share mem size */
+			size = <0 0x00320000>; /*3 MB share mem size */
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x50000000 0 0x40000000>;
 		};
@@ -1418,6 +1418,11 @@
 		alias_name = "MT6358";
 	};
 
+simtray {
+	compatible = "xiaomi,simtray-status";
+	status-gpio = <&pio 9 0>;
+};
+
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 	#include "mediatek/bat_setting/mt6781_battery_prop.dtsi"
 #endif
@@ -1599,6 +1604,12 @@
 		cnt_constraint = /bits/ 8 <1>;
 	};
 
+	xiaomi_touch {
+		compatible = "xiaomi-touch";
+		status = "ok";
+		touch,name = "xiaomi-touch";
+	};
+
 	i2c0: i2c0@11007000 {
 		compatible = "mediatek,i2c";
 		id = <0>;
@@ -1617,6 +1628,7 @@
 		pu_cfg = <0x40>;
 		rsel_cfg = <0x60>;
 		aed = <0x1a>;
+		apdma_size = <255>;
 	};
 
 	i2c1: i2c1@11008000 {
@@ -1657,6 +1669,7 @@
 		pu_cfg = <0xa0>;
 		rsel_cfg = <0xe0>;
 		aed = <0x1a>;
+		apdma_size = <255>;
 	};
 
 	i2c3: i2c3@1100f000 {
@@ -1697,6 +1710,7 @@
 		pu_cfg = <0xa0>;
 		rsel_cfg = <0xe0>;
 		aed = <0x1a>;
+		apdma_size = <255>;
 	};
 
 	i2c5: i2c5@11016000 {
@@ -1777,6 +1791,7 @@
 		pu_cfg = <0xa0>;
 		rsel_cfg = <0xe0>;
 		aed = <0x1a>;
+		apdma_size = <255>;
 	};
 
 	i2c9: i2c9@11019000 {
@@ -1797,6 +1812,7 @@
 		pu_cfg = <0xa0>;
 		rsel_cfg = <0xe0>;
 		aed = <0x1a>;
+		apdma_size = <255>;
 	};
 
 	pwm@11006000 {
@@ -1852,6 +1868,24 @@
 		compatible = "mediatek,mtboard-thermistor2";
 		io-channels = <&auxadc 1>;
 		io-channel-names = "thermistor-ch1";
+	};
+	
+	tboard_thermistor3: thermal-sensor3 {
+		compatible = "mediatek,mtboard-thermistor3";
+		io-channels = <&auxadc 2>;
+		io-channel-names = "thermistor-ch2";
+	};
+
+	tboard_thermistor4: thermal-sensor4 {
+		compatible = "mediatek,mtboard-thermistor4";
+		io-channels = <&auxadc 3>;
+		io-channel-names = "thermistor-ch3";
+	};
+	
+	tboard_thermistor5: thermal-sensor5 {
+		compatible = "mediatek,mtboard-thermistor5";
+		io-channels = <&auxadc 4>;
+		io-channel-names = "thermistor-ch4";
 	};
 
 	cpumssv: cpumssv {
@@ -1945,7 +1979,7 @@
 
 	spi5: spi5@11015000 {
 		compatible = "mediatek,mt6765-spi";
-		mediatek,pad-select = <1>;
+		mediatek,pad-select = <0>;
 		reg = <0 0x11015000 0 0x1000>;
 		interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&topckgen TOP_MAINPLL_D5>,
@@ -1953,7 +1987,11 @@
 			 <&infracfg_ao INFRACFG_AO_SPI5_CG>;
 		clock-names = "parent-clk", "sel-clk", "spi-clk";
 	};
-
+	
+	fpsensor_fp_eint:fpsensor_fp_eint{
+		compatible = "mediatek,fpsensor_fp_eint";
+	};
+	
 	imp_iic@11017000 {
 		compatible = "mediatek,imp_iic";
 		reg = <0 0x11017000 0 0x1000>;
@@ -2138,8 +2176,12 @@
 		mtk_spk_i2s_in = <0>;
 		/* mtk_spk_i2s_mck = <3>; */
 		mediatek,speaker-codec {
-			sound-dai = <&speaker_amp>;
+			/*sound-dai = <&speaker_amp>;*/
 		};
+	};
+
+	snd_scp_ultra: snd_scp_ultra {
+		compatible = "mediatek,snd_scp_ultra";
 	};
 
 	audio_sram@11212000 {
@@ -2472,6 +2514,15 @@
 	mtkfb: mtkfb@0 {
 		compatible = "mediatek,mtkfb";
 	};
+       /*+checklist 95521 Modify the SWTP configuration chenduoyin.wt 2021.08.19*/
+       swtp: swtp {
+                compatible = "mediatek, swtp-eint";
+        };
+
+       swtp_1: swtp_1 {
+                compatible = "mediatek, swtp1-eint";
+        };
+       /*-checklist 95521 Modify the SWTP configuration chenduoyin.wt 2020.08.19*/
 
 	dispsys_config: dispsys_config@14000000 {
 		compatible = "mediatek,dispsys_config",
@@ -3061,8 +3112,9 @@
 
 		backlight {
 			label = "lcd-backlight";
-			max-brightness = <255>;
-			led-bits = <8>;
+			max-brightness = <2047>;
+			led-bits = <11>;
+			trans-bits = <11>;
 			default-state = "on";
 		};
 	};
@@ -3976,6 +4028,21 @@
 		};
 	};
 
+	flashlights_ocp8132: flashlights_ocp8132 {
+		compatible = "mediatek,flashlights_ocp8132";
+		decouple = <1>;
+		channel@1 {
+			type = <0>;
+			ct = <0>;
+			part = <0>;
+		};
+		channel@2 {
+			type = <0>;
+			ct = <1>;
+			part = <0>;
+		};
+	};
+
 	camisp: camisp@1a000000 {
 		compatible = "mediatek,camisp", "syscon";
 		reg = <0 0x1a000000 0 0x10000>;
@@ -4463,15 +4530,15 @@
 		enable_anime;
 		/* enable_pe_plus; */
 		enable_pd20_reset;
-		power_path_support;
-		max_charger_voltage = <6500000>;
+		/*power_path_support;*/
+		max_charger_voltage = <12800000>;
 		fast_charge_voltage = <3000000>;
 
 		/* charging current */
 		usb_charger_current = <500000>;
-		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
+		ac_charger_current = <3000000>;
+		ac_charger_input_current = <2000000>;
+		non_std_ac_charger_current = <1000000>;
 		charging_host_charger_current = <1500000>;
 		ta_ac_charger_current = <3000000>;
 		pd_charger_current = <500000>;
@@ -4485,7 +4552,7 @@
 	charger: charger {
 		compatible = "mediatek,charger";
 		algorithm_name = "SwitchCharging2";
-		/* enable_sw_jeita; */
+		enable_sw_jeita;
 		/* enable_pe_plus; */
 		/* enable_pe_2; */
 		/* enable_pe_3; */
@@ -4495,13 +4562,13 @@
 		enable_dynamic_mivr;
 
 		/* common */
-		battery_cv = <4350000>;
-		max_charger_voltage = <6500000>;
+		battery_cv = <4450000>;
+		max_charger_voltage = <12800000>;
 		min_charger_voltage = <4600000>;
 
 		/* dynamic mivr */
-		min_charger_voltage_1 = <4400000>;
-		min_charger_voltage_2 = <4200000>;
+		min_charger_voltage_1 = <4600000>;
+		min_charger_voltage_2 = <4500000>;
 		max_dmivr_charger_current = <1400000>;
 
 		/* charging current */
@@ -4509,39 +4576,53 @@
 		usb_charger_current_unconfigured = <70000>;
 		usb_charger_current_configured = <500000>;
 		usb_charger_current = <500000>;
-		ac_charger_current = <2050000>;
-		ac_charger_input_current = <3200000>;
-		non_std_ac_charger_current = <500000>;
+		ac_charger_current = <3000000>;
+		ac_charger_input_current = <2000000>;
+		non_std_ac_charger_current = <1000000>;
 		charging_host_charger_current = <1500000>;
 		apple_1_0a_charger_current = <650000>;
 		apple_2_1a_charger_current = <800000>;
 		ta_ac_charger_current = <3000000>;
 
 		/* sw jeita */
-		jeita_temp_above_t4_cv = <4240000>;
-		jeita_temp_t3_to_t4_cv = <4240000>;
-		jeita_temp_t2_to_t3_cv = <4340000>;
-		jeita_temp_t1_to_t2_cv = <4240000>;
-		jeita_temp_t0_to_t1_cv = <4040000>;
-		jeita_temp_below_t0_cv = <4040000>;
-		temp_t4_thres = <50>;
-		temp_t4_thres_minus_x_degree = <47>;
-		temp_t3_thres = <45>;
-		temp_t3_thres_minus_x_degree = <39>;
+		/*>=60*/
+		jeita_temp_above_t6_cv = <4100000>;
+		/*48-60*/
+		jeita_temp_t5_to_t6_cv = <4100000>;
+		/*35-48*/
+		jeita_temp_t4_to_t5_cv = <4450000>;
+		/*15-35*/
+		jeita_temp_t3_to_t4_cv = <4450000>;
+		/*10-15*/
+		jeita_temp_t2_to_t3_cv = <4450000>;
+		/*5-10*/
+		jeita_temp_t1_to_t2_cv = <4450000>;
+		/*0-5*/
+		jeita_temp_t0_to_t1_cv = <4450000>;
+		/*-10-0*/
+		jeita_temp_below_t0_cv = <4450000>;
+		temp_t6_thres = <60>;
+		temp_t6_thres_minus_x_degree = <59>;
+		temp_t5_thres = <48>;
+		temp_t5_thres_minus_x_degree = <47>;
+		temp_t4_thres = <35>;
+		temp_t4_thres_plus_x_degree = <34>;
+		temp_t3_thres = <15>;
+		temp_t3_thres_plus_x_degree = <14>;
 		temp_t2_thres = <10>;
-		temp_t2_thres_plus_x_degree = <16>;
-		temp_t1_thres = <0>;
-		temp_t1_thres_plus_x_degree = <6>;
+		temp_t2_thres_plus_x_degree = <9>;
+		temp_t1_thres = <5>;
+		temp_t1_thres_plus_x_degree = <4>;
 		temp_t0_thres = <0>;
-		temp_t0_thres_plus_x_degree = <0>;
-		temp_neg_10_thres = <0>;
+		temp_t0_thres_plus_x_degree = <1>;
+		temp_neg_10_thres = <10>;
 
 		/* battery temperature protection */
 		enable_min_charge_temp;
 		min_charge_temp = <0>;
 		min_charge_temp_plus_x_degree = <6>;
-		max_charge_temp = <50>;
-		max_charge_temp_minus_x_degree = <47>;
+		max_charge_temp = <60>;
+		max_charge_temp_minus_x_degree = <59>;
 
 		/* PE */
 		ta_12v_support;
@@ -4609,15 +4690,6 @@
 
 	rt-pd-manager {
 		compatible = "mediatek,rt-pd-manager";
-	};
-};
-
-&i2c6 {
-	speaker_amp: speaker_amp@34 {
-		compatible = "mediatek,speaker_amp";
-		#sound-dai-cells = <0>;
-		reg = <0x34>;
-		status = "okay";
 	};
 };
 
@@ -4791,6 +4863,9 @@
 #include "mediatek/mt6370_pd.dtsi"
 #include "mediatek/mt6781-clkitg.dtsi"
 #include "mediatek/rt5133.dtsi"
+#include "mediatek/tcpc_config.dtsi"
+#include "mediatek/sc8551.dtsi"
+#include "mediatek/ln8000.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #include "mediatek/trusty.dtsi"
 #endif

@@ -175,15 +175,15 @@ static ssize_t tcpc_show_property(struct device *dev,
 			break;
 		break;
 	case TCPC_DESC_RP_LEVEL:
-		if (tcpc->typec_local_rp_level == TYPEC_CC_RP_DFT) {
+		if (tcpc->typec_local_rp_level == TYPEC_RP_DFT) {
 			ret = snprintf(buf, 256, "%s\n", "Default");
 			if (ret < 0)
 				break;
-		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_1_5) {
+		} else if (tcpc->typec_local_rp_level == TYPEC_RP_1_5) {
 			ret = snprintf(buf, 256, "%s\n", "1.5");
 			if (ret < 0)
 				break;
-		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_3_0) {
+		} else if (tcpc->typec_local_rp_level == TYPEC_RP_3_0) {
 			ret = snprintf(buf, 256, "%s\n", "3.0");
 			if (ret < 0)
 				break;
@@ -207,15 +207,15 @@ static ssize_t tcpc_show_property(struct device *dev,
 			256, "role = %s\n", role_text[tcpc->desc.role_def]);
 		if (i < 0)
 			break;
-		if (tcpc->typec_local_rp_level == TYPEC_CC_RP_DFT) {
+		if (tcpc->typec_local_rp_level == TYPEC_RP_DFT) {
 			i += snprintf(buf + i, 256, "rplvl = %s\n", "Default");
 			if (i < 0)
 				break;
-		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_1_5) {
+		} else if (tcpc->typec_local_rp_level == TYPEC_RP_1_5) {
 			i += snprintf(buf + i, 256, "rplvl = %s\n", "1.5");
 			if (i < 0)
 				break;
-		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_3_0) {
+		} else if (tcpc->typec_local_rp_level == TYPEC_RP_3_0) {
 			i += snprintf(buf + i, 256, "rplvl = %s\n", "3.0");
 			if (i < 0)
 				break;

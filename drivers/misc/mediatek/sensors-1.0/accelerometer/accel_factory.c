@@ -172,6 +172,7 @@ static long acc_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 	case GSENSOR_IOCTL_ENABLE_CALI:
 		if (accel_factory.fops != NULL &&
 		    accel_factory.fops->enable_calibration != NULL) {
+			pr_info("Enter GSENSOR_IOCTL_ENABLE_CALI\n");
 			err = accel_factory.fops->enable_calibration();
 			if (err < 0) {
 				pr_err("GSENSOR_IOCTL_ENABLE_CALI FAIL!\n");

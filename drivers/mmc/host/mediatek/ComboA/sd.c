@@ -52,6 +52,8 @@
 #include <mmc/core/mmc_ops.h>
 #include "mmc/host/cqhci-crypto.h"
 
+#include <linux/proc_fs.h>
+
 #ifdef MTK_MSDC_BRINGUP_DEBUG
 //#include <mach/mt_pmic_wrap.h>
 #endif
@@ -5120,6 +5122,46 @@ static void msdc_dvfs_kickoff(struct work_struct *work)
 {
 }
 
+static int sim_card_status_show(struct seq_file *m, void *v)
+{
+	int gpio_value = 0;
+
+	gpio_value = __gpio_get_value(cd_gpio);
+	pr_debug("%s: gpio_value is %d\n", __func__, gpio_value);
+
+	seq_printf(m, "%d\n", gpio_value);
+
+	return 0;
+}
+static int sim_card_status_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, sim_card_status_show, NULL);
+}
+
+static const struct file_operations sim_card_status_fops = {
+	.open       = sim_card_status_proc_open,
+	.read       = seq_read,
+	.llseek     = seq_lseek,
+	.release    = single_release,
+};
+
+static int sim_card_tray_create_proc(void)
+{
+
+	struct proc_dir_entry *status_entry;
+
+	status_entry = proc_create("sd_tray_gpio_value", 0, NULL, &sim_card_status_fops);
+	if (!status_entry){
+		return -ENOMEM;
+	}
+	return 0;
+}
+
+static void sim_card_tray_remove_proc(void)
+{
+	remove_proc_entry("sd_tray_gpio_value", NULL);
+}
+
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 static void msdc_cqhci_post_cqe_halt(struct mmc_host *mmc)
 {
@@ -5462,6 +5504,12 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (host->hw->host_function == MSDC_EMMC)
 		msdc_debug_proc_init_bootdevice();
 
+	if(sim_card_tray_create_proc()) {
+		dev_err(&pdev->dev, "creat proc sim_card_status failed\n");
+	} else {
+		dev_dbg(&pdev->dev, "creat proc sim_card_status successed\n");
+	}
+
 	return 0;
 
 release:
@@ -5513,6 +5561,8 @@ static int msdc_drv_remove(struct platform_device *pdev)
 
 	if (mem)
 		release_mem_region(mem->start, mem->end - mem->start + 1);
+
+	sim_card_tray_remove_proc();
 
 	msdc_remove_host(host);
 

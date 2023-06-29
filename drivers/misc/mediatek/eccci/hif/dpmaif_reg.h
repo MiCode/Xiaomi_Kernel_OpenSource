@@ -546,6 +546,7 @@ extern struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define DPMAIF_PD_UL_CACHE_CON0           (DPMAIF_PD_UL_CFG_BASE + 0x0070)
 
 #define DPMAIF_PD_UL_ADD_DESC_CH          (DPMAIF_PD_UL_CFG_BASE + 0x00B0)
+#define DPMAIF_PD_UL_ADD_DESC_CH3         (DPMAIF_PD_UL_CFG_BASE + 0x00BC)
 
 #define DPMAIF_PD_UL_DBG_STA0             (DPMAIF_PD_UL_CFG_BASE + 0x0080)
 #define DPMAIF_PD_UL_DBG_STA1             (DPMAIF_PD_UL_CFG_BASE + 0x0084)

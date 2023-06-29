@@ -255,6 +255,7 @@ struct gauge_device {
 
 	struct gauge_hw_info_data fg_hw_info;
 	struct fuel_gauge_custom_data *fg_cust_data;
+	void	*driver_data;
 
 };
 

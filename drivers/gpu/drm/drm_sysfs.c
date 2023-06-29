@@ -20,6 +20,7 @@
 
 #include <drm/drm_sysfs.h>
 #include <drm/drmP.h>
+#include <drm/drm_connector.h>
 #include "drm_internal.h"
 
 #define to_drm_minor(d) dev_get_drvdata(d)
@@ -229,16 +230,197 @@ static ssize_t modes_show(struct device *device,
 	return written;
 }
 
+extern ssize_t lcm_mipi_reg_write(char *buf, size_t count);
+extern ssize_t lcm_mipi_reg_read(char *buf);
+
+static ssize_t mipi_reg_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	return lcm_mipi_reg_read(buf);
+}
+
+static ssize_t mipi_reg_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	int rc = 0;
+	rc = lcm_mipi_reg_write((char *)buf, count);
+	return rc;
+}
+
+static ssize_t panel_event_show(struct device *device,
+                           struct device_attribute *attr,
+                           char *buf)
+{
+        ssize_t ret = 0;
+        struct drm_connector *connector = to_drm_connector(device);
+        if (!connector) {
+                pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+                return ret;
+        }
+
+        return snprintf(buf, PAGE_SIZE, "%d\n", connector->panel_event);
+}
+
+extern void display_custom_panel_hbm_set(struct drm_connector *connect,
+				unsigned long int hbm_mode);
+extern int display_custom_panel_hbm_get(struct drm_connector *connect);
+extern void display_custom_panel_aod_set(struct drm_connector *connect,
+				unsigned long int aod_mode);
+extern void display_custom_panel_aod_get(struct drm_connector *connect,
+				unsigned int *aod_mode);
+extern void display_custom_panel_seed_set(struct drm_connector *connect,
+				unsigned long int seed_mode);
+extern void display_custom_panel_flat_set(struct drm_connector *connect,
+				unsigned long int flat_mode);
+
+static ssize_t hbm_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	ssize_t ret = 0;
+	unsigned long int hbm_mode = 0;
+
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+			pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+			return ret;
+	}
+
+	kstrtoul(buf, 10, &hbm_mode);
+	if(hbm_mode != 0)
+		hbm_mode = 1;
+
+	display_custom_panel_hbm_set(connector, hbm_mode);
+
+	return count;
+}
+
+static ssize_t hbm_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	int hbm_mode = 0;
+	struct drm_connector *connector = to_drm_connector(device);
+
+	hbm_mode = display_custom_panel_hbm_get(connector);
+
+	return snprintf(buf, 10, "%d\n", hbm_mode);
+}
+
+static ssize_t doze_brightness_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	ssize_t ret = 0;
+	unsigned long int aod_mode = 0;
+
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+			pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+			return ret;
+	}
+
+	kstrtoul(buf, 10, &aod_mode);
+	display_custom_panel_aod_set(connector, aod_mode);
+
+	return count;
+}
+
+static ssize_t doze_brightness_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	int aod_mode = 0;
+	struct drm_connector *connector = to_drm_connector(device);
+
+	display_custom_panel_aod_get(connector, &aod_mode);
+
+	return snprintf(buf, 10, "%d\n", aod_mode);
+}
+
+unsigned long int after_mode = 0;
+static ssize_t seed_flat_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	ssize_t ret = 0;
+	unsigned long int seed_flat_mode = 0;
+
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+			pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+			return ret;
+	}
+
+	kstrtoul(buf, 10, &seed_flat_mode);
+	if(seed_flat_mode < 4 && seed_flat_mode > 0)
+		after_mode = seed_flat_mode;
+
+	display_custom_panel_seed_set(connector, seed_flat_mode);
+
+	return count;
+}
+
+static ssize_t seed_flat_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	return snprintf(buf, 10, "%d\n", after_mode);
+}
+
+unsigned long int flatmode = 0;
+static ssize_t flatmode_store(struct device *device,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	ssize_t ret = 0;
+
+	struct drm_connector *connector = to_drm_connector(device);
+	if (!connector) {
+			pr_info("%s-%d connector is NULL \r\n",__func__, __LINE__);
+			return ret;
+	}
+
+	kstrtoul(buf, 10, &flatmode);
+	if(flatmode != 1)
+		flatmode = 1;
+
+	display_custom_panel_flat_set(connector, flatmode);
+
+	return count;
+}
+
+static ssize_t flatmode_show(struct device *device,
+			    struct device_attribute *attr,
+			   char *buf)
+{
+	return snprintf(buf, 10, "%d\n", flatmode);
+}
+
 static DEVICE_ATTR_RW(status);
 static DEVICE_ATTR_RO(enabled);
 static DEVICE_ATTR_RO(dpms);
 static DEVICE_ATTR_RO(modes);
+static DEVICE_ATTR_RW(mipi_reg);
+static DEVICE_ATTR_RO(panel_event);
+static DEVICE_ATTR_RW(hbm);
+static DEVICE_ATTR_RW(doze_brightness);
+static DEVICE_ATTR_RW(seed_flat);
+static DEVICE_ATTR_RW(flatmode);
 
 static struct attribute *connector_dev_attrs[] = {
 	&dev_attr_status.attr,
 	&dev_attr_enabled.attr,
 	&dev_attr_dpms.attr,
 	&dev_attr_modes.attr,
+	&dev_attr_mipi_reg.attr,
+	&dev_attr_panel_event.attr,
+	&dev_attr_hbm.attr,
+	&dev_attr_doze_brightness.attr,
+	&dev_attr_seed_flat .attr,
+	&dev_attr_flatmode .attr,
 	NULL
 };
 

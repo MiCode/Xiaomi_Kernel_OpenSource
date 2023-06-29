@@ -46,6 +46,8 @@ struct situation_control_path {
 	int (*batch)(int flag, int64_t samplingPeriodNs,
 		int64_t maxBatchReportLatencyNs);
 	int (*flush)(void);
+	int (*set_cali)(uint8_t *data, uint8_t count);
+	int (*set_reg)(uint8_t *data, uint8_t count);
 	bool is_support_wake_lock;
 	bool is_support_batch;
 };
@@ -58,6 +60,7 @@ struct situation_init_info {
 	char *name;
 	int (*init)(void);
 	int (*uninit)(void);
+	struct platform_driver *platform_diver_addr;
 };
 
 struct situation_data_control_context {
@@ -93,5 +96,6 @@ extern int situation_register_control_path(
 extern int situation_register_data_path(struct situation_data_path *data,
 	int handle);
 extern int sar_data_report(int32_t value[3]);
+extern int sar_cali_report(int32_t value[3]);
 extern int sar_data_report_t(int32_t value[3], int64_t time_stamp);
 #endif

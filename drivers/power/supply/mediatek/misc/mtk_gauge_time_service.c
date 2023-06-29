@@ -397,19 +397,18 @@ signed int get_dynamic_period(
 
 static int gauge_timer_service_probe(struct platform_device *pdev)
 {
-	mutex_init(&gtimer_lock);
-	spin_lock_init(&slock);
-	wakeup_source_init(&wlock, "gtime timer wakelock");
-	init_waitqueue_head(&wait_que);
-
-
-	hrtimer_init(&gtimer_kthread_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-	gtimer_kthread_timer.function = gtimer_kthread_hrtimer_func;
-
-	kthread_run(gtimer_thread, NULL, "gauge_timer_thread");
-
-	register_pm_notifier(&gtimer_pm_notifier_block);
-
+	if (IS_ENABLED(CONFIG_MTK_DISABLE_GAUGE)) {
+		pr_err("gauge_timer_service_probe\n");
+	}else{
+		mutex_init(&gtimer_lock);
+		spin_lock_init(&slock);
+		wakeup_source_init(&wlock, "gtime timer wakelock");
+		init_waitqueue_head(&wait_que);
+		hrtimer_init(&gtimer_kthread_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+		gtimer_kthread_timer.function = gtimer_kthread_hrtimer_func;
+		kthread_run(gtimer_thread, NULL, "gauge_timer_thread");
+		register_pm_notifier(&gtimer_pm_notifier_block);
+	}
 	return 0;
 }
 

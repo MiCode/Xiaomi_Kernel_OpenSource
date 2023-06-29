@@ -20,6 +20,9 @@
 #define AUX_IN0_NTC (0)
 #define AUX_IN1_NTC (1)
 #define AUX_IN2_NTC (2)
+#define AUX_IN3_NTC (3)
+#define AUX_IN4_NTC (4)
+
 
 #define BTS_RAP_PULL_UP_R		100000 /* 100K, pull up resister */
 
@@ -46,15 +49,36 @@
 #define BTSMDPA_RAP_ADC_CHANNEL		AUX_IN1_NTC /* default is 1 */
 
 
-#define BTSNRPA_RAP_PULL_UP_R		100000	/* 100K,pull up resister */
-#define BTSNRPA_TAP_OVER_CRITICAL_LOW	4397119	/* base on 100K NTC temp
+#define BTSMAINCHARGER_RAP_PULL_UP_R		100000	/* 100K,pull up resister */
+#define BTSMAINCHARGER_OVER_CRITICAL_LOW	4397119	/* base on 100K NTC temp
 						 *default value -40 deg
 						 */
 
-#define BTSNRPA_RAP_PULL_UP_VOLTAGE	1800	/* 1.8V ,pull up voltage */
-#define BTSNRPA_RAP_NTC_TABLE		7
+#define BTSMAINCHARGER_PULL_UP_VOLTAGE	1800	/* 1.8V ,pull up voltage */
+#define BTSMAINCHARGER_RAP_NTC_TABLE		7
 
-#define BTSNRPA_RAP_ADC_CHANNEL		AUX_IN2_NTC
+#define BTSMAINCHARGER_RAP_ADC_CHANNEL		AUX_IN3_NTC
+
+#define BTSSUBCHARGER_RAP_PULL_UP_R		100000	/* 100K,pull up resister */
+#define BTSSUBCHARGER_OVER_CRITICAL_LOW	4397119	/* base on 100K NTC temp
+						 *default value -40 deg
+						 */
+
+#define BTSSUBCHARGER_PULL_UP_VOLTAGE	1800	/* 1.8V ,pull up voltage */
+#define BTSSUBCHARGER_RAP_NTC_TABLE		7
+
+#define BTSSUBCHARGER_RAP_ADC_CHANNEL		AUX_IN2_NTC
+
+#define BTSFLED_RAP_PULL_UP_R		100000	/* 100K,pull up resister */
+#define BTSFLED_OVER_CRITICAL_LOW	4397119	/* base on 100K NTC temp
+						 *default value -40 deg
+						 */
+
+#define BTSFLED_PULL_UP_VOLTAGE	1800	/* 1.8V ,pull up voltage */
+#define BTSFLED_RAP_NTC_TABLE		7
+
+#define BTSFLED_RAP_ADC_CHANNEL		AUX_IN4_NTC
+
 
 
 

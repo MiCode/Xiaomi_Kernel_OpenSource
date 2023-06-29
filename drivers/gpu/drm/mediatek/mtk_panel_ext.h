@@ -128,6 +128,12 @@ enum FPS_CHANGE_INDEX {
 	DYNFPS_DSI_MIPI_CLK = 4,
 };
 
+enum LCM_SEND_CMD_MODE {
+	LCM_SEND_IN_CMD = 0,
+	LCM_SEND_IN_VDO,
+};
+
+
 struct mtk_panel_dsc_params {
 	unsigned int enable;
 	unsigned int ver; /* [7:4] major [3:0] minor */
@@ -207,6 +213,8 @@ struct dynamic_fps_params {
 	unsigned int vact_timing_fps;
 	unsigned int data_rate;
 	struct dfps_switch_cmd dfps_cmd_table[MAX_DYN_CMD_NUM];
+	enum LCM_SEND_CMD_MODE send_mode;
+	unsigned int send_cmd_need_delay;
 };
 
 struct mtk_panel_params {
@@ -247,6 +255,10 @@ struct mtk_panel_params {
 	//Settings for LFR Function:
 	unsigned int lfr_enable;
 	unsigned int lfr_minimum_fps;
+
+	int err_flag_irq_gpio;
+	int err_flag_irq_flags;
+	int mi_esd_check_enable;
 };
 
 struct mtk_panel_ext {
@@ -264,8 +276,17 @@ struct mtk_panel_ctx {
 struct mtk_panel_funcs {
 	int (*set_backlight_cmdq)(void *dsi_drv, dcs_write_gce cb,
 		void *handle, unsigned int level);
+	void (*esd_restore_backlight)(struct drm_panel *panel, int aod_mode);
+	int (*hbm_set)(struct drm_panel *panel, bool en);
+	int (*hbm_get)(struct drm_panel *panel);
+	int (*aod_set)(struct drm_panel *panel, int doze_brightness);
+	int (*aod_get)(struct drm_panel *panel, u32 *doze_brightness);
 	int (*set_aod_light_mode)(void *dsi_drv, dcs_write_gce cb,
 		void *handle, unsigned int mode);
+	void (*panel_set_srgb_standard)(struct drm_panel *panel);
+	void (*panel_set_flat_off)(struct drm_panel *panel);
+	void (*panel_set_flat_on)(struct drm_panel *panel);
+	void (*panel_set_p3_vivid)(struct drm_panel *panel);
 	int (*set_backlight_grp_cmdq)(void *dsi_drv, dcs_grp_write_gce cb,
 		void *handle, unsigned int level);
 	int (*reset)(struct drm_panel *panel, int on);
@@ -350,5 +371,7 @@ int mtk_panel_ext_create(struct device *dev,
 int mtk_panel_tch_handle_reg(struct drm_panel *panel);
 void **mtk_panel_tch_handle_init(void);
 int mtk_panel_tch_rst(struct drm_panel *panel);
+int mtk_ddic_dsi_read_cmd(struct mtk_ddic_dsi_msg *cmd_msg);
+int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg, bool blocking);
 
 #endif

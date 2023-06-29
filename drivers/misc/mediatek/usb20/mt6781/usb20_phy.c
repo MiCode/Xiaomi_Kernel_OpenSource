@@ -133,6 +133,20 @@ void usb_phy_tuning(void)
 		inited = true;
 	}
 
+	if (mtk_musb->is_host) {
+		DBG(0, "usb_phy_tuning_host: ");
+		u2_vrt_ref = 7;
+		u2_term_ref = 3;
+		u2_enhance = 3;
+	} else {
+		DBG(0, "usb_phy_tuning_device: ");
+		u2_vrt_ref = 7;
+		u2_term_ref = 4;
+		u2_enhance = 3;
+	}
+	DBG(0, "u2_vrt_ref=%d, u2_term_ref=%d, u2_enhance=%d\n",
+	    u2_vrt_ref, u2_term_ref, u2_enhance);
+
 	if (u2_vrt_ref != -1) {
 		if (u2_vrt_ref <= VAL_MAX_WIDTH_3) {
 			USBPHY_CLR32(OFFSET_RG_USB20_VRT_VREF_SEL,

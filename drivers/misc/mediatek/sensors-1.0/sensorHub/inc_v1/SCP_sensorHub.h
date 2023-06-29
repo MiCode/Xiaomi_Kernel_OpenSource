@@ -34,6 +34,10 @@ enum {
 	CONFIG_CMD_CFG_DATA     = 3,
 	CONFIG_CMD_CALIBRATE    = 4,
 	CONFIG_CMD_SELF_TEST    = 5,
+	CONFIG_CMD_SET_LCDNAME  = 6,
+	CONFIG_CMD_REG_DATA     = 7,
+	CONFIG_CMD_LEAK_CALIBRATE = 8,
+	CONFIG_CMD_BACKLIGHT_LEVEL = 9,
 };
 
 struct ConfigCmd {
@@ -358,6 +362,7 @@ struct SCP_SENSOR_HUB_SET_CONFIG_REQ {
 	uint64_t ap_timestamp;
 	uint64_t arch_counter;
 	/* uint32_t    reserved[8]; */
+	uint64_t ap_ts_sec;
 };
 
 #define SCP_SENSOR_HUB_SET_CONFIG_RSP  SCP_SENSOR_HUB_RSP
@@ -554,6 +559,10 @@ int sensor_batch_to_hub(uint8_t sensorType,
 int sensor_flush_to_hub(uint8_t sensorType);
 int sensor_cfg_to_hub(uint8_t sensorType, uint8_t *data, uint8_t count);
 int sensor_calibration_to_hub(uint8_t sensorType);
+int sensor_leak_calibration_to_hub(uint8_t sensorType);
 int sensor_selftest_to_hub(uint8_t sensorType);
+int sensor_backlight_level_to_hub(uint8_t handle, int *data);
+int sensor_set_lcdname_to_hub(uint8_t sensorType, uint8_t *data, uint8_t count);
+int sensor_reg_to_hub(uint8_t sensorType, uint8_t *data, uint8_t count);
 #endif
 #endif

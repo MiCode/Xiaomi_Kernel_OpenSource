@@ -1,0 +1,93 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&i2c3 {
+	status = "okay";
+	ln8000-charger@51{
+		compatible = "lionsemi,ln8000";
+		reg = <0x51>;
+		ln8000_charger,interrupt_gpios = <&pio 4 0>;
+		charger_name = "primary_divider_chg";
+		/*ln8000_charger,vbat-ovp-disable;*/
+		ln8000_charger,vbat-reg-disable;
+		/*ln8000_charger,vbat-ovp-alarm-disable;*/
+		/*ln8000_charger,iin-ocp-disable;*/
+		ln8000_charger,iin-reg-disable;
+		ln8000_charger,tbat-mon-disable;
+		ln8000_charger,tbus-mon-disable;
+		ln8000_charger,tdie-prot-disable;
+		ln8000_charger,tdie-reg-disable;
+		ln8000_charger,revcurr-prot-disable;
+
+
+		ln8000_charger,bat-ovp-threshold = <4570>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4545>;
+		ln8000_charger,bat-ocp-threshold = <6500>;
+		ln8000_charger,bat-ocp-alarm-threshold = <6200>;
+
+		ln8000_charger,bus-ovp-threshold = <13000>;
+		ln8000_charger,bus-ovp-alarm-threshold = <10800>;
+		ln8000_charger,bus-ocp-threshold = <3500>;
+		ln8000_charger,bus-ocp-alarm-threshold = <3200>;
+
+		ln8000_charger,bat-ucp-alarm-threshold = <2000>;
+
+		ln8000_charger,bat-therm-threshold = <0x15>;
+		ln8000_charger,bus-therm-threshold = <0x15>;
+		ln8000_charger,die-therm-threshold = <125>;
+
+		ln8000_charger,ac-ovp-threshold = <13>;
+		ln8000_charger,sense-resistor-mohm = <5>;
+		ln8000_charger,ntc-alarm-cfg = <226>;
+	};
+};
+&i2c5 {
+	status = "okay";
+	ln8000-charger@51{
+		compatible = "lionsemi,ln8000_2";
+		reg = <0x51>;
+		ln8000_charger,interrupt_gpios = <&pio 3 0>;
+		charger_name = "secondary_divider_chg";	
+		
+		/*ln8000_charger,vbat-ovp-disable;*/
+		ln8000_charger,vbat-reg-disable;
+		/*ln8000_charger,vbat-ovp-alarm-disable;*/
+		/*ln8000_charger,iin-ocp-disable;*/
+		ln8000_charger,iin-reg-disable;
+		ln8000_charger,tbat-mon-disable;
+		ln8000_charger,tbus-mon-disable;
+		ln8000_charger,tdie-prot-disable;
+		ln8000_charger,tdie-reg-disable;
+		ln8000_charger,revcurr-prot-disable;
+
+		ln8000_charger,bat-ovp-threshold = <4570>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4545>;
+		ln8000_charger,bat-ocp-threshold = <6500>;
+		ln8000_charger,bat-ocp-alarm-threshold = <6200>;
+
+		ln8000_charger,bus-ovp-threshold = <13000>;
+		ln8000_charger,bus-ovp-alarm-threshold = <10800>;
+		ln8000_charger,bus-ocp-threshold = <3500>;
+		ln8000_charger,bus-ocp-alarm-threshold = <3200>;
+
+		ln8000_charger,bat-ucp-alarm-threshold = <2000>;
+
+		ln8000_charger,bat-therm-threshold = <0x15>;
+		ln8000_charger,bus-therm-threshold = <0x15>;
+		ln8000_charger,die-therm-threshold = <125>;
+
+		ln8000_charger,ac-ovp-threshold = <13>;
+		ln8000_charger,sense-resistor-mohm = <5>;
+		ln8000_charger,ntc-alarm-cfg = <226>;
+	};
+};
