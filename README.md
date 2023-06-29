@@ -43,6 +43,7 @@
 | earth-s-oss | Redmi 12C, POCO C55 | Android S | alps-mp-s0.mp1.tc8sp2-cs1-V1.3 | [earth-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/earth-s-oss) |
 | elish-r-oss | Xiaomi Pad 5 Pro, Xiaomi Pad 5 Pro 5G | Android R | LA.UM.9.12.r1-08000-SMxx50.0 | [elish-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/elish-r-oss) |
 | ferrari-l-oss | Mi 4i | Android L | LA.BR.1.1.2-01120-8x16.0 | [ferrari-l-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ferrari-l-oss) |
+| fire-t-oss | Redmi 12 | Android T | alps-mp-s0.mp1.tc8sp2-cs1-xm.V1.0.13_P53 | [fire-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/fire-t-oss) |
 | gram-q-oss | MI POCO M2 Pro,Redmi Note 9 Pro,Redmi Note 9 Pro Max | Android Q | LA.UM.8.9.r1-07100-SM6xx.0 | [gram-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gram-q-oss) |
 | gemini-m-oss | Mi 5 | Android M | LA.HB.1.1.1.c2_rb1035 | [gemini-m-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/gemini-m-oss) |
 | ginkgo-p-oss | Redmi Note 8 | Android P | LA.UM.7.11.r1-02700-NICOBAR.0 | [ginkgo-p-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ginkgo-p-oss) |
