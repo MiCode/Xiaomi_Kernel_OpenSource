@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2020 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021,2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -456,6 +456,14 @@ static int pdr_locate_service(struct pdr_handle *pdr, struct pdr_service *pds)
 				pds->service_data_valid = entry->service_data_valid;
 				pds->service_data = entry->service_data;
 				pds->instance = entry->instance;
+				/*
+				 * Since, service path for a service is found, now
+				 * let's convert the relative service path to its
+				 * absolute service path by concatenating it with
+				 * service name.
+				 */
+				scnprintf(pds->service_path, sizeof(pds->service_path),
+					  "%s/%s", pds->service_path, pds->service_name);
 				goto out;
 			}
 		}
