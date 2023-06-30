@@ -683,6 +683,10 @@ static enum fullness_group get_fullness_group(struct size_class *class,
 	int inuse, objs_per_zspage;
 	enum fullness_group fg;
 
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+	BUG_ON(class != zspage_class(zspage->pool, zspage));
+#endif
+
 	inuse = get_zspage_inuse(zspage);
 	objs_per_zspage = class->objs_per_zspage;
 
@@ -1052,6 +1056,9 @@ static struct zspage *alloc_zspage(struct zs_pool *pool,
 		return NULL;
 
 	zspage->magic = ZSPAGE_MAGIC;
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+	zspage->class = class->index;
+#endif
 	migrate_lock_init(zspage);
 
 	for (i = 0; i < class->pages_per_zspage; i++) {
@@ -1416,6 +1423,9 @@ unsigned long zs_malloc(struct zs_pool *pool, size_t size, gfp_t gfp)
 	spin_lock(&class->lock);
 	zspage = find_get_zspage(class);
 	if (likely(zspage)) {
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+		BUG_ON(zspage->inuse == class->objs_per_zspage);
+#endif
 		obj = obj_malloc(pool, zspage, handle);
 		/* Now move the zspage to another fullness group, if required */
 		fix_fullness_group(class, zspage);
