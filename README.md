@@ -182,3 +182,4 @@
 | topaz-t-oss | Redmi Note 12 | Android T | AU_LINUX_ANDROID_LA.VENDOR.13.2.1.R1.11.00.00.1008.048 |[topaz-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/topaz-t-oss) |
 | selene-r-oss-update | Redmi 10 Prime | Android R | alps-mp-r0.mp1.tc8sp2-V2.66.1 |[selene-r-oss-update](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/selene-r-oss-update) |
 | viva-r-oss | Redmi Note 11 Pro | Android R | alps-mp-r0.mp8.tc8sp1-mt6781-V1.5.1_wingtech.xm.r0mp8.k6781v1.64_P60 |[viva-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/viva-r-oss) |
+| pearl-s-oss | Redmi Note 12T Pro | Android S | alps-mp-s0.mp1.tc8sp2-mt6983-V1.0.13_P189 |[pearl-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pearl-s-oss) |
