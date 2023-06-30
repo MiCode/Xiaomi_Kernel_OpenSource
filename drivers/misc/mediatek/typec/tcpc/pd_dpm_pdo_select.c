@@ -370,9 +370,18 @@ bool dpm_find_match_req_info(struct dpm_rdo_info_t *req_info,
 		}
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
-		return true;
+//		return true;
+	} else {
+		dpm_extract_pdo_info(src_pdos[0], &source);
+		req_info->pos = 1;
+		req_info->type = source.type;
+		req_info->vmax = source.vmax;
+		req_info->vmin = source.vmin;
+		req_info->mismatch = false;
+		req_info->max_ma = source.ma;
+		req_info->oper_ma = source.ma;
 	}
 
-	return false;
+	return true;
 }
 #endif	/* CONFIG_USB_POWER_DELIVERY */

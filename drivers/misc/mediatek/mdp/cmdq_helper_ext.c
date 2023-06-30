@@ -1585,8 +1585,8 @@ int cmdqCoreWriteAddressVcpAlloc(u32 count, dma_addr_t *vcp_paStart,
 		pWriteAddr->fp = fp;
 		pWriteAddr->count = count;
 		pWriteAddr->pool = false;
-		pWriteAddr->pa = vcp_iova_base + rb_slot_index * sizeof(u32);
-		pWriteAddr->va = vcp_va_base + rb_slot_index * sizeof(u32);
+		pWriteAddr->pa = vcp_iova_base + rb_slot_index * PAGE_SIZE;
+		pWriteAddr->va = vcp_va_base + rb_slot_index * PAGE_SIZE;
 
 		CMDQ_LOG_PQ("%s: rb_slot[%u], alloc va:%p, pa:%pa, vcp va_base:%p, iova_base:%pa\n",
 			__func__, rb_slot_index, pWriteAddr->va, &pWriteAddr->pa,

@@ -80,6 +80,12 @@ struct ipi_tx_data_t {
 	unsigned int arg2;
 };
 
+/*
+ * -1  : SCP Debug CMD: off,
+ * >=0 : SCP DVFS Debug OPP.
+ */
+static int scp_dvfs_debug_flag = -1;
+
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
 static int scp_dvfs_flag = 1;
 
@@ -94,6 +100,7 @@ static int scp_resrc_current_req = -1;
 static struct mt_scp_pll_t mt_scp_pll;
 static struct wakeup_source *scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
+static int g_scp_dvfs_enable; /* feature enabled? */
 
 static struct scp_dvfs_hw dvfs;
 
@@ -380,26 +387,93 @@ static int scp_set_pmic_vcore(unsigned int cur_freq)
 	return ret;
 }
 
+static uint32_t sum_required_freq(uint32_t core_id)
+{
+	uint32_t i = 0;
+	uint32_t sum = 0;
+
+	if (core_id >= dvfs.core_nums) {
+		pr_notice("[%s]: ERROR: core_id is invalid: %u\n",
+				__func__, core_id);
+		WARN_ON(1);
+		core_id = SCPSYS_CORE0;
+	}
+
+	/*
+	 * calculate scp frequence for core_id
+	 */
+	for (i = 0; i < NUM_FEATURE_ID; i++) {
+		if (i != VCORE_TEST_FEATURE_ID &&
+			feature_table[i].enable == 1 &&
+			feature_table[i].sys_id == core_id)
+			sum += feature_table[i].freq;
+	}
+
+	/*
+	 * calculate scp sensor frequence (core0 only)
+	 */
+	if (core_id == SCPSYS_CORE0)
+		for (i = 0; i < NUM_SENSOR_TYPE; i++)
+			if (sensor_type_table[i].enable == 1)
+				sum += sensor_type_table[i].freq;
+
+	return sum;
+}
+
+static uint32_t _mt_scp_dvfs_set_test_freq(uint32_t sum)
+{
+	uint32_t freq = 0, added_freq = 0, i = 0;
+
+	if (scp_dvfs_debug_flag == -1)
+		return 0;
+
+	pr_info("manually set opp = %d\n", scp_dvfs_debug_flag);
+
+	for (i = 0; i < dvfs.scp_opp_nums; i++) {
+		freq = dvfs.opp[i].freq;
+
+		if (scp_dvfs_debug_flag == i && sum < freq) {
+			added_freq = freq - sum;
+			break;
+		}
+	}
+	feature_table[VCORE_TEST_FEATURE_ID].freq = added_freq;
+	pr_notice("[%s]test freq: %d + %d = %d (MHz)\n",
+			__func__,
+			sum,
+			added_freq,
+			sum + added_freq);
+
+	return added_freq;
+}
+
 uint32_t scp_get_freq(void)
 {
 	uint32_t i;
+	uint32_t sum_core0 = 0;
+	uint32_t sum_core1 = 0;
 	uint32_t sum = 0;
 	uint32_t return_freq = 0;
 
 	/*
-	 * calculate scp frequence
+	 * calculate scp frequence requirement
 	 */
-	for (i = 0; i < NUM_FEATURE_ID; i++) {
-		if (feature_table[i].enable == 1)
-			sum += feature_table[i].freq;
+	sum_core0 += sum_required_freq(SCPSYS_CORE0);
+	if (dvfs.core_nums > SCPSYS_CORE1)
+		sum_core1 = sum_required_freq(SCPSYS_CORE1);
+
+	if (sum_core0 > sum_core1) {
+		sum = sum_core0;
+		feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE0;
+	} else {
+		sum = sum_core1;
+		feature_table[VCORE_TEST_FEATURE_ID].sys_id = SCPSYS_CORE1;
 	}
+
 	/*
-	 * calculate scp sensor frequence
+	 * add scp test cmd frequence
 	 */
-	for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-		if (sensor_type_table[i].enable == 1)
-			sum += sensor_type_table[i].freq;
-	}
+	sum += _mt_scp_dvfs_set_test_freq(sum);
 
 	for (i = 0; i < dvfs.scp_opp_nums; i++) {
 		if (sum <= dvfs.opp[i].freq) {
@@ -632,7 +706,7 @@ int scp_request_freq_vlp(void)
 }
 
 /* scp_request_freq
- * return :-1 means the scp request freq. error
+ * return :<0 means the scp request freq. error
  * return :0  means the request freq. finished
  */
 int scp_request_freq(void)
@@ -953,7 +1027,7 @@ static int mt_scp_dvfs_sleep_proc_show(struct seq_file *m, void *v)
 			__func__, ret);
 	} else {
 		if (*scp_ack_data >= SCP_SLEEP_OFF &&
-				*scp_ack_data <= SCP_SLEEP_NO_CONDITION)
+				*scp_ack_data <= SCP_SLEEP_ON)
 			seq_printf(m, "scp sleep flag: %d\n",
 				*scp_ack_data);
 		else
@@ -1001,7 +1075,7 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 	}
 	if (!strcmp(cmd, "sleep")) {
 		if (slp_cmd < SCP_SLEEP_OFF
-				|| slp_cmd > SCP_SLEEP_NO_CONDITION) {
+				|| slp_cmd > SCP_SLEEP_ON) {
 			pr_info("[%s]: invalid slp cmd: %d\n",
 				__func__, slp_cmd);
 			return -ESCP_DVFS_DBG_INVALID_CMD;
@@ -1078,7 +1152,6 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 	char desc[64], cmd[32];
 	unsigned int len = 0;
 	int dvfs_opp;
-	int freq;
 	int n;
 
 	if (count <= 0)
@@ -1100,60 +1173,16 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 			pr_info("SCP DVFS: OFF\n");
 		} else if (!strcmp(cmd, "opp")) {
 			if (dvfs_opp == -1) {
+				/* deregister dvfs debug feature */
 				pr_info("remove the opp setting of command\n");
 				feature_table[VCORE_TEST_FEATURE_ID].freq = 0;
 				scp_deregister_feature(
 						VCORE_TEST_FEATURE_ID);
+				scp_dvfs_debug_flag = dvfs_opp;
 			} else if (dvfs_opp >= 0 &&
 					dvfs_opp < dvfs.scp_opp_nums) {
-				uint32_t i;
-				uint32_t sum = 0, added_freq = 0;
-
-				pr_info("manually set opp = %d\n", dvfs_opp);
-
-				/*
-				 * calculate scp frequence
-				 */
-				for (i = 0; i < NUM_FEATURE_ID; i++) {
-					if (i != VCORE_TEST_FEATURE_ID &&
-						feature_table[i].enable == 1)
-						sum += feature_table[i].freq;
-				}
-
-				/*
-				 * calculate scp sensor frequence
-				 */
-				for (i = 0; i < NUM_SENSOR_TYPE; i++) {
-					if (sensor_type_table[i].enable == 1)
-						sum +=
-						sensor_type_table[i].freq;
-				}
-
-				for (i = 0; i < dvfs.scp_opp_nums; i++) {
-					freq = dvfs.opp[i].freq;
-
-					if (dvfs_opp == i && sum < freq) {
-						added_freq = freq - sum;
-						break;
-					}
-				}
-
-				for (i = 0; i < NUM_FEATURE_ID; i++)
-					if (VCORE_TEST_FEATURE_ID ==
-						feature_table[i].feature) {
-						feature_table[i].freq =
-							added_freq;
-						pr_notice("[%s]: test freq: %d\n",
-							__func__,
-							feature_table[i].freq);
-						break;
-					}
-
-				pr_debug("request freq: %d + %d = %d (MHz)\n",
-						sum,
-						added_freq,
-						sum + added_freq);
-
+				/* register dvfs debug feature */
+				scp_dvfs_debug_flag = dvfs_opp;
 				scp_register_feature(
 						VCORE_TEST_FEATURE_ID);
 			} else {
@@ -1353,6 +1382,12 @@ void sync_ulposc_cali_data_to_scp(void)
 		pr_notice("[%s]:ERROR scp is not switched to ULPOSC, CLK_SW_SEL=0x%x\n",
 			__func__, sel_clk);
 		WARN_ON(1);
+	} else {
+		/*
+		 * After syncing, scp will be changed to default freq, which is not set by kernel.
+		 * Reset last_scp_expected_freq to prevent not updating freq in scp reset flow.
+		 */
+		last_scp_expected_freq = 0;
 	}
 }
 
@@ -2063,6 +2098,70 @@ static int __init mt_scp_dts_get_cali_hw_regs(struct device_node *node,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_PM)
+static int mt_scp_dump_sleep_count(void)
+{
+	int ret = 0;
+	struct ipi_tx_data_t ipi_data;
+
+	if (!dvfs.sleep_init_done)
+		slp_ipi_init();
+
+	ipi_data.arg1 = SCP_SLEEP_GET_COUNT;
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
+	if (ret != IPI_ACTION_DONE) {
+		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
+			__func__, __LINE__, ret);
+		goto FINISH;
+	}
+
+	if (dvfs.core_nums < 2) {
+		pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d\n",
+			__func__, __LINE__, scp_ipi_ackdata0);
+		goto FINISH;
+	}
+
+	/* if there are 2 cores */
+	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
+		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
+	if (ret != IPI_ACTION_DONE) {
+		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
+			__func__, __LINE__, ret);
+		goto FINISH;
+	}
+
+	pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d, scp_sleep_cnt_1 = %d\n",
+		__func__, __LINE__, scp_ipi_ackdata0, scp_ipi_ackdata1);
+
+FINISH:
+	return 0;
+}
+
+static int scp_pm_event(struct notifier_block *notifier,
+		unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+	case PM_POST_SUSPEND:
+		mt_scp_dvfs_state_dump();
+		mt_scp_dump_sleep_count();
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block scp_pm_notifier_func = {
+	.notifier_call = scp_pm_event,
+};
+#endif /* IS_ENABLED(CONFIG_PM) */
+
 static int __init mt_scp_dts_init_scp_clk_hw(struct device_node *node)
 {
 	const char *str = NULL;
@@ -2377,6 +2476,7 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 {
 	struct device_node *node;
 	int ret = 0;
+	bool is_scp_dvfs_disable;
 
 	/* find device tree node of scp_dvfs */
 	node = pdev->dev.of_node;
@@ -2384,6 +2484,15 @@ static int __init mt_scp_dts_init(struct platform_device *pdev)
 		dev_notice(&pdev->dev, "fail to find SCPDVFS node\n");
 		return -ENODEV;
 	}
+
+	/* used to replace 'SCP_DVFS_INIT_ENABLE' compile flag */
+	is_scp_dvfs_disable = of_property_read_bool(node, "scp-dvfs-disable");
+	if (is_scp_dvfs_disable) {
+		g_scp_dvfs_enable = 0;
+		pr_notice("SCP DVFS is disabled, so bypass its init\n");
+		return 0;
+	}
+	g_scp_dvfs_enable = 1;
 
 	/*
 	* if set, no VCORE DVS is needed & PMIC setting should
@@ -2528,6 +2637,12 @@ DTS_FAILED:
 	return ret;
 }
 
+/* used to replace 'SCP_DVFS_INIT_ENABLE' compile flag */
+int scp_dvfs_feature_enable(void)
+{
+	return g_scp_dvfs_enable;
+}
+
 static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2537,6 +2652,12 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 		pr_notice("[%s]: dts init failed with err: %d\n",
 			__func__, ret);
 		goto DTS_INIT_FAILED;
+	}
+
+	if (!scp_dvfs_feature_enable()) {
+		g_scp_dvfs_init_flag = 1;
+		pr_notice("bypass scp dvfs init\n");
+		return 0;
 	}
 
 	/* check gpio setting */
@@ -2551,6 +2672,24 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	/* do ulposc calibration */
 	mt_scp_dvfs_do_ulposc_cali_process();
 	kfree(dvfs.ulposc_hw.cali_configs);
+
+	scp_suspend_lock = wakeup_source_register(NULL, "scp wakelock");
+
+#if IS_ENABLED(CONFIG_PM)
+	ret = register_pm_notifier(&scp_pm_notifier_func);
+	if (ret) {
+		pr_notice("[%s]: failed to register PM notifier.\n", __func__);
+		WARN_ON(1);
+	}
+#endif /* IS_ENABLED(CONFIG_PM) */
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	/* init proc */
+	if (mt_scp_dvfs_create_procfs()) {
+		pr_notice("mt_scp_dvfs_create_procfs fail..\n");
+		WARN_ON(1);
+	}
+#endif /* CONFIG_PROC_FS */
 
 	g_scp_dvfs_init_flag = 1;
 	pr_notice("[%s]: scp_dvfs probe done\n", __func__);
@@ -2571,6 +2710,11 @@ DTS_INIT_FAILED:
  ****************************************/
 static int mt_scp_dvfs_pdrv_remove(struct platform_device *pdev)
 {
+	if (!scp_dvfs_feature_enable()) {
+		pr_notice("bypass scp dvfs pdrv remove\n");
+		return 0;
+	}
+
 	kfree(dvfs.opp);
 	kfree(dvfs.ulposc_hw.cali_val_ext);
 	kfree(dvfs.ulposc_hw.cali_val);
@@ -2579,70 +2723,6 @@ static int mt_scp_dvfs_pdrv_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-#if IS_ENABLED(CONFIG_PM)
-static int mt_scp_dump_sleep_count(void)
-{
-	int ret = 0;
-	struct ipi_tx_data_t ipi_data;
-
-	if (!dvfs.sleep_init_done)
-		slp_ipi_init();
-
-	ipi_data.arg1 = SCP_SLEEP_GET_COUNT;
-	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
-		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
-	if (ret != IPI_ACTION_DONE) {
-		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
-			__func__, __LINE__, ret);
-		goto FINISH;
-	}
-
-	if (dvfs.core_nums < 2) {
-		pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d\n",
-			__func__, __LINE__, scp_ipi_ackdata0);
-		goto FINISH;
-	}
-
-	/* if there are 2 cores */
-	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_1,
-		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_1, 500);
-	if (ret != IPI_ACTION_DONE) {
-		pr_notice("[SCP] [%s:%d] - scp ipi failed, ret = %d\n",
-			__func__, __LINE__, ret);
-		goto FINISH;
-	}
-
-	pr_notice("[SCP] [%s:%d] - scp_sleep_cnt_0 = %d, scp_sleep_cnt_1 = %d\n",
-		__func__, __LINE__, scp_ipi_ackdata0, scp_ipi_ackdata1);
-
-FINISH:
-	return 0;
-}
-
-static int scp_pm_event(struct notifier_block *notifier,
-		unsigned long pm_event, void *unused)
-{
-	switch (pm_event) {
-	case PM_HIBERNATION_PREPARE:
-		return NOTIFY_DONE;
-	case PM_RESTORE_PREPARE:
-		return NOTIFY_DONE;
-	case PM_POST_HIBERNATION:
-		return NOTIFY_DONE;
-	case PM_SUSPEND_PREPARE:
-	case PM_POST_SUSPEND:
-		mt_scp_dvfs_state_dump();
-		mt_scp_dump_sleep_count();
-		return NOTIFY_DONE;
-	}
-	return NOTIFY_OK;
-}
-
-static struct notifier_block scp_pm_notifier_func = {
-	.notifier_call = scp_pm_event,
-};
-#endif /* IS_ENABLED(CONFIG_PM) */
 
 static struct platform_driver mt_scp_dvfs_pdrv __refdata = {
 	.probe = mt_scp_dvfs_pdrv_probe,
@@ -2663,29 +2743,11 @@ int __init scp_dvfs_init(void)
 
 	pr_debug("%s\n", __func__);
 
-#ifdef CONFIG_PROC_FS
-	/* init proc */
-	if (mt_scp_dvfs_create_procfs()) {
-		pr_notice("mt_scp_dvfs_create_procfs fail..\n");
-		goto fail;
-	}
-#endif /* CONFIG_PROC_FS */
-
 	ret = platform_driver_register(&mt_scp_dvfs_pdrv);
 	if (ret) {
 		pr_notice("fail to register scp dvfs driver @ %s()\n", __func__);
 		goto fail;
 	}
-
-	scp_suspend_lock = wakeup_source_register(NULL, "scp wakelock");
-
-#if IS_ENABLED(CONFIG_PM)
-	ret = register_pm_notifier(&scp_pm_notifier_func);
-	if (ret) {
-		pr_notice("[%s]: failed to register PM notifier.\n", __func__);
-		return ret;
-	}
-#endif /* IS_ENABLED(CONFIG_PM) */
 
 	pr_notice("[%s]: scp_dvfs init done\n", __func__);
 	return 0;

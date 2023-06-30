@@ -44,9 +44,9 @@ static void dmabuf_page_pool_add(struct dmabuf_page_pool *pool, struct page *pag
 	mutex_lock(&pool->mutex);
 	list_add_tail(&page->lru, &pool->items[index]);
 	pool->count[index]++;
-	mutex_unlock(&pool->mutex);
 	mod_node_page_state(page_pgdat(page), NR_KERNEL_MISC_RECLAIMABLE,
 			    1 << pool->order);
+	mutex_unlock(&pool->mutex);
 }
 
 static struct page *dmabuf_page_pool_remove(struct dmabuf_page_pool *pool, int index)
@@ -169,6 +169,12 @@ static int dmabuf_page_pool_do_shrink(struct dmabuf_page_pool *pool, gfp_t gfp_m
 	if (nr_to_scan == 0)
 		return dmabuf_page_pool_total(pool, high);
 
+	if ((pool->order == 0 && dmabuf_page_pool_total(pool, high) < THIRTY_MB_PAGES) ||
+			(pool->order == 4 && dmabuf_page_pool_total(pool, high) < THREE_HUNDRED_MB_PAGES)) {
+		//printk("dmabuf_page_pool_do_shrink order %d total %d\n", pool->order, dmabuf_page_pool_total(pool, high));
+		return freed;
+	}
+
 	while (freed < nr_to_scan) {
 		struct page *page;
 
@@ -193,6 +199,7 @@ static int dmabuf_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 	int nr_total = 0;
 	int nr_freed;
 	int only_scan = 0;
+	bool tune_shrink = false;
 
 	if (!nr_to_scan)
 		only_scan = 1;
@@ -203,6 +210,7 @@ static int dmabuf_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 			nr_total += dmabuf_page_pool_do_shrink(pool,
 							       gfp_mask,
 							       nr_to_scan);
+			tune_shrink = true;
 		} else {
 			nr_freed = dmabuf_page_pool_do_shrink(pool,
 							      gfp_mask,
@@ -214,6 +222,8 @@ static int dmabuf_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 		}
 	}
 	mutex_unlock(&pool_list_lock);
+	if (tune_shrink)
+		nr_total >>= ONE_EIGHTH_AT_A_TIME;
 
 	return nr_total;
 }

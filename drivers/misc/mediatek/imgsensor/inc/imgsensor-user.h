@@ -212,6 +212,7 @@ struct mtk_hdr_ae {
 
 struct mtk_seamless_switch_param {
 	struct mtk_hdr_ae ae_ctrl[2];
+	struct mtk_awb_gain awb_gain;
 	__u32 frame_length[2];
 	__u32 target_scenario_id;
 };
@@ -329,10 +330,19 @@ struct mtk_sensor_static_param {
 	__u32 pixelrate;
 	__u32 cust_pixelrate;
 };
+
+enum mtk_mbus_frame_desc_dt_remap_type {
+	MTK_MBUS_FRAME_DESC_REMAP_NONE = 0,
+	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
+	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW12,
+	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14,
+};
+
 struct mtk_mbus_frame_desc_entry_csi2 {
 	u8 channel;
 	u8 data_type;
 	u8 enable;
+	u8 dt_remap_to_type;
 	u16 hsize;
 	u16 vsize;
 	u16 user_data_desc;
@@ -366,10 +376,12 @@ struct mtk_mbus_frame_desc {
 };
 
 struct mtk_csi_param {
-	__u8 dphy_trail;
-	__u8 dphy_data_settle;
-	__u8 dphy_clk_settle;
-	__u8 cphy_settle;
+	__u32 dphy_trail;
+	__u32 dphy_data_settle;
+	__u32 dphy_clk_settle;
+	__u32 cphy_settle;
+	__u8 legacy_phy;
+	__u8 not_fixed_trail_settle;
 };
 
 
@@ -535,5 +547,10 @@ struct mtk_fine_integ_line {
 
 #define VIDIOC_MTK_S_TG \
 	_IOW('M', BASE_VIDIOC_PRIVATE + 110, int)
+
+#define VIDIOC_XIAOMI_S_ENABLE_SEAMLESS_SWITCH \
+	_IOW('M', BASE_VIDIOC_PRIVATE + 300, __u32)
+#define VIDIOC_XIAOMI_S_LOCK_SETTING_WORK_QUEUE \
+	_IOW('M', BASE_VIDIOC_PRIVATE + 301, __u32)
 
 #endif

@@ -196,7 +196,6 @@ struct ufs_mtk_hw_ver {
 	u8 minor;
 	u8 major;
 };
-
 struct ufs_mtk_host {
 	struct phy *mphy;
 	struct regulator *reg_va09;

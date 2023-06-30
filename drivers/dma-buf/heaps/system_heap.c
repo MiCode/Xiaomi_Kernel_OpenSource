@@ -77,7 +77,11 @@ static gfp_t order_flags[] = {HIGH_ORDER_GFP, MID_ORDER_GFP, LOW_ORDER_GFP};
  * of order 0 pages can significantly improve the performance of many IOMMUs
  * by reducing TLB pressure and time spent updating page tables.
  */
+#if defined(CONFIG_IOMMU_IO_PGTABLE_ARMV7S) && !defined(CONFIG_64BIT) && !defined(CONFIG_ARM_LPAE)
 static const unsigned int orders[] = {8, 4, 0};
+#else
+static const unsigned int orders[] = {4, 0};
+#endif
 #define NUM_ORDERS ARRAY_SIZE(orders)
 struct dmabuf_page_pool *pools[NUM_ORDERS];
 
@@ -258,11 +262,6 @@ static struct sg_table *mtk_mm_heap_map_dma_buf(struct dma_buf_attachment *attac
 	if (fwspec && buffer->mapped[tab_id][dom_id]) {
 		/* mapped before, return saved table */
 		ret = copy_sg_table(buffer->mapped_table[tab_id][dom_id], table);
-
-		/* update device info */
-		buffer->dev_info[tab_id][dom_id].dev = attachment->dev;
-		buffer->dev_info[tab_id][dom_id].direction = direction;
-		buffer->dev_info[tab_id][dom_id].map_attrs = attr;
 
 		mutex_unlock(&buffer->map_lock);
 		if (ret)
@@ -562,6 +561,7 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 	struct system_heap_buffer *buffer = dmabuf->priv;
 	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
 	int i, j;
+	unsigned long buf_len = buffer->len;
 
 	spin_lock(&dmabuf->name_lock);
 	pr_debug("%s: inode:%lu, size:%lu, name:%s\n", __func__,
@@ -591,30 +591,31 @@ static void mtk_mm_heap_dma_buf_release(struct dma_buf *dmabuf)
 		}
 	}
 
-	if (atomic64_sub_return(buffer->len, &dma_heap_normal_total) < 0) {
+	/* free buffer memory */
+	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
+
+	if (atomic64_sub_return(buf_len, &dma_heap_normal_total) < 0) {
 		pr_info("warn: %s, total memory underflow, 0x%lx!!, reset as 0\n",
 			__func__, atomic64_read(&dma_heap_normal_total));
 		atomic64_set(&dma_heap_normal_total, 0);
 	}
-
-	/* free buffer memory */
-	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
 }
 
 static void system_heap_dma_buf_release(struct dma_buf *dmabuf)
 {
 	struct system_heap_buffer *buffer = dmabuf->priv;
 	int npages = PAGE_ALIGN(buffer->len) / PAGE_SIZE;
+	unsigned long buf_len = buffer->len;
 
 	dmabuf_release_check(dmabuf);
 
-	if (atomic64_sub_return(buffer->len, &dma_heap_normal_total) < 0) {
+	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
+
+	if (atomic64_sub_return(buf_len, &dma_heap_normal_total) < 0) {
 		pr_info("warn: %s, total memory underflow, 0x%lx!!, reset as 0\n",
 			__func__, atomic64_read(&dma_heap_normal_total));
 		atomic64_set(&dma_heap_normal_total, 0);
 	}
-
-	deferred_free(&buffer->deferred_free, system_heap_buf_free, npages);
 }
 
 static int system_heap_dma_buf_get_flags(struct dma_buf *dmabuf, unsigned long *flags)
@@ -695,6 +696,12 @@ static struct dma_buf *system_heap_do_allocate(struct dma_heap *heap,
 	struct page *page, *tmp_page;
 	int i, ret = -ENOMEM;
 	struct task_struct *task = current->group_leader;
+
+	if (len / PAGE_SIZE > totalram_pages()) {
+		pr_info("%s error: len %ld is more than %ld\n",
+			__func__, len, totalram_pages() * PAGE_SIZE);
+		return ERR_PTR(-ENOMEM);
+	}
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);
 	if (!buffer)

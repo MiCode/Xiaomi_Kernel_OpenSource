@@ -156,6 +156,18 @@ struct xgf_render {
 	struct xgf_ema2_predictor *ema2_pt;
 };
 
+struct xgff_frame {
+	struct hlist_node hlist;
+	pid_t parent;
+	pid_t tid;
+	unsigned long long bufid;
+	unsigned long frameid;
+	unsigned long long ts;
+
+	struct xgf_render xgfrender;
+	struct fbt_thread_loading *ploading;
+};
+
 struct xgf_dep {
 	struct rb_node rb_node;
 

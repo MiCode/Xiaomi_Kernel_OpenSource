@@ -25,3 +25,12 @@ config MTK_ADSP_V2
 	  it need to enable MTK_AUDIODSP_SUPPORT for basic functions.
 	  Set Y to enable this feature.
 	  If unsure, say N.
+
+config MTK_AUDIODSP_DEBUG_SUPPORT
+	bool "MTK Audio DSP Debug support"
+	help
+	  This is a debug interface for Audio DSP
+	  Set Y to enable this feature.
+	  Set N to disable this feature.
+	  If unsure, Set N to disable it.
+

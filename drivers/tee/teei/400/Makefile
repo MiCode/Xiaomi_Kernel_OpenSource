@@ -67,6 +67,16 @@ isee-y :=              tee/tee_core.o \
 
 isee-y +=              teei_fp/fp_func.o
 
+ifneq ($(filter "plato", $(CONFIG_BUILD_PRODUCT_NAME)),)
+CDEFINES += -DPLATO_CPU_BOOST
+KBUILD_CPPFLAGS += $(CDEFINES)
+endif
+
+ifneq ($(filter "daumier" "matisse" "rubens", $(CONFIG_BUILD_PRODUCT_NAME)),)
+CDEFINES += -DDAUMIER_SET_PRIORITY
+KBUILD_CPPFLAGS += $(CDEFINES)
+endif
+
 #isee-y +=             tests/main.o \
 #                       tests/xtest_isee_1000.o \
 #                       tests/xtest_isee_3000.o \

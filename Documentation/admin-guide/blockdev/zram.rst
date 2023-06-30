@@ -265,6 +265,8 @@ line of text and contains the following stats separated by whitespace:
  same_pages       the number of same element filled pages written to this disk.
                   No memory is allocated for such pages.
  pages_compacted  the number of pages freed during compaction
+ dup_data_size    deduplicated data size
+ meta_data_size   the amount of metadata allocated for deduplication feature
  huge_pages	  the number of incompressible pages
  ================ =============================================================
 

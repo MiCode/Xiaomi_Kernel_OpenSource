@@ -260,7 +260,7 @@ int adsp_core1_resume(void)
 void adsp_logger_init0_cb(struct work_struct *ws)
 {
 	int ret;
-	unsigned int info[6];
+	uint64_t info[6];
 
 	info[0] = adsp_get_reserve_mem_phys(ADSP_A_LOGGER_MEM_ID);
 	info[1] = adsp_get_reserve_mem_size(ADSP_A_LOGGER_MEM_ID);
@@ -283,7 +283,7 @@ void adsp_logger_init0_cb(struct work_struct *ws)
 void adsp_logger_init1_cb(struct work_struct *ws)
 {
 	int ret;
-	unsigned int info[6];
+	uint64_t info[6];
 
 	info[0] = adsp_get_reserve_mem_phys(ADSP_B_LOGGER_MEM_ID);
 	info[1] = adsp_get_reserve_mem_size(ADSP_B_LOGGER_MEM_ID);
@@ -376,8 +376,6 @@ int adsp_core_common_init(struct adsp_priv *pdata)
 	pdata->debugfs = debugfs_create_file(name, S_IFREG | 0644, NULL,
 					     pdata, &adsp_debug_ops);
 #endif
-	/* adsp mpu info */
-	adsp_update_mpu_memory_info(pdata);
 
 	/* wdt irq */
 	adsp_irq_registration(pdata->id, ADSP_IRQ_WDT_ID, adsp_wdt_handler, pdata);
@@ -388,6 +386,7 @@ int adsp_core_common_init(struct adsp_priv *pdata)
 	/* slb init ipi */
 	adsp_ipi_registration(ADSP_IPI_SLB_INIT, adsp_slb_init_handler, "slb_init");
 
+#if IS_ENABLED(CONFIG_MTK_AUDIODSP_DEBUG_SUPPORT)
 	/* register misc device */
 	pdata->mdev.minor = MISC_DYNAMIC_MINOR;
 	pdata->mdev.name = pdata->name;
@@ -397,7 +396,7 @@ int adsp_core_common_init(struct adsp_priv *pdata)
 	ret = misc_register(&pdata->mdev);
 	if (unlikely(ret != 0))
 		pr_info("%s(), misc_register fail, %d\n", __func__, ret);
-
+#endif
 	return ret;
 }
 

@@ -764,8 +764,8 @@ static inline struct zone *default_zone_for_pfn(int nid, unsigned long start_pfn
 	return movable_node_enabled ? movable_zone : kernel_zone;
 }
 
-struct zone * zone_for_pfn_range(int online_type, int nid, unsigned start_pfn,
-		unsigned long nr_pages)
+struct zone *zone_for_pfn_range(int online_type, int nid,
+		unsigned long start_pfn, unsigned long nr_pages)
 {
 	if (online_type == MMOP_ONLINE_KERNEL)
 		return default_kernel_zone_for_pfn(nid, start_pfn, nr_pages);
@@ -1136,9 +1136,6 @@ int add_memory_subsection(int nid, u64 start, u64 size)
 	struct resource *res;
 	int ret;
 
-	if (size == memory_block_size_bytes())
-		return add_memory(nid, start, size, MHP_NONE);
-
 	if (!IS_ALIGNED(start, SUBSECTION_SIZE) ||
 	    !IS_ALIGNED(size, SUBSECTION_SIZE)) {
 		pr_err("%s: start 0x%llx size 0x%llx not aligned to subsection size\n",
@@ -1159,13 +1156,21 @@ int add_memory_subsection(int nid, u64 start, u64 size)
 
 	ret = arch_add_memory(nid, start, size, &params);
 	if (ret) {
-		if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
-			memblock_remove(start, size);
 		pr_err("%s failed to add subsection start 0x%llx size 0x%llx\n",
 			   __func__, start, size);
+		goto err_add_memory;
 	}
 	mem_hotplug_done();
 
+	return ret;
+
+err_add_memory:
+	if (IS_ENABLED(CONFIG_ARCH_KEEP_MEMBLOCK))
+		memblock_remove(start, size);
+
+	mem_hotplug_done();
+
+	release_memory_resource(res);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(add_memory_subsection);
@@ -1544,7 +1549,7 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 				       MEMORY_OFFLINE | REPORT_FAILURE, NULL);
 	if (ret) {
 		reason = "failure to isolate range";
-		goto failed_removal;
+		goto failed_removal_lru_cache_disabled;
 	}
 
 	drain_all_pages(zone);
@@ -1659,6 +1664,8 @@ int __ref offline_pages(unsigned long start_pfn, unsigned long nr_pages)
 failed_removal_isolated:
 	undo_isolate_page_range(start_pfn, end_pfn, MIGRATE_MOVABLE);
 	memory_notify(MEM_CANCEL_OFFLINE, &arg);
+failed_removal_lru_cache_disabled:
+	lru_cache_enable();
 failed_removal:
 	pr_debug("memory offlining [mem %#010llx-%#010llx] failed due to %s\n",
 		 (unsigned long long) start_pfn << PAGE_SHIFT,
@@ -1837,9 +1844,6 @@ EXPORT_SYMBOL_GPL(remove_memory);
 
 int remove_memory_subsection(int nid, u64 start, u64 size)
 {
-	if (size ==  memory_block_size_bytes())
-		return remove_memory(nid, start, size);
-
 	if (!IS_ALIGNED(start, SUBSECTION_SIZE) ||
 	    !IS_ALIGNED(size, SUBSECTION_SIZE)) {
 		pr_err("%s: start 0x%llx size 0x%llx not aligned to subsection size\n",

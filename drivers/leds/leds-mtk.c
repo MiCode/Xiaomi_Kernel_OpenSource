@@ -210,7 +210,7 @@ static int mtk_set_hw_brightness(struct mt_led_data *led_dat,
 		mt_leds_notify_brightness_hw_changed(&led_dat->conf, brightness);
 #endif
 	} else {
-		pr_info("set hw brightness: %d -> %d failed!", led_dat->hw_brightness, brightness);
+		pr_debug("set hw brightness: %d -> %d failed!", led_dat->hw_brightness, brightness);
 	}
 
 	return 0;
@@ -231,7 +231,7 @@ int mtk_leds_brightness_set(char *name, int level)
 
 	mutex_lock(&led_dat->led_access);
 	if (!led_dat->conf.aal_enable) {
-		pr_notice("aal not enable, set %s %d return", name, level);
+		pr_debug("aal not enable, set %s %d return", name, level);
 	} else {
 		mtk_set_hw_brightness(led_dat, level);
 		led_dat->last_hw_brightness = level;
@@ -261,13 +261,13 @@ static int mtk_set_brightness(struct led_classdev *led_cdev,
 
 	led_debug_log(led_dat, brightness, trans_level);
 
-	call_notifier(LED_BRIGHTNESS_CHANGED, led_conf);
 	mutex_lock(&led_dat->led_access);
 	if (!led_conf->aal_enable) {
 		mtk_set_hw_brightness(led_dat, trans_level);
 		led_dat->last_hw_brightness = trans_level;
 	}
 	mutex_unlock(&led_dat->led_access);
+	call_notifier(LED_BRIGHTNESS_CHANGED, led_conf);
 
 	return 0;
 
@@ -330,14 +330,28 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 		mdev->conf.cdev.default_trigger = NULL;
 	}
 
+#ifdef CONFIG_FACTORY_BUILD
 	ret = fwnode_property_read_u32(fwnode,
-		"max-brightness", &(mdev->conf.cdev.max_brightness));
+		"factory-max-brightness", &(mdev->conf.cdev.max_brightness));
+
+	if (ret)
+#endif
+		ret = fwnode_property_read_u32(fwnode,
+			"max-brightness", &(mdev->conf.cdev.max_brightness));
+
 	if (ret) {
 		pr_info("No max-brightness, use default value 255");
 			mdev->conf.cdev.max_brightness = 255;
 	}
+
+#ifdef CONFIG_FACTORY_BUILD
 	ret = fwnode_property_read_u32(fwnode,
-		"max-hw-brightness", &(mdev->conf.max_hw_brightness));
+		"factory-max-hw-brightness", &(mdev->conf.max_hw_brightness));	
+	if (ret)
+#endif
+		ret = fwnode_property_read_u32(fwnode,
+			"max-hw-brightness", &(mdev->conf.max_hw_brightness));
+
 	if (ret) {
 		pr_info("No max-hw-brightness, use default value 1023");
 		mdev->conf.max_hw_brightness = 1023;
@@ -345,7 +359,9 @@ int mt_leds_parse_dt(struct mt_led_data *mdev, struct fwnode_handle *fwnode)
 	mdev->conf.limit_hw_brightness = mdev->conf.max_hw_brightness;
 	ret = fwnode_property_read_string(fwnode, "default-state", &state);
 	if (!ret) {
-		if (!strncmp(state, "half", strlen("half")))
+		if (!strncmp(state, "quarter", strlen("quarter")))
+			mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness / 4;
+		else if (!strncmp(state, "half", strlen("half")))
 			mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness / 2;
 		else if (!strncmp(state, "on", strlen("on")))
 			mdev->conf.cdev.brightness = mdev->conf.cdev.max_brightness;

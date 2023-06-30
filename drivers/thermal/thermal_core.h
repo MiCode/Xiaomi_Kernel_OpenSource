@@ -43,6 +43,12 @@ extern struct thermal_governor *__governor_thermal_table_end[];
 	     __governor < __governor_thermal_table_end;	\
 	     __governor++)
 
+
+#ifdef CONFIG_MI_THERMAL_TZMODE
+extern int teei_switch_current_mode(unsigned int mode);
+#endif
+
+
 int for_each_thermal_zone(int (*cb)(struct thermal_zone_device *, void *),
 			  void *);
 

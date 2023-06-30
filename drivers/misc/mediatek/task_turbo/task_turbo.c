@@ -25,7 +25,6 @@
 #include <trace/hooks/topology.h>
 #include <trace/hooks/debug.h>
 #include <trace/hooks/wqlockup.h>
-#include <trace/hooks/sysrqcrash.h>
 #include <trace/hooks/cgroup.h>
 #include <trace/hooks/sys.h>
 
@@ -33,6 +32,17 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace_task_turbo.h>
+
+// MIUI ADD:
+#include <linux/seq_file.h>
+#include "linux/trace_clock.h"
+#include <uapi/linux/android/binderfs.h>
+#include <uapi/linux/android/binder.h>
+
+#ifdef CONFIG_METIS_MTK
+#include "../../../../drivers/mihw/include/mi_module.h"
+#endif
+// END
 
 LIST_HEAD(hmp_domains);
 
@@ -288,7 +298,51 @@ static void probe_android_vh_rwsem_wake(void *ignore, struct rw_semaphore *sem)
 static void probe_android_vh_binder_transaction_init(void *ignore, struct binder_transaction *t)
 {
 	t->android_vendor_data1 = 0;
+	// MIUI ADD:
+	t->android_oem_data1[0] = trace_clock_local();
+	t->android_oem_data1[1] = ((u64)current->tgid << 32) | ((u64)current->pid & 0xffffffff);
+	// END
 }
+
+// MIUI ADD:
+static void probe_android_vh_binder_print_transaction_info(void *ignore,
+						struct seq_file *m,
+						struct binder_proc *proc,
+						const char *prefix,
+						struct binder_transaction *t)
+{
+	struct binder_proc *to_proc = NULL;
+	int from_pid = 0;
+	int from_tid = 0;
+	int from_pid_oem = 0;
+	int from_tid_oem = 0;
+	int to_pid = 0;
+	int to_tid = 0;
+	u64 now;
+	u64 duration = 0;
+
+	to_proc = t->to_proc;
+	from_pid_oem = (int)(t->android_oem_data1[1] >> 32);
+	from_tid_oem = (int)(t->android_oem_data1[1] & 0xffffffff);
+	from_pid = t->from ? (t->from->proc ? t->from->proc->pid : 0) : from_pid_oem;
+	from_tid = t->from ? t->from->pid : from_tid_oem;
+	to_pid = to_proc ? to_proc->pid : 0;
+	to_tid = t->to_thread ? t->to_thread->pid : 0;
+	now = trace_clock_local();
+	if (t->android_oem_data1[0] > 0)
+		duration = now > t->android_oem_data1[0] ? (now - t->android_oem_data1[0]) : 0;
+	seq_printf(m,
+		"MIUI%s: from %5d:%5d to %5d:%5d context:%s code:%3d duration:%6lld.%02lld s\n",
+		prefix,
+		from_pid, from_tid,
+		to_pid, to_tid,
+		proc->context->name,
+		t->code,
+		duration / 1000000000,
+		duration % 1000000000 / 10000000
+	);
+}
+// END
 
 static void probe_android_vh_binder_set_priority(void *ignore, struct binder_transaction *t,
 							struct task_struct *task)
@@ -498,6 +552,26 @@ static inline unsigned long _task_util_est(struct task_struct *p)
 	return max(ue.ewma, (ue.enqueued & ~UTIL_AVG_UNCHANGED));
 }
 
+// MIUI ADD: START
+#ifdef CONFIG_METIS_MTK
+mi_vip_task_hook mi_vip_task_func = NULL;
+
+void register_mi_vip_task_hook(mi_vip_task_hook f)
+{
+	pr_info("%s now\n", __FUNCTION__);
+	mi_vip_task_func = f;
+}
+EXPORT_SYMBOL_GPL(register_mi_vip_task_hook);
+
+void unregister_mi_vip_task_hook(void)
+{
+	pr_info("%s now\n", __FUNCTION__);
+	mi_vip_task_func = NULL;
+}
+EXPORT_SYMBOL_GPL(unregister_mi_vip_task_hook);
+#endif
+// END
+
 int find_best_turbo_cpu(struct task_struct *p)
 {
 	struct hmp_domain *domain;
@@ -514,6 +588,16 @@ int find_best_turbo_cpu(struct task_struct *p)
 		tmp_domain[domain_cnt] = domain;
 		domain_cnt++;
 	}
+
+// MIUI ADD: START
+#ifdef CONFIG_METIS_MTK
+	if (domain_cnt > 2 && mi_vip_task_func && mi_vip_task_func(p)) {
+		domain = tmp_domain[0];
+		tmp_domain[0] = tmp_domain[1];
+		tmp_domain[1] = domain;
+	}
+#endif
+// END
 
 	for (i = 0; i < domain_cnt; i++) {
 		domain = tmp_domain[i];
@@ -558,6 +642,15 @@ out:
 int select_turbo_cpu(struct task_struct *p)
 {
 	int target_cpu = -1;
+
+// MIUI ADD: START
+#ifdef CONFIG_METIS_MTK
+	if (mi_vip_task_func && mi_vip_task_func(p)) {
+		target_cpu = find_best_turbo_cpu(p);
+		return target_cpu;
+	}
+#endif
+// END
 
 	if (!is_turbo_task(p))
 		return -1;
@@ -1378,6 +1471,15 @@ static int __init init_task_turbo(void)
 		ret_erri_line = __LINE__;
 		goto failed;
 	}
+
+	// MIUI ADD:
+	ret = register_trace_android_vh_binder_print_transaction_info(
+			probe_android_vh_binder_print_transaction_info, NULL);
+	if (ret) {
+		ret_erri_line = __LINE__;
+		goto failed;
+	}
+	// END
 
 	ret = register_trace_android_vh_binder_set_priority(
 			probe_android_vh_binder_set_priority, NULL);

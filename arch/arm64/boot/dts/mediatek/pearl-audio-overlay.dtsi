@@ -1,0 +1,30 @@
+/*Audio Config tfa start  */
+&spk1 {
+	irq-gpio = <&pio 19 0>;
+	spk-sw-gpio = <&pio 160 0>;
+};
+
+&spk2 {
+	irq-gpio = <&pio 15 0>;
+	/delete-property/ spk-sw-gpio;
+};
+/*Audio Config tfa end*/
+
+
+&accdet {
+	/* accdet micbias voltage: 0x09:2.85v 0x08:2.8v 0x07,
+	 * 2.7v;0x05,2.5v;0x02,1.9v
+	 */
+	accdet-mic-vol = <8>;
+
+	/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
+	accdet-mic-mode = <2>;
+};
+
+&aw8697_haptic {
+	aw86927_vib_bst_vol_default = < 0x53 >;
+	aw86927_vib_bst_vol_ram = < 0x53 >;
+	aw86927_vib_bst_vol_rtp = < 0x53 >;
+	aw86927_vib_cont_drv1_lvl = < 0x7F >;
+	aw86927_vib_cont_drv2_lvl = < 0x07 >;
+};

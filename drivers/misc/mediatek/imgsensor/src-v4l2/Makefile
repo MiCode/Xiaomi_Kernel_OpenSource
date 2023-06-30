@@ -42,9 +42,17 @@ alpha_drv += $(1)
 total_subdrvs += $(1)
 unknown_drv :=
 endif
+ifneq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/camera_project/k6895v1_64_95t_alpha/$(1)),)
+alpha_drv_k6895 += $(1)
+total_subdrvs += $(1)
+unknown_drv :=
+endif
 endef
 
 $(foreach drv,$(subst $\",,$(CONFIG_CUSTOM_KERNEL_IMGSENSOR)),$(eval $(call FILTER_DRV,$(drv))))
+
+include $(IMGSENSOR_DRIVER_PATH)/async-setting/async_setting.mk
+include $(IMGSENSOR_DRIVER_PATH)/async-setting/task-queue/task_queue.mk
 
 ifneq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(FRAME_SYNC)/frame_sync_drv.mk),)
 $(info framesync_drv: $(FRAME_SYNC))
@@ -82,6 +90,11 @@ endif
 ifneq ($(alpha_drv),)
 $(info alpha_drv : $(alpha_drv))
 $(foreach drv,$(alpha_drv),$(eval $(call add_subdrv,camera_project/k6983v1_64_alpha/$(drv))))
+endif
+
+ifneq ($(alpha_drv_k6895),)
+$(info alpha_drv_k6895 : $(alpha_drv_k6895))
+$(foreach drv,$(alpha_drv_k6895),$(eval $(call add_subdrv,camera_project/k6895v1_64_95t_alpha/$(drv))))
 endif
 
 comma := ,

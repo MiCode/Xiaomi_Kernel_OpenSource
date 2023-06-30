@@ -551,9 +551,25 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		scp_ready[SCP_A_ID] = 1;
 
 #if SCP_DVFS_INIT_ENABLE
-		sync_ulposc_cali_data_to_scp();
-		/* release pll clock after scp ulposc calibration */
-		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+		if (scp_dvfs_feature_enable()) {
+			sync_ulposc_cali_data_to_scp();
+
+			/*
+			 * Calling sync_ulposc_cali_data_to_scp() will resets the frequency request
+			 * so we need to request freq again in recovery flow.
+			 */
+			if (atomic_read(&scp_reset_status) != RESET_STATUS_STOP) {
+				scp_expected_freq = scp_get_freq();
+				scp_current_freq = readl(CURRENT_FREQ_REG);
+				if (scp_request_freq()) {
+					pr_notice("[SCP] %s: req_freq fail\n", __func__);
+					WARN_ON(1);
+				}
+			}
+
+			/* release pll clock after scp ulposc calibration */
+			scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+		}
 #endif
 
 		scp_dvfs_cali_ready = 1;
@@ -566,7 +582,9 @@ static void scp_A_notify_ws(struct work_struct *ws)
 	pr_debug("[SCP] clear scp reset flag and unlock\n");
 
 #if SCP_DVFS_INIT_ENABLE
-	scp_resource_req(SCP_REQ_RELEASE);
+	/* request pll clock before turn on scp */
+	if (scp_dvfs_feature_enable())
+		scp_resource_req(SCP_REQ_RELEASE);
 #endif
 	/* register scp dvfs*/
 	msleep(2000);
@@ -748,7 +766,8 @@ int reset_scp(int reset)
 	scp_extern_notify(SCP_EVENT_STOP);
 #if SCP_DVFS_INIT_ENABLE
 	/* request pll clock before turn on scp */
-	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+	if (scp_dvfs_feature_enable())
+		scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
 #endif
 	if (reset & 0x0f) { /* do reset */
 		/* make sure scp is in idle state */
@@ -806,6 +825,7 @@ static struct notifier_block scp_pm_notifier_block = {
 };
 
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 static inline ssize_t scp_A_status_show(struct device *kobj
 			, struct device_attribute *attr, char *buf)
 {
@@ -913,7 +933,6 @@ static inline ssize_t scp_A_db_test_store(struct device *kobj
 
 DEVICE_ATTR_WO(scp_A_db_test);
 
-#ifdef SCP_DEBUG_NODE_ENABLE
 static ssize_t scp_ee_enable_show(struct device *kobj
 	, struct device_attribute *attr, char *buf)
 {
@@ -1006,8 +1025,8 @@ static inline ssize_t scp_ipi_test_store(struct device *kobj
 }
 
 DEVICE_ATTR_RW(scp_ipi_test);
-
 #endif
+
 
 #if SCP_RECOVERY_SUPPORT
 void scp_wdt_reset(int cpu_id)
@@ -1038,6 +1057,7 @@ void scp_wdt_reset(int cpu_id)
 }
 EXPORT_SYMBOL(scp_wdt_reset);
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 /*
  * trigger wdt manually (debug use)
  * Warning! watch dog may be refresh just after you set
@@ -1112,13 +1132,16 @@ static ssize_t recovery_flag_store(struct device *dev
 DEVICE_ATTR_RW(recovery_flag);
 
 #endif
+#endif
 
 /******************************************************************************
  *****************************************************************************/
 static struct miscdevice scp_device = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "scp",
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 	.fops = &scp_A_log_file_ops
+#endif
 };
 
 
@@ -1136,6 +1159,7 @@ static int create_files(void)
 		return ret;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 #if SCP_LOGGER_ENABLE
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_mobile_log);
@@ -1147,12 +1171,10 @@ static int create_files(void)
 	if (unlikely(ret != 0))
 		return ret;
 
-#ifdef SCP_DEBUG_NODE_ENABLE
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_A_mobile_log_UT);
 	if (unlikely(ret != 0))
 		return ret;
-#endif  // SCP_DEBUG_NODE_ENABLE
 
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_A_get_last_log);
@@ -1164,12 +1186,14 @@ static int create_files(void)
 					, &dev_attr_scp_A_status);
 	if (unlikely(ret != 0))
 		return ret;
+#endif
 
 	ret = device_create_bin_file(scp_device.this_device
 					, &bin_attr_scp_dump);
 	if (unlikely(ret != 0))
 		return ret;
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_A_reg_status);
 	if (unlikely(ret != 0))
@@ -1181,7 +1205,6 @@ static int create_files(void)
 	if (unlikely(ret != 0))
 		return ret;
 
-#ifdef SCP_DEBUG_NODE_ENABLE
 	ret = device_create_file(scp_device.this_device
 					, &dev_attr_scp_ee_enable);
 	if (unlikely(ret != 0))
@@ -1202,7 +1225,6 @@ static int create_files(void)
 					, &dev_attr_scp_ipi_test);
 	if (unlikely(ret != 0))
 		return ret;
-#endif  // SCP_DEBUG_NODE_ENABLE
 
 #if SCP_RECOVERY_SUPPORT
 	ret = device_create_file(scp_device.this_device
@@ -1231,6 +1253,7 @@ static int create_files(void)
 
 	if (unlikely(ret != 0))
 		return ret;
+#endif
 
 	return 0;
 }
@@ -1325,15 +1348,19 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 	scp_mem_base_phys = (phys_addr_t) rmem->base;
 	scp_mem_size = (phys_addr_t) rmem->size;
 
-	pr_notice("[SCP] %s is called, 0x%x, 0x%x",
+	pr_notice("[SCP] %s is called, 0x%llx, 0x%x",
 		__func__,
-		(unsigned int)scp_mem_base_phys,
+		scp_mem_base_phys,
 		(unsigned int)scp_mem_size);
 
-	if ((scp_mem_base_phys >= (0x90000000ULL)) ||
-			 (scp_mem_base_phys <= 0x0)) {
-		/* The scp remapped region is fixed, only
+	if (!(((scp_mem_base_phys >= (0x40000000ULL)) && (scp_mem_base_phys < (0xA0000000ULL))) ||
+	     ((scp_mem_base_phys >= (0x150000000ULL)) && (scp_mem_base_phys < (0x1A0000000ULL))) ||
+	     ((scp_mem_base_phys >= (0x250000000ULL)) && (scp_mem_base_phys < (0x2A0000000ULL))))
+			 || (scp_mem_base_phys <= 0x0)) {
+		/*
+		 * The scp remapped region is fixed, only
 		 * 0x4000_0000ULL ~ 0x8FFF_FFFFULL is accessible.
+		 * Embed-remap supports for high dram (5.25GB~6.5GB)(9.25GB~10.5GB).
 		 */
 		pr_notice("[SCP] Error: Wrong Address (0x%llx)\n",
 			    (uint64_t)scp_mem_base_phys);
@@ -1406,7 +1433,7 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 			(uint64_t)scp_reserve_mblock[id].size);
 #endif  // DEBUG
 	}
-#ifdef SCP_DEBUG_NODE_ENABLE
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_DEBUG_SUPPORT)
 	BUG_ON(accumlate_memory_size > scp_mem_size);
 #endif
 #ifdef DEBUG
@@ -1472,7 +1499,8 @@ static void scp_control_feature(enum feature_id id, bool enable)
 
 	feature_table[id].enable = enable;
 #if SCP_DVFS_INIT_ENABLE
-	scp_expected_freq = scp_get_freq();
+	if (scp_dvfs_feature_enable())
+		scp_expected_freq = scp_get_freq();
 #endif
 
 	scp_current_freq = readl(CURRENT_FREQ_REG);
@@ -1490,9 +1518,10 @@ static void scp_control_feature(enum feature_id id, bool enable)
 		if (scp_current_freq != scp_expected_freq) {
 			/* set scp freq. */
 #if SCP_DVFS_INIT_ENABLE
-			ret = scp_request_freq();
+			if (scp_dvfs_feature_enable())
+				ret = scp_request_freq();
 #endif
-			if (ret == -1) {
+			if (ret < 0) {
 				pr_notice("[SCP] %s: req_freq fail\n", __func__);
 				WARN_ON(1);
 			}
@@ -1530,6 +1559,11 @@ void scp_register_sensor(enum feature_id id, int sensor_id)
 		pr_debug("[SCP]register sensor id err");
 		return;
 	}
+
+	if (sensor_id >= NUM_SENSOR_TYPE) {
+		pr_info("[SCP] sensor id not in sensor freq table");
+		return;
+	}
 	/* because feature_table is a global variable
 	 * use mutex lock to protect it from
 	 * accessing in the same time
@@ -1558,6 +1592,11 @@ void scp_deregister_sensor(enum feature_id id, int sensor_id)
 
 	if (id != SENS_FEATURE_ID) {
 		pr_debug("[SCP]deregister sensor id err");
+		return;
+	}
+
+	if (sensor_id >= NUM_SENSOR_TYPE) {
+		pr_info("[SCP] sensor id not in sensor freq table");
 		return;
 	}
 	/* because feature_table is a global variable
@@ -1754,8 +1793,8 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	/* wake lock AP*/
 	__pm_stay_awake(scp_reset_lock);
 #if SCP_DVFS_INIT_ENABLE
-	/* keep Univpll */
-	scp_resource_req(SCP_REQ_26M);
+	if (scp_dvfs_feature_enable())
+		scp_resource_req(SCP_REQ_26M);
 #endif
 
 	/* print_clk and scp_aed before pll enable to keep ori CLK_SEL */
@@ -1769,10 +1808,12 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	/* logger disable must after scp_aed() */
 	scp_logger_init_set(0);
 
-	pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
 	/*request pll clock before turn off scp */
 #if SCP_DVFS_INIT_ENABLE
-	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+	if (scp_dvfs_feature_enable()) {
+		pr_debug("[SCP] %s(): scp_pll_ctrl_set\n", __func__);
+		scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+	}
 #endif
 	pr_notice("[SCP] %s(): scp_reset_type %d\n", __func__, scp_reset_type);
 	/* scp reset by CMD, WDT or awake fail */
@@ -1906,15 +1947,22 @@ void scp_region_info_init(void) {}
 void scp_recovery_init(void)
 {
 #if SCP_RECOVERY_SUPPORT
+	uint64_t ap_loader_start = scp_region_info_copy.ap_loader_start;
+
 	/*create wq for scp reset*/
 	scp_reset_workqueue = create_singlethread_workqueue("SCP_RESET_WQ");
 	/*init reset work*/
 	INIT_WORK(&scp_sys_reset_work.work, scp_sys_reset_ws);
 
-	scp_loader_virt = ioremap_wc(
-		scp_region_info_copy.ap_loader_start,
-		scp_region_info_copy.ap_loader_size);
-	pr_notice("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
+	if (ap_loader_start & SCP_DRAM_RESV_EMBED)
+		scp_loader_virt = ioremap_wc(
+			SCP_DRAM_RESV_NO_EMBED(scp_region_info_copy.ap_loader_start),
+			scp_region_info_copy.ap_loader_size);
+	else
+		scp_loader_virt = ioremap_wc(
+			scp_region_info_copy.ap_loader_start,
+			scp_region_info_copy.ap_loader_size);
+	pr_debug("[SCP] loader image mem: virt:0x%llx - 0x%llx\n",
 		(uint64_t)(phys_addr_t)scp_loader_virt,
 		(uint64_t)(phys_addr_t)scp_loader_virt +
 		(phys_addr_t)scp_region_info_copy.ap_loader_size);
@@ -1935,12 +1983,11 @@ void scp_recovery_init(void)
 	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
 		/*if l1c enable, map it (include backup) */
 		scp_ap_dram_virt = ioremap_wc(
-		scp_region_info_copy.ap_dram_start,
-		ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
-
-	pr_debug("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
-		scp_region_info_copy.ap_dram_start,
-		scp_region_info_copy.ap_dram_size);
+				scp_region_info_copy.ap_dram_start,
+				ROUNDUP(scp_region_info_copy.ap_dram_size, 1024)*4);
+		pr_notice("[SCP] scp_ap_dram_virt map: 0x%x + 0x%x\n",
+				scp_region_info_copy.ap_dram_start,
+				scp_region_info_copy.ap_dram_size);
 	}
 #endif
 }
@@ -2429,15 +2476,15 @@ static int scp_device_probe(struct platform_device *pdev)
 static int scp_device_remove(struct platform_device *dev)
 {
 	if (scp_mbox_info) {
-		kfree(scp_mbox_info);
+		kvfree(scp_mbox_info);
 		scp_mbox_info = NULL;
 	}
 	if (scp_mbox_pin_recv) {
-		kfree(scp_mbox_pin_recv);
+		kvfree(scp_mbox_pin_recv);
 		scp_mbox_pin_recv = NULL;
 	}
 	if (scp_mbox_pin_send) {
-		kfree(scp_mbox_pin_send);
+		kvfree(scp_mbox_pin_send);
 		scp_mbox_pin_send = NULL;
 	}
 
@@ -2543,17 +2590,23 @@ static int __init scp_init(void)
 	scp_dvfs_init();
 	wait_scp_dvfs_init_done();
 
-	/* pll maybe gate, request pll before access any scp reg/sram */
-	scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
-	/* keep Univpll */
-	scp_resource_req(SCP_REQ_26M);
+	if (scp_dvfs_feature_enable()) {
+		/* pll maybe gate, request pll before access any scp reg/sram */
+		scp_pll_ctrl_set(PLL_ENABLE, CLK_26M);
+		/* keep Univpll */
+		scp_resource_req(SCP_REQ_26M);
+	}
 #endif /* SCP_DVFS_INIT_ENABLE */
 
-	if (platform_driver_register(&mtk_scp_device))
+	if (platform_driver_register(&mtk_scp_device)) {
 		pr_notice("[SCP] scp probe fail\n");
+		goto err_without_unregister;
+	}
 
-	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe))
+	if (platform_driver_probe(&mtk_scpsys_device, scpsys_device_probe)) {
 		pr_notice("[SCP] scpsys probe fail\n");
+		goto err;
+	}
 
 	/* skip initial if dts status = "disable" */
 	if (!scp_enable[SCP_A_ID]) {
@@ -2640,24 +2693,30 @@ static int __init scp_init(void)
 
 #if SCP_DVFS_INIT_ENABLE
 	/* remember to release pll */
-	scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+	if (scp_dvfs_feature_enable())
+		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
 #endif
 
 	driver_init_done = true;
 	reset_scp(SCP_ALL_ENABLE);
 
 #if SCP_DVFS_INIT_ENABLE
-	scp_init_vcore_request();
+	if (scp_dvfs_feature_enable())
+		scp_init_vcore_request();
 #endif /* SCP_DVFS_INIT_ENABLE */
 
 	register_3way_semaphore_notifier(&scp_semaphore_init_notifier);
 
 	return ret;
 err:
+	platform_driver_unregister(&mtk_scp_device);
+err_without_unregister:
 #if SCP_DVFS_INIT_ENABLE
-	/* remember to release pll */
-	scp_resource_req(SCP_REQ_RELEASE);
-	scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+	/* remember to release scp_dvfs resource */
+	if (scp_dvfs_feature_enable()) {
+		scp_resource_req(SCP_REQ_RELEASE);
+		scp_pll_ctrl_set(PLL_DISABLE, CLK_26M);
+	}
 	scp_dvfs_exit();
 #endif
 	return -1;

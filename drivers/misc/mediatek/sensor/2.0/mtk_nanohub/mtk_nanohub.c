@@ -2436,6 +2436,9 @@ static int mtk_nanohub_pm_event(struct notifier_block *notifier,
 	case PM_POST_SUSPEND:
 		pr_debug("resume ap boottime=%lld\n", ktime_get_boottime_ns());
 		WRITE_ONCE(rtc_compensation_suspend, false);
+		//Added to send flush command to light sensor.
+		pr_info("mtk_nanohub_pm_event calls Light_flush\n");
+		mtk_nanohub_flush_to_hub(type_to_id(SENSOR_TYPE_LIGHT));
 		mtk_nanohub_send_timestamp_to_hub();
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:

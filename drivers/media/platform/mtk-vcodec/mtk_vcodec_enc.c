@@ -48,6 +48,15 @@ inline unsigned int log2_enc(__u32 value)
 	return x;
 }
 
+void mtk_venc_do_gettimeofday(struct timespec64 *tv)
+{
+	struct timespec64 now;
+
+	ktime_get_real_ts64(&now);
+	tv->tv_sec = now.tv_sec;
+	tv->tv_nsec = now.tv_nsec; // micro sec = ((long)(now.tv_nsec)/1000);
+}
+
 static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_id_t id)
 {
 	struct venc_enc_param enc_prm;
@@ -62,7 +71,8 @@ static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 		mtk_v4l2_debug(3, "[%d] mtk_venc_property_prev %s",
 					ctx->id, mtk_venc_property_prev);
 
-		if (strcmp(mtk_venc_property_prev, enc_prm.set_vcp_buf) != 0 &&
+		// set vcp log every time
+		if (/* strcmp(mtk_venc_property_prev, enc_prm.set_vcp_buf) != 0 && */
 			strlen(enc_prm.set_vcp_buf) != 0) {
 
 			if (venc_if_set_param(ctx,
@@ -79,7 +89,8 @@ static void set_venc_vcp_data(struct mtk_vcodec_ctx *ctx, enum vcp_reserve_mem_i
 		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log %s", ctx->id, enc_prm.set_vcp_buf);
 		mtk_v4l2_debug(3, "[%d] mtk_venc_vcp_log_prev %s", ctx->id, mtk_venc_vcp_log_prev);
 
-		if (strcmp(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf) != 0 &&
+		// set vcp log every time
+		if (/* strcmp(mtk_venc_vcp_log_prev, enc_prm.set_vcp_buf) != 0 && */
 			strlen(enc_prm.set_vcp_buf) != 0) {
 
 			if (venc_if_set_param(ctx,
@@ -196,7 +207,6 @@ void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 			dst_vb2_v4l2->vb2_buf.timestamp =
 				src_vb2_v4l2->vb2_buf.timestamp;
 			dst_vb2_v4l2->timecode = src_vb2_v4l2->timecode;
-			dst_vb2_v4l2->flags |= src_vb2_v4l2->flags;
 			dst_vb2_v4l2->sequence = src_vb2_v4l2->sequence;
 			dst_buf = &dst_vb2_v4l2->vb2_buf;
 			dst_buf->planes[0].bytesused = rResult.bs_size;
@@ -394,7 +404,7 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			ctrl->val);
 		p->scenario = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_SCENARIO;
-		if (p->scenario == 3) {
+		if (p->scenario == 3 || p->scenario == 1) {
 			src_vq = v4l2_m2m_get_vq(ctx->m2m_ctx,
 				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 			src_vq->mem_ops = &venc_dma_contig_memops;
@@ -550,7 +560,10 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->param_change |= MTK_ENCODE_PARAM_DUMMY_NAL;
 		break;
 	case V4L2_CID_MPEG_MTK_LOG:
-		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char);
+		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_LOG);
+		break;
+	case V4L2_CID_MPEG_MTK_VCP_PROP:
+		mtk_vcodec_set_log(ctx->dev, ctrl->p_new.p_char, MTK_VCODEC_LOG_INDEX_PROP);
 		break;
 	default:
 		mtk_v4l2_debug(4, "ctrl-id=%d not support!", ctrl->id);
@@ -710,6 +723,9 @@ static int vidioc_venc_g_parm(struct file *file, void *priv,
 static struct mtk_q_data *mtk_venc_get_q_data(struct mtk_vcodec_ctx *ctx,
 					      enum v4l2_buf_type type)
 {
+	if (ctx == NULL)
+		return NULL;
+
 	if (V4L2_TYPE_IS_OUTPUT(type))
 		return &ctx->q_data[MTK_Q_DATA_SRC];
 
@@ -1829,14 +1845,23 @@ static int vb2ops_venc_queue_setup(struct vb2_queue *vq,
 				   unsigned int sizes[],
 				   struct device *alloc_devs[])
 {
-	struct mtk_vcodec_ctx *ctx = vb2_get_drv_priv(vq);
+	struct mtk_vcodec_ctx *ctx;
 	struct mtk_q_data *q_data;
 	unsigned int i;
 
-	q_data = mtk_venc_get_q_data(ctx, vq->type);
-
-	if (q_data == NULL)
+	if (IS_ERR_OR_NULL(vq) || IS_ERR_OR_NULL(nbuffers) ||
+	    IS_ERR_OR_NULL(nplanes) || IS_ERR_OR_NULL(alloc_devs)) {
+		mtk_v4l2_err("vq %p, nbuffers %p, nplanes %p, alloc_devs %p",
+			vq, nbuffers, nplanes, alloc_devs);
 		return -EINVAL;
+	}
+
+	ctx = vb2_get_drv_priv(vq);
+	q_data = mtk_venc_get_q_data(ctx, vq->type);
+	if (q_data == NULL || (*nplanes) > MTK_VCODEC_MAX_PLANES) {
+		mtk_v4l2_err("vq->type=%d nplanes %d err", vq->type, *nplanes);
+		return -EINVAL;
+	}
 
 	if (*nplanes) {
 		for (i = 0; i < *nplanes; i++)
@@ -1899,6 +1924,7 @@ static int vb2ops_venc_buf_prepare(struct vb2_buffer *vb)
 
 			buf_att = dma_buf_attach(vb->planes[i].dbuf,
 				&ctx->dev->plat_dev->dev);
+			buf_att->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 			sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
 			if (IS_ERR_OR_NULL(sgt)) {
 				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
@@ -1950,6 +1976,7 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 
 			buf_att = dma_buf_attach(vb->planes[0].dbuf,
 				&ctx->dev->plat_dev->dev);
+			buf_att->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 			sgt = dma_buf_map_attachment(buf_att, DMA_FROM_DEVICE);
 			if (IS_ERR_OR_NULL(sgt)) {
 				mtk_v4l2_err("dma_buf_map_attachment fail %d.\n", sgt);
@@ -1957,7 +1984,8 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 				return;
 			}
 			mtk_dma_sync_sg_range(sgt, &ctx->dev->plat_dev->dev,
-				vb->planes[0].bytesused, DMA_FROM_DEVICE);
+				 ROUND_N(vb->planes[0].bytesused, 64), DMA_FROM_DEVICE);
+
 			dma_buf_unmap_attachment(buf_att, sgt, DMA_FROM_DEVICE);
 
 			dst_mem.dma_addr = vb2_dma_contig_plane_dma_addr(vb, 0);
@@ -2104,8 +2132,10 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 		ctx->state = MTK_STATE_INIT;
 	}
 
+	mutex_lock(&ctx->dev->enc_dvfs_mutex);
 	mtk_venc_dvfs_begin_inst(ctx);
 	mtk_venc_pmqos_begin_inst(ctx);
+	mutex_unlock(&ctx->dev->enc_dvfs_mutex);
 
 	return 0;
 
@@ -2183,8 +2213,10 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 				v4l2_m2m_buf_done(src_vb2_v4l2, VB2_BUF_STATE_ERROR);
 		}
 		ctx->enc_flush_buf->lastframe = NON_EOS;
+		mutex_lock(&ctx->dev->enc_dvfs_mutex);
 		mtk_venc_dvfs_end_inst(ctx);
 		mtk_venc_pmqos_end_inst(ctx);
+		mutex_unlock(&ctx->dev->enc_dvfs_mutex);
 	}
 
 	if ((q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
@@ -3329,6 +3361,18 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_STRING;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video Log";
+	cfg.min = 0;
+	cfg.max = 255;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	mtk_vcodec_enc_custom_ctrls_check(handler, &cfg, NULL);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_VCP_PROP;
+	cfg.type = V4L2_CTRL_TYPE_STRING;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video VCP Property";
 	cfg.min = 0;
 	cfg.max = 255;
 	cfg.step = 1;

@@ -18,6 +18,7 @@
 
 #define GT9764_NAME				"gt9764"
 #define GT9764_MAX_FOCUS_POS			1023
+#define GT9764_ORIGIN_FOCUS_POS			512
 /*
  * This sets the minimum granularity for the focus positions.
  * A value of 1 gives maximum accuracy for a desired focus position
@@ -33,9 +34,10 @@
  * uniformly adjusted for gradual lens movement, with desired
  * number of control steps.
  */
-#define GT9764_MOVE_STEPS			16
-#define GT9764_MOVE_DELAY_US			8400
-#define GT9764_STABLE_TIME_US			20000
+#define GT9764_MOVE_STEPS			100
+#define GT9764_MOVE_DELAY_US			5000
+#define GT9764_POWERMOVE_STEPS		50
+static unsigned long g_u4setinitpos;
 
 /* gt9764 device structure */
 struct gt9764_device {
@@ -76,9 +78,19 @@ static int gt9764_set_position(struct gt9764_device *gt9764, u16 val)
 static int gt9764_release(struct gt9764_device *gt9764)
 {
 	int ret, val;
+	int diff_dac = 0;
+	int nStep_count = 0;
+	int i = 0;
 
-	for (val = round_down(gt9764->focus->val, GT9764_MOVE_STEPS);
-	     val >= 0; val -= GT9764_MOVE_STEPS) {
+	diff_dac = GT9764_ORIGIN_FOCUS_POS - gt9764->focus->val;
+
+	nStep_count = (diff_dac < 0 ? (diff_dac*(-1)) : diff_dac) /
+		GT9764_MOVE_STEPS;
+
+	val = gt9764->focus->val;
+
+	for (i = 0; i < nStep_count; ++i) {
+		val += (diff_dac < 0 ? (GT9764_MOVE_STEPS*(-1)) : GT9764_MOVE_STEPS);
 		ret = gt9764_set_position(gt9764, val);
 		if (ret) {
 			LOG_INF("%s I2C failure: %d",
@@ -89,12 +101,15 @@ static int gt9764_release(struct gt9764_device *gt9764)
 			     GT9764_MOVE_DELAY_US + 1000);
 	}
 
-	/*
-	 * Wait for the motor to stabilize after the last movement
-	 * to prevent the motor from shaking.
-	 */
-	usleep_range(GT9764_STABLE_TIME_US - GT9764_MOVE_DELAY_US,
-		     GT9764_STABLE_TIME_US - GT9764_MOVE_DELAY_US + 1000);
+	// last step to origin
+	ret = gt9764_set_position(gt9764, GT9764_ORIGIN_FOCUS_POS);
+	if (ret) {
+		LOG_INF("%s I2C failure: %d",
+			__func__, ret);
+		return ret;
+	}
+
+	LOG_INF("-\n");
 
 	return 0;
 }
@@ -189,17 +204,44 @@ fail:
 
 static int gt9764_set_ctrl(struct v4l2_ctrl *ctrl)
 {
-	int ret = 0;
-	struct gt9764_device *gt9764 = to_gt9764_vcm(ctrl);
+	int ret, val,last_val;
+	int diff_dac= 0;
+	int nStep_count = 0;
 
-	if (ctrl->id == V4L2_CID_FOCUS_ABSOLUTE) {
-		LOG_INF("pos(%d)\n", ctrl->val);
-		ret = gt9764_set_position(gt9764, ctrl->val);
+	struct gt9764_device *gt9764 = to_gt9764_vcm(ctrl);
+	diff_dac = GT9764_ORIGIN_FOCUS_POS - gt9764->focus->val;
+	nStep_count = (diff_dac < 0 ? (diff_dac*(-1)) : diff_dac) /GT9764_POWERMOVE_STEPS;
+	last_val = gt9764->focus->val;
+	if (g_u4setinitpos > 0 ){
+		LOG_INF("current diff_dac:%d,nStep_count:%d,val:%d,last_val:%d,g_u4setinitpos:%d",diff_dac,nStep_count,val,last_val,g_u4setinitpos);
+		for (int i = 0; i < nStep_count; ++i) {
+			val = GT9764_ORIGIN_FOCUS_POS + (i+1)*(diff_dac < 0 ? GT9764_POWERMOVE_STEPS :(GT9764_POWERMOVE_STEPS*(-1)));
+			ret = gt9764_set_position(gt9764, val);
+			if (ret) {
+				LOG_INF("%s I2C failure: %d",
+					__func__, ret);
+				return ret;
+			}
+			mdelay(5);
+		}
+		usleep_range(GT9764_MOVE_DELAY_US,
+					GT9764_MOVE_DELAY_US + 1000);
+		// move to last pos
+		ret = gt9764_set_position(gt9764, last_val);
 		if (ret) {
 			LOG_INF("%s I2C failure: %d",
 				__func__, ret);
 			return ret;
 		}
+		g_u4setinitpos--;
+	}else
+	{
+		ret = gt9764_set_position(gt9764, ctrl->val);
+		if (ret) {
+				LOG_INF("%s I2C failure: %d",
+					__func__, ret);
+				return ret;
+			}
 	}
 	return 0;
 }
@@ -212,6 +254,7 @@ static int gt9764_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	int ret;
 	struct gt9764_device *gt9764 = sd_to_gt9764_vcm(sd);
+	g_u4setinitpos = 2;
 
 	LOG_INF("%s\n", __func__);
 
@@ -290,6 +333,7 @@ static int gt9764_probe(struct i2c_client *client)
 	}
 
 	gt9764->vdd = devm_regulator_get(dev, "vdd");
+
 	if (IS_ERR(gt9764->vdd)) {
 		ret = PTR_ERR(gt9764->vdd);
 		if (ret != -EPROBE_DEFER)

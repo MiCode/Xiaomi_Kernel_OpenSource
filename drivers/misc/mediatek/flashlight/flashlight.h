@@ -47,12 +47,20 @@
 
 /* flashlight arguments */
 #define FLASHLIGHT_TYPE_MAX 2
+#ifdef __XIAOMI_CAMERA__
+#define FLASHLIGHT_CT_MAX 4
+#else
 #define FLASHLIGHT_CT_MAX 3
+#endif
 #define FLASHLIGHT_PART_MAX 2
 struct flashlight_user_arg {
 	int type_id;
 	int ct_id;
 	int arg;
+#ifdef __XIAOMI_CAMERA__
+	int warm_current;
+	int cold_current;
+#endif
 };
 
 /* ioctl magic number */
@@ -110,6 +118,27 @@ struct flashlight_user_arg {
 #define FLASH_IOC_GET_HW_TIMEOUT           _IOWR(FLASHLIGHT_MAGIC, 240, int)
 #define FLASH_IOC_GET_HW_FAULT             _IOR(FLASHLIGHT_MAGIC, 250, int)
 #define FLASH_IOC_GET_HW_FAULT2            _IOR(FLASHLIGHT_MAGIC, 251, int)
+
+#ifdef __XIAOMI_CAMERA__
+#define XIAOMI_IOC_SET_FLASH_CUR           _IOR(FLASHLIGHT_MAGIC, 1000, int)
+#define XIAOMI_IOC_SET_TORCH_CUR           _IOR(FLASHLIGHT_MAGIC, 1001, int)
+#define XIAOMI_IOC_SET_MODE                _IOR(FLASHLIGHT_MAGIC, 1002, int)
+#define XIAOMI_IOC_SET_ONOFF               _IOR(FLASHLIGHT_MAGIC, 1003, int)
+#define XIAOMI_IOC_SET_HW_TIMEOUT          _IOR(FLASHLIGHT_MAGIC, 1004, int)
+//for single wide led control
+#define XIAOMI_IOC_SET_SINGLE_FLASH_CUR           _IOR(FLASHLIGHT_MAGIC, 1008, int)
+#define XIAOMI_IOC_SET_SINGLE_TORCH_CUR           _IOR(FLASHLIGHT_MAGIC, 1009, int)
+#define XIAOMI_IOC_SET_SINGLE_ONOFF               _IOR(FLASHLIGHT_MAGIC, 1010, int)
+
+
+#define XIAOMI_IOC_SET_TORCH_FRONT_CUR           _IOR(FLASHLIGHT_MAGIC, 1005, int)
+#define XIAOMI_IOC_SET_FRONT_MODE                _IOR(FLASHLIGHT_MAGIC, 1006, int)
+#define XIAOMI_IOC_SET_FRONT_ONOFF               _IOR(FLASHLIGHT_MAGIC, 1007, int)
+//for single front led control
+#define XIAOMI_IOC_SET_SINGLE_FRONT_ONOFF               _IOR(FLASHLIGHT_MAGIC, 1011, int)
+#define XIAOMI_IOC_SET_SINGLE_TORCH_FRONT_CUR           _IOR(FLASHLIGHT_MAGIC, 1012, int)
+
+#endif
 
 #endif /* _FLASHLIGHT_H */
 

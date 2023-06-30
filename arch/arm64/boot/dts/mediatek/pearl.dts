@@ -1,0 +1,2 @@
+#include "mediatek/pearl-mt6895.dtsi"
+#include <pearl/cust.dtsi>

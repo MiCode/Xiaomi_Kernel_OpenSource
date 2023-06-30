@@ -24,6 +24,10 @@ androidboot.hardware=mt6895";
 	};
 };
 
+&utos {
+       microtrust,real-drv = <1>;
+};
+
 &mtk_leds {
 	compatible = "mediatek,i2c-leds";
 
@@ -678,6 +682,10 @@ androidboot.hardware=mt6895";
 
 &pdc {
 	pd_vbus_upper_bound = <12000000>;
+};
+
+&mmlsys_config {
+	racing-enable;
 };
 
 #include "mediatek/cust_mt6895_touch_1080x2400.dtsi"

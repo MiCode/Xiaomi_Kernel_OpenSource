@@ -17,6 +17,16 @@
 #include <linux/shrinker.h>
 #include <linux/types.h>
 
+static u64 devices_totalram;
+/*
+ * 6GB totalram unit is pages
+ * 6 * 1024 * 1024 / 4 = 1572864
+ */
+#define HIGH_MEM_DEVICE (devices_totalram > 1572864)
+#define THIRTY_MB_PAGES (7680)
+#define THREE_HUNDRED_MB_PAGES (76800)
+#define ONE_EIGHTH_AT_A_TIME (3)
+
 /* page types we track in the pool */
 enum {
 	POOL_LOWPAGE,      /* Clean lowmem pages */

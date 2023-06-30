@@ -604,7 +604,7 @@ static void ufs_mtk_init_va09_pwr_ctrl(struct ufs_hba *hba)
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
 	host->reg_va09 = regulator_get(hba->dev, "va09");
-	if (!host->reg_va09)
+	if (IS_ERR(host->reg_va09))
 		dev_info(hba->dev, "failed to get va09");
 	else
 		host->caps |= UFS_MTK_CAP_VA09_PWR_CTRL;
@@ -976,15 +976,8 @@ static void ufs_mtk_get_controller_version(struct ufs_hba *hba)
 
 	ret = ufshcd_dme_get(hba, UIC_ARG_MIB(PA_LOCALVERINFO), &ver);
 	if (!ret) {
-		if (ver >= UFS_UNIPRO_VER_1_8) {
+		if (ver >= UFS_UNIPRO_VER_1_8)
 			host->hw_ver.major = 3;
-			/*
-			 * Fix HCI version for some platforms with
-			 * incorrect version
-			 */
-			if (hba->ufs_version < ufshci_version(3, 0))
-				hba->ufs_version = ufshci_version(3, 0);
-		}
 	}
 }
 
@@ -2050,7 +2043,7 @@ static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
 	if (dev_info->wspecversion >= 0x0300) {
 		if (vreg_info->vccq2) {
 			regulator_disable(vreg_info->vccq2->reg);
-			kfree(vreg_info->vccq2->name);
+			devm_kfree(hba->dev, vreg_info->vccq2->name);
 			devm_kfree(hba->dev, vreg_info->vccq2);
 			vreg_info->vccq2 = NULL;
 		}
@@ -2059,7 +2052,7 @@ static void ufs_mtk_fix_regulators(struct ufs_hba *hba)
 	} else {
 		if (vreg_info->vccq) {
 			regulator_disable(vreg_info->vccq->reg);
-			kfree(vreg_info->vccq->name);
+			devm_kfree(hba->dev, vreg_info->vccq->name);
 			devm_kfree(hba->dev, vreg_info->vccq);
 			vreg_info->vccq = NULL;
 		}
@@ -2108,8 +2101,10 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 	struct ufs_dev_info *dev_info = &hba->dev_info;
 	u16 mid = dev_info->wmanufacturerid;
 
-	if (mid == UFS_VENDOR_SAMSUNG)
+	if (mid == UFS_VENDOR_SAMSUNG) {
 		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 6);
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HIBERN8TIME), 10);
+	}
 
 	/*
 	 * Decide waiting time before gating reference clock and
@@ -2144,10 +2139,9 @@ static void ufs_mtk_fixup_dev_quirks(struct ufs_hba *hba)
 
 	ufshcd_fixup_dev_quirks(hba, ufs_mtk_dev_fixups);
 
-	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON) {
+	if (dev_info->wmanufacturerid == UFS_VENDOR_MICRON)
 		host->caps |= UFS_MTK_CAP_BROKEN_VCC;
-		dev_info->hpb_enabled = false;
-	}
+
 
 	if (ufs_mtk_is_delay_after_vcc_off(hba) && hba->vreg_info.vcc) {
 		/*
@@ -2229,6 +2223,10 @@ static void ufs_mtk_hibern8_notify(struct ufs_hba *hba, enum uic_cmd_dme cmd,
 
 	if (status == PRE_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER)
 		ufs_mtk_auto_hibern8_disable(hba);
+
+	if (status == POST_CHANGE && cmd == UIC_CMD_DME_HIBER_ENTER &&
+		hba->dev_info.wmanufacturerid == UFS_VENDOR_MICRON)
+		usleep_range(5000, 5100);
 }
 
 void ufs_mtk_setup_task_mgmt(struct ufs_hba *hba, int tag, u8 tm_function)
@@ -2281,7 +2279,6 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	struct platform_device *reset_pdev;
 	struct device_link *link;
 	struct ufs_hba *hba;
-	struct cpumask imask;
 
 	reset_node = of_find_compatible_node(NULL, NULL,
 					     "ti,syscon-reset");
@@ -2317,11 +2314,9 @@ skip_reset:
 
 	/* set affinity to cpu3 */
 	hba = platform_get_drvdata(pdev);
-	if (hba && hba->irq) {
-		cpumask_clear(&imask);
-		cpumask_set_cpu(3, &imask);
-		irq_set_affinity_hint(hba->irq, &imask);
-	}
+	if (hba && hba->irq)
+		irq_set_affinity_hint(hba->irq, get_cpu_mask(3));
+
 out:
 
 	of_node_put(reset_node);
@@ -2363,13 +2358,17 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 int ufs_mtk_pltfrm_suspend(struct device *dev)
 {
 	int ret;
-#if defined(CONFIG_UFSFEATURE)
 	struct ufs_hba *hba = dev_get_drvdata(dev);
+#if defined(CONFIG_UFSFEATURE)
 	struct ufsf_feature *ufsf = ufs_mtk_get_ufsf(hba);
 
 	if (ufsf->hba)
 		ufsf_suspend(ufsf);
 #endif
+
+	/* Check if shutting down */
+	if (!ufshcd_is_user_access_allowed(hba))
+		return -EBUSY;
 
 	ret = ufshcd_pltfrm_suspend(dev);
 #if defined(CONFIG_UFSFEATURE)

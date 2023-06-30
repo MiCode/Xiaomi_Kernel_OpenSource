@@ -1346,7 +1346,13 @@ static void u2_phy_props_set(struct mtk_xsphy *xsphy,
 		tmp |= P2AR_RG_INTR_CAL_VAL(inst->efuse_intr);
 		writel(tmp, pbase + XSP_USBPHYA_RESERVE);
 	}
-
+#if defined(CONFIG_TARGET_PRODUCT_DAUMIER)
+	pr_info("%s intr->efuse_intr=0x%x\n", __func__, inst->efuse_intr);
+	tmp = readl(pbase + XSP_USBPHYA_RESERVE);
+	tmp &= ~P2AR_RG_INTR_CAL;
+	tmp |= P2AR_RG_INTR_CAL_VAL(38);
+	writel(tmp, pbase + XSP_USBPHYA_RESERVE);
+#endif
 	if (inst->efuse_term_cal) {
 		tmp = readl(pbase + XSP_USBPHYA_RESERVEA);
 		tmp &= ~P2ARA_RG_TERM_CAL;

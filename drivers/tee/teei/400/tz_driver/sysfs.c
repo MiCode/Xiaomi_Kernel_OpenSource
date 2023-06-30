@@ -30,6 +30,8 @@ static uint32_t imsg_log_level = IMSG_LOG_LEVEL;
 static DEFINE_MUTEX(drv_load_mutex);
 unsigned long spi_ready_flag;
 
+static int current_mode = NON_GAME_MODE;
+
 #if IS_ENABLED(CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG)
 uint32_t tzdriver_dynamical_debug_flag;
 #endif
@@ -614,6 +616,27 @@ static ssize_t tzdriver_dynamical_debug_store(struct device *dev,
 static DEVICE_ATTR_RW(tzdriver_dynamical_debug);
 #endif
 
+static ssize_t tzdriver_current_mode_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t len)
+{
+	int retVal = 0;
+	uint32_t value;
+
+	hex_str_to_value(buf, 8, &value);
+
+	if ((value != GAME_MODE) && (value != NON_GAME_MODE))
+		return len;
+
+	retVal = teei_switch_current_mode(value);
+
+	if (retVal == 0)
+		current_mode = value;
+
+	return len;
+}
+static DEVICE_ATTR_WO(tzdriver_current_mode);
+
 static struct device_attribute *attr_list[] = {
 		&dev_attr_imsg_log_level,
 		&dev_attr_imsg_log_test,
@@ -632,6 +655,7 @@ static struct device_attribute *attr_list[] = {
 		&dev_attr_tzdriver_dynamical_debug,
 #endif
 		&dev_attr_teei_log_level,
+		&dev_attr_tzdriver_current_mode,
 		NULL
 };
 

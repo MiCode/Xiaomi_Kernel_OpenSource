@@ -26,6 +26,7 @@ struct mtk_ddp_comp;
 
 struct mtk_drm_qos_ctx {
 	unsigned int last_hrt_req;
+	unsigned int last_mmclk_req_idx;
 	atomic_t last_hrt_idx;
 	atomic_t hrt_cond_sig;
 	wait_queue_head_t hrt_cond_wq;
@@ -43,6 +44,7 @@ void mtk_drm_pan_disp_set_hrt_bw(struct drm_crtc *crtc, const char *caller);
 int __mtk_disp_pmqos_slot_look_up(int comp_id, int mode);
 int mtk_disp_hrt_cond_init(struct drm_crtc *crtc);
 void mtk_drm_mmdvfs_init(struct device *dev);
+unsigned int mtk_drm_get_mmclk_step_size(void);
 void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level, const char *caller);
 void mtk_drm_set_mmclk_by_pixclk(struct drm_crtc *crtc, unsigned int pixclk,
 			const char *caller);

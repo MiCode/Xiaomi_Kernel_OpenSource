@@ -168,6 +168,7 @@ struct mml_frame_info {
 	uint8_t dest_cnt;	/* should be < MML_MAX_OUTPUTS */
 	int8_t mode;	/* one of mml_mode */
 	uint8_t layer_id;
+	bool alpha;	/* alpha channel preserve */
 };
 
 struct mml_frame_size {
@@ -212,6 +213,8 @@ struct mml_submit {
 	struct mml_job *job;
 	struct mml_frame_info info;
 	struct mml_frame_buffer buffer;
+	u16 layer_width;
+	u16 layer_height;
 	struct timeval_t {
 		uint64_t sec;
 		uint64_t nsec;

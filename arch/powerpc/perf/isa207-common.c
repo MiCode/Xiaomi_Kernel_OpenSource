@@ -363,7 +363,8 @@ int isa207_get_constraint(u64 event, unsigned long *maskp, unsigned long *valp)
 		if (event_is_threshold(event) && is_thresh_cmp_valid(event)) {
 			mask  |= CNST_THRESH_MASK;
 			value |= CNST_THRESH_VAL(event >> EVENT_THRESH_SHIFT);
-		}
+		} else if (event_is_threshold(event))
+			return -1;
 	} else {
 		/*
 		 * Special case for PM_MRK_FAB_RSP_MATCH and PM_MRK_FAB_RSP_MATCH_CYC,
@@ -560,6 +561,14 @@ int isa207_compute_mmcr(u64 event[], int n_ev,
 	/* If we're not using PMC 5 or 6, freeze them */
 	if (!(pmc_inuse & 0x60))
 		mmcr->mmcr0 |= MMCR0_FC56;
+
+	/*
+	 * Set mmcr0 (PMCCEXT) for p10 which
+	 * will restrict access to group B registers
+	 * when MMCR0 PMCC=0b00.
+	 */
+	if (cpu_has_feature(CPU_FTR_ARCH_31))
+		mmcr->mmcr0 |= MMCR0_PMCCEXT;
 
 	mmcr->mmcr1 = mmcr1;
 	mmcr->mmcra = mmcra;

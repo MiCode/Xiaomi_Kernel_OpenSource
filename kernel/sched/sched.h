@@ -609,8 +609,8 @@ struct cfs_rq {
 	s64			runtime_remaining;
 
 	u64			throttled_clock;
-	u64			throttled_clock_task;
-	u64			throttled_clock_task_time;
+	u64			throttled_clock_pelt;
+	u64			throttled_clock_pelt_time;
 	int			throttled;
 	int			throttle_count;
 	struct list_head	throttled_list;
@@ -1192,6 +1192,23 @@ static inline u64 rq_clock_task(struct rq *rq)
 
 	return rq->clock_task;
 }
+
+#ifdef CONFIG_SMP
+DECLARE_PER_CPU(u64, clock_task_mult);
+
+static inline u64 rq_clock_task_mult(struct rq *rq)
+{
+	lockdep_assert_held(&rq->lock);
+	assert_clock_updated(rq);
+
+	return per_cpu(clock_task_mult, cpu_of(rq));
+}
+#else
+static inline u64 rq_clock_task_mult(struct rq *rq)
+{
+	return rq_clock_task(rq);
+}
+#endif
 
 /**
  * By default the decay is the default pelt decay period.

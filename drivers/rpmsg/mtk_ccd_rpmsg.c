@@ -26,10 +26,13 @@ void __ept_release(struct kref *kref)
 						  refcount);
 	struct mtk_ccd_rpmsg_endpoint *mept = to_mtk_rpmsg_endpoint(ept);
 	struct mtk_rpmsg_rproc_subdev *mtk_subdev = mept->mtk_subdev;
+	struct rpmsg_device *rpdev = ept->rpdev;
 
 	dev_info(&mtk_subdev->pdev->dev, "free mtk rpmsg endpoint: %p\n",
 		 mept);
 	kfree(to_mtk_rpmsg_endpoint(ept));
+
+	put_device(&rpdev->dev);
 }
 
 void mtk_rpmsg_ipi_handler(void *data, unsigned int len, void *priv)
@@ -62,6 +65,7 @@ __rpmsg_create_ept(struct mtk_rpmsg_rproc_subdev *mtk_subdev,
 	kref_init(&ept->refcount);
 	mutex_init(&ept->cb_lock);
 
+	get_device(&rpdev->dev);
 	ept->rpdev = rpdev;
 	ept->cb = cb;
 	ept->priv = priv;
@@ -181,6 +185,8 @@ static void mtk_rpmsg_release_device(struct device *dev)
 {
 	struct rpmsg_device *rpdev = to_rpmsg_device(dev);
 	struct mtk_rpmsg_device *mdev = to_mtk_rpmsg_device(rpdev);
+
+	dev_dbg(dev, "%s: rpdev %p\n", __func__, rpdev);
 
 	kfree(mdev);
 }
@@ -480,10 +486,14 @@ static int ccd_msgdev_cb(struct rpmsg_device *rpdev, void *data,
 	/* use the src addr to fetch the callback of the appropriate user */
 	mutex_lock(&mtk_subdev->endpoints_lock);
 	srcmdev = idr_find(&mtk_subdev->endpoints, src);
-	mutex_unlock(&mtk_subdev->endpoints_lock);
+	if (!srcmdev) {
+		dev_dbg(&mtk_subdev->pdev->dev, "src ept is not exist\n");
+		mutex_unlock(&mtk_subdev->endpoints_lock);
+		return -1;
+	}
 
-	if (!srcmdev)
-		return -EINVAL;
+	get_device(&srcmdev->rpdev.dev);
+	mutex_unlock(&mtk_subdev->endpoints_lock);
 
 	ept = srcmdev->rpdev.ept;
 	/* let's make sure no one deallocates ept while we use it */
@@ -508,6 +518,8 @@ static int ccd_msgdev_cb(struct rpmsg_device *rpdev, void *data,
 		dev_info(&mtk_subdev->pdev->dev,
 			 "msg received with no recipient\n");
 	}
+
+	put_device(&srcmdev->rpdev.dev);
 	return ret;
 }
 

@@ -86,6 +86,8 @@ void mtk_bandwidth_update_info(int pid, int frame_nr, int job_id)
 	v1->ctx = (u32)pid;
 	v1->frame = (u32)frame_nr;
 	v1->job = (u32)job_id;
+
+	MTKGPUQoS_mode();
 }
 
 void mtk_bandwidth_check_SF(int pid, int isSF)

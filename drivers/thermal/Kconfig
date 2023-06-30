@@ -504,4 +504,22 @@ config KHADAS_MCU_FAN_THERMAL
 	  If you say yes here you get support for the FAN controlled
 	  by the Microcontroller found on the Khadas VIM boards.
 
+config MI_THERMAL_MULTI_CHARGE
+	tristate "enable multi charge themral interface"
+	help
+	  Enable multi charge function in kernel, add two sysfs nodes in
+	  thermal_message.
+
+config MI_THERMAL_ATC_ENABLE
+	tristate "enable atc enable themral interface"
+	help
+	  Enable atc enable function in kernel, add two sysfs nodes in
+	  thermal_message.
+
+config MI_THERMAL_TZMODE
+	tristate "enable game mode for beanpod tee"
+	help
+	  Enable game mode in kernel when the device uses beanpod tee
+	  instead of mitee.
+
 endif
