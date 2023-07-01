@@ -599,6 +599,7 @@ struct mtk_mmc_compatible {
 #define MSDC_NEW_RX_V2		(2)
 #define support_new_rx(x)	((x) != 0)
 	bool set_crypto_enable_in_sw;
+	u32 autok_ver;
 };
 
 struct msdc_tune_para {

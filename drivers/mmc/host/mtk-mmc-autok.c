@@ -1570,7 +1570,7 @@ static int autok_adjust_param(struct msdc_host *host,
 	u32 tune_reg = host->dev_comp->pad_tune_reg;
 
 	memset(&platform_top_ctrl, 0, sizeof(struct AUTOK_PLAT_TOP_CTRL));
-	get_platform_top_ctrl(platform_top_ctrl);
+	get_platform_top_ctrl_by_ver(platform_top_ctrl, host->dev_comp->autok_ver);
 
 	switch (param) {
 	case READ_DATA_SMPL_SEL:
@@ -2503,10 +2503,10 @@ int autok_path_sel(struct msdc_host *host)
 	memset(&platform_para_rx, 0, sizeof(struct AUTOK_PLAT_PARA_RX));
 	memset(&platform_para_func, 0, sizeof(struct AUTOK_PLAT_FUNC));
 	memset(&platform_top_ctrl, 0, sizeof(struct AUTOK_PLAT_TOP_CTRL));
-	get_platform_para_tx(platform_para_tx);
-	get_platform_para_rx(platform_para_rx);
-	get_platform_func(platform_para_func);
-	get_platform_top_ctrl(platform_top_ctrl);
+	get_platform_para_tx_by_ver(platform_para_tx, host->dev_comp->autok_ver);
+	get_platform_para_rx_by_ver(platform_para_rx, host->dev_comp->autok_ver);
+	get_platform_func_by_ver(platform_para_func, host->dev_comp->autok_ver);
+	get_platform_top_ctrl_by_ver(platform_top_ctrl, host->dev_comp->autok_ver);
 
 	autok_write_param(host, READ_DATA_SMPL_SEL, 0);
 	autok_write_param(host, WRITE_DATA_SMPL_SEL, 0);
@@ -2591,8 +2591,8 @@ int autok_init_sdr104(struct msdc_host *host)
 	
 	memset(&platform_para_rx, 0, sizeof(struct AUTOK_PLAT_PARA_RX));
 	memset(&platform_para_func, 0, sizeof(struct AUTOK_PLAT_FUNC));
-	get_platform_para_rx(platform_para_rx);
-	get_platform_func(platform_para_func);
+	get_platform_para_rx_by_ver(platform_para_rx, host->dev_comp->autok_ver);
+	get_platform_func_by_ver(platform_para_func, host->dev_comp->autok_ver);
 
 	/* driver may miss data tune path setting in the interim */
 	autok_path_sel(host);
@@ -2656,8 +2656,8 @@ int autok_init_hs200(struct msdc_host *host)
 
 	memset(&platform_para_rx, 0, sizeof(struct AUTOK_PLAT_PARA_RX));
 	memset(&platform_para_func, 0, sizeof(struct AUTOK_PLAT_FUNC));
-	get_platform_para_rx(platform_para_rx);
-	get_platform_func(platform_para_func);
+	get_platform_para_rx_by_ver(platform_para_rx, host->dev_comp->autok_ver);
+	get_platform_func_by_ver(platform_para_func, host->dev_comp->autok_ver);
 
 	/* driver may miss data tune path setting in the interim */
 	autok_path_sel(host);
@@ -2709,8 +2709,8 @@ int autok_init_hs400(struct msdc_host *host)
 
 	memset(&platform_para_rx, 0, sizeof(struct AUTOK_PLAT_PARA_RX));
 	memset(&platform_para_func, 0, sizeof(struct AUTOK_PLAT_FUNC));
-	get_platform_para_rx(platform_para_rx);
-	get_platform_func(platform_para_func);
+	get_platform_para_rx_by_ver(platform_para_rx, host->dev_comp->autok_ver);
+	get_platform_func_by_ver(platform_para_func, host->dev_comp->autok_ver);
 
 	/* driver may miss data tune path setting in the interim */
 	autok_path_sel(host);
@@ -2791,8 +2791,8 @@ int execute_online_tuning_hs400(struct msdc_host *host, u8 *res)
 	memset(&autok_host_para, 0, sizeof(struct autok_host));
 	memset(&platform_para_rx, 0, sizeof(struct AUTOK_PLAT_PARA_RX));
 	memset(&platform_para_tx, 0, sizeof(struct AUTOK_PLAT_PARA_TX));
-	get_platform_para_rx(platform_para_rx);
-	get_platform_para_tx(platform_para_tx);
+	get_platform_para_rx_by_ver(platform_para_rx, host->dev_comp->autok_ver);
+	get_platform_para_tx_by_ver(platform_para_tx, host->dev_comp->autok_ver);
 
 	autok_init_hs400(host);
 	memset((void *)p_autok_tune_res, 0,
@@ -3165,8 +3165,8 @@ int execute_online_tuning_hs200(struct msdc_host *host, u8 *res)
 	memset(&autok_host_para, 0, sizeof(struct autok_host));
 	memset(&platform_para_func, 0, sizeof(struct AUTOK_PLAT_FUNC));
 	memset(&platform_para_tx, 0, sizeof(struct AUTOK_PLAT_PARA_TX));
-	get_platform_func(platform_para_func);
-	get_platform_para_tx(platform_para_tx);
+	get_platform_func_by_ver(platform_para_func, host->dev_comp->autok_ver);
+	get_platform_para_tx_by_ver(platform_para_tx, host->dev_comp->autok_ver);
 
 	autok_init_hs200(host);
 	memset((void *)p_autok_tune_res, 0,
@@ -3337,8 +3337,8 @@ int execute_online_tuning(struct msdc_host *host, u8 *res)
 	memset(&autok_host_para, 0, sizeof(struct autok_host));
 	memset(&platform_para_func, 0, sizeof(struct AUTOK_PLAT_FUNC));
 	memset(&platform_para_tx, 0, sizeof(struct AUTOK_PLAT_PARA_TX));
-	get_platform_func(platform_para_func);
-	get_platform_para_tx(platform_para_tx);
+	get_platform_func_by_ver(platform_para_func, host->dev_comp->autok_ver);
+	get_platform_para_tx_by_ver(platform_para_tx, host->dev_comp->autok_ver);
 
 	autok_init_sdr104(host);
 	memset((void *)p_autok_tune_res, 0,
@@ -3494,7 +3494,7 @@ void autok_msdc_tx_setting(struct msdc_host *host, struct mmc_ios *ios)
 	unsigned int clk_mode;
 
 	memset(&platform_para_tx, 0, sizeof(struct AUTOK_PLAT_PARA_TX));
-	get_platform_para_tx(platform_para_tx);
+	get_platform_para_tx_by_ver(platform_para_tx, host->dev_comp->autok_ver);
 	if (host->dev_comp->clk_div_bits == 8)
 		sdr_get_field(host->base + MSDC_CFG,
 			MSDC_CFG_CKMOD, &clk_mode);
@@ -3972,7 +3972,7 @@ int hs200_execute_tuning(struct msdc_host *host, u8 *res)
 	unsigned int ckgen;
 
 	memset(&platform_para_func, 0, sizeof(struct AUTOK_PLAT_FUNC));
-	get_platform_func(platform_para_func);
+	get_platform_func_by_ver(platform_para_func, host->dev_comp->autok_ver);
 	ktime_get_ts64(&tm_s);
 	int_en = readl(host->base + MSDC_INTEN);
 	writel(0, host->base + MSDC_INTEN);

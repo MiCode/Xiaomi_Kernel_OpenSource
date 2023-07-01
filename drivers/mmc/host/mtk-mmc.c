@@ -232,6 +232,7 @@ static const struct mtk_mmc_compatible mt6765_compat = {
 	.support_64g = true,
 	.need_gate_cg = true,
 	.set_crypto_enable_in_sw = true,
+	.autok_ver = 0x17122120,
 };
 
 static const struct mtk_mmc_compatible mt6768_compat = {
@@ -246,6 +247,7 @@ static const struct mtk_mmc_compatible mt6768_compat = {
 	.enhance_rx = true,
 	.support_64g = true,
 	.need_gate_cg = true,
+	.autok_ver = 0x18110817,
 };
 
 static const struct mtk_mmc_compatible common_compat = {

@@ -161,7 +161,98 @@ struct AUTOK_PLAT_FUNC {
 	u8 msdc1_bypass_duty_modify;
 	u8 msdc2_bypass_duty_modify;
 };
+/*****************************************************************/
+#define get_platform_para_tx_by_ver(autok_para_tx, autok_ver) \
+	do { \
+		get_platform_para_tx(autok_para_tx); \
+		switch (autok_ver) { \
+		case 0x18110817: \
+			break; \
+		case 0x17122120: \
+			autok_para_tx.msdc1_clktx = 4; \
+			autok_para_tx.msdc1_sdr104_clktx = 4; \
+			break; \
+		default: \
+			break; \
+		} \
+	} while (0)
 
+#define get_platform_para_rx_by_ver(autok_para_rx, autok_ver) \
+	do { \
+		get_platform_para_rx(autok_para_rx); \
+		switch (autok_ver) { \
+		case 0x18110817: \
+			break; \
+		case 0x17122120: \
+			autok_para_rx.latch_en_cmd_hs400 = 2; \
+			autok_para_rx.latch_en_crc_hs400 = 2; \
+			autok_para_rx.latch_en_cmd_hs200 = 1; \
+			autok_para_rx.latch_en_crc_hs200 = 1; \
+			autok_para_rx.latch_en_cmd_ddr208 = 2; \
+			autok_para_rx.latch_en_crc_ddr208 = 2; \
+			autok_para_rx.latch_en_cmd_sd_sdr104 = 1; \
+			autok_para_rx.latch_en_crc_sd_sdr104 = 1; \
+			autok_para_rx.latch_en_cmd_sdio_sdr104 = 1; \
+			autok_para_rx.latch_en_crc_sdio_sdr104 = 1; \
+			autok_para_rx.read_dat_cnt_hs400 = 1; \
+			autok_para_rx.read_dat_cnt_ddr208 = 1; \
+			autok_para_rx.end_bit_chk_cnt_hs400 = 6; \
+			autok_para_rx.end_bit_chk_cnt_ddr208 = 3; \
+			autok_para_rx.latchck_switch_cnt_hs400 = 4; \
+			autok_para_rx.latchck_switch_cnt_ddr208 = 3; \
+			autok_para_rx.ds_dly3_ddr208 = 20; \
+			break; \
+		default: \
+			break; \
+		} \
+	} while (0)
+
+#define get_platform_para_misc_by_ver(autok_para_misc, autok_ver) \
+	do { \
+		get_platform_para_misc(autok_para_misc); \
+		switch (autok_ver) { \
+		case 0x18110817: \
+			break; \
+		case 0x17122120: \
+			break; \
+		default: \
+			break; \
+		} \
+	} while (0)
+
+#define get_platform_top_ctrl_by_ver(autok_top_ctrl, autok_ver) \
+	do { \
+		get_platform_top_ctrl(autok_top_ctrl); \
+		switch (autok_ver) { \
+		case 0x18110817: \
+			break; \
+		case 0x17122120: \
+			break; \
+		default: \
+			break; \
+		} \
+	} while (0)
+
+#define get_platform_func_by_ver(autok_para_func, autok_ver) \
+	do { \
+		get_platform_func(autok_para_func); \
+		switch (autok_ver) { \
+		case 0x18110817: \
+			break; \
+		case 0x17122120: \
+			autok_para_func.r1b_check = 0; \
+			autok_para_func.ddr50_fix = 0; \
+			autok_para_func.fifo_1k = 0; \
+			autok_para_func.latch_enhance = 0; \
+			autok_para_func.msdc0_bypass_duty_modify = 0; \
+			autok_para_func.msdc1_bypass_duty_modify = 0; \
+			break; \
+		default: \
+			break; \
+		} \
+	} while (0)
+
+/*****************************************************************/
 #define get_platform_para_tx(autok_para_tx) \
 	do { \
 		autok_para_tx.msdc0_hs400_clktx = 0; \
