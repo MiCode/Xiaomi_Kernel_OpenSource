@@ -2576,10 +2576,13 @@ void cmdq_mdp_unmap_mmsys_VA(void)
 
 static void mdp_request_voltage(unsigned long frequency, bool is_mdp)
 {
-	int low_volt, ret = 0;
+	int low_volt = 0, ret = 0;
 	int index = 0;
 	u64 *freqs = is_mdp ? mdp_pmqos_freq : isp_pmqos_freq;
 	int *volts = is_mdp ? mdp_volts : isp_volts;
+
+	if (!freqs || !volts)
+		return;
 
 	if (!frequency) {
 		low_volt = 0;
