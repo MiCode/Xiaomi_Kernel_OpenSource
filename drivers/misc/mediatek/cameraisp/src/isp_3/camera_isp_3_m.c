@@ -983,6 +983,7 @@ static unsigned int g_ISPIntErr[_IRQ_MAX] = {0};
 #define nDMA_ERR_P1_D (7)
 #define nDMA_ERR (nDMA_ERR_P1 + nDMA_ERR_P1_D)
 static unsigned int g_DmaErr_p1[nDMA_ERR] = {0};
+#define ISR_NO_PRINT (MTRUE)
 
 /*
  *	for     irq     used,keep log until     IRQ_LOG_PRINTER being involked,
@@ -1036,7 +1037,10 @@ static unsigned int g_DmaErr_p1[nDMA_ERR] = {0};
 				(*ptr2)++;                                     \
 			}                                                      \
 		} else {                                                       \
-			log_err("(%d)(%d)log str avalible=0", irq, logT);      \
+			if ( ISR_NO_PRINT )                                     \
+				log_dbg("(%d)(%d)log str avalible=0", irq, logT);      \
+			else                                                    \
+				log_inf("(%d)(%d)log str avalible=0", irq, logT);      \
 		}                                                              \
 	} while (0)
 // #define IRQ_LOG_KEEPER(irq, ppb, logT, fmt, args...)
