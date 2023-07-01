@@ -653,6 +653,10 @@ struct msdc_host {
 	struct pinctrl_state *pins_default;
 	struct pinctrl_state *pins_uhs;
 	struct pinctrl_state *pins_pull_down;
+#if IS_ENABLED(CONFIG_MMC_DEBUG)
+	int dump_gpio_start; /* gpio start num */
+	int dump_gpio_end; /* gpio end num */
+#endif
 	struct delayed_work req_timeout;
 	int irq;		/* host interrupt */
 	int eint_irq;	        /* device interrupt */
@@ -692,6 +696,7 @@ struct msdc_host {
 	int	id;		/* host id */
 	bool tuning_in_progress;
 	u32 need_tune;
+	int autok_vcore; /* vcore value when executing autok */
 	bool is_autok_done;
 	bool is_skip_hs200_tune;
 	int autok_error;

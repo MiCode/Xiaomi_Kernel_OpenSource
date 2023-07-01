@@ -13,7 +13,7 @@
 
 #define MSDC_DEBUG_REGISTER_COUNT		0x63
 
-#define PRINTF_REGISTER_BUFFER_SIZE 512
+#define PRINTF_REGISTER_BUFFER_SIZE 768
 #define ONE_REGISTER_STRING_SIZE    14
 
 #define MSDC_REG_PRINT(OFFSET, VAL, MSG_SZ, MSG_ACCU_SZ, \
@@ -94,6 +94,7 @@ extern void msdc_dump_info(char **buff, unsigned long *size, struct seq_file *m,
 extern int mmc_dbg_register(struct mmc_host *mmc);
 extern void msdc_dump_ldo_sts(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host);
+extern void gpio_dump_regs_range(int start, int end);
 #else
 #define msdc_dump_info(...)
 #define mmc_dbg_register(...)
