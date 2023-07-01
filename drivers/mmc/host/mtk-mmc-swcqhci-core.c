@@ -191,7 +191,7 @@ static int swcq_query_avail_mrq(struct swcq_host *swcq_host,
 {
 	struct mmc_request *fnd_mrq = NULL;
 
-	if (mrq)
+	if (!mrq)
 		return -EINVAL;
 
 	if (task_id >= 0)

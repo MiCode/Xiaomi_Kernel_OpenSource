@@ -1067,7 +1067,7 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 				__func__, cmd->opcode, cmd->arg, rsp[0],
 				cmd->error, events);
 #if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
-	if (cmd && cmd->opcode == MMC_CMDQ_TASK_MGMT) {
+	if (cmd->opcode == MMC_CMDQ_TASK_MGMT) {
 		/* if resp is incorrect for cmd48, return a error to reset MMC device */
 		if	(cmd->resp[0] != 0x0900)
 			cmd->error = -EIO;
