@@ -59,15 +59,23 @@ static bool clk_hw_is_enabled(const struct clk_hw *hw)
 		.name = #_id_name, .pg = _pg, .pn = _pn}
 
 static struct regbase rb[] = {
-	[topckgen]	= REGBASE_V(0x10000000, topckgen, PD_NULL, CLK_NULL),
-	[infracfg]	= REGBASE_V(0x10001000, infracfg, PD_NULL, CLK_NULL),
-	[scpsys]	= REGBASE_V(0x10006000, scpsys, PD_NULL, CLK_NULL),
-	[apmixedsys]	= REGBASE_V(0x1000c000, apmixedsys, PD_NULL, CLK_NULL),
-	[audiosys]	= REGBASE_V(0x11220000, audiosys, PD_NULL, CLK_NULL),
-	[mipi_0a]	= REGBASE_V(0x11c10000, mipi_0a, PD_NULL, CLK_NULL),
-	[mmsys_config]		= REGBASE_V(0x14000000, mmsys, MT6761_POWER_DOMAIN_DIS, CLK_NULL),
-	[camsys]	= REGBASE_V(0x15000000, camsys, MT6761_POWER_DOMAIN_CAM, CLK_NULL),
-	[vcodecsys]	= REGBASE_V(0x17000000, vencsys, MT6761_POWER_DOMAIN_VCODEC, CLK_NULL),
+	[topckgen] = REGBASE_V(0x10000000, topckgen, PD_NULL, CLK_NULL),
+	[infracfg] = REGBASE_V(0x10001000, infracfg, PD_NULL, CLK_NULL),
+	[pericfg] = REGBASE_V(0x10003000, pericfg, PD_NULL, CLK_NULL),
+	[scpsys]   = REGBASE_V(0x10006000, scpsys, PD_NULL, CLK_NULL),
+	[apmixed]  = REGBASE_V(0x1000c000, apmixed, PD_NULL, CLK_NULL),
+	[gce]  = REGBASE_V(0x10238000, gce, MT6761_POWER_DOMAIN_DIS, CLK_NULL),
+	[audio]    = REGBASE_V(0x11220000, audio, PD_NULL, CLK_NULL),
+	[mipi_0a]    = REGBASE_V(0x11c10000, mipi_0a, PD_NULL, CLK_NULL),
+	[mipi_0b]    = REGBASE_V(0x11c11000, mipi_0b, PD_NULL, CLK_NULL),
+	[mipi_1a]    = REGBASE_V(0x11c12000, mipi_1a, PD_NULL, CLK_NULL),
+	[mipi_1b]    = REGBASE_V(0x11c13000, mipi_1b, PD_NULL, CLK_NULL),
+	[mipi_2a]    = REGBASE_V(0x11c14000, mipi_2a, PD_NULL, CLK_NULL),
+	[mipi_2b]    = REGBASE_V(0x11c15000, mipi_2b, PD_NULL, CLK_NULL),
+	[mfgsys]   = REGBASE_V(0x13ffe000, mfgsys, MT6761_POWER_DOMAIN_MFG_CORE0, CLK_NULL),
+	[mmsys]    = REGBASE_V(0x14000000, mmsys, MT6761_POWER_DOMAIN_DIS, CLK_NULL),
+	[camsys]   = REGBASE_V(0x15000000, camsys, MT6761_POWER_DOMAIN_CAM, CLK_NULL),
+	[vencsys]  = REGBASE_V(0x17000000, vencsys, MT6761_POWER_DOMAIN_VCODEC, CLK_NULL),
 };
 
 #define REGNAME(_base, _ofs, _name)	\
@@ -82,8 +90,8 @@ static struct regname rn[] = {
 	REGNAME(topckgen,  0x090, CLK_CFG_5),
 	REGNAME(topckgen,  0x0a0, CLK_CFG_6),
 	REGNAME(topckgen,  0x0b0, CLK_CFG_7),
-	REGNAME(audiosys,  0x000, AUDIO_TOP_CON0),
-	REGNAME(audiosys,  0x004, AUDIO_TOP_CON1),
+	REGNAME(audio,	0x000, AUDIO_TOP_CON0),
+	REGNAME(audio,	0x004, AUDIO_TOP_CON1),
 	REGNAME(camsys,  0x000, CAMSYS_CG),
 	REGNAME(infracfg,  0x074, PERI_BUS_DCM_CTRL),
 	REGNAME(infracfg,  0x090, MODULE_SW_CG_0),
@@ -91,41 +99,59 @@ static struct regname rn[] = {
 	REGNAME(infracfg,  0x0ac, MODULE_SW_CG_2),
 	REGNAME(infracfg,  0x0c8, MODULE_SW_CG_3),
 	REGNAME(infracfg,  0x200, INFRA_TOPAXI_SI0_CTL),
-	REGNAME(mmsys_config,  0x100, MMSYS_CG_CON0),
-	REGNAME(vcodecsys,  0x000, VCODECSYS_CG),
+	REGNAME(pericfg,  0x20C, PERIAXI_SI0_CTL),
+	REGNAME(gce,  0x0F0, GCE_CTL_INT0),
+	REGNAME(mfgsys,  0x000, MFG_CG),
+	REGNAME(mmsys,	0x100, MMSYS_CG_CON0),
+	REGNAME(vencsys,  0x000, VCODECSYS_CG),
 	REGNAME(mipi_0a,  0x080, MIPI_RX_WRAPPER80_CSI0A),
-	REGNAME(apmixedsys,  0x30C, ARMPLL_CON0),
-	REGNAME(apmixedsys,  0x310, ARMPLL_CON1),
-	REGNAME(apmixedsys,  0x318, ARMPLL_PWR_CON0),
-	REGNAME(apmixedsys,  0x208, UNIVPLL_CON0),
-	REGNAME(apmixedsys,  0x20C, UNIVPLL_CON1),
-	REGNAME(apmixedsys,  0x214, UNIVPLL_PWR_CON0),
-	REGNAME(apmixedsys,  0x218, MFGPLL_CON0),
-	REGNAME(apmixedsys,  0x21C, MFGPLL_CON1),
-	REGNAME(apmixedsys,  0x224, MFGPLL_PWR_CON0),
-	REGNAME(apmixedsys,  0x31C, APLL1_CON0),
-	REGNAME(apmixedsys,  0x320, APLL1_CON1),
-	REGNAME(apmixedsys,  0x328, APLL1_CON3),
-	REGNAME(apmixedsys,  0x32C, APLL1_PWR_CON0),
-	REGNAME(apmixedsys,  0x350, MSDCPLL_CON0),
-	REGNAME(apmixedsys,  0x354, MSDCPLL_CON1),
-	REGNAME(apmixedsys,  0x35C, MSDCPLL_PWR_CON0),
+	REGNAME(mipi_0b,  0x080, MIPI_RX_WRAPPER80_CSI0A),
+	REGNAME(mipi_1a,  0x080, MIPI_RX_WRAPPER80_CSI0A),
+	REGNAME(mipi_1b,  0x080, MIPI_RX_WRAPPER80_CSI0A),
+	REGNAME(mipi_2a,  0x080, MIPI_RX_WRAPPER80_CSI0A),
+	REGNAME(mipi_2b,  0x080, MIPI_RX_WRAPPER80_CSI0A),
+
+	REGNAME(apmixed,  0x208, UNIVPLL_CON0),
+	REGNAME(apmixed,  0x20C, UNIVPLL_CON1),
+	REGNAME(apmixed,  0x214, UNIVPLL_PWR_CON0),
+	REGNAME(apmixed,  0x218, MFGPLL_CON0),
+	REGNAME(apmixed,  0x21C, MFGPLL_CON1),
+	REGNAME(apmixed,  0x224, MFGPLL_PWR_CON0),
+	REGNAME(apmixed,  0x228, MAINPLL_CON0),
+	REGNAME(apmixed,  0x22C, MAINPLL_CON1),
+	REGNAME(apmixed,  0x234, MAINPLL_PWR_CON0),
+	REGNAME(apmixed,  0x30C, ARMPLL_CON0),
+	REGNAME(apmixed,  0x310, ARMPLL_CON1),
+	REGNAME(apmixed,  0x318, ARMPLL_PWR_CON0),
+	REGNAME(apmixed,  0x31C, APLL1_CON0),
+	REGNAME(apmixed,  0x320, APLL1_CON1),
+	REGNAME(apmixed,  0x328, APLL1_CON3),
+	REGNAME(apmixed,  0x32C, APLL1_PWR_CON0),
+	REGNAME(apmixed,  0x330, MMPLL_CON0),
+	REGNAME(apmixed,  0x334, MMPLL_CON1),
+	REGNAME(apmixed,  0x33C, MMPLL_PWR_CON0),
+	REGNAME(apmixed,  0x340, MPLL_CON0),
+	REGNAME(apmixed,  0x344, MPLL_CON1),
+	REGNAME(apmixed,  0x34C, MPLL_PWR_CON0),
+	REGNAME(apmixed,  0x350, MSDCPLL_CON0),
+	REGNAME(apmixed,  0x354, MSDCPLL_CON1),
+	REGNAME(apmixed,  0x35C, MSDCPLL_PWR_CON0),
+	REGNAME(apmixed,  0x014, AP_PLL_CON5),
 
 	REGNAME(scpsys,  0x0180, PWR_STATUS),
 	REGNAME(scpsys,  0x0184, PWR_STATUS_2ND),
 	REGNAME(scpsys,  0x0300, VCODEC_PWR_CON),
 	REGNAME(scpsys,  0x0308, ISP_PWR_CON),
 	REGNAME(scpsys,  0x030C, DIS_PWR_CON),
-	REGNAME(scpsys,  0x0310, MFG_CORE1_PWR_CON),
+	REGNAME(scpsys,  0x0314, AUDIO_PWR_CON),
 	REGNAME(scpsys,  0x0318, IFR_PWR_CON),
 	REGNAME(scpsys,  0x031C, DPY_PWR_CON),
 	REGNAME(scpsys,  0x0320, MD1_PWR_CON),
 	REGNAME(scpsys,  0x032C, CONN_PWR_CON),
 	REGNAME(scpsys,  0x0334, MFG_ASYNC_PWR_CON),
 	REGNAME(scpsys,  0x0338, MFG_PWR_CON),
+	REGNAME(scpsys,  0x033C, MFG_CORE0_PWR_CON),
 	REGNAME(scpsys,  0x0344, CAM_PWR_CON),
-	REGNAME(scpsys,  0x034C, MFG_CORE0_PWR_CON),
-	REGNAME(scpsys,  0x0370, VDE_PWR_CON),
 	{}
 };
 
@@ -144,16 +170,15 @@ static void  init_regbase(void)
 
 
 static const char * const off_pll_names[] = {
-		"univ2pll",
-		"mfgpll",
-		"apll1",
-		"mmpll",
-		"msdcpll",
-		NULL
+	"univ2pll",
+	"apll1",
+	"mfgpll",
+	"msdcpll",
+	"mmpll",
+	NULL
 };
 
 static const char * const notice_pll_names[] = {
-
 	NULL
 };
 
@@ -240,7 +265,7 @@ static void devapc_dump(void)
 	print_subsys_reg_mt6761(scpsys);
 	print_subsys_reg_mt6761(topckgen);
 	print_subsys_reg_mt6761(infracfg);
-	print_subsys_reg_mt6761(apmixedsys);
+	print_subsys_reg_mt6761(apmixed);
 }
 
 static struct devapc_vio_callbacks devapc_vio_handle = {
@@ -259,12 +284,7 @@ static int get_vcore_opp(void)
 #endif
 }
 
-
-/*
- * clkchk pwr_msk  need to review
- */
 static struct pvd_msk pvd_pwr_mask[] = {
-
 	{"topckgen", PWR_STA, 0x00000000},
 	{"infracfg_ao", PWR_STA, 0x00000000},
 	{"apmixed", PWR_STA, 0x00000000},
@@ -356,12 +376,21 @@ static int clk_chk_mt6761_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id of_match_clkchk_mt6761[] = {
+	{
+		.compatible = "mediatek,mt6761-clkchk",
+	}, {
+		/* sentinel */
+	}
+};
+
 static struct platform_driver clk_chk_mt6761_drv = {
 	.probe = clk_chk_mt6761_probe,
 	.driver = {
 		.name = "clk-chk-mt6761",
 		.owner = THIS_MODULE,
 		.pm = &clk_chk_dev_pm_ops,
+		.of_match_table = of_match_clkchk_mt6761,
 	},
 };
 
@@ -371,12 +400,6 @@ static struct platform_driver clk_chk_mt6761_drv = {
 
 static int __init clkchk_mt6761_init(void)
 {
-	static struct platform_device *clk_chk_dev;
-
-	clk_chk_dev = platform_device_register_simple("clk-chk-mt6761", -1, NULL, 0);
-	if (IS_ERR(clk_chk_dev))
-		pr_warn("unable to register clk-chk device");
-
 	return platform_driver_register(&clk_chk_mt6761_drv);
 }
 
@@ -385,7 +408,7 @@ static void __exit clkchk_mt6761_exit(void)
 	platform_driver_unregister(&clk_chk_mt6761_drv);
 }
 
-subsys_initcall(clkchk_mt6761_init);
+late_initcall(clkchk_mt6761_init);
 module_exit(clkchk_mt6761_exit);
 MODULE_LICENSE("GPL");
 

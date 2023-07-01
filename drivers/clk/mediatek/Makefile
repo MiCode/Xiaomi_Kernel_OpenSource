@@ -30,11 +30,10 @@ obj-$(CONFIG_COMMON_CLK_MT6761_MMSYS) += clk-mt6761-mm.o
 obj-$(CONFIG_COMMON_CLK_MT6761_VCODECSYS) += clk-mt6761-vcodec.o
 obj-$(CONFIG_COMMON_CLK_MT6761) += clk-mt6761-pg.o
 obj-$(CONFIG_COMMON_CLK_MT6761) += clkchk-mt6761.o
-clk-chk-mt6761-$(CONFIG_COMMON_CLK_MT6761) += clkchk-mt6761.o
 obj-$(CONFIG_COMMON_CLK_MT6761) += mt6761_clkmgr.o
-clk-clkmgr-mt6761-$(CONFIG_COMMON_CLK_MT6761) += mt6761_clkmgr.o
 obj-$(CONFIG_COMMON_CLK_MT6761) += clk-fmeter-mt6761.o
-clk-fmeter-mt6761-$(CONFIG_COMMON_CLK_MT6761) += clk-fmeter-mt6761.o
+obj-$(CONFIG_COMMON_CLK_MT6761) += pd-chk-mt6761.o
+pd-chk-mt6761-$(CONFIG_COMMON_CLK_MT6761) += mtk-pd-chk-mt6761.o
 $(warning go this for clk CONFIG_COMMON_CLK_MT6761="$(CONFIG_COMMON_CLK_MT6761)")
 $(warning go this for clk CONFIG_MTK_HANG_DETECT="$(CONFIG_MTK_HANG_DETECT)")
 

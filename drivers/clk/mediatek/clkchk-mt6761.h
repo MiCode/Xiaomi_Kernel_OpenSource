@@ -7,15 +7,23 @@
 #define __DRV_CLKCHK_MT6761_H
 
 enum chk_sys_id {
-	topckgen = 0,
+	topckgen,
 	infracfg,
+	pericfg,
 	scpsys,
-	apmixedsys,
-	audiosys,
+	apmixed,
+	gce,
+	audio,
 	mipi_0a,
-	mmsys_config,
+	mipi_0b,
+	mipi_1a,
+	mipi_1b,
+	mipi_2a,
+	mipi_2b,
+	mfgsys,
+	mmsys,
 	camsys,
-	vcodecsys,
+	vencsys,
 	chk_sys_num,
 };
 
