@@ -1642,9 +1642,9 @@ mtk_smi_larb_mt6765_misc[MTK_LARB_NR_MAX][SMI_LARB_MISC_NR] = {
 	 {SMI_LARB_WRR_PORTx(1), 0xb}, {SMI_LARB_WRR_PORTx(2), 0xb},
 	 {SMI_LARB_WRR_PORTx(3), 0xb}, {SMI_LARB_WRR_PORTx(4), 0xb},},/*LARB0 smi_larb0_conf_pair*/
 	{{SMI_LARB_CMD_THRT_CON, 0x370223}, {SMI_LARB_SW_FLAG, 0x1},},/*LARB1 smi_larb1_conf_pair*/
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},
+	{{SMI_LARB_CMD_THRT_CON, 0x300256}, {SMI_LARB_SW_FLAG, 0x1},
 	 {SMI_LARB_SPM_ULTRA_MASK, 0xffffc000},},                     /*LARB2 smi_larb2_conf_pair*/
-	{{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},},/*LARB3 smi_larb3_conf_pair*/
+	{{SMI_LARB_CMD_THRT_CON, 0x300256}, {SMI_LARB_SW_FLAG, 0x1},},/*LARB3 smi_larb3_conf_pair*/
 	{}, /*LARB4*/
 };
 
