@@ -3505,6 +3505,13 @@ skip_hwcq:
 			       IRQF_TRIGGER_NONE, pdev->name, host);
 	if (ret)
 		goto release;
+
+	if (host->dvfsrc_vcore_power && host->req_vcore)
+		if (regulator_set_voltage(host->dvfsrc_vcore_power,
+			host->req_vcore, INT_MAX))
+			dev_info(host->dev,"%s: failed to set vcore to %d\n",
+				__func__, host->req_vcore);
+
 	if (host->id == MSDC_SD || host->id == MSDC_EMMC)
 		irq_set_affinity_hint(host->irq, get_cpu_mask(3));
 
