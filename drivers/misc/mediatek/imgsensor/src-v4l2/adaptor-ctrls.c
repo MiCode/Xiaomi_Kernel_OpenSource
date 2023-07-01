@@ -940,7 +940,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		{
 			struct mtk_hdr_ae *ae_ctrl = ctrl->p_new.p;
 
-			ADAPTOR_SYSTRACE_BEGIN("SensorWorker::s_ae_ctrl %d %d %d %d %d %d",
+			ADAPTOR_SYSTRACE_BEGIN("SensorWorker::s_ae_ctrl %d %d %d %d %d %llu",
 				ae_ctrl->req_id,
 				ae_ctrl->exposure.le_exposure,
 				ae_ctrl->exposure.me_exposure,
