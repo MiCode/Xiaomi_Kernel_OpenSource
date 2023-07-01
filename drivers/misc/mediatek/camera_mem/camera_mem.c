@@ -250,7 +250,7 @@ static int cam_mem_open(struct inode *pInode, struct file *pFile)
 static void cam_mem_mmu_put_dma_buffer(struct ION_BUFFER *mmu)
 {
 	if (likely(mmu->dmaBuf)) {
-		if (unlikely((IS_MT6789(g_platform_id)) && mmu->need_sec_handle)) {
+		if (unlikely((IS_SECURE_TZMP1(g_platform_id)) && mmu->need_sec_handle)) {
 			dma_buf_put(mmu->dmaBuf);
 		} else {
 			dma_buf_unmap_attachment(mmu->attach, mmu->sgt,
