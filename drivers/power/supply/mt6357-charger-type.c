@@ -65,6 +65,9 @@
 #define R_CHARGER_1	330
 #define R_CHARGER_2	39
 
+#define NORMAL_CHARGING_CURR_UA	500000
+#define FAST_CHARGING_CURR_UA	1500000
+
 struct mtk_charger_type {
 	struct mt6397_chip *chip;
 	struct regmap *regmap;
@@ -105,6 +108,8 @@ static enum power_supply_property chr_type_properties[] = {
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_USB_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 };
 
 static enum power_supply_property mt_ac_properties[] = {
@@ -678,6 +683,16 @@ static int psy_chr_type_get_property(struct power_supply *psy,
 			return -EINVAL;
 		}
 		power_supply_get_property(chg_psy, POWER_SUPPLY_PROP_STATUS, val);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (info->psy_desc.type == POWER_SUPPLY_TYPE_USB)
+			val->intval = NORMAL_CHARGING_CURR_UA;
+		else if (info->type == POWER_SUPPLY_USB_TYPE_DCP)
+			val->intval = FAST_CHARGING_CURR_UA;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		if (info->psy_desc.type == POWER_SUPPLY_TYPE_USB)
+			val->intval = 5000000;
 		break;
 	default:
 		return -EINVAL;
