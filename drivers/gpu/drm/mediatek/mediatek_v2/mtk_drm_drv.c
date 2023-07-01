@@ -1592,6 +1592,19 @@ static int mtk_atomic_commit(struct drm_device *drm,
 
 		// if last frame is mml, need to wait job done before holding lock
 		if (mtk_crtc->is_mml) {
+			struct drm_crtc_state *new_crtc_state;
+			struct mtk_crtc_state *mtk_state;
+			int j;
+
+			for_each_new_crtc_in_state(state, crtc, new_crtc_state, j) {
+				mtk_state = to_mtk_crtc_state(new_crtc_state);
+				if (mtk_state->prop_val[CRTC_PROP_USER_SCEN] &
+				    USER_SCEN_SAME_POWER_MODE) {
+					DDPMSG("MML IR skip atomic commit with same power mode\n");
+					goto commit_unlock;
+				}
+			}
+
 			ret = wait_event_interruptible(
 				mtk_crtc->signal_mml_last_job_is_flushed_wq
 				, atomic_read(&mtk_crtc->wait_mml_last_job_is_flushed));
@@ -1609,7 +1622,7 @@ static int mtk_atomic_commit(struct drm_device *drm,
 	if (ret) {
 		DDPPR_ERR("DRM swap state failed! state:%p, ret:%d\n",
 				state, ret);
-		goto err_mutex_unlock;
+		goto crtc_unlock;
 	}
 
 	drm_atomic_state_get(state);
@@ -1632,7 +1645,7 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		dump_stack();
 	}
 
-err_mutex_unlock:
+crtc_unlock:
 	for (i = MAX_CRTC - 1; i >= 0; i--) {
 		if (!(crtc_mask >> i & 0x1))
 			continue;
@@ -1646,8 +1659,9 @@ err_mutex_unlock:
 		DRM_MMP_MARK(mutex_lock, (unsigned long)&mtk_crtc->lock,
 				i + (1 << 8));
 	}
-	DRM_MMP_EVENT_END(mutex_lock, 0, 0);
 
+commit_unlock:
+	DRM_MMP_EVENT_END(mutex_lock, 0, 0);
 	mutex_unlock(&private->commit.lock);
 	DDP_PROFILE("[PROFILE] %s-\n", __func__);
 
