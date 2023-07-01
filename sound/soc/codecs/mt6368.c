@@ -1623,6 +1623,7 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 			/* Switch LOL MUX to DACL */
 			regmap_write(priv->regmap, MT6368_AUDDEC_ANA_CON13, 0x17);
 		} else if (mux == LO_MUX_3RD_DAC) {
+			regmap_write(priv->regmap, MT6368_AUDDEC_ANA_CON15, 0x3);
 			/* Enable Audio DAC (3rd DAC) */
 			regmap_write(priv->regmap, MT6368_AUDDEC_ANA_CON14, 0x31);
 			regmap_write(priv->regmap, MT6368_AUDDEC_ANA_CON13, 0x13);
@@ -1651,6 +1652,8 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 			/* Disable HP driver bias circuits */
 			regmap_update_bits(priv->regmap, MT6368_AUDDEC_ANA_CON0,
 					   0x3 << 6, 0x0);
+		} else if (mux == LO_MUX_3RD_DAC) {
+			regmap_write(priv->regmap, MT6368_AUDDEC_ANA_CON15, 0x0);
 		}
 
 		/* Disable Audio DAC */
