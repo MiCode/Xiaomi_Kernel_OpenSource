@@ -694,7 +694,7 @@ int psy_chr_type_set_property(struct power_supply *psy,
 		if (val->intval)
 			info->type = get_charger_type(info);
 		else {
-			info->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+			info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 			info->type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		}
 		power_supply_changed(info->psy);
