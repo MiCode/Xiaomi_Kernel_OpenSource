@@ -82,13 +82,13 @@ static void _share_wrot_cb(struct cmdq_cb_data data)
 
 static int32_t _acquire_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
 {
-	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(share_sram_crtc);
 	struct cmdq_pkt *handle;
 	struct mtk_cmdq_cb_data *cb_data;
 
 	DDPMSG("%s +\n", __func__);
 	is_wrot_sram_available = 1;
-	if (!share_sram_crtc || !share_sram_crtc->enabled
+	if (!share_sram_crtc || !mtk_crtc->enabled
 		|| !(share_sram_crtc->state->active)) {
 		DDPMSG("%s share_sram_crtc is NULL or not enable\n", __func__);
 		return -EINVAL;
@@ -104,7 +104,6 @@ static int32_t _acquire_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
 		return -EINVAL;
 	}
 
-	mtk_crtc = to_mtk_crtc(share_sram_crtc);
 	mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	mtk_crtc_wait_frame_done(mtk_crtc, handle, DDP_FIRST_PATH, 0);
@@ -123,13 +122,13 @@ static int32_t _acquire_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
 
 static int32_t _release_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
 {
-	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(share_sram_crtc);
 	struct cmdq_pkt *handle;
 	struct mtk_cmdq_cb_data *cb_data;
 
 	DDPMSG("%s +\n", __func__);
 	is_wrot_sram_available = 0;
-	if (!share_sram_crtc || !share_sram_crtc->enabled
+	if (!share_sram_crtc || !mtk_crtc->enabled
 		|| !(share_sram_crtc->state->active)) {
 		DDPMSG("%s share_sram_crtc is NULL or not enable\n", __func__);
 		return -1;
@@ -143,7 +142,6 @@ static int32_t _release_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
 		DDPMSG("%s wrot sram is disabled.\n", __func__);
 		return -1;
 	}
-	mtk_crtc = to_mtk_crtc(share_sram_crtc);
 	mtk_crtc_pkt_create(&handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	mtk_crtc_wait_frame_done(mtk_crtc, handle, DDP_FIRST_PATH, 0);

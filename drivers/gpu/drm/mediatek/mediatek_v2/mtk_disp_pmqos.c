@@ -70,7 +70,7 @@ struct hrt_mmclk_request hrt_req_level_fhdp_mt6768[] = {
 };
 
 struct hrt_mmclk_request hrt_req_level_mt6761[] = {
-	{50, 650000},
+	{40, 650000},
 	{60, 700000},
 	{70, 800000},
 };
