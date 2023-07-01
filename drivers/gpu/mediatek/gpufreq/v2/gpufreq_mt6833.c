@@ -55,6 +55,9 @@
 #include <clk-mt6833-fmeter.h>
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+#include <linux/nvmem-consumer.h>
+#endif
 /**
  * ===============================================
  * Local Function Declaration
@@ -3197,11 +3200,15 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 
 	/* init working OPP range */
 	segment_id = g_gpu.segment_id;
-	/* for mt6789 swrgo */
-	if (segment_id == MT6833_SEGMENT)
+	if (segment_id == MT6833_SEGMENT)    /* 5G-C */
 		g_gpu.segment_upbound = 11;
+	else if (segment_id == MT6833M_SEGMENT)    /* 5G-CM */
+		g_gpu.segment_upbound = 24;
+	else if (segment_id == MT6833T_SEGMENT)    /* 5G-C+ */
+		g_gpu.segment_upbound = 0;
 	else
-		g_gpu.segment_upbound = 8;
+		g_gpu.segment_upbound = 0;
+
 	g_gpu.segment_lowbound = SIGNED_OPP_GPU_NUM - 1;
 	g_gpu.signed_opp_num = SIGNED_OPP_GPU_NUM;
 
@@ -3279,7 +3286,47 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 	unsigned int segment_id = 0;
 	int ret = GPUFREQ_SUCCESS;
 
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+#endif
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		GPUFREQ_LOGE("@%s: cannot get efuse_segment_cell\n", __func__);
+		PTR_ERR(efuse_cell);
+		goto done;
+	}
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	if (IS_ERR(efuse_buf)) {
+		GPUFREQ_LOGE("@%s: cannot get efuse_buf of efuse segment\n", __func__);
+		PTR_ERR(efuse_buf);
+		kfree(efuse_buf);
+		goto done;
+	}
+	efuse_id = (*efuse_buf & 0xFF);
+	GPUFREQ_LOGE("CONFIG_MTK_DEVINFO efuse id: 0x%x", efuse_id);
+	kfree(efuse_buf);
+#else
+	efuse_id = 0x0;
+	GPUFREQ_LOGE("CONFIG_MTK_DEVINFO Not enabled efuse id: 0x%x", efuse_id);
+#endif /* CONFIG_MTK_DEVINFO */
 	switch (efuse_id) {
+	case 0x01:
+	case 0x02:
+		segment_id = MT6833_SEGMENT;    /* 5G-C */
+		break;
+	case 0x03:
+	case 0x04:
+		segment_id = MT6833M_SEGMENT;    /* 5G-CM */
+		break;
+	case 0x06:
+	case 0x07:
+	case 0x08:
+		segment_id = MT6833T_SEGMENT;    /* 5G-C+ */
+		break;
 	default:
 		segment_id = MT6833_SEGMENT;
 		GPUFREQ_LOGW("unknown efuse id: 0x%x", efuse_id);
@@ -3287,7 +3334,7 @@ static int __gpufreq_init_segment_id(struct platform_device *pdev)
 	}
 
 	GPUFREQ_LOGI("efuse_id: 0x%x, segment_id: %d", efuse_id, segment_id);
-
+done:
 	g_gpu.segment_id = segment_id;
 
 	return ret;
