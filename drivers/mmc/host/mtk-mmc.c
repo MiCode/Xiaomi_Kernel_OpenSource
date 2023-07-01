@@ -3483,6 +3483,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 			goto host_free;
 		}
 		host->cq_host->caps |= CQHCI_TASK_DESC_SZ_128;
+		host->cq_host->quirks |= CQHCI_QUIRK_DIS_BEFORE_NON_CQ_CMD;
 		host->cq_host->mmio = host->base + 0x800;
 		host->cq_host->ops = &msdc_cmdq_ops;
 		ret = cqhci_init(host->cq_host, mmc, true);
