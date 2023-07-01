@@ -29,6 +29,7 @@
 	supports-cqe;
 	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	req-vcore = <700000>;
+	cap-mmc-hw-reset;
 	dump-gpio-start = <122>;
 	dump-gpio-end = <133>;
 };
