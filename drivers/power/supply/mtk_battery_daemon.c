@@ -2695,6 +2695,10 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 				gm->ptim_lk_v, ptim_bat_vol,
 				gm->ptim_lk_i, ptim_R_curr, val.intval);
 		}
+		/* bat_vol between 1.8V to 5V change unit to 0.1mV */
+		if (ptim_bat_vol > 1800 && ptim_bat_vol < 5000)
+			ptim_bat_vol = ptim_bat_vol * 10;
+
 		ptim_vbat = ptim_bat_vol;
 		ptim_i = ptim_R_curr;
 		ret_msg->fgd_data_len += sizeof(ptim_vbat);
