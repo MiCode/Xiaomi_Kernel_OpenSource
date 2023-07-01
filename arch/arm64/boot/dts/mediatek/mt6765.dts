@@ -3583,7 +3583,7 @@ pwrap: pwrap@1000d000 {
 	imgsys@15020000 {
 		compatible = "mediatek,imgsys", "syscon";
 		reg = <0 0x15020000 0 0x1000>;
-		mediatek,larb = <&smi_larb2>;
+		mediatek,larb = <&smi_larb2 &smi_larb3>;
 
 		/* Camera CCF */
 		clocks =
@@ -3952,7 +3952,6 @@ pwrap: pwrap@1000d000 {
 	camsys1: camsysisp@1a000000  {
 		compatible = "mediatek,camsys", "syscon";
 		reg = <0 0x1a000000  0 0x1000>;
-		mediatek,larb = <&smi_larb3>;
 		#clock-cells = <1>;
 	};
 
