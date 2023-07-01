@@ -8,26 +8,31 @@
 #include <linux/blk-mq.h>
 #include <uapi/linux/sched/types.h>
 #include <mt-plat/mtk_blocktag.h>
-#include "../core/queue.h"
+#include "mtk-mmc-swcqhci.h"
 #include "mtk-mmc-swcqhci-crypto.h"
 
 static int swcq_enable(struct mmc_host *mmc, struct mmc_card *card)
 {
+	struct swcq_host *swcq_host = mmc->cqe_private;
+
 	pr_info("%s", __func__);
-	mmc->cqe_on = true;
+	if (swcq_host->ops->enable)
+		swcq_host->ops->enable(mmc, card);
 	return 0;
 }
 
 static void swcq_off(struct mmc_host *mmc)
 {
 	pr_info("%s", __func__);
-	mmc->cqe_on = false;
 }
 
 static void swcq_disable(struct mmc_host *mmc)
 {
+	struct swcq_host *swcq_host = mmc->cqe_private;
+
 	pr_info("%s", __func__);
-	mmc->cqe_on = false;
+	if (swcq_host->ops->disable)
+		swcq_host->ops->disable(mmc);
 }
 
 static void swcq_post_req(struct mmc_host *mmc, struct mmc_request *mrq)

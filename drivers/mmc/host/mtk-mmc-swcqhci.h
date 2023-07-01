@@ -12,6 +12,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
+#include "../core/queue.h"
 
 #define MMC_SWCQ_DEBUG  0
 #define SWCQ_TUNING_CMD 1
@@ -149,7 +150,8 @@ struct swcq_host_ops {
 	void (*dump_info)(struct mmc_host *host);
 	void (*err_handle)(struct mmc_host *host);
 	void (*prepare_tuning)(struct mmc_host *host);
-
+	void (*enable)(struct mmc_host *host, struct mmc_card *card);
+	void (*disable)(struct mmc_host *host);
 };
 
 struct swcq_host {

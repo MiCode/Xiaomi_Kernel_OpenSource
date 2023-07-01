@@ -7,9 +7,9 @@
 #include "mtk-mmc-vcore.h"
 #include "mtk-mmc-dbg.h"
 #include "rpmb-mtk.h"
+#include "../core/core.h"
 #include "../core/card.h"
 #include <linux/arm-smccc.h>
-#include "../core/core.h"
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <mt-plat/dvfsrc-exp.h>
@@ -1170,9 +1170,10 @@ static void msdc_start_command(struct msdc_host *host,
 	rawcmd = msdc_cmd_prepare_raw_cmd(host, mrq, cmd);
 
 	spin_lock_irqsave(&host->lock, flags);
-	if (host->use_cmd_intr)
+	if (host->use_cmd_intr) {
+		sdr_set_bits(host->base + MSDC_PATCH_BIT1, MSDC_PB1_BUSY_CHECK_SEL);
 		sdr_set_bits(host->base + MSDC_INTEN, cmd_ints_mask);
-	else
+	} else
 		sdr_clr_bits(host->base + MSDC_INTEN, cmd_ints_mask);
 	spin_unlock_irqrestore(&host->lock, flags);
 
@@ -1274,7 +1275,7 @@ static unsigned int msdc_cmdq_command_resp_polling(struct msdc_host *host,
 				dev_err(host->dev,
 					"[%s]: CMD<%d> polling_for_completion timeout ARG<0x%.8x>",
 					__func__, cmd->opcode, cmd->arg);
-				cmd->error = (unsigned int)-ETIMEDOUT;
+				cmd->error = -ETIMEDOUT;
 			}
 			goto out;
 		}
@@ -3153,10 +3154,35 @@ static void msdc_swcq_prepare_tuning(struct mmc_host *mmc)
 #endif
 }
 
+static void msdc_swcq_cqe_enable(struct mmc_host *mmc, struct mmc_card *card)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+
+	/* enable busy check */
+	sdr_set_bits(host->base + MSDC_PATCH_BIT1, MSDC_PB1_BUSY_CHECK_SEL);
+	/* default write data / busy timeout 20s */
+	msdc_set_busy_timeout(host, 20 * 1000000000ULL, 0);
+	/* default read data timeout 1s */
+	msdc_set_timeout(host, 1000000000ULL, 0);
+}
+
+static void msdc_swcq_cqe_disable(struct mmc_host *mmc)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+	u32 val;
+
+	val = readl(host->base + MSDC_INT);
+	writel(val, host->base + MSDC_INT);
+	/* disable busy check */
+	sdr_clr_bits(host->base + MSDC_PATCH_BIT1, MSDC_PB1_BUSY_CHECK_SEL);
+}
+
 static const struct swcq_host_ops msdc_swcq_ops = {
 	.dump_info = msdc_swcq_dump,
 	.err_handle = msdc_swcq_err_handle,
 	.prepare_tuning = msdc_swcq_prepare_tuning,
+	.enable = msdc_swcq_cqe_enable,
+	.disable = msdc_swcq_cqe_disable,
 };
 #endif
 
