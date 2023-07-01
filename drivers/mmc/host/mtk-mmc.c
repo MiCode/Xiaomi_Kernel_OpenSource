@@ -9,6 +9,7 @@
 #include "rpmb-mtk.h"
 #include "../core/core.h"
 #include "../core/card.h"
+#include "../core/mmc_ops.h"
 #include <linux/arm-smccc.h>
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
@@ -1059,7 +1060,15 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 				"%s: cmd=%d arg=%08X; rsp %08X; cmd_error=%d\n",
 				__func__, cmd->opcode, cmd->arg, rsp[0],
 				cmd->error);
-
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
+	if (cmd && cmd->opcode == MMC_CMDQ_TASK_MGMT) {
+		/* if resp is incorrect for cmd48, return a error to reset MMC device */
+		if	(cmd->resp[0] != 0x0900)
+			cmd->error = -EIO;
+		dev_info(host->dev, "%s: cmd=48, error=%d, resp=0x%08X\n",
+			__func__, cmd->error, cmd->resp[0]);
+	}
+#endif
 	msdc_cmd_next(host, mrq, cmd);
 	return true;
 }
@@ -2743,8 +2752,9 @@ static void msdc_hw_reset(struct mmc_host *mmc)
 {
 	struct msdc_host *host = mmc_priv(mmc);
 
+	dev_info(mmc_dev(mmc), "hw reset device\n");
 	sdr_set_bits(host->base + EMMC_IOCON, 1);
-	udelay(10); /* 10us is enough */
+	mdelay(10); /* 10ms is enough */
 	sdr_clr_bits(host->base + EMMC_IOCON, 1);
 }
 
@@ -3154,6 +3164,21 @@ static void msdc_swcq_prepare_tuning(struct mmc_host *mmc)
 #endif
 }
 
+static void msdc_enable_rst_n_func(struct mmc_host *mmc, struct mmc_card *card)
+{
+	int ret = 0;
+
+	if ((mmc->caps & MMC_CAP_HW_RESET) && !card->ext_csd.rst_n_function) {
+		ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			EXT_CSD_RST_N_FUNCTION, 1, 1000);
+		if (!ret)
+			card->ext_csd.rst_n_function = 1;
+		else
+			dev_info(mmc_dev(mmc), "%s: set ext_csd.rst_n_function = 1 with fail: %d\n",
+				__func__, ret);
+	}
+}
+
 static void msdc_swcq_cqe_enable(struct mmc_host *mmc, struct mmc_card *card)
 {
 	struct msdc_host *host = mmc_priv(mmc);
@@ -3164,6 +3189,8 @@ static void msdc_swcq_cqe_enable(struct mmc_host *mmc, struct mmc_card *card)
 	msdc_set_busy_timeout(host, 20 * 1000000000ULL, 0);
 	/* default read data timeout 1s */
 	msdc_set_timeout(host, 1000000000ULL, 0);
+	/* set the rst pin to enable device reset n function*/
+	msdc_enable_rst_n_func(mmc, card);
 }
 
 static void msdc_swcq_cqe_disable(struct mmc_host *mmc)
