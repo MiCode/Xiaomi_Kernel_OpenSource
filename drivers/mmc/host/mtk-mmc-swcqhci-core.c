@@ -87,8 +87,8 @@ int swcq_run_task(struct mmc_host *mmc, int task_id)
 	atomic_set(&swcq_host->ongoing_task.blksz, (mrq->data ? mrq->data->blocks : 0));
 	mmc_wait_for_req(mmc, &data_mrq);
 	if (cmd.error) {
-		pr_err("%s: cmd%d error %d\n",
-			__func__, cmd.opcode, cmd.error);
+		pr_err("%s: cmd%d error=%d task_id=%d\n",
+			__func__, cmd.opcode, cmd.error, task_id);
 		return cmd.error;
 	}
 
@@ -102,7 +102,7 @@ int swcq_set_task(struct mmc_host *mmc, int task_id)
 	struct swcq_host *swcq_host = mmc->cqe_private;
 	struct mmc_request *mrq = swcq_host->mrq[task_id];
 	int flags;
-	int retry = 5;
+	int retry = 3;
 
 	if (mrq && mrq->data)
 		flags = mrq->data->flags & MMC_DATA_READ ? 1 : 0;
@@ -122,8 +122,10 @@ int swcq_set_task(struct mmc_host *mmc, int task_id)
 
 		mmc->ops->request(mmc, &pre_mrq);
 		if (cmd.error) {
-			dev_info(mmc_dev(mmc), "%s: cmd%d err =%d",
+			dev_info(mmc_dev(mmc), "%s: cmd%d err=%d task_id=%d\n",
 				__func__, cmd.opcode, cmd.error);
+			if (cmd.error == -EILSEQ)
+				return cmd.error;
 			continue;
 		}
 
@@ -136,13 +138,14 @@ int swcq_set_task(struct mmc_host *mmc, int task_id)
 
 		mmc->ops->request(mmc, &pre_mrq);
 		if (cmd.error) {
-			dev_info(mmc_dev(mmc), "%s: cmd%d err =%d",
-				__func__, cmd.opcode, cmd.error);
+			dev_info(mmc_dev(mmc), "%s: cmd%d err=%d taks_id=%d\n",
+				__func__, cmd.opcode, cmd.error, task_id);
+			if (cmd.error == -EILSEQ)
+				return cmd.error;
 			continue;
 		}
 		break;
 	}
-
 	if (cmd.error)
 		return cmd.error;
 
@@ -161,13 +164,53 @@ int swcq_poll_task(struct mmc_host *mmc, u32 *status)
 
 	mmc->ops->request(mmc, &chk_mrq);
 	if (cmd.error) {
-		dev_info(mmc_dev(mmc), "%s: cmd%d err =%d", __func__, cmd.opcode, cmd.error);
+		dev_info(mmc_dev(mmc), "%s: cmd%d err=%d\n",
+			__func__, cmd.opcode, cmd.error);
 		return cmd.error;
 	}
-
 	*status = cmd.resp[0];
-
 	return 0;
+}
+
+static void swcq_set_all_mrqs_err(struct mmc_host *mmc, int err)
+{
+	int task_id = 0;
+	struct mmc_request *mrq = NULL;
+	struct swcq_host *swcq_host = mmc->cqe_private;
+
+	for (task_id = 0; task_id < NUM_SLOTS; task_id++) {
+		mrq = swcq_host->mrq[task_id];
+		if (mrq)
+			mrq->data->error = err;
+	}
+}
+
+static int swcq_query_avail_mrq(struct swcq_host *swcq_host,
+								int task_id,
+								struct mmc_request **mrq)
+{
+	struct mmc_request *fnd_mrq = NULL;
+
+	if (mrq)
+		return -EINVAL;
+
+	if (task_id >= 0)
+		fnd_mrq = swcq_host->mrq[task_id];
+	if (fnd_mrq)
+		goto end;
+
+	for (task_id = 0; task_id < NUM_SLOTS; task_id++) {
+		fnd_mrq = swcq_host->mrq[task_id];
+		if (fnd_mrq)
+			goto end;
+	}
+
+end:
+	if (fnd_mrq) {
+		*mrq = fnd_mrq;
+		return 0;
+	}
+	return -EINVAL;
 }
 
 void swcq_err_handle(struct mmc_host *mmc, int task_id, int step, int err_type)
@@ -182,14 +225,10 @@ void swcq_err_handle(struct mmc_host *mmc, int task_id, int step, int err_type)
 	// 1 means start recovery,  2 means recovery done
 	int recovery_step = 0;
 	bool in_recovery = false;
+	int ret = -1;
 
-	if (task_id < 0) {
-		dev_err(mmc_dev(mmc), "[%s]: Invalid task_id\n", __func__);
-		return;
-	}
-
-	mrq = swcq_host->mrq[task_id];
-	if (mrq) {
+	ret = swcq_query_avail_mrq(swcq_host, task_id, &mrq);
+	if (!ret && mrq) {
 		mqrq = container_of(mrq, struct mmc_queue_req, brq.mrq);
 		req = mmc_queue_req_to_req(mqrq);
 		q = req->q;
@@ -208,6 +247,7 @@ void swcq_err_handle(struct mmc_host *mmc, int task_id, int step, int err_type)
 		if (!in_recovery && mrq->recovery_notifier) {
 			if (++recovery_step == 2)
 				break;
+			swcq_host->recovery_in_progress = true;
 			mrq->recovery_notifier(mrq);
 		}
 
@@ -297,6 +337,11 @@ int mmc_run_queue_thread(void *data)
 	// sched_setscheduler(current, SCHED_FIFO, &param);
 
 	while (1) {
+		if (swcq_host->recovery_in_progress) {
+			dev_info(mmc_dev(mmc), "recoverty in process, wait for it to finish\n");
+			usleep_range(5000, 6000);
+			continue;
+		}
 		step = get_step_of_swcq_host(swcq_host, step);
 #if MMC_SWCQ_DEBUG
 		if (step)
@@ -416,6 +461,8 @@ SWCQ_ERR_HANDLE:
 				swcq_tskid(swcq_host),
 				swcq_tskdone(swcq_host),
 				err, task_id);
+			/* force all mrqs with error code before recovery */
+			swcq_set_all_mrqs_err(mmc, err);
 			swcq_err_handle(mmc, task_id, step, err);
 		}
 	}
@@ -429,8 +476,13 @@ static int swcq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	unsigned long flags;
 
 	if (mrq->data) {
+		if (swcq_host->recovery_in_progress) {
+			dev_dbg(mmc_dev(mmc), "%s: sw cqhci is recovery in progress\n",
+				__func__);
+			return -EBUSY;
+		}
 		if (mrq->tag >= mmc->cqe_qdepth) {
-			dev_dbg(mmc_dev(mmc), "%s should not issue tag >= %d req.",
+			dev_dbg(mmc_dev(mmc), "%s: should not issue tag >= %d req.",
 				__func__, mmc->cqe_qdepth);
 			return -EBUSY;
 		}
@@ -488,18 +540,36 @@ static bool swcq_timeout(struct mmc_host *mmc, struct mmc_request *mrq,
 
 static void swcq_reset(struct swcq_host *swcq_host)
 {
-	int id = atomic_read(&swcq_host->ongoing_task.id);
-
 	spin_lock(&swcq_host->lock);
-	swcq_host->pre_tsks |= swcq_host->qnd_tsks | swcq_host->rdy_tsks;
-	if (id != MMC_SWCQ_TASK_IDLE)
-		swcq_host->pre_tsks |= (1<<id);
+	swcq_host->pre_tsks = 0;
 	swcq_host->qnd_tsks = 0;
 	swcq_host->rdy_tsks = 0;
 	spin_unlock(&swcq_host->lock);
+	atomic_set(&swcq_host->q_cnt, 0);
 	atomic_set(&swcq_host->ongoing_task.done, 0);
 	atomic_set(&swcq_host->ongoing_task.id, MMC_SWCQ_TASK_IDLE);
 	atomic_set(&swcq_host->ongoing_task.blksz, 0);
+#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI_DEBUG)
+	swcq_host->recovery_cnt = 0;
+#endif
+}
+
+static void swcq_recover_mrqs(struct mmc_host *mmc, struct swcq_host *swcq_host)
+{
+	int id = 0;
+	struct mmc_request *mrq;
+
+	for (id = 0; id < NUM_SLOTS; id++) {
+		mrq = swcq_host->mrq[id];
+		if (!mrq)
+			continue;
+		swcq_host->mrq[id] = NULL;
+		atomic_dec(&swcq_host->q_cnt);
+		mrq->data->bytes_xfered = 0;
+		if (!mrq->data->error)
+			WARN_ON(1);
+		mmc_cqe_request_done(mmc, mrq);
+	}
 }
 
 static void swcq_recovery_start(struct mmc_host *mmc)
@@ -514,7 +584,8 @@ static void swcq_recovery_start(struct mmc_host *mmc)
 	if (swcq_host->ops->err_handle)
 		swcq_host->ops->err_handle(mmc);
 #if SWCQ_TUNING_CMD
-	/* Maybe it's cmd crc error at this time and cmdq not empty,
+	/*
+	 * Maybe it's cmd crc error at this time and cmdq not empty,
 	 * only cmd13 can be used for tuning.
 	 */
 	if (swcq_host->ops->prepare_tuning)
@@ -529,12 +600,15 @@ static void swcq_recovery_finish(struct mmc_host *mmc)
 {
 	struct swcq_host *swcq_host = mmc->cqe_private;
 
+	swcq_recover_mrqs(mmc, swcq_host);
 	swcq_reset(swcq_host);
+#if SWCQ_TUNING_CMD
 	if (swcq_host->ops->prepare_tuning)
 		swcq_host->ops->prepare_tuning(mmc);
 	if (mmc->ops->execute_tuning)
 		mmc->ops->execute_tuning(mmc, MMC_SEND_TUNING_BLOCK_HS200);
-
+#endif
+	swcq_host->recovery_in_progress = false;
 	dev_info(mmc_dev(mmc), "SWCQ recovery done");
 }
 
@@ -559,7 +633,9 @@ int swcq_init(struct swcq_host *swcq_host, struct mmc_host *mmc)
 	mmc->cqe_ops = &swcq_ops;
 	/*swcmdq not have DCMD*/
 	mmc->cqe_qdepth = NUM_SLOTS;
+	atomic_set(&swcq_host->q_cnt, 0);
 	atomic_set(&swcq_host->ongoing_task.id, MMC_SWCQ_TASK_IDLE);
+	atomic_set(&swcq_host->ongoing_task.done, 0);
 	atomic_set(&swcq_host->ongoing_task.blksz, 0);
 	swcq_host->cmdq_thread = kthread_create(mmc_run_queue_thread, mmc,
 				"mmc-swcq%d", mmc->index);

@@ -4396,8 +4396,11 @@ int emmc_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 
 	res = host->autok_res[vcore];
 
-	if (mmc->ios.timing == MMC_TIMING_MMC_HS200
-		&& !host->is_autok_done) {
+	if (mmc->ios.timing == MMC_TIMING_MMC_HS200) {
+		if (host->is_skip_hs200_tune) {
+			pr_notice("[AUTOK]eMMC Skip HS200 Tune\n");
+			goto end;
+		}
 		if (opcode == MMC_SEND_STATUS) {
 			pr_notice("[AUTOK]eMMC HS200 Tune CMD only\n");
 			ret = hs200_execute_tuning_cmd(host, res);
@@ -4414,7 +4417,7 @@ int emmc_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 			ret = hs400_execute_tuning(host, res);
 		}
 	}
-
+end:
 	return ret;
 }
 EXPORT_SYMBOL(emmc_execute_dvfs_autok);
@@ -4443,6 +4446,7 @@ int emmc_execute_autok(struct msdc_host *host, u32 opcode)
 				memcpy(host->autok_res[AUTOK_VCORE_LEVEL0],
 						host->autok_res[AUTOK_VCORE_MERGE],
 						TUNING_PARA_SCAN_COUNT);
+			host->is_skip_hs200_tune = 1;
 			host->is_autok_done = 1;
 		}
 	} else {

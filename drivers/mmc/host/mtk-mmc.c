@@ -990,6 +990,7 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 	bool sbc_error;
 	unsigned long flags;
 	u32 *rsp;
+	struct mmc_host *mmc = mmc_from_priv(host);
 
 	if (mrq->sbc && cmd == mrq->cmd &&
 	    (events & (MSDC_INT_ACMDRDY | MSDC_INT_ACMDCRCERR
@@ -1039,11 +1040,16 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 			cmd->error = -EILSEQ;
 			host->error |= REQ_CMD_EIO;
 			host->need_tune = TUNE_CMD_CRC;
-			if (!(mmc_from_priv(host)->retune_crc_disable)
+
+			if (!(mmc->retune_crc_disable)
 					&& cmd->opcode != MMC_SEND_TUNING_BLOCK
 					&& cmd->opcode != MMC_SEND_TUNING_BLOCK_HS200
-					&& cmd->opcode != MMC_SEND_STATUS)
-				mmc_retune_needed(mmc_from_priv(host));
+					&& cmd->opcode != MMC_SEND_STATUS) {
+				dev_info(host->dev, "need retune since cmd%d crc error\n", cmd->opcode);
+				if (mmc->ios.timing == MMC_TIMING_MMC_HS200)
+					host->is_skip_hs200_tune = 0;
+				mmc_retune_needed(mmc);
+			}
 		} else if (events & MSDC_INT_CMDTMO) {
 			cmd->error = -ETIMEDOUT;
 			host->error |= REQ_CMD_TMO;
@@ -1057,9 +1063,9 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 	}
 	if (cmd->error)
 		dev_info(host->dev,
-				"%s: cmd=%d arg=%08X; rsp %08X; cmd_error=%d\n",
+				"%s: cmd=%d arg=%08X; rsp %08X; cmd_error=%d; events=%08x\n",
 				__func__, cmd->opcode, cmd->arg, rsp[0],
-				cmd->error);
+				cmd->error, events);
 #if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
 	if (cmd && cmd->opcode == MMC_CMDQ_TASK_MGMT) {
 		/* if resp is incorrect for cmd48, return a error to reset MMC device */
@@ -1232,7 +1238,7 @@ static unsigned int msdc_cmdq_command_start(struct msdc_host *host,
 			!msdc_cmd_is_ready(host, host->mrq, cmd)) {
 			dev_err(host->dev, "cmd_busy timeout: before CMD<%d>",
 				 cmd->opcode);
-			cmd->error = (unsigned int) -ETIMEDOUT;
+			cmd->error = -ETIMEDOUT;
 			return cmd->error;
 		}
 	}
@@ -1295,12 +1301,12 @@ static unsigned int msdc_cmdq_command_resp_polling(struct msdc_host *host,
 		if (events & MSDC_INT_CMDRDY) {
 			cmd->resp[0] = readl(host->base + SDC_RESP0);
 		} else if (events & MSDC_INT_RSPCRCERR) {
-			cmd->error = (unsigned int) -EILSEQ;
+			cmd->error = -EILSEQ;
 			dev_err(host->dev,
 				"[%s]: XXX CMD<%d> MSDC_INT_RSPCRCERR Arg<0x%.8x>",
 				__func__, cmd->opcode, cmd->arg);
 		} else if (events & MSDC_INT_CMDTMO) {
-			cmd->error = (unsigned int) -ETIMEDOUT;
+			cmd->error = -ETIMEDOUT;
 			dev_err(host->dev, "[%s]: XXX CMD<%d> MSDC_INT_CMDTMO Arg<0x%.8x>",
 				__func__, cmd->opcode, cmd->arg);
 		}
@@ -1375,19 +1381,9 @@ static void msdc_ops_request(struct mmc_host *mmc, struct mmc_request *mrq)
 #if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
 	if (msdc_op_cmdq_on_tran(mrq->cmd))
 		msdc_start_request_cmdq(mmc, mrq);
-	else {
+	else
 #endif
 		msdc_start_request_legacy(mmc, mrq);
-		/* Flag re-tuning needed on CRC errors */
-		if (mrq->cmd->error == -EILSEQ && !mmc->retune_crc_disable
-			&& mrq->cmd->opcode != MMC_SEND_TUNING_BLOCK
-			&& mrq->cmd->opcode != MMC_SEND_TUNING_BLOCK_HS200
-			&& mrq->cmd->opcode != MMC_SEND_STATUS)
-			mmc_retune_needed(mmc);
-#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
-	}
-#endif
-
 }
 
 static void msdc_pre_req(struct mmc_host *mmc, struct mmc_request *mrq)
@@ -1487,7 +1483,7 @@ static bool msdc_data_xfer_done(struct msdc_host *host, u32 events,
 			dev_dbg(host->dev, "interrupt events: %x\n", events);
 			msdc_reset_hw(host);
 
-			if (mrq && mrq->data->flags & MMC_DATA_WRITE)
+			if (mrq && mrq->data && mrq->data->flags & MMC_DATA_WRITE)
 				host->need_tune = TUNE_DATA_WRITE;
 			else if (data->flags & MMC_DATA_WRITE)
 				host->need_tune = TUNE_DATA_WRITE;
@@ -2472,9 +2468,18 @@ static void msdc_ops_card_event(struct mmc_host *mmc)
 	host->power_cycle_cnt = 0;
 	host->data_timeout_cont = 0;
 	host->is_autok_done = 0;
+	host->is_skip_hs200_tune = 0;
 	msdc_reset_bad_sd_detecter(host);
 
 	msdc_get_cd(mmc);
+}
+
+static void msdc_ops_init_card(struct mmc_host *mmc, struct mmc_card *card)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+
+	/* when the card is inited or re-inited, the flag should be reset to retune hs200 */
+	host->is_skip_hs200_tune = 0;
 }
 
 void msdc_set_bad_card_and_remove(struct msdc_host *host)
@@ -2896,6 +2901,7 @@ static const struct mmc_host_ops mt_msdc_ops = {
 	.prepare_hs400_tuning = msdc_prepare_hs400_tuning,
 	.hw_reset = msdc_hw_reset,
 	.card_event = msdc_ops_card_event,
+	.init_card = msdc_ops_init_card,
 };
 
 static const struct cqhci_host_ops msdc_cmdq_ops = {
@@ -3160,7 +3166,7 @@ static void msdc_swcq_prepare_tuning(struct mmc_host *mmc)
 	struct msdc_host *host = mmc_priv(mmc);
 
 	if (mmc->ios.timing == MMC_TIMING_MMC_HS200)
-		host->is_autok_done = 0;
+		host->is_skip_hs200_tune = 0;
 #endif
 }
 

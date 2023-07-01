@@ -693,6 +693,7 @@ struct msdc_host {
 	bool tuning_in_progress;
 	u32 need_tune;
 	bool is_autok_done;
+	bool is_skip_hs200_tune;
 	int autok_error;
 	u32 tune_latch_ck_cnt;
 	u8 autok_res[AUTOK_VCORE_NUM+1][TUNING_PARA_SCAN_COUNT];
