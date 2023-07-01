@@ -1172,6 +1172,8 @@ static bool bRawEn = MFALSE;
 static bool bRawDEn = MFALSE;
 
 static struct ISP_INFO_STRUCT IspInfo;
+/*prevent isp race condition in vulunerbility test*/
+static struct mutex open_isp_mutex;
 
 unsigned int PrvAddr[_ChannelMax] = {0};
 
@@ -3025,6 +3027,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
  ******************************************************************************/
 static void ISP_EnableClock(bool En)
 {
+	unsigned int module = 0;
 	log_dbg("- E. En: %d. G_u4EnableClockCount:%d.\n", En, G_u4EnableClockCount);
 
 	if (En) {
@@ -3032,10 +3035,30 @@ static void ISP_EnableClock(bool En)
 		G_u4EnableClockCount++;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		Prepare_Enable_ccf_clock();
+		if (G_u4EnableClockCount == 1) {
+			for (module = ISP_CAM0_IRQ_IDX; module < ISP_CAM_IRQ_IDX_NUM; module++) {
+				if (module == ISP_CAM0_IRQ_IDX ||
+					module == ISP_CAMSV0_IRQ_IDX ||
+					module == ISP_CAMSV1_IRQ_IDX) {
+					enable_irq(cam_isp_devs->irq[module]);
+					log_inf("enable_irq cam %d\n", module);
+				}
+			}
+		}
 	} else { /* Disable clock. */
 		spin_lock(&(IspInfo.SpinLockClock));
 		G_u4EnableClockCount--;
 		spin_unlock(&(IspInfo.SpinLockClock));
+		if (G_u4EnableClockCount == 0) {
+			for (module = ISP_CAM0_IRQ_IDX; module < ISP_CAM_IRQ_IDX_NUM; module++) {
+				if (module == ISP_CAM0_IRQ_IDX ||
+					module == ISP_CAMSV0_IRQ_IDX ||
+					module == ISP_CAMSV1_IRQ_IDX) {
+					disable_irq(cam_isp_devs->irq[module]);
+					log_inf("disable_irq cam %d\n", module);
+				}
+			}
+		}
 		Disable_Unprepare_ccf_clock();
 	}
 	log_dbg("- X. En: %d. G_u4EnableClockCount:%d.\n", En, G_u4EnableClockCount);
@@ -12160,6 +12183,7 @@ static signed int ISP_open(struct inode *pInode, struct file *pFile)
 	int q = 0, p = 0;
 	struct ISP_USER_INFO_STRUCT *pUserInfo;
 
+	mutex_lock(&open_isp_mutex);
 	log_inf("- E. UserCount: %d.", IspInfo.UserCount);
 	/*      */
 	spin_lock(&(IspInfo.SpinLockIspRef));
@@ -12346,6 +12370,7 @@ EXIT:
 	}
 
 	log_inf("- X. Ret: %d. UserCount: %d.", Ret, IspInfo.UserCount);
+	mutex_unlock(&open_isp_mutex);
 	return Ret;
 }
 
@@ -12358,8 +12383,7 @@ static signed int ISP_release(struct inode *pInode, struct file *pFile)
 	unsigned int Reg;
 	unsigned int i = 0;
 
-
-
+	mutex_lock(&open_isp_mutex);
 	log_inf("- E. UserCount: %d.", IspInfo.UserCount);
 	/*      */
 
@@ -12454,6 +12478,7 @@ EXIT:
 	log_inf("isp release G_u4EnableClockCount: %d\n", G_u4EnableClockCount);
 	/*  */
 	log_inf("- X. UserCount: %d.", IspInfo.UserCount);
+	mutex_unlock(&open_isp_mutex);
 	return 0;
 }
 
@@ -12800,6 +12825,8 @@ static signed int ISP_probe(struct platform_device *pDev)
 			 * trigger mode set in dts file
 			 */
 		}
+		/* Reset irq ref cnt after request_irq by disable_irq. */
+		disable_irq(cam_isp_dev->irq[j]);
 
 		if (Ret) {
 			dev_info(&pDev->dev,
@@ -13401,6 +13428,7 @@ static signed int __init ISP_Init(void)
 		log_err("platform_driver_register fail");
 		return Ret;
 	}
+	mutex_init(&open_isp_mutex);
 
 	for (i = 0; i < ISP_CAM_TYPE_CAM_AMOUNT; i++) {
 		ISP3_SetPMQOS(E_BW_ADD, i, 0);
