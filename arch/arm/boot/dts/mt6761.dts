@@ -1025,6 +1025,14 @@ firmware_class.path=/vendor/firmware clk_ignore_unused=1";
 		/*clock-frequency = <150000000>;*/
 	};
 
+	clkchk {
+		compatible = "mediatek,mt6761-clkchk";
+	};
+
+	pdchk {
+		compatible = "mediatek,mt6761-pdchk";
+	};
+
 	clocks {
 		clk26m: clk26m {
 			compatible = "fixed-clock";
