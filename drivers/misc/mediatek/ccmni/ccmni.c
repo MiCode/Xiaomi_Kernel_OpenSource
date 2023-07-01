@@ -108,6 +108,11 @@ void set_ccmni_rps(unsigned long value)
 	int i = 0;
 	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[0];
 
+	if (ctlb == NULL) {
+		pr_info("%s: invalid ctlb\n", __func__);
+		return;
+	}
+
 	for (i = 0; i < ctlb->ccci_ops->ccmni_num; i++)
 		set_rps_map(ctlb->ccmni_inst[i]->dev->_rx, value);
 }
@@ -1027,7 +1032,7 @@ static int ccmni_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		CCMNI_INF_MSG(ccmni->md_id,
 			"SIOCACKPRIO: ack_prio_en=%d, ccmni0_ack_en=%d\n",
 			ifr->ifr_ifru.ifru_ivalue,
-			ctlb->ccmni_inst[i]->ack_prio_en);
+			ccmni_tmp->ack_prio_en);
 		break;
 
 	case SIOPUSHPENDING:
