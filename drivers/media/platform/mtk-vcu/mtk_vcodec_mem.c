@@ -19,6 +19,20 @@
 
 static uint64_t mtk_vcu_va_cnt;
 
+static void vcu_buf_remove(struct mtk_vcu_queue *vcu_queue, unsigned int buffer)
+{
+	unsigned int last_buffer;
+
+	last_buffer = vcu_queue->num_buffers - 1U;
+	if (last_buffer != buffer)
+		vcu_queue->bufs[buffer] = vcu_queue->bufs[last_buffer];
+	vcu_queue->bufs[last_buffer].mem_priv = NULL;
+	vcu_queue->bufs[last_buffer].size = 0;
+	vcu_queue->bufs[last_buffer].dbuf = NULL;
+	atomic_set(&vcu_queue->bufs[last_buffer].ref_cnt, 0);
+	vcu_queue->num_buffers--;
+}
+
 struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
 	struct cmdq_client *cmdq_clt)
 {
@@ -393,7 +407,7 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 {
 	struct mtk_vcu_mem *vcu_buffer;
 	void *cook, *dma_addr;
-	unsigned int buffer, num_buffers, last_buffer;
+	unsigned int buffer, num_buffers;
 	int ret = -EINVAL;
 
 	mutex_lock(&vcu_queue->mmap_lock);
@@ -403,6 +417,14 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 			vcu_buffer = &vcu_queue->bufs[buffer];
 			if (vcu_buffer->dbuf != NULL)
 				continue;
+			if (vcu_buffer->mem_priv == NULL || vcu_buffer->size == 0) {
+				pr_info("[VCU][Error] %s remove invalid vcu_queue bufs[%u] in num_buffers %u (mem_priv 0x%x size %d ref_cnt %d)\n",
+					__func__, buffer, num_buffers,
+					vcu_buffer->mem_priv, vcu_buffer->size,
+					atomic_read(&vcu_buffer->ref_cnt));
+				vcu_buf_remove(vcu_queue, buffer);
+				continue;
+			}
 			cook = vcu_queue->mem_ops->vaddr(vcu_buffer->mem_priv);
 			dma_addr = vcu_queue->mem_ops->cookie(vcu_buffer->mem_priv);
 
@@ -416,15 +438,7 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 					num_buffers);
 				vcu_queue->mem_ops->put(vcu_buffer->mem_priv);
 				atomic_dec(&vcu_buffer->ref_cnt);
-
-				last_buffer = num_buffers - 1U;
-				if (last_buffer != buffer)
-					vcu_queue->bufs[buffer] =
-						vcu_queue->bufs[last_buffer];
-				vcu_queue->bufs[last_buffer].mem_priv = NULL;
-				vcu_queue->bufs[last_buffer].size = 0;
-				vcu_queue->bufs[last_buffer].dbuf = NULL;
-				vcu_queue->num_buffers--;
+				vcu_buf_remove(vcu_queue, buffer);
 				ret = 0;
 				break;
 			}
@@ -584,7 +598,7 @@ void mtk_vcu_buffer_ref_dec(struct mtk_vcu_queue *vcu_queue,
 	void *mem_priv)
 {
 	struct mtk_vcu_mem *vcu_buffer;
-	unsigned int buffer, num_buffers, last_buffer;
+	unsigned int buffer, num_buffers;
 
 	mutex_lock(&vcu_queue->mmap_lock);
 	num_buffers = vcu_queue->num_buffers;
@@ -603,15 +617,7 @@ void mtk_vcu_buffer_ref_dec(struct mtk_vcu_queue *vcu_queue,
 					(u64)vcu_buffer->mem_priv,
 					num_buffers);
 				fput(vcu_buffer->dbuf->file);
-
-				last_buffer = num_buffers - 1U;
-				if (last_buffer != buffer)
-					vcu_queue->bufs[buffer] =
-						vcu_queue->bufs[last_buffer];
-				vcu_queue->bufs[last_buffer].mem_priv = NULL;
-				vcu_queue->bufs[last_buffer].size = 0;
-				vcu_queue->bufs[last_buffer].dbuf = NULL;
-				vcu_queue->num_buffers--;
+				vcu_buf_remove(vcu_queue, buffer);
 			}
 		}
 	}
