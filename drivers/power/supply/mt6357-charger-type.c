@@ -117,6 +117,16 @@ static enum power_supply_property mt_usb_properties[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 };
 
+enum attach_type {
+	ATTACH_TYPE_NONE,
+	ATTACH_TYPE_PWR_RDY,
+	ATTACH_TYPE_TYPEC,
+	ATTACH_TYPE_PD,
+	ATTACH_TYPE_PD_SDP,
+	ATTACH_TYPE_PD_DCP,
+	ATTACH_TYPE_PD_NONSTD,
+};
+
 void bc11_set_register_value(struct regmap *map,
 	unsigned int addr,
 	unsigned int mask,
@@ -288,6 +298,7 @@ static unsigned int hw_bc11_DCD(struct mtk_charger_type *info)
 		PMIC_RG_BC11_VREF_VTH_MASK,
 		PMIC_RG_BC11_VREF_VTH_SHIFT,
 		0x0);
+	pr_info("%s wChargerAvail is %d\n", __func__, wChargerAvail);
 	return wChargerAvail;
 }
 
@@ -691,11 +702,30 @@ int psy_chr_type_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		if (val->intval)
-			info->type = get_charger_type(info);
-		else {
+		switch (val->intval) {
+		case ATTACH_TYPE_NONE:
 			info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 			info->type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+			break;
+		case ATTACH_TYPE_TYPEC:
+			info->type = get_charger_type(info);
+			break;
+		case ATTACH_TYPE_PD_SDP:
+			info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+			info->type = POWER_SUPPLY_USB_TYPE_SDP;
+			break;
+		case ATTACH_TYPE_PD_DCP:
+			/* not to enable bc12 */
+			info->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+			info->type = POWER_SUPPLY_USB_TYPE_DCP;
+			break;
+		case ATTACH_TYPE_PD_NONSTD:
+			info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+			info->type = POWER_SUPPLY_USB_TYPE_DCP;
+			break;
+		default:
+			pr_info("%s: Unknown charger type!\n", __func__);
+			break;
 		}
 		power_supply_changed(info->psy);
 		break;
