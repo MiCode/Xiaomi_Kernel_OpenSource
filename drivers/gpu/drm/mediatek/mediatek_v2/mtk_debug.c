@@ -2813,8 +2813,8 @@ static void process_dbg_opt(const char *opt)
 
 		ddic_dsi_read_cmd_test(case_num);
 	} else if (strncmp(opt, "ddic_page_switch:", 17) == 0) {
-		u8 addr, val1, val2, val3;
-		u8 val4, val5, val6;
+		unsigned int addr, val1, val2, val3;
+		unsigned int val4, val5, val6;
 		unsigned int cmd_num, ret;
 
 		ret = sscanf(opt, "ddic_page_switch:%d,%x,%x,%x,%x,%x,%x,%x\n",
@@ -2829,10 +2829,10 @@ static void process_dbg_opt(const char *opt)
 
 		DDPMSG("ddic_spr_switch:%d\n", cmd_num);
 
-		ddic_dsi_send_switch_pgt(cmd_num, addr, val1, val2, val3,
-			val4, val5, val6);
+		ddic_dsi_send_switch_pgt(cmd_num, (u8)addr, (u8)val1,
+			(u8)val2, (u8)val3, (u8)val4, (u8)val5, (u8)val6);
 	} else if (strncmp(opt, "read_cm:", 8) == 0) {
-		u8 addr;
+		unsigned int addr;
 		unsigned int ret;
 
 		ret = sscanf(opt, "read_cm:%x\n", &addr);
@@ -2842,7 +2842,7 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 		DDPMSG("read_cm:%d\n", addr);
-		ddic_dsi_read_cm_cmd(addr);
+		ddic_dsi_read_cm_cmd((u8)addr);
 	} else if (strncmp(opt, "ap_spr_cm_bypass:", 17) == 0) {
 		unsigned int spr_bypass, cm_bypass, ret;
 
