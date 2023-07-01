@@ -7046,11 +7046,6 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		goto release;
 	}
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-	ufshcd_outstanding_req_clear(hba, tag);
-	scsi_dma_unmap(cmd);
-	lrbp->cmd = NULL;
-#endif
 	/*
 	 * Clear the corresponding bit from outstanding_reqs since the command
 	 * has been aborted successfully.
