@@ -1559,6 +1559,7 @@
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_LARB32_GCE_DM>;
 		dma_mask_bit = <34>;
+		skip-poll-sleep;
 	};
 
 	gce_sec: gce_mbox_sec@1e980000 {
@@ -1604,6 +1605,7 @@
 		dma-ranges = <0x0 0x0 0x0 0x0 0x4 0x0>;
 		iommus = <&disp_iommu M4U_LARB32_GCE_MM>;
 		dma_mask_bit = <34>;
+		skip-poll-sleep;
 	};
 
 	gce_m_sec: gce_mbox_m_sec@1e990000 {
