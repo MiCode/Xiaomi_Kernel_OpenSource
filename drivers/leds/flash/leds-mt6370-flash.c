@@ -123,7 +123,10 @@ static int mt6370_torch_brightness_set(struct led_classdev *lcdev,
 	}
 
 #ifdef CONFIG_MTK_FLASHLIGHT_DLPT
-	flashlight_kicker_pbm(1);
+	if (level)
+		flashlight_kicker_pbm(1);
+	else
+		flashlight_kicker_pbm(0);
 #endif
 #ifdef CONFIG_MTK_FLASHLIGHT_PT
 	if (flashlight_pt_is_low() && level) {

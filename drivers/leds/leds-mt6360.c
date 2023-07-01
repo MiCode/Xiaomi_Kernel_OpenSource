@@ -581,6 +581,9 @@ static int mt6360_fled_brightness_set(struct led_classdev *led_cdev,
 		return -EINVAL;
 	}
 	if (brightness == LED_OFF) {
+#ifdef CONFIG_MTK_FLASHLIGHT_DLPT
+		flashlight_kicker_pbm(0);
+#endif
 		clear_bit(id, &mli->fl_torch_flags);
 		keep = mt6360_fled_check_flags_if_any(&mli->fl_torch_flags);
 		ret = regmap_update_bits(mli->regmap,

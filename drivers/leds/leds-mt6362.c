@@ -274,6 +274,9 @@ static int mt6362_fled_brightness_set(struct led_classdev *cdev,
 	}
 
 	if (brightness == LED_OFF) {
+#if IS_ENABLED(CONFIG_MTK_FLASHLIGHT_DLPT)
+		flashlight_kicker_pbm(0);
+#endif
 		rv = regmap_update_bits(data->regmap, mtcdev->source_enable_reg,
 					mtcdev->source_enable_mask, 0);
 		if (rv)
