@@ -2363,7 +2363,8 @@ static int set_soft_fps_level(int nr_level, struct fps_level *level)
 	if (nr_level != 1)
 		goto set_fps_level_err;
 
-	if (level->end > level->start)
+	if (level->end > level->start ||
+		level->start <= 0 || level->end <= 0)
 		goto set_fps_level_err;
 
 	memcpy(fps_levels, level, nr_level * sizeof(struct fps_level));
