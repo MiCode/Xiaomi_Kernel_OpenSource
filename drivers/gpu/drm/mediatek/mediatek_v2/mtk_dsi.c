@@ -2963,9 +2963,9 @@ static void _mtk_dsi_read_ddic_by6382(struct mtk_dsi *dsi,
 				void *ptr)
 {
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
-//	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
+	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
 	struct DSI_T0_INS t0, t1;
-	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)ptr;
+//	struct mtk_drm_crtc *mtk_crtc = (struct mtk_drm_crtc *)ptr;
 	dma_addr_t read_slot;
 	const char *tx_buf = msg->tx_buf;
 	unsigned char rxbypass0[] = {0x84, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00}; //ID 0x84
