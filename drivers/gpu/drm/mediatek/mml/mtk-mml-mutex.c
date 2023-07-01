@@ -354,8 +354,14 @@ static int probe(struct platform_device *pdev)
 
 	id_count = of_property_count_u32_elems(node, "mutex-ids");
 	for (i = 0; i + 1 < id_count; i += 2) {
-		of_property_read_u32_index(node, "mutex-ids", i, &comp_id);
-		of_property_read_u32_index(node, "mutex-ids", i + 1, &mutex_id);
+		if (of_property_read_u32_index(node, "mutex-ids", i, &comp_id)) {
+			dev_info(dev, "no mutex-ids' comp id of index:%d\n", i);
+			return -EINVAL;
+		}
+		if (of_property_read_u32_index(node, "mutex-ids", i + 1, &mutex_id)) {
+			dev_info(dev, "no mutex-ids' mutex id of index:%d\n", i + 1);
+			return -EINVAL;
+		}
 		if (comp_id >= MML_MAX_COMPONENTS) {
 			dev_err(dev, "component id %u is larger than max:%d\n",
 				comp_id, MML_MAX_COMPONENTS);

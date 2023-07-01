@@ -636,7 +636,7 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 	/* Initialize dbg-regs */
 	i = 0;
 	of_property_for_each_u32(node, "dbg-reg-offsets", prop, p, value) {
-		if (i > MML_MAX_SYS_DBG_REGS) {
+		if (i >= MML_MAX_SYS_DBG_REGS) {
 			dev_err(dev, "no dbg-reg-offsets or out of size in component %s: %d\n",
 				node->full_name, i);
 				return -EINVAL;
@@ -648,7 +648,7 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 
 	i = 0;
 	of_property_for_each_string(node, "dbg-reg-names", prop, name) {
-		if (i > sys->dbg_reg_cnt) {
+		if (i >= sys->dbg_reg_cnt) {
 			dev_err(dev, "dbg-reg-names size over offsets size %s: %d\n",
 				node->full_name, i);
 				return -EINVAL;
@@ -659,8 +659,14 @@ static int sys_comp_init(struct device *dev, struct mml_sys *sys,
 
 	cnt = of_property_count_u32_elems(node, "aid-sel");
 	for (i = 0; i + 1 < cnt; i += 2) {
-		of_property_read_u32_index(node, "aid-sel", i, &comp_id);
-		of_property_read_u32_index(node, "aid-sel", i + 1, &value);
+		if (of_property_read_u32_index(node, "aid-sel", i, &comp_id)) {
+			dev_info(dev, "no aid-sel's comp id of index:%d\n", i);
+			return -EINVAL;
+		}
+		if (of_property_read_u32_index(node, "aid-sel", i + 1, &value)) {
+			dev_info(dev, "no aid-sel's value of index:%d\n", i + 1);
+			return -EINVAL;
+		}
 		if (comp_id >= MML_MAX_COMPONENTS) {
 			dev_err(dev, "component id %u is larger than max:%d\n",
 				comp_id, MML_MAX_COMPONENTS);
