@@ -14,6 +14,7 @@
 #define MT6358_MISC_TOP_INT_CON0              0x188
 #define MT6358_MISC_TOP_INT_STATUS0           0x194
 #define MT6358_TOP_INT_STATUS0                0x19e
+#define MT6358_SCK_TOP_CKPDN_CON0             0x51a
 #define MT6358_SCK_TOP_INT_CON0               0x52e
 #define MT6358_SCK_TOP_INT_STATUS0            0x53a
 #define MT6358_EOSC_CALI_CON0                 0x540

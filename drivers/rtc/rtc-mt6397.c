@@ -20,6 +20,7 @@
 
 #ifdef SUPPORT_EOSC_CALI
 #include <linux/mfd/mt6357/registers.h>
+#include <linux/mfd/mt6358/registers.h>
 #include <linux/mfd/mt6359p/registers.h>
 #endif
 
@@ -71,6 +72,11 @@ static const struct reg_field mtk_rtc_spare_reg_fields[SPARE_RG_MAX] = {
 static const struct reg_field mt6357_cali_reg_fields[CALI_FILED_MAX] = {
 	[RTC_EOSC32_CK_PDN]	= REG_FIELD(MT6357_SCK_TOP_CKPDN_CON0, 2, 2),
 	[EOSC_CALI_TD]		= REG_FIELD(MT6357_EOSC_CALI_CON0, 5, 7),
+};
+
+static const struct reg_field mt6358_cali_reg_fields[CALI_FILED_MAX] = {
+	[RTC_EOSC32_CK_PDN]	= REG_FIELD(MT6358_SCK_TOP_CKPDN_CON0, 2, 2),
+	[EOSC_CALI_TD]		= REG_FIELD(MT6358_EOSC_CALI_CON0, 5, 7),
 };
 
 static const struct reg_field mt6359_cali_reg_fields[CALI_FILED_MAX] = {
@@ -1298,6 +1304,7 @@ static void mtk_rtc_disable_2sec_reboot(struct device *dev)
 		ret = mtk_rtc_write_trigger(rtc);
 }
 #endif
+
 static void mtk_rtc_shutdown(struct platform_device *pdev)
 {
 	struct mt6397_rtc *rtc = dev_get_drvdata(&pdev->dev);
@@ -1341,6 +1348,7 @@ static const struct mtk_rtc_data mt6358_rtc_data = {
 	.alarm_sta_clr_bit	= RTC_BBPU_CLR,
 	.spare_reg_fields	= mtk_rtc_spare_reg_fields,
 #ifdef SUPPORT_EOSC_CALI
+	.cali_reg_fields	= mt6358_cali_reg_fields,
 	.eosc_cali_version	= EOSC_CALI_MT6358_SERIES,
 #endif
 };
