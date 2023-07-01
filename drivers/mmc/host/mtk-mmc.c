@@ -2010,6 +2010,14 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				return;
 			}
 		}
+		if (host->id == MSDC_SD && host->pins_uhs &&
+			ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180) {
+			host->pins_state = PINS_UHS;
+			pinctrl_select_state(host->pinctrl, host->pins_uhs);
+		} else if (host->pins_default) {
+			host->pins_state = PINS_DEFAULT;
+			pinctrl_select_state(host->pinctrl, host->pins_default);
+		}
 		break;
 	case MMC_POWER_ON:
 		if (mmc->supply.vqmmc == NULL || IS_ERR(mmc->supply.vqmmc)) {
@@ -2022,6 +2030,14 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				dev_err(host->dev, "Failed to set vqmmc power!\n");
 			else
 				host->vqmmc_enabled = true;
+		}
+		if (host->id == MSDC_SD && host->pins_uhs &&
+			ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180 ) {
+			host->pins_state = PINS_UHS;
+			pinctrl_select_state(host->pinctrl, host->pins_uhs);
+		} else if (host->pins_default) {
+			host->pins_state = PINS_DEFAULT;
+			pinctrl_select_state(host->pinctrl, host->pins_default);
 		}
 		break;
 	case MMC_POWER_OFF:
@@ -2038,7 +2054,8 @@ static void msdc_ops_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			regulator_disable(mmc->supply.vqmmc);
 			host->vqmmc_enabled = false;
 		}
-
+		if (host->pins_pull_down)
+			pinctrl_select_state(host->pinctrl, host->pins_pull_down);
 		if (host->id == MSDC_SD) {
 			if (host->mclk == 100000) {
 				host->block_bad_card = 1;
