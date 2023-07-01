@@ -29,6 +29,8 @@
 	supports-cqe;
 	dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 	req-vcore = <700000>;
+	dump-gpio-start = <122>;
+	dump-gpio-end = <133>;
 };
 
 &pio {
@@ -145,6 +147,8 @@
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
 	no-mmc;
 	no-sdio;
+	dump-gpio-start = <161>;
+	dump-gpio-end = <171>;
 };
 
 &pio {
