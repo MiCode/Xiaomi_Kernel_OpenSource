@@ -2203,11 +2203,11 @@ struct dummy_mapping mt6895_dispsys_dummy_register[MT6983_DUMMY_REG_CNT] = {
 	{0, NULL, DDP_COMPONENT_ID_MAX, 0x668},//[0:31]
 	{0, NULL, DDP_COMPONENT_ID_MAX, 0x66c},//[0:31]
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x404},//[0:31]
-	//redudant slot which not used in 6895
-	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x38},//[0:6] //use this as dummy slot
-	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x38},//[0:6] //use this as dummy slot
-//DISP_SLOT_CUR_CONFIG_FENCE(17) MAX_PLANE_NR-1
+//DISP_SLOT_CUR_CONFIG_FENCE(15) MAX_PLANE_NR-1
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x408},//[0:31]
+//redudant slot which not used in 6895
+	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x38},//[0:6] //use this as dummy slot
+	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x38},//[0:6] //use this as dummy slot
 //DISP_SLOT_PRESENT_FENCE(0) = DISP_SLOT_PRESENT_FENCE(MAX_PLANE_NR)
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x40c},//[0:31]
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x500},//[0:31] //DISP_SLOT_PRESENT_FENCE(1)
@@ -2234,11 +2234,12 @@ struct dummy_mapping mt6895_dispsys_dummy_register[MT6983_DUMMY_REG_CNT] = {
 
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x20},//[0:2]
 
-	//redudant slot which not used in 6895
-	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x38},//[0:6] //use this as dummy slot
-	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x38},//[0:6] //use this as dummy slot
-//DISP_SLOT_SUBTRACTOR_WHEN_FREE(17) MAX_PLANE_NR-1
+//DISP_SLOT_SUBTRACTOR_WHEN_FREE(15) MAX_PLANE_NR-1
 	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x24},//[0:2]
+//redudant slot which not used in 6895
+	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x38},//[0:6] //use this as dummy slot
+	{0, NULL, DDP_COMPONENT_ID_MAX | BIT(31), 0x38},//[0:6] //use this as dummy slot
+
 	{0, NULL, DDP_COMPONENT_ID_MAX, 0x20c},//[0:23]//DISP_SLOT_RDMA_FB_IDX
 	{0, NULL, DDP_COMPONENT_ID_MAX, 0x22c},//[0:23]//DISP_SLOT_RDMA_FB_ID
 
