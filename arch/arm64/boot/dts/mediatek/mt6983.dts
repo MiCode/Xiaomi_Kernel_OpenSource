@@ -5938,6 +5938,7 @@
 		min_charger_voltage = <4600000>;
 
 		/* sw jeita */
+		enable_vbat_mon = <1>;
 		/* enable_sw_jeita; */
 		jeita_temp_above_t4_cv = <4240000>;
 		jeita_temp_t3_to_t4_cv = <4240000>;
