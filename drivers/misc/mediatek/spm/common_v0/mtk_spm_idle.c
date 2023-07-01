@@ -14,7 +14,8 @@
 #include <mt-plat/mtk_wd_api.h> /* ap wdt related definitons */
 #endif
 
-//#include <trace/events/mtk_idle_event.h>
+#define CREATE_TRACE_POINTS
+#include <mtk_idle_event.h>
 
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>
@@ -127,13 +128,13 @@ static void print_ftrace_tag(int idle_type, int cpu, int enter)
 #if MTK_IDLE_TRACE_TAG_ENABLE
 	switch (idle_type) {
 	case IDLE_TYPE_DP:
-		//trace_dpidle_rcuidle(cpu, enter);
+		trace_dpidle(cpu, enter);
 		break;
 	case IDLE_TYPE_SO:
-		//trace_sodi_rcuidle(cpu, enter);
+		trace_sodi(cpu, enter);
 		break;
 	case IDLE_TYPE_SO3:
-		//trace_sodi3_rcuidle(cpu, enter);
+		trace_sodi3(cpu, enter);
 		break;
 	default:
 		break;

@@ -6,7 +6,7 @@
 #include <linux/of_address.h>
 #include <linux/io.h>
 
-//#include <trace/events/mtk_idle_event.h>
+#include <mtk_idle_event.h>
 
 #include <mtk_idle.h> /* IDLE_TYPE_xxx */
 #include <mtk_idle_internal.h>
@@ -307,7 +307,7 @@ static void mtk_idle_cgmon_trace_log(void)
 {
 	/* Note: trace tag is defined at trace/events/mtk_idle_event.h */
 	#if MTK_IDLE_TRACE_TAG_ENABLE
-/*	unsigned int diff, block, g, n;
+	unsigned int diff, block, g, n;
 
 	if (cgmon_sel == IDLE_TYPE_DP ||
 		cgmon_sel == IDLE_TYPE_SO3 ||
@@ -325,7 +325,7 @@ static void mtk_idle_cgmon_trace_log(void)
 						TRACE_CGMON(g, n, cgmon_sta[g]);
 			}
 		}
-	}*/
+	}
 	#endif
 }
 
