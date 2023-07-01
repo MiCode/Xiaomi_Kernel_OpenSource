@@ -304,6 +304,8 @@ static const struct of_device_id msdc_of_ids[] = {
 	{}
 };
 MODULE_DEVICE_TABLE(of, msdc_of_ids);
+static const u32 msdc_ints_err = MSDC_INT_RSPCRCERR|MSDC_INT_CMDTMO|
+	MSDC_INT_DATCRCERR|MSDC_INT_DATTMO;
 
 static void sdr_set_bits(void __iomem *reg, u32 bs)
 {
@@ -1659,6 +1661,7 @@ static irqreturn_t msdc_cmdq_irq(struct msdc_host *host, u32 intsts)
 	}
 
 	if (cmd_err || dat_err) {
+		writel(msdc_ints_err, host->base + MSDC_INT);
 		dev_err(host->dev, "cmd_err = %d, dat_err =%d, intsts = 0x%x",
 			cmd_err, dat_err, intsts);
 		msdc_dump_info(NULL, 0, NULL, host);
