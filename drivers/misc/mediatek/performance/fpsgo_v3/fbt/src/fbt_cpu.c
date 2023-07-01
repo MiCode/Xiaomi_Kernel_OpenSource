@@ -3034,6 +3034,9 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	if (!gcc_fps_margin && target_fps == 144)
 		target_time = max(target_time, (long long)vsync_duration_us_144);
 
+	if (!target_time)
+		return target_time;
+
 	gcc_window_size = clamp(gcc_window_size, 0, 100);
 	s32_target_time = target_time;
 	window_cnt = target_fps * gcc_window_size;
