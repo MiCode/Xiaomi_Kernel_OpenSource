@@ -303,6 +303,9 @@ module_param(dbg_log_en, bool, 0644);
 #define PHY_MODE_BC11_SET		1
 #define PHY_MODE_BC11_CLR		2
 
+#define NORMAL_CHARGING_CURR_UA	500000
+#define FAST_CHARGING_CURR_UA	1500000
+
 enum mt6370_chg_reg_field {
 	/* MT6370_REG_CHG_CTRL2 */
 	F_IINLMTSEL, F_CFO_EN, F_CHG_EN,
@@ -374,6 +377,8 @@ static enum power_supply_property mt6370_chg_properties[] = {
 	POWER_SUPPLY_PROP_PRECHARGE_CURRENT,
 	POWER_SUPPLY_PROP_CHARGE_TERM_CURRENT,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 };
 
 
@@ -1524,6 +1529,16 @@ static int mt6370_chg_get_property(struct power_supply *psy,
 		return 0;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = priv->psy_desc.type;
+		return 0;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (priv->psy_desc.type == POWER_SUPPLY_TYPE_USB)
+			val->intval = NORMAL_CHARGING_CURR_UA;
+		else if (priv->psy_desc.type == POWER_SUPPLY_TYPE_USB_DCP)
+			val->intval = FAST_CHARGING_CURR_UA;
+		return 0;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		if (priv->psy_desc.type == POWER_SUPPLY_TYPE_USB)
+			val->intval = 5000000;
 		return 0;
 	default:
 		return -EINVAL;
