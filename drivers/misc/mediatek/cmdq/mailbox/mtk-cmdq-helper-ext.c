@@ -930,7 +930,7 @@ struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client)
 		pkt->dev = client->chan->mbox->dev;
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	if (client && cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+	if (client)
 		cmdq_pkt_perf_begin(pkt);
 #endif
 	pkt->task_alive = true;
@@ -2015,6 +2015,9 @@ void cmdq_pkt_perf_begin(struct cmdq_pkt *pkt)
 	dma_addr_t pa;
 	struct cmdq_pkt_buffer *buf;
 
+	if (!cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+		return;
+
 	if (!pkt->buf_size)
 		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
 			return;
@@ -2031,6 +2034,9 @@ void cmdq_pkt_perf_end(struct cmdq_pkt *pkt)
 {
 	dma_addr_t pa;
 	struct cmdq_pkt_buffer *buf;
+
+	if (!cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
+		return;
 
 	if (!pkt->buf_size)
 		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
@@ -2172,8 +2178,7 @@ s32 cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 		return 0;
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
-	if (cmdq_util_helper->is_feature_en(CMDQ_LOG_FEAT_PERF))
-		cmdq_pkt_perf_end(pkt);
+	cmdq_pkt_perf_end(pkt);
 
 #ifdef CMDQ_SECURE_SUPPORT
 	if (pkt->sec_data) {
@@ -2466,7 +2471,6 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 
 	cmdq_util_user_err(client->chan, "Begin of Error %u", err_num);
 
-	cmdq_dump_core(client->chan);
 
 #ifdef CMDQ_SECURE_SUPPORT
 	/* for secure path dump more detail */
@@ -2476,6 +2480,7 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 		cmdq_sec_helper->sec_err_dump_fp(
 			pkt, client, (u64 **)&inst, &mod);
 	} else {
+		cmdq_dump_core(client->chan);
 		cmdq_thread_dump(client->chan, pkt, (u64 **)&inst, &pc);
 	}
 
@@ -2489,8 +2494,12 @@ void cmdq_pkt_err_dump_cb(struct cmdq_cb_data data)
 #endif
 
 	if (inst && inst->op == CMDQ_CODE_WFE) {
+#ifdef CMDQ_SECURE_SUPPORT
+		if (!pkt->sec_data)
+			cmdq_print_wait_summary(client->chan, pc, inst);
+#else
 		cmdq_print_wait_summary(client->chan, pc, inst);
-
+#endif
 		if (inst->arg_a >= CMDQ_TOKEN_PREBUILT_MDP_WAIT &&
 			inst->arg_a <= CMDQ_TOKEN_DISP_VA_END)
 			cmdq_util_prebuilt_dump(

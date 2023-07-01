@@ -242,6 +242,10 @@ void cmdq_get_usage_cb(struct mbox_chan *chan, cmdq_usage_cb usage_cb)
 	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++)
 		if (cmdq->thread[i].chan == chan)
 			break;
+	if (i >= ARRAY_SIZE(cmdq->thread)) {
+		cmdq_err("Input chan:%p is wrong", chan);
+		return;
+	}
 
 	cmdq->thread[i].usage_cb = usage_cb;
 }
@@ -651,6 +655,14 @@ static void cmdq_task_connect_buffer(struct cmdq_task *task,
 	task_base = (u64 *)(buf->va_base + CMDQ_CMD_BUFFER_SIZE -
 		task->pkt->avail_buf_size - CMDQ_INST_SIZE);
 	inst = *task_base;
+
+	if (!next_task) {
+		*task_base = (u64)CMDQ_JUMP_BY_OFFSET << 32 | 0x00000001;
+		cmdq_log("%s connect to null change last inst %#018llx to %#018llx connect 0x%p -> NULL",
+			__func__, inst, *task_base, task->pkt);
+		return;
+	}
+
 	*task_base = (u64)CMDQ_JUMP_BY_PA << 32 |
 		CMDQ_REG_SHIFT_ADDR(next_task->pa_base);
 	cmdq_log("change last inst 0x%016llx to 0x%016llx connect 0x%p -> 0x%p",
@@ -1841,7 +1853,7 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 {
 	struct cmdq_thread *thread = (struct cmdq_thread *)chan->con_priv;
 	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
-	struct cmdq_task *task, *tmp;
+	struct cmdq_task *task, *tmp, *next_task, *prev_task;
 	unsigned long flags;
 	dma_addr_t pa_curr;
 	bool curr_task = false;
@@ -1893,6 +1905,12 @@ void cmdq_mbox_thread_remove_task(struct mbox_chan *chan,
 			/* task during error handling, skip */
 			spin_unlock_irqrestore(&thread->chan->lock, flags);
 			return;
+		}
+
+		if (!curr_task) {
+			next_task = last_task ? NULL : list_next_entry(task, list_entry);
+			prev_task = list_prev_entry(task, list_entry);
+			cmdq_task_connect_buffer(prev_task, next_task);
 		}
 
 		cmdq_task_exec_done(task, curr_task ? -ECONNABORTED : 0);
