@@ -80,7 +80,7 @@ static void _share_wrot_cb(struct cmdq_cb_data data)
 	kfree(cb_data);
 }
 
-static int32_t _acquire_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
+int32_t _acquire_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(share_sram_crtc);
 	struct cmdq_pkt *handle;

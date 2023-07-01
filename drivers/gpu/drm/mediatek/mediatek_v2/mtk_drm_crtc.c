@@ -6714,8 +6714,11 @@ void mtk_drm_crtc_enable(struct drm_crtc *crtc, bool skip_esd)
 		mtk_crtc_alloc_sram(mtk_crtc, mtk_state->prop_val[CRTC_PROP_LYE_IDX]);
 
 #ifdef SHARE_WROT_SRAM
-	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SHARE_SRAM))
+	if (mtk_drm_helper_get_opt(priv->helper_opt, MTK_DRM_OPT_SHARE_SRAM)) {
 		mtk_drm_enter_share_sram(crtc, false);
+		if (can_use_wrot_sram())
+			_acquire_wrot_resource(CMDQ_EVENT_MDP_RDMA0_SOF);
+	}
 #endif
 end:
 	CRTC_MMP_EVENT_END(crtc_id, enable,

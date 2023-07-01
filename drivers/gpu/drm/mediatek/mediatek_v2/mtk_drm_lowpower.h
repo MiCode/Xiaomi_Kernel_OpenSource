@@ -14,6 +14,11 @@
 #include "mtk-cmdq-ext.h"
 #endif
 
+#ifdef SHARE_WROT_SRAM
+#include "mdp_event_common.h"
+#define CMDQ_EVENT_ENUM cmdq_event
+#endif
+
 struct mtk_drm_idlemgr_context {
 	unsigned long long idle_check_interval;
 	unsigned long long idlemgr_last_kick_time;
@@ -55,6 +60,7 @@ unsigned int use_wrot_sram(void);
 void mtk_drm_enter_share_sram(struct drm_crtc *crtc, bool first);
 void mtk_drm_leave_share_sram(struct drm_crtc *crtc,
 		struct cmdq_pkt *cmdq_handle);
+int32_t _acquire_wrot_resource(enum CMDQ_EVENT_ENUM resourceEvent);
 #endif
 
 #endif
