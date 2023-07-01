@@ -1068,7 +1068,7 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 				"%s: cmd=%d arg=%08X; rsp %08X; cmd_error=%d; events=%08x\n",
 				__func__, cmd->opcode, cmd->arg, rsp[0],
 				cmd->error, events);
-#if IS_ENABLED(CONFIG_MMC_MTK_SW_CQHCI)
+
 	if (cmd->opcode == MMC_CMDQ_TASK_MGMT) {
 		/* if resp is incorrect for cmd48, return a error to reset MMC device */
 		if	(cmd->resp[0] != 0x0900)
@@ -1076,7 +1076,7 @@ static bool msdc_cmd_done(struct msdc_host *host, int events,
 		dev_info(host->dev, "%s: cmd=48, error=%d, resp=0x%08X\n",
 			__func__, cmd->error, cmd->resp[0]);
 	}
-#endif
+
 	msdc_cmd_next(host, mrq, cmd);
 	return true;
 }
