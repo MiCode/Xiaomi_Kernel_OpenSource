@@ -8,6 +8,7 @@
   blk_rq_map_user
   blk_rq_map_user_iov
   blk_start_plug
+  cgroup_add_dfl_cftypes
   cgroup_add_legacy_cftypes
   console_printk
   cpufreq_frequency_table_get_index
@@ -54,6 +55,7 @@
   __printk_ratelimit
   prepare_to_wait_exclusive
   proc_symlink
+  public_key_verify_signature
   radix_tree_lookup_slot
   radix_tree_replace_slot
   _raw_write_trylock
