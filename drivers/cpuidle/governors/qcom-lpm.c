@@ -3,7 +3,7 @@
  * Copyright (C) 2006-2007 Adam Belay <abelay@novell.com>
  * Copyright (C) 2009 Intel Corporation
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/cpu.h>
@@ -451,12 +451,20 @@ static int lpm_online_cpu(unsigned int cpu)
 static void ipi_raise(void *ignore, const struct cpumask *mask, const char *unused)
 {
 	int cpu;
+	struct lpm_cpu *cpu_gov;
+	unsigned long flags;
 
 	if (suspend_in_progress)
 		return;
 
 	for_each_cpu(cpu, mask) {
-		per_cpu(lpm_cpu_data, cpu).ipi_pending = true;
+		cpu_gov = &(per_cpu(lpm_cpu_data, cpu));
+		if (!cpu_gov->enable)
+			return;
+
+		spin_lock_irqsave(&cpu_gov->lock, flags);
+		cpu_gov->ipi_pending = true;
+		spin_unlock_irqrestore(&cpu_gov->lock, flags);
 		update_ipi_history(cpu);
 	}
 }
@@ -464,12 +472,20 @@ static void ipi_raise(void *ignore, const struct cpumask *mask, const char *unus
 static void ipi_entry(void *ignore, const char *unused)
 {
 	int cpu;
+	struct lpm_cpu *cpu_gov;
+	unsigned long flags;
 
 	if (suspend_in_progress)
 		return;
 
 	cpu = raw_smp_processor_id();
-	per_cpu(lpm_cpu_data, cpu).ipi_pending = false;
+	cpu_gov = &(per_cpu(lpm_cpu_data, cpu));
+	if (!cpu_gov->enable)
+		return;
+
+	spin_lock_irqsave(&cpu_gov->lock, flags);
+	cpu_gov->ipi_pending = false;
+	spin_unlock_irqrestore(&cpu_gov->lock, flags);
 }
 
 /**
@@ -648,13 +664,22 @@ static void lpm_idle_enter(void *unused, int *state, struct cpuidle_device *dev)
 {
 	struct lpm_cpu *cpu_gov = this_cpu_ptr(&lpm_cpu_data);
 	u64 reason = 0;
+	unsigned long flags;
+
+	if (*state == 0)
+		return;
+
+	if (!cpu_gov->enable)
+		return;
 
 	/* Restrict to WFI state if there is an IPI pending on current CPU */
+	spin_lock_irqsave(&cpu_gov->lock, flags);
 	if (cpu_gov->ipi_pending) {
 		reason = UPDATE_REASON(*state, LPM_SELECT_STATE_IPI_PENDING);
 		*state = 0;
 		trace_lpm_gov_select(*state, 0xdeaffeed, 0xdeaffeed, reason);
 	}
+	spin_unlock_irqrestore(&cpu_gov->lock, flags);
 }
 
 /**
@@ -686,6 +711,7 @@ static int lpm_enable_device(struct cpuidle_driver *drv,
 	struct hrtimer *cpu_biastimer = &cpu_gov->biastimer;
 	int ret;
 
+	spin_lock_init(&cpu_gov->lock);
 	hrtimer_init(cpu_histtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	hrtimer_init(cpu_biastimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	if (!traces_registered) {
