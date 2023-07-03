@@ -565,8 +565,12 @@ static irqreturn_t a6xx_hwsched_hfi_handler(int irq, void *data)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	u32 status = 0;
 
+	/*
+	 * A6XX_GMU_GMU2HOST_INTR_INFO may have bits set not specified in hfi->irq_mask.
+	 * Read and clear only those irq bits that we are processing here.
+	 */
 	gmu_core_regread(device, A6XX_GMU_GMU2HOST_INTR_INFO, &status);
-	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, hfi->irq_mask);
+	gmu_core_regwrite(device, A6XX_GMU_GMU2HOST_INTR_CLR, status & hfi->irq_mask);
 
 	/*
 	 * If interrupts are not enabled on the HFI message queue,
