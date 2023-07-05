@@ -971,6 +971,19 @@ config ARM64_ERRATUM_2457168
 
 	  If unsure, say Y.
 
+config ARM64_ERRATUM_2941627
+	bool "GIC-700: missing wake requests"
+	default n
+	help
+	  This option adds the workaround for GIC-700 errata 2941627 which
+	  present in r0p0, r0p1, r1p0, r2p0, r2p1, r2p2 and fixed in r3p0.
+
+	  GIC-700 erratum 2941627 may cause GIC-700 missing SPIs wake
+	  requests when SPIs are deactivated while targeting a
+	  sleeping CPU - ie a CPU for which the redistributor.
+
+	  If unsure, say Y.
+
 config CAVIUM_ERRATUM_22375
 	bool "Cavium erratum 22375, 24313"
 	default y
