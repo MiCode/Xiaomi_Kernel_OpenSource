@@ -759,6 +759,7 @@ struct task_struct {
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	/* debug cgroup lock     */
 	struct list_head                pending_list;
+	u64				last_update_time;
  #endif
 	unsigned int			__state;
 

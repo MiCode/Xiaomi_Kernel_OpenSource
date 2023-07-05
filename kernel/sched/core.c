@@ -164,6 +164,7 @@ __read_mostly int scheduler_running;
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 LIST_HEAD(pending_lists);
 DEFINE_SPINLOCK(pending_lists_lock);
+static u64	last_print_time;
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
@@ -2470,6 +2471,9 @@ static int migration_cpu_stop(void *data)
 	struct task_struct *pending_task = NULL;
 	struct set_affinity_pending *mypending = NULL;
 	unsigned long spin_flags;
+	unsigned int stop_pending = UINT_MAX;
+	u64 now,delta;
+	int i = 0;
  #endif
 	/*
 	 * The original target CPU might have gone down and we might
@@ -2549,34 +2553,57 @@ static int migration_cpu_stop(void *data)
 		 */
 		WARN_ON_ONCE(!pending->stop_pending);
 		task_rq_unlock(rq, p, &rf);
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		now = sched_clock();
+		delta = now - p->last_update_time;
+		if (delta > 5000000000LLU) {
+			p->last_update_time = now ;
+			pr_info("%s:pid=%d,process=%s task rq =%u, this rq =%d,stop_pending=%d,task mask=0x%lx ,duration %llu from %llu to %llu\n",
+			__func__,p->pid,p->comm,task_cpu(p),rq->cpu,pending->stop_pending,p->cpus_ptr->bits[0],
+			delta,p->last_update_time,now);
+		}
+#endif
 		stop_one_cpu_nowait(task_cpu(p), migration_cpu_stop,
 				    &pending->arg, &pending->stop_work);
 		return 0;
 	}
 out:
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+	if (pending)
+		stop_pending = pending->stop_pending;
+#endif
 	if (pending)
 		pending->stop_pending = false;
+
+	task_rq_unlock(rq, p, &rf);
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-	if (!list_empty(&pending_lists)){
-		printk_deferred("%s:curr task pid=%d,process:%s,ptr=%p,migration_disable=%d,%s,%s\n",
-				__func__,p->pid,p->comm,p,p->migration_disabled,((pending==NULL)?"is nul":"not null"),
-				((task_rq(p) == rq)?"task_rq=rq":"task_rq!=rq"));
+	if (!complete && pending){
+		now = sched_clock();
+		delta = now - p->last_update_time;
+pr_info("%s:curr pid=%d,process=%s,task rq=%u,cpu rq=%d,stop_pending=%u,mask=0x%lx,migration %d,duration %llu from %llu to %llu\n",
+__func__,p->pid,p->comm,task_cpu(p),rq->cpu,stop_pending,p->cpus_ptr->bits[0],p->migration_disabled,delta,
+p->last_update_time,now);
 		spin_lock_irqsave(&pending_lists_lock, spin_flags);
-		list_for_each_entry(pending_task, &pending_lists, pending_list){
-			pending_task = get_task_struct(pending_task);
-			if (pending_task)
-				printk_deferred("%s:pending pid=%d,process:%s ,ptr=%p,migration_disable=%d\n",
-						__func__,pending_task->pid,pending_task->comm,pending_task,
-						pending_task->migration_disabled);
-			 mypending=pending_task->migration_pending;
-			if (mypending)
-				printk_deferred("%s:pending done:%u\n",__func__,mypending->done.done);
+		delta = now - last_print_time;
+		if (!list_empty(&pending_lists) && delta >5000000000LLU){
+			last_print_time = now ;
+			list_for_each_entry(pending_task, &pending_lists, pending_list){
+				pending_task = get_task_struct(pending_task);
+				if (pending_task){
+					pr_info("%s:pending%d task pid=%d,proc:%s,migration=%d,mask=0x%lx,rq=%u\n",
+					__func__,i,pending_task->pid,pending_task->comm,
+					pending_task->migration_disabled,pending_task->cpus_ptr->bits[0],
+					task_cpu(pending_task));
+					if (mypending)
+						pr_info("%s:done=%u,stop_pending =%d\n",__func__,
+						mypending->done.done,mypending->stop_pending);
+				}
+			i++;
+			}
 		}
 		spin_unlock_irqrestore(&pending_lists_lock, spin_flags);
 	}
- #endif
-	task_rq_unlock(rq, p, &rf);
-
+#endif
 	if (complete)
 		complete_all(&pending->done);
 
@@ -2834,6 +2861,7 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 	struct task_struct *pending_task = NULL;
 	unsigned int pdone = UINT_MAX;
 	unsigned long spin_flags;
+	char str[512] = {0};
 #endif
 	/* Can the task run on the task's current CPU? If so, we're done */
 	if (cpumask_test_cpu(task_cpu(p), &p->cpus_mask)) {
@@ -2927,7 +2955,9 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 			p->migration_flags &= ~MDF_PUSH;
 
 		task_rq_unlock(rq, p, rf);
-
+#if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
+		p->last_update_time = sched_clock();
+#endif
 		if (!stop_pending) {
 			stop_one_cpu_nowait(cpu_of(rq), migration_cpu_stop,
 					    &pending->arg, &pending->stop_work);
@@ -2937,6 +2967,8 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 			return 0;
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 		pending_task = p;
+sprintf(str,"%s:pid=%d,process=%s,migration_disable=%d,stop_pending=%u,flag=0x%x,pending done=%u ,task run on cpu%d\n",
+__func__,p->pid,p->comm,p->migration_disabled,stop_pending,flags,pending->done.done,rq->cpu);
 #endif
 	} else {
 
@@ -2954,23 +2986,24 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 		if (complete)
 			complete_all(&pending->done);
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
-		if (!complete)
-			printk_deferred("%s:pid=%d,process=%s,ptr=%p,migration_disable=%d,stop_pending=%u,flag=0x%02x",
-					 __func__,p->pid,p->comm,p,p->migration_disabled,
-					pending->stop_pending,flags);
+		if (!complete){
+			pending_task = p;
+	sprintf(str,"%s:pid=%d,process=%s,migration_disable=%d,pending stop_pending=%u,flag=0x%x,pending done=%u\n",
+	__func__,p->pid,p->comm,p->migration_disabled,
+			pending->stop_pending,flags,pending->done.done);
+		}
  #endif
 	}
 #if IS_ENABLED(CONFIG_MTK_IRQ_MONITOR_DEBUG)
 	pdone = pending->done.done;
 	if (pending_task && !pdone){
-		spin_lock_irqsave(&pending_lists_lock, spin_flags);
-		if (pending_task){
+		pr_info("%s",str);
+		if(&pending_task->pending_list != pending_lists.next
+			|| &pending_task->pending_list != pending_lists.prev){
+			spin_lock_irqsave(&pending_lists_lock, spin_flags);
 			list_add(&pending_task->pending_list,&pending_lists);
-			printk_deferred("%s:list add pid=%d,process=%s,ptr=%p,migration_disable=%d,pending done:%u,pdone=%u",
-			 __func__,pending_task->pid,pending_task->comm,pending_task,
-			 pending_task->migration_disabled,pending->done.done,pdone);
+			spin_unlock_irqrestore(&pending_lists_lock, spin_flags);
 		}
-		spin_unlock_irqrestore(&pending_lists_lock, spin_flags);
 	}
 #endif
 	wait_for_completion(&pending->done);
@@ -2979,10 +3012,8 @@ static int affine_move_task(struct rq *rq, struct task_struct *p, struct rq_flag
 		spin_lock_irqsave(&pending_lists_lock, spin_flags);
 		pending_task = get_task_struct(pending_task);
 		if (pending_task){
+			pending_task->last_update_time = 0ULL;
 			list_del(&pending_task->pending_list);
-			printk_deferred("%s:list del pid=%d,process=%s,ptr=%p,migration_disable=%d,pdone=%u,pending done:%u",
-			 __func__,pending_task->pid,pending_task->comm,pending_task,
-			pending_task->migration_disabled,pdone,pending->done.done);
 		}
 		spin_unlock_irqrestore(&pending_lists_lock, spin_flags);
 	}
