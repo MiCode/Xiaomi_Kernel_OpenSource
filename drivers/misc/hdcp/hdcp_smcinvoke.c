@@ -346,6 +346,11 @@ void hdcp1_stop_smcinvoke(void *data)
 {
 	struct hdcp1_smcinvoke_handle *hdcp1_handle = data;
 
+	if (!hdcp1_handle) {
+		pr_err("invalid HDCP 1.x handle\n");
+		return;
+	}
+
 	if (!(hdcp1_handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
 		pr_err("hdcp1 app not loaded\n");
 		return;
