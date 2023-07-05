@@ -169,6 +169,7 @@ struct geni_i2c_dev {
 	bool req_chan;
 	bool first_resume;
 	bool gpi_reset;
+	bool le_gpi_reset_done;
 	bool prev_cancel_pending; //Halt cancel till IOS in good state
 	bool is_i2c_rtl_based; /* doing pending cancel only for rtl based SE's */
 	bool bus_recovery_enable; //To be enabled by client if needed
@@ -1093,8 +1094,12 @@ static void geni_i2c_unlock_bus(struct geni_i2c_dev *gi2c)
 	dma_cookie_t tx_cookie;
 	bool tx_chan = true;
 
-	if (gi2c->gpi_reset)
-		goto geni_i2c_err_unlock_bus;
+	/* if gpi reset happened for levm, no need to do unlock */
+	if (gi2c->is_le_vm && gi2c->le_gpi_reset_done) {
+		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+			    "%s:gpi reset happened for levm, no need to do unlock\n", __func__);
+		return;
+	}
 
 	unlock_t = setup_unlock_tre(gi2c);
 	sg_init_table(gi2c->tx_sg, 1);
@@ -1123,11 +1128,10 @@ static void geni_i2c_unlock_bus(struct geni_i2c_dev *gi2c)
 	}
 
 geni_i2c_err_unlock_bus:
-	if (gi2c->gpi_reset || gi2c->err) {
+	if (gi2c->err) {
 		dmaengine_terminate_all(gi2c->tx_c);
 		gi2c->cfg_sent = 0;
 		gi2c->err = 0;
-		gi2c->gpi_reset = false;
 	}
 }
 
@@ -1144,6 +1148,18 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 		ret = geni_i2c_gsi_request_channel(gi2c);
 		if (ret)
 			return ret;
+	}
+
+	if (gi2c->is_le_vm && gi2c->le_gpi_reset_done) {
+		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+			    "%s doing gsi lock, due to levm gsi reset\n", __func__);
+		ret = geni_i2c_lock_bus(gi2c);
+		if (ret) {
+			I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
+				    "%s lock bus failed: %d\n", __func__, ret);
+			return ret;
+		}
+		gi2c->le_gpi_reset_done = false;
 	}
 
 	if (!gi2c->cfg_sent)
@@ -1308,22 +1324,13 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 
 geni_i2c_err_prep_sg:
 		if (gi2c->err || gi2c->gsi_err) {
-			if (!gi2c->is_le_vm) {
-				I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
-						"gpi_terminate\n");
-				dmaengine_terminate_all(gi2c->tx_c);
-				gi2c->cfg_sent = 0;
-			} else {
-				/* Stop channel in case of error in LE-VM */
-				ret = dmaengine_pause(gi2c->tx_c);
-				if (ret) {
-					gi2c->gpi_reset = true;
-					gi2c->err = ret;
-					I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev,
-						"Channel cancel failed\n");
-					goto geni_i2c_gsi_xfer_out;
-				}
-			}
+			ret = dmaengine_terminate_all(gi2c->tx_c);
+			if (ret)
+				I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev,
+					    "%s: gpi terminate failed\n", __func__, ret);
+			gi2c->cfg_sent = 0;
+			if (gi2c->is_le_vm)
+				gi2c->le_gpi_reset_done = true;
 		}
 
 		if (gi2c->gsi_err) {
