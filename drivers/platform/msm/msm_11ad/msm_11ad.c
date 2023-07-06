@@ -21,7 +21,10 @@
 #include <linux/interrupt.h>
 #include <linux/cpumask.h>
 #include <linux/cpufreq.h>
+#ifdef CONFIG_SCHED_CORE_CTL
 #include <linux/sched/core_ctl.h>
+#endif
+#include <linux/qcom-iommu-util.h>
 #include "wil_platform.h"
 #include "msm_11ad.h"
 
@@ -268,9 +271,9 @@ static int msm_11ad_init_vregs(struct msm11ad_ctx *ctx)
 	if (rc)
 		goto vdd_s1c_fail;
 
-	ctx->vdd_ldo.max_uV = VDD_S1C_MAX_UV;
-	ctx->vdd_ldo.min_uV = VDD_S1C_MIN_UV;
-	ctx->vdd_ldo.max_uA = VDD_S1C_MAX_UA;
+	ctx->vdd_s1c.max_uV = VDD_S1C_MAX_UV;
+	ctx->vdd_s1c.min_uV = VDD_S1C_MIN_UV;
+	ctx->vdd_s1c.max_uA = VDD_S1C_MAX_UA;
 
 	return rc;
 vdd_s1c_fail:
@@ -707,8 +710,8 @@ static int ops_suspend(void *handle, bool keep_device_power)
 	pcidev = ctx->pcidev;
 
 	dev_dbg(ctx->dev, "disable device and save config\n");
-	pci_disable_device(pcidev);
 	pci_save_state(pcidev);
+	pci_disable_device(pcidev);
 	kfree(ctx->pristine_state);
 	ctx->pristine_state = pci_store_saved_state(pcidev);
 	dev_dbg(ctx->dev, "moving to D3\n");
@@ -1264,7 +1267,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		goto out_rc;
 	}
 	ctx->pcidev = pcidev;
-	dev_dbg(ctx->dev, "Wigig device %4x:%4x found\n",
+	dev_dbg(ctx->dev, "Talyn device %4x:%4x found\n",
 		ctx->pcidev->vendor, ctx->pcidev->device);
 
 	rc = msm_pcie_pm_control(MSM_PCIE_RESUME, pcidev->bus->number,
@@ -1293,10 +1296,8 @@ static int msm_11ad_probe(struct platform_device *pdev)
 
 	/* register for subsystem restart */
 	rc = msm_11ad_ssr_init(ctx);
-	if (rc) {
+	if (rc)
 		dev_err(ctx->dev, "msm_11ad_ssr_init failed: %d\n", rc);
-		goto out_suspend;
-	}
 
 	msm_11ad_init_cpu_boost(ctx);
 
@@ -1372,7 +1373,6 @@ out_module:
 static int msm_11ad_remove(struct platform_device *pdev)
 {
 	struct msm11ad_ctx *ctx = platform_get_drvdata(pdev);
-	struct device *dev = &pdev->dev;
 
 	msm_pcie_deregister_event(&ctx->pci_event);
 	msm_11ad_ssr_deinit(ctx);
@@ -1473,6 +1473,18 @@ static void msm_11ad_clear_boost_affinity(struct msm11ad_ctx *ctx)
 		msm_11ad_clear_affinity_hint(ctx, ctx->pcidev->irq + 1);
 }
 
+#ifdef CONFIG_SCHED_CORE_CTL
+static inline int set_core_boost(bool boost)
+{
+	return core_ctl_set_boost(boost);
+}
+#else
+static inline int set_core_boost(bool boost)
+{
+	return 0;
+}
+#endif
+
 /* hooks for the wil6210 driver */
 static int ops_bus_request(void *handle, u32 kbps /* KBytes/Sec */)
 {
@@ -1510,7 +1522,7 @@ static int ops_bus_request(void *handle, u32 kbps /* KBytes/Sec */)
 
 		if (was_boosted != needs_boost) {
 			if (needs_boost) {
-				rc = core_ctl_set_boost(true);
+				rc = set_core_boost(true);
 				if (rc) {
 					dev_err(ctx->dev,
 						"Failed enable boost rc=%d\n",
@@ -1520,7 +1532,7 @@ static int ops_bus_request(void *handle, u32 kbps /* KBytes/Sec */)
 				msm_11ad_set_boost_affinity(ctx);
 				dev_dbg(ctx->dev, "CPU boost enabled\n");
 			} else {
-				rc = core_ctl_set_boost(false);
+				rc = set_core_boost(false);
 				if (rc)
 					dev_err(ctx->dev,
 						"Failed disable boost rc=%d\n",
