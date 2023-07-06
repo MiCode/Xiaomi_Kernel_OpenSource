@@ -351,7 +351,27 @@ int rcu_read_lock_any_held(void)
 }
 EXPORT_SYMBOL_GPL(rcu_read_lock_any_held);
 
-#endif /* #ifdef CONFIG_DEBUG_LOCK_ALLOC */
+#elif IS_ENABLED(CONFIG_MTK_F2FS_DEBUG) /* #ifdef CONFIG_DEBUG_LOCK_ALLOC */
+
+int rcu_read_lock_held(void)
+{
+	if (IS_ENABLED(CONFIG_PREEMPT_RCU))
+		return rcu_preempt_depth();
+	return !preemptible();
+}
+EXPORT_SYMBOL_GPL(rcu_read_lock_held);
+
+int rcu_read_lock_any_held(void)
+{
+	if (rcu_read_lock_held() ||
+	    rcu_read_lock_bh_held() ||
+	    rcu_read_lock_sched_held())
+		return 1;
+	return !preemptible();
+}
+EXPORT_SYMBOL_GPL(rcu_read_lock_any_held);
+
+#endif /* #elif IS_ENABLED(CONFIG_MTK_F2FS_DEBUG) */
 
 /**
  * wakeme_after_rcu() - Callback function to awaken a task after grace period
