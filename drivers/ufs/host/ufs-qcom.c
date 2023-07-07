@@ -193,7 +193,7 @@ static int ufs_qcom_ber_threshold_set(const char *val, const struct kernel_param
 	int ret;
 
 	ret = kstrtou32(val, 0, &n);
-	if (ret != 0 || n > UFS_QCOM_EVT_LEN)
+	if (ret != 0 || n > (UFS_QCOM_EVT_LEN - 1))
 		return -EINVAL;
 	if (n)
 		override_ber_threshold = true;
@@ -3452,11 +3452,10 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 					 &host->vdd_hba_reg_nb);
 
 	/* update phy revision information before calling phy_init() */
-	/*
-	 * FIXME:
-	 * ufs_qcom_phy_save_controller_version(host->generic_phy,
-	 *	host->hw_ver.major, host->hw_ver.minor, host->hw_ver.step);
-	 */
+
+	ufs_qcom_phy_save_controller_version(host->generic_phy,
+		host->hw_ver.major, host->hw_ver.minor, host->hw_ver.step);
+
 	err = ufs_qcom_parse_reg_info(host, "qcom,vddp-ref-clk",
 				      &host->vddp_ref_clk);
 
@@ -3631,7 +3630,7 @@ static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 	core_clk_ctrl_reg |= clk_1us_cycles << offset;
 
 	/* Clear CORE_CLK_DIV_EN */
-	if (scale_up)
+	if (scale_up && !host->disable_lpm)
 		core_clk_ctrl_reg |= DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT;
 	else
 		core_clk_ctrl_reg &= ~DME_VS_CORE_CLK_CTRL_CORE_CLK_DIV_EN_BIT;
@@ -3888,7 +3887,7 @@ static bool ufs_qcom_cal_ber(struct ufs_qcom_host *host, struct ufs_qcom_ber_his
 	int idx_start, idx_end, i;
 	s64 total_run_time = 0;
 	s64 total_full_time = 0;
-	u32 gear = h->gear[h->pos-1];
+	u32 gear = h->gear[(h->pos + UFS_QCOM_EVT_LEN - 1) % UFS_QCOM_EVT_LEN];
 
 	if (!override_ber_threshold)
 		ber_threshold = ber_table[gear].ber_threshold;
@@ -4017,7 +4016,7 @@ static void ufs_qcom_event_notify(struct ufs_hba *hba,
 		}
 
 		if (host->ber_th_exceeded)
-			dev_err(hba->dev, "Warning: BER exceed threshold !!!\n");
+			dev_warn_ratelimited(hba->dev, "Warning: UFS BER exceeds threshold !!!\n");
 
 		break;
 	default:
@@ -4833,6 +4832,7 @@ static int ufs_qcom_config_esi(struct ufs_hba *hba)
 		goto out;
 	}
 
+	ufs_qcom_msi_lock_descs(hba);
 	msi_for_each_desc(desc, hba->dev, MSI_DESC_ALL) {
 		ret = devm_request_irq(hba->dev, desc->irq,
 				       ufs_qcom_mcq_esi_handler,
@@ -4848,14 +4848,17 @@ static int ufs_qcom_config_esi(struct ufs_hba *hba)
 		if (desc->msi_index)
 			ufs_qcom_set_esi_affinity_hint(hba, desc->irq);
 	}
+	ufs_qcom_msi_unlock_descs(hba);
 
 	if (ret) {
 		/* Rewind */
+		ufs_qcom_msi_lock_descs(hba);
 		msi_for_each_desc(desc, hba->dev, MSI_DESC_ALL) {
 			if (desc == failed_desc)
 				break;
 			devm_free_irq(hba->dev, desc->irq, hba);
 		}
+		ufs_qcom_msi_unlock_descs(hba);
 		platform_msi_domain_free_irqs(hba->dev);
 	} else {
 		if (host->hw_ver.major == 6 && host->hw_ver.minor == 0 &&

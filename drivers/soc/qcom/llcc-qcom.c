@@ -159,6 +159,18 @@ static u32 llcc_offsets_v21[] = {
 	0x500000
 };
 
+static u32 llcc_offsets_v31[] = {
+	0x0,
+	0x100000,
+};
+
+static u32 llcc_offsets_monaco_auto[] = {
+	0x0,
+	0x100000,
+	0x200000,
+	0x300000,
+};
+
 static u32 llcc_offsets_v41[] = {
 	0x0,
 	0x200000,
@@ -369,6 +381,7 @@ static const struct llcc_slice_config pineapple_data[] = {
 	{LLCC_GPU,       9, 3096, 1, 0, 0xFFFFFF, 0x0, 0, 0x0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0},
 	{LLCC_MMUHWT,   18,  768, 1, 1, 0xFFFFFF, 0x0, 0, 0x0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{LLCC_DISP,     16, 6144, 1, 1, 0xFFFFFF, 0x0, 2, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_MDMHPFX,  24, 1024, 3, 1, 0xFFFFFF, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{LLCC_MDMPNG,   27, 1024, 0, 1, 0x000000, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFFFFFF, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{LLCC_CVP,       8,  256, 3, 1, 0xFFFFFF, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -382,6 +395,22 @@ static const struct llcc_slice_config pineapple_data[] = {
 	{LLCC_ISLAND1,  12, 5888, 7, 1,      0x0, 0x7FFFFF, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{LLCC_DISP_WB,  23, 1024, 3, 1, 0xFFFFFF, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 	{LLCC_VIDVSP,   28,  256, 3, 1, 0xFFFFFF, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+};
+
+static const struct llcc_slice_config cliffs_data[] = {
+	{LLCC_CPUSS,     1, 3200, 0, 0, 0x3FFF, 0x0, 0, 0x0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_VIDSC0,    2,  128, 3, 1, 0x3FFF, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_MDMHPGRW, 25, 1024, 3, 0, 0x3FFF, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_GPUHTW,   11,  256, 1, 1, 0x3FFF, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_GPU,       9, 2688, 1, 0, 0x3FFF, 0x0, 0, 0x0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_MMUHWT,   18,  512, 1, 1, 0x3FFF, 0x0, 0, 0x0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_MDMPNG,   27, 1024, 0, 1, 0x0000, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_MDMVPE,   29,   64, 1, 1, 0x3C00, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_WRTCH,    31,  256, 1, 1, 0x3FFF, 0x0, 0, 0x0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CAMEXP0,   4,  256, 3, 1,    0xF, 0x0, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_CAMEXP1,   7, 1536, 2, 1, 0x3FF0, 0x0, 2, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+	{LLCC_LCPDARE,  30,  128, 3, 1, 0x3FFF, 0x0, 0, 0x0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_ISLAND1,  12, 3584, 7, 1, 0x0, 0x3FFF, 0, 0x0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
 
 static const struct llcc_slice_config qdu1000_data_2ch[] =  {
@@ -413,6 +442,14 @@ static const struct llcc_slice_config qdu1000_data_8ch[] =  {
 	{LLCC_MDMVPE,  29, 1024, 1, 1, 0xFFF, 0x0, 0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_APTCM,   30, 1024, 3, 1,   0x0, 0xC, 1, 0, 0, 1, 0, 0, 0 },
 	{LLCC_WRTCH,   31, 512,  1, 1,   0x3, 0x0, 0, 0, 0, 0, 1, 0, 0 },
+};
+
+/* MonacoAU ADAS 4CH */
+static struct llcc_slice_config monaco_auto_data[] =  {
+	{LLCC_MMUHWT,   13, 512, 1, 1, 0x00F, 0x0, 0, 0, 0, 0, 1, 0, 0},
+	{LLCC_WRTCH,    31, 128, 1, 1, 0x00F, 0x0, 0, 0, 0, 0, 1, 0, 0},
+	{LLCC_ECC,      26, 256, 3, 1, 0x00F, 0x0, 0, 0, 0, 0, 1, 1, 0},
+	{LLCC_SAIL,     25, 256, 1, 1, 0x00F, 0x0, 0, 0, 0, 1, 0, 0, 0},
 };
 
 static const struct qcom_llcc_config sc7180_cfg = {
@@ -460,6 +497,11 @@ static const struct qcom_llcc_config pineapple_cfg = {
 	.size		= ARRAY_SIZE(pineapple_data),
 };
 
+static const struct qcom_llcc_config cliffs_cfg = {
+	.sct_data	= cliffs_data,
+	.size		= ARRAY_SIZE(cliffs_data),
+};
+
 static const struct qcom_llcc_config qdu1000_cfg[] = {
 	{
 		.sct_data	= qdu1000_data_8ch,
@@ -477,6 +519,11 @@ static const struct qcom_llcc_config qdu1000_cfg[] = {
 		.sct_data	= qdu1000_data_4ch,
 		.size		= ARRAY_SIZE(qdu1000_data_4ch),
 	},
+};
+
+static const struct qcom_llcc_config monaco_auto_cfg = {
+	.sct_data       = monaco_auto_data,
+	.size           = ARRAY_SIZE(monaco_auto_data),
 };
 
 static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
@@ -1083,6 +1130,14 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		llcc_regs = llcc_regs_v21;
 		drv_data->offsets = llcc_offsets_v41;
 	} else if (of_property_match_string(dev->of_node,
+				"compatible", "qcom,llcc-v31") >= 0) {
+		drv_data->llcc_ver = 31;
+		llcc_regs = llcc_regs_v21;
+		drv_data->offsets = llcc_offsets_v31;
+		if (of_property_match_string(dev->of_node,
+				"compatible", "qcom,monaco_auto-llcc") >= 0)
+			drv_data->offsets = llcc_offsets_monaco_auto;
+	} else if (of_property_match_string(dev->of_node,
 				    "compatible", "qcom,llcc-v21") >= 0) {
 		drv_data->llcc_ver = 21;
 		llcc_regs = llcc_regs_v21;
@@ -1199,6 +1254,8 @@ static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,sm8550-llcc", .data = &sm8550_cfg },
 	{ .compatible = "qcom,pineapple-llcc", .data = &pineapple_cfg },
 	{ .compatible = "qcom,qdu1000-llcc", .data = &qdu1000_cfg },
+	{ .compatible = "qcom,cliffs-llcc", .data = &cliffs_cfg },
+	{ .compatible = "qcom,monaco_auto-llcc", .data = &monaco_auto_cfg },
 	{ }
 };
 

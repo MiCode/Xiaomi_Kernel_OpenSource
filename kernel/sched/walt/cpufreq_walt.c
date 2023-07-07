@@ -278,7 +278,8 @@ static unsigned int get_next_freq(struct waltgov_policy *wg_policy,
 	freq = raw_freq;
 
 	cluster = cpu_cluster(policy->cpu);
-	if (cpumask_intersects(&cluster->cpus, cpu_partial_halt_mask))
+	if (cpumask_intersects(&cluster->cpus, cpu_partial_halt_mask) &&
+			cluster_partial_halted())
 		skip = true;
 
 	if (wg_policy->tunables->adaptive_high_freq && !skip) {
@@ -355,14 +356,16 @@ static void waltgov_walt_adjust(struct waltgov_cpu *wg_cpu, unsigned long cpu_ut
 	bool employ_ed_boost = wg_cpu->walt_load.ed_active && sysctl_ed_boost_pct;
 	unsigned long pl = wg_cpu->walt_load.pl;
 
-	if (is_rtg_boost && !cpu_should_help_mincpus(wg_cpu->cpu))
+	if (is_rtg_boost && (!cpumask_test_cpu(wg_cpu->cpu, cpu_partial_halt_mask) ||
+				!cluster_partial_halted()))
 		max_and_reason(util, wg_policy->rtg_boost_util, wg_cpu, CPUFREQ_REASON_RTG_BOOST);
 
 	is_hiload = (cpu_util >= mult_frac(wg_policy->avg_cap,
 					   wg_policy->tunables->hispeed_load,
 					   100));
 
-	if (cpu_should_help_mincpus(wg_cpu->cpu))
+	if (cpumask_test_cpu(wg_cpu->cpu, cpu_partial_halt_mask) &&
+			cluster_partial_halted())
 		is_hiload = false;
 
 	if (is_hiload && !is_migration)
@@ -388,7 +391,7 @@ static inline unsigned long target_util(struct waltgov_policy *wg_policy,
 
 	util = freq_to_util(wg_policy, freq);
 
-	if (is_min_cluster_cpu(wg_policy->policy->cpu) &&
+	if (is_min_possible_cluster_cpu(wg_policy->policy->cpu) &&
 		util >= wg_policy->tunables->target_load_thresh)
 		util = mult_frac(util, 94, 100);
 	else
@@ -1049,9 +1052,9 @@ static int waltgov_init(struct cpufreq_policy *policy)
 	tunables->target_load_thresh = DEFAULT_TARGET_LOAD_THRESH;
 	tunables->target_load_shift = DEFAULT_TARGET_LOAD_SHIFT;
 
-	if (is_min_cluster_cpu(policy->cpu))
+	if (is_min_possible_cluster_cpu(policy->cpu))
 		tunables->rtg_boost_freq = DEFAULT_SILVER_RTG_BOOST_FREQ;
-	else if (is_max_cluster_cpu(policy->cpu))
+	else if (is_max_possible_cluster_cpu(policy->cpu))
 		tunables->rtg_boost_freq = DEFAULT_PRIME_RTG_BOOST_FREQ;
 	else
 		tunables->rtg_boost_freq = DEFAULT_GOLD_RTG_BOOST_FREQ;

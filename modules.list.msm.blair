@@ -70,3 +70,8 @@ ufs_qcom.ko
 spmi-pmic-arb.ko
 nvmem_qcom-spmi-sdam.ko
 qcom-reboot-reason.ko
+debug_symbol.ko
+minidump.ko
+qcom-dcvs.ko
+qcom-pmu-lib.ko
+qcom_llcc_pmu.ko

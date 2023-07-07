@@ -168,6 +168,7 @@ def define_pineapple():
         "drivers/soc/qcom/memshare/msm_memshare.ko",
         "drivers/soc/qcom/minidump.ko",
         "drivers/soc/qcom/msm_performance.ko",
+        "drivers/soc/qcom/msm_show_epoch.ko",
         "drivers/soc/qcom/panel_event_notifier.ko",
         "drivers/soc/qcom/pcie-pdc.ko",
         "drivers/soc/qcom/pdr_interface.ko",
@@ -265,6 +266,7 @@ def define_pineapple():
         "drivers/hwtracing/coresight/coresight-etm4x.ko",
         "drivers/misc/lkdtm/lkdtm.ko",
         "drivers/misc/qseecom_proxy.ko",
+        "drivers/usb/misc/ehset.ko",
         "drivers/usb/misc/lvstest.ko",
         "kernel/locking/locktorture.ko",
         "kernel/rcu/rcutorture.ko",
@@ -281,14 +283,16 @@ def define_pineapple():
     ]
 
     board_kernel_cmdline_extras = []
+    board_bootconfig_extras = []
 
     for variant in la_variants:
         if variant == "consolidate":
             mod_list = _pineapple_consolidate_in_tree_modules
         else:
             mod_list = _pineapple_in_tree_modules
-            board_kernel_cmdline_extras += ["nosoftlockup", "androidboot.console=0"]
+            board_kernel_cmdline_extras += ["nosoftlockup"]
             kernel_vendor_cmdline_extras += ["nosoftlockup"]
+            board_bootconfig_extras += ["androidboot.console=0"]
 
         define_msm_la(
             msm_target = target_name,
@@ -298,5 +302,6 @@ def define_pineapple():
                 earlycon_addr = "qcom_geni,0x00a9C000",
                 kernel_vendor_cmdline_extras = kernel_vendor_cmdline_extras,
                 board_kernel_cmdline_extras = board_kernel_cmdline_extras,
+                board_bootconfig_extras = board_bootconfig_extras,
             ),
         )
