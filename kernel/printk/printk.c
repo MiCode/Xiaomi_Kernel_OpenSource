@@ -2303,7 +2303,7 @@ int vprintk_store(int facility, int level,
 	 * structure when they fail.
 	 */
 #ifdef CONFIG_MTK_PRINTK_DEBUG
-	reserve_size += strlen(current->comm) + 3;
+	reserve_size += strnlen(current->comm, TASK_COMM_LEN) + 3;
 	if (reserve_size > LOG_LINE_MAX)
 		reserve_size = LOG_LINE_MAX;
 #endif
