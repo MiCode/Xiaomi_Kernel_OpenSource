@@ -1709,6 +1709,9 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 	msm_host->dll_lock_bist_fail_wa =
 		of_property_read_bool(np, "qcom,dll_lock_bist_fail_wa");
 
+	msm_host->need_special_up_threshold =
+		of_property_read_bool(np, "qcom,need_special_up_threshold");
+
 	msm_host->crash_on_err =
 		of_property_read_bool(np, "qcom,enable_crash_on_err");
 
@@ -2488,6 +2491,7 @@ static void __sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	u16 clk;
 #if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
 	struct mmc_ios ios = host->mmc->ios;
+	struct mmc_host *mmc = host->mmc;
 #endif
 	/*
 	 * Keep actual_clock as zero -
@@ -2511,8 +2515,14 @@ static void __sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 	sdhci_enable_clk(host, clk);
 
 #if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
-	if (ios.timing == MMC_TIMING_MMC_HS400)
+	if (ios.timing == MMC_TIMING_MMC_HS400 ||
+			ios.timing == MMC_TIMING_MMC_DDR52) {
+
+		if (mmc->card && mmc_card_mmc(mmc->card))
+			mmc->card->mmc_avail_type |= (EXT_CSD_CARD_TYPE_HS400ES |
+				EXT_CSD_CARD_TYPE_HS400 | EXT_CSD_CARD_TYPE_HS200);
 		sdhci_msm_cqe_scaling_resume(host->mmc);
+	}
 #endif
 }
 
@@ -3647,6 +3657,18 @@ static int sdhci_msm_start_signal_voltage_switch(struct mmc_host *mmc,
 
 	return -EAGAIN;
 }
+
+#if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
+static void sdhci_msm_init_card(struct mmc_host *host,
+				struct mmc_card *card)
+{
+
+	if (host->card && mmc_card_mmc(card)) {
+		card->mmc_avail_type &= ~(EXT_CSD_CARD_TYPE_HS400ES |
+			EXT_CSD_CARD_TYPE_HS400 | EXT_CSD_CARD_TYPE_HS200);
+	}
+}
+#endif
 
 #define MAX_TEST_BUS 60
 #define DRIVER_NAME "sdhci_msm"
@@ -4924,6 +4946,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	host->mmc_host_ops.start_signal_voltage_switch =
 		sdhci_msm_start_signal_voltage_switch;
 	host->mmc_host_ops.execute_tuning = sdhci_msm_execute_tuning;
+#if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
+	host->mmc_host_ops.init_card = sdhci_msm_init_card;
+#endif
 
 	msm_host->workq = create_workqueue("sdhci_msm_generic_swq");
 	if (!msm_host->workq)
