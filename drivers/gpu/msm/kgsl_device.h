@@ -340,6 +340,8 @@ struct kgsl_device {
 		u64 begin;
 		u64 end;
 	} gpu_period;
+	/** @dump_all_ibs: Whether to dump all ibs in snapshot */
+	bool dump_all_ibs;
 };
 
 #define KGSL_MMU_DEVICE(_mmu) \
