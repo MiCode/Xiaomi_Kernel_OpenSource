@@ -4961,13 +4961,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	/* Initialize sysfs entries */
 	sdhci_msm_init_sysfs_gating_qos(dev);
 
-	if (of_property_read_bool(node, "supports-cqe"))
-		ret = sdhci_msm_cqe_add_host(host, pdev);
-	else
-		ret = sdhci_add_host(host);
-	if (ret)
-		goto pm_runtime_disable;
-
 #if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
 	pwrseq_scale = kzalloc(sizeof(struct mmc_pwrseq), GFP_KERNEL);
 
@@ -4979,6 +4972,13 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	pwrseq_scale->ops = &mmc_pwrseq_emmc_ops;
 	host->mmc->pwrseq = pwrseq_scale;
 #endif
+
+	if (of_property_read_bool(node, "supports-cqe"))
+		ret = sdhci_msm_cqe_add_host(host, pdev);
+	else
+		ret = sdhci_add_host(host);
+	if (ret)
+		goto pm_runtime_disable;
 
 	/* For SDHC v5.0.0 onwards, ICE 3.0 specific registers are added
 	 * in CQ register space, due to which few CQ registers are
