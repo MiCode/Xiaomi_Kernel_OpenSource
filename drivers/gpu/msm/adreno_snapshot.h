@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2013-2015,2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __ADRENO_SNAPSHOT_H
 #define __ADRENO_SNAPSHOT_H
@@ -102,4 +102,17 @@ void adreno_parse_ib_lpac(struct kgsl_device *device,
  */
 size_t adreno_snapshot_global(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv);
+
+/**
+ * adreno_snapshot_dump_all_ibs - To dump all ibs from ringbuffer
+ * @device: Pointer to the kgsl device
+ * @rbptr: Ringbuffer host pointer
+ * @snapshot: Pointer to the snapshot structure
+ *
+ * Parse all IBs from the ringbuffer and add to IB dump list.
+ */
+void adreno_snapshot_dump_all_ibs(struct kgsl_device *device,
+			unsigned int *rbptr,
+			struct kgsl_snapshot *snapshot);
+
 #endif /*__ADRENO_SNAPSHOT_H */
