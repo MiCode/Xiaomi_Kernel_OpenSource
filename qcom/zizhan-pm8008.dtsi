@@ -1,0 +1,224 @@
+/* Waipio configurations for PM8008I and PM8008J connected via I2C */
+
+/ {
+	qcom,pmic-id = <0x2f 0x0 0x0 0x0 0x0 0x0 0x0 0x0>;
+	qcom,pmic-id-size = <8>;
+};
+
+/*
+ * Each QUP device that's a parent to PMIC must be listed as a critical device
+ * to GCC.
+ */
+&clock_gcc {
+	qcom,critical-devices = <&qupv3_se5_i2c>;
+};
+
+&qupv3_se5_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "ok";
+
+	pm8008i@8 {
+		compatible = "qcom,i2c-pmic";
+		reg = <0x8>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pm8008i_active>;
+
+		pm8008-chip@900 {
+			compatible = "qcom,pm8008-chip";
+			reg = <0x900>;
+
+			PM8008I_EN: qcom,pm8008-chip-en {
+				regulator-name = "pm8008i-chip-en";
+			};
+		};
+
+		qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100>;
+		};
+	};
+
+	pm8008i@9 {
+		compatible = "qcom,i2c-pmic";
+		reg = <0x9>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm8008i-regulator {
+			compatible = "qcom,pm8008-regulator";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pm8008_en-supply = <&PM8008I_EN>;
+			vdd_l1_l2-supply = <&S12B>;
+			vdd_l3_l4-supply = <&BOB>;
+			vdd_l5-supply = <&S1C>;
+			vdd_l6-supply = <&BOB>;
+			vdd_l7-supply = <&BOB>;
+
+			L1I: pm8008i_l1: regulator@4000 {
+				reg = <0x4000>;
+				regulator-name = "pm8008i_l1";
+				regulator-min-microvolt = <480000>;
+				regulator-max-microvolt = <1104000>;
+				qcom,min-dropout-voltage = <24000>;
+				qcom,hpm-min-load = <30000>;
+			};
+
+			L2I: pm8008i_l2: regulator@4100 {
+				reg = <0x4100>;
+				regulator-name = "pm8008i_l2";
+				regulator-min-microvolt = <1056000>;
+				regulator-max-microvolt = <1056000>;
+				qcom,min-dropout-voltage = <56000>;
+				qcom,hpm-min-load = <30000>;
+			};
+
+			L3I: pm8008i_l3: regulator@4200 {
+				reg = <0x4200>;
+				regulator-name = "pm8008i_l3";
+				regulator-min-microvolt = <2784000>;
+				regulator-max-microvolt = <2904000>;
+				qcom,min-dropout-voltage = <224000>;
+			};
+
+			L4I: pm8008i_l4: regulator@4300 {
+				reg = <0x4300>;
+				regulator-name = "pm8008i_l4";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
+				qcom,min-dropout-voltage = <152000>;
+			};
+
+			L5I: pm8008i_l5: regulator@4400 {
+				reg = <0x4400>;
+				regulator-name = "pm8008i_l5";
+				regulator-min-microvolt = <1776000>;
+				regulator-max-microvolt = <1800000>;
+				qcom,min-dropout-voltage = <24000>;
+			};
+
+			L6I: pm8008i_l6: regulator@4500 {
+				reg = <0x4500>;
+				regulator-name = "pm8008i_l6";
+				regulator-min-microvolt = <2800000>;
+				regulator-max-microvolt = <2800000>;
+				qcom,min-dropout-voltage = <208000>;
+			};
+
+			L7I: pm8008i_l7: regulator@4600 {
+				reg = <0x4600>;
+				regulator-name = "pm8008i_l7";
+				regulator-min-microvolt = <2712000>;
+				regulator-max-microvolt = <2960000>;
+				qcom,min-dropout-voltage = <296000>;
+			};
+		};
+	};
+
+	pm8008j@c {
+		compatible = "qcom,i2c-pmic";
+		reg = <0xc>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pm8008j_active>;
+
+		pm8008-chip@900 {
+			compatible = "qcom,pm8008-chip";
+			reg = <0x900>;
+
+			PM8008J_EN: qcom,pm8008-chip-en {
+				regulator-name = "pm8008j-chip-en";
+			};
+		};
+
+		qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100>;
+		};
+	};
+
+	pm8008j@d {
+		compatible = "qcom,i2c-pmic";
+		reg = <0xd>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,pm8008j-regulator {
+			compatible = "qcom,pm8008-regulator";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			pm8008_en-supply = <&PM8008J_EN>;
+			vdd_l1_l2-supply = <&S12B>;
+			vdd_l3_l4-supply = <&BOB>;
+			vdd_l5-supply = <&S1C>;
+			vdd_l6-supply = <&BOB>;
+			vdd_l7-supply = <&BOB>;
+
+			L1J: pm8008j_l1: regulator@4000 {
+				reg = <0x4000>;
+				regulator-name = "pm8008j_l1";
+				regulator-min-microvolt = <1056000>;
+				regulator-max-microvolt = <1056000>;
+				qcom,min-dropout-voltage = <64000>;
+				qcom,hpm-min-load = <30000>;
+			};
+
+			L2J: pm8008j_l2: regulator@4100 {
+				reg = <0x4100>;
+				regulator-name = "pm8008j_l2";
+				regulator-min-microvolt = <1152000>;
+				regulator-max-microvolt = <1152000>;
+				qcom,min-dropout-voltage = <24000>;
+				qcom,hpm-min-load = <30000>;
+			};
+
+			L3J: pm8008j_l3: regulator@4200 {
+				reg = <0x4200>;
+				regulator-name = "pm8008j_l3";
+				regulator-min-microvolt = <2912000>;
+				regulator-max-microvolt = <3304000>;
+				qcom,min-dropout-voltage = <96000>;
+			};
+
+			L4J: pm8008j_l4: regulator@4300 {
+				reg = <0x4300>;
+				regulator-name = "pm8008j_l4";
+				regulator-min-microvolt = <2912000>;
+				regulator-max-microvolt = <3304000>;
+				qcom,min-dropout-voltage = <96000>;
+			};
+
+			L5J: pm8008j_l5: regulator@4400 {
+				reg = <0x4400>;
+				regulator-name = "pm8008j_l5";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				qcom,min-dropout-voltage = <56000>;
+			};
+
+			L6J: pm8008j_l6: regulator@4500 {
+				reg = <0x4500>;
+				regulator-name = "pm8008j_l6";
+				regulator-min-microvolt = <2912000>;
+				regulator-max-microvolt = <3304000>;
+				qcom,min-dropout-voltage = <96000>;
+			};
+
+			L7J: pm8008j_l7: regulator@4600 {
+				reg = <0x4600>;
+				regulator-name = "pm8008j_l7";
+				regulator-min-microvolt = <2912000>;
+				regulator-max-microvolt = <3304000>;
+				qcom,min-dropout-voltage = <96000>;
+			};
+		};
+	};
+};

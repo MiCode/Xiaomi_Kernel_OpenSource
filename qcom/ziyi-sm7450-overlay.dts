@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+
+#include "diwali-idp.dtsi"
+#include "ziyi-sm7450.dtsi"
+#include "l9ds_charger.dtsi"
+
+/ {
+	model = "Ziyi based on Qualcomm Technologies, Inc. Diwali IDP";
+	compatible = "qcom,diwali-idp", "qcom,diwali", "qcom,idp";
+	qcom,msm-id = <506 0x10000>, <547 0x10000>, <564 0x10000>;
+	qcom,board-id = <34 0>;
+	xiaomi,miboard-id = <0x9 0>;
+	qcom,pmic-id-size = <9>;
+	qcom,pmic-id = <0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x0 0x2E>;
+};

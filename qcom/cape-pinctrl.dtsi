@@ -2786,4 +2786,30 @@
 		};
 
 	};
+	sbu_uart_en_ctrl {
+		sbu_uart_en_idle_th: uart_audio_en_idle_th {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+		sbu_uart_en_active_th: uart_audio_en_active_th {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+	};
 };

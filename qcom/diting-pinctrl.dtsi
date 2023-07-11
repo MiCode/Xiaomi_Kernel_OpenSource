@@ -1,0 +1,111 @@
+/*for unicorn pinctrl */
+
+&tlmm {
+	cirrus_reset_default_0: cirrus_reset_default_0 {
+		mux {
+			pins = "gpio3";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio3";
+			drive-strength = <16>;   /* 16 mA */
+			bias-disable;
+			output-high;
+		};
+	};
+
+	cirrus_reset_default_3: cirrus_reset_default_3 {
+		mux {
+			pins = "gpio1";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio1";
+			drive-strength = <16>;   /* 16 mA */
+			bias-disable;
+			output-high;
+		};
+	};
+
+	cirrus_irq_default {
+		cirrus_irq_default_0: cirrus_irq_default_0 {
+			mux {
+				pins = "gpio63";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio63";
+				drive-strength = <2>;
+				input-enable;
+				bias-pull-up;
+			};
+		};
+		cirrus_irq_default_3: cirrus_irq_default_3 {
+			mux {
+				pins = "gpio88";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio88";
+				drive-strength = <2>;
+				input-enable;
+				bias-pull-up;
+			};
+		};
+	};
+
+	mi_ts_spi_active: mi_ts_spi_active {
+		mux {
+			pins = "gpio16", "gpio17", "gpio18";
+			function = "qup4";
+		};
+
+		config {
+			pins = "gpio16", "gpio17", "gpio18";
+			drive-strength = <6>;
+			bias-disable;
+		};
+	};
+
+	mi_ts_spi_sleep: mi_ts_spi_sleep {
+		mux {
+			pins = "gpio16", "gpio17", "gpio18";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio16", "gpio17", "gpio18";
+			drive-strength = <6>;
+			bias-disable;
+		};
+	};
+
+	mi_ts_cs_active: mi_ts_cs_active {
+		mux {
+			pins = "gpio19";
+			function = "qup4";
+		};
+
+		config {
+			pins = "gpio19";
+			drive-strength = <6>;
+			bias-pull-up;
+		};
+	};
+
+	mi_ts_cs_suspend: mi_ts_cs_suspend {
+		mux {
+			pins = "gpio19";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio19";
+			drive-strength = <6>;
+			bias-pull-up;
+		};
+	};
+
+};

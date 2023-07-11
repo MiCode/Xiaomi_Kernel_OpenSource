@@ -1,0 +1,13 @@
+/dts-v1/;
+/plugin/;
+#include "thor-sm8475.dtsi"
+#include "thor-sm8475-pm8008.dtsi"
+#include "thor-pm8010-spmi.dtsi"
+
+/ {
+	model = "thor based on Qualcomm Technologies, Inc SM8475";
+	compatible = "qcom,cape-mtp", "qcom,cape", "qcom,mtp";
+	qcom,msm-id = <530 0x10000>, <531 0x10000>, <540 0x10000>;
+	qcom,board-id = <0x10008 0>;
+	xiaomi,miboard-id = <0x6 0>;
+};

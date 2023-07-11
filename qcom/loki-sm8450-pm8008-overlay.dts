@@ -1,0 +1,14 @@
+/dts-v1/;
+/plugin/;
+#include "loki-sm8450.dtsi"
+#include "loki-pm8008.dtsi"
+#include "loki-pm8010-spmi.dtsi"
+
+/ {
+	model = "Loki based on Qualcomm Technologies, Inc SM8450";
+	compatible = "qcom,waipio-mtp", "qcom,waipio", "qcom,mtp";
+	qcom,msm-id = <457 0x10000>, <482 0x10000>, <457 0x20000>, <482 0x20000>;
+	qcom,board-id = <0x10008 0>;
+	xiaomi,miboard-id = <0x7 0>;
+};
+

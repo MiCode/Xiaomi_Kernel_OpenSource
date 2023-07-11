@@ -20,7 +20,7 @@
 	#size-cells = <2>;
 
 	chosen: chosen {
-		bootargs = "console=ttyMSM0,115200n8 loglevel=6 kpti=0 log_buf_len=256K kernel.panic_on_rcu_stall=1 swiotlb=noforce loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 cpufreq.default_governor=performance pelt=8 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 irqaffinity=0-3 ftrace_dump_on_oops pstore.compress=none fsa4480_i2c.async_probe=1 can.stats_timer=0 slub_debug=- allow_file_spec_access";
+		bootargs = "console=ttyMSM0,115200n8 kpti=0 kernel.panic_on_rcu_stall=1 swiotlb=noforce loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat service_locator.enable=1 msm_rtb.filter=0x237 allow_mismatched_32bit_el0 cpufreq.default_governor=performance pelt=8 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 irqaffinity=0-3 ftrace_dump_on_oops pstore.compress=none fsa4480_i2c.async_probe=1 can.stats_timer=0 slub_debug=- allow_file_spec_access";
 		stdout-path = "/soc/qcom,qup_uart@99c000:115200n8";
 	};
 
@@ -29,15 +29,6 @@
 
 	reserved_memory: reserved-memory { };
 
-	mem-offline {
-		compatible = "qcom,mem-offline";
-		offline-sizes = <0x1 0x40000000 0x0 0x40000000>,
-				<0x1 0xc0000000 0x0 0x80000000>,
-				<0x2 0xc0000000 0x1 0x40000000>;
-		granule = <512>;
-		mboxes = <&qmp_aop 0>;
-	};
-
 	aliases: aliases {
 		serial0 = &qupv3_se7_2uart;
 		hsuart0 = &qupv3_se20_4uart;
@@ -45,6 +36,11 @@
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
 		pci-domain0 = &pcie0; /* PCIe0 domain */
 		pci-domain1 = &pcie1; /* PCIe1 domain */
+		i2c0 = &qupv3_se5_i2c;
+		i2c1 = &qupv3_se9_i2c;
+		i2c2 = &qupv3_se15_i2c;
+		i2c3 = &qupv3_se16_i2c;
+		i2c4 = &qupv3_se19_i2c;
 	};
 
 	sram: sram@17D09400 {
@@ -356,9 +352,9 @@
 		reg = <0x0 0x80600000 0x0 0x40000>;
 	};
 
-	xbl_ramdump_mem: xbl_ramdump_region@80640000 {
+	xbl_ramdump_mem: xbl_ramdump_region@a6b80000 {
 		no-map;
-		reg = <0x0 0x80640000 0x0 0x1c0000>;
+		reg = <0x0 0xa6b80000 0x0 0x280000>;
 	};
 
 	aop_image_mem: aop_image_region@80800000 {
@@ -412,11 +408,6 @@
 	video_mem: video_region@85700000 {
 		no-map;
 		reg = <0x0 0x85700000 0x0 0x700000>;
-	};
-
-	adsp_mem: adsp_region@85e00000 {
-		no-map;
-		reg = <0x0 0x85e00000 0x0 0x2100000>;
 	};
 
 	slpi_mem: slpi_region@88000000 {
@@ -476,10 +467,15 @@
 		reg = <0x0 0x9f500000 0x0 0x800000>;
 	};
 
+	adsp_mem: adsp_region@9fd00000 {
+		no-map;
+		reg = <0x0 0x9fd00000 0x0 0x3100000>;
+	};
+
 	xbl_sc_mem: xbl_sc_region@a6e00000 {
 		no-map;
 		reg = <0x0 0xa6e00000 0x0 0x40000>;
-	};
+    };
 
 	global_sync_mem: global_sync_region@a6f00000 {
 		no-map;
@@ -492,7 +488,7 @@
 
 	oem_vm_mem: oem_vm_region@bb000000 {
 		no-map;
-		reg = <0x0 0xbb000000 0x0 0x5000000>;
+		//reg = <0x0 0xbb000000 0x0 0x5000000>;
 	};
 
 	qheebsp_reserved_mem: qheebsp_reserved_region@e0000000 {
@@ -512,7 +508,7 @@
 
 	trust_ui_vm_mem: trust_ui_vm_region@e0b00000 {
 		no-map;
-		reg = <0x0 0xe0b00000 0x0 0x4af3000>;
+		//reg = <0x0 0xe0b00000 0x0 0x4af3000>;
 	};
 
 	trust_ui_vm_qrtr: trust_ui_vm_qrtr@e55f3000 {
@@ -645,8 +641,6 @@
 	ramoops_mem: ramoops_region {
 		compatible = "ramoops";
 		alloc-ranges = <0x0 0x00000000 0xffffffff 0xffffffff>;
-		size = <0x0 0x200000>;
-		pmsg-size = <0x200000>;
 		mem-type = <2>;
 	};
 
@@ -1232,7 +1226,7 @@
 		qcom,firmware-name = "trustedvm";
 		qcom,reserved-cpus = <0x5>, <0x6>;
 		qcom,unisolate-timeout-ms = <12000>;
-		memory-region = <&trust_ui_vm_mem>;
+		//memory-region = <&trust_ui_vm_mem>;
 	};
 
 	qcom,guestvm_loader@e0600000 {
@@ -2803,6 +2797,8 @@
 		compatible = "qcom,qca6490";
 		pinctrl-names = "default";
 		pinctrl-0 = <&bt_en_sleep>;
+		clocks = <&clock_rpmh RPMH_RF_CLK3>;
+		clock-names = "ref3_clk";
 		qcom,bt-reset-gpio = <&tlmm 81 0>; /* BT_EN */
 		qcom,wl-reset-gpio = <&tlmm 80 0>; /* WL_EN */
 		qcom,bt-sw-ctrl-gpio = <&tlmm 82 0>; /* SW_CTRL */
@@ -3194,13 +3190,6 @@
 		status = "disabled";
 	};
 
-	qcom,qbt_handler {
-		compatible = "qcom,qbt-handler";
-		qcom,ipc-gpio = <&tlmm 40 0>;
-		qcom,finger-detect-gpio = <&tlmm 41 0>;
-		qcom,intr2-gpio = <&tlmm 42 0>;
-	};
-
 	wlan: qcom,cnss-qca6490@b0000000 {
 		compatible = "qcom,cnss-qca6490";
 		reg = <0xb0000000 0x10000>;
@@ -3217,15 +3206,16 @@
 		qcom,wlan-cbc-enabled;
 		use-pm-domain;
 		cnss-enable-self-recovery;
+		use-nv-mac;
 		qcom,same-dt-multi-dev;
 		mboxes = <&qmp_aop 0>;
 		qcom,vreg_ipa="s3e";
 		qcom,xo-clk-gpio = <&tlmm 204 0>;
 
 		vdd-wlan-aon-supply = <&S2E>;
-		qcom,vdd-wlan-aon-config = <1012000 1012000 0 0 1>;
+		qcom,vdd-wlan-aon-config = <1012000 1012000 0 0 0>;
 		vdd-wlan-dig-supply = <&S11B>;
-		qcom,vdd-wlan-dig-config = <966000 966000 0 0 1>;
+		qcom,vdd-wlan-dig-config = <966000 966000 0 0 0>;
 		vdd-wlan-io-supply = <&S10B>;
 		qcom,vdd-wlan-io-config = <1800000 1800000 0 0 1>;
 		vdd-wlan-rfa1-supply = <&S1C>;
@@ -3234,6 +3224,9 @@
 		qcom,vdd-wlan-rfa2-config = <1350000 1350000 0 0 1>;
 		wlan-ant-switch-supply = <&L7E>;
 		qcom,wlan-ant-switch-config = <2800000 2800000 0 0 1>;
+
+		clocks = <&clock_rpmh RPMH_RF_CLK3>;
+		clock-names = "rf_clk";
 
 		interconnects =
 		<&pcie_noc MASTER_PCIE_0 &pcie_noc SLAVE_ANOC_PCIE_GEM_NOC>,
@@ -3252,8 +3245,8 @@
 		<7500 1600000>,
 		/* medium: 60-240 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
 		<30000 1600000>,
-		/* high: 240-1200 Mbps snoc/anoc: 200 Mhz ddr: 451.2 MHz */
-		<100000 3200000>,
+		/* high: 240-1200 Mbps snoc/anoc: 100 Mhz ddr: 451.2 MHz */
+		<100000 1600000>,
 		/* very high: > 1200 Mbps snoc/anoc: 403 Mhz ddr: 1555 MHz */
 		<175000 6448000>,
 		/* ultra high: DBS mode snoc/anoc: 403 Mhz ddr: 2092 MHz */
@@ -3491,6 +3484,14 @@
 	};
 
 	fsa4480: fsa4480@42 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x42>;
+	};
+};
+
+&qupv3_se1_i2c {
+	dio4480: dio4480@42 {
+		status = "disabled";
 		compatible = "qcom,fsa4480-i2c";
 		reg = <0x42>;
 	};

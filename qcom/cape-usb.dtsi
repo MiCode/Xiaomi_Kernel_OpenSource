@@ -63,7 +63,7 @@
 			dma-coherent;
 
 			interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
-			usb-phy = <&eusb2_phy0>, <&usb_qmp_dp_phy>;
+			usb-phy = <&eusb2_phy0>, <&usb_nop_phy>;
 			snps,disable-clk-gating;
 			snps,has-lpm-erratum;
 			snps,hird-threshold = /bits/ 8 <0x0>;
@@ -74,7 +74,7 @@
 			snps,ssp-u3-u0-quirk;
 			tx-fifo-resize;
 			dr_mode = "otg";
-			maximum-speed = "super-speed-plus";
+			maximum-speed = "high-speed";
 		};
 	};
 
@@ -99,6 +99,11 @@
 		resets = <&clock_gcc GCC_QUSB2PHY_PRIM_BCR>;
 		reset-names = "phy_reset";
 	};
+	usb_nop_phy:usb_nop_phy{
+		status = "okay";
+		compatible = "usb-nop-xceiv";
+	};
+
 
 	/* USB port related QMP USB DP Combo PHY */
 	usb_qmp_dp_phy: ssphy@88e8000 {
@@ -106,6 +111,7 @@
 		reg = <0x88e8000 0x3000>;
 		reg-names = "qmp_phy_base";
 
+		status = "disabled";
 		vdd-supply = <&L1B>;
 		qcom,vdd-voltage-level = <0 912000 912000>;
 		qcom,vdd-max-load-uA = <47000>;

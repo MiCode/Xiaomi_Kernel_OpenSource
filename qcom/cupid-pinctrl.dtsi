@@ -1,0 +1,84 @@
+/*for cupid pinctrl */
+&tlmm {
+	cirrus_reset_default_0: cirrus_reset_default_0 {
+		mux {
+			pins = "gpio1";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio1";
+			drive-strength = <16>;   /* 16 mA */
+			bias-disable;
+			output-high;
+		};
+	};
+
+
+	cirrus_irq_default {
+		cirrus_irq_default_0: cirrus_irq_default_0 {
+			mux {
+					pins = "gpio118";
+					function = "gpio";
+			};
+			config {
+					pins = "gpio118";
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-up;
+			};
+		};
+		cirrus_irq_default_1: cirrus_irq_default_1 {
+			mux {
+					pins = "gpio63";
+					function = "gpio";
+			};
+			config {
+					pins = "gpio63";
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-up;
+			};
+		};
+	};
+
+        md_mode_ctrl_irq {
+		ant4_ctrl_irq: ant4_ctrl_irq {
+			mux {
+				pins = "gpio83";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio83";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+		ant10_ctrl_irq: ant10_ctrl_irq {
+			mux {
+				pins = "gpio159";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio159";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+	};
+
+	fingerprint_goodix_default: fingerprint_goodix_default {
+		mux {
+				pins = "gpio40";
+				function = "gpio";
+		};
+		config {
+				pins = "gpio40";
+				drive-strength = <2>;
+				input-enable;
+				bias-disable;
+		};
+	};
+};

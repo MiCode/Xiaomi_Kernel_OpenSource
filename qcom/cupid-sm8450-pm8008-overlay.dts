@@ -1,0 +1,13 @@
+/dts-v1/;
+/plugin/;
+
+#include "cupid-sm8450.dtsi"
+#include "cupid-pm8008.dtsi"
+
+/ {
+	model = "Cupid based on Qualcomm Technologies, Inc SM8450";
+	compatible = "qcom,waipio-mtp", "qcom,waipio", "qcom,mtp";
+	qcom,msm-id = <457 0x10000>, <482 0x10000>, <457 0x20000>, <482 0x20000>, <552 0x10000>;
+	qcom,board-id = <0x10008 0>;
+	xiaomi,miboard-id = <0x2 0>;
+};

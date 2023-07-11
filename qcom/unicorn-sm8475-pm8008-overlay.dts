@@ -1,0 +1,14 @@
+/dts-v1/;
+/plugin/;
+
+#include "unicorn-sm8475.dtsi"
+#include "unicorn-sm8475-pm8008.dtsi"
+
+/ {
+	model = "Unicorn based on Qualcomm Technologies, Inc SM8475";
+	compatible = "qcom,cape-mtp", "qcom,cape", "qcom,mtp";
+	qcom,msm-id = <530 0x10000>, <531 0x10000>, <540 0x10000>;
+	qcom,board-id = <0x10008 0>;
+	xiaomi,miboard-id = <0x8 0>;
+};
+

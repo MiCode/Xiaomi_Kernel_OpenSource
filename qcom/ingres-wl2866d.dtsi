@@ -1,0 +1,19 @@
+&clock_gcc {
+	qcom,critical-devices = <&qupv3_se5_i2c>;
+};
+
+&qupv3_se5_i2c {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "ok";
+	wl2866d@28 {
+		compatible = "xiaomi,wl2866d";
+		reg = <0x28>;
+		vin1-supply = <&S12B>;
+		vin1-voltage-level = <1250000  1250000>;
+		vin2-supply = <&BOB>;
+		vin2-voltage-level = <3300000  3300000>;
+		en-gpio =  <&tlmm 11 0>;
+		status = "ok";
+	};
+};

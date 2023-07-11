@@ -1,0 +1,151 @@
+/*for cupid pinctrl */
+
+&tlmm {
+        pm8008j_active: pm8008j_active {
+                mux {
+                        pins = "gpio11";
+                        function = "gpio";
+                };
+
+                config {
+                        pins = "gpio11";
+                        bias-disable;
+                        output-low;
+                        drive-strength = <2>;
+                };
+        };
+
+	cirrus_reset_default_0: cirrus_reset_default_0 {
+		mux {
+			pins = "gpio120";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio120";
+			drive-strength = <16>;   /* 16 mA */
+			bias-disable;
+			output-high;
+		};
+	};
+
+	cirrus_reset_default_1: cirrus_reset_default_1 {
+		mux {
+			pins = "gpio9";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio9";
+			drive-strength = <16>;   /* 16 mA */
+			bias-disable;
+			output-high;
+		};
+	};
+
+	cirrus_reset_default_2: cirrus_reset_default_2 {
+		mux {
+			pins = "gpio3";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio3";
+			drive-strength = <16>;   /* 16 mA */
+			bias-disable;
+			output-high;
+		};
+	};
+
+	cirrus_reset_default_3: cirrus_reset_default_3 {
+		mux {
+			pins = "gpio1";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio1";
+			drive-strength = <16>;   /* 16 mA */
+			bias-disable;
+			output-high;
+		};
+	};
+
+        md_mode_ctrl_irq {
+		ant4_ctrl_irq: ant4_ctrl_irq {
+			mux {
+				pins = "gpio150";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio150";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+		ant10_ctrl_irq: ant10_ctrl_irq {
+			mux {
+				pins = "gpio154";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio154";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+	};
+
+	cirrus_irq_default {
+		cirrus_irq_default_0: cirrus_irq_default_0 {
+			mux {
+					pins = "gpio117";
+					function = "gpio";
+			};
+			config {
+					pins = "gpio117";
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-up;
+			};
+		};
+		cirrus_irq_default_1: cirrus_irq_default_1 {
+			mux {
+					pins = "gpio118";
+					function = "gpio";
+			};
+			config {
+					pins = "gpio118";
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-up;
+			};
+		};
+		cirrus_irq_default_2: cirrus_irq_default_2 {
+			mux {
+					pins = "gpio63";
+					function = "gpio";
+			};
+			config {
+					pins = "gpio63";
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-up;
+			};
+		};
+		cirrus_irq_default_3: cirrus_irq_default_3 {
+			mux {
+					pins = "gpio88";
+					function = "gpio";
+			};
+			config {
+					pins = "gpio88";
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-up;
+			};
+		};
+	};
+};

@@ -9,4 +9,5 @@
 	compatible = "qcom,waipio-mtp", "qcom,waipio", "qcom,mtp";
 	qcom,msm-id = <457 0x10000>, <482 0x10000>, <457 0x20000>, <482 0x20000>, <552 0x10000>;
 	qcom,board-id = <0x10008 0>, <0x03010008 0x03>;
+	xiaomi,miboard-id = <0x1000 0>;
 };

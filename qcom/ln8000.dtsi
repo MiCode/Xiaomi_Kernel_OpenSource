@@ -1,0 +1,91 @@
+
+&tlmm {
+	ln8000_int_default: ln8000_int_default {
+		mux {
+			pins = "gpio122";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio122";
+			drive-strength = <2>;   /* 2 mA */
+			bias-pull-up;         /* PULL DOWN */
+		};
+	};
+
+	ln8000_int2_default: ln8000_int2_default {
+		mux {
+			pins = "gpio125";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio125";
+			drive-strength = <2>;   /* 2 mA */
+			bias-pull-up;         /* PULL DOWN */
+		};
+	};
+};
+
+&qupv3_se4_i2c {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	ln8000_master: ln8000-charger@51 {
+		#io-channel-cells = <1>;
+		compatible = "lionsemi,ln8000-master";
+	    	reg = <0x51>;
+
+	    	interrupt-parent = <&tlmm>;
+		interrupts = <122 0>;
+	    	pinctrl-names = "default";
+	    	pinctrl-0 = <&ln8000_int_default>;
+		ln8000_charger,bat-ovp-threshold = <4710>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4675>;
+	    	ln8000_charger,bus-ovp-threshold = <12800>;
+	    	ln8000_charger,bus-ovp-alarm-threshold = <11000>;
+	    	ln8000_charger,bus-ocp-threshold = <3750>;
+	    	ln8000_charger,bus-ocp-alarm-threshold = <3500>;
+		ln8000_charger,ntc-alarm-cfg  = <226>;
+	    	ln8000_charger,tdie-prot-disable;
+	    	ln8000_charger,tbus-mon-disable;
+	    	ln8000_charger,tbat-mon-disable;
+	    	ln8000_charger,iin-ocp-disable;
+	    	ln8000_charger,iin-reg-disable;
+	    	ln8000_charger,tdie-reg-disable;
+	    	ln8000_charger,vbat-reg-disable;
+	    	ln8000_charger,revcurr-prot-disable;
+	};
+};
+
+&qupv3_se12_i2c {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	ln8000_slave: ln8000-charger@51 {
+		#io-channel-cells = <1>;
+		compatible = "lionsemi,ln8000-slave";
+	    	reg = <0x51>;
+
+	    	interrupt-parent = <&tlmm>;
+		interrupts = <125 0>;
+	    	pinctrl-names = "default";
+	    	inctrl-0 = <&ln8000_int2_default>;
+		ln8000_charger,bat-ovp-threshold = <4710>;
+		ln8000_charger,bat-ovp-alarm-threshold = <4675>;
+	    	ln8000_charger,bus-ovp-threshold = <12800>;
+	    	ln8000_charger,bus-ovp-alarm-threshold = <11000>;
+	    	ln8000_charger,bus-ocp-threshold = <3750>;
+	    	ln8000_charger,bus-ocp-alarm-threshold = <3500>;
+		ln8000_charger,ntc-alarm-cfg  = <226>;
+	    	ln8000_charger,tdie-prot-disable;
+	    	ln8000_charger,tbus-mon-disable;
+	    	ln8000_charger,tbat-mon-disable;
+	    	ln8000_charger,iin-ocp-disable;
+	    	ln8000_charger,iin-reg-disable;
+	    	ln8000_charger,tdie-reg-disable;
+	    	ln8000_charger,vbat-reg-disable;
+	    	ln8000_charger,revcurr-prot-disable;
+	};
+};
+

@@ -18,22 +18,13 @@
 	#size-cells = <2>;
 
 	chosen: chosen {
-		bootargs = "console=ttyMSM0,115200n8 loglevel=6 kpti=0 log_buf_len=256K kernel.panic_on_rcu_stall=1 swiotlb=noforce loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none cpufreq.default_governor=performance can.stats_timer=0 fsa4480_i2c.async_probe=1 slub_debug=-";
+		bootargs = "console=ttyMSM0,115200n8 loglevel=6 kpti=0 kernel.panic_on_rcu_stall=1 swiotlb=noforce loop.max_part=7 cgroup.memory=nokmem,nosocket pcie_ports=compat msm_rtb.filter=0x237 allow_mismatched_32bit_el0 kasan=off rcupdate.rcu_expedited=1 rcu_nocbs=0-7 ftrace_dump_on_oops pstore.compress=none cpufreq.default_governor=performance can.stats_timer=0 fsa4480_i2c.async_probe=1 slub_debug=-";
 		stdout-path = "/soc/qcom,qup_uart@99c000:115200n8";
 	};
 
 	memory { device_type = "memory"; reg = <0 0 0 0>; };
 
 	ddr-regions { };
-
-	mem-offline {
-		compatible = "qcom,mem-offline";
-		offline-sizes = <0x1 0x40000000 0x0 0x40000000>,
-				<0x1 0xc0000000 0x0 0x80000000>,
-				<0x2 0xc0000000 0x1 0x40000000>;
-		granule = <512>;
-		mboxes = <&qmp_aop 0>;
-	};
 
 	reserved_memory: reserved-memory { };
 
@@ -42,6 +33,11 @@
 		hsuart0 = &qupv3_se20_4uart;
 		ufshc1 = &ufshc_mem; /* Embedded UFS Slot */
 		mmc1 = &sdhc_2; /* SDC2 SD card slot */
+		i2c0 = &qupv3_se5_i2c;
+		i2c1 = &qupv3_se9_i2c;
+		i2c2 = &qupv3_se15_i2c;
+		i2c3 = &qupv3_se16_i2c;
+		i2c4 = &qupv3_se19_i2c;
 	};
 
 	sram: sram@17D09400 {
@@ -445,8 +441,6 @@
 	ramoops_mem: ramoops_region {
 		compatible = "ramoops";
 		alloc-ranges = <0x0 0x00000000 0xffffffff 0xffffffff>;
-		size = <0x0 0x200000>;
-		pmsg-size = <0x200000>;
 		mem-type = <2>;
 	};
 };
@@ -932,7 +926,8 @@
 					< 1324800 1267200 >,
 					< 1440000 1478400 >,
 					< 1555200 1593600 >,
-					< 1670400 1708800 >;
+					< 1670400 1708800 >,
+					< 1920000 1804000 >;
 				qcom,sampling-enabled;
 			};
 
@@ -947,7 +942,8 @@
 					< 1651200 1267200 >,
 					< 1996800 1478400 >,
 					< 2457600 1593600 >,
-					< 2572800 1708800 >;
+					< 2572800 1708800 >,
+					< 2649600 1804000 >;
 				qcom,sampling-enabled;
 			};
 
@@ -962,7 +958,8 @@
 					< 1651200 1267200 >,
 					< 1996800 1478400 >,
 					< 2476800 1593600 >,
-					< 2822400 1708800 >;
+					< 2822400 1708800 >,
+					< 2918400 1804000 >;
 				qcom,sampling-enabled;
 			};
 
@@ -2147,6 +2144,10 @@
 		status = "ok";
 	};
 
+	microdump_modem {
+		compatible = "qcom,microdump_modem";
+	};
+
 	mini_dump_node {
 		compatible = "qcom,minidump";
 	};
@@ -3157,17 +3158,6 @@
 
 &qupv3_se5_i2c {
 	status = "ok";
-	nq@64 {
-		compatible = "rtc6226";
-		reg = <0x64>;
-		fmint-gpio = <&tlmm 44 0>;
-		vdd-supply = <&L7E>;
-		rtc6226,vdd-supply-voltage = <2800000 2800000>;
-		rtc6226,vdd-load = <15000>;
-		vio-supply = <&S10B>;
-		rtc6226,vio-supply-voltage = <1800000 1800000>;
-	};
-
 	fsa4480: fsa4480@42 {
 		compatible = "qcom,fsa4480-i2c";
 		reg = <0x42>;

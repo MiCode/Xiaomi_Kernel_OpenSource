@@ -127,7 +127,7 @@
 					  "all-ramp-down-done-irq",
 					  "all-ramp-up-done-irq";
 			qcom,thermal-derate-current = <200 500>;
-			qcom,hw-strobe-gpios = <&pm8350c_gpios 1 0>;
+			//qcom,hw-strobe-gpios = <&pm8350c_gpios 1 0>;
 			status = "disabled";
 
 			pm8350c_flash0: qcom,flash_0 {

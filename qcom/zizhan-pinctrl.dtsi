@@ -1,0 +1,61 @@
+/*for zizhan pinctrl */
+&tlmm {
+	cirrus_reset_default_0: cirrus_reset_default_0 {
+		mux {
+			pins = "gpio1";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio1";
+			drive-strength = <16>;   /* 16 mA */
+			bias-disable;
+			output-high;
+		};
+	};
+
+
+	cirrus_irq_default {
+		cirrus_irq_default_0: cirrus_irq_default_0 {
+			mux {
+					pins = "gpio118";
+					function = "gpio";
+			};
+			config {
+					pins = "gpio118";
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-up;
+			};
+		};
+		cirrus_irq_default_1: cirrus_irq_default_1 {
+			mux {
+					pins = "gpio88";
+					function = "gpio";
+			};
+			config {
+					pins = "gpio88";
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-up;
+			};
+		};
+	};
+
+	tert_tdm {
+		tert_tdm_clk_active: tert_tdm_clk_active {
+			mux {
+					pins = "gpio121";
+					function = "mi2s2_sck";
+			};
+
+			config {
+					pins = "gpio121";
+					drive-strength = <8>;   /* 8 mA */
+					bias-disable;           /* NO PULL */
+					output-high;
+			};
+		};
+	};
+};
+

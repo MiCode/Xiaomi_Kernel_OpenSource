@@ -1,0 +1,14 @@
+/dts-v1/;
+/plugin/;
+
+#include "diting-sm8475.dtsi"
+#include "diting-wl2866d.dtsi"
+
+/ {
+	model = "Diting based on Qualcomm Technologies, Inc SM8475";
+	compatible = "qcom,cape-mtp", "qcom,cape", "qcom,mtp";
+	qcom,msm-id = <530 0x10000>, <531 0x10000>, <540 0x10000>;
+	qcom,board-id = <0x10008 0>;
+	xiaomi,miboard-id = <0xA 0>;
+};
+

@@ -1,0 +1,102 @@
+/*for unicorn pinctrl */
+
+&tlmm {
+	cirrus_reset_default_0: cirrus_reset_default_0 {
+		mux {
+			pins = "gpio120";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio120";
+			drive-strength = <16>;   /* 16 mA */
+			bias-disable;
+			output-high;
+		};
+	};
+
+	cirrus_reset_default_3: cirrus_reset_default_3 {
+		mux {
+			pins = "gpio1";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio1";
+			drive-strength = <16>;   /* 16 mA */
+			bias-disable;
+			output-high;
+		};
+	};
+
+	cirrus_irq_default {
+		cirrus_irq_default_0: cirrus_irq_default_0 {
+			mux {
+					pins = "gpio117";
+					function = "gpio";
+			};
+			config {
+					pins = "gpio117";
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-up;
+			};
+		};
+		cirrus_irq_default_3: cirrus_irq_default_3 {
+			mux {
+					pins = "gpio88";
+					function = "gpio";
+			};
+			config {
+					pins = "gpio88";
+					drive-strength = <2>;
+					input-enable;
+					bias-pull-up;
+			};
+		};
+	};
+
+	/* AW8697_RESET_N */
+	awinic_gpio_reset: awinic_gpio_reset {
+		mux {
+			pins = "gpio89";
+			unction = "gpio";
+		};
+
+		config {
+			pins = "gpio89";
+			drive-strength = <2>;
+			bias-disable;
+			output-low;
+		};
+	};
+	/* AW8697_RESET_N, state device active*/
+	awinic_gpio_reset_output_high: awinic_gpio_reset_output_high {
+		mux {
+			pins = "gpio89";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio89";
+			drive-strength = <2>;
+			bias-disable;
+			output-high;
+		};
+	};
+	/* AW8697_INTERRUPT_N */
+	awinic_gpio_int: awinic_gpio_int {
+		mux {
+			pins = "gpio90";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio90";
+			drive-strength = <2>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
+
+};

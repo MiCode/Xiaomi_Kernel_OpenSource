@@ -1,0 +1,477 @@
+#include <dt-bindings/iio/qti_power_supply_iio.h>
+#include "ln8000.dtsi"
+#include "sc8551.dtsi"
+#include "tcpc_config.dtsi"
+
+&tlmm {
+	bq25890_int_default: bq25890_int_default {
+		mux {
+			pins = "gpio19";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio19";
+			drive-strength = <2>;   /* 2 mA */
+			bias-pull-up;         /* PULL DOWN */
+
+		};
+	};
+
+	bq25890_otg_default: bq25890_otg_default {
+		mux {
+			pins = "gpio63";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio63";
+			drive-strength = <16>;   /* 16 mA */
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	vbus_ntc_ctrl: vbus_ntc_ctrl {
+		mux {
+			pins = "gpio27";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio27";
+			drive-strength = <16>;   /* 16 mA */
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+};
+
+&qupv3_se4_i2c {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	bq25890_main: bq25890@6A {
+		#io-channel-cells = <1>;
+		compatible = "ti,bq2589x-charger";
+		reg = <0x6A>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <19 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bq25890_int_default &bq25890_otg_default>;
+		intr-gpio = <&tlmm 19 0>;
+		otg-gpio = <&tlmm 63 0>;
+		//usb-switch1 = <&tlmm 24 0>;
+		//usb-switch2 = <&tlmm 101 0>;
+		ti,bq2589x,charge-voltage = <4610>;
+		ti,bq2589x,charge-current = <2000>;
+		ti,bq2589x,term-current = <200>;
+		ti,bq2589x,enable-auto-dpdm;
+		ti,bq2589x,enable-termination;
+		ti,bq2589x,enable-ico;
+		ti,bq2589x,use-absolute-vindpm;
+		ti,bq2589x,otg_vol = <5300>;
+		ti,bq2589x,otg_current = <2000>;
+	};
+};
+
+&qupv3_se12_i2c {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	bq27z561_fg: bq27z561@55 {
+		#io-channel-cells = <1>;
+		compatible = "ti,bq27z561";
+		reg = <0x55>;
+
+		bq,shutdown-delay-enable;
+		bq,soc_decimal_rate = <
+			0  32
+			10 30
+			20 28
+			30 28
+			40 28
+			50 28
+			60 28
+			70 28
+			80 28
+			90 26
+			95 10
+			99 5>;
+	};
+};
+
+
+&usb2_phy0 {
+	qcom,param-override-seq =
+		<0x07 0x6c
+		 0x0D 0x70
+		 0x2F 0x74>;
+};
+
+&soc {
+	xm_pd_mngr {
+		status = "ok";
+		#io-channel-cells = <1>;
+		compatible = "xiaomi,pd_cp_manager";
+
+		mi,pd-bat-volt-max = <4530>;
+		mi,pd-bat-curr-max = <12400>;
+		mi,pd-bus-volt-max = <12000>;
+		mi,pd-bus-curr-max = <6200>;
+		mi,pd-non-ffc-bat-volt-max = <4480>;
+		mi,pd-bus-curr-compensate  = <0>;
+		mi,step-charge-high-vol-curr-max = <4400>;
+		mi,cell-vol-high-threshold-mv = <4530>;
+		mi,cell-vol-max-threshold-mv = <4530>;
+		mi,pd-battery-warm-th = <480>;
+		mi,cp-sec-enable;
+		mi,pd-power-max = <67>; /*charge power max : 67W */
+	};
+
+	rt17xx_pd: xm_pd_adapter {
+		status = "ok";
+		#io-channel-cells = <1>;
+		compatible = "xiaomi,pd_adapter";
+		adapter_name = "pd_adapter";
+	};
+
+	xm_battmngr {
+		status = "ok";
+		#io-channel-cells = <1>;
+		compatible = "xiaomi,battmngr";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&vbus_ntc_ctrl>;
+		vbus_ctrl_gpio = <&tlmm 27 0>;
+
+		/* charger */
+		xm,fv-max-uv = <4610000>;
+		xm,fcc-max-ua = <12400000>;
+		xm,fv-max-design-uv = <11000000>;
+		xm,icl-max-ua = <6200000>;
+		xm,step-chg-enable = <1>;
+		xm,sw-jeita-enable = <1>;
+		xm,ffc_ieoc_l = <850000>;
+		xm,ffc_ieoc_h = <890000>;
+		xm,non_ffc_ieoc = <200000>;
+		xm,non_ffc_cv = <4480000>;
+		xm,non_ffc_cc = <4000000>;
+		xm,non_ffc_icl = <3000000>;
+
+		/* battery */
+
+		/* usb */
+		dpdm-supply = <&usb2_phy0>;
+
+		/* stepchg_jeita */
+		xm,taper-fcc;
+		xm,step-chg-ranges = <3000000  3349000  1000000
+				      3350000  4250000  12400000
+				      4251000  4300000  7920000
+				      4351000  4480000  6600000
+				      4481000  4530000  5280000>;
+		xm,jeita-fcc-ranges = <(-100) 0  660000
+					1   50   2200000
+					51  100  3080000
+					101 150  5280000
+					151 480  12400000
+					481 580  2200000>;
+		xm,jeita-fv-ranges = <(-100)  0  4480000
+					1   50   4480000
+					51  100  4480000
+					101 150  4480000
+					151 480  4610000
+					481 580  4480000>;
+		xm,step-jeita-hysteresis = <10 10>;
+
+		/* thermal */
+		xm,thermal-mitigation-dcp
+				= <1600000 1600000 1600000 1600000 1600000 1600000 1600000
+				   1600000 1600000 1600000 1600000 1600000 1500000 1400000
+				   1200000 1000000>;
+		xm,thermal-mitigation-qc2
+				= <1500000 1500000 1500000 1500000 1500000 1500000 1400000
+				   1300000 1200000 1100000 1000000 900000 800000 700000
+				   600000 500000>;
+		xm,thermal-mitigation-pd
+				= <5100000 4700000 4300000 4000000 3600000 3500000 3400000
+				   3400000 3400000 3200000 2500000 2200000 2200000 1300000
+				   1000000 700000>;
+		xm,thermal-mitigation-pd-cp
+				= <12400000 11000000 9700000 8800000 8000000 7500000 7000000
+				   6800000 6500000 6000000 5000000 4000000 3000000 2600000
+				   1000000 500000>;
+		xm,thermal-mitigation-icl
+				= <2800000 2700000 2600000 2400000 2200000 2100000 2000000
+				   1800000 1600000 1500000 1400000 1300000 1200000 1100000
+				   950000 750000>;
+
+		/* iio */
+		io-channels = <&sc8551_master PSY_IIO_SC_PRESENT>,
+			<&sc8551_master PSY_IIO_SC_CHARGING_ENABLED>,
+			<&sc8551_master PSY_IIO_SC_STATUS>,
+			<&sc8551_master PSY_IIO_SC_BATTERY_PRESENT>,
+			<&sc8551_master PSY_IIO_SC_VBUS_PRESENT>,
+			<&sc8551_master PSY_IIO_SC_BATTERY_VOLTAGE>,
+			<&sc8551_master PSY_IIO_SC_BATTERY_CURRENT>,
+			<&sc8551_master PSY_IIO_SC_BATTERY_TEMPERATURE>,
+			<&sc8551_master PSY_IIO_SC_BUS_VOLTAGE>,
+			<&sc8551_master PSY_IIO_SC_BUS_CURRENT>,
+			<&sc8551_master PSY_IIO_SC_BUS_TEMPERATURE>,
+			<&sc8551_master PSY_IIO_SC_DIE_TEMPERATURE>,
+			<&sc8551_master PSY_IIO_SC_ALARM_STATUS>,
+			<&sc8551_master PSY_IIO_SC_FAULT_STATUS>,
+			<&sc8551_master PSY_IIO_SC_VBUS_ERROR_STATUS>,
+			<&sc8551_master PSY_IIO_SC_ENABLE_ADC>,
+
+			<&sc8551_slave PSY_IIO_SC_PRESENT>,
+			<&sc8551_slave PSY_IIO_SC_CHARGING_ENABLED>,
+			<&sc8551_slave PSY_IIO_SC_STATUS>,
+			<&sc8551_slave PSY_IIO_SC_BATTERY_PRESENT>,
+			<&sc8551_slave PSY_IIO_SC_VBUS_PRESENT>,
+			<&sc8551_slave PSY_IIO_SC_BATTERY_VOLTAGE>,
+			<&sc8551_slave PSY_IIO_SC_BATTERY_CURRENT>,
+			<&sc8551_slave PSY_IIO_SC_BATTERY_TEMPERATURE>,
+			<&sc8551_slave PSY_IIO_SC_BUS_VOLTAGE>,
+			<&sc8551_slave PSY_IIO_SC_BUS_CURRENT>,
+			<&sc8551_slave PSY_IIO_SC_BUS_TEMPERATURE>,
+			<&sc8551_slave PSY_IIO_SC_DIE_TEMPERATURE>,
+			<&sc8551_slave PSY_IIO_SC_ALARM_STATUS>,
+			<&sc8551_slave PSY_IIO_SC_FAULT_STATUS>,
+			<&sc8551_slave PSY_IIO_SC_VBUS_ERROR_STATUS>,
+			<&sc8551_slave PSY_IIO_SC_ENABLE_ADC>,
+
+			<&ln8000_master PSY_IIO_SC_PRESENT>,
+			<&ln8000_master PSY_IIO_SC_CHARGING_ENABLED>,
+			<&ln8000_master PSY_IIO_SC_STATUS>,
+			<&ln8000_master PSY_IIO_SC_BATTERY_PRESENT>,
+			<&ln8000_master PSY_IIO_SC_VBUS_PRESENT>,
+			<&ln8000_master PSY_IIO_SC_BATTERY_VOLTAGE>,
+			<&ln8000_master PSY_IIO_SC_BATTERY_CURRENT>,
+			<&ln8000_master PSY_IIO_SC_BATTERY_TEMPERATURE>,
+			<&ln8000_master PSY_IIO_SC_BUS_VOLTAGE>,
+			<&ln8000_master PSY_IIO_SC_BUS_CURRENT>,
+			<&ln8000_master PSY_IIO_SC_BUS_TEMPERATURE>,
+			<&ln8000_master PSY_IIO_SC_DIE_TEMPERATURE>,
+			<&ln8000_master PSY_IIO_SC_ALARM_STATUS>,
+			<&ln8000_master PSY_IIO_SC_FAULT_STATUS>,
+			<&ln8000_master PSY_IIO_SC_VBUS_ERROR_STATUS>,
+			<&ln8000_master PSY_IIO_SC_REG_STATUS>,
+
+			<&ln8000_slave PSY_IIO_SC_PRESENT>,
+			<&ln8000_slave PSY_IIO_SC_CHARGING_ENABLED>,
+			<&ln8000_slave PSY_IIO_SC_STATUS>,
+			<&ln8000_slave PSY_IIO_SC_BATTERY_PRESENT>,
+			<&ln8000_slave PSY_IIO_SC_VBUS_PRESENT>,
+			<&ln8000_slave PSY_IIO_SC_BATTERY_VOLTAGE>,
+			<&ln8000_slave PSY_IIO_SC_BATTERY_CURRENT>,
+			<&ln8000_slave PSY_IIO_SC_BATTERY_TEMPERATURE>,
+			<&ln8000_slave PSY_IIO_SC_BUS_VOLTAGE>,
+			<&ln8000_slave PSY_IIO_SC_BUS_CURRENT>,
+			<&ln8000_slave PSY_IIO_SC_BUS_TEMPERATURE>,
+			<&ln8000_slave PSY_IIO_SC_DIE_TEMPERATURE>,
+			<&ln8000_slave PSY_IIO_SC_ALARM_STATUS>,
+			<&ln8000_slave PSY_IIO_SC_FAULT_STATUS>,
+			<&ln8000_slave PSY_IIO_SC_VBUS_ERROR_STATUS>,
+			<&ln8000_slave PSY_IIO_SC_REG_STATUS>,
+
+			<&bq25890_main PSY_IIO_SYV_CHARGE_PRESENT>,
+			<&bq25890_main PSY_IIO_SYV_CHARGE_ONLINE>,
+			<&bq25890_main PSY_IIO_SYV_CHARGE_DONE>,
+			<&bq25890_main PSY_IIO_SYV_CHAGER_HZ>,
+			<&bq25890_main PSY_IIO_SYV_INPUT_CURRENT_SETTLED>,
+			<&bq25890_main PSY_IIO_SYV_INPUT_VOLTAGE_SETTLED>,
+			<&bq25890_main PSY_IIO_SYV_CHAGER_CURRENT>,
+			<&bq25890_main PSY_IIO_SYV_CHARGING_ENABLED>,
+			<&bq25890_main PSY_IIO_SYV_OTG_ENABLE>,
+			<&bq25890_main PSY_IIO_SYV_CHAGER_TERM>,
+			<&bq25890_main PSY_IIO_SYV_BATTERY_VOLTAGE_TERM>,
+			<&bq25890_main PSY_IIO_SYV_CHARGER_STATUS>,
+			<&bq25890_main PSY_IIO_SYV_CHARGE_TYPE>,
+			<&bq25890_main PSY_IIO_SYV_CHARGE_USB_TYPE>,
+			<&bq25890_main PSY_IIO_SYV_BUS_VOLTAGE>,
+			<&bq25890_main PSY_IIO_SYV_BATTERY_VOLTAGE>,
+			<&bq25890_main PSY_IIO_SYV_ENABLE_CHAGER_TERM>,
+
+			<&bq27z561_fg PSY_IIO_BQFG_PRESENT>,
+			<&bq27z561_fg PSY_IIO_BQFG_STATUS>,
+			<&bq27z561_fg PSY_IIO_BQFG_VOLTAGE_NOW>,
+			<&bq27z561_fg PSY_IIO_BQFG_VOLTAGE_MAX>,
+			<&bq27z561_fg PSY_IIO_BQFG_CURRENT_NOW>,
+			<&bq27z561_fg PSY_IIO_BQFG_CAPACITY>,
+			<&bq27z561_fg PSY_IIO_BQFG_CAPACITY_LEVEL>,
+			<&bq27z561_fg PSY_IIO_BQFG_TEMP>,
+			<&bq27z561_fg PSY_IIO_BQFG_CHARGE_FULL>,
+			<&bq27z561_fg PSY_IIO_BQFG_CHARGE_FULL_DESIGN>,
+			<&bq27z561_fg PSY_IIO_BQFG_CYCLE_COUNT>,
+			<&bq27z561_fg PSY_IIO_BQFG_TIME_TO_EMPTY_NOW>,
+			<&bq27z561_fg PSY_IIO_BQFG_TIME_TO_FULL_NOW>,
+			<&bq27z561_fg PSY_IIO_BQFG_UPDATE_NOW>,
+			<&bq27z561_fg PSY_IIO_BQFG_THERM_CURR>,
+			<&bq27z561_fg PSY_IIO_BQFG_CHIP_OK>,
+			<&bq27z561_fg PSY_IIO_BQFG_BATTERY_AUTH>,
+			<&bq27z561_fg PSY_IIO_BQFG_SOC_DECIMAL>,
+			<&bq27z561_fg PSY_IIO_BQFG_SOC_DECIMAL_RATE>,
+			<&bq27z561_fg PSY_IIO_BQFG_SOH>,
+			<&bq27z561_fg PSY_IIO_BQFG_RSOC>,
+			<&bq27z561_fg PSY_IIO_BQFG_BATTERY_ID>,
+			<&bq27z561_fg PSY_IIO_BQFG_RESISTANCE_ID>,
+			<&bq27z561_fg PSY_IIO_BQFG_SHUTDOWN_DELAY>,
+			<&bq27z561_fg PSY_IIO_BQFG_FASTCHARGE_MODE>,
+			<&bq27z561_fg PSY_IIO_BQFG_TEMP_MAX>,
+			<&bq27z561_fg PSY_IIO_BQFG_TIME_OT>,
+
+			<&rt17xx_pd PSY_IIO_RT_PD_ACTIVE>,
+			<&rt17xx_pd PSY_IIO_RT_PD_CURRENT_MAX>,
+			<&rt17xx_pd PSY_IIO_RT_PD_VOLTAGE_MIN>,
+			<&rt17xx_pd PSY_IIO_RT_PD_VOLTAGE_MAX>,
+			<&rt17xx_pd PSY_IIO_RT_PD_IN_HARD_RESET>,
+			<&rt17xx_pd PSY_IIO_RT_TYPEC_CC_ORIENTATION>,
+			<&rt17xx_pd PSY_IIO_RT_TYPEC_MODE>,
+			<&rt17xx_pd PSY_IIO_RT_PD_USB_SUSPEND_SUPPORTED>,
+			<&rt17xx_pd PSY_IIO_RT_PD_APDO_VOLT_MAX>,
+			<&rt17xx_pd PSY_IIO_RT_PD_APDO_CURR_MAX>,
+			<&rt17xx_pd PSY_IIO_RT_PD_USB_REAL_TYPE>,
+			<&rt17xx_pd PSY_IIO_RT_TYPEC_ACCESSORY_MODE>,
+			<&rt17xx_pd PSY_IIO_RT_TYPEC_ADAPTER_ID>,
+
+			<&pmk8350_vadc PMK8350_ADC7_AMUX_THM2_100K_PU>,
+			<&pmk8350_vadc PMK8350_ADC7_AMUX_THM3_100K_PU>;
+
+		io-channel-names = "sc_present",
+			"sc_charging_enabled",
+			"sc_status",
+			"sc_battery_present",
+			"sc_vbus_present",
+			"sc_battery_voltage",
+			"sc_battery_current",
+			"sc_battery_temperature",
+			"sc_bus_voltage",
+			"sc_bus_current",
+			"sc_bus_temperature",
+			"sc_die_temperature",
+			"sc_alarm_status",
+			"sc_fault_status",
+			"sc_vbus_error_status",
+			"sc_enable_adc",
+
+			"sc_present_slave",
+			"sc_charging_enabled_slave",
+			"sc_status_slave",
+			"sc_battery_present_slave",
+			"sc_vbus_present_slave",
+			"sc_battery_voltage_slave",
+			"sc_battery_current_slave",
+			"sc_battery_temperature_slave",
+			"sc_bus_voltage_slave",
+			"sc_bus_current_slave",
+			"sc_bus_temperature_slave",
+			"sc_die_temperature_slave",
+			"sc_alarm_status_slave",
+			"sc_fault_status_slave",
+			"sc_vbus_error_status_slave",
+			"sc_enable_adc_slave",
+
+			"ln_present",
+			"ln_charging_enabled",
+			"ln_status",
+			"ln_battery_present",
+			"ln_vbus_present",
+			"ln_battery_voltage",
+			"ln_battery_current",
+			"ln_battery_temperature",
+			"ln_bus_voltage",
+			"ln_bus_current",
+			"ln_bus_temperature",
+			"ln_die_temperature",
+			"ln_alarm_status",
+			"ln_fault_status",
+			"ln_vbus_error_status",
+			"ln_reg_status",
+
+			"ln_present_slave",
+			"ln_charging_enabled_slave",
+			"ln_status_slave",
+			"ln_battery_present_slave",
+			"ln_vbus_present_slave",
+			"ln_battery_voltage_slave",
+			"ln_battery_current_slave",
+			"ln_battery_temperature_slave",
+			"ln_bus_voltage_slave",
+			"ln_bus_current_slave",
+			"ln_bus_temperature_slave",
+			"ln_die_temperature_slave",
+			"ln_alarm_status_slave",
+			"ln_fault_status_slave",
+			"ln_vbus_error_status_slave",
+			"ln_reg_status_slave",
+
+			"syv_charge_present",
+			"syv_charge_online",
+			"syv_charge_done",
+			"syv_chager_hz",
+			"syv_input_current_settled",
+			"syv_input_voltage_settled",
+			"syv_charge_current",
+			"syv_charger_enable",
+			"syv_otg_enable",
+			"syv_charger_term",
+			"syv_batt_voltage_term",
+			"syv_charger_status",
+			"syv_charger_type",
+			"syv_charger_usb_type",
+			"syv_vbus_voltage",
+			"syv_vbat_voltage",
+			"syv_enable_charger_term",
+
+			"bqfg_present",
+			"bqfg_status",
+			"bqfg_voltage_now",
+			"bqfg_voltage_max",
+			"bqfg_current_now",
+			"bqfg_capacity",
+			"bqfg_capacity_level",
+			"bqfg_temp",
+			"bqfg_charge_full",
+			"bqfg_charge_full_design",
+			"bqfg_cycle_count",
+			"bqfg_time_to_empty_now",
+			"bqfg_time_to_full_now",
+			"bqfg_update_now",
+			"bqfg_therm_curr",
+			"bqfg_chip_ok",
+			"bqfg_battery_auth",
+			"bqfg_soc_decimal",
+			"bqfg_soc_decimal_rate",
+			"bqfg_soh",
+			"bqfg_rsoc",
+			"bqfg_battery_id",
+			"bqfg_resistance_id",
+			"bqfg_shutdown_delay",
+			"bqfg_fastcharge_mode",
+			"bqfg_temp_max",
+			"bqfg_time_ot",
+
+			"rt_pd_active",
+			"rt_pd_current_max",
+			"rt_pd_voltage_min",
+			"rt_pd_voltage_max",
+			"rt_pd_in_hard_reset",
+			"rt_typec_cc_orientation",
+			"rt_typec_mode",
+			"rt_pd_usb_suspend_supported",
+			"rt_pd_apdo_volt_max",
+			"rt_pd_apdo_curr_max",
+			"rt_pd_usb_real_type",
+			"rt_typec_accessory_mode",
+			"rt_typec_adapter_id",
+
+			"chg_pump_therm",
+			"typec_conn_therm";
+	};
+};
+

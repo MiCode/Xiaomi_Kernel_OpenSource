@@ -270,7 +270,7 @@
 
 	pcie1: qcom,pcie@1c08000 {
 		compatible = "qcom,pci-msm";
-
+		status = "disabled";
 		reg = <0x01c08000 0x3000>,
 			<0x01c0e000 0x2000>,
 			<0x40000000 0xf1d>,
@@ -569,6 +569,7 @@
 
 	pcie1_msi: qcom,pcie1_msi@17110040 {
 		compatible = "qcom,pci-msi";
+                status = "disabled";
 		msi-controller;
 		reg = <0x17110040 0x0>;
 		interrupt-parent = <&intc>;

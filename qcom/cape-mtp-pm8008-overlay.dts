@@ -2,7 +2,8 @@
 /plugin/;
 
 #include "cape-mtp.dtsi"
-#include "waipio-pm8008.dtsi"
+#include "thor-sm8475-pm8008.dtsi"
+#include "thor-pm8010-spmi.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. Cape MTP with PM8008";

@@ -1,0 +1,16 @@
+/*for mayfly pinctrl */
+&tlmm {
+	fingerprint_goodix_default: fingerprint_goodix_default {
+		mux {
+				pins = "gpio40";
+				function = "gpio";
+		};
+		config {
+				pins = "gpio40";
+				drive-strength = <2>;
+				input-enable;
+				bias-disable;
+		};
+	};
+};
+

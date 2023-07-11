@@ -1,0 +1,107 @@
+
+&tlmm {
+	sc8551_int_default: sc8551_int_default {
+		mux {
+			pins = "gpio122";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio122";
+			drive-strength = <2>;   /* 2 mA */
+			bias-pull-up;         /* PULL DOWN */
+		};
+	};
+
+	sc8551_int2_default: sc8551_int2_default {
+		mux {
+			pins = "gpio125";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio125";
+			drive-strength = <2>;   /* 2 mA */
+			bias-pull-up;         /* PULL DOWN */
+		};
+	};
+};
+
+&qupv3_se4_i2c {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	sc8551_master: sc8551-charger@66 {
+		#io-channel-cells = <1>;
+		compatible = "sc,sc8551-master";
+		reg = <0x66>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <122 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&sc8551_int_default>;
+		/*sc,sc8551,bat-ovp-disable = <0>;
+		sc,sc8551,bat-ocp_disable = <0>;
+		sc,sc8551,bat-ovp-alarm-disable = <0>;
+		sc,sc8551,bus-ocp-disable = <0>;
+		sc,sc8551,bus-ovp-alarm-disable = <0>;
+		sc,sc8551,bus-ocp-alarm-disable = <0>;
+		sc,sc8551,bat-ucp-alarm-disable = <0>;*/
+		sc,sc8551,bat-therm-disable = <0>;
+		sc,sc8551,bus-therm-disable = <0>;
+		sc,sc8551,bat-ovp-threshold = <4575>;
+		sc,sc8551,bat-ovp-alarm-threshold = <4400>;
+		sc,sc8551,bat-ocp-threshold = <8000>;
+		sc,sc8551,bat-ocp-alarm-threshold = <7500>;
+		sc,sc8551,bus-ovp-threshold = <12000>;
+		sc,sc8551,bus-ovp-alarm-threshold = <11000>;
+		sc,sc8551,bus-ocp-threshold = <3750>;
+		sc,sc8551,bus-ocp-alarm-threshold = <3500>;
+		sc,sc8551,bat-ucp-alarm-threshold = <2000>;
+		sc,sc8551,bat-therm-threshold = <0x15>;
+		sc,sc8551,bus-therm-threshold = <0x15>;
+		sc,sc8551,die-therm-threshold = <125>;
+		sc,sc8551,ac-ovp-threshold = <13>;
+		sc,sc8551,sense-resistor-mohm = <5>;
+	};
+};
+
+&qupv3_se12_i2c {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	sc8551_slave: sc8551-charger@66 {
+		#io-channel-cells = <1>;
+		compatible = "sc,sc8551-slave";
+		reg = <0x66>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <125 0>;
+		pinctrl-names = "default";
+		inctrl-0 = <&sc8551_int2_default>;
+		/*sc,sc8551,bat-ovp-disable = <0>;
+		sc,sc8551,bat-ocp_disable = <0>;
+		sc,sc8551,bat-ovp-alarm-disable = <0>;
+		sc,sc8551,bus-ocp-disable = <0>;
+		sc,sc8551,bus-ovp-alarm-disable = <0>;
+		sc,sc8551,bus-ocp-alarm-disable = <0>;
+		sc,sc8551,bat-ucp-alarm-disable = <0>;*/
+		sc,sc8551,bat-therm-disable = <0>;
+		sc,sc8551,bus-therm-disable = <0>;
+		sc,sc8551,bat-ovp-threshold = <4575>;
+		sc,sc8551,bat-ovp-alarm-threshold = <4400>;
+		sc,sc8551,bat-ocp-threshold = <8000>;
+		sc,sc8551,bat-ocp-alarm-threshold = <7500>;
+		sc,sc8551,bus-ovp-threshold = <12000>;
+		sc,sc8551,bus-ovp-alarm-threshold = <11000>;
+		sc,sc8551,bus-ocp-threshold = <3750>;
+		sc,sc8551,bus-ocp-alarm-threshold = <3500>;
+		sc,sc8551,bat-ucp-alarm-threshold = <2000>;
+		sc,sc8551,bat-therm-threshold = <0x15>;
+		sc,sc8551,bus-therm-threshold = <0x15>;
+		sc,sc8551,die-therm-threshold = <125>;
+		sc,sc8551,ac-ovp-threshold = <13>;
+		sc,sc8551,sense-resistor-mohm = <5>;
+	};
+};
+

@@ -1,4 +1,79 @@
 &tlmm {
+
+	sbu_uart_en_ctrl {
+		sbu_uart_en_idle_ze: uart_audio_en_idle_ze {
+			mux {
+				pins = "gpio12";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio12";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+		sbu_uart_en_active_ze: uart_audio_en_active_ze {
+			mux {
+				pins = "gpio12";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio12";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+		sbu_uart_en_idle_cup: uart_audio_en_idle_cup {
+			mux {
+				pins = "gpio74";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio74";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+		sbu_uart_en_active_cup: uart_audio_en_active_cup {
+			mux {
+				pins = "gpio74";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio74";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+		sbu_uart_en_idle_th: uart_audio_en_idle_th {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-pull-down;
+				output-low;
+			};
+		};
+		sbu_uart_en_active_th: uart_audio_en_active_th {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-disable;
+				output-high;
+			};
+		};
+	};
 	bt_en_sleep: bt_en_sleep {
 		mux {
 			pins = "gpio81";
@@ -1992,7 +2067,7 @@
 
 			config {
 				pins = "gpio121";
-				drive-strength = <8>;   /* 8 mA */
+				drive-strength = <6>;   /* 8 mA */
 				bias-disable;           /* NO PULL */
 				output-high;
 			};
@@ -2567,7 +2642,7 @@
 
 			config {
 				pins = "gpio91";
-				bias-disable;
+				bias-pull-down;         /* PULL DOWN */
 				drive-strength = <2>;
 			};
 		};

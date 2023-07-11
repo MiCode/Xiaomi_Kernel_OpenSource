@@ -219,26 +219,6 @@
 		};
 	};
 
-	cx_sdpm@634000 {
-		status = "disabled";
-		compatible = "qcom,sdpm";
-		reg = <0x00634000 0x1000>;
-		clock-names = "cam_cc_csiphy0", "ufs_phy_axi";
-		clocks = <&clock_camcc CAM_CC_CSIPHY0_CLK>,
-			<&clock_gcc GCC_UFS_PHY_AXI_CLK_SRC>;
-		cam_cc_csiphy0-supply = <&cam_cc_ipe_0_gdsc>;
-		csr-id = <4 7>;
-	};
-
-	mx_sdpm@636000 {
-		compatible = "qcom,sdpm";
-		reg = <0x00636000 0x1000>;
-		clock-names = "mdss_mdp", "pcie_0_aux";
-		clocks = <&clock_dispcc DISP_CC_MDSS_MDP_CLK_SRC>,
-			<&clock_gcc GCC_PCIE_0_AUX_CLK_SRC>;
-		csr-id = <4 7>;
-	};
-
 	cx_pe: cx_rdpm_pe@635000 {
 		status = "disabled";
 		compatible = "qcom,policy-engine";
