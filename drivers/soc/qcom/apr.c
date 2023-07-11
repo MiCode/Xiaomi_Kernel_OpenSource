@@ -407,9 +407,11 @@ static void apr_pd_status(int state, char *svc_path, void *priv)
 	switch (state) {
 	case SERVREG_SERVICE_STATE_UP:
 		of_register_apr_devices(apr->dev, svc_path);
+		pr_info("%s...servcie state up",__func__);
 		break;
 	case SERVREG_SERVICE_STATE_DOWN:
 		device_for_each_child(apr->dev, svc_path, apr_remove_device);
+		pr_info("%s...servcie state down",__func__);
 		break;
 	}
 }

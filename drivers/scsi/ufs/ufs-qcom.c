@@ -543,6 +543,14 @@ static int ufs_qcom_host_reset(struct ufs_hba *hba)
 	 */
 	ufs_qcom_ice_disable(host);
 
+	/*
+	* The ice registers are also reset to default values after a ufs
+	* host controller reset. Reset the ice internal software flags here
+	* so that the ice hardware will be re-initialized properly in the
+	* later part of the UFS host controller reset.
+	*/
+	ufs_qcom_ice_disable(host);
+
 	if (reenable_intr) {
 		enable_irq(hba->irq);
 		hba->is_irq_enabled = true;
@@ -2240,6 +2248,7 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 
 	if (host->disable_lpm)
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
+
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO_QTI)
 	hba->quirks |= UFSHCD_QUIRK_CUSTOM_KEYSLOT_MANAGER;
@@ -4189,6 +4198,7 @@ static void ufs_qcom_parse_limits(struct ufs_qcom_host *host)
 	of_property_read_u32(np, "limit-phy-submode", &host->limit_phy_submode);
 	of_property_read_u32(np, "ufs-dev-types", &host->ufs_dev_types);
 
+
 	if (host->ufs_dev_types >= 2)
 		ufs_qcom_read_nvmem_cell(host);
 }
@@ -4305,6 +4315,7 @@ static void ufs_qcom_parse_lpm(struct ufs_qcom_host *host)
 	struct device_node *node = host->hba->dev->of_node;
 
 	host->disable_lpm = of_property_read_bool(node, "qcom,disable-lpm");
+
 	if (host->disable_lpm)
 		dev_info(host->hba->dev, "(%s) All LPM is disabled\n",
 			 __func__);

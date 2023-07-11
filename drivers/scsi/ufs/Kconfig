@@ -203,6 +203,10 @@ config SCSI_UFS_CRYPTO_QTI
 	 Enabling this allows kernel to use UFS crypto operations defined
 	 and implemented by QTI.
 
+config UFS_WB
+	bool "UFS WB"
+	depends on SCSI_UFS_QCOM
+
 config SCSI_UFS_HPB
 	bool "Support UFS Host Performance Booster"
 	depends on SCSI_UFSHCD

@@ -938,6 +938,7 @@ walt_select_task_rq_fair(void *unused, struct task_struct *p, int prev_cpu,
 	int sync;
 	int sibling_count_hint;
 
+
 	if (unlikely(walt_disabled))
 		return;
 

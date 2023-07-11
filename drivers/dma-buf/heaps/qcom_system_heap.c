@@ -69,6 +69,8 @@
 #define DYNAMIC_POOL_REFILL_DEFER_WINDOW_MS 10
 #define DYNAMIC_POOL_KTHREAD_NICE_VAL 10
 
+u64 totalram;
+
 static int get_dynamic_pool_fillmark(struct dynamic_page_pool *pool)
 {
 	return DYNAMIC_POOL_FILL_MARK / (PAGE_SIZE << pool->order);

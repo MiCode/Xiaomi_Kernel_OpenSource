@@ -51,6 +51,7 @@ enum se_protocol_types {
  * @num_clk_levels:	Number of valid clock levels in clk_perf_tbl.
  * @clk_perf_tbl:	Table of clock frequency input to Serial Engine clock.
  * @proto:		Protocol configured for this serial engine
+ * @is_list_add:	To synchronize list add and del.
  */
 struct se_geni_rsc {
 	struct device *ctrl_dev;
@@ -74,6 +75,7 @@ struct se_geni_rsc {
 	unsigned int num_clk_levels;
 	unsigned long *clk_perf_tbl;
 	enum se_protocol_types proto;
+	bool is_list_add;
 };
 
 #define PINCTRL_DEFAULT	"default"

@@ -345,6 +345,7 @@ struct ufs_qcom_thermal {
 	unsigned long curr_state;
 };
 
+
 struct ufs_qcom_host {
 	/*
 	 * Set this capability if host controller supports the QUniPro mode
