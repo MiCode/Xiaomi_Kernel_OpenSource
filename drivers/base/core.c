@@ -4802,6 +4802,16 @@ void device_shutdown(void)
 		list_del_init(&dev->kobj.entry);
 		spin_unlock(&devices_kset->list_lock);
 
+#if IS_ENABLED(CONFIG_MTK_AEE_UT)
+		memset(shutdown_device, 0, sizeof(shutdown_device));
+		if (dev->driver && dev->driver->name) {
+			scnprintf(shutdown_device, sizeof(shutdown_device),
+				"%s", dev->driver->name);
+		}
+		if (last_shutdown_device_callback)
+			last_shutdown_device_callback(shutdown_device);
+#endif
+
 		/* hold lock to avoid race with probe/release */
 		if (parent)
 			device_lock(parent);
@@ -4819,15 +4829,6 @@ void device_shutdown(void)
 		if (dev->bus && dev->bus->shutdown) {
 			if (initcall_debug)
 				dev_info(dev, "shutdown\n");
-#if IS_ENABLED(CONFIG_MTK_AEE_UT)
-			memset(shutdown_device, 0, sizeof(shutdown_device));
-			if (dev->driver && dev->driver->name) {
-				scnprintf(shutdown_device, sizeof(shutdown_device),
-					"%s", dev->driver->name);
-			}
-			if (last_shutdown_device_callback)
-				last_shutdown_device_callback(shutdown_device);
-#endif
 			dev->bus->shutdown(dev);
 		} else if (dev->driver && dev->driver->shutdown) {
 			if (initcall_debug)
