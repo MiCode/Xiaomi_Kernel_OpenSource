@@ -354,6 +354,11 @@ struct ufs_hba_variant_ops {
 	int	(*get_outstanding_cqs)(struct ufs_hba *hba,
 				       unsigned long *ocqs);
 	int	(*config_esi)(struct ufs_hba *hba);
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG_BUILD)
+	void	(*check_bus_status)(struct ufs_hba *hba);
+	void	(*dbg_dump)(struct ufs_hba *hba, u32 latest_cnt);
+#endif
 };
 
 /* clock gating state  */

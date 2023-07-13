@@ -2967,8 +2967,16 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		err = SCSI_MLQUEUE_HOST_BUSY;
 		goto out;
 	}
+
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG_BUILD)
+	if(ufshcd_is_clkgating_allowed(hba) && (hba->clk_gating.state != CLKS_ON)) {
+		ufshcd_vops_dbg_dump(hba, 100);
+		WARN_ON(1);
+	}
+#else
 	WARN_ON(ufshcd_is_clkgating_allowed(hba) &&
 		(hba->clk_gating.state != CLKS_ON));
+#endif
 
 	lrbp = &hba->lrb[tag];
 	WARN_ON(lrbp->cmd);
@@ -7012,6 +7020,9 @@ static irqreturn_t ufshcd_intr(int irq, void *__hba)
 	struct ufs_hba *hba = __hba;
 	int retries = hba->nutrs;
 
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG_BUILD)
+	ufshcd_vops_check_bus_status(hba);
+#endif
 	intr_status = ufshcd_readl(hba, REG_INTERRUPT_STATUS);
 	hba->ufs_stats.last_intr_status = intr_status;
 	hba->ufs_stats.last_intr_ts = local_clock();
