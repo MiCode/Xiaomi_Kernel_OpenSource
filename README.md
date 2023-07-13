@@ -177,7 +177,7 @@
 | xaga-s-oss | Redmi Note 11T Pro | Android S | alps-release-s0.mp1.tc8sp2-mt6983 |[xaga-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/xaga-s-oss) |
 | bsp-plato-s-oss | Xiaomi 12T | Android S | t-alps-release-s0.mp1.tc8sp2-mt6983-V1.0.1 |[bsp-plato-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-plato-s-oss) |
 | ishtar-t-oss | Xiaomi 13 Ultra | Android T | LA.VENDOR.13.2.0.r1-07300-KAILUA.0 |[ishtar-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/ishtar-t-oss) |
-| fuxi-t-oss | Xiaomi 13 | Android T | LA.VENDOR.13.2.0.r1-07300-KAILUA.0 |[fuxi-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/fuxi-t-oss) |
+| fuxi-t-oss | Xiaomi 13, Xiaomi 13 Pro | Android T | LA.VENDOR.13.2.0.r1-07300-KAILUA.0 |[fuxi-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/fuxi-t-oss) |
 | yunluo-s-oss | Redmi Pad | Android S | t-alps-release-s0.mp1.tc8sp2-cs1-xm-V1 |[yunluo-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/yunluo-s-oss) |
 | topaz-t-oss | Redmi Note 12 | Android T | AU_LINUX_ANDROID_LA.VENDOR.13.2.1.R1.11.00.00.1008.048 |[topaz-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/topaz-t-oss) |
 | selene-r-oss-update | Redmi 10 Prime | Android R | alps-mp-r0.mp1.tc8sp2-V2.66.1 |[selene-r-oss-update](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/selene-r-oss-update) |
