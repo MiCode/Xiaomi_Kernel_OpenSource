@@ -369,6 +369,18 @@ struct cnss_cal_info {
 	enum cnss_cal_status cal_status;
 };
 
+/**
+ * enum cnss_time_sync_period_vote - to get per vote time sync period
+ * @TIME_SYNC_VOTE_WLAN: WLAN Driver vote
+ * @TIME_SYNC_VOTE_CNSS: sys config vote
+ * @TIME_SYNC_VOTE_MAX
+ */
+enum cnss_time_sync_period_vote {
+	TIME_SYNC_VOTE_WLAN,
+	TIME_SYNC_VOTE_CNSS,
+	TIME_SYNC_VOTE_MAX,
+};
+
 struct cnss_control_params {
 	unsigned long quirks;
 	unsigned int mhi_timeout;
@@ -376,6 +388,7 @@ struct cnss_control_params {
 	unsigned int qmi_timeout;
 	unsigned int bdf_type;
 	unsigned int time_sync_period;
+	unsigned int time_sync_period_vote[TIME_SYNC_VOTE_MAX];
 };
 
 struct cnss_tcs_info {

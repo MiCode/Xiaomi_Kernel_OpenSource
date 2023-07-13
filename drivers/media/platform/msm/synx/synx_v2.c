@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/atomic.h>
@@ -676,12 +676,14 @@ int synx_signal(struct synx_session *session, u32 h_synx, u32 status)
 		goto fail;
 	}
 
+	mutex_lock(&synx_obj->obj_lock);
 	if (synx_util_is_global_handle(h_synx) ||
 			synx_util_is_global_object(synx_obj))
 		rc = synx_global_update_status(
 				synx_obj->global_idx, status);
 
 	if (rc != SYNX_SUCCESS) {
+		mutex_unlock(&synx_obj->obj_lock);
 		dprintk(SYNX_ERR,
 			"[sess :%llu] status update %d failed=%d\n",
 			client->id, h_synx, rc);
@@ -697,7 +699,6 @@ int synx_signal(struct synx_session *session, u32 h_synx, u32 status)
 		rc = synx_signal_offload_job(client, synx_obj,
 				h_synx, status);
 
-	mutex_lock(&synx_obj->obj_lock);
 	rc = synx_native_signal_fence(synx_obj, status);
 	if (rc != SYNX_SUCCESS)
 		dprintk(SYNX_ERR,

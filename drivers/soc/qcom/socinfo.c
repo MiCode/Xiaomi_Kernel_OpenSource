@@ -233,7 +233,7 @@ static struct socinfo {
 #define MAX_SOCINFO_ATTRS 50
 /* sysfs attributes */
 #define ATTR_DEFINE(param)	\
-	static DEVICE_ATTR(param, 0644,	\
+	static DEVICE_ATTR(param, 0444,	\
 		   msm_get_##param,	\
 		   NULL)
 
@@ -246,10 +246,12 @@ static struct socinfo {
 	{ \
 		u32 *part_info; \
 		int num_parts = 0; \
-		int str_pos = 0, i = 0; \
+		int str_pos = 0, i = 0, ret = 0; \
 		num_parts = socinfo_get_part_count(part_enum); \
 		part_info = kmalloc_array(num_parts, sizeof(*part_info), GFP_KERNEL); \
-		socinfo_get_subpart_info(part_enum, part_info, num_parts); \
+		ret = socinfo_get_subpart_info(part_enum, part_info, num_parts); \
+		if (ret < 0) \
+			return -EINVAL;  \
 		for (i = 0; i < num_parts; i++) { \
 			str_pos += scnprintf(buf+str_pos, PAGE_SIZE-str_pos, "0x%x", \
 					part_info[i]); \
@@ -857,6 +859,9 @@ socinfo_get_subpart_info(enum subset_part_type part,
 	void *info = socinfo;
 	u32 i = 0, count = 0;
 	int part_count = 0;
+
+	if (!part_info)
+		return -EINVAL;
 
 	part_count = socinfo_get_part_count(part);
 	if (part_count <= 0)

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/smcinvoke.h>
@@ -183,7 +183,7 @@ error:
 
 static void hdcp1_app_unload(struct hdcp1_smcinvoke_handle *handle)
 {
-	if (!handle || !!handle->hdcp1_app_obj.context) {
+	if (!handle || !handle->hdcp1_app_obj.context) {
 		pr_err("invalid handle\n");
 		return;
 	}
@@ -346,10 +346,17 @@ void hdcp1_stop_smcinvoke(void *data)
 {
 	struct hdcp1_smcinvoke_handle *hdcp1_handle = data;
 
+	if (!(hdcp1_handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
+		pr_err("hdcp1 app not loaded\n");
+		return;
+	}
+
 	SMCI_OBJECT_ASSIGN_NULL(hdcp1_handle->hdcp1_app_obj);
 	SMCI_OBJECT_ASSIGN_NULL(hdcp1_handle->hdcp1_appcontroller_obj);
 	SMCI_OBJECT_ASSIGN_NULL(hdcp1_handle->hdcp1ops_app_obj);
 	SMCI_OBJECT_ASSIGN_NULL(hdcp1_handle->hdcp1ops_appcontroller_obj);
+
+	hdcp1_handle->hdcp_state &= ~HDCP_STATE_APP_LOADED;
 }
 
 void *hdcp2_init_smcinvoke(u32 device_type)

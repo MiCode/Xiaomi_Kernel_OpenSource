@@ -725,6 +725,8 @@ static const struct adc5_channels adc7_chans_pmic[ADC5_MAX_CHANNEL] = {
 					SCALE_HW_CALIB_THERM_100K_PU_PM7)
 	[ADC7_GPIO4_100K_PU]	= ADC5_CHAN_TEMP("gpio4_pu2", 0,
 					SCALE_HW_CALIB_THERM_100K_PU_PM7)
+	[ADC7_V_I_BAT_THERM]	= ADC5_CHAN_TEMP("bat_therm_calib_100k_pu",
+					0, SCALE_HW_CALIB_PM5_GEN3_BATT_THERM_100K)
 };
 
 static const struct adc5_channels adc5_chans_rev2[ADC5_MAX_CHANNEL] = {
@@ -780,7 +782,7 @@ static int adc5_get_dt_channel_data(struct adc5_chip *adc,
 		chan = chan & ADC_CHANNEL_MASK;
 	}
 
-	if (chan > ADC5_PARALLEL_ISENSE_VBAT_IDATA ||
+	if (chan > ADC5_MAX_CHANNEL ||
 	    !data->adc_chans[chan].datasheet_name) {
 		dev_err(dev, "%s invalid channel number %d\n", name, chan);
 		return -EINVAL;

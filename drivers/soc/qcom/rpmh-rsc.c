@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s " fmt, KBUILD_MODNAME
@@ -96,6 +97,13 @@
 #define ACCL_TYPE(addr)			((addr >> 16) & 0xF)
 #define NR_ACCL_TYPES			3
 #define MAX_RSC_COUNT			2
+#define VREG_ADDR(addr)			(addr & ~0xF)
+
+enum {
+	HW_ACCL_CLK = 0x3,
+	HW_ACCL_VREG,
+	HW_ACCL_BUS,
+};
 
 static const char * const accl_str[] = {
 	"", "", "", "CLK", "VREG", "BUS",
@@ -450,6 +458,7 @@ static irqreturn_t tcs_tx_done(int irq, void *p)
 skip:
 		/* Reclaim the TCS */
 		write_tcs_reg(drv, RSC_DRV_CMD_ENABLE, i, 0);
+		write_tcs_reg(drv, RSC_DRV_CMD_WAIT_FOR_CMPL, i, 0);
 		writel_relaxed(BIT(i), drv->tcs_base + RSC_DRV_IRQ_CLEAR);
 
 		/* Clear the AMC MODE Trigger */
@@ -491,20 +500,18 @@ static void __tcs_buffer_write(struct rsc_drv *drv, int tcs_id, int cmd_id,
 	u32 msgid;
 	u32 cmd_msgid = CMD_MSGID_LEN | CMD_MSGID_WRITE;
 	u32 cmd_enable = 0;
+	u32 cmd_complete;
 	struct tcs_cmd *cmd;
 	int i, j;
 
-	/* Convert all commands to RR when the request has wait_for_compl set */
 	cmd_msgid |= msg->wait_for_compl ? CMD_MSGID_RESP_REQ : 0;
+	cmd_complete = read_tcs_reg(drv, RSC_DRV_CMD_WAIT_FOR_CMPL, tcs_id);
 
 	for (i = 0, j = cmd_id; i < msg->num_cmds; i++, j++) {
 		cmd = &msg->cmds[i];
 		cmd_enable |= BIT(j);
+		cmd_complete |= cmd->wait << j;
 		msgid = cmd_msgid;
-		/*
-		 * Additionally, if the cmd->wait is set, make the command
-		 * response reqd even if the overall request was fire-n-forget.
-		 */
 		msgid |= cmd->wait ? CMD_MSGID_RESP_REQ : 0;
 
 		write_tcs_cmd(drv, RSC_DRV_CMD_MSGID, tcs_id, j, msgid);
@@ -517,6 +524,7 @@ static void __tcs_buffer_write(struct rsc_drv *drv, int tcs_id, int cmd_id,
 			       cmd->data, cmd->wait);
 	}
 
+	write_tcs_reg(drv, RSC_DRV_CMD_WAIT_FOR_CMPL, tcs_id, cmd_complete);
 	cmd_enable |= read_tcs_reg(drv, RSC_DRV_CMD_ENABLE, tcs_id);
 	write_tcs_reg(drv, RSC_DRV_CMD_ENABLE, tcs_id, cmd_enable);
 }
@@ -548,6 +556,7 @@ static int check_for_req_inflight(struct rsc_drv *drv, struct tcs_group *tcs,
 	u32 addr;
 	int i, j, k;
 	int tcs_id = tcs->offset;
+	unsigned long accl;
 
 	for (i = 0; i < tcs->num_tcs; i++, tcs_id++) {
 		if (tcs_is_free(drv, tcs_id))
@@ -558,7 +567,16 @@ static int check_for_req_inflight(struct rsc_drv *drv, struct tcs_group *tcs,
 		for_each_set_bit(j, &curr_enabled, MAX_CMDS_PER_TCS) {
 			addr = read_tcs_cmd(drv, RSC_DRV_CMD_ADDR, tcs_id, j);
 			for (k = 0; k < msg->num_cmds; k++) {
-				if (addr == msg->cmds[k].addr)
+			/*
+			 * Each RPMh VREG accelerator resource has 3 or 4 contiguous 4-byte
+			 * aligned addresses associated with it. Ignore the offset to check
+			 * for in-flight VREG requests.
+			 */
+				accl = ACCL_TYPE(msg->cmds[k].addr);
+				if (accl == HW_ACCL_VREG &&
+				    VREG_ADDR(addr) == VREG_ADDR(msg->cmds[k].addr))
+					return -EBUSY;
+				else if (addr == msg->cmds[k].addr)
 					return -EBUSY;
 			}
 		}

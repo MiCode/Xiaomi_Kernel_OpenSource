@@ -4017,6 +4017,7 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 	unsigned int gid = 0, one_mb = 1024*1024;
 	unsigned int dsp_userpd_memlen = 3 * one_mb;
 	struct fastrpc_buf *init_mem;
+	struct fastrpc_channel_ctx *chan = &gcinfo[fl->cid];
 
 	struct {
 		int pgid;
@@ -4060,6 +4061,14 @@ static int fastrpc_init_create_dynamic_process(struct fastrpc_file *fl,
 			goto bail;
 	}
 	inbuf.pageslen = 1;
+
+	/* Restrict Signed offload to DSP if unsigned offload is enabled except CDSP */
+	if (chan->unsigned_support && fl->cid != CDSP_DOMAIN_ID && !fl->is_unsigned_pd) {
+		err = -ECONNREFUSED;
+		ADSPRPC_ERR(
+			"Restrict signed offload for domain: %d\n", fl->cid);
+		goto bail;
+	}
 
 	/* Untrusted apps are not allowed to offload to signedPD on DSP. */
 	if (fl->untrusted_process) {
@@ -5847,6 +5856,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 	char single_line[] = "----------------";
 	char title[] = "=========================";
 	unsigned long irq_flags = 0;
+	size_t total_size = 0;
 
 	fileinfo = kzalloc(DEBUGFS_SIZE, GFP_KERNEL);
 	if (!fileinfo) {
@@ -5970,6 +5980,7 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 				"0x%-20lX|0x%-20llX|0x%-20zu|0x%-17llX\n\n",
 				map->va, map->phys,
 				map->size, map->flags);
+			total_size += map->size;
 		}
 		mutex_unlock(&fl->map_mutex);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
@@ -6001,6 +6012,11 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 		}
 		mutex_unlock(&fl->map_mutex);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"\n%s %s = 0x%-20zu %s\n", single_line,
+			" Total Map size ", total_size, single_line);
+		total_size = 0;
+
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"\n======%s %s %s======\n", title,
 			" LIST OF BUFS ", title);
 		spin_lock(&fl->hlock);
@@ -6031,8 +6047,11 @@ static ssize_t fastrpc_debugfs_read(struct file *filp, char __user *buffer,
 				DEBUGFS_SIZE - len,
 				"0x%-17p|0x%-17llX|%-19zu|0x%-17llX\n",
 				buf->virt, (uint64_t)buf->phys, buf->size, buf->flags);
+			total_size += buf->size;
 		}
-
+		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
+			"\n%s %s = 0x%-20zu %s\n", single_line,
+			" Total BUF size ", total_size, single_line);
 		len += scnprintf(fileinfo + len, DEBUGFS_SIZE - len,
 			"\n%s %s %s\n", title,
 			" LIST OF PENDING SMQCONTEXTS ", title);
