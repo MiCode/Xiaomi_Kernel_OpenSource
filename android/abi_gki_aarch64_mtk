@@ -2602,6 +2602,7 @@
   __traceiter_android_vh_audio_usb_offload_connect
   __traceiter_android_vh_binder_restore_priority
   __traceiter_android_vh_binder_set_priority
+  __traceiter_android_vh_binder_trans
   __traceiter_android_vh_binder_transaction_init
   __traceiter_android_vh_cgroup_attach
   __traceiter_android_vh_cgroup_set_task
@@ -2697,6 +2698,7 @@
   __tracepoint_android_vh_audio_usb_offload_connect
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_set_priority
+  __tracepoint_android_vh_binder_trans
   __tracepoint_android_vh_binder_transaction_init
   __tracepoint_android_vh_cgroup_attach
   __tracepoint_android_vh_cgroup_set_task
@@ -2857,6 +2859,7 @@
   unmap_mapping_range
   unpin_user_page
   unpin_user_pages
+  unpin_user_pages_dirty_lock
   unregister_blkdev
   __unregister_chrdev
   unregister_chrdev_region
