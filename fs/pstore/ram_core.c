@@ -519,6 +519,13 @@ static int persistent_ram_post_init(struct persistent_ram_zone *prz, u32 sig,
 
 	if (prz->buffer->sig == sig) {
 		if (buffer_size(prz) == 0) {
+#if IS_ENABLED(CONFIG_MTK_PRINTK_DEBUG)
+			if (buffer_start(prz)) {
+				pr_info(" buffer:sig:0x%x,start:0x%lx\n",
+						prz->buffer->sig, buffer_start(prz));
+				persistent_ram_zap(prz);
+			}
+#endif
 			pr_debug("found existing empty buffer\n");
 			return 0;
 		}
