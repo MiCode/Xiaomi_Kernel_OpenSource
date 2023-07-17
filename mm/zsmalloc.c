@@ -683,10 +683,6 @@ static enum fullness_group get_fullness_group(struct size_class *class,
 	int inuse, objs_per_zspage;
 	enum fullness_group fg;
 
-#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
-	BUG_ON(class != zspage_class(zspage->pool, zspage));
-#endif
-
 	inuse = get_zspage_inuse(zspage);
 	objs_per_zspage = class->objs_per_zspage;
 
@@ -1056,9 +1052,6 @@ static struct zspage *alloc_zspage(struct zs_pool *pool,
 		return NULL;
 
 	zspage->magic = ZSPAGE_MAGIC;
-#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
-	zspage->class = class->index;
-#endif
 	migrate_lock_init(zspage);
 
 	for (i = 0; i < class->pages_per_zspage; i++) {
@@ -1423,9 +1416,6 @@ unsigned long zs_malloc(struct zs_pool *pool, size_t size, gfp_t gfp)
 	spin_lock(&class->lock);
 	zspage = find_get_zspage(class);
 	if (likely(zspage)) {
-#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
-		BUG_ON(zspage->inuse == class->objs_per_zspage);
-#endif
 		obj = obj_malloc(pool, zspage, handle);
 		/* Now move the zspage to another fullness group, if required */
 		fix_fullness_group(class, zspage);
@@ -1831,6 +1821,9 @@ static void replace_sub_page(struct size_class *class, struct zspage *zspage,
 
 static bool zs_page_isolate(struct page *page, isolate_mode_t mode)
 {
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+	struct size_class *class;
+#endif
 	struct zspage *zspage;
 
 	/*
@@ -1841,9 +1834,18 @@ static bool zs_page_isolate(struct page *page, isolate_mode_t mode)
 	VM_BUG_ON_PAGE(PageIsolated(page), page);
 
 	zspage = get_zspage(page);
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+	class = zspage_class(zspage->pool, zspage);
+	spin_lock(&class->lock);
+#else
 	migrate_write_lock(zspage);
+#endif
 	inc_zspage_isolation(zspage);
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+	spin_unlock(&class->lock);
+#else
 	migrate_write_unlock(zspage);
+#endif
 
 	return true;
 }
@@ -1919,8 +1921,13 @@ static int zs_page_migrate(struct page *newpage, struct page *page,
 	 * it's okay to release migration_lock.
 	 */
 	write_unlock(&pool->migrate_lock);
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+	dec_zspage_isolation(zspage);
+	spin_unlock(&class->lock);
+#else
 	spin_unlock(&class->lock);
 	dec_zspage_isolation(zspage);
+#endif
 	migrate_write_unlock(zspage);
 
 	get_page(newpage);
@@ -1937,15 +1944,27 @@ static int zs_page_migrate(struct page *newpage, struct page *page,
 
 static void zs_page_putback(struct page *page)
 {
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+	struct size_class *class;
+#endif
 	struct zspage *zspage;
 
 	VM_BUG_ON_PAGE(!PageMovable(page), page);
 	VM_BUG_ON_PAGE(!PageIsolated(page), page);
 
 	zspage = get_zspage(page);
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+	class = zspage_class(zspage->pool, zspage);
+	spin_lock(&class->lock);
+#else
 	migrate_write_lock(zspage);
+#endif
 	dec_zspage_isolation(zspage);
+#if IS_ENABLED(CONFIG_MTK_VM_DEBUG)
+	spin_unlock(&class->lock);
+#else
 	migrate_write_unlock(zspage);
+#endif
 }
 
 static const struct movable_operations zsmalloc_mops = {
