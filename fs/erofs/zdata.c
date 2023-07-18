@@ -1302,6 +1302,14 @@ static void z_erofs_decompressqueue_kthread_work(struct kthread_work *work)
 }
 #endif
 
+#ifdef CONFIG_MTK_F2FS_DEBUG
+static inline bool z_erofs_need_async_work(void)
+{
+	int rcu_check = rcu_preempt_depth() || !preemptible();
+
+	return !in_task() || irqs_disabled() || rcu_check;
+}
+#endif /* #ifdef CONFIG_MTK_F2FS_DEBUG */
 static void z_erofs_decompress_kickoff(struct z_erofs_decompressqueue *io,
 				       bool sync, int bios)
 {
@@ -1318,7 +1326,7 @@ static void z_erofs_decompress_kickoff(struct z_erofs_decompressqueue *io,
 		return;
 	/* Use (kthread_)work and sync decompression for atomic contexts only */
 #ifdef CONFIG_MTK_F2FS_DEBUG
-	if (!in_task() || irqs_disabled() || rcu_read_lock_any_held()) {
+	if (z_erofs_need_async_work()) {
 #else
 	if (in_atomic() || irqs_disabled()) {
 #endif

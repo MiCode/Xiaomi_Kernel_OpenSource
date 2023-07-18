@@ -322,22 +322,14 @@ int rcu_read_lock_any_held(void);
 # define rcu_lock_acquire(a)		do { } while (0)
 # define rcu_lock_release(a)		do { } while (0)
 
-#ifdef CONFIG_MTK_F2FS_DEBUG
-int rcu_read_lock_held(void);
-#else
 static inline int rcu_read_lock_held(void)
 {
 	return 1;
 }
 
-#endif /* #ifdef CONFIG_MTK_F2FS_DEBUG */
 static inline int rcu_read_lock_bh_held(void)
 {
-#ifdef CONFIG_MTK_F2FS_DEBUG
-	return !preemptible() || in_softirq();
-#else
 	return 1;
-#endif /* #ifdef CONFIG_MTK_F2FS_DEBUG */
 }
 
 static inline int rcu_read_lock_sched_held(void)
@@ -345,14 +337,10 @@ static inline int rcu_read_lock_sched_held(void)
 	return !preemptible();
 }
 
-#ifdef CONFIG_MTK_F2FS_DEBUG
-int rcu_read_lock_any_held(void);
-#else
 static inline int rcu_read_lock_any_held(void)
 {
 	return !preemptible();
 }
-#endif /* #ifdef CONFIG_MTK_F2FS_DEBUG */
 
 #endif /* #else #ifdef CONFIG_DEBUG_LOCK_ALLOC */
 
