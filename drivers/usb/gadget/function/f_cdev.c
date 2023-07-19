@@ -771,6 +771,7 @@ static int usb_cser_bind(struct usb_configuration *c, struct usb_function *f)
 		if (status < 0)
 			return status;
 		cser_string_defs[0].id = status;
+		cser_interface_desc.iInterface = status;
 	}
 
 	status = usb_interface_id(c, f);
