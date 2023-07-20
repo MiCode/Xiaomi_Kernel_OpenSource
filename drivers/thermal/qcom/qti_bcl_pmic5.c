@@ -491,7 +491,7 @@ static int bcl_get_trend(void *data, int trip, enum thermal_trend *trend)
 
 static int bcl_set_lbat(void *data, int low, int high)
 {
-	int bcl_lvl = 0;
+	uint32_t bcl_lvl = 0;
 	struct bcl_peripheral_data *bat_data =
 		(struct bcl_peripheral_data *)data;
 	struct bcl_device *bcl_perph = bat_data->dev;
@@ -582,7 +582,8 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 		(struct bcl_peripheral_data *)data;
 	unsigned int irq_status = 0;
 	unsigned long long start_ts = 0, end_ts = 0;
-	int ibat = 0, vbat = 0, bcl_lvl = 0;
+	int ibat = 0, vbat = 0;
+	uint32_t bcl_lvl = 0;
 	struct bcl_device *bcl_perph;
 
 	if (!perph_data->tz_dev)
