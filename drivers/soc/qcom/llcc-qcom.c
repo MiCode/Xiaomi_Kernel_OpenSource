@@ -444,12 +444,13 @@ static const struct llcc_slice_config qdu1000_data_8ch[] =  {
 	{LLCC_WRTCH,   31, 512,  1, 1,   0x3, 0x0, 0, 0, 0, 0, 1, 0, 0 },
 };
 
-/* MonacoAU ADAS 4CH */
-static struct llcc_slice_config monaco_auto_data[] =  {
-	{LLCC_MMUHWT,   13, 512, 1, 1, 0x00F, 0x0, 0, 0, 0, 0, 1, 0, 0},
+/* MonacoAU IVI 4CH */
+static struct llcc_slice_config monaco_auto_ivi_data[] =  {
+	{LLCC_GPUHTW,   11, 128, 1, 1, 0x00F, 0x0, 0, 0, 0, 1, 0, 0, 0},
+	{LLCC_GPU,      12, 512, 1, 1, 0x00F, 0x0, 0, 0, 0, 1, 0, 1, 0},
+	{LLCC_MMUHWT,   13, 128, 1, 1, 0x00F, 0x0, 0, 0, 0, 0, 1, 0, 0},
+	{LLCC_ECC,      26, 256, 3, 1, 0x00F, 0x0, 0, 0, 0, 0, 1, 0, 0},
 	{LLCC_WRTCH,    31, 128, 1, 1, 0x00F, 0x0, 0, 0, 0, 0, 1, 0, 0},
-	{LLCC_ECC,      26, 256, 3, 1, 0x00F, 0x0, 0, 0, 0, 0, 1, 1, 0},
-	{LLCC_SAIL,     25, 256, 1, 1, 0x00F, 0x0, 0, 0, 0, 1, 0, 0, 0},
 };
 
 static const struct qcom_llcc_config sc7180_cfg = {
@@ -521,9 +522,9 @@ static const struct qcom_llcc_config qdu1000_cfg[] = {
 	},
 };
 
-static const struct qcom_llcc_config monaco_auto_cfg = {
-	.sct_data       = monaco_auto_data,
-	.size           = ARRAY_SIZE(monaco_auto_data),
+static const struct qcom_llcc_config monaco_auto_ivi_cfg = {
+	.sct_data       = monaco_auto_ivi_data,
+	.size           = ARRAY_SIZE(monaco_auto_ivi_data),
 };
 
 static struct llcc_drv_data *drv_data = (void *) -EPROBE_DEFER;
@@ -1098,7 +1099,7 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	const struct llcc_slice_config *llcc_cfg;
 	struct resource *res;
 	void __iomem *ch_reg = NULL;
-	u32 sz, ch_reg_sz, ch_reg_off, ch_num;
+	u32 sz, max_banks, ch_reg_sz, ch_reg_off, ch_num;
 
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data) {
@@ -1135,7 +1136,7 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 		llcc_regs = llcc_regs_v21;
 		drv_data->offsets = llcc_offsets_v31;
 		if (of_property_match_string(dev->of_node,
-				"compatible", "qcom,monaco_auto-llcc") >= 0)
+				"compatible", "qcom,monaco_auto_ivi-llcc") >= 0)
 			drv_data->offsets = llcc_offsets_monaco_auto;
 	} else if (of_property_match_string(dev->of_node,
 				    "compatible", "qcom,llcc-v21") >= 0) {
@@ -1155,7 +1156,12 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 
 	num_banks &= LLCC_LB_CNT_MASK;
 	num_banks >>= LLCC_LB_CNT_SHIFT;
-	drv_data->num_banks = num_banks;
+
+	/* some devices have more logical banks than we use, so check for max banks */
+	if (!of_property_read_u32(dev->of_node, "max-banks", &max_banks))
+		drv_data->num_banks = min(num_banks, max_banks);
+	else
+		drv_data->num_banks = num_banks;
 
 	cfg = of_device_get_match_data(&pdev->dev);
 	if (!cfg) {
@@ -1255,7 +1261,7 @@ static const struct of_device_id qcom_llcc_of_match[] = {
 	{ .compatible = "qcom,pineapple-llcc", .data = &pineapple_cfg },
 	{ .compatible = "qcom,qdu1000-llcc", .data = &qdu1000_cfg },
 	{ .compatible = "qcom,cliffs-llcc", .data = &cliffs_cfg },
-	{ .compatible = "qcom,monaco_auto-llcc", .data = &monaco_auto_cfg },
+	{ .compatible = "qcom,monaco_auto_ivi-llcc", .data = &monaco_auto_ivi_cfg },
 	{ }
 };
 

@@ -18,6 +18,17 @@ enum pause_client {
 	PAUSE_SBT	= 0x08,
 };
 
+#define NO_BOOST 0
+#define FULL_THROTTLE_BOOST 1
+#define CONSERVATIVE_BOOST 2
+#define RESTRAINED_BOOST 3
+#define STORAGE_BOOST 4
+#define FULL_THROTTLE_BOOST_DISABLE -1
+#define CONSERVATIVE_BOOST_DISABLE -2
+#define RESTRAINED_BOOST_DISABLE -3
+#define STORAGE_BOOST_DISABLE -4
+#define MAX_NUM_BOOST_TYPE (STORAGE_BOOST+1)
+
 #if IS_ENABLED(CONFIG_SCHED_WALT)
 
 #define MAX_CPUS_PER_CLUSTER 6
@@ -190,11 +201,13 @@ extern int core_ctl_set_boost(bool boost);
 extern void walt_set_cpus_taken(struct cpumask *set);
 extern void walt_unset_cpus_taken(struct cpumask *unset);
 extern cpumask_t walt_get_cpus_taken(void);
+extern void walt_get_cpus_in_state1(struct cpumask *cpus);
 
 extern int walt_pause_cpus(struct cpumask *cpus, enum pause_client client);
 extern int walt_resume_cpus(struct cpumask *cpus, enum pause_client client);
 extern int walt_partial_pause_cpus(struct cpumask *cpus, enum pause_client client);
 extern int walt_partial_resume_cpus(struct cpumask *cpus, enum pause_client client);
+extern int sched_set_boost(int type);
 #else
 static inline int sched_lpm_disallowed_time(int cpu, u64 *timeout)
 {
@@ -264,6 +277,10 @@ static inline cpumask_t walt_get_cpus_taken(void)
 	return t;
 }
 
+static inline int sched_set_boost(int type)
+{
+	return -EINVAL;
+}
 #endif
 
 #endif /* _LINUX_SCHED_WALT_H */
