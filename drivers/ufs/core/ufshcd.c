@@ -7001,9 +7001,6 @@ static irqreturn_t ufshcd_intr(int irq, void *__hba)
 	struct ufs_hba *hba = __hba;
 	int retries = hba->nutrs;
 
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG_BUILD)
-	ufshcd_vops_check_bus_status(hba);
-#endif
 	intr_status = ufshcd_readl(hba, REG_INTERRUPT_STATUS);
 	hba->ufs_stats.last_intr_status = intr_status;
 	hba->ufs_stats.last_intr_ts = local_clock();
