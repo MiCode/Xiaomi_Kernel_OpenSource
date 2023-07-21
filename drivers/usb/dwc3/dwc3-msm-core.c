@@ -5051,6 +5051,15 @@ static int dwc3_usb_panic_notifier(struct notifier_block *this,
 	const struct debugfs_reg32 *dwc3_regs = dwc->regset->regs;
 	int size = dwc->regset->nregs, i;
 
+	/* Since this will dump the registers, it is necessary to make sure if
+	 * the DWC3 & DWC3_MSM are out of LPM otherwise we might run into
+	 * fatal error accessing registers without necessary clocks turned on.
+	 */
+	if (pm_runtime_suspended(dwc->dev) || atomic_read(&mdwc->in_lpm)) {
+		ipc_log_string(mdwc->dwc_dma_ipc_log_ctxt, "Register dump Skipped!");
+		return NOTIFY_DONE;
+	}
+
 	ipc_log_string(mdwc->dwc_dma_ipc_log_ctxt, "[Reg_Name: Offset\t Value]");
 	for (i = 0; i < size; i++)
 		dump_dwc3_regs(dwc3_regs[i].name, dwc3_regs[i].offset,
@@ -5244,10 +5253,14 @@ static int dwc3_msm_smmu_fault_handler(struct iommu_domain *domain, struct devic
 	const struct debugfs_reg32 *dwc3_regs = dwc->regset->regs;
 	int size = dwc->regset->nregs, i;
 
-	ipc_log_string(mdwc->dwc_dma_ipc_log_ctxt, "[Reg_Name: Offset\t Value]");
-	for (i = 0; i < size; i++)
-		dump_dwc3_regs(dwc3_regs[i].name, dwc3_regs[i].offset,
+	/* Skip regdump if dwc is not in resume. */
+	if (!pm_runtime_suspended(dwc->dev)) {
+		ipc_log_string(mdwc->dwc_dma_ipc_log_ctxt,
+				"[Reg_Name: Offset\t Value]");
+		for (i = 0; i < size; i++)
+			dump_dwc3_regs(dwc3_regs[i].name, dwc3_regs[i].offset,
 					dwc3_readl(dwc->regs, dwc3_regs[i].offset));
+	}
        /*
 	* Let the iommu core know we're not really handling this fault;
 	* we just use it to dump the registers for debugging purposes.
