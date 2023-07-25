@@ -33,6 +33,7 @@
 #define SE_I2C_RX_TRANS_LEN		(0x270)
 #define SE_I2C_SCL_COUNTERS		(0x278)
 #define SE_GENI_IOS			(0x908)
+#define SE_GENI_M_GP_LENGTH		(0x910)
 
 #define SE_I2C_ERR  (M_CMD_OVERRUN_EN | M_ILLEGAL_CMD_EN | M_CMD_FAILURE_EN |\
 			M_GP_IRQ_1_EN | M_GP_IRQ_3_EN | M_GP_IRQ_4_EN)
@@ -67,6 +68,9 @@
 #define GENI_ILLEGAL_CMD	7
 #define GENI_ABORT_DONE		8
 #define GENI_TIMEOUT		9
+#define GENI_SPURIOUS_IRQ	10
+#define I2C_ADDR_NACK		11
+#define I2C_DATA_NACK		12
 
 #define I2C_NACK		GP_IRQ1
 #define I2C_BUS_PROTO		GP_IRQ3
@@ -191,8 +195,10 @@ struct geni_i2c_err_log {
 
 static struct geni_i2c_err_log gi2c_log[] = {
 	[GP_IRQ0] = {-EINVAL, "Unknown I2C err GP_IRQ0"},
-	[I2C_NACK] = {-ENOTCONN,
-			"NACK: slv unresponsive, check its power/reset-ln"},
+	[I2C_ADDR_NACK] = {-ENOTCONN,
+			"Address NACK: slv unresponsive, check its power/reset-ln"},
+	[I2C_DATA_NACK] = {-ENOTCONN,
+			"Data NACK: Device NACK before end of TX transfer"},
 	[GP_IRQ2] = {-EINVAL, "Unknown I2C err GP IRQ2"},
 	[I2C_BUS_PROTO] = {-EPROTO,
 				"Bus proto err, noisy/unepxected start/stop"},
@@ -204,6 +210,7 @@ static struct geni_i2c_err_log gi2c_log[] = {
 				"Illegal cmd, check GENI cmd-state machine"},
 	[GENI_ABORT_DONE] = {-ETIMEDOUT, "Abort after timeout successful"},
 	[GENI_TIMEOUT] = {-ETIMEDOUT, "I2C TXN timed out"},
+	[GENI_SPURIOUS_IRQ] = {-EINVAL, "Received unexpected interrupt"},
 };
 
 struct geni_i2c_clk_fld {
@@ -288,9 +295,9 @@ static void geni_se_select_test_bus(struct geni_i2c_dev *gi2c, u8 test_bus_num)
 
 static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
 {
-	if (err == I2C_NACK || err == GENI_ABORT_DONE) {
-		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev, "%s\n",
-				gi2c_log[err].msg);
+	if (err == I2C_DATA_NACK || err == I2C_ADDR_NACK ||
+	    err == GENI_ABORT_DONE) {
+		GENI_SE_DBG(gi2c->ipcl, false, gi2c->dev, "%s\n", gi2c_log[err].msg);
 		goto err_ret;
 	} else {
 		I2C_LOG_ERR(gi2c->ipcl, true, gi2c->dev, "%s\n",
@@ -660,8 +667,9 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 		"%s: m_irq_status:0x%x\n", __func__, m_stat);
 
 	if (!cur) {
-		geni_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base, gi2c->ipcl);
 		I2C_LOG_ERR(gi2c->ipcl, false, gi2c->dev, "Spurious irq\n");
+		geni_i2c_err(gi2c, GENI_SPURIOUS_IRQ);
+		gi2c->cmd_done = true;
 		goto irqret;
 	}
 
@@ -673,8 +681,12 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 		(m_stat & M_GP_IRQ_3_EN) ||
 		(m_stat & M_GP_IRQ_4_EN)) {
 
-		if (m_stat & M_GP_IRQ_1_EN)
-			geni_i2c_err(gi2c, I2C_NACK);
+		if (m_stat & M_GP_IRQ_1_EN) {
+			if (readl_relaxed(gi2c->base + SE_GENI_M_GP_LENGTH))
+				geni_i2c_err(gi2c, I2C_DATA_NACK);
+			else
+				geni_i2c_err(gi2c, I2C_ADDR_NACK);
+		}
 		if (m_stat & M_GP_IRQ_3_EN)
 			geni_i2c_err(gi2c, I2C_BUS_PROTO);
 		if (m_stat & M_GP_IRQ_4_EN)
@@ -686,9 +698,6 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 		if (m_stat & M_CMD_ABORT_EN)
 			geni_i2c_err(gi2c, GENI_ABORT_DONE);
 
-		if (!dma)
-			writel_relaxed(0, (gi2c->base +
-					   SE_GENI_TX_WATERMARK_REG));
 		gi2c->cmd_done = true;
 		goto irqret;
 	}
@@ -733,6 +742,9 @@ static irqreturn_t geni_i2c_irq(int irq, void *dev)
 		}
 	}
 irqret:
+	if (!dma)
+		writel_relaxed(0, (gi2c->base + SE_GENI_TX_WATERMARK_REG));
+
 	if (m_stat)
 		writel_relaxed(m_stat, gi2c->base + SE_GENI_M_IRQ_CLEAR);
 
@@ -770,8 +782,12 @@ static void gi2c_ev_cb(struct dma_chan *ch, struct msm_gpi_cb const *cb_str,
 	case MSM_GPI_QUP_EOT_DESC_MISMATCH:
 		break;
 	case MSM_GPI_QUP_NOTIFY:
-		if (m_stat & M_GP_IRQ_1_EN)
-			geni_i2c_err(gi2c, I2C_NACK);
+		if (m_stat & M_GP_IRQ_1_EN) {
+			if (readl_relaxed(gi2c->base + SE_GENI_M_GP_LENGTH))
+				geni_i2c_err(gi2c, I2C_DATA_NACK);
+			else
+				geni_i2c_err(gi2c, I2C_ADDR_NACK);
+		}
 		if (m_stat & M_GP_IRQ_3_EN)
 			geni_i2c_err(gi2c, I2C_BUS_PROTO);
 		if (m_stat & M_GP_IRQ_4_EN)
@@ -800,8 +816,12 @@ static void gi2c_gsi_cb_err(struct msm_gpi_dma_async_tx_cb_param *cb,
 		I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
 			    "%s TCE Unexpected Err, stat:0x%x\n",
 				xfer, cb->status);
-		if (cb->status & (BIT(GP_IRQ1) << 5))
-			geni_i2c_err(gi2c, I2C_NACK);
+		if (cb->status & (BIT(GP_IRQ1) << 5)) {
+			if (readl_relaxed(gi2c->base + SE_GENI_M_GP_LENGTH))
+				geni_i2c_err(gi2c, I2C_DATA_NACK);
+			else
+				geni_i2c_err(gi2c, I2C_ADDR_NACK);
+		}
 		if (cb->status & (BIT(GP_IRQ3) << 5))
 			geni_i2c_err(gi2c, I2C_BUS_PROTO);
 		if (cb->status & (BIT(GP_IRQ4) << 5))
@@ -812,7 +832,14 @@ static void gi2c_gsi_cb_err(struct msm_gpi_dma_async_tx_cb_param *cb,
 static void gi2c_gsi_tx_cb(void *ptr)
 {
 	struct msm_gpi_dma_async_tx_cb_param *tx_cb = ptr;
-	struct geni_i2c_dev *gi2c = tx_cb->userdata;
+	struct geni_i2c_dev *gi2c;
+
+	if (!(tx_cb && tx_cb->userdata)) {
+		pr_err("%s: Invalid tx_cb buffer\n", __func__);
+		return;
+	}
+
+	gi2c = tx_cb->userdata;
 
 	gi2c_gsi_cb_err(tx_cb, "TX");
 	complete(&gi2c->xfer);
@@ -821,7 +848,14 @@ static void gi2c_gsi_tx_cb(void *ptr)
 static void gi2c_gsi_rx_cb(void *ptr)
 {
 	struct msm_gpi_dma_async_tx_cb_param *rx_cb = ptr;
-	struct geni_i2c_dev *gi2c = rx_cb->userdata;
+	struct geni_i2c_dev *gi2c;
+
+	if (!(rx_cb && rx_cb->userdata)) {
+		pr_err("%s: Invalid rx_cb buffer\n", __func__);
+		return;
+	}
+
+	gi2c = rx_cb->userdata;
 
 	if (gi2c->cur->flags & I2C_M_RD) {
 		gi2c_gsi_cb_err(rx_cb, "RX");
@@ -1164,6 +1198,12 @@ static int geni_i2c_gsi_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[],
 
 		reinit_completion(&gi2c->xfer);
 		gi2c->cur = &msgs[i];
+		if (!gi2c->cur) {
+			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+				    "%s: Invalid buffer\n", __func__);
+			ret = -ENOMEM;
+			goto geni_i2c_gsi_xfer_out;
+		}
 
 		dma_buf = i2c_get_dma_safe_msg_buf(&msgs[i], 1);
 		if (!dma_buf) {
@@ -1444,6 +1484,13 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 		m_param |= ((msgs[i].addr & 0x7F) << SLV_ADDR_SHFT);
 
 		gi2c->cur = &msgs[i];
+		if (!gi2c->cur) {
+			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+				    "%s: Invalid buffer\n", __func__);
+			ret = -ENOMEM;
+			goto geni_i2c_txn_ret;
+		}
+
 		qcom_geni_i2c_calc_timeout(gi2c);
 		mode = msgs[i].len > 32 ? SE_DMA : FIFO_MODE;
 
@@ -1468,7 +1515,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 
 		if (msgs[i].flags & I2C_M_RD) {
 			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
-				"msgs[%d].len:%d R\n", i, msgs[i].len);
+				"msgs[%d].len:%d R\n", i, gi2c->cur->len);
 			geni_write_reg(msgs[i].len,
 				       gi2c->base, SE_I2C_RX_TRANS_LEN);
 			m_cmd = I2C_READ;
@@ -1492,7 +1539,7 @@ static int geni_i2c_xfer(struct i2c_adapter *adap,
 			}
 		} else {
 			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
-				"msgs[%d].len:%d W\n", i, msgs[i].len);
+				"msgs[%d].len:%d W\n", i, gi2c->cur->len);
 			geni_write_reg(msgs[i].len, gi2c->base,
 						SE_I2C_TX_TRANS_LEN);
 			m_cmd = I2C_WRITE;
