@@ -280,7 +280,7 @@ static void drawobj_sync_func(struct kgsl_device *device,
 	kgsl_drawobj_put(&event->syncobj->base);
 }
 
-static void drawobj_sync_timeline_fence_work(struct irq_work *work)
+static void drawobj_sync_timeline_fence_work(struct work_struct *work)
 {
 	struct kgsl_drawobj_sync_event *event = container_of(work,
 		struct kgsl_drawobj_sync_event, work);
@@ -333,7 +333,7 @@ static void drawobj_sync_timeline_fence_callback(struct dma_fence *f,
 	 * removing the fence
 	 */
 	if (drawobj_sync_expire(event->device, event))
-		irq_work_queue(&event->work);
+		queue_work(kgsl_driver.lockless_workqueue, &event->work);
 }
 
 static void syncobj_destroy(struct kgsl_drawobj *drawobj)
@@ -545,7 +545,7 @@ static int drawobj_add_sync_timeline(struct kgsl_device *device,
 	event->device = device;
 	event->context = NULL;
 	event->fence = fence;
-	init_irq_work(&event->work, drawobj_sync_timeline_fence_work);
+	INIT_WORK(&event->work, drawobj_sync_timeline_fence_work);
 
 	INIT_LIST_HEAD(&event->cb.node);
 
