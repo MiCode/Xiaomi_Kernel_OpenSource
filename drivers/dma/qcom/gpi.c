@@ -454,6 +454,7 @@ struct gpi_dev {
 	u32 ipc_log_lvl;
 	u32 klog_lvl;
 	struct dentry *dentry;
+	bool is_le_vm;
 };
 
 static struct gpi_dev *gpi_dev_dbg[5];
@@ -794,41 +795,44 @@ static void gpi_dump_debug_reg(struct gpii *gpii)
 		}
 	}
 
-	if (!dbg_reg_table->gpi_debug_regs) {
-		dbg_reg_table->gpi_debug_regs =
-			kzalloc(sizeof(gpi_debug_regs), gfp);
-		if (!dbg_reg_table->gpi_debug_regs)
-			return;
-		memcpy((void *)dbg_reg_table->gpi_debug_regs,
-			(void *)gpi_debug_regs, sizeof(gpi_debug_regs));
-	}
+	/* Skip dumping gpi debug and qsb registers for levm */
+	if (!gpii->gpi_dev->is_le_vm) {
+		if (!dbg_reg_table->gpi_debug_regs) {
+			dbg_reg_table->gpi_debug_regs =
+				kzalloc(sizeof(gpi_debug_regs), gfp);
+			if (!dbg_reg_table->gpi_debug_regs)
+				return;
+			memcpy((void *)dbg_reg_table->gpi_debug_regs,
+			       (void *)gpi_debug_regs, sizeof(gpi_debug_regs));
+		}
 
-	/* log debug register */
-	reg_info = dbg_reg_table->gpi_debug_regs;
-	for (; reg_info->name; reg_info++) {
-		reg_info->val = readl_relaxed(gpii->gpi_dev->regs +
-					reg_info->offset);
-		GPII_ERR(gpii, GPI_DBG_COMMON, "GPI_dbg Reg:%s addr:0x%x->val:0x%x\n",
-			 reg_info->name, reg_info->offset, reg_info->val);
-	}
+		/* log debug register */
+		reg_info = dbg_reg_table->gpi_debug_regs;
+		for (; reg_info->name; reg_info++) {
+			reg_info->val = readl_relaxed(gpii->gpi_dev->regs +
+						reg_info->offset);
+			GPII_ERR(gpii, GPI_DBG_COMMON, "GPI_dbg Reg:%s addr:0x%x->val:0x%x\n",
+				 reg_info->name, reg_info->offset, reg_info->val);
+		}
 
-	if (!dbg_reg_table->gpi_debug_qsb_regs) {
-		dbg_reg_table->gpi_debug_qsb_regs =
-			kzalloc(sizeof(gpi_debug_qsb_regs), gfp);
-		if (!dbg_reg_table->gpi_debug_qsb_regs)
-			return;
-		memcpy((void *)dbg_reg_table->gpi_debug_qsb_regs,
-			(void *)gpi_debug_qsb_regs,
-				sizeof(gpi_debug_qsb_regs));
-	}
+		if (!dbg_reg_table->gpi_debug_qsb_regs) {
+			dbg_reg_table->gpi_debug_qsb_regs =
+				kzalloc(sizeof(gpi_debug_qsb_regs), gfp);
+			if (!dbg_reg_table->gpi_debug_qsb_regs)
+				return;
+			memcpy((void *)dbg_reg_table->gpi_debug_qsb_regs,
+			       (void *)gpi_debug_qsb_regs,
+					sizeof(gpi_debug_qsb_regs));
+		}
 
-	/* log QSB register */
-	reg_info = dbg_reg_table->gpi_debug_qsb_regs;
-	for (; reg_info->name; reg_info++) {
-		reg_info->val = readl_relaxed(gpii->gpi_dev->regs +
-					reg_info->offset);
-		GPII_ERR(gpii, GPI_DBG_COMMON, "GPI_qsb Reg:%s addr:0x%x->val:0x%x\n",
-			 reg_info->name, reg_info->offset, reg_info->val);
+		/* log QSB register */
+		reg_info = dbg_reg_table->gpi_debug_qsb_regs;
+		for (; reg_info->name; reg_info++) {
+			reg_info->val = readl_relaxed(gpii->gpi_dev->regs +
+						reg_info->offset);
+			GPII_ERR(gpii, GPI_DBG_COMMON, "GPI_qsb Reg:%s addr:0x%x->val:0x%x\n",
+				 reg_info->name, reg_info->offset, reg_info->val);
+		}
 	}
 
 	/* dump scratch registers */
@@ -3155,6 +3159,10 @@ static int gpi_probe(struct platform_device *pdev)
 				GFP_KERNEL);
 	if (!gpi_dev->gpiis)
 		return -ENOMEM;
+
+	gpi_dev->is_le_vm = of_property_read_bool(pdev->dev.of_node, "qcom,le-vm");
+	if (gpi_dev->is_le_vm)
+		GPI_LOG(gpi_dev, "LE-VM usecase\n");
 
 	/* setup all the supported gpii */
 	INIT_LIST_HEAD(&gpi_dev->dma_device.channels);
