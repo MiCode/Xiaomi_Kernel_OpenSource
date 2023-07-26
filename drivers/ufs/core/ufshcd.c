@@ -1495,7 +1495,11 @@ static int ufshcd_devfreq_target(struct device *dev,
 		ktime_to_us(ktime_sub(ktime_get(), start)), ret);
 
 out:
+#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
+	if (sched_clk_scaling_suspend_work && !scale_up)
+#else
 	if (sched_clk_scaling_suspend_work)
+#endif
 		queue_work(hba->clk_scaling.workq,
 			   &hba->clk_scaling.suspend_work);
 
