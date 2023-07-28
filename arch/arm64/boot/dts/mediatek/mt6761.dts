@@ -1536,6 +1536,9 @@ firmware_class.path=/vendor/firmware kvm-arm.mode=none";
 
 	hwrng: hwrng {
 		compatible = "mediatek,mt67xx-rng";
+		methods = "smc";
+		method-fid = /bits/ 16 <0x26a>;
+		quality = /bits/ 16 <900>;
 	};
 
 	bus_dbg@10208000 {
