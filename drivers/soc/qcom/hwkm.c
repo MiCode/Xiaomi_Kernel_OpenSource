@@ -28,7 +28,6 @@
 #include "hwkmregs.h"
 #include "hwkm_serialize.h"
 #include "crypto-qti-ice-regs.h"
-
 #define ASYNC_CMD_HANDLING false
 
 // Maximum number of times to poll
@@ -190,7 +189,7 @@ static int qti_hwkm_check_bist_status(const struct ice_mmio_data *mmio_data)
 	return 0;
 }
 
-static int qti_hwkm_ice_init_sequence(const struct ice_mmio_data *mmio_data)
+int qti_hwkm_ice_init_sequence(const struct ice_mmio_data *mmio_data)
 {
 	int ret = 0;
 	u32 val = 0;
@@ -231,6 +230,7 @@ static int qti_hwkm_ice_init_sequence(const struct ice_mmio_data *mmio_data)
 
 	return ret;
 }
+EXPORT_SYMBOL(qti_hwkm_ice_init_sequence);
 
 static void qti_hwkm_enable_slave_receive_mode(
 					const struct ice_mmio_data *mmio_data)
