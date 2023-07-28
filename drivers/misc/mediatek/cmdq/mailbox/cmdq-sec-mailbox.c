@@ -1001,6 +1001,10 @@ static s32 cmdq_sec_session_send(struct cmdq_sec_context *context,
 	else
 		iwc_msg = (struct iwcCmdqMessage_t *)context->mtee_iwc_msg;
 #endif
+	if (iwc_msg == NULL) {
+		cmdq_err("iwc_msg is NULL. Skip. mtee:%d", mtee);
+		return -EFAULT;
+	}
 
 	memset(iwc_msg, 0, sizeof(*iwc_msg));
 	iwc_msg->cmd = iwc_cmd;
