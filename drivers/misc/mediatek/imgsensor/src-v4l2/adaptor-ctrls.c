@@ -421,12 +421,21 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 						  struct mtk_hdr_ae *ae_ctrl)
 {
 	union feature_para para;
-	u32 len = 0, exp_count = 0;
+	u32 len = 0, exp_count = 0, scenario_exp_cnt = 0;
 
 	ctx->subctx.ae_ctrl_gph_en = 1;
 	while (exp_count < IMGSENSOR_STAGGER_EXPOSURE_CNT &&
 		ae_ctrl->exposure.arr[exp_count] != 0)
 		exp_count++;
+
+	/* get scenario exp_cnt */
+	scenario_exp_cnt = g_scenario_exposure_cnt(ctx, ctx->subctx.current_scenario_id);
+	if (scenario_exp_cnt != exp_count) {
+		dev_info(ctx->dev, "warn: scenario_exp_cnt=%u, but ae_exp_count=%u\n",
+			 scenario_exp_cnt, exp_count);
+		exp_count = scenario_exp_cnt;
+	}
+
 	dev_info(ctx->dev,
 			"sensor_idx %d, req id %d, exposure[LLLE->SSSE] %d %d %d %d %d ana_gain[LLLE->SSSE] %d %d %d %d %d, sub_tag:%u\n",
 			ctx->idx,
@@ -442,7 +451,6 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 			ae_ctrl->gain.sse_gain,
 			ae_ctrl->gain.ssse_gain,
 			ae_ctrl->subsample_tags);
-
 
 	switch (exp_count) {
 	case 3:

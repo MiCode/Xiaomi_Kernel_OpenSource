@@ -113,3 +113,15 @@ int g_max_exposure_line(struct adaptor_ctx *ctx,
 
 	return 0;
 }
+
+int g_scenario_exposure_cnt(struct adaptor_ctx *ctx,
+				   int scenario)
+{
+	int ret = 0;
+	struct mtk_stagger_info info = {0};
+
+	info.scenario_id = scenario;
+	ret = g_stagger_info(ctx, scenario, &info);
+
+	return max_t(__u32, info.count, 1);
+}

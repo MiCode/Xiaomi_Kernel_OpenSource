@@ -20,4 +20,7 @@ int g_max_exposure_line(struct adaptor_ctx *ctx,
 					   int scenario,
 					   struct mtk_max_exp_line *info);
 
+int g_scenario_exposure_cnt(struct adaptor_ctx *ctx,
+					   int scenario);
+
 #endif
