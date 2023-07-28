@@ -920,7 +920,7 @@ static s32 aal_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	}
 
 	result = get_aal_comp_config_result(task);
-	if (!result || !aal_frm->config_success) {
+	if (!result || !aal_frm->config_success || !result->aal_reg_cnt) {
 		mml_pq_err("%s: not get result from user lib", __func__);
 		ret = -EBUSY;
 		goto exit;

@@ -474,7 +474,7 @@ static s32 tdshp_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	ret = mml_pq_get_comp_config_result(task, TDSHP_WAIT_TIMEOUT_MS);
 	if (!ret) {
 		result = get_tdshp_comp_config_result(task);
-		if (result && tdshp_frm->config_success) {
+		if (result && tdshp_frm->config_success && result->ds_reg_cnt) {
 			s32 i;
 			struct mml_pq_reg *regs = result->ds_regs;
 			//TODO: use different regs

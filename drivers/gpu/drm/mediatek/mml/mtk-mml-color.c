@@ -371,7 +371,7 @@ static s32 color_reconfig_frame(struct mml_comp *comp, struct mml_task *task,
 	ret = mml_pq_get_comp_config_result(task, COLOR_WAIT_TIMEOUT_MS);
 	if (!ret) {
 		result = get_color_comp_config_result(task);
-		if (result && color_frm->config_success) {
+		if (result && color_frm->config_success && result->color_reg_cnt) {
 			s32 i;
 			struct mml_pq_reg *regs = result->color_regs;
 
