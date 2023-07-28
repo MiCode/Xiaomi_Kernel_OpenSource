@@ -834,6 +834,7 @@ static const struct mtk_gate_regs cam_cg_regs = {
 		.regs = &cam_cg_regs,			\
 		.shift = _shift,			\
 		.ops = &mtk_clk_gate_ops_setclr,	\
+		.flags = CLK_IGNORE_UNUSED,		\
 	}
 
 static const struct mtk_gate cam_clks[] = {
