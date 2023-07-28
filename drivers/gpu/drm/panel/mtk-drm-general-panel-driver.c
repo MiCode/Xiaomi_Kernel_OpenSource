@@ -467,6 +467,7 @@ static int lcm_get_backlight_res_from_dts(struct lcm *ctx)
 	ret = of_property_read_u8_array(ctx->dev->of_node, BACKLIGHT_NODE_NAME, array, len);
 	if (ret) {
 		pr_info("%s:error: read baclight fail!\n", __func__);
+		kfree(array);
 		return -1;
 	}
 
