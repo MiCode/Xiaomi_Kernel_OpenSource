@@ -3069,8 +3069,7 @@ static void usb_spm_dpidle_request(int mode)
 		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB,
 			SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M |
 			SPM_RESOURCE_AXI_BUS);
-		if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20") ||
-			of_find_compatible_node(NULL, NULL, "mediatek,mt6833-usb20")) {
+		if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20")) {
 			/* workaround: keep clock on for wakeup function */
 			ret = clk_prepare_enable(glue->sys_clk);
 			if (ret)
@@ -3086,8 +3085,7 @@ static void usb_spm_dpidle_request(int mode)
 	case USB_DPIDLE_RESUME:
 		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB,
 			SPM_RESOURCE_RELEASE);
-		if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20") ||
-			of_find_compatible_node(NULL, NULL, "mediatek,mt6833-usb20")) {
+		if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20")) {
 			/* workaround: keep clock on for wakeup function */
 			clk_disable_unprepare(glue->sys_clk);
 			clk_disable_unprepare(glue->ref_clk);
@@ -4674,8 +4672,7 @@ static int musb_probe(struct platform_device *pdev)
 	if (of_find_compatible_node(NULL, NULL, "mediatek,mt6768-usb20") ||
 		of_find_compatible_node(NULL, NULL, "mediatek,mt6765-usb20") ||
 		of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20") ||
-		of_find_compatible_node(NULL, NULL, "mediatek,mt6739-usb20") ||
-		of_find_compatible_node(NULL, NULL, "mediatek,mt6833-usb20"))
+		of_find_compatible_node(NULL, NULL, "mediatek,mt6739-usb20"))
 		register_usb_hal_dpidle_request(usb_spm_dpidle_request);
 	else
 		register_usb_hal_dpidle_request(usb_dpidle_request);
