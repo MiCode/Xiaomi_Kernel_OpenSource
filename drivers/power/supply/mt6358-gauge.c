@@ -985,9 +985,9 @@ int nafg_check_corner(struct mtk_gauge *gauge)
 	get_c_dltv_mv = reg_to_mv_value(nag_c_dltv_reg_value);
 
 	nag_vbat = get_nafg_vbat(gauge);
-	if (nag_vbat < 31500 && nag_zcv > 31500)
+	if (nag_vbat < 27000 && nag_zcv > 27000)
 		gauge->nafg_corner = 1;
-	else if (nag_zcv < 31500 && nag_vbat > 31500)
+	else if (nag_zcv < 27000 && nag_vbat > 27000)
 		gauge->nafg_corner = 2;
 	else
 		gauge->nafg_corner = 0;
