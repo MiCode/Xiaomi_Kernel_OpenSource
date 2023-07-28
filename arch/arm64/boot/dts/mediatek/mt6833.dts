@@ -5698,6 +5698,7 @@
 		clock-names = "sys_clk",
 			"ref_clk",
 			"src_clk";
+		pericfg= <&pericfg_clk>;
 		phys = <&u2port0 PHY_TYPE_USB2>;
 		mode = <2>;
 		multipoint = <1>;
@@ -5706,6 +5707,8 @@
 		dr_mode = "otg";
 		usb-role-switch;
 		cdp-block;
+		wakeup-source;
+		infracg = <&infracfg_ao_clk>;
 		port {
 			musb_drd_switch: endpoint@0 {
 				remote-endpoint = <&usb_role>;
