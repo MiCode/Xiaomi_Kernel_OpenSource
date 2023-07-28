@@ -229,6 +229,7 @@ struct regulator *vcore_reg_id;
 static int tscpu_thermal_probe(struct platform_device *dev);
 static int tscpu_register_thermal(void);
 static void tscpu_unregister_thermal(void);
+static int get_gpu_power_info(void);
 
 
 #if THERMAL_DRV_UPDATE_TEMP_DIRECT_TO_MET
@@ -374,39 +375,6 @@ void set_taklking_flag(bool flag)
 	talking_flag = flag;
 	tscpu_printk("talking_flag=%d\n", talking_flag);
 }
-
-int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num)
-{
-	int i = 0;
-
-	tscpu_dprintk("%s\n", __func__);
-
-	mtk_gpu_power =
-		kzalloc((num) *
-			sizeof(struct mt_gpufreq_power_table_info), GFP_KERNEL);
-
-	if (mtk_gpu_power == NULL)
-		return -ENOMEM;
-
-	for (i = 0; i < num; i++) {
-		mtk_gpu_power[i].gpufreq_khz = freqs[i].gpufreq_khz;
-		mtk_gpu_power[i].gpufreq_power = freqs[i].gpufreq_power;
-
-		tscpu_dprintk("[%d].gpufreq_khz=%u, .gpufreq_power=%u\n",
-			i, freqs[i].gpufreq_khz, freqs[i].gpufreq_power);
-	}
-
-	gpu_max_opp = mt_gpufreq_get_seg_max_opp_index();
-	Num_of_GPU_OPP = gpu_max_opp + mt_gpufreq_get_dvfs_table_num();
-	/* error check */
-	if (gpu_max_opp >= num || Num_of_GPU_OPP > num || !Num_of_GPU_OPP) {
-		gpu_max_opp = 0;
-		Num_of_GPU_OPP = num;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(mtk_gpufreq_register);
 
 static int tscpu_bind
 (struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
@@ -2580,6 +2548,11 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 #endif
 
 	tscpu_thermal_clock_on();
+	/* get gpufreq info*/
+	err = get_gpu_power_info();
+	if (err)
+		tscpu_printk("cannot get gpu power table\n");
+
 	init_thermal(dev);
 #ifdef ATM_USES_PPM
 	mt_ppm_thermal_get_cpu_cluster_temp_cb(
@@ -2683,6 +2656,46 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 	tscpu_create_fs();
 
 	set_tscpu_init_done(1);
+
+	return 0;
+}
+
+static int get_gpu_power_info(void)
+{
+	int num, i = 0;
+	struct mt_gpufreq_power_table_info *freqs;
+
+	tscpu_dprintk("%s\n", __func__);
+
+	num = mt_gpufreq_get_power_table_num();
+	freqs = mt_gpufreq_get_power_table();
+
+	if (freqs == NULL)
+		return -EPROBE_DEFER;
+
+	mtk_gpu_power =
+		kzalloc((num) *
+			sizeof(struct mt_gpufreq_power_table_info), GFP_KERNEL);
+
+	if (mtk_gpu_power == NULL)
+		return -ENOMEM;
+
+	for (i = 0; i < num; i++) {
+		mtk_gpu_power[i].gpufreq_khz = freqs[i].gpufreq_khz;
+		mtk_gpu_power[i].gpufreq_power = freqs[i].gpufreq_power;
+
+		tscpu_dprintk("[%d].gpufreq_khz=%u, .gpufreq_power=%u\n",
+			i, freqs[i].gpufreq_khz, freqs[i].gpufreq_power);
+	}
+
+	gpu_max_opp = mt_gpufreq_get_seg_max_opp_index();
+	Num_of_GPU_OPP = gpu_max_opp + mt_gpufreq_get_dvfs_table_num();
+
+	/* error check */
+	if (gpu_max_opp >= num || Num_of_GPU_OPP > num || !Num_of_GPU_OPP) {
+		gpu_max_opp = 0;
+		Num_of_GPU_OPP = num;
+	}
 
 	return 0;
 }
