@@ -2938,6 +2938,8 @@
 				<GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH 0>;
 			dma-channels = <4>;
 			dma-channel-mask = <63>;
+			clocks = <&infracfg_ao_clk CLK_IFRAO_CQ_DMA>;
+			clock-names = "cqdma";
 		};
 
 		sramrom@10214000 {
