@@ -3349,6 +3349,9 @@ static int msdc_drv_probe(struct platform_device *pdev)
 
 	msdc_of_property_parse(pdev, host);
 
+	if (host->id == MSDC_SD)
+		mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
+
 #if !IS_ENABLED(CONFIG_FPGA_EARLY_PORTING)
 	host->pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(host->pinctrl)) {
