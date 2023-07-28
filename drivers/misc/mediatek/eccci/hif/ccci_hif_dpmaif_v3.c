@@ -2955,10 +2955,17 @@ static int dpmaif_rx_buf_init(struct dpmaif_rx_queue *rxq)
 		kfree(rxq->pit_base);
 		return -ENOMEM;
 	}
+#if IS_ENABLED(CONFIG_ARCH_DMA_ADDR_T_64BIT)
 	CCCI_BOOTUP_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%llx,pit_base=0x%p\r\n",
 		__func__, rxq->pit_phy_addr, rxq->pit_base);
 	CCCI_NORMAL_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%llx,pit_base=0x%p\r\n",
 		__func__, rxq->pit_phy_addr, rxq->pit_base);
+#else
+	CCCI_BOOTUP_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%lx,pit_base=0x%p\r\n",
+		__func__, rxq->pit_phy_addr, rxq->pit_base);
+	CCCI_NORMAL_LOG(-1, TAG, "%s:rxq pit_phy_addr=0x%lx,pit_base=0x%p\r\n",
+		__func__, rxq->pit_phy_addr, rxq->pit_base);
+#endif
 #endif
 	memset(rxq->pit_base, 0, dpmaif_ctrl->dl_pit_size);
 	/* dpmaif_pit_init(rxq->pit_base, rxq->pit_size_cnt); */

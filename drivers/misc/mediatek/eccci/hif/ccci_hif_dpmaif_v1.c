@@ -5134,20 +5134,35 @@ static int dpmaif_tx_sw_solution_init(void)
 	if (dpmaif_ctrl->smem_base_vir == NULL || dpmaif_ctrl->smem_base_phy == 0 ||
 				dpmaif_ctrl->smem_size <= 0) {
 		dpmaif_ctrl->tx_sw_solution_enable = 0;
+#if IS_ENABLED(CONFIG_PHYS_ADDR_T_64BIT)
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: fail. smem_base: %p(%llx); smem_size: %u\n",
+			"[%s] error: fail. smem_base: %p(0x%llx); smem_size: %u\n",
 			__func__, dpmaif_ctrl->smem_base_vir, dpmaif_ctrl->smem_base_phy,
 			dpmaif_ctrl->smem_size);
+#else
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: fail. smem_base: %p(0x%lx); smem_size: %u\n",
+			__func__, dpmaif_ctrl->smem_base_vir, dpmaif_ctrl->smem_base_phy,
+			dpmaif_ctrl->smem_size);
+#endif
 		return 0;
 	}
 
 	dpmaif_ctrl->tx_sw_solution_enable = 1;
 
+#if IS_ENABLED(CONFIG_PHYS_ADDR_T_64BIT)
 	CCCI_NORMAL_LOG(-1, TAG,
-		"[%s] tx_sw_solution_enable: %u; smem_base: %p(0x%llX); smem_size: %u\n",
+		"[%s] tx_sw_solution_enable: %u; smem_base: %p(0x%llx); smem_size: %u\n",
 		__func__, dpmaif_ctrl->tx_sw_solution_enable,
 		dpmaif_ctrl->smem_base_vir, dpmaif_ctrl->smem_base_phy,
 		dpmaif_ctrl->smem_size);
+#else
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] tx_sw_solution_enable: %u; smem_base: %p(0x%lx); smem_size: %u\n",
+		__func__, dpmaif_ctrl->tx_sw_solution_enable,
+		dpmaif_ctrl->smem_base_vir, dpmaif_ctrl->smem_base_phy,
+		dpmaif_ctrl->smem_size);
+#endif
 
 	INIT_DELAYED_WORK(&dpmaif_ctrl->smem_drb_work, &dpmaif_smem_tx_done);
 	dpmaif_ctrl->smem_worker = alloc_workqueue("smem_ul_worker",
