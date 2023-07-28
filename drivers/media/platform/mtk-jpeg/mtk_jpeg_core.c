@@ -189,6 +189,7 @@ static int mtk_jpeg_enc_ctrls_setup(struct mtk_jpeg_ctx *ctx)
 
 	if (handler->error) {
 		v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
+		pr_info("mtk_jpeg_enc_ctrl_setup fail");
 		return handler->error;
 	}
 
@@ -1137,6 +1138,7 @@ static void mtk_jpeg_enc_device_run(void *priv)
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
 
 	ret = pm_runtime_get_sync(jpeg->dev);
+	v4l2_info(&jpeg->v4l2_dev, "jpeg_enc_device_run ret: %d", ret);
 	if (ret < 0)
 		goto enc_end;
 
@@ -1282,12 +1284,14 @@ static void mtk_jpeg_clk_on(struct mtk_jpeg_dev *jpeg)
 
 	ret = clk_bulk_prepare_enable(jpeg->variant->num_clks,
 				      jpeg->variant->clks);
+	v4l2_info(&jpeg->v4l2_dev, "jpeg_clk_on ret: %d", ret);
 	if (ret)
 		dev_err(jpeg->dev, "Failed to open jpeg clk: %d\n", ret);
 }
 
 static void mtk_jpeg_clk_off(struct mtk_jpeg_dev *jpeg)
 {
+	v4l2_info(&jpeg->v4l2_dev, "mtk_jpeg_clk_off");
 	clk_bulk_disable_unprepare(jpeg->variant->num_clks,
 				   jpeg->variant->clks);
 	mtk_smi_larb_put(jpeg->larb);
@@ -1481,6 +1485,7 @@ static int mtk_jpeg_release(struct file *file)
 	if (ctx->state == MTK_JPEG_RUNNING) {
 		mtk_jpeg_dvfs_end(ctx);
 		mtk_jpeg_end_bw_request(ctx);
+		v4l2_info(&jpeg->v4l2_dev, "jpeg_release call to pm_runtime_put");
 		pm_runtime_put(ctx->jpeg->dev);
 	}
 	mutex_lock(&jpeg->lock);
@@ -1557,7 +1562,7 @@ static void mtk_jpeg_job_timeout_work(struct work_struct *work)
 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 
 	jpeg->variant->hw_reset(jpeg->reg_base);
-
+	v4l2_info(&jpeg->v4l2_dev, "jpeg_job_timeout_work call to pm_runtime_put");
 	pm_runtime_put(jpeg->dev);
 
 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
@@ -1707,7 +1712,7 @@ err_req_irq:
 static int mtk_jpeg_remove(struct platform_device *pdev)
 {
 	struct mtk_jpeg_dev *jpeg = platform_get_drvdata(pdev);
-
+	v4l2_info(&jpeg->v4l2_dev, "mtk_jpeg_remove call to mtk_jpeg_clk_release");
 	pm_runtime_disable(&pdev->dev);
 	video_unregister_device(jpeg->vdev);
 	video_device_release(jpeg->vdev);
@@ -1721,7 +1726,7 @@ static int mtk_jpeg_remove(struct platform_device *pdev)
 static __maybe_unused int mtk_jpeg_pm_suspend(struct device *dev)
 {
 	struct mtk_jpeg_dev *jpeg = dev_get_drvdata(dev);
-
+	v4l2_info(&jpeg->v4l2_dev, "mtk_jpeg_pm_suspend call to mtk_jpeg_clk_off");
 	mtk_jpeg_clk_off(jpeg);
 
 	return 0;
@@ -1730,7 +1735,7 @@ static __maybe_unused int mtk_jpeg_pm_suspend(struct device *dev)
 static __maybe_unused int mtk_jpeg_pm_resume(struct device *dev)
 {
 	struct mtk_jpeg_dev *jpeg = dev_get_drvdata(dev);
-
+	v4l2_info(&jpeg->v4l2_dev, "mtk_jpeg_pm_resume call to mtk_jpeg_clk_on");
 	mtk_jpeg_clk_on(jpeg);
 
 	return 0;
