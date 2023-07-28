@@ -1918,6 +1918,7 @@ static int __gpufreq_volt_scale_gpu(
 	} else {
 		/* keep volt */
 		ret = GPUFREQ_SUCCESS;
+		goto done;
 	}
 
 	t_settle = (t_settle_vgpu > t_settle_vsram) ?
@@ -1927,14 +1928,14 @@ static int __gpufreq_volt_scale_gpu(
 	g_gpu.cur_volt = __gpufreq_get_real_vgpu();
 	if (unlikely(g_gpu.cur_volt != vgpu_new))
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
-			"inconsistent scaled Vgpu, cur_volt: %d, target_volt: %d",
-			g_gpu.cur_volt, vgpu_new);
+			"inconsistent scaled Vgpu, cur_volt: %d, target_volt: %d, old_volt: %d",
+			g_gpu.cur_volt, vgpu_new, vgpu_old);
 
 	g_gpu.cur_vsram = __gpufreq_get_real_vsram();
 	if (unlikely(g_gpu.cur_vsram != vsram_new))
 		__gpufreq_abort(GPUFREQ_GPU_EXCEPTION,
-			"inconsistent scaled Vsram, cur_vsram: %d, target_vsram: %d",
-			g_gpu.cur_vsram, vsram_new);
+			"inconsistent scaled Vsram, cur_vsram: %d, target_vsram: %d, old_vsram: %d",
+			g_gpu.cur_vsram, vsram_new, vsram_old);
 
 	/* todo: GED log buffer (gpufreq_pr_logbuf) */
 
@@ -2552,6 +2553,7 @@ static void __gpufreq_update_gpu_working_table(void)
 {
 	int i = 0, j = 0;
 
+	mutex_lock(&gpufreq_lock);
 	for (i = 0; i < g_gpu.opp_num; i++) {
 		j = i + g_gpu.segment_upbound;
 		g_gpu.working_table[i].freq = g_gpu.signed_table[j].freq;
@@ -2565,11 +2567,12 @@ static void __gpufreq_update_gpu_working_table(void)
 			i, g_gpu.working_table[i].freq, g_gpu.working_table[i].volt,
 			g_gpu.working_table[i].vsram, g_gpu.working_table[i].vaging);
 	}
+	mutex_unlock(&gpufreq_lock);
+
 	if (g_aging_enable)
 		__gpufreq_apply_aging(true);
 	/* set power info to working table */
 	__gpufreq_measure_power();
-
 }
 
 /*
