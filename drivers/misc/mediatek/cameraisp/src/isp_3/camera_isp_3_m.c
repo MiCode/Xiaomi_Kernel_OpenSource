@@ -6910,6 +6910,16 @@ static signed int ISP_CAMSV_SOF_Buf_Get(unsigned int dma,
 		camsv_imgo_idx = (camsv_imgo_idx > 0)
 					 ? (camsv_imgo_idx - 1)
 					 : (camsv_fbc.Bits.FB_NUM - 1);
+		//error handling
+		if( camsv_imgo_idx >= ISP_RT_BUF_SIZE){
+			IRQ_LOG_KEEPER(irqT, m_CurrentPPB, _LOG_ERR,
+				       "FBC_EN/WCNT/FB_NUM (%d/%d/%d),camsv_imgo_idx(0x%x)\n",
+				       camsv_fbc.Bits.FBC_EN,
+				       camsv_fbc.Bits.WCNT,
+				       camsv_fbc.Bits.FB_NUM,
+				       camsv_imgo_idx);
+			return 0;
+		}
 		if (camsv_imgo_idx != pstRTBuf->ring_buf[dma].start) {
 			/* theoretically, it shout not be happened( wcnt     is
 			 * inc. at p1_done)
