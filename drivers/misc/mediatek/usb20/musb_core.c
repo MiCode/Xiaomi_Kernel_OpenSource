@@ -3069,7 +3069,8 @@ static void usb_spm_dpidle_request(int mode)
 		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB,
 			SPM_RESOURCE_MAINPLL | SPM_RESOURCE_CK_26M |
 			SPM_RESOURCE_AXI_BUS);
-		if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20")) {
+		if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20") ||
+			of_find_compatible_node(NULL, NULL, "mediatek,mt6833-usb20")) {
 			/* workaround: keep clock on for wakeup function */
 			ret = clk_prepare_enable(glue->sys_clk);
 			if (ret)
@@ -3085,7 +3086,8 @@ static void usb_spm_dpidle_request(int mode)
 	case USB_DPIDLE_RESUME:
 		spm_resource_req_usb(SPM_RESOURCE_USER_SSUSB,
 			SPM_RESOURCE_RELEASE);
-		if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20")) {
+		if (of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20") ||
+			of_find_compatible_node(NULL, NULL, "mediatek,mt6833-usb20")) {
 			/* workaround: keep clock on for wakeup function */
 			clk_disable_unprepare(glue->sys_clk);
 			clk_disable_unprepare(glue->ref_clk);
@@ -3185,6 +3187,7 @@ enum musb_uwk_vers {
 	MUSB_UWK_V2,      /* MT6789 */
 	MUSB_UWK_V3,      /* MT6768, MT6761*/
 	MUSB_UWK_V4,      /* MT6765 */
+	MUSB_UWK_V5,      /* MT6833 */
 };
 
 /* MT6855 */
@@ -3281,6 +3284,25 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 			tmp |= USB2_CDDEBOUNCE(0x8) | USB2_CDEN;
 			regmap_write(pericfg, USB_WAKEUP_DEC_CON1_MT6765, tmp);
 			break;
+		case MUSB_UWK_V5:
+			if (pericfg == NULL || infracg == NULL)
+				return;
+			regmap_read(infracg, MISC_CONFIG, &tmp);
+			tmp |= USB_CD_CLR;
+			regmap_write(infracg, MISC_CONFIG, tmp);
+
+			mdelay(5);
+
+			regmap_read(pericfg, USB_WK_CTRL, &tmp);
+			tmp |= USB_CDDEBOUNCE(0x8) | USB_CDEN;
+			regmap_write(pericfg, USB_WK_CTRL, tmp);
+
+			mdelay(5);
+
+			regmap_read(infracg, MISC_CONFIG, &tmp);
+			tmp &= ~USB_CD_CLR;
+			regmap_write(infracg, MISC_CONFIG, tmp);
+			break;
 		default:
 			return;
 		}
@@ -3324,6 +3346,13 @@ static void mt_usb_wakeup(struct musb *musb, bool enable)
 				musb->is_active = 1;
 			}
 			break;
+		case MUSB_UWK_V5:
+			if (pericfg == NULL)
+				return;
+			regmap_read(pericfg, USB_WK_CTRL, &tmp);
+			tmp &= ~(USB_CDEN | USB_CDDEBOUNCE(0x8));
+			regmap_write(pericfg, USB_WK_CTRL, tmp);
+			break;
 		default:
 			return;
 		}
@@ -3357,6 +3386,8 @@ static int mt_usb_wakeup_init(struct musb *musb)
 			uwk_vers = 3;
 		else if (of_device_is_compatible(node, "mediatek,mt6765-usb20"))
 			uwk_vers = 4;
+		else if (of_device_is_compatible(node, "mediatek,mt6833-usb20"))
+			uwk_vers = 5;
 		else
 			return -EINVAL;
 		/* Add another platform with specific uwk_vers here  */
@@ -4643,7 +4674,8 @@ static int musb_probe(struct platform_device *pdev)
 	if (of_find_compatible_node(NULL, NULL, "mediatek,mt6768-usb20") ||
 		of_find_compatible_node(NULL, NULL, "mediatek,mt6765-usb20") ||
 		of_find_compatible_node(NULL, NULL, "mediatek,mt6761-usb20") ||
-		of_find_compatible_node(NULL, NULL, "mediatek,mt6739-usb20"))
+		of_find_compatible_node(NULL, NULL, "mediatek,mt6739-usb20") ||
+		of_find_compatible_node(NULL, NULL, "mediatek,mt6833-usb20"))
 		register_usb_hal_dpidle_request(usb_spm_dpidle_request);
 	else
 		register_usb_hal_dpidle_request(usb_dpidle_request);
