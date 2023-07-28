@@ -58,6 +58,11 @@
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
 #include <linux/nvmem-consumer.h>
 #endif
+
+#if IS_ENABLED(CONFIG_MTK_STATIC_POWER_LEGACY)
+#include "mtk_static_power.h"
+#endif
+
 /**
  * ===============================================
  * Local Function Declaration
@@ -130,6 +135,10 @@ static int __gpufreq_init_platform_info(struct platform_device *pdev);
 static int __gpufreq_pdrv_probe(struct platform_device *pdev);
 static int __gpufreq_pdrv_remove(struct platform_device *pdev);
 
+//thermal
+static void __mt_update_gpufreqs_power_table(void);
+static int (*mt_gpufreq_wrap_fp)(void);
+
 /**
  * ===============================================
  * Local Variable Definition
@@ -182,6 +191,9 @@ static unsigned int g_avs_enable;
 static unsigned int g_aging_load;
 static unsigned int g_mcl50_load;
 static enum gpufreq_dvfs_state g_dvfs_state;
+
+//thermal
+static struct mt_gpufreq_power_table_info *g_power_table;
 static DEFINE_MUTEX(gpufreq_lock);
 
 static struct gpufreq_platform_fp platform_ap_fp = {
@@ -219,6 +231,7 @@ static struct gpufreq_platform_fp platform_ap_fp = {
 	.get_asensor_info = __gpufreq_get_asensor_info,
 	.get_core_mask_table = __gpufreq_get_core_mask_table,
 	.get_core_num = __gpufreq_get_core_num,
+	.update_power_table = __mt_update_gpufreqs_power_table,
 };
 
 static struct gpufreq_platform_fp platform_eb_fp = {
@@ -3187,6 +3200,139 @@ static void __gpufreq_init_shader_present(void)
 	GPUFREQ_LOGD("segment_id: %d, shader_present: %d", segment_id, g_shader_present);
 }
 
+void mt_gpufreq_set_gpu_wrap_fp(int (*gpu_wrap_fp)(void))
+{
+	mt_gpufreq_wrap_fp = gpu_wrap_fp;
+}
+EXPORT_SYMBOL(mt_gpufreq_set_gpu_wrap_fp);
+
+/* power calculation for power table */
+static void __mt_gpufreq_calculate_power(unsigned int idx, unsigned int freq,
+			unsigned int volt, unsigned int temp)
+{
+	unsigned int p_total = 0;
+	unsigned int p_dynamic = 0;
+	unsigned int ref_freq = 0;
+	unsigned int ref_volt = 0;
+	int p_leakage = 0;
+
+	p_dynamic = __gpufreq_get_dyn_pgpu(freq, volt);
+
+#if IS_ENABLED(CONFIG_MTK_STATIC_POWER_LEGACY)
+	p_leakage = mt_spower_get_leakage(MTK_SPOWER_GPU, (volt / 100), temp);
+	if (p_leakage < 0)
+		p_leakage = 0;
+#else
+	p_leakage = 71;
+#endif
+
+	p_total = p_dynamic + p_leakage;
+
+	GPUFREQ_LOGD("idx = %d, p_dynamic = %d, p_leakage = %d, p_total = %d, temp = %d\n",
+			idx, p_dynamic, p_leakage, p_total, temp);
+
+	g_power_table[idx].gpufreq_power = p_total;
+
+}
+
+/*
+ * OPP power table initialization
+ */
+static void __mt_gpufreq_setup_opp_power_table(int num)
+{
+	int i = 0;
+	int temp = 0;
+
+	g_power_table = kzalloc((num) * sizeof(struct mt_gpufreq_power_table_info), GFP_KERNEL);
+
+	if (g_power_table == NULL)
+		return;
+
+#ifdef CONFIG_THERMAL
+	if (mt_gpufreq_wrap_fp)
+		temp = mt_gpufreq_wrap_fp() / 1000;
+	else
+		temp = 40;
+#else
+	temp = 40;
+#endif /* ifdef CONFIG_THERMAL */
+
+	GPUFREQ_LOGD("temp = %d\n", temp);
+
+	if ((temp < -20) || (temp > 125)) {
+		GPUFREQ_LOGD("temp < -20 or temp > 125!\n");
+		temp = 65;
+	}
+
+	for (i = 0; i < num; i++) {
+		g_power_table[i].gpufreq_khz = g_gpu.signed_table[i].freq;
+		g_power_table[i].gpufreq_volt = g_gpu.signed_table[i].volt;
+
+		__mt_gpufreq_calculate_power(i, g_power_table[i].gpufreq_khz,
+				g_power_table[i].gpufreq_volt, temp);
+
+		GPUFREQ_LOGD("[%d], freq_khz = %u, volt = %u, power = %u\n",
+				i, g_power_table[i].gpufreq_khz,
+				g_power_table[i].gpufreq_volt,
+				g_power_table[i].gpufreq_power);
+	}
+}
+
+
+/* update OPP power table */
+static void __mt_update_gpufreqs_power_table(void)
+{
+	int i;
+	int temp = 0;
+	unsigned int freq = 0;
+	unsigned int volt = 0;
+
+#ifdef CONFIG_THERMAL
+	if (mt_gpufreq_wrap_fp)
+		temp = mt_gpufreq_wrap_fp() / 1000;
+	else
+		temp = 40;
+
+#else
+	temp = 40;
+#endif /* ifdef CONFIG_THERMAL */
+
+	GPUFREQ_LOGD("temp = %d\n", temp);
+
+	mutex_lock(&gpufreq_lock);
+
+	if ((temp >= -20) && (temp <= 125)) {
+		for (i = 0; i < g_gpu.signed_opp_num; i++) {
+			freq = g_power_table[i].gpufreq_khz;
+			volt = g_power_table[i].gpufreq_volt;
+
+			__mt_gpufreq_calculate_power(i, freq, volt, temp);
+
+			GPUFREQ_LOGD("[%d] freq_khz = %d, volt = %d, power = %d\n",
+				i, g_power_table[i].gpufreq_khz,
+				g_power_table[i].gpufreq_volt,
+				g_power_table[i].gpufreq_power);
+		}
+	} else {
+		GPUFREQ_LOGE("temp < -20 or temp > 125, NOT update power table!\n");
+	}
+
+	mutex_unlock(&gpufreq_lock);
+
+}
+
+struct mt_gpufreq_power_table_info *mt_gpufreq_get_power_table(void)
+{
+	return g_power_table;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_power_table);
+
+unsigned int mt_gpufreq_get_power_table_num(void)
+{
+	return g_gpu.signed_opp_num;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_power_table_num);
+
 /*
  * 1. init working OPP range
  * 2. init working OPP table = default + adjustment
@@ -3260,6 +3406,7 @@ static int __gpufreq_init_opp_table(struct platform_device *pdev)
 	}
 
 	__gpufreq_set_springboard();
+	__mt_gpufreq_setup_opp_power_table(g_gpu.signed_opp_num);
 
 done:
 	return ret;
@@ -3861,6 +4008,7 @@ static int __gpufreq_pdrv_remove(struct platform_device *pdev)
 	kfree(g_gpu.sb_table);
 	kfree(g_clk);
 	kfree(g_pmic);
+	kfree(g_power_table);
 #if !GPUFREQ_SELF_CTRL_MTCMOS
 	kfree(g_mtcmos);
 #endif /* GPUFREQ_SELF_CTRL_MTCMOS */

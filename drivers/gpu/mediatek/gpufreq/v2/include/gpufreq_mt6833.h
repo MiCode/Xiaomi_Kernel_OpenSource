@@ -469,4 +469,12 @@ unsigned int g_aging_table[][SIGNED_OPP_GPU_NUM] = {
 	},
 };
 
+struct mt_gpufreq_power_table_info {
+	unsigned int gpufreq_khz;
+	unsigned int gpufreq_volt;
+	unsigned int gpufreq_power;
+};
+
+#define MT_GPUFREQ_STATIC_PWR_READY2USE
+
 #endif /* __GPUFREQ_MT6879_H__ */
