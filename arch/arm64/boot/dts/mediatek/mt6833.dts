@@ -6140,6 +6140,11 @@
 
 	gps: gps@18c00000 {
 		compatible = "mediatek,gps";
+		emi-region = <29>;
+		emi-offset = <0x400000>;
+		emi-size = <0xfffff>;
+		emi-domain-ap = <0>;
+		emi-domain-conn = <2>;
 	};
 
 	mtk_lpm: mtk_lpm {
