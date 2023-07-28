@@ -381,6 +381,7 @@ s32 cmdq_task_create(enum CMDQ_SCENARIO_ENUM scenario,
 	INIT_LIST_HEAD(&handle->list_entry);
 	handle->scenario = scenario;
 	handle->ctrl = cmdq_core_get_controller();
+	cmdq_ref_init(handle);
 
 	/* define thread type by scenario */
 	handle->thread = CMDQ_INVALID_THREAD;
@@ -1232,6 +1233,11 @@ s32 cmdq_op_write_reg(struct cmdqRecStruct *handle, u32 addr,
 	enum cmdq_code op_code;
 	u32 arg_b_i, arg_b_type;
 
+	if (mask == 0x00000000) {
+		CMDQ_ERR("mask should not be 0x00000000\n");
+		return -EFAULT;
+	}
+
 	if (mask != 0xFFFFFFFF) {
 		status = cmdq_append_command(handle, CMDQ_CODE_MOVE, 0,
 			~mask, 0, 0);
@@ -1290,6 +1296,11 @@ s32 cmdq_op_write_reg_secure(struct cmdqRecStruct *handle, u32 addr,
 s32 cmdq_op_poll(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask)
 {
 	s32 status;
+
+	if (mask == 0x00000000) {
+		CMDQ_ERR("mask should not be 0x00000000\n");
+		return -EFAULT;
+	}
 
 	if (mask != 0xFFFFFFFF) {
 		status = cmdq_append_command(handle, CMDQ_CODE_MOVE, 0,
@@ -1559,6 +1570,11 @@ s32 cmdq_op_poll_ex(struct cmdqRecStruct *handle,
 	u16 arg_a;
 	u8 s_op, arg_a_type;
 
+	if (mask == 0x00000000) {
+		CMDQ_ERR("mask should not be 0x00000000\n");
+		return -EFAULT;
+	}
+
 	if (mask != 0xffffffff) {
 		err = cmdq_instr_encoder(handle, cmd_buf,
 			CMDQ_GET_ARG_C(~mask), CMDQ_GET_ARG_B(~mask),
@@ -1657,6 +1673,11 @@ s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle,
 	CMDQ_CHECK_ERR(err);
 	arg_a = CMDQ_GET_ADDR_LOW(addr);
 	s_op = CMDQ_SPR_FOR_TEMP;
+
+	if (mask == 0x00000000) {
+		CMDQ_ERR("mask should not be 0x00000000\n");
+		return -EFAULT;
+	}
 
 	if (mask != 0xffffffff) {
 		err = cmdq_instr_encoder(handle, cmd_buf,
@@ -2344,12 +2365,30 @@ s32 cmdq_op_profile_marker(struct cmdqRecStruct *handle, const char *tag)
 	return status;
 }
 
-s32 cmdq_task_destroy(struct cmdqRecStruct *handle)
+void cmdq_ref_init(struct cmdqRecStruct *handle)
 {
+	kref_init(&handle->use_cnt);
+}
+
+void cmdq_task_use(struct cmdqRecStruct *handle)
+{
+	kref_get(&handle->use_cnt);
+}
+
+void cmdq_task_destroy(struct cmdqRecStruct *handle)
+{
+	kref_put(&handle->use_cnt, cmdq_task_destroy_handle);
+}
+
+void cmdq_task_destroy_handle(struct kref *kref)
+{
+	struct cmdqRecStruct *handle;
+
+	handle = container_of(kref, struct cmdqRecStruct, use_cnt);
 	if (!handle) {
 		CMDQ_ERR("try to release null handle\n");
 		dump_stack();
-		return -EINVAL;
+		return;
 	}
 
 	CMDQ_SYSTRACE_BEGIN("%s\n", __func__);
@@ -2377,8 +2416,6 @@ s32 cmdq_task_destroy(struct cmdqRecStruct *handle)
 	kfree(handle);
 
 	CMDQ_SYSTRACE_END();
-
-	return 0;
 }
 
 s32 cmdq_op_set_nop(struct cmdqRecStruct *handle, u32 index)
@@ -3357,6 +3394,10 @@ s32 cmdq_op_read_reg(struct cmdqRecStruct *handle, u32 addr,
 			addr, arg_a_type, 0);
 		CMDQ_CHECK_AND_BREAK_STATUS(status);
 
+		if (mask == 0x00000000) {
+			CMDQ_ERR("mask should not be 0x00000000\n");
+			return -EFAULT;
+		}
 		if (mask != 0xFFFFFFFF) {
 			if ((mask >> 16) > 0) {
 				status = cmdq_op_assign(handle, &mask_var,

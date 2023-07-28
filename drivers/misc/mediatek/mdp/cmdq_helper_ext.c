@@ -3597,6 +3597,20 @@ void cmdq_core_replace_v3_instr(struct cmdqRecStruct *handle, s32 thread)
 	}
 }
 
+void cmdq_remove_handle_from_handle_active(struct cmdqRecStruct *handle)
+{
+	struct cmdqRecStruct *handle_active_node;
+
+	mutex_lock(&cmdq_handle_list_mutex);
+	list_for_each_entry(handle_active_node, &cmdq_ctx.handle_active, list_entry) {
+		if (handle_active_node == handle) {
+			list_del_init(&handle_active_node->list_entry);
+			break;
+		}
+	}
+	mutex_unlock(&cmdq_handle_list_mutex);
+}
+
 void cmdq_core_release_handle_by_file_node(void *file_node)
 {
 	struct cmdqRecStruct *handle;
@@ -3627,6 +3641,11 @@ void cmdq_core_release_handle_by_file_node(void *file_node)
 		else
 #endif
 			cmdq_mbox_thread_remove_task(client->chan, handle->pkt);
+
+		if (handle->pkt_rb) {
+			client = cmdq_clients[(u32)handle->thread_rb];
+			cmdq_mbox_thread_remove_task(client->chan, handle->pkt_rb);
+		}
 
 		cmdq_pkt_auto_release_task(handle, true);
 	}
@@ -3980,6 +3999,7 @@ static s32 cmdq_pkt_lock_handle(struct cmdqRecStruct *handle,
 
 	mutex_lock(&cmdq_handle_list_mutex);
 	list_add_tail(&handle->list_entry, &cmdq_ctx.handle_active);
+	cmdq_task_use(handle);
 	mutex_unlock(&cmdq_handle_list_mutex);
 
 	return 0;
@@ -4049,6 +4069,11 @@ void cmdq_pkt_release_handle(struct cmdqRecStruct *handle)
 	struct cmdqRecStruct **pmqos_handle_list = NULL;
 	u32 handle_count;
 
+	if (!handle || !handle->pkt) {
+		CMDQ_ERR("handle->pkt is not exist\n");
+		return;
+	}
+
 	CMDQ_MSG("release handle:0x%p pkt:0x%p thread:%d engine:0x%llx\n",
 		handle, handle->pkt, handle->thread,
 		handle->res_flag_release);
@@ -4059,6 +4084,7 @@ void cmdq_pkt_release_handle(struct cmdqRecStruct *handle)
 			handle, ref, handle->thread);
 		mutex_lock(&cmdq_handle_list_mutex);
 		list_del_init(&handle->list_entry);
+		cmdq_task_destroy(handle);
 		mutex_unlock(&cmdq_handle_list_mutex);
 		dump_stack();
 		return;
@@ -4112,6 +4138,7 @@ void cmdq_pkt_release_handle(struct cmdqRecStruct *handle)
 
 	mutex_lock(&cmdq_handle_list_mutex);
 	list_del_init(&handle->list_entry);
+	cmdq_task_destroy(handle);
 	mutex_unlock(&cmdq_handle_list_mutex);
 }
 
@@ -4394,6 +4421,12 @@ static void cmdq_pkt_auto_release_destroy_work(struct work_struct *work)
 s32 cmdq_pkt_auto_release_task(struct cmdqRecStruct *handle,
 	bool destroy)
 {
+	if (handle->auto_released) {
+		CMDQ_ERR("Handle: %p pkt:%p already auto released\n",
+			handle, handle->pkt);
+		return 0;
+	}
+
 	if (handle->thread == CMDQ_INVALID_THREAD) {
 		CMDQ_ERR(
 			"handle:0x%p pkt:0x%p invalid thread:%d scenario:%d\n",
@@ -4404,22 +4437,25 @@ s32 cmdq_pkt_auto_release_task(struct cmdqRecStruct *handle,
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->autoRelease_add,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle), handle->thread);
 
-	if (destroy) {
-		/* the work item is embedded in pTask already
-		 * but we need to initialized it
-		 */
-		INIT_WORK(&handle->auto_release_work,
-			cmdq_pkt_auto_release_destroy_work);
-	} else {
-		/* use for mdp release by file node case,
-		 * helps destroy task since user space not wait.
-		 */
-		INIT_WORK(&handle->auto_release_work,
-			cmdq_pkt_auto_release_work);
-	}
+	if (!work_pending(&handle->auto_release_work)) {
+		if (destroy) {
+			/* the work item is embedded in pTask already
+			 * but we need to initialized it
+			 */
+			INIT_WORK(&handle->auto_release_work,
+				cmdq_pkt_auto_release_destroy_work);
+		} else {
+			/* use for mdp release by file node case,
+			 * helps destroy task since user space not wait.
+			 */
+			INIT_WORK(&handle->auto_release_work,
+				cmdq_pkt_auto_release_work);
+		}
 
-	queue_work(cmdq_ctx.taskThreadAutoReleaseWQ[handle->thread],
-		&handle->auto_release_work);
+		queue_work(cmdq_ctx.taskThreadAutoReleaseWQ[handle->thread],
+			&handle->auto_release_work);
+		handle->auto_released = true;
+	}
 	return 0;
 }
 
