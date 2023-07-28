@@ -2307,9 +2307,9 @@
 			"ufs-unipro-clk",
 			"ufs-mp-clk",
 			"ufs-crypto-clk",
-			"ufs-vendor-crypto-clk-mux",
-			"ufs-vendor-crypto-normal-parent-clk",
-			"ufs-vendor-crypto-perf-parent-clk";
+			"crypt_mux",
+			"crypt_lp",
+			"crypt_perf";
 		freq-table-hz =
 			<0 0>,
 			<0 0>,
