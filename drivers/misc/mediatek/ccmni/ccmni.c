@@ -1454,7 +1454,7 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 			goto alloc_netdev_fail;
 		}
 	}
-	snprintf(ctlb->wakelock_name, sizeof(ctlb->wakelock_name),
+	scnprintf(ctlb->wakelock_name, sizeof(ctlb->wakelock_name),
 			"ccmni_md%d", (md_id + 1));
 	ctlb->ccmni_wakelock = wakeup_source_register(NULL,
 		ctlb->wakelock_name);
