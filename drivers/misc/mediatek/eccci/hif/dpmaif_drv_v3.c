@@ -449,7 +449,9 @@ void drv3_dpmaif_dl_set_bat_base_addr(unsigned char q_num,
 
 	value &= ~(DPMAIF_BAT_ADDRH_MSK);
 	/* ((base_addr >> 32) << 24) = (base_addr >> 8) */
+#if IS_ENABLED (CONFIG_ARCH_DMA_ADDR_T_64BIT)
 	value |= ((base_addr >> 8) & DPMAIF_BAT_ADDRH_MSK);
+#endif
 	/* 2.3 bit 31~24: bat base addr high 8bits, curr: hb_addr */
 	DPMA_WRITE_PD_DL(DPMAIF_PD_DL_BAT_INIT_CON1, value);
 }
@@ -495,7 +497,9 @@ void drv3_dpmaif_dl_set_pit_base_addr(unsigned char q_num,
 
 	value &= ~(DPMAIF_PIT_ADDRH_MSK);
 	/* ((base_addr >> 32) << 24) = (base_addr >> 8) */
+#if IS_ENABLED (CONFIG_ARCH_DMA_ADDR_T_64BIT)
 	value |= ((base_addr >> 8) & DPMAIF_PIT_ADDRH_MSK);
+#endif
 	/* 2.4 bit 31~24: pit base addr high 8bits, curr: hb_addr */
 	DPMA_WRITE_PD_DL(DPMAIF_PD_DL_PIT_INIT_CON1, value);
 }
