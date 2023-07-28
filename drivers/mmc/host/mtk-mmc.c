@@ -3933,11 +3933,19 @@ static int __maybe_unused msdc_suspend(struct device *dev)
 			return ret;
 	}
 
+	dev_dbg(host->dev,"%s, GPIO set cd wake enable",__func__);
+	mmc_gpio_set_cd_wake(mmc, true);
+
 	return pm_runtime_force_suspend(dev);
 }
 
 static int __maybe_unused msdc_resume(struct device *dev)
 {
+	struct mmc_host *mmc = dev_get_drvdata(dev);
+	struct msdc_host *host = mmc_priv(mmc);
+
+	dev_dbg(host->dev,"%s, GPIO set cd wake disable",__func__);
+	mmc_gpio_set_cd_wake(mmc, false);
 	return pm_runtime_force_resume(dev);
 }
 
