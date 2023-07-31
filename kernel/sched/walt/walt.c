@@ -67,7 +67,6 @@ static struct irq_work walt_cpufreq_irq_work;
 struct irq_work walt_migration_irq_work;
 unsigned int walt_rotation_enabled;
 cpumask_t asym_cap_sibling_cpus = CPU_MASK_NONE;
-cpumask_t shared_rail_sibling_cpus = CPU_MASK_NONE;
 
 unsigned int __read_mostly sched_ravg_window = 20000000;
 int min_possible_cluster_id;
@@ -83,8 +82,6 @@ unsigned int __read_mostly sched_init_task_load_windows;
  * sched_load_granule.
  */
 unsigned int __read_mostly sched_load_granule;
-
-int enable_shared_rail_boost;
 
 u64 walt_sched_clock(void)
 {
@@ -681,42 +678,14 @@ __cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *rea
 	return (util >= capacity) ? capacity : util;
 }
 
-#define ADJUSTED_SHARED_RAIL_UTIL(orig, prime, x)       \
-	(max(orig, mult_frac(prime, x, 100)))
-#define PRIME_FACTOR 90
-
 unsigned long
 cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *reason)
 {
 	struct walt_cpu_load wl_other = {0};
-	struct walt_cpu_load wl_prime = {0};
 	unsigned long util = 0, util_other = 0;
 	unsigned long capacity = capacity_orig_of(cpu);
-	int i, mpct = PRIME_FACTOR;
-	unsigned long max_nl_other = 0, max_pl_other = 0;
-	bool shared_rail = false;
-
-	if (cpumask_test_cpu(cpu, &shared_rail_sibling_cpus) &&
-			enable_shared_rail_boost) {
-		for_each_cpu(i, &shared_rail_sibling_cpus) {
-			if (i == (num_possible_cpus() - 1))
-				util = __cpu_util_freq_walt(i, &wl_prime, reason);
-			else {
-				util_other = max(util_other,
-						__cpu_util_freq_walt(i, &wl_other, reason));
-				max_nl_other = max(max_nl_other, wl_other.nl);
-				max_pl_other = max(max_pl_other, wl_other.pl);
-			}
-		}
-
-		if (cpu == (num_possible_cpus() - 1))
-			mpct = 100;
-
-		util = ADJUSTED_SHARED_RAIL_UTIL(util_other, util, mpct);
-		walt_load->nl = ADJUSTED_SHARED_RAIL_UTIL(max_nl_other, wl_prime.nl, mpct);
-		walt_load->pl = ADJUSTED_SHARED_RAIL_UTIL(max_pl_other, wl_prime.pl, mpct);
-		shared_rail = true;
-	}
+	int i;
+	unsigned long max_nl = 0, max_pl = 0;
 
 	if (!cpumask_test_cpu(cpu, &asym_cap_sibling_cpus))
 		goto finish;
@@ -726,22 +695,19 @@ cpu_util_freq_walt(int cpu, struct walt_cpu_load *walt_load, unsigned int *reaso
 
 	for_each_cpu(i, &asym_cap_sibling_cpus) {
 		if (i == cpu)
-			util = max(util, __cpu_util_freq_walt(cpu, walt_load, reason));
+			util = __cpu_util_freq_walt(cpu, walt_load, reason);
 		else {
 			util_other = max(util_other, __cpu_util_freq_walt(i, &wl_other, reason));
-			max_nl_other = max(max_nl_other, wl_other.nl);
-			max_pl_other = max(max_pl_other, wl_other.pl);
+			max_nl = max(max_nl, wl_other.nl);
+			max_pl = max(max_pl, wl_other.pl);
 		}
 	}
 
 	util = max(util, util_other);
-	walt_load->nl = max(walt_load->nl, max_nl_other);
-	walt_load->pl = max(walt_load->pl, max_pl_other);
+	walt_load->nl = max(walt_load->nl, max_nl);
+	walt_load->pl = max(walt_load->pl, max_pl);
 	return (util >= capacity) ? capacity : util;
 finish:
-	if (shared_rail)
-		return (util >= capacity) ? capacity : util;
-
 	return __cpu_util_freq_walt(cpu, walt_load, reason);
 }
 
@@ -2825,15 +2791,10 @@ static void walt_update_cluster_topology(void)
 	if (num_sched_clusters == 4) {
 		cluster = NULL;
 		cpumask_clear(&asym_cap_sibling_cpus);
-		cpumask_clear(&shared_rail_sibling_cpus);
 		for_each_sched_cluster(cluster) {
 			if (cluster->id != 0 && cluster->id != num_sched_clusters - 1) {
 				cpumask_or(&asym_cap_sibling_cpus,
 					&asym_cap_sibling_cpus, &cluster->cpus);
-			}
-			if (cluster->id == 1 || cluster->id == num_sched_clusters - 1) {
-				cpumask_or(&shared_rail_sibling_cpus,
-					&shared_rail_sibling_cpus, &cluster->cpus);
 			}
 		}
 	}
@@ -3715,7 +3676,7 @@ out:
 cpumask_t cpus_for_pipeline = { CPU_BITS_NONE };
 
 /* always set boost for max cluster, for pipeline tasks */
-static inline void pipeline_set_boost(bool boost, int flag)
+static inline void pipeline_set_boost(bool boost)
 {
 	static bool isolation_boost;
 	struct walt_sched_cluster *cluster;
@@ -3728,7 +3689,6 @@ static inline void pipeline_set_boost(bool boost, int flag)
 			    is_max_possible_cluster_cpu(cpumask_first(&cluster->cpus)))
 				core_ctl_set_cluster_boost(cluster->id, false);
 		}
-		enable_shared_rail_boost &= ~flag;
 	} else if (!isolation_boost && boost) {
 		isolation_boost = true;
 
@@ -3737,7 +3697,6 @@ static inline void pipeline_set_boost(bool boost, int flag)
 			    is_max_possible_cluster_cpu(cpumask_first(&cluster->cpus)))
 				core_ctl_set_cluster_boost(cluster->id, true);
 		}
-		enable_shared_rail_boost |= flag;
 	}
 }
 
@@ -3774,7 +3733,7 @@ void find_heaviest_topapp(u64 window_start)
 			raw_spin_unlock_irqrestore(&heavy_lock, flags);
 			have_heavy_list = 0;
 
-			pipeline_set_boost(false, AUTO_PIPELINE);
+			pipeline_set_boost(false);
 		}
 		return;
 	}
@@ -3830,7 +3789,7 @@ void find_heaviest_topapp(u64 window_start)
 		}
 	}
 
-	pipeline_set_boost(true, AUTO_PIPELINE);
+	pipeline_set_boost(true);
 
 	/* start with non-prime cpus chosen for this chipset (e.g. golds) */
 	cpumask_and(&last_available_big_cpus, cpu_online_mask, &cpus_for_pipeline);
@@ -4060,7 +4019,7 @@ release_lock:
 
 out:
 	if (found_pipeline ^ last_found_pipeline) {
-		pipeline_set_boost(found_pipeline, MANUAL_PIPELINE);
+		pipeline_set_boost(found_pipeline);
 		last_found_pipeline = found_pipeline;
 	}
 }
@@ -4081,7 +4040,7 @@ out:
  * involved in the migration.
  */
 static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migration,
-				bool is_shared_rail_migration, struct cpumask *lock_cpus)
+				struct cpumask *lock_cpus)
 {
 	struct walt_sched_cluster *cluster;
 	struct rq *rq;
@@ -4153,8 +4112,6 @@ static inline void __walt_irq_work_locked(bool is_migration, bool is_asym_migrat
 				}
 				if (is_asym_migration)
 					wflag |= WALT_CPUFREQ_ASYM_FIXUP;
-				if (is_shared_rail_migration)
-					wflag |= WALT_CPUFREQ_SHARED_RAIL;
 			} else {
 				wflag |= WALT_CPUFREQ_ROLLOVER;
 			}
@@ -4290,7 +4247,7 @@ static void walt_irq_work(struct irq_work *irq_work)
 	struct walt_rq *wrq;
 	int level = 0;
 	int cpu;
-	bool is_migration = false, is_asym_migration = false, is_shared_rail_migration = false;
+	bool is_migration = false, is_asym_migration = false;
 	u32 wakeup_ctr_sum = 0;
 
 	if (irq_work == &walt_migration_irq_work)
@@ -4309,11 +4266,6 @@ static void walt_irq_work(struct irq_work *irq_work)
 		if (cpumask_empty(&lock_cpus))
 			return;
 
-		if (cpumask_intersects(&lock_cpus, &shared_rail_sibling_cpus) &&
-				enable_shared_rail_boost) {
-			cpumask_or(&lock_cpus, &lock_cpus, &shared_rail_sibling_cpus);
-			is_shared_rail_migration = true;
-		}
 		if (!cluster_partial_halted() &&
 				cpumask_intersects(&lock_cpus, &asym_cap_sibling_cpus)) {
 			cpumask_or(&lock_cpus, &lock_cpus, &asym_cap_sibling_cpus);
@@ -4329,8 +4281,7 @@ static void walt_irq_work(struct irq_work *irq_work)
 		level++;
 	}
 
-	__walt_irq_work_locked(is_migration, is_asym_migration,
-			is_shared_rail_migration, &lock_cpus);
+	__walt_irq_work_locked(is_migration, is_asym_migration, &lock_cpus);
 
 	if (!is_migration) {
 		for_each_cpu(cpu, cpu_online_mask) {
