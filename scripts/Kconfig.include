@@ -43,7 +43,8 @@ $(error-if,$(failure,command -v $(LD)),linker '$(LD)' not found)
 $(error-if,$(success, $(LD) -v | grep -q gold), gold linker '$(LD)' not supported)
 
 # Get the assembler name, version, and error out if it is not supported.
-as-info := $(shell,$(srctree)/scripts/as-version.sh $(CC) $(CLANG_FLAGS))
+# cc-wrapper may not yet be compiled, use NO_WRAPPER_CC.
+as-info := $(shell,$(srctree)/scripts/as-version.sh $(NO_WRAPPER_CC) $(CLANG_FLAGS))
 $(error-if,$(success,test -z "$(as-info)"),Sorry$(comma) this assembler is not supported.)
 as-name := $(shell,set -- $(as-info) && echo $1)
 as-version := $(shell,set -- $(as-info) && echo $2)
