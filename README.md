@@ -129,6 +129,7 @@
 | sea-t-oss | Redmi Note 12S | Android T | bsp-t-alps-release-s0.mp1.tc8sp2-cs1-xm-V1.0.13 | [sea-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sea-t-oss) |
 | sirius-o-oss | Mi 8 SE | Android O | LA.UM.6.8.r2-00700-SDM710.0 | [sirius-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sirius-o-oss) |
 | sirius-q-oss | MI 8SE, MI 9SE, MI CC 9, MI CC 9 Meitu Edition | Android Q | LA.UM.8.8.r1-05100-SDM710.0 | [sirius-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sirius-q-oss) |
+| sky-t-oss | Redmi Note 12R | Android T | LA.VENDOR.1.0.r1-21200-WAIPIO.QSSI13.0-1 | [sky-t-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sky-t-oss) |
 | star-r-oss | Mi 11 Lite 5G, Mi 11 Pro, Mi 11 Ultra, MIX FOLD | Android R | LA.UM.9.14.r1-11500-LAHAINA.0 | [star-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/star-r-oss) |  
 | surya-q-oss | Redmi POCO X3 | Android Q | LA.UM.8.9.r1-09300-SM6xx.0 | [surya-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/surya-q-oss) |
 | sweet-r-oss | Redmi Note 10 Pro | Android R | LA.UM.9.1.r1-06700-SMxxx0.0-1 | [sweet-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sweet-r-oss) |
