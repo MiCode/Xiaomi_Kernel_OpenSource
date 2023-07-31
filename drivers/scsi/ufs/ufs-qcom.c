@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2013-2021, Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/acpi.h>
@@ -24,15 +24,18 @@
 #include <trace/hooks/ufshcd.h>
 #include <linux/ipc_logging.h>
 #include <linux/nvmem-consumer.h>
+#include <linux/irq.h>
 
-#include "ufshcd.h"
-#include "ufshcd-pltfrm.h"
-#include "unipro.h"
+#include "../mi_ufs/mi-ufshcd.h"
+#include "../mi_ufs/mi-ufshcd-pltfrm.h"
+#include "../mi_ufs/mi-unipro.h"
 #include "ufs-qcom.h"
-#include "ufshci.h"
-#include "ufs_quirks.h"
+#include "../mi_ufs/mi-ufshci.h"
+#include "../mi_ufs/mi_ufs_quirks.h"
 #include "ufshcd-crypto-qti.h"
 #include <trace/hooks/ufshcd.h>
+#include <linux/nls.h>
+#include <asm/unaligned.h>
 
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
@@ -48,6 +51,9 @@
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
 
 #define	ANDROID_BOOT_DEV_MAX	30
+
+#define	UFS_QCOM_IRQ_PRIME_MASK	0x80
+#define	UFS_QCOM_IRQ_SLVR_MASK	0x0f
 
 /* Max number of log pages */
 #define UFS_QCOM_MAX_LOG_SZ	10
@@ -105,6 +111,34 @@ struct ufs_qcom_dev_params {
 	u32 desired_working_mode;
 };
 
+//  ++ WT Add
+struct WT_UFS
+{
+	u16 vendor_id;
+	u64 density;
+	char vendor_name[10];
+	char product_name[18];
+};
+
+struct WT_UFS *wt_ufs = NULL;
+struct ufs_hba* wt_hba = NULL;
+
+/* Query request retries */
+#define QUERY_REQ_RETRIES 3
+/**
+ * struct uc_string_id - unicode string
+ *
+ * @len: size of this descriptor inclusive
+ * @type: descriptor type
+ * @uc: unicode string character
+ */
+struct uc_string_id {
+	u8 len;
+	u8 type;
+	wchar_t uc[];
+} __packed;
+// -- WT Add
+
 static struct ufs_qcom_host *ufs_qcom_hosts[MAX_UFS_QCOM_HOSTS];
 
 static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
@@ -122,6 +156,18 @@ static void ufs_qcom_parse_g4_workaround_flag(struct ufs_qcom_host *host);
 static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val);
 static void ufs_qcom_hook_clock_scaling(void *used, struct ufs_hba *hba, bool *force_out,
 		bool *force_saling, bool *scale_up);
+
+// ++ WT Add
+u8 get_ddr_size(void);
+
+static int ufs_wt_read_string_desc(struct ufs_hba *hba, u8 desc_index, u8 **buf, bool ascii);
+int ufs_wt_get_string_desc(struct ufs_hba *hba, void* buf, int size, enum device_desc_param pname, bool ascii_std);
+int ufs_wt_read_desc_param(struct ufs_hba *hba, enum desc_idn desc_id, u8 desc_index, u8 param_offset, void* buf, u8 param_size);
+static inline char ufshcd_remove_non_printable(u8 ch)
+{
+	return (ch >= 0x20 && ch <= 0x7e) ? ch : ' ';
+}
+// -- WT Add
 
 static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
 				      struct ufs_pa_layer_attr *dev_max,
@@ -1314,6 +1360,39 @@ static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host,
 	return ret;
 }
 
+static void ufs_qcom_set_affinity_hint(struct ufs_hba *hba, bool prime)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned int set = 0;
+	unsigned int clear = 0;
+	int ret;
+	cpumask_t *affinity_mask;
+
+	if (prime) {
+		set = IRQ_NO_BALANCING;
+		affinity_mask = &host->perf_mask;
+	} else {
+		clear = IRQ_NO_BALANCING;
+		affinity_mask = &host->def_mask;
+	}
+
+	irq_modify_status(hba->irq, clear, set);
+	ret = irq_set_affinity_hint(hba->irq, affinity_mask);
+	if (ret < 0)
+		dev_err(host->hba->dev, "prime=%d, err=%d\n", prime, ret);
+}
+
+static void ufs_qcom_toggle_pri_affinity(struct ufs_hba *hba, bool on)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	if (on && atomic_read(&host->therm_mitigation))
+		return;
+
+	atomic_set(&host->hi_pri_en, on);
+	ufs_qcom_set_affinity_hint(hba, on);
+}
+
 static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
 {
 	struct ufs_qcom_host *host = container_of(to_delayed_work(work),
@@ -1325,10 +1404,15 @@ static void ufs_qcom_cpufreq_dwork(struct work_struct *work)
 
 	atomic_set(&host->num_reqs_threshold, 0);
 
-	if (cur_thres > NUM_REQS_HIGH_THRESH && !host->cur_freq_vote)
+	if (cur_thres > NUM_REQS_HIGH_THRESH && !host->cur_freq_vote) {
 		freq_val = host->max_cpu_scale_freq;
-	else if (cur_thres < NUM_REQS_LOW_THRESH && host->cur_freq_vote)
+		if (host->irq_affinity_support)
+			ufs_qcom_toggle_pri_affinity(host->hba, true);
+	} else if (cur_thres < NUM_REQS_LOW_THRESH && host->cur_freq_vote) {
 		freq_val = host->min_cpu_scale_freq;
+		if (host->irq_affinity_support)
+			ufs_qcom_toggle_pri_affinity(host->hba, false);
+	}
 
 	if (freq_val == -1)
 		goto out;
@@ -2059,6 +2143,19 @@ static void ufs_qcom_override_pa_h8time(struct ufs_hba *hba)
 
 }
 
+static void ufs_qcom_override_pa_tx_hsg1_sync_len(struct ufs_hba *hba)
+{
+#define PA_TX_HSG1_SYNC_LENGTH 0x1552
+	int err;
+	int sync_len_val = 0x4A;
+
+	err = ufshcd_dme_peer_set(hba, UIC_ARG_MIB(PA_TX_HSG1_SYNC_LENGTH),
+				sync_len_val);
+	if (err)
+		dev_err(hba->dev, "Failed (%d) set PA_TX_HSG1_SYNC_LENGTH(%d)\n",
+				err, sync_len_val);
+}
+
 static inline bool
 ufshcd_is_valid_pm_lvl(enum ufs_pm_level lvl)
 {
@@ -2203,6 +2300,9 @@ static int ufs_qcom_apply_dev_quirks(struct ufs_hba *hba)
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_HIBER8TIME)
 		ufs_qcom_override_pa_h8time(hba);
+
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_TX_HSG1_SYNC_LENGTH)
+		ufs_qcom_override_pa_tx_hsg1_sync_len(hba);
 
 	ufshcd_parse_pm_levels(hba);
 
@@ -3036,6 +3136,32 @@ out_err:
 	host->ufs_qos = NULL;
 }
 
+static void ufs_qcom_parse_irq_affinity(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct device_node *np = dev->of_node;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int mask = 0;
+
+	if (np) {
+		of_property_read_u32(np, "qcom,prime-mask", &mask);
+		host->perf_mask.bits[0] = mask;
+		if (!cpumask_subset(&host->perf_mask, cpu_possible_mask)) {
+			dev_err(dev, "Invalid group prime mask\n");
+			host->perf_mask.bits[0] = UFS_QCOM_IRQ_PRIME_MASK;
+		}
+		mask = 0;
+		of_property_read_u32(np, "qcom,silver-mask", &mask);
+		host->def_mask.bits[0] = mask;
+		if (!cpumask_subset(&host->def_mask, cpu_possible_mask)) {
+			dev_err(dev, "Invalid group silver mask\n");
+			host->def_mask.bits[0] = UFS_QCOM_IRQ_SLVR_MASK;
+		}
+	}
+	/* If device includes perf mask, enable dynamic irq affinity feature */
+	if (host->perf_mask.bits[0])
+		host->irq_affinity_support = true;
+}
 
 static void ufs_qcom_parse_pm_level(struct ufs_hba *hba)
 {
@@ -3099,6 +3225,9 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 	switch (data) {
 	case UFS_QCOM_LVL_NO_THERM:
 		dev_warn(tcd->devdata, "UFS host thermal mitigation stops\n");
+
+		if (host->irq_affinity_support)
+			atomic_set(&host->therm_mitigation, 0);
 		/* Set the default auto-hiberate idle timer to 5 ms */
 		ufshcd_auto_hibern8_update(hba, ufs_qcom_us_to_ahit(5000));
 
@@ -3110,6 +3239,12 @@ static int ufs_qcom_set_cur_therm_state(struct thermal_cooling_device *tcd,
 	case UFS_QCOM_LVL_AGGR_THERM:
 	case UFS_QCOM_LVL_MAX_THERM:
 		dev_warn(tcd->devdata, "Going into UFS host thermal mitigation state, performance may be impacted before UFS host thermal mitigation stops\n");
+
+		if (host->irq_affinity_support) {
+			/* Stop setting hi-pri to requests and set irq affinity to default value */
+			atomic_set(&host->therm_mitigation, 1);
+			ufs_qcom_toggle_pri_affinity(hba, false);
+		}
 		/* Set the default auto-hiberate idle timer to 1 ms */
 		ufshcd_auto_hibern8_update(hba, ufs_qcom_us_to_ahit(1000));
 
@@ -3346,6 +3481,8 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		err = 0;
 	}
 
+	wt_hba = hba;
+
 	ufs_qcom_init_sysfs(hba);
 
 	/* Provide SCSI host ioctl API */
@@ -3371,6 +3508,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_save_host_ptr(hba);
 
 	ufs_qcom_qos_init(hba);
+	ufs_qcom_parse_irq_affinity(hba);
 	host->ufs_ipc_log_ctx = ipc_log_context_create(UFS_QCOM_MAX_LOG_SZ,
 							"ufs-qcom", 0);
 	if (!host->ufs_ipc_log_ctx)
@@ -3821,7 +3959,8 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 			return err;
 		if (scale_up) {
 			err = ufs_qcom_clk_scale_up_pre_change(hba);
-			if (!host->cpufreq_dis && !atomic_read(&host->scale_up)) {
+			if (!host->cpufreq_dis && !atomic_read(&host->scale_up) &&
+					!(atomic_read(&host->therm_mitigation))) {
 				atomic_set(&host->num_reqs_threshold, 0);
 				/* ensure that work is queued */
 				mutex_lock(&host->cpufreq_lock);
@@ -4397,7 +4536,8 @@ static void ufs_qcom_config_scaling_param(struct ufs_hba *hba,
 
 static struct ufs_dev_fix ufs_qcom_dev_fixups[] = {
 	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
-		UFS_DEVICE_QUIRK_PA_HIBER8TIME),
+		UFS_DEVICE_QUIRK_PA_HIBER8TIME |
+		UFS_DEVICE_QUIRK_PA_TX_HSG1_SYNC_LENGTH),
 	UFS_FIX(UFS_VENDOR_MICRON, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
@@ -4578,10 +4718,6 @@ static ssize_t dbg_state_show(struct device *dev,
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
-#if defined(CONFIG_UFS_DBG)
-	host->dbg_en = true;
-#endif
-
 	return scnprintf(buf, PAGE_SIZE, "%d\n", host->dbg_en);
 }
 
@@ -4723,6 +4859,278 @@ static ssize_t hibern8_count_show(struct device *dev,
 
 static DEVICE_ATTR_RO(hibern8_count);
 
+//  ++WT Add
+/*obtain ddr size*/
+u8 get_ddr_size(void)
+{
+	u8 ddr_size_in_GB = 0;
+	int ddr_size_in_KB = 0;
+	struct sysinfo i;
+
+	si_meminfo(&i);
+
+	ddr_size_in_KB = (i.totalram) * 4; // page: 4k
+
+	//ddr_size_in_GB = memblock_mem_size_in_gb();
+	pr_err("i.totalram: %d, memblock_mem_size %d KB\n", i.totalram, ddr_size_in_KB);
+
+	if (ddr_size_in_KB > (16 * 1024 * 1024) && ddr_size_in_KB <= (18 * 1024 * 1024)) {
+		ddr_size_in_GB = 18;
+	} else if (ddr_size_in_KB > (12 * 1024 * 1024) && ddr_size_in_KB <= (16 * 1024 * 1024)) {
+		ddr_size_in_GB = 16;
+	} else if (ddr_size_in_KB > (10 * 1024 * 1024) && ddr_size_in_KB <= (12 * 1024 * 1024)) {
+		ddr_size_in_GB = 12;
+	} else if (ddr_size_in_KB > (8 * 1024 * 1024) && ddr_size_in_KB <= (10 * 1024 * 1024)) {
+		ddr_size_in_GB = 10;
+	} else if (ddr_size_in_KB > (6 * 1024 * 1024) && ddr_size_in_KB <= (8 * 1024 * 1024)) {
+		ddr_size_in_GB = 8;
+	} else if (ddr_size_in_KB > (4 * 1024 * 1024) && ddr_size_in_KB <= (6 * 1024 * 1024)) {
+		ddr_size_in_GB = 6;
+	} else if (ddr_size_in_KB > (3 * 1024 * 1024) && ddr_size_in_KB <= (4 * 1024 * 1024)) {
+		ddr_size_in_GB = 4;
+	} else if (ddr_size_in_KB > (2 * 1024 * 1024) && ddr_size_in_KB <= (3 * 1024 * 1024)) {
+		ddr_size_in_GB = 3;
+	} else if (ddr_size_in_KB > (1 * 1024 * 1024) && ddr_size_in_KB <= (2 * 1024 * 1024)) {
+		ddr_size_in_GB = 2;
+	} else {
+		ddr_size_in_GB = 0;
+	}
+
+	printk("get_ddr_size: ddr_size_in_GB = %d GB\n", ddr_size_in_GB);
+	return (u8)ddr_size_in_GB;
+}
+
+static int ufs_wt_read_string_desc(struct ufs_hba *hba, u8 desc_index, u8 **buf, bool ascii)
+{
+	struct uc_string_id *uc_str;
+	u8 *str;
+	int ret;
+	if (!buf)
+		return -EINVAL;
+	uc_str = kzalloc(QUERY_DESC_MAX_SIZE, GFP_KERNEL);
+	if (!uc_str)
+		return -ENOMEM;
+	ret = ufshcd_read_desc_param(hba, QUERY_DESC_IDN_STRING, desc_index, 0,
+				     (u8 *)uc_str, QUERY_DESC_MAX_SIZE);
+	if (ret < 0) {
+		dev_err(hba->dev, "Reading String Desc failed after %d retries. err = %d\n",
+			QUERY_REQ_RETRIES, ret);
+		str = NULL;
+		goto out;
+	}
+	if (uc_str->len <= QUERY_DESC_HDR_SIZE) {
+		dev_dbg(hba->dev, "String Desc is of zero length\n");
+		str = NULL;
+		ret = 0;
+		goto out;
+	}
+	if (ascii) {
+		ssize_t ascii_len;
+		int i;
+		/* remove header and divide by 2 to move from UTF16 to UTF8 */
+		ascii_len = (uc_str->len - QUERY_DESC_HDR_SIZE) / 2 + 1;
+		str = kzalloc(ascii_len, GFP_KERNEL);
+		if (!str) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		/*
+		 * the descriptor contains string in UTF16 format
+		 * we need to convert to utf-8 so it can be displayed
+		 */
+		ret = utf16s_to_utf8s(uc_str->uc,
+				      uc_str->len - QUERY_DESC_HDR_SIZE,
+				      UTF16_BIG_ENDIAN, str, ascii_len);
+		/* replace non-printable or non-ASCII characters with spaces */
+		for (i = 0; i < ret; i++)
+			str[i] = ufshcd_remove_non_printable(str[i]);
+		str[ret++] = '\0';
+	} else {
+		str = kmemdup(uc_str, uc_str->len, GFP_KERNEL);
+		if (!str) {
+			ret = -ENOMEM;
+			goto out;
+		}
+		ret = uc_str->len;
+	}
+out:
+	*buf = str;
+	kfree(uc_str);
+	return ret;
+}
+
+int ufs_wt_get_string_desc(struct ufs_hba *hba, void* buf, int size, enum device_desc_param pname, bool ascii_std)
+{
+	u8 index;
+	int ret = 0;
+	int desc_len = QUERY_DESC_MAX_SIZE;
+	u8 *desc_buf;
+	desc_buf = kzalloc(QUERY_DESC_MAX_SIZE, GFP_ATOMIC);
+	if (!desc_buf)
+		return -ENOMEM;
+	pm_runtime_get_sync(hba->dev);
+	ret = ufshcd_query_descriptor_retry(hba,
+		UPIU_QUERY_OPCODE_READ_DESC, QUERY_DESC_IDN_DEVICE,
+		0, 0, desc_buf, &desc_len);
+	if (ret) {
+		ret = -EINVAL;
+		goto out;
+	}
+	index = desc_buf[pname];
+	kfree(desc_buf);
+	desc_buf = NULL;
+	ret = ufs_wt_read_string_desc(hba, index, &desc_buf, ascii_std);
+	if (ret < 0)
+		goto out;
+	memcpy(buf, desc_buf, size);
+out:
+	pm_runtime_put_sync(hba->dev);
+	kfree(desc_buf);
+	return ret;
+}
+
+int ufs_wt_read_desc_param(struct ufs_hba *hba, enum desc_idn desc_id, u8 desc_index, u8 param_offset, void* buf, u8 param_size)
+{
+	u8 desc_buf[8] = {0};
+	int ret;
+	if (param_size > 8)
+		return -EINVAL;
+	pm_runtime_get_sync(hba->dev);
+	ret = ufshcd_read_desc_param(hba, desc_id, desc_index,
+				param_offset, desc_buf, param_size);
+	pm_runtime_put_sync(hba->dev);
+	if (ret) {
+		dev_err(hba->dev, "%s: [lxf] ufshcd_read_desc_param err!", __func__);
+		return -EINVAL;
+	}
+	switch (param_size) {
+	case 1:
+		*(u8*)buf = *desc_buf;
+		break;
+	case 2:
+		*(u16*)buf = get_unaligned_be16(desc_buf);
+		break;
+	case 4:
+		*(u32*)buf =  get_unaligned_be32(desc_buf);
+		break;
+	case 8:
+		*(u64*)buf= get_unaligned_be64(desc_buf);
+		break;
+	default:
+		*(u8*)buf = *desc_buf;
+		break;
+	}
+	return ret;
+}
+
+static void wt_ufs_init(void)
+{
+	u64 raw_device_capacity = 0;
+	u16 ufs_id = 0;
+	wt_ufs = kzalloc(sizeof(struct WT_UFS), GFP_KERNEL);
+	ufs_wt_get_string_desc(wt_hba, wt_ufs->product_name, (sizeof(wt_ufs->product_name) - 1), DEVICE_DESC_PARAM_PRDCT_NAME, SD_ASCII_STD);
+	ufs_wt_read_desc_param(wt_hba, QUERY_DESC_IDN_DEVICE, 0, DEVICE_DESC_PARAM_MANF_ID, &ufs_id, 2);
+	wt_ufs->vendor_id = ufs_id;
+	switch(ufs_id){
+		case 0x1AD:
+			strcpy(wt_ufs->vendor_name, "SKhynix");
+			break;
+		case 0xA6B:
+			strcpy(wt_ufs->vendor_name, "CS");
+			break;
+		case 0xCD6:
+			strcpy(wt_ufs->vendor_name, "HG");
+			break;
+		case 0x12C:
+		    strcpy(wt_ufs->vendor_name, "Micron");
+			break;
+		default:
+			strcpy(wt_ufs->vendor_name, "Unkown");
+			break;
+	}
+	ufs_wt_read_desc_param(wt_hba, QUERY_DESC_IDN_GEOMETRY, 0, GEOMETRY_DESC_PARAM_DEV_CAP, &raw_device_capacity, 8);
+	raw_device_capacity = (raw_device_capacity * 512) / 1024 / 1024 / 1024;
+	if (raw_device_capacity > 512 && raw_device_capacity <= 1024) {
+		wt_ufs->density = 1024;
+	} else if (raw_device_capacity > 256) {
+		wt_ufs->density = 512;
+	} else if (raw_device_capacity > 128) {
+		wt_ufs->density = 256;
+	} else if (raw_device_capacity > 64) {
+		wt_ufs->density = 128;
+	} else if (raw_device_capacity > 32) {
+		wt_ufs->density = 64;
+	} else if (raw_device_capacity > 16) {
+		wt_ufs->density = 32;
+	} else if (raw_device_capacity > 8) {
+		wt_ufs->density = 8;
+	} else {
+		wt_ufs->density = 0;
+		dev_err(wt_hba->dev, "%s: [lxf] unkonwn ufs size %d\n",
+				 __func__, raw_device_capacity);
+	}
+	dev_err(wt_hba->dev, "%s: [lxf] vendor_id: 0x%04x  vendor_name: %s  product_name: %s  density: %d\n",
+	 			__func__, wt_ufs->vendor_id, wt_ufs->vendor_name, wt_ufs->product_name,wt_ufs->density);
+}
+
+static ssize_t flash_name_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	if (NULL == wt_ufs) {
+		wt_ufs_init();
+	}
+	return scnprintf(buf, PAGE_SIZE, "%s_%s_%dG_%dG\n", wt_ufs->vendor_name, wt_ufs->product_name, get_ddr_size(), wt_ufs->density);
+}
+
+static DEVICE_ATTR_RO(flash_name);
+// WT end
+
+static ssize_t irq_affinity_support_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	bool value;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EACCES;
+
+	if (kstrtobool(buf, &value))
+		return -EINVAL;
+
+	/* if current irq_affinity_support is same as requested one, don't proceed */
+	if (value == host->irq_affinity_support)
+		goto out;
+
+	/* if perf-mask is not set, don't proceed */
+	if (!host->perf_mask.bits[0])
+		goto out;
+
+	host->irq_affinity_support = !!value;
+	/* Reset cpu affinity accordingly */
+	if (host->irq_affinity_support)
+		ufs_qcom_set_affinity_hint(hba, true);
+	else
+		ufs_qcom_set_affinity_hint(hba, false);
+
+	return count;
+
+out:
+	return -EINVAL;
+}
+
+static ssize_t irq_affinity_support_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", !!host->irq_affinity_support);
+}
+
+static DEVICE_ATTR_RW(irq_affinity_support);
+
 static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_err_state.attr,
 	&dev_attr_power_mode.attr,
@@ -4734,6 +5142,8 @@ static struct attribute *ufs_qcom_sysfs_attrs[] = {
 	&dev_attr_clk_mode.attr,
 	&dev_attr_turbo_support.attr,
 	&dev_attr_hibern8_count.attr,
+	&dev_attr_irq_affinity_support.attr,
+	&dev_attr_flash_name.attr,
 	NULL
 };
 
@@ -4760,14 +5170,17 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	if (lrbp && lrbp->cmd && lrbp->cmd->cmnd[0]) {
-		int sz = lrbp->cmd->request ?
-				blk_rq_sectors(lrbp->cmd->request) : 0;
+		struct request *rq = blk_mq_rq_from_pdu(lrbp->cmd);
+		int sz = rq ? blk_rq_sectors(rq) : 0;
 		ufs_qcom_log_str(host, "<,%x,%d,%x,%d\n",
 				lrbp->cmd->cmnd[0],
 				lrbp->task_tag,
 				ufshcd_readl(hba,
 					REG_UTP_TRANSFER_REQ_DOOR_BELL),
 				sz);
+
+		if ((host->irq_affinity_support) && atomic_read(&host->hi_pri_en) && rq)
+			rq->cmd_flags |= REQ_HIPRI;
 	}
 }
 

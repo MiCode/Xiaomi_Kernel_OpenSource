@@ -1,0 +1,11 @@
+#
+# OCP2131 bias IC driver configuration
+#
+
+config OCP2131_BIAS
+	tristate "OCP2131 bias IC"
+	default m
+	help
+	  Say Y here if you have OCP2131 bias IC.
+	  If unsure, say N.
+

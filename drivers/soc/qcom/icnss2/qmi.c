@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "icnss2_qmi: " fmt
@@ -31,6 +31,7 @@
 #include "qmi.h"
 #include "debug.h"
 #include "genl.h"
+#include <linux/string.h>
 
 #define WLFW_SERVICE_WCN_INS_ID_V01	3
 #define WLFW_SERVICE_INS_ID_V01		0
@@ -40,7 +41,32 @@
 #define BDF_FILE_NAME_PREFIX		"bdwlan"
 #define ELF_BDF_FILE_NAME		"bdwlan.elf"
 #define ELF_BDF_FILE_NAME_PREFIX	"bdwlan.e"
+
 #define BIN_BDF_FILE_NAME		"bdwlan.bin"
+#define BIN_K7XUMC_FILE_NAME		"bdwlanu.bin"
+#define BIN_K7XTMIC_FILE_NAME		"bdwlant.bin"
+#define BIN_K7XSMIC_FILE_NAME		"bdwlans.bin"
+
+#define BIN_BDF_CN_FILE_NAME		"bdwlan_cn.bin"
+#define BIN_BDF_EU_FILE_NAME		"bdwlan_eu.bin"
+#define BIN_BDF_IN_FILE_NAME		"bdwlan_in.bin"
+#define BIN_BDF_JP_FILE_NAME		"bdwlan_jp.bin"
+
+#define BIN_K7XUMC_CN_FILE_NAME	"bdwlanu_cn.bin"
+#define BIN_K7XUMC_EU_FILE_NAME	"bdwlanu_eu.bin"
+#define BIN_K7XUMC_IN_FILE_NAME	"bdwlanu_in.bin"
+#define BIN_K7XUMC_JP_FILE_NAME	"bdwlanu_jp.bin"
+
+#define BIN_K7XTMIC_CN_FILE_NAME	"bdwlant_cn.bin"
+#define BIN_K7XTMIC_EU_FILE_NAME	"bdwlant_eu.bin"
+#define BIN_K7XTMIC_IN_FILE_NAME	"bdwlant_in.bin"
+#define BIN_K7XTMIC_JP_FILE_NAME	"bdwlant_jp.bin"
+
+#define BIN_K7XSMIC_CN_FILE_NAME	"bdwlans_cn.bin"
+#define BIN_K7XSMIC_EU_FILE_NAME	"bdwlans_eu.bin"
+#define BIN_K7XSMIC_IN_FILE_NAME	"bdwlans_in.bin"
+#define BIN_K7XSMIC_JP_FILE_NAME	"bdwlans_jp.bin"
+
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan."
 #define REGDB_FILE_NAME			"regdb.bin"
 
@@ -53,6 +79,19 @@
 #define DMS_MAC_NOT_PROVISIONED		16
 #define BDWLAN_SIZE			6
 #define UMC_CHIP_ID                    0x4320
+#define MAX_SHADOW_REG_RESERVED		2
+#define MAX_NUM_SHADOW_REG_V3		(QMI_WLFW_MAX_NUM_SHADOW_REG_V3_USAGE_V01 - \
+					MAX_SHADOW_REG_RESERVED)
+
+#define M19_UMC_CHIP_ID                0x120
+#define M19_K7XUMC_CHIP_ID             0x130
+#define M19_K7XTMIC_CHIP_ID            0x4130
+#define M19_K7XSMIC_CHIP_ID            0x5130
+
+#define HWC_CN  1
+#define HWC_EU  2
+#define HWC_IN  3
+#define HWC_JP  4
 
 #ifdef CONFIG_ICNSS2_DEBUG
 bool ignore_fw_timeout;
@@ -544,7 +583,8 @@ int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
 			req->rejuvenate_enable_valid = 1;
 			req->rejuvenate_enable = 1;
 		}
-	} else if (priv->device_id == WCN6750_DEVICE_ID) {
+	} else if (priv->device_id == WCN6750_DEVICE_ID ||
+		   priv->device_id == WCN6450_DEVICE_ID) {
 		req->fw_init_done_enable_valid = 1;
 		req->fw_init_done_enable = 1;
 		req->cal_done_enable_valid = 1;
@@ -864,6 +904,11 @@ int icnss_qmi_get_dms_mac(struct icnss_priv *priv)
 		goto out;
 	}
 	priv->dms.mac_valid = true;
+	if (resp.mac_address[0] & 0x03) {
+		resp.mac_address[0] &= 0xfc;  // clear last 2 bits
+		icnss_pr_info("Invalid mac addr detected, force the first byte valid!");
+	}
+
 	memcpy(priv->dms.mac, resp.mac_address, QMI_WLFW_MAC_ADDR_SIZE_V01);
 	icnss_pr_info("Received DMS MAC: [%pM]\n", priv->dms.mac);
 out:
@@ -1002,6 +1047,57 @@ void icnss_dms_deinit(struct icnss_priv *priv)
 	qmi_handle_release(&priv->qmi_dms);
 }
 
+int get_board_id_from_dtb(char *board_mem) {
+    struct device_node *proj_info_node;
+    const char *read_board_id;
+    int ret;
+
+    proj_info_node = of_find_node_by_name(NULL,"project-info");
+    if (NULL == proj_info_node){
+        icnss_pr_err("%s:device project-info node not exist.",__func__);
+        return -1;
+    }
+    ret = of_property_read_string(proj_info_node,"boardid",&read_board_id);
+    if (ret != 0) {
+        icnss_pr_err("%s:device board id read fail:ret=%d.",__func__,ret);
+        return ret;
+    }
+    strlcpy(board_mem,read_board_id,16);
+    icnss_pr_dbg("%s:device board id read success:%s,%s",__func__,read_board_id,board_mem);
+    return ret;
+}
+
+int get_board_country(void){
+
+	int ret;
+	char boardid[16]="";
+
+	memset(boardid, 0 , sizeof(boardid));
+
+	ret = get_board_id_from_dtb(boardid);
+	if (ret == 0) {
+		icnss_pr_dbg("device board id get success: %s.",boardid);
+	}
+
+	if (!strcmp(boardid,"S88029JA1") || !strcmp(boardid,"S88029EA1"))
+	{
+		return HWC_JP;
+	}
+	else if (!strcmp(boardid,"S88029AA1") || !strcmp(boardid,"S88029BA1") || !strcmp(boardid,"S88029CA1"))
+	{
+		return HWC_EU;
+	}
+	else if (!strcmp(boardid,"S88019EA1") || !strcmp(boardid,"S88019GA1") || !strcmp(boardid,"S88019EP1") || !strcmp(boardid,"S88019GP1"))
+	{
+		return HWC_IN;
+	}
+	else{
+		return HWC_CN;
+	}
+
+	return HWC_CN;
+}
+
 static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 				   u32 bdf_type, char *filename,
 				   u32 filename_len)
@@ -1009,6 +1105,7 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 	char filename_tmp[ICNSS_MAX_FILE_NAME];
 	char foundry_specific_filename[ICNSS_MAX_FILE_NAME];
 	int ret = 0;
+  	int board_id_ret;
 
 	switch (bdf_type) {
 	case ICNSS_BDF_ELF:
@@ -1026,15 +1123,82 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 		break;
 	case ICNSS_BDF_BIN:
 		if (priv->board_id == 0xFF)
-			snprintf(filename_tmp, filename_len, BIN_BDF_FILE_NAME);
+                {
+		 	 board_id_ret = get_board_country();
+                   icnss_pr_dbg("m19_test0,M19 chip id type: 0x%x\n",priv->chip_info.chip_id);
+                   switch (priv->chip_info.chip_id) {
+                   case M19_UMC_CHIP_ID:
+				switch (board_id_ret)
+				{
+					case HWC_CN: snprintf(filename_tmp, filename_len, BIN_BDF_CN_FILE_NAME);break;
+					case HWC_EU: snprintf(filename_tmp, filename_len, BIN_BDF_EU_FILE_NAME);break;
+					case HWC_IN: snprintf(filename_tmp, filename_len, BIN_BDF_IN_FILE_NAME);break;
+					case HWC_JP: snprintf(filename_tmp, filename_len, BIN_BDF_JP_FILE_NAME);break;
+					default:
+						snprintf(filename_tmp, filename_len, BIN_BDF_FILE_NAME);
+						break;
+				}
+                    	icnss_pr_dbg("m19_test1,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);
+                     	break;
+                   case M19_K7XUMC_CHIP_ID:
+				switch (board_id_ret)
+				{
+					case HWC_CN: snprintf(filename_tmp, filename_len, BIN_K7XUMC_CN_FILE_NAME);break;
+					case HWC_EU: snprintf(filename_tmp, filename_len, BIN_K7XUMC_EU_FILE_NAME);break;
+					case HWC_IN: snprintf(filename_tmp, filename_len, BIN_K7XUMC_IN_FILE_NAME);break;
+					case HWC_JP: snprintf(filename_tmp, filename_len, BIN_K7XUMC_JP_FILE_NAME);break;
+					default:
+						snprintf(filename_tmp, filename_len, BIN_K7XUMC_FILE_NAME);
+						break;
+				}	
+                      	icnss_pr_dbg("m19_test1,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);
+                     	break;
+                   case M19_K7XTMIC_CHIP_ID:
+				switch (board_id_ret)
+				{
+					case HWC_CN: snprintf(filename_tmp, filename_len, BIN_K7XTMIC_CN_FILE_NAME);break;
+					case HWC_EU: snprintf(filename_tmp, filename_len, BIN_K7XTMIC_EU_FILE_NAME);break;
+					case HWC_IN: snprintf(filename_tmp, filename_len, BIN_K7XTMIC_IN_FILE_NAME);break;
+					case HWC_JP: snprintf(filename_tmp, filename_len, BIN_K7XTMIC_JP_FILE_NAME);break;
+					default:
+						snprintf(filename_tmp, filename_len, BIN_K7XTMIC_FILE_NAME);
+						break;
+				}	
+                     	 icnss_pr_dbg("m19_test1,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);
+                     	 break;
+                   case M19_K7XSMIC_CHIP_ID:
+				switch (board_id_ret)
+				{
+					case HWC_CN: snprintf(filename_tmp, filename_len, BIN_K7XSMIC_CN_FILE_NAME);break;
+					case HWC_EU: snprintf(filename_tmp, filename_len, BIN_K7XSMIC_EU_FILE_NAME);break;
+					case HWC_IN: snprintf(filename_tmp, filename_len, BIN_K7XSMIC_IN_FILE_NAME);break;
+					case HWC_JP: snprintf(filename_tmp, filename_len, BIN_K7XSMIC_JP_FILE_NAME);break;
+					default:
+						snprintf(filename_tmp, filename_len, BIN_K7XSMIC_FILE_NAME);
+						break;
+				}	
+                     	 icnss_pr_dbg("m19_test1,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);
+                     	 break;
+                   default:
+                     	 icnss_pr_err("Invalid chip id type: 0x%x\n", priv->chip_info.chip_id);
+                      	 ret = -EINVAL;
+                     	 break;
+                  }
+                }
 		else if (priv->board_id >= WLAN_BOARD_ID_INDEX)
+                {
 			snprintf(filename_tmp, filename_len,
 				 BIN_BDF_FILE_NAME_PREFIX "%03x",
 				 priv->board_id);
+			icnss_pr_dbg("m19_test2,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);
+                }
 		else
+                {
 			snprintf(filename_tmp, filename_len,
 				 BIN_BDF_FILE_NAME_PREFIX "b%02x",
 				 priv->board_id);
+			icnss_pr_dbg("m19_test3,board_id: 0x%x,filename_tmp:%s\n",priv->board_id,filename_tmp);
+                }
 		if (priv->foundry_name) {
 			strlcpy(foundry_specific_filename, filename_tmp, ICNSS_MAX_FILE_NAME);
 			memmove(foundry_specific_filename + BDWLAN_SIZE + 1,
@@ -1043,6 +1207,7 @@ static int icnss_get_bdf_file_name(struct icnss_priv *priv,
 			foundry_specific_filename[BDWLAN_SIZE] = priv->foundry_name;
 			foundry_specific_filename[ICNSS_MAX_FILE_NAME - 1] = '\0';
 			strlcpy(filename_tmp, foundry_specific_filename, ICNSS_MAX_FILE_NAME);
+			icnss_pr_dbg("m19_test4,priv->foundry_name:0x%c,filename_tmp:%s\n",priv->foundry_name,filename_tmp);
 		}
 		break;
 	case ICNSS_BDF_REGDB:
@@ -1269,7 +1434,8 @@ int icnss_wlfw_qdss_data_send_sync(struct icnss_priv *priv, char *file_name,
 		     resp->total_size == total_size) &&
 		    (resp->seg_id_valid == 1 && resp->seg_id == req->seg_id) &&
 		    (resp->data_valid == 1 &&
-		     resp->data_len <= QMI_WLFW_MAX_DATA_SIZE_V01)) {
+		     resp->data_len <= QMI_WLFW_MAX_DATA_SIZE_V01) &&
+		    resp->data_len <= remaining) {
 			memcpy(p_qdss_trace_data_temp,
 			       resp->data, resp->data_len);
 		} else {
@@ -2163,7 +2329,7 @@ int wlfw_qdss_trace_mem_info_send_sync(struct icnss_priv *priv)
 
 	req->mem_seg_len = priv->qdss_mem_seg_len;
 
-	if (priv->qdss_mem_seg_len > QMI_WLFW_MAX_NUM_MEM_SEG) {
+	if (priv->qdss_mem_seg_len >  QMI_WLFW_MAX_NUM_MEM_SEG_V01) {
 		icnss_pr_err("Invalid seg len %u\n",
 			     priv->qdss_mem_seg_len);
 		ret = -EINVAL;
@@ -2562,7 +2728,7 @@ static void wlfw_qdss_trace_req_mem_ind_cb(struct qmi_handle *qmi,
 
 	priv->qdss_mem_seg_len = ind_msg->mem_seg_len;
 
-	if (priv->qdss_mem_seg_len > QMI_WLFW_MAX_NUM_MEM_SEG) {
+	if (priv->qdss_mem_seg_len > QMI_WLFW_MAX_NUM_MEM_SEG_V01) {
 		icnss_pr_err("Invalid seg len %u\n",
 			     priv->qdss_mem_seg_len);
 		return;
@@ -2966,7 +3132,8 @@ int icnss_register_fw_service(struct icnss_priv *priv)
 	if (ret < 0)
 		return ret;
 
-	if (priv->device_id == WCN6750_DEVICE_ID)
+	if (priv->device_id == WCN6750_DEVICE_ID ||
+	    priv->device_id == WCN6450_DEVICE_ID)
 		ret = qmi_add_lookup(&priv->qmi, WLFW_SERVICE_ID_V01,
 				     WLFW_SERVICE_VERS_V01,
 				     WLFW_SERVICE_WCN_INS_ID_V01);
@@ -3057,6 +3224,17 @@ int icnss_send_wlan_enable_to_fw(struct icnss_priv *priv,
 
 		memcpy(req.shadow_reg, config->shadow_reg_cfg,
 		       sizeof(struct wlfw_msi_cfg_s_v01) * req.shadow_reg_len);
+	} else if (priv->device_id == WCN6450_DEVICE_ID) {
+		req.shadow_reg_v3_valid = 1;
+		if (config->num_shadow_reg_v3_cfg >
+			MAX_NUM_SHADOW_REG_V3)
+			req.shadow_reg_v3_len = MAX_NUM_SHADOW_REG_V3;
+		else
+			req.shadow_reg_v3_len = config->num_shadow_reg_v3_cfg;
+
+		memcpy(req.shadow_reg_v3, config->shadow_reg_v3_cfg,
+		       sizeof(struct wlfw_shadow_reg_v3_cfg_s_v01)
+		       * req.shadow_reg_v3_len);
 	}
 
 	ret = wlfw_wlan_cfg_send_sync_msg(priv, &req);

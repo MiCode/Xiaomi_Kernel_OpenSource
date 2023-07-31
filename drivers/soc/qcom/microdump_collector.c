@@ -20,6 +20,7 @@
 #include <soc/qcom/qcom_ramdump.h>
 #endif
 
+#define MAX_SSR_REASON_LEN	130U
 #define SMEM_SSR_REASON_MSS0	421
 #define SMEM_SSR_DATA_MSS0	611
 #define SMEM_MODEM	1
@@ -29,6 +30,8 @@
  * and stores it in /dev/ramdump_microdump_modem so as to expose it to
  * user space.
  */
+
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
 
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 struct microdump_data {
@@ -220,6 +223,9 @@ static int microdump_crash_collection(void)
 
 		goto out;
 	}
+
+	strlcpy(last_modem_sfr_reason, crash_reason, MAX_SSR_REASON_LEN);
+	pr_err("modem subsystem failure reason: %s.\n", last_modem_sfr_reason);
 
 	segment[1].va = crash_reason;
 	segment[1].size = size_reason;

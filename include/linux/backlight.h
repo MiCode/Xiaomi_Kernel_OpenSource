@@ -192,7 +192,6 @@ struct backlight_properties {
 	 * value.
 	 */
 	int brightness;
-
 	/**
 	 * @max_brightness: The maximum brightness value.
 	 *

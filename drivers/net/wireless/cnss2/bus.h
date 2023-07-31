@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CNSS_BUS_H
@@ -74,4 +74,7 @@ int cnss_bus_update_time_sync_period(struct cnss_plat_data *plat_priv,
 				     unsigned int time_sync_period);
 
 bool cnss_bus_is_smmu_s1_enabled(struct cnss_plat_data *plat_priv);
+int cnss_bus_set_therm_cdev_state(struct cnss_plat_data *plat_priv,
+				  unsigned long thermal_state,
+				  int tcdev_id);
 #endif /* _CNSS_BUS_H */

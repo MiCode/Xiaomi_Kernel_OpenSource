@@ -213,8 +213,9 @@ uvc_function_ep0_complete(struct usb_ep *ep, struct usb_request *req)
 
 		memset(&v4l2_event, 0, sizeof(v4l2_event));
 		v4l2_event.type = UVC_EVENT_DATA;
-		uvc_event->data.length = req->actual;
-		memcpy(&uvc_event->data.data, req->buf, req->actual);
+		uvc_event->data.length = min_t(unsigned int, req->actual,
+			sizeof(uvc_event->data.data));
+		memcpy(&uvc_event->data.data, req->buf, uvc_event->data.length);
 		v4l2_event_queue(&uvc->vdev, &v4l2_event);
 	}
 }
@@ -893,18 +894,6 @@ static void uvc_function_unbind(struct usb_configuration *c,
 	long wait_ret = 1;
 
 	uvcg_info(f, "%s()\n", __func__);
-
-	/* If we know we're connected via v4l2, then there should be a cleanup
-	 * of the device from userspace either via UVC_EVENT_DISCONNECT or
-	 * though the video device removal uevent. Allow some time for the
-	 * application to close out before things get deleted.
-	 */
-	if (uvc->func_connected) {
-		uvcg_dbg(f, "waiting for clean disconnect\n");
-		wait_ret = wait_event_interruptible_timeout(uvc->func_connected_queue,
-				uvc->func_connected == false, msecs_to_jiffies(500));
-		uvcg_dbg(f, "done waiting with ret: %ld\n", wait_ret);
-	}
 
 	/* If we know we're connected via v4l2, then there should be a cleanup
 	 * of the device from userspace either via UVC_EVENT_DISCONNECT or

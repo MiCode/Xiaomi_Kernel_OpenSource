@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2013-2014,2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _DRIVERS_MMC_SDHCI_MSM_H
@@ -134,8 +134,12 @@ struct sdhci_msm_reg_data {
 	struct sdhci_msm_host *msm_host;
 	/* voltage regulator handle */
 	struct regulator *reg;
+	/* Alternative voltage enable/disable regulator handle */
+	struct regulator *reg_en_dis;
 	/* regulator name */
 	const char *name;
+	/* regulator enable/disable name */
+	char en_dis_name[32];
 	/* voltage level to be set */
 	u32 low_vol_level;
 	u32 high_vol_level;
@@ -151,6 +155,7 @@ struct sdhci_msm_reg_data {
 	bool lpm_sup;
 	bool set_voltage_sup;
 	bool is_voltage_supplied;
+	bool multi_card_tray_wa_needed;
 };
 
 /*

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -25,18 +26,28 @@
 #define BCL_DRIVER_NAME       "bcl_pmic5"
 #define BCL_MONITOR_EN        0x46
 #define BCL_IRQ_STATUS        0x08
+#define BCL_REVISION1         0x0
+#define BCL_REVISION2         0x01
+#define BCL_PARAM_1           0x0e
+#define BCL_PARAM_2           0x0f
 
 #define BCL_IBAT_HIGH         0x4B
 #define BCL_IBAT_TOO_HIGH     0x4C
+#define BCL_IBAT_TOO_HIGH_REV4 0x4D
 #define BCL_IBAT_READ         0x86
 #define BCL_IBAT_SCALING_UA   78127
 #define BCL_IBAT_CCM_SCALING_UA   15625
+#define BCL_IBAT_SCALING_REV4_UA  93753
 
 #define BCL_VBAT_READ         0x76
 #define BCL_VBAT_ADC_LOW      0x48
 #define BCL_VBAT_COMP_LOW     0x49
 #define BCL_VBAT_COMP_TLOW    0x4A
 #define BCL_VBAT_CONV_REQ     0x72
+
+#define BCL_GEN3_MAJOR_REV    4
+#define BCL_PARAM_HAS_ADC      BIT(0)
+#define BCL_PARAM_HAS_IBAT_ADC BIT(2)
 
 #define BCL_IRQ_L0       0x1
 #define BCL_IRQ_L1       0x2
@@ -123,6 +134,10 @@ struct bcl_device {
 	struct device			*dev;
 	struct regmap			*regmap;
 	uint16_t			fg_bcl_addr;
+	uint8_t				dig_major;
+	uint8_t				dig_minor;
+	uint8_t				bcl_param_1;
+	uint8_t				bcl_type;
 	void				*ipc_log;
 	bool				ibat_ccm_enabled;
 	uint32_t			ibat_ext_range_factor;
@@ -204,7 +219,8 @@ static void convert_ibat_to_adc_val(int *val, int scaling_factor)
 	 * So the scaling factor is half in those cases.
 	 */
 	if (ibat_use_qg_adc)
-		*val = (int)div_s64(*val * 2000 * 2, scaling_factor);
+		*val = (int)div_s64(*val * 2000 * 2 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0],
+				scaling_factor);
 	else if (no_bit_shift)
 		*val = (int)div_s64(*val * 1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0],
 				scaling_factor);
@@ -218,7 +234,8 @@ static void convert_adc_to_ibat_val(int *val, int scaling_factor)
 {
 	/* Scaling factor will be half if ibat_use_qg_adc is true */
 	if (ibat_use_qg_adc)
-		*val = (int)div_s64(*val * scaling_factor, 2 * 1000);
+		*val = (int)div_s64(*val * scaling_factor,
+				2 * 1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0]);
 	else
 		*val = (int)div_s64(*val * scaling_factor,
 				1000 * bcl_ibat_ext_ranges[BCL_IBAT_RANGE_LVL0]);
@@ -265,10 +282,16 @@ static int bcl_set_ibat(void *data, int low, int high)
 	ibat_ua = thresh_value;
 	if (bat_data->dev->ibat_ccm_enabled)
 		convert_ibat_to_adc_val(&thresh_value,
-				BCL_IBAT_CCM_SCALING_UA * bat_data->dev->ibat_ext_range_factor);
+				BCL_IBAT_CCM_SCALING_UA *
+				bat_data->dev->ibat_ext_range_factor);
+	else if (bat_data->dev->dig_major >= BCL_GEN3_MAJOR_REV)
+		convert_ibat_to_adc_val(&thresh_value,
+				BCL_IBAT_SCALING_REV4_UA *
+				bat_data->dev->ibat_ext_range_factor);
 	else
 		convert_ibat_to_adc_val(&thresh_value,
-				BCL_IBAT_SCALING_UA * bat_data->dev->ibat_ext_range_factor);
+				BCL_IBAT_SCALING_UA *
+				bat_data->dev->ibat_ext_range_factor);
 	val = (int8_t)thresh_value;
 	switch (bat_data->type) {
 	case BCL_IBAT_LVL0:
@@ -278,6 +301,9 @@ static int bcl_set_ibat(void *data, int low, int high)
 		break;
 	case BCL_IBAT_LVL1:
 		addr = BCL_IBAT_TOO_HIGH;
+		if (bat_data->dev->dig_major >= BCL_GEN3_MAJOR_REV &&
+			bat_data->dev->bcl_param_1 & BCL_PARAM_HAS_IBAT_ADC)
+			addr = BCL_IBAT_TOO_HIGH_REV4;
 		if (bat_data->dev->ibat_ccm_enabled)
 			val = convert_ibat_to_ccm_val(ibat_ua);
 		pr_debug("ibat too high threshold:%d mA ADC:0x%02x\n",
@@ -325,6 +351,10 @@ static int bcl_read_ibat(void *data, int *adc_value)
 		if (bat_data->dev->ibat_ccm_enabled)
 			convert_adc_to_ibat_val(adc_value,
 				BCL_IBAT_CCM_SCALING_UA * bat_data->dev->ibat_ext_range_factor);
+		else if (bat_data->dev->dig_major >= BCL_GEN3_MAJOR_REV)
+			convert_adc_to_ibat_val(adc_value,
+				BCL_IBAT_SCALING_REV4_UA *
+					bat_data->dev->ibat_ext_range_factor);
 		else
 			convert_adc_to_ibat_val(adc_value,
 				BCL_IBAT_SCALING_UA * bat_data->dev->ibat_ext_range_factor);
@@ -680,9 +710,16 @@ static void bcl_vbat_init(struct platform_device *pdev,
 	vbat->irq_num = 0;
 	vbat->irq_enabled = false;
 	vbat->tz_dev = NULL;
-	ret = bcl_read_register(bcl_perph, BCL_VBAT_CONV_REQ, &val);
-	if (ret || !val)
-		return;
+
+	/* If revision 4 or above && bcl support adc, then only enable vbat */
+	if (bcl_perph->dig_major >= BCL_GEN3_MAJOR_REV) {
+		if (!(bcl_perph->bcl_param_1 & BCL_PARAM_HAS_ADC))
+			return;
+	} else {
+		ret = bcl_read_register(bcl_perph, BCL_VBAT_CONV_REQ, &val);
+		if (ret || !val)
+			return;
+	}
 	vbat->tz_dev = thermal_zone_device_register("vbat", 3, 0, vbat,
 			&vbat_tzd_ops, &vbat_tzp, 0, 0);
 	if (IS_ERR(vbat->tz_dev)) {
@@ -774,6 +811,37 @@ static void bcl_probe_lvls(struct platform_device *pdev,
 	bcl_lvl_init(pdev, BCL_LVL2, BCL_IRQ_L2, bcl_perph);
 }
 
+static int bcl_version_init(struct bcl_device *bcl_perph)
+{
+	int ret = 0;
+	unsigned int val = 0;
+
+	ret = bcl_read_register(bcl_perph, BCL_REVISION2, &val);
+	if (ret < 0)
+		return ret;
+
+	bcl_perph->dig_major = val;
+	ret = bcl_read_register(bcl_perph, BCL_REVISION1, &val);
+	if (ret >= 0)
+		bcl_perph->dig_minor = val;
+
+	if (bcl_perph->dig_major >= BCL_GEN3_MAJOR_REV) {
+		ret = bcl_read_register(bcl_perph, BCL_PARAM_1, &val);
+		if (ret < 0)
+			return ret;
+		bcl_perph->bcl_param_1 = val;
+
+		val = 0;
+		bcl_read_register(bcl_perph, BCL_PARAM_2, &val);
+		bcl_perph->bcl_type = val;
+	} else {
+		bcl_perph->bcl_param_1 = 0;
+		bcl_perph->bcl_type = 0;
+	}
+
+	return 0;
+}
+
 static void bcl_configure_bcl_peripheral(struct bcl_device *bcl_perph)
 {
 	bcl_write_register(bcl_perph, BCL_MONITOR_EN, BIT(7));
@@ -820,6 +888,11 @@ static int bcl_probe(struct platform_device *pdev)
 
 	bcl_device_ct++;
 	err = bcl_get_devicetree_data(pdev, bcl_perph);
+	if (err) {
+		bcl_device_ct--;
+		return err;
+	}
+	err = bcl_version_init(bcl_perph);
 	if (err) {
 		bcl_device_ct--;
 		return err;

@@ -373,7 +373,7 @@ int nfc_misc_register(struct nfc_dev *nfc_dev,
 int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 {
 	int ret = 0;
-
+        pr_info("%s enter\n", __func__);
 	if (arg == ESE_POWER_ON) {
 		/*
 		 * Let's store the NFC VEN pin state
@@ -392,8 +392,8 @@ int nfc_ese_pwr(struct nfc_dev *nfc_dev, unsigned long arg)
 		nfc_dev->is_ese_session_active = true;
 	} else if (arg == ESE_POWER_OFF) {
 		if (!nfc_dev->nfc_ven_enabled) {
-			pr_debug("NFC not enabled, disabling ven\n");
-			gpio_set_ven(nfc_dev, 0);
+			pr_info("NFC not enabled, disabling ven\n");
+			//gpio_set_ven(nfc_dev, 0);
 		} else {
 			pr_debug("keep ven high as NFC is enabled\n");
 		}
@@ -422,7 +422,7 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 {
 	int ret = 0;
 	struct platform_gpio *nfc_gpio = &nfc_dev->configs.gpio;
-
+        pr_info("%s enter\n", __func__);
 	if (arg == NFC_POWER_OFF) {
 		/*
 		 * We are attempting a hardware reset so let us disable
@@ -431,13 +431,13 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		 */
 		nfc_dev->nfc_disable_intr(nfc_dev);
 		set_valid_gpio(nfc_gpio->dwl_req, 0);
-		gpio_set_ven(nfc_dev, 0);
+		pr_info("NFC not enabled, disabling ven\n");
+		//gpio_set_ven(nfc_dev, 0);
 		nfc_dev->nfc_ven_enabled = false;
 
 	} else if (arg == NFC_POWER_ON) {
 		nfc_dev->nfc_enable_intr(nfc_dev);
 		set_valid_gpio(nfc_gpio->dwl_req, 0);
-
 		gpio_set_ven(nfc_dev, 1);
 		nfc_dev->nfc_ven_enabled = true;
 
@@ -446,10 +446,12 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		 * We are switching to download Mode, toggle the enable pin
 		 * in order to set the NFCC in the new mode
 		 */
+		pr_info("FW download \n");
 		nfc_dev->nfc_disable_intr(nfc_dev);
 		set_valid_gpio(nfc_gpio->dwl_req, 1);
 		nfc_dev->nfc_state = NFC_STATE_FW_DWL;
 		gpio_set_ven(nfc_dev, 0);
+		pr_info("%s gpio.ven is %d\n", __func__, gpio_get_value(nfc_dev->configs.gpio.ven));
 		gpio_set_ven(nfc_dev, 1);
 		nfc_dev->nfc_enable_intr(nfc_dev);
 	} else if (arg == NFC_FW_DWL_HIGH) {
@@ -481,11 +483,13 @@ static int nfc_ioctl_power_states(struct nfc_dev *nfc_dev, unsigned long arg)
 		/*
 		 * Setting flag true when NFC is enabled
 		 */
+		pr_info("NFC_ENABLE \n");
 		nfc_dev->cold_reset.is_nfc_enabled = true;
 	} else if (arg == NFC_DISABLE) {
 		/*
 		 * Setting flag true when NFC is disabled
 		 */
+		pr_info("NFC_ENABLE \n");
 		nfc_dev->cold_reset.is_nfc_enabled = false;
 	}  else {
 		pr_err("%s bad arg %lu\n", __func__, arg);
@@ -528,8 +532,7 @@ long nfc_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 	if (!nfc_dev)
 		return -ENODEV;
 
-	pr_debug("%s cmd = %x arg = %zx\n", __func__, cmd, arg);
-
+	pr_info("%s cmd = %x arg = %zx\n", __func__, cmd, arg);
 	switch (cmd) {
 	case NFC_SET_PWR:
 		ret = nfc_ioctl_power_states(nfc_dev, arg);
@@ -554,7 +557,7 @@ long nfc_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long arg)
 		ret = gpio_get_value(nfc_dev->configs.gpio.irq);
 		break;
 	default:
-		pr_err("%s Unsupported ioctl cmd 0x%x, arg %lu\n",
+		pr_info("%s Unsupported ioctl cmd 0x%x, arg %lu\n",
 						__func__, cmd, arg);
 		ret = -ENOIOCTLCMD;
 	}

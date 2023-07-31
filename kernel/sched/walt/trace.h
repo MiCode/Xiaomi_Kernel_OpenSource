@@ -895,9 +895,9 @@ TRACE_EVENT(walt_lb_cpu_util,
 
 TRACE_EVENT(sched_cpu_util,
 
-	TP_PROTO(int cpu),
+	TP_PROTO(int cpu, struct task_struct* task, int line_no),
 
-	TP_ARGS(cpu),
+	TP_ARGS(cpu, task, line_no),
 
 	TP_STRUCT__entry(
 		__field(unsigned int,	cpu)
@@ -915,6 +915,8 @@ TRACE_EVENT(sched_cpu_util,
 		__field(int,		high_irq_load)
 		__field(unsigned int,	nr_rtg_high_prio_tasks)
 		__field(u64,	prs_gprs)
+		__array(char,	comm, TASK_COMM_LEN)
+		__field(int,	line_no)
 	),
 
 	TP_fast_assign(
@@ -934,15 +936,18 @@ TRACE_EVENT(sched_cpu_util,
 		__entry->high_irq_load		= sched_cpu_high_irqload(cpu);
 		__entry->nr_rtg_high_prio_tasks	= walt_nr_rtg_high_prio(cpu);
 		__entry->prs_gprs	= wrq->prev_runnable_sum + wrq->grp_time.prev_runnable_sum;
+		memcpy(__entry->comm, task->comm, TASK_COMM_LEN);
+		__entry->line_no	=  line_no;
 	),
 
-	TP_printk("cpu=%d nr_running=%d cpu_util=%ld cpu_util_cum=%ld capacity_curr=%lu capacity=%lu capacity_orig=%lu idle_exit_latency=%u irqload=%llu online=%u, inactive=%u, reserved=%u, high_irq_load=%u nr_rtg_hp=%u prs_gprs=%llu",
+	TP_printk("cpu=%d nr_running=%d cpu_util=%ld cpu_util_cum=%ld capacity_curr=%lu capacity=%lu capacity_orig=%lu idle_exit_latency=%u irqload=%llu online=%u, inactive=%u, reserved=%u, high_irq_load=%u nr_rtg_hp=%u prs_gprs=%llu comm=%s line_no=%d",
 		__entry->cpu, __entry->nr_running, __entry->cpu_util,
 		__entry->cpu_util_cum, __entry->capacity_curr,
 		__entry->capacity, __entry->capacity_orig,
 		__entry->idle_exit_latency, __entry->irqload, __entry->online,
 		__entry->inactive, __entry->reserved, __entry->high_irq_load,
-		__entry->nr_rtg_high_prio_tasks, __entry->prs_gprs)
+		__entry->nr_rtg_high_prio_tasks, __entry->prs_gprs,
+		__entry->comm, __entry->line_no)
 );
 
 TRACE_EVENT(sched_compute_energy,
@@ -1017,10 +1022,11 @@ TRACE_EVENT(sched_compute_energy,
 TRACE_EVENT(sched_task_util,
 
 	TP_PROTO(struct task_struct *p, unsigned long candidates,
-		int best_energy_cpu, bool sync, int need_idle, int fastpath,
+		int order_index, int end_index, int best_energy_cpu,
+		bool sync, int need_idle, int fastpath,
 		u64 start_t, bool uclamp_boosted, int start_cpu),
 
-	TP_ARGS(p, candidates, best_energy_cpu, sync, need_idle, fastpath,
+	TP_ARGS(p, candidates, order_index, end_index, best_energy_cpu, sync, need_idle, fastpath,
 		start_t, uclamp_boosted, start_cpu),
 
 	TP_STRUCT__entry(
@@ -1029,6 +1035,8 @@ TRACE_EVENT(sched_task_util,
 		__field(unsigned long,	util)
 		__field(unsigned long,	candidates)
 		__field(int,		prev_cpu)
+		__field(int,		order_index)
+		__field(int,		end_index)
 		__field(int,		best_energy_cpu)
 		__field(bool,		sync)
 		__field(int,		need_idle)
@@ -1053,6 +1061,8 @@ TRACE_EVENT(sched_task_util,
 		__entry->util			= task_util(p);
 		__entry->prev_cpu		= task_cpu(p);
 		__entry->candidates		= candidates;
+		__entry->order_index	= order_index;
+		__entry->end_index		= end_index;
 		__entry->best_energy_cpu	= best_energy_cpu;
 		__entry->sync			= sync;
 		__entry->need_idle		= need_idle;
@@ -1072,9 +1082,10 @@ TRACE_EVENT(sched_task_util,
 			((struct walt_task_struct *) p->android_vendor_data1)->iowaited;
 	),
 
-	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d candidates=%#lx best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d latency=%llu stune_boosted=%d is_rtg=%d rtg_skip_min=%d start_cpu=%d unfilter=%u affinity=%lx task_boost=%d low_latency=%d iowaited=%d",
+	TP_printk("pid=%d comm=%s util=%lu prev_cpu=%d candidates=%#lx order_index=%d end_index=%d best_energy_cpu=%d sync=%d need_idle=%d fastpath=%d placement_boost=%d latency=%llu stune_boosted=%d is_rtg=%d rtg_skip_min=%d start_cpu=%d unfilter=%u affinity=%lx task_boost=%d low_latency=%d iowaited=%d",
 		__entry->pid, __entry->comm, __entry->util, __entry->prev_cpu,
-		__entry->candidates, __entry->best_energy_cpu, __entry->sync,
+		__entry->candidates, __entry->order_index, __entry->end_index,
+		__entry->best_energy_cpu, __entry->sync,
 		__entry->need_idle, __entry->fastpath, __entry->placement_boost,
 		__entry->latency, __entry->uclamp_boosted,
 		__entry->is_rtg, __entry->rtg_skip_min, __entry->start_cpu,
@@ -1091,13 +1102,13 @@ TRACE_EVENT(sched_find_best_target,
 		 unsigned long min_util, int start_cpu,
 		 unsigned long candidates,
 		 int most_spare_cap,
-		 int order_index, int end_index,
+		 int order_index, int end_index, int line_no,
 		 int skip, bool running,
 		 int most_spare_rq_cpu, unsigned int cpu_rq_runnable_cnt),
 
 	TP_ARGS(tsk, min_util, start_cpu, candidates,
 		most_spare_cap,
-		order_index, end_index, skip, running,
+		order_index, end_index, line_no, skip, running,
 		most_spare_rq_cpu, cpu_rq_runnable_cnt),
 
 	TP_STRUCT__entry(
@@ -1109,6 +1120,7 @@ TRACE_EVENT(sched_find_best_target,
 		__field(int,		most_spare_cap)
 		__field(int,		order_index)
 		__field(int,		end_index)
+		__field(int,		line_no)
 		__field(int,		skip)
 		__field(bool,		running)
 		__field(int,		most_spare_rq_cpu)
@@ -1124,19 +1136,21 @@ TRACE_EVENT(sched_find_best_target,
 		__entry->most_spare_cap = most_spare_cap;
 		__entry->order_index	= order_index;
 		__entry->end_index	= end_index;
+		__entry->line_no = line_no;
 		__entry->skip		= skip;
 		__entry->running	= running;
 		__entry->most_spare_rq_cpu	= most_spare_rq_cpu;
 		__entry->cpu_rq_runnable_cnt	= cpu_rq_runnable_cnt;
 		),
 
-	TP_printk("pid=%d comm=%s start_cpu=%d candidates=%#lx most_spare_cap=%d order_index=%d end_index=%d skip=%d running=%d min_util=%lu spare_rq_cpu=%d min_runnable=%u",
+	TP_printk("pid=%d comm=%s start_cpu=%d candidates=%#lx most_spare_cap=%d order_index=%d end_index=%d line_no=%d skip=%d running=%d min_util=%lu spare_rq_cpu=%d min_runnable=%u",
 		  __entry->pid, __entry->comm,
 		  __entry->start_cpu,
 		  __entry->candidates,
 		  __entry->most_spare_cap,
 		  __entry->order_index,
 		  __entry->end_index,
+		  __entry->line_no,
 		  __entry->skip,
 		  __entry->running,
 		  __entry->min_util,

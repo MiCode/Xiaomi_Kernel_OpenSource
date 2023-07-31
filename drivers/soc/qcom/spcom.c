@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2019, 2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -679,8 +679,12 @@ static int spcom_handle_create_channel_command(void *cmd_buf, int cmd_size)
 	mutex_lock(&spcom_dev->chdev_count_lock);
 	ret = spcom_create_channel_chardev(cmd->ch_name, cmd->is_sharable);
 	mutex_unlock(&spcom_dev->chdev_count_lock);
-	if (ret)
-		spcom_pr_err("failed to create ch[%s], ret [%d]\n", cmd->ch_name, ret);
+	if (ret) {
+		if (-EINVAL == ret)
+			spcom_pr_err("failed to create channel, ret [%d]\n", ret);
+		else
+			spcom_pr_err("failed to create ch[%s], ret [%d]\n", cmd->ch_name, ret);
+	}
 
 	return ret;
 }

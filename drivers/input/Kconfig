@@ -209,6 +209,12 @@ source "drivers/input/serio/Kconfig"
 
 source "drivers/input/gameport/Kconfig"
 
+config FINGERPRINT
+	bool "fingerprint "
+	default n
+
+source "drivers/input/fingerprint/Kconfig"
+
 endmenu
 
 endmenu

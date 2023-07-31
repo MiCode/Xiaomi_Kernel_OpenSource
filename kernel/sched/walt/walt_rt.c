@@ -8,6 +8,12 @@
 #include "walt.h"
 #include "trace.h"
 
+#ifdef CONFIG_GAEA_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+
+extern struct walt_get_indicies_hooks mi_walt_get_indicies_func[WALT_CFS_TYPES];
+#endif
+
 static DEFINE_PER_CPU(cpumask_var_t, walt_local_cpu_mask);
 
 static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task,
@@ -24,6 +30,22 @@ static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task
 	int cluster;
 	int order_index = (boost_on_big && num_sched_clusters > 1) ? 1 : 0;
 	bool best_cpu_lt = true;
+	int line_no = -1;
+#ifdef CONFIG_GAEA_WALT
+	const struct cpumask *gaea_mask;
+	int end_index;
+	bool check_return = false;
+	int mod;
+
+	for (mod = 0; mod < WALT_CFS_TYPES; mod++) {
+		if (mi_walt_get_indicies_func[mod].f) {
+			mi_walt_get_indicies_func[mod].f(task, &order_index, &end_index,
+				num_sched_clusters, &check_return);
+			if (check_return)
+				break;
+		}
+	}
+#endif
 
 	if (unlikely(walt_disabled))
 		return;
@@ -33,19 +55,34 @@ static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task
 
 	rcu_read_lock();
 	for (cluster = 0; cluster < num_sched_clusters; cluster++) {
+#ifdef CONFIG_GAEA_WALT
+		if (check_return && order_index == 1)
+			gaea_mask = cpu_online_mask;
+		else
+			gaea_mask = lowest_mask;
+
+		for_each_cpu_and(cpu, gaea_mask, &cpu_array[order_index][cluster]) {
+#else
 		for_each_cpu_and(cpu, lowest_mask, &cpu_array[order_index][cluster]) {
+#endif
 			bool lt;
 
-			trace_sched_cpu_util(cpu);
+			trace_sched_cpu_util(cpu, task, line_no);
 
-			if (!cpu_active(cpu))
+			if (!cpu_active(cpu)) {
+				line_no = __LINE__;
 				continue;
+			}
 
-			if (sched_cpu_high_irqload(cpu))
+			if (sched_cpu_high_irqload(cpu)) {
+				line_no = __LINE__;
 				continue;
+			}
 
-			if (__cpu_overutilized(cpu, tutil))
+			if (__cpu_overutilized(cpu, tutil)) {
+				line_no = __LINE__;
 				continue;
+			}
 
 			util = cpu_util(cpu);
 
@@ -56,22 +93,28 @@ static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task
 			 * When the best is suitable and the current is not,
 			 * skip it
 			 */
-			if (lt && !best_cpu_lt)
+			if (lt && !best_cpu_lt) {
+				line_no = __LINE__;
 				continue;
+			}
 
 			/*
 			 * Either both are sutilable or unsuitable, load takes
 			 * precedence.
 			 */
-			if (!(best_cpu_lt ^ lt) && (util > best_cpu_util))
+			if (!(best_cpu_lt ^ lt) && (util > best_cpu_util)) {
+				line_no = __LINE__;
 				continue;
+			}
 
 			/*
 			 * If the previous CPU has same load, keep it as
 			 * best_cpu.
 			 */
-			if (best_cpu_util == util && *best_cpu == task_cpu(task))
+			if (best_cpu_util == util && *best_cpu == task_cpu(task)) {
+				line_no = __LINE__;
 				continue;
+			}
 
 			/*
 			 * If candidate CPU is the previous CPU, select it.
@@ -84,12 +127,16 @@ static void walt_rt_energy_aware_wake_cpu(void *unused, struct task_struct *task
 
 			util_cum = cpu_util_cum(cpu);
 			if (cpu != task_cpu(task) && best_cpu_util == util) {
-				if (best_idle_exit_latency < cpu_idle_exit_latency)
+				if (best_idle_exit_latency < cpu_idle_exit_latency) {
+					line_no = __LINE__;
 					continue;
+				}
 
 				if (best_idle_exit_latency == cpu_idle_exit_latency &&
-						best_cpu_util_cum < util_cum)
+						best_cpu_util_cum < util_cum) {
+					line_no = __LINE__;
 					continue;
+				}
 			}
 
 			best_idle_exit_latency = cpu_idle_exit_latency;

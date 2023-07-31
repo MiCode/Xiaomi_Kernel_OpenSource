@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -34,7 +34,7 @@ void __init gmu_core_register(void)
 	of_node_put(node);
 }
 
-void __exit gmu_core_unregister(void)
+void gmu_core_unregister(void)
 {
 	const struct of_device_id *match;
 	struct device_node *node;

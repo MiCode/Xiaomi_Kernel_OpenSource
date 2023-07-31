@@ -8,6 +8,12 @@
 #include "walt.h"
 #include "trace.h"
 
+#ifdef CONFIG_GAEA_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+
+extern struct walt_lb_pull_tasks_hooks mi_walt_lb_pull_tasks_func[WALT_CFS_TYPES];
+#endif
+
 static inline unsigned long walt_lb_cpu_util(int cpu)
 {
 	struct walt_rq *wrq = (struct walt_rq *) cpu_rq(cpu)->android_vendor_data1;
@@ -234,6 +240,10 @@ static inline bool _walt_can_migrate_task(struct task_struct *p, int dst_cpu,
 {
 	struct walt_rq *wrq = (struct walt_rq *) task_rq(p)->android_vendor_data1;
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
+#ifdef CONFIG_GAEA_WALT
+	bool skip_lb = false;
+	int mod;
+#endif
 
 	/* Don't detach task if it is under active migration */
 	if (wrq->push_task == p)
@@ -253,6 +263,19 @@ static inline bool _walt_can_migrate_task(struct task_struct *p, int dst_cpu,
 		if (!force && !task_fits_max(p, dst_cpu))
 			return false;
 	}
+
+#ifdef CONFIG_GAEA_WALT
+	for (mod = 0; mod < WALT_CFS_TYPES; mod++) {
+		if (mi_walt_lb_pull_tasks_func[mod].f) {
+			mi_walt_lb_pull_tasks_func[mod].f(p, dst_cpu, p->cpu, &skip_lb);
+			if(skip_lb) {
+				//pr_info("Focus: _walt_can_migrate_task, key task: %d, %s, %d, src:%d-dst:%d\n",
+				//			p->pid, p->comm, p->prio, p->cpu, dst_cpu);
+				return false;
+			}
+		}
+	}
+#endif
 
 	return true;
 }
@@ -283,6 +306,10 @@ static int walt_lb_pull_tasks(int dst_cpu, int src_cpu)
 	bool active_balance = false, to_lower;
 	struct walt_rq *wrq = (struct walt_rq *) src_rq->android_vendor_data1;
 	struct walt_task_struct *wts;
+#ifdef CONFIG_GAEA_WALT
+	bool skip_lb = false;
+	int mod;
+#endif
 
 	BUG_ON(src_cpu == dst_cpu);
 
@@ -301,6 +328,19 @@ static int walt_lb_pull_tasks(int dst_cpu, int src_cpu)
 		if (!_walt_can_migrate_task(p, dst_cpu, to_lower, false))
 			continue;
 
+#ifdef CONFIG_GAEA_WALT
+		for (mod = 0; mod < WALT_CFS_TYPES; mod++) {
+			if (mi_walt_lb_pull_tasks_func[mod].f) {
+				mi_walt_lb_pull_tasks_func[mod].f(p, dst_cpu, src_cpu, &skip_lb);
+				if(skip_lb) {
+					break;
+				}
+			}
+		}
+		if (skip_lb) {
+			continue;
+		}
+#endif
 		walt_detach_task(p, src_rq, dst_rq);
 		pulled_task = p;
 		goto unlock;
@@ -317,6 +357,19 @@ static int walt_lb_pull_tasks(int dst_cpu, int src_cpu)
 		if (!_walt_can_migrate_task(p, dst_cpu, to_lower, true))
 			continue;
 
+#ifdef CONFIG_GAEA_WALT
+		for (mod = 0; mod < WALT_CFS_TYPES; mod++) {
+			if (mi_walt_lb_pull_tasks_func[mod].f) {
+				mi_walt_lb_pull_tasks_func[mod].f(p, dst_cpu, src_cpu, &skip_lb);
+				if(skip_lb) {
+					break;
+				}
+			}
+		}
+		if (skip_lb) {
+			continue;
+		}
+#endif
 		walt_detach_task(p, src_rq, dst_rq);
 		pulled_task = p;
 		goto unlock;
@@ -357,6 +410,19 @@ static int walt_lb_pull_tasks(int dst_cpu, int src_cpu)
 			continue;
 		}
 
+#ifdef CONFIG_GAEA_WALT
+		for (mod = 0; mod < WALT_CFS_TYPES; mod++) {
+			if (mi_walt_lb_pull_tasks_func[mod].f) {
+				mi_walt_lb_pull_tasks_func[mod].f(p, dst_cpu, src_cpu, &skip_lb);
+				if(skip_lb) {
+					break;
+				}
+			}
+		}
+		if (skip_lb) {
+			continue;
+		}
+#endif
 		walt_detach_task(p, src_rq, dst_rq);
 		pulled_task = p;
 		goto unlock;
@@ -678,6 +744,10 @@ static bool walt_balance_rt(struct rq *this_rq)
 	struct task_struct *p;
 	struct walt_task_struct *wts;
 	bool pulled = false;
+#ifdef CONFIG_GAEA_WALT
+	bool skip_lb= false;
+	int mod;
+#endif
 
 	/* can't help if this has a runnable RT */
 	if (sched_rt_runnable(this_rq))
@@ -713,6 +783,16 @@ static bool walt_balance_rt(struct rq *this_rq)
 	if (walt_ktime_get_ns() - wts->last_wake_ts < WALT_RT_PULL_THRESHOLD_NS)
 		goto unlock;
 
+#ifdef CONFIG_GAEA_WALT
+	for (mod = 0; mod < WALT_CFS_TYPES; mod++) {
+		if (mi_walt_lb_pull_tasks_func[mod].f) {
+			mi_walt_lb_pull_tasks_func[mod].f(p, this_cpu, src_cpu, &skip_lb);
+			if(skip_lb) {
+				goto unlock;
+			}
+		}
+	}
+#endif
 	pulled = true;
 	deactivate_task(src_rq, p, 0);
 	set_task_cpu(p, this_cpu);

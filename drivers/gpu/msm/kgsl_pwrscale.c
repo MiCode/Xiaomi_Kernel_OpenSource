@@ -342,7 +342,7 @@ int kgsl_devfreq_get_dev_status(struct device *dev,
 
 		last_b->ram_time = device->pwrscale.accum_stats.ram_time;
 		last_b->ram_wait = device->pwrscale.accum_stats.ram_wait;
-		last_b->buslevel = device->pwrctrl.cur_buslevel;
+		last_b->buslevel = device->pwrctrl.cur_dcvs_buslevel;
 
 		pwrlevel = &pwrctrl->pwrlevels[pwrctrl->min_pwrlevel];
 		last_b->gpu_minfreq = pwrlevel->gpu_freq;
@@ -553,8 +553,10 @@ static void pwrscale_busmon_create(struct kgsl_device *device,
 
 	dev_set_name(dev, "kgsl-busmon");
 	dev_set_drvdata(dev, device);
-	if (device_register(dev))
+	if (device_register(dev)) {
+		put_device(dev);
 		return;
+	}
 
 	/* Build out the OPP table for the busmon device */
 	for (i = 0; i < pwr->num_pwrlevels; i++) {
@@ -567,7 +569,7 @@ static void pwrscale_busmon_create(struct kgsl_device *device,
 	ret = devfreq_gpubw_init();
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to add busmon governor: %d\n", ret);
-		put_device(dev);
+		device_unregister(dev);
 		return;
 	}
 
@@ -577,7 +579,7 @@ static void pwrscale_busmon_create(struct kgsl_device *device,
 	if (IS_ERR_OR_NULL(bus_devfreq)) {
 		dev_err(&pdev->dev, "Bus scaling not enabled\n");
 		devfreq_gpubw_exit();
-		put_device(dev);
+		device_unregister(dev);
 		return;
 	}
 
@@ -816,8 +818,8 @@ void kgsl_pwrscale_close(struct kgsl_device *device)
 	if (pwrscale->bus_devfreq) {
 		devfreq_remove_device(pwrscale->bus_devfreq);
 		pwrscale->bus_devfreq = NULL;
-		put_device(&pwrscale->busmondev);
 		devfreq_gpubw_exit();
+		device_unregister(&pwrscale->busmondev);
 	}
 
 	if (!pwrscale->devfreqptr)

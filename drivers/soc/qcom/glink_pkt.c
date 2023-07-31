@@ -382,7 +382,7 @@ static ssize_t glink_pkt_read(struct file *file,
 	if (copy_to_user(buf, gpdev->rdata, use))
 		use = -EFAULT;
 
-	if (!gpdev->fragmented_read && gpdev->rdata_len == use) {
+	if ((!gpdev->fragmented_read && gpdev->rdata_len == use) || (use < 0))  {
 		struct sk_buff *skb = gpdev->rskb;
 
 		spin_lock_irqsave(&gpdev->queue_lock, flags);

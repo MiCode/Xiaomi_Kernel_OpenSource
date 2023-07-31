@@ -25,6 +25,7 @@
 #include <linux/platform_data/qcom_crypto_device.h>
 #include <linux/qcedev.h>
 #include <linux/interconnect.h>
+#include <linux/delay.h>
 
 #include <crypto/hash.h>
 #include "qcedevi.h"
@@ -42,7 +43,7 @@
  * Assuming 5ms per crypto operation, this is calculated for
  * the scenario of having 3 offload reqs + 1 tz req + buffer.
  */
-#define MAX_CRYPTO_WAIT_TIME 25
+#define MAX_CRYPTO_WAIT_TIME 75
 
 #define MAX_REQUEST_TIME 5000
 
@@ -50,6 +51,7 @@ enum qcedev_req_status {
 	QCEDEV_REQ_CURRENT = 0,
 	QCEDEV_REQ_WAITING = 1,
 	QCEDEV_REQ_SUBMITTED = 2,
+	QCEDEV_REQ_DONE = 3,
 };
 
 static uint8_t  _std_init_vector_sha1_uint8[] =   {
@@ -184,6 +186,9 @@ static void qcedev_ce_high_bw_req(struct qcedev_control *podev,
 							bool high_bw_req)
 {
 	int ret = 0;
+
+	if (podev == NULL)
+		return;
 
 	mutex_lock(&qcedev_sent_bw_req);
 	if (high_bw_req) {
@@ -333,9 +338,11 @@ static void req_done(unsigned long data)
 	areq = podev->active_command;
 	podev->active_command = NULL;
 
-	if (areq && !areq->timed_out)
-		complete(&areq->complete);
-
+	if (areq) {
+		if (!areq->timed_out)
+			complete(&areq->complete);
+		areq->state = QCEDEV_REQ_DONE;
+	}
 	/* Look through queued requests and wake up the corresponding thread */
 	if (!list_empty(&podev->ready_commands)) {
 		new_req = container_of(podev->ready_commands.next,
@@ -743,6 +750,8 @@ static void qcedev_check_crypto_status(
 	}
 }
 
+#define MAX_RETRIES              333
+
 static int submit_req(struct qcedev_async_req *qcedev_areq,
 					struct qcedev_handle *handle)
 {
@@ -754,11 +763,12 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 	int wait = MAX_CRYPTO_WAIT_TIME;
 	bool print_sts = false;
 	struct qcedev_async_req *new_req = NULL;
+	int retries = 0;
+	int req_wait = MAX_REQUEST_TIME;
 
 	qcedev_areq->err = 0;
 	podev = handle->cntl;
 	init_waitqueue_head(&qcedev_areq->wait_q);
-
 
 	spin_lock_irqsave(&podev->lock, flags);
 
@@ -791,14 +801,19 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 			list_add_tail(&qcedev_areq->list,
 					&podev->ready_commands);
 			qcedev_areq->state = QCEDEV_REQ_WAITING;
-			if (wait_event_interruptible_lock_irq_timeout(
+			req_wait = wait_event_interruptible_lock_irq_timeout(
 				qcedev_areq->wait_q,
 				(qcedev_areq->state == QCEDEV_REQ_CURRENT),
 				podev->lock,
-				msecs_to_jiffies(MAX_REQUEST_TIME)) == 0) {
-				pr_err("%s: request timed out\n", __func__);
-				return qcedev_areq->err;
-			}
+				msecs_to_jiffies(MAX_REQUEST_TIME));
+				if ((req_wait == 0) || (req_wait == -ERESTARTSYS)) {
+					pr_err("%s: request timed out, req_wait = %d\n",
+					__func__, req_wait);
+					list_del(&qcedev_areq->list);
+					podev->active_command = NULL;
+					spin_unlock_irqrestore(&podev->lock, flags);
+					return qcedev_areq->err;
+				}
 		}
 	} while (qcedev_areq->state != QCEDEV_REQ_SUBMITTED);
 
@@ -834,15 +849,24 @@ static int submit_req(struct qcedev_async_req *qcedev_areq,
 		pr_err("%s: wait timed out, req info = %d\n", __func__,
 					current_req_info);
 		print_sts = true;
+		spin_lock_irqsave(&podev->lock, flags);
 		qcedev_check_crypto_status(qcedev_areq, podev->qce, print_sts);
 		qcedev_areq->timed_out = true;
 		ret = qce_manage_timeout(podev->qce, current_req_info);
+		spin_unlock_irqrestore(&podev->lock, flags);
 		if (ret) {
 			pr_err("%s: error during manage timeout\n", __func__);
-			qcedev_areq->err = -EIO;
-			return qcedev_areq->err;
+			while (qcedev_areq->state != QCEDEV_REQ_DONE &&
+					(retries < MAX_RETRIES)) {
+				usleep_range(3000, 5000);
+				retries++;
+				pr_err("%s: waiting for req state to be done,retries = %d\n",
+						__func__, retries);
+			}
+			return 0;
 		}
-		tasklet_schedule(&podev->done_tasklet);
+
+		req_done((unsigned long) podev);
 		if (qcedev_areq->offload_cipher_op_req.err !=
 						QCEDEV_OFFLOAD_NO_ERROR)
 			return 0;
@@ -1760,6 +1784,8 @@ static int qcedev_smmu_ablk_offload_cipher(struct qcedev_async_req *areq,
 		}
 	}
 exit:
+	areq->cipher_req.creq.src = NULL;
+	areq->cipher_req.creq.dst = NULL;
 	return err;
 }
 
@@ -2687,8 +2713,11 @@ static int qcedev_remove(struct platform_device *pdev)
 	podev = platform_get_drvdata(pdev);
 	if (!podev)
 		return 0;
+
+	qcedev_ce_high_bw_req(podev, true);
 	if (podev->qce)
 		qce_close(podev->qce);
+	qcedev_ce_high_bw_req(podev, false);
 
 	if (podev->icc_path)
 		icc_put(podev->icc_path);

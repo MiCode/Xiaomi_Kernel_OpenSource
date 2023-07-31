@@ -1,0 +1,10 @@
+#
+# Xiaomi touch driver configuration
+#
+
+config TOUCHSCREEN_XIAOMI_TOUCHFEATURE
+	tristate "Xiaomi touch driver"
+	default m
+	help
+	  Say Y here if you use xiaomi touch driver.
+	  If unsure, say N.

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _KGSL_BUS_H
@@ -10,6 +11,8 @@ enum kgsl_bus_vote {
 	KGSL_BUS_VOTE_OFF = 0,
 	KGSL_BUS_VOTE_ON,
 	KGSL_BUS_VOTE_MINIMUM,
+	KGSL_BUS_VOTE_RT_HINT_OFF,
+	KGSL_BUS_VOTE_RT_HINT_ON,
 };
 
 struct kgsl_device;

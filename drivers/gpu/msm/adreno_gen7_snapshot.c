@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "adreno.h"
@@ -251,8 +251,7 @@ static size_t gen7_legacy_snapshot_shader(struct kgsl_device *device,
 	 * AHB path might fail. Hence, skip SP_INST_TAG and SP_INST_DATA*
 	 * state types during snapshot dump in legacy flow.
 	 */
-	if (adreno_is_gen7_0_0(adreno_dev) || adreno_is_gen7_0_1(adreno_dev) ||
-		adreno_is_gen7_4_0(adreno_dev) || adreno_is_gen7_3_0(adreno_dev)) {
+	if (adreno_is_gen7_0_x_family(adreno_dev)) {
 		if (block->statetype == SP_INST_TAG ||
 			block->statetype == SP_INST_DATA ||
 			block->statetype == SP_INST_DATA_1 ||
@@ -324,6 +323,10 @@ static void gen7_snapshot_shader(struct kgsl_device *device,
 	unsigned int usptp;
 	size_t (*func)(struct kgsl_device *device, u8 *buf, size_t remain,
 		void *priv) = gen7_legacy_snapshot_shader;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (adreno_is_gen7_0_x_family(adreno_dev))
+		kgsl_regrmw(device, GEN7_SP_DBG_CNTL, GENMASK(1, 0), BIT(0) | BIT(1));
 
 	if (CD_SCRIPT_CHECK(device)) {
 		for (i = 0; i < num_shader_blocks; i++) {
@@ -344,7 +347,8 @@ static void gen7_snapshot_shader(struct kgsl_device *device,
 				}
 			}
 		}
-		return;
+
+		goto done;
 	}
 
 	for (i = 0; i < num_shader_blocks; i++) {
@@ -390,6 +394,10 @@ static void gen7_snapshot_shader(struct kgsl_device *device,
 			}
 		}
 	}
+
+done:
+	if (adreno_is_gen7_0_x_family(adreno_dev))
+		kgsl_regrmw(device, GEN7_SP_DBG_CNTL, GENMASK(1, 0), 0x0);
 }
 
 static void gen7_snapshot_mempool(struct kgsl_device *device,

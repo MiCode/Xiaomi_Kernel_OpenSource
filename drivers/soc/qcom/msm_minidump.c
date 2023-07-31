@@ -618,7 +618,10 @@ static int msm_minidump_driver_probe(struct platform_device *pdev)
 	spin_unlock_irqrestore(&mdt_lock, flags);
 
 	/* All updates above should be visible, before init completes */
-	smp_store_release(&md_init_done, true);
+#if IS_ENABLED(CONFIG_QCOM_MINIDUMP_LAST_KMSG)
+	last_kmsg_driver_init();
+#endif
+  	smp_store_release(&md_init_done, true);
 	msm_minidump_log_init();
 	pr_info("Enabled with max number of regions %d\n",
 		CONFIG_MINIDUMP_MAX_ENTRIES);

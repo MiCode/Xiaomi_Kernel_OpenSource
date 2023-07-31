@@ -166,16 +166,7 @@ static int __init init_mem_hooks(void)
 	return 0;
 }
 
-void exit_mem_hooks(void)
-{
-	unregister_trace_android_vh_oom_check_panic(
-			__oom_panic_defer, NULL);
-	unregister_trace_android_vh_madvise_cold_or_pageout(
-			allow_shared_pages_reclaim, NULL);
-}
-
 module_init(init_mem_hooks);
-module_exit(exit_mem_hooks);
 
 MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Memory Trace Hook Call-Back Registration");
 MODULE_LICENSE("GPL v2");

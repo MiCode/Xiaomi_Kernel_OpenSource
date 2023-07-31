@@ -53,6 +53,7 @@ obj-$(CONFIG_QCOM_LLCC) += llcc-qcom.o
 llcc-qcom-y += llcc_qcom.o llcc-tcm.o
 obj-$(CONFIG_QCOM_MINIDUMP) += minidump.o
 minidump-y	 += msm_minidump.o minidump_log.o
+minidump-$(CONFIG_QCOM_MINIDUMP_LAST_KMSG) += last_kmsg.o
 minidump-$(CONFIG_QCOM_MINIDUMP_PANIC_DUMP) += minidump_memory.o
 obj-$(CONFIG_QCOM_VA_MINIDUMP) += qcom_va_minidump.o
 obj-$(CONFIG_QCOM_MEM_OFFLINE) += mem-offline.o

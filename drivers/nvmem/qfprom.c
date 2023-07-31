@@ -12,6 +12,7 @@
 #include <linux/mod_devicetable.h>
 #include <linux/nvmem-provider.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/regulator/consumer.h>
 
 /* Blow timer clock frequency in Mhz */
@@ -63,6 +64,8 @@ struct qfprom_soc_data {
  * @secclk:       Clock supply.
  * @vcc:          Regulator supply.
  * @soc_data:     Data that for things that varies from SoC to SoC.
+ * @keepout:   Optional array of keepout ranges (sorted ascending by start).
+ * @nkeepout:  Number of elements in the keepout array.
  */
 struct qfprom_priv {
 	void __iomem *qfpraw;
@@ -73,6 +76,8 @@ struct qfprom_priv {
 	struct clk *secclk;
 	struct regulator *vcc;
 	const struct qfprom_soc_data *soc_data;
+	const struct nvmem_keepout *keepout;
+	unsigned int nkeepout;
 };
 
 /**
@@ -86,6 +91,62 @@ struct qfprom_touched_values {
 	unsigned long clk_rate;
 	u32 accel_val;
 	u32 timer_val;
+};
+
+/**
+ * struct nvmem_keepout - NVMEM register keepout range.
+ *
+ * @start:     The first byte offset to avoid.
+ * @end:       One beyond the last byte offset to avoid.
+ * @value:     The byte to fill reads with for this region.
+ */
+struct nvmem_keepout {
+	unsigned int start;
+	unsigned int end;
+	unsigned char value;
+};
+
+/**
+ * struct qfprom_soc_compatible_data - Data matched against the SoC
+ * compatible string.
+ *
+ * @keepout: Array of keepout regions for this SoC.
+ * @nkeepout: Number of elements in the keepout array.
+ */
+struct qfprom_soc_compatible_data {
+	const struct nvmem_keepout *keepout;
+	unsigned int nkeepout;
+};
+
+static const struct nvmem_keepout ravelin_qfprom_keepout[] = {
+	{.start = 0x20, .end = 0x24},
+	{.start = 0x28, .end = 0x30},
+	{.start = 0x34, .end = 0x40},
+	{.start = 0x58, .end = 0x60},
+	{.start = 0x68, .end = 0x70},
+	{.start = 0x78, .end = 0x80},
+	{.start = 0x90, .end = 0x100},
+	{.start = 0x138, .end = 0x200},
+	{.start = 0x230, .end = 0x300},
+	{.start = 0x320, .end = 0x400},
+	{.start = 0x460, .end = 0x500},
+	{.start = 0x550, .end = 0x600},
+	{.start = 0x608, .end = 0x610},
+	{.start = 0x618, .end = 0x630},
+	{.start = 0x638, .end = 0x700},
+	{.start = 0x738, .end = 0x73c},
+	{.start = 0x748, .end = 0x770},
+	{.start = 0x7e8, .end = 0x800},
+	{.start = 0x888, .end = 0xa00},
+	{.start = 0xa38, .end = 0xb00},
+	{.start = 0xb08, .end = 0xb10},
+	{.start = 0xb18, .end = 0xd00},
+	{.start = 0xe18, .end = 0x1000}
+};
+
+static const struct qfprom_soc_compatible_data ravelin_qfprom = {
+	.keepout = ravelin_qfprom_keepout,
+	.nkeepout = ARRAY_SIZE(ravelin_qfprom_keepout)
 };
 
 /**
@@ -203,8 +264,8 @@ err_clk_prepared:
  *
  * Return: 0 or -err.
  */
-static int qfprom_reg_write(void *context, unsigned int reg, void *_val,
-			    size_t bytes)
+static int __qfprom_reg_write(void *context, unsigned int reg, void *_val,
+				size_t bytes)
 {
 	struct qfprom_priv *priv = context;
 	struct qfprom_touched_values old;
@@ -267,7 +328,7 @@ exit_enabled_fuse_blowing:
 	return ret;
 }
 
-static int qfprom_reg_read(void *context,
+static int __qfprom_reg_read(void *context,
 			unsigned int reg, void *_val, size_t bytes)
 {
 	struct qfprom_priv *priv = context;
@@ -297,6 +358,150 @@ static int qfprom_reg_read(void *context,
 	return 0;
 }
 
+static int qfprom_access_with_keepouts(void *context, unsigned int offset, void *_val,
+					size_t bytes, int write)
+{
+	unsigned int end = offset + bytes;
+	unsigned int kend, ksize;
+	struct qfprom_priv *priv = context;
+	const struct nvmem_keepout *keepout = priv->keepout;
+	const struct nvmem_keepout *keepoutend = keepout + priv->nkeepout;
+	int rc;
+
+	/*
+	 * Skip all keepouts before the range being accessed.
+	 * Keepouts are sorted.
+	 */
+	while ((keepout < keepoutend) && (keepout->end <= offset))
+		keepout++;
+
+	while ((offset < end) && (keepout < keepoutend)) {
+		/* Access the valid portion before the keepout. */
+		if (offset < keepout->start) {
+			kend = min(end, keepout->start);
+			ksize = kend - offset;
+			if (write)
+				rc = __qfprom_reg_write(context, offset, _val, ksize);
+			else
+				rc = __qfprom_reg_read(context, offset, _val, ksize);
+
+			if (rc)
+				return rc;
+
+			offset += ksize;
+			_val += ksize;
+		}
+
+		/*
+		 * Now we're aligned to the start of this keepout zone. Go
+		 * through it.
+		 */
+		kend = min(end, keepout->end);
+		ksize = kend - offset;
+		if (!write)
+			memset(_val, keepout->value, ksize);
+
+		_val += ksize;
+		offset += ksize;
+		keepout++;
+	}
+
+	/*
+	 * If we ran out of keepouts but there's still stuff to do, send it
+	 * down directly
+	 */
+	if (offset < end) {
+		ksize = end - offset;
+		if (write)
+			return __qfprom_reg_write(context, offset, _val, ksize);
+		else
+			return __qfprom_reg_read(context, offset, _val, ksize);
+	}
+
+	return 0;
+}
+
+static int qfprom_reg_read(void *context, unsigned int reg, void *_val,
+				size_t bytes)
+{
+	struct qfprom_priv *priv = context;
+
+	if (!priv->nkeepout)
+		return __qfprom_reg_read(context, reg, _val, bytes);
+
+	return qfprom_access_with_keepouts(context, reg, _val, bytes, false);
+}
+
+static int qfprom_reg_write(void *context, unsigned int reg, void *_val,
+				size_t bytes)
+{
+	struct qfprom_priv *priv = context;
+
+	if (!priv->nkeepout)
+		return __qfprom_reg_write(context, reg, _val, bytes);
+
+	return qfprom_access_with_keepouts(context, reg, _val, bytes, true);
+}
+
+static int qfprom_validate_keepouts(struct nvmem_config *econfig)
+{
+	unsigned int cur = 0;
+	struct qfprom_priv *priv = econfig->priv;
+	const struct nvmem_keepout *keepout = priv->keepout;
+	const struct nvmem_keepout *keepoutend = keepout + priv->nkeepout;
+	int word_size;
+	int stride;
+
+	word_size = econfig->word_size ?: 1;
+	stride = econfig->stride ?: 1;
+
+	while (keepout < keepoutend) {
+		/* Ensure keepouts are sorted and don't overlap. */
+		if (keepout->start < cur) {
+			dev_err(priv->dev,
+				"Keepout regions aren't sorted or overlap.\n");
+
+			return -ERANGE;
+		}
+
+		if (keepout->end < keepout->start) {
+			dev_err(priv->dev,
+				"Invalid keepout region.\n");
+
+			return -EINVAL;
+		}
+
+		/*
+		 * Validate keepouts (and holes between) don't violate
+		 * word_size constraints.
+		 */
+		if ((keepout->end - keepout->start < word_size) ||
+		    ((keepout->start != cur) &&
+		     (keepout->start - cur < word_size))) {
+
+			dev_err(priv->dev,
+				"Keepout regions violate word_size constraints.\n");
+
+			return -ERANGE;
+		}
+
+		/* Validate keepouts don't violate stride (alignment). */
+		if (!IS_ALIGNED(keepout->start, stride) ||
+		    !IS_ALIGNED(keepout->end, stride)) {
+
+			dev_err(priv->dev,
+				"Keepout regions violate stride.\n");
+
+			return -EINVAL;
+		}
+
+		cur = keepout->end;
+		keepout++;
+	}
+
+	return 0;
+}
+
 static const struct qfprom_soc_data qfprom_7_8_data = {
 	.accel_value = 0xD10,
 	.qfprom_blow_timer_value = 25,
@@ -315,6 +520,7 @@ static int qfprom_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct nvmem_device *nvmem;
+	const struct qfprom_soc_compatible_data *soc_data;
 	struct qfprom_priv *priv;
 	int ret;
 
@@ -333,6 +539,17 @@ static int qfprom_probe(struct platform_device *pdev)
 	econfig.priv = priv;
 
 	priv->dev = dev;
+	soc_data = device_get_match_data(dev);
+	if (soc_data) {
+		priv->keepout = soc_data->keepout;
+		priv->nkeepout = soc_data->nkeepout;
+	}
+
+	if (priv->nkeepout) {
+		ret = qfprom_validate_keepouts(&econfig);
+		if (ret)
+			return ret;
+	}
 
 	/*
 	 * If more than one region is provided then the OS has the ability
@@ -388,6 +605,7 @@ static int qfprom_probe(struct platform_device *pdev)
 
 static const struct of_device_id qfprom_of_match[] = {
 	{ .compatible = "qcom,qfprom",},
+	{ .compatible = "qcom,ravelin-qfprom", .data = &ravelin_qfprom},
 	{/* sentinel */},
 };
 MODULE_DEVICE_TABLE(of, qfprom_of_match);

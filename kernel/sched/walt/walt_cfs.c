@@ -12,6 +12,12 @@
 #include <../../../drivers/android/binder_internal.h>
 #include "../../../drivers/android/binder_trace.h"
 
+#ifdef CONFIG_GAEA_WALT
+#include "../../../drivers/mihw/include/mi_module.h"
+
+extern struct walt_get_indicies_hooks mi_walt_get_indicies_func[WALT_CFS_TYPES];
+#endif
+
 static void create_util_to_cost_pd(struct em_perf_domain *pd)
 {
 	int util, cpu = cpumask_first(to_cpumask(pd->cpus));
@@ -215,6 +221,10 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 		bool *energy_eval_needed, bool *ignore_cluster)
 {
 	int i = 0;
+#ifdef CONFIG_GAEA_WALT
+	bool check_return = false;
+	int mod;
+#endif
 	*order_index = 0;
 	*end_index = 0;
 
@@ -236,6 +246,19 @@ static void walt_get_indicies(struct task_struct *p, int *order_index,
 			*end_index = 1;
 		return;
 	}
+
+#ifdef CONFIG_GAEA_WALT
+	for (mod = 0; mod < WALT_CFS_TYPES; mod++) {
+		if (mi_walt_get_indicies_func[mod].f) {
+			mi_walt_get_indicies_func[mod].f(p, order_index, end_index,
+				num_sched_clusters, &check_return);
+			if(check_return) {
+				*energy_eval_needed = false;
+				return;
+			}
+		}
+	}
+#endif
 
 	if (is_uclamp_boosted || per_task_boost ||
 		task_boost_policy(p) == SCHED_BOOST_ON_BIG ||
@@ -342,6 +365,7 @@ static void walt_find_best_target(struct sched_domain *sd,
 	long spare_wake_cap, most_spare_wake_cap = 0;
 	int most_spare_cap_cpu = -1;
 	int least_nr_cpu = -1;
+	int line_no = -1;
 	unsigned int cpu_rq_runnable_cnt = UINT_MAX;
 	int prev_cpu = task_cpu(p);
 	int order_index = fbt_env->order_index, end_index = fbt_env->end_index;
@@ -415,28 +439,38 @@ retry_ignore_cluster:
 			unsigned int idle_exit_latency = UINT_MAX;
 			struct walt_rq *wrq = (struct walt_rq *) cpu_rq(i)->android_vendor_data1;
 
-			trace_sched_cpu_util(i);
+			trace_sched_cpu_util(i, p, line_no);
 			/* record the prss as we visit cpus in a cluster */
 			fbt_env->prs[i] = wrq->prev_runnable_sum + wrq->grp_time.prev_runnable_sum;
 
-			if (!cpu_active(i))
+			if (!cpu_active(i)) {
+				line_no = __LINE__;
 				continue;
+			}
 
 			/*
 			 * This CPU is the target of an active migration that's
 			 * yet to complete. Avoid placing another task on it.
 			 */
-			if (is_reserved(i))
+			if (is_reserved(i)) {
+				line_no = __LINE__;
 				continue;
+			}
 
-			if (sched_cpu_high_irqload(i))
+			if (sched_cpu_high_irqload(i)) {
+				line_no = __LINE__;
 				continue;
+			}
 
-			if (fbt_env->skip_cpu == i)
+			if (fbt_env->skip_cpu == i) {
+				line_no = __LINE__;
 				continue;
+			}
 
-			if (wrq->num_mvp_tasks > 0)
+			if (wrq->num_mvp_tasks > 0) {
+				line_no = __LINE__;
 				continue;
+			}
 
 			/*
 			 * p's blocked utilization is still accounted for on prev_cpu
@@ -467,8 +501,10 @@ retry_ignore_cluster:
 			 * than the one required to boost the task.
 			 */
 			new_cpu_util = wake_cpu_util + min_task_util;
-			if (new_cpu_util > capacity_orig)
+			if (new_cpu_util > capacity_orig) {
+				line_no = __LINE__;
 				continue;
+			}
 
 			/*
 			 * Find an optimal backup IDLE CPU for non latency
@@ -495,8 +531,11 @@ retry_ignore_cluster:
 
 				this_complex_idle = is_complex_sibling_idle(i) ? 1 : 0;
 
-				if (this_complex_idle < best_complex_idle)
+				if (this_complex_idle < best_complex_idle) {
+					line_no = __LINE__;
 					continue;
+				}
+
 				/*
 				 * Prefer shallowest over deeper idle state cpu,
 				 * of same capacity cpus.
@@ -519,8 +558,10 @@ retry_ignore_cluster:
 			}
 
 			/* skip visiting any more busy if idle was found */
-			if (best_idle_cpu_cluster != -1)
+			if (best_idle_cpu_cluster != -1) {
+				line_no = __LINE__;
 				continue;
+			}
 
 			/*
 			 * Compute the maximum possible capacity we expect
@@ -537,17 +578,23 @@ retry_ignore_cluster:
 			 * boost.
 			 */
 			if (rtg_high_prio_task) {
-				if (walt_nr_rtg_high_prio(i) > target_nr_rtg_high_prio)
+				if (walt_nr_rtg_high_prio(i) > target_nr_rtg_high_prio) {
+					line_no = __LINE__;
 					continue;
+				}
 
 				/* Favor CPUs with maximum spare capacity */
 				if (walt_nr_rtg_high_prio(i) == target_nr_rtg_high_prio &&
-						spare_cap < target_max_spare_cap)
+						spare_cap < target_max_spare_cap) {
+					line_no = __LINE__;
 					continue;
+				}
 			} else {
 				/* Favor CPUs with maximum spare capacity */
-				if (spare_cap < target_max_spare_cap)
+				if (spare_cap < target_max_spare_cap) {
+					line_no = __LINE__;
 					continue;
+				}
 			}
 
 			target_max_spare_cap = spare_cap;
@@ -568,7 +615,6 @@ retry_ignore_cluster:
 			break;
 
 	}
-
 	if (unlikely(most_spare_cap_cpu == -1) && cpumask_empty(candidates) &&
 		!scan_ignore_cluster && ignored && (cluster == num_sched_clusters)) {
 		/*
@@ -601,7 +647,7 @@ retry_ignore_cluster:
 
 out:
 	trace_sched_find_best_target(p, min_task_util, start_cpu, cpumask_bits(candidates)[0],
-			     most_spare_cap_cpu, order_index, end_index,
+			     most_spare_cap_cpu, order_index, end_index, line_no,
 			     fbt_env->skip_cpu, task_on_rq_queued(p), least_nr_cpu,
 			     cpu_rq_runnable_cnt);
 }
@@ -1050,8 +1096,8 @@ int walt_find_energy_efficient_cpu(struct task_struct *p, int prev_cpu,
 unlock:
 	rcu_read_unlock();
 
-	trace_sched_task_util(p, cpumask_bits(candidates)[0], best_energy_cpu,
-			sync, fbt_env.need_idle, fbt_env.fastpath,
+	trace_sched_task_util(p, cpumask_bits(candidates)[0], order_index, end_index,
+			best_energy_cpu, sync, fbt_env.need_idle, fbt_env.fastpath,
 			start_t, uclamp_boost, start_cpu);
 
 	return best_energy_cpu;

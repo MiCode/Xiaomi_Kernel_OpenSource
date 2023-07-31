@@ -436,7 +436,7 @@ config BATTERY_TWL4030_MADC
 
 config QTI_BATTERY_CHARGER
 	tristate "QTI Glink battery charger"
-	depends on QTI_PMIC_GLINK
+	depends on QTI_PMIC_GLINK && EXTCON
 	help
 	  Say Y here to enable Qualcomm Technologies, Inc. battery charger
 	  driver which interfaces with the charger firmware running on the
@@ -446,6 +446,17 @@ config QTI_BATTERY_CHARGER
 
 	  To compile the driver as a module, choose M here: the module will be
 	  called qti_battery_charger.
+
+config SCHGM_FLASH
+	tristate "charger flash"
+	depends on QTI_BATTERY_CHARGER
+	help
+	  Say Y here to enable Qualcomm Technologies, Inc. schgm_flash driver
+	  which handles flash failure, de-rating and allows configuration for
+	  different flash features.
+
+	  To compile the driver as a module, choose M here: the module will be
+	  called schgm-flash.
 
 config CHARGER_88PM860X
 	tristate "Marvell 88PM860x Charger driver"

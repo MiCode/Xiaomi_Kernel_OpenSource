@@ -55,6 +55,7 @@ obj-$(CONFIG_PCI_ENDPOINT_TEST)	+= pci_endpoint_test.o
 obj-$(CONFIG_OCXL)		+= ocxl/
 obj-$(CONFIG_ISL97900_LED)	+= isl97900_led/
 obj-y				+= cardreader/
+obj-y				+= mi-memory/
 obj-$(CONFIG_PVPANIC)   	+= pvpanic.o
 obj-$(CONFIG_HABANA_AI)		+= habanalabs/
 obj-$(CONFIG_UACCE)		+= uacce/
@@ -66,3 +67,16 @@ qseecom-mod-$(CONFIG_QSEECOM)  := qseecom.o
 qseecom-mod-$(CONFIG_COMPAT)	+= compat_qseecom.o
 obj-$(CONFIG_WIGIG_SENSING_SPI)	+= wigig_sensing.o
 obj-$(CONFIG_KINECTICS_XR_NORDIC) += kxrctrl/
+obj-$(CONFIG_KTD3136_BL) += ktd3136_bl/
+obj-$(CONFIG_OCP2131_BIAS) += ocp2131_bias/
+obj-$(CONFIG_XIAOMI_PANEL_NOTIFIER) += xiaomi_panel_notifier/
+obj-$(CONFIG_XIAOMI_TOUCH_NOTIFIER) += xiaomi_touch_notifier/
+obj-$(CONFIG_XIAOMI_USB_TOUCH_NOTIFIER) += xiaomi_usb_touch_notifier/
+obj-$(CONFIG_XIAOMI_HEADSET_TOUCH_NOTIFIER) += xiaomi_headset_touch_notifier/
+obj-m                           += bootinfo.o
+obj-$(CONFIG_PRESS_KEY_TRIGGER_PANIC)       += trigger_panic.o
+obj-$(CONFIG_PERF_HELPER)       += perf_helper.o
+#hardware info start
+obj-$(CONFIG_HARDWARE_INFO) += hardware_info.o
+#hardware info  end
+obj-$(CONFIG_SIMTRAY_STATUS) += simtray/

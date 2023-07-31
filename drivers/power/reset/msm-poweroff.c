@@ -380,7 +380,7 @@ static size_t store_dload_mode(struct kobject *kobj, struct attribute *attr,
 		pr_err("Supported dumps:'full', 'mini', or 'both'\n");
 		return -EINVAL;
 	}
-
+        pr_err("%s: dload_type=0x%x\n", __func__, dload_type);
 	mutex_lock(&tcsr_lock);
 	/*Overwrite TCSR reg*/
 	set_dload_mode(dload_type);
@@ -430,8 +430,9 @@ static void msm_restart_prepare(const char *cmd)
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 	else
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
-
-	if (cmd != NULL) {
+	if (in_panic) {
+                qpnp_pon_set_restart_reason(PON_RESTART_REASON_PANIC);
+        } else if (cmd != NULL) {
 		if (!strncmp(cmd, "bootloader", 10)) {
 			reason = PON_RESTART_REASON_BOOTLOADER;
 			__raw_writel(0x77665500, restart_reason);
@@ -461,7 +462,8 @@ static void msm_restart_prepare(const char *cmd)
 		} else if (!strncmp(cmd, "edl", 3)) {
 			enable_emergency_dload_mode();
 		} else {
-			__raw_writel(0x77665501, restart_reason);
+			qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
+                        __raw_writel(0x77665501, restart_reason);
 		}
 
 		if (reason && nvmem_cell)
@@ -469,7 +471,11 @@ static void msm_restart_prepare(const char *cmd)
 		else
 			qpnp_pon_set_restart_reason(
 				(enum pon_restart_reason)reason);
+	} else {
+		qpnp_pon_set_restart_reason(PON_RESTART_REASON_NORMAL);
+		__raw_writel(0x77665501, restart_reason);
 	}
+
 
 	/*outer_flush_all is not supported by 64bit kernel*/
 #ifndef CONFIG_ARM64

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk-provider.h>
@@ -831,6 +831,7 @@ static struct clk_rcg2 cam_cc_cci_5_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_cphy_rx_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(200000000, P_CAM_CC_PLL0_OUT_MAIN, 6, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(480000000, P_CAM_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
 	{ }
@@ -1173,6 +1174,7 @@ static struct clk_rcg2 cam_cc_ife_1_clk_src = {
 
 static const struct freq_tbl ftbl_cam_cc_ife_lite_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(200000000, P_CAM_CC_PLL0_OUT_MAIN, 6, 0, 0),
 	F(400000000, P_CAM_CC_PLL5_OUT_MAIN, 3, 0, 0),
 	F(480000000, P_CAM_CC_PLL5_OUT_MAIN, 2.5, 0, 0),
 	{ }

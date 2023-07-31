@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __MSM_SDEXPRESS_H
@@ -83,6 +83,8 @@ struct msm_sdexpress_gpio {
  * This structure that defines sdexpress private data.
  */
 struct msm_sdexpress_info {
+	/* to know card enumeration status */
+	bool card_enumerated;
 	/* sdexpress card detect irq */
 	int cd_irq;
 	/* nvme endpoint instance id from pcie */
@@ -103,6 +105,15 @@ struct msm_sdexpress_info {
 	struct delayed_work sdex_work;
 	/* struct kobject for uevents */
 	struct kobject kobj;
+	/*
+	 * This lock must be acquired before doing the actual
+	 * card enumerate/deenumerate functionality.
+	 *
+	 * This is required to ensure that there is no race during
+	 * aggressive PIPO of sdexpress card on bootup and other
+	 * use-cases.
+	 */
+	struct mutex detect_lock;
 };
 
 #endif /* MSM_SDEXPRESS_H */

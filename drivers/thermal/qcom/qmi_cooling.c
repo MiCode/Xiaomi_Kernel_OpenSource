@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
@@ -308,6 +309,34 @@ static int verify_devices_and_register(struct qmi_tmd_instance *tmd)
 			 */
 			qmi_tmd_send_state_request(qmi_cdev,
 							qmi_cdev->mtgn_state);
+			if (!qmi_cdev->cdev)
+				ret = qmi_register_cooling_device(qmi_cdev);
+			break;
+		}
+	}
+
+	for (i = 0; tmd_resp->mitigation_device_list_ext01_valid &&
+		i < tmd_resp->mitigation_device_list_ext01_len; i++) {
+		struct qmi_cooling_device *qmi_cdev = NULL;
+
+		list_for_each_entry(qmi_cdev, &tmd->tmd_cdev_list,
+					qmi_node) {
+			struct tmd_mitigation_dev_list_type_v01 *device =
+				&tmd_resp->mitigation_device_list_ext01[i];
+
+			if ((strncasecmp(qmi_cdev->qmi_name,
+				device->mitigation_dev_id.mitigation_dev_id,
+				QMI_TMD_MITIGATION_DEV_ID_LENGTH_MAX_V01)))
+				continue;
+
+			qmi_cdev->connection_active = true;
+			qmi_cdev->max_level = device->max_mitigation_level;
+			/*
+			 * It is better to set current state
+			 * initially or during restart
+			 */
+			qmi_tmd_send_state_request(qmi_cdev,
+						qmi_cdev->mtgn_state);
 			if (!qmi_cdev->cdev)
 				ret = qmi_register_cooling_device(qmi_cdev);
 			break;

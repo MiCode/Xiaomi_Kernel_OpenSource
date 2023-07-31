@@ -224,7 +224,7 @@
 /* QPHY_POWER_DOWN_CONTROL */
 #define MSM_PCIE_PHY_SW_PWRDN		BIT(0)
 #define MSM_PCIE_PHY_REFCLK_DRV_DSBL	BIT(1)
-/* QPHY_START_CONTROL bits */
+
 #define ICC_AVG_BW (500)
 #define ICC_PEAK_BW (800)
 
@@ -362,6 +362,7 @@ enum msm_pcie_gpio {
 	MSM_PCIE_GPIO_PERST,
 	MSM_PCIE_GPIO_WAKE,
 	MSM_PCIE_GPIO_EP,
+	MSM_PCIE_GPIO_CARD_PRESENCE_PIN,
 	MSM_PCIE_MAX_GPIO
 };
 
@@ -831,6 +832,7 @@ struct msm_pcie_dev_t {
 	u32 dbi_debug_reg_len;
 	u32 *dbi_debug_reg;
 	struct pci_host_bridge *bridge;
+	bool no_client_based_bw_voting;
 };
 
 struct msm_root_dev_t {
@@ -888,7 +890,8 @@ static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
 static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
 	{"perst-gpio", 0, 1, 0, 0, 1},
 	{"wake-gpio", 0, 0, 0, 0, 0},
-	{"qcom,ep-gpio", 0, 1, 1, 0, 0}
+	{"qcom,ep-gpio", 0, 1, 1, 0, 0},
+	{"card-presence-pin", 0, 0, 0, 0, 0}
 };
 
 /* resets */
@@ -1194,7 +1197,7 @@ static void msm_pcie_write_reg(void __iomem *base, u32 offset, u32 value)
 static void msm_pcie_write_reg_field(void __iomem *base, u32 offset,
 	const u32 mask, u32 val)
 {
-	u32 shift = __ffs(mask);
+	u32 shift = (u32)__ffs(mask);
 	u32 tmp = readl_relaxed(base + offset);
 
 	tmp &= ~mask; /* clear written bits */
@@ -1811,7 +1814,7 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 		PCIE_DBG_FS(dev,
 			"\n\nPCIe: RC%d: set keep resources on flag\n\n",
 			dev->rc_idx);
-		msm_pcie_keep_resources_on |= BIT(dev->rc_idx);
+		msm_pcie_keep_resources_on |= (u32)BIT(dev->rc_idx);
 		break;
 	case MSM_PCIE_FORCE_GEN1:
 		PCIE_DBG_FS(dev,
@@ -1877,7 +1880,7 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 	}
 
 	pdev = PCIE_BUS_PRIV_DATA(dev->bus);
-	rc_sel = BIT(pdev->rc_idx);
+	rc_sel = (u32)BIT(pdev->rc_idx);
 
 	msm_pcie_sel_debug_testcase(pdev, option);
 
@@ -3141,6 +3144,63 @@ static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
 
+static int qcom_pcie_icc_bw_update(struct msm_pcie_dev_t *dev, u8 speed, u8 width)
+{
+	u32 bw;
+	int rc;
+
+	if (dev->icc_path) {
+
+		switch (speed) {
+		case 1:
+			bw = 250000; /* avg bw / AB: 2.5 GBps, peak bw / IB: no vote */
+			break;
+		case 2:
+			bw = 500000; /* avg bw / AB: 5 GBps, peak bw / IB: no vote */
+			break;
+		case 3:
+			bw = 1000000; /* avg bw / AB: 8 GBps, peak bw / IB: no vote */
+			break;
+		case 4:
+			bw = 2000000; /* avg bw / AB: 16 GBps, peak bw / IB: no vote */
+			break;
+		case 5:
+			bw = 4000000; /* avg bw / AB: 32 GBps, peak bw / IB: no vote */
+			break;
+		default:
+			bw = 0;
+			break;
+		}
+
+		if (speed == 0) {
+			/* Speed == 0 implies to vote for '0' bandwidth. */
+			rc = icc_set_bw(dev->icc_path, 0, 0);
+		} else {
+			/*
+			 * If there is no icc voting from the client driver then vote for icc
+			 * bandwidth is based up on link speed and width or vote for average
+			 * icc bandwidth.
+			 */
+			if (dev->no_client_based_bw_voting)
+				rc = icc_set_bw(dev->icc_path, width * bw, 0);
+			else
+				rc = icc_set_bw(dev->icc_path, ICC_AVG_BW, ICC_PEAK_BW);
+		}
+
+		if (rc) {
+			PCIE_ERR(dev,
+				"PCIe: RC%d: failed to update ICC path vote. ret %d\n",
+				dev->rc_idx, rc);
+			return rc;
+		}
+
+		PCIE_DBG2(dev, "PCIe: RC%d: successfully updated ICC path vote\n",
+			dev->rc_idx);
+	}
+
+	return 0;
+}
+
 static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 {
 	int i, rc = 0;
@@ -3169,20 +3229,13 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 	if (dev->pipe_clk_mux && dev->pipe_clk_ext_src)
 		clk_set_parent(dev->pipe_clk_mux, dev->pipe_clk_ext_src);
 
-	if (dev->icc_path) {
-		PCIE_DBG(dev, "PCIe: RC%d: setting ICC path vote\n",
-			dev->rc_idx);
-
-		rc = icc_set_bw(dev->icc_path, ICC_AVG_BW, ICC_PEAK_BW);
-		if (rc) {
-			PCIE_ERR(dev,
-				"PCIe: RC%d: failed to set ICC path vote. ret %d\n",
-				dev->rc_idx, rc);
-			return rc;
-		}
-
-		PCIE_DBG2(dev, "PCIe: RC%d: successfully set ICC path vote\n",
-			dev->rc_idx);
+	/* vote with GEN1x1 before link up */
+	rc = qcom_pcie_icc_bw_update(dev, GEN1_SPEED, LINK_WIDTH_X1);
+	if (rc) {
+		PCIE_ERR(dev,
+			"PCIe: RC%d: failed to set ICC path vote. ret %d\n",
+			dev->rc_idx, rc);
+		return rc;
 	}
 
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++) {
@@ -3277,20 +3330,15 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 		if (dev->clk[i].hdl)
 			clk_disable_unprepare(dev->clk[i].hdl);
 
-	if (dev->icc_path) {
-		PCIE_DBG(dev, "PCIe: RC%d: removing ICC path vote\n",
+	rc = qcom_pcie_icc_bw_update(dev, 0, 0);
+	if (rc)
+		PCIE_ERR(dev,
+			"PCIe: RC%d: failed to remove ICC path vote. ret %d.\n",
+			dev->rc_idx, rc);
+	else
+		PCIE_DBG(dev,
+			"PCIe: RC%d: successfully removed ICC path vote\n",
 			dev->rc_idx);
-
-		rc = icc_set_bw(dev->icc_path, 0, 0);
-		if (rc)
-			PCIE_ERR(dev,
-				"PCIe: RC%d: failed to remove ICC path vote. ret %d.\n",
-				dev->rc_idx, rc);
-		else
-			PCIE_DBG(dev,
-				"PCIe: RC%d: successfully removed ICC path vote\n",
-				dev->rc_idx);
-	}
 
 	/* switch phy aux clock mux to xo before turning off gdsc-core */
 	if (dev->phy_aux_clk_mux && dev->ref_clk_src)
@@ -3823,7 +3871,7 @@ static int msm_pcie_get_bw_scale(struct msm_pcie_dev_t *pcie_dev)
 		of_property_read_u32_array(pdev->dev.of_node, "qcom,bw-scale",
 				(u32 *)pcie_dev->bw_scale, size / sizeof(u32));
 
-		pcie_dev->bw_gen_max = size / sizeof(*pcie_dev->bw_scale);
+		pcie_dev->bw_gen_max = (u32)(size / sizeof(*pcie_dev->bw_scale));
 	} else {
 		PCIE_DBG(pcie_dev, "RC%d: bandwidth scaling is not supported\n",
 			pcie_dev->rc_idx);
@@ -3849,7 +3897,7 @@ static int msm_pcie_get_phy(struct msm_pcie_dev_t *pcie_dev)
 	if (!pcie_dev->phy_sequence)
 		return -ENOMEM;
 
-	pcie_dev->phy_len = size / sizeof(*pcie_dev->phy_sequence);
+	pcie_dev->phy_len = (u32)(size / sizeof(*pcie_dev->phy_sequence));
 
 	ret = of_property_read_u32_array(pdev->dev.of_node,
 				"qcom,phy-sequence",
@@ -4007,7 +4055,7 @@ static int msm_pcie_get_iommu_map(struct msm_pcie_dev_t *pcie_dev)
 	of_property_read_u32_array(pdev->dev.of_node,
 		"iommu-map", (u32 *)map, size / sizeof(u32));
 
-	pcie_dev->sid_info_len = size / (sizeof(*map));
+	pcie_dev->sid_info_len = (u32)(size / (sizeof(*map)));
 	pcie_dev->sid_info = devm_kcalloc(&pdev->dev, pcie_dev->sid_info_len,
 				sizeof(*pcie_dev->sid_info), GFP_KERNEL);
 	if (!pcie_dev->sid_info) {
@@ -4291,8 +4339,8 @@ static int msm_pcie_link_train(struct msm_pcie_dev_t *dev)
 			dev->rc_idx);
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 			dev->gpio[MSM_PCIE_GPIO_PERST].on);
-		PCIE_ERR(dev, "PCIe RC%d link initialization failed\n",
-			dev->rc_idx);
+		PCIE_ERR(dev, "PCIe RC%d link initialization failed LTTSM STATE: %s\n",
+			dev->rc_idx, TO_LTSSM_STR((val >> 12) & 0x3f));
 		return MSM_PCIE_ERROR;
 	}
 
@@ -4536,6 +4584,9 @@ static int msm_pcie_enable(struct msm_pcie_dev_t *dev)
 		goto link_fail;
 	}
 
+	if (dev->no_client_based_bw_voting)
+		qcom_pcie_icc_bw_update(dev, dev->current_link_speed, dev->current_link_width);
+
 	if (dev->enumerated) {
 		if (!dev->lpi_enable)
 			msm_msi_config(dev_get_msi_domain(&dev->dev->dev));
@@ -4551,6 +4602,9 @@ link_fail:
 	if (dev->gpio[MSM_PCIE_GPIO_EP].num)
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_EP].num,
 				1 - dev->gpio[MSM_PCIE_GPIO_EP].on);
+
+	/* Mask all the interrupts */
+	msm_pcie_write_reg(dev->parf, PCIE20_PARF_INT_ALL_MASK, 0);
 
 	if (dev->phy_power_down_offset)
 		msm_pcie_write_reg(dev->phy, dev->phy_power_down_offset, 0);
@@ -4987,6 +5041,14 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 		dev->ep_corr_counter, dev->ep_non_fatal_counter,
 		dev->ep_fatal_counter);
 
+	/* Avoid reading of DBI/config space if link is not up */
+	if (!dev->enumerated || dev->link_status != MSM_PCIE_LINK_ENABLED) {
+		PCIE_DBG(dev,
+			"PCIe:AER IRQ for RC%d when the link is not enabled\n",
+			dev->rc_idx);
+		return IRQ_HANDLED;
+	}
+
 	uncorr_val = readl_relaxed(dev->dm_core +
 				PCIE20_AER_UNCORR_ERR_STATUS_REG);
 	corr_val = readl_relaxed(dev->dm_core +
@@ -5003,7 +5065,6 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 			dev->link_status == MSM_PCIE_LINK_ENABLED) {
 			/* Print the dumps only once */
 			dev->aer_dump = true;
-			msm_pcie_clk_dump(dev);
 			pcie_parf_dump(dev);
 			pcie_dm_core_dump(dev);
 			pcie_phy_dump(dev);
@@ -5054,8 +5115,8 @@ static irqreturn_t handle_aer_irq(int irq, void *data)
 		PCIE_DBG2(dev,
 			  "PCIe: %s Error from Endpoint: %02x:%02x.%01x\n",
 			  i ? "Uncorrectable" : "Correctable",
-			  ep_src_bdf >> 24, ep_src_bdf >> 19 & 0x1f,
-			  ep_src_bdf >> 16 & 0x07);
+			  busnr, ep_src_bdf >> 3 & 0x1f,
+			  ep_src_bdf & 0x07);
 
 		aer_cap = pci_find_ext_capability(pcidev, PCI_EXT_CAP_ID_ERR);
 		if (!aer_cap) {
@@ -5141,7 +5202,6 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 
 		if (dev->drv_supported && !dev->suspending &&
 		    dev->link_status == MSM_PCIE_LINK_ENABLED) {
-			msm_pcie_clk_dump(dev);
 			pcie_phy_dump(dev);
 			pcie_parf_dump(dev);
 			pcie_dm_core_dump(dev);
@@ -5162,12 +5222,18 @@ static void msm_pcie_handle_linkdown(struct msm_pcie_dev_t *dev)
 
 	dev->link_status = MSM_PCIE_LINK_DOWN;
 
+	/* Linkdown is expected. As it must be due to card removal action. So return */
+	if ((dev->gpio[MSM_PCIE_GPIO_CARD_PRESENCE_PIN].num) &&
+		(gpio_get_value(dev->gpio[MSM_PCIE_GPIO_CARD_PRESENCE_PIN].num))) {
+		PCIE_DUMP(dev, "Linkdown due to card removal\n");
+		return;
+	}
+
 	if (!dev->suspending && !dev->user_suspend) {
 		/* PCIe registers dump on link down */
 		PCIE_DUMP(dev,
 			"PCIe:Linkdown IRQ for RC%d Dumping PCIe registers\n",
 			dev->rc_idx);
-		msm_pcie_clk_dump(dev);
 		pcie_phy_dump(dev);
 		pcie_parf_dump(dev);
 		pcie_dm_core_dump(dev);
@@ -5358,10 +5424,10 @@ static void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 		disable_irq(dev->wake_n);
 }
 
-static bool msm_pcie_check_l0s_support(struct pci_dev *pdev,
-					struct msm_pcie_dev_t *pcie_dev)
+static int msm_pcie_check_l0s_support(struct pci_dev *pdev, void *dev)
 {
 	struct pci_dev *parent = pdev->bus->self;
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
 	u32 val;
 
 	/* check parent supports L0s */
@@ -5379,7 +5445,8 @@ static bool msm_pcie_check_l0s_support(struct pci_dev *pdev,
 				pcie_dev->rc_idx, parent->bus->number,
 				PCI_SLOT(parent->devfn),
 				PCI_FUNC(parent->devfn));
-			return false;
+			pcie_dev->l0s_supported = false;
+			return 0;
 		}
 	}
 
@@ -5389,10 +5456,10 @@ static bool msm_pcie_check_l0s_support(struct pci_dev *pdev,
 			"PCIe: RC%d: PCI device %02x:%02x.%01x does not support L0s\n",
 			pcie_dev->rc_idx, pdev->bus->number,
 			PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
-		return false;
+		pcie_dev->l0s_supported = false;
 	}
 
-	return true;
+	return 0;
 }
 
 static bool msm_pcie_check_l1_support(struct pci_dev *pdev,
@@ -5536,17 +5603,12 @@ static void msm_pcie_config_l0s(struct msm_pcie_dev_t *dev,
 				struct pci_dev *pdev, bool enable)
 {
 	u32 lnkctl_offset = pdev->pcie_cap + PCI_EXP_LNKCTL;
-	int ret;
 
 	PCIE_DBG(dev, "PCIe: RC%d: PCI device %02x:%02x.%01x %s\n",
 		dev->rc_idx, pdev->bus->number, PCI_SLOT(pdev->devfn),
 		PCI_FUNC(pdev->devfn), enable ? "enable" : "disable");
 
 	if (enable) {
-		ret = msm_pcie_check_l0s_support(pdev, dev);
-		if (!ret)
-			return;
-
 		msm_pcie_config_clear_set_dword(pdev, lnkctl_offset, 0,
 			PCI_EXP_LNKCTL_ASPM_L0S);
 	} else {
@@ -5577,12 +5639,18 @@ static int msm_pcie_config_l0s_enable(struct pci_dev *pdev, void *dev)
 {
 	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)dev;
 
+	if (!pcie_dev->l0s_supported)
+		return 0;
+
 	msm_pcie_config_l0s(pcie_dev, pdev, true);
 	return 0;
 }
 
 static void msm_pcie_config_l0s_enable_all(struct msm_pcie_dev_t *dev)
 {
+	if (dev->l0s_supported)
+		pci_walk_bus(dev->dev->bus, msm_pcie_check_l0s_support, dev);
+
 	if (dev->l0s_supported)
 		pci_walk_bus(dev->dev->bus, msm_pcie_config_l0s_enable, dev);
 }
@@ -5756,7 +5824,9 @@ static int msm_pcie_config_l1_2_threshold(struct pci_dev *pdev, void *dev)
 
 	l1ss_ctl1_offset = l1ss_cap_id_offset + PCI_L1SS_CTL1;
 
-	msm_pcie_config_clear_set_dword(pdev, l1ss_ctl1_offset, 0,
+	msm_pcie_config_clear_set_dword(pdev, l1ss_ctl1_offset,
+		(PCI_L1SS_CTL1_LTR_L12_TH_SCALE |
+		PCI_L1SS_CTL1_LTR_L12_TH_VALUE),
 		(PCI_L1SS_CTL1_LTR_L12_TH_SCALE &
 		(pcie_dev->l1_2_th_scale << l1_2_th_scale_shift)) |
 		(PCI_L1SS_CTL1_LTR_L12_TH_VALUE &
@@ -5926,6 +5996,10 @@ static int msm_pcie_probe(struct platform_device *pdev)
 
 	pcie_dev->apss_based_l1ss_sleep = of_property_read_bool(of_node,
 				"qcom,apss-based-l1ss-sleep");
+
+	pcie_dev->no_client_based_bw_voting = of_property_read_bool(of_node,
+				"qcom,no-client-based-bw-voting");
+
 	of_property_read_u32(of_node, "qcom,l1-2-th-scale",
 				&pcie_dev->l1_2_th_scale);
 	of_property_read_u32(of_node, "qcom,l1-2-th-value",
@@ -6662,6 +6736,9 @@ int msm_pcie_set_link_bandwidth(struct pci_dev *pci_dev, u16 target_link_speed,
 	if (target_link_speed < current_link_speed)
 		msm_pcie_scale_link_bandwidth(pcie_dev, target_link_speed);
 
+	qcom_pcie_icc_bw_update(pcie_dev,
+			pcie_dev->current_link_speed, pcie_dev->current_link_width);
+
 	PCIE_DBG(pcie_dev, "PCIe: RC%d: successfully switched link bandwidth\n",
 		pcie_dev->rc_idx);
 out:
@@ -6675,7 +6752,7 @@ EXPORT_SYMBOL(msm_pcie_set_link_bandwidth);
 static int __maybe_unused msm_pcie_pm_suspend_noirq(struct device *dev)
 {
 	u32 val;
-	int ret_l1ss, i, rc;
+	int ret_l1ss, i;
 	unsigned long irqsave_flags;
 	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *)
 						dev_get_drvdata(dev);
@@ -6751,17 +6828,7 @@ static int __maybe_unused msm_pcie_pm_suspend_noirq(struct device *dev)
 			if (pcie_dev->clk[i].hdl)
 				clk_disable_unprepare(pcie_dev->clk[i].hdl);
 
-		if (pcie_dev->icc_path) {
-			rc = icc_set_bw(pcie_dev->icc_path, 0, 0);
-			if (rc)
-				PCIE_ERR(pcie_dev,
-					"PCIe: RC%d: failed to remove ICC path vote. ret %d.\n",
-					pcie_dev->rc_idx, rc);
-			else
-				PCIE_DBG(pcie_dev,
-					"PCIe: RC%d: successfully removed ICC path vote\n",
-					pcie_dev->rc_idx);
-		}
+		qcom_pcie_icc_bw_update(pcie_dev, 0, 0);
 
 		/* switch phy aux clock mux to xo before turning off gdsc-core */
 		if (pcie_dev->phy_aux_clk_mux && pcie_dev->ref_clk_src)
@@ -6811,21 +6878,27 @@ static int __maybe_unused msm_pcie_pm_resume_noirq(struct device *dev)
 		if (rc) {
 			PCIE_ERR(pcie_dev, "PCIe: fail to enable GDSC-CORE for RC%d (%s)\n",
 					pcie_dev->rc_idx, pcie_dev->pdev->name);
-					return rc;
+			msm_pcie_vreg_deinit_analog_rails(pcie_dev);
+			mutex_unlock(&pcie_dev->recovery_lock);
+			return rc;
 		}
 
 		/* switch pipe clock source after gdsc-core is turned on */
 		if (pcie_dev->pipe_clk_mux && pcie_dev->pipe_clk_ext_src)
 			clk_set_parent(pcie_dev->pipe_clk_mux, pcie_dev->pipe_clk_ext_src);
 
-		if (pcie_dev->icc_path) {
-			rc = icc_set_bw(pcie_dev->icc_path, ICC_AVG_BW, ICC_PEAK_BW);
-			if (rc) {
-				PCIE_ERR(pcie_dev,
-					"PCIe: RC%d: failed to set ICC path vote. ret %d\n",
-					pcie_dev->rc_idx, rc);
-				return rc;
-			}
+		rc = qcom_pcie_icc_bw_update(pcie_dev,
+			pcie_dev->current_link_speed, pcie_dev->current_link_width);
+		if (rc) {
+			PCIE_ERR(pcie_dev,
+				"PCIe: RC%d: failed to set ICC path vote. ret %d\n",
+				pcie_dev->rc_idx, rc);
+			if (pcie_dev->pipe_clk_ext_src && pcie_dev->pipe_clk_mux)
+				clk_set_parent(pcie_dev->pipe_clk_ext_src, pcie_dev->pipe_clk_mux);
+			regulator_disable(pcie_dev->gdsc_core);
+			msm_pcie_vreg_deinit_analog_rails(pcie_dev);
+			mutex_unlock(&pcie_dev->recovery_lock);
+			return rc;
 		}
 
 		/* Enable all clocks */
@@ -7340,9 +7413,9 @@ static void __msm_pcie_l1ss_timeout_enable(struct msm_pcie_dev_t *pcie_dev)
 	msm_pcie_write_mask(pcie_dev->parf + PCIE20_PARF_DEBUG_INT_EN, 0,
 			    PCIE20_PARF_DEBUG_INT_EN_L1SUB_TIMEOUT_BIT);
 
-	val = PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER_RESET |
+	val = (u32)(PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER_RESET |
 	      L1SS_TIMEOUT_US_TO_TICKS(L1SS_TIMEOUT_US,
-				       pcie_dev->aux_clk_freq);
+				       pcie_dev->aux_clk_freq));
 
 	msm_pcie_write_reg(pcie_dev->parf, PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER,
 			   val);
@@ -7667,13 +7740,8 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 
 	PCIE_DBG(pcie_dev, "PCIe: RC%d:set ICC path vote\n", pcie_dev->rc_idx);
 
-	if (pcie_dev->icc_path) {
-		ret = icc_set_bw(pcie_dev->icc_path, ICC_AVG_BW, ICC_PEAK_BW);
-		if (ret)
-			PCIE_ERR(pcie_dev,
-				"PCIe: RC%d: failed to set ICC path vote. ret %d\n",
-				pcie_dev->rc_idx, ret);
-	}
+	qcom_pcie_icc_bw_update(pcie_dev,
+		pcie_dev->current_link_speed, pcie_dev->current_link_width);
 
 	PCIE_DBG(pcie_dev, "PCIe: RC%d:turn on unsuppressible clks\n",
 		pcie_dev->rc_idx);
@@ -7693,9 +7761,9 @@ static int msm_pcie_drv_resume(struct msm_pcie_dev_t *pcie_dev)
 	PCIE_DBG(pcie_dev, "PCIe: RC%d:turn on unsuppressible clks Done.\n",
 		pcie_dev->rc_idx);
 
-	clkreq_override_en = readl_relaxed(pcie_dev->parf +
+	clkreq_override_en = (u32)(readl_relaxed(pcie_dev->parf +
 				PCIE20_PARF_CLKREQ_OVERRIDE) &
-				PCIE20_PARF_CLKREQ_IN_ENABLE;
+				PCIE20_PARF_CLKREQ_IN_ENABLE);
 	if (clkreq_override_en)
 		PCIE_DBG(pcie_dev,
 			"PCIe: RC%d: CLKREQ Override detected\n",
@@ -7856,16 +7924,7 @@ static int msm_pcie_drv_suspend(struct msm_pcie_dev_t *pcie_dev,
 		if (clk_info->hdl && !clk_info->suppressible)
 			clk_disable_unprepare(clk_info->hdl);
 
-	if (pcie_dev->icc_path) {
-		PCIE_DBG(pcie_dev, "PCIe: RC%d: removing ICC path vote\n",
-			pcie_dev->rc_idx);
-
-		ret = icc_set_bw(pcie_dev->icc_path, 0, 0);
-		if (ret)
-			PCIE_ERR(pcie_dev,
-				"PCIe: RC%d: failed to remove ICC path vote. ret %d.\n",
-				pcie_dev->rc_idx, ret);
-	}
+	qcom_pcie_icc_bw_update(pcie_dev, 0, 0);
 
 	regulator_disable(pcie_dev->gdsc_core);
 
@@ -8247,7 +8306,7 @@ int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 				 node) {
 		if (reg_itr->user == reg->user) {
 			list_del(&reg->node);
-			spin_unlock(&pcie_dev->evt_reg_list_lock);
+			spin_unlock_irqrestore(&pcie_dev->evt_reg_list_lock, flags);
 			PCIE_DBG(pcie_dev,
 				 "PCIe: RC%d: Event deregistered for BDF 0x%04x\n",
 				 pcie_dev->rc_idx,

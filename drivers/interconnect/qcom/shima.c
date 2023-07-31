@@ -2697,11 +2697,5 @@ static int __init qnoc_driver_init(void)
 }
 core_initcall(qnoc_driver_init);
 
-static void __exit qnoc_driver_exit(void)
-{
-	platform_driver_unregister(&qnoc_driver);
-}
-module_exit(qnoc_driver_exit);
-
 MODULE_DESCRIPTION("Shima NoC driver");
 MODULE_LICENSE("GPL v2");

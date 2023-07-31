@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -154,7 +154,7 @@ static void nb7vpq904m_vdd_enable(struct nb7vpq904m_redriver *redriver, bool on)
 {
 	int l, v, s;
 
-	if (!redriver->vdd || redriver->op_mode != OP_MODE_NONE) {
+	if (!redriver->vdd) {
 		dev_dbg(redriver->dev, "no vdd regulator operation\n");
 		return;
 	}
@@ -516,6 +516,7 @@ static int nb7vpq904m_notify_disconnect(struct usb_redriver *r)
 {
 	struct nb7vpq904m_redriver *redriver =
 		container_of(r, struct nb7vpq904m_redriver, r);
+	int ret;
 
 	dev_dbg(redriver->dev, "%s: mode %s\n", __func__,
 		OPMODESTR(redriver->op_mode));
@@ -524,11 +525,12 @@ static int nb7vpq904m_notify_disconnect(struct usb_redriver *r)
 		return 0;
 
 	redriver->op_mode = OP_MODE_NONE;
-	nb7vpq904m_reg_set(redriver, GEN_DEV_SET_REG, 0);
+	ret = nb7vpq904m_reg_set(redriver, GEN_DEV_SET_REG, 0);
 
-	nb7vpq904m_vdd_enable(redriver, false);
+	if (!ret)
+		nb7vpq904m_vdd_enable(redriver, false);
 
-	return 0;
+	return ret;
 }
 
 static int nb7vpq904m_release_usb_lanes(struct usb_redriver *r, int ort, int num)
@@ -544,6 +546,8 @@ static int nb7vpq904m_release_usb_lanes(struct usb_redriver *r, int ort, int num
 		redriver->op_mode = OP_MODE_DP;
 	else if (num == LANES_DP_AND_USB)
 		redriver->op_mode = OP_MODE_USB_AND_DP;
+
+	nb7vpq904m_vdd_enable(redriver, true);
 
 	/* in case it need aux function from redriver and the first call is release lane */
 	orientation_set(redriver, ort);
@@ -729,14 +733,15 @@ static int nb7vpq904m_probe(struct i2c_client *client,
 	/* disable it at start, one i2c register write time is acceptable */
 	redriver->op_mode = OP_MODE_NONE;
 	nb7vpq904m_vdd_enable(redriver, true);
-	nb7vpq904m_gen_dev_set(redriver);
+	ret = nb7vpq904m_gen_dev_set(redriver);
 	/* when private vdd present and change to none mode, it can simply disable vdd regulator,
 	 * but to keep things simple and avoid if/else operation, keep one same rule as,
 	 * allow original register write operation then control vdd regulator.
 	 * also it will keep consistent behavior if it still need vdd control when multiple
 	 * clients share the same vdd regulator.
 	 */
-	nb7vpq904m_vdd_enable(redriver, false);
+	if (!ret)
+		nb7vpq904m_vdd_enable(redriver, false);
 
 	nb7vpq904m_orientation_gpio_init(redriver);
 

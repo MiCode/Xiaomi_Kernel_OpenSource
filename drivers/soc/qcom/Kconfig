@@ -467,6 +467,7 @@ config QCOM_RUN_QUEUE_STATS
 
 config QCOM_RPMPD
 	tristate "Qualcomm RPM Power domain driver"
+	depends on PM
 	depends on QCOM_SMD_RPM
 	help
 	  QCOM RPM Power domain driver to support power-domains with
@@ -1254,6 +1255,13 @@ config QTI_OEMVM_CORE_CTL
 	  mapping information is recorded when OEMVM bootup. The driver provides
 	  API for user to migrate vCPU to current pCPU then yield on current
 	  pCPU. User can also recover vCPU mapping after work is done.
+
+config QCOM_MINIDUMP_LAST_KMSG
+       bool "export /proc/last_kmsg"
+       depends on QCOM_MINIDUMP
+       help
+         When the option is enabled, last_kmsg will export a proc filesystem
+         interface /proc/last_kmsg.
 
 source "drivers/soc/qcom/icnss2/Kconfig"
 source "drivers/soc/qcom/sync_fence/Kconfig"

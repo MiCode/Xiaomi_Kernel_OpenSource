@@ -211,3 +211,17 @@ config SCSI_UFS_HPB
 	  L2P (logical to physical) map of UFS to host DRAM. The driver uses HPB
 	  read command by piggybacking physical page number for bypassing FTL (flash
 	  translation layer)'s L2P address translation.
+
+config UFS_WB
+	  bool "UFS WB"
+	  depends on SCSI_UFS_QCOM
+
+config UFSGKI
+	bool "UFS GKI"
+        depends on SCSI_UFS_QCOM
+
+config CLD
+        bool "UFS CLD"
+        depends on SCSI_UFS_QCOM
+        help
+	 Kernel configuration file for MI UFS features

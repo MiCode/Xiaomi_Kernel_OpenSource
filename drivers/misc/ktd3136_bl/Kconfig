@@ -1,0 +1,11 @@
+#
+# KTD3136 backlight IC driver configuration
+#
+
+config KTD3136_BL
+	tristate "KTD3136 backlight IC"
+	default m
+	help
+	  Say Y here if you have KTD3136 backlight IC.
+	  If unsure, say N.
+

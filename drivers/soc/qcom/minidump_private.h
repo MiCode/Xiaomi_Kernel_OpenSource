@@ -78,4 +78,8 @@ struct md_global_toc {
 
 int msm_minidump_log_init(void);
 
+#if IS_ENABLED(CONFIG_QCOM_MINIDUMP_LAST_KMSG)
+int last_kmsg_driver_init(void);
+#endif
+
 #endif

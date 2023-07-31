@@ -1,0 +1,11 @@
+#
+# Xiaomi usb touch notifier driver configuration
+#
+
+config XIAOMI_USB_TOUCH_NOTIFIER
+	tristate "Xiaomi usb touch notifier"
+	default m
+	help
+	  Say Y here if you use xiaomi usb touch notifier.
+	  If unsure, say N.
+

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/bitmap.h>
@@ -79,6 +79,8 @@
 #define SLP_ENABLE                    BIT(0)
 #define WAKEUP_COMMAND                BIT(1)
 #define SLEEP_COMMAND                 BIT(0)
+#define SLP_CTRL_CLK_EN               BIT(0)
+#define WR_ENABLE                     BIT(1)
 #define SZ_7MB                        7168
 #define SZ_6MB                        6144
 #define ACTIVE_STATE                  0x0
@@ -103,6 +105,8 @@
 #define SPAD_LPI_LB_PCB_PWR_STATUS1    0x0058
 #define SPAD_LPI_LB_PCB_PWR_STATUS2    0x005C
 #define SPAD_LPI_LB_PCB_PWR_STATUS3    0x0060
+#define SPAD_LPI_LB_CLK_EN_CFG         0x0104
+#define SPAD_LPI_LB_PRED_WAKEUP_EN     0x0284
 #define SPAD_LPI_LB_FF_CLK_ON_CTRL     0x1254
 
 static u32 llcc_offsets_v2[] = {
@@ -281,22 +285,22 @@ static const struct llcc_slice_config neo_sg_data[] =  {
 
 
 static const struct llcc_slice_config neo_sg_v2_data[] =  {
-	{LLCC_CPUSS,     1,  4096, 1, 0, 0x1FF,  0x0,   0, 0, 0, 1, 1, 0, 0 },
-	{LLCC_VIDSC0,    2,   512, 3, 1, 0x1FF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_AUDIO,     6,  1024, 3, 1, 0x1FF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CMPT,     10,  1024, 1, 1, 0x1FF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_GPUHTW,   11,     0, 1, 1, 0x1FF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_GPU,      12,  3072, 3, 1, 0x1FF,  0x0,   0, 0, 0, 1, 0, 1, 0 },
-	{LLCC_MMUHWT,   13,   512, 1, 1, 0x1FF,  0x0,   0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_DISP,     16,     0, 1, 1, 0x1FF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CVP,      28,   256, 3, 1, 0x1FF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_APTCM,    26,  2048, 3, 1,   0x0,  0x3,   1, 0, 1, 1, 0, 0, 0 },
-	{LLCC_WRTCH,    31,   256, 1, 1, 0x1FF,  0x0,   0, 0, 0, 0, 1, 0, 0 },
-	{LLCC_AENPU,    30,  3072, 3, 1, 0x1FF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_DISLFT,   17,     0, 1, 1,   0x0,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_DISRGHT,  18,     0, 1, 1,   0x0,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_EVCSLFT,  22,     0, 1, 1,   0x0,  0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_EVCSRGHT, 23,     0, 1, 1,   0x0,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CPUSS,     1,  4096, 1, 0, 0x1FFF,  0x0,   0, 0, 0, 1, 1, 0, 0 },
+	{LLCC_VIDSC0,    2,   512, 3, 1, 0x1FFF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_AUDIO,     6,  1024, 3, 1, 0x1FFF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CMPT,     10,  1024, 1, 1, 0x1FFF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_GPUHTW,   11,     0, 1, 1, 0x1FFF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_GPU,      12,  3072, 3, 1, 0x1FFF,  0x0,   0, 0, 0, 1, 0, 1, 0 },
+	{LLCC_MMUHWT,   13,   512, 1, 1, 0x1FFF,  0x0,   0, 0, 0, 0, 0, 0, 0 },
+	{LLCC_DISP,     16,     0, 1, 1, 0x1FFF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_CVP,      28,   256, 3, 1, 0x1FFF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_APTCM,    26,  2048, 3, 1,    0x0,  0x3,   1, 0, 1, 1, 0, 0, 0 },
+	{LLCC_WRTCH,    31,   256, 1, 1, 0x1FFF,  0x0,   0, 0, 0, 0, 1, 0, 0 },
+	{LLCC_AENPU,    30,  3072, 3, 1, 0x1FFF,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_DISLFT,   17,     0, 1, 1,    0x0,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_DISRGHT,  18,     0, 1, 1,    0x0,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_EVCSLFT,  22,     0, 1, 1,    0x0,  0x0,   0, 0, 0, 1, 0, 0, 0 },
+	{LLCC_EVCSRGHT, 23,     0, 1, 1,    0x0,  0x0,   0, 0, 0, 1, 0, 0, 0 },
 };
 
 
@@ -354,29 +358,16 @@ static const struct llcc_slice_config cape_data[] =  {
 };
 
 static const struct llcc_slice_config ukee_data[] =  {
-	{LLCC_CPUSS,     1, 1792, 0, 1, 0xFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
+	{LLCC_CPUSS,     1, 1792, 0, 0, 0xFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
 	{LLCC_VIDSC0,    2,  512, 3, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_AUDIO,     6, 1024, 1, 1, 0xFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
 	{LLCC_MDMHPGRW,  7, 512, 3, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_MDMHW,     9, 1024, 1, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CMPT,     10, 4096, 1, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_GPUHTW,   11,  256, 1, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_GPU,      12, 1024, 1, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 1, 0 },
 	{LLCC_MMUHWT,   13,  256, 1, 1, 0xFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
 	{LLCC_DISP,     16, 2048, 1, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_MDMPNG,   21, 1024, 0, 1, 0xF0, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_AUDHW,    22, 1024, 1, 1, 0xFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
-	{LLCC_CVP,      28,  256, 3, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_MDMVPE,   29,   64, 3, 1, 0xF0, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_APTCM,    30, 1024, 3, 1, 0x0,    0xF0,  1, 0, 0, 1, 0, 0, 0 },
+	{LLCC_MDMVPE,   29,   64, 1, 1, 0xF0, 0x0,   0, 0, 0, 1, 0, 0, 0 },
 	{LLCC_WRTCH,    31,  256, 1, 1, 0xFF, 0x0,   0, 0, 0, 0, 1, 0, 0 },
-	{LLCC_CVPFW,    17,  512, 1, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CPUSS1,    3, 1024, 1, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CAMEXP0,   4,  256, 3, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_CPUMTE,   23,  256, 1, 1, 0x0F, 0x0,   0, 0, 0, 0, 1, 0, 0 },
-	{LLCC_CPUHWT,    5,  512, 1, 1, 0xFF, 0x0,   0, 0, 0, 1, 1, 0, 0 },
-	{LLCC_CAMEXP1,  27,  256, 3, 1, 0xFF, 0x0,   0, 0, 0, 1, 0, 0, 0 },
-	{LLCC_AENPU,     8, 2048, 1, 1, 0xFF, 0x0,   0, 0, 0, 0, 0, 0, 0 },
 };
 
 static const struct llcc_slice_config diwali_data[] =  {
@@ -575,9 +566,14 @@ static inline int llcc_spad_check_regmap(void)
 
 static inline int llcc_spad_clk_on_ctrl(void)
 {
+	u32 lpi_reg;
+	u32 lpi_val;
+
 	/* Clear FF_CLK_ON override and override value CSR */
-	return regmap_write(drv_data->spad_or_bcast_regmap,
-			    SPAD_LPI_LB_FF_CLK_ON_CTRL, 0);
+	lpi_reg = SPAD_LPI_LB_FF_CLK_ON_CTRL;
+	regmap_read(drv_data->spad_or_bcast_regmap, lpi_reg, &lpi_val);
+	lpi_val &= ~(FF_CLK_ON_OVERRIDE | FF_CLK_ON_OVERRIDE_VALUE);
+	return regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg, lpi_val);
 }
 
 static int llcc_spad_poll_state(struct llcc_slice_desc *desc, u32 s0, u32 s1)
@@ -644,6 +640,19 @@ static int llcc_spad_act_slp_wake(void)
 			   lpi_val);
 	if (ret)
 		return ret;
+	lpi_reg = SPAD_LPI_LB_CLK_EN_CFG;
+	regmap_read(drv_data->spad_or_bcast_regmap, lpi_reg, &lpi_val);
+	lpi_val |= SLP_CTRL_CLK_EN;
+	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
+			   lpi_val);
+	if (ret)
+		return ret;
+	lpi_reg = SPAD_LPI_LB_PRED_WAKEUP_EN;
+	lpi_val = WR_ENABLE;
+	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
+			   lpi_val);
+	if (ret)
+		return ret;
 
 	/* As activity based sleep and wakeup tracks inflight transactions,
 	 * idle cycles etc for an PCB few other CSRs needs to be configured
@@ -693,7 +702,8 @@ static int llcc_spad_init(struct llcc_slice_desc *desc)
 	 * following CSR will be 1
 	 */
 	lpi_reg = SPAD_LPI_LB_FF_CLK_ON_CTRL;
-	lpi_val = FF_CLK_ON_OVERRIDE | FF_CLK_ON_OVERRIDE_VALUE;
+	regmap_read(drv_data->spad_or_bcast_regmap, lpi_reg, &lpi_val);
+	lpi_val |= FF_CLK_ON_OVERRIDE | FF_CLK_ON_OVERRIDE_VALUE;
 	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
 			   lpi_val);
 	if (ret)
@@ -704,6 +714,12 @@ static int llcc_spad_init(struct llcc_slice_desc *desc)
 	 * based sleep and wakeup.
 	 */
 	lpi_reg = SPAD_LPI_LB_PCB_ENABLE;
+	lpi_val = 0;
+	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
+			   lpi_val);
+	if (ret)
+		return ret;
+	lpi_reg = SPAD_LPI_LB_PRED_WAKEUP_EN;
 	lpi_val = 0;
 	ret = regmap_write(drv_data->spad_or_bcast_regmap, lpi_reg,
 			   lpi_val);

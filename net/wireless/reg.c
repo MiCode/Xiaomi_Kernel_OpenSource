@@ -1016,6 +1016,7 @@ static int query_regdb(const char *alpha2)
 	return -ENODATA;
 }
 
+#if 0
 static void regdb_fw_cb(const struct firmware *fw, void *context)
 {
 	int set_error = 0;
@@ -1059,6 +1060,7 @@ static void regdb_fw_cb(const struct firmware *fw, void *context)
 
 	release_firmware(fw);
 }
+#endif
 
 MODULE_FIRMWARE("regulatory.db");
 
@@ -1073,9 +1075,11 @@ static int query_regdb_file(const char *alpha2)
 	if (!alpha2)
 		return -ENOMEM;
 
-	return request_firmware_nowait(THIS_MODULE, true, "regulatory.db",
-				       &reg_pdev->dev, GFP_KERNEL,
-				       (void *)alpha2, regdb_fw_cb);
+	//return request_firmware_nowait(THIS_MODULE, true, "regulatory.db",
+	//			       &reg_pdev->dev, GFP_KERNEL,
+	//(void *)alpha2, regdb_fw_cb);
+	return -ENOENT;
+
 }
 
 int reg_reload_regdb(void)

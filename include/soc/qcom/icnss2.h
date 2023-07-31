@@ -98,6 +98,10 @@ struct icnss_shadow_reg_v2_cfg {
 	u32 addr;
 };
 
+struct icnss_shadow_reg_v3_cfg {
+	u32 addr;
+};
+
 struct icnss_rri_over_ddr_cfg {
 	u32 base_addr_low;
 	u32 base_addr_high;
@@ -112,6 +116,8 @@ struct icnss_wlan_enable_cfg {
 	struct icnss_shadow_reg_cfg *shadow_reg_cfg;
 	u32 num_shadow_reg_v2_cfg;
 	struct icnss_shadow_reg_v2_cfg *shadow_reg_v2_cfg;
+	u32 num_shadow_reg_v3_cfg;
+	struct icnss_shadow_reg_v3_cfg *shadow_reg_v3_cfg;
 	bool rri_over_ddr_cfg_valid;
 	struct icnss_rri_over_ddr_cfg rri_over_ddr_cfg;
 };

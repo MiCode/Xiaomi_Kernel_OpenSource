@@ -118,6 +118,7 @@ config USB_LAN78XX
 	select MICROCHIP_PHY
 	select FIXED_PHY
 	select CRC32
+	default m
 	help
 	  This option adds support for Microchip LAN78XX based USB 2
 	  & USB 3 10/100/1000 Ethernet adapters.
@@ -169,7 +170,7 @@ config USB_NET_AX8817X
 	depends on USB_USBNET
 	select CRC32
 	select PHYLIB
-	default y
+	default m
 	help
 	  This option adds support for ASIX AX88xxx based USB 2.0
 	  10/100 Ethernet adapters.
@@ -199,7 +200,7 @@ config USB_NET_AX88179_178A
 	depends on USB_USBNET
 	select CRC32
 	select PHYLIB
-	default y
+	default m
 	help
 	  This option adds support for ASIX AX88179 based USB 3.0/2.0
 	  to Gigabit Ethernet adapters.

@@ -14,11 +14,130 @@
 #include <linux/soc/qcom/smem_state.h>
 #include <linux/remoteproc.h>
 #include <linux/delay.h>
+//wt wangxu2 add for HONGMI-163683 of IMEI protect 2022.07.01 begin
+#include <linux/workqueue.h>
+#include <linux/slab.h>
+//wt wangxu2 add for HONGMI-163683 of IMEI protect 2022.07.01 end
 #include "qcom_common.h"
 #include "qcom_q6v5.h"
 #include <trace/events/rproc_qcom.h>
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 begin
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 end
 
 #define Q6V5_PANIC_DELAY_MS	200
+#define MAX_SSR_REASON_LEN	256U
+
+//wt wangxu2 add for HONGMI-163683 of IMEI protect begin
+#define STR_NV_SIGNATURE_DESTROYED "CRITICAL_DATA_CHECK_FAILED"
+
+static char last_modem_sfr_reason[MAX_SSR_REASON_LEN] = "none";
+static struct kobject *checknv_kobj;
+static struct kset *checknv_kset;
+
+static const struct sysfs_ops checknv_sysfs_ops = {
+};
+
+static void kobj_release(struct kobject *kobj)
+{
+	kfree(kobj);
+}
+static struct kobj_type checknv_ktype = {
+	.sysfs_ops = &checknv_sysfs_ops,
+	.release = kobj_release,
+};
+static void checknv_kobj_clean(struct work_struct *work)
+{
+	kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+}
+static void checknv_kobj_create(struct work_struct *work)
+{
+	int ret;
+	if (checknv_kset != NULL) {
+		pr_info("checknv_kset is not NULL, should clean up.");
+		kobject_uevent(checknv_kobj, KOBJ_REMOVE);
+		kobject_put(checknv_kobj);
+	}
+	checknv_kobj = kzalloc(sizeof(struct kobject), GFP_KERNEL);
+	if (!checknv_kobj) {
+		pr_info("kobject alloc failed.");
+		return;
+	}
+	if (checknv_kset == NULL) {
+		checknv_kset = kset_create_and_add("checknv_errimei", NULL, NULL);
+		if (!checknv_kset) {
+			pr_err("kset creation failed.");
+			goto free_kobj;
+		}
+	}
+	checknv_kobj->kset = checknv_kset;
+	ret = kobject_init_and_add(checknv_kobj, &checknv_ktype, NULL, "%s", "errimei");
+	if (ret) {
+		pr_info("%s: Error in creation kobject", __func__);
+		goto del_kobj;
+	}
+        pr_info("wangxu start");
+	kobject_uevent(checknv_kobj, KOBJ_ADD);
+        pr_info("wangxu start success");
+	return;
+del_kobj:
+	kobject_put(checknv_kobj);
+	kset_unregister(checknv_kset);
+free_kobj:
+	kfree(checknv_kobj);
+}
+static DECLARE_DELAYED_WORK(create_kobj_work, checknv_kobj_create);
+static DECLARE_WORK(clean_kobj_work, checknv_kobj_clean);
+//wt wangxu2 add for HONGMI-163683 of IMEI protect end
+
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 begin
+#define MAX_CRASH_REASON    256
+static int crash_num = 0;
+static bool ramdump_state = false;
+
+static struct proc_dir_entry *last_modem_sfr_entry = NULL;
+static struct proc_dir_entry *ramdump_state_sfr_entry = NULL;
+static char modem_crash_reason[MAX_CRASH_REASON][MAX_SSR_REASON_LEN]={"0"};
+/* modem crash history entry */
+static int last_modem_sfr_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", last_modem_sfr_reason);
+	return 0;
+}
+static int last_modem_sfr_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, last_modem_sfr_proc_show, NULL);
+}
+static const struct proc_ops last_modem_sfr_file_ops = {
+	//.owner   = THIS_MODULE,
+	.proc_open    = last_modem_sfr_proc_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = single_release,
+};
+/* ramdump state entry */
+static int ramdump_state_proc_clear(struct seq_file *m, void *v)
+{
+	ramdump_state = true;
+	pr_err("ramdump state change\n");
+	seq_printf(m, "%s\n", "null");
+	return 0;
+}
+static int ramdump_state_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ramdump_state_proc_clear, NULL);
+}
+static const struct proc_ops ramdump_state_file_ops = {
+	//.owner   = THIS_MODULE,
+	.proc_open    = ramdump_state_proc_open,
+	.proc_read    = seq_read,
+	.proc_lseek   = seq_lseek,
+	.proc_release = single_release,
+};
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 end
 
 /**
  * qcom_q6v5_prepare() - reinitialize the qcom_q6v5 context before start
@@ -28,6 +147,21 @@
  */
 int qcom_q6v5_prepare(struct qcom_q6v5 *q6v5)
 {
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 begin
+    if (last_modem_sfr_entry == NULL) {
+		last_modem_sfr_entry = proc_create("last_mcrash", S_IFREG | S_IRUGO, NULL, &last_modem_sfr_file_ops);
+	}
+	if (!last_modem_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
+	if (ramdump_state_sfr_entry == NULL) {
+		ramdump_state_sfr_entry = proc_create("ramdump_state", S_IFREG | S_IRUGO | S_IWUGO, NULL, &ramdump_state_file_ops);
+	}
+	if (!ramdump_state_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry ramdump_state\n");
+	}
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 end
+    
 	reinit_completion(&q6v5->start_done);
 	reinit_completion(&q6v5->stop_done);
 
@@ -99,6 +233,7 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 	struct qcom_rproc_ssr *ssr;
 	size_t len;
 	char *msg;
+	int temp_num;
 
 	/* Sometimes the stop triggers a watchdog rather than a stop-ack */
 	if (!q6v5->running) {
@@ -108,14 +243,41 @@ static irqreturn_t q6v5_wdog_interrupt(int irq, void *data)
 	}
 
 	msg = qcom_smem_get(QCOM_SMEM_HOST_ANY, q6v5->crash_reason, &len);
-	if (!IS_ERR(msg) && len > 0 && msg[0])
+    //wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 begin
+	if (!IS_ERR(msg) && len > 0 && msg[0]){
 		dev_err(q6v5->dev, "watchdog received: %s\n", msg);
-	else
+		dev_err(q6v5->dev, "subsystem failure reason: %s. \n", msg);
+        strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+		if (ramdump_state)
+			strlcpy(modem_crash_reason[crash_num++], msg, MAX_SSR_REASON_LEN);
+	}else {
 		dev_err(q6v5->dev, "watchdog without message\n");
+		dev_err(q6v5->dev, "subsystem failure reason: watchdog without message. \n");
+        //strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+	}
 
 	q6v5->running = false;
-	trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_wdog", msg);
-	if (q6v5->rproc->recovery_disabled) {
+	temp_num = crash_num-1;
+	while((temp_num--) && crash_num && (crash_num >= 10))
+	{
+		if(!strcmp(modem_crash_reason[crash_num-1],modem_crash_reason[temp_num]))
+		{
+			crash_num = crash_num-1;
+			q6v5->rproc->dump_conf = RPROC_COREDUMP_DISABLED;
+			pr_err("qcom_q6v5.c :in compare, same crash reason to skip dump");
+			break;
+		}else if (!temp_num){
+			q6v5->rproc->dump_conf = RPROC_COREDUMP_ENABLED;
+			break;
+		}
+	}
+
+	if(!IS_ERR(msg) && len > 0 && msg[0])
+		trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_wdog", msg);
+	else
+		trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_wdog", "");
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 end
+    if (q6v5->rproc->recovery_disabled) {
 		schedule_work(&q6v5->crash_handler);
 	} else {
 		if (q6v5->ssr_subdev) {
@@ -136,6 +298,7 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 	struct qcom_rproc_ssr *ssr;
 	size_t len;
 	char *msg;
+	int temp_num;
 
 	if (!q6v5->running) {
 		dev_info(q6v5->dev, "received fatal irq while q6 is offline\n");
@@ -143,25 +306,55 @@ static irqreturn_t q6v5_fatal_interrupt(int irq, void *data)
 	}
 
 	msg = qcom_smem_get(QCOM_SMEM_HOST_ANY, q6v5->crash_reason, &len);
-	if (!IS_ERR(msg) && len > 0 && msg[0])
+	if (!IS_ERR(msg) && len > 0 && msg[0]){
 		dev_err(q6v5->dev, "fatal error received: %s\n", msg);
-	else
+		dev_err(q6v5->dev, "subsystem failure reason: %s. \n", msg);
+        strlcpy(last_modem_sfr_reason, msg, MAX_SSR_REASON_LEN);
+		if (ramdump_state)
+			strlcpy(modem_crash_reason[crash_num++], msg, MAX_SSR_REASON_LEN);
+	}else {
 		dev_err(q6v5->dev, "fatal error without message\n");
-
-	q6v5->running = false;
-	trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_fatal", msg);
-	if (q6v5->rproc->recovery_disabled) {
-		schedule_work(&q6v5->crash_handler);
-	} else {
-		if (q6v5->ssr_subdev) {
-			qcom_notify_early_ssr_clients(q6v5->ssr_subdev);
-			ssr = container_of(q6v5->ssr_subdev, struct qcom_rproc_ssr, subdev);
-			ssr->is_notified = true;
-		}
-
-		rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
+		//dev_err(q6v5->dev, "subsystem failure reason: fatal error without message. \n");
 	}
-
+    //wt wangxu2 add for HONGMI-163683 of IMEI protect begin
+    strlcpy(last_modem_sfr_reason, msg, min(len, (size_t)MAX_SSR_REASON_LEN));
+    if (strnstr(last_modem_sfr_reason, STR_NV_SIGNATURE_DESTROYED, strlen(last_modem_sfr_reason))) {
+        pr_err("errimei_dev: the NV has been destroyed, should restart to recovery\n");
+        schedule_delayed_work(&create_kobj_work, msecs_to_jiffies(1*1000));
+    }else{
+    	q6v5->running = false;
+        temp_num = crash_num-1;
+        while((temp_num--) && crash_num && (crash_num >= 10))
+        {
+            if(!strcmp(modem_crash_reason[crash_num-1],modem_crash_reason[temp_num]))
+            {
+                crash_num = crash_num-1;
+                q6v5->rproc->dump_conf = RPROC_COREDUMP_DISABLED;
+                pr_err("qcom_q6v5.c :in compare, same crash reason to skip dump");
+                break;
+            }else if (!temp_num){
+                q6v5->rproc->dump_conf = RPROC_COREDUMP_ENABLED;
+                break;
+            }
+        }
+        if(!IS_ERR(msg) && len > 0 && msg[0]){
+            trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_fatal", msg);
+        }
+        else {
+            trace_rproc_qcom_event(dev_name(q6v5->dev), "q6v5_fatal", "");
+        }
+        if (q6v5->rproc->recovery_disabled) {
+            schedule_work(&q6v5->crash_handler);
+        } else {
+            if (q6v5->ssr_subdev) {
+                qcom_notify_early_ssr_clients(q6v5->ssr_subdev);
+                ssr = container_of(q6v5->ssr_subdev, struct qcom_rproc_ssr, subdev);
+                ssr->is_notified = true;
+            }
+            rproc_report_crash(q6v5->rproc, RPROC_FATAL_ERROR);
+        }
+    }
+    //wt wangxu2 add for HONGMI-163683 of IMEI protect begin
 	return IRQ_HANDLED;
 }
 
@@ -226,6 +419,17 @@ static irqreturn_t q6v5_stop_interrupt(int irq, void *data)
 int qcom_q6v5_request_stop(struct qcom_q6v5 *q6v5, struct qcom_sysmon *sysmon)
 {
 	int ret;
+    
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 begin
+    if (last_modem_sfr_entry) {
+        remove_proc_entry("last_mcrash", NULL);
+        last_modem_sfr_entry = NULL;
+	}
+	if (ramdump_state_sfr_entry) {
+		remove_proc_entry("ramdump_state", NULL);
+		ramdump_state_sfr_entry = NULL;
+	}
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 end
 
 	q6v5->running = false;
 
@@ -279,6 +483,21 @@ int qcom_q6v5_init(struct qcom_q6v5 *q6v5, struct platform_device *pdev,
 		   void (*handover)(struct qcom_q6v5 *q6v5))
 {
 	int ret;
+
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 begin
+	if (last_modem_sfr_entry == NULL) {
+		last_modem_sfr_entry = proc_create("last_mcrash", S_IFREG | S_IRUGO, NULL, &last_modem_sfr_file_ops);
+	}
+	if (!last_modem_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry last_mcrash\n");
+	}
+	if (ramdump_state_sfr_entry == NULL) {
+		ramdump_state_sfr_entry = proc_create("ramdump_state", S_IFREG | S_IRUGO | S_IWUGO, NULL, &ramdump_state_file_ops);
+	}
+	if (!ramdump_state_sfr_entry) {
+		printk(KERN_ERR "pil: cannot create proc entry ramdump_state\n");
+	}
+//wt wangxu2 add for tHONGMI-163652 of Modem Crash history 2023.03.20 end
 
 	q6v5->rproc = rproc;
 	q6v5->dev = &pdev->dev;

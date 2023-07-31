@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2002,2007-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#include <linux/component.h>
+#include <linux/of_platform.h>
 #include <linux/slab.h>
 
 #include "kgsl_device.h"
@@ -229,7 +231,7 @@ kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu, u64 pt_base,
 
 	spin_lock(&kgsl_driver.ptlock);
 	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
-		if (kgsl_mmu_pagetable_get_ttbr0(pt) == pt_base) {
+		if (kgsl_mmu_pagetable_get_ttbr0(pt) == MMU_SW_PT_BASE(pt_base)) {
 			if ((addr & ~(PAGE_SIZE-1)) == pt->fault_addr) {
 				ret = 1;
 				break;
@@ -499,19 +501,20 @@ void kgsl_mmu_map_global(struct kgsl_device *device,
 		mmu->mmu_ops->mmu_map_global(mmu, memdesc, padding);
 }
 
-void kgsl_mmu_close(struct kgsl_device *device)
-{
-	struct kgsl_mmu *mmu = &(device->mmu);
-
-	if (MMU_OP_VALID(mmu, mmu_close))
-		mmu->mmu_ops->mmu_close(mmu);
-}
-
 int kgsl_mmu_pagetable_get_context_bank(struct kgsl_pagetable *pagetable,
 	struct kgsl_context *context)
 {
 	if (PT_OP_VALID(pagetable, get_context_bank))
 		return pagetable->pt_ops->get_context_bank(pagetable, context);
+
+	return -ENOENT;
+}
+
+int kgsl_mmu_pagetable_get_asid(struct kgsl_pagetable *pagetable,
+		struct kgsl_context *context)
+{
+	if (PT_OP_VALID(pagetable, get_asid))
+		return pagetable->pt_ops->get_asid(pagetable, context);
 
 	return -ENOENT;
 }
@@ -601,20 +604,119 @@ static struct kgsl_mmu_ops kgsl_nommu_ops = {
 	.mmu_getpagetable = nommu_getpagetable,
 };
 
-int kgsl_mmu_probe(struct kgsl_device *device)
+static int kgsl_mmu_cb_bind(struct device *dev, struct device *master, void *data)
 {
+	return 0;
+}
+
+static void kgsl_mmu_cb_unbind(struct device *dev, struct device *master,
+		void *data)
+{
+}
+
+static int kgsl_mmu_bind(struct device *dev, struct device *master, void *data)
+{
+	struct kgsl_device *device = dev_get_drvdata(master);
 	struct kgsl_mmu *mmu = &device->mmu;
 	int ret;
 
 	/*
-	 * Try to probe for the IOMMU and if it doesn't exist for some reason
+	 * Try to bind the IOMMU and if it doesn't exist for some reason
 	 * go for the NOMMU option instead
 	 */
-	ret = kgsl_iommu_probe(device);
+	ret = kgsl_iommu_bind(device, to_platform_device(dev));
+
 	if (!ret || ret == -EPROBE_DEFER)
 		return ret;
 
 	mmu->mmu_ops = &kgsl_nommu_ops;
 	mmu->type = KGSL_MMU_TYPE_NONE;
 	return 0;
+}
+
+static void kgsl_mmu_unbind(struct device *dev, struct device *master,
+		void *data)
+{
+	struct kgsl_device *device = dev_get_drvdata(master);
+	struct kgsl_mmu *mmu = &device->mmu;
+
+	if (MMU_OP_VALID(mmu, mmu_close))
+		mmu->mmu_ops->mmu_close(mmu);
+}
+
+static const struct component_ops kgsl_mmu_cb_component_ops = {
+	.bind = kgsl_mmu_cb_bind,
+	.unbind = kgsl_mmu_cb_unbind,
+};
+
+static const struct component_ops kgsl_mmu_component_ops = {
+	.bind = kgsl_mmu_bind,
+	.unbind = kgsl_mmu_unbind,
+};
+
+static int kgsl_mmu_dev_probe(struct platform_device *pdev)
+{
+	/*
+	 * Add kgsl-smmu and context bank as a component device to establish
+	 * correct probe order with smmu driver.
+	 *
+	 * As context bank node in DT contains "iommus" property. fw_devlink
+	 * ensures that context bank is probed only after corresponding
+	 * supplier (smmu driver) probe is done.
+	 *
+	 * Adding context bank as a component device ensures master bind
+	 * (adreno_bind) is called only once component (context bank) probe
+	 * is done thus ensuring correct probe order with smmu driver.
+	 *
+	 * kgsl-smmu also need to be a component because we need kgsl-smmu
+	 * device info in order to initialize the context banks.
+	 */
+	if (of_device_is_compatible(pdev->dev.of_node,
+				"qcom,smmu-kgsl-cb")) {
+		return component_add(&pdev->dev, &kgsl_mmu_cb_component_ops);
+	}
+
+	/* Fill out the rest of the devices in the node */
+	of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+
+	return component_add(&pdev->dev, &kgsl_mmu_component_ops);
+}
+
+static int kgsl_mmu_dev_remove(struct platform_device *pdev)
+{
+	if (of_device_is_compatible(pdev->dev.of_node,
+				"qcom,smmu-kgsl-cb")) {
+		component_del(&pdev->dev, &kgsl_mmu_cb_component_ops);
+		return 0;
+	}
+
+	component_del(&pdev->dev, &kgsl_mmu_component_ops);
+
+	of_platform_depopulate(&pdev->dev);
+	return 0;
+}
+
+static const struct of_device_id mmu_match_table[] = {
+	{ .compatible = "qcom,kgsl-smmu-v2" },
+	{ .compatible = "qcom,smmu-kgsl-cb" },
+	{},
+};
+
+static struct platform_driver kgsl_mmu_driver = {
+	.probe = kgsl_mmu_dev_probe,
+	.remove = kgsl_mmu_dev_remove,
+	.driver = {
+		.name = "kgsl-iommu",
+		.of_match_table = mmu_match_table,
+	}
+};
+
+int __init kgsl_mmu_init(void)
+{
+	return platform_driver_register(&kgsl_mmu_driver);
+}
+
+void kgsl_mmu_exit(void)
+{
+	platform_driver_unregister(&kgsl_mmu_driver);
 }

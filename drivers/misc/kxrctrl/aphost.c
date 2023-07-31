@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
  
 #include "aphost.h"
@@ -233,6 +233,10 @@ static ssize_t jsrequest_show(struct device *dev,
 	} else {
 		size = scnprintf(buf, PAGE_SIZE, "no need to ack\n");
 	}
+	pinctrl_select_state(
+		gspi_client->pinctrl_info.pinctrl,
+		gspi_client->pinctrl_info.active);
+	gspi_client->js_ledl_state = 0;
 	mutex_unlock(&gspi_client->js_mutex);
 
 	return size;
@@ -251,6 +255,11 @@ static ssize_t jsrequest_store(struct device *dev,
 		return size;
 	}
 
+	pinctrl_select_state(
+		gspi_client->pinctrl_info.pinctrl,
+		gspi_client->pinctrl_info.suspend);
+	gspi_client->js_ledl_state = 1;
+
 	mutex_lock(&gspi_client->js_mutex);
 	err = kstrtouint(buf, 16, &input);
 	if (err) {
@@ -259,9 +268,21 @@ static ssize_t jsrequest_store(struct device *dev,
 		memset(&request, 0, sizeof(request_t));
 		request.requestHead.requestType =
 				((input & 0x7f000000) >> 24);
-		request.requestData[0] = (input & 0x000000ff);
-		request.requestData[1] = (input & 0x0000ff00);
-		request.requestData[2] = (input & 0x00ff0000);
+		if (request.requestHead.requestType == 0xc) {
+			request.requestData[0] =
+					(input & 0x000000ff);
+			request.requestData[1] =
+					((input & 0x0000ff00) >> 8);
+			request.requestData[2] =
+					((input & 0x00ff0000) >> 16);
+		} else {
+			request.requestData[0] =
+					(input & 0x000000ff);
+			request.requestData[1] =
+					(input & 0x0000ff00);
+			request.requestData[2] =
+					(input & 0x00ff0000);
+		}
 
 		switch (request.requestHead.requestType) {
 		case setVibStateRequest:
@@ -292,6 +313,7 @@ static ssize_t jsrequest_store(struct device *dev,
 		case getRightJoyStickProductNameRequest:
 		case getLeftJoyStickFwVersionRequest:
 		case getRightJoyStickFwVersionRequest:
+		case setControllerSleepMode:
 				atomic_set(&gspi_client->userRequest,
 					input);
 				atomic_inc(&gspi_client->dataflag);
@@ -472,6 +494,12 @@ static int js_thread(void *data)
 		case disconnectJoyStickRequest:
 				spi_client->txbuffer[2] =
 					 (currentRequest.requestData[0]&0x01);
+				break;
+		case setControllerSleepMode:
+				spi_client->txbuffer[2] =
+					currentRequest.requestData[0];
+				spi_client->txbuffer[3] =
+					currentRequest.requestData[1];
 				break;
 		default:
 				break;

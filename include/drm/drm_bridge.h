@@ -615,7 +615,6 @@ struct drm_bridge_funcs {
 	 * the DRM_BRIDGE_OP_HPD flag in their &drm_bridge->ops.
 	 */
 	void (*hpd_enable)(struct drm_bridge *bridge);
-
 	/**
 	 * @hpd_disable:
 	 *

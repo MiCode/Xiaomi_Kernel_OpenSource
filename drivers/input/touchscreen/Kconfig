@@ -1343,6 +1343,12 @@ source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 
 source "drivers/input/touchscreen/nt36xxx/Kconfig"
 
+source "drivers/input/touchscreen/xiaomi_touch/Kconfig"
+
+source "drivers/input/touchscreen/NT36672C_SPI/Kconfig"
+
+source "drivers/input/touchscreen/FT8720/Kconfig"
+
 source "drivers/input/touchscreen/goodix_berlin_driver/Kconfig"
 
 endif

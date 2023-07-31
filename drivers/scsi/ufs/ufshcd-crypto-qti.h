@@ -6,8 +6,8 @@
 #ifndef _UFSHCD_CRYPTO_QTI_H
 #define _UFSHCD_CRYPTO_QTI_H
 
-#include "ufshcd.h"
-#include "ufshcd-crypto.h"
+#include "../mi_ufs/mi-ufshcd.h"
+#include "../mi_ufs/mi-ufshcd-crypto.h"
 
 #if IS_ENABLED(CONFIG_SCSI_UFS_CRYPTO_QTI)
 int ufshcd_qti_hba_init_crypto_capabilities(struct ufs_hba *hba);

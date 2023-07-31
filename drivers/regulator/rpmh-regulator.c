@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved. */
-/* Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved. */
+/* Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/bitops.h>
 #include <linux/err.h>
+#include <linux/ipc_logging.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -34,11 +35,16 @@
  *				type PMIC regulators.
  * %RPMH_REGULATOR_TYPE_XOB:	RPMh XOB accelerator which supports voting on
  *				the enable state of PMIC regulators.
+ * %RPMH_REGULATOR_TYPE_PBS:	RPMh PBS accelerator which supports voting on
+ *				the enable state of PBS resources, which are
+ *				used to trigger PBS sequences for HW controlled
+ *				regulator enable states.
  */
 enum rpmh_regulator_type {
 	RPMH_REGULATOR_TYPE_VRM,
 	RPMH_REGULATOR_TYPE_ARC,
 	RPMH_REGULATOR_TYPE_XOB,
+	RPMH_REGULATOR_TYPE_PBS,
 };
 
 /**
@@ -62,6 +68,7 @@ enum rpmh_regulator_hw_type {
  * enum rpmh_regulator_reg_index - RPMh accelerator register indices
  * %RPMH_REGULATOR_REG_VRM_VOLTAGE:	VRM voltage voting register index
  * %RPMH_REGULATOR_REG_ARC_LEVEL:	ARC voltage level voting register index
+ * %RPMH_REGULATOR_REG_PBS_ENABLE:	PBS enable voting register index
  * %RPMH_REGULATOR_REG_VRM_ENABLE:	VRM enable voltage voting register index
  * %RPMH_REGULATOR_REG_ARC_PSEUDO_ENABLE: Place-holder for enable aggregation.
  *					ARC does not have a specific register
@@ -74,6 +81,8 @@ enum rpmh_regulator_hw_type {
  * %RPMH_REGULATOR_REG_VRM_MODE:	VRM regulator mode voting register index
  * %RPMH_REGULATOR_REG_VRM_HEADROOM:	VRM headroom voltage voting register
  *					index
+ * %RPMH_REGULATOR_REG_PBS_MAX:		Exclusive upper limit of PBS register
+ *					indices
  * %RPMH_REGULATOR_REG_ARC_REAL_MAX:	Upper limit of real existent ARC
  *					register indices
  * %RPMH_REGULATOR_REG_ARC_MAX:		Exclusive upper limit of ARC register
@@ -90,12 +99,14 @@ enum rpmh_regulator_hw_type {
 enum rpmh_regulator_reg_index {
 	RPMH_REGULATOR_REG_VRM_VOLTAGE		= 0,
 	RPMH_REGULATOR_REG_ARC_LEVEL		= 0,
+	RPMH_REGULATOR_REG_PBS_ENABLE		= 0,
 	RPMH_REGULATOR_REG_VRM_ENABLE		= 1,
 	RPMH_REGULATOR_REG_ARC_PSEUDO_ENABLE	= RPMH_REGULATOR_REG_VRM_ENABLE,
 	RPMH_REGULATOR_REG_XOB_ENABLE		= RPMH_REGULATOR_REG_VRM_ENABLE,
 	RPMH_REGULATOR_REG_ENABLE		= RPMH_REGULATOR_REG_VRM_ENABLE,
 	RPMH_REGULATOR_REG_VRM_MODE		= 2,
 	RPMH_REGULATOR_REG_VRM_HEADROOM		= 3,
+	RPMH_REGULATOR_REG_PBS_MAX		= 1,
 	RPMH_REGULATOR_REG_ARC_REAL_MAX		= 1,
 	RPMH_REGULATOR_REG_ARC_MAX		= 2,
 	RPMH_REGULATOR_REG_XOB_MAX		= 2,
@@ -127,8 +138,19 @@ enum rpmh_regulator_reg_index {
 #define RPMH_VRM_MODE_MIN		0
 #define RPMH_VRM_MODE_MAX		7
 
-/* XOB voting registers are found in the VRM hardware module */
+/* XOB and PBS voting registers are found in the VRM hardware module */
 #define CMD_DB_HW_XOB			CMD_DB_HW_VRM
+#define CMD_DB_HW_PBS			CMD_DB_HW_VRM
+
+#define IPC_LOG_PAGES			10
+
+#define rpmh_reg_dbg(fmt, ...) \
+	do { \
+		ipc_log_string(rpmh_reg_ipc_log, fmt, ##__VA_ARGS__); \
+		pr_debug(fmt, ##__VA_ARGS__); \
+	} while (0)
+
+static void *rpmh_reg_ipc_log;
 
 /**
  * struct rpmh_regulator_request - rpmh request data
@@ -490,10 +512,15 @@ static const char *const rpmh_regulator_xob_param_names[] = {
 	[RPMH_REGULATOR_REG_XOB_ENABLE]		= "en",
 };
 
+static const char *const rpmh_regulator_pbs_param_names[] = {
+	[RPMH_REGULATOR_REG_PBS_ENABLE]		= "en",
+};
+
 static const int max_reg_index_map[] = {
 	[RPMH_REGULATOR_TYPE_VRM] = RPMH_REGULATOR_REG_VRM_MAX,
 	[RPMH_REGULATOR_TYPE_ARC] = RPMH_REGULATOR_REG_ARC_MAX,
 	[RPMH_REGULATOR_TYPE_XOB] = RPMH_REGULATOR_REG_XOB_MAX,
+	[RPMH_REGULATOR_TYPE_PBS] = RPMH_REGULATOR_REG_PBS_MAX,
 };
 
 /**
@@ -550,6 +577,10 @@ static void rpmh_regulator_req(struct rpmh_vreg *vreg,
 		max_reg_index = RPMH_REGULATOR_REG_XOB_MAX;
 		param_name = rpmh_regulator_xob_param_names;
 		break;
+	case RPMH_REGULATOR_TYPE_PBS:
+		max_reg_index = RPMH_REGULATOR_REG_PBS_MAX;
+		param_name = rpmh_regulator_pbs_param_names;
+		break;
 	default:
 		return;
 	}
@@ -596,7 +627,7 @@ static void rpmh_regulator_req(struct rpmh_vreg *vreg,
 		}
 	}
 
-	pr_debug("%s\n", buf);
+	rpmh_reg_dbg("%s\n", buf);
 }
 
 /**
@@ -914,6 +945,27 @@ static int rpmh_regulator_is_enabled(struct regulator_dev *rdev)
 }
 
 /**
+ * rpmh_regulator_pbs_is_enabled() - return the enable state of the PBS
+ *		RPMh regulator
+ * @rdev:		Regulator device pointer for the rpmh-regulator
+ *
+ * This function is passed as a callback function into the regulator ops that
+ * are registered for each rpmh-regulator device.
+ *
+ * Note that for PBS regulators, the enable offset is different from that of
+ * other regulators, so it has a different set of enablement-related callbacks.
+ *
+ * Return: true if regulator is enabled, false if regulator is disabled
+ */
+
+static int rpmh_regulator_pbs_is_enabled(struct regulator_dev *rdev)
+{
+	struct rpmh_vreg *vreg = rdev_get_drvdata(rdev);
+
+	return !!vreg->req.reg[RPMH_REGULATOR_REG_PBS_ENABLE];
+}
+
+/**
  * rpmh_regulator_enable() - enable the RPMh regulator
  * @rdev:		Regulator device pointer for the rpmh-regulator
  *
@@ -941,6 +993,29 @@ static int rpmh_regulator_enable(struct regulator_dev *rdev)
 	if (rc) {
 		vreg_err(vreg, "enable failed, rc=%d\n", rc);
 		rpmh_regulator_set_reg(vreg, RPMH_REGULATOR_REG_ENABLE,
+					prev_enable);
+	}
+
+	mutex_unlock(&vreg->aggr_vreg->lock);
+
+	return rc;
+}
+
+static int rpmh_regulator_pbs_enable(struct regulator_dev *rdev)
+{
+	struct rpmh_vreg *vreg = rdev_get_drvdata(rdev);
+	u32 prev_enable;
+	int rc;
+
+	mutex_lock(&vreg->aggr_vreg->lock);
+
+	prev_enable
+	       = rpmh_regulator_set_reg(vreg, RPMH_REGULATOR_REG_PBS_ENABLE, 1);
+
+	rc = rpmh_regulator_send_aggregate_requests(vreg);
+	if (rc) {
+		vreg_err(vreg, "enable failed, rc=%d\n", rc);
+		rpmh_regulator_set_reg(vreg, RPMH_REGULATOR_REG_PBS_ENABLE,
 					prev_enable);
 	}
 
@@ -977,6 +1052,29 @@ static int rpmh_regulator_disable(struct regulator_dev *rdev)
 	if (rc) {
 		vreg_err(vreg, "disable failed, rc=%d\n", rc);
 		rpmh_regulator_set_reg(vreg, RPMH_REGULATOR_REG_ENABLE,
+					prev_enable);
+	}
+
+	mutex_unlock(&vreg->aggr_vreg->lock);
+
+	return rc;
+}
+
+static int rpmh_regulator_pbs_disable(struct regulator_dev *rdev)
+{
+	struct rpmh_vreg *vreg = rdev_get_drvdata(rdev);
+	u32 prev_enable;
+	int rc;
+
+	mutex_lock(&vreg->aggr_vreg->lock);
+
+	prev_enable
+	       = rpmh_regulator_set_reg(vreg, RPMH_REGULATOR_REG_PBS_ENABLE, 0);
+
+	rc = rpmh_regulator_send_aggregate_requests(vreg);
+	if (rc) {
+		vreg_err(vreg, "disable failed, rc=%d\n", rc);
+		rpmh_regulator_set_reg(vreg, RPMH_REGULATOR_REG_PBS_ENABLE,
 					prev_enable);
 	}
 
@@ -1275,10 +1373,17 @@ static const struct regulator_ops rpmh_regulator_xob_ops = {
 	.is_enabled		= rpmh_regulator_is_enabled,
 };
 
+static const struct regulator_ops rpmh_regulator_pbs_ops = {
+	.enable			= rpmh_regulator_pbs_enable,
+	.disable		= rpmh_regulator_pbs_disable,
+	.is_enabled		= rpmh_regulator_pbs_is_enabled,
+};
+
 static const struct regulator_ops *rpmh_regulator_ops[] = {
 	[RPMH_REGULATOR_TYPE_VRM]	= &rpmh_regulator_vrm_ops,
 	[RPMH_REGULATOR_TYPE_ARC]	= &rpmh_regulator_arc_ops,
 	[RPMH_REGULATOR_TYPE_XOB]	= &rpmh_regulator_xob_ops,
+	[RPMH_REGULATOR_TYPE_PBS]	= &rpmh_regulator_pbs_ops,
 };
 
 /**
@@ -1676,6 +1781,13 @@ static int rpmh_regulator_load_default_parameters(struct rpmh_vreg *vreg)
 			rpmh_regulator_set_reg(vreg,
 						RPMH_REGULATOR_REG_XOB_ENABLE,
 						!!temp);
+	} else if (type == RPMH_REGULATOR_TYPE_PBS) {
+		prop = "qcom,init-enable";
+		rc = of_property_read_u32(vreg->of_node, prop, &temp);
+		if (!rc)
+			rpmh_regulator_set_reg(vreg,
+						RPMH_REGULATOR_REG_PBS_ENABLE,
+						!!temp);
 	}
 
 	return 0;
@@ -1766,7 +1878,7 @@ static int rpmh_regulator_init_vreg(struct rpmh_vreg *vreg)
 		init_data->constraints.valid_ops_mask
 			|= REGULATOR_CHANGE_VOLTAGE;
 
-	if (type == RPMH_REGULATOR_TYPE_XOB
+	if ((type == RPMH_REGULATOR_TYPE_XOB || type == RPMH_REGULATOR_TYPE_PBS)
 	    && init_data->constraints.min_uV == init_data->constraints.max_uV)
 		vreg->rdesc.fixed_uV = init_data->constraints.min_uV;
 
@@ -1804,6 +1916,7 @@ static int rpmh_regulator_init_vreg(struct rpmh_vreg *vreg)
 		vreg->rdesc.n_voltages = vreg->aggr_vreg->level_count;
 		break;
 	case RPMH_REGULATOR_TYPE_XOB:
+	case RPMH_REGULATOR_TYPE_PBS:
 		vreg->rdesc.n_voltages = 1;
 		break;
 	default:
@@ -1880,6 +1993,10 @@ static const struct of_device_id rpmh_regulator_match_table[] = {
 		.compatible = "qcom,rpmh-xob-regulator",
 		.data = (void *)(uintptr_t)RPMH_REGULATOR_TYPE_XOB,
 	},
+	{
+		.compatible = "qcom,rpmh-pbs-regulator",
+		.data = (void *)(uintptr_t)RPMH_REGULATOR_TYPE_PBS,
+	},
 	{}
 };
 
@@ -1948,7 +2065,9 @@ static int rpmh_regulator_probe(struct platform_device *pdev)
 	    || (aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_VRM
 			&& sid != CMD_DB_HW_VRM)
 	    || (aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_XOB
-			&& sid != CMD_DB_HW_XOB)) {
+			&& sid != CMD_DB_HW_XOB)
+	    || (aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_PBS
+			&& sid != CMD_DB_HW_PBS)) {
 		aggr_vreg_err(aggr_vreg, "RPMh slave ID mismatch; config=%d (%s) != cmd-db=%d\n",
 			aggr_vreg->regulator_type,
 			aggr_vreg->regulator_type == RPMH_REGULATOR_TYPE_ARC
@@ -2033,11 +2152,14 @@ static struct platform_driver rpmh_regulator_driver = {
 
 static int rpmh_regulator_init(void)
 {
+	rpmh_reg_ipc_log = ipc_log_context_create(IPC_LOG_PAGES, "rpmh_regulator", 0);
 	return platform_driver_register(&rpmh_regulator_driver);
 }
 
 static void rpmh_regulator_exit(void)
 {
+	if (rpmh_reg_ipc_log)
+		ipc_log_context_destroy(rpmh_reg_ipc_log);
 	platform_driver_unregister(&rpmh_regulator_driver);
 }
 

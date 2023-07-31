@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -35,6 +35,10 @@
 #define HW_CONTROL_MASK		BIT(1)
 #define SW_COLLAPSE_MASK	BIT(0)
 
+/* CFG_GDSCR */
+#define POWER_DOWN_COMPLETE_MASK	BIT(15)
+#define POWER_UP_COMPLETE_MASK	BIT(16)
+
 /* Domain Address */
 #define GMEM_CLAMP_IO_MASK	BIT(0)
 #define GMEM_RESET_MASK         BIT(4)
@@ -44,9 +48,10 @@
 
 /* Register Offset */
 #define REG_OFFSET		0x0
+#define CFG_GDSCR_OFFSET	0x4
 
 /* Timeout Delay */
-#define TIMEOUT_US		500
+#define TIMEOUT_US		1500
 
 struct collapse_vote {
 	struct regmap	**regmap;
@@ -92,6 +97,7 @@ struct gdsc {
 	int			path_count;
 	u32			gds_timeout;
 	bool			skip_disable_before_enable;
+	bool			cfg_gdscr;
 };
 
 enum gdscr_status {
@@ -111,27 +117,40 @@ static int poll_gdsc_status(struct gdsc *sc, enum gdscr_status status)
 {
 	struct regmap *regmap;
 	int count = sc->gds_timeout;
-	u32 val;
+	u32 val, reg_offset;
 
 	if (sc->hw_ctrl)
 		regmap = sc->hw_ctrl;
 	else
 		regmap = sc->regmap;
 
+	if (sc->cfg_gdscr)
+		reg_offset = CFG_GDSCR_OFFSET;
+	else
+		reg_offset = REG_OFFSET;
+
 	for (; count > 0; count--) {
-		regmap_read(regmap, REG_OFFSET, &val);
-		val &= PWR_ON_MASK;
+		regmap_read(regmap, reg_offset, &val);
 
 		switch (status) {
 		case ENABLED:
-			if (val)
-				return 0;
+			if (sc->cfg_gdscr)
+				val &= POWER_UP_COMPLETE_MASK;
+			else
+				val &= PWR_ON_MASK;
 			break;
 		case DISABLED:
-			if (!val)
-				return 0;
+			if (sc->cfg_gdscr) {
+				val &= POWER_DOWN_COMPLETE_MASK;
+			} else {
+				val &= PWR_ON_MASK;
+				val = !val;
+			}
 			break;
 		}
+
+		if (val)
+			return 0;
 		/*
 		 * There is no guarantee about the delay needed for the enable
 		 * bit in the GDSCR to be set or reset after the GDSC state
@@ -790,6 +809,9 @@ static int gdsc_parse_dt_data(struct gdsc *sc, struct device *dev,
 						"qcom,retain-regs");
 	sc->skip_disable_before_enable = of_property_read_bool(dev->of_node,
 					"qcom,skip-disable-before-sw-enable");
+
+	sc->cfg_gdscr = of_property_read_bool(dev->of_node,
+					      "qcom,support-cfg-gdscr");
 
 	if (of_find_property(dev->of_node, "qcom,collapse-vote", NULL)) {
 		/* Decrement the collapse count by 1 */

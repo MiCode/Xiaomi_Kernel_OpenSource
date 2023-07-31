@@ -1831,7 +1831,7 @@ static void clk_alpha_pll_custom_configure(struct clk_alpha_pll *pll,
 }
 
 /**
- * clk_lucid_pll_configure - configure the lucid pll
+ * clk_trion_pll_configure - configure the trion pll
  *
  * @pll: clk alpha pll
  * @regmap: register map

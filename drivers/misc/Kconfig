@@ -519,6 +519,25 @@ config KINECTICS_XR_NORDIC
 	   this also parses the gpios and interrupts from device tree and sets
 	   the gpios and interrupt handler for handling the interrupt.
 
+config PERF_HELPER
+	tristate "Perf helper"
+	default n
+	help
+	  this module support record perf messages.
+
+config HARDWARE_INFO
+	tristate "hardware info"
+	default n
+	help
+	This adds support for hardware info.
+
+config PRESS_KEY_TRIGGER_PANIC
+	tristate "Enable press hot key trigger the crash"
+	default n
+        help
+	Press the power button volume up button
+	and volume down button to trigger the crash.
+
 source "drivers/misc/rtimd-i2c/Kconfig"
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
@@ -536,4 +555,12 @@ source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/habanalabs/Kconfig"
 source "drivers/misc/isl97900_led/Kconfig"
 source "drivers/misc/uacce/Kconfig"
+source "drivers/misc/ktd3136_bl/Kconfig"
+source "drivers/misc/ocp2131_bias/Kconfig"
+source "drivers/misc/xiaomi_panel_notifier/Kconfig"
+source "drivers/misc/mi-memory/Kconfig"
+source "drivers/misc/xiaomi_touch_notifier/Kconfig"
+source "drivers/misc/xiaomi_usb_touch_notifier/Kconfig"
+source "drivers/misc/xiaomi_headset_touch_notifier/Kconfig"
+source "drivers/misc/simtray/Kconfig"
 endmenu
