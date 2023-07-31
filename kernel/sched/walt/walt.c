@@ -3675,31 +3675,6 @@ out:
 
 cpumask_t cpus_for_pipeline = { CPU_BITS_NONE };
 
-/* always set boost for max cluster, for pipeline tasks */
-static inline void pipeline_set_boost(bool boost)
-{
-	static bool isolation_boost;
-	struct walt_sched_cluster *cluster;
-
-	if (isolation_boost && !boost) {
-		isolation_boost = false;
-
-		for_each_sched_cluster(cluster) {
-			if (cpumask_intersects(&cpus_for_pipeline, &cluster->cpus) ||
-			    is_max_possible_cluster_cpu(cpumask_first(&cluster->cpus)))
-				core_ctl_set_cluster_boost(cluster->id, false);
-		}
-	} else if (!isolation_boost && boost) {
-		isolation_boost = true;
-
-		for_each_sched_cluster(cluster) {
-			if (cpumask_intersects(&cpus_for_pipeline, &cluster->cpus) ||
-			    is_max_possible_cluster_cpu(cpumask_first(&cluster->cpus)))
-				core_ctl_set_cluster_boost(cluster->id, true);
-		}
-	}
-}
-
 cpumask_t last_available_big_cpus = CPU_MASK_NONE;
 int have_heavy_list;
 void find_heaviest_topapp(u64 window_start)
@@ -3708,6 +3683,7 @@ void find_heaviest_topapp(u64 window_start)
 	struct walt_task_struct *wts;
 	unsigned long flags;
 	static u64 last_rearrange_ns;
+	static bool isolation_boost;
 	int i, j;
 	struct walt_task_struct *heavy_wts_to_drop[WALT_NR_CPUS];
 	int sched_heavy_nr = sysctl_sched_heavy_nr;
@@ -3732,8 +3708,10 @@ void find_heaviest_topapp(u64 window_start)
 			}
 			raw_spin_unlock_irqrestore(&heavy_lock, flags);
 			have_heavy_list = 0;
-
-			pipeline_set_boost(false);
+			if (isolation_boost) {
+				core_ctl_set_boost(false);
+				isolation_boost = false;
+			}
 		}
 		return;
 	}
@@ -3789,7 +3767,10 @@ void find_heaviest_topapp(u64 window_start)
 		}
 	}
 
-	pipeline_set_boost(true);
+	if (!isolation_boost) {
+		core_ctl_set_boost(true);
+		isolation_boost = true;
+	}
 
 	/* start with non-prime cpus chosen for this chipset (e.g. golds) */
 	cpumask_and(&last_available_big_cpus, cpu_online_mask, &cpus_for_pipeline);
@@ -4019,7 +4000,7 @@ release_lock:
 
 out:
 	if (found_pipeline ^ last_found_pipeline) {
-		pipeline_set_boost(found_pipeline);
+		core_ctl_set_boost(found_pipeline);
 		last_found_pipeline = found_pipeline;
 	}
 }
