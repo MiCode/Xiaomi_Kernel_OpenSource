@@ -59,10 +59,6 @@
 #define NOP_OUT_RETRIES    10
 /* Timeout after 50 msecs if NOP OUT hangs without response */
 #define NOP_OUT_TIMEOUT    50 /* msecs */
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
-/* Maximum MCQ registers polling time */
-#define MCQ_POLL_TIMEOUT   500
-#endif
 
 /* Query request retries */
 #define QUERY_REQ_RETRIES 3
@@ -7766,7 +7762,6 @@ release:
  *
  * Returns zero on success, non-zero on failure
  */
-#if IS_ENABLED(CONFIG_MTK_UFS_DEBUG)
 static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 {
 	struct ufs_hw_queue *hwq;
@@ -7805,36 +7800,6 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 	ufshcd_update_evt_hist(hba, UFS_EVT_HOST_RESET, (u32)err);
 	return err;
 }
-#else
-static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
-{
-	int err;
-
-	/*
-	 * Stop the host controller and complete the requests
-	 * cleared by h/w
-	 */
-	ufshpb_toggle_state(hba, HPB_PRESENT, HPB_RESET);
-	ufshcd_hba_stop(hba);
-	hba->silence_err_logs = true;
-	ufshcd_complete_requests(hba, true);
-	hba->silence_err_logs = false;
-
-	/* scale up clocks to max frequency before full reinitialization */
-	ufshcd_scale_clks(hba, true);
-
-	err = ufshcd_hba_enable(hba);
-
-	/* Establish the link again and restore the device */
-	if (!err)
-		err = ufshcd_probe_hba(hba, false);
-
-	if (err)
-		dev_err(hba->dev, "%s: Host init failed %d\n", __func__, err);
-	ufshcd_update_evt_hist(hba, UFS_EVT_HOST_RESET, (u32)err);
-	return err;
-}
-#endif
 
 /**
  * ufshcd_reset_and_restore - reset and re-initialize host/device
