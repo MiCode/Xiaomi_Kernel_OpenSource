@@ -332,7 +332,11 @@ static int fuse_dentry_revalidate(struct dentry *entry, unsigned int flags)
 			spin_unlock(&fi->lock);
 		}
 		kfree(forget);
+#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
+		if (ret == -ENOMEM || ret == -EINTR)
+#else
 		if (ret == -ENOMEM)
+#endif
 			goto out;
 		if (ret || fuse_invalid_attr(&outarg.attr) ||
 		    fuse_stale_inode(inode, outarg.generation, &outarg.attr))
@@ -375,8 +379,18 @@ static void fuse_dentry_release(struct dentry *dentry)
 {
 	struct fuse_dentry *fd = dentry->d_fsdata;
 
+#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
+#ifdef CONFIG_FUSE_BPF
 	if (fd && fd->backing_path.dentry)
 		path_put(&fd->backing_path);
+
+	if (fd && fd->bpf)
+		bpf_prog_put(fd->bpf);
+#endif
+#else
+	if (fd && fd->backing_path.dentry)
+		path_put(&fd->backing_path);
+#endif
 
 	kfree_rcu(fd, rcu);
 }
@@ -534,32 +548,59 @@ int fuse_lookup_name(struct super_block *sb, u64 nodeid, const struct qstr *name
 
 		err = -ENOENT;
 		if (!entry)
+#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
+			goto out_put_forget;
+#else
 			goto out_queue_forget;
+#endif
 
 		err = -EINVAL;
 		backing_file = bpf_arg.backing_file;
 		if (!backing_file)
+#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
+			goto out_put_forget;
+#else
 			goto out_queue_forget;
+#endif
 
 		if (IS_ERR(backing_file)) {
 			err = PTR_ERR(backing_file);
+#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
+			goto out_put_forget;
+#else
 			goto out_queue_forget;
+#endif
 		}
 
 		backing_inode = backing_file->f_inode;
 		*inode = fuse_iget_backing(sb, outarg->nodeid, backing_inode);
 		if (!*inode)
+#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
+			goto out_put_forget;
+#else
 			goto out;
+#endif
 
 		err = fuse_handle_backing(&bpf_arg,
 				&get_fuse_inode(*inode)->backing_inode,
 				&get_fuse_dentry(entry)->backing_path);
+#if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
+		if (!err)
+			err = fuse_handle_bpf_prog(&bpf_arg, NULL,
+					   &get_fuse_inode(*inode)->bpf);
+		if (err) {
+			iput(*inode);
+			*inode = NULL;
+			goto out_put_forget;
+		}
+#else
 		if (err)
 			goto out;
 
 		err = fuse_handle_bpf_prog(&bpf_arg, NULL, &get_fuse_inode(*inode)->bpf);
 		if (err)
 			goto out;
+#endif
 	} else
 #endif
 	{
@@ -579,8 +620,10 @@ int fuse_lookup_name(struct super_block *sb, u64 nodeid, const struct qstr *name
 	}
 
 	err = -ENOMEM;
+#if !IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
 #ifdef CONFIG_FUSE_BPF
 out_queue_forget:
+#endif
 #endif
 	if (!*inode && outarg->nodeid) {
 		fuse_queue_forget(fm->fc, forget, outarg->nodeid, 1);
