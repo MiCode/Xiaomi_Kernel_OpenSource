@@ -1300,6 +1300,9 @@ retry:
  out:
 	spin_unlock(&ctx->flc_lock);
 	percpu_up_read(&file_rwsem);
+#if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
+	trace_posix_lock_inode(inode, request, error);
+#endif /* #if IS_ENABLED(CONFIG_MTK_F2FS_DEBUG) */
 	/*
 	 * Free any unused locks.
 	 */
@@ -1308,7 +1311,9 @@ retry:
 	if (new_fl2)
 		locks_free_lock(new_fl2);
 	locks_dispose_list(&dispose);
+#if !IS_ENABLED(CONFIG_MTK_F2FS_DEBUG)
 	trace_posix_lock_inode(inode, request, error);
+#endif /* #if !IS_ENABLED(CONFIG_MTK_F2FS_DEBUG) */
 
 	return error;
 }
