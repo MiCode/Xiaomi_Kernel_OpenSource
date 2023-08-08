@@ -287,7 +287,7 @@ static int qcom_stats_device_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int qcom_stats_ddr_freqsync_msg(void)
+int qcom_stats_ddr_freqsync_msg(void)
 {
 	static const char buf[MAX_MSG_LEN] = "{class: ddr, action: freqsync}";
 	int ret = 0;
@@ -309,6 +309,7 @@ static int qcom_stats_ddr_freqsync_msg(void)
 
 	return ret;
 }
+EXPORT_SYMBOL(qcom_stats_ddr_freqsync_msg);
 
 static int qcom_stats_ddr_freq_sync(int *modes, struct sleep_stats *stat)
 {
@@ -626,7 +627,7 @@ static void cxvt_info_fill_data(void __iomem *reg, u32 entry_count,
 int cx_stats_get_ss_vote_info(int ss_count,
 			       struct qcom_stats_cx_vote_info *vote_info)
 {
-	static const char buf[MAX_MSG_LEN] = "{class: arc_statis, res: cx_vote}";
+	static const char buf[MAX_MSG_LEN] = "{class: misc_debug, res: cx_vote}";
 	void __iomem *reg;
 	int ret;
 	int i, j;

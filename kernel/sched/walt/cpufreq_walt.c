@@ -177,8 +177,25 @@ static void waltgov_calc_avg_cap(struct waltgov_policy *wg_policy, u64 curr_ws,
 {
 	u64 last_ws = wg_policy->last_ws;
 	unsigned int avg_freq;
+	int cpu;
 
-	BUG_ON(curr_ws < last_ws);
+	if (curr_ws < last_ws) {
+		printk_deferred("============ WALT CPUFREQ DUMP START ==============\n");
+		for_each_online_cpu(cpu) {
+			struct waltgov_cpu *wg_cpu = &per_cpu(waltgov_cpu, cpu);
+			struct waltgov_policy *wg_policy_internal = wg_cpu->wg_policy;
+
+			printk_deferred("cpu=%d walt_load->ws=%llu and policy->last_ws=%llu\n",
+					wg_cpu->cpu, wg_cpu->walt_load.ws,
+					wg_policy_internal->last_ws);
+		}
+		printk_deferred("============ WALT CPUFREQ DUMP END  ==============\n");
+		WALT_BUG(WALT_BUG_WALT, NULL,
+				"policy->related_cpus=0x%x curr_ws=%llu < last_ws=%llu",
+				cpumask_bits(wg_policy->policy->related_cpus)[0], curr_ws,
+				last_ws);
+	}
+
 	if (curr_ws <= last_ws)
 		return;
 
@@ -279,7 +296,7 @@ static unsigned int get_next_freq(struct waltgov_policy *wg_policy,
 
 	cluster = cpu_cluster(policy->cpu);
 	if (cpumask_intersects(&cluster->cpus, cpu_partial_halt_mask) &&
-			cluster_partial_halted())
+			is_state1())
 		skip = true;
 
 	if (wg_policy->tunables->adaptive_high_freq && !skip) {
@@ -357,7 +374,7 @@ static void waltgov_walt_adjust(struct waltgov_cpu *wg_cpu, unsigned long cpu_ut
 	unsigned long pl = wg_cpu->walt_load.pl;
 
 	if (is_rtg_boost && (!cpumask_test_cpu(wg_cpu->cpu, cpu_partial_halt_mask) ||
-				!cluster_partial_halted()))
+				!is_state1()))
 		max_and_reason(util, wg_policy->rtg_boost_util, wg_cpu, CPUFREQ_REASON_RTG_BOOST);
 
 	is_hiload = (cpu_util >= mult_frac(wg_policy->avg_cap,
@@ -365,7 +382,7 @@ static void waltgov_walt_adjust(struct waltgov_cpu *wg_cpu, unsigned long cpu_ut
 					   100));
 
 	if (cpumask_test_cpu(wg_cpu->cpu, cpu_partial_halt_mask) &&
-			cluster_partial_halted())
+			is_state1())
 		is_hiload = false;
 
 	if (is_hiload && !is_migration)

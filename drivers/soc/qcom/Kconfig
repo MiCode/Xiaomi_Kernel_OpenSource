@@ -526,17 +526,6 @@ config QCOM_SOCINFO
 	 Say yes here to support the Qualcomm socinfo driver, providing
 	 information about the SoC to user space.
 
-config SILENT_MODE
-	tristate "Driver support for  Silent mode feature on QCOM Chipsets"
-	depends on PM_SILENT_MODE
-	help
-	  Enables the support for Silent mode for QCOM chipsets. This feature
-	  monitors a chosen external interface, ex: GPIO, when signalled a
-	  state change, will update
-	  /sys/kernel/silent_boot/pm_silentmode_kernel_state and
-	  /sys/kernel/silent_boot/pm_silentmode_hw_state attribute to
-	  indicate the state transition from silent to non-silent.
-
 config QCOM_SOCINFO_DT
 	tristate "Qualcomm Technologies, Inc. DT based socinfo driver"
 	select SOC_BUS
@@ -1073,14 +1062,6 @@ config MSM_SYSTEM_HEALTH_MONITOR
 source "drivers/soc/qcom/mem_buf/Kconfig"
 source "drivers/soc/qcom/tmecom/Kconfig"
 
-config QCOM_AOP_SET_DDR
-	tristate "Sysfs to communicate with AOP using QMP protocol"
-	help
-	  This options enables a driver which allows clients to send messages
-	  to Alway On processor using QMP transport. Users can echo a frequency
-	  into an exposed sysfs node to send to AOP. The driver expects the Cap
-	  frequency of DDR based on SKU.
-
 config MSM_PERFORMANCE
         tristate "msm performance driver to support userspace fmin/fmax request"
         help
@@ -1121,5 +1102,23 @@ config RENAME_DEVICES
 	  which is needed during android verified boot process and it
 	  also maps to physical partition names on gvm side which help
 	  identify the block and network devices.
+
+config QCOM_S2D_VENDOR_HOOK
+	tristate "Vendor hook module to route flow of the core Kernel"
+	help
+	  This options enable vendor hook callbacks for bootloader based
+	  hibernation. Callbacks implemented here are called from the
+          core kernel and help to do bootloader hibernation specific job.
+	  Enable this if bootloader hibernation is enabled.
+
+config QCOM_SECURE_HIBERNATION
+	tristate "Add security support to hibernation"
+	depends on HIBERNATION
+	help
+	  Secure the hibernation snapshot by encrypting
+	  the snapshot at kernel before saving to disk.
+	  This uses GCM-AES crypto algorithm to encrypt the
+	  pages at the kernel.
+	  If not sure, say N.
 
 endmenu

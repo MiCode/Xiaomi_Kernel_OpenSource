@@ -1159,6 +1159,45 @@ static void wake_up_core_ctl_thread(void)
 	wake_up_process(core_ctl_thread);
 }
 
+static inline int set_cluster_boost(struct cluster_data *cluster, bool boost,
+				    bool *boost_state_changed)
+{
+	int ret = 0;
+
+	if (boost) {
+		*boost_state_changed = !cluster->boost;
+		++cluster->boost;
+	} else {
+		if (!cluster->boost)
+			return -EINVAL;
+		--cluster->boost;
+		*boost_state_changed = !cluster->boost;
+	}
+
+	return ret;
+}
+
+int core_ctl_set_cluster_boost(int idx, bool boost)
+{
+	struct cluster_data *cluster;
+	bool boost_state_changed = false;
+	unsigned long flags;
+	int ret = 0;
+
+	if (idx >= num_clusters)
+		return -EINVAL;
+
+	spin_lock_irqsave(&state_lock, flags);
+	cluster = &cluster_state[idx];
+	ret = set_cluster_boost(cluster, boost, &boost_state_changed);
+	spin_unlock_irqrestore(&state_lock, flags);
+
+	if (boost_state_changed)
+		sysfs_param_changed(cluster);
+
+	return ret;
+}
+
 static u64 core_ctl_check_timestamp;
 
 int core_ctl_set_boost(bool boost)
@@ -1173,19 +1212,8 @@ int core_ctl_set_boost(bool boost)
 		return 0;
 
 	spin_lock_irqsave(&state_lock, flags);
-	for_each_cluster(cluster, index) {
-		if (boost) {
-			boost_state_changed = !cluster->boost;
-			++cluster->boost;
-		} else {
-			if (!cluster->boost) {
-				ret = -EINVAL;
-				break;
-			}
-			--cluster->boost;
-			boost_state_changed = !cluster->boost;
-		}
-	}
+	for_each_cluster(cluster, index)
+		ret = set_cluster_boost(cluster, boost, &boost_state_changed);
 	spin_unlock_irqrestore(&state_lock, flags);
 
 	if (boost_state_changed) {
@@ -1264,14 +1292,23 @@ static bool core_ctl_check_masks_set(void)
 }
 
 /* is the system in a single-big-thread case? */
-static inline bool is_sbt(void)
+static inline bool is_sbt(bool prev_is_sbt, int prev_is_sbt_windows)
 {
 	struct cluster_data *cluster = &cluster_state[MAX_CLUSTERS - 1];
+	bool ret = false;
 
-	if (last_nr_big == 1 && cluster->nr_big == 1)
-		return true;
+	if (last_nr_big != 1)
+		goto out;
 
-	return false;
+	if (cluster->nr_big != 1)
+		goto out;
+
+	ret = true;
+out:
+	trace_core_ctl_sbt(&cpus_for_sbt_pause, prev_is_sbt, ret,
+			    prev_is_sbt_windows, cluster->nr_big);
+
+	return ret;
 }
 
 /**
@@ -1288,7 +1325,8 @@ void sbt_ctl_check(void)
 {
 	static bool prev_is_sbt;
 	static int prev_is_sbt_windows;
-	bool now_is_sbt = is_sbt();
+	bool now_is_sbt = is_sbt(prev_is_sbt, prev_is_sbt_windows);
+	cpumask_t local_cpus;
 
 	/* if there are cpus to adjust */
 	if (cpumask_weight(&cpus_for_sbt_pause) != 0) {
@@ -1302,12 +1340,14 @@ void sbt_ctl_check(void)
 		if (now_is_sbt && prev_is_sbt_windows-- > 0)
 			return;
 
+		cpumask_copy(&local_cpus, &cpus_for_sbt_pause);
+
 		if (!prev_is_sbt && now_is_sbt)
 			/*sbt entry*/
-			walt_pause_cpus(&cpus_for_sbt_pause, PAUSE_SBT);
+			walt_pause_cpus(&local_cpus, PAUSE_SBT);
 		else if (prev_is_sbt && !now_is_sbt)
 			/* sbt exit */
-			walt_resume_cpus(&cpus_for_sbt_pause, PAUSE_SBT);
+			walt_resume_cpus(&local_cpus, PAUSE_SBT);
 
 		prev_is_sbt_windows = sysctl_sched_sbt_delay_windows;
 		prev_is_sbt = now_is_sbt;

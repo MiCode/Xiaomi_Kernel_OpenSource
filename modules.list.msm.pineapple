@@ -37,6 +37,7 @@ memory_dump_v2.ko
 dispcc-pineapple.ko
 tcsrcc-pineapple.ko
 gpucc-pineapple.ko
+gcc-cliffs.ko
 gcc-pineapple.ko
 videocc-pineapple.ko
 debug-regulator.ko
@@ -68,6 +69,7 @@ interconnect_qcom.ko
 icc-bcm-voter.ko
 icc-rpmh.ko
 qnoc-qos.ko
+qnoc-cliffs.ko
 qnoc-pineapple.ko
 icc-debug.ko
 icc-test.ko

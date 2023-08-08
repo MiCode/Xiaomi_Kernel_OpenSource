@@ -85,6 +85,7 @@ unsigned int sysctl_fmax_cap[MAX_CLUSTERS];
 unsigned int sysctl_sched_sbt_pause_cpus;
 unsigned int sysctl_sched_sbt_delay_windows;
 unsigned int high_perf_cluster_freq_cap[MAX_CLUSTERS];
+unsigned int sysctl_sched_pipeline_cpus;
 
 /* range is [1 .. INT_MAX] */
 static int sysctl_task_read_pid = 1;
@@ -146,7 +147,7 @@ unlock:
 	return ret;
 }
 
-DECLARE_BITMAP(sbt_bitmap, WALT_NR_CPUS);
+DECLARE_BITMAP(sysctl_bitmap, WALT_NR_CPUS);
 
 static int walt_proc_sbt_pause_handler(struct ctl_table *table,
 				       int write, void __user *buffer, size_t *lenp,
@@ -172,8 +173,42 @@ static int walt_proc_sbt_pause_handler(struct ctl_table *table,
 	}
 
 	bitmask = (unsigned long)sysctl_sched_sbt_pause_cpus;
-	bitmap_copy(sbt_bitmap, bitmaskp, WALT_NR_CPUS);
-	cpumask_copy(&cpus_for_sbt_pause, to_cpumask(sbt_bitmap));
+	bitmap_copy(sysctl_bitmap, bitmaskp, WALT_NR_CPUS);
+	cpumask_copy(&cpus_for_sbt_pause, to_cpumask(sysctl_bitmap));
+
+	written_once = true;
+unlock:
+	mutex_unlock(&mutex);
+	return ret;
+}
+
+/* pipeline cpus are non-prime cpus chosen to handle pipeline tasks, e.g. golds */
+static int walt_proc_pipeline_cpus_handler(struct ctl_table *table,
+					   int write, void __user *buffer, size_t *lenp,
+					   loff_t *ppos)
+{
+	int ret = 0;
+	unsigned int old_value;
+	unsigned long bitmask;
+	const unsigned long *bitmaskp = &bitmask;
+	static bool written_once;
+	static DEFINE_MUTEX(mutex);
+
+	mutex_lock(&mutex);
+
+	old_value = sysctl_sched_pipeline_cpus;
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	if (ret || !write || (old_value == sysctl_sched_pipeline_cpus))
+		goto unlock;
+
+	if (written_once) {
+		sysctl_sched_pipeline_cpus = old_value;
+		goto unlock;
+	}
+
+	bitmask = (unsigned long)sysctl_sched_pipeline_cpus;
+	bitmap_copy(sysctl_bitmap, bitmaskp, WALT_NR_CPUS);
+	cpumask_copy(&cpus_for_pipeline, to_cpumask(sysctl_bitmap));
 
 	written_once = true;
 unlock:
@@ -242,6 +277,7 @@ enum {
 	LOW_LATENCY,
 	PIPELINE,
 	LOAD_BOOST,
+	REDUCE_AFFINITY,
 };
 
 static int sched_task_handler(struct ctl_table *table, int write,
@@ -255,6 +291,8 @@ static int sched_task_handler(struct ctl_table *table, int write,
 	struct walt_task_struct *wts;
 	struct rq *rq;
 	struct rq_flags rf;
+	unsigned long bitmask;
+	const unsigned long *bitmaskp = &bitmask;
 
 	struct ctl_table tmp = {
 		.data	= &pid_and_val,
@@ -302,6 +340,9 @@ static int sched_task_handler(struct ctl_table *table, int write,
 			break;
 		case LOAD_BOOST:
 			pid_and_val[1] = wts->load_boost;
+			break;
+		case REDUCE_AFFINITY:
+			pid_and_val[1] = cpumask_bits(&wts->reduce_mask)[0];
 			break;
 		default:
 			ret = -EINVAL;
@@ -401,6 +442,11 @@ static int sched_task_handler(struct ctl_table *table, int write,
 			wts->boosted_task_load = mult_frac((int64_t)1024, (int64_t)val, 100);
 		else
 			wts->boosted_task_load = 0;
+		break;
+	case REDUCE_AFFINITY:
+		bitmask = (unsigned long) val;
+		bitmap_copy(sysctl_bitmap, bitmaskp, WALT_NR_CPUS);
+		cpumask_copy(&wts->reduce_mask, to_cpumask(sysctl_bitmap));
 		break;
 	default:
 		ret = -EINVAL;
@@ -1051,6 +1097,13 @@ struct ctl_table walt_table[] = {
 		.proc_handler	= sched_task_handler,
 	},
 	{
+		.procname	= "task_reduce_affinity",
+		.data		= (int *) REDUCE_AFFINITY,
+		.maxlen		= sizeof(unsigned int) * 2,
+		.mode		= 0644,
+		.proc_handler	= sched_task_handler,
+	},
+	{
 		.procname	= "sched_task_read_pid",
 		.data		= &sysctl_task_read_pid,
 		.maxlen		= sizeof(int),
@@ -1155,6 +1208,15 @@ struct ctl_table walt_table[] = {
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= proc_douintvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_INT_MAX,
+	},
+	{
+		.procname	= "sched_pipeline_cpus",
+		.data		= &sysctl_sched_pipeline_cpus,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= walt_proc_pipeline_cpus_handler,
 		.extra1		= SYSCTL_ZERO,
 		.extra2		= SYSCTL_INT_MAX,
 	},

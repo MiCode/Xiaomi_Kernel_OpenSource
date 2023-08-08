@@ -73,6 +73,12 @@ enum migrate_types {
 	RQ_TO_GROUP,
 };
 
+enum pipeline_types {
+	MANUAL_PIPELINE,
+	AUTO_PIPELINE,
+	MAX_PIPELINE_TYPES,
+};
+
 #define WALT_LOW_LATENCY_PROCFS		BIT(0)
 #define WALT_LOW_LATENCY_BINDER		BIT(1)
 #define WALT_LOW_LATENCY_PIPELINE	BIT(2)
@@ -191,6 +197,7 @@ extern void walt_fill_ta_data(struct core_ctl_notif_data *data);
 extern int sched_set_group_id(struct task_struct *p, unsigned int group_id);
 extern unsigned int sched_get_group_id(struct task_struct *p);
 extern void core_ctl_check(u64 wallclock, u32 wakeup_ctr_sum);
+extern int core_ctl_set_cluster_boost(int idx, bool boost);
 extern int sched_set_boost(int enable);
 extern void walt_boost_init(void);
 extern int sched_pause_cpus(struct cpumask *pause_cpus);
@@ -344,6 +351,8 @@ extern unsigned int sched_lib_mask_force;
 extern cpumask_t cpus_for_sbt_pause;
 extern unsigned int sysctl_sched_sbt_delay_windows;
 
+extern cpumask_t cpus_for_pipeline;
+
 /* WALT cpufreq interface */
 #define WALT_CPUFREQ_ROLLOVER		0x1
 #define WALT_CPUFREQ_CONTINUE		0x2
@@ -352,6 +361,7 @@ extern unsigned int sysctl_sched_sbt_delay_windows;
 #define WALT_CPUFREQ_EARLY_DET		0x10
 #define WALT_CPUFREQ_BOOST_UPDATE	0x20
 #define WALT_CPUFREQ_ASYM_FIXUP		0x40
+#define WALT_CPUFREQ_SHARED_RAIL	0x80
 
 #define CPUFREQ_REASON_LOAD		0
 #define CPUFREQ_REASON_BTR		0x1
@@ -1007,9 +1017,12 @@ extern struct cpumask __cpu_partial_halt_mask;
 				!is_min_possible_cluster_cpu(cpu) && \
 				!cpu_partial_halted(cpu))
 
-static inline bool cluster_partial_halted(void)
+static inline bool is_state1(void)
 {
-	return cpumask_equal(cpu_partial_halt_mask, &part_haltable_cpus);
+	struct cpumask local_mask = { CPU_BITS_NONE };
+
+	cpumask_or(&local_mask, cpu_partial_halt_mask, cpu_halt_mask);
+	return cpumask_subset(&part_haltable_cpus, &local_mask);
 }
 
 /* determine if this task should be allowed to use a partially halted cpu */

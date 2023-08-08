@@ -28,6 +28,9 @@
 #include <trace/hooks/ufshcd.h>
 #include <linux/ipc_logging.h>
 #include <soc/qcom/minidump.h>
+#ifdef CONFIG_SCHED_WALT
+#include <linux/sched/walt.h>
+#endif
 
 #include <ufs/ufshcd.h>
 #include "ufshcd-pltfrm.h"
@@ -1543,6 +1546,13 @@ static void ufs_qcom_toggle_pri_affinity(struct ufs_hba *hba, bool on)
 
 	if (on && atomic_read(&host->therm_mitigation))
 		return;
+
+#ifdef CONFIG_SCHED_WALT
+	if (on)
+		sched_set_boost(STORAGE_BOOST);
+	else
+		sched_set_boost(STORAGE_BOOST_DISABLE);
+#endif
 
 	atomic_set(&host->hi_pri_en, on);
 	ufs_qcom_set_affinity_hint(hba, on);
@@ -3996,6 +4006,12 @@ static bool ufs_qcom_update_ber_event(struct ufs_qcom_host *host,
 	u32 mode = ber_table[gear].mode;
 	bool rc = false;
 
+	/* Check if the gear mode is valid */
+	if (mode >= UFS_QCOM_BER_MODE_MAX) {
+		dev_err(host->hba->dev, "%s: Invalid gear mode: %d\n", __func__, mode);
+		return false;
+	}
+
 	h = &host->ber_hist[mode];
 	h->uec_pa[h->pos] = data;
 
@@ -4844,7 +4860,7 @@ static irqreturn_t ufs_qcom_mcq_esi_handler(int irq, void *data)
 	ufs_qcom_log_str(host, "!,%d,%u\n", irq, id);
 	ufshcd_mcq_write_cqis(hba, 0x1, id);
 	atomic_add(1, &host->cqhp_update_pending);
-	ufshcd_mcq_poll_cqe_nolock(hba, hwq);
+	ufshcd_mcq_poll_cqe_lock(hba, hwq);
 	atomic_sub(1, &host->cqhp_update_pending);
 
 	return IRQ_HANDLED;
