@@ -335,10 +335,14 @@ int ese_cold_reset_ioctl(struct nfc_dev *nfc_dev, unsigned long arg)
 	ret = nfc_dev->cold_reset.status;
 
 err:
-	kfree(nfc_dev->cold_reset.cmd_buf);
-	nfc_dev->cold_reset.cmd_buf = NULL;
-	kfree(cold_reset_arg);
-	cold_reset_arg = NULL;
+	if (nfc_dev->cold_reset.cmd_buf != NULL) {
+		kfree(nfc_dev->cold_reset.cmd_buf);
+		nfc_dev->cold_reset.cmd_buf = NULL;
+	}
+	if (cold_reset_arg != NULL) {
+		kfree(cold_reset_arg);
+		cold_reset_arg = NULL;
+	}
 
 	mutex_unlock(&nfc_dev->write_mutex);
 
