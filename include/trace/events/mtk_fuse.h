@@ -96,6 +96,35 @@ TRACE_EVENT(mtk_fuse_force_forget,
 		__entry->nodeid,
 		__entry->nlookup)
 );
+
+TRACE_EVENT(mtk_fuse_iget_backing,
+	TP_PROTO(const char *func, int line, struct inode *inode, u64 nodeid, struct inode *backing),
+
+	TP_ARGS(func, line, inode, nodeid, backing),
+
+	TP_STRUCT__entry(
+		__string(func, func)
+		__field(int, line)
+		__field(struct inode *, inode)
+		__field(u64, nodeid)
+		__field(struct inode *, backing)
+	),
+
+	TP_fast_assign(
+		__assign_str(func, func);
+		__entry->line = line;
+		__entry->inode = inode;
+		__entry->nodeid = nodeid;
+		__entry->backing = backing;
+	),
+
+	TP_printk("%s:%d, inode = %p, nodeid = %llu, backing = %p",
+		__get_str(func),
+		__entry->line,
+		__entry->inode,
+		__entry->nodeid,
+		__entry->backing)
+);
 #endif /*_TRACE_MTK_FUSE_H */
 
 /* This part must be outside protection */

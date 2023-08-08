@@ -12,6 +12,9 @@
 #include <linux/namei.h>
 
 #include "../internal.h"
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+#include <trace/events/mtk_fuse.h>
+#endif
 
 #define FUSE_BPF_IOCB_MASK (IOCB_APPEND | IOCB_DSYNC | IOCB_HIPRI | IOCB_NOWAIT | IOCB_SYNC)
 
@@ -263,6 +266,10 @@ int fuse_create_open_backing(
 	if (d_inode)
 		target_nodeid = get_fuse_inode(d_inode)->nodeid;
 
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	trace_mtk_fuse_iget_backing(__func__, __LINE__, d_inode, target_nodeid,
+			fuse_entry->backing_path.dentry->d_inode);
+#endif
 	inode = fuse_iget_backing(dir->i_sb, target_nodeid,
 #if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
 			fuse_entry->backing_path.dentry->d_inode);
@@ -1326,8 +1333,16 @@ struct dentry *fuse_lookup_finalize(struct fuse_bpf_args *fa, struct inode *dir,
 
 	backing_inode = backing_entry->d_inode;
 	if (backing_inode)
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	{
+		trace_mtk_fuse_iget_backing(__func__, __LINE__, entry_inode,
+				target_nodeid, backing_inode);
+#endif
 		inode = fuse_iget_backing(dir->i_sb, target_nodeid,
 					  backing_inode);
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	}
+#endif
 
 	error = inode ?
 		fuse_handle_bpf_prog(feb, dir, &get_fuse_inode(inode)->bpf) :
@@ -1491,6 +1506,10 @@ int fuse_mknod_backing(
 		 */
 		goto out;
 	}
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	trace_mtk_fuse_iget_backing(__func__, __LINE__, &fuse_inode->inode,
+			fuse_inode->nodeid, backing_inode);
+#endif
 	inode = fuse_iget_backing(dir->i_sb, fuse_inode->nodeid, backing_inode);
 	if (IS_ERR(inode)) {
 		err = PTR_ERR(inode);
@@ -1569,6 +1588,10 @@ int fuse_mkdir_backing(
 		dput(backing_path.dentry);
 		backing_path.dentry = d;
 	}
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	trace_mtk_fuse_iget_backing(__func__, __LINE__, &fuse_inode->inode,
+			fuse_inode->nodeid, backing_inode);
+#endif
 	inode = fuse_iget_backing(dir->i_sb, fuse_inode->nodeid, backing_inode);
 	if (IS_ERR(inode)) {
 		err = PTR_ERR(inode);
@@ -1925,6 +1948,10 @@ int fuse_link_backing(struct fuse_bpf_args *fa, struct dentry *entry,
 		goto out;
 	}
 
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	trace_mtk_fuse_iget_backing(__func__, __LINE__, &fuse_dir_inode->inode,
+			fuse_dir_inode->nodeid, backing_dir_inode);
+#endif
 	fuse_new_inode = fuse_iget_backing(dir->i_sb, fuse_dir_inode->nodeid, backing_dir_inode);
 	if (IS_ERR(fuse_new_inode)) {
 		err = PTR_ERR(fuse_new_inode);
@@ -2315,6 +2342,10 @@ int fuse_symlink_backing(
 		 */
 		goto out;
 	}
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	trace_mtk_fuse_iget_backing(__func__, __LINE__, &fuse_inode->inode,
+			fuse_inode->nodeid, backing_inode);
+#endif
 	inode = fuse_iget_backing(dir->i_sb, fuse_inode->nodeid, backing_inode);
 	if (IS_ERR(inode)) {
 		err = PTR_ERR(inode);

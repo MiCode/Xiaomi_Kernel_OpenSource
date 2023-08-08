@@ -573,6 +573,10 @@ int fuse_lookup_name(struct super_block *sb, u64 nodeid, const struct qstr *name
 		}
 
 		backing_inode = backing_file->f_inode;
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+		trace_mtk_fuse_iget_backing(__func__, __LINE__, NULL,
+				outarg->nodeid, backing_inode);
+#endif
 		*inode = fuse_iget_backing(sb, outarg->nodeid, backing_inode);
 		if (!*inode)
 #if IS_ENABLED(CONFIG_MTK_FUSE_UPSTREAM_BUILD)
