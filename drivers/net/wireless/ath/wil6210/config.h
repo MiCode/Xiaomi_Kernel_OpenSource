@@ -5,7 +5,7 @@
 #define __WIL_CONFIG_H__
 
 #define WIL_CONFIG_VAR_OFFSET(_struct, _var) (offsetof(_struct, _var))
-#define WIL_CONFIG_VAR_SIZE(_struct, _var) (FIELD_SIZEOF(_struct, _var))
+#define WIL_CONFIG_VAR_SIZE(_struct, _var) (sizeof_field(_struct, _var))
 
 enum wil_ini_param_type {
 	wil_ini_param_type_unsigned,
