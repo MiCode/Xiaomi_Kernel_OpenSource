@@ -5028,6 +5028,7 @@ static int dwc3_msm_debug_init(struct dwc3_msm *mdwc)
 static int dwc3_usb_panic_notifier(struct notifier_block *this,
 		unsigned long event, void *ptr)
 {
+#ifdef CONFIG_DEBUG_FS
 	struct dwc3_msm *mdwc = container_of(this, struct dwc3_msm, panic_nb);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	const struct debugfs_reg32 *dwc3_regs = dwc->regset->regs;
@@ -5052,6 +5053,7 @@ static int dwc3_usb_panic_notifier(struct notifier_block *this,
 		dump_dwc3_regs(qscratch_reg[i].name, qscratch_reg[i].offset + QSCRATCH_REG_OFFSET,
 					dwc3_msm_read_reg(mdwc->base, qscratch_reg[i].offset
 							+ QSCRATCH_REG_OFFSET));
+#endif
 	return NOTIFY_DONE;
 }
 
@@ -5220,6 +5222,7 @@ static int dwc3_msm_parse_core_params(struct dwc3_msm *mdwc, struct device_node 
 static int dwc3_msm_smmu_fault_handler(struct iommu_domain *domain, struct device *dev,
 					unsigned long iova, int flags, void *data)
 {
+#ifdef CONFIG_DEBUG_FS
 	struct dwc3_msm *mdwc = data;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	const struct debugfs_reg32 *dwc3_regs = dwc->regset->regs;
@@ -5233,6 +5236,7 @@ static int dwc3_msm_smmu_fault_handler(struct iommu_domain *domain, struct devic
 			dump_dwc3_regs(dwc3_regs[i].name, dwc3_regs[i].offset,
 					dwc3_readl(dwc->regs, dwc3_regs[i].offset));
 	}
+#endif
        /*
 	* Let the iommu core know we're not really handling this fault;
 	* we just use it to dump the registers for debugging purposes.
