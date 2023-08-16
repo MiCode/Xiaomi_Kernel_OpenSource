@@ -104,8 +104,8 @@ static void snapshot_preemption_records(struct kgsl_device *device,
 			offset);
 }
 
-static u32 a6xx_copy_gpu_global(struct adreno_device *adreno_dev,
-	void *out, u64 gpuaddr, u32 size)
+static void *get_rb_hostptr(struct adreno_device *adreno_dev,
+	u64 gpuaddr, u32 size)
 {
 	struct a6xx_hwsched_hfi *hw_hfi = to_a6xx_hwsched_hfi(adreno_dev);
 	u64 offset;
@@ -117,33 +117,62 @@ static u32 a6xx_copy_gpu_global(struct adreno_device *adreno_dev,
 		if (md && (gpuaddr >= md->gpuaddr) &&
 			((gpuaddr + size) <= (md->gpuaddr + md->size))) {
 			offset = gpuaddr - md->gpuaddr;
-			memcpy(out, md->hostptr + offset, size);
-			return size;
+			return md->hostptr + offset;
 		}
+	}
+	return NULL;
+}
+
+static u32 a6xx_copy_gpu_global(void *out, void *in, u32 size)
+{
+	if (out && in) {
+		memcpy(out, in, size);
+		return size;
 	}
 
 	return 0;
 }
 
-static size_t adreno_hwsched_snapshot_rb_payload(struct kgsl_device *device,
-	u8 *buf, size_t remain, void *priv)
+
+static void adreno_hwsched_snapshot_rb_payload(struct adreno_device *adreno_dev,
+	struct kgsl_snapshot *snapshot, struct payload_section *payload)
 {
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct kgsl_snapshot_section_header *section_header =
+		(struct kgsl_snapshot_section_header *)snapshot->ptr;
+	u8 *buf = snapshot->ptr + sizeof(*section_header);
 	struct kgsl_snapshot_rb_v2 *header = (struct kgsl_snapshot_rb_v2 *)buf;
 	u32 *data = (u32 *)(buf + sizeof(*header));
-	struct payload_section *payload = (struct payload_section *)priv;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	u32 size = a6xx_hwsched_parse_payload(payload, KEY_RB_SIZEDWORDS) << 2;
 	u64 lo, hi, gpuaddr;
+	void *rb_hostptr;
+	char str[16];
 
 	lo = a6xx_hwsched_parse_payload(payload, KEY_RB_GPUADDR_LO);
 	hi = a6xx_hwsched_parse_payload(payload, KEY_RB_GPUADDR_HI);
 	gpuaddr = hi << 32 | lo;
 
+	/* Sanity check to make sure there is enough for the header */
+	if (snapshot->remain < sizeof(*section_header))
+		goto err;
+
+	rb_hostptr = get_rb_hostptr(adreno_dev, gpuaddr, size);
+
 	/* If the gpuaddress and size don't match any allocation, then abort */
-	if ((remain < size + sizeof(*header)) ||
-		!a6xx_copy_gpu_global(adreno_dev, data, gpuaddr, size)) {
-		SNAPSHOT_ERR_NOMEM(device, "RB");
-		return 0;
+	if (((snapshot->remain - sizeof(*section_header)) <
+	    (size + sizeof(*header))) ||
+	    !a6xx_copy_gpu_global(data, rb_hostptr, size))
+		goto err;
+
+	if (device->dump_all_ibs) {
+		u64 rbaddr;
+
+		kgsl_regread64(device, A6XX_CP_RB_BASE,
+			       A6XX_CP_RB_BASE_HI, &rbaddr);
+
+		/* Parse all IBs from current RB */
+		if (rbaddr == gpuaddr)
+			adreno_snapshot_dump_all_ibs(device, rb_hostptr, snapshot);
 	}
 
 	header->start = 0;
@@ -159,7 +188,19 @@ static size_t adreno_hwsched_snapshot_rb_payload(struct kgsl_device *device,
 	header->gpuaddr = gpuaddr;
 	header->id = a6xx_hwsched_parse_payload(payload, KEY_RB_ID);
 
-	return size + sizeof(*header);
+	section_header->magic = SNAPSHOT_SECTION_MAGIC;
+	section_header->id = KGSL_SNAPSHOT_SECTION_RB_V2;
+	section_header->size = size + sizeof(*header) + sizeof(*section_header);
+
+	snapshot->ptr += section_header->size;
+	snapshot->remain -= section_header->size;
+	snapshot->size += section_header->size;
+
+	return;
+err:
+	snprintf(str, sizeof(str), "RB addr:0x%llx", gpuaddr);
+	SNAPSHOT_ERR_NOMEM(device, str);
+	return;
 }
 
 static bool parse_payload_rb_legacy(struct adreno_device *adreno_dev,
@@ -183,10 +224,7 @@ static bool parse_payload_rb_legacy(struct adreno_device *adreno_dev,
 		struct payload_section *payload = start + i;
 
 		if (payload->type == PAYLOAD_RB) {
-			kgsl_snapshot_add_section(KGSL_DEVICE(adreno_dev),
-				KGSL_SNAPSHOT_SECTION_RB_V2,
-				snapshot, adreno_hwsched_snapshot_rb_payload,
-				payload);
+			adreno_hwsched_snapshot_rb_payload(adreno_dev, snapshot, payload);
 			ret = true;
 		}
 
@@ -217,10 +255,8 @@ static bool parse_payload_rb(struct adreno_device *adreno_dev,
 		struct payload_section *payload = start + i;
 
 		if (payload->type == PAYLOAD_RB) {
-			kgsl_snapshot_add_section(KGSL_DEVICE(adreno_dev),
-				KGSL_SNAPSHOT_SECTION_RB_V2,
-				snapshot, adreno_hwsched_snapshot_rb_payload,
-				payload);
+			adreno_hwsched_snapshot_rb_payload(adreno_dev,
+							   snapshot, payload);
 			ret = true;
 		}
 
@@ -359,7 +395,7 @@ static int a6xx_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	device->gmu_fault = false;
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_AWARE);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
 
 	return 0;
 
@@ -428,7 +464,7 @@ static int a6xx_hwsched_gmu_boot(struct adreno_device *adreno_dev)
 
 	device->gmu_fault = false;
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_AWARE);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_AWARE);
 
 	return 0;
 err:
@@ -664,7 +700,7 @@ static void a6xx_hwsched_touch_wakeup(struct adreno_device *adreno_dev)
 	device->pwrctrl.last_stat_updated = ktime_get();
 	device->state = KGSL_STATE_ACTIVE;
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_ACTIVE);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 
 done:
 	/*
@@ -707,7 +743,7 @@ static int a6xx_hwsched_boot(struct adreno_device *adreno_dev)
 	device->pwrctrl.last_stat_updated = ktime_get();
 	device->state = KGSL_STATE_ACTIVE;
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_ACTIVE);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 
 	return ret;
 }
@@ -784,7 +820,7 @@ static int a6xx_hwsched_first_boot(struct adreno_device *adreno_dev)
 	device->pwrctrl.last_stat_updated = ktime_get();
 	device->state = KGSL_STATE_ACTIVE;
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_ACTIVE);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 
 	return 0;
 }
@@ -1088,7 +1124,7 @@ static int a6xx_hwsched_pm_suspend(struct adreno_device *adreno_dev)
 
 	set_bit(GMU_PRIV_PM_SUSPEND, &gmu->flags);
 
-	trace_kgsl_pwr_set_state(device, KGSL_STATE_SUSPEND);
+	kgsl_pwrctrl_set_state(device, KGSL_STATE_SUSPEND);
 
 	return 0;
 

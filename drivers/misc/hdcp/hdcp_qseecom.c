@@ -19,7 +19,7 @@
 #define hdcp2_app_init_var(x) \
 	struct hdcp_##x##_req *req_buf = NULL; \
 	struct hdcp_##x##_rsp *rsp_buf = NULL; \
-	if (!handle->qseecom_handle) { \
+	if (!handle || !handle->qseecom_handle) { \
 		pr_err("invalid qseecom_handle while processing %s\n", #x); \
 		rc = -EINVAL; \
 		goto error; \

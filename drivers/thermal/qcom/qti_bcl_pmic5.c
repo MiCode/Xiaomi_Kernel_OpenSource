@@ -491,13 +491,19 @@ static int bcl_get_trend(void *data, int trip, enum thermal_trend *trend)
 
 static int bcl_set_lbat(void *data, int low, int high)
 {
-	int bcl_lvl = 0;
+	uint32_t bcl_lvl = 0;
 	struct bcl_peripheral_data *bat_data =
 		(struct bcl_peripheral_data *)data;
 	struct bcl_device *bcl_perph = bat_data->dev;
 
 	mutex_lock(&bat_data->state_trans_lock);
 
+	bcl_lvl = bat_data->type - BCL_LVL0;
+	if (bcl_lvl >= MAX_BCL_LVL_COUNT) {
+		pr_err("Invalid sensor type level:%d\n", bat_data->type);
+		mutex_unlock(&bat_data->state_trans_lock);
+		return -EINVAL;
+	}
 	if (high != BCL_TRIGGER_THRESHOLD &&
 		bat_data->irq_num && bat_data->irq_enabled) {
 		disable_irq_nosync(bat_data->irq_num);
@@ -508,7 +514,6 @@ static int bcl_set_lbat(void *data, int low, int high)
 				bat_data->irq_num, low, high);
 	} else if (high == BCL_TRIGGER_THRESHOLD &&
 		bat_data->irq_num && !bat_data->irq_enabled) {
-		bcl_lvl = bat_data->type - BCL_LVL0;
 		bcl_update_clear_stats(&bcl_perph->stats[bcl_lvl]);
 		enable_irq(bat_data->irq_num);
 		enable_irq_wake(bat_data->irq_num);
@@ -577,7 +582,8 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 		(struct bcl_peripheral_data *)data;
 	unsigned int irq_status = 0;
 	unsigned long long start_ts = 0, end_ts = 0;
-	int ibat = 0, vbat = 0, bcl_lvl = 0;
+	int ibat = 0, vbat = 0;
+	uint32_t bcl_lvl = 0;
 	struct bcl_device *bcl_perph;
 
 	if (!perph_data->tz_dev)
@@ -591,6 +597,10 @@ static irqreturn_t bcl_handle_irq(int irq, void *data)
 		bcl_read_vbat_tz(bcl_perph->param[BCL_VBAT_LVL0].tz_dev, &vbat);
 
 	bcl_lvl = perph_data->type - BCL_LVL0;
+	if (bcl_lvl >= MAX_BCL_LVL_COUNT) {
+		pr_err("Invalid sensor type level:%d\n", perph_data->type);
+		return IRQ_HANDLED;
+	}
 	if (irq_status & perph_data->status_bit_idx) {
 		bcl_update_trigger_stats(&bcl_perph->stats[bcl_lvl], ibat, vbat);
 		pr_debug(

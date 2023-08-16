@@ -312,6 +312,7 @@ struct sdhci_msm_host {
 	bool uses_tassadar_dll;
 	bool uses_level_shifter;
 	bool dll_lock_bist_fail_wa;
+	bool need_special_up_threshold;
 	u32 dll_config;
 	u32 ddr_config;
 	u16 last_cmd;

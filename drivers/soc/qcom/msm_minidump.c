@@ -580,7 +580,7 @@ static int msm_minidump_driver_probe(struct platform_device *pdev)
 	}
 
 	/*Check global minidump support initialization */
-	if (!md_global_toc->md_toc_init) {
+	if (size < sizeof(*md_global_toc) || !md_global_toc->md_toc_init) {
 		pr_err("System Minidump TOC not initialized\n");
 		return -ENODEV;
 	}

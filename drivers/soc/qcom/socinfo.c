@@ -1038,6 +1038,7 @@ static const struct soc_id soc_id[] = {
 	{ 537, "PARROT" },
 	{ 583, "PARROTP" },
 	{ 613, "PARROT" },
+	{ 631, "PARROTP" },
 	{ 530, "CAPE" },
 	{ 531, "CAPEP" },
 	{ 540, "CAPE-V2" },

@@ -3568,9 +3568,11 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		context_free(ctx);
 		trace_fastrpc_msg("context_free: end");
 	}
-	if (VALID_FASTRPC_CID(cid)
-		&& (fl->ssrcount != fl->apps->channel[cid].ssrcount))
-		err = -ECONNRESET;
+	if (!kernel) {
+		if (VALID_FASTRPC_CID(cid)
+			&& (fl->ssrcount != fl->apps->channel[cid].ssrcount))
+			err = -ECONNRESET;
+	}
 
 invoke_end:
 	if (fl->profile && !interrupted && isasyncinvoke)
