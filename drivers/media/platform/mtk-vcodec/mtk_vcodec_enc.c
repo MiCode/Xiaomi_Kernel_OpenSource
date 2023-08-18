@@ -1989,8 +1989,13 @@ static int vb2ops_venc_queue_setup(struct vb2_queue *vq,
 				return -EINVAL;
 	} else {
 		*nplanes = q_data->fmt->num_planes;
-		for (i = 0; i < *nplanes; i++)
+		for (i = 0; i < *nplanes; i++) {
 			sizes[i] = q_data->sizeimage[i];
+			if (sizes[i] == 0) {
+				mtk_v4l2_err("plane size[%d] is 0", i);
+				return -EINVAL;
+			}
+		}
 	}
 
 	mtk_v4l2_debug(2, "[%d] nplanes %d sizeimage %d %d %d, state=%d",
