@@ -508,6 +508,7 @@ struct ring_input_list {
 	__s32 write_idx;
 	__s32 count;
 	__s32 reserved;
+	__u32 flags[VENC_MAX_FB_NUM];
 };
 
 /*

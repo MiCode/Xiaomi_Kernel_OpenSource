@@ -344,12 +344,14 @@ static void venc_get_free_buffers(struct venc_inst *inst,
 	pResult->bs_va = (unsigned long)inst->ctx->bs_list[bs_index];
 	fb_index = list->venc_fb_va_list[list->read_idx];
 	pResult->frm_va = (unsigned long)inst->ctx->fb_list[fb_index];
+	pResult->flags = list->flags[list->read_idx];
 
-	mtk_vcodec_debug(inst, "bsva %lx %lld frva %lx %lld bssize %d iskey %d",
+	mtk_vcodec_debug(inst, "bsva %lx %lld frva %lx %lld bssize %d iskey %d flags 0x%x",
 		pResult->bs_va, bs_index,
 		pResult->frm_va, fb_index,
 		pResult->bs_size,
-		pResult->is_key_frm);
+		pResult->is_key_frm,
+		pResult->flags);
 
 	list->read_idx = (list->read_idx == VENC_MAX_FB_NUM - 1U) ?
 			 0U : list->read_idx + 1U;

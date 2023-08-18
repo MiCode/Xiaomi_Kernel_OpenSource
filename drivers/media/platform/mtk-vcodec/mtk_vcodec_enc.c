@@ -259,6 +259,10 @@ void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 	struct mtk_video_enc_buf *bs_info, *frm_info;
 	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
 	struct vb2_buffer *dst_buf;
+	char *pbuf;
+	int dump_size;
+	int i;
+	char debug_fb[200] = {0};
 
 	mutex_lock(&ctx->buf_lock);
 	do {
@@ -282,6 +286,24 @@ void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx)
 			frm_info = container_of(pfrm,
 				struct mtk_video_enc_buf, frm_buf);
 			src_vb2_v4l2 = &frm_info->vb;
+
+			if (rResult.flags & VENC_FLAG_ENCODE_TIMEOUT && pfrm->fb_addr[0].va != 0) {
+				mtk_v4l2_err("Venc Timeout Dump Framebuf %d VA=%p PA=%llx Size=0x%zx =>",
+				pfrm->index,
+				pfrm->fb_addr[0].va,
+				(u64)pfrm->fb_addr[0].dma_addr,
+				pfrm->fb_addr[0].size);
+
+				pbuf = (char *)pfrm->fb_addr[0].va;
+				dump_size = pfrm->fb_addr[0].size < 256 ? pfrm->fb_addr[i].size: 256;
+				for (i = 0; i < dump_size; i++) {
+					SPRINTF(debug_fb, "%s %02x", debug_fb, pbuf[i]);
+					if ((i + 1) % 16 == 0 || i == dump_size - 1) {
+						mtk_v4l2_err("%s", debug_fb);
+						memset(debug_fb, 0, ARRAY_SIZE(debug_fb));
+					}
+				}
+			}
 		}
 
 		if (src_vb2_v4l2 != NULL && dst_vb2_v4l2 != NULL) {
@@ -2896,8 +2918,8 @@ static void mtk_venc_worker(struct work_struct *work)
 	}
 
 	for (i = 0; i < src_buf->num_planes ; i++) {
-		if (mtk_v4l2_dbg_level > 0)
-			pfrm_buf->fb_addr[i].va = vb2_plane_vaddr(src_buf, i) +
+		// always map va for fb dump when encode timeout
+		pfrm_buf->fb_addr[i].va = vb2_plane_vaddr(src_buf, i) +
 			(size_t)src_buf->planes[i].data_offset;
 		pfrm_buf->fb_addr[i].dma_addr =
 			vb2_dma_contig_plane_dma_addr(src_buf, i) +

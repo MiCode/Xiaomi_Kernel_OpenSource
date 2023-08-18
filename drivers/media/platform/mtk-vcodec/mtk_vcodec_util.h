@@ -37,6 +37,17 @@
 
 #define MTK_VDEC_CHECK_ACTIVE_INTERVAL 2000 // ms
 
+#define SNPRINTF(args...)							\
+	do {											\
+		if (snprintf(args) < 0)						\
+			pr_notice("[ERROR] %s(),%d: snprintf error\n", __func__, __LINE__);	\
+	} while (0)
+#define SPRINTF(args...)							\
+	do {											\
+		if (sprintf(args) < 0)						\
+			pr_notice("[ERROR] %s(),%d: sprintf error\n", __func__, __LINE__);	\
+	} while (0)
+
 struct mtk_vcodec_mem {
 	size_t length;
 	size_t size;

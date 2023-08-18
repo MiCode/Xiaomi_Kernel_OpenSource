@@ -11,6 +11,8 @@
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-v4l2.h>
 
+#define VENC_FLAG_ENCODE_TIMEOUT 0x00000002
+
 /**
  * enum eos_types  - encoder different eos types
  * @NON_EOS     : no eos, normal frame
