@@ -1468,17 +1468,12 @@ void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 
 	if (handle == NULL) {
 		unsigned int v;
-
-		v = (readl(priv->config_regs + MMSYS_SODI_REQ_MASK)
-			& (~sodi_req_mask));
-		v += (sodi_req_val & sodi_req_mask);
+		v = 0xF500;
 		writel_relaxed(v, priv->config_regs + MMSYS_SODI_REQ_MASK);
+		writel_relaxed(0x7, priv->config_regs + MMSYS_DUMMY0);
 
-		v = (readl(priv->config_regs +  MMSYS_EMI_REQ_CTL)
-			& (~emi_req_mask));
-		v += (emi_req_val & emi_req_mask);
-		writel_relaxed(v, priv->config_regs +  MMSYS_EMI_REQ_CTL);
-
+		/* enable urgent signal from mmsys0 dsi buffer*/
+		writel_relaxed(0xdf, priv->config_regs +  MMSYS_EMI_REQ_CTL);
 		/* enable ultra signal from rdma to ovl0 and ovl0_2l */
 		v = readl(priv->config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
 		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
@@ -1490,11 +1485,6 @@ void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 		writel_relaxed(v, priv->config_regs +  DISP_REG_CONFIG_MMSYS_MISC);
 
 	} else {
-		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_SODI_REQ_MASK, sodi_req_val, sodi_req_mask);
-		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
-			MMSYS_EMI_REQ_CTL, emi_req_val, emi_req_mask);
-
 		/* enable ultra signal from rdma to ovl0 */
 		SET_VAL_MASK(ultra_ovl_val, ultra_ovl_mask,
 			0, MT6879_FLD_OVL0_RDMA_ULTRA_SEL);
@@ -1506,6 +1496,15 @@ void mt6879_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			0, MT6879_FLD_OVL0_2L_RDMA_ULTRA_SEL);
 		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
 			DISP_REG_CONFIG_MMSYS_MISC, ultra_ovl_val, ultra_ovl_mask);
+
+
+		/* enable urgent signal from mmsys0 dsi buffer*/
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_SODI_REQ_MASK, 0xf500, ~0);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_DUMMY0, 0x7, ~0);
+		cmdq_pkt_write(handle, NULL, priv->config_regs_pa +
+			MMSYS_EMI_REQ_CTL, 0xdf, ~0);
 	}
 }
 

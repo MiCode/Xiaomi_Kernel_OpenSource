@@ -568,14 +568,6 @@ static void mtk_rdma_start(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			mtk_ddp_write_relaxed(comp, 0x01,
 				DISP_REG_RDMA_MEM_GMC_S4,
 				handle);
-			mtk_ddp_write_mask(comp, 0x00,
-				DISP_REG_RDMA_ULTRA_SRC_SEL,
-				FLD_RG_PREULTRA_RDMA_SEL,
-				handle);
-			mtk_ddp_write_mask(comp, 0x00,
-				DISP_REG_RDMA_ULTRA_SRC_SEL,
-				FLD_RG_ULTRA_RDMA_SEL,
-				handle);
 		}
 		break;
 	case MMSYS_MT6895:
@@ -615,12 +607,6 @@ static void mtk_rdma_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			mtk_ddp_write_relaxed(comp, 0x0,
 				DISP_REG_RDMA_MEM_GMC_S4,
 				handle);
-			mtk_ddp_write_mask(comp, 0x01,
-				DISP_REG_RDMA_ULTRA_SRC_SEL,
-				FLD_RG_PREULTRA_RDMA_SEL, handle);
-			mtk_ddp_write_mask(comp, 0x02,
-				DISP_REG_RDMA_ULTRA_SRC_SEL,
-				FLD_RG_ULTRA_RDMA_SEL, handle);
 		}
 		break;
 	case MMSYS_MT6895:
@@ -789,9 +775,6 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	}
 
 	if (rdma->data->dsi_buffer) {
-		if (priv->data->mmsys_id == MMSYS_MT6879)
-			gs[GS_RDMA_FIFO_SIZE] = 0x20;
-		else
 			gs[GS_RDMA_FIFO_SIZE] = fifo_size;
 		gs[GS_RDMA_FIFO_UNDERFLOW_EN] = 0;
 	} else {
@@ -2133,7 +2116,7 @@ static const struct mtk_disp_rdma_data mt6833_rdma_driver_data = {
 };
 
 static const struct mtk_disp_rdma_data mt6879_rdma_driver_data = {
-	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.fifo_size =  SZ_4K * 15 + SZ_256 * 3,
 	.pre_ultra_low_us = 250,
 	.pre_ultra_high_us = 260,
 	.ultra_low_us = 230,
