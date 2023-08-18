@@ -566,10 +566,13 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 			JPEG_LOG(0, "get hybrid dec id failed");
 			return -EFAULT;
 		}
+		mutex_lock(&jpeg_hybrid_dec_lock);
 		if (!gJpegqDev.is_dec_started[hwid]) {
 			JPEG_LOG(0, "Wait before decode get started");
+			mutex_unlock(&jpeg_hybrid_dec_lock);
 			return -EFAULT;
 		}
+		mutex_unlock(&jpeg_hybrid_dec_lock);
 	#ifdef FPGA_VERSION
 		JPEG_LOG(1, "Polling JPEG Hybrid Dec Status hwid: %d",
 				hwid);
