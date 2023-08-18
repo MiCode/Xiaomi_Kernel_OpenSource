@@ -4,6 +4,7 @@
  * Author: Yong Wu <yong.wu@mediatek.com>
  */
 #define pr_fmt(fmt)    "mtk_iommu: " fmt
+//#define IOMMU_SECURE_DEBUG
 
 #include <linux/bitfield.h>
 #include <linux/bug.h>
@@ -3059,6 +3060,7 @@ static int __maybe_unused mtk_iommu_runtime_resume(struct device *dev)
 }
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
+#ifdef IOMMU_SECURE_DEBUG
 static int mtk_dump_reg(const struct mtk_iommu_data *data,
 	unsigned int start, unsigned int length)
 {
@@ -3116,12 +3118,15 @@ static int mtk_dump_rs_sta_info(const struct mtk_iommu_data *data, int mmu)
 			    REG_MMU_RS_VA(mmu, 0),
 			    MTK_IOMMU_RS_COUNT * 4);
 }
+#endif /* IOMMU_SECURE_DEBUG */
 #endif
 
 static void mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 {
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
+#ifdef IOMMU_SECURE_DEBUG
 	int cnt, ret, i, dump_count = 1;
+#endif /* IOMMU_SECURE_DEBUG */
 #endif
 	void __iomem *base = data->base;
 
@@ -3152,6 +3157,7 @@ static void mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 		readl_relaxed(base + REG_MMU_CTRL_REG));
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_MISC_SECURE)
+#ifdef IOMMU_SECURE_DEBUG
 	ret = ao_secure_dbg_switch_by_atf(data->plat_data->iommu_type,
 			data->plat_data->iommu_id, 1);
 	if (ret) {
@@ -3173,6 +3179,7 @@ static void mtk_dump_reg_for_hang_issue(struct mtk_iommu_data *data)
 			data->plat_data->iommu_id, 0);
 	if (ret)
 		pr_err("%s, failed to disable secure debug\n", __func__);
+#endif /* IOMMU_SECURE_DEBUG */
 #endif
 	pr_info("%s done, (%d, %d)\n", __func__, data->plat_data->iommu_type,
 		data->plat_data->iommu_id);
