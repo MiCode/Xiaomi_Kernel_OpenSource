@@ -1085,6 +1085,10 @@ int bq2589x_get_usb_type(struct bq2589x *bq, int *type)
 		bq->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 		usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		pr_info("BQ2589X charger type: UNKNOW\n");
+		if (prev_pg) {
+			pr_info("Trigger dpdm to disconnect adb\n");
+			Charger_Detect_Init();
+		}
 		break;
 	case BQ2589X_VBUS_TYPE_SDP:
 		bq->psy_desc.type = POWER_SUPPLY_TYPE_USB;
