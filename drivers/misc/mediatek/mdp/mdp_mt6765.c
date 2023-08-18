@@ -1139,18 +1139,18 @@ u64 cmdq_mdp_get_engine_group_bits(u32 engine_group)
 }
 
 /* new add by bin */
-static void mdp_enable_larb(bool enable, struct device *larb)
+static s32 mdp_enable_larb(bool enable, struct device *larb)
 {
+	s32 ret = 0;
 #if IS_ENABLED(CONFIG_MTK_SMI)
 	s32 mdp_clk_usage;
 
 	if (!larb) {
 		CMDQ_ERR("%s smi larb not support\n", __func__);
-		return;
+		return TASK_STATE_ERROR;
 	}
 
 	if (enable) {
-		int ret = 0;
 
 		mdp_clk_usage = atomic_inc_return(&mdp_smi_clk_usage);
 
@@ -1176,15 +1176,19 @@ static void mdp_enable_larb(bool enable, struct device *larb)
 		}
 	}
 #endif
+	return ret;
 }
 
 /* changed by bin */
-static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
+static s32 cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
 {
 	CMDQ_LOG_CLOCK("%s enable:%d, engine_flag:%llx\n", __func__, enable, engine_flag);
 
 	if (engine_flag & MDP_ENG_LARB0)
-		mdp_enable_larb(enable, larb0);
+		return mdp_enable_larb(enable, larb0);
+
+	CMDQ_ERR("%s engine_flag not include MDP_ENG_LARB\n", __func__);
+	return TASK_STATE_ERROR;
 }
 
 static void cmdq_mdp_check_hw_status(struct cmdqRecStruct *handle)
