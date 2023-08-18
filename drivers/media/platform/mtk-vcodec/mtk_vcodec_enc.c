@@ -3690,8 +3690,10 @@ int mtk_venc_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id, bool sec)
 	else
 		ret = 0;
 
-	if (ret == 0)
+	if (ret == 0) {
 		ctx->dev->enc_hw_locked[hw_id] = lock;
+		ctx->core_locked[hw_id] = 1;
+	}
 
 	return ret;
 
