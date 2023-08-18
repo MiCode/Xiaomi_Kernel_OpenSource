@@ -1069,6 +1069,33 @@ static struct platform_device *pdev_from_name(const char *name)
 	return NULL;
 }
 
+static struct device *dev_from_name(const char *name)
+{
+	struct generic_pm_domain **pds = get_all_genpd();
+
+	for (; pds != NULL && *pds != NULL; pds++) {
+		struct pm_domain_data *pdd;
+		struct generic_pm_domain *pd = *pds;
+
+		if (IS_ERR_OR_NULL(pd))
+			continue;
+
+		list_for_each_entry(pdd, &pd->dev_list, list_node) {
+			struct device *dev = pdd->dev;
+			const char *dev_n = dev_name(dev);
+
+			if (!dev_n)
+				continue;
+
+			pr_notice("%s\n", dev_n);
+			if (strcmp(name, dev_n) == 0)
+				return dev;
+		}
+	}
+
+	return NULL;
+}
+
 static struct generic_pm_domain *genpd_from_name(const char *name)
 {
 	struct generic_pm_domain **pds = get_all_genpd();
@@ -1282,7 +1309,7 @@ static int clkdbg_pm_runtime_enable(struct seq_file *s, void *v)
 	char *c = cmd;
 	char *ign;
 	char *dev_name;
-	struct platform_device *pdev;
+	struct device *dev;
 
 	strncpy(cmd, last_cmd, sizeof(cmd));
 	cmd[sizeof(cmd) - 1UL] = '\0';
@@ -1295,9 +1322,9 @@ static int clkdbg_pm_runtime_enable(struct seq_file *s, void *v)
 
 	seq_printf(s, "pm_runtime_enable(%s): ", dev_name);
 
-	pdev = pdev_from_name(dev_name);
-	if (pdev != NULL) {
-		pm_runtime_enable(&pdev->dev);
+	dev = dev_from_name(dev_name);
+	if (dev != NULL) {
+		pm_runtime_enable(dev);
 		seq_puts(s, "\n");
 	} else {
 		seq_puts(s, "NULL\n");
@@ -1312,7 +1339,7 @@ static int clkdbg_pm_runtime_disable(struct seq_file *s, void *v)
 	char *c = cmd;
 	char *ign;
 	char *dev_name;
-	struct platform_device *pdev;
+	struct device *dev;
 
 	strncpy(cmd, last_cmd, sizeof(cmd));
 	cmd[sizeof(cmd) - 1UL] = '\0';
@@ -1325,9 +1352,9 @@ static int clkdbg_pm_runtime_disable(struct seq_file *s, void *v)
 
 	seq_printf(s, "pm_runtime_disable(%s): ", dev_name);
 
-	pdev = pdev_from_name(dev_name);
-	if (pdev != NULL) {
-		pm_runtime_disable(&pdev->dev);
+	dev = dev_from_name(dev_name);
+	if (dev != NULL) {
+		pm_runtime_disable(dev);
 		seq_puts(s, "\n");
 	} else {
 		seq_puts(s, "NULL\n");
@@ -1342,7 +1369,7 @@ static int clkdbg_pm_runtime_get_sync(struct seq_file *s, void *v)
 	char *c = cmd;
 	char *ign;
 	char *dev_name;
-	struct platform_device *pdev;
+	struct device *dev;
 
 	strncpy(cmd, last_cmd, sizeof(cmd));
 	cmd[sizeof(cmd) - 1UL] = '\0';
@@ -1355,9 +1382,9 @@ static int clkdbg_pm_runtime_get_sync(struct seq_file *s, void *v)
 
 	seq_printf(s, "pm_runtime_get_sync(%s): ", dev_name);
 
-	pdev = pdev_from_name(dev_name);
-	if (pdev != NULL) {
-		int r = pm_runtime_get_sync(&pdev->dev);
+	dev = dev_from_name(dev_name);
+	if (dev != NULL) {
+		int r = pm_runtime_get_sync(dev);
 
 		seq_printf(s, "%d\n", r);
 	} else {
@@ -1373,7 +1400,7 @@ static int clkdbg_pm_runtime_put_sync(struct seq_file *s, void *v)
 	char *c = cmd;
 	char *ign;
 	char *dev_name;
-	struct platform_device *pdev;
+	struct device *dev;
 
 	strncpy(cmd, last_cmd, sizeof(cmd));
 	cmd[sizeof(cmd) - 1UL] = '\0';
@@ -1386,9 +1413,9 @@ static int clkdbg_pm_runtime_put_sync(struct seq_file *s, void *v)
 
 	seq_printf(s, "pm_runtime_put_sync(%s): ", dev_name);
 
-	pdev = pdev_from_name(dev_name);
-	if (pdev != NULL) {
-		int r = pm_runtime_put_sync(&pdev->dev);
+	dev = dev_from_name(dev_name);
+	if (dev != NULL) {
+		int r = pm_runtime_put_sync(dev);
 
 		seq_printf(s, "%d\n", r);
 	} else {
