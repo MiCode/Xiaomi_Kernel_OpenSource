@@ -5765,8 +5765,10 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//__func__, p->m.userptr,  p->length, sizeof(ureq));
 
 	// MAX_FRAMES_PER_REQUEST = 3
-	if (ureq.m_ReqNum > 3)
+	if (ureq.m_ReqNum >= 3) {
+		LOG_INF("[%s]m_ReqNum = %d\n",__func__,ureq.m_ReqNum);
 		goto EXIT;
+	}
 
 	Ret = copy_from_user(&ureq, (void __user *)p->m.userptr, sizeof(ureq));
 
