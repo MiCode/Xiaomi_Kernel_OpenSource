@@ -133,14 +133,18 @@ static int update_vs1_rec(unsigned int d_tclk)
 
 		vs2_latest_ts = records[vs2_idx].timestamps[vs2_pos];
 
-		if (records[vs1_idx].timestamps[vs1_pos] > vs2_latest_ts) {
-			records[vs1_idx].timestamps[vs1_pos] =
-				vs2_latest_ts + diff_ts;
-			/*
-			 * LOG_D("amend vs1 ts to %u\n",
-			 *   records[vs1_idx].timestamps[vs1_pos]);
-			 */
-		}
+		/*
+		 * the diff count only comeout when vs1, so it's no need to
+		 * check if vs1 irq will follow the diff irq or not
+		 */
+		//if (records[vs1_idx].timestamps[vs1_pos] > vs2_latest_ts) {
+		records[vs1_idx].timestamps[vs1_pos] =
+			vs2_latest_ts + diff_ts;
+		/*
+		 * LOG_D("amend vs1 ts to %u\n",
+		 *     records[vs1_idx].timestamps[vs1_pos]);
+		 */
+		//}
 	}
 
 	return 0;
@@ -167,12 +171,19 @@ static int update_vs2_rec(unsigned int d_tclk)
 
 		vs1_latest_ts = records[vs1_idx].timestamps[vs1_pos];
 
-		if (records[vs2_idx].timestamps[vs2_pos] > vs1_latest_ts) {
+		/*
+		 * update vs2 when vs2 record is larger than vs1
+		 * or vs2 period irq handled after diff irq
+		 * (vs2_diff_cnt_correction should already non-zero
+		 * in this case)
+		 */
+		if (vs2_diff_cnt_correction ||
+		    (records[vs2_idx].timestamps[vs2_pos] > vs1_latest_ts)) {
 			records[vs2_idx].timestamps[vs2_pos] =
 				vs1_latest_ts + diff_ts;
 			/*
 			 * LOG_D("amend vs2 ts to %u\n",
-			 *    records[vs2_idx].timestamps[vs2_pos]);
+			 *     records[vs2_idx].timestamps[vs2_pos]);
 			 */
 		} else {
 			/* Need to correction vs2 when vs2 recorded */
