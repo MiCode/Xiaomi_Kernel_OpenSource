@@ -652,6 +652,7 @@ struct mtk_ddp_comp {
 	u32 last_qos_bw;
 	u32 fbdc_bw;
 	u32 hrt_bw;
+	bool clk_on;
 };
 
 static inline void mtk_ddp_comp_config(struct mtk_ddp_comp *comp,

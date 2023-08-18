@@ -718,6 +718,7 @@ static void mtk_chist_prepare(struct mtk_ddp_comp *comp)
 	mtk_ddp_comp_clk_prepare(comp);
 	spin_lock_irqsave(&g_chist_clock_lock, flags);
 	atomic_set(&g_chist_is_clock_on[index_of_chist(comp->id)], 1);
+	comp->clk_on = true;
 	spin_unlock_irqrestore(&g_chist_clock_lock, flags);
 }
 
@@ -728,6 +729,7 @@ static void mtk_chist_unprepare(struct mtk_ddp_comp *comp)
 
 	spin_lock_irqsave(&g_chist_clock_lock, flags);
 	atomic_set(&g_chist_is_clock_on[index_of_chist(comp->id)], 0);
+	comp->clk_on = false;
 	spin_unlock_irqrestore(&g_chist_clock_lock, flags);
 	mtk_ddp_comp_clk_unprepare(comp);
 }
@@ -862,6 +864,8 @@ static void mtk_get_hist_dual_pipe(struct mtk_ddp_comp *comp,
 	if (!mtk_chist_get_dual_pipe_comp(comp, &dual_comp))
 		return;
 	// select channel id
+	if (dual_comp->clk_on == false)
+		return;
 	writel(0x30 | i, dual_comp->regs + DISP_CHIST_APB_READ);
 
 	if (index >= CHIST_NUM || i >= DISP_CHIST_CHANNEL_COUNT)
