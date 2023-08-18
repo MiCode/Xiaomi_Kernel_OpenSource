@@ -81,11 +81,6 @@ static struct lpm_device lp_dev_cpu[NR_CPUS];
 static struct lpm_device lp_dev_cluster[nr_cluster_ids];
 static struct lpm_device lp_dev_mcusys;
 
-struct lpm_cpuhp_info {
-	unsigned int status;
-	unsigned int cpuhp_nb;
-	unsigned int cpu;
-};
 
 static void _lpm_plat_inc_pwr_cnt(struct lpm_device *dev,
 					unsigned int lvl)
@@ -202,7 +197,7 @@ bool lpm_plat_is_cluster_off(int cpu)
 static int __lpm_cpuhp_notify_enter(unsigned int type, unsigned int cpu)
 {
 	pr_info("[name:lpm][p] lpm_cpuhp_notify_enter, type: %u cpu: %u\n", type, cpu);
-	cpuidle_pause_and_lock();
+	lpm_cpu_off_block();
 	return 0;
 }
 
@@ -211,7 +206,7 @@ static int __lpm_cpuhp_notify_leave(unsigned int type, unsigned int cpu)
 	pr_info("[name:lpm][p] lpm_cpuhp_notify_leave, type: %u cpu: %u\n", type, cpu);
 	lpm_dev_set_cpus_off();
 	lpm_dev_get_cpus_online();
-	cpuidle_resume_and_unlock();
+	lpm_cpu_off_allow();
 	return 0;
 }
 
