@@ -152,7 +152,7 @@ struct mtk_pd {
 	bool is_connect;
 	bool is_enabled;
 
-
+	int enable_inductor_protect;
 };
 
 extern int pd_hal_init_hardware(struct chg_alg_device *alg);

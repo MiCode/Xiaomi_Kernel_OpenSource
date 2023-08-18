@@ -148,6 +148,8 @@ char *chg_alg_state_to_str(int state)
 		return "ALG_TA_NOT_SUPPORT";
 	case ALG_NOT_READY:
 		return "ALG_NOT_READY";
+	case ALG_WAIVER:
+		return "ALG_WAIVER";
 	case ALG_READY:
 		return "ALG_READY";
 	case ALG_RUNNING:

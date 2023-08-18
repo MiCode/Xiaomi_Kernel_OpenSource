@@ -32,6 +32,7 @@ struct chg_alg_properties {
  * ALG_TA_NOT_SUPPORT: TA does not support
  * ALG_TA_CHECKING: checking TA
  * ALG_NOT_READY: TA support & not meet the conditions
+ * ALG_WAIVER: alg waives being executed
  * ALG_READY: TA support & meet the conditions
  * ALG_RUNNING: alg is running
  * ALG_DONE: alg done
@@ -41,6 +42,7 @@ enum chg_alg_state {
 	ALG_TA_CHECKING,
 	ALG_TA_NOT_SUPPORT,
 	ALG_NOT_READY,
+	ALG_WAIVER,
 	ALG_READY,
 	ALG_RUNNING,
 	ALG_DONE,

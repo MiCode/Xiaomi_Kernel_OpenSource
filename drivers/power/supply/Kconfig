@@ -968,6 +968,17 @@ config MTK_PUMP_EXPRESS_40_SUPPORT
 	  Set Yes to enable PE 4.0
 	  Set No to disable PE 4.0
 
+config MTK_PUMP_EXPRESS_45_SUPPORT
+	tristate "MediaTek PUMP EXPRESS 4.0 PLUS"
+	depends on MTK_CHARGER
+	help
+	  Fast charging technology supports request adjustments of source output
+	  voltage in increments as small as 50 mV to achive better charging ability.
+	  It has higher charging efficiency and has better thermal performance than
+	  PE+/PE+2.0.
+	  Set Yes to enable PE 4.5
+	  Set No to disable PE 4.5
+
 config MTK_PUMP_EXPRESS_50_SUPPORT
 	tristate "MediaTek PUMP EXPRESS 5.0"
 	depends on MTK_CHARGER
