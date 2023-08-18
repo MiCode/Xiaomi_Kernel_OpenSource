@@ -4450,6 +4450,7 @@
 				<&infracfg_ao_clk CLK_IFRAO_AP_DMA>;
 		clock-names = "main", "dma";
 		clock-div = <1>;
+		mediatek,data_hold_time;
 	};
 
 	i2c6: i2c@11f00000 {
