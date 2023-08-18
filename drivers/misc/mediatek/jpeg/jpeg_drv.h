@@ -44,6 +44,7 @@ struct JpegDeviceStruct {
 	struct regulator *jpeg_reg[JPEG_LARB_COUNT];
 	struct notifier_block pm_notifier;
 	bool is_suspending;
+	bool is_dec_started[HW_CORE_NUMBER];
 };
 
 const long jpeg_dev_get_hybrid_decoder_base_VA(int id);
