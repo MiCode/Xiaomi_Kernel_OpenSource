@@ -2999,6 +2999,8 @@ static inline void Prepare_Enable_ccf_clock(void)
 	ret = clk_prepare_enable(isp_clk.CG_CAMSV1);
 	if (ret)
 		log_err("cannot get CG_CAMSV1 clock\n");
+
+	log_inf("- pm_runtime_get_sync\n");
 }
 
 static inline void Disable_Unprepare_ccf_clock(void)
@@ -3007,6 +3009,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order: CG_SCP_SYS_CAM ->
 	 * CG_SCP_SYS_DIS
 	 */
+	log_inf("+ pm_runtime_put_sync\n");
 
 	clk_disable_unprepare(isp_clk.CG_CAMSV1);
 	clk_disable_unprepare(isp_clk.CG_CAMSV0);
