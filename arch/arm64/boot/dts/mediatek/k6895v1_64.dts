@@ -677,7 +677,7 @@ androidboot.hardware=mt6895";
 /* usb typec mux end */
 
 &pdc {
-	pd_vbus_upper_bound = <12000000>;
+	pd_vbus_upper_bound = <9000000>;
 };
 
 &mmlsys_config {
