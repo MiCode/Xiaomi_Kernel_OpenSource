@@ -92,7 +92,8 @@
 #define I2C_CONTROL_DMAACK_EN           (0x1 << 8)
 #define I2C_CONTROL_ASYNC_MODE          (0x1 << 9)
 #define I2C_CONTROL_WRAPPER             (0x1 << 0)
-
+#define I2C_HS_HOLD_TIME                (0x1 << 2)
+#define I2C_HS_HOLD_SEL                 (0x1 << 15)
 #define I2C_OFFSET_SCP			0x200
 #define I2C_CCU_INTR_EN         0x2
 #define I2C_MCU_INTR_EN         0x1
@@ -301,6 +302,7 @@ struct mtk_i2c {
 	bool ignore_restart_irq;
 	bool clk_div_ctrl;
 	bool ctrl_irq_sel;
+	bool ctrl_data_hold;
 	struct mtk_i2c_ac_timing ac_timing;
 	const struct mtk_i2c_compatible *dev_comp;
 };
@@ -738,6 +740,10 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 		if (i2c->dev_comp->ltiming_adjust) {
 			mtk_i2c_writew(i2c, i2c->ac_timing.htiming,
 				       OFFSET_TIMING);
+			if ((i2c->speed_hz > I2C_MAX_FAST_MODE_PLUS_FREQ) && (i2c->ctrl_data_hold == true)){
+				i2c->ac_timing.hs |= I2C_HS_HOLD_TIME;
+				i2c->ac_timing.ltiming |= I2C_HS_HOLD_SEL;
+			}
 			mtk_i2c_writew(i2c, i2c->ac_timing.hs, OFFSET_HS);
 			mtk_i2c_writew(i2c, i2c->ac_timing.ltiming,
 				       OFFSET_LTIMING);
@@ -1637,7 +1643,7 @@ static int mtk_i2c_parse_dt(struct device_node *np, struct mtk_i2c *i2c)
 	i2c->have_pmic = of_property_read_bool(np, "mediatek,have-pmic");
 	i2c->use_push_pull =
 		of_property_read_bool(np, "mediatek,use-push-pull");
-
+	i2c->ctrl_data_hold = of_property_read_bool(np, "mediatek,data_hold_time");
 	return 0;
 }
 
