@@ -1718,34 +1718,31 @@ u64 cmdq_mdp_get_engine_group_bits(u32 engine_group)
 	return gCmdqEngineGroupBits[engine_group];
 }
 
-static s32 cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
+static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
 {
-	int ret = 0;
 #if IS_ENABLED(CONFIG_MTK_SMI)
 	struct device *larb = mdp_larb_dev_get();
 
 
 	if (!larb) {
 		CMDQ_ERR("%s smi larb not support\n", __func__);
-		return TASK_STATE_ERROR;
+		return;
 	}
 
 	if (enable) {
-		ret = mtk_smi_larb_get(larb);
+		int ret = mtk_smi_larb_get(larb);
 		cmdq_mdp_enable_clock_APB(enable);
 		cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
-		if (ret) {
+
+		if (ret)
 			CMDQ_ERR("%s enable fail ret:%d\n",
 				__func__, ret);
-			return TASK_STATE_ERROR;
-		}
 	} else {
 		cmdq_mdp_enable_clock_MDP_MUTEX0(enable);
 		cmdq_mdp_enable_clock_APB(enable);
 		mtk_smi_larb_put(larb);
 	}
 #endif
-	return ret;
 }
 
 
