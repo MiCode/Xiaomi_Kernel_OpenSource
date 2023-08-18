@@ -3023,7 +3023,7 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 	int s32_t_deq_len = nsec_to_usec(t_deq_len_ns);
 	int s32_tmp_deq_len;
 	int avg = 0, i, quota_adj = 0, qr_quota = 0;
-	int s32_target_time;
+	long long s32_target_time;
 
 	if (!gcc_fps_margin && target_fps == 60)
 		target_time = max(target_time, (long long)vsync_duration_us_60);
@@ -3039,6 +3039,8 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 
 	gcc_window_size = clamp(gcc_window_size, 0, 100);
 	s32_target_time = target_time;
+	if (!s32_target_time)
+		return s32_target_time;
 	window_cnt = target_fps * gcc_window_size;
 	do_div(window_cnt, 100);
 
@@ -3195,7 +3197,11 @@ static int update_quota(struct fbt_boost_info *boost_info, int target_fps,
 
 	/* default: mod each frame */
 	if (qr_mod_frame)
+#if IS_ENABLED(CONFIG_ARM64)
 		boost_info->quota_mod = qr_quota % s32_target_time;
+#else
+		boost_info->quota_mod = do_div(temp_quota_raw, s32_target_time);
+#endif
 	else if (qr_filter_outlier)
 		boost_info->quota_mod = boost_info->quota_adj;
 	else
