@@ -17,6 +17,15 @@ struct GED_BRIDGE_PACKAGE {
 	int32_t i32OutBufferSize;
 };
 
+struct GED_BRIDGE_PACKAGE_32 {
+	uint32_t ui32FunctionID;
+	int32_t i32Size;
+	uint32_t ui32ParamIn;
+	int32_t i32InBufferSize;
+	uint32_t ui32ParamOut;
+	int32_t i32OutBufferSize;
+};
+
 #define GPU_TUNER_BUF_NAME_LEN 128
 
 /*****************************************************************************
@@ -29,6 +38,7 @@ struct GED_BRIDGE_PACKAGE {
 #define GED_IOW(INDEX)   _IOW(GED_MAGIC, INDEX, struct GED_BRIDGE_PACKAGE)
 #define GED_IOR(INDEX)   _IOR(GED_MAGIC, INDEX, struct GED_BRIDGE_PACKAGE)
 #define GED_IOWR(INDEX)  _IOWR(GED_MAGIC, INDEX, struct GED_BRIDGE_PACKAGE)
+#define GED_IOWR_32(INDEX)  _IOWR(GED_MAGIC, INDEX, struct GED_BRIDGE_PACKAGE_32)
 #define GED_GET_BRIDGE_ID(X)  _IOC_NR(X)
 
 /******************************************************************************

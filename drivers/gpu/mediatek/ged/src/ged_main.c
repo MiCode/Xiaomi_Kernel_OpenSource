@@ -66,6 +66,8 @@ static ssize_t ged_write(struct file *filp,
 	const char __user *buf, size_t count, loff_t *f_pos);
 static long ged_dispatch(struct file *pFile,
 	struct GED_BRIDGE_PACKAGE *psBridgePackageKM);
+static int ged_validate_cmd(unsigned int ioctlCmd);
+static int ged_validate_cmd_32(unsigned int ioctlCmd);
 static long ged_ioctl(struct file *pFile,
 	unsigned int ioctlCmd, unsigned long arg);
 #ifdef CONFIG_COMPAT
@@ -356,6 +358,88 @@ dispatch_exit:
 	return ret;
 }
 
+static int ged_validate_cmd(unsigned int ioctlCmd)
+{
+	unsigned int valid_cmd[] = {
+		GED_IOWR(GED_BRIDGE_COMMAND_LOG_BUF_GET),
+		GED_IOWR(GED_BRIDGE_COMMAND_LOG_BUF_WRITE),
+		GED_IOWR(GED_BRIDGE_COMMAND_LOG_BUF_RESET),
+		GED_IOWR(GED_BRIDGE_COMMAND_BOOST_GPU_FREQ),
+		GED_IOWR(GED_BRIDGE_COMMAND_MONITOR_3D_FENCE),
+		GED_IOWR(GED_BRIDGE_COMMAND_QUERY_INFO),
+		GED_IOWR(GED_BRIDGE_COMMAND_NOTIFY_VSYNC),
+		GED_IOWR(GED_BRIDGE_COMMAND_DVFS_PROBE),
+		GED_IOWR(GED_BRIDGE_COMMAND_DVFS_UM_RETURN),
+		GED_IOWR(GED_BRIDGE_COMMAND_EVENT_NOTIFY),
+		GED_IOWR(GED_BRIDGE_COMMAND_GPU_HINT_TO_CPU),
+		GED_IOWR(GED_BRIDGE_COMMAND_HINT_FORCE_MDP),
+		GED_IOWR(GED_BRIDGE_COMMAND_QUERY_DVFS_FREQ_PRED),
+		GED_IOWR(GED_BRIDGE_COMMAND_QUERY_GPU_DVFS_INFO),
+		GED_IOWR(GED_BRIDGE_COMMAND_GE_ALLOC),
+		GED_IOWR(GED_BRIDGE_COMMAND_GE_GET),
+		GED_IOWR(GED_BRIDGE_COMMAND_GE_SET),
+		GED_IOWR(GED_BRIDGE_COMMAND_GE_INFO),
+		GED_IOWR(GED_BRIDGE_COMMAND_GPU_TIMESTAMP),
+		GED_IOWR(GED_BRIDGE_COMMAND_GPU_TUNER_STATUS),
+		GED_IOWR(GED_BRIDGE_COMMAND_DMABUF_SET_NAME),
+#ifdef CONFIG_SYNC_FILE
+		GED_IOWR(GED_BRIDGE_COMMAND_CREATE_TIMELINE),
+#endif
+	};
+	unsigned int i;
+	bool is_valid = false;
+
+	for (i = 0; i < ARRAY_SIZE(valid_cmd); i++) {
+		if (ioctlCmd == valid_cmd[i]) {
+			is_valid = true;
+			break;
+		}
+	}
+
+	return is_valid ? 0 : -EINVAL;
+}
+
+static int ged_validate_cmd_32(unsigned int ioctlCmd)
+{
+	unsigned int valid_cmd[] = {
+		GED_IOWR_32(GED_BRIDGE_COMMAND_LOG_BUF_GET),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_LOG_BUF_WRITE),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_LOG_BUF_RESET),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_BOOST_GPU_FREQ),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_MONITOR_3D_FENCE),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_QUERY_INFO),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_NOTIFY_VSYNC),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_DVFS_PROBE),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_DVFS_UM_RETURN),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_EVENT_NOTIFY),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_GPU_HINT_TO_CPU),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_HINT_FORCE_MDP),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_QUERY_DVFS_FREQ_PRED),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_QUERY_GPU_DVFS_INFO),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_GE_ALLOC),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_GE_GET),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_GE_SET),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_GE_INFO),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_GPU_TIMESTAMP),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_GPU_TUNER_STATUS),
+		GED_IOWR_32(GED_BRIDGE_COMMAND_DMABUF_SET_NAME),
+#ifdef CONFIG_SYNC_FILE
+		GED_IOWR_32(GED_BRIDGE_COMMAND_CREATE_TIMELINE),
+#endif
+	};
+	unsigned int i;
+	bool is_valid = false;
+
+	for (i = 0; i < ARRAY_SIZE(valid_cmd); i++) {
+		if (ioctlCmd == valid_cmd[i]) {
+			is_valid = true;
+			break;
+		}
+	}
+
+	return is_valid ? 0 : -EINVAL;
+}
+
 static long
 ged_ioctl(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
 {
@@ -366,9 +450,21 @@ ged_ioctl(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
 	struct GED_BRIDGE_PACKAGE sBridgePackageKM;
 
 	psBridgePackageKM = &sBridgePackageKM;
+	ret = ged_validate_cmd(ioctlCmd);
+	if (ret) {
+		GED_LOGE("Unknown ioctlCmd: %u", ioctlCmd);
+		goto unlock_and_return;
+	}
 	if (ged_copy_from_user(psBridgePackageKM, psBridgePackageUM,
 		sizeof(struct GED_BRIDGE_PACKAGE)) != 0) {
 		GED_LOGE("Failed to ged_copy_from_user\n");
+		ret = -EFAULT;
+		goto unlock_and_return;
+	}
+	if (ioctlCmd != psBridgePackageKM->ui32FunctionID) {
+		GED_LOGE("ioctlCmd (%u) != ui32FunctionID (%u)",
+				ioctlCmd, psBridgePackageKM->ui32FunctionID);
+		ret = -EINVAL;
 		goto unlock_and_return;
 	}
 
@@ -383,15 +479,6 @@ unlock_and_return:
 static long
 ged_ioctl_compat(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
 {
-	struct GED_BRIDGE_PACKAGE_32 {
-		unsigned int    ui32FunctionID;
-		int             i32Size;
-		unsigned int    ui32ParamIn;
-		int             i32InBufferSize;
-		unsigned int    ui32ParamOut;
-		int             i32OutBufferSize;
-	};
-
 	int ret = -EFAULT;
 	struct GED_BRIDGE_PACKAGE sBridgePackageKM64;
 	struct GED_BRIDGE_PACKAGE_32 sBridgePackageKM32;
@@ -400,10 +487,22 @@ ged_ioctl_compat(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
 	struct GED_BRIDGE_PACKAGE_32 *psBridgePackageUM32 =
 		(struct GED_BRIDGE_PACKAGE_32 *)arg;
 
+	ret = ged_validate_cmd_32(ioctlCmd);
+	if (ret) {
+		GED_LOGE("Unknown ioctlCmd: %u", ioctlCmd);
+		goto unlock_and_return;
+	}
 	if (ged_copy_from_user(psBridgePackageKM32,
 		psBridgePackageUM32,
 		sizeof(struct GED_BRIDGE_PACKAGE_32)) != 0) {
 		GED_LOGE("Failed to ged_copy_from_user\n");
+		ret = -EFAULT;
+		goto unlock_and_return;
+	}
+	if (ioctlCmd != psBridgePackageKM32->ui32FunctionID) {
+		GED_LOGE("ioctlCmd (%u) != ui32FunctionID (%u)",
+				ioctlCmd, psBridgePackageKM32->ui32FunctionID);
+		ret = -EINVAL;
 		goto unlock_and_return;
 	}
 
