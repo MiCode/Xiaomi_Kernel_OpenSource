@@ -3788,6 +3788,23 @@ int pseudo_dump_iova_reserved_region(struct seq_file *s)
 }
 EXPORT_SYMBOL(pseudo_dump_iova_reserved_region);
 
+int pseudo_m4u_sec_init(int mtk_iommu_sec_id)
+{
+	int ret = 0;
+
+#if defined(M4U_GZ_SERVICE_ENABLE)
+	if (mtk_iommu_sec_id >= 0 && mtk_iommu_sec_id < SEC_ID_COUNT) {
+		mutex_lock(&gM4u_gz_sec_init);
+		ret = m4u_gz_sec_init(mtk_iommu_sec_id);
+		mutex_unlock(&gM4u_gz_sec_init);
+	}
+#elif defined(PSEUDO_M4U_TEE_SERVICE_ENABLE)
+	ret = m4u_sec_init();
+#endif
+
+	return ret;
+}
+
 static int pseudo_remove(struct platform_device *pdev)
 {
 	if (pseudo_mmu_dev->m4u_dev_proc_entry)

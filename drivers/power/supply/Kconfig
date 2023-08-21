@@ -618,7 +618,15 @@ config CUSTOM_BATTERY_EXTERNAL_CHANNEL
 	  Say Y to enable support for Customer external gauge.
 	  if unsure ,choose n.
 
+config MTBF_SUPPORT
+	bool "MTBF_SUPPORT"
+	help
+	  Say Y here to enable debugging mtbf
+	  and drivers.
+
 source "drivers/power/supply/mediatek/battery/Kconfig"
 source "drivers/power/supply/mediatek/charger/Kconfig"
+source "drivers/power/supply/ti/Kconfig"
+source "drivers/power/supply/maxim/Kconfig"
 
 endif # POWER_SUPPLY

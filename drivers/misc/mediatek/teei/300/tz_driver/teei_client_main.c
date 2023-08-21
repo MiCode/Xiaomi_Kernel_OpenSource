@@ -89,8 +89,13 @@ DECLARE_SEMA(pm_sema, 0);
 DECLARE_COMPLETION(boot_decryto_lock);
 
 #ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
-#define TZ_PREFER_BIND_CORE (6)
+#define TZ_PREFER_BIND_CORE (7)
 #endif
+
+#define TEEI_RT_POLICY		(0x01)
+#define TEEI_NORMAL_POLICY	(0x02)
+
+#define MAX_DRV_UUIDS 30
 
 /* ARMv8.2 for CA55, CA75 etc */
 static int teei_cpu_id_arm82[] = {
@@ -207,6 +212,60 @@ DEFINE_KTHREAD_WORKER(ut_fastcall_worker);
 
 
 static struct tz_driver_state *tz_drv_state;
+static void *teei_cpu_write_owner;
+
+int teei_set_switch_pri(unsigned long policy)
+{
+	struct sched_param param = {.sched_priority = 50 };
+	int retVal = 0;
+
+	if (policy == TEEI_RT_POLICY) {
+		if (teei_switch_task != NULL) {
+			sched_setscheduler_nocheck(teei_switch_task,
+						SCHED_FIFO, &param);
+			return 0;
+		} else
+			return -EINVAL;
+	} else if (policy == TEEI_NORMAL_POLICY) {
+		if (teei_switch_task != NULL) {
+			param.sched_priority = 0;
+			sched_setscheduler_nocheck(teei_switch_task,
+						SCHED_NORMAL, &param);
+			return 0;
+		} else
+			return -EINVAL;
+	} else {
+		IMSG_PRINTK("TEEI: %s invalid Param (%lx)\n",
+						__func__, policy);
+		retVal = -EINVAL;
+	}
+
+	return retVal;
+}
+
+void teei_cpus_read_lock(void)
+{
+	if (current != teei_cpu_write_owner)
+		cpus_read_lock();
+}
+
+void teei_cpus_read_unlock(void)
+{
+	if (current != teei_cpu_write_owner)
+		cpus_read_unlock();
+}
+
+void teei_cpus_write_lock(void)
+{
+	cpus_write_lock();
+	teei_cpu_write_owner = current;
+}
+
+void teei_cpus_write_unlock(void)
+{
+	teei_cpu_write_owner = NULL;
+	cpus_write_unlock();
+}
 
 struct tz_driver_state *get_tz_drv_state(void)
 {
@@ -570,12 +629,12 @@ static int init_teei_framework(void)
 
 	TEEI_BOOT_FOOTPRINT("TEEI VFS Buffer Created");
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	boot_stage1((unsigned long)virt_to_phys((void *)boot_vfs_addr),
 						(unsigned long)tz_log_buf_pa);
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Stage1 Completed");
 
@@ -585,22 +644,22 @@ static int init_teei_framework(void)
 	if (soter_error_flag == 1)
 		return TEEI_BOOT_ERROR_LOAD_SOTER_FAILED;
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	retVal = create_nq_buffer();
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	if (retVal < 0)
 		return TEEI_BOOT_ERROR_INIT_CMD_BUFF_FAILED;
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT CREATE NQ DONE");
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	retVal = teei_create_drv_shm();
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	if (retVal == -1)
 		return TEEI_BOOT_ERROR_INIT_SERVICE1_FAILED;
@@ -624,21 +683,21 @@ static int init_teei_framework(void)
 	wait_for_completion(&boot_decryto_lock);
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Decrypt Unlocked");
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	retVal = teei_service_init_second();
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Service2 Inited");
 	if (retVal == -1)
 		return TEEI_BOOT_ERROR_INIT_SERVICE2_FAILED;
 
-	cpus_read_lock();
+	teei_cpus_read_lock();
 
 	t_os_load_image();
 
-	cpus_read_unlock();
+	teei_cpus_read_unlock();
 
 	TEEI_BOOT_FOOTPRINT("TEEI BOOT Load TEES Completed");
 	if (soter_error_flag == 1)
@@ -712,13 +771,14 @@ static long teei_config_ioctl(struct file *file,
 			teei_flags = 1;
 
 			TEEI_BOOT_FOOTPRINT("TEEI start to load driver TAs");
+
+			teei_ta_flags = param.flag;
 			if (param.uuid_count > MAX_DRV_UUIDS) {
 				IMSG_ERROR("TEEI uuid_count is invalid(%u)!\n",
 					(unsigned int)(param.uuid_count));
 				return -EINVAL;
 			}
 
-			teei_ta_flags = param.flag;
 			for (i = 0; i < param.uuid_count; i++) {
 				if ((teei_ta_flags >> i) & (0x01))
 					tz_load_ta_by_str(param.uuids[i]);
@@ -1019,7 +1079,7 @@ static int teei_client_init(void)
 	int ret_code = 0;
 	struct device *class_dev = NULL;
 
-	/* struct sched_param param = {.sched_priority = 50 }; */
+	struct sched_param param = {.sched_priority = 50 };
 
 	/* IMSG_DEBUG("TEEI Agent Driver Module Init ...\n"); */
 
@@ -1109,6 +1169,7 @@ static int teei_client_init(void)
 	}
 
 #ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
+	teei_cpus_write_lock();
 #ifdef TEEI_SWITCH_BIG_CORE
 	if (cpu_online(TZ_PREFER_BIND_CORE)) {
 		current_cpu_id = TZ_PREFER_BIND_CORE;
@@ -1117,6 +1178,7 @@ static int teei_client_init(void)
 #endif
 	cpumask_set_cpu(get_current_cpuid(), &mask);
 	set_cpus_allowed_ptr(teei_switch_task, &mask);
+	teei_cpus_write_unlock();
 #endif
 
 	/* sched_setscheduler_nocheck(teei_switch_task, SCHED_FIFO, &param); */
@@ -1147,6 +1209,8 @@ static int teei_client_init(void)
 		goto class_device_destroy;
 	}
 
+	param.sched_priority = 51;
+	sched_setscheduler_nocheck(teei_bdrv_task, SCHED_FIFO, &param);
 	wake_up_process(teei_bdrv_task);
 
 	init_tlog_comp_fn();

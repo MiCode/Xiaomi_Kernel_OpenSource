@@ -748,6 +748,12 @@ config ARCH_HAS_CACHE_LINE_SIZE
 
 source "mm/Kconfig"
 
+config KERNEL_CUSTOM_FACTORY
+        default n
+        bool "Custom for hardware FACTORY_pcb"
+        help
+        Custom for FACTORY_pcb.
+
 config SECCOMP
 	bool "Enable seccomp to safely compute untrusted bytecode"
 	---help---

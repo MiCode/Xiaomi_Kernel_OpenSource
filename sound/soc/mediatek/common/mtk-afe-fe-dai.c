@@ -49,6 +49,10 @@
 #include "../scp_spk/mtk-scp-spk-mem-control.h"
 #endif
 
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+#include "../scp_ultra/mtk-scp-ultra-mem-control.h"
+#endif
+
 #define AFE_BASE_END_OFFSET 8
 
 int mtk_regmap_update_bits(struct regmap *map, int reg,
@@ -239,6 +243,21 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	}
 #endif
 
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	if (memif->scp_ultra_enable) {
+		ret = mtk_scp_ultra_allocate_mem(substream,
+						 &substream->runtime->dma_addr,
+						 &substream->runtime->dma_area,
+						 substream->runtime->dma_bytes,
+						 params_format(params),
+						 afe);
+		if (ret < 0)
+			return ret;
+
+		goto BYPASS_AFE_FE_ALLOCATE_MEM;
+	}
+#endif
+
 	if (memif->use_dram_only == 0 &&
 	    mtk_audio_sram_allocate(afe->sram,
 				    &substream->runtime->dma_addr,
@@ -313,7 +332,8 @@ END:
 	}
 
 #if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) ||\
-	defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
+	defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA) ||\
+	defined(CONFIG_MTK_ULTRASND_PROXIMITY)
 BYPASS_AFE_FE_ALLOCATE_MEM:
 #endif
 	/* set channel */
@@ -368,6 +388,11 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 	if (memif->scp_spk_enable)
 		return mtk_scp_spk_free_mem(substream, afe);
 #endif
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	if (memif->scp_ultra_enable)
+		return mtk_scp_ultra_free_mem(substream, afe);
+#endif
+
 	if (memif->using_sram) {
 		memif->using_sram = 0;
 		return mtk_audio_sram_free(afe->sram, substream);

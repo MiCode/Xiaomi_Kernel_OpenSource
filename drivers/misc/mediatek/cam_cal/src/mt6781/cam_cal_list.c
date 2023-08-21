@@ -18,7 +18,32 @@
 
 #define MAX_EEPROM_SIZE_16K 0x4000
 
+extern unsigned int ov02b1b_sunny_read_otp_info(struct i2c_client *client,
+		unsigned int addr, unsigned char *data, unsigned int size);
+extern unsigned int ov02b1b_truly_read_otp_info(struct i2c_client *client,
+		unsigned int addr, unsigned char *data, unsigned int size);
+extern unsigned int ov02b1b_sunny2_read_otp_info(struct i2c_client *client,
+		unsigned int addr, unsigned char *data, unsigned int size);
+
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
+// K7S Start
+	{S5KHM2SD_MAIN_OFILM_SENSOR_ID, 0xA2, Common_read_region},
+	{S5KHM2SD_MAIN_SEMCO_SENSOR_ID, 0xA2, Common_read_region},
+	{IMX471_FRONT_SUNNY_SENSOR_ID,  0xA2, Common_read_region},
+	{IMX471_FRONT_OFILM_SENSOR_ID,  0xA2, Common_read_region},
+	{IMX355_ULTRA_OFILM_SENSOR_ID,  0xA0, Common_read_region},
+	{S5K4H7_ULTRA_SUNNY_SENSOR_ID,  0xA0, Common_read_region},
+	{OV02B1B_DEPTH_SUNNY_SENSOR_ID, 0x78, ov02b1b_sunny_read_otp_info},
+	{OV02B1B_DEPTH_TRULY_SENSOR_ID, 0x78, ov02b1b_truly_read_otp_info},
+	{OV02B1B_DEPTH_SUNNY2_SENSOR_ID, 0x78, ov02b1b_sunny2_read_otp_info},
+	{GC02M1_MACRO_OFILM_SENSOR_ID,  0xA4, Common_read_region},
+	{GC02M1_MACRO_AAC_SENSOR_ID,    0xA4, Common_read_region},
+// K7S End
+// K7P Start
+	{OV64B40_MAIN_SUNNY_SENSOR_ID,  0xA2, Common_read_region},
+	{OV64B40_MAIN_AAC_SENSOR_ID,    0xA2, Common_read_region},
+	{OV64B40_MAIN_OFILM_SENSOR_ID,  0xA2, Common_read_region},
+// K7P End
 	{OV48B_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
 	{S5K3P9SP_SENSOR_ID, 0xA0, Common_read_region},
 	{OV13B10_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},

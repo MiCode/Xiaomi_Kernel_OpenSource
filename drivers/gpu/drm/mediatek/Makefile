@@ -42,6 +42,7 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_drm_arr.o \
 		  mtk_disp_merge.o \
 		  mtk_dmdp_aal.o \
+		  mi_disp_esd_check.o \
 		  mtk_fbconfig_kdebug.o
 ifneq ($(CONFIG_MTK_CMDQ_MBOX), y)
 mediatek-drm-y += mtk_cmdq_dummy.o

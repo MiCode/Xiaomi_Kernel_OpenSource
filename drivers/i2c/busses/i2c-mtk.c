@@ -1272,7 +1272,7 @@ static int __mt_i2c_transfer(struct mt_i2c *i2c,
 
 	while (left_num--) {
 		/* In MTK platform the max transfer number is 4096 */
-		if (msgs->len > MAX_DMA_TRANS_SIZE) {
+		if (msgs->len > i2c->apdma_size) {
 			dev_dbg(i2c->dev,
 				" message data length is more than 255\n");
 			ret = -EINVAL;
@@ -1630,10 +1630,13 @@ static int mt_i2c_parse_dt(struct device_node *np, struct mt_i2c *i2c)
 	i2c->buffermode = of_property_read_bool(np, "mediatek,buffermode_used");
 	i2c->hs_only = of_property_read_bool(np, "mediatek,hs_only");
 	i2c->fifo_only = of_property_read_bool(np, "mediatek,fifo_only");
-	pr_info("[I2C]id:%d,freq:%d,div:%d,ch_offset:0x%x,offset_dma:0x%x,offset_ccu:0x%x\n",
+	ret = of_property_read_u32(np, "apdma_size", &i2c->apdma_size);
+	if (ret)
+		i2c->apdma_size = MAX_DMA_TRANS_SIZE;
+	pr_info("[I2C]id:%d,freq:%d,div:%d,ch_offset:0x%x,offset_dma:0x%x,offset_ccu:0x%x,apdma_size:0x%x\n",
 		i2c->id, i2c->speed_hz, i2c->clk_src_div,
 		i2c->ch_offset_default,
-		i2c->ch_offset_dma_default, i2c->ccu_offset);
+		i2c->ch_offset_dma_default, i2c->ccu_offset, i2c->apdma_size);
 	if (i2c->clk_src_div == 0)
 		return -EINVAL;
 	return 0;

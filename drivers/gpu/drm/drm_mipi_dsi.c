@@ -45,6 +45,7 @@
  * subset of the MIPI DCS command set.
  */
 
+
 static int mipi_dsi_device_match(struct device *dev, struct device_driver *drv)
 {
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(dev);

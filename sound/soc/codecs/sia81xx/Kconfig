@@ -1,0 +1,5 @@
+config SND_SOC_SIA81XX
+	tristate "SoC Audio for sia SIA81XX Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for SIA81XX Smart K PA.

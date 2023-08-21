@@ -85,7 +85,9 @@ obj-$(CONFIG_AXP288_CHARGER)	+= axp288_charger.o
 
 ifeq ($(CONFIG_MACH_MT8173),y)
 else
+	obj-y += maxim/
 	obj-y += mediatek/
+	obj-y += ti/
 endif
 
 ifeq ($(CONFIG_CUSTOM_BATTERY_EXTERNAL_CHANNEL),y)

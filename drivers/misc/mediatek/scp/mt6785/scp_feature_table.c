@@ -103,6 +103,14 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 		.enable      = 0,
 		.sub_feature = 0,
 	},
+#ifdef CONFIG_MTK_ULTRASND_PROXIMITY
+	{
+		.feature     = ULTRA_FEATURE_ID,
+		.freq        = 200,
+		.enable      = 0,
+		.sub_feature = 0,
+	},
+#endif
 };
 
 

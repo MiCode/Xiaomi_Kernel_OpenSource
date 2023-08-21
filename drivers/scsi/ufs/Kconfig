@@ -134,29 +134,58 @@ config UFSFEATURE
 	UFS feature activate such as hpb, tw and etc.
 
 config UFSHPB
-	bool "UFSHPB"
+	bool "UFS Host Performance Booster support"
 	depends on SCSI_UFSHCD && UFSFEATURE
 	---help---
 	UFS HPB Feature Enable
 
+config HPB_DEBUG
+	bool "HPB Debug Log Enable"
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSHPB
+	default n
+	---help---
+	UFS HPB Debug Enable (dmesg debug log & FTRACE msg)
+
 config UFSTW
-	bool "UFSTW"
+	bool "UFS Turbo Write support"
 	depends on SCSI_UFSHCD && UFSFEATURE
 	---help---
 	UFS TW Feature Enable
 
 config UFSTW_IGNORE_GUARANTEE_BIT
-	bool "UFSTW_IGNORE_GUARANTEE_BIT"
+	bool "Ignore UFS Turbo Write Life Time Guarantee bit for POC"
 	default n
 	depends on SCSI_UFSHCD && UFSFEATURE && UFSTW
 	---help---
 	ignore the guarantee bit[31] of dTurboWriteBufferLifeTimeEst for PoC
 
+config UFSTW_BOOT_ENABLED
+        bool "Turbo Write enabled at boot time"
+	default y
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSTW
+	---help---
+	fTurboWriteEn and fTurboWriteBufferFlushDuringHibnerEnter flags
+	are enabled at boot time.
+config UFSHID_POC
+	bool "UFSHID_POC test"
+	depends on SCSI_UFSHCD && UFSFEATURE && UFSHID
+	---help---
+	UFS HID POC test
+	1. block to enter suspend state
+	2. auto_hibern8 enable/disable (HCI)
+	3. set flag bDefragOperation
+	4. debug msg enable (default : disable)
 config SCSI_SKHPB
 	bool "Activate HPB Host-aware Performance Booster"
 	depends on SCSI_UFSHCD
 	help
 	  Activate or deactive SKHPB driver
+
+config UFS_CHECK
+	bool "Activate WB&HPB provision check"
+	depends on SCSI_UFSHCD && FACTORY_BUILD
+	help
+	  Activate or deactive WB&HPB provision check
 
 config SCSI_UFS_CRYPTO
 	bool "UFS Crypto Engine Support"

@@ -192,7 +192,7 @@ static int pca_pps_get_status(struct prop_chgalgo_device *pca,
 	if (ret == TCP_DPM_RET_SUCCESS) {
 		ta_status->temp1 = status.internal_temp;
 		ta_status->present_input = status.present_input;
-		ta_status->present_battery_input = status.present_battey_input;
+		ta_status->present_battery_input = status.present_battery_input;
 		ta_status->ocp = !!(status.event_flags & PD_STASUS_EVENT_OCP);
 		ta_status->otp = !!(status.event_flags & PD_STATUS_EVENT_OTP);
 		ta_status->ovp = !!(status.event_flags & PD_STATUS_EVENT_OVP);

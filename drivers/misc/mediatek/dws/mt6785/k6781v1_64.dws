@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="03.26.2021.13:59:37"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="07.15.2021.09:13:39"-->
 <dct_cfg>
     <general chip="MT6781">
         <proj>MT6781</proj>
@@ -144,7 +144,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_NFC_EINT_PIN</varName0>
+                <varName0>GPIO_TCPC_PD_IRQB</varName0>
                 <smt>true</smt>
                 <ies>true</ies>
             </gpio6>
@@ -406,7 +406,7 @@
                 <def_mode>1</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>OUT</def_dir>
+                <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_ANT_SEL2_PIN</varName0>
                 <smt>true</smt>
@@ -553,7 +553,7 @@
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <smt>true</smt>
+                <smt>false</smt>
                 <ies>true</ies>
             </gpio45>
             <gpio46>
@@ -668,7 +668,7 @@
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_SMARTPA_I2S_DOUT_PIN</varName0>
-                <smt>true</smt>
+                <smt>false</smt>
                 <ies>true</ies>
             </gpio56>
             <gpio57>
@@ -695,13 +695,13 @@
             </gpio58>
             <gpio59>
                 <eint_mode>false</eint_mode>
-                <def_mode>2</def_mode>
+                <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>IN</def_dir>
+                <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_SMARTPA_I2S_DIN_PIN</varName0>
-                <smt>true</smt>
+                <varName0>GPIO_AUDIO_PA_RST_PIN</varName0>
+                <smt>false</smt>
                 <ies>true</ies>
             </gpio59>
             <gpio60>
@@ -1121,7 +1121,7 @@
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_PWM_BL_PIN</varName0>
-                <smt>true</smt>
+                <smt>false</smt>
                 <ies>true</ies>
             </gpio98>
             <gpio99>
@@ -1873,8 +1873,8 @@
             </gpio170>
             <gpio171>
                 <eint_mode>false</eint_mode>
-                <def_mode>0</def_mode>
-                <inpull_en>true</inpull_en>
+                <def_mode>1</def_mode>
+                <inpull_en>false</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
@@ -1883,20 +1883,21 @@
             </gpio171>
             <gpio172>
                 <eint_mode>false</eint_mode>
-                <def_mode>2</def_mode>
-                <inpull_en>true</inpull_en>
+                <def_mode>0</def_mode>
+                <inpull_en>false</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>IN</def_dir>
+                <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
-                <smt>true</smt>
+                <varName0>GPIO_GPS_LNA_PIN</varName0>
+                <smt>false</smt>
                 <ies>true</ies>
             </gpio172>
             <gpio173>
                 <eint_mode>false</eint_mode>
-                <def_mode>2</def_mode>
-                <inpull_en>true</inpull_en>
+                <def_mode>0</def_mode>
+                <inpull_en>false</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>IN</def_dir>
+                <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
                 <smt>true</smt>
                 <ies>true</ies>
@@ -2218,8 +2219,8 @@
                 <pullPushEn>false</pullPushEn>
             </i2c_bus4>
             <i2c_bus5>
-                <speed_kbps>3400</speed_kbps>
-                <pullPushEn>true</pullPushEn>
+                <speed_kbps>400</speed_kbps>
+                <pullPushEn>false</pullPushEn>
             </i2c_bus5>
             <i2c_bus6>
                 <speed_kbps>400</speed_kbps>
@@ -2257,11 +2258,11 @@
                 <channel>I2C_CHANNEL_4</channel>
                 <address>0x1A</address>
             </device11>
-            <device14>
-                <varName>SUBPMIC_PMU</varName>
+            <device13>
+                <varName>SWITCHING_CHARGER</varName>
                 <channel>I2C_CHANNEL_5</channel>
-                <address>0x34</address>
-            </device14>
+                <address>0x6A</address>
+            </device13>
             <device15>
                 <varName>USB_TYPE_C</varName>
                 <channel>I2C_CHANNEL_5</channel>

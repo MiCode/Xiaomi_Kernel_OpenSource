@@ -866,7 +866,7 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].sensorType =
 		SENSOR_TYPE_PICK_UP_GESTURE;
-	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONESHOT;
+	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].rate = SENSOR_RATE_ONCHANGE;
 	mSensorState[SENSOR_TYPE_PICK_UP_GESTURE].timestamp_filter = false;
 
 	mSensorState[SENSOR_TYPE_WAKE_GESTURE].sensorType =
@@ -913,6 +913,11 @@ static void SCP_sensorHub_init_sensor_state(void)
 
 	mSensorState[SENSOR_TYPE_SAR].sensorType = SENSOR_TYPE_SAR;
 	mSensorState[SENSOR_TYPE_SAR].timestamp_filter = false;
+
+#ifdef CONFIG_MTK_ULTRASND_PROXIMITY
+	mSensorState[SENSOR_TYPE_ELLIPTIC_FUSION].sensorType = SENSOR_TYPE_ELLIPTIC_FUSION;
+	mSensorState[SENSOR_TYPE_ELLIPTIC_FUSION].timestamp_filter = false;
+#endif
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
@@ -2099,6 +2104,15 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
 				custData) + sizeof(req.set_cust_req.getInfo);
 			break;
+/*2020.4.11 longcheer liushuwen add start for sar TX_POWER*/
+		case CUST_ACTION_SET_TRACE:
+			req.set_cust_req.setTrace.action =
+				CUST_ACTION_SET_TRACE;
+			req.set_cust_req.setTrace.trace = *((int32_t *) data);
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData)+ sizeof(req.set_cust_req.setTrace);
+		break;
+ /*2020.4.11 longcheer liushuwen add end for sar TX_POWER*/
 		default:
 			return -1;
 		}

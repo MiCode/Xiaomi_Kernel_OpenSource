@@ -38,6 +38,7 @@ struct swtp_t {
 	int	tx_power_mode;
 	spinlock_t		spinlock;
 	struct delayed_work delayed_work;
+	struct delayed_work init_delayed_work;
 };
 /*****************************************************************************/
 /* External API Region called by ccci_swtp object */

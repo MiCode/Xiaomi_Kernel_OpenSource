@@ -117,6 +117,7 @@ extern struct proc_dir_entry *mtk_thermal_get_proc_drv_therm_dir_entry(void);
 /* This API function is implemented in mediatek/kernel/drivers/leds/leds.c */
 #if defined(CONFIG_LEDS_MTK_DISP) || defined(CONFIG_LEDS_MTK_PWM)
 extern int setMaxBrightness(char *name, int percent, bool enable);
+extern void disp_aal_notify_backlight_changed(int bl_1024);
 #else
 extern int setMaxbrightness(int max_level, int enable);
 #endif

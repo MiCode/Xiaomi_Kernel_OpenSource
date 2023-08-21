@@ -1458,8 +1458,8 @@ static int mt_aif_in_event(struct snd_soc_dapm_widget *w,
 
 		/* sdm audio fifo clock power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0006);
-		/* scrambler clock on enable */
-		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xCBA1);
+		/* scrambler clock on enable, invert left channel */
+		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xCFA1);
 		/* sdm power on */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0003);
 		/* sdm fifo enable */
@@ -1468,7 +1468,7 @@ static int mt_aif_in_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		/* DL scrambler disabling sequence */
 		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON2, 0x0000);
-		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xcba0);
+		regmap_write(priv->regmap, MT6358_AFUNC_AUD_CON0, 0xCFA0);
 
 		playback_gpio_reset(priv);
 		break;
@@ -1676,6 +1676,9 @@ static int mtk_hp_enable(struct mt6358_priv *priv)
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
 			0x0f00, 0x0a00);
 
+	/* disable L ch invert: MT6358_AFUNC_AUC_CON0[10] = 0 */
+	regmap_update_bits(priv->regmap, MT6358_AFUNC_AUD_CON0,
+			0x0400, 0x0);
 #ifndef ANALOG_HPTRIM
 	/* Apply digital DC compensation value to DAC */
 	apply_dc_compensation(priv, true);
@@ -1885,6 +1888,8 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 	/* Set LO STB enhance circuits */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
 			0x1 << 8, 0x1 << 8);
+	/* Set HS STB enhance circuits */
+	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON6, 0x0090);
 	/* Enable LO driver bias circuits */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
 			0x1 << 1, 0x1 << 1);
@@ -1894,12 +1899,27 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 	/* Set LOL gain to normal gain step by step */
 	regmap_write(priv->regmap, MT6358_ZCD_CON1, DL_GAIN_N_10DB_REG);
 
+	/* Set HS output stage (3'b011 = 4x) for stereo lineout seneario */
+	regmap_update_bits(priv->regmap,
+			   MT6358_AUDDEC_ANA_CON10,
+			   RG_ABIDEC_RSVD2_VAUDP15_MASK_SFT,
+			   0x30 << RG_ABIDEC_RSVD2_VAUDP15_SFT);
+
+	/* Enable HS driver bias circuits */
+	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON6, 0x0092);
+	/* Enable HS driver core circuits */
+	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON6, 0x0093);
+
+	/* Set HS gain to normal gain step by step */
+	regmap_write(priv->regmap, MT6358_ZCD_CON3,
+		     priv->ana_gain[AUDIO_ANALOG_VOLUME_HSOUTL]);
+
 	/* Switch HPL MUX to Line-out */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-			0x3 << 8, 0x01 << 8);
-	/* Switch HPR MUX to DAC-R */
+			0x3 << 8, 0x03 << 8);
+	/* Switch HPR MUX to HS */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-			0x3 << 10, 0x2 << 10);
+			0x3 << 10, 0x1 << 10);
 	/* Enable HP aux output stage */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON1,
 			0xff, 0x0c);
@@ -1929,12 +1949,7 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 	/* Selec HS/LO cap size (6.5pF default) */
 	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON10, 0x0000);
 
-	/* Enable HS driver bias circuits */
-	/* Disable HS main output stage */
-	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON6, 0x0010);
-	/* Enable LO driver bias circuits */
-	/* Disable LO main output stage */
-	regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON7, 0x0010);
+
 
 	/* Enable LO main output stage */
 	enable_lo_buffer(priv, true);
@@ -1970,8 +1985,11 @@ static int mtk_hp_spk_enable(struct mt6358_priv *priv)
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x1, 0x1);
 	udelay(100);
 
-	/* Switch LOL MUX to audio DAC */
+	/* Switch LOL MUX to audio DAC R */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
+			0x3 << 2, 0x1 << 2);
+	/* Switch HS MUX to audio DAC L */
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON6,
 			0x3 << 2, 0x2 << 2);
 
 	/* Disable Pull-down HPL/R to AVSS28_AUD */
@@ -1987,6 +2005,18 @@ static int mtk_hp_spk_disable(struct mt6358_priv *priv)
 
 	/* Pull-down HPL/R to AVSS28_AUD */
 	hp_pull_down(priv, true);
+
+	/* HPR/HPL mux to open */
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
+			   0xf << 8, 0x0 << 8);
+
+	/* LOL mux to open */
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
+			   0x3 << 2, 0x0 << 2);
+
+	/* HS mux to open */
+	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON6,
+			   0x3 << 2, 0x0 << 2);
 
 	/* Disable low-noise mode of DAC */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x1, 0x0);
@@ -2021,12 +2051,6 @@ static int mtk_hp_spk_disable(struct mt6358_priv *priv)
 	/* decrease HPR/L main output stage step by step */
 	hp_main_output_ramp(priv, false);
 
-	/* HPR/HPL mux to open */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-			   0xf << 8, 0x0 << 8);
-	/* LOL mux to open */
-	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-			   0x3 << 2, 0x0 << 2);
 
 	/* Disable HP main output stage */
 	regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON1, 0x3, 0x0);
@@ -2348,24 +2372,26 @@ static int mt_lo_event(struct snd_soc_dapm_widget *w,
 		/* Enable AUD_CLK */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
 				   0x1, 0x1);
+		/* Enable Audio DAC R */
+		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
+				   RG_AUDDACRPWRUP_VAUDP15_MASK_SFT |
+				   RG_AUD_DAC_PWR_UP_VA28_MASK_SFT, 0x0006);
 
-		/* Enable Audio DAC  */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON0, 0x0009);
 		/* Enable low-noise mode of DAC */
 		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x0001);
-	    /* Switch LOL MUX to audio DAC */
+	    /* Switch LOL MUX to audio DAC R */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
-				   0x3 << 2, 0x2 << 2);
+				   0x3 << 2, 0x1 << 2);
 
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* Switch LOL MUX to open */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON7,
 				   0x3 << 2, 0x0 << 2);
-
-		/* Disable Audio DAC */
+		/* Disable Audio DAC R */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-				   0x000f, 0x0000);
+				   RG_AUDDACRPWRUP_VAUDP15_MASK_SFT |
+				   RG_AUD_DAC_PWR_UP_VA28_MASK_SFT, 0x0000);
 
 		/* Disable AUD_CLK */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
@@ -2483,22 +2509,25 @@ static int mt_rcv_event(struct snd_soc_dapm_widget *w,
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
 				   0x1, 0x1);
 
-		/* Enable Audio DAC  */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON0, 0x0009);
+		/* Enable Audio DAC L */
+		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
+				RG_AUDDACLPWRUP_VAUDP15_MASK_SFT |
+				RG_AUD_DAC_PWL_UP_VA28_MASK_SFT, 0x0009);
+
 		/* Enable low-noise mode of DAC */
 		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON9, 0x0001);
-		/* Switch HS MUX to audio DAC */
-		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON6, 0x009b);
+		/* Switch HS MUX to audio DAC L */
+		regmap_write(priv->regmap, MT6358_AUDDEC_ANA_CON6, 0x009B);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		/* HS mux to open */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON6,
 				    RG_AUDHSMUXINPUTSEL_VAUDP15_MASK_SFT,
 				    RCV_MUX_OPEN);
-
-		/* Disable Audio DAC */
+		/* Disable Audio DAC L */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON0,
-				   0x000f, 0x0000);
+				RG_AUDDACLPWRUP_VAUDP15_MASK_SFT |
+				RG_AUD_DAC_PWL_UP_VA28_MASK_SFT, 0x0000);
 
 		/* Disable AUD_CLK */
 		regmap_update_bits(priv->regmap, MT6358_AUDDEC_ANA_CON13,
@@ -3719,7 +3748,7 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 		{"DACR", NULL, "DL Power Supply"},
 
 	/* Lineout Path */
-	{"LOL Mux", "Playback", "DACL"},
+	{"LOL Mux", "Playback", "DACR"},
 
 	{"LOL Buffer", NULL, "LOL Mux"},
 		{"LOL Buffer", NULL, "LO Stability Enh"},

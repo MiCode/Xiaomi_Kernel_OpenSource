@@ -38,23 +38,28 @@
 #ifndef _UFSFEATURE_H_
 #define _UFSFEATURE_H_
 
-#include "ufs.h"
+#include <scsi/scsi_cmnd.h>
 #include <scsi/ufs/ufs-mtk-ioctl.h>
 
-#if defined(CONFIG_UFSHPB)
-#include "ufshpb.h"
-#endif
-#include <scsi/scsi_cmnd.h>
+#include "ufs.h"
 
-#if defined(CONFIG_UFSTW)
+#include "ufshpb.h"
 #include "ufstw.h"
-#endif
+
+
+/* Version info */
+#define UFSFEATURE_DD_VER			0x010100
+#define UFSFEATURE_DD_VER_POST			""
 
 /* Constant value*/
 #define SECTOR					512
 #define BLOCK					4096
 #define SECTORS_PER_BLOCK			(BLOCK / SECTOR)
 #define BITS_PER_DWORD				32
+#define sects_per_blk_shift			3
+#define bits_per_dword_shift			5
+#define bits_per_dword_mask			0x1F
+#define bits_per_byte_shift			3
 
 #define IOCTL_DEV_CTX_MAX_SIZE			OS_PAGE_SIZE
 #define OS_PAGE_SIZE				4096
@@ -63,18 +68,19 @@
 #define UFSF_QUERY_REQ_RETRIES			1
 
 /* Description */
-#define UFSF_QUERY_DESC_DEVICE_MAX_SIZE		0x57
-#define UFSF_QUERY_DESC_CONFIGURAION_MAX_SIZE	0xE2
+#define UFSF_QUERY_DESC_DEVICE_MAX_SIZE		0x5F
+#define UFSF_QUERY_DESC_CONFIGURAION_MAX_SIZE	0xE6
 #define UFSF_QUERY_DESC_UNIT_MAX_SIZE		0x2D
-#define UFSF_QUERY_DESC_GEOMETRY_MAX_SIZE	0x58
+#define UFSF_QUERY_DESC_GEOMETRY_MAX_SIZE	0x59
 
 #define UFSFEATURE_SELECTOR			0x01
 
-/* Extended UFS Feature Support */
-#define UFSF_EFS_TURBO_WRITE			0x100
-
 /* query_flag  */
 #define MASK_QUERY_UPIU_FLAG_LOC		0xFF
+
+/* For read10 debug */
+#define READ10_DEBUG_LUN			0x7F
+#define READ10_DEBUG_LBA			0x48504230
 
 /* BIG -> LI */
 #define LI_EN_16(x)				be16_to_cpu(*(__be16 *)(x))
@@ -91,15 +97,12 @@
 #define GET_BYTE_6(num)			(((num) >> 48) & 0xff)
 #define GET_BYTE_7(num)			(((num) >> 56) & 0xff)
 
-#define INFO_MSG(msg, args...)		printk(KERN_INFO "%s:%d " msg "\n", \
+#define INFO_MSG(msg, args...)		pr_info("%s:%d info: " msg "\n", \
+						__func__, __LINE__, ##args)
+#define ERR_MSG(msg, args...)		pr_err("%s:%d err: " msg "\n", \
 					       __func__, __LINE__, ##args)
-#define INIT_INFO(msg, args...)		INFO_MSG(msg, ##args)
-#define RELEASE_INFO(msg, args...)	INFO_MSG(msg, ##args)
-#define SYSFS_INFO(msg, args...)	INFO_MSG(msg, ##args)
-#define ERR_MSG(msg, args...)		printk(KERN_ERR "%s:%d " msg "\n", \
-					       __func__, __LINE__, ##args)
-#define WARNING_MSG(msg, args...)	printk(KERN_WARNING "%s:%d " msg "\n", \
-					       __func__, __LINE__, ##args)
+#define WARN_MSG(msg, args...)		pr_warn("%s:%d warn: " msg "\n", \
+						__func__, __LINE__, ##args)
 
 #define seq_scan_lu(lun) for (lun = 0; lun < UFS_UPIU_MAX_GENERAL_LUN; lun++)
 
@@ -134,33 +137,21 @@ struct ufsf_feature {
 	int num_lu;
 	int slave_conf_cnt;
 	struct scsi_device *sdev_ufs_lu[UFS_UPIU_MAX_GENERAL_LUN];
+	bool issue_read10_debug;
+
 #if defined(CONFIG_UFSHPB)
 	struct ufshpb_dev_info hpb_dev_info;
-	struct ufshpb_lu *ufshpb_lup[UFS_UPIU_MAX_GENERAL_LUN];
-	struct work_struct ufshpb_init_work;
-	struct work_struct ufshpb_reset_work;
-	struct work_struct ufshpb_eh_work;
-	wait_queue_head_t wait_hpb;
-	int ufshpb_state;
-	struct kref ufshpb_kref;
-	bool issue_ioctl;
+	struct ufshpb_lu *hpb_lup[UFS_UPIU_MAX_GENERAL_LUN];
+	struct work_struct hpb_init_work;
+	struct work_struct hpb_eh_work;
+	wait_queue_head_t hpb_wait;
+	atomic_t hpb_state;
+	struct kref hpb_kref;
 #endif
 #if defined(CONFIG_UFSTW)
 	struct ufstw_dev_info tw_dev_info;
 	struct ufstw_lu *tw_lup[UFS_UPIU_MAX_GENERAL_LUN];
-	struct work_struct tw_init_work;
-	struct work_struct tw_reset_work;
-	wait_queue_head_t tw_wait;
 	atomic_t tw_state;
-	struct kref tw_kref;
-
-	/* turbo write exception event control */
-	bool tw_ee_mode;
-
-	/* for debug */
-	bool tw_debug;
-	int tw_debug_no;
-	atomic64_t tw_debug_ee_count;
 #endif
 };
 
@@ -176,37 +167,29 @@ int ufsf_query_ioctl(struct ufsf_feature *ufsf, unsigned int lun,
 int ufsf_query_flag_retry(struct ufs_hba *hba, enum query_opcode opcode,
 		    enum flag_idn idn, u8 idx, bool *flag_res);
 int ufsf_query_attr_retry(struct ufs_hba *hba, enum query_opcode opcode,
-		    enum attr_idn idn, u8 idx, u32 *attr_val);
+			  enum attr_idn idn, u8 idx, u32 *attr_val);
+int ufsf_get_scsi_device(struct ufs_hba *hba, struct scsi_device *sdev);
 bool ufsf_is_valid_lun(int lun);
-int ufsf_get_ee_status(struct ufs_hba *hba, u32 *status);
+void ufsf_slave_configure(struct ufsf_feature *ufsf, struct scsi_device *sdev);
+
+void ufsf_change_read10_debug_lun(struct ufsf_feature *ufsf,
+				  struct ufshcd_lrb *lrbp);
+void ufsf_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
+void ufsf_reset_lu(struct ufsf_feature *ufsf);
+void ufsf_reset_host(struct ufsf_feature *ufsf);
+void ufsf_init(struct ufsf_feature *ufsf);
+void ufsf_reset(struct ufsf_feature *ufsf);
+void ufsf_remove(struct ufsf_feature *ufsf);
+void ufsf_set_init_state(struct ufsf_feature *ufsf);
+void ufsf_suspend(struct ufsf_feature *ufsf);
+void ufsf_resume(struct ufsf_feature *ufsf);
+void ufsf_on_idle(struct ufsf_feature *ufsf, bool scsi_req);
 
 /* for hpb */
 int ufsf_hpb_prepare_pre_req(struct ufsf_feature *ufsf, struct scsi_cmnd *cmd,
 			     int lun);
 int ufsf_hpb_prepare_add_lrbp(struct ufsf_feature *ufsf, int add_tag);
 void ufsf_hpb_end_pre_req(struct ufsf_feature *ufsf, struct request *req);
-void ufsf_hpb_change_lun(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
-void ufsf_hpb_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
 void ufsf_hpb_noti_rb(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
-void ufsf_hpb_reset_lu(struct ufsf_feature *ufsf);
-void ufsf_hpb_reset_host(struct ufsf_feature *ufsf);
-void ufsf_hpb_init(struct ufsf_feature *ufsf);
-void ufsf_hpb_reset(struct ufsf_feature *ufsf);
-void ufsf_hpb_suspend(struct ufsf_feature *ufsf);
-void ufsf_hpb_resume(struct ufsf_feature *ufsf);
 void ufsf_hpb_release(struct ufsf_feature *ufsf);
-void ufsf_hpb_set_init_state(struct ufsf_feature *ufsf);
-
-/* for tw*/
-void ufsf_tw_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
-void ufsf_tw_init(struct ufsf_feature *ufsf);
-void ufsf_tw_reset(struct ufsf_feature *ufsf);
-int ufsf_tw_check_flush(struct ufsf_feature *ufsf);
-void ufsf_tw_suspend(struct ufsf_feature *ufsf);
-void ufsf_tw_resume(struct ufsf_feature *ufsf);
-void ufsf_tw_release(struct ufsf_feature *ufsf);
-void ufsf_tw_set_init_state(struct ufsf_feature *ufsf);
-void ufsf_tw_reset_lu(struct ufsf_feature *ufsf);
-void ufsf_tw_reset_host(struct ufsf_feature *ufsf);
-void ufsf_tw_ee_handler(struct ufsf_feature *ufsf);
 #endif /* End of Header */

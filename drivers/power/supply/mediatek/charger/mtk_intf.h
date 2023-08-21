@@ -19,6 +19,8 @@
 #include "mtk_pe40.h"
 #include "mtk_pdc.h"
 
+extern struct charger_manager *p_info;
+
 enum adapter_ret {
 	ADAPTER_OK = 0,
 	ADAPTER_NOT_SUPPORT,
@@ -26,6 +28,7 @@ enum adapter_ret {
 	ADAPTER_REJECT,
 	ADAPTER_ERROR,
 	ADAPTER_ADJUST,
+	ADAPTER_VERIFYING,
 };
 
 extern int charger_is_chip_enabled(bool *en);

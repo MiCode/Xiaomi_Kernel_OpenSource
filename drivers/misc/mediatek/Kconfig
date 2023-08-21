@@ -6,6 +6,12 @@ menuconfig MEDIATEK_SOLUTION
 	help
 	  Check this to enable MediaTek properity configuration.
 
+config BACKLIGHT_SUPPORT_2047_FEATURE
+        bool "enable backlight level 2047"
+        default n
+        help
+          If unsure, set N.
+
 if MEDIATEK_SOLUTION
 config MTK_PLATFORM
 	string "MTK platform name"

@@ -229,7 +229,7 @@ int mt_leds_brightness_set(char *name, int level)
 {
 	struct mtk_led_data *led_dat;
 	int index, led_Level;
-
+	pr_info("%s kxx add for leave==%d\n", __func__,level);
 	index = getLedDespIndex(name);
 	if (index < 0) {
 		pr_notice("can not find leds by led_desp %s", name);
@@ -237,16 +237,51 @@ int mt_leds_brightness_set(char *name, int level)
 	}
 	led_dat = container_of(leds_info->leds[index],
 		struct mtk_led_data, desp);
+#if defined(CONFIG_BACKLIGHT_SUPPORT_2047_FEATURE)
+		led_Level = level;
+#else
 	led_Level = (
 		(((1 << led_dat->conf.led_bits) - 1) * level
 		+ (((1 << led_dat->conf.trans_bits) - 1) / 2))
 		/ ((1 << led_dat->conf.trans_bits) - 1));
+#endif
 	led_level_disp_set(led_dat, led_Level);
 	led_dat->last_level = led_Level;
 
 	return 0;
 }
 EXPORT_SYMBOL(mt_leds_brightness_set);
+
+extern void led_set_brightness(struct led_classdev *led_cdev, enum led_brightness brightness);
+int mt_leds_brightness_thermal_set(char *name, int brightness)
+{
+	struct mtk_led_data *led_dat = NULL;
+	int index;
+
+	index = getLedDespIndex(name);
+	if (index < 0) {
+		pr_notice("%s: can not find leds by led_desp %s\n", __func__, name);
+		return -1;
+	}
+
+	led_dat = container_of(leds_info->leds[index],
+		struct mtk_led_data, desp);
+	if (led_dat == NULL) {
+		pr_notice("%s: led_dat == NULL\n", __func__);
+		return -1;
+	}
+
+	pr_notice("%s: led_dat->last_level:%d, led_dat->brightness:%d, led_dat->conf.level:%d, led_dat->conf.cdev.brightness:%d\n, brightness:%d",
+		__func__, led_dat->last_level, led_dat->brightness, led_dat->conf.level, led_dat->conf.cdev.brightness, brightness);
+
+	if (brightness < led_dat->conf.cdev.brightness) {
+		led_set_brightness(&led_dat->conf.cdev, brightness);
+		return 1;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mt_leds_brightness_thermal_set);
 
 static int led_level_set(struct led_classdev *led_cdev,
 					  enum led_brightness brightness)
@@ -257,15 +292,17 @@ static int led_level_set(struct led_classdev *led_cdev,
 		container_of(led_cdev, struct led_conf_info, cdev);
 	struct mtk_led_data *led_dat =
 		container_of(led_conf, struct mtk_led_data, conf);
-
+	sysfs_notify(&led_cdev->dev->kobj, NULL, "brightness");
 	if (led_dat->brightness == brightness)
 		return 0;
-
+#if defined(CONFIG_BACKLIGHT_SUPPORT_2047_FEATURE)
+		trans_level = brightness;
+#else
 	trans_level = (
 		(((1 << led_dat->conf.trans_bits) - 1) * brightness
 		+ (((1 << led_dat->conf.led_bits) - 1) / 2))
 		/ ((1 << led_dat->conf.led_bits) - 1));
-
+#endif
 	led_debug_log(led_dat, brightness, trans_level);
 
 #ifdef MET_USER_EVENT_SUPPORT

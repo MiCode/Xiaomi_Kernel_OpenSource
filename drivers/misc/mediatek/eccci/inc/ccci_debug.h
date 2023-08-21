@@ -26,6 +26,7 @@
 #define SYS "sys"
 #define SMEM "shm"
 #define UDC "udc"
+#define MISC "misc"
 
 enum {
 	CCCI_LOG_ALL_UART = 1,

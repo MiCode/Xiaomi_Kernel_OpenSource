@@ -248,6 +248,7 @@ struct iova *__alloc_iova(struct iova_domain *iovad, size_t size,
 void __free_iova(struct iova_domain *iovad, struct iova *iova);
 void __iommu_dma_unmap(struct iommu_domain *domain, dma_addr_t dma_addr);
 
+int pseudo_m4u_sec_init(int mtk_iommu_sec_id);
 
 /* IOCTL commnad */
 #define MTK_M4U_MAGICNO			'g'

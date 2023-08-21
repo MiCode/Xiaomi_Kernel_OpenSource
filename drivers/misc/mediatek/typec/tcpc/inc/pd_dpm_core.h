@@ -32,7 +32,6 @@ void pd_dpm_dynamic_disable_vconn(struct pd_port *pd_port);
 /* ---- SNK ---- */
 
 #ifdef CONFIG_USB_PD_REV30_PPS_SINK
-void dpm_repeat_pps_request(struct pd_port *pd_port);
 void pd_dpm_start_pps_request_thread(struct pd_port *pd_port, bool en);
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
@@ -99,6 +98,8 @@ void pd_dpm_dfp_send_uvdm(struct pd_port *pd_port);
 void pd_dpm_dfp_inform_uvdm(struct pd_port *pd_port, bool ack);
 
 #endif     /* CONFIG_USB_PD_CUSTOM_VDM */
+
+void pd_dpm_ufp_send_svdm_nak(struct pd_port *pd_port);
 
 /* ---- DRP : Inform PowerCap ---- */
 
@@ -210,14 +211,14 @@ int pd_dpm_notify_pe_hardreset(struct pd_port *pd_port);
 
 static inline int pd_dpm_check_vbus_valid(struct pd_port *pd_port)
 {
-	return tcpci_check_vbus_valid(pd_port->tcpc_dev);
+	return tcpci_check_vbus_valid(pd_port->tcpc);
 }
 
 static inline int pd_dpm_sink_vbus(struct pd_port *pd_port, bool en)
 {
 	int mv = en ? TCPC_VBUS_SINK_5V : TCPC_VBUS_SINK_0V;
 
-	return tcpci_sink_vbus(pd_port->tcpc_dev,
+	return tcpci_sink_vbus(pd_port->tcpc,
 				TCP_VBUS_CTRL_REQUEST, mv, -1);
 }
 
@@ -225,7 +226,7 @@ static inline int pd_dpm_source_vbus(struct pd_port *pd_port, bool en)
 {
 	int mv = en ? TCPC_VBUS_SOURCE_5V : TCPC_VBUS_SOURCE_0V;
 
-	return tcpci_source_vbus(pd_port->tcpc_dev,
+	return tcpci_source_vbus(pd_port->tcpc,
 				TCP_VBUS_CTRL_REQUEST, mv, -1);
 }
 

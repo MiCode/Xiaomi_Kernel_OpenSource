@@ -67,6 +67,7 @@ int als_cali_report(int *value)
 	event.handle = ID_LIGHT;
 	event.flush_action = CALI_ACTION;
 	event.word[0] = value[0];
+	event.word[1] = value[1];
 	err = sensor_input_event(alsps_context_obj->als_mdev.minor, &event);
 	return err;
 }

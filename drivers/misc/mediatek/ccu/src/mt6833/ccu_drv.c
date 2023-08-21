@@ -529,6 +529,9 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 	enum CCU_BIN_TYPE type;
 	struct ccu_run_s ccu_run_info;
 
+	if ((cmd != CCU_IOCTL_WAIT_IRQ) && (cmd != CCU_IOCTL_WAIT_AF_IRQ))
+		mutex_lock(&g_ccu_device->dev_mutex);
+
 	LOG_DBG("%s+, cmd:%d\n", __func__, cmd);
 
 	if ((cmd != CCU_IOCTL_SET_POWER) && (cmd != CCU_IOCTL_FLUSH_LOG) &&
@@ -538,6 +541,8 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		powert_stat = ccu_query_power_status();
 		if (powert_stat == 0) {
 			LOG_WARN("ccuk: ioctl without powered on\n");
+			if (cmd != CCU_IOCTL_WAIT_AF_IRQ)
+				mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 	}
@@ -552,6 +557,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		if (ret != 0) {
 			LOG_ERR(
 			"[SET_POWER] copy_from_user failed, ret=%d\n", ret);
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 		ret = ccu_set_power(&power);
@@ -824,8 +830,10 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 	case CCU_READ_REGISTER:
 	{
 		int regToRead = (int)arg;
+		int rc = ccu_read_info_reg(regToRead);
 
-		return ccu_read_info_reg(regToRead);
+		mutex_unlock(&g_ccu_device->dev_mutex);
+		return rc;
 	}
 
 	case CCU_WRITE_REGISTER:
@@ -864,7 +872,13 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 			"CCU_READ_STRUCT_SIZE alloc failed\n");
 			break;
 		}
-		ccu_read_struct_size(structSizes, structCnt);
+		ret = ccu_read_struct_size(structSizes, structCnt);
+		if (ret != 0) {
+			LOG_ERR(
+			"ccu_read_struct_size failed: %d\n", ret);
+			kfree(structSizes);
+			break;
+		}
 		ret = copy_to_user((char *)arg,
 			structSizes, sizeof(uint32_t)*structCnt);
 		if (ret != 0) {
@@ -967,6 +981,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		powert_stat = ccu_query_power_status();
 		if (type == 0 && powert_stat == 0) {
 			LOG_WARN("ccuk: ioctl without powered on\n");
+			mutex_unlock(&g_ccu_device->dev_mutex);
 			return -EFAULT;
 		}
 		ret = ccu_load_bin(g_ccu_device, type);
@@ -1038,6 +1053,9 @@ EXIT:
 		"fail, (process, pid, tgid)=(%s, %d, %d)\n",
 			current->comm, current->pid, current->tgid);
 	}
+
+	if ((cmd != CCU_IOCTL_WAIT_IRQ) && (cmd != CCU_IOCTL_WAIT_AF_IRQ))
+		mutex_unlock(&g_ccu_device->dev_mutex);
 
 	return ret;
 }

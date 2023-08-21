@@ -64,7 +64,8 @@ enum ipi_id {
 	IPI_SCP_TIMER,              /* 30 */
 	IPI_SCP_ERROR_INFO,
 	IPI_SCPCTL,
-	IPI_SCP_LOG_FILTER = 33,
+	IPI_SCP_LOG_FILTER,// = 33,
+	IPI_ELLIPTIC = 34,
 	SCP_NR_IPI,
 };
 

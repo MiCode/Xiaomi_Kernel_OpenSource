@@ -4,6 +4,8 @@
 
 #define THERMAL_NAME_LENGTH	20
 
+#define THERMAL_AVAILABLE_STATE_LENGTH	512
+
 /* Adding event notification support elements */
 #define THERMAL_GENL_FAMILY_NAME                "thermal_event"
 #define THERMAL_GENL_VERSION                    0x01

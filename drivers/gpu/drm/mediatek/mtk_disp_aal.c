@@ -440,7 +440,7 @@ void disp_aal_notify_backlight_changed(int bl_1024)
 
 	// FIXME
 	//max_backlight = disp_pwm_get_max_backlight(DISP_PWM0);
-	max_backlight = 2048;
+	max_backlight = 2047; //for 11 bit
 	if (bl_1024 > max_backlight)
 		bl_1024 = max_backlight;
 

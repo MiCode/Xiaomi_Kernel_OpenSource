@@ -103,10 +103,10 @@ void pe_error_recovery_once_entry(struct pd_port *pd_port)
 #ifdef CONFIG_USB_PD_RECV_HRESET_COUNTER
 void pe_over_recv_hreset_limit_entry(struct pd_port *pd_port)
 {
-	PE_INFO("OverHResetLimit++\r\n");
+	PE_INFO("OverHResetLimit++\n");
 	pe_idle_reset_data(pd_port);
 	pd_notify_pe_over_recv_hreset(pd_port);
-	PE_INFO("OverHResetLimit--\r\n");
+	PE_INFO("OverHResetLimit--\n");
 }
 #endif	/* CONFIG_USB_PD_RECV_HRESET_COUNTER */
 
@@ -136,28 +136,36 @@ void pe_bist_carrier_mode_2_exit(struct pd_port *pd_port)
 #ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
 void pe_unexpected_tx_wait_entry(struct pd_port *pd_port)
 {
-	PE_INFO("##$$123\r\n");
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
+	PE_INFO("##$$123\n");
 	PE_STATE_DISCARD_AND_UNEXPECTED(pd_port);
 	pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
 }
 
 void pe_send_soft_reset_tx_wait_entry(struct pd_port *pd_port)
 {
-	PE_INFO("##$$124\r\n");
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
+	PE_INFO("##$$124\n");
 	PE_STATE_DISCARD_AND_UNEXPECTED(pd_port);
 	pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
 }
 
 void pe_recv_soft_reset_tx_wait_entry(struct pd_port *pd_port)
 {
-	PE_INFO("##$$125\r\n");
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
+	PE_INFO("##$$125\n");
 	PE_STATE_DISCARD_AND_UNEXPECTED(pd_port);
 	pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
 }
 
 void pe_send_soft_reset_standby_entry(struct pd_port *pd_port)
 {
-	PE_INFO("##$$126\r\n");
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
+	PE_INFO("##$$126\n");
 	PE_STATE_DISCARD_AND_UNEXPECTED(pd_port);
 	pd_put_dpm_ack_event(pd_port);
 }
@@ -167,7 +175,6 @@ void pe_send_soft_reset_standby_entry(struct pd_port *pd_port)
  * Policy Engine Share State Activity
  */
 
-#ifdef CONFIG_USB_PD_REV30
 static inline uint8_t pe30_power_ready_entry(struct pd_port *pd_port)
 {
 	uint8_t rx_cap = PD_RX_CAP_PE_READY_UFP;
@@ -183,7 +190,6 @@ static inline uint8_t pe30_power_ready_entry(struct pd_port *pd_port)
 
 	return rx_cap;
 }
-#endif	/* CONFIG_USB_PD_REV30 */
 
 static inline uint8_t pe20_power_ready_entry(struct pd_port *pd_port)
 {
@@ -191,9 +197,6 @@ static inline uint8_t pe20_power_ready_entry(struct pd_port *pd_port)
 
 	if (pd_port->data_role == PD_ROLE_DFP)
 		rx_cap = PD_RX_CAP_PE_READY_DFP;
-
-	pd_port->pe_data.pe_state_flags |=
-		PE_STATE_FLAG_IGNORE_UNKNOWN_EVENT;
 
 	return rx_cap;
 }
@@ -215,11 +218,9 @@ void pe_power_ready_entry(struct pd_port *pd_port)
 	pd_port->pe_data.pd_sent_ams_init_cmd = true;
 #endif /* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
 
-#ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
 		rx_cap = pe30_power_ready_entry(pd_port);
 	else
-#endif	/* CONFIG_USB_PD_REV30 */
 		rx_cap = pe20_power_ready_entry(pd_port);
 
 	pd_set_rx_enable(pd_port, rx_cap);

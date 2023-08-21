@@ -20,6 +20,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/of_gpio.h>
+#include <linux/input.h>
 
 #include <mt-plat/mtk_boot_common.h>
 #include "ccci_debug.h"
@@ -35,6 +36,7 @@ const struct of_device_id swtp_of_match[] = {
 };
 #define SWTP_MAX_SUPPORT_MD 1
 struct swtp_t swtp_data[SWTP_MAX_SUPPORT_MD];
+struct input_dev *swtp_ipdev;
 #define MAX_RETRY_CNT 3
 
 static int swtp_send_tx_power(struct swtp_t *swtp)
@@ -84,6 +86,9 @@ static int swtp_switch_state(int irq, struct swtp_t *swtp)
 		return -1;
 	}
 
+	CCCI_LEGACY_ALWAYS_LOG(swtp->md_id, SYS, "%s i %d %d\n",
+		__func__, i, swtp->eint_type[i]);
+
 	if (swtp->eint_type[i] == IRQ_TYPE_LEVEL_LOW) {
 		irq_set_irq_type(swtp->irq[i], IRQ_TYPE_LEVEL_HIGH);
 		swtp->eint_type[i] = IRQ_TYPE_LEVEL_HIGH;
@@ -92,10 +97,22 @@ static int swtp_switch_state(int irq, struct swtp_t *swtp)
 		swtp->eint_type[i] = IRQ_TYPE_LEVEL_LOW;
 	}
 
-	if (swtp->gpio_state[i] == SWTP_EINT_PIN_PLUG_IN)
-		swtp->gpio_state[i] = SWTP_EINT_PIN_PLUG_OUT;
-	else
-		swtp->gpio_state[i] = SWTP_EINT_PIN_PLUG_IN;
+	if (swtp->gpio_state[i] == SWTP_EINT_PIN_PLUG_IN){
+		if(i == 0){
+			input_report_key(swtp_ipdev, KEY_ANT_UNCONNECT, 1);
+			input_report_key(swtp_ipdev, KEY_ANT_UNCONNECT, 0);
+			input_sync(swtp_ipdev);
+		}	
+ 		swtp->gpio_state[i] = SWTP_EINT_PIN_PLUG_OUT;
+	}
+	else{
+		if(i == 0){
+			input_report_key(swtp_ipdev, KEY_ANT_CONNECT, 1);
+			input_report_key(swtp_ipdev, KEY_ANT_CONNECT, 0);
+			input_sync(swtp_ipdev);  
+		}
+ 		swtp->gpio_state[i] = SWTP_EINT_PIN_PLUG_IN;
+	}
 
 	swtp->tx_power_mode = SWTP_NO_TX_POWER;
 	for (i = 0; i < MAX_PIN_NUM; i++) {
@@ -138,6 +155,8 @@ static irqreturn_t swtp_irq_handler(int irq, void *data)
 {
 	struct swtp_t *swtp = (struct swtp_t *)data;
 	int ret = 0;
+
+pr_err("==== swtp_irq_func ====\n");
 
 	ret = swtp_switch_state(irq, swtp);
 	if (ret < 0) {
@@ -183,8 +202,11 @@ int swtp_md_tx_power_req_hdlr(int md_id, int data)
 	return 0;
 }
 
-int swtp_init(int md_id)
+static void swtp_init_delayed_work(struct work_struct *work)
 {
+	struct swtp_t *swtp = container_of(to_delayed_work(work),
+		struct swtp_t, init_delayed_work);
+	int md_id;
 	int i, ret = 0;
 #ifdef CONFIG_MTK_EIC
 	u32 ints[2] = { 0, 0 };
@@ -194,16 +216,17 @@ int swtp_init(int md_id)
 	u32 ints1[2] = { 0, 0 };
 	struct device_node *node = NULL;
 
-	if (md_id < 0 || md_id >= SWTP_MAX_SUPPORT_MD) {
-		CCCI_LEGACY_ERR_LOG(-1, SYS,
-			"invalid md_id = %d\n", md_id);
-		return -1;
-	}
-	swtp_data[md_id].md_id = md_id;
-	INIT_DELAYED_WORK(&swtp_data[md_id].delayed_work, swtp_tx_delayed_work);
-	swtp_data[md_id].tx_power_mode = SWTP_NO_TX_POWER;
+	CCCI_NORMAL_LOG(-1, SYS, "%s start\n", __func__);
+	CCCI_BOOTUP_LOG(-1, SYS, "%s start\n", __func__);
 
-	spin_lock_init(&swtp_data[md_id].spinlock);
+	md_id = swtp->md_id;
+
+	if (md_id < 0 || md_id >= SWTP_MAX_SUPPORT_MD) {
+		ret = -2;
+		CCCI_LEGACY_ERR_LOG(-1, SYS,
+			"%s: invalid md_id = %d\n", __func__, md_id);
+		goto SWTP_INIT_END;
+	}
 
 	for (i = 0; i < MAX_PIN_NUM; i++)
 		swtp_data[md_id].gpio_state[i] = SWTP_EINT_PIN_PLUG_OUT;
@@ -255,12 +278,63 @@ int swtp_init(int md_id)
 			CCCI_LEGACY_ERR_LOG(md_id, SYS,
 				"%s:can't find swtp%d compatible node\n",
 				__func__, i);
-			ret = -1;
+			ret = -3;
 		}
 	}
 	register_ccci_sys_call_back(md_id, MD_SW_MD1_TX_POWER_REQ,
 		swtp_md_tx_power_req_hdlr);
 
-	return ret;
+SWTP_INIT_END:
+	CCCI_BOOTUP_LOG(md_id, SYS, "%s end: ret = %d\n", __func__, ret);
+	CCCI_NORMAL_LOG(md_id, SYS, "%s end: ret = %d\n", __func__, ret);
+
+	return;
 }
 
+int swtp_init(int md_id)
+{
+	int ret = 0;
+	/*input system config*/
+	swtp_ipdev = input_allocate_device();
+	if (!swtp_ipdev) {
+		pr_err("swtp_init: input_allocate_device fail\n");
+		return -1;
+	}
+	swtp_ipdev->name = "swtp-input";
+	input_set_capability(swtp_ipdev, EV_KEY, KEY_ANT_CONNECT);
+	input_set_capability(swtp_ipdev, EV_KEY, KEY_ANT_UNCONNECT);
+	input_set_capability(swtp_ipdev, EV_KEY, DIV_ANT_CONNECT);
+	input_set_capability(swtp_ipdev, EV_KEY, DIV_ANT_UNCONNECT);
+	//set_bit(INPUT_PROP_NO_DUMMY_RELEASE, ant_info->ipdev->propbit);
+	ret = input_register_device(swtp_ipdev);
+	if (ret) {
+		pr_err("swtp_init: input_register_device fail rc=%d\n", ret);
+		return -1;
+	}
+	pr_info("swtp_init: input_register_device success \n");		
+
+	/* parameter check */
+	if (md_id < 0 || md_id >= SWTP_MAX_SUPPORT_MD) {
+		CCCI_LEGACY_ERR_LOG(-1, SYS,
+			"%s: invalid md_id = %d\n", __func__, md_id);
+		return -1;
+	}
+	/* init woke setting */
+	swtp_data[md_id].md_id = md_id;
+
+	INIT_DELAYED_WORK(&swtp_data[md_id].init_delayed_work,
+		swtp_init_delayed_work);
+	/* tx work setting */
+	INIT_DELAYED_WORK(&swtp_data[md_id].delayed_work,
+		swtp_tx_delayed_work);
+	swtp_data[md_id].tx_power_mode = SWTP_NO_TX_POWER;
+
+	spin_lock_init(&swtp_data[md_id].spinlock);
+
+	/* schedule init work */
+	schedule_delayed_work(&swtp_data[md_id].init_delayed_work, HZ);
+
+	CCCI_BOOTUP_LOG(md_id, SYS, "%s end, init_delayed_work scheduled\n",
+		__func__);
+	return 0;
+}

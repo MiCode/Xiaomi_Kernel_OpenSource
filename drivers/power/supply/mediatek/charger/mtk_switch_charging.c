@@ -573,6 +573,17 @@ static int mtk_switch_chr_cc(struct charger_manager *info)
 		chr_err("enter PE5.0\n");
 		swchgalg->state = CHR_PE50_READY;
 		info->pe5.online = true;
+		if (mtk_pe20_get_is_enable(info)) {
+			mtk_pe20_set_is_enable(info, false);
+			if (mtk_pe20_get_is_connect(info))
+				mtk_pe20_reset_ta_vchr(info);
+		}
+
+		if (mtk_pe_get_is_enable(info)) {
+			mtk_pe_set_is_enable(info, false);
+			if (mtk_pe_get_is_connect(info))
+				mtk_pe_reset_ta_vchr(info);
+		}
 		return 1;
 	}
 
@@ -580,6 +591,17 @@ static int mtk_switch_chr_cc(struct charger_manager *info)
 		chr_err("enter PE4.0!\n");
 		swchgalg->state = CHR_PE40_INIT;
 		info->pe4.is_connect = true;
+		if (mtk_pe20_get_is_enable(info)) {
+			mtk_pe20_set_is_enable(info, false);
+			if (mtk_pe20_get_is_connect(info))
+				mtk_pe20_reset_ta_vchr(info);
+		}
+
+		if (mtk_pe_get_is_enable(info)) {
+			mtk_pe_set_is_enable(info, false);
+			if (mtk_pe_get_is_connect(info))
+				mtk_pe_reset_ta_vchr(info);
+		}
 		return 1;
 	}
 

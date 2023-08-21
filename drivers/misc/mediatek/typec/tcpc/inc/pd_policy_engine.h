@@ -36,10 +36,10 @@ enum pd_pe_state_machine {
 #define PE_STATE_FLAG_BACK_READY_IF_RECV_WAIT		(1<<0)
 #define PE_STATE_FLAG_BACK_READY_IF_RECV_REJECT		(1<<1)
 #define PE_STATE_FLAG_BACK_READY_IF_SR_TIMER_TOUT	(1<<2)
-#define PE_STATE_FLAG_BACK_READY_IF_TX_FAILED			(1<<3)
-#define PE_STATE_FLAG_HRESET_IF_SR_TIMEOUT			(1<<4)
-#define PE_STATE_FLAG_HRESET_IF_TX_FAILED				(1<<5)
-#define PE_STATE_FLAG_IGNORE_UNKNOWN_EVENT			(1<<6)
+#define PE_STATE_FLAG_BACK_READY_IF_TX_FAILED		(1<<3)
+#define PE_STATE_FLAG_HRESET_IF_SR_TIMEOUT		(1<<4)
+#define PE_STATE_FLAG_HRESET_IF_TX_FAILED		(1<<5)
+#define PE_STATE_FLAG_IGNORE_UNKNOWN_EVENT		(1<<6)
 #define PE_STATE_FLAG_ENABLE_SENDER_RESPONSE_TIMER	(1<<7)
 
 #define PE_STATE_WAIT_RESPONSE(pd_port) {\
@@ -96,8 +96,8 @@ enum pd_pe_state_machine {
 	PE_STATE_FLAG_ENABLE_SENDER_RESPONSE_TIMER; }
 
 #define PE_STATE_FLAG_BACK_READY_IF_RECV_GOOD_CRC	(1<<0)
-#define PE_STATE_FLAG_BACK_READY_IF_DPM_ACK			(1<<1)
-#define PE_STATE_FLAG_DPM_ACK_IMMEDIATELY				(1<<7)
+#define PE_STATE_FLAG_BACK_READY_IF_DPM_ACK		(1<<1)
+#define PE_STATE_FLAG_DPM_ACK_IMMEDIATELY		(1<<7)
 
 #define PE_STATE_WAIT_TX_SUCCESS(pd_port)	{\
 	pd_port->pe_data.pe_state_flags2 = \
@@ -116,7 +116,8 @@ enum pd_pe_state_machine {
 	pd_port->pe_data.pe_state_flags2 |= \
 	PE_STATE_FLAG_DPM_ACK_IMMEDIATELY; }
 
-#define VDM_STATE_FLAG_DPM_ACK_IMMEDIATELY	(1<<4)
+#define VDM_STATE_FLAG_ENABLE_VDM_RESPONSE_TIMER	(1<<0)
+#define VDM_STATE_FLAG_DPM_ACK_IMMEDIATELY		(1<<4)
 #define VDM_STATE_FLAG_BACK_READY_IF_DPM_ACK		(1<<6)
 #define VDM_STATE_FLAG_BACK_READY_IF_RECV_GOOD_CRC	(1<<7)
 
@@ -133,9 +134,14 @@ enum pd_pe_state_machine {
 	pd_port->pe_data.vdm_state_flags = \
 		VDM_STATE_FLAG_BACK_READY_IF_RECV_GOOD_CRC; }
 
+#define VDM_STATE_RESPONSE_CMD(pd_port, timer_id)	{\
+	pd_port->pe_data.vdm_state_flags = \
+		VDM_STATE_FLAG_ENABLE_VDM_RESPONSE_TIMER; \
+	pd_port->pe_data.vdm_state_timer = timer_id; }
+
 static inline bool pd_check_pe_during_hard_reset(struct pd_port *pd_port)
 {
-	return pd_port->tcpc_dev->pd_wait_hard_reset_complete;
+	return pd_port->tcpc->pd_wait_hard_reset_complete;
 }
 
 enum pd_pe_state {
@@ -362,6 +368,8 @@ enum pd_pe_state {
 	PE_DFP_UVDM_NAKED,
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
 
+	PE_UFP_VDM_SEND_NAK,
+
 /******************* PD30 Common *******************/
 #ifdef CONFIG_USB_PD_REV30
 #ifdef CONFIG_USB_PD_REV30_BAT_CAP_REMOTE
@@ -438,7 +446,7 @@ enum pd_pe_state {
  * Returns Negative Value if an error occurs.
  */
 
-int pd_policy_engine_run(struct tcpc_device *tcpc_dev);
+int pd_policy_engine_run(struct tcpc_device *tcpc);
 
 
 /* ---- Policy Engine (General) ---- */
@@ -849,6 +857,8 @@ void pe_dfp_uvdm_acked_entry(
 void pe_dfp_uvdm_naked_entry(
 	struct pd_port *pd_port);
 #endif/* CONFIG_USB_PD_CUSTOM_VDM */
+void pe_ufp_vdm_send_nak_entry(
+	struct pd_port *pd_port);
 
 /******************* PD30 Common *******************/
 #ifdef CONFIG_USB_PD_REV30

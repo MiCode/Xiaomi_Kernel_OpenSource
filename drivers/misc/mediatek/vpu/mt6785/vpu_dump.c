@@ -303,7 +303,8 @@ int vpu_dmp_create_locked(int c, struct vpu_request *req,
 	va_start(args, fmt);
 	ret = vsnprintf(d->info, VPU_DMP_INFO_SZ, fmt, args);
 	va_end(args);
-	if (ret) {
+
+	if (ret < 0) {
 		pr_info("%s: vsnprintf: %d\n", __func__, ret);
 		goto out;
 	}

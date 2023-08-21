@@ -1269,4 +1269,13 @@ config SND_SOC_RT5512
 	  multi-band DRC, equalizer function. It would
 	  be set to yes if device with RT5512 on it.
 
+#add aw87xxx pa
+source "sound/soc/codecs/aw87xxx/Kconfig"
+
+#add fs1815 pa
+source "sound/soc/codecs/fs1815/Kconfig"
+
+#add sia81xx pa
+source "sound/soc/codecs/sia81xx/Kconfig"
+
 endmenu

@@ -441,20 +441,27 @@ static void calc_predicted_frame_length(unsigned int idx)
 {
 	unsigned int i = 0;
 
+	unsigned int fdelay = fs_inst[idx].fl_active_delay;
 	unsigned int *p_fl_lc = fs_inst[idx].predicted_fl_lc;
 	unsigned int *p_fl_us = fs_inst[idx].predicted_fl_us;
 
 
+	/* for error handle, check sensor fl_active_delay value */
+	if ((fdelay < 2) || (fdelay > 3)) {
+		LOG_INF(
+			"ERROR: [%u] ID:%#x(sidx:%u), frame_time_delay_frame:%u is not valid (must be 2 or 3)\n",
+			idx,
+			fs_inst[idx].sensor_id,
+			fs_inst[idx].sensor_idx,
+			fs_inst[idx].fl_active_delay);
+
+		return;
+	}
+
 	/* calculate "current predicted" and "next predicted" framelength */
 	/* P.S. current:0, next:1 */
 	for (i = 0; i < 2; ++i) {
-		if (fs_inst[idx].fl_active_delay < 2) {
-			/* error handle show msg */
-			LOG_PR_WARN(
-				"ERROR: fl_active_delay is not valid, fdelay:%u\n",
-				fs_inst[idx].fl_active_delay);
-
-		} else if (fs_inst[idx].fl_active_delay == 3) {
+		if (fdelay == 3) {
 			/* SONY sensor with auto-extend on */
 			unsigned int sm =
 				*fs_inst[idx].recs[1-i].shutter_lc +
@@ -470,7 +477,7 @@ static void calc_predicted_frame_length(unsigned int idx)
 						fs_inst[idx].lineTimeInNs,
 						p_fl_lc[i]);
 
-		} else { // fs_inst[idx].fl_active_delay == 2
+		} else { // fdelay == 2
 			/* non-SONY sensor case */
 			p_fl_lc[i] = *fs_inst[idx].recs[1-i].framelength_lc;
 
@@ -683,7 +690,7 @@ fs_alg_set_frame_record_st_data(unsigned int idx, struct frame_record_st data[])
 
 // #ifndef REDUCE_FS_ALGO_LOG
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), tg:%u, frecs: (0:%u/%u), (1:%u/%u), (2:%u/%u) (fl_lc/shut_lc), pred_fl(curr:%u(%u), next:%u(%u))\n",
+		"[%u] ID:%#x(sidx:%u), tg:%u, frecs: (0:%u/%u), (1:%u/%u), (2:%u/%u) (fl_lc/shut_lc), pred_fl(curr:%u(%u), next:%u(%u))(%u), margin_lc:%u, fdelay:%u\n",
 		idx,
 		fs_inst[idx].sensor_id,
 		fs_inst[idx].sensor_idx,
@@ -697,7 +704,10 @@ fs_alg_set_frame_record_st_data(unsigned int idx, struct frame_record_st data[])
 		fs_inst[idx].predicted_fl_us[0],
 		fs_inst[idx].predicted_fl_lc[0],
 		fs_inst[idx].predicted_fl_us[1],
-		fs_inst[idx].predicted_fl_lc[1]);
+		fs_inst[idx].predicted_fl_lc[1],
+		fs_inst[idx].lineTimeInNs,
+		fs_inst[idx].margin_lc,
+		fs_inst[idx].fl_active_delay);
 // #endif
 }
 /******************************************************************************/

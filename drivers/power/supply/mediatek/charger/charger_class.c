@@ -227,6 +227,16 @@ int charger_dev_set_input_current(struct charger_device *chg_dev, u32 uA)
 }
 EXPORT_SYMBOL(charger_dev_set_input_current);
 
+int charger_dev_get_vendor_id(struct charger_device *chg_dev, u32 *vendor_id)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL &&
+	    chg_dev->ops->get_vendor_id)
+		return chg_dev->ops->get_vendor_id(chg_dev, vendor_id);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_get_vendor_id);
+
 int charger_dev_get_input_current(struct charger_device *chg_dev, u32 *uA)
 {
 	if (chg_dev != NULL && chg_dev->ops != NULL &&

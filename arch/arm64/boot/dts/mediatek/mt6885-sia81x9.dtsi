@@ -1,0 +1,104 @@
+/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+&pio {
+	sia81xx_gpio_L: sia81xx_gpio_L {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO164__FUNC_GPIO164>;
+			
+			slew-rate = <1>;
+			bias-disable;
+		};
+	};
+	
+	sia81xx_gpio_R: sia81xx_gpio_R {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO165__FUNC_GPIO165>;
+			
+			slew-rate = <1>;
+			bias-disable;
+		};
+	};
+};
+
+&odm {
+	sia81xx_L: sia81xx@L {
+		compatible = "si,sia81xx";
+		si,sia81xx_type = "sia81x9";
+		si,sia81xx_reset = <&pio 164 0>;
+		si,sia81xx_owi = <&pio 164 0>;
+		pinctrl-names = "sia81xx_gpio";
+		pinctrl-0 = <&sia81xx_gpio_L>;
+		
+		si,sia81xx_disable_pin = <1>;
+		
+		/* the same value share a same task
+		 * valid value range : 0 ~ 7 */
+		timer_task_hdl = <0>;
+		
+		channel_num = <0>;
+		owi_mode = <1>;
+		en_x_filter = <0>;
+		en_dynamic_updata_vdd = <0>;
+		en_dynamic_updata_pvdd = <0>;
+		dynamic_updata_vdd_port = <0x2>;
+	};
+
+	sia81xx_R: sia81xx@R {
+		compatible = "si,sia81xx";
+		si,sia81xx_type = "sia81x9";
+		si,sia81xx_reset = <&pio 165 0>;
+		si,sia81xx_owi = <&pio 165 0>;
+		pinctrl-names = "sia81xx_gpio";
+		pinctrl-0 = <&sia81xx_gpio_R>;
+		
+		si,sia81xx_disable_pin = <1>;
+
+		/* the same value share a same task
+		 * valid value range : 0 ~ 7 */
+		timer_task_hdl = <0>;
+		
+		channel_num = <1>;
+		owi_mode = <1>;
+		en_x_filter = <0>;
+		en_dynamic_updata_vdd = <0>;
+		en_dynamic_updata_pvdd = <0>;
+		dynamic_updata_vdd_port = <0x2>;
+	};
+};
+
+&sound {
+	si,sia81xx-max-num = <2>;
+	si,sia81xx-aux-devs = <&sia81xx_L>, <&sia81xx_R>;
+	si,sia81xx-aux-devs-prefix = "SpkrLeft", "SpkrRight";
+};
+
+&i2c6 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <400000>;
+	mediatek,use-open-drain;
+	
+	sia81xx_i2c_L: sia81xx_i2c@L {
+		compatible = "si,sia81xx-i2c";
+		reg = <0x29>;
+		si,sia81xx-dev = <&sia81xx_L>;
+	};
+	
+	sia81xx_i2c_R: sia81xx_i2c@R {
+		compatible = "si,sia81xx-i2c";
+		reg = <0x28>;
+		si,sia81xx-dev = <&sia81xx_R>;
+	};
+};
+

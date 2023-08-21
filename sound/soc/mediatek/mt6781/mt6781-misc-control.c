@@ -23,6 +23,10 @@
 #define SGEN_MUTE_CH1_KCONTROL_NAME "Audio_SineGen_Mute_Ch1"
 #define SGEN_MUTE_CH2_KCONTROL_NAME "Audio_SineGen_Mute_Ch2"
 
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+extern unsigned int elliptic_add_platform_controls(void *platform);
+#endif
+
 static const char * const mt6781_sgen_mode_str[] = {
 	"I0I1",   "I2",     "I3I4",   "I5I6",
 	"I7I8",   "I9I22",  "I10I11", "I12I13",
@@ -2064,5 +2068,9 @@ int mt6781_add_misc_control(struct snd_soc_platform *platform)
 				      ARRAY_SIZE(mt6781_afe_bargein_controls));
 #endif
 
+	//for ellipitc mixer control
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	elliptic_add_platform_controls(platform);
+#endif
 	return 0;
 }

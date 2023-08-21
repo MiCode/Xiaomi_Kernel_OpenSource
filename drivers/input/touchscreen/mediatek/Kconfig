@@ -91,6 +91,16 @@ config TOUCHSCREEN_MTK_NT36xxx
 
 source "drivers/input/touchscreen/mediatek/NT36xxx/Kconfig"
 
+source "drivers/input/touchscreen/mediatek/ft3418_i2c/Kconfig"
+source "drivers/input/touchscreen/mediatek/xiaomi/Kconfig"
+
+config TOUCHSCREEN_FTS
+    bool "Focaltech Touchscreen"
+    default n
+    help
+      Say Y here if you have Focaltech touch panel.
+      If unsure, say N.
+
 config TOUCHSCREEN_MTK_GT9XX_LM
 	bool "GT9XX_LM for Mediatek package"
 	help
@@ -167,5 +177,12 @@ config TOUCHSCREEN_MTK_GT9157
 	  module will be called
 
 source "drivers/input/touchscreen/mediatek/GT9157/Kconfig"
+
+config TOUCHSCREEN_COMMON
+    bool "touchscreen for xiaomi project"
+    depends on I2C
+    default n
+    help
+      Say Y here if you have a xiaomi touchscreen and want to enable support for the built-in touchscreen.
 
 endif

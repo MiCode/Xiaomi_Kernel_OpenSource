@@ -407,6 +407,9 @@ enum {
 	C2K_PPP_LINE_STATUS = 0x11F,	/*usb bypass for 93 and later*/
 	MD_DISPLAY_DYNAMIC_MIPI = 0x120, /* MIPI for TC16 */
 	MD_RF_HOPPING_NOTIFY = 0x121,
+	/* 0x125 for CCMSG_ID_SYSMSGSVC_RF_HOPPING_NOTIFY */
+	MD_CAMERA_FRE_HOPPING = 0x125,
+
 	CCMSG_ID_SYSMSGSVC_LOWPWR_APSTS_NOTIFY = 0x128,
 
 	/*c2k ctrl msg start from 0x200*/
@@ -576,6 +579,20 @@ enum SYS_CB_ID {
 	ID_GET_FDD_THERMAL_DATA = 0,
 	ID_GET_TDD_THERMAL_DATA,
 };
+
+enum KERNEL_USER_ID {
+	ID_MD_CAMERA = 0,
+	ID_USER_MAX,
+};
+
+typedef int (*ccci_misc_cb_func_t)(int, void *, int);
+struct ccci_misc_cb_func_info {
+	enum KERNEL_USER_ID	id;
+	ccci_misc_cb_func_t	func;
+};
+
+int register_ccci_func_call_back(int md_id, unsigned int id,
+	ccci_misc_cb_func_t func);
 
 typedef int (*ccci_sys_cb_func_t)(int, int);
 struct ccci_sys_cb_func_info {

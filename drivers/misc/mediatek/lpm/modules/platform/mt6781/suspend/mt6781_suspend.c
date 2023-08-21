@@ -24,7 +24,9 @@
 
 #include <linux/sched.h>
 #include <linux/kthread.h>
-
+#include <linux/sched/signal.h>
+#include <linux/spinlock.h>
+#include <uapi/linux/sched/types.h>
 
 #include <mtk_lpm.h>
 #include <mtk_lpm_module.h>
@@ -38,6 +40,8 @@
 #include "mt6781_suspend.h"
 
 unsigned int mt6781_suspend_status;
+static struct cpumask abort_cpumask;
+static DEFINE_SPINLOCK(lpm_abort_locker);
 struct md_sleep_status before_md_sleep_status;
 struct md_sleep_status after_md_sleep_status;
 struct cpumask s2idle_cpumask;
@@ -307,19 +311,37 @@ struct mtk_lpm_model mt6781_model_suspend = {
 #define CPU_NUMBER (NR_CPUS)
 
 struct mtk_lpm_abort_control {
-	struct timer_list timer;
+	struct task_struct *ts;
+	int cpu;
 };
-
-static atomic_t in_sleep;
 static struct mtk_lpm_abort_control mtk_lpm_ac[CPU_NUMBER];
-static void lpm_timer_callback(struct timer_list *timer)
+static int mtk_lpm_in_suspend;
+static int mtk_lpm_monitor_thread(void *data)
 {
-	if (atomic_dec_and_test(&in_sleep)) {
-		pr_info("[name:spm&][LPM] :wakeup system due to not entering suspend.\n");
-		pm_system_wakeup();
-	}
+	struct sched_param param = {.sched_priority = 99 };
+	struct mtk_lpm_abort_control *lpm_ac;
+
+	lpm_ac = (struct mtk_lpm_abort_control *)data;
+
+	sched_setscheduler(current, SCHED_FIFO, &param);
+	allow_signal(SIGKILL);
+
+	msleep_interruptible(5000);
+
+	pm_system_wakeup();
+	if (mtk_lpm_in_suspend == 1)
+		pr_info("[name:spm&][SPM] wakeup system due to not entering suspend(%d)\n",
+				lpm_ac->cpu);
+
+	spin_lock(&lpm_abort_locker);
+	if (cpumask_test_cpu(lpm_ac->cpu, &abort_cpumask))
+		cpumask_clear_cpu(lpm_ac->cpu, &abort_cpumask);
+	spin_unlock(&lpm_abort_locker);
+
+	do_exit(0);
 }
 
+static int suspend_online_cpus;
 static int mt6781_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
@@ -342,22 +364,37 @@ static int mt6781_spm_suspend_pm_event(struct notifier_block *notifier,
 		"[name:spm&][SPM] PM: suspend entry %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
-		atomic_set(&in_sleep, 1);
-		for_each_online_cpu(i) {
-			timer_setup(&mtk_lpm_ac[i].timer, lpm_timer_callback, 0);
-			mtk_lpm_ac[i].timer.expires = jiffies + msecs_to_jiffies(5000);
-			add_timer_on(&mtk_lpm_ac[i].timer, i);
+		suspend_online_cpus = num_online_cpus();
+		cpumask_clear(&abort_cpumask);
+		mtk_lpm_in_suspend = 1;
+		for (i = 0; i < suspend_online_cpus; i++) {
+			cpumask_set_cpu(i, &abort_cpumask);
+			mtk_lpm_ac[i].ts = kthread_create(mtk_lpm_monitor_thread,
+					&mtk_lpm_ac[i], "LPM-%d", i);
+			mtk_lpm_ac[i].cpu = i;
+			if (!IS_ERR(mtk_lpm_ac[i].ts)) {
+				kthread_bind(mtk_lpm_ac[i].ts, i);
+				wake_up_process(mtk_lpm_ac[i].ts);
+			} else {
+				pr_info("[name:spm&][SPM] create LPM monitor thread fail\n");
+				return NOTIFY_BAD;
+			}
 		}
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:
-		for_each_online_cpu(i)
-			del_timer_sync(&mtk_lpm_ac[i].timer);
-
+		mtk_lpm_in_suspend = 0;
+		if (!cpumask_empty(&abort_cpumask)) {
+			pr_info("[name:spm&][SPM] check cpumask %*pb\n",
+					cpumask_pr_args(&abort_cpumask));
+			for (i = 0; i < suspend_online_cpus; i++) {
+				if (cpumask_test_cpu(i, &abort_cpumask))
+					send_sig(SIGKILL, mtk_lpm_ac[i].ts, 0);
+			}
+		}
 		printk_deferred(
 		"[name:spm&][SPM] PM: suspend exit %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
-		atomic_set(&in_sleep, 0);
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;

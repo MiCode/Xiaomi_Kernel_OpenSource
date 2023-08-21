@@ -436,6 +436,7 @@ struct mt_i2c {
 	u32 ch_offset_dma;
 	bool skip_scp_sema;
 	bool has_ccu;
+	u32 apdma_size;
 	u32 ccu_offset;
 	unsigned long main_clk;
 	struct mutex i2c_mutex;

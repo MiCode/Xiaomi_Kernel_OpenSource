@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config MTK_ELLIPTIC_USND_PROXIMITY
+	bool "ELLIPTIC ultra sound proximity support"
+	help
+	  For ultra sound proximity kernel driver config.
+	  This ultra sound proximity kernel driver
+	  cooperate with SCP ultra sound driver to
+	  emulate physical proximity sensor. Using
+	  IPI interface to communicate with SCP side and
+	  be controlled by sensor hal.

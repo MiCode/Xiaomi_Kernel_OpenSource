@@ -17,5 +17,16 @@ config MTK_FINGERPRINT_SELECT
 	string "sensor type"
 	default "NA"
 
+config FPC_FINGERPRINT
+	bool "FPC Fingerprint"
+	default n
+	help
+	  FPC fingerprint FPC's 102x/104x device.
+
+config GOODIX_FINGERPRINT
+	tristate "goodix fingerprint"
+	default n
+	help
+	  GOODIX fingerprint goodix device
 
 endmenu

@@ -81,14 +81,14 @@ static inline bool dc_dfp_send_en_unlock(struct pd_port *pd_port,
 	pd_port->uvdm_cnt = 3;
 	pd_port->uvdm_wait_resp = true;
 
-	pd_port->uvdm_data[0] = PD_UVDM_HDR(USB_SID_DIRECTCHARGE, cmd);
+	pd_port->uvdm_data[0] = PD_UVDM_HDR(USB_VID_DIRECTCHARGE, cmd);
 	pd_port->uvdm_data[1] = data0;
 	pd_port->uvdm_data[2] = data1;
 
 #ifdef CONFIG_USB_PD_REV30_PPS_SINK
 	if (pd_port->pe_data.dc_pps_mode) {
 		pd_port->uvdm_data[0] = VDO_S(
-			USB_SID_DIRECTCHARGE,
+			USB_VID_DIRECTCHARGE,
 			SVDM_REV20,
 			CMDT_INIT,
 			RTDC_SVDM_PPS_AUTHORIZATION,
@@ -168,24 +168,27 @@ static const char * const dc_dfp_state_name[] = {
 
 void dc_dfp_set_state(struct pd_port *pd_port, uint8_t state)
 {
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+
 	pd_port->dc_dfp_state = state;
 
 	if (pd_port->dc_dfp_state < DC_DFP_STATE_NR)
-		DC_DBG("%s\r\n", dc_dfp_state_name[state]);
+		DC_DBG("%s\n", dc_dfp_state_name[state]);
 	else
-		DC_DBG("dc_dfp_stop (%d)\r\n", state);
+		DC_DBG("dc_dfp_stop (%d)\n", state);
 }
 
 bool dc_dfp_start_en_unlock1(struct pd_port *pd_port)
 {
 	uint32_t rn_code[2];
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	rn_code[0] = dc_get_random_code();
 	rn_code[1] = dc_get_random_code();
 	pd_port->dc_pass_code = dc_get_authorization_code(
 			(rn_code[0] & 0xffff) | (rn_code[1] & 0xffff0000));
 
-	DC_DBG("en_unlock1: 0x%x, 0x%x\r\n", rn_code[0], rn_code[1]);
+	DC_DBG("en_unlock1: 0x%x, 0x%x\n", rn_code[0], rn_code[1]);
 
 	dc_dfp_send_en_unlock(
 			pd_port, RTDC_UVDM_EN_UNLOCK, rn_code[0], rn_code[1]);
@@ -202,6 +205,7 @@ bool dc_dfp_start_en_unlock1(struct pd_port *pd_port)
 bool dc_dfp_verify_en_unlock1(struct pd_port *pd_port)
 {
 	uint32_t resp_cmd, expect_resp;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	expect_resp = RTDC_UVDM_RECV_EN_UNLOCK;
 	resp_cmd = PD_UVDM_HDR_CMD(pd_port->uvdm_data[0]);
@@ -215,13 +219,13 @@ bool dc_dfp_verify_en_unlock1(struct pd_port *pd_port)
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
 	if (resp_cmd != expect_resp) {
-		DC_INFO("en_unlock1: unexpect resp (0x%x)\r\n", resp_cmd);
+		DC_INFO("en_unlock1: unexpect resp (0x%x)\n", resp_cmd);
 		dc_dfp_set_state(pd_port, DC_DFP_ERR_EN_UNLOCK1_FAILED);
 		return false;
 	}
 
 	if (pd_port->dc_pass_code != pd_port->uvdm_data[1]) {
-		DC_INFO("en_unlock1: pass wrong 0x%x 0x%x\r\n",
+		DC_INFO("en_unlock1: pass wrong 0x%x 0x%x\n",
 				pd_port->dc_pass_code, pd_port->uvdm_data[1]);
 		dc_dfp_set_state(pd_port, DC_DFP_ERR_EN_UNLOCK1_FAILED);
 		return false;
@@ -234,11 +238,12 @@ bool dc_dfp_verify_en_unlock1(struct pd_port *pd_port)
 bool dc_dfp_start_en_unlock2(struct pd_port *pd_port)
 {
 	uint32_t rn_code = dc_get_random_code();
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	pd_port->dc_pass_code =
 		dc_get_authorization_code(pd_port->uvdm_data[2]);
 
-	DC_DBG("en_unlock2: 0x%x, 0x%x\r\n", pd_port->dc_pass_code, rn_code);
+	DC_DBG("en_unlock2: 0x%x, 0x%x\n", pd_port->dc_pass_code, rn_code);
 
 	dc_dfp_send_en_unlock(pd_port, RTDC_UVDM_EN_UNLOCK,
 			pd_port->dc_pass_code, rn_code);
@@ -251,6 +256,7 @@ bool dc_dfp_start_en_unlock2(struct pd_port *pd_port)
 bool dc_dfp_verify_en_unlock2(struct pd_port *pd_port)
 {
 	uint32_t resp_cmd, expect_resp;
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
 
 	expect_resp = RTDC_UVDM_RECV_EN_UNLOCK;
 	resp_cmd = PD_UVDM_HDR_CMD(pd_port->uvdm_data[0]);
@@ -264,13 +270,13 @@ bool dc_dfp_verify_en_unlock2(struct pd_port *pd_port)
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
 	if (resp_cmd != expect_resp) {
-		DC_INFO("en_unlock2: unexpect resp (0x%x)\r\n", resp_cmd);
+		DC_INFO("en_unlock2: unexpect resp (0x%x)\n", resp_cmd);
 		dc_dfp_set_state(pd_port, DC_DFP_ERR_EN_UNLOCK2_FAILED);
 		return false;
 	}
 
 	if (pd_port->uvdm_data[1] != RTDC_UVDM_EN_UNLOCK_SUCCESS) {
-		DC_INFO("en_unlock2: failed\r\n");
+		DC_INFO("en_unlock2: failed\n");
 		dc_dfp_set_state(pd_port, DC_DFP_ERR_EN_UNLOCK2_FAILED);
 		return false;
 	}
@@ -297,6 +303,10 @@ bool dc_dfp_notify_pe_startup(
 int dc_dfp_notify_pe_ready(struct pd_port *pd_port,
 		struct svdm_svid_data *svid_data)
 {
+#ifdef CONFIG_USB_PD_REV30_PPS_SINK
+	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
+#endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
+
 #ifdef RTDC_TA_EMULATE
 	if (pd_port->data_role == PD_ROLE_DFP && svid_data->exist) {
 		pd_put_tcp_pd_event(pd_port, TCP_DPM_EVT_DR_SWAP_AS_UFP);
@@ -332,13 +342,13 @@ int dc_dfp_notify_pe_ready(struct pd_port *pd_port,
 	}
 
 	if (pd_is_source_support_apdo(pd_port)) {
-		DC_INFO("pps_mode\r\n");
+		DC_INFO("pps_mode\n");
 		pd_port->pe_data.dc_pps_mode = true;
 		return dc_dfp_start_en_unlock1(pd_port);
 	}
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
-	pd_port->mode_svid = USB_SID_DIRECTCHARGE;
+	pd_port->mode_svid = USB_VID_DIRECTCHARGE;
 	pd_put_tcp_vdm_event(pd_port, TCP_DPM_EVT_DISCOVER_MODES);
 	return 1;
 }
@@ -434,7 +444,7 @@ bool dc_dfp_notify_exit_mode(struct pd_port *pd_port,
 	if (pd_port->dc_dfp_state <= DC_DFP_ENTER_MODE)
 		return false;
 
-	if (svid_data->svid != USB_SID_DIRECTCHARGE)
+	if (svid_data->svid != USB_VID_DIRECTCHARGE)
 		return false;
 
 	dc_dfp_set_state(pd_port, DC_DFP_NONE);
@@ -487,7 +497,7 @@ static inline bool dc_dfp_notify_en_unlock2(struct pd_port *pd_port,
 		return true;
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
-	tcpci_dc_notify_en_unlock(pd_port->tcpc_dev);
+	tcpci_dc_notify_en_unlock(pd_port->tcpc);
 	return true;
 }
 
@@ -527,7 +537,7 @@ bool dc_ufp_notify_uvdm(struct pd_port *pd_port,
 		{
 			recv_code[0] = pd_port->uvdm_data[1];
 			recv_code[1] = pd_port->uvdm_data[2];
-			DC_INFO("T0: recv_code: 0x%x, 0x%x\r\n",
+			DC_INFO("T0: recv_code: 0x%x, 0x%x\n",
 						recv_code[0], recv_code[1]);
 
 			pass_code = dc_get_authorization_code(
@@ -539,7 +549,7 @@ bool dc_ufp_notify_uvdm(struct pd_port *pd_port,
 			pd_port->dc_pass_code =
 				dc_get_authorization_code(rn_code);
 
-			DC_INFO("T0: reply: 0x%x, 0x%x\r\n",
+			DC_INFO("T0: reply: 0x%x, 0x%x\n",
 				rn_code, pd_port->dc_pass_code);
 
 			reply_cmd[1] = pass_code;
@@ -554,14 +564,14 @@ bool dc_ufp_notify_uvdm(struct pd_port *pd_port,
 		{
 			recv_code[0] = pd_port->uvdm_data[1];
 			recv_code[1] = pd_port->uvdm_data[2];
-			DC_INFO("T1: recv_code: 0x%x, 0x%x\r\n",
+			DC_INFO("T1: recv_code: 0x%x, 0x%x\n",
 				recv_code[0], recv_code[1]);
 
 			if (recv_code[0] != pd_port->dc_pass_code) {
-				DC_INFO("T1: pass_code error\r\n");
+				DC_INFO("T1: pass_code error\n");
 				reply_cmd[1] = 0;
 			} else {
-				DC_INFO("T1: pass_code success\r\n");
+				DC_INFO("T1: pass_code success\n");
 				reply_cmd[1] = 1;
 			}
 

@@ -12,7 +12,9 @@
  */
 bat_gm30: battery{
 	compatible = "mediatek,bat_gm30";
-	DIFFERENCE_FULLOCV_ITH = <(200)>;
+	io-channels = <&auxadc 4>;
+	io-channel-names = "batteryID-channel";
+	DIFFERENCE_FULLOCV_ITH = <(250)>;
 /*	Charging termination current*/
 	SHUTDOWN_1_TIME = <(30)>;
 /*	If ui_soc shows 1% more than X minites, system will shutdown*/
@@ -20,7 +22,7 @@ bat_gm30: battery{
 /*	The ui_soc will keep 100% until SOC drop X percents after unplugged*/
 	R_FG_VALUE = <(5)>;
 /*	R_sense resistance*/
-	EMBEDDED_SEL = <(0)>;
+	EMBEDDED_SEL = <(1)>;
 /*	Configures whether using embedded battery or not*/
 	PMIC_SHUTDOWN_CURRENT = <(20)>;
 /*	System shutdown current*/
@@ -42,19 +44,17 @@ bat_gm30: battery{
 /*	Battery temperature T2*/
 	TEMPERATURE_T3 = <(0)>;
 /*	Battery temperature T3*/
-	TEMPERATURE_T4 = <(-6)>;
+	TEMPERATURE_T4 = <(-10)>;
 /*	Battery temperature T4*/
-	TEMPERATURE_T5 = <(-10)>;
-/*	Battery temperature T5*/
-	g_FG_PSEUDO100_T0 = <(100)>;
+	g_FG_PSEUDO100_T0 = <(97)>;
 /*	Pseudo 100% percentage at T0*/
-	g_FG_PSEUDO100_T1 = <(100)>;
+	g_FG_PSEUDO100_T1 = <(97)>;
 /*	Pseudo 100% percentage at T1*/
-	g_FG_PSEUDO100_T2 = <(100)>;
+	g_FG_PSEUDO100_T2 = <(97)>;
 /*	Pseudo 100% percentage at T2*/
-	g_FG_PSEUDO100_T3 = <(100)>;
+	g_FG_PSEUDO100_T3 = <(90)>;
 /*	Pseudo 100% percentage at T3*/
-	g_FG_PSEUDO100_T4 = <(100)>;
+	g_FG_PSEUDO100_T4 = <(86)>;
 /*	Pseudo 100% percentage at T4*/
 	Q_MAX_SYS_VOLTAGE_BAT0 = <(3350)>;
 /*	Pseudo1 for hide percentage*/
@@ -70,9 +70,11 @@ bat_gm30: battery{
 /*	compensate R_sense resistance*/
 	enable_tmp_intr_suspend = <(0)>;
 /* Enable update temp when suspend */
-	ACTIVE_TABLE = <(6)>;
+	ACTIVE_TABLE = <(0)>;
 /* Table numbers per battery*/
 	MULTI_TEMP_GAUGE0 = <(1)>;
 /* Multi gauge0 enable*/
-#include "mt6781_battery_table.dtsi"
+/* we use customized battery model */
+/* #include "mt6781_battery_table.dtsi" */
+#include "mt6781_battery_prop_dim2_ext.dtsi"
 };

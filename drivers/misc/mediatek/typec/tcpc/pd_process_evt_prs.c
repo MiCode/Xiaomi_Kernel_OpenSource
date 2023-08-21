@@ -68,13 +68,26 @@ DECL_PE_STATE_REACTION(PD_DPM_MSG_NAK);
 
 /* HW Event reactions */
 
-#ifdef CONFIG_USB_PD_PR_SWAP_ERROR_RECOVERY
+DECL_PE_STATE_TRANSITION(PD_HW_VBUS_PRESENT) = {
+#ifdef CONFIG_USB_PD_VBUS_DETECTION_DURING_PR_SWAP
+	{ PE_PRS_SRC_SNK_WAIT_SOURCE_ON, PE_SNK_STARTUP },
+#endif /* CONFIG_USB_PD_VBUS_DETECTION_DURING_PR_SWAP */
+};
+DECL_PE_STATE_REACTION(PD_HW_VBUS_PRESENT);
+
 DECL_PE_STATE_TRANSITION(PD_HW_TX_FAILED) = {
-	{ PE_PRS_SRC_SNK_WAIT_SOURCE_ON, PE_ERROR_RECOVERY },
-	{ PE_PRS_SNK_SRC_SOURCE_ON, PE_ERROR_RECOVERY },
+	{ PE_PRS_SRC_SNK_WAIT_SOURCE_ON, PE_PRS_SNK_HARD_RESET },
+	{ PE_PRS_SNK_SRC_SOURCE_ON, PE_PRS_SRC_HARD_RESET },
 };
 DECL_PE_STATE_REACTION(PD_HW_TX_FAILED);
-#endif	/* CONFIG_USB_PD_PR_SWAP_ERROR_RECOVERY */
+
+DECL_PE_STATE_TRANSITION(PD_HW_VBUS_SAFE0V) = {
+	{ PE_PRS_SRC_SNK_TRANSITION_TO_OFF, PE_PRS_SRC_SNK_ASSERT_RD },
+#ifdef CONFIG_USB_PD_VBUS_DETECTION_DURING_PR_SWAP
+	{ PE_PRS_SNK_SRC_TRANSITION_TO_OFF, PE_PRS_SNK_SRC_ASSERT_RP },
+#endif /* CONFIG_USB_PD_VBUS_DETECTION_DURING_PR_SWAP */
+};
+DECL_PE_STATE_REACTION(PD_HW_VBUS_SAFE0V);
 
 /*
  * [BLOCK] Porcess PD Ctrl MSG
@@ -94,6 +107,25 @@ static inline bool pd_process_ctrl_msg_good_crc(
 	}
 }
 
+static inline bool pd_process_ctrl_msg_ps_rdy(
+	struct pd_port *pd_port, struct pd_event *pd_event)
+{
+	switch (pd_port->pe_state_curr) {
+#ifdef CONFIG_USB_PD_VBUS_DETECTION_DURING_PR_SWAP
+	case PE_PRS_SRC_SNK_WAIT_SOURCE_ON:
+		pd_enable_vbus_valid_detection(pd_port, true);
+		return false;
+
+	case PE_PRS_SNK_SRC_TRANSITION_TO_OFF:
+		pd_enable_vbus_safe0v_detection(pd_port);
+		return false;
+
+#endif /* CONFIG_USB_PD_VBUS_DETECTION_DURING_PR_SWAP */
+	default:
+		return PE_MAKE_STATE_TRANSIT(PD_CTRL_MSG_PS_RDY);
+	}
+}
+
 static inline bool pd_process_ctrl_msg(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
@@ -105,7 +137,7 @@ static inline bool pd_process_ctrl_msg(
 		return PE_MAKE_STATE_TRANSIT(PD_CTRL_MSG_ACCEPT);
 
 	case PD_CTRL_PS_RDY:
-		return PE_MAKE_STATE_TRANSIT(PD_CTRL_MSG_PS_RDY);
+		return pd_process_ctrl_msg_ps_rdy(pd_port, pd_event);
 
 	default:
 		return false;
@@ -134,34 +166,23 @@ static inline bool pd_process_dpm_msg(
  * [BLOCK] Porcess HW MSG
  */
 
-static inline bool pd_process_hw_msg_vbus_present(
-	struct pd_port *pd_port, struct pd_event *pd_event)
-{
-	if (pd_port->pe_state_curr == PE_PRS_SNK_SRC_SOURCE_ON)
-		pd_send_sop_ctrl_msg(pd_port, PD_CTRL_PS_RDY);
-
-	return false;
-}
-
 static inline bool pd_process_hw_msg(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
 	switch (pd_event->msg) {
-
 	case PD_HW_VBUS_PRESENT:
-		return pd_process_hw_msg_vbus_present(pd_port, pd_event);
+		if (pd_port->pe_state_curr == PE_PRS_SNK_SRC_SOURCE_ON)
+			pd_send_sop_ctrl_msg(pd_port, PD_CTRL_PS_RDY);
 
-#ifdef CONFIG_USB_PD_PR_SWAP_ERROR_RECOVERY
+		return PE_MAKE_STATE_TRANSIT(PD_HW_VBUS_PRESENT);
+
 	case PD_HW_TX_FAILED:
 	/* fallthrough */
 	case PD_HW_TX_DISCARD:
 		return PE_MAKE_STATE_TRANSIT(PD_HW_TX_FAILED);
-#endif	/* CONFIG_USB_PD_PR_SWAP_ERROR_RECOVERY */
 
 	case PD_HW_VBUS_SAFE0V:
-		return PE_MAKE_STATE_TRANSIT_SINGLE(
-			PE_PRS_SRC_SNK_TRANSITION_TO_OFF,
-			PE_PRS_SRC_SNK_ASSERT_RD);
+		return PE_MAKE_STATE_TRANSIT(PD_HW_VBUS_SAFE0V);
 
 	default:
 		return false;

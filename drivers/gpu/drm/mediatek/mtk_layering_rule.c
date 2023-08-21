@@ -129,6 +129,32 @@ static void layering_rule_senario_decision(unsigned int scn_decision_flag,
 #endif
 }
 
+//static int tran_rollback_layers_to_GPU(struct drm_mtk_layering_info *disp_info,
+//                              int disp_idx, int i)
+//{
+//    if (disp_info->layer_num[disp_idx] <= 0) {
+//       /* direct skip */
+//         return 0;
+//    }
+//
+//    disp_info->gles_head[disp_idx] = 0;
+//    disp_info->gles_tail[disp_idx] = i;
+//    return 0;
+//}
+
+static int cust_rollback_all_to_GPU(struct drm_mtk_layering_info *disp_info,
+                              int disp_idx)
+{
+       if (disp_info->layer_num[disp_idx] <= 0) {
+               /* direct skip */
+               return 0;
+       }
+
+       disp_info->gles_head[disp_idx] = 0;
+       disp_info->gles_tail[disp_idx] = disp_info->layer_num[disp_idx] - 1;
+       return 0;
+}
+
 /* A OVL supports at most 1 yuv layers */
 static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 {
@@ -147,6 +173,19 @@ static void filter_by_yuv_layers(struct drm_mtk_layering_info *disp_info)
 			info = &(disp_info->input_config[disp_idx][i]);
 			if (mtk_is_gles_layer(disp_info, disp_idx, i))
 				continue;
+
+			///debug 20211223 zgq add start
+            /*if (info->src_fmt == MTK_DRM_FORMAT_DIM) {
+                printk("mtkdebug: DIM rollback all layer to GPU\n");
+                tran_rollback_layers_to_GPU(disp_info, HRT_PRIMARY, i);
+                break;
+            }*/
+              if (info->src_fmt == MTK_DRM_FORMAT_DIM) {
+                printk("mtkdebug: DIM rollback all layer to GPU\n");
+                cust_rollback_all_to_GPU(disp_info, HRT_PRIMARY);
+                break;
+             }
+            ///debug 20211223 zgq add end
 
 			if (mtk_is_yuv(info->src_fmt)) {
 				if (info->secure == 1 &&

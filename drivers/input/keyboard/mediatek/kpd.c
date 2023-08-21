@@ -25,6 +25,10 @@
 #include <linux/debugfs.h>
 #include <linux/pinctrl/consumer.h>
 
+#ifdef CONFIG_MTK_PMIC_NEW_ARCH
+#include <mt-plat/upmu_common.h>
+#endif
+
 #define KPD_NAME	"mtk-kpd"
 
 #ifdef CONFIG_LONG_PRESS_MODE_EN
@@ -59,6 +63,8 @@ static int kpd_pdrv_probe(struct platform_device *pdev);
 static int kpd_pdrv_suspend(struct platform_device *pdev, pm_message_t state);
 static int kpd_pdrv_resume(struct platform_device *pdev);
 static struct platform_driver kpd_pdrv;
+
+unsigned long kpdpwr_status = 1;
 
 static void kpd_memory_setting(void)
 {
@@ -340,6 +346,41 @@ static int mt_kpd_debugfs(void)
 	return 0;
 }
 
+/*2021.8.7 longcheer yangming add start*/
+/*add kpdpwr node*/
+static ssize_t kpdpwr_reset_store(struct device_driver *ddri,
+               const char *buf, size_t count)
+{
+	int ret;
+	ret = kstrtoul(buf, 10, &kpdpwr_status);
+	if (ret) {
+		kpd_print("kpd call state: Invalid values\n");
+		return -EINVAL;
+	}
+	kpd_info("kpdpwr_reset_store kpdpwr_status = %d\n", kpdpwr_status);
+	if(kpdpwr_status){
+		pr_err("enable LPRST %d\n", CONFIG_KPD_PMIC_LPRST_TD);
+		pr_err("enable LPRST %d\n", PMIC_RG_PWRKEY_EVENT_MODE);
+		pr_err("enable LPRST %d\n", PMIC_RG_PWRKEY_RST_EN);
+		pmic_set_register_value(PMIC_RG_PWRKEY_EVENT_MODE, 0x00);
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x01);
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_TD,
+			CONFIG_KPD_PMIC_LPRST_TD);
+	}else{
+		pr_err("disable LPRST\n");
+		pmic_set_register_value(PMIC_RG_PWRKEY_RST_EN, 0x00);
+	}
+	return count;
+}
+static ssize_t kpdpwr_reset_show(struct device_driver *ddri, char *buf)
+{
+	ssize_t res;
+	res = snprintf(buf, PAGE_SIZE, "%ld\n", kpdpwr_status);
+	return res;
+}
+static DRIVER_ATTR_RW(kpdpwr_reset);
+/*2021.8.7 longcheer yangming add end*/
+
 static int kpd_pdrv_probe(struct platform_device *pdev)
 {
 	struct clk *kpd_clk = NULL;
@@ -455,6 +496,12 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	mt_kpd_debugfs();
 
 	kpd_info("kpd_probe OK.\n");
+
+	err = driver_create_file(&kpd_pdrv.driver, &driver_attr_kpdpwr_reset);
+	if (err) {
+		kpd_notice("%s zhu driver_create_file failed\n", __func__);
+		return err;
+	}
 
 	return err;
 }

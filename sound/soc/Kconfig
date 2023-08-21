@@ -36,6 +36,10 @@ config SND_SOC_COMPRESS
 config SND_SOC_TOPOLOGY
 	bool
 
+#add by lct.cfy
+config SND_SOC_DSPK_LOL_HP
+	tristate "dual spk lo_hp audio support"
+
 # All the supported SoCs
 source "sound/soc/adi/Kconfig"
 source "sound/soc/amd/Kconfig"

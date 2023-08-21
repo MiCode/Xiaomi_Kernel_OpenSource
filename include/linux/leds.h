@@ -25,14 +25,21 @@ struct device;
 /*
  * LED Core
  */
-
+#if defined(CONFIG_BACKLIGHT_SUPPORT_2047_FEATURE)
+enum led_brightness {
+	LED_OFF 	= 0,
+	LED_ON		= 1,
+	LED_HALF	= 1023,
+	LED_FULL	= 2047,
+};
+#else
 enum led_brightness {
 	LED_OFF		= 0,
 	LED_ON		= 1,
 	LED_HALF	= 127,
 	LED_FULL	= 255,
 };
-
+#endif
 struct led_classdev {
 	const char		*name;
 	enum led_brightness	 brightness;

@@ -37,9 +37,11 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_fbdev.h"
 #include "mtk_drm_trace.h"
+#include "mi_disp_esd_check.h"
 
 #define ESD_TRY_CNT 5
 #define ESD_CHECK_PERIOD 2000 /* ms */
+static atomic_t panel_dead;
 
 /* pinctrl implementation */
 long _set_state(struct drm_crtc *crtc, const char *name)
@@ -471,6 +473,7 @@ done:
 	return 0;
 }
 
+bool esd_check_fail_open_backlight = false;
 static int mtk_drm_esd_check_worker_kthread(void *data)
 {
 	struct sched_param param = {.sched_priority = 87};
@@ -535,6 +538,7 @@ static int mtk_drm_esd_check_worker_kthread(void *data)
 			DDPPR_ERR(
 				"[ESD]esd check fail, will do esd recovery. try=%d\n",
 				i);
+			esd_check_fail_open_backlight = true;
 			mtk_drm_esd_recover(crtc);
 			recovery_flg = 1;
 		} while (++i < ESD_TRY_CNT);
@@ -666,3 +670,15 @@ void mtk_disp_chk_recover_init(struct drm_crtc *crtc)
 	    drm_crtc_index(&mtk_crtc->base) == 0)
 		mtk_disp_esd_chk_init(crtc);
 }
+
+int get_panel_dead_flag(void)
+{
+	return atomic_read(&panel_dead);
+}
+EXPORT_SYMBOL(get_panel_dead_flag);
+
+int set_panel_dead_flag(int value)
+{
+	return atomic_set(&panel_dead, value);
+}
+EXPORT_SYMBOL(set_panel_dead_flag);

@@ -819,18 +819,24 @@ void ccu_write_info_reg(int regNo, int val)
 	LOG_DBG("%s: %x\n", __func__, (unsigned int)(*offset));
 }
 
-void ccu_read_struct_size(uint32_t *structSizes, uint32_t structCnt)
+int ccu_read_struct_size(uint32_t *structSizes, uint32_t structCnt)
 {
 	int i;
 	int offset = ccu_read_reg(ccu_base, SPREG_10_STRUCT_SIZE_CHECK);
 	uint32_t *ptr = ccu_da_to_va(offset, structCnt*sizeof(uint32_t));
+
+	if (structCnt > CCU_STRUCT_SIZE_CAPACITY) {
+		LOG_ERR("%s: structCnt invalid:%d\n", __func__, structCnt);
+		return -EINVAL;
+	}
 	if (ptr == NULL) {
 		LOG_ERR("%s: ptr null\n", __func__);
-		return;
+		return -EINVAL;
 	}
 	for (i = 0; i < structCnt; i++)
 		structSizes[i] = ptr[i];
 	LOG_DBG("%s: %x\n", __func__, offset);
+	return 0;
 }
 
 void ccu_print_reg(uint32_t *Reg)

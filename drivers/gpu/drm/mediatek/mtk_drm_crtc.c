@@ -1965,7 +1965,7 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				/*free fb buf in second query valid*/
 				DDPMSG("%s, %d release frame buffer\n", __func__, __LINE__);
 				mtk_drm_fb_gem_release(dev);
-				free_fb_buf();
+				try_free_fb_buf(dev);
 				already_free = true;
 			}
 #endif
@@ -6360,7 +6360,7 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	}
 
 	mtk_disp_chk_recover_init(&mtk_crtc->base);
-
+    mi_disp_esd_chk_init(&mtk_crtc->base);
 	mtk_drm_fake_vsync_init(&mtk_crtc->base);
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
