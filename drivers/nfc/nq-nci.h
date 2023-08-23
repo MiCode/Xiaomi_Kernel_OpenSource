@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,34 @@
 #define PAYLOAD_LENGTH_MAX		(256)
 #define BYTE				(0x8)
 #define NCI_IDENTIFIER			(0x10)
+
+#define DEV_COUNT	1
+#define DEVICE_NAME	"nq-nci"
+#define CLASS_NAME	"nqx"
+/*
+ * From MW 11.04 buffer size increased to support
+ * frame size of 554 in FW download mode
+ * Frame len(2) + Frame Header(6) + DATA(512) + HASH(32) + CRC(2) + RFU(4)
+ */
+#define MAX_BUFFER_SIZE			(558)
+#define WAKEUP_SRC_TIMEOUT		(2000)
+#define MAX_RETRY_COUNT			3
+#define NCI_RESET_CMD_LEN		4
+#define NCI_RESET_RSP_LEN		6
+#define NCI_RESET_NTF_LEN		13
+#define NCI_INIT_CMD_LEN		3
+#define NCI_INIT_RSP_LEN		28
+#define NCI_GET_VERSION_CMD_LEN		8
+#define NCI_GET_VERSION_RSP_LEN		12
+#define NCI_HEADER_LEN			3
+#define NCI_1_0_RESET_RSP_PAYLOAD_LEN	3
+#define NCI_PAYLOAD_START_INDEX		3
+#define NCI_PAYLOAD_LENGTH_INDEX	(NCI_PAYLOAD_START_INDEX - 1)
+#define MAX_IRQ_WAIT_TIME		(90) /* in ms */
+#define NFCC_HW_CHIP_ID_OFFSET		4
+#define NFCC_HW_ROM_VER_OFFSET		3
+#define NFCC_HW_MAJOR_NO_OFFSET		2
+#define NFCC_HW_MINOR_NO_OFFSET		1
 
 enum nfcc_initial_core_reset_ntf {
 	TIMEDOUT_INITIAL_CORE_RESET_NTF = 0, /* 0*/

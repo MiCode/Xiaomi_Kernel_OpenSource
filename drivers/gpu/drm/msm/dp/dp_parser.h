@@ -195,6 +195,9 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @l_pnswap: P/N swap status on each lane
  * @max_pclk_khz: maximum pixel clock supported for the platform
  * @max_lclk_khz: maximum link clock supported for the platform
+ * @max_hdisplay: maximum supported horizontal display by the platform for dp
+ * @max_vdisplay: maximum supported vertical display by the platform for dp
+ * @no_mst_encoder: zero mst encoders should be initialised for platform
  * @hw_cfg: DP HW specific settings
  * @has_mst: MST feature enable status
  * @has_mst_sideband: MST sideband feature enable status
@@ -205,7 +208,9 @@ static inline char *dp_phy_aux_config_type_to_string(u32 cfg_type)
  * @max_dp_dsc_blks: maximum DSC blks for DP interface
  * @max_dp_dsc_input_width_pixs: Maximum input width for DSC block
  * @has_widebus: widebus (2PPC) feature eanble status
-  *@mst_fixed_port: mst port_num reserved for fixed topology
+ * @mst_fixed_port: mst port_num reserved for fixed topology
+ * @mst_fixed_display_type: mst display_type reserved for fixed topology
+ * @display_type: display type as defined in device tree.
  * @parse: function to be called by client to parse device tree.
  * @get_io: function to be called by client to get io data.
  * @get_io_buf: function to be called by client to get io buffers.
@@ -224,6 +229,9 @@ struct dp_parser {
 	struct dp_aux_cfg aux_cfg[AUX_CFG_LEN];
 	u32 max_pclk_khz;
 	u32 max_lclk_khz;
+	u32 max_hdisplay;
+	u32 max_vdisplay;
+	bool no_mst_encoder;
 	struct dp_hw_cfg hw_cfg;
 	bool has_mst;
 	bool has_mst_sideband;
@@ -236,6 +244,8 @@ struct dp_parser {
 	u32 max_dp_dsc_input_width_pixs;
 	bool lphw_hpd;
 	u32 mst_fixed_port[MAX_DP_MST_STREAMS];
+	const char *mst_fixed_display_type[MAX_DP_MST_STREAMS];
+	const char *display_type;
 
 	int (*parse)(struct dp_parser *parser);
 	struct dp_io_data *(*get_io)(struct dp_parser *parser, char *name);

@@ -1,16 +1,22 @@
-/*
- * aQuantia Corporation Network Driver
- * Copyright (C) 2017 aQuantia Corporation. All rights reserved
+// SPDX-License-Identifier: GPL-2.0-only
+/* Atlantic Network Driver
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include <linux/ethtool.h>
+#include <linux/pm_runtime.h>
 
 #include "atl_common.h"
+#include "atl_mdio.h"
 #include "atl_ring.h"
+#include "atl_fwdnl.h"
+#include "atl_macsec.h"
 
 static uint32_t atl_ethtool_get_link(struct net_device *ndev)
 {
@@ -36,7 +42,6 @@ static void atl_link_to_kernel(unsigned int bits, unsigned long *kernel,
 do {									\
 	struct atl_fc_state *fc = &(lstate)->fc;			\
 	(base)->port = PORT_TP;						\
-	(base)->duplex = DUPLEX_FULL;					\
 	(base)->autoneg = AUTONEG_DISABLE;				\
 	(base)->eth_tp_mdix = ETH_TP_MDI_INVALID;			\
 	(base)->eth_tp_mdix_ctrl = ETH_TP_MDI_INVALID;			\
@@ -113,6 +118,7 @@ static int atl_ethtool_get_settings(struct net_device *ndev,
 	cmd->lp_advertising = cmd_compat.link_modes.lp_advertising;
 
 	ethtool_cmd_speed_set(cmd, lstate->link ? lstate->link->speed : 0);
+	cmd->duplex = (lstate->link) ? lstate->link->duplex : DUPLEX_UNKNOWN;
 
 	return 0;
 }
@@ -135,6 +141,7 @@ static int atl_ethtool_get_ksettings(struct net_device *ndev,
 	atl_ethtool_get_common(&cmd->base, cmd, lstate, false);
 
 	cmd->base.speed = lstate->link ? lstate->link->speed : 0;
+	cmd->base.duplex = lstate->link ? lstate->link->duplex : DUPLEX_UNKNOWN;
 
 	return 0;
 }
@@ -164,20 +171,32 @@ static unsigned int atl_kernel_to_link(const unsigned long int *bits,
 	return ret;
 }
 
-static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed)
+static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed,
+			       unsigned int duplex)
 {
+	unsigned int dplx = (duplex == DUPLEX_HALF) ? DUPLEX_HALF : DUPLEX_FULL;
 	struct atl_link_state *lstate = &hw->link_state;
 	struct atl_link_type *type;
+	unsigned long tmp;
 	int i;
 
+	lstate->advertized &= ~ATL_EEE_MASK;
 	atl_for_each_rate(i, type)
-		if (type->speed == speed) {
+		if (type->speed == speed && type->duplex == dplx) {
 			if (!(lstate->supported & BIT(i)))
 				return -EINVAL;
 
 			lstate->advertized = BIT(i);
 			break;
 		}
+
+	if (lstate->eee_enabled) {
+		atl_link_to_kernel(lstate->supported >> ATL_EEE_BIT_OFFT,
+				   &tmp, false);
+		/* advertize the supported links */
+		tmp = atl_kernel_to_link(&tmp, false);
+		lstate->advertized |= tmp << ATL_EEE_BIT_OFFT;
+	}
 
 	lstate->autoneg = false;
 	hw->mcp.ops->set_link(hw, false);
@@ -188,11 +207,11 @@ static int atl_set_fixed_speed(struct atl_hw *hw, unsigned int speed)
 do {									\
 	struct atl_fc_state *fc = &lstate->fc;				\
 									\
-	if ((base)->port != PORT_TP || (base)->duplex != DUPLEX_FULL)	\
+	if ((base)->port != PORT_TP)					\
 		return -EINVAL;						\
 									\
 	if ((base)->autoneg != AUTONEG_ENABLE)				\
-		return atl_set_fixed_speed(hw, speed);			\
+		return atl_set_fixed_speed(hw, speed, (base)->duplex);	\
 									\
 	atl_add_link_bit(tmp, Autoneg);					\
 	atl_add_link_bit(tmp, TP);					\
@@ -206,7 +225,6 @@ do {									\
 	}								\
 									\
 	lstate->autoneg = true;						\
-	(lstate)->advertized &= ATL_EEE_MASK;				\
 	(lstate)->advertized |= atl_kernel_to_link(advertise, legacy);	\
 									\
 	fc->req = 0;							\
@@ -243,7 +261,7 @@ static int atl_ethtool_set_settings(struct net_device *ndev,
 
 	atl_ethtool_set_common(cmd, lstate,
 		(unsigned long *)&cmd->advertising, &tmp, true, speed);
-	hw->mcp.ops->set_link(hw);
+	hw->mcp.ops->set_link(hw, false);
 	return 0;
 }
 
@@ -347,11 +365,19 @@ static int atl_rss_set_rxfh(struct net_device *ndev, const uint32_t *tbl,
 }
 
 static void atl_get_channels(struct net_device *ndev,
-	struct ethtool_channels *chan)
+			     struct ethtool_channels *chan)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
+	int max_rings;
 
-	chan->max_combined = ATL_MAX_QUEUES;
+	if (nic->flags & ATL_FL_MULTIPLE_VECTORS)
+		max_rings = atl_max_queues;
+	else
+		max_rings = atl_max_queues_non_msi;
+	if (max_rings > num_present_cpus())
+		max_rings = num_present_cpus();
+
+	chan->max_combined = max_rings;
 	chan->combined_count = nic->nvecs;
 	if (nic->flags & ATL_FL_MULTIPLE_VECTORS)
 		chan->max_other = chan->other_count = ATL_NUM_NON_RING_IRQS;
@@ -388,9 +414,9 @@ static void atl_get_pauseparam(struct net_device *ndev,
 	struct atl_nic *nic = netdev_priv(ndev);
 	struct atl_fc_state *fc = &nic->hw.link_state.fc;
 
-	pause->autoneg = 1;
-	pause->rx_pause = !!(fc->cur & atl_fc_rx);
-	pause->tx_pause = !!(fc->cur & atl_fc_tx);
+	pause->autoneg = 0;
+	pause->rx_pause = !!(fc->req & atl_fc_rx);
+	pause->tx_pause = !!(fc->req & atl_fc_tx);
 }
 
 static int atl_set_pauseparam(struct net_device *ndev,
@@ -401,14 +427,13 @@ static int atl_set_pauseparam(struct net_device *ndev,
 	struct atl_link_state *lstate = &hw->link_state;
 	struct atl_fc_state *fc = &lstate->fc;
 
-	if (atl_fw_major(hw) < 2)
+	if ((hw->chip_id == ATL_ATLANTIC) && (atl_fw_major(hw) < 2))
 		return -EOPNOTSUPP;
 
-	if (pause->autoneg && !lstate->autoneg)
+	if (pause->autoneg)
 		return -EINVAL;
 
-	fc->req = pause->autoneg ? atl_fc_full :
-		(!!pause->rx_pause << atl_fc_rx_shift) |
+	fc->req = (!!pause->rx_pause << atl_fc_rx_shift) |
 		(!!pause->tx_pause << atl_fc_tx_shift);
 
 	hw->mcp.ops->set_link(hw, false);
@@ -436,8 +461,11 @@ static int atl_get_eee(struct net_device *ndev, struct ethtool_eee *eee)
 	eee->eee_enabled = eee->tx_lpi_enabled = lstate->eee_enabled;
 	eee->eee_active = lstate->eee;
 
-	ret = atl_get_lpi_timer(nic, &eee->tx_lpi_timer);
+	ret = atl_get_lpi_timer(nic, &nic->hw.lpi_timer);
+	if (ret == -ENODATA)
+		ret = 0;
 
+	eee->tx_lpi_timer = nic->hw.lpi_timer;
 	return ret;
 }
 
@@ -446,31 +474,26 @@ static int atl_set_eee(struct net_device *ndev, struct ethtool_eee *eee)
 	struct atl_nic *nic = netdev_priv(ndev);
 	struct atl_hw *hw = &nic->hw;
 	struct atl_link_state *lstate = &hw->link_state;
-	uint32_t tmp = 0;
+	unsigned long tmp = 0;
 
-	if (atl_fw_major(hw) < 2)
+	if ((hw->chip_id == ATL_ATLANTIC) && (atl_fw_major(hw) < 2))
 		return -EOPNOTSUPP;
 
-	atl_get_lpi_timer(nic, &tmp);
-	if (eee->tx_lpi_timer != tmp)
+	if (eee->tx_lpi_timer != nic->hw.lpi_timer)
 		return -EOPNOTSUPP;
 
 	lstate->eee_enabled = eee->eee_enabled;
 
 	if (lstate->eee_enabled) {
 		atl_link_to_kernel(lstate->supported >> ATL_EEE_BIT_OFFT,
-			(unsigned long *)&tmp, true);
+				   &tmp, false);
 		if (eee->advertised & ~tmp)
 			return -EINVAL;
 
 		/* advertize the requested link or all supported */
 		if (eee->advertised)
-			tmp = atl_kernel_to_link(
-					(unsigned long *)&eee->advertised,
-					true);
-		else
-			tmp = atl_kernel_to_link(
-					(unsigned long *)&tmp, true);
+			tmp = eee->advertised;
+		tmp = atl_kernel_to_link(&tmp, false);
 	}
 
 	lstate->advertized &= ~ATL_EEE_MASK;
@@ -554,6 +577,13 @@ struct atl_stat_desc {
 		sizeof(uint64_t),				\
 }
 
+#define ATL_RX_FWD_STAT(_name, _field)				\
+{								\
+	.stat_name = #_name,					\
+	.idx = offsetof(struct atl_rx_fwd_ring_stats, _field) /	\
+		sizeof(uint64_t),				\
+}
+
 #define ATL_ETH_STAT(_name, _field)				\
 {								\
 	.stat_name = #_name,					\
@@ -586,6 +616,11 @@ static const struct atl_stat_desc rx_stat_descs[] = {
 	ATL_RX_STAT(rx_checksum_err, csum_err),
 };
 
+static const struct atl_stat_desc rx_fwd_stat_descs[] = {
+	ATL_RX_FWD_STAT(rx_fwd_packets, packets),
+	ATL_RX_FWD_STAT(rx_fwd_bytes, bytes),
+};
+
 static const struct atl_stat_desc eth_stat_descs[] = {
 	ATL_ETH_STAT(tx_pause, tx_pause),
 	ATL_ETH_STAT(rx_pause, rx_pause),
@@ -605,14 +640,103 @@ static const struct atl_stat_desc eth_stat_descs[] = {
 static const char atl_priv_flags[][ETH_GSTRING_LEN] = {
 	ATL_PRIV_FLAG(PKTSystemLoopback, LPB_SYS_PB),
 	ATL_PRIV_FLAG(DMASystemLoopback, LPB_SYS_DMA),
-	/* ATL_PRIV_FLAG(DMANetworkLoopback, LPB_NET_DMA), */
+	ATL_PRIV_FLAG(DMANetworkLoopback, LPB_NET_DMA),
+	ATL_PRIV_FLAG(PHYInternalLoopback, LPB_INT_PHY),
+	ATL_PRIV_FLAG(PHYExternalLoopback, LPB_EXT_PHY),
 	ATL_PRIV_FLAG(RX_LPI_MAC, LPI_RX_MAC),
 	ATL_PRIV_FLAG(TX_LPI_MAC, LPI_TX_MAC),
 	ATL_PRIV_FLAG(RX_LPI_PHY, LPI_RX_PHY),
 	ATL_PRIV_FLAG(TX_LPI_PHY, LPI_TX_PHY),
 	ATL_PRIV_FLAG(ResetStatistics, STATS_RESET),
 	ATL_PRIV_FLAG(StripEtherPadding, STRIP_PAD),
+	ATL_PRIV_FLAG(MediaDetect, MEDIA_DETECT),
 };
+
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
+
+#define ATL_MACSEC_STAT(_name, _field)					\
+{									\
+	.stat_name = #_name,						\
+	.idx = offsetof(struct atl_macsec_common_stats, _field) /	\
+		sizeof(uint64_t),					\
+}
+
+#define ATL_MACSEC_RX_SA_STAT(_name, _field)				\
+{									\
+	.stat_name = #_name,						\
+	.idx = offsetof(struct atl_macsec_rx_sa_stats, _field) /	\
+		sizeof(uint64_t),					\
+}
+
+#define ATL_MACSEC_TX_SA_STAT(_name, _field)				\
+{									\
+	.stat_name = #_name,						\
+	.idx = offsetof(struct atl_macsec_tx_sa_stats, _field) /	\
+		sizeof(uint64_t),				\
+}
+
+#define ATL_MACSEC_TX_SC_STAT(_name, _field)				\
+{									\
+	.stat_name = #_name,						\
+	.idx = offsetof(struct atl_macsec_tx_sc_stats, _field) /	\
+		sizeof(uint64_t),					\
+}
+
+static const struct atl_stat_desc macsec_stat_descs[] = {
+	ATL_MACSEC_STAT(in_ctl_pkts, in.ctl_pkts),
+	ATL_MACSEC_STAT(in_tagged_miss_pkts, in.tagged_miss_pkts),
+	ATL_MACSEC_STAT(in_untagged_miss_pkts, in.untagged_miss_pkts),
+	ATL_MACSEC_STAT(in_notag_pkts, in.notag_pkts),
+	ATL_MACSEC_STAT(in_untagged_pkts, in.untagged_pkts),
+	ATL_MACSEC_STAT(in_bad_tag_pkts, in.bad_tag_pkts),
+	ATL_MACSEC_STAT(in_no_sci_pkts, in.no_sci_pkts),
+	ATL_MACSEC_STAT(in_unknown_sci_pkts, in.unknown_sci_pkts),
+	ATL_MACSEC_STAT(in_ctrl_prt_pass_pkts, in.ctrl_prt_pass_pkts),
+	ATL_MACSEC_STAT(in_unctrl_prt_pass_pkts, in.unctrl_prt_pass_pkts),
+	ATL_MACSEC_STAT(in_ctrl_prt_fail_pkts, in.ctrl_prt_fail_pkts),
+	ATL_MACSEC_STAT(in_unctrl_prt_fail_pkts, in.unctrl_prt_fail_pkts),
+	ATL_MACSEC_STAT(in_too_long_pkts, in.too_long_pkts),
+	ATL_MACSEC_STAT(in_igpoc_ctl_pkts, in.igpoc_ctl_pkts),
+	ATL_MACSEC_STAT(in_ecc_error_pkts, in.ecc_error_pkts),
+	ATL_MACSEC_STAT(in_unctrl_hit_drop_redir, in.unctrl_hit_drop_redir),
+	ATL_MACSEC_STAT(out_ctl_pkts, out.ctl_pkts),
+	ATL_MACSEC_STAT(out_unknown_sa_pkts, out.unknown_sa_pkts),
+	ATL_MACSEC_STAT(out_untagged_pkts, out.untagged_pkts),
+	ATL_MACSEC_STAT(out_too_long, out.too_long),
+	ATL_MACSEC_STAT(out_ecc_error_pkts, out.ecc_error_pkts),
+	ATL_MACSEC_STAT(out_unctrl_hit_drop_redir, out.unctrl_hit_drop_redir),
+};
+
+static const struct atl_stat_desc macsec_rx_sa_stat_descs[] = {
+	ATL_MACSEC_RX_SA_STAT(untagged_hit_pkts, untagged_hit_pkts),
+	ATL_MACSEC_RX_SA_STAT(ctrl_hit_drop_redir_pkts, ctrl_hit_drop_redir_pkts),
+	ATL_MACSEC_RX_SA_STAT(not_using_sa, not_using_sa),
+	ATL_MACSEC_RX_SA_STAT(unused_sa, unused_sa),
+	ATL_MACSEC_RX_SA_STAT(not_valid_pkts, not_valid_pkts),
+	ATL_MACSEC_RX_SA_STAT(invalid_pkts, invalid_pkts),
+	ATL_MACSEC_RX_SA_STAT(ok_pkts, ok_pkts),
+	ATL_MACSEC_RX_SA_STAT(late_pkts, late_pkts),
+	ATL_MACSEC_RX_SA_STAT(delayed_pkts, delayed_pkts),
+	ATL_MACSEC_RX_SA_STAT(unchecked_pkts, unchecked_pkts),
+	ATL_MACSEC_RX_SA_STAT(validated_octets, validated_octets),
+	ATL_MACSEC_RX_SA_STAT(decrypted_octets, decrypted_octets),
+};
+
+static const struct atl_stat_desc macsec_tx_sa_stat_descs[] = {
+	ATL_MACSEC_TX_SA_STAT(hit_drop_redirect, sa_hit_drop_redirect),
+	ATL_MACSEC_TX_SA_STAT(protected2_pkts, sa_protected2_pkts),
+	ATL_MACSEC_TX_SA_STAT(protected_pkts, sa_protected_pkts),
+	ATL_MACSEC_TX_SA_STAT(encrypted_pkts, sa_encrypted_pkts),
+};
+
+
+static const struct atl_stat_desc macsec_tx_sc_stat_descs[] = {
+	ATL_MACSEC_TX_SC_STAT(protected_pkts, sc_protected_pkts),
+	ATL_MACSEC_TX_SC_STAT(encrypted_pkts, sc_encrypted_pkts),
+	ATL_MACSEC_TX_SC_STAT(protected_octets, sc_protected_octets),
+	ATL_MACSEC_TX_SC_STAT(encrypted_octets, sc_encrypted_octets),
+};
+#endif
 
 static int atl_get_sset_count(struct net_device *ndev, int sset)
 {
@@ -621,8 +745,27 @@ static int atl_get_sset_count(struct net_device *ndev, int sset)
 	switch (sset) {
 	case ETH_SS_STATS:
 		return ARRAY_SIZE(tx_stat_descs) * (nic->nvecs + 1) +
-			ARRAY_SIZE(rx_stat_descs) * (nic->nvecs + 1) +
-			ARRAY_SIZE(eth_stat_descs);
+		       ARRAY_SIZE(rx_stat_descs) * (nic->nvecs + 1) +
+		       ARRAY_SIZE(eth_stat_descs)
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
+		       + ARRAY_SIZE(rx_fwd_stat_descs)
+#endif
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
+		       + ARRAY_SIZE(tx_stat_descs) *
+				 hweight_long(nic->fwd.ring_map[ATL_FWDIR_TX])
+		       + ARRAY_SIZE(rx_stat_descs) *
+				 hweight_long(nic->fwd.ring_map[ATL_FWDIR_RX])
+#endif
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
+		       + ARRAY_SIZE(macsec_stat_descs)
+		       + ARRAY_SIZE(macsec_tx_sc_stat_descs) *
+				 atl_macsec_tx_sc_cnt(&nic->hw)
+		       + ARRAY_SIZE(macsec_tx_sa_stat_descs) *
+				 atl_macsec_tx_sa_cnt(&nic->hw)
+		       + ARRAY_SIZE(macsec_rx_sa_stat_descs) *
+				 atl_macsec_rx_sa_cnt(&nic->hw)
+#endif
+			;
 
 	case ETH_SS_PRIV_FLAGS:
 		return ARRAY_SIZE(atl_priv_flags);
@@ -633,13 +776,13 @@ static int atl_get_sset_count(struct net_device *ndev, int sset)
 }
 
 static void atl_copy_stats_strings(char **data, char *prefix,
-	const struct atl_stat_desc *descs, int len)
+				   const struct atl_stat_desc *descs, int len)
 {
 	int i;
 
 	for (i = 0; i < len; i++) {
-		snprintf(*data, ETH_GSTRING_LEN, "%s%s",
-			prefix, descs[i].stat_name);
+		snprintf(*data, ETH_GSTRING_LEN, "%s%s", prefix,
+			 descs[i].stat_name);
 		*data += ETH_GSTRING_LEN;
 	}
 }
@@ -647,13 +790,13 @@ static void atl_copy_stats_strings(char **data, char *prefix,
 static void atl_copy_stats_string_set(char **data, char *prefix)
 {
 	atl_copy_stats_strings(data, prefix, tx_stat_descs,
-		ARRAY_SIZE(tx_stat_descs));
+			       ARRAY_SIZE(tx_stat_descs));
 	atl_copy_stats_strings(data, prefix, rx_stat_descs,
-		ARRAY_SIZE(rx_stat_descs));
+			       ARRAY_SIZE(rx_stat_descs));
 }
 
 static void atl_get_strings(struct net_device *ndev, uint32_t sset,
-	uint8_t *data)
+			    uint8_t *data)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 	int i;
@@ -664,13 +807,82 @@ static void atl_get_strings(struct net_device *ndev, uint32_t sset,
 	case ETH_SS_STATS:
 		atl_copy_stats_string_set(&p, "");
 
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
+		atl_copy_stats_strings(&p, "", rx_fwd_stat_descs,
+				       ARRAY_SIZE(rx_fwd_stat_descs));
+#endif
 		atl_copy_stats_strings(&p, "", eth_stat_descs,
-			ARRAY_SIZE(eth_stat_descs));
+				       ARRAY_SIZE(eth_stat_descs));
 
 		for (i = 0; i < nic->nvecs; i++) {
 			snprintf(prefix, sizeof(prefix), "ring_%d_", i);
 			atl_copy_stats_string_set(&p, prefix);
 		}
+
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
+		for (i = 0; i < ATL_NUM_FWD_RINGS; i++) {
+			snprintf(prefix, sizeof(prefix), "fwd_ring_%d_", i);
+
+			if (atlfwd_nl_is_tx_fwd_ring_created(ndev, i))
+				atl_copy_stats_strings(
+					&p, prefix, tx_stat_descs,
+					ARRAY_SIZE(tx_stat_descs));
+			if (atlfwd_nl_is_rx_fwd_ring_created(ndev, i))
+				atl_copy_stats_strings(
+					&p, prefix, rx_stat_descs,
+					ARRAY_SIZE(rx_stat_descs));
+		}
+#endif
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
+		atl_copy_stats_strings(&p, "macsec_", macsec_stat_descs,
+				       ARRAY_SIZE(macsec_stat_descs));
+
+		for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
+			struct atl_macsec_txsc *atl_txsc =
+				&nic->hw.macsec_cfg.atl_txsc[i];
+			int assoc_num;
+
+			if (!(test_bit(i, &nic->hw.macsec_cfg.txsc_idx_busy)))
+				continue;
+
+			snprintf(prefix, sizeof(prefix), "txsc%d_",
+				 atl_txsc->hw_sc_idx);
+			atl_copy_stats_strings(
+				&p, prefix, macsec_tx_sc_stat_descs,
+				ARRAY_SIZE(macsec_tx_sc_stat_descs));
+			for (assoc_num = 0; assoc_num < MACSEC_NUM_AN;
+			     assoc_num++) {
+				if (!test_bit(assoc_num,
+					      &atl_txsc->tx_sa_idx_busy))
+					continue;
+				snprintf(prefix, sizeof(prefix), "txsc%d_sa%d_",
+					 atl_txsc->hw_sc_idx, assoc_num);
+				atl_copy_stats_strings(
+					&p, prefix, macsec_tx_sa_stat_descs,
+					ARRAY_SIZE(macsec_tx_sa_stat_descs));
+			}
+		}
+		for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
+			struct atl_macsec_rxsc *atl_rxsc =
+				&nic->hw.macsec_cfg.atl_rxsc[i];
+			int assoc_num;
+
+			if (!(test_bit(i, &nic->hw.macsec_cfg.rxsc_idx_busy)))
+				continue;
+
+			for (assoc_num = 0; assoc_num < MACSEC_NUM_AN;
+			     assoc_num++) {
+				if (!test_bit(assoc_num,
+					      &atl_rxsc->rx_sa_idx_busy))
+					continue;
+				snprintf(prefix, sizeof(prefix), "rxsc%d_sa%d_",
+					 atl_rxsc->hw_sc_idx, assoc_num);
+				atl_copy_stats_strings(
+					&p, prefix, macsec_rx_sa_stat_descs,
+					ARRAY_SIZE(macsec_rx_sa_stat_descs));
+			}
+		}
+#endif
 		return;
 
 	case ETH_SS_PRIV_FLAGS:
@@ -690,15 +902,21 @@ do {							\
 
 
 static void atl_get_ethtool_stats(struct net_device *ndev,
-	struct ethtool_stats *stats, u64 *data)
+				  struct ethtool_stats *stats, u64 *data)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 	int i;
 
+	atl_update_eth_stats(nic);
 	atl_update_global_stats(nic);
-
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
+	atl_macsec_update_stats(&nic->hw);
+#endif
 	atl_write_stats(&nic->stats.tx, tx_stat_descs, data, uint64_t);
 	atl_write_stats(&nic->stats.rx, rx_stat_descs, data, uint64_t);
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
+	atl_write_stats(&nic->stats.rx_fwd, rx_fwd_stat_descs, data, uint64_t);
+#endif
 
 	atl_write_stats(&nic->stats.eth, eth_stat_descs, data, uint64_t);
 
@@ -711,6 +929,62 @@ static void atl_get_ethtool_stats(struct net_device *ndev,
 		atl_get_ring_stats(&qvec->rx, &tmp);
 		atl_write_stats(&tmp.rx, rx_stat_descs, data, uint64_t);
 	}
+
+#if IS_ENABLED(CONFIG_ATLFWD_FWD_NETLINK)
+	for (i = 0; i < ATL_NUM_FWD_RINGS; i++) {
+		struct atl_ring_stats tmp;
+
+		if (atlfwd_nl_is_tx_fwd_ring_created(ndev, i)) {
+			atl_fwd_get_ring_stats(nic->fwd.rings[ATL_FWDIR_TX][i],
+					       &tmp);
+			atl_write_stats(&tmp.tx, tx_stat_descs, data, uint64_t);
+		}
+		if (atlfwd_nl_is_rx_fwd_ring_created(ndev, i)) {
+			atl_fwd_get_ring_stats(nic->fwd.rings[ATL_FWDIR_RX][i],
+					       &tmp);
+			atl_write_stats(&tmp.rx, rx_stat_descs, data, uint64_t);
+		}
+	}
+#endif
+#if IS_ENABLED(CONFIG_MACSEC) && defined(NETIF_F_HW_MACSEC)
+	atl_write_stats(&nic->hw.macsec_cfg.stats, macsec_stat_descs, data,
+			uint64_t);
+
+	for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
+		struct atl_macsec_txsc *atl_txsc =
+			&nic->hw.macsec_cfg.atl_txsc[i];
+		int assoc_num;
+
+		if (!(test_bit(i, &nic->hw.macsec_cfg.txsc_idx_busy)))
+			continue;
+
+		atl_write_stats(&atl_txsc->stats, macsec_tx_sc_stat_descs, data,
+				uint64_t);
+
+		for (assoc_num = 0; assoc_num < MACSEC_NUM_AN; assoc_num++) {
+			if (!test_bit(assoc_num, &atl_txsc->tx_sa_idx_busy))
+				continue;
+			atl_write_stats(&atl_txsc->tx_sa_stats[assoc_num],
+					macsec_tx_sa_stat_descs, data,
+					uint64_t);
+		}
+	}
+	for (i = 0; i < ATL_MACSEC_MAX_SC; i++) {
+		struct atl_macsec_rxsc *atl_rxsc =
+			&nic->hw.macsec_cfg.atl_rxsc[i];
+		int assoc_num;
+
+		if (!(test_bit(i, &nic->hw.macsec_cfg.rxsc_idx_busy)))
+			continue;
+
+		for (assoc_num = 0; assoc_num < MACSEC_NUM_AN; assoc_num++) {
+			if (!test_bit(assoc_num, &atl_rxsc->rx_sa_idx_busy))
+				continue;
+			atl_write_stats(&atl_rxsc->rx_sa_stats[assoc_num],
+					macsec_rx_sa_stat_descs, data, uint64_t);
+		}
+	}
+#endif
 }
 
 static int atl_update_eee_pflags(struct atl_nic *nic)
@@ -785,6 +1059,7 @@ void atl_reset_stats(struct atl_nic *nic)
 		memset(&qvec->rx.stats, 0, sizeof(qvec->rx.stats));
 		memset(&qvec->tx.stats, 0, sizeof(qvec->tx.stats));
 	}
+	memset(&nic->stats.rx_fwd, 0, sizeof(nic->stats.rx_fwd));
 
 	spin_unlock(&nic->stats_lock);
 }
@@ -793,25 +1068,19 @@ static int atl_set_pad_stripping(struct atl_nic *nic, bool on)
 {
 	struct atl_hw *hw = &nic->hw;
 	int ret;
-	uint32_t ctrl;
 
-	ret = atl_hwsem_get(hw, ATL_MCP_SEM_MSM);
-	if (ret)
-		return ret;
+	ret = hw->mcp.ops->set_pad_stripping(hw, on);
 
-	ret = __atl_msm_read(hw, ATL_MSM_GEN_CTRL, &ctrl);
-	if (ret)
-		goto unlock;
+	return ret;
+}
 
-	if (on)
-		ctrl |= BIT(5);
-	else
-		ctrl &= ~BIT(5);
+int atl_set_media_detect(struct atl_nic *nic, bool on)
+{
+	struct atl_hw *hw = &nic->hw;
+	int ret;
 
-	ret = __atl_msm_write(hw, ATL_MSM_GEN_CTRL, ctrl);
+	ret = hw->mcp.ops->set_mediadetect(hw, on);
 
-unlock:
-	atl_hwsem_put(hw, ATL_MCP_SEM_MSM);
 	return ret;
 }
 
@@ -848,6 +1117,13 @@ static int atl_set_priv_flags(struct net_device *ndev, uint32_t flags)
 			return ret;
 	}
 
+	if (diff & ATL_PF_BIT(MEDIA_DETECT)) {
+		ret = atl_set_media_detect(nic,
+			!!(flags & ATL_PF_BIT(MEDIA_DETECT)));
+		if (ret)
+			return ret;
+	}
+
 	if (hweight32(lpb) > 1) {
 		atl_nic_err("Can't enable more than one loopback simultaneously\n");
 		return -EINVAL;
@@ -858,13 +1134,14 @@ static int atl_set_priv_flags(struct net_device *ndev, uint32_t flags)
 		return -EINVAL;
 	}
 
+	nic->priv_flags = flags;
+
 	if (curr)
 		atl_set_loopback(nic, ffs(curr) - 1, false);
 
 	if (lpb)
 		atl_set_loopback(nic, ffs(lpb) - 1, true);
 
-	nic->priv_flags = flags;
 	return 0;
 }
 
@@ -885,10 +1162,13 @@ static int atl_set_coalesce(struct net_device *ndev,
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 
-	if (ec->use_adaptive_rx_coalesce || ec->use_adaptive_tx_coalesce ||
-		ec->rx_max_coalesced_frames || ec->tx_max_coalesced_frames ||
+	if (ec->rx_max_coalesced_frames ||
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
+		ec->use_adaptive_rx_coalesce || ec->use_adaptive_tx_coalesce ||
 		ec->rx_max_coalesced_frames_irq || ec->rx_coalesce_usecs_irq ||
-		ec->tx_max_coalesced_frames_irq || ec->tx_coalesce_usecs_irq)
+		ec->tx_max_coalesced_frames_irq || ec->tx_coalesce_usecs_irq ||
+#endif
+		ec->tx_max_coalesced_frames)
 		return -EOPNOTSUPP;
 
 	if (ec->rx_coalesce_usecs < atl_min_intr_delay ||
@@ -1040,13 +1320,13 @@ static int atl_rxf_get_ntuple(const struct atl_rxf_flt_desc *desc,
 
 		if (cmd & ATL_NTC_SA) {
 			atl_ntuple_swap_v6(rule->ip6src,
-				ntuples->src_ip6[idx / 4]);
+				ntuples->src_ip6[idx]);
 			memset(mask->ip6src, 0xff, sizeof(mask->ip6src));
 		}
 
 		if (cmd & ATL_NTC_DA) {
 			atl_ntuple_swap_v6(rule->ip6dst,
-				ntuples->dst_ip6[idx / 4]);
+				ntuples->dst_ip6[idx]);
 			memset(mask->ip6dst, 0xff, sizeof(mask->ip6dst));
 		}
 
@@ -1137,7 +1417,7 @@ static int atl_rxf_check_ring(struct atl_nic *nic, uint32_t ring)
 	if (ring < nic->nvecs || ring == ATL_RXF_RING_ANY)
 		return 0;
 
-#ifdef CONFIG_ATLFWD_FWD
+#if IS_ENABLED(CONFIG_ATLFWD_FWD)
 	if (test_bit(ring, &nic->fwd.ring_map[ATL_FWDIR_RX]))
 		return 0;
 #endif
@@ -1255,7 +1535,7 @@ static uint32_t atl_rxf_find_vid(struct atl_nic *nic, uint16_t vid,
 		if (!(cmd & ATL_RXF_EN)) {
 			if (free == ATL_RXF_VLAN_MAX) {
 				free = idx;
-				if (vid == -1)
+				if (vid == 0xffff)
 					break;
 			}
 			continue;
@@ -1288,7 +1568,7 @@ static uint16_t atl_rxf_vid(struct atl_rxf_vlan *vlan, int idx)
 {
 	uint32_t cmd = vlan->cmd[idx];
 
-	return cmd & ATL_RXF_EN ? cmd & ATL_VLAN_VID_MASK : -1;
+	return cmd & ATL_RXF_EN ? cmd & ATL_VLAN_VID_MASK : 0xffff;
 }
 
 static int atl_rxf_dup_vid(struct atl_rxf_vlan *vlan, int idx, uint16_t vid)
@@ -1328,7 +1608,7 @@ static int atl_rxf_set_vlan(const struct atl_rxf_flt_desc *desc,
 		}
 
 		old_vid = atl_rxf_vid(vlan, idx);
-		if (old_vid != -1 && vid != old_vid &&
+		if (old_vid != 0xffff && vid != old_vid &&
 			test_bit(old_vid, vlan->map)) {
 			atl_nic_err("Can't overwrite Linux VLAN filter @%d VID %hd with a different VID %hd\n",
 				idx, old_vid, vid);
@@ -1409,6 +1689,221 @@ static int atl_rxf_set_etype(const struct atl_rxf_flt_desc *desc,
 	etype->cmd[idx] = cmd;
 
 	return !present;
+}
+
+static int atl2_rxf_l3_is_equal(struct atl2_rxf_l3 *f1, struct atl2_rxf_l3 *f2)
+{
+	if (f1->cmd != f2->cmd)
+		return false;
+
+	if (f1->cmd & ATL2_NTC_L3_IPV4_SA)
+		if (f1->src_ip4 != f2->src_ip4)
+			return false;
+
+	if (f1->cmd & ATL2_NTC_L3_IPV4_DA)
+		if (f1->dst_ip4 != f2->dst_ip4)
+			return false;
+
+	if (f1->cmd & (ATL2_NTC_L3_IPV4_PROTO | ATL2_NTC_L3_IPV6_PROTO))
+		if (f1->proto != f2->proto)
+			return false;
+
+	if (f1->cmd & ATL2_NTC_L3_IPV6_SA)
+		if (memcmp(f1->src_ip6, f2->src_ip6, 16))
+			return false;
+
+	if (f1->cmd & ATL2_NTC_L3_IPV6_DA)
+		if (memcmp(f1->dst_ip6, f2->dst_ip6, 16))
+			return false;
+
+	return true;
+}
+
+static int atl2_rxf_l4_is_equal(struct atl2_rxf_l4 *f1, struct atl2_rxf_l4 *f2)
+{
+	if (f1->cmd != f2->cmd)
+		return false;
+
+	if (f1->cmd & ATL2_NTC_L4_SP)
+		if (f1->src_port != f2->src_port)
+			return false;
+
+	if (f1->cmd & ATL2_NTC_L4_DP)
+		if (f1->dst_port != f2->dst_port)
+			return false;
+
+	return true;
+}
+
+static void atl2_rpf_l3_cmd_set(struct atl_hw *hw, u32 val, u32 idx)
+{
+	atl_write_mask_bits(hw, ATL2_RPF_L3_FLT(idx), 0xFF7FFFFF, val);
+}
+
+static void atl2_rxf_l3_put(struct atl_hw *hw, struct atl2_rxf_l3 *l3, int idx)
+{
+	if (l3->usage)
+		l3->usage--;
+
+	if (!l3->usage) {
+		l3->cmd = 0;
+		atl2_rpf_l3_cmd_set(hw, l3->cmd, idx);
+	}
+}
+
+static void atl2_rxf_l3_get(struct atl2_rxf_l3 *l3, int idx,
+			    const struct atl2_rxf_l3 *_l3)
+{
+	int i;
+
+	l3->usage++;
+	l3->cmd = _l3->cmd;
+	for (i = 0; i < 4; i++) {
+		l3->src_ip6[i] = _l3->src_ip6[i];
+		l3->dst_ip6[i] = _l3->dst_ip6[i];
+	}
+	l3->proto = _l3->proto;
+}
+
+static void atl2_rxf_l4_put(struct atl_hw *hw, struct atl2_rxf_l4 *l4, int idx)
+{
+	if (l4->usage)
+		l4->usage--;
+
+	if (!l4->usage) {
+		l4->cmd = 0;
+		atl_write(hw, ATL2_RPF_L4_FLT(idx), l4->cmd);
+	}
+}
+
+static void atl2_rxf_l4_get(struct atl2_rxf_l4 *l4, int idx,
+			    const struct atl2_rxf_l4 *_l4)
+{
+	l4->usage++;
+	l4->cmd = _l4->cmd;
+	l4->src_port = _l4->src_port;
+	l4->dst_port = _l4->dst_port;
+}
+
+static void atl2_rxf_set_ntuple(struct atl_nic *nic,
+				struct atl_rxf_ntuple *ntuple,
+				int idx)
+{
+	struct atl2_rxf_l3 l3;
+	struct atl2_rxf_l4 l4;
+	s8 l3_idx = -1;
+	s8 l4_idx = -1;
+	int i;
+
+	memset(&l3, 0, sizeof(l3));
+	memset(&l4, 0, sizeof(l4));
+
+	if (ntuple->cmd[idx] & ATL_NTC_PROTO)
+		l3.cmd |= ntuple->cmd[idx] & ATL_NTC_V6 ?
+			  ATL2_NTC_L3_IPV6_PROTO | ATL2_NTC_L3_IPV6_EN :
+			  ATL2_NTC_L3_IPV4_PROTO | ATL2_NTC_L3_IPV4_EN;
+
+	switch (ntuple->cmd[idx] & ATL_NTC_L4_MASK) {
+	case ATL_NTC_L4_TCP:
+		l3.cmd |= ntuple->cmd[idx] & ATL_NTC_V6 ?
+			IPPROTO_TCP << ATL2_NTC_L3_IPV6_PROTO_SHIFT :
+			IPPROTO_TCP << ATL2_NTC_L3_IPV4_PROTO_SHIFT;
+		break;
+
+	case ATL_NTC_L4_UDP:
+		l3.cmd |= ntuple->cmd[idx] & ATL_NTC_V6 ?
+			IPPROTO_UDP << ATL2_NTC_L3_IPV6_PROTO_SHIFT :
+			IPPROTO_UDP << ATL2_NTC_L3_IPV4_PROTO_SHIFT;
+		break;
+
+	case ATL_NTC_L4_SCTP:
+		l3.cmd |= ntuple->cmd[idx] & ATL_NTC_V6 ?
+			IPPROTO_SCTP << ATL2_NTC_L3_IPV6_PROTO_SHIFT :
+			IPPROTO_SCTP << ATL2_NTC_L3_IPV4_PROTO_SHIFT;
+		break;
+	}
+
+	if (ntuple->cmd[idx] & ATL_NTC_SA) {
+		if (ntuple->cmd[idx] & ATL_NTC_V6) {
+			l3.cmd |= ATL2_NTC_L3_IPV6_SA | ATL2_NTC_L3_IPV6_EN;
+			memcpy(l3.src_ip6, ntuple->src_ip6[idx], 16);
+		} else {
+			l3.cmd |= ATL2_NTC_L3_IPV4_SA | ATL2_NTC_L3_IPV4_EN;
+			l3.src_ip4 = ntuple->src_ip4[idx];
+		}
+	}
+	if (ntuple->cmd[idx] & ATL_NTC_DA) {
+		if (ntuple->cmd[idx] & ATL_NTC_V6) {
+			l3.cmd |= ATL2_NTC_L3_IPV6_DA | ATL2_NTC_L3_IPV6_EN;
+			memcpy(l3.dst_ip6, ntuple->dst_ip6[idx], 16);
+		} else {
+			l3.cmd |= ATL2_NTC_L3_IPV4_DA | ATL2_NTC_L3_IPV4_EN;
+			l3.dst_ip4 = ntuple->dst_ip4[idx];
+		}
+	}
+	if (ntuple->cmd[idx] & ATL_NTC_SP) {
+		l4.cmd |= ATL2_NTC_L4_SP | ATL2_NTC_L4_EN;
+		l4.src_port = ntuple->src_port[idx];
+	}
+	if (ntuple->cmd[idx] & ATL_NTC_DP) {
+		l4.cmd |= ATL2_NTC_L4_DP | ATL2_NTC_L4_EN;
+		l4.dst_port = ntuple->dst_port[idx];
+	}
+
+	/* find L3 and L4 filters */
+	if (l3.cmd & (ATL2_NTC_L3_IPV4_EN | ATL2_NTC_L3_IPV6_EN)) {
+		for (i = 0; i < ATL_RXF_NTUPLE_MAX; i++) {
+			if (atl2_rxf_l3_is_equal(&ntuple->l3[i], &l3)) {
+				l3_idx = i;
+				break;
+			}
+		}
+		if (l3_idx < 0)
+			for (i = 0; i < ATL_RXF_NTUPLE_MAX; i++)
+				if ((ntuple->l3[i].cmd &
+				     (ATL2_NTC_L3_IPV4_EN |
+				      ATL2_NTC_L3_IPV6_EN)) == 0) {
+					l3_idx = i;
+					break;
+				}
+		WARN(l3_idx < 0, "L3 filter table inconsistent");
+		if (ntuple->l3_idx[idx] != l3_idx)
+			atl2_rxf_l3_get(&ntuple->l3[l3_idx], l3_idx, &l3);
+	}
+
+	if (ntuple->l3_idx[idx] != -1)
+		if (!(atl2_rxf_l3_is_equal(&l3,
+					   &ntuple->l3[ntuple->l3_idx[idx]]))) {
+			atl2_rxf_l3_put(&nic->hw,
+					&ntuple->l3[ntuple->l3_idx[idx]],
+					ntuple->l3_idx[idx]);
+		}
+	ntuple->l3_idx[idx] = l3_idx;
+
+	if (l4.cmd & ATL2_NTC_L4_EN) {
+		for (i = 0; i < ATL_RXF_NTUPLE_MAX; i++) {
+			if (atl2_rxf_l4_is_equal(&ntuple->l4[i], &l4))
+				l4_idx = i;
+		}
+		if (l4_idx < 0)
+			for (i = 0; i < ATL_RXF_NTUPLE_MAX; i++)
+				if ((ntuple->l4[i].cmd & ATL2_NTC_L4_EN) == 0) {
+					l4_idx = i;
+					break;
+				}
+		WARN(l4_idx < 0, "L4 filter table inconsistent");
+		if (ntuple->l4_idx[idx] != l4_idx)
+			atl2_rxf_l4_get(&ntuple->l4[l4_idx], l4_idx, &l4);
+	}
+
+	if (ntuple->l4_idx[idx] != -1)
+		if (!(atl2_rxf_l4_is_equal(&l4,
+					   &ntuple->l4[ntuple->l4_idx[idx]]))) {
+			atl2_rxf_l4_put(&nic->hw,
+					&ntuple->l4[ntuple->l4_idx[idx]],
+					ntuple->l4_idx[idx]);
+		}
+	ntuple->l4_idx[idx] = l4_idx;
 }
 
 static int atl_rxf_set_ntuple(const struct atl_rxf_flt_desc *desc,
@@ -1493,17 +1988,24 @@ static int atl_rxf_set_ntuple(const struct atl_rxf_flt_desc *desc,
 	if (cmd & ATL_NTC_V6) {
 		int i;
 
-		if (idx & 3) {
-			atl_nic_err("IPv6 filters only supported in locations 8 and 12\n");
-			return -EINVAL;
-		}
-
-		for (i = idx + 1; i < idx + 4; i++)
-			if (ntuple->cmd[i] & ATL_NTC_EN) {
-				atl_nic_err("IPv6 filter %d overlaps an IPv4 filter %d\n",
-					    idx, i);
+		if (nic->hw.new_rpf) {
+			if (idx > 5) {
+				atl_nic_err("IPv6 filters allowed in the first 6 locations\n");
 				return -EINVAL;
 			}
+		} else {
+			if (idx & 3) {
+				atl_nic_err("IPv6 filters only supported in locations 8 and 12\n");
+				return -EINVAL;
+			}
+
+			for (i = idx + 1; i < idx + 4; i++)
+				if (ntuple->cmd[i] & ATL_NTC_EN) {
+					atl_nic_err("IPv6 filter %d overlaps an IPv4 filter %d\n",
+						    idx, i);
+					return -EINVAL;
+				}
+		}
 
 		ret = atl_check_mask((uint8_t *)fsp->m_u.tcp_ip6_spec.ip6src,
 			sizeof(fsp->m_u.tcp_ip6_spec.ip6src), &cmd, ATL_NTC_SA);
@@ -1526,15 +2028,6 @@ static int atl_rxf_set_ntuple(const struct atl_rxf_flt_desc *desc,
 			sizeof(fsp->m_u.tcp_ip6_spec.pdst), &cmd, ATL_NTC_DP);
 		if (ret)
 			return ret;
-
-		if (cmd & ATL_NTC_SA)
-			atl_ntuple_swap_v6(ntuple->src_ip6[idx / 4],
-				fsp->h_u.tcp_ip6_spec.ip6src);
-
-		if (cmd & ATL_NTC_DA)
-			atl_ntuple_swap_v6(ntuple->dst_ip6[idx / 4],
-				fsp->h_u.tcp_ip6_spec.ip6dst);
-
 	} else
 #endif
 	{
@@ -1560,13 +2053,27 @@ static int atl_rxf_set_ntuple(const struct atl_rxf_flt_desc *desc,
 			sizeof(fsp->m_u.tcp_ip4_spec.psrc), &cmd, ATL_NTC_DP);
 		if (ret)
 			return ret;
+	}
 
+#ifdef ATL_HAVE_IPV6_NTUPLE
+	if (cmd & ATL_NTC_V6) {
+		if (cmd & ATL_NTC_SA)
+			atl_ntuple_swap_v6(ntuple->src_ip6[idx],
+				fsp->h_u.tcp_ip6_spec.ip6src);
+
+		if (cmd & ATL_NTC_DA)
+			atl_ntuple_swap_v6(ntuple->dst_ip6[idx],
+				fsp->h_u.tcp_ip6_spec.ip6dst);
+	} else
+#endif
+	{
 		if (cmd & ATL_NTC_SA)
 			ntuple->src_ip4[idx] = fsp->h_u.tcp_ip4_spec.ip4src;
 
 		if (cmd & ATL_NTC_DA)
 			ntuple->dst_ip4[idx] = fsp->h_u.tcp_ip4_spec.ip4dst;
 	}
+
 
 	if (cmd & ATL_NTC_SP)
 		ntuple->src_port[idx] = sport;
@@ -1575,6 +2082,9 @@ static int atl_rxf_set_ntuple(const struct atl_rxf_flt_desc *desc,
 		ntuple->dst_port[idx] = dport;
 
 	ntuple->cmd[idx] = cmd;
+
+	if (nic->hw.new_rpf)
+		atl2_rxf_set_ntuple(nic, ntuple, idx);
 
 	return !present;
 }
@@ -1599,17 +2109,255 @@ static int atl_rxf_set_flex(const struct atl_rxf_flt_desc *desc,
 
 static void atl_rxf_update_vlan(struct atl_nic *nic, int idx)
 {
-	atl_write(&nic->hw, ATL_RX_VLAN_FLT(idx), nic->rxf_vlan.cmd[idx]);
+	uint32_t cmd = nic->rxf_vlan.cmd[idx];
+	struct atl_hw *hw = &nic->hw;
+	u16 action;
+
+	atl_write(&nic->hw, ATL_RX_VLAN_FLT(idx), cmd);
+
+	if (!nic->hw.new_rpf)
+		return;
+
+	if (!(cmd & ATL_RXF_EN)) {
+		atl2_act_rslvr_table_set(hw,
+			ATL2_RPF_VLAN_USER_INDEX + idx,
+			0,
+			0,
+			ATL2_ACTION_DISABLE);
+		return;
+	}
+
+	if (!(cmd & ATL_RXF_ACT_TOHOST)) {
+		action = ATL2_ACTION_DROP;
+	} else if (!(cmd & ATL_VLAN_RXQ)) {
+		atl2_rpf_vlan_flr_tag_set(hw, 1, idx);
+		return;
+	} else {
+		int queue = (cmd >> ATL_VLAN_RXQ_SHIFT) & ATL_RXF_RXQ_MSK;
+
+		action = ATL2_ACTION_ASSIGN_QUEUE(queue);
+	}
+
+	atl2_rpf_vlan_flr_tag_set(hw, idx + 2, idx);
+	atl2_act_rslvr_table_set(hw,
+		ATL2_RPF_VLAN_USER_INDEX + idx,
+		(idx + 2) << ATL2_RPF_TAG_VLAN_OFFSET,
+		ATL2_RPF_TAG_VLAN_MASK,
+		action);
+
 }
 
 static void atl_rxf_update_etype(struct atl_nic *nic, int idx)
 {
-	atl_write(&nic->hw, ATL_RX_ETYPE_FLT(idx), nic->rxf_etype.cmd[idx]);
+	uint32_t cmd = nic->rxf_etype.cmd[idx];
+	struct atl_hw *hw = &nic->hw;
+	u16 action;
+
+	atl_write(&nic->hw, ATL_RX_ETYPE_FLT(idx), cmd);
+
+	if (!nic->hw.new_rpf)
+		return;
+
+	if (!(cmd & ATL_RXF_EN)) {
+		atl2_act_rslvr_table_set(hw,
+			ATL2_RPF_ET_PCP_USER_INDEX + idx,
+			0,
+			0,
+			ATL2_ACTION_DISABLE);
+		return;
+	}
+
+	if (!(cmd & ATL_RXF_ACT_TOHOST)) {
+		action = ATL2_ACTION_DROP;
+	} else if (!(cmd & ATL_ETYPE_RXQ)) {
+		action = ATL2_ACTION_ASSIGN_TC(0);
+	} else {
+		int queue = (cmd >> ATL_ETYPE_RXQ_SHIFT) & ATL_RXF_RXQ_MSK;
+
+		action = ATL2_ACTION_ASSIGN_QUEUE(queue);
+	}
+
+	atl2_rpf_etht_flr_tag_set(hw, idx + 1, idx);
+	atl2_act_rslvr_table_set(hw,
+		ATL2_RPF_ET_PCP_USER_INDEX + idx,
+		(idx + 1) << ATL2_RPF_TAG_ET_OFFSET,
+		ATL2_RPF_TAG_ET_MASK,
+		action);
+}
+
+static void atl2_update_ntuple_flt(struct atl_nic *nic, int idx)
+{
+	struct atl_hw *hw = &nic->hw;
+	struct atl_rxf_ntuple *ntuple = &nic->rxf_ntuple;
+	struct atl2_rxf_l3 *l3 = NULL;
+	struct atl2_rxf_l4 *l4 = NULL;
+	s8 l3_idx = ntuple->l3_idx[idx];
+	s8 l4_idx = ntuple->l4_idx[idx];
+	uint32_t tag = 0, mask = 0, action, cmd;
+
+	if (!(ntuple->cmd[idx] & ATL_NTC_EN)) {
+		if (l3_idx > -1)
+			atl2_rxf_l3_put(hw, &ntuple->l3[l3_idx], l3_idx);
+
+		if (l4_idx > -1)
+			atl2_rxf_l4_put(hw, &ntuple->l4[l4_idx], l4_idx);
+
+		ntuple->l4_idx[idx] = -1;
+		ntuple->l3_idx[idx] = -1;
+		atl2_act_rslvr_table_set(hw,
+			ATL2_RPF_L3L4_USER_INDEX + idx,
+			0,
+			0,
+			ATL2_ACTION_DISABLE);
+
+		return;
+	}
+	if (l3_idx > -1) {
+		l3 = &ntuple->l3[l3_idx];
+		cmd = l3->cmd;
+		if (l3->cmd & ATL2_NTC_L3_IPV4_EN) {
+			tag |= (l3_idx + 1) << ATL2_RPF_TAG_L3_V4_OFFSET;
+			mask |= ATL2_RPF_TAG_L3_V4_MASK;
+			cmd |= (l3_idx + 1) << 0x4;
+
+			if (l3->cmd & ATL2_NTC_L3_IPV4_SA)
+				atl2_rpf_l3_v4_sa_set(hw, l3_idx, l3->src_ip4);
+			if (l3->cmd & ATL2_NTC_L3_IPV4_DA)
+				atl2_rpf_l3_v4_da_set(hw, l3_idx, l3->dst_ip4);
+		} else if (l3->cmd & ATL2_NTC_L3_IPV6_EN) {
+			tag |= (l3_idx + 1) << ATL2_RPF_TAG_L3_V6_OFFSET;
+			mask |= ATL2_RPF_TAG_L3_V6_MASK;
+			cmd |= (l3_idx + 1) << 0x14;
+
+			if (l3->cmd & ATL2_NTC_L3_IPV6_SA)
+				atl2_rpf_l3_v6_sa_set(hw, l3_idx, l3->src_ip6);
+			if (l3->cmd & ATL2_NTC_L3_IPV6_DA)
+				atl2_rpf_l3_v6_da_set(hw, l3_idx, l3->dst_ip6);
+		} else {
+			WARN(1, "L3 filter invalid");
+			return;
+		}
+
+		atl2_rpf_l3_cmd_set(hw, cmd, l3_idx);
+	}
+
+	if (l4_idx > -1) {
+		l4 = &ntuple->l4[l4_idx];
+		if (l4->cmd & ATL2_NTC_L4_EN) {
+			tag |= (l4_idx + 1) << ATL2_RPF_TAG_L4_OFFSET;
+			mask |= ATL2_RPF_TAG_L4_MASK;
+		} else {
+			WARN(1, "L4 filter invalid");
+			return;
+		}
+		cmd = l4->cmd | (l4_idx + 1) << 0x4;
+		atl_write(hw, ATL_NTUPLE_SPORT(l4_idx),
+			swab16(l4->src_port));
+		atl_write(hw, ATL_NTUPLE_DPORT(l4_idx),
+			swab16(l4->dst_port));
+		atl_write(hw, ATL2_RPF_L4_FLT(l4_idx), cmd);
+	}
+
+	if (!(ntuple->cmd[idx] & ATL_RXF_ACT_TOHOST)) {
+		action = ATL2_ACTION_DROP;
+	} else if (!(ntuple->cmd[idx] & ATL_NTC_RXQ)) {
+		action = ATL2_ACTION_ASSIGN_TC(0);
+	} else {
+		int queue = (ntuple->cmd[idx] >> ATL_NTC_RXQ_SHIFT) & ATL_RXF_RXQ_MSK;
+
+		action = ATL2_ACTION_ASSIGN_QUEUE(queue);
+	}
+
+	atl2_act_rslvr_table_set(hw,
+				 ATL2_RPF_L3L4_USER_INDEX + idx,
+				 tag,
+				 mask,
+				 action);
+}
+
+void atl_update_ntuple_flt(struct atl_nic *nic, int idx)
+{
+	struct atl_hw *hw = &nic->hw;
+	struct atl_rxf_ntuple *ntuple = &nic->rxf_ntuple;
+	uint32_t cmd = ntuple->cmd[idx];
+	int i;
+
+	if (!(cmd & ATL_NTC_EN)) {
+		atl_write(hw, ATL_NTUPLE_CTRL(idx), cmd);
+
+		if (nic->hw.new_rpf)
+			atl2_update_ntuple_flt(nic, idx);
+		return;
+	}
+
+	if (cmd & ATL_NTC_V6) {
+		for (i = 0; i < 4; i++) {
+			if (cmd & ATL_NTC_SA)
+				atl_write(hw, ATL_NTUPLE_SADDR(idx + i),
+					swab32(ntuple->src_ip6[idx][i]));
+
+			if (cmd & ATL_NTC_DA)
+				atl_write(hw, ATL_NTUPLE_DADDR(idx + i),
+					swab32(ntuple->dst_ip6[idx][i]));
+		}
+	} else {
+		if (cmd & ATL_NTC_SA)
+			atl_write(hw, ATL_NTUPLE_SADDR(idx),
+				swab32(ntuple->src_ip4[idx]));
+
+		if (cmd & ATL_NTC_DA)
+			atl_write(hw, ATL_NTUPLE_DADDR(idx),
+				swab32(ntuple->dst_ip4[idx]));
+	}
+
+	/* ports are used by both new RPF and legacy RPF, but with different
+	 * locations
+	 */
+	if (!nic->hw.new_rpf) {
+		if (cmd & ATL_NTC_SP)
+			atl_write(hw, ATL_NTUPLE_SPORT(idx),
+				swab16(ntuple->src_port[idx]));
+
+		if (cmd & ATL_NTC_DP)
+			atl_write(hw, ATL_NTUPLE_DPORT(idx),
+				swab16(ntuple->dst_port[idx]));
+	}
+
+	if (cmd & ATL_NTC_RXQ)
+		cmd |= 1 << ATL_NTC_ACT_SHIFT;
+
+	atl_write(hw, ATL_NTUPLE_CTRL(idx), cmd);
+
+	if (nic->hw.new_rpf)
+		atl2_update_ntuple_flt(nic, idx);
 }
 
 static void atl_rxf_update_flex(struct atl_nic *nic, int idx)
 {
 	atl_write(&nic->hw, ATL_RX_FLEX_FLT_CTRL(idx), nic->rxf_flex.cmd[idx]);
+
+	if (nic->hw.new_rpf) {
+		uint32_t action;
+
+		atl2_rpf_flex_flr_tag_set(&nic->hw, idx + 1, idx);
+
+		if (!(nic->rxf_flex.cmd[idx] & ATL_FLEX_EN)) {
+			action = ATL2_ACTION_DISABLE;
+		} else if (!(nic->rxf_flex.cmd[idx] & ATL_RXF_ACT_TOHOST)) {
+			action = ATL2_ACTION_DROP;
+		} else if (!(nic->rxf_flex.cmd[idx] & ATL_FLEX_RXQ)) {
+			action = ATL2_ACTION_ASSIGN_TC(0);
+		} else {
+			int queue = (nic->rxf_flex.cmd[idx] >> ATL_FLEX_RXQ_SHIFT) & ATL_RXF_RXQ_MSK;
+
+			action = ATL2_ACTION_ASSIGN_QUEUE(queue);
+		}
+		atl2_act_rslvr_table_set(&nic->hw,
+			ATL2_RPF_FLEX_USER_INDEX + idx,
+			(idx + 1) << ATL2_RPF_TAG_FLEX_OFFSET,
+			ATL2_RPF_TAG_FLEX_MASK,
+			action);
+	}
 }
 
 static const struct atl_rxf_flt_desc atl_rxf_descs[] = {
@@ -1703,7 +2451,9 @@ static void atl_refresh_rxf_desc(struct atl_nic *nic,
 	atl_for_each_rxf_idx(desc, idx)
 		desc->update_rxf(nic, idx);
 
-	atl_set_vlan_promisc(&nic->hw, nic->rxf_vlan.promisc_count);
+	atl_set_vlan_promisc(&nic->hw, (nic->ndev->flags & IFF_PROMISC) ||
+				       nic->rxf_vlan.promisc_count ||
+				       !nic->rxf_vlan.vlans_active);
 }
 
 void atl_refresh_rxfs(struct atl_nic *nic)
@@ -1713,7 +2463,9 @@ void atl_refresh_rxfs(struct atl_nic *nic)
 	atl_for_each_rxf_desc(desc)
 		atl_refresh_rxf_desc(nic, desc);
 
-	atl_set_vlan_promisc(&nic->hw, nic->rxf_vlan.promisc_count);
+	atl_set_vlan_promisc(&nic->hw, (nic->ndev->flags & IFF_PROMISC) ||
+				       nic->rxf_vlan.promisc_count ||
+				       !nic->rxf_vlan.vlans_active);
 }
 
 static bool atl_vlan_pull_from_promisc(struct atl_nic *nic, uint32_t idx)
@@ -1753,7 +2505,9 @@ static bool atl_vlan_pull_from_promisc(struct atl_nic *nic, uint32_t idx)
 	} while (idx & ATL_VIDX_FREE);
 
 	kfree(map);
-	atl_set_vlan_promisc(&nic->hw, vlan->promisc_count);
+	atl_set_vlan_promisc(&nic->hw, (nic->ndev->flags & IFF_PROMISC) ||
+				       vlan->promisc_count ||
+				       !vlan->vlans_active);
 	return true;
 }
 
@@ -1939,7 +2693,11 @@ int atl_vlan_rx_add_vid(struct net_device *ndev, __be16 proto, u16 vid)
 	if (idx == ATL_VIDX_NONE) {
 		/* VID not found and no unused filters */
 		vlan->promisc_count++;
-		atl_set_vlan_promisc(&nic->hw, vlan->promisc_count);
+		if (pm_runtime_active(&nic->hw.pdev->dev))
+			atl_set_vlan_promisc(&nic->hw,
+					     (ndev->flags & IFF_PROMISC) ||
+					     vlan->promisc_count ||
+					     !vlan->vlans_active);
 		return 0;
 	}
 
@@ -1948,8 +2706,7 @@ int atl_vlan_rx_add_vid(struct net_device *ndev, __be16 proto, u16 vid)
 		idx &= ATL_VIDX_MASK;
 		vlan->cmd[idx] = ATL_VLAN_EN | ATL_RXF_ACT_TOHOST | vid;
 		vlan->count++;
-		atl_rxf_update_vlan(nic, idx);
-		return 0;
+		goto update_vlan;
 	}
 
 	idx &= ATL_VIDX_MASK;
@@ -1962,7 +2719,14 @@ int atl_vlan_rx_add_vid(struct net_device *ndev, __be16 proto, u16 vid)
 		__func__, vid, idx);
 
 	vlan->cmd[idx] = ATL_RXF_EN | ATL_RXF_ACT_TOHOST | vid;
+
+update_vlan:
 	atl_rxf_update_vlan(nic, idx);
+	if (pm_runtime_active(&nic->hw.pdev->dev))
+		atl_set_vlan_promisc(&nic->hw,
+				     (nic->ndev->flags & IFF_PROMISC) ||
+				     vlan->promisc_count ||
+				     !vlan->vlans_active);
 	return 0;
 }
 
@@ -1985,8 +2749,7 @@ int atl_vlan_rx_kill_vid(struct net_device *ndev, __be16 proto, u16 vid)
 	if (!(idx & ATL_VIDX_FOUND)) {
 		/* VID not present in filters, decrease promisc count */
 		vlan->promisc_count--;
-		atl_set_vlan_promisc(&nic->hw, vlan->promisc_count);
-		return 0;
+		goto update_vlan_promisc;
 	}
 
 	idx &= ATL_VIDX_MASK;
@@ -2002,6 +2765,11 @@ int atl_vlan_rx_kill_vid(struct net_device *ndev, __be16 proto, u16 vid)
 	if (!atl_vlan_pull_from_promisc(nic, idx))
 		atl_rxf_update_vlan(nic, idx);
 
+update_vlan_promisc:
+	if (pm_runtime_active(&nic->hw.pdev->dev))
+		atl_set_vlan_promisc(&nic->hw, (ndev->flags & IFF_PROMISC) ||
+				     vlan->promisc_count ||
+				     !vlan->vlans_active);
 	return 0;
 }
 
@@ -2009,8 +2777,8 @@ static void atl_get_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 {
 	struct atl_nic *nic = netdev_priv(ndev);
 
-	wol->supported = WAKE_MAGIC;
-	wol->wolopts = nic->flags & ATL_FL_WOL ? WAKE_MAGIC : 0;
+	wol->supported = ATL_WAKE_SUPPORTED;
+	wol->wolopts = nic->hw.wol_mode;
 }
 
 static int atl_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
@@ -2018,27 +2786,51 @@ static int atl_set_wol(struct net_device *ndev, struct ethtool_wolinfo *wol)
 	int ret;
 	struct atl_nic *nic = netdev_priv(ndev);
 
-	if (wol->wolopts & ~WAKE_MAGIC) {
+	if (wol->wolopts & ~ATL_WAKE_SUPPORTED) {
 		atl_nic_err("%s: unsupported WoL mode %x\n", __func__,
 			wol->wolopts);
 		return -EINVAL;
 	}
 
-	if (wol->wolopts & WAKE_MAGIC)
+	if (wol->wolopts)
 		nic->flags |= ATL_FL_WOL;
 	else
 		nic->flags &= ~ATL_FL_WOL;
 
+	nic->hw.wol_mode = wol->wolopts;
+
 	ret = device_set_wakeup_enable(&nic->hw.pdev->dev,
 		!!(nic->flags & ATL_FL_WOL));
 
-	if (ret)
+	if (ret == -EEXIST)
+		ret = 0;
+	if (ret) {
 		atl_nic_err("device_set_wakeup_enable failed: %d\n", -ret);
+		nic->flags &= ~ATL_FL_WOL;
+		nic->hw.wol_mode = 0;
+	}
 
 	return ret;
 }
 
+static int atl_ethtool_begin(struct net_device *ndev)
+{
+	struct atl_nic *nic = netdev_priv(ndev);
+	pm_runtime_get_sync(&nic->hw.pdev->dev);
+	return 0;
+}
+
+static void atl_ethtool_complete(struct net_device *ndev)
+{
+	struct atl_nic *nic = netdev_priv(ndev);
+	pm_runtime_put(&nic->hw.pdev->dev);
+}
+
 const struct ethtool_ops atl_ethtool_ops = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
+				     ETHTOOL_COALESCE_MAX_FRAMES,
+#endif
 	.get_link = atl_ethtool_get_link,
 #ifndef ATL_HAVE_ETHTOOL_KSETTINGS
 	.get_settings = atl_ethtool_get_settings,
@@ -2073,4 +2865,6 @@ const struct ethtool_ops atl_ethtool_ops = {
 	.set_coalesce = atl_set_coalesce,
 	.get_wol = atl_get_wol,
 	.set_wol = atl_set_wol,
+	.begin = atl_ethtool_begin,
+	.complete = atl_ethtool_complete,
 };

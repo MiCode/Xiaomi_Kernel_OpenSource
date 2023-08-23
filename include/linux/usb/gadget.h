@@ -85,6 +85,7 @@ enum gsi_ep_op {
  * @db_reg_phs_addr_msb: IPA channel doorbell register's physical address MSB
  * @sgt_trb_xfer_ring: USB TRB ring related sgtable entries
  * @sgt_data_buff: Data buffer related sgtable entries
+ * @dev: pointer to the DMA-capable dwc device
  */
 struct usb_gsi_request {
 	void *buf_base_addr;
@@ -96,6 +97,7 @@ struct usb_gsi_request {
 	u32 db_reg_phs_addr_msb;
 	struct sg_table sgt_trb_xfer_ring;
 	struct sg_table sgt_data_buff;
+	struct device *dev;
 };
 
 /*
@@ -531,6 +533,11 @@ struct usb_gadget {
 	unsigned			connected:1;
 	unsigned			lpm_capable:1;
 	unsigned			remote_wakeup:1;
+	bool				bam2bam_func_enabled;
+	u32				extra_buf_alloc;
+	bool				l1_supported;
+	bool				is_chipidea;
+	bool				self_powered;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 

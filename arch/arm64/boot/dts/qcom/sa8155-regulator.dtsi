@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -459,13 +459,6 @@
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 			qcom,min-dropout-voltage-level = <(-1)>;
 		};
-
-		cx_cdev: regulator-cdev {
-			compatible = "qcom,rpmh-reg-cdev";
-			mboxes = <&qmp_aop 0>;
-			qcom,reg-resource-name = "cx";
-			#cooling-cells = <2>;
-		};
 	};
 
 	/* PM8150_2 S10 = VDD_MX supply */
@@ -496,14 +489,6 @@
 				= <RPMH_REGULATOR_LEVEL_MAX>;
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
-		};
-
-		mx_cdev: mx-cdev-lvl {
-			compatible = "qcom,regulator-cooling-device";
-			regulator-cdev-supply = <&VDD_MX_LEVEL>;
-			regulator-levels = <RPMH_REGULATOR_LEVEL_NOM
-					RPMH_REGULATOR_LEVEL_OFF>;
-			#cooling-cells = <2>;
 		};
 	};
 
@@ -617,13 +602,6 @@
 			qcom,init-voltage-level
 				= <RPMH_REGULATOR_LEVEL_RETENTION>;
 		};
-
-		ebi_cdev: regulator-cdev {
-			compatible = "qcom,rpmh-reg-cdev";
-			mboxes = <&qmp_aop 0>;
-			qcom,reg-resource-name = "ebi";
-			#cooling-cells = <2>;
-		};
 	};
 
 	rpmh-regulator-ldoc12 {
@@ -723,33 +701,4 @@
 			qcom,init-mode = <RPMH_REGULATOR_MODE_LPM>;
 		};
 	};
-
-	/* Rome 3.3V supply */
-	vreg_wlan: vreg_wlan {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "vreg_wlan";
-	};
-
-	/* PWR_CTR2_VDD_1P8 supply */
-	vreg_conn_1p8: vreg_conn_1p8 {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_conn_1p8";
-		pinctrl-names = "default";
-		pinctrl-0 = <&conn_power_1p8_active>;
-		startup-delay-us = <4000>;
-		enable-active-high;
-		gpio = <&tlmm 173 0>;
-	};
-
-	/* PWR_CTR1_VDD_PA supply */
-	vreg_conn_pa: vreg_conn_pa {
-		compatible = "regulator-fixed";
-		regulator-name = "vreg_conn_pa";
-		pinctrl-names = "default";
-		pinctrl-0 = <&conn_power_pa_active>;
-		startup-delay-us = <4000>;
-		enable-active-high;
-		gpio = <&tlmm 174 0>;
-	};
-
 };

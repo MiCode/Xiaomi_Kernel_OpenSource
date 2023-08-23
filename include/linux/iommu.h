@@ -74,7 +74,7 @@ struct iommu_domain_geometry {
 };
 
 struct iommu_pgtbl_info {
-	void *pmds;
+	void *ops;
 };
 
 /* Domain feature flags */

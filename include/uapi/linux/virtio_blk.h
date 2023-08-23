@@ -38,6 +38,7 @@
 #define VIRTIO_BLK_F_BLK_SIZE	6	/* Block size of disk is available*/
 #define VIRTIO_BLK_F_TOPOLOGY	10	/* Topology information is available */
 #define VIRTIO_BLK_F_MQ		12	/* support more than one vq */
+#define VIRTIO_BLK_F_ICE		23	/* support ice virtualization */
 
 /* Legacy feature bits */
 #ifndef VIRTIO_BLK_NO_LEGACY
@@ -131,7 +132,14 @@ struct virtio_blk_outhdr {
 	__virtio32 ioprio;
 	/* Sector (ie. 512 byte offset) */
 	__virtio64 sector;
-};
+#ifdef CONFIG_PFK_VIRTUALIZED
+	struct virtio_ice_info {
+		__u8  ice_slot;
+		__u8  activate;
+		__u16 reserved;
+	} ice_info;
+#endif
+} __attribute__ ((packed));
 
 #ifndef VIRTIO_BLK_NO_LEGACY
 struct virtio_scsi_inhdr {

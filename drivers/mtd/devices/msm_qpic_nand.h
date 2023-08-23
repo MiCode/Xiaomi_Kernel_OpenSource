@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,9 @@
 #include <linux/msm-sps.h>
 #include <linux/msm-bus.h>
 #include <linux/soc/qcom/smem.h>
+#include <linux/spinlock.h>
+#include <linux/ktime.h>
+
 #define PAGE_SIZE_2K 2048
 #define PAGE_SIZE_4K 4096
 
@@ -162,7 +165,10 @@
 #define RESET_ERASED_DET	(1 << AUTO_DETECT_RES)
 #define ACTIVE_ERASED_DET	(0 << AUTO_DETECT_RES)
 #define CLR_ERASED_PAGE_DET	(RESET_ERASED_DET | MASK_ECC)
-#define SET_ERASED_PAGE_DET	(ACTIVE_ERASED_DET | MASK_ECC)
+#define SET_ERASED_PAGE_DET	(ACTIVE_ERASED_DET | MASK_ECC | SET_N_MAX_ZEROS)
+#define N_MAX_ZEROS		2
+#define MAX_ECC_BIT_FLIPS       4
+#define SET_N_MAX_ZEROS		(MAX_ECC_BIT_FLIPS << N_MAX_ZEROS)
 
 #define MSM_NAND_ERASED_CW_DETECT_STATUS(info)  MSM_NAND_REG(info, 0x300EC)
 #define PAGE_ALL_ERASED		7
@@ -171,6 +177,7 @@
 #define CODEWORD_ERASED		4
 #define ERASED_PAGE	((1 << PAGE_ALL_ERASED) | (1 << PAGE_ERASED))
 #define ERASED_CW	((1 << CODEWORD_ALL_ERASED) | (1 << CODEWORD_ERASED))
+#define NUM_ERRORS		0x1f
 
 #define MSM_NAND_CTRL(info)		    MSM_NAND_REG(info, 0x30F00)
 #define BAM_MODE_EN	0
@@ -179,6 +186,14 @@
 #define MSM_NAND_READ_LOCATION_1(info)      MSM_NAND_REG(info, 0x30F24)
 #define MSM_NAND_READ_LOCATION_LAST_CW_0(info) MSM_NAND_REG(info, 0x30F40)
 #define MSM_NAND_READ_LOCATION_LAST_CW_1(info) MSM_NAND_REG(info, 0x30F44)
+#define MSM_NAND_AUTO_STATUS_EN(info)       MSM_NAND_REG(info, 0x3002c)
+
+#define NAND_FLASH_STATUS_EN                     BIT(0)
+#define NANDC_BUFFER_STATUS_EN                   BIT(1)
+#define NAND_ERASED_CW_DETECT_STATUS_EN          BIT(3)
+#define NAND_FLASH_STATUS_LAST_CW_EN             BIT(16)
+#define NANDC_BUFFER_STATUS_LAST_CW_EN           BIT(17)
+#define NAND_ERASED_CW_DETECT_STATUS_LAST_CW_EN  BIT(19)
 
 /* device commands */
 #define MSM_NAND_CMD_PAGE_READ          0x32
@@ -190,6 +205,11 @@
 #define MSM_NAND_CMD_PRG_PAGE_ALL       0x39
 #define MSM_NAND_CMD_BLOCK_ERASE        0x3A
 #define MSM_NAND_CMD_FETCH_ID           0x0B
+
+/* device read commands for pagescope */
+
+#define MSM_NAND_CMD_PAGE_READ_ECC_PS   0x800033
+#define MSM_NAND_CMD_PAGE_READ_ALL_PS   0x800034
 
 /* Version Mask */
 #define MSM_NAND_VERSION_MAJOR_MASK	0xF0000000
@@ -229,6 +249,17 @@ struct msm_nand_rw_cmd_desc {
 };
 
 /*
+ * Structure that holds the flash, buffer,
+ * erased codeword status after every codeword
+ * read during Pagescope read operation.
+ */
+struct msm_nand_read_status_desc {
+	uint32_t flash_status;
+	uint32_t buffer_status;
+	uint32_t erased_cw_status;
+};
+
+/*
  * Structure that defines the NAND controller properties as per the
  * NAND flash device/chip that is attached.
  */
@@ -255,6 +286,9 @@ struct msm_nand_chip {
 	uint32_t ecc_bch_cfg;
 	uint32_t ecc_cfg_raw;
 	uint32_t qpic_version; /* To store the qpic controller version */
+	uint32_t caps; /* General host capabilities */
+#define MSM_NAND_CAP_PAGE_SCOPE_READ   BIT(0)
+#define MSM_NAND_CAP_MULTI_PAGE_READ   BIT(1)
 };
 
 /* Structure that defines an SPS end point for a NANDc BAM pipe. */
@@ -302,6 +336,23 @@ struct msm_nand_clk_data {
 	bool rpmh_clk;
 };
 
+struct msm_nand_perf_stats {
+	u64 total_read_size;
+	u64 total_write_size;
+	u64 total_erase_blks;
+	ktime_t total_read_time;
+	ktime_t total_write_time;
+	ktime_t total_erase_time;
+	ktime_t min_read_time;
+	ktime_t min_write_time;
+	ktime_t min_erase_time;
+	ktime_t max_read_time;
+	ktime_t max_write_time;
+	ktime_t max_erase_time;
+	spinlock_t lock;
+};
+
+
 /* Structure that defines NANDc private data. */
 struct msm_nand_info {
 	struct mtd_info		mtd;
@@ -326,6 +377,7 @@ struct msm_nand_info {
 	struct mutex lock;
 	struct flash_identification flash_dev;
 	struct msm_nand_clk_data clk_data;
+	struct msm_nand_perf_stats perf;
 	u64 dma_mask;
 };
 
@@ -378,7 +430,7 @@ struct onfi_param_page {
 #define FLASH_PTABLE_V3		3
 #define FLASH_PTABLE_V4		4
 #define FLASH_PTABLE_MAX_PARTS_V3 16
-#define FLASH_PTABLE_MAX_PARTS_V4 32
+#define FLASH_PTABLE_MAX_PARTS_V4 48
 #define FLASH_PTABLE_HDR_LEN (4*sizeof(uint32_t))
 #define FLASH_PTABLE_ENTRY_NAME_SIZE 16
 

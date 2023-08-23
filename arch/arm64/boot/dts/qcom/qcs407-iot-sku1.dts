@@ -1,0 +1,110 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "qcs407.dtsi"
+#include "qcs405-wsa-audio-overlay.dtsi"
+#include "qcs405-circular-pca9956.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. QCS407 EVB1 1000 IOT";
+	compatible = "qcom,qcs407-iot", "qcom,qcs407", "qcom,iot";
+	qcom,board-id = <0x010020 0>;
+};
+
+&i2c_5 {
+	status = "ok";
+};
+
+&smb1351_otg_supply {
+	status = "ok";
+};
+
+&usb2_phy0 {
+	qcom,snps-hs-phy-init-seq =
+		<0xc0 0x01 0>,
+		<0xe8 0x0d 0>,
+		<0x74 0x12 0>,
+		<0x98 0x63 0>,
+		<0x9c 0x83 0>,
+		<0xa0 0x1d 0>,
+		<0xa4 0x03 0>,
+		<0x8c 0x23 0>,
+		<0x78 0x08 0>,
+		<0x7c 0xdc 0>,
+		<0x90 0xe0 20>,
+		<0x74 0x10 0>,
+		<0x90 0x60 0>,
+		<0xffffffff 0xffffffff 0>;
+};
+
+&usb2s {
+	extcon = <&smb1351_otg_supply>;
+	vbus_dwc3-supply = <&smb1351_otg_supply>;
+};
+
+&soc {
+	gpio_keys {
+		vol_mute {
+			gpios = <&tlmm 19 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
+&tlmm {
+	evb_tlmm_gpio_key{
+		tlmm_gpio_key_active: tlmm_gpio_key_active {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+
+		tlmm_gpio_key_suspend: tlmm_gpio_key_suspend {
+			mux {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+
+			config {
+				pins = "gpio19","gpio52","gpio54","gpio115";
+			};
+		};
+	};
+};
+
+&sdhc_2 {
+	/delete-property/ qcom,devfreq,freq-table;
+	/delete-property/ cd-gpios;
+
+	qcom,clk-rates = <400000 20000000 25000000
+				50000000 100000000>;
+	/* VDD is an external regulator eLDO5 */
+	vdd-io-supply = <&pms405_l6>;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	post-power-on-delay-ms = <100>;
+
+	qcom,core_3_0v_support;
+	qcom,nonremovable;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on
+		&sdc2_wlan_on1>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+		&sdc2_wlan_off1>;
+
+	status = "ok";
+};

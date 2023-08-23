@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -713,4 +713,151 @@ void cam_cdm_util_dump_cmd_buf(
 			break;
 		}
 	} while (buf_now <= cmd_buf_end);
+}
+
+static long cam_cdm_util_dump_reg_cont_cmd_v2(
+	uint32_t *cmd_buf_addr,
+	struct cam_cdm_cmd_buf_dump_info *dump_info)
+{
+	long ret = 0;
+	struct cdm_regcontinuous_cmd *p_regcont_cmd;
+	uint32_t *temp_ptr = cmd_buf_addr;
+	int i = 0;
+	struct cam_cdm_cmd_dump_header *hdr;
+	uint32_t *addr, *start;
+	uint8_t *dst;
+	uint32_t min_len, remain_len;
+
+	p_regcont_cmd = (struct cdm_regcontinuous_cmd *)temp_ptr;
+	temp_ptr += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_CONT];
+	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_CONT];
+	CAM_DBG(CAM_CDM, "REG_CONT: COUNT: %u OFFSET: 0x%X",
+		p_regcont_cmd->count, p_regcont_cmd->offset);
+
+	min_len = (sizeof(uint32_t) * p_regcont_cmd->count) +
+		sizeof(struct cam_cdm_cmd_dump_header);
+	remain_len = dump_info->dst_max_size - dump_info->dst_offset;
+	if (remain_len < min_len) {
+		CAM_ERR_RATE_LIMIT(CAM_CDM, "Dump buffer exhaust %d %d",
+			remain_len, min_len);
+		return ret;
+	}
+	dst = (char *)dump_info->dst_start + dump_info->dst_offset;
+	hdr = (struct cam_cdm_cmd_dump_header *)dst;
+	snprintf(hdr->tag, CAM_CDM_CMD_TAG_MAX_LEN, "CDM_REG_CONT:");
+	hdr->word_size = sizeof(uint32_t);
+	addr = (uint32_t *)(dst + sizeof(struct cam_cdm_cmd_dump_header));
+	start = addr;
+	*addr++ = p_regcont_cmd->offset;
+	*addr++ = p_regcont_cmd->count;
+	for (i = 0; i < p_regcont_cmd->count; i++) {
+		*addr = *temp_ptr;
+		temp_ptr++;
+		addr++;
+		ret++;
+	}
+	hdr->size = hdr->word_size * (addr - start);
+	dump_info->dst_offset += hdr->size +
+		sizeof(struct cam_cdm_cmd_dump_header);
+	return ret;
+}
+
+static long cam_cdm_util_dump_reg_random_cmd_v2(
+	uint32_t *cmd_buf_addr,
+	struct cam_cdm_cmd_buf_dump_info *dump_info)
+{
+	struct cdm_regrandom_cmd *p_regrand_cmd;
+	uint32_t *temp_ptr = cmd_buf_addr;
+	long ret = 0;
+	int i = 0;
+	uint32_t *addr, *start;
+	struct cam_cdm_cmd_dump_header *hdr;
+	uint8_t *dst;
+	uint32_t min_len, remain_len;
+
+	p_regrand_cmd = (struct cdm_regrandom_cmd *)temp_ptr;
+	temp_ptr += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_RANDOM];
+	ret += CDMCmdHeaderSizes[CAM_CDM_CMD_REG_RANDOM];
+
+	min_len = (2 * sizeof(uint32_t) * p_regrand_cmd->count) +
+		sizeof(struct cam_cdm_cmd_dump_header);
+	remain_len = dump_info->dst_max_size - dump_info->dst_offset;
+	if (remain_len < min_len) {
+		CAM_ERR_RATE_LIMIT(CAM_CDM, "Dump buffer exhaust %d %d",
+			remain_len, min_len);
+		return ret;
+	}
+	dst = (char *)dump_info->dst_start + dump_info->dst_offset;
+	hdr = (struct cam_cdm_cmd_dump_header *)dst;
+	snprintf(hdr->tag, CAM_CDM_CMD_TAG_MAX_LEN, "CDM_REG_RANDOM:");
+	hdr->word_size = sizeof(uint32_t);
+	addr = (uint32_t *)(dst + sizeof(struct cam_cdm_cmd_dump_header));
+	start = addr;
+	*addr++ = p_regrand_cmd->count;
+	for (i = 0; i < p_regrand_cmd->count; i++) {
+		addr[0] = temp_ptr[0] & CAM_CDM_REG_OFFSET_MASK;
+		addr[1] = temp_ptr[1];
+		temp_ptr += 2;
+		addr += 2;
+		ret += 2;
+	}
+	hdr->size = hdr->word_size * (addr - start);
+	dump_info->dst_offset += hdr->size +
+		sizeof(struct cam_cdm_cmd_dump_header);
+	return ret;
+}
+
+void cam_cdm_util_dump_cmd_bufs_v2(
+	struct cam_cdm_cmd_buf_dump_info *dump_info)
+{
+	uint32_t cmd = 0;
+	uint32_t *buf_now;
+
+	if (!dump_info || !dump_info->src_start || !dump_info->src_end ||
+			!dump_info->dst_start) {
+		CAM_INFO(CAM_CDM, "Invalid args");
+		return;
+	}
+	buf_now = dump_info->src_start;
+	do {
+		cmd = *buf_now;
+		cmd = cmd >> CAM_CDM_COMMAND_OFFSET;
+
+		switch (cmd) {
+		case CAM_CDM_CMD_DMI:
+		case CAM_CDM_CMD_DMI_32:
+		case CAM_CDM_CMD_DMI_64:
+			buf_now += CDMCmdHeaderSizes[CAM_CDM_CMD_DMI];
+			break;
+		case CAM_CDM_CMD_REG_CONT:
+			buf_now += cam_cdm_util_dump_reg_cont_cmd_v2(buf_now,
+				dump_info);
+			break;
+		case CAM_CDM_CMD_REG_RANDOM:
+			buf_now += cam_cdm_util_dump_reg_random_cmd_v2(buf_now,
+				dump_info);
+			break;
+		case CAM_CDM_CMD_BUFF_INDIRECT:
+			buf_now += CDMCmdHeaderSizes[CAM_CDM_CMD_BUFF_INDIRECT];
+			break;
+		case CAM_CDM_CMD_GEN_IRQ:
+			buf_now += CDMCmdHeaderSizes[CAM_CDM_CMD_GEN_IRQ];
+			break;
+		case CAM_CDM_CMD_WAIT_EVENT:
+			buf_now += CDMCmdHeaderSizes[CAM_CDM_CMD_WAIT_EVENT];
+			break;
+		case CAM_CDM_CMD_CHANGE_BASE:
+			buf_now += CDMCmdHeaderSizes[CAM_CDM_CMD_CHANGE_BASE];
+			break;
+		case CAM_CDM_CMD_PERF_CTRL:
+			buf_now += CDMCmdHeaderSizes[CAM_CDM_CMD_PERF_CTRL];
+			break;
+		default:
+			CAM_INFO(CAM_CDM, "Invalid CMD: 0x%x buf 0x%x",
+				cmd, *buf_now);
+			buf_now++;
+			break;
+		}
+	} while (buf_now <= dump_info->src_end);
+
 }

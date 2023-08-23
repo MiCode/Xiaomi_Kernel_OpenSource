@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -81,6 +81,7 @@
 				<&incall_record_tx>, <&incall_music_rx>,
 				<&incall_music_2_rx>,
 				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>, <&sb_8_rx>,
+				<&proxy_rx>, <&proxy_tx>,
 				<&usb_audio_rx>, <&usb_audio_tx>,
 				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
 				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
@@ -110,6 +111,7 @@
 				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16398",
 				"msm-dai-q6-dev.16399", "msm-dai-q6-dev.16401",
 				"msm-dai-q6-dev.16400",
+				"msm-dai-q6-dev.8194", "msm-dai-q6-dev.8195",
 				"msm-dai-q6-dev.28672", "msm-dai-q6-dev.28673",
 				"msm-dai-q6-tdm.36864", "msm-dai-q6-tdm.36865",
 				"msm-dai-q6-tdm.36880", "msm-dai-q6-tdm.36881",

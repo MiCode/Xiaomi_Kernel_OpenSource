@@ -19,6 +19,7 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/memblock.h>
+#include <linux/memory.h>
 
 #include <asm/sections.h>
 #include <linux/io.h>
@@ -192,7 +193,8 @@ phys_addr_t __init_memblock memblock_find_in_range_node(phys_addr_t size,
 	phys_addr_t kernel_end, ret;
 
 	/* pump up @end */
-	if (end == MEMBLOCK_ALLOC_ACCESSIBLE)
+	if (end == MEMBLOCK_ALLOC_ACCESSIBLE ||
+	    end == MEMBLOCK_ALLOC_KASAN)
 		end = memblock.current_limit;
 
 	/* avoid allocating the first page */
@@ -1161,6 +1163,8 @@ phys_addr_t __init memblock_alloc_range(phys_addr_t size, phys_addr_t align,
 					phys_addr_t start, phys_addr_t end,
 					ulong flags)
 {
+	memblock_dbg("%s: size: %llu align: %llu %pF\n",
+		     __func__, (u64)size, (u64)align, (void *)_RET_IP_);
 	return memblock_alloc_range_nid(size, align, start, end, NUMA_NO_NODE,
 					flags);
 }
@@ -1190,6 +1194,8 @@ again:
 
 phys_addr_t __init __memblock_alloc_base(phys_addr_t size, phys_addr_t align, phys_addr_t max_addr)
 {
+	memblock_dbg("%s: size: %llu align: %llu %pF\n",
+		     __func__, (u64)size, (u64)align, (void *)_RET_IP_);
 	return memblock_alloc_base_nid(size, align, max_addr, NUMA_NO_NODE,
 				       MEMBLOCK_NONE);
 }
@@ -1209,6 +1215,8 @@ phys_addr_t __init memblock_alloc_base(phys_addr_t size, phys_addr_t align, phys
 
 phys_addr_t __init memblock_alloc(phys_addr_t size, phys_addr_t align)
 {
+	memblock_dbg("%s: size: %llu align: %llu %pF\n",
+		     __func__, (u64)size, (u64)align, (void *)_RET_IP_);
 	return memblock_alloc_base(size, align, MEMBLOCK_ALLOC_ACCESSIBLE);
 }
 
@@ -1304,13 +1312,15 @@ done:
 	ptr = phys_to_virt(alloc);
 	memset(ptr, 0, size);
 
-	/*
-	 * The min_count is set to 0 so that bootmem allocated blocks
-	 * are never reported as leaks. This is because many of these blocks
-	 * are only referred via the physical address which is not
-	 * looked up by kmemleak.
-	 */
-	kmemleak_alloc(ptr, size, 0, 0);
+	/* Skip kmemleak for kasan_init() due to high volume. */
+	if (max_addr != MEMBLOCK_ALLOC_KASAN)
+		/*
+		 * The min_count is set to 0 so that bootmem allocated
+		 * blocks are never reported as leaks. This is because many
+		 * of these blocks are only referred via the physical
+		 * address which is not looked up by kmemleak.
+		 */
+		kmemleak_alloc(ptr, size, 0, 0);
 
 	return ptr;
 }
@@ -1770,6 +1780,120 @@ static int __init early_memblock(char *p)
 	return 0;
 }
 early_param("memblock", early_memblock);
+
+#ifdef CONFIG_MEMORY_HOTPLUG
+static phys_addr_t no_hotplug_area[8];
+static phys_addr_t aligned_blocks[32];
+
+static int __init early_no_hotplug_area(char *p)
+{
+	phys_addr_t base, size;
+	int idx = 0;
+	char *endp = p;
+
+	while (1) {
+		base = memparse(endp, &endp);
+		if (base && (*endp == ',')) {
+			size = memparse(endp + 1, &endp);
+			if (size) {
+				no_hotplug_area[idx++] = base;
+				no_hotplug_area[idx++] = base+size;
+
+				if ((*endp == ';') && (idx <= 6))
+					endp++;
+				else
+					break;
+			} else
+				break;
+		} else
+			break;
+	}
+	return 0;
+}
+early_param("no_hotplug_area", early_no_hotplug_area);
+
+static bool __init memblock_in_no_hotplug_area(phys_addr_t addr)
+{
+	int idx = 0;
+
+	while (idx < 8) {
+		if (!no_hotplug_area[idx])
+			break;
+
+		if ((addr + MIN_MEMORY_BLOCK_SIZE <= no_hotplug_area[idx])
+			|| (addr >= no_hotplug_area[idx+1])) {
+			idx += 2;
+			continue;
+		}
+
+		return true;
+	}
+	return false;
+}
+
+static int __init early_dyn_memhotplug(char *p)
+{
+	unsigned long idx = 0;
+	unsigned long old_cnt;
+	phys_addr_t addr, rgn_end;
+	struct memblock_region *rgn;
+	int blk = 0;
+
+	while (idx < memblock.memory.cnt) {
+		old_cnt = memblock.memory.cnt;
+		rgn = &memblock.memory.regions[idx++];
+		addr = ALIGN(rgn->base, MIN_MEMORY_BLOCK_SIZE);
+		rgn_end = rgn->base + rgn->size;
+		while (addr + MIN_MEMORY_BLOCK_SIZE <= rgn_end) {
+			if (!memblock_in_no_hotplug_area(addr)) {
+				aligned_blocks[blk++] = addr;
+				memblock_remove(addr, MIN_MEMORY_BLOCK_SIZE);
+			}
+			addr += MIN_MEMORY_BLOCK_SIZE;
+		}
+		if (old_cnt != memblock.memory.cnt)
+			idx--;
+	}
+	return 0;
+}
+early_param("dyn_memhotplug", early_dyn_memhotplug);
+
+int memblock_dump_aligned_blocks_addr(char *buf)
+{
+	int idx = 0;
+	int size = 0;
+
+	if (aligned_blocks[idx]) {
+		size += snprintf(buf+size, 32, "0x%llx", aligned_blocks[idx]);
+		idx++;
+	}
+
+	while (aligned_blocks[idx]) {
+		size += snprintf(buf+size, 32, ",0x%llx", aligned_blocks[idx]);
+		idx++;
+	}
+	return size;
+}
+
+int memblock_dump_aligned_blocks_num(char *buf)
+{
+	int idx = 0;
+	int size = 0;
+
+	if (aligned_blocks[idx]) {
+		size += snprintf(buf+size, 16, "%d",
+			(int)(aligned_blocks[idx] >> SECTION_SIZE_BITS));
+		idx++;
+	}
+
+	while (aligned_blocks[idx]) {
+		size += snprintf(buf+size, 16, ",%d",
+			(int)(aligned_blocks[idx] >> SECTION_SIZE_BITS));
+		idx++;
+	}
+	return size;
+}
+#endif
 
 #if defined(CONFIG_DEBUG_FS) && !defined(CONFIG_ARCH_DISCARD_MEMBLOCK)
 

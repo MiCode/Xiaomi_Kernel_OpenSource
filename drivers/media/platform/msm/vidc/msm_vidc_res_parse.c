@@ -960,6 +960,12 @@ int read_platform_resources_from_dt(
 		goto err_load_allowed_clocks_table;
 	}
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+		"qcom,sa6155p-vidc")) {
+		res->max_load = 2073600;
+		dprintk(VIDC_INFO, "msm_vidc: Use higher max_load on Auto\n");
+	}
+
 	rc = msm_vidc_load_reset_table(res);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1094,7 +1100,7 @@ static int msm_vidc_setup_context_bank(struct msm_vidc_platform_resources *res,
 		dev->dma_parms =
 			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
 	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
-	dma_set_seg_boundary(dev, DMA_BIT_MASK(64));
+	dma_set_seg_boundary(dev, (unsigned long)DMA_BIT_MASK(64));
 
 	dprintk(VIDC_DBG, "Attached %s and created mapping\n", dev_name(dev));
 	dprintk(VIDC_DBG,

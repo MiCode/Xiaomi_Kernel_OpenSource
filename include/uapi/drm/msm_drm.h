@@ -398,6 +398,8 @@ struct drm_msm_power_ctrl {
 #define DRM_EVENT_PANEL_DEAD 0x80000006 /* ESD event */
 #define DRM_EVENT_SDE_HW_RECOVERY 0X80000007
 
+#define DRM_EVENT_TOUCH 0x8000000F
+
 #define DRM_IOCTL_MSM_GET_PARAM        DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GET_PARAM, struct drm_msm_param)
 #define DRM_IOCTL_MSM_GEM_NEW          DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_NEW, struct drm_msm_gem_new)
 #define DRM_IOCTL_MSM_GEM_INFO         DRM_IOWR(DRM_COMMAND_BASE + DRM_MSM_GEM_INFO, struct drm_msm_gem_info)

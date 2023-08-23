@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,9 @@
 #include <linux/types.h>
 #include <drm/drm_mipi_dsi.h>
 #include "msm_drv.h"
+
+#define MAX_EXT_BRIDGE_PORT_CONFIG             16
+#define MAX_DSI_CTRLS_PER_DISPLAY             2
 
 #define DSI_H_TOTAL(t) (((t)->h_active) + ((t)->h_back_porch) + \
 			((t)->h_sync_width) + ((t)->h_front_porch))
@@ -93,6 +96,8 @@ enum dsi_op_mode {
  * @DSI_MODE_FLAG_VRR: Seamless transition is DynamicFPS.
  *                     New timing values are sent from DAL.
  * @DSI_MODE_FLAG_DYN_CLK: Seamless transition is dynamic clock change
+ * @DSI_MODE_FLAG_POMS:
+ *     Seamless transition is dynamic panel operating mode switch
  */
 enum dsi_mode_flags {
 	DSI_MODE_FLAG_SEAMLESS			= BIT(0),
@@ -101,6 +106,7 @@ enum dsi_mode_flags {
 	DSI_MODE_FLAG_DMS			= BIT(3),
 	DSI_MODE_FLAG_VRR			= BIT(4),
 	DSI_MODE_FLAG_DYN_CLK			= BIT(5),
+	DSI_MODE_FLAG_POMS			= BIT(6),
 };
 
 /**
@@ -235,6 +241,23 @@ enum dsi_dfps_type {
 };
 
 /**
+ * enum dsi_dyn_clk_feature_type - Dynamic clock feature support type
+ * @DSI_DYN_CLK_TYPE_LEGACY:	Constant FPS is not supported
+ * @DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_HFP:	Constant FPS supported with
+ *		change in hfp
+ * @DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_VFP:	Constant FPS supported with
+ *		change in vfp
+ * @DSI_DYN_CLK_TYPE_MAX:
+ */
+
+enum dsi_dyn_clk_feature_type {
+	DSI_DYN_CLK_TYPE_LEGACY = 0,
+	DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_HFP,
+	DSI_DYN_CLK_TYPE_CONST_FPS_ADJUST_VFP,
+	DSI_DYN_CLK_TYPE_MAX
+};
+
+/**
  * enum dsi_cmd_set_type  - DSI command set type
  * @DSI_CMD_SET_PRE_ON:	                   Panel pre on
  * @DSI_CMD_SET_ON:                        Panel on
@@ -261,9 +284,12 @@ enum dsi_dfps_type {
  * @DSI_CMD_SET_QSYNC_OFF                  Disable qsync mode
  * @DSI_CMD_SET_MAX
  */
+
 enum dsi_cmd_set_type {
 	DSI_CMD_SET_PRE_ON = 0,
 	DSI_CMD_SET_ON,
+	DSI_CMD_SET_ON_ONE,
+	DSI_CMD_SET_ON_THREE,
 	DSI_CMD_SET_POST_ON,
 	DSI_CMD_SET_PRE_OFF,
 	DSI_CMD_SET_OFF,
@@ -275,18 +301,88 @@ enum dsi_cmd_set_type {
 	DSI_CMD_SET_POST_CMD_TO_VID_SWITCH,
 	DSI_CMD_SET_VID_TO_CMD_SWITCH,
 	DSI_CMD_SET_POST_VID_TO_CMD_SWITCH,
+	DSI_CMD_SET_PANEL_STATUS_OFFSET,
 	DSI_CMD_SET_PANEL_STATUS,
 	DSI_CMD_SET_LP1,
 	DSI_CMD_SET_LP2,
 	DSI_CMD_SET_NOLP,
+	DSI_CMD_SET_DOZE_HBM,
+	DSI_CMD_SET_DOZE_LBM,
 	DSI_CMD_SET_PPS,
 	DSI_CMD_SET_ROI,
 	DSI_CMD_SET_TIMING_SWITCH,
 	DSI_CMD_SET_POST_TIMING_SWITCH,
+	DSI_CMD_SET_ELVSS_DIMMING_OFFSET,
+	DSI_CMD_SET_ELVSS_DIMMING_READ,
+	DSI_CMD_SET_DISP_WARM,
+	DSI_CMD_SET_DISP_DEFAULT,
+	DSI_CMD_SET_DISP_COLD,
+	DSI_CMD_SET_DISP_PAPER,
+	DSI_CMD_SET_DISP_PAPER1,
+	DSI_CMD_SET_DISP_PAPER2,
+	DSI_CMD_SET_DISP_PAPER3,
+	DSI_CMD_SET_DISP_PAPER4,
+	DSI_CMD_SET_DISP_PAPER5,
+	DSI_CMD_SET_DISP_PAPER6,
+	DSI_CMD_SET_DISP_PAPER7,
+	DSI_CMD_SET_DISP_NORMAL1,
+	DSI_CMD_SET_DISP_NORMAL2,
+	DSI_CMD_SET_DISP_SRGB,
+	DSI_CMD_SET_DISP_CEON,
+	DSI_CMD_SET_DISP_CEOFF,
+	DSI_CMD_SET_DISP_CABCUION,
+	DSI_CMD_SET_DISP_CABCSTILLON,
+	DSI_CMD_SET_DISP_CABCMOVIEON,
+	DSI_CMD_SET_DISP_CABCOFF,
+	DSI_CMD_SET_DISP_SKINCE_CABCUION,
+	DSI_CMD_SET_DISP_SKINCE_CABCSTILLON,
+	DSI_CMD_SET_DISP_SKINCE_CABCMOVIEON,
+	DSI_CMD_SET_DISP_SKINCE_CABCOFF,
+	DSI_CMD_SET_DISP_DIMMINGON,
+	DSI_CMD_SET_DISP_DIMMINGOFF,
+	DSI_CMD_SET_DISP_ACL_OFF,
+	DSI_CMD_SET_DISP_ACL_L1,
+	DSI_CMD_SET_DISP_ACL_L2,
+	DSI_CMD_SET_DISP_ACL_L3,
+	DSI_CMD_SET_DISP_LCD_HBM_L1_ON,
+	DSI_CMD_SET_DISP_LCD_HBM_L2_ON,
+	DSI_CMD_SET_DISP_LCD_HBM_L3_ON,
+	DSI_CMD_SET_DISP_LCD_HBM_OFF,
+	DSI_CMD_SET_DISP_HBM_ON,
+	DSI_CMD_SET_DISP_HBM_OFF,
+	DSI_CMD_SET_DISP_HBM_FOD_ON,
+	DSI_CMD_SET_DISP_HBM_FOD_OFF,
+	DSI_CMD_SET_DISP_HBM_FOD2NORM,
+	DSI_CMD_SET_DISP_OFF_MODE,
+	DSI_CMD_SET_DISP_ON_MODE,
+	DSI_CMD_SET_READ_XY_COORDINATE,
+	DSI_CMD_SET_READ_BRIGHTNESS,
+	DSI_CMD_SET_READ_MAX_LUMINANCE,
+	DSI_CMD_SET_MAX_LUMINANCE_VALID,
 	DSI_CMD_SET_QSYNC_ON,
 	DSI_CMD_SET_QSYNC_OFF,
+	DSI_CMD_SET_DISP_CRC_DCIP3,
+	DSI_CMD_SET_DISP_CRC_OFF,
+	DSI_CMD_SET_DISP_ELVSS_DIMMING_OFF,
+	DSI_CMD_SET_READ_LOCKDOWN_INFO,
+	DSI_CMD_SET_DISP_ONE_PLUSE,
+	DSI_CMD_SET_DISP_FOUR_PLUSE,
+	DSI_CMD_SET_DISP_FLAT_MODE_ON,
+	DSI_CMD_SET_DISP_FLAT_MODE_OFF,
+	DSI_CMD_SET_DISP_DEMURA_LEVEL02,
+	DSI_CMD_SET_DISP_DEMURA_LEVEL08,
+	DSI_CMD_SET_DISP_DEMURA_LEVEL0D,
+	DSI_CMD_SET_DISP_DC_DEMURA_L1,
+	DSI_CMD_SET_DISP_DC_DEMURA_L2,
+	DSI_CMD_SET_DISP_DC_ON,
+	DSI_CMD_SET_DISP_DC_OFF,
+	DSI_CMD_SET_DISP_DC_CRC_SETTING_60HZ,
+	DSI_CMD_SET_DISP_DC_CRC_SETTING_120HZ,
+	DSI_CMD_SET_DISP_BC_120HZ,
+	DSI_CMD_SET_DISP_BC_60HZ,
 	DSI_CMD_SET_MAX
 };
+
 
 /**
  * enum dsi_cmd_set_state - command set state
@@ -389,6 +485,7 @@ struct dsi_panel_cmd_set {
  * @clk_rate_hz:      DSI bit clock rate per lane in Hz.
  * @mdp_transfer_time_us:   Specifies the mdp transfer time for command mode
  *                    panels in microseconds.
+ * @overlap_pixels:   overlap pixels for certain panels.
  * @dsc_enabled:      DSC compression enabled.
  * @dsc:              DSC compression configuration.
  * @roi_caps:         Panel ROI capabilities.
@@ -410,6 +507,7 @@ struct dsi_mode_info {
 	u32 refresh_rate;
 	u64 clk_rate_hz;
 	u32 mdp_transfer_time_us;
+	u32 overlap_pixels;
 	bool dsc_enabled;
 	struct msm_display_dsc_info *dsc;
 	struct msm_roi_caps roi_caps;
@@ -447,11 +545,16 @@ struct dsi_split_link_config {
  * @t_clk_pre:           Number of byte clock cycles that the high spped clock
  *                       shall be driven prior to data lane transitions from LP
  *                       to HS mode.
+ * @t_clk_pre_extend:    Increment t_clk_pre counter by 2 byteclk if set to
+ *                       true, otherwise increment by 1 byteclk.
  * @ignore_rx_eot:       Ignore Rx EOT packets if set to true.
  * @append_tx_eot:       Append EOT packets for forward transmissions if set to
  *                       true.
- * @ext_bridge_mode:     External bridge is connected.
+ * @ext_bridge_num:      Connected external bridge count.
+ * @ext_bridge_map:      External bridge config reg needs to match with the port
+ *                       reg config.
  * @force_hs_clk_lane:   Send continuous clock to the panel.
+ * @phy_type:            DPHY/CPHY is enabled for this panel.
  * @dsi_split_link_config:  Split Link Configuration.
  */
 struct dsi_host_common_cfg {
@@ -469,10 +572,13 @@ struct dsi_host_common_cfg {
 	bool bit_swap_blue;
 	u32 t_clk_post;
 	u32 t_clk_pre;
+	bool t_clk_pre_extend;
 	bool ignore_rx_eot;
 	bool append_tx_eot;
-	bool ext_bridge_mode;
+	u32 ext_bridge_num;
+	u32 ext_bridge_map[MAX_DSI_CTRLS_PER_DISPLAY];
 	bool force_hs_clk_lane;
+	enum dsi_phy_type phy_type;
 	struct dsi_split_link_config split_link;
 };
 
@@ -560,6 +666,7 @@ struct dsi_host_config {
  * @mdp_transfer_time_us:   Specifies the mdp transfer time for command mode
  *                          panels in microseconds.
  * @clk_rate_hz:          DSI bit clock per lane in hz.
+ * @overlap_pixels:       overlap pixels for certain panels.
  * @topology:             Topology selected for the panel
  * @dsc:                  DSC compression info
  * @dsc_enabled:          DSC compression enabled
@@ -576,6 +683,7 @@ struct dsi_display_mode_priv_info {
 	u32 panel_prefill_lines;
 	u32 mdp_transfer_time_us;
 	u64 clk_rate_hz;
+	u32 overlap_pixels;
 
 	struct msm_display_topology topology;
 	struct msm_display_dsc_info dsc;
@@ -588,11 +696,13 @@ struct dsi_display_mode_priv_info {
  * @timing:         Timing parameters for the panel.
  * @pixel_clk_khz:  Pixel clock in Khz.
  * @dsi_mode_flags: Flags to signal other drm components via private flags
+ * @panel_mode:     Panel operating mode
  * @priv_info:      Mode private info
  */
 struct dsi_display_mode {
 	struct dsi_mode_info timing;
 	u32 pixel_clk_khz;
+	enum dsi_op_mode panel_mode;
 	u32 dsi_mode_flags;
 	struct dsi_display_mode_priv_info *priv_info;
 };

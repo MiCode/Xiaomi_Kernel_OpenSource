@@ -177,6 +177,14 @@ First Level Node - FG Gen3 device
 		    Element 0 - Retry value for timer
 		    Element 1 - Maximum value for timer
 
+- qcom,fg-esr-timer-shutdown
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Number of cycles between ESR pulses at/after shutdwon.This is
+		    defined when TWM (traditional watch mode) is supported.
+		    Element 0 - Retry value for timer
+		    Element 1 - Maximum value for timer
+
 - qcom,fg-esr-pulse-thresh-ma
 	Usage:      optional
 	Value type: <u32>
@@ -366,7 +374,7 @@ First Level Node - FG Gen3 device
 	Value type: <u32>
 	Definition: Value in micro percentage for low temperature ESR tight
 		    filter. If this is not specified, then a default value of
-		    48829 (4.88 %) will be used. Lowest possible value is 1954
+		    30000 (3 %) will be used. Lowest possible value is 1954
 		    (0.19 %).
 
 - qcom,fg-esr-broad-lt-filter-micro-pct
@@ -374,8 +382,34 @@ First Level Node - FG Gen3 device
 	Value type: <u32>
 	Definition: Value in micro percentage for low temperature ESR broad
 		    filter. If this is not specified, then a default value of
-		    148438 (14.84 %) will be used. Lowest possible value is
+		    30000 (3 %) will be used. Lowest possible value is
 		    1954 (0.19 %).
+
+- qcom,fg-esr-rt-filter-switch-temp
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery temperature threshold below which ESR relax
+		    filter coefficients will be applied after a certain
+		    number of delta battery temperature interrupts firing in
+		    an interval of time. This will be applied only when Qnovo
+		    is enabled. If this is not specified, then the default
+		    value used will be -100. Unit is in decidegC.
+
+- qcom,fg-esr-tight-rt-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for relax temperature ESR tight
+		    filter. If this is not specified, then a default value of
+		    5860 will be used. Lowest possible value is 1954 (0.19 %).
+		    This will be applied only if Qnovo is enabled.
+
+- qcom,fg-esr-broad-rt-filter-micro-pct
+	Usage:      optional
+	Value type: <u32>
+	Definition: Value in micro percentage for relax temperature ESR broad
+		    filter. If this is not specified, then a default value of
+		    156250 will be used. Lowest possible value is 1954 (0.19 %).
+		    This will be applied only if Qnovo is enabled.
 
 - qcom,fg-auto-recharge-soc
 	Usage:      optional
@@ -411,6 +445,28 @@ First Level Node - FG Gen3 device
 	Usage:      optional
 	Value type: <u32>
 	Definition: The delay in ms for FG to enable BMD after reading RID.
+
+- qcom,fg-use-sw-esr
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property when defined uses software based
+		    ESR during charging.
+
+- qcom,fg-disable-esr-pull-dn
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property which disables ESR pull-down.
+		This is to be used for debug purposes only.
+
+- qcom,fg-sync-sleep-threshold-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: The minimum battery current for FG to enter into sync-sleep.
+
+- qcom,fg-disable-in-twm
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property which disables FG during TWM entry.
 
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen3 driver

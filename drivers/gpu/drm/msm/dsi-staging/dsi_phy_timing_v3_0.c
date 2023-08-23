@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,16 +15,24 @@
 #include "dsi_phy_timing_calc.h"
 
 void dsi_phy_hw_v3_0_get_default_phy_params(
-		struct phy_clk_params *params)
+		struct phy_clk_params *params, bool is_cphy)
 {
-	params->clk_prep_buf = 0;
-	params->clk_zero_buf = 0;
-	params->clk_trail_buf = 0;
-	params->hs_prep_buf = 0;
-	params->hs_zero_buf = 0;
-	params->hs_trail_buf = 0;
-	params->hs_rqst_buf = 0;
-	params->hs_exit_buf = 0;
+	if (is_cphy) {
+		params->clk_prep_buf = 50;
+		params->clk_pre_buf = 10;
+		params->clk_post_buf = 10;
+		params->hs_rqst_buf = 0;
+		params->hs_exit_buf = 10;
+	} else {
+		params->clk_prep_buf = 0;
+		params->clk_zero_buf = 0;
+		params->clk_trail_buf = 0;
+		params->hs_prep_buf = 0;
+		params->hs_zero_buf = 0;
+		params->hs_trail_buf = 0;
+		params->hs_rqst_buf = 0;
+		params->hs_exit_buf = 0;
+	}
 }
 
 int32_t dsi_phy_hw_v3_0_calc_clk_zero(s64 rec_temp1, s64 mult)
@@ -81,20 +89,35 @@ void dsi_phy_hw_v3_0_calc_hs_trail(struct phy_clk_params *clk_params,
 
 void dsi_phy_hw_v3_0_update_timing_params(
 	struct dsi_phy_per_lane_cfgs *timing,
-	struct phy_timing_desc *desc)
+	struct phy_timing_desc *desc, bool is_cphy)
 {
-	timing->lane_v3[0] = 0x00;
-	timing->lane_v3[1] = desc->clk_zero.reg_value;
-	timing->lane_v3[2] = desc->clk_prepare.reg_value;
-	timing->lane_v3[3] = desc->clk_trail.reg_value;
-	timing->lane_v3[4] = desc->hs_exit.reg_value;
-	timing->lane_v3[5] = desc->hs_zero.reg_value;
-	timing->lane_v3[6] = desc->hs_prepare.reg_value;
-	timing->lane_v3[7] = desc->hs_trail.reg_value;
-	timing->lane_v3[8] = desc->hs_rqst.reg_value;
-	timing->lane_v3[9] = 0x02;
-	timing->lane_v3[10] = 0x04;
-	timing->lane_v3[11] = 0x00;
+	if (is_cphy) {
+		timing->lane_v3[0] = 0x00;
+		timing->lane_v3[1] = 0x00;
+		timing->lane_v3[2] = 0x00;
+		timing->lane_v3[3] = 0x00;
+		timing->lane_v3[4] = desc->hs_exit.reg_value;
+		timing->lane_v3[5] = desc->clk_pre.reg_value;
+		timing->lane_v3[6] = desc->clk_prepare.reg_value;
+		timing->lane_v3[7] = desc->clk_post.reg_value;
+		timing->lane_v3[8] = desc->hs_rqst.reg_value;
+		timing->lane_v3[9] = 0x02;
+		timing->lane_v3[10] = 0x04;
+		timing->lane_v3[11] = 0x00;
+	} else {
+		timing->lane_v3[0] = 0x00;
+		timing->lane_v3[1] = desc->clk_zero.reg_value;
+		timing->lane_v3[2] = desc->clk_prepare.reg_value;
+		timing->lane_v3[3] = desc->clk_trail.reg_value;
+		timing->lane_v3[4] = desc->hs_exit.reg_value;
+		timing->lane_v3[5] = desc->hs_zero.reg_value;
+		timing->lane_v3[6] = desc->hs_prepare.reg_value;
+		timing->lane_v3[7] = desc->hs_trail.reg_value;
+		timing->lane_v3[8] = desc->hs_rqst.reg_value;
+		timing->lane_v3[9] = 0x02;
+		timing->lane_v3[10] = 0x04;
+		timing->lane_v3[11] = 0x00;
+	}
 
 	pr_debug("[%d %d %d %d]\n", timing->lane_v3[0],
 		timing->lane_v3[1], timing->lane_v3[2], timing->lane_v3[3]);

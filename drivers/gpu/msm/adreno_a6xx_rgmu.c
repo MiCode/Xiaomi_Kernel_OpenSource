@@ -217,6 +217,7 @@ static int a6xx_rgmu_ifpc_store(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	unsigned int requested_idle_level;
+	int ret;
 
 	if (!gmu_core_gpmu_isenabled(device) ||
 		!ADRENO_FEATURE(adreno_dev, ADRENO_IFPC))
@@ -233,13 +234,15 @@ static int a6xx_rgmu_ifpc_store(struct adreno_device *adreno_dev,
 	mutex_lock(&device->mutex);
 
 	/* Power down the GPU before changing the idle level */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	rgmu->idle_level = requested_idle_level;
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+	ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	if (!ret) {
+		rgmu->idle_level = requested_idle_level;
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+	}
 
 	mutex_unlock(&device->mutex);
 
-	return 0;
+	return ret;
 }
 
 static unsigned int a6xx_rgmu_ifpc_show(struct adreno_device *adreno_dev)
@@ -287,7 +290,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 			rgmu->idle_level != GPU_HW_IFPC)
 		return 0;
 
-	ts1 = read_AO_counter(device);
+	ts1 = a6xx_gmu_read_ao_counter(device);
 
 	t = jiffies + msecs_to_jiffies(RGMU_IDLE_TIMEOUT);
 	do {
@@ -301,7 +304,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 		usleep_range(10, 100);
 	} while (!time_after(jiffies, t));
 
-	ts2 = read_AO_counter(device);
+	ts2 = a6xx_gmu_read_ao_counter(device);
 
 	/* Do one last read incase it succeeds */
 	gmu_core_regread(device,
@@ -310,7 +313,7 @@ static int a6xx_rgmu_wait_for_lowest_idle(struct adreno_device *adreno_dev)
 	if (reg[0] & GX_GDSC_POWER_OFF)
 		return 0;
 
-	ts3 = read_AO_counter(device);
+	ts3 = a6xx_gmu_read_ao_counter(device);
 
 	/* Collect abort data to help with debugging */
 	gmu_core_regread(device, A6XX_RGMU_CX_PCC_DEBUG, &reg[1]);
@@ -368,8 +371,8 @@ static int a6xx_rgmu_fw_start(struct kgsl_device *device,
 		unsigned int boot_state)
 {
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
+	const struct firmware *fw = rgmu->fw_image;
 	unsigned int status;
-	int i;
 
 	switch (boot_state) {
 	case GMU_COLD_BOOT:
@@ -378,9 +381,8 @@ static int a6xx_rgmu_fw_start(struct kgsl_device *device,
 		gmu_core_regwrite(device, A6XX_GMU_GENERAL_7, 1);
 
 		/* Load RGMU FW image via AHB bus */
-		for (i = 0; i < rgmu->fw_size; i++)
-			gmu_core_regwrite(device, A6XX_GMU_CM3_ITCM_START + i,
-					rgmu->fw_hostptr[i]);
+		gmu_core_blkwrite(device, A6XX_GMU_CM3_ITCM_START, fw->data,
+				fw->size);
 		/*
 		 * Enable power counter because it was disabled before
 		 * slumber.
@@ -528,7 +530,7 @@ static int a6xx_rgmu_load_firmware(struct kgsl_device *device)
 	int ret;
 
 	/* RGMU fw already saved and verified so do nothing new */
-	if (rgmu->fw_hostptr)
+	if (rgmu->fw_image)
 		return 0;
 
 	ret = request_firmware(&fw, gpucore->gpmufw_name, device->dev);
@@ -538,14 +540,8 @@ static int a6xx_rgmu_load_firmware(struct kgsl_device *device)
 		return ret;
 	}
 
-	rgmu->fw_hostptr = devm_kmemdup(&rgmu->pdev->dev, fw->data,
-					fw->size, GFP_KERNEL);
-
-	if (rgmu->fw_hostptr)
-		rgmu->fw_size = (fw->size / sizeof(u32));
-
-	release_firmware(fw);
-	return rgmu->fw_hostptr ? 0 : -ENOMEM;
+	rgmu->fw_image = fw;
+	return rgmu->fw_image ? 0 : -ENOMEM;
 }
 
 /* Halt RGMU execution */
@@ -607,6 +603,7 @@ struct gmu_dev_ops adreno_a6xx_rgmudev = {
 	.ifpc_show = a6xx_rgmu_ifpc_show,
 	.snapshot = a6xx_rgmu_snapshot,
 	.halt_execution = a6xx_rgmu_halt_execution,
+	.read_ao_counter = a6xx_gmu_read_ao_counter,
 	.gmu2host_intr_mask = RGMU_OOB_IRQ_MASK,
 	.gmu_ao_intr_mask = RGMU_AO_IRQ_MASK,
 };

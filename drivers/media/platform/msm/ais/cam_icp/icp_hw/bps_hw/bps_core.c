@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,6 +77,14 @@ int cam_bps_init_hw(void *device_priv,
 		return -EINVAL;
 	}
 
+	rc = cam_bps_enable_soc_resources(soc_info);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "soc enable is failed: %d", rc);
+		goto end;
+	} else {
+		core_info->clk_enable = true;
+	}
+
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
 	cpas_vote.axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
@@ -86,21 +94,18 @@ int cam_bps_init_hw(void *device_priv,
 			&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "cpass start failed: %d", rc);
-		return rc;
+		goto disable_soc_resources;
 	}
 	core_info->cpas_start = true;
 
-	rc = cam_bps_enable_soc_resources(soc_info);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "soc enable is failed: %d", rc);
-		if (cam_cpas_stop(core_info->cpas_handle))
-			CAM_ERR(CAM_ICP, "cpas stop is failed");
-		else
-			core_info->cpas_start = false;
-	} else {
-		core_info->clk_enable = true;
-	}
+	goto end;
 
+disable_soc_resources:
+	if (cam_bps_disable_soc_resources(soc_info, true))
+		CAM_ERR(CAM_ICP, "Disable soc resource failed");
+	core_info->clk_enable = false;
+
+end:
 	return rc;
 }
 
@@ -164,11 +169,9 @@ static int cam_bps_handle_pc(struct cam_hw_info *bps_dev)
 			CAM_CPAS_REG_CPASTOP,
 			hw_info->pwr_ctrl, true, 0x1);
 
-		if ((pwr_status >> BPS_PWR_ON_MASK)) {
-			CAM_ERR(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
+		if ((pwr_status >> BPS_PWR_ON_MASK))
+			CAM_WARN(CAM_ICP, "BPS: pwr_status(%x):pwr_ctrl(%x)",
 				pwr_status, pwr_ctrl);
-			return -EINVAL;
-		}
 	}
 	cam_bps_get_gdsc_control(soc_info);
 	cam_cpas_reg_read(core_info->cpas_handle,
@@ -349,7 +352,11 @@ int cam_bps_process_cmd(void *device_priv, uint32_t cmd_type,
 
 	case CAM_ICP_BPS_CMD_CPAS_STOP:
 		if (core_info->cpas_start) {
-			cam_cpas_stop(core_info->cpas_handle);
+			rc = cam_cpas_stop(core_info->cpas_handle);
+			if (rc) {
+				CAM_ERR(CAM_ICP, "cpas stop failed %d", rc);
+				return rc;
+			}
 			core_info->cpas_start = false;
 		}
 		break;

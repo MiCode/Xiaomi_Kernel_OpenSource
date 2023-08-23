@@ -1,0 +1,222 @@
+/*
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "mdm9607.dtsi"
+#include "mdm9607-pinctrl.dtsi"
+#include "mdm9607-display.dtsi"
+#include "qpic-panel-ili-hvga.dtsi"
+
+/ {
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pm8019_gpios 2 0>; /* BT_EN */
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_en_default>;
+		qca,bt-vdd-pa-supply = <&rome_vreg>;
+		qca,bt-vdd-io-supply = <&mdm9607_l11>;
+		qca,bt-vdd-xtal-supply = <&mdm9607_l2>;
+		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
+	};
+};
+
+&soc {
+};
+
+&blsp1_uart5 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+&i2c_4 {
+	status = "ok";
+};
+
+&spi_1 {
+	status = "ok";
+
+	can-controller@0 {
+		compatible = "fsl,k61";
+		spi-max-frequency = <4800000>;
+		reg = <0>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <25 0>;
+		reset-gpio = <&tlmm_pinmux 11 0x1>;
+		pinctrl-names = "active", "sleep";
+		pinctrl-0 = <&can_rst_on>;
+		pinctrl-1 = <&can_rst_off>;
+	};
+};
+
+&blsp1_uart3 {
+	status = "ok";
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&emac0 {
+	status = "disabled";
+};
+
+&emac_lan_vreg {
+	status = "disabled";
+};
+
+&pm8019_mpps {
+	/* MPP 2 configs for SMB358 interrupt line */
+	smb_stat {
+		smb_stat_default: smb_stat_default {
+			pins = "mpp2";
+			function = "digital";
+			input-enable;
+			power-source = <3>;
+		};
+	};
+
+	emac_vreg {
+		emac_vreg_default: emac_vreg_default { /* MPP 4 for emac_vreg*/
+			pins = "mpp4";
+			function = "digital";
+			output-high;
+			input-disable;
+			power-source = <2>;
+		};
+	};
+};
+
+&pm8019_gpios {
+
+	bt_en {
+		bt_en_default: bt_en_default {  /* BT_EN GPIO 2*/
+			pins = "gpio2";
+			function = "normal";
+			output-low;
+			input-disable;
+			bias-pull-down;
+			power-source = <2>;
+		};
+	};
+
+	/* PMIC GPIO 3 for rome_vreg */
+	 rome_vreg {
+		rome_vreg_default: rome_vreg_default {
+			pins = "gpio3";
+			function = "normal";
+			output-high;
+			input-disable;
+			qcom,drive-strength = <1>;
+			power-source = <3>;
+		};
+	};
+
+	/* sdcard_ext_vreg GPIO 4 */
+	sdcard_vreg {
+		sdcard_vreg_default: sdcard_vreg_default {
+			pins = "gpio4";
+			function = "normal";
+			output-high;
+			input-disable;
+			qcom,drive-strength = <1>;
+			power-source = <0>;
+		};
+	};
+
+	/* ROME 32k GPIO 6 Sleep Clock */
+	gpio@c500 {
+		pins = "gpio6";
+		function = "func2";
+		output-low;
+		input-disable;
+		bias-pull-down;
+		qcom,drive-strength = <2>;
+		power-source = <0>;
+		};
+};
+
+&sdhc_1 {
+	vdd-io-supply = <&mdm9607_l11>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 30000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&pmx_sdc1_clk_on &pmx_sdc1_cmd_on &pmx_sdc1_data_on
+						&sdc1_wlan_gpio_active>;
+	pinctrl-1 = <&pmx_sdc1_clk_off &pmx_sdc1_cmd_off &pmx_sdc1_data_off
+						&sdc1_wlan_gpio_sleep>;
+	qcom,nonremovable;
+	qcom,core_3_0v_support;
+	status = "ok";
+};
+
+&i2c_4 {
+	/* SMB358 charger configuration */
+	smb358_otg_supply: smb358-charger@57 {
+		compatible = "qcom,smb358-charger";
+		regulator-name = "smb358_otg_vreg";
+		reg = <0x57>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xa1 0 IRQ_TYPE_NONE>;	/* PMIC MPP 2 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_stat_default>;
+		io-channels = <&pm8019_vadc VADC_VBAT_SNS>,
+		      <&pm8019_vadc VADC_LR_MUX2_BAT_ID>;
+		io-channel-names = "vbat_sns",
+				"batt_id_therm";
+		qcom,float-voltage-mv = <4200>;
+		qcom,irq-gpio = <&pm8019_mpps 2 0>;
+		qcom,chg-vadc = <&pm8019_vadc>;
+		qcom,batt-id-vref-uv = <1800000>;
+		qcom,batt-id-rpullup-kohm = <220>;
+	};
+};
+
+&sdhc_2 {
+	vdd-supply = <&sdcard_ext_vreg>;
+	qcom,vdd-voltage-level = <2850000 2850000>;
+	qcom,vdd-current-level = <15000 400000>;
+
+	vdd-io-supply = <&mdm9607_l13>;
+	qcom,vdd-io-voltage-level = <1800000 2850000>;
+	qcom,vdd-io-current-level = <200 50000>;
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 221 0
+			2 &tlmm_pinmux 26 0>;
+	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+	cd-gpios = <&tlmm_pinmux 26 0x1>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	status = "disabled";
+};
+
+/* Display */
+&mdss_qpic {
+	pinctrl-names= "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_ldo_active &mdss_cs_active &mdss_te_active
+		&mdss_rs_active &mdss_ad_active &mdss_bl_active>;
+	pinctrl-1 = <&mdss_ldo_sleep &mdss_cs_sleep &mdss_te_sleep
+		&mdss_rs_sleep &mdss_ad_sleep &mdss_bl_sleep>;
+	status = "disabled";
+};

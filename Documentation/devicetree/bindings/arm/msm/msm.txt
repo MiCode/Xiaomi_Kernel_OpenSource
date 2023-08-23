@@ -22,6 +22,8 @@ restart@fc4ab000 {
 * Compatible strings:
 
 SoCs:
+- MDM9607
+  compatible = "qcom,mdm9607"
 
 - APQ8016
   compatible = "qcom,apq8016"
@@ -62,6 +64,12 @@ SoCs:
 - QCS401
   compatible = "qcom,qcs401"
 
+- QCS404
+  compatible = "qcom,qcs404"
+
+- QCS407
+  compatible = "qcom,qcs407"
+
 - SDXPRAIRIE
   compatible = "qcom,sdxprairie"
 
@@ -79,6 +87,30 @@ SoCs:
 
 - QCS410
   compatible = "qcom,qcs410"
+
+- SDM660
+  compatible = "qcom,sdm660"
+
+- SDA660
+  compatible = "qcom,sda660"
+
+- SDM429
+  compatible = "qcom,sdm429"
+
+- SDA429
+  compatible = "qcom,sda429"
+
+- SDM429W
+  compatible = "qcom,sdm429w"
+
+- SDA429W
+  compatible = "qcom,sda429w"
+
+- SA2145P
+  compatible = "qcom,sa2145p"
+
+- SA2150P
+  compatible = "qcom,sa2150p"
 
 Generic board variants:
 
@@ -127,6 +159,14 @@ Generic board variants:
 - IOT device:
   compatible = "qcom,iot"
 
+- TTP device:
+  compatible = "qcom,ttp"
+
+- TRINKET-IOT
+  compatible = "qcom,trinket-iot"
+
+- TRINKETP-IOT
+  compatible = "qcom,trinketp-iot"
 
 Boards (SoC type + board variant):
 
@@ -193,11 +233,16 @@ compatible = "qcom,sa6155-adp-air"
 compatible = "qcom,sa6155p-adp-air"
 compatible = "qcom,qcs405-rumi"
 compatible = "qcom,qcs405-iot"
+compatible = "qcom,sa2150p-ccard"
+compatible = "qcom,sa2145p-ccard"
 compatible = "qcom,qcs403-iot"
 compatible = "qcom,qcs401-iot"
+compatible = "qcom,qcs404-iot"
+compatible = "qcom,qcs407-iot"
 compatible = "qcom,sa8155-adp-star"
 compatible = "qcom,sa8155p-adp-star"
 compatible = "qcom,sa8195p-adp-star"
+compatible = "qcom,sa8195p-v2-adp-air"
 compatible = "qcom,sa8195p"
 compatible = "qcom,adp-star"
 compatible = "qcom,sa8155-v2-adp-air"
@@ -209,6 +254,8 @@ compatible = "qcom,sa8155p-adp-alcor"
 compatible = "qcom,sdxprairie-rumi"
 compatible = "qcom,sdxprairie-mtp"
 compatible = "qcom,sdxprairie-cdp"
+compatible = "qcom,sa515m-ccard"
+compatible = "qcom,sa515m-ttp"
 compatible = "qcom,sdmmagpie-rumi"
 compatible = "qcom,sdmmagpie-idp"
 compatible = "qcom,sdmmagpie-atp"
@@ -221,5 +268,49 @@ compatible = "qcom,trinket-rumi"
 compatible = "qcom,trinket-idp"
 compatible = "qcom,trinket-qrd"
 compatible = "qcom,atoll-rumi"
+compatible = "qcom,atoll-idp"
+compatible = "qcom,atoll-atp"
+compatible = "qcom,atoll-qrd"
+compatible = "qcom,atollp"
+compatible = "qcom,atollp-idp"
+compatible = "qcom,atollp-atp"
+compatible = "qcom,atollp-qrd"
+compatible = "qcom,atoll-ab"
+compatible = "qcom,atoll-ab-idp"
+compatible = "qcom,atoll-ab-atp"
+compatible = "qcom,atoll-ab-qrd"
 compatible = "qcom,qcs610-iot"
 compatible = "qcom,qcs410-iot"
+compatible = "qcom,mdm9607-mtp"
+compatible = "qcom,sdm660-cdp"
+compatible = "qcom,sdm660-mtp"
+compatible = "qcom,sdm660-qrd"
+compatible = "qcom,sdm660-sim"
+compatible = "qcom,sda660-mtp"
+compatible = "qcom,sda660-cdp"
+compatible = "qcom,sda660-qrd"
+compatible = "qcom,mdm9607-cdp"
+compatible = "qcom,sdm429-cdp"
+compatible = "qcom,sdm429w-cdp"
+compatible = "qcom,sdm429-mtp"
+compatible = "qcom,sdm429w-mtp"
+compatible = "qcom,sdm429-qrd"
+compatible = "qcom,sdm429w-qrd"
+compatible = "qcom,sda429-cdp"
+compatible = "qcom,sda429w-cdp"
+compatible = "qcom,sda429-mtp"
+compatible = "qcom,sda429w-mtp"
+compatible = "qcom,sda429w-qrd"
+compatible = "qcom,sda429-qrd"
+compatible = "qcom,sdm429w-wtp"
+compatible = "qcom,sdm429-wtp"
+compatible = "qcom,sda429w-wtp"
+compatible = "qcom,sda429-wtp"
+compatible = "qcom,sda429w-wdp"
+compatible = "qcom,sda429-wdp"
+compatible = "qcom,sdm429w-wdp"
+compatible = "qcom,sdm429-wdp"
+compatible = "qcom,trinket-iot"
+compatible = "qcom,trinketp-iot"
+compatible = "qcom,trinket-iot-idp"
+compatible = "qcom,trinketp-iot-idp"

@@ -32,9 +32,15 @@
 
 #define MAX_SYNC_COUNT 65535
 
+/* Default frame rate is 30 */
+#define DEFAULT_FRAME_DURATION 33333333
+
 #define SYNC_LINK_SOF_CNT_MAX_LMT 1
 
 #define MAXIMUM_LINKS_PER_SESSION  4
+
+#define VERSION_1  1
+#define VERSION_2  2
 
 /**
  * enum crm_workq_task_type
@@ -50,6 +56,7 @@ enum crm_workq_task_type {
 	CRM_WORKQ_TASK_NOTIFY_FREEZE,
 	CRM_WORKQ_TASK_SCHED_REQ,
 	CRM_WORKQ_TASK_FLUSH_REQ,
+	CRM_WORKQ_TASK_DUMP_REQ,
 	CRM_WORKQ_TASK_INVALID,
 };
 
@@ -233,12 +240,14 @@ struct cam_req_mgr_slot {
  * @slot        : request slot holding incoming request id and bubble info.
  * @rd_idx      : indicates slot index currently in process.
  * @wr_idx      : indicates slot index to hold new upcoming req.
+ * @last_applied_idx : indicates slot index last applied successfully.
  */
 struct cam_req_mgr_req_queue {
 	int32_t                     num_slots;
 	struct cam_req_mgr_slot     slot[MAX_REQ_SLOTS];
 	int32_t                     rd_idx;
 	int32_t                     wr_idx;
+	int32_t                     last_applied_idx;
 };
 
 /**
@@ -316,7 +325,10 @@ struct cam_req_mgr_connected_device {
  *                         master-slave sync
  * @in_msync_mode        : Flag to determine if a link is in master-slave mode
  * @initial_sync_req     : The initial req which is required to sync with the
- *                         other link
+ *                         other link, it means current hasn't receive any
+ *                         stream after streamon if it is true
+ * @sof_timestamp_value  : SOF timestamp value
+ * @prev_sof_timestamp   : Previous SOF timestamp value
  */
 struct cam_req_mgr_core_link {
 	int32_t                              link_hdl;
@@ -343,6 +355,8 @@ struct cam_req_mgr_core_link {
 	bool                                 initial_skip;
 	bool                                 in_msync_mode;
 	int64_t                              initial_sync_req;
+	uint64_t                             sof_timestamp;
+	uint64_t                             prev_sof_timestamp;
 };
 
 /**
@@ -365,6 +379,7 @@ struct cam_req_mgr_core_session {
 	int32_t                       session_hdl;
 	uint32_t                      num_links;
 	struct cam_req_mgr_core_link *links[MAXIMUM_LINKS_PER_SESSION];
+	struct cam_req_mgr_core_link  links_init[MAXIMUM_LINKS_PER_SESSION];
 	struct list_head              entry;
 	struct mutex                  lock;
 	int32_t                       force_err_recovery;
@@ -410,7 +425,9 @@ int cam_req_mgr_destroy_session(struct cam_req_mgr_session_info *ses_info);
  * a unique link handle for the link and is specific to a
  * session. Returns link handle
  */
-int cam_req_mgr_link(struct cam_req_mgr_link_info *link_info);
+int cam_req_mgr_link(struct cam_req_mgr_ver_info *link_info);
+int cam_req_mgr_link_v2(struct cam_req_mgr_ver_info *link_info);
+
 
 /**
  * cam_req_mgr_unlink()
@@ -468,6 +485,13 @@ void cam_req_mgr_handle_core_shutdown(void);
  * @control: Link control command
  */
 int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control);
+
+/**
+ * cam_req_mgr_dump_request()
+ * @brief:   Dumps the request information
+ * @dump_req: Dump request
+ */
+int cam_req_mgr_dump_request(struct cam_dump_req_cmd *dump_req);
 
 #endif
 

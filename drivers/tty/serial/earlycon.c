@@ -209,10 +209,20 @@ int __init setup_earlycon(char *buf)
  */
 bool earlycon_init_is_deferred __initdata;
 
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+bool is_early_cons_enabled;
+#endif
+
 /* early_param wrapper for setup_earlycon() */
 static int __init param_setup_earlycon(char *buf)
 {
 	int err;
+
+#ifdef CONFIG_FASTBOOT_CMD_CTRL_UART
+  is_early_cons_enabled = true;
+  err = 0;
+  return err;
+#endif
 
 	/*
 	 * Just 'earlycon' is a valid param for devicetree earlycons;

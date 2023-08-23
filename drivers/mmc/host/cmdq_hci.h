@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,13 +12,17 @@
 #ifndef LINUX_MMC_CQ_HCI_H
 #define LINUX_MMC_CQ_HCI_H
 #include <linux/mmc/core.h>
+#include <linux/platform_device.h>
+#include <linux/keyslot-manager.h>
 
 /* registers */
 /* version */
 #define CQVER		0x00
 /* capabilities */
 #define CQCAP		0x04
-#define CQCAP_CS	(1 << 28)
+#define CQ_CAP_CS	(1 << 28)
+#define CQ_CCAP		0x100
+#define CQ_CRYPTOCAP	0x104
 /* configuration */
 #define CQCFG		0x08
 #define CQ_DCMD		0x00001000
@@ -144,6 +148,14 @@
 #define DAT_LENGTH(x)	((x & 0xFFFF) << 16)
 #define DAT_ADDR_LO(x)	((x & 0xFFFFFFFF) << 32)
 #define DAT_ADDR_HI(x)	((x & 0xFFFFFFFF) << 0)
+#define DATA_UNIT_NUM(x)	(((u64)(x) & 0xFFFFFFFF) << 0)
+#define CRYPTO_CONFIG_INDEX(x)	(((u64)(x) & 0xFF) << 32)
+#define CRYPTO_ENABLE(x)	(((u64)(x) & 0x1) << 47)
+
+/* ICE context is present in the upper 64bits of task descriptor */
+#define CQ_TASK_DESC_ICE_PARAM_OFFSET	8
+/* ICE descriptor size */
+#define CQ_TASK_DESC_ICE_PARAMS_SIZE	8
 
 /*
  * Add new macro for updated CQ vendor specific
@@ -153,8 +165,88 @@
 #define CQ_VENDOR_CFG	0x100
 #define CMDQ_SEND_STATUS_TRIGGER (1 << 31)
 
-#define CQ_TASK_DESC_TASK_PARAMS_SIZE	8
-#define CQ_TASK_DESC_ICE_PARAMS_SIZE	8
+struct cmdq_host;
+
+/* CCAP - Crypto Capability 100h */
+union cmdq_crypto_capabilities {
+	__le32 reg_val;
+	struct {
+		u8 num_crypto_cap;
+		u8 config_count;
+		u8 reserved;
+		u8 config_array_ptr;
+	};
+};
+
+enum cmdq_crypto_key_size {
+	CMDQ_CRYPTO_KEY_SIZE_INVALID	= 0x0,
+	CMDQ_CRYPTO_KEY_SIZE_128	= 0x1,
+	CMDQ_CRYPTO_KEY_SIZE_192	= 0x2,
+	CMDQ_CRYPTO_KEY_SIZE_256	= 0x3,
+	CMDQ_CRYPTO_KEY_SIZE_512	= 0x4,
+};
+
+enum cmdq_crypto_alg {
+	CMDQ_CRYPTO_ALG_AES_XTS		= 0x0,
+	CMDQ_CRYPTO_ALG_BITLOCKER_AES_CBC	= 0x1,
+	CMDQ_CRYPTO_ALG_AES_ECB		= 0x2,
+	CMDQ_CRYPTO_ALG_ESSIV_AES_CBC		= 0x3,
+};
+
+/* x-CRYPTOCAP - Crypto Capability X */
+union cmdq_crypto_cap_entry {
+	__le32 reg_val;
+	struct {
+		u8 algorithm_id;
+		u8 sdus_mask; /* Supported data unit size mask */
+		u8 key_size;
+		u8 reserved;
+	};
+};
+
+#define CMDQ_CRYPTO_CONFIGURATION_ENABLE (1 << 7)
+#define CMDQ_CRYPTO_KEY_MAX_SIZE 64
+
+/* x-CRYPTOCFG - Crypto Configuration X */
+union cmdq_crypto_cfg_entry {
+	__le32 reg_val[32];
+	struct {
+		u8 crypto_key[CMDQ_CRYPTO_KEY_MAX_SIZE];
+		u8 data_unit_size;
+		u8 crypto_cap_idx;
+		u8 reserved_1;
+		u8 config_enable;
+		u8 reserved_multi_host;
+		u8 reserved_2;
+		u8 vsb[2];
+		u8 reserved_3[56];
+	};
+};
+
+struct cmdq_host_crypto_variant_ops {
+	void (*setup_rq_keyslot_manager)(struct cmdq_host *host,
+	struct request_queue *q);
+	void (*destroy_rq_keyslot_manager)(struct cmdq_host *host,
+					   struct request_queue *q);
+#ifdef CONFIG_BLK_INLINE_ENCRYPTION
+	int (*host_init_crypto)(struct cmdq_host *host,
+				const struct keyslot_mgmt_ll_ops *ksm_ops);
+#endif
+	void (*enable)(struct cmdq_host *host);
+	void (*disable)(struct cmdq_host *host);
+	int (*suspend)(struct cmdq_host *host);
+	int (*resume)(struct cmdq_host *host);
+	int (*debug)(struct cmdq_host *host);
+	int (*prepare_crypto_desc)(struct cmdq_host *host,
+				   struct mmc_request *mrq, u64 *ice_ctx);
+	int (*complete_crypto_desc)(struct cmdq_host *host,
+				    struct mmc_request *mrq, u64 *ice_ctx);
+	int (*reset)(struct cmdq_host *host);
+	int (*recovery_finish)(struct cmdq_host *host);
+	int (*program_key)(struct cmdq_host *host,
+			   const union cmdq_crypto_cfg_entry *cfg, int slot);
+	void *priv;
+};
 
 struct task_history {
 	u64 task;
@@ -164,6 +256,7 @@ struct task_history {
 struct cmdq_host {
 	const struct cmdq_host_ops *ops;
 	void __iomem *mmio;
+	void __iomem *icemmio;
 	struct mmc_host *mmc;
 
 	/* 64 bit DMA */
@@ -208,6 +301,15 @@ struct cmdq_host {
 	struct completion halt_comp;
 	struct mmc_request **mrq_slot;
 	void *private;
+	const struct cmdq_host_crypto_variant_ops *crypto_vops;
+#ifdef CONFIG_MMC_CQ_HCI_CRYPTO
+	union cmdq_crypto_capabilities crypto_capabilities;
+	union cmdq_crypto_cap_entry *crypto_cap_array;
+	u32 crypto_cfg_register;
+#ifdef CONFIG_BLK_INLINE_ENCRYPTION
+	struct keyslot_manager *ksm;
+#endif /* CONFIG_BLK_INLINE_ENCRYPTION */
+#endif /* CONFIG_SCSI_CQHCI_CRYPTO */
 };
 
 struct cmdq_host_ops {
@@ -222,10 +324,6 @@ struct cmdq_host_ops {
 	void (*enhanced_strobe_mask)(struct mmc_host *mmc, bool set);
 	int (*reset)(struct mmc_host *mmc);
 	void (*post_cqe_halt)(struct mmc_host *mmc);
-	int (*crypto_cfg)(struct mmc_host *mmc, struct mmc_request *mrq,
-				u32 slot, u64 *ice_ctx);
-	int (*crypto_cfg_end)(struct mmc_host *mmc, struct mmc_request *mrq);
-	void (*crypto_cfg_reset)(struct mmc_host *mmc, unsigned int slot);
 };
 
 static inline void cmdq_writel(struct cmdq_host *host, u32 val, int reg)

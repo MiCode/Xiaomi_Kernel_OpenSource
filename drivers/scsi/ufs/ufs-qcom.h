@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -236,26 +236,6 @@ struct ufs_qcom_testbus {
 	u8 select_minor;
 };
 
-/**
- * struct ufs_qcom_ice_data - ICE related information
- * @vops:	pointer to variant operations of ICE
- * @async_done:	completion for supporting ICE's driver asynchronous nature
- * @pdev:	pointer to the proper ICE platform device
- * @state:      UFS-ICE interface's internal state (see
- *       ufs-qcom-ice.h for possible internal states)
- * @quirks:     UFS-ICE interface related quirks
- * @crypto_engine_err: crypto engine errors
- */
-struct ufs_qcom_ice_data {
-	struct qcom_ice_variant_ops *vops;
-	struct platform_device *pdev;
-	int state;
-
-	u16 quirks;
-
-	bool crypto_engine_err;
-};
-
 #ifdef CONFIG_DEBUG_FS
 struct qcom_debugfs_files {
 	struct dentry *debugfs_root;
@@ -363,7 +343,6 @@ struct ufs_qcom_host {
 	bool disable_lpm;
 	bool is_lane_clks_enabled;
 	bool sec_cfg_updated;
-	struct ufs_qcom_ice_data ice;
 
 	void __iomem *dev_ref_clk_ctrl_mmio;
 	bool is_dev_ref_clk_enabled;
@@ -378,10 +357,9 @@ struct ufs_qcom_host {
 	u32 dbg_print_en;
 	struct ufs_qcom_testbus testbus;
 
-	spinlock_t ice_work_lock;
-	struct work_struct ice_cfg_work;
 	struct request *req_pending;
 	struct ufs_vreg *vddp_ref_clk;
+	struct ufs_vreg *vccq_parent;
 	bool work_pending;
 	bool is_phy_pwr_on;
 };

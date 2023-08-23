@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -594,7 +594,7 @@ static void _dp_panel_calc_tu(struct dp_tu_calc_input *in,
 
 	tu.ratio = drm_fixp2int(tu.ratio_fp);
 	temp1_fp = drm_fixp_from_fraction(tu.nlanes, 1);
-	temp2_fp = tu.lwidth_fp % temp1_fp;
+	div64_u64_rem(tu.lwidth_fp, temp1_fp, &temp2_fp);
 	if (temp2_fp != 0 &&
 			!tu.ratio && tu.dsc_en == 0) {
 		tu.ratio_fp = drm_fixp_mul(tu.ratio_fp, RATIO_SCALE_fp);
@@ -1646,19 +1646,25 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel, bool multi_func)
 		panel->vscext_chaining_supported);
 
 skip_dpcd_read:
+	link_info->revision = dpcd[DP_DPCD_REV];
 	panel->major = (link_info->revision >> 4) & 0x0f;
 	panel->minor = link_info->revision & 0x0f;
 
 	/* override link params updated in dp_panel_init_panel_info */
 	link_info->rate = min_t(unsigned long, panel->parser->max_lclk_khz,
-				link_info->rate);
+			drm_dp_bw_code_to_link_rate(dpcd[DP_MAX_LINK_RATE]));
 
+	link_info->num_lanes = dpcd[DP_MAX_LANE_COUNT] &
+				DP_MAX_LANE_COUNT_MASK;
 	if (multi_func)
 		link_info->num_lanes = min_t(unsigned int,
 			link_info->num_lanes, 2);
 
 	pr_debug("version:%d.%d, rate:%d, lanes:%d\n", panel->major,
 		panel->minor, link_info->rate, link_info->num_lanes);
+
+	if (drm_dp_enhanced_frame_cap(dpcd))
+		link_info->capabilities |= DP_LINK_CAP_ENHANCED_FRAMING;
 
 	dfp_count = dpcd[DP_DOWN_STREAM_PORT_COUNT] &
 						DP_DOWN_STREAM_PORT_COUNT;
@@ -1807,7 +1813,6 @@ static void dp_panel_decode_dsc_dpcd(struct dp_panel *dp_panel)
 	}
 
 	dp_panel->fec_en = dp_panel->dsc_en;
-	dp_panel->widebus_en = dp_panel->dsc_en;
 
 	/* fec_overhead = 1.00 / 0.97582 */
 	if (dp_panel->fec_en)
@@ -1905,12 +1910,17 @@ static int dp_panel_read_sink_caps(struct dp_panel *dp_panel,
 		}
 	}
 
+	/* There is no need to read EDID from MST branch */
+	if (panel->parser->has_mst && dp_panel->read_mst_cap(dp_panel))
+		goto skip_edid;
+
 	rc = dp_panel_read_edid(dp_panel, connector);
 	if (rc) {
 		pr_err("panel edid read failed, set failsafe mode\n");
 		return rc;
 	}
 
+skip_edid:
 	dp_panel->widebus_en = panel->parser->has_widebus;
 	dp_panel->dsc_feature_enable = panel->parser->dsc_feature_enable;
 	dp_panel->fec_feature_enable = panel->parser->fec_feature_enable;

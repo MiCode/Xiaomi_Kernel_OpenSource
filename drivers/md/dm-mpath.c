@@ -1807,8 +1807,7 @@ out:
 	return r;
 }
 
-static int multipath_prepare_ioctl(struct dm_target *ti,
-		struct block_device **bdev, fmode_t *mode)
+static int multipath_prepare_ioctl(struct dm_target *ti, struct block_device **bdev)
 {
 	struct multipath *m = ti->private;
 	struct pgpath *current_pgpath;

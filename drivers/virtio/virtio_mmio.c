@@ -73,7 +73,18 @@
 #include <uapi/linux/virtio_mmio.h>
 #include <linux/virtio_ring.h>
 
+#ifdef CONFIG_QTI_GVM_QUIN
+#include <linux/virtio_ids.h>
+#include <linux/of.h>
 
+struct virtio_wakeup_device {
+	const char *name;
+	struct list_head node;
+};
+
+static LIST_HEAD(wakeup_devs);
+static DEFINE_MUTEX(wakeup_devs_lock);
+#endif
 
 /* The alignment to use between consumer and producer parts of vring.
  * Currently hardcoded to the page size. */
@@ -459,6 +470,27 @@ static int vm_find_vqs(struct virtio_device *vdev, unsigned nvqs,
 	if (err)
 		return err;
 
+#ifdef CONFIG_QTI_GVM_QUIN
+	if ((vdev->id.device == VIRTIO_ID_INPUT) &&
+			!list_empty(&wakeup_devs)) {
+		struct virtio_wakeup_device *wk_dev;
+		const char *devname = dev_name(&vm_dev->pdev->dev);
+
+		list_for_each_entry(wk_dev, &wakeup_devs, node) {
+			if (strnstr(devname, wk_dev->name, strlen(devname))) {
+				pr_info("Setting %s, IRQ %d as wakeup source.\n",
+						devname, irq);
+				enable_irq_wake(irq);
+
+				mutex_lock(&wakeup_devs_lock);
+				list_del(&wk_dev->node);
+				mutex_unlock(&wakeup_devs_lock);
+				break;
+			}
+		}
+	}
+#endif
+
 	for (i = 0; i < nvqs; ++i) {
 		vqs[i] = vm_setup_vq(vdev, i, callbacks[i], names[i],
 				     ctx ? ctx[i] : false);
@@ -503,6 +535,30 @@ static int virtio_mmio_probe(struct platform_device *pdev)
 	struct resource *mem;
 	unsigned long magic;
 	int rc;
+
+#ifdef CONFIG_QTI_GVM_QUIN
+	/*
+	 * Assuming only virito-input supports virtual machine wakeup, there
+	 * will be a duplicate virtio mmio device under soc{} in device tree.
+	 * It marks the capability as wakeup source and exits here. The real
+	 * virito_mmio_probe depends on similar node under vdevs{} in device
+	 * tree inserted by host machine.
+	 */
+	if (of_property_read_bool(pdev->dev.of_node, "virtio,wakeup")) {
+		struct virtio_wakeup_device *wk_dev;
+
+		wk_dev = devm_kzalloc(&pdev->dev, sizeof(*wk_dev), GFP_KERNEL);
+		if (!wk_dev)
+			return  -ENOMEM;
+		wk_dev->name = pdev->dev.of_node->name;
+
+		mutex_lock(&wakeup_devs_lock);
+		list_add(&wk_dev->node, &wakeup_devs);
+		mutex_unlock(&wakeup_devs_lock);
+
+		return 0;
+	}
+#endif
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem)
@@ -748,7 +804,7 @@ static void __exit virtio_mmio_exit(void)
 	vm_unregister_cmdline_devices();
 }
 
-module_init(virtio_mmio_init);
+arch_initcall(virtio_mmio_init);
 module_exit(virtio_mmio_exit);
 
 MODULE_AUTHOR("Pawel Moll <pawel.moll@arm.com>");

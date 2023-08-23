@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018,2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1545,6 +1545,15 @@ static int a4xx_send_me_init(struct adreno_device *adreno_dev,
 	return ret;
 }
 
+static void a4xx_platform_setup(struct adreno_device *adreno_dev)
+{
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+		set_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PPD))
+		set_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
 /*
  * a4xx_rb_start() - Start the ringbuffer
  * @adreno_dev: Pointer to adreno device
@@ -1789,6 +1798,7 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 
 	.perfcounter_init = a4xx_perfcounter_init,
 	.perfcounter_close = a4xx_perfcounter_close,
+	.platform_setup = a4xx_platform_setup,
 	.rb_start = a4xx_rb_start,
 	.init = a4xx_init,
 	.microcode_read = a3xx_microcode_read,

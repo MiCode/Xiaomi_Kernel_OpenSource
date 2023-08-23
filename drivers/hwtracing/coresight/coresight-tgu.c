@@ -336,7 +336,7 @@ static ssize_t tgu_set_timers(struct device *dev, struct device_attribute *attr,
 	unsigned long value;
 	int step;
 
-	if (drvdata->select_refcnt >= MAX_TIMER_COUNTER_SETS) {
+	if (drvdata->timer_refcnt >= MAX_TIMER_COUNTER_SETS) {
 		dev_err(drvdata->dev, " Too many groups are being configured");
 		return -EINVAL;
 	}

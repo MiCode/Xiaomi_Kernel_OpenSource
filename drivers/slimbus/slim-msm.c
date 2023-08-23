@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -173,7 +173,7 @@ static int msm_slim_iommu_attach(struct msm_slim_ctrl *ctrl_dev)
 	struct dma_iommu_mapping *iommu_map;
 	dma_addr_t va_start = MSM_SLIM_VA_START;
 	size_t va_size = MSM_SLIM_VA_SIZE;
-	int bypass = 1;
+	int bypass = 1, atomic_ctx = 1;
 	struct device *dev;
 
 	if (unlikely(!ctrl_dev))
@@ -197,14 +197,16 @@ static int msm_slim_iommu_attach(struct msm_slim_ctrl *ctrl_dev)
 		return PTR_ERR(iommu_map);
 	}
 
-	if (ctrl_dev->iommu_desc.s1_bypass) {
-		if (iommu_domain_set_attr(iommu_map->domain,
-					DOMAIN_ATTR_S1_BYPASS, &bypass)) {
-			dev_err(dev, "%s Can't bypass s1 translation\n",
-				__func__);
-			arm_iommu_release_mapping(iommu_map);
-			return -EIO;
-		}
+	if ((ctrl_dev->iommu_desc.s1_bypass &&
+			iommu_domain_set_attr(iommu_map->domain,
+				DOMAIN_ATTR_S1_BYPASS, &bypass)) ||
+		(ctrl_dev->iommu_desc.atomic_ctx &&
+			iommu_domain_set_attr(iommu_map->domain,
+				DOMAIN_ATTR_ATOMIC, &atomic_ctx))) {
+		dev_err(dev, "%s Can't set IOMMU attribute\n",
+			__func__);
+		arm_iommu_release_mapping(iommu_map);
+		return -EIO;
 	}
 
 	if (arm_iommu_attach_device(dev, iommu_map)) {
@@ -241,8 +243,11 @@ int msm_slim_sps_mem_alloc(
 void
 msm_slim_sps_mem_free(struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem)
 {
+	struct device *dma_dev = dev->iommu_desc.cb_dev ?
+					dev->iommu_desc.cb_dev : dev->dev;
+
 	if (mem->base && mem->phys_base)
-		dma_free_coherent(dev->dev, mem->size, mem->base,
+		dma_free_coherent(dma_dev, mem->size, mem->base,
 							mem->phys_base);
 	else
 		dev_err(dev->dev, "cant dma free. they are NULL\n");

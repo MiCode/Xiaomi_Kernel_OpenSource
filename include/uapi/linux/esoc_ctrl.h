@@ -3,16 +3,6 @@
 
 #include <linux/types.h>
 
-enum esoc_client_hook_prio {
-	ESOC_MHI_HOOK,
-	ESOC_MAX_HOOKS
-};
-
-struct esoc_link_data {
-	enum esoc_client_hook_prio prio;
-	__u64 link_id;
-};
-
 #define ESOC_CODE		0xCC
 
 #define ESOC_CMD_EXE		_IOW(ESOC_CODE, 1, unsigned int)
@@ -23,11 +13,25 @@ struct esoc_link_data {
 #define ESOC_WAIT_FOR_CRASH	_IOR(ESOC_CODE, 6, unsigned int)
 #define ESOC_REG_REQ_ENG	_IO(ESOC_CODE, 7)
 #define ESOC_REG_CMD_ENG	_IO(ESOC_CODE, 8)
-#define ESOC_GET_LINK_ID	_IOWR(ESOC_CODE, 9, struct esoc_link_data)
+#define ESOC_GET_LINK_ID	_IOWR(ESOC_CODE, 9, __u64)
+#define ESOC_SET_BOOT_FAIL_ACT	_IOW(ESOC_CODE, 10, unsigned int)
+#define ESOC_SET_N_PON_TRIES	_IOW(ESOC_CODE, 11, unsigned int)
 
 #define ESOC_REQ_SEND_SHUTDOWN	ESOC_REQ_SEND_SHUTDOWN
 #define ESOC_REQ_CRASH_SHUTDOWN ESOC_REQ_CRASH_SHUTDOWN
 #define ESOC_PON_RETRY		ESOC_PON_RETRY
+#define ESOC_BOOT_FAIL_ACTION
+#define ESOC_LINK_ID
+
+enum esoc_boot_fail_action {
+	BOOT_FAIL_ACTION_RETRY,
+	BOOT_FAIL_ACTION_COLD_RESET,
+	BOOT_FAIL_ACTION_SHUTDOWN,
+	BOOT_FAIL_ACTION_PANIC,
+	BOOT_FAIL_ACTION_NOP,
+	BOOT_FAIL_ACTION_S3_RESET,
+	BOOT_FAIL_ACTION_LAST,
+};
 
 enum esoc_evt {
 	ESOC_RUN_STATE = 0x1,

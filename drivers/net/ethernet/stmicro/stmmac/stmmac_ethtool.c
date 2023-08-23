@@ -28,6 +28,7 @@
 
 #include "stmmac.h"
 #include "dwmac_dma.h"
+#include "dwmac-qcom-ethqos.h"
 
 #define REG_SPACE_SIZE	0x1060
 #define MAC100_ETHTOOL_NAME	"st_mac100"
@@ -89,7 +90,16 @@ static const struct stmmac_stats stmmac_gstrings_stats[] = {
 	STMMAC_STAT(rx_early_irq),
 	STMMAC_STAT(threshold),
 	STMMAC_STAT(tx_pkt_n),
+	STMMAC_STAT(q_tx_pkt_n[0]),
+	STMMAC_STAT(q_tx_pkt_n[1]),
+	STMMAC_STAT(q_tx_pkt_n[2]),
+	STMMAC_STAT(q_tx_pkt_n[3]),
+	STMMAC_STAT(q_tx_pkt_n[4]),
 	STMMAC_STAT(rx_pkt_n),
+	STMMAC_STAT(q_rx_pkt_n[0]),
+	STMMAC_STAT(q_rx_pkt_n[1]),
+	STMMAC_STAT(q_rx_pkt_n[2]),
+	STMMAC_STAT(q_rx_pkt_n[3]),
 	STMMAC_STAT(normal_irq_n),
 	STMMAC_STAT(rx_normal_irq_n),
 	STMMAC_STAT(napi_poll),
@@ -276,6 +286,12 @@ static int stmmac_ethtool_get_link_ksettings(struct net_device *dev,
 	struct stmmac_priv *priv = netdev_priv(dev);
 	struct phy_device *phy = dev->phydev;
 
+	if (!phy) {
+		pr_err("%s: %s: PHY is not registered\n",
+		       __func__, dev->name);
+		return -ENODEV;
+	}
+
 	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
 	    priv->hw->pcs & STMMAC_PCS_SGMII) {
 		struct rgmii_adv adv;
@@ -355,11 +371,6 @@ static int stmmac_ethtool_get_link_ksettings(struct net_device *dev,
 		return 0;
 	}
 
-	if (phy == NULL) {
-		pr_err("%s: %s: PHY is not registered\n",
-		       __func__, dev->name);
-		return -ENODEV;
-	}
 	if (!netif_running(dev)) {
 		pr_err("%s: interface is disabled: we cannot track "
 		"link speed / duplex setting\n", dev->name);
@@ -376,6 +387,13 @@ stmmac_ethtool_set_link_ksettings(struct net_device *dev,
 	struct stmmac_priv *priv = netdev_priv(dev);
 	struct phy_device *phy = dev->phydev;
 	int rc;
+	u32 cmd_speed = cmd->base.speed;
+
+	if (!phy) {
+		pr_err("%s: %s: PHY is not registered\n",
+		       __func__, dev->name);
+		return -ENODEV;
+	}
 
 	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
 	    priv->hw->pcs & STMMAC_PCS_SGMII) {
@@ -392,18 +410,23 @@ stmmac_ethtool_set_link_ksettings(struct net_device *dev,
 			ADVERTISED_10baseT_Half |
 			ADVERTISED_10baseT_Full);
 
-		spin_lock(&priv->lock);
+		mutex_lock(&priv->lock);
 
 		if (priv->hw->mac->pcs_ctrl_ane)
 			priv->hw->mac->pcs_ctrl_ane(priv->ioaddr, 1,
 						    priv->hw->ps, 0);
 
-		spin_unlock(&priv->lock);
+		mutex_unlock(&priv->lock);
 
 		return 0;
 	}
 
-	rc = phy_ethtool_ksettings_set(phy, cmd);
+	/* Half duplex is not supported */
+	if (cmd->base.duplex != DUPLEX_FULL ||
+	    (cmd_speed == SPEED_1000 && cmd->base.autoneg == AUTONEG_DISABLE))
+		rc = -EINVAL;
+	else
+		rc = phy_ethtool_ksettings_set(phy, cmd);
 
 	return rc;
 }
@@ -489,6 +512,12 @@ stmmac_set_pauseparam(struct net_device *netdev,
 	struct phy_device *phy = netdev->phydev;
 	int new_pause = FLOW_OFF;
 
+	if (!phy) {
+		pr_err("%s: %s: PHY is not registered\n",
+		       __func__, netdev->name);
+		return -ENODEV;
+	}
+
 	if (priv->hw->pcs && priv->hw->mac->pcs_get_adv_lp) {
 		struct rgmii_adv adv_lp;
 
@@ -527,6 +556,9 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
 	u32 rx_queues_count = priv->plat->rx_queues_to_use;
 	u32 tx_queues_count = priv->plat->tx_queues_to_use;
 	int i, j = 0;
+
+	/* enable reset on read for mmc counter */
+	writel_relaxed(MMC_CONFIG, priv->mmcaddr);
 
 	/* Update the DMA HW counters for dwmac10/100 */
 	if (priv->hw->dma->dma_diagnostic_fr)
@@ -615,44 +647,91 @@ static void stmmac_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 
-	spin_lock_irq(&priv->lock);
+	if (!priv->phydev) {
+		pr_err("%s: %s: PHY is not registered\n",
+		       __func__, dev->name);
+		return;
+	}
+
+	phy_ethtool_get_wol(priv->phydev, wol);
+	mutex_lock(&priv->lock);
 	if (device_can_wakeup(priv->device)) {
 		wol->supported = WAKE_MAGIC | WAKE_UCAST;
-		wol->wolopts = priv->wolopts;
+		wol->wolopts |= priv->wolopts;
 	}
-	spin_unlock_irq(&priv->lock);
+	mutex_unlock(&priv->lock);
 }
 
 static int stmmac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
-	u32 support = WAKE_MAGIC | WAKE_UCAST;
+	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
+	u32 emac_wol_support = 0;
+	int ret;
 
+	if (!priv->phydev) {
+		pr_err("%s: %s: PHY is not registered\n",
+		       __func__, dev->name);
+		return -ENODEV;
+	}
+
+	if (ethqos->phy_state == PHY_IS_OFF) {
+		ETHQOSINFO("Phy is in off state Wol set not possible\n");
+		return -EOPNOTSUPP;
+	}
 	/* By default almost all GMAC devices support the WoL via
 	 * magic frame but we can disable it if the HW capability
 	 * register shows no support for pmt_magic_frame. */
-	if ((priv->hw_cap_support) && (!priv->dma_cap.pmt_magic_frame))
-		wol->wolopts &= ~WAKE_MAGIC;
+	if (priv->hw_cap_support && priv->dma_cap.pmt_magic_frame)
+		wol->wolopts |= WAKE_MAGIC;
+	if (priv->hw_cap_support && priv->dma_cap.pmt_remote_wake_up)
+		wol->wolopts |= WAKE_UCAST;
+
+	if (wol->wolopts & ~(emac_wol_support | ethqos->phy_wol_supported))
+		return -EOPNOTSUPP;
 
 	if (!device_can_wakeup(priv->device))
 		return -EINVAL;
 
-	if (wol->wolopts & ~support)
-		return -EINVAL;
+	mutex_lock(&priv->lock);
+	if (priv->hw_cap_support && priv->dma_cap.pmt_magic_frame)
+		priv->wolopts |= WAKE_MAGIC;
+	if (priv->hw_cap_support && priv->dma_cap.pmt_remote_wake_up)
+		priv->wolopts |= WAKE_UCAST;
+	mutex_unlock(&priv->lock);
 
-	if (wol->wolopts) {
-		pr_info("stmmac: wakeup enable\n");
-		device_set_wakeup_enable(priv->device, 1);
-		enable_irq_wake(priv->wol_irq);
-	} else {
-		device_set_wakeup_enable(priv->device, 0);
-		disable_irq_wake(priv->wol_irq);
+	if (emac_wol_support && priv->wolopts != wol->wolopts) {
+		if (priv->wolopts) {
+			pr_info("stmmac: wakeup enable\n");
+			device_set_wakeup_enable(&ethqos->pdev->dev, 1);
+			enable_irq_wake(ethqos->phy_intr);
+		} else {
+			device_set_wakeup_enable(&ethqos->pdev->dev, 0);
+			disable_irq_wake(ethqos->phy_intr);
+		}
 	}
 
-	spin_lock_irq(&priv->lock);
-	priv->wolopts = wol->wolopts;
-	spin_unlock_irq(&priv->lock);
+	if (ethqos->phy_wol_wolopts != wol->wolopts) {
+		if (phy_intr_en && ethqos->phy_wol_supported) {
+			ethqos->phy_wol_wolopts = 0;
 
+			ret = phy_ethtool_set_wol(priv->phydev, wol);
+
+			if (ret) {
+				pr_err("set wol in PHY failed\n");
+				return ret;
+	}
+			ethqos->phy_wol_wolopts = wol->wolopts;
+
+			if (ethqos->phy_wol_wolopts) {
+				enable_irq_wake(ethqos->phy_intr);
+				device_set_wakeup_enable(&ethqos->pdev->dev, 1);
+			} else {
+				disable_irq_wake(ethqos->phy_intr);
+				device_set_wakeup_enable(&ethqos->pdev->dev, 0);
+			}
+		}
+	}
 	return 0;
 }
 
@@ -702,8 +781,11 @@ static u32 stmmac_usec2riwt(u32 usec, struct stmmac_priv *priv)
 {
 	unsigned long clk = clk_get_rate(priv->plat->stmmac_clk);
 
-	if (!clk)
-		return 0;
+	if (!clk) {
+		clk = priv->plat->clk_ref_rate;
+		if (!clk)
+			return 0;
+	}
 
 	return (usec * (clk / 1000000)) / 256;
 }
@@ -712,8 +794,11 @@ static u32 stmmac_riwt2usec(u32 riwt, struct stmmac_priv *priv)
 {
 	unsigned long clk = clk_get_rate(priv->plat->stmmac_clk);
 
-	if (!clk)
-		return 0;
+	if (!clk) {
+		clk = priv->plat->clk_ref_rate;
+		if (!clk)
+			return 0;
+	}
 
 	return (riwt * 256) / (clk / 1000000);
 }

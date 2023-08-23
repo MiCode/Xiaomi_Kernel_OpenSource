@@ -216,7 +216,8 @@ int dwc3_gadget_ep0_queue(struct usb_ep *ep, struct usb_request *request,
 	u32				reg;
 
 	spin_lock_irqsave(&dwc->lock, flags);
-	if (!dep->endpoint.desc || !dwc->pullups_connected) {
+	if (!dep->endpoint.desc || !dwc->softconnect ||
+		!dwc->vbus_active) {
 		dev_err(dwc->dev, "%s: can't queue to disabled endpoint\n",
 				dep->name);
 		ret = -ESHUTDOWN;
@@ -933,6 +934,19 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 
 	if (!dwc->gadget_driver)
 		goto out;
+
+	/*
+	 * A SETUP packet from previous session might get completed with delay
+	 * and get inspected before ConnectDone event for the new connection is
+	 * fired. This leads to controller not responding to fresh SETUP packets
+	 * anymore, even after fresh RESET from host.
+	 * Restart USB gadget if such delayed SETUP packet is inspected.
+	 */
+	if (!dwc->connected) {
+		dbg_event(0x0, "Setup_restart", 0);
+		dwc3_notify_event(dwc, DWC3_CONTROLLER_RESTART_USB_SESSION, 0);
+		return;
+	}
 
 	trace_dwc3_ctrl_req(ctrl);
 

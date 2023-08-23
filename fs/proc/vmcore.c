@@ -165,6 +165,16 @@ int __weak remap_oldmem_pfn_range(struct vm_area_struct *vma,
 }
 
 /*
+ * Architectures which support memory encryption override this.
+ */
+ssize_t __weak
+copy_oldmem_page_encrypted(unsigned long pfn, char *buf, size_t csize,
+			   unsigned long offset, int userbuf)
+{
+	return copy_oldmem_page(pfn, buf, csize, offset, userbuf);
+}
+
+/*
  * Copy to either kernel or user space
  */
 static int copy_to(void *target, void *src, size_t size, int userbuf)
@@ -449,7 +459,7 @@ static int mmap_vmcore(struct file *file, struct vm_area_struct *vma)
 		tsz = min(elfcorebuf_sz + elfnotes_sz - (size_t)start, size);
 		kaddr = elfnotes_buf + start - elfcorebuf_sz;
 		if (remap_vmalloc_range_partial(vma, vma->vm_start + len,
-						kaddr, tsz))
+						kaddr, 0, tsz))
 			goto fail;
 		size -= tsz;
 		start += tsz;

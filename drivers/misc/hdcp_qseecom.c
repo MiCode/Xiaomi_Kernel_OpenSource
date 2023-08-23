@@ -1022,6 +1022,7 @@ static int hdcp2_app_start_auth(struct hdcp2_handle *handle)
 	handle->app_data.response.data = rsp_buf->message;
 	handle->app_data.response.length = rsp_buf->msglen;
 	handle->app_data.timeout = rsp_buf->timeout;
+	handle->app_data.repeater_flag = false;
 
 	handle->tz_ctxhandle = rsp_buf->ctxhandle;
 
@@ -1097,8 +1098,6 @@ static int hdcp2_app_process_msg(struct hdcp2_handle *handle)
 	/* check if it's a repeater */
 	if (rsp_buf->flag == HDCP_TXMTR_SUBSTATE_WAITING_FOR_RECIEVERID_LIST)
 		handle->app_data.repeater_flag = true;
-	else
-		handle->app_data.repeater_flag = false;
 
 	handle->app_data.response.data = rsp_buf->msg;
 	handle->app_data.response.length = rsp_buf->msglen;
@@ -1124,7 +1123,7 @@ error:
 	return rc;
 }
 
-static int hdcp2_app_enable_encryption(struct hdcp2_handle *handle)
+static int hdcp2_app_set_hw_key(struct hdcp2_handle *handle)
 {
 	int rc = 0;
 
@@ -1249,8 +1248,8 @@ int hdcp2_app_comm(void *ctx, enum hdcp2_app_cmd cmd,
 	case HDCP2_CMD_TIMEOUT:
 		rc = hdcp2_app_timeout(handle);
 		break;
-	case HDCP2_CMD_EN_ENCRYPTION:
-		rc = hdcp2_app_enable_encryption(handle);
+	case HDCP2_CMD_SET_HW_KEY:
+		rc = hdcp2_app_set_hw_key(handle);
 		break;
 	case HDCP2_CMD_QUERY_STREAM:
 		rc = hdcp2_app_query_stream(handle);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,6 +103,13 @@ struct sde_hw_cdm_ops {
 	void (*bind_pingpong_blk)(struct sde_hw_cdm *cdm,
 			bool enable,
 			const enum sde_pingpong pp);
+
+	/**
+	 * Configure CDM output
+	 * @cdm         Pointer to chroma down context
+	 */
+	void (*setup_output)(struct sde_hw_cdm *cdm,
+	struct sde_hw_cdm_cfg *cfg);
 };
 
 struct sde_hw_cdm {

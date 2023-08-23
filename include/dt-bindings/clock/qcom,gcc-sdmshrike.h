@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -257,6 +257,13 @@
 #define GPLL1							240
 #define GPLL4							241
 #define GPLL7							242
+#define GCC_PCIE_0_CLKREF_CLK					243
+#define GCC_PCIE_1_CLKREF_CLK					244
+#define GCC_PCIE_2_CLKREF_CLK					245
+#define GCC_PCIE_3_CLKREF_CLK					246
+#define GCC_USB3_PRIM_CLKREF_CLK				247
+#define GCC_USB3_SEC_CLKREF_CLK					248
+#define GCC_AGGRE_UFS_CARD_2_AXI_CLK			249
 
 #define GCC_EMAC_BCR						0
 #define GCC_GPU_BCR							1
@@ -300,6 +307,18 @@
 #define GCC_USB30_SEC_BCR					39
 #define GCC_USB_PHY_CFG_AHB2PHY_BCR			40
 #define GCC_VIDEO_AXIC_CLK_BCR				41
+#define GCC_VIDEO_AXI0_CLK_BCR				42
+#define GCC_VIDEO_AXI1_CLK_BCR				43
+#define GCC_USB3_UNIPHY_MP0_BCR			44
+#define GCC_USB3_UNIPHY_MP1_BCR			45
+#define GCC_USB3UNIPHY_PHY_MP0_BCR			46
+#define GCC_USB3UNIPHY_PHY_MP1_BCR			47
 
-#define MMCX_CLK					0
+/* Dummy clocks for rate measurement */
+#define MEASURE_ONLY_SNOC_CLK				0
+#define MEASURE_ONLY_CNOC_CLK				1
+#define MEASURE_ONLY_MCCC_CLK				2
+#define MEASURE_ONLY_IPA_2X_CLK				3
+#define MMCX_CLK					4
+
 #endif

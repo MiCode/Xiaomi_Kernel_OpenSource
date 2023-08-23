@@ -32,6 +32,9 @@ enum ipa_wdi_version {
 	IPA_WDI_3
 };
 
+#define IPA_WDI3_TX_DIR 1
+#define IPA_WDI3_RX_DIR 2
+
 /**
  * struct ipa_wdi_init_in_params - wdi init input parameters
  *
@@ -355,6 +358,11 @@ int ipa_wdi_get_stats(struct IpaHwStatsWDIInfoData_t *stats);
 
 static inline int ipa_wdi_init(struct ipa_wdi_init_in_params *in,
 	struct ipa_wdi_init_out_params *out)
+{
+	return -EPERM;
+}
+
+static inline int ipa3_get_wdi_version(void)
 {
 	return -EPERM;
 }

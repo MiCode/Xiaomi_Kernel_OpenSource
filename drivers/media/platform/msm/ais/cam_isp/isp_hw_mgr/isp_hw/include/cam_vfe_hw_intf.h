@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,7 @@
 
 #include "cam_isp_hw.h"
 
-#define CAM_VFE_HW_NUM_MAX                       4
+#define CAM_VFE_HW_NUM_MAX                       8
 
 #define VFE_CORE_BASE_IDX             0
 /*
@@ -178,6 +178,17 @@ struct cam_vfe_clock_update_args {
 };
 
 /*
+ * struct cam_vfe_fps_config_args:
+ *
+ * @node_res:                Resource to get the fps value
+ * @fps:                     FPS value to configure EPOCH
+ */
+struct cam_vfe_fps_config_args {
+	struct cam_isp_resource_node      *node_res;
+	uint32_t                           fps;
+};
+
+/*
  * struct cam_vfe_bw_update_args:
  *
  * @node_res:             Resource to get the BW
@@ -189,6 +200,7 @@ struct cam_vfe_bw_update_args {
 	struct cam_isp_resource_node      *node_res;
 	uint64_t                           camnoc_bw_bytes;
 	uint64_t                           external_bw_bytes;
+	uint64_t                           external_bw_bytes_ab;
 };
 
 /*
@@ -271,6 +283,7 @@ struct cam_vfe_bus_irq_evt_payload {
 	uint32_t                    error_type;
 	struct cam_isp_timestamp    ts;
 	void                       *ctx;
+	uint32_t                    enable_dump;
 };
 
 /*

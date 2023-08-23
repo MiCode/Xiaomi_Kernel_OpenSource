@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -218,12 +218,12 @@ void sde_encoder_virt_restore(struct drm_encoder *encoder);
 bool sde_encoder_is_dsc_merge(struct drm_encoder *drm_enc);
 
 /**
- * sde_encoder_check_mode - check if given mode is supported or not
+ * sde_encoder_check_curr_mode - check if given mode is supported or not
  * @drm_enc: Pointer to drm encoder object
  * @mode: Mode to be checked
  * @Return: true if it is cmd mode
  */
-bool sde_encoder_check_mode(struct drm_encoder *drm_enc, u32 mode);
+bool sde_encoder_check_curr_mode(struct drm_encoder *drm_enc, u32 mode);
 
 /**
  * sde_encoder_init - initialize virtual encoder object
@@ -282,9 +282,12 @@ int sde_encoder_update_caps_for_cont_splash(struct drm_encoder *encoder,
  *
  *      TODO: manage the event at sde_kms level for forward processing.
  * @drm_enc:    Pointer to drm encoder structure
+ * @skip_pre_kickoff:    Caller can avoid pre_kickoff if it is triggering this
+ *                       event only to switch the panel TE to watchdog mode.
  * @Return:     true if successful in updating the encoder structure
  */
-int sde_encoder_display_failure_notification(struct drm_encoder *enc);
+int sde_encoder_display_failure_notification(struct drm_encoder *enc,
+	bool skip_pre_kickoff);
 
 /**
  * sde_encoder_recovery_events_enabled - checks if client has enabled
@@ -308,6 +311,14 @@ void sde_encoder_recovery_events_handler(struct drm_encoder *encoder,
  * @Return:     true if successful in updating the encoder structure
  */
 bool sde_encoder_in_clone_mode(struct drm_encoder *enc);
+
+/**
+ *sde_encoder_is_topology_ppsplit - checks if the current encoder is in
+	ppsplit topology.
+ *@drm_enc:	Pointer to drm encoder structure
+ *@Return:	true if the present topology is ppsplit
+ */
+bool sde_encoder_is_topology_ppsplit(struct drm_encoder *drm_enc);
 
 /**
  * sde_encoder_is_primary_display - checks if underlying display is primary

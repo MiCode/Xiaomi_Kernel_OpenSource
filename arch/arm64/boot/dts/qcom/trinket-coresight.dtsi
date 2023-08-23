@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2219,8 +2219,16 @@
 
 		coresight-name = "coresight-cti-gpu_isdb_cti";
 
-		clocks = <&clock_rpmcc RPM_SMD_QDSS_CLK>;
-		clock-names = "apb_pclk";
+		status = "disabled";
+		clocks = <&clock_rpmcc RPM_SMD_QDSS_CLK>,
+			<&clock_gpucc GPU_CC_CX_APB_CLK>;
+		clock-names = "apb_pclk", "gpu_apb_clk";
+		qcom,proxy-clks = "gpu_apb_clk";
+
+		vddcx-supply = <&gpu_cx_gdsc>;
+		vdd-supply = <&gpu_gx_gdsc>;
+		regulator-names = "vddcx", "vdd";
+		qcom,proxy-regs  = "vddcx", "vdd";
 	};
 
 	cti_lpass_q6_cti: cti@8987000 {

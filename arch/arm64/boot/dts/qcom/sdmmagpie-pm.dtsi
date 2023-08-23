@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,6 +77,7 @@
 				qcom,ref-stddev = <500>;
 				qcom,tmr-add = <1000>;
 				qcom,ref-premature-cnt = <1>;
+				qcom,disable-ipi-prediction;
 				qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3 &CPU4
 									&CPU5>;
 
@@ -120,6 +121,7 @@
 				qcom,ref-stddev = <100>;
 				qcom,tmr-add = <100>;
 				qcom,ref-premature-cnt = <3>;
+				qcom,disable-ipi-prediction;
 				qcom,cpu = <&CPU6 &CPU7>;
 
 				qcom,pm-cpu-level@0 { /* C1 */

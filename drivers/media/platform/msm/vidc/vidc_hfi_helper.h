@@ -435,6 +435,8 @@ struct hfi_colour_space {
 #define HFI_CAPABILITY_MAX_VIDEOCORES			(HFI_COMMON_BASE + 0X2B)
 #define HFI_CAPABILITY_MAX_WORKMODES			(HFI_COMMON_BASE + 0X2C)
 #define HFI_CAPABILITY_UBWC_CR_STATS			(HFI_COMMON_BASE + 0X2D)
+#define HFI_CAPABILITY_ROTATION				(HFI_COMMON_BASE + 0X2F)
+#define HFI_CAPABILITY_COLOR_SPACE_CONVERSION		(HFI_COMMON_BASE + 0X30)
 #define HFI_CAPABILITY_MAX_WORKROUTES			(HFI_COMMON_BASE + 0X31)
 #define HFI_CAPABILITY_CQ_QUALITY_LEVEL			(HFI_COMMON_BASE + 0X32)
 
@@ -668,7 +670,6 @@ struct hfi_bit_depth {
 };
 
 struct hfi_picture_type {
-	u32 is_sync_frame;
 	u32 picture_type;
 };
 
@@ -913,6 +914,11 @@ struct vidc_hal_session_cmd_pkt {
 	u32 size;
 	u32 packet_type;
 	u32 session_id;
+};
+
+struct hfi_packet_header {
+	u32 size;
+	u32 packet_type;
 };
 
 struct hfi_cmd_sys_init_packet {

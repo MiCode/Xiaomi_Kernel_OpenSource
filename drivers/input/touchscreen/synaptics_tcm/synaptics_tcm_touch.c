@@ -846,10 +846,10 @@ static int touch_set_report_config(void)
 	unsigned int length;
 	struct syna_tcm_app_info *app_info;
 	struct syna_tcm_hcd *tcm_hcd = touch_hcd->tcm_hcd;
+	const struct syna_tcm_board_data *bdata = tcm_hcd->hw_if->bdata;
 
-#ifdef USE_DEFAULT_TOUCH_REPORT_CONFIG
-	return 0;
-#endif
+	if (!bdata->extend_report)
+		return 0;
 
 	app_info = &tcm_hcd->app_info;
 	length = le2_to_uint(app_info->max_touch_report_config_size);

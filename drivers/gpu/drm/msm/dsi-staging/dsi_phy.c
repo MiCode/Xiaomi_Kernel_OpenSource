@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,9 +117,6 @@ static int dsi_phy_regmap_init(struct platform_device *pdev,
 
 	phy->hw.base = ptr;
 
-	ptr = msm_ioremap(pdev, "dyn_refresh_base", phy->name);
-	phy->hw.dyn_pll_base = ptr;
-
 	pr_debug("[%s] map dsi_phy registers to %pK\n",
 		phy->name, phy->hw.base);
 
@@ -130,6 +127,19 @@ static int dsi_phy_regmap_init(struct platform_device *pdev,
 			phy->hw.phy_clamp_base = NULL;
 		else
 			phy->hw.phy_clamp_base = ptr;
+
+		ptr = msm_ioremap(pdev, "dyn_refresh_base", phy->name);
+		if (IS_ERR(ptr))
+			phy->hw.dyn_pll_base = NULL;
+		else
+			phy->hw.dyn_pll_base = ptr;
+		break;
+	case DSI_PHY_VERSION_3_0:
+		ptr = msm_ioremap(pdev, "dyn_refresh_base", phy->name);
+		if (IS_ERR(ptr))
+			phy->hw.dyn_pll_base = NULL;
+		else
+			phy->hw.dyn_pll_base = ptr;
 		break;
 	default:
 		break;
@@ -281,6 +291,32 @@ static int dsi_phy_parse_dt_per_lane_cfgs(struct platform_device *pdev,
 	return rc;
 }
 
+static int dsi_phy_parse_dt_per_lane_bits(struct platform_device *pdev,
+					  u8 *bits,
+					  char *property)
+{
+	int rc = 0, i = 0;
+	const u8 *data;
+	u32 len = 0;
+
+	data = of_get_property(pdev->dev.of_node, property, &len);
+	if (!data)
+		return 0;
+
+	if (len != DSI_LANE_MAX) {
+		pr_err("incorrect phy %s settings, exp=%d, act=%d\n",
+		       property, DSI_LANE_MAX, len);
+		return -EINVAL;
+	}
+
+	*bits = 0;
+
+	for (i = DSI_LOGICAL_LANE_0; i < DSI_LANE_MAX; i++)
+		*bits |= (data[i] & 0x01) << i;
+
+	return rc;
+}
+
 static int dsi_phy_settings_init(struct platform_device *pdev,
 				 struct msm_dsi_phy *phy)
 {
@@ -314,6 +350,13 @@ static int dsi_phy_settings_init(struct platform_device *pdev,
 			pr_err("failed to parse lane cfgs, rc=%d\n", rc);
 			goto err;
 		}
+	}
+
+	rc = dsi_phy_parse_dt_per_lane_bits(pdev, &phy->cfg.lane_pnswap,
+					    "qcom,platform-lane-pnswap");
+	if (rc) {
+		pr_err("failed to parse lane P/N swap map, rc=%d\n", rc);
+		goto err;
 	}
 
 	/* Actual timing values are dependent on panel */
@@ -859,6 +902,7 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 		   bool is_cont_splash_enabled)
 {
 	int rc = 0;
+	bool is_cphy = false;
 
 	if (!phy || !config) {
 		pr_err("Invalid params\n");
@@ -881,11 +925,14 @@ int dsi_phy_enable(struct msm_dsi_phy *phy,
 	 * If PHY timing parameters are not present in panel dtsi file,
 	 * then calculate them in the driver
 	 */
+	is_cphy = (config->common_config.phy_type == DSI_PHY_TYPE_CPHY) ?
+			true : false;
 	if (!phy->cfg.is_phy_timing_present)
 		rc = phy->hw.ops.calculate_timing_params(&phy->hw,
 						 &phy->mode,
 						 &config->common_config,
-						 &phy->cfg.timing, false);
+						 &phy->cfg.timing, false,
+						is_cphy);
 	if (rc) {
 		pr_err("[%s] failed to set timing, rc=%d\n", phy->name, rc);
 		goto error;
@@ -905,7 +952,7 @@ error:
 
 /* update dsi phy timings for dynamic clk switch use case */
 int dsi_phy_update_phy_timings(struct msm_dsi_phy *phy,
-			       struct dsi_host_config *config)
+		struct dsi_host_config *config, bool is_cphy)
 {
 	int rc = 0;
 
@@ -916,8 +963,9 @@ int dsi_phy_update_phy_timings(struct msm_dsi_phy *phy,
 
 	memcpy(&phy->mode, &config->video_timing, sizeof(phy->mode));
 	rc = phy->hw.ops.calculate_timing_params(&phy->hw, &phy->mode,
-						 &config->common_config,
-						 &phy->cfg.timing, true);
+					&config->common_config,
+					&phy->cfg.timing, true,
+					is_cphy);
 	if (rc)
 		pr_err("failed to calculate phy timings %d\n", rc);
 
@@ -1143,10 +1191,11 @@ int dsi_phy_conv_logical_to_phy_lane(
  * @phy:	DSI PHY handle
  * @delay:	pipe delays for dynamic refresh
  * @is_master:	Boolean to indicate if for master or slave.
+ * @is_cphy:	Boolean to indicate cphy mode.
  */
 void dsi_phy_config_dynamic_refresh(struct msm_dsi_phy *phy,
 		struct dsi_dyn_clk_delay *delay,
-		bool is_master)
+		bool is_master, bool is_cphy)
 {
 	struct dsi_phy_cfg *cfg;
 
@@ -1158,7 +1207,7 @@ void dsi_phy_config_dynamic_refresh(struct msm_dsi_phy *phy,
 	cfg = &phy->cfg;
 	if (phy->hw.ops.dyn_refresh_ops.dyn_refresh_config)
 		phy->hw.ops.dyn_refresh_ops.dyn_refresh_config(&phy->hw, cfg,
-				is_master);
+				is_master, is_cphy);
 	if (phy->hw.ops.dyn_refresh_ops.dyn_refresh_pipe_delay)
 		phy->hw.ops.dyn_refresh_ops.dyn_refresh_pipe_delay(
 				&phy->hw, delay);
@@ -1234,6 +1283,26 @@ void dsi_phy_dynamic_refresh_clear(struct msm_dsi_phy *phy)
 
 	if (phy->hw.ops.dyn_refresh_ops.dyn_refresh_helper)
 		phy->hw.ops.dyn_refresh_ops.dyn_refresh_helper(&phy->hw, 0);
+
+	mutex_unlock(&phy->phy_lock);
+}
+
+/**
+ * dsi_phy_set_continuous_clk() - set/unset force clock lane HS request
+ * @phy:	DSI PHY handle
+ * @enable:	variable to control continuous clock
+ */
+void dsi_phy_set_continuous_clk(struct msm_dsi_phy *phy, bool enable)
+{
+	if (!phy)
+		return;
+
+	mutex_lock(&phy->phy_lock);
+
+	if (phy->hw.ops.set_continuous_clk)
+		phy->hw.ops.set_continuous_clk(&phy->hw, enable);
+	else
+		pr_warn("set_continuous_clk ops not present\n");
 
 	mutex_unlock(&phy->phy_lock);
 }

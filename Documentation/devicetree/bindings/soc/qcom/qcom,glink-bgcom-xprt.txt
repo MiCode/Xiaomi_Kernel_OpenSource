@@ -1,0 +1,24 @@
+Qualcomm Technologies, Inc GLINK BGCOM transport (glink_bgcom_xprt) binding
+
+This binding describes the Qualcomm Technologies, Inc glink bgcom transport
+driver, a bgcom-spi based communication channel for sending data between the
+various subsystems in Qualcomm Technologies, Inc platforms.
+
+- compatible:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "qcom,glink-bgcom-xprt"
+
+- label:
+	Usage: required
+	Value type: <stringlist>
+	Definition: must be "bg"
+
+= EXAMPLE
+
+The following example reprsents a glink_bgcom node.
+
+	qcom,glink-bgcom-xprt-bg {
+		compatible = "qcom,glink-bgcom-xprt";
+		label = "bg";
+	};

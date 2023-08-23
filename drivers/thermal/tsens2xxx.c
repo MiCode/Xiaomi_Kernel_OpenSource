@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/vmalloc.h>
+#include <soc/qcom/scm.h>
 #include "tsens.h"
 #include "thermal_core.h"
 
@@ -66,6 +67,8 @@
 #define TSENS_TM_TRDY(n)			((n) + 0xe4)
 #define TSENS_TM_TRDY_FIRST_ROUND_COMPLETE	BIT(3)
 #define TSENS_TM_TRDY_FIRST_ROUND_COMPLETE_SHIFT	3
+#define TSENS_INIT_ID	0x5
+#define TSENS_RECOVERY_LOOP_COUNT 5
 
 static void msm_tsens_convert_temp(int last_temp, int *temp)
 {
@@ -79,12 +82,71 @@ static void msm_tsens_convert_temp(int last_temp, int *temp)
 	*temp = last_temp * TSENS_TM_SCALE_DECI_MILLIDEG;
 }
 
+static int __tsens2xxx_hw_init(struct tsens_device *tmdev)
+{
+	void __iomem *srot_addr;
+	void __iomem *sensor_int_mask_addr;
+	unsigned int srot_val, crit_mask, crit_val;
+	void __iomem *int_mask_addr;
+
+	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
+	srot_val = readl_relaxed(srot_addr);
+	if (!(srot_val & TSENS_EN)) {
+		pr_err("TSENS device is not enabled\n");
+		return -ENODEV;
+	}
+
+	if (tmdev->ctrl_data->cycle_monitor) {
+		sensor_int_mask_addr =
+			TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_tm_addr);
+		crit_mask = readl_relaxed(sensor_int_mask_addr);
+		crit_val = TSENS_TM_CRITICAL_CYCLE_MONITOR;
+		if (tmdev->ctrl_data->cycle_compltn_monitor_mask)
+			writel_relaxed((crit_mask | crit_val),
+				(TSENS_TM_CRITICAL_INT_MASK
+				(tmdev->tsens_tm_addr)));
+		else
+			writel_relaxed((crit_mask & ~crit_val),
+				(TSENS_TM_CRITICAL_INT_MASK
+				(tmdev->tsens_tm_addr)));
+		/*Update critical cycle monitoring*/
+		mb();
+	}
+
+	if (tmdev->ctrl_data->wd_bark) {
+		sensor_int_mask_addr =
+			TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_tm_addr);
+		crit_mask = readl_relaxed(sensor_int_mask_addr);
+		crit_val = TSENS_TM_CRITICAL_WD_BARK;
+		if (tmdev->ctrl_data->wd_bark_mask)
+			writel_relaxed((crit_mask | crit_val),
+			(TSENS_TM_CRITICAL_INT_MASK
+			(tmdev->tsens_tm_addr)));
+		else
+			writel_relaxed((crit_mask & ~crit_val),
+			(TSENS_TM_CRITICAL_INT_MASK
+			(tmdev->tsens_tm_addr)));
+		/*Update watchdog monitoring*/
+		mb();
+	}
+
+	int_mask_addr = TSENS_TM_UPPER_LOWER_INT_MASK(tmdev->tsens_tm_addr);
+	writel_relaxed(TSENS_TM_UPPER_LOWER_INT_DISABLE, int_mask_addr);
+
+	writel_relaxed(TSENS_TM_CRITICAL_INT_EN |
+		TSENS_TM_UPPER_INT_EN | TSENS_TM_LOWER_INT_EN,
+		TSENS_TM_INT_EN(tmdev->tsens_tm_addr));
+
+	return 0;
+}
+
 static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 {
-	struct tsens_device *tmdev = NULL;
-	unsigned int code;
+	struct tsens_device *tmdev = NULL, *tmdev_itr;
+	unsigned int code, ret, tsens_ret;
 	void __iomem *sensor_addr, *trdy;
-	int last_temp = 0, last_temp2 = 0, last_temp3 = 0;
+	int rc = 0, last_temp = 0, last_temp2 = 0, last_temp3 = 0, count = 0;
+	static atomic_t in_tsens_reinit;
 
 	if (!sensor)
 		return -EINVAL;
@@ -94,21 +156,142 @@ static int tsens2xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 	trdy = TSENS_TM_TRDY(tmdev->tsens_tm_addr);
 
 	code = readl_relaxed_no_log(trdy);
-	if (!((code & TSENS_TM_TRDY_FIRST_ROUND_COMPLETE) >>
-			TSENS_TM_TRDY_FIRST_ROUND_COMPLETE_SHIFT)) {
-		pr_err("tsens device first round not complete0x%x, ctr is %d\n",
-			code, tmdev->trdy_fail_ctr);
-		tmdev->trdy_fail_ctr++;
 
-		if (tmdev->trdy_fail_ctr >= 50) {
+	if (!((code & TSENS_TM_TRDY_FIRST_ROUND_COMPLETE) >>
+		    TSENS_TM_TRDY_FIRST_ROUND_COMPLETE_SHIFT)) {
+		if (atomic_read(&in_tsens_reinit)) {
+			pr_err("%s: tsens re-init is in progress\n", __func__);
+			return -EAGAIN;
+		}
+
+		pr_err("%s: tsens device first round not complete0x%x\n",
+			__func__, code);
+
+		/* Wait for 2.5 ms for tsens controller to recover */
+		do {
+			udelay(500);
+			code = readl_relaxed_no_log(trdy);
+			if (code & TSENS_TM_TRDY_FIRST_ROUND_COMPLETE) {
+				TSENS_DUMP(tmdev, "%s",
+					"tsens controller recovered\n");
+				goto sensor_read;
+			}
+		} while (++count < TSENS_RECOVERY_LOOP_COUNT);
+
+		/*
+		 * TSENS controller did not recover,
+		 * proceed with SCM call to re-init it
+		 */
+
+		if (tmdev->tsens_reinit_wa) {
+			struct scm_desc desc = { 0 };
+			int scm_cnt = 0, reg_write_cnt = 0;
+
+			if (atomic_read(&in_tsens_reinit)) {
+				pr_err("%s: tsens re-init is in progress\n",
+					__func__);
+				return -EAGAIN;
+			}
+
+			atomic_set(&in_tsens_reinit, 1);
+
 			if (tmdev->ops->dbg)
 				tmdev->ops->dbg(tmdev, 0,
 					TSENS_DBG_LOG_BUS_ID_DATA, NULL);
+
+			while (1) {
+				/*
+				 * Invoke scm call only if SW register write is
+				 * reflecting in controller. If not, wait for
+				 * 2 ms and then retry.
+				 */
+				if (reg_write_cnt >= 100) {
+					msleep(100);
+					pr_err(
+					"%s: Tsens write is failed. cnt:%d\n",
+						__func__, reg_write_cnt);
+					BUG();
+				}
+				writel_relaxed(BIT(2),
+					TSENS_TM_INT_EN(tmdev->tsens_tm_addr));
+				code = readl_relaxed(
+					TSENS_TM_INT_EN(tmdev->tsens_tm_addr));
+				if (!(code & BIT(2))) {
+					udelay(2000);
+					TSENS_DBG(tmdev, "%s cnt:%d\n",
+					"Re-try TSENS write prior to scm",
+						reg_write_cnt++);
+					continue;
+				}
+				reg_write_cnt = 0;
+
+				/* Make an scm call to re-init TSENS */
+				TSENS_DBG(tmdev, "%s",
+					   "Calling TZ to re-init TSENS\n");
+				ret = scm_call2(SCM_SIP_FNID(SCM_SVC_TSENS,
+							TSENS_INIT_ID), &desc);
+				TSENS_DBG(tmdev, "%s",
+						"return from scm call\n");
+				if (ret) {
+					msleep(100);
+					pr_err("%s: scm call failed %d\n",
+						__func__, ret);
+					BUG();
+				}
+				tsens_ret = desc.ret[0];
+				if (tsens_ret) {
+					msleep(100);
+					pr_err("%s: scm call failed, ret:%d\n",
+						__func__, tsens_ret);
+					BUG();
+				}
+
+				scm_cnt++;
+				rc = 0;
+				list_for_each_entry(tmdev_itr,
+						&tsens_device_list, list) {
+					rc = __tsens2xxx_hw_init(tmdev_itr);
+					if (rc) {
+						pr_err(
+						"%s: TSENS hw_init error\n",
+							__func__);
+						break;
+					}
+				}
+
+				if (!rc)
+					break;
+
+				if (scm_cnt >= 100) {
+					msleep(100);
+					pr_err(
+					"%s: Tsens is not up after %d scm\n",
+						__func__, scm_cnt);
+					BUG();
+				}
+				udelay(2000);
+				TSENS_DBG(tmdev, "%s cnt:%d\n",
+					"Re-try TSENS scm call", scm_cnt);
+			}
+
+			tmdev->tsens_reinit_cnt++;
+			atomic_set(&in_tsens_reinit, 0);
+
+			/* Notify thermal fwk */
+			list_for_each_entry(tmdev_itr,
+						&tsens_device_list, list) {
+				queue_work(tmdev_itr->tsens_reinit_work,
+					&tmdev_itr->therm_fwk_notify);
+			}
+
+		} else {
+			pr_err("%s: tsens controller got reset\n", __func__);
 			BUG();
 		}
-
-		return -ENODATA;
+		return -EAGAIN;
 	}
+
+sensor_read:
 
 	tmdev->trdy_fail_ctr = 0;
 
@@ -543,58 +726,11 @@ static int tsens2xxx_hw_sensor_en(struct tsens_device *tmdev,
 
 static int tsens2xxx_hw_init(struct tsens_device *tmdev)
 {
-	void __iomem *srot_addr;
-	void __iomem *sensor_int_mask_addr;
-	unsigned int srot_val, crit_mask, crit_val;
-	void __iomem *int_mask_addr;
+	int rc = 0;
 
-	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
-	srot_val = readl_relaxed(srot_addr);
-	if (!(srot_val & TSENS_EN)) {
-		pr_err("TSENS device is not enabled\n");
-		return -ENODEV;
-	}
-
-	if (tmdev->ctrl_data->cycle_monitor) {
-		sensor_int_mask_addr =
-			TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_tm_addr);
-		crit_mask = readl_relaxed(sensor_int_mask_addr);
-		crit_val = TSENS_TM_CRITICAL_CYCLE_MONITOR;
-		if (tmdev->ctrl_data->cycle_compltn_monitor_mask)
-			writel_relaxed((crit_mask | crit_val),
-				(TSENS_TM_CRITICAL_INT_MASK
-				(tmdev->tsens_tm_addr)));
-		else
-			writel_relaxed((crit_mask & ~crit_val),
-				(TSENS_TM_CRITICAL_INT_MASK
-				(tmdev->tsens_tm_addr)));
-		/*Update critical cycle monitoring*/
-		mb();
-	}
-
-	if (tmdev->ctrl_data->wd_bark) {
-		sensor_int_mask_addr =
-			TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_tm_addr);
-		crit_mask = readl_relaxed(sensor_int_mask_addr);
-		crit_val = TSENS_TM_CRITICAL_WD_BARK;
-		if (tmdev->ctrl_data->wd_bark_mask)
-			writel_relaxed((crit_mask | crit_val),
-			(TSENS_TM_CRITICAL_INT_MASK
-			(tmdev->tsens_tm_addr)));
-		else
-			writel_relaxed((crit_mask & ~crit_val),
-			(TSENS_TM_CRITICAL_INT_MASK
-			(tmdev->tsens_tm_addr)));
-		/*Update watchdog monitoring*/
-		mb();
-	}
-
-	int_mask_addr = TSENS_TM_UPPER_LOWER_INT_MASK(tmdev->tsens_tm_addr);
-	writel_relaxed(TSENS_TM_UPPER_LOWER_INT_DISABLE, int_mask_addr);
-
-	writel_relaxed(TSENS_TM_CRITICAL_INT_EN |
-		TSENS_TM_UPPER_INT_EN | TSENS_TM_LOWER_INT_EN,
-		TSENS_TM_INT_EN(tmdev->tsens_tm_addr));
+	rc = __tsens2xxx_hw_init(tmdev);
+	if (rc)
+		return rc;
 
 	spin_lock_init(&tmdev->tsens_crit_lock);
 	spin_lock_init(&tmdev->tsens_upp_low_lock);

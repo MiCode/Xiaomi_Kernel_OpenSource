@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,10 +101,19 @@ static struct pll_vco gpu_cc_pll_vco[] = {
 	{ 500000000,  1000000000, 2 },
 };
 
+static struct pll_vco gpu_cc_pll0_vco[] = {
+	{ 1000000000, 2000000000, 0 },
+};
+
+static struct pll_vco gpu_cc_pll1_vco[] = {
+	{ 500000000,  1000000000, 2 },
+};
+
 /* 1020MHz configuration */
-static const struct alpha_pll_config gpu_pll0_config = {
+static struct alpha_pll_config gpu_pll0_config = {
 	.l = 0x35,
 	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi_val = 0x1,
 	.test_ctl_hi_mask = 0x1,
 	.alpha_u = 0x20,
 	.alpha = 0x00,
@@ -115,9 +124,10 @@ static const struct alpha_pll_config gpu_pll0_config = {
 };
 
 /* 930MHz configuration */
-static const struct alpha_pll_config gpu_pll1_config = {
+static struct alpha_pll_config gpu_pll1_config = {
 	.l = 0x30,
 	.config_ctl_val = 0x4001055b,
+	.test_ctl_hi_val = 0x1,
 	.test_ctl_hi_mask = 0x1,
 	.alpha_u = 0x70,
 	.alpha = 0x00,
@@ -127,11 +137,24 @@ static const struct alpha_pll_config gpu_pll1_config = {
 	.aux2_output_mask = BIT(2),
 };
 
+static struct clk_init_data gpu_cc_pll0_out_aux2_sa6155 = {
+	.name = "gpu_cc_pll0_out_aux2",
+	.parent_names = (const char *[]){ "bi_tcxo" },
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_slew_ops,
+	.vdd_class = &vdd_mx,
+	.num_rate_max = VDD_MX_NUM,
+	.rate_max = (unsigned long[VDD_MX_NUM]) {
+		[VDD_MX_MIN] = 1000000000,
+		[VDD_MX_NOMINAL] = 2000000000},
+};
+
 static struct clk_alpha_pll gpu_cc_pll0_out_aux2 = {
 	.offset = 0x0,
 	.vco_table = gpu_cc_pll_vco,
 	.num_vco = ARRAY_SIZE(gpu_cc_pll_vco),
 	.flags = SUPPORTS_DYNAMIC_UPDATE,
+	.config = &gpu_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 		.name = "gpu_cc_pll0_out_aux2",
@@ -147,11 +170,24 @@ static struct clk_alpha_pll gpu_cc_pll0_out_aux2 = {
 	},
 };
 
+static struct clk_init_data gpu_cc_pll1_out_aux2_sa6155 = {
+	.name = "gpu_cc_pll1_out_aux2",
+	.parent_names = (const char *[]){ "bi_tcxo" },
+	.num_parents = 1,
+	.ops = &clk_alpha_pll_slew_ops,
+	.vdd_class = &vdd_mx,
+	.num_rate_max = VDD_MX_NUM,
+	.rate_max = (unsigned long[VDD_MX_NUM]) {
+		[VDD_MX_MIN] = 1000000000,
+		[VDD_MX_NOMINAL] = 2000000000},
+};
+
 static struct clk_alpha_pll gpu_cc_pll1_out_aux2 = {
 	.offset = 0x100,
 	.vco_table = gpu_cc_pll_vco,
 	.num_vco = ARRAY_SIZE(gpu_cc_pll_vco),
 	.flags = SUPPORTS_DYNAMIC_UPDATE,
+	.config = &gpu_pll1_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 		.name = "gpu_cc_pll1_out_aux2",
@@ -296,14 +332,14 @@ static struct clk_branch gpu_cc_cx_apb_clk = {
 
 static struct clk_branch gpu_cc_cx_gfx3d_clk = {
 	.halt_reg = 0x10a4,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.clkr = {
 		.enable_reg = 0x10a4,
 		.enable_mask = BIT(0),
 		.hw.init = &(struct clk_init_data){
 			.name = "gpu_cc_cx_gfx3d_clk",
 			.parent_names = (const char *[]){
-				"gpu_cc_gx_gfx3d_clk_src",
+				"gpu_cc_gx_gfx3d_clk",
 			},
 			.num_parents = 1,
 			.flags = CLK_SET_RATE_PARENT,
@@ -504,12 +540,54 @@ static const struct qcom_cc_desc gpu_cc_sm6150_desc = {
 	.num_hwclks = ARRAY_SIZE(gpu_cc_sm6150_hws),
 };
 
+static struct clk_regmap *gpu_cc_sm6150_critical_clocks[] = {
+	&gpu_cc_ahb_clk.clkr,
+};
+
+static const struct qcom_cc_critical_desc gpu_cc_sm6150_critical_desc = {
+	.clks = gpu_cc_sm6150_critical_clocks,
+	.num_clks = ARRAY_SIZE(gpu_cc_sm6150_critical_clocks),
+};
+
 static const struct of_device_id gpu_cc_sm6150_match_table[] = {
 	{ .compatible = "qcom,gpucc-sm6150" },
 	{ .compatible = "qcom,gpucc-sa6155" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_sm6150_match_table);
+
+static void gpu_cc_sm6150_configure(struct regmap *regmap)
+{
+	unsigned int value, mask;
+
+	/* Recommended WAKEUP/SLEEP settings for the gpu_cc_cx_gmu_clk */
+	mask = CX_GMU_CBCR_WAKE_MASK << CX_GMU_CBCR_WAKE_SHIFT;
+	mask |= CX_GMU_CBCR_SLEEP_MASK << CX_GMU_CBCR_SLEEP_SHIFT;
+	value = 0xf << CX_GMU_CBCR_WAKE_SHIFT | 0xf << CX_GMU_CBCR_SLEEP_SHIFT;
+	regmap_update_bits(regmap, gpu_cc_cx_gmu_clk.clkr.enable_reg,
+							mask, value);
+
+	/* After POR, Clock Ramp Controller(CRC) will be in bypass mode.
+	 * Software needs to do the following operation to enable the CRC
+	 * for GFX3D clock and divide the input clock by div by 2.
+	 */
+	regmap_update_bits(regmap, GFX3D_CRC_MND_CFG, 0x00015011, 0x00015011);
+	regmap_update_bits(regmap,
+			GFX3D_CRC_SID_FSM_CTRL, 0x00800000, 0x00800000);
+}
+
+static int gpu_cc_sm6150_resume(struct device *dev)
+{
+	struct regmap *regmap = dev_get_drvdata(dev);
+
+	gpu_cc_sm6150_configure(regmap);
+
+	return qcom_cc_enable_critical_clks(&gpu_cc_sm6150_critical_desc);
+}
+
+static const struct dev_pm_ops gpu_cc_sm6150_pm_ops = {
+	.restore_early = gpu_cc_sm6150_resume,
+};
 
 static void gpucc_sm6150_fixup_sa6155(struct platform_device *pdev)
 {
@@ -519,13 +597,20 @@ static void gpucc_sm6150_fixup_sa6155(struct platform_device *pdev)
 	vdd_mx.cur_level = VDD_MX_NUM_SA6155;
 	gpu_cc_gx_gfx3d_clk_src.clkr.hw.init->rate_max[VDD_HIGH_L1] = 0;
 	gpu_cc_gx_gfx3d_clk_src.freq_tbl = ftbl_gpu_cc_gx_gfx3d_clk_src_sa6155;
+
+	gpu_cc_pll0_out_aux2.vco_table = gpu_cc_pll0_vco;
+	gpu_cc_pll0_out_aux2.num_vco = ARRAY_SIZE(gpu_cc_pll0_vco);
+	gpu_cc_pll0_out_aux2.clkr.hw.init = &gpu_cc_pll0_out_aux2_sa6155;
+	gpu_cc_pll1_out_aux2.vco_table = gpu_cc_pll1_vco;
+	gpu_cc_pll1_out_aux2.num_vco = ARRAY_SIZE(gpu_cc_pll1_vco);
+	gpu_cc_pll1_out_aux2.clkr.hw.init = &gpu_cc_pll1_out_aux2_sa6155;
+	pdev->dev.driver->pm =  &gpu_cc_sm6150_pm_ops;
 }
 
 static int gpu_cc_sm6150_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
 	int ret;
-	unsigned int value, mask;
 	int is_sa6155;
 
 	/* Get CX voltage regulator for CX and GMU clocks. */
@@ -558,9 +643,9 @@ static int gpu_cc_sm6150_probe(struct platform_device *pdev)
 	}
 
 	clk_alpha_pll_configure(&gpu_cc_pll0_out_aux2, regmap,
-					&gpu_pll0_config);
+					gpu_cc_pll0_out_aux2.config);
 	clk_alpha_pll_configure(&gpu_cc_pll1_out_aux2, regmap,
-					&gpu_pll1_config);
+					gpu_cc_pll1_out_aux2.config);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_sm6150_desc, regmap);
 	if (ret) {
@@ -568,20 +653,10 @@ static int gpu_cc_sm6150_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* Recommended WAKEUP/SLEEP settings for the gpu_cc_cx_gmu_clk */
-	mask = CX_GMU_CBCR_WAKE_MASK << CX_GMU_CBCR_WAKE_SHIFT;
-	mask |= CX_GMU_CBCR_SLEEP_MASK << CX_GMU_CBCR_SLEEP_SHIFT;
-	value = 0xf << CX_GMU_CBCR_WAKE_SHIFT | 0xf << CX_GMU_CBCR_SLEEP_SHIFT;
-	regmap_update_bits(regmap, gpu_cc_cx_gmu_clk.clkr.enable_reg,
-							mask, value);
+	gpu_cc_sm6150_configure(regmap);
 
-	/* After POR, Clock Ramp Controller(CRC) will be in bypass mode.
-	 * Software needs to do the following operation to enable the CRC
-	 * for GFX3D clock and divide the input clock by div by 2.
-	 */
-	regmap_update_bits(regmap, GFX3D_CRC_MND_CFG, 0x00015011, 0x00015011);
-	regmap_update_bits(regmap,
-			GFX3D_CRC_SID_FSM_CTRL, 0x00800000, 0x00800000);
+	if (is_sa6155)
+		dev_set_drvdata(&pdev->dev, regmap);
 
 	dev_info(&pdev->dev, "Registered GPU CC clocks\n");
 

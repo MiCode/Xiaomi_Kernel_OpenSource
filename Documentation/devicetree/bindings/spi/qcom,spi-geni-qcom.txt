@@ -51,6 +51,9 @@ Optional properties:
 			transfers. FIFO mode does not work when FW of SE
 			is configured in GSI mode.
 
+- slv-cross-connected : Set this flag only when SPI-Slave MISO pin is connected
+			to SPI-Master MOSI and vice-versa .
+
 Other optional properties described in
 Documentation/devicetree/bindings/spi/spi-bus.txt
 

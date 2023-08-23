@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #include "cam_debug_util.h"
 
 static struct cam_hw_intf *cam_ife_csid_hw_list[CAM_IFE_CSID_HW_RES_MAX] = {
-	0, 0, 0, 0};
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
 static char csid_dev_name[8];
 

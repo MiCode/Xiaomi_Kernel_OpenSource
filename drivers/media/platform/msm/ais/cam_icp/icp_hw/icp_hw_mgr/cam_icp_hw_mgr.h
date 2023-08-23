@@ -70,6 +70,12 @@
 
 #define CAM_ICP_CTX_MAX_CMD_BUFFERS 0x2
 
+/*
+ * Response time threshold in ms beyond which a request is not expected
+ * to be with ICP hw
+ */
+#define CAM_ICP_CTX_RESPONSE_TIME_THRESHOLD   300000
+
 /**
  * struct icp_hfi_mem_info
  * @qtbl: Memory info of queue table
@@ -155,6 +161,7 @@ struct icp_frame_info {
  * @fw_process_flag: Frame process flag
  * @clk_info: Clock information for a request
  * @frame_info: information needed to process request
+ * @submit_timestamp: Submit timestamp to hw
  */
 struct hfi_frame_process_info {
 	struct hfi_cmd_ipebps_async hfi_frame_cmd[CAM_FRAME_CMD_MAX];
@@ -169,6 +176,7 @@ struct hfi_frame_process_info {
 	uint32_t fw_process_flag[CAM_FRAME_CMD_MAX];
 	struct cam_icp_clk_bw_request clk_info[CAM_FRAME_CMD_MAX];
 	struct icp_frame_info frame_info[CAM_FRAME_CMD_MAX];
+	struct timeval submit_timestamp[CAM_FRAME_CMD_MAX];
 };
 
 /**
@@ -188,6 +196,7 @@ struct cam_ctx_clk_info {
 	uint32_t reserved;
 	uint64_t uncompressed_bw;
 	uint64_t compressed_bw;
+	uint64_t compressed_bw_ab;
 	int32_t clk_rate[CAM_MAX_VOTE];
 };
 /**
@@ -252,6 +261,7 @@ struct icp_cmd_generic_blob {
  * @over_clked: Over clock count
  * @uncompressed_bw: Current bandwidth voting
  * @compressed_bw: Current compressed bandwidth voting
+ * @compressed_bw_ab: Current absolute compressed bandwidth voting
  * @hw_type: IPE/BPS device type
  * @watch_dog: watchdog timer handle
  * @watch_dog_reset_counter: Counter for watch dog reset
@@ -263,6 +273,7 @@ struct cam_icp_clk_info {
 	uint32_t over_clked;
 	uint64_t uncompressed_bw;
 	uint64_t compressed_bw;
+	uint64_t compressed_bw_ab;
 	uint32_t hw_type;
 	struct cam_req_mgr_timer *watch_dog;
 	uint32_t watch_dog_reset_counter;

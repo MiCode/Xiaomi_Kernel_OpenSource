@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -875,13 +875,15 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 	}
 
 	/* Determine operational mode */
-	if (other_pipe->bam != NULL) {
+	if ((bam_pipe->connect.options & SPS_O_DUMMY_PEER) ||
+						other_pipe->bam != NULL) {
 		unsigned long iova;
-		struct sps_bam *peer_bam = (struct sps_bam *)(other_pipe->bam);
+		struct sps_bam *peer_bam;
 		/* BAM-to-BAM mode */
 		bam_pipe->state |= BAM_STATE_BAM2BAM;
 		hw_params.mode = BAM_PIPE_MODE_BAM2BAM;
-
+		if (!(bam_pipe->connect.options & SPS_O_DUMMY_PEER))
+			peer_bam = (struct sps_bam *)(other_pipe->bam);
 		if (dev->props.options & SPS_BAM_SMMU_EN) {
 			if (bam_pipe->mode == SPS_MODE_SRC)
 				iova = bam_pipe->connect.dest_iova;
@@ -892,11 +894,19 @@ int sps_bam_pipe_connect(struct sps_pipe *bam_pipe,
 				 BAM_ID(dev), pipe_index, (void *)iova);
 			hw_params.peer_phys_addr = (u32)iova;
 		} else {
-			hw_params.peer_phys_addr = peer_bam->props.phys_addr;
+			if (!(bam_pipe->connect.options & SPS_O_DUMMY_PEER))
+				hw_params.peer_phys_addr =
+					peer_bam->props.phys_addr;
 		}
-
-		hw_params.peer_pipe = other_pipe->pipe_index;
-
+		if (!(bam_pipe->connect.options & SPS_O_DUMMY_PEER)) {
+			hw_params.peer_pipe = other_pipe->pipe_index;
+		} else {
+			hw_params.peer_phys_addr =
+					bam_pipe->connect.destination;
+			hw_params.peer_pipe =
+					bam_pipe->connect.dest_pipe_index;
+			hw_params.dummy_peer = true;
+		}
 		/* Verify FIFO buffers are allocated for BAM-to-BAM pipes */
 		if (map->desc.phys_base == SPS_ADDR_INVALID ||
 		    map->data.phys_base == SPS_ADDR_INVALID ||

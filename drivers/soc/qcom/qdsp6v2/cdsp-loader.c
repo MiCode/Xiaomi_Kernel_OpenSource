@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2017, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -143,6 +143,7 @@ static void cdsp_loader_unload(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "%s: calling subsystem put\n", __func__);
 		subsystem_put(priv->pil_h);
 		priv->pil_h = NULL;
+		cdsp_state = CDSP_SUBSYS_DOWN;
 	}
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,6 +117,7 @@ static void cam_req_mgr_process_workq(struct work_struct *w)
 			atomic_sub(1, &workq->task.pending_cnt);
 			list_del_init(&task->entry);
 			WORKQ_RELEASE_LOCK(workq, flags);
+			CAM_DBG(CAM_CRM, "processing task %pK", task);
 			cam_req_mgr_process_task(task);
 			CAM_DBG(CAM_CRM, "processed task %pK free_cnt %d",
 				task, atomic_read(&workq->task.free_cnt));

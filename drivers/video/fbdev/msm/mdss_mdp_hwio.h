@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -346,6 +346,10 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_REG_SCALER_MISR_SIGNATURE_0		0x74
 #define MDSS_MDP_REG_SCALER_MISR_SIGNATURE_1		0x78
 
+/* Destination scaler TOP registers */
+#define MDSS_MDP_REG_DEST_SCALER_OP_MODE		0x00
+#define MDSS_MDP_REG_DEST_SCALER_HW_VERSION		0x10
+
 #define SCALER_EN			BIT(0)
 #define SCALER_DIR_EN			BIT(4)
 #define SCALER_DE_EN			BIT(8)
@@ -537,6 +541,10 @@ enum mdss_mdp_writeback_index {
 #define MDSS_MDP_REG_WB_N16_INIT_PHASE_Y_C12		0x06C
 #define MDSS_MDP_REG_WB_OUT_SIZE			0x074
 #define MDSS_MDP_REG_WB_ALPHA_X_VALUE			0x078
+#define MDSS_MDP_REG_WB_DANGER_LUT			0x084
+#define MDSS_MDP_REG_WB_SAFE_LUT			0x088
+#define MDSS_MDP_REG_WB_CREQ_LUT			0x08c
+#define MDSS_MDP_REG_WB_QOS_CTRL			0x090
 #define MDSS_MDP_REG_WB_CSC_BASE			0x260
 #define MDSS_MDP_REG_WB_DST_ADDR_SW_STATUS		0x2B0
 #define MDSS_MDP_REG_WB_CDP_CTRL			0x2B4
@@ -626,15 +634,6 @@ enum mdss_mdp_dspp_index {
 #define MDSS_MDP_DSPP_OP_PA_SIX_ZONE_SAT_MASK		BIT(30)
 #define MDSS_MDP_DSPP_OP_PA_SIX_ZONE_VAL_MASK		BIT(31)
 
-enum mdss_mpd_intf_index {
-	MDSS_MDP_NO_INTF,
-	MDSS_MDP_INTF0,
-	MDSS_MDP_INTF1,
-	MDSS_MDP_INTF2,
-	MDSS_MDP_INTF3,
-	MDSS_MDP_MAX_INTF
-};
-
 #define MDSS_MDP_REG_INTF_TIMING_ENGINE_EN		0x000
 #define MDSS_MDP_REG_INTF_CONFIG			0x004
 #define MDSS_MDP_REG_INTF_HSYNC_CTL			0x008
@@ -684,12 +683,18 @@ enum mdss_mpd_intf_index {
 #define MDSS_MDP_REG_INTF_PROG_LINE_INTR_CONF		0x250
 #define MDSS_MDP_REG_INTF_VBLANK_END_CONF		0x264
 #define MDSS_MDP_REG_INTF_RGB_INTF_CTRL			0x268
+#define MDSS_MDP_REG_INTF_AVR_CONTROL			0x270
+#define MDSS_MDP_REG_INTF_AVR_MODE			0x274
+#define MDSS_MDP_REG_INTF_AVR_TRIGGER			0x278
+#define MDSS_MDP_REG_INTF_AVR_VTOTAL			0x27C
 
 #define MDSS_MDP_REG_INTF_FRAME_LINE_COUNT_EN		0x0A8
 #define MDSS_MDP_REG_INTF_FRAME_COUNT			0x0AC
 #define MDSS_MDP_REG_INTF_LINE_COUNT			0x0B0
 #define MDSS_MDP_PANEL_FORMAT_RGB888			0x213F
 #define MDSS_MDP_PANEL_FORMAT_RGB666			0x212A
+
+#define MDSS_MDP_REG_DSI_ULP_CLAMP_VALUE		0x064
 
 #define MDSS_MDP_PANEL_FORMAT_PACK_ALIGN_MSB		BIT(7)
 
@@ -811,7 +816,10 @@ enum mdss_mdp_pingpong_index {
 
 #define MDSS_MDP_REG_CDM_HDMI_PACK_OP_MODE              0x200
 
+#define MDSS_MDP_DSPP_DEBUGBUS_STATUS                   0x34C
+
 /* Following offsets are with respect to MDP base */
+#define MDSS_MDP_HDMI_DP_CORE_SELECT                    0x408
 #define MDSS_MDP_MDP_OUT_CTL_0                          0x410
 #define MDSS_MDP_INTF_CMD_MISR_CTRL		(MDSS_MDP_INTF_MISR_CTRL + 0x8)
 #define MDSS_MDP_INTF_CMD_MISR_SIGNATURE	(MDSS_MDP_INTF_MISR_CTRL + 0xC)
@@ -819,7 +827,7 @@ enum mdss_mdp_pingpong_index {
 #define MMSS_VBIF_CLKON			0x4
 #define MMSS_VBIF_RD_LIM_CONF			0x0B0
 #define MMSS_VBIF_WR_LIM_CONF			0x0C0
-#define MMSS_VBIF_OUT_RD_LIM_CONF0		0x0D0
+#define MDSS_VBIF_WRITE_GATHER_EN		0x0AC
 
 #define MMSS_VBIF_SRC_ERR		0x194
 #define MMSS_VBIF_ERR_INFO		0x1A0
@@ -843,5 +851,9 @@ enum mdss_mdp_pingpong_index {
 #define MDSS_MDP_REG_TRAFFIC_SHAPER_RD_CLIENT(num)	(0x030 + (num * 4))
 #define MDSS_MDP_REG_TRAFFIC_SHAPER_WR_CLIENT(num)	(0x060 + (num * 4))
 #define MDSS_MDP_REG_TRAFFIC_SHAPER_FIXPOINT_FACTOR	4
+
+#define MDSS_MDP_REG_SPLIT_LINK				0x00060
+#define MDSS_MDP_REG_SPLIT_LINK_LEFT_LINK_EN		BIT(1)
+#define MDSS_MDP_REG_SPLIT_LINK_RIGHT_LINK_EN		BIT(2)
 
 #endif

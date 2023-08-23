@@ -1,0 +1,71 @@
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sdxprairie.dtsi"
+#include "sa515m-ccard.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA515M CCARD USB-EP";
+	compatible = "qcom,sa515m-ccard",
+		"qcom,sdxprairie", "qcom,ccard";
+	qcom,board-id = <25 2>, <25 0x102>;
+
+	/delete-node/ qcom_gadget;
+	qcom_gadget {
+		compatible = "qcom,usb-gadget";
+		qcom,vid = <0x05c6>;
+
+		composition1 {
+			qcom,pid = <0x9103>;
+			qcom,composition = "diag.diag,ipc.ipc,gsi.rmnet,gsi.rmnet.v2x,ecm.ecm,gsi.dpl";
+		};
+
+		composition2 {
+			qcom,pid = <0x9107>;
+			qcom,composition = "diag.diag,ipc.ipc,gsi.rmnet.v2x,gsi.ecm,gsi.dpl";
+		};
+
+		composition3 {
+			qcom,pid = <0x910b>;
+			qcom,composition = "diag.diag,gsi.rmnet,gsi.dpl,ipc.ipc,ecm.ecm";
+		};
+
+		composition4 {
+			qcom,pid = <0x910d>;
+			qcom,composition = "diag.diag,gsi.dpl,ipc.ipc,gsi.ecm";
+		};
+	};
+};
+
+&ipa_hw {
+	qcom,ipa-config-is-auto;
+	qcom,use-xbl-boot;
+};
+
+&usb {
+	qcom,num-gsi-evt-buffs = <0x5>;
+};
+
+&sdx_ext_ipc {
+	compatible = "qcom,sa515m-ccard";
+	qcom,status-in-gpio = <&tlmm 76 0x00>;
+	qcom,status-out-gpio = <&tlmm 33 0x00>;
+	qcom,status-out2-gpio = <&tlmm 31 0x00>;
+	qcom,wakeup-gpio-in = <&tlmm 77 0x00>;
+	qcom,wakeup-gpio-out = <&tlmm 96 0x00>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&wakeup_gpio_default>;
+	qcom,default-policy-nop;
+	status = "okay";
+};

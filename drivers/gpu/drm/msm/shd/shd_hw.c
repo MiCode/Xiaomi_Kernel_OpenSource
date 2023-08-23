@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,7 +103,6 @@ static void _sde_shd_hw_ctl_clear_blendstages_in_range(
 	u32 mixermask[4] = {0, 0, 0, 0};
 	u32 start = hw_ctl->range.start + SDE_STAGE_0;
 	u32 end = start + hw_ctl->range.size;
-	int pipes_per_stage;
 	int i, j;
 	u32 value, mask;
 	const struct ctl_sspp_stage_reg_map *sspp_cfg;
@@ -117,16 +116,14 @@ static void _sde_shd_hw_ctl_clear_blendstages_in_range(
 		mixercfg[1] | mixercfg[2] | mixercfg[3]))
 		goto end;
 
-	if (test_bit(SDE_MIXER_SOURCESPLIT,
-		&ctx->mixer_hw_caps->features))
-		pipes_per_stage = PIPES_PER_STAGE;
-	else
-		pipes_per_stage = 1;
-
 	for (i = 1; i < SSPP_MAX; i++) {
-		for (j = 0 ; j < pipes_per_stage; j++) {
+		for (j = 0 ; j < CTL_SSPP_MAX_RECTS; j++) {
 			sspp_cfg = &sspp_reg_cfg_tbl[i][j];
 			if (!sspp_cfg->bits)
+				continue;
+
+			if (hw_ctl->mixer_cfg[lm].mixercfg_skip_sspp_mask[j] &
+					(1 << i))
 				continue;
 
 			mask = (1 << sspp_cfg->bits) - 1;
@@ -245,6 +242,8 @@ exit:
 	hw_ctl->mixer_cfg[lm].mixercfg_ext = mixercfg[1];
 	hw_ctl->mixer_cfg[lm].mixercfg_ext2 = mixercfg[2];
 	hw_ctl->mixer_cfg[lm].mixercfg_ext3 = mixercfg[3];
+	hw_ctl->mixer_cfg[lm].mixercfg_skip_sspp_mask[0] = 0;
+	hw_ctl->mixer_cfg[lm].mixercfg_skip_sspp_mask[1] = 0;
 }
 
 static void _sde_shd_flush_hw_ctl(struct sde_hw_ctl *ctx)
@@ -256,6 +255,8 @@ static void _sde_shd_flush_hw_ctl(struct sde_hw_ctl *ctx)
 	int i;
 
 	hw_ctl = container_of(ctx, struct sde_shd_hw_ctl, base);
+
+	hw_ctl->old_mask = hw_ctl->flush_mask;
 
 	hw_ctl->flush_mask = ctx->flush.pending_flush_mask;
 
@@ -439,5 +440,21 @@ void sde_shd_hw_lm_init_op(struct sde_hw_mixer *ctx)
 
 	ctx->ops.clear_dim_layer =
 			_sde_shd_clear_dim_layer;
+}
+
+void sde_shd_hw_skip_sspp_clear(struct sde_hw_ctl *ctx,
+	enum sde_sspp sspp, int multirect_idx)
+{
+	struct sde_shd_hw_ctl *hw_ctl;
+	int i;
+
+	hw_ctl = container_of(ctx, struct sde_shd_hw_ctl, base);
+
+	for (i = 0; i < ctx->mixer_count; i++) {
+		int lm = ctx->mixer_hw_caps[i].id;
+
+		hw_ctl->mixer_cfg[lm].mixercfg_skip_sspp_mask[multirect_idx] |=
+			(1 << sspp);
+	}
 }
 

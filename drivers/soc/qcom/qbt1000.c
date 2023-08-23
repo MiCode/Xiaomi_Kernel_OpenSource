@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,6 +117,7 @@ struct qbt1000_drvdata {
 	enum fd_indication_mode fd_ind_mode;
 	bool ipc_is_stale;
 	bool gestures_enabled;
+	atomic_t wakelock_acquired;
 };
 
 /*
@@ -311,6 +312,11 @@ static int qbt1000_release(struct inode *inode, struct file *file)
 	}
 	drvdata = file->private_data;
 	atomic_inc(&drvdata->available);
+	if (atomic_read(&drvdata->wakelock_acquired) != 0) {
+		pr_debug("Releasing wakelock\n");
+		pm_relax(drvdata->dev);
+		atomic_set(&drvdata->wakelock_acquired, 0);
+	}
 	return 0;
 }
 
@@ -586,6 +592,25 @@ static long qbt1000_ioctl(
 		} else {
 			drvdata->fd_ind_mode = FD_IND_MODE_BIOMETRIC;
 			drvdata->gestures_enabled = false;
+		}
+		break;
+	}
+	case QBT1000_ACQUIRE_WAKELOCK:
+	{
+		if (atomic_read(&drvdata->wakelock_acquired) == 0) {
+			pr_debug("Acquiring wakelock\n");
+			pm_stay_awake(drvdata->dev);
+		}
+		atomic_inc(&drvdata->wakelock_acquired);
+		break;
+	}
+	case QBT1000_RELEASE_WAKELOCK:
+	{
+		if (atomic_read(&drvdata->wakelock_acquired) == 0)
+			break;
+		if (atomic_dec_and_test(&drvdata->wakelock_acquired)) {
+			pr_debug("Releasing wakelock\n");
+			pm_relax(drvdata->dev);
 		}
 		break;
 	}
@@ -1234,6 +1259,7 @@ static int qbt1000_probe(struct platform_device *pdev)
 		goto end;
 
 	atomic_set(&drvdata->available, 1);
+	atomic_set(&drvdata->wakelock_acquired, 0);
 
 	mutex_init(&drvdata->mutex);
 	mutex_init(&drvdata->fw_events_mutex);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -202,6 +202,20 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.regfw_name = "a530v3_seq.fw2",
 	},
 	{
+		.gpurev = ADRENO_REV_A504,
+		.core = 5,
+		.major = 0,
+		.minor = 4,
+		.patchid = ANY_ID,
+		.features = ADRENO_PREEMPTION | ADRENO_64BIT,
+		.pm4fw_name = "a530_pm4.fw",
+		.pfpfw_name = "a530_pfp.fw",
+		.gpudev = &adreno_a5xx_gpudev,
+		.gmem_size = (SZ_128K + SZ_8K),
+		.num_protected_regs = 0x20,
+		.busy_mask = 0xFFFFFFFE,
+	},
+	{
 		.gpurev = ADRENO_REV_A505,
 		.core = 5,
 		.major = 0,
@@ -303,6 +317,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gmem_size = (SZ_256K + SZ_16K),
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
+		.cx_ipeak_gpu_freq = 700000000,
 	},
 	{
 		.gpurev = ADRENO_REV_A508,
@@ -395,9 +410,9 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gmem_size = SZ_512K,
 		.num_protected_regs = 0x20,
 		.busy_mask = 0xFFFFFFFE,
-		.gpmufw_name = "a630_gmu.bin",
+		.gpmufw_name = "a618_gmu.bin",
 		.gpmu_major = 0x1,
-		.gpmu_minor = 0x007,
+		.gpmu_minor = 0x008,
 	},
 	{
 		.gpurev = ADRENO_REV_A640,
@@ -449,7 +464,9 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.major = 8,
 		.minor = 0,
 		.patchid = ANY_ID,
-		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU,
+		.features = ADRENO_64BIT | ADRENO_RPMH | ADRENO_GPMU |
+			ADRENO_CONTENT_PROTECTION | ADRENO_IOCOHERENT |
+			ADRENO_IFPC,
 		.sqefw_name = "a630_sqe.fw",
 		.zap_name = "a640_zap",
 		.gpudev = &adreno_a6xx_gpudev,

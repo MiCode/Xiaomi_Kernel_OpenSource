@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,6 @@
 #include <linux/kthread.h>
 
 #include "mdss_dsi.h"
-#include "mdss_edp.h"
 #include "mdss_dsi_phy.h"
 
 #define MDSS_DSI_DSIPHY_REGULATOR_CTRL_0	0x00
@@ -38,22 +37,47 @@
 #define MDSS_DSI_DSIPHY_GLBL_TEST_CTRL		0x1d4
 #define MDSS_DSI_DSIPHY_CTRL_0			0x170
 #define MDSS_DSI_DSIPHY_CTRL_1			0x174
+#define MDSS_DSI_DSIPHY_CMN_CLK_CFG0		0x0010
+#define MDSS_DSI_DSIPHY_CMN_CLK_CFG1		0x0014
+
+#define MDSS_DSI_NUM_DATA_LANES		0x04
+#define MDSS_DSI_NUM_CLK_LANES		0x01
 
 #define SW_RESET BIT(2)
 #define SW_RESET_PLL BIT(0)
 #define PWRDN_B BIT(7)
 
 /* 8996 */
-#define DATALANE_OFFSET_FROM_BASE_8996	0x100
-#define DSIPHY_CMN_PLL_CNTRL		0x0048
+#define DATALANE_OFFSET_FROM_BASE_8996		0x100
+#define CLKLANE_OFFSET_FROM_BASE_8996		0x300
 #define DATALANE_SIZE_8996			0x80
+#define CLKLANE_SIZE_8996			0x80
 
+#define DSIPHY_CMN_PLL_CNTRL			0x0048
 #define DSIPHY_CMN_GLBL_TEST_CTRL		0x0018
 #define DSIPHY_CMN_CTRL_0			0x001c
 #define DSIPHY_CMN_CTRL_1			0x0020
 #define DSIPHY_CMN_LDO_CNTRL			0x004c
 #define DSIPHY_PLL_CLKBUFLR_EN			0x041c
 #define DSIPHY_PLL_PLL_BANDGAP			0x0508
+
+#define DSIPHY_LANE_STRENGTH_CTRL_NUM		0x0002
+#define DSIPHY_LANE_STRENGTH_CTRL_OFFSET	0x0004
+#define DSIPHY_LANE_STRENGTH_CTRL_BASE		0x0038
+
+#define DSIPHY_LANE_CFG_NUM			0x0004
+#define DSIPHY_LANE_CFG_OFFSET			0x0004
+#define DSIPHY_LANE_CFG_BASE			0x0000
+
+#define DSIPHY_LANE_VREG_NUM			0x0001
+#define DSIPHY_LANE_VREG_OFFSET			0x0004
+#define DSIPHY_LANE_VREG_BASE			0x0064
+
+#define DSIPHY_LANE_TIMING_CTRL_NUM		0x0008
+#define DSIPHY_LANE_TIMING_CTRL_OFFSET		0x0004
+#define DSIPHY_LANE_TIMING_CTRL_BASE		0x0018
+
+#define DSIPHY_LANE_TEST_STR			0x0014
 
 #define DSIPHY_LANE_STRENGTH_CTRL_1		0x003c
 #define DSIPHY_LANE_VREG_CNTRL			0x0064
@@ -130,6 +154,8 @@
 #define DSIPHY_CKLN_TIMING_CTRL_8	0x0328
 
 #define DSIPHY_PLL_RESETSM_CNTRL5	0x043c
+
+#define DSIPHY_CMN_CLK_CFG1_SPLIT_LINK	0x1
 
 #define PLL_CALC_DATA(addr0, addr1, data0, data1)      \
 	(((data1) << 24) | ((((addr1)/4) & 0xFF) << 16) | \
@@ -519,8 +545,7 @@ void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	 * is only done from the clock master. This will ensure that the PLL is
 	 * off when PHY reset is called.
 	 */
-	if (mdss_dsi_is_ctrl_clk_slave(ctrl) ||
-		(ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM))
+	if (mdss_dsi_is_ctrl_clk_slave(ctrl))
 		return;
 
 	mdss_dsi_phy_sw_reset_sub(ctrl);
@@ -562,6 +587,9 @@ static void mdss_dsi_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20)
 		return;
 
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+		return;
+
 	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM)
 		return;
 
@@ -579,6 +607,8 @@ static void mdss_dsi_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_PLL_CLKBUFLR_EN, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_GLBL_TEST_CTRL, 0);
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0);
+	} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
+		mdss_dsi_phy_v3_shutdown(ctrl);
 	} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM) {
 		mdss_dsi_12nm_phy_shutdown(ctrl);
 	} else {
@@ -608,8 +638,8 @@ void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
-	MIPI_OUTP((ctrl->phy_io.base) + 0x0188, pd->strength[1]);
 	/* Strength ctrl 1, LP Rx + CD Rxcontention detection */
+	MIPI_OUTP((ctrl->phy_io.base) + 0x0188, pd->strength[1]);
 	wmb();
 }
 
@@ -617,8 +647,12 @@ static void mdss_dsi_28nm_phy_regulator_enable(
 		struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct mdss_dsi_phy_ctrl *pd;
-
 	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
+
+	if (pd->regulator_len == 0) {
+		pr_warn("%s: invalid regulator settings\n", __func__);
+		return;
+	}
 
 	if (pd->reg_ldo_mode) {
 		/* Regulator ctrl 0 */
@@ -704,7 +738,6 @@ static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	off = 0x0140;	/* phy timing ctrl 0 - 11 */
 	for (i = 0; i < 12; i++) {
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + off, pd->timing[i]);
-		/* make sure phy timing register is programed */
 		wmb();
 		off += 4;
 	}
@@ -717,14 +750,13 @@ static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			offset = i + (ln * 9);
 			MIPI_OUTP((ctrl_pdata->phy_io.base) + off,
 							pd->lanecfg[offset]);
-			/* make sure lane config register is programed */
 			wmb();
 			off += 4;
 		}
 	}
 
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0180, 0x0a);
 	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_4 */
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0180, 0x0a);
 	wmb();
 
 	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
@@ -748,7 +780,7 @@ static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	off = 0x01b4;	/* phy BIST ctrl 0 - 5 */
 	for (i = 0; i < 6; i++) {
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + off, pd->bistctrl[i]);
-		wmb(); /* make sure PHY bit control is configured */
+		wmb();
 		off += 4;
 	}
 
@@ -837,7 +869,6 @@ static void mdss_dsi_20nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			offset = i + (ln * 9);
 			MIPI_OUTP((ctrl_pdata->phy_io.base) + off,
 				pd->lanecfg[offset]);
-			/* make sure lane config register is programed */
 			wmb();
 			off += 4;
 		}
@@ -847,7 +878,7 @@ static void mdss_dsi_20nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	for (i = 0; i < 12; i++) {
 		MIPI_OUTP((ctrl_pdata->phy_io.base) +
 			MDSS_DSI_DSIPHY_TIMING_CTRL_0 + off, pd->timing[i]);
-		wmb(); /* make sure phy timing register is programed */
+		wmb();
 		off += 4;
 	}
 
@@ -912,29 +943,59 @@ static void mdss_dsi_8996_phy_regulator_enable(
 	int j, off, ln, cnt, ln_off;
 	char *ip;
 	void __iomem *base;
+	struct mdss_panel_info *panel_info;
 
-	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
-	/* 4 lanes + clk lane configuration */
-	for (ln = 0; ln < 5; ln++) {
-		/*
-		 * data lane offset from base: 0x100
-		 * data lane size: 0x80
-		 */
-		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_8996;
-		base += (ln * DATALANE_SIZE_8996); /* lane base */
-
-		/* vreg ctrl, 1 * 5 */
-		cnt = 1;
-		ln_off = cnt * ln;
-		ip = &pd->regulator[ln_off];
-		off = 0x64;
-		for (j = 0; j < cnt; j++, off += 4)
-			MIPI_OUTP(base + off, *ip++);
+	if (!ctrl) {
+		pr_warn("%s: null ctrl pdata\n", __func__);
+		return;
 	}
 
-	wmb(); /* make sure registers committed */
+	panel_info = &((ctrl->panel_data).panel_info);
+	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
+	if (pd->regulator_len != (MDSS_DSI_NUM_DATA_LANES +
+					MDSS_DSI_NUM_CLK_LANES)) {
+		pr_warn("%s: invalid regulator settings\n", __func__);
+		return;
+	}
+
+	/*
+	 * data lane offset from base: 0x100
+	 * data lane size: 0x80
+	 */
+	base = ctrl->phy_io.base + DATALANE_OFFSET_FROM_BASE_8996;
+	/* data lanes configuration */
+	for (ln = 0; ln < MDSS_DSI_NUM_DATA_LANES; ln++) {
+		/* vreg ctrl, 1 * MDSS_DSI_NUM_DATA_LANES */
+		cnt = DSIPHY_LANE_VREG_NUM;
+		off = DSIPHY_LANE_VREG_BASE;
+		ln_off = cnt * ln;
+		ip = &pd->regulator[ln_off];
+		for (j = 0; j < cnt; j++) {
+			MIPI_OUTP(base + off, *ip++);
+			off += DSIPHY_LANE_VREG_OFFSET;
+		}
+		base += DATALANE_SIZE_8996; /* next lane */
+	}
+
+	/*
+	 * clk lane offset from base: 0x300
+	 * clk lane size: 0x80
+	 */
+	base = ctrl->phy_io.base + CLKLANE_OFFSET_FROM_BASE_8996;
+	/*
+	 * clk lane configuration for vreg ctrl
+	 * for split link there are two clock lanes, one
+	 * clock lane per sublink needs to be configured
+	 */
+	off = DSIPHY_LANE_VREG_BASE;
+	ln_off = MDSS_DSI_NUM_DATA_LANES;
+	ip = &pd->regulator[ln_off];
+	MIPI_OUTP(base + off, *ip);
+	if (panel_info->split_link_enabled)
+		MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, *ip);
+
+	wmb(); /* make sure registers committed */
 }
 
 static void mdss_dsi_8996_phy_power_off(
@@ -943,30 +1004,50 @@ static void mdss_dsi_8996_phy_power_off(
 	int ln;
 	void __iomem *base;
 	u32 data;
+	struct mdss_panel_info *panel_info;
+
+	if (ctrl) {
+		panel_info = &((ctrl->panel_data).panel_info);
+	} else {
+		pr_warn("%s: null ctrl pdata\n", __func__);
+		return;
+	}
 
 	/* Turn off PLL power */
 	data = MIPI_INP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0);
 	MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, data & ~BIT(7));
 
-	/* 4 lanes + clk lane configuration */
-	for (ln = 0; ln < 5; ln++) {
-		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_8996;
-		base += (ln * DATALANE_SIZE_8996); /* lane base */
-
+	/* data lanes configuration */
+	base = ctrl->phy_io.base + DATALANE_OFFSET_FROM_BASE_8996;
+	for (ln = 0; ln < MDSS_DSI_NUM_DATA_LANES; ln++) {
 		/* turn off phy ldo */
-		MIPI_OUTP(base + DSIPHY_LANE_VREG_CNTRL, 0x1c);
+		MIPI_OUTP(base + DSIPHY_LANE_VREG_BASE, 0x1c);
+		base += DATALANE_SIZE_8996; /* next lane */
 	}
+
+	/* clk lane configuration */
+	base = ctrl->phy_io.base + CLKLANE_OFFSET_FROM_BASE_8996;
+	/* turn off phy ldo */
+	MIPI_OUTP(base + DSIPHY_LANE_VREG_BASE, 0x1c);
+	if (panel_info->split_link_enabled)
+		MIPI_OUTP(base + CLKLANE_SIZE_8996 +
+				DSIPHY_LANE_VREG_BASE, 0x1c);
+
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_LDO_CNTRL, 0x1c);
 
-	/* 4 lanes + clk lane configuration */
-	for (ln = 0; ln < 5; ln++) {
-		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_8996;
-		base += (ln * DATALANE_SIZE_8996); /* lane base */
-
+	/* data lanes configuration */
+	base = ctrl->phy_io.base + DATALANE_OFFSET_FROM_BASE_8996;
+	for (ln = 0; ln < MDSS_DSI_NUM_DATA_LANES; ln++) {
 		MIPI_OUTP(base + DSIPHY_LANE_STRENGTH_CTRL_1, 0x0);
+		base += DATALANE_SIZE_8996; /* next lane */
 	}
+
+	/* clk lane configuration */
+	base = ctrl->phy_io.base + CLKLANE_OFFSET_FROM_BASE_8996;
+	MIPI_OUTP(base + DSIPHY_LANE_STRENGTH_CTRL_1, 0x0);
+	if (panel_info->split_link_enabled)
+		MIPI_OUTP(base + CLKLANE_SIZE_8996 +
+				DSIPHY_LANE_STRENGTH_CTRL_1, 0x0);
 
 	wmb(); /* make sure registers committed */
 }
@@ -1003,22 +1084,46 @@ static void mdss_dsi_8996_phy_power_on(
 	struct mdss_dsi_phy_ctrl *pd;
 	char *ip;
 	u32 data;
+	struct mdss_panel_info *panel_info;
+
+	if (ctrl) {
+		panel_info = &((ctrl->panel_data).panel_info);
+	} else {
+		pr_warn("%s: null ctrl pdata\n", __func__);
+		return;
+	}
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
-	/* 4 lanes + clk lane configuration */
-	for (ln = 0; ln < 5; ln++) {
-		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_8996;
-		base += (ln * DATALANE_SIZE_8996); /* lane base */
-
-		/* strength, 2 * 5 */
-		cnt = 2;
+	/* data lanes configuration */
+	base = ctrl->phy_io.base + DATALANE_OFFSET_FROM_BASE_8996;
+	for (ln = 0; ln < MDSS_DSI_NUM_DATA_LANES; ln++) {
+		/* strength, 2 * MDSS_DSI_NUM_DATA_LANES */
+		cnt = DSIPHY_LANE_STRENGTH_CTRL_NUM;
 		ln_off = cnt * ln;
 		ip = &pd->strength[ln_off];
-		off = 0x38;
-		for (j = 0; j < cnt; j++, off += 4)
+		off = DSIPHY_LANE_STRENGTH_CTRL_BASE;
+		for (j = 0; j < cnt; j++,
+			off += DSIPHY_LANE_STRENGTH_CTRL_OFFSET)
 			MIPI_OUTP(base + off, *ip++);
+		base += DATALANE_SIZE_8996; /* next lane */
+	}
+
+	/*
+	 * clk lane configuration for strength ctrl
+	 * for split link there are two clock lanes, one
+	 * clock lane per sublink needs to be configured
+	 */
+	base = ctrl->phy_io.base + CLKLANE_OFFSET_FROM_BASE_8996;
+	cnt = DSIPHY_LANE_STRENGTH_CTRL_NUM;
+	ln_off = MDSS_DSI_NUM_DATA_LANES;
+	ip = &pd->strength[ln_off];
+	off = DSIPHY_LANE_STRENGTH_CTRL_BASE;
+	for (j = 0; j < cnt; j++,
+		off += DSIPHY_LANE_STRENGTH_CTRL_OFFSET) {
+		MIPI_OUTP(base + off, *ip);
+		if (panel_info->split_link_enabled)
+			MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, *ip);
 	}
 
 	mdss_dsi_8996_phy_regulator_enable(ctrl);
@@ -1046,67 +1151,129 @@ static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 	int j, off, ln, cnt, ln_off;
 	char *ip;
 	void __iomem *base;
+	struct mdss_panel_info *panel_info;
+	int num_of_lanes = 0;
+
+	if (ctrl) {
+		panel_info = &((ctrl->panel_data).panel_info);
+	} else {
+		pr_warn("%s: null ctrl pdata\n", __func__);
+		return;
+	}
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
+	num_of_lanes = MDSS_DSI_NUM_DATA_LANES + MDSS_DSI_NUM_CLK_LANES;
 
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_LDO_CNTRL, 0x1c);
 
 	/* clk_en */
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, 0x1);
 
-	if (pd->lanecfg_len != 20) {
+	if (pd->lanecfg_len != (num_of_lanes * DSIPHY_LANE_CFG_NUM)) {
 		pr_err("%s: wrong lane cfg\n", __func__);
 		return;
 	}
 
-	if (pd->strength_len != 10) {
+	if (pd->strength_len != (num_of_lanes *
+				DSIPHY_LANE_STRENGTH_CTRL_NUM)) {
 		pr_err("%s: wrong strength ctrl\n", __func__);
 		return;
 	}
 
-	if (pd->regulator_len != 5) {
+	if (pd->regulator_len != (num_of_lanes * DSIPHY_LANE_VREG_NUM)) {
 		pr_err("%s: wrong regulator setting\n", __func__);
 		return;
 	}
 
-	/* 4 lanes + clk lane configuration */
-	for (ln = 0; ln < 5; ln++) {
-		/*
-		 * data lane offset from base: 0x100
-		 * data lane size: 0x80
-		 */
-		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_8996;
-		base += (ln * DATALANE_SIZE_8996); /* lane base */
-
-		/* lane cfg, 4 * 5 */
-		cnt = 4;
+	/* data lanes configuration */
+	base = ctrl->phy_io.base + DATALANE_OFFSET_FROM_BASE_8996;
+	for (ln = 0; ln < MDSS_DSI_NUM_DATA_LANES; ln++) {
+		/* lane cfg, 4 * MDSS_DSI_NUM_DATA_LANES */
+		cnt = DSIPHY_LANE_CFG_NUM;
+		off = DSIPHY_LANE_CFG_BASE;
 		ln_off = cnt * ln;
 		ip = &pd->lanecfg[ln_off];
-		off = 0x0;
 		for (j = 0; j < cnt; j++) {
 			MIPI_OUTP(base + off, *ip++);
-			off += 4;
+			off += DSIPHY_LANE_CFG_OFFSET;
 		}
 
 		/* test str */
-		MIPI_OUTP(base + 0x14, 0x0088);	/* fixed */
+		MIPI_OUTP(base + DSIPHY_LANE_TEST_STR, 0x88);	/* fixed */
 
-		/* phy timing, 8 * 5 */
-		cnt = 8;
+		/* phy timing, 8 * MDSS_DSI_NUM_DATA_LANES */
+		cnt = DSIPHY_LANE_TIMING_CTRL_NUM;
+		off = DSIPHY_LANE_TIMING_CTRL_BASE;
 		ln_off = cnt * ln;
 		ip = &pd->timing_8996[ln_off];
-		off = 0x18;
-		for (j = 0; j < cnt; j++, off += 4)
+		for (j = 0; j < cnt; j++) {
 			MIPI_OUTP(base + off, *ip++);
+			off += DSIPHY_LANE_TIMING_CTRL_OFFSET;
+		}
 
-		/* strength, 2 * 5 */
-		cnt = 2;
+		/* strength, 2 * MDSS_DSI_NUM_DATA_LANES */
+		cnt = DSIPHY_LANE_STRENGTH_CTRL_NUM;
+		off = DSIPHY_LANE_STRENGTH_CTRL_BASE;
 		ln_off = cnt * ln;
 		ip = &pd->strength[ln_off];
-		off = 0x38;
-		for (j = 0; j < cnt; j++, off += 4)
+		for (j = 0; j < cnt; j++) {
 			MIPI_OUTP(base + off, *ip++);
+			off += DSIPHY_LANE_STRENGTH_CTRL_OFFSET;
+		}
+
+		base += DATALANE_SIZE_8996; /* next lane */
+	}
+
+	/*
+	 * clk lane configuration
+	 * for split link there are two clock lanes, one
+	 * clock lane per sublink needs to be configured
+	 */
+	base = ctrl->phy_io.base + CLKLANE_OFFSET_FROM_BASE_8996;
+	cnt = DSIPHY_LANE_CFG_NUM;
+	off = DSIPHY_LANE_CFG_BASE;
+	ln_off = cnt * MDSS_DSI_NUM_DATA_LANES;
+	ip = &pd->lanecfg[ln_off];
+	for (j = 0; j < cnt; j++) {
+		MIPI_OUTP(base + off, *ip);
+		if (panel_info->split_link_enabled)
+			MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, *ip);
+		ip++;
+		off += DSIPHY_LANE_CFG_OFFSET;
+	}
+
+	/* test str */
+	MIPI_OUTP(base + DSIPHY_LANE_TEST_STR, 0x88);	/* fixed */
+	if (panel_info->split_link_enabled)
+		MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, 0x88);
+
+	cnt = DSIPHY_LANE_TIMING_CTRL_NUM;
+	off = DSIPHY_LANE_TIMING_CTRL_BASE;
+	ln_off = cnt * MDSS_DSI_NUM_DATA_LANES;
+	ip = &pd->timing_8996[ln_off];
+	for (j = 0; j < cnt; j++) {
+		MIPI_OUTP(base + off, *ip);
+		if (panel_info->split_link_enabled)
+			MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, *ip);
+		ip++;
+		off += DSIPHY_LANE_TIMING_CTRL_OFFSET;
+	}
+
+	/*
+	 * clk lane configuration for timing
+	 * for split link there are two clock lanes, one
+	 * clock lane per sublink needs to be configured
+	 */
+	cnt = DSIPHY_LANE_STRENGTH_CTRL_NUM;
+	off = DSIPHY_LANE_STRENGTH_CTRL_BASE;
+	ln_off = cnt * MDSS_DSI_NUM_DATA_LANES;
+	ip = &pd->strength[ln_off];
+	for (j = 0; j < cnt; j++) {
+		MIPI_OUTP(base + off, *ip);
+		if (panel_info->split_link_enabled)
+			MIPI_OUTP(base + CLKLANE_SIZE_8996 + off, *ip);
+		ip++;
+		off += DSIPHY_LANE_STRENGTH_CTRL_OFFSET;
 	}
 
 	wmb(); /* make sure registers committed */
@@ -1151,6 +1318,8 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (enable) {
 		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 			mdss_dsi_8996_phy_regulator_enable(ctrl);
+		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
+			mdss_dsi_phy_v3_regulator_enable(ctrl);
 		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM) {
 			mdss_dsi_12nm_phy_regulator_enable(ctrl);
 		} else {
@@ -1193,7 +1362,6 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 static void mdss_dsi_phy_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 {
 	struct mdss_dsi_ctrl_pdata *other_ctrl;
-
 	if (!ctrl) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -1203,6 +1371,8 @@ static void mdss_dsi_phy_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
 
 		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_20) {
 			mdss_dsi_8996_phy_config(ctrl);
+		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30) {
+			mdss_dsi_phy_v3_init(ctrl, DSI_PHY_MODE_DPHY);
 		} else if (ctrl->shared_data->phy_rev == DSI_PHY_REV_12NM) {
 			mdss_dsi_12nm_phy_config(ctrl);
 		} else {
@@ -1303,6 +1473,8 @@ void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 		devm_clk_put(dev, sdata->axi_clk);
 	if (sdata->ahb_clk)
 		devm_clk_put(dev, sdata->ahb_clk);
+	if (sdata->mnoc_clk)
+		devm_clk_put(dev, sdata->mnoc_clk);
 	if (sdata->mdp_core_clk)
 		devm_clk_put(dev, sdata->mdp_core_clk);
 }
@@ -1333,13 +1505,19 @@ int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata, bool update_phy)
 				__func__, pinfo->mipi.frame_rate);
 	}
 
-	rc = mdss_dsi_clk_div_config(&pdata->panel_info,
-			pdata->panel_info.mipi.frame_rate);
-	if (rc) {
-		pr_err("%s: unable to initialize the clk dividers\n",
-								__func__);
-		return rc;
+	pinfo->clk_rate = mdss_dsi_calc_bitclk(pinfo, pinfo->mipi.frame_rate);
+	if (!pinfo->clk_rate) {
+		pr_err("%s: unable to calculate the DSI bit clock\n", __func__);
+		return -EINVAL;
 	}
+
+	pinfo->mipi.dsi_pclk_rate = mdss_dsi_get_pclk_rate(pinfo,
+		pinfo->clk_rate);
+	if (!pinfo->mipi.dsi_pclk_rate) {
+		pr_err("%s: unable to calculate the DSI pclk\n", __func__);
+		return -EINVAL;
+	}
+
 	ctrl_pdata->refresh_clk_rate = false;
 	ctrl_pdata->pclk_rate = pdata->panel_info.mipi.dsi_pclk_rate;
 	ctrl_pdata->byte_clk_rate = pdata->panel_info.clk_rate / 8;
@@ -1368,7 +1546,7 @@ int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata, bool update_phy)
 		/* phy panel timing calaculation */
 		rc = mdss_dsi_phy_calc_timing_param(pinfo,
 				ctrl_pdata->shared_data->phy_rev,
-				pinfo->mipi.frame_rate);
+				pdata->panel_info.clk_rate);
 		if (rc) {
 			pr_err("Error in calculating phy timings\n");
 			return rc;
@@ -1453,6 +1631,12 @@ int mdss_dsi_core_clk_init(struct platform_device *pdev,
 			__func__);
 	}
 
+	sdata->mnoc_clk = devm_clk_get(dev, "mnoc_clk");
+	if (IS_ERR(sdata->mnoc_clk)) {
+		pr_debug("%s: Unable to get mnoc clk\n", __func__);
+		sdata->mnoc_clk = NULL;
+	}
+
 error:
 	if (rc)
 		mdss_dsi_core_clk_deinit(dev, sdata);
@@ -1462,6 +1646,8 @@ error:
 void mdss_dsi_link_clk_deinit(struct device *dev,
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	if (ctrl->byte_intf_clk)
+		devm_clk_put(dev, ctrl->byte_intf_clk);
 	if (ctrl->vco_dummy_clk)
 		devm_clk_put(dev, ctrl->vco_dummy_clk);
 	if (ctrl->pixel_clk_rcg)
@@ -1535,6 +1721,13 @@ int mdss_dsi_link_clk_init(struct platform_device *pdev,
 		pr_debug("%s: can't find vco dummy clk. rc=%d\n", __func__, rc);
 		ctrl->vco_dummy_clk = NULL;
 	}
+
+	ctrl->byte_intf_clk = devm_clk_get(dev, "byte_intf_clk");
+	if (IS_ERR(ctrl->byte_intf_clk)) {
+		pr_debug("%s: can't find byte int clk. rc=%d\n", __func__, rc);
+		ctrl->byte_intf_clk = NULL;
+	}
+
 
 error:
 	if (rc)
@@ -1640,16 +1833,12 @@ bool is_diff_frame_rate(struct mdss_panel_info *panel_info,
 		return (frame_rate != panel_info->mipi.frame_rate);
 }
 
-int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
-			    int frame_rate)
+static u8 mdss_dsi_get_lane_cnt(struct mdss_panel_info *panel_info)
 {
-	struct mdss_panel_data *pdata  = container_of(panel_info,
-			struct mdss_panel_data, panel_info);
-	struct  mdss_dsi_ctrl_pdata *ctrl_pdata = container_of(pdata,
-			struct mdss_dsi_ctrl_pdata, panel_data);
-	u64 h_period, v_period, clk_rate;
-	u32 dsi_pclk_rate;
-	u8 lanes = 0, bpp;
+	u8 lanes = 0;
+
+	if (!panel_info)
+		return -EINVAL;
 
 	if (panel_info->mipi.data_lane3)
 		lanes += 1;
@@ -1660,7 +1849,17 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 	if (panel_info->mipi.data_lane0)
 		lanes += 1;
 
-	switch (panel_info->mipi.dst_format) {
+	if (!lanes)
+		lanes = 1;
+
+	return lanes;
+}
+
+static u8 mdss_dsi_get_bpp(char dst_format)
+{
+	u8 bpp = 0;
+
+	switch (dst_format) {
 	case DSI_CMD_DST_FORMAT_RGB888:
 	case DSI_VIDEO_DST_FORMAT_RGB888:
 	case DSI_VIDEO_DST_FORMAT_RGB666_LOOSE:
@@ -1674,35 +1873,62 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 		bpp = 3;	/* Default format set to RGB888 */
 		break;
 	}
+	return bpp;
+}
+
+u64 mdss_dsi_calc_bitclk(struct mdss_panel_info *panel_info, int frame_rate)
+{
+	struct mdss_panel_data *pdata  = container_of(panel_info,
+		struct mdss_panel_data, panel_info);
+	struct  mdss_dsi_ctrl_pdata *ctrl_pdata = container_of(pdata,
+		struct mdss_dsi_ctrl_pdata, panel_data);
+	u64 h_period, v_period, clk_rate = 0;
+	u8 lanes = 0, bpp;
+
+	lanes = mdss_dsi_get_lane_cnt(panel_info);
+
+	bpp = mdss_dsi_get_bpp(panel_info->mipi.dst_format);
 
 	h_period = mdss_panel_get_htotal(panel_info, true);
+	if (panel_info->split_link_enabled)
+		h_period *= panel_info->mipi.num_of_sublinks;
 	v_period = mdss_panel_get_vtotal(panel_info);
 
 	if (ctrl_pdata->refresh_clk_rate || is_diff_frame_rate(panel_info,
-			frame_rate) || (!panel_info->clk_rate)) {
-		if (lanes > 0) {
-			panel_info->clk_rate = h_period * v_period * frame_rate
-				* bpp * 8;
-			do_div(panel_info->clk_rate, lanes);
-		} else {
-			pr_err("%s: forcing mdss_dsi lanes to 1\n", __func__);
-			panel_info->clk_rate =
-				h_period * v_period * frame_rate * bpp * 8;
-		}
+		frame_rate) || (!panel_info->clk_rate)) {
+		clk_rate = h_period * v_period * frame_rate * bpp * 8;
+		do_div(clk_rate, lanes);
+	} else if (panel_info->clk_rate) {
+		clk_rate = panel_info->clk_rate;
 	}
 
-	if (panel_info->clk_rate == 0)
-		panel_info->clk_rate = 454000000;
+	if (clk_rate == 0)
+		clk_rate = 454000000;
 
-	clk_rate = panel_info->clk_rate;
+	return clk_rate;
+}
+
+u32 mdss_dsi_get_pclk_rate(struct mdss_panel_info *panel_info, u64 clk_rate)
+{
+	u8 lanes = 0, bpp;
+	u32 pclk_rate = 0;
+
+	lanes = mdss_dsi_get_lane_cnt(panel_info);
+
+	bpp = mdss_dsi_get_bpp(panel_info->mipi.dst_format);
+
 	do_div(clk_rate, 8 * bpp);
-	dsi_pclk_rate = (u32) clk_rate * lanes;
 
-	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 250000000))
-		dsi_pclk_rate = 35000000;
-	panel_info->mipi.dsi_pclk_rate = dsi_pclk_rate;
+	if (panel_info->split_link_enabled)
+		pclk_rate = (u32) clk_rate *
+			panel_info->mipi.lanes_per_sublink;
+	else
+		pclk_rate = (u32) clk_rate * lanes;
 
-	return 0;
+	if ((pclk_rate < 3300000) || (pclk_rate > 250000000))
+		pclk_rate = 35000000;
+
+	return pclk_rate;
 }
 
 static bool mdss_dsi_is_ulps_req_valid(struct mdss_dsi_ctrl_pdata *ctrl,
@@ -1767,19 +1993,19 @@ static bool mdss_dsi_is_ulps_req_valid(struct mdss_dsi_ctrl_pdata *ctrl,
 }
 
 /**
- * mdss_dsi_ulps_config() - Program DSI lanes to enter/exit ULPS mode
+ * mdss_dsi_ulps_config_default() - Program DSI lanes to enter/exit ULPS mode
  * @ctrl: pointer to DSI controller structure
- * @enable: 1 to enter ULPS, 0 to exit ULPS
- * @reconfig: boolean to specify if DSI controller is reconfigured to enter ULPS
+ * @enable: true to enter ULPS, false to exit ULPS
  *
- * This function executes the necessary programming sequence to enter/exit
- * DSI Ultra-Low Power State (ULPS). This function assumes that the link and
- * core clocks are already on.
+ * Executes the default hardware programming sequence to enter/exit DSI
+ * Ultra-Low Power State (ULPS). This function would be called whenever there
+ * are no hardware version sepcific functions for configuring ULPS mode. This
+ * function assumes that the link and core clocks are already on.
  */
-static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
-	int enable, bool reconfig)
+static int mdss_dsi_ulps_config_default(struct mdss_dsi_ctrl_pdata *ctrl,
+	bool enable)
 {
-	int ret = 0;
+	int rc = 0;
 	struct mdss_panel_data *pdata = NULL;
 	struct mdss_panel_info *pinfo;
 	struct mipi_panel_info *mipi;
@@ -1799,12 +2025,6 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	pinfo = &pdata->panel_info;
 	mipi = &pinfo->mipi;
 
-	if (!mdss_dsi_is_ulps_req_valid(ctrl, enable, reconfig)) {
-		pr_debug("%s: skiping ULPS config for ctrl%d, enable=%d\n",
-			__func__, ctrl->ndx, enable);
-		return 0;
-	}
-
 	/* clock lane will always be programmed for ulps */
 	active_lanes = BIT(4);
 	/*
@@ -1820,9 +2040,86 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (mipi->data_lane3)
 		active_lanes |= BIT(3);
 
-	pr_debug("%s: configuring ulps (%s) for ctrl%d, active lanes=0x%08x,reconfig=%s\n",
+	pr_debug("%s: configuring ulps (%s) for ctrl%d, active lanes=0x%08x\n",
+		__func__, (enable ? "on" : "off"), ctrl->ndx, active_lanes);
+
+	if (enable) {
+		/*
+		 * ULPS Entry Request.
+		 * Wait for a short duration to ensure that the lanes
+		 * enter ULP state.
+		 */
+		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes);
+		usleep_range(100, 110);
+
+		/* Check to make sure that all active data lanes are in ULPS */
+		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
+		if (lane_status & (active_lanes << 8)) {
+			pr_err("%s: ULPS entry req failed for ctrl%d. Lane status=0x%08x\n",
+				__func__, ctrl->ndx, lane_status);
+			rc = -EINVAL;
+			goto error;
+		}
+	} else {
+		/*
+		 * ULPS Exit Request
+		 * Hardware requirement is to wait for at least 1ms
+		 */
+		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 8);
+		usleep_range(1000, 1010);
+
+		/*
+		 * Sometimes when exiting ULPS, it is possible that some DSI
+		 * lanes are not in the stop state which could lead to DSI
+		 * commands not going through. To avoid this, force the lanes
+		 * to be in stop state.
+		 */
+		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 16);
+		wmb(); /* ensure lanes are put to stop state */
+
+		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, 0x0);
+		wmb(); /* ensure lanes are in proper state */
+
+		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
+	}
+
+	pr_debug("%s: DSI lane status = 0x%08x. Ulps %s\n", __func__,
+		lane_status, enable ? "enabled" : "disabled");
+
+error:
+	return rc;
+}
+
+/**
+ * mdss_dsi_ulps_config() - Program DSI lanes to enter/exit ULPS mode
+ * @ctrl: pointer to DSI controller structure
+ * @enable: 1 to enter ULPS, 0 to exit ULPS
+ * @reconfig: boolean to specify if DSI controller is reconfigured to enter ULPS
+ *
+ * Execute the necessary programming sequence to enter/exit DSI Ultra-Low Power
+ * State (ULPS). This function the validity of the ULPS config request and
+ * executes and pre/post steps before/after the necessary hardware programming.
+ * This function assumes that the link and core clocks are already on.
+ */
+static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
+	int enable, bool reconfig)
+{
+	int ret = 0;
+
+	if (!ctrl) {
+		pr_err("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!mdss_dsi_is_ulps_req_valid(ctrl, enable, reconfig)) {
+		pr_debug("%s: skiping ULPS config for ctrl%d, enable=%d\n",
+			__func__, ctrl->ndx, enable);
+		return 0;
+	}
+
+	pr_debug("%s: configuring ulps (%s) for ctrl%d, reconfig=%s\n",
 		__func__, (enable ? "on" : "off"), ctrl->ndx,
-		active_lanes, reconfig ? "true" : "false");
+		reconfig ? "true" : "false");
 
 	if (enable && !ctrl->ulps) {
 		/*
@@ -1838,29 +2135,19 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		if (!reconfig) {
 			ret = mdss_dsi_wait_for_lane_idle(ctrl);
 			if (ret) {
-				pr_warn("%s: lanes not idle, skip ulps\n",
+				pr_warn_ratelimited("%s: lanes not idle, skip ulps\n",
 					__func__);
 				ret = 0;
 				goto error;
 			}
 		}
 
-		/*
-		 * ULPS Entry Request.
-		 * Wait for a short duration to ensure that the lanes
-		 * enter ULP state.
-		 */
-		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes);
-		usleep_range(100, 110);
-
-		/* Check to make sure that all active data lanes are in ULPS */
-		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
-		if (lane_status & (active_lanes << 8)) {
-			pr_err("%s: ULPS entry req failed for ctrl%d. Lane status=0x%08x\n",
-				__func__, ctrl->ndx, lane_status);
-			ret = -EINVAL;
+		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+			ret = mdss_dsi_phy_v3_ulps_config(ctrl, true);
+		else
+			ret = mdss_dsi_ulps_config_default(ctrl, true);
+		if (ret)
 			goto error;
-		}
 
 		ctrl->ulps = true;
 	} else if (!enable && ctrl->ulps) {
@@ -1871,24 +2158,12 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		 */
 		mdss_dsi_dln0_phy_err(ctrl, false);
 
-		/*
-		 * ULPS Exit Request
-		 * Hardware requirement is to wait for at least 1ms
-		 */
-		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 8);
-		usleep_range(1000, 1100);
-
-		/*
-		 * Sometimes when exiting ULPS, it is possible that some DSI
-		 * lanes are not in the stop state which could lead to DSI
-		 * commands not going through. To avoid this, force the lanes
-		 * to be in stop state.
-		 */
-		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 16);
-		wmb(); /* ensure lanes are put to stop state */
-
-		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, 0x0);
-		wmb(); /* ensure lanes are in proper state */
+		if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+			ret = mdss_dsi_phy_v3_ulps_config(ctrl, false);
+		else
+			ret = mdss_dsi_ulps_config_default(ctrl, false);
+		if (ret)
+			goto error;
 
 		/*
 		 * Wait for a short duration before enabling
@@ -1896,7 +2171,6 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		 */
 		usleep_range(100, 110);
 
-		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
 		ctrl->ulps = false;
 	} else {
 		pr_debug("%s: No change requested: %s -> %s\n", __func__,
@@ -1904,30 +2178,41 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 			enable ? "enabled" : "disabled");
 	}
 
-	pr_debug("%s: DSI lane status = 0x%08x. Ulps %s\n", __func__,
-		lane_status, enable ? "enabled" : "disabled");
-
 error:
 	return ret;
 }
 
 /**
- * mdss_dsi_clamp_ctrl() - Program DSI clamps for supporting power collapse
+ * mdss_dsi_phy_idle_pc_exit() - Called after exit Idle PC
  * @ctrl: pointer to DSI controller structure
- * @enable: 1 to enable clamps, 0 to disable clamps
  *
- * For idle-screen usecases with command mode panels, MDSS can be power
- * collapsed. However, DSI phy needs to remain on. To avoid any mismatch
- * between the DSI controller state, DSI phy needs to be clamped before
- * power collapsing. This function executes the required programming
- * sequence to configure these DSI clamps. This function should only be called
- * when the DSI link clocks are disabled.
+ * Perform any programming needed after Idle PC exit.
  */
-static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
+static int mdss_dsi_phy_idle_pc_exit(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	if (ctrl->shared_data->phy_rev == DSI_PHY_REV_30)
+		mdss_dsi_phy_v3_idle_pc_exit(ctrl);
+
+	return 0;
+}
+
+/**
+ * mdss_dsi_clamp_ctrl_default() - Program DSI clamps
+ * @ctrl: pointer to DSI controller structure
+ * @enable: true to enable clamps, false to disable clamps
+ *
+ * Execute the required programming sequence to configure DSI clamps.  This
+ * function would be called whenever there are no hardware version sepcific
+ * functions for programming the DSI clamps.  This function assumes that the
+ * core clocks are already on.
+ */
+static int mdss_dsi_clamp_ctrl_default(struct mdss_dsi_ctrl_pdata *ctrl,
+	bool enable)
 {
 	struct mipi_panel_info *mipi = NULL;
 	u32 clamp_reg, regval = 0;
-	u32 clamp_reg_off, phyrst_reg_off;
+	u32 clamp_reg_off;
+	u32 intf_num = 0;
 
 	if (!ctrl) {
 		pr_err("%s: invalid input\n", __func__);
@@ -1939,8 +2224,22 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		return -EINVAL;
 	}
 
+	/*
+	 * For DSI HW version 2.1.0 ULPS_CLAMP register
+	 * is moved to interface level.
+	 */
+	if (ctrl->shared_data->hw_rev == MDSS_DSI_HW_REV_201) {
+		intf_num = ctrl->ndx ? MDSS_MDP_INTF2 : MDSS_MDP_INTF1;
+		if (ctrl->clamp_handler) {
+			ctrl->clamp_handler->fxn(ctrl->clamp_handler->data,
+				intf_num, enable);
+			pr_debug("%s: ndx: %d enable: %d\n",
+					__func__, ctrl->ndx, enable);
+		}
+		return 0;
+	}
+
 	clamp_reg_off = ctrl->shared_data->ulps_clamp_ctrl_off;
-	phyrst_reg_off = ctrl->shared_data->ulps_phyrst_ctrl_off;
 	mipi = &ctrl->panel_data.panel_info.mipi;
 
 	/* clock lane will always be clamped */
@@ -1970,7 +2269,8 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 	}
 	pr_debug("%s: called for ctrl%d, enable=%d, clamp_reg=0x%08x\n",
 		__func__, ctrl->ndx, enable, clamp_reg);
-	if (enable && !ctrl->mmss_clamp) {
+
+	if (enable) {
 		regval = MIPI_INP(ctrl->mmss_misc_io.base + clamp_reg_off);
 		/* Enable MMSS DSI Clamps */
 		if (ctrl->ndx == DSI_CTRL_0) {
@@ -1984,47 +2284,7 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
 				regval | ((clamp_reg << 16) | BIT(31)));
 		}
-		/* update clamp ctrl before setting phy reset disable */
-		wmb();
-
-		/*
-		 * This register write ensures that DSI PHY will not be
-		 * reset when mdss ahb clock reset is asserted while coming
-		 * out of power collapse
-		 */
-		if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-			MDSS_DSI_HW_REV_104) &&
-			(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-			MDSS_DSI_HW_REV_STEP_2)) {
-
-			regval = MIPI_INP(ctrl->mmss_misc_io.base +
-				clamp_reg_off);
-			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
-				regval | BIT(30));
-		} else {
-			MIPI_OUTP(ctrl->mmss_misc_io.base + phyrst_reg_off,
-				0x1);
-		}
-		/* make sure that clamp ctrl is updated before disable call */
-		wmb();
-		ctrl->mmss_clamp = true;
-	} else if (!enable && ctrl->mmss_clamp) {
-		if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-			MDSS_DSI_HW_REV_104) &&
-			(MDSS_GET_STEP(ctrl->shared_data->hw_rev) !=
-			MDSS_DSI_HW_REV_STEP_2)) {
-
-			regval = MIPI_INP(ctrl->mmss_misc_io.base +
-				clamp_reg_off);
-			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
-				regval & ~BIT(30));
-		} else {
-			MIPI_OUTP(ctrl->mmss_misc_io.base + phyrst_reg_off,
-				0x0);
-		}
-		/* update clamp ctrl before unsetting phy reset disable */
-		wmb();
-
+	} else {
 		regval = MIPI_INP(ctrl->mmss_misc_io.base + clamp_reg_off);
 		/* Disable MMSS DSI Clamps */
 		if (ctrl->ndx == DSI_CTRL_0)
@@ -2033,8 +2293,51 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		else if (ctrl->ndx == DSI_CTRL_1)
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
 				regval & ~((clamp_reg << 16) | BIT(31)));
-		/* make sure that clamp ctrl is updated before enable call */
-		wmb();
+	}
+
+	/* make sure clamps are configured */
+	wmb();
+
+	return 0;
+}
+
+/**
+ * mdss_dsi_clamp_ctrl() - Program DSI clamps for supporting power collapse
+ * @ctrl: pointer to DSI controller structure
+ * @enable: 1 to enable clamps, 0 to disable clamps
+ *
+ * For idle-screen usecases with command mode panels, MDSS can be power
+ * collapsed. However, DSI phy needs to remain on. To avoid any mismatch
+ * between the DSI controller state, DSI phy needs to be clamped before
+ * power collapsing. This function executes the required programming
+ * sequence to configure these DSI clamps. This function should only be called
+ * when the DSI link clocks are disabled.
+ */
+static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
+{
+	int rc = 0;
+
+	if (!ctrl) {
+		pr_err("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: called for ctrl%d, enable=%d\n", __func__, ctrl->ndx,
+		enable);
+
+	if (enable && !ctrl->mmss_clamp) {
+		if (ctrl->shared_data->phy_rev < DSI_PHY_REV_30) {
+			rc = mdss_dsi_clamp_ctrl_default(ctrl, true);
+			if (rc)
+				goto error;
+		}
+		ctrl->mmss_clamp = true;
+	} else if (!enable && ctrl->mmss_clamp) {
+		if (ctrl->shared_data->phy_rev < DSI_PHY_REV_30) {
+			rc = mdss_dsi_clamp_ctrl_default(ctrl, false);
+			if (rc)
+				goto error;
+		}
 		ctrl->mmss_clamp = false;
 	} else {
 		pr_debug("%s: No change requested: %s -> %s\n", __func__,
@@ -2042,7 +2345,12 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 			enable ? "enabled" : "disabled");
 	}
 
-	return 0;
+error:
+	if (rc)
+		pr_err("%s: failed to %s clamps for ctrl%d\n", __func__,
+			enable ? "enable" : "disable", ctrl->ndx);
+
+	return rc;
 }
 
 DEFINE_MUTEX(dsi_clk_mutex);
@@ -2052,7 +2360,7 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
 {
 	int rc = 0;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
-	int i, *vote_cnt = NULL;
+	int i, *vote_cnt;
 
 	void *m_clk_handle;
 	bool is_ecg = false;
@@ -2201,6 +2509,8 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 
 	if ((clk & MDSS_DSI_LINK_CLK) && (l_type == MDSS_DSI_LINK_LP_CLK) &&
 		(new_state == MDSS_DSI_CLK_OFF)) {
+		if (pdata->panel_info.mipi.force_clk_lane_hs)
+			mdss_dsi_cfg_lane_ctrl(ctrl, BIT(28), 0);
 		/*
 		 * If ULPS feature is enabled, enter ULPS first.
 		 * However, when blanking the panel, we should enter ULPS
@@ -2245,6 +2555,32 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 	return rc;
 }
 
+static void mdss_dsi_split_link_clk_cfg(struct mdss_dsi_ctrl_pdata *ctrl,
+						int enable)
+{
+	struct mdss_panel_data *pdata = NULL;
+	void __iomem *base;
+	u32 data = 0;
+
+	if (ctrl)
+		pdata = &ctrl->panel_data;
+	else {
+		pr_err("%s: ctrl pdata is NULL\n", __func__);
+		return;
+	}
+
+	/*
+	 * for split link there are two clock lanes, and
+	 * both clock lanes needs to be enabled
+	 */
+	if (pdata->panel_info.split_link_enabled) {
+		base = ctrl->phy_io.base;
+		data = MIPI_INP(base + MDSS_DSI_DSIPHY_CMN_CLK_CFG1);
+		data |= (enable << DSIPHY_CMN_CLK_CFG1_SPLIT_LINK);
+		MIPI_OUTP(base + MDSS_DSI_DSIPHY_CMN_CLK_CFG1, data);
+	}
+}
+
 int mdss_dsi_post_clkon_cb(void *priv,
 			   enum mdss_dsi_clk_type clk,
 			   enum mdss_dsi_lclk_type l_type,
@@ -2280,8 +2616,9 @@ int mdss_dsi_post_clkon_cb(void *priv,
 		if (ctrl->phy_power_off || mmss_clamp)
 			mdss_dsi_phy_power_on(ctrl, mmss_clamp);
 	}
-	if ((clk & MDSS_DSI_LINK_CLK) && (l_type == MDSS_DSI_LINK_HS_CLK)) {
-		if (ctrl->ulps) {
+
+	if ((clk & MDSS_DSI_LINK_CLK) && (l_type == MDSS_DSI_LINK_LP_CLK)) {
+		if (ctrl->ulps && mmss_clamp) {
 			/*
 			 * ULPS Entry Request. This is needed if the lanes were
 			 * in ULPS prior to power collapse, since after
@@ -2304,6 +2641,11 @@ int mdss_dsi_post_clkon_cb(void *priv,
 				goto error;
 			}
 
+			/* toggle the resync FIFO everytime clock changes */
+			if ((ctrl->shared_data->phy_rev == DSI_PHY_REV_30) &&
+					!pdata->panel_info.cont_splash_enabled)
+				mdss_dsi_phy_v3_toggle_resync_fifo(ctrl);
+
 			rc = mdss_dsi_ulps_config(ctrl, 0, false);
 			if (rc) {
 				pr_err("%s: failed to disable ulps, rc= %d\n",
@@ -2311,9 +2653,20 @@ int mdss_dsi_post_clkon_cb(void *priv,
 				goto error;
 			}
 		}
+
+		if (pdata->panel_info.mipi.force_clk_lane_hs)
+			mdss_dsi_cfg_lane_ctrl(ctrl, BIT(28), 1);
+
+		/* enable split link for cmn clk cfg1 */
+		mdss_dsi_split_link_clk_cfg(ctrl, 1);
+
 		/* Enable HS TX driver in DSI PHY if applicable */
-		mdss_dsi_phy_hstx_drv_ctrl(ctrl, true);
+		if ((clk & MDSS_DSI_LINK_CLK) &&
+				(l_type == MDSS_DSI_LINK_HS_CLK))
+			mdss_dsi_phy_hstx_drv_ctrl(ctrl, true);
 	}
+
+
 error:
 	return rc;
 }
@@ -2334,15 +2687,22 @@ int mdss_dsi_post_clkoff_cb(void *priv,
 		return -EINVAL;
 	}
 
-	pdata = &ctrl->panel_data;
 	if ((clk_type & MDSS_DSI_CORE_CLK) &&
 	    (curr_state == MDSS_DSI_CLK_OFF)) {
 		sdata = ctrl->shared_data;
+		pdata = &ctrl->panel_data;
 
 		for (i = DSI_MAX_PM - 1; i >= DSI_CORE_PM; i--) {
-			if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
-				(i != DSI_CORE_PM))
-				continue;
+			/**
+			 * If DSI_CTRL is active, proceed to turn off
+			 * supplies which support turning off in low power
+			 * state
+			 */
+			if (ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE)
+				if (!sdata->power_data[i].vreg_config
+						->lp_disable_allowed)
+					continue;
+
 			rc = msm_dss_enable_vreg(
 				sdata->power_data[i].vreg_config,
 				sdata->power_data[i].num_vreg, 0);
@@ -2352,19 +2712,15 @@ int mdss_dsi_post_clkoff_cb(void *priv,
 					__mdss_dsi_pm_name(i));
 				rc = 0;
 			} else {
+				pr_debug("%s: disabled vreg for %s panel_state %d\n",
+					__func__,
+					__mdss_dsi_pm_name(i),
+					pdata->panel_info.panel_power_state);
+				sdata->power_data[i].vreg_config->disabled =
+					true;
 				ctrl->core_power = false;
 			}
 		}
-
-		/*
-		 * temp workaround until framework issues pertaining to LP2
-		 * power state transitions are fixed. For now, we internally
-		 * transition to LP2 state whenever core power is turned off
-		 * in LP1 state
-		 */
-		if (mdss_dsi_is_panel_on_lp(pdata))
-			mdss_dsi_panel_power_ctrl(pdata,
-				MDSS_PANEL_POWER_LP2);
 	}
 	return rc;
 }
@@ -2385,10 +2741,10 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 		return -EINVAL;
 	}
 
-	pdata = &ctrl->panel_data;
 	if ((clk_type & MDSS_DSI_CORE_CLK) && (new_state == MDSS_DSI_CLK_ON) &&
 	    (ctrl->core_power == false)) {
 		sdata = ctrl->shared_data;
+		pdata = &ctrl->panel_data;
 		/*
 		 * Enable DSI core power
 		 * 1.> PANEL_PM are controlled as part of
@@ -2402,7 +2758,8 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 		for (i = DSI_CORE_PM; i < DSI_MAX_PM; i++) {
 			if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
 				(!pdata->panel_info.cont_splash_enabled) &&
-				(i != DSI_CORE_PM))
+				(!sdata->power_data[i].vreg_config
+						->lp_disable_allowed))
 				continue;
 			rc = msm_dss_enable_vreg(
 				sdata->power_data[i].vreg_config,
@@ -2412,333 +2769,45 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 					__func__,
 					__mdss_dsi_pm_name(i));
 			} else {
+				pr_debug("%s: enabled vregs for %s\n",
+					__func__,
+					__mdss_dsi_pm_name(i));
+				sdata->power_data[i].vreg_config->disabled =
+					false;
 				ctrl->core_power = true;
 			}
 
 		}
-		/*
-		 * temp workaround until framework issues pertaining to LP2
-		 * power state transitions are fixed. For now, if we intend to
-		 * send a frame update when in LP1, we have to explicitly exit
-		 * LP2 state here
-		 */
-		if (mdss_dsi_is_panel_on_ulp(pdata))
-			mdss_dsi_panel_power_ctrl(pdata, MDSS_PANEL_POWER_LP1);
 	}
+
 	/* Disable dynamic clock gating*/
 	if (ctrl->mdss_util->dyn_clk_gating_ctrl)
 		ctrl->mdss_util->dyn_clk_gating_ctrl(0);
 
+	if ((clk_type & MDSS_DSI_LINK_CLK) &&
+		(l_type == MDSS_DSI_LINK_HS_CLK)) {
+		u32 data = 0;
+
+		data = MIPI_INP((ctrl->ctrl_io.base) + 0x0120);
+		/*
+		 * For 12nm PHY, the PLL unlock bit in DSI_CLK_STATUS gets set
+		 * when PLL is turned off. When device comes out of static
+		 * screen without the DSI controller getting power collapsed,
+		 * the bit might not clear sometimes. Clear the bit before
+		 * turning ON the PLL. This avoids false error interrupt due to
+		 * PLL unlocked bit after PLL is turned ON.
+		 */
+		if (data & BIT(16)) {
+			pr_debug("pll unlocked: 0x%x\n", data);
+			MIPI_OUTP((ctrl->ctrl_io.base) + 0x120, BIT(16));
+		}
+
+	}
+
+	if ((clk_type & MDSS_DSI_LINK_CLK) &&
+		(new_state == MDSS_DSI_CLK_ON) &&
+		!ctrl->panel_data.panel_info.cont_splash_enabled)
+		mdss_dsi_phy_idle_pc_exit(ctrl);
+
 	return rc;
-}
-
-void mdss_edp_clk_deinit(struct mdss_edp_drv_pdata *edp_drv)
-{
-	if (edp_drv->aux_clk)
-		clk_put(edp_drv->aux_clk);
-	if (edp_drv->pixel_clk)
-		clk_put(edp_drv->pixel_clk);
-	if (edp_drv->ahb_clk)
-		clk_put(edp_drv->ahb_clk);
-	if (edp_drv->link_clk)
-		clk_put(edp_drv->link_clk);
-	if (edp_drv->mdp_core_clk)
-		clk_put(edp_drv->mdp_core_clk);
-}
-
-int mdss_edp_clk_init(struct mdss_edp_drv_pdata *edp_drv)
-{
-	struct device *dev = &(edp_drv->pdev->dev);
-
-	edp_drv->aux_clk = clk_get(dev, "core_clk");
-	if (IS_ERR(edp_drv->aux_clk)) {
-		pr_err("%s: Can't find aux_clk", __func__);
-		edp_drv->aux_clk = NULL;
-		goto mdss_edp_clk_err;
-	}
-
-	edp_drv->pixel_clk = clk_get(dev, "pixel_clk");
-	if (IS_ERR(edp_drv->pixel_clk)) {
-		pr_err("%s: Can't find pixel_clk", __func__);
-		edp_drv->pixel_clk = NULL;
-		goto mdss_edp_clk_err;
-	}
-
-	edp_drv->ahb_clk = clk_get(dev, "iface_clk");
-	if (IS_ERR(edp_drv->ahb_clk)) {
-		pr_err("%s: Can't find ahb_clk", __func__);
-		edp_drv->ahb_clk = NULL;
-		goto mdss_edp_clk_err;
-	}
-
-	edp_drv->link_clk = clk_get(dev, "link_clk");
-	if (IS_ERR(edp_drv->link_clk)) {
-		pr_err("%s: Can't find link_clk", __func__);
-		edp_drv->link_clk = NULL;
-		goto mdss_edp_clk_err;
-	}
-
-	/* need mdss clock to receive irq */
-	edp_drv->mdp_core_clk = clk_get(dev, "mdp_core_clk");
-	if (IS_ERR(edp_drv->mdp_core_clk)) {
-		pr_err("%s: Can't find mdp_core_clk", __func__);
-		edp_drv->mdp_core_clk = NULL;
-		goto mdss_edp_clk_err;
-	}
-
-	return 0;
-
-mdss_edp_clk_err:
-	mdss_edp_clk_deinit(edp_drv);
-	return -EPERM;
-}
-
-int mdss_edp_aux_clk_enable(struct mdss_edp_drv_pdata *edp_drv)
-{
-	int ret;
-
-	if (clk_set_rate(edp_drv->aux_clk, 19200000) < 0)
-		pr_err("%s: aux_clk - clk_set_rate failed\n",
-					__func__);
-
-	ret = clk_enable(edp_drv->aux_clk);
-	if (ret) {
-		pr_err("%s: Failed to enable aux clk\n", __func__);
-		goto c2;
-	}
-
-	ret = clk_enable(edp_drv->ahb_clk);
-	if (ret) {
-		pr_err("%s: Failed to enable ahb clk\n", __func__);
-		goto c1;
-	}
-
-	/* need mdss clock to receive irq */
-	ret = clk_enable(edp_drv->mdp_core_clk);
-	if (ret) {
-		pr_err("%s: Failed to enable mdp_core_clk\n", __func__);
-		goto c0;
-	}
-
-	return 0;
-c0:
-	clk_disable(edp_drv->ahb_clk);
-c1:
-	clk_disable(edp_drv->aux_clk);
-c2:
-	return ret;
-
-}
-
-void mdss_edp_aux_clk_disable(struct mdss_edp_drv_pdata *edp_drv)
-{
-	clk_disable(edp_drv->aux_clk);
-	clk_disable(edp_drv->ahb_clk);
-	clk_disable(edp_drv->mdp_core_clk);
-}
-
-static void mdss_edp_clk_set_rate(struct mdss_edp_drv_pdata *edp_drv)
-{
-	if (clk_set_rate(edp_drv->link_clk, edp_drv->link_rate * 27000000) < 0)
-		pr_err("%s: link_clk - clk_set_rate failed\n",
-					__func__);
-
-	if (clk_set_rate(edp_drv->pixel_clk, edp_drv->pixel_rate) < 0)
-		pr_err("%s: pixel_clk - clk_set_rate failed\n",
-					__func__);
-}
-
-int mdss_edp_clk_enable(struct mdss_edp_drv_pdata *edp_drv)
-{
-	int ret;
-
-	if (edp_drv->clk_on) {
-		pr_info("%s: edp clks are already ON\n", __func__);
-		return 0;
-	}
-
-	if (clk_set_rate(edp_drv->link_clk, edp_drv->link_rate * 27000000) < 0)
-		pr_err("%s: link_clk - clk_set_rate failed\n",
-					__func__);
-
-	if (clk_set_rate(edp_drv->aux_clk, edp_drv->aux_rate) < 0)
-		pr_err("%s: aux_clk - clk_set_rate failed\n",
-					__func__);
-
-	if (clk_set_rate(edp_drv->pixel_clk, edp_drv->pixel_rate) < 0)
-		pr_err("%s: pixel_clk - clk_set_rate failed\n",
-					__func__);
-
-	ret = clk_enable(edp_drv->aux_clk);
-	if (ret) {
-		pr_err("%s: Failed to enable aux clk\n", __func__);
-		goto c4;
-	}
-	ret = clk_enable(edp_drv->pixel_clk);
-	if (ret) {
-		pr_err("%s: Failed to enable pixel clk\n", __func__);
-		goto c3;
-	}
-	ret = clk_enable(edp_drv->ahb_clk);
-	if (ret) {
-		pr_err("%s: Failed to enable ahb clk\n", __func__);
-		goto c2;
-	}
-	ret = clk_enable(edp_drv->link_clk);
-	if (ret) {
-		pr_err("%s: Failed to enable link clk\n", __func__);
-		goto c1;
-	}
-	ret = clk_enable(edp_drv->mdp_core_clk);
-	if (ret) {
-		pr_err("%s: Failed to enable mdp_core_clk\n", __func__);
-		goto c0;
-	}
-
-	edp_drv->clk_on = 1;
-
-	return 0;
-
-c0:
-	clk_disable(edp_drv->link_clk);
-c1:
-	clk_disable(edp_drv->ahb_clk);
-c2:
-	clk_disable(edp_drv->pixel_clk);
-c3:
-	clk_disable(edp_drv->aux_clk);
-c4:
-	return ret;
-}
-
-void mdss_edp_clk_disable(struct mdss_edp_drv_pdata *edp_drv)
-{
-	if (edp_drv->clk_on == 0) {
-		pr_info("%s: edp clks are already OFF\n", __func__);
-		return;
-	}
-
-	clk_disable(edp_drv->aux_clk);
-	clk_disable(edp_drv->pixel_clk);
-	clk_disable(edp_drv->ahb_clk);
-	clk_disable(edp_drv->link_clk);
-	clk_disable(edp_drv->mdp_core_clk);
-
-	edp_drv->clk_on = 0;
-}
-
-int mdss_edp_prepare_aux_clocks(struct mdss_edp_drv_pdata *edp_drv)
-{
-	int ret;
-
-	/* ahb clock should be prepared first */
-	ret = clk_prepare(edp_drv->ahb_clk);
-	if (ret) {
-		pr_err("%s: Failed to prepare ahb clk\n", __func__);
-		goto c3;
-	}
-	ret = clk_prepare(edp_drv->aux_clk);
-	if (ret) {
-		pr_err("%s: Failed to prepare aux clk\n", __func__);
-		goto c2;
-	}
-
-	/* need mdss clock to receive irq */
-	ret = clk_prepare(edp_drv->mdp_core_clk);
-	if (ret) {
-		pr_err("%s: Failed to prepare mdp_core clk\n", __func__);
-		goto c1;
-	}
-
-	return 0;
-c1:
-	clk_unprepare(edp_drv->aux_clk);
-c2:
-	clk_unprepare(edp_drv->ahb_clk);
-c3:
-	return ret;
-
-}
-
-void mdss_edp_unprepare_aux_clocks(struct mdss_edp_drv_pdata *edp_drv)
-{
-	clk_unprepare(edp_drv->mdp_core_clk);
-	clk_unprepare(edp_drv->aux_clk);
-	clk_unprepare(edp_drv->ahb_clk);
-}
-
-int mdss_edp_prepare_clocks(struct mdss_edp_drv_pdata *edp_drv)
-{
-	int ret;
-
-	mdss_edp_clk_set_rate(edp_drv);
-
-	/* ahb clock should be prepared first */
-	ret = clk_prepare(edp_drv->ahb_clk);
-	if (ret) {
-		pr_err("%s: Failed to prepare ahb clk\n", __func__);
-		goto c4;
-	}
-	ret = clk_prepare(edp_drv->aux_clk);
-	if (ret) {
-		pr_err("%s: Failed to prepare aux clk\n", __func__);
-		goto c3;
-	}
-	ret = clk_prepare(edp_drv->pixel_clk);
-	if (ret) {
-		pr_err("%s: Failed to prepare pixel clk\n", __func__);
-		goto c2;
-	}
-	ret = clk_prepare(edp_drv->link_clk);
-	if (ret) {
-		pr_err("%s: Failed to prepare link clk\n", __func__);
-		goto c1;
-	}
-	ret = clk_prepare(edp_drv->mdp_core_clk);
-	if (ret) {
-		pr_err("%s: Failed to prepare mdp_core clk\n", __func__);
-		goto c0;
-	}
-
-	return 0;
-c0:
-	clk_unprepare(edp_drv->link_clk);
-c1:
-	clk_unprepare(edp_drv->pixel_clk);
-c2:
-	clk_unprepare(edp_drv->aux_clk);
-c3:
-	clk_unprepare(edp_drv->ahb_clk);
-c4:
-	return ret;
-}
-
-void mdss_edp_unprepare_clocks(struct mdss_edp_drv_pdata *edp_drv)
-{
-	clk_unprepare(edp_drv->mdp_core_clk);
-	clk_unprepare(edp_drv->aux_clk);
-	clk_unprepare(edp_drv->pixel_clk);
-	clk_unprepare(edp_drv->link_clk);
-	/* ahb clock should be last one to disable */
-	clk_unprepare(edp_drv->ahb_clk);
-}
-
-void mdss_edp_clk_debug(unsigned char *edp_base, unsigned char *mmss_cc_base)
-{
-	u32 da4, da0, d32c;
-	u32 dc4, dc0, d330;
-
-	/* pixel clk */
-	da0  = edp_read(mmss_cc_base + 0x0a0);
-	da4  = edp_read(mmss_cc_base + 0x0a4);
-	d32c = edp_read(mmss_cc_base + 0x32c);
-
-	/* main link clk */
-	dc0  = edp_read(mmss_cc_base + 0x0c0);
-	dc4  = edp_read(mmss_cc_base + 0x0c4);
-	d330 = edp_read(mmss_cc_base + 0x330);
-
-	pr_err("%s: da0=%x da4=%x d32c=%x dc0=%x dc4=%x d330=%x\n", __func__,
-	(int)da0, (int)da4, (int)d32c, (int)dc0, (int)dc4, (int)d330);
-
 }

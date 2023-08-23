@@ -35,6 +35,13 @@ Charger specific properties:
 		addition battery properties will be faked such that the device
 		assumes normal operation.
 
+- qcom,use-extcon
+  Usage:      optional
+  Value type: <empty>
+  Definition: Boolean flag which specify that SMB2 will act as main charger
+	      to do extcon USB calls. If not defined, other charger driver can
+	      act as main charger to do extcon USB calls.
+
 - qcom,fcc-max-ua
   Usage:      optional
   Value type: <u32>
@@ -137,12 +144,6 @@ Charger specific properties:
 		be based off battery voltage. For both SOC and battery voltage,
 		charger receives the signal from FG to resume charging.
 
-- qcom,micro-usb
-  Usage:      optional
-  Value type: <empty>
-  Definition: Boolean flag which indicates that the platform only support
-		micro usb port.
-
 - qcom,suspend-input-on-debug-batt
   Usage:      optional
   Value type: <empty>
@@ -166,6 +167,11 @@ Charger specific properties:
   Value type: <u32>
   Definition: Specifies the deglitch interval for OTG detection.
 		If the value is not present, 50 msec is used as default.
+
+- qcom,pd-not-supported
+  Usage:      optional
+  Value type: bool
+  Definition: Option to indicate if the platform supports USB PD (power delivery).
 
 - qcom,step-charging-enable
   Usage:      optional
@@ -191,6 +197,24 @@ Charger specific properties:
 		when step charging and sw-jeita configurations are desired
 		to be get from these properties defined in battery profile:
 		qcom,step-chg-ranges, qcom,jeita-fcc-ranges, qcom,jeita-fv-ranges.
+
+- qcom,disable-stat-sw-override
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present disables STAT pin default software
+		override configuration.
+
+- qcom,fcc-stepping-enable
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present enables stepwise change in FCC.
+		The default stepping rate is 100mA/sec.
+
+- qcom,ufp-only-mode
+  Usage:      optional
+  Value type: bool
+  Definition: Boolean flag which when present configure charger in SINK only
+		mode.
 
 =============================================
 Second Level Nodes - SMB2 Charger Peripherals

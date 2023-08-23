@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,6 +170,26 @@ static const char * const disp_cc_parent_names_4[] = {
 	"core_bi_pll_test_se",
 };
 
+static const struct parent_map disp_cc_parent_map_4_sdmshrikev2[] = {
+	{ P_BI_TCXO, 0 },
+	{ P_EDP_PHY_PLL_LINK_CLK, 1 },
+	{ P_EDP_PHY_PLL_VCO_DIV_CLK, 2 },
+	{ P_DP_PHY_PLL_VCO_DIV_CLK, 3 },
+	{ P_DPTX1_PHY_PLL_VCO_DIV_CLK, 4 },
+	{ P_DPTX2_PHY_PLL_VCO_DIV_CLK, 6 },
+	{ P_CORE_BI_PLL_TEST_SE, 7 },
+};
+
+static const char * const disp_cc_parent_names_4_sdmshrikev2[] = {
+	"bi_tcxo",
+	"edp_phy_pll_link_clk",
+	"edp_phy_pll_vco_div_clk",
+	"dp_phy_pll_vco_div_clk",
+	"dptx1_phy_pll_vco_div_clk",
+	"dptx2_phy_pll_vco_div_clk",
+	"core_bi_pll_test_se",
+};
+
 static const struct parent_map disp_cc_parent_map_5[] = {
 	{ P_BI_TCXO, 0 },
 	{ P_DISP_CC_PLL0_OUT_MAIN, 1 },
@@ -204,7 +224,7 @@ static struct pll_vco trion_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config disp_cc_pll0_config = {
+static struct alpha_pll_config disp_cc_pll0_config = {
 	.l = 0x47,
 	.alpha = 0xE000,
 	.config_ctl_val = 0x20485699,
@@ -218,7 +238,7 @@ static const struct alpha_pll_config disp_cc_pll0_config = {
 	.user_ctl_hi1_val = 0x000000D0,
 };
 
-static const struct alpha_pll_config disp_cc_pll0_config_sm8150_v2 = {
+static struct alpha_pll_config disp_cc_pll0_config_sm8150_v2 = {
 	.l = 0x47,
 	.alpha = 0xE000,
 	.config_ctl_val = 0x20485699,
@@ -234,6 +254,7 @@ static struct clk_alpha_pll disp_cc_pll0 = {
 	.vco_table = trion_vco,
 	.num_vco = ARRAY_SIZE(trion_vco),
 	.type = TRION_PLL,
+	.config = &disp_cc_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_pll0",
@@ -251,7 +272,7 @@ static struct clk_alpha_pll disp_cc_pll0 = {
 	},
 };
 
-static const struct alpha_pll_config disp_cc_pll1_config = {
+static struct alpha_pll_config disp_cc_pll1_config = {
 	.l = 0x1F,
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
@@ -265,7 +286,7 @@ static const struct alpha_pll_config disp_cc_pll1_config = {
 	.user_ctl_hi1_val = 0x000000D0,
 };
 
-static const struct alpha_pll_config disp_cc_pll1_config_sm8150_v2 = {
+static struct alpha_pll_config disp_cc_pll1_config_sm8150_v2 = {
 	.l = 0x1F,
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
@@ -281,6 +302,7 @@ static struct clk_alpha_pll disp_cc_pll1 = {
 	.vco_table = trion_vco,
 	.num_vco = ARRAY_SIZE(trion_vco),
 	.type = TRION_PLL,
+	.config = &disp_cc_pll1_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "disp_cc_pll1",
@@ -420,6 +442,15 @@ static const struct freq_tbl ftbl_disp_cc_mdss_dp_crypto1_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl
+ftbl_disp_cc_mdss_dp_crypto1_clk_src_sdmshrikev2[] = {
+	F( 108000, P_DPTX1_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 180000, P_DPTX1_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 360000, P_DPTX1_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 540000, P_DPTX1_PHY_PLL_LINK_CLK,   3,   0,   0),
+	{ }
+};
+
 static struct clk_rcg2 disp_cc_mdss_dp_crypto1_clk_src = {
 	.cmd_rcgr = 0x2228,
 	.mnd_width = 0,
@@ -440,6 +471,15 @@ static struct clk_rcg2 disp_cc_mdss_dp_crypto1_clk_src = {
 			[VDD_LOW_L1] = 360000,
 			[VDD_NOMINAL] = 540000},
 	},
+};
+
+static const struct freq_tbl
+ftbl_disp_cc_mdss_dp_crypto_clk_src_sdmshrikev2[] = {
+	F( 108000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 180000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 360000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	F( 540000, P_DP_PHY_PLL_LINK_CLK,   3,   0,   0),
+	{ }
 };
 
 static struct clk_rcg2 disp_cc_mdss_dp_crypto_clk_src = {
@@ -472,6 +512,16 @@ static const struct freq_tbl ftbl_disp_cc_mdss_dp_link1_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl
+ftbl_disp_cc_mdss_dp_link1_clk_src_sdmshrikev2[] = {
+	F( 19200, P_BI_TCXO, 1, 0, 0),
+	F( 162000, P_DPTX1_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 270000, P_DPTX1_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 540000, P_DPTX1_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 810000, P_DPTX1_PHY_PLL_LINK_CLK,   1,   0,   0),
+	{ }
+};
+
 static struct clk_rcg2 disp_cc_mdss_dp_link1_clk_src = {
 	.cmd_rcgr = 0x220c,
 	.mnd_width = 0,
@@ -492,6 +542,15 @@ static struct clk_rcg2 disp_cc_mdss_dp_link1_clk_src = {
 			[VDD_LOW_L1] = 540000,
 			[VDD_NOMINAL] = 810000},
 	},
+};
+
+static const struct freq_tbl ftbl_disp_cc_mdss_dp_link_clk_src_sdmshrikev2[] = {
+	F( 19200, P_BI_TCXO, 1, 0, 0),
+	F( 162000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 270000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 540000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 810000, P_DP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	{ }
 };
 
 static struct clk_rcg2 disp_cc_mdss_dp_link_clk_src = {
@@ -622,6 +681,21 @@ static const struct freq_tbl ftbl_disp_cc_mdss_edp_link_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl
+ftbl_disp_cc_mdss_edp_link_clk_src_sdmshrikev2[] = {
+	F( 19200, P_BI_TCXO, 1, 0, 0),
+	F( 162000, P_EDP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 216000, P_EDP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 243000, P_EDP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 270000, P_EDP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 324000, P_EDP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 432000, P_EDP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 540000, P_EDP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 594000, P_EDP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	F( 810000, P_EDP_PHY_PLL_LINK_CLK,   1,   0,   0),
+	{ }
+};
+
 static struct clk_rcg2 disp_cc_mdss_edp_link_clk_src = {
 	.cmd_rcgr = 0x2270,
 	.mnd_width = 0,
@@ -662,6 +736,20 @@ static struct clk_rcg2 disp_cc_mdss_edp_pixel_clk_src = {
 			[VDD_LOWER] = 337500000,
 			[VDD_LOW_L1] = 675000000},
 	},
+};
+
+static struct clk_init_data disp_cc_mdss_edp_pixel_clk_src_sdmshrikev2 = {
+	.name = "disp_cc_mdss_edp_pixel_clk_src",
+	.parent_names = disp_cc_parent_names_4_sdmshrikev2,
+	.num_parents = 7,
+	.flags = CLK_SET_RATE_PARENT | CLK_GET_RATE_NOCACHE,
+	.ops = &clk_dp_ops,
+	.vdd_class = &vdd_mm,
+	.num_rate_max = VDD_NUM,
+	.rate_max = (unsigned long[VDD_NUM]) {
+		[VDD_MIN] = 19200000,
+		[VDD_LOWER] = 337500000,
+		[VDD_LOW_L1] = 675000000},
 };
 
 static struct clk_rcg2 disp_cc_mdss_esc0_clk_src = {
@@ -1553,10 +1641,9 @@ MODULE_DEVICE_TABLE(of, disp_cc_sm8150_match_table);
 
 static void disp_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 {
-	clk_trion_pll_configure(&disp_cc_pll0, regmap,
-		&disp_cc_pll0_config_sm8150_v2);
-	clk_trion_pll_configure(&disp_cc_pll1, regmap,
-		&disp_cc_pll1_config_sm8150_v2);
+	disp_cc_pll0.config = &disp_cc_pll0_config_sm8150_v2;
+	disp_cc_pll1.config = &disp_cc_pll1_config_sm8150_v2;
+
 	disp_cc_mdss_dp_pixel1_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
 		337500;
 	disp_cc_mdss_dp_pixel1_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
@@ -1581,12 +1668,38 @@ static void disp_cc_sm8150_fixup_sdmshrikev2(struct regmap *regmap)
 {
 	disp_cc_sm8150_fixup_sm8150v2(regmap);
 
+	disp_cc_mdss_dp_crypto_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_dp_crypto_clk_src_sdmshrikev2;
+	disp_cc_mdss_dp_crypto1_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_dp_crypto1_clk_src_sdmshrikev2;
+	disp_cc_mdss_dp_link_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_dp_link_clk_src_sdmshrikev2;
+	disp_cc_mdss_dp_link1_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_dp_link1_clk_src_sdmshrikev2;
+
+	disp_cc_mdss_edp_link_clk_src.freq_tbl =
+		ftbl_disp_cc_mdss_edp_link_clk_src_sdmshrikev2;
+	disp_cc_mdss_edp_link_clk_src.clkr.hw.init->rate_max[VDD_MIN] =
+		19200;
+	disp_cc_mdss_edp_link_clk_src.clkr.hw.init->rate_max[VDD_LOWER] =
+		270000;
+	disp_cc_mdss_edp_link_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
+		594000;
+	disp_cc_mdss_edp_link_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
+		810000;
+
+	disp_cc_mdss_edp_pixel_clk_src.parent_map =
+		disp_cc_parent_map_4_sdmshrikev2;
+	disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init =
+		&disp_cc_mdss_edp_pixel_clk_src_sdmshrikev2;
+	disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init->rate_max[VDD_MIN] =
+		19200;
 	disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init->rate_max[VDD_LOWER] =
-		337500000;
+		337500;
 	disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init->rate_max[VDD_LOW_L1] =
-		371500000;
+		371500;
 	disp_cc_mdss_edp_pixel_clk_src.clkr.hw.init->rate_max[VDD_NOMINAL] =
-		675000000;
+		675000;
 }
 
 static int disp_cc_sm8150_fixup(struct platform_device *pdev,
@@ -1636,7 +1749,6 @@ static int disp_cc_sm8150_probe(struct platform_device *pdev)
 				"Unable to get vdd_mm regulator\n");
 		return PTR_ERR(vdd_mm.regulator[0]);
 	}
-	vdd_mm.use_max_uV = true;
 
 	dispcc_bus_id = msm_bus_scale_register_client(&clk_debugfs_scale_table);
 	if (!dispcc_bus_id) {
@@ -1653,8 +1765,8 @@ static int disp_cc_sm8150_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	clk_trion_pll_configure(&disp_cc_pll0, regmap, &disp_cc_pll0_config);
-	clk_trion_pll_configure(&disp_cc_pll1, regmap, &disp_cc_pll1_config);
+	clk_trion_pll_configure(&disp_cc_pll0, regmap, disp_cc_pll0.config);
+	clk_trion_pll_configure(&disp_cc_pll1, regmap, disp_cc_pll1.config);
 
 	/* Enable clock gating for DSI and MDP clocks */
 	regmap_update_bits(regmap, DISP_CC_MISC_CMD, 0x10, 0x10);

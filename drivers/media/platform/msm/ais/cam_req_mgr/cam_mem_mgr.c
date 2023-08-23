@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -159,6 +159,7 @@ static int32_t cam_mem_get_slot(void)
 	mutex_lock(&tbl.m_lock);
 	idx = find_first_zero_bit(tbl.bitmap, tbl.bits);
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
+		CAM_ERR(CAM_MEM, "find_first_zero_bit failed, idx=%d", idx);
 		mutex_unlock(&tbl.m_lock);
 		return -ENOMEM;
 	}
@@ -217,6 +218,7 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
 			tbl.bufq[idx].fd,
 			iova_ptr,
 			len_ptr);
+
 	if (rc) {
 		CAM_ERR(CAM_MEM,
 			"fail to map buf_hdl:0x%x, mmu_hdl: 0x%x for fd:%d",
@@ -251,33 +253,50 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0)
 		return -EINVAL;
 
-	if (!tbl.bufq[idx].active)
-		return -EPERM;
+	mutex_lock(&tbl.bufq[idx].q_lock);
+	if (!tbl.bufq[idx].active) {
+		CAM_ERR(CAM_MEM, "idx: %d not active", idx);
+		rc = -EPERM;
+		goto end;
+	}
 
-	if (buf_handle != tbl.bufq[idx].buf_handle)
-		return -EINVAL;
+	if (buf_handle != tbl.bufq[idx].buf_handle) {
+		CAM_ERR(CAM_MEM, "idx: %d Invalid buf handle %d",
+				idx, buf_handle);
+		rc = -EINVAL;
+		goto end;
+	}
 
-	if (!(tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS))
-		return -EINVAL;
+	if (!(tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS)) {
+		CAM_ERR(CAM_MEM, "idx: %d Invalid flag 0x%x",
+					idx, tbl.bufq[idx].flags);
+		rc = -EINVAL;
+		goto end;
+	}
 
 	if (tbl.bufq[idx].kmdvaddr) {
 		dmabuf = tbl.bufq[idx].dma_buf;
 		if (!dmabuf) {
 			CAM_ERR(CAM_MEM, "Invalid DMA buffer pointer");
-			return -EINVAL;
+			rc = -EINVAL;
+			goto end;
 		}
 		rc = dma_buf_begin_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 		if (rc) {
 			CAM_ERR(CAM_MEM, "dma begin access failed rc=%d", rc);
-			return rc;
+			goto end;
 		}
 	} else {
-		return -EINVAL;
+		CAM_ERR(CAM_MEM, "Invalid kmdvaddr");
+		rc = -EINVAL;
+		goto end;
 	}
 
 	*vaddr_ptr = tbl.bufq[idx].kmdvaddr;
 	*len = tbl.bufq[idx].len;
 
+end:
+	mutex_unlock(&tbl.bufq[idx].q_lock);
 	return rc;
 }
 EXPORT_SYMBOL(cam_mem_get_cpu_buf);
@@ -300,30 +319,38 @@ int cam_mem_put_cpu_buf(int32_t buf_handle)
 	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0)
 		return -EINVAL;
 
-	if (!tbl.bufq[idx].active)
-		return -EPERM;
+	mutex_lock(&tbl.bufq[idx].q_lock);
+	if (!tbl.bufq[idx].active) {
+		CAM_ERR(CAM_MEM, "idx: %d not active", idx);
+		rc = -EPERM;
+		goto end;
+	}
 
-	if (buf_handle != tbl.bufq[idx].buf_handle)
-		return -EINVAL;
+	if (buf_handle != tbl.bufq[idx].buf_handle) {
+		CAM_ERR(CAM_MEM, "idx: %d Invalid buf handle %d",
+				idx, buf_handle);
+		rc = -EINVAL;
+		goto end;
+	}
 
 	dmabuf = tbl.bufq[idx].dma_buf;
 	if (!dmabuf) {
 		CAM_ERR(CAM_CRM, "Invalid DMA buffer pointer");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	if ((tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS) &&
 		(tbl.bufq[idx].kmdvaddr)) {
 		rc = dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
-		if (rc) {
+		if (rc)
 			CAM_ERR(CAM_MEM, "dma begin access failed rc=%d", rc);
-			return rc;
-		}
 	} else {
 		CAM_ERR(CAM_MEM, "Invalid buf flag");
 		rc = -EINVAL;
 	}
-
+end:
+	mutex_unlock(&tbl.bufq[idx].q_lock);
 	return rc;
 }
 EXPORT_SYMBOL(cam_mem_put_cpu_buf);
@@ -486,6 +513,9 @@ static int cam_mem_util_ion_alloc(struct cam_mem_mgr_alloc_cmd *cmd,
 	} else if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		heap_id = ION_HEAP(ION_SECURE_DISPLAY_HEAP_ID);
 		ion_flag |= ION_FLAG_SECURE | ION_FLAG_CP_CAMERA;
+	} else if (cmd->flags & CAM_MEM_FLAG_CP_PIXEL) {
+		heap_id = ION_HEAP(ION_SECURE_HEAP_ID);
+		ion_flag |= ION_FLAG_SECURE | ION_FLAG_CP_PIXEL;
 	} else {
 		heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID) |
 			ION_HEAP(ION_CAMERA_HEAP_ID);
@@ -515,8 +545,9 @@ static int cam_mem_util_check_alloc_flags(struct cam_mem_mgr_alloc_cmd *cmd)
 		return -EINVAL;
 	}
 
-	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE &&
-		cmd->flags & CAM_MEM_FLAG_KMD_ACCESS) {
+	if (((cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) ||
+			(cmd->flags & CAM_MEM_FLAG_CP_PIXEL)) &&
+		(cmd->flags & CAM_MEM_FLAG_KMD_ACCESS)) {
 		CAM_ERR(CAM_MEM, "Kernel mapping in secure mode not allowed");
 		return -EINVAL;
 	}
@@ -537,8 +568,9 @@ static int cam_mem_util_check_map_flags(struct cam_mem_mgr_map_cmd *cmd)
 		return -EINVAL;
 	}
 
-	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE &&
-		cmd->flags & CAM_MEM_FLAG_KMD_ACCESS) {
+	if (((cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE) ||
+			(cmd->flags & CAM_MEM_FLAG_CP_PIXEL)) &&
+		(cmd->flags & CAM_MEM_FLAG_KMD_ACCESS)) {
 		CAM_ERR(CAM_MEM,
 			"Kernel mapping in secure mode not allowed, flags=0x%x",
 			cmd->flags);
@@ -779,7 +811,8 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 
 	dmabuf = dma_buf_get(cmd->fd);
 	if (IS_ERR_OR_NULL((void *)(dmabuf))) {
-		CAM_ERR(CAM_MEM, "Failed to import dma_buf fd");
+		CAM_ERR(CAM_MEM, "Failed to import dma_buf fd %d, rc %d",
+			cmd->fd, (IS_ERR(dmabuf) ? PTR_ERR(dmabuf) : 0));
 		return -EINVAL;
 	}
 
@@ -953,6 +986,7 @@ static int cam_mem_mgr_cleanup_table(void)
 		tbl.bufq[i].num_hdl = 0;
 		tbl.bufq[i].dma_buf = NULL;
 		tbl.bufq[i].active = false;
+		tbl.bufq[i].kmdvaddr = 0;
 		mutex_unlock(&tbl.bufq[i].q_lock);
 		mutex_destroy(&tbl.bufq[i].q_lock);
 	}
@@ -1005,7 +1039,7 @@ static int cam_mem_util_unmap(int32_t idx,
 				tbl.bufq[idx].kmdvaddr);
 			if (rc)
 				CAM_ERR(CAM_MEM,
-					"Failed, dmabuf=%pK, kmdvaddr=%llxK",
+					"Failed, dmabuf=%pK, kmdvaddr=%lxK",
 					tbl.bufq[idx].dma_buf,
 					tbl.bufq[idx].kmdvaddr);
 		}
@@ -1051,6 +1085,7 @@ static int cam_mem_util_unmap(int32_t idx,
 	tbl.bufq[idx].len = 0;
 	tbl.bufq[idx].num_hdl = 0;
 	tbl.bufq[idx].active = false;
+	tbl.bufq[idx].kmdvaddr = 0;
 	mutex_unlock(&tbl.bufq[idx].q_lock);
 	mutex_destroy(&tbl.bufq[idx].q_lock);
 	clear_bit(idx, tbl.bitmap);

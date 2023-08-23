@@ -1,0 +1,29 @@
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sa8195p.dtsi"
+#include "sa8195p-adp-common.dtsi"
+#include "sa8195p-adp-star-display.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA8195P V2 ADP AIR";
+	compatible = "qcom,sa8195p-v2-adp-air", "qcom,sa8195p", "qcom,adp-air";
+	qcom,board-id = <0x02010019 0>;
+};
+
+&qupv3_se0_spi {
+	can-controller@0 {
+		status = "disabled";
+	};
+};

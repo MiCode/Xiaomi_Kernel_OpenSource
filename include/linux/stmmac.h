@@ -27,6 +27,7 @@
 #define __STMMAC_PLATFORM_DATA
 
 #include <linux/platform_device.h>
+#include <linux/netdevice.h>
 
 #define MTL_MAX_RX_QUEUES	8
 #define MTL_MAX_TX_QUEUES	8
@@ -183,6 +184,8 @@ struct plat_stmmacenet_data {
 	struct clk *pclk;
 	struct clk *clk_ptp_ref;
 	unsigned int clk_ptp_rate;
+	unsigned int clk_ptp_req_rate;
+	unsigned int clk_ref_rate;
 	struct reset_control *stmmac_rst;
 	struct stmmac_axi *axi;
 	int has_gmac4;
@@ -190,5 +193,15 @@ struct plat_stmmacenet_data {
 	bool tso_en;
 	int mac_port_sel_speed;
 	bool en_tx_lpi_clockgating;
+	u16	(*tx_select_queue)
+		(struct net_device *dev, struct sk_buff *skb, void *accel_priv,
+		 select_queue_fallback_t fallback);
+	unsigned int (*get_plat_tx_coal_frames)
+		(struct sk_buff *skb);
+	bool early_eth;
+	bool crc_strip_en;
+	bool phy_intr_en;
+	int mac2mac_rgmii_speed;
+	bool mac2mac_en;
 };
 #endif

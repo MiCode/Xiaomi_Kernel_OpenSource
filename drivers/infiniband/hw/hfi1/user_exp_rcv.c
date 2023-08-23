@@ -90,9 +90,6 @@ int hfi1_user_exp_rcv_init(struct hfi1_filedata *fd,
 	struct hfi1_devdata *dd = uctxt->dd;
 	int ret = 0;
 
-	spin_lock_init(&fd->tid_lock);
-	spin_lock_init(&fd->invalid_lock);
-
 	fd->entry_to_rb = kcalloc(uctxt->expected_count,
 				  sizeof(struct rb_node *),
 				  GFP_KERNEL);
@@ -323,6 +320,9 @@ int hfi1_user_exp_rcv_setup(struct hfi1_filedata *fd,
 		tididx = 0, mapped, mapped_pages = 0;
 	u32 *tidlist = NULL;
 	struct tid_user_buf *tidbuf;
+
+	if (!PAGE_ALIGNED(tinfo->vaddr))
+		return -EINVAL;
 
 	tidbuf = kzalloc(sizeof(*tidbuf), GFP_KERNEL);
 	if (!tidbuf)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,21 +39,41 @@ int ipa_hw_stats_init(void)
 		return -ENOMEM;
 	}
 	/* enable prod mask */
-	teth_stats_init->prod_mask = (
-		IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD) |
-		IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD) |
-		IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD));
+	if (ipa3_ctx->platform_type == IPA_PLAT_TYPE_APQ) {
+		teth_stats_init->prod_mask = (
+			IPA_CLIENT_BIT_32(IPA_CLIENT_MHI_PRIME_TETH_PROD) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD));
 
-	if (IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD)) {
-		ep_index = ipa3_get_ep_mapping(IPA_CLIENT_Q6_WAN_PROD);
-		if (ep_index == -1) {
-			IPAERR("Invalid client.\n");
-			kfree(teth_stats_init);
-			return -EINVAL;
+		if (IPA_CLIENT_BIT_32(IPA_CLIENT_MHI_PRIME_TETH_PROD)) {
+			ep_index = ipa3_get_ep_mapping(
+				IPA_CLIENT_MHI_PRIME_TETH_PROD);
+			if (ep_index == -1) {
+				IPAERR("Invalid client.\n");
+				kfree(teth_stats_init);
+				return -EINVAL;
+			}
+			teth_stats_init->dst_ep_mask[ep_index] =
+				(IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_CONS) |
+				IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS));
 		}
-		teth_stats_init->dst_ep_mask[ep_index] =
+	} else {
+		teth_stats_init->prod_mask = (
+			IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD) |
+			IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_PROD));
+
+		if (IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_PROD)) {
+			ep_index = ipa3_get_ep_mapping(IPA_CLIENT_Q6_WAN_PROD);
+			if (ep_index == -1) {
+				IPAERR("Invalid client.\n");
+				kfree(teth_stats_init);
+				return -EINVAL;
+			}
+			teth_stats_init->dst_ep_mask[ep_index] =
 			(IPA_CLIENT_BIT_32(IPA_CLIENT_WLAN1_CONS) |
 			IPA_CLIENT_BIT_32(IPA_CLIENT_USB_CONS));
+		}
 	}
 
 	if (IPA_CLIENT_BIT_32(IPA_CLIENT_USB_PROD)) {
@@ -64,11 +84,14 @@ int ipa_hw_stats_init(void)
 			return -EINVAL;
 		}
 		/* enable addtional pipe monitoring for pcie modem */
-		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_1)
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)
 			teth_stats_init->dst_ep_mask[ep_index] =
-				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
+				(IPA_CLIENT_BIT_32(
+					IPA_CLIENT_Q6_WAN_CONS) |
 				IPA_CLIENT_BIT_32(
-				IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS));
+					IPA_CLIENT_MHI_PRIME_TETH_CONS) |
+				IPA_CLIENT_BIT_32(
+					IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS));
 		else
 			teth_stats_init->dst_ep_mask[ep_index] =
 				IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS);
@@ -82,9 +105,11 @@ int ipa_hw_stats_init(void)
 			return -EINVAL;
 		}
 		/* enable addtional pipe monitoring for pcie modem*/
-		if (ipa3_ctx->ipa_hw_type == IPA_HW_v4_1)
+		if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_1)
 			teth_stats_init->dst_ep_mask[ep_index] =
 				(IPA_CLIENT_BIT_32(IPA_CLIENT_Q6_WAN_CONS) |
+				IPA_CLIENT_BIT_32(
+					IPA_CLIENT_MHI_PRIME_TETH_CONS) |
 				IPA_CLIENT_BIT_32(
 				IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS));
 		else
@@ -93,8 +118,60 @@ int ipa_hw_stats_init(void)
 	}
 
 	ret = ipa_init_teth_stats(teth_stats_init);
+	if (ret != 0) {
+		IPAERR("init teth stats fails.\n");
+		kfree(teth_stats_init);
+		return ret;
+	}
 	kfree(teth_stats_init);
+	if (ipa3_ctx->ipa_hw_type >= IPA_HW_v4_5) {
+		ret = ipa_init_flt_rt_stats();
+		if (ret != 0) {
+			IPAERR("init flt rt stats fails.\n");
+			return ret;
+		}
+	}
 	return ret;
+}
+
+static void ipa_close_coal_frame(struct ipahal_imm_cmd_pyld **coal_cmd_pyld)
+{
+	int i;
+	struct ipahal_reg_valmask valmask;
+	struct ipahal_imm_cmd_register_write reg_write_coal_close;
+
+	i = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS);
+	reg_write_coal_close.skip_pipeline_clear = false;
+	reg_write_coal_close.pipeline_clear_options = IPAHAL_HPS_CLEAR;
+	reg_write_coal_close.offset = ipahal_get_reg_ofst(
+		IPA_AGGR_FORCE_CLOSE);
+	ipahal_get_aggr_force_close_valmask(i, &valmask);
+	reg_write_coal_close.value = valmask.val;
+	reg_write_coal_close.value_mask = valmask.mask;
+	*coal_cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_IMM_CMD_REGISTER_WRITE,
+		&reg_write_coal_close, false);
+}
+
+static bool ipa_validate_quota_stats_sram_size(u32 needed_len)
+{
+	u32 sram_size;
+
+	/* Starting IPA4.5 Quota stats is split between Q6 and AP */
+
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		IPAERR("Not supported ipa_ver=%d\n", ipa3_ctx->ipa_hw_type);
+		return false;
+	}
+
+	sram_size = IPA_MEM_PART(stats_quota_ap_size);
+	if (needed_len > sram_size) {
+		IPAERR("SRAM partition too small: %u needed %u\n",
+			sram_size, needed_len);
+		return false;
+	}
+
+	return true;
 }
 
 int ipa_init_quota_stats(u32 pipe_bitmask)
@@ -106,9 +183,11 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 	struct ipahal_imm_cmd_pyld *quota_base_pyld;
 	struct ipahal_imm_cmd_register_write quota_mask = {0};
 	struct ipahal_imm_cmd_pyld *quota_mask_pyld;
-	struct ipa3_desc desc[3] = { {0} };
+	struct ipahal_imm_cmd_pyld *coal_cmd_pyld = NULL;
+	struct ipa3_desc desc[4] = { {0} };
 	dma_addr_t dma_address;
 	int ret;
+	int num_cmd = 0;
 
 	if (!ipa3_ctx->hw_stats.enabled)
 		return 0;
@@ -125,9 +204,7 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 		return -EPERM;
 	}
 
-	if (pyld->len > IPA_MEM_PART(stats_quota_size)) {
-		IPAERR("SRAM partition too small: %d needed %d\n",
-			IPA_MEM_PART(stats_quota_size), pyld->len);
+	if (!ipa_validate_quota_stats_sram_size(pyld->len)) {
 		ret = -EPERM;
 		goto destroy_init_pyld;
 	}
@@ -142,6 +219,19 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 		goto destroy_init_pyld;
 	}
 
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
+		IPA_EP_NOT_ALLOCATED) {
+		ipa_close_coal_frame(&coal_cmd_pyld);
+		if (!coal_cmd_pyld) {
+			IPAERR("failed to construct coal close IC\n");
+			ret = -ENOMEM;
+			goto unmap;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], coal_cmd_pyld);
+		++num_cmd;
+	}
+
 	/* setting the registers and init the stats pyld are done atomically */
 	quota_mask.skip_pipeline_clear = false;
 	quota_mask.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
@@ -154,19 +244,20 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 	if (!quota_mask_pyld) {
 		IPAERR("failed to construct register_write imm cmd\n");
 		ret = -ENOMEM;
-		goto unmap;
+		goto destroy_coal_cmd;
 	}
-	desc[0].opcode = quota_mask_pyld->opcode;
-	desc[0].pyld = quota_mask_pyld->data;
-	desc[0].len = quota_mask_pyld->len;
-	desc[0].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = quota_mask_pyld->opcode;
+	desc[num_cmd].pyld = quota_mask_pyld->data;
+	desc[num_cmd].len = quota_mask_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	num_cmd++;
 
 	quota_base.skip_pipeline_clear = false;
 	quota_base.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
 	quota_base.offset = ipahal_get_reg_n_ofst(IPA_STAT_QUOTA_BASE_n,
 		ipa3_ctx->ee);
 	quota_base.value = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(stats_quota_ofst);
+		IPA_MEM_PART(stats_quota_ap_ofst);
 	quota_base.value_mask = ~0;
 	quota_base_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
 		&quota_base, false);
@@ -175,10 +266,11 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 		ret = -ENOMEM;
 		goto destroy_quota_mask;
 	}
-	desc[1].opcode = quota_base_pyld->opcode;
-	desc[1].pyld = quota_base_pyld->data;
-	desc[1].len = quota_base_pyld->len;
-	desc[1].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = quota_base_pyld->opcode;
+	desc[num_cmd].pyld = quota_base_pyld->data;
+	desc[num_cmd].len = quota_base_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	num_cmd++;
 
 	cmd.is_read = false;
 	cmd.skip_pipeline_clear = false;
@@ -186,7 +278,7 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 	cmd.size = pyld->len;
 	cmd.system_addr = dma_address;
 	cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(stats_quota_ofst);
+		IPA_MEM_PART(stats_quota_ap_ofst);
 	cmd_pyld = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
 	if (!cmd_pyld) {
@@ -194,12 +286,13 @@ int ipa_init_quota_stats(u32 pipe_bitmask)
 		ret = -ENOMEM;
 		goto destroy_quota_base;
 	}
-	desc[2].opcode = cmd_pyld->opcode;
-	desc[2].pyld = cmd_pyld->data;
-	desc[2].len = cmd_pyld->len;
-	desc[2].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = cmd_pyld->opcode;
+	desc[num_cmd].pyld = cmd_pyld->data;
+	desc[num_cmd].len = cmd_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	num_cmd++;
 
-	ret = ipa3_send_cmd(3, desc);
+	ret = ipa3_send_cmd(num_cmd, desc);
 	if (ret) {
 		IPAERR("failed to send immediate command (error %d)\n", ret);
 		goto destroy_imm;
@@ -213,6 +306,8 @@ destroy_quota_base:
 	ipahal_destroy_imm_cmd(quota_base_pyld);
 destroy_quota_mask:
 	ipahal_destroy_imm_cmd(quota_mask_pyld);
+destroy_coal_cmd:
+	ipahal_destroy_imm_cmd(coal_cmd_pyld);
 unmap:
 	dma_unmap_single(ipa3_ctx->pdev, dma_address, pyld->len, DMA_TO_DEVICE);
 destroy_init_pyld:
@@ -227,13 +322,17 @@ int ipa_get_quota_stats(struct ipa_quota_stats_all *out)
 	struct ipahal_stats_get_offset_quota get_offset = { { 0 } };
 	struct ipahal_stats_offset offset = { 0 };
 	struct ipahal_imm_cmd_dma_shared_mem cmd = { 0 };
-	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	struct ipahal_imm_cmd_pyld *cmd_pyld[2];
 	struct ipa_mem_buffer mem;
-	struct ipa3_desc desc = { 0 };
+	struct ipa3_desc desc[2];
 	struct ipahal_stats_quota_all *stats;
+	int num_cmd = 0;
 
 	if (!ipa3_ctx->hw_stats.enabled)
 		return 0;
+
+	memset(desc, 0, sizeof(desc));
+	memset(cmd_pyld, 0, sizeof(cmd_pyld));
 
 	get_offset.init = ipa3_ctx->hw_stats.quota.init;
 	ret = ipahal_stats_get_offset(IPAHAL_HW_STATS_QUOTA, &get_offset,
@@ -258,6 +357,19 @@ int ipa_get_quota_stats(struct ipa_quota_stats_all *out)
 		return ret;
 	}
 
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
+		IPA_EP_NOT_ALLOCATED) {
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
+		if (!cmd_pyld[num_cmd]) {
+			IPAERR("failed to construct coal close IC\n");
+			ret = -ENOMEM;
+			goto free_dma_mem;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
+	}
+
 	cmd.is_read = true;
 	cmd.clear_after_read = true;
 	cmd.skip_pipeline_clear = false;
@@ -265,20 +377,18 @@ int ipa_get_quota_stats(struct ipa_quota_stats_all *out)
 	cmd.size = mem.size;
 	cmd.system_addr = mem.phys_base;
 	cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(stats_quota_ofst) + offset.offset;
-	cmd_pyld = ipahal_construct_imm_cmd(
+		IPA_MEM_PART(stats_quota_ap_ofst) + offset.offset;
+	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
-	if (!cmd_pyld) {
+	if (!cmd_pyld[num_cmd]) {
 		IPAERR("failed to construct dma_shared_mem imm cmd\n");
 		ret = -ENOMEM;
 		goto free_dma_mem;
 	}
-	desc.opcode = cmd_pyld->opcode;
-	desc.pyld = cmd_pyld->data;
-	desc.len = cmd_pyld->len;
-	desc.type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+	++num_cmd;
 
-	ret = ipa3_send_cmd(1, &desc);
+	ret = ipa3_send_cmd(num_cmd, desc);
 	if (ret) {
 		IPAERR("failed to send immediate command (error %d)\n", ret);
 		goto destroy_imm;
@@ -328,7 +438,8 @@ int ipa_get_quota_stats(struct ipa_quota_stats_all *out)
 free_stats:
 	kfree(stats);
 destroy_imm:
-	ipahal_destroy_imm_cmd(cmd_pyld);
+	for (i = 0; i < num_cmd; i++)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
 free_dma_mem:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return ret;
@@ -391,10 +502,13 @@ int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in)
 	struct ipahal_imm_cmd_pyld *teth_base_pyld;
 	struct ipahal_imm_cmd_register_write teth_mask = { 0 };
 	struct ipahal_imm_cmd_pyld *teth_mask_pyld;
-	struct ipa3_desc desc[3] = { {0} };
+	struct ipahal_imm_cmd_pyld *coal_cmd_pyld = NULL;
+	struct ipa3_desc desc[4] = { {0} };
 	dma_addr_t dma_address;
 	int ret;
 	int i;
+	int num_cmd = 0;
+
 
 	if (!ipa3_ctx->hw_stats.enabled)
 		return 0;
@@ -450,6 +564,19 @@ int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in)
 		goto destroy_init_pyld;
 	}
 
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
+		IPA_EP_NOT_ALLOCATED) {
+		ipa_close_coal_frame(&coal_cmd_pyld);
+		if (!coal_cmd_pyld) {
+			IPAERR("failed to construct coal close IC\n");
+			ret = -ENOMEM;
+			goto unmap;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], coal_cmd_pyld);
+		++num_cmd;
+	}
+
 	/* setting the registers and init the stats pyld are done atomically */
 	teth_mask.skip_pipeline_clear = false;
 	teth_mask.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
@@ -462,12 +589,13 @@ int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in)
 	if (!teth_mask_pyld) {
 		IPAERR("failed to construct register_write imm cmd\n");
 		ret = -ENOMEM;
-		goto unmap;
+		goto destroy_coal_cmd;
 	}
-	desc[0].opcode = teth_mask_pyld->opcode;
-	desc[0].pyld = teth_mask_pyld->data;
-	desc[0].len = teth_mask_pyld->len;
-	desc[0].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = teth_mask_pyld->opcode;
+	desc[num_cmd].pyld = teth_mask_pyld->data;
+	desc[num_cmd].len = teth_mask_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
 
 	teth_base.skip_pipeline_clear = false;
 	teth_base.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
@@ -483,10 +611,11 @@ int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in)
 		ret = -ENOMEM;
 		goto destroy_teth_mask;
 	}
-	desc[1].opcode = teth_base_pyld->opcode;
-	desc[1].pyld = teth_base_pyld->data;
-	desc[1].len = teth_base_pyld->len;
-	desc[1].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = teth_base_pyld->opcode;
+	desc[num_cmd].pyld = teth_base_pyld->data;
+	desc[num_cmd].len = teth_base_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
 
 	cmd.is_read = false;
 	cmd.skip_pipeline_clear = false;
@@ -502,12 +631,13 @@ int ipa_init_teth_stats(struct ipa_teth_stats_endpoints *in)
 		ret = -ENOMEM;
 		goto destroy_teth_base;
 	}
-	desc[2].opcode = cmd_pyld->opcode;
-	desc[2].pyld = cmd_pyld->data;
-	desc[2].len = cmd_pyld->len;
-	desc[2].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = cmd_pyld->opcode;
+	desc[num_cmd].pyld = cmd_pyld->data;
+	desc[num_cmd].len = cmd_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
 
-	ret = ipa3_send_cmd(3, desc);
+	ret = ipa3_send_cmd(num_cmd, desc);
 	if (ret) {
 		IPAERR("failed to send immediate command (error %d)\n", ret);
 		goto destroy_imm;
@@ -521,6 +651,9 @@ destroy_teth_base:
 	ipahal_destroy_imm_cmd(teth_base_pyld);
 destroy_teth_mask:
 	ipahal_destroy_imm_cmd(teth_mask_pyld);
+destroy_coal_cmd:
+	if (coal_cmd_pyld)
+		ipahal_destroy_imm_cmd(coal_cmd_pyld);
 unmap:
 	dma_unmap_single(ipa3_ctx->pdev, dma_address, pyld->len, DMA_TO_DEVICE);
 destroy_init_pyld:
@@ -535,9 +668,9 @@ int ipa_get_teth_stats(void)
 	struct ipahal_stats_get_offset_tethering get_offset = { { 0 } };
 	struct ipahal_stats_offset offset = {0};
 	struct ipahal_imm_cmd_dma_shared_mem cmd = { 0 };
-	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	struct ipahal_imm_cmd_pyld *cmd_pyld[2];
 	struct ipa_mem_buffer mem;
-	struct ipa3_desc desc = { 0 };
+	struct ipa3_desc desc[2];
 	struct ipahal_stats_tethering_all *stats_all;
 	struct ipa_hw_stats_teth *sw_stats = &ipa3_ctx->hw_stats.teth;
 	struct ipahal_stats_tethering *stats;
@@ -545,9 +678,13 @@ int ipa_get_teth_stats(void)
 	struct ipahal_stats_init_tethering *init =
 		(struct ipahal_stats_init_tethering *)
 			&ipa3_ctx->hw_stats.teth.init;
+	int num_cmd = 0;
 
 	if (!ipa3_ctx->hw_stats.enabled)
 		return 0;
+
+	memset(desc, 0, sizeof(desc));
+	memset(cmd_pyld, 0, sizeof(cmd_pyld));
 
 	get_offset.init = ipa3_ctx->hw_stats.teth.init;
 	ret = ipahal_stats_get_offset(IPAHAL_HW_STATS_TETHERING, &get_offset,
@@ -572,6 +709,19 @@ int ipa_get_teth_stats(void)
 		return ret;
 	}
 
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
+		IPA_EP_NOT_ALLOCATED) {
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
+		if (!cmd_pyld[num_cmd]) {
+			IPAERR("failed to construct coal close IC\n");
+			ret = -ENOMEM;
+			goto free_dma_mem;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
+	}
+
 	cmd.is_read = true;
 	cmd.clear_after_read = true;
 	cmd.skip_pipeline_clear = false;
@@ -580,19 +730,17 @@ int ipa_get_teth_stats(void)
 	cmd.system_addr = mem.phys_base;
 	cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(stats_tethering_ofst) + offset.offset;
-	cmd_pyld = ipahal_construct_imm_cmd(
+	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
-	if (!cmd_pyld) {
+	if (!cmd_pyld[num_cmd]) {
 		IPAERR("failed to construct dma_shared_mem imm cmd\n");
 		ret = -ENOMEM;
-		goto free_dma_mem;
+		goto destroy_imm;
 	}
-	desc.opcode = cmd_pyld->opcode;
-	desc.pyld = cmd_pyld->data;
-	desc.len = cmd_pyld->len;
-	desc.type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+	++num_cmd;
 
-	ret = ipa3_send_cmd(1, &desc);
+	ret = ipa3_send_cmd(num_cmd, desc);
 	if (ret) {
 		IPAERR("failed to send immediate command (error %d)\n", ret);
 		goto destroy_imm;
@@ -682,7 +830,8 @@ free_stats:
 	kfree(stats_all);
 	stats = NULL;
 destroy_imm:
-	ipahal_destroy_imm_cmd(cmd_pyld);
+	for (i = 0; i < num_cmd; i++)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
 free_dma_mem:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return ret;
@@ -792,122 +941,36 @@ int ipa_reset_all_teth_stats(void)
 	return 0;
 }
 
-int ipa_flt_rt_stats_add_rule_id(enum ipa_ip_type ip, bool filtering,
-	u16 rule_id)
-{
-	int rule_idx, rule_bit;
-	u32 *bmsk_ptr;
-
-	if (!ipa3_ctx->hw_stats.enabled)
-		return 0;
-
-	if (ip < 0 || ip >= IPA_IP_MAX) {
-		IPAERR("wrong ip type %d\n", ip);
-		return -EINVAL;
-	}
-
-	rule_idx = rule_id / 32;
-	rule_bit = rule_id % 32;
-
-	if (rule_idx >= IPAHAL_MAX_RULE_ID_32) {
-		IPAERR("invalid rule_id %d\n", rule_id);
-		return -EINVAL;
-	}
-
-	if (ip == IPA_IP_v4 && filtering)
-		bmsk_ptr =
-			ipa3_ctx->hw_stats.flt_rt.flt_v4_init.rule_id_bitmask;
-	else if (ip == IPA_IP_v4)
-		bmsk_ptr =
-			ipa3_ctx->hw_stats.flt_rt.rt_v4_init.rule_id_bitmask;
-	else if (ip == IPA_IP_v6 && filtering)
-		bmsk_ptr =
-			ipa3_ctx->hw_stats.flt_rt.flt_v6_init.rule_id_bitmask;
-	else
-		bmsk_ptr =
-			ipa3_ctx->hw_stats.flt_rt.rt_v6_init.rule_id_bitmask;
-
-	bmsk_ptr[rule_idx] |= (1 << rule_bit);
-
-	return 0;
-}
-
-int ipa_flt_rt_stats_start(enum ipa_ip_type ip, bool filtering)
+int ipa_init_flt_rt_stats(void)
 {
 	struct ipahal_stats_init_pyld *pyld;
-	int smem_ofst, smem_size, stats_base, start_id_ofst, end_id_ofst;
-	int start_id, end_id;
-	struct ipahal_stats_init_flt_rt *init;
+	int smem_ofst, smem_size;
+	int stats_base_flt_v4, stats_base_flt_v6;
+	int stats_base_rt_v4, stats_base_rt_v6;
 	struct ipahal_imm_cmd_dma_shared_mem cmd = { 0 };
 	struct ipahal_imm_cmd_pyld *cmd_pyld;
-	struct ipahal_imm_cmd_register_write flt_rt_base = {0};
-	struct ipahal_imm_cmd_pyld *flt_rt_base_pyld;
-	struct ipahal_imm_cmd_register_write flt_rt_start_id = {0};
-	struct ipahal_imm_cmd_pyld *flt_rt_start_id_pyld;
-	struct ipahal_imm_cmd_register_write flt_rt_end_id = { 0 };
-	struct ipahal_imm_cmd_pyld *flt_rt_end_id_pyld;
-	struct ipa3_desc desc[4] = { {0} };
+	struct ipahal_imm_cmd_register_write flt_v4_base = {0};
+	struct ipahal_imm_cmd_pyld *flt_v4_base_pyld;
+	struct ipahal_imm_cmd_register_write flt_v6_base = {0};
+	struct ipahal_imm_cmd_pyld *flt_v6_base_pyld;
+	struct ipahal_imm_cmd_register_write rt_v4_base = {0};
+	struct ipahal_imm_cmd_pyld *rt_v4_base_pyld;
+	struct ipahal_imm_cmd_register_write rt_v6_base = {0};
+	struct ipahal_imm_cmd_pyld *rt_v6_base_pyld;
+	struct ipahal_imm_cmd_pyld *coal_cmd_pyld = NULL;
+	struct ipa3_desc desc[6] = { {0} };
 	dma_addr_t dma_address;
 	int ret;
+	int num_cmd = 0;
 
 	if (!ipa3_ctx->hw_stats.enabled)
 		return 0;
 
-	if (ip == IPA_IP_v4 && filtering) {
-		init = &ipa3_ctx->hw_stats.flt_rt.flt_v4_init;
-		smem_ofst = IPA_MEM_PART(stats_flt_v4_ofst);
-		smem_size = IPA_MEM_PART(stats_flt_v4_size);
-		stats_base = ipahal_get_reg_ofst(IPA_STAT_FILTER_IPV4_BASE);
-		start_id_ofst =
-			ipahal_get_reg_ofst(IPA_STAT_FILTER_IPV4_START_ID);
-		end_id_ofst = ipahal_get_reg_ofst(IPA_STAT_FILTER_IPV4_END_ID);
-	} else if (ip == IPA_IP_v4) {
-		init = &ipa3_ctx->hw_stats.flt_rt.rt_v4_init;
-		smem_ofst = IPA_MEM_PART(stats_rt_v4_ofst);
-		smem_size = IPA_MEM_PART(stats_rt_v4_size);
-		stats_base = ipahal_get_reg_ofst(IPA_STAT_ROUTER_IPV4_BASE);
-		start_id_ofst =
-			ipahal_get_reg_ofst(IPA_STAT_ROUTER_IPV4_START_ID);
-		end_id_ofst = ipahal_get_reg_ofst(IPA_STAT_ROUTER_IPV4_END_ID);
-	} else if (ip == IPA_IP_v6 && filtering) {
-		init = &ipa3_ctx->hw_stats.flt_rt.flt_v6_init;
-		smem_ofst = IPA_MEM_PART(stats_flt_v6_ofst);
-		smem_size = IPA_MEM_PART(stats_flt_v6_size);
-		stats_base = ipahal_get_reg_ofst(IPA_STAT_FILTER_IPV6_BASE);
-		start_id_ofst =
-			ipahal_get_reg_ofst(IPA_STAT_FILTER_IPV6_START_ID);
-		end_id_ofst = ipahal_get_reg_ofst(IPA_STAT_FILTER_IPV6_END_ID);
-	} else {
-		init = &ipa3_ctx->hw_stats.flt_rt.rt_v6_init;
-		smem_ofst = IPA_MEM_PART(stats_rt_v6_ofst);
-		smem_size = IPA_MEM_PART(stats_rt_v6_size);
-		stats_base = ipahal_get_reg_ofst(IPA_STAT_ROUTER_IPV6_BASE);
-		start_id_ofst =
-			ipahal_get_reg_ofst(IPA_STAT_ROUTER_IPV6_START_ID);
-		end_id_ofst = ipahal_get_reg_ofst(IPA_STAT_ROUTER_IPV6_END_ID);
-	}
+	smem_ofst = IPA_MEM_PART(stats_fnr_ofst);
+	smem_size = IPA_MEM_PART(stats_fnr_size);
 
-	for (start_id = 0; start_id < IPAHAL_MAX_RULE_ID_32; start_id++) {
-		if (init->rule_id_bitmask[start_id])
-			break;
-	}
-
-	if (start_id == IPAHAL_MAX_RULE_ID_32) {
-		IPAERR("empty rule ids\n");
-		return -EINVAL;
-	}
-
-	/* every rule_id_bitmask contains 32 rules */
-	start_id *= 32;
-
-	for (end_id = IPAHAL_MAX_RULE_ID_32 - 1; end_id >= 0; end_id--) {
-		if (init->rule_id_bitmask[end_id])
-			break;
-	}
-	end_id = (end_id + 1) * 32 - 1;
-
-	pyld = ipahal_stats_generate_init_pyld(IPAHAL_HW_STATS_FNR, init,
-		false);
+	pyld = ipahal_stats_generate_init_pyld(IPAHAL_HW_STATS_FNR,
+		(void *)(uintptr_t)(IPA_MAX_FLT_RT_CNT_INDEX), false);
 	if (!pyld) {
 		IPAERR("failed to generate pyld\n");
 		return -EPERM;
@@ -930,58 +993,104 @@ int ipa_flt_rt_stats_start(enum ipa_ip_type ip, bool filtering)
 		goto destroy_init_pyld;
 	}
 
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
+		IPA_EP_NOT_ALLOCATED) {
+		ipa_close_coal_frame(&coal_cmd_pyld);
+		if (!coal_cmd_pyld) {
+			IPAERR("failed to construct coal close IC\n");
+			ret = -ENOMEM;
+			goto unmap;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], coal_cmd_pyld);
+		++num_cmd;
+	}
+
+	stats_base_flt_v4 = ipahal_get_reg_ofst(IPA_STAT_FILTER_IPV4_BASE);
+	stats_base_flt_v6 = ipahal_get_reg_ofst(IPA_STAT_FILTER_IPV6_BASE);
+	stats_base_rt_v4 = ipahal_get_reg_ofst(IPA_STAT_ROUTER_IPV4_BASE);
+	stats_base_rt_v6 = ipahal_get_reg_ofst(IPA_STAT_ROUTER_IPV6_BASE);
+
 	/* setting the registers and init the stats pyld are done atomically */
-	flt_rt_start_id.skip_pipeline_clear = false;
-	flt_rt_start_id.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
-	flt_rt_start_id.offset = start_id_ofst;
-	flt_rt_start_id.value = start_id;
-	flt_rt_start_id.value_mask = 0x3FF;
-	flt_rt_start_id_pyld = ipahal_construct_imm_cmd(
-		IPA_IMM_CMD_REGISTER_WRITE, &flt_rt_start_id, false);
-	if (!flt_rt_start_id_pyld) {
-		IPAERR("failed to construct register_write imm cmd\n");
-		ret = -ENOMEM;
-		goto unmap;
-	}
-	desc[0].opcode = flt_rt_start_id_pyld->opcode;
-	desc[0].pyld = flt_rt_start_id_pyld->data;
-	desc[0].len = flt_rt_start_id_pyld->len;
-	desc[0].type = IPA_IMM_CMD_DESC;
-
-	flt_rt_end_id.skip_pipeline_clear = false;
-	flt_rt_end_id.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
-	flt_rt_end_id.offset = end_id_ofst;
-	flt_rt_end_id.value = end_id;
-	flt_rt_end_id.value_mask = 0x3FF;
-	flt_rt_end_id_pyld = ipahal_construct_imm_cmd(
-		IPA_IMM_CMD_REGISTER_WRITE, &flt_rt_end_id, false);
-	if (!flt_rt_end_id_pyld) {
-		IPAERR("failed to construct register_write imm cmd\n");
-		ret = -ENOMEM;
-		goto destroy_flt_rt_start_id;
-	}
-	desc[1].opcode = flt_rt_end_id_pyld->opcode;
-	desc[1].pyld = flt_rt_end_id_pyld->data;
-	desc[1].len = flt_rt_end_id_pyld->len;
-	desc[1].type = IPA_IMM_CMD_DESC;
-
-	flt_rt_base.skip_pipeline_clear = false;
-	flt_rt_base.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
-	flt_rt_base.offset = stats_base;
-	flt_rt_base.value = ipa3_ctx->smem_restricted_bytes +
+	/* set IPA_STAT_FILTER_IPV4_BASE */
+	flt_v4_base.skip_pipeline_clear = false;
+	flt_v4_base.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
+	flt_v4_base.offset = stats_base_flt_v4;
+	flt_v4_base.value = ipa3_ctx->smem_restricted_bytes +
 		smem_ofst;
-	flt_rt_base.value_mask = ~0;
-	flt_rt_base_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
-		&flt_rt_base, false);
-	if (!flt_rt_base_pyld) {
+	flt_v4_base.value_mask = ~0;
+	flt_v4_base_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
+		&flt_v4_base, false);
+	if (!flt_v4_base_pyld) {
 		IPAERR("failed to construct register_write imm cmd\n");
 		ret = -ENOMEM;
-		goto destroy_flt_rt_end_id;
+		goto destroy_coal_cmd;
 	}
-	desc[2].opcode = flt_rt_base_pyld->opcode;
-	desc[2].pyld = flt_rt_base_pyld->data;
-	desc[2].len = flt_rt_base_pyld->len;
-	desc[2].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = flt_v4_base_pyld->opcode;
+	desc[num_cmd].pyld = flt_v4_base_pyld->data;
+	desc[num_cmd].len = flt_v4_base_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
+
+	/* set IPA_STAT_FILTER_IPV6_BASE */
+	flt_v6_base.skip_pipeline_clear = false;
+	flt_v6_base.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
+	flt_v6_base.offset = stats_base_flt_v6;
+	flt_v6_base.value = ipa3_ctx->smem_restricted_bytes +
+		smem_ofst;
+	flt_v6_base.value_mask = ~0;
+	flt_v6_base_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
+		&flt_v6_base, false);
+	if (!flt_v6_base_pyld) {
+		IPAERR("failed to construct register_write imm cmd\n");
+		ret = -ENOMEM;
+		goto destroy_flt_v4_base;
+	}
+	desc[num_cmd].opcode = flt_v6_base_pyld->opcode;
+	desc[num_cmd].pyld = flt_v6_base_pyld->data;
+	desc[num_cmd].len = flt_v6_base_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
+
+	/* set IPA_STAT_ROUTER_IPV4_BASE */
+	rt_v4_base.skip_pipeline_clear = false;
+	rt_v4_base.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
+	rt_v4_base.offset = stats_base_rt_v4;
+	rt_v4_base.value = ipa3_ctx->smem_restricted_bytes +
+		smem_ofst;
+	rt_v4_base.value_mask = ~0;
+	rt_v4_base_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
+		&rt_v4_base, false);
+	if (!rt_v4_base_pyld) {
+		IPAERR("failed to construct register_write imm cmd\n");
+		ret = -ENOMEM;
+		goto destroy_flt_v6_base;
+	}
+	desc[num_cmd].opcode = rt_v4_base_pyld->opcode;
+	desc[num_cmd].pyld = rt_v4_base_pyld->data;
+	desc[num_cmd].len = rt_v4_base_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
+
+	/* set IPA_STAT_ROUTER_IPV6_BASE */
+	rt_v6_base.skip_pipeline_clear = false;
+	rt_v6_base.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
+	rt_v6_base.offset = stats_base_rt_v6;
+	rt_v6_base.value = ipa3_ctx->smem_restricted_bytes +
+		smem_ofst;
+	rt_v6_base.value_mask = ~0;
+	rt_v6_base_pyld = ipahal_construct_imm_cmd(IPA_IMM_CMD_REGISTER_WRITE,
+		&rt_v6_base, false);
+	if (!rt_v6_base_pyld) {
+		IPAERR("failed to construct register_write imm cmd\n");
+		ret = -ENOMEM;
+		goto destroy_rt_v4_base;
+	}
+	desc[num_cmd].opcode = rt_v6_base_pyld->opcode;
+	desc[num_cmd].pyld = rt_v6_base_pyld->data;
+	desc[num_cmd].len = rt_v6_base_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
 
 	cmd.is_read = false;
 	cmd.skip_pipeline_clear = false;
@@ -995,14 +1104,15 @@ int ipa_flt_rt_stats_start(enum ipa_ip_type ip, bool filtering)
 	if (!cmd_pyld) {
 		IPAERR("failed to construct dma_shared_mem imm cmd\n");
 		ret = -ENOMEM;
-		goto destroy_flt_rt_base;
+		goto destroy_rt_v6_base;
 	}
-	desc[3].opcode = cmd_pyld->opcode;
-	desc[3].pyld = cmd_pyld->data;
-	desc[3].len = cmd_pyld->len;
-	desc[3].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = cmd_pyld->opcode;
+	desc[num_cmd].pyld = cmd_pyld->data;
+	desc[num_cmd].len = cmd_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
 
-	ret = ipa3_send_cmd(4, desc);
+	ret = ipa3_send_cmd(num_cmd, desc);
 	if (ret) {
 		IPAERR("failed to send immediate command (error %d)\n", ret);
 		goto destroy_imm;
@@ -1012,12 +1122,17 @@ int ipa_flt_rt_stats_start(enum ipa_ip_type ip, bool filtering)
 
 destroy_imm:
 	ipahal_destroy_imm_cmd(cmd_pyld);
-destroy_flt_rt_base:
-	ipahal_destroy_imm_cmd(flt_rt_base_pyld);
-destroy_flt_rt_end_id:
-	ipahal_destroy_imm_cmd(flt_rt_end_id_pyld);
-destroy_flt_rt_start_id:
-	ipahal_destroy_imm_cmd(flt_rt_start_id_pyld);
+destroy_rt_v6_base:
+	ipahal_destroy_imm_cmd(rt_v6_base_pyld);
+destroy_rt_v4_base:
+	ipahal_destroy_imm_cmd(rt_v4_base_pyld);
+destroy_flt_v6_base:
+	ipahal_destroy_imm_cmd(flt_v6_base_pyld);
+destroy_flt_v4_base:
+	ipahal_destroy_imm_cmd(flt_v4_base_pyld);
+destroy_coal_cmd:
+	if (coal_cmd_pyld)
+		ipahal_destroy_imm_cmd(coal_cmd_pyld);
 unmap:
 	dma_unmap_single(ipa3_ctx->pdev, dma_address, pyld->len, DMA_TO_DEVICE);
 destroy_init_pyld:
@@ -1025,55 +1140,22 @@ destroy_init_pyld:
 	return ret;
 }
 
-int ipa_flt_rt_stats_clear_rule_ids(enum ipa_ip_type ip, bool filtering)
-{
-	struct ipahal_stats_init_flt_rt *init;
-	int i;
-
-	if (!ipa3_ctx->hw_stats.enabled)
-		return 0;
-
-	if (ip < 0 || ip >= IPA_IP_MAX) {
-		IPAERR("wrong ip type %d\n", ip);
-		return -EINVAL;
-	}
-
-	if (ip == IPA_IP_v4 && filtering)
-		init = &ipa3_ctx->hw_stats.flt_rt.flt_v4_init;
-	else if (ip == IPA_IP_v4)
-		init = &ipa3_ctx->hw_stats.flt_rt.rt_v4_init;
-	else if (ip == IPA_IP_v6 && filtering)
-		init = &ipa3_ctx->hw_stats.flt_rt.flt_v6_init;
-	else
-		init = &ipa3_ctx->hw_stats.flt_rt.rt_v6_init;
-
-	for (i = 0; i < IPAHAL_MAX_RULE_ID_32; i++)
-		init->rule_id_bitmask[i] = 0;
-
-	return 0;
-}
-
-static int __ipa_get_flt_rt_stats(enum ipa_ip_type ip, bool filtering,
-	u16 rule_id, struct ipa_flt_rt_stats *out)
+static int __ipa_get_flt_rt_stats(struct ipa_ioc_flt_rt_query *query)
 {
 	int ret;
 	int smem_ofst;
-	bool clear = false;
-	struct ipahal_stats_get_offset_flt_rt *get_offset;
+	bool clear = query->reset;
+	struct ipahal_stats_get_offset_flt_rt_v4_5 *get_offset;
 	struct ipahal_stats_offset offset = { 0 };
 	struct ipahal_imm_cmd_dma_shared_mem cmd = { 0 };
-	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	struct ipahal_imm_cmd_pyld *cmd_pyld[2];
 	struct ipa_mem_buffer mem;
-	struct ipa3_desc desc = { 0 };
-	struct ipahal_stats_flt_rt stats;
+	struct ipa3_desc desc[2];
+	int num_cmd = 0;
+	int i;
 
-	if (rule_id >= IPAHAL_MAX_RULE_ID_32 * 32) {
-		IPAERR("invalid rule_id %d\n", rule_id);
-		return -EINVAL;
-	}
-
-	if (out == NULL)
-		clear = true;
+	memset(desc, 0, sizeof(desc));
+	memset(cmd_pyld, 0, sizeof(cmd_pyld));
 
 	get_offset = kzalloc(sizeof(*get_offset), GFP_KERNEL);
 	if (!get_offset) {
@@ -1081,21 +1163,10 @@ static int __ipa_get_flt_rt_stats(enum ipa_ip_type ip, bool filtering,
 		return -ENOMEM;
 	}
 
-	if (ip == IPA_IP_v4 && filtering) {
-		get_offset->init = ipa3_ctx->hw_stats.flt_rt.flt_v4_init;
-		smem_ofst = IPA_MEM_PART(stats_flt_v4_ofst);
-	} else if (ip == IPA_IP_v4) {
-		get_offset->init = ipa3_ctx->hw_stats.flt_rt.rt_v4_init;
-		smem_ofst = IPA_MEM_PART(stats_rt_v4_ofst);
-	} else if (ip == IPA_IP_v6 && filtering) {
-		get_offset->init = ipa3_ctx->hw_stats.flt_rt.flt_v6_init;
-		smem_ofst = IPA_MEM_PART(stats_flt_v6_ofst);
-	} else {
-		get_offset->init = ipa3_ctx->hw_stats.flt_rt.rt_v6_init;
-		smem_ofst = IPA_MEM_PART(stats_rt_v6_ofst);
-	}
+	smem_ofst = IPA_MEM_PART(stats_fnr_ofst);
 
-	get_offset->rule_id = rule_id;
+	get_offset->start_id = query->start_id;
+	get_offset->end_id = query->end_id;
 
 	ret = ipahal_stats_get_offset(IPAHAL_HW_STATS_FNR, get_offset,
 		&offset);
@@ -1104,7 +1175,7 @@ static int __ipa_get_flt_rt_stats(enum ipa_ip_type ip, bool filtering,
 		goto free_offset;
 	}
 
-	IPADBG_LOW("offset = %d size = %d\n", offset.offset, offset.size);
+	IPADBG("offset = %d size = %d\n", offset.offset, offset.size);
 
 	if (offset.size == 0) {
 		ret = 0;
@@ -1121,6 +1192,19 @@ static int __ipa_get_flt_rt_stats(enum ipa_ip_type ip, bool filtering,
 		goto free_offset;
 	}
 
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
+		IPA_EP_NOT_ALLOCATED) {
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
+		if (!cmd_pyld[num_cmd]) {
+			IPAERR("failed to construct coal close IC\n");
+			ret = -ENOMEM;
+			goto free_dma_mem;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
+	}
+
 	cmd.is_read = true;
 	cmd.clear_after_read = clear;
 	cmd.skip_pipeline_clear = false;
@@ -1129,107 +1213,83 @@ static int __ipa_get_flt_rt_stats(enum ipa_ip_type ip, bool filtering,
 	cmd.system_addr = mem.phys_base;
 	cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 		smem_ofst + offset.offset;
-	cmd_pyld = ipahal_construct_imm_cmd(
+	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
-	if (!cmd_pyld) {
+	if (!cmd_pyld[num_cmd]) {
 		IPAERR("failed to construct dma_shared_mem imm cmd\n");
 		ret = -ENOMEM;
-		goto free_dma_mem;
+		goto destroy_imm;
 	}
-	desc.opcode = cmd_pyld->opcode;
-	desc.pyld = cmd_pyld->data;
-	desc.len = cmd_pyld->len;
-	desc.type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+	++num_cmd;
 
-	ret = ipa3_send_cmd(1, &desc);
+	ret = ipa3_send_cmd(num_cmd, desc);
 	if (ret) {
 		IPAERR("failed to send immediate command (error %d)\n", ret);
 		goto destroy_imm;
 	}
 
 	ret = ipahal_parse_stats(IPAHAL_HW_STATS_FNR,
-		&get_offset->init, mem.base, &stats);
+		NULL, mem.base, query);
 	if (ret) {
 		IPAERR("failed to parse stats (error %d)\n", ret);
 		goto destroy_imm;
 	}
-
-	if (out) {
-		out->num_pkts = stats.num_packets;
-		out->num_pkts_hash = stats.num_packets_hash;
-	}
-
 	ret = 0;
 
 destroy_imm:
-	ipahal_destroy_imm_cmd(cmd_pyld);
+	for (i = 0; i < num_cmd; i++)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
 free_dma_mem:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 free_offset:
 	kfree(get_offset);
 	return ret;
-
 }
 
-
-int ipa_get_flt_rt_stats(enum ipa_ip_type ip, bool filtering, u16 rule_id,
-	struct ipa_flt_rt_stats *out)
+int ipa_get_flt_rt_stats(struct ipa_ioc_flt_rt_query *query)
 {
-	if (!ipa3_ctx->hw_stats.enabled)
+	if (!ipa3_ctx->hw_stats.enabled) {
+		IPAERR("hw_stats is not enabled\n");
 		return 0;
+	}
 
-	if (ip < 0 || ip >= IPA_IP_MAX) {
-		IPAERR("wrong ip type %d\n", ip);
+	if (ipa3_ctx->ipa_hw_type < IPA_HW_v4_5) {
+		IPAERR("FnR stats not supported in %d hw_type\n",
+			ipa3_ctx->ipa_hw_type);
+		return 0;
+	}
+
+	if (query->start_id == 0 || query->end_id == 0) {
+		IPAERR("Invalid start_id/end_id, must be not 0");
+		IPAERR("start_id %d, end_id %d\n",
+			query->start_id, query->end_id);
 		return -EINVAL;
 	}
 
-	return __ipa_get_flt_rt_stats(ip, filtering, rule_id, out);
-}
-
-int ipa_reset_flt_rt_stats(enum ipa_ip_type ip, bool filtering, u16 rule_id)
-{
-	if (!ipa3_ctx->hw_stats.enabled)
-		return 0;
-
-	if (ip < 0 || ip >= IPA_IP_MAX) {
-		IPAERR("wrong ip type %d\n", ip);
+	if (query->start_id > IPA_MAX_FLT_RT_CNT_INDEX) {
+		IPAERR("start_cnt_id %d out of range\n", query->start_id);
 		return -EINVAL;
 	}
 
-	return __ipa_get_flt_rt_stats(ip, filtering, rule_id, NULL);
-}
-
-int ipa_reset_all_flt_rt_stats(enum ipa_ip_type ip, bool filtering)
-{
-	struct ipahal_stats_init_flt_rt *init;
-	int i;
-
-	if (!ipa3_ctx->hw_stats.enabled)
-		return 0;
-
-	if (ip < 0 || ip >= IPA_IP_MAX) {
-		IPAERR("wrong ip type %d\n", ip);
+	if (query->end_id > IPA_MAX_FLT_RT_CNT_INDEX) {
+		IPAERR("end_cnt_id %d out of range\n", query->end_id);
 		return -EINVAL;
 	}
 
-	if (ip == IPA_IP_v4 && filtering)
-		init = &ipa3_ctx->hw_stats.flt_rt.flt_v4_init;
-	else if (ip == IPA_IP_v4)
-		init = &ipa3_ctx->hw_stats.flt_rt.rt_v4_init;
-	else if (ip == IPA_IP_v6 && filtering)
-		init = &ipa3_ctx->hw_stats.flt_rt.flt_v6_init;
-	else
-		init = &ipa3_ctx->hw_stats.flt_rt.rt_v6_init;
-
-	for (i = 0; i < IPAHAL_MAX_RULE_ID_32 * 32; i++) {
-		int idx = i / 32;
-		int bit = i % 32;
-
-		if (init->rule_id_bitmask[idx] & (1 << bit))
-			__ipa_get_flt_rt_stats(ip, filtering, i, NULL);
+	if (query->end_id < query->start_id) {
+		IPAERR("end_id %d < start_id %d\n",
+			query->end_id, query->start_id);
+		return -EINVAL;
 	}
 
-	return 0;
+	if (query->stats_size > sizeof(struct ipa_flt_rt_stats)) {
+		IPAERR("stats_size %d > ipa_flt_rt_stats %ld\n",
+			query->stats_size, sizeof(struct ipa_flt_rt_stats));
+		return -EINVAL;
+	}
+
+	return __ipa_get_flt_rt_stats(query);
 }
 
 int ipa_init_drop_stats(u32 pipe_bitmask)
@@ -1241,9 +1301,11 @@ int ipa_init_drop_stats(u32 pipe_bitmask)
 	struct ipahal_imm_cmd_pyld *drop_base_pyld;
 	struct ipahal_imm_cmd_register_write drop_mask = {0};
 	struct ipahal_imm_cmd_pyld *drop_mask_pyld;
-	struct ipa3_desc desc[3] = { {0} };
+	struct ipahal_imm_cmd_pyld *coal_cmd_pyld = NULL;
+	struct ipa3_desc desc[4] = { {0} };
 	dma_addr_t dma_address;
 	int ret;
+	int num_cmd = 0;
 
 	if (!ipa3_ctx->hw_stats.enabled)
 		return 0;
@@ -1277,6 +1339,19 @@ int ipa_init_drop_stats(u32 pipe_bitmask)
 		goto destroy_init_pyld;
 	}
 
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
+		IPA_EP_NOT_ALLOCATED) {
+		ipa_close_coal_frame(&coal_cmd_pyld);
+		if (!coal_cmd_pyld) {
+			IPAERR("failed to construct coal close IC\n");
+			ret = -ENOMEM;
+			goto unmap;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], coal_cmd_pyld);
+		++num_cmd;
+	}
+
 	/* setting the registers and init the stats pyld are done atomically */
 	drop_mask.skip_pipeline_clear = false;
 	drop_mask.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
@@ -1289,12 +1364,13 @@ int ipa_init_drop_stats(u32 pipe_bitmask)
 	if (!drop_mask_pyld) {
 		IPAERR("failed to construct register_write imm cmd\n");
 		ret = -ENOMEM;
-		goto unmap;
+		goto destroy_coal_cmd;
 	}
-	desc[0].opcode = drop_mask_pyld->opcode;
-	desc[0].pyld = drop_mask_pyld->data;
-	desc[0].len = drop_mask_pyld->len;
-	desc[0].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = drop_mask_pyld->opcode;
+	desc[num_cmd].pyld = drop_mask_pyld->data;
+	desc[num_cmd].len = drop_mask_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
 
 	drop_base.skip_pipeline_clear = false;
 	drop_base.pipeline_clear_options = IPAHAL_FULL_PIPELINE_CLEAR;
@@ -1310,10 +1386,11 @@ int ipa_init_drop_stats(u32 pipe_bitmask)
 		ret = -ENOMEM;
 		goto destroy_drop_mask;
 	}
-	desc[1].opcode = drop_base_pyld->opcode;
-	desc[1].pyld = drop_base_pyld->data;
-	desc[1].len = drop_base_pyld->len;
-	desc[1].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = drop_base_pyld->opcode;
+	desc[num_cmd].pyld = drop_base_pyld->data;
+	desc[num_cmd].len = drop_base_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
 
 	cmd.is_read = false;
 	cmd.skip_pipeline_clear = false;
@@ -1329,12 +1406,13 @@ int ipa_init_drop_stats(u32 pipe_bitmask)
 		ret = -ENOMEM;
 		goto destroy_drop_base;
 	}
-	desc[2].opcode = cmd_pyld->opcode;
-	desc[2].pyld = cmd_pyld->data;
-	desc[2].len = cmd_pyld->len;
-	desc[2].type = IPA_IMM_CMD_DESC;
+	desc[num_cmd].opcode = cmd_pyld->opcode;
+	desc[num_cmd].pyld = cmd_pyld->data;
+	desc[num_cmd].len = cmd_pyld->len;
+	desc[num_cmd].type = IPA_IMM_CMD_DESC;
+	++num_cmd;
 
-	ret = ipa3_send_cmd(3, desc);
+	ret = ipa3_send_cmd(num_cmd, desc);
 	if (ret) {
 		IPAERR("failed to send immediate command (error %d)\n", ret);
 		goto destroy_imm;
@@ -1348,6 +1426,9 @@ destroy_drop_base:
 	ipahal_destroy_imm_cmd(drop_base_pyld);
 destroy_drop_mask:
 	ipahal_destroy_imm_cmd(drop_mask_pyld);
+destroy_coal_cmd:
+	if (coal_cmd_pyld)
+		ipahal_destroy_imm_cmd(coal_cmd_pyld);
 unmap:
 	dma_unmap_single(ipa3_ctx->pdev, dma_address, pyld->len, DMA_TO_DEVICE);
 destroy_init_pyld:
@@ -1362,13 +1443,17 @@ int ipa_get_drop_stats(struct ipa_drop_stats_all *out)
 	struct ipahal_stats_get_offset_drop get_offset = { { 0 } };
 	struct ipahal_stats_offset offset = { 0 };
 	struct ipahal_imm_cmd_dma_shared_mem cmd = { 0 };
-	struct ipahal_imm_cmd_pyld *cmd_pyld;
+	struct ipahal_imm_cmd_pyld *cmd_pyld[2];
 	struct ipa_mem_buffer mem;
-	struct ipa3_desc desc = { 0 };
+	struct ipa3_desc desc[2];
 	struct ipahal_stats_drop_all *stats;
+	int num_cmd = 0;
 
 	if (!ipa3_ctx->hw_stats.enabled)
 		return 0;
+
+	memset(desc, 0, sizeof(desc));
+	memset(cmd_pyld, 0, sizeof(cmd_pyld));
 
 	get_offset.init = ipa3_ctx->hw_stats.drop.init;
 	ret = ipahal_stats_get_offset(IPAHAL_HW_STATS_DROP, &get_offset,
@@ -1393,6 +1478,19 @@ int ipa_get_drop_stats(struct ipa_drop_stats_all *out)
 		return ret;
 	}
 
+	/* IC to close the coal frame before HPS Clear if coal is enabled */
+	if (ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_COAL_CONS) !=
+		IPA_EP_NOT_ALLOCATED) {
+		ipa_close_coal_frame(&cmd_pyld[num_cmd]);
+		if (!cmd_pyld[num_cmd]) {
+			IPAERR("failed to construct coal close IC\n");
+			ret = -ENOMEM;
+			goto free_dma_mem;
+		}
+		ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+		++num_cmd;
+	}
+
 	cmd.is_read = true;
 	cmd.clear_after_read = true;
 	cmd.skip_pipeline_clear = false;
@@ -1401,19 +1499,17 @@ int ipa_get_drop_stats(struct ipa_drop_stats_all *out)
 	cmd.system_addr = mem.phys_base;
 	cmd.local_addr = ipa3_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(stats_drop_ofst) + offset.offset;
-	cmd_pyld = ipahal_construct_imm_cmd(
+	cmd_pyld[num_cmd] = ipahal_construct_imm_cmd(
 		IPA_IMM_CMD_DMA_SHARED_MEM, &cmd, false);
-	if (!cmd_pyld) {
+	if (!cmd_pyld[num_cmd]) {
 		IPAERR("failed to construct dma_shared_mem imm cmd\n");
 		ret = -ENOMEM;
-		goto free_dma_mem;
+		goto destroy_imm;
 	}
-	desc.opcode = cmd_pyld->opcode;
-	desc.pyld = cmd_pyld->data;
-	desc.len = cmd_pyld->len;
-	desc.type = IPA_IMM_CMD_DESC;
+	ipa3_init_imm_cmd_desc(&desc[num_cmd], cmd_pyld[num_cmd]);
+	++num_cmd;
 
-	ret = ipa3_send_cmd(1, &desc);
+	ret = ipa3_send_cmd(num_cmd, desc);
 	if (ret) {
 		IPAERR("failed to send immediate command (error %d)\n", ret);
 		goto destroy_imm;
@@ -1465,7 +1561,8 @@ int ipa_get_drop_stats(struct ipa_drop_stats_all *out)
 free_stats:
 	kfree(stats);
 destroy_imm:
-	ipahal_destroy_imm_cmd(cmd_pyld);
+	for (i = 0; i < num_cmd; i++)
+		ipahal_destroy_imm_cmd(cmd_pyld[i]);
 free_dma_mem:
 	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 	return ret;
@@ -1739,13 +1836,29 @@ static ssize_t ipa_debugfs_print_tethering_stats(struct file *file,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
-static ssize_t ipa_debugfs_control_flt_rt_stats(enum ipa_ip_type ip,
-	bool filtering, struct file *file,
+static ssize_t ipa_debugfs_control_flt_rt_stats(struct file *file,
 	const char __user *ubuf, size_t count, loff_t *ppos)
 {
+	struct ipa_ioc_flt_rt_query *query;
 	unsigned long missing;
-	u16 rule_id = 0;
+	int pyld_size = 0;
 	int ret;
+
+	query = kzalloc(sizeof(struct ipa_ioc_flt_rt_query),
+		GFP_KERNEL);
+	if (!query) {
+		IPAERR("no mem\n");
+		return -ENOMEM;
+	}
+	query->stats_size = sizeof(struct ipa_flt_rt_stats);
+	pyld_size = IPA_MAX_FLT_RT_CNT_INDEX *
+		sizeof(struct ipa_flt_rt_stats);
+	query->stats = (uint64_t)kzalloc(pyld_size, GFP_KERNEL);
+	if (!query->stats) {
+		IPAERR("no mem\n");
+		kfree(query);
+		return -ENOMEM;
+	}
 
 	mutex_lock(&ipa3_ctx->lock);
 	if (sizeof(dbg_buff) < count + 1) {
@@ -1760,76 +1873,84 @@ static ssize_t ipa_debugfs_control_flt_rt_stats(enum ipa_ip_type ip,
 	}
 
 	dbg_buff[count] = '\0';
-	if (strcmp(dbg_buff, "start\n") == 0) {
-		ipa_flt_rt_stats_start(ip, filtering);
-	} else if (strcmp(dbg_buff, "clear\n") == 0) {
-		ipa_flt_rt_stats_clear_rule_ids(ip, filtering);
-	} else if (strcmp(dbg_buff, "reset\n") == 0) {
-		ipa_reset_all_flt_rt_stats(ip, filtering);
+	if (strcmp(dbg_buff, "reset\n") == 0) {
+		query->reset = 1;
+		query->start_id = 1;
+		query->end_id = IPA_MAX_FLT_RT_CNT_INDEX;
+		ipa_get_flt_rt_stats(query);
 	} else {
-		if (kstrtou16(dbg_buff, 0, &rule_id)) {
-			ret = -EFAULT;
-			goto bail;
-		}
-		ipa_flt_rt_stats_add_rule_id(ip, filtering, rule_id);
+		IPAERR("unsupport flt_rt command\n");
 	}
 
 	ret = count;
 bail:
+	kfree((void *)(uintptr_t)(query->stats));
+	kfree(query);
 	mutex_unlock(&ipa3_ctx->lock);
 	return ret;
 }
 
-static ssize_t ipa_debugfs_print_flt_rt_stats(enum ipa_ip_type ip,
-	bool filtering, struct file *file,
+static ssize_t ipa_debugfs_print_flt_rt_stats(struct file *file,
 	char __user *ubuf, size_t count, loff_t *ppos)
 {
 	int nbytes = 0;
-	struct ipahal_stats_init_flt_rt *init;
-	struct ipa_flt_rt_stats out;
 	int i;
 	int res;
+	int pyld_size = 0;
+	struct ipa_ioc_flt_rt_query *query;
 
-	if (ip == IPA_IP_v4 && filtering)
-		init = &ipa3_ctx->hw_stats.flt_rt.flt_v4_init;
-	else if (ip == IPA_IP_v4)
-		init = &ipa3_ctx->hw_stats.flt_rt.rt_v4_init;
-	else if (ip == IPA_IP_v6 && filtering)
-		init = &ipa3_ctx->hw_stats.flt_rt.flt_v6_init;
-	else
-		init = &ipa3_ctx->hw_stats.flt_rt.rt_v6_init;
-
-	mutex_lock(&ipa3_ctx->lock);
-	for (i = 0; i < IPAHAL_MAX_RULE_ID_32 * 32; i++) {
-		int idx = i / 32;
-		int bit = i % 32;
-
-		if (init->rule_id_bitmask[idx] & (1 << bit)) {
-			res = ipa_get_flt_rt_stats(ip, filtering, i, &out);
-			if (res) {
-				mutex_unlock(&ipa3_ctx->lock);
-				return res;
-			}
-
-			nbytes += scnprintf(dbg_buff + nbytes,
-				IPA_MAX_MSG_LEN - nbytes,
-				"rule_id: %d\n", i);
-			nbytes += scnprintf(dbg_buff + nbytes,
-				IPA_MAX_MSG_LEN - nbytes,
-				"num_pkts: %d\n",
-				out.num_pkts);
-			nbytes += scnprintf(dbg_buff + nbytes,
-				IPA_MAX_MSG_LEN - nbytes,
-				"num_pkts_hash: %d\n",
-				out.num_pkts_hash);
-			nbytes += scnprintf(dbg_buff + nbytes,
-				IPA_MAX_MSG_LEN - nbytes,
-				"\n");
-		}
+	query = kzalloc(sizeof(struct ipa_ioc_flt_rt_query),
+		GFP_KERNEL);
+	if (!query) {
+		IPAERR("no mem\n");
+		return -ENOMEM;
 	}
-
+	query->start_id = 1;
+	query->end_id = IPA_MAX_FLT_RT_CNT_INDEX;
+	query->reset = true;
+	query->stats_size = sizeof(struct ipa_flt_rt_stats);
+	pyld_size = IPA_MAX_FLT_RT_CNT_INDEX *
+		sizeof(struct ipa_flt_rt_stats);
+	query->stats = (uint64_t)kzalloc(pyld_size, GFP_KERNEL);
+	if (!query->stats) {
+		IPAERR("no mem\n");
+		kfree(query);
+		return -ENOMEM;
+	}
+	mutex_lock(&ipa3_ctx->lock);
+	res = ipa_get_flt_rt_stats(query);
+	if (res) {
+		mutex_unlock(&ipa3_ctx->lock);
+		kfree((void *)(uintptr_t)(query->stats));
+		kfree(query);
+		return res;
+	}
+	for (i = 0; i < IPA_MAX_FLT_RT_CNT_INDEX; i++) {
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"cnt_id: %d\n", i + 1);
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"num_pkts: %d\n",
+			((struct ipa_flt_rt_stats *)
+			query->stats)[i].num_pkts);
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"num_pkts_hash: %d\n",
+			((struct ipa_flt_rt_stats *)
+			query->stats)[i].num_pkts_hash);
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"num_bytes: %lld\n",
+			((struct ipa_flt_rt_stats *)
+			query->stats)[i].num_bytes);
+		nbytes += scnprintf(dbg_buff + nbytes,
+			IPA_MAX_MSG_LEN - nbytes,
+			"\n");
+	}
 	mutex_unlock(&ipa3_ctx->lock);
-
+	kfree((void *)(uintptr_t)(query->stats));
+	kfree(query);
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
@@ -1930,60 +2051,79 @@ static ssize_t ipa_debugfs_print_drop_stats(struct file *file,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
-static ssize_t ipa_debugfs_control_flt_v4_stats(struct file *file,
+static ssize_t ipa_debugfs_enable_disable_drop_stats(struct file *file,
 	const char __user *ubuf, size_t count, loff_t *ppos)
 {
-	return ipa_debugfs_control_flt_rt_stats(IPA_IP_v4, true, file, ubuf,
-		count, ppos);
-}
+	unsigned long missing;
+	unsigned int pipe_num = 0;
+	bool enable_pipe = true;
+	u32 pipe_bitmask = ipa3_ctx->hw_stats.drop.init.enabled_bitmask;
+	char seprator = ',';
+	int i, j;
+	bool is_pipe = false;
+	ssize_t ret;
 
-static ssize_t ipa_debugfs_control_flt_v6_stats(struct file *file,
-	const char __user *ubuf, size_t count, loff_t *ppos)
-{
-	return ipa_debugfs_control_flt_rt_stats(IPA_IP_v6, true, file, ubuf,
-		count, ppos);
-}
+	mutex_lock(&ipa3_ctx->lock);
+	if (sizeof(dbg_buff) < count + 1) {
+		ret = -EFAULT;
+		goto bail;
+	}
 
-static ssize_t ipa_debugfs_control_rt_v4_stats(struct file *file,
-	const char __user *ubuf, size_t count, loff_t *ppos)
-{
-	return ipa_debugfs_control_flt_rt_stats(IPA_IP_v4, false, file, ubuf,
-		count, ppos);
-}
+	missing = copy_from_user(dbg_buff, ubuf, count);
+	if (missing) {
+		ret = -EFAULT;
+		goto bail;
+	}
+	dbg_buff[count] = '\0';
+	IPADBG("data is %s", dbg_buff);
 
-static ssize_t ipa_debugfs_control_rt_v6_stats(struct file *file,
-	const char __user *ubuf, size_t count, loff_t *ppos)
-{
-	return ipa_debugfs_control_flt_rt_stats(IPA_IP_v6, false, file, ubuf,
-		count, ppos);
-}
+	i = 0;
+	while (dbg_buff[i] != ' ' && i < count)
+		i++;
+	j = i;
+	i++;
+	if (i < count) {
+		if (dbg_buff[i] == '0') {
+			enable_pipe = false;
+			IPADBG("Drop stats will be disabled for pipes:");
+		}
+	}
 
-static ssize_t ipa_debugfs_print_flt_v4_stats(struct file *file,
-	char __user *ubuf, size_t count, loff_t *ppos)
-{
-	return ipa_debugfs_print_flt_rt_stats(IPA_IP_v4, true, file, ubuf,
-		count, ppos);
-}
+	for (i = 0; i < j; i++) {
+		if (dbg_buff[i] >= '0' && dbg_buff[i] <= '9') {
+			pipe_num = (pipe_num * 10) + (dbg_buff[i] - '0');
+			is_pipe = true;
+		}
+		if (dbg_buff[i] == seprator) {
+			if (pipe_num >= 0 && pipe_num < ipa3_ctx->ipa_num_pipes
+				&& ipa3_get_client_by_pipe(pipe_num) <
+				IPA_CLIENT_MAX) {
+				IPADBG("pipe number %u\n", pipe_num);
+				if (enable_pipe)
+					pipe_bitmask = pipe_bitmask |
+							(1 << pipe_num);
+				else
+					pipe_bitmask = pipe_bitmask &
+							(~(1 << pipe_num));
+			}
+			pipe_num = 0;
+			is_pipe = false;
+		}
+	}
+	if (is_pipe && pipe_num >= 0 && pipe_num < ipa3_ctx->ipa_num_pipes &&
+		ipa3_get_client_by_pipe(pipe_num) < IPA_CLIENT_MAX) {
+		IPADBG("pipe number %u\n", pipe_num);
+		if (enable_pipe)
+			pipe_bitmask = pipe_bitmask | (1 << pipe_num);
+		else
+			pipe_bitmask = pipe_bitmask & (~(1 << pipe_num));
+	}
 
-static ssize_t ipa_debugfs_print_flt_v6_stats(struct file *file,
-	char __user *ubuf, size_t count, loff_t *ppos)
-{
-	return ipa_debugfs_print_flt_rt_stats(IPA_IP_v6, true, file, ubuf,
-		count, ppos);
-}
-
-static ssize_t ipa_debugfs_print_rt_v4_stats(struct file *file,
-	char __user *ubuf, size_t count, loff_t *ppos)
-{
-	return ipa_debugfs_print_flt_rt_stats(IPA_IP_v4, false, file, ubuf,
-		count, ppos);
-}
-
-static ssize_t ipa_debugfs_print_rt_v6_stats(struct file *file,
-	char __user *ubuf, size_t count, loff_t *ppos)
-{
-	return ipa_debugfs_print_flt_rt_stats(IPA_IP_v6, false, file, ubuf,
-		count, ppos);
+	ipa_init_drop_stats(pipe_bitmask);
+	ret = count;
+bail:
+	mutex_unlock(&ipa3_ctx->lock);
+	return ret;
 }
 
 static const struct file_operations ipa3_quota_ops = {
@@ -1996,24 +2136,9 @@ static const struct file_operations ipa3_tethering_ops = {
 	.write = ipa_debugfs_reset_tethering_stats,
 };
 
-static const struct file_operations ipa3_flt_v4_ops = {
-	.read = ipa_debugfs_print_flt_v4_stats,
-	.write = ipa_debugfs_control_flt_v4_stats,
-};
-
-static const struct file_operations ipa3_flt_v6_ops = {
-	.read = ipa_debugfs_print_flt_v6_stats,
-	.write = ipa_debugfs_control_flt_v6_stats,
-};
-
-static const struct file_operations ipa3_rt_v4_ops = {
-	.read = ipa_debugfs_print_rt_v4_stats,
-	.write = ipa_debugfs_control_rt_v4_stats,
-};
-
-static const struct file_operations ipa3_rt_v6_ops = {
-	.read = ipa_debugfs_print_rt_v6_stats,
-	.write = ipa_debugfs_control_rt_v6_stats,
+static const struct file_operations ipa3_flt_rt_ops = {
+	.read = ipa_debugfs_print_flt_rt_stats,
+	.write = ipa_debugfs_control_flt_rt_stats,
 };
 
 static const struct file_operations ipa3_drop_ops = {
@@ -2021,10 +2146,14 @@ static const struct file_operations ipa3_drop_ops = {
 	.write = ipa_debugfs_reset_drop_stats,
 };
 
+static const struct file_operations ipa3_enable_drop_ops = {
+	.write = ipa_debugfs_enable_disable_drop_stats,
+};
 
 int ipa_debugfs_init_stats(struct dentry *parent)
 {
 	const mode_t read_write_mode = 0664;
+	const mode_t write_mode = 0220;
 	struct dentry *file;
 	struct dentry *dent;
 
@@ -2051,6 +2180,13 @@ int ipa_debugfs_init_stats(struct dentry *parent)
 		goto fail;
 	}
 
+	file = debugfs_create_file("enable_drop_stats", write_mode, dent, NULL,
+		&ipa3_enable_drop_ops);
+	if (IS_ERR_OR_NULL(file)) {
+		IPAERR("fail to create file %s\n", "enable_drop_stats");
+		goto fail;
+	}
+
 	file = debugfs_create_file("tethering", read_write_mode, dent, NULL,
 		&ipa3_tethering_ops);
 	if (IS_ERR_OR_NULL(file)) {
@@ -2058,31 +2194,10 @@ int ipa_debugfs_init_stats(struct dentry *parent)
 		goto fail;
 	}
 
-	file = debugfs_create_file("flt_v4", read_write_mode, dent, NULL,
-		&ipa3_flt_v4_ops);
+	file = debugfs_create_file("flt_rt", read_write_mode, dent, NULL,
+		&ipa3_flt_rt_ops);
 	if (IS_ERR_OR_NULL(file)) {
-		IPAERR("fail to create file %s\n", "flt_v4");
-		goto fail;
-	}
-
-	file = debugfs_create_file("flt_v6", read_write_mode, dent, NULL,
-		&ipa3_flt_v6_ops);
-	if (IS_ERR_OR_NULL(file)) {
-		IPAERR("fail to create file %s\n", "flt_v6");
-		goto fail;
-	}
-
-	file = debugfs_create_file("rt_v4", read_write_mode, dent, NULL,
-		&ipa3_rt_v4_ops);
-	if (IS_ERR_OR_NULL(file)) {
-		IPAERR("fail to create file %s\n", "rt_v4");
-		goto fail;
-	}
-
-	file = debugfs_create_file("rt_v6", read_write_mode, dent, NULL,
-		&ipa3_rt_v6_ops);
-	if (IS_ERR_OR_NULL(file)) {
-		IPAERR("fail to create file %s\n", "rt_v6");
+		IPAERR("fail to create file %s\n", "flt_rt");
 		goto fail;
 	}
 

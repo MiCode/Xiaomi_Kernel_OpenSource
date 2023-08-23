@@ -12,6 +12,8 @@ menuconfig INPUT_MISC
 
 if INPUT_MISC
 
+#source "drivers/input/misc/aw8624_haptic/Kconfig"
+source "drivers/input/misc/aw862xx_haptic/Kconfig"
 config INPUT_88PM860X_ONKEY
 	tristate "88PM860x ONKEY support"
 	depends on MFD_88PM860X
@@ -106,6 +108,17 @@ config INPUT_BMA150
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called bma150.
+
+config INPUT_AKM09970
+    tristate "INPUT_AK09970 digital hall sensor support"
+    depends on I2C
+    select INPUT_POLLDEV
+    help
+      Say Y here if you have AKM Sensortec's AK09970 magnet
+      sensor hooked to an I2C bus.
+
+      To compile this driver as a module, choose M here: the
+      module will be called akm09970.
 
 config INPUT_E3X0_BUTTON
 	tristate "NI Ettus Research USRP E3xx Button support."
@@ -395,17 +408,6 @@ config INPUT_ATI_REMOTE2
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called ati_remote2.
-
-config INPUT_KEYCHORD
-	tristate "Key chord input driver support"
-	help
-	  Say Y here if you want to enable the key chord driver
-	  accessible at /dev/keychord.  This driver can be used
-	  for receiving notifications when client specified key
-	  combinations are pressed.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called keychord.
 
 config INPUT_KEYSPAN_REMOTE
 	tristate "Keyspan DMR USB remote control"

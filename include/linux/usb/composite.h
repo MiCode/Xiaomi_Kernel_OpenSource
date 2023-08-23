@@ -515,7 +515,7 @@ struct usb_composite_dev {
 	struct usb_composite_driver	*driver;
 	u8				next_string_id;
 	char				*def_manufacturer;
-
+	bool                    isMSOS;
 	/* the gadget driver won't enable the data pullup
 	 * while the deactivation count is nonzero.
 	 */
@@ -586,6 +586,9 @@ struct usb_composite_overwrite {
 
 void usb_composite_overwrite_options(struct usb_composite_dev *cdev,
 		struct usb_composite_overwrite *covr);
+
+int composite_dev_prepare(struct usb_composite_driver *composite,
+		struct usb_composite_dev *dev);
 
 static inline u16 get_default_bcdDevice(void)
 {

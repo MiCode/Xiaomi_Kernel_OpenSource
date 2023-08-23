@@ -4,7 +4,6 @@
 
 #include <linux/uidgid.h>
 #include <linux/atomic.h>
-
 struct key;
 
 /*

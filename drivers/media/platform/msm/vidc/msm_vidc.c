@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -178,6 +178,13 @@ int msm_vidc_query_ctrl(void *instance, struct v4l2_queryctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MAX_BYTES:
 		msm_vidc_ctrl_get_range(ctrl, &inst->capability.slice_bytes);
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_COLOR_SPACE_CAPS:
+		msm_vidc_ctrl_get_range(ctrl,
+			&inst->capability.color_space_caps);
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_CAPS:
+		msm_vidc_ctrl_get_range(ctrl, &inst->capability.rotation);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_FRAME_RATE:
 	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
@@ -514,6 +521,15 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
+	q = msm_comm_get_vb2q(inst, b->type);
+	if (!q) {
+		dprintk(VIDC_ERR,
+		"Failed to find buffer queue for type = %d\n", b->type);
+			return -EINVAL;
+	}
+	mutex_lock(&q->lock);
+
+
 	for (i = 0; i < b->length; i++) {
 		b->m.planes[i].m.fd = b->m.planes[i].reserved[0];
 		b->m.planes[i].data_offset = b->m.planes[i].reserved[1];
@@ -538,19 +554,11 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	tag_data.output_tag = b->m.planes[0].reserved[6];
 	msm_comm_store_tags(inst, &tag_data);
 
-	q = msm_comm_get_vb2q(inst, b->type);
-	if (!q) {
-		dprintk(VIDC_ERR,
-			"Failed to find buffer queue for type = %d\n", b->type);
-		return -EINVAL;
-	}
-
-	mutex_lock(&q->lock);
 	rc = vb2_qbuf(&q->vb2_bufq, b);
-	mutex_unlock(&q->lock);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to qbuf, %d\n", rc);
 
+	mutex_unlock(&q->lock);
 	return rc;
 }
 EXPORT_SYMBOL(msm_vidc_qbuf);
@@ -1221,6 +1229,8 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		__func__, inst->batch.enable ? "enabled" : "disabled",
 		inst, hash32_ptr(inst->session));
 
+	msm_dcvs_try_enable(inst);
+
 	/*
 	 * For seq_changed_insufficient, driver should set session_continue
 	 * to firmware after the following sequence
@@ -1606,6 +1616,12 @@ int msm_vidc_private(void *vidc_inst, unsigned int cmd,
 	int rc = 0;
 	struct msm_vidc_inst *inst = (struct msm_vidc_inst *)vidc_inst;
 
+	if (cmd != VIDIOC_VIDEO_CMD) {
+		dprintk(VIDC_ERR,
+			"%s: invalid private cmd %#x\n", __func__, cmd);
+		return -ENOIOCTLCMD;
+	}
+
 	if (!inst || !arg) {
 		dprintk(VIDC_ERR, "%s: invalid args\n", __func__);
 		return -EINVAL;
@@ -1639,6 +1655,7 @@ static int msm_vidc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	int rc = 0, c = 0;
 	struct msm_vidc_inst *inst;
+	const char *ctrl_name = NULL;
 
 	if (!ctrl) {
 		dprintk(VIDC_ERR, "%s invalid parameters for ctrl\n", __func__);
@@ -1662,9 +1679,12 @@ static int msm_vidc_op_s_ctrl(struct v4l2_ctrl *ctrl)
 			}
 		}
 	}
-	if (rc)
+	if (rc) {
+		ctrl_name = v4l2_ctrl_get_name(ctrl->id);
 		dprintk(VIDC_ERR, "Failed setting control: Inst = %pK (%s)\n",
-				inst, v4l2_ctrl_get_name(ctrl->id));
+			inst, ctrl_name ? ctrl_name : "Invalid ctrl");
+	}
+
 	return rc;
 }
 static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
@@ -1860,7 +1880,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	mutex_init(&inst->bufq[CAPTURE_PORT].lock);
 	mutex_init(&inst->bufq[OUTPUT_PORT].lock);
 	mutex_init(&inst->lock);
-	mutex_init(&inst->flush_lock);
 
 	INIT_MSM_VIDC_LIST(&inst->scratchbufs);
 	INIT_MSM_VIDC_LIST(&inst->freqs);
@@ -1886,6 +1905,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->clk_data.ddr_bw = 0;
 	inst->clk_data.sys_cache_bw = 0;
 	inst->clk_data.bitrate = 0;
+	inst->clk_data.work_route = 1;
 	inst->clk_data.core_id = VIDC_CORE_ID_DEFAULT;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 	inst->pic_struct = MSM_VIDC_PIC_STRUCT_PROGRESSIVE;
@@ -1893,7 +1913,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
 	inst->level = V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
 	inst->entropy_mode = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
-
+	inst->max_filled_length = 0;
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {
 		init_completion(&inst->completions[i]);
@@ -1942,7 +1962,6 @@ void *msm_vidc_open(int core_id, int session_type)
 		goto fail_init;
 	}
 
-	msm_dcvs_try_enable(inst);
 	if (msm_comm_check_for_inst_overload(core)) {
 		dprintk(VIDC_ERR,
 			"Instance count reached Max limit, rejecting session");
@@ -1984,7 +2003,6 @@ fail_bufq_capture:
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
 	mutex_destroy(&inst->bufq[OUTPUT_PORT].lock);
 	mutex_destroy(&inst->lock);
-	mutex_destroy(&inst->flush_lock);
 
 	DEINIT_MSM_VIDC_LIST(&inst->scratchbufs);
 	DEINIT_MSM_VIDC_LIST(&inst->persistbufs);
@@ -2048,6 +2066,8 @@ static void msm_vidc_cleanup_instance(struct msm_vidc_inst *inst)
 	mutex_unlock(&inst->registeredbufs.lock);
 
 	del_timer(&inst->batch_timer);
+
+	cancel_work_sync(&inst->batch_work);
 
 	msm_comm_free_freq_table(inst);
 
@@ -2136,7 +2156,6 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	mutex_destroy(&inst->bufq[CAPTURE_PORT].lock);
 	mutex_destroy(&inst->bufq[OUTPUT_PORT].lock);
 	mutex_destroy(&inst->lock);
-	mutex_destroy(&inst->flush_lock);
 
 	msm_vidc_debugfs_deinit_inst(inst);
 

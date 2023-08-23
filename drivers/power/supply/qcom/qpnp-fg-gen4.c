@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_batterydata.h>
 #include <linux/platform_device.h>
+#include <linux/qpnp/qpnp-pbs.h>
 #include <linux/qpnp/qpnp-revid.h>
 #include <linux/thermal.h>
 #include "fg-core.h"
@@ -98,12 +99,20 @@
 #define KI_COEFF_MED_DISCHG_OFFSET	0
 #define KI_COEFF_HI_DISCHG_WORD		26
 #define KI_COEFF_HI_DISCHG_OFFSET	1
+#define KI_COEFF_LO_MED_DCHG_THR_WORD	27
+#define KI_COEFF_LO_MED_DCHG_THR_OFFSET	0
+#define KI_COEFF_MED_HI_DCHG_THR_WORD	27
+#define KI_COEFF_MED_HI_DCHG_THR_OFFSET	1
 #define KI_COEFF_LOW_CHG_WORD		28
 #define KI_COEFF_LOW_CHG_OFFSET		0
 #define KI_COEFF_MED_CHG_WORD		28
 #define KI_COEFF_MED_CHG_OFFSET		1
 #define KI_COEFF_HI_CHG_WORD		29
 #define KI_COEFF_HI_CHG_OFFSET		0
+#define KI_COEFF_LO_MED_CHG_THR_WORD	29
+#define KI_COEFF_LO_MED_CHG_THR_OFFSET	1
+#define KI_COEFF_MED_HI_CHG_THR_WORD	30
+#define KI_COEFF_MED_HI_CHG_THR_OFFSET	0
 #define DELTA_BSOC_THR_WORD		30
 #define DELTA_BSOC_THR_OFFSET		1
 #define SLOPE_LIMIT_WORD		32
@@ -177,6 +186,8 @@
 #define RSLOW_SCALE_FN_CHG_V2_OFFSET	0
 #define ACT_BATT_CAP_v2_WORD		287
 #define ACT_BATT_CAP_v2_OFFSET		0
+#define IBAT_FLT_WORD			322
+#define IBAT_FLT_OFFSET			0
 #define VBAT_FLT_WORD			326
 #define VBAT_FLT_OFFSET			0
 #define RSLOW_v2_WORD			371
@@ -219,6 +230,7 @@ struct fg_dt_props {
 	int	delta_soc_thr;
 	int	vbatt_scale_thr_mv;
 	int	scale_timer_ms;
+	int	force_calib_level;
 	int	esr_timer_chg_fast[NUM_ESR_TIMERS];
 	int	esr_timer_chg_slow[NUM_ESR_TIMERS];
 	int	esr_timer_dischg_fast[NUM_ESR_TIMERS];
@@ -240,12 +252,16 @@ struct fg_dt_props {
 	int	ki_coeff_low_chg;
 	int	ki_coeff_med_chg;
 	int	ki_coeff_hi_chg;
+	int	ki_coeff_lo_med_chg_thr_ma;
+	int	ki_coeff_med_hi_chg_thr_ma;
 	int	ki_coeff_cutoff_gain;
 	int	ki_coeff_full_soc_dischg[2];
 	int	ki_coeff_soc[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_low_dischg[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_med_dischg[KI_COEFF_SOC_LEVELS];
 	int	ki_coeff_hi_dischg[KI_COEFF_SOC_LEVELS];
+	int	ki_coeff_lo_med_dchg_thr_ma;
+	int	ki_coeff_med_hi_dchg_thr_ma;
 	int	slope_limit_coeffs[SLOPE_LIMIT_NUM_COEFFS];
 };
 
@@ -255,6 +271,8 @@ struct fg_gen4_chip {
 	struct cycle_counter	*counter;
 	struct cap_learning	*cl;
 	struct ttf		*ttf;
+	struct soh_profile	*sp;
+	struct device_node	*pbs_dev;
 	struct nvmem_device	*fg_nvmem;
 	struct votable		*delta_esr_irq_en_votable;
 	struct votable		*pl_disable_votable;
@@ -269,6 +287,8 @@ struct fg_gen4_chip {
 	struct work_struct	pl_current_en_work;
 	struct completion	mem_attn;
 	struct mutex		soc_scale_lock;
+	struct mutex		esr_calib_lock;
+	ktime_t			last_restart_time;
 	char			batt_profile[PROFILE_LEN];
 	enum slope_limit_status	slope_limit_sts;
 	int			ki_coeff_full_soc[2];
@@ -283,11 +303,13 @@ struct fg_gen4_chip {
 	int			soc_scale_msoc;
 	int			prev_soc_scale_msoc;
 	int			soc_scale_slope;
+	int			msoc_actual;
 	int			vbatt_avg;
 	int			vbatt_now;
 	int			vbatt_res;
 	int			scale_timer;
 	int			current_now;
+	int			calib_level;
 	bool			first_profile_load;
 	bool			ki_coeff_dischg_en;
 	bool			slope_limit_en;
@@ -330,6 +352,7 @@ static bool fg_sram_dump;
 static bool fg_esr_fast_cal_en;
 
 static int fg_gen4_validate_soc_scale_mode(struct fg_gen4_chip *chip);
+static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en);
 
 static struct fg_sram_param pm8150b_v1_sram_params[] = {
 	PARAM(BATT_SOC, BATT_SOC_WORD, BATT_SOC_OFFSET, 4, 1, 1, 0, NULL,
@@ -444,6 +467,8 @@ static struct fg_sram_param pm8150b_v2_sram_params[] = {
 		0, NULL, fg_decode_voltage_15b),
 	PARAM(IBAT_FINAL, IBAT_FINAL_WORD, IBAT_FINAL_OFFSET, 2, 1000, 488282,
 		0, NULL, fg_decode_current_16b),
+	PARAM(IBAT_FLT, IBAT_FLT_WORD, IBAT_FLT_OFFSET, 4, 10000, 19073, 0,
+		NULL, fg_decode_current_24b),
 	PARAM(ESR, ESR_WORD, ESR_OFFSET, 2, 1000, 244141, 0, fg_encode_default,
 		fg_decode_value_16b),
 	PARAM(ESR_MDL, ESR_MDL_WORD, ESR_MDL_OFFSET, 2, 1000, 244141, 0,
@@ -501,12 +526,24 @@ static struct fg_sram_param pm8150b_v2_sram_params[] = {
 	PARAM(KI_COEFF_HI_DISCHG, KI_COEFF_HI_DISCHG_WORD,
 		KI_COEFF_HI_DISCHG_OFFSET, 1, 1000, 61035, 0,
 		fg_encode_default, NULL),
+	PARAM(KI_COEFF_LO_MED_DCHG_THR, KI_COEFF_LO_MED_DCHG_THR_WORD,
+		KI_COEFF_LO_MED_DCHG_THR_OFFSET, 1, 1000, 15625, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_MED_HI_DCHG_THR, KI_COEFF_MED_HI_DCHG_THR_WORD,
+		KI_COEFF_MED_HI_DCHG_THR_OFFSET, 1, 1000, 15625, 0,
+		fg_encode_default, NULL),
 	PARAM(KI_COEFF_LOW_CHG, KI_COEFF_LOW_CHG_WORD, KI_COEFF_LOW_CHG_OFFSET,
 		1, 1000, 61035, 0, fg_encode_default, NULL),
 	PARAM(KI_COEFF_MED_CHG, KI_COEFF_MED_CHG_WORD, KI_COEFF_MED_CHG_OFFSET,
 		1, 1000, 61035, 0, fg_encode_default, NULL),
 	PARAM(KI_COEFF_HI_CHG, KI_COEFF_HI_CHG_WORD, KI_COEFF_HI_CHG_OFFSET, 1,
 		1000, 61035, 0, fg_encode_default, NULL),
+	PARAM(KI_COEFF_LO_MED_CHG_THR, KI_COEFF_LO_MED_CHG_THR_WORD,
+		KI_COEFF_LO_MED_CHG_THR_OFFSET, 1, 1000, 15625, 0,
+		fg_encode_default, NULL),
+	PARAM(KI_COEFF_MED_HI_CHG_THR, KI_COEFF_MED_HI_CHG_THR_WORD,
+		KI_COEFF_MED_HI_CHG_THR_OFFSET, 1, 1000, 15625, 0,
+		fg_encode_default, NULL),
 	PARAM(SLOPE_LIMIT, SLOPE_LIMIT_WORD, SLOPE_LIMIT_OFFSET, 1, 8192,
 		1000000, 0, fg_encode_default, NULL),
 	PARAM(BATT_TEMP_COLD, BATT_TEMP_CONFIG_WORD, BATT_TEMP_COLD_OFFSET, 1,
@@ -897,6 +934,11 @@ static int fg_gen4_get_prop_capacity(struct fg_dev *fg, int *val)
 	return 0;
 }
 
+static int fg_gen4_get_prop_real_capacity(struct fg_dev *fg, int *val)
+{
+	return fg_get_msoc(fg, val);
+}
+
 static int fg_gen4_get_prop_capacity_raw(struct fg_gen4_chip *chip, int *val)
 {
 	struct fg_dev *fg = &chip->fg;
@@ -1013,10 +1055,71 @@ static int fg_gen4_get_prop_soc_scale(struct fg_gen4_chip *chip)
 	chip->vbatt_now = DIV_ROUND_CLOSEST(chip->vbatt_now, 1000);
 	chip->vbatt_avg = DIV_ROUND_CLOSEST(chip->vbatt_avg, 1000);
 	chip->vbatt_res = chip->vbatt_avg - chip->dt.cutoff_volt_mv;
-	pr_debug("FVSS: Vbatt now=%d Vbatt avg=%d Vbatt res=%d\n",
+	fg_dbg(fg, FG_FVSS, "Vbatt now=%d Vbatt avg=%d Vbatt res=%d\n",
 		chip->vbatt_now, chip->vbatt_avg, chip->vbatt_res);
 
 	return rc;
+}
+
+#define SDAM1_MEM_124_REG	0xB0BC
+static int fg_gen4_set_calibrate_level(struct fg_gen4_chip *chip, int val)
+{
+	struct fg_dev *fg = &chip->fg;
+	int rc;
+	u8 buf;
+
+	if (!chip->pbs_dev)
+		return -ENODEV;
+
+	if (is_debug_batt_id(fg))
+		return 0;
+
+	if (val < 0 || val > 0x83) {
+		pr_err("Incorrect calibration level %d\n", val);
+		return -EINVAL;
+	}
+
+	if (val == chip->calib_level)
+		return 0;
+
+	if (chip->dt.force_calib_level != -EINVAL)
+		val = chip->dt.force_calib_level;
+
+	buf = (u8)val;
+	rc = fg_write(fg, SDAM1_MEM_124_REG, &buf, 1);
+	if (rc < 0) {
+		pr_err("Error in writing to 0x%04X, rc=%d\n",
+			SDAM1_MEM_124_REG, rc);
+		return rc;
+	}
+
+	buf = 0x1;
+	rc = qpnp_pbs_trigger_event(chip->pbs_dev, buf);
+	if (rc < 0) {
+		pr_err("Error in triggering PBS rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_read(fg, SDAM1_MEM_124_REG, &buf, 1);
+	if (rc < 0) {
+		pr_err("Error in reading from 0x%04X, rc=%d\n",
+			SDAM1_MEM_124_REG, rc);
+		return rc;
+	}
+
+	if (buf) {
+		pr_err("Incorrect return value: %x\n", buf);
+		return -EINVAL;
+	}
+
+	if (is_parallel_charger_available(fg)) {
+		cancel_work_sync(&chip->pl_current_en_work);
+		schedule_work(&chip->pl_current_en_work);
+	}
+
+	chip->calib_level = val;
+	fg_dbg(fg, FG_POWER_SUPPLY, "Set calib_level to %x\n", val);
+	return 0;
 }
 
 /* ALG callback functions below */
@@ -1032,10 +1135,13 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 		return -ENODEV;
 
 	fg = &chip->fg;
-	if (fg->battery_missing)
-		return -EPERM;
 
 	switch (param) {
+	case TTF_TTE_VALID:
+		*val = 1;
+		if (fg->battery_missing || is_debug_batt_id(fg))
+			*val = 0;
+		break;
 	case TTF_MSOC:
 		rc = fg_gen4_get_prop_capacity(fg, val);
 		break;
@@ -1079,7 +1185,7 @@ static int fg_gen4_get_ttf_param(void *data, enum ttf_param param, int *val)
 		if (is_qnovo_en(fg))
 			*val = TTF_MODE_QNOVO;
 		else if (chip->ttf->step_chg_cfg_valid)
-			*val = TTF_MODE_V_STEP_CHG;
+			*val = TTF_MODE_VBAT_STEP_CHG;
 		else if (chip->ttf->ocv_step_chg_cfg_valid)
 			*val = TTF_MODE_OCV_STEP_CHG;
 		else
@@ -1180,6 +1286,39 @@ static int fg_gen4_prime_cc_soc_sw(void *data, u32 batt_soc)
 		fg_dbg(fg, FG_STATUS, "cc_soc_sw: %x\n", cc_soc_sw);
 
 	return rc;
+}
+
+static bool fg_gen4_cl_ok_to_begin(void *data)
+{
+	struct fg_gen4_chip *chip = data;
+	struct fg_dev *fg;
+	int rc, val = 0;
+
+	if (!chip)
+		return false;
+
+	fg = &chip->fg;
+
+	if (chip->cl->dt.ibat_flt_thr_ma <= 0)
+		return true;
+
+	rc = fg_get_sram_prop(fg, FG_SRAM_IBAT_FLT, &val);
+	if (rc < 0) {
+		pr_err("Failed to get filtered battery current, rc = %d\n",
+			rc);
+		return true;
+	}
+
+	/* convert to milli-units */
+	val = DIV_ROUND_CLOSEST(val, 1000);
+
+	pr_debug("IBAT_FLT thr: %d val: %d\n", chip->cl->dt.ibat_flt_thr_ma,
+		val);
+
+	if (abs(val) > chip->cl->dt.ibat_flt_thr_ma)
+		return false;
+
+	return true;
 }
 
 static int fg_gen4_get_cc_soc_sw(void *data, int *cc_soc_sw)
@@ -1319,8 +1458,8 @@ static void fg_gen4_update_rslow_coeff(struct fg_dev *fg, int batt_temp)
 	}
 }
 
-#define KI_COEFF_FULL_SOC_NORM_DEFAULT		733
-#define KI_COEFF_FULL_SOC_LOW_DEFAULT		184
+#define KI_COEFF_FULL_SOC_NORM_DEFAULT	2442
+#define KI_COEFF_FULL_SOC_LOW_DEFAULT	2442
 static int fg_gen4_adjust_ki_coeff_full_soc(struct fg_gen4_chip *chip,
 						int batt_temp)
 {
@@ -1328,15 +1467,13 @@ static int fg_gen4_adjust_ki_coeff_full_soc(struct fg_gen4_chip *chip,
 	int rc, ki_coeff_full_soc_norm, ki_coeff_full_soc_low;
 	u8 val;
 
-	if (batt_temp < 0) {
+	if ((batt_temp < 0) ||
+		(fg->charge_status == POWER_SUPPLY_STATUS_DISCHARGING)) {
 		ki_coeff_full_soc_norm = 0;
 		ki_coeff_full_soc_low = 0;
-	} else if (fg->charge_status == POWER_SUPPLY_STATUS_DISCHARGING) {
+	} else if (fg->charge_status == POWER_SUPPLY_STATUS_CHARGING) {
 		ki_coeff_full_soc_norm = chip->dt.ki_coeff_full_soc_dischg[0];
 		ki_coeff_full_soc_low = chip->dt.ki_coeff_full_soc_dischg[1];
-	} else {
-		ki_coeff_full_soc_norm = KI_COEFF_FULL_SOC_NORM_DEFAULT;
-		ki_coeff_full_soc_low = KI_COEFF_FULL_SOC_LOW_DEFAULT;
 	}
 
 	if (chip->ki_coeff_full_soc[0] == ki_coeff_full_soc_norm &&
@@ -1368,9 +1505,63 @@ static int fg_gen4_adjust_ki_coeff_full_soc(struct fg_gen4_chip *chip,
 	return 0;
 }
 
-#define KI_COEFF_LOW_DISCHG_DEFAULT	428
-#define KI_COEFF_MED_DISCHG_DEFAULT	245
-#define KI_COEFF_HI_DISCHG_DEFAULT	123
+static int fg_gen4_set_ki_coeff_dischg(struct fg_dev *fg, int ki_coeff_low,
+		int ki_coeff_med, int ki_coeff_hi)
+{
+	int rc;
+	u8 val;
+
+	if (ki_coeff_low >= 0) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_LOW_DISCHG, ki_coeff_low,
+			&val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_LOW_DISCHG].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_LOW_DISCHG].addr_byte, &val,
+			fg->sp[FG_SRAM_KI_COEFF_LOW_DISCHG].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_low, rc=%d\n", rc);
+			return rc;
+		}
+		fg_dbg(fg, FG_STATUS, "Wrote ki_coeff_low %d\n", ki_coeff_low);
+	}
+
+	if (ki_coeff_med >= 0) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_MED_DISCHG, ki_coeff_med,
+			&val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_MED_DISCHG].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_MED_DISCHG].addr_byte, &val,
+			fg->sp[FG_SRAM_KI_COEFF_MED_DISCHG].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_med, rc=%d\n", rc);
+			return rc;
+		}
+		fg_dbg(fg, FG_STATUS, "Wrote ki_coeff_med %d\n", ki_coeff_med);
+	}
+
+	if (ki_coeff_hi >= 0) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_HI_DISCHG, ki_coeff_hi,
+			&val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_HI_DISCHG].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_HI_DISCHG].addr_byte, &val,
+			fg->sp[FG_SRAM_KI_COEFF_HI_DISCHG].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_hi, rc=%d\n", rc);
+			return rc;
+		}
+		fg_dbg(fg, FG_STATUS, "Wrote ki_coeff_hi %d\n", ki_coeff_hi);
+	}
+
+	return 0;
+}
+
+#define KI_COEFF_LOW_DISCHG_DEFAULT	367
+#define KI_COEFF_MED_DISCHG_DEFAULT	62
+#define KI_COEFF_HI_DISCHG_DEFAULT	0
 static int fg_gen4_adjust_ki_coeff_dischg(struct fg_dev *fg)
 {
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
@@ -1378,7 +1569,6 @@ static int fg_gen4_adjust_ki_coeff_dischg(struct fg_dev *fg)
 	int ki_coeff_low = KI_COEFF_LOW_DISCHG_DEFAULT;
 	int ki_coeff_med = KI_COEFF_MED_DISCHG_DEFAULT;
 	int ki_coeff_hi = KI_COEFF_HI_DISCHG_DEFAULT;
-	u8 val;
 
 	if (!chip->ki_coeff_dischg_en)
 		return 0;
@@ -1399,50 +1589,10 @@ static int fg_gen4_adjust_ki_coeff_dischg(struct fg_dev *fg)
 		}
 	}
 
-	if (ki_coeff_low > 0) {
-		fg_encode(fg->sp, FG_SRAM_KI_COEFF_LOW_DISCHG, ki_coeff_low,
-			&val);
-		rc = fg_sram_write(fg,
-			fg->sp[FG_SRAM_KI_COEFF_LOW_DISCHG].addr_word,
-			fg->sp[FG_SRAM_KI_COEFF_LOW_DISCHG].addr_byte, &val,
-			fg->sp[FG_SRAM_KI_COEFF_LOW_DISCHG].len,
-			FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing ki_coeff_low, rc=%d\n", rc);
-			return rc;
-		}
-		fg_dbg(fg, FG_STATUS, "Wrote ki_coeff_low %d\n", ki_coeff_low);
-	}
-
-	if (ki_coeff_med > 0) {
-		fg_encode(fg->sp, FG_SRAM_KI_COEFF_MED_DISCHG, ki_coeff_med,
-			&val);
-		rc = fg_sram_write(fg,
-			fg->sp[FG_SRAM_KI_COEFF_MED_DISCHG].addr_word,
-			fg->sp[FG_SRAM_KI_COEFF_MED_DISCHG].addr_byte, &val,
-			fg->sp[FG_SRAM_KI_COEFF_MED_DISCHG].len,
-			FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing ki_coeff_med, rc=%d\n", rc);
-			return rc;
-		}
-		fg_dbg(fg, FG_STATUS, "Wrote ki_coeff_med %d\n", ki_coeff_med);
-	}
-
-	if (ki_coeff_hi > 0) {
-		fg_encode(fg->sp, FG_SRAM_KI_COEFF_HI_DISCHG, ki_coeff_hi,
-			&val);
-		rc = fg_sram_write(fg,
-			fg->sp[FG_SRAM_KI_COEFF_HI_DISCHG].addr_word,
-			fg->sp[FG_SRAM_KI_COEFF_HI_DISCHG].addr_byte, &val,
-			fg->sp[FG_SRAM_KI_COEFF_HI_DISCHG].len,
-			FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing ki_coeff_hi, rc=%d\n", rc);
-			return rc;
-		}
-		fg_dbg(fg, FG_STATUS, "Wrote ki_coeff_hi %d\n", ki_coeff_hi);
-	}
+	rc = fg_gen4_set_ki_coeff_dischg(fg,
+			ki_coeff_low, ki_coeff_med, ki_coeff_hi);
+	if (rc < 0)
+		return rc;
 
 	return 0;
 }
@@ -1563,11 +1713,33 @@ static int fg_gen4_get_batt_profile(struct fg_dev *fg)
 		return -ENODATA;
 	}
 
-	if (chip->dt.multi_profile_load &&
-		chip->batt_age_level != avail_age_level) {
-		fg_dbg(fg, FG_STATUS, "Batt_age_level %d doesn't exist, using %d\n",
-			chip->batt_age_level, avail_age_level);
-		chip->batt_age_level = avail_age_level;
+	if (chip->dt.multi_profile_load) {
+		if (chip->batt_age_level != avail_age_level) {
+			fg_dbg(fg, FG_STATUS, "Batt_age_level %d doesn't exist, using %d\n",
+				chip->batt_age_level, avail_age_level);
+			chip->batt_age_level = avail_age_level;
+		}
+
+		if (!chip->sp)
+			chip->sp = devm_kzalloc(fg->dev, sizeof(*chip->sp),
+						GFP_KERNEL);
+		if (!chip->sp)
+			return -ENOMEM;
+
+		if (!chip->sp->initialized) {
+			chip->sp->batt_id_kohms = fg->batt_id_ohms / 1000;
+			chip->sp->last_batt_age_level = chip->batt_age_level;
+			chip->sp->bp_node = batt_node;
+			chip->sp->bms_psy = fg->fg_psy;
+			rc = soh_profile_init(fg->dev, chip->sp);
+			if (rc < 0) {
+				devm_kfree(fg->dev, chip->sp);
+				chip->sp = NULL;
+			} else {
+				fg_dbg(fg, FG_STATUS, "SOH profile count: %d\n",
+					chip->sp->profile_count);
+			}
+		}
 	}
 
 	rc = of_property_read_string(profile_node, "qcom,battery-type",
@@ -2071,6 +2243,7 @@ static int qpnp_fg_gen4_load_profile(struct fg_gen4_chip *chip)
 	}
 
 	if (normal_profile_load) {
+		chip->last_restart_time = ktime_get();
 		rc = fg_restart(fg, SOC_READY_WAIT_TIME_MS);
 		if (rc < 0) {
 			pr_err("Error in restarting FG, rc=%d\n", rc);
@@ -2131,7 +2304,31 @@ static void fg_gen4_post_profile_load(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
 	int rc, act_cap_mah;
-	u8 buf[16];
+	u8 buf[16] = {0};
+
+	if (chip->dt.multi_profile_load &&
+		chip->batt_age_level != chip->last_batt_age_level) {
+
+		/* Keep ESR fast calib config disabled */
+		fg_gen4_esr_fast_calib_config(chip, false);
+		chip->esr_fast_calib = false;
+
+		mutex_lock(&chip->esr_calib_lock);
+
+		rc = fg_sram_write(fg, ESR_DELTA_DISCHG_WORD,
+				ESR_DELTA_DISCHG_OFFSET, buf, 2,
+				FG_IMA_DEFAULT);
+		if (rc < 0)
+			pr_err("Error in writing ESR_DELTA_DISCHG, rc=%d\n",
+				rc);
+
+		rc = fg_sram_write(fg, ESR_DELTA_CHG_WORD, ESR_DELTA_CHG_OFFSET,
+				buf, 2, FG_IMA_DEFAULT);
+		if (rc < 0)
+			pr_err("Error in writing ESR_DELTA_CHG, rc=%d\n", rc);
+
+		mutex_unlock(&chip->esr_calib_lock);
+	}
 
 	/* If SDAM cookie is not set, read back from SRAM and load it in SDAM */
 	if (chip->fg_nvmem && !is_sdam_cookie_set(chip)) {
@@ -2177,7 +2374,7 @@ static void profile_load_work(struct work_struct *work)
 				profile_load_work.work);
 	struct fg_gen4_chip *chip = container_of(fg,
 				struct fg_gen4_chip, fg);
-	int64_t nom_cap_uah;
+	int64_t nom_cap_uah, learned_cap_uah = 0;
 	u8 val, buf[2];
 	int rc;
 
@@ -2211,6 +2408,16 @@ static void profile_load_work(struct work_struct *work)
 
 	fg_dbg(fg, FG_STATUS, "profile loading started\n");
 
+	if (chip->dt.multi_profile_load &&
+		chip->batt_age_level != chip->last_batt_age_level) {
+		rc = fg_gen4_get_learned_capacity(chip, &learned_cap_uah);
+		if (rc < 0)
+			pr_err("Error in getting learned capacity rc=%d\n", rc);
+		else
+			fg_dbg(fg, FG_STATUS, "learned capacity: %lld uAh\n",
+				learned_cap_uah);
+	}
+
 	rc = qpnp_fg_gen4_load_profile(chip);
 	if (rc < 0)
 		goto out;
@@ -2221,21 +2428,26 @@ static void profile_load_work(struct work_struct *work)
 	if (fg->wa_flags & PM8150B_V1_DMA_WA)
 		msleep(1000);
 
-	/*
-	 * Whenever battery profile is loaded, read nominal capacity and write
-	 * it to actual (or aged) capacity as it is outside the profile region
-	 * and might contain OTP values.
-	 */
-	rc = fg_sram_read(fg, NOM_CAP_WORD, NOM_CAP_OFFSET, buf, 2,
-			FG_IMA_DEFAULT);
-	if (rc < 0) {
-		pr_err("Error in reading %04x[%d] rc=%d\n", NOM_CAP_WORD,
-			NOM_CAP_OFFSET, rc);
-	} else {
-		nom_cap_uah = (buf[0] | buf[1] << 8) * 1000;
-		rc = fg_gen4_store_learned_capacity(chip, nom_cap_uah);
-		if (rc < 0)
-			pr_err("Error in writing to ACT_BATT_CAP rc=%d\n", rc);
+	if (learned_cap_uah == 0) {
+		/*
+		 * Whenever battery profile is loaded, read nominal capacity and
+		 * write it to actual (or aged) capacity as it is outside the
+		 * profile region and might contain OTP values. learned_cap_uah
+		 * would have non-zero value if multiple profile loading is
+		 * enabled and a profile got loaded already.
+		 */
+		rc = fg_sram_read(fg, NOM_CAP_WORD, NOM_CAP_OFFSET, buf, 2,
+				FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in reading %04x[%d] rc=%d\n",
+				NOM_CAP_WORD, NOM_CAP_OFFSET, rc);
+		} else {
+			nom_cap_uah = (buf[0] | buf[1] << 8) * 1000;
+			rc = fg_gen4_store_learned_capacity(chip, nom_cap_uah);
+			if (rc < 0)
+				pr_err("Error in writing to ACT_BATT_CAP rc=%d\n",
+					rc);
+		}
 	}
 done:
 	rc = fg_sram_read(fg, PROFILE_INTEGRITY_WORD,
@@ -2266,6 +2478,12 @@ done:
 	schedule_delayed_work(&chip->ttf->ttf_work, msecs_to_jiffies(10000));
 	fg_dbg(fg, FG_STATUS, "profile loaded successfully");
 out:
+	if (!chip->esr_fast_calib || is_debug_batt_id(fg)) {
+		/* If it is debug battery, then disable ESR fast calibration */
+		fg_gen4_esr_fast_calib_config(chip, false);
+		chip->esr_fast_calib = false;
+	}
+
 	if (chip->dt.multi_profile_load && rc < 0)
 		chip->batt_age_level = chip->last_batt_age_level;
 	fg->soc_reporting_ready = true;
@@ -2423,14 +2641,14 @@ static int fg_gen4_update_maint_soc(struct fg_dev *fg)
 		goto out;
 	}
 
-	if (msoc > fg->maint_soc) {
+	if (msoc >= fg->maint_soc) {
 		/*
 		 * When the monotonic SOC goes above maintenance SOC, we should
 		 * stop showing the maintenance SOC.
 		 */
 		fg->delta_soc = 0;
 		fg->maint_soc = 0;
-	} else if (fg->maint_soc && msoc <= fg->last_msoc) {
+	} else if (fg->maint_soc && msoc < fg->last_msoc) {
 		/* MSOC is decreasing. Decrease maintenance SOC as well */
 		fg->maint_soc -= 1;
 		if (!(msoc % 10)) {
@@ -2900,6 +3118,13 @@ static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en)
 		return rc;
 	}
 
+	/*
+	 * esr_fast_cal_timer won't be initialized if esr_fast_calib is
+	 * not enabled. Hence don't start/cancel the timer.
+	 */
+	if (!chip->esr_fast_calib)
+		goto out;
+
 	if (en) {
 		/* Set ESR fast calibration timer to 50 seconds as default */
 		esr_fast_cal_ms = 50000;
@@ -2914,6 +3139,7 @@ static int fg_gen4_esr_fast_calib_config(struct fg_gen4_chip *chip, bool en)
 		alarm_cancel(&chip->esr_fast_cal_timer);
 	}
 
+out:
 	fg_dbg(fg, FG_STATUS, "%sabling ESR fast calibration\n",
 		en ? "En" : "Dis");
 	return 0;
@@ -2976,7 +3202,7 @@ static int fg_gen4_enter_soc_scale(struct fg_gen4_chip *chip)
 	}
 
 	chip->soc_scale_mode = true;
-	pr_debug("FVSS: Enter FVSS mode, SOC=%d slope=%d timer=%d\n", soc,
+	fg_dbg(fg, FG_FVSS, "Enter FVSS mode, SOC=%d slope=%d timer=%d\n", soc,
 		chip->soc_scale_slope, chip->scale_timer);
 	alarm_start_relative(&chip->soc_scale_alarm_timer,
 				ms_to_ktime(chip->scale_timer));
@@ -3006,21 +3232,26 @@ static void fg_gen4_write_scale_msoc(struct fg_gen4_chip *chip)
 
 static void fg_gen4_exit_soc_scale(struct fg_gen4_chip *chip)
 {
+	struct fg_dev *fg = &chip->fg;
+
 	if (chip->soc_scale_mode) {
 		alarm_cancel(&chip->soc_scale_alarm_timer);
-		cancel_work(&chip->soc_scale_work);
+		if (work_busy(&chip->soc_scale_work) != WORK_BUSY_RUNNING)
+			cancel_work_sync(&chip->soc_scale_work);
+
 		/* While exiting soc_scale_mode, Update MSOC register */
 		fg_gen4_write_scale_msoc(chip);
 	}
 
 	chip->soc_scale_mode = false;
-	pr_debug("FVSS: Exit FVSS mode\n");
+	fg_dbg(fg, FG_FVSS, "Exit FVSS mode, work_status=%d\n",
+				work_busy(&chip->soc_scale_work));
 }
 
 static int fg_gen4_validate_soc_scale_mode(struct fg_gen4_chip *chip)
 {
 	struct fg_dev *fg = &chip->fg;
-	int rc, msoc_actual;
+	int rc;
 
 	if (!chip->dt.soc_scale_mode)
 		return 0;
@@ -3031,7 +3262,7 @@ static int fg_gen4_validate_soc_scale_mode(struct fg_gen4_chip *chip)
 		goto fail_soc_scale;
 	}
 
-	rc = fg_get_msoc(fg, &msoc_actual);
+	rc = fg_get_msoc(fg, &chip->msoc_actual);
 	if (rc < 0) {
 		pr_err("Failed to get msoc rc=%d\n", rc);
 		goto fail_soc_scale;
@@ -3050,7 +3281,7 @@ static int fg_gen4_validate_soc_scale_mode(struct fg_gen4_chip *chip)
 		 * Stay in SOC scale mode till H/W SOC catch scaled SOC
 		 * while charging.
 		 */
-		if (msoc_actual >= chip->soc_scale_msoc)
+		if (chip->msoc_actual >= chip->soc_scale_msoc)
 			fg_gen4_exit_soc_scale(chip);
 	}
 
@@ -3174,6 +3405,7 @@ static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 	struct fg_dev *fg = data;
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, vbatt_mv, msoc_raw;
+	s64 time_us;
 
 	rc = fg_get_battery_voltage(fg, &vbatt_mv);
 	if (rc < 0)
@@ -3186,6 +3418,20 @@ static irqreturn_t fg_vbatt_low_irq_handler(int irq, void *data)
 
 	fg_dbg(fg, FG_IRQ, "irq %d triggered vbatt_mv: %d msoc_raw:%d\n", irq,
 		vbatt_mv, msoc_raw);
+
+	if (!fg->soc_reporting_ready) {
+		fg_dbg(fg, FG_IRQ, "SOC reporting is not ready\n");
+		return IRQ_HANDLED;
+	}
+
+	if (chip->last_restart_time) {
+		time_us = ktime_us_delta(ktime_get(), chip->last_restart_time);
+		if (time_us < 10000000) {
+			fg_dbg(fg, FG_IRQ, "FG restarted before %lld us\n",
+				time_us);
+			return IRQ_HANDLED;
+		}
+	}
 
 	if (vbatt_mv < chip->dt.cutoff_volt_mv) {
 		if (chip->dt.rapid_soc_dec_en) {
@@ -3335,12 +3581,14 @@ static irqreturn_t fg_delta_bsoc_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#define CENTI_FULL_SOC		10000
 static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 {
 	struct fg_dev *fg = data;
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_soc, batt_temp, msoc_raw;
 	bool input_present = is_input_present(fg);
+	u32 batt_soc_cp;
 
 	rc = fg_get_msoc_raw(fg, &msoc_raw);
 	if (!rc)
@@ -3360,10 +3608,14 @@ static irqreturn_t fg_delta_msoc_irq_handler(int irq, void *data)
 	if (rc < 0) {
 		pr_err("Failed to read battery temp rc: %d\n", rc);
 	} else {
-		if (chip->cl->active)
-			cap_learning_update(chip->cl, batt_temp, batt_soc,
+		if (chip->cl->active) {
+			batt_soc_cp = div64_u64(
+					(u64)(u32)batt_soc * CENTI_FULL_SOC,
+					BATT_SOC_32BIT);
+			cap_learning_update(chip->cl, batt_temp, batt_soc_cp,
 				fg->charge_status, fg->charge_done,
 				input_present, is_qnovo_en(fg));
+		}
 
 		rc = fg_gen4_slope_limit_config(chip, batt_temp);
 		if (rc < 0)
@@ -3577,6 +3829,8 @@ static void esr_calib_work(struct work_struct *work)
 	s16 esr_raw, esr_char_raw, esr_delta, esr_meas_diff, esr_filtered;
 	u8 buf[2];
 
+	mutex_lock(&chip->esr_calib_lock);
+
 	if (chip->delta_esr_count > chip->dt.delta_esr_disable_count ||
 		chip->esr_fast_calib_done) {
 		fg_dbg(fg, FG_STATUS, "delta_esr_count: %d esr_fast_calib_done:%d\n",
@@ -3673,6 +3927,7 @@ static void esr_calib_work(struct work_struct *work)
 	chip->delta_esr_count++;
 	fg_dbg(fg, FG_STATUS, "Wrote ESR delta [0x%x 0x%x]\n", buf[0], buf[1]);
 out:
+	mutex_unlock(&chip->esr_calib_lock);
 	vote(fg->awake_votable, ESR_CALIB, false, 0);
 }
 
@@ -3706,14 +3961,36 @@ static void soc_scale_work(struct work_struct *work)
 	if (rc < 0)
 		pr_err("Failed to validate SOC scale mode, rc=%d\n", rc);
 
+	/* re-validate soc scale mode as we may have exited FVSS */
+	if (!chip->soc_scale_mode) {
+		fg_dbg(fg, FG_FVSS, "exit soc scale mode\n");
+		return;
+	}
+
 	if (chip->vbatt_res <= 0)
 		chip->vbatt_res = 0;
 
 	mutex_lock(&chip->soc_scale_lock);
 	soc = DIV_ROUND_CLOSEST(chip->vbatt_res,
 				chip->soc_scale_slope);
-	/* If calculated SOC is higher than current SOC, report current SOC */
-	if (soc > chip->prev_soc_scale_msoc) {
+	chip->soc_scale_msoc = soc;
+	chip->scale_timer = chip->dt.scale_timer_ms;
+
+	fg_dbg(fg, FG_FVSS, "soc: %d last soc: %d msoc_actual: %d\n", soc,
+			chip->prev_soc_scale_msoc, chip->msoc_actual);
+	if ((chip->prev_soc_scale_msoc - chip->msoc_actual) > soc_thr_percent) {
+		/*
+		 * If difference between previous SW calculated SOC and HW SOC
+		 * is higher than SOC threshold, then handle this by
+		 * showing previous SW SOC - SOC threshold.
+		 */
+		chip->soc_scale_msoc = chip->prev_soc_scale_msoc -
+					soc_thr_percent;
+	} else if (soc > chip->prev_soc_scale_msoc) {
+		/*
+		 * If calculated SOC is higher than current SOC, report current
+		 * SOC
+		 */
 		chip->soc_scale_msoc = chip->prev_soc_scale_msoc;
 		chip->scale_timer = chip->dt.scale_timer_ms;
 	} else if ((chip->prev_soc_scale_msoc - soc) > soc_thr_percent) {
@@ -3728,9 +4005,6 @@ static void soc_scale_work(struct work_struct *work)
 					soc_thr_percent;
 		chip->scale_timer = chip->dt.scale_timer_ms /
 				(chip->prev_soc_scale_msoc - soc);
-	} else {
-		chip->soc_scale_msoc = soc;
-		chip->scale_timer = chip->dt.scale_timer_ms;
 	}
 
 	if (chip->soc_scale_msoc < 0)
@@ -3743,7 +4017,7 @@ static void soc_scale_work(struct work_struct *work)
 	}
 
 	chip->prev_soc_scale_msoc = chip->soc_scale_msoc;
-	pr_debug("FVSS: Calculated SOC=%d SOC reported=%d timer resolution=%d\n",
+	fg_dbg(fg, FG_FVSS, "Calculated SOC=%d SOC reported=%d timer resolution=%d\n",
 		soc, chip->soc_scale_msoc, chip->scale_timer);
 	alarm_start_relative(&chip->soc_scale_alarm_timer,
 				ms_to_ktime(chip->scale_timer));
@@ -3786,6 +4060,7 @@ static void status_change_work(struct work_struct *work)
 	struct fg_gen4_chip *chip = container_of(fg, struct fg_gen4_chip, fg);
 	int rc, batt_soc, batt_temp;
 	bool input_present, qnovo_en;
+	u32 batt_soc_cp;
 
 	if (fg->battery_missing) {
 		pm_relax(fg->dev);
@@ -3827,8 +4102,9 @@ static void status_change_work(struct work_struct *work)
 	cycle_count_update(chip->counter, (u32)batt_soc >> 24,
 		fg->charge_status, fg->charge_done, input_present);
 
-	if (fg->charge_status != fg->prev_charge_status)
-		cap_learning_update(chip->cl, batt_temp, batt_soc,
+	batt_soc_cp = div64_u64((u64)(u32)batt_soc * CENTI_FULL_SOC,
+				BATT_SOC_32BIT);
+	cap_learning_update(chip->cl, batt_temp, batt_soc_cp,
 			fg->charge_status, fg->charge_done, input_present,
 			qnovo_en);
 
@@ -3866,7 +4142,6 @@ static void status_change_work(struct work_struct *work)
 		pr_err("Failed to validate SOC scale mode, rc=%d\n", rc);
 
 	ttf_update(chip->ttf, input_present);
-	fg->prev_charge_status = fg->charge_status;
 out:
 	fg_dbg(fg, FG_STATUS, "charge_status:%d charge_type:%d charge_done:%d\n",
 		fg->charge_status, fg->charge_type, fg->charge_done);
@@ -3877,14 +4152,19 @@ static void sram_dump_work(struct work_struct *work)
 {
 	struct fg_dev *fg = container_of(work, struct fg_dev,
 				    sram_dump_work.work);
-	u8 buf[FG_SRAM_LEN];
+	u8 *buf;
 	int rc;
 	s64 timestamp_ms, quotient;
 	s32 remainder;
 
+	buf = kcalloc(FG_SRAM_LEN, sizeof(u8), GFP_KERNEL);
+	if (!buf)
+		goto resched;
+
 	rc = fg_sram_read(fg, 0, 0, buf, FG_SRAM_LEN, FG_IMA_DEFAULT);
 	if (rc < 0) {
 		pr_err("Error in reading FG SRAM, rc:%d\n", rc);
+		kfree(buf);
 		goto resched;
 	}
 
@@ -3893,6 +4173,7 @@ static void sram_dump_work(struct work_struct *work)
 	fg_dbg(fg, FG_STATUS, "SRAM Dump Started at %lld.%d\n",
 		quotient, remainder);
 	dump_sram(fg, buf, 0, FG_SRAM_LEN);
+	kfree(buf);
 	timestamp_ms = ktime_to_ms(ktime_get_boottime());
 	quotient = div_s64_rem(timestamp_ms, 1000, &remainder);
 	fg_dbg(fg, FG_STATUS, "SRAM Dump done at %lld.%d\n",
@@ -4054,6 +4335,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = fg_gen4_get_prop_capacity(fg, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_REAL_CAPACITY:
+		rc = fg_gen4_get_prop_real_capacity(fg, &pval->intval);
+		break;
 	case POWER_SUPPLY_PROP_CAPACITY_RAW:
 		rc = fg_gen4_get_prop_capacity_raw(chip, &pval->intval);
 		break;
@@ -4074,6 +4358,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		rc = fg_get_battery_current(fg, &pval->intval);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_AVG:
+		rc = fg_get_sram_prop(fg, FG_SRAM_IBAT_FLT, &pval->intval);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		rc = fg_gen4_get_battery_temp(fg, &pval->intval);
@@ -4150,6 +4437,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG:
 		rc = ttf_get_time_to_full(chip->ttf, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
+		rc = ttf_get_time_to_full(chip->ttf, &pval->intval);
+		break;
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
 		rc = ttf_get_time_to_empty(chip->ttf, &pval->intval);
 		break;
@@ -4178,6 +4468,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_POWER_AVG:
 		rc = fg_gen4_get_power(chip, &pval->intval, true);
+		break;
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		pval->intval = chip->calib_level;
 		break;
 	default:
 		pr_err("unsupported property %d\n", psp);
@@ -4244,6 +4537,8 @@ static int fg_psy_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_SOH:
 		chip->soh = pval->intval;
+		if (chip->sp)
+			soh_profile_update(chip->sp, chip->soh);
 		break;
 	case POWER_SUPPLY_PROP_CLEAR_SOH:
 		if (chip->first_profile_load && !pval->intval) {
@@ -4268,6 +4563,9 @@ static int fg_psy_set_property(struct power_supply *psy,
 		chip->batt_age_level = pval->intval;
 		schedule_delayed_work(&fg->profile_load_work, 0);
 		break;
+	case POWER_SUPPLY_PROP_CALIBRATE:
+		rc = fg_gen4_set_calibrate_level(chip, pval->intval);
+		break;
 	default:
 		break;
 	}
@@ -4287,6 +4585,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SOH:
 	case POWER_SUPPLY_PROP_CLEAR_SOH:
 	case POWER_SUPPLY_PROP_BATT_AGE_LEVEL:
+	case POWER_SUPPLY_PROP_CALIBRATE:
 		return 1;
 	default:
 		break;
@@ -4297,6 +4596,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 
 static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_REAL_CAPACITY,
 	POWER_SUPPLY_PROP_CAPACITY_RAW,
 	POWER_SUPPLY_PROP_CC_SOC,
 	POWER_SUPPLY_PROP_TEMP,
@@ -4304,6 +4604,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 	POWER_SUPPLY_PROP_VOLTAGE_AVG,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CURRENT_AVG,
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_ESR_ACTUAL,
@@ -4323,6 +4624,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
+	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_CC_STEP,
 	POWER_SUPPLY_PROP_CC_STEP_SEL,
@@ -4330,6 +4632,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_POWER_NOW,
 	POWER_SUPPLY_PROP_POWER_AVG,
 	POWER_SUPPLY_PROP_SCALE_MODE_EN,
+	POWER_SUPPLY_PROP_CALIBRATE,
 };
 
 static const struct power_supply_desc fg_psy_desc = {
@@ -4554,6 +4857,7 @@ static int fg_alg_init(struct fg_gen4_chip *chip)
 	cl->prime_cc_soc = fg_gen4_prime_cc_soc_sw;
 	cl->get_learned_capacity = fg_gen4_get_learned_capacity;
 	cl->store_learned_capacity = fg_gen4_store_learned_capacity;
+	cl->ok_to_begin = fg_gen4_cl_ok_to_begin;
 	cl->data = chip;
 
 	rc = cap_learning_init(cl);
@@ -4691,6 +4995,139 @@ static int fg_gen4_esr_calib_config(struct fg_gen4_chip *chip)
 	}
 
 	return rc;
+}
+
+static int fg_gen4_init_ki_coeffts(struct fg_gen4_chip *chip)
+{
+	int rc;
+	u8 val;
+	struct fg_dev *fg = &chip->fg;
+
+	if (chip->dt.ki_coeff_low_chg != -EINVAL) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_LOW_CHG,
+			chip->dt.ki_coeff_low_chg, &val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_LOW_CHG].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_LOW_CHG].addr_byte, &val,
+			fg->sp[FG_SRAM_KI_COEFF_LOW_CHG].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_low_chg, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.ki_coeff_med_chg != -EINVAL) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_MED_CHG,
+			chip->dt.ki_coeff_med_chg, &val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_MED_CHG].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_MED_CHG].addr_byte, &val,
+			fg->sp[FG_SRAM_KI_COEFF_MED_CHG].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_med_chg, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.ki_coeff_hi_chg != -EINVAL) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_HI_CHG,
+			chip->dt.ki_coeff_hi_chg, &val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_HI_CHG].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_HI_CHG].addr_byte, &val,
+			fg->sp[FG_SRAM_KI_COEFF_HI_CHG].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_hi_chg, rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.ki_coeff_lo_med_chg_thr_ma != -EINVAL) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_LO_MED_CHG_THR,
+			chip->dt.ki_coeff_lo_med_chg_thr_ma, &val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_LO_MED_CHG_THR].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_LO_MED_CHG_THR].addr_byte,
+			&val, fg->sp[FG_SRAM_KI_COEFF_LO_MED_CHG_THR].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_lo_med_chg_thr_ma, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.ki_coeff_med_hi_chg_thr_ma != -EINVAL) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_MED_HI_CHG_THR,
+			chip->dt.ki_coeff_med_hi_chg_thr_ma, &val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_MED_HI_CHG_THR].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_MED_HI_CHG_THR].addr_byte, &val,
+			fg->sp[FG_SRAM_KI_COEFF_MED_HI_CHG_THR].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_med_hi_chg_thr_ma, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.ki_coeff_lo_med_dchg_thr_ma != -EINVAL) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_LO_MED_DCHG_THR,
+			chip->dt.ki_coeff_lo_med_dchg_thr_ma, &val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_LO_MED_DCHG_THR].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_LO_MED_DCHG_THR].addr_byte,
+			&val, fg->sp[FG_SRAM_KI_COEFF_LO_MED_DCHG_THR].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_lo_med_dchg_thr_ma, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.ki_coeff_med_hi_dchg_thr_ma != -EINVAL) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_MED_HI_DCHG_THR,
+			chip->dt.ki_coeff_med_hi_dchg_thr_ma, &val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_MED_HI_DCHG_THR].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_MED_HI_DCHG_THR].addr_byte,
+			&val, fg->sp[FG_SRAM_KI_COEFF_MED_HI_DCHG_THR].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_med_hi_dchg_thr_ma, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (chip->dt.ki_coeff_cutoff_gain != -EINVAL) {
+		fg_encode(fg->sp, FG_SRAM_KI_COEFF_CUTOFF,
+			  chip->dt.ki_coeff_cutoff_gain, &val);
+		rc = fg_sram_write(fg,
+			fg->sp[FG_SRAM_KI_COEFF_CUTOFF].addr_word,
+			fg->sp[FG_SRAM_KI_COEFF_CUTOFF].addr_byte, &val,
+			fg->sp[FG_SRAM_KI_COEFF_CUTOFF].len,
+			FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing ki_coeff_cutoff_gain, rc=%d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	rc = fg_gen4_set_ki_coeff_dischg(fg, KI_COEFF_LOW_DISCHG_DEFAULT,
+		KI_COEFF_MED_DISCHG_DEFAULT, KI_COEFF_HI_DISCHG_DEFAULT);
+	if (rc < 0)
+		return rc;
+
+	return 0;
 }
 
 #define BATT_TEMP_HYST_MASK	GENMASK(3, 0)
@@ -4893,64 +5330,9 @@ static int fg_gen4_hw_init(struct fg_gen4_chip *chip)
 		}
 	}
 
-	if (chip->dt.ki_coeff_low_chg != -EINVAL) {
-		fg_encode(fg->sp, FG_SRAM_KI_COEFF_LOW_CHG,
-			chip->dt.ki_coeff_low_chg, &val);
-		rc = fg_sram_write(fg,
-			fg->sp[FG_SRAM_KI_COEFF_LOW_CHG].addr_word,
-			fg->sp[FG_SRAM_KI_COEFF_LOW_CHG].addr_byte, &val,
-			fg->sp[FG_SRAM_KI_COEFF_LOW_CHG].len,
-			FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing ki_coeff_low_chg, rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
-
-	if (chip->dt.ki_coeff_med_chg != -EINVAL) {
-		fg_encode(fg->sp, FG_SRAM_KI_COEFF_MED_CHG,
-			chip->dt.ki_coeff_med_chg, &val);
-		rc = fg_sram_write(fg,
-			fg->sp[FG_SRAM_KI_COEFF_MED_CHG].addr_word,
-			fg->sp[FG_SRAM_KI_COEFF_MED_CHG].addr_byte, &val,
-			fg->sp[FG_SRAM_KI_COEFF_MED_CHG].len,
-			FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing ki_coeff_med_chg, rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
-
-	if (chip->dt.ki_coeff_hi_chg != -EINVAL) {
-		fg_encode(fg->sp, FG_SRAM_KI_COEFF_HI_CHG,
-			chip->dt.ki_coeff_hi_chg, &val);
-		rc = fg_sram_write(fg,
-			fg->sp[FG_SRAM_KI_COEFF_HI_CHG].addr_word,
-			fg->sp[FG_SRAM_KI_COEFF_HI_CHG].addr_byte, &val,
-			fg->sp[FG_SRAM_KI_COEFF_HI_CHG].len,
-			FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing ki_coeff_hi_chg, rc=%d\n", rc);
-			return rc;
-		}
-	}
-
-	if (chip->dt.ki_coeff_cutoff_gain != -EINVAL) {
-		fg_encode(fg->sp, FG_SRAM_KI_COEFF_CUTOFF,
-			  chip->dt.ki_coeff_cutoff_gain, &val);
-		rc = fg_sram_write(fg,
-			fg->sp[FG_SRAM_KI_COEFF_CUTOFF].addr_word,
-			fg->sp[FG_SRAM_KI_COEFF_CUTOFF].addr_byte, &val,
-			fg->sp[FG_SRAM_KI_COEFF_CUTOFF].len,
-			FG_IMA_DEFAULT);
-		if (rc < 0) {
-			pr_err("Error in writing ki_coeff_cutoff_gain, rc=%d\n",
-				rc);
-			return rc;
-		}
-	}
+	rc = fg_gen4_init_ki_coeffts(chip);
+	if (rc < 0)
+		return rc;
 
 	rc = fg_gen4_esr_calib_config(chip);
 	if (rc < 0)
@@ -5012,6 +5394,9 @@ static int fg_parse_ki_coefficients(struct fg_dev *fg)
 	struct device_node *node = fg->dev->of_node;
 	int rc, i;
 
+	chip->dt.ki_coeff_full_soc_dischg[0] = KI_COEFF_FULL_SOC_NORM_DEFAULT;
+	chip->dt.ki_coeff_full_soc_dischg[1] = KI_COEFF_FULL_SOC_LOW_DEFAULT;
+
 	if (of_find_property(node, "qcom,ki-coeff-full-dischg", NULL)) {
 		rc = fg_parse_dt_property_u32_array(node,
 			"qcom,ki-coeff-full-dischg",
@@ -5028,21 +5413,43 @@ static int fg_parse_ki_coefficients(struct fg_dev *fg)
 		}
 	}
 
-	chip->dt.ki_coeff_low_chg = -EINVAL;
+	chip->dt.ki_coeff_low_chg = 184;
 	of_property_read_u32(node, "qcom,ki-coeff-low-chg",
 		&chip->dt.ki_coeff_low_chg);
 
-	chip->dt.ki_coeff_med_chg = -EINVAL;
+	chip->dt.ki_coeff_med_chg = 62;
 	of_property_read_u32(node, "qcom,ki-coeff-med-chg",
 		&chip->dt.ki_coeff_med_chg);
 
-	chip->dt.ki_coeff_hi_chg = -EINVAL;
+	chip->dt.ki_coeff_hi_chg = 0;
 	of_property_read_u32(node, "qcom,ki-coeff-hi-chg",
 		&chip->dt.ki_coeff_hi_chg);
+
+	chip->dt.ki_coeff_lo_med_chg_thr_ma = 500;
+	of_property_read_u32(node, "qcom,ki-coeff-chg-low-med-thresh-ma",
+		&chip->dt.ki_coeff_lo_med_chg_thr_ma);
+
+	chip->dt.ki_coeff_med_hi_chg_thr_ma = 1000;
+	of_property_read_u32(node, "qcom,ki-coeff-chg-med-hi-thresh-ma",
+		&chip->dt.ki_coeff_med_hi_chg_thr_ma);
+
+	chip->dt.ki_coeff_lo_med_dchg_thr_ma = 50;
+	of_property_read_u32(node, "qcom,ki-coeff-dischg-low-med-thresh-ma",
+		&chip->dt.ki_coeff_lo_med_dchg_thr_ma);
+
+	chip->dt.ki_coeff_med_hi_dchg_thr_ma = 100;
+	of_property_read_u32(node, "qcom,ki-coeff-dischg-med-hi-thresh-ma",
+		&chip->dt.ki_coeff_med_hi_dchg_thr_ma);
 
 	chip->dt.ki_coeff_cutoff_gain = -EINVAL;
 	of_property_read_u32(node, "qcom,ki-coeff-cutoff",
 		&chip->dt.ki_coeff_cutoff_gain);
+
+	for (i = 0; i < KI_COEFF_SOC_LEVELS; i++) {
+		chip->dt.ki_coeff_low_dischg[i] = KI_COEFF_LOW_DISCHG_DEFAULT;
+		chip->dt.ki_coeff_med_dischg[i] = KI_COEFF_MED_DISCHG_DEFAULT;
+		chip->dt.ki_coeff_hi_dischg[i] = KI_COEFF_HI_DISCHG_DEFAULT;
+	}
 
 	if (!of_find_property(node, "qcom,ki-coeff-soc-dischg", NULL) ||
 		(!of_find_property(node, "qcom,ki-coeff-low-dischg", NULL) &&
@@ -5266,6 +5673,14 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		return -EINVAL;
 	}
 
+	if (of_find_property(node, "qcom,pmic-pbs", NULL)) {
+		chip->pbs_dev = of_parse_phandle(node, "qcom,pmic-pbs", 0);
+		if (!chip->pbs_dev) {
+			pr_err("Missing qcom,pmic-pbs property\n");
+			return -ENODEV;
+		}
+	}
+
 	rc = fg_gen4_parse_nvmem_dt(chip);
 	if (rc < 0)
 		return rc;
@@ -5391,9 +5806,6 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 	of_property_read_u32(node, "qcom,cl-min-delta-batt-soc",
 					&chip->cl->dt.min_delta_batt_soc);
 
-	chip->cl->dt.cl_wt_enable = of_property_read_bool(node,
-						"qcom,cl-wt-enable");
-
 	rc = of_property_read_u32(node, "qcom,cl-min-temp", &temp);
 	if (rc < 0)
 		chip->cl->dt.min_temp = DEFAULT_CL_MIN_TEMP_DECIDEGC;
@@ -5431,6 +5843,16 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		chip->cl->dt.max_cap_limit = temp;
 
 	of_property_read_u32(node, "qcom,cl-skew", &chip->cl->dt.skew_decipct);
+
+	if (of_property_read_bool(node, "qcom,cl-wt-enable")) {
+		chip->cl->dt.cl_wt_enable = true;
+		chip->cl->dt.max_start_soc = -EINVAL;
+		chip->cl->dt.min_start_soc = -EINVAL;
+	}
+
+	chip->cl->dt.ibat_flt_thr_ma = 100;
+	of_property_read_u32(node, "qcom,cl-ibat-flt-thresh-ma",
+		&chip->cl->dt.ibat_flt_thr_ma);
 
 	rc = of_property_read_u32(node, "qcom,fg-batt-temp-hot", &temp);
 	if (rc < 0)
@@ -5477,6 +5899,10 @@ static int fg_gen4_parse_dt(struct fg_gen4_chip *chip)
 		of_property_read_u32(node, "qcom,soc-scale-time-ms",
 					&chip->dt.scale_timer_ms);
 	}
+
+	chip->dt.force_calib_level = -EINVAL;
+	of_property_read_u32(node, "qcom,force-calib-level",
+					&chip->dt.force_calib_level);
 
 	rc = fg_parse_ki_coefficients(fg);
 	if (rc < 0)
@@ -5559,6 +5985,34 @@ static void fg_gen4_cleanup(struct fg_gen4_chip *chip)
 	dev_set_drvdata(fg->dev, NULL);
 }
 
+static void fg_gen4_post_init(struct fg_gen4_chip *chip)
+{
+	int i;
+	struct fg_dev *fg = &chip->fg;
+
+	if (!is_debug_batt_id(fg))
+		return;
+
+	/* Disable all wakeable IRQs for a debug battery */
+	vote(fg->delta_bsoc_irq_en_votable, DEBUG_BOARD_VOTER, false, 0);
+	vote(chip->delta_esr_irq_en_votable, DEBUG_BOARD_VOTER, false, 0);
+	vote(chip->mem_attn_irq_en_votable, DEBUG_BOARD_VOTER, false, 0);
+
+	for (i = 0; i < FG_GEN4_IRQ_MAX; i++) {
+		if (fg->irqs[i].irq && fg->irqs[i].wakeable) {
+			if (i == BSOC_DELTA_IRQ || i == ESR_DELTA_IRQ ||
+					i == MEM_ATTN_IRQ) {
+				continue;
+			} else {
+				disable_irq_wake(fg->irqs[i].irq);
+				disable_irq_nosync(fg->irqs[i].irq);
+			}
+		}
+	}
+
+	fg_dbg(fg, FG_STATUS, "Disabled wakeable irqs for debug board\n");
+}
+
 static int fg_gen4_probe(struct platform_device *pdev)
 {
 	struct fg_gen4_chip *chip;
@@ -5575,12 +6029,12 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	fg->debug_mask = &fg_gen4_debug_mask;
 	fg->irqs = fg_irqs;
 	fg->charge_status = -EINVAL;
-	fg->prev_charge_status = -EINVAL;
 	fg->online_status = -EINVAL;
 	fg->batt_id_ohms = -EINVAL;
 	chip->ki_coeff_full_soc[0] = -EINVAL;
 	chip->ki_coeff_full_soc[1] = -EINVAL;
 	chip->esr_soh_cycle_count = -EINVAL;
+	chip->calib_level = -EINVAL;
 	fg->regmap = dev_get_regmap(fg->dev->parent, NULL);
 	if (!fg->regmap) {
 		dev_err(fg->dev, "Parent regmap is unavailable\n");
@@ -5591,6 +6045,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	mutex_init(&fg->sram_rw_lock);
 	mutex_init(&fg->charge_full_lock);
 	mutex_init(&chip->soc_scale_lock);
+	mutex_init(&chip->esr_calib_lock);
 	init_completion(&fg->soc_update);
 	init_completion(&fg->soc_ready);
 	init_completion(&chip->mem_attn);
@@ -5739,12 +6194,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	/* Keep MEM_ATTN_IRQ disabled until we require it */
 	vote(chip->mem_attn_irq_en_votable, MEM_ATTN_IRQ_VOTER, false, 0);
 
-	rc = fg_debugfs_create(fg);
-	if (rc < 0) {
-		dev_err(fg->dev, "Error in creating debugfs entries, rc:%d\n",
-			rc);
-		goto exit;
-	}
+	fg_debugfs_create(fg);
 
 	rc = fg_get_battery_voltage(fg, &volt_uv);
 	if (!rc)
@@ -5774,6 +6224,8 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	device_init_wakeup(fg->dev, true);
 	if (!fg->battery_missing)
 		schedule_delayed_work(&fg->profile_load_work, 0);
+
+	fg_gen4_post_init(chip);
 
 	pr_debug("FG GEN4 driver probed successfully\n");
 	return 0;

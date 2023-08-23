@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -178,53 +178,57 @@ int sde_wb_connector_set_modes(struct sde_wb_device *wb_dev,
 	if (connected) {
 		SDE_DEBUG("connect\n");
 
-		if (count_modes && modes) {
-			modeinfo = kcalloc(count_modes,
-					sizeof(struct drm_mode_modeinfo),
-					GFP_KERNEL);
-			if (!modeinfo) {
-				SDE_ERROR("invalid params\n");
-				ret = -ENOMEM;
-				goto error;
-			}
+		if (!count_modes || !modes) {
+			SDE_ERROR("invalid count_modes :%u and modes :%d\n",
+				count_modes, !modes);
+			return -EINVAL;
+		}
 
-			if (copy_from_user(modeinfo, modes,
-					count_modes *
-					sizeof(struct drm_mode_modeinfo))) {
-				SDE_ERROR("failed to copy modes\n");
-				kfree(modeinfo);
-				ret = -EFAULT;
-				goto error;
-			}
+		modeinfo = kcalloc(count_modes,
+				sizeof(struct drm_mode_modeinfo),
+				GFP_KERNEL);
+		if (!modeinfo) {
+			SDE_ERROR("invalid params\n");
+			ret = -ENOMEM;
+			goto error;
+		}
 
-			for (i = 0; i < count_modes; i++) {
-				struct drm_display_mode dispmode;
+		if (copy_from_user(modeinfo, modes,
+				count_modes *
+				sizeof(struct drm_mode_modeinfo))) {
+			SDE_ERROR("failed to copy modes\n");
+			kfree(modeinfo);
+			ret = -EFAULT;
+			goto error;
+		}
 
-				memset(&dispmode, 0, sizeof(dispmode));
-				ret = drm_mode_convert_umode(&dispmode,
+		for (i = 0; i < count_modes; i++) {
+			struct drm_display_mode dispmode;
+
+			memset(&dispmode, 0, sizeof(dispmode));
+			ret = drm_mode_convert_umode(&dispmode,
 						&modeinfo[i]);
-				if (ret) {
-					SDE_ERROR(
-						"failed to convert mode %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x status:%d rc:%d\n",
-						i,
-						modeinfo[i].name,
-						modeinfo[i].vrefresh,
-						modeinfo[i].clock,
-						modeinfo[i].hdisplay,
-						modeinfo[i].hsync_start,
-						modeinfo[i].hsync_end,
-						modeinfo[i].htotal,
-						modeinfo[i].vdisplay,
-						modeinfo[i].vsync_start,
-						modeinfo[i].vsync_end,
-						modeinfo[i].vtotal,
-						modeinfo[i].type,
-						modeinfo[i].flags,
-						dispmode.status,
-						ret);
-					kfree(modeinfo);
-					goto error;
-				}
+			if (ret) {
+				SDE_ERROR(
+					"failed to convert mode %d:\"%s\" %d %d %d %d %d %d %d %d %d %d 0x%x 0x%x status:%d rc:%d\n",
+					i,
+					modeinfo[i].name,
+					modeinfo[i].vrefresh,
+					modeinfo[i].clock,
+					modeinfo[i].hdisplay,
+					modeinfo[i].hsync_start,
+					modeinfo[i].hsync_end,
+					modeinfo[i].htotal,
+					modeinfo[i].vdisplay,
+					modeinfo[i].vsync_start,
+					modeinfo[i].vsync_end,
+					modeinfo[i].vtotal,
+					modeinfo[i].type,
+					modeinfo[i].flags,
+					dispmode.status,
+					ret);
+				kfree(modeinfo);
+				goto error;
 			}
 		}
 
@@ -345,7 +349,7 @@ int sde_wb_get_mode_info(struct drm_connector *connector,
 		hdisplay = max(hdisplay, wb_dev->modes[i].hdisplay);
 
 	topology = &mode_info->topology;
-	topology->num_lm = (max_mixer_width <= hdisplay) ? dual_lm : single_lm;
+	topology->num_lm = (max_mixer_width < hdisplay) ? dual_lm : single_lm;
 	topology->num_enc = no_enc;
 	topology->num_intf = single_intf;
 
@@ -545,7 +549,7 @@ int sde_wb_config(struct drm_device *drm_dev, void *data,
 
 	priv = drm_dev->dev_private;
 
-	connector = drm_connector_lookup(drm_dev, connector_id);
+	connector = drm_connector_lookup(drm_dev, file_priv, connector_id);
 	if (!connector) {
 		SDE_ERROR("failed to find connector\n");
 		rc = -ENOENT;

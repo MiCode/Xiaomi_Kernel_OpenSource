@@ -36,6 +36,10 @@ Optional properties:
 		  for secure buffer allocation
 - qcom,secure_align_mask: A mask for determining how secure buffers need to
 		  be aligned
+- qcom,unmap_fast :  A boolean specifying if iommu unmap fast is supported on
+			this target.
+- qcom,secure-size : Specifies the size of gpu address region to be used for
+			secure memory mapping.
 
 - List of sub nodes, one for each of the translation context banks supported.
   The driver uses the names of these nodes to determine how they are used,

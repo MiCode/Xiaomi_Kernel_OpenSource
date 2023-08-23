@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
 		qcom,clk-div = <192>;
 		qcom,clk-mult = <10>;
+		qcom,cnss-avtimer = <1>;
 	};
 
 	audio_apr: qcom,msm-audio-apr {
@@ -56,6 +57,10 @@
 		status = "okay";
 		compatible = "explore,ep92a6";
 		reg = <0x64>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <107 IRQ_TYPE_EDGE_FALLING>,
+			     <104 IRQ_TYPE_EDGE_RISING>;
+		mute-gpio = <&tlmm 104 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&ep_reset_n_active &ep_mute_active &ep_int_active>;
 	};
@@ -76,6 +81,9 @@
 		qcom,ep92-busnum  = <3>;
 		qcom,ep92-reg  = <0x64>;
 
+		qcom,clk-src-name-integ = "LPAPLL0";
+		qcom,clk-src-name-fract = "LPAPLL2";
+
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&compr>,
@@ -87,8 +95,10 @@
 				"msm-pcm-afe", "msm-lsm-client",
 				"msm-pcm-routing", "msm-compr-dsp",
 				"msm-pcm-dsp-noirq", "msm-transcode-loopback";
-		asoc-cpu = <&dai_dp>, <&dai_mi2s0>, <&dai_mi2s1>,
+		asoc-cpu = <&dai_hdmi_ms>, <&dai_dp>,
+			<&dai_mi2s0>, <&dai_mi2s1>,
 			<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s4>, <&dai_mi2s5>,
+			<&dai_meta_mi2s0>, <&dai_meta_mi2s1>,
 			<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
 			<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
 			<&dai_quin_auxpcm>,
@@ -107,6 +117,7 @@
 			<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
 			<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>,
 			<&dai_quin_tdm_rx_0>, <&dai_quin_tdm_tx_0>,
+			<&dai_sen_tdm_rx_0>, <&dai_sen_tdm_tx_0>,
 			<&wsa_cdc_dma_0_rx>, <&wsa_cdc_dma_0_tx>,
 			<&wsa_cdc_dma_1_rx>, <&wsa_cdc_dma_1_tx>,
 			<&wsa_cdc_dma_2_tx>,
@@ -114,10 +125,13 @@
 			<&dai_pri_spdif_rx>, <&dai_pri_spdif_tx>,
 			<&dai_sec_spdif_rx>, <&dai_sec_spdif_tx>,
 			<&sb_9_tx>, <&afe_loopback_tx>;
-		asoc-cpu-names = "msm-dai-q6-dp.24608",
+		asoc-cpu-names = "msm-dai-q6-hdmi.24578",
+			"msm-dai-q6-dp.24608",
 			"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 			"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 			"msm-dai-q6-mi2s.4", "msm-dai-q6-mi2s.5",
+			"msm-dai-q6-meta-mi2s.4864",
+			"msm-dai-q6-meta-mi2s.4866",
 			"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
 			"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
 			"msm-dai-q6-auxpcm.5",
@@ -140,6 +154,7 @@
 			"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36897",
 			"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36913",
 			"msm-dai-q6-tdm.36928", "msm-dai-q6-tdm.36929",
+			"msm-dai-q6-tdm.36944", "msm-dai-q6-tdm.36945",
 			"msm-dai-cdc-dma-dev.45056",
 			"msm-dai-cdc-dma-dev.45057",
 			"msm-dai-cdc-dma-dev.45058",

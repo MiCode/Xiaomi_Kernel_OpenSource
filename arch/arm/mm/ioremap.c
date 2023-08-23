@@ -92,7 +92,8 @@ void __init add_static_vm_early(struct static_vm *svm)
 	void *vaddr;
 
 	vm = &svm->vm;
-	vm_area_add_early(vm);
+	if (!vm_area_check_early(vm))
+		vm_area_add_early(vm);
 	vaddr = vm->addr;
 
 	list_for_each_entry(curr_svm, &static_vmlist, list) {
@@ -118,10 +119,17 @@ void __check_vmalloc_seq(struct mm_struct *mm)
 
 	do {
 		seq = init_mm.context.vmalloc_seq;
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+		memcpy(pgd_offset(mm, PAGE_OFFSET),
+		       pgd_offset_k(PAGE_OFFSET),
+		       sizeof(pgd_t) * (pgd_index(VMALLOC_END) -
+					pgd_index(PAGE_OFFSET)));
+#else
 		memcpy(pgd_offset(mm, VMALLOC_START),
 		       pgd_offset_k(VMALLOC_START),
 		       sizeof(pgd_t) * (pgd_index(VMALLOC_END) -
 					pgd_index(VMALLOC_START)));
+#endif
 		mm->context.vmalloc_seq = seq;
 	} while (seq != init_mm.context.vmalloc_seq);
 }

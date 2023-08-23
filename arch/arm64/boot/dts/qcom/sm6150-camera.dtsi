@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,28 +139,26 @@
 		status = "ok";
 		gdscr-supply = <&titan_top_gdsc>;
 		regulator-names = "gdscr";
-		clocks = <&clock_camcc CAM_CC_CAMNOC_AXI_CLK>,
-			<&clock_camcc CAM_CC_SOC_AHB_CLK>,
+		clocks =<&clock_camcc CAM_CC_SOC_AHB_CLK>,
 			<&clock_camcc CAM_CC_SLOW_AHB_CLK_SRC>,
 			<&clock_camcc CAM_CC_CPAS_AHB_CLK>,
 			<&clock_camcc CAM_CC_CCI_CLK>,
 			<&clock_camcc CAM_CC_CCI_CLK_SRC>;
-		clock-names = "camnoc_axi_clk",
-			"soc_ahb_clk",
+		clock-names ="soc_ahb_clk",
 			"slow_ahb_src_clk",
 			"cpas_ahb_clk",
 			"cci_clk",
 			"cci_clk_src";
 		src-clock-name = "cci_clk_src";
 		clock-cntl-level = "lowsvs";
-		clock-rates = <0 0 0 0 0 37500000>;
+		clock-rates = <0 0 0 0 37500000>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cci0_active &cci1_active>;
 		pinctrl-1 = <&cci0_suspend &cci1_suspend>;
-		gpios = <&tlmm 17 0>,
-			<&tlmm 18 0>,
-			<&tlmm 19 0>,
-			<&tlmm 20 0>;
+		gpios = <&tlmm 32 0>,
+			<&tlmm 33 0>,
+			<&tlmm 34 0>,
+			<&tlmm 35 0>;
 		gpio-req-tbl-num = <0 1 2 3>;
 		gpio-req-tbl-flags = <1 1 1 1>;
 		gpio-req-tbl-label = "CCI_I2C_DATA0",
@@ -229,15 +227,15 @@
 		};
 	};
 
-	qcom,cam_smmu {
+	cam_smmu: qcom,cam_smmu {
 		compatible = "qcom,msm-cam-smmu";
 		status = "ok";
 
 		msm_cam_smmu_ife {
 			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&apps_smmu 0x820 0x0>,
+			iommus = <&apps_smmu 0x820 0x40>,
 				<&apps_smmu 0x840 0x0>,
-				<&apps_smmu 0x860 0x0>;
+				<&apps_smmu 0x860 0x40>;
 			label = "ife";
 			ife_iova_mem_map: iova-mem-map {
 				/* IO region is approximately 3.4 GB */
@@ -318,10 +316,10 @@
 				};
 
 				iova-mem-region-shared {
-					/* Shared region is 100MB long */
+					/* Shared region is 150MB long */
 					iova-region-name = "shared";
 					iova-region-start = <0x7400000>;
-					iova-region-len = <0x6400000>;
+					iova-region-len = <0x9600000>;
 					iova-region-id = <0x1>;
 					iova-granularity = <0x15>;
 					status = "ok";
@@ -330,26 +328,26 @@
 				iova-mem-region-secondary-heap {
 					/* Secondary heap region is 1MB long */
 					iova-region-name = "secheap";
-					iova-region-start = <0xd800000>;
+					iova-region-start = <0x10A00000>;
 					iova-region-len = <0x100000>;
 					iova-region-id = <0x4>;
 					status = "ok";
 				};
 
 				iova-mem-region-io {
-					/* IO region is approximately 3 GB */
+					/* IO region is approximately 3.3 GB */
 					iova-region-name = "io";
-					iova-region-start = <0xd911000>;
-					iova-region-len = <0xd26ef000>;
+					iova-region-start = <0x10C00000>;
+					iova-region-len = <0xCF300000>;
 					iova-region-id = <0x3>;
 					status = "ok";
 				};
 
 				iova-mem-qdss-region {
-					/* qdss region is approximately 64K */
+					/* qdss region is approximately 1MB */
 					iova-region-name = "qdss";
-					iova-region-start = <0xd900000>;
-					iova-region-len = <0x10000>;
+					iova-region-start = <0x10B00000>;
+					iova-region-len = <0x100000>;
 					iova-region-id = <0x5>;
 					qdss-phy-addr = <0x16790000>;
 					status = "ok";
@@ -585,7 +583,7 @@
 		status = "ok";
 	};
 
-	qcom,cam-isp {
+	cam_isp_mgr: qcom,cam-isp {
 		compatible = "qcom,cam-isp";
 		arch-compat = "ife";
 		status = "ok";
@@ -961,7 +959,7 @@
 		status = "ok";
 	};
 
-	qcom,cam-jpeg {
+	cam_jpeg_mgr: qcom,cam-jpeg {
 		compatible = "qcom,cam-jpeg";
 		compat-hw-name = "qcom,jpegenc",
 			"qcom,jpegdma";
@@ -1032,7 +1030,7 @@
 		status = "ok";
 	};
 
-	qcom,cam-lrme {
+	cam_lrme_mgr: qcom,cam-lrme {
 		compatible = "qcom,cam-lrme";
 		arch-compat = "lrme";
 		status = "ok";

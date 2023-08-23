@@ -183,6 +183,8 @@ struct ubi_vid_io_buf {
  * @u.list: link in the protection queue
  * @ec: erase counter
  * @pnum: physical eraseblock number
+ * @tagged_scrub_all: if the entry is tagged for scrub all
+ * @sqnum: The sequence number of the vol header.
  *
  * This data structure is used in the WL sub-system. Each physical eraseblock
  * has a corresponding &struct wl_entry object which may be kept in different
@@ -195,6 +197,8 @@ struct ubi_wl_entry {
 	} u;
 	int ec;
 	int pnum;
+	unsigned int tagged_scrub_all:1;
+	unsigned long long sqnum;
 };
 
 /**
@@ -630,6 +634,9 @@ struct ubi_device {
 	struct task_struct *bgt_thread;
 	int thread_enabled;
 	char bgt_name[sizeof(UBI_BGT_NAME_PATTERN)+2];
+	bool scrub_in_progress;
+	atomic_t scrub_work_count;
+	int wl_is_inited;
 
 	/* I/O sub-system's stuff */
 	long long flash_size;
@@ -925,6 +932,12 @@ int ubi_wl_put_fm_peb(struct ubi_device *ubi, struct ubi_wl_entry *used_e,
 int ubi_is_erase_work(struct ubi_work *wrk);
 void ubi_refill_pools(struct ubi_device *ubi);
 int ubi_ensure_anchor_pebs(struct ubi_device *ubi);
+ssize_t ubi_wl_scrub_all(struct ubi_device *ubi,
+			 unsigned long long scrub_sqnum);
+void ubi_wl_update_peb_sqnum(struct ubi_device *ubi, int pnum,
+				struct ubi_vid_hdr *vid_hdr);
+unsigned long long ubi_wl_scrub_get_min_sqnum(struct ubi_device *ubi);
+int ubi_wl_re_erase_peb(struct ubi_device *ubi, int pnum);
 
 /* io.c */
 int ubi_io_read(const struct ubi_device *ubi, void *buf, int pnum, int offset,

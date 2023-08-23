@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -400,6 +400,7 @@
 #define A6XX_RBBM_PERFCTR_GPU_BUSY_MASKED        0x50B
 
 #define A6XX_RBBM_ISDB_CNT                       0x533
+#define A6XX_RBBM_NC_MODE_CNTL                   0x534
 
 #define A6XX_RBBM_SECVID_TRUST_CNTL              0xF400
 #define A6XX_RBBM_SECVID_TSB_TRUSTED_BASE_LO     0xF800
@@ -1075,6 +1076,7 @@
 /* GPUCC registers */
 #define A6XX_GPU_CC_GX_GDSCR                   0x24403
 #define A6XX_GPU_CC_GX_DOMAIN_MISC		0x24542
+#define A6XX_GPU_CC_CX_GDSCR                   0x2441B
 
 /* GPU RSC sequencer registers */
 #define	A6XX_RSCC_PDC_SEQ_START_ADDR			0x23408

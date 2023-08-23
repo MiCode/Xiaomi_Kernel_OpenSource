@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -570,12 +570,19 @@ enum {
 
 #define TYPE_C_CFG_2_REG			(USBIN_BASE + 0x59)
 #define TYPE_C_DFP_CURRSRC_MODE_BIT		BIT(7)
-#define VCONN_ILIM500MA_CFG_BIT			BIT(6)
+#define DFP_CC_1P4V_OR_1P6V_BIT			BIT(6)
 #define VCONN_SOFTSTART_CFG_MASK		GENMASK(5, 4)
 #define EN_TRY_SOURCE_MODE_BIT			BIT(3)
 #define USB_FACTORY_MODE_ENABLE_BIT		BIT(2)
 #define TYPE_C_UFP_MODE_BIT			BIT(1)
 #define EN_80UA_180UA_CUR_SOURCE_BIT		BIT(0)
+enum {
+	TYPEC_SRC_RP_STD,
+	TYPEC_SRC_RP_1P5A,
+	TYPEC_SRC_RP_3A,
+	TYPEC_SRC_RP_3A_DUPLICATE,
+	TYPEC_SRC_RP_MAX_ELEMENTS
+};
 
 #define TYPE_C_CFG_3_REG			(USBIN_BASE + 0x5A)
 #define TVBUS_DEBOUNCE_BIT			BIT(7)

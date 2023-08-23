@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,7 @@
 
 #define QMI_IPA_REMOTE_MHI_CHANNELS_NUM_MAX_V01 6
 #define QMI_IPA_MAX_FILTERS_EX_V01 128
+#define QMI_IPA_MAX_FILTERS_EX2_V01 256
 #define QMI_IPA_IPFLTR_NUM_IHL_RANGE_16_EQNS_V01 2
 #define QMI_IPA_MAX_FILTERS_V01 64
 #define QMI_IPA_IPFLTR_NUM_MEQ_128_EQNS_V01 2
@@ -63,6 +64,7 @@
  * Indicates presence of newly added member to support HW stats.
  */
 #define IPA_QMI_SUPPORTS_STATS
+#define IPA_QMI_SUPPORT_MHI_DEFAULT
 
 #define IPA_INT_MAX	((int)(~0U>>1))
 #define IPA_INT_MIN	(-IPA_INT_MAX - 1)
@@ -471,6 +473,32 @@ struct ipa_indication_reg_req_msg_v01 {
 	/*
 	 * If set to TRUE, this field indicates that the client wants to
 	 * receive indications about MHI ready for Channel allocations.
+	 */
+
+	/* Optional */
+	/*  Endpoint Desc Info Indication */
+	uint8_t endpoint_desc_ind_valid;
+	/* Must be set to true if endpoint_desc_ind is being passed */
+	uint8_t endpoint_desc_ind;
+	/*
+	 * If set to TRUE, this field indicates that the client wants to
+	 * receive indications for Endpoint descriptor information via
+	 * QMI_IPA_ENDP_DESC_INDICATION. Setting this field in the request
+	 * message makes sense only when the  QMI_IPA_INDICATION_REGISTER_REQ
+	 * is being originated from the master driver.
+	 */
+
+	/* Optional */
+	/* BW CHANGE Indication */
+	uint8_t bw_change_ind_valid;
+	/* Must be set to true if bw_change_ind is being passed */
+	uint8_t bw_change_ind;
+	/*
+	 * If set to TRUE, this field indicates that the client wants to
+	 * receive indications for BW change information via
+	 * QMI_IPA_BW_CHANGE_INDICATION. Setting this field in the request
+	 * message makes sense only when the QMI_IPA_INDICATION_REGISTER_REQ
+	 * is being originated from the master driver.
 	 */
 };  /* Message */
 
@@ -1047,6 +1075,20 @@ struct ipa_install_fltr_rule_req_msg_v01 {
 	/* Must be set to # of elements in filter_spec_ex2_list */
 	struct ipa_filter_spec_ex2_type_v01
 		filter_spec_ex2_list[QMI_IPA_MAX_FILTERS_V01];
+
+	/* Optional */
+	/* List of modem UL Filters in the Spec List which need be to
+	 * replicated with AP UL firewall filters
+	 */
+	uint8_t ul_firewall_indices_list_valid;
+	/* Must be set to # of elements in ul_firewall_indices_list */
+	uint32_t ul_firewall_indices_list_len;
+	uint32_t ul_firewall_indices_list[QMI_IPA_MAX_FILTERS_V01];
+	/* List of UL firewall filter indices.
+	 * Filter rules at specified indices must be replicated across
+	 * the firewall filters by the receiver and installed on the
+	 * associated IPA consumer pipe.
+	 */
 };  /* Message */
 
 struct ipa_filter_rule_identifier_to_handle_map_v01 {
@@ -1237,6 +1279,18 @@ struct ipa_fltr_installed_notif_req_msg_v01 {
 	uint32_t dst_pipe_id[QMI_IPA_MAX_CLIENT_DST_PIPES_V01];
 	/* Provides the list of destination pipe IDs for a source pipe. */
 
+	/* Optional */
+	/*  List of Rule IDs extended */
+	uint8_t rule_id_ex_valid;
+	/* Must be set to true if rule_id_ex is being passed. */
+	uint32_t rule_id_ex_len;
+	/* Must be set to # of elements in rule_id_ex */
+	uint32_t rule_id_ex[QMI_IPA_MAX_FILTERS_EX2_V01];
+	/* Provides the list of Rule IDs of rules added in IPA on the
+	 * given source pipe index. If the install_status TLV indicates
+	 * a failure, the Rule IDs in this list must be set to a
+	 * reserved index (255).
+	 */
 };  /* Message */
 
 /* Response Message; This is the message that is exchanged between the
@@ -1854,6 +1908,19 @@ struct ipa_install_fltr_rule_req_ex_msg_v01 {
 	/* Must be set to # of elements in filter_spec_ex2_list */
 	struct ipa_filter_spec_ex2_type_v01
 		filter_spec_ex2_list[QMI_IPA_MAX_FILTERS_V01];
+	/* Optional */
+	/* List of modem UL Filters in the Spec List which need be to
+	 * replicated with AP UL firewall filters
+	 */
+	uint8_t ul_firewall_indices_list_valid;
+	/* Must be set to # of elements in ul_firewall_indices_list */
+	uint32_t ul_firewall_indices_list_len;
+	uint32_t ul_firewall_indices_list[QMI_IPA_MAX_FILTERS_V01];
+	/* List of UL firewall filter indices.
+	 * Filter rules at specified indices must be replicated across
+	 * the firewall filters by the receiver and installed on the
+	 * associated IPA consumer pipe.
+	 */
 };  /* Message */
 
 /* Response Message; Requests installation of filtering rules in the hardware
@@ -2342,6 +2409,22 @@ struct ipa_mhi_alloc_channel_resp_msg_v01 {
 };
 #define IPA_MHI_ALLOC_CHANNEL_RESP_MSG_V01_MAX_MSG_LEN 23
 
+enum ipa_clock_rate_enum_v01 {
+	IPA_CLOCK_RATE_ENUM_MIN_ENUM_VAL_V01 = IPA_INT_MIN,
+
+	QMI_IPA_CLOCK_RATE_INVALID_V01 = 0,
+
+	QMI_IPA_CLOCK_RATE_LOW_SVS_V01 = 1,
+
+	QMI_IPA_CLOCK_RATE_SVS_V01 = 2,
+
+	QMI_IPA_CLOCK_RATE_NOMINAL_V01 = 3,
+
+	QMI_IPA_CLOCK_RATE_TURBO_V01 = 4,
+
+	IPA_CLOCK_RATE_ENUM_MAX_ENUM_VAL_V01 = IPA_INT_MAX,
+};
+
 struct ipa_mhi_clk_vote_req_msg_v01 {
 	/* Mandatory */
 	uint8_t mhi_vote;
@@ -2350,8 +2433,17 @@ struct ipa_mhi_clk_vote_req_msg_v01 {
 	 * TRUE  - ON
 	 * FALSE - OFF
 	 */
+	/* Optional */
+	/*  Throughput Value */
+	uint8_t tput_value_valid;
+	uint32_t tput_value;
+
+	/* Optional */
+	/*  IPA Clock Rate */
+	uint8_t clk_rate_valid;
+	enum ipa_clock_rate_enum_v01 clk_rate;
 };
-#define IPA_MHI_CLK_VOTE_REQ_MSG_V01_MAX_MSG_LEN 4
+#define IPA_MHI_CLK_VOTE_REQ_MSG_V01_MAX_MSG_LEN 18
 
 struct ipa_mhi_clk_vote_resp_msg_v01 {
 	/* Mandatory */
@@ -2402,6 +2494,8 @@ enum ipa_ep_desc_type_enum_v01 {
 	DATA_EP_DESC_TYPE_TETH_PROD_V01 = 0x07,
 	DATA_EP_DESC_TYPE_TETH_RMNET_CONS_V01 = 0x08,
 	DATA_EP_DESC_TYPE_TETH_RMNET_PROD_V01 = 0x09,
+	DATA_EP_DESC_TYPE_EMB_FLOW_CTL_CONS_V01 = 0x0A,
+	DATA_EP_DESC_TYPE_EMB_FLOW_CTL_PROD_V01 = 0x0B,
 	IPA_EP_DESC_TYPE_ENUM_MAX_VAL_V01 = IPA_INT_MAX,
 };
 
@@ -2522,8 +2616,20 @@ struct ipa_add_offload_connection_req_msg_v01 {
 	uint32_t filter_spec_ex2_list_len;
 	struct ipa_filter_spec_ex2_type_v01
 		filter_spec_ex2_list[QMI_IPA_MAX_FILTERS_V01];
+	/* Optional */
+	/*  Mux ID for embedded call */
+	uint8_t embedded_call_mux_id_valid;
+	/* Must be set to true if embedded_call_mux_id is being passed */
+	uint32_t embedded_call_mux_id;
+	/* Mux ID for the new embedded call */
+	/* Optional */
+	/*  Default MHI path */
+	uint8_t default_mhi_path_valid;
+	/* Must be set to true if default_mhi_path is being passed */
+	uint8_t default_mhi_path;
+	/* Default MHI path */
 }; /* Message */
-#define IPA_ADD_OFFLOAD_CONNECTION_REQ_MSG_V01_MAX_MSG_LEN 11350
+#define IPA_ADD_OFFLOAD_CONNECTION_REQ_MSG_V01_MAX_MSG_LEN 11361
 
 struct ipa_add_offload_connection_resp_msg_v01 {
 	/*  Result Code */
@@ -2546,8 +2652,14 @@ struct ipa_remove_offload_connection_req_msg_v01 {
 	uint32_t filter_handle_list_len;
 	struct ipa_filter_rule_identifier_to_handle_map_v01
 		filter_handle_list[QMI_IPA_MAX_FILTERS_V01];
+	/* Optional */
+	/*  Clean All rules */
+	uint8_t clean_all_rules_valid;
+	/* Must be set to true if clean_all_rules is being passed */
+	uint8_t clean_all_rules;
+	/* Clean All rules */
 }; /* Message */
-#define IPA_REMOVE_OFFLOAD_CONNECTION_REQ_MSG_V01_MAX_MSG_LEN 516
+#define IPA_REMOVE_OFFLOAD_CONNECTION_REQ_MSG_V01_MAX_MSG_LEN 520
 
 struct ipa_remove_offload_connection_resp_msg_v01 {
 	/* optional */
@@ -2557,6 +2669,19 @@ struct ipa_remove_offload_connection_resp_msg_v01 {
 	struct ipa_qmi_response_type_v01 resp;
 }; /* Message */
 #define IPA_REMOVE_OFFLOAD_CONNECTION_RESP_MSG_V01_MAX_MSG_LEN 7
+
+struct ipa_bw_change_ind_msg_v01 {
+	/* optional */
+	/* Must be set to true if peak_bw_ul is being passed*/
+	uint8_t peak_bw_ul_valid;
+	/* Kbps */
+	uint32_t peak_bw_ul;
+	/* Must be set to true if peak_bw_dl is being passed*/
+	uint8_t peak_bw_dl_valid;
+	/* Kbps */
+	uint32_t peak_bw_dl;
+}; /* Message */
+#define IPA_BW_CHANGE_IND_MSG_V01_MAX_MSG_LEN 14
 
 /*Service Message Definition*/
 #define QMI_IPA_INDICATION_REGISTER_REQ_V01 0x0020
@@ -2612,16 +2737,16 @@ struct ipa_remove_offload_connection_resp_msg_v01 {
 #define QMI_IPA_ADD_OFFLOAD_CONNECTION_RESP_V01 0x0041
 #define QMI_IPA_REMOVE_OFFLOAD_CONNECTION_REQ_V01 0x0042
 #define QMI_IPA_REMOVE_OFFLOAD_CONNECTION_RESP_V01 0x0042
-
+#define QMI_IPA_BW_CHANGE_INDICATION_V01 0x0044
 
 /* add for max length*/
 #define QMI_IPA_INIT_MODEM_DRIVER_REQ_MAX_MSG_LEN_V01 162
 #define QMI_IPA_INIT_MODEM_DRIVER_RESP_MAX_MSG_LEN_V01 25
-#define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 12
+#define QMI_IPA_INDICATION_REGISTER_REQ_MAX_MSG_LEN_V01 20
 #define QMI_IPA_INDICATION_REGISTER_RESP_MAX_MSG_LEN_V01 7
-#define QMI_IPA_INSTALL_FILTER_RULE_REQ_MAX_MSG_LEN_V01 33445
+#define QMI_IPA_INSTALL_FILTER_RULE_REQ_MAX_MSG_LEN_V01 33705
 #define QMI_IPA_INSTALL_FILTER_RULE_RESP_MAX_MSG_LEN_V01 783
-#define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01 870
+#define QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01 1899
 #define QMI_IPA_FILTER_INSTALLED_NOTIF_RESP_MAX_MSG_LEN_V01 7
 #define QMI_IPA_MASTER_DRIVER_INIT_COMPLETE_IND_MAX_MSG_LEN_V01 7
 #define QMI_IPA_DATA_USAGE_QUOTA_REACHED_IND_MAX_MSG_LEN_V01 15
@@ -2651,7 +2776,7 @@ struct ipa_remove_offload_connection_resp_msg_v01 {
 #define QMI_IPA_INIT_MODEM_DRIVER_CMPLT_REQ_MAX_MSG_LEN_V01 4
 #define QMI_IPA_INIT_MODEM_DRIVER_CMPLT_RESP_MAX_MSG_LEN_V01 7
 
-#define QMI_IPA_INSTALL_FILTER_RULE_EX_REQ_MAX_MSG_LEN_V01 33761
+#define QMI_IPA_INSTALL_FILTER_RULE_EX_REQ_MAX_MSG_LEN_V01 34021
 #define QMI_IPA_INSTALL_FILTER_RULE_EX_RESP_MAX_MSG_LEN_V01 523
 
 #define QMI_IPA_ENABLE_PER_CLIENT_STATS_REQ_MAX_MSG_LEN_V01 4

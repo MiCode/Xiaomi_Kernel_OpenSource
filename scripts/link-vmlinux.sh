@@ -70,29 +70,30 @@ archive_builtin()
 	fi
 }
 
-# If CONFIG_LTO_CLANG is selected, collect generated symbol versions into
-# .tmp_symversions
-modversions()
+# If CONFIG_LTO_CLANG is selected, generate a linker script to ensure correct
+# ordering of initcalls, and with CONFIG_MODVERSIONS also enabled, collect the
+# previously generated symbol versions into the same script.
+lto_lds()
 {
 	if [ -z "${CONFIG_LTO_CLANG}" ]; then
 		return
 	fi
 
-	if [ -z "${CONFIG_MODVERSIONS}" ]; then
-		return
+	${srctree}/scripts/generate_initcall_order.pl \
+		built-in.o ${KBUILD_VMLINUX_LIBS} \
+		> .tmp_lto.lds
+
+	if [ -n "${CONFIG_MODVERSIONS}" ]; then
+		for a in built-in.o ${KBUILD_VMLINUX_LIBS}; do
+			for o in $(${AR} t $a); do
+				if [ -f ${o}.symversions ]; then
+					cat ${o}.symversions >> .tmp_lto.lds
+				fi
+			done
+		done
 	fi
 
-	rm -f .tmp_symversions
-
-	for a in built-in.o ${KBUILD_VMLINUX_LIBS}; do
-		for o in $(${AR} t $a); do
-			if [ -f ${o}.symversions ]; then
-				cat ${o}.symversions >> .tmp_symversions
-			fi
-		done
-	done
-
-	echo "-T .tmp_symversions"
+	echo "-T .tmp_lto.lds"
 }
 
 # Link of vmlinux.o used for section mismatch analysis
@@ -124,7 +125,7 @@ modpost_link()
 		info LD vmlinux.o
 	fi
 
-	${LD} ${LDFLAGS} -r -o ${1} $(modversions) ${objects}
+	${LD} ${LDFLAGS} -r -o ${1} $(lto_lds) ${objects}
 }
 
 # If CONFIG_LTO_CLANG is selected, we postpone running recordmcount until
@@ -276,7 +277,7 @@ cleanup()
 	rm -f .tmp_System.map
 	rm -f .tmp_kallsyms*
 	rm -f .tmp_version
-	rm -f .tmp_symversions
+	rm -f .tmp_lto.lds
 	rm -f .tmp_vmlinux*
 	rm -f built-in.o
 	rm -f System.map
@@ -453,6 +454,21 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 		echo >&2 Try "make KALLSYMS_EXTRA_PASS=1" as a workaround
 		exit 1
 	fi
+fi
+
+# Starting Android Q, the DTB's are part of dtb.img and not part
+# of the kernel image. RTIC DTS relies on the kernel environment
+# and could not build outside of the kernel. Generate RTIC DTS after
+# successful kernel build if MPGen is enabled. The DTB will be
+# generated with dtb.img in kernel_definitions.mk.
+if [ ! -z ${RTIC_MPGEN+x} ]; then
+	${RTIC_MPGEN} --objcopy="${OBJCOPY}" --objdump="${OBJDUMP}" \
+		--binpath="" --vmlinux="vmlinux" --config=${KCONFIG_CONFIG} \
+		--cc="${CC} ${KBUILD_AFLAGS}" --dts=rtic_mp.dts \
+		|| echo “RTIC MP DTS generation has failed”
+	# Echo statement above prints the error message in case above
+	# RTIC MP DTS generation command fails and it ensures rtic mp
+	# failure does not cause kernel compilation to fail.
 fi
 
 # We made a new kernel - delete old version file

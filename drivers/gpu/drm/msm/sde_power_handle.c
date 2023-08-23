@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,7 +61,7 @@ static inline void sde_power_rsc_client_init(struct sde_power_handle *phandle)
 	/* creates the rsc client */
 	if (!phandle->rsc_client_init) {
 		phandle->rsc_client = sde_rsc_client_create(SDE_RSC_INDEX,
-				"sde_power_handle", false);
+				"sde_power_handle", SDE_RSC_CLK_CLIENT, 0);
 		if (IS_ERR_OR_NULL(phandle->rsc_client)) {
 			pr_debug("sde rsc client create failed :%ld\n",
 						PTR_ERR(phandle->rsc_client));
@@ -1046,10 +1046,9 @@ int sde_power_resource_enable(struct sde_power_handle *phandle,
 				SDE_POWER_EVENT_POST_DISABLE);
 	}
 
-end:
 	SDE_EVT32_VERBOSE(enable, SDE_EVTLOG_FUNC_EXIT);
-	mutex_unlock(&phandle->phandle_lock);
 	SDE_ATRACE_END("sde_power_resource_enable");
+	mutex_unlock(&phandle->phandle_lock);
 	return rc;
 
 clk_err:
@@ -1063,8 +1062,10 @@ vreg_err:
 		sde_power_data_bus_update(&phandle->data_bus_handle[i], 0);
 data_bus_hdl_err:
 	phandle->current_usecase_ndx = prev_usecase_ndx;
-	mutex_unlock(&phandle->phandle_lock);
 	SDE_ATRACE_END("sde_power_resource_enable");
+
+end:
+	mutex_unlock(&phandle->phandle_lock);
 	return rc;
 }
 

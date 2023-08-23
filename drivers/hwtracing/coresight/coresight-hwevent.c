@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -200,9 +200,8 @@ static int hwevent_probe(struct platform_device *pdev)
 
 	drvdata->nr_hmux = of_property_count_strings(pdev->dev.of_node,
 						     "reg-names");
-
-	if (!drvdata->nr_hmux)
-		return -ENODEV;
+	if (drvdata->nr_hmux < 0)
+		drvdata->nr_hmux = 0;
 
 	if (drvdata->nr_hmux > 0) {
 		drvdata->hmux = devm_kzalloc(dev, drvdata->nr_hmux *
@@ -223,8 +222,6 @@ static int hwevent_probe(struct platform_device *pdev)
 			drvdata->hmux[i].start = res->start;
 			drvdata->hmux[i].end = res->end;
 		}
-	} else {
-		return drvdata->nr_hmux;
 	}
 
 	mutex_init(&drvdata->mutex);

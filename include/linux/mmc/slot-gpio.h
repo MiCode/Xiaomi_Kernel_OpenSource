@@ -31,6 +31,8 @@ int mmc_gpiod_request_ro(struct mmc_host *host, const char *con_id,
 			 unsigned int debounce, bool *gpio_invert);
 void mmc_gpio_set_cd_isr(struct mmc_host *host,
 			 irqreturn_t (*isr)(int irq, void *dev_id));
+void mmc_gpiod_free_cd_irq(struct mmc_host *host);
+void mmc_gpiod_restore_cd_irq(struct mmc_host *host);
 void mmc_gpiod_request_cd_irq(struct mmc_host *host);
 bool mmc_can_gpio_cd(struct mmc_host *host);
 void mmc_register_extcon(struct mmc_host *host);

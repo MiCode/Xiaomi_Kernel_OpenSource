@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,9 @@
 #include <linux/list.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+/* SSC Qup SSR related */
+#include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/scm.h>
 
 /* Transfer mode supported by GENI Serial Engines */
 enum se_xfer_mode {
@@ -39,8 +42,39 @@ enum se_protocol_types {
 	SPI_SLAVE
 };
 
+/* Notifier block Structure */
+struct ssc_qup_nb {
+	struct notifier_block nb;
+	void *next; /*Notifier block pointer to next notifier block structure*/
+};
+
 /**
- * struct geni_se_rsc - GENI Serial Engine Resource
+ * struct ssc_qup_ssr	GENI Serial Engine SSC qup SSR Structure.
+ * @is_ssr_down	To check SE status.
+ * @subsys_name	Subsystem name for ssr registration.
+ * @active_list_head	List Head of all client in SSC QUPv3.
+ */
+struct ssc_qup_ssr {
+	struct ssc_qup_nb ssc_qup_nb;
+	bool is_ssr_down;
+	const char *subsys_name;
+	struct list_head active_list_head;
+};
+
+/**
+ * struct se_rsc_ssr	GENI Resource SSR Structure.
+ * @active_list	List of SSC qup SE clients.
+ * @force_suspend	Function pointer for Subsystem shutdown case.
+ * @force_resume	Function pointer for Subsystem restart case.
+ */
+struct se_rsc_ssr {
+	struct list_head active_list;
+	void (*force_suspend)(struct device *ctrl_dev);
+	void (*force_resume)(struct device *ctrl_dev);
+};
+
+/**
+ * struct se_geni_rsc - GENI Serial Engine Resource
  * @ctrl_dev		Pointer to controller device.
  * @wrapper_dev:	Pointer to the parent QUPv3 core.
  * @se_clk:		Handle to the core serial engine clock.
@@ -78,7 +112,8 @@ struct se_geni_rsc {
 	struct pinctrl *geni_pinctrl;
 	struct pinctrl_state *geni_gpio_active;
 	struct pinctrl_state *geni_gpio_sleep;
-	int	clk_freq_out;
+	int clk_freq_out;
+	struct se_rsc_ssr rsc_ssr;
 };
 
 #define PINCTRL_DEFAULT	"default"
@@ -103,6 +138,7 @@ struct se_geni_rsc {
 #define SE_GENI_CLK_SEL			(0x7C)
 #define SE_GENI_CFG_SEQ_START			(0x84)
 #define SE_GENI_CFG_REG		(0x200)
+#define GENI_CFG_REG80			(0x240)
 #define SE_GENI_BYTE_GRAN		(0x254)
 #define SE_GENI_DMA_MODE_EN		(0x258)
 #define SE_GENI_TX_PACKING_CFG0		(0x260)
@@ -137,9 +173,17 @@ struct se_geni_rsc {
 #define SE_DMA_DEBUG_REG0		(0xE40)
 #define SLAVE_MODE_EN			(BIT(3))
 #define START_TRIGGER			(BIT(0))
+#define QUPV3_HW_VER			(0x4)
 
 /* GENI_OUTPUT_CTRL fields */
 #define DEFAULT_IO_OUTPUT_CTRL_MSK	(GENMASK(6, 0))
+#define GENI_IO_MUX_0_EN			BIT(0)
+#define GENI_IO_MUX_1_EN			BIT(1)
+
+/* GENI_CFG_REG80 fields */
+#define IO1_SEL_TX			BIT(2)
+#define IO2_DATA_IN_SEL_PAD2	(GENMASK(11, 10))
+#define IO3_DATA_IN_SEL_PAD2	BIT(15)
 
 /* GENI_FORCE_DEFAULT_REG fields */
 #define FORCE_DEFAULT	(BIT(0))
@@ -338,6 +382,7 @@ struct se_geni_rsc {
 #define TX_EOT			(BIT(1))
 #define TX_SBE			(BIT(2))
 #define TX_RESET_DONE		(BIT(3))
+#define TX_GENI_CANCEL_IRQ	(BIT(14))
 
 /* SE_DMA_RX_IRQ_STAT Register fields */
 #define RX_DMA_DONE		(BIT(0))
@@ -346,8 +391,19 @@ struct se_geni_rsc {
 #define RX_RESET_DONE		(BIT(3))
 #define RX_FLUSH_DONE		(BIT(4))
 #define RX_GENI_GP_IRQ		(GENMASK(10, 5))
-#define RX_GENI_CANCEL_IRQ	(BIT(11))
+/*
+ * QUPs which have HW version <=1.2 11th bit of
+ * DMA_RX_IRQ_STAT register denotes RX_GENI_CANCEL_IRQ bit.
+ */
+#define RX_GENI_CANCEL_IRQ(n)	(((n.hw_major_ver <= 1) &&\
+				(n.hw_minor_ver <= 2)) ? BIT(11) : BIT(14))
 #define RX_GENI_GP_IRQ_EXT	(GENMASK(13, 12))
+
+/* DMA DEBUG Register fields */
+#define DMA_TX_ACTIVE		(BIT(0))
+#define DMA_RX_ACTIVE		(BIT(1))
+#define DMA_TX_STATE		(GENMASK(7, 4))
+#define DMA_RX_STATE		(GENMASK(11, 8))
 
 #define DEFAULT_BUS_WIDTH	(4)
 #define DEFAULT_SE_CLK		(19200000)
@@ -680,6 +736,19 @@ int geni_se_tx_dma_prep(struct device *wrapper_dev, void __iomem *base,
 			void *tx_buf, int tx_len, dma_addr_t *tx_dma);
 
 /**
+ * geni_se_rx_dma_start() - Prepare the Serial Engine registers for RX DMA
+				transfers.
+ * @base:		Base address of the SE register block.
+ * @rx_len:		Length of the RX buffer.
+ * @rx_dma:		Pointer to store the mapped DMA address.
+ *
+ * This function is used to prepare the Serial Engine registers for DMA RX.
+ *
+ * Return:	None.
+ */
+void geni_se_rx_dma_start(void __iomem *base, int rx_len, dma_addr_t *rx_dma);
+
+/**
  * geni_se_rx_dma_prep() - Prepare the Serial Engine for RX DMA transfer
  * @wrapper_dev:	QUPv3 Wrapper Device to which the TX buffer is mapped.
  * @base:		Base address of the SE register block.
@@ -807,6 +876,7 @@ int geni_se_iommu_free_buf(struct device *wrapper_dev, dma_addr_t *iova,
  */
 void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 				void *ipc);
+
 #else
 static inline unsigned int geni_read_reg_nolog(void __iomem *base, int offset)
 {
@@ -990,6 +1060,11 @@ static inline int geni_se_iommu_free_buf(struct device *wrapper_dev,
 
 static void geni_se_dump_dbg_regs(struct se_geni_rsc *rsc, void __iomem *base,
 				void *ipc)
+{
+}
+
+static void geni_se_rx_dma_start(void __iomem *base, int rx_len,
+						dma_addr_t *rx_dma)
 {
 }
 

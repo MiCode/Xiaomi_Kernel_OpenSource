@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,6 @@
 #include <video/msm_dba.h>
 #include <linux/extcon.h>
 #include <../../../extcon/extcon.h>
-
 #include "mdss_dba_utils.h"
 #include "mdss_hdmi_edid.h"
 #include "mdss_cec_core.h"
@@ -39,7 +38,6 @@ struct mdss_dba_utils_data {
 	struct mdss_panel_info *pinfo;
 	void *dba_data;
 	void *edid_data;
-	void *timing_data;
 	void *cec_abst_data;
 	u8 *edid_buf;
 	u32 edid_buf_size;
@@ -650,72 +648,6 @@ void mdss_dba_utils_hdcp_enable(void *data, bool enable)
 		ud->ops.hdcp_enable(ud->dba_data, enable, enable, 0);
 }
 
-void mdss_dba_update_lane_cfg(struct mdss_panel_info *pinfo)
-{
-	struct mdss_dba_utils_data *dba_data;
-	struct mdss_dba_timing_info *cfg_tbl;
-	int i = 0, lanes;
-
-	if (pinfo == NULL)
-		return;
-
-	/*
-	 * Restore to default value from DT
-	 * if resolution not found in
-	 * supported resolutions
-	 */
-	lanes = pinfo->mipi.default_lanes;
-
-	dba_data = (struct mdss_dba_utils_data *)(pinfo->dba_data);
-	if (dba_data == NULL)
-		goto lane_cfg;
-
-	/* get adv supported timing info */
-	cfg_tbl = (struct mdss_dba_timing_info *)(dba_data->timing_data);
-	if (cfg_tbl == NULL)
-		goto lane_cfg;
-
-	while (cfg_tbl[i].xres != 0xffff) {
-		if (cfg_tbl[i].xres == pinfo->xres &&
-			cfg_tbl[i].yres == pinfo->yres &&
-			cfg_tbl[i].bpp == pinfo->bpp &&
-			cfg_tbl[i].fps == pinfo->mipi.frame_rate) {
-			lanes = cfg_tbl[i].lanes;
-			break;
-		}
-		i++;
-	}
-
-lane_cfg:
-	switch (lanes) {
-	case 1:
-		pinfo->mipi.data_lane0 = 1;
-		pinfo->mipi.data_lane1 = 0;
-		pinfo->mipi.data_lane2 = 0;
-		pinfo->mipi.data_lane3 = 0;
-		break;
-	case 2:
-		pinfo->mipi.data_lane0 = 1;
-		pinfo->mipi.data_lane1 = 1;
-		pinfo->mipi.data_lane2 = 0;
-		pinfo->mipi.data_lane3 = 0;
-		break;
-	case 3:
-		pinfo->mipi.data_lane0 = 1;
-		pinfo->mipi.data_lane1 = 1;
-		pinfo->mipi.data_lane2 = 1;
-		pinfo->mipi.data_lane3 = 0;
-		break;
-	case 4:
-	default:
-		pinfo->mipi.data_lane0 = 1;
-		pinfo->mipi.data_lane1 = 1;
-		pinfo->mipi.data_lane2 = 1;
-		pinfo->mipi.data_lane3 = 1;
-		break;
-	}
-}
-
 /**
  * mdss_dba_utils_init() - Allow clients to register with DBA utils
  * @uid: Initialization data for registration.
@@ -827,12 +759,6 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 		ret = PTR_ERR(cec_abst_data);
 		goto error;
 	}
-
-	/* get the timing data for the adv chip */
-	if (udata->ops.get_supp_timing_info)
-		udata->timing_data = udata->ops.get_supp_timing_info();
-	else
-		udata->timing_data = NULL;
 
 	/* update cec data to retrieve it back in cec abstract module */
 	if (uid->pinfo) {

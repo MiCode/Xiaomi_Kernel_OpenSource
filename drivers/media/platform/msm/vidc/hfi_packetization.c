@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -544,6 +544,7 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 		break;
 	case HAL_EXTRADATA_ASPECT_RATIO:
 	case HAL_EXTRADATA_OUTPUT_CROP:
+	case HAL_EXTRADATA_INPUT_CROP:
 		ret = HFI_PROPERTY_PARAM_INDEX_EXTRADATA;
 		break;
 	case HAL_EXTRADATA_MPEG2_SEQDISP:
@@ -583,6 +584,9 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_HDR10PLUS_METADATA:
 		ret = HFI_PROPERTY_PARAM_VENC_HDR10PLUS_METADATA_EXTRADATA;
 		break;
+	case HAL_EXTRADATA_ENC_DTS_METADATA:
+		ret = HFI_PROPERTY_PARAM_VENC_DTS_INFO;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
 		break;
@@ -600,6 +604,9 @@ static int get_hfi_extradata_id(enum hal_extradata_id index)
 		break;
 	case HAL_EXTRADATA_OUTPUT_CROP:
 		ret = MSM_VIDC_EXTRADATA_OUTPUT_CROP;
+		break;
+	case HAL_EXTRADATA_INPUT_CROP:
+		ret = MSM_VIDC_EXTRADATA_INPUT_CROP;
 		break;
 	default:
 		ret = get_hfi_extradata_index(index);
@@ -2109,26 +2116,34 @@ int create_pkt_cmd_sys_image_version(
 int create_pkt_cmd_sys_ubwc_config(struct hfi_cmd_sys_set_property_packet *pkt,
 		struct msm_vidc_ubwc_config *config)
 {
-	struct msm_vidc_ubwc_config *hfi;
-
 	if (!pkt) {
 		dprintk(VIDC_ERR, "%s invalid param :%pK\n", __func__, pkt);
 		return -EINVAL;
 	}
 
 	pkt->size = sizeof(struct hfi_cmd_sys_set_property_packet) +
-		sizeof(struct msm_vidc_ubwc_config) + sizeof(u32);
+		config->nSize + sizeof(u32);
 	pkt->packet_type = HFI_CMD_SYS_SET_PROPERTY;
 	pkt->num_properties = 1;
 	pkt->rg_property_data[0] = HFI_PROPERTY_SYS_UBWC_CONFIG;
-	hfi = (struct msm_vidc_ubwc_config *) &pkt->rg_property_data[1];
-	hfi->sOverrideBitInfo.bMalLengthOverride =
-			config->sOverrideBitInfo.bMalLengthOverride;
-	hfi->nMalLength = config->nMalLength;
+
+	if (config->nSize == sizeof(struct msm_vidc_ubwc_config))
+		memcpy(&pkt->rg_property_data[1], config, config->nSize);
+	else
+		memcpy(&pkt->rg_property_data[1], &(config->v1), config->nSize);
+
 	dprintk(VIDC_DBG,
-			"UBWC settings Mal Length Override : %u MalLength: %u",
-			hfi->sOverrideBitInfo.bMalLengthOverride,
-			hfi->nMalLength);
+		"UBWC config nSize: %u, MaxChannels: %u, MalLength: %u, %u, HBB: %u\n",
+		config->nSize,
+		config->v1.nMaxChannels,
+		config->v1.nMalLength,
+		config->v1.nHighestBankBit);
+	dprintk(VIDC_DBG,
+		"MaxChannelsOverride: %u, MalLengthOverride: %u, HBBOverride: %u\n",
+		config->v1.sOverrideBitInfo.bMaxChannelsOverride,
+		config->v1.sOverrideBitInfo.bMalLengthOverride,
+		config->v1.sOverrideBitInfo.bHBBOverride);
+
 	return 0;
 }
 

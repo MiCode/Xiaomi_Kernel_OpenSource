@@ -61,6 +61,7 @@ int dm_linear_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	ti->num_discard_bios = 1;
 	ti->num_write_same_bios = 1;
 	ti->num_write_zeroes_bios = 1;
+	ti->may_passthrough_inline_crypto = true;
 	ti->private = lc;
 	return 0;
 
@@ -134,8 +135,7 @@ void dm_linear_status(struct dm_target *ti, status_type_t type,
 }
 EXPORT_SYMBOL_GPL(dm_linear_status);
 
-int dm_linear_prepare_ioctl(struct dm_target *ti,
-		struct block_device **bdev, fmode_t *mode)
+int dm_linear_prepare_ioctl(struct dm_target *ti, struct block_device **bdev)
 {
 	struct linear_c *lc = (struct linear_c *) ti->private;
 	struct dm_dev *dev = lc->dev;

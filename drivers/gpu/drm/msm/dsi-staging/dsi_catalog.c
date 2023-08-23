@@ -73,6 +73,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 	ctrl->ops.set_continuous_clk = dsi_ctrl_hw_cmn_set_continuous_clk;
 	ctrl->ops.wait4dynamic_refresh_done =
 		dsi_ctrl_hw_cmn_wait4dynamic_refresh_done;
+	ctrl->ops.hs_req_sel = dsi_ctrl_hw_cmn_hs_req_sel;
 
 	switch (version) {
 	case DSI_CTRL_VERSION_1_4:
@@ -110,6 +111,7 @@ static void dsi_catalog_cmn_init(struct dsi_ctrl_hw *ctrl,
 		break;
 	case DSI_CTRL_VERSION_2_2:
 	case DSI_CTRL_VERSION_2_3:
+	case DSI_CTRL_VERSION_2_4:
 		ctrl->ops.phy_reset_config = dsi_ctrl_hw_22_phy_reset_config;
 		ctrl->ops.config_clk_gating = dsi_ctrl_hw_22_config_clk_gating;
 		ctrl->ops.get_cont_splash_status =
@@ -174,6 +176,7 @@ int dsi_catalog_ctrl_setup(struct dsi_ctrl_hw *ctrl,
 	case DSI_CTRL_VERSION_2_0:
 	case DSI_CTRL_VERSION_2_2:
 	case DSI_CTRL_VERSION_2_3:
+	case DSI_CTRL_VERSION_2_4:
 		ctrl->phy_isolation_enabled = phy_isolation_enabled;
 		dsi_catalog_cmn_init(ctrl, version);
 		break;
@@ -271,6 +274,7 @@ static void dsi_catalog_phy_4_0_init(struct dsi_phy_hw *phy)
 	phy->ops.phy_lane_reset = dsi_phy_hw_v4_0_lane_reset;
 	phy->ops.toggle_resync_fifo = dsi_phy_hw_v4_0_toggle_resync_fifo;
 	phy->ops.reset_clk_en_sel = dsi_phy_hw_v4_0_reset_clk_en_sel;
+	phy->ops.set_continuous_clk = dsi_phy_hw_v4_0_set_continuous_clk;
 }
 
 /**

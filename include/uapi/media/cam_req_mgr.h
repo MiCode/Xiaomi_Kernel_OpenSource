@@ -34,16 +34,22 @@
  * Max handles supported by cam_req_mgr
  * It includes both session and device handles
  */
-#define CAM_REQ_MGR_MAX_HANDLES           64
+#define CAM_REQ_MGR_MAX_HANDLES           182
 #define MAX_LINKS_PER_SESSION             2
 
 /* V4L event type which user space will subscribe to */
 #define V4L_EVENT_CAM_REQ_MGR_EVENT       (V4L2_EVENT_PRIVATE_START + 0)
 
 /* Specific event ids to get notified in user space */
-#define V4L_EVENT_CAM_REQ_MGR_SOF            0
-#define V4L_EVENT_CAM_REQ_MGR_ERROR          1
-#define V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS    2
+#define V4L_EVENT_CAM_REQ_MGR_SOF                    0
+#define V4L_EVENT_CAM_REQ_MGR_ERROR                  1
+#define V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS            2
+
+/* Suspend to RAM and Hibernation events */
+#define V4L_EVENT_CAM_REQ_MGR_S2R_SUSPEND           10
+#define V4L_EVENT_CAM_REQ_MGR_S2R_RESUME            11
+#define V4L_EVENT_CAM_REQ_MGR_HIBERNATION_SUSPEND   12
+#define V4L_EVENT_CAM_REQ_MGR_HIBERNATION_RESUME    13
 
 /* SOF Event status */
 #define CAM_REQ_MGR_SOF_EVENT_SUCCESS           0
@@ -245,11 +251,12 @@ struct cam_req_mgr_link_control {
 #define CAM_MEM_FLAG_CACHE                      (1<<10)
 #define CAM_MEM_FLAG_HW_SHARED_ACCESS           (1<<11)
 #define CAM_MEM_FLAG_CDSP_OUTPUT                (1<<12)
+#define CAM_MEM_FLAG_CP_PIXEL                   (1<<13)
 
 #define CAM_MEM_MMU_MAX_HANDLE                  16
 
 /* Maximum allowed buffers in existence */
-#define CAM_MEM_BUFQ_MAX                        1024
+#define CAM_MEM_BUFQ_MAX                        1536
 
 #define CAM_MEM_MGR_SECURE_BIT_POS              15
 #define CAM_MEM_MGR_HDL_IDX_SIZE                15

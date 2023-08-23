@@ -20,16 +20,6 @@
 #include "ipa_pkt_cntxt.h"
 #include "ipa_hw_common_ex.h"
 
-/*
- * The following macros are used to peek and poke register values and
- * are required by some of the macros and include files that follow...
- */
-#define my_in_dword(addr) \
-	(readl(addr))
-
-#define my_out_dword(addr, val) \
-	({ __iowmb(); writel_relaxed((val), (addr)); })
-
 #define IPA_0_IPA_WRAPPER_BASE 0 /* required by following includes */
 
 #include "ipa_hwio.h"
@@ -63,6 +53,10 @@
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_1   (0xC)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_2   (0xD)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_3   (0xE)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_4   (0xF)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_5   (0x10)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_6   (0x11)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_7   (0x12)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_0   (0x13)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_1   (0x14)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_2   (0x15)
@@ -89,6 +83,8 @@
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_2 (0x35)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_3 (0x36)
 #define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR     (0x3A)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_0  (0x3C)
+#define HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_1  (0x3D)
 
 #define IPA_DEBUG_TESTBUS_DEF_EXTERNAL           50
 #define IPA_DEBUG_TESTBUS_DEF_INTERNAL           6
@@ -216,15 +212,6 @@ struct map_src_dst_addr_s {
 	 IPA_DEBUG_TESTBUS_RSRC_TYPE_CNT_SHIFT)
 
 /*
- * Macro to get rsrc cnt of specific rsrc type and rsrc grp from test
- * bus collected data
- */
-#define IPA_DEBUG_TESTBUS_GET_RSRC_TYPE_CNT(rsrc_type, rsrc_grp) \
-	IPA_DEBUG_TESTBUS_DATA_GET_RSRC_CNT_BITS_FROM_DEBUG_DATA( \
-		ipa_reg_save.ipa.testbus->ep_rsrc[rsrc_type].entry_ep \
-		[rsrc_grp].testbus_data.value)
-
-/*
  * Macro to pluck the gsi version from ram.
  */
 #define IPA_REG_SAVE_GSI_VER(reg_name, var_name)	\
@@ -319,13 +306,7 @@ struct map_src_dst_addr_s {
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 3), \
 		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[3].var_name }, \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 4), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[4].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 5), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[5].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 6), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[6].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 7), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[7].var_name }
+		(u32 *)&ipa_reg_save.ipa.src_rsrc_grp[4].var_name }
 
 /*
  * Macro to define a particular register cfg entry for all resource
@@ -335,9 +316,7 @@ struct map_src_dst_addr_s {
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 0), \
 		(u32 *)&ipa_reg_save.ipa.dst_rsrc_grp[0].var_name }, \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 1), \
-		(u32 *)&ipa_reg_save.ipa.dst_rsrc_grp[1].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 2), \
-		(u32 *)&ipa_reg_save.ipa.dst_rsrc_grp[2].var_name }
+		(u32 *)&ipa_reg_save.ipa.dst_rsrc_grp[1].var_name }
 
 /*
  * Macro to define a particular register cfg entry for all source
@@ -353,13 +332,7 @@ struct map_src_dst_addr_s {
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 3), \
 		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[3].var_name }, \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 4), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[4].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 5), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[5].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 6), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[6].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 7), \
-		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[7].var_name }
+		(u32 *)&ipa_reg_save.ipa.src_rsrc_cnt[4].var_name }
 
 /*
  * Macro to define a particular register cfg entry for all dest
@@ -369,9 +342,7 @@ struct map_src_dst_addr_s {
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 0), \
 		(u32 *)&ipa_reg_save.ipa.dst_rsrc_cnt[0].var_name }, \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, 1), \
-		(u32 *)&ipa_reg_save.ipa.dst_rsrc_cnt[1].var_name }, \
-	{ GEN_1xVECTOR_REG_OFST(reg_name, 2), \
-		(u32 *)&ipa_reg_save.ipa.dst_rsrc_cnt[2].var_name }
+		(u32 *)&ipa_reg_save.ipa.dst_rsrc_cnt[1].var_name }
 
 #define IPA_REG_SAVE_CFG_ENTRY_GSI_GENERAL_EE(reg_name, var_name) \
 	{ GEN_1xVECTOR_REG_OFST(reg_name, IPA_HW_A7_EE), \
@@ -694,14 +665,6 @@ struct ipa_reg_save_ipa_testbus_entry_s {
 	union ipa_hwio_def_ipa_debug_data_sel_u testbus_sel;
 	union ipa_hwio_def_ipa_debug_data_u testbus_data;
 };
-
-/* IPA TESTBUS global struct */
-struct ipa_reg_save_ipa_testbus_global_s {
-	struct ipa_reg_save_ipa_testbus_entry_s
-	global[IPA_TESTBUS_SEL_INTERNAL_MAX + 1]
-	[IPA_TESTBUS_SEL_EXTERNAL_MAX + 1];
-};
-
 /* IPA TESTBUS per EP struct */
 struct ipa_reg_save_ipa_testbus_ep_s {
 	struct ipa_reg_save_ipa_testbus_entry_s
@@ -709,19 +672,10 @@ struct ipa_reg_save_ipa_testbus_ep_s {
 	[IPA_TESTBUS_SEL_EXTERNAL_MAX + 1];
 };
 
-/* IPA TESTBUS per EP struct */
-struct ipa_reg_save_ipa_testbus_ep_rsrc_s {
-	struct ipa_reg_save_ipa_testbus_entry_s
-	  entry_ep[IPA_DEBUG_TESTBUS_RSRC_NUM_GRP];
-};
-
 /* IPA TESTBUS save data struct */
 struct ipa_reg_save_ipa_testbus_s {
-	struct ipa_reg_save_ipa_testbus_global_s global;
 	struct ipa_reg_save_ipa_testbus_ep_s
 	  ep[IPA_TESTBUS_SEL_EP_MAX + 1];
-	struct ipa_reg_save_ipa_testbus_ep_rsrc_s
-	  ep_rsrc[IPA_DEBUG_TESTBUS_RSRC_NUM_EP];
 };
 
 /*
@@ -955,6 +909,10 @@ static u32 ipa_reg_save_gsi_ch_test_bus_selector_array[] = {
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_1,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_2,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_3,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_4,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_5,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_6,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_REE_7,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_0,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_1,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_EVE_2,
@@ -981,12 +939,16 @@ static u32 ipa_reg_save_gsi_ch_test_bus_selector_array[] = {
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_2,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_RD_WR_3,
 	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_CSR,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_0,
+	HWIO_GSI_DEBUG_TEST_BUS_SELECTOR_SDMA_1,
 };
 
 /*
  * GSI QSB debug bus register save data struct
  */
 struct ipa_reg_save_gsi_test_bus_s {
+	u32 test_bus_selector[
+		ARRAY_SIZE(ipa_reg_save_gsi_ch_test_bus_selector_array)];
 	struct
 	  gsi_hwio_def_gsi_test_bus_reg_s
 	  test_bus_reg[ARRAY_SIZE(ipa_reg_save_gsi_ch_test_bus_selector_array)];
@@ -1285,7 +1247,7 @@ struct regs_save_hierarchy_s {
 static inline u32
 act_read(void __iomem *addr)
 {
-	u32 val = my_in_dword(addr);
+	u32 val = ioread32(addr);
 
 	return val;
 }
@@ -1296,7 +1258,7 @@ act_read(void __iomem *addr)
 static inline void
 act_write(void __iomem *addr, u32 val)
 {
-	my_out_dword(addr, val);
+	iowrite32(val, addr);
 }
 
 /*

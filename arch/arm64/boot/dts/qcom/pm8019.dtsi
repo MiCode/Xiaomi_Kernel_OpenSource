@@ -1,0 +1,162 @@
+/* Copyright (c) 2012-2013,2015,2019-2020,Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/iio/qcom,spmi-vadc.h>
+
+&spmi_bus {
+	qcom,pm8019@0 {
+		compatible ="qcom,spmi-pmic";
+		reg = <0x0 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pm8019_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power_on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x2 IRQ_TYPE_NONE>;
+			interrupt-names = "cblpwr";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,system-reset;
+
+			qcom,pon_1 {
+				qcom,pon-type = <2>;
+				qcom,pull-up;
+				linux,code = <116>;
+			};
+		};
+
+
+		rtc {
+			compatible = "qcom,qpnp-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,pm8019_rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+
+			qcom,pm8019_rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1 IRQ_TYPE_NONE>;
+			};
+		};
+
+		pm8019_gpios: pinctrl@c000 {
+			compatible = "qcom,spmi-gpio";
+			reg = <0xc000 0x600>;
+			interrupts = <0x0 0xc0 0 IRQ_TYPE_NONE>,
+					<0x0 0xc1 0 IRQ_TYPE_NONE>,
+					<0x0 0xc2 0 IRQ_TYPE_NONE>,
+					<0x0 0xc3 0 IRQ_TYPE_NONE>,
+					<0x0 0xc4 0 IRQ_TYPE_NONE>,
+					<0x0 0xc5 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8019_gpio1", "pm8019_gpio2",
+					  "pm8019_gpio3", "pm8019_gpio4",
+					  "pm8019_gpio5", "pm8019_gpio6";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		pm8019_mpps: pinctrl@a000 {
+			compatible = "qcom,spmi-mpp";
+			reg = <0xa000 0x600>;
+			interrupts = <0 0xa0 0 IRQ_TYPE_NONE>,
+					<0 0xa1 0 IRQ_TYPE_NONE>,
+					<0 0xa2 0 IRQ_TYPE_NONE>,
+					<0 0xa3 0 IRQ_TYPE_NONE>,
+					<0 0xa4 0 IRQ_TYPE_NONE>,
+					<0 0xa5 0 IRQ_TYPE_NONE>;
+			interrupt-names = "pm8019_mpp1", "pm8019_mpp2",
+					  "pm8019_mpp3", "pm8019_mpp4",
+					  "pm8019_mpp5", "pm8019_mpp6";
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		pm8019_vadc: vadc@3100 {
+			compatible = "qcom,spmi-vadc";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+			io-channel-ranges;
+
+			die_temp {
+				label = "die_temp";
+				reg = <VADC_DIE_TEMP>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			ref_625mv {
+				label = "ref_625mv";
+				reg = <VADC_REF_625MV>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			ref_1250v {
+				label = "ref_1250v";
+				reg = <VADC_REF_1250MV>;
+				qqcom,pre-scaling = <1 1>;
+			};
+
+			ref_gnd {
+				label = "ref_gnd";
+				reg = <VADC_GND_REF>;
+				qcom,pre-scaling = <1 1>;
+			};
+
+			ref_vdd {
+				label = "ref_vdd";
+				reg = <VADC_VDD_VADC>;
+				qcom,pre-scaling = <1 1>;
+			};
+		};
+
+		pm8019_adc_tm: vadc@3400 {
+			compatible = "qcom,adc-tm5-iio";
+			reg = <0x3400 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#thermal-sensor-cells = <1>;
+			io-channels = <&pm8019_vadc VADC_LR_MUX4_AMUX_THM1>,
+					<&pm8019_vadc VADC_LR_MUX5_AMUX_THM2>;
+
+			pa_therm1 {
+				reg = <VADC_LR_MUX4_AMUX_THM1>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+
+			pa_therm2 {
+				reg = <VADC_LR_MUX5_AMUX_THM2>;
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
+			};
+
+		};
+	};
+
+	qcom,pm8019@1 {
+		compatible = "qcom,spmi-pmic";
+		reg = <0x1 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+	};
+};

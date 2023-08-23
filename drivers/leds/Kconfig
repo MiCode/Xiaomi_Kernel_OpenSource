@@ -127,6 +127,15 @@ config LEDS_LM3642
 	  converter plus 1.5A constant current driver for a high-current
 	  white LED.
 
+config LEDS_AW3644
+        tristate "LED support for AW3644 Chip"
+        depends on LEDS_CLASS && I2C
+        select REGMAP_I2C
+        help
+          This option enables support for LEDs connected to AW3644.
+          The AW3644 is a 4MHz fixed-frequency synchronous boost
+          converter plus 1.5A constant current driver for a high-current
+          white LED.
 
 config LEDS_LOCOMO
 	tristate "LED Support for Locomo device"
@@ -659,6 +668,15 @@ config LEDS_IS31FL32XX
 	  Say Y here to include support for ISSI IS31FL32XX and Si-En SN32xx
 	  LED controllers. They are I2C devices with multiple constant-current
 	  channels, each with independent 256-level PWM control.
+
+config LEDS_QCOM_CLK
+	tristate "LED Support for cock controller based PWM drvier"
+	depends on OF && PINCTRL && LEDS_CLASS
+	help
+	  This option enables the driver for clock driven LED.
+	  This driver controls the duty cycle of clocks generated
+	  by Qualcomm Technologies, Inc Chipsets.
+	  It also configures the pinctrl to output the clock.
 
 comment "LED driver for blink(1) USB RGB LED is under Special HID drivers (HID_THINGM)"
 

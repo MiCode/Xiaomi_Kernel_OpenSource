@@ -1,0 +1,87 @@
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sdxprairie.dtsi"
+#include "sa515m-ccard.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SA515M CCARD PCIE-EP";
+	compatible = "qcom,sa515m-ccard",
+		"qcom,sdxprairie", "qcom,ccard";
+	qcom,board-id = <25 1>, <25 0x101>;
+
+	/delete-node/ qcom_gadget;
+	qcom_gadget {
+		compatible = "qcom,usb-gadget";
+		qcom,vid = <0x05c6>;
+
+		composition1 {
+			qcom,pid = <0x9105>;
+			qcom,composition = "diag.diag,gsi.dpl";
+		};
+	};
+};
+
+&restart_pshold {
+	qcom,force-warm-reboot;
+};
+
+&cnss_qca6390 {
+	status = "disabled";
+};
+
+&ipa_hw {
+	qcom,use-ipa-in-mhi-mode;
+	qcom,ipa-config-is-auto;
+	qcom,use-xbl-boot;
+	qcom,mhi-event-ring-id-limits = <7 11>; /* start and end */
+};
+
+&ethqos_hw {
+	ethqos_emb_smmu: ethqos_emb_smmu {
+		qcom,smmu-s1-bypass;
+	};
+};
+
+&pcie0 {
+	status = "disabled";
+};
+
+&pcie_ep {
+	status = "ok";
+};
+
+&mhi_device {
+	status = "ok";
+};
+
+&mhi_net_device {
+	status = "okay";
+};
+
+&mhi_dev_qrtr {
+	status = "okay";
+};
+
+&usb {
+	qcom,smmu-s1-bypass;
+};
+
+&sdx_ext_ipc {
+	compatible = "qcom,sa515m-ccard";
+	qcom,status-in-gpio = <&tlmm 76 0x00>;
+	qcom,status-out-gpio = <&tlmm 33 0x00>;
+	qcom,status-out2-gpio = <&tlmm 31 0x00>;
+	status = "okay";
+};

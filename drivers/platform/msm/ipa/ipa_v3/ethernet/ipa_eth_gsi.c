@@ -222,6 +222,14 @@ int ipa_eth_gsi_dealloc(struct ipa_eth_channel *ch)
 	}
 
 	if (ep_ctx->gsi_chan_hdl != ~0) {
+		gsi_rc = gsi_reset_channel(ep_ctx->gsi_chan_hdl);
+		if (gsi_rc != GSI_STATUS_SUCCESS) {
+			ipa_eth_dev_err(ch->eth_dev,
+				"Failed to reset channel %u",
+				ep_ctx->gsi_chan_hdl);
+			return gsi_rc;
+		}
+
 		gsi_rc = gsi_dealloc_channel(ep_ctx->gsi_chan_hdl);
 		if (gsi_rc != GSI_STATUS_SUCCESS) {
 			ipa_eth_dev_err(ch->eth_dev,
@@ -234,6 +242,14 @@ int ipa_eth_gsi_dealloc(struct ipa_eth_channel *ch)
 	}
 
 	if (ep_ctx->gsi_evt_ring_hdl != ~0) {
+		gsi_rc = gsi_reset_evt_ring(ep_ctx->gsi_evt_ring_hdl);
+		if (gsi_rc != GSI_STATUS_SUCCESS) {
+			ipa_eth_dev_err(ch->eth_dev,
+				"Failed to reset event ring %lu",
+				ep_ctx->gsi_evt_ring_hdl);
+			return gsi_rc;
+		}
+
 		gsi_rc = gsi_dealloc_evt_ring(ep_ctx->gsi_evt_ring_hdl);
 		if (gsi_rc != GSI_STATUS_SUCCESS) {
 			ipa_eth_dev_err(ch->eth_dev,
@@ -360,46 +376,3 @@ int ipa_eth_gsi_stop(struct ipa_eth_channel *ch)
 	return 0;
 }
 EXPORT_SYMBOL(ipa_eth_gsi_stop);
-
-int ipa_eth_gsi_iommu_unmap(dma_addr_t daddr, size_t size, bool split)
-{
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
-
-	if (!cb->valid) {
-		ipa_eth_err("SMMU CB not valid for AP");
-		return -EFAULT;
-	}
-
-	return ipa_eth_iommu_unmap(cb->mapping->domain, daddr, size, split);
-}
-EXPORT_SYMBOL(ipa_eth_gsi_iommu_unmap);
-
-static int ipa_eth_gsi_iommu_map(dma_addr_t daddr, void *addr, bool is_va,
-	size_t size, int prot, bool split)
-{
-	struct ipa_smmu_cb_ctx *cb = ipa3_get_smmu_ctx(IPA_SMMU_CB_AP);
-
-	if (!cb->valid) {
-		ipa_eth_err("SMMU CB not valid for AP");
-		return -EFAULT;
-	}
-
-	return ipa_eth_iommu_map(cb->mapping->domain, daddr, addr, is_va,
-				 size, prot, split);
-}
-
-int ipa_eth_gsi_iommu_pamap(dma_addr_t daddr, phys_addr_t paddr,
-	size_t size, int prot, bool split)
-{
-	return ipa_eth_gsi_iommu_map(daddr, (void *)paddr, false, size,
-				     prot, split);
-}
-EXPORT_SYMBOL(ipa_eth_gsi_iommu_pamap);
-
-int ipa_eth_gsi_iommu_vamap(dma_addr_t daddr, void *vaddr,
-	size_t size, int prot, bool split)
-{
-	return ipa_eth_gsi_iommu_map(daddr, vaddr, true, size,
-				     prot, split);
-}
-EXPORT_SYMBOL(ipa_eth_gsi_iommu_vamap);

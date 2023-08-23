@@ -94,6 +94,8 @@ struct stmmac_extra_stats {
 	unsigned long threshold;
 	unsigned long tx_pkt_n;
 	unsigned long rx_pkt_n;
+	unsigned long q_tx_pkt_n[MTL_MAX_TX_QUEUES];
+	unsigned long q_rx_pkt_n[MTL_MAX_RX_QUEUES];
 	unsigned long normal_irq_n;
 	unsigned long rx_normal_irq_n;
 	unsigned long napi_poll;
@@ -263,6 +265,7 @@ enum rx_frame_status {
 	llc_snap = 0x4,
 	dma_own = 0x8,
 	rx_not_ls = 0x10,
+	ctxt_desc = 0x20,
 };
 
 /* Tx status */
@@ -336,11 +339,12 @@ struct dma_features {
 	/* TX and RX FIFO sizes */
 	unsigned int tx_fifo_size;
 	unsigned int rx_fifo_size;
+	/* Number of PPS outputs */
+	unsigned int pps_out_num;
 };
 
-/* GMAC TX FIFO is 8K, Rx FIFO is 16K */
-#define BUF_SIZE_16KiB 16384
-/* RX Buffer size must be < 8191 and multiple of 4/8/16 bytes */
+/* RX Buffer size must be multiple of 4/8/16 bytes */
+#define BUF_SIZE_16KiB 16368
 #define BUF_SIZE_8KiB 8188
 #define BUF_SIZE_4KiB 4096
 #define BUF_SIZE_2KiB 2048
@@ -367,7 +371,7 @@ struct dma_features {
 struct stmmac_desc_ops {
 	/* DMA RX descriptor ring initialization */
 	void (*init_rx_desc) (struct dma_desc *p, int disable_rx_ic, int mode,
-			      int end);
+			      int end, int bfsize);
 	/* DMA TX descriptor ring initialization */
 	void (*init_tx_desc) (struct dma_desc *p, int mode, int end);
 
@@ -443,9 +447,9 @@ struct stmmac_dma_ops {
 	void (*dma_mode)(void __iomem *ioaddr, int txmode, int rxmode,
 			 int rxfifosz);
 	void (*dma_rx_mode)(void __iomem *ioaddr, int mode, u32 channel,
-			    int fifosz);
+			    int fifosz, u8 qmode);
 	void (*dma_tx_mode)(void __iomem *ioaddr, int mode, u32 channel,
-			    int fifosz);
+			    int fifosz, u8 qmode);
 	/* To track extra statistic (if supported) */
 	void (*dma_diagnostic_fr) (void *data, struct stmmac_extra_stats *x,
 				   void __iomem *ioaddr);
@@ -468,9 +472,16 @@ struct stmmac_dma_ops {
 	void (*set_rx_tail_ptr)(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
 	void (*set_tx_tail_ptr)(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
 	void (*enable_tso)(void __iomem *ioaddr, bool en, u32 chan);
+	void (*enable_rx_fep)(void __iomem *ioaddr, bool en, u32 chan);
 };
 
 struct mac_device_info;
+
+struct vlan_filter_info {
+	u16 vlan_id;
+	u32 vlan_offset;
+	u32 rx_queue;
+};
 
 /* Helpers to program the MAC core */
 struct stmmac_ops {
@@ -478,6 +489,8 @@ struct stmmac_ops {
 	void (*core_init)(struct mac_device_info *hw, struct net_device *dev);
 	/* Enable the MAC RX/TX */
 	void (*set_mac)(void __iomem *ioaddr, bool enable);
+	/* Enable the VLAN MAC configuration for DMA Queue*/
+	void (*set_vlan)(struct vlan_filter_info *vlan, void __iomem *ioaddr);
 	/* Enable and verify that the IPC module is supported */
 	int (*rx_ipc)(struct mac_device_info *hw);
 	/* Enable RX Queues */
@@ -597,6 +610,8 @@ struct mac_device_info {
 	unsigned int pcs;
 	unsigned int pmt;
 	unsigned int ps;
+	unsigned int crc_strip_en;
+	unsigned int acs_strip_en;
 };
 
 struct stmmac_rx_routing {
@@ -616,6 +631,9 @@ void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
 void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
 			 unsigned int high, unsigned int low);
 void stmmac_set_mac(void __iomem *ioaddr, bool enable);
+
+void stmmac_set_vlan_filter_rx_queue(struct vlan_filter_info *vlan,
+				     void __iomem *ioaddr);
 
 void stmmac_dwmac4_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
 				unsigned int high, unsigned int low);

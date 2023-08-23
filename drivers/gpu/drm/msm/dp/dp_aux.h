@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 
 #include "dp_catalog.h"
 #include "drm_dp_helper.h"
+#include <soc/qcom/msm_dp_aux_bridge.h>
 
 #define DP_STATE_NOTIFICATION_SENT          BIT(0)
 #define DP_STATE_TRAIN_1_STARTED            BIT(1)
@@ -30,6 +31,7 @@
 #define DP_STATE_LINK_MAINTENANCE_STARTED   BIT(9)
 #define DP_STATE_LINK_MAINTENANCE_COMPLETED BIT(10)
 #define DP_STATE_LINK_MAINTENANCE_FAILED    BIT(11)
+#define DP_STATE_AUX_TIMEOUT                BIT(12)
 
 enum dp_aux_error {
 	DP_AUX_ERR_NONE	= 0,
@@ -55,14 +57,16 @@ struct dp_aux {
 	void (*init)(struct dp_aux *aux, struct dp_aux_cfg *aux_cfg);
 	void (*deinit)(struct dp_aux *aux);
 	void (*reconfig)(struct dp_aux *aux);
-	void (*abort)(struct dp_aux *aux);
+	void (*abort)(struct dp_aux *aux, bool reset);
 	void (*dpcd_updated)(struct dp_aux *aux);
-	void (*set_sim_mode)(struct dp_aux *aux, bool en, u8 *edid, u8 *dpcd);
+	void (*set_sim_mode)(struct dp_aux *aux, bool en, u8 *edid, u8 *dpcd,
+		struct msm_dp_aux_bridge *sim_bridge);
 	int (*aux_switch)(struct dp_aux *aux, bool enable, int orientation);
 };
 
 struct dp_aux *dp_aux_get(struct device *dev, struct dp_catalog_aux *catalog,
-		struct dp_parser *parser, struct device_node *aux_switch);
+		struct dp_parser *parser, struct device_node *aux_switch,
+		struct msm_dp_aux_bridge *aux_bridge);
 void dp_aux_put(struct dp_aux *aux);
 
 #endif /*__DP_AUX_H_*/

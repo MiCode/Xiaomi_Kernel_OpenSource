@@ -26,11 +26,15 @@ Required Parameters:
 		interrupt names will be used by the drivers to identify the
 		interrupts, instead of specifying the ID's. bcl driver will
 		accept these standard interrupts.
-		"bcl-ibat-lvl0",
-		"bcl-ibat-lvl1",
-		"bcl-vbat-lvl0",
-		"bcl-vbat-lvl1",
-		"bcl-vbat-lvl2",
+		"bcl-lvl0",
+		"bcl-lvl1",
+		"bcl-lvl2",
+
+Optional Parameters:
+- qcom,ibat-use-qg-adc-5a: This optional property is used to divide Ibat
+		scaling factor by two for PMIC QG_ADC with ibat range of 5A.
+		By default, this Ibat scaling factor will be 1 corresponding
+		to FG_ADC with 10A range.
 
 Example:
 		bcl@4200 {
@@ -38,6 +42,7 @@ Example:
 			reg = <0x4200 0x100>;
 			interrupts = <0x2 0x42 0x0 IRQ_TYPE_NONE>,
 					<0x2 0x42 0x1 IRQ_TYPE_NONE>;
-			interrupt-names = "bcl-ibat-lvl0",
-						"bcl-vbat-lvl0";
+			interrupt-names = "bcl-lvl0",
+						"bcl-lvl1";
+			qcom,ibat-use-qg-adc-5a;
 		};

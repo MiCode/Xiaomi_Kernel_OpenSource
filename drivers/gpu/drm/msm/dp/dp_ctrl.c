@@ -105,7 +105,7 @@ static void dp_ctrl_video_ready(struct dp_ctrl_private *ctrl)
 	complete(&ctrl->video_comp);
 }
 
-static void dp_ctrl_abort(struct dp_ctrl *dp_ctrl)
+static void dp_ctrl_abort(struct dp_ctrl *dp_ctrl, bool reset)
 {
 	struct dp_ctrl_private *ctrl;
 
@@ -116,7 +116,7 @@ static void dp_ctrl_abort(struct dp_ctrl *dp_ctrl)
 
 	ctrl = container_of(dp_ctrl, struct dp_ctrl_private, dp_ctrl);
 
-	atomic_set(&ctrl->aborted, 1);
+	atomic_set(&ctrl->aborted, !reset);
 }
 
 static void dp_ctrl_state_ctrl(struct dp_ctrl_private *ctrl, u32 state)
@@ -177,6 +177,7 @@ static void dp_ctrl_configure_source_link_params(struct dp_ctrl_private *ctrl,
 				ctrl->link->link_params.lane_count);
 		ctrl->catalog->mainlink_levels(ctrl->catalog,
 				ctrl->link->link_params.lane_count);
+		ctrl->catalog->fec_config(ctrl->catalog, false);
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, true);
 	} else {
 		ctrl->catalog->mainlink_ctrl(ctrl->catalog, false);
@@ -220,9 +221,13 @@ static int dp_ctrl_update_sink_vx_px(struct dp_ctrl_private *ctrl,
 static int dp_ctrl_update_vx_px(struct dp_ctrl_private *ctrl)
 {
 	struct dp_link *link = ctrl->link;
+	bool high = false;
 
+	if (ctrl->link->link_params.bw_code == DP_LINK_BW_5_4 ||
+		 ctrl->link->link_params.bw_code == DP_LINK_BW_8_1)
+		high = true;
 	ctrl->catalog->update_vx_px(ctrl->catalog,
-		link->phy_params.v_level, link->phy_params.p_level);
+		link->phy_params.v_level, link->phy_params.p_level, high);
 
 	return dp_ctrl_update_sink_vx_px(ctrl, link->phy_params.v_level,
 		link->phy_params.p_level);

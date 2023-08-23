@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,12 +13,19 @@
 #include <linux/ipa_mhi.h>
 #include <linux/ipa_uc_offload.h>
 #include <linux/ipa_wdi3.h>
+#include <linux/ipa_qdss.h>
 #include "ipa_common_i.h"
 
 #ifndef _IPA_API_H_
 #define _IPA_API_H_
 
 struct ipa_api_controller {
+
+	int (*ipa_connect)(const struct ipa_connect_params *in,
+		struct ipa_sps_params *sps, u32 *clnt_hdl);
+
+	int (*ipa_disconnect)(u32 clnt_hdl);
+
 	int (*ipa_reset_endpoint)(u32 clnt_hdl);
 
 	int (*ipa_clear_endpoint_delay)(u32 clnt_hdl);
@@ -89,7 +96,12 @@ struct ipa_api_controller {
 
 	int (*ipa_add_rt_rule)(struct ipa_ioc_add_rt_rule *rules);
 
+	int (*ipa_add_rt_rule_v2)(struct ipa_ioc_add_rt_rule_v2 *rules);
+
 	int (*ipa_add_rt_rule_usr)(struct ipa_ioc_add_rt_rule *rules,
+							bool user_only);
+
+	int (*ipa_add_rt_rule_usr_v2)(struct ipa_ioc_add_rt_rule_v2 *rules,
 							bool user_only);
 
 	int (*ipa_del_rt_rule)(struct ipa_ioc_del_rt_rule *hdls);
@@ -106,14 +118,23 @@ struct ipa_api_controller {
 
 	int (*ipa_mdfy_rt_rule)(struct ipa_ioc_mdfy_rt_rule *rules);
 
+	int (*ipa_mdfy_rt_rule_v2)(struct ipa_ioc_mdfy_rt_rule_v2 *rules);
+
 	int (*ipa_add_flt_rule)(struct ipa_ioc_add_flt_rule *rules);
+
+	int (*ipa_add_flt_rule_v2)(struct ipa_ioc_add_flt_rule_v2 *rules);
 
 	int (*ipa_add_flt_rule_usr)(struct ipa_ioc_add_flt_rule *rules,
 								bool user_only);
 
+	int (*ipa_add_flt_rule_usr_v2)
+		(struct ipa_ioc_add_flt_rule_v2 *rules, bool user_only);
+
 	int (*ipa_del_flt_rule)(struct ipa_ioc_del_flt_rule *hdls);
 
 	int (*ipa_mdfy_flt_rule)(struct ipa_ioc_mdfy_flt_rule *rules);
+
+	int (*ipa_mdfy_flt_rule_v2)(struct ipa_ioc_mdfy_flt_rule_v2 *rules);
 
 	int (*ipa_commit_flt)(enum ipa_ip_type ip);
 
@@ -286,7 +307,8 @@ struct ipa_api_controller {
 			bool LPTransitionRejected,
 			bool brstmode_enabled,
 			union __packed gsi_channel_scratch ch_scratch,
-			u8 index);
+			u8 index,
+			bool is_switch_to_dbmode);
 
 	int  (*ipa_mhi_destroy_channel)(enum ipa_client_type client);
 
@@ -429,6 +451,8 @@ struct ipa_api_controller {
 
 	bool (*ipa_pm_is_used)(void);
 
+	bool (*ipa_get_lan_rx_napi)(void);
+
 	int (*ipa_wigig_uc_init)(
 		struct ipa_wdi_uc_ready_params *inout,
 		ipa_wigig_misc_int_cb int_notify,
@@ -457,10 +481,43 @@ struct ipa_api_controller {
 
 	void (*ipa_register_client_callback)(
 		int (*client_cb)(bool is_lock),
-		bool (*teth_port_state)(void), u32 ipa_ep_idx);
+		bool (*teth_port_state)(void), enum ipa_client_type client);
 
-	void (*ipa_deregister_client_callback)(u32 ipa_ep_idx);
+	void (*ipa_deregister_client_callback)(enum ipa_client_type client);
+
+	int (*ipa_uc_debug_stats_alloc)(
+		struct IpaHwOffloadStatsAllocCmdData_t cmdinfo);
+
+	int (*ipa_uc_debug_stats_dealloc)(uint32_t prot_id);
+
+	void (*ipa_get_gsi_stats)(int prot_id,
+		struct ipa_uc_dbg_ring_stats *stats);
+
+	int (*ipa_get_prot_id)(enum ipa_client_type client);
+
+	int (*ipa_add_socksv5_conn)(struct ipa_socksv5_info *info);
+
+	int (*ipa_del_socksv5_conn)(uint32_t handle);
+
+	int (*ipa_conn_qdss_pipes)(struct ipa_qdss_conn_in_params *in,
+		struct ipa_qdss_conn_out_params *out);
+
+	int (*ipa_disconn_qdss_pipes)(void);
+
 };
+
+#ifdef CONFIG_IPA
+int ipa_plat_drv_probe(struct platform_device *pdev_p,
+	struct ipa_api_controller *api_ctrl,
+	const struct of_device_id *pdrv_match);
+#else
+static inline int ipa_plat_drv_probe(struct platform_device *pdev_p,
+	struct ipa_api_controller *api_ctrl,
+	const struct of_device_id *pdrv_match)
+{
+	return -ENODEV;
+}
+#endif /* (CONFIG_IPA) */
 
 #ifdef CONFIG_IPA3
 int ipa3_plat_drv_probe(struct platform_device *pdev_p,

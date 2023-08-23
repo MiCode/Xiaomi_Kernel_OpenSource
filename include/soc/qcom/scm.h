@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,7 +30,9 @@
 #define SCM_SVC_SMMU_PROGRAM		0x15
 #define SCM_SVC_QDSS			0x16
 #define SCM_SVC_RTIC			0x19
+#define SCM_SVC_TSENS			0x1E
 #define SCM_SVC_TZSCHEDULER		0xFC
+#define SCM_SVC_BW          0xFD
 
 #define SCM_FUSE_READ			0x7
 #define SCM_CMD_HDCP			0x01
@@ -97,19 +99,29 @@ struct scm_desc {
 
 #if defined(CONFIG_QCOM_SCM) || defined(CONFIG_QCOM_SCM_QCPE)
 
-#define SCM_VERSION(major, minor) (((major) << 16) | ((minor) & 0xFF))
 extern int scm_call2(u32 cmd_id, struct scm_desc *desc);
-extern int scm_call2_noretry(u32 cmd_id, struct scm_desc *desc);
 extern int scm_call2_atomic(u32 cmd_id, struct scm_desc *desc);
+extern int scm_call2_noretry(u32 cmd_id, struct scm_desc *desc);
+
+
+#define SCM_VERSION(major, minor) (((major) << 16) | ((minor) & 0xFF))
+
 extern u32 scm_get_version(void);
 extern int scm_is_call_available(u32 svc_id, u32 cmd_id);
+extern int scm_get_feat_version(u32 feat);
+extern bool is_scm_armv8(void);
 extern int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret);
 extern u32 scm_io_read(phys_addr_t address);
 extern int scm_io_write(phys_addr_t address, u32 val);
 extern bool scm_is_secure_device(void);
 extern int scm_enable_mem_protection(void);
-extern int scm_get_feat_version(u32 feat);
-extern bool is_scm_armv8(void);
+
+#define SCM_HDCP_MAX_REG 5
+
+struct scm_hdcp_req {
+	u32 addr;
+	u32 val;
+};
 
 extern struct mutex scm_lmh_lock;
 
@@ -175,4 +187,77 @@ static inline int scm_enable_mem_protection(void)
 	return 0;
 }
 #endif
+
+#if defined(CONFIG_QCOM_SCM)
+extern int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf, size_t cmd_len,
+		void *resp_buf, size_t resp_len);
+extern s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1);
+extern s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2);
+extern int scm_call_noalloc(u32 svc_id, u32 cmd_id, const void *cmd_buf,
+		size_t cmd_len, void *resp_buf, size_t resp_len,
+		void *scm_buf, size_t scm_buf_size);
+
+extern s32 scm_call_atomic1_1(u32 svc, u32 cmd, u32 arg1, u32 *ret1);
+extern s32 scm_call_atomic3(u32 svc, u32 cmd, u32 arg1, u32 arg2, u32 arg3);
+extern s32 scm_call_atomic4_3(u32 svc, u32 cmd, u32 arg1, u32 arg2, u32 arg3,
+		u32 arg4, u32 *ret1, u32 *ret2);
+extern s32 scm_call_atomic5_3(u32 svc, u32 cmd, u32 arg1, u32 arg2, u32 arg3,
+		u32 arg4, u32 arg5, u32 *ret1, u32 *ret2, u32 *ret3);
+#else
+
+
+/*
+ * Adding dummy entries for few API's
+ * since QCPE does not rely on these definitions.
+ */
+
+
+static inline int scm_call(u32 svc_id, u32 cmd_id, const void *cmd_buf,
+		size_t cmd_len, void *resp_buf, size_t resp_len)
+{
+	return 0;
+}
+
+static inline s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
+{
+	return 0;
+}
+
+static inline s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2)
+{
+	return 0;
+}
+
+static inline int scm_call_noalloc(u32 svc_id, u32 cmd_id,
+		const void *cmd_buf, size_t cmd_len, void *resp_buf,
+		size_t resp_len, void *scm_buf, size_t scm_buf_size)
+{
+	return 0;
+}
+
+static inline s32 scm_call_atomic1_1(u32 svc, u32 cmd, u32 arg1, u32 *ret1)
+{
+	return 0;
+}
+
+static inline s32 scm_call_atomic3(u32 svc, u32 cmd, u32 arg1, u32 arg2,
+		u32 arg3)
+{
+	return 0;
+}
+
+static inline s32 scm_call_atomic4_3(u32 svc, u32 cmd, u32 arg1, u32 arg2,
+		u32 arg3, u32 arg4, u32 *ret1, u32 *ret2)
+{
+	return 0;
+}
+
+static inline s32 scm_call_atomic5_3(u32 svc, u32 cmd, u32 arg1, u32 arg2,
+	u32 arg3, u32 arg4, u32 arg5, u32 *ret1, u32 *ret2, u32 *ret3)
+{
+	return 0;
+}
+
+#endif
+
 #endif

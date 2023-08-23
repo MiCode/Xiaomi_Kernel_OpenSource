@@ -20,7 +20,8 @@ Required properties:
 
 Optional properties:
 - qcom,wakeup-byte: Byte to be injected in the tty layer during wakeup isr.
-
+- qcom,auto-suspend-disable: Disable PM runtime API's and make vote clock on/off
+		    optional and rely on system suspend/resume.
 Example:
 qupv3_uart11: qcom,qup_uart@0xa88000 {
 	compatible = "qcom,msm-geni-uart";

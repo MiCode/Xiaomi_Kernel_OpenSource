@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,7 +40,7 @@
 				config {
 					pins = "gpio0", "gpio1";
 					drive-strength = <2>;
-					bias-pull-up;
+					bias-pull-down;
 				};
 			};
 		};
@@ -48,7 +48,7 @@
 		qupv3_se21_i2c_pins: qupv3_se21_i2c_pins {
 			qupv3_se21_i2c_active: qupv3_se21_i2c_active {
 				mux {
-					pins = "gpi2", "gpio3";
+					pins = "gpio2", "gpio3";
 					function = "func1";
 				};
 
@@ -68,7 +68,7 @@
 				config {
 					pins = "gpio2", "gpio3";
 					drive-strength = <2>;
-					bias-pull-up;
+					bias-pull-down;
 				};
 			};
 		};
@@ -96,7 +96,7 @@
 				config {
 					pins = "gpio6", "gpio7";
 					drive-strength = <2>;
-					bias-pull-up;
+					bias-pull-down;
 				};
 			};
 		};
@@ -124,7 +124,7 @@
 				config {
 					pins = "gpio8", "gpio9";
 					drive-strength = <2>;
-					bias-pull-up;
+					bias-pull-down;
 				};
 			};
 		};
@@ -156,8 +156,8 @@
 				config {
 					pins = "gpio2", "gpio3", "gpio4",
 								"gpio5";
-					drive-strength = <6>;
-					bias-disable;
+					drive-strength = <2>;
+					bias-pull-down;
 				};
 			};
 		};
@@ -189,8 +189,8 @@
 				config {
 					pins = "gpio6", "gpio7", "gpio8",
 								"gpio9";
-					drive-strength = <6>;
-					bias-disable;
+					drive-strength = <2>;
+					bias-pull-down;
 				};
 			};
 		};

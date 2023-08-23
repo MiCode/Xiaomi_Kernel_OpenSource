@@ -80,8 +80,11 @@
 #define TX_CLK_DIV_VALUE(X)		(((X) & 0xFFF) << 14)
 
 #define GENI_IR_RX_FIFO_WTRMRK_EN       0x400
+#define GENI_IR_RX_NEC_REPEAT_DETECT    0x40000
 
-#define GENI_IR_DEF_IRQ_EN              GENI_IR_RX_FIFO_WTRMRK_EN
+#define GENI_IR_DEF_IRQ_EN              (GENI_IR_RX_FIFO_WTRMRK_EN | \
+	GENI_IR_RX_NEC_REPEAT_DETECT)
+
 #define GENI_IR_DEF_WAKEUP_MASK         0x00FFFFFF
 #define GENI_IR_MAX_WAKEUP_CODES        10
 #define RX_CLK_DIV                      0x258
@@ -374,6 +377,7 @@ struct msm_geni_ir {
 	unsigned int             gpio_tx;
 #endif
 	u32                      wakeup_mask;
+	u32                      rx_data;
 	u32                      wakeup_codes[GENI_IR_MAX_WAKEUP_CODES];
 	u8                       num_wakeup_codes;
 };
@@ -490,28 +494,6 @@ static void msm_geni_ir_load_firmware(struct msm_geni_ir *ir)
 }
 EXPORT_SYMBOL(msm_geni_ir_load_firmware);
 
-/* sets the RX filter table with wakeup commands */
-static void msm_geni_ir_set_rx_filter(struct msm_geni_ir *ir)
-{
-	u32 i, irq_enable = 0;
-
-	/* set the IRQ enable bit for non-zero RX wakeup commands */
-	for (i = 0; i < ir->num_wakeup_codes; i++) {
-		irq_enable |= ((ir->wakeup_codes[i]) ? (1 << i) : 0);
-
-		writel_relaxed(ir->wakeup_codes[i],
-			       ir->base + GENI_IR_RX_FILTER_TABLE(i));
-	}
-
-	/* set the filter mask */
-	writel_relaxed(ir->wakeup_mask, ir->base + IR_RX_FILTER_VAL_MASK);
-
-	/* set the IRQ enable bits */
-	writel_relaxed(irq_enable, ir->base + GENI_IR_IRQ_ENABLE);
-	/*write memory barrier*/
-	wmb();
-}
-
 /* stop GENI IR */
 static void msm_geni_ir_stop(struct msm_geni_ir *ir)
 {
@@ -537,77 +519,6 @@ static void msm_geni_ir_stop(struct msm_geni_ir *ir)
 	cnt = IR_GENI_RX_FIFO_STATUS_WC(status);
 	for (i = 0; i < cnt; ++i)
 		readl_relaxed(ir->base + IR_GENI_RX_FIFO(i));
-}
-
-/* configures geni IR to low power mode */
-static void msm_geni_ir_low_power_mode(struct msm_geni_ir *ir)
-{
-	u32 clk_cfg;
-
-	/* set the RX filter table for wakeup */
-	msm_geni_ir_set_rx_filter(ir);
-
-	/* disable interrupts */
-	writel_relaxed(0, ir->base + IR_GENI_IRQ_ENABLE);
-	synchronize_irq(ir->irq);
-
-	/* stop GENI IR */
-	msm_geni_ir_stop(ir);
-
-	/* disable TX path, enable RX path */
-	clk_cfg = RX_CLK_DIV_VALUE(RX_CLK_DIV_LP) | RX_SER_CLK_EN;
-	writel_relaxed(clk_cfg, ir->base + IR_GENI_SER_CLK_CFG);
-
-	/* switch clock mux output from hclk to sclk */
-	writel_relaxed(0x1, ir->base + GENI_IR_CLK_MUX);
-
-	/* read back clk_mux register to ensure output clk is active */
-	readl_relaxed(ir->base + GENI_IR_CLK_MUX);
-
-	/* select low power mode */
-	writel_relaxed(GENI_IR_LOW_POWER_MODE, ir->base + GENI_IR_AHB_MUX_SEL);
-
-	/* enable the RX filter */
-	writel_relaxed(0x1, ir->base + GENI_IR_RX_FILTER_EN);
-	/*write memory barrier*/
-	wmb();
-}
-
-/* configures geni IR to normal mode */
-static void msm_geni_ir_normal_mode(struct msm_geni_ir *ir)
-{
-	u32 clk_cfg;
-
-	/* ensure RX filter is disabled */
-	writel_relaxed(0x0, ir->base + GENI_IR_RX_FILTER_EN);
-
-	/* switch clock mux output from sclk to hclk */
-	writel_relaxed(0x0, ir->base + GENI_IR_CLK_MUX);
-
-	/* read back clk_mux register to ensure output clk is active */
-	readl_relaxed(ir->base + GENI_IR_CLK_MUX);
-
-	/* select normal mode */
-	writel_relaxed(GENI_IR_NORMAL_MODE, ir->base + GENI_IR_AHB_MUX_SEL);
-
-	/* stop GENI IR */
-	msm_geni_ir_stop(ir);
-
-	/* configure serial clock */
-	clk_cfg = RX_CLK_DIV_VALUE(RX_CLK_DIV) | RX_SER_CLK_EN;
-	clk_cfg |= (TX_CLK_DIV_VALUE(TX_CLK_DIV) | TX_SER_CLK_EN);
-	writel_relaxed(clk_cfg, ir->base + IR_GENI_SER_CLK_CFG);
-
-	/* set rx polarization to active low */
-	writel_relaxed(RX_POL_LOW, ir->base + IR_GENI_GP_OUTPUT_REG);
-
-	/* enable interrupts */
-	writel_relaxed(GENI_IR_DEF_IRQ_EN, ir->base + IR_GENI_IRQ_ENABLE);
-
-	/* enable RX */
-	writel_relaxed(0, ir->base + IR_GENI_S_CMD0);
-	/*write memory barrier*/
-	wmb();
 }
 
 /* sets the core for the specified protocol */
@@ -691,11 +602,17 @@ static int msm_geni_ir_change_protocol(struct rc_dev *dev, u64 *rc_type)
 }
 EXPORT_SYMBOL(msm_geni_ir_change_protocol);
 
+static irqreturn_t geni_ir_wakeup_handler(int irq, void *data)
+{
+	pr_debug("%s:Received wake up Interrupt\n", __func__);
+	return IRQ_HANDLED;
+}
+
 /* interrupt routine */
 static irqreturn_t geni_ir_interrupt(int irq, void *data)
 {
 	struct msm_geni_ir *ir = data;
-	u32 i, irq_sts, fifo_sts, rx_data, cnt;
+	u32 i, irq_sts, fifo_sts, cnt;
 
 	pr_debug("Received Interrupt\n");
 	/* read irq status */
@@ -711,35 +628,42 @@ static irqreturn_t geni_ir_interrupt(int irq, void *data)
 		u8 command, system, toggle = 0, address1, address2;
 		u32 scancode;
 
-		rx_data = readl_relaxed(ir->base + IR_GENI_RX_FIFO(i));
+		ir->rx_data = readl_relaxed(ir->base + IR_GENI_RX_FIFO(i));
 		if (ir->image_loaded == &rc5_geni_image) {
 			/* RC5 */
-			command  = (rx_data & 0x00003F);
-			system   = (rx_data & 0x0007C0) >> 6;
-			toggle   = (rx_data & 0x000800) ? 1 : 0;
-			command += (rx_data & 0x001000) ? 0 : 0x40;
+			command  = (ir->rx_data & 0x00003F);
+			system   = (ir->rx_data & 0x0007C0) >> 6;
+			toggle   = (ir->rx_data & 0x000800) ? 1 : 0;
+			command += (ir->rx_data & 0x001000) ? 0 : 0x40;
 			scancode = system << 8 | command;
 			rc_keydown(ir->rcdev, RC_PROTO_RC5, scancode, toggle);
 		} else if (ir->image_loaded == &rc6_geni_image) {
 			/* RC6 */
-			scancode = (rx_data & 0x00FFFF);
-			toggle   = (rx_data & 0x010000) ? 1 : 0;
+			scancode = (ir->rx_data & 0x00FFFF);
+			toggle   = (ir->rx_data & 0x010000) ? 1 : 0;
 			rc_keydown(ir->rcdev, RC_PROTO_RC6_0, scancode, toggle);
 		} else {
 			/*NEC*/
-			scancode = (rx_data & 0x0000FF);
+			scancode = (ir->rx_data & 0x0000FF);
 			scancode = ~scancode;
 			scancode = (scancode & 0x0000FF);
-			address2 = (rx_data & 0x00FF0000);
-			address1 = (rx_data & 0xFF000000);
+			address2 = (ir->rx_data & 0x00FF0000);
+			address1 = (ir->rx_data & 0xFF000000);
 			rc_keydown(ir->rcdev, RC_PROTO_NEC, scancode, 0);
 		}
 
 		pr_debug("rcvd code 0x%x scancode 0x%x toggle %d\n",
-			rx_data, scancode, toggle);
+			ir->rx_data, scancode, toggle);
 
 	}
-
+	if ((irq_sts & GENI_IR_RX_NEC_REPEAT_DETECT) &&
+		(ir->image_loaded == &nec_geni_image)) {
+		u32 nec_scancode;
+			nec_scancode = (ir->rx_data & 0x0000FF);
+			nec_scancode = ~nec_scancode;
+			nec_scancode = (nec_scancode & 0x0000FF);
+			rc_keydown(ir->rcdev, RC_PROTO_NEC, nec_scancode, 0);
+	}
 	/* ack irq */
 	writel_relaxed((irq_sts & ~M_CMD_DONE), ir->base + IR_GENI_IRQ_CLEAR);
 	/*write memory barrier*/
@@ -828,7 +752,7 @@ static const struct file_operations msm_geni_ir_tx_fops = {
 static int msm_geni_ir_get_res(struct platform_device *pdev,
 			       struct msm_geni_ir *ir)
 {
-	//struct device_node *node = pdev->dev.of_node;
+	struct device_node *node = pdev->dev.of_node;
 	struct resource *res;
 	int rc;
 
@@ -841,6 +765,14 @@ static int msm_geni_ir_get_res(struct platform_device *pdev,
 
 	ir->gpio_tx = rc;
 #endif
+
+	rc = of_get_named_gpio(node, "qcom,geni-ir-wakeup-gpio", 0);
+	if (rc < 0) {
+		pr_err("could not get wakeup gpio %d\n", rc);
+		return rc;
+	}
+
+	ir->wakeup_irq = gpio_to_irq(rc);
 	rc = platform_get_irq_byname(pdev, "geni-ir-core-irq");
 	if (rc < 0) {
 		pr_err("could not get core irq %d\n", rc);
@@ -913,6 +845,13 @@ int msm_geni_ir_probe(struct platform_device *pdev)
 	if (rc) {
 		pr_err("core irq request failed %d\n", rc);
 		goto core_irq_err;
+	}
+	rc = request_irq(ir->wakeup_irq, geni_ir_wakeup_handler,
+		IRQF_TRIGGER_FALLING | IRQF_TRIGGER_RISING | IRQF_ONESHOT
+		| IRQF_NO_SUSPEND, "geni-ir-wakeup-irq", ir);
+	if (rc) {
+		pr_err("wakeup irq request failed %d\n", rc);
+		goto rc_alloc_err;
 	}
 
 	mutex_init(&ir->lock);
@@ -1001,11 +940,7 @@ static int msm_geni_ir_suspend(struct device *dev)
 {
 	struct msm_geni_ir *ir = platform_get_drvdata(to_platform_device(dev));
 
-	if (ir->image_loaded != NULL) {
-		/* configure low power mode */
-		msm_geni_ir_low_power_mode(ir);
-		clk_disable_unprepare(ir->ahb_clk);
-	}
+	enable_irq_wake(ir->wakeup_irq);
 
 	return 0;
 }
@@ -1014,25 +949,14 @@ static int msm_geni_ir_resume(struct device *dev)
 {
 	struct msm_geni_ir *ir = platform_get_drvdata(to_platform_device(dev));
 	u32 status;
-	int rc;
 
-	if (ir->image_loaded == NULL)
-		return 0;
-
-	rc = clk_prepare_enable(ir->ahb_clk);
-	if (rc) {
-		pr_err("ahb clk enable failed %d\n", rc);
-		return rc;
-	}
+	disable_irq_wake(ir->wakeup_irq);
 
 	/* clear wakeup irq */
 	status = readl_relaxed(ir->base + GENI_IR_IRQ_STATUS);
 	writel_relaxed(status, ir->base + GENI_IR_IRQ_CLEAR);
 	/*write memory barrier*/
 	wmb();
-
-	/* configure normal mode */
-	msm_geni_ir_normal_mode(ir);
 
 	return 0;
 }

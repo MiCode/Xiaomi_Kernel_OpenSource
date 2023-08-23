@@ -8,3 +8,4 @@ obj-$(CONFIG_MSM_AIS) += cam_sensor/
 obj-$(CONFIG_MSM_AIS) += cam_flash/
 obj-$(CONFIG_MSM_AIS) += cam_eeprom/
 obj-$(CONFIG_MSM_AIS) += cam_ois/
+obj-$(CONFIG_MSM_AIS) += cam_ir_led/

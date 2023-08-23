@@ -221,7 +221,7 @@ static void dp_catalog_ctrl_phy_lane_cfg_v420(struct dp_catalog_ctrl *ctrl,
 }
 
 static void dp_catalog_ctrl_update_vx_px_v420(struct dp_catalog_ctrl *ctrl,
-		u8 v_level, u8 p_level)
+		u8 v_level, u8 p_level, bool high)
 {
 	struct dp_catalog_private_v420 *catalog;
 	struct dp_io_data *io_data;

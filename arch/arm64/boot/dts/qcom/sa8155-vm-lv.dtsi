@@ -1,0 +1,61 @@
+/*
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	reserved_memory: reserved-memory {
+
+		pmem_shared: pmem_shared_region@a0000000 {
+			reg = <0x1 0x6a500000 0x0 0x51400000>;
+			label = "pmem_shared_mem";
+		};
+	};
+
+	/delete-node/ rename_blk;
+};
+
+&hab {
+	vmid = <3>;
+};
+
+&slpi_tlmm {
+	status = "ok";
+};
+
+&apps_smmu {
+	status = "ok";
+};
+
+&qupv3_se13_4uart {
+	status = "ok";
+};
+
+&usb0 {
+	status = "ok";
+};
+
+&usb2_phy0 {
+	status = "ok";
+};
+
+&sde_kms_hyp {
+	/delete-property/ qcom,client-id;
+	qcom,client-id = "7816";
+};
+
+&pcie0_msi {
+	status = "ok";
+};
+
+&pcie0 {
+	status = "ok";
+};

@@ -50,6 +50,8 @@ extern char __dtb_end[];
 /* Other Prototypes */
 extern int of_fdt_get_ddrtype(void);
 
+extern void early_init_dt_setup_pureason_arch(unsigned long pu_reason);
+
 /* For scanning the flat device-tree at boot time */
 extern int of_scan_flat_dt(int (*it)(unsigned long node, const char *uname,
 				     int depth, void *data),

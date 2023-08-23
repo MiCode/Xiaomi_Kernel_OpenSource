@@ -1,0 +1,34 @@
+/* Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,cpu-osm.h>
+#include <dt-bindings/clock/qcom,rpmcc.h>
+#include <dt-bindings/clock/qcom,mmcc-sdm660.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+#include "sdm660-mtp.dtsi"
+#include "sdm660-external-codec.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDA 660 Ext. Audio Codec MTP";
+	compatible = "qcom,sda660-mtp", "qcom,sda660", "qcom,mtp";
+	qcom,msm-id = <324 0x0>;
+	qcom,board-id = <8 0>;
+};
+
+&tavil_snd {
+	qcom,msm-mbhc-moist-cfg = <0>, <0>, <3>;
+};

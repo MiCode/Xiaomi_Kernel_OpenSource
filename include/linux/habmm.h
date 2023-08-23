@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -104,6 +104,37 @@ int32_t habmm_socket_close(int32_t handle);
  *  VM1, then enters VM2
  */
 #define HABMM_SOCKET_SEND_FLAGS_XING_VM_STAT 0x00000002
+
+/* start to measure cross-vm schedule latency: VM1 send msg with this flag
+ * to VM2 to kick off the measurement. In the hab driver level, the VM1 hab
+ * driver shall record the time of schdule out with mpm_timer, and buffer
+ * it for later usage. The VM2 hab driver shall record the time of schedule
+ * in with mpm_timer and pass it to "habtest" application.
+ */
+#define HABMM_SOCKET_XVM_SCHE_TEST 0x00000004
+
+/* VM2 responds this message to VM1 for HABMM_SOCKET_XVM_SCHE_TEST.
+ * In the hab driver level, the VM2 hab driver shall record the time of schedule
+ * out with mpm_timer, and buffer it for later usage; the VM1 hab driver
+ * shall record the time of schedule in with mpm_timer and pass it to "habtest"
+ * application.
+ */
+#define HABMM_SOCKET_XVM_SCHE_TEST_ACK 0x00000008
+
+/* VM1 sends this message to VM2 asking for collect all the mpm_timer values
+ * to calculate the latency of schduling between VM1 and VM2. In the hab driver
+ * level, the VM1 hab driver shall save the previous restored schduling out
+ * time to the message buffer
+ */
+#define HABMM_SOCKET_XVM_SCHE_RESULT_REQ 0x00000010
+
+/* VM2 responds this message to VM2 for HABMM_SOCKET_XVM_SCHE_RESULT_REQ.
+ * In the habtest application level, VM2 shall save the previous restored
+ * scheduling in time into message buffer, in the hab driver level, VM2
+ * shall save the previous restored scheduling out time to the message
+ * buffer.
+ */
+#define HABMM_SOCKET_XVM_SCHE_RESULT_RSP 0x00000020
 
 struct habmm_xing_vm_stat {
 	uint64_t tx_sec;
@@ -217,7 +248,8 @@ int32_t habmm_socket_recvfrom(int32_t handle, void *dst_buff,
 /*
  * this flag is used for export from dma_buf fd or import to dma_buf fd
  */
-#define HABMM_EXPIMP_FLAGS_FD  0x00010000
+#define HABMM_EXPIMP_FLAGS_FD     0x00010000
+#define HABMM_EXPIMP_FLAGS_DMABUF 0x00020000
 
 #define HAB_MAX_EXPORT_SIZE 0x8000000
 
@@ -325,13 +357,14 @@ int32_t habmm_unimport(int32_t handle, uint32_t export_id, void *buff_shared,
  * status (success/failure)
  *
  */
+#define VMNAME_SIZE 12
 
 struct hab_socket_info {
 	int32_t vmid_remote; /* habmm's vmid */
 	int32_t vmid_local;
 	/* name from hypervisor framework if available */
-	char    vmname_remote[12];
-	char    vmname_local[12];
+	char    vmname_remote[VMNAME_SIZE];
+	char    vmname_local[VMNAME_SIZE];
 };
 
 int32_t habmm_socket_query(int32_t handle, struct hab_socket_info *info,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,6 +51,11 @@ struct cnss_pci_reg {
 	u32 offset;
 };
 
+struct cnss_pci_debug_reg {
+	u32 offset;
+	u32 val;
+};
+
 struct cnss_pci_data {
 	struct pci_dev *pci_dev;
 	struct cnss_plat_data *plat_priv;
@@ -64,6 +69,7 @@ struct cnss_pci_data {
 	struct pci_saved_state *default_state;
 	struct msm_pcie_register_event msm_pci_event;
 	atomic_t auto_suspended;
+	u8 drv_connected_last;
 	bool monitor_wake_intr;
 	struct dma_iommu_mapping *smmu_mapping;
 	bool smmu_s1_enable;
@@ -79,6 +85,8 @@ struct cnss_pci_data {
 	u32 remap_window;
 	struct timer_list dev_rddm_timer;
 	bool disable_pc;
+	struct cnss_pci_debug_reg *debug_reg;
+	u32 iommu_geometry;
 };
 
 static inline void cnss_set_pci_priv(struct pci_dev *pci_dev, void *data)

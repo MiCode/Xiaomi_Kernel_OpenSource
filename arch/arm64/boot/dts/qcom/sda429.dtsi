@@ -1,0 +1,32 @@
+/*
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "sdm429.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDA429";
+	compatible = "qcom,sda429";
+	qcom,msm-id = <437 0x0>;
+	qcom,msm-name = "SDA429";
+};
+
+&modem_mem {
+	reg = <0x0 0x86800000 0x0 0x1F00000>;
+};
+
+&adsp_fw_mem {
+	reg = <0x0 0x88700000 0x0 0x1500000>;
+};
+
+&wcnss_fw_mem {
+	reg = <0x0 0x89c00000 0x0 0x700000>;
+};

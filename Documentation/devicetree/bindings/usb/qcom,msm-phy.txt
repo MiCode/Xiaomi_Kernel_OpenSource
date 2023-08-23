@@ -202,8 +202,10 @@ Optional properties:
  - qcom,emu-init-seq : emulation initialization sequence with value,reg pair.
  - qcom,phy-pll-reset-seq : emulation PLL reset sequence with value,reg pair.
  - qcom,emu-dcm-reset-seq : emulation DCM reset sequence with value,reg pair.
- - qcom,efuse-bit-pos: start bit position within EFUSE register
- - qcom,efuse-num-bits: Number of bits to read from EFUSE register
+ - qcom,tune2-efuse-bit-pos: TUNE2 parameter related start bit position with EFUSE register for "qcom,qusb2phy".
+ - qcom,tune2-efuse-num-bits: Number of bits based value to use for TUNE2 high nibble for "qcom,qusb2phy".
+ - qcom,efuse-bit-pos: start bit position within EFUSE register for "qcom,qusb2phy-v2".
+ - qcom,efuse-num-bits: Number of bits to read from EFUSE register for "qcom,qusb2phy-v2".
  - qcom,emulation: Indicates that we are running on emulation platform.
  - qcom,hold-reset: Indicates that hold QUSB PHY into reset state.
  - qcom,phy-clk-scheme: Should be one of "cml" or "cmos" if ref_clk_addr is provided.

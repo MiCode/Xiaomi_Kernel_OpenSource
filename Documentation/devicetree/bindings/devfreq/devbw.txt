@@ -20,6 +20,8 @@ Optional properties:
 			enforced only when the CPU subsystem is active.
 - governor:		Initial governor to use for the device.
 			Default: "performance"
+- qcom,ddr-type:	Optional property indicates ddr type which can support
+				different frequencies for a given target.
 
 Example:
 
@@ -55,4 +57,12 @@ Example:
 		qcom,src-dst-ports = <1 512>, <2 512>;
 		qcom,active-only;
 		operating-points-v2 = <&bw_opp_table>;
+		ddr3-opp {
+			operating-points-v2 = <&ddr3_bw_opp_table>;
+			qcom,ddr-type = <DDR_TYPE_LPDDR3>;
+		};
+		ddr4-opp {
+			operating-points-v2 = <&ddr4_bw_opp_table>;
+			qcom,ddr-type = <DDR_TYPE_LPDDR4X>;
+		};
 	};

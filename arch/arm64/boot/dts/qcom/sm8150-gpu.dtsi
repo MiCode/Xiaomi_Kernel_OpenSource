@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -91,12 +91,14 @@
 
 		qcom,ubwc-mode = <3>;
 
-		qcom,snapshot-size = <1310720>; //bytes
+		qcom,snapshot-size = <0x200000>; //bytes
 
 		qcom,gpu-qdss-stm = <0x161c0000 0x40000>; // base addr, size
 
 		qcom,tsens-name = "tsens_tz_sensor12";
 		#cooling-cells = <2>;
+
+		tzone-names = "gpuss-0-usr", "gpuss-1-usr";
 
 		qcom,pm-qos-active-latency = <44>;
 
@@ -300,6 +302,17 @@
 				qcom,bus-max = <0>;
 			};
 		};
+
+		qcom,cpu-to-ahb-path {
+			qcom,msm-bus,name = "ahbpath";
+			qcom,msm-bus,num-cases = <3>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,vectors-KBps =
+				<1 598 0 0>,            // off
+				<1 598 0 100>,          // min freq
+				<1 598 0 9999999>;      // max freq
+		};
+
 	};
 
 	kgsl_msm_iommu: qcom,kgsl-iommu@0x02CA0000 {

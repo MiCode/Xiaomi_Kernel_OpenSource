@@ -1090,7 +1090,7 @@
 
 			config {
 				pins = "gpio106";
-				drive-strength = <8>;
+				drive-strength = <10>;
 				bias-bus-hold;
 			};
 		};
@@ -1116,7 +1116,7 @@
 
 			config {
 				pins = "gpio107";
-				drive-strength = <8>;
+				drive-strength = <10>;
 				bias-bus-hold;
 			};
 		};
@@ -1142,7 +1142,7 @@
 
 			config {
 				pins = "gpio108";
-				drive-strength = <8>;
+				drive-strength = <10>;
 				bias-bus-hold;
 			};
 		};
@@ -1168,7 +1168,7 @@
 
 			config {
 				pins = "gpio110";
-				drive-strength = <8>;
+				drive-strength = <10>;
 				bias-bus-hold;
 			};
 		};
@@ -1194,7 +1194,7 @@
 
 			config {
 				pins = "gpio111", "gpio112";
-				drive-strength = <8>;
+				drive-strength = <10>;
 				bias-bus-hold;
 			};
 		};
@@ -1252,6 +1252,60 @@
 					drive-strength = <2>;   /* 2 mA */
 					bias-pull-down;         /* PULL DOWN */
 				};
+			};
+		};
+
+		sde_dp_usbplug_cc_active: sde_dp_usbplug_cc_active {
+			mux {
+				pins = "gpio102";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio102";
+				bias-disable;
+				drive-strength = <16>;
+			};
+		};
+
+		sde_dp_usbplug_cc_suspend: sde_dp_usbplug_cc_suspend {
+			mux {
+				pins = "gpio102";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio102";
+				bias-pull-down;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_hotplug_ctrl: sde_dp_hotplug_ctrl {
+			mux {
+				pins = "gpio100";
+				function = "dp_hot";
+			};
+
+			config {
+				pins = "gpio100";
+				bias-disable;
+				input-enable;
+				drive-strength = <2>;
+			};
+		};
+
+		sde_dp_hotplug_tlmm: sde_dp_hotplug_tlmm {
+			mux {
+				pins = "gpio100";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio100";
+				bias-disable;
+				input-enable;
+				drive-strength = <2>;
 			};
 		};
 

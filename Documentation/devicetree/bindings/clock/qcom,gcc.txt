@@ -20,6 +20,8 @@ Required properties :
 			"qcom,gcc-mdm9615"
 			"qcom,gcc-sm8150"
 			"qcom,gcc-sm8150-v2"
+			"qcom,gcc-sa8155"
+			"qcom,gcc-sa8155-v2"
 			"qcom,gcc-sdmshrike"
 			"qcom,gcc-qcs405"
 			"qcom,gcc-mdss-qcs405"
@@ -28,6 +30,11 @@ Required properties :
 			"qcom,gcc-sdxprairie"
 			"qcom,gcc-trinket"
 			"qcom,gcc-sa6155"
+			"qcom,gcc-sdxprairie-v2"
+			"qcom,atoll-gcc"
+			"qcom,gcc-sdm660"
+			"qcom,gcc-sdm429w"
+			"qcom,gcc-mdss-sdm429w"
 
 - reg : shall contain base register location and length
 - #clock-cells : shall contain 1

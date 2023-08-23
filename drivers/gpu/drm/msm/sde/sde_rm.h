@@ -76,10 +76,13 @@ enum sde_rm_topology_control {
  *                              disable state.
  * @SDE_RM_QSYNC_CONTINUOUS_MODE: If set, Qsync is enabled in continuous
  *                              mode.
+ * @SDE_RM_QSYNC_ONE_SHOT_MODE: If set, Qsync is enabled in one shot mode.
+ *
  */
 enum sde_rm_qsync_modes {
 	SDE_RM_QSYNC_DISABLED,
 	SDE_RM_QSYNC_CONTINUOUS_MODE,
+	SDE_RM_QSYNC_ONE_SHOT_MODE
 };
 
 /**

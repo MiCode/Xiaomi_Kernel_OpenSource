@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1703,28 +1703,82 @@ static int msm_spi_transfer_one(struct spi_master *master,
 	return status_error;
 }
 
-static int msm_spi_prepare_transfer_hardware(struct spi_master *master)
+static int msm_spi_pm_get_sync(struct device *dev)
 {
-	struct msm_spi	*dd = spi_master_get_devdata(master);
-	int resume_state = 0;
-
-	resume_state = pm_runtime_get_sync(dd->dev);
-	if (resume_state < 0)
-		goto spi_finalize;
+	int ret;
 
 	/*
 	 * Counter-part of system-suspend when runtime-pm is not enabled.
 	 * This way, resume can be left empty and device will be put in
 	 * active mode only if client requests anything on the bus
 	 */
-	if (!pm_runtime_enabled(dd->dev))
-		resume_state = msm_spi_pm_resume_runtime(dd->dev);
-	if (resume_state < 0)
-		goto spi_finalize;
-	if (dd->suspended) {
-		resume_state = -EBUSY;
-		goto spi_finalize;
+	if (!pm_runtime_enabled(dev)) {
+		dev_info(dev, "%s: pm_runtime not enabled\n", __func__);
+		ret = msm_spi_pm_resume_runtime(dev);
+	} else {
+		ret = pm_runtime_get_sync(dev);
 	}
+
+	return ret;
+}
+
+static int msm_spi_pm_put_sync(struct device *dev)
+{
+	int ret = 0;
+
+	if (!pm_runtime_enabled(dev)) {
+		dev_info(dev, "%s: pm_runtime not enabled\n", __func__);
+		ret = msm_spi_pm_suspend_runtime(dev);
+	} else {
+		pm_runtime_mark_last_busy(dev);
+		pm_runtime_put_autosuspend(dev);
+	}
+
+	return ret;
+}
+
+static int msm_spi_prepare_message(struct spi_master *master,
+					struct spi_message *spi_msg)
+{
+	struct msm_spi *dd = spi_master_get_devdata(master);
+	int resume_state;
+
+	resume_state = msm_spi_pm_get_sync(dd->dev);
+	if (resume_state < 0)
+		return resume_state;
+
+	return 0;
+}
+
+static int msm_spi_unprepare_message(struct spi_master *master,
+					struct spi_message *spi_msg)
+{
+	struct msm_spi *dd = spi_master_get_devdata(master);
+	int ret;
+
+	ret = msm_spi_pm_put_sync(dd->dev);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int msm_spi_prepare_transfer_hardware(struct spi_master *master)
+{
+	struct msm_spi *dd = spi_master_get_devdata(master);
+	int resume_state;
+
+	if (!dd->pdata->shared_ee) {
+		resume_state = msm_spi_pm_get_sync(dd->dev);
+		if (resume_state < 0)
+			goto spi_finalize;
+
+		if (dd->suspended) {
+			resume_state = -EBUSY;
+			goto spi_finalize;
+		}
+	}
+
 	return 0;
 
 spi_finalize:
@@ -1735,9 +1789,14 @@ spi_finalize:
 static int msm_spi_unprepare_transfer_hardware(struct spi_master *master)
 {
 	struct msm_spi	*dd = spi_master_get_devdata(master);
+	int ret;
 
-	pm_runtime_mark_last_busy(dd->dev);
-	pm_runtime_put_autosuspend(dd->dev);
+	if (!dd->pdata->shared_ee) {
+		ret = msm_spi_pm_put_sync(dd->dev);
+		if (ret < 0)
+			return ret;
+	}
+
 	return 0;
 }
 
@@ -2233,6 +2292,8 @@ static struct msm_spi_platform_data *msm_spi_dt_to_pdata(
 			&pdata->rt_priority,		 DT_OPT,  DT_BOOL,  0},
 		{"qcom,shared",
 			&pdata->is_shared,		 DT_OPT,  DT_BOOL,  0},
+		{"qcom,shared_ee",
+			&pdata->shared_ee,		 DT_OPT,  DT_BOOL,  0},
 		{NULL,  NULL,                            0,       0,        0},
 		};
 
@@ -2556,6 +2617,12 @@ skip_dma_resources:
 	if (!dd->base) {
 		rc = -ENOMEM;
 		goto err_probe_reqmem;
+	}
+
+	/* This property is required for Dual EE use case of spi */
+	if (dd->pdata->shared_ee) {
+		master->prepare_message = msm_spi_prepare_message;
+		master->unprepare_message = msm_spi_unprepare_message;
 	}
 
 	pm_runtime_set_autosuspend_delay(&pdev->dev, MSEC_PER_SEC);

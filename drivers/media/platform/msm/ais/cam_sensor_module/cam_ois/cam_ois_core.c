@@ -90,7 +90,7 @@ static int cam_ois_get_dev_handle(struct cam_ois_ctrl_t *o_ctrl,
 	bridge_params.v4l2_sub_dev_flag = 0;
 	bridge_params.media_entity_flag = 0;
 	bridge_params.priv = o_ctrl;
-
+	bridge_params.dev_id = CAM_OIS;
 	ois_acq_dev.device_handle =
 		cam_create_device_hdl(&bridge_params);
 	o_ctrl->bridge_intf.device_hdl = ois_acq_dev.device_handle;
@@ -681,7 +681,7 @@ pwr_dwn:
 	cam_ois_power_down(o_ctrl);
 rel_pkt:
 	if (cam_mem_put_cpu_buf(dev_config.packet_handle))
-		CAM_WARN(CAM_OIS, "Fail in put buffer: 0x%x",
+		CAM_WARN(CAM_OIS, "Fail in put buffer: 0x%llx",
 			dev_config.packet_handle);
 
 	return rc;

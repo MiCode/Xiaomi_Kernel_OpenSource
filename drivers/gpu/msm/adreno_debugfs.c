@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,19 +30,8 @@ static int _isdb_set(void *data, u64 val)
 	if (test_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv))
 		return 0;
 
-	mutex_lock(&device->mutex);
-
-	/*
-	 * Bring down the GPU so we can bring it back up with the correct power
-	 * and clock settings
-	 */
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	set_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv);
-	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
-
-	mutex_unlock(&device->mutex);
-
-	return 0;
+	return kgsl_change_flag(device, ADRENO_DEVICE_ISDB_ENABLED,
+			&adreno_dev->priv);
 }
 
 static int _isdb_get(void *data, u64 *val)
@@ -60,6 +49,7 @@ static int _lm_limit_set(void *data, u64 val)
 {
 	struct kgsl_device *device = data;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int ret;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
 		return 0;
@@ -74,7 +64,11 @@ static int _lm_limit_set(void *data, u64 val)
 
 	if (test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
 		mutex_lock(&device->mutex);
-		kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+		ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+		if (ret) {
+			mutex_unlock(&device->mutex);
+			return ret;
+		}
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 		mutex_unlock(&device->mutex);
 	}
@@ -281,7 +275,7 @@ static int ctx_print(struct seq_file *s, void *unused)
 		   ctx_type_str(drawctxt->type),
 		   drawctxt->base.priority,
 		   drawctxt->base.proc_priv->comm,
-		   drawctxt->base.proc_priv->pid,
+		   pid_nr(drawctxt->base.proc_priv->pid),
 		   drawctxt->base.tid);
 
 	seq_puts(s, "flags: ");

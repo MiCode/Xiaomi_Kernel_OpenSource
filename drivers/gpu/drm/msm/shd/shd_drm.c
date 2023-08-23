@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,7 @@
 #include "sde_crtc.h"
 #include "sde_plane.h"
 #include "shd_drm.h"
+#include "shd_hw.h"
 
 static LIST_HEAD(g_base_list);
 
@@ -133,6 +134,8 @@ static int shd_display_init_base_encoder(struct drm_device *dev,
 				break;
 			}
 		}
+		if (base->encoder)
+			break;
 	}
 
 	if (!base->encoder) {
@@ -167,22 +170,46 @@ static int shd_display_init_base_crtc(struct drm_device *dev,
 {
 	struct drm_crtc *crtc = NULL;
 	struct msm_drm_private *priv;
+	struct drm_plane *primary;
 	int crtc_idx;
 	int i;
 
 	priv = dev->dev_private;
 
-	/* find last crtc for base encoder */
-	for (i = priv->num_crtcs - 1; i >= 0; i--) {
-		if (base->encoder->possible_crtcs & (1 << i)) {
-			crtc = priv->crtcs[i];
-			crtc_idx = i;
-			break;
+	if (base->encoder->crtc) {
+		/* if cont splash is enabled on crtc */
+		crtc = base->encoder->crtc;
+		crtc_idx = drm_crtc_index(crtc);
+	} else {
+		/* find last crtc for base encoder */
+		for (i = priv->num_crtcs - 1; i >= 0; i--) {
+			if (base->encoder->possible_crtcs & (1 << i)) {
+				crtc = priv->crtcs[i];
+				crtc_idx = i;
+				break;
+			}
 		}
+
+		if (!crtc)
+			return -ENOENT;
 	}
 
-	if (!crtc)
+	if (priv->num_planes >= MAX_PLANES)
 		return -ENOENT;
+
+	/* create dummy primary plane for base crtc */
+	primary = sde_plane_init(dev, SSPP_DMA0, true, 0, 0);
+	if (IS_ERR(primary))
+		return -ENOMEM;
+	priv->planes[priv->num_planes++] = primary;
+	if (primary->funcs->reset)
+		primary->funcs->reset(primary);
+
+	SDE_DEBUG("create dummay plane%d free plane%d\n",
+			DRMID(primary), DRMID(crtc->primary));
+
+	crtc->primary = primary;
+	primary->crtc = crtc;
 
 	/* disable crtc from other encoders */
 	for (i = 0; i < priv->num_encoders; i++) {
@@ -194,197 +221,6 @@ static int shd_display_init_base_crtc(struct drm_device *dev,
 	SDE_DEBUG("found base crtc %d\n", crtc->base.id);
 
 	return 0;
-}
-
-static void shd_display_setup_base_mixer_out(struct shd_display_base *base)
-{
-	struct sde_crtc *sde_crtc;
-	struct sde_hw_mixer_cfg lm_cfg;
-	struct sde_hw_mixer *hw_lm;
-	int i;
-
-	sde_crtc = to_sde_crtc(base->crtc);
-	if (!sde_crtc->num_mixers) {
-		SDE_ERROR("no layer mixer found\n");
-		return;
-	}
-
-	lm_cfg.out_width = base->mode.hdisplay / sde_crtc->num_mixers;
-	lm_cfg.out_height = base->mode.vdisplay;
-	lm_cfg.flags = 0;
-	for (i = 0; i < sde_crtc->num_mixers; i++) {
-		lm_cfg.right_mixer = i;
-		hw_lm = sde_crtc->mixers[i].hw_lm;
-		hw_lm->cfg.out_width = lm_cfg.out_width;
-		hw_lm->cfg.out_height = lm_cfg.out_height;
-		hw_lm->cfg.right_mixer = lm_cfg.right_mixer;
-		hw_lm->ops.setup_mixer_out(hw_lm, &lm_cfg);
-	}
-}
-
-static void shd_display_enable_base(struct drm_device *dev,
-				struct shd_display_base *base)
-{
-	const struct drm_encoder_helper_funcs *enc_funcs;
-	const struct drm_connector_helper_funcs *conn_funcs;
-	struct drm_connector *connector;
-	struct drm_crtc_state *crtc_state;
-	struct drm_connector_state *conn_state;
-
-	SDE_DEBUG("enable base display %d\n", base->intf_idx);
-
-	enc_funcs = base->encoder->helper_private;
-	if (!enc_funcs) {
-		SDE_ERROR("failed to find encoder helper\n");
-		return;
-	}
-
-	conn_funcs = base->connector->helper_private;
-	if (!conn_funcs) {
-		SDE_ERROR("failed to find connector helper\n");
-		return;
-	}
-
-	connector = base->connector;
-	crtc_state = base->crtc->state;
-	conn_state = connector->state;
-
-	crtc_state->active = true;
-	crtc_state->active_changed = true;
-	crtc_state->mode_changed = true;
-	crtc_state->connectors_changed = true;
-
-	base->encoder->crtc = base->crtc;
-	crtc_state->encoder_mask = (1 << drm_encoder_index(base->encoder));
-
-	conn_state->crtc = base->crtc;
-	drm_connector_get(connector);
-	conn_state->best_encoder = base->encoder;
-	connector->encoder = base->encoder;
-
-	drm_atomic_set_mode_for_crtc(crtc_state, &base->mode);
-	drm_mode_copy(&crtc_state->adjusted_mode, &base->mode);
-	drm_mode_copy(&base->crtc->mode, &base->mode);
-
-	if (conn_funcs->atomic_best_encoder) {
-		conn_funcs->atomic_best_encoder(base->connector,
-			conn_state);
-	}
-
-	drm_bridge_mode_fixup(base->encoder->bridge,
-		&crtc_state->mode,
-		&crtc_state->adjusted_mode);
-
-	if (enc_funcs->atomic_check) {
-		enc_funcs->atomic_check(base->encoder,
-			crtc_state,
-			conn_state);
-	}
-
-	if (enc_funcs->mode_fixup) {
-		enc_funcs->mode_fixup(base->encoder,
-			&crtc_state->mode,
-			&crtc_state->adjusted_mode);
-	}
-
-	if (enc_funcs->mode_set) {
-		enc_funcs->mode_set(base->encoder,
-			&crtc_state->mode,
-			&crtc_state->adjusted_mode);
-	}
-
-	sde_crtc_update_cont_splash_settings(base->crtc);
-
-	shd_display_setup_base_mixer_out(base);
-
-	drm_bridge_mode_set(base->encoder->bridge,
-		&crtc_state->mode,
-		&crtc_state->adjusted_mode);
-
-	drm_bridge_pre_enable(base->encoder->bridge);
-
-	if (enc_funcs->enable)
-		enc_funcs->enable(base->encoder);
-
-	sde_encoder_kickoff(base->encoder, false);
-
-	drm_bridge_enable(base->encoder->bridge);
-
-	base->enabled = true;
-}
-
-static void shd_display_disable_base(struct drm_device *dev,
-						struct shd_display_base *base)
-{
-	const struct drm_encoder_helper_funcs *enc_funcs;
-
-	SDE_DEBUG("disable base display %d\n", base->intf_idx);
-
-	enc_funcs = base->encoder->helper_private;
-	if (!enc_funcs) {
-		SDE_ERROR("failed to find encoder helper\n");
-		return;
-	}
-
-	drm_bridge_disable(base->encoder->bridge);
-
-	if (enc_funcs->disable)
-		enc_funcs->disable(base->encoder);
-
-	drm_bridge_post_disable(base->encoder->bridge);
-
-	base->enabled = false;
-	base->connector->state->crtc = NULL;
-	drm_connector_put(base->connector);
-}
-
-static void shd_display_enable(struct shd_display *display)
-{
-	struct drm_device *dev = display->drm_dev;
-	struct shd_display_base *base = display->base;
-
-	SDE_DEBUG("enable %s conn %d\n", display->name,
-					DRMID(base->connector));
-
-	mutex_lock(&base->base_mutex);
-
-	display->enabled = true;
-
-	if (!base->enabled)
-		shd_display_enable_base(dev, base);
-
-	mutex_unlock(&base->base_mutex);
-}
-
-static void shd_display_disable(struct shd_display *display)
-{
-	struct drm_device *dev = display->drm_dev;
-	struct shd_display_base *base = display->base;
-	struct shd_display *p;
-	bool enabled = false;
-
-	SDE_DEBUG("disable %s conn %d\n", display->name,
-					DRMID(base->connector));
-
-	mutex_lock(&base->base_mutex);
-
-	display->enabled = false;
-
-	if (!base->enabled)
-		goto end;
-
-	list_for_each_entry(p, &base->disp_list, head) {
-		if (p->enabled) {
-			enabled = true;
-			break;
-		}
-	}
-
-	if (!enabled)
-		shd_display_disable_base(dev, base);
-
-end:
-	mutex_unlock(&base->base_mutex);
 }
 
 static int shd_crtc_validate_shared_display(struct drm_crtc *crtc,
@@ -477,96 +313,170 @@ static int shd_crtc_atomic_set_property(struct drm_crtc *crtc,
 		state, property, val);
 }
 
-static void shd_display_prepare_commit(struct msm_kms *kms,
-		struct drm_atomic_state *state)
+u32 shd_get_shared_crtc_mask(struct drm_crtc *src_crtc)
 {
+	struct shd_crtc *shd_src_crtc, *shd_crtc;
 	struct drm_crtc *crtc;
-	struct drm_crtc_state *crtc_state;
-	struct sde_crtc *sde_crtc;
-	struct shd_crtc *shd_crtc;
-	struct sde_kms *sde_kms;
-	struct drm_device *dev;
-	struct msm_drm_private *priv;
-	int i;
+	u32 crtc_mask = 0;
 
-	if (!kms)
-		return;
-	sde_kms = to_sde_kms(kms);
-	dev = sde_kms->dev;
+	if (!src_crtc)
+		return 0;
 
-	if (!dev || !dev->dev_private)
-		return;
-	priv = dev->dev_private;
+	if (src_crtc->helper_private->atomic_check != shd_crtc_atomic_check)
+		return drm_crtc_mask(src_crtc);
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+	shd_src_crtc = to_sde_crtc(src_crtc)->priv_handle;
 
-	if (sde_kms->first_kickoff) {
-		sde_power_scale_reg_bus(&priv->phandle, sde_kms->core_client,
-			VOTE_INDEX_HIGH, false);
-		sde_kms->first_kickoff = false;
-	}
-
-	for_each_new_crtc_in_state(state, crtc, crtc_state, i) {
+	drm_for_each_crtc(crtc, src_crtc->dev) {
 		if (crtc->helper_private->atomic_check !=
 				shd_crtc_atomic_check)
 			continue;
 
-		if (!crtc_state->active ||
-		    !drm_atomic_crtc_needs_modeset(crtc_state))
-			continue;
+		shd_crtc = to_sde_crtc(crtc)->priv_handle;
 
-		sde_crtc = to_sde_crtc(crtc);
-		shd_crtc = sde_crtc->priv_handle;
-		shd_display_enable(shd_crtc->display);
+		if (shd_src_crtc->display->base == shd_crtc->display->base)
+			crtc_mask |= drm_crtc_mask(crtc);
 	}
 
-	g_shd_kms->orig_funcs->prepare_commit(kms, state);
-
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+	return crtc_mask;
 }
 
-static void shd_display_complete_commit(struct msm_kms *kms,
-		struct drm_atomic_state *state)
+void shd_skip_shared_plane_update(struct drm_plane *plane,
+		struct drm_crtc *crtc)
 {
-	struct drm_crtc *crtc;
-	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
 	struct sde_crtc *sde_crtc;
 	struct shd_crtc *shd_crtc;
-	struct sde_kms *sde_kms;
-	struct drm_device *dev;
-	struct msm_drm_private *priv;
+	enum sde_sspp sspp;
+	bool is_virtual;
 	int i;
 
-	if (!kms)
+	if (!plane || !crtc) {
+		SDE_ERROR("invalid plane or crtc\n");
 		return;
-	sde_kms = to_sde_kms(kms);
-	dev = sde_kms->dev;
+	}
 
-	if (!dev || !dev->dev_private)
+	if (crtc->funcs->atomic_set_property !=
+		shd_crtc_atomic_set_property) {
+		SDE_ERROR("not shared crtc\n");
 		return;
-	priv = dev->dev_private;
+	}
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, true);
+	sde_crtc = to_sde_crtc(crtc);
+	shd_crtc = sde_crtc->priv_handle;
+	sspp = sde_plane_pipe(plane);
+	is_virtual = is_sde_plane_virtual(plane);
 
-	g_shd_kms->orig_funcs->complete_commit(kms, state);
+	for (i = 0; i < sde_crtc->num_ctls; i++)
+		sde_shd_hw_skip_sspp_clear(
+			sde_crtc->mixers[i].hw_ctl, sspp, is_virtual);
+}
+
+static int shd_display_atomic_check(struct msm_kms *kms,
+		struct drm_atomic_state *state)
+{
+	struct msm_drm_private *priv;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
+	struct drm_connector_state *conn_state;
+	struct sde_crtc *sde_crtc;
+	struct shd_crtc *shd_crtc;
+	struct shd_display *display;
+	struct shd_display_base *base;
+	u32 base_mask = 0, enable_mask = 0, disable_mask = 0;
+	u32 crtc_mask, active_mask;
+	bool active;
+	int i, rc;
 
 	for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state,
-						new_crtc_state, i) {
+			new_crtc_state, i) {
 		if (crtc->helper_private->atomic_check !=
 				shd_crtc_atomic_check)
 			continue;
 
-		if (!old_crtc_state->active ||
-		    new_crtc_state->active ||
-		    !drm_atomic_crtc_needs_modeset(new_crtc_state))
+		if (old_crtc_state->active == new_crtc_state->active)
 			continue;
 
 		sde_crtc = to_sde_crtc(crtc);
 		shd_crtc = sde_crtc->priv_handle;
-		shd_display_disable(shd_crtc->display);
+		base = shd_crtc->display->base;
+		base_mask |= drm_crtc_mask(base->crtc);
+
+		if (new_crtc_state->active)
+			enable_mask |= drm_crtc_mask(crtc);
+		else
+			disable_mask |= drm_crtc_mask(crtc);
 	}
 
-	sde_power_resource_enable(&priv->phandle, sde_kms->core_client, false);
+	if (!base_mask)
+		return g_shd_kms->orig_funcs->atomic_check(kms, state);
+
+	/*
+	 * If base display need to be enabled/disabled, add state
+	 * changes to the same atomic state. As base crtc is always
+	 * ahead of shared crtc in the crtc list, base crtc is
+	 * enabled/disabled before shared crtcs.
+	 */
+	list_for_each_entry(base, &g_base_list, head) {
+		if (!(drm_crtc_mask(base->crtc) & base_mask))
+			continue;
+
+		/* read old crtc state from all shared displays */
+		crtc_mask = active_mask = 0;
+		list_for_each_entry(display, &base->disp_list, head) {
+			crtc_mask |= drm_crtc_mask(display->crtc);
+			if (display->crtc->state->active)
+				active_mask |= drm_crtc_mask(display->crtc);
+		}
+
+		/* apply changes in state */
+		active_mask |= (enable_mask & crtc_mask);
+		active_mask &= ~disable_mask;
+		active = !!active_mask;
+
+		/* skip if there is no change */
+		if (base->crtc->state->active == active)
+			continue;
+
+		new_crtc_state = drm_atomic_get_crtc_state(state,
+				base->crtc);
+		if (IS_ERR(new_crtc_state))
+			return PTR_ERR(new_crtc_state);
+
+		new_crtc_state->active = active;
+
+		conn_state = drm_atomic_get_connector_state(state,
+				base->connector);
+		if (IS_ERR(conn_state))
+			return PTR_ERR(conn_state);
+
+		rc = drm_atomic_set_mode_for_crtc(new_crtc_state,
+				active ? &base->mode : NULL);
+		if (rc) {
+			SDE_ERROR("failed to set mode for crtc\n");
+			return rc;
+		}
+
+		rc = drm_atomic_set_crtc_for_connector(conn_state,
+				active ? base->crtc : NULL);
+		if (rc) {
+			SDE_ERROR("failed to set crtc for connector\n");
+			return rc;
+		}
+	}
+
+	rc = g_shd_kms->orig_funcs->atomic_check(kms, state);
+	if (rc)
+		return rc;
+
+	/* wait if there is base thread running */
+	priv = state->dev->dev_private;
+	spin_lock(&priv->pending_crtcs_event.lock);
+	wait_event_interruptible_locked(
+			priv->pending_crtcs_event,
+			!(priv->pending_crtcs & base_mask));
+	spin_unlock(&priv->pending_crtcs_event.lock);
+
+	return 0;
 }
 
 static int shd_connector_get_info(struct drm_connector *connector,
@@ -621,31 +531,77 @@ enum drm_connector_status shd_connector_detect(struct drm_connector *conn,
 {
 	struct shd_display *disp = display;
 	struct sde_connector *sde_conn;
+	struct drm_connector *b_conn;
 	enum drm_connector_status status = connector_status_disconnected;
 
 	if (!conn || !display || !disp->base) {
 		SDE_ERROR("invalid params\n");
 		goto end;
 	}
-
-	mutex_lock(&disp->base->base_mutex);
-	if (disp->base->connector) {
-		sde_conn = to_sde_connector(disp->base->connector);
-		status = disp->base->ops.detect(disp->base->connector,
+	b_conn =  disp->base->connector;
+	if (b_conn) {
+		sde_conn = to_sde_connector(b_conn);
+		status = disp->base->ops.detect(b_conn,
 						force, sde_conn->display);
+		conn->display_info.width_mm = b_conn->display_info.width_mm;
+		conn->display_info.height_mm = b_conn->display_info.height_mm;
 	}
-	mutex_unlock(&disp->base->base_mutex);
 
 end:
 	return status;
 }
+static int shd_drm_update_edid_name(struct edid *edid, const char *name)
+{
+	u8 *dtd = (u8 *)&edid->detailed_timings[3];
+	u8 standard_header[] = {0x00, 0x00, 0x00, 0xFE, 0x00};
+	u32 dtd_size = 18;
+	u32 header_size = sizeof(standard_header);
+
+	if (!name)
+		return -EINVAL;
+
+	/* Fill standard header */
+	memcpy(dtd, standard_header, header_size);
+
+	dtd_size -= header_size;
+	dtd_size = min_t(u32, dtd_size, strlen(name));
+
+	memcpy(dtd + header_size, name, dtd_size);
+
+	return 0;
+}
+
+static void shd_drm_update_checksum(struct edid *edid)
+{
+	u8 *data = (u8 *)edid;
+	u32 i, sum = 0;
+
+	for (i = 0; i < EDID_LENGTH - 1; i++)
+		sum += data[i];
+
+	edid->checksum = 0x100 - (sum & 0xFF);
+}
 
 static int shd_connector_get_modes(struct drm_connector *connector,
-		void *display)
+		void *data)
 {
 	struct drm_display_mode drm_mode;
-	struct shd_display *disp = display;
+	struct shd_display *disp = data;
 	struct drm_display_mode *m;
+	u32 count = 0;
+	int rc;
+	u32 edid_size;
+	struct edid edid;
+	const u8 edid_buf[EDID_LENGTH] = {
+		0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x44, 0x6D,
+		0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x1B, 0x10, 0x01, 0x03,
+		0x80, 0x50, 0x2D, 0x78, 0x0A, 0x0D, 0xC9, 0xA0, 0x57, 0x47,
+		0x98, 0x27, 0x12, 0x48, 0x4C, 0x00, 0x00, 0x00, 0x01, 0x01,
+		0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+		0x01, 0x01, 0x01, 0x01,
+	};
+	edid_size = min_t(u32, sizeof(edid), EDID_LENGTH);
+	memcpy(&edid, edid_buf, edid_size);
 
 	memcpy(&drm_mode, &disp->base->mode, sizeof(drm_mode));
 
@@ -660,9 +616,19 @@ static int shd_connector_get_modes(struct drm_connector *connector,
 	drm_mode.vtotal = drm_mode.vsync_end;
 
 	m = drm_mode_duplicate(disp->drm_dev, &drm_mode);
+	if (!m)
+		return 0;
 	drm_mode_set_name(m);
 	drm_mode_probed_add(connector, m);
-
+	rc = shd_drm_update_edid_name(&edid, disp->name);
+	if (rc) {
+		count = 0;
+		return count;
+	}
+	shd_drm_update_checksum(&edid);
+	rc = drm_mode_connector_update_edid_property(connector, &edid);
+	if (rc)
+		count = 0;
 	return 1;
 }
 
@@ -686,6 +652,12 @@ static int shd_conn_set_info_blob(struct drm_connector *connector,
 
 	sde_kms_info_add_keyint(info, "max_blendstages",
 				shd_display->stage_range.size);
+
+	sde_kms_info_add_keystr(info, "display type",
+				shd_display->display_type);
+
+	sde_kms_info_add_keystr(info, "display type",
+				shd_display->display_type);
 
 	return 0;
 }
@@ -825,6 +797,7 @@ static int shd_drm_obj_init(struct shd_display *display)
 	struct msm_drm_private *priv;
 	struct drm_device *dev;
 	struct drm_crtc *crtc;
+	struct drm_plane *primary;
 	struct drm_encoder *encoder;
 	struct drm_connector *connector;
 	struct sde_crtc *sde_crtc;
@@ -856,16 +829,45 @@ static int shd_drm_obj_init(struct shd_display *display)
 		goto end;
 	}
 
+	/* search plane that doesn't belong to any crtc */
+	primary = NULL;
+	for (i = 0; i < priv->num_planes; i++) {
+		bool found = false;
+
+		drm_for_each_crtc(crtc, dev) {
+			if (crtc->primary == priv->planes[i]) {
+				found = true;
+				break;
+			}
+		}
+
+		if (!found) {
+			primary = priv->planes[i];
+			if (primary->type == DRM_PLANE_TYPE_OVERLAY)
+				dev->mode_config.num_overlay_plane--;
+			primary->type = DRM_PLANE_TYPE_PRIMARY;
+			break;
+		}
+	}
+
+	if (!primary) {
+		SDE_ERROR("failed to find primary plane\n");
+		rc = -ENOENT;
+		goto end;
+	}
+
+	SDE_DEBUG("find primary plane %d\n", DRMID(primary));
+
 	memset(&info, 0x0, sizeof(info));
 	rc = shd_connector_get_info(NULL, &info, display);
 	if (rc) {
-		SDE_ERROR("shd get_info %d failed\n", i);
+		SDE_ERROR("shd get_info failed\n");
 		goto end;
 	}
 
 	encoder = sde_encoder_init_with_ops(dev, &info, &enc_ops);
 	if (IS_ERR_OR_NULL(encoder)) {
-		SDE_ERROR("shd encoder init failed %d\n", i);
+		SDE_ERROR("shd encoder init failed\n");
 		rc = -ENOENT;
 		goto end;
 	}
@@ -890,7 +892,7 @@ static int shd_drm_obj_init(struct shd_display *display)
 		priv->encoders[priv->num_encoders++] = encoder;
 		priv->connectors[priv->num_connectors++] = connector;
 	} else {
-		SDE_ERROR("shd %d connector init failed\n", i);
+		SDE_ERROR("shd connector init failed\n");
 		shd_drm_bridge_deinit(display);
 		sde_encoder_destroy(encoder);
 		rc = -ENOENT;
@@ -899,7 +901,7 @@ static int shd_drm_obj_init(struct shd_display *display)
 
 	SDE_DEBUG("create connector %d\n", DRMID(connector));
 
-	crtc = sde_crtc_init(dev, priv->planes[0]);
+	crtc = sde_crtc_init(dev, primary);
 	if (IS_ERR(crtc)) {
 		rc = PTR_ERR(crtc);
 		goto end;
@@ -935,6 +937,7 @@ static int shd_drm_obj_init(struct shd_display *display)
 	sde_crtc->priv_handle = shd_crtc;
 	crtc->helper_private = &shd_crtc->helper_funcs;
 	crtc->funcs = &shd_crtc->funcs;
+	display->crtc = crtc;
 
 	/* initialize display thread */
 	i = priv->num_crtcs - 1;
@@ -1017,8 +1020,7 @@ static int shd_drm_base_init(struct drm_device *ddev,
 		g_shd_kms = kzalloc(sizeof(*g_shd_kms), GFP_KERNEL);
 		g_shd_kms->funcs = *priv->kms->funcs;
 		g_shd_kms->orig_funcs = priv->kms->funcs;
-		g_shd_kms->funcs.prepare_commit = shd_display_prepare_commit;
-		g_shd_kms->funcs.complete_commit = shd_display_complete_commit;
+		g_shd_kms->funcs.atomic_check = shd_display_atomic_check;
 		priv->kms->funcs = &g_shd_kms->funcs;
 	}
 
@@ -1033,7 +1035,6 @@ static int shd_parse_display(struct shd_display *display)
 	u32 range[2];
 	int rc;
 
-	display->name = of_node->full_name;
 
 	display->base_of = of_parse_phandle(of_node,
 		"qcom,shared-display-base", 0);
@@ -1104,6 +1105,11 @@ static int shd_parse_display(struct shd_display *display)
 	if (rc)
 		SDE_ERROR("Failed to parse blend stage range\n");
 
+	display->name = of_get_property(of_node,
+		"qcom,shared-display-name", NULL);
+	if (!display->name)
+		display->name = of_node->full_name;
+
 	display->src.w = src_w;
 	display->src.h = src_h;
 	display->roi.x = dst_x;
@@ -1119,6 +1125,11 @@ static int shd_parse_display(struct shd_display *display)
 		display->roi.w, display->roi.h,
 		display->stage_range.start,
 		display->stage_range.size);
+
+	display->display_type = of_get_property(of_node,
+		"qcom,display-type", NULL);
+	if (!display->display_type)
+		display->display_type = "unknown";
 
 error:
 	return rc;
@@ -1301,7 +1312,6 @@ static int sde_shd_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	mutex_init(&base->base_mutex);
 	INIT_LIST_HEAD(&base->disp_list);
 	base->of_node = shd_dev->base_of;
 
@@ -1357,11 +1367,9 @@ static int sde_shd_remove(struct platform_device *pdev)
 	if (!shd_dev)
 		return 0;
 
-	mutex_lock(&shd_dev->base->base_mutex);
 	list_del_init(&shd_dev->head);
 	if (list_empty(&shd_dev->base->disp_list))
 		list_del_init(&shd_dev->base->head);
-	mutex_unlock(&shd_dev->base->base_mutex);
 
 	platform_set_drvdata(pdev, NULL);
 

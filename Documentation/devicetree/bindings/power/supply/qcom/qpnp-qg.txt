@@ -342,6 +342,113 @@ First Level Node - QGAUGE device
 	Value type: <bool>
 	Definition: Boolean property to use S7 for PON OCV.
 
+- qcom,min-sleep-time-secs
+	Usage:      optional
+	Value type: <u32>
+	Definition: The minimum sleep time in secs to allow a SOC
+		    jump if there has been a GOOD_OCV.
+
+- qcom,qg-sys-min-voltage
+	Usage:      optional
+	Value type: <u32>
+	Definition: The voltage threshold (in mV) which describes the system
+		    minimum voltage as per the hardware recommendation. This
+		    is not used for any configuration but only for calculating
+		    the available power. If this property is not specified,
+		    then the default value used is 2800 mV.
+
+- qcom,qg-sleep-config
+	Usage:      optional
+	Value type: bool
+	Definition: Enables sleep-state configurtion for QG. This
+		    allows configuring the FIFO length, accumulator
+		    interval and the accumulator length when system
+		    enters sleep.
+
+- qcom,sleep-s2-fifo-length
+	Usage:      optional
+	Value type: <u32>
+	Definition: The FIFO length to be applied when system enters sleep
+		    while discharging. Takes effect only if
+		    'qcom,qg-sleep-config' is enabled. the default value
+		    if not specified is 8.
+
+- qcom,sleep-s2-acc-length
+	Usage:      optional
+	Value type: <u32>
+	Definition: The accululator length to be applied when system
+		    enters sleep while discharging. Takes effect only if
+		    'qcom,qg-sleep-config' is enabled. the default value
+		    if not specified is 256.
+
+- qcom,sleep-s2-acc-intvl-ms
+	Usage:      optional
+	Value type: <u32>
+	Definition: The accululator count to be applied when system
+		    enters sleep while discharging. Takes effect only if
+		    'qcom,qg-sleep-config' is enabled. the default value
+		    if not specified is 200ms.
+
+- qcom,qg-fast-chg-config
+	Usage:      optional
+	Value type: bool
+	Definition: Enables fast-charge configurtion for QG. This
+		    allows configuring the FIFO length during
+		    fast charge.
+
+- qcom,fast-chg-s2-fifo-length
+	Usage:      optional
+	Value type: <u32>
+	Definition: The FIFO length to be applied when system enters
+		    fast-chargging. Takes effect only if
+		    'qcom,qg-fast-chg-config' is enabled. The
+		    default value if not specified is 1.
+
+- qcom,fvss-enable
+	Usage:      optional
+	Value type: bool
+	Definition: Enable Filtered Voltage based SOC scaling.
+		    This logic enables SOC scaling to report
+		    0 at the cutoff voltage.
+
+- qcom,fvss-vbatt-mv
+	Usage:      optional
+	Value type: <u32>
+	Definition: Battery voltage threshold at which FVSS is
+		    enabled. Applicable only if 'qcom,fvss-enable'
+		    is set.
+
+- qcom,multi-profile-load
+        Usage:      optional
+        Value type: <bool>
+        Definition: A boolean property that when specified indicates that
+                    multiple profile loading needs to be enabled. This requires
+                    multiple battery profiles to be specified for a battery for
+                    proper functionality.
+
+- qcom,tcss-enable
+        Usage:      optional
+        Value type: bool
+        Definition: Enable Termination current based SOC scaling.
+                    This logic enables SOC scaling to report
+                    100% at the QG termination current defined by
+                    qcom,qg-iterm-ma.
+
+- qcom,tcss-entry-soc
+        Usage:      optional
+        Value type: <u32>
+        Definition: SOC threshold at which TCSS starts. The default
+                    value is 90%. This property is valid only if
+                    qcom,tcss-enable is defined.
+
+- qcom,bass-enable
+        Usage:      optional
+        Value type: bool
+        Definition: Enable Battery SOC based SOC scaling. This logic
+                    allows monotonic-SOC scaling at low-temperatures
+                    when there is variation in system-SOC due to
+                    changes in the load.
+
 ==========================================================
 Second Level Nodes - Peripherals managed by QGAUGE driver
 ==========================================================

@@ -29,6 +29,7 @@ Optional properties :
     - qcom,msm_bus,num_cases
     - qcom,msm_bus,num_paths
     - qcom,msm_bus,vectors
+- qcom,default-bus-vote: To use default bus voting other than NOMINAL. Default is NOMINAL.
 - interrupt-names : Optional interrupt resource entries are:
     "ss_phy_irq"  : Interrupt from super speed phy for wake up notification.
     "hs_phy_irq" : Interrupt from HS PHY for asynchronous events in LPM.
@@ -74,6 +75,8 @@ Optional properties :
 - qcom,gsi-reg-offset: USB GSI wrapper registers offset. It is must to provide this
   if qcom,num-gsi-evt-buffs property is specified. Check dwc3-msm driver for order
   and name of register offset need to provide.
+- qcom,gsi-disable-io-coherency: IO-coherency is enabled by default in usb gsi driver.
+  This property disables io-coherency in usb gsi driver.
 - qcom,pm-qos-latency: This represents max tolerable CPU latency in microsecs,
 	which is used as a vote by driver to get max performance in perf mode.
 - qcom,smmu-s1-bypass: If present, configure SMMU to bypass stage 1 translation.
@@ -81,13 +84,17 @@ Optional properties :
 	are supported. If omitted, assume HW supports "1.5".
 - qcom,reset-ep-after-lpm-resume: If present, dbm requires ep reset after
 	going to lpm
-- qcom,host-poweroff-in-pm-suspend: If present, allow PM suspend to happen
-	irrespective of runtimePM state of host and power collapse the core.
-	This also leads to reset-resume of connected devices on PM resume.
+- qcom,ignore-wakeup-src-in-hostmode: If present, PM suspend/freeze allowed
+	irrespective of host runtimePM state. In PM suspend/resume case, core
+	will stay powered and connected devices will just be suspended/resumed.
+	In hibernation, core will power collapse and connected devices will
+	reset-resume on PM restore.
 - qcom,default-mode-none: If present, do not start any mode on probe for an OTG
 	capable DWC3 which does not have extcon handle.
 - qcom,default-mode-host: If present, start host mode on probe for an OTG
 	capable DWC3 which does not have extcon handle.
+- qcom,dual-port: If present, 2 different physical ports are supported by this
+	core. Please note that this flag is valid for cores supporting only host mode.
 
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".

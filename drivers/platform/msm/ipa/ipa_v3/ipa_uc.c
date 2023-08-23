@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,9 @@
 #define IPA_PKT_FLUSH_TO_US 100
 #define IPA_UC_POLL_SLEEP_USEC 100
 #define IPA_UC_POLL_MAX_RETRY 10000
+
+#define IPA_UC_DBG_STATS_GET_PROT_ID(x) (0xff & ((x) >> 24))
+#define IPA_UC_DBG_STATS_GET_OFFSET(x) (0x00ffffff & (x))
 
 /**
  * Mailbox register to Interrupt HWP for CPU cmd
@@ -121,7 +124,7 @@ struct IpaHwRegWriteCmdData_t {
  * for IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED response.
  * @originalCmdOp : The original command opcode
  * @status : 0 for success indication, otherwise failure
- * @reserved : Reserved
+ * @responseData : 16b responseData
  *
  * Parameters are sent as 32b immediate parameters.
  */
@@ -129,7 +132,7 @@ union IpaHwCpuCmdCompletedResponseData_t {
 	struct IpaHwCpuCmdCompletedResponseParams_t {
 		u32 originalCmdOp:8;
 		u32 status:8;
-		u32 reserved:16;
+		u32 responseData:16;
 	} __packed params;
 	u32 raw32b;
 } __packed;
@@ -218,6 +221,88 @@ const char *ipa_hw_error_str(enum ipa3_hw_errors err_type)
 	}
 
 	return str;
+}
+
+static void ipa3_uc_save_dbg_stats(u32 size)
+{
+	u8 prot_id;
+	u32 addr_offset;
+	void __iomem *mmio;
+
+	prot_id = IPA_UC_DBG_STATS_GET_PROT_ID(
+		ipa3_ctx->uc_ctx.uc_sram_mmio->responseParams_1);
+	addr_offset = IPA_UC_DBG_STATS_GET_OFFSET(
+		ipa3_ctx->uc_ctx.uc_sram_mmio->responseParams_1);
+	mmio = ioremap(ipa3_ctx->ipa_wrapper_base +
+		addr_offset, sizeof(struct IpaHwRingStats_t) *
+		MAX_CH_STATS_SUPPORTED);
+	if (mmio == NULL) {
+		IPAERR("unexpected NULL mmio\n");
+		return;
+	}
+	switch (prot_id) {
+	case IPA_HW_PROTOCOL_AQC:
+		if (!ipa3_ctx->aqc_ctx.dbg_stats.uc_dbg_stats_mmio) {
+			ipa3_ctx->aqc_ctx.dbg_stats.uc_dbg_stats_size =
+				size;
+			ipa3_ctx->aqc_ctx.dbg_stats.uc_dbg_stats_ofst =
+				addr_offset;
+			ipa3_ctx->aqc_ctx.dbg_stats.uc_dbg_stats_mmio =
+				mmio;
+		} else
+			goto unmap;
+		break;
+	case IPA_HW_PROTOCOL_WDI:
+		if (!ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio) {
+			ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_size =
+				size;
+			ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_ofst =
+				addr_offset;
+			ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio =
+				mmio;
+		} else
+			goto unmap;
+		break;
+	case IPA_HW_PROTOCOL_WDI3:
+		if (!ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio) {
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_size =
+				size;
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_ofst =
+				addr_offset;
+			ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio =
+				mmio;
+		} else
+			goto unmap;
+		break;
+	case IPA_HW_PROTOCOL_MHIP:
+		if (!ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_mmio) {
+			ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_size =
+				size;
+			ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_ofst =
+				addr_offset;
+			ipa3_ctx->mhip_ctx.dbg_stats.uc_dbg_stats_mmio =
+				mmio;
+		} else
+			goto unmap;
+		break;
+	case IPA_HW_PROTOCOL_USB:
+		if (!ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio) {
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_size =
+				size;
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_ofst =
+				addr_offset;
+			ipa3_ctx->usb_ctx.dbg_stats.uc_dbg_stats_mmio =
+				mmio;
+		} else
+			goto unmap;
+		break;
+	default:
+		IPAERR("unknown protocols %d\n", prot_id);
+		goto unmap;
+	}
+	return;
+unmap:
+	iounmap(mmio);
 }
 
 static void ipa3_log_evt_hdlr(void)
@@ -499,6 +584,13 @@ static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,
 		 */
 		ipa3_proxy_clk_unvote();
 
+		/*
+		 * To enable ipa power collapse we need to enable rpmh and uc
+		 * handshake So that uc can do register retention. To enable
+		 * this handshake we need to send the below message to rpmh.
+		 */
+		ipa_pc_qmp_enable();
+
 		for (i = 0; i < IPA_HW_NUM_FEATURES; i++) {
 			if (ipa3_uc_hdlrs[i].ipa_uc_loaded_hdlr)
 				ipa3_uc_hdlrs[i].ipa_uc_loaded_hdlr();
@@ -512,6 +604,10 @@ static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,
 		if (uc_rsp.params.originalCmdOp ==
 		    ipa3_ctx->uc_ctx.pending_cmd) {
 			ipa3_ctx->uc_ctx.uc_status = uc_rsp.params.status;
+			if (uc_rsp.params.originalCmdOp ==
+				IPA_CPU_2_HW_CMD_OFFLOAD_STATS_ALLOC)
+				ipa3_uc_save_dbg_stats(
+					uc_rsp.params.responseData);
 			complete_all(&ipa3_ctx->uc_ctx.uc_completion);
 		} else {
 			IPAERR("Expected cmd=%u rcvd cmd=%u\n",
@@ -956,4 +1052,98 @@ int ipa3_uc_send_remote_ipa_info(u32 remote_addr, uint32_t mbox_n)
 free_coherent:
 	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
 	return res;
+}
+
+int ipa3_uc_debug_stats_alloc(
+	struct IpaHwOffloadStatsAllocCmdData_t cmdinfo)
+{
+	int result;
+	struct ipa_mem_buffer cmd;
+	enum ipa_cpu_2_hw_offload_commands command;
+	struct IpaHwOffloadStatsAllocCmdData_t *cmd_data;
+
+	cmd.size = sizeof(*cmd_data);
+	cmd.base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd.size,
+		&cmd.phys_base, GFP_KERNEL);
+	if (cmd.base == NULL) {
+		result = -ENOMEM;
+		return result;
+	}
+	cmd_data = (struct IpaHwOffloadStatsAllocCmdData_t *)cmd.base;
+	memcpy(cmd_data, &cmdinfo,
+		sizeof(struct IpaHwOffloadStatsAllocCmdData_t));
+	command = IPA_CPU_2_HW_CMD_OFFLOAD_STATS_ALLOC;
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	result = ipa3_uc_send_cmd((u32)(cmd.phys_base),
+		command,
+		IPA_HW_2_CPU_OFFLOAD_CMD_STATUS_SUCCESS,
+		false, 10 * HZ);
+	if (result) {
+		IPAERR("fail to alloc offload stats\n");
+		goto cleanup;
+	}
+	result = 0;
+cleanup:
+	dma_free_coherent(ipa3_ctx->uc_pdev,
+		cmd.size,
+		cmd.base, cmd.phys_base);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPADBG("exit\n");
+	return result;
+}
+
+int ipa3_uc_debug_stats_dealloc(uint32_t prot_id)
+{
+	int result;
+	struct ipa_mem_buffer cmd;
+	enum ipa_cpu_2_hw_offload_commands command;
+	struct IpaHwOffloadStatsDeAllocCmdData_t *cmd_data;
+
+	cmd.size = sizeof(*cmd_data);
+	cmd.base = dma_alloc_coherent(ipa3_ctx->uc_pdev, cmd.size,
+		&cmd.phys_base, GFP_KERNEL);
+	if (cmd.base == NULL) {
+		result = -ENOMEM;
+		return result;
+	}
+	cmd_data = (struct IpaHwOffloadStatsDeAllocCmdData_t *)
+		cmd.base;
+	cmd_data->protocol = prot_id;
+	command = IPA_CPU_2_HW_CMD_OFFLOAD_STATS_DEALLOC;
+
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	result = ipa3_uc_send_cmd((u32)(cmd.phys_base),
+		command,
+		IPA_HW_2_CPU_OFFLOAD_CMD_STATUS_SUCCESS,
+		false, 10 * HZ);
+	if (result) {
+		IPAERR("fail to dealloc offload stats\n");
+		goto cleanup;
+	}
+	switch (prot_id) {
+	case IPA_HW_PROTOCOL_AQC:
+		iounmap(ipa3_ctx->aqc_ctx.dbg_stats.uc_dbg_stats_mmio);
+		ipa3_ctx->aqc_ctx.dbg_stats.uc_dbg_stats_mmio = NULL;
+		break;
+	case IPA_HW_PROTOCOL_WDI:
+		iounmap(ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio);
+		ipa3_ctx->wdi2_ctx.dbg_stats.uc_dbg_stats_mmio = NULL;
+		break;
+	case IPA_HW_PROTOCOL_WDI3:
+		iounmap(ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio);
+		ipa3_ctx->wdi3_ctx.dbg_stats.uc_dbg_stats_mmio = NULL;
+		break;
+	default:
+		IPAERR("unknown protocols %d\n", prot_id);
+	}
+	result = 0;
+cleanup:
+	dma_free_coherent(ipa3_ctx->uc_pdev, cmd.size,
+		cmd.base, cmd.phys_base);
+	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+	IPADBG("exit\n");
+	return result;
 }

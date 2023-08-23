@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,28 +84,6 @@ static bool _sde_core_perf_crtc_is_power_on(struct drm_crtc *crtc)
 	return sde_crtc_is_enabled(crtc);
 }
 
-static bool _sde_core_video_mode_intf_connected(struct drm_crtc *crtc)
-{
-	struct drm_crtc *tmp_crtc;
-	bool intf_connected = false;
-
-	if (!crtc)
-		goto end;
-
-	drm_for_each_crtc(tmp_crtc, crtc->dev) {
-		if ((sde_crtc_get_intf_mode(tmp_crtc) == INTF_MODE_VIDEO) &&
-				_sde_core_perf_crtc_is_power_on(tmp_crtc)) {
-			SDE_DEBUG("video interface connected crtc:%d\n",
-				tmp_crtc->base.id);
-			intf_connected = true;
-			goto end;
-		}
-	}
-
-end:
-	return intf_connected;
-}
-
 static void _sde_core_perf_calc_crtc(struct sde_kms *kms,
 		struct drm_crtc *crtc,
 		struct drm_crtc_state *state,
@@ -171,6 +149,15 @@ static void _sde_core_perf_calc_crtc(struct sde_kms *kms,
 		perf->core_clk_rate = kms->perf.fix_core_clk_rate;
 	}
 
+	if (IS_SDMMAGPIE_TARGET(kms->catalog->hwversion)) {
+		perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_MNOC] =
+			SDE_POWER_HANDLE_MNOC_OVERRIDE_IB_QUOTA;
+		perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_LLCC] =
+			SDE_POWER_HANDLE_LLCC_OVERRIDE_IB_QUOTA;
+		perf->max_per_pipe_ib[SDE_POWER_HANDLE_DBUS_ID_EBI] =
+			SDE_POWER_HANDLE_EBI_OVERRIDE_IB_QUOTA;
+	}
+
 	SDE_EVT32(crtc->base.id, perf->core_clk_rate);
 	trace_sde_perf_calc_crtc(crtc->base.id,
 			perf->bw_ctl[SDE_POWER_HANDLE_DBUS_ID_MNOC],
@@ -198,7 +185,6 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 	u32 bw, threshold;
 	u64 bw_sum_of_intfs = 0;
 	enum sde_crtc_client_type curr_client_type;
-	bool is_video_mode;
 	struct sde_crtc_state *sde_cstate;
 	struct drm_crtc *tmp_crtc;
 	struct sde_kms *kms;
@@ -251,11 +237,7 @@ int sde_core_perf_crtc_check(struct drm_crtc *crtc,
 		bw = DIV_ROUND_UP_ULL(bw_sum_of_intfs, 1000);
 		SDE_DEBUG("calculated bandwidth=%uk\n", bw);
 
-		is_video_mode = sde_crtc_get_intf_mode(crtc) == INTF_MODE_VIDEO;
-		threshold = (is_video_mode ||
-			_sde_core_video_mode_intf_connected(crtc)) ?
-			kms->catalog->perf.max_bw_low :
-			kms->catalog->perf.max_bw_high;
+		threshold = kms->catalog->perf.max_bw_high;
 
 		SDE_DEBUG("final threshold bw limit = %d\n", threshold);
 
@@ -627,6 +609,15 @@ void sde_core_perf_crtc_update(struct drm_crtc *crtc,
 		if (update_bus & BIT(i))
 			_sde_core_perf_crtc_update_bus(kms, crtc, i);
 	}
+
+	if (kms->perf.bw_vote_mode == DISP_RSC_MODE &&
+		((get_sde_rsc_version(SDE_RSC_INDEX) != SDE_RSC_REV_3) ||
+	     (get_sde_rsc_current_state(SDE_RSC_INDEX) != SDE_RSC_CLK_STATE
+	      && params_changed) ||
+	     (get_sde_rsc_current_state(SDE_RSC_INDEX) == SDE_RSC_CLK_STATE
+	      && update_bus)))
+		sde_rsc_client_trigger_vote(sde_cstate->rsc_client,
+				update_bus ? true : false);
 
 	/*
 	 * Update the clock after bandwidth vote to ensure

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,7 @@
 
 #define NORTH	0x900000 /* dummy tile info */
 #define SOUTH	0xD00000
+#define SOUTH1	0xD1E000 /* dummy tile info */
 #define WEST	0x100000
 #define EAST	0x500000
 #define DUMMY	0x0
@@ -54,9 +55,14 @@
 		.intr_cfg_reg = base + 0x8 + REG_SIZE * id,	\
 		.intr_status_reg = base + 0xc + REG_SIZE * id,	\
 		.intr_target_reg = base + 0x8 + REG_SIZE * id,	\
+		.dir_conn_reg = (base == EAST) ? base + 0xcc000 : \
+			((base == WEST) ? base + 0xcc000 : \
+			((base == NORTH) ? EAST + 0xcc000 : base + 0xcd000)), \
 		.mux_bit = 2,			\
 		.pull_bit = 0,			\
 		.drv_bit = 6,			\
+		.egpio_enable = 12,		\
+		.egpio_present = 11,		\
 		.oe_bit = 9,			\
 		.in_bit = 0,			\
 		.out_bit = 1,			\
@@ -68,6 +74,7 @@
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
 		.intr_detection_width = 2,	\
+		.dir_conn_en_bit = 8,		\
 	}
 
 #define SDC_QDSD_PINGROUP(pg_name, ctl, pull, drv)	\
@@ -314,6 +321,7 @@ static const struct pinctrl_pin_desc sdmshrike_pins[] = {
 	PINCTRL_PIN(191, "SDC2_CMD"),
 	PINCTRL_PIN(192, "SDC2_DATA"),
 	PINCTRL_PIN(193, "UFS_RESET"),
+	PINCTRL_PIN(194, "UFS0_RESET"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -513,10 +521,12 @@ static const unsigned int sdc2_clk_pins[] = { 190 };
 static const unsigned int sdc2_cmd_pins[] = { 191 };
 static const unsigned int sdc2_data_pins[] = { 192 };
 static const unsigned int ufs_reset_pins[] = { 193 };
+static const unsigned int ufs0_reset_pins[] = { 194 };
 
 enum sdmshrike_functions {
 	msm_mux_GRFC2,
 	msm_mux_atest_usb31,
+	msm_mux_emac_pps,
 	msm_mux_ddr_pxi4,
 	msm_mux_GRFC3,
 	msm_mux_tgu_ch4,
@@ -793,6 +803,9 @@ static const char * const GRFC2_groups[] = {
 };
 static const char * const atest_usb31_groups[] = {
 	"gpio73",
+};
+static const char * const emac_pps_groups[] = {
+	"gpio81",
 };
 static const char * const ddr_pxi4_groups[] = {
 	"gpio73", "gpio74",
@@ -1637,6 +1650,7 @@ static const char * const atest_usb32_groups[] = {
 static const struct msm_function sdmshrike_functions[] = {
 	FUNCTION(GRFC2),
 	FUNCTION(atest_usb31),
+	FUNCTION(emac_pps),
 	FUNCTION(ddr_pxi4),
 	FUNCTION(GRFC3),
 	FUNCTION(tgu_ch4),
@@ -2044,7 +2058,7 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[79] = PINGROUP(79, EAST, NA, GRFC13, NA, NA, NA, NA, NA, NA, NA),
 	[80] = PINGROUP(80, EAST, NA, GRFC14, NA, NA, NA, NA, NA, NA, NA),
 	[81] = PINGROUP(81, EAST, NA, GRFC15, GPS_TX, NAV_PPS, NAV_PPS,
-			qdss_cti, NA, NA, NA),
+			qdss_cti, NA, emac_pps, NA),
 	[82] = PINGROUP(82, EAST, NA, GRFC16, GPS_TX, NAV_PPS, NAV_PPS,
 			mdp_vsync, qdss_cti, NA, NA),
 	[83] = PINGROUP(83, EAST, qup12, qup16, NA, NA, NA, NA, NA, NA, NA),
@@ -2207,34 +2221,46 @@ static const struct msm_pingroup sdmshrike_groups[] = {
 	[175] = PINGROUP(175, SOUTH, pci_e2, NA, NA, NA, NA, NA, NA, NA, NA),
 	[176] = PINGROUP(176, SOUTH, pci_e2, cci_async, NA, NA, NA, NA, NA, NA,
 			 NA),
-	[177] = PINGROUP(177, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[178] = PINGROUP(178, SOUTH, pci_e3, cci_timer4, NA, NA, NA, NA, NA,
+	[177] = PINGROUP(177, SOUTH1, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[178] = PINGROUP(178, SOUTH1, pci_e3, cci_timer4, NA, NA, NA, NA, NA,
 			 NA, NA),
-	[179] = PINGROUP(179, SOUTH, pci_e3, cam_mclk, NA, NA, NA, NA, NA, NA,
+	[179] = PINGROUP(179, SOUTH1, pci_e3, cam_mclk, NA, NA, NA, NA, NA, NA,
 			 NA),
-	[180] = PINGROUP(180, SOUTH, cam_mclk, NA, NA, NA, NA, NA, NA, NA, NA),
-	[181] = PINGROUP(181, SOUTH, qup19, cam_mclk, NA, NA, NA, NA, NA, NA,
+	[180] = PINGROUP(180, SOUTH1, cam_mclk, NA, NA, NA, NA, NA, NA, NA, NA),
+	[181] = PINGROUP(181, SOUTH1, qup19, cam_mclk, NA, NA, NA, NA, NA, NA,
 			 NA),
-	[182] = PINGROUP(182, SOUTH, qup19, cci_timer5, gcc_gp4, NA, NA, NA,
+	[182] = PINGROUP(182, SOUTH1, qup19, cci_timer5, gcc_gp4, NA, NA, NA,
 			 NA, NA, NA),
-	[183] = PINGROUP(183, SOUTH, qup19, cci_timer6, gcc_gp5, NA, NA, NA,
+	[183] = PINGROUP(183, SOUTH1, qup19, cci_timer6, gcc_gp5, NA, NA, NA,
 			 NA, NA, NA),
-	[184] = PINGROUP(184, SOUTH, qup19, cci_timer7, NA, NA, NA, NA, NA, NA,
+	[184] = PINGROUP(184, SOUTH1, qup19, cci_timer7, NA, NA, NA, NA, NA, NA,
 			 NA),
-	[185] = PINGROUP(185, SOUTH, cci_timer8, cci_async, NA, NA, NA, NA, NA,
+	[185] = PINGROUP(185, SOUTH1, cci_timer8, cci_async, NA, NA, NA, NA, NA,
 			 NA, NA),
-	[186] = PINGROUP(186, SOUTH, cci_timer9, cci_async, NA, NA, NA, NA, NA,
+	[186] = PINGROUP(186, SOUTH1, cci_timer9, cci_async, NA, NA, NA, NA, NA,
 			 NA, NA),
-	[187] = PINGROUP(187, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[188] = PINGROUP(188, SOUTH, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	[189] = PINGROUP(189, SOUTH, dp_hot, NA, NA, NA, NA, NA, NA, NA, NA),
+	[187] = PINGROUP(187, SOUTH1, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[188] = PINGROUP(188, SOUTH1, NA, NA, NA, NA, NA, NA, NA, NA, NA),
+	[189] = PINGROUP(189, SOUTH1, dp_hot, NA, NA, NA, NA, NA, NA, NA, NA),
 	[190] = SDC_QDSD_PINGROUP(sdc2_clk, 0x9b2000, 14, 6),
 	[191] = SDC_QDSD_PINGROUP(sdc2_cmd, 0x9b2000, 11, 3),
 	[192] = SDC_QDSD_PINGROUP(sdc2_data, 0x9b2000, 9, 0),
 	[193] = UFS_RESET(ufs_reset, 0xdb6004),
+	[194] = UFS_RESET(ufs0_reset, 0xdc7004),
 };
 
-static const struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
+static struct msm_dir_conn sdmshrike_dir_conn[] = {
+	{-1, 216},
+	{-1, 215},
+	{-1, 214},
+	{-1, 213},
+	{-1, 212},
+	{-1, 211},
+	{-1, 210},
+	{-1, 209},
+};
+
+static struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
 	.pins = sdmshrike_pins,
 	.npins = ARRAY_SIZE(sdmshrike_pins),
 	.functions = sdmshrike_functions,
@@ -2242,10 +2268,69 @@ static const struct msm_pinctrl_soc_data sdmshrike_pinctrl = {
 	.groups = sdmshrike_groups,
 	.ngroups = ARRAY_SIZE(sdmshrike_groups),
 	.ngpios = 190,
+	.dir_conn = sdmshrike_dir_conn,
+	.n_dir_conns = ARRAY_SIZE(sdmshrike_dir_conn),
+	.dir_conn_irq_base = 216,
 };
+
+static int sdmshrike_pinctrl_parse_dt(struct platform_device *pdev)
+{
+	const __be32 *prop;
+	struct msm_dir_conn *dir_conn_list;
+	uint32_t dir_conn_length, iterator = 0;
+	int i, length, *dir_conn_entries, num_dir_conns;
+
+	prop = of_get_property(pdev->dev.of_node, "dirconn-list",
+			&length);
+
+	dir_conn_length = length / sizeof(u32);
+
+	dir_conn_entries = devm_kcalloc(&pdev->dev,
+				dir_conn_length, sizeof(uint32_t), GFP_KERNEL);
+	if (!dir_conn_entries)
+		return -ENOMEM;
+
+	for (i = 0; i < dir_conn_length; i++)
+		dir_conn_entries[i] = be32_to_cpu(prop[i]);
+
+	if (dir_conn_length % 3) {
+		dev_err(&pdev->dev,
+			"Can't parse an entry with fewer than three values\n");
+		return -EINVAL;
+	};
+
+	num_dir_conns = (dir_conn_length / 3);
+
+	dir_conn_list = devm_kcalloc(&pdev->dev,
+			num_dir_conns, sizeof(*dir_conn_list), GFP_KERNEL);
+	if (!dir_conn_list)
+		return -ENOMEM;
+
+	for (i = 0; i < num_dir_conns; i++) {
+		dir_conn_list[i].gpio = dir_conn_entries[iterator++];
+		dir_conn_list[i].hwirq = dir_conn_entries[iterator++];
+		dir_conn_list[i].tlmm_dc = dir_conn_entries[iterator++];
+	}
+
+	sdmshrike_pinctrl.dir_conn = dir_conn_list;
+	sdmshrike_pinctrl.n_dir_conns = num_dir_conns;
+
+	return 0;
+}
 
 static int sdmshrike_pinctrl_probe(struct platform_device *pdev)
 {
+	int len, ret;
+
+	if (of_find_property(pdev->dev.of_node, "dirconn-list", &len)) {
+		ret = sdmshrike_pinctrl_parse_dt(pdev);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"Unable to parse TLMM direct connects\n");
+			return ret;
+		}
+	}
+
 	return msm_pinctrl_probe(pdev, &sdmshrike_pinctrl);
 }
 

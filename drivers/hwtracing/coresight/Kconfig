@@ -32,6 +32,17 @@ config CORESIGHT_LINK_AND_SINK_TMC
 	  complies with the generic implementation of the component without
 	  special enhancement or added features.
 
+config CORESIGHT_CATU
+	bool "Coresight Address Translation Unit (CATU) driver"
+	depends on CORESIGHT_LINK_AND_SINK_TMC
+	help
+	   Enable support for the Coresight Address Translation Unit (CATU).
+	   CATU supports a scatter gather table of 4K pages, with forward/backward
+	   lookup. CATU helps TMC ETR to use a large physically non-contiguous trace
+	   buffer by translating the addresses used by ETR to the physical address
+	   by looking up the provided table. CATU can also be used in pass-through
+	   mode where the address is not translated.
+
 config CORESIGHT_SINK_TPIU
 	bool "Coresight generic TPIU driver"
 	depends on CORESIGHT_LINKS_AND_SINKS
@@ -64,6 +75,7 @@ config CORESIGHT_SOURCE_ETM3X
 config CORESIGHT_SOURCE_ETM4X
 	bool "CoreSight Embedded Trace Macrocell 4.x driver"
 	select CORESIGHT_LINKS_AND_SINKS
+	select PID_IN_CONTEXTIDR
 	help
 	  This driver provides support for the ETM4.x tracer module, tracing the
 	  instructions that a processor is executing. This is primarily useful
@@ -77,6 +89,14 @@ config CORESIGHT_DYNAMIC_REPLICATOR
 	  This enables support for dynamic CoreSight replicator link driver.
 	  The programmable ATB replicator allows independent filtering of the
 	  trace data based on the traceid.
+
+config CORESIGHT_DBGUI
+	bool "CoreSight DebugUI driver"
+	help
+	  This driver provides support for DebugUI that helps to capture
+	  the value at a specified address. It allows configuring DebugUI
+	  to select specified address and trigger mode based on user
+	  input.
 
 config CORESIGHT_STM
 	bool "CoreSight System Trace Macrocell driver"
@@ -146,6 +166,14 @@ config CORESIGHT_TPDM_DEFAULT_ENABLE
 
 	  If unsure, say 'N' here to avoid potential power and performance
 	  penalty.
+
+config CORESIGHT_QPDI
+	bool "CoreSight PMIC debug interface support"
+	help
+	  This driver provides support for controlling the PMIC debug interface
+	  feature. When enabled via sysfs it allows disagnostic access to the
+	  PMIC. Similarly this debug feature can be disabled via sysfs which
+	  prevents debug dongle detection.
 
 config CORESIGHT_HWEVENT
 	bool "CoreSight Hardware Event driver"

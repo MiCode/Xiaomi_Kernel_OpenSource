@@ -141,6 +141,8 @@ static void i915_gem_context_free(struct i915_gem_context *ctx)
 		__i915_gem_object_release_unless_active(ce->state->obj);
 	}
 
+	kfree(ctx->jump_whitelist);
+
 	kfree(ctx->name);
 	put_pid(ctx->pid);
 
@@ -320,6 +322,9 @@ __create_hw_context(struct drm_i915_private *dev_priv,
 		ctx->ggtt_offset_bias = GUC_WOPCM_TOP;
 	else
 		ctx->ggtt_offset_bias = I915_GTT_PAGE_SIZE;
+
+	ctx->jump_whitelist = NULL;
+	ctx->jump_whitelist_cmds = 0;
 
 	return ctx;
 
@@ -988,18 +993,19 @@ int i915_gem_context_destroy_ioctl(struct drm_device *dev, void *data,
 	if (args->ctx_id == DEFAULT_CONTEXT_HANDLE)
 		return -ENOENT;
 
-	ctx = i915_gem_context_lookup(file_priv, args->ctx_id);
-	if (!ctx)
-		return -ENOENT;
-
-	ret = mutex_lock_interruptible(&dev->struct_mutex);
+	ret = i915_mutex_lock_interruptible(dev);
 	if (ret)
-		goto out;
+		return ret;
+
+	ctx = i915_gem_context_lookup(file_priv, args->ctx_id);
+	if (!ctx) {
+		mutex_unlock(&dev->struct_mutex);
+		return -ENOENT;
+	}
 
 	__destroy_hw_context(ctx, file_priv);
 	mutex_unlock(&dev->struct_mutex);
 
-out:
 	i915_gem_context_put(ctx);
 	return 0;
 }

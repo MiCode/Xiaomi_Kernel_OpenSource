@@ -1067,6 +1067,22 @@ int mipi_dsi_dcs_set_display_brightness(struct mipi_dsi_device *dsi,
 }
 EXPORT_SYMBOL(mipi_dsi_dcs_set_display_brightness);
 
+int mipi_dsi_dcs_set_display_brightness_ss(struct mipi_dsi_device *dsi,
+					u16 brightness)
+{
+	u8 payload[2] = { brightness >> 8, brightness & 0xff };
+	ssize_t err;
+
+	err = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+				 payload, sizeof(payload));
+	if (err < 0)
+		return err;
+
+	return 0;
+}
+EXPORT_SYMBOL(mipi_dsi_dcs_set_display_brightness_ss);
+
+
 /**
  * mipi_dsi_dcs_get_display_brightness() - gets the current brightness value
  *    of the display

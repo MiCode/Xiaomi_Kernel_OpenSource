@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,7 @@ static const enum dsi_ctrl_version dsi_ctrl_v1_4 = DSI_CTRL_VERSION_1_4;
 static const enum dsi_ctrl_version dsi_ctrl_v2_0 = DSI_CTRL_VERSION_2_0;
 static const enum dsi_ctrl_version dsi_ctrl_v2_2 = DSI_CTRL_VERSION_2_2;
 static const enum dsi_ctrl_version dsi_ctrl_v2_3 = DSI_CTRL_VERSION_2_3;
+static const enum dsi_ctrl_version dsi_ctrl_v2_4 = DSI_CTRL_VERSION_2_4;
 
 static const struct of_device_id msm_dsi_of_match[] = {
 	{
@@ -73,9 +74,14 @@ static const struct of_device_id msm_dsi_of_match[] = {
 		.compatible = "qcom,dsi-ctrl-hw-v2.3",
 		.data = &dsi_ctrl_v2_3,
 	},
+	{
+		.compatible = "qcom,dsi-ctrl-hw-v2.4",
+		.data = &dsi_ctrl_v2_4,
+	},
 	{}
 };
 
+#ifdef CONFIG_DEBUG_FS
 static ssize_t debugfs_state_info_read(struct file *file,
 				       char __user *buff,
 				       size_t count,
@@ -113,7 +119,7 @@ static ssize_t debugfs_state_info_read(struct file *file,
 			dsi_ctrl->clk_freq.pix_clk_rate,
 			dsi_ctrl->clk_freq.esc_clk_rate);
 
-	/* TODO: make sure that this does not exceed 4K */
+	len = min_t(size_t, len, SZ_4K);
 	if (copy_to_user(buff, buf, len)) {
 		kfree(buf);
 		return -EFAULT;
@@ -168,8 +174,7 @@ static ssize_t debugfs_reg_dump_read(struct file *file,
 		return rc;
 	}
 
-
-	/* TODO: make sure that this does not exceed 4K */
+	len = min_t(size_t, len, SZ_4K);
 	if (copy_to_user(buff, buf, len)) {
 		kfree(buf);
 		return -EFAULT;
@@ -196,6 +201,11 @@ static int dsi_ctrl_debugfs_init(struct dsi_ctrl *dsi_ctrl,
 	int rc = 0;
 	struct dentry *dir, *state_file, *reg_dump;
 	char dbg_name[DSI_DEBUG_NAME_LEN];
+
+	if (!dsi_ctrl || !parent) {
+		pr_err("Invalid params\n");
+		return -EINVAL;
+	}
 
 	dir = debugfs_create_dir(dsi_ctrl->name, parent);
 	if (IS_ERR_OR_NULL(dir)) {
@@ -248,6 +258,17 @@ static int dsi_ctrl_debugfs_deinit(struct dsi_ctrl *dsi_ctrl)
 	debugfs_remove(dsi_ctrl->debugfs_root);
 	return 0;
 }
+#else
+static int dsi_ctrl_debugfs_init(struct dsi_ctrl *dsi_ctrl,
+					struct dentry *parent)
+{
+	return 0;
+}
+static int dsi_ctrl_debugfs_deinit(struct dsi_ctrl *dsi_ctrl)
+{
+	return 0;
+}
+#endif /* CONFIG_DEBUG_FS */
 
 static inline struct msm_gem_address_space*
 dsi_ctrl_get_aspace(struct dsi_ctrl *dsi_ctrl,
@@ -475,6 +496,7 @@ static int dsi_ctrl_init_regmap(struct platform_device *pdev,
 		break;
 	case DSI_CTRL_VERSION_2_2:
 	case DSI_CTRL_VERSION_2_3:
+	case DSI_CTRL_VERSION_2_4:
 		ptr = msm_ioremap(pdev, "disp_cc_base", ctrl->name);
 		if (IS_ERR(ptr)) {
 			pr_err("disp_cc base address not found for [%s]\n",
@@ -577,6 +599,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 	if (IS_ERR(hs_link->byte_clk)) {
 		rc = PTR_ERR(hs_link->byte_clk);
 		pr_err("failed to get byte_clk, rc=%d\n", rc);
+		hs_link->byte_clk = NULL;
 		goto fail;
 	}
 
@@ -584,6 +607,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 	if (IS_ERR(hs_link->pixel_clk)) {
 		rc = PTR_ERR(hs_link->pixel_clk);
 		pr_err("failed to get pixel_clk, rc=%d\n", rc);
+		hs_link->pixel_clk = NULL;
 		goto fail;
 	}
 
@@ -591,6 +615,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 	if (IS_ERR(lp_link->esc_clk)) {
 		rc = PTR_ERR(lp_link->esc_clk);
 		pr_err("failed to get esc_clk, rc=%d\n", rc);
+		lp_link->esc_clk = NULL;
 		goto fail;
 	}
 
@@ -604,6 +629,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 	if (IS_ERR(rcg->byte_clk)) {
 		rc = PTR_ERR(rcg->byte_clk);
 		pr_err("failed to get byte_clk_rcg, rc=%d\n", rc);
+		rcg->byte_clk = NULL;
 		goto fail;
 	}
 
@@ -611,6 +637,7 @@ static int dsi_ctrl_clocks_init(struct platform_device *pdev,
 	if (IS_ERR(rcg->pixel_clk)) {
 		rc = PTR_ERR(rcg->pixel_clk);
 		pr_err("failed to get pixel_clk_rcg, rc=%d\n", rc);
+		rcg->pixel_clk = NULL;
 		goto fail;
 	}
 
@@ -818,12 +845,13 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	int rc = 0;
 	u32 num_of_lanes = 0;
 	u32 bpp;
-	u32 refresh_rate = TICKS_IN_MICRO_SECOND;
+	u64 refresh_rate = TICKS_IN_MICRO_SECOND;
 	u64 h_period, v_period, bit_rate, pclk_rate, bit_rate_per_lane,
-	    byte_clk_rate;
+				byte_clk_rate, byte_intf_clk_rate;
 	struct dsi_host_common_cfg *host_cfg = &config->common_config;
 	struct dsi_split_link_config *split_link = &host_cfg->split_link;
 	struct dsi_mode_info *timing = &config->video_timing;
+	u32 bits_per_symbol = 16, num_of_symbols = 7; /* For Cphy */
 
 	/* Get bits per pxl in desitnation format */
 	bpp = dsi_ctrl_pixel_format_to_bpp(host_cfg->dst_format);
@@ -843,6 +871,7 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 	if (config->bit_clk_rate_hz_override == 0) {
 		if (config->panel_mode == DSI_OP_CMD_MODE) {
 			h_period = DSI_H_ACTIVE_DSC(timing);
+			h_period += timing->overlap_pixels;
 			v_period = timing->v_active;
 
 			do_div(refresh_rate, timing->mdp_transfer_time_us);
@@ -854,23 +883,43 @@ static int dsi_ctrl_update_link_freqs(struct dsi_ctrl *dsi_ctrl,
 		bit_rate = h_period * v_period * refresh_rate * bpp;
 	} else {
 		bit_rate = config->bit_clk_rate_hz_override * num_of_lanes;
+		if (host_cfg->phy_type == DSI_PHY_TYPE_CPHY) {
+			bit_rate *= bits_per_symbol;
+			do_div(bit_rate, num_of_symbols);
+		}
 	}
 
-	bit_rate_per_lane = bit_rate;
-	do_div(bit_rate_per_lane, num_of_lanes);
 	pclk_rate = bit_rate;
 	do_div(pclk_rate, bpp);
-	byte_clk_rate = bit_rate_per_lane;
-	do_div(byte_clk_rate, 8);
+	if (host_cfg->phy_type == DSI_PHY_TYPE_DPHY) {
+		bit_rate_per_lane = bit_rate;
+		do_div(bit_rate_per_lane, num_of_lanes);
+		byte_clk_rate = bit_rate_per_lane;
+		do_div(byte_clk_rate, 8);
+		byte_intf_clk_rate = byte_clk_rate;
+		do_div(byte_intf_clk_rate, 2);
+		config->bit_clk_rate_hz = byte_clk_rate * 8;
+	} else {
+		do_div(bit_rate, bits_per_symbol);
+		bit_rate *= num_of_symbols;
+		bit_rate_per_lane = bit_rate;
+		do_div(bit_rate_per_lane, num_of_lanes);
+		byte_clk_rate = bit_rate_per_lane;
+		do_div(byte_clk_rate, 7);
+		/* For CPHY, byte_intf_clk is same as byte_clk */
+		byte_intf_clk_rate = byte_clk_rate;
+		config->bit_clk_rate_hz = byte_clk_rate * 7;
+	}
 	pr_debug("bit_clk_rate = %llu, bit_clk_rate_per_lane = %llu\n",
 		 bit_rate, bit_rate_per_lane);
-	pr_debug("byte_clk_rate = %llu, pclk_rate = %llu\n",
-		  byte_clk_rate, pclk_rate);
+	pr_debug("byte_clk_rate = %llu, byte_intf_clk_rate = %llu\n",
+		  byte_clk_rate, byte_intf_clk_rate);
+	pr_debug("pclk_rate = %llu\n", pclk_rate);
 
 	dsi_ctrl->clk_freq.byte_clk_rate = byte_clk_rate;
+	dsi_ctrl->clk_freq.byte_intf_clk_rate = byte_intf_clk_rate;
 	dsi_ctrl->clk_freq.pix_clk_rate = pclk_rate;
 	dsi_ctrl->clk_freq.esc_clk_rate = config->esc_clk_rate_hz;
-	config->bit_clk_rate_hz = dsi_ctrl->clk_freq.byte_clk_rate * 8;
 
 	rc = dsi_clk_set_link_frequencies(clk_handle, dsi_ctrl->clk_freq,
 					dsi_ctrl->cell_index);
@@ -1396,14 +1445,16 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 			  const struct mipi_dsi_msg *msg,
 			  u32 flags)
 {
-	int rc = 0;
+	int rc = 0, i = 0;
 	u32 rd_pkt_size, total_read_len, hw_read_cnt;
 	u32 current_read_len = 0, total_bytes_read = 0;
 	bool short_resp = false;
 	bool read_done = false;
 	u32 dlen, diff, rlen;
-	unsigned char *buff;
+	unsigned char *buff = NULL;
 	char cmd;
+	u32 buffer_sz = 0, header_offset = 0;
+	u8 *head = NULL;
 
 	if (!msg) {
 		pr_err("Invalid msg\n");
@@ -1416,6 +1467,13 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 		short_resp = true;
 		rd_pkt_size = msg->rx_len;
 		total_read_len = 4;
+
+		/*
+		 * buffer size: header + data
+		 * No 32 bits alignment issue, thus offset is 0
+		 */
+		buffer_sz = 4;
+
 	} else {
 		short_resp = false;
 		current_read_len = 10;
@@ -1425,8 +1483,30 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 			rd_pkt_size = current_read_len;
 
 		total_read_len = current_read_len + 6;
+		/*
+		 * buffer size: header + data + footer, rounded up to 4 bytes
+		 * Out of bound can occurs is rx_len is not aligned to size 4.
+		 * We are reading 32 bits registers, and converting
+		 * the data to CPU endianness, thus inserting garbage data
+		 * at the beginning of buffer.
+		 */
+		buffer_sz = (((4 + msg->rx_len + 2) + 3) >> 2) << 2;
+		if (buffer_sz < 16)
+			buffer_sz = 16;
 	}
-	buff = msg->rx_buf;
+
+	pr_debug("short_resp %d, msg->rx_len %d, rd_pkt_size %u\n",
+			short_resp, (int)msg->rx_len, rd_pkt_size);
+
+	pr_debug("total_read_len %u, buffer_sz %u\n",
+			total_read_len, buffer_sz);
+
+	buff = kzalloc(buffer_sz, GFP_KERNEL);
+	if (!buff) {
+		rc = -ENOMEM;
+		goto error;
+	}
+	head = buff;
 
 	while (!read_done) {
 		rc = dsi_set_max_return_size(dsi_ctrl, msg, rd_pkt_size);
@@ -1483,13 +1563,21 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 		}
 	}
 
+	buff = head;
+	pr_debug("==data from hw==\n");
+	for (i = 0; i < buffer_sz; i++)
+		pr_debug("buffer[%d] = %02x\n", i, buff[i]);
+
 	if (hw_read_cnt < 16 && !short_resp)
-		buff = msg->rx_buf + (16 - hw_read_cnt);
+		header_offset = (16 - hw_read_cnt);
 	else
-		buff = msg->rx_buf;
+		header_offset = 0;
+
+	pr_debug("hw_read_cnt %d, header_offset %d\n",
+			hw_read_cnt, header_offset);
 
 	/* parse the data read from panel */
-	cmd = buff[0];
+	cmd = buff[header_offset];
 	switch (cmd) {
 	case MIPI_DSI_RX_ACKNOWLEDGE_AND_ERROR_REPORT:
 		pr_err("Rx ACK_ERROR 0x%x\n", cmd);
@@ -1497,22 +1585,30 @@ static int dsi_message_rx(struct dsi_ctrl *dsi_ctrl,
 		break;
 	case MIPI_DSI_RX_GENERIC_SHORT_READ_RESPONSE_1BYTE:
 	case MIPI_DSI_RX_DCS_SHORT_READ_RESPONSE_1BYTE:
-		rc = dsi_parse_short_read1_resp(msg, buff);
+		pr_debug("short 1 byte read response\n");
+		rc = dsi_parse_short_read1_resp(msg, &buff[header_offset]);
 		break;
 	case MIPI_DSI_RX_GENERIC_SHORT_READ_RESPONSE_2BYTE:
 	case MIPI_DSI_RX_DCS_SHORT_READ_RESPONSE_2BYTE:
-		rc = dsi_parse_short_read2_resp(msg, buff);
+		pr_debug("short 2 byte read response\n");
+		rc = dsi_parse_short_read2_resp(msg, &buff[header_offset]);
 		break;
 	case MIPI_DSI_RX_GENERIC_LONG_READ_RESPONSE:
 	case MIPI_DSI_RX_DCS_LONG_READ_RESPONSE:
-		rc = dsi_parse_long_read_resp(msg, buff);
+		pr_debug("long read response\n");
+		rc = dsi_parse_long_read_resp(msg, &buff[header_offset]);
 		break;
 	default:
 		pr_warn("Invalid response: 0x%x\n", cmd);
 		rc = 0;
 	}
 
+	pr_debug("==data to client==\n");
+	for (i = 0; i < msg->rx_len; i++)
+		pr_debug("rx_buf[%d] = %02x\n", i, ((u8 *)msg->rx_buf)[i]);
+
 error:
+	kfree(buff);
 	return rc;
 }
 
@@ -1974,7 +2070,7 @@ int dsi_ctrl_drv_init(struct dsi_ctrl *dsi_ctrl, struct dentry *parent)
 {
 	int rc = 0;
 
-	if (!dsi_ctrl || !parent) {
+	if (!dsi_ctrl) {
 		pr_err("Invalid params\n");
 		return -EINVAL;
 	}
@@ -2301,7 +2397,10 @@ static bool dsi_ctrl_check_for_spurious_error_interrupts(
 
 	if ((jiffies_now - dsi_ctrl->jiffies_start) < intr_check_interval) {
 		if (dsi_ctrl->error_interrupt_count > interrupt_threshold) {
-			pr_warn("Detected spurious interrupts on dsi ctrl\n");
+			//pr_warn("Detected spurious interrupts on dsi ctrl\n");
+			 SDE_EVT32_IRQ(dsi_ctrl->cell_index,
+						dsi_ctrl->error_interrupt_count,
+						interrupt_threshold);
 			return true;
 		}
 	} else {
@@ -2583,8 +2682,7 @@ void dsi_ctrl_disable_status_interrupt(struct dsi_ctrl *dsi_ctrl,
 {
 	unsigned long flags;
 
-	if (!dsi_ctrl || dsi_ctrl->irq_info.irq_num == -1 ||
-			intr_idx >= DSI_STATUS_INTERRUPT_COUNT)
+	if (!dsi_ctrl || intr_idx >= DSI_STATUS_INTERRUPT_COUNT)
 		return;
 
 	spin_lock_irqsave(&dsi_ctrl->irq_info.irq_lock, flags);
@@ -2596,8 +2694,9 @@ void dsi_ctrl_disable_status_interrupt(struct dsi_ctrl *dsi_ctrl,
 					dsi_ctrl->irq_info.irq_stat_mask);
 
 			/* don't need irq if no lines are enabled */
-			if (dsi_ctrl->irq_info.irq_stat_mask == 0)
+			 if (dsi_ctrl->irq_info.irq_stat_mask == 0 && dsi_ctrl->irq_info.irq_num != -1) {
 				disable_irq_nosync(dsi_ctrl->irq_info.irq_num);
+			 }
 		}
 
 	spin_unlock_irqrestore(&dsi_ctrl->irq_info.irq_lock, flags);
@@ -2754,6 +2853,16 @@ void dsi_ctrl_isr_configure(struct dsi_ctrl *dsi_ctrl, bool enable)
 	else
 		_dsi_ctrl_destroy_isr(dsi_ctrl);
 
+	mutex_unlock(&dsi_ctrl->ctrl_lock);
+}
+
+void dsi_ctrl_hs_req_sel(struct dsi_ctrl *dsi_ctrl, bool sel_phy)
+{
+	if (!dsi_ctrl)
+		return;
+
+	mutex_lock(&dsi_ctrl->ctrl_lock);
+	dsi_ctrl->hw.ops.hs_req_sel(&dsi_ctrl->hw, sel_phy);
 	mutex_unlock(&dsi_ctrl->ctrl_lock);
 }
 
@@ -2919,10 +3028,12 @@ int dsi_ctrl_update_host_config(struct dsi_ctrl *ctrl,
 
 	pr_debug("[DSI_%d]Host config updated\n", ctrl->cell_index);
 	memcpy(&ctrl->host_config, config, sizeof(ctrl->host_config));
-	ctrl->mode_bounds.x = ctrl->host_config.video_timing.h_active *
-			ctrl->horiz_index;
+	ctrl->mode_bounds.x = (ctrl->host_config.video_timing.h_active +
+			ctrl->host_config.video_timing.overlap_pixels) *
+						 ctrl->horiz_index;
 	ctrl->mode_bounds.y = 0;
-	ctrl->mode_bounds.w = ctrl->host_config.video_timing.h_active;
+	ctrl->mode_bounds.w = ctrl->host_config.video_timing.h_active +
+				ctrl->host_config.video_timing.overlap_pixels;
 	ctrl->mode_bounds.h = ctrl->host_config.video_timing.v_active;
 	memcpy(&ctrl->roi, &ctrl->mode_bounds, sizeof(ctrl->mode_bounds));
 	ctrl->modeupdated = true;

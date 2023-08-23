@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,15 +34,15 @@
 			<0x02000000 0x0 0x40300000 0x40300000 0x0 0x3fd00000>;
 		interrupt-parent = <&pcie0>;
 		interrupts = <0 1 2 3 4>;
-		interrupt-names = "int_a", "int_b", "int_c", "int_d",
-				"int_global_int";
+		interrupt-names = "int_global_int", "int_a", "int_b", "int_c",
+				"int_d";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0xffffffff>;
-		interrupt-map = <0 0 0 0 &intc 0 141 0
-				0 0 0 1 &intc 0 142 0
-				0 0 0 2 &intc 0 143 0
-				0 0 0 3 &intc 0 144 0
-				0 0 0 4 &intc 0 140 0>;
+		interrupt-map = <0 0 0 0 &intc 0 140 0
+				0 0 0 1 &intc 0 141 0
+				0 0 0 2 &intc 0 142 0
+				0 0 0 3 &intc 0 143 0
+				0 0 0 4 &intc 0 144 0>;
 
 		qcom,phy-sequence = <0x1240 0x03 0x0
 				0x1010 0x00 0x0
@@ -160,8 +160,11 @@
 				0x1200 0x00 0x0
 				0x1244 0x03 0x0>;
 
-		pinctrl-names = "default";
+		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pcie0_clkreq_default
+			&pcie0_perst_default
+			&pcie0_wake_default>;
+		pinctrl-1 = <&pcie0_clkreq_sleep
 			&pcie0_perst_default
 			&pcie0_wake_default>;
 
@@ -180,7 +183,12 @@
 
 		msi-parent = <&pcie0_msi>;
 
+		qcom,target-link-speed = <0x3>;
+
 		qcom,no-l0s-supported;
+
+		qcom,l1-2-th-scale = <2>; /* 1us */
+		qcom,l1-2-th-value = <70>;
 
 		qcom,ep-latency = <10>;
 
@@ -198,7 +206,12 @@
 
 		qcom,smmu-sid-base = <0x0200>;
 		iommu-map = <0x0 &apps_smmu 0x0200 0x1>,
-			<0x100 &apps_smmu 0x0201 0x1>;
+			<0x100 &apps_smmu 0x0201 0x1>,
+			<0x200 &apps_smmu 0x0202 0x1>,
+			<0x300 &apps_smmu 0x0203 0x1>,
+			<0x400 &apps_smmu 0x0204 0x1>,
+			<0x208 &apps_smmu 0x0205 0x1>,
+			<0x210 &apps_smmu 0x0206 0x1>;
 
 		qcom,msm-bus,name = "pcie0";
 		qcom,msm-bus,num-cases = <2>;
@@ -236,6 +249,27 @@
 		pcie0_rp: pcie0_rp {
 			reg = <0 0 0 0 0>;
 			pci-ids = "17cb:010c";
+
+			/* BDF 1.0.0 */
+			pcie0_bus1_dev0_fn0: pcie0_bus1_dev0_fn0 {
+				reg = <0 0 0 0 0>;
+				pci-ids = "12d8:b304";
+				errata = <0>;
+
+				/* BDF 2.1.0 */
+				pcie0_bus2_dev1_fn0: pcie0_bus2_dev1_fn0 {
+					reg = <0x800 0 0 0 0>;
+					pci-ids = "12d8:b304";
+					errata = <1>;
+				};
+
+				/* BDF 2.2.0 */
+				pcie0_bus2_dev2_fn0: pcie0_bus2_dev2_fn0 {
+					reg = <0x1000 0 0 0 0>;
+					pci-ids = "12d8:b304";
+					errata = <2>;
+				};
+			};
 		};
 	};
 
@@ -244,7 +278,8 @@
 		msi-controller;
 		reg = <0xa0000000 0x0>;
 		interrupt-parent = <&intc>;
-		interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 		qcom,snps;
 	};
 };

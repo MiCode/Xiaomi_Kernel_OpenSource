@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation.All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation.All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,6 @@
 #include "dsi_phy.h"
 #include "dsi_panel.h"
 
-#define MAX_DSI_CTRLS_PER_DISPLAY             2
 #define DSI_CLIENT_NAME_SIZE		20
 #define MAX_CMDLINE_PARAM_LEN	 512
 #define MAX_CMD_PAYLOAD_SIZE	256
@@ -115,12 +114,17 @@ struct dsi_display_boot_param {
  * struct dsi_display_clk_info - dsi display clock source information
  * @src_clks:          Source clocks for DSI display.
  * @mux_clks:          Mux clocks used for DFPS.
- * @shadow_clks:       Used for DFPS.
+ * @shadow_clks:       Used for D-phy clock switch
+ * @shadow_cphy_clks:  Used for C-phy clock switch
+ * @xo_clks:           XO clocks for DSI display
  */
 struct dsi_display_clk_info {
 	struct dsi_clk_link_set src_clks;
 	struct dsi_clk_link_set mux_clks;
+	struct dsi_clk_link_set cphy_clks;
 	struct dsi_clk_link_set shadow_clks;
+	struct dsi_clk_link_set shadow_cphy_clks;
+	struct dsi_clk_link_set xo_clks;
 };
 
 /**
@@ -147,6 +151,7 @@ struct dsi_display_ext_bridge {
  * @ext_conn:         Pointer to external connector attached to DSI connector
  * @name:             Name of the display.
  * @display_type:     Display type as defined in device tree.
+ * @dsi_type:         Display label as defined in device tree.
  * @list:             List pointer.
  * @is_active:        Is display active.
  * @is_cont_splash_enabled:  Is continuous splash enabled
@@ -160,7 +165,6 @@ struct dsi_display_ext_bridge {
  * @panel:            Handle to DSI panel.
  * @panel_of:         pHandle to DSI panel.
  * @ext_bridge:       External bridge information for DSI display.
- * @ext_bridge_cnt:   Number of external bridges
  * @modes:            Array of probed DSI modes
  * @type:             DSI display type.
  * @clk_master_idx:   The master controller for controlling clocks. This is an
@@ -175,6 +179,7 @@ struct dsi_display_ext_bridge {
  * @cmdline_topology: Display topology shared from kernel command line.
  * @cmdline_timing:   Display timing shared from kernel command line.
  * @is_tpg_enabled:   TPG state.
+ * @poms_pending;      Flag indicating the pending panel operating mode switch.
  * @ulps_enabled:     ulps state.
  * @clamp_enabled:    clamp state.
  * @phy_idle_power_off:   PHY power state.
@@ -197,7 +202,9 @@ struct dsi_display {
 	struct drm_connector *ext_conn;
 
 	const char *name;
+	bool is_prim_display;
 	const char *display_type;
+	const char *dsi_type;
 	struct list_head list;
 	bool is_cont_splash_enabled;
 	bool sw_te_using_wd;
@@ -216,8 +223,7 @@ struct dsi_display {
 	struct device_node *parser_node;
 
 	/* external bridge */
-	struct dsi_display_ext_bridge ext_bridge[MAX_DSI_CTRLS_PER_DISPLAY];
-	u32 ext_bridge_cnt;
+	struct dsi_display_ext_bridge ext_bridge[MAX_EXT_BRIDGE_PORT_CONFIG];
 
 	struct dsi_display_mode *modes;
 
@@ -236,6 +242,7 @@ struct dsi_display {
 	int cmdline_topology;
 	int cmdline_timing;
 	bool is_tpg_enabled;
+	bool poms_pending;
 	bool ulps_enabled;
 	bool clamp_enabled;
 	bool phy_idle_power_off;
@@ -368,7 +375,7 @@ int dsi_display_get_mode_count(struct dsi_display *display, u32 *count);
  * dsi_display_get_modes() - get modes supported by display
  * @display:            Handle to display.
  * @modes;              Output param, list of DSI modes. Number of modes matches
- *                      count returned by dsi_display_get_mode_count
+ *                      count got from display->panel->num_display_modes;
  *
  * Return: error code.
  */
@@ -608,6 +615,10 @@ void dsi_display_enable_event(struct drm_connector *connector,
 int dsi_display_set_backlight(struct drm_connector *connector,
 		void *display, u32 bl_lvl);
 
+int dsi_panel_set_doze_backlight(struct dsi_display *display);
+
+ssize_t dsi_panel_get_doze_backlight(struct dsi_display *display, char *buf);
+
 /**
  * dsi_display_check_status() - check if panel is dead or alive
  * @connector:          Pointer to drm connector structure
@@ -669,6 +680,27 @@ int dsi_display_set_power(struct drm_connector *connector,
 int dsi_display_pre_kickoff(struct drm_connector *connector,
 		struct dsi_display *display,
 		struct msm_display_kickoff_params *params);
+/*
+ * dsi_display_pre_commit - program pre commit features
+ * @display: Pointer to private display structure
+ * @params: Parameters for pre commit time programming
+ * Returns: Zero on success
+ */
+int dsi_display_pre_commit(void *display,
+		struct msm_display_conn_params *params);
+
+/**
+ * wp_info_show() - Print white point infomation
+ * @device:         Pointer to device
+ * @attr:           Pointer to device attribute
+ * @buf:            The buffer stored white point infomation
+ *
+ * Return: Type ssize_t
+ */
+ssize_t wp_info_show(struct device *device,
+		struct device_attribute *attr,
+		char *buf);
+
 /**
  * dsi_display_get_dst_format() - get dst_format from DSI display
  * @connector:        Pointer to drm connector structure
@@ -696,5 +728,12 @@ int dsi_display_cont_splash_config(void *display);
  */
 int dsi_display_get_panel_vfp(void *display,
 	int h_active, int v_active);
+
+struct dsi_display *get_primary_display(void);
+
+int dsi_display_cmd_engine_enable(struct dsi_display *display);
+int dsi_display_cmd_engine_disable(struct dsi_display *display);
+int dsi_host_alloc_cmd_tx_buffer(struct dsi_display *display);
+
 
 #endif /* _DSI_DISPLAY_H_ */

@@ -1751,7 +1751,7 @@ static struct clk_branch gcc_boot_rom_ahb_clk = {
 
 static struct clk_branch gcc_camera_ahb_clk = {
 	.halt_reg = 0x17008,
-	.halt_check = BRANCH_HALT,
+	.halt_check = BRANCH_HALT_DELAY,
 	.hwcg_reg = 0x17008,
 	.hwcg_bit = 1,
 	.clkr = {
@@ -2874,7 +2874,7 @@ static struct clk_branch gcc_disp_gpll0_div_clk_src = {
 		.hw.init = &(struct clk_init_data){
 			.name = "gcc_disp_gpll0_div_clk_src",
 			.parent_names = (const char *[]){
-				"gpll0_out_main",
+				"gpll0_out_early",
 			},
 			.num_parents = 1,
 			.ops = &clk_branch2_ops,

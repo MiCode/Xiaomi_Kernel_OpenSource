@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,17 @@
 #define TSENS_MAX_SENSORS			16
 #define TSENS_NUM_SENSORS_8937		11
 #define TSENS_NUM_SENSORS_405		10
+#define TSENS_NUM_SENSORS_9607		5
+#define TSENS_SROT_OFFSET_8937		0x4
+#define TSENS_SROT_OFFSET_405		0x4
+#define TSENS_SROT_OFFSET_9607		0x0
+#define TSENS_SN_STATUS_ADDR_8937	0x44
+#define TSENS_TRDY_ADDR_8937		0x84
+#define TSENS_SN_STATUS_ADDR_405	0x44
+#define TSENS_TRDY_ADDR_405		0x84
+#define TSENS_SN_STATUS_ADDR_9607	0x30
+#define TSENS_TRDY_ADDR_9607		0x5c
+
 #define TSENS_CONTROLLER_ID(n)			(n)
 #define TSENS_CTRL_ADDR(n)			(n)
 #define TSENS_TM_SN_STATUS(n)			((n) + 0xa0)
@@ -93,11 +104,11 @@ struct tsens_device;
 		}	\
 	} while (0)
 #else
-#define	TSENS_DBG1(x...)		pr_debug(x)
-#define	TSENS_DBG(x...)		pr_debug(x)
-#define	TSENS_INFO(x...)		pr_info(x)
-#define	TSENS_ERR(x...)		pr_err(x)
-#define	TSENS_DUMP(x...)		pr_info(x)
+#define	TSENS_DBG1(dev, msg, x...)		pr_debug(msg, ##x)
+#define	TSENS_DBG(dev, msg, x...)		pr_debug(msg, ##x)
+#define	TSENS_INFO(dev, msg, x...)		pr_info(msg, ##x)
+#define	TSENS_ERR(dev, msg, x...)		pr_err(msg, ##x)
+#define	TSENS_DUMP(dev, msg, x...)		pr_info(msg, ##x)
 #endif
 
 #if defined(CONFIG_THERMAL_TSENS)
@@ -184,6 +195,9 @@ struct tsens_data {
 	bool				valid_status_check;
 	u32				ver_major;
 	u32				ver_minor;
+	const u32			tsens_srot_offset;
+	const u32			tsens_sn_offset;
+	const u32			tsens_trdy_offset;
 };
 
 struct tsens_mtc_sysfs {
@@ -214,14 +228,20 @@ struct tsens_device {
 	const struct tsens_data		*ctrl_data;
 	struct tsens_mtc_sysfs  mtcsys;
 	int				trdy_fail_ctr;
+	struct workqueue_struct		*tsens_reinit_work;
+	struct work_struct		therm_fwk_notify;
+	bool				tsens_reinit_wa;
+	int				tsens_reinit_cnt;
 	struct tsens_sensor		sensor[0];
 };
 
 extern const struct tsens_data data_tsens2xxx, data_tsens23xx, data_tsens24xx;
-extern const struct tsens_data data_tsens14xx, data_tsens14xx_405;
+extern const struct tsens_data data_tsens14xx, data_tsens14xx_405,
+						data_tsens14xx_9607;
 extern struct list_head tsens_device_list;
 
 extern int calibrate_8937(struct tsens_device *tmdev);
 extern int calibrate_405(struct tsens_device *tmdev);
+extern int calibrate_9607(struct tsens_device *tmdev);
 
 #endif /* __QCOM_TSENS_H__ */

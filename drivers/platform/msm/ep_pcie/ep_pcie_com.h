@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,8 +35,11 @@
 #define PCIE20_PARF_TEST_BUS           0xE4
 #define PCIE20_PARF_MHI_BASE_ADDR_LOWER 0x178
 #define PCIE20_PARF_MHI_BASE_ADDR_UPPER 0x17c
+#define PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER	0x180
+#define PCIE20_PARF_L1SUB_AHB_CLK_MAX_TIMER_RESET_MASK	0x8000000
 #define PCIE20_PARF_MSI_GEN             0x188
 #define PCIE20_PARF_DEBUG_INT_EN        0x190
+#define PCIE20_PARF_DEBUG_INT_EN_L1SUB_TIMEOUT_BIT_MASK	BIT(0)
 #define PCIE20_PARF_MHI_IPA_DBS                0x198
 #define PCIE20_PARF_MHI_IPA_CDB_TARGET_LOWER   0x19C
 #define PCIE20_PARF_MHI_IPA_EDB_TARGET_LOWER   0x1A0
@@ -49,13 +52,30 @@
 #define PCIE20_PARF_INT_ALL_STATUS     0x224
 #define PCIE20_PARF_INT_ALL_CLEAR      0x228
 #define PCIE20_PARF_INT_ALL_MASK       0x22C
+
+#define PCIE20_PARF_CLKREQ_OVERRIDE	0x2B0
+#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_STS	BIT(5)
+#define PCIE20_PARF_CLKREQ_OE_OVERRIDE_STS	BIT(4)
+#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_VAL	BIT(3)
+#define PCIE20_PARF_CLKREQ_OE_OVERRIDE_VAL	BIT(2)
+#define PCIE20_PARF_CLKREQ_IN_OVERRIDE_ENABLE	BIT(1)
+#define PCIE20_PARF_CLKREQ_OE_OVERRIDE_ENABLE	BIT(0)
+
 #define PCIE20_PARF_SLV_ADDR_MSB_CTRL  0x2C0
 #define PCIE20_PARF_DBI_BASE_ADDR      0x350
 #define PCIE20_PARF_DBI_BASE_ADDR_HI   0x354
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE        0x358
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE_HI     0x35C
+
+#define PCIE20_PARF_L1SS_SLEEP_MODE_HANDLER_STATUS	0x4D0
+#define PCIE20_PARF_L1SS_SLEEP_MHI_FWD_DISABLE		BIT(5)
+#define PCIE20_PARF_L1SS_SLEEP_MHI_FWD_ENABLE		BIT(4)
+
+#define PCIE20_PARF_L1SS_SLEEP_MODE_HANDLER_CONFIG	0x4D4
+
 #define PCIE20_PARF_ATU_BASE_ADDR      0x634
 #define PCIE20_PARF_ATU_BASE_ADDR_HI   0x638
+#define PCIE20_PARF_SRIS_MODE		0x644
 #define PCIE20_PARF_BUS_DISCONNECT_CTRL          0x648
 #define PCIE20_PARF_BUS_DISCONNECT_STATUS        0x64c
 #define PCIE20_PARF_BDF_TO_SID_CFG		0x2c00
@@ -96,6 +116,7 @@
 #define PCIE20_LINK_CONTROL2_LINK_STATUS2 0xA0
 #define PCIE20_L1SUB_CAPABILITY        0x154
 #define PCIE20_L1SUB_CONTROL1          0x158
+#define PCIE20_BUS_DISCONNECT_STATUS   0x68c
 #define PCIE20_ACK_F_ASPM_CTRL_REG     0x70C
 #define PCIE20_MASK_ACK_N_FTS          0xff00
 #define PCIE20_MISC_CONTROL_1          0x8BC
@@ -137,6 +158,7 @@
 #define PCIE20_BHI_INTVEC		0x220
 
 #define PCIE20_AUX_CLK_FREQ_REG        0xB40
+#define PCIE20_GEN3_RELATED_OFF		0x890
 
 #define PERST_TIMEOUT_US_MIN	              1000
 #define PERST_TIMEOUT_US_MAX	              1000
@@ -146,7 +168,7 @@
 #define LINK_UP_CHECK_MAX_COUNT		      30000
 #define BME_TIMEOUT_US_MIN	              1000
 #define BME_TIMEOUT_US_MAX	              1000
-#define BME_CHECK_MAX_COUNT		      30000
+#define BME_CHECK_MAX_COUNT		      100000
 #define PHY_STABILIZATION_DELAY_US_MIN	      1000
 #define PHY_STABILIZATION_DELAY_US_MAX	      1000
 #define REFCLK_STABILIZATION_DELAY_US_MIN     1000
@@ -344,10 +366,15 @@ struct ep_pcie_dev_t {
 	bool                         aggregated_irq;
 	bool                         mhi_a7_irq;
 	bool                         pcie_edma;
+	bool                         tcsr_not_supported;
+	bool			     m2_autonomous;
+	bool			     mhi_soc_reset_en;
 	u32                          dbi_base_reg;
 	u32                          slv_space_reg;
 	u32                          phy_status_reg;
+	u32			phy_status_bit_mask_bit;
 	u32                          phy_init_len;
+	u32			     mhi_soc_reset_offset;
 	struct ep_pcie_phy_info_t    *phy_init;
 	bool                         perst_enum;
 
@@ -379,7 +406,6 @@ struct ep_pcie_dev_t {
 	bool                         config_mmio_init;
 	bool                         enumerated;
 	enum ep_pcie_link_status     link_status;
-	bool                         perst_deast;
 	bool                         power_on;
 	bool                         suspending;
 	bool                         l23_ready;
@@ -387,6 +413,8 @@ struct ep_pcie_dev_t {
 	struct ep_pcie_msi_config    msi_cfg;
 	bool                         no_notify;
 	bool                         client_ready;
+	atomic_t		     ep_pcie_dev_wake;
+	atomic_t                     perst_deast;
 
 	struct ep_pcie_register_event *event_reg;
 	struct work_struct	     handle_perst_work;
@@ -435,6 +463,5 @@ extern bool ep_pcie_phy_is_ready(struct ep_pcie_dev_t *dev);
 extern void ep_pcie_reg_dump(struct ep_pcie_dev_t *dev, u32 sel, bool linkdown);
 extern void ep_pcie_debugfs_init(struct ep_pcie_dev_t *ep_dev);
 extern void ep_pcie_debugfs_exit(void);
-extern int qcom_edma_init(struct device *dev);
 
 #endif

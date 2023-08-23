@@ -143,6 +143,8 @@ Optional properties:
 					0 = default value
 - qcom,mdss-dsi-v-bottom-border:	Vertical bottom border in pixel.
 					0 = default value
+- qcom,mdss-dsi-overlap-pixels:		Horizontal overlap pixels for certain panels.
+					0 = default value
 - qcom,mdss-dsi-underflow-color:	Specifies the controller settings for the
 					panel under flow color.
 					0xff = default value.
@@ -251,6 +253,7 @@ Optional properties:
 - qcom,mdss-dsi-color-order:		Specifies the R, G and B channel ordering.
 					"rgb_swap_rgb" = DSI_RGB_SWAP_RGB (default value)
 					"rgb_swap_rbg" = DSI_RGB_SWAP_RBG
+					"rgb_swap_bgr" = DSI_RGB_SWAP_BGR
 					"rgb_swap_brg" = DSI_RGB_SWAP_BRG
 					"rgb_swap_grb" = DSI_RGB_SWAP_GRB
 					"rgb_swap_gbr" = DSI_RGB_SWAP_GBR
@@ -262,6 +265,8 @@ Optional properties:
 					0x00 = default value.
 - qcom,mdss-dsi-t-clk-pre:		Specifies the byte clock cycles before mode switch.
 					0x00 = default value.
+- qcom,mdss-dsi-t-clk-pre-extend:	Boolean that specifies whether to enable t_clk_pre counter
+					increment by 2 byteclk.
 - qcom,mdss-dsi-stream:			Specifies the packet stream to be used.
 					0 = stream 0 (default)
 					1 = stream 1
@@ -495,6 +500,7 @@ Optional properties:
 - qcom,panel-ack-disabled: A boolean property to indicate, whether we need to wait for any ACK from the panel
 			   for any commands that we send.
 - qcom,mdss-dsi-force-clock-lane-hs:	Boolean to force dsi clock lanes to HS mode always.
+- qcom,panel-cphy-mode:			Boolean to specify whether panel is using cphy.
 
 - qcom,compression-mode:		Select compression mode for panel.
 					"fbc" - frame buffer compression
@@ -540,13 +546,17 @@ Optional properties:
 					to identify the default topology for the
 					display. The first set is indexed by the
 					value 0.
-- qcom,mdss-dsi-ext-bridge-mode:	External bridge chip is connected instead of panel.
+- qcom,mdss-dsi-ext-bridge:		Array of u32 values which specifies the external bridge chip reg number, it
+					should match the port config.
 - qcom,mdss-dsi-dma-schedule-line:	An integer value indicates the line number after vertical active
 					region, at which command DMA needs to be triggered.
 - qcom,dsi-dyn-clk-enable:		Boolean to indicate dsi dynamic clock switch feature
 					is supported.
 - qcom,dsi-dyn-clk-list:		An u32 array which lists all the supported dsi bit clock
 					frequencies in Hz for the given panel.
+- qcom,dsi-dyn-clk-skip-timing-update:	Boolean to specify whether to skip phy timing parameter
+					update during dynamic clock switch.
+- qcom,csi-proxy-enable:		Boolean to config DSI transmission packet DataTypes to simulate the CSI-2 compatible signal
 
 Required properties for sub-nodes:	None
 Optional properties:
@@ -652,6 +662,7 @@ Example:
 		qcom,lanes-per-sublink = <2>;
 		qcom,mdss-dsi-t-clk-post = <0x20>;
 		qcom,mdss-dsi-t-clk-pre = <0x2c>;
+		qcom,mdss-dsi-t-clk-pre-extend;
 		qcom,mdss-dsi-stream = <0>;
 		qcom,mdss-dsi-mdp-trigger = <0>;
 		qcom,mdss-dsi-dma-trigger = <0>;

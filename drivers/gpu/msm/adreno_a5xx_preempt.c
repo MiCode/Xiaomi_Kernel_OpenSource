@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2017,2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -567,21 +567,30 @@ static void a5xx_preemption_iommu_close(struct adreno_device *adreno_dev)
 }
 #endif
 
-static void a5xx_preemption_close(struct kgsl_device *device)
+static void _preemption_close(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_preemption *preempt = &adreno_dev->preempt;
 	struct adreno_ringbuffer *rb;
 	unsigned int i;
 
 	del_timer(&preempt->timer);
-	kgsl_free_global(device, &preempt->counters);
+	kgsl_free_global(device, &preempt->scratch);
 	a5xx_preemption_iommu_close(adreno_dev);
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 		kgsl_free_global(device, &rb->preemption_desc);
 	}
 }
+
+void a5xx_preemption_close(struct adreno_device *adreno_dev)
+{
+	if (!test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv))
+		return;
+
+	_preemption_close(adreno_dev);
+}
+
 
 int a5xx_preemption_init(struct adreno_device *adreno_dev)
 {
@@ -602,14 +611,14 @@ int a5xx_preemption_init(struct adreno_device *adreno_dev)
 		(unsigned long) adreno_dev);
 
 	/* Allocate mem for storing preemption counters */
-	ret = kgsl_allocate_global(device, &preempt->counters,
+	ret = kgsl_allocate_global(device, &preempt->scratch,
 		adreno_dev->num_ringbuffers *
 		A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE, 0, 0,
 		"preemption_counters");
 	if (ret)
 		goto err;
 
-	addr = preempt->counters.gpuaddr;
+	addr = preempt->scratch.gpuaddr;
 
 	/* Allocate mem for storing preemption switch record */
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
@@ -624,7 +633,7 @@ int a5xx_preemption_init(struct adreno_device *adreno_dev)
 
 err:
 	if (ret)
-		a5xx_preemption_close(device);
+		_preemption_close(adreno_dev);
 
 	return ret;
 }

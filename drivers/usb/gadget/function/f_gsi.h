@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,7 @@
 #include "configfs.h"
 
 #define GSI_RMNET_CTRL_NAME "rmnet_ctrl"
+#define GSI_RMNET_V2X_CTRL_NAME "rmnet_v2x_ctrl"
 #define GSI_MBIM_CTRL_NAME "android_mbim"
 #define GSI_DPL_CTRL_NAME "dpl_ctrl"
 #define ETHER_RMNET_CTRL_NAME "rmnet_ctrl0"
@@ -43,8 +44,7 @@
 #define GSI_MAX_CTRL_PKT_SIZE 8192
 #define GSI_CTRL_DTR (1 << 0)
 
-#define GSI_NUM_IN_RNDIS_BUFFERS 50
-#define GSI_NUM_IN_RMNET_BUFFERS 50
+#define GSI_NUM_IN_RNDIS_RMNET_ECM_BUFFERS 50
 #define GSI_NUM_IN_BUFFERS 15
 #define GSI_IN_BUFF_SIZE 2048
 #define GSI_IN_RMNET_BUFF_SIZE 31744
@@ -53,8 +53,9 @@
 #define GSI_OUT_AGGR_SIZE 24576
 
 #define GSI_IN_RNDIS_AGGR_SIZE 16384
-#define GSI_IN_MBIM_AGGR_SIZE 16384
+#define GSI_IN_MBIM_AGGR_SIZE 31744
 #define GSI_IN_RMNET_AGGR_SIZE 16384
+#define GSI_OUT_MBIM_AGGR_SIZE 16384
 #define GSI_ECM_AGGR_SIZE 2048
 
 #define GSI_OUT_MBIM_BUF_LEN 16384
@@ -77,6 +78,9 @@
 #define GSI_MBIM_DATA_EP_TYPE_HSUSB 0x2
 /* ID for Microsoft OS String */
 #define GSI_MBIM_OS_STRING_ID 0xEE
+
+static char compatible_id[256] = "ALTRCFG";
+static char sub_compatible_id[8];
 
 #define EVT_NONE			0
 #define EVT_UNINITIALIZED		1
@@ -129,6 +133,7 @@ enum usb_prot_id {
 	USB_PROT_RMNET_IPA,
 	USB_PROT_MBIM_IPA,
 	USB_PROT_DIAG_IPA,
+	USB_PROT_RMNET_V2X_IPA,
 
 	/* non-accelerated */
 	USB_PROT_RMNET_ETHER,
@@ -204,6 +209,7 @@ struct gsi_ctrl_port {
 	atomic_t ctrl_online;
 
 	bool is_open;
+	bool is_suspended;
 
 	wait_queue_head_t read_wq;
 
@@ -344,6 +350,8 @@ static int name_to_prot_id(const char *name)
 		return USB_PROT_DIAG_IPA;
 	if (!strncasecmp(name, "rmnet.ether", MAX_INST_NAME_LEN))
 		return USB_PROT_RMNET_ETHER;
+	if (!strncasecmp(name, "rmnet.v2x", MAX_INST_NAME_LEN))
+		return USB_PROT_RMNET_V2X_IPA;
 	if (!strncasecmp(name, "dpl.ether", MAX_INST_NAME_LEN))
 		return USB_PROT_DPL_ETHER;
 	if (!strncasecmp(name, "gps", MAX_INST_NAME_LEN))
@@ -366,8 +374,8 @@ static struct usb_interface_descriptor rmnet_gsi_interface_desc = {
 	.bDescriptorType =	USB_DT_INTERFACE,
 	.bNumEndpoints =	3,
 	.bInterfaceClass =	USB_CLASS_VENDOR_SPEC,
-	.bInterfaceSubClass =	USB_CLASS_VENDOR_SPEC,
-	.bInterfaceProtocol =	USB_CLASS_VENDOR_SPEC,
+	.bInterfaceSubClass =	USB_SUBCLASS_VENDOR_SPEC,
+	.bInterfaceProtocol =	0x50,
 	/* .iInterface = DYNAMIC */
 };
 
@@ -472,7 +480,7 @@ static struct usb_ss_ep_comp_descriptor rmnet_gsi_ss_in_comp_desc = {
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
 	/* the following 2 values can be tweaked if necessary */
-	.bMaxBurst =		2,
+	.bMaxBurst =		6,
 	/* .bmAttributes =	0, */
 };
 
@@ -727,7 +735,7 @@ static struct usb_ss_ep_comp_descriptor rndis_gsi_ss_bulk_comp_desc = {
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
 	/* the following 2 values can be tweaked if necessary */
-	.bMaxBurst =		2,
+	.bMaxBurst =		6,
 	/* .bmAttributes =	0, */
 };
 
@@ -771,7 +779,8 @@ static struct usb_gadget_strings *rndis_gsi_strings[] = {
 };
 
 /* mbim device descriptors */
-#define MBIM_NTB_DEFAULT_IN_SIZE	(0x4000)
+#define MBIM_NTB_DEFAULT_IN_SIZE	GSI_IN_MBIM_AGGR_SIZE
+#define MBIM_NTB_DEFAULT_OUT_SIZE	GSI_OUT_MBIM_AGGR_SIZE
 
 static struct usb_cdc_ncm_ntb_parameters mbim_gsi_ntb_parameters = {
 	.wLength = sizeof(mbim_gsi_ntb_parameters),
@@ -781,7 +790,7 @@ static struct usb_cdc_ncm_ntb_parameters mbim_gsi_ntb_parameters = {
 	.wNdpInPayloadRemainder = cpu_to_le16(0),
 	.wNdpInAlignment = cpu_to_le16(4),
 
-	.dwNtbOutMaxSize = cpu_to_le32(0x4000),
+	.dwNtbOutMaxSize = cpu_to_le32(MBIM_NTB_DEFAULT_OUT_SIZE),
 	.wNdpOutDivisor = cpu_to_le16(4),
 	.wNdpOutPayloadRemainder = cpu_to_le16(0),
 	.wNdpOutAlignment = cpu_to_le16(4),
@@ -1012,7 +1021,7 @@ static struct usb_ss_ep_comp_descriptor mbim_gsi_ss_in_comp_desc = {
 	.bDescriptorType =      USB_DT_SS_ENDPOINT_COMP,
 
 	/* the following 2 values can be tweaked if necessary */
-	.bMaxBurst =         2,
+	.bMaxBurst =         6,
 	/* .bmAttributes =      0, */
 };
 
@@ -1268,7 +1277,7 @@ static struct usb_ss_ep_comp_descriptor ecm_gsi_ss_in_comp_desc = {
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 
 	/* the following 2 values can be tweaked if necessary */
-	.bMaxBurst =         2,
+	.bMaxBurst =         6,
 	/* .bmAttributes =      0, */
 };
 
@@ -1333,9 +1342,9 @@ static struct usb_interface_descriptor qdss_gsi_data_intf_desc = {
 	.bDescriptorType    =	USB_DT_INTERFACE,
 	.bAlternateSetting  =   0,
 	.bNumEndpoints      =	1,
-	.bInterfaceClass    =	0xff,
-	.bInterfaceSubClass =	0xff,
-	.bInterfaceProtocol =	0xff,
+	.bInterfaceClass    =	USB_CLASS_VENDOR_SPEC,
+	.bInterfaceSubClass =	USB_SUBCLASS_VENDOR_SPEC,
+	.bInterfaceProtocol =	0x80,
 };
 
 static struct usb_endpoint_descriptor qdss_gsi_fs_data_desc = {

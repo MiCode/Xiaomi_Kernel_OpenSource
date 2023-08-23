@@ -922,6 +922,7 @@ out_destroy:
 	kernfs_remove(kn);
 	return ret;
 }
+
 static void l3_qos_cfg_update(void *arg)
 {
 	bool *enable = arg;
@@ -929,8 +930,17 @@ static void l3_qos_cfg_update(void *arg)
 	wrmsrl(IA32_L3_QOS_CFG, *enable ? L3_QOS_CDP_ENABLE : 0ULL);
 }
 
-static int set_l3_qos_cfg(struct rdt_resource *r, bool enable)
+static void l2_qos_cfg_update(void *arg)
 {
+	bool *enable = arg;
+
+	wrmsrl(IA32_L2_QOS_CFG, *enable ? L2_QOS_CDP_ENABLE : 0ULL);
+}
+
+static int set_cache_qos_cfg(int level, bool enable)
+{
+	void (*update)(void *arg);
+	struct rdt_resource *r_l;
 	cpumask_var_t cpu_mask;
 	struct rdt_domain *d;
 	int cpu;
@@ -938,16 +948,24 @@ static int set_l3_qos_cfg(struct rdt_resource *r, bool enable)
 	if (!zalloc_cpumask_var(&cpu_mask, GFP_KERNEL))
 		return -ENOMEM;
 
-	list_for_each_entry(d, &r->domains, list) {
+	if (level == RDT_RESOURCE_L3)
+		update = l3_qos_cfg_update;
+	else if (level == RDT_RESOURCE_L2)
+		update = l2_qos_cfg_update;
+	else
+		return -EINVAL;
+
+	r_l = &rdt_resources_all[level];
+	list_for_each_entry(d, &r_l->domains, list) {
 		/* Pick one CPU from each domain instance to update MSR */
 		cpumask_set_cpu(cpumask_any(&d->cpu_mask), cpu_mask);
 	}
 	cpu = get_cpu();
 	/* Update QOS_CFG MSR on this cpu if it's in cpu_mask. */
 	if (cpumask_test_cpu(cpu, cpu_mask))
-		l3_qos_cfg_update(&enable);
+		update(&enable);
 	/* Update QOS_CFG MSR on all other cpus in cpu_mask. */
-	smp_call_function_many(cpu_mask, l3_qos_cfg_update, &enable, 1);
+	smp_call_function_many(cpu_mask, update, &enable, 1);
 	put_cpu();
 
 	free_cpumask_var(cpu_mask);
@@ -955,37 +973,67 @@ static int set_l3_qos_cfg(struct rdt_resource *r, bool enable)
 	return 0;
 }
 
-static int cdp_enable(void)
+static int cdp_enable(int level, int data_type, int code_type)
 {
-	struct rdt_resource *r_l3data = &rdt_resources_all[RDT_RESOURCE_L3DATA];
-	struct rdt_resource *r_l3code = &rdt_resources_all[RDT_RESOURCE_L3CODE];
-	struct rdt_resource *r_l3 = &rdt_resources_all[RDT_RESOURCE_L3];
+	struct rdt_resource *r_ldata = &rdt_resources_all[data_type];
+	struct rdt_resource *r_lcode = &rdt_resources_all[code_type];
+	struct rdt_resource *r_l = &rdt_resources_all[level];
 	int ret;
 
-	if (!r_l3->alloc_capable || !r_l3data->alloc_capable ||
-	    !r_l3code->alloc_capable)
+	if (!r_l->alloc_capable || !r_ldata->alloc_capable ||
+	    !r_lcode->alloc_capable)
 		return -EINVAL;
 
-	ret = set_l3_qos_cfg(r_l3, true);
+	ret = set_cache_qos_cfg(level, true);
 	if (!ret) {
-		r_l3->alloc_enabled = false;
-		r_l3data->alloc_enabled = true;
-		r_l3code->alloc_enabled = true;
+		r_l->alloc_enabled = false;
+		r_ldata->alloc_enabled = true;
+		r_lcode->alloc_enabled = true;
 	}
 	return ret;
 }
 
-static void cdp_disable(void)
+static int cdpl3_enable(void)
 {
-	struct rdt_resource *r = &rdt_resources_all[RDT_RESOURCE_L3];
+	return cdp_enable(RDT_RESOURCE_L3, RDT_RESOURCE_L3DATA,
+			  RDT_RESOURCE_L3CODE);
+}
+
+static int cdpl2_enable(void)
+{
+	return cdp_enable(RDT_RESOURCE_L2, RDT_RESOURCE_L2DATA,
+			  RDT_RESOURCE_L2CODE);
+}
+
+static void cdp_disable(int level, int data_type, int code_type)
+{
+	struct rdt_resource *r = &rdt_resources_all[level];
 
 	r->alloc_enabled = r->alloc_capable;
 
-	if (rdt_resources_all[RDT_RESOURCE_L3DATA].alloc_enabled) {
-		rdt_resources_all[RDT_RESOURCE_L3DATA].alloc_enabled = false;
-		rdt_resources_all[RDT_RESOURCE_L3CODE].alloc_enabled = false;
-		set_l3_qos_cfg(r, false);
+	if (rdt_resources_all[data_type].alloc_enabled) {
+		rdt_resources_all[data_type].alloc_enabled = false;
+		rdt_resources_all[code_type].alloc_enabled = false;
+		set_cache_qos_cfg(level, false);
 	}
+}
+
+static void cdpl3_disable(void)
+{
+	cdp_disable(RDT_RESOURCE_L3, RDT_RESOURCE_L3DATA, RDT_RESOURCE_L3CODE);
+}
+
+static void cdpl2_disable(void)
+{
+	cdp_disable(RDT_RESOURCE_L2, RDT_RESOURCE_L2DATA, RDT_RESOURCE_L2CODE);
+}
+
+static void cdp_disable_all(void)
+{
+	if (rdt_resources_all[RDT_RESOURCE_L3DATA].alloc_enabled)
+		cdpl3_disable();
+	if (rdt_resources_all[RDT_RESOURCE_L2DATA].alloc_enabled)
+		cdpl2_disable();
 }
 
 static int parse_rdtgroupfs_options(char *data)
@@ -994,12 +1042,29 @@ static int parse_rdtgroupfs_options(char *data)
 	int ret = 0;
 
 	while ((token = strsep(&o, ",")) != NULL) {
-		if (!*token)
-			return -EINVAL;
+		if (!*token) {
+			ret = -EINVAL;
+			goto out;
+		}
 
-		if (!strcmp(token, "cdp"))
-			ret = cdp_enable();
+		if (!strcmp(token, "cdp")) {
+			ret = cdpl3_enable();
+			if (ret)
+				goto out;
+		} else if (!strcmp(token, "cdpl2")) {
+			ret = cdpl2_enable();
+			if (ret)
+				goto out;
+		} else {
+			ret = -EINVAL;
+			goto out;
+		}
 	}
+
+	return 0;
+
+out:
+	pr_err("Invalid mount option \"%s\"\n", token);
 
 	return ret;
 }
@@ -1107,7 +1172,7 @@ static struct dentry *rdt_mount(struct file_system_type *fs_type,
 
 	if (rdt_mon_capable) {
 		ret = mongroup_create_dir(rdtgroup_default.kn,
-					  NULL, "mon_groups",
+					  &rdtgroup_default, "mon_groups",
 					  &kn_mongrp);
 		if (ret) {
 			dentry = ERR_PTR(ret);
@@ -1155,7 +1220,7 @@ out_mongrp:
 out_info:
 	kernfs_remove(kn_info);
 out_cdp:
-	cdp_disable();
+	cdp_disable_all();
 out:
 	mutex_unlock(&rdtgroup_mutex);
 	cpus_read_unlock();
@@ -1260,7 +1325,11 @@ static void free_all_child_rdtgrp(struct rdtgroup *rdtgrp)
 	list_for_each_entry_safe(sentry, stmp, head, mon.crdtgrp_list) {
 		free_rmid(sentry->mon.rmid);
 		list_del(&sentry->mon.crdtgrp_list);
-		kfree(sentry);
+
+		if (atomic_read(&sentry->waitcount) != 0)
+			sentry->flags = RDT_DELETED;
+		else
+			kfree(sentry);
 	}
 }
 
@@ -1294,7 +1363,11 @@ static void rmdir_all_sub(void)
 
 		kernfs_remove(rdtgrp->kn);
 		list_del(&rdtgrp->rdtgroup_list);
-		kfree(rdtgrp);
+
+		if (atomic_read(&rdtgrp->waitcount) != 0)
+			rdtgrp->flags = RDT_DELETED;
+		else
+			kfree(rdtgrp);
 	}
 	/* Notify online CPUs to update per cpu storage and PQR_ASSOC MSR */
 	update_closid_rmid(cpu_online_mask, &rdtgroup_default);
@@ -1314,7 +1387,7 @@ static void rdt_kill_sb(struct super_block *sb)
 	/*Put everything back to default values. */
 	for_each_alloc_enabled_rdt_resource(r)
 		reset_all_ctrls(r);
-	cdp_disable();
+	cdp_disable_all();
 	rmdir_all_sub();
 	static_branch_disable_cpuslocked(&rdt_alloc_enable_key);
 	static_branch_disable_cpuslocked(&rdt_mon_enable_key);
@@ -1491,7 +1564,7 @@ static int mkdir_mondata_all(struct kernfs_node *parent_kn,
 	/*
 	 * Create the mon_data directory first.
 	 */
-	ret = mongroup_create_dir(parent_kn, NULL, "mon_data", &kn);
+	ret = mongroup_create_dir(parent_kn, prgrp, "mon_data", &kn);
 	if (ret)
 		return ret;
 
@@ -1525,7 +1598,7 @@ static int mkdir_rdt_prepare(struct kernfs_node *parent_kn,
 	uint files = 0;
 	int ret;
 
-	prdtgrp = rdtgroup_kn_lock_live(prgrp_kn);
+	prdtgrp = rdtgroup_kn_lock_live(parent_kn);
 	if (!prdtgrp) {
 		ret = -ENODEV;
 		goto out_unlock;
@@ -1581,7 +1654,7 @@ static int mkdir_rdt_prepare(struct kernfs_node *parent_kn,
 	kernfs_activate(kn);
 
 	/*
-	 * The caller unlocks the prgrp_kn upon success.
+	 * The caller unlocks the parent_kn upon success.
 	 */
 	return 0;
 
@@ -1592,7 +1665,7 @@ out_destroy:
 out_free_rgrp:
 	kfree(rdtgrp);
 out_unlock:
-	rdtgroup_kn_unlock(prgrp_kn);
+	rdtgroup_kn_unlock(parent_kn);
 	return ret;
 }
 
@@ -1630,7 +1703,7 @@ static int rdtgroup_mkdir_mon(struct kernfs_node *parent_kn,
 	 */
 	list_add_tail(&rdtgrp->mon.crdtgrp_list, &prgrp->mon.crdtgrp_list);
 
-	rdtgroup_kn_unlock(prgrp_kn);
+	rdtgroup_kn_unlock(parent_kn);
 	return ret;
 }
 
@@ -1667,7 +1740,7 @@ static int rdtgroup_mkdir_ctrl_mon(struct kernfs_node *parent_kn,
 		 * Create an empty mon_groups directory to hold the subset
 		 * of tasks and cpus to monitor.
 		 */
-		ret = mongroup_create_dir(kn, NULL, "mon_groups", NULL);
+		ret = mongroup_create_dir(kn, rdtgrp, "mon_groups", NULL);
 		if (ret)
 			goto out_id_free;
 	}
@@ -1680,8 +1753,21 @@ out_id_free:
 out_common_fail:
 	mkdir_rdt_prepare_clean(rdtgrp);
 out_unlock:
-	rdtgroup_kn_unlock(prgrp_kn);
+	rdtgroup_kn_unlock(parent_kn);
 	return ret;
+}
+
+/* Restore the qos cfg state when a domain comes online */
+void rdt_domain_reconfigure_cdp(struct rdt_resource *r)
+{
+	if (!r->alloc_capable)
+		return;
+
+	if (r == &rdt_resources_all[RDT_RESOURCE_L2DATA])
+		l2_qos_cfg_update(&r->alloc_enabled);
+
+	if (r == &rdt_resources_all[RDT_RESOURCE_L3DATA])
+		l3_qos_cfg_update(&r->alloc_enabled);
 }
 
 /*
@@ -1792,11 +1878,6 @@ static int rdtgroup_rmdir_ctrl(struct kernfs_node *kn, struct rdtgroup *rdtgrp,
 	closid_free(rdtgrp->closid);
 	free_rmid(rdtgrp->mon.rmid);
 
-	/*
-	 * Free all the child monitor group rmids.
-	 */
-	free_all_child_rdtgrp(rdtgrp);
-
 	list_del(&rdtgrp->rdtgroup_list);
 
 	/*
@@ -1805,6 +1886,11 @@ static int rdtgroup_rmdir_ctrl(struct kernfs_node *kn, struct rdtgroup *rdtgrp,
 	 */
 	kernfs_get(kn);
 	kernfs_remove(rdtgrp->kn);
+
+	/*
+	 * Free all the child monitor group rmids.
+	 */
+	free_all_child_rdtgrp(rdtgrp);
 
 	return 0;
 }
@@ -1832,7 +1918,8 @@ static int rdtgroup_rmdir(struct kernfs_node *kn)
 	 * If the rdtgroup is a mon group and parent directory
 	 * is a valid "mon_groups" directory, remove the mon group.
 	 */
-	if (rdtgrp->type == RDTCTRL_GROUP && parent_kn == rdtgroup_default.kn)
+	if (rdtgrp->type == RDTCTRL_GROUP && parent_kn == rdtgroup_default.kn &&
+	    rdtgrp != &rdtgroup_default)
 		ret = rdtgroup_rmdir_ctrl(kn, rdtgrp, tmpmask);
 	else if (rdtgrp->type == RDTMON_GROUP &&
 		 is_mon_groups(parent_kn, kn->name))

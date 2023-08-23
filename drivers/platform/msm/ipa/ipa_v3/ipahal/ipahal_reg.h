@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -149,6 +149,12 @@ enum ipahal_reg_name {
 	IPA_ENDP_GSI_CFG_TLV_n,
 	IPA_COAL_EVICT_LRU,
 	IPA_COAL_QMAP_CFG,
+	IPA_NAT_UC_EXTERNAL_CFG,
+	IPA_NAT_UC_LOCAL_CFG,
+	IPA_NAT_UC_SHARED_CFG,
+	IPA_CONN_TRACK_UC_EXTERNAL_CFG,
+	IPA_CONN_TRACK_UC_LOCAL_CFG,
+	IPA_CONN_TRACK_UC_SHARED_CFG,
 	IPA_REG_MAX,
 };
 
@@ -384,6 +390,27 @@ struct ipahal_reg_comp_cfg {
 	bool gen_qmb_0_snoc_bypass_dis;
 	bool gsi_snoc_bypass_dis;
 	bool enable;
+};
+
+/*
+ * struct ipahal_reg_tx_wrapper- IPA TX Wrapper state information
+ */
+struct ipahal_reg_tx_wrapper {
+	bool tx0_idle;
+	bool tx1_idle;
+	bool ipa_prod_ackmngr_db_empty;
+	bool ipa_prod_ackmngr_state_idle;
+	bool ipa_prod_prod_bresp_empty;
+	bool ipa_prod_prod_bresp_toggle_idle;
+	bool ipa_mbim_pkt_fms_idle;
+	u8 mbim_direct_dma;
+	bool trnseq_force_valid;
+	bool pkt_drop_cnt_idle;
+	u8 nlo_direct_dma;
+	u8 coal_direct_dma;
+	bool coal_slave_idle;
+	bool coal_slave_ctx_idle;
+	u8 coal_slave_open_frame;
 };
 
 /*
@@ -670,6 +697,69 @@ struct ipahal_reg_coal_evict_lru {
  */
 struct ipahal_reg_coal_qmap_cfg {
 	u32 mux_id_byte_sel;
+};
+
+/*
+ * struct ipahal_reg_nat_uc_local_cfg -  IPA_NAT_UC_EXTERNAL_CFG register
+ * @nat_uc_external_table_addr_lsb: 32 LSb bits of system-memory address of
+ * external UC-activation entry table.
+ */
+struct ipahal_reg_nat_uc_external_cfg {
+	u32 nat_uc_external_table_addr_lsb;
+};
+
+/*
+ * struct ipahal_reg_nat_uc_local_cfg - IPA_NAT_UC_LOCAL_CFG register
+ * @nat_uc_local_table_addr_lsb: 32 LSb bits of local address of local
+ * UC-activation entry table. Address is memory-map based,
+ * i.e. includes IPA address from chip level.
+ */
+struct ipahal_reg_nat_uc_local_cfg {
+	u32 nat_uc_local_table_addr_lsb;
+};
+
+/*
+ * struct ipahal_reg_nat_uc_shared_cfg -  IPA_NAT_UC_SHARED_CFG register
+ * @nat_uc_external_table_addr_msb: 16 MSb of external UC-ativation entry table.
+ * @nat_uc_local_table_addr_msb: 16 MSb bits of local UC-ativation entry table.
+ */
+struct ipahal_reg_nat_uc_shared_cfg {
+	u32 nat_uc_local_table_addr_msb;
+	u32 nat_uc_external_table_addr_msb;
+};
+
+/*
+ * struct ipahal_reg_conn_track_uc_local_cfg - IPA_conn_track_UC_EXTERNAL_CFG
+ * register
+ * @conn_track_uc_external_table_addr_lsb: 32 LSb bits of system-memory address
+ * of external UC-activation entry table.
+ */
+struct ipahal_reg_conn_track_uc_external_cfg {
+	u32 conn_track_uc_external_table_addr_lsb;
+};
+
+/*
+ * struct ipahal_reg_conn_track_uc_local_cfg - IPA_conn_track_UC_LOCAL_CFG
+ * register
+ * @conn_track_uc_local_table_addr_lsb: 32 LSb bits of local address of local
+ * UC-activation entry table. Address is memory-map based,
+ * i.e. includes IPA address from chip level.
+ */
+struct ipahal_reg_conn_track_uc_local_cfg {
+	u32 conn_track_uc_local_table_addr_lsb;
+};
+
+/*
+ * struct ipahal_reg_conn_track_uc_shared_cfg -  IPA_conn_track_UC_SHARED_CFG
+ * register
+ * @conn_track_uc_external_table_addr_msb: 16 MSb of external UC-ativation
+ * entry table.
+ * @conn_track_uc_local_table_addr_msb: 16 MSb bits of local UC-ativation
+ * entry table.
+ */
+struct ipahal_reg_conn_track_uc_shared_cfg {
+	u16 conn_track_uc_local_table_addr_msb;
+	u16 conn_track_uc_external_table_addr_msb;
 };
 
 /*

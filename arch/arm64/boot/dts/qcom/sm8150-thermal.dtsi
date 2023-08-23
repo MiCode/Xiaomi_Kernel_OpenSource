@@ -780,7 +780,7 @@
 		wake-capable-sensor;
 		trips {
 			gpu_trip0: gpu-trip0 {
-				temperature = <95000>;
+				temperature = <85000>;
 				hysteresis = <0>;
 				type = "passive";
 			};

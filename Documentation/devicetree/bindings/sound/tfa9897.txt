@@ -1,0 +1,24 @@
+TFA9897 SmartpA
+
+Required properties:
+
+  - compatible : "nxp,tfa98xx"
+
+  - reg : I2C address of the device
+
+  - dvdd-supply : Power supply for PA's dvdd
+
+  - dvdd-voltage : Minimum and maximum voltage in uV to set for power supply
+
+  - dvdd-current : dvdd's max current in uA
+
+Examples:
+
+	i2c_smartpa@34 {
+		compatible = "nxp,tfa98xx";
+		reg = <0x34>;
+		reset-gpio = <&tlmm 68 0>;
+		dvdd-supply = <&pm660_l9>;
+		dvdd-voltage = <1800000 1800000>;
+		dvdd-current = <15000>;
+	};

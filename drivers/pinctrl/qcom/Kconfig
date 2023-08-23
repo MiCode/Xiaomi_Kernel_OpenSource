@@ -41,7 +41,7 @@ config PINCTRL_IPQ8064
 
 config PINCTRL_QCS405
 	tristate "QTI QCS405 pin controller driver"
-	depends on GPIOLIB && OF && (ARCH_QCS405 || COMPILE_TEST)
+	depends on GPIOLIB && OF && (ARCH_QCS405 || COMPILE_TEST || ARCH_QCS403)
 	select PINCTRL_MSM
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -222,5 +222,32 @@ config PINCTRL_SLPI
 	help
 	  This is the pinctrl, pinmux and pinconf driver for the
 	  SLPI pin controller block.
+
+config PINCTRL_MDM9607
+        tristate "QTI MDM9607 pin controller driver"
+        depends on GPIOLIB && OF
+        select PINCTRL_MSM
+        help
+          This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+          QTI TLMM block found in the QTI 9607 platform.
+
+config PINCTRL_SDM660
+	tristate "Qualcomm Technologies, Inc SDM660 pin controller driver"
+	depends on GPIOLIB && OF
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for
+	  the Qualcomm Technologies Inc TLMM block found in the Qualcomm
+	  Technologies Inc SDM660 platform.
+
+config PINCTRL_SDM429W
+	tristate "Qualcomm Technologies Inc MSM8937 pin controller driver"
+	depends on GPIOLIB && OF
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  Qualcomm Technologies Inc TLMM block found on the Qualcomm
+	  Technologies Inc SDM429W platform.
+	  If unsure say N.
 
 endif

@@ -143,6 +143,7 @@ static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 	return prot;
 }
 
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
 static bool is_dma_coherent(struct device *dev, unsigned long attrs,
 			    bool is_coherent)
 {
@@ -155,6 +156,7 @@ static bool is_dma_coherent(struct device *dev, unsigned long attrs,
 
 	return is_coherent;
 }
+#endif
 
 /**
  * arm_dma_map_page - map a portion of a page for streaming DMA
@@ -1392,7 +1394,8 @@ static inline void __free_iova(struct dma_iommu_mapping *mapping,
 
 	start = (addr - bitmap_base) >>	PAGE_SHIFT;
 
-	if (addr + size > bitmap_base + mapping_size) {
+	if ((addr + size - 1 > addr) &&
+		(addr + size - 1 > bitmap_base + mapping_size - 1)) {
 		/*
 		 * The address range to be freed reaches into the iova
 		 * range of the next bitmap. This should not happen as
@@ -1795,8 +1798,7 @@ void __arm_iommu_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 void arm_iommu_free_attrs(struct device *dev, size_t size,
 		    void *cpu_addr, dma_addr_t handle, unsigned long attrs)
 {
-	__arm_iommu_free_attrs(dev, size, cpu_addr, handle, attrs,
-				is_dma_coherent(dev, attrs, NORMAL));
+	__arm_iommu_free_attrs(dev, size, cpu_addr, handle, attrs, NORMAL);
 }
 
 void arm_coherent_iommu_free_attrs(struct device *dev, size_t size,
@@ -2495,10 +2497,8 @@ static int arm_iommu_init_mapping(struct device *dev,
 	u64 size = mapping->bits << PAGE_SHIFT;
 	int is_fast = 0;
 
-	if (mapping->init) {
-		kref_get(&mapping->kref);
+	if (mapping->init)
 		return 0;
-	}
 
 	/* currently only 32-bit DMA address space is supported */
 	if (size > DMA_BIT_MASK(32) + 1) {
@@ -2718,10 +2718,13 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 	if (dev->dma_ops)
 		return;
 
-	if (arm_setup_iommu_dma_ops(dev, dma_base, size, iommu))
+	if (arm_setup_iommu_dma_ops(dev, dma_base, size, iommu)) {
 		dma_ops = arm_get_iommu_dma_map_ops(coherent);
-	else
+		dev->archdata.dma_ops_setup = true;
+	} else {
 		dma_ops = arm_get_dma_map_ops(coherent);
+		dev->archdata.dma_ops_setup = false;
+	}
 
 	set_dma_ops(dev, dma_ops);
 
@@ -2731,7 +2734,6 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 		dev->dma_ops = xen_dma_ops;
 	}
 #endif
-	dev->archdata.dma_ops_setup = true;
 }
 EXPORT_SYMBOL(arch_setup_dma_ops);
 

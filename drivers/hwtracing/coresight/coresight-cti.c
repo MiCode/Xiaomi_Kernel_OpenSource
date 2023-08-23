@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, 2019-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +63,7 @@ do {									\
 #define ITTRIGOUTACK		(0xEF0)
 #define ITCHIN			(0xEF4)
 #define ITTRIGIN		(0xEF8)
+#define DEVID			(0xFC8)
 
 #define CTI_MAX_TRIGGERS	(32)
 #define CTI_MAX_CHANNELS	(4)
@@ -380,22 +381,29 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 	 */
 	if (drvdata->refcnt == 0) {
 		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret)
+		if (ret < 0)
 			goto err1;
+		ret = coresight_enable_reg_clk(drvdata->csdev);
+		if (ret)
+			goto err2;
 	}
 
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 	ret = cti_cpu_verify_access(drvdata);
 	if (ret)
-		goto err2;
+		goto err3;
 
 	__cti_map_trigin(drvdata, trig, ch);
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	mutex_unlock(&drvdata->mutex);
 	return 0;
-err2:
+err3:
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+
+	if (drvdata->refcnt == 0)
+		coresight_disable_reg_clk(drvdata->csdev);
+err2:
 	/*
 	 * We come here before refcnt is potentially modified in
 	 * __cti_map_trigin so it is safe to check it against 0 without
@@ -464,22 +472,29 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 	 */
 	if (drvdata->refcnt == 0) {
 		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret)
+		if (ret < 0)
 			goto err1;
+		ret = coresight_enable_reg_clk(drvdata->csdev);
+		if (ret)
+			goto err2;
 	}
 
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 	ret = cti_cpu_verify_access(drvdata);
 	if (ret)
-		goto err2;
+		goto err3;
 
 	__cti_map_trigout(drvdata, trig, ch);
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	mutex_unlock(&drvdata->mutex);
 	return 0;
-err2:
+err3:
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+
+	if (drvdata->refcnt == 0)
+		coresight_disable_reg_clk(drvdata->csdev);
+err2:
 	/*
 	 * We come here before refcnt is potentially incremented in
 	 * __cti_map_trigout so it is safe to check it against 0.
@@ -562,8 +577,10 @@ void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
 	 * refcnt can be used here since in all cases its value is modified only
 	 * within the mutex lock region in addition to within the spinlock.
 	 */
-	if (drvdata->refcnt == 0)
+	if (drvdata->refcnt == 0) {
 		pm_runtime_put(drvdata->dev);
+		coresight_disable_reg_clk(drvdata->csdev);
+	}
 
 	if (drvdata->gpio_trigin->trig == trig)
 		cti_trigin_gpio_disable(drvdata);
@@ -631,8 +648,10 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 	 * refcnt can be used here since in all cases its value is modified only
 	 * within the mutex lock region in addition to within the spinlock.
 	 */
-	if (drvdata->refcnt == 0)
+	if (drvdata->refcnt == 0) {
 		pm_runtime_put(drvdata->dev);
+		coresight_disable_reg_clk(drvdata->csdev);
+	}
 
 	if (drvdata->gpio_trigout->trig == trig)
 		cti_trigout_gpio_disable(drvdata);
@@ -694,8 +713,10 @@ void coresight_cti_reset(struct coresight_cti *cti)
 			cti_trigout_gpio_disable(drvdata);
 	}
 
-	if (refcnt)
+	if (refcnt) {
 		pm_runtime_put(drvdata->dev);
+		coresight_disable_reg_clk(drvdata->csdev);
+	}
 	mutex_unlock(&drvdata->mutex);
 	return;
 err:
@@ -1340,6 +1361,57 @@ static ssize_t cti_store_disable_gate(struct device *dev,
 }
 static DEVICE_ATTR(disable_gate, 0200, NULL, cti_store_disable_gate);
 
+struct cti_reg {
+	void __iomem *addr;
+	u32 data;
+};
+
+static void do_smp_cross_read(void *data)
+{
+	struct cti_reg *reg = data;
+
+	reg->data = readl_relaxed(reg->addr);
+}
+
+static u32 cti_devid_cross_read(const struct cti_drvdata *drvdata)
+{
+	struct cti_reg reg;
+
+	reg.addr = drvdata->base + DEVID;
+	smp_call_function_single(drvdata->cpu, do_smp_cross_read, &reg, 1);
+	return reg.data;
+}
+
+static ssize_t show_info_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	ssize_t size = 0;
+	unsigned int ctidevid, trig_num_max, chan_num_max;
+
+	mutex_lock(&drvdata->mutex);
+
+	pm_runtime_get_sync(drvdata->dev);
+
+	if (drvdata->cpu == -ENODEV)
+		ctidevid = cti_readl(drvdata, DEVID);
+	else
+		ctidevid = cti_devid_cross_read(drvdata);
+
+	pm_runtime_put_sync(drvdata->dev);
+
+	trig_num_max = (ctidevid & GENMASK(15, 8)) >> 8;
+	chan_num_max = (ctidevid & GENMASK(21, 16)) >> 16;
+
+	size = scnprintf(&buf[size], PAGE_SIZE, "%d %d\n",
+			trig_num_max, chan_num_max);
+
+	mutex_unlock(&drvdata->mutex);
+
+	return size;
+}
+static DEVICE_ATTR_RO(show_info);
+
 static struct attribute *cti_attrs[] = {
 	&dev_attr_show_trigin.attr,
 	&dev_attr_show_trigout.attr,
@@ -1356,6 +1428,7 @@ static struct attribute *cti_attrs[] = {
 	&dev_attr_show_gate.attr,
 	&dev_attr_enable_gate.attr,
 	&dev_attr_disable_gate.attr,
+	&dev_attr_show_info.attr,
 	NULL,
 };
 
@@ -1472,7 +1545,7 @@ static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 	}
 	if (drvdata->cti_save && !drvdata->cti_hwclk) {
 		ret = pm_runtime_get_sync(drvdata->dev);
-		if (ret)
+		if (ret < 0)
 			return ret;
 	}
 
@@ -1502,6 +1575,7 @@ static int cti_probe(struct amba_device *adev, const struct amba_id *id)
 			cpu_pm_register_notifier(&cti_cpu_pm_notifier);
 		registered++;
 	}
+
 	pm_runtime_put(&adev->dev);
 	dev_dbg(dev, "CTI initialized\n");
 	return 0;

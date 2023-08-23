@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,14 @@ bool is_secure_vmid_valid(int vmid)
 		vmid == VMID_CP_SPSS_SP ||
 		vmid == VMID_CP_SPSS_SP_SHARED ||
 		vmid == VMID_CP_SPSS_HLOS_SHARED ||
-		vmid == VMID_CP_CDSP);
+		vmid == VMID_CP_CAMERA_ENCODE ||
+		vmid == VMID_CP_CDSP ||
+		vmid == VMID_CP_DSP_EXT);
+}
+
+bool is_secure_allocation(unsigned long flags)
+{
+	return !!(flags & (ION_FLAGS_CP_MASK | ION_FLAG_SECURE));
 }
 
 int get_secure_vmid(unsigned long flags)
@@ -58,8 +65,12 @@ int get_secure_vmid(unsigned long flags)
 		return VMID_CP_SPSS_SP_SHARED;
 	if (flags & ION_FLAG_CP_SPSS_HLOS_SHARED)
 		return VMID_CP_SPSS_HLOS_SHARED;
+	if (flags & ION_FLAG_CP_CAMERA_ENCODE)
+		return VMID_CP_CAMERA_ENCODE;
 	if (flags & ION_FLAG_CP_CDSP)
 		return VMID_CP_CDSP;
+	if (flags & ION_FLAG_CP_DSP_EXT)
+		return VMID_CP_DSP_EXT;
 	return -EINVAL;
 }
 
@@ -159,7 +170,8 @@ int ion_hyp_assign_sg(struct sg_table *sgt, int *dest_vm_list,
 	}
 
 	for (i = 0; i < dest_nelems; i++) {
-		if (dest_vm_list[i] == VMID_CP_SEC_DISPLAY)
+		if (dest_vm_list[i] == VMID_CP_SEC_DISPLAY ||
+		    dest_vm_list[i] == VMID_CP_DSP_EXT)
 			dest_perms[i] = PERM_READ;
 		else
 			dest_perms[i] = PERM_READ | PERM_WRITE;
@@ -278,7 +290,8 @@ int ion_hyp_assign_from_flags(u64 base, u64 size, unsigned long flags)
 	}
 
 	for (i = 0; i < nr; i++)
-		if (vmids[i] == VMID_CP_SEC_DISPLAY)
+		if (vmids[i] == VMID_CP_SEC_DISPLAY ||
+		    vmids[i] == VMID_CP_DSP_EXT)
 			modes[i] = PERM_READ;
 		else
 			modes[i] = PERM_READ | PERM_WRITE;

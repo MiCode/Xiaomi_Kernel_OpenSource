@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,7 +96,7 @@ static struct pll_vco trion_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config npu_cc_pll0_config = {
+static struct alpha_pll_config npu_cc_pll0_config = {
 	.l = 0x1F,
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
@@ -110,7 +110,7 @@ static const struct alpha_pll_config npu_cc_pll0_config = {
 	.user_ctl_hi1_val = 0x000000D0,
 };
 
-static const struct alpha_pll_config npu_cc_pll0_config_sm8150_v2 = {
+static struct alpha_pll_config npu_cc_pll0_config_sm8150_v2 = {
 	.l = 0x1F,
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
@@ -129,6 +129,7 @@ static struct clk_alpha_pll npu_cc_pll0 = {
 	.vco_table = trion_vco,
 	.num_vco = ARRAY_SIZE(trion_vco),
 	.type = TRION_PLL,
+	.config = &npu_cc_pll0_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_pll0",
@@ -169,7 +170,7 @@ static struct clk_alpha_pll_postdiv npu_cc_pll0_out_even = {
 	},
 };
 
-static const struct alpha_pll_config npu_cc_pll1_config = {
+static struct alpha_pll_config npu_cc_pll1_config = {
 	.l = 0x24,
 	.alpha = 0x7555,
 	.config_ctl_val = 0x20485699,
@@ -183,7 +184,7 @@ static const struct alpha_pll_config npu_cc_pll1_config = {
 	.user_ctl_hi1_val = 0x000000D0,
 };
 
-static const struct alpha_pll_config npu_cc_pll1_config_sm8150_v2 = {
+static struct alpha_pll_config npu_cc_pll1_config_sm8150_v2 = {
 	.l = 0x29,
 	.alpha = 0xAAAA,
 	.config_ctl_val = 0x20485699,
@@ -202,6 +203,7 @@ static struct clk_alpha_pll npu_cc_pll1 = {
 	.vco_table = trion_vco,
 	.num_vco = ARRAY_SIZE(trion_vco),
 	.type = TRION_PLL,
+	.config = &npu_cc_pll1_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "npu_cc_pll1",
@@ -652,19 +654,37 @@ static const struct qcom_cc_desc npu_cc_sm8150_desc = {
 	.num_resets = ARRAY_SIZE(npu_cc_sm8150_resets),
 };
 
+static struct clk_regmap *npucc_sm8150_critical_clocks[] = {
+	&npu_cc_xo_clk.clkr,
+};
+
+static const struct qcom_cc_critical_desc npucc_sm8150_critical_desc = {
+	.clks = npucc_sm8150_critical_clocks,
+	.num_clks = ARRAY_SIZE(npucc_sm8150_critical_clocks),
+};
+
 static const struct of_device_id npu_cc_sm8150_match_table[] = {
 	{ .compatible = "qcom,npucc-sm8150" },
 	{ .compatible = "qcom,npucc-sm8150-v2" },
+	{ .compatible = "qcom,npucc-sa8155" },
+	{ .compatible = "qcom,npucc-sa8155-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, npu_cc_sm8150_match_table);
 
+static int npucc_sa8150_resume(struct device *dev)
+{
+	return qcom_cc_enable_critical_clks(&npucc_sm8150_critical_desc);
+}
+
+static const struct dev_pm_ops npucc_sa8150_pm_ops = {
+	.restore_early = npucc_sa8150_resume,
+};
+
 static void npu_cc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 {
-	clk_trion_pll_configure(&npu_cc_pll0, regmap,
-		&npu_cc_pll0_config_sm8150_v2);
-	clk_trion_pll_configure(&npu_cc_pll1, regmap,
-		&npu_cc_pll1_config_sm8150_v2);
+	npu_cc_pll0.config = &npu_cc_pll0_config_sm8150_v2;
+	npu_cc_pll1.config = &npu_cc_pll1_config_sm8150_v2;
 	npu_cc_cal_dp_clk_src.freq_tbl = ftbl_npu_cc_cal_dp_clk_src_sm8150_v2;
 	npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_MIN] = 0;
 	npu_cc_cal_dp_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 400000000;
@@ -688,8 +708,13 @@ static int npu_cc_sm8150_fixup(struct platform_device *pdev,
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
 
-	if (!strcmp(compat, "qcom,npucc-sm8150-v2"))
+	if (!strcmp(compat, "qcom,npucc-sm8150-v2") ||
+			!strcmp(compat, "qcom,npucc-sa8155-v2"))
 		npu_cc_sm8150_fixup_sm8150v2(regmap);
+
+	if (!strcmp(compat, "qcom,npucc-sa8155") ||
+			!strcmp(compat, "qcom,npucc-sa8155-v2"))
+		pdev->dev.driver->pm = &npucc_sa8150_pm_ops;
 
 	return 0;
 }
@@ -759,8 +784,8 @@ static int npu_cc_sm8150_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	clk_trion_pll_configure(&npu_cc_pll0, regmap, &npu_cc_pll0_config);
-	clk_trion_pll_configure(&npu_cc_pll1, regmap, &npu_cc_pll1_config);
+	clk_trion_pll_configure(&npu_cc_pll0, regmap, npu_cc_pll0.config);
+	clk_trion_pll_configure(&npu_cc_pll1, regmap, npu_cc_pll1.config);
 
 	/* Register the fixed factor clock for CRC divide */
 	ret = devm_clk_hw_register(&pdev->dev, &npu_cc_crc_div.hw);

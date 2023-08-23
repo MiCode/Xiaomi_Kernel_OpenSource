@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,11 @@
 #define __QPNP_MISC_H
 
 #include <linux/errno.h>
+
+enum twm_state {
+	PMIC_TWM_CLEAR,
+	PMIC_TWM_ENABLE,
+};
 
 #ifdef CONFIG_QPNP_MISC
 /**
@@ -42,6 +47,25 @@ int qpnp_misc_irqs_available(struct device *consumer_dev);
  */
 
 int qpnp_misc_read_reg(struct device_node *node, u16 addr, u8 *val);
+/**
+ * qpnp_misc_twm_notifier_register - register to the twm mode notifier
+ *
+ * @nb: pointer to the client's notifier handle
+ *
+ * This function returns 0 if the client is successfully added to the
+ * notifer list.
+ */
+int qpnp_misc_twm_notifier_register(struct notifier_block *nb);
+
+/**
+ * qpnp_misc_twm_notifier_unregister - unregister to the twm mode notifier
+ *
+ * @nb: pointer to the client's notifier handle
+ *
+ * This function returns 0 if the client is successfully removed from the
+ * notifer list.
+ */
+int qpnp_misc_twm_notifier_unregister(struct notifier_block *nb);
 #else
 static inline int qpnp_misc_irqs_available(struct device *consumer_dev)
 {
@@ -49,6 +73,14 @@ static inline int qpnp_misc_irqs_available(struct device *consumer_dev)
 }
 static inline int qpnp_misc_read_reg(struct device_node *node, u16 addr,
 					u8 *val)
+{
+	return 0;
+}
+static inline int qpnp_misc_twm_notifier_register(struct notifier_block *nb)
+{
+	return 0;
+}
+static inline int qpnp_misc_twm_notifier_unregister(struct notifier_block *nb)
 {
 	return 0;
 }

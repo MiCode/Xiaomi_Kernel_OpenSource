@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,8 +23,7 @@ EXPORT_SYMBOL(habmm_socket_open);
 
 int32_t habmm_socket_close(int32_t handle)
 {
-	hab_vchan_close(hab_driver.kctx, handle);
-	return 0;
+	return hab_vchan_close(hab_driver.kctx, handle);
 }
 EXPORT_SYMBOL(habmm_socket_close);
 
@@ -47,7 +46,7 @@ int32_t habmm_socket_recv(int32_t handle, void *dst_buff, uint32_t *size_bytes,
 		uint32_t timeout, uint32_t flags)
 {
 	int ret = 0;
-	struct hab_message *msg;
+	struct hab_message *msg = NULL;
 
 	if (!size_bytes || !dst_buff)
 		return -EINVAL;
@@ -79,6 +78,7 @@ int32_t habmm_export(int32_t handle, void *buff_to_share, uint32_t size_bytes,
 	param.vcid = handle;
 	param.buffer = (uint64_t)(uintptr_t)buff_to_share;
 	param.sizebytes = size_bytes;
+	param.flags = flags;
 
 	ret = hab_mem_export(hab_driver.kctx, &param, 1);
 
@@ -141,7 +141,10 @@ int32_t habmm_socket_query(int32_t handle,
 {
 	int ret;
 	uint64_t ids;
-	char nm[sizeof(info->vmname_remote) + sizeof(info->vmname_local)];
+	char nm[VMNAME_SIZE * 2];
+
+	if (!info)
+		return -EINVAL;
 
 	ret = hab_vchan_query(hab_driver.kctx, handle, &ids, nm, sizeof(nm), 1);
 	if (!ret) {

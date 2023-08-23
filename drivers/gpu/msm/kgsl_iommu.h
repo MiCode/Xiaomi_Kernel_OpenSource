@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,8 +33,6 @@
 
 #define KGSL_IOMMU_SECURE_SIZE SZ_256M
 #define KGSL_IOMMU_SECURE_END(_mmu) KGSL_IOMMU_GLOBAL_MEM_BASE(_mmu)
-#define KGSL_IOMMU_SECURE_BASE(_mmu)	\
-	(KGSL_IOMMU_GLOBAL_MEM_BASE(_mmu) - KGSL_IOMMU_SECURE_SIZE)
 
 #define KGSL_IOMMU_SVM_BASE32		0x300000
 #define KGSL_IOMMU_SVM_END32		(0xC0000000 - SZ_16M)
@@ -62,6 +60,9 @@
 #define KGSL_IOMMU_SCTLR_HUPCF_SHIFT		8
 #define KGSL_IOMMU_SCTLR_CFCFG_SHIFT		7
 #define KGSL_IOMMU_SCTLR_CFIE_SHIFT		6
+
+/* FSR fields */
+#define KGSL_IOMMU_FSR_SS_SHIFT		30
 
 enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_CTX_SCTLR = 0,
@@ -99,8 +100,8 @@ enum kgsl_iommu_context_id {
  * @cb_num: The hardware context bank number, used for calculating register
  *		offsets.
  * @kgsldev: The kgsl device that uses this context.
- * @fault: Flag when set indicates that this iommu device has caused a page
- * fault
+ * @stalled_on_fault: Flag when set indicates that this iommu device is stalled
+ * on a page fault
  * @gpu_offset: Offset of this context bank in the GPU register space
  * @default_pt: The default pagetable for this context,
  *		it may be changed by self programming.
@@ -111,7 +112,7 @@ struct kgsl_iommu_context {
 	enum kgsl_iommu_context_id id;
 	unsigned int cb_num;
 	struct kgsl_device *kgsldev;
-	int fault;
+	bool stalled_on_fault;
 	void __iomem *regbase;
 	unsigned int gpu_offset;
 	struct kgsl_pagetable *default_pt;
@@ -126,6 +127,7 @@ struct kgsl_iommu_context {
  * @setstate: Scratch GPU memory for IOMMU operations
  * @clk_enable_count: The ref count of clock enable calls
  * @clks: Array of pointers to IOMMU clocks
+ * @vddcx_regulator: Handle to IOMMU regulator
  * @micro_mmu_ctrl: GPU register offset of this glob al register
  * @smmu_info: smmu info used in a5xx preemption
  * @protect: register protection settings for the iommu.
@@ -140,6 +142,7 @@ struct kgsl_iommu {
 	struct kgsl_memdesc setstate;
 	atomic_t clk_enable_count;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
+	struct regulator *vddcx_regulator;
 	unsigned int micro_mmu_ctrl;
 	struct kgsl_memdesc smmu_info;
 	unsigned int version;

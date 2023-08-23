@@ -332,7 +332,16 @@ static void __init update_memory_limit(void)
 	phys_addr_t min_ddr_sz = 0, offline_sz = 0;
 	int t_len = (2 * dt_root_size_cells) * sizeof(__be32);
 
-	ram_sz = memblock_phys_mem_size();
+	if (memory_limit == (phys_addr_t)ULLONG_MAX)
+		ram_sz = memblock_phys_mem_size();
+	else if (IS_ALIGNED(memory_limit, MIN_MEMORY_BLOCK_SIZE))
+		ram_sz = memory_limit;
+	else {
+		WARN(1, "mem-offline is not supported for DDR size %lld\n",
+				memory_limit);
+		return;
+	}
+
 	node = of_get_flat_dt_subnode_by_name(dt_root, "mem-offline");
 	if (node == -FDT_ERR_NOTFOUND) {
 		pr_err("mem-offine node not found in FDT\n");
@@ -482,12 +491,16 @@ void __init arm64_memblock_init(void)
 		memblock_remove(0, memstart_addr);
 	}
 
-	update_memory_limit();
 	/*
 	 * Save bootloader imposed memory limit before we overwirte
 	 * memblock.
 	 */
-	bootloader_memory_limit = memblock_end_of_DRAM();
+	if (memory_limit == (phys_addr_t)ULLONG_MAX)
+		bootloader_memory_limit = memblock_end_of_DRAM();
+	else
+		bootloader_memory_limit = memblock_max_addr(memory_limit);
+
+	update_memory_limit();
 
 	/*
 	 * Apply the memory limit if it was set. Since the kernel may be loaded

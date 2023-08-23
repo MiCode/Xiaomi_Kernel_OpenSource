@@ -109,7 +109,7 @@
 			qcom,bus-type = <3>;
 			qcom,base-offset = <0x15000>;
 			qcom,qos-off = <0x1000>;
-			qcom,util-fact = <142>;
+			qcom,util-fact = <139>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpmcc MDP_MMRT_MSMBUS_CLK>,
 				<&clock_rpmcc MDP_MMRT_MSMBUS_A_CLK>;
@@ -380,7 +380,8 @@
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qport = <13>;
-			qcom,qos-mode = "bypass";
+			qcom,qos-mode = "fixed";
+			qcom,prio = <4>;
 			qcom,forwarding;
 			qcom,connections = <&slv_snoc_bimc_nrt>;
 			qcom,bus-dev = <&fab_mmnrt_virt>;

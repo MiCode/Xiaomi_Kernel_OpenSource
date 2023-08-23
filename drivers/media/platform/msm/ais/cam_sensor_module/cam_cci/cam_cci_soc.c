@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	uint8_t i = 0, j = 0;
 	int32_t rc = 0;
 	struct cci_device *cci_dev;
-	enum cci_i2c_master_t master = MASTER_0;
+	enum cci_i2c_master_t master = c_ctrl->cci_info->cci_i2c_master;
 	struct cam_ahb_vote ahb_vote;
 	struct cam_axi_vote axi_vote;
 	struct cam_hw_soc_info *soc_info = NULL;
@@ -27,8 +27,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 
 	cci_dev = v4l2_get_subdevdata(sd);
 	if (!cci_dev || !c_ctrl) {
-		CAM_ERR(CAM_CCI, "failed: invalid params %pK %pK",
-			cci_dev, c_ctrl);
+		CAM_ERR(CAM_CCI, "failed: invalid params");
 		rc = -EINVAL;
 		return rc;
 	}
@@ -37,50 +36,28 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	base = soc_info->reg_map[0].mem_base;
 
 	if (!soc_info || !base) {
-		CAM_ERR(CAM_CCI, "failed: invalid params %pK %pK",
-			soc_info, base);
+		CAM_ERR(CAM_CCI, "failed: invalid params");
 		rc = -EINVAL;
 		return rc;
 	}
 
-	CAM_DBG(CAM_CCI, "Base address %pK", base);
+	CAM_DBG(CAM_CCI, "ref_count %d master %d", cci_dev->ref_count, master);
 
-	if (cci_dev->ref_count++) {
-		CAM_DBG(CAM_CCI, "ref_count %d", cci_dev->ref_count);
-		master = c_ctrl->cci_info->cci_i2c_master;
-		CAM_DBG(CAM_CCI, "master %d", master);
-		if (master < MASTER_MAX && master >= 0) {
-			mutex_lock(&cci_dev->cci_master_info[master].mutex);
-			flush_workqueue(cci_dev->write_wq[master]);
-			/* Re-initialize the completion */
-			reinit_completion(
-			&cci_dev->cci_master_info[master].reset_complete);
-			for (i = 0; i < NUM_QUEUES; i++)
-				reinit_completion(
-				&cci_dev->cci_master_info[master].report_q[i]);
-			/* Set reset pending flag to TRUE */
-			cci_dev->cci_master_info[master].reset_pending = TRUE;
-			/* Set proper mask to RESET CMD address */
-			if (master == MASTER_0)
-				cam_io_w_mb(CCI_M0_RESET_RMSK,
-					base + CCI_RESET_CMD_ADDR);
-			else
-				cam_io_w_mb(CCI_M1_RESET_RMSK,
-					base + CCI_RESET_CMD_ADDR);
-			/* wait for reset done irq */
-			rc = wait_for_completion_timeout(
-			&cci_dev->cci_master_info[master].reset_complete,
-				CCI_TIMEOUT);
-			if (rc <= 0)
-				CAM_ERR(CAM_CCI, "wait failed %d", rc);
-			mutex_unlock(&cci_dev->cci_master_info[master].mutex);
-		}
+	if (cci_dev->ref_count++)
 		return 0;
+
+	/* Enable Regulators and IRQ*/
+	rc = cam_soc_util_enable_platform_resource(soc_info, true,
+		CAM_LOWSVS_VOTE, true);
+	if (rc < 0) {
+		CAM_ERR(CAM_CCI, "request platform resources failed");
+		goto platform_enable_failed;
 	}
 
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
 	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
+	axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
 	axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
 
 	rc = cam_cpas_start(cci_dev->cpas_handle,
@@ -92,17 +69,10 @@ int cam_cci_init(struct v4l2_subdev *sd,
 
 	/* Re-initialize the completion */
 	reinit_completion(&cci_dev->cci_master_info[master].reset_complete);
+	reinit_completion(&cci_dev->cci_master_info[master].rd_done);
 	for (i = 0; i < NUM_QUEUES; i++)
 		reinit_completion(
 			&cci_dev->cci_master_info[master].report_q[i]);
-
-	/* Enable Regulators and IRQ*/
-	rc = cam_soc_util_enable_platform_resource(soc_info, true,
-		CAM_LOWSVS_VOTE, true);
-	if (rc < 0) {
-		CAM_DBG(CAM_CCI, "request platform resources failed");
-		goto platform_enable_failed;
-	}
 
 	cci_dev->hw_version = cam_io_r_mb(base +
 		CCI_HW_VERSION_ADDR);
@@ -127,12 +97,12 @@ int cam_cci_init(struct v4l2_subdev *sd,
 		}
 	}
 
-	cci_dev->cci_master_info[MASTER_0].reset_pending = TRUE;
+	cci_dev->cci_master_info[master].reset_pending = TRUE;
 	cam_io_w_mb(CCI_RESET_CMD_RMSK, base +
 			CCI_RESET_CMD_ADDR);
 	cam_io_w_mb(0x1, base + CCI_RESET_CMD_ADDR);
 	rc = wait_for_completion_timeout(
-		&cci_dev->cci_master_info[MASTER_0].reset_complete,
+		&cci_dev->cci_master_info[master].reset_complete,
 		CCI_TIMEOUT);
 	if (rc <= 0) {
 		CAM_ERR(CAM_CCI, "wait_for_completion_timeout");
@@ -173,11 +143,11 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	return 0;
 
 reset_complete_failed:
+	cam_cpas_stop(cci_dev->cpas_handle);
 	cam_soc_util_disable_platform_resource(soc_info, 1, 1);
 
 platform_enable_failed:
 	cci_dev->ref_count--;
-	cam_cpas_stop(cci_dev->cpas_handle);
 
 	return rc;
 }
@@ -204,6 +174,8 @@ static void cam_cci_init_cci_params(struct cci_device *new_cci_dev)
 			&new_cci_dev->cci_master_info[i].reset_complete);
 		init_completion(
 			&new_cci_dev->cci_master_info[i].th_complete);
+		init_completion(
+			&new_cci_dev->cci_master_info[i].rd_done);
 
 		for (j = 0; j < NUM_QUEUES; j++) {
 			mutex_init(&new_cci_dev->cci_master_info[i].mutex_q[j]);
@@ -405,7 +377,9 @@ int cam_cci_soc_release(struct cci_device *cci_dev)
 	cci_dev->cci_state = CCI_STATE_DISABLED;
 	cci_dev->cycles_per_us = 0;
 
-	cam_cpas_stop(cci_dev->cpas_handle);
+	rc = cam_cpas_stop(cci_dev->cpas_handle);
+	if (rc)
+		CAM_ERR(CAM_CCI, "cpas stop failed %d", rc);
 
 	return rc;
 }

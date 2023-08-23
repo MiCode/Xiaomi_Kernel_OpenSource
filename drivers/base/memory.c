@@ -22,6 +22,7 @@
 #include <linux/mutex.h>
 #include <linux/stat.h>
 #include <linux/slab.h>
+#include <linux/memblock.h>
 
 #include <linux/atomic.h>
 #include <linux/uaccess.h>
@@ -494,6 +495,18 @@ static ssize_t show_allocated_bytes(struct device *dev,
 
 	return snprintf(buf, 100, "%lu\n", used);
 }
+
+static ssize_t show_aligned_blocks_addr(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	return memblock_dump_aligned_blocks_addr(buf);
+}
+
+static ssize_t show_aligned_blocks_num(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	return memblock_dump_aligned_blocks_num(buf);
+}
 #endif
 
 static DEVICE_ATTR(phys_index, 0444, show_mem_start_phys_index, NULL);
@@ -502,6 +515,8 @@ static DEVICE_ATTR(phys_device, 0444, show_phys_device, NULL);
 static DEVICE_ATTR(removable, 0444, show_mem_removable, NULL);
 #ifdef CONFIG_MEMORY_HOTPLUG
 static DEVICE_ATTR(allocated_bytes, 0444, show_allocated_bytes, NULL);
+static DEVICE_ATTR(aligned_blocks_addr, 0444, show_aligned_blocks_addr, NULL);
+static DEVICE_ATTR(aligned_blocks_num, 0444, show_aligned_blocks_num, NULL);
 #endif
 
 /*
@@ -569,15 +584,20 @@ memory_probe_store(struct device *dev, struct device_attribute *attr,
 	if (phys_addr & ((pages_per_block << PAGE_SHIFT) - 1))
 		return -EINVAL;
 
+	ret = lock_device_hotplug_sysfs();
+	if (ret)
+		return ret;
+
 	nid = memory_add_physaddr_to_nid(phys_addr);
-	ret = add_memory(nid, phys_addr,
-			 MIN_MEMORY_BLOCK_SIZE * sections_per_block);
+	ret = __add_memory(nid, phys_addr,
+			   MIN_MEMORY_BLOCK_SIZE * sections_per_block);
 
 	if (ret)
 		goto out;
 
 	ret = count;
 out:
+	unlock_device_hotplug();
 	return ret;
 }
 
@@ -633,6 +653,9 @@ store_soft_offline_page(struct device *dev,
 	pfn >>= PAGE_SHIFT;
 	if (!pfn_valid(pfn))
 		return -ENXIO;
+	/* Only online pages can be soft-offlined (esp., not ZONE_DEVICE). */
+	if (!pfn_to_online_page(pfn))
+		return -EIO;
 	ret = soft_offline_page(pfn_to_page(pfn), 0);
 	return ret == 0 ? count : ret;
 }
@@ -886,6 +909,10 @@ static struct attribute *memory_root_attrs[] = {
 
 	&dev_attr_block_size_bytes.attr,
 	&dev_attr_auto_online_blocks.attr,
+#ifdef CONFIG_MEMORY_HOTPLUG
+	&dev_attr_aligned_blocks_addr.attr,
+	&dev_attr_aligned_blocks_num.attr,
+#endif
 	NULL
 };
 

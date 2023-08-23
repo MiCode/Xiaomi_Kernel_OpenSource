@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,7 +61,8 @@ static bool is_cp_flag_present(unsigned long flags)
 			ION_FLAG_CP_BITSTREAM |
 			ION_FLAG_CP_PIXEL |
 			ION_FLAG_CP_NON_PIXEL |
-			ION_FLAG_CP_CAMERA);
+			ION_FLAG_CP_CAMERA |
+			ION_FLAG_CP_CAMERA_ENCODE);
 }
 
 static void ion_system_secure_heap_free(struct ion_buffer *buffer)
@@ -125,7 +126,9 @@ static void process_one_prefetch(struct ion_heap *sys_heap,
 		goto out;
 
 	ret = ion_hyp_assign_sg(buffer.sg_table, &vmid, 1, true);
-	if (ret)
+	if (ret == -EADDRNOTAVAIL)
+		goto out1;
+	else if (ret < 0)
 		goto out;
 
 	/* Now free it to the secure heap */
@@ -134,6 +137,12 @@ static void process_one_prefetch(struct ion_heap *sys_heap,
 
 out:
 	sys_heap->ops->free(&buffer);
+out1:
+	/*
+	 * The security state of the pages is unknown after a failure;
+	 * They can neither be added back to the secure pool nor buddy system.
+	 */
+	return;
 }
 
 /*
@@ -343,6 +352,41 @@ static int ion_system_secure_heap_shrink(struct ion_heap *heap, gfp_t gfp_mask,
 						gfp_mask, nr_to_scan);
 }
 
+static int ion_system_secure_heap_pm_freeze(struct ion_heap *heap)
+{
+	struct ion_system_secure_heap *secure_heap;
+	unsigned long count;
+	long sz;
+	struct shrink_control sc = {
+		.gfp_mask = GFP_HIGHUSER,
+	};
+
+	secure_heap = container_of(heap, struct ion_system_secure_heap, heap);
+
+	sz = atomic_long_read(&heap->total_allocated);
+	if (sz) {
+		pr_err("%s: %lx bytes won't be saved across hibernation. Aborting.",
+		       __func__, sz);
+		return -EINVAL;
+	}
+
+	/* Since userspace is frozen, no more requests will be queued */
+	cancel_delayed_work_sync(&secure_heap->prefetch_work);
+
+	count = heap->shrinker.count_objects(&heap->shrinker, &sc);
+	sc.nr_to_scan = count;
+	heap->shrinker.scan_objects(&heap->shrinker, &sc);
+
+	count = heap->shrinker.count_objects(&heap->shrinker, &sc);
+	if (count) {
+		pr_err("%s: Failed to free all objects - %ld remaining",
+		       __func__, count);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static struct ion_heap_ops system_secure_heap_ops = {
 	.allocate = ion_system_secure_heap_allocate,
 	.free = ion_system_secure_heap_free,
@@ -350,6 +394,9 @@ static struct ion_heap_ops system_secure_heap_ops = {
 	.unmap_kernel = ion_system_secure_heap_unmap_kernel,
 	.map_user = ion_system_secure_heap_map_user,
 	.shrink = ion_system_secure_heap_shrink,
+	.pm = {
+		.freeze = ion_system_secure_heap_pm_freeze,
+	}
 };
 
 struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *unused)

@@ -6,10 +6,6 @@ menu "Security options"
 
 source security/keys/Kconfig
 
-if ARCH_QCOM
-source security/pfe/Kconfig
-endif
-
 config SECURITY_DMESG_RESTRICT
 	bool "Restrict unprivileged access to the kernel syslog"
 	default n
@@ -275,6 +271,8 @@ config DEFAULT_SECURITY
 	default "tomoyo" if DEFAULT_SECURITY_TOMOYO
 	default "apparmor" if DEFAULT_SECURITY_APPARMOR
 	default "" if DEFAULT_SECURITY_DAC
+
+source "security/Kconfig.hardening"
 
 endmenu
 

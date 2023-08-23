@@ -150,6 +150,7 @@ enum sde_prop {
 	SDE_OFF,
 	SDE_LEN,
 	SSPP_LINEWIDTH,
+	VIG_SSPP_LINEWIDTH,
 	MIXER_LINEWIDTH,
 	MIXER_BLEND,
 	WB_LINEWIDTH,
@@ -171,6 +172,8 @@ enum sde_prop {
 	PIPE_ORDER_VERSION,
 	SEC_SID_MASK,
 	LINE_INSERTION,
+	BASE_LAYER,
+	SDE_LIMITS,
 	SDE_PROP_MAX,
 };
 
@@ -225,6 +228,7 @@ enum {
 	SSPP_EXCL_RECT,
 	SSPP_SMART_DMA,
 	SSPP_MAX_PER_PIPE_BW,
+	SSPP_MAX_PER_PIPE_BW_HIGH,
 	SSPP_PROP_MAX,
 };
 
@@ -262,6 +266,14 @@ enum {
 	INTF_PREFETCH,
 	INTF_TYPE,
 	INTF_PROP_MAX,
+};
+
+enum {
+	LIMIT_NAME,
+	LIMIT_USECASE,
+	LIMIT_ID,
+	LIMIT_VALUE,
+	LIMIT_PROP_MAX,
 };
 
 enum {
@@ -369,10 +381,12 @@ enum {
 	VBIF_DEFAULT_OT_WR_LIMIT,
 	VBIF_DYNAMIC_OT_RD_LIMIT,
 	VBIF_DYNAMIC_OT_WR_LIMIT,
-	VBIF_QOS_RT_REMAP,
-	VBIF_QOS_NRT_REMAP,
 	VBIF_MEMTYPE_0,
 	VBIF_MEMTYPE_1,
+	VBIF_QOS_RT_REMAP,
+	VBIF_QOS_NRT_REMAP,
+	VBIF_QOS_CWB_REMAP,
+	VBIF_QOS_LUTDMA_REMAP,
 	VBIF_PROP_MAX,
 };
 
@@ -380,6 +394,8 @@ enum {
 	REG_DMA_OFF,
 	REG_DMA_VERSION,
 	REG_DMA_TRIGGER_OFF,
+	REG_DMA_XIN_ID,
+	REG_DMA_CLK_CTRL,
 	REG_DMA_PROP_MAX
 };
 
@@ -429,6 +445,8 @@ static struct sde_prop_type sde_prop[] = {
 	{SDE_OFF, "qcom,sde-off", true, PROP_TYPE_U32},
 	{SDE_LEN, "qcom,sde-len", false, PROP_TYPE_U32},
 	{SSPP_LINEWIDTH, "qcom,sde-sspp-linewidth", false, PROP_TYPE_U32},
+	{VIG_SSPP_LINEWIDTH, "qcom,sde-vig-sspp-linewidth", false,
+			PROP_TYPE_U32},
 	{MIXER_LINEWIDTH, "qcom,sde-mixer-linewidth", false, PROP_TYPE_U32},
 	{MIXER_BLEND, "qcom,sde-mixer-blendstages", false, PROP_TYPE_U32},
 	{WB_LINEWIDTH, "qcom,sde-wb-linewidth", false, PROP_TYPE_U32},
@@ -453,6 +471,8 @@ static struct sde_prop_type sde_prop[] = {
 			PROP_TYPE_U32},
 	{SEC_SID_MASK, "qcom,sde-secure-sid-mask", false, PROP_TYPE_U32_ARRAY},
 	{LINE_INSERTION, "qcom,sde-has-line-insertion", false, PROP_TYPE_BOOL},
+	{BASE_LAYER, "qcom,sde-mixer-stage-base-layer", false, PROP_TYPE_BOOL},
+	{SDE_LIMITS, "qcom,sde-limits", false, PROP_TYPE_NODE},
 };
 
 static struct sde_prop_type sde_perf_prop[] = {
@@ -533,6 +553,8 @@ static struct sde_prop_type sspp_prop[] = {
 	{SSPP_SMART_DMA, "qcom,sde-sspp-smart-dma-priority", false,
 		PROP_TYPE_U32_ARRAY},
 	{SSPP_MAX_PER_PIPE_BW, "qcom,sde-max-per-pipe-bw-kbps", false,
+		PROP_TYPE_U32_ARRAY},
+	{SSPP_MAX_PER_PIPE_BW_HIGH, "qcom,sde-max-per-pipe-bw-high-kbps", false,
 		PROP_TYPE_U32_ARRAY},
 };
 
@@ -688,12 +710,16 @@ static struct sde_prop_type vbif_prop[] = {
 		PROP_TYPE_U32_ARRAY},
 	{VBIF_DYNAMIC_OT_WR_LIMIT, "qcom,sde-vbif-dynamic-ot-wr-limit", false,
 		PROP_TYPE_U32_ARRAY},
+	{VBIF_MEMTYPE_0, "qcom,sde-vbif-memtype-0", false, PROP_TYPE_U32_ARRAY},
+	{VBIF_MEMTYPE_1, "qcom,sde-vbif-memtype-1", false, PROP_TYPE_U32_ARRAY},
 	{VBIF_QOS_RT_REMAP, "qcom,sde-vbif-qos-rt-remap", false,
 		PROP_TYPE_U32_ARRAY},
 	{VBIF_QOS_NRT_REMAP, "qcom,sde-vbif-qos-nrt-remap", false,
 		PROP_TYPE_U32_ARRAY},
-	{VBIF_MEMTYPE_0, "qcom,sde-vbif-memtype-0", false, PROP_TYPE_U32_ARRAY},
-	{VBIF_MEMTYPE_1, "qcom,sde-vbif-memtype-1", false, PROP_TYPE_U32_ARRAY},
+	{VBIF_QOS_CWB_REMAP, "qcom,sde-vbif-qos-cwb-remap", false,
+		PROP_TYPE_U32_ARRAY},
+	{VBIF_QOS_LUTDMA_REMAP, "qcom,sde-vbif-qos-lutdma-remap", false,
+		PROP_TYPE_U32_ARRAY},
 };
 
 static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
@@ -704,6 +730,10 @@ static struct sde_prop_type reg_dma_prop[REG_DMA_PROP_MAX] = {
 	[REG_DMA_TRIGGER_OFF] = {REG_DMA_TRIGGER_OFF,
 		"qcom,sde-reg-dma-trigger-off", false,
 		PROP_TYPE_U32},
+	[REG_DMA_XIN_ID] = {REG_DMA_XIN_ID,
+		"qcom,sde-reg-dma-xin-id", false, PROP_TYPE_U32},
+	[REG_DMA_CLK_CTRL] = {REG_DMA_XIN_ID,
+		"qcom,sde-reg-dma-clk-ctrl", false, PROP_TYPE_BIT_OFFSET_ARRAY},
 };
 
 static struct sde_prop_type merge_3d_prop[] = {
@@ -723,6 +753,14 @@ static struct sde_prop_type inline_rot_prop[INLINE_ROT_PROP_MAX] = {
 							PROP_TYPE_STRING_ARRAY},
 	{INLINE_ROT_CLK_CTRL, "qcom,sde-inline-rot-clk-ctrl", false,
 						PROP_TYPE_BIT_OFFSET_ARRAY},
+};
+
+static struct sde_prop_type limit_usecase_prop[] = {
+	{LIMIT_NAME, "qcom,sde-limit-name", false, PROP_TYPE_STRING},
+	{LIMIT_USECASE, "qcom,sde-limit-cases", false, PROP_TYPE_STRING_ARRAY},
+	{LIMIT_ID, "qcom,sde-limit-ids", false, PROP_TYPE_U32_ARRAY},
+	{LIMIT_VALUE, "qcom,sde-limit-values", false,
+				PROP_TYPE_BIT_OFFSET_ARRAY},
 };
 
 /*************************************************************
@@ -1003,6 +1041,7 @@ static void _sde_sspp_setup_vig(struct sde_mdss_cfg *sde_cfg,
 	struct sde_sspp_cfg *sspp, struct sde_sspp_sub_blks *sblk,
 	bool *prop_exists, struct sde_prop_value *prop_value, u32 *vig_count)
 {
+	sblk->maxlinewidth = sde_cfg->vig_sspp_linewidth;
 	sblk->maxupscale = MAX_UPSCALE_RATIO;
 	sblk->maxdwnscale = MAX_DOWNSCALE_RATIO;
 	sspp->id = SSPP_VIG0 + *vig_count;
@@ -1455,8 +1494,13 @@ static int sde_sspp_parse_dt(struct device_node *np,
 			goto end;
 		}
 
-		sblk->maxhdeciexp = MAX_HORZ_DECIMATION;
-		sblk->maxvdeciexp = MAX_VERT_DECIMATION;
+		if (sde_cfg->has_decimation) {
+			sblk->maxhdeciexp = MAX_HORZ_DECIMATION;
+			sblk->maxvdeciexp = MAX_VERT_DECIMATION;
+		} else {
+			sblk->maxhdeciexp = 0;
+			sblk->maxvdeciexp = 0;
+		}
 
 		sspp->xin_id = PROP_VALUE_ACCESS(prop_value, SSPP_XIN, i);
 		sblk->pixel_ram_size = DEFAULT_PIXEL_RAM_SIZE;
@@ -1470,6 +1514,13 @@ static int sde_sspp_parse_dt(struct device_node *np,
 					SSPP_MAX_PER_PIPE_BW, i);
 		else
 			sblk->max_per_pipe_bw = DEFAULT_MAX_PER_PIPE_BW;
+
+		if (prop_exists[SSPP_MAX_PER_PIPE_BW_HIGH])
+			sblk->max_per_pipe_bw_high =
+				PROP_VALUE_ACCESS(prop_value,
+				SSPP_MAX_PER_PIPE_BW_HIGH, i);
+		else
+			sblk->max_per_pipe_bw_high = sblk->max_per_pipe_bw;
 
 		for (j = 0; j < sde_cfg->mdp_count; j++) {
 			sde_cfg->mdp[j].clk_ctrls[sspp->clk_ctrl].reg_off =
@@ -1810,8 +1861,9 @@ static int sde_intf_parse_dt(struct device_node *np,
 		if (IS_SDE_CTL_REV_100(sde_cfg->ctl_rev))
 			set_bit(SDE_INTF_INPUT_CTRL, &intf->features);
 
-		if (IS_SDE_MAJOR_SAME((sde_cfg->hwversion),
-				SDE_HW_VER_500))
+		if (IS_SDE_MAJOR_SAME((sde_cfg->hwversion), SDE_HW_VER_500) ||
+			(IS_SDE_MAJOR_MINOR_SAME((sde_cfg->hwversion),
+					SDE_HW_VER_620)))
 			set_bit(SDE_INTF_TE, &intf->features);
 	}
 
@@ -2592,6 +2644,7 @@ static int sde_vbif_parse_dt(struct device_node *np,
 	bool prop_exists[VBIF_PROP_MAX];
 	u32 off_count, vbif_len;
 	struct sde_vbif_cfg *vbif;
+	int prop_index = VBIF_QOS_RT_REMAP;
 
 	if (!sde_cfg) {
 		SDE_ERROR("invalid argument\n");
@@ -2621,6 +2674,16 @@ static int sde_vbif_parse_dt(struct device_node *np,
 	if (rc)
 		goto end;
 
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_MEMTYPE_0], 1,
+			&prop_count[VBIF_MEMTYPE_0], NULL);
+	if (rc)
+		goto end;
+
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_MEMTYPE_1], 1,
+			&prop_count[VBIF_MEMTYPE_1], NULL);
+	if (rc)
+		goto end;
+
 	rc = _validate_dt_entry(np, &vbif_prop[VBIF_QOS_RT_REMAP], 1,
 			&prop_count[VBIF_QOS_RT_REMAP], NULL);
 	if (rc)
@@ -2631,13 +2694,13 @@ static int sde_vbif_parse_dt(struct device_node *np,
 	if (rc)
 		goto end;
 
-	rc = _validate_dt_entry(np, &vbif_prop[VBIF_MEMTYPE_0], 1,
-			&prop_count[VBIF_MEMTYPE_0], NULL);
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_QOS_CWB_REMAP], 1,
+			&prop_count[VBIF_QOS_CWB_REMAP], NULL);
 	if (rc)
 		goto end;
 
-	rc = _validate_dt_entry(np, &vbif_prop[VBIF_MEMTYPE_1], 1,
-			&prop_count[VBIF_MEMTYPE_1], NULL);
+	rc = _validate_dt_entry(np, &vbif_prop[VBIF_QOS_LUTDMA_REMAP], 1,
+			&prop_count[VBIF_QOS_LUTDMA_REMAP], NULL);
 	if (rc)
 		goto end;
 
@@ -2733,62 +2796,40 @@ static int sde_vbif_parse_dt(struct device_node *np,
 				vbif->dynamic_ot_wr_tbl.count)
 			set_bit(SDE_VBIF_QOS_OTLIM, &vbif->features);
 
-		vbif->qos_rt_tbl.npriority_lvl =
-				prop_count[VBIF_QOS_RT_REMAP];
-		SDE_DEBUG("qos_rt_tbl.npriority_lvl=%u\n",
-				vbif->qos_rt_tbl.npriority_lvl);
-		if (vbif->qos_rt_tbl.npriority_lvl == sde_cfg->vbif_qos_nlvl) {
-			vbif->qos_rt_tbl.priority_lvl = kcalloc(
-				vbif->qos_rt_tbl.npriority_lvl, sizeof(u32),
-				GFP_KERNEL);
-			if (!vbif->qos_rt_tbl.priority_lvl) {
-				rc = -ENOMEM;
-				goto end;
+		for (k = VBIF_RT_CLIENT;
+			((k < VBIF_MAX_CLIENT) && (prop_index < VBIF_PROP_MAX));
+				k++, prop_index++) {
+			vbif->qos_tbl[k].npriority_lvl = prop_count[prop_index];
+			SDE_DEBUG("qos_tbl[%d].npriority_lvl=%u\n",
+				k, vbif->qos_tbl[k].npriority_lvl);
+
+			if (vbif->qos_tbl[k].npriority_lvl ==
+					sde_cfg->vbif_qos_nlvl) {
+				vbif->qos_tbl[k].priority_lvl = kcalloc(
+					vbif->qos_tbl[k].npriority_lvl,
+					sizeof(u32), GFP_KERNEL);
+				if (!vbif->qos_tbl[k].priority_lvl) {
+					rc = -ENOMEM;
+					goto end;
+				}
+			} else if (vbif->qos_tbl[k].npriority_lvl) {
+				vbif->qos_tbl[k].npriority_lvl = 0;
+				vbif->qos_tbl[k].priority_lvl = NULL;
+				SDE_ERROR("invalid qos rt table\n");
 			}
-		} else if (vbif->qos_rt_tbl.npriority_lvl) {
-			vbif->qos_rt_tbl.npriority_lvl = 0;
-			vbif->qos_rt_tbl.priority_lvl = NULL;
-			SDE_ERROR("invalid qos rt table\n");
-		}
 
-		for (j = 0; j < vbif->qos_rt_tbl.npriority_lvl; j++) {
-			vbif->qos_rt_tbl.priority_lvl[j] =
-				PROP_VALUE_ACCESS(prop_value,
-						VBIF_QOS_RT_REMAP, j);
-			SDE_DEBUG("lvl[%d]=%u\n", j,
-					vbif->qos_rt_tbl.priority_lvl[j]);
-		}
-
-		vbif->qos_nrt_tbl.npriority_lvl =
-				prop_count[VBIF_QOS_NRT_REMAP];
-		SDE_DEBUG("qos_nrt_tbl.npriority_lvl=%u\n",
-				vbif->qos_nrt_tbl.npriority_lvl);
-
-		if (vbif->qos_nrt_tbl.npriority_lvl == sde_cfg->vbif_qos_nlvl) {
-			vbif->qos_nrt_tbl.priority_lvl = kcalloc(
-				vbif->qos_nrt_tbl.npriority_lvl, sizeof(u32),
-				GFP_KERNEL);
-			if (!vbif->qos_nrt_tbl.priority_lvl) {
-				rc = -ENOMEM;
-				goto end;
+			for (j = 0; j < vbif->qos_tbl[k].npriority_lvl; j++) {
+				vbif->qos_tbl[k].priority_lvl[j] =
+					PROP_VALUE_ACCESS(prop_value,
+							prop_index, j);
+				SDE_DEBUG("client:%d, prop:%d, lvl[%d]=%u\n",
+					k, prop_index, j,
+					vbif->qos_tbl[k].priority_lvl[j]);
 			}
-		} else if (vbif->qos_nrt_tbl.npriority_lvl) {
-			vbif->qos_nrt_tbl.npriority_lvl = 0;
-			vbif->qos_nrt_tbl.priority_lvl = NULL;
-			SDE_ERROR("invalid qos nrt table\n");
-		}
 
-		for (j = 0; j < vbif->qos_nrt_tbl.npriority_lvl; j++) {
-			vbif->qos_nrt_tbl.priority_lvl[j] =
-				PROP_VALUE_ACCESS(prop_value,
-						VBIF_QOS_NRT_REMAP, j);
-			SDE_DEBUG("lvl[%d]=%u\n", j,
-					vbif->qos_nrt_tbl.priority_lvl[j]);
+			if (vbif->qos_tbl[k].npriority_lvl)
+				set_bit(SDE_VBIF_QOS_REMAP, &vbif->features);
 		}
-
-		if (vbif->qos_rt_tbl.npriority_lvl ||
-				vbif->qos_nrt_tbl.npriority_lvl)
-			set_bit(SDE_VBIF_QOS_REMAP, &vbif->features);
 
 		vbif->memtype_count = prop_count[VBIF_MEMTYPE_0] +
 					prop_count[VBIF_MEMTYPE_1];
@@ -2912,6 +2953,148 @@ end:
 	return rc;
 }
 
+static int sde_read_limit_node(struct device_node *snp,
+	struct sde_prop_value *lmt_val, struct sde_mdss_cfg *cfg)
+{
+	int j, i = 0, rc = 0;
+	const char *type = NULL;
+	struct device_node *node = NULL;
+
+	for_each_child_of_node(snp, node) {
+		cfg->limit_cfg[i].vector_cfg =
+			kcalloc(cfg->limit_cfg[i].lmt_case_cnt,
+				sizeof(struct limit_vector_cfg), GFP_KERNEL);
+		if (!cfg->limit_cfg[i].vector_cfg) {
+			rc = -ENOMEM;
+			goto error;
+		}
+
+		for (j = 0; j < cfg->limit_cfg[i].lmt_case_cnt; j++) {
+			of_property_read_string_index(node,
+				limit_usecase_prop[LIMIT_USECASE].prop_name,
+				j, &type);
+			cfg->limit_cfg[i].vector_cfg[j].usecase = type;
+			cfg->limit_cfg[i].vector_cfg[j].value =
+				PROP_VALUE_ACCESS(&lmt_val[i * LIMIT_PROP_MAX],
+				LIMIT_ID, j);
+		}
+
+		cfg->limit_cfg[i].value_cfg =
+				kcalloc(cfg->limit_cfg[i].lmt_vec_cnt,
+				sizeof(struct limit_value_cfg), GFP_KERNEL);
+
+		if (!cfg->limit_cfg[i].value_cfg) {
+			rc = -ENOMEM;
+			goto error;
+		}
+
+		for (j = 0; j < cfg->limit_cfg[i].lmt_vec_cnt; j++) {
+			cfg->limit_cfg[i].value_cfg[j].use_concur =
+				PROP_BITVALUE_ACCESS(
+					&lmt_val[i * LIMIT_PROP_MAX],
+					LIMIT_VALUE, j, 0);
+			cfg->limit_cfg[i].value_cfg[j].value =
+				PROP_BITVALUE_ACCESS(
+					&lmt_val[i * LIMIT_PROP_MAX],
+					LIMIT_VALUE, j, 1);
+		}
+		i++;
+	}
+
+	return 0;
+error:
+	for (j = 0; j < cfg->limit_count; j++) {
+		kfree(cfg->limit_cfg[j].vector_cfg);
+		kfree(cfg->limit_cfg[j].value_cfg);
+	}
+
+	cfg->limit_count = 0;
+	return rc;
+}
+
+static int sde_validate_limit_node(struct device_node *snp,
+	struct sde_prop_value *sde_limit_value, struct sde_mdss_cfg *cfg)
+{
+	int i = 0, rc = 0;
+	struct device_node *node = NULL;
+	int limit_value_count[LIMIT_PROP_MAX];
+	bool limit_value_exists[LIMIT_SUBBLK_COUNT_MAX][LIMIT_PROP_MAX];
+	const char *type = NULL;
+
+	for_each_child_of_node(snp, node) {
+		rc = _validate_dt_entry(node, limit_usecase_prop,
+			ARRAY_SIZE(limit_usecase_prop),
+			limit_value_count, NULL);
+		if (rc)
+			goto end;
+
+		rc = _read_dt_entry(node, limit_usecase_prop,
+			ARRAY_SIZE(limit_usecase_prop), limit_value_count,
+			&limit_value_exists[i][0],
+			&sde_limit_value[i * LIMIT_PROP_MAX]);
+		if (rc)
+			goto end;
+
+		cfg->limit_cfg[i].lmt_case_cnt =
+				limit_value_count[LIMIT_ID];
+
+		cfg->limit_cfg[i].lmt_vec_cnt =
+				limit_value_count[LIMIT_VALUE];
+		of_property_read_string(node,
+			limit_usecase_prop[LIMIT_NAME].prop_name, &type);
+		cfg->limit_cfg[i].name = type;
+
+		if (!limit_value_count[LIMIT_ID] ||
+				!limit_value_count[LIMIT_VALUE]) {
+			rc = -EINVAL;
+			goto end;
+		}
+		i++;
+	}
+	return 0;
+end:
+	cfg->limit_count = 0;
+	return rc;
+}
+
+static int sde_limit_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
+{
+	struct device_node *snp = NULL;
+	struct sde_prop_value  *sde_limit_value = NULL;
+	int rc = 0;
+
+	snp = of_get_child_by_name(np, sde_prop[SDE_LIMITS].prop_name);
+	if (!snp)
+		goto end;
+
+	cfg->limit_count = of_get_child_count(snp);
+	if (cfg->limit_count < 0) {
+		rc = -EINVAL;
+		goto end;
+	}
+
+	sde_limit_value = kzalloc(cfg->limit_count * LIMIT_PROP_MAX *
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!sde_limit_value) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	rc = sde_validate_limit_node(snp, sde_limit_value, cfg);
+	if (rc) {
+		SDE_ERROR("validating limit node failed\n");
+		goto end;
+	}
+
+	rc = sde_read_limit_node(snp, sde_limit_value, cfg);
+	if (rc)
+		SDE_ERROR("reading limit node failed\n");
+
+end:
+	kfree(sde_limit_value);
+	return rc;
+}
+
 static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 {
 	int rc, i, dma_rc, len, prop_count[SDE_PROP_MAX];
@@ -2967,6 +3150,11 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 			SSPP_LINEWIDTH, 0);
 	if (!prop_exists[SSPP_LINEWIDTH])
 		cfg->max_sspp_linewidth = DEFAULT_SDE_LINE_WIDTH;
+
+	cfg->vig_sspp_linewidth = PROP_VALUE_ACCESS(prop_value,
+			VIG_SSPP_LINEWIDTH, 0);
+	if (!prop_exists[VIG_SSPP_LINEWIDTH])
+		cfg->vig_sspp_linewidth = cfg->max_sspp_linewidth;
 
 	cfg->max_mixer_width = PROP_VALUE_ACCESS(prop_value,
 			MIXER_LINEWIDTH, 0);
@@ -3074,6 +3262,11 @@ static int sde_parse_dt(struct device_node *np, struct sde_mdss_cfg *cfg)
 		PIPE_ORDER_VERSION, 0);
 	cfg->has_line_insertion = PROP_VALUE_ACCESS(prop_value,
 		LINE_INSERTION, 0);
+	cfg->has_base_layer = PROP_VALUE_ACCESS(prop_value, BASE_LAYER, 0);
+
+	rc = sde_limit_parse_dt(np, cfg);
+	if (rc)
+		SDE_DEBUG("parsing of sde limit failed\n");
 end:
 	kfree(prop_value);
 	return rc;
@@ -3082,32 +3275,50 @@ end:
 static int sde_parse_reg_dma_dt(struct device_node *np,
 		struct sde_mdss_cfg *sde_cfg)
 {
-	u32 val;
-	int rc = 0;
-	int i = 0;
+	int rc = 0, i, prop_count[REG_DMA_PROP_MAX];
+	struct sde_prop_value *prop_value = NULL;
+	u32 off_count;
+	bool prop_exists[REG_DMA_PROP_MAX];
 
-	sde_cfg->reg_dma_count = 0;
-	for (i = 0; i < REG_DMA_PROP_MAX; i++) {
-		rc = of_property_read_u32(np, reg_dma_prop[i].prop_name,
-				&val);
-		if (rc)
-			break;
-		switch (i) {
-		case REG_DMA_OFF:
-			sde_cfg->dma_cfg.base = val;
-			break;
-		case REG_DMA_VERSION:
-			sde_cfg->dma_cfg.version = val;
-			break;
-		case REG_DMA_TRIGGER_OFF:
-			sde_cfg->dma_cfg.trigger_sel_off = val;
-			break;
-		default:
-			break;
-		}
+	prop_value = kcalloc(REG_DMA_PROP_MAX,
+			sizeof(struct sde_prop_value), GFP_KERNEL);
+	if (!prop_value) {
+		rc = -ENOMEM;
+		goto end;
 	}
-	if (!rc && i == REG_DMA_PROP_MAX)
-		sde_cfg->reg_dma_count = 1;
+
+	rc = _validate_dt_entry(np, reg_dma_prop, ARRAY_SIZE(reg_dma_prop),
+			prop_count, &off_count);
+	if (rc || !off_count)
+		goto end;
+
+	rc = _read_dt_entry(np, reg_dma_prop, ARRAY_SIZE(reg_dma_prop),
+			prop_count, prop_exists, prop_value);
+	if (rc)
+		goto end;
+
+	sde_cfg->reg_dma_count = off_count;
+	sde_cfg->dma_cfg.base = PROP_VALUE_ACCESS(prop_value, REG_DMA_OFF, 0);
+	sde_cfg->dma_cfg.version = PROP_VALUE_ACCESS(prop_value,
+						REG_DMA_VERSION, 0);
+	sde_cfg->dma_cfg.trigger_sel_off = PROP_VALUE_ACCESS(prop_value,
+						REG_DMA_TRIGGER_OFF, 0);
+	sde_cfg->dma_cfg.xin_id = PROP_VALUE_ACCESS(prop_value,
+						REG_DMA_XIN_ID, 0);
+	sde_cfg->dma_cfg.clk_ctrl = SDE_CLK_CTRL_LUTDMA;
+	sde_cfg->dma_cfg.vbif_idx = VBIF_RT;
+
+	for (i = 0; i < sde_cfg->mdp_count; i++) {
+		sde_cfg->mdp[i].clk_ctrls[sde_cfg->dma_cfg.clk_ctrl].reg_off =
+			PROP_BITVALUE_ACCESS(prop_value,
+					REG_DMA_CLK_CTRL, 0, 0);
+		sde_cfg->mdp[i].clk_ctrls[sde_cfg->dma_cfg.clk_ctrl].bit_off =
+			PROP_BITVALUE_ACCESS(prop_value,
+					REG_DMA_CLK_CTRL, 0, 1);
+	}
+
+end:
+	kfree(prop_value);
 	/* reg dma is optional feature hence return 0 */
 	return 0;
 }
@@ -3477,7 +3688,8 @@ fail:
 	return rc;
 }
 
-int sde_qdss_parse_dt(struct device_node *np, struct sde_mdss_cfg *sde_cfg)
+static int sde_qdss_parse_dt(struct device_node *np,
+				struct sde_mdss_cfg *sde_cfg)
 {
 	int rc, prop_count[HW_PROP_MAX], i;
 	struct sde_prop_value *prop_value = NULL;
@@ -3560,7 +3772,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	virt_vig_list_size += ARRAY_SIZE(rgb_10bit_formats);
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
 		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)) ||
-		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)))
+		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)) ||
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_620)))
 		vig_list_size += ARRAY_SIZE(p010_ubwc_formats);
 
 	wb2_list_size += ARRAY_SIZE(rgb_10bit_formats)
@@ -3598,7 +3811,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_300) ||
 	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
 	    IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410) ||
-	    IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500))
+	    IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500) ||
+		IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_620))
 		sde_cfg->has_hdr = true;
 
 	/* Disable HDR for SM6150 target only */
@@ -3621,7 +3835,8 @@ static int sde_hardware_format_caps(struct sde_mdss_cfg *sde_cfg,
 		index, p010_formats, ARRAY_SIZE(p010_formats));
 	if (IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_400) ||
 		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_410)) ||
-		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)))
+		(IS_SDE_MAJOR_SAME((hw_rev), SDE_HW_VER_500)) ||
+		(IS_SDE_MAJOR_MINOR_SAME((hw_rev), SDE_HW_VER_620)))
 		index += sde_copy_formats(sde_cfg->vig_formats,
 			vig_list_size, index, p010_ubwc_formats,
 			ARRAY_SIZE(p010_ubwc_formats));
@@ -3649,20 +3864,25 @@ end:
 
 static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 {
-	int rc = 0;
+	int i, rc = 0;
 
 	if (!sde_cfg)
 		return -EINVAL;
 
 	rc = sde_hardware_format_caps(sde_cfg, hw_rev);
 
+	for (i = 0; i < MDSS_INTR_MAX; i++)
+		set_bit(i, sde_cfg->mdss_irqs);
+
 	if (IS_MSM8996_TARGET(hw_rev)) {
 		sde_cfg->perf.min_prefill_lines = 21;
+		sde_cfg->has_decimation = true;
 	} else if (IS_MSM8998_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 25;
 		sde_cfg->vbif_qos_nlvl = 4;
 		sde_cfg->ts_prefill_rev = 1;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDM845_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->has_cwb_support = true;
@@ -3671,11 +3891,13 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->ts_prefill_rev = 2;
 		sde_cfg->sui_misr_supported = true;
 		sde_cfg->sui_block_xin_mask = 0x3F71;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDM670_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
 		sde_cfg->vbif_qos_nlvl = 8;
 		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SM8150_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_wb_ubwc = true;
@@ -3689,6 +3911,9 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->sui_misr_supported = true;
 		sde_cfg->sui_block_xin_mask = 0x3F71;
 		sde_cfg->has_3d_merge_reset = true;
+		sde_cfg->has_sui_blendstage = true;
+		sde_cfg->has_qos_fl_nocalc = true;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDMSHRIKE_TARGET(hw_rev)) {
 		sde_cfg->has_wb_ubwc = true;
 		sde_cfg->perf.min_prefill_lines = 24;
@@ -3696,6 +3921,7 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->ts_prefill_rev = 2;
 		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
 		sde_cfg->delay_prg_fetch_start = true;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SM6150_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_qsync = true;
@@ -3708,6 +3934,9 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->sui_misr_supported = true;
 		sde_cfg->sui_block_xin_mask = 0x2E61;
 		sde_cfg->has_3d_merge_reset = true;
+		sde_cfg->has_sui_blendstage = true;
+		sde_cfg->has_qos_fl_nocalc = true;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDMMAGPIE_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_wb_ubwc = true;
@@ -3721,6 +3950,9 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->sui_misr_supported = true;
 		sde_cfg->sui_block_xin_mask = 0xE71;
 		sde_cfg->has_3d_merge_reset = true;
+		sde_cfg->has_sui_blendstage = true;
+		sde_cfg->has_qos_fl_nocalc = true;
+		sde_cfg->has_decimation = true;
 	} else if (IS_SDMTRINKET_TARGET(hw_rev)) {
 		sde_cfg->has_cwb_support = true;
 		sde_cfg->has_qsync = true;
@@ -3732,6 +3964,25 @@ static int _sde_hardware_pre_caps(struct sde_mdss_cfg *sde_cfg, uint32_t hw_rev)
 		sde_cfg->sui_ns_allowed = true;
 		sde_cfg->sui_misr_supported = true;
 		sde_cfg->sui_block_xin_mask = 0xC61;
+		sde_cfg->has_sui_blendstage = true;
+		sde_cfg->has_qos_fl_nocalc = true;
+		sde_cfg->has_decimation = true;
+	} else if (IS_ATOLL_TARGET(hw_rev)) {
+		sde_cfg->has_cwb_support = true;
+		sde_cfg->has_qsync = true;
+		sde_cfg->perf.min_prefill_lines = 24;
+		sde_cfg->vbif_qos_nlvl = 8;
+		sde_cfg->ts_prefill_rev = 2;
+		sde_cfg->ctl_rev = SDE_CTL_CFG_VERSION_1_0_0;
+		sde_cfg->delay_prg_fetch_start = true;
+		sde_cfg->sui_ns_allowed = true;
+		sde_cfg->sui_misr_supported = true;
+		sde_cfg->sui_block_xin_mask = 0x261;
+		sde_cfg->has_sui_blendstage = true;
+		sde_cfg->has_qos_fl_nocalc = true;
+		sde_cfg->has_3d_merge_reset = true;
+		clear_bit(MDSS_INTR_AD4_0_INTR, sde_cfg->mdss_irqs);
+		clear_bit(MDSS_INTR_AD4_1_INTR, sde_cfg->mdss_irqs);
 	} else {
 		SDE_ERROR("unsupported chipset id:%X\n", hw_rev);
 		sde_cfg->perf.min_prefill_lines = 0xffff;
@@ -3750,15 +4001,9 @@ static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
 	if (!sde_cfg)
 		return -EINVAL;
 
-	if (IS_SM8150_TARGET(hw_rev) || IS_SM6150_TARGET(hw_rev) ||
-		IS_SDMMAGPIE_TARGET(hw_rev) || IS_SDMTRINKET_TARGET(hw_rev)) {
+	if (sde_cfg->has_sui_blendstage)
 		sde_cfg->sui_supported_blendstage =
 			sde_cfg->max_mixer_blendstages - SDE_STAGE_0;
-
-		for (i = 0; i < sde_cfg->sspp_count; i++)
-			set_bit(SDE_SSPP_QOS_FL_NOCALC,
-					&sde_cfg->sspp[i].features);
-	}
 
 	for (i = 0; i < sde_cfg->sspp_count; i++) {
 		if (sde_cfg->sspp[i].sblk) {
@@ -3767,6 +4012,10 @@ static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
 			max_vert_deci = max(max_vert_deci,
 				sde_cfg->sspp[i].sblk->maxvdeciexp);
 		}
+
+		if (sde_cfg->has_qos_fl_nocalc)
+			set_bit(SDE_SSPP_QOS_FL_NOCALC,
+				&sde_cfg->sspp[i].features);
 
 		/*
 		 * set sec-ui blocked SSPP feature flag based on blocked
@@ -3803,7 +4052,7 @@ static int _sde_hardware_post_caps(struct sde_mdss_cfg *sde_cfg,
 
 void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 {
-	int i;
+	int i, j;
 
 	if (!sde_cfg)
 		return;
@@ -3829,12 +4078,20 @@ void sde_hw_catalog_deinit(struct sde_mdss_cfg *sde_cfg)
 	for (i = 0; i < sde_cfg->vbif_count; i++) {
 		kfree(sde_cfg->vbif[i].dynamic_ot_rd_tbl.cfg);
 		kfree(sde_cfg->vbif[i].dynamic_ot_wr_tbl.cfg);
-		kfree(sde_cfg->vbif[i].qos_rt_tbl.priority_lvl);
-		kfree(sde_cfg->vbif[i].qos_nrt_tbl.priority_lvl);
+
+		for (j = VBIF_RT_CLIENT; j < VBIF_MAX_CLIENT; j++)
+			kfree(sde_cfg->vbif[i].qos_tbl[j].priority_lvl);
 	}
 
-	for (i = 0; i < SDE_QOS_LUT_USAGE_MAX; i++)
+	for (i = 0; i < sde_cfg->limit_count; i++) {
+		kfree(sde_cfg->limit_cfg[i].vector_cfg);
+		kfree(sde_cfg->limit_cfg[i].value_cfg);
+	}
+
+	for (i = 0; i < SDE_QOS_LUT_USAGE_MAX; i++) {
+		kfree(sde_cfg->perf.sfe_lut_tbl[i].entries);
 		kfree(sde_cfg->perf.qos_lut_tbl[i].entries);
+	}
 
 	kfree(sde_cfg->dma_formats);
 	kfree(sde_cfg->cursor_formats);

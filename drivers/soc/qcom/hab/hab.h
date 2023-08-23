@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,39 +13,7 @@
 #ifndef __HAB_H
 #define __HAB_H
 
-#ifdef pr_fmt
-#undef pr_fmt
-#endif
-#define pr_fmt(fmt) "hab:%s:%d " fmt, __func__, __LINE__
-
-#include <linux/types.h>
-
-#include <linux/habmm.h>
-#include <linux/hab_ioctl.h>
-
-#include <linux/kernel.h>
-#include <linux/interrupt.h>
-#include <linux/device.h>
-#include <linux/fs.h>
-#include <linux/mm.h>
-#include <linux/vmalloc.h>
-#include <linux/slab.h>
-#include <linux/kthread.h>
-#include <linux/sched.h>
-#include <linux/cdev.h>
-#include <linux/list.h>
-#include <linux/spinlock.h>
-#include <linux/rbtree.h>
-#include <linux/idr.h>
-#include <linux/module.h>
-#include <linux/uaccess.h>
-#include <linux/dma-direction.h>
-#include <linux/dma-mapping.h>
-#include <linux/jiffies.h>
-#include <linux/reboot.h>
-#include <linux/kobject.h>
-#include <linux/sysfs.h>
-#include <linux/delay.h>
+#include "hab_os.h"	/* OS-specific part in the core header file */
 
 enum hab_payload_type {
 	HAB_PAYLOAD_TYPE_MSG = 0x0,
@@ -57,6 +25,10 @@ enum hab_payload_type {
 	HAB_PAYLOAD_TYPE_PROFILE,
 	HAB_PAYLOAD_TYPE_CLOSE,
 	HAB_PAYLOAD_TYPE_INIT_CANCEL,
+	HAB_PAYLOAD_TYPE_SCHE_MSG,
+	HAB_PAYLOAD_TYPE_SCHE_MSG_ACK,
+	HAB_PAYLOAD_TYPE_SCHE_RESULT_REQ,
+	HAB_PAYLOAD_TYPE_SCHE_RESULT_RSP,
 	HAB_PAYLOAD_TYPE_MAX,
 };
 #define LOOPBACK_DOM 0xFF
@@ -88,6 +60,9 @@ enum hab_payload_type {
 #define DEVICE_CLK2_NAME "hab_clock_vm2"
 #define DEVICE_FDE1_NAME "hab_fde1"
 #define DEVICE_BUFFERQ1_NAME "hab_bufferq1"
+#define DEVICE_DATA1_NAME "hab_data_network1"
+#define DEVICE_DATA2_NAME "hab_data_network2"
+#define DEVICE_HSI2S1_NAME "hab_hsi2s1"
 
 /* make sure concascaded name is less than this value */
 #define MAX_VMID_NAME_SIZE 30
@@ -333,6 +308,10 @@ struct hab_driver {
 	int ctx_cnt;
 	spinlock_t drvlock;
 
+	struct list_head imp_list;
+	int imp_cnt;
+	spinlock_t imp_lock;
+
 	struct local_vmid settings; /* parser results */
 
 	int b_server_dom;
@@ -398,10 +377,17 @@ struct export_desc {
 	unsigned char       payload[1];
 } __packed;
 
+struct export_desc_super {
+	struct kref refcount;
+	void *platform_data;
+	unsigned long offset;
+	struct export_desc  exp;
+};
+
 int hab_vchan_open(struct uhab_context *ctx,
 		unsigned int mmid, int32_t *vcid,
 		int32_t timeout, uint32_t flags);
-void hab_vchan_close(struct uhab_context *ctx,
+int hab_vchan_close(struct uhab_context *ctx,
 		int32_t vcid);
 long hab_vchan_send(struct uhab_context *ctx,
 		int vcid,
@@ -424,32 +410,40 @@ int hab_mem_import(struct uhab_context *ctx,
 		struct hab_import *param, int kernel);
 int hab_mem_unexport(struct uhab_context *ctx,
 		struct hab_unexport *param, int kernel);
+void habmem_export_get(struct export_desc_super *exp_super);
+int habmem_export_put(struct export_desc_super *exp_super);
+
 int hab_mem_unimport(struct uhab_context *ctx,
 		struct hab_unimport *param, int kernel);
 
 void habmem_remove_export(struct export_desc *exp);
 
 /* memory hypervisor framework plugin I/F */
-void *habmm_hyp_allocate_grantable(int page_count,
-		uint32_t *sizebytes);
+struct export_desc_super *habmem_add_export(
+		struct virtual_channel *vchan,
+		int sizebytes,
+		uint32_t flags);
 
-int habmem_hyp_grant_user(unsigned long address,
+int habmem_hyp_grant_user(struct virtual_channel *vchan,
+		unsigned long address,
 		int page_count,
 		int flags,
 		int remotedom,
-		void *ppdata,
 		int *compressed,
-		int *compressed_size);
+		int *compressed_size,
+		int *export_id);
 
-int habmem_hyp_grant(unsigned long address,
+int habmem_hyp_grant(struct virtual_channel *vchan,
+		unsigned long address,
 		int page_count,
 		int flags,
 		int remotedom,
-		void *ppdata,
 		int *compressed,
-		int *compressed_size);
+		int *compressed_size,
+		int *export_id);
 
 int habmem_hyp_revoke(void *expdata, uint32_t count);
+int habmem_exp_release(struct export_desc_super *exp_super);
 
 void *habmem_imp_hyp_open(void);
 void habmem_imp_hyp_close(void *priv, int kernel);
@@ -520,12 +514,16 @@ static inline void hab_ctx_put(struct uhab_context *ctx)
 }
 
 void hab_send_close_msg(struct virtual_channel *vchan);
+
 int hab_hypervisor_register(void);
+int hab_hypervisor_register_os(void);
 void hab_hypervisor_unregister(void);
 void hab_hypervisor_unregister_common(void);
 int habhyp_commdev_alloc(void **commdev, int is_be, char *name,
 		int vmid_remote, struct hab_device *mmid_device);
 int habhyp_commdev_dealloc(void *commdev);
+void habhyp_commdev_dealloc_os(void *commdev);
+int habhyp_commdev_create_dispatcher(struct physical_channel *pchan);
 
 int physical_channel_read(struct physical_channel *pchan,
 		void *payload,
@@ -536,6 +534,7 @@ int physical_channel_send(struct physical_channel *pchan,
 		void *payload);
 
 void physical_channel_rx_dispatch(unsigned long physical_channel);
+void physical_channel_rx_dispatch_common(unsigned long physical_channel);
 
 int loopback_pchan_create(struct hab_device *dev, char *pchan_name);
 
@@ -577,7 +576,46 @@ int hab_stat_show_expimp(struct hab_driver *drv, int pid, char *buf, int sz);
 int hab_stat_init_sub(struct hab_driver *drv);
 int hab_stat_deinit_sub(struct hab_driver *drv);
 
+static inline void hab_spin_lock(spinlock_t *lock, int irqs_disabled)
+{
+	if (irqs_disabled)
+		spin_lock(lock);
+	else
+		spin_lock_bh(lock);
+}
+
+static inline void hab_spin_unlock(spinlock_t *lock, int irqs_disabled)
+{
+	if (irqs_disabled)
+		spin_unlock(lock);
+	else
+		spin_unlock_bh(lock);
+}
+
+static inline void hab_write_lock(rwlock_t *lock, int irqs_disabled)
+{
+	if (irqs_disabled)
+		write_lock(lock);
+	else
+		write_lock_bh(lock);
+}
+
+static inline void hab_write_unlock(rwlock_t *lock, int irqs_disabled)
+{
+	if (irqs_disabled)
+		write_unlock(lock);
+	else
+		write_unlock_bh(lock);
+}
+
 /* Global singleton HAB instance */
 extern struct hab_driver hab_driver;
 
+int dump_hab_get_file_name(char *file_time, int ft_size);
+int dump_hab_open(void);
+void dump_hab_close(void);
+int dump_hab_buf(void *buf, int size);
+void hab_pipe_read_dump(struct physical_channel *pchan);
+void dump_hab(void);
+void dump_hab_wq(void *hyp_data);
 #endif /* __HAB_H */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, 2016-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, 2016-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,12 +20,25 @@
 
 /* Constants */
 #define RMNET_EGRESS_FORMAT_AGGREGATION         BIT(31)
-#define RMNET_INGRESS_FORMAT_DL_MARKER          BIT(30)
-#define RMNET_INGRESS_FORMAT_RPS_STAMP          BIG(29)
+#define RMNET_INGRESS_FORMAT_DL_MARKER_V1       BIT(30)
+#define RMNET_INGRESS_FORMAT_DL_MARKER_V2       BIT(29)
+
+#define RMNET_INGRESS_FORMAT_DL_MARKER  (RMNET_INGRESS_FORMAT_DL_MARKER_V1 |\
+RMNET_INGRESS_FORMAT_DL_MARKER_V2)
+
+/* UL Packet prioritization */
+#define RMNET_EGRESS_FORMAT_PRIORITY            BIT(28)
 
 /* Power save feature*/
 #define RMNET_INGRESS_FORMAT_PS                 BIT(27)
 #define RMNET_FORMAT_PS_NOTIF                   BIT(26)
+
+/* UL Aggregation parameters */
+#define RMNET_PAGE_RECYCLE                      BIT(0)
+
+/* IP-Mux feature */
+#define RMNET_INGRESS_FORMAT_IP_ROUTE           BIT(25)
+#define RMNET_EGRESS_FORMAT_IP_ROUTE            BIT(24)
 
 /* Replace skb->dev to a virtual rmnet device and pass up the stack */
 #define RMNET_EPMODE_VND (1)

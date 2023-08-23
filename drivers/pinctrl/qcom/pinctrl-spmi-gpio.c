@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, 2016-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/spmi.h>
 
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 
@@ -119,6 +120,7 @@
 #define PMIC_GPIO_CONF_ANALOG_PASS		(PIN_CONFIG_END + 4)
 #define PMIC_GPIO_CONF_DTEST_BUFFER		(PIN_CONFIG_END + 5)
 
+
 /* The index of each function in pmic_gpio_functions[] array */
 enum pmic_gpio_func_index {
 	PMIC_GPIO_FUNC_INDEX_NORMAL,
@@ -139,6 +141,7 @@ enum pmic_gpio_func_index {
  * @irq: IRQ number which this GPIO generate.
  * @gpio_idx: The index in GPIO's hardware number space (1-based)
  * @is_enabled: Set to false when GPIO should be put in high Z state.
+ * @is_configured: Set to true if the GPIO is configured
  * @out_value: Cached pin output value
  * @have_buffer: Set to true if GPIO output could be configured in push-pull,
  *	open-drain or open-source mode.
@@ -160,6 +163,7 @@ struct pmic_gpio_pad {
 	int		irq;
 	int		gpio_idx;
 	bool		is_enabled;
+	bool		is_configured;
 	bool		out_value;
 	bool		have_buffer;
 	bool		output_enabled;
@@ -332,6 +336,7 @@ static int pmic_gpio_set_mux(struct pinctrl_dev *pctldev, unsigned function,
 	}
 
 	pad->function = function;
+	pad->is_configured = true;
 
 	if (pad->analog_pass)
 		val = PMIC_GPIO_MODE_ANALOG_PASS_THRU;
@@ -478,6 +483,7 @@ static int pmic_gpio_config_set(struct pinctrl_dev *pctldev, unsigned int pin,
 	pad = pctldev->desc->pins[pin].drv_data;
 
 	pad->is_enabled = true;
+	pad->is_configured = true;
 	for (i = 0; i < nconfs; i++) {
 		param = pinconf_to_config_param(configs[i]);
 		arg = pinconf_to_config_argument(configs[i]);
@@ -683,16 +689,15 @@ static void pmic_gpio_config_dbg_show(struct pinctrl_dev *pctldev,
 		if (pad->analog_pass)
 			seq_puts(s, " analog-pass");
 		else
-			seq_printf(s, " %-4s",
-					pad->output_enabled ? "out" : "in");
+			seq_printf(s, " %-4s", pad->output_enabled ? "out" : "in");
 		seq_printf(s, " %-7s", pmic_gpio_functions[function]);
 		seq_printf(s, " vin-%d", pad->power_source);
 		seq_printf(s, " %-27s", biases[pad->pullup]);
 		seq_printf(s, " %-10s", buffer_types[pad->buffer_type]);
 		seq_printf(s, " %-4s", pad->out_value ? "high" : "low");
 		seq_printf(s, " %-7s", strengths[pad->strength]);
-		seq_printf(s, " atest-%d", pad->atest);
-		seq_printf(s, " dtest-%d", pad->dtest_buffer);
+		//seq_printf(s, " atest-%d", pad->atest);
+		//seq_printf(s, " dtest-%d", pad->dtest_buffer);
 	}
 }
 
@@ -744,6 +749,13 @@ static int pmic_gpio_get(struct gpio_chip *chip, unsigned pin)
 	}
 
 	return !!pad->out_value;
+}
+
+int pmic_gpio_get_external(const char* chip_name, unsigned pin)
+{
+	struct gpio_chip *chip;
+	chip = find_chip_by_name(chip_name);
+	return pmic_gpio_get(chip, pin);
 }
 
 static void pmic_gpio_set(struct gpio_chip *chip, unsigned pin, int value)
@@ -817,6 +829,37 @@ static const struct gpio_chip pmic_gpio_gpio_template = {
 	.to_irq			= pmic_gpio_to_irq,
 	.dbg_show		= pmic_gpio_dbg_show,
 };
+
+#ifdef CONFIG_PM
+static int pmic_gpio_restore(struct device *dev)
+{
+	struct pmic_gpio_state *state = dev_get_drvdata(dev);
+	struct pinctrl_dev *ctrl = state->ctrl;
+	struct pmic_gpio_pad *pad;
+	unsigned int i, npins = ctrl->desc->npins;
+	int ret = 0;
+
+	for (i = 0; i < npins; i++) {
+		pad = ctrl->desc->pins[i].drv_data;
+		if (pad->is_configured) {
+			ret = pmic_gpio_config_set(ctrl, i, NULL, 0);
+			if (ret < 0) {
+				dev_err(state->dev, "Failed to restore pin %s[%d] ret=%d\n",
+					ctrl->desc->pins[i].name, i, ret);
+				return ret;
+			}
+		}
+	}
+
+	return ret;
+}
+
+static const struct dev_pm_ops pmic_gpio_pm_ops = {
+	.restore = pmic_gpio_restore,
+};
+#else
+static const struct dev_pm_ops pmic_gpio_pm_ops = {};
+#endif
 
 static int pmic_gpio_populate(struct pmic_gpio_state *state,
 			      struct pmic_gpio_pad *pad)
@@ -959,6 +1002,7 @@ static int pmic_gpio_populate(struct pmic_gpio_state *state,
 
 	/* Pin could be disabled with PIN_CONFIG_BIAS_HIGH_IMPEDANCE */
 	pad->is_enabled = true;
+	pad->is_configured = false;
 	return 0;
 }
 
@@ -1160,11 +1204,24 @@ static int pmic_gpio_probe(struct platform_device *pdev)
 		goto err_free;
 	}
 
-	ret = gpiochip_add_pin_range(&state->chip, dev_name(dev), 0, 0, npins);
-	if (ret) {
-		dev_err(dev, "failed to add pin range\n, ret=%d\n", ret);
-		gpiochip_remove(&state->chip);
-		goto err_free;
+	/*
+	 * For DeviceTree-supported systems, the gpio core checks the
+	 * pinctrl's device node for the "gpio-ranges" property.
+	 * If it is present, it takes care of adding the pin ranges
+	 * for the driver. In this case the driver can skip ahead.
+	 *
+	 * In order to remain compatible with older, existing DeviceTree
+	 * files which don't set the "gpio-ranges" property or systems that
+	 * utilize ACPI the driver has to call gpiochip_add_pin_range().
+	 */
+	if (!of_property_read_bool(dev->of_node, "gpio-ranges")) {
+		ret = gpiochip_add_pin_range(&state->chip, dev_name(dev), 0, 0,
+					     npins);
+		if (ret) {
+			dev_err(dev, "failed to add pin range\n, ret=%d\n", ret);
+			gpiochip_remove(&state->chip);
+			goto err_free;
+		}
 	}
 
 err_free:
@@ -1196,6 +1253,7 @@ static struct platform_driver pmic_gpio_driver = {
 	.driver = {
 		   .name = "qcom-spmi-gpio",
 		   .of_match_table = pmic_gpio_of_match,
+		   .pm = &pmic_gpio_pm_ops,
 	},
 	.probe	= pmic_gpio_probe,
 	.remove = pmic_gpio_remove,

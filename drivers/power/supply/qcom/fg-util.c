@@ -54,6 +54,23 @@ int fg_decode_voltage_15b(struct fg_sram_param *sp,
 	return sp[id].value;
 }
 
+#define CURRENT_24BIT_MSB_MASK	GENMASK(27, 16)
+#define CURRENT_24BIT_LSB_MASK	GENMASK(11, 0)
+int fg_decode_current_24b(struct fg_sram_param *sp,
+	enum fg_sram_param_id id, int value)
+{
+	int msb, lsb, val;
+
+	msb = value & CURRENT_24BIT_MSB_MASK;
+	lsb = value & CURRENT_24BIT_LSB_MASK;
+	val = (msb >> 4) | lsb;
+	val = sign_extend32(val, 23);
+	sp[id].value = div_s64((s64)val * sp[id].denmtr, sp[id].numrtr);
+	pr_debug("id: %d raw value: %x decoded value: %x\n", id, value,
+			sp[id].value);
+	return sp[id].value;
+}
+
 int fg_decode_current_16b(struct fg_sram_param *sp,
 				enum fg_sram_param_id id, int value)
 {
@@ -705,7 +722,7 @@ static inline bool is_sec_access(struct fg_dev *fg, int addr)
 	if (fg->version != GEN3_FG)
 		return false;
 
-	return ((addr & 0x00FF) > 0xD0);
+	return ((addr & 0x00FF) > 0xB8);
 }
 
 int fg_write(struct fg_dev *fg, int addr, u8 *val, int len)
@@ -1664,4 +1681,28 @@ int fg_debugfs_create(struct fg_dev *fg)
 err_remove_fs:
 	debugfs_remove_recursive(fg->dfs_root);
 	return -ENOMEM;
+}
+
+void fg_stay_awake(struct fg_dev *fg, int awake_reason)
+{
+	spin_lock(&fg->awake_lock);
+
+	if (!fg->awake_status)
+		pm_stay_awake(fg->dev);
+
+	fg->awake_status |= awake_reason;
+
+	spin_unlock(&fg->awake_lock);
+}
+
+void fg_relax(struct fg_dev *fg, int awake_reason)
+{
+	spin_lock(&fg->awake_lock);
+
+	fg->awake_status &= ~awake_reason;
+
+	if (!fg->awake_status)
+		pm_relax(fg->dev);
+
+	spin_unlock(&fg->awake_lock);
 }

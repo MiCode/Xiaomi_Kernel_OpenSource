@@ -28,7 +28,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 
-#if defined(CONFIG_CNSS)
+#if defined(CONFIG_CNSS_PCI)
 #include <net/cnss.h>
 #endif
 
@@ -55,6 +55,7 @@ static struct bt_power_vreg_data bt_power_vreg_info[] = {
 	{NULL, "qca,bt-vdd-vl", 1055000, 1055000, 0, false, false},
 	{NULL, "qca,bt-vdd-vm", 1350000, 1350000, 0, false, false},
 	{NULL, "qca,bt-vdd-5c", 2040000, 2040000, 0, false, false},
+	{NULL, "qca,bt-vdd-5a", 2040000, 2040000, 0, false, false},
 	{NULL, "qca,bt-vdd-vh", 1900000, 1900000, 0, false, false},
 	{NULL, "qca,bt-vdd-io", 1700000, 1900000, 0, false, false},
 	{NULL, "qca,bt-vdd-xtal", 1700000, 1900000, 0, false, false},
@@ -91,6 +92,7 @@ static int bt_vreg_init(struct bt_power_vreg_data *vreg)
 		rc = PTR_ERR(vreg->reg);
 		pr_err("%s: regulator_get(%s) failed. rc=%d\n",
 			__func__, vreg->name, rc);
+		vreg->reg = NULL;
 		goto out;
 	}
 
@@ -240,6 +242,64 @@ static int bt_clk_disable(struct bt_power_clk_data *clk)
 	return rc;
 }
 
+static int bt_configure_gpios_2wcn(int on)
+{
+	int rc = 0;
+	int bt_3p3_en_gpio = bt_power_pdata->bt_gpio_3p3_en;
+	int bt_1p3_en_gpio = bt_power_pdata->bt_gpio_1p3_en;
+
+	BT_PWR_DBG("2wcn - bt_gpio= %d on: %d", bt_3p3_en_gpio, on);
+
+	if (on) {
+		rc = gpio_request(bt_3p3_en_gpio, "bt_3p3_en_n");
+		if (rc) {
+			BT_PWR_ERR("unable to request gpio %d (%d)\n",
+					bt_3p3_en_gpio, rc);
+			return rc;
+		}
+
+		rc = gpio_direction_output(bt_3p3_en_gpio, 0);
+		if (rc) {
+			BT_PWR_ERR("Unable to set direction\n");
+			return rc;
+		}
+		msleep(50);
+		rc = gpio_direction_output(bt_3p3_en_gpio, 1);
+		if (rc) {
+			BT_PWR_ERR("Unable to set direction\n");
+			return rc;
+		}
+		msleep(50);
+
+		rc = gpio_request(bt_1p3_en_gpio, "bt_1p3_en_n");
+		if (rc) {
+			BT_PWR_ERR("unable to request gpio %d (%d)\n",
+					bt_1p3_en_gpio, rc);
+			return rc;
+		}
+
+		rc = gpio_direction_output(bt_1p3_en_gpio, 0);
+		if (rc) {
+			BT_PWR_ERR("Unable to set direction\n");
+			return rc;
+		}
+		msleep(50);
+		rc = gpio_direction_output(bt_1p3_en_gpio, 1);
+		if (rc) {
+			BT_PWR_ERR("Unable to set direction\n");
+			return rc;
+		}
+		msleep(50);
+	} else {
+		gpio_set_value(bt_3p3_en_gpio, 0);
+		msleep(100);
+		gpio_set_value(bt_1p3_en_gpio, 0);
+		msleep(100);
+	}
+	return rc;
+}
+
+
 static int bt_configure_gpios(int on)
 {
 	int rc = 0;
@@ -303,12 +363,27 @@ static int bluetooth_power(int on)
 				goto gpio_fail;
 			}
 		}
+		if (bt_power_pdata->bt_gpio_3p3_en > 0) {
+			BT_PWR_ERR(
+			"bt_power gpio config start for  2wcn gpios");
+			rc = bt_configure_gpios_2wcn(on);
+			if (rc < 0) {
+				BT_PWR_ERR("bt_power gpio config failed");
+				goto gpio_fail;
+			}
+		}
 	} else {
 		if (bt_power_pdata->bt_gpio_sys_rst > 0)
 			bt_configure_gpios(on);
+		if (bt_power_pdata->bt_gpio_3p3_en > 0)
+			bt_configure_gpios_2wcn(on);
 gpio_fail:
 		if (bt_power_pdata->bt_gpio_sys_rst > 0)
 			gpio_free(bt_power_pdata->bt_gpio_sys_rst);
+		if (bt_power_pdata->bt_gpio_3p3_en > 0)
+			gpio_free(bt_power_pdata->bt_gpio_3p3_en);
+		if (bt_power_pdata->bt_gpio_1p3_en > 0)
+			gpio_free(bt_power_pdata->bt_gpio_1p3_en);
 		if (bt_power_pdata->bt_chip_clk)
 			bt_clk_disable(bt_power_pdata->bt_chip_clk);
 clk_fail:
@@ -337,7 +412,7 @@ static const struct rfkill_ops bluetooth_power_rfkill_ops = {
 	.set_block = bluetooth_toggle_radio,
 };
 
-#if defined(CONFIG_CNSS)
+#if defined(CONFIG_CNSS_PCI)
 static ssize_t enable_extldo(struct device *dev, struct device_attribute *attr,
 			char *buf)
 {
@@ -581,6 +656,18 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 						"qca,bt-reset-gpio", 0);
 		if (bt_power_pdata->bt_gpio_sys_rst < 0)
 			BT_PWR_ERR("bt-reset-gpio not provided in device tree");
+
+		bt_power_pdata->bt_gpio_3p3_en =
+			of_get_named_gpio(pdev->dev.of_node,
+						"qca,bt-3P3-en-gpio", 0);
+		if (bt_power_pdata->bt_gpio_3p3_en < 0)
+			BT_PWR_INFO("bt-3P3-gpio not provided in devicetree");
+
+		bt_power_pdata->bt_gpio_1p3_en =
+			of_get_named_gpio(pdev->dev.of_node,
+						"qca,bt-1P3-en-gpio", 0);
+		if (bt_power_pdata->bt_gpio_1p3_en < 0)
+			BT_PWR_INFO("bt-1P3-gpio not provided in devicetree");
 
 		rc = bt_dt_parse_clk_info(&pdev->dev,
 					&bt_power_pdata->bt_chip_clk);

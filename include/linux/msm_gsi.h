@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,6 +103,7 @@ enum gsi_intr_type {
  * @user_data:  cookie used for notifications
  * @clk_status_cb: callback to update the current msm bus clock vote
  *
+ * @enable_clk_bug_on: enable IPA clock for dump saving before assert
  * All the callbacks are in interrupt context
  *
  */
@@ -125,6 +126,7 @@ struct gsi_per_props {
 	int (*rel_clk_cb)(void *user_data);
 	void *user_data;
 	int (*clk_status_cb)(void);
+	void (*enable_clk_bug_on)(void);
 };
 
 enum gsi_evt_err {
@@ -232,6 +234,8 @@ enum gsi_chan_prot {
 	GSI_CHAN_PROT_MHIP = 0x7,
 	GSI_CHAN_PROT_AQC = 0x8,
 	GSI_CHAN_PROT_11AD = 0x9,
+	GSI_CHAN_PROT_MHIC = 0xA,
+	GSI_CHAN_PROT_QDSS = 0xB,
 };
 
 enum gsi_chan_dir {
@@ -596,6 +600,53 @@ struct __packed gsi_mhi_channel_scratch {
 };
 
 /**
+ * gsi_mhi_channel_scratch_v2 - MHI protocol SW config area of
+ * channel scratch
+ *
+ * @mhi_host_wp_addr_lo: Valid only when UL/DL Sync En is asserted. Defines
+ *                       address in host from which channel write pointer
+ *                       should be read in polling mode
+ * @mhi_host_wp_addr_hi: Valid only when UL/DL Sync En is asserted. Defines
+ *                       address in host from which channel write pointer
+ *                       should be read in polling mode
+ * @assert_bit40:        1: bit #41 in address should be asserted upon
+ *                       IPA_IF.ProcessDescriptor routine (for MHI over PCIe
+ *                       transfers)
+ *                       0: bit #41 in address should be deasserted upon
+ *                       IPA_IF.ProcessDescriptor routine (for non-MHI over
+ *                       PCIe transfers)
+ * @polling_configuration: Uplink channels: Defines timer to poll on MHI
+ *                       context. Range: 1 to 31 milliseconds.
+ *                       Downlink channel: Defines transfer ring buffer
+ *                       availability threshold to poll on MHI context in
+ *                       multiple of 8. Range: 0 to 31, meaning 0 to 258 ring
+ *                       elements. E.g., value of 2 indicates 16 ring elements.
+ *                       Valid only when Burst Mode Enabled is set to 1
+ * @burst_mode_enabled:  0: Burst mode is disabled for this channel
+ *                       1: Burst mode is enabled for this channel
+ * @polling_mode:        0: the channel is not in polling mode, meaning the
+ *                       host should ring DBs.
+ *                       1: the channel is in polling mode, meaning the host
+ * @oob_mod_threshold:   Defines OOB moderation threshold. Units are in 8
+ *                       ring elements.
+ *                       should not ring DBs until notified of DB mode/OOB mode
+ */
+struct __packed gsi_mhi_channel_scratch_v2 {
+	uint32_t mhi_host_wp_addr_lo;
+	uint32_t mhi_host_wp_addr_hi:9;
+	uint32_t polling_configuration:5;
+	uint32_t rsvd1:18;
+	uint32_t rsvd2:1;
+	uint32_t assert_bit40:1;
+	uint32_t resvd3:5;
+	uint32_t burst_mode_enabled:1;
+	uint32_t polling_mode:1;
+	uint32_t oob_mod_threshold:5;
+	uint32_t resvd4:18; /* Not configured by AP */
+	uint32_t resvd5; /* Not configured by AP */
+};
+
+/**
  * gsi_xdci_channel_scratch - xDCI protocol SW config area of
  * channel scratch
  *
@@ -708,6 +759,74 @@ struct __packed gsi_wdi_channel_scratch {
 };
 
 /**
+ * gsi_wdi2_channel_scratch_lito - WDI protocol SW config area of
+ * channel scratch
+ *
+ * @wifi_rx_ri_addr_low: Low 32 bits of Transfer ring Read Index address.
+ * @wifi_rx_ri_addr_high: High 32 bits of Transfer ring Read Index address.
+ * @update_ri_moderation_threshold: Threshold N for Transfer ring Read Index
+ *                                  N is the number of packets that IPA will
+ *                                  process before Wifi transfer ring Ri will
+ *                                  be updated.
+ * @qmap_id: Rx only, used for setting metadata register in IPA. Read only field
+ *           for MCS. Write for SW.
+ * @endp_metadatareg_offset: Rx only, the offset of IPA_ENDP_INIT_HDR_METADATA
+ *                           of the corresponding endpoint in 4B words from IPA
+ *                           base address. Read only field for MCS.
+ *                           Write for SW.
+ * @wdi_rx_vdev_id: Rx only. Initialized to 0xFF by SW after allocating channel
+ *                  and before starting it. Both FW_DESC and VDEV_ID are part
+ *                  of a scratch word that is Read/Write for both MCS and SW.
+ *                  To avoid race conditions, SW should not update this field
+ *                  after starting the channel.
+ * @wdi_rx_fw_desc: Rx only. Initialized to 0xFF by SW after allocating channel
+ *                  and before starting it. After Start, this is a Read only
+ *                  field for SW.
+ * @update_ri_moderation_counter: This field is incremented with each TRE
+ *                                processed in MCS.
+ * @wdi_rx_tre_proc_in_progress: It is set if IPA IF returned BECAME FULL
+ *                               status after MCS submitted an inline immediate
+ *                               command to update the metadata. It allows MCS
+ *                               to know that it has to retry sending the TRE
+ *                               to IPA.
+ * @outstanding_tlvs_counter: It is the count of outstanding TLVs submitted to
+ *                           IPA by MCS and waiting for AOS completion from IPA.
+ * @wdi_rx_pkt_length: If WDI_RX_TRE_PROC_IN_PROGRESS is set, this field is
+ *                     valid and contains the packet length of the TRE that
+ *                     needs to be submitted to IPA.
+ * @resv1: reserved bits.
+ * @pkt_comp_count: It is incremented on each AOS received. When event ring
+ *                  Write index is updated, it is decremented by the same
+ *                  amount.
+ * @stop_in_progress_stm: If a Stop request is in progress, this will indicate
+ *                        the current stage of processing of the stop within MCS
+ * @resv2: reserved bits.
+ * wdi_rx_qmap_id_internal: Initialized to 0 by MCS when the channel is
+ *                          allocated. It is updated to the current value of SW
+ *                          QMAP ID that is being written by MCS to the IPA
+ *                          metadata register.
+ */
+struct __packed gsi_wdi2_channel_scratch_new {
+	uint32_t wifi_rx_ri_addr_low;
+	uint32_t wifi_rx_ri_addr_high;
+	uint32_t update_ri_moderation_threshold:5;
+	uint32_t qmap_id:8;
+	uint32_t resv1:3;
+	uint32_t endp_metadatareg_offset:16;
+	uint32_t wdi_rx_vdev_id:8;
+	uint32_t wdi_rx_fw_desc:8;
+	uint32_t update_ri_moderation_counter:6;
+	uint32_t wdi_rx_tre_proc_in_progress:1;
+	uint32_t resv4:1;
+	uint32_t outstanding_tlvs_counter:8;
+	uint32_t wdi_rx_pkt_length:16;
+	uint32_t resv2:2;
+	uint32_t pkt_comp_count:11;
+	uint32_t stop_in_progress_stm:3;
+	uint32_t resv3:16;
+	uint32_t wdi_rx_qmap_id_internal:16;
+};
+/**
 * gsi_mhip_channel_scratch - MHI PRIME protocol SW config area of
 * channel scratch
 * @assert_bit_40: Valid only for non-host channels.
@@ -778,25 +897,90 @@ struct __packed gsi_11ad_tx_channel_scratch {
  *                                  N is the number of packets that IPA will
  *                                  process before Wifi transfer ring Ri will
  *                                  be updated.
+ * @qmap_id: Rx only, used for setting metadata register in IPA. Read only field
+ *           for MCS. Write for SW.
  * @resv: reserved bits.
- * @rx_pkt_offset: Rx only, Since Rx header length is not fixed,
- *                  WLAN host will pass this information to IPA.
  * @endp_metadata_reg_offset: Rx only, the offset of
  *                 IPA_ENDP_INIT_HDR_METADATA_n of the
  *                 corresponding endpoint in 4B words from IPA
  *                 base address.
- * @qmap_id: Rx only, used for setting metadata register in IPA. Read only field
- *           for MCS. Write for SW.
+ * @rx_pkt_offset: Rx only, Since Rx header length is not fixed,
+ *                  WLAN host will pass this information to IPA.
+ * @resv: reserved bits.
  */
 struct __packed gsi_wdi3_channel_scratch {
 	uint32_t wifi_rp_address_low;
 	uint32_t wifi_rp_address_high;
 	uint32_t update_rp_moderation_threshold : 5;
-	uint32_t reserved : 11;
-	uint32_t rx_pkt_offset : 16;
+	uint32_t qmap_id : 8;
+	uint32_t reserved1 : 3;
 	uint32_t endp_metadata_reg_offset : 16;
-	uint32_t qmap_id : 16;
+	uint32_t rx_pkt_offset : 16;
+	uint32_t reserved2 : 16;
 };
+
+/**
+ * gsi_qdss_channel_scratch - QDSS SW config area of
+ * channel scratch
+ *
+ * @bam_p_evt_dest_addr: equivalent to event_ring_doorbell_pa
+ *			physical address of the doorbell that IPA uC
+ *			will update the headpointer of the event ring.
+ *			QDSS should send BAM_P_EVNT_REG address in this var
+ *			Configured with the GSI Doorbell Address.
+ *			GSI sends Update RP by doing a write to this address
+ * @data_fifo_base_addr: Base address of the data FIFO used by BAM
+ * @data_fifo_size: Size of the data FIFO
+ * @bam_p_evt_threshold: Threshold level of how many bytes consumed
+ * @override_eot: if override EOT==1, it doesn't check the EOT bit in
+ *			the descriptor
+ */
+struct __packed gsi_qdss_channel_scratch {
+	uint32_t bam_p_evt_dest_addr;
+	uint32_t data_fifo_base_addr;
+	uint32_t data_fifo_size : 16;
+	uint32_t bam_p_evt_threshold : 16;
+	uint32_t reserved1 : 2;
+	uint32_t override_eot : 1;
+	uint32_t reserved2 : 29;
+};
+
+/**
+ * gsi_wdi3_channel_scratch2 - WDI3 protocol SW config area of
+ * channel scratch2
+ *
+ * @update_ri_moderation_threshold: Threshold N for Transfer ring Read Index
+ *		N is the number of packets that IPA will
+ *		process before Wifi transfer ring Ri will
+ *		be updated.
+ * @qmap_id: Rx only, used for setting metadata register in IPA. Read only
+ *		field for MCS. Write for SW.
+ * @resv: reserved bits.
+ * @endp_metadata_reg_offset: Rx only, the offset of
+ *		IPA_ENDP_INIT_HDR_METADATA_n of the
+ *		corresponding endpoint in 4B words from IPA
+ *		base address.
+ */
+
+struct __packed gsi_wdi3_channel_scratch2 {
+	uint32_t update_rp_moderation_threshold : 5;
+	uint32_t qmap_id : 8;
+	uint32_t reserved1 : 3;
+	uint32_t endp_metadata_reg_offset : 16;
+};
+
+/**
+ * gsi_wdi3_channel_scratch2_reg - channel scratch2 SW config area
+ *
+ */
+
+union __packed gsi_wdi3_channel_scratch2_reg {
+	struct __packed gsi_wdi3_channel_scratch2 wdi;
+	struct __packed {
+		uint32_t word1;
+	} data;
+};
+
 
 /**
  * gsi_channel_scratch - channel scratch SW config area
@@ -805,12 +989,15 @@ struct __packed gsi_wdi3_channel_scratch {
 union __packed gsi_channel_scratch {
 	struct __packed gsi_gpi_channel_scratch gpi;
 	struct __packed gsi_mhi_channel_scratch mhi;
+	struct __packed gsi_mhi_channel_scratch_v2 mhi_v2;
 	struct __packed gsi_xdci_channel_scratch xdci;
 	struct __packed gsi_wdi_channel_scratch wdi;
 	struct __packed gsi_11ad_rx_channel_scratch rx_11ad;
 	struct __packed gsi_11ad_tx_channel_scratch tx_11ad;
 	struct __packed gsi_wdi3_channel_scratch wdi3;
 	struct __packed gsi_mhip_channel_scratch mhip;
+	struct __packed gsi_wdi2_channel_scratch_new wdi2_new;
+	struct __packed gsi_qdss_channel_scratch qdss;
 	struct __packed {
 		uint32_t word1;
 		uint32_t word2;
@@ -836,6 +1023,30 @@ struct __packed gsi_wdi_channel_scratch3 {
 
 union __packed gsi_wdi_channel_scratch3_reg {
 	struct __packed gsi_wdi_channel_scratch3 wdi;
+	struct __packed {
+		uint32_t word1;
+	} data;
+};
+
+/**
+ * gsi_wdi2_channel_scratch2 - WDI protocol SW config area of
+ * channel scratch2
+ */
+
+struct __packed gsi_wdi2_channel_scratch2 {
+	uint32_t update_ri_moderation_threshold:5;
+	uint32_t qmap_id:8;
+	uint32_t resv1:3;
+	uint32_t endp_metadatareg_offset:16;
+};
+
+/**
+ * gsi_wdi_channel_scratch2_reg - channel scratch2 SW config area
+ *
+ */
+
+union __packed gsi_wdi2_channel_scratch2_reg {
+	struct __packed gsi_wdi2_channel_scratch2 wdi;
 	struct __packed {
 		uint32_t word1;
 	} data;
@@ -985,6 +1196,15 @@ struct gsi_chan_info {
  *	   other error codes for failure
  */
 int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl);
+
+/**
+ * gsi_is_mcs_enabled - Peripheral should call this function to
+ * check if MCS is already loaded.
+ *
+ * @Return -GSI_STATUS_NODEV if node is already created.
+ *	   other error codes for failure
+ */
+int gsi_is_mcs_enabled(void);
 
 /**
  * gsi_complete_clk_grant - Peripheral should call this function to
@@ -1199,6 +1419,31 @@ int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
 		union __packed gsi_wdi_channel_scratch3_reg val);
 
 /**
+ * gsi_write_wdi3_channel_scratch2_reg - Peripheral should call this function
+ * to write to the WDI3 scratch 3 register area of the channel context
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @val:       Read value
+ *
+ * @Return gsi_status
+ */
+int gsi_write_wdi3_channel_scratch2_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi3_channel_scratch2_reg val);
+/**
+ * gsi_write_channel_scratch2_reg - Peripheral should call this function to
+ * write to the scratch2 reg area of the channel context
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @val:       Value to write
+ *
+ * @Return gsi_status
+ */
+int gsi_write_channel_scratch2_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi2_channel_scratch2_reg val);
+
+/**
  * gsi_read_channel_scratch - Peripheral should call this function to
  * read to the scratch area of the channel context
  *
@@ -1210,6 +1455,19 @@ int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
  */
 int gsi_read_channel_scratch(unsigned long chan_hdl,
 		union __packed gsi_channel_scratch *val);
+
+/**
+ * gsi_read_wdi3_channel_scratch2_reg - Peripheral should call this function to
+ * read to the WDI3 scratch 2 register area of the channel context
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @val:       Read value
+ *
+ * @Return gsi_status
+ */
+int gsi_read_wdi3_channel_scratch2_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi3_channel_scratch2_reg *val);
 
 /**
  * gsi_update_mhi_channel_scratch - MHI Peripheral should call this
@@ -1498,7 +1756,6 @@ int gsi_halt_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
 void gsi_wdi3_write_evt_ring_db(unsigned long chan_hdl, uint32_t db_addr_low,
 	uint32_t db_addr_high);
 
-
 /**
  * gsi_wdi3_dump_register - dump wdi3 related gsi registers
  *
@@ -1554,6 +1811,20 @@ int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee, int *code);
 
 int gsi_chk_intset_value(void);
 
+/**
+ * gsi_enable_flow_control_ee - Peripheral should call this function
+ * to enable flow control other EE's channel. This is usually done in USB
+ * connent and SSR scenarios.
+ *
+ * @chan_idx: Virtual channel index
+ * @ee: EE
+ * @code: [out] response code for operation
+
+ * @Return gsi_status
+ */
+int gsi_enable_flow_control_ee(unsigned int chan_idx, unsigned int ee,
+								int *code);
+
 /*
  * Here is a typical sequence of calls
  *
@@ -1584,6 +1855,11 @@ int gsi_chk_intset_value(void);
 #else
 static inline int gsi_register_device(struct gsi_per_props *props,
 		unsigned long *dev_hdl)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_is_mcs_enabled(void)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
@@ -1658,6 +1934,12 @@ static inline int gsi_write_channel_scratch(unsigned long chan_hdl,
 }
 static inline int gsi_write_channel_scratch3_reg(unsigned long chan_hdl,
 		union __packed gsi_wdi_channel_scratch3_reg val)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_write_channel_scratch2_reg(unsigned long chan_hdl,
+		union __packed gsi_wdi2_channel_scratch2_reg val)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
@@ -1817,8 +2099,18 @@ static inline int gsi_alloc_channel_ee(unsigned int chan_idx, unsigned int ee,
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
 
-
 static inline int gsi_chk_intset_value(void)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+static inline int gsi_enable_flow_control_ee(unsigned int chan_idx,
+			unsigned int ee, int *code)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_enable_flow_control_ee(unsigned int chan_idx,
+			unsigned int ee, int *code)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }

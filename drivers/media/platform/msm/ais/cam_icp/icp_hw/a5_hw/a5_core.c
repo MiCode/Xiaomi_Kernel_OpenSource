@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,6 +242,43 @@ fw_download_failed:
 	return rc;
 }
 
+static int cam_a5_fw_dump(struct cam_icp_hw_dump_args *dump_args,
+	struct cam_a5_device_core_info *core_info)
+{
+	u8 *dest;
+	void __iomem *src;
+	uint64_t size_required = 0;
+	struct cam_icp_dump_header *hdr;
+
+	if (!core_info || !dump_args) {
+		CAM_ERR(CAM_ICP, "invalid params %pK %pK",
+		    core_info, dump_args);
+		return -EINVAL;
+	}
+	if (!core_info->fw_kva_addr || !dump_args->cpu_addr) {
+		CAM_ERR(CAM_ICP, "invalid params %pK, 0x%zx",
+		    core_info->fw_kva_addr, dump_args->cpu_addr);
+		return -EINVAL;
+	}
+	size_required = core_info->fw_buf_len +
+		sizeof(struct cam_icp_dump_header);
+	if ((dump_args->buf_len - dump_args->offset) < size_required) {
+		CAM_WARN(CAM_ICP, "Dump buffer exhaust %lld %lld",
+		    size_required, core_info->fw_buf_len);
+		return 0;
+	}
+	dest = (u8 *)dump_args->cpu_addr + dump_args->offset;
+	hdr = (struct cam_icp_dump_header *)dest;
+	snprintf(hdr->tag, CAM_ICP_DUMP_TAG_MAX_LEN, "ICP_FW:");
+	hdr->word_size = sizeof(u8);
+	hdr->size = core_info->fw_buf_len;
+	src = (void __iomem *)core_info->fw_kva_addr;
+	dest = (u8 *)dest + sizeof(struct cam_icp_dump_header);
+	memcpy_fromio(dest, src, core_info->fw_buf_len);
+	dump_args->offset += hdr->size + sizeof(struct cam_icp_dump_header);
+	return 0;
+}
+
 int cam_a5_init_hw(void *device_priv,
 	void *init_hw_args, uint32_t arg_size)
 {
@@ -265,28 +302,33 @@ int cam_a5_init_hw(void *device_priv,
 		return -EINVAL;
 	}
 
+	rc = cam_a5_enable_soc_resources(soc_info);
+	if (rc) {
+		CAM_ERR(CAM_ICP, "soc enable is failed: %d", rc);
+		goto end;
+	}
+
 	cpas_vote.ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	cpas_vote.ahb_vote.vote.level = CAM_SVS_VOTE;
 	cpas_vote.axi_vote.compressed_bw = CAM_ICP_A5_BW_BYTES_VOTE;
+	cpas_vote.axi_vote.compressed_bw_ab = CAM_ICP_A5_BW_BYTES_VOTE;
 	cpas_vote.axi_vote.uncompressed_bw = CAM_ICP_A5_BW_BYTES_VOTE;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&cpas_vote.ahb_vote, &cpas_vote.axi_vote);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "cpass start failed: %d", rc);
-		return rc;
+		goto disable_soc_resources;
 	}
 	core_info->cpas_start = true;
 
-	rc = cam_a5_enable_soc_resources(soc_info);
-	if (rc) {
-		CAM_ERR(CAM_ICP, "soc enable is failed: %d", rc);
-		if (cam_cpas_stop(core_info->cpas_handle))
-			CAM_ERR(CAM_ICP, "cpas stop is failed");
-		else
-			core_info->cpas_start = false;
-	}
+	goto end;
 
+disable_soc_resources:
+	if (cam_a5_disable_soc_resources(soc_info))
+		CAM_ERR(CAM_ICP, "Disable soc resource failed");
+
+end:
 	return rc;
 }
 
@@ -463,7 +505,11 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 
 	case CAM_ICP_A5_CMD_CPAS_STOP:
 		if (core_info->cpas_start) {
-			cam_cpas_stop(core_info->cpas_handle);
+			rc = cam_cpas_stop(core_info->cpas_handle);
+			if (rc) {
+				CAM_ERR(CAM_ICP, "cpas stop failed %d", rc);
+				return rc;
+			}
 			core_info->cpas_start = false;
 		}
 		break;
@@ -475,6 +521,12 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 		}
 		rc = hfi_cmd_ubwc_config(a5_soc->ubwc_cfg);
 		break;
+	case CAM_ICP_A5_CMD_HW_DUMP: {
+		struct cam_icp_hw_dump_args *dump_args = cmd_args;
+
+		rc = cam_a5_fw_dump(dump_args, core_info);
+		break;
+	}
 	default:
 		break;
 	}

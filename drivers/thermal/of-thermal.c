@@ -217,13 +217,15 @@ static int of_thermal_set_trips(struct thermal_zone_device *tz,
 		return -EINVAL;
 
 	mutex_lock(&data->senps->lock);
+	if (data->mode == THERMAL_DEVICE_DISABLED)
+		goto set_trips_exit;
 	of_thermal_aggregate_trip_types(tz, GENMASK(THERMAL_TRIP_CRITICAL, 0),
 					&low, &high);
 	data->senps->trip_low = low;
 	data->senps->trip_high = high;
 	ret = data->senps->ops->set_trips(data->senps->sensor_data,
 					  low, high);
-
+set_trips_exit:
 	mutex_unlock(&data->senps->lock);
 	return ret;
 }
@@ -587,6 +589,46 @@ static int of_thermal_aggregate_trip_types(struct thermal_zone_device *tz,
 	return 0;
 }
 
+static bool of_thermal_is_trips_triggered(struct thermal_zone_device *tz,
+		int temp)
+{
+	int tt, th, trip, last_temp;
+	struct __thermal_zone *data = tz->devdata;
+	bool triggered = false;
+
+	mutex_lock(&tz->lock);
+	last_temp = tz->temperature;
+	for (trip = 0; trip < data->ntrips; trip++) {
+
+		if (!tz->tzp->tracks_low) {
+			tt = data->trips[trip].temperature;
+			if (temp >= tt && last_temp < tt) {
+				triggered = true;
+				break;
+			}
+			th = tt - data->trips[trip].hysteresis;
+			if (temp <= th && last_temp > th) {
+				triggered = true;
+				break;
+			}
+		} else {
+			tt = data->trips[trip].temperature;
+			if (temp <= tt && last_temp > tt) {
+				triggered = true;
+				break;
+			}
+			th = tt + data->trips[trip].hysteresis;
+			if (temp >= th && last_temp < th) {
+				triggered = true;
+				break;
+			}
+		}
+	}
+	mutex_unlock(&tz->lock);
+
+	return triggered;
+}
+
 /*
  * of_thermal_aggregate_trip - aggregate trip temperatures across sibling
  *				thermal zones.
@@ -613,6 +655,7 @@ static void handle_thermal_trip(struct thermal_zone_device *tz,
 	struct thermal_zone_device *zone;
 	struct __thermal_zone *data = tz->devdata;
 	struct list_head *head;
+	bool notify = false;
 
 	head = &data->senps->first_tz;
 	list_for_each_entry(data, head, list) {
@@ -623,10 +666,21 @@ static void handle_thermal_trip(struct thermal_zone_device *tz,
 			thermal_zone_device_update(zone,
 				THERMAL_EVENT_UNSPECIFIED);
 		} else {
+			if (!of_thermal_is_trips_triggered(zone, trip_temp))
+				continue;
+			notify = true;
 			thermal_zone_device_update_temp(zone,
 				THERMAL_EVENT_UNSPECIFIED, trip_temp);
 		}
 	}
+
+	/*
+	 * It is better to notify at least one thermal zone if trip is violated
+	 * for none.
+	 */
+	if (temp_valid && !notify)
+		thermal_zone_device_update_temp(tz, THERMAL_EVENT_UNSPECIFIED,
+				trip_temp);
 }
 
 /*

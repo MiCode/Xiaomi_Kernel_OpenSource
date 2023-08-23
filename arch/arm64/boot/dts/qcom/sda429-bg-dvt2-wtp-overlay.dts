@@ -1,0 +1,112 @@
+/*
+ * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,rpmcc.h>
+#include "sda429-bg-dvt2-wtp.dtsi"
+#include "sdm429-mdss-panels.dtsi"
+#include "sdm429-spyro-qrd-evt-audio.dtsi"
+
+&int_codec {
+	qcom,wcn-bt-slim = <1>;
+};
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDA429 QRD BG WTP Overlay";
+	compatible = "qcom,sdm429w-qrd", "qcom,sdm429w", "qcom,qrd";
+	qcom,msm-id = <437 0x0>;
+	qcom,board-id = <0x00010b 0xA>;
+	qcom,pmic-id = <0x0002001b 0x0 0x0 0x0>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi {
+	/delete-property/ vdda-supply;
+	/delete-property/ vddio-supply;
+	vdda-supply = <&L6A>; /* 0.8v */
+	vddio-supply = <&L13A>; /* 1.8v */
+
+	qcom,ctrl-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ctrl-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdda";
+			qcom,supply-min-voltage = <800000>;
+			qcom,supply-max-voltage = <800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+			qcom,supply-post-on-sleep = <20>;
+		};
+	};
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_auo_416p_amoled_cmd>;
+	/delete-property/ vdd-supply;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_te_active>;
+	pinctrl-1 = <&mdss_te_suspend>;
+	vddio-supply = <&L11A>;
+	qcom,platform-te-gpio = <&tlmm 24 0>;
+	qcom,platform-reset-gpio = <&tlmm 60 0>;
+	qcom,platform-enable-gpio = <&pm660_gpios 12 0>;
+
+};
+
+&mdss_dsi0_pll {
+	/delete-property/ vddio-supply;
+	vddio-supply = <&L13A>;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
+};
+
+&mdss_dsi1_pll {
+	status = "disabled";
+};
+
+&i2c_4 {
+	status = "ok";
+
+	raydium_ts@39 {
+		compatible = "raydium,raydium-ts";
+		reg = <0x39>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <13 0x2008>;
+		vdd_ana-supply = <&pm660_l11>;
+		vcc_i2c-supply = <&pm660_l13>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		raydium,reset-gpio = <&tlmm 64 0x00>;
+		raydium,irq-gpio = <&tlmm 65 0x00>;
+		raydium,num-max-touches = <2>;
+		raydium,soft-reset-delay-ms = <50>;
+		raydium,hard-reset-delay-ms = <100>;
+		raydium,x_max = <416>;
+		raydium,y_max = <416>;
+		raydium,display-coords= <0  0 416 416>;
+		raydium,fw_id = <0x2202>;
+	};
+};
+

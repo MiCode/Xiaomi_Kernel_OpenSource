@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,7 +72,7 @@ static struct pll_vco trion_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config gpu_cc_pll1_config = {
+static struct alpha_pll_config gpu_cc_pll1_config = {
 	.l = 0x1A,
 	.alpha = 0xAAA,
 	.config_ctl_val = 0x20485699,
@@ -90,6 +90,7 @@ static struct clk_alpha_pll gpu_cc_pll1 = {
 	.offset = 0x100,
 	.vco_table = trion_vco,
 	.num_vco = ARRAY_SIZE(trion_vco),
+	.config = &gpu_cc_pll1_config,
 	.type = TRION_PLL,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
@@ -129,6 +130,7 @@ static struct clk_rcg2 gpu_cc_gmu_clk_src = {
 	.hid_width = 5,
 	.parent_map = gpu_cc_parent_map_0,
 	.freq_tbl = ftbl_gpu_cc_gmu_clk_src,
+	.enable_safe_config = true,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gpu_cc_gmu_clk_src",
 		.parent_names = gpu_cc_parent_names_0,
@@ -429,12 +431,31 @@ static const struct qcom_cc_desc gpu_cc_sm8150_desc = {
 	.num_resets = ARRAY_SIZE(gpu_cc_sm8150_resets),
 };
 
+static struct clk_regmap *gpucc_sm8150_critical_clocks[] = {
+	&gpu_cc_ahb_clk.clkr,
+};
+
+static const struct qcom_cc_critical_desc gpucc_sm8150_critical_desc = {
+	.clks = gpucc_sm8150_critical_clocks,
+	.num_clks = ARRAY_SIZE(gpucc_sm8150_critical_clocks),
+};
+
 static const struct of_device_id gpu_cc_sm8150_match_table[] = {
 	{ .compatible = "qcom,gpucc-sm8150" },
 	{ .compatible = "qcom,gpucc-sdmshrike" },
+	{ .compatible = "qcom,gpucc-sa8155" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_sm8150_match_table);
+
+static int gpucc_sa8150_resume(struct device *dev)
+{
+	return qcom_cc_enable_critical_clks(&gpucc_sm8150_critical_desc);
+}
+
+static const struct dev_pm_ops gpucc_sa8150_pm_ops = {
+	.restore_early = gpucc_sa8150_resume,
+};
 
 static void gpu_cc_sm8150_fixup_sdmshrike(void)
 {
@@ -454,6 +475,9 @@ static int gpu_cc_sm8150_fixup(struct platform_device *pdev)
 
 	if (!strcmp(compat, "qcom,gpucc-sdmshrike"))
 		gpu_cc_sm8150_fixup_sdmshrike();
+
+	if (!strcmp(compat, "qcom,gpucc-sa8155"))
+		pdev->dev.driver->pm = &gpucc_sa8150_pm_ops;
 
 	return 0;
 }
@@ -484,8 +508,6 @@ static int gpu_cc_sm8150_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_mx.regulator[0]);
 	}
 
-	clk_trion_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
-
 	gpu_cc_sm8150_fixup(pdev);
 
 	for (i = 0; i < ARRAY_SIZE(gpu_cc_sm8150_hws); i++) {
@@ -493,6 +515,8 @@ static int gpu_cc_sm8150_probe(struct platform_device *pdev)
 		if (IS_ERR(clk))
 			return PTR_ERR(clk);
 	}
+
+	clk_trion_pll_configure(&gpu_cc_pll1, regmap, gpu_cc_pll1.config);
 
 	ret = qcom_cc_really_probe(pdev, &gpu_cc_sm8150_desc, regmap);
 	if (ret) {

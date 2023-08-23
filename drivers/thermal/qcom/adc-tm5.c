@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,9 @@
 
 #define ADC_TM_MEAS_INTERVAL_CTL		0x44
 #define ADC_TM_MEAS_INTERVAL_CTL2		0x45
+
+#define ADC_TM_MEAS_INTERVAL_CTL_660		0x50
+#define ADC_TM_MEAS_INTERVAL_CTL2_660		0x51
 
 #define ADC_TM_MEAS_INTERVAL_CTL2_SHIFT		0x4
 #define ADC_TM_MEAS_INTERVAL_CTL2_MASK		0xf0
@@ -218,9 +221,30 @@ static int adc_tm5_configure(struct adc_tm_sensor *sensor,
 	buf[7] |= ADC_TM_Mn_MEAS_EN;
 
 	ret = adc_tm5_write_reg(chip,
-			ADC_TM_Mn_ADC_CH_SEL_CTL(btm_chan_idx), buf, 8);
+			ADC_TM_Mn_ADC_CH_SEL_CTL(btm_chan_idx), buf, 1);
 	if (ret < 0) {
-		pr_err("adc-tm block write failed with %d\n", ret);
+		pr_err("adc-tm channel select failed\n");
+		return ret;
+	}
+
+	ret = adc_tm5_write_reg(chip,
+			ADC_TM_Mn_MEAS_INTERVAL_CTL(btm_chan_idx), &buf[5], 1);
+	if (ret < 0) {
+		pr_err("adc-tm timer select failed\n");
+		return ret;
+	}
+
+	ret = adc_tm5_write_reg(chip,
+			ADC_TM_Mn_CTL(btm_chan_idx), &buf[6], 1);
+	if (ret < 0) {
+		pr_err("adc-tm parameter select failed\n");
+		return ret;
+	}
+
+	ret = adc_tm5_write_reg(chip,
+			ADC_TM_Mn_EN(btm_chan_idx), &buf[7], 1);
+	if (ret < 0) {
+		pr_err("adc-tm monitoring enable failed\n");
 		return ret;
 	}
 
@@ -275,14 +299,14 @@ static int32_t adc_tm5_thr_update(struct adc_tm_sensor *sensor,
 	struct adc_tm_config tm_config;
 	struct adc_tm_chip *chip;
 
+	chip = sensor->chip;
+
 	ret = adc_tm5_get_btm_idx(chip,
 		sensor->btm_ch, &btm_chan_idx);
 	if (ret < 0) {
 		pr_err("Invalid btm channel idx\n");
 		return ret;
 	}
-
-	chip = sensor->chip;
 
 	tm_config.high_thr_voltage = (int64_t)high_thr;
 	tm_config.low_thr_voltage = (int64_t)low_thr;
@@ -1025,22 +1049,31 @@ static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 {
 	u8 buf[4], channels_available, meas_int_timer_2_3 = 0;
 	int ret;
+	int dig_param_len = 4;
+	int pmic_subtype_660 = 0;
 	unsigned int offset_btm_idx = 0, i;
 
-	ret = adc_tm5_read_reg(chip, ADC_TM_NUM_BTM, &channels_available, 1);
-	if (ret < 0) {
-		pr_err("read failed for BTM channels\n");
-		return ret;
-	}
+	if ((chip->pmic_rev_id) &&
+		(chip->pmic_rev_id->pmic_subtype == PM660_SUBTYPE)) {
+		dig_param_len = 2;
+		pmic_subtype_660 = 1;
+	} else {
+		ret = adc_tm5_read_reg(chip, ADC_TM_NUM_BTM,
+					&channels_available, 1);
+		if (ret < 0) {
+			pr_err("read failed for BTM channels\n");
+			return ret;
+		}
 
-	if (dt_chans > channels_available) {
-		pr_err("Number of nodes greater than channels supported:%d\n",
-							channels_available);
-		return -EINVAL;
+		if (dt_chans > channels_available) {
+			pr_err("More nodes than channels supported:%d\n",
+						channels_available);
+			return -EINVAL;
+		}
 	}
 
 	ret = adc_tm5_read_reg(chip,
-			ADC_TM_ADC_DIG_PARAM, buf, 4);
+			ADC_TM_ADC_DIG_PARAM, buf, dig_param_len);
 	if (ret < 0) {
 		pr_err("adc-tm block read failed with %d\n", ret);
 		return ret;
@@ -1062,9 +1095,17 @@ static int adc_tm5_init(struct adc_tm_chip *chip, uint32_t dt_chans)
 	buf[3] = meas_int_timer_2_3;
 
 	ret = adc_tm5_write_reg(chip,
-			ADC_TM_ADC_DIG_PARAM, buf, 4);
+			ADC_TM_ADC_DIG_PARAM, buf, dig_param_len);
 	if (ret < 0)
 		pr_err("adc-tm block write failed with %d\n", ret);
+
+	if (pmic_subtype_660) {
+		ret = adc_tm5_write_reg(chip,
+				ADC_TM_MEAS_INTERVAL_CTL_660, &buf[2], 2);
+
+		if (ret < 0)
+			pr_err("adc-tm block write failed with %d\n", ret);
+	}
 
 	spin_lock_init(&chip->adc_tm_lock);
 	mutex_init(&chip->adc_mutex_lock);
@@ -1106,4 +1147,12 @@ const struct adc_tm_data data_adc_tm5 = {
 	.decimation = (unsigned int []) {250, 420, 840},
 	.hw_settle = (unsigned int []) {15, 100, 200, 300, 400, 500, 600, 700,
 					1, 2, 4, 8, 16, 32, 64, 128},
+};
+
+const struct adc_tm_data data_adc_tm_rev2 = {
+	.ops			= &ops_adc_tm5,
+	.full_scale_code_volt	= 0x4000,
+	.decimation = (unsigned int []) {256, 512, 1024},
+	.hw_settle = (unsigned int []) {0, 100, 200, 300, 400, 500, 600, 700,
+					800, 900, 1, 2, 4, 6, 8, 10},
 };

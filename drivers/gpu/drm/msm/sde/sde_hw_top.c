@@ -61,6 +61,10 @@
 
 #define DCE_SEL                           0x450
 
+#define ROT_SID_RD			  0x20
+#define ROT_SID_WR			  0x24
+#define ROT_SID_ID_VAL			  0x1c
+
 static void sde_hw_setup_split_pipe(struct sde_hw_mdp *mdp,
 		struct split_pipe_cfg *cfg)
 {
@@ -134,6 +138,8 @@ static void sde_hw_setup_pp_split(struct sde_hw_mdp *mdp,
 	} else if (cfg->en && cfg->pp_split_slave != INTF_MAX) {
 		ppb_config |= (cfg->pp_split_slave - INTF_0 + 1) << 20;
 		ppb_config |= BIT(16); /* split enable */
+		/* overlap pixel width */
+		ppb_config |= ((cfg->overlap_pixel_width & 0x1F) << 24);
 		ppb_control = BIT(5); /* horz split*/
 	}
 
@@ -148,25 +154,6 @@ static void sde_hw_setup_pp_split(struct sde_hw_mdp *mdp,
 		SDE_REG_WRITE(&mdp->hw, PPB1_CONFIG, 0x0);
 		SDE_REG_WRITE(&mdp->hw, PPB1_CNTL, 0x0);
 	}
-}
-
-static void sde_hw_setup_cdm_output(struct sde_hw_mdp *mdp,
-		struct cdm_output_cfg *cfg)
-{
-	struct sde_hw_blk_reg_map *c;
-	u32 out_ctl = 0;
-
-	if (!mdp || !cfg)
-		return;
-
-	c = &mdp->hw;
-
-	if (cfg->wb_en)
-		out_ctl |= BIT(24);
-	else if (cfg->intf_en)
-		out_ctl |= BIT(19);
-
-	SDE_REG_WRITE(c, MDP_OUT_CTL_0, out_ctl);
 }
 
 static bool sde_hw_setup_clk_force_ctrl(struct sde_hw_mdp *mdp,
@@ -407,6 +394,19 @@ void sde_hw_reset_ubwc(struct sde_hw_mdp *mdp, struct sde_mdss_cfg *m)
 	}
 }
 
+static void sde_hw_intf_dp_select(struct sde_hw_mdp *mdp,
+		struct sde_mdss_cfg *m)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!mdp)
+		return;
+
+	c = &mdp->hw;
+
+	SDE_REG_WRITE(c, DP_PHY_INTF_SEL, 0x41);
+}
+
 static void sde_hw_intf_audio_select(struct sde_hw_mdp *mdp)
 {
 	struct sde_hw_blk_reg_map *c;
@@ -417,6 +417,47 @@ static void sde_hw_intf_audio_select(struct sde_hw_mdp *mdp)
 	c = &mdp->hw;
 
 	SDE_REG_WRITE(c, HDMI_DP_CORE_SELECT, 0x1);
+}
+
+static void sde_hw_mdp_events(struct sde_hw_mdp *mdp, bool enable)
+{
+	struct sde_hw_blk_reg_map *c;
+
+	if (!mdp)
+		return;
+
+	c = &mdp->hw;
+
+	SDE_REG_WRITE(c, HW_EVENTS_CTL, enable);
+}
+
+struct sde_hw_sid *sde_hw_sid_init(void __iomem *addr,
+	u32 sid_len, const struct sde_mdss_cfg *m)
+{
+	struct sde_hw_sid *c;
+
+	if (!addr) {
+		SDE_DEBUG("Invalid addr\n");
+		return NULL;
+	}
+
+	c = kzalloc(sizeof(*c), GFP_KERNEL);
+	if (!c)
+		return ERR_PTR(-ENOMEM);
+
+	c->hw.base_off = addr;
+	c->hw.blk_off = 0;
+	c->hw.length = sid_len;
+	c->hw.hwversion = m->hwversion;
+	c->hw.log_mask = SDE_DBG_MASK_SID;
+
+	return c;
+}
+
+void sde_hw_sid_rotator_set(struct sde_hw_sid *sid)
+{
+	SDE_REG_WRITE(&sid->hw, ROT_SID_RD, ROT_SID_ID_VAL);
+	SDE_REG_WRITE(&sid->hw, ROT_SID_WR, ROT_SID_ID_VAL);
 }
 
 static void sde_hw_program_cwb_ppb_ctrl(struct sde_hw_mdp *mdp,
@@ -436,7 +477,6 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 {
 	ops->setup_split_pipe = sde_hw_setup_split_pipe;
 	ops->setup_pp_split = sde_hw_setup_pp_split;
-	ops->setup_cdm_output = sde_hw_setup_cdm_output;
 	ops->setup_clk_force_ctrl = sde_hw_setup_clk_force_ctrl;
 	ops->get_danger_status = sde_hw_get_danger_status;
 	ops->setup_vsync_source = sde_hw_setup_vsync_source;
@@ -445,7 +485,9 @@ static void _setup_mdp_ops(struct sde_hw_mdp_ops *ops,
 	ops->get_split_flush_status = sde_hw_get_split_flush;
 	ops->setup_dce = sde_hw_setup_dce;
 	ops->reset_ubwc = sde_hw_reset_ubwc;
+	ops->intf_dp_select = sde_hw_intf_dp_select;
 	ops->intf_audio_select = sde_hw_intf_audio_select;
+	ops->set_mdp_hw_events = sde_hw_mdp_events;
 	if (cap & BIT(SDE_MDP_VSYNC_SEL))
 		ops->setup_vsync_source = sde_hw_setup_vsync_source;
 	else

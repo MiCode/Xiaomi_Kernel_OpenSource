@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, 2019 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,8 +89,8 @@ _kgsl_pool_add_page(struct kgsl_page_pool *pool, struct page *p)
 	list_add_tail(&p->lru, &pool->page_list);
 	pool->page_count++;
 	spin_unlock(&pool->list_lock);
-	mod_node_page_state(page_pgdat(p), NR_INDIRECTLY_RECLAIMABLE_BYTES,
-				(PAGE_SIZE << pool->pool_order));
+	mod_node_page_state(page_pgdat(p), NR_KERNEL_MISC_RECLAIMABLE,
+				(1 << pool->pool_order));
 }
 
 /* Returns a page from specified pool */
@@ -106,8 +106,11 @@ _kgsl_pool_get_page(struct kgsl_page_pool *pool)
 		list_del(&p->lru);
 	}
 	spin_unlock(&pool->list_lock);
-	mod_node_page_state(page_pgdat(p), NR_INDIRECTLY_RECLAIMABLE_BYTES,
-				-(PAGE_SIZE << pool->pool_order));
+
+	if (p != NULL)
+		mod_node_page_state(page_pgdat(p),
+				NR_KERNEL_MISC_RECLAIMABLE,
+				-(1 << pool->pool_order));
 	return p;
 }
 
@@ -262,11 +265,19 @@ void kgsl_pool_free_pages(struct page **pages, unsigned int pcount)
 	if (pages == NULL || pcount == 0)
 		return;
 
+	if (WARN(!kern_addr_valid((unsigned long)pages),
+		"Address of pages=%pK is not valid\n", pages))
+		return;
+
 	for (i = 0; i < pcount;) {
 		/*
 		 * Free each page or compound page group individually.
 		 */
 		struct page *p = pages[i];
+
+		if (WARN(!kern_addr_valid((unsigned long)p),
+			"Address of page=%pK is not valid\n", p))
+			return;
 
 		i += 1 << compound_order(p);
 		kgsl_pool_free_page(p);

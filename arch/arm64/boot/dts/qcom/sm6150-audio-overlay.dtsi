@@ -20,6 +20,8 @@
 	qcom,va-without-decimation;
 	slew_rate_reg1 = <0x62B6F000 0x0>;
 	slew_rate_reg2 = <0x62B6F004 0x0>;
+	slew_rate_val1 = <0x3333 0x0>;
+	slew_rate_val2 = <0xF 0x0>;
 	tx_macro: tx-macro@62ec0000 {
 		compatible = "qcom,tx-macro";
 		reg = <0x62ec0000 0x0>;
@@ -47,6 +49,7 @@
 				<5 DMIC6 0x4>, <5 DMIC7 0x8>;
 			qcom,swr-num-dev = <1>;
 			qcom,swr-clock-stop-mode0 = <1>;
+			qcom,swr-mstr-tx-wakeup-capable;
 			qcom,swr-mstr-irq-wakeup-capable = <1>;
 			wcd937x_tx_slave: wcd937x-tx-slave {
 				compatible = "qcom,wcd937x-slave";
@@ -114,24 +117,28 @@
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x20170211>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+				qcom,bolero-handle = <&bolero>;
 			};
 
 			wsa881x_0212: wsa881x@20170212 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x20170212>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+				qcom,bolero-handle = <&bolero>;
 			};
 
 			wsa881x_0213: wsa881x@21170213 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x21170213>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+				qcom,bolero-handle = <&bolero>;
 			};
 
 			wsa881x_0214: wsa881x@21170214 {
 				compatible = "qcom,wsa881x";
 				reg = <0x0 0x21170214>;
 				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+				qcom,bolero-handle = <&bolero>;
 			};
 		};
 

@@ -36,7 +36,6 @@
 #include <linux/suspend.h>
 
 #include <trace/events/thermal.h>
-
 /*
  * Cooling state <-> CPUFreq frequency
  *
@@ -300,7 +299,7 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 	unsigned long clipped_freq = ULONG_MAX, floor_freq = 0;
 	struct cpufreq_cooling_device *cpufreq_cdev;
 
-	if (event != CPUFREQ_INCOMPATIBLE)
+	if (event != CPUFREQ_ADJUST)
 		return NOTIFY_DONE;
 
 	mutex_lock(&cooling_list_lock);
@@ -332,7 +331,7 @@ static int cpufreq_thermal_notifier(struct notifier_block *nb,
 	 * the floor_frequency, then adjust the policy->min.
 	 */
 	if (policy->max > clipped_freq || policy->min < floor_freq)
-		cpufreq_verify_within_limits(policy, floor_freq, clipped_freq);
+	cpufreq_verify_within_limits(policy, floor_freq, clipped_freq);
 	mutex_unlock(&cooling_list_lock);
 
 	return NOTIFY_OK;
@@ -728,7 +727,6 @@ update_frequency:
 		if (cpufreq_cdev->plat_ops->ceil_limit)
 			cpufreq_cdev->plat_ops->ceil_limit(cpu,
 						clip_freq);
-	} else {
 		cpufreq_update_policy(cpu);
 	}
 
@@ -786,7 +784,7 @@ static int cpufreq_get_requested_power(struct thermal_cooling_device *cdev,
 			load = 0;
 
 		total_load += load;
-		if (trace_thermal_power_cpu_limit_enabled() && load_cpu)
+		if (load_cpu)
 			load_cpu[i] = load;
 
 		i++;
@@ -1087,7 +1085,7 @@ __cpufreq_cooling_register(struct device_node *np,
 	list_add(&cpufreq_cdev->node, &cpufreq_cdev_list);
 	mutex_unlock(&cooling_list_lock);
 
-	if (first && !cpufreq_cdev->plat_ops)
+	if (first)
 		cpufreq_register_notifier(&thermal_cpufreq_notifier_block,
 					  CPUFREQ_POLICY_NOTIFIER);
 	if (!cpuhp_registered) {
@@ -1280,10 +1278,9 @@ void cpufreq_cooling_unregister(struct thermal_cooling_device *cdev)
 
 	if (last) {
 		unregister_pm_notifier(&cpufreq_cooling_pm_nb);
-		if (!cpufreq_cdev->plat_ops)
-			cpufreq_unregister_notifier(
-					&thermal_cpufreq_notifier_block,
-					CPUFREQ_POLICY_NOTIFIER);
+		cpufreq_unregister_notifier(
+				&thermal_cpufreq_notifier_block,
+				CPUFREQ_POLICY_NOTIFIER);
 	}
 
 	thermal_cooling_device_unregister(cpufreq_cdev->cdev);

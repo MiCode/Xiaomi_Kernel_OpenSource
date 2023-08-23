@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014,2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014,2016-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <linux/regmap.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/notifier.h>
 #include <linux/qpnp/qpnp-misc.h>
 
 #define QPNP_MISC_DEV_NAME "qcom,qpnp-misc"
@@ -29,8 +30,20 @@
 #define PWM_SEL_MAX		0x03
 #define GP_DRIVER_EN_BIT	BIT(0)
 
+enum twm {
+	TWM_MODE_1 = 1,
+	TWM_MODE_2,
+	TWM_MODE_3,
+};
+
+enum twm_attrib {
+	TWM_ENABLE,
+	TWM_EXIT,
+};
+
 static DEFINE_MUTEX(qpnp_misc_dev_list_mutex);
 static LIST_HEAD(qpnp_misc_dev_list);
+static RAW_NOTIFIER_HEAD(twm_notifier);
 
 struct qpnp_misc_version {
 	u8	subtype;
@@ -55,10 +68,14 @@ struct qpnp_misc_dev {
 	struct device			*dev;
 	struct regmap			*regmap;
 	struct qpnp_misc_version	version;
+	struct class			twm_class;
 
+	u8				twm_mode;
 	u32				base;
 	u8				pwm_sel;
 	bool				enable_gp_driver;
+	bool				support_twm_config;
+	bool				twm_enable;
 };
 
 static const struct of_device_id qpnp_misc_match_table[] = {
@@ -211,11 +228,100 @@ int qpnp_misc_irqs_available(struct device *consumer_dev)
 	return __misc_irqs_available(mdev_found);
 }
 
+#define MISC_SPARE_1		0x50
+#define MISC_SPARE_2		0x51
+#define ENABLE_TWM_MODE		0x80
+#define DISABLE_TWM_MODE	0x0
+#define TWM_EXIT_BIT		BIT(0)
+static ssize_t twm_enable_store(struct class *c,
+			struct class_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct qpnp_misc_dev *mdev = container_of(c,
+			struct qpnp_misc_dev, twm_class);
+	u8 val = 0;
+	ssize_t rc = 0;
+
+	rc = kstrtou8(buf, 10, &val);
+	if (rc < 0)
+		return rc;
+
+	mdev->twm_enable = val ? true : false;
+
+	/* Notify the TWM state */
+	raw_notifier_call_chain(&twm_notifier,
+		mdev->twm_enable ? PMIC_TWM_ENABLE : PMIC_TWM_CLEAR, NULL);
+
+	return count;
+}
+
+static ssize_t twm_enable_show(struct class *c,
+			struct class_attribute *attr, char *buf)
+{
+	struct qpnp_misc_dev *mdev = container_of(c,
+			struct qpnp_misc_dev, twm_class);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", mdev->twm_enable);
+}
+static CLASS_ATTR_RW(twm_enable);
+
+static ssize_t twm_exit_show(struct class *c,
+			struct class_attribute *attr, char *buf)
+{
+	struct qpnp_misc_dev *mdev = container_of(c,
+			struct qpnp_misc_dev, twm_class);
+	int rc = 0;
+	u8 val = 0;
+
+	rc = qpnp_read_byte(mdev, MISC_SPARE_1, &val);
+	if (rc < 0) {
+		pr_err("Failed to read TWM enable (misc_spare_1) rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("TWM_EXIT (misc_spare_1) register = 0x%02x\n", val);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", !!(val & TWM_EXIT_BIT));
+}
+static CLASS_ATTR_RO(twm_exit);
+
+static struct attribute *twm_attrs[] = {
+	&class_attr_twm_enable.attr,
+	&class_attr_twm_exit.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(twm);
+
+int qpnp_misc_twm_notifier_register(struct notifier_block *nb)
+{
+	return raw_notifier_chain_register(&twm_notifier, nb);
+}
+EXPORT_SYMBOL(qpnp_misc_twm_notifier_register);
+
+int qpnp_misc_twm_notifier_unregister(struct notifier_block *nb)
+{
+	return raw_notifier_chain_unregister(&twm_notifier, nb);
+}
+EXPORT_SYMBOL(qpnp_misc_twm_notifier_unregister);
+
 static int qpnp_misc_dt_init(struct qpnp_misc_dev *mdev)
 {
 	struct device_node *node = mdev->dev->of_node;
 	u32 val;
 	int rc;
+
+	if (of_property_read_bool(mdev->dev->of_node,
+				"qcom,support-twm-config")) {
+		mdev->support_twm_config = true;
+		mdev->twm_mode = TWM_MODE_3;
+		rc = of_property_read_u8(mdev->dev->of_node, "qcom,twm-mode",
+							&mdev->twm_mode);
+		if (!rc && (mdev->twm_mode < TWM_MODE_1 ||
+				mdev->twm_mode > TWM_MODE_3)) {
+			pr_err("Invalid TWM mode %d\n", mdev->twm_mode);
+			return -EINVAL;
+		}
+	}
 
 	rc = of_property_read_u32(node, "reg", &mdev->base);
 	if (rc < 0 || !mdev->base) {
@@ -270,6 +376,18 @@ static int qpnp_misc_config(struct qpnp_misc_dev *mdev)
 		break;
 	}
 
+	if (mdev->support_twm_config) {
+		mdev->twm_class.name = "pmic_twm",
+		mdev->twm_class.owner = THIS_MODULE,
+		mdev->twm_class.class_groups = twm_groups;
+
+		rc = class_register(&mdev->twm_class);
+		if (rc < 0) {
+			pr_err("Failed to register pmic_twm class rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -283,6 +401,7 @@ static int qpnp_misc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mdev->dev = &pdev->dev;
+	dev_set_drvdata(&pdev->dev, mdev);
 	mdev->regmap = dev_get_regmap(mdev->dev->parent, NULL);
 	if (!mdev->regmap) {
 		dev_err(mdev->dev, "Parent regmap is unavailable\n");
@@ -325,8 +444,33 @@ static int qpnp_misc_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static void qpnp_misc_shutdown(struct platform_device *pdev)
+{
+	struct qpnp_misc_dev *mdev = dev_get_drvdata(&pdev->dev);
+	int rc;
+
+	if (mdev->support_twm_config) {
+		rc = qpnp_write_byte(mdev, MISC_SPARE_2,
+				mdev->twm_enable ? mdev->twm_mode : 0x0);
+		if (rc < 0)
+			pr_err("Failed to write MISC_SPARE_2 (twm_mode) val=%d rc=%d\n",
+				mdev->twm_enable ? mdev->twm_mode : 0x0, rc);
+
+		rc = qpnp_write_byte(mdev, MISC_SPARE_1,
+				mdev->twm_enable ? ENABLE_TWM_MODE : 0x0);
+		if (rc < 0)
+			pr_err("Failed to write MISC_SPARE_1 (twm_state) val=%d rc=%d\n",
+				mdev->twm_enable ? ENABLE_TWM_MODE : 0x0, rc);
+
+		pr_debug("PMIC configured for TWM-%s MODE=%d\n",
+				mdev->twm_enable ? "enabled" : "disabled",
+				mdev->twm_mode);
+	}
+}
+
 static struct platform_driver qpnp_misc_driver = {
 	.probe	= qpnp_misc_probe,
+	.shutdown = qpnp_misc_shutdown,
 	.driver	= {
 		.name		= QPNP_MISC_DEV_NAME,
 		.owner		= THIS_MODULE,

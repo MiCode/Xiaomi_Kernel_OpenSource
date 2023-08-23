@@ -78,6 +78,11 @@ SSR Minidump Offset
 -Compatible: "qcom,msm-imem-minidump"
 -reg: start address and size of ssr imem region
 
+Minidump Debug Offset
+----------------------
+-Compatible: "qcom,msm-imem-minidump-debug"
+-reg: start address and size minidump debug imem region
+
 Required properties:
 -compatible: "qcom,msm-imem-diag-dload"
 -reg: start address and size of USB Diag download mode region in imem
@@ -130,5 +135,10 @@ Example:
 		ss_mdump@b88 {
 			compatible = "qcom,msm-imem-minidump";
 			reg = <0xb88 28>;
+		};
+
+		minidump_debug@b0c {
+			compatible = "qcom,msm-imem-minidump-debug";
+			reg = <0xb0c 0x4>;
 		};
 	};

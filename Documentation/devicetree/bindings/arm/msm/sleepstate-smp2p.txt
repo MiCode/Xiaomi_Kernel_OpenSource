@@ -17,3 +17,15 @@ qcom,smp2p_sleepstate {
 	interrupts = <0 0>;
 	interrupt-names = "smp2p-sleepstate-in";
 };
+
+
+
+Required properties:
+-compatible : should be "qcom,smp2pgpio_sleepstate_3_out";
+-gpios : the relevant gpio pins of the entry.
+
+Example:
+        qcom,smp2pgpio-sleepstate-3-out {
+                compatible = "qcom,smp2pgpio_sleepstate_3_out";
+                gpios = <&smp2pgpio_sleepstate_3_out 0 0>;
+        };

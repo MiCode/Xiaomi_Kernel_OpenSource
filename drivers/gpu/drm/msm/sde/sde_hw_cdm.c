@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -254,8 +254,8 @@ int sde_hw_cdm_enable(struct sde_hw_cdm *ctx,
 	if (ctx && ctx->ops.bind_pingpong_blk)
 		ctx->ops.bind_pingpong_blk(ctx, true,
 				cdm->pp_id);
-	else if (ctx->hw_mdp && ctx->hw_mdp->ops.setup_cdm_output)
-		ctx->hw_mdp->ops.setup_cdm_output(ctx->hw_mdp, &cdm_cfg);
+	else if (ctx && ctx->ops.setup_output)
+		ctx->ops.setup_output(ctx, cdm);
 
 	SDE_REG_WRITE(c, CDM_CSC_10_OPMODE, csc);
 	SDE_REG_WRITE(c, CDM_HDMI_PACK_OP_MODE, opmode);
@@ -264,15 +264,29 @@ int sde_hw_cdm_enable(struct sde_hw_cdm *ctx,
 
 void sde_hw_cdm_disable(struct sde_hw_cdm *ctx)
 {
-	struct cdm_output_cfg cdm_cfg = { 0 };
+	if (ctx && ctx->ops.bind_pingpong_blk)
+		ctx->ops.bind_pingpong_blk(ctx, false, 0);
+	else if (ctx && ctx->ops.setup_output)
+		ctx->ops.setup_output(ctx, NULL);
+}
+
+static void sde_hw_cdm_setup_output(struct sde_hw_cdm *ctx,
+	struct sde_hw_cdm_cfg *cfg)
+{
+	struct sde_hw_blk_reg_map *c;
+	u32 out_ctl = 0;
 
 	if (!ctx)
 		return;
 
-	if (ctx && ctx->ops.bind_pingpong_blk)
-		ctx->ops.bind_pingpong_blk(ctx, false, 0);
-	else if (ctx->hw_mdp && ctx->hw_mdp->ops.setup_cdm_output)
-		ctx->hw_mdp->ops.setup_cdm_output(ctx->hw_mdp, &cdm_cfg);
+	c = &ctx->hw;
+
+	if (cfg && cfg->output_type == CDM_CDWN_OUTPUT_WB)
+		out_ctl |= BIT(24);
+	else if (cfg && cfg->output_type == CDM_CDWN_OUTPUT_HDMI)
+		out_ctl |= BIT(19);
+
+	SDE_REG_WRITE(c, MDP_OUT_CTL_0, out_ctl);
 }
 
 static void sde_hw_cdm_bind_pingpong_blk(
@@ -302,6 +316,8 @@ static void _setup_cdm_ops(struct sde_hw_cdm_ops *ops,
 	ops->setup_cdwn = sde_hw_cdm_setup_cdwn;
 	ops->enable = sde_hw_cdm_enable;
 	ops->disable = sde_hw_cdm_disable;
+	ops->setup_output = sde_hw_cdm_setup_output;
+
 	if (features & BIT(SDE_CDM_INPUT_CTRL))
 		ops->bind_pingpong_blk = sde_hw_cdm_bind_pingpong_blk;
 }

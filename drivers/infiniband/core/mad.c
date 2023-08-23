@@ -217,30 +217,30 @@ struct ib_mad_agent *ib_register_mad_agent(struct ib_device *device,
 	/* Validate parameters */
 	qpn = get_spl_qp_index(qp_type);
 	if (qpn == -1) {
-		dev_notice(&device->dev,
-			   "ib_register_mad_agent: invalid QP Type %d\n",
-			   qp_type);
+		dev_dbg_ratelimited(&device->dev, "%s: invalid QP Type %d\n",
+				    __func__, qp_type);
 		goto error1;
 	}
 
 	if (rmpp_version && rmpp_version != IB_MGMT_RMPP_VERSION) {
-		dev_notice(&device->dev,
-			   "ib_register_mad_agent: invalid RMPP Version %u\n",
-			   rmpp_version);
+		dev_dbg_ratelimited(&device->dev,
+				    "%s: invalid RMPP Version %u\n",
+				    __func__, rmpp_version);
 		goto error1;
 	}
 
 	/* Validate MAD registration request if supplied */
 	if (mad_reg_req) {
 		if (mad_reg_req->mgmt_class_version >= MAX_MGMT_VERSION) {
-			dev_notice(&device->dev,
-				   "ib_register_mad_agent: invalid Class Version %u\n",
-				   mad_reg_req->mgmt_class_version);
+			dev_dbg_ratelimited(&device->dev,
+					    "%s: invalid Class Version %u\n",
+					    __func__,
+					    mad_reg_req->mgmt_class_version);
 			goto error1;
 		}
 		if (!recv_handler) {
-			dev_notice(&device->dev,
-				   "ib_register_mad_agent: no recv_handler\n");
+			dev_dbg_ratelimited(&device->dev,
+					    "%s: no recv_handler\n", __func__);
 			goto error1;
 		}
 		if (mad_reg_req->mgmt_class >= MAX_MGMT_CLASS) {
@@ -250,9 +250,9 @@ struct ib_mad_agent *ib_register_mad_agent(struct ib_device *device,
 			 */
 			if (mad_reg_req->mgmt_class !=
 			    IB_MGMT_CLASS_SUBN_DIRECTED_ROUTE) {
-				dev_notice(&device->dev,
-					   "ib_register_mad_agent: Invalid Mgmt Class 0x%x\n",
-					   mad_reg_req->mgmt_class);
+				dev_dbg_ratelimited(&device->dev,
+					"%s: Invalid Mgmt Class 0x%x\n",
+					__func__, mad_reg_req->mgmt_class);
 				goto error1;
 			}
 		} else if (mad_reg_req->mgmt_class == 0) {
@@ -260,8 +260,9 @@ struct ib_mad_agent *ib_register_mad_agent(struct ib_device *device,
 			 * Class 0 is reserved in IBA and is used for
 			 * aliasing of IB_MGMT_CLASS_SUBN_DIRECTED_ROUTE
 			 */
-			dev_notice(&device->dev,
-				   "ib_register_mad_agent: Invalid Mgmt Class 0\n");
+			dev_dbg_ratelimited(&device->dev,
+					    "%s: Invalid Mgmt Class 0\n",
+					    __func__);
 			goto error1;
 		} else if (is_vendor_class(mad_reg_req->mgmt_class)) {
 			/*
@@ -269,18 +270,19 @@ struct ib_mad_agent *ib_register_mad_agent(struct ib_device *device,
 			 * ensure supplied OUI is not zero
 			 */
 			if (!is_vendor_oui(mad_reg_req->oui)) {
-				dev_notice(&device->dev,
-					   "ib_register_mad_agent: No OUI specified for class 0x%x\n",
-					   mad_reg_req->mgmt_class);
+				dev_dbg_ratelimited(&device->dev,
+					"%s: No OUI specified for class 0x%x\n",
+					__func__,
+					mad_reg_req->mgmt_class);
 				goto error1;
 			}
 		}
 		/* Make sure class supplied is consistent with RMPP */
 		if (!ib_is_mad_class_rmpp(mad_reg_req->mgmt_class)) {
 			if (rmpp_version) {
-				dev_notice(&device->dev,
-					   "ib_register_mad_agent: RMPP version for non-RMPP class 0x%x\n",
-					   mad_reg_req->mgmt_class);
+				dev_dbg_ratelimited(&device->dev,
+					"%s: RMPP version for non-RMPP class 0x%x\n",
+					__func__, mad_reg_req->mgmt_class);
 				goto error1;
 			}
 		}
@@ -291,9 +293,9 @@ struct ib_mad_agent *ib_register_mad_agent(struct ib_device *device,
 					IB_MGMT_CLASS_SUBN_LID_ROUTED) &&
 			    (mad_reg_req->mgmt_class !=
 					IB_MGMT_CLASS_SUBN_DIRECTED_ROUTE)) {
-				dev_notice(&device->dev,
-					   "ib_register_mad_agent: Invalid SM QP type: class 0x%x\n",
-					   mad_reg_req->mgmt_class);
+				dev_dbg_ratelimited(&device->dev,
+					"%s: Invalid SM QP type: class 0x%x\n",
+					__func__, mad_reg_req->mgmt_class);
 				goto error1;
 			}
 		} else {
@@ -301,9 +303,9 @@ struct ib_mad_agent *ib_register_mad_agent(struct ib_device *device,
 					IB_MGMT_CLASS_SUBN_LID_ROUTED) ||
 			    (mad_reg_req->mgmt_class ==
 					IB_MGMT_CLASS_SUBN_DIRECTED_ROUTE)) {
-				dev_notice(&device->dev,
-					   "ib_register_mad_agent: Invalid GS QP type: class 0x%x\n",
-					   mad_reg_req->mgmt_class);
+				dev_dbg_ratelimited(&device->dev,
+					"%s: Invalid GS QP type: class 0x%x\n",
+					__func__, mad_reg_req->mgmt_class);
 				goto error1;
 			}
 		}
@@ -318,18 +320,18 @@ struct ib_mad_agent *ib_register_mad_agent(struct ib_device *device,
 	/* Validate device and port */
 	port_priv = ib_get_mad_port(device, port_num);
 	if (!port_priv) {
-		dev_notice(&device->dev,
-			   "ib_register_mad_agent: Invalid port %d\n",
-			   port_num);
+		dev_dbg_ratelimited(&device->dev, "%s: Invalid port %d\n",
+				    __func__, port_num);
 		ret = ERR_PTR(-ENODEV);
 		goto error1;
 	}
 
-	/* Verify the QP requested is supported.  For example, Ethernet devices
-	 * will not have QP0 */
+	/* Verify the QP requested is supported. For example, Ethernet devices
+	 * will not have QP0.
+	 */
 	if (!port_priv->qp_info[qpn].qp) {
-		dev_notice(&device->dev,
-			   "ib_register_mad_agent: QP %d not supported\n", qpn);
+		dev_dbg_ratelimited(&device->dev, "%s: QP %d not supported\n",
+				    __func__, qpn);
 		ret = ERR_PTR(-EPROTONOSUPPORT);
 		goto error1;
 	}
@@ -3170,18 +3172,18 @@ static int ib_mad_port_open(struct ib_device *device,
 	if (has_smi)
 		cq_size *= 2;
 
-	port_priv->cq = ib_alloc_cq(port_priv->device, port_priv, cq_size, 0,
-			IB_POLL_WORKQUEUE);
-	if (IS_ERR(port_priv->cq)) {
-		dev_err(&device->dev, "Couldn't create ib_mad CQ\n");
-		ret = PTR_ERR(port_priv->cq);
-		goto error3;
-	}
-
 	port_priv->pd = ib_alloc_pd(device, 0);
 	if (IS_ERR(port_priv->pd)) {
 		dev_err(&device->dev, "Couldn't create ib_mad PD\n");
 		ret = PTR_ERR(port_priv->pd);
+		goto error3;
+	}
+
+	port_priv->cq = ib_alloc_cq(port_priv->device, port_priv, cq_size, 0,
+			IB_POLL_UNBOUND_WORKQUEUE);
+	if (IS_ERR(port_priv->cq)) {
+		dev_err(&device->dev, "Couldn't create ib_mad CQ\n");
+		ret = PTR_ERR(port_priv->cq);
 		goto error4;
 	}
 
@@ -3224,11 +3226,11 @@ error8:
 error7:
 	destroy_mad_qp(&port_priv->qp_info[0]);
 error6:
-	ib_dealloc_pd(port_priv->pd);
-error4:
 	ib_free_cq(port_priv->cq);
 	cleanup_recv_queue(&port_priv->qp_info[1]);
 	cleanup_recv_queue(&port_priv->qp_info[0]);
+error4:
+	ib_dealloc_pd(port_priv->pd);
 error3:
 	kfree(port_priv);
 
@@ -3258,8 +3260,8 @@ static int ib_mad_port_close(struct ib_device *device, int port_num)
 	destroy_workqueue(port_priv->wq);
 	destroy_mad_qp(&port_priv->qp_info[1]);
 	destroy_mad_qp(&port_priv->qp_info[0]);
-	ib_dealloc_pd(port_priv->pd);
 	ib_free_cq(port_priv->cq);
+	ib_dealloc_pd(port_priv->pd);
 	cleanup_recv_queue(&port_priv->qp_info[1]);
 	cleanup_recv_queue(&port_priv->qp_info[0]);
 	/* XXX: Handle deallocation of MAD registration tables */

@@ -21,12 +21,18 @@
 
 #define USB_AHBBURST         (MSM_USB_BASE + 0x0090)
 #define USB_AHBMODE          (MSM_USB_BASE + 0x0098)
+#define USB_GENCONFIG        (MSM_USB_BASE + 0x009C)
 #define USB_GENCONFIG_2      (MSM_USB_BASE + 0x00a0)
+#define USB_HS_GPTIMER_BASE  (MSM_USB_BASE + 0x80)
 #define ULPI_TX_PKT_EN_CLR_FIX	BIT(19)
 
 #define USB_CAPLENGTH        (MSM_USB_BASE + 0x0100) /* 8 bit */
+#define USB_HS_APF_CTRL      (MSM_USB_BASE + 0x0380)
+
+#define APF_CTRL_EN		BIT(0)
 
 #define USB_USBCMD           (MSM_USB_BASE + 0x0140)
+#define USB_USBSTS           (MSM_USB_BASE + 0x0144)
 #define USB_PORTSC           (MSM_USB_BASE + 0x0184)
 #define USB_OTGSC            (MSM_USB_BASE + 0x01A4)
 #define USB_USBMODE          (MSM_USB_BASE + 0x01A8)
@@ -34,23 +40,47 @@
 #define USB_PHY_CTRL2        (MSM_USB_BASE + 0x0278)
 
 #define GENCONFIG_2_SESS_VLD_CTRL_EN	BIT(7)
+#define GENCONFIG_2_LINESTATE_DIFF_WAKEUP_EN	BIT(12)
+#define GENCONFIG_2_SYS_CLK_HOST_DEV_GATE_EN	BIT(13)
+#define GENCONFIG_2_DPSE_DMSE_HV_INTR_EN	BIT(15)
 #define USBCMD_SESS_VLD_CTRL		BIT(25)
 
 #define USBCMD_RESET   2
 #define USB_USBINTR          (MSM_USB_BASE + 0x0148)
+#define USB_FRINDEX          (MSM_USB_BASE + 0x014C)
+
+#define AHB2AHB_BYPASS          BIT(31)
+#define AHB2AHB_BYPASS_BIT_MASK        BIT(31)
+#define AHB2AHB_BYPASS_CLEAR   (0 << 31)
+#define USB_L1_EP_CTRL       (MSM_USB_BASE + 0x0250)
+#define USB_L1_CONFIG        (MSM_USB_BASE + 0x0254)
+
+#define L1_CONFIG_LPM_EN        BIT(4)
+#define L1_CONFIG_REMOTE_WAKEUP BIT(5)
+#define L1_CONFIG_GATE_SYS_CLK	BIT(7)
+#define L1_CONFIG_PHY_LPM	BIT(10)
+#define L1_CONFIG_PLL		BIT(11)
 
 #define PORTSC_PHCD            (1 << 23) /* phy suspend mode */
 #define PORTSC_PTS_MASK        (3 << 30)
 #define PORTSC_PTS_ULPI        (2 << 30)
 #define PORTSC_PTS_SERIAL      (3 << 30)
+#define PORTSC_LS	       (3 << 10)
+#define PORTSC_LS_DM	       (1 << 10)
+#define PORTSC_CCS	       (1 << 0)
 
 #define USB_ULPI_VIEWPORT    (MSM_USB_BASE + 0x0170)
 #define ULPI_RUN              (1 << 30)
 #define ULPI_WRITE            (1 << 29)
 #define ULPI_READ             (0 << 29)
+#define ULPI_SYNC_STATE       (1 << 27)
 #define ULPI_ADDR(n)          (((n) & 255) << 16)
 #define ULPI_DATA(n)          ((n) & 255)
 #define ULPI_DATA_READ(n)     (((n) >> 8) & 255)
+
+#define GENCONFIG_BAM_DISABLE (1 << 13)
+#define GENCONFIG_TXFIFO_IDLE_FORCE_DISABLE (1 << 4)
+#define GENCONFIG_ULPI_SERIAL_EN (1 << 5)
 
 /* synopsys 28nm phy registers */
 #define ULPI_PWR_CLK_MNG_REG	0x88
@@ -63,11 +93,16 @@
 #define ASYNC_INTR_CTRL         (1 << 29) /* Enable async interrupt */
 #define ULPI_STP_CTRL           (1 << 30) /* Block communication with PHY */
 #define PHY_RETEN               (1 << 1) /* PHY retention enable/disable */
-#define PHY_POR_ASSERT		(1 << 0) /* USB2 28nm PHY POR ASSERT */
+#define PHY_IDHV_INTEN          (1 << 8) /* PHY ID HV interrupt */
+#define PHY_OTGSESSVLDHV_INTEN  (1 << 9) /* PHY Session Valid HV int. */
 #define PHY_CLAMP_DPDMSE_EN	(1 << 21) /* PHY mpm DP DM clamp enable */
+#define PHY_POR_BIT_MASK        BIT(0)
+#define PHY_POR_ASSERT		(1 << 0) /* USB2 28nm PHY POR ASSERT */
+#define PHY_POR_DEASSERT        (0 << 0) /* USB2 28nm PHY POR DEASSERT */
 
 /* OTG definitions */
 #define OTGSC_INTSTS_MASK	(0x7f << 16)
+#define OTGSC_IDPU		(1 << 5)
 #define OTGSC_ID		(1 << 8)
 #define OTGSC_BSV		(1 << 11)
 #define OTGSC_IDIS		(1 << 16)

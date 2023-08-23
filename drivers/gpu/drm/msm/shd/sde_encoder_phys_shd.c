@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -103,6 +103,15 @@ static void sde_encoder_phys_shd_vblank_irq(void *arg, int irq_idx)
 	if (flush_register & shd_ctl->flush_mask)
 		goto not_flushed;
 
+	/*
+	 * When flush_mask is changed to 0, we need additional vsync
+	 * to make sure the detach flush is done
+	 */
+	if (flush_register && !shd_ctl->flush_mask && shd_ctl->old_mask) {
+		shd_ctl->old_mask = 0;
+		goto not_flushed;
+	}
+
 	new_cnt = atomic_add_unless(&phys_enc->pending_kickoff_cnt, -1, 0);
 
 	if (atomic_add_unless(&phys_enc->pending_retire_fence_cnt, -1, 0))
@@ -135,56 +144,14 @@ static int _sde_encoder_phys_shd_register_irq(
 		enum sde_intr_idx intr_idx,
 		bool enable)
 {
-	struct sde_encoder_irq *irq = &phys_enc->irq[intr_idx];
-	int ret = 0;
-
 	SDE_DEBUG("%d enable %d\n", DRMID(phys_enc->parent), enable);
 
-	if (enable) {
-		if (irq->irq_idx >= 0) {
-			SDE_DEBUG_PHYS(phys_enc,
-				"skipping already registered irq %s type %d\n",
-				irq->name, irq->intr_type);
-			return 0;
-		}
-
-		irq->irq_idx = sde_core_irq_idx_lookup(phys_enc->sde_kms,
-				irq->intr_type, irq->hw_idx);
-		if (irq->irq_idx < 0) {
-			SDE_ERROR_PHYS(phys_enc,
-				"failed to lookup IRQ index for %s type:%d\n",
-				irq->name, irq->intr_type);
-			return -EINVAL;
-		}
-
-		ret = sde_core_irq_register_callback(phys_enc->sde_kms,
-				irq->irq_idx, &irq->cb);
-		if (ret) {
-			SDE_ERROR_PHYS(phys_enc,
-				"failed to register IRQ callback for %s\n",
-				irq->name);
-			irq->irq_idx = -EINVAL;
-		}
-	} else {
-		if (irq->irq_idx < 0) {
-			SDE_DEBUG_PHYS(phys_enc,
-				"extra unregister irq, enc%d intr_idx:0x%x\n",
-				DRMID(phys_enc->parent), INTR_IDX_VSYNC);
-			return 0;
-		}
-
-		ret = sde_core_irq_unregister_callback(phys_enc->sde_kms,
-				irq->irq_idx, &irq->cb);
-		if (ret) {
-			SDE_ERROR_PHYS(phys_enc,
-				"failed to unregister IRQ callback for %s\n",
-				irq->name);
-		}
-
-		irq->irq_idx = -EINVAL;
-	}
-
-	return ret;
+	if (enable)
+		return sde_encoder_helper_register_irq(phys_enc,
+				INTR_IDX_VSYNC);
+	else
+		return sde_encoder_helper_unregister_irq(phys_enc,
+				INTR_IDX_VSYNC);
 }
 
 static inline
@@ -309,7 +276,6 @@ static void sde_encoder_phys_shd_mode_set(
 		struct drm_display_mode *adj_mode)
 {
 	struct drm_connector *connector;
-	struct sde_connector *sde_conn;
 	struct shd_display *display;
 	struct drm_encoder *encoder;
 	struct sde_rm_hw_iter iter;
@@ -325,8 +291,7 @@ static void sde_encoder_phys_shd_mode_set(
 		return;
 	}
 
-	sde_conn = to_sde_connector(connector);
-	display = sde_conn->display;
+	display = sde_connector_get_display(connector);
 	encoder = display->base->encoder;
 
 	if (_sde_encoder_phys_shd_rm_reserve(phys_enc, display))
@@ -461,86 +426,6 @@ void sde_encoder_phys_shd_trigger_flush(
 			shd_enc->hw_lm, shd_enc->num_mixers);
 }
 
-static void sde_encoder_phys_shd_enable(struct sde_encoder_phys *phys_enc)
-{
-	struct drm_connector *connector;
-
-	SDE_DEBUG("%d\n", phys_enc->parent->base.id);
-
-	if (!phys_enc->parent || !phys_enc->parent->dev) {
-		SDE_ERROR("invalid drm device\n");
-		return;
-	}
-
-	connector = phys_enc->connector;
-	if (!connector || connector->encoder != phys_enc->parent) {
-		SDE_ERROR("failed to find connector\n");
-		return;
-	}
-
-	if (phys_enc->enable_state == SDE_ENC_DISABLED)
-		phys_enc->enable_state = SDE_ENC_ENABLING;
-
-	SDE_EVT32(DRMID(phys_enc->parent),
-		atomic_read(&phys_enc->pending_retire_fence_cnt));
-}
-
-static void sde_encoder_phys_shd_disable(struct sde_encoder_phys *phys_enc)
-{
-	struct sde_connector *sde_conn;
-	struct shd_display *display;
-
-	SDE_DEBUG("%d\n", phys_enc->parent->base.id);
-
-	if (!phys_enc || !phys_enc->parent || !phys_enc->parent->dev ||
-			!phys_enc->parent->dev->dev_private) {
-		SDE_ERROR("invalid encoder/device\n");
-		return;
-	}
-
-	if (!phys_enc->hw_intf || !phys_enc->hw_ctl) {
-		SDE_ERROR("invalid hw_intf %d hw_ctl %d\n",
-				phys_enc->hw_intf != 0, phys_enc->hw_ctl != 0);
-		return;
-	}
-
-	if (phys_enc->enable_state == SDE_ENC_DISABLED) {
-		SDE_ERROR("already disabled\n");
-		return;
-	}
-
-	sde_encoder_helper_reset_mixers(phys_enc, NULL);
-
-	sde_encoder_phys_shd_trigger_flush(phys_enc);
-
-	sde_encoder_phys_shd_wait_for_vblank_no_notify(phys_enc);
-
-	phys_enc->enable_state = SDE_ENC_DISABLED;
-
-	if (!phys_enc->connector)
-		return;
-
-	sde_conn = to_sde_connector(phys_enc->connector);
-	display = sde_conn->display;
-
-	_sde_encoder_phys_shd_rm_release(phys_enc, display);
-
-	SDE_EVT32(DRMID(phys_enc->parent),
-		atomic_read(&phys_enc->pending_retire_fence_cnt));
-}
-
-static inline
-void sde_encoder_phys_shd_destroy(struct sde_encoder_phys *phys_enc)
-{
-	struct sde_encoder_phys_shd *shd_enc =
-		to_sde_encoder_phys_shd(phys_enc);
-
-	if (!phys_enc)
-		return;
-
-	kfree(shd_enc);
-}
-
 static int sde_encoder_phys_shd_control_vblank_irq(
 		struct sde_encoder_phys *phys_enc,
 		bool enable)
@@ -592,6 +477,122 @@ end:
 				enable, refcount, SDE_EVTLOG_ERROR);
 	}
 	return ret;
+}
+
+static void sde_encoder_phys_shd_enable(struct sde_encoder_phys *phys_enc)
+{
+	struct drm_connector *connector;
+
+	SDE_DEBUG("%d\n", phys_enc->parent->base.id);
+
+	if (!phys_enc->parent || !phys_enc->parent->dev) {
+		SDE_ERROR("invalid drm device\n");
+		return;
+	}
+
+	connector = phys_enc->connector;
+	if (!connector || connector->encoder != phys_enc->parent) {
+		SDE_ERROR("failed to find connector\n");
+		return;
+	}
+
+	if (phys_enc->enable_state == SDE_ENC_DISABLED)
+		phys_enc->enable_state = SDE_ENC_ENABLING;
+
+	SDE_EVT32(DRMID(phys_enc->parent),
+		atomic_read(&phys_enc->pending_retire_fence_cnt));
+}
+
+static void sde_encoder_phys_shd_single_vblank_wait(
+		struct sde_encoder_phys *phys_enc)
+{
+	int ret;
+
+	ret = sde_encoder_phys_shd_control_vblank_irq(phys_enc, true);
+	if (ret) {
+		SDE_ERROR_PHYS(phys_enc,
+				"failed to enable vblank irq: %d\n",
+				ret);
+		SDE_EVT32(DRMID(phys_enc->parent),
+				phys_enc->hw_intf->idx - INTF_0, ret,
+				SDE_EVTLOG_FUNC_CASE1,
+				SDE_EVTLOG_ERROR);
+	} else {
+		ret = _sde_encoder_phys_shd_wait_for_vblank(phys_enc, false);
+		if (ret) {
+			atomic_set(&phys_enc->pending_kickoff_cnt, 0);
+			SDE_ERROR_PHYS(phys_enc,
+					"failure waiting for disable: %d\n",
+					ret);
+			SDE_EVT32(DRMID(phys_enc->parent),
+					phys_enc->hw_intf->idx - INTF_0, ret,
+					SDE_EVTLOG_FUNC_CASE2,
+					SDE_EVTLOG_ERROR);
+		}
+		sde_encoder_phys_shd_control_vblank_irq(phys_enc, false);
+	}
+}
+
+static void sde_encoder_phys_shd_disable(struct sde_encoder_phys *phys_enc)
+{
+	struct shd_display *display;
+	unsigned long lock_flags;
+
+	SDE_DEBUG("%d\n", phys_enc->parent->base.id);
+
+	if (!phys_enc || !phys_enc->parent || !phys_enc->parent->dev ||
+			!phys_enc->parent->dev->dev_private) {
+		SDE_ERROR("invalid encoder/device\n");
+		return;
+	}
+
+	if (!phys_enc->hw_intf || !phys_enc->hw_ctl) {
+		SDE_ERROR("invalid hw_intf %d hw_ctl %d\n",
+				phys_enc->hw_intf != 0, phys_enc->hw_ctl != 0);
+		return;
+	}
+
+	if (phys_enc->enable_state == SDE_ENC_DISABLED) {
+		SDE_ERROR("already disabled\n");
+		return;
+	}
+
+	sde_encoder_helper_reset_mixers(phys_enc, NULL);
+
+	display = sde_connector_get_display(phys_enc->connector);
+	if (!display)
+		goto next;
+
+	/* if base display is already disabled, skip vsync check */
+	if (!display->base->crtc->state->active)
+		goto next;
+
+	spin_lock_irqsave(phys_enc->enc_spinlock, lock_flags);
+	sde_encoder_phys_shd_trigger_flush(phys_enc);
+	sde_encoder_phys_inc_pending(phys_enc);
+	spin_unlock_irqrestore(phys_enc->enc_spinlock, lock_flags);
+
+	sde_encoder_phys_shd_single_vblank_wait(phys_enc);
+
+next:
+	phys_enc->enable_state = SDE_ENC_DISABLED;
+
+	_sde_encoder_phys_shd_rm_release(phys_enc, display);
+
+	SDE_EVT32(DRMID(phys_enc->parent),
+		atomic_read(&phys_enc->pending_retire_fence_cnt));
+}
+
+static inline
+void sde_encoder_phys_shd_destroy(struct sde_encoder_phys *phys_enc)
+{
+	struct sde_encoder_phys_shd *shd_enc =
+		to_sde_encoder_phys_shd(phys_enc);
+
+	if (!phys_enc)
+		return;
+
+	kfree(shd_enc);
 }
 
 static inline

@@ -1,0 +1,377 @@
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* Remove regulator nodes specific to sdmshrike */
+&soc {
+	/* Stub regulators */
+	/delete-node/ regulator-pm8150_1-s4;
+
+	/* Logical rails */
+	/delete-node/ rpmh-regulator-cxlvl;
+	/delete-node/ rpmh-regulator-mxlvl;
+	/delete-node/ rpmh-regulator-gfxlvl;
+	/delete-node/ rpmh-regulator-lmxlvl;
+	/delete-node/ rpmh-regulator-lcxlvl;
+	/delete-node/ rpmh-regulator-mmcxlvl;
+	/delete-node/ rpmh-regulator-msslvl;
+	/delete-node/ rpmh-regulator-ebilvl;
+
+	/* PM8150_1 regulators */
+	/delete-node/ rpmh-regulator-smpa5;
+	/delete-node/ rpmh-regulator-ldoa3;
+	/delete-node/ rpmh-regulator-ldoa5;
+	/delete-node/ rpmh-regulator-ldoa6;
+	/delete-node/ rpmh-regulator-ldoa7;
+	/delete-node/ rpmh-regulator-ldoa9;
+	/delete-node/ rpmh-regulator-ldoa11;
+	/delete-node/ rpmh-regulator-ldoa12;
+	/delete-node/ rpmh-regulator-ldoa13;
+	/delete-node/ rpmh-regulator-ldoa15;
+	/delete-node/ rpmh-regulator-ldoa16;
+	/delete-node/ rpmh-regulator-ldoa18;
+	/delete-node/ rpmh-regulator-smpe4;
+	/delete-node/ rpmh-regulator-smpe5;
+	/delete-node/ rpmh-regulator-ldoe1;
+	/delete-node/ rpmh-regulator-ldoe2;
+	/delete-node/ rpmh-regulator-ldoe5;
+	/delete-node/ rpmh-regulator-ldoe7;
+	/delete-node/ rpmh-regulator-ldoe10;
+	/delete-node/ rpmh-regulator-ldoe13;
+	/delete-node/ rpmh-regulator-ldoe14;
+	/delete-node/ rpmh-regulator-ldoe15;
+	/delete-node/ rpmh-regulator-ldoe16;
+	/delete-node/ rpmh-regulator-ldoe17;
+	/delete-node/ rpmh-regulator-smpc6;
+	/delete-node/ rpmh-regulator-smpc7;
+	/delete-node/ rpmh-regulator-smpc8;
+	/delete-node/ rpmh-regulator-ldoc1;
+	/delete-node/ rpmh-regulator-ldoc2;
+	/delete-node/ rpmh-regulator-ldoc3;
+	/delete-node/ rpmh-regulator-ldoc4;
+	/delete-node/ rpmh-regulator-ldoc6;
+	/delete-node/ rpmh-regulator-ldoc7;
+	/delete-node/ rpmh-regulator-ldoc8;
+	/delete-node/ rpmh-regulator-ldoc9;
+	/delete-node/ rpmh-regulator-ldoc10;
+	/delete-node/ rpmh-regulator-ldoc11;
+	/delete-node/ rpmh-regulator-bobc1;
+
+	/* refgen-regulator@88e7000 */
+	/delete-node/ refgen;
+};
+
+&usb2_phy0 {
+	/delete-property/ vdd-supply;
+	/delete-property/ vdda18-supply;
+	/delete-property/ vdda33-supply;
+};
+
+&lmh_dcvs1 {
+	isens_vref_0p8-supply = <&pm8195_3_l5>;
+	isens-vref-0p8-settings = <880000 880000 20000>;
+	isens_vref_1p8-supply = <&pm8195_1_l12>;
+	isens-vref-1p8-settings = <1800000 1800000 20000>;
+};
+
+&clock_camcc {
+	vdd_mx-supply = <&VDD_MX_LEVEL>;
+	vdd_mm-supply = <&VDD_MMCX_LEVEL>;
+};
+
+&gpu_gx_gdsc {
+	parent-supply = <&VDD_MMCX_LEVEL>;
+	vdd_parent-supply = <&VDD_MMCX_LEVEL>;
+};
+
+#include "sa8195p-regulator.dtsi"
+#include "pm8195.dtsi"
+
+&thermal_zones {
+	pm8195_1_temp_alarm: pm8195_1_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8195_1_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8195_1_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pm8195_1_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm8195_1_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
+			trip1_cpu0 {
+				trip = <&pm8195_1_trip1>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			trip1_cpu1 {
+				trip = <&pm8195_1_trip1>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu2 {
+				trip = <&pm8195_1_trip1>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu3 {
+				trip = <&pm8195_1_trip1>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu4 {
+				trip = <&pm8195_1_trip1>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu5 {
+				trip = <&pm8195_1_trip1>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu6 {
+				trip = <&pm8195_1_trip1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu7 {
+				trip = <&pm8195_1_trip1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm8195_2_temp_alarm: pm8195_2_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8195_2_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8195_2_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pm8195_2_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm8195_2_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
+			trip1_cpu0 {
+				trip = <&pm8195_2_trip1>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			trip1_cpu1 {
+				trip = <&pm8195_2_trip1>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu2 {
+				trip = <&pm8195_2_trip1>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu3 {
+				trip = <&pm8195_2_trip1>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu4 {
+				trip = <&pm8195_2_trip1>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu5 {
+				trip = <&pm8195_2_trip1>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu6 {
+				trip = <&pm8195_2_trip1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu7 {
+				trip = <&pm8195_2_trip1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+
+	pm8195_3_temp_alarm: pm8195_3_tz {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm8195_3_tz>;
+		wake-capable-sensor;
+
+		trips {
+			pm8195_3_trip0: trip0 {
+				temperature = <95000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			pm8195_3_trip1: trip1 {
+				temperature = <115000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+			trip2 {
+				temperature = <145000>;
+				hysteresis = <0>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			/*
+			 * trip0 cooling map is dummy node to enable
+			 * passive polling on trip0 violation.
+			 */
+			trip0_cpu0 {
+				trip = <&pm8195_3_trip0>;
+				cooling-device = <&CPU0 0 0>;
+			};
+
+			trip1_cpu0 {
+				trip = <&pm8195_3_trip1>;
+				cooling-device =
+					<&CPU0 (THERMAL_MAX_LIMIT-1)
+						(THERMAL_MAX_LIMIT-1)>;
+			};
+
+			trip1_cpu1 {
+				trip = <&pm8195_3_trip1>;
+				cooling-device =
+					<&CPU1 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu2 {
+				trip = <&pm8195_3_trip1>;
+				cooling-device =
+					<&CPU2 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu3 {
+				trip = <&pm8195_3_trip1>;
+				cooling-device =
+					<&CPU3 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu4 {
+				trip = <&pm8195_3_trip1>;
+				cooling-device =
+					<&CPU4 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu5 {
+				trip = <&pm8195_3_trip1>;
+				cooling-device =
+					<&CPU5 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu6 {
+				trip = <&pm8195_3_trip1>;
+				cooling-device =
+					<&CPU6 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+
+			trip1_cpu7 {
+				trip = <&pm8195_3_trip1>;
+				cooling-device =
+					<&CPU7 THERMAL_MAX_LIMIT
+						THERMAL_MAX_LIMIT>;
+			};
+		};
+	};
+};

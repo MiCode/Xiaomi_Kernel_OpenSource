@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2018, 2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -447,6 +447,14 @@ static rx_handler_result_t _rmnet_map_ingress_handler
 	}
 
 	ep = &config->muxed_ep[mux_id];
+
+	if (!ep->refcount) {
+		LOGE("Packet on %s:%d; has no logical endpoint config",
+		     skb->dev->name, mux_id);
+
+		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPINGRESS_MUX_NO_EP);
+		return RX_HANDLER_CONSUMED;
+	}
 
 	skb->dev = ep->egress_dev;
 

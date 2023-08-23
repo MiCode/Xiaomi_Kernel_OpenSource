@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,23 +20,18 @@
 #include <linux/types.h>
 #include <linux/debugfs.h>
 
-#define KHZ_TO_HZ 1000
-
 /* panel id type */
 struct panel_id {
 	u16 id;
 	u16 type;
 };
 
-enum fps_resolution {
-	FPS_RESOLUTION_DEFAULT,
-	FPS_RESOLUTION_HZ,
-	FPS_RESOLUTION_KHZ,
-};
-
 #define DEFAULT_FRAME_RATE	60
 #define DEFAULT_ROTATOR_FRAME_RATE 120
 #define ROTATOR_LOW_FRAME_RATE 30
+
+#define MDSS_DSI_MAX_ESC_CLK_RATE_HZ	19200000
+
 #define MDSS_DSI_RST_SEQ_LEN	10
 /* worst case prefill lines for all chipsets including all vertical blank */
 #define MDSS_MDP_MAX_PREFILL_FETCH 25
@@ -59,9 +54,10 @@ enum fps_resolution {
 #define MIPI_CMD_PANEL		9	/* MIPI */
 #define WRITEBACK_PANEL		10	/* Wifi display */
 #define LVDS_PANEL		11	/* LVDS */
-#define EDP_PANEL		12	/* LVDS */
+#define EDP_PANEL		12	/* EDP */
 #define SPI_PANEL               13	/* SPI */
 #define RGB_PANEL               14	/* RGB */
+#define DP_PANEL		15	/* DP */
 
 #define DSC_PPS_LEN		128
 #define INTF_EVENT_STR(x)	#x
@@ -75,7 +71,7 @@ static inline const char *mdss_panel2str(u32 panel)
 #define PANEL_NAME(n)[n ## _PANEL] = __stringify(n)
 		PANEL_NAME(MIPI_VIDEO),
 		PANEL_NAME(MIPI_CMD),
-		PANEL_NAME(EDP),
+		PANEL_NAME(DP),
 		PANEL_NAME(HDMI),
 		PANEL_NAME(DTV),
 		PANEL_NAME(WRITEBACK),
@@ -120,6 +116,7 @@ enum {
 	MDSS_PANEL_POWER_ON,
 	MDSS_PANEL_POWER_LP1,
 	MDSS_PANEL_POWER_LP2,
+	MDSS_PANEL_POWER_LCD_DISABLED,
 };
 
 enum {
@@ -129,6 +126,8 @@ enum {
 
 enum {
 	MODE_GPIO_NOT_VALID = 0,
+	MODE_SEL_DUAL_PORT,
+	MODE_SEL_SINGLE_PORT,
 	MODE_GPIO_HIGH,
 	MODE_GPIO_LOW,
 };
@@ -146,6 +145,25 @@ enum {
 	SIM_MODE = 1,
 	SIM_SW_TE_MODE,
 	SIM_HW_TE_MODE,
+};
+
+
+/*
+ * enum partial_update_mode - Different modes for partial update feature
+ *
+ * @PU_NOT_SUPPORTED:	Feature is not supported on target.
+ * @PU_SINGLE_ROI:	Default mode, only one ROI is triggered to the
+ *                              panel(one on each DSI in case of split dsi)
+ * @PU_DUAL_ROI:	Support for sending two roi's that are clubbed
+ *                              together as one big single ROI. This is only
+ *                              supported on certain panels that have this
+ *                              capability in their DDIC.
+ *
+ */
+enum {
+	PU_NOT_SUPPORTED = 0,
+	PU_SINGLE_ROI,
+	PU_DUAL_ROI,
 };
 
 struct mdss_rect {
@@ -172,14 +190,21 @@ struct mdss_panel_cfg {
 
 #define MDP_INTF_DSI_CMD_FIFO_UNDERFLOW		0x0001
 #define MDP_INTF_DSI_VIDEO_FIFO_OVERFLOW	0x0002
+#define MDP_INTF_DSI_PANEL_DEAD			0x0003
 
 
 enum {
 	MDP_INTF_CALLBACK_DSI_WAIT,
+	MDP_INTF_CALLBACK_CHECK_LINE_COUNT,
 };
 
 struct mdss_intf_recovery {
 	int (*fxn)(void *ctx, int event);
+	void *data;
+};
+
+struct mdss_intf_ulp_clamp {
+	int (*fxn)(void *ctx, int intf_num, bool enable);
 	void *data;
 };
 
@@ -247,6 +272,12 @@ struct mdss_intf_recovery {
  *				Argument provided is new panel timing.
  * @MDSS_EVENT_DEEP_COLOR: Set deep color.
  *				Argument provided is bits per pixel (8/10/12)
+ * @MDSS_EVENT_UPDATE_PANEL_PPM: update pixel clock by input PPM.
+ *				Argument provided is parts per million.
+ * @MDSS_EVENT_AVR_MODE: Setup DSI Video mode to support AVR based on the
+ *			avr mode passed as argument
+ *			0 - disable AVR support
+ *			1 - enable AVR support
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -277,8 +308,13 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_RECONFIG_CMD,
 	MDSS_EVENT_DSI_RESET_WRITE_PTR,
 	MDSS_EVENT_PANEL_TIMING_SWITCH,
-	MDSS_EVENT_UPDATE_PARAMS,
 	MDSS_EVENT_DEEP_COLOR,
+	MDSS_EVENT_DISABLE_PANEL,
+	MDSS_EVENT_UPDATE_PANEL_PPM,
+	MDSS_EVENT_DSI_TIMING_DB_CTRL,
+	MDSS_EVENT_AVR_MODE,
+	MDSS_EVENT_REGISTER_CLAMP_HANDLER,
+	MDSS_EVENT_DSI_DYNAMIC_BITCLK,
 	MDSS_EVENT_MAX,
 };
 
@@ -335,6 +371,8 @@ static inline char *mdss_panel_intf_event_to_string(int event)
 		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_RECOVERY_HANDLER);
 	case MDSS_EVENT_REGISTER_MDP_CALLBACK:
 		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_MDP_CALLBACK);
+	case MDSS_EVENT_REGISTER_CLAMP_HANDLER:
+		return INTF_EVENT_STR(MDSS_EVENT_REGISTER_CLAMP_HANDLER);
 	case MDSS_EVENT_DSI_PANEL_STATUS:
 		return INTF_EVENT_STR(MDSS_EVENT_DSI_PANEL_STATUS);
 	case MDSS_EVENT_DSI_DYNAMIC_SWITCH:
@@ -347,6 +385,8 @@ static inline char *mdss_panel_intf_event_to_string(int event)
 		return INTF_EVENT_STR(MDSS_EVENT_PANEL_TIMING_SWITCH);
 	case MDSS_EVENT_DEEP_COLOR:
 		return INTF_EVENT_STR(MDSS_EVENT_DEEP_COLOR);
+	case MDSS_EVENT_DISABLE_PANEL:
+		return INTF_EVENT_STR(MDSS_EVENT_DISABLE_PANEL);
 	default:
 		return "unknown";
 	}
@@ -359,6 +399,7 @@ struct lcd_panel_info {
 	u32 h_active_low;
 	u32 v_back_porch;
 	u32 v_front_porch;
+	u32 v_front_porch_fixed;
 	u32 v_pulse_width;
 	u32 v_active_low;
 	u32 border_clr;
@@ -376,7 +417,6 @@ struct lcd_panel_info {
 	u32 h_polarity;
 	u32 v_polarity;
 };
-
 
 /* DSI PHY configuration */
 struct mdss_dsi_phy_ctrl {
@@ -504,7 +544,8 @@ struct mipi_panel_info {
 	char lp11_init;
 	u32  init_delay;
 	u32  post_init_delay;
-	u8 default_lanes;
+	u32  num_of_sublinks;
+	u32  lanes_per_sublink;
 };
 
 struct edp_panel_info {
@@ -688,6 +729,50 @@ struct mdss_panel_roi_alignment {
 	u32 min_height;
 };
 
+
+/*
+ * Nomeclature used to represent partial ROI in case of
+ * dual roi when the panel supports it. Region marked (XXX) is
+ * the extended roi to align with the second roi since LM output
+ * has to be rectangle.
+ *
+ * For single ROI, only the first ROI will be used in the struct.
+ * DSI driver will merge it based on the partial_update_roi_merge
+ * property.
+ *
+ * -------------------------------
+ * |   DSI0       |    DSI1      |
+ * -------------------------------
+ * |              |              |
+ * |              |              |
+ * |     =========|=======----+  |
+ * |     |        |      |XXXX|  |
+ * |     |   First| Roi  |XXXX|  |
+ * |     |        |      |XXXX|  |
+ * |     =========|=======----+  |
+ * |              |              |
+ * |              |              |
+ * |              |              |
+ * |     +----=================  |
+ * |     |XXXX|   |           |  |
+ * |     |XXXX| Second Roi    |  |
+ * |     |XXXX|   |           |  |
+ * |     +----====|============  |
+ * |              |              |
+ * |              |              |
+ * |              |              |
+ * |              |              |
+ * |              |              |
+ * ------------------------------
+ *
+ */
+
+struct mdss_dsi_dual_pu_roi {
+	struct mdss_rect first_roi;
+	struct mdss_rect second_roi;
+	bool enabled;
+};
+
 struct mdss_panel_hdr_properties {
 	bool hdr_enabled;
 
@@ -728,16 +813,22 @@ struct mdss_panel_info {
 	u32 vic; /* video identification code */
 	u32 deep_color;
 	struct mdss_rect roi;
+	struct mdss_dsi_dual_pu_roi dual_roi;
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
 	int pwm_period;
 	bool dynamic_fps;
+	bool dynamic_bitclk;
+	u32 *supp_bitclks;
+	u32 supp_bitclk_len;
 	bool ulps_feature_enabled;
 	bool ulps_suspend_enabled;
 	bool panel_ack_disabled;
 	bool esd_check_enabled;
 	bool allow_phy_power_off;
 	char dfps_update;
+	/* new requested bitclk before it is updated in hw */
+	int new_clk_rate;
 	/* new requested fps before it is updated in hw */
 	int new_fps;
 	/* stores initial fps after boot */
@@ -755,7 +846,7 @@ struct mdss_panel_info {
 
 	int panel_max_fps;
 	int panel_max_vtotal;
-	u32 mode_gpio_state;
+	u32 mode_sel_state;
 	u32 min_fps;
 	u32 max_fps;
 	u32 prg_fet;
@@ -763,8 +854,8 @@ struct mdss_panel_info {
 
 	u32 cont_splash_enabled;
 	bool esd_rdy;
-	bool partial_update_supported; /* value from dts if pu is supported */
-	bool partial_update_enabled; /* is pu currently allowed */
+	u32 partial_update_supported; /* value from dts if pu is supported */
+	u32 partial_update_enabled; /* is pu currently allowed */
 	u32 dcs_cmd_by_left;
 	u32 partial_update_roi_merge;
 	struct ion_handle *splash_ihdl;
@@ -778,6 +869,7 @@ struct mdss_panel_info {
 	bool is_lpm_mode;
 	bool is_split_display; /* two DSIs in one display, pp split or not */
 	bool use_pingpong_split;
+	bool split_link_enabled;
 
 	/*
 	 * index[0] = left layer mixer, value of 0 not valid
@@ -811,6 +903,7 @@ struct mdss_panel_info {
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
+	struct mdss_mdp_pp_tear_check te_cached;
 
 	/*
 	 * Value of 2 only when single DSI is configured with 2 DSC
@@ -847,8 +940,20 @@ struct mdss_panel_info {
 	/* persistence mode on/off */
 	bool persist_mode;
 
+	/* stores initial adaptive variable refresh vtotal value */
+	u32 saved_avr_vtotal;
+
+	/*
+	 * Skip panel reset during panel on/off.
+	 * Set for some in-cell panels
+	 */
+	bool skip_panel_reset;
+
 	/* HDR properties of display panel*/
 	struct mdss_panel_hdr_properties hdr_properties;
+
+	/* esc clk recommended for the panel */
+	u32 esc_clk_rate_hz;
 };
 
 struct mdss_panel_timing {
@@ -915,6 +1020,12 @@ struct mdss_panel_data {
 	char dsc_cfg_np_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_panel_data *next;
 
+	/*
+	 * Set when the power of the panel is disabled while dsi/mdp
+	 * are still on; panel will recover after unblank
+	 */
+	bool panel_disable_mode;
+
 	int panel_te_gpio;
 	struct completion te_done;
 };
@@ -931,8 +1042,7 @@ struct mdss_panel_debugfs_info {
  * mdss_get_panel_framerate() - get panel frame rate based on panel information
  * @panel_info:	Pointer to panel info containing all panel information
  */
-static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info,
-					   u32 flags)
+static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
 {
 	u32 frame_rate, pixel_total;
 	u64 rate;
@@ -941,10 +1051,8 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info,
 					panel_info);
 	bool idle = false;
 
-	if (panel_info == NULL) {
-		frame_rate = DEFAULT_FRAME_RATE;
-		goto end;
-	}
+	if (panel_info == NULL)
+		return DEFAULT_FRAME_RATE;
 
 	switch (panel_info->type) {
 	case MIPI_VIDEO_PANEL:
@@ -967,13 +1075,13 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info,
 		frame_rate = panel_info->spi.frame_rate;
 		break;
 	case DTV_PANEL:
+	case DP_PANEL:
 		if (panel_info->dynamic_fps) {
 			frame_rate = panel_info->lcdc.frame_rate / 1000;
 			if (panel_info->lcdc.frame_rate % 1000)
 				frame_rate += 1;
 			break;
 		}
-		/* fall through */
 	default:
 		pixel_total = (panel_info->lcdc.h_back_porch +
 			  panel_info->lcdc.h_front_porch +
@@ -984,7 +1092,7 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info,
 			  panel_info->lcdc.v_pulse_width +
 			  panel_info->yres);
 		if (pixel_total) {
-			rate = panel_info->clk_rate * KHZ_TO_HZ;
+			rate = panel_info->clk_rate;
 			do_div(rate, pixel_total);
 			frame_rate = (u32)rate;
 		} else {
@@ -992,16 +1100,24 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info,
 		}
 		break;
 	}
-end:
-	if (flags == FPS_RESOLUTION_KHZ) {
-		if (!(frame_rate / KHZ_TO_HZ))
-			frame_rate *= KHZ_TO_HZ;
-	} else if (flags == FPS_RESOLUTION_HZ) {
-		if (frame_rate / KHZ_TO_HZ)
-			frame_rate /= KHZ_TO_HZ;
-	}
-
 	return frame_rate;
+}
+
+/*
+ * mdss_panel_get_vtotal_fixed() - return panel device tree vertical height
+ * @pinfo:	Pointer to panel info containing all panel information
+ *
+ * Returns the total height as defined in panel device tree including any
+ * blanking regions which are not visible to user but used to calculate
+ * panel clock.
+ */
+static inline int mdss_panel_get_vtotal_fixed(struct mdss_panel_info *pinfo)
+{
+	return pinfo->yres + pinfo->lcdc.v_back_porch +
+			pinfo->lcdc.v_front_porch_fixed +
+			pinfo->lcdc.v_pulse_width+
+			pinfo->lcdc.border_top +
+			pinfo->lcdc.border_bottom;
 }
 
 /*
@@ -1059,6 +1175,36 @@ static inline bool is_dsc_compression(struct mdss_panel_info *pinfo)
 		return (pinfo->compression_mode == COMPRESSION_DSC);
 
 	return false;
+}
+
+static inline bool is_lm_configs_dsc_compatible(struct mdss_panel_info *pinfo,
+		u32 width, u32 height)
+{
+	if ((width % pinfo->dsc.slice_width) ||
+		(height % pinfo->dsc.slice_height))
+		return false;
+	return true;
+}
+
+static inline bool is_valid_pu_dual_roi(struct mdss_panel_info *pinfo,
+		struct mdss_rect *first_roi, struct mdss_rect *second_roi)
+{
+	if ((first_roi->x != second_roi->x) || (first_roi->w != second_roi->w)
+		|| (first_roi->y > second_roi->y)
+		|| ((first_roi->y + first_roi->h) > second_roi->y)
+		|| (is_dsc_compression(pinfo) &&
+			!is_lm_configs_dsc_compatible(pinfo,
+				first_roi->w, first_roi->h) &&
+			!is_lm_configs_dsc_compatible(pinfo,
+				second_roi->w, second_roi->h))) {
+		pr_err("Invalid multiple PU ROIs, roi0:{%d,%d,%d,%d}, roi1{%d,%d,%d,%d}\n",
+				first_roi->x, first_roi->y, first_roi->w,
+				first_roi->h, second_roi->x, second_roi->y,
+				second_roi->w, second_roi->h);
+		return false;
+	}
+
+	return true;
 }
 
 int mdss_register_panel(struct platform_device *pdev,

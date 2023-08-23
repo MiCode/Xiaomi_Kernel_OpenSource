@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,26 +71,17 @@
 /*
  * SCRATCH MEMORY: The scratch memory is one page worth of data that
  * is mapped into the GPU. This allows for some 'shared' data between
- * the GPU and CPU. For example, it will be used by the GPU to write
- * each updated RPTR for each RB.
+ * the GPU and CPU.
  *
  * Used Data:
  * Offset: Length(bytes): What
  * 0x0: 4 * KGSL_PRIORITY_MAX_RB_LEVELS: RB0 RPTR
- * 0x10: 8 * KGSL_PRIORITY_MAX_RB_LEVELS: RB0 CTXT RESTORE ADDR
  */
 
 /* Shadow global helpers */
 #define SCRATCH_RPTR_OFFSET(id) ((id) * sizeof(unsigned int))
 #define SCRATCH_RPTR_GPU_ADDR(dev, id) \
 	((dev)->scratch.gpuaddr + SCRATCH_RPTR_OFFSET(id))
-
-#define SCRATCH_PREEMPTION_CTXT_RESTORE_ADDR_OFFSET(id) \
-	(SCRATCH_RPTR_OFFSET(KGSL_PRIORITY_MAX_RB_LEVELS) + \
-	((id) * sizeof(uint64_t)))
-#define SCRATCH_PREEMPTION_CTXT_RESTORE_GPU_ADDR(dev, id) \
-	((dev)->scratch.gpuaddr + \
-	SCRATCH_PREEMPTION_CTXT_RESTORE_ADDR_OFFSET(id))
 
 /* Timestamp window used to detect rollovers (half of integer range) */
 #define KGSL_TIMESTAMP_WINDOW 0x80000000
@@ -201,17 +192,17 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_CONTIG BIT(8)
 /* This is an instruction buffer */
 #define KGSL_MEMDESC_UCODE BIT(9)
+/* For global buffers, randomly assign an address from the region */
+#define KGSL_MEMDESC_RANDOM BIT(10)
 
 /**
  * struct kgsl_memdesc - GPU memory object descriptor
  * @pagetable: Pointer to the pagetable that the object is mapped in
  * @hostptr: Kernel virtual address
  * @hostptr_count: Number of threads using hostptr
- * @useraddr: User virtual address (if applicable)
  * @gpuaddr: GPU virtual address
  * @physaddr: Physical address of the memory object
  * @size: Size of the memory object
- * @mapsize: Size of memory mapped in userspace
  * @pad_to: Size that we pad the memdesc to
  * @priv: Internal flags and settings
  * @sgt: Scatter gather table for allocated pages
@@ -227,11 +218,9 @@ struct kgsl_memdesc {
 	struct kgsl_pagetable *pagetable;
 	void *hostptr;
 	unsigned int hostptr_count;
-	unsigned long useraddr;
 	uint64_t gpuaddr;
 	phys_addr_t physaddr;
 	uint64_t size;
-	uint64_t mapsize;
 	uint64_t pad_to;
 	unsigned int priv;
 	struct sg_table *sgt;
@@ -242,6 +231,11 @@ struct kgsl_memdesc {
 	struct page **pages;
 	unsigned int page_count;
 	unsigned int cur_bindings;
+	/*
+	 * @lock: Spinlock to protect the gpuaddr from being accessed by
+	 * multiple entities trying to map the same SVM region at once
+	 */
+	spinlock_t lock;
 };
 
 /*
@@ -290,6 +284,11 @@ struct kgsl_mem_entry {
 	struct work_struct work;
 	spinlock_t bind_lock;
 	struct rb_root bind_tree;
+	/**
+	 * @map_count: Count how many vmas this object is mapped in - used for
+	 * debugfs accounting
+	 */
+	atomic_t map_count;
 };
 
 struct kgsl_device_private;
@@ -319,7 +318,7 @@ struct kgsl_event {
 	void *priv;
 	struct list_head node;
 	unsigned int created;
-	struct kthread_work work;
+	struct work_struct work;
 	int result;
 	struct kgsl_event_group *group;
 };

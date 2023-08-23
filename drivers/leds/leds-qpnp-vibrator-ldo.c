@@ -65,6 +65,10 @@ struct vib_ldo_chip {
 	bool			disable_overdrive;
 };
 
+#ifdef __XIAOMI_CAMERA__
+struct vib_ldo_chip* camera_vib_chip = NULL;
+#endif
+
 static inline int qpnp_vib_ldo_poll_status(struct vib_ldo_chip *chip)
 {
 	unsigned int val;
@@ -448,6 +452,31 @@ static int qpnp_vibrator_ldo_suspend(struct device *dev)
 }
 static SIMPLE_DEV_PM_OPS(qpnp_vibrator_ldo_pm_ops, qpnp_vibrator_ldo_suspend,
 			NULL);
+#ifdef __XIAOMI_CAMERA__
+int qpnp_vibrator_ldo_power(bool enable)
+{
+	struct vib_ldo_chip *chip = camera_vib_chip;
+	int volt_uV = 2800000;
+	int ret;
+
+	if (enable) {
+		ret = qpnp_vib_ldo_set_voltage(chip, volt_uV);
+		if (ret < 0) {
+			pr_err("set voltage = %duV failed, ret=%d\n", volt_uV, ret);
+			return ret;
+		}
+		pr_debug("voltage set to %d uV\n", volt_uV);
+	}
+
+	ret = qpnp_vib_ldo_enable(chip, enable);
+	if (ret < 0) {
+		pr_err("vibration enable failed, ret=%d\n", ret);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(qpnp_vibrator_ldo_power);
+#endif
 
 static int qpnp_vibrator_ldo_probe(struct platform_device *pdev)
 {
@@ -490,7 +519,11 @@ static int qpnp_vibrator_ldo_probe(struct platform_device *pdev)
 	chip->overdrive_timer.function = vib_overdrive_timer;
 	dev_set_drvdata(&pdev->dev, chip);
 
+#ifdef __XIAOMI_CAMERA__
+	chip->cdev.name = "camera_vibrator";
+#else
 	chip->cdev.name = "vibrator";
+#endif
 	chip->cdev.brightness_get = qpnp_vib_brightness_get;
 	chip->cdev.brightness_set = qpnp_vib_brightness_set;
 	chip->cdev.max_brightness = 100;
@@ -509,6 +542,10 @@ static int qpnp_vibrator_ldo_probe(struct platform_device *pdev)
 			goto sysfs_fail;
 		}
 	}
+
+#ifdef __XIAOMI_CAMERA__
+	camera_vib_chip = chip;
+#endif
 
 	pr_info("Vibrator LDO successfully registered: uV = %d, overdrive = %s\n",
 		chip->vmax_uV,

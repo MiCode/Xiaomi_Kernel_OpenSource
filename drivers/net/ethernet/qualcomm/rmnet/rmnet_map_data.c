@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,19 @@
 #define RMNET_MAP_PKT_COPY_THRESHOLD 64
 #define RMNET_MAP_DEAGGR_SPACING  64
 #define RMNET_MAP_DEAGGR_HEADROOM (RMNET_MAP_DEAGGR_SPACING / 2)
+
+struct rmnet_map_coal_metadata {
+	void *ip_header;
+	void *trans_header;
+	u16 ip_len;
+	u16 trans_len;
+	u16 data_offset;
+	u16 data_len;
+	u8 ip_proto;
+	u8 trans_proto;
+	u8 pkt_id;
+	u8 pkt_count;
+};
 
 static __sum16 *rmnet_map_get_csum_field(unsigned char protocol,
 					 const void *txporthdr)
@@ -217,9 +230,9 @@ rmnet_map_ipv4_ul_csum_header(void *iphdr,
 	ul_header->csum_insert_offset = skb->csum_offset;
 	ul_header->csum_enabled = 1;
 	if (ip4h->protocol == IPPROTO_UDP)
-		ul_header->udp_ip4_ind = 1;
+		ul_header->udp_ind = 1;
 	else
-		ul_header->udp_ip4_ind = 0;
+		ul_header->udp_ind = 0;
 
 	/* Changing remaining fields to network order */
 	hdr++;
@@ -250,6 +263,7 @@ rmnet_map_ipv6_ul_csum_header(void *ip6hdr,
 			      struct rmnet_map_ul_csum_header *ul_header,
 			      struct sk_buff *skb)
 {
+	struct ipv6hdr *ip6h = (struct ipv6hdr *)ip6hdr;
 	__be16 *hdr = (__be16 *)ul_header, offset;
 
 	offset = htons((__force u16)(skb_transport_header(skb) -
@@ -257,7 +271,11 @@ rmnet_map_ipv6_ul_csum_header(void *ip6hdr,
 	ul_header->csum_start_offset = offset;
 	ul_header->csum_insert_offset = skb->csum_offset;
 	ul_header->csum_enabled = 1;
-	ul_header->udp_ip4_ind = 0;
+
+	if (ip6h->nexthdr == IPPROTO_UDP)
+		ul_header->udp_ind = 1;
+	else
+		ul_header->udp_ind = 0;
 
 	/* Changing remaining fields to network order */
 	hdr++;
@@ -274,10 +292,10 @@ rmnet_map_ipv6_ul_csum_header(void *ip6hdr,
  * initialized to 0.
  */
 struct rmnet_map_header *rmnet_map_add_map_header(struct sk_buff *skb,
-						  int hdrlen, int pad)
+						  int hdrlen, int pad,
+						  struct rmnet_port *port)
 {
 	struct rmnet_map_header *map_header;
-	struct rmnet_port *port = rmnet_get_port(skb->dev);
 	u32 padding, map_datalen;
 	u8 *padbytes;
 
@@ -466,12 +484,25 @@ sw_csum:
 	ul_header->csum_start_offset = 0;
 	ul_header->csum_insert_offset = 0;
 	ul_header->csum_enabled = 0;
-	ul_header->udp_ip4_ind = 0;
+	ul_header->udp_ind = 0;
 
 	priv->stats.csum_sw++;
 }
 
+static void rmnet_map_v5_check_priority(struct sk_buff *skb,
+					struct net_device *orig_dev,
+					struct rmnet_map_v5_csum_header *hdr)
+{
+	struct rmnet_priv *priv = netdev_priv(orig_dev);
+
+	if (skb->priority) {
+		priv->stats.ul_prio++;
+		hdr->priority = 1;
+	}
+}
+
 void rmnet_map_v5_checksum_uplink_packet(struct sk_buff *skb,
+					 struct rmnet_port *port,
 					 struct net_device *orig_dev)
 {
 	struct rmnet_priv *priv = netdev_priv(orig_dev);
@@ -481,6 +512,13 @@ void rmnet_map_v5_checksum_uplink_packet(struct sk_buff *skb,
 		    skb_push(skb, sizeof(*ul_header));
 	memset(ul_header, 0, sizeof(*ul_header));
 	ul_header->header_type = RMNET_MAP_HEADER_TYPE_CSUM_OFFLOAD;
+
+	if (port->data_format & RMNET_EGRESS_FORMAT_PRIORITY)
+		rmnet_map_v5_check_priority(skb, orig_dev, ul_header);
+
+	/* Allow priority w/o csum offload */
+	if (!(port->data_format & RMNET_FLAGS_EGRESS_MAP_CKSUMV5))
+		return;
 
 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
 		void *iph = (char *)ul_header + sizeof(*ul_header);
@@ -505,7 +543,6 @@ void rmnet_map_v5_checksum_uplink_packet(struct sk_buff *skb,
 
 		check = rmnet_map_get_csum_field(proto, trans);
 		if (check) {
-			*check = 0;
 			skb->ip_summed = CHECKSUM_NONE;
 			/* Ask for checksum offloading */
 			ul_header->csum_valid_required = 1;
@@ -522,6 +559,7 @@ sw_csum:
  * packets that are supported for UL checksum offload.
  */
 void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
+				      struct rmnet_port *port,
 				      struct net_device *orig_dev,
 				      int csum_type)
 {
@@ -530,237 +568,315 @@ void rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 		rmnet_map_v4_checksum_uplink_packet(skb, orig_dev);
 		break;
 	case RMNET_FLAGS_EGRESS_MAP_CKSUMV5:
-		rmnet_map_v5_checksum_uplink_packet(skb, orig_dev);
+		rmnet_map_v5_checksum_uplink_packet(skb, port, orig_dev);
 		break;
 	default:
 		break;
 	}
 }
 
+bool rmnet_map_v5_csum_buggy(struct rmnet_map_v5_coal_header *coal_hdr)
+{
+	/* Only applies to frames with a single packet */
+	if (coal_hdr->num_nlos != 1 || coal_hdr->nl_pairs[0].num_packets != 1)
+		return false;
+
+	/* TCP header has FIN or PUSH set */
+	if (coal_hdr->close_type == RMNET_MAP_COAL_CLOSE_COAL)
+		return true;
+
+	/* Hit packet limit, byte limit, or time limit/EOF on DMA */
+	if (coal_hdr->close_type == RMNET_MAP_COAL_CLOSE_HW) {
+		switch (coal_hdr->close_value) {
+		case RMNET_MAP_COAL_CLOSE_HW_PKT:
+		case RMNET_MAP_COAL_CLOSE_HW_BYTE:
+		case RMNET_MAP_COAL_CLOSE_HW_TIME:
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static void rmnet_map_move_headers(struct sk_buff *skb)
+{
+	struct iphdr *iph;
+	u16 ip_len;
+	u16 trans_len = 0;
+	u8 proto;
+
+	/* This only applies to non-linear SKBs */
+	if (!skb_is_nonlinear(skb))
+		return;
+
+	iph = (struct iphdr *)rmnet_map_data_ptr(skb);
+	if (iph->version == 4) {
+		ip_len = iph->ihl * 4;
+		proto = iph->protocol;
+		if (iph->frag_off & htons(IP_OFFSET))
+			/* No transport header information */
+			goto pull;
+	} else if (iph->version == 6) {
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)iph;
+		__be16 frag_off;
+		u8 nexthdr = ip6h->nexthdr;
+
+		ip_len = ipv6_skip_exthdr(skb, sizeof(*ip6h), &nexthdr,
+					  &frag_off);
+		if (ip_len < 0)
+			return;
+
+		proto = nexthdr;
+	} else {
+		return;
+	}
+
+	if (proto == IPPROTO_TCP) {
+		struct tcphdr *tp = (struct tcphdr *)((u8 *)iph + ip_len);
+
+		trans_len = tp->doff * 4;
+	} else if (proto == IPPROTO_UDP) {
+		trans_len = sizeof(struct udphdr);
+	} else if (proto == NEXTHDR_FRAGMENT) {
+		/* Non-first fragments don't have the fragment length added by
+		 * ipv6_skip_exthdr() and sho up as proto NEXTHDR_FRAGMENT, so
+		 * we account for the length here.
+		 */
+		ip_len += sizeof(struct frag_hdr);
+	}
+
+pull:
+	__pskb_pull_tail(skb, ip_len + trans_len);
+	skb_reset_network_header(skb);
+	if (trans_len)
+		skb_set_transport_header(skb, ip_len);
+}
+
 static void rmnet_map_nonlinear_copy(struct sk_buff *coal_skb,
-				     u32 hdr_len,
-				     u32 start,
-				     u16 pkt_len, u8 pkt_count,
+				     struct rmnet_map_coal_metadata *coal_meta,
 				     struct sk_buff *dest)
 {
-	unsigned char *data_start = rmnet_map_data_ptr(coal_skb) + hdr_len;
-	u32 copy_len = pkt_len * pkt_count;
+	unsigned char *data_start = rmnet_map_data_ptr(coal_skb) +
+				    coal_meta->ip_len + coal_meta->trans_len;
+	u32 copy_len = coal_meta->data_len * coal_meta->pkt_count;
 
 	if (skb_is_nonlinear(coal_skb)) {
 		skb_frag_t *frag0 = skb_shinfo(coal_skb)->frags;
 		struct page *page = skb_frag_page(frag0);
 
 		skb_append_pagefrags(dest, page,
-				     frag0->page_offset + hdr_len + start,
+				     frag0->page_offset + coal_meta->ip_len +
+				     coal_meta->trans_len +
+				     coal_meta->data_offset,
 				     copy_len);
 		dest->data_len += copy_len;
 		dest->len += copy_len;
 	} else {
-		skb_put_data(dest, data_start + start, copy_len);
+		skb_put_data(dest, data_start + coal_meta->data_offset,
+			     copy_len);
 	}
 }
 
 /* Fill in GSO metadata to allow the SKB to be segmented by the NW stack
  * if needed (i.e. forwarding, UDP GRO)
  */
-static void rmnet_map_gso_stamp(struct sk_buff *skb, u16 gso_size, u8 gso_segs)
+static void rmnet_map_gso_stamp(struct sk_buff *skb,
+				struct rmnet_map_coal_metadata *coal_meta)
 {
 	struct skb_shared_info *shinfo = skb_shinfo(skb);
-	struct iphdr *iph = ip_hdr(skb);
-	void *addr;
-	__sum16 *check;
-	__wsum partial;
-	int csum_len;
-	u16 pkt_len = gso_size * gso_segs;
-	u8 protocol;
-	bool ipv4 = iph->version == 4;
 
-	if (ipv4) {
-		addr = &iph->saddr;
-		csum_len = sizeof(iph->saddr) * 2;
-		protocol = iph->protocol;
+	if (coal_meta->trans_proto == IPPROTO_TCP)
+		shinfo->gso_type = (coal_meta->ip_proto == 4) ?
+				   SKB_GSO_TCPV4 : SKB_GSO_TCPV6;
+	else
+		shinfo->gso_type = SKB_GSO_UDP_L4;
+
+	shinfo->gso_size = coal_meta->data_len;
+	shinfo->gso_segs = coal_meta->pkt_count;
+}
+
+/* Handles setting up the partial checksum in the skb. Sets the transport
+ * checksum to the pseudoheader checksum and sets the csum offload metadata
+ */
+static void rmnet_map_partial_csum(struct sk_buff *skb,
+				   struct rmnet_map_coal_metadata *coal_meta)
+{
+	unsigned char *data = skb->data;
+	__sum16 pseudo;
+	u16 pkt_len = skb->len - coal_meta->ip_len;
+
+	if (coal_meta->ip_proto == 4) {
+		struct iphdr *iph = (struct iphdr *)data;
+
+		pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+					    pkt_len, coal_meta->trans_proto,
+					    0);
 	} else {
-		struct ipv6hdr *ip6h = ipv6_hdr(skb);
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)data;
 
-		addr = &ip6h->saddr;
-		csum_len = sizeof(ip6h->saddr) * 2;
-		protocol = ip6h->nexthdr;
+		pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+					  pkt_len, coal_meta->trans_proto, 0);
 	}
 
-	if (protocol == IPPROTO_TCP) {
-		struct tcphdr *tp = tcp_hdr(skb);
+	if (coal_meta->trans_proto == IPPROTO_TCP) {
+		struct tcphdr *tp = (struct tcphdr *)(data + coal_meta->ip_len);
 
-		pkt_len += tp->doff * 4;
-		check = &tp->check;
-		shinfo->gso_type = (ipv4) ? SKB_GSO_TCPV4 : SKB_GSO_TCPV6;
+		tp->check = pseudo;
 		skb->csum_offset = offsetof(struct tcphdr, check);
 	} else {
-		struct udphdr *up = udp_hdr(skb);
+		struct udphdr *up = (struct udphdr *)(data + coal_meta->ip_len);
 
-		pkt_len += sizeof(*up);
-		check = &up->check;
-		shinfo->gso_type = SKB_GSO_UDP_L4;
+		up->check = pseudo;
 		skb->csum_offset = offsetof(struct udphdr, check);
 	}
 
-	partial = csum_partial(addr, csum_len, 0);
-	partial = csum16_add(partial, htons((u16)protocol));
-	partial = csum16_add(partial, htons(pkt_len));
-	*check = ~csum_fold(partial);
-
 	skb->ip_summed = CHECKSUM_PARTIAL;
-	skb->csum_start = skb_transport_header(skb) - skb->head;
-	shinfo->gso_size = gso_size;
-	shinfo->gso_segs = gso_segs;
+	skb->csum_start = skb->data + coal_meta->ip_len - skb->head;
 }
 
-/* Create a new UDP SKB from the coalesced SKB. Appropriate IP and UDP headers
- * will be added.
- */
-static struct sk_buff *rmnet_map_segment_udp_skb(struct sk_buff *coal_skb,
-						 u32 start,
-						 int start_pkt_num,
-						 u16 pkt_len, u8 pkt_count)
+static void
+__rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
+			     struct rmnet_map_coal_metadata *coal_meta,
+			     struct sk_buff_head *list, u8 pkt_id,
+			     bool csum_valid)
 {
 	struct sk_buff *skbn;
-	struct iphdr *iph = (struct iphdr *)rmnet_map_data_ptr(coal_skb);
 	struct rmnet_priv *priv = netdev_priv(coal_skb->dev);
-	struct udphdr *uh;
+	__sum16 *check = NULL;
 	u32 alloc_len;
-	u16 ip_len, udp_len = sizeof(*uh);
-
-	if (iph->version == 4) {
-		ip_len = iph->ihl * 4;
-	} else if (iph->version == 6) {
-		ip_len = sizeof(struct ipv6hdr);
-	} else {
-		priv->stats.coal.coal_ip_invalid++;
-		return NULL;
-	}
-
-	uh = (struct udphdr *)(rmnet_map_data_ptr(coal_skb) + ip_len);
+	bool zero_csum = false;
 
 	/* We can avoid copying the data if the SKB we got from the lower-level
 	 * drivers was nonlinear.
 	 */
 	if (skb_is_nonlinear(coal_skb))
-		alloc_len = ip_len + udp_len;
+		alloc_len = coal_meta->ip_len + coal_meta->trans_len;
 	else
-		alloc_len = ip_len + udp_len + pkt_len;
+		alloc_len = coal_meta->ip_len + coal_meta->trans_len +
+			    (coal_meta->data_len * coal_meta->pkt_count);
 
 	skbn = alloc_skb(alloc_len, GFP_ATOMIC);
 	if (!skbn)
-		return NULL;
+		return;
 
-	skb_reserve(skbn, ip_len + udp_len);
-	rmnet_map_nonlinear_copy(coal_skb, ip_len + udp_len,
-				 start, pkt_len, pkt_count, skbn);
+	skb_reserve(skbn, coal_meta->ip_len + coal_meta->trans_len);
+	rmnet_map_nonlinear_copy(coal_skb, coal_meta, skbn);
 
-	/* Push UDP header and update length */
-	skb_push(skbn, udp_len);
-	memcpy(skbn->data, uh, udp_len);
+	/* Push transport header and update necessary fields */
+	skb_push(skbn, coal_meta->trans_len);
+	memcpy(skbn->data, coal_meta->trans_header, coal_meta->trans_len);
 	skb_reset_transport_header(skbn);
-	udp_hdr(skbn)->len = htons(skbn->len);
+	if (coal_meta->trans_proto == IPPROTO_TCP) {
+		struct tcphdr *th = tcp_hdr(skbn);
+
+		th->seq = htonl(ntohl(th->seq) + coal_meta->data_offset);
+		check = &th->check;
+	} else if (coal_meta->trans_proto == IPPROTO_UDP) {
+		struct udphdr *uh = udp_hdr(skbn);
+
+		uh->len = htons(skbn->len);
+		check = &uh->check;
+		if (coal_meta->ip_proto == 4 && !uh->check)
+			zero_csum = true;
+	}
 
 	/* Push IP header and update necessary fields */
-	skb_push(skbn, ip_len);
-	memcpy(skbn->data, iph, ip_len);
+	skb_push(skbn, coal_meta->ip_len);
+	memcpy(skbn->data, coal_meta->ip_header, coal_meta->ip_len);
 	skb_reset_network_header(skbn);
-	if (iph->version == 4) {
-		iph = ip_hdr(skbn);
-		iph->id = htons(ntohs(iph->id) + start_pkt_num);
+	if (coal_meta->ip_proto == 4) {
+		struct iphdr *iph = ip_hdr(skbn);
+
+		iph->id = htons(ntohs(iph->id) + coal_meta->pkt_id);
 		iph->tot_len = htons(skbn->len);
 		iph->check = 0;
 		iph->check = ip_fast_csum(iph, iph->ihl);
 	} else {
+		/* Payload length includes any extension headers */
 		ipv6_hdr(skbn)->payload_len = htons(skbn->len -
-						    ip_len);
+						    sizeof(struct ipv6hdr));
 	}
 
-	skbn->ip_summed = CHECKSUM_UNNECESSARY;
+	/* Handle checksum status */
+	if (likely(csum_valid) || zero_csum) {
+		/* Set the partial checksum information */
+		rmnet_map_partial_csum(skbn, coal_meta);
+	} else if (check) {
+		/* Unfortunately, we have to fake a bad checksum here, since
+		 * the original bad value is lost by the hardware. The only
+		 * reliable way to do it is to calculate the actual checksum
+		 * and corrupt it.
+		 */
+		__wsum csum;
+		unsigned int offset = skb_transport_offset(skbn);
+		__sum16 pseudo;
+
+		/* Calculate pseudo header */
+		if (coal_meta->ip_proto == 4) {
+			struct iphdr *iph = ip_hdr(skbn);
+
+			pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+						    skbn->len -
+						    coal_meta->ip_len,
+						    coal_meta->trans_proto, 0);
+		} else {
+			struct ipv6hdr *ip6h = ipv6_hdr(skbn);
+
+			pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+						  skbn->len - coal_meta->ip_len,
+						  coal_meta->trans_proto, 0);
+		}
+
+		*check = pseudo;
+		csum = skb_checksum(skbn, offset, skbn->len - offset, 0);
+		/* Add 1 to corrupt. This cannot produce a final value of 0
+		 * since csum_fold() can't return a value of 0xFFFF.
+		 */
+		*check = csum16_add(csum_fold(csum), htons(1));
+		skbn->ip_summed = CHECKSUM_NONE;
+	}
+
 	skbn->dev = coal_skb->dev;
 	priv->stats.coal.coal_reconstruct++;
 
 	/* Stamp GSO information if necessary */
-	if (pkt_count > 1)
-		rmnet_map_gso_stamp(skbn, pkt_len, pkt_count);
+	if (coal_meta->pkt_count > 1)
+		rmnet_map_gso_stamp(skbn, coal_meta);
 
-	return skbn;
+	__skb_queue_tail(list, skbn);
+
+	/* Update meta information to move past the data we just segmented */
+	coal_meta->data_offset += coal_meta->data_len * coal_meta->pkt_count;
+	coal_meta->pkt_id = pkt_id + 1;
+	coal_meta->pkt_count = 0;
 }
 
-/* Create a new TCP SKB from the coalesced SKB. Appropriate IP and TCP headers
- * will be added.
- */
-static struct sk_buff *rmnet_map_segment_tcp_skb(struct sk_buff *coal_skb,
-						 u32 start,
-						 int start_pkt_num,
-						 u16 pkt_len, u8 pkt_count)
+static bool rmnet_map_validate_csum(struct sk_buff *skb,
+				    struct rmnet_map_coal_metadata *meta)
 {
-	struct sk_buff *skbn;
-	struct iphdr *iph = (struct iphdr *)rmnet_map_data_ptr(coal_skb);
-	struct rmnet_priv *priv = netdev_priv(coal_skb->dev);
-	struct tcphdr *th;
-	u32 alloc_len;
-	u16 ip_len, tcp_len;
+	u8 *data = rmnet_map_data_ptr(skb);
+	unsigned int datagram_len;
+	__wsum csum;
+	__sum16 pseudo;
 
-	if (iph->version == 4) {
-		ip_len = iph->ihl * 4;
-	} else if (iph->version == 6) {
-		ip_len = sizeof(struct ipv6hdr);
+	datagram_len = skb->len - meta->ip_len;
+	if (meta->ip_proto == 4) {
+		struct iphdr *iph = (struct iphdr *)data;
+
+		pseudo = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+					    datagram_len,
+					    meta->trans_proto, 0);
 	} else {
-		priv->stats.coal.coal_ip_invalid++;
-		return NULL;
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)data;
+
+		pseudo = ~csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+					  datagram_len, meta->trans_proto,
+					  0);
 	}
 
-	th = (struct tcphdr *)(rmnet_map_data_ptr(coal_skb) + ip_len);
-	tcp_len = th->doff * 4;
-
-	/* We can avoid copying the data if the SKB we got from the lower-level
-	 * drivers was nonlinear.
-	 */
-	if (skb_is_nonlinear(coal_skb))
-		alloc_len = ip_len + tcp_len;
-	else
-		alloc_len = ip_len + tcp_len + pkt_len;
-
-	skbn = alloc_skb(alloc_len, GFP_ATOMIC);
-	if (!skbn)
-		return NULL;
-
-	skb_reserve(skbn, ip_len + tcp_len);
-	rmnet_map_nonlinear_copy(coal_skb, ip_len + tcp_len,
-				 start, pkt_len, pkt_count, skbn);
-
-	/* Push TCP header and update sequence number */
-	skb_push(skbn, tcp_len);
-	memcpy(skbn->data, th, tcp_len);
-	skb_reset_transport_header(skbn);
-	th = tcp_hdr(skbn);
-	th->seq = htonl(ntohl(th->seq) + start);
-
-	/* Push IP header and update necessary fields */
-	skb_push(skbn, ip_len);
-	memcpy(skbn->data, iph, ip_len);
-	skb_reset_network_header(skbn);
-	if (iph->version == 4) {
-		iph = ip_hdr(skbn);
-		iph->id = htons(ntohs(iph->id) + start_pkt_num);
-		iph->tot_len = htons(skbn->len);
-		iph->check = 0;
-		iph->check = ip_fast_csum(iph, iph->ihl);
-	} else {
-		ipv6_hdr(skbn)->payload_len = htons(skbn->len - ip_len);
-	}
-
-	skbn->ip_summed = CHECKSUM_UNNECESSARY;
-	skbn->dev = coal_skb->dev;
-	priv->stats.coal.coal_reconstruct++;
-
-	/* Stamp GSO information if necessary */
-	if (pkt_count > 1)
-		rmnet_map_gso_stamp(skbn, pkt_len, pkt_count);
-
-	return skbn;
+	csum = skb_checksum(skb, meta->ip_len, datagram_len,
+			    csum_unfold(pseudo));
+	return !csum_fold(csum);
 }
 
 /* Converts the coalesced SKB into a list of SKBs.
@@ -768,24 +884,21 @@ static struct sk_buff *rmnet_map_segment_tcp_skb(struct sk_buff *coal_skb,
  * The original coalesced SKB should be treated as invalid and
  * must be freed by the caller
  */
-static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
-					u64 nlo_err_mask,
-					struct sk_buff_head *list)
+static void rmnet_map_segment_coal_skb(struct sk_buff *coal_skb,
+				       u64 nlo_err_mask,
+				       struct sk_buff_head *list)
 {
-	struct sk_buff *new_skb;
-	struct sk_buff *(*segment)(struct sk_buff *coal_skb,
-				   u32 start,
-				   int start_pkt_num,
-				   u16 pkt_len, u8 pkt_count);
 	struct iphdr *iph;
 	struct rmnet_priv *priv = netdev_priv(coal_skb->dev);
 	struct rmnet_map_v5_coal_header *coal_hdr;
-	u32 start = 0;
-	u16 pkt_len, ip_len, trans_len;
-	u8 protocol, start_pkt_num = 0;
+	struct rmnet_map_coal_metadata coal_meta;
+	u16 pkt_len;
 	u8 pkt, total_pkt = 0;
-	u8 nlo, gro_count = 0;
+	u8 nlo;
 	bool gro = coal_skb->dev->features & NETIF_F_GRO_HW;
+	bool zero_csum = false;
+
+	memset(&coal_meta, 0, sizeof(coal_meta));
 
 	/* Pull off the headers we no longer need */
 	pskb_pull(coal_skb, sizeof(struct rmnet_map_header));
@@ -796,27 +909,33 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 	iph = (struct iphdr *)rmnet_map_data_ptr(coal_skb);
 
 	if (iph->version == 4) {
-		protocol = iph->protocol;
-		ip_len = iph->ihl * 4;
+		coal_meta.ip_proto = 4;
+		coal_meta.ip_len = iph->ihl * 4;
+		coal_meta.trans_proto = iph->protocol;
+		coal_meta.ip_header = iph;
 
 		/* Don't allow coalescing of any packets with IP options */
 		if (iph->ihl != 5)
 			gro = false;
 	} else if (iph->version == 6) {
+		struct ipv6hdr *ip6h = (struct ipv6hdr *)iph;
 		__be16 frag_off;
+		u8 protocol = ip6h->nexthdr;
 
-		protocol = ((struct ipv6hdr *)iph)->nexthdr;
-		ip_len = ipv6_skip_exthdr(coal_skb, sizeof(struct ipv6hdr),
-					  &protocol, &frag_off);
+		coal_meta.ip_proto = 6;
+		coal_meta.ip_len = ipv6_skip_exthdr(coal_skb, sizeof(*ip6h),
+						    &protocol, &frag_off);
+		coal_meta.trans_proto = protocol;
+		coal_meta.ip_header = ip6h;
 
 		/* If we run into a problem, or this has a fragment header
 		 * (which should technically not be possible, if the HW
 		 * works as intended...), bail.
 		 */
-		if (ip_len < 0 || frag_off) {
+		if (coal_meta.ip_len < 0 || frag_off) {
 			priv->stats.coal.coal_ip_invalid++;
 			return;
-		} else if (ip_len > sizeof(struct ipv6hdr)) {
+		} else if (coal_meta.ip_len > sizeof(*ip6h)) {
 			/* Don't allow coalescing of any packets with IPv6
 			 * extension headers.
 			 */
@@ -827,63 +946,97 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 		return;
 	}
 
-	if (protocol == IPPROTO_TCP) {
-		struct tcphdr *th = (struct tcphdr *)
-				    ((unsigned char *)iph + ip_len);
-		trans_len = th->doff * 4;
-		segment = rmnet_map_segment_tcp_skb;
-	} else if (protocol == IPPROTO_UDP) {
-		trans_len = sizeof(struct udphdr);
-		segment = rmnet_map_segment_udp_skb;
+	if (coal_meta.trans_proto == IPPROTO_TCP) {
+		struct tcphdr *th;
+
+		th = (struct tcphdr *)((u8 *)iph + coal_meta.ip_len);
+		coal_meta.trans_len = th->doff * 4;
+		coal_meta.trans_header = th;
+	} else if (coal_meta.trans_proto == IPPROTO_UDP) {
+		struct udphdr *uh;
+
+		uh = (struct udphdr *)((u8 *)iph + coal_meta.ip_len);
+		coal_meta.trans_len = sizeof(*uh);
+		coal_meta.trans_header = uh;
+		/* Check for v4 zero checksum */
+		if (coal_meta.ip_proto == 4 && !uh->check)
+			zero_csum = true;
 	} else {
 		priv->stats.coal.coal_trans_invalid++;
 		return;
 	}
 
+	if (rmnet_map_v5_csum_buggy(coal_hdr) && !zero_csum) {
+		rmnet_map_move_headers(coal_skb);
+		/* Mark as valid if it checks out */
+		if (rmnet_map_validate_csum(coal_skb, &coal_meta))
+			coal_skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+		__skb_queue_tail(list, coal_skb);
+		return;
+	}
+
+	/* Fast-forward the case where we have 1 NLO (i.e. 1 packet length),
+	 * no checksum errors, and are allowing GRO. We can just reuse this
+	 * SKB unchanged.
+	 */
+	if (gro && coal_hdr->num_nlos == 1 && coal_hdr->csum_valid) {
+		rmnet_map_move_headers(coal_skb);
+		coal_skb->ip_summed = CHECKSUM_UNNECESSARY;
+		coal_meta.data_len = ntohs(coal_hdr->nl_pairs[0].pkt_len);
+		coal_meta.data_len -= coal_meta.ip_len + coal_meta.trans_len;
+		coal_meta.pkt_count = coal_hdr->nl_pairs[0].num_packets;
+		if (coal_meta.pkt_count > 1) {
+			rmnet_map_partial_csum(coal_skb, &coal_meta);
+			rmnet_map_gso_stamp(coal_skb, &coal_meta);
+		}
+
+		__skb_queue_tail(list, coal_skb);
+		return;
+	}
+
+	/* Segment the coalesced SKB into new packets */
 	for (nlo = 0; nlo < coal_hdr->num_nlos; nlo++) {
 		pkt_len = ntohs(coal_hdr->nl_pairs[nlo].pkt_len);
-		pkt_len -= ip_len + trans_len;
+		pkt_len -= coal_meta.ip_len + coal_meta.trans_len;
+		coal_meta.data_len = pkt_len;
 		for (pkt = 0; pkt < coal_hdr->nl_pairs[nlo].num_packets;
-		     pkt++, total_pkt++) {
-			nlo_err_mask <<= 1;
-			if (nlo_err_mask & (1ULL << 63)) {
+		     pkt++, total_pkt++, nlo_err_mask >>= 1) {
+			bool csum_err = nlo_err_mask & 1;
+
+			/* Segment the packet if we're not sending the larger
+			 * packet up the stack.
+			 */
+			if (!gro) {
+				coal_meta.pkt_count = 1;
+				if (csum_err)
+					priv->stats.coal.coal_csum_err++;
+
+				__rmnet_map_segment_coal_skb(coal_skb,
+							     &coal_meta, list,
+							     total_pkt,
+							     !csum_err);
+				continue;
+			}
+
+			if (csum_err) {
 				priv->stats.coal.coal_csum_err++;
 
 				/* Segment out the good data */
-				if (gro && gro_count) {
-					new_skb = segment(coal_skb, start,
-							  start_pkt_num,
-							  pkt_len, gro_count);
-					if (!new_skb)
-						return;
+				if (gro && coal_meta.pkt_count)
+					__rmnet_map_segment_coal_skb(coal_skb,
+								     &coal_meta,
+								     list,
+								     total_pkt,
+								     true);
 
-					__skb_queue_tail(list, new_skb);
-					start += pkt_len * gro_count;
-					gro_count = 0;
-				}
-
-				/* skip over bad packet */
-				start += pkt_len;
-				start_pkt_num = total_pkt + 1;
+				/* Segment out the bad checksum */
+				coal_meta.pkt_count = 1;
+				__rmnet_map_segment_coal_skb(coal_skb,
+							     &coal_meta, list,
+							     total_pkt, false);
 			} else {
-				gro_count++;
-
-				/* Segment the packet if we aren't sending the
-				 * larger packet up the stack.
-				 */
-				if (!gro) {
-					new_skb = segment(coal_skb, start,
-							  start_pkt_num,
-							  pkt_len, 1);
-					if (!new_skb)
-						return;
-
-					__skb_queue_tail(list, new_skb);
-
-					start += pkt_len;
-					start_pkt_num = total_pkt + 1;
-					gro_count = 0;
-				}
+				coal_meta.pkt_count++;
 			}
 		}
 
@@ -891,18 +1044,9 @@ static void rmnet_map_segment_coal_data(struct sk_buff *coal_skb,
 		 * the previous one, if we haven't done so. NLOs only switch
 		 * when the packet length changes.
 		 */
-		if (gro && gro_count) {
-			new_skb = segment(coal_skb, start, start_pkt_num,
-					  pkt_len, gro_count);
-			if (!new_skb)
-				return;
-
-			__skb_queue_tail(list, new_skb);
-
-			start += pkt_len * gro_count;
-			start_pkt_num = total_pkt + 1;
-			gro_count = 0;
-		}
+		if (coal_meta.pkt_count)
+			__rmnet_map_segment_coal_skb(coal_skb, &coal_meta, list,
+						     total_pkt, true);
 	}
 }
 
@@ -982,7 +1126,7 @@ static int rmnet_map_data_check_coal_header(struct sk_buff *skb,
 		u8 err = coal_hdr->nl_pairs[i].csum_error_bitmap;
 		u8 pkt = coal_hdr->nl_pairs[i].num_packets;
 
-		mask |= ((u64)err) << (7 - i) * 8;
+		mask |= ((u64)err) << (8 * i);
 
 		/* Track total packets in frame */
 		pkts += pkt;
@@ -1023,8 +1167,9 @@ int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
 		if (rc)
 			return rc;
 
-		rmnet_map_segment_coal_data(skb, nlo_err_mask, list);
-		consume_skb(skb);
+		rmnet_map_segment_coal_skb(skb, nlo_err_mask, list);
+		if (skb_peek(list) != skb)
+			consume_skb(skb);
 		break;
 	case RMNET_MAP_HEADER_TYPE_CSUM_OFFLOAD:
 		if (rmnet_map_get_csum_valid(skb)) {
@@ -1034,9 +1179,13 @@ int rmnet_map_process_next_hdr_packet(struct sk_buff *skb,
 			priv->stats.csum_valid_unset++;
 		}
 
+		/* Pull unnecessary headers and move the rest to the linear
+		 * section of the skb.
+		 */
 		pskb_pull(skb,
 			  (sizeof(struct rmnet_map_header) +
 			   sizeof(struct rmnet_map_v5_csum_header)));
+		rmnet_map_move_headers(skb);
 
 		/* Remove padding only for csum offload packets.
 		 * Coalesced packets should never have padding.
@@ -1118,13 +1267,154 @@ enum hrtimer_restart rmnet_map_flush_tx_packet_queue(struct hrtimer *t)
 	return HRTIMER_NORESTART;
 }
 
+static void rmnet_map_linearize_copy(struct sk_buff *dst, struct sk_buff *src)
+{
+	unsigned int linear = src->len - src->data_len, target = src->len;
+	unsigned char *src_buf;
+	struct sk_buff *skb;
+
+	src_buf = src->data;
+	skb_put_data(dst, src_buf, linear);
+	target -= linear;
+
+	skb = src;
+
+	while (target) {
+		unsigned int i = 0, non_linear = 0;
+
+		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+			non_linear = skb_frag_size(&skb_shinfo(skb)->frags[i]);
+			src_buf = skb_frag_address(&skb_shinfo(skb)->frags[i]);
+
+			skb_put_data(dst, src_buf, non_linear);
+			target -= non_linear;
+		}
+
+		if (skb_shinfo(skb)->frag_list) {
+			skb = skb_shinfo(skb)->frag_list;
+			continue;
+		}
+
+		if (skb->next)
+			skb = skb->next;
+	}
+}
+
+static void rmnet_free_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page, *idx;
+
+	list_for_each_entry_safe(agg_page, idx, &port->agg_list, list) {
+		list_del(&agg_page->list);
+		put_page(agg_page->page);
+		kfree(agg_page);
+	}
+
+	port->agg_head = NULL;
+}
+
+static struct page *rmnet_get_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page;
+	struct page *page = NULL;
+	int i = 0;
+
+	if (!(port->egress_agg_params.agg_features & RMNET_PAGE_RECYCLE))
+		goto alloc;
+
+	do {
+		agg_page = port->agg_head;
+		if (unlikely(!agg_page))
+			break;
+
+		if (page_ref_count(agg_page->page) == 1) {
+			page = agg_page->page;
+			page_ref_inc(agg_page->page);
+
+			port->stats.agg.ul_agg_reuse++;
+			port->agg_head = list_next_entry(agg_page, list);
+			break;
+		}
+
+		port->agg_head = list_next_entry(agg_page, list);
+		i++;
+	} while (i <= 5);
+
+alloc:
+	if (!page) {
+		page =  __dev_alloc_pages(GFP_ATOMIC, port->agg_size_order);
+		port->stats.agg.ul_agg_alloc++;
+	}
+
+	return page;
+}
+
+static struct rmnet_agg_page *__rmnet_alloc_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page;
+	struct page *page;
+
+	agg_page = kzalloc(sizeof(*agg_page), GFP_ATOMIC);
+	if (!agg_page)
+		return NULL;
+
+	page = __dev_alloc_pages(GFP_ATOMIC, port->agg_size_order);
+	if (!page) {
+		kfree(agg_page);
+		return NULL;
+	}
+
+	agg_page->page = page;
+	INIT_LIST_HEAD(&agg_page->list);
+
+	return agg_page;
+}
+
+static void rmnet_alloc_agg_pages(struct rmnet_port *port)
+{
+	struct rmnet_agg_page *agg_page = NULL;
+	int i = 0;
+
+	for (i = 0; i < 512; i++) {
+		agg_page = __rmnet_alloc_agg_pages(port);
+
+		if (agg_page)
+			list_add_tail(&agg_page->list, &port->agg_list);
+	}
+
+	port->agg_head = list_first_entry_or_null(&port->agg_list,
+						  struct rmnet_agg_page, list);
+}
+
+static struct sk_buff *rmnet_map_build_skb(struct rmnet_port *port)
+{
+	struct sk_buff *skb;
+	unsigned int size;
+	struct page *page;
+	void *vaddr;
+
+	page = rmnet_get_agg_pages(port);
+	if (!page)
+		return NULL;
+
+	vaddr = page_address(page);
+	size = PAGE_SIZE << port->agg_size_order;
+
+	skb = build_skb(vaddr, size);
+	if (!skb) {
+		put_page(page);
+		return NULL;
+	}
+
+	return skb;
+}
+
 void rmnet_map_tx_aggregate(struct sk_buff *skb, struct rmnet_port *port)
 {
 	struct timespec diff, last;
 	int size, agg_count = 0;
 	struct sk_buff *agg_skb;
 	unsigned long flags;
-	u8 *dest_buff;
 
 new_packet:
 	spin_lock_irqsave(&port->agg_lock, flags);
@@ -1146,7 +1436,7 @@ new_packet:
 			return;
 		}
 
-		port->agg_skb = skb_copy_expand(skb, 0, size, GFP_ATOMIC);
+		port->agg_skb = rmnet_map_build_skb(port);
 		if (!port->agg_skb) {
 			port->agg_skb = 0;
 			port->agg_count = 0;
@@ -1156,6 +1446,8 @@ new_packet:
 			dev_queue_xmit(skb);
 			return;
 		}
+		rmnet_map_linearize_copy(port->agg_skb, skb);
+		port->agg_skb->dev = skb->dev;
 		port->agg_skb->protocol = htons(ETH_P_MAP);
 		port->agg_count = 1;
 		getnstimeofday(&port->agg_time);
@@ -1180,8 +1472,7 @@ new_packet:
 		goto new_packet;
 	}
 
-	dest_buff = skb_put(port->agg_skb, skb->len);
-	memcpy(dest_buff, skb->data, skb->len);
+	rmnet_map_linearize_copy(port->agg_skb, skb);
 	port->agg_count++;
 	dev_kfree_skb_any(skb);
 
@@ -1195,14 +1486,51 @@ schedule:
 	spin_unlock_irqrestore(&port->agg_lock, flags);
 }
 
+void rmnet_map_update_ul_agg_config(struct rmnet_port *port, u16 size,
+				    u8 count, u8 features, u32 time)
+{
+	unsigned long irq_flags;
+
+	spin_lock_irqsave(&port->agg_lock, irq_flags);
+	port->egress_agg_params.agg_count = count;
+	port->egress_agg_params.agg_time = time;
+	port->egress_agg_params.agg_size = size;
+	port->egress_agg_params.agg_features = features;
+
+	rmnet_free_agg_pages(port);
+
+	/* This effectively disables recycling in case the UL aggregation
+	 * size is lesser than PAGE_SIZE.
+	 */
+	if (size < PAGE_SIZE)
+		goto done;
+
+	port->agg_size_order = get_order(size);
+
+	size = PAGE_SIZE << port->agg_size_order;
+	size -= SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
+	port->egress_agg_params.agg_size = size;
+
+	if (port->egress_agg_params.agg_features == RMNET_PAGE_RECYCLE)
+		rmnet_alloc_agg_pages(port);
+
+done:
+	spin_unlock_irqrestore(&port->agg_lock, irq_flags);
+}
+
 void rmnet_map_tx_aggregate_init(struct rmnet_port *port)
 {
 	hrtimer_init(&port->hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	port->hrtimer.function = rmnet_map_flush_tx_packet_queue;
-	port->egress_agg_params.agg_size = 8192;
-	port->egress_agg_params.agg_count = 20;
-	port->egress_agg_params.agg_time = 3000000;
 	spin_lock_init(&port->agg_lock);
+	INIT_LIST_HEAD(&port->agg_list);
+
+	/* Since PAGE_SIZE - 1 is specified here, no pages are pre-allocated.
+	 * This is done to reduce memory usage in cases where
+	 * UL aggregation is disabled.
+	 * Additionally, the features flag is also set to 0.
+	 */
+	rmnet_map_update_ul_agg_config(port, PAGE_SIZE - 1, 20, 0, 3000000);
 
 	INIT_WORK(&port->agg_wq, rmnet_map_flush_tx_packet_work);
 }
@@ -1226,6 +1554,7 @@ void rmnet_map_tx_aggregate_exit(struct rmnet_port *port)
 		port->agg_state = 0;
 	}
 
+	rmnet_free_agg_pages(port);
 	spin_unlock_irqrestore(&port->agg_lock, flags);
 }
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2017, 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,6 +242,17 @@
 				qcom,mdss-dsc-bit-per-pixel = <8>;
 				qcom,mdss-dsc-block-prediction-enable;
 			};
+		};
+		dsi_nt35597_truly_dsc_cmd_config2: config2 {
+			qcom,lm-split = <720 720>;
+			qcom,mdss-dsc-encoders = <2>; /* DSC Merge */
+			qcom,mdss-dsc-slice-height = <16>;
+			qcom,mdss-dsc-slice-width = <720>;
+			qcom,mdss-dsc-slice-per-pkt = <2>;
+
+			qcom,mdss-dsc-bit-per-component = <8>;
+			qcom,mdss-dsc-bit-per-pixel = <8>;
+			qcom,mdss-dsc-block-prediction-enable;
 		};
 	};
 };

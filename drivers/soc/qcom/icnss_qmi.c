@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -73,6 +73,7 @@ int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 	struct wlfw_msa_info_req_msg_v01 *req;
 	struct wlfw_msa_info_resp_msg_v01 *resp;
 	struct qmi_txn txn;
+	uint64_t max_mapped_addr;
 
 	if (!priv)
 		return -ENODEV;
@@ -134,9 +135,23 @@ int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 		goto out;
 	}
 
+	max_mapped_addr = priv->msa_pa + priv->msa_mem_size;
 	priv->stats.msa_info_resp++;
 	priv->nr_mem_region = resp->mem_region_info_len;
 	for (i = 0; i < resp->mem_region_info_len; i++) {
+
+		if (resp->mem_region_info[i].size > priv->msa_mem_size ||
+		    resp->mem_region_info[i].region_addr >= max_mapped_addr ||
+		    resp->mem_region_info[i].region_addr < priv->msa_pa ||
+		    resp->mem_region_info[i].size +
+		    resp->mem_region_info[i].region_addr > max_mapped_addr) {
+			icnss_pr_dbg("Received out of range Addr: 0x%llx Size: 0x%x\n",
+					resp->mem_region_info[i].region_addr,
+					resp->mem_region_info[i].size);
+			ret = -EINVAL;
+			goto fail_unwind;
+		}
+
 		priv->mem_region[i].reg_addr =
 			resp->mem_region_info[i].region_addr;
 		priv->mem_region[i].size =
@@ -153,6 +168,8 @@ int wlfw_msa_mem_info_send_sync_msg(struct icnss_priv *priv)
 	kfree(req);
 	return 0;
 
+fail_unwind:
+	memset(&priv->mem_region[0], 0, sizeof(priv->mem_region[0]) * i);
 out:
 	kfree(resp);
 	kfree(req);
@@ -298,14 +315,23 @@ int wlfw_ind_register_send_sync_msg(struct icnss_priv *priv)
 
 	priv->stats.ind_register_resp++;
 
+	if (resp->fw_status_valid &&
+	   (resp->fw_status & QMI_WLFW_ALREADY_REGISTERED_V01)) {
+		ret = -EALREADY;
+		icnss_pr_dbg("WLFW already registered\n");
+		goto qmi_registered;
+	}
+
 	kfree(resp);
 	kfree(req);
+
 	return 0;
 
 out:
+	priv->stats.ind_register_err++;
+qmi_registered:
 	kfree(resp);
 	kfree(req);
-	priv->stats.ind_register_err++;
 	return ret;
 }
 
@@ -356,11 +382,14 @@ int wlfw_cap_send_sync_msg(struct icnss_priv *priv)
 				    ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		ret = -resp->resp.result;
+		if (resp->resp.error == QMI_ERR_PLAT_CCPM_CLK_INIT_FAILED) {
+			icnss_pr_err("RF card not present\n");
+			goto out;
+		}
+
 		icnss_qmi_fatal_err("QMI Capability request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
-		ret = -resp->resp.result;
-		if (resp->resp.error == QMI_ERR_PLAT_CCPM_CLK_INIT_FAILED)
-			icnss_qmi_fatal_err("RF card not present\n");
 		goto out;
 	}
 
@@ -464,9 +493,14 @@ int wlfw_wlan_mode_send_sync_msg(struct icnss_priv *priv,
 		icnss_qmi_fatal_err("Mode resp wait failed with ret %d\n", ret);
 		goto out;
 	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		ret = -resp->resp.result;
+		if (resp->resp.error == QMI_ERR_PLAT_CCPM_CLK_INIT_FAILED) {
+			icnss_pr_err("QMI Mode req rejected as CCPM init failed, result:%d error:%d\n",
+				     resp->resp.result, resp->resp.error);
+			goto out;
+		}
 		icnss_qmi_fatal_err("QMI Mode request rejected, result:%d error:%d\n",
 			resp->resp.result, resp->resp.error);
-		ret = -resp->resp.result;
 		goto out;
 	}
 
@@ -1148,7 +1182,6 @@ int icnss_connect_to_fw_server(struct icnss_priv *priv, void *data)
 		ret = -ENODEV;
 		goto out;
 	}
-	set_bit(ICNSS_WLFW_EXISTS, &priv->state);
 
 	sq.sq_family = AF_QIPCRTR;
 	sq.sq_node = event_data->node;
@@ -1184,10 +1217,16 @@ int icnss_clear_server(struct icnss_priv *priv)
 static int wlfw_new_server(struct qmi_handle *qmi,
 			   struct qmi_service *service)
 {
+	struct icnss_priv *priv = container_of(qmi, struct icnss_priv, qmi);
 	struct icnss_event_server_arrive_data *event_data;
 
 	icnss_pr_dbg("WLFW server arrive: node %u port %u\n",
 		     service->node, service->port);
+
+	if (test_bit(ICNSS_MODEM_SHUTDOWN, &priv->state)) {
+		icnss_pr_dbg("WLFW server arrive: Modem is down");
+		return -EINVAL;
+	}
 
 	event_data = kzalloc(sizeof(*event_data), GFP_KERNEL);
 	if (event_data == NULL)

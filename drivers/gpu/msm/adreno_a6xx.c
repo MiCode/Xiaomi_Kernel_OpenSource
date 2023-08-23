@@ -1,4 +1,4 @@
-/* Copyright (c)2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c)2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 #include "kgsl.h"
 #include "kgsl_hfi.h"
 #include "kgsl_trace.h"
+#include "kgsl_gmu.h"
 
 #define MIN_HBB		13
 
@@ -211,7 +212,7 @@ static const struct kgsl_hwcg_reg a615_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_DELAY_UCHE, 0x00000002},
 	{A6XX_RBBM_CLOCK_CNTL_RB0, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL2_RB0, 0x00002222},
-	{A6XX_RBBM_CLOCK_CNTL_CCU0, 0x00002220},
+	{A6XX_RBBM_CLOCK_CNTL_CCU0, 0x00002020},
 	{A6XX_RBBM_CLOCK_CNTL_CCU1, 0x00002220},
 	{A6XX_RBBM_CLOCK_CNTL_CCU2, 0x00002220},
 	{A6XX_RBBM_CLOCK_CNTL_CCU3, 0x00002220},
@@ -295,8 +296,8 @@ static const struct kgsl_hwcg_reg a640_hwcg_regs[] = {
 static const struct kgsl_hwcg_reg a612_hwcg_regs[] = {
 	{A6XX_RBBM_CLOCK_CNTL_SP0, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL2_SP0, 0x02222220},
-	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x0000F3CF},
-	{A6XX_RBBM_CLOCK_HYST_SP0, 0x00000081},
+	{A6XX_RBBM_CLOCK_DELAY_SP0, 0x00000081},
+	{A6XX_RBBM_CLOCK_HYST_SP0, 0x0000F3CF},
 	{A6XX_RBBM_CLOCK_CNTL_TP0, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL2_TP0, 0x22222222},
 	{A6XX_RBBM_CLOCK_CNTL3_TP0, 0x22222222},
@@ -427,6 +428,7 @@ static struct reg_list_pair {
 /* IFPC only static powerup restore list */
 static struct reg_list_pair a6xx_ifpc_pwrup_reglist[] = {
 	{ A6XX_RBBM_VBIF_CLIENT_QOS_CNTL, 0x0 },
+	{ A6XX_RBBM_GBIF_CLIENT_QOS_CNTL, 0x0 },
 	{ A6XX_CP_CHICKEN_DBG, 0x0 },
 	{ A6XX_CP_DBG_ECO_CNTL, 0x0 },
 	{ A6XX_CP_PROTECT_CNTL, 0x0 },
@@ -782,7 +784,7 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct gmu_dev_ops *gmu_dev_ops = GMU_DEVICE_OPS(device);
-	unsigned int bit, mal, mode, glbl_inv;
+	unsigned int bit, mal, mode, glbl_inv, channel;
 	unsigned int amsbc = 0;
 	static bool patch_reglist;
 
@@ -818,10 +820,10 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 
 	/* Program the GMEM VA range for the UCHE path */
 	kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MIN_LO,
-				ADRENO_UCHE_GMEM_BASE);
+				adreno_dev->uche_gmem_base);
 	kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MIN_HI, 0x0);
 	kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MAX_LO,
-				ADRENO_UCHE_GMEM_BASE +
+				adreno_dev->uche_gmem_base +
 				adreno_dev->gmem_size - 1);
 	kgsl_regwrite(device, A6XX_UCHE_GMEM_RANGE_MAX_HI, 0x0);
 
@@ -883,6 +885,10 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 		"qcom,ubwc-mode", &mode))
 		mode = 0;
 
+	if (of_property_read_u32(device->pdev->dev.of_node,
+		"qcom,macrotiling-channels", &channel))
+		channel = 0; /* unknown and keep reset value */
+
 	switch (mode) {
 	case KGSL_UBWC_1_0:
 		mode = 1;
@@ -897,6 +903,9 @@ static void a6xx_start(struct adreno_device *adreno_dev)
 	default:
 		break;
 	}
+
+	if (channel == 8)
+		kgsl_regwrite(device, A6XX_RBBM_NC_MODE_CNTL, 1);
 
 	if (bit >= 13 && bit <= 16)
 		bit = (bit - 13) & 0x03;
@@ -970,7 +979,6 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	struct adreno_firmware *fw = ADRENO_FW(adreno_dev, ADRENO_FW_SQE);
 	uint64_t gpuaddr;
-	void *zap;
 	int ret = 0;
 
 	gpuaddr = fw->memdesc.gpuaddr;
@@ -987,20 +995,28 @@ static int a6xx_microcode_load(struct adreno_device *adreno_dev)
 		return 0;
 
 	/* Load the zap shader firmware through PIL if its available */
-	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_loaded) {
-		zap = subsystem_get(adreno_dev->gpucore->zap_name);
+	if (adreno_dev->gpucore->zap_name && !adreno_dev->zap_handle_ptr) {
+		adreno_dev->zap_handle_ptr =
+				subsystem_get(adreno_dev->gpucore->zap_name);
 
 		/* Return error if the zap shader cannot be loaded */
-		if (IS_ERR_OR_NULL(zap)) {
-			ret = (zap == NULL) ? -ENODEV : PTR_ERR(zap);
-			zap = NULL;
-		} else
-			adreno_dev->zap_loaded = 1;
+		if (IS_ERR_OR_NULL(adreno_dev->zap_handle_ptr)) {
+			ret = (adreno_dev->zap_handle_ptr == NULL) ?
+				-ENODEV : PTR_ERR(adreno_dev->zap_handle_ptr);
+			adreno_dev->zap_handle_ptr = NULL;
+		}
 	}
 
 	return ret;
 }
 
+static void a6xx_zap_shader_unload(struct adreno_device *adreno_dev)
+{
+	if (!IS_ERR_OR_NULL(adreno_dev->zap_handle_ptr)) {
+		subsystem_put(adreno_dev->zap_handle_ptr);
+		adreno_dev->zap_handle_ptr = NULL;
+	}
+}
 
 /*
  * CP_INIT_MAX_CONTEXT bit tells if the multiple hardware contexts can
@@ -1195,7 +1211,7 @@ static int a6xx_post_start(struct adreno_device *adreno_dev)
 
 	rb->_wptr = rb->_wptr - (42 - (cmds - start));
 
-	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+	ret = adreno_ringbuffer_submit_spin_nosync(rb, NULL, 2000);
 	if (ret)
 		adreno_spin_idle_debug(adreno_dev,
 			"hw preemption initialization failed to idle\n");
@@ -1341,7 +1357,7 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 	if (!ret) {
 		memcpy(firmware->memdesc.hostptr, &fw->data[4], fw->size - 4);
 		firmware->size = (fw->size - 4) / sizeof(uint32_t);
-		firmware->version = *(unsigned int *)&fw->data[4];
+		firmware->version = adreno_get_ucode_version((u32 *)fw->data);
 	}
 
 	release_firmware(fw);
@@ -1410,10 +1426,8 @@ static int a6xx_soft_reset(struct adreno_device *adreno_dev)
 	 * For the soft reset case with GMU enabled this part is done
 	 * by the GMU firmware
 	 */
-	if (gmu_core_gpmu_isenabled(device) &&
-		!test_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv))
+	if (gmu_core_gpmu_isenabled(device))
 		return 0;
-
 
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
 	/*
@@ -1437,6 +1451,11 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	int64_t adj = -1;
 	uint32_t counts[ADRENO_GPMU_THROTTLE_COUNTERS];
 	struct adreno_busy_data *busy = &adreno_dev->busy_data;
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
+
+	if (!gmu_core_isenabled(device))
+		return 0;
 
 	for (i = 0; i < ARRAY_SIZE(counts); i++) {
 		if (!adreno_dev->gpmu_throttle_counters[i])
@@ -1450,12 +1469,18 @@ static int64_t a6xx_read_throttling_counters(struct adreno_device *adreno_dev)
 	/*
 	 * The adjustment is the number of cycles lost to throttling, which
 	 * is calculated as a weighted average of the cycles throttled
-	 * at 15%, 50%, and 90%. The adjustment is negative because in A6XX,
+	 * at 5% or 15% based on GMU FW version, 50%, and 90%.
+	 * The adjustment is negative because in A6XX,
 	 * the busy count includes the throttled cycles. Therefore, we want
 	 * to remove them to prevent appearing to be busier than
 	 * we actually are.
 	 */
-	adj *= ((counts[0] * 15) + (counts[1] * 50) + (counts[2] * 90)) / 100;
+	if (GMU_VER_STEP(gmu->ver) > 0x104)
+		adj *= ((counts[0] * 5) + (counts[1] * 50) + (counts[2] * 90))
+			/ 100;
+	else
+		adj *= ((counts[0] * 15) + (counts[1] * 50) + (counts[2] * 90))
+			/ 100;
 
 	trace_kgsl_clock_throttling(0, counts[1], counts[2],
 			counts[0], adj);
@@ -1496,23 +1521,17 @@ static int a6xx_reset(struct kgsl_device *device, int fault)
 	/* Transition from ACTIVE to RESET state */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_RESET);
 
-	if (ret) {
-		/* If soft reset failed/skipped, then pull the power */
-		set_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv);
-		/* since device is officially off now clear start bit */
-		clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+	/* since device is officially off now clear start bit */
+	clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
-		/* Keep trying to start the device until it works */
-		for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
-			ret = adreno_start(device, 0);
-			if (!ret)
-				break;
+	/* Keep trying to start the device until it works */
+	for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {
+		ret = adreno_start(device, 0);
+		if (!ret)
+			break;
 
-			msleep(20);
-		}
+		msleep(20);
 	}
-
-	clear_bit(ADRENO_DEVICE_HARD_RESET, &adreno_dev->priv);
 
 	if (ret)
 		return ret;
@@ -1620,7 +1639,7 @@ static void a6xx_llc_configure_gpu_scid(struct adreno_device *adreno_dev)
 			| gpu_scid;
 
 	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
-		adreno_is_a610(adreno_dev)) {
+		adreno_is_a610(adreno_dev) || adreno_is_a680(adreno_dev)) {
 		kgsl_regrmw(KGSL_DEVICE(adreno_dev), A6XX_GBIF_SCACHE_CNTL1,
 			A6XX_GPU_LLC_SCID_MASK, gpu_cntl1_val);
 	} else {
@@ -1643,7 +1662,7 @@ static void a6xx_llc_configure_gpuhtw_scid(struct adreno_device *adreno_dev)
 	 * XBL image.
 	 */
 	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
-		adreno_is_a610(adreno_dev))
+		adreno_is_a610(adreno_dev) || adreno_is_a680(adreno_dev))
 		return;
 
 	gpuhtw_scid = adreno_llc_get_scid(adreno_dev->gpuhtw_llc_slice);
@@ -1665,7 +1684,7 @@ static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 	 * Attributes are used as configured through SMMU pagetable entries.
 	 */
 	if (adreno_is_a640(adreno_dev) || adreno_is_a612(adreno_dev) ||
-		adreno_is_a610(adreno_dev))
+		adreno_is_a610(adreno_dev) || adreno_is_a680(adreno_dev))
 		return;
 
 	/*
@@ -1678,10 +1697,10 @@ static void a6xx_llc_enable_overrides(struct adreno_device *adreno_dev)
 			A6XX_GPU_CX_MISC_SYSTEM_CACHE_CNTL_0, 0x3);
 }
 
-static const char *fault_block[8] = {
+static const char * const fault_block[] = {
 	[0] = "CP",
 	[1] = "UCHE",
-	[2] = "VFD",
+	[2] = "UCHE",
 	[3] = "UCHE",
 	[4] = "CCU",
 	[5] = "unknown",
@@ -1689,36 +1708,48 @@ static const char *fault_block[8] = {
 	[7] = "GPMU",
 };
 
-static const char *uche_client[8] = {
-	[0] = "VFD",
-	[1] = "SP",
-	[2] = "VSC",
-	[3] = "VPC",
-	[4] = "HLSQ",
-	[5] = "PC",
-	[6] = "LRZ",
-	[7] = "unknown",
+static const char *uche_client[7][3] = {
+	{"SP | VSC | VPC | HLSQ | PC | LRZ", "TP", "VFD"},
+	{"VSC | VPC | HLSQ | PC | LRZ", "TP | VFD", "SP"},
+	{"SP | VPC | HLSQ | PC | LRZ", "TP | VFD", "VSC"},
+	{"SP | VSC | HLSQ | PC | LRZ", "TP | VFD", "VPC"},
+	{"SP | VSC | VPC | PC | LRZ", "TP | VFD", "HLSQ"},
+	{"SP | VSC | VPC | HLSQ | LRZ", "TP | VFD", "PC"},
+	{"SP | VSC | VPC | HLSQ | PC", "TP | VFD", "LRZ"},
 };
 
-static const char *a6xx_iommu_fault_block(struct adreno_device *adreno_dev,
-						unsigned int fsynr1)
+static const char *a6xx_iommu_fault_block(struct kgsl_device *device,
+		unsigned int fsynr1)
 {
-	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
-	unsigned int client_id;
-	unsigned int uche_client_id;
+	unsigned int mid, uche_client_id = 0x5c00bd00;
+	static char str[40];
 
-	client_id = fsynr1 & 0xff;
+	mid = fsynr1 & 0xff;
 
-	if (client_id >= ARRAY_SIZE(fault_block))
+	if (mid >= ARRAY_SIZE(fault_block))
 		return "unknown";
-	else if (client_id != 3)
-		return fault_block[client_id];
+	/* Return the fault block except for UCHE */
+	else if (!mid || (mid > 3))
+		return fault_block[mid];
 
 	mutex_lock(&device->mutex);
+
+	if (!kgsl_state_is_awake(device)) {
+		mutex_unlock(&device->mutex);
+		return "UCHE: unknown";
+	}
+
 	kgsl_regread(device, A6XX_UCHE_CLIENT_PF, &uche_client_id);
 	mutex_unlock(&device->mutex);
 
-	return uche_client[uche_client_id & A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK];
+	/* Ignore the value if the gpu is in IFPC */
+	if (uche_client_id == 0x5c00bd00)
+		return "UCHE: unknown";
+
+	uche_client_id &= A6XX_UCHE_CLIENT_PF_CLIENT_ID_MASK;
+	snprintf(str, sizeof(str), "UCHE: %s",
+			uche_client[uche_client_id][mid - 1]);
+	return str;
 }
 
 static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
@@ -1728,6 +1759,29 @@ static void a6xx_cp_callback(struct adreno_device *adreno_dev, int bit)
 	if (adreno_is_preemption_enabled(adreno_dev))
 		a6xx_preemption_trigger(adreno_dev);
 
+	adreno_dispatcher_schedule(device);
+}
+
+/*
+ * a6xx_gpc_err_int_callback() - Isr for GPC error interrupts
+ * @adreno_dev: Pointer to device
+ * @bit: Interrupt bit
+ */
+static void a6xx_gpc_err_int_callback(struct adreno_device *adreno_dev, int bit)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+
+	/*
+	 * GPC error is typically the result of mistake SW programming.
+	 * Force GPU fault for this interrupt so that we can debug it
+	 * with help of register dump.
+	 */
+
+	KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: GPC error\n");
+	adreno_irqctrl(adreno_dev, 0);
+
+	/* Trigger a fault in the dispatcher - this will effect a restart */
+	adreno_set_gpu_fault(adreno_dev, ADRENO_SOFT_FAULT);
 	adreno_dispatcher_schedule(device);
 }
 
@@ -1756,7 +1810,7 @@ static struct adreno_irq_funcs a6xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL), /* 5 - UNUSED */
 	/* 6 - RBBM_ATB_ASYNC_OVERFLOW */
 	ADRENO_IRQ_CALLBACK(a6xx_err_callback),
-	ADRENO_IRQ_CALLBACK(NULL), /* 7 - GPC_ERR */
+	ADRENO_IRQ_CALLBACK(a6xx_gpc_err_int_callback), /* 7 - GPC_ERR */
 	ADRENO_IRQ_CALLBACK(a6xx_preemption_callback),/* 8 - CP_SW */
 	ADRENO_IRQ_CALLBACK(a6xx_cp_hw_err_callback), /* 9 - CP_HW_ERROR */
 	ADRENO_IRQ_CALLBACK(NULL),  /* 10 - CP_CCU_FLUSH_DEPTH_TS */
@@ -2896,7 +2950,8 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	/* Calculate SP local and private mem addresses */
-	addr = ALIGN(ADRENO_UCHE_GMEM_BASE + adreno_dev->gmem_size, SZ_64K);
+	addr = ALIGN(adreno_dev->uche_gmem_base + adreno_dev->gmem_size,
+					SZ_64K);
 	adreno_dev->sp_local_gpuaddr = addr;
 	adreno_dev->sp_pvt_gpuaddr = addr + SZ_64K;
 
@@ -2918,6 +2973,9 @@ static void a6xx_platform_setup(struct adreno_device *adreno_dev)
 	} else
 		gpudev->vbif_xin_halt_ctrl0_mask =
 				A6XX_VBIF_XIN_HALT_CTRL0_MASK;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+		set_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
 
 	/* Check efuse bits for various capabilties */
 	a6xx_check_features(adreno_dev);
@@ -3213,6 +3271,72 @@ static void a6xx_clk_set_options(struct adreno_device *adreno_dev,
 	}
 }
 
+/*
+ * Secure buffers cannot be preserved during hibernation.
+ * Issue hyp_assign call to assign non-used internal secure
+ * buffers to kernel.
+ * This function will fail if there is an active secure context
+ * since we cannot remove the content from user secure buffer.
+ */
+static int a6xx_secure_pt_hibernate(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
+	unsigned int i = 0;
+	int ret;
+
+	if (adreno_drawctxt_has_secure(device)) {
+		KGSL_DRV_ERR(device,
+		    "Secure context is active, cannot hibernate secure PT\n");
+		goto fail;
+	}
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		if (rb->secure_preemption_desc.sgt) {
+			ret = kgsl_unlock_sgt(rb->secure_preemption_desc.sgt);
+			if (ret) {
+				KGSL_DRV_ERR(device,
+				    "kgsl_unlock_sgt failed ret %d\n", ret);
+				goto fail;
+			}
+		}
+	}
+
+	return 0;
+
+fail:
+	while (i > 0) {
+		rb = &(adreno_dev->ringbuffers[i - 1]);
+		if (rb->secure_preemption_desc.sgt)
+			kgsl_lock_sgt(rb->secure_preemption_desc.sgt,
+					rb->secure_preemption_desc.size);
+		i--;
+	}
+	return -EBUSY;
+}
+
+static int a6xx_secure_pt_restore(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
+	unsigned int i;
+	int ret;
+
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		if (rb->secure_preemption_desc.sgt) {
+			ret = kgsl_lock_sgt(rb->secure_preemption_desc.sgt,
+					rb->secure_preemption_desc.size);
+			if (ret) {
+				KGSL_DRV_ERR(device,
+				    "kgsl_lock_sgt failed ret %d\n", ret);
+				return ret;
+			}
+		}
+	}
+
+	return 0;
+}
+
 struct adreno_gpudev adreno_a6xx_gpudev = {
 	.reg_offsets = &a6xx_reg_offsets,
 	.start = a6xx_start,
@@ -3242,6 +3366,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.preemption_pre_ibsubmit = a6xx_preemption_pre_ibsubmit,
 	.preemption_post_ibsubmit = a6xx_preemption_post_ibsubmit,
 	.preemption_init = a6xx_preemption_init,
+	.preemption_close = a6xx_preemption_close,
 	.preemption_schedule = a6xx_preemption_schedule,
 	.set_marker = a6xx_set_marker,
 	.preemption_context_init = a6xx_preemption_context_init,
@@ -3253,4 +3378,7 @@ struct adreno_gpudev adreno_a6xx_gpudev = {
 	.coresight = {&a6xx_coresight, &a6xx_coresight_cx},
 	.clk_set_options = a6xx_clk_set_options,
 	.snapshot_preemption = a6xx_snapshot_preemption,
+	.zap_shader_unload = a6xx_zap_shader_unload,
+	.secure_pt_hibernate = a6xx_secure_pt_hibernate,
+	.secure_pt_restore = a6xx_secure_pt_restore,
 };

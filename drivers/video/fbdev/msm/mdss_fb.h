@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -233,9 +233,13 @@ struct msm_mdp_interface {
 	int (*configure_panel)(struct msm_fb_data_type *mfd, int mode,
 				int dest_ctrl);
 	int (*input_event_handler)(struct msm_fb_data_type *mfd);
+	void (*footswitch_ctrl)(bool on);
 	int (*pp_release_fnc)(struct msm_fb_data_type *mfd);
 	void (*signal_retire_fence)(struct msm_fb_data_type *mfd,
 					int retire_cnt);
+	int (*enable_panel_disable_mode)(struct msm_fb_data_type *mfd,
+		bool disable_panel);
+	bool (*is_twm_en)(void);
 	void *private1;
 };
 
@@ -245,8 +249,8 @@ struct msm_mdp_interface {
 				do_div(out, 2 * max_bright);\
 				} while (0)
 #define MDSS_BL_TO_BRIGHT(out, v, bl_max, max_bright) do {\
-				out = ((v) * (max_bright));\
-				do_div(out, bl_max);\
+				out = (2 * ((v) * (max_bright)) + (bl_max));\
+				do_div(out, 2 * bl_max);\
 				} while (0)
 
 struct mdss_fb_file_info {
@@ -314,10 +318,10 @@ struct msm_fb_data_type {
 	u64 bl_level;
 	u64 bl_extn_level;
 	u32 bl_scale;
-	u32 bl_min_lvl;
 	u32 unset_bl_level;
 	bool allow_bl_update;
 	u32 bl_level_scaled;
+	u32 bl_level_usr;
 	struct mutex bl_lock;
 	struct mutex mdss_sysfs_lock;
 	bool ipc_resume;
@@ -377,7 +381,6 @@ struct msm_fb_data_type {
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
 {
 	int needs_complete = 0;
-
 	mutex_lock(&mfd->update.lock);
 	mfd->update.value = mfd->update.type;
 	needs_complete = mfd->update.value == NOTIFY_TYPE_UPDATE;
@@ -392,6 +395,12 @@ static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
 		add_timer(&mfd->no_update.timer);
 		mutex_unlock(&mfd->no_update.lock);
 	}
+}
+
+/* Function returns true for split link */
+static inline bool is_panel_split_link(struct msm_fb_data_type *mfd)
+{
+	return mfd && mfd->panel_info && mfd->panel_info->split_link_enabled;
 }
 
 /* Function returns true for either any kind of dual display */
@@ -440,6 +449,7 @@ static inline bool mdss_fb_is_power_on_ulp(struct msm_fb_data_type *mfd)
 {
 	return mdss_panel_is_power_on_ulp(mfd->panel_power_state);
 }
+
 
 static inline bool mdss_fb_is_hdmi_primary(struct msm_fb_data_type *mfd)
 {

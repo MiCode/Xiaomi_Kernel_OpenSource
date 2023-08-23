@@ -56,6 +56,7 @@ struct f_ecm {
 	struct usb_ep			*notify;
 	struct usb_request		*notify_req;
 	u8				notify_state;
+	atomic_t			notify_count;
 	bool				is_open;
 
 	/* FIXME is_open needs some irq-ish locking
@@ -384,7 +385,7 @@ static void ecm_do_notify(struct f_ecm *ecm)
 	int				status;
 
 	/* notification already in flight? */
-	if (!req)
+	if (atomic_read(&ecm->notify_count))
 		return;
 
 	event = req->buf;
@@ -424,10 +425,10 @@ static void ecm_do_notify(struct f_ecm *ecm)
 	event->bmRequestType = 0xA1;
 	event->wIndex = cpu_to_le16(ecm->ctrl_id);
 
-	ecm->notify_req = NULL;
+	atomic_inc(&ecm->notify_count);
 	status = usb_ep_queue(ecm->notify, req, GFP_ATOMIC);
 	if (status < 0) {
-		ecm->notify_req = req;
+		atomic_dec(&ecm->notify_count);
 		DBG(cdev, "notify --> %d\n", status);
 	}
 }
@@ -452,17 +453,19 @@ static void ecm_notify_complete(struct usb_ep *ep, struct usb_request *req)
 	switch (req->status) {
 	case 0:
 		/* no fault */
+		atomic_dec(&ecm->notify_count);
 		break;
 	case -ECONNRESET:
 	case -ESHUTDOWN:
+		atomic_set(&ecm->notify_count, 0);
 		ecm->notify_state = ECM_NOTIFY_NONE;
 		break;
 	default:
 		DBG(cdev, "event %02x --> %d\n",
 			event->bNotificationType, req->status);
+		atomic_dec(&ecm->notify_count);
 		break;
 	}
-	ecm->notify_req = req;
 	ecm_do_notify(ecm);
 }
 
@@ -625,8 +628,12 @@ static void ecm_disable(struct usb_function *f)
 
 	DBG(cdev, "ecm deactivated\n");
 
-	if (ecm->port.in_ep->enabled)
+	if (ecm->port.in_ep->enabled) {
 		gether_disconnect(&ecm->port);
+	} else {
+		ecm->port.in_ep->desc = NULL;
+		ecm->port.out_ep->desc = NULL;
+	}
 
 	usb_ep_disable(ecm->notify);
 	ecm->notify->desc = NULL;
@@ -701,18 +708,36 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 	 */
 	if (!ecm_opts->bound) {
 		mutex_lock(&ecm_opts->lock);
+		ecm_opts->net = gether_setup_name_default("ecm");
+		if (IS_ERR(ecm_opts->net)) {
+			status = PTR_ERR(ecm_opts->net);
+			mutex_unlock(&ecm_opts->lock);
+			goto error;
+		}
 		gether_set_gadget(ecm_opts->net, cdev->gadget);
 		status = gether_register_netdev(ecm_opts->net);
 		mutex_unlock(&ecm_opts->lock);
-		if (status)
-			return status;
+		if (status) {
+			free_netdev(ecm_opts->net);
+			goto error;
+		}
 		ecm_opts->bound = true;
 	}
 
+	/* export host's Ethernet address in CDC format */
+	status = gether_get_host_addr_cdc(ecm_opts->net, ecm->ethaddr,
+					  sizeof(ecm->ethaddr));
+	if (status < 12) {
+		status = -EINVAL;
+		goto netdev_cleanup;
+	}
+	ecm->port.ioport = netdev_priv(ecm_opts->net);
 	us = usb_gstrings_attach(cdev, ecm_strings,
 				 ARRAY_SIZE(ecm_string_defs));
-	if (IS_ERR(us))
-		return PTR_ERR(us);
+	if (IS_ERR(us)) {
+		status = PTR_ERR(us);
+		goto netdev_cleanup;
+	}
 	ecm_control_intf.iInterface = us[0].id;
 	ecm_data_intf.iInterface = us[2].id;
 	ecm_desc.iMACAddress = us[1].id;
@@ -721,7 +746,7 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 	/* allocate instance-specific interface IDs */
 	status = usb_interface_id(c, f);
 	if (status < 0)
-		goto fail;
+		goto netdev_cleanup;
 	ecm->ctrl_id = status;
 	ecm_iad_descriptor.bFirstInterface = status;
 
@@ -730,7 +755,7 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 
 	status = usb_interface_id(c, f);
 	if (status < 0)
-		goto fail;
+		goto netdev_cleanup;
 	ecm->data_id = status;
 
 	ecm_data_nop_intf.bInterfaceNumber = status;
@@ -742,12 +767,12 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 	/* allocate instance-specific endpoints */
 	ep = usb_ep_autoconfig(cdev->gadget, &fs_ecm_in_desc);
 	if (!ep)
-		goto fail;
+		goto netdev_cleanup;
 	ecm->port.in_ep = ep;
 
 	ep = usb_ep_autoconfig(cdev->gadget, &fs_ecm_out_desc);
 	if (!ep)
-		goto fail;
+		goto netdev_cleanup;
 	ecm->port.out_ep = ep;
 
 	/* NOTE:  a status/notification endpoint is *OPTIONAL* but we
@@ -756,7 +781,7 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 	 */
 	ep = usb_ep_autoconfig(cdev->gadget, &fs_ecm_notify_desc);
 	if (!ep)
-		goto fail;
+		goto netdev_cleanup;
 	ecm->notify = ep;
 
 	status = -ENOMEM;
@@ -764,7 +789,7 @@ ecm_bind(struct usb_configuration *c, struct usb_function *f)
 	/* allocate notification request and buffer */
 	ecm->notify_req = usb_ep_alloc_request(ep, GFP_KERNEL);
 	if (!ecm->notify_req)
-		goto fail;
+		goto netdev_cleanup;
 	ecm->notify_req->buf = kmalloc(ECM_STATUS_BYTECOUNT, GFP_KERNEL);
 	if (!ecm->notify_req->buf)
 		goto fail;
@@ -811,6 +836,9 @@ fail:
 		usb_ep_free_request(ecm->notify, ecm->notify_req);
 	}
 
+netdev_cleanup:
+	gether_cleanup(netdev_priv(ecm_opts->net));
+error:
 	ERROR(cdev, "%s: can't bind, err %d\n", f->name, status);
 
 	return status;
@@ -856,10 +884,6 @@ static void ecm_free_inst(struct usb_function_instance *f)
 	struct f_ecm_opts *opts;
 
 	opts = container_of(f, struct f_ecm_opts, func_inst);
-	if (opts->bound)
-		gether_cleanup(netdev_priv(opts->net));
-	else
-		free_netdev(opts->net);
 	kfree(opts);
 }
 
@@ -872,12 +896,6 @@ static struct usb_function_instance *ecm_alloc_inst(void)
 		return ERR_PTR(-ENOMEM);
 	mutex_init(&opts->lock);
 	opts->func_inst.free_func_inst = ecm_free_inst;
-	opts->net = gether_setup_default();
-	if (IS_ERR(opts->net)) {
-		struct net_device *net = opts->net;
-		kfree(opts);
-		return ERR_CAST(net);
-	}
 
 	config_group_init_type_name(&opts->func_inst.group, "", &ecm_func_type);
 
@@ -900,20 +918,28 @@ static void ecm_free(struct usb_function *f)
 static void ecm_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_ecm		*ecm = func_to_ecm(f);
+	struct f_ecm_opts	*opts = container_of(f->fi, struct f_ecm_opts,
+						func_inst);
 
 	DBG(c->cdev, "ecm unbind\n");
 
 	usb_free_all_descriptors(f);
 
+	if (atomic_read(&ecm->notify_count)) {
+		usb_ep_dequeue(ecm->notify, ecm->notify_req);
+		atomic_set(&ecm->notify_count, 0);
+	}
+
 	kfree(ecm->notify_req->buf);
 	usb_ep_free_request(ecm->notify, ecm->notify_req);
+	opts->bound = false;
+	gether_cleanup(netdev_priv(opts->net));
 }
 
 static struct usb_function *ecm_alloc(struct usb_function_instance *fi)
 {
 	struct f_ecm	*ecm;
 	struct f_ecm_opts *opts;
-	int status;
 
 	/* allocate and initialize one new instance */
 	ecm = kzalloc(sizeof(*ecm), GFP_KERNEL);
@@ -923,18 +949,8 @@ static struct usb_function *ecm_alloc(struct usb_function_instance *fi)
 	opts = container_of(fi, struct f_ecm_opts, func_inst);
 	mutex_lock(&opts->lock);
 	opts->refcnt++;
-
-	/* export host's Ethernet address in CDC format */
-	status = gether_get_host_addr_cdc(opts->net, ecm->ethaddr,
-					  sizeof(ecm->ethaddr));
-	if (status < 12) {
-		kfree(ecm);
-		mutex_unlock(&opts->lock);
-		return ERR_PTR(-EINVAL);
-	}
 	ecm_string_defs[1].s = ecm->ethaddr;
 
-	ecm->port.ioport = netdev_priv(opts->net);
 	mutex_unlock(&opts->lock);
 	ecm->port.cdc_filter = DEFAULT_FILTER;
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,7 +12,7 @@
  */
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
-
+#include <linux/string.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
@@ -22,6 +22,8 @@
 #include <linux/of.h>
 #include <linux/uaccess.h>
 #include <asm/arch_timer.h>
+#include <soc/qcom/boot_stats.h>
+static void __iomem *reg_base;
 
 #define RPM_STATS_NUM_REC	2
 #define MSM_ARCH_TIMER_FREQ	19200000
@@ -62,6 +64,8 @@ struct msm_rpm_stats_data {
 #endif
 
 };
+static struct msm_rpmstats_platform_data *gpdata;
+static u64 deep_sleep_last_exited_time;
 
 struct msm_rpmstats_kobj_attr {
 	struct kobject *kobj;
@@ -91,6 +95,7 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 	u64 time_in_last_mode;
 	u64 time_since_last_mode;
 	u64 actual_last_sleep;
+	static u32 saved_deep_sleep_count;
 
 	stat_type[4] = 0;
 	memcpy(stat_type, &data->stat_type, sizeof(u32));
@@ -100,6 +105,15 @@ static inline int msm_rpmstats_append_data_to_buf(char *buf,
 	time_since_last_mode = arch_counter_get_cntvct() - data->last_exited_at;
 	time_since_last_mode = get_time_in_sec(time_since_last_mode);
 	actual_last_sleep = get_time_in_msec(data->accumulated);
+
+	if (!memcmp((const void *)stat_type, (const void *)"aosd", 4)) {
+		if (saved_deep_sleep_count == data->count)
+			deep_sleep_last_exited_time = 0;
+		else {
+			saved_deep_sleep_count = data->count;
+			deep_sleep_last_exited_time = data->last_exited_at;
+		}
+	}
 
 #if defined(CONFIG_MSM_RPM_SMD)
 	return snprintf(buf, buflength,
@@ -173,6 +187,81 @@ static inline int msm_rpmstats_copy_stats(
 
 	return length;
 }
+static ssize_t msm_rpmstats_populate_stats(void)
+{
+	struct msm_rpmstats_private_data prvdata;
+
+	if (!gpdata) {
+		pr_err("ERROR could not get rpm data memory\n");
+		return -ENOMEM;
+	}
+	prvdata.reg_base = ioremap_nocache(gpdata->phys_addr_base,
+					gpdata->phys_size);
+	if (!prvdata.reg_base) {
+		pr_err("ERROR could not ioremap start=%pa, len=%u\n",
+				gpdata->phys_addr_base, gpdata->phys_size);
+		return -EBUSY;
+	}
+	prvdata.read_idx = prvdata.len = 0;
+	prvdata.platform_data = gpdata;
+	prvdata.num_records = gpdata->num_records;
+
+	if (prvdata.read_idx < prvdata.num_records)
+		prvdata.len = msm_rpmstats_copy_stats(&prvdata);
+	iounmap(prvdata.reg_base);
+	return prvdata.len;
+}
+
+uint64_t get_sleep_exit_time(void)
+{
+	if (msm_rpmstats_populate_stats() < 0)
+		return 0;
+	else
+		return deep_sleep_last_exited_time;
+}
+EXPORT_SYMBOL(get_sleep_exit_time);
+
+void rpmh_status_print_enabled(void)
+{
+	int i;
+	struct msm_rpm_stats_data data;
+	char stat_type[5];
+	u64 time_in_last_mode;
+	u64 time_since_last_mode;
+	u64 actual_last_sleep;
+
+	for (i = 0; i < 3; i++) {
+		stat_type[4] = 0;
+		data.stat_type = msm_rpmstats_read_long_register(reg_base, i,
+				offsetof(struct msm_rpm_stats_data,
+					stat_type));
+		data.count = msm_rpmstats_read_long_register(reg_base, i,
+				offsetof(struct msm_rpm_stats_data, count));
+		data.last_entered_at = msm_rpmstats_read_quad_register(reg_base,
+				i, offsetof(struct msm_rpm_stats_data,
+					last_entered_at));
+		data.last_exited_at = msm_rpmstats_read_quad_register(reg_base,
+				i, offsetof(struct msm_rpm_stats_data,
+					last_exited_at));
+		data.accumulated = msm_rpmstats_read_quad_register(reg_base,
+				i, offsetof(struct msm_rpm_stats_data,
+					accumulated));
+		time_in_last_mode = data.last_exited_at - data.last_entered_at;
+		time_in_last_mode = get_time_in_msec(time_in_last_mode);
+		time_since_last_mode = arch_counter_get_cntvct() - data.last_exited_at;
+		time_since_last_mode = get_time_in_sec(time_since_last_mode);
+		actual_last_sleep = get_time_in_msec(data.accumulated);
+
+
+		memcpy(stat_type, &data.stat_type, sizeof(u32));
+		pr_info("RPM Mode:%s---count:%d", stat_type, data.count);
+		pr_info("time in last mode(msec):%llu", time_in_last_mode);
+		pr_info("time since last mode(sec):%llu", time_since_last_mode);
+		pr_info("actual last sleep(msec):%llu", actual_last_sleep);
+	}
+}
+
+EXPORT_SYMBOL_GPL(rpmh_status_print_enabled);
 
 static ssize_t rpmstats_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
@@ -278,6 +367,9 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 		pdata->num_records = RPM_STATS_NUM_REC;
 
 	msm_rpmstats_create_sysfs(pdev, pdata);
+	gpdata = pdata;
+	reg_base = ioremap_nocache(pdata->phys_addr_base,
+					pdata->phys_size);
 
 	return 0;
 }

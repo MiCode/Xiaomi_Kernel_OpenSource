@@ -72,6 +72,13 @@ Bus Scaling Data:
 						qcom,msm-bus,vectors-KBps
 			to be used by ocmem msm bus scaling client.
 
+- qcom,cpu-to-ahb-path: Container for another set of bus scaling properties
+                        qcom,msm-bus,name
+                        qcom,msm-bus,num-cases
+                        qcom,msm-bus,num-paths
+                        qcom,msm-bus,vectors-KBps
+			to be used for keeping all clocks ON in CPU to GPU AHB config path.
+
 GDSC Oxili Regulators:
 - regulator-names:		List of regulator name strings sorted in power-on order
 - vddcx-supply:			Phandle for vddcx regulator device node.
@@ -183,6 +190,10 @@ Optional Properties:
 				Based on the ubwc mode, program the appropriate bit into
 				certain protected registers and also pass to the user as
 				a property.
+- qcom,macrotiling-channels:
+				Specify the number of macrotiling channels for this chip.
+				This is programmed into certain registers and also pass to
+				the user as a property.
 - qcom,l2pc-cpu-mask:
 				Disables L2PC on masked CPUs when any of Graphics
 				rendering thread is running on masked CPUs.
@@ -216,6 +227,10 @@ Optional Properties:
 
 - qcom,tsens-name:
 				Specify the name of GPU temperature sensor. This name will be used
+				to get the temperature from the thermal driver API.
+
+- tzone-names:
+				Specify the names of GPU thermal zones. These will be used
 				to get the temperature from the thermal driver API.
 
 - qcom,enable-midframe-timer:

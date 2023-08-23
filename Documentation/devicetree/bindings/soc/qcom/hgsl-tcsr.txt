@@ -1,0 +1,31 @@
+Top Control and Status Register(TCSR) for HGSL
+
+TCSR hardware contains compute signal sub-block, which allows drivers in hypervisor
+Linux to communicate with GPU hardware directly. This HGSL TCSR driver is to enable
+the TCSR compute signal hardware. There are multiple instances of compute signal.
+Each instance is either a signal sender or signal receiver.
+
+The HGSL TCSR driver is built on top of generic TCSR driver, refer to
+Documentation/devicetree/bindings/mfd/qcom,tcsr.txt for the generic TCSR driver.
+
+Required properties:
+- compatible : Must be "qcom,hgsl-tcsr-sender" or "qcom,hgsl-tcsr-receiver"
+- syscon     : Point to the generic TCSR compute signal node
+- syscon-glb : Point to the generice TCSR node for compute signal global control.
+	       This is only needed by signal sender.
+- interrupts : Specify IRQ information used by the compute signal.
+	       This is only needed by signal receiver.
+
+Examples:
+	hgsl_tcsr_sender0: hgsl_tcsr_sender0 {
+		compatible = "qcom,hgsl-tcsr-sender";
+		syscon = <&tcsr_compute_signal_sender0>;
+		syscon-glb = <&tcsr_compute_signal_glb>;
+	};
+
+	hgsl_tcsr_receiver0: hgsl_tcsr_receiver0 {
+		compatible = "qcom,hgsl-tcsr-receiver";
+		syscon = <&tcsr_compute_signal_receiver0>;
+		interrupts = <0 238 0>;
+	};
+

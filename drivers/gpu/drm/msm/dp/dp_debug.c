@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include "drm_connector.h"
 #include "sde_connector.h"
 #include "dp_display.h"
+#include <soc/qcom/msm_dp_mst_sim_helper.h>
 
 #define DEBUG_NAME "drm_dp"
 
@@ -36,6 +37,7 @@ struct dp_debug_private {
 	u32 dpcd_size;
 
 	u32 mst_con_id;
+	bool hotplug;
 
 	char exe_mode[SZ_32];
 	char reg_dump[SZ_32];
@@ -50,8 +52,74 @@ struct dp_debug_private {
 	struct dp_debug dp_debug;
 	struct dp_parser *parser;
 	struct dp_ctrl *ctrl;
+	struct dp_power *power;
 	struct mutex lock;
+	struct msm_dp_aux_bridge *sim_bridge;
 };
+
+static int dp_debug_sim_hpd_cb(void *arg, bool hpd, bool hpd_irq)
+{
+	struct dp_debug_private *debug = arg;
+
+	if (hpd_irq)
+		return debug->hpd->simulate_attention(debug->hpd, 0);
+	else
+		return debug->hpd->simulate_connect(debug->hpd, hpd);
+}
+
+static int dp_debug_configure_mst_bridge(struct dp_debug_private *debug)
+{
+	struct device_node *bridge_node;
+	struct msm_dp_mst_sim_port *ports;
+	int i, ret;
+
+	static const struct msm_dp_mst_sim_port output_port = {
+		false, false, true, 3, false, 0x12,
+		{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+		0, 0, 2520, 2520, NULL, 0
+	};
+
+	if (!debug->sim_bridge) {
+		bridge_node = of_parse_phandle(debug->dev->of_node,
+			"qcom,dp-aux-bridge-sim", 0);
+		if (!bridge_node)
+			return 0;
+		debug->sim_bridge = of_msm_dp_aux_find_bridge(bridge_node);
+	}
+
+	if (!debug->sim_bridge)
+		return -EINVAL;
+
+	if (debug->sim_bridge->register_hpd) {
+		ret = debug->sim_bridge->register_hpd(debug->sim_bridge,
+			dp_debug_sim_hpd_cb, debug);
+		if (ret)
+			return ret;
+	}
+
+	if (!debug->dp_debug.mst_port_cnt || !debug->sim_bridge->mst_ctx)
+		return 0;
+
+	ports = kcalloc(debug->dp_debug.mst_port_cnt,
+		sizeof(*ports), GFP_KERNEL);
+	if (!ports)
+		return -ENOMEM;
+
+	for (i = 0; i < debug->dp_debug.mst_port_cnt; i++) {
+		memcpy(&ports[i], &output_port, sizeof(*ports));
+		ports[i].peer_guid[0] = i;
+		ports[i].edid = debug->edid;
+		ports[i].edid_size = debug->edid_size;
+	}
+
+	ret = msm_dp_mst_sim_update(debug->sim_bridge->mst_ctx,
+		debug->dp_debug.mst_port_cnt, ports);
+
+	kfree(ports);
+
+	return ret;
+}
 
 static int dp_debug_get_edid_buf(struct dp_debug_private *debug)
 {
@@ -139,7 +207,8 @@ static ssize_t dp_debug_write_edid(struct file *file,
 
 			debug->aux->set_sim_mode(debug->aux,
 					debug->dp_debug.sim_mode,
-					debug->edid, debug->dpcd);
+					debug->edid, debug->dpcd,
+					debug->sim_bridge);
 		}
 	}
 
@@ -173,6 +242,9 @@ bail:
 	 */
 	pr_info("[%s]\n", edid ? "SET" : "CLEAR");
 
+	if (dp_debug_configure_mst_bridge(debug))
+		pr_err("failed to config mst bridge\n");
+
 	mutex_unlock(&debug->lock);
 	return rc;
 }
@@ -199,8 +271,7 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 		goto bail;
 
 	size = min_t(size_t, count, SZ_2K);
-
-	if (size <= char_to_nib)
+	if (size < 4)
 		goto bail;
 
 	buf = kzalloc(size, GFP_KERNEL);
@@ -230,6 +301,8 @@ static ssize_t dp_debug_write_dpcd(struct file *file,
 	}
 
 	size -= 4;
+	if (size == 0)
+		goto bail;
 
 	dpcd_size = size / char_to_nib;
 	data_len = dpcd_size;
@@ -315,6 +388,7 @@ static ssize_t dp_debug_read_dpcd(struct file *file,
 			debug->aux->dpcd_updated(debug->aux);
 	}
 
+	len = min_t(size_t, count, len);
 	if (!copy_to_user(user_buff, buf, len))
 		*ppos += len;
 
@@ -348,8 +422,16 @@ static ssize_t dp_debug_write_hpd(struct file *file,
 		goto end;
 
 	hpd &= hpd_data_mask;
+	debug->hotplug = !!(hpd & BIT(0));
 
 	debug->dp_debug.psm_enabled = !!(hpd & BIT(1));
+
+	/*
+	 * print hotplug value as this code is executed
+	 * only while running in debug mode which is manually
+	 * triggered by a tester or a script.
+	 */
+	pr_info("%s\n", debug->hotplug ? "[CONNECT]" : "[DISCONNECT]");
 
 	debug->hpd->simulate_connect(debug->hpd, !!(hpd & BIT(0)));
 end:
@@ -646,6 +728,7 @@ static ssize_t dp_debug_max_pclk_khz_read(struct file *file,
 			debug->dp_debug.max_pclk_khz,
 			debug->parser->max_pclk_khz);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		return -EFAULT;
@@ -686,10 +769,13 @@ static ssize_t dp_debug_mst_sideband_mode_write(struct file *file,
 		return -EINVAL;
 	}
 
-	debug->parser->has_mst_sideband = mst_sideband_mode ? true : false;
 	debug->dp_debug.mst_port_cnt = mst_port_cnt;
 	pr_debug("mst_sideband_mode: %d port_cnt:%d\n",
 			mst_sideband_mode, mst_port_cnt);
+
+	if (dp_debug_configure_mst_bridge(debug))
+		pr_err("failed to config mst bridge\n");
+
 	return count;
 }
 
@@ -807,6 +893,7 @@ static ssize_t dp_debug_read_connected(struct file *file,
 
 	len += snprintf(buf, SZ_8, "%d\n", debug->hpd->hpd_high);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len))
 		return -EFAULT;
 
@@ -857,6 +944,7 @@ static ssize_t dp_debug_read_hdcp(struct file *file,
 
 	len = sizeof(debug->dp_debug.hdcp_status);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, debug->dp_debug.hdcp_status, len))
 		return -EFAULT;
 
@@ -920,6 +1008,7 @@ static ssize_t dp_debug_read_edid_modes(struct file *file,
 	}
 	mutex_unlock(&connector->dev->mode_config.mutex);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		rc = -EFAULT;
@@ -995,6 +1084,7 @@ static ssize_t dp_debug_read_edid_modes_mst(struct file *file,
 	}
 	mutex_unlock(&connector->dev->mode_config.mutex);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		rc = -EFAULT;
@@ -1035,6 +1125,7 @@ static ssize_t dp_debug_read_mst_con_id(struct file *file,
 	ret = snprintf(buf, max_size, "%u\n", debug->mst_con_id);
 	len += ret;
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		rc = -EFAULT;
@@ -1098,6 +1189,7 @@ static ssize_t dp_debug_read_mst_conn_info(struct file *file,
 	}
 	mutex_unlock(&debug->dp_debug.dp_mst_connector_list.lock);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		rc = -EFAULT;
@@ -1187,6 +1279,7 @@ static ssize_t dp_debug_read_info(struct file *file, char __user *user_buff,
 	if (dp_debug_check_buffer_overflow(rc, &max_size, &len))
 		goto error;
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len))
 		goto error;
 
@@ -1219,6 +1312,7 @@ static ssize_t dp_debug_bw_code_read(struct file *file,
 	len += snprintf(buf + len, (SZ_4K - len),
 			"max_bw_code = %d\n", debug->panel->max_bw_code);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		return -EFAULT;
@@ -1244,6 +1338,7 @@ static ssize_t dp_debug_tpg_read(struct file *file,
 
 	len += snprintf(buf, SZ_8, "%d\n", debug->dp_debug.tpg_state);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len))
 		return -EFAULT;
 
@@ -1434,6 +1529,7 @@ static ssize_t dp_debug_read_hdr(struct file *file,
 			goto error;
 	}
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len)) {
 		kfree(buf);
 		rc = -EFAULT;
@@ -1460,15 +1556,29 @@ static void dp_debug_set_sim_mode(struct dp_debug_private *debug, bool sim)
 			return;
 		}
 
-		debug->dp_debug.sim_mode = true;
-		debug->aux->set_sim_mode(debug->aux, true,
-			debug->edid, debug->dpcd);
-	} else {
-		debug->aux->abort(debug->aux);
-		debug->ctrl->abort(debug->ctrl);
+		if (dp_debug_configure_mst_bridge(debug))
+			pr_err("failed to config mst bridge\n");
 
-		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL);
+		debug->dp_debug.mst_hpd_sim = true;
+		debug->dp_debug.sim_mode = true;
+		debug->power->sim_mode = true;
+		debug->aux->set_sim_mode(debug->aux, true,
+			debug->edid, debug->dpcd, debug->sim_bridge);
+	} else {
+
+		if (debug->hotplug) {
+			pr_warn("sim mode off before hotplug disconnect\n");
+			debug->hpd->simulate_connect(debug->hpd, false);
+			debug->hotplug = false;
+		}
+
+		debug->aux->abort(debug->aux, false);
+		debug->ctrl->abort(debug->ctrl, false);
+
+		debug->aux->set_sim_mode(debug->aux, false, NULL, NULL, NULL);
+		debug->power->sim_mode = false;
 		debug->dp_debug.sim_mode = false;
+		debug->dp_debug.mst_hpd_sim = false;
 
 		debug->panel->set_edid(debug->panel, 0);
 		if (debug->edid) {
@@ -1609,6 +1719,7 @@ static ssize_t dp_debug_read_dump(struct file *file,
 	print_hex_dump(KERN_DEBUG, prefix, DUMP_PREFIX_NONE,
 		16, 4, buf, len, false);
 
+	len = min_t(size_t, count, len);
 	if (copy_to_user(user_buff, buf, len))
 		return -EFAULT;
 
@@ -1738,6 +1849,12 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 	struct dp_debug_private *debug = container_of(dp_debug,
 		struct dp_debug_private, dp_debug);
 	struct dentry *dir, *file;
+
+	if (!IS_ENABLED(CONFIG_DEBUG_FS)) {
+		pr_err("Not creating debug root dir\n");
+		debug->root = NULL;
+		return 0;
+	}
 
 	dir = debugfs_create_dir(DEBUG_NAME, NULL);
 	if (IS_ERR_OR_NULL(dir)) {
@@ -1943,6 +2060,17 @@ static int dp_debug_init(struct dp_debug *dp_debug)
 		goto error_remove_dir;
 	}
 
+	file = debugfs_create_bool("hdcp_wait_sink_sync", 0644, dir,
+			&debug->dp_debug.hdcp_wait_sink_sync);
+
+	if (IS_ERR_OR_NULL(file)) {
+		rc = PTR_ERR(file);
+		pr_err("[%s] debugfs hdcp_wait_sink_sync failed, rc=%d\n",
+		       DEBUG_NAME, rc);
+		goto error_remove_dir;
+	}
+
+
 	file = debugfs_create_bool("dsc_feature_enable", 0644, dir,
 			&debug->parser->dsc_feature_enable);
 	if (IS_ERR_OR_NULL(file)) {
@@ -2040,6 +2168,7 @@ struct dp_debug *dp_debug_get(struct dp_debug_in *in)
 	debug->catalog = in->catalog;
 	debug->parser = in->parser;
 	debug->ctrl = in->ctrl;
+	debug->power = in->power;
 
 	dp_debug = &debug->dp_debug;
 	dp_debug->vdisplay = 0;

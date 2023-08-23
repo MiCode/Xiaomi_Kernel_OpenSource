@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -816,6 +816,14 @@ int dsi_ctrl_update_host_state(struct dsi_ctrl *dsi_ctrl,
  * dsi_ctrl_pixel_format_to_bpp() - returns number of bits per pxl
  */
 int dsi_ctrl_pixel_format_to_bpp(enum dsi_pixel_format dst_format);
+
+/**
+ * dsi_ctrl_hs_req_sel() - API to enable continuous clk support through phy
+ * @dsi_ctrl:			DSI controller handle.
+ * @sel_phy:			Boolean to control whether to select phy or
+ *				controller
+ */
+void dsi_ctrl_hs_req_sel(struct dsi_ctrl *dsi_ctrl, bool sel_phy);
 
 /**
  * dsi_ctrl_set_continuous_clk() - API to set/unset force clock lane HS request.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,6 +170,10 @@ static const struct of_device_id adc_tm_match_table[] = {
 	{
 		.compatible = "qcom,adc-tm5",
 		.data = &data_adc_tm5,
+	},
+	{
+		.compatible = "qcom,adc-tm-rev2",
+		.data = &data_adc_tm_rev2,
 	},
 	{
 		.compatible = "qcom,adc-tm5-iio",
@@ -359,6 +363,8 @@ static int adc_tm_probe(struct platform_device *pdev)
 	adc_tm->base = reg;
 	adc_tm->dt_channels = dt_chan_num;
 
+	platform_set_drvdata(pdev, adc_tm);
+
 	revid_dev_node = of_parse_phandle(node, "qcom,pmic-revid", 0);
 	if (revid_dev_node) {
 		adc_tm->pmic_rev_id = get_revid_data(revid_dev_node);
@@ -402,7 +408,6 @@ static int adc_tm_probe(struct platform_device *pdev)
 	}
 
 	list_add_tail(&adc_tm->list, &adc_tm_device_list);
-	platform_set_drvdata(pdev, adc_tm);
 	return 0;
 fail:
 	i = 0;
@@ -424,10 +429,30 @@ static int adc_tm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int adc_tm_suspend_noirq(struct device *dev)
+{
+	struct adc_tm_chip *adc_tm = dev_get_drvdata(dev);
+	int i = 0;
+
+	while (i < adc_tm->dt_channels) {
+		if (adc_tm->sensor[i].req_wq) {
+			pr_debug("flushing queue for sensor %d\n", i);
+			flush_workqueue(adc_tm->sensor[i].req_wq);
+		}
+		i++;
+	}
+	return 0;
+}
+
+static const struct dev_pm_ops adc_tm_pm_ops = {
+	.suspend_noirq	= adc_tm_suspend_noirq,
+};
+
 static struct platform_driver adc_tm_driver = {
 	.driver = {
 		.name = "qcom,adc-tm",
 		.of_match_table	= adc_tm_match_table,
+		.pm		= &adc_tm_pm_ops,
 	},
 	.probe = adc_tm_probe,
 	.remove = adc_tm_remove,

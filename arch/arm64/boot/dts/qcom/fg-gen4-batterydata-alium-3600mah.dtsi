@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,14 +16,14 @@ qcom,alium_860_89032_0000_3600mah_averaged_masterslave_sep24th2018 {
 	qcom,max-voltage-uv = <4350000>;
 	qcom,fastchg-current-ma = <5400>;
 	qcom,jeita-fcc-ranges = <0  100  2500000
-				110 400  3600000
-				410 450  2500000>;
+				101 400  3600000
+				401 450  2500000>;
 	qcom,jeita-fv-ranges = <0   100  4250000
-				110 400  4350000
-				410 450  4250000>;
+				101 400  4350000
+				401 450  4250000>;
 	qcom,step-chg-ranges = <3600000  3800000  5400000
-				3801000  4300000  3600000
-				4301000  4350000  2500000>;
+				3800001  4300000  3600000
+				4300001  4350000  2500000>;
 	/* COLD = 0 DegC, HOT = 45 DegC */
 	qcom,jeita-hard-thresholds = <0x58cd 0x20b8>;
 	/* COOL = 10 DegC, WARM = 40 DegC */

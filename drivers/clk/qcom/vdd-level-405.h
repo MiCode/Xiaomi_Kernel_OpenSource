@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,6 +53,21 @@ static int vdd_hf_levels[] = {
 	1800000, RPM_REGULATOR_LEVEL_SVS,	/* VDD_HF_PLL_SVS */
 	1800000, RPM_REGULATOR_LEVEL_NOM,	/* VDD_HF_PLL_NOM */
 	1800000, RPM_REGULATOR_LEVEL_TURBO,	/* VDD_HF_PLL_TUR */
+};
+
+enum vdd_sr_pll_levels {
+	VDD_SR_PLL_OFF,
+	VDD_SR_PLL_SVS,
+	VDD_SR_PLL_NOM,
+	VDD_SR_PLL_TUR,
+	VDD_SR_PLL_NUM,
+};
+
+static int vdd_sr_levels[] = {
+	0,	/* VDD_SR_PLL_OFF */
+	976000,	/* VDD_SR_PLL_SVS */
+	976000,	/* VDD_SR_PLL_NOM */
+	976000,	/* VDD_SR_PLL_TUR */
 };
 
 #endif

@@ -45,6 +45,7 @@
 #define SENSORS_INST_BASE	192
 #define CDSP_INST_BASE		256
 #define WDSP_INST_BASE		320
+#define NPU_INST_BASE		384
 
 #define INST_ID_CNTL		0
 #define INST_ID_CMD		1
@@ -89,6 +90,11 @@ struct diag_socket_info socket_data[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_CDSP,
 		.type = TYPE_DATA,
 		.name = "CDSP_DATA"
+	},
+	{
+		.peripheral = PERIPHERAL_NPU,
+		.type = TYPE_DATA,
+		.name = "NPU_DATA"
 	}
 };
 
@@ -122,6 +128,11 @@ struct diag_socket_info socket_cntl[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_CDSP,
 		.type = TYPE_CNTL,
 		.name = "CDSP_CNTL"
+	},
+	{
+		.peripheral = PERIPHERAL_NPU,
+		.type = TYPE_CNTL,
+		.name = "NPU_CNTL"
 	}
 };
 
@@ -155,6 +166,11 @@ struct diag_socket_info socket_dci[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_CDSP,
 		.type = TYPE_DCI,
 		.name = "CDSP_DCI"
+	},
+	{
+		.peripheral = PERIPHERAL_NPU,
+		.type = TYPE_DCI,
+		.name = "NPU_DCI"
 	}
 };
 
@@ -188,6 +204,11 @@ struct diag_socket_info socket_cmd[NUM_PERIPHERALS] = {
 		.peripheral = PERIPHERAL_CDSP,
 		.type = TYPE_CMD,
 		.name = "CDSP_CMD"
+	},
+	{
+		.peripheral = PERIPHERAL_NPU,
+		.type = TYPE_CMD,
+		.name = "NPU_CMD"
 	}
 };
 
@@ -222,6 +243,11 @@ struct diag_socket_info socket_dci_cmd[NUM_PERIPHERALS] = {
 		.type = TYPE_DCI_CMD,
 		.name = "CDSP_DCI_CMD"
 	},
+	{
+		.peripheral = PERIPHERAL_NPU,
+		.type = TYPE_DCI_CMD,
+		.name = "NPU_DCI_CMD"
+	}
 };
 
 struct restart_notifier_block {
@@ -303,6 +329,7 @@ static struct restart_notifier_block restart_notifiers[] = {
 	{SOCKET_WCNSS, "wcnss", .nb.notifier_call = restart_notifier_cb},
 	{SOCKET_SLPI, "slpi", .nb.notifier_call = restart_notifier_cb},
 	{SOCKET_CDSP, "cdsp", .nb.notifier_call = restart_notifier_cb},
+	{SOCKET_NPU, "npu", .nb.notifier_call = restart_notifier_cb},
 };
 
 void diag_socket_invalidate(void *ctxt, struct diagfwd_info *fwd_ctxt)
@@ -576,13 +603,16 @@ static void socket_read_work_fn(struct work_struct *work)
 	struct diag_socket_info *info = container_of(work,
 						     struct diag_socket_info,
 						     read_work);
+	struct diagfwd_info *fwd_info;
 
-	if (!info)
+	if (!info) {
+		diag_ws_release();
 		return;
-
+	}
 	mutex_lock(&info->socket_info_mutex);
 	if (!info->hdl || !info->hdl->sk) {
 		mutex_unlock(&info->socket_info_mutex);
+		diag_ws_release();
 		return;
 	}
 	err = sock_error(info->hdl->sk);
@@ -591,10 +621,12 @@ static void socket_read_work_fn(struct work_struct *work)
 		socket_close_channel(info);
 		if (info->port_type == PORT_TYPE_SERVER)
 			socket_init_work_fn(&info->init_work);
+		diag_ws_release();
 		return;
 	}
-
-	if (!info->fwd_ctxt && info->port_type == PORT_TYPE_SERVER)
+	fwd_info = info->fwd_ctxt;
+	if (info->port_type == PORT_TYPE_SERVER &&
+		(!fwd_info || !atomic_read(&fwd_info->opened)))
 		diag_socket_drop_data(info);
 
 	if (!atomic_read(&info->opened) && info->port_type == PORT_TYPE_SERVER)
@@ -632,13 +664,10 @@ static void handle_ctrl_pkt(struct diag_socket_info *info, void *buf, int len)
 				 info->name);
 
 			mutex_lock(&driver->diag_notifier_mutex);
-			if (bootup_req[info->peripheral] == PERIPHERAL_SSR_UP) {
+			if (bootup_req[info->peripheral] == PERIPHERAL_SSR_UP)
 				DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
-				"diag: %s is up, stopping cleanup: bootup_req = %d\n",
+				"diag: %s is up, bootup_req = %d\n",
 				info->name, (int)bootup_req[info->peripheral]);
-				mutex_unlock(&driver->diag_notifier_mutex);
-				break;
-			}
 			mutex_unlock(&driver->diag_notifier_mutex);
 			socket_close_channel(info);
 		}
@@ -990,6 +1019,9 @@ static void __diag_socket_init(struct diag_socket_info *info)
 		break;
 	case PERIPHERAL_CDSP:
 		ins_base = CDSP_INST_BASE;
+		break;
+	case PERIPHERAL_NPU:
+		ins_base = NPU_INST_BASE;
 		break;
 	}
 

@@ -157,7 +157,8 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 			of_property_read_u32_array(np,
 				"snps,reset-delays-us", data->delays, 3);
 
-			if (gpio_request(data->reset_gpio, "mdio-reset"))
+			if (devm_gpio_request(priv->device, data->reset_gpio,
+					      "mdio-reset"))
 				return 0;
 		}
 
@@ -249,7 +250,7 @@ int stmmac_mdio_register(struct net_device *ndev)
 	for (addr = 0; addr < PHY_MAX_ADDR; addr++) {
 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
 
-		if (!phydev)
+		if (!phydev || phydev->phy_id == 0xffff)
 			continue;
 
 		/*
@@ -270,6 +271,7 @@ int stmmac_mdio_register(struct net_device *ndev)
 		if (priv->plat->phy_addr == -1)
 			priv->plat->phy_addr = addr;
 
+		priv->phydev = phydev;
 		phy_attached_info(phydev);
 		found = 1;
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +45,8 @@
 
 #define MAX_DSI_DISPLAYS		2
 #define MAX_DATA_PATH_PER_DSIPLAY	2
+
+#define SDE_AD4_REG_LEN		0x484
 
 enum sde_format_flags {
 	SDE_FORMAT_FLAG_YUV_BIT,
@@ -521,6 +523,7 @@ struct sde_mdss_color {
 #define SDE_DBG_MASK_DS       (1 << 13)
 #define SDE_DBG_MASK_REGDMA   (1 << 14)
 #define SDE_DBG_MASK_QDSS     (1 << 15)
+#define SDE_DBG_MASK_SID      (1 << 15)
 
 /**
  * struct sde_hw_cp_cfg: hardware dspp/lm feature payload.

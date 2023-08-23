@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -75,7 +75,7 @@ static struct pll_vco trion_vco[] = {
 	{ 249600000, 2000000000, 0 },
 };
 
-static const struct alpha_pll_config scc_pll_config = {
+static struct alpha_pll_config scc_pll_config = {
 	.l = 0x1F,
 	.alpha = 0x4000,
 	.config_ctl_val = 0x20485699,
@@ -89,7 +89,7 @@ static const struct alpha_pll_config scc_pll_config = {
 	.user_ctl_hi1_val = 0x000000D0,
 };
 
-static const struct alpha_pll_config scc_pll_config_sm8150_v2 = {
+static struct alpha_pll_config scc_pll_config_sm8150_v2 = {
 	.l = 0x1E,
 	.alpha = 0x0,
 	.config_ctl_val = 0x20485699,
@@ -105,6 +105,7 @@ static struct clk_alpha_pll scc_pll = {
 	.vco_table = trion_vco,
 	.num_vco = ARRAY_SIZE(trion_vco),
 	.type = TRION_PLL,
+	.config = &scc_pll_config,
 	.clkr = {
 		.hw.init = &(struct clk_init_data){
 			.name = "scc_pll",
@@ -575,13 +576,40 @@ static const struct qcom_cc_desc scc_sm8150_desc = {
 static const struct of_device_id scc_sm8150_match_table[] = {
 	{ .compatible = "qcom,scc-sm8150" },
 	{ .compatible = "qcom,scc-sm8150-v2" },
+	{ .compatible = "qcom,scc-sa8155" },
+	{ .compatible = "qcom,scc-sa8155-v2" },
+	{ .compatible = "qcom,scc-sa8195" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, scc_sm8150_match_table);
 
+static int scc_sa8155_resume(struct device *dev)
+{
+	struct regmap *regmap = dev_get_drvdata(dev);
+
+	/* Reconfigure the scc pll */
+	scc_pll.inited = false;
+	clk_trion_pll_configure(&scc_pll, regmap, scc_pll.config);
+
+	return 0;
+}
+
+static const struct dev_pm_ops scc_sa8155_pm_ops = {
+	.restore_early = scc_sa8155_resume,
+};
+
+static void scc_sa8195_fixup(struct platform_device *pdev)
+{
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,scc-sa8195")) {
+		vdd_scc_cx.num_levels = VDD_MM_NUM;
+		vdd_scc_cx.cur_level = VDD_MM_NUM;
+	}
+}
+
 static void scc_sm8150_fixup_sm8150v2(struct regmap *regmap)
 {
-	clk_trion_pll_configure(&scc_pll, regmap, &scc_pll_config_sm8150_v2);
+	scc_pll.config = &scc_pll_config_sm8150_v2;
+
 	scc_main_rcg_clk_src.freq_tbl = ftbl_scc_main_rcg_clk_src_sm8150_v2;
 	scc_main_rcg_clk_src.clkr.hw.init->rate_max[VDD_MIN] = 96000000;
 	scc_main_rcg_clk_src.clkr.hw.init->rate_max[VDD_LOW] = 576000000;
@@ -633,8 +661,16 @@ static int scc_sm8150_fixup(struct platform_device *pdev, struct regmap *regmap)
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
 
-	if (!strcmp(compat, "qcom,scc-sm8150-v2"))
+	if (!strcmp(compat, "qcom,scc-sm8150-v2") ||
+			!strcmp(compat, "qcom,scc-sa8195") ||
+			!strcmp(compat, "qcom,scc-sa8155-v2"))
 		scc_sm8150_fixup_sm8150v2(regmap);
+
+	if (!strcmp(compat, "qcom,scc-sa8155") ||
+			!strcmp(compat, "qcom,scc-sa8155-v2")) {
+		pdev->dev.driver->pm = &scc_sa8155_pm_ops;
+		dev_set_drvdata(&pdev->dev, regmap);
+	}
 
 	return 0;
 }
@@ -650,6 +686,8 @@ static int scc_sm8150_probe(struct platform_device *pdev)
 		return PTR_ERR(regmap);
 	}
 
+	scc_sa8195_fixup(pdev);
+
 	vdd_scc_cx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_scc_cx");
 	if (IS_ERR(vdd_scc_cx.regulator[0])) {
 		ret = PTR_ERR(vdd_scc_cx.regulator[0]);
@@ -663,7 +701,7 @@ static int scc_sm8150_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	clk_trion_pll_configure(&scc_pll, regmap, &scc_pll_config);
+	clk_trion_pll_configure(&scc_pll, regmap, scc_pll.config);
 
 	ret = qcom_cc_really_probe(pdev, &scc_sm8150_desc, regmap);
 	if (ret) {

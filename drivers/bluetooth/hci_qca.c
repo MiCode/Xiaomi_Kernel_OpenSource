@@ -37,6 +37,7 @@
 #include "hci_uart.h"
 #include "btqca.h"
 
+#include <linux/tty.h>
 /* HCI_IBS protocol messages */
 #define HCI_IBS_SLEEP_IND	0xFE
 #define HCI_IBS_WAKE_IND	0xFD
@@ -48,7 +49,7 @@
 
 #define IBS_WAKE_RETRANS_TIMEOUT_MS	100
 #define IBS_TX_IDLE_TIMEOUT_MS		2000
-#define BAUDRATE_SETTLE_TIMEOUT_MS	300
+#define BAUDRATE_SETTLE_TIMEOUT_MS	100
 
 /* HCI_IBS transmit side sleep protocol states */
 enum tx_ibs_states {
@@ -457,6 +458,10 @@ static int qca_open(struct hci_uart *hu)
 	BT_DBG("HCI_UART_QCA open, tx_idle_delay=%u, wake_retrans=%u",
 	       qca->tx_idle_delay, qca->wake_retrans);
 
+#ifdef CONFIG_SERIAL_MSM_GENI
+	hu->tty->ops->ioctl(hu->tty, TIOCPMGET, 0);
+#endif
+
 	return 0;
 }
 
@@ -740,6 +745,10 @@ static int qca_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 static int qca_ibs_sleep_ind(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_uart *hu = hci_get_drvdata(hdev);
+	struct qca_data *qca = hu->priv;
+
+	if (!test_bit(STATE_IN_BAND_SLEEP_ENABLED, &qca->flags))
+		return 0;
 
 	BT_DBG("hu %p recv hci ibs cmd 0x%x", hu, HCI_IBS_SLEEP_IND);
 
@@ -753,6 +762,11 @@ static int qca_ibs_wake_ind(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_uart *hu = hci_get_drvdata(hdev);
 
+	struct qca_data *qca = hu->priv;
+
+	if (!test_bit(STATE_IN_BAND_SLEEP_ENABLED, &qca->flags))
+		return 0;
+
 	BT_DBG("hu %p recv hci ibs cmd 0x%x", hu, HCI_IBS_WAKE_IND);
 
 	device_want_to_wakeup(hu);
@@ -764,6 +778,10 @@ static int qca_ibs_wake_ind(struct hci_dev *hdev, struct sk_buff *skb)
 static int qca_ibs_wake_ack(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_uart *hu = hci_get_drvdata(hdev);
+	struct qca_data *qca = hu->priv;
+
+	if (!test_bit(STATE_IN_BAND_SLEEP_ENABLED, &qca->flags))
+		return 0;
 
 	BT_DBG("hu %p recv hci ibs cmd 0x%x", hu, HCI_IBS_WAKE_ACK);
 
@@ -856,6 +874,8 @@ static uint8_t qca_get_baudrate_value(int speed)
 		return QCA_BAUDRATE_2000000;
 	case 3000000:
 		return QCA_BAUDRATE_3000000;
+	case 3200000:
+		return QCA_BAUDRATE_3200000;
 	case 3500000:
 		return QCA_BAUDRATE_3500000;
 	default:
@@ -870,7 +890,7 @@ static int qca_set_baudrate(struct hci_dev *hdev, uint8_t baudrate)
 	struct sk_buff *skb;
 	u8 cmd[] = { 0x01, 0x48, 0xFC, 0x01, 0x00 };
 
-	if (baudrate > QCA_BAUDRATE_3000000)
+	if (baudrate > QCA_BAUDRATE_3200000)
 		return -EINVAL;
 
 	cmd[4] = baudrate;
@@ -888,13 +908,33 @@ static int qca_set_baudrate(struct hci_dev *hdev, uint8_t baudrate)
 	skb_queue_tail(&qca->txq, skb);
 	hci_uart_tx_wakeup(hu);
 
-	/* wait 300ms to change new baudrate on controller side
+	/* wait 100ms to change new baudrate on controller side
 	 * controller will come back after they receive this HCI command
 	 * then host can communicate with new baudrate to controller
 	 */
 	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout(msecs_to_jiffies(BAUDRATE_SETTLE_TIMEOUT_MS));
 	set_current_state(TASK_RUNNING);
+
+	return 0;
+}
+
+int qca_enqueue_and_send(struct hci_dev *hdev, struct sk_buff *skb)
+{
+	struct hci_uart *hu = hci_get_drvdata(hdev);
+
+	percpu_down_read(&hu->proto_lock);
+
+	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags)) {
+		percpu_up_read(&hu->proto_lock);
+		return -EUNATCH;
+	}
+
+	qca_enqueue(hu, skb);
+
+	percpu_up_read(&hu->proto_lock);
+
+	hci_uart_tx_wakeup(hu);
 
 	return 0;
 }
@@ -906,7 +946,7 @@ static int qca_setup(struct hci_uart *hu)
 	unsigned int speed, qca_baudrate = QCA_BAUDRATE_115200;
 	int ret;
 
-	BT_INFO("%s: ROME setup", hdev->name);
+	BT_INFO("%s: QCA setup", hdev->name);
 
 	/* Patch downloading has to be done without IBS mode */
 	clear_bit(STATE_IN_BAND_SLEEP_ENABLED, &qca->flags);
@@ -942,9 +982,11 @@ static int qca_setup(struct hci_uart *hu)
 	}
 
 	/* Setup patch / NVM configurations */
-	ret = qca_uart_setup_rome(hdev, qca_baudrate);
+	ret = qca_uart_setup_rome(hdev, qca_baudrate, qca_enqueue_and_send);
 	if (!ret) {
+#ifdef SUPPORT_BT_QCA_SIBS
 		set_bit(STATE_IN_BAND_SLEEP_ENABLED, &qca->flags);
+#endif
 		qca_debugfs_init(hdev);
 	} else if (ret == -ENOENT) {
 		/* No patch/nvm-config found, run with original fw/config */

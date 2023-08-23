@@ -12,4 +12,3 @@
 
 #include "sa8155-adp-common.dtsi"
 #include "sa8155-adp-star-display.dtsi"
-

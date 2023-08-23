@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, 2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,7 @@
 #include <linux/init.h>
 #include <linux/ioctl.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/list.h>
 #include <linux/msm_mdp.h>
 #include <linux/of.h>
@@ -23,10 +24,10 @@
 #include <linux/types.h>
 #include <linux/version.h>
 #include <linux/extcon.h>
-#include <linux/module.h>
 
 #include "mdss_panel.h"
 #include "mdss_wb.h"
+#include "mdss.h"
 
 /**
  * mdss_wb_check_params - check new panel info params
@@ -137,10 +138,22 @@ static int mdss_wb_probe(struct platform_device *pdev)
 {
 	struct mdss_panel_data *pdata = NULL;
 	struct mdss_wb_ctrl *wb_ctrl = NULL;
+	struct mdss_util_intf *util;
 	int rc = 0;
 
 	if (!pdev->dev.of_node)
 		return -ENODEV;
+
+	util = mdss_get_util_intf();
+	if (util == NULL) {
+		pr_err("%s: Failed to get mdss utility functions\n", __func__);
+		return -ENODEV;
+	}
+
+	if (!util->mdp_probe_done) {
+		pr_err("%s: MDP not probed yet!\n", __func__);
+		return -EPROBE_DEFER;
+	}
 
 	wb_ctrl = devm_kzalloc(&pdev->dev, sizeof(*wb_ctrl), GFP_KERNEL);
 	if (!wb_ctrl)

@@ -1,0 +1,75 @@
+/* Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&slim_aud {
+	status = "disabled";
+};
+
+&dai_slim {
+	status = "disabled";
+};
+
+&wcd9335 {
+	status = "disabled";
+};
+
+&wcd934x_cdc {
+	status = "disabled";
+};
+
+&clock_audio {
+	status = "disabled";
+};
+
+&wcd_rst_gpio {
+	status = "disabled";
+};
+
+&wcd9xxx_intc {
+	status = "disabled";
+};
+
+&tasha_snd {
+	status = "disabled";
+};
+
+&tavil_snd {
+	status = "disabled";
+};
+
+&spi_7 {
+	status = "disabled";
+};
+
+&wdsp_mgr {
+	status = "disabled";
+};
+
+&wdsp_glink {
+	status = "disabled";
+};
+
+&glink_spi_xprt_wdsp {
+	status = "disabled";
+};
+
+&int_codec {
+	status = "okay";
+};
+
+&pmic_analog_codec {
+	status = "okay";
+};
+
+&msm_sdw_codec {
+	status = "okay";
+};

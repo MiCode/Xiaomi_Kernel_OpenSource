@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -630,6 +630,13 @@ static const struct freq_tbl ftbl_gcc_emac_ptp_clk_src[] = {
 	{ }
 };
 
+static const struct freq_tbl ftbl_gcc_emac_ptp_clk_src_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
+	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
+	F(230400000, P_GPLL5_OUT_MAIN, 3.5, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gcc_emac_ptp_clk_src = {
 	.cmd_rcgr = 0x47038,
 	.mnd_width = 0,
@@ -790,12 +797,23 @@ static struct clk_rcg2 gcc_pdm2_clk_src = {
 	},
 };
 
+static const struct freq_tbl ftbl_gcc_sdcc1_apps_clk_src[] = {
+	F(144000, P_BI_TCXO, 16, 3, 25),
+	F(400000, P_BI_TCXO, 12, 1, 4),
+	F(20000000, P_GPLL0_OUT_EVEN, 5, 1, 3),
+	F(25000000, P_GPLL0_OUT_EVEN, 12, 0, 0),
+	F(50000000, P_GPLL0_OUT_EVEN, 6, 0, 0),
+	F(100000000, P_GPLL0_OUT_MAIN, 6, 0, 0),
+	F(200000000, P_GPLL0_OUT_MAIN, 3, 0, 0),
+	{ }
+};
+
 static struct clk_rcg2 gcc_sdcc1_apps_clk_src = {
 	.cmd_rcgr = 0xf00c,
 	.mnd_width = 8,
 	.hid_width = 5,
 	.parent_map = gcc_parent_map_0,
-	.freq_tbl = ftbl_gcc_gp1_clk_src,
+	.freq_tbl = ftbl_gcc_sdcc1_apps_clk_src,
 	.clkr.hw.init = &(struct clk_init_data){
 		.name = "gcc_sdcc1_apps_clk_src",
 		.parent_names = gcc_parent_names_0,
@@ -837,6 +855,11 @@ static struct clk_rcg2 gcc_usb30_master_clk_src = {
 static const struct freq_tbl ftbl_gcc_usb30_mock_utmi_clk_src[] = {
 	F(19200000, P_BI_TCXO, 1, 0, 0),
 	F(60000000, P_GPLL0_OUT_EVEN, 5, 0, 0),
+	{ }
+};
+
+static const struct freq_tbl ftbl_gcc_usb30_mock_utmi_clk_src_v2[] = {
+	F(19200000, P_BI_TCXO, 1, 0, 0),
 	{ }
 };
 
@@ -1882,15 +1905,25 @@ static const struct qcom_cc_desc gcc_sdxprairie_desc = {
 
 static const struct of_device_id gcc_sdxprairie_match_table[] = {
 	{ .compatible = "qcom,gcc-sdxprairie" },
+	{ .compatible = "qcom,gcc-sdxprairie-v2" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gcc_sdxprairie_match_table);
+
+static void gcc_sdxprairie_fixup_v2(void)
+{
+	gcc_usb30_mock_utmi_clk_src.freq_tbl =
+		ftbl_gcc_usb30_mock_utmi_clk_src_v2;
+	gcc_usb30_mock_utmi_clk_src.clkr.hw.init->rate_max[VDD_MIN] = 19200000;
+	gcc_emac_ptp_clk_src.freq_tbl = ftbl_gcc_emac_ptp_clk_src_v2;
+}
 
 static int gcc_sdxprairie_probe(struct platform_device *pdev)
 {
 	struct clk *clk;
 	struct device *dev = &pdev->dev;
 	int ret = 0;
+	bool is_v2;
 
 	clk = devm_clk_get(dev, "bi_tcxo");
 	if (IS_ERR(clk)) {
@@ -1920,6 +1953,11 @@ static int gcc_sdxprairie_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get vdd_mx regulator\n");
 		return PTR_ERR(vdd_mx.regulator[0]);
 	}
+
+	is_v2 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-sdxprairie-v2");
+	if (is_v2)
+		gcc_sdxprairie_fixup_v2();
 
 	ret = qcom_cc_probe(pdev, &gcc_sdxprairie_desc);
 	if (ret) {

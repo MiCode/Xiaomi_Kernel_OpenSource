@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,4 +18,24 @@
 	compatible = "qcom,sa8155";
 	qcom,msm-name = "SA8155 V1";
 	qcom,msm-id = <362 0x10000>;
+};
+
+&clock_scc {
+	compatible = "qcom,scc-sa8155";
+};
+
+&clock_gcc {
+	compatible = "qcom,gcc-sa8155", "syscon";
+};
+
+&clock_videocc {
+	compatible = "qcom,videocc-sa8155", "syscon";
+};
+
+&clock_npucc {
+	compatible = "qcom,npucc-sa8155", "syscon";
+};
+
+&clock_camcc {
+	compatible = "qcom,camcc-sa8155", "syscon";
 };

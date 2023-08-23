@@ -43,5 +43,12 @@
 #define VIRTIO_ID_INPUT        18 /* virtio input */
 #define VIRTIO_ID_VSOCK        19 /* virtio vsock transport */
 #define VIRTIO_ID_CRYPTO       20 /* virtio crypto */
+#define VIRTIO_ID_PMEM         27 /* virtio pmem */
+#define VIRTIO_ID_CLOCK	       30 /* virtio clock */
+#define VIRTIO_ID_REGULATOR    31 /* virtio regulator */
+
+#define VIRTIO_ID_I2C		32 /* virtio i2c */
+#define VIRTIO_ID_SPMI		33 /* virtio spmi */
+#define VIRTIO_ID_FASTRPC       34 /* virtio fastrpc */
 
 #endif /* _LINUX_VIRTIO_IDS_H */

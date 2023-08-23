@@ -7,6 +7,9 @@ menuconfig SND_SOC
 	select SND_PCM
 	select AC97_BUS if SND_SOC_AC97_BUS
 	select SND_JACK
+	select SND_TIMER
+	select SND_HWDEP
+	select SND_SOC_COMPRESS
 	select REGMAP_I2C if I2C
 	select REGMAP_SPI if SPI_MASTER
 	---help---
@@ -30,7 +33,7 @@ config SND_SOC_GENERIC_DMAENGINE_PCM
 	select SND_DMAENGINE_PCM
 
 config SND_SOC_COMPRESS
-	bool
+	tristate
 	select SND_COMPRESS_OFFLOAD
 
 config SND_SOC_TOPOLOGY

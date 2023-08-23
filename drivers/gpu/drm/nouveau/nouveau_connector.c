@@ -251,7 +251,7 @@ nouveau_conn_reset(struct drm_connector *connector)
 		return;
 
 	if (connector->state)
-		__drm_atomic_helper_connector_destroy_state(connector->state);
+		nouveau_conn_atomic_destroy_state(connector, connector->state);
 	__drm_atomic_helper_connector_reset(connector, &asyc->state);
 	asyc->dither.mode = DITHERING_MODE_AUTO;
 	asyc->dither.depth = DITHERING_DEPTH_AUTO;
@@ -373,7 +373,7 @@ find_encoder(struct drm_connector *connector, int type)
 		if (!id)
 			break;
 
-		enc = drm_encoder_find(dev, id);
+		enc = drm_encoder_find(dev, NULL, id);
 		if (!enc)
 			continue;
 		nv_encoder = nouveau_encoder(enc);
@@ -441,7 +441,7 @@ nouveau_connector_ddc_detect(struct drm_connector *connector)
 		if (id == 0)
 			break;
 
-		encoder = drm_encoder_find(dev, id);
+		encoder = drm_encoder_find(dev, NULL, id);
 		if (!encoder)
 			continue;
 		nv_encoder = nouveau_encoder(encoder);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,6 +124,37 @@
 #define S9_P2_SHIFT_405				0x16
 
 #define CAL_SEL_MASK_405			0x7
+
+/* eeprom layout data for 9607 */
+#define BASE0_MASK_9607				0x000000ff
+#define BASE1_MASK_9607				0x000ff000
+#define BASE1_SHIFT_9607			12
+
+#define S0_P1_MASK_9607				0x00003f00
+#define S1_P1_MASK_9607				0x03f00000
+#define S2_P1_MASK_9607				0x0000003f
+#define S3_P1_MASK_9607				0x0003f000
+#define S4_P1_MASK_9607				0x0000003f
+
+#define S0_P2_MASK_9607				0x000fc000
+#define S1_P2_MASK_9607				0xfc000000
+#define S2_P2_MASK_9607				0x00000fc0
+#define S3_P2_MASK_9607				0x00fc0000
+#define S4_P2_MASK_9607				0x00000fc0
+
+#define S0_P1_SHIFT_9607			8
+#define S1_P1_SHIFT_9607			20
+#define S3_P1_SHIFT_9607			12
+
+#define S0_P2_SHIFT_9607			14
+#define S1_P2_SHIFT_9607			26
+#define S2_P2_SHIFT_9607			6
+#define S3_P2_SHIFT_9607			18
+#define S4_P2_SHIFT_9607			6
+
+#define CAL_SEL_MASK_9607			0x00700000
+#define CAL_SEL_SHIFT_9607			20
+
 
 #define CAL_DEGC_PT1				30
 #define CAL_DEGC_PT2				120
@@ -291,6 +322,56 @@ int calibrate_405(struct tsens_device *tmdev)
 		break;
 	default:
 		for (i = 0; i < TSENS_NUM_SENSORS_405; i++) {
+			p1[i] = 500;
+			p2[i] = 780;
+		}
+		break;
+	}
+
+	compute_intercept_slope(tmdev, p1, p2, mode);
+
+	return 0;
+}
+
+int calibrate_9607(struct tsens_device *tmdev)
+{
+	int base0 = 0, base1 = 0, i;
+	u32 p1[TSENS_NUM_SENSORS_9607], p2[TSENS_NUM_SENSORS_9607];
+	int mode = 0;
+	u32 qfprom_cdata[3] = { 0, 0, 0};
+
+	qfprom_cdata[0] = readl_relaxed(tmdev->tsens_calib_addr + 0x228);
+	qfprom_cdata[1] = readl_relaxed(tmdev->tsens_calib_addr + 0x22C);
+	qfprom_cdata[2] = readl_relaxed(tmdev->tsens_calib_addr + 0x230);
+
+	mode = (qfprom_cdata[2] & CAL_SEL_MASK_9607) >> CAL_SEL_SHIFT_9607;
+	pr_debug("calibration mode is %d\n", mode);
+
+	switch (mode) {
+	case TWO_PT_CALIB:
+		base1 = (qfprom_cdata[2] & BASE1_MASK_9607) >> BASE1_SHIFT_9607;
+		p2[0] = (qfprom_cdata[0] & S0_P2_MASK_9607) >> S0_P2_SHIFT_9607;
+		p2[1] = (qfprom_cdata[0] & S1_P2_MASK_9607) >> S1_P2_SHIFT_9607;
+		p2[2] = (qfprom_cdata[1] & S2_P2_MASK_9607) >> S2_P2_SHIFT_9607;
+		p2[3] = (qfprom_cdata[1] & S3_P2_MASK_9607) >> S3_P2_SHIFT_9607;
+		p2[4] = (qfprom_cdata[2] & S4_P2_MASK_9607) >> S4_P2_SHIFT_9607;
+
+		for (i = 0; i < TSENS_NUM_SENSORS_9607; i++)
+			p2[i] = ((base1 + p2[i]) << 2);
+		/* Fall through */
+	case ONE_PT_CALIB2:
+		base0 = (qfprom_cdata[0] & BASE0_MASK_9607);
+		p1[0] = (qfprom_cdata[0] & S0_P1_MASK_9607) >> S0_P1_SHIFT_9607;
+		p1[1] = (qfprom_cdata[0] & S1_P1_MASK_9607) >> S1_P1_SHIFT_9607;
+		p1[2] = (qfprom_cdata[1] & S2_P1_MASK_9607);
+		p1[3] = (qfprom_cdata[1] & S3_P1_MASK_9607) >> S3_P1_SHIFT_9607;
+		p1[4] = (qfprom_cdata[2] & S4_P1_MASK_9607);
+
+		for (i = 0; i < TSENS_NUM_SENSORS_9607; i++)
+			p1[i] = (((base0) + p1[i]) << 2);
+		break;
+	default:
+		for (i = 0; i < TSENS_NUM_SENSORS_9607; i++) {
 			p1[i] = 500;
 			p2[i] = 780;
 		}

@@ -134,6 +134,15 @@ config POWER_RESET_QCOM
 	  Say Y here if you have a Qualcomm Tecnologies, Inc. board and wish to
 	  enable restart driver.
 
+config POWER_RESET_QCOM_VM
+	bool "Qualcomm Technologies, Inc. MSM VM power-off driver"
+	depends on QTI_GVM
+	help
+	  Power off and restart support for Qualcomm Technologies, Inc. virtual
+	  machine. This driver supports virtual machine power down and restart.
+	  Say Y here if you have a MSM virtual machine and wish to enable
+	  restart driver.
+
 config QCOM_DLOAD_MODE
 	bool "Qualcomm Technologies, Inc. download mode"
 	depends on POWER_RESET_QCOM

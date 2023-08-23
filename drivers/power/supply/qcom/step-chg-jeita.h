@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,7 +13,43 @@
 #ifndef __STEP_CHG_H__
 #define __STEP_CHG_H__
 
-#define MAX_STEP_CHG_ENTRIES	8
+#define BATT_CP_COOL_THRESHOLD		150
+#define BATT_CP_WARM_THRESHOLD		450
+#define SOC_CHG_VOTER		"SOC_CHG_VOTER"
+#define SOC_FCC_LIMIT		5300000
+
+#ifdef CONFIG_K9A_CHARGE
+#define MAX_STEP_CHG_ENTRIES	6
+#define BATT_COOL_THRESHOLD		150
+#define BATT_WARM_THRESHOLD		480
+#define FFC_CHG_TERM_TEMP_THRESHOLD	350
+#define FFC_LOW_TEMP_CHG_TERM_CURRENT	-980
+#define FFC_HIGH_TEMP_CHG_TERM_CURRENT	-1110
+#elif defined CONFIG_K6_CHARGE
+#define MAX_STEP_CHG_ENTRIES	5
+#define BATT_COOL_THRESHOLD		150
+#define BATT_WARM_THRESHOLD		480
+#define FFC_CHG_TERM_TEMP_THRESHOLD	350
+#define FFC_LOW_TEMP_CHG_TERM_CURRENT	-980
+#define FFC_HIGH_TEMP_CHG_TERM_CURRENT	-1110
+#else
+#define MAX_STEP_CHG_ENTRIES	5
+#define BATT_COOL_THRESHOLD		150
+#define BATT_WARM_THRESHOLD		450
+#define FFC_CHG_TERM_TEMP_THRESHOLD	350
+#define FFC_LOW_TEMP_CHG_TERM_CURRENT	-980
+#define FFC_HIGH_TEMP_CHG_TERM_CURRENT	-1110
+#endif
+
+#define BATT_HOT_SHUTDOWN_TEMP_VOTER "BATT_HOT_SHUTDOWN_TEMP_VOTER"
+#define FCC_TAPER_FCC_VOTER				"FCC_TAPER_FCC_VOTER"
+enum hvdcp3_class_type {
+	HVDCP3_CLASS_NONE = 0,
+	HVDCP3_CLASS_A_18W,
+	HVDCP3_CLASS_B_27W,
+	HVDCP3P5_CLASS_A_18W,
+	HVDCP3P5_CLASS_B_27W,
+};
 
 struct step_chg_jeita_param {
 	u32			psy_prop;
@@ -23,8 +59,8 @@ struct step_chg_jeita_param {
 };
 
 struct range_data {
-	u32 low_threshold;
-	u32 high_threshold;
+	int low_threshold;
+	int high_threshold;
 	u32 value;
 };
 
@@ -33,5 +69,7 @@ int qcom_step_chg_init(struct device *dev,
 void qcom_step_chg_deinit(void);
 int read_range_data_from_node(struct device_node *node,
 		const char *prop_str, struct range_data *ranges,
-		u32 max_threshold, u32 max_value);
+		int max_threshold, u32 max_value);
+int get_val(struct range_data *range, int hysteresis, int current_index,
+		int threshold, int *new_index, int *val);
 #endif /* __STEP_CHG_H__ */

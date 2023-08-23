@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -241,10 +241,9 @@ void mdss_mdp_intersect_rect(struct mdss_rect *res_rect,
 
 void mdss_mdp_crop_rect(struct mdss_rect *src_rect,
 	struct mdss_rect *dst_rect,
-	const struct mdss_rect *sci_rect)
+	const struct mdss_rect *sci_rect, bool normalize)
 {
 	struct mdss_rect res;
-
 	mdss_mdp_intersect_rect(&res, dst_rect, sci_rect);
 
 	if (res.w && res.h) {
@@ -254,9 +253,17 @@ void mdss_mdp_crop_rect(struct mdss_rect *src_rect,
 			src_rect->w = res.w;
 			src_rect->h = res.h;
 		}
-		*dst_rect = (struct mdss_rect)
-			{(res.x - sci_rect->x), (res.y - sci_rect->y),
-			res.w, res.h};
+
+		/* adjust dest rect based on the sci_rect starting */
+		if (normalize) {
+			*dst_rect = (struct mdss_rect) {(res.x - sci_rect->x),
+					(res.y - sci_rect->y), res.w, res.h};
+
+		/* return the actual cropped intersecting rect */
+		} else {
+			*dst_rect = (struct mdss_rect) {res.x, res.y,
+					res.w, res.h};
+		}
 	}
 }
 
@@ -514,7 +521,6 @@ int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 {
 	int i, rc = 0;
 	u32 bpp;
-
 	if (ps == NULL)
 		return -EINVAL;
 
@@ -748,7 +754,6 @@ int mdss_mdp_data_check(struct mdss_mdp_data *data,
 		curr = &data->p[i];
 		if (i >= data->num_planes) {
 			u32 psize = ps->plane_size[i-1];
-
 			prev = &data->p[i-1];
 			if (prev->len > psize) {
 				curr->len = prev->len - psize;
@@ -907,7 +912,6 @@ void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	} else {
 		u16 xoff, yoff;
 		u8 v_subsample, h_subsample;
-
 		mdss_mdp_get_v_h_subsample_rate(fmt->chroma_sample,
 			&v_subsample, &h_subsample);
 
@@ -938,24 +942,27 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data, bool rotator,
 	} else if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
 		pr_debug("ion hdl=%pK buf=0x%pa\n", data->srcp_dma_buf,
 							&data->addr);
-		if (data->mapped) {
-			domain = mdss_smmu_get_domain_type(data->flags,
-				rotator);
-			data->mapped = false;
-		}
-		if (!data->skip_detach) {
-			dma_buf_unmap_attachment(data->srcp_attachment,
-				data->srcp_table,
-				mdss_smmu_dma_data_direction(dir));
-			dma_buf_detach(data->srcp_dma_buf,
-					data->srcp_attachment);
-			dma_buf_put(data->srcp_dma_buf);
+			if (data->mapped) {
+				domain = mdss_smmu_get_domain_type(data->flags,
+					rotator);
+				data->mapped = false;
+			}
+			if (!data->skip_detach) {
+				data->srcp_attachment->dma_map_attrs
+						 |= DMA_ATTR_SKIP_CPU_SYNC;
+				dma_buf_unmap_attachment(data->srcp_attachment,
+					data->srcp_table,
+					mdss_smmu_dma_data_direction(dir));
+				dma_buf_detach(data->srcp_dma_buf,
+						data->srcp_attachment);
+				dma_buf_put(data->srcp_dma_buf);
 				data->srcp_dma_buf = NULL;
-		}
-	} else if (data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) {
+			}
+	} else if ((data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) ||
+			(data->flags & MDP_SECURE_CAMERA_OVERLAY_SESSION)) {
 		/*
-		 * skip memory unmapping - secure display uses physical
-		 * address which does not require buffer unmapping
+		 * skip memory unmapping - secure display and camera uses
+		 * physical address which does not require buffer unmapping
 		 *
 		 * For LT targets in secure display usecase, srcp_dma_buf will
 		 * be filled due to map call which will be unmapped above.
@@ -1102,8 +1109,8 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 		data->len -= data->offset;
 
 		pr_debug("mem=%d ihdl=%pK buf=0x%pa len=0x%lx\n",
-			 img->memory_id, data->srcp_dma_buf, &data->addr,
-			 data->len);
+			img->memory_id, data->srcp_dma_buf,
+			&data->addr, data->len);
 	} else {
 		mdss_mdp_put_img(data, rotator, dir);
 		return ret ? : -EOVERFLOW;
@@ -1141,7 +1148,7 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 			ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,
 					data->srcp_table, domain,
 					&data->addr, &data->len, dir);
-			if (IS_ERR_VALUE((unsigned long)ret)) {
+			if (IS_ERR_VALUE((unsigned long) ret)) {
 				pr_err("smmu map dma buf failed: (%d)\n", ret);
 				goto err_unmap;
 			}
@@ -1177,6 +1184,7 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 	return ret;
 
 err_unmap:
+	data->srcp_attachment->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 	dma_buf_unmap_attachment(data->srcp_attachment, data->srcp_table,
 		mdss_smmu_dma_data_direction(dir));
 	dma_buf_detach(data->srcp_dma_buf, data->srcp_attachment);
@@ -1185,7 +1193,7 @@ err_unmap:
 }
 
 static int mdss_mdp_data_get(struct mdss_mdp_data *data,
-		struct msmfb_data *planes, int num_planes, u32 flags,
+		struct msmfb_data *planes, int num_planes, u64 flags,
 		struct device *dev, bool rotator, int dir)
 {
 	int i, rc = 0;
@@ -1198,7 +1206,7 @@ static int mdss_mdp_data_get(struct mdss_mdp_data *data,
 		rc = mdss_mdp_get_img(&planes[i], &data->p[i], dev, rotator,
 				dir);
 		if (rc) {
-			pr_err("failed to get buf p=%d flags=%x\n", i, flags);
+			pr_err("failed to get buf p=%d flags=%llx\n", i, flags);
 			while (i > 0) {
 				i--;
 				mdss_mdp_put_img(&data->p[i], rotator, dir);
@@ -1248,7 +1256,7 @@ void mdss_mdp_data_free(struct mdss_mdp_data *data, bool rotator, int dir)
 }
 
 int mdss_mdp_data_get_and_validate_size(struct mdss_mdp_data *data,
-	struct msmfb_data *planes, int num_planes, u32 flags,
+	struct msmfb_data *planes, int num_planes, u64 flags,
 	struct device *dev, bool rotator, int dir,
 	struct mdp_layer_buffer *buffer)
 {

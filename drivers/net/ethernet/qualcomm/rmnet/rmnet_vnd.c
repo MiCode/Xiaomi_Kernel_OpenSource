@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -126,10 +126,9 @@ static void rmnet_vnd_uninit(struct net_device *dev)
 	gro_cells_destroy(&priv->gro_cells);
 	free_percpu(priv->pcpu_stats);
 
-	qos = priv->qos_info;
+	qos = rcu_dereference(priv->qos_info);
 	RCU_INIT_POINTER(priv->qos_info, NULL);
-	synchronize_rcu();
-	qmi_rmnet_qos_exit(dev, qos);
+	qmi_rmnet_qos_exit_pre(qos);
 }
 
 static void rmnet_get_stats64(struct net_device *dev,
@@ -221,9 +220,17 @@ static const char rmnet_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"Coalescing packets over VEID1",
 	"Coalescing packets over VEID2",
 	"Coalescing packets over VEID3",
+	"Coalescing TCP frames",
+	"Coalescing TCP bytes",
+	"Coalescing UDP frames",
+	"Coalescing UDP bytes",
+	"Uplink priority packets",
 };
 
 static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {
+	"MAP Cmd last version",
+	"MAP Cmd last ep id",
+	"MAP Cmd last transaction id",
 	"DL header last seen sequence",
 	"DL header last seen bytes",
 	"DL header last seen packets",
@@ -233,6 +240,8 @@ static const char rmnet_port_gstrings_stats[][ETH_GSTRING_LEN] = {
 	"DL header total pkts received",
 	"DL trailer last seen sequence",
 	"DL trailer pkts received",
+	"UL agg reuse",
+	"UL agg alloc",
 };
 
 static void rmnet_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
@@ -283,6 +292,7 @@ static int rmnet_stats_reset(struct net_device *dev)
 {
 	struct rmnet_priv *priv = netdev_priv(dev);
 	struct rmnet_port_priv_stats *stp;
+	struct rmnet_priv_stats *st;
 	struct rmnet_port *port;
 
 	port = rmnet_get_port(priv->real_dev);
@@ -292,6 +302,11 @@ static int rmnet_stats_reset(struct net_device *dev)
 	stp = &port->stats;
 
 	memset(stp, 0, sizeof(*stp));
+
+	st = &priv->stats;
+
+	memset(st, 0, sizeof(*st));
+
 	return 0;
 }
 
@@ -355,7 +370,8 @@ int rmnet_vnd_newlink(u8 id, struct net_device *rmnet_dev,
 		rmnet_dev->rtnl_link_ops = &rmnet_link_ops;
 
 		priv->mux_id = id;
-		priv->qos_info = qmi_rmnet_qos_init(real_dev, id);
+		rcu_assign_pointer(priv->qos_info,
+				   qmi_rmnet_qos_init(real_dev, rmnet_dev, id));
 
 		netdev_dbg(rmnet_dev, "rmnet dev created\n");
 	}
@@ -395,4 +411,9 @@ int rmnet_vnd_do_flow_control(struct net_device *rmnet_dev, int enable)
 		netif_stop_queue(rmnet_dev);
 
 	return 0;
+}
+
+int netif_is_rmnet(const struct net_device *dev)
+{
+	return dev->netdev_ops == &rmnet_vnd_ops;
 }

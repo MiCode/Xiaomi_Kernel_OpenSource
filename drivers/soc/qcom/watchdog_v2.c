@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,7 @@
 #include <soc/qcom/watchdog.h>
 #include <linux/dma-mapping.h>
 #include <linux/sched/clock.h>
+#include <linux/sched/debug.h>
 #include <linux/cpumask.h>
 #include <uapi/linux/sched/types.h>
 
@@ -139,6 +140,21 @@ module_param(WDT_HZ, long, 0000);
 static int ipi_en = IPI_CORES_IN_LPM;
 module_param(ipi_en, int, 0444);
 
+#ifdef CONFIG_FIRE_WATCHDOG
+static int wdog_fire;
+static int wdog_fire_set(const char *val, const struct kernel_param *kp);
+module_param_call(wdog_fire, wdog_fire_set, param_get_int, &wdog_fire, 0644);
+
+static int wdog_fire_set(const char *val, const struct kernel_param *kp)
+{
+	local_irq_disable();
+	while (1)
+		;
+
+	return 0;
+}
+#endif
+
 static void dump_cpu_alive_mask(struct msm_watchdog_data *wdog_dd)
 {
 	static char alive_mask_buf[MASK_SIZE];
@@ -197,17 +213,21 @@ static int panic_wdog_handler(struct notifier_block *this,
 {
 	struct msm_watchdog_data *wdog_dd = container_of(this,
 				struct msm_watchdog_data, panic_blk);
-	if (panic_timeout == 0) {
+	if (panic_timeout == 0 || crash_kexec_post_notifiers) {
 		__raw_writel(0, wdog_dd->base + WDT0_EN);
 		/* Make sure watchdog is enabled before notifying the caller */
 		mb();
 	} else {
-		__raw_writel(WDT_HZ * (panic_timeout + 10),
+		__raw_writel(WDT_HZ * (panic_timeout + 30),
 				wdog_dd->base + WDT0_BARK_TIME);
-		__raw_writel(WDT_HZ * (panic_timeout + 10),
+		__raw_writel(WDT_HZ * (panic_timeout + 30),
 				wdog_dd->base + WDT0_BITE_TIME);
 		__raw_writel(1, wdog_dd->base + WDT0_RST);
 	}
+#ifdef CONFIG_DUMP_ALL_STACKS
+	printk(KERN_INFO "D Status stack trace dump:\n");
+	show_state_filter(TASK_UNINTERRUPTIBLE);
+#endif
 	return NOTIFY_DONE;
 }
 
@@ -254,7 +274,6 @@ static ssize_t wdog_disable_set(struct device *dev,
 	int ret;
 	u8 disable;
 	struct msm_watchdog_data *wdog_dd = dev_get_drvdata(dev);
-	struct scm_desc desc = {0};
 
 	ret = kstrtou8(buf, 10, &disable);
 	if (ret) {
@@ -269,11 +288,17 @@ static ssize_t wdog_disable_set(struct device *dev,
 			return count;
 		}
 		disable = 1;
+		if (!is_scm_armv8()) {
+			ret = scm_call(SCM_SVC_BOOT, SCM_SVC_SEC_WDOG_DIS,
+				       &disable, sizeof(disable), NULL, 0);
+		} else {
+			struct scm_desc desc = {0};
 
-		desc.args[0] = 1;
-		desc.arginfo = SCM_ARGS(1);
-		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT,
-						SCM_SVC_SEC_WDOG_DIS), &desc);
+			desc.args[0] = 1;
+			desc.arginfo = SCM_ARGS(1);
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT,
+					SCM_SVC_SEC_WDOG_DIS), &desc);
+		}
 		if (ret) {
 			dev_err(wdog_dd->dev,
 					"Failed to deactivate secure wdog\n");
@@ -537,6 +562,8 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 	nanosec_rem = do_div(wdog_dd->last_pet, 1000000000);
 	dev_info(wdog_dd->dev, "Watchdog last pet at %lu.%06lu\n",
 			(unsigned long) wdog_dd->last_pet, nanosec_rem / 1000);
+	show_state_filter(TASK_UNINTERRUPTIBLE);
+
 	if (wdog_dd->do_ipi_ping)
 		dump_cpu_alive_mask(wdog_dd);
 	msm_trigger_wdog_bite();
@@ -741,7 +768,7 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	configure_bark_dump(wdog_dd);
 	timeout = (wdog_dd->bark_time * WDT_HZ)/1000;
 	__raw_writel(timeout, wdog_dd->base + WDT0_BARK_TIME);
-	__raw_writel(timeout + 3*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
+	__raw_writel(timeout + 10*WDT_HZ, wdog_dd->base + WDT0_BITE_TIME);
 
 	wdog_dd->panic_blk.notifier_call = panic_wdog_handler;
 	atomic_notifier_chain_register(&panic_notifier_list,
@@ -922,8 +949,7 @@ err:
 }
 
 static const struct dev_pm_ops msm_watchdog_dev_pm_ops = {
-	.suspend_noirq = msm_watchdog_suspend,
-	.resume_noirq = msm_watchdog_resume,
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(msm_watchdog_suspend, msm_watchdog_resume)
 };
 
 static struct platform_driver msm_watchdog_driver = {

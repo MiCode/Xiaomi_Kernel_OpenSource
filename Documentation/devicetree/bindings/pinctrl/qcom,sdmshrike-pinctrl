@@ -47,6 +47,13 @@ sdmshrike platform.
 	Definition: must be 2. Specifying the pin number and flags, as defined
 		    in <dt-bindings/gpio/gpio.h>
 
+- dirconn-list:
+	Usage: optional
+	Value type: <prop-encoded-array>
+	Definition: a 3-tuple list which contains the mapping of GPIO pin to
+		    hardware IRQ, and a boolean for enabling the TLMM direct
+		    connect interrupt for the pin.
+
 Please refer to ../gpio/gpio.txt and ../interrupt-controller/interrupts.txt for
 a general description of GPIO and interrupt bindings.
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +45,13 @@ void reg_dmav1_setup_dspp_3d_gamutv4(struct sde_hw_dspp *ctx, void *cfg);
  * @cfg: pointer to struct sde_hw_cp_cfg
  */
 void reg_dmav1_setup_dspp_3d_gamutv41(struct sde_hw_dspp *ctx, void *cfg);
+
+/**
+ * reg_dmav1_setup_3d_gamutv42() - gamut v4_2 implementation using reg dma v1.
+ * @ctx: dspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_dspp_3d_gamutv42(struct sde_hw_dspp *ctx, void *cfg);
 
 /**
  * reg_dmav1_setup_dspp_gcv18() - gc v18 implementation using reg dma v1.
@@ -135,6 +142,14 @@ int reg_dmav1_init_sspp_op_v4(int feature, enum sde_sspp idx);
 void reg_dmav1_setup_vig_gamutv5(struct sde_hw_pipe *ctx, void *cfg);
 
 /**
+ * reg_dmav1_setup_vig_gamutv6() - VIG 3D lut gamut v6 implementation
+ *                                 using reg dma v1.
+ * @ctx: sspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_vig_gamutv6(struct sde_hw_pipe *ctx, void *cfg);
+
+/**
  * reg_dmav1_setup_vig_igcv5() - VIG 1D lut IGC v5 implementation
  *                               using reg dma v1.
  * @ctx: sspp ctx info
@@ -151,6 +166,15 @@ void reg_dmav1_setup_vig_igcv5(struct sde_hw_pipe *ctx, void *cfg);
  */
 void reg_dmav1_setup_dma_igcv5(struct sde_hw_pipe *ctx, void *cfg,
 			enum sde_sspp_multirect_index idx);
+
+/**
+ * reg_dmav1_setup_vig_igcv6() - VIG ID lut IGC v6 implementation
+ *                               using reg dma v1.
+ * @ctx: sspp ctx info
+ * @cfg: pointer to struct sde_hw_cp_cfg
+ */
+void reg_dmav1_setup_vig_igcv6(struct sde_hw_pipe *ctx, void *cfg);
+
 /**
  * reg_dmav1_setup_dma_gcv5() - DMA 1D lut GC v5 implementation
  *                              using reg dma v1.

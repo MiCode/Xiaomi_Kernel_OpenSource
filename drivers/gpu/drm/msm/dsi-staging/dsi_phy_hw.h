@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,7 +94,9 @@ struct dsi_phy_per_lane_cfgs {
  * @regulators:       Regulator settings for lanes.
  * @pll_source:       PLL source.
  * @lane_map:         DSI logical to PHY lane mapping.
+ * @lane_pnswap:      P/N swap status on each lane.
  * @force_clk_lane_hs:Boolean whether to force clock lane in HS mode.
+ * @phy_type:         Phy-type (Dphy/Cphy).
  * @bit_clk_rate_hz: DSI bit clk rate in HZ.
  */
 struct dsi_phy_cfg {
@@ -105,7 +107,9 @@ struct dsi_phy_cfg {
 	struct dsi_phy_per_lane_cfgs regulators;
 	enum dsi_phy_pll_source pll_source;
 	struct dsi_lane_map lane_map;
+	u8 lane_pnswap;
 	bool force_clk_lane_hs;
+	enum dsi_phy_type phy_type;
 	unsigned long bit_clk_rate_hz;
 };
 
@@ -182,9 +186,11 @@ struct phy_dyn_refresh_ops {
 	 * @phy:           Pointer to DSI PHY hardware instance.
 	 * @cfg:	   Pointer to DSI PHY timings.
 	 * @is_master:	   Boolean to indicate whether for master or slave.
+	 * @is_cphy:	   Boolean to indicate cphy mode.
 	 */
 	void (*dyn_refresh_config)(struct dsi_phy_hw *phy,
-				   struct dsi_phy_cfg *cfg, bool is_master);
+				struct dsi_phy_cfg *cfg, bool is_master,
+				bool is_cphy);
 
 	/**
 	 * dyn_refresh_pipe_delay - configure pipe delay registers for dynamic
@@ -272,6 +278,21 @@ struct dsi_phy_hw_ops {
 				       struct dsi_mode_info *mode,
 				       struct dsi_host_common_cfg *config,
 				       struct dsi_phy_per_lane_cfgs *timing,
+				       bool use_mode_bit_clk, bool is_cphy);
+
+	/**
+	 * calculate_cphy_timing_params() - calculates cphy timing parameters.
+	 * @phy:      Pointer to DSI PHY hardware object.
+	 * @mode:     Mode information for which timing has to be calculated.
+	 * @config:   DSI host configuration for this mode.
+	 * @timing:   Timing parameters for each lane which will be returned.
+	 * @use_mode_bit_clk: Boolean to indicate whether reacalculate dsi
+	 *		bitclk or use the existing bitclk(for dynamic clk case).
+	 */
+	int (*calculate_cphy_timing_params)(struct dsi_phy_hw *phy,
+				       struct dsi_mode_info *mode,
+				       struct dsi_host_common_cfg *config,
+				       struct dsi_phy_per_lane_cfgs *timing,
 				       bool use_mode_bit_clk);
 
 	/**
@@ -310,6 +331,13 @@ struct dsi_phy_hw_ops {
 	 * @phy:      Pointer to DSI PHY hardware object.
 	 */
 	void (*reset_clk_en_sel)(struct dsi_phy_hw *phy);
+
+	/**
+	 * set_continuous_clk() - Set continuous clock
+	 * @phy:	Pointer to DSI PHY hardware object
+	 * @enable:	Bool to control continuous clock request.
+	 */
+	void (*set_continuous_clk)(struct dsi_phy_hw *phy, bool enable);
 
 	void *timing_ops;
 	struct phy_ulps_config_ops ulps_ops;

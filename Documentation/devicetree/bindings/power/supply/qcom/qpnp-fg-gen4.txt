@@ -29,6 +29,12 @@ First Level Node - FG Gen4 device
 	Definition: Should specify the phandle of PMIC revid module. This is
 		    used to identify the PMIC subtype.
 
+- qcom,pmic-pbs
+	Usage:      optional
+	Value type: <phandle>
+	Definition: Should specify the phandle of PMIC PBS module. This is
+		    used to trigger PBS for certain configurations.
+
 - #thermal-sensor-cells: Should be 0. See thermal.txt for the description.
 
 - nvmem-names:
@@ -305,6 +311,13 @@ First Level Node - FG Gen4 device
 	Definition: Skew in decipercentage which when specified will be applied
 		    to the final learned capacity.
 
+- qcom,cl-ibat-flt-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Filtered battery current to qualify the capacity learning
+		    algorithm to begin. If this is not specified, then the
+		    default value is 100 mA.
+
 - qcom,hold-soc-while-full
 	Usage:      optional
 	Value type: <empty>
@@ -336,7 +349,8 @@ First Level Node - FG Gen4 device
 		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
 		    property should be specified if qcom,ki-coeff-soc-dischg
 		    is specified to make it fully functional. Value has no
-		    unit. Allowed range is 62 to 15564 in micro units.
+		    unit. Allowed range is 0 to 15564 in micro units. If this
+		    is not specified, the default value used will be 367.
 
 - qcom,ki-coeff-med-dischg
 	Usage:      optional
@@ -347,7 +361,8 @@ First Level Node - FG Gen4 device
 		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
 		    property should be specified if qcom,ki-coeff-soc-dischg
 		    is specified to make it fully functional. Value has no
-		    unit. Allowed range is 62 to 15564 in micro units.
+		    unit. Allowed range is 0 to 15564 in micro units. If this
+		    is not specified, the default value used will be 62.
 
 - qcom,ki-coeff-hi-dischg
 	Usage:      optional
@@ -358,28 +373,71 @@ First Level Node - FG Gen4 device
 		    qcom,ki-coeff-soc-dischg. Array limit is set to 3. This
 		    property should be specified if qcom,ki-coeff-soc-dischg
 		    is specified to make it fully functional. Value has no
-		    unit. Allowed range is 62 to 15564 in micro units.
+		    unit. Allowed range is 0 to 15564 in micro units. If this
+		    is not specified, the default value used will be 0.
+
+- qcom,ki-coeff-dischg-low-med-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of discharging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-low-dischg if the
+		    threshold is not breached, and qcom,ki-coeff-med-dischg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 50 (50 mA).
+
+- qcom,ki-coeff-dischg-med-hi-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of discharging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-med-dischg if the
+		    threshold is not breached, and qcom,ki-coeff-hi-dischg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 100
+		    (100 mA).
 
 - qcom,ki-coeff-low-chg
 	Usage:      optional
 	Value type: <u32>
 	Definition: ki coefficient value for low charge current during
-		    charging. Value has no unit. Allowed range is 62 to 15564
-		    in micro units.
+		    charging. Value has no unit. Allowed range is 0 to 15564
+		    in micro units. If this is not specified, the default value
+		    used will be 184.
 
 - qcom,ki-coeff-med-chg
 	Usage:      optional
 	Value type: <u32>
 	Definition: ki coefficient value for medium charge current during
-		    charging. Value has no unit. Allowed range is 62 to 15564
-		    in micro units.
+		    charging. Value has no unit. Allowed range is 0 to 15564
+		    in micro units. If this is not specified, the default value
+		    used will be 62.
 
 - qcom,ki-coeff-hi-chg
 	Usage:      optional
 	Value type: <u32>
 	Definition: ki coefficient value for high charge current during
-		    charging. Value has no unit. Allowed range is 62 to 15564
-		    in micro units.
+		    charging. Value has no unit. Allowed range is 0 to 15564
+		    in micro units. If this is not specified, the default value
+		    used will be 0.
+
+- qcom,ki-coeff-chg-low-med-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of charging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-low-chg if the
+		    threshold is not breached, and qcom,ki-coeff-med-chg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 500
+		    (500 mA).
+
+- qcom,ki-coeff-chg-med-hi-thresh-ma
+	Usage:      optional
+	Value type: <u32>
+	Definition: Threshold value of charging current that decides which ki
+		    coefficient will be applied: qcom,ki-coeff-med-chg if the
+		    threshold is not breached, and qcom,ki-coeff-hi-chg
+		    otherwise. Allowed range is 0 to 3984 milliamperes. If this
+		    is not specified, the default value used will be 1000
+		    (1000 mA).
 
 - qcom,ki-coeff-cutoff
 	Usage:      optional
@@ -477,6 +535,19 @@ First Level Node - FG Gen4 device
 		    filtered voltage when qcom,soc-scale-mode-en is
 		    specified. If this is not specified, then the
 		    default value is 10000. Unit is in ms.
+
+- qcom,sw-esr-control
+	Usage:      optional
+	Value type: <empty>
+	Definition: A boolean property that when specified enables SW ESR
+		    control depending on input presence and user request.
+
+- qcom,force-calib-level
+	Usage:      optional
+	Value type: <u32>
+	Definition: Calibration level in decimal. When specified,
+		    the calibration level is forced to this value.
+		    Possible values are in the range of 1 to 130.
 
 ==========================================================
 Second Level Nodes - Peripherals managed by FG Gen4 driver

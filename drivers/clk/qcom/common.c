@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, 2017-2019, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -38,6 +38,9 @@ struct freq_tbl *qcom_find_freq(const struct freq_tbl *f, unsigned long rate)
 {
 	if (!f)
 		return NULL;
+
+	if (!f->freq)
+		return f;
 
 	for (; f->freq; f++)
 		if (rate <= f->freq)
@@ -201,6 +204,22 @@ int qcom_cc_register_sleep_clk(struct device *dev)
 }
 EXPORT_SYMBOL_GPL(qcom_cc_register_sleep_clk);
 
+/* Drop 'protected-clocks' from the list of clocks to register */
+static void qcom_cc_drop_protected(struct device *dev, struct qcom_cc *cc)
+{
+	struct device_node *np = dev->of_node;
+	struct property *prop;
+	const __be32 *p;
+	u32 i;
+
+	of_property_for_each_u32(np, "protected-clocks", prop, p, i) {
+		if (i >= cc->num_rclks)
+			continue;
+
+		cc->rclks[i] = NULL;
+	}
+}
+
 static struct clk_hw *qcom_cc_clk_hw_get(struct of_phandle_args *clkspec,
 					 void *data)
 {
@@ -248,6 +267,8 @@ int qcom_cc_really_probe(struct platform_device *pdev,
 		if (ret)
 			return ret;
 	}
+
+	qcom_cc_drop_protected(dev, cc);
 
 	for (i = 0; i < num_clks; i++) {
 		if (!rclks[i])
@@ -327,5 +348,24 @@ int qcom_cc_register_rcg_dfs(struct platform_device *pdev,
 	return ret;
 }
 EXPORT_SYMBOL(qcom_cc_register_rcg_dfs);
+
+int qcom_cc_enable_critical_clks(const struct qcom_cc_critical_desc *desc)
+{
+	struct clk_regmap **clkr = desc->clks;
+	size_t num_clks = desc->num_clks;
+	int i, ret = 0;
+
+	for (i = 0; i < num_clks; i++) {
+		ret = clk_enable_regmap(&(clkr[i]->hw));
+		if (ret) {
+			pr_err("Failed to enable %s\n",
+					clk_hw_get_name(&(clkr[i]->hw)));
+			break;
+		}
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(qcom_cc_enable_critical_clks);
 
 MODULE_LICENSE("GPL v2");

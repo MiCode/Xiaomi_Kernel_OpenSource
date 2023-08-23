@@ -1,0 +1,104 @@
+/*
+ * Copyright (c) 2015-2018, 2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+&soc {
+	kgsl_smmu: arm,smmu-kgsl@1c40000 {
+		status = "ok";
+		compatible = "qcom,smmu-v2";
+		qcom,tz-device-id = "GPU";
+		reg = <0x1c40000 0x10000>;
+		#iommu-cells = <1>;
+		#global-interrupts = <0>;
+		interrupts =  <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
+		qcom,dynamic;
+		qcom,use-3-lvl-tables;
+		qcom,skip-init;
+		qcom,deferred-regulator-disable-delay = <80>;
+		qcom,enable-static-cb;
+		vdd-supply = <&oxili_cx_gdsc>;
+		qcom,regulator-names = "vdd";
+		clocks = <&gcc GCC_OXILI_AHB_CLK>,
+			     <&gcc GCC_BIMC_GFX_CLK>;
+		clock-names = "gpu_ahb_clk", "gcc_bimc_gfx_clk";
+	};
+
+	/* A test device to test the SMMU operation */
+	kgsl_iommu_test_device0 {
+		status = "disabled";
+		compatible = "iommu-debug-test";
+		/* The SID should be valid one to get the proper
+		 *SMR,S2CR indices.
+		 */
+		iommus = <&kgsl_smmu 0x0>;
+	};
+
+	apps_iommu: qcom,iommu@1e00000 {
+		status = "ok";
+		compatible = "qcom,qsmmu-v500";
+		reg = <0x1e00000 0x40000>,
+			<0x1ee2000 0x20>;
+		reg-names = "base", "tcu-base";
+		#iommu-cells = <2>;
+		qcom,tz-device-id = "APPS";
+		qcom,skip-init;
+		qcom,regulator-names = "vdd";
+		qcom,enable-static-cb;
+		qcom,use-3-lvl-tables;
+		qcom,disable-atos;
+		#global-interrupts = <0>;
+		#size-cells = <1>;
+		#address-cells = <1>;
+		ranges;
+		interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&gcc GCC_SMMU_CFG_CLK>,
+			     <&gcc GCC_APSS_TCU_CLK>;
+		clock-names = "iface_clk", "core_clk";
+	};
+};
+
+#include "msm-arm-smmu-impl-defs-sdm429.dtsi"

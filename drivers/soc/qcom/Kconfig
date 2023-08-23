@@ -205,6 +205,14 @@ config QCOM_SMEM
 	  The driver provides an interface to items in a heap shared among all
 	  processors in a Qualcomm platform.
 
+config MSM_APM
+	bool "Qualcomm Technologies, Inc. platform specific APM driver"
+	help
+	  Platform specific driver to manage the power source of
+	  memory arrays. Interfaces with regulator drivers to ensure
+	  SRAM Vmin requirements are met across different performance
+	  levels.
+
 config QCOM_SMD_RPM
 	tristate "Qualcomm Resource Power Manager (RPM) over SMD"
 	depends on ARCH_QCOM
@@ -403,6 +411,16 @@ config MSM_PIL_SSR_GENERIC
          or a fatal error. Subsystems include LPASS, Venus, VPU, WCNSS and
          BCSS.
 
+config MSM_PIL_MSS_QDSP6V5
+       tristate "MSS QDSP6v5 (Hexagon) Boot Support"
+       depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+       help
+         Support for booting and shutting down QDSP6v5 (Hexagon) processors
+         in modem subsystems. If you would like to make or receive phone
+         calls then say Y here.
+
+         If unsure, say N.
+
 config SETUP_SSR_NOTIF_TIMEOUTS
 	bool "Set timeouts on SSR sysmon notifications and notifier callbacks"
 	help
@@ -466,6 +484,13 @@ config MSM_CORE_HANG_DETECT
          for hang. By using sysfs entries core hang detection can be
 	 enabled or disabled dynamically.
 
+config QCOM_DCC
+        bool "QCOM Data Capture and Compare enigne support"
+        help
+          This option enables driver for Data Capture and Compare engine. DCC
+          driver provides interface to configure DCC block and read back
+          captured data from DCC's internal SRAM.
+
 config QCOM_DCC_V2
        bool "Qualcomm Technologies Data Capture and Compare enigne support for V2"
        help
@@ -487,6 +512,25 @@ config MSM_GLADIATOR_ERP
 	  Support dumping debug information for the GLADIATOR
 	  cache interconnect in the error interrupt handler.
 	  Meant to be used for debug scenarios only.
+
+	  If unsure, say N.
+
+config SDX_EXT_IPC
+	tristate "QCOM external ipc driver"
+	help
+	  This enables the module to help modem communicate with external
+	  Application processor connected to Qualcomm Technologies, Inc
+	  modem chipset. The modem and APQ can understand each other's
+	  state by reading ipc gpios.
+
+	  If unsure, say N.
+
+config QTI_NOTIFY_SIDEBAND
+	tristate "QCOM sideband signalling helper"
+	help
+	  This provides helper APIs and a header file through which
+	  transport layer driver can talk to the sideband driver to
+	  assert appropriate sideband signal.
 
 	  If unsure, say N.
 
@@ -544,6 +588,15 @@ config ICNSS_QMI
 	handshake messages to WLAN FW, which includes hardware capabilities
 	and configurations. It also send WLAN on/off control message to FW
 	over QMI channel.
+
+config CNSS_TIMESYNC
+	bool "cnss TIME SYNC support"
+	depends on ICNSS
+	---help---
+	  Say 'Y' here to enable cnss TIME SYNC support. TIME SYNC support
+	  primarily consists of reading the AUDIO TIMESYNC register for
+	  deriving WLAN mac time stamp relation when FTM based clock sync is
+	  used.
 
 config QCOM_EUD
 	tristate "QTI Embedded USB Debugger (EUD)"
@@ -629,7 +682,7 @@ config MSM_SPCOM
 	  or server is allowed per logical channel.
 
 config MSM_TZ_SMMU
-	depends on ARCH_MSM8953 || ARCH_QCS405
+	depends on ARCH_MSM8953 || ARCH_QCS405 || ARCH_QCS403 || ARCH_SDM429W
 	bool "Helper functions for SMMU configuration through TZ"
 	help
 	  Say 'Y' here for targets that need to call into TZ to configure
@@ -679,7 +732,7 @@ config QCOM_GLINK
 
 config QCOM_GLINK_PKT
 	tristate "Enable device interface for GLINK packet channels"
-	depends on QCOM_GLINK
+	depends on QCOM_GLINK || RPMSG_QCOM_GLINK_BGCOM
 	help
 	  G-link packet driver provides the interface for the userspace
 	  clients to communicate over G-Link via device nodes.
@@ -760,6 +813,17 @@ config MSM_PM
 	  determines last CPU to call into PSCI for cluster Low power
 	  modes.
 
+config MSM_PM_LEGACY
+	depends on PM
+	select MSM_IDLE_STATS if DEBUG_FS
+	select CPU_IDLE_MULTIPLE_DRIVERS
+	bool "Qualcomm Technologies, Inc. (QTI) platform specific Legacy PM driver"
+	help
+	  Platform specific legacy power driver to manage
+	  cores and l2 low power modes. It interface with
+	  various system driver and put the cores into
+	  low power modes.
+
 config MSM_NOPM
 	default y if !PM
 	bool
@@ -793,7 +857,7 @@ config QCOM_FSA4480_I2C
 	  for accessing the device, switching between USB and Audio
 	  modes, changing orientation.
 
-if MSM_PM
+if (MSM_PM || MSM_PM_LEGACY)
 menuconfig MSM_IDLE_STATS
 	bool "Collect idle statistics"
 	help
@@ -826,10 +890,12 @@ config MSM_SUSPEND_STATS_FIRST_BUCKET
 	  histogram.  This is for collecting statistics on suspend.
 
 endif # MSM_IDLE_STATS
-endif # MSM_PM
+endif # MSM_PM || MSM_PM_LEGACY
 
 source "drivers/soc/qcom/memshare/Kconfig"
 source "drivers/soc/qcom/hab/Kconfig"
+source "drivers/soc/qcom/rmnet_ctl/Kconfig"
+source "drivers/soc/qcom/hgsl/Kconfig"
 
 config MSM_PERFORMANCE
 	tristate "msm performance driver to support userspace fmin/fmax request"
@@ -838,6 +904,42 @@ config MSM_PERFORMANCE
 	This driver can restrict max freq or min freq of cpu cluster
 	when requested by the userspace by changing the cpufreq policy
 	fmin and fmax.
+
+config MSM_DRM_NOTIFY
+	bool
+	depends on !DRM_MSM
+	help
+	  This driver can register and receive notification for MSM_DRM
+	  power event in external module. When display power state is
+	  updated, any modules registered to the block chain will get
+	  notified.
+
+config MSM_DRM_TECHPACK
+	bool "Enable MSM DRM from techpack"
+	depends on DRM
+	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
+	depends on OF
+	depends on MMU
+	depends on !DRM_MSM
+	select QCOM_MDT_LOADER if ARCH_QCOM
+	select REGULATOR
+	select DRM_KMS_HELPER
+	select DRM_PANEL
+	select SHMEM
+	select TMPFS
+	select QCOM_SCM
+	select SND_SOC_HDMI_CODEC if SND_SOC
+	select SYNC_FILE
+	select MSM_EXT_DISPLAY
+	select PM_GENERIC_DOMAINS
+	select V4L2_MEM2MEM_DEV
+	select DRM_MIPI_DSI
+	select MSM_DRM_NOTIFY
+	help
+	  The DRM MSM TECHPACK will select modules that are required by
+	  DRM MSM module. This option is only used when DRM MSM is loaded
+	  from external techpack, and is mutually exclusive with builtin
+	  DRM MSM module.
 
 config QMP_DEBUGFS_CLIENT
 	bool "Debugfs Client to communicate with AOP using QMP protocol"
@@ -888,6 +990,101 @@ config QCOM_AOP_DDR_MESSAGING
 	  This driver sends messages to the AOP to adjust the DDR frequency when
 	  the device is rebooting, to ensure that the device is powered off
 	  cleanly.
+
+config QCOM_AOP_DDRSS_COMMANDS
+	bool "Send commands to AOP to affect the behavior of the DDRSS"
+	help
+	  This driver allows messages to be sent to the AOP to affect the DDRSS
+	  behavior.
+
+config QCOM_ADSP_MANUAL_VOTE
+	bool "Send commands to ADSP to unvote and vote during Suspend and resume"
+	help
+	  This driver is used to manually release and acquire the ADSP vote from APPS
+	  processor during system suspend and resume.
+	  This driver sends message over QMI to the service which is running on
+	  ADSP.
+
+config MSM_BAM_DMUX
+	bool "BAM Data Mux Driver"
+	depends on SPS
+	help
+	  Support Muxed Data Channels over BAM interface.
+	  BAM has a limited number of pipes.  This driver
+	  provides a means to support more logical channels
+	  via muxing than BAM could without muxing.
+
+        config MSM_BGCOM_INTERFACE
+        bool "Driver support for Blackghost Communication"
+        depends on MSM_BGCOM
+        help
+                Create a bg_com_dev device node for user space communication.
+                Single user space client can open device node for communication
+                from hardware. Hardware will provide access to read
+                registers and read/write AHB memory in the device.
+
+
+        config MSM_BGCOM
+        bool "Provide APIs to communicate with Blackghost chipset"
+        help
+                BGCOM is a thin layer above SPI. It is used whithin a SoC for
+                communication between G-Link/bg_com_dev and BG processor over SPI.
+                This handle the interrupts raised by BG and notify the G-link with
+                interrupt event and event data.
+
+config MSM_BGRSB
+	bool "Provide support for rsb events on Blackghost chipset"
+	help
+	  BGRSB communicates to BG over rpmsg driver for RSB configuration and
+	  enable/disable on device power state change. It enables/disables
+	  the regulator specific to RSB. Sends the side band events generated
+	  by BG to input framework.
+
+config MSM_BGRSB_RPMSG
+	bool "Provide support for Blackghost events to RSB"
+	depends on MSM_BGRSB
+	help
+	  BGRSB-RPMSG informs BGRSB driver if GLINK channel has been
+	  opened by remote processor. It doesn't maintain state machine
+	  and is probed when BG opens channel and removed when the
+	  channel is closed by remote processor.
+
+config MSM_PIL_SSR_BG
+	tristate "MSM Subsystem Blackghost(BG) Support"
+	depends on MSM_PIL && MSM_SUBSYSTEM_RESTART
+	help
+	  Support for booting and shutting down Blackghost(BG) SOC which is
+	  an external SOC. This driver communicates with Blackghost(BG) SOC
+	  via pair of IPC GPIOs for inward and outward signals between MSM
+	  and Blackghost(BG) SOC.
+
+config QCOM_SOC_INFO
+	bool "Chip information for QTI SoCs"
+	depends on SOC_BUS
+	default y
+	help
+	  This driver provides information about the SoC and chip information such
+	  as the chip ID and revision. Information includes decoding the chip name
+	  based on the chip ID and querying the SoC revision. This information is
+	  loaded by the bootloader into SMEM during the boot up process.
+
+config QTI_CRYPTO_COMMON
+	tristate "Enable common crypto functionality used for FBE"
+	depends on BLK_INLINE_ENCRYPTION
+	help
+	 Say 'Y' to enable the common crypto implementation to be used by
+	 different storage layers such as UFS and EMMC for file based hardware
+	 encryption. This library implements API to program and evict
+	 keys using Trustzone or Hardware Key Manager.
+
+config QTI_CRYPTO_TZ
+	tristate "Enable Trustzone to be used for FBE"
+	depends on QTI_CRYPTO_COMMON
+	help
+	 Say 'Y' to enable routing crypto requests to Trustzone while
+	 performing hardware based file encryption. This means keys are
+	 programmed and managed through SCM calls to TZ where ICE driver
+	 will configure keys.
 endmenu
 
 config QCOM_HYP_CORE_CTL
@@ -898,3 +1095,16 @@ config QCOM_HYP_CORE_CTL
 	  CPUs can be assigned to the other guest OS by the hypervisor.
 	  An offline CPU is considered as a reserved CPU since this OS can't use
 	  it.
+config DEBUG_POLICY_STATUS
+	bool "read debug policy status and update command line"
+	help
+	  This driver read debug policy status using Qualcomm scm_call2 interface
+	  and then update cmdline
+
+config RENAME_BLOCK_DEVICE
+	bool "Rename block device node in /dev"
+	help
+	  This driver is used to rename the block device node assigned by generic driver
+	  to a name that is needed.
+
+source "drivers/soc/qcom/wcnss/Kconfig"

@@ -25,6 +25,7 @@ struct wda_qmi_data {
 	struct qmi_handle handle;
 	struct sockaddr_qrtr ssctl;
 	struct svc_info svc;
+	int restart_state;
 };
 
 static void wda_svc_config(struct work_struct *work);
@@ -257,7 +258,8 @@ out:
 	return ret;
 }
 
-static int wda_set_powersave_config_req(struct qmi_handle *wda_handle)
+static int wda_set_powersave_config_req(struct qmi_handle *wda_handle,
+					int dl_marker)
 {
 	struct wda_qmi_data *data = container_of(wda_handle,
 						 struct wda_qmi_data, handle);
@@ -287,7 +289,8 @@ static int wda_set_powersave_config_req(struct qmi_handle *wda_handle)
 	req->ep_id.ep_type = data->svc.ep_type;
 	req->ep_id.iface_id = data->svc.iface_id;
 	req->req_data_cfg_valid = 1;
-	req->req_data_cfg = WDA_DATA_POWERSAVE_CONFIG_ALL_MASK_V01;
+	req->req_data_cfg = dl_marker ? WDA_DATA_POWERSAVE_CONFIG_ALL_MASK_V01 :
+					WDA_DATA_POWERSAVE_CONFIG_FLOW_CTL_V01;
 	ret = qmi_send_request(wda_handle, &data->ssctl, &txn,
 			QMI_WDA_SET_POWERSAVE_CONFIG_REQ_V01,
 			QMI_WDA_SET_POWERSAVE_CONFIG_REQ_V01_MAX_MSG_LEN,
@@ -319,15 +322,36 @@ static void wda_svc_config(struct work_struct *work)
 	struct wda_qmi_data *data = container_of(work, struct wda_qmi_data,
 						 svc_arrive);
 	struct qmi_info *qmi;
-	int rc;
+	int rc, dl_marker = 0;
 
-	rc = wda_set_powersave_config_req(&data->handle);
+	while (!rtnl_trylock()) {
+		if (!data->restart_state)
+			cond_resched();
+		else
+			return;
+	}
+
+	dl_marker = rmnet_get_dlmarker_info(data->rmnet_port);
+	rtnl_unlock();
+
+	if (data->restart_state == 1)
+		return;
+
+	rc = wda_set_powersave_config_req(&data->handle, dl_marker);
 	if (rc < 0) {
 		pr_err("%s Failed to init service, err[%d]\n", __func__, rc);
 		return;
 	}
 
-	rtnl_lock();
+	if (data->restart_state == 1)
+		return;
+	while (!rtnl_trylock()) {
+		if (!data->restart_state)
+			cond_resched();
+		else
+			return;
+	}
+
 	qmi = (struct qmi_info *)rmnet_get_qmi_pt(data->rmnet_port);
 	if (!qmi) {
 		rtnl_unlock();
@@ -342,7 +366,8 @@ static void wda_svc_config(struct work_struct *work)
 
 	rtnl_unlock();
 
-	pr_info("Connection established with the WDA Service\n");
+	pr_info("Connection established with the WDA Service, DL Marker %s\n",
+		dl_marker ? "enabled" : "disabled");
 }
 
 static int wda_svc_arrive(struct qmi_handle *qmi, struct qmi_service *svc)
@@ -393,6 +418,7 @@ wda_qmi_client_init(void *port, struct svc_info *psvc, struct qmi_info *qmi)
 	}
 
 	data->rmnet_port = port;
+	data->restart_state = 0;
 	memcpy(&data->svc, psvc, sizeof(data->svc));
 	INIT_WORK(&data->svc_arrive, wda_svc_config);
 
@@ -432,6 +458,7 @@ void wda_qmi_client_exit(void *wda_data)
 		return;
 	}
 
+	data->restart_state = 1;
 	trace_wda_client_state_down(0);
 	qmi_handle_release(&data->handle);
 	destroy_workqueue(data->wda_wq);

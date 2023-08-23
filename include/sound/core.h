@@ -140,6 +140,7 @@ struct snd_card {
 #ifdef CONFIG_PM
 	unsigned int power_state;	/* power state */
 	wait_queue_head_t power_sleep;
+	unsigned long power_change;
 #endif
 
 #if IS_ENABLED(CONFIG_SND_MIXER_OSS)
@@ -159,6 +160,9 @@ static inline unsigned int snd_power_get_state(struct snd_card *card)
 static inline void snd_power_change_state(struct snd_card *card, unsigned int state)
 {
 	card->power_state = state;
+	/* make sure power is updated prior to wake up */
+	wmb();
+	xchg(&card->power_change, 1);
 	wake_up(&card->power_sleep);
 }
 

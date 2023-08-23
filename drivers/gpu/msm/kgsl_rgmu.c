@@ -14,6 +14,7 @@
 #include <linux/io.h>
 #include <linux/of_platform.h>
 #include <linux/clk-provider.h>
+#include <linux/firmware.h>
 
 #include "kgsl_device.h"
 #include "kgsl_rgmu.h"
@@ -200,20 +201,20 @@ static int rgmu_enable_clks(struct kgsl_device *device)
 }
 
 #define CX_GDSC_TIMEOUT	5000	/* ms */
-static int rgmu_disable_gdsc(struct kgsl_device *device)
+static void rgmu_disable_gdsc(struct kgsl_device *device)
 {
 	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
 	int ret = 0;
 	unsigned long t;
 
 	if (IS_ERR_OR_NULL(rgmu->cx_gdsc))
-		return 0;
+		return;
 
 	ret = regulator_disable(rgmu->cx_gdsc);
 	if (ret) {
 		dev_err(&rgmu->pdev->dev,
 				"Failed to disable CX gdsc:%d\n", ret);
-		return ret;
+		return;
 	}
 
 	/*
@@ -225,17 +226,13 @@ static int rgmu_disable_gdsc(struct kgsl_device *device)
 	t = jiffies + msecs_to_jiffies(CX_GDSC_TIMEOUT);
 	do {
 		if (!regulator_is_enabled(rgmu->cx_gdsc))
-			return 0;
+			return;
 		usleep_range(10, 100);
 
 	} while (!(time_after(jiffies, t)));
 
-	if (!regulator_is_enabled(rgmu->cx_gdsc))
-		return 0;
-
-	dev_err(&rgmu->pdev->dev, "RGMU CX gdsc off timeout\n");
-
-	return -ETIMEDOUT;
+	if (regulator_is_enabled(rgmu->cx_gdsc))
+		dev_err(&rgmu->pdev->dev, "RGMU CX gdsc off timeout\n");
 }
 
 static int rgmu_enable_gdsc(struct rgmu_device *rgmu)
@@ -313,6 +310,19 @@ error:
 	 */
 	set_bit(GMU_FAULT, &device->gmu_core.flags);
 	rgmu_snapshot(device);
+}
+static void rgmu_remove(struct kgsl_device *device)
+{
+	struct rgmu_device *rgmu = KGSL_RGMU_DEVICE(device);
+
+	if (rgmu == NULL || rgmu->pdev == NULL)
+		return;
+
+	rgmu_stop(device);
+	if (rgmu->fw_image) {
+		release_firmware(rgmu->fw_image);
+		rgmu->fw_image = NULL;
+	}
 }
 
 /* Do not access any RGMU registers in RGMU probe function */
@@ -413,7 +423,8 @@ static int rgmu_suspend(struct kgsl_device *device)
 		return -EINVAL;
 
 	rgmu_disable_clks(device);
-	return rgmu_disable_gdsc(device);
+	rgmu_disable_gdsc(device);
+	return 0;
 }
 
 /* To be called to power on both GPU and RGMU */
@@ -481,7 +492,7 @@ static bool rgmu_regulator_isenabled(struct kgsl_device *device)
 
 struct gmu_core_ops rgmu_ops = {
 	.probe = rgmu_probe,
-	.remove = rgmu_stop,
+	.remove = rgmu_remove,
 	.start = rgmu_start,
 	.stop = rgmu_stop,
 	.dcvs_set = rgmu_dcvs_set,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015 Qualcomm Atheros, Inc.
+ * Copyright (c) 2014-2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -168,7 +168,7 @@ const struct ath10k_hw_values qca6174_values = {
 };
 
 const struct ath10k_hw_values qca99x0_values = {
-	.rtc_state_val_on		= 5,
+	.rtc_state_val_on		= 7,
 	.ce_count			= 12,
 	.msi_assign_ce_max		= 12,
 	.num_target_ce_config_wlan	= 10,
@@ -310,18 +310,24 @@ static struct ath10k_hw_ce_dst_src_wm_regs wcn3990_wm_dst_ring = {
 	.wm_high	= &wcn3990_dst_wm_high,
 };
 
+static struct ath10k_hw_ce_ctrl1_upd wcn3990_ctrl1_upd = {
+	.shift = 19,
+	.mask = 0x00080000,
+	.enable = 0x00000000,
+};
+
 struct ath10k_hw_ce_regs wcn3990_ce_regs = {
-	.sr_base_addr		= 0x00000000,
+	.sr_base_addr_lo	= 0x00000000,
+	.sr_base_addr_hi	= 0x00000004,
 	.sr_size_addr		= 0x00000008,
-	.dr_base_addr		= 0x0000000c,
+	.dr_base_addr_lo	= 0x0000000c,
+	.dr_base_addr_hi	= 0x00000010,
 	.dr_size_addr		= 0x00000014,
 	.misc_ie_addr		= 0x00000034,
 	.sr_wr_index_addr	= 0x0000003c,
 	.dst_wr_index_addr	= 0x00000040,
 	.current_srri_addr	= 0x00000044,
 	.current_drri_addr	= 0x00000048,
-	.ddr_addr_for_rri_low	= 0x00000004,
-	.ddr_addr_for_rri_high	= 0x00000008,
 	.ce_rri_low		= 0x0024C004,
 	.ce_rri_high		= 0x0024C008,
 	.host_ie_addr		= 0x0000002c,
@@ -331,6 +337,7 @@ struct ath10k_hw_ce_regs wcn3990_ce_regs = {
 	.misc_regs		= &wcn3990_misc_reg,
 	.wm_srcr		= &wcn3990_wm_src_ring,
 	.wm_dstr		= &wcn3990_wm_dst_ring,
+	.upd			= &wcn3990_ctrl1_upd,
 };
 
 const struct ath10k_hw_values wcn3990_values = {
@@ -458,9 +465,9 @@ static struct ath10k_hw_ce_dst_src_wm_regs qcax_wm_dst_ring = {
 };
 
 struct ath10k_hw_ce_regs qcax_ce_regs = {
-	.sr_base_addr		= 0x00000000,
+	.sr_base_addr_lo	= 0x00000000,
 	.sr_size_addr		= 0x00000004,
-	.dr_base_addr		= 0x00000008,
+	.dr_base_addr_lo	= 0x00000008,
 	.dr_size_addr		= 0x0000000c,
 	.ce_cmd_addr		= 0x00000018,
 	.misc_ie_addr		= 0x00000034,
@@ -926,3 +933,5 @@ const struct ath10k_hw_ops qca6174_ops = {
 	.set_coverage_class = ath10k_hw_qca988x_set_coverage_class,
 	.enable_pll_clk = ath10k_hw_qca6174_enable_pll_clock,
 };
+
+const struct ath10k_hw_ops wcn3990_ops = {};

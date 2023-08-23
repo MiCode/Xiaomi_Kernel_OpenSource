@@ -1,0 +1,512 @@
+/*
+ * Copyright (c) 2015-2017, 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "sdm660-wsa881x.dtsi"
+#include "sdm660-lpi.dtsi"
+
+&audio_apr {
+	q6core: qcom,q6core-audio {
+		compatible = "qcom,q6core-audio";
+	};
+};
+
+&q6core {
+	int_codec: sound {
+		status = "disabled";
+		compatible = "qcom,sdm660-asoc-snd";
+		qcom,model = "sdm660-snd-card";
+		qcom,wcn-btfm;
+		qcom,mi2s-audio-intf;
+		qcom,auxpcm-audio-intf;
+		qcom,ext-disp-audio-rx;
+		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
+		qcom,msm-mclk-freq = <9600000>;
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <1>;
+		qcom,msm-micbias2-ext-cap;
+		qcom,msm-hs-micbias-type = "external";
+		qcom,us-euro-gpios = <&us_euro_gpio>;
+		qcom,cdc-pdm-gpios = <&cdc_pdm_gpios>;
+		qcom,cdc-comp-gpios = <&cdc_comp_gpios>;
+		qcom,cdc-dmic-gpios = <&cdc_dmic_gpios>;
+		qcom,audio-routing = "RX_BIAS", "INT_MCLK0",
+			"SPK_RX_BIAS", "INT_MCLK0",
+			"INT_LDO_H", "INT_MCLK0",
+			"RX_I2S_CLK", "INT_MCLK0",
+			"TX_I2S_CLK", "INT_MCLK0",
+			"MIC BIAS External", "Handset Mic",
+			"MIC BIAS External2", "Headset Mic",
+			"MIC BIAS External", "Secondary Mic",
+			"AMIC1", "MIC BIAS External",
+			"AMIC2", "MIC BIAS External2",
+			"AMIC3", "MIC BIAS External",
+			"DMIC1", "MIC BIAS External",
+			"MIC BIAS External", "Digital Mic1",
+			"DMIC2", "MIC BIAS External",
+			"MIC BIAS External", "Digital Mic2",
+			"DMIC3", "MIC BIAS External",
+			"MIC BIAS External", "Digital Mic3",
+			"DMIC4", "MIC BIAS External",
+			"MIC BIAS External", "Digital Mic4",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT",
+			"PDM_IN_RX1", "PDM_OUT_RX1",
+			"PDM_IN_RX2", "PDM_OUT_RX2",
+			"PDM_IN_RX3", "PDM_OUT_RX3",
+			"ADC1_IN", "ADC1_OUT",
+			"ADC2_IN", "ADC2_OUT",
+			"ADC3_IN", "ADC3_OUT";
+		asoc-platform = <&pcm0>, <&pcm1>,
+				<&pcm2>, <&voip>,
+				<&voice>, <&loopback>,
+				<&compress>, <&hostless>,
+				<&afe>, <&lsm>,
+				<&routing>, <&pcm_noirq>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-pcm-dsp.2", "msm-voip-dsp",
+				"msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-lsm-client",
+				"msm-pcm-routing", "msm-pcm-dsp-noirq";
+		asoc-cpu = <&dai_dp>,
+				<&dai_mi2s0>, <&dai_mi2s1>,
+				<&dai_mi2s2>, <&dai_mi2s3>,
+				<&dai_mi2s4>,
+				<&dai_int_mi2s0>, <&dai_int_mi2s1>,
+				<&dai_int_mi2s2>, <&dai_int_mi2s3>,
+				<&dai_int_mi2s4>, <&dai_int_mi2s5>,
+				<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
+				<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
+				<&dai_quin_auxpcm>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>,
+				<&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&incall_record_rx>, <&incall_record_tx>,
+				<&incall_music_rx>, <&incall_music_2_rx>,
+				<&sb_7_rx>, <&sb_7_tx>,
+				<&sb_8_tx>, <&sb_8_rx>,
+				<&usb_audio_rx>, <&usb_audio_tx>,
+				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
+				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>,
+				<&dai_quin_tdm_rx_0>, <&dai_quin_tdm_tx_0>;
+		asoc-cpu-names = "msm-dai-q6-dp.24608",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-mi2s.4", "msm-dai-q6-mi2s.7",
+				"msm-dai-q6-mi2s.8",
+				"msm-dai-q6-mi2s.9", "msm-dai-q6-mi2s.10",
+				"msm-dai-q6-mi2s.11", "msm-dai-q6-mi2s.12",
+				"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+				"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
+				"msm-dai-q6-auxpcm.5", "msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16398",
+				"msm-dai-q6-dev.16399", "msm-dai-q6-dev.16401",
+				"msm-dai-q6-dev.16400", "msm-dai-q6-dev.28672",
+				"msm-dai-q6-dev.28673", "msm-dai-q6-tdm.36864",
+				"msm-dai-q6-tdm.36865", "msm-dai-q6-tdm.36880",
+				"msm-dai-q6-tdm.36881", "msm-dai-q6-tdm.36896",
+				"msm-dai-q6-tdm.36897", "msm-dai-q6-tdm.36912",
+				"msm-dai-q6-tdm.36913", "msm-dai-q6-tdm.36928",
+				"msm-dai-q6-tdm.36929";
+		asoc-codec = <&stub_codec>, <&msm_digital_codec>,
+			<&pmic_analog_codec>, <&msm_sdw_codec>,
+			<&ext_disp_audio_codec>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-dig-codec",
+			"analog-codec", "msm_sdw_codec",
+			"msm-ext-disp-audio-codec-rx";
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211_en>, <&wsa881x_212_en>,
+				<&wsa881x_213_en>, <&wsa881x_214_en>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+					"SpkrLeft", "SpkrRight";
+	};
+
+	tavil_snd: sound-tavil {
+		compatible = "qcom,sdm660-asoc-snd-tavil";
+		qcom,model = "sdm660-tavil-snd-card";
+		qcom,wcn-btfm;
+		qcom,mi2s-audio-intf;
+		qcom,auxpcm-audio-intf;
+		qcom,ext-disp-audio-rx;
+		qcom,msm-mi2s-master = <1>, <1>, <1>, <1>;
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
+			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"AMIC3", "MIC BIAS2",
+			"MIC BIAS2", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS2",
+			"MIC BIAS2", "ANCLeft Headset Mic",
+			"AMIC5", "MIC BIAS3",
+			"MIC BIAS3", "Handset Mic",
+			"DMIC0", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic0",
+			"DMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic1",
+			"DMIC2", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic2",
+			"DMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic3",
+			"DMIC4", "MIC BIAS4",
+			"MIC BIAS4", "Digital Mic4",
+			"DMIC5", "MIC BIAS4",
+			"MIC BIAS4", "Digital Mic5",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
+
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <1>;
+		qcom,us-euro-gpios = <&tavil_us_euro_sw>;
+		qcom,hph-en0-gpio = <&tavil_hph_en0>;
+		qcom,hph-en1-gpio = <&tavil_hph_en1>;
+		qcom,msm-mclk-freq = <9600000>;
+		qcom,usbc-analog-en1_gpio = <&wcd_usbc_analog_en1_gpio>;
+		qcom,usbc-analog-en2_n_gpio = <&wcd_usbc_analog_en2n_gpio>;
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>,
+				<&pcm_noirq>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-pcm-dsp.2", "msm-voip-dsp",
+				"msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-lsm-client",
+				"msm-pcm-routing", "msm-cpe-lsm",
+				"msm-compr-dsp", "msm-pcm-dsp-noirq";
+		asoc-cpu = <&dai_dp>, <&dai_mi2s0>,
+				<&dai_mi2s1>, <&dai_mi2s2>,
+				<&dai_mi2s3>, <&dai_mi2s4>,
+				<&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
+				<&dai_tert_auxpcm>, <&dai_quat_auxpcm>,
+				<&dai_quin_auxpcm>,
+				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
+				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
+				<&afe_proxy_tx>, <&incall_record_rx>,
+				<&incall_record_tx>, <&incall_music_rx>,
+				<&incall_music_2_rx>, <&sb_5_rx>, <&sb_6_rx>,
+				<&sb_7_rx>, <&sb_7_tx>, <&sb_8_tx>, <&sb_8_rx>,
+				<&usb_audio_rx>, <&usb_audio_tx>,
+				<&dai_pri_tdm_rx_0>, <&dai_pri_tdm_tx_0>,
+				<&dai_sec_tdm_rx_0>, <&dai_sec_tdm_tx_0>,
+				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_tx_0>,
+				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_tx_0>,
+				<&dai_quin_tdm_rx_0>, <&dai_quin_tdm_tx_0>;
+		asoc-cpu-names = "msm-dai-q6-dp.24608", "msm-dai-q6-mi2s.0",
+				"msm-dai-q6-mi2s.1", "msm-dai-q6-mi2s.2",
+				"msm-dai-q6-mi2s.3", "msm-dai-q6-mi2s.4",
+				"msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+				"msm-dai-q6-auxpcm.3", "msm-dai-q6-auxpcm.4",
+				"msm-dai-q6-auxpcm.5",
+				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+				"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
+				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+				"msm-dai-q6-dev.16395", "msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
+				"msm-dai-q6-dev.16396", "msm-dai-q6-dev.16398",
+				"msm-dai-q6-dev.16399", "msm-dai-q6-dev.16401",
+				"msm-dai-q6-dev.16400", "msm-dai-q6-dev.28672",
+				"msm-dai-q6-dev.28673", "msm-dai-q6-tdm.36864",
+				"msm-dai-q6-tdm.36865", "msm-dai-q6-tdm.36880",
+				"msm-dai-q6-tdm.36881", "msm-dai-q6-tdm.36896",
+				"msm-dai-q6-tdm.36897", "msm-dai-q6-tdm.36912",
+				"msm-dai-q6-tdm.36913", "msm-dai-q6-tdm.36928",
+				"msm-dai-q6-tdm.36929";
+		asoc-codec = <&stub_codec>, <&ext_disp_audio_codec>;
+		asoc-codec-names = "msm-stub-codec.1",
+				"msm-ext-disp-audio-codec-rx";
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_0211>, <&wsa881x_0212>,
+				<&wsa881x_0213>, <&wsa881x_0214>;
+		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
+					"SpkrLeft", "SpkrRight";
+	};
+
+};
+
+&slim_aud {
+	status = "okay";
+	dai_slim: msm_dai_slim {
+		compatible = "qcom,msm-dai-slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
+
+	wcd9335: tasha_codec {
+		compatible = "qcom,tasha-slim-pgd";
+		elemental-addr = [00 01 a0 01 17 02];
+
+		interrupt-parent = <&wcd9xxx_intc>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+			      17 18 19 20 21 22 23 24 25 26 27 28 29
+			      30>;
+
+		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
+
+		clock-names = "wcd_clk", "wcd_native_clk";
+		clocks = <&clock_audio AUDIO_PMI_CLK>,
+			<&clock_audio AUDIO_LPASS_MCLK_2>;
+
+		cdc-vdd-mic-bias-supply = <&pm660l_bob>;
+		qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;
+		qcom,cdc-vdd-mic-bias-current = <30400>;
+
+		qcom,cdc-static-supplies = "cdc-vdd-mic-bias";
+
+		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias2-mv = <1800>;
+		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias4-mv = <1800>;
+
+		qcom,cdc-mclk-clk-rate = <9600000>;
+		qcom,cdc-slim-ifd = "tasha-slim-ifd";
+		qcom,cdc-slim-ifd-elemental-addr = [00 00 a0 01 17 02];
+		qcom,cdc-dmic-sample-rate = <4800000>;
+		qcom,cdc-mad-dmic-rate = <600000>;
+	};
+
+	wcd934x_cdc: tavil_codec {
+		compatible = "qcom,tavil-slim-pgd";
+		elemental-addr = [00 01 50 02 17 02];
+
+		interrupt-parent = <&wcd9xxx_intc>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+			      17 18 19 20 21 22 23 24 25 26 27 28 29
+			      30 31>;
+
+		qcom,wcd-rst-gpio-node = <&wcd_rst_gpio>;
+
+		clock-names = "wcd_clk";
+		clocks = <&clock_audio_lnbb 0>;
+
+		cdc-vdd-mic-bias-supply = <&pm660l_bob>;
+		qcom,cdc-vdd-mic-bias-voltage = <3300000 3300000>;
+		qcom,cdc-vdd-mic-bias-current = <30400>;
+
+		qcom,cdc-static-supplies = "cdc-vdd-mic-bias";
+
+		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias2-mv = <1800>;
+		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias4-mv = <1800>;
+
+		qcom,cdc-mclk-clk-rate = <9600000>;
+		qcom,cdc-slim-ifd = "tavil-slim-ifd";
+		qcom,cdc-slim-ifd-elemental-addr = [00 00 50 02 17 02];
+		qcom,cdc-dmic-sample-rate = <4800000>;
+		qcom,cdc-mad-dmic-rate = <600000>;
+
+		qcom,wdsp-cmpnt-dev-name = "tavil_codec";
+
+		wcd_spi_0: wcd_spi {
+			compatible = "qcom,wcd-spi-v2";
+			qcom,master-bus-num = <7>;
+			qcom,chip-select = <0>;
+			qcom,max-frequency = <24000000>;
+			qcom,mem-base-addr = <0x100000>;
+		};
+
+		wcd_usbc_analog_en1_gpio: msm_cdc_pinctrl_usbc_audio_en1 {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&wcd_usbc_analog_en1_active>;
+			pinctrl-1 = <&wcd_usbc_analog_en1_idle>;
+		};
+
+		wcd_usbc_analog_en2n_gpio: msm_cdc_pinctrl_usbc_audio_en2 {
+			compatible = "qcom,msm-cdc-pinctrl";
+			pinctrl-names = "aud_active", "aud_sleep";
+			pinctrl-0 = <&wcd_usbc_analog_en2n_active>;
+			pinctrl-1 = <&wcd_usbc_analog_en2n_idle>;
+		};
+	};
+};
+
+&pm660l_3 {
+	pmic_analog_codec: anlg-cdc@f000 {
+		status = "disabled";
+		compatible = "qcom,pmic-analog-codec";
+		reg = <0xf000 0x200>;
+		#address-cells = <2>;
+		#size-cells = <0>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x3 0xf0 0x0 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x1 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x2 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x3 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x4 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x5 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x6 IRQ_TYPE_NONE>,
+				<0x3 0xf0 0x7 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x0 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x1 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x2 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x3 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x4 IRQ_TYPE_NONE>,
+				<0x3 0xf1 0x5 IRQ_TYPE_NONE>;
+		interrupt-names = "spk_cnp_int",
+				  "spk_clip_int",
+				  "spk_ocp_int",
+				  "ins_rem_det1",
+				  "but_rel_det",
+				  "but_press_det",
+				  "ins_rem_det",
+				  "mbhc_int",
+				  "ear_ocp_int",
+				  "hphr_ocp_int",
+				  "hphl_ocp_det",
+				  "ear_cnp_int",
+				  "hphr_cnp_int",
+				  "hphl_cnp_int";
+
+
+		cdc-vdda-cp-supply = <&pm660_s4>;
+		qcom,cdc-vdda-cp-voltage = <1900000 2050000>;
+		qcom,cdc-vdda-cp-current = <50000>;
+
+		cdc-vdd-pa-supply = <&pm660_s4>;
+		qcom,cdc-vdd-pa-voltage = <2040000 2040000>;
+		qcom,cdc-vdd-pa-current = <260000>;
+
+		cdc-vdd-mic-bias-supply = <&pm660l_l7>;
+		qcom,cdc-vdd-mic-bias-voltage = <3088000 3088000>;
+		qcom,cdc-vdd-mic-bias-current = <5000>;
+
+		qcom,cdc-mclk-clk-rate = <9600000>;
+
+		qcom,cdc-static-supplies = "cdc-vdda-cp",
+					   "cdc-vdd-pa";
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
+
+		/*
+		 * Not marking address @ as driver searches this child
+		 * with name msm-dig-codec
+		 */
+		msm_digital_codec: msm-dig-codec {
+			compatible = "qcom,msm-digital-codec";
+			reg = <0x152c0000 0x0>;
+		};
+	};
+};
+
+&soc {
+	cdc_pdm_gpios: cdc_pdm_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_pdm_gpios_active &cdc_pdm_2_gpios_active>;
+		pinctrl-1 = <&cdc_pdm_gpios_sleep &cdc_pdm_2_gpios_sleep>;
+		qcom,lpi-gpios;
+	};
+
+	cdc_comp_gpios: cdc_comp_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_comp_gpios_active>;
+		pinctrl-1 = <&cdc_comp_gpios_sleep>;
+		qcom,lpi-gpios;
+	};
+
+	cdc_dmic_gpios: cdc_dmic_pinctrl {
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&cdc_dmic12_gpios_active
+				&cdc_dmic34_gpios_active>;
+		pinctrl-1 = <&cdc_dmic12_gpios_sleep
+				&cdc_dmic34_gpios_sleep>;
+		qcom,lpi-gpios;
+	};
+
+	cdc_sdw_gpios: sdw_clk_data_pinctrl {
+	      compatible = "qcom,msm-cdc-pinctrl";
+	      pinctrl-names = "aud_active", "aud_sleep";
+	      pinctrl-0 = <&sdw_clk_active &sdw_data_active>;
+	      pinctrl-1 = <&sdw_clk_sleep &sdw_data_sleep>;
+	};
+
+	wsa_spkr_en1: wsa_spkr_en1_pinctrl {
+	      compatible = "qcom,msm-cdc-pinctrl";
+	      pinctrl-names = "aud_active", "aud_sleep";
+	      pinctrl-0 = <&spkr_1_sd_n_active>;
+	      pinctrl-1 = <&spkr_1_sd_n_sleep>;
+	};
+
+	wsa_spkr_en2: wsa_spkr_en2_pinctrl {
+	      compatible = "qcom,msm-cdc-pinctrl";
+	      pinctrl-names = "aud_active", "aud_sleep";
+	      pinctrl-0 = <&spkr_2_sd_n_active>;
+	      pinctrl-1 = <&spkr_2_sd_n_sleep>;
+	};
+
+	msm_sdw_codec: msm-sdw-codec@152c1000 {
+		status = "disabled";
+		compatible = "qcom,msm-sdw-codec";
+		reg = <0x152c1000 0x0>;
+		interrupts = <0 161 0>;
+		interrupt-names = "swr_master_irq";
+		qcom,cdc-sdw-gpios = <&cdc_sdw_gpios>;
+
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_211_en: wsa881x_en@20170211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x20170211>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+			};
+
+			wsa881x_212_en: wsa881x_en@20170212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x20170212>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+			};
+
+			wsa881x_213_en: wsa881x_en@21170213 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x21170213>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en1>;
+			};
+
+			wsa881x_214_en: wsa881x_en@21170214 {
+				compatible = "qcom,wsa881x";
+				reg = <0x0 0x21170214>;
+				qcom,spkr-sd-n-node = <&wsa_spkr_en2>;
+			};
+		};
+	};
+};
+
+&pm660_gpios {
+	gpio@c200 {
+		status = "ok";
+		qcom,mode = <1>;
+		qcom,pull = <4>;
+		qcom,vin-sel = <0>;
+		qcom,src-sel = <2>;
+		qcom,master-en = <1>;
+		qcom,out-strength = <2>;
+	};
+};

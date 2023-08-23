@@ -25,6 +25,7 @@
 #include <linux/seq_file.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/hardware_info.h>
 #include "usbpd.h"
 
 #define USB_PDPHY_MAX_DATA_OBJ_LEN	28
@@ -884,6 +885,7 @@ static int pdphy_probe(struct platform_device *pdev)
 	}
 
 	pdphy_create_debugfs_entries(pdphy);
+	hardwareinfo_set_prop(HARDWARE_USB_PD, "PM7150_PDPHY");
 
 	return 0;
 }

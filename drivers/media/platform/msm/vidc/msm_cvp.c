@@ -1,4 +1,4 @@
-/* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -375,9 +375,6 @@ static int msm_cvp_register_buffer(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "%s: cbuf alloc failed\n", __func__);
 		return -ENOMEM;
 	}
-	mutex_lock(&inst->cvpbufs.lock);
-	list_add_tail(&cbuf->list, &inst->cvpbufs.list);
-	mutex_unlock(&inst->cvpbufs.lock);
 
 	memcpy(&cbuf->buf, buf, sizeof(struct msm_cvp_buffer));
 	cbuf->smem.buffer_type = get_hal_buftype(__func__, buf->type);
@@ -403,14 +400,14 @@ static int msm_cvp_register_buffer(struct msm_vidc_inst *inst,
 		print_cvp_buffer(VIDC_ERR, "register failed", inst, cbuf);
 		goto exit;
 	}
+	mutex_lock(&inst->cvpbufs.lock);
+	list_add_tail(&cbuf->list, &inst->cvpbufs.list);
+	mutex_unlock(&inst->cvpbufs.lock);
 	return rc;
 
 exit:
 	if (cbuf->smem.device_addr)
 		msm_smem_unmap_dma_buf(inst, &cbuf->smem);
-	mutex_lock(&inst->cvpbufs.lock);
-	list_del(&cbuf->list);
-	mutex_unlock(&inst->cvpbufs.lock);
 	kfree(cbuf);
 	cbuf = NULL;
 

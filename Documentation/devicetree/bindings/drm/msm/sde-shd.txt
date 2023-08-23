@@ -1,5 +1,12 @@
 QTI Snapdragon Display Engine (SDE) shared display
 
+Snapdragon Display Engine shared display provids the capability to virtualize
+one physical connector to multiple virtual connectors sit at different blend
+stages. Each virtual connector can be attached to different CRTCs and commit
+independently.
+
+This device must be added to the connectors list of qcom,sde-kms device.
+
 Required properties:
 - compatible:		"qcom,shared-display"
 - qcom,shared-display-base: node handle of qcom,shared-display-base, see below.
@@ -10,10 +17,15 @@ Required properties:
 			display located on the same base display should not overlap
 			with their blend stages. The maximum stages should be within
 			the range of layer mixer hardware capability.
+
+Optional properties:
 - qcom,shared-display-src-mode: source resolution of the shared display, which is also
 			the framebuffer size. It contains two properties:
 			qcom,mode-h-active: A u32 property defines horizontal resolution.
 			qcom,mode-v-active: A u32 property defines vertical resolution.
+			If qcom,shared-display-src-mode is not defined, horizontal and
+			vertical resolution will be the same as base display, and
+			qcom,shared-display-dst-mode will be ignored.
 - qcom,shared-display-dst-mode: destination rectangle in the shared display, which also
 			includes the padding lines if line padding feature is enabled.
 			It contains 4 properties:
@@ -21,12 +33,24 @@ Required properties:
 			qcom,mode-y-offset: A u32 property of y offset.
 			qcom,mode-width: A u32 property of width.
 			qcom,mode-height: A u32 property of height, including line padding.
-
+- qcom,shared-display-name:  A string used as a descriptive name of the shared display.
+			If qcom,shared-display-name is not defined, a system auto-generated
+			name will be used like DSI-X or DP-X.
 
 qcom,shared-display-base properties:
+
+Required properties:
 - qcom,shared-display-base-intf: A u32 property defines intf index of the base display.
+			If qcom,shared-display-base-intf is defined,
+			qcom,shared-display-base-connector will be ignored.
+- qcom,shared-display-base-connector: A string property defines connector name of the base
+			display. It is another way to identify the base connector when
+			qcom,shared-display-base-intf is not defined.
+
+Optional properties:
 - qcom,shared-display-base-mst: A u32 property defines the DP MST branch port, needed if
-			the base display sits on DP MST display.
+			the base display sits on DP MST display. Only used when
+			qcom,shared-display-base-intf is defined.
 - qcom,shared-display-base-mode: timing of the physical base display, contains the
 			following properties:
 			qcom,mode-h-active: A u32 property defines the horizontal active size.
@@ -43,8 +67,10 @@ qcom,shared-display-base properties:
 						is high.
 			qcom,mode-refresh-rate: A u32 property defines vertial refresh rate.
 			qcom,mode-clock-in-khz: A u32 property defines clock in kHz.
+			If qcom,shared-display-base-mode is not defined, auto-detected mode
+			from panel will be used as base mode.
 
-Example:
+Example of static mode using intf to select base connector:
 
 / {
 	...
@@ -71,6 +97,7 @@ Example:
 		compatible = "qcom,shared-display";
 		qcom,shared-display-base = <&sde_sh_base0>;
 		qcom,blend-stage-range = <0 5>;
+		qcom,shared-display-name = "shared-disp-0";
 		qcom,shared-display-src-mode {
 			qcom,mode-h-active = <1920>;
 			qcom,mode-v-active = <2160>;
@@ -87,6 +114,7 @@ Example:
 		compatible = "qcom,shared-display";
 		qcom,shared-display-base = <&sde_sh_base0>;
 		qcom,blend-stage-range = <5 5>;
+		qcom,shared-display-name = "shared-disp-1";
 		qcom,shared-display-src-mode {
 			qcom,mode-h-active = <1920>;
 			qcom,mode-v-active = <2160>;
@@ -97,5 +125,29 @@ Example:
 			qcom,mode-width = <1920>;
 			qcom,mode-height = <2160>;
 		};
+	};
+};
+
+Example of dynamic mode using name to select base connector:
+
+/ {
+	...
+
+	sde_sh_base0: qcom,shared-display-base@0 {
+		qcom,shared-display-base-connector = "DSI-1";
+	};
+
+	sde_sh0: qcom,shared-display@0 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <0 5>;
+		qcom,shared-display-name = "shared-disp-0";
+	};
+
+	sde_sh1: qcom,shared-display@1 {
+		compatible = "qcom,shared-display";
+		qcom,shared-display-base = <&sde_sh_base0>;
+		qcom,blend-stage-range = <5 5>;
+		qcom,shared-display-name = "shared-disp-1";
 	};
 };

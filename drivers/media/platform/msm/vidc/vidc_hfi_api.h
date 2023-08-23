@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,6 +119,8 @@ enum hal_extradata_id {
 	HAL_EXTRADATA_VPX_COLORSPACE,
 	HAL_EXTRADATA_UBWC_CR_STATS_INFO,
 	HAL_EXTRADATA_HDR10PLUS_METADATA,
+	HAL_EXTRADATA_ENC_DTS_METADATA,
+	HAL_EXTRADATA_INPUT_CROP,
 };
 
 enum hal_property {
@@ -661,8 +663,8 @@ struct hal_heic_grid_enable {
 
 enum hal_flip {
 	HAL_FLIP_NONE,
-	HAL_FLIP_HORIZONTAL,
 	HAL_FLIP_VERTICAL,
+	HAL_FLIP_HORIZONTAL,
 	HAL_FLIP_BOTH,
 	HAL_UNUSED_FLIP = 0x10000000,
 };
@@ -795,6 +797,8 @@ enum hal_capability {
 	HAL_CAPABILITY_MAX_VIDEOCORES,
 	HAL_CAPABILITY_MAX_WORKMODES,
 	HAL_CAPABILITY_UBWC_CR_STATS,
+	HAL_CAPABILITY_ROTATION,
+	HAL_CAPABILITY_COLOR_SPACE_CONVERSION,
 	HAL_UNUSED_CAPABILITY = 0x10000000,
 };
 
@@ -991,10 +995,9 @@ struct hal_fw_info {
 };
 
 enum hal_flush {
-	HAL_FLUSH_INPUT,
-	HAL_FLUSH_OUTPUT,
-	HAL_FLUSH_ALL,
-	HAL_UNUSED_FLUSH = 0x10000000,
+	HAL_FLUSH_INPUT = BIT(0),
+	HAL_FLUSH_OUTPUT = BIT(1),
+	HAL_FLUSH_ALL = HAL_FLUSH_INPUT | HAL_FLUSH_OUTPUT,
 };
 
 enum hal_event_type {
@@ -1248,6 +1251,8 @@ struct msm_vidc_capability {
 	struct hal_capability_supported rc_modes;
 	struct hal_capability_supported blur_width;
 	struct hal_capability_supported blur_height;
+	struct hal_capability_supported color_space_caps;
+	struct hal_capability_supported rotation;
 	struct hal_capability_supported slice_delivery_mode;
 	struct hal_capability_supported slice_bytes;
 	struct hal_capability_supported slice_mbs;

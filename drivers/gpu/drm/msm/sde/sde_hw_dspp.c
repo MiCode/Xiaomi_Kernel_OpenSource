@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -171,6 +171,18 @@ static void _setup_dspp_ops(struct sde_hw_dspp *c, unsigned long features)
 					c->ops.setup_gamut =
 					    sde_setup_dspp_3d_gamutv41;
 				}
+			} else if (c->cap->sblk->gamut.version ==
+					SDE_COLOR_PROCESS_VER(0x4, 2)) {
+				ret = reg_dmav1_init_dspp_op_v4(
+					SDE_DSPP_GAMUT, c->idx);
+				c->ops.setup_gamut = NULL;
+				if (!ret) {
+					c->ops.setup_gamut =
+					    reg_dmav1_setup_dspp_3d_gamutv42;
+				} else {
+					c->ops.setup_gamut =
+					    sde_setup_dspp_3d_gamutv41;
+				}
 			}
 			break;
 		case SDE_DSPP_GC:
@@ -261,6 +273,13 @@ struct sde_hw_dspp *sde_hw_dspp_init(enum sde_dspp idx,
 
 	sde_dbg_reg_register_dump_range(SDE_DBG_NAME, cfg->name, c->hw.blk_off,
 			c->hw.blk_off + c->hw.length, c->hw.xin_id);
+
+	if ((cfg->sblk->ad.id == SDE_DSPP_AD) && cfg->sblk->ad.base) {
+		sde_dbg_reg_register_dump_range(SDE_DBG_NAME, "ad4",
+			c->hw.blk_off + cfg->sblk->ad.base,
+			c->hw.blk_off + cfg->sblk->ad.base + SDE_AD4_REG_LEN,
+			c->hw.xin_id);
+	}
 
 	return c;
 

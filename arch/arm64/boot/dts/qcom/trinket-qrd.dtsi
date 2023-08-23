@@ -306,6 +306,7 @@
 	qcom,bl-pmic-pwm-period-usecs = <100>;
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-default-level = <102>;
 	qcom,platform-te-gpio = <&tlmm 89 0>;
 	qcom,platform-reset-gpio = <&tlmm 90 0>;
 };
@@ -317,6 +318,7 @@
 	qcom,bl-pmic-pwm-period-usecs = <100>;
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-bl-default-level = <102>;
 	qcom,platform-reset-gpio = <&tlmm 90 0>;
 };
 
@@ -366,8 +368,9 @@
 		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrLeft";
 		qcom,msm-mbhc-hphl-swh = <1>;
 		qcom,msm-mbhc-gnd-swh = <1>;
-		asoc-codec  = <&stub_codec>, <&bolero>;
-		asoc-codec-names = "msm-stub-codec.1", "bolero_codec";
+		asoc-codec  = <&stub_codec>, <&bolero>, <&ext_disp_audio_codec>;
+		asoc-codec-names = "msm-stub-codec.1", "bolero_codec",
+				   "msm-ext-disp-audio-codec-rx";
 		qcom,codec-max-aux-devs = <1>;
 		qcom,codec-aux-devs = <&wcd937x_codec>;
 		qcom,msm_audio_ssr_devs = <&audio_apr>, <&q6core>,

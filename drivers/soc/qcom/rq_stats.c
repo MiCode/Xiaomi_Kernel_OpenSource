@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, 2017-2018 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, 2017-2019 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,7 @@ static void def_work_fn(struct work_struct *work)
 static ssize_t show_def_timer_ms(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	int64_t diff;
+	uint64_t diff;
 	unsigned int udiff;
 
 	diff = ktime_to_ns(ktime_get()) - rq_info.def_start_time;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,19 +20,21 @@
 #include <linux/device.h>
 #include "dp_parser.h"
 #include "dp_catalog.h"
+#include <soc/qcom/msm_dp_aux_bridge.h>
 
 /**
  * enum dp_hpd_type - dp hpd type
  * @DP_HPD_USBPD:   USB type-c based HPD
  * @DP_HPD_GPIO:    GPIO based HPD
- * @DP_HPD_BUILTIN: Controller built-in HPD
+ * @DP_HPD_LPHW:    LPHW based HPD
+ * @DP_HPD_BRIDGE:  External bridge HPD
  */
 
 enum dp_hpd_type {
 	DP_HPD_USBPD,
 	DP_HPD_GPIO,
 	DP_HPD_LPHW,
-	DP_HPD_BUILTIN,
+	DP_HPD_BRIDGE,
 };
 
 /**
@@ -63,6 +65,7 @@ struct dp_hpd_cb {
  * @host_deinit: source or host side de-initializations
  * @simulate_connect: simulate disconnect or connect for debug mode
  * @simulate_attention: simulate attention messages for debug mode
+ * @wakeup_phy: wakeup USBPD phy layer
  */
 struct dp_hpd {
 	enum dp_hpd_type type;
@@ -71,6 +74,7 @@ struct dp_hpd {
 	bool hpd_irq;
 	bool alt_mode_cfg_done;
 	bool multi_func;
+	bool peer_usb_comm;
 
 	void (*isr)(struct dp_hpd *dp_hpd);
 	int (*register_hpd)(struct dp_hpd *dp_hpd);
@@ -78,20 +82,26 @@ struct dp_hpd {
 	void (*host_deinit)(struct dp_hpd *hpd, struct dp_catalog_hpd *catalog);
 	int (*simulate_connect)(struct dp_hpd *dp_hpd, bool hpd);
 	int (*simulate_attention)(struct dp_hpd *dp_hpd, int vdo);
+	void (*wakeup_phy)(struct dp_hpd *dp_hpd, bool wakeup);
 };
 
 /**
  * dp_hpd_get() - configure and get the DisplayPlot HPD module data
  *
  * @dev: device instance of the caller
- * @parser: DP parser
+ * @parser: pointer to DP parser module
+ * @catalog: pointer to DP catalog module
+ * @pd: handle for the ubspd driver data
+ * @bridge: handle for bridge driver data
  * @cb: callback function for HPD response
  * return: pointer to allocated hpd module data
  *
  * This function sets up the hpd module
  */
 struct dp_hpd *dp_hpd_get(struct device *dev, struct dp_parser *parser,
-		struct dp_catalog_hpd *catalog, struct dp_hpd_cb *cb);
+		struct dp_catalog_hpd *catalog, struct usbpd *pd,
+		struct msm_dp_aux_bridge *aux_bridge,
+		struct dp_hpd_cb *cb);
 
 /**
  * dp_hpd_put()

@@ -85,6 +85,12 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_DRIVER_UNLOADING:
 			seq_puts(s, "DRIVER_UNLOADING");
 			continue;
+		case CNSS_DRIVER_IDLE_RESTART:
+			seq_puts(s, "IDLE_RESTART");
+			continue;
+		case CNSS_DRIVER_IDLE_SHUTDOWN:
+			seq_puts(s, "IDLE_SHUTDOWN");
+			continue;
 		case CNSS_DRIVER_PROBED:
 			seq_puts(s, "DRIVER_PROBED");
 			continue;
@@ -99,6 +105,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 			continue;
 		case CNSS_DRIVER_DEBUG:
 			seq_puts(s, "DRIVER_DEBUG");
+			continue;
+		case CNSS_IN_SUSPEND_RESUME:
+			seq_puts(s, "IN_SUSPEND_RESUME");
 			continue;
 		}
 
@@ -596,6 +605,9 @@ static int cnss_show_quirks_state(struct seq_file *s,
 			continue;
 		case ENABLE_DAEMON_SUPPORT:
 			seq_puts(s, "DAEMON_SUPPORT");
+			continue;
+		case IGNORE_PCI_LINK_FAILURE:
+			seq_puts(s, "IGNORE_PCI_LINK_FAILURE");
 			continue;
 		}
 

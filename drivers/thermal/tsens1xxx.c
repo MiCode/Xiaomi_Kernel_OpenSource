@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,10 +41,11 @@
 
 #define TSENS_TRDY_MASK			BIT(0)
 
-#define TSENS_SN_STATUS_ADDR(n)	((n) + 0x44)
+#define TSENS_SN_STATUS_ADDR(n)		(n)
 #define TSENS_SN_STATUS_VALID		BIT(14)
 #define TSENS_SN_STATUS_VALID_MASK	0x4000
-#define TSENS_TRDY_ADDR(n)		((n) + 0x84)
+#define TSENS_TRDY_ADDR(n)		(n)
+
 
 #define TSENS_CTRL_ADDR(n)		(n)
 #define TSENS_EN				BIT(0)
@@ -103,8 +104,10 @@ static int tsens1xxx_get_temp(struct tsens_sensor *sensor, int *temp)
 
 	tmdev = sensor->tmdev;
 
-	trdy_addr = TSENS_TRDY_ADDR(tmdev->tsens_tm_addr);
-	sensor_addr = TSENS_SN_STATUS_ADDR(tmdev->tsens_tm_addr);
+	trdy_addr = TSENS_TRDY_ADDR(tmdev->tsens_tm_addr +
+		tmdev->ctrl_data->tsens_trdy_offset);
+	sensor_addr = TSENS_SN_STATUS_ADDR(tmdev->tsens_tm_addr +
+		tmdev->ctrl_data->tsens_sn_offset);
 
 	code = readl_relaxed(sensor_addr +
 			(sensor->hw_id << TSENS_STATUS_ADDR_OFFSET));
@@ -324,7 +327,8 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 	void __iomem *sensor_status_ctrl_addr;
 	u32 rc = 0, addr_offset;
 
-	sensor_status_addr = TSENS_SN_STATUS_ADDR(tm->tsens_tm_addr);
+	sensor_status_addr = TSENS_SN_STATUS_ADDR(tm->tsens_tm_addr +
+				tm->ctrl_data->tsens_sn_offset);
 	sensor_status_ctrl_addr =
 		TSENS_S0_UPPER_LOWER_STATUS_CTRL_ADDR(tm->tsens_tm_addr);
 
@@ -419,7 +423,8 @@ static int tsens1xxx_hw_sensor_en(struct tsens_device *tmdev,
 	void __iomem *srot_addr;
 	unsigned int srot_val, sensor_en;
 
-	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
+	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr +
+			tmdev->ctrl_data->tsens_srot_offset);
 	srot_val = readl_relaxed(srot_addr);
 	srot_val = TSENS_CTRL_SENSOR_EN_MASK(srot_val);
 
@@ -433,7 +438,8 @@ static int tsens1xxx_hw_init(struct tsens_device *tmdev)
 	void __iomem *srot_addr;
 	unsigned int srot_val;
 
-	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr + 0x4);
+	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_srot_addr +
+			tmdev->ctrl_data->tsens_srot_offset);
 	srot_val = readl_relaxed(srot_addr);
 	if (!(srot_val & TSENS_EN)) {
 		pr_err("TSENS device is not enabled\n");
@@ -508,6 +514,9 @@ const struct tsens_data data_tsens14xx = {
 	.mtc = true,
 	.ver_major = 1,
 	.ver_minor = 4,
+	.tsens_srot_offset = TSENS_SROT_OFFSET_8937,
+	.tsens_sn_offset = TSENS_SN_STATUS_ADDR_8937,
+	.tsens_trdy_offset = TSENS_TRDY_ADDR_8937,
 };
 
 static const struct tsens_ops ops_tsens1xxx_405 = {
@@ -527,4 +536,28 @@ const struct tsens_data data_tsens14xx_405 = {
 	.mtc = true,
 	.ver_major = 1,
 	.ver_minor = 4,
+	.tsens_srot_offset = TSENS_SROT_OFFSET_405,
+	.tsens_sn_offset = TSENS_SN_STATUS_ADDR_405,
+	.tsens_trdy_offset = TSENS_TRDY_ADDR_405,
+};
+
+static const struct tsens_ops ops_tsens1xxx_9607 = {
+	.hw_init = tsens1xxx_hw_init,
+	.get_temp = tsens1xxx_get_temp,
+	.set_trips = tsens1xxx_set_trip_temp,
+	.interrupts_reg = tsens1xxx_register_interrupts,
+	.sensor_en = tsens1xxx_hw_sensor_en,
+	.calibrate = calibrate_9607,
+	.dbg = tsens2xxx_dbg,
+};
+
+const struct tsens_data data_tsens14xx_9607 = {
+	.num_sensors = TSENS_NUM_SENSORS_9607,
+	.ops = &ops_tsens1xxx_9607,
+	.valid_status_check = true,
+	.ver_major = 1,
+	.ver_minor = 4,
+	.tsens_srot_offset = TSENS_SROT_OFFSET_9607,
+	.tsens_sn_offset = TSENS_SN_STATUS_ADDR_9607,
+	.tsens_trdy_offset = TSENS_TRDY_ADDR_9607,
 };

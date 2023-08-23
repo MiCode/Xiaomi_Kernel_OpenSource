@@ -16,6 +16,8 @@ Required properties:
  - dma-names :  dma channel names.
  - qcom,clk-freq-out : Desired I2C bus clock frequency in Hz
  - qcom,clk-freq-in  : Supplied core clock frequency in Hz.
+ - qcom,i2c-dat : specifies GPIO which corresponds to the I2C data line.
+ - qcom,i2c-clk : specifies GPIO which corresponds to the I2C clock line.
 
 Required alias:
  - The desired bus-number is specified by an alias with the following format:
@@ -51,5 +53,7 @@ Example:
 		qcom,clk-freq-in  = <24000000>;
 		qcom,noise-rjct-scl = <0>;
 		qcom,noise-rjct-sda = <0>;
+		qcom,i2c-dat = <&tlmm 67 0x00>;
+		qcom,i2c-clk = <&tlmm 68 0x00>;
 
 	};

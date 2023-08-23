@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,11 +15,20 @@
 #include <linux/mailbox_client.h>
 #include <linux/mailbox/qmp.h>
 #include "minidump_private.h"
+#include <linux/ipc_logging.h>
 
 struct device;
 struct module;
 struct pil_priv;
 
+extern void *pil_ipc_log;
+
+#define pil_ipc(__msg, ...) \
+do { \
+	if (pil_ipc_log) \
+		ipc_log_string(pil_ipc_log, \
+			"[%s]: "__msg, __func__,  ##__VA_ARGS__); \
+} while (0)
 /**
  * struct pil_desc - PIL descriptor
  * @name: string used for pil_get()
@@ -60,15 +69,19 @@ struct pil_desc {
 	bool shutdown_fail;
 	bool modem_ssr;
 	bool clear_fw_region;
+	bool sequential_loading;
 	u32 subsys_vmid;
 	bool signal_aop;
 	struct mbox_client cl;
 	struct mbox_chan *mbox;
+#ifdef CONFIG_QCOM_MINIDUMP
 	struct md_ss_toc *minidump_ss;
 	struct md_ss_toc **aux_minidump;
 	int minidump_id;
 	int *aux_minidump_ids;
 	int num_aux_minidump_ids;
+	bool minidump_as_elf32;
+#endif
 };
 
 /**

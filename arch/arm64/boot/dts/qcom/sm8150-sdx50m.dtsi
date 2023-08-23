@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,10 @@
 	qcom,mdm-link-info = "0305_01.01.00";
 };
 
+&pil_modem {
+	qcom,poff-depends-on = "esoc0";
+};
+
 &wil6210 {
 	status = "disabled";
 };
@@ -25,7 +29,7 @@
 	qcom,smmu-cfg = <0>;
 	memory-region = <&mhi_mem>;
 	mhi,use-bb;
-	mhi,buffer-len = <0x8000>;
+	mhi,allow-m1; /* use legacy mode for suspends */
 	qcom,addr-win = <0x0 0xa0000000 0x0 0xa4bfffff>;
 
 	mhi_channels {
@@ -68,10 +72,18 @@
 		mhi_chan@108 {
 			status = "disabled";
 		};
+
+		mhi_chan@109 {
+			status = "disabled";
+		};
+
+		mhi_chan@110 {
+			status = "disabled";
+		};
 	};
 
 	mhi_events {
-		mhi_event@4 {
+		mhi_event@5 {
 			mhi,num-elements = <0>;
 			mhi,intmod = <0>;
 			mhi,msi = <5>;
@@ -83,7 +95,7 @@
 			mhi,offload;
 		};
 
-		mhi_event@5 {
+		mhi_event@6 {
 			mhi,num-elements = <0>;
 			mhi,intmod = <0>;
 			mhi,msi = <6>;
@@ -95,27 +107,61 @@
 			mhi,offload;
 		};
 
-		mhi_events@6 {
+		mhi_event@7 {
+			mhi,chan = <102>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
 			status = "disabled";
 		};
 
-		mhi_events@7 {
+		mhi_event@8 {
+			mhi,chan = <103>;
+			mhi,hw-ev;
 			status = "disabled";
 		};
 
-		mhi_events@8 {
+		mhi_event@9 {
+			mhi,chan = <105>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
 			status = "disabled";
 		};
 
-		mhi_events@9 {
+		mhi_event@10 {
+			mhi,chan = <106>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
 			status = "disabled";
 		};
 
-		mhi_events@10 {
+		mhi_event@11 {
+			mhi,chan = <107>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
 			status = "disabled";
 		};
 
-		mhi_events@11 {
+		mhi_event@12 {
+			mhi,chan = <108>;
+			mhi,hw-ev;
+			mhi,client-manage;
+			mhi,offload;
+			status = "disabled";
+		};
+
+		mhi_event@13 {
+			mhi,chan = <109>;
+			mhi,hw-ev;
+			status = "disabled";
+		};
+
+		mhi_event@14 {
+			mhi,chan = <110>;
+			mhi,hw-ev;
 			status = "disabled";
 		};
 	};
@@ -158,10 +204,18 @@
 		mhi_chan@108 {
 			status = "disabled";
 		};
+
+		mhi_chan@109 {
+			status = "disabled";
+		};
+
+		mhi_chan@110 {
+			status = "disabled";
+		};
 	};
 
 	mhi_events {
-		mhi_event@4 {
+		mhi_event@5 {
 			mhi,num-elements = <0>;
 			mhi,intmod = <0>;
 			mhi,msi = <5>;
@@ -173,7 +227,7 @@
 			mhi,offload;
 		};
 
-		mhi_event@5 {
+		mhi_event@6 {
 			mhi,num-elements = <0>;
 			mhi,intmod = <0>;
 			mhi,msi = <6>;
@@ -185,27 +239,35 @@
 			mhi,offload;
 		};
 
-		mhi_events@6 {
+		mhi_event@7 {
 			status = "disabled";
 		};
 
-		mhi_events@7 {
+		mhi_event@8 {
 			status = "disabled";
 		};
 
-		mhi_events@8 {
+		mhi_event@9 {
 			status = "disabled";
 		};
 
-		mhi_events@9 {
+		mhi_event@10 {
 			status = "disabled";
 		};
 
-		mhi_events@10 {
+		mhi_event@11 {
 			status = "disabled";
 		};
 
-		mhi_events@11 {
+		mhi_event@12 {
+			status = "disabled";
+		};
+
+		mhi_event@13 {
+			status = "disabled";
+		};
+
+		mhi_event@14 {
 			status = "disabled";
 		};
 	};
@@ -245,6 +307,10 @@
 };
 
 &soc {
+	ipa_hw: qcom,ipa@1e00000 {
+		qcom,ipa-mhi-proxy;
+	};
+
 	imp: qcom,ipa-mhi-proxy {
 		compatible = "qcom,ipa-mhi-proxy";
 		qcom,mhi-chdb-base = <0x40300300>;
@@ -560,23 +626,6 @@
 				temperature = <125000>;
 				hysteresis = <1000>;
 				type = "passive";
-			};
-		};
-	};
-
-	soc {
-		trips {
-			soc_trip1: soc-trip1 {
-				temperature = <20>;
-				hysteresis = <0>;
-				type = "passive";
-			};
-		};
-		cooling-maps {
-			soc_modem {
-				trip = <&soc_trip1>;
-				cooling-device =
-					<&modem1_proc 3 3>;
 			};
 		};
 	};

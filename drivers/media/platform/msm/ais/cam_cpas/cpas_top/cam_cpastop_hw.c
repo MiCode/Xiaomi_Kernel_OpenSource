@@ -21,9 +21,11 @@
 #include "cam_cpas_soc.h"
 #include "cpastop100.h"
 #include "cpastop_v150_100.h"
+#include "cpastop_v150_110.h"
 #include "cpastop_v170_110.h"
 #include "cpastop_v175_100.h"
 #include "cpastop_v175_101.h"
+#include "cpastop_v175_111.h"
 #include "cpastop_v175_120.h"
 
 struct cam_camnoc_info *camnoc_info;
@@ -107,6 +109,10 @@ static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 			(hw_caps->cpas_version.incr == 1))
 			soc_info->hw_version = CAM_CPAS_TITAN_175_V101;
 		else if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 1) &&
+			(hw_caps->cpas_version.incr == 1))
+			soc_info->hw_version = CAM_CPAS_TITAN_175_V111;
+		else if ((hw_caps->cpas_version.major == 1) &&
 			(hw_caps->cpas_version.minor == 2) &&
 			(hw_caps->cpas_version.incr == 0))
 			soc_info->hw_version = CAM_CPAS_TITAN_175_V120;
@@ -117,6 +123,10 @@ static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 			(hw_caps->cpas_version.minor == 0) &&
 			(hw_caps->cpas_version.incr == 0))
 			soc_info->hw_version = CAM_CPAS_TITAN_150_V100;
+		else if ((hw_caps->cpas_version.major == 1) &&
+			(hw_caps->cpas_version.minor == 1) &&
+			(hw_caps->cpas_version.incr == 0))
+			soc_info->hw_version = CAM_CPAS_TITAN_150_V110;
 	}
 
 	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_info->hw_version);
@@ -331,6 +341,9 @@ static int cam_cpastop_reset_irq(struct cam_hw_info *cpas_hw)
 {
 	int i;
 
+	if (camnoc_info->irq_sbm->sbm_enable.enable == false)
+		return 0;
+
 	cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
 		&camnoc_info->irq_sbm->sbm_clear);
 	for (i = 0; i < camnoc_info->irq_err_size; i++) {
@@ -406,6 +419,12 @@ static void cam_cpastop_work(struct work_struct *work)
 		return;
 	}
 
+	mutex_lock(&cpas_hw->hw_mutex);
+	if (cpas_hw->hw_state == CAM_HW_STATE_POWER_DOWN) {
+		CAM_ERR(CAM_CPAS, "CPAS CORE is off");
+		mutex_unlock(&cpas_hw->hw_mutex);
+		return;
+	}
 	for (i = 0; i < camnoc_info->irq_err_size; i++) {
 		if ((payload->irq_status & camnoc_info->irq_err[i].sbm_port) &&
 			(camnoc_info->irq_err[i].enable)) {
@@ -451,6 +470,7 @@ static void cam_cpastop_work(struct work_struct *work)
 				~camnoc_info->irq_err[i].sbm_port;
 		}
 	}
+	mutex_unlock(&cpas_hw->hw_mutex);
 	atomic_dec(&cpas_core->irq_count);
 	wake_up(&cpas_core->irq_count_wq);
 	CAM_DBG(CAM_CPAS, "irq_count=%d\n", atomic_read(&cpas_core->irq_count));
@@ -505,6 +525,7 @@ static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 {
 	int i;
 
+	cam_cpastop_reset_irq(cpas_hw);
 	for (i = 0; i < camnoc_info->specific_size; i++) {
 		if (camnoc_info->specific[i].enable) {
 			cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
@@ -590,11 +611,17 @@ static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 	case CAM_CPAS_TITAN_175_V101:
 		camnoc_info = &cam175_cpas101_camnoc_info;
 		break;
+	case CAM_CPAS_TITAN_175_V111:
+		camnoc_info = &cam175_cpas111_camnoc_info;
+		break;
 	case CAM_CPAS_TITAN_175_V120:
 		camnoc_info = &cam175_cpas120_camnoc_info;
 		break;
 	case CAM_CPAS_TITAN_150_V100:
 		camnoc_info = &cam150_cpas100_camnoc_info;
+		break;
+	case CAM_CPAS_TITAN_150_V110:
+		camnoc_info = &cam150_cpas110_camnoc_info;
 		break;
 	default:
 		CAM_ERR(CAM_CPAS, "Camera Version not supported %d.%d.%d",

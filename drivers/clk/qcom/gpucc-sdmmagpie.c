@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -281,10 +281,12 @@ static const struct freq_tbl ftbl_gpu_cc_gx_gfx3d_clk_src[] = {
 	F(267000000, P_CRC_DIV, 1, 0, 0),
 	F(355000000, P_CRC_DIV, 1, 0, 0),
 	F(430000000, P_CRC_DIV, 1, 0, 0),
+	F(504000000, P_CRC_DIV, 1, 0, 0),
 	F(565000000, P_CRC_DIV, 1, 0, 0),
 	F(610000000, P_CRC_DIV, 1, 0, 0),
 	F(650000000, P_CRC_DIV, 1, 0, 0),
 	F(700000000, P_CRC_DIV, 1, 0, 0),
+	F(750000000, P_CRC_DIV, 1, 0, 0),
 	F(800000000, P_CRC_DIV, 1, 0, 0),
 	F(825000000, P_CRC_DIV, 1, 0, 0),
 	{ }
@@ -578,6 +580,7 @@ static const struct qcom_cc_desc gpu_cc_sdmmagpie_desc = {
 
 static const struct of_device_id gpu_cc_sdmmagpie_match_table[] = {
 	{ .compatible = "qcom,gpucc-sdmmagpie" },
+	{ .compatible = "qcom,atoll-gpucc" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_sdmmagpie_match_table);

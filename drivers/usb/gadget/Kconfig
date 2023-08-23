@@ -190,6 +190,9 @@ config USB_RNDIS
 config USB_F_RNDIS
 	tristate
 
+config USB_F_QCRNDIS
+	tristate
+
 config USB_F_MASS_STORAGE
 	tristate
 
@@ -246,6 +249,18 @@ config USB_F_GSI
 
 config USB_F_QDSS
 	tristate
+
+config USB_F_IPC
+	tristate
+
+config USB_F_MDM_DATA
+	tristate
+
+config USB_F_RMNET_BAM
+	tristate
+
+config USB_F_MBIM_BAM
+        tristate
 
 # this first set of drivers all depend on bulk-capable hardware.
 
@@ -323,6 +338,15 @@ config USB_CONFIGFS_ECM_SUBSET
 	  On hardware that can't implement the full protocol,
 	  a simple CDC subset is used, placing fewer demands on USB.
 
+config USB_CONFIGFS_QCRNDIS
+	bool "QCRNDIS"
+	depends on USB_CONFIGFS
+	depends on NET
+	depends on RNDIS_IPA
+	select USB_U_ETHER
+	select USB_RNDIS
+	select USB_F_QCRNDIS
+
 config USB_CONFIGFS_RNDIS
 	bool "RNDIS"
 	depends on USB_CONFIGFS
@@ -339,6 +363,30 @@ config USB_CONFIGFS_RNDIS
 	   as the "driver info file".  For versions of MS-Windows older than
 	   XP, you'll need to download drivers from Microsoft's website; a URL
 	   is given in comments found in that info file.
+
+config USB_CONFIGFS_RMNET_BAM
+	bool "RMNET_BAM"
+	depends on USB_CONFIGFS
+	select USB_F_RMNET_BAM
+	help
+	   RmNet interface is a new logical device in QMI framework for data
+	   services. RmNet in accordance with QMI architecture uses Data I/O
+	   channel for IP data transfer and control I/O channel for QMI
+	   messaging (functionality similar to AT commands).
+	   RmNet interface is an alternative to standard CDC-ECM and windows
+	   RNDIS.
+
+config USB_CONFIGFS_MBIM_BAM
+        bool "MBIM_BAM"
+        depends on USB_CONFIGFS
+        select USB_F_MBIM_BAM
+	help
+	   Mbim interface is a new logical device in QMI framework for data
+	   services. Mbim in accordance with QMI architecture uses Data I/O
+	   channel for IP data transfer and control I/O channel for QMI
+	   messaging (functionality similar to AT commands).
+	   Mbim interface is an alternative to standard CDC-ECM and windows
+	   RNDIS.
 
 config USB_CONFIGFS_EEM
 	bool "Ethernet Emulation Model (EEM)"
@@ -418,6 +466,7 @@ config USB_CONFIGFS_F_PTP
 config USB_CONFIGFS_F_ACC
 	boolean "Accessory gadget"
 	depends on USB_CONFIGFS
+	depends on HID=y
 	select USB_F_ACC
 	help
 	  USB gadget Accessory support
@@ -606,34 +655,22 @@ config USB_CONFIGFS_F_QDSS
 	help
 	  USB QDSS function driver to get hwtracing related data over USB.
 
-choice
-	tristate "USB Gadget precomposed configurations"
-	default USB_ETH
-	optional
+config USB_CONFIGFS_F_IPC
+	bool "USB IPC function"
+	select USB_F_IPC
+	depends on USB_CONFIGFS
 	help
-	  A Linux "Gadget Driver" talks to the USB Peripheral Controller
-	  driver through the abstract "gadget" API.  Some other operating
-	  systems call these "client" drivers, of which "class drivers"
-	  are a subset (implementing a USB device class specification).
-	  A gadget driver implements one or more USB functions using
-	  the peripheral hardware.
+	  IPC function driver enables support for IPC messages port over USB.
+	  This driver provides USB gadget access to the QRTR USB device mode
+	  transport.
 
-	  Gadget drivers are hardware-neutral, or "platform independent",
-	  except that they sometimes must understand quirks or limitations
-	  of the particular controllers they work with.  For example, when
-	  a controller doesn't support alternate configurations or provide
-	  enough of the right types of endpoints, the gadget driver might
-	  not be able work with that controller, or might need to implement
-	  a less common variant of a device class protocol.
-
-	  The available choices each represent a single precomposed USB
-	  gadget configuration. In the device model, each option contains
-	  both the device instantiation as a child for a USB gadget
-	  controller, and the relevant drivers for each function declared
-	  by the device.
+config USB_CONFIGFS_F_MDM_DATA
+	bool "USB QTI Modem Data function"
+	select USB_F_MDM_DATA
+	depends on USB_CONFIGFS && USB_QTI_MDM_DATA_BRIDGE
+	help
+	  USB QTI modem data function driver.
 
 source "drivers/usb/gadget/legacy/Kconfig"
-
-endchoice
 
 endif # USB_GADGET

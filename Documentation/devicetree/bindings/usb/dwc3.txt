@@ -50,6 +50,8 @@ Optional properties:
 			during HS transmit.
  - snps,ssp-u3-u0-quirk: when set, core always changes PHY power state
                         to P2, before attempting a U3 exit handshake.
+ - snps,dis_metastability_quirk: when set, disable metastability workaround.
+			CAUTION: use only if you are absolutely sure of it.
  - snps,is-utmi-l1-suspend: true when DWC3 asserts output signal
 			utmi_l1_suspend_n, false when asserts utmi_sleep_n
  - snps,hird-threshold: HIRD threshold
@@ -66,6 +68,7 @@ Optional properties:
  - snps,usb3-u1u2-disable: If present, disable U1U2 low power modes in Superspeed mode
  - snps,disable-clk-gating: If present, disable controller's internal clock gating.
    Default it is enabled.
+ - num-gsi-eps: Number of GSI based hardware accelerated endpoints
 
  - in addition all properties from usb-xhci.txt from the current directory are
    supported as well

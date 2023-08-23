@@ -1,10 +1,12 @@
-/*
- * aQuantia Corporation Network Driver
- * Copyright (C) 2017 aQuantia Corporation. All rights reserved
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* Atlantic Network Driver
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms and conditions of the GNU General Public License,
- * version 2, as published by the Free Software Foundation.
+ * Copyright (C) 2017 aQuantia Corporation
+ * Copyright (C) 2019-2020 Marvell International Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #ifndef _ATL_REGS_H_
@@ -38,17 +40,31 @@
 #define ATL_GLOBAL_MDIO_WDATA 0x288
 #define ATL_GLOBAL_MDIO_ADDR 0x28c
 #define ATL_GLOBAL_MDIO_RDATA 0x290
+#define ATL2_MIF_BOOT_READ_REQ_ADR 0x328
+#define ATL2_MIF_BOOT_READ_REQ_LEN 0x32c
+#define ATL2_MIF_BOOT_REG_ADR 0x3040
+#define ATL2_MCP_HOST_REQ_INT 0x0F00
+#define ATL2_MCP_HOST_REQ_INT_CLR 0x0F08
+#define ATL2_MCP_HOST_REQ_INT_MASK(idx) ATL_REG_STRIDE(0x0f0c, 4, (idx))
+#define ATL2_MIF_SHARED_BUFFER_BOOT(idx) ATL_REG_STRIDE(0x00010000, 0x4, (idx))
+#define ATL2_MIF_SHARED_BUFFER_IN(idx) ATL_REG_STRIDE(0x00012000, 0x4, (idx))
+#define ATL2_MIF_SHARED_BUFFER_OUT(idx) ATL_REG_STRIDE(0x00013000, 0x4, (idx))
+#define ATL2_MIF_HOST_FINISHED_WRITE 0x0e00
+#define ATL2_MIF_MCP_FINISHED_READ 0x0e04
+
 /* Scratch pads numbered starting from 1 */
 #define ATL_MCP_SCRATCH(idx) ATL_REG_STRIDE(0x300 - 0x4, 0x4, idx)
 #define ATL_MCP_SEM(idx) ATL_REG_STRIDE(0x3a0, 0x4, idx)
 #define ATL_MCP_SEM_MDIO 0
 #define ATL_MCP_SEM_MSM 1
+#define ATL2_MCP_SEM_ACT_RSLVR 3
 #define ATL_GLOBAL_CTRL2 0x404
 #define ATL_GLOBAL_DAISY_CHAIN_STS1 0x704
 
 enum mcp_scratchpad {
 	FW2_MBOX_DATA = 11,	/* 0x328 */
 	FW2_MBOX_CMD = 12,	/* 0x32c */
+	FW2_RPC_DATA = 14, 	/* 0x334 */
 	FW_STAT_STRUCT = 25, 	/* 0x360 */
 	FW2_EFUSE_SHADOW = 26,	/* 0x364 */
 	FW1_LINK_REQ = 27,
@@ -77,12 +93,14 @@ enum mcp_scratchpad {
 
 /* MPI @ 0x4000 */
 #define ATL_MPI_CTRL1 0x4000
+#define ATL_MPI_MSM_CTRL 0x4018
 #define ATL_MPI_MSM_ADDR 0x4400
 #define ATL_MPI_MSM_WR 0x4404
 #define ATL_MPI_MSM_RD 0x4408
 
 /* RX @ 0x5000 */
 #define ATL_RX_CTRL1 0x5000
+#define ATL2_RX_FLT_L2_BC_TAG 0x50F0
 #define ATL_RX_FLT_CTRL1 0x5100
 #define ATL_RX_FLT_CTRL2 0x5104
 #define ATL_UC_FLT_NUM 37
@@ -95,7 +113,8 @@ enum mcp_scratchpad {
 #define ATL_VLAN_FLT_NUM 16
 #define ATL_RX_VLAN_FLT(idx) ATL_REG_STRIDE(0x5290, 4, idx)
 #define ATL_RX_ETYPE_FLT(idx) ATL_REG_STRIDE(0x5300, 4, idx)
-#define ATL_ETYPE_FLT_NUM 16
+#define ATL2_RX_ETYPE_TAG(idx) ATL_REG_STRIDE(0x5340, 4, idx)
+#define ATL_ETYPE_FLT_NUM 15
 #define ATL_NTUPLE_CTRL(idx) ATL_REG_STRIDE(0x5380, 4, idx)
 #define ATL_NTUPLE_SADDR(idx) ATL_REG_STRIDE(0x53b0, 4, idx)
 #define ATL_NTUPLE_DADDR(idx) ATL_REG_STRIDE(0x53d0, 4, idx)
@@ -111,6 +130,7 @@ enum mcp_scratchpad {
 #define ATL_RX_RSS_TBL_ADDR 0x54e0
 #define ATL_RX_RSS_TBL_WR_DATA 0x54e4
 #define ATL_RX_RSS_TBL_RD_DATA 0x54e8
+#define ATL2_RX_RSS_HASH_TYPE_ADR 0x54C8
 #define ATL_RX_RPF_DBG_CNT_CTRL 0x5518
 #define ATL_RX_RPF_HOST_CNT_LO 0x552c
 #define ATL_RX_RPF_HOST_CNT_HI 0x5530
@@ -125,8 +145,19 @@ enum mcp_scratchpad {
 #define ATL_RX_PBUF_CTRL1 0x5700
 #define ATL_RX_PBUF_REG1(idx) ATL_REG_STRIDE(0x5710, 0x10, idx)
 #define ATL_RX_PBUF_REG2(idx) ATL_REG_STRIDE(0x5714, 0x10, idx)
+#define ATL2_RX_Q_TO_TC_MAP(tc) ATL_REG_STRIDE(0x5900, 0x4, tc)
 #define ATL_RX_INTR_CTRL 0x5a30
 #define ATL_RX_INTR_MOD_CTRL(idx) ATL_REG_STRIDE(0x5a40, 4, idx)
+#define ATL2_RPF_RSS_REDIR(TC, INDEX) (0x6200 + \
+				       (0x100 * (TC > 3 ? 1 : 0)) + (INDEX) * 4)
+#define ATL2_RPF_L3_FLT(filter) ATL_REG_STRIDE(0x6500, 0x4, filter)
+#define ATL2_RPF_L3_SA(filter) ATL_REG_STRIDE(0x6400, 0x10, filter)
+#define ATL2_RPF_L3_DA(filter) ATL_REG_STRIDE(0x6480, 0x10, filter)
+#define ATL2_RPF_L4_FLT(filter) ATL_REG_STRIDE(0x6520, 0x4, filter)
+#define ATL2_RPF_REC_TAB_EN 0x00006ff0
+#define ATL2_RPF_ACT_RSLVR_REQ_TAG(filter) ATL_REG_STRIDE(0x14000, 0x10, filter)
+#define ATL2_RPF_ACT_RSLVR_TAG_MASK(filter) ATL_REG_STRIDE(0x14004, 0x10, filter)
+#define ATL2_RPF_ACT_RSLVR_ACTN(filter) ATL_REG_STRIDE(0x14008, 0x10, filter)
 
 /* Rx rings */
 #define ATL_RX_RING(idx) ATL_REG_STRIDE(0x5b00, 0x20, idx)
@@ -149,7 +180,9 @@ enum mcp_scratchpad {
 #define ATL_TX_LSO_TCP_CTRL2 0x7824
 #define ATL_TX_PBUF_CTRL1 0x7900
 #define ATL_TX_PBUF_REG1(idx) ATL_REG_STRIDE(0x7910, 0x10, idx)
+#define ATL_TX_PBUF_REG2(idx) ATL_REG_STRIDE(0x7914, 0x10, idx)
 #define ATL_TX_INTR_CTRL 0x7b40
+#define ATL2_TX_Q_TO_TC_MAP(tc) ATL_REG_STRIDE(0x799c, 0x4, tc)
 
 /* Tx rings */
 #define ATL_TX_RING(idx) ATL_REG_STRIDE(0x7c00, 0x40, idx)
@@ -164,6 +197,7 @@ enum mcp_scratchpad {
 #define ATL_TX_RING_HEAD_WB_MSW(ring) ATL_RING_OFFT(ring, 0x20)
 
 #define ATL_TX_INTR_MOD_CTRL(idx) ATL_REG_STRIDE(0x8980, 0x4, idx)
+#define ATL2_TX_INTR_MOD_CTRL(idx) ATL_REG_STRIDE(0x7c28, 0x40, idx)
 
 /* MSM */
 #define ATL_MSM_GEN_CTRL 0x8

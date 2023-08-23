@@ -29,6 +29,13 @@
 #include "common.h"
 #include <linux/ptp_clock_kernel.h>
 #include <linux/reset.h>
+#ifdef CONFIG_MSM_BOOT_TIME_MARKER
+#include <soc/qcom/boot_stats.h>
+#endif
+#include "dwmac-qcom-ipa-offload.h"
+#include <linux/udp.h>
+#include <linux/if_ether.h>
+#include <linux/icmp.h>
 
 struct stmmac_resources {
 	void __iomem *addr;
@@ -58,6 +65,7 @@ struct stmmac_tx_queue {
 	unsigned int dirty_tx;
 	dma_addr_t dma_tx_phy;
 	u32 tx_tail_addr;
+	bool skip_sw;
 };
 
 struct stmmac_rx_queue {
@@ -73,6 +81,8 @@ struct stmmac_rx_queue {
 	dma_addr_t dma_rx_phy;
 	u32 rx_tail_addr;
 	struct napi_struct napi ____cacheline_aligned_in_smp;
+	bool skip_sw;
+	bool en_fep;
 };
 
 struct stmmac_priv {
@@ -80,6 +90,7 @@ struct stmmac_priv {
 	u32 tx_count_frames;
 	u32 tx_coal_frames;
 	u32 tx_coal_timer;
+	bool tx_coal_timer_disable;
 
 	int tx_coalesce;
 	int hwts_tx_en;
@@ -96,7 +107,9 @@ struct stmmac_priv {
 	struct net_device *dev;
 	struct device *device;
 	struct mac_device_info *hw;
-	spinlock_t lock;
+	struct phy_device *phydev;
+	/* Mutex lock */
+	struct mutex lock;
 
 	/* RX Queue */
 	struct stmmac_rx_queue rx_queue[MTL_MAX_RX_QUEUES];
@@ -104,7 +117,7 @@ struct stmmac_priv {
 	/* TX Queue */
 	struct stmmac_tx_queue tx_queue[MTL_MAX_TX_QUEUES];
 
-	bool oldlink;
+	int oldlink;
 	int speed;
 	int oldduplex;
 	unsigned int flow_ctrl;
@@ -139,13 +152,42 @@ struct stmmac_priv {
 	void __iomem *mmcaddr;
 	void __iomem *ptpaddr;
 	u32 mss;
-
+	bool boot_kpi;
+	int current_loopback;
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dbgfs_dir;
 	struct dentry *dbgfs_rings_status;
 	struct dentry *dbgfs_dma_cap;
 #endif
 };
+
+struct stmmac_emb_smmu_cb_ctx {
+	bool valid;
+	struct platform_device *pdev_master;
+	struct platform_device *smmu_pdev;
+	struct dma_iommu_mapping *mapping;
+	struct iommu_domain *iommu_domain;
+	u32 va_start;
+	u32 va_size;
+	u32 va_end;
+	int ret;
+};
+
+extern struct stmmac_emb_smmu_cb_ctx stmmac_emb_smmu_ctx;
+
+#define GET_MEM_PDEV_DEV (stmmac_emb_smmu_ctx.valid ? \
+			&stmmac_emb_smmu_ctx.smmu_pdev->dev : priv->device)
+
+#define MICREL_PHY_ID 0x00221620
+
+#define MMC_CONFIG 0x24
+
+int ethqos_handle_prv_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+int ethqos_init_pps(struct stmmac_priv *priv);
+
+int ethqos_phy_intr_enable(struct stmmac_priv *priv);
+extern bool phy_intr_en;
+void qcom_ethqos_request_phy_wol(struct plat_stmmacenet_data *plat_dat);
 
 int stmmac_mdio_unregister(struct net_device *ndev);
 int stmmac_mdio_register(struct net_device *ndev);
@@ -162,5 +204,8 @@ int stmmac_dvr_probe(struct device *device,
 		     struct stmmac_resources *res);
 void stmmac_disable_eee_mode(struct stmmac_priv *priv);
 bool stmmac_eee_init(struct stmmac_priv *priv);
-
+bool qcom_ethqos_ipa_enabled(void);
+u16 icmp_fast_csum(u16 old_csum);
+void swap_ip_port(struct sk_buff *skb, unsigned int eth_type);
+unsigned int dwmac_qcom_get_eth_type(unsigned char *buf);
 #endif /* __STMMAC_H__ */

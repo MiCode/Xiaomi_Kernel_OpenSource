@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, 2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,6 @@
 #include <linux/list.h>
 
 #define DSI_CLK_NAME_LEN 20
-#define MAX_CLIENT_NAME_LEN 20
 
 #define MDSS_DSI_CLK_UPDATE_CLK_RATE_AT_ON 0x1
 
@@ -37,6 +36,7 @@ enum mdss_dsi_link_clk_type {
 	MDSS_DSI_LINK_ESC_CLK,
 	MDSS_DSI_LINK_BYTE_CLK,
 	MDSS_DSI_LINK_PIX_CLK,
+	MDSS_DSI_LINK_BYTE_INTF_CLK,
 	MDSS_DSI_LINK_CLK_MAX,
 };
 
@@ -118,6 +118,7 @@ typedef int (*pre_clockon_cb)(void *priv,
 
 struct mdss_dsi_core_clk_info {
 	struct clk *mdp_core_clk;
+	struct clk *mnoc_clk;
 	struct clk *ahb_clk;
 	struct clk *axi_clk;
 	struct clk *mmss_misc_ahb_clk;
@@ -126,6 +127,7 @@ struct mdss_dsi_core_clk_info {
 struct mdss_dsi_link_hs_clk_info {
 	struct clk *byte_clk;
 	struct clk *pixel_clk;
+	struct clk *byte_intf_clk;
 	u32 byte_clk_rate;
 	u32 pix_clk_rate;
 };
@@ -165,47 +167,6 @@ struct mdss_dsi_clk_info {
 
 struct mdss_dsi_clk_client {
 	char *client_name;
-};
-
-struct dsi_core_clks {
-	struct mdss_dsi_core_clk_info clks;
-	u32 current_clk_state;
-};
-
-struct dsi_link_clks {
-	struct mdss_dsi_link_hs_clk_info hs_clks;
-	struct mdss_dsi_link_lp_clk_info lp_clks;
-	u32 current_clk_state;
-};
-
-struct mdss_dsi_clk_mngr {
-	char name[DSI_CLK_NAME_LEN];
-	struct dsi_core_clks core_clks;
-	struct dsi_link_clks link_clks;
-
-	struct reg_bus_client *reg_bus_clt;
-
-	pre_clockoff_cb pre_clkoff_cb;
-	post_clockoff_cb post_clkoff_cb;
-	post_clockon_cb post_clkon_cb;
-	pre_clockon_cb pre_clkon_cb;
-
-	struct list_head client_list;
-	struct mutex clk_mutex;
-
-	void *priv_data;
-};
-
-struct mdss_dsi_clk_client_info {
-	char name[MAX_CLIENT_NAME_LEN];
-	u32 core_refcount;
-	u32 link_refcount;
-	u32 core_clk_state;
-	u32 link_clk_state;
-
-	struct list_head list;
-
-	struct mdss_dsi_clk_mngr *mngr;
 };
 
 /**

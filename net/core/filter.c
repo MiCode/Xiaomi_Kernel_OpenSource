@@ -2281,6 +2281,8 @@ static int bpf_skb_net_shrink(struct sk_buff *skb, u32 len_diff)
 
 static u32 __bpf_skb_max_len(const struct sk_buff *skb)
 {
+	if (skb_at_tc_ingress(skb) || !skb->dev)
+		return SKB_MAX_ALLOC;
 	return skb->dev->mtu + skb->dev->hard_header_len;
 }
 
@@ -3081,10 +3083,12 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 		/* Only some socketops are supported */
 		switch (optname) {
 		case SO_RCVBUF:
+			val = min_t(u32, val, sysctl_rmem_max);
 			sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
 			sk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);
 			break;
 		case SO_SNDBUF:
+			val = min_t(u32, val, sysctl_wmem_max);
 			sk->sk_userlocks |= SOCK_SNDBUF_LOCK;
 			sk->sk_sndbuf = max_t(int, val * 2, SOCK_MIN_SNDBUF);
 			break;
@@ -3120,7 +3124,8 @@ BPF_CALL_5(bpf_setsockopt, struct bpf_sock_ops_kern *, bpf_sock,
 			strncpy(name, optval, min_t(long, optlen,
 						    TCP_CA_NAME_MAX-1));
 			name[TCP_CA_NAME_MAX-1] = 0;
-			ret = tcp_set_congestion_control(sk, name, false, reinit);
+			ret = tcp_set_congestion_control(sk, name, false,
+							 reinit, true);
 		} else {
 			struct tcp_sock *tp = tcp_sk(sk);
 
@@ -3164,6 +3169,45 @@ static const struct bpf_func_proto bpf_setsockopt_proto = {
 	.arg3_type	= ARG_ANYTHING,
 	.arg4_type	= ARG_PTR_TO_MEM,
 	.arg5_type	= ARG_CONST_SIZE,
+};
+
+/*
+ * simple hash function for a string,
+ * http://www.cse.yorku.ca/~oz/hash.html
+ */
+static u64 hash_string(const char *str)
+{
+	u64 hash = 5381;
+	int c;
+
+	while ((c = *str++))
+		hash = ((hash << 5) + hash) + c;
+
+	return hash;
+}
+
+BPF_CALL_1(bpf_get_comm_hash_from_sk, struct sk_buff *, skb)
+{
+	struct task_struct *p_task = NULL;
+	struct sock *sk = sk_to_full_sk(skb->sk);
+	u64 hash = -1;
+	pid_t pid = sk->pid_num;
+	rcu_read_lock();
+	p_task = find_task_by_pid_ns(pid, &init_pid_ns);
+	if (p_task) {
+		get_task_struct(p_task);
+		hash = hash_string(p_task->comm);
+		put_task_struct(p_task);
+	}
+	rcu_read_unlock();
+	return hash;
+}
+
+static const struct bpf_func_proto bpf_get_comm_hash_from_sk_proto = {
+	.func           = bpf_get_comm_hash_from_sk,
+	.gpl_only       = false,
+	.ret_type       = RET_INTEGER,
+	.arg1_type      = ARG_PTR_TO_CTX,
 };
 
 static const struct bpf_func_proto *
@@ -3218,6 +3262,8 @@ sk_filter_func_proto(enum bpf_func_id func_id)
 		return &bpf_get_socket_cookie_proto;
 	case BPF_FUNC_get_socket_uid:
 		return &bpf_get_socket_uid_proto;
+	case BPF_FUNC_get_comm_hash_from_sk:
+		return &bpf_get_comm_hash_from_sk_proto;
 	default:
 		return bpf_base_func_proto(func_id);
 	}
@@ -3257,6 +3303,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
 		return &bpf_skb_adjust_room_proto;
 	case BPF_FUNC_skb_change_tail:
 		return &bpf_skb_change_tail_proto;
+	case BPF_FUNC_skb_change_head:
+		return &bpf_skb_change_head_proto;
 	case BPF_FUNC_skb_get_tunnel_key:
 		return &bpf_skb_get_tunnel_key_proto;
 	case BPF_FUNC_skb_set_tunnel_key:

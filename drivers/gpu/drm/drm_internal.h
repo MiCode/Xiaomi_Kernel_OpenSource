@@ -173,3 +173,21 @@ int drm_syncobj_reset_ioctl(struct drm_device *dev, void *data,
 			    struct drm_file *file_private);
 int drm_syncobj_signal_ioctl(struct drm_device *dev, void *data,
 			     struct drm_file *file_private);
+
+int dsi_display_disp_param_get(struct drm_connector *connector,
+								 u32 *param_type);
+int dsi_display_disp_param_set(struct drm_connector *connector,
+								 u32 param_type);
+
+ssize_t dsi_display_dynamic_fps_read(struct drm_connector *connector,
+				char *buf);
+
+ssize_t dsi_display_mipi_reg_write(struct drm_connector *connector,
+								 char *buf, size_t count);
+ssize_t dsi_display_mipi_reg_read(struct drm_connector *connector,
+								 char *buf);
+//thermal_hbm_disabled
+int dsi_display_get_thermal_hbm_disabled(struct drm_connector *connector,
+								bool *thermal_hbm_disabled);
+int dsi_display_set_thermal_hbm_disabled(struct drm_connector *connector,
+								bool thermal_hbm_disabled);

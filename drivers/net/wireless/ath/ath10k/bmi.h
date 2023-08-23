@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2005-2011 Atheros Communications Inc.
- * Copyright (c) 2011-2013 Qualcomm Atheros, Inc.
+ * Copyright (c) 2011-2015,2017 Qualcomm Atheros, Inc.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -86,6 +86,10 @@ enum bmi_cmd_id {
 #define BMI_PARAM_GET_FLASH_BOARD_ID 0x8000
 #define BMI_PARAM_FLASH_SECTION_ALL 0x10000
 
+/* Dual-band Extended Board ID */
+#define BMI_PARAM_GET_EXT_BOARD_ID 0x40000
+#define ATH10K_BMI_EXT_BOARD_ID_SUPPORT 0x40000
+
 #define ATH10K_BMI_BOARD_ID_FROM_OTP_MASK   0x7c00
 #define ATH10K_BMI_BOARD_ID_FROM_OTP_LSB    10
 
@@ -93,6 +97,7 @@ enum bmi_cmd_id {
 #define ATH10K_BMI_CHIP_ID_FROM_OTP_LSB     15
 
 #define ATH10K_BMI_BOARD_ID_STATUS_MASK 0xff
+#define ATH10K_BMI_EBOARD_ID_STATUS_MASK 0xff
 
 struct bmi_cmd {
 	__le32 id; /* enum bmi_cmd_id */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 
 #include <linux/slab.h>
 #include <linux/idr.h>
+#include <linux/pm.h>
 #include <linux/pm_qos.h>
 #include <linux/sched.h>
 #include <linux/sched/task.h>
@@ -68,6 +69,7 @@ enum kgsl_event_results {
 };
 
 #define KGSL_FLAG_WAKE_ON_TOUCH BIT(0)
+#define KGSL_FLAG_SPARSE        BIT(1)
 
 /*
  * "list" of event types for ftrace symbolic magic
@@ -190,8 +192,10 @@ struct kgsl_functable {
 	void (*gpu_model)(struct kgsl_device *device, char *str,
 		size_t bufsz);
 	void (*stop_fault_timer)(struct kgsl_device *device);
-	void (*dispatcher_halt)(struct kgsl_device *device);
-	void (*dispatcher_unhalt)(struct kgsl_device *device);
+	int (*suspend_device)(struct kgsl_device *device,
+		pm_message_t pm_state);
+	int (*resume_device)(struct kgsl_device *device,
+		pm_message_t pm_state);
 };
 
 struct kgsl_ioctl {
@@ -400,6 +404,8 @@ struct kgsl_process_private;
  * @fault_time: time of the first gpu hang in last _context_throttle_time ms
  * @user_ctxt_record: memory descriptor used by CP to save/restore VPC data
  * across preemption
+ * @total_fault_count: number of times gpu faulted in this context
+ * @last_faulted_cmd_ts: last faulted command batch timestamp
  */
 struct kgsl_context {
 	struct kref refcount;
@@ -419,6 +425,8 @@ struct kgsl_context {
 	unsigned int fault_count;
 	unsigned long fault_time;
 	struct kgsl_mem_entry *user_ctxt_record;
+	unsigned int total_fault_count;
+	unsigned int last_faulted_cmd_ts;
 };
 
 #define _context_comm(_c) \
@@ -432,13 +440,13 @@ struct kgsl_context {
 #define pr_context(_d, _c, fmt, args...) \
 		dev_err((_d)->dev, "%s[%d]: " fmt, \
 		_context_comm((_c)), \
-		(_c)->proc_priv->pid, ##args)
+		pid_nr((_c)->proc_priv->pid), ##args)
 
 /**
  * struct kgsl_process_private -  Private structure for a KGSL process (across
  * all devices)
  * @priv: Internal flags, use KGSL_PROCESS_* values
- * @pid: ID for the task owner of the process
+ * @pid: Identification structure for the task owner of the process
  * @comm: task name of the process
  * @mem_lock: Spinlock to protect the process memory lists
  * @refcount: kref object for reference counting the process
@@ -456,7 +464,7 @@ struct kgsl_context {
  */
 struct kgsl_process_private {
 	unsigned long priv;
-	pid_t pid;
+	struct pid *pid;
 	char comm[TASK_COMM_LEN];
 	spinlock_t mem_lock;
 	struct kref refcount;
@@ -466,10 +474,10 @@ struct kgsl_process_private {
 	struct kobject kobj;
 	struct dentry *debug_root;
 	struct {
-		uint64_t cur;
-		uint64_t max;
+		atomic64_t cur;
+		atomic64_t max;
 	} stats[KGSL_MEM_ENTRY_MAX];
-	uint64_t gpumem_mapped;
+	atomic64_t gpumem_mapped;
 	struct idr syncsource_idr;
 	spinlock_t syncsource_lock;
 	int fd_count;
@@ -563,9 +571,10 @@ struct kgsl_device *kgsl_get_device(int dev_idx);
 static inline void kgsl_process_add_stats(struct kgsl_process_private *priv,
 	unsigned int type, uint64_t size)
 {
-	priv->stats[type].cur += size;
-	if (priv->stats[type].max < priv->stats[type].cur)
-		priv->stats[type].max = priv->stats[type].cur;
+	u64 ret = atomic64_add_return(size, &priv->stats[type].cur);
+
+	if (ret > atomic64_read(&priv->stats[type].max))
+		atomic64_set(&priv->stats[type].max, ret);
 	add_mm_counter(current->mm, MM_UNRECLAIMABLE, (size >> PAGE_SHIFT));
 }
 
@@ -576,8 +585,8 @@ static inline void kgsl_process_sub_stats(struct kgsl_process_private *priv,
 	struct task_struct *task;
 	struct mm_struct *mm;
 
-	priv->stats[type].cur -= size;
-	pid_struct = find_get_pid(priv->pid);
+	atomic64_sub(size, &priv->stats[type].cur);
+	pid_struct = find_get_pid(pid_nr(priv->pid));
 	if (pid_struct) {
 		task = get_pid_task(pid_struct, PIDTYPE_PID);
 		if (task) {
@@ -688,6 +697,26 @@ static inline int kgsl_state_is_awake(struct kgsl_device *device)
 		return true;
 	else
 		return false;
+}
+
+static inline int kgsl_change_flag(struct kgsl_device *device,
+		unsigned long flag, unsigned long *val)
+{
+	int ret;
+
+	mutex_lock(&device->mutex);
+	/*
+	 * Bring down the GPU, so that we can bring it back up with the correct
+	 * power and clock settings
+	 */
+	ret = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	if (!ret) {
+		change_bit(flag, val);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+	}
+
+	mutex_unlock(&device->mutex);
+	return ret;
 }
 
 int kgsl_readtimestamp(struct kgsl_device *device, void *priv,

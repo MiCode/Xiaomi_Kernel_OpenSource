@@ -218,6 +218,8 @@ void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp,
 		get_monotonic_boottime(&ts);
 		time_stamp->buf_time.tv_sec    = ts.tv_sec;
 		time_stamp->buf_time.tv_usec   = ts.tv_nsec/1000;
+		time_stamp->buf_time_ns        =
+			((uint64_t)ts.tv_sec * 1000000000) + ts.tv_nsec;
 	}
 }
 
@@ -265,6 +267,9 @@ static inline u32 msm_isp_evt_mask_to_isp_event(u32 evt_mask)
 	case ISP_EVENT_MASK_INDEX_BUF_FATAL_ERROR:
 		evt_id = ISP_EVENT_BUF_FATAL_ERROR;
 		break;
+	case ISP_EVENT_MASK_INDEX_SOF_UPDATE_NANOSEC:
+		evt_id = ISP_EVENT_SOF_UPDATE_NANOSEC;
+		break;
 	default:
 		evt_id = ISP_EVENT_SUBS_MASK_NONE;
 		break;
@@ -294,6 +299,7 @@ static inline int msm_isp_subscribe_event_mask(struct v4l2_fh *fh,
 			}
 		}
 	} else if (evt_mask_index == ISP_EVENT_MASK_INDEX_SOF ||
+		   evt_mask_index == ISP_EVENT_MASK_INDEX_SOF_UPDATE_NANOSEC ||
 		   evt_mask_index == ISP_EVENT_MASK_INDEX_REG_UPDATE ||
 		   evt_mask_index == ISP_EVENT_MASK_INDEX_STREAM_UPDATE_DONE) {
 		for (interface = 0; interface < VFE_SRC_MAX; interface++) {
@@ -339,7 +345,7 @@ static inline int msm_isp_process_event_subscription(struct v4l2_fh *fh,
 	}
 
 	for (evt_mask_index = ISP_EVENT_MASK_INDEX_STATS_NOTIFY;
-		evt_mask_index <= ISP_EVENT_MASK_INDEX_BUF_FATAL_ERROR;
+		evt_mask_index <= ISP_EVENT_MASK_INDEX_SOF_UPDATE_NANOSEC;
 		evt_mask_index++) {
 		if (evt_mask & (1<<evt_mask_index)) {
 			evt_id = msm_isp_evt_mask_to_isp_event(evt_mask_index);
@@ -535,6 +541,14 @@ static int msm_isp_set_dual_vfe_sync_mode(
 	struct msm_vfe_dual_vfe_sync_mode *mode = arg;
 
 	vfe_dev->dual_vfe_sync_enable = mode->enable;
+	return 0;
+}
+static int msm_isp_nano_sec_timestamp(
+	struct vfe_device *vfe_dev, void *arg)
+{
+	struct msm_vfe_nano_sec_timestamp *mode = arg;
+
+	vfe_dev->nanosec_ts_enable = mode->enable;
 	return 0;
 }
 int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
@@ -912,9 +926,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_CFG_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
 		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
-		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_cfg_axi_stream(vfe_dev, arg);
-		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
@@ -1031,9 +1043,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_CFG_STATS_STREAM:
 		mutex_lock(&vfe_dev->core_mutex);
 		MSM_ISP_DUAL_VFE_MUTEX_LOCK(vfe_dev);
-		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_cfg_stats_stream(vfe_dev, arg);
-		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		MSM_ISP_DUAL_VFE_MUTEX_UNLOCK(vfe_dev);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
@@ -1074,6 +1084,11 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_DUAL_SYNC_CFG_VER2:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_set_dual_vfe_sync_mode(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+	case VIDIOC_MSM_ISP_NANOSEC_TIMESTAMP:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_nano_sec_timestamp(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	default:
@@ -1572,6 +1587,21 @@ int msm_isp_send_event(struct vfe_device *vfe_dev,
 	isp_event.type = event_type;
 	memcpy(&isp_event.u.data[0], event_data,
 		sizeof(struct msm_isp_event_data));
+	v4l2_event_queue(vfe_dev->subdev.sd.devnode, &isp_event);
+	return 0;
+}
+
+int msm_isp_send_event_update_nanosec(struct vfe_device *vfe_dev,
+	uint32_t event_type,
+	struct msm_isp_event_data_nanosec *event_data)
+{
+	struct v4l2_event isp_event;
+
+	memset(&isp_event, 0, sizeof(struct v4l2_event));
+	isp_event.id = 0;
+	isp_event.type = event_type;
+	memcpy(&isp_event.u.data[0], event_data,
+		sizeof(struct msm_isp_event_data_nanosec));
 	v4l2_event_queue(vfe_dev->subdev.sd.devnode, &isp_event);
 	return 0;
 }
@@ -2139,6 +2169,9 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 		return;
 	}
 	atomic_add(1, &vfe_dev->irq_cnt);
+	trace_msm_cam_isp_status_dump("VFE_IRQ:", vfe_dev->pdev->id,
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
+		irq_status0, irq_status1, dual_irq_status);
 	queue_cmd->vfeInterruptStatus0 = irq_status0;
 	queue_cmd->vfeInterruptStatus1 = irq_status1;
 	queue_cmd->vfe_pingpong_status = ping_pong_status;
@@ -2276,6 +2309,9 @@ void msm_isp_do_tasklet(unsigned long data)
 		atomic_sub(1, &vfe_dev->irq_cnt);
 		msm_isp_prepare_tasklet_debug_info(vfe_dev,
 			irq_status0, irq_status1, ts);
+		trace_msm_cam_isp_status_dump("VFE_TASKLET:", vfe_dev->pdev->id,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
+			irq_status0, irq_status1, dual_irq_status);
 		irq_ops = &vfe_dev->hw_info->vfe_ops.irq_ops;
 		irq_ops->process_reset_irq(vfe_dev,
 			irq_status0, irq_status1);
@@ -2298,8 +2334,14 @@ void msm_isp_do_tasklet(unsigned long data)
 		if (vfe_dev->dual_vfe_sync_mode) {
 			irq_ops->process_camif_irq(vfe_dev,
 				dual_irq_status, irq_status1, &ts);
+			/*
+			 * process the reg_update for pix from dual_irq_status
+			 * and RDI redupdate from individual VFEs
+			 */
 			irq_ops->process_reg_update(vfe_dev,
-				dual_irq_status, irq_status1, &ts);
+				((irq_status0 & 0xE0) |
+				dual_irq_status),
+				irq_status1, &ts);
 			irq_ops->process_epoch_irq(vfe_dev,
 				dual_irq_status, irq_status1, &ts);
 		} else {

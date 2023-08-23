@@ -10,6 +10,7 @@
 #include <linux/if_vlan.h>
 #include <linux/ip.h>
 #include <linux/tracepoint.h>
+#include <linux/timekeeping.h>
 
 TRACE_EVENT(net_dev_start_xmit,
 
@@ -18,23 +19,25 @@ TRACE_EVENT(net_dev_start_xmit,
 	TP_ARGS(skb, dev),
 
 	TP_STRUCT__entry(
-		__string(	name,			dev->name	)
-		__field(	u16,			queue_mapping	)
-		__field(	const void *,		skbaddr		)
-		__field(	bool,			vlan_tagged	)
-		__field(	u16,			vlan_proto	)
-		__field(	u16,			vlan_tci	)
-		__field(	u16,			protocol	)
-		__field(	u8,			ip_summed	)
-		__field(	unsigned int,		len		)
-		__field(	unsigned int,		data_len	)
-		__field(	int,			network_offset	)
-		__field(	bool,			transport_offset_valid)
-		__field(	int,			transport_offset)
-		__field(	u8,			tx_flags	)
-		__field(	u16,			gso_size	)
-		__field(	u16,			gso_segs	)
-		__field(	u16,			gso_type	)
+
+		__string(name, dev->name)
+		__field(u16, queue_mapping)
+		__field(const void *, skbaddr)
+		__field(bool, vlan_tagged)
+		__field(u16, vlan_proto)
+		__field(u16, vlan_tci)
+		__field(u16, protocol)
+		__field(u8, ip_summed)
+		__field(unsigned int, len)
+		__field(unsigned int, data_len)
+		__field(int, network_offset)
+		__field(bool, transport_offset_valid)
+		__field(int, transport_offset)
+		__field(u8, tx_flags)
+		__field(u16, gso_size)
+		__field(u16, gso_segs)
+		__field(u16, gso_type)
+		__field(ktime_t, utctime)
 	),
 
 	TP_fast_assign(
@@ -56,16 +59,45 @@ TRACE_EVENT(net_dev_start_xmit,
 		__entry->gso_size = skb_shinfo(skb)->gso_size;
 		__entry->gso_segs = skb_shinfo(skb)->gso_segs;
 		__entry->gso_type = skb_shinfo(skb)->gso_type;
+		__entry->utctime = ktime_get_tai_ns();
+
 	),
 
-	TP_printk("dev=%s queue_mapping=%u skbaddr=%pK vlan_tagged=%d vlan_proto=0x%04x vlan_tci=0x%04x protocol=0x%04x ip_summed=%d len=%u data_len=%u network_offset=%d transport_offset_valid=%d transport_offset=%d tx_flags=%d gso_size=%d gso_segs=%d gso_type=%#x",
+	TP_printk("dev=%s queue_mapping=%u skbaddr=%pK vlan_tagged=%d\t"
+		  "vlan_proto=0x%04x vlan_tci=0x%04x protocol=0x%04x\t"
+		  "ip_summed=%d len=%u data_len=%u network_offset=%d\t"
+		  "transport_offset_valid=%d transport_offset=%d tx_flags=%d\t"
+		  "gso_size=%d gso_segs=%d gso_type=%#x UTC: %ld",
 		  __get_str(name), __entry->queue_mapping, __entry->skbaddr,
 		  __entry->vlan_tagged, __entry->vlan_proto, __entry->vlan_tci,
 		  __entry->protocol, __entry->ip_summed, __entry->len,
 		  __entry->data_len,
 		  __entry->network_offset, __entry->transport_offset_valid,
 		  __entry->transport_offset, __entry->tx_flags,
-		  __entry->gso_size, __entry->gso_segs, __entry->gso_type)
+		  __entry->gso_size, __entry->gso_segs, __entry->gso_type,
+		  __entry->utctime)
+
+);
+
+TRACE_EVENT(net_receive_skb_exit,
+
+	TP_PROTO(struct sk_buff *skb),
+
+	TP_ARGS(skb),
+
+	TP_STRUCT__entry(
+		__field(void *,	skbaddr)
+		__field(ktime_t, utctime)
+
+	),
+
+	TP_fast_assign(
+		__entry->skbaddr = skb;
+		__entry->utctime = ktime_get_tai_ns();
+
+	),
+
+	TP_printk(" skbaddr=%pK UTC = %ld", __entry->skbaddr, __entry->utctime)
 );
 
 TRACE_EVENT(net_dev_xmit,
@@ -78,10 +110,11 @@ TRACE_EVENT(net_dev_xmit,
 	TP_ARGS(skb, rc, dev, skb_len),
 
 	TP_STRUCT__entry(
-		__field(	void *,		skbaddr		)
-		__field(	unsigned int,	len		)
-		__field(	int,		rc		)
-		__string(	name,		dev->name	)
+		__field(void *,	skbaddr)
+		__field(unsigned int, len)
+		__field(int, rc)
+		__string(name, dev->name)
+		__field(ktime_t, utctime)
 	),
 
 	TP_fast_assign(
@@ -89,10 +122,12 @@ TRACE_EVENT(net_dev_xmit,
 		__entry->len = skb_len;
 		__entry->rc = rc;
 		__assign_str(name, dev->name);
+		__entry->utctime = ktime_get_tai_ns();
 	),
 
-	TP_printk("dev=%s skbaddr=%pK len=%u rc=%d",
-		__get_str(name), __entry->skbaddr, __entry->len, __entry->rc)
+	TP_printk("dev=%s skbaddr=%pK len=%u rc=%d UTC: %ld",
+		  __get_str(name), __entry->skbaddr, __entry->len, __entry->rc,
+		  __entry->utctime)
 );
 
 DECLARE_EVENT_CLASS(net_dev_template,
@@ -102,19 +137,22 @@ DECLARE_EVENT_CLASS(net_dev_template,
 	TP_ARGS(skb),
 
 	TP_STRUCT__entry(
-		__field(	void *,		skbaddr		)
-		__field(	unsigned int,	len		)
-		__string(	name,		skb->dev->name	)
+		__field(void *,	skbaddr)
+		__field(unsigned int, len)
+		__string(name, skb->dev->name)
+		__field(ktime_t, utctime)
 	),
 
 	TP_fast_assign(
 		__entry->skbaddr = skb;
 		__entry->len = skb->len;
 		__assign_str(name, skb->dev->name);
+		__entry->utctime = ktime_get_tai_ns();
 	),
 
-	TP_printk("dev=%s skbaddr=%pK len=%u",
-		__get_str(name), __entry->skbaddr, __entry->len)
+	TP_printk("dev=%s skbaddr=%pK len=%u UTC: %ld",
+		__get_str(name), __entry->skbaddr, __entry->len,
+		__entry->utctime)
 )
 
 DEFINE_EVENT(net_dev_template, net_dev_queue,
@@ -138,25 +176,27 @@ DECLARE_EVENT_CLASS(net_dev_rx_verbose_template,
 	TP_ARGS(skb),
 
 	TP_STRUCT__entry(
-		__string(	name,			skb->dev->name	)
-		__field(	unsigned int,		napi_id		)
-		__field(	u16,			queue_mapping	)
-		__field(	const void *,		skbaddr		)
-		__field(	bool,			vlan_tagged	)
-		__field(	u16,			vlan_proto	)
-		__field(	u16,			vlan_tci	)
-		__field(	u16,			protocol	)
-		__field(	u8,			ip_summed	)
-		__field(	u32,			hash		)
-		__field(	bool,			l4_hash		)
-		__field(	unsigned int,		len		)
-		__field(	unsigned int,		data_len	)
-		__field(	unsigned int,		truesize	)
-		__field(	bool,			mac_header_valid)
-		__field(	int,			mac_header	)
-		__field(	unsigned char,		nr_frags	)
-		__field(	u16,			gso_size	)
-		__field(	u16,			gso_type	)
+		__string(name, skb->dev->name)
+		__field(unsigned int, napi_id)
+		__field(u16, queue_mapping)
+		__field(const void *, skbaddr)
+		__field(bool, vlan_tagged)
+		__field(u16, vlan_proto)
+		__field(u16, vlan_tci)
+		__field(u16, protocol)
+		__field(u8, ip_summed)
+		__field(u32, hash)
+		__field(bool, l4_hash)
+		__field(unsigned int, len)
+		__field(unsigned int, data_len)
+		__field(unsigned int, truesize)
+		__field(bool, mac_header_valid)
+		__field(int, mac_header)
+		__field(unsigned char, nr_frags)
+		__field(u16, gso_size)
+		__field(u16, gso_type)
+		__field(ktime_t, utctime)
+
 	),
 
 	TP_fast_assign(
@@ -183,16 +223,23 @@ DECLARE_EVENT_CLASS(net_dev_rx_verbose_template,
 		__entry->nr_frags = skb_shinfo(skb)->nr_frags;
 		__entry->gso_size = skb_shinfo(skb)->gso_size;
 		__entry->gso_type = skb_shinfo(skb)->gso_type;
+		__entry->utctime = ktime_get_tai_ns();
+
 	),
 
-	TP_printk("dev=%s napi_id=%#x queue_mapping=%u skbaddr=%pK vlan_tagged=%d vlan_proto=0x%04x vlan_tci=0x%04x protocol=0x%04x ip_summed=%d hash=0x%08x l4_hash=%d len=%u data_len=%u truesize=%u mac_header_valid=%d mac_header=%d nr_frags=%d gso_size=%d gso_type=%#x",
+	TP_printk("dev=%s napi_id=%#x queue_mapping=%u skbaddr=%pK\t"
+		  "vlan_tagged=%d vlan_proto=0x%04x vlan_tci=0x%04x\t"
+		  "protocol=0x%04x ip_summed=%d hash=0x%08x l4_hash=%d\t"
+		  "len=%u data_len=%u truesize=%u mac_header_valid=%d\t"
+		  "mac_header=%d nr_frags=%d gso_size=%d gso_type=%#x UTC: %ld",
 		  __get_str(name), __entry->napi_id, __entry->queue_mapping,
 		  __entry->skbaddr, __entry->vlan_tagged, __entry->vlan_proto,
 		  __entry->vlan_tci, __entry->protocol, __entry->ip_summed,
 		  __entry->hash, __entry->l4_hash, __entry->len,
 		  __entry->data_len, __entry->truesize,
 		  __entry->mac_header_valid, __entry->mac_header,
-		  __entry->nr_frags, __entry->gso_size, __entry->gso_type)
+		  __entry->nr_frags, __entry->gso_size, __entry->gso_type,
+		  __entry->utctime)
 );
 
 DEFINE_EVENT(net_dev_rx_verbose_template, napi_gro_frags_entry,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -436,6 +436,33 @@ static int sde_rotator_start_streaming(struct vb2_queue *q, unsigned int count)
 }
 
 /*
+ * Check if done handler is submitted before continuing with
+ * the stop streaming request so that mismatch between
+ * hardware and software timestamps can be avoided.
+ */
+static bool sde_rot_check_for_flush_ts(struct sde_rot_mgr *mgr,
+	struct sde_rot_file_private *private)
+{
+	struct sde_rot_entry_container *req, *req_next;
+	struct sde_rot_entry *entry;
+	ktime_t current_ts;
+	int i;
+
+	current_ts = ktime_get();
+	list_for_each_entry_safe(req, req_next, &private->req_list, list)
+		for (i = 0; i < req->count; i++) {
+			entry = req->entries + i;
+			if ((entry->item.ts) &&
+				ktime_to_ms(ktime_sub(current_ts,
+				entry->item.ts[SDE_ROTATOR_TS_FLUSH])) <
+				SDE_ROTATOR_STREAM_OFF_TIMEOUT)
+				return false;
+		}
+
+	return true;
+}
+
+/*
  * sde_rotator_stop_streaming - vb2_ops stop_streaming callback.
  * @q: Pointer to vb2 queue struct.
  *
@@ -455,6 +482,8 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 			ctx->session_id, q->type,
 			!list_empty(&ctx->pending_list));
 	ctx->abort_pending = 1;
+
+wait_for_completion:
 	mutex_unlock(q->lock);
 	ret = wait_event_timeout(ctx->wait_queue,
 			list_empty(&ctx->pending_list),
@@ -469,6 +498,13 @@ static void sde_rotator_stop_streaming(struct vb2_queue *q)
 				!list_empty(&ctx->pending_list),
 				SDE_ROT_EVTLOG_ERROR);
 		sde_rot_mgr_lock(rot_dev->mgr);
+		ret = sde_rot_check_for_flush_ts(rot_dev->mgr, ctx->private);
+		if (!ret) {
+			sde_rot_mgr_unlock(rot_dev->mgr);
+			SDEDEV_ERR(rot_dev->dev, "wait again for %d ms\n",
+				rot_dev->streamoff_timeout);
+			goto wait_for_completion;
+		}
 		sde_rotator_cancel_all_requests(rot_dev->mgr, ctx->private);
 		sde_rot_mgr_unlock(rot_dev->mgr);
 		list_for_each_safe(curr, next, &ctx->pending_list) {
@@ -2363,7 +2399,7 @@ static int sde_rotator_qbuf(struct file *file, void *fh,
 		ctx->vbinfo_cap[idx].qbuf_ts = ktime_get();
 		ctx->vbinfo_cap[idx].dqbuf_ts = NULL;
 		SDEDEV_DBG(ctx->rot_dev->dev,
-				"create buffer fence s:%d.%u i:%d f:%p\n",
+				"create buffer fence s:%d.%u i:%d f:%pK\n",
 				ctx->session_id,
 				ctx->vbinfo_cap[idx].fence_ts,
 				idx,
@@ -3052,7 +3088,7 @@ static void sde_rotator_retire_handler(struct kthread_work *work)
 
 		if (!src_buf || !dst_buf) {
 			SDEDEV_ERR(rot_dev->dev,
-				"null buffer in retire s:%d sb:%p db:%p\n",
+				"null buffer in retire s:%d sb:%pK db:%pK\n",
 				ctx->session_id,
 				src_buf, dst_buf);
 		}
@@ -3341,7 +3377,7 @@ static void sde_rotator_device_run(void *priv)
 			dst_buf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
 			if (!src_buf || !dst_buf) {
 				SDEDEV_ERR(rot_dev->dev,
-					"null buffer in device run s:%d sb:%p db:%p\n",
+					"null buffer in device run s:%d sb:%pK db:%pK\n",
 					ctx->session_id,
 					src_buf, dst_buf);
 				goto error_process_buffers;

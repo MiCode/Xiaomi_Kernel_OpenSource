@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@ extern struct bus_type mhi_bus_type;
 
 /* MHI mmio register mapping */
 #define PCI_INVALID_READ(val) (val == U32_MAX)
+#define MHI_REG_SIZE (SZ_4K)
 
 #define MHIREGLEN (0x0)
 #define MHIREGLEN_MHIREGLEN_MASK (0xFFFFFFFF)
@@ -149,18 +150,29 @@ extern struct bus_type mhi_bus_type;
 #define CAP_NEXT_CAP_SHIFT (12)
 
 /* MHI Timesync offsets */
-#define TIMESYNC_CFG_OFFSET (0x00)
-#define TIMESYNC_CFG_CAPID_MASK (CAP_CAPID_MASK)
-#define TIMESYNC_CFG_CAPID_SHIFT (CAP_CAPID_SHIFT)
-#define TIMESYNC_CFG_NEXT_OFF_MASK (CAP_NEXT_CAP_MASK)
-#define TIMESYNC_CFG_NEXT_OFF_SHIFT (CAP_NEXT_CAP_SHIFT)
-#define TIMESYNC_CFG_NUMCMD_MASK (0xFF)
-#define TIMESYNC_CFG_NUMCMD_SHIFT (0)
-#define TIMESYNC_DB_OFFSET (0x4)
+#define TIMESYNC_CFG_OFFSET (0x04)
+#define TIMESYNC_CFG_ENABLED_MASK (0x80000000)
+#define TIMESYNC_CFG_ENABLED_SHIFT (31)
+#define TIMESYNC_CFG_CHAN_DB_ID_MASK (0x0000FF00)
+#define TIMESYNC_CFG_CHAN_DB_ID_SHIFT (8)
+#define TIMESYNC_CFG_ER_ID_MASK (0x000000FF)
+#define TIMESYNC_CFG_ER_ID_SHIFT (0)
+
 #define TIMESYNC_TIME_LOW_OFFSET (0x8)
 #define TIMESYNC_TIME_HIGH_OFFSET (0xC)
 
 #define TIMESYNC_CAP_ID (2)
+
+/* MHI Bandwidth scaling offsets */
+#define BW_SCALE_CFG_OFFSET (0x04)
+#define BW_SCALE_CFG_CHAN_DB_ID_MASK (0xFE000000)
+#define BW_SCALE_CFG_CHAN_DB_ID_SHIFT (25)
+#define BW_SCALE_CFG_ENABLED_MASK (0x01000000)
+#define BW_SCALE_CFG_ENABLED_SHIFT (24)
+#define BW_SCALE_CFG_ER_ID_MASK (0x00F80000)
+#define BW_SCALE_CFG_ER_ID_SHIFT (19)
+
+#define BW_SCALE_CAP_ID (3)
 
 /* MHI BHI offfsets */
 #define BHI_BHIVERSION_MINOR (0x00)
@@ -224,8 +236,24 @@ extern struct bus_type mhi_bus_type;
 #define BHIE_RXVECSTATUS_STATUS_XFER_COMPL (0x02)
 #define BHIE_RXVECSTATUS_STATUS_ERROR (0x03)
 
-/* convert ticks to micro seconds by dividing by 19.2 */
-#define TIME_TICKS_TO_US(x) (div_u64((x) * 10, 192))
+#define SOC_HW_VERSION_OFFS (0x224)
+#define SOC_HW_VERSION_FAM_NUM_BMSK (0xF0000000)
+#define SOC_HW_VERSION_FAM_NUM_SHFT (28)
+#define SOC_HW_VERSION_DEV_NUM_BMSK (0x0FFF0000)
+#define SOC_HW_VERSION_DEV_NUM_SHFT (16)
+#define SOC_HW_VERSION_MAJOR_VER_BMSK (0x0000FF00)
+#define SOC_HW_VERSION_MAJOR_VER_SHFT (8)
+#define SOC_HW_VERSION_MINOR_VER_BMSK (0x000000FF)
+#define SOC_HW_VERSION_MINOR_VER_SHFT (0)
+
+/* timesync time calculations */
+#define LOCAL_TICKS_TO_US(x) (div_u64((x) * 100ULL, \
+				div_u64(mhi_cntrl->local_timer_freq, 10000ULL)))
+#define REMOTE_TICKS_TO_US(x) (div_u64((x) * 100ULL, \
+			       div_u64(mhi_cntrl->remote_timer_freq, 10000ULL)))
+
+/* Wait time to allow runtime framework to resume MHI in milliseconds */
+#define MHI_RESUME_TIME	(30000)
 
 struct mhi_event_ctxt {
 	u32 reserved : 8;
@@ -278,6 +306,7 @@ enum mhi_cmd_type {
 	MHI_CMD_TYPE_STOP = 17,
 	MHI_CMD_TYPE_START = 18,
 	MHI_CMD_TYPE_TSYNC = 24,
+	MHI_CMD_TYPE_SFR_CFG = 73,
 };
 
 /* no operation command */
@@ -302,11 +331,10 @@ enum mhi_cmd_type {
 #define MHI_TRE_CMD_START_DWORD1(chid) ((chid << 24) | \
 					(MHI_CMD_TYPE_START << 16))
 
-/* time sync cfg command */
-#define MHI_TRE_CMD_TSYNC_CFG_PTR (0)
-#define MHI_TRE_CMD_TSYNC_CFG_DWORD0 (0)
-#define MHI_TRE_CMD_TSYNC_CFG_DWORD1(er) ((MHI_CMD_TYPE_TSYNC << 16) | \
-					  (er << 24))
+/* subsystem failure reason cfg command */
+#define MHI_TRE_CMD_SFR_CFG_PTR(ptr) (ptr)
+#define MHI_TRE_CMD_SFR_CFG_DWORD0(len) (len)
+#define MHI_TRE_CMD_SFR_CFG_DWORD1 (MHI_CMD_TYPE_SFR_CFG << 16)
 
 #define MHI_TRE_GET_CMD_CHID(tre) (((tre)->dword[1] >> 24) & 0xFF)
 #define MHI_TRE_GET_CMD_TYPE(tre) (((tre)->dword[1] >> 16) & 0xFF)
@@ -322,10 +350,14 @@ enum mhi_cmd_type {
 #define MHI_TRE_GET_EV_TYPE(tre) (((tre)->dword[1] >> 16) & 0xFF)
 #define MHI_TRE_GET_EV_STATE(tre) (((tre)->dword[0] >> 24) & 0xFF)
 #define MHI_TRE_GET_EV_EXECENV(tre) (((tre)->dword[0] >> 24) & 0xFF)
-#define MHI_TRE_GET_EV_SEQ(tre) ((tre)->dword[0])
+#define MHI_TRE_GET_EV_TSYNC_SEQ(tre) ((tre)->dword[0])
+#define MHI_TRE_GET_EV_TSYNC_UNIT(tre) (((tre)->dword[1] >> 24) & 0xFF)
 #define MHI_TRE_GET_EV_TIME(tre) ((tre)->ptr)
 #define MHI_TRE_GET_EV_COOKIE(tre) lower_32_bits((tre)->ptr)
 #define MHI_TRE_GET_EV_VEID(tre) (((tre)->dword[0] >> 16) & 0xFF)
+#define MHI_TRE_GET_EV_LINKSPEED(tre) (((tre)->dword[1] >> 24) & 0xFF)
+#define MHI_TRE_GET_EV_LINKWIDTH(tre) ((tre)->dword[0] & 0xFF)
+#define MHI_TRE_GET_EV_BW_REQ_SEQ(tre) (((tre)->dword[0] >> 8) & 0xFF)
 
 /* transfer descriptor macros */
 #define MHI_TRE_DATA_PTR(ptr) (ptr)
@@ -338,10 +370,13 @@ enum mhi_cmd_type {
 #define MHI_RSCTRE_DATA_DWORD0(cookie) (cookie)
 #define MHI_RSCTRE_DATA_DWORD1 (MHI_PKT_TYPE_COALESCING << 16)
 
+#define MHI_RSC_MIN_CREDITS (8)
+
 enum MHI_CMD {
 	MHI_CMD_RESET_CHAN,
 	MHI_CMD_START_CHAN,
-	MHI_CMD_TIMSYNC_CFG,
+	MHI_CMD_STOP_CHAN,
+	MHI_CMD_SFR_CFG,
 };
 
 enum MHI_PKT_TYPE {
@@ -358,6 +393,8 @@ enum MHI_PKT_TYPE {
 	MHI_PKT_TYPE_RSC_TX_EVENT = 0x28,
 	MHI_PKT_TYPE_EE_EVENT = 0x40,
 	MHI_PKT_TYPE_TSYNC_EVENT = 0x48,
+	MHI_PKT_TYPE_SFR_CFG_CMD = 0x49,
+	MHI_PKT_TYPE_BW_REQ_EVENT = 0x50,
 	MHI_PKT_TYPE_STALE_EVENT, /* internal event */
 };
 
@@ -405,6 +442,7 @@ enum MHI_ST_TRANSITION {
 	MHI_ST_TRANSITION_READY,
 	MHI_ST_TRANSITION_SBL,
 	MHI_ST_TRANSITION_MISSION_MODE,
+	MHI_ST_TRANSITION_DISABLE,
 	MHI_ST_TRANSITION_MAX,
 };
 
@@ -417,6 +455,11 @@ extern const char * const mhi_state_str[MHI_STATE_MAX];
 				  !mhi_state_str[state]) ? \
 				"INVALID_STATE" : mhi_state_str[state])
 
+extern const char * const mhi_log_level_str[MHI_MSG_LVL_MAX];
+#define TO_MHI_LOG_LEVEL_STR(level) ((level >= MHI_MSG_LVL_MAX || \
+				  !mhi_log_level_str[level]) ? \
+				"Mask all" : mhi_log_level_str[level])
+
 enum {
 	MHI_PM_BIT_DISABLE,
 	MHI_PM_BIT_POR,
@@ -426,10 +469,12 @@ enum {
 	MHI_PM_BIT_M3,
 	MHI_PM_BIT_M3_EXIT,
 	MHI_PM_BIT_FW_DL_ERR,
+	MHI_PM_BIT_DEVICE_ERR_DETECT,
 	MHI_PM_BIT_SYS_ERR_DETECT,
 	MHI_PM_BIT_SYS_ERR_PROCESS,
 	MHI_PM_BIT_SHUTDOWN_PROCESS,
 	MHI_PM_BIT_LD_ERR_FATAL_DETECT,
+	MHI_PM_BIT_SHUTDOWN_NO_ACCESS,
 	MHI_PM_BIT_MAX
 };
 
@@ -444,20 +489,25 @@ enum MHI_PM_STATE {
 	MHI_PM_M3_EXIT = BIT(MHI_PM_BIT_M3_EXIT),
 	/* firmware download failure state */
 	MHI_PM_FW_DL_ERR = BIT(MHI_PM_BIT_FW_DL_ERR),
+	/* error or shutdown detected or processing state */
+	MHI_PM_DEVICE_ERR_DETECT = BIT(MHI_PM_BIT_DEVICE_ERR_DETECT),
 	MHI_PM_SYS_ERR_DETECT = BIT(MHI_PM_BIT_SYS_ERR_DETECT),
 	MHI_PM_SYS_ERR_PROCESS = BIT(MHI_PM_BIT_SYS_ERR_PROCESS),
 	MHI_PM_SHUTDOWN_PROCESS = BIT(MHI_PM_BIT_SHUTDOWN_PROCESS),
 	/* link not accessible */
 	MHI_PM_LD_ERR_FATAL_DETECT = BIT(MHI_PM_BIT_LD_ERR_FATAL_DETECT),
+	MHI_PM_SHUTDOWN_NO_ACCESS = BIT(MHI_PM_BIT_SHUTDOWN_NO_ACCESS),
 };
 
 #define MHI_REG_ACCESS_VALID(pm_state) ((pm_state & (MHI_PM_POR | MHI_PM_M0 | \
 		MHI_PM_M2 | MHI_PM_M3_ENTER | MHI_PM_M3_EXIT | \
-		MHI_PM_SYS_ERR_DETECT | MHI_PM_SYS_ERR_PROCESS | \
-		MHI_PM_SHUTDOWN_PROCESS | MHI_PM_FW_DL_ERR)))
+		MHI_PM_DEVICE_ERR_DETECT | MHI_PM_SYS_ERR_DETECT | \
+		MHI_PM_SYS_ERR_PROCESS | MHI_PM_SHUTDOWN_PROCESS | \
+		MHI_PM_FW_DL_ERR)))
 #define MHI_PM_IN_ERROR_STATE(pm_state) (pm_state >= MHI_PM_FW_DL_ERR)
-#define MHI_PM_IN_FATAL_STATE(pm_state) (pm_state == MHI_PM_LD_ERR_FATAL_DETECT)
-#define MHI_DB_ACCESS_VALID(pm_state) (pm_state & MHI_PM_M0)
+#define MHI_PM_IN_FATAL_STATE(pm_state) (pm_state >= MHI_PM_LD_ERR_FATAL_DETECT)
+#define MHI_DB_ACCESS_VALID(mhi_cntrl) (mhi_cntrl->pm_state & \
+					mhi_cntrl->db_access)
 #define MHI_WAKE_DB_CLEAR_VALID(pm_state) (pm_state & (MHI_PM_M0 | \
 						MHI_PM_M2 | MHI_PM_M3_EXIT))
 #define MHI_WAKE_DB_SET_VALID(pm_state) (pm_state & MHI_PM_M2)
@@ -480,19 +530,44 @@ enum MHI_XFER_TYPE {
 #define NR_OF_CMD_RINGS (1)
 #define CMD_EL_PER_RING (128)
 #define PRIMARY_CMD_RING (0)
+#define MHI_TIMESYNC_CHAN_DB (125)
+#define MHI_BW_SCALE_CHAN_DB (126)
 #define MHI_DEV_WAKE_DB (127)
 #define MHI_MAX_MTU (0xffff)
+
+#define MHI_TIMESYNC_DB_SETUP(er_index) (((MHI_TIMESYNC_CHAN_DB << \
+	TIMESYNC_CFG_CHAN_DB_ID_SHIFT) & TIMESYNC_CFG_CHAN_DB_ID_MASK) | \
+	((1 << TIMESYNC_CFG_ENABLED_SHIFT) & TIMESYNC_CFG_ENABLED_MASK) | \
+	(((er_index) << TIMESYNC_CFG_ER_ID_SHIFT) & TIMESYNC_CFG_ER_ID_MASK))
+
+#define MHI_BW_SCALE_SETUP(er_index) (((MHI_BW_SCALE_CHAN_DB << \
+	BW_SCALE_CFG_CHAN_DB_ID_SHIFT) & BW_SCALE_CFG_CHAN_DB_ID_MASK) | \
+	((1 << BW_SCALE_CFG_ENABLED_SHIFT) & BW_SCALE_CFG_ENABLED_MASK) | \
+	(((er_index) << BW_SCALE_CFG_ER_ID_SHIFT) & BW_SCALE_CFG_ER_ID_MASK))
+
+#define MHI_BW_SCALE_RESULT(status, seq) ((status & 0xF) << 8 | (seq & 0xFF))
+#define MHI_BW_SCALE_NACK 0xF
 
 enum MHI_ER_TYPE {
 	MHI_ER_TYPE_INVALID = 0x0,
 	MHI_ER_TYPE_VALID = 0x1,
 };
 
+enum mhi_er_priority {
+	MHI_ER_PRIORITY_HIGH,
+	MHI_ER_PRIORITY_MEDIUM,
+	MHI_ER_PRIORITY_SPECIAL,
+};
+
+#define IS_MHI_ER_PRIORITY_SPECIAL(ev) (ev->priority >= MHI_ER_PRIORITY_SPECIAL)
+#define IS_MHI_ER_PRIORITY_HIGH(ev) (ev->priority == MHI_ER_PRIORITY_HIGH)
+
 enum mhi_er_data_type {
 	MHI_ER_DATA_ELEMENT_TYPE,
 	MHI_ER_CTRL_ELEMENT_TYPE,
 	MHI_ER_TSYNC_ELEMENT_TYPE,
-	MHI_ER_DATA_TYPE_MAX = MHI_ER_TSYNC_ELEMENT_TYPE,
+	MHI_ER_BW_SCALE_ELEMENT_TYPE,
+	MHI_ER_DATA_TYPE_MAX = MHI_ER_BW_SCALE_ELEMENT_TYPE,
 };
 
 enum mhi_ch_ee_mask {
@@ -531,6 +606,7 @@ struct mhi_pm_transitions {
 struct state_transition {
 	struct list_head node;
 	enum MHI_ST_TRANSITION state;
+	enum MHI_PM_STATE pm_state;
 };
 
 struct mhi_ctxt {
@@ -575,17 +651,19 @@ struct mhi_buf_info {
 };
 
 struct mhi_event {
+	struct list_head node;
 	u32 er_index;
 	u32 intmod;
 	u32 msi;
 	int chan; /* this event ring is dedicated to a channel */
-	u32 priority;
+	enum mhi_er_priority priority;
 	enum mhi_er_data_type data_type;
 	struct mhi_ring ring;
 	struct db_cfg db_cfg;
 	bool hw_ring;
 	bool cl_manage;
 	bool offload_ev; /* managed by a device driver */
+	bool request_irq; /* has dedicated interrupt handler */
 	spinlock_t lock;
 	struct mhi_chan *mhi_chan; /* dedicated to channel */
 	struct tasklet_struct task;
@@ -606,7 +684,6 @@ struct mhi_chan {
 	struct mhi_ring buf_ring;
 	struct mhi_ring tre_ring;
 	u32 er_index;
-	u32 intmod;
 	enum mhi_ch_type type;
 	enum dma_data_direction dir;
 	struct db_cfg db_cfg;
@@ -614,6 +691,7 @@ struct mhi_chan {
 	enum MHI_XFER_TYPE xfer_type;
 	enum MHI_CH_STATE ch_state;
 	enum MHI_EV_CCS ccs;
+	bool bei; /* based on interrupt moderation, true if greater than 0 */
 	bool lpm_notify;
 	bool configured;
 	bool offload_ch;
@@ -632,12 +710,14 @@ struct mhi_chan {
 	struct completion completion;
 	rwlock_t lock;
 	struct list_head node;
+
+	/* stats */
+	u64 mode_change;
 };
 
 struct tsync_node {
 	struct list_head node;
 	u32 sequence;
-	u64 local_time;
 	u64 remote_time;
 	struct mhi_device *mhi_dev;
 	void (*cb_func)(struct mhi_device *mhi_dev, u32 sequence,
@@ -645,14 +725,24 @@ struct tsync_node {
 };
 
 struct mhi_timesync {
-	u32 er_index;
-	void __iomem *db;
 	void __iomem *time_reg;
+	u32 int_sequence;
+	u64 local_time;
+	u64 remote_time;
+	bool db_support;
+	bool db_response_pending;
+	struct completion db_completion;
+	spinlock_t lock; /* list protection */
+	struct list_head head;
+};
+
+struct mhi_sfr_info {
+	void *buf_addr;
+	dma_addr_t dma_addr;
+	size_t len;
+	char *str;
 	enum MHI_EV_CCS ccs;
 	struct completion completion;
-	spinlock_t lock; /* list protection */
-	struct mutex lpm_mutex; /* lpm protection */
-	struct list_head head;
 };
 
 struct mhi_bus {
@@ -662,13 +752,20 @@ struct mhi_bus {
 
 /* default MHI timeout */
 #define MHI_TIMEOUT_MS (1000)
+#define MHI_FORCE_WAKE_DELAY_US (100)
+
 extern struct mhi_bus mhi_bus;
 
+struct mhi_controller *find_mhi_controller_by_name(const char *name);
+
 /* debug fs related functions */
+int mhi_debugfs_mhi_regdump_show(struct seq_file *m, void *d);
+int mhi_debugfs_mhi_vote_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_chan_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_event_show(struct seq_file *m, void *d);
 int mhi_debugfs_mhi_states_show(struct seq_file *m, void *d);
 int mhi_debugfs_trigger_reset(void *data, u64 val);
+int mhi_debugfs_trigger_soc_reset(void *data, u64 val);
 
 void mhi_deinit_debugfs(struct mhi_controller *mhi_cntrl);
 void mhi_init_debugfs(struct mhi_controller *mhi_cntrl);
@@ -685,7 +782,8 @@ int mhi_queue_state_transition(struct mhi_controller *mhi_cntrl,
 			       enum MHI_ST_TRANSITION state);
 void mhi_pm_st_worker(struct work_struct *work);
 void mhi_fw_load_worker(struct work_struct *work);
-void mhi_pm_sys_err_worker(struct work_struct *work);
+void mhi_special_purpose_work(struct work_struct *work);
+void mhi_process_sys_err(struct mhi_controller *mhi_cntrl);
 int mhi_ready_state_transition(struct mhi_controller *mhi_cntrl);
 void mhi_ctrl_ev_task(unsigned long data);
 int mhi_pm_m0_transition(struct mhi_controller *mhi_cntrl);
@@ -696,11 +794,20 @@ int mhi_process_data_event_ring(struct mhi_controller *mhi_cntrl,
 				struct mhi_event *mhi_event, u32 event_quota);
 int mhi_process_ctrl_ev_ring(struct mhi_controller *mhi_cntrl,
 			     struct mhi_event *mhi_event, u32 event_quota);
-int mhi_process_tsync_event_ring(struct mhi_controller *mhi_cntrl,
+int mhi_process_tsync_ev_ring(struct mhi_controller *mhi_cntrl,
+			      struct mhi_event *mhi_event, u32 event_quota);
+int mhi_process_bw_scale_ev_ring(struct mhi_controller *mhi_cntrl,
 				 struct mhi_event *mhi_event, u32 event_quota);
 int mhi_send_cmd(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan,
 		 enum MHI_CMD cmd);
 int __mhi_device_get_sync(struct mhi_controller *mhi_cntrl);
+
+static inline void mhi_trigger_resume(struct mhi_controller *mhi_cntrl)
+{
+	mhi_cntrl->runtime_get(mhi_cntrl, mhi_cntrl->priv_data);
+	mhi_cntrl->runtime_put(mhi_cntrl, mhi_cntrl->priv_data);
+	pm_wakeup_event(&mhi_cntrl->mhi_dev->dev, 0);
+}
 
 /* queue transfer buffer */
 int mhi_gen_tre(struct mhi_controller *mhi_cntrl, struct mhi_chan *mhi_chan,
@@ -739,9 +846,23 @@ void mhi_ring_chan_db(struct mhi_controller *mhi_cntrl,
 		      struct mhi_chan *mhi_chan);
 int mhi_get_capability_offset(struct mhi_controller *mhi_cntrl, u32 capability,
 			      u32 *offset);
-int mhi_init_timesync(struct mhi_controller *mhi_cntrl);
-int mhi_create_timesync_sysfs(struct mhi_controller *mhi_cntrl);
-void mhi_destroy_timesync(struct mhi_controller *mhi_cntrl);
+void *mhi_to_virtual(struct mhi_ring *ring, dma_addr_t addr);
+int mhi_init_sfr(struct mhi_controller *mhi_cntrl);
+void mhi_create_sysfs(struct mhi_controller *mhi_cntrl);
+void mhi_destroy_sysfs(struct mhi_controller *mhi_cntrl);
+int mhi_early_notify_device(struct device *dev, void *data);
+void mhi_write_reg_offload(struct mhi_controller *mhi_cntrl,
+			void __iomem *base, u32 offset, u32 val);
+
+/* timesync log support */
+static inline void mhi_timesync_log(struct mhi_controller *mhi_cntrl)
+{
+	struct mhi_timesync *mhi_tsync = mhi_cntrl->mhi_tsync;
+
+	if (mhi_tsync && mhi_cntrl->tsync_log)
+		mhi_cntrl->tsync_log(mhi_cntrl,
+				     readq_no_log(mhi_tsync->time_reg));
+}
 
 /* memory allocation methods */
 static inline void *mhi_alloc_coherent(struct mhi_controller *mhi_cntrl,
@@ -797,6 +918,14 @@ void mhi_deinit_dev_ctxt(struct mhi_controller *mhi_cntrl);
 int mhi_init_irq_setup(struct mhi_controller *mhi_cntrl);
 void mhi_deinit_free_irq(struct mhi_controller *mhi_cntrl);
 int mhi_dtr_init(void);
+void mhi_rddm_prepare(struct mhi_controller *mhi_cntrl,
+		      struct image_info *img_info);
+void mhi_fw_load_handler(struct mhi_controller *mhi_cntrl);
+int mhi_prepare_channel(struct mhi_controller *mhi_cntrl,
+			struct mhi_chan *mhi_chan);
+void mhi_reset_reg_write_q(struct mhi_controller *mhi_cntrl);
+void mhi_force_reg_write(struct mhi_controller *mhi_cntrl);
+void mhi_perform_soc_reset(struct mhi_controller *mhi_cntrl);
 
 /* isr handlers */
 irqreturn_t mhi_msi_handlr(int irq_number, void *dev);
@@ -804,22 +933,9 @@ irqreturn_t mhi_intvec_threaded_handlr(int irq_number, void *dev);
 irqreturn_t mhi_intvec_handlr(int irq_number, void *dev);
 void mhi_ev_task(unsigned long data);
 
-#ifdef CONFIG_MHI_DEBUG
-
-#define MHI_ASSERT(cond, msg) do { \
+#define MHI_ASSERT(cond, fmt, ...) do { \
 	if (cond) \
-		panic(msg); \
+		panic(fmt); \
 } while (0)
-
-#else
-
-#define MHI_ASSERT(cond, msg) do { \
-	if (cond) { \
-		MHI_ERR(msg); \
-		WARN_ON(cond); \
-	} \
-} while (0)
-
-#endif
 
 #endif /* _MHI_INT_H */

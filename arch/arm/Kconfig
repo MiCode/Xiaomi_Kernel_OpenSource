@@ -575,8 +575,6 @@ config ARCH_QCOM
        select PINCTRL
        select ARCH_WANT_KMAP_ATOMIC_FLUSH
        select MFD_CORE
-       select SND_SOC_COMPRESS
-       select SND_HWDEP
        help
          Support for Qualcomm MSM/QSD based systems.  This runs on the
          apps processor of the MSM/QSD and depends on a shared memory
@@ -1473,6 +1471,12 @@ config PAGE_OFFSET
 	default 0xB0000000 if VMSPLIT_3G_OPT
 	default 0xC0000000
 
+config COMMAND_LINE_SIZE
+	int "Maximum size of the command line."
+	default "1024"
+	help
+	This is the per architecture maximum command line size.
+
 config NR_CPUS
 	int "Maximum number of CPUs (2-32)"
 	range 2 32
@@ -1568,12 +1572,10 @@ config THUMB2_KERNEL
 	bool "Compile the kernel in Thumb-2 mode" if !CPU_THUMBONLY
 	depends on (CPU_V7 || CPU_V7M) && !CPU_V6 && !CPU_V6K
 	default y if CPU_THUMBONLY
-	select ARM_ASM_UNIFIED
 	select ARM_UNWIND
 	help
 	  By enabling this option, the kernel will be compiled in
-	  Thumb-2 mode. A compiler/assembler that understand the unified
-	  ARM-Thumb syntax is needed.
+	  Thumb-2 mode.
 
 	  If unsure, say N.
 
@@ -1607,9 +1609,6 @@ config THUMB2_AVOID_R_ARM_THM_JUMP11
 	  Only Thumb-2 kernels are affected.
 
 	  Unless you are sure your tools don't have this problem, say Y.
-
-config ARM_ASM_UNIFIED
-	bool
 
 config ARM_PATCH_IDIV
 	bool "Runtime patch udiv/sdiv instructions into __aeabi_{u}idiv()"
@@ -1727,6 +1726,26 @@ config CPU_SW_DOMAIN_PAN
 	  CPUs with low-vector mappings use a best-efforts implementation.
 	  Their lower 1MB needs to remain accessible for the vectors, but
 	  the remainder of userspace will become appropriately inaccessible.
+
+config MODULES_USE_LONG_CALLS
+	bool
+	help
+	  Use long calls for calling exported symbols.
+
+config MODULES_USE_VMALLOC
+	bool "Put modules into vmalloc area"
+	select MODULES_USE_LONG_CALLS
+	depends on MMU && MODULES
+	depends on !XIP_KERNEL
+	depends on !FUNCTION_TRACER
+	help
+	  Usually modules are loaded into small area prior to the kernel text
+	  because they are linked with the kernel using short calls.
+
+	  This option enables long calls and moves modules into vmalloc area.
+	  This allows to load more modules but adds some perfromance penalty.
+
+	  If unsure, say n.
 
 config HW_PERF_EVENTS
 	def_bool y
@@ -2089,7 +2108,7 @@ config XIP_PHYS_ADDR
 config KEXEC
 	bool "Kexec system call (EXPERIMENTAL)"
 	depends on (!SMP || PM_SLEEP_SMP)
-	depends on !CPU_V7M
+	depends on MMU
 	select KEXEC_CORE
 	help
 	  kexec is a system call that implements the ability to shutdown your
@@ -2132,6 +2151,17 @@ config AUTO_ZRELADDR
 
 config EFI_STUB
 	bool
+
+config ARM_DECOMPRESSOR_LIMIT
+        hex "Limit the decompressor memory area"
+        default 0x3200000
+        help
+          Allows overriding of the memory size that decompressor maps with
+          read, write and execute permissions to avoid speculative prefetch.
+
+          By default ARM_DECOMPRESSOR_LIMIT maps first 1GB of memory
+          with read, write and execute permissions and reset of the memory
+          as strongly ordered.
 
 config EFI
 	bool "UEFI runtime support"

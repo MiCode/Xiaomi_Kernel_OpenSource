@@ -79,6 +79,12 @@ Properties:
 		haptics module through VDD_HAP pin. This is only needed if VDD_HAP
 		is supplied from an external boost regulator instead of VPH_PWR.
 
+- qcom,haptics-ext-pin-twm
+  Usage:      optional
+  Value type: <empty>
+  Definition: A boolean property which configures haptics into external-pin
+		control during TWM entry.
+
 Following properties are specific only when LRA actuator is used:
 
 - qcom,lra-resonance-sig-shape

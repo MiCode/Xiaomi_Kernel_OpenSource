@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,17 +217,19 @@ struct msm_vidc_platform_resources {
 	uint32_t ubwc_config_length;
 };
 
+
 /**
+ * The version 1 HFI strcuture for the UBWC configuration
  * @bMaxChannelsOverride : enable - 1 /disable - 0 max channel override
  * @bMalLengthOverride : enable - 1 /disable - 0 HBB override
- * @bHBBOverride : enable - 1 /disable – 0 mal length override
+ * @bHBBOverride : enable - 1 /disable - 0 mal length override
  * @nMaxChannels: Num DDR channels 4/8 channel,
  *                This is to control mircotilling mode.
  * @nMalLength : UBWC compression ratio granularity 32B/64B MAL
  * @nHighestBankBit : Valid range 13-19
  */
 
-struct msm_vidc_ubwc_config {
+struct msm_vidc_ubwc_config_v1 {
 	struct {
 		u32 bMaxChannelsOverride : 1;
 		u32 bMalLengthOverride : 1;
@@ -239,6 +241,19 @@ struct msm_vidc_ubwc_config {
 	u32 nMalLength;
 	u32 nHighestBankBit;
 	u32 reserved2[2];
+};
+
+/**
+ * The version 2 HFI strcuture for the UBWC configuration
+ * @nSize : the size of the packet in bytes
+ * @ePacketType: HFI_PROPERTY_SYS_UBWC_CONFIG
+ * @v1 : The same UBWC config parameters as the version 1
+ */
+
+struct msm_vidc_ubwc_config {
+	u32 nSize;
+	u32 ePacketType;
+	struct msm_vidc_ubwc_config_v1 v1;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)

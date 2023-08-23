@@ -87,6 +87,10 @@ static int imc_pmu_create(struct device_node *parent, int pmu_index, int domain)
 	struct imc_pmu *pmu_ptr;
 	u32 offset;
 
+	/* Return for unknown domain */
+	if (domain < 0)
+		return -EINVAL;
+
 	/* memory for pmu */
 	pmu_ptr = kzalloc(sizeof(struct imc_pmu), GFP_KERNEL);
 	if (!pmu_ptr)
@@ -153,6 +157,22 @@ static void disable_core_pmu_counters(void)
 				__FUNCTION__, cpu);
 	}
 	put_online_cpus();
+}
+
+int get_max_nest_dev(void)
+{
+	struct device_node *node;
+	u32 pmu_units = 0, type;
+
+	for_each_compatible_node(node, NULL, IMC_DTB_UNIT_COMPAT) {
+		if (of_property_read_u32(node, "type", &type))
+			continue;
+
+		if (type == IMC_TYPE_CHIP)
+			pmu_units++;
+	}
+
+	return pmu_units;
 }
 
 static int opal_imc_counters_probe(struct platform_device *pdev)

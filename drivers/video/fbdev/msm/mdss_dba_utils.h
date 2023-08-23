@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,5 +46,4 @@ void mdss_dba_utils_hdcp_enable(void *data, bool enable);
 
 void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *init_data);
 void mdss_dba_utils_deinit(void *data);
-void mdss_dba_update_lane_cfg(struct mdss_panel_info *pinfo);
 #endif /* __MDSS_DBA_UTILS__ */

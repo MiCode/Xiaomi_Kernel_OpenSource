@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,8 +35,10 @@
 		clock-names = "gcc_iface", "gcc_bus", "throttle_clk", "div_clk",
 				"iface_clk", "core_clk", "vsync_clk",
 				"lut_clk", "rot_clk";
-		clock-rate = <0 0 0 0 0 256000000 19200000 192000000>;
-		clock-max-rate = <0 0 0 0 0 307000000 19200000 307000000>;
+		clock-rate = <0 0 0 0 0 256000000 19200000 192000000
+						 192000000>;
+		clock-max-rate = <0 0 0 0 0 400000000 19200000 400000000
+						307200000>;
 		qcom,dss-cx-ipeak = <&cx_ipeak_lm 1>;
 
 		sde-vdd-supply = <&mdss_core_gdsc>;
@@ -72,6 +74,7 @@
 
 		qcom,sde-mixer-cwb-pref = "none", "cwb", "none",
 					      "none", "none", "none";
+		qcom,sde-mixer-stage-base-layer;
 
 		qcom,sde-dspp-top-off = <0x1300>;
 		qcom,sde-dspp-top-size = <0x80>;
@@ -96,10 +99,7 @@
 		qcom,sde-cdm-off = <0x7a200>;
 		qcom,sde-cdm-size = <0x224>;
 
-
-		qcom,sde-qdss-off = <0x81a00>;
-
-		qcom,sde-dither-off = <0x30e0 0x30e0 0x30e0 0x30e0>;
+		qcom,sde-dither-off = <0x30e0 0x30e0>;
 		qcom,sde-dither-version = <0x00010000>;
 		qcom,sde-dither-size = <0x20>;
 
@@ -130,7 +130,7 @@
 		qcom,sde-mixer-linewidth = <2560>;
 		qcom,sde-sspp-linewidth = <2160>;
 		qcom,sde-wb-linewidth = <2160>;
-		qcom,sde-mixer-blendstages = <0x5>;
+		qcom,sde-mixer-blendstages = <0x6>;
 		qcom,sde-highest-bank-bit = <0x1>;
 		qcom,sde-ubwc-version = <0x100>;
 		qcom,sde-ubwc-swizzle = <1>;
@@ -409,6 +409,152 @@
 					<RPM_SMD_REGULATOR_LEVEL_TURBO_NO_CPR>;
 				qcom,supply-off-min-voltage =
 					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+	};
+
+	ext_disp: qcom,msm-ext-disp {
+		compatible = "qcom,msm-ext-disp";
+
+		ext_disp_audio_codec: qcom,msm-ext-disp-audio-codec-rx {
+			compatible = "qcom,msm-ext-disp-audio-codec-rx";
+		};
+	};
+
+	sde_dp: qcom,dp_display@0{
+		status = "disabled";
+		cell-index = <0>;
+		compatible = "qcom,dp-display";
+
+		vdda-1p8-supply = <&pm6125_l10>;
+		vdda-0p9-supply = <&pm6125_l7>;
+		vdda-3p1-supply = <&pm6125_l15>;
+		hpd-pwr-supply = <&pm6125_l9>;
+
+		reg = <0x05e90000 0xf4>,
+		      <0x05e90200 0xc0>,
+		      <0x05e90400 0x600>,
+		      <0x05e90a00 0x98>,
+		      <0x01616000 0x17c>,
+		      <0x01616400 0x10c>,
+		      <0x01616800 0x10c>,
+		      <0x05f0212c 0x8>,
+		      <0x01b40000 0x7000>,
+		      <0x01616c30 0x10>,
+		      <0x05ee1000 0x2c>,
+		      <0x003cb248 0x4>;
+		reg-names = "dp_ahb", "dp_aux", "dp_link", "dp_p0",
+			"dp_phy", "dp_ln_tx0", "dp_ln_tx1",
+			"dp_pixel_mn", "qfprom_physical", "dp_pll",
+			"hdcp_physical", "dp_tcsr";
+
+		interrupt-parent = <&mdss_mdp>;
+		interrupts = <12 0>;
+
+		clocks = <&clock_dispcc DISP_CC_MDSS_DP_AUX_CLK>,
+			 <&clock_gcc GCC_AHB2PHY_USB_CLK>,
+			 <&clock_rpmcc CXO_SMD_OTG_CLK>,
+			 <&clock_gcc GCC_USB3_PRIM_CLKREF_CLK>,
+			 <&clock_gcc GCC_USB3_PRIM_PHY_PIPE_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_LINK_INTF_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_CRYPTO_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK_SRC>,
+			 <&mdss_dp_pll DP_PHY_PLL_VCO_DIV_CLK>,
+			 <&clock_dispcc DISP_CC_MDSS_DP_PIXEL_CLK>;
+
+		clock-names = "core_aux_clk", "core_usb_ahb_clk",
+			"core_usb_ref_clk_src",
+			"core_usb_ref_clk",
+			"core_usb_pipe_clk", "link_clk", "link_iface_clk",
+			"crypto_clk", "pixel_clk_rcg", "pixel_parent",
+			"strm0_pixel_clk";
+
+		qcom,phy-version = <0x200>;
+		qcom,aux-cfg0-settings = [20 00];
+		qcom,aux-cfg1-settings = [24 13 23 1d];
+		qcom,aux-cfg2-settings = [28 24];
+		qcom,aux-cfg3-settings = [2c 00];
+		qcom,aux-cfg4-settings = [30 0a];
+		qcom,aux-cfg5-settings = [34 26];
+		qcom,aux-cfg6-settings = [38 0a];
+		qcom,aux-cfg7-settings = [3c 03];
+		qcom,aux-cfg8-settings = [40 bb];
+		qcom,aux-cfg9-settings = [44 03];
+
+		qcom,logical2physical-lane-map = [00 01 02 03];
+
+		qcom,max-lclk-frequency-khz = <540000>;
+		qcom,max-pclk-frequency-khz = <200000>;
+
+		qcom,ext-disp = <&ext_disp>;
+
+		qcom,usbplug-cc-gpio = <&tlmm 102 0>;
+
+		pinctrl-names = "mdss_dp_active", "mdss_dp_sleep",
+				"mdss_dp_hpd_active", "mdss_dp_hpd_tlmm",
+				"mdss_dp_hpd_ctrl";
+		pinctrl-0 = <&sde_dp_usbplug_cc_active>;
+		pinctrl-1 = <&sde_dp_usbplug_cc_suspend>;
+		pinctrl-2 = <&sde_dp_hotplug_tlmm>;
+		pinctrl-3 = <&sde_dp_hotplug_tlmm>;
+		pinctrl-4 = <&sde_dp_hotplug_ctrl>;
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-1p8";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1896000>;
+				qcom,supply-enable-load = <20000>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda-0p9";
+				qcom,supply-min-voltage = <872000>;
+				qcom,supply-max-voltage = <976000>;
+				qcom,supply-enable-load = <50000>;
+				qcom,supply-disable-load = <0>;
+			};
+			qcom,phy-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vdda-3p1";
+				qcom,supply-min-voltage = <3104000>;
+				qcom,supply-max-voltage = <3232000>;
+				qcom,supply-enable-load = <5250>;
+				qcom,supply-disable-load = <0>;
+			};
+			qcom,phy-supply-entry@2 {
+				reg = <2>;
+				qcom,supply-name = "hpd-pwr";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1896000>;
+				qcom,supply-enable-load = <10000>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "refgen";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
 				qcom,supply-enable-load = <0>;
 				qcom,supply-disable-load = <0>;
 			};

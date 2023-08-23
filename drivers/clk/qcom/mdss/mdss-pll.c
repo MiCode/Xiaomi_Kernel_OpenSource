@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -136,6 +136,8 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 		pll_res->pll_interface_type = MDSS_DSI_PLL_7NM;
 	else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_7nm_v2"))
 		pll_res->pll_interface_type = MDSS_DSI_PLL_7NM_V2;
+	else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_12nm"))
+		pll_res->pll_interface_type = MDSS_DSI_PLL_12NM;
 	else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_28lpm"))
 		pll_res->pll_interface_type = MDSS_DSI_PLL_28LPM;
 	else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_14nm"))
@@ -144,7 +146,15 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 		pll_res->pll_interface_type = MDSS_DP_PLL_14NM;
 	else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_28lpm"))
 		pll_res->pll_interface_type = MDSS_HDMI_PLL_28LPM;
-	else
+	else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_sdm660")) {
+		pll_res->pll_interface_type = MDSS_DSI_PLL_14NM;
+		pll_res->target_id = MDSS_PLL_TARGET_SDM660;
+		pll_res->revision = 2;
+	} else if (!strcmp(compatible_stream, "qcom,mdss_dp_pll_sdm660")) {
+		pll_res->pll_interface_type = MDSS_DP_PLL_14NM;
+		pll_res->target_id = MDSS_PLL_TARGET_SDM660;
+		pll_res->revision = 2;
+	} else
 		goto err;
 
 	return rc;
@@ -190,6 +200,9 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 		break;
 	case MDSS_HDMI_PLL_28LPM:
 		rc = hdmi_pll_clock_register_28lpm(pdev, pll_res);
+		break;
+	case MDSS_DSI_PLL_12NM:
+		rc = dsi_pll_clock_register_12nm(pdev, pll_res);
 		break;
 	case MDSS_UNKNOWN_PLL:
 	default:
@@ -366,6 +379,8 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		goto clock_register_error;
 	}
 
+	mdss_pll_util_parse_dt_dfps(pdev, pll_res);
+
 	return rc;
 
 clock_register_error:
@@ -426,6 +441,9 @@ static const struct of_device_id mdss_pll_dt_match[] = {
 	{.compatible = "qcom,mdss_dsi_pll_14nm"},
 	{.compatible = "qcom,mdss_dp_pll_14nm"},
 	{.compatible = "qcom,mdss_hdmi_pll_28lpm"},
+	{.compatible = "qcom,mdss_dsi_pll_sdm660"},
+	{.compatible = "qcom,mdss_dsi_pll_12nm"},
+	{.compatible = "qcom,mdss_dp_pll_sdm660"},
 	{}
 };
 

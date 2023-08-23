@@ -1,0 +1,27 @@
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/qcom,camcc-sm6150.h>
+
+#include "sa6155-adp-star.dtsi"
+
+/ {
+	model = "LPASS Audio PLL sourced from eMAC PPO ADP-Star";
+	compatible = "qcom,sa6155p-adp-star", "qcom,sa6155p", "qcom,adp-star";
+	qcom,msm-id = <377 0x0>, <380 0>;
+	qcom,board-id = <0x01010019 0>;
+};
+

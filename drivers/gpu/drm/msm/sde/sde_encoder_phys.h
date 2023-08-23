@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2020 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -256,6 +256,7 @@ struct sde_encoder_irq {
  * @hw_ctl:		Hardware interface to the ctl registers
  * @hw_intf:		Hardware interface to INTF registers
  * @hw_cdm:		Hardware interface to the cdm registers
+ * @hw_qdss:		Hardware interface to the qdss registers
  * @cdm_cfg:		Chroma-down hardware configuration
  * @hw_pp:		Hardware interface to the ping pong registers
  * @sde_kms:		Pointer to the sde_kms top level
@@ -305,6 +306,7 @@ struct sde_encoder_phys {
 	struct sde_hw_ctl *hw_ctl;
 	struct sde_hw_intf *hw_intf;
 	struct sde_hw_cdm *hw_cdm;
+	struct sde_hw_qdss *hw_qdss;
 	struct sde_hw_cdm_cfg cdm_cfg;
 	struct sde_hw_pingpong *hw_pp;
 	struct sde_kms *sde_kms;
@@ -412,13 +414,14 @@ struct sde_encoder_phys_cmd {
  * @hw_wb:		Hardware interface to the wb registers
  * @wbdone_timeout:	Timeout value for writeback done in msec
  * @bypass_irqreg:	Bypass irq register/unregister if non-zero
- * @wbdone_complete:	for wbdone irq synchronization
  * @wb_cfg:		Writeback hardware configuration
  * @cdp_cfg:		Writeback CDP configuration
  * @wb_roi:		Writeback region-of-interest
  * @wb_fmt:		Writeback pixel format
  * @wb_fb:		Pointer to current writeback framebuffer
  * @wb_aspace:		Pointer to current writeback address space
+ * @cwb_old_fb:		Pointer to old writeback framebuffer
+ * @cwb_old_aspace:	Pointer to old writeback address space
  * @frame_count:	Counter of completed writeback operations
  * @kickoff_count:	Counter of issued writeback operations
  * @aspace:		address space identifier for non-secure/secure domain
@@ -434,13 +437,14 @@ struct sde_encoder_phys_wb {
 	struct sde_hw_wb *hw_wb;
 	u32 wbdone_timeout;
 	u32 bypass_irqreg;
-	struct completion wbdone_complete;
 	struct sde_hw_wb_cfg wb_cfg;
 	struct sde_hw_wb_cdp_cfg cdp_cfg;
 	struct sde_rect wb_roi;
 	const struct sde_format *wb_fmt;
 	struct drm_framebuffer *wb_fb;
 	struct msm_gem_address_space *wb_aspace;
+	struct drm_framebuffer *cwb_old_fb;
+	struct msm_gem_address_space *cwb_old_aspace;
 	u32 frame_count;
 	u32 kickoff_count;
 	struct msm_gem_address_space *aspace[SDE_IOMMU_DOMAIN_MAX];

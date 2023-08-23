@@ -77,6 +77,7 @@
 #define RMNET_IOCTL_EGRESS_FORMAT_AGGREGATION          (1<<2)
 #define RMNET_IOCTL_EGRESS_FORMAT_MUXING               (1<<3)
 #define RMNET_IOCTL_EGRESS_FORMAT_CHECKSUM             (1<<4)
+#define RMNET_IOCTL_EGRESS_FORMAT_IP_ROUTE             (1<<5)
 
 /* Input values for the RMNET_IOCTL_SET_INGRESS_DATA_FORMAT IOCTL */
 #define RMNET_IOCTL_INGRESS_FORMAT_MAP                 (1<<1)
@@ -84,6 +85,7 @@
 #define RMNET_IOCTL_INGRESS_FORMAT_DEMUXING            (1<<3)
 #define RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM            (1<<4)
 #define RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA            (1<<5)
+#define RMNET_IOCTL_INGRESS_FORMAT_IP_ROUTE            (1<<6)
 
 /* Input values for the RMNET_IOCTL_SET_OFFLOAD */
 #define RMNET_IOCTL_OFFLOAD_FORMAT_NONE                   (0)

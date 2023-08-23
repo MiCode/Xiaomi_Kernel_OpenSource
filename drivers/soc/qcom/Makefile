@@ -18,23 +18,26 @@ obj-$(CONFIG_QCOM_QMI_HELPERS)	+= qmi_helpers.o
 qmi_helpers-y += qmi_encdec.o
 qmi_helpers-y += qmi_interface.o
 obj-$(CONFIG_QCOM_QMI_RMNET)	+= qmi_rmnet.o
-obj-$(CONFIG_QCOM_QMI_DFC)	+= dfc_qmi.o
+obj-$(CONFIG_QCOM_QMI_DFC)	+= dfc_qmi.o dfc_qmap.o
 obj-$(CONFIG_QCOM_QMI_POWER_COLLAPSE) += wda_qmi.o
+obj-$(CONFIG_MSM_APM)          += apm.o
 obj-$(CONFIG_QCOM_SMD_RPM)	+= smd-rpm.o
 obj-$(CONFIG_QCOM_SMEM) +=	smem.o
+obj-$(CONFIG_MSM_PM_LEGACY) += pm-boot.o msm-pm.o
 obj-$(CONFIG_MSM_SPM) += msm-spm.o spm_devices.o
 obj-$(CONFIG_QCOM_SMEM_STATE) += smem_state.o
 obj-$(CONFIG_QCOM_SMP2P)	+= smp2p.o
 obj-$(CONFIG_QCOM_SMSM)	+= smsm.o
 obj-$(CONFIG_QCOM_WCNSS_CTRL) += wcnss_ctrl.o
 CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
-obj-$(CONFIG_QCOM_SCM)  +=      scm.o
+obj-$(CONFIG_QCOM_SCM)  +=      scm.o scm-boot.o
 obj-$(CONFIG_QCOM_SCM_QCPE)  += scm_qcpe.o
 obj-$(CONFIG_QCOM_EARLY_RANDOM)	+= early_random.o
-obj-$(CONFIG_SOC_BUS) += socinfo.o
+obj-$(CONFIG_QCOM_SOC_INFO) += socinfo.o
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 obj-$(CONFIG_MSM_BOOT_TIME_MARKER) += boot_marker.o
 obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o
+obj-$(CONFIG_QCOM_DCC) += dcc.o
 obj-$(CONFIG_QCOM_DCC_V2) += dcc_v2.o
 obj-$(CONFIG_MSM_GLADIATOR_HANG_DETECT) += gladiator_hang_detect.o
 obj-$(CONFIG_MSM_GLADIATOR_ERP) += gladiator_erp.o
@@ -53,6 +56,7 @@ obj-$(CONFIG_MSM_SYSMON_GLINK_COMM) += sysmon-glink.o
 obj-$(CONFIG_MSM_SYSMON_QMI_COMM) += sysmon-qmi.o
 obj-$(CONFIG_MEM_SHARE_QMI_SERVICE)		+= memshare/
 obj-$(CONFIG_MSM_PIL)   +=      peripheral-loader.o
+obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-msa.o pil-q6v5-mss.o
 obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
 obj-$(CONFIG_QCOM_RUN_QUEUE_STATS) += rq_stats.o
 obj-$(CONFIG_MSM_SPCOM) += spcom.o
@@ -64,12 +68,18 @@ obj-$(MSM_REMOTEQDSS) += remoteqdss.o
 obj-$(CONFIG_MSM_JTAGV8) += jtagv8.o jtagv8-etm.o
 obj-$(CONFIG_MSM_CDSP_LOADER) += qdsp6v2/
 obj-$(CONFIG_QCOM_SMCINVOKE) += smcinvoke.o
+obj-$(CONFIG_SDX_EXT_IPC) += sdx_ext_ipc.o
+obj-$(CONFIG_MSM_PIL_SSR_BG) += subsys-pil-bg.o
+obj-$(CONFIG_QTI_NOTIFY_SIDEBAND) += sideband_notify.o
+obj-$(CONFIG_MSM_BGRSB) += bg_rsb.o
+obj-$(CONFIG_MSM_BGRSB_RPMSG) += bgrsb_rpmsg.o
 
 ifdef CONFIG_MSM_SUBSYSTEM_RESTART
        obj-y += subsystem_notif.o
        obj-y += subsystem_restart.o
        obj-y += ramdump.o
        obj-y += microdump_collector.o
+       obj-$(CONFIG_QTI_GVM_QUIN) += subsystem_notif_virt.o
 endif
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QSEE_IPC_IRQ) += qsee_ipc_irq.o
@@ -89,7 +99,10 @@ ifdef CONFIG_MSM_RPM_SMD
 	obj-$(CONFIG_QTI_RPM_STATS_LOG) += rpm_master_stat.o
 endif
 obj-$(CONFIG_QMP_DEBUGFS_CLIENT) += qmp-debugfs-client.o
+obj-$(CONFIG_MSM_BGCOM) += bgcom_spi.o
+obj-$(CONFIG_MSM_BGCOM_INTERFACE) += bgcom_interface.o
 obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
+obj-$(CONFIG_MSM_DRM_NOTIFY) += msm_drm_notify.o
 ifdef CONFIG_DEBUG_FS
 obj-$(CONFIG_MSM_RPM_SMD)   +=  rpm-smd-debug.o
 endif
@@ -99,4 +112,18 @@ obj-$(CONFIG_QCOM_CDSP_RM) += cdsprm.o
 obj-$(CONFIG_QCOM_CX_IPEAK) += cx_ipeak.o
 obj-$(CONFIG_QCOM_AOP_DDR_MESSAGING) += aop_ddr_msgs.o
 obj-$(CONFIG_MSM_HAB) += hab/
+obj-$(CONFIG_QCOM_HGSL) += hgsl/
 obj-$(CONFIG_QCOM_HYP_CORE_CTL) += hyp_core_ctl.o
+obj-$(CONFIG_QCOM_AOP_DDRSS_COMMANDS) += aop_ddrss_cmds.o
+obj-$(CONFIG_RMNET_CTL) += rmnet_ctl/
+obj-$(CONFIG_QCOM_ADSP_MANUAL_VOTE) += adsp_vote_qmi.o adsp_lpm_voting_v01.o
+obj-$(CONFIG_CPU_V7) += idle-v7.o
+obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
+obj-$(CONFIG_DEBUG_POLICY_STATUS) += debug_policy_status.o
+obj-$(CONFIG_WCNSS_CORE) += wcnss/
+obj-$(CONFIG_RENAME_BLOCK_DEVICE) += rename_block_device.o
+obj-$(CONFIG_QTI_CRYPTO_COMMON) += crypto-qti-common.o
+obj-$(CONFIG_QTI_CRYPTO_TZ) += crypto-qti-tz.o
+obj-y += serial_num.o
+obj-y += secboot_fuse.o
+obj-y += cpu_feature_id.o

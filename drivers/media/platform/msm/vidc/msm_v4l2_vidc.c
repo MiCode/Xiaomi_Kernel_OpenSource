@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,7 @@
 #include "vidc_hfi_api.h"
 #include "msm_v4l2_private.h"
 #include "msm_vidc_clocks.h"
+#include <soc/qcom/boot_stats.h>
 
 #define BASE_DEVICE_NUMBER 32
 
@@ -306,7 +307,9 @@ static const struct v4l2_file_operations msm_v4l2_vidc_fops = {
 	.open = msm_v4l2_open,
 	.release = msm_v4l2_close,
 	.unlocked_ioctl = video_ioctl2,
+#ifdef CONFIG_COMPAT
 	.compat_ioctl32 = msm_v4l2_private,
+#endif
 	.poll = msm_v4l2_poll,
 };
 
@@ -531,6 +534,8 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 	struct device *dev;
 	int nr = BASE_DEVICE_NUMBER;
 
+	place_marker("M - DRIVER Video Start");
+
 	if (!vidc_driver) {
 		dprintk(VIDC_ERR, "Invalid vidc driver\n");
 		return -EINVAL;
@@ -637,6 +642,7 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 		goto err_fail_sub_device_probe;
 	}
 
+	place_marker("M - DRIVER Video Ready");
 	return rc;
 
 err_fail_sub_device_probe:
@@ -779,12 +785,92 @@ static int msm_vidc_pm_suspend(struct device *dev)
 
 static int msm_vidc_pm_resume(struct device *dev)
 {
+	place_marker("vidc resumed");
 	dprintk(VIDC_INFO, "%s\n", __func__);
 	return 0;
 }
 
+int msm_vidc_freeze_core(struct msm_vidc_core *core)
+{
+	int rc = 0;
+	int max_retry = 300;
+	struct hfi_device *hdev;
+
+	hdev = core->device;
+
+	mutex_lock(&core->lock);
+
+	dprintk(VIDC_WARN, "%s: fatal SSR intended to dismantle vidc\n",
+			__func__);
+
+	core->ssr_type = SSR_ERR_FATAL;
+
+	if (core->state == VIDC_CORE_INIT_DONE) {
+		dprintk(VIDC_INFO, "%s: ssr type %d\n", __func__,
+			core->ssr_type);
+		/*
+		 * In current implementation user-initiated SSR triggers
+		 * a fatal error from hardware. However, there is no way
+		 * to know if fatal error is due to SSR or not. Handle
+		 * user SSR as non-fatal.
+		 */
+
+		core->trigger_ssr = true;
+		rc = call_hfi_op(hdev, core_trigger_ssr,
+				hdev->hfi_device_data, core->ssr_type);
+
+		if (rc) {
+			dprintk(VIDC_ERR, "%s: trigger_ssr failed\n", __func__);
+			core->trigger_ssr = false;
+		}
+
+	} else {
+		dprintk(VIDC_WARN, "%s: video core %pK not initialized\n",
+			__func__, core);
+	}
+	mutex_unlock(&core->lock);
+
+	while ((core->state != VIDC_CORE_UNINIT) && (max_retry > 0)) {
+		msleep(20);
+		max_retry--;
+	}
+
+	mutex_lock(&core->lock);
+	core->trigger_ssr = false;
+	mutex_unlock(&core->lock);
+
+	return rc;
+}
+
+static int msm_vidc_pm_freeze(struct device *dev)
+{
+	int rc = 0;
+	struct msm_vidc_core *core;
+
+	if (!dev || !dev->driver)
+		return 0;
+
+	core = dev_get_drvdata(dev);
+	if (!core)
+		return 0;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,msm-vidc")) {
+		place_marker("vidc hibernation start");
+
+		rc = msm_vidc_freeze_core(core);
+
+		place_marker("vidc hibernation end");
+	}
+
+	dprintk(VIDC_INFO, "%s: done\n", __func__);
+
+	return rc;
+}
+
 static const struct dev_pm_ops msm_vidc_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(msm_vidc_pm_suspend, msm_vidc_pm_resume)
+	.suspend = msm_vidc_pm_suspend,
+	.resume = msm_vidc_pm_resume,
+	.freeze = msm_vidc_pm_freeze,
 };
 
 MODULE_DEVICE_TABLE(of, msm_vidc_dt_match);

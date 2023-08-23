@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 #define QMI_WLFW_MAX_TIMESTAMP_LEN	32
 #define QMI_WLFW_MAX_NUM_MEM_SEG	32
 #define CNSS_RDDM_TIMEOUT_MS		20000
+#define RECOVERY_TIMEOUT		60000
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -171,6 +172,8 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_FORCE_FW_ASSERT,
 	CNSS_DRIVER_EVENT_POWER_UP,
 	CNSS_DRIVER_EVENT_POWER_DOWN,
+	CNSS_DRIVER_EVENT_IDLE_RESTART,
+	CNSS_DRIVER_EVENT_IDLE_SHUTDOWN,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_MEM,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_SAVE,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
@@ -186,11 +189,14 @@ enum cnss_driver_state {
 	CNSS_COLD_BOOT_CAL,
 	CNSS_DRIVER_LOADING,
 	CNSS_DRIVER_UNLOADING,
+	CNSS_DRIVER_IDLE_RESTART,
+	CNSS_DRIVER_IDLE_SHUTDOWN,
 	CNSS_DRIVER_PROBED,
 	CNSS_DRIVER_RECOVERY,
 	CNSS_FW_BOOT_RECOVERY,
 	CNSS_DEV_ERR_NOTIFY,
 	CNSS_DRIVER_DEBUG,
+	CNSS_IN_SUSPEND_RESUME,
 };
 
 struct cnss_recovery_data {
@@ -226,6 +232,7 @@ enum cnss_debug_quirks {
 	ENABLE_PCI_LINK_DOWN_PANIC,
 	FBC_BYPASS,
 	ENABLE_DAEMON_SUPPORT,
+	IGNORE_PCI_LINK_FAILURE,
 };
 
 enum cnss_bdf_type {
@@ -272,6 +279,7 @@ struct cnss_plat_data {
 	struct notifier_block modem_nb;
 	struct cnss_platform_cap cap;
 	struct pm_qos_request qos_request;
+	struct cnss_device_version device_version;
 	unsigned long device_id;
 	enum cnss_driver_status driver_status;
 	u32 recovery_count;
@@ -309,6 +317,9 @@ struct cnss_plat_data {
 	struct cnss_control_params ctrl_params;
 	u32 is_converged_dt;
 	struct device_node *dev_node;
+	u8 set_wlaon_pwr_ctrl;
+	bool fw_pcie_gen_switch;
+	u8 pcie_gen_speed;
 };
 
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);

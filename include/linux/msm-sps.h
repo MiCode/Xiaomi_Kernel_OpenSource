@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2017, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -211,6 +211,8 @@ enum sps_option {
 	SPS_O_NO_EP_SYNC = 0x40000000,
 	/* Allow partial polling duing IRQ mode */
 	SPS_O_HYBRID = 0x80000000,
+	/* Allow dummy BAM connection */
+	SPS_O_DUMMY_PEER = 0x00000400,
 };
 
 /**
@@ -490,7 +492,7 @@ struct sps_bam_props {
  *
  */
 struct sps_mem_buffer {
-	void *base;
+	void __iomem *base;
 	phys_addr_t phys_base;
 	unsigned long iova;
 	u32 size;

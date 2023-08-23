@@ -49,6 +49,35 @@ struct input_dev;
  * Note that this must be kept in sync with the lookup table in
  * sound/core/jack.c.
  */
+
+#ifdef CONFIG_ARCH_MDM9607
+enum snd_jack_types {
+	SND_JACK_HEADPHONE      = 0x0000001,
+	SND_JACK_MICROPHONE     = 0x0000002,
+	SND_JACK_HEADSET        = SND_JACK_HEADPHONE | SND_JACK_MICROPHONE,
+	SND_JACK_LINEOUT        = 0x0000004,
+	SND_JACK_MECHANICAL     = 0x0000008, /* If detected separately */
+	SND_JACK_VIDEOOUT       = 0x0000010,
+	SND_JACK_AVOUT          = SND_JACK_LINEOUT | SND_JACK_VIDEOOUT,
+	SND_JACK_LINEIN         = 0x0000020,
+	SND_JACK_OC_HPHL        = 0x0000040,
+	SND_JACK_OC_HPHR        = 0x0000080,
+	SND_JACK_UNSUPPORTED    = 0x0000100,
+	SND_JACK_MICROPHONE2    = 0x0000200,
+	SND_JACK_ANC_HEADPHONE  = SND_JACK_HEADPHONE | SND_JACK_MICROPHONE |
+				  SND_JACK_MICROPHONE2,
+
+	/* Kept separate from switches to facilitate implementation */
+	SND_JACK_BTN_0          = 0x4000000,
+	SND_JACK_BTN_1          = 0x2000000,
+	SND_JACK_BTN_2          = 0x1000000,
+	SND_JACK_BTN_3          = 0x0800000,
+	SND_JACK_BTN_4          = 0x0400000,
+	SND_JACK_BTN_5          = 0x0200000,
+	SND_JACK_BTN_6          = 0x0100000,
+	SND_JACK_BTN_7          = 0x0080000,
+};
+#else
 enum snd_jack_types {
 	SND_JACK_HEADPHONE	= 0x0001,
 	SND_JACK_MICROPHONE	= 0x0002,
@@ -74,6 +103,8 @@ enum snd_jack_types {
 	SND_JACK_BTN_5		= 0x0400,
 };
 
+#endif
+
 struct snd_jack {
 	struct list_head kctl_list;
 	struct snd_card *card;
@@ -83,7 +114,11 @@ struct snd_jack {
 	int registered;
 	int type;
 	char name[100];
+#ifdef CONFIG_ARCH_MDM9607
+	unsigned int key[8];   /* Keep in sync with definitions above */
+#else
 	unsigned int key[6];   /* Keep in sync with definitions above */
+#endif
 #endif /* CONFIG_SND_JACK_INPUT_DEV */
 	void *private_data;
 	void (*private_free)(struct snd_jack *);

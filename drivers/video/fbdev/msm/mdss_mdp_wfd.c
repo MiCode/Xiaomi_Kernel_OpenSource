@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,12 +46,33 @@ struct mdss_mdp_wfd *mdss_mdp_wfd_init(struct device *device,
 
 void mdss_mdp_wfd_deinit(struct mdss_mdp_wfd *wfd)
 {
-	struct mdss_mdp_wfd_data *node, *temp;
+	struct mdss_mdp_wb_data *node, *temp;
 
 	list_for_each_entry_safe(node, temp, &wfd->data_queue, next)
 		mdss_mdp_wfd_remove_data(wfd, node);
 
 	kfree(wfd);
+}
+
+int mdss_mdp_acquire_wb(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	int rc, ret = 0;
+
+	if (atomic_read(&mdp5_data->wb_busy)) {
+		rc = wait_event_timeout(mdp5_data->wb_waitq,
+			atomic_read(&mdp5_data->wb_busy) == 0, KOFF_TIMEOUT);
+		if (!rc) {
+			pr_err("%s: Wait for WB timed out. wb_busy=%d",
+				__func__, atomic_read(&mdp5_data->wb_busy));
+			ret = -ETIMEDOUT;
+		} else if (!atomic_read(&mdp5_data->wb_busy))
+			ret = 0;
+	}
+
+	if (!ret)
+		atomic_inc(&mdp5_data->wb_busy);
+	return ret;
 }
 
 int mdss_mdp_wfd_wait_for_finish(struct mdss_mdp_wfd *wfd)
@@ -286,8 +307,9 @@ wfd_setup_error:
 	return ret;
 }
 
-static int mdss_mdp_wfd_import_data(struct device *device,
-	struct mdss_mdp_wfd_data *wfd_data)
+
+int mdss_mdp_wb_import_data(struct device *device,
+	struct mdss_mdp_wb_data *wfd_data)
 {
 	int i, ret = 0;
 	u32 flags = 0;
@@ -318,24 +340,24 @@ static int mdss_mdp_wfd_import_data(struct device *device,
 	return ret;
 }
 
-struct mdss_mdp_wfd_data *mdss_mdp_wfd_add_data(
+struct mdss_mdp_wb_data *mdss_mdp_wfd_add_data(
 	struct mdss_mdp_wfd *wfd,
 	struct mdp_output_layer *layer)
 {
 	int ret;
-	struct mdss_mdp_wfd_data *wfd_data;
+	struct mdss_mdp_wb_data *wfd_data;
 
 	if (!wfd->ctl || !wfd->ctl->wb) {
 		pr_err("wfd not setup\n");
 		return ERR_PTR(-EINVAL);
 	}
 
-	wfd_data = kzalloc(sizeof(struct mdss_mdp_wfd_data), GFP_KERNEL);
+	wfd_data = kzalloc(sizeof(struct mdss_mdp_wb_data), GFP_KERNEL);
 	if (!wfd_data)
 		return ERR_PTR(-ENOMEM);
 
 	wfd_data->layer = *layer;
-	ret = mdss_mdp_wfd_import_data(wfd->device, wfd_data);
+	ret = mdss_mdp_wb_import_data(wfd->device, wfd_data);
 	if (ret) {
 		pr_err("fail to import data\n");
 		mdss_mdp_data_free(&wfd_data->data, true, DMA_FROM_DEVICE);
@@ -351,7 +373,7 @@ struct mdss_mdp_wfd_data *mdss_mdp_wfd_add_data(
 }
 
 void mdss_mdp_wfd_remove_data(struct mdss_mdp_wfd *wfd,
-	struct mdss_mdp_wfd_data *wfd_data)
+	struct mdss_mdp_wb_data *wfd_data)
 {
 	mutex_lock(&wfd->lock);
 	list_del_init(&wfd_data->next);
@@ -386,6 +408,65 @@ static int mdss_mdp_wfd_validate_out_configuration(struct mdss_mdp_wfd *wfd,
 	return 0;
 }
 
+int mdss_mdp_cwb_check_resource(struct mdss_mdp_ctl *ctl, u32 wb_idx)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_mixer *cwb_mixer = NULL;
+	struct mdss_mdp_writeback *wb = NULL;
+
+	if (!mdata) {
+		pr_err("Invalid mdata\n");
+		return -EINVAL;
+	}
+
+	if (wb_idx != (mdata->nwb - 1)) {
+		pr_err("Invalid wb index for cwb: %d\n", wb_idx);
+		return -EINVAL;
+	}
+
+	wb = mdata->wb + wb_idx;
+	if (refcount_read(&wb->kref.refcount)) {
+		pr_err("WB block busy\n");
+		return -EBUSY;
+	}
+
+	/* CWB path is hardwired from mixer0 to mixer2 and mixer1 to mixer5 */
+	cwb_mixer = mdata->mixer_intf + ctl->mixer_left->num + 2;
+	if (cwb_mixer->ref_cnt) {
+		pr_err("mixer 2 is busy\n");
+		return -EBUSY;
+	}
+
+	if (ctl->mixer_right) {
+		cwb_mixer = mdata->mixer_intf + ctl->mixer_right->num + 2;
+		if (cwb_mixer->ref_cnt) {
+			pr_err("mixer 5 is busy\n");
+			return -EBUSY;
+		}
+	}
+	return 0;
+}
+
+int mdss_mdp_cwb_validate(struct msm_fb_data_type *mfd,
+		struct mdp_output_layer *layer)
+{
+	struct mdss_mdp_format_params *fmt = NULL;
+	int rc = 0;
+
+	rc = mdss_mdp_cwb_check_resource(mfd_to_ctl(mfd),
+			layer->writeback_ndx);
+	if (rc)
+		return rc;
+
+	fmt = mdss_mdp_get_format_params(layer->buffer.format);
+	if (!fmt || (fmt && !(fmt->flag & VALID_MDP_WB_INTF_FORMAT))) {
+		pr_err("wb does not support dst fmt:%d\n",
+				layer->buffer.format);
+		return -EINVAL;
+	}
+	return 0;
+}
+
 int mdss_mdp_wfd_validate(struct mdss_mdp_wfd *wfd,
 	struct mdp_output_layer *layer)
 {
@@ -407,7 +488,8 @@ int mdss_mdp_wfd_kickoff(struct mdss_mdp_wfd *wfd,
 {
 	struct mdss_mdp_ctl *ctl = wfd->ctl;
 	struct mdss_mdp_writeback_arg wb_args;
-	struct mdss_mdp_wfd_data *wfd_data;
+	struct mdss_mdp_wb_data *wfd_data;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
 	int ret = 0;
 
 	if (!ctl) {
@@ -420,6 +502,12 @@ int mdss_mdp_wfd_kickoff(struct mdss_mdp_wfd *wfd,
 		return -EINVAL;
 	}
 
+	if (mdp5_data->cwb.valid) {
+		pr_err("Skipping the frame as WB is in use\n");
+		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_DONE);
+		return 0;
+	}
+
 	mutex_lock(&wfd->lock);
 	if (list_empty(&wfd->data_queue)) {
 		pr_debug("no output buffer\n");
@@ -428,7 +516,7 @@ int mdss_mdp_wfd_kickoff(struct mdss_mdp_wfd *wfd,
 		return 0;
 	}
 	wfd_data = list_first_entry(&wfd->data_queue,
-				struct mdss_mdp_wfd_data, next);
+				struct mdss_mdp_wb_data, next);
 	mutex_unlock(&wfd->lock);
 
 	ret = mdss_mdp_data_map(&wfd_data->data, true, DMA_FROM_DEVICE);
@@ -464,7 +552,7 @@ kickoff_error:
 
 int mdss_mdp_wfd_commit_done(struct mdss_mdp_wfd *wfd)
 {
-	struct mdss_mdp_wfd_data *wfd_data;
+	struct mdss_mdp_wb_data *wfd_data;
 
 	mutex_lock(&wfd->lock);
 	if (list_empty(&wfd->data_queue)) {
@@ -473,7 +561,7 @@ int mdss_mdp_wfd_commit_done(struct mdss_mdp_wfd *wfd)
 		return -EINVAL;
 	}
 	wfd_data = list_first_entry(&wfd->data_queue,
-				struct mdss_mdp_wfd_data, next);
+				struct mdss_mdp_wb_data, next);
 	mutex_unlock(&wfd->lock);
 
 	mdss_mdp_wfd_remove_data(wfd, wfd_data);

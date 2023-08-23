@@ -1,0 +1,229 @@
+/* Copyright (c) 2016-2017, 2019-2020, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	lpi_tlmm: lpi_pinctrl@15070000 {
+		compatible = "qcom,lpi-pinctrl";
+		reg = <0x15070000 0x0>;
+		qcom,num-gpios = <32>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		qcom,lpi-offset-tbl =
+				<0x00000000>, <0x00001000>,
+				<0x00002000>, <0x00002010>,
+				<0x00003000>, <0x00003010>,
+				<0x00004000>, <0x00004010>,
+				<0x00005000>, <0x00005010>,
+				<0x00005020>, <0x00005030>,
+				<0x00006000>, <0x00006010>,
+				<0x00007000>, <0x00007010>,
+				<0x00005040>, <0x00005050>,
+				<0x00008000>, <0x00008010>,
+				<0x00008020>, <0x00008030>,
+				<0x00008040>, <0x00008050>,
+				<0x00008060>, <0x00008070>,
+				<0x00009000>, <0x00009010>,
+				<0x0000A000>, <0x0000A010>,
+				<0x0000B000>, <0x0000B010>;
+
+		lpi_mclk0_active: lpi_mclk0_active {
+			mux {
+				pins = "gpio18";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio18";
+				drive-strength = <8>;
+				bias-disable;
+			};
+		};
+
+		lpi_mclk0_sleep: lpi_mclk0_sleep {
+			mux {
+				pins = "gpio18";
+				function = "func2";
+			};
+
+			config {
+				pins = "gpio18";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		cdc_pdm_gpios_active: cdc_pdm_gpios_active {
+			mux {
+				pins = "gpio18", "gpio19",
+					"gpio21", "gpio23",
+					"gpio25";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio18", "gpio19",
+					"gpio21", "gpio23",
+					"gpio25";
+				drive-strength = <8>;
+				output-high;
+			};
+		};
+
+		cdc_pdm_gpios_sleep: cdc_pdm_gpios_sleep {
+			mux {
+				pins = "gpio18", "gpio19",
+					"gpio21", "gpio23",
+					"gpio25";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio18", "gpio19",
+					"gpio21", "gpio23",
+					"gpio25";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_pdm_2_gpios_active: cdc_pdm_2_gpios_active {
+			mux {
+				pins = "gpio20";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <8>;
+			};
+		};
+
+		cdc_pdm_2_gpios_sleep: cdc_pdm_2_gpios_sleep {
+			mux {
+				pins = "gpio20";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		cdc_comp_gpios_active: cdc_pdm_comp_gpios_active {
+			mux {
+				pins = "gpio22", "gpio24";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio22", "gpio24";
+				drive-strength = <8>;
+			};
+		};
+
+		cdc_comp_gpios_sleep: cdc_pdm_comp_gpios_sleep {
+			mux {
+				pins = "gpio22", "gpio24";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio22", "gpio24";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		lpi_cdc_reset_active: lpi_cdc_reset_active {
+			mux {
+				pins = "gpio24";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio24";
+				drive-strength = <16>;
+				output-high;
+			};
+		};
+
+		lpi_cdc_reset_sleep: lpi_cdc_reset_sleep {
+			mux {
+				pins = "gpio24";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio24";
+				drive-strength = <16>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic12_gpios_active: dmic12_gpios_active {
+			mux {
+				pins = "gpio26", "gpio28";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio26", "gpio28";
+				drive-strength = <8>;
+				output-high;
+			};
+		};
+
+		cdc_dmic12_gpios_sleep: dmic12_gpios_sleep {
+			mux {
+				pins = "gpio26", "gpio28";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio26", "gpio28";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+
+		cdc_dmic34_gpios_active: dmic34_gpios_active {
+			mux {
+				pins = "gpio27", "gpio29";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio27", "gpio29";
+				drive-strength = <8>;
+				input-enable;
+			};
+		};
+
+		cdc_dmic34_gpios_sleep: dmic34_gpios_sleep {
+			mux {
+				pins = "gpio27", "gpio29";
+				function = "func1";
+			};
+
+			config {
+				pins = "gpio27", "gpio29";
+				drive-strength = <2>;
+				pull-down;
+				input-enable;
+			};
+		};
+	};
+};

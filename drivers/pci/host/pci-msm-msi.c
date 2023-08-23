@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/msi.h>
+#include <linux/msm_pcie.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_pci.h>
@@ -30,9 +31,9 @@
 #define PCIE_MSI_CTRL_ADDR_OFFS (PCIE_MSI_CTRL_BASE)
 #define PCIE_MSI_CTRL_UPPER_ADDR_OFFS (PCIE_MSI_CTRL_BASE + 0x4)
 #define PCIE_MSI_CTRL_INT_N_EN_OFFS(n) (PCIE_MSI_CTRL_BASE + 0x8 + 0xc * n)
+#define PCIE_MSI_CTRL_INT_N_MASK_OFFS(n) (PCIE_MSI_CTRL_BASE + 0xc + 0xc * n)
 #define PCIE_MSI_CTRL_INT_N_STATUS_OFFS(n) (PCIE_MSI_CTRL_BASE + 0x10 + 0xc * n)
 
-#define MSI_IRQ_NR_GRP (1)
 #define MSI_IRQ_PER_GRP (32)
 
 enum msi_type {
@@ -42,6 +43,8 @@ enum msi_type {
 
 struct msm_msi_irq {
 	struct msm_msi_client *client;
+	struct msm_msi_grp *grp; /* group the irq belongs to */
+	u32 grp_index; /* index in the group */
 	unsigned int hwirq; /* MSI controller hwirq */
 	unsigned int virq; /* MSI controller virq */
 	u32 pos; /* position in MSI bitmap */
@@ -50,7 +53,9 @@ struct msm_msi_irq {
 struct msm_msi_grp {
 	/* registers for SNPS only */
 	void __iomem *int_en_reg;
+	void __iomem *int_mask_reg;
 	void __iomem *int_status_reg;
+	u32 mask; /* tracks masked/unmasked MSI */
 
 	struct msm_msi_irq irqs[MSI_IRQ_PER_GRP];
 };
@@ -69,7 +74,12 @@ struct msm_msi {
 	struct irq_domain *msi_domain; /* child domain; pci related */
 	phys_addr_t msi_addr;
 	enum msi_type type;
+	spinlock_t cfg_lock; /* lock for configuring Synopsys MSI registers */
+	bool cfg_access; /* control access to MSI registers */
 	void __iomem *pcie_cfg;
+
+	void (*mask_irq)(struct irq_data *data);
+	void (*unmask_irq)(struct irq_data *data);
 };
 
 /* structure for each client of MSI controller */
@@ -84,25 +94,27 @@ struct msm_msi_client {
 static void msm_msi_snps_handler(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
-	struct msm_msi *msi;
 	struct msm_msi_grp *msi_grp;
-	unsigned long val = 0;
-	u32 index;
 	int i;
+	u32 status, mask;
 
 	chained_irq_enter(chip, desc);
 
-	msi = irq_desc_get_handler_data(desc);
+	msi_grp = irq_desc_get_handler_data(desc);
 
-	for (i = 0; i < msi->nr_grps; i++) {
-		msi_grp = &msi->grps[i];
-		val = readl_relaxed(msi_grp->int_status_reg);
-		writel_relaxed(val, msi_grp->int_status_reg);
+	status = readl_relaxed(msi_grp->int_status_reg);
 
-		for (index = 0; val; index++, val >>= 1)
-			if (val & 0x1)
-				generic_handle_irq(msi_grp->irqs[index].virq);
-	}
+	/* always update the mask set in msm_msi_snps_mask_irq */
+	mask = msi_grp->mask;
+	writel_relaxed(mask, msi_grp->int_mask_reg);
+
+	/* process only interrupts which are not masked */
+	status ^= (status & mask);
+	writel_relaxed(status, msi_grp->int_status_reg);
+
+	for (i = 0; status; i++, status >>= 1)
+		if (status & 0x1)
+			generic_handle_irq(msi_grp->irqs[i].virq);
 
 	chained_irq_exit(chip, desc);
 }
@@ -123,38 +135,104 @@ static void msm_msi_qgic_handler(struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
-static void msm_msi_mask_irq(struct irq_data *data)
+static void msm_msi_snps_mask_irq(struct irq_data *data)
+{
+	struct msm_msi_irq *msi_irq = irq_data_get_irq_chip_data(data);
+	struct msm_msi_grp *msi_grp = msi_irq->grp;
+	struct msm_msi *msi = msi_irq->client->msi;
+	unsigned long flags;
+
+	spin_lock_irqsave(&msi->cfg_lock, flags);
+	msi_grp->mask |= BIT(msi_irq->grp_index);
+	spin_unlock_irqrestore(&msi->cfg_lock, flags);
+}
+
+static void msm_msi_qgic_mask_irq(struct irq_data *data)
 {
 	struct irq_data *parent_data;
 
-	if (!data->parent_data)
-		return;
-
-	parent_data = irq_get_irq_data(data->parent_data->hwirq);
+	parent_data = irq_get_irq_data(irqd_to_hwirq(data));
 	if (!parent_data || !parent_data->chip)
 		return;
 
-	pci_msi_mask_irq(data);
 	parent_data->chip->irq_mask(parent_data);
+}
+
+static void msm_msi_mask_irq(struct irq_data *data)
+{
+	struct irq_data *parent_data;
+	struct msm_msi_irq *msi_irq;
+	struct msm_msi *msi;
+	unsigned long flags;
+
+	parent_data = data->parent_data;
+	if (!parent_data)
+		return;
+
+	msi_irq = irq_data_get_irq_chip_data(parent_data);
+	msi = msi_irq->client->msi;
+
+	spin_lock_irqsave(&msi->cfg_lock, flags);
+	if (msi->cfg_access)
+		pci_msi_mask_irq(data);
+	spin_unlock_irqrestore(&msi->cfg_lock, flags);
+
+	msi->mask_irq(parent_data);
+}
+
+static void msm_msi_snps_unmask_irq(struct irq_data *data)
+{
+	struct msm_msi_irq *msi_irq = irq_data_get_irq_chip_data(data);
+	struct msm_msi_grp *msi_grp = msi_irq->grp;
+	struct msm_msi *msi = msi_irq->client->msi;
+	unsigned long flags;
+
+	spin_lock_irqsave(&msi->cfg_lock, flags);
+
+	msi_grp->mask &= ~BIT(msi_irq->grp_index);
+	if (msi->cfg_access)
+		writel_relaxed(msi_grp->mask, msi_grp->int_mask_reg);
+
+	spin_unlock_irqrestore(&msi->cfg_lock, flags);
+}
+
+static void msm_msi_qgic_unmask_irq(struct irq_data *data)
+{
+	struct irq_data *parent_data;
+
+	parent_data = irq_get_irq_data(irqd_to_hwirq(data));
+	if (!parent_data || !parent_data->chip)
+		return;
+
+	parent_data->chip->irq_unmask(parent_data);
 }
 
 static void msm_msi_unmask_irq(struct irq_data *data)
 {
 	struct irq_data *parent_data;
+	struct msm_msi_irq *msi_irq;
+	struct msm_msi *msi;
+	unsigned long flags;
 
-	if (!data->parent_data)
+	parent_data = data->parent_data;
+	if (!parent_data)
 		return;
 
-	parent_data = irq_get_irq_data(data->parent_data->hwirq);
-	if (!parent_data || !parent_data->chip)
-		return;
+	msi_irq = irq_data_get_irq_chip_data(parent_data);
+	msi = msi_irq->client->msi;
 
-	parent_data->chip->irq_unmask(parent_data);
-	pci_msi_unmask_irq(data);
+	msi->unmask_irq(parent_data);
+
+	spin_lock_irqsave(&msi->cfg_lock, flags);
+	if (msi->cfg_access)
+		pci_msi_unmask_irq(data);
+	spin_unlock_irqrestore(&msi->cfg_lock, flags);
 }
 
 static struct irq_chip msm_msi_irq_chip = {
 	.name = "msm_pci_msi",
+	.irq_enable = msm_msi_unmask_irq,
+	.irq_disable = msm_msi_mask_irq,
 	.irq_mask = msm_msi_mask_irq,
 	.irq_unmask = msm_msi_unmask_irq,
 };
@@ -308,7 +386,7 @@ static int msm_msi_irq_domain_alloc(struct irq_domain *domain,
 	}
 
 	pos = bitmap_find_next_zero_area(msi->bitmap, msi->nr_virqs, 0,
-					nr_irqs, 0);
+					nr_irqs, nr_irqs - 1);
 	if (pos < msi->nr_virqs) {
 		bitmap_set(msi->bitmap, pos, nr_irqs);
 	} else {
@@ -327,9 +405,6 @@ static int msm_msi_irq_domain_alloc(struct irq_domain *domain,
 				msi_irq->hwirq,
 				&msm_msi_bottom_irq_chip, msi_irq,
 				handle_simple_irq, NULL, NULL);
-
-		if (msi->type == MSM_MSI_TYPE_QCOM)
-			irq_set_status_flags(msi_irq->virq, IRQ_DISABLE_UNLAZY);
 
 		client->nr_irqs++;
 		pos++;
@@ -399,36 +474,150 @@ static int msm_msi_alloc_domains(struct msm_msi *msi)
 	return 0;
 }
 
-/* configure Synopsys PCIe MSI registers */
+static int msm_msi_snps_irq_setup(struct msm_msi *msi)
+{
+	int i, index, ret;
+	struct msm_msi_grp *msi_grp;
+	struct msm_msi_irq *msi_irq;
+	unsigned int irq = 0;
+
+	/* setup each MSI group. nr_hwirqs == nr_grps */
+	for (i = 0; i < msi->nr_hwirqs; i++) {
+		irq = irq_of_parse_and_map(msi->of_node, i);
+		if (!irq) {
+			dev_err(msi->dev,
+				"MSI: failed to parse/map interrupt\n");
+			ret = -ENODEV;
+			goto free_irqs;
+		}
+
+		msi_grp = &msi->grps[i];
+		msi_grp->int_en_reg = msi->pcie_cfg +
+				PCIE_MSI_CTRL_INT_N_EN_OFFS(i);
+		msi_grp->int_mask_reg = msi->pcie_cfg +
+				PCIE_MSI_CTRL_INT_N_MASK_OFFS(i);
+		msi_grp->int_status_reg = msi->pcie_cfg +
+				PCIE_MSI_CTRL_INT_N_STATUS_OFFS(i);
+
+		for (index = 0; index < MSI_IRQ_PER_GRP; index++) {
+			msi_irq = &msi_grp->irqs[index];
+
+			msi_irq->grp = msi_grp;
+			msi_irq->grp_index = index;
+			msi_irq->pos = (i * MSI_IRQ_PER_GRP) + index;
+			msi_irq->hwirq = irq;
+		}
+
+		irq_set_chained_handler_and_data(irq, msm_msi_snps_handler,
+						msi_grp);
+	}
+
+	return 0;
+
+free_irqs:
+	for (--i; i >= 0; i--) {
+		irq = msi->grps[i].irqs[0].hwirq;
+
+		irq_set_chained_handler_and_data(irq, NULL, NULL);
+		irq_dispose_mapping(irq);
+	}
+
+	return ret;
+}
+
+static int msm_msi_qgic_irq_setup(struct msm_msi *msi)
+{
+	int i, ret;
+	u32 index, grp;
+	struct msm_msi_grp *msi_grp;
+	struct msm_msi_irq *msi_irq;
+	unsigned int irq = 0;
+
+	for (i = 0; i < msi->nr_hwirqs; i++) {
+		irq = irq_of_parse_and_map(msi->of_node, i);
+		if (!irq) {
+			dev_err(msi->dev,
+				"MSI: failed to parse/map interrupt\n");
+			ret = -ENODEV;
+			goto free_irqs;
+		}
+
+		grp = i / MSI_IRQ_PER_GRP;
+		index = i % MSI_IRQ_PER_GRP;
+		msi_grp = &msi->grps[grp];
+		msi_irq = &msi_grp->irqs[index];
+
+		msi_irq->grp = msi_grp;
+		msi_irq->grp_index = index;
+		msi_irq->pos = i;
+		msi_irq->hwirq = irq;
+
+		irq_set_chained_handler_and_data(irq, msm_msi_qgic_handler,
+						msi);
+	}
+
+	return 0;
+
+free_irqs:
+	for (--i; i >= 0; i--) {
+		grp = i / MSI_IRQ_PER_GRP;
+		index = i % MSI_IRQ_PER_GRP;
+		irq = msi->grps[grp].irqs[index].hwirq;
+
+		irq_set_chained_handler_and_data(irq, NULL, NULL);
+		irq_dispose_mapping(irq);
+	}
+
+	return ret;
+}
+
+/* control access to PCIe MSI registers */
+void msm_msi_config_access(struct irq_domain *domain, bool allow)
+{
+	struct msm_msi *msi = domain->parent->host_data;
+	unsigned long flags;
+
+	spin_lock_irqsave(&msi->cfg_lock, flags);
+	msi->cfg_access = allow;
+	spin_unlock_irqrestore(&msi->cfg_lock, flags);
+}
+EXPORT_SYMBOL(msm_msi_config_access);
+
 void msm_msi_config(struct irq_domain *domain)
 {
 	struct msm_msi *msi;
 	int i;
 
 	msi = domain->parent->host_data;
+
+	/* PCIe core driver sets to false during LPM */
+	msm_msi_config_access(domain, true);
+
 	if (msi->type == MSM_MSI_TYPE_QCOM)
 		return;
 
-	/* program MSI termination address */
+	/* program Synopsys MSI termination address */
 	writel_relaxed(msi->msi_addr, msi->pcie_cfg + PCIE_MSI_CTRL_ADDR_OFFS);
 	writel_relaxed(0, msi->pcie_cfg + PCIE_MSI_CTRL_UPPER_ADDR_OFFS);
 
-	/* enable all interrupts for each group */
-	for (i = 0; i < msi->nr_grps; i++)
-		writel_relaxed(~0, msi->grps[i].int_en_reg);
+	/* restore mask and enable all interrupts for each group */
+	for (i = 0; i < msi->nr_grps; i++) {
+		struct msm_msi_grp *msi_grp = &msi->grps[i];
+
+		writel_relaxed(msi_grp->mask, msi_grp->int_mask_reg);
+		writel_relaxed(~0, msi_grp->int_en_reg);
+	}
 }
 EXPORT_SYMBOL(msm_msi_config);
 
 int msm_msi_init(struct device *dev)
 {
-	int i, ret;
+	int ret;
 	struct msm_msi *msi;
 	struct device_node *of_node;
 	const __be32 *prop_val;
 	struct resource *res;
-	void (*msi_handler)(struct irq_desc *);
-	u32 grp;
-	u32 index;
+	int (*msi_irq_setup)(struct msm_msi *);
 
 	if (!dev->of_node) {
 		dev_err(dev, "MSI: missing DT node\n");
@@ -456,6 +645,7 @@ int msm_msi_init(struct device *dev)
 	msi->dev = dev;
 	msi->of_node = of_node;
 	mutex_init(&msi->mutex);
+	spin_lock_init(&msi->cfg_lock);
 	INIT_LIST_HEAD(&msi->clients);
 
 	prop_val = of_get_address(msi->of_node, 0, NULL, NULL);
@@ -495,13 +685,17 @@ int msm_msi_init(struct device *dev)
 		if (!msi->pcie_cfg)
 			return -ENOMEM;
 
-		msi->nr_virqs = MSI_IRQ_NR_GRP * MSI_IRQ_PER_GRP;
-		msi->nr_grps = MSI_IRQ_NR_GRP;
-		msi_handler = msm_msi_snps_handler;
+		msi->nr_virqs = msi->nr_hwirqs * MSI_IRQ_PER_GRP;
+		msi->nr_grps = msi->nr_hwirqs;
+		msi->mask_irq = msm_msi_snps_mask_irq;
+		msi->unmask_irq = msm_msi_snps_unmask_irq;
+		msi_irq_setup = msm_msi_snps_irq_setup;
 	} else {
 		msi->nr_virqs = msi->nr_hwirqs;
 		msi->nr_grps = 1;
-		msi_handler = msm_msi_qgic_handler;
+		msi->mask_irq = msm_msi_qgic_mask_irq;
+		msi->unmask_irq = msm_msi_qgic_unmask_irq;
+		msi_irq_setup = msm_msi_qgic_irq_setup;
 	}
 
 	msi->grps = devm_kcalloc(msi->dev, msi->nr_grps,
@@ -520,60 +714,15 @@ int msm_msi_init(struct device *dev)
 		return ret;
 	}
 
-	for (i = 0; i < msi->nr_hwirqs; i++) {
-		unsigned int irq = irq_of_parse_and_map(msi->of_node, i);
-		struct msm_msi_irq *msi_irq;
-
-		if (!irq) {
-			dev_err(msi->dev,
-				"MSI: failed to parse/map interrupt\n");
-			ret = -ENODEV;
-			goto free_irqs;
-		}
-
-		grp = i / MSI_IRQ_PER_GRP;
-		index = i % MSI_IRQ_PER_GRP;
-		msi_irq = &msi->grps[grp].irqs[index];
-
-		msi_irq->pos = i;
-		msi_irq->hwirq = irq;
-
-		irq_set_chained_handler_and_data(irq, msi_handler, msi);
-	}
-
-	if (msi->type == MSM_MSI_TYPE_SNPS) {
-		for (i = 0; i < msi->nr_virqs; i++) {
-			struct msm_msi_grp *msi_grp;
-
-			grp = i / MSI_IRQ_PER_GRP;
-			index = i % MSI_IRQ_PER_GRP;
-			msi_grp = &msi->grps[grp];
-
-			msi_grp->irqs[index].pos = i;
-			msi_grp->irqs[index].hwirq = msi_grp->irqs[0].hwirq;
-			msi_grp->int_en_reg = msi->pcie_cfg +
-					PCIE_MSI_CTRL_INT_N_EN_OFFS(grp);
-			msi_grp->int_status_reg = msi->pcie_cfg +
-					PCIE_MSI_CTRL_INT_N_STATUS_OFFS(grp);
-		}
-	}
+	ret = msi_irq_setup(msi);
+	if (ret)
+		goto remove_domains;
 
 	msm_msi_config(msi->msi_domain);
 
 	return 0;
 
-free_irqs:
-	for (--i; i >= 0; i--) {
-		u32 hwirq;
-
-		grp = i / MSI_IRQ_PER_GRP;
-		index = i % MSI_IRQ_PER_GRP;
-		hwirq = msi->grps[grp].irqs[index].hwirq;
-
-		irq_set_chained_handler_and_data(hwirq, NULL, NULL);
-		irq_dispose_mapping(hwirq);
-	}
-
+remove_domains:
 	irq_domain_remove(msi->msi_domain);
 	irq_domain_remove(msi->inner_domain);
 

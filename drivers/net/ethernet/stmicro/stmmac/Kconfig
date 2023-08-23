@@ -97,6 +97,26 @@ config DWMAC_OXNAS
 	  This selects the Oxford Semiconductor OXNASSoC glue layer support for
 	  the stmmac device driver. This driver is used for OX820.
 
+config DWMAC_QCOM_ETHQOS
+	tristate "Qualcomm Technologies, Inc. ETHQOS support"
+	default ARCH_QCOM
+	depends on OF && (ARCH_QCOM || COMPILE_TEST)
+	help
+	  Support for the Qualcomm Technologies, Inc. ETHQOS core.
+
+	  This selects the Qualcomm Technologies, Inc. ETHQOS glue layer support for the
+	  stmmac device driver.
+
+config ETHQOS_IPA_OFFLOAD
+	bool "IPA ETHQOS offload support"
+	depends on DWMAC_QCOM_ETHQOS && IPA3
+	default n
+	help
+	  Support for the Qualcomm Technologies, Inc. ETH IPA offload support.
+	  This enables ethernet ipa offload for IP traffic to reduce
+	  the cpu load during E2E IP traffic. This is done by using HW accelaration
+	  path.
+
 config DWMAC_ROCKCHIP
 	tristate "Rockchip dwmac support"
 	default ARCH_ROCKCHIP

@@ -104,6 +104,7 @@ Optional properties:
 - qcom,sde-dspp-size:		A u32 value indicates the address range for each dspp.
 - qcom,sde-intf-size:		A u32 value indicates the address range for each intf.
 - qcom,sde-dsc-size:		A u32 value indicates the address range for each dsc.
+- qcom,sde-roi-misr-size:	A u32 value indicates the address range for each roi misr.
 - qcom,sde-cdm-size:		A u32 value indicates the address range for each cdm.
 - qcom,sde-pp-size:		A u32 value indicates the address range for each pingpong.
 - qcom,sde-merge-3d-size:	A u32 value indicates the address range for each merge 3d.
@@ -140,6 +141,8 @@ Optional properties:
 				0xd - align at start of line
 - qcom,sde-panic-per-pipe:	Boolean property to indicate if panic signal
 				control feature is available on each source pipe.
+- qcom,sde-has-roi-misr:	Boolean property to indicate if roi misr
+				feature is available or not.
 - qcom,sde-has-src-split:	Boolean property to indicate if source split
 				feature is available or not.
 - qcom,sde-has-dim-layer:	Boolean property to indicate if mixer has dim layer
@@ -208,6 +211,8 @@ Optional properties:
 - qcom,sde-te-size:		A u32 value indicates the te block address range.
 - qcom,sde-te2-size:		A u32 value indicates the te2 block address range.
 - qcom,sde-dsc-off:	 	A u32 offset indicates the dsc block offset on pingpong.
+- qcom,sde-roi-misr-off:	A u32 offset indicates the roi misr block offset on pingpong.
+- qcom,sde-qdss-off:		A u32 offset indicates the qdss block offset.
 - qcom,sde-dither-off:		A u32 offset indicates the dither block offset on pingpong.
 - qcom,sde-dither-version:	A u32 value indicates the dither block version.
 - qcom,sde-dither-size:		A u32 value indicates the dither block address range.
@@ -262,6 +267,7 @@ Optional properties:
 				-- qcom,sde-dspp-dither: offset and version of dither hardware
 				-- qcom,sde-dspp-hist: offset and version of histogram hardware
 				-- qcom,sde-dspp-vlut: offset and version of PA vLUT hardware
+				-- qcom,sde-dspp-roi-misr: offset and version of roi misr hardware
 - qcom,sde-mixer-blocks:	A node that lists the blocks inside the layer mixer hardware. The
 				block entries will contain the offset and version (if needed)
 				of each feature block. The presence of a block entry
@@ -445,6 +451,17 @@ Optional properties:
 				1: priority have to be explicitly configured for a given pair of pipes.
 - qcom,sde-num-mnoc-ports:	A u32 property to indicate the number of mnoc ports
 - qcom,sde-axi-bus-width:	A u32 property to indicate the axi bus width value in bytes
+- qcom,sde-mixer-stage-base-layer: A boolean property to indicate if a layer can be staged on base
+				stage instead of border fill
+- qcom,sde-limits:		A node that lists the limits for different properties. This node
+				can have multiple child nodes. Each child node represents a
+				specific usecase limit. The usecase can be defined for properties like
+				sspp linewidth, bw limit etc.
+				e.g. qcom,sde-limits
+				-- qcom,sde-limit-name: name of the usecase
+				-- qcom,sde-limit-cases: different usecases to be considered
+				-- qcom,sde-limit-ids: respective ids for the above usecases
+				-- qcom,sde-limit-values: usecase and value for different combinations
 
 Bus Scaling Subnodes:
 - qcom,sde-reg-bus:		Property to provide Bus scaling for register access for
@@ -554,6 +571,7 @@ Example:
     qcom,sde-pp-slave = <0x0 0x0 0x0 0x0>;
     qcom,sde-cdm-off = <0x0007a200>;
     qcom,sde-dsc-off = <0x00081000 0x00081400>;
+    qcom,sde-roi-misr-off = <0x00082820 0x00082880>;
     qcom,sde-intf-max-prefetch-lines = <0x15 0x15 0x15 0x15>;
 
     qcom,sde-mixer-pair-mask = <2 1 6 0 0 3>;
@@ -595,6 +613,7 @@ Example:
     qcom,sde-ubwc-bw-calc-version = <0x1>;
     qcom,sde-smart-panel-align-mode = <0xd>;
     qcom,sde-panic-per-pipe;
+    qcom,sde-has-roi-misr;
     qcom,sde-has-src-split;
     qcom,sde-pipe-order-version = <0x1>;
     qcom,sde-has-dim-layer;
@@ -605,6 +624,7 @@ Example:
     qcom,sde-dspp-size = <0x100>;
     qcom,sde-intf-size = <0x100>;
     qcom,sde-dsc-size = <0x100>;
+    qcom,sde-roi-misr-size = <0x100>;
     qcom,sde-cdm-size = <0x100>;
     qcom,sde-pp-size = <0x100>;
     qcom,sde-wb-size = <0x100>;
@@ -766,8 +786,37 @@ Example:
         qcom,sde-dspp-dither = <0x0 0x00010000>;
         qcom,sde-dspp-hist = <0x0 0x00010000>;
         qcom,sde-dspp-vlut = <0x0 0x00010000>;
+        qcom,sde-dspp-roi-misr = <0x1200 0x00010000>;
     };
 
+   qcom,sde-limits {
+	qcom,sde-linewidth-limits{
+		qcom,sde-limit-cases = "vig", "dma", "scaling", "inline_rot";
+		qcom,sde-limit-ids= <0x1 0x2 0x4 0x8>;
+		/* the qcom,sde-limit-values property consist of two values:
+		one for the usecase and the other for the value. The usecase can be
+		any combination of the values mentioned in qcom,sde-limit-ids.
+		For eg: <0x5 2560> means usecase is 0x5 and value is 2560.
+		0x5 = (0x1 | 0x4) = vig + scaling. Thus the linewidth for usecase
+		vig + scaling  = 2560 */
+		qcom,sde-limit-values = <0x1 4096>,
+					<0x5 2560>,
+					<0xd 1088>,
+					<0x2 4096>;
+	};
+       qcom,sde-bw-limits{
+		qcom,sde-limit-cases = "per_pipe", "total_bw", "vfe_on", "cwb_on";
+		qcom,sde-limit-ids = <0x1 0x2 0x4 0x8>;
+		qcom,sde-limit-values = <0x1 2600000>,
+					<0x9 2600000>,
+					<0x5 2600000>,
+					<0xd 2600000>,
+					<0x2 5800000>,
+					<0xa 5500000>,
+					<0x6 4400000>,
+					<0xe 3900000>;
+	};
+    };
     qcom,sde-mixer-blocks {
         qcom,sde-mixer-gc = <0x3c0 0x00010000>;
     };

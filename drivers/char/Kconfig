@@ -380,7 +380,7 @@ config XILINX_HWICAP
 
 config R3964
 	tristate "Siemens R3964 line discipline"
-	depends on TTY
+	depends on TTY && BROKEN
 	---help---
 	  This driver allows synchronous communication with devices using the
 	  Siemens R3964 packet protocol. Unless you are dealing with special
@@ -575,6 +575,16 @@ config DEVPORT
 
 source "drivers/s390/char/Kconfig"
 
+config MSM_SMD_PKT
+	bool "Enable device interface for some SMD packet ports"
+	default n
+	depends on RPMSG_QCOM_SMD
+	help
+	 smd_pkt driver provides the interface for the userspace clients
+	 to communicate over smd via device nodes. This enable the
+	 usersapce clients to read and write to some smd packets channel
+	 for MSM chipset.
+
 config TILE_SROM
 	tristate "Character-device access via hypervisor to the Tilera SPI ROM"
 	depends on TILE
@@ -599,12 +609,22 @@ config MSM_FASTCVPD
 
 config MSM_ADSPRPC
         tristate "QTI ADSP RPC driver"
-        depends on QCOM_GLINK
+        depends on QCOM_GLINK || RPMSG_QCOM_SMD
         help
           Provides a communication mechanism that allows for clients to
           make remote method invocations across processor boundary to
           applications DSP processor. Say M if you want to enable this
           module.
+
+config VIRTIO_FASTRPC
+	tristate "Virtio fastrpc driver"
+	depends on VIRTIO
+	help
+	  This is the virtual fastrpc frontend driver based on virtio. It
+	  provides a communication mechanism that allows for clients to
+	  make remote method invocations across processor boundary to
+	  applications DSP processor. Say Y if you want to support virtual
+	  fastrpc.
 
 config MSM_RDBG
 	tristate "QTI Remote debug driver"
@@ -613,6 +633,10 @@ config MSM_RDBG
 	  for a debugger running on a host PC to communicate with a remote
 	  stub running on peripheral subsystems such as the ADSP, MODEM etc.
 
+config XLOGCHAR
+	tristate "xlogchar driver"
+	help
+	  Implements a high performance log driver
 endmenu
 
 config OKL4_PIPE

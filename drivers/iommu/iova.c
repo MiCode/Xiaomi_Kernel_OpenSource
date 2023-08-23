@@ -23,6 +23,9 @@
 #include <linux/smp.h>
 #include <linux/bitops.h>
 #include <linux/cpu.h>
+#include "mi_iommu.h"
+
+#include <linux/moduleparam.h>
 
 static bool iova_rcache_insert(struct iova_domain *iovad,
 			       unsigned long pfn,
@@ -55,12 +58,20 @@ init_iova_domain(struct iova_domain *iovad, unsigned long granule,
 	iovad->flush_cb = NULL;
 	iovad->fq = NULL;
 	init_iova_rcaches(iovad);
+	// add by xiaomi
+	INIT_RADIX_TREE(&iovad->rdroot, GFP_ATOMIC);
+	iovad->best_fit = false;
 }
 EXPORT_SYMBOL_GPL(init_iova_domain);
 
+bool has_iova_flush_queue(struct iova_domain *iovad)
+{
+	return !!iovad->fq;
+}
+
 static void free_iova_flush_queue(struct iova_domain *iovad)
 {
-	if (!iovad->fq)
+	if (!has_iova_flush_queue(iovad))
 		return;
 
 	if (timer_pending(&iovad->fq_timer))
@@ -78,13 +89,14 @@ static void free_iova_flush_queue(struct iova_domain *iovad)
 int init_iova_flush_queue(struct iova_domain *iovad,
 			  iova_flush_cb flush_cb, iova_entry_dtor entry_dtor)
 {
+	struct iova_fq __percpu *queue;
 	int cpu;
 
 	atomic64_set(&iovad->fq_flush_start_cnt,  0);
 	atomic64_set(&iovad->fq_flush_finish_cnt, 0);
 
-	iovad->fq = alloc_percpu(struct iova_fq);
-	if (!iovad->fq)
+	queue = alloc_percpu(struct iova_fq);
+	if (!queue)
 		return -ENOMEM;
 
 	iovad->flush_cb   = flush_cb;
@@ -93,12 +105,16 @@ int init_iova_flush_queue(struct iova_domain *iovad,
 	for_each_possible_cpu(cpu) {
 		struct iova_fq *fq;
 
-		fq = per_cpu_ptr(iovad->fq, cpu);
+		fq = per_cpu_ptr(queue, cpu);
 		fq->head = 0;
 		fq->tail = 0;
 
 		spin_lock_init(&fq->lock);
 	}
+
+	smp_wmb();
+
+	iovad->fq = queue;
 
 	setup_timer(&iovad->fq_timer, fq_flush_timeout, (unsigned long)iovad);
 	atomic_set(&iovad->fq_timer_on, 0);
@@ -211,6 +227,7 @@ static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
 			struct iova *new, bool size_aligned)
 {
 	struct rb_node *prev, *curr = NULL;
+	bool matched = false;
 	unsigned long flags;
 	unsigned long saved_pfn;
 	unsigned int pad_size = 0;
@@ -219,7 +236,15 @@ static int __alloc_and_insert_iova_range(struct iova_domain *iovad,
 	/* Walk the tree backwards */
 	spin_lock_irqsave(&iovad->iova_rbtree_lock, flags);
 	saved_pfn = limit_pfn;
-	curr = __get_cached_rbnode(iovad, &limit_pfn);
+
+	if (iovad->best_fit)
+		size_aligned = false;
+	curr = rdxtree_matched_gap(iovad, &limit_pfn, size, size_aligned);
+	if (!curr)
+		curr = __get_cached_rbnode(iovad, &limit_pfn);
+	else
+		matched = true;
+
 	prev = curr;
 
 	while (curr) {
@@ -256,10 +281,11 @@ move_left:
 
 	/* If we have 'prev', it's a valid place to start the insertion. */
 	iova_insert_rbtree(&iovad->rbroot, new, prev);
-	__cached_rbnode_insert_update(iovad, saved_pfn, new);
+	if (!matched)
+		__cached_rbnode_insert_update(iovad, saved_pfn, new);
 
+	rdxtree_update_gap(iovad, curr, rb_next(&new->node), &new->node);
 	spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
-
 
 	return 0;
 }
@@ -377,6 +403,7 @@ private_find_iova(struct iova_domain *iovad, unsigned long pfn)
 static void private_free_iova(struct iova_domain *iovad, struct iova *iova)
 {
 	assert_spin_locked(&iovad->iova_rbtree_lock);
+	rdxtree_insert_gap(iovad, &iova->node);
 	__cached_rbnode_delete_update(iovad, iova);
 	rb_erase(&iova->node, &iovad->rbroot);
 	free_iova_mem(iova);
@@ -469,6 +496,8 @@ retry:
 		flushed_rcache = true;
 		for_each_online_cpu(cpu)
 			free_cpu_cached_iovas(cpu, iovad);
+		free_global_cached_iovas(iovad);
+		iovad->cached32_node = NULL;
 		goto retry;
 	}
 
@@ -615,7 +644,9 @@ void queue_iova(struct iova_domain *iovad,
 
 	spin_unlock_irqrestore(&fq->lock, flags);
 
-	if (atomic_cmpxchg(&iovad->fq_timer_on, 0, 1) == 0)
+	/* Avoid false sharing as much as possible. */
+	if (!atomic_read(&iovad->fq_timer_on) &&
+	    !atomic_cmpxchg(&iovad->fq_timer_on, 0, 1))
 		mod_timer(&iovad->fq_timer,
 			  jiffies + msecs_to_jiffies(IOVA_FQ_TIMEOUT));
 
@@ -639,6 +670,7 @@ void put_iova_domain(struct iova_domain *iovad)
 	node = rb_first(&iovad->rbroot);
 	while (node) {
 		struct iova *iova = rb_entry(node, struct iova, node);
+		rdxtree_insert_gap(iovad, &iova->node);
 
 		rb_erase(node, &iovad->rbroot);
 		free_iova_mem(iova);
@@ -731,6 +763,7 @@ reserve_iova(struct iova_domain *iovad,
 	 * or need to insert remaining non overlap addr range
 	 */
 	iova = __insert_new_range(iovad, pfn_lo, pfn_hi);
+	rdxtree_update_gap(iovad, rb_prev(&iova->node), rb_next(&iova->node), &iova->node);
 finish:
 
 	spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
@@ -784,15 +817,18 @@ split_and_remove_iova(struct iova_domain *iovad, struct iova *iova,
 			goto error;
 	}
 
+	rdxtree_insert_gap(iovad, &iova->node);
 	__cached_rbnode_delete_update(iovad, iova);
 	rb_erase(&iova->node, &iovad->rbroot);
 
 	if (prev) {
 		iova_insert_rbtree(&iovad->rbroot, prev, NULL);
+		rdxtree_update_gap(iovad, rb_prev(&prev->node), rb_next(&prev->node), &prev->node);
 		iova->pfn_lo = pfn_lo;
 	}
 	if (next) {
 		iova_insert_rbtree(&iovad->rbroot, next, NULL);
+		rdxtree_update_gap(iovad, rb_prev(&next->node), rb_next(&next->node), &next->node);
 		iova->pfn_hi = pfn_hi;
 	}
 	spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
@@ -815,10 +851,13 @@ error:
  */
 
 #define IOVA_MAG_SIZE 128
+#define IOVA_MAG_SIZE_LOW (IOVA_MAG_SIZE/2)
+#define CACHE_INDEX_LIMIT 3
 
 struct iova_magazine {
 	unsigned long size;
-	unsigned long pfns[IOVA_MAG_SIZE];
+	unsigned long max_size;
+	unsigned long *pfns;
 };
 
 struct iova_cpu_rcache {
@@ -827,13 +866,24 @@ struct iova_cpu_rcache {
 	struct iova_magazine *prev;
 };
 
-static struct iova_magazine *iova_magazine_alloc(gfp_t flags)
+static struct iova_magazine *iova_magazine_alloc(unsigned long index,
+						 gfp_t flags)
 {
-	return kzalloc(sizeof(struct iova_magazine), flags);
+	struct iova_magazine *mag;
+
+	mag = kzalloc(sizeof(struct iova_magazine), flags);
+	if (index < CACHE_INDEX_LIMIT)
+		mag->max_size = IOVA_MAG_SIZE_LOW;
+	else
+		mag->max_size = IOVA_MAG_SIZE;
+
+	mag->pfns = kcalloc(mag->max_size, sizeof(unsigned long), flags);
+	return mag;
 }
 
 static void iova_magazine_free(struct iova_magazine *mag)
 {
+	kfree(mag->pfns);
 	kfree(mag);
 }
 
@@ -862,7 +912,7 @@ iova_magazine_free_pfns(struct iova_magazine *mag, struct iova_domain *iovad)
 
 static bool iova_magazine_full(struct iova_magazine *mag)
 {
-	return (mag && mag->size == IOVA_MAG_SIZE);
+	return (mag && mag->size == mag->max_size);
 }
 
 static bool iova_magazine_empty(struct iova_magazine *mag)
@@ -905,8 +955,8 @@ static void init_iova_rcaches(struct iova_domain *iovad)
 		for_each_possible_cpu(cpu) {
 			cpu_rcache = per_cpu_ptr(rcache->cpu_rcaches, cpu);
 			spin_lock_init(&cpu_rcache->lock);
-			cpu_rcache->loaded = iova_magazine_alloc(GFP_KERNEL);
-			cpu_rcache->prev = iova_magazine_alloc(GFP_KERNEL);
+			cpu_rcache->loaded = iova_magazine_alloc(i, GFP_KERNEL);
+			cpu_rcache->prev = iova_magazine_alloc(i, GFP_KERNEL);
 		}
 	}
 }
@@ -919,7 +969,8 @@ static void init_iova_rcaches(struct iova_domain *iovad)
  */
 static bool __iova_rcache_insert(struct iova_domain *iovad,
 				 struct iova_rcache *rcache,
-				 unsigned long iova_pfn)
+				 unsigned long iova_pfn,
+				 unsigned long log_size)
 {
 	struct iova_magazine *mag_to_free = NULL;
 	struct iova_cpu_rcache *cpu_rcache;
@@ -935,7 +986,8 @@ static bool __iova_rcache_insert(struct iova_domain *iovad,
 		swap(cpu_rcache->prev, cpu_rcache->loaded);
 		can_insert = true;
 	} else {
-		struct iova_magazine *new_mag = iova_magazine_alloc(GFP_ATOMIC);
+		struct iova_magazine *new_mag =
+			iova_magazine_alloc(log_size, GFP_ATOMIC);
 
 		if (new_mag) {
 			spin_lock(&rcache->lock);
@@ -973,7 +1025,8 @@ static bool iova_rcache_insert(struct iova_domain *iovad, unsigned long pfn,
 	if (log_size >= IOVA_RANGE_CACHE_MAX_SIZE)
 		return false;
 
-	return __iova_rcache_insert(iovad, &iovad->rcaches[log_size], pfn);
+	return __iova_rcache_insert(iovad, &iovad->rcaches[log_size],
+			pfn, log_size);
 }
 
 /*
@@ -1094,6 +1147,32 @@ void free_cpu_cached_iovas(unsigned int cpu, struct iova_domain *iovad)
 		iova_magazine_free_pfns(cpu_rcache->prev, iovad);
 		spin_unlock_irqrestore(&cpu_rcache->lock, flags);
 	}
+}
+
+/*
+ * free all the IOVA ranges of global cache
+ */
+void free_global_cached_iovas(struct iova_domain *iovad)
+{
+	struct iova_rcache *rcache;
+	int i, j;
+
+	for (i = 0; i < IOVA_RANGE_CACHE_MAX_SIZE; ++i) {
+		rcache = &iovad->rcaches[i];
+		spin_lock(&rcache->lock);
+		for (j = 0; j < rcache->depot_size; ++j) {
+			iova_magazine_free_pfns(rcache->depot[j], iovad);
+			iova_magazine_free(rcache->depot[j]);
+			rcache->depot[j] = NULL;
+		}
+		rcache->depot_size = 0;
+		spin_unlock(&rcache->lock);
+	}
+}
+
+void iommu_debug_init(struct iova_domain *iovad, const char *name)
+{
+	mi_iommu_debug_init(iovad, name);
 }
 
 MODULE_AUTHOR("Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>");

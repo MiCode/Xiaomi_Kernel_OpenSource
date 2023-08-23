@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, 2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,8 @@
 #define XLOG_FUNC_EXIT	0x2222
 #define MDSS_REG_BLOCK_NAME_LEN (5)
 
+#define DEBUG_FLAGS_DSPP BIT(0)
+
 enum mdss_dbg_reg_dump_flag {
 	MDSS_DBG_DUMP_IN_LOG = BIT(0),
 	MDSS_DBG_DUMP_IN_MEM = BIT(1),
@@ -55,6 +57,7 @@ struct vbif_debug_bus {
 	u32 block_bus_addr;
 	u32 bit_offset;
 	u32 block_cnt;
+	u32 test_pnt_start;
 	u32 test_pnt_cnt;
 };
 
@@ -78,8 +81,8 @@ struct vbif_debug_bus {
 #define MDSS_XLOG_IOMMU(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_IOMMU, \
 		##__VA_ARGS__, DATA_LIMITER)
 
-#define ATRACE_END(name) trace_mdss_mark_write(current->tgid, name, 0)
-#define ATRACE_BEGIN(name) trace_mdss_mark_write(current->tgid, name, 1)
+#define ATRACE_END(name) trace_tracing_mark_write(current->tgid, name, 0)
+#define ATRACE_BEGIN(name) trace_tracing_mark_write(current->tgid, name, 1)
 #define ATRACE_FUNC() ATRACE_BEGIN(__func__)
 
 #define ATRACE_INT(name, value) \
@@ -136,7 +139,7 @@ static const struct file_operations __prefix ## _fops = {		\
 	.release = single_release,					\
 	.read = seq_read,						\
 	.llseek = seq_lseek,						\
-}
+};
 
 int mdss_debugfs_init(struct mdss_data_type *mdata);
 int mdss_debugfs_remove(struct mdss_data_type *mdata);
@@ -161,18 +164,13 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id,
 	bool is_video_mode);
 
 int mdss_create_xlog_debug(struct mdss_debug_data *mdd);
-#if defined(CONFIG_FB_MSM_MDSS_FRC_DEBUG)
-int mdss_create_frc_debug(struct mdss_debug_data *mdd);
-#else
-static inline int mdss_create_frc_debug(struct mdss_debug_data *mdd)
-	{return 0; }
-#endif
 void mdss_xlog(const char *name, int line, int flag, ...);
 void mdss_xlog_tout_handler_default(bool queue, const char *name, ...);
 u32 get_dump_range(struct dump_offset *range_node, size_t max_offset);
 void mdss_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
 	int len, u32 **dump_mem, bool from_isr);
 void mdss_mdp_debug_mid(u32 mid);
+void mdss_dump_dsi_debug_bus(u32 bus_dump_flag, u32 **dump_mem);
 #else
 struct mdss_debug_base;
 struct dump_offset;
@@ -216,12 +214,10 @@ static inline void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata) { }
 static inline void mdss_xlog_tout_handler_default(bool queue,
 	const char *name, ...) { }
 u32 get_dump_range(struct dump_offset *range_node, size_t max_offset)
-{
-	return 0;
-}
+	{ return 0; }
 void mdss_dump_reg(const char *dump_name, u32 reg_dump_flag, char *addr,
-	int len, u32 **dump_mem, bool from_isr);
-void mdss_mdp_debug_mid(u32 mid);
+	int len, u32 **dump_mem, bool from_isr) { }
+void mdss_mdp_debug_mid(u32 mid) { }
 #endif
 
 int mdss_dump_misr_data(char **buf, u32 size);
@@ -232,27 +228,5 @@ static inline int mdss_debug_register_io(const char *name,
 	return mdss_debug_register_base(name, io_data->base, io_data->len,
 		dbg_blk);
 }
-
-#if defined(CONFIG_DEBUG_FS) && defined(CONFIG_FB_MSM_MDSS_FRC_DEBUG)
-void mdss_debug_frc_add_vsync_sample(struct mdss_mdp_ctl *ctl,
-	ktime_t vsync_time);
-void mdss_debug_frc_add_kickoff_sample_pre(struct mdss_mdp_ctl *ctl,
-	struct mdss_mdp_frc_info *frc_info, int remaining);
-void mdss_debug_frc_add_kickoff_sample_post(struct mdss_mdp_ctl *ctl,
-	struct mdss_mdp_frc_info *frc_info, int remaining);
-int mdss_debug_frc_frame_repeat_disabled(void);
-#else
-static inline void mdss_debug_frc_add_vsync_sample(
-	struct mdss_mdp_ctl *ctl, ktime_t vsync_time) {}
-static inline void mdss_debug_frc_add_kickoff_sample_pre(
-	struct mdss_mdp_ctl *ctl,
-	struct mdss_mdp_frc_info *frc_info,
-	int remaining) {}
-static inline void mdss_debug_frc_add_kickoff_sample_post(
-	struct mdss_mdp_ctl *ctl,
-	struct mdss_mdp_frc_info *frc_info,
-	int remaining) {}
-static inline int mdss_debug_frc_frame_repeat_disabled(void) {return false; }
-#endif
 
 #endif /* MDSS_DEBUG_H */

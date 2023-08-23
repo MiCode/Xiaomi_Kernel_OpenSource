@@ -408,7 +408,7 @@ static int spcom_rx(struct spcom_channel *ch,
 			goto exit_err;
 		}
 	} else {
-		pr_debug("pending data size [%zu], requested size [%zu], ch->txn_id %d\n",
+		pr_debug("pending data size [%zu], requested size [%u], ch->txn_id %d\n",
 			 ch->actual_rx_size, size, ch->txn_id);
 	}
 	if (!ch->rpmsg_rx_buf) {
@@ -934,7 +934,7 @@ static int spcom_handle_lock_ion_buf_command(struct spcom_channel *ch,
 		if (ch->dmabuf_handle_table[i] == NULL) {
 			ch->dmabuf_handle_table[i] = dma_buf;
 			ch->dmabuf_fd_table[i] = fd;
-			pr_debug("ch [%s] locked ion buf #%d fd [%d] dma_buf=0x%x\n",
+			pr_debug("ch [%s] locked ion buf #%d fd [%d] dma_buf=%pK\n",
 				ch->name, i,
 				ch->dmabuf_fd_table[i],
 				ch->dmabuf_handle_table[i]);
@@ -1008,7 +1008,7 @@ static int spcom_handle_unlock_ion_buf_command(struct spcom_channel *ch,
 			if (!ch->dmabuf_handle_table[i])
 				continue;
 			if (ch->dmabuf_handle_table[i] == dma_buf) {
-				pr_debug("ch [%s] unlocked ion buf #%d fd [%d] dma_buf=0x%x\n",
+				pr_debug("ch [%s] unlocked ion buf #%d fd [%d] dma_buf=%pK\n",
 					ch->name, i,
 					ch->dmabuf_fd_table[i],
 					ch->dmabuf_handle_table[i]);
@@ -1377,7 +1377,7 @@ static int spcom_device_release(struct inode *inode, struct file *filp)
 	ch->is_busy = false;
 	ch->pid = 0;
 	if (ch->rpmsg_rx_buf) {
-		pr_debug("ch [%s] discarting unconsumed rx packet actual_rx_size=%d\n",
+		pr_debug("ch [%s] discarting unconsumed rx packet actual_rx_size=%lu\n",
 		       name, ch->actual_rx_size);
 		kfree(ch->rpmsg_rx_buf);
 		ch->rpmsg_rx_buf = NULL;
@@ -1684,7 +1684,7 @@ static int spcom_create_channel_chardev(const char *name)
 	ch = spcom_find_channel_by_name(name);
 	if (ch) {
 		pr_err("channel [%s] already exist.\n", name);
-		return -EINVAL;
+		return -EBUSY;
 	}
 
 	ch = spcom_find_channel_by_name(""); /* find reserved channel */

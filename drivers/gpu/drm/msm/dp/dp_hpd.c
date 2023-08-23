@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@
 #include "dp_usbpd.h"
 #include "dp_gpio_hpd.h"
 #include "dp_lphw_hpd.h"
+#include "dp_bridge_hpd.h"
 
 static void dp_hpd_host_init(struct dp_hpd *dp_hpd,
 		struct dp_catalog_hpd *catalog)
@@ -48,27 +49,36 @@ static void dp_hpd_isr(struct dp_hpd *dp_hpd)
 }
 
 struct dp_hpd *dp_hpd_get(struct device *dev, struct dp_parser *parser,
-		struct dp_catalog_hpd *catalog, struct dp_hpd_cb *cb)
+		struct dp_catalog_hpd *catalog, struct usbpd *pd,
+		struct msm_dp_aux_bridge *aux_bridge,
+		struct dp_hpd_cb *cb)
 {
 	struct dp_hpd *dp_hpd;
 
-	if (parser->no_aux_switch && parser->lphw_hpd) {
+	if (aux_bridge && (aux_bridge->flag & MSM_DP_AUX_BRIDGE_HPD)) {
+		dp_hpd = dp_bridge_hpd_get(dev, cb, aux_bridge);
+		if (IS_ERR(dp_hpd)) {
+			pr_err("failed to get bridge hpd\n");
+			goto out;
+		}
+		dp_hpd->type = DP_HPD_BRIDGE;
+	} else if (parser->no_aux_switch && parser->lphw_hpd) {
 		dp_hpd = dp_lphw_hpd_get(dev, parser, catalog, cb);
-		if (!dp_hpd) {
+		if (IS_ERR(dp_hpd)) {
 			pr_err("failed to get lphw hpd\n");
 			return dp_hpd;
 		}
 		dp_hpd->type = DP_HPD_LPHW;
 	} else if (parser->no_aux_switch) {
 		dp_hpd = dp_gpio_hpd_get(dev, cb);
-		if (!dp_hpd) {
+		if (IS_ERR(dp_hpd)) {
 			pr_err("failed to get gpio hpd\n");
 			goto out;
 		}
 		dp_hpd->type = DP_HPD_GPIO;
 	} else {
-		dp_hpd = dp_usbpd_get(dev, cb);
-		if (!dp_hpd) {
+		dp_hpd = dp_usbpd_init(dev, pd, cb);
+		if (IS_ERR(dp_hpd)) {
 			pr_err("failed to get usbpd\n");
 			goto out;
 		}
@@ -93,13 +103,16 @@ void dp_hpd_put(struct dp_hpd *dp_hpd)
 
 	switch (dp_hpd->type) {
 	case DP_HPD_USBPD:
-		dp_usbpd_put(dp_hpd);
+		dp_usbpd_deinit(dp_hpd);
 		break;
 	case DP_HPD_GPIO:
 		dp_gpio_hpd_put(dp_hpd);
 		break;
 	case DP_HPD_LPHW:
 		dp_lphw_hpd_put(dp_hpd);
+		break;
+	case DP_HPD_BRIDGE:
+		dp_bridge_hpd_put(dp_hpd);
 		break;
 	default:
 		pr_err("unknown hpd type %d\n", dp_hpd->type);

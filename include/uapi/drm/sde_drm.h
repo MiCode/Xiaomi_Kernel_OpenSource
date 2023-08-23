@@ -212,6 +212,16 @@ struct sde_drm_de_v1 {
 	int16_t adjust_c[SDE_MAX_DE_CURVES];
 };
 
+/*
+ * Scaler configuration flags
+ */
+
+/* Disable dynamic expansion */
+#define SDE_DYN_EXP_DISABLE 0x1
+
+#define SDE_DRM_QSEED3LITE
+#define SDE_DRM_QSEED4
+
 /**
  * struct sde_drm_scaler_v2 - version 2 of struct sde_drm_scaler
  * @enable:            Scaler enable
@@ -242,8 +252,9 @@ struct sde_drm_de_v1 {
  * @de:                Detail enhancer settings
  * @dir_weight:        Directional Weight
  * @unsharp_mask_blend: Unsharp Blend Filter Ratio
+ * @de_blend:          Ratio of two unsharp mask filters
+ * @flags:             Scaler configuration flags
  */
-#define SDE_DRM_QSEED3LITE
 struct sde_drm_scaler_v2 {
 	/*
 	 * General definitions
@@ -298,6 +309,8 @@ struct sde_drm_scaler_v2 {
 	struct sde_drm_de_v1 de;
 	uint32_t dir_weight;
 	uint32_t unsharp_mask_blend;
+	uint32_t de_blend;
+	uint32_t flags;
 };
 
 /* Number of dest scalers supported */
@@ -439,6 +452,30 @@ struct sde_drm_wb_cfg {
 struct sde_drm_roi_v1 {
 	uint32_t num_rects;
 	struct drm_clip_rect roi[SDE_MAX_ROI_V1];
+};
+
+/**
+ * struct sde_drm_roi_misr_v1 - version 1 struct sde_drm_roi_misr
+ *
+ * @fence_fd_ptr:      roi misr fence fd pointer
+ * @roi_rect_num:      number of roi should be enabled
+ * @roi_ids:           the order number of every roi, this order
+ *                     are matches with roi range index in mode_info
+ * @roi_rects:         the rectangle information of every roi
+ * @roi_golden_value:  golden value is used to compare with the
+ *                     misr value calculated by h/w. if there is
+ *                     a mismatch, the misr fence will be signaled
+ *                     and the h/w calculated value will be returned
+ *                     in the misr fence. NULL if using default
+ *                     value of -1 for all roi misrs.
+ */
+#define SDE_DRM_ROI_MISR_V1
+struct sde_drm_roi_misr_v1 {
+	int64_t *fence_fd_ptr;
+	uint32_t roi_rect_num;
+	uint32_t *roi_ids;
+	struct drm_clip_rect *roi_rects;
+	uint32_t *roi_golden_value;
 };
 
 /**

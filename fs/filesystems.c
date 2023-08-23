@@ -221,6 +221,25 @@ int __init get_filesystem_list(char *buf)
 	return len;
 }
 
+#ifdef CONFIG_EARLY_SERVICES
+int get_filesystem_list_runtime(char *buf)
+{
+	int len = 0;
+	struct file_system_type *tmp;
+
+	read_lock(&file_systems_lock);
+	tmp = file_systems;
+	while (tmp && len < PAGE_SIZE - 80) {
+		len += scnprintf(buf+len, PAGE_SIZE, "%s\t%s\n",
+			(tmp->fs_flags & FS_REQUIRES_DEV) ? "" : "nodev",
+			tmp->name);
+		tmp = tmp->next;
+	}
+	read_unlock(&file_systems_lock);
+	return len;
+}
+#endif
+
 #ifdef CONFIG_PROC_FS
 static int filesystems_proc_show(struct seq_file *m, void *v)
 {
@@ -279,7 +298,9 @@ struct file_system_type *get_fs_type(const char *name)
 	fs = __get_fs_type(name, len);
 	if (!fs && (request_module("fs-%.*s", len, name) == 0)) {
 		fs = __get_fs_type(name, len);
-		WARN_ONCE(!fs, "request_module fs-%.*s succeeded, but still no fs?\n", len, name);
+		if (!fs)
+			pr_warn_once("request_module fs-%.*s succeeded, but still no fs?\n",
+				     len, name);
 	}
 
 	if (dot && fs && !(fs->fs_flags & FS_HAS_SUBTYPE)) {

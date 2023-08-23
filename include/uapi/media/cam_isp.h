@@ -90,7 +90,6 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_UBWC_CONFIG         3
 #define CAM_ISP_GENERIC_BLOB_TYPE_CSID_CLOCK_CONFIG   4
 #define CAM_ISP_GENERIC_BLOB_TYPE_FE_CONFIG           5
-#define CAM_ISP_GENERIC_BLOB_TYPE_BW_CONFIG_V2        6
 
 /* Query devices */
 /**
@@ -211,6 +210,10 @@ struct cam_isp_in_port_info {
 	uint32_t                        hbi_cnt;
 	uint32_t                        reserved;
 	uint32_t                        num_out_res;
+#if defined (CONFIG_CSID_CAMERA) || defined (DRACO_CAM)  || defined (TUCANA_CAM)
+	uint32_t                        enable_binning;
+	uint32_t                        binning_mode;
+#endif
 	struct cam_isp_out_port_info    data[1];
 };
 
@@ -386,25 +389,6 @@ struct cam_isp_bw_config {
 	struct cam_isp_bw_vote         left_pix_vote;
 	struct cam_isp_bw_vote         right_pix_vote;
 	struct cam_isp_bw_vote         rdi_vote[1];
-} __attribute__((packed));
-
-
-/**
- * struct cam_isp_bw_config_ab - Bandwidth configuration
- *
- * @usage_type:                    Usage type (Single/Dual)
- * @num_rdi:                       Number of RDI votes
- * @left_pix_vote_ab:              AB Bandwidth vote for left ISP
- * @right_pix_vote_ab:             AB Bandwidth vote for right ISP
- * @rdi_vote_ab:                   AB RDI bandwidth requirements
- */
-
-struct cam_isp_bw_config_ab {
-	uint32_t    usage_type;
-	uint32_t    num_rdi;
-	uint64_t    left_pix_vote_ab;
-	uint64_t    right_pix_vote_ab;
-	uint64_t    rdi_vote_ab[1];
 } __attribute__((packed));
 
 /**

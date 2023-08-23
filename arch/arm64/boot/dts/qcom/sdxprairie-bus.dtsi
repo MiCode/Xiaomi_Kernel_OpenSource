@@ -457,6 +457,7 @@
 			qcom,bcms = <&bcm_sn11>;
 			qcom,ap-owned;
 			qcom,prio = <0>;
+			qcom,forwarding;
 		};
 
 		mas_qnm_memnoc: mas-qnm-memnoc {
@@ -505,6 +506,7 @@
 			qcom,bcms = <&bcm_ce0>, <&bcm_pn5>;
 			qcom,ap-owned;
 			qcom,prio = <0>;
+			qcom,forwarding;
 		};
 
 		mas_xm_emac: mas-xm-emac {

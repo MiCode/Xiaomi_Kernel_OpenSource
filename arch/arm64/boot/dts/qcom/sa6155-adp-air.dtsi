@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,7 +11,15 @@
  */
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/clock/qcom,gcc-sm6150.h>
+#include "sa6155-cnss.dtsi"
 
+&qupv3_2 {
+	status = "ok";
+};
+
+&bluetooth_ext {
+	status = "ok";
+};
 
 &qupv3_se6_spi {
 	status = "ok";
@@ -33,15 +41,101 @@
 		status = "ok";
 	};
 
-	audio_apr: qcom,msm-audio-apr {
-		status = "ok";
-	};
-
 	qcom,glink {
 		modem {
 			status = "disabled";
 		};
 	};
+
+	ss5_pwr_ctrl0 {
+		compatible = "gnss_sirf";
+		pinctrl-0 = <&ss5_pwr_ctrl_rst_on>;
+		ssVreset-gpio = <&tlmm 87 1>;
+		ssVonoff-gpio = <&tlmm 18 1>;
+	};
+
+	hsi2s: qcom,hsi2s {
+		compatible = "qcom,sa6155-hsi2s", "qcom,hsi2s";
+		number-of-interfaces = <2>;
+		reg = <0x1B40000 0x28000>;
+		reg-names = "lpa_if";
+		interrupts = <GIC_SPI 267 0>;
+		clocks = <&clock_gcc GCC_SDR_CORE_CLK>,
+			 <&clock_gcc GCC_SDR_WR0_MEM_CLK>,
+			 <&clock_gcc GCC_SDR_WR1_MEM_CLK>,
+			 <&clock_gcc GCC_SDR_WR2_MEM_CLK>,
+			 <&clock_gcc GCC_SDR_CSR_HCLK>;
+		clock-names = "core_clk", "wr0_mem_clk",
+			      "wr1_mem_clk", "wr2_mem_clk",
+			      "csr_hclk";
+		number-of-rate-detectors = <2>;
+		rate-detector-interfaces = <0 1>;
+
+		sdr0: qcom,hs0_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <0>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs0_i2s_sck_active &hs0_i2s_data0_active
+				     &hs0_i2s_data1_active>;
+			pinctrl-1 = <&hs0_i2s_sck_sleep &hs0_i2s_data0_sleep
+				     &hs0_i2s_data1_sleep>;
+			clocks = <&clock_gcc GCC_SDR_PRI_MI2S_CLK>;
+			clock-names = "pri_mi2s_clk";
+			iommus = <&apps_smmu 0x035C 0x0>;
+			qcom,smmu-s1-bypass;
+			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
+			pcm-rate = <2>;
+			pcm-sync-src = <0>;
+			aux-mode = <0>;
+			rpcm-width = <1>;
+			tpcm-width = <1>;
+			enable-tdm = <1>;
+			tdm-rate = <32>;
+			tdm-rpcm-width = <16>;
+			tdm-tpcm-width = <16>;
+			tdm-sync-delay = <2>;
+			tdm-inv-sync = <0>;
+			pcm-lane-config = <1>;
+		};
+
+		sdr1: qcom,hs1_i2s {
+			compatible = "qcom,hsi2s-interface";
+			minor-number = <1>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&hs1_i2s_sck_active &hs1_i2s_data0_active
+				     &hs1_i2s_data1_active>;
+			pinctrl-1 = <&hs1_i2s_sck_sleep &hs1_i2s_data0_sleep
+				     &hs1_i2s_data1_sleep>;
+			clocks = <&clock_gcc GCC_SDR_SEC_MI2S_CLK>;
+			clock-names = "sec_mi2s_clk";
+			iommus = <&apps_smmu 0x035D 0x0>;
+			qcom,smmu-s1-bypass;
+			qcom,iova-mapping = <0x0 0xFFFFFFFF>;
+			bit-clock-hz = <12288000>;
+			data-buffer-ms = <10>;
+			bit-depth = <32>;
+			spkr-channel-count = <2>;
+			mic-channel-count = <2>;
+			pcm-rate = <2>;
+			pcm-sync-src = <0>;
+			aux-mode = <0>;
+			rpcm-width = <1>;
+			tpcm-width = <1>;
+			enable-tdm = <1>;
+			tdm-rate = <32>;
+			tdm-rpcm-width = <16>;
+			tdm-tpcm-width = <16>;
+			tdm-sync-delay = <2>;
+			tdm-inv-sync = <0>;
+			pcm-lane-config = <1>;
+		};
+	};
+
 	emac_hw: qcom,emac@20000 {
 		compatible = "qcom,emac-dwc-eqos";
 		qcom,arm-smmu;
@@ -50,6 +144,7 @@
 		reg-names = "emac-base", "rgmii-base";
 		dma-bit-mask = <32>;
 		emac-core-version = <7>;
+		emac-phy-addr = <7>;
 		interrupts-extended = <&pdc 0 660 4>, <&pdc 0 661 4>,
 			<&tlmm 121 2>, <&pdc 0 651 4>,
 			<&pdc 0 652 4>, <&pdc 0 653 4>,
@@ -80,6 +175,7 @@
 		clock-names = "eth_axi_clk", "eth_ptp_clk",
 				"eth_rgmii_clk", "eth_slave_ahb_clk";
 		qcom,phy-reset = <&tlmm 104 GPIO_ACTIVE_HIGH>;
+		qcom,phy-reset-delay-msecs = <10 50>;
 		qcom,phy-intr-redirect = <&tlmm 121 GPIO_ACTIVE_LOW>;
 		gdsc_emac-supply = <&emac_gdsc>;
 		pinctrl-names = "dev-emac-mdc", "dev-emac-mdio",
@@ -124,9 +220,6 @@
 		};
 	};
 
-	bluetooth_ext: bt_qca6174 {
-		status = "ok";
-	};
 };
 
 &ufsphy_mem {
@@ -172,6 +265,7 @@
 	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
 	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
 
+	qcom,restore-after-cx-collapse;
 	status = "ok";
 };
 
@@ -190,20 +284,25 @@
 
 	cd-gpios = <&tlmm 99 1>;
 
+	qcom,restore-after-cx-collapse;
 	status = "ok";
 };
 
 &usb0 {
-	qcom,host-poweroff-in-pm-suspend;
+	qcom,ignore-wakeup-src-in-hostmode;
 };
 
 &usb1 {
 	status = "ok";
 	qcom,default-mode-host;
-	qcom,host-poweroff-in-pm-suspend;
+	qcom,ignore-wakeup-src-in-hostmode;
 };
 
 &qupv3_se0_2uart {
+	status = "ok";
+};
+
+&qupv3_se4_2uart {
 	status = "ok";
 };
 

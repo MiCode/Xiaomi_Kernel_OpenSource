@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -641,9 +641,9 @@ static void handle_query_size_req(struct qmi_handle *handle,
 		return;
 	}
 
-	if (memblock[client_id].size) {
+	if (memblock[client_id].init_size) {
 		query_resp->size_valid = 1;
-		query_resp->size = memblock[client_id].size;
+		query_resp->size = memblock[client_id].init_size;
 	} else {
 		query_resp->size_valid = 1;
 		query_resp->size = 0;
@@ -684,21 +684,21 @@ static struct qmi_msg_handler qmi_memshare_handlers[] = {
 		.type = QMI_REQUEST,
 		.msg_id = MEM_ALLOC_GENERIC_REQ_MSG_V01,
 		.ei = mem_alloc_generic_req_msg_data_v01_ei,
-		.decoded_size = MEM_ALLOC_REQ_MAX_MSG_LEN_V01,
+		.decoded_size = sizeof(struct mem_alloc_generic_req_msg_v01),
 		.fn = handle_alloc_generic_req,
 	},
 	{
 		.type = QMI_REQUEST,
 		.msg_id = MEM_FREE_GENERIC_REQ_MSG_V01,
 		.ei = mem_free_generic_req_msg_data_v01_ei,
-		.decoded_size = MEM_FREE_REQ_MAX_MSG_LEN_V01,
+		.decoded_size = sizeof(struct mem_free_generic_req_msg_v01),
 		.fn = handle_free_generic_req,
 	},
 	{
 		.type = QMI_REQUEST,
 		.msg_id = MEM_QUERY_SIZE_REQ_MSG_V01,
 		.ei = mem_query_size_req_msg_data_v01_ei,
-		.decoded_size = MEM_QUERY_MAX_MSG_LEN_V01,
+		.decoded_size = sizeof(struct mem_query_size_req_msg_v01),
 		.fn = handle_query_size_req,
 	},
 };
@@ -824,7 +824,7 @@ static int memshare_child_probe(struct platform_device *pdev)
 	else if (strcmp(name, "wcnss") == 0)
 		memblock[num_clients].peripheral = DHMS_MEM_PROC_WCNSS_V01;
 
-	memblock[num_clients].size = size;
+	memblock[num_clients].init_size = size;
 	memblock[num_clients].client_id = client_id;
 
   /*
@@ -842,6 +842,7 @@ static int memshare_child_probe(struct platform_device *pdev)
 				rc);
 			return rc;
 		}
+		memblock[num_clients].size = size;
 		memblock[num_clients].allotted = 1;
 		shared_hyp_mapping(num_clients);
 	}

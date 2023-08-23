@@ -53,6 +53,12 @@ struct mtd_part {
 
 /*
  * Given a pointer to the MTD object in the mtd_part structure, we can retrieve
+ * the pointer to that structure with this macro.
+ */
+#define PART(x)  ((struct mtd_part *)(x))
+
+/*
+ * Given a pointer to the MTD object in the mtd_part structure, we can retrieve
  * the pointer to that structure.
  */
 static inline struct mtd_part *mtd_to_part(const struct mtd_info *mtd)
@@ -369,6 +375,29 @@ static inline void free_partition(struct mtd_part *p)
 	kfree(p);
 }
 
+void part_fill_badblockstats(struct mtd_info *mtd)
+{
+	uint64_t offs = 0;
+	struct mtd_info *parent;
+	struct mtd_part *part;
+
+	part = PART(mtd);
+	parent = part->parent;
+
+	if (parent->_block_isbad) {
+		mtd->ecc_stats.badblocks = 0;
+		mtd->ecc_stats.bbtblocks = 0;
+
+		while (offs < mtd->size) {
+			if (mtd_block_isreserved(parent, offs + part->offset))
+				mtd->ecc_stats.bbtblocks++;
+			else if (mtd_block_isbad(parent, offs + part->offset))
+				mtd->ecc_stats.badblocks++;
+			offs += mtd->erasesize;
+		}
+	}
+}
+
 /**
  * mtd_parse_part - parse MTD partition looking for subpartitions
  *
@@ -613,17 +642,9 @@ static struct mtd_part *allocate_partition(struct mtd_info *parent,
 	slave->mtd.ecc_strength = parent->ecc_strength;
 	slave->mtd.bitflip_threshold = parent->bitflip_threshold;
 
-	if (parent->_block_isbad) {
-		uint64_t offs = 0;
-
-		while (offs < slave->mtd.size) {
-			if (mtd_block_isreserved(parent, offs + slave->offset))
-				slave->mtd.ecc_stats.bbtblocks++;
-			else if (mtd_block_isbad(parent, offs + slave->offset))
-				slave->mtd.ecc_stats.badblocks++;
-			offs += slave->mtd.erasesize;
-		}
-	}
+#ifndef CONFIG_MTD_LAZYECCSTATS
+	part_fill_badblockstats(&(slave->mtd));
+#endif
 
 out_register:
 	return slave;
@@ -684,9 +705,20 @@ int mtd_add_partition(struct mtd_info *parent, const char *name,
 	list_add(&new->list, &mtd_partitions);
 	mutex_unlock(&mtd_partitions_mutex);
 
-	add_mtd_device(&new->mtd);
+	ret = add_mtd_device(&new->mtd);
+	if (ret)
+		goto err_remove_part;
 
 	mtd_add_partition_attrs(new);
+
+	return 0;
+
+err_remove_part:
+	mutex_lock(&mtd_partitions_mutex);
+	list_del(&new->list);
+	mutex_unlock(&mtd_partitions_mutex);
+
+	free_partition(new);
 
 	return ret;
 }
@@ -778,22 +810,31 @@ int add_mtd_partitions(struct mtd_info *master,
 {
 	struct mtd_part *slave;
 	uint64_t cur_offset = 0;
-	int i;
+	int i, ret;
 
 	printk(KERN_NOTICE "Creating %d MTD partitions on \"%s\":\n", nbparts, master->name);
 
 	for (i = 0; i < nbparts; i++) {
 		slave = allocate_partition(master, parts + i, i, cur_offset);
 		if (IS_ERR(slave)) {
-			del_mtd_partitions(master);
-			return PTR_ERR(slave);
+			ret = PTR_ERR(slave);
+			goto err_del_partitions;
 		}
 
 		mutex_lock(&mtd_partitions_mutex);
 		list_add(&slave->list, &mtd_partitions);
 		mutex_unlock(&mtd_partitions_mutex);
 
-		add_mtd_device(&slave->mtd);
+		ret = add_mtd_device(&slave->mtd);
+		if (ret) {
+			mutex_lock(&mtd_partitions_mutex);
+			list_del(&slave->list);
+			mutex_unlock(&mtd_partitions_mutex);
+
+			free_partition(slave);
+			goto err_del_partitions;
+		}
+
 		mtd_add_partition_attrs(slave);
 		if (parts[i].types)
 			mtd_parse_part(slave, parts[i].types);
@@ -802,6 +843,11 @@ int add_mtd_partitions(struct mtd_info *master,
 	}
 
 	return 0;
+
+err_del_partitions:
+	del_mtd_partitions(master);
+
+	return ret;
 }
 
 static DEFINE_SPINLOCK(part_parser_lock);

@@ -20,6 +20,8 @@
 #define GMAC_PACKET_FILTER		0x00000008
 #define GMAC_HASH_TAB_0_31		0x00000010
 #define GMAC_HASH_TAB_32_63		0x00000014
+#define GMAC_VLAN_CTRL_TAG		0x00000050
+#define GMAC_VLAN_DATA_TAG		0x00000054
 #define GMAC_RX_FLOW_CTRL		0x00000090
 #define GMAC_QX_TX_FLOW_CTRL(x)		(0x70 + x * 4)
 #define GMAC_TXQ_PRTY_MAP0		0x98
@@ -43,6 +45,20 @@
 #define GMAC_MDIO_DATA			0x00000204
 #define GMAC_ADDR_HIGH(reg)		(0x300 + reg * 8)
 #define GMAC_ADDR_LOW(reg)		(0x304 + reg * 8)
+#define GMAC_MTL_RX_QMAP		0x00000c30
+
+/*MAC VLAN CTRL Bit*/
+#define GMAC_VLANTR_OB_MASK			(0x1)
+#define GMAC_VLANTR_CT_MASKBIT			BIT(1)
+#define GMAC_VLANTR_OFFSET_SHIFT		2
+#define GMAC_VLANTR_VLAN_EN			BIT(16)
+#define GMAC_VLANTR_VLAN_CMP			BIT(17)
+#define GMAC_VLANTR_VLAN_CMP_DISABLE		BIT(18)
+#define GMAC_VLANTR_DMA_CHAN_EN			BIT(24)
+#define GMAC_VLANTR_DMA_CHAN_NUM		25
+
+/*MTL Rx Queue Bit*/
+#define GMAC_MTL_RXQ_DMACH		BIT(4)
 
 /* RX Queues Routing */
 #define GMAC_RXQCTRL_AVCPQ_MASK		GENMASK(2, 0)
@@ -148,6 +164,7 @@ enum power_event {
 /* MAC config */
 #define GMAC_CONFIG_IPC			BIT(27)
 #define GMAC_CONFIG_2K			BIT(22)
+#define GMAC_CONFIG_CRC			BIT(21)
 #define GMAC_CONFIG_ACS			BIT(20)
 #define GMAC_CONFIG_BE			BIT(18)
 #define GMAC_CONFIG_JD			BIT(17)
@@ -192,6 +209,9 @@ enum power_event {
 #define GMAC_HI_DCS_SHIFT		16
 #define GMAC_HI_REG_AE			BIT(31)
 
+/* MAC HW PPS outputs mask */
+#define GMAC_PPSOUTNUM_MASK		0x7
+
 /*  MTL registers */
 #define MTL_OPERATION_MODE		0x00000c00
 #define MTL_OPERATION_SCHALG_MASK	GENMASK(6, 5)
@@ -225,6 +245,8 @@ enum power_event {
 #define MTL_CHAN_RX_DEBUG(x)		(MTL_CHANX_BASE_ADDR(x) + 0x38)
 
 #define MTL_OP_MODE_RSF			BIT(5)
+#define MTL_OP_MODE_TXQEN_MASK		GENMASK(3, 2)
+#define MTL_OP_MODE_TXQEN_AV		BIT(2)
 #define MTL_OP_MODE_TXQEN		BIT(3)
 #define MTL_OP_MODE_TSF			BIT(1)
 
@@ -253,6 +275,8 @@ enum power_event {
 #define MTL_OP_MODE_RFA_SHIFT		8
 
 #define MTL_OP_MODE_EHFC		BIT(7)
+#define MTL_OP_MODE_FEP			BIT(4)
+#define MTL_OP_MODE_FUP			BIT(3)
 
 #define MTL_OP_MODE_RTC_MASK		0x18
 #define MTL_OP_MODE_RTC_SHIFT		3

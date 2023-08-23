@@ -34,8 +34,8 @@
  */
 
 
-#define TASKSTATS_VERSION	8
-#define TASKSTATS2_VERSION	1
+#define TASKSTATS_VERSION	9
+#define TASKSTATS2_VERSION	2
 #define TS_COMM_LEN		32	/* should be >= TASK_COMM_LEN
 					 * in linux/sched.h */
 
@@ -165,6 +165,10 @@ struct taskstats {
 	/* Delay waiting for memory reclaim */
 	__u64	freepages_count;
 	__u64	freepages_delay_total;
+
+	/* Delay waiting for thrashing page */
+	__u64	thrashing_count;
+	__u64	thrashing_delay_total;
 };
 
 struct taskstats2 {
@@ -177,6 +181,20 @@ struct taskstats2 {
 	__u64 shmem_rss;	/* KB */
 	__u64 unreclaimable;	/* KB */
 	/* version 1 ends here */
+
+	/* version 2 begins here */
+	__u64	utime;		/* User CPU time [usec] */
+	__u64	stime;		/* System CPU time [usec] */
+	__u64	cutime;		/* Cumulative User CPU time [usec] */
+	__u64	cstime;		/* Cumulative System CPU time [usec] */
+
+	__u32	uid __attribute__((aligned(8)));
+					/* User ID */
+	__u32	ppid;  /* Parent process ID */
+	char	name[TS_COMM_LEN];  /* Command name */
+	char    state[TS_COMM_LEN]; /* Process state */
+	/* version 2 ends here*/
+
 };
 
 /*

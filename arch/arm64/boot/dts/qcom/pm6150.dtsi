@@ -33,23 +33,40 @@
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
 			interrupts = <0x0 0x8 0x0 IRQ_TYPE_NONE>,
-				     <0x0 0x8 0x1 IRQ_TYPE_NONE>;
-			interrupt-names = "kpdpwr", "resin";
-			qcom,pon-dbc-delay = <15625>;
+				   <0x0 0x8 0x1 IRQ_TYPE_NONE>,
+				   <0x0 0x8 0x4 IRQ_TYPE_NONE>,
+				   <0x0 0x8 0x5 IRQ_TYPE_NONE>;
+			interrupt-names = "kpdpwr", "resin",
+					"resin-bark", "kpdpwr-resin-bark";
+			qcom,pon-dbc-delay = <62500>;
 			qcom,kpdpwr-sw-debounce;
 			qcom,system-reset;
 			qcom,store-hard-reset-reason;
 
 			qcom,pon_1 {
 				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR>;
-				qcom,pull-up;
+				qcom,support-reset = <1>;
+				qcom,pull-up = <1>;
 				linux,code = <KEY_POWER>;
+				qcom,s1-timer = <4480>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <0x7>;
 			};
 
 			qcom,pon_2 {
 				qcom,pon-type = <PON_POWER_ON_TYPE_RESIN>;
 				qcom,pull-up;
 				linux,code = <KEY_VOLUMEDOWN>;
+			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <PON_POWER_ON_TYPE_KPDPWR_RESIN>;
+				qcom,support-reset = <1>;
+				qcom,pull-up = <1>;
+				qcom,s1-timer = <1352>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <0x1>;
+				qcom,use-bark;
 			};
 		};
 
@@ -148,6 +165,8 @@
 			bat_id {
 				reg = <ADC_BAT_ID_PU2>;
 				label = "bat_id";
+				qcom,ratiometric;
+				qcom,hw-settle-time = <200>;
 				qcom,pre-scaling = <1 1>;
 			};
 
@@ -177,11 +196,11 @@
 				qcom,pre-scaling = <1 1>;
 			};
 
-			v_i_parallel {
-				reg = <ADC_PARALLEL_ISENSE_VBAT_VDATA>;
-				label = "v_i_parallel_vbat_vdata";
-				qcom,pre-scaling = <1 1>;
-			};
+			//v_i_parallel {
+			//	reg = <ADC_PARALLEL_ISENSE_VBAT_VDATA>;
+			//	label = "v_i_parallel_vbat_vdata";
+			//	qcom,pre-scaling = <1 1>;
+			//};
 
 		};
 
@@ -358,6 +377,13 @@
 						  "temp-change-smb";
 			};
 
+			qcom,sdam@b100 {
+				reg = <0xb100 0x100>;
+				interrupts =
+					<0x0 0xb1 0x1 IRQ_TYPE_EDGE_RISING>;
+				interrupt-names = "sdam-sts";
+			};
+
 			smb5_vbus: qcom,smb5-vbus {
 				regulator-name = "smb5-vbus";
 			};
@@ -401,11 +427,11 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			qcom,vbatt-cutoff-mv = <3200>;
+			qcom,vbatt-cutoff-mv = <3400>;
 			qcom,vbatt-low-mv = <3300>;
 			qcom,vbatt-low-cold-mv = <3700>;
-			qcom,vbatt-empty-mv = <3000>;
-			qcom,vbatt-empty-cold-mv = <3000>;
+			qcom,vbatt-empty-mv = <3100>;
+			qcom,vbatt-empty-cold-mv = <3100>;
 			qcom,s3-entry-fifo-length = <2>;
 
 			qcom,pmic-revid = <&pm6150_revid>;
@@ -441,14 +467,10 @@
 			reg = <0x1d00 0x100>;
 			interrupts = <0x0 0x1d 0x0 IRQ_TYPE_NONE>,
 					<0x0 0x1d 0x1 IRQ_TYPE_NONE>,
-					<0x0 0x1d 0x0 IRQ_TYPE_NONE>,
-					<0x0 0x1d 0x1 IRQ_TYPE_NONE>,
 					<0x0 0x1d 0x2 IRQ_TYPE_NONE>;
-			interrupt-names = "bcl-ibat-lvl0",
-						"bcl-ibat-lvl1",
-						"bcl-vbat-lvl0",
-						"bcl-vbat-lvl1",
-						"bcl-vbat-lvl2";
+			interrupt-names = "bcl-lvl0",
+						"bcl-lvl1",
+						"bcl-lvl2";
 			#thermal-sensor-cells = <1>;
 		};
 
@@ -555,7 +577,7 @@
 	};
 
 	pm6150-ibat-lvl0 {
-		polling-delay-passive = <100>;
+		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "step_wise";
 		thermal-sensors = <&pm6150_bcl 0>;
@@ -587,7 +609,7 @@
 	};
 
 	pm6150-vbat-lvl0 {
-		polling-delay-passive = <100>;
+		polling-delay-passive = <0>;
 		polling-delay = <0>;
 		thermal-governor = "low_limits_cap";
 		thermal-sensors = <&pm6150_bcl 2>;
@@ -637,6 +659,54 @@
 		};
 	};
 
+	pm6150-bcl-lvl0 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150_bcl 5>;
+		wake-capable-sensor;
+
+		trips {
+			bcl_lvl0: bcl-lvl0 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150-bcl-lvl1 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150_bcl 6>;
+		wake-capable-sensor;
+
+		trips {
+			bcl_lvl1: bcl-lvl1 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
+	pm6150-bcl-lvl2 {
+		polling-delay-passive = <100>;
+		polling-delay = <0>;
+		thermal-governor = "step_wise";
+		thermal-sensors = <&pm6150_bcl 7>;
+		wake-capable-sensor;
+
+		trips {
+			bcl_lvl2: bcl-lvl2 {
+				temperature = <1>;
+				hysteresis = <1>;
+				type = "passive";
+			};
+		};
+	};
+
 	soc {
 		polling-delay-passive = <100>;
 		polling-delay = <0>;
@@ -644,7 +714,7 @@
 		thermal-sensors = <&bcl_soc>;
 		wake-capable-sensor;
 		tracks-low;
-
+		disable-thermal-zone;
 		trips {
 			soc_trip:soc-trip {
 				temperature = <10>;

@@ -67,3 +67,7 @@
 &usb2_phy1 {
 	status = "disabled";
 };
+
+&emac_hw {
+	status = "disabled";
+};

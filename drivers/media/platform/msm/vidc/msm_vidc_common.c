@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,7 +41,7 @@ const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata none",
 	"Extradata MB Quantization",
 	"Extradata Interlace Video",
-	"Reserved",
+	"Extradata enc DTS",
 	"Reserved",
 	"Extradata timestamp",
 	"Extradata S3D Frame Packing",
@@ -1577,6 +1577,8 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	print_cap("rc_modes", &inst->capability.rc_modes);
 	print_cap("blur_width", &inst->capability.blur_width);
 	print_cap("blur_height", &inst->capability.blur_height);
+	print_cap("rotation", &inst->capability.rotation);
+	print_cap("color_space_caps", &inst->capability.color_space_caps);
 	print_cap("slice_delivery_mode", &inst->capability.slice_delivery_mode);
 	print_cap("slice_bytes", &inst->capability.slice_bytes);
 	print_cap("slice_mbs", &inst->capability.slice_mbs);
@@ -2077,7 +2079,11 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 		return;
 	}
 
-	mutex_lock(&inst->flush_lock);
+	if (response->data.flush_type & HAL_FLUSH_INPUT)
+		mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
+	if (response->data.flush_type & HAL_FLUSH_OUTPUT)
+		mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
+
 	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
 
@@ -2120,7 +2126,11 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 	v4l2_event_queue_fh(&inst->event_handler, &flush_event);
 
 exit:
-	mutex_unlock(&inst->flush_lock);
+	if (response->data.flush_type & HAL_FLUSH_OUTPUT)
+		mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
+	if (response->data.flush_type & HAL_FLUSH_INPUT)
+		mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);
+
 	put_inst(inst);
 }
 
@@ -2245,10 +2255,6 @@ static void handle_sys_error(enum hal_command_response cmd, void *data)
 
 	/* handle the hw error before core released to get full debug info */
 	msm_vidc_handle_hw_error(core);
-	if (response->status == VIDC_ERR_NOC_ERROR) {
-		dprintk(VIDC_WARN, "Got NOC error");
-		MSM_VIDC_ERROR(true);
-	}
 
 	dprintk(VIDC_DBG, "Calling core_release\n");
 	rc = call_hfi_op(hdev, core_release, hdev->hfi_device_data);
@@ -2333,7 +2339,7 @@ struct vb2_buffer *msm_comm_get_vb_using_vidc_buffer(
 		return NULL;
 	}
 
-	mutex_lock(&inst->bufq[port].lock);
+	WARN_ON(!mutex_is_locked(&inst->bufq[port].lock));
 	found = false;
 	q = &inst->bufq[port].vb2_bufq;
 	if (!q->streaming) {
@@ -2349,7 +2355,6 @@ struct vb2_buffer *msm_comm_get_vb_using_vidc_buffer(
 		}
 	}
 unlock:
-	mutex_unlock(&inst->bufq[port].lock);
 	if (!found) {
 		print_vidc_buffer(VIDC_ERR, "vb2 not found for", inst, mbuf);
 		return NULL;
@@ -2364,6 +2369,7 @@ int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
 	struct vb2_buffer *vb2;
 	struct vb2_v4l2_buffer *vbuf;
 	u32 i, port;
+	int rc = 0;
 
 	if (!inst || !mbuf) {
 		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
@@ -2380,16 +2386,20 @@ int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
 	else
 		return -EINVAL;
 
-	vb2 = msm_comm_get_vb_using_vidc_buffer(inst, mbuf);
-	if (!vb2)
-		return -EINVAL;
-
 	/*
 	 * access vb2 buffer under q->lock and if streaming only to
 	 * ensure the buffer was not free'd by vb2 framework while
 	 * we are accessing it here.
 	 */
 	mutex_lock(&inst->bufq[port].lock);
+	vb2 = msm_comm_get_vb_using_vidc_buffer(inst, mbuf);
+	if (!vb2) {
+		rc = -EINVAL;
+		dprintk(VIDC_ERR, "%s:port %d buffer not found\n",
+			__func__, port);
+		goto unlock;
+	}
+
 	if (inst->bufq[port].vb2_bufq.streaming) {
 		vbuf = to_vb2_v4l2_buffer(vb2);
 		vbuf->flags = mbuf->vvb.flags;
@@ -2405,9 +2415,9 @@ int msm_comm_vb2_buffer_done(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "%s: port %d is not streaming\n",
 			__func__, port);
 	}
+unlock:
 	mutex_unlock(&inst->bufq[port].lock);
-
-	return 0;
+	return rc;
 }
 
 bool heic_encode_session_supported(struct msm_vidc_inst *inst)
@@ -2686,8 +2696,8 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 			fill_buf_done->mark_data, fill_buf_done->mark_target);
 	}
 	if (inst->session_type == MSM_VIDC_ENCODER) {
-		msm_comm_store_filled_length(&inst->fbd_data, vb->index,
-			fill_buf_done->filled_len1);
+		if (inst->max_filled_length < fill_buf_done->filled_len1)
+			inst->max_filled_length = fill_buf_done->filled_len1;
 	}
 
 	tag_data.index = vb->index;
@@ -3198,7 +3208,7 @@ static int msm_comm_init_buffer_count(struct msm_vidc_inst *inst)
 				HAL_BUFFER_INPUT);
 	bufreq->buffer_count_min = inst->fmts[port].input_min_count;
 	/* batching needs minimum batch size count of input buffers */
-	if (inst->decode_batching && is_decode_session(inst) &&
+	if (is_batching_allowed(inst) &&
 		bufreq->buffer_count_min < inst->batch.size)
 		bufreq->buffer_count_min = inst->batch.size;
 	bufreq->buffer_count_min_host = bufreq->buffer_count_actual =
@@ -4375,6 +4385,18 @@ void msm_vidc_batch_handler(struct work_struct *work)
 	struct msm_vidc_inst *inst;
 
 	inst = container_of(work, struct msm_vidc_inst, batch_work);
+
+	inst = get_inst(get_vidc_core(MSM_VIDC_CORE_VENUS), inst);
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return;
+	}
+
+	if (inst->state == MSM_VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR, "%s: invalid state\n", __func__);
+		goto exit;
+	}
+
 	rc = msm_comm_scale_clocks_and_bus(inst);
 	if (rc)
 		dprintk(VIDC_ERR, "%s: scale clocks failed\n", __func__);
@@ -4387,6 +4409,9 @@ void msm_vidc_batch_handler(struct work_struct *work)
 		dprintk(VIDC_ERR, "%s: Failed batch-qbuf to hfi: %d\n",
 			__func__, rc);
 	}
+
+exit:
+	put_inst(inst);
 }
 
 static int msm_comm_qbuf_in_rbr(struct msm_vidc_inst *inst,
@@ -5272,6 +5297,14 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 				"Invalid params, inst %pK\n", inst);
 		return -EINVAL;
 	}
+
+	if (inst->state < MSM_VIDC_OPEN_DONE) {
+		dprintk(VIDC_ERR,
+			"Invalid state to call flush, inst %pK, state %#x\n",
+			inst, inst->state);
+		return -EINVAL;
+	}
+
 	core = inst->core;
 	hdev = core->device;
 
@@ -5295,7 +5328,11 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		return 0;
 	}
 
-	mutex_lock(&inst->flush_lock);
+	if (ip_flush)
+		mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
+	if (op_flush)
+		mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
+
 	/* enable in flush */
 	inst->in_flush = true;
 
@@ -5349,7 +5386,12 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		rc = call_hfi_op(hdev, session_flush, inst->session,
 			HAL_FLUSH_OUTPUT);
 	}
-	mutex_unlock(&inst->flush_lock);
+
+	if (op_flush)
+		mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
+	if (ip_flush)
+		mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);
+
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"Sending flush to firmware failed, flush out all buffers\n");
@@ -5432,6 +5474,12 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 		break;
 	case V4L2_MPEG_VIDC_EXTRADATA_HDR10PLUS_METADATA:
 		ret = HAL_EXTRADATA_HDR10PLUS_METADATA;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_ENC_DTS:
+		ret = HAL_EXTRADATA_ENC_DTS_METADATA;
+		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_INPUT_CROP:
+		ret = HAL_EXTRADATA_INPUT_CROP;
 		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata not found: %d\n", index);
@@ -5619,6 +5667,65 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 	return 0;
 }
 
+static bool is_image_session(struct msm_vidc_inst *inst)
+{
+	if (inst->session_type == MSM_VIDC_ENCODER &&
+		get_hal_codec(inst->fmts[CAPTURE_PORT].fourcc) ==
+			HAL_VIDEO_CODEC_HEVC)
+		return (inst->profile == HAL_HEVC_PROFILE_MAIN_STILL_PIC ||
+				inst->grid_enable);
+	else
+		return false;
+}
+
+static int msm_vidc_check_image_session_capabilities(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct msm_vidc_image_capability *capability = NULL;
+
+	u32 output_height = ALIGN(inst->prop.height[CAPTURE_PORT], 512);
+	u32 output_width = ALIGN(inst->prop.width[CAPTURE_PORT], 512);
+
+	if (inst->grid_enable)
+		capability = inst->core->platform_data->heic_image_capability;
+	else
+		capability = inst->core->platform_data->hevc_image_capability;
+
+	if (!capability)
+		return -EINVAL;
+
+	if (output_width < capability->width.min ||
+		output_height < capability->height.min) {
+		dprintk(VIDC_ERR,
+			"HEIC Unsupported WxH = (%u)x(%u), min supported is - (%u)x(%u)\n",
+			output_width,
+			output_height,
+			capability->width.min,
+			capability->height.min);
+		rc = -ENOTSUPP;
+	}
+	if (!rc && (output_width > capability->width.max ||
+		output_height > capability->height.max)) {
+		dprintk(VIDC_ERR,
+			"HEIC Unsupported WxH = (%u)x(%u), max supported is - (%u)x(%u)\n",
+			output_width,
+			output_height,
+			capability->width.max,
+			capability->height.max);
+		rc = -ENOTSUPP;
+	}
+	if (!rc && output_height * output_width >
+		capability->width.max * capability->height.max) {
+		dprintk(VIDC_ERR,
+		"HEIC Unsupported WxH = (%u)x(%u), max supported is - (%u)x(%u)\n",
+		output_width, output_height,
+		capability->width.max, capability->height.max);
+		rc = -ENOTSUPP;
+	}
+
+	return rc;
+}
+
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_capability *capability;
@@ -5662,6 +5769,11 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 			input_width, input_height,
 			output_width, output_height);
 		rc = -ENOTSUPP;
+	}
+
+	if (is_image_session(inst)) {
+		rc = msm_vidc_check_image_session_capabilities(inst);
+		return rc;
 	}
 
 	output_height = ALIGN(inst->prop.height[CAPTURE_PORT], 16);
@@ -6362,7 +6474,6 @@ int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 	else
 		return -EINVAL;
 
-	mutex_lock(&inst->bufq[port].lock);
 	if (inst->bufq[port].vb2_bufq.streaming) {
 		vb->planes[0].bytesused = 0;
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
@@ -6370,7 +6481,6 @@ int msm_comm_flush_vidc_buffer(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "%s: port %d is not streaming\n",
 			__func__, port);
 	}
-	mutex_unlock(&inst->bufq[port].lock);
 
 	return 0;
 }
@@ -6422,14 +6532,11 @@ int msm_comm_qbuf_cache_operations(struct msm_vidc_inst *inst,
 			} else if (vb->type ==
 					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 				if (!i) { /* bitstream */
-					u32 size_u32;
 					skip = false;
 					offset = 0;
-					size_u32 = vb->planes[i].length;
-					msm_comm_fetch_filled_length(
-						&inst->fbd_data, vb->index,
-						&size_u32);
-					size = size_u32;
+					size = vb->planes[i].length;
+					if (inst->max_filled_length)
+						size = inst->max_filled_length;
 					cache_op = SMEM_CACHE_INVALIDATE;
 				}
 			}
@@ -6727,7 +6834,7 @@ void handle_release_buffer_reference(struct msm_vidc_inst *inst,
 	int i = 0;
 	u32 planes[VIDEO_MAX_PLANES] = {0};
 
-	mutex_lock(&inst->flush_lock);
+	mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
 	mutex_lock(&inst->registeredbufs.lock);
 	found = false;
 	/* check if mbuf was not removed by any chance */
@@ -6816,7 +6923,7 @@ unlock:
 			print_vidc_buffer(VIDC_ERR,
 				"rbr qbuf failed", inst, mbuf);
 	}
-	mutex_unlock(&inst->flush_lock);
+	mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
 }
 
 int msm_comm_unmap_vidc_buffer(struct msm_vidc_inst *inst,
@@ -6969,63 +7076,6 @@ void msm_comm_fetch_tags(struct msm_vidc_inst *inst,
 		}
 	}
 	mutex_unlock(&inst->buffer_tags.lock);
-}
-
-void msm_comm_store_filled_length(struct msm_vidc_list *data_list,
-		u32 index, u32 filled_length)
-{
-	struct msm_vidc_buf_data *pdata = NULL;
-	bool found = false;
-
-	if (!data_list) {
-		dprintk(VIDC_ERR, "%s: invalid params %pK\n",
-			__func__, data_list);
-		return;
-	}
-
-	mutex_lock(&data_list->lock);
-	list_for_each_entry(pdata, &data_list->list, list) {
-		if (pdata->index == index) {
-			pdata->filled_length = filled_length;
-			found = true;
-			break;
-		}
-	}
-
-	if (!found) {
-		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
-		if (!pdata)  {
-			dprintk(VIDC_WARN, "%s: malloc failure.\n", __func__);
-			goto exit;
-		}
-		pdata->index = index;
-		pdata->filled_length = filled_length;
-		list_add_tail(&pdata->list, &data_list->list);
-	}
-
-exit:
-	mutex_unlock(&data_list->lock);
-}
-
-void msm_comm_fetch_filled_length(struct msm_vidc_list *data_list,
-		u32 index, u32 *filled_length)
-{
-	struct msm_vidc_buf_data *pdata = NULL;
-
-	if (!data_list || !filled_length) {
-		dprintk(VIDC_ERR, "%s: invalid params %pK %pK\n",
-			__func__, data_list, filled_length);
-		return;
-	}
-
-	mutex_lock(&data_list->lock);
-	list_for_each_entry(pdata, &data_list->list, list) {
-		if (pdata->index == index) {
-			*filled_length = pdata->filled_length;
-			break;
-		}
-	}
-	mutex_unlock(&data_list->lock);
 }
 
 void msm_comm_store_mark_data(struct msm_vidc_list *data_list,
@@ -7184,7 +7234,7 @@ int msm_comm_set_color_format_constraints(struct msm_vidc_inst *inst,
 		dprintk(VIDC_DBG, "Set color format constraint success\n");
 
 exit:
-	if (!pconstraint)
+	if (pconstraint)
 		kfree(pconstraint);
 	return rc;
 }

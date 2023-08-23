@@ -127,11 +127,105 @@ static enum scm_interface_version {
 
 /* This will be set to specify SMC32 or SMC64 */
 static u32 scm_version_mask;
+static u32 handle;
+static bool opened;
 
-static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
+static int scm_qcpe_hab_open(void)
 {
-	static bool opened;
-	static u32 handle;
+	int ret;
+
+	if (!opened) {
+		ret = habmm_socket_open(&handle, MM_QCPE_VM1, 0, 0);
+		if (ret) {
+			pr_err("habmm_socket_open failed with ret = %d\n", ret);
+			return ret;
+		}
+		opened = true;
+	}
+
+	return 0;
+}
+
+static void scm_qcpe_hab_close(void)
+{
+	if (opened) {
+		habmm_socket_close(handle);
+		opened = false;
+		handle = 0;
+	}
+}
+
+/* Send SMC over HAB, receive the response. Both operations are blocking. */
+/* This is meant to be called from non-atomic context. */
+static int scm_qcpe_hab_send_receive(struct smc_params_s *smc_params,
+	u32 *size_bytes)
+{
+	int ret;
+
+	ret = habmm_socket_send(handle, smc_params, sizeof(*smc_params), 0);
+	if (ret) {
+		pr_err("habmm_socket_send failed, ret= 0x%x\n", ret);
+		return ret;
+	}
+
+	memset(smc_params, 0x0, sizeof(*smc_params));
+
+	do {
+		*size_bytes = sizeof(*smc_params);
+		ret = habmm_socket_recv(handle, smc_params, size_bytes, 0,
+			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
+	} while (-EINTR == ret);
+
+	if (ret) {
+		pr_err("habmm_socket_recv failed, ret= 0x%x\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+/* Send SMC over HAB, receive the response, in non-blocking mode. */
+/* This is meant to be called from atomic context. */
+static int scm_qcpe_hab_send_receive_atomic(struct smc_params_s *smc_params,
+	u32 *size_bytes)
+{
+	int ret;
+	unsigned long delay;
+
+	delay = jiffies + (HZ); /* 1 second delay for send */
+
+	do {
+		ret = habmm_socket_send(handle,
+			smc_params, sizeof(*smc_params),
+			HABMM_SOCKET_SEND_FLAGS_NON_BLOCKING);
+	} while ((-EAGAIN == ret) && time_before(jiffies, delay));
+
+	if (ret) {
+		pr_err("HAB send failed, non-blocking, ret= 0x%x\n", ret);
+		return ret;
+	}
+
+	memset(smc_params, 0x0, sizeof(*smc_params));
+
+	delay = jiffies + (HZ); /* 1 second delay for receive */
+
+	do {
+		*size_bytes = sizeof(*smc_params);
+		ret = habmm_socket_recv(handle, smc_params, size_bytes, 0,
+			HABMM_SOCKET_RECV_FLAGS_NON_BLOCKING);
+	} while ((-EAGAIN == ret) && time_before(jiffies, delay) &&
+		(*size_bytes == 0));
+
+	if (ret) {
+		pr_err("HAB recv failed, non-blocking, ret= 0x%x\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc, bool atomic)
+{
 	u32 size_bytes;
 	struct smc_params_s smc_params = {0,};
 	int ret;
@@ -141,17 +235,20 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 	struct ion_handle *ihandle = NULL;
 #endif
 
-	pr_info("IN: 0x%x, 0x%x, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx\n",
+	pr_info("SCM IN [QCPE]: 0x%x, 0x%x, 0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx\n",
 			fn_id, desc->arginfo, desc->args[0], desc->args[1],
 			desc->args[2], desc->args[3], desc->x5);
 
 	if (!opened) {
-		ret = habmm_socket_open(&handle, MM_QCPE_VM1, 0, 0);
-		if (ret) {
-			pr_err("habmm_socket_open failed with ret = %d\n", ret);
-			return ret;
+		if (!atomic) {
+			if (scm_qcpe_hab_open()) {
+				pr_err("HAB channel re-open failed\n");
+				return -ENODEV;
+			}
+		} else {
+			pr_err("HAB channel is not opened\n");
+			return -ENODEV;
 		}
-		opened = true;
 	}
 
 	smc_params.fn_id   = fn_id | scm_version_mask;
@@ -184,24 +281,20 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 	smc_params.args[4] = 0;
 #endif
 
-	ret = habmm_socket_send(handle, &smc_params, sizeof(smc_params), 0);
-	if (ret) {
-		pr_err("habmm_socket_send failed, ret= 0x%x\n", ret);
-		goto err_ret;
-	}
-
-
-	memset(&smc_params, 0x0, sizeof(smc_params));
-
-	do {
-		size_bytes = sizeof(smc_params);
-		ret = habmm_socket_recv(handle, &smc_params, &size_bytes, 0,
-			HABMM_SOCKET_RECV_FLAGS_UNINTERRUPTIBLE);
-	} while (-EINTR == ret);
-
-	if (ret) {
-		pr_err("habmm_socket_recv failed, ret= 0x%x\n", ret);
-		goto err_ret;
+	if (!atomic) {
+		ret = scm_qcpe_hab_send_receive(&smc_params, &size_bytes);
+		if (ret) {
+			pr_err("send/receive failed, non-atomic, ret= 0x%x\n",
+				ret);
+			goto err_ret;
+		}
+	} else {
+		ret = scm_qcpe_hab_send_receive_atomic(&smc_params,
+			&size_bytes);
+		if (ret) {
+			pr_err("send/receive failed, ret= 0x%x\n", ret);
+			goto err_ret;
+		}
 	}
 
 	if (size_bytes != sizeof(smc_params)) {
@@ -216,13 +309,20 @@ static int scm_call_qcpe(u32 fn_id, struct scm_desc *desc)
 	desc->ret[1] = smc_params.args[2];
 	desc->ret[2] = smc_params.args[3];
 	ret = smc_params.args[0];
-	pr_info("OUT: 0x%llx, 0x%llx, 0x%llx, 0x%llx",
+	pr_info("SCM OUT [QCPE]: 0x%llx, 0x%llx, 0x%llx, 0x%llx",
 		smc_params.args[0], desc->ret[0], desc->ret[1], desc->ret[2]);
 	goto no_err;
 
 err_ret:
-	habmm_socket_close(handle);
-	opened = false;
+	if (!atomic) {
+		/* In case of an error, try to recover the hab connection
+		 * for next time. This can only be done if called in
+		 * non-atomic context.
+		 */
+		scm_qcpe_hab_close();
+		if (scm_qcpe_hab_open())
+			pr_err("scm_qcpe_hab_open failed\n");
+		}
 
 no_err:
 #ifdef CONFIG_GHS_VMM
@@ -236,6 +336,8 @@ bool is_scm_armv8(void)
 {
 	int ret;
 	u64 ret1, x0;
+	bool ret_scm_version;
+	bool save_scm_version;
 
 	struct scm_desc desc = {0};
 
@@ -257,7 +359,8 @@ bool is_scm_armv8(void)
 	desc.arginfo = SCM_ARGS(1);
 	desc.args[0] = x0;
 
-	ret = scm_call_qcpe(x0 | SMC64_MASK, &desc);
+	ret = scm_call_qcpe(x0 | SMC64_MASK, &desc, true);
+	save_scm_version = (ret == -ENODEV) ? false : true;
 
 	ret1 = desc.ret[0];
 
@@ -268,7 +371,8 @@ bool is_scm_armv8(void)
 		desc.arginfo = SCM_ARGS(1);
 		desc.args[0] = x0;
 
-		ret = scm_call_qcpe(x0, &desc);
+		ret = scm_call_qcpe(x0, &desc, true);
+		save_scm_version = (ret == -ENODEV) ? false : true;
 
 		if (ret || !ret1)
 			scm_version = SCM_LEGACY;
@@ -280,8 +384,15 @@ bool is_scm_armv8(void)
 	pr_debug("scm_call: scm version is %x, mask is %x\n", scm_version,
 			scm_version_mask);
 
-	return (scm_version == SCM_ARMV8_32) ||
+	ret_scm_version = (scm_version == SCM_ARMV8_32) ||
 			(scm_version == SCM_ARMV8_64);
+
+	/* Don't cache the scm_version in case error is due to hab issues. */
+	/* In this case, allow a later retry. */
+	if (!save_scm_version)
+		scm_version = SCM_UNKNOWN;
+
+	return ret_scm_version;
 }
 
 /*
@@ -348,7 +459,7 @@ static int __scm_call2(u32 fn_id, struct scm_desc *desc, bool retry)
 
 	trace_scm_call_start(x0, desc);
 
-	ret = scm_call_qcpe(x0, desc);
+	ret = scm_call_qcpe(x0, desc, false);
 
 	trace_scm_call_end(desc);
 
@@ -434,7 +545,7 @@ int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
 			x0, desc->arginfo, desc->args[0], desc->args[1],
 			desc->args[2], desc->x5);
 
-	ret = scm_call_qcpe(x0, desc);
+	ret = scm_call_qcpe(x0, desc, true);
 
 	if (ret < 0)
 		pr_err("scm_call failed: func id %#llx, arginfo: %#x, args: %#llx, %#llx, %#llx, %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
@@ -472,7 +583,7 @@ u32 scm_get_version(void)
 	x0 = r0;
 	desc.arginfo = r1;
 
-	ret = scm_call_qcpe(x0, &desc);
+	ret = scm_call_qcpe(x0, &desc, false);
 
 	version = desc.ret[0];
 
@@ -650,4 +761,21 @@ inline int scm_enable_mem_protection(void)
 	return 0;
 }
 #endif
+
 EXPORT_SYMBOL(scm_enable_mem_protection);
+
+static int __init scm_qcpe_init(void)
+{
+	return scm_qcpe_hab_open();
+}
+/* Subsys sync is for init after HAB (subsys) and before kernel clients. */
+subsys_initcall_sync(scm_qcpe_init);
+
+static void __exit scm_qcpe_exit(void)
+{
+	scm_qcpe_hab_close();
+}
+module_exit(scm_qcpe_exit);
+
+MODULE_DESCRIPTION("Support for SCM calls over HAB to QCPE module");
+MODULE_LICENSE("GPL v2");

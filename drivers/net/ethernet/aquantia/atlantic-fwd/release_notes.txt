@@ -1,0 +1,331 @@
+Version 1.1.7
+=============
+
+    [ATLDRV-1469] - AQ083: After suspend resume EAPOL frames is not received
+    [ATLDRV-1497] - Incorrect temperature is displayed in hwmon
+    [ATLDRV-1519] - AQ086: Configuring default ring size
+
+Version 1.1.6
+=============
+[ATLDRV-1355] - Sporadically unable to set EEE
+[ATLDRV-1407] - AQ078: Link comes back up after rmmod
+[ATLDRV-1416] - Failed probe during stress remove/rescan
+[ATLDRV-1435] - AQ080: MACSEC offload packet loss under concurrent streams
+[ATLDRV-1436] - AQ079: non-MACSEC_Data packets received in macsec0
+[ATLDRV-1456] - FWD: BUG: KASAN: use-after-free in atl_remove+0x1c9/0x220 [atlantic_fwd]
+[ATLDRV-1458] - AQ082: Accounting for RX bytes and packets
+[ATLDRV-1441] - FWD: Run Flexera Code Insight
+[ATLDRV-1457] - FWD: Linux-5.7.0 support
+
+Version 1.1.5
+=============
+[ATLDRV-1382] - Failed install Driver 1.1.4 on Antigua
+[ATLDRV-1384] - WOL does not work on Antigua
+
+Version 1.1.4
+==============
+[ATLDRV-1371] - Add supported eee with 2.5G and 5G
+[ATLDRV-1376] - Send notification when macsec offload turned on/off
+[ATLDRV-1378] - check FW capability instead of FW version for MSM Apply Settings
+
+Version 1.1.3
+==============
+[ATLDRV-1185] - Enable stripping of padding doesnt work on Felicity card
+[ATLDRV-1351] - Problem with setting mtu
+[ATLDRV-1352] - Implement stripping of padding
+[ATLDRV-1354] - Incorrect thermal thresholds
+[ATLDRV-1359] - Secure all packets when macsec service ON
+
+Version 1.1.2
+==============
+[ATLDRV-1348] - FWD: IPv6 and L4 ntuple filters not work 
+
+Version 1.1.1
+==============
+[ATLDRV-1315] - driver 1.1.0 crashes at start on A1
+[ATLDRV-1317] - A2: Incorrect ntuple L4 filter behavior
+[ATLDRV-1325] - A2: can not turn off flow control on Antigua
+[ATLDRV-1326] - A2: Cannot get EEE settings on Antigua
+[ATLDRV-1331] - A2: update reset sequence
+
+Version 1.1.0
+==============
+[ATLDRV-1210] - A2: FWD: Basic functionality and bringup
+[ATLDRV-1212] - A2: FWD: RX flow filters infrastructure
+
+
+Version 1.0.31
+==============
+[ATLDRV-1243] - Clean up MACsec implementation
+[ATLDRV-1135] - ethtool shows incorrect Flow Control information
+[ATLDRV-1229] - HW access on mdo_dev_stop(ctx->prepare)
+[ATLDRV-1256] - AQ072: Static analysis error in atl_setup_datapath()
+[ATLDRV-1303] - Make driver C90 compilable
+[ATLDRV-1064] - Fwd: Software flowcontrol workaround adaptations
+
+Version 1.0.30
+==============
+[ATLDRV-1217] - FWD driver refactoring for unit tests
+[ATLDRV-1102] - TCP/UDP checksum workaround for non-zero padded packets doesn't work
+[ATLDRV-1138] - vlan promiscuous mode is not enabled, when deleting the last vlan interface
+[ATLDRV-1139] - after ifconfig -multicast Unicast filters registers have valid values for multicast addresses
+[ATLDRV-1174] - FWD: deleting MacSec iface doesn't clear Ingress/Egress SA and SAKey records
+[ATLDRV-1193] - No link UP if driver was started in MSI mode before being started in legacy mode
+[ATLDRV-1208] - Driver crashes after link down up in D3 state
+[ATLDRV-1209] - FWD: Kernel panic after configuring macsec
+[ATLDRV-1218] - Kernel panic upon macsec0 deletion
+[ATLDRV-1220] - AQ069: atl_fwd_receive_skb() support NAPI
+[ATLDRV-1222] - atl_rotate_keys() produces unexpected results for 192-bit keys (24-bytes)
+[ATLDRV-1194] - Add trace of descriptors for normal traffic
+
+Version 1.0.29
+==============
+[ATLDRV-1139] - after ifconfig -multicast Unicast filters registers have valid values for multicast addresses
+[ATLDRV-1170] - macsec key cleaned on SA updates
+[ATLDRV-1171] - AQ066: MSI index leak for head pointer writeback event
+[ATLDRV-1172] - AQ068: shift-count-overflow error in DESCR_FIELD()
+[ATLDRV-1187] - atlfwdtool not compiled on Centos
+[ATLDRV-1186] - FWD: MACsec offload (cleanup)
+
+Version 1.0.28
+==============
+[ATLDRV-1128] - Traffic ingress on FWD ring
+[ATLDRV-1157] - Apply upstream patch for macsec offload to 4.14
+[ATLDRV-1158] - Implement Macsec EGRESS offload
+[ATLDRV-1159] - Implement Macsec INGRESS offload
+[ATLDRV-1160] - Provide macsec statistics to ethtool -s
+[ATLDRV-1161] - Add get_tx_queue_index command to atlfwdtool
+[ATLDRV-1153] - traffic dropped when lro enabled
+[ATLDRV-777] - FWD: BCM: Better support for systems with legacy interrupts
+
+Version 1.0.27
+==============
+[ATLDRV-1132] - Media detect is disabled after sleep
+[ATLDRV-1129] - Add support for egress FWD queue pause/resume
+
+Version 1.0.26
+==============
+[ATLDRV-660] - Wrong device ids are present in atl_main.c
+[ATLDRV-1113] - VLAN-PROMISC is turned off when PROMISC flag is set
+[ATLDRV-1124] - link is not up at 2.5G speed
+[ATLDRV-1105] - Allocate/destroy/disable/enable channels
+[ATLDRV-1114] - Send traffic via FWD ring
+[ATLDRV-1116] - Add support for FWD rings status / stats via ethtool
+[ATLDRV-1120] - reproduce descriptor writeback on disabled ring
+[ATLDRV-1126] - Print statistics for created FWD rings only
+
+Version 1.0.25
+==============
+[ATLDRV-1118] - Page fault in atl_fwd_init_ring() upon ring creation (ATL_FWR_ALLOC_BUFS is not set)
+[ATLDRV-1119] - AQ058: again Bug CR 2491137 - Crash caused due to 32 Tx descs are zero'ed
+
+Version 1.0.24
+==============
+[ATLDRV-1112] - descriptor corruption after suspend/resume
+[ATLDRV-1097] - EEE must be disabled by-default
+[ATLDRV-1099] - Strange EEE configuration behavior
+[ATLDRV-1107] - Strange message in dmesg
+[ATLDRV-1108] - FW not loaded after FWD driver unloaded on B0
+[ATLDRV-899] - Fwd driver: add more loopbacks to ethtool private flags
+[ATLDRV-1057] - Support for network loopback
+
+Version 1.0.23
+==============
+[ATLDRV-983] - runtime D3 support
+[ATLDRV-1023] - AQ056: Wake on link race condition with host power manament
+
+Version 1.0.22
+==============
+fix build of fwd api
+
+Version 1.0.21
+==============
+[ATLDRV-871] - pause frame does not turn off
+[ATLDRV-994] - failed set StripEtherPadding
+[ATLDRV-1062] - FWD: IPA: AQ058: Crash caused due to 32 Tx descs are zero'ed
+[ATLDRV-1066] - AQ062: atl_update_eth_stats() - sleeping function called from invalid context
+[ATLDRV-1067] - AQ061: AQC FWD ring descriptor memory reset
+[ATLDRV-1068] - AQ060: AQC Rx accessing buffer address from previous atl_fwd_request_ring()
+[ATLDRV-1075] - AQ063: v1.0.20 driver - atl_update_thermal_flag() missing atl_unlock_fw()
+[ATLDRV-803] - AQ040: Validation for Interrupt Moderation in FWD API
+[ATLDRV-1022] - Media detect control
+
+
+Version 1.0.20
+==============
+net: aquantia: Re-initialize fwd rings on driver resume
+Do entire suspend from dev_pm_ops->suspend() (AQ052)
+Prevent atl_update_global_stats() calls when suspended (AQ056) (ATLDRV-1021)
+Implement thermal throttling (ATLDRV-1009)
+Add log message when high temperature treshold is reached (ATLDRV-998))
+Implement FW heartbeat watchdog (AQ010) (ATLDRV-502)
+Workaround checksum offload bugs (ATLDRV-1013)
+
+Version 1.0.19
+==============
+Fix freeing of buf vaddr vector in FWD API (AQ050)
+Add a private data pointer to atl_fwd_mem_ops (AQ051)
+Implement wake-on-link-up support (AQ049)
+Introduce the forwarding engine API versioning (AQ048)
+Fix build errors (AQ047)
+Delay enabling bus-mastering until after reset sequence (AQ045)
+Validate interrupt moderation delays in FWD API (AQ040)
+
+Version 1.0.18
+==============
+Fix double free in the new fwd ring memory allocation code.
+Fix 32-bit warnings (AQ036)
+Add a pointer for forwarding engine's private data. (AQ043)
+
+Version 1.0.17
+==============
+Add compatibility to kernel 4.1
+create empty atl_hwmon_init for old kernels
+Fix legacy interrupt handling
+Fix MSM register writes
+Free link interrupt before reconfiguring the rings
+Implement FW settings table access
+Use new FW interface to control ethernet padding stripping
+Disable LRO by default until all issues are resolved.
+Clamp max number of rings as reported by ethtool to num_present_cpus() (AQ037)
+Use __GFP_NOWARN for Rx buffers only in NAPI poll (AQ037)
+Put PHY into low-power state on ifdown or disabling link
+Improve error reporting for forwarding-engine ring creation (AQ041)
+Allow custom memory allocators for atl_fwd_request_ring() (AQ041)
+
+Version 1.0.16
+==============
+Introduce the config options for forwarding API (AQ033)
+Implement catchall ethtool filter (AQ034)
+Fix MSI-X vectors being disabled on cpu unplug (AQ032)
+Fix Kconfig changes for AQ033
+
+Version 1.0.15
+==============
+Reset statistics via private flag
+Implement interrupt moderation for offload engine's rings
+Introduce a FW mutex, handle link interrupts in a workqueue
+Implement PHY temperature sensor
+Report ring's and buffer's physical addresses on fwd ring request
+Implement ethtool control for stripping Rx ethernet frame's padding
+
+Version 1.0.14
+==============
+Remove old IPA implementation (replaced by atl_fwd.[ch])
+Fix forwarding engine interface
+Change the driver name to reflect the new module name
+Implement Linux PM support
+Implement WoL support
+
+Version 1.0.13
+==============
+Integrate Linux VLAN filter hw acceleration with ethtool filters
+Rename the module to atlantic-fwd
+
+Version 1.0.12
+==============
+Expose PHY LPI state via ethtool private flags
+
+Version 1.0.11
+==============
+Minor IPA interface fixes
+Turn on/off Rx XOFF flow control when needed
+Fix advertizing EEE link modes and show LPI timer
+Add some HW counters from RMON MIB
+Add Host and Lost counters to statistics
+Add more Felicity PCI IDs
+Add ethtool private flags tracking LPI state
+
+Version 1.0.10
+==============
+Add module parameter to force align IP headers
+
+Version 1.0.9
+==============
+Add AQC100 / -111 / -112 IDs
+Fix adding vlan with vlan id > 64
+Fix ethtool IPv4 filter reporting (AQ022)
+Implement ethtool interface for ethertype filters.
+Restore backward compat for Linux 4.4
+
+Version 1.0.8
+==============
+Fix checkpatch.pl and smatch  warnings and errors
+
+Version 1.0.7
+==============
+Make Tx ring free space watermarks configurable
+Misc filter fixes
+Implement ethtool interface for VLAN filters
+Implement pause statistics
+
+Version 1.0.6
+==============
+Implement compat fixes for kernels without IPv6 ethtool NFC API
+
+Version 1.0.5
+==============
+Fix ifdown / ifup link state race
+Fix autoneg re-enable on pre-ethtool_ksettings kernels
+Implement n-tuple Rx filters
+Misc clean-ups
+
+Version 1.0.4
+==============
+Switch to using spin lock for updating global stats
+Fix out-of-bounds dma_sync_single_range() for packet header
+Fix an Rx error corner case
+Refactor delayed dma-unmapping of headers for RSC
+Implement HW loopbacks
+Implement interrupt coalescing ethtool method
+
+Version 1.0.3
+==============
+Fix crash in mutex_lock on init
+Add compat cast for ->ndo_get_stats64 for old kernels
+Get rid of struct atl_common_stats
+Refactor ring structure to remove the need for -fplan9-extensions
+Drop -fplan9-extensions
+
+Version 1.0.2
+==============
+Implement setting the MAC address
+Rework VLAN filters
+Implement per-ring counters
+Fix Tx queue start / stop handling
+Implement basic netdev stats
+Implement ethtool stats
+
+Version 1.0.1
+==============
+Update the README
+Refactor the ring structure
+Fix LRO timers timebase
+Initial Qualcomm Technologies, Inc. IPA support
+Refactor Link management
+Implement Flow Control
+Implement EEE
+Set default link on init
+Implement dynamic datapath reconfiguration
+Implement ethtool -> [gs]et_ringparam, set_channels
+
+Version 1.0.0
+==============
+Add dma-mapping tracepoints
+Implement VLAN offloads
+Implement promiscuous mode and UC / MC filters
+Implement HW header splitting, fix Rx buffer mgmt for RSC
+Fix multicast filter support
+Implement new reset sequence
+Implement multi-fw switch
+Implement new link management
+Introduce link interrupt
+Implement ethtool set_settings and _ksettings variants
+Implement multiring support
+Implement RSS support
+Enable jumbo frames
+Fix ethtool RSS methods
+Add RDM / TDM descriptor thresholds
+Switch to INTR block based interrupt throttling
+Enable LRO
+Implement linear skb mode

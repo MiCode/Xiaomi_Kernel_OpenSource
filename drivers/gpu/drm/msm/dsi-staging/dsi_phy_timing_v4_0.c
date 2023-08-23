@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,7 @@
 #include "dsi_phy_timing_calc.h"
 
 void dsi_phy_hw_v4_0_get_default_phy_params(
-		struct phy_clk_params *params)
+		struct phy_clk_params *params, bool is_cphy)
 {
 	params->clk_prep_buf = 0;
 	params->clk_zero_buf = 0;
@@ -32,7 +32,7 @@ int32_t dsi_phy_hw_v4_0_calc_clk_zero(s64 rec_temp1, s64 mult)
 	s64 rec_temp2, rec_temp3;
 
 	rec_temp2 = (rec_temp1 - mult);
-	rec_temp3 = roundup(div_s64(rec_temp2, 8), mult);
+	rec_temp3 = roundup64(div_s64(rec_temp2, 8), mult);
 	return (div_s64(rec_temp3, mult) - 1);
 }
 
@@ -43,7 +43,7 @@ int32_t dsi_phy_hw_v4_0_calc_clk_trail_rec_min(s64 temp_mul,
 
 	rec_temp1 = temp_mul + frac;
 	rec_temp2 = div_s64(rec_temp1, 8);
-	rec_temp3 = roundup(rec_temp2, mult);
+	rec_temp3 = roundup64(rec_temp2, mult);
 	return (div_s64(rec_temp3, mult) - 1);
 }
 
@@ -59,7 +59,7 @@ int32_t dsi_phy_hw_v4_0_calc_hs_zero(s64 temp1, s64 mult)
 {
 	s64 rec_temp2, rec_min;
 
-	rec_temp2 = roundup((temp1 / 8), mult);
+	rec_temp2 = roundup64((temp1 / 8), mult);
 	rec_min = rec_temp2 - (1 * mult);
 	return div_s64(rec_min, mult);
 }
@@ -81,7 +81,7 @@ void dsi_phy_hw_v4_0_calc_hs_trail(struct phy_clk_params *clk_params,
 
 void dsi_phy_hw_v4_0_update_timing_params(
 	struct dsi_phy_per_lane_cfgs *timing,
-	struct phy_timing_desc *desc)
+	struct phy_timing_desc *desc, bool is_cphy)
 {
 	timing->lane_v4[0] = 0x00;
 	timing->lane_v4[1] = desc->clk_zero.reg_value;

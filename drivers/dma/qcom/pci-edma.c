@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 #include <linux/sched_clock.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/msm_ep_pcie.h>
 #include "../dmaengine.h"
 
 /* global logging macros */
@@ -94,6 +95,8 @@ enum debug_log_lvl {
 
 #define EDMA_DRV_NAME "edma"
 #define DEFAULT_KLOG_LVL (LOG_LVL_ERROR)
+
+static struct edma_dev *e_dev_info;
 
 #ifdef CONFIG_QCOM_PCI_EDMA_DEBUG
 #define DEFAULT_IPC_LOG_LVL (LOG_LVL_VERBOSE)
@@ -172,6 +175,7 @@ enum debug_log_lvl {
 #define EDMA_HW_STATUS_MASK (BIT(6) | BIT(5))
 #define EDMA_HW_STATUS_SHIFT (5)
 #define EDMA_INT_ERR_MASK (0xff00)
+#define EDMA_MAX_SIZE 0x2000
 
 #define REQ_OF_DMA_ARGS (2) /* # of arguments required from client */
 
@@ -278,6 +282,7 @@ struct edmac_dev {
 	struct edma_dev *e_dev;
 	u32 n_ev;
 	u32 ch_id;
+	spinlock_t edma_lock;
 	enum edma_dir_ch dir;
 	dma_addr_t tl_dma_rd_p; /* address of next DE to process */
 	struct data_element *tl_wr_p; /* next available DE in TL */
@@ -365,13 +370,15 @@ static void edmac_process_tasklet(unsigned long data)
 	struct edmac_dev *ec_dev = (struct edmac_dev *)data;
 	struct edma_dev *e_dev = ec_dev->e_dev;
 	dma_addr_t llp_low, llp_high, llp;
+	unsigned long flags;
 
+	spin_lock_irqsave(&ec_dev->edma_lock, flags);
 	EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID, "enter\n");
 
 	llp_low = readl_relaxed(ec_dev->llp_low_reg);
 	llp_high = readl_relaxed(ec_dev->llp_high_reg);
 	llp = (u64)(llp_high << 32) | llp_low;
-	EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID, "DMA_LLP: %pad\n", &llp);
+	EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID, "Start: DMA_LLP = %pad\n", &llp);
 
 	while (ec_dev->tl_dma_rd_p != llp) {
 		struct edma_desc *desc;
@@ -397,18 +404,30 @@ static void edmac_process_tasklet(unsigned long data)
 			&ec_dev->tl_dma_rd_p);
 
 		desc = *ec_dev->dl_rd_p;
-		if (desc) {
-			dmaengine_desc_get_callback_invoke(&desc->tx, NULL);
-			kfree(desc);
-		}
-
 		ec_dev->tl_dma_rd_p += sizeof(struct data_element);
 		ec_dev->tl_rd_p++;
 		ec_dev->dl_rd_p++;
+		if (desc) {
+			/*
+			 * Clients might queue descriptors in the call back
+			 * context. Release spinlock to avoid deadlock scenarios
+			 * as we use same lock duing descriptor queuing.
+			 */
+			spin_unlock_irqrestore(&ec_dev->edma_lock, flags);
+			dmaengine_desc_get_callback_invoke(&desc->tx, NULL);
+
+			/* Acquire spinlock again to continue edma operations */
+			spin_lock_irqsave(&ec_dev->edma_lock, flags);
+			kfree(desc);
+		} else {
+			EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID,
+				"edma desc is NULL\n");
+		}
 	}
 
 	edma_set_clear(ec_dev->int_mask_reg, 0, BIT(ec_dev->ch_id));
 	EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID, "exit\n");
+	spin_unlock_irqrestore(&ec_dev->edma_lock, flags);
 }
 
 static irqreturn_t handle_edma_irq(int irq, void *data)
@@ -653,10 +672,9 @@ static inline void edma_compose_data_element(struct edmav_dev *ev_dev,
 				unsigned long flags)
 {
 	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id,
-		"dst_addr: %pad\tsrc_addr: %pad\n",
-		&dst_addr, &src_addr);
+		"size = %d, dst_addr: %pad\tsrc_addr: %pad\n",
+		size, &dst_addr, &src_addr);
 
-	de->ch_ctrl |= EDMA_CH_CONTROL1_CB;
 	if (flags & DMA_PREP_INTERRUPT)
 		de->ch_ctrl |= EDMA_CH_CONTROL1_LIE;
 	de->size = size;
@@ -688,8 +706,10 @@ struct dma_async_tx_descriptor *edma_prep_dma_memcpy(struct dma_chan *chan,
 {
 	struct edmav_dev *ev_dev = to_edmav_dev(chan);
 	struct edma_desc *desc;
+	unsigned long l_flags;
 
-	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "enter\n", chan);
+	spin_lock_irqsave(&ev_dev->ec_dev->edma_lock, l_flags);
+	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "enter\n");
 
 	desc = edma_alloc_descriptor(ev_dev);
 	if (!desc)
@@ -700,11 +720,14 @@ struct dma_async_tx_descriptor *edma_prep_dma_memcpy(struct dma_chan *chan,
 	/* insert the descriptor to client descriptor list */
 	list_add_tail(&desc->node, &ev_dev->dl);
 
-	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "exit\n", chan);
+	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "exit\n");
+	spin_unlock_irqrestore(&ev_dev->ec_dev->edma_lock, l_flags);
 
 	return &desc->tx;
 err:
-	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id, "exit with error\n", chan);
+	EDMAC_VERB(ev_dev->ec_dev, ev_dev->ch_id,
+		"edma alloc descriptor failed for channel:%d\n", ev_dev->ch_id);
+	spin_unlock_irqrestore(&ev_dev->ec_dev->edma_lock, l_flags);
 	return NULL;
 }
 
@@ -714,6 +737,28 @@ static void edma_issue_descriptor(struct edmac_dev *ec_dev,
 	/* set descriptor for last Data Element */
 	*ec_dev->dl_wr_p = desc;
 	memcpy(ec_dev->tl_wr_p, desc->de, sizeof(*desc->de));
+
+	/*
+	 * Ensure Desc data element should be flushed to tl_wr_p
+	 * before updating CB flag
+	 */
+	mb();
+
+	EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID,
+			"size: %d, dst_addr: %pad\tsrc_addr: %pad\n",
+			ec_dev->tl_wr_p->size, &ec_dev->tl_wr_p->dar,
+			&ec_dev->tl_wr_p->sar);
+
+	ec_dev->tl_wr_p->ch_ctrl |= EDMA_CH_CONTROL1_CB;
+
+	/*
+	 * Ensure that CB flag is properly flushed because
+	 * HW starts processing the descriptor based on CB flag.
+	 */
+	mb();
+
+	EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID, "ch_ctrl = %d\n",
+		ec_dev->tl_wr_p->ch_ctrl);
 
 	ec_dev->dl_wr_p++;
 	ec_dev->tl_wr_p++;
@@ -739,11 +784,14 @@ static void edma_issue_pending(struct dma_chan *chan)
 	struct edmac_dev *ec_dev = ev_dev->ec_dev;
 	struct edma_desc *desc;
 	enum edma_hw_state hw_state;
+	unsigned long flags;
 
+	spin_lock_irqsave(&ec_dev->edma_lock, flags);
 	EDMAC_VERB(ec_dev, ev_dev->ch_id, "enter\n");
 
 	if (unlikely(list_empty(&ev_dev->dl))) {
 		EDMAC_VERB(ec_dev, ev_dev->ch_id, "No descriptor to issue\n");
+		spin_unlock_irqrestore(&ec_dev->edma_lock, flags);
 		return;
 	}
 
@@ -755,12 +803,42 @@ static void edma_issue_pending(struct dma_chan *chan)
 	hw_state = edma_get_hw_state(ec_dev);
 	if ((hw_state == EDMA_HW_STATE_STOPPED) ||
 		(hw_state == EDMA_HW_STATE_INIT)) {
+		/* Disable Engine and enable it back */
+		writel_relaxed(false, ec_dev->engine_en_reg);
+		writel_relaxed(true, ec_dev->engine_en_reg);
+		EDMAC_VERB(ec_dev, ev_dev->ch_id,
+			"Channel stopped: Disable Engine and enable back\n");
+		/* Ensure that engine is restarted */
+		mb();
+
+		/*
+		 * From spec, when channel is stopped,
+		 * require to write llp reg to start edma transaction
+		 */
+		writel_relaxed(
+			readl_relaxed(ec_dev->llp_low_reg),
+			ec_dev->llp_low_reg);
+		writel_relaxed(
+			readl_relaxed(ec_dev->llp_high_reg),
+			ec_dev->llp_high_reg);
+		/* Ensure LLP registers are properly updated */
+		mb();
+
+		/*
+		 * As Channel is stopped, to start edma transaction,
+		 * ring channel doorbell
+		 */
 		EDMAC_VERB(ec_dev, EDMAV_NO_CH_ID, "ringing doorbell\n");
 		writel_relaxed(ec_dev->ch_id, ec_dev->db_reg);
 		ec_dev->hw_state = EDMA_HW_STATE_ACTIVE;
+		/* Ensure DB register is properly updated */
+		mb();
+	} else {
+		EDMAC_VERB(ec_dev, ev_dev->ch_id, "EDMA Channel is Active\n");
 	}
 
 	EDMAC_VERB(ec_dev, ev_dev->ch_id, "exit\n");
+	spin_unlock_irqrestore(&ec_dev->edma_lock, flags);
 }
 
 static int edma_config(struct dma_chan *chan, struct dma_slave_config *config)
@@ -890,6 +968,7 @@ static void edma_init_channels(struct edma_dev *e_dev)
 		ec_dev->llp_low_reg = e_dev->base + llp_low_off;
 		ec_dev->llp_high_reg = e_dev->base + llp_high_off;
 		ec_dev->db_reg = e_dev->base + db_off;
+		spin_lock_init(&ec_dev->edma_lock);
 	}
 
 	/* setup virtual channels */
@@ -926,6 +1005,25 @@ static void edma_init_dma_device(struct edma_dev *e_dev)
 	e_dev->dma_device.device_issue_pending = edma_issue_pending;
 	e_dev->dma_device.device_tx_status = dma_cookie_status;
 }
+
+void edma_dump(void)
+{
+	int i;
+
+	for (i = 0; i < EDMA_MAX_SIZE; i += 32) {
+		pr_err("EDMA Reg : 0x%04x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+			i,
+			readl_relaxed(e_dev_info->base + i),
+			readl_relaxed(e_dev_info->base + (i + 4)),
+			readl_relaxed(e_dev_info->base + (i + 8)),
+			readl_relaxed(e_dev_info->base + (i + 12)),
+			readl_relaxed(e_dev_info->base + (i + 16)),
+			readl_relaxed(e_dev_info->base + (i + 20)),
+			readl_relaxed(e_dev_info->base + (i + 24)),
+			readl_relaxed(e_dev_info->base + (i + 28)));
+	}
+}
+EXPORT_SYMBOL(edma_dump);
 
 /*
  * Initializes and enables eDMA driver and H/W block for PCIe controllers.
@@ -1052,6 +1150,7 @@ int qcom_edma_init(struct device *dev)
 		return ret;
 
 	edma_init_dma_device(e_dev);
+	e_dev_info = e_dev;
 
 	ret = dma_async_device_register(&e_dev->dma_device);
 	if (ret) {

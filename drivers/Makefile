@@ -6,6 +6,8 @@
 # Rewritten to use lists instead of if-statements.
 #
 
+subdir-ccflags-y += -D__XIAOMI_CAMERA__
+
 obj-y				+= irqchip/
 obj-y				+= bus/
 
@@ -188,3 +190,6 @@ obj-$(CONFIG_TEE)		+= tee/
 obj-$(CONFIG_MULTIPLEXER)	+= mux/
 obj-$(CONFIG_SENSORS_SSC)	+= sensors/
 obj-$(CONFIG_ESOC)              += esoc/
+# GNSS driver
+obj-$(CONFIG_GNSS_SIRF)		+= gnsssirf/
+obj-$(CONFIG_GNSS)		+= gnss/

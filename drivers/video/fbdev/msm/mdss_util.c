@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2007-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2007-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,24 +214,6 @@ void mdss_disable_irq_wake(struct mdss_hw *hw)
 		pr_warn("MDSS HW ndx=%d is NOT set\n", hw->hw_ndx);
 }
 
-static bool check_display(char *param_string)
-{
-	char *str = NULL;
-	bool display_disable = false;
-
-	str = strnstr(param_string, ";", MDSS_MAX_PANEL_LEN);
-	if (!str)
-		return display_disable;
-
-	str = strnstr(str, ":", MDSS_MAX_PANEL_LEN);
-	if (!str)
-		return display_disable;
-	else if (str[1] == '1')
-		display_disable = 1;
-
-	return display_disable;
-}
-
 struct mdss_util_intf mdss_util = {
 	.register_irq = mdss_register_irq,
 	.enable_irq = mdss_enable_irq,
@@ -247,9 +229,7 @@ struct mdss_util_intf mdss_util = {
 	.bus_scale_set_quota = NULL,
 	.panel_intf_type = NULL,
 	.panel_intf_status = NULL,
-	.mdp_probe_done = false,
-	.param_check = check_display,
-	.display_disabled = false
+	.mdp_probe_done = false
 };
 
 struct mdss_util_intf *mdss_get_util_intf()

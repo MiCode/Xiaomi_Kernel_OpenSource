@@ -381,6 +381,16 @@ config IOMMU_TLBSYNC_DEBUG
 
 	  If unsure, say N here.
 
+config ARM_SMMU_TESTBUS_DUMP
+	bool "ARM SMMU testbus dump"
+	depends on ARM_SMMU
+	help
+	  Enables testbus dump collection on arm smmu right after TLB
+	  sync timeout failure.
+	  Note to use this only on debug builds.
+
+	  If unsure, say N here.
+
 config QCOM_LAZY_MAPPING
 	bool "Reference counted iommu-mapping support"
 	depends on ION
@@ -462,6 +472,7 @@ config IOMMU_DEBUG_TRACKING
 config IOMMU_TESTS
 	bool "Interactive IOMMU performance/functional tests"
 	select IOMMU_API
+	select ARM64_PTDUMP_CORE
 	help
 	  Enables a suite of IOMMU unit tests.  The tests are runnable
 	  through debugfs.  Unlike the IOMMU_DEBUG_TRACKING option, the
@@ -482,3 +493,8 @@ config QCOM_IOMMU
 	  Support for IOMMU on certain Qualcomm SoCs.
 
 endif # IOMMU_SUPPORT
+
+
+menuconfig NO_DELAY_DMA_UNMAP_CAMERA
+	bool "Support DMA_ATTR_NO_DELAYED_UNMAP for Camera"
+	default n

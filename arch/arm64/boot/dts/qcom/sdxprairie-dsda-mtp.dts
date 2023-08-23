@@ -1,0 +1,66 @@
+/* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "sdxprairie.dtsi"
+#include "sdxprairie-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. SDXPRAIRIE MTP(DSDA)";
+	compatible = "qcom,sdxprairie-mtp",
+		"qcom,sdxprairie", "qcom,mtp";
+	qcom,board-id = <8 8>, <8 0x108>;
+};
+
+/* delete pm8150b nodes */
+&thermal_zones {
+	/delete-node/ pm8150b-wp-therm;
+	/delete-node/ pm8150b_tz;
+	/delete-node/ pm8150b-ibat-lvl0;
+	/delete-node/ pm8150b-ibat-lvl1;
+	/delete-node/ pm8150b-vbat-lvl0;
+	/delete-node/ pm8150b-vbat-lvl1;
+	/delete-node/ pm8150b-vbat-lvl2;
+	/delete-node/ pm8150b-bcl-lvl0;
+	/delete-node/ pm8150b-bcl-lvl1;
+	/delete-node/ pm8150b-bcl-lvl2;
+	/delete-node/ soc;
+};
+
+&usb {
+	extcon = <&vbus_detect>;
+};
+
+&spmi_bus {
+	/delete-node/ qpnp,fg;
+	/delete-node/ bcl@1d00;
+	/delete-node/ qcom,usb-pdphy@1700;
+	/delete-node/ qcom,qpnp-smb5;
+	/delete-node/ adc_tm@3500;
+	/delete-node/ vadc@3100;
+	/delete-node/ qcom,pm8150b@2;
+	/delete-node/ qcom,pm8150b@3;
+};
+
+&qnand_1 {
+	status = "ok";
+};
+
+&blsp1_uart2b_hs {
+	status = "okay";
+};
+
+&vbus_detect {
+	status = "okay";
+};
+

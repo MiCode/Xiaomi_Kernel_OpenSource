@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,9 @@
 #define CLUST_SMPL_INVLD_TIME 40000
 #define DEFAULT_PREMATURE_CNT 3
 #define DEFAULT_STDDEV 100
+#define DEFAULT_IPI_STDDEV 400
 #define DEFAULT_TIMER_ADD 100
+#define DEFAULT_IPI_TIMER_ADD 900
 #define TIMER_ADD_LOW 100
 #define TIMER_ADD_HIGH 1500
 #define STDDEV_LOW 100
@@ -52,6 +54,8 @@ struct lpm_cpu {
 	uint32_t ref_premature_cnt;
 	uint32_t tmr_add;
 	bool lpm_prediction;
+	bool ipi_prediction;
+	uint64_t bias;
 	struct cpuidle_driver *drv;
 	struct lpm_cluster *parent;
 };

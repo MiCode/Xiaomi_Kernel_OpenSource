@@ -188,6 +188,9 @@ static int parse_dt(struct device *dev, struct syna_tcm_board_data *bdata)
 		bdata->ubl_i2c_addr = 0;
 	}
 
+	bdata->extend_report = of_property_read_bool(np,
+			"synaptics,extend_report");
+
 	return 0;
 }
 #endif

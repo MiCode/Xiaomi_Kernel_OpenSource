@@ -35,22 +35,27 @@ Subsystem properties:
 		Definition: Remote subsystem device identifier. Below strings
 			are the only acceptable device names,
 			"pa" -> for pa cooling device,
+			"pa_fr1" -> for pa cooling device,
 			"cpuv_restriction_cold" -> for vdd restriction,
 			"cx_vdd_limit" -> for vdd limit,
 			"modem" -> for processor passive cooling device,
 			"modem_current" -> for current limiting device,
 			"modem_bw" ->  for bus bandwidth limiting device,
 			"vbatt_low" -> BCL vbat mitigation device,
+			"charge_state" -> Charge state mitigation device,
 			"mmw0" -> Millimeter wave limiting device 0,
 			"mmw1" -> Millimeter wave limiting device 1,
 			"mmw2" -> Millimeter wave limiting device 2,
 			"mmw3" -> Millimeter wave limiting device 3,
 			"modem_skin" -> Modem skin mitigation device,
-			"modem_skin0" -> Modem skin mitigation device0,
-			"modem_skin1" -> Modem skin mitigation device1,
-			"modem_skin2" -> Modem skin mitigation device2,
-			"modem_skin3" -> Modem skin mitigation device3,
-			"cpr_cold" -> for cpr restriction.
+			"mmw_skin0" -> MMW skin mitigation device0,
+			"mmw_skin1" -> MMW skin mitigation device1,
+			"mmw_skin2" -> MMW skin mitigation device2,
+			"mmw_skin3" -> MMW skin mitigation device3,
+			"modem_v2x" -> modem CV2X mitigation device,
+			"cpr_cold" -> for cpr restriction,
+			"cdsp_sw" -> for CDSP DCVS mitigation device,
+			"cdsp_hw" -> for CDSP hardware mitigation device.
 
 	-#cooling-cells:
 		Usage: required
@@ -91,6 +96,11 @@ Example:
 				qcom,qmi-dev-name = "cpr_cold";
 				#cooling-cells = <2>;
 			};
+
+			modem_v2x: modem_v2x {
+				qcom,qmi-dev-name = "modem_v2x";
+				#cooling-cells = <2>;
+			};
 		};
 
 		adsp {
@@ -107,6 +117,16 @@ Example:
 
 			cdsp_vdd: cdsp_vdd {
 				qcom,qmi-dev-name = "cpuv_restriction_cold";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_sw: cdsp {
+				qcom,qmi-dev-name = "cdsp_sw";
+				#cooling-cells = <2>;
+			};
+
+			cdsp_hw: hvx {
+				qcom,qmi-dev-name = "cdsp_hw";
 				#cooling-cells = <2>;
 			};
 		};

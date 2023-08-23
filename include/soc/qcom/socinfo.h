@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2020, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,14 +71,22 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sm6150")
 #define early_machine_is_sm6150p()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sm6150p")
+#define early_machine_is_sa8195p()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sa8195p")
 #define early_machine_is_qcs405()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs405")
 #define early_machine_is_qcs403()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs403")
 #define early_machine_is_qcs401()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs401")
+#define early_machine_is_qcs404()       \
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs404")
+#define early_machine_is_qcs407()       \
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs407")
 #define early_machine_is_sdxprairie()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdxprairie")
+#define early_machine_is_mdm9607()      \
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9607")
 #define early_machine_is_sdmmagpie()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdmmagpie")
 #define early_machine_is_sdmmagpiep()	\
@@ -97,6 +105,22 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,qcs410")
 #define early_machine_is_atoll()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,atoll")
+#define early_machine_is_atollp()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,atollp")
+#define early_machine_is_atoll_ab()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,atoll-ab")
+#define early_machine_is_sdm660()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm660")
+#define early_machine_is_sda660()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda660")
+#define early_machine_is_sdm429w()       \
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sdm429w")
+#define early_machine_is_sda429w()       \
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,sda429w")
+#define early_machine_is_trinket_iot()       \
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,trinket-iot")
+#define early_machine_is_trinketp_iot()       \
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,trinketp-iot")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -121,11 +145,15 @@
 #define early_machine_is_sa8155p()	0
 #define early_machine_is_sdmshrike()	0
 #define early_machine_is_sm6150()	0
+#define early_machine_is_sa8195p()	0
 #define early_machine_is_sm6150p()	0
 #define early_machine_is_qcs405()	0
 #define early_machine_is_qcs403()	0
 #define early_machine_is_qcs401()	0
+#define early_machine_is_qcs404()       0
+#define early_machine_is_qcs407()       0
 #define early_machine_is_sdxprairie()	0
+#define early_machine_is_mdm9607()      0
 #define early_machine_is_sdmmagpie()	0
 #define early_machine_is_sdmmagpiep()	0
 #define early_machine_is_sa6155p()	0
@@ -135,6 +163,13 @@
 #define early_machine_is_qcs610()       0
 #define early_machine_is_qcs410()       0
 #define early_machine_is_atoll()	0
+#define early_machine_is_atollp()	0
+#define early_machine_is_sdm660()	0
+#define early_machine_is_sda660()	0
+#define early_machine_is_sdm429w()	0
+#define early_machine_is_sda429w()	0
+#define early_machine_is_trinket_iot()	0
+#define early_machine_is_trinketp_iot()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -143,6 +178,7 @@
 
 #define SMEM_IMAGE_VERSION_TABLE	469
 #define SMEM_HW_SW_BUILD_ID		137
+#define SMEM_ID_VENDOR1                 135
 enum msm_cpu {
 	MSM_CPU_UNKNOWN = 0,
 	MSM_CPU_8960,
@@ -159,13 +195,17 @@ enum msm_cpu {
 	MSM_CPU_SM8150P,
 	MSM_CPU_SA8155,
 	MSM_CPU_SA8155P,
+	MSM_CPU_SA8195P,
 	MSM_CPU_SDMSHRIKE,
 	MSM_CPU_SM6150,
 	MSM_CPU_SM6150P,
 	MSM_CPU_QCS405,
 	MSM_CPU_QCS403,
 	MSM_CPU_QCS401,
+	MSM_CPU_QCS404,
+	MSM_CPU_QCS407,
 	SDX_CPU_SDXPRAIRIE,
+	MSM_CPU_9607,
 	MSM_CPU_SDMMAGPIE,
 	MSM_CPU_SDMMAGPIEP,
 	MSM_CPU_SA6155P,
@@ -175,6 +215,14 @@ enum msm_cpu {
 	MSM_CPU_QCS610,
 	MSM_CPU_QCS410,
 	MSM_CPU_ATOLL,
+	MSM_CPU_ATOLLP,
+	MSM_CPU_ATOLL_AB,
+	MSM_CPU_SDM660,
+	MSM_CPU_SDA660,
+	MSM_CPU_SDM429W,
+	MSM_CPU_SDA429W,
+	MSM_CPU_TRINKET_IOT,
+	MSM_CPU_TRINKETP_IOT,
 };
 
 struct msm_soc_info {
@@ -198,6 +246,38 @@ enum pmic_model {
 	PMIC_MODEL_PM8917	= 25,
 	PMIC_MODEL_UNKNOWN	= 0xFFFFFFFF
 };
+
+#define HARDWARE_PLATFORM_UNKNOWN 0
+#define HARDWARE_PLATFORM_AQUILA  1
+
+#define HARDWARE_PLATFORM_DAVINCI  5
+#define HARDWARE_PLATFORM_TUCANA   6
+#define HARDWARE_PLATFORM_PHOENIX  7
+#define HARDWARE_PLATFORM_TOCO  8
+#define HARDWARE_PLATFORM_COURBET  9
+#define HARDWARE_PLATFORM_SWEET  10
+#define HW_MAJOR_VERSION_SHIFT 16
+#define HW_MAJOR_VERSION_MASK  0xFFFF0000
+#define HW_MINOR_VERSION_SHIFT 0
+#define HW_MINOR_VERSION_MASK  0x0000FFFF
+#define HW_COUNTRY_VERSION_MASK 0xFFF00000
+#define HW_COUNTRY_VERSION_SHIFT 20
+#define HW_BUILD_VERSION_MASK 0x000F0000
+#define HW_BUILD_VERSION_SHIFT 16
+
+typedef enum {
+  CountryCN = 0,
+  CountryGlobal = 1,
+  CountryIndia = 2,
+  TELCO_VDF = 3,
+  INVALID,
+} CountryType;
+
+uint32_t get_hw_version_platform(void);
+uint32_t get_hw_country_version(void);
+uint32_t get_hw_version_major(void);
+uint32_t get_hw_version_minor(void);
+uint32_t get_hw_version_build(void);
 
 enum msm_cpu socinfo_get_msm_cpu(void);
 uint32_t socinfo_get_id(void);

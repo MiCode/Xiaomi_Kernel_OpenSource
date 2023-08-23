@@ -23,7 +23,7 @@ static char supported_clk_info[256];
 static char debugfs_dir_name[64];
 
 static int cam_soc_util_get_clk_level(struct cam_hw_soc_info *soc_info,
-	int32_t src_clk_idx, int32_t clk_rate)
+	int32_t src_clk_idx, int64_t clk_rate)
 {
 	int i;
 	long clk_rate_round;
@@ -38,7 +38,7 @@ static int cam_soc_util_get_clk_level(struct cam_hw_soc_info *soc_info,
 	for (i = 0; i < CAM_MAX_VOTE; i++) {
 		if (soc_info->clk_rate[i][src_clk_idx] >= clk_rate_round) {
 			CAM_DBG(CAM_UTIL,
-				"soc = %d round rate = %ld actual = %d",
+				"soc = %d round rate = %ld actual = %lld",
 				soc_info->clk_rate[i][src_clk_idx],
 				clk_rate_round,	clk_rate);
 			return i;
@@ -319,6 +319,9 @@ static int cam_soc_util_get_clk_level_to_apply(
 
 int cam_soc_util_irq_enable(struct cam_hw_soc_info *soc_info)
 {
+	int rc;
+	int cpu_num;
+
 	if (!soc_info) {
 		CAM_ERR(CAM_UTIL, "Invalid arguments");
 		return -EINVAL;
@@ -329,6 +332,24 @@ int cam_soc_util_irq_enable(struct cam_hw_soc_info *soc_info)
 		return -ENODEV;
 	}
 
+	cpu_num = num_active_cpus();
+	/*
+	 * By default, irq will be handled on cpu0,
+	 * bind ife/ife-lite irq to different cpu
+	 * that could reduce the ife/ife-lite irq delay
+	 */
+	if (!strcmp(soc_info->irq_name, "ife") ||
+		!strcmp(soc_info->irq_name, "ife-lite")) {
+		if ((soc_info->index + 1) < cpu_num) {
+			rc = irq_set_affinity(soc_info->irq_line->start,
+				cpumask_of(soc_info->index + 1));
+			if (rc < 0)
+				CAM_ERR(CAM_UTIL,
+					"%s irq bind cpu%d failed",
+					soc_info->irq_name,
+					soc_info->index + 1);
+		}
+	}
 	enable_irq(soc_info->irq_line->start);
 
 	return 0;
@@ -387,7 +408,7 @@ int cam_soc_util_set_clk_flags(struct cam_hw_soc_info *soc_info,
  * @return:         Success or failure
  */
 static int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
-	int32_t clk_rate)
+	int64_t clk_rate)
 {
 	int rc = 0;
 	long clk_rate_round;
@@ -395,7 +416,7 @@ static int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 	if (!clk || !clk_name)
 		return -EINVAL;
 
-	CAM_DBG(CAM_UTIL, "set %s, rate %d", clk_name, clk_rate);
+	CAM_DBG(CAM_UTIL, "set %s, rate %lld", clk_name, clk_rate);
 	if (clk_rate > 0) {
 		clk_rate_round = clk_round_rate(clk, clk_rate);
 		CAM_DBG(CAM_UTIL, "new_rate %ld", clk_rate_round);
@@ -431,25 +452,28 @@ static int cam_soc_util_set_clk_rate(struct clk *clk, const char *clk_name,
 }
 
 int cam_soc_util_set_src_clk_rate(struct cam_hw_soc_info *soc_info,
-	int32_t clk_rate)
+	int64_t clk_rate)
 {
 	int32_t src_clk_idx;
 	struct clk *clk = NULL;
 	int32_t apply_level;
+	uint32_t clk_level_override = 0;
 
 	if (!soc_info || (soc_info->src_clk_idx < 0))
 		return -EINVAL;
 
-	if (soc_info->clk_level_override && clk_rate)
-		clk_rate = soc_info->clk_level_override;
-
 	src_clk_idx = soc_info->src_clk_idx;
+	clk_level_override = soc_info->clk_level_override;
+	if (clk_level_override && clk_rate)
+		clk_rate =
+			soc_info->clk_rate[clk_level_override][src_clk_idx];
+
 	clk = soc_info->clk[src_clk_idx];
 
 	if (soc_info->cam_cx_ipeak_enable && clk_rate >= 0) {
 		apply_level = cam_soc_util_get_clk_level(soc_info, src_clk_idx,
 				clk_rate);
-		CAM_DBG(CAM_UTIL, "set %s, rate %d dev_name = %s\n"
+		CAM_DBG(CAM_UTIL, "set %s, rate %lld dev_name = %s\n"
 			"apply level = %d",
 			soc_info->clk_name[src_clk_idx], clk_rate,
 			soc_info->dev_name, apply_level);
