@@ -7,7 +7,6 @@
 #include "common.h"
 #include <linux/scmi_cpufreq_stats.h>
 
-#define SCMI_MAX_RX_SIZE	128
 #define SCMI_VENDOR_MSG_START    (3)
 
 enum scmi_cpufreq_stats_protocol_cmd {
@@ -22,7 +21,7 @@ static int scmi_get_tunable_cpufreq_stats(const struct scmi_protocol_handle *ph,
 	struct scmi_xfer *t;
 	struct cpufreq_stats_prot_attr *msg;
 
-	ret = ph->xops->xfer_get_init(ph, msg_id, sizeof(*msg), SCMI_MAX_RX_SIZE,
+	ret = ph->xops->xfer_get_init(ph, msg_id, sizeof(*msg), sizeof(*msg),
 				      &t);
 	if (ret)
 		return ret;
