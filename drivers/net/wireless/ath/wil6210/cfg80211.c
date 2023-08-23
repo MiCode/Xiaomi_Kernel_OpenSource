@@ -10,9 +10,13 @@
 #include <net/cfg80211.h>
 #include "wil6210.h"
 #include "wmi.h"
+#include "ftm.h"
 #include "fw.h"
+#include "ipa.h"
 
 #define WIL_MAX_ROC_DURATION_MS 5000
+#define WIL_BRD_SUFFIX_CN "CN"
+#define WIL_BRD_SUFFIX_FCC "FCC"
 
 #define WIL_EDMG_CHANNEL_9_SUBCHANNELS	(BIT(0) | BIT(1))
 #define WIL_EDMG_CHANNEL_10_SUBCHANNELS	(BIT(1) | BIT(2))
@@ -30,6 +34,8 @@
  */
 #define WIL_EDMG_CHANNELS (BIT(0) | BIT(1) | BIT(2) | BIT(3))
 
+#define WIL_DISABLE_EDMG 255
+
 bool disable_ap_sme;
 module_param(disable_ap_sme, bool, 0444);
 MODULE_PARM_DESC(disable_ap_sme, " let user space handle AP mode SME");
@@ -40,6 +46,16 @@ static struct wiphy_wowlan_support wil_wowlan_support = {
 };
 #endif
 
+bool country_specific_board_file;
+module_param(country_specific_board_file, bool, 0444);
+MODULE_PARM_DESC(country_specific_board_file,
+		 " switch board file upon reg domain change (Default: false)");
+
+bool ignore_reg_hints = true;
+module_param(ignore_reg_hints, bool, 0444);
+MODULE_PARM_DESC(ignore_reg_hints,
+		 " Ignore OTA regulatory hints (Default: true)");
+
 #define CHAN60G(_channel, _flags) {				\
 	.band			= NL80211_BAND_60GHZ,		\
 	.center_freq		= 56160 + (2160 * (_channel)),	\
@@ -48,6 +64,9 @@ static struct wiphy_wowlan_support wil_wowlan_support = {
 	.max_antenna_gain	= 0,				\
 	.max_power		= 40,				\
 }
+
+#define WIL_BRP_ANT_LIMIT_MIN	(1)
+#define WIL_BRP_ANT_LIMIT_MAX	(27)
 
 static struct ieee80211_channel wil_60ghz_channels[] = {
 	CHAN60G(1, 0),
@@ -88,6 +107,86 @@ static int wil_tx_cb_mode_to_n_bonded(u8 cb_mode)
 		return 1;
 	}
 }
+
+struct wil_regd_2_brd_suffix {
+	const char regdomain[3]; /* alpha2 */
+	const char *brd_suffix;
+};
+
+static struct wil_regd_2_brd_suffix wil_regd_2_brd_suffix_map[] = {
+	{"BO", WIL_BRD_SUFFIX_FCC},
+	{"CN", WIL_BRD_SUFFIX_CN},
+	{"EC", WIL_BRD_SUFFIX_FCC},
+	{"GU", WIL_BRD_SUFFIX_FCC},
+	{"HN", WIL_BRD_SUFFIX_FCC},
+	{"JM", WIL_BRD_SUFFIX_FCC},
+	{"MX", WIL_BRD_SUFFIX_FCC},
+	{"NI", WIL_BRD_SUFFIX_FCC},
+	{"PY", WIL_BRD_SUFFIX_FCC},
+	{"TT", WIL_BRD_SUFFIX_FCC},
+	{"US", WIL_BRD_SUFFIX_FCC},
+};
+
+enum wil_nl_60g_cmd_type {
+	NL_60G_CMD_FW_WMI,
+	NL_60G_CMD_DEBUG,
+	NL_60G_CMD_STATISTICS,
+	NL_60G_CMD_REGISTER,
+};
+
+enum wil_nl_60g_evt_type {
+	NL_60G_EVT_DRIVER_ERROR,
+	NL_60G_EVT_FW_ERROR,
+	NL_60G_EVT_FW_WMI,
+	NL_60G_EVT_DRIVER_SHUTOWN,
+	NL_60G_EVT_DRIVER_DEBUG_EVENT,
+};
+
+enum wil_nl_60g_debug_cmd {
+	NL_60G_DBG_FORCE_WMI_SEND,
+	NL_60G_GEN_RADAR_ALLOC_BUFFER,
+	NL_60G_GEN_FW_RESET,
+	NL_60G_GEN_GET_DRIVER_CAPA,
+};
+
+struct wil_nl_60g_send_receive_wmi {
+	u32 cmd_id; /* enum wmi_command_id or enum wmi_event_id */
+	u8 reserved[2];
+	u8 dev_id; /* mid */
+	u16 buf_len;
+	u8 buf[0];
+} __packed;
+
+enum wil_nl_60g_driver_capa {
+	NL_60G_DRIVER_CAPA_WMI_OVER_NL, /* NL command for WMI */
+	NL_60G_DRIVER_CAPA_FW_STATE, /* notifications of FW state changes */
+	/* ioctl to write to the device address space */
+	NL_60G_DRIVER_CAPA_IOCTL_WRITE,
+};
+
+struct wil_nl_60g_driver_capabilities_reply {
+	u32 drv_cap[0]; /* bit mask of wil_nl_60g_driver_capa */
+} __packed;
+
+enum qca_wlan_vendor_driver_capa {
+	QCA_WLAN_VENDOR_ATTR_DRIVER_CAPA,
+};
+
+struct wil_nl_60g_event {
+	u32 evt_type; /* wil_nl_60g_evt_type */
+	u32 buf_len;
+	u8 reserved[9];
+	u8 buf[0];
+} __packed;
+
+struct wil_nl_60g_debug { /* NL_60G_CMD_DEBUG */
+	u32 cmd_id; /* wil_nl_60g_debug_cmd */
+} __packed;
+
+struct wil_nl_60g_debug_force_wmi {
+	struct wil_nl_60g_debug hdr;
+	u32 enable;
+} __packed;
 
 static void
 wil_memdup_ie(u8 **pdst, size_t *pdst_len, const u8 *src, size_t src_len)
@@ -142,16 +241,23 @@ void update_supported_bands(struct wil6210_priv *wil)
 #define WIL_MAX_RF_SECTORS (128)
 #define WIL_CID_ALL (0xff)
 
-enum qca_wlan_vendor_attr_rf_sector {
+enum qca_wlan_vendor_attr_wil {
 	QCA_ATTR_MAC_ADDR = 6,
+	QCA_ATTR_FEATURE_FLAGS = 7,
+	QCA_ATTR_TEST = 8,
 	QCA_ATTR_PAD = 13,
 	QCA_ATTR_TSF = 29,
 	QCA_ATTR_DMG_RF_SECTOR_INDEX = 30,
 	QCA_ATTR_DMG_RF_SECTOR_TYPE = 31,
 	QCA_ATTR_DMG_RF_MODULE_MASK = 32,
 	QCA_ATTR_DMG_RF_SECTOR_CFG = 33,
-	QCA_ATTR_DMG_RF_SECTOR_MAX,
+	QCA_ATTR_BRP_ANT_LIMIT_MODE = 38,
+	QCA_ATTR_BRP_ANT_NUM_LIMIT = 39,
+	QCA_ATTR_WIL_MAX,
 };
+
+#define WIL_ATTR_60G_CMD_TYPE QCA_ATTR_FEATURE_FLAGS
+#define WIL_ATTR_60G_BUF QCA_ATTR_TEST
 
 enum qca_wlan_vendor_attr_dmg_rf_sector_type {
 	QCA_ATTR_DMG_RF_SECTOR_TYPE_RX,
@@ -175,8 +281,22 @@ enum qca_wlan_vendor_attr_dmg_rf_sector_cfg {
 	QCA_ATTR_DMG_RF_SECTOR_CFG_AFTER_LAST - 1
 };
 
+enum qca_wlan_vendor_attr_brp_ant_limit_mode {
+	QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODE_DISABLE,
+	QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODE_EFFECTIVE,
+	QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODE_FORCE,
+	QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODES_NUM
+};
+
 static const struct
-nla_policy wil_rf_sector_policy[QCA_ATTR_DMG_RF_SECTOR_MAX + 1] = {
+nla_policy wil_brp_ant_limit_policy[QCA_ATTR_WIL_MAX + 1] = {
+	[QCA_ATTR_MAC_ADDR] = { .len = ETH_ALEN },
+	[QCA_ATTR_BRP_ANT_NUM_LIMIT] = { .type = NLA_U8 },
+	[QCA_ATTR_BRP_ANT_LIMIT_MODE] = { .type = NLA_U8 },
+};
+
+static const struct
+nla_policy wil_rf_sector_policy[QCA_ATTR_WIL_MAX + 1] = {
 	[QCA_ATTR_MAC_ADDR] = { .len = ETH_ALEN },
 	[QCA_ATTR_DMG_RF_SECTOR_INDEX] = { .type = NLA_U16 },
 	[QCA_ATTR_DMG_RF_SECTOR_TYPE] = { .type = NLA_U8 },
@@ -195,11 +315,28 @@ nla_policy wil_rf_sector_cfg_policy[QCA_ATTR_DMG_RF_SECTOR_CFG_MAX + 1] = {
 	[QCA_ATTR_DMG_RF_SECTOR_CFG_DTYPE_X16] = { .type = NLA_U32 },
 };
 
+static const struct
+nla_policy wil_nl_60g_policy[QCA_ATTR_WIL_MAX + 1] = {
+	[WIL_ATTR_60G_CMD_TYPE] = { .type = NLA_U32 },
+	[WIL_ATTR_60G_BUF] = { .type = NLA_BINARY },
+};
+
 enum qca_nl80211_vendor_subcmds {
+	QCA_NL80211_VENDOR_SUBCMD_UNSPEC = 0,
+	QCA_NL80211_VENDOR_SUBCMD_LOC_GET_CAPA = 128,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_START_SESSION = 129,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_ABORT_SESSION = 130,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_MEAS_RESULT = 131,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_SESSION_DONE = 132,
+	QCA_NL80211_VENDOR_SUBCMD_FTM_CFG_RESPONDER = 133,
+	QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS = 134,
+	QCA_NL80211_VENDOR_SUBCMD_AOA_ABORT_MEAS = 135,
+	QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS_RESULT = 136,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SECTOR_CFG = 139,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SECTOR_CFG = 140,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SELECTED_SECTOR = 141,
 	QCA_NL80211_VENDOR_SUBCMD_DMG_RF_SET_SELECTED_SECTOR = 142,
+	QCA_NL80211_VENDOR_SUBCMD_BRP_SET_ANT_LIMIT = 153,
 };
 
 static int wil_rf_sector_get_cfg(struct wiphy *wiphy,
@@ -214,9 +351,61 @@ static int wil_rf_sector_get_selected(struct wiphy *wiphy,
 static int wil_rf_sector_set_selected(struct wiphy *wiphy,
 				      struct wireless_dev *wdev,
 				      const void *data, int data_len);
+static int wil_brp_set_ant_limit(struct wiphy *wiphy, struct wireless_dev *wdev,
+				 const void *data, int data_len);
 
+static int wil_nl_60g_handle_cmd(struct wiphy *wiphy, struct wireless_dev *wdev,
+				 const void *data, int data_len);
 /* vendor specific commands */
 static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_LOC_GET_CAPA,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.policy = VENDOR_CMD_RAW_DATA,
+		.doit = wil_ftm_get_capabilities
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_START_SESSION,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.policy = wil_nl80211_loc_policy,
+		.doit = wil_ftm_start_session
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_ABORT_SESSION,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.policy = VENDOR_CMD_RAW_DATA,
+		.doit = wil_ftm_abort_session
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_CFG_RESPONDER,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.policy = VENDOR_CMD_RAW_DATA,
+		.doit = wil_ftm_configure_responder
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.policy = wil_nl80211_loc_policy,
+		.doit = wil_aoa_start_measurement
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_AOA_ABORT_MEAS,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.policy = VENDOR_CMD_RAW_DATA,
+		.doit = wil_aoa_abort_measurement
+	},
 	{
 		.info.vendor_id = QCA_NL80211_VENDOR_ID,
 		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_DMG_RF_GET_SECTOR_CFG,
@@ -250,6 +439,42 @@ static const struct wiphy_vendor_command wil_nl80211_vendor_commands[] = {
 			 WIPHY_VENDOR_CMD_NEED_RUNNING,
 		.policy = wil_rf_sector_policy,
 		.doit = wil_rf_sector_set_selected
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_BRP_SET_ANT_LIMIT,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_RUNNING,
+		.policy = wil_brp_ant_limit_policy,
+		.doit = wil_brp_set_ant_limit
+	},
+	{
+		.info.vendor_id = QCA_NL80211_VENDOR_ID,
+		.info.subcmd = QCA_NL80211_VENDOR_SUBCMD_UNSPEC,
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV |
+			 WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.policy = VENDOR_CMD_RAW_DATA,
+		.doit = wil_nl_60g_handle_cmd
+	},
+};
+
+/* vendor specific events */
+static const struct nl80211_vendor_cmd_info wil_nl80211_vendor_events[] = {
+	[QCA_EVENT_FTM_MEAS_RESULT_INDEX] = {
+			.vendor_id = QCA_NL80211_VENDOR_ID,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_MEAS_RESULT
+	},
+	[QCA_EVENT_FTM_SESSION_DONE_INDEX] = {
+			.vendor_id = QCA_NL80211_VENDOR_ID,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_FTM_SESSION_DONE
+	},
+	[QCA_EVENT_AOA_MEAS_RESULT_INDEX] = {
+			.vendor_id = QCA_NL80211_VENDOR_ID,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_AOA_MEAS_RESULT
+	},
+	[QCA_EVENT_UNSPEC_INDEX] = {
+			.vendor_id = QCA_NL80211_VENDOR_ID,
+			.subcmd = QCA_NL80211_VENDOR_SUBCMD_UNSPEC
 	},
 };
 
@@ -379,6 +604,9 @@ int wil_spec2wmi_ch(u8 spec_ch, u8 *wmi_ch)
 		break;
 	case 12:
 		*wmi_ch = WMI_CHANNEL_12;
+		break;
+	case WIL_DISABLE_EDMG:
+		*wmi_ch = 0;
 		break;
 	default:
 		return -EINVAL;
@@ -1336,6 +1564,16 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 	if (rc < 0)
 		return rc;
 
+	if (test_bit(WMI_FW_CAPABILITY_CHANNEL_BONDING, wil->fw_capabilities))
+		if (wil->force_edmg_channel) {
+			rc = wil_spec2wmi_ch(wil->force_edmg_channel,
+					     &conn.edmg_channel);
+			if (rc)
+				wil_err(wil,
+					"wmi channel for channel %d not found",
+					wil->force_edmg_channel);
+		}
+
 	ether_addr_copy(conn.bssid, bss->bssid);
 	ether_addr_copy(conn.dst_mac, bss->bssid);
 
@@ -1344,8 +1582,14 @@ static int wil_cfg80211_connect(struct wiphy *wiphy,
 	rc = wmi_send(wil, WMI_CONNECT_CMDID, vif->mid, &conn, sizeof(conn));
 	if (rc == 0) {
 		netif_carrier_on(ndev);
-		if (!wil_has_other_active_ifaces(wil, ndev, false, true))
-			wil6210_bus_request(wil, WIL_MAX_BUS_REQUEST_KBPS);
+		if (!wil_has_other_active_ifaces(wil, ndev, false, true)) {
+			if (wil->force_edmg_channel)
+				wil6210_bus_request(wil,
+						    WIL_11AY_BUS_REQUEST_KBPS);
+			else
+				wil6210_bus_request(wil,
+						    WIL_11AD_BUS_REQUEST_KBPS);
+		}
 		vif->bss = bss;
 		/* Connect can take lots of time */
 		mod_timer(&vif->connect_timer,
@@ -1396,7 +1640,7 @@ static int wil_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
 	if (changed & (WIPHY_PARAM_RETRY_LONG |
 		       WIPHY_PARAM_FRAG_THRESHOLD |
 		       WIPHY_PARAM_RTS_THRESHOLD))
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 
 	if (changed & WIPHY_PARAM_RETRY_SHORT) {
 		rc = wmi_set_mgmt_retry(wil, wiphy->retry_short);
@@ -1925,10 +2169,11 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	if (pbss)
 		wmi_nettype = WMI_NETTYPE_P2P;
 
-	wil_dbg_misc(wil, "start_ap: mid=%d, is_go=%d\n", vif->mid, is_go);
+	wil_dbg_misc(wil, "start_ap: mid=%d, is_go=%d ap_ps=%d\n", vif->mid,
+		     is_go, wil->ap_ps);
 	if (is_go && !pbss) {
 		wil_err(wil, "P2P GO must be in PBSS\n");
-		return -ENOTSUPP;
+		return -EOPNOTSUPP;
 	}
 
 	wil_set_recovery_state(wil, fw_recovery_idle);
@@ -1947,7 +2192,7 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 		if (!test_bit(WMI_FW_CAPABILITY_FT_ROAMING,
 			      wil->fw_capabilities)) {
 			wil_err(wil, "FW does not support FT roaming\n");
-			return -ENOTSUPP;
+			return -EOPNOTSUPP;
 		}
 		set_bit(wil_vif_ft_roam, vif->status);
 	}
@@ -1955,7 +2200,22 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	mutex_lock(&wil->mutex);
 
 	if (!wil_has_other_active_ifaces(wil, ndev, true, false)) {
+		if (wil->ipa_handle) {
+			wil_ipa_uninit(wil->ipa_handle);
+			wil->ipa_handle = NULL;
+		}
+
 		__wil_down(wil);
+
+		if (wil_ipa_offload()) {
+			wil->ipa_handle = wil_ipa_init(wil);
+			if (!wil->ipa_handle) {
+				wil_err(wil, "wil_ipa_init failed\n");
+				rc = -ENOMEM;
+				goto out;
+			}
+		}
+
 		rc = __wil_up(wil);
 		if (rc)
 			goto out;
@@ -1978,9 +2238,20 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	memcpy(vif->ssid, ssid, ssid_len);
 	vif->ssid_len = ssid_len;
 
+	if (wil->ipa_handle) {
+		rc = wil_ipa_start_ap(wil->ipa_handle);
+		if (rc)
+			goto out;
+	}
+
 	netif_carrier_on(ndev);
-	if (!wil_has_other_active_ifaces(wil, ndev, false, true))
-		wil6210_bus_request(wil, WIL_MAX_BUS_REQUEST_KBPS);
+	if (!wil_has_other_active_ifaces(wil, ndev, false, true)) {
+		if (wil->force_edmg_channel)
+			wil6210_bus_request(wil, WIL_11AY_BUS_REQUEST_KBPS);
+		else
+			wil6210_bus_request(wil, WIL_11AD_BUS_REQUEST_KBPS);
+	}
+
 
 	rc = wmi_pcp_start(vif, bi, wmi_nettype, chan, wmi_edmg_channel,
 			   hidden_ssid, is_go);
@@ -1991,6 +2262,14 @@ static int _wil_cfg80211_start_ap(struct wiphy *wiphy,
 	if (rc)
 		goto err_bcast;
 
+	if (test_bit(WMI_FW_CAPABILITY_AP_POWER_MANAGEMENT,
+		     wil->fw_capabilities)) {
+		enum wmi_ps_profile_type ps_profile = wil->ap_ps ?
+			wil->ps_profile : WMI_PS_PROFILE_TYPE_PS_DISABLED;
+
+		wil_ps_update(wil, ps_profile);
+	}
+
 	goto out; /* success */
 
 err_bcast:
@@ -2000,6 +2279,11 @@ err_pcp_start:
 	if (!wil_has_other_active_ifaces(wil, ndev, false, true))
 		wil6210_bus_request(wil, WIL_DEFAULT_BUS_REQUEST_KBPS);
 out:
+	if (rc && wil->ipa_handle) {
+		wil_ipa_uninit(wil->ipa_handle);
+		wil->ipa_handle = NULL;
+	}
+
 	mutex_unlock(&wil->mutex);
 	return rc;
 }
@@ -2066,6 +2350,11 @@ static int wil_cfg80211_change_beacon(struct wiphy *wiphy,
 	struct wil6210_vif *vif = ndev_to_vif(ndev);
 	int rc;
 	u32 privacy = 0;
+	u16 len = 0, proberesp_len = 0;
+	u8 *ies = NULL, *proberesp;
+	bool ssid_changed = false;
+	const u8 *ie;
+
 
 	wil_dbg_misc(wil, "change_beacon, mid=%d\n", vif->mid);
 	wil_print_bcon_data(bcon);
@@ -2077,6 +2366,27 @@ static int wil_cfg80211_change_beacon(struct wiphy *wiphy,
 
 	memcpy(vif->ssid, wdev->ssid, wdev->ssid_len);
 	vif->ssid_len = wdev->ssid_len;
+
+	/* extract updated SSID from the probe response IE */
+	proberesp = _wil_cfg80211_get_proberesp_ies(bcon->probe_resp,
+						    bcon->probe_resp_len,
+						    &proberesp_len);
+	rc = _wil_cfg80211_merge_extra_ies(proberesp,
+					   proberesp_len,
+					   bcon->proberesp_ies,
+					   bcon->proberesp_ies_len,
+					   &ies, &len);
+
+	if (!rc) {
+		ie = cfg80211_find_ie(WLAN_EID_SSID, ies, len);
+		if (ie && ie[1] <= IEEE80211_MAX_SSID_LEN)
+			if (ie[1] != vif->ssid_len ||
+			    memcmp(&ie[2], vif->ssid, ie[1])) {
+				memcpy(vif->ssid, &ie[2], ie[1]);
+				vif->ssid_len = ie[1];
+				ssid_changed = true;
+			}
+	}
 
 	/* in case privacy has changed, need to restart the AP */
 	if (vif->privacy != privacy) {
@@ -2091,9 +2401,20 @@ static int wil_cfg80211_change_beacon(struct wiphy *wiphy,
 					    vif->hidden_ssid,
 					    vif->pbss);
 	} else {
+		if (ssid_changed) {
+			rc = wmi_set_ssid(vif, vif->ssid_len, vif->ssid);
+			if (rc)
+				goto out;
+		}
 		rc = _wil_cfg80211_set_ies(vif, bcon);
 	}
 
+	if (ssid_changed) {
+		wdev->ssid_len = vif->ssid_len;
+		memcpy(wdev->ssid, vif->ssid, vif->ssid_len);
+	}
+
+out:
 	return rc;
 }
 
@@ -2190,6 +2511,10 @@ static int wil_cfg80211_stop_ap(struct wiphy *wiphy,
 	memset(vif->gtk, 0, WMI_MAX_KEY_LEN);
 	vif->gtk_len = 0;
 
+	if (wil->ipa_handle) {
+		wil_ipa_uninit(wil->ipa_handle);
+		wil->ipa_handle = NULL;
+	}
 	if (last)
 		__wil_down(wil);
 	else
@@ -2409,6 +2734,10 @@ static int wil_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 	enum wmi_ps_profile_type ps_profile;
 
+	if (wil->vr_profile != WMI_VR_PROFILE_DISABLED)
+		/* disallow in VR mode */
+		return -EINVAL;
+
 	wil_dbg_misc(wil, "enabled=%d, timeout=%d\n",
 		     enabled, timeout);
 
@@ -2441,6 +2770,7 @@ static int wil_cfg80211_suspend(struct wiphy *wiphy,
 
 	mutex_lock(&wil->mutex);
 	mutex_lock(&wil->vif_mutex);
+	wil_ftm_stop_operations(wil);
 	wil_p2p_stop_radio_operations(wil);
 	wil_abort_scan_all_vifs(wil, true);
 	mutex_unlock(&wil->vif_mutex);
@@ -2529,6 +2859,84 @@ wil_cfg80211_sched_scan_stop(struct wiphy *wiphy, struct net_device *dev,
 	wil_dbg_misc(wil, "sched scan stopped (%d)\n", rc);
 
 	return 0;
+}
+
+static void wil_get_brd_reg_suffix(struct wil6210_priv *wil,
+				   const u8 *new_regdomain,
+				   char *brd_reg_suffix, size_t len)
+{
+	int i;
+	struct wil_regd_2_brd_suffix *entry;
+
+	for (i = 0; i < ARRAY_SIZE(wil_regd_2_brd_suffix_map); i++) {
+		entry = &wil_regd_2_brd_suffix_map[i];
+		if (!memcmp(entry->regdomain, new_regdomain, 2)) {
+			strlcpy(brd_reg_suffix, entry->brd_suffix, len);
+			return;
+		}
+	}
+
+	/* regdomain not found in our map, set suffix to none */
+	brd_reg_suffix[0] = '\0';
+}
+
+static int wil_switch_board_file(struct wil6210_priv *wil,
+				 const u8 *new_regdomain)
+{
+	int rc = 0;
+	char brd_reg_suffix[WIL_BRD_SUFFIX_LEN];
+
+	if (!country_specific_board_file)
+		return 0;
+
+	wil_get_brd_reg_suffix(wil, new_regdomain, brd_reg_suffix,
+			       sizeof(brd_reg_suffix));
+	if (!strcmp(wil->board_file_reg_suffix, brd_reg_suffix))
+		return 0;
+
+	wil_info(wil, "switch board file suffix '%s' => '%s'\n",
+		 wil->board_file_reg_suffix, brd_reg_suffix);
+	strlcpy(wil->board_file_reg_suffix, brd_reg_suffix,
+		sizeof(wil->board_file_reg_suffix));
+
+	/* need to switch board file - reset the device */
+
+	mutex_lock(&wil->mutex);
+
+	if (!wil_has_active_ifaces(wil, true, false) ||
+	    wil_is_recovery_blocked(wil))
+		/* new board file will be used in next FW load */
+		goto out;
+
+	__wil_down(wil);
+	rc = __wil_up(wil);
+
+out:
+	mutex_unlock(&wil->mutex);
+	return rc;
+}
+
+static void wil_cfg80211_reg_notify(struct wiphy *wiphy,
+				    struct regulatory_request *request)
+{
+	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+	int rc;
+
+	wil_info(wil, "cfg reg_notify %c%c%s%s initiator %d hint_type %d\n",
+		 request->alpha2[0], request->alpha2[1],
+		 request->intersect ? " intersect" : "",
+		 request->processed ? " processed" : "",
+		 request->initiator, request->user_reg_hint_type);
+
+	if (memcmp(wil->regdomain, request->alpha2, 2) == 0)
+		/* reg domain did not change */
+		return;
+
+	rc = wil_switch_board_file(wil, request->alpha2);
+	if (rc)
+		wil_err(wil, "switch board file failed %d\n", rc);
+
+	memcpy(wil->regdomain, request->alpha2, 2);
 }
 
 static int
@@ -2651,8 +3059,10 @@ static const struct cfg80211_ops wil_cfg80211_ops = {
 	.set_multicast_to_unicast = wil_cfg80211_set_multicast_to_unicast,
 };
 
-static void wil_wiphy_init(struct wiphy *wiphy)
+void wil_wiphy_init(struct wil6210_priv *wil)
 {
+	struct wiphy *wiphy = wil_to_wiphy(wil);
+
 	wiphy->max_scan_ssids = 1;
 	wiphy->max_scan_ie_len = WMI_MAX_IE_LEN;
 	wiphy->max_remain_on_channel_duration = WIL_MAX_ROC_DURATION_MS;
@@ -2685,8 +3095,17 @@ static void wil_wiphy_init(struct wiphy *wiphy)
 	wiphy->mgmt_stypes = wil_mgmt_stypes;
 	wiphy->features |= NL80211_FEATURE_SK_TX_STATUS;
 
+	wiphy->reg_notifier = wil_cfg80211_reg_notify;
+
 	wiphy->n_vendor_commands = ARRAY_SIZE(wil_nl80211_vendor_commands);
 	wiphy->vendor_commands = wil_nl80211_vendor_commands;
+	wiphy->vendor_events = wil_nl80211_vendor_events;
+	wiphy->n_vendor_events = ARRAY_SIZE(wil_nl80211_vendor_events);
+
+	if (ignore_reg_hints) {
+		wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS;
+		wiphy->regulatory_flags |= REGULATORY_COUNTRY_IE_IGNORE;
+	}
 
 #ifdef CONFIG_PM
 	wiphy->wowlan = &wil_wowlan_support;
@@ -2782,10 +3201,10 @@ struct wil6210_priv *wil_cfg80211_init(struct device *dev)
 		return ERR_PTR(-ENOMEM);
 
 	set_wiphy_dev(wiphy, dev);
-	wil_wiphy_init(wiphy);
 
 	wil = wiphy_to_wil(wiphy);
 	wil->wiphy = wiphy;
+	wil_wiphy_init(wil);
 
 	/* default monitor channel */
 	ch = wiphy->bands[NL80211_BAND_60GHZ]->channels;
@@ -2848,7 +3267,7 @@ static int wil_rf_sector_get_cfg(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wdev_to_wil(wdev);
 	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
 	int rc;
-	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
 	u16 sector_index;
 	u8 sector_type;
 	u32 rf_modules_vec;
@@ -2867,7 +3286,7 @@ static int wil_rf_sector_get_cfg(struct wiphy *wiphy,
 	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
 		return -EOPNOTSUPP;
 
-	rc = nla_parse_deprecated(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data,
+	rc = nla_parse_deprecated(tb, QCA_ATTR_WIL_MAX, data,
 				  data_len, wil_rf_sector_policy, NULL);
 	if (rc) {
 		wil_err(wil, "Invalid rf sector ATTR\n");
@@ -2969,7 +3388,7 @@ static int wil_rf_sector_set_cfg(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wdev_to_wil(wdev);
 	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
 	int rc, tmp;
-	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
 	struct nlattr *tb2[QCA_ATTR_DMG_RF_SECTOR_CFG_MAX + 1];
 	u16 sector_index, rf_module_index;
 	u8 sector_type;
@@ -2987,7 +3406,7 @@ static int wil_rf_sector_set_cfg(struct wiphy *wiphy,
 	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
 		return -EOPNOTSUPP;
 
-	rc = nla_parse_deprecated(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data,
+	rc = nla_parse_deprecated(tb, QCA_ATTR_WIL_MAX, data,
 				  data_len, wil_rf_sector_policy, NULL);
 	if (rc) {
 		wil_err(wil, "Invalid rf sector ATTR\n");
@@ -3081,7 +3500,7 @@ static int wil_rf_sector_get_selected(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wdev_to_wil(wdev);
 	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
 	int rc;
-	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
 	u8 sector_type, mac_addr[ETH_ALEN];
 	int cid = 0;
 	struct wmi_get_selected_rf_sector_index_cmd cmd;
@@ -3096,7 +3515,7 @@ static int wil_rf_sector_get_selected(struct wiphy *wiphy,
 	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
 		return -EOPNOTSUPP;
 
-	rc = nla_parse_deprecated(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data,
+	rc = nla_parse_deprecated(tb, QCA_ATTR_WIL_MAX, data,
 				  data_len, wil_rf_sector_policy, NULL);
 	if (rc) {
 		wil_err(wil, "Invalid rf sector ATTR\n");
@@ -3196,7 +3615,7 @@ static int wil_rf_sector_set_selected(struct wiphy *wiphy,
 	struct wil6210_priv *wil = wdev_to_wil(wdev);
 	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
 	int rc;
-	struct nlattr *tb[QCA_ATTR_DMG_RF_SECTOR_MAX + 1];
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
 	u16 sector_index;
 	u8 sector_type, mac_addr[ETH_ALEN], i;
 	int cid = 0;
@@ -3204,7 +3623,7 @@ static int wil_rf_sector_set_selected(struct wiphy *wiphy,
 	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
 		return -EOPNOTSUPP;
 
-	rc = nla_parse_deprecated(tb, QCA_ATTR_DMG_RF_SECTOR_MAX, data,
+	rc = nla_parse_deprecated(tb, QCA_ATTR_WIL_MAX, data,
 				  data_len, wil_rf_sector_policy, NULL);
 	if (rc) {
 		wil_err(wil, "Invalid rf sector ATTR\n");
@@ -3285,4 +3704,304 @@ static int wil_rf_sector_set_selected(struct wiphy *wiphy,
 	}
 
 	return rc;
+}
+
+static int
+wil_brp_wmi_set_ant_limit(struct wil6210_priv *wil, u8 mid, u8 cid,
+			  u8 limit_mode, u8 antenna_num_limit)
+{
+	int rc;
+	struct wmi_brp_set_ant_limit_cmd cmd = {
+		.cid = cid,
+		.limit_mode = limit_mode,
+		.ant_limit = antenna_num_limit,
+	};
+	struct {
+		struct wmi_cmd_hdr wmi;
+		struct wmi_brp_set_ant_limit_event evt;
+	} __packed reply;
+
+	reply.evt.status = WMI_FW_STATUS_FAILURE;
+
+	rc = wmi_call(wil, WMI_BRP_SET_ANT_LIMIT_CMDID, mid, &cmd, sizeof(cmd),
+		      WMI_BRP_SET_ANT_LIMIT_EVENTID, &reply,
+		      sizeof(reply), 250);
+	if (rc)
+		return rc;
+
+	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "brp set antenna limit failed with status %d\n",
+			reply.evt.status);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+static int wil_brp_set_ant_limit(struct wiphy *wiphy, struct wireless_dev *wdev,
+				 const void *data, int data_len)
+{
+	struct wil6210_priv *wil = wdev_to_wil(wdev);
+	struct wil6210_vif *vif = wdev_to_vif(wil, wdev);
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
+	u8 mac_addr[ETH_ALEN];
+	u8 antenna_num_limit = 0;
+	u8 limit_mode;
+	int cid = 0;
+	int rc;
+
+	if (!test_bit(WMI_FW_CAPABILITY_RF_SECTORS, wil->fw_capabilities))
+		return -EOPNOTSUPP;
+
+	rc = nla_parse(tb, QCA_ATTR_WIL_MAX, data, data_len,
+		       wil_brp_ant_limit_policy, NULL);
+	if (rc) {
+		wil_err(wil, "Invalid ant limit ATTR\n");
+		return rc;
+	}
+
+	if (!tb[QCA_ATTR_BRP_ANT_LIMIT_MODE] || !tb[QCA_ATTR_MAC_ADDR]) {
+		wil_err(wil, "Invalid antenna limit spec\n");
+		return -EINVAL;
+	}
+
+	limit_mode = nla_get_u8(tb[QCA_ATTR_BRP_ANT_LIMIT_MODE]);
+	if (limit_mode >= QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODES_NUM) {
+		wil_err(wil, "Invalid limit mode %d\n", limit_mode);
+		return -EINVAL;
+	}
+
+	if (limit_mode != QCA_WLAN_VENDOR_ATTR_BRP_ANT_LIMIT_MODE_DISABLE) {
+		if (!tb[QCA_ATTR_BRP_ANT_NUM_LIMIT]) {
+			wil_err(wil, "Invalid limit number\n");
+			return -EINVAL;
+		}
+
+		antenna_num_limit = nla_get_u8(tb[QCA_ATTR_BRP_ANT_NUM_LIMIT]);
+		if (antenna_num_limit > WIL_BRP_ANT_LIMIT_MAX ||
+		    antenna_num_limit < WIL_BRP_ANT_LIMIT_MIN) {
+			wil_err(wil, "Invalid number of antenna limit: %d\n",
+				antenna_num_limit);
+			return -EINVAL;
+		}
+	}
+
+	ether_addr_copy(mac_addr, nla_data(tb[QCA_ATTR_MAC_ADDR]));
+	cid = wil_find_cid(wil, vif->mid, mac_addr);
+	if (cid < 0) {
+		wil_err(wil, "invalid MAC address %pM\n", mac_addr);
+		return -ENOENT;
+	}
+
+	return wil_brp_wmi_set_ant_limit(wil, vif->mid, cid, limit_mode,
+					 antenna_num_limit);
+}
+
+static int wil_nl_60g_handle_cmd(struct wiphy *wiphy, struct wireless_dev *wdev,
+				 const void *data, int data_len)
+{
+	struct wil6210_priv *wil = wdev_to_wil(wdev);
+	struct nlattr *tb[QCA_ATTR_WIL_MAX + 1];
+	struct wil_nl_60g_send_receive_wmi *cmd;
+	struct wil_nl_60g_debug_force_wmi debug_force_wmi;
+	int rc, len;
+	u32 wil_nl_60g_cmd_type, publish;
+
+	rc = nla_parse(tb, QCA_ATTR_WIL_MAX, data, data_len,
+		       wil_nl_60g_policy, NULL);
+	if (rc) {
+		wil_err(wil, "Invalid nl_60g_cmd ATTR\n");
+		return rc;
+	}
+
+	if (!tb[WIL_ATTR_60G_CMD_TYPE]) {
+		wil_err(wil, "Invalid nl_60g_cmd type\n");
+		return -EINVAL;
+	}
+
+	wil_nl_60g_cmd_type = nla_get_u32(tb[WIL_ATTR_60G_CMD_TYPE]);
+
+	switch (wil_nl_60g_cmd_type) {
+	case NL_60G_CMD_REGISTER:
+		if (!tb[WIL_ATTR_60G_BUF]) {
+			wil_err(wil, "Invalid nl_60g_cmd spec\n");
+			return -EINVAL;
+		}
+
+		len = nla_len(tb[WIL_ATTR_60G_BUF]);
+		if (len != sizeof(publish)) {
+			wil_err(wil, "cmd buffer wrong len %d\n", len);
+			return -EINVAL;
+		}
+		memcpy(&publish, nla_data(tb[WIL_ATTR_60G_BUF]), len);
+		wil->publish_nl_evt = publish;
+
+		wil_dbg_wmi(wil, "Publish wmi event %s\n",
+			    publish ? "enabled" : "disabled");
+		break;
+	case NL_60G_CMD_DEBUG:
+		if (!tb[WIL_ATTR_60G_BUF]) {
+			wil_err(wil, "Invalid nl_60g_cmd spec\n");
+			return -EINVAL;
+		}
+
+		len = nla_len(tb[WIL_ATTR_60G_BUF]);
+		if (len < sizeof(struct wil_nl_60g_debug)) {
+			wil_err(wil, "cmd buffer too short %d\n", len);
+			return -EINVAL;
+		}
+
+		memcpy(&debug_force_wmi, nla_data(tb[WIL_ATTR_60G_BUF]),
+		       sizeof(struct wil_nl_60g_debug));
+
+		switch (debug_force_wmi.hdr.cmd_id) {
+		case NL_60G_DBG_FORCE_WMI_SEND:
+			if (len != sizeof(debug_force_wmi)) {
+				wil_err(wil, "cmd buffer wrong len %d\n", len);
+				return -EINVAL;
+			}
+
+			memcpy(&debug_force_wmi, nla_data(tb[WIL_ATTR_60G_BUF]),
+			       sizeof(debug_force_wmi));
+			wil->force_wmi_send = debug_force_wmi.enable;
+
+			wil_dbg_wmi(wil, "force sending wmi commands %d\n",
+				    wil->force_wmi_send);
+			break;
+		case NL_60G_GEN_FW_RESET:
+			if (!test_bit(WMI_FW_CAPABILITY_WMI_ONLY,
+				      wil->fw_capabilities)) {
+				rc = -EOPNOTSUPP;
+				break;
+			}
+
+			wil_dbg_misc(wil,
+				     "NL_60G_GEN_FW_RESET, resetting...\n");
+
+			mutex_lock(&wil->mutex);
+			rc = wil_reset(wil, true);
+			mutex_unlock(&wil->mutex);
+
+			break;
+
+		case NL_60G_GEN_GET_DRIVER_CAPA:
+		{
+			struct sk_buff *skb;
+			u32 capa;
+
+			skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy,
+								  sizeof(capa));
+			if (!skb)
+				return -ENOMEM;
+
+			capa = BIT(NL_60G_DRIVER_CAPA_FW_STATE) |
+#if defined(CONFIG_WIL6210_WRITE_IOCTL)
+			       BIT(NL_60G_DRIVER_CAPA_IOCTL_WRITE) |
+#endif
+			       BIT(NL_60G_DRIVER_CAPA_WMI_OVER_NL);
+			rc = nla_put_u32(skb,
+					 QCA_WLAN_VENDOR_ATTR_DRIVER_CAPA,
+					 capa);
+			if (rc) {
+				wil_err(wil,
+					"Failed to return driver capa\n");
+				kfree_skb(skb);
+				return rc;
+			}
+			return cfg80211_vendor_cmd_reply(skb);
+		}
+		default:
+			rc = -EINVAL;
+			wil_err(wil, "invalid debug_cmd id %d",
+				debug_force_wmi.hdr.cmd_id);
+		}
+		break;
+	case NL_60G_CMD_FW_WMI:
+		if (!tb[WIL_ATTR_60G_BUF]) {
+			wil_err(wil, "Invalid nl_60g_cmd spec\n");
+			return -EINVAL;
+		}
+
+		len = nla_len(tb[WIL_ATTR_60G_BUF]);
+		if (len < offsetof(struct wil_nl_60g_send_receive_wmi, buf)) {
+			wil_err(wil, "wmi cmd buffer too small\n");
+			return -EINVAL;
+		}
+
+		cmd = kmalloc(len, GFP_KERNEL);
+		if (!cmd)
+			return -ENOMEM;
+
+		memcpy(cmd, nla_data(tb[WIL_ATTR_60G_BUF]), (unsigned int)len);
+
+		wil_dbg_wmi(wil, "sending user-space command (0x%04x) [%d]\n",
+			    cmd->cmd_id, cmd->buf_len);
+
+		if (wil->force_wmi_send)
+			rc = wmi_force_send(wil, cmd->cmd_id, cmd->dev_id,
+					    cmd->buf, cmd->buf_len);
+		else
+			rc = wmi_send(wil, cmd->cmd_id, cmd->dev_id,
+				      cmd->buf, cmd->buf_len);
+
+		kfree(cmd);
+		break;
+	default:
+		rc = -EINVAL;
+		wil_err(wil, "invalid nl_60g_cmd type %d", wil_nl_60g_cmd_type);
+	}
+
+	return rc;
+}
+
+void wil_nl_60g_receive_wmi_evt(struct wil6210_priv *wil, u8 *cmd, int len)
+{
+	struct sk_buff *vendor_event = NULL;
+	struct wil_nl_60g_event *evt;
+	struct wil_nl_60g_send_receive_wmi *wmi_buf;
+	struct wmi_cmd_hdr *wmi_hdr = (struct wmi_cmd_hdr *)cmd;
+	int data_len;
+
+	if (!wil->publish_nl_evt)
+		return;
+
+	wil_dbg_wmi(wil, "report wmi event to user-space (0x%04x) [%d]\n",
+		    le16_to_cpu(wmi_hdr->command_id), len);
+
+	data_len = len - sizeof(struct wmi_cmd_hdr);
+
+	evt = kzalloc(sizeof(*evt) + sizeof(*wmi_buf) + data_len, GFP_KERNEL);
+	if (!evt)
+		return;
+
+	evt->evt_type = NL_60G_EVT_FW_WMI;
+	evt->buf_len = sizeof(*wmi_buf) + data_len;
+
+	wmi_buf = (struct wil_nl_60g_send_receive_wmi *)evt->buf;
+
+	wmi_buf->cmd_id = le16_to_cpu(wmi_hdr->command_id);
+	wmi_buf->dev_id = wmi_hdr->mid;
+	wmi_buf->buf_len = data_len;
+	memcpy(wmi_buf->buf, cmd + sizeof(struct wmi_cmd_hdr), data_len);
+
+	vendor_event =
+		cfg80211_vendor_event_alloc(wil_to_wiphy(wil),
+					    NULL,
+					    data_len + 4 + NLMSG_HDRLEN +
+					    sizeof(*evt) + sizeof(*wmi_buf),
+					    QCA_EVENT_UNSPEC_INDEX,
+					    GFP_KERNEL);
+	if (!vendor_event)
+		goto out;
+
+	if (nla_put(vendor_event, WIL_ATTR_60G_BUF,
+		    sizeof(*evt) + sizeof(*wmi_buf) + data_len, evt)) {
+		wil_err(wil, "failed to fill WIL_ATTR_60G_BUF\n");
+		goto out;
+	}
+
+	cfg80211_vendor_event(vendor_event, GFP_KERNEL);
+
+out:
+	kfree(evt);
 }
