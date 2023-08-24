@@ -134,6 +134,7 @@
 | star-r-oss | Mi 11 Lite 5G, Mi 11 Pro, Mi 11 Ultra, MIX FOLD | Android R | LA.UM.9.14.r1-11500-LAHAINA.0 | [star-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/star-r-oss) |  
 | surya-q-oss | Redmi POCO X3 | Android Q | LA.UM.8.9.r1-09300-SM6xx.0 | [surya-q-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/surya-q-oss) |
 | sweet-r-oss | Redmi Note 10 Pro | Android R | LA.UM.9.1.r1-06700-SMxxx0.0-1 | [sweet-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sweet-r-oss) |
+| sweet_k6a-r-oss | Redmi Note 12 Pro | Android R | LA.UM.9.1.r1-06700-SMxxx0.0-1.436288.2.444481.1 |[sweet_k6a-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/sweet_k6a-r-oss) |
 | taoyao-s-oss | Xiaomi 12 Lite | Android S | LA.UM.9.14.r1-18300.05-LAHAINA.QSSI12.0-1 | [taoyao-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/taoyao-s-oss) |
 | thomas-kk-oss | Redmi 2 Standard | Android KK | LNX.LA.3.7.2.1.c6-02400-8x16.0 | [thomas-kk-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/thomas-kk-oss) |
 | tiare-o-oss | Redmi Go | Android O | LA.UM.6.6.r1-09900-89xx.0 | [tiare-o-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/tiare-o-oss) |
