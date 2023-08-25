@@ -71,6 +71,15 @@
 		k = get_next_kvp(k))
 
 
+#ifdef CONFIG_ARM
+#define readq_relaxed(a) ({			\
+	u64 val = readl_relaxed((a) + 4);	\
+	val <<= 32;				\
+	val |=  readl_relaxed((a));		\
+	val;					\
+})
+#endif
+
 /* Debug Definitions */
 enum {
 	MSM_RPM_LOG_REQUEST_PRETTY	= BIT(0),
@@ -1564,7 +1573,7 @@ static int qcom_smd_rpm_probe(struct rpmsg_device *rpdev)
 	int ret = 0;
 	int irq;
 	void __iomem *reg_base;
-	uint32_t version = V0_PROTOCOL_VERSION; /* set to default v0 format */
+	uint64_t version = V0_PROTOCOL_VERSION; /* set to default v0 format */
 
 	p = of_find_compatible_node(NULL, NULL, "qcom,rpm-smd");
 	if (!p) {
@@ -1584,7 +1593,8 @@ static int qcom_smd_rpm_probe(struct rpmsg_device *rpdev)
 	standalone = of_property_read_bool(p, key);
 	if (standalone) {
 		probe_status = ret;
-		goto skip_init;
+		pr_info("RPM running in standalone mode\n");
+		return ret;
 	}
 
 	reg_base = of_iomap(p, 0);
@@ -1639,12 +1649,8 @@ static int qcom_smd_rpm_probe(struct rpmsg_device *rpdev)
 	init_completion(&rpm->ack);
 	spin_lock_init(&msm_rpm_data.smd_lock_write);
 	spin_lock_init(&msm_rpm_data.smd_lock_read);
+	probe_status = 0;
 
-skip_init:
-	probe_status = of_platform_populate(p, NULL, NULL, &rpdev->dev);
-
-	if (standalone)
-		pr_info("RPM running in standalone mode\n");
 fail:
 	return probe_status;
 }
@@ -1667,12 +1673,20 @@ static struct rpmsg_driver qcom_smd_rpm_driver = {
 static int rpm_driver_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct device_node *p = pdev->dev.of_node;
+
+	ret = of_platform_populate(p, NULL, NULL, &pdev->dev);
+	if (ret)
+		return ret;
 
 	ret = register_rpmsg_driver(&qcom_smd_rpm_driver);
-	if (ret)
+	if (ret) {
+		of_platform_depopulate(&pdev->dev);
 		pr_err("register_rpmsg_driver: failed with err %d\n", ret);
+		return ret;
+	}
 
-	return ret;
+	return 0;
 }
 
 static const struct of_device_id rpm_of_match[] = {

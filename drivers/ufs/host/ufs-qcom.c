@@ -31,11 +31,14 @@
 #ifdef CONFIG_SCHED_WALT
 #include <linux/sched/walt.h>
 #endif
+#include <linux/nvmem-consumer.h>
 
 #include <ufs/ufshcd.h>
 #include "ufshcd-pltfrm.h"
 #include <ufs/unipro.h>
 #include "ufs-qcom.h"
+#define CREATE_TRACE_POINTS
+#include "ufs-qcom-trace.h"
 #include <ufs/ufshci.h>
 #include <ufs/ufs_quirks.h>
 #include <ufs/ufshcd-crypto-qti.h>
@@ -78,6 +81,11 @@
 				       ",%d,"fmt, raw_smp_processor_id(), \
 				       ##__VA_ARGS__);	\
 	} while (0)
+
+enum {
+	UFS_QCOM_CMD_SEND,
+	UFS_QCOM_CMD_COMPL,
+};
 
 static char android_boot_dev[ANDROID_BOOT_DEV_MAX];
 
@@ -1028,6 +1036,10 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 	}
 
 	ufs_qcom_log_str(host, "-,%d,%d\n", status, err);
+
+	if (host->dbg_en)
+		trace_ufs_qcom_hce_enable_notify(dev_name(hba->dev), status, err);
+
 	return err;
 }
 
@@ -1416,6 +1428,9 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 
 out:
 	ufs_qcom_log_str(host, "*,%d,%d\n", status, err);
+	if (host->dbg_en)
+		trace_ufs_qcom_link_startup_notify(dev_name(hba->dev), status, err);
+
 	return err;
 }
 
@@ -1489,10 +1504,11 @@ static int ufs_qcom_mod_min_cpufreq(unsigned int cpu, s32 new_val)
 
 static int ufs_qcom_init_cpu_minfreq_req(struct ufs_qcom_host *host)
 {
-	int ret, i;
-	unsigned int cpu;
 	struct cpufreq_policy *policy;
 	struct freq_qos_request *req;
+	unsigned int cpu;
+	int ret = -EINVAL;
+	int i;
 
 	for (i = 0; i < host->num_cpus; i++) {
 		cpu = (unsigned int)host->cpu_info[i].cpu;
@@ -1684,6 +1700,9 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 	ufs_qcom_log_str(host, "&,%d,%d,%d,%d,%d,%d\n",
 			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
 			hba->curr_dev_pwr_mode, err);
+	if (host->dbg_en)
+		trace_ufs_qcom_suspend(dev_name(hba->dev), pm_op, hba->rpm_lvl, hba->spm_lvl,
+				hba->uic_link_state, hba->curr_dev_pwr_mode, err);
 	ufs_qcom_ice_disable(host);
 
 	cancel_dwork_unvote_cpufreq(hba);
@@ -1693,6 +1712,7 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op,
 static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned long flags;
 	int err;
 
 	if (host->vddp_ref_clk && (hba->rpm_lvl > UFS_PM_LVL_3 ||
@@ -1707,9 +1727,26 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	if (err)
 		return err;
 
+	/*
+	 * For targets with Auto-Hibernate disabled, resume with 5ms
+	 * clock gating delay timer, regardless of the current Gear setting.
+	 * This is to prevent ufs remain active longer than necessary
+	 * coming out of resume. The ufs loading will determine when to
+	 * scale the clocks/gear, and in the next clock scaling event,
+	 * the clock gating delay timer will be set accordingly.
+	 */
+	if (host->hw_ver.major == 0x6) {
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		hba->clk_gating.delay_ms = 5;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+	}
+
 	ufs_qcom_log_str(host, "$,%d,%d,%d,%d,%d,%d\n",
 			pm_op, hba->rpm_lvl, hba->spm_lvl, hba->uic_link_state,
 			hba->curr_dev_pwr_mode, err);
+	if (host->dbg_en)
+		trace_ufs_qcom_resume(dev_name(hba->dev), pm_op, hba->rpm_lvl, hba->spm_lvl,
+				hba->uic_link_state, hba->curr_dev_pwr_mode, err);
 	return 0;
 }
 
@@ -2113,6 +2150,27 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 	}
 }
 
+static void ufs_qcom_set_tx_hs_equalizer(struct ufs_hba *hba,
+					 u32 gear, u32 tx_lanes)
+{
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct phy *phy = host->generic_phy;
+	u32 equalizer_val = 0;
+	int ret, i;
+
+	ret = ufs_qcom_phy_get_tx_hs_equalizer(phy, gear, &equalizer_val);
+	if (ret)
+		return;
+
+	for (i = 0; i < tx_lanes; i++) {
+		ret = ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(TX_HS_EQUALIZER, i),
+			equalizer_val);
+		if (ret)
+			dev_err(hba->dev, "%s: failed equalizer lane %d\n",
+				__func__, i);
+	}
+}
+
 static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 				enum ufs_notify_change_status status,
 				struct ufs_pa_layer_attr *dev_max_params,
@@ -2121,7 +2179,7 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 	u32 val;
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
-	struct ufs_qcom_dev_params ufs_qcom_cap;
+struct ufs_qcom_dev_params ufs_qcom_cap;
 	int ret = 0;
 
 	if (!dev_req_params) {
@@ -2179,6 +2237,9 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		}
 		break;
 	case POST_CHANGE:
+		ufs_qcom_set_tx_hs_equalizer(hba,
+			dev_req_params->gear_tx, dev_req_params->lane_tx);
+
 		if (ufs_qcom_cfg_timers(hba, dev_req_params->gear_rx,
 					dev_req_params->pwr_rx,
 					dev_req_params->hs_rate, false)) {
@@ -2214,13 +2275,22 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 	}
 
 out:
-	if (dev_req_params)
+	if (dev_req_params) {
 		ufs_qcom_log_str(host, "@,%d,%d,%d,%d,%d\n", status,
 			dev_req_params->gear_rx, dev_req_params->pwr_rx,
 			dev_req_params->hs_rate, ret);
-	else
+		if (host->dbg_en)
+			trace_ufs_qcom_pwr_change_notify(dev_name(hba->dev),
+				status, dev_req_params->gear_rx,
+				dev_req_params->pwr_rx,
+				dev_req_params->hs_rate, ret);
+	} else {
 		ufs_qcom_log_str(host, "@,%d,%d,%d,%d,%d\n", status,
 			0, 0, 0, ret);
+		if (host->dbg_en)
+			trace_ufs_qcom_pwr_change_notify(dev_name(hba->dev),
+				status, 0, 0, 0, ret);
+	}
 	return ret;
 }
 
@@ -2604,6 +2674,8 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 		break;
 	}
 	ufs_qcom_log_str(host, "#,%d,%d,%d\n", status, on, err);
+	if (host->dbg_en)
+		trace_ufs_qcom_setup_clocks(dev_name(hba->dev), status, on, err);
 
 	return err;
 }
@@ -3899,6 +3971,10 @@ out:
 		ufs_qcom_log_str(host, "^,%d,%d\n", status, err);
 	else
 		ufs_qcom_log_str(host, "v,%d,%d\n", status, err);
+
+	if (host->dbg_en)
+		trace_ufs_qcom_clk_scale_notify(dev_name(hba->dev), status, scale_up, err);
+
 	return err;
 }
 
@@ -4698,6 +4774,9 @@ static struct ufs_dev_quirk ufs_qcom_dev_fixups[] = {
 	{ .wmanufacturerid = UFS_VENDOR_WDC,
 	  .model = UFS_ANY_MODEL,
 	  .quirk = UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE },
+	{ .wmanufacturerid = UFS_VENDOR_TOSHIBA,
+	  .model = UFS_ANY_MODEL,
+	  .quirk = UFS_DEVICE_QUIRK_DELAY_AFTER_LPM },
 	{}
 };
 
@@ -5245,7 +5324,25 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 
 		ufs_qcom_qos(hba, lrbp->task_tag);
 
-		if (is_mcq_enabled(hba)) {
+		if (!is_mcq_enabled(hba)) {
+			ufs_qcom_log_str(host, "<,%x,%d,%x,%d\n",
+							lrbp->cmd->cmnd[0],
+							lrbp->task_tag,
+							ufshcd_readl(hba,
+								REG_UTP_TRANSFER_REQ_DOOR_BELL),
+							sz);
+			if (host->dbg_en)
+				trace_ufs_qcom_command(dev_name(hba->dev), UFS_QCOM_CMD_SEND,
+						lrbp->cmd->cmnd[0],
+						lrbp->task_tag,
+						ufshcd_readl(hba,
+							REG_UTP_TRANSFER_REQ_DOOR_BELL),
+						sz);
+			return;
+		}
+
+		if (rq) {
+			/* The dev cmd would not be logged in MCQ mode provisionally */
 			u32 utag = (rq->mq_hctx->queue_num << BLK_MQ_UNIQUE_TAG_BITS) |
 						(rq->tag & BLK_MQ_UNIQUE_TAG_MASK);
 			u32 idx = blk_mq_unique_tag_to_hwq(utag) + 1;
@@ -5256,13 +5353,12 @@ static void ufs_qcom_hook_send_command(void *param, struct ufs_hba *hba,
 							lrbp->task_tag,
 							hwq->id,
 							sz);
-		} else {
-			ufs_qcom_log_str(host, "<,%x,%d,%x,%d\n",
-							lrbp->cmd->cmnd[0],
-							lrbp->task_tag,
-							ufshcd_readl(hba,
-								REG_UTP_TRANSFER_REQ_DOOR_BELL),
-							sz);
+			if (host->dbg_en)
+				trace_ufs_qcom_command(dev_name(hba->dev), UFS_QCOM_CMD_SEND,
+						lrbp->cmd->cmnd[0],
+						lrbp->task_tag,
+						hwq->id,
+						sz);
 		}
 	}
 }
@@ -5277,7 +5373,25 @@ static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 		struct request *rq = scsi_cmd_to_rq(lrbp->cmd);
 		int sz = rq ? blk_rq_sectors(rq) : 0;
 
-		if (is_mcq_enabled(hba)) {
+		if (!is_mcq_enabled(hba)) {
+			ufs_qcom_log_str(host, ">,%x,%d,%x,%d\n",
+							lrbp->cmd->cmnd[0],
+							lrbp->task_tag,
+							ufshcd_readl(hba,
+								REG_UTP_TRANSFER_REQ_DOOR_BELL),
+							sz);
+			if (host->dbg_en)
+				trace_ufs_qcom_command(dev_name(hba->dev), UFS_QCOM_CMD_COMPL,
+						lrbp->cmd->cmnd[0],
+						lrbp->task_tag,
+						ufshcd_readl(hba,
+							REG_UTP_TRANSFER_REQ_DOOR_BELL),
+						sz);
+			return;
+		}
+
+		if (rq) {
+			/* The dev cmd would not be logged in MCQ mode provisionally */
 			u32 utag = (rq->mq_hctx->queue_num << BLK_MQ_UNIQUE_TAG_BITS) |
 						(rq->tag & BLK_MQ_UNIQUE_TAG_MASK);
 			u32 idx = blk_mq_unique_tag_to_hwq(utag) + 1;
@@ -5288,13 +5402,12 @@ static void ufs_qcom_hook_compl_command(void *param, struct ufs_hba *hba,
 							lrbp->task_tag,
 							hwq->id,
 							sz);
-		} else {
-			ufs_qcom_log_str(host, ">,%x,%d,%x,%d\n",
-							lrbp->cmd->cmnd[0],
-							lrbp->task_tag,
-							ufshcd_readl(hba,
-								REG_UTP_TRANSFER_REQ_DOOR_BELL),
-							sz);
+			if (host->dbg_en)
+				trace_ufs_qcom_command(dev_name(hba->dev), UFS_QCOM_CMD_COMPL,
+						lrbp->cmd->cmnd[0],
+						lrbp->task_tag,
+						hwq->id,
+						sz);
 		}
 	}
 }
@@ -5313,12 +5426,18 @@ static void ufs_qcom_hook_send_uic_command(void *param, struct ufs_hba *hba,
 		c = ucmd->argument3;
 		cmd = ucmd->command;
 		ch = '(';
+		if (host->dbg_en)
+			trace_ufs_qcom_uic(dev_name(hba->dev), UFS_QCOM_CMD_SEND,
+					cmd, a, b, c);
 	} else {
 		a = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_1),
 		b = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_2),
 		c = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_3);
 		cmd = ufshcd_readl(hba, REG_UIC_COMMAND);
 		ch = ')';
+		if (host->dbg_en)
+			trace_ufs_qcom_uic(dev_name(hba->dev), UFS_QCOM_CMD_COMPL,
+					cmd, a, b, c);
 	}
 	ufs_qcom_log_str(host, "%c,%x,%x,%x,%x\n",
 				ch, cmd, a, b, c);
@@ -5335,9 +5454,13 @@ static void ufs_qcom_hook_check_int_errors(void *param, struct ufs_hba *hba,
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
-	if (queue_eh_work)
+	if (queue_eh_work) {
 		ufs_qcom_log_str(host, "_,%x,%x\n",
 					hba->errors, hba->uic_error);
+		if (host->dbg_en)
+			trace_ufs_qcom_hook_check_int_errors(dev_name(hba->dev), hba->errors,
+						hba->uic_error);
+	}
 }
 
 static void ufs_qcom_update_sdev(void *param, struct scsi_device *sdev)
@@ -5385,6 +5508,60 @@ static int ufs_cpufreq_status(void)
 }
 #endif
 
+static bool is_bootdevice_ufs = true;
+
+static bool ufs_qcom_read_boot_config(struct platform_device *pdev)
+{
+	u8 *buf;
+	size_t len;
+	struct nvmem_cell *cell;
+	int boot_device_type, data;
+	struct device *dev = &pdev->dev;
+
+	cell = nvmem_cell_get(dev, "boot_conf");
+	if (IS_ERR(cell)) {
+		dev_warn(dev, "nvmem cell get failed\n");
+		goto ret;
+	}
+	buf = (u8 *)nvmem_cell_read(cell, &len);
+	if (IS_ERR(buf)) {
+		dev_warn(dev, "nvmem cell read failed\n");
+		goto ret_put_nvmem;
+	}
+
+	/**
+	 *  Boot_device_type value is passed from the dtsi node
+	 */
+	if (of_property_read_u32(dev->of_node, "boot_device_type",
+				&boot_device_type)) {
+		dev_warn(dev, "boot_device_type not present\n");
+		goto ret_free_buf;
+	}
+
+	/*
+	 * Storage boot device fuse is present in QFPROM_RAW_OEM_CONFIG_ROW0_LSB
+	 * this fuse is blown by bootloader and pupulated in boot_config
+	 * register[1:5] - hence shift read data by 1 and mask it with 0x1f.
+	 */
+	data = *buf >> 1 & 0x1f;
+
+
+	/**
+	 *  The value in the boot_device_type in dtsi node should match with the
+	 * value read from the register for the probe to continue.
+	 */
+	is_bootdevice_ufs = (data == boot_device_type) ? true : false;
+	if (!is_bootdevice_ufs)
+		dev_err(dev, "boot dev in reg = 0x%x boot dev in dtsi = 0x%x\n",
+				data, boot_device_type);
+
+ret_free_buf:
+	kfree(buf);
+ret_put_nvmem:
+	nvmem_cell_put(cell);
+ret:
+	return is_bootdevice_ufs;
+}
 
 /**
  * ufs_qcom_probe - probe routine of the driver
@@ -5396,7 +5573,11 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 {
 	int err = 0;
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
+
+	if (!ufs_qcom_read_boot_config(pdev)) {
+		dev_err(dev, "UFS is not boot dev.\n");
+		return err;
+	}
 
 	/**
 	 * CPUFreq driver is needed for performance reasons.
@@ -5408,23 +5589,6 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	err = ufs_cpufreq_status();
 	if (err)
 		return err;
-
-	/*
-	 * On qcom platforms, bootdevice is the primary storage
-	 * device. This device can either be eMMC or UFS.
-	 * The type of device connected is detected at runtime.
-	 * So, if an eMMC device is connected, and this function
-	 * is invoked, it would turn-off the regulator if it detects
-	 * that the storage device is not ufs.
-	 * These regulators are turned ON by the bootloaders & turning
-	 * them off without sending PON may damage the connected device.
-	 * Hence, check for the connected device early-on & don't turn-off
-	 * the regulators.
-	 */
-	if (of_property_read_bool(np, "non-removable") &&
-	    strlen(android_boot_dev) &&
-	    strcmp(android_boot_dev, dev_name(dev)))
-		return -ENODEV;
 
 	/* Perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_qcom_vops);
@@ -5443,11 +5607,21 @@ static int ufs_qcom_probe(struct platform_device *pdev)
  */
 static int ufs_qcom_remove(struct platform_device *pdev)
 {
-	struct ufs_hba *hba =  platform_get_drvdata(pdev);
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	struct ufs_qcom_qos_req *r = host->ufs_qos;
-	struct qos_cpu_group *qcg = r->qcg;
+	struct ufs_hba *hba;
+	struct ufs_qcom_host *host;
+	struct ufs_qcom_qos_req *r;
+	struct qos_cpu_group *qcg;
 	int i;
+
+	if (!is_bootdevice_ufs) {
+		dev_info(&pdev->dev, "UFS is not boot dev.\n");
+		return 0;
+	}
+
+	hba =  platform_get_drvdata(pdev);
+	host = ufshcd_get_variant(hba);
+	r = host->ufs_qos;
+	qcg = r->qcg;
 
 	pm_runtime_get_sync(&(pdev)->dev);
 	for (i = 0; i < r->num_groups; i++, qcg++)
@@ -5464,10 +5638,20 @@ static int ufs_qcom_remove(struct platform_device *pdev)
 
 static void ufs_qcom_shutdown(struct platform_device *pdev)
 {
-	struct ufs_hba *hba =  platform_get_drvdata(pdev);
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	struct ufs_hba *hba;
+	struct ufs_qcom_host *host;
+
+	if (!is_bootdevice_ufs) {
+		dev_info(&pdev->dev, "UFS is not boot dev.\n");
+		return;
+	}
+
+	hba =  platform_get_drvdata(pdev);
+	host = ufshcd_get_variant(hba);
 
 	ufs_qcom_log_str(host, "0xdead\n");
+	if (host->dbg_en)
+		trace_ufs_qcom_shutdown(dev_name(hba->dev));
 	ufshcd_pltfrm_shutdown(pdev);
 
 	/* UFS_RESET TLMM register cannot reset to POR value '1' after warm
@@ -5477,6 +5661,80 @@ static void ufs_qcom_shutdown(struct platform_device *pdev)
 	if (!host->bypass_pbl_rst_wa)
 		ufs_qcom_device_reset_ctrl(hba, false);
 }
+
+static int ufs_qcom_system_suspend(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+
+	if (of_property_read_bool(np, "non-removable") && !is_bootdevice_ufs) {
+		dev_info(dev, "UFS is not boot dev.\n");
+		return 0;
+	}
+
+	return ufshcd_system_suspend(dev);
+}
+
+static int ufs_qcom_system_resume(struct device *dev)
+{
+	if (!is_bootdevice_ufs) {
+		dev_info(dev, "UFS is not boot dev.\n");
+		return 0;
+	}
+
+	return ufshcd_system_resume(dev);
+}
+
+#ifdef CONFIG_PM_SLEEP
+static int ufs_qcom_suspend_prepare(struct device *dev)
+{
+	if (!is_bootdevice_ufs) {
+		dev_info(dev, "UFS is not boot dev.\n");
+		return 0;
+	}
+
+	return ufshcd_suspend_prepare(dev);
+}
+
+static void ufs_qcom_resume_complete(struct device *dev)
+{
+	if (!is_bootdevice_ufs) {
+		dev_info(dev, "UFS is not boot dev.\n");
+		return;
+	}
+
+	return ufshcd_resume_complete(dev);
+}
+
+static int ufs_qcom_system_freeze(struct device *dev)
+{
+	if (!is_bootdevice_ufs) {
+		dev_info(dev, "UFS is not boot dev.\n");
+		return 0;
+	}
+
+	return ufshcd_system_freeze(dev);
+}
+
+static int ufs_qcom_system_restore(struct device *dev)
+{
+	if (!is_bootdevice_ufs) {
+		dev_info(dev, "UFS is not boot dev.\n");
+		return 0;
+	}
+
+	return ufshcd_system_restore(dev);
+}
+
+static int ufs_qcom_system_thaw(struct device *dev)
+{
+	if (!is_bootdevice_ufs) {
+		dev_info(dev, "UFS is not boot dev.\n");
+		return 0;
+	}
+
+	return ufshcd_system_thaw(dev);
+}
+#endif
 
 static const struct of_device_id ufs_qcom_of_match[] = {
 	{ .compatible = "qcom,ufshc"},
@@ -5494,14 +5752,14 @@ MODULE_DEVICE_TABLE(acpi, ufs_qcom_acpi_match);
 
 static const struct dev_pm_ops ufs_qcom_pm_ops = {
 	SET_RUNTIME_PM_OPS(ufshcd_runtime_suspend, ufshcd_runtime_resume, NULL)
-	.prepare	 = ufshcd_suspend_prepare,
-	.complete	 = ufshcd_resume_complete,
+	.prepare	 = ufs_qcom_suspend_prepare,
+	.complete	 = ufs_qcom_resume_complete,
 #ifdef CONFIG_PM_SLEEP
-	.suspend         = ufshcd_system_suspend,
-	.resume          = ufshcd_system_resume,
-	.freeze          = ufshcd_system_freeze,
-	.restore         = ufshcd_system_restore,
-	.thaw            = ufshcd_system_thaw,
+	.suspend         = ufs_qcom_system_suspend,
+	.resume          = ufs_qcom_system_resume,
+	.freeze          = ufs_qcom_system_freeze,
+	.restore         = ufs_qcom_system_restore,
+	.thaw            = ufs_qcom_system_thaw,
 #endif
 };
 

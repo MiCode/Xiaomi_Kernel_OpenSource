@@ -214,7 +214,6 @@ void walt_task_dump(struct task_struct *p)
 	SCHED_PRINT(wts->demand);
 	SCHED_PRINT(wts->coloc_demand);
 	SCHED_PRINT(wts->enqueue_after_migration);
-	SCHED_PRINT(wts->last_sleep_ts);
 	SCHED_PRINT(wts->prev_cpu);
 	SCHED_PRINT(wts->new_cpu);
 	SCHED_PRINT(wts->misfit);
@@ -237,8 +236,10 @@ void walt_task_dump(struct task_struct *p)
 	printk_deferred("%s=%u (%s)\n", STRG(wts->prev_window),
 			wts->prev_window, buff);
 
+	SCHED_PRINT(wts->last_sleep_ts);
 	SCHED_PRINT(wts->last_wake_ts);
 	SCHED_PRINT(wts->last_enqueued_ts);
+	SCHED_PRINT(wts->mark_start_birth_ts);
 	SCHED_PRINT(wts->misfit);
 	SCHED_PRINT(wts->unfilter);
 	SCHED_PRINT(is_32bit_thread);
@@ -2347,6 +2348,11 @@ static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int even
 
 done:
 	wts->mark_start = wallclock;
+	if (wts->mark_start > (wts->window_start + sched_ravg_window))
+		WALT_BUG(WALT_BUG_WALT, p,
+			"CPU%d: %s task %s(%d)'s ms=%llu is ahead of ws=%llu by more than 1 window on rq=%d event=%d",
+			raw_smp_processor_id(), __func__, p->comm, p->pid,
+			wts->mark_start, wts->window_start, rq->cpu, event);
 
 	run_walt_irq_work_rollover(old_window_start, rq);
 }
@@ -2424,6 +2430,7 @@ static void init_new_task_load(struct task_struct *p)
 	wts->total_exec = 0;
 	wts->mvp_prio = WALT_NOT_MVP;
 	wts->cidx = 0;
+	wts->mark_start_birth_ts = 0;
 	__sched_fork_init(p);
 	walt_flag_set(p, WALT_INIT, 1);
 }
@@ -2449,8 +2456,15 @@ static void mark_task_starting(struct task_struct *p)
 	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	wallclock = walt_rq_clock(rq);
+	if (wts->mark_start)
+		WALT_BUG(WALT_BUG_WALT, p,
+				"CPU%d: %s task %s(%d)'s ms=%llu is already set!!",
+				raw_smp_processor_id(), __func__, p->comm, p->pid,
+				wts->mark_start);
+
 	wts->mark_start = wts->last_wake_ts = wallclock;
 	wts->last_enqueued_ts = wallclock;
+	wts->mark_start_birth_ts = wallclock;
 	update_task_cpu_cycles(p, cpu_of(rq), wallclock);
 }
 
@@ -3019,7 +3033,8 @@ static void _set_preferred_cluster(struct walt_related_thread_group *grp)
 	update_best_cluster(grp, combined_demand, group_boost);
 
 out:
-	trace_sched_set_preferred_cluster(grp, combined_demand, prev_skip_min);
+	trace_sched_set_preferred_cluster(grp, combined_demand, prev_skip_min,
+			sched_group_upmigrate, sched_group_downmigrate);
 	if (grp->id == DEFAULT_CGROUP_COLOC_ID
 			&& grp->skip_min != prev_skip_min) {
 		if (grp->skip_min)
@@ -5011,7 +5026,7 @@ static void android_vh_scheduler_tick(void *unused, struct rq *rq)
 	walt_lb_tick(rq);
 }
 
-static void android_rvh_schedule(void *unused, struct task_struct *prev,
+static void android_rvh_schedule(void *unused, unsigned int sched_mode, struct task_struct *prev,
 		struct task_struct *next, struct rq *rq)
 {
 	u64 wallclock;

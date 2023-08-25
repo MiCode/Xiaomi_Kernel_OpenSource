@@ -24,6 +24,7 @@ qcom_glink.ko
 qcom_glink_rpm.ko
 qcom_glink_smem.ko
 qcom_hwspinlock.ko
+msm-poweroff.ko
 icc-debug.ko
 icc-rpm.ko
 qnoc-blair.ko
@@ -71,6 +72,7 @@ phy-qcom-ufs-qrbtc-sdm845.ko
 ufs_qcom.ko
 spmi-pmic-arb.ko
 nvmem_qcom-spmi-sdam.ko
+nvmem_qfprom.ko
 debug_symbol.ko
 minidump.ko
 qcom-dcvs.ko
@@ -79,3 +81,5 @@ qcom-pmu-lib.ko
 qcom_llcc_pmu.ko
 cqhci.ko
 sdhci-msm.ko
+gcc-holi.ko
+dispcc-holi.ko
