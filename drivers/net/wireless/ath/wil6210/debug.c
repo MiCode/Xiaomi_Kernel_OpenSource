@@ -36,6 +36,7 @@ void __wil_err_ratelimited(struct wil6210_priv *wil, const char *fmt, ...)
 	va_end(args);
 }
 
+#if defined(CONFIG_WIL6210_DYNAMIC_DEBUG)
 void wil_dbg_ratelimited(const struct wil6210_priv *wil, const char *fmt, ...)
 {
 	struct va_format vaf;
@@ -51,6 +52,7 @@ void wil_dbg_ratelimited(const struct wil6210_priv *wil, const char *fmt, ...)
 	trace_wil6210_log_dbg(&vaf);
 	va_end(args);
 }
+#endif
 
 void __wil_info(struct wil6210_priv *wil, const char *fmt, ...)
 {
