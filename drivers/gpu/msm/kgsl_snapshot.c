@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/notifier.h>
@@ -11,6 +11,7 @@
 
 #include "adreno_cp_parser.h"
 #include "kgsl_device.h"
+#include "kgsl_eventlog.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_snapshot.h"
 #include "kgsl_util.h"
@@ -588,6 +589,9 @@ static void kgsl_device_snapshot_atomic(struct kgsl_device *device)
 	if (device->ftbl->snapshot)
 		device->ftbl->snapshot(device, snapshot, NULL, NULL);
 
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_EVENTLOG,
+		snapshot, kgsl_snapshot_eventlog_buffer, NULL);
+
 	/*
 	 * The timestamp is the seconds since boot so it is easier to match to
 	 * the kernel log
@@ -678,6 +682,9 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	snapshot->sysfs_read = 0;
 
 	device->ftbl->snapshot(device, snapshot, context, context_lpac);
+
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_EVENTLOG,
+		snapshot, kgsl_snapshot_eventlog_buffer, NULL);
 
 	/*
 	 * The timestamp is the seconds since boot so it is easier to match to

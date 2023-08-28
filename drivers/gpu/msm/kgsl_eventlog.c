@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/sched.h>
@@ -10,11 +11,15 @@
 
 #include "kgsl_device.h"
 #include "kgsl_eventlog.h"
+#include "kgsl_snapshot.h"
 #include "kgsl_util.h"
 
 #define EVENTLOG_SIZE SZ_8K
 #define MAGIC 0xabbaabba
 #define LOG_FENCE_NAME_LEN 74
+
+#define KGSL_SNAPSHOT_EVENTLOG_TYPE 0x1
+#define KGSL_SNAPSHOT_EVENTLOG_VERSION 0x0
 
 /*
  * This an internal event used to skip empty space at the bottom of the
@@ -35,10 +40,15 @@ static void *kgsl_eventlog;
 static int eventlog_wptr;
 
 struct kgsl_log_header {
+	/** @magic: Magic value to identify header */
 	u32 magic;
+	/** @pid: : PID of the process */
 	int pid;
+	/** @time: System time in nanoseconds */
 	u64 time;
-	u32 eventid;
+	/** @event: bits[0:15] specify the event ID. bits[16:31] specify event version */
+	u32 event;
+	/** @size: Size of the event data in bytes */
 	u32 size;
 };
 
@@ -50,11 +60,11 @@ static void add_skip_header(u32 offset)
 	header->magic = MAGIC;
 	header->time = local_clock();
 	header->pid = 0;
-	header->eventid = LOG_SKIP;
+	header->event = FIELD_PREP(GENMASK(15, 0), LOG_SKIP);
 	header->size = EVENTLOG_SIZE - sizeof(*header) - offset;
 }
 
-static void *kgsl_eventlog_alloc(u32 eventid, u32 size)
+static void *kgsl_eventlog_alloc(u16 eventid, u32 size)
 {
 	struct kgsl_log_header *header;
 	u32 datasize = size + sizeof(*header);
@@ -80,7 +90,7 @@ static void *kgsl_eventlog_alloc(u32 eventid, u32 size)
 	header->magic = MAGIC;
 	header->time = local_clock();
 	header->pid = current->pid;
-	header->eventid = eventid;
+	header->event = FIELD_PREP(GENMASK(15, 0), eventid);
 	header->size = size;
 
 	return data + sizeof(*header);
@@ -229,4 +239,28 @@ void log_kgsl_timeline_fence_release_event(u32 id, u64 seqno)
 
 	entry->id = id;
 	entry->seqno = seqno;
+}
+
+size_t kgsl_snapshot_eventlog_buffer(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
+{
+	struct kgsl_snapshot_eventlog *hdr =
+		(struct kgsl_snapshot_eventlog *)buf;
+	u32 *data = (u32 *)(buf + sizeof(*hdr));
+
+	if (!kgsl_eventlog)
+		return 0;
+
+	if (remain < EVENTLOG_SIZE + sizeof(*hdr)) {
+		dev_err(device->dev,
+			"snapshot: Not enough memory for eventlog\n");
+		return 0;
+	}
+
+	hdr->size = EVENTLOG_SIZE;
+	hdr->type = KGSL_SNAPSHOT_EVENTLOG_TYPE;
+	hdr->version = KGSL_SNAPSHOT_EVENTLOG_VERSION;
+	memcpy(data, kgsl_eventlog, EVENTLOG_SIZE);
+
+	return EVENTLOG_SIZE + sizeof(*hdr);
 }
