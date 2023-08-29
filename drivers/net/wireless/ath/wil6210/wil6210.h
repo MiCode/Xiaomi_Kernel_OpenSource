@@ -1160,11 +1160,21 @@ void __wil_err_ratelimited(struct wil6210_priv *wil, const char *fmt, ...);
 __printf(2, 3)
 void __wil_info(struct wil6210_priv *wil, const char *fmt, ...);
 __printf(2, 3)
+
+#if defined(CONFIG_WIL6210_DYNAMIC_DEBUG)
 void wil_dbg_ratelimited(const struct wil6210_priv *wil, const char *fmt, ...);
 #define wil_dbg(wil, fmt, arg...) do { \
 	netdev_dbg(wil->main_ndev, fmt, ##arg); \
 	wil_dbg_trace(wil, fmt, ##arg); \
 } while (0)
+#else
+static inline void
+wil_dbg_ratelimited(const struct wil6210_priv *wil, const char *fmt, ...)
+{
+}
+
+#define wil_dbg(wil, fmt, arg...) wil_dbg_trace(wil, fmt, ##arg)
+#endif
 
 #define wil_dbg_irq(wil, fmt, arg...) wil_dbg(wil, "DBG[ IRQ]" fmt, ##arg)
 #define wil_dbg_txrx(wil, fmt, arg...) wil_dbg(wil, "DBG[TXRX]" fmt, ##arg)

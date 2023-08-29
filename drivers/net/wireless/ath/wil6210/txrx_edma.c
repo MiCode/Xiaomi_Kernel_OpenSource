@@ -996,6 +996,24 @@ static int wil_rx_error_check_edma(struct wil6210_priv *wil,
 	return 0;
 }
 
+#if defined(CONFIG_MULTI_PACKET_EOP)
+static bool wil_skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+				 bool *headstolen, int *delta_truesize)
+{
+	if (likely(skb_try_coalesce(to, from, headstolen, delta_truesize))) {
+		kfree_skb_partial(from, *headstolen);
+		return true;
+	}
+	return false;
+}
+#else
+static bool wil_skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+				 bool *headstolen, int *delta_truesize)
+{
+	return false;
+}
+#endif
+
 static struct sk_buff *wil_sring_reap_rx_edma(struct wil6210_priv *wil,
 					      struct wil_status_ring *sring)
 {
@@ -1150,10 +1168,8 @@ skipping:
 	if (!rxdata->skb) {
 		rxdata->skb = skb;
 	} else {
-		if (likely(skb_try_coalesce(rxdata->skb, skb, &headstolen,
-					    &delta))) {
-			kfree_skb_partial(skb, headstolen);
-		} else {
+		if (likely(!wil_skb_try_coalesce(rxdata->skb, skb, &headstolen,
+						 &delta))) {
 			wil_err(wil, "failed to merge skbs!\n");
 			kfree_skb(skb);
 			kfree_skb(rxdata->skb);
