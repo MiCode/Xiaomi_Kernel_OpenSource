@@ -1237,6 +1237,14 @@ static void __ref do_core_ctl(void)
 
 	core_ctl_pause_cpus(&cpus_to_pause);
 	core_ctl_resume_cpus(&cpus_to_unpause);
+
+	/* Update the final active cpus after the real resume and
+	 * pause actions.
+	 */
+	index = 0;
+	for_each_cluster(cluster, index) {
+		cluster->active_cpus = get_active_cpu_count(cluster);
+	}
 }
 
 static int __ref try_core_ctl(void *data)
