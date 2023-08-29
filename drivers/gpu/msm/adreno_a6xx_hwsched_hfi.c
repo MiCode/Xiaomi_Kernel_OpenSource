@@ -621,7 +621,7 @@ static int check_ack_failure(struct adreno_device *adreno_dev,
 	return -EINVAL;
 }
 
-int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data)
+int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data, u32 size_bytes)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct a6xx_hwsched_hfi *hfi = to_a6xx_hwsched_hfi(adreno_dev);
@@ -634,7 +634,7 @@ int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data)
 
 	add_waiter(hfi, *cmd, &pending_ack);
 
-	rc = a6xx_hfi_cmdq_write(adreno_dev, cmd);
+	rc = a6xx_hfi_cmdq_write(adreno_dev, cmd, size_bytes);
 	if (rc)
 		goto done;
 
@@ -938,12 +938,12 @@ static int mem_alloc_reply(struct adreno_device *adreno_dev, void *rcvd)
 
 	memcpy(&out.desc, &desc, sizeof(out.desc));
 
-	out.hdr = ACK_MSG_HDR(F2H_MSG_MEM_ALLOC, sizeof(out));
+	out.hdr = ACK_MSG_HDR(F2H_MSG_MEM_ALLOC);
 	out.hdr = MSG_HDR_SET_SEQNUM(out.hdr,
 			atomic_inc_return(&gmu->hfi.seqnum));
 	out.req_hdr = *(u32 *)rcvd;
 
-	return a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&out);
+	return a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&out, sizeof(out));
 }
 
 static int send_start_msg(struct adreno_device *adreno_dev)
@@ -964,7 +964,7 @@ static int send_start_msg(struct adreno_device *adreno_dev)
 
 	pending_ack.sent_hdr = cmd.hdr;
 
-	rc = a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&cmd);
+	rc = a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&cmd, sizeof(cmd));
 	if (rc)
 		return rc;
 
@@ -1145,11 +1145,12 @@ int a6xx_hwsched_hfi_start(struct adreno_device *adreno_dev)
 	if (ret)
 		goto err;
 
-	ret = a6xx_hfi_send_generic_req(adreno_dev, &gmu->hfi.dcvs_table);
+	ret = a6xx_hfi_send_generic_req(adreno_dev, &gmu->hfi.dcvs_table,
+		sizeof(gmu->hfi.dcvs_table));
 	if (ret)
 		goto err;
 
-	ret = a6xx_hfi_send_generic_req(adreno_dev, &gmu->hfi.bw_table);
+	ret = a6xx_hfi_send_generic_req(adreno_dev, &gmu->hfi.bw_table, sizeof(gmu->hfi.bw_table));
 	if (ret)
 		goto err;
 
@@ -1231,12 +1232,12 @@ err:
 	return ret;
 }
 
-static int submit_raw_cmds(struct adreno_device *adreno_dev, void *cmds,
+static int submit_raw_cmds(struct adreno_device *adreno_dev, void *cmds, u32 size_bytes,
 	const char *str)
 {
 	int ret;
 
-	ret = a6xx_hfi_send_cmd_async(adreno_dev, cmds);
+	ret = a6xx_hfi_send_cmd_async(adreno_dev, cmds, size_bytes);
 	if (ret)
 		return ret;
 
@@ -1252,12 +1253,11 @@ static int cp_init(struct adreno_device *adreno_dev)
 {
 	u32 cmds[A6XX_CP_INIT_DWORDS + 1];
 
-	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW,
-		(A6XX_CP_INIT_DWORDS + 1) << 2, HFI_MSG_CMD);
+	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW, HFI_MSG_CMD);
 
 	a6xx_cp_init_cmds(adreno_dev, &cmds[1]);
 
-	return submit_raw_cmds(adreno_dev, cmds,
+	return submit_raw_cmds(adreno_dev, cmds, sizeof(cmds),
 			"CP initialization failed to idle\n");
 }
 
@@ -1265,13 +1265,12 @@ static int send_switch_to_unsecure(struct adreno_device *adreno_dev)
 {
 	u32 cmds[3];
 
-	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW, sizeof(cmds),
-			HFI_MSG_CMD);
+	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW, HFI_MSG_CMD);
 
 	cmds[1] = cp_type7_packet(CP_SET_SECURE_MODE, 1);
 	cmds[2] = 0;
 
-	return  submit_raw_cmds(adreno_dev, cmds,
+	return  submit_raw_cmds(adreno_dev, cmds, sizeof(cmds),
 			"Switch to unsecure failed to idle\n");
 }
 
@@ -1317,14 +1316,13 @@ int a6xx_hwsched_counter_inline_enable(struct adreno_device *adreno_dev,
 	if (group->flags & ADRENO_PERFCOUNTER_GROUP_RESTORE)
 		a6xx_perfcounter_update(adreno_dev, reg, false);
 
-	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW,
-		(A6XX_PERF_COUNTER_ENABLE_DWORDS + 1) << 2, HFI_MSG_CMD);
+	cmds[0] = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD_RAW, HFI_MSG_CMD);
 
 	cmds[1] = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
 	cmds[2] = cp_type4_packet(reg->select, 1);
 	cmds[3] = countable;
 
-	ret = a6xx_hfi_send_cmd_async(adreno_dev, cmds);
+	ret = a6xx_hfi_send_cmd_async(adreno_dev, cmds, sizeof(cmds));
 	if (ret)
 		goto err;
 
@@ -1517,7 +1515,7 @@ static int send_context_register(struct adreno_device *adreno_dev,
 	cmd.ctxt_idr = pid_nr(context->proc_priv->pid);
 	cmd.ctxt_bank = kgsl_mmu_pagetable_get_context_bank(pt, context);
 
-	return a6xx_hfi_send_cmd_async(adreno_dev, &cmd);
+	return a6xx_hfi_send_cmd_async(adreno_dev, &cmd, sizeof(cmd));
 }
 
 static int send_context_pointers(struct adreno_device *adreno_dev,
@@ -1538,7 +1536,7 @@ static int send_context_pointers(struct adreno_device *adreno_dev,
 		cmd.user_ctxt_record_addr =
 			context->user_ctxt_record->memdesc.gpuaddr;
 
-	return a6xx_hfi_send_cmd_async(adreno_dev, &cmd);
+	return a6xx_hfi_send_cmd_async(adreno_dev, &cmd, sizeof(cmd));
 }
 
 static int hfi_context_register(struct adreno_device *adreno_dev,
@@ -1616,18 +1614,19 @@ static void populate_ibs(struct adreno_device *adreno_dev,
 
 /* Size in below functions are in unit of dwords */
 static int a6xx_hfi_dispatch_queue_write(struct adreno_device *adreno_dev, uint32_t queue_idx,
-	uint32_t *msg, struct kgsl_drawobj_cmd *cmdobj, struct adreno_submit_time *time)
+	uint32_t *msg, u32 size_bytes, struct kgsl_drawobj_cmd *cmdobj,
+	struct adreno_submit_time *time)
 {
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct hfi_queue_table *tbl = gmu->hfi.hfi_mem->hostptr;
 	struct hfi_queue_header *hdr = &tbl->qhdr[queue_idx];
 	uint32_t *queue;
 	uint32_t i, write, empty_space;
-	uint32_t size = MSG_HDR_GET_SIZE(*msg);
-	u32 align_size = ALIGN(size, SZ_4);
+	uint32_t size_dwords = size_bytes >> 2;
+	u32 align_size = ALIGN(size_dwords, SZ_4);
 	uint32_t id = MSG_HDR_GET_ID(*msg);
 
-	if (hdr->status == HFI_QUEUE_STATUS_DISABLED)
+	if (hdr->status == HFI_QUEUE_STATUS_DISABLED || !IS_ALIGNED(size_bytes, sizeof(u32)))
 		return -EINVAL;
 
 	queue = HOST_QUEUE_START_ADDR(gmu->hfi.hfi_mem, queue_idx);
@@ -1639,9 +1638,11 @@ static int a6xx_hfi_dispatch_queue_write(struct adreno_device *adreno_dev, uint3
 	if (empty_space <= align_size)
 		return -ENOSPC;
 
+	*msg = MSG_HDR_SET_SIZE(*msg, size_dwords);
+
 	write = hdr->write_index;
 
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < size_dwords; i++) {
 		queue[write] = msg[i];
 		write = (write + 1) % hdr->queue_size;
 	}
@@ -1667,7 +1668,7 @@ static int a6xx_hfi_dispatch_queue_write(struct adreno_device *adreno_dev, uint3
 	 */
 	adreno_profile_submit_time(time);
 
-	trace_kgsl_hfi_send(id, size, MSG_HDR_GET_SEQNUM(*msg));
+	trace_kgsl_hfi_send(id, size_dwords, MSG_HDR_GET_SEQNUM(*msg));
 
 	hfi_update_write_idx(&hdr->write_index, write);
 
@@ -1743,14 +1744,13 @@ int a6xx_hwsched_submit_drawobj(struct adreno_device *adreno_dev,
 skipib:
 	adreno_drawobj_set_constraint(KGSL_DEVICE(adreno_dev), drawobj);
 
-	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD, cmd_sizebytes,
-			HFI_MSG_CMD);
+	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ISSUE_CMD, HFI_MSG_CMD);
 	cmd->hdr = MSG_HDR_SET_SEQNUM(cmd->hdr,
 			atomic_inc_return(&hfi->seqnum));
 
 	ret = a6xx_hfi_dispatch_queue_write(adreno_dev,
 		HFI_DSP_ID_0 + drawobj->context->gmu_dispatch_queue,
-		(u32 *)cmd, cmdobj, &time);
+		(u32 *)cmd, cmd_sizebytes, cmdobj, &time);
 	if (ret)
 		return ret;
 
@@ -1823,12 +1823,11 @@ int a6xx_hwsched_send_recurring_cmdobj(struct adreno_device *adreno_dev,
 		return ret;
 	}
 
-	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ISSUE_RECURRING_CMD,
-				cmd_sizebytes, HFI_MSG_CMD);
+	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ISSUE_RECURRING_CMD, HFI_MSG_CMD);
 	cmd->hdr = MSG_HDR_SET_SEQNUM(cmd->hdr,
 			atomic_inc_return(&hfi->seqnum));
 
-	ret = a6xx_hfi_send_cmd_async(adreno_dev, cmd);
+	ret = a6xx_hfi_send_cmd_async(adreno_dev, cmd, cmd_sizebytes);
 
 	kfree(cmd);
 
@@ -1890,7 +1889,7 @@ static int send_context_unregister_hfi(struct adreno_device *adreno_dev,
 	 */
 	a6xx_hwsched_active_count_get(adreno_dev);
 
-	rc = a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&cmd);
+	rc = a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&cmd, sizeof(cmd));
 	if (rc)
 		goto done;
 
@@ -1984,7 +1983,7 @@ u32 a6xx_hwsched_preempt_count_get(struct adreno_device *adreno_dev)
 
 	add_waiter(hfi, cmd.hdr, &pending_ack);
 
-	rc = a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&cmd);
+	rc = a6xx_hfi_cmdq_write(adreno_dev, (u32 *)&cmd, sizeof(cmd));
 	if (rc)
 		goto done;
 
