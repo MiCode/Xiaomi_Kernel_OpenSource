@@ -22,6 +22,7 @@
 #define WIL_BOARD_FILE_MAX_NAMELEN 128
 #define WIL6210_ITR_VR_RX_MAX_BURST_DURATION (5) /* usec */
 #define WIL6210_VR_TX_RING_ORDER 10
+#define WIL6210_VR_AGG_WSIZE 16
 
 bool debug_fw; /* = false; */
 module_param(debug_fw, bool, 0444);
@@ -181,7 +182,8 @@ void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
 	}
 }
 
-/* Device memory access is prohibited while reset or suspend.
+/* Device memory access is prohibited while reset, suspend or
+ * pci linkdown.
  * wil_mem_access_lock protects accessing device memory in these cases
  */
 int wil_mem_access_lock(struct wil6210_priv *wil)
@@ -190,7 +192,8 @@ int wil_mem_access_lock(struct wil6210_priv *wil)
 		return -EBUSY;
 
 	if (test_bit(wil_status_suspending, wil->status) ||
-	    test_bit(wil_status_suspended, wil->status)) {
+	    test_bit(wil_status_suspended, wil->status) ||
+	    test_bit(wil_status_pci_linkdown, wil->status)) {
 		up_read(&wil->mem_lock);
 		return -EBUSY;
 	}
@@ -617,6 +620,12 @@ static void wil_fw_error_worker(struct work_struct *work)
 	struct net_device *ndev = wil->main_ndev;
 
 	wil_dbg_misc(wil, "fw error worker\n");
+	if (wil->fw_state == WIL_FW_STATE_READY)
+		wil_nl_60g_fw_state_change(wil,
+					   WIL_FW_STATE_ERROR);
+	else
+		wil_nl_60g_fw_state_change(wil,
+					   WIL_FW_STATE_ERROR_BEFORE_READY);
 
 	if (!ndev || !(ndev->flags & IFF_UP)) {
 		wil_info(wil, "No recovery - interface is down\n");
@@ -802,6 +811,8 @@ int wil_priv_init(struct wil6210_priv *wil)
 	wil->rx_buff_id_count = WIL_RX_BUFF_ARR_SIZE_DEFAULT;
 
 	wil->amsdu_en = true;
+	wil->fw_state = WIL_FW_STATE_DOWN;
+	wil->max_mcs = 0;
 
 	return 0;
 
@@ -1512,6 +1523,7 @@ static int wil_wait_for_fw_ready(struct wil6210_priv *wil)
 	} else {
 		wil_info(wil, "FW ready after %d ms. HW version 0x%08x\n",
 			 jiffies_to_msecs(to-left), wil->hw_version);
+		wil_nl_60g_fw_state_change(wil, WIL_FW_STATE_READY);
 	}
 	return 0;
 }
@@ -1592,6 +1604,7 @@ int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
 		drop_if_ring_full = false;
 		wil->rx_max_burst_duration =
 			WIL6210_ITR_RX_MAX_BURST_DURATION_DEFAULT;
+		agg_wsize = 0;
 
 		return 0;
 	}
@@ -1601,10 +1614,12 @@ int wil_vr_update_profile(struct wil6210_priv *wil, u8 profile)
 		return rc;
 
 	/* VR default configuration */
-	wil->ps_profile = WMI_PS_PROFILE_TYPE_PS_DISABLED;
+	if (profile != WMI_VR_PROFILE_COMMON_STA_PS)
+		wil->ps_profile = WMI_PS_PROFILE_TYPE_PS_DISABLED;
 	tx_ring_order = WIL6210_VR_TX_RING_ORDER;
 	drop_if_ring_full = true;
 	wil->rx_max_burst_duration = WIL6210_ITR_VR_RX_MAX_BURST_DURATION;
+	agg_wsize = WIL6210_VR_AGG_WSIZE;
 
 	return 0;
 }
@@ -1707,6 +1722,7 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 
 		ether_addr_copy(ndev->perm_addr, mac);
 		ether_addr_copy(ndev->dev_addr, ndev->perm_addr);
+		wil->fw_state = WIL_FW_STATE_UNKNOWN;
 		return 0;
 	}
 
@@ -1741,6 +1757,7 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 				rc);
 	}
 
+	wil_nl_60g_fw_state_change(wil, WIL_FW_STATE_DOWN);
 	set_bit(wil_status_resetting, wil->status);
 	mutex_lock(&wil->vif_mutex);
 	wil_abort_scan_all_vifs(wil, false);
@@ -1902,6 +1919,10 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 			wmi_set_tof_tx_rx_offset(wil, ftm->tx_offset,
 						 ftm->rx_offset);
 		}
+
+		wil->tx_reserved_entries = ((drop_if_ring_full || ac_queues) ?
+					    WIL_DEFAULT_TX_RESERVED_ENTRIES :
+					    0);
 
 		if (wil->platform_ops.notify) {
 			rc = wil->platform_ops.notify(wil->platform_handle,
@@ -2088,13 +2109,13 @@ void wil_halp_vote(struct wil6210_priv *wil)
 	if (++wil->halp.ref_cnt == 1) {
 		reinit_completion(&wil->halp.comp);
 		/* mark to IRQ context to handle HALP ICR */
-		wil->halp.handle_icr = true;
+		atomic_set(&wil->halp.handle_icr, 1);
 		wil6210_set_halp(wil);
 		rc = wait_for_completion_timeout(&wil->halp.comp, to_jiffies);
 		if (!rc) {
 			wil_err(wil, "HALP vote timed out\n");
 			/* Mask HALP as done in case the interrupt is raised */
-			wil->halp.handle_icr = false;
+			atomic_set(&wil->halp.handle_icr, 0);
 			wil6210_mask_halp(wil);
 		} else {
 			wil_dbg_irq(wil,

@@ -20,9 +20,9 @@ MODULE_PARM_DESC(alt_ifname,
 		 " use an alternate interface name wigigN instead of wlanN");
 
 /* enable access category for transmit packets, this parameter may be controlled
- * via wigig.ini config file, default disabled
+ * via wigig.ini config file, default enabled
  */
-bool ac_queues;
+bool ac_queues = true;
 
 bool wil_has_other_active_ifaces(struct wil6210_priv *wil,
 				 struct net_device *ndev, bool up, bool ok)
@@ -122,8 +122,13 @@ static u16 wil_select_queue(struct net_device *ndev,
 		return 0;
 
 	/* determine the priority */
-	if (skb->priority == 0 || skb->priority > 7)
+	if (wil_is_special_packet(skb))
+		return 7;
+	else if (skb->priority == 0 || skb->priority > 7)
 		skb->priority = cfg80211_classify8021d(skb, NULL);
+
+	if (unlikely(skb->priority >= ARRAY_SIZE(wil_1d_to_queue)))
+		skb->priority = 0;
 
 	qid = wil_1d_to_queue[skb->priority];
 

@@ -184,10 +184,11 @@ static int wil_ring_alloc_skb_edma(struct wil6210_priv *wil,
 		return -EAGAIN;
 	}
 
-	skb = dev_alloc_skb(sz);
+	skb = dev_alloc_skb(sz + headroom_size);
 	if (unlikely(!skb))
 		return -ENOMEM;
 
+	skb_reserve(skb, headroom_size);
 	skb_put(skb, sz);
 
 	/**
@@ -746,7 +747,7 @@ static int wil_ring_init_tx_edma(struct wil6210_vif *vif, int ring_id,
 		     "init TX ring: ring_id=%u, cid=%u, tid=%u, sring_id=%u\n",
 		     ring_id, cid, tid, wil->tx_sring_idx);
 
-	wil_tx_data_init(txdata);
+	wil_tx_data_init(wil, txdata);
 	ring->size = size;
 	rc = wil_ring_alloc_desc_ring(wil, ring, true);
 	if (rc)
@@ -1319,6 +1320,26 @@ wil_get_next_tx_status_msg(struct wil_status_ring *sring, u8 *dr_bit,
 	*msg = *_msg;
 }
 
+static inline void wil_dump_tx_status(struct wil6210_priv *wil,
+				      struct wil_ring_tx_status *msg)
+{
+	wil_err(wil,
+		"Status Msg: num_desc: %d, ring_id: %d, status: %d, desc_ready: %d, timestamp: 0x%x, d2: 0x%x, seq_num: 0x%x, w7: 0x%x\n",
+		msg->num_descriptors, msg->ring_id, msg->status,
+		msg->desc_ready, msg->timestamp, msg->d2, msg->seq_number,
+		msg->w7);
+}
+
+static inline void
+wil_tx_latency_calc_edma(struct wil6210_priv *wil,
+			 struct sk_buff *skb,
+			 struct wil_sta_info *sta,
+			 struct wil_ring_tx_status *msg)
+{
+	if (wil_tx_latency_calc_common(wil, skb, sta))
+		wil_dump_tx_status(wil, msg);
+}
+
 /* Clean up transmitted skb's from the Tx descriptor RING.
  * Return number of descriptors cleared.
  */
@@ -1410,6 +1431,9 @@ int wil_tx_sring_handler(struct wil6210_priv *wil,
 					  (const void *)&msg, sizeof(msg),
 					  false);
 
+			if (ctx->flags & WIL_CTX_FLAG_RESERVED_USED)
+				txdata->tx_reserved_count++;
+
 			wil_tx_desc_unmap_edma(dev,
 					       (union wil_tx_desc *)d,
 					       ctx);
@@ -1419,11 +1443,16 @@ int wil_tx_sring_handler(struct wil6210_priv *wil,
 					ndev->stats.tx_packets++;
 					ndev->stats.tx_bytes += skb->len;
 					if (stats) {
+						struct wil_sta_info *sta;
+
 						stats->tx_packets++;
 						stats->tx_bytes += skb->len;
+						sta = &wil->sta[cid];
 
-						wil_tx_latency_calc(wil, skb,
-							&wil->sta[cid]);
+						wil_tx_latency_calc_edma(wil,
+									 skb,
+									 sta,
+									 &msg);
 					}
 				} else {
 					ndev->stats.tx_errors++;
@@ -1575,7 +1604,7 @@ static int __wil_tx_ring_tso_edma(struct wil6210_priv *wil,
 	struct wil_ring_tx_data *txdata = &wil->ring_tx_data[ring_index];
 	int nr_frags = skb_shinfo(skb)->nr_frags;
 	int min_desc_required = nr_frags + 2; /* Headers, Head, Fragments */
-	int used, avail = wil_ring_avail_tx(ring);
+	int used, avail = wil_ring_avail_tx(ring) - txdata->tx_reserved_count;
 	int f, hdrlen, headlen;
 	int gso_type;
 	bool is_ipv4;
@@ -1737,7 +1766,7 @@ static int wil_ring_init_bcast_edma(struct wil6210_vif *vif, int ring_id,
 		wil_ipa_set_bcast_sring_id(wil, sring_id);
 	}
 
-	wil_tx_data_init(txdata);
+	wil_tx_data_init(wil, txdata);
 	ring->size = size;
 	ring->is_rx = false;
 	rc = wil_ring_alloc_desc_ring(wil, ring, true);

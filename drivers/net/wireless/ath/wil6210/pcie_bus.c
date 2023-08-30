@@ -387,6 +387,13 @@ static int wil_platform_rop_notify(void *wil_handle,
 		set_bit(wil_status_resetting, wil->status);
 		set_bit(wil_status_pci_linkdown, wil->status);
 
+		if (wil->fw_state == WIL_FW_STATE_READY)
+			wil_nl_60g_fw_state_change(wil,
+						   WIL_FW_STATE_ERROR);
+		else
+			wil_nl_60g_fw_state_change(wil,
+					WIL_FW_STATE_ERROR_BEFORE_READY);
+
 		schedule_work(&wil->pci_linkdown_recovery_worker);
 		break;
 	default:

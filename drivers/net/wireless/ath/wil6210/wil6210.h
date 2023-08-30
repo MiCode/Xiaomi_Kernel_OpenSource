@@ -41,6 +41,7 @@ extern bool ac_queues;
 extern uint rx_ring_order;
 extern uint tx_ring_order;
 extern uint bcast_ring_order;
+extern ushort headroom_size;
 
 struct wil6210_priv;
 struct wil6210_vif;
@@ -105,6 +106,8 @@ static inline u32 WIL_GET_BITS(u32 x, int b0, int b1)
 #define WIL_MAX_AGG_WSIZE_64	(64) /* FW/HW limit */
 #define WIL6210_MAX_STATUS_RINGS	(8)
 #define WIL_WMI_CALL_GENERAL_TO_MS 100
+#define WIL_DEFAULT_TX_RESERVED_ENTRIES (16)
+#define WIL6210_MAX_HEADROOM_SIZE      (256)
 
 /* Hardware offload block adds the following:
  * 26 bytes - 3-address QoS data header
@@ -328,8 +331,14 @@ struct RGF_ICR {
 #define RGF_PAL_UNIT_ICR		(0x88266c) /* struct RGF_ICR */
 #define RGF_PCIE_LOS_COUNTER_CTL	(0x882dc4)
 
+#define	RGF_MAC_PMC_GENERAL_0		(0x88607c)
+	#define	BIT_STOP_PMC_RECORDING		BIT(17)
+
 /* MAC timer, usec, for packet lifetime */
 #define RGF_MAC_MTRL_COUNTER_0		(0x886aa8)
+
+#define	RGF_MSRB_CAPTURE_TS_LOW		(0x886eb8)
+#define	RGF_MSRB_CAPTURE_TS_HIGH	(0x886ebc)
 
 #define RGF_CAF_ICR_TALYN_MB		(0x8893d4) /* struct RGF_ICR */
 #define RGF_CAF_ICR			(0x88946c) /* struct RGF_ICR */
@@ -514,6 +523,9 @@ enum { /* for wil_ctx.mapped_as */
 	wil_mapped_as_page = 2,
 };
 
+/* for wil_ctx.flags */
+#define WIL_CTX_FLAG_RESERVED_USED 0x01
+
 /**
  * struct wil_ctx - software context for ring descriptor
  */
@@ -655,6 +667,9 @@ struct wil_ring_tx_data {
 	bool addba_in_progress; /* if set, agg_xxx is for request in progress */
 	u8 mid;
 	spinlock_t lock;
+	u32 tx_reserved_count; /* available reserved tx entries */
+	u32 tx_reserved_count_used;
+	u32 tx_reserved_count_not_avail;
 };
 
 enum { /* for wil6210_priv.status */
@@ -812,7 +827,7 @@ struct wil_halp {
 	struct mutex		lock; /* protect halp ref_cnt */
 	unsigned int		ref_cnt;
 	struct completion	comp;
-	u8			handle_icr;
+	atomic_t		handle_icr;
 };
 
 struct wil_blob_wrapper {
@@ -946,6 +961,25 @@ struct wil_ftm_offsets {
 	unsigned int tx_offset;
 	unsigned int rx_offset;
 };
+
+enum wil_fw_state {
+	/* When driver loaded with debug_fw the FW state is unknown */
+	WIL_FW_STATE_UNKNOWN,
+	WIL_FW_STATE_DOWN, /* FW not loaded or not ready yet */
+	WIL_FW_STATE_READY,/* FW is ready*/
+	/* Detected FW error before FW sent ready indication */
+	WIL_FW_STATE_ERROR_BEFORE_READY,
+	/* Detected FW error after FW sent ready indication */
+	WIL_FW_STATE_ERROR,
+};
+
+/* Used for tx latency debugging */
+struct wil_tx_latency_threshold_info {
+	u32 threshold_detected;
+	u32 rx_intr_cnt;
+	u32 tx_intr_cnt;
+	u32 hard_irq_cnt;
+} __packed;
 
 struct wil6210_priv {
 	struct pci_dev *pdev;
@@ -1116,8 +1150,22 @@ struct wil6210_priv {
 	u8 multicast_to_unicast;
 	s32 cqm_rssi_thold;
 
+	enum wil_fw_state fw_state;
 	struct work_struct pci_linkdown_recovery_worker;
 	void *ipa_handle;
+
+	u32 tx_reserved_entries; /* Used only in Talyn code-path */
+
+	/* For now, this applies to VR mode only. Can be extended
+	 * in the future to apply also to other modes.
+	 */
+	u8 max_mcs;
+
+	/* Tx latency debugging */
+	u32 tx_latency_threshold_low;
+	u32 tx_latency_threshold_high;
+	struct wil_tx_latency_threshold_info tx_latency_threshold_info;
+	u32 tx_latency_threshold_base;
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1260,6 +1308,12 @@ void wil_hex_dump_misc(const char *prefix_str, int prefix_type, int rowsize,
 }
 #endif /* defined(CONFIG_DYNAMIC_DEBUG) */
 
+static inline bool wil_tx_latency_threshold_enabled(struct wil6210_priv *wil)
+{
+	return (wil->tx_latency_threshold_base &&
+		wil->tx_latency_threshold_low);
+}
+
 void wil_memcpy_fromio_32(void *dst, const volatile void __iomem *src,
 			  size_t count);
 void wil_memcpy_toio_32(volatile void __iomem *dst, const void *src,
@@ -1395,6 +1449,9 @@ int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 			 struct cfg80211_mgmt_tx_params *params,
 			 u64 *cookie);
 void wil_cfg80211_ap_recovery(struct wil6210_priv *wil);
+
+void wil_nl_60g_fw_state_change(struct wil6210_priv *wil,
+				enum wil_fw_state fw_state);
 int wil_cfg80211_iface_combinations_from_fw(
 	struct wil6210_priv *wil,
 	const struct wil_fw_record_concurrency *conc);
@@ -1571,4 +1628,7 @@ void wil_clear_fw_log_addr(struct wil6210_priv *wil);
 int wmi_set_cqm_rssi_config(struct wil6210_priv *wil,
 			    s32 rssi_thold, u32 rssi_hyst);
 void wil_sta_info_amsdu_init(struct wil_sta_info *sta);
+int wmi_set_fst_config(struct wil6210_priv *wil, const u8 *bssid, u8 enabled,
+		       u8 entry_mcs, u8 exit_mcs, u8 slevel);
+int wmi_ut_update_txlatency_base(struct wil6210_priv *wil);
 #endif /* __WIL6210_H__ */
