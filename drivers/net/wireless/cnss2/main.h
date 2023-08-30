@@ -73,6 +73,7 @@ struct cnss_vreg_cfg {
 	u32 load_ua;
 	u32 delay_us;
 	u32 need_unvote;
+	u32 is_supported;
 };
 
 struct cnss_vreg_info {
