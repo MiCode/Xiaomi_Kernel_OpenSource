@@ -158,4 +158,11 @@ config USB_DWC3_IMX8MP
 	  functionality.
 	  Say 'Y' or 'M' if you have one such device.
 
+config ADD_PS5169_REDRIVER
+	tristate "Add ps5169 function"
+	depends on I2C
+	help
+	  If you're using the DesignWare Core IP with a Add ps5169 function
+	  platform, please say 'Y' or 'M' here.
+
 endif

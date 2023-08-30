@@ -98,8 +98,15 @@ config TYPEC_QCOM_PMIC
 	  It will also enable the VBUS output to connected devices when a
 	  DFP connection is made.
 
+config  XM_USB_PDPHY
+	tristate "Xiaomi usb pdphy config"
+	help
+	  Say Y or M here to enable xiaomi usb pdphy
+
 source "drivers/usb/typec/mux/Kconfig"
 
 source "drivers/usb/typec/altmodes/Kconfig"
+
+source "drivers/usb/typec/platform/external/tcpc/Kconfig"
 
 endif # TYPEC

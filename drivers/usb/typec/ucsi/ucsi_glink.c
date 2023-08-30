@@ -20,6 +20,10 @@
 
 #include "ucsi.h"
 
+#ifdef CONFIG_ADD_PS5169_REDRIVER
+#include "../../redriver/ps5169.h"
+#endif
+
 /* PPM specific definitions */
 #define MSG_OWNER_UC			32779
 #define MSG_TYPE_REQ_RESP		1
@@ -416,6 +420,10 @@ static void ucsi_qti_notify_work(struct work_struct *work)
 	struct ucsi_dev *udev = container_of(work, struct ucsi_dev,
 			notify_work);
 	struct constat_info_entry *entry;
+#ifdef CONFIG_ADD_PS5169_REDRIVER
+	static int last_change = 0;
+#endif
+
 
 	mutex_lock(&udev->notify_lock);
 	while (!list_empty(&udev->constat_info_list)) {
@@ -429,6 +437,21 @@ static void ucsi_qti_notify_work(struct work_struct *work)
 			entry->constat_info.partner_alternate_mode,
 			entry->constat_info.partner_change,
 			entry->constat_info.connect);
+
+#ifdef CONFIG_ADD_PS5169_REDRIVER
+	if (last_change != entry->constat_info.partner_change) {
+		if (!entry->constat_info.partner_change) {
+			if ((entry->constat_info.acc == 0) &&
+				(entry->constat_info.partner_usb == 0) &&
+				(entry->constat_info.partner_alternate_mode == 0) &&
+				(entry->constat_info.connect == 0)) {
+					ps5169_get_chipcfg_and_modeselection();
+				}
+		}
+		last_change = entry->constat_info.partner_change;
+	}
+#endif
+
 		raw_notifier_call_chain(&ucsi_glink_notifier,
 					0, &entry->constat_info);
 		kfree(entry);

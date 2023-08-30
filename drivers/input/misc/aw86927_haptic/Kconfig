@@ -1,0 +1,13 @@
+#
+# Awinic aw8697 driver
+#
+config INPUT_AW86927_HAPTIC
+	tristate "Awinic AW8697 HAPTIC"
+	depends on I2C
+	help
+	  Say Y here if you have Awinic AW86927 haptic controller
+	  chip in your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here.

@@ -225,7 +225,6 @@ static int dynamic_page_pool_shrink(gfp_t gfp_mask, int nr_to_scan)
 
 	if (!nr_to_scan)
 		only_scan = 1;
-
 	mutex_lock(&pool_list_lock);
 	list_for_each_entry(pool, &pool_list, list) {
 		if (only_scan) {
@@ -282,7 +281,7 @@ struct dynamic_page_pool **dynamic_page_pool_create_pools(int vmid,
 		pool_list[i]->prerelease_callback = callback;
 		atomic_set(&pool_list[i]->count, 0);
 		pool_list[i]->last_low_watermark_ktime = 0;
-
+		
 		if (IS_ERR_OR_NULL(pool_list[i])) {
 			int j;
 

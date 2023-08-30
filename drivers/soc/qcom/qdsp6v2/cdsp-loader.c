@@ -300,5 +300,6 @@ static void __exit cdsp_loader_exit(void)
 }
 module_exit(cdsp_loader_exit);
 
+MODULE_SOFTDEP("pre: qcom_q6v5_pas");
 MODULE_DESCRIPTION("CDSP Loader module");
 MODULE_LICENSE("GPL v2");

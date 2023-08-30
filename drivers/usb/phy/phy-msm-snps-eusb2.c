@@ -676,7 +676,7 @@ static int msm_eusb2_repeater_reset_and_init(struct msm_eusb2_phy *phy)
 	if (ret)
 		dev_err(phy->phy.dev, "repeater reset failed.\n");
 
-	ret = usb_repeater_init(phy->ur);
+	ret = usb_repeater_init(phy->ur, phy->phy.flags);
 	if (ret)
 		dev_err(phy->phy.dev, "repeater init failed.\n");
 
@@ -688,7 +688,7 @@ static int msm_eusb2_phy_init(struct usb_phy *uphy)
 	struct msm_eusb2_phy *phy = container_of(uphy, struct msm_eusb2_phy, phy);
 	int ret;
 
-	dev_dbg(uphy->dev, "phy_flags:%x\n", phy->phy.flags);
+	dev_err(uphy->dev, "msm_eusb2_phy phy_flags:%x\n", phy->phy.flags);
 	if (is_eud_debug_mode_active(phy)) {
 		/* if in host mode, disable EUD debug mode */
 		if (phy->phy.flags & PHY_HOST_MODE) {
@@ -1139,3 +1139,4 @@ static struct platform_driver msm_eusb2_phy_driver = {
 module_platform_driver(msm_eusb2_phy_driver);
 MODULE_DESCRIPTION("MSM USB eUSB2 PHY driver");
 MODULE_LICENSE("GPL v2");
+MODULE_SOFTDEP("pre: repeater-i2c-eusb2");

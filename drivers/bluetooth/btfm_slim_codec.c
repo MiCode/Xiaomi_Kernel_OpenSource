@@ -386,7 +386,7 @@ static struct snd_soc_dai_driver btfmslim_dai[] = {
 		},
 		.ops = &btfmslim_dai_ops,
 	},
-	{	/* Bluetooth SCO voice uplink: bt -> modem */
+	{	/* Bluetooth SCO voice uplink: bt -> lpass */
 		.name = "btfm_bt_sco_slim_tx",
 		.id = BTFM_BT_SCO_SLIM_TX,
 		.capture = {
@@ -394,16 +394,17 @@ static struct snd_soc_dai_driver btfmslim_dai[] = {
 			/* 8 KHz or 16 KHz */
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000
 				| SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000
-				| SNDRV_PCM_RATE_88200 | SNDRV_PCM_RATE_96000,
+				| SNDRV_PCM_RATE_88200 | SNDRV_PCM_RATE_96000
+				| SNDRV_PCM_RATE_192000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE, /* 16 bits */
-			.rate_max = 96000,
+			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 1,
 		},
 		.ops = &btfmslim_dai_ops,
 	},
-	{	/* Bluetooth SCO voice downlink: modem -> bt or A2DP Playback */
+	{	/* Bluetooth SCO voice downlink: lpass -> bt or A2DP Playback */
 		.name = "btfm_bt_sco_a2dp_slim_rx",
 		.id = BTFM_BT_SCO_A2DP_SLIM_RX,
 		.playback = {
@@ -411,9 +412,10 @@ static struct snd_soc_dai_driver btfmslim_dai[] = {
 			/* 8/16/44.1/48/88.2/96 Khz */
 			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000
 				| SNDRV_PCM_RATE_44100 | SNDRV_PCM_RATE_48000
-				| SNDRV_PCM_RATE_88200 | SNDRV_PCM_RATE_96000,
+				| SNDRV_PCM_RATE_88200 | SNDRV_PCM_RATE_96000
+				| SNDRV_PCM_RATE_192000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE, /* 16 bits */
-			.rate_max = 96000,
+			.rate_max = 192000,
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 1,

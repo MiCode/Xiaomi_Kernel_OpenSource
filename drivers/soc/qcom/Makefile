@@ -86,7 +86,11 @@ obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
 obj-$(CONFIG_QPNP_PBS) += qpnp-pbs.o
 obj-$(CONFIG_MSM_SPCOM) += spcom.o
 obj-$(CONFIG_QCOM_CDSP_RM) += cdsprm.o
+ifdef CONFIG_XM_MSM54_FSA4480
+obj-$(CONFIG_QCOM_FSA4480_I2C) += fsa4480-i2c-msm54.o
+else
 obj-$(CONFIG_QCOM_FSA4480_I2C) += fsa4480-i2c.o
+endif
 obj-$(CONFIG_SHOW_SUSPEND_EPOCH) += msm_show_epoch.o
 obj-$(CONFIG_QCOM_EUD) += eud.o
 obj-$(CONFIG_QCOM_GUESTVM) += guestvm_loader.o

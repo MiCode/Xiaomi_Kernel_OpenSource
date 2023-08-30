@@ -38,6 +38,7 @@
 
 #include "debug.h"
 
+
 #define DWC3_DEFAULT_AUTOSUSPEND_DELAY	5000 /* ms */
 
 /**

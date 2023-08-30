@@ -106,6 +106,7 @@ u64 walt_ktime_get_ns(void)
 		return ktime_to_ns(ktime_last);
 	return ktime_get_ns();
 }
+EXPORT_SYMBOL_GPL(walt_ktime_get_ns);
 
 static void walt_resume(void)
 {
@@ -481,6 +482,7 @@ static void walt_sched_account_irqstart(int cpu, struct task_struct *curr)
 
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime);
+
 static void walt_sched_account_irqend(int cpu, struct task_struct *curr, u64 delta)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -2159,6 +2161,7 @@ static inline void run_walt_irq_work(u64 old_window_start, struct rq *rq)
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
+
 static void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 						u64 wallclock, u64 irqtime)
 {
@@ -3996,13 +3999,19 @@ static void android_rvh_try_to_wake_up_success(void *unused, struct task_struct 
 {
 	unsigned long flags;
 	int cpu = p->cpu;
+	struct walt_task_struct *wts = (struct walt_task_struct *) p->android_vendor_data1;
 
 	if (unlikely(walt_disabled))
 		return;
 
+	if (wts->mvp_list.prev == NULL && wts->mvp_list.next == NULL)
+		init_new_task_load(p);
+
 	raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
+
 	if (do_pl_notif(cpu_rq(cpu)))
 		waltgov_run_callback(cpu_rq(cpu), WALT_CPUFREQ_PL);
+
 	raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
 }
 

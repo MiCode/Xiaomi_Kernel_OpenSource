@@ -70,3 +70,9 @@ config NFC_QTI_I2C
 	  resides in the usermode and it has no other NFC dependencies.
 
 	  If unsure, say N.
+
+config NTAG5_I2C
+	tristate "NTAG5_I2C driver"
+	depends on I2C
+	help
+	  This module is NTAG5_I2C driver

@@ -42,11 +42,19 @@
 
 bool prediction_disabled;
 bool sleep_disabled = true;
+static bool sleep_disabled_touch;
 static bool suspend_in_progress;
 static bool traces_registered;
 static struct cluster_governor *cluster_gov_ops;
 
 DEFINE_PER_CPU(struct lpm_cpu, lpm_cpu_data);
+
+void lpm_disable_for_input(bool on)
+{
+	sleep_disabled_touch = !!on;
+	return;
+}
+EXPORT_SYMBOL(lpm_disable_for_input);
 
 static inline bool check_cpu_isactive(int cpu)
 {
@@ -569,7 +577,7 @@ static int lpm_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 	duration_ns = tick_nohz_get_sleep_length(&delta_tick);
 	update_cpu_history(cpu_gov);
 
-	if (lpm_disallowed(duration_ns, dev->cpu))
+	if (lpm_disallowed(duration_ns, dev->cpu) || sleep_disabled_touch)
 		goto done;
 
 	for (i = drv->state_count - 1; i > 0; i--) {

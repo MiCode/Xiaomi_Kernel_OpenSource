@@ -179,6 +179,7 @@ static void pmic_glink_pdr_notifier_cb(int state, char *service_name,
 		pr_debug("PD state down for %s\n", pgdev->pdr_service_name);
 		pmic_glink_notify_clients(pgdev, PMIC_GLINK_STATE_DOWN);
 		atomic_set(&pgdev->pdr_state, state);
+		pr_info("PD state down for %s\n", pgdev->pdr_service_name);
 		break;
 	case SERVREG_SERVICE_STATE_UP:
 		/*
@@ -187,6 +188,7 @@ static void pmic_glink_pdr_notifier_cb(int state, char *service_name,
 		 * driver is probed and Glink communication is up.
 		 */
 		pr_debug("PD state up for %s\n", pgdev->pdr_service_name);
+		pr_info("PD state up for %s\n", pgdev->pdr_service_name);
 		break;
 	default:
 		break;

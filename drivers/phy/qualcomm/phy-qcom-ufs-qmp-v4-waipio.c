@@ -3,12 +3,142 @@
  * Copyright (c) 2021, Linux Foundation. All rights reserved.
  */
 
+#include <linux/of.h>
 #include "phy-qcom-ufs-qmp-v4-waipio.h"
 
 #define UFS_PHY_NAME "ufs_phy_qmp_v4_waipio"
 
+#ifdef CONFIG_UFS_EBUFF
+struct ebuffphy {
+	char name[6];
+	u32 reg_offset;
+};
+
+struct ebuffphy ebuffphy_data[] = {
+	{"COM", COM_OFF(0)},
+	{"PHY", PHY_OFF(0)},
+	{"TX0", TX_OFF(0, 0)},
+	{"RX0", RX_OFF(0, 0)},
+	{"TX1", TX_OFF(1, 0)},
+	{"RX1", RX_OFF(1, 0)}
+};
+#endif
+
 static inline void ufs_qcom_phy_qmp_v4_start_serdes(struct ufs_qcom_phy *phy);
 static int ufs_qcom_phy_qmp_v4_is_pcs_ready(struct ufs_qcom_phy *phy_common);
+
+#ifdef CONFIG_UFS_EBUFF
+static bool str2u32(char *buff, u32 *value)
+{
+	return !kstrtou32((const char *)buff, 0, value);
+}
+
+static bool paser_ebuff_phy_arg_to_name_and_arg(char *input, u32 *name, u32 *arg)
+{
+	char *ptr = input;
+	int i = 0;
+	bool ret = false;
+	int len = strlen(ptr);
+
+	for (i = 0; i < len; i++) {
+		if (ptr[i] == '=') {
+			char *namec = NULL;
+			char *argc = NULL;
+
+			namec = kzalloc((i + 1), GFP_KERNEL);
+			memcpy(namec, ptr, i);
+
+			argc = kzalloc((len - i), GFP_KERNEL);
+			memcpy(argc, &ptr[i+1], (len - i - 1));
+
+			if (str2u32(namec, name) && str2u32(argc, arg))
+				ret = true;
+
+			kfree(namec);
+			kfree(argc);
+
+			if(ret)
+				break;
+		}
+	}
+
+	return ret;
+}
+
+static int paser_ebuff_phy_arg(char *input, char **output)
+{
+	char *ptr = input;
+	int i = 0;
+	int size = 0;
+	if (!input) {
+		return 0;
+	}
+
+	for (i = 0; i < strlen(ptr); i++) {
+		if (ptr[i] == ';' || ptr[i] == '\0') {
+			size = i;
+			break;
+		}
+	}
+
+	if (size) {
+		*output = kzalloc((size + 1), GFP_KERNEL);
+		memcpy(*output, ptr, size);
+	}
+
+	return (size + 1);
+}
+
+static void ufs_phy_ebuff_write_arg(struct ufs_qcom_phy *ufs_qcom_phy, int index, char *buff)
+{
+	struct device *dev = ufs_qcom_phy->dev;
+	char *ptr = buff;
+	int i = 0;
+	int size = 0;
+
+	for (i = 0; i < strlen(ptr); i += size) {
+		char *output = NULL;
+		u32 name = 0;
+		u32 arg = 0;
+		size = paser_ebuff_phy_arg(&ptr[i], &output);
+		if (!output || size == 0)
+			break;
+
+		if (!paser_ebuff_phy_arg_to_name_and_arg(output, &name, &arg)) {
+			dev_err(dev, "Failed to paser ebuff phy arg %s %s\n", ebuffphy_data[index].name, output);
+			break;
+		}
+
+		writel_relaxed(arg, (ufs_qcom_phy->mmio + ebuffphy_data[index].reg_offset + name));
+		pr_err("ebuff ufs phy arg %s 0x%x 0x%x\n", ebuffphy_data[index].name, name, arg);
+		kfree(output);
+	}
+}
+
+static bool obtain_ebuffphy_info(struct ufs_qcom_phy *ufs_qcom_phy)
+{
+	struct device_node *ebuff_node;
+	char *buff = NULL;
+	int i = 0;
+	int ret = 0;
+
+	ebuff_node = of_find_node_by_path("/memory/ebuff");
+	if (!ebuff_node)
+		return false;
+
+	for (i = 0; i < sizeof(ebuffphy_data) / sizeof(struct ebuffphy); i++) {
+		ret = of_property_read_string(ebuff_node, ebuffphy_data[i].name, (const char **)&buff);
+		if (ret || !buff)
+			continue;
+
+		ufs_phy_ebuff_write_arg(ufs_qcom_phy, i, buff);
+	}
+
+	of_node_put(ebuff_node);
+
+	return true;
+}
+#endif
 
 static int ufs_qcom_phy_qmp_v4_phy_calibrate(struct phy *generic_phy)
 {
@@ -54,6 +184,11 @@ static int ufs_qcom_phy_qmp_v4_phy_calibrate(struct phy *generic_phy)
 	if (is_rate_B)
 		ufs_qcom_phy_write_tbl(ufs_qcom_phy, phy_cal_table_rate_B,
 				       ARRAY_SIZE(phy_cal_table_rate_B));
+
+#ifdef CONFIG_UFS_EBUFF
+	if (!obtain_ebuffphy_info(ufs_qcom_phy))
+		dev_info(dev, "Failed to set ebuff to PHY\n");
+#endif
 
 	writel_relaxed(0x00, ufs_qcom_phy->mmio + UFS_PHY_SW_RESET);
 	/* flush buffered writes */

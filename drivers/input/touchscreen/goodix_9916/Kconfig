@@ -1,0 +1,9 @@
+config TOUCHSCREEN_GOODIX_BRL_9916
+	tristate "Goodix berlin touchscreen"
+	default n
+	help
+	  Say Y here if you have a Goodix berlin series touch controller
+	  to your system.
+	  If build module, say M.
+	  If unsure, say N.
+

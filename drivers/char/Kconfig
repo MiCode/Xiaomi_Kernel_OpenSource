@@ -489,6 +489,11 @@ config ADI
 	  and SSM (Silicon Secured Memory).  Intended consumers of this
 	  driver include crash and makedumpfile.
 
+config XLOGCHAR
+    tristate "xlogchar driver"
+    help
+      Implements a high performance log driver
+
 config RANDOM_TRUST_CPU
 	bool "Initialize RNG using CPU RNG instructions"
 	default y

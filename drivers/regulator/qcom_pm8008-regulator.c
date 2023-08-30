@@ -81,6 +81,10 @@
 
 #define PM8008_MAX_LDO			7
 
+#ifdef CONFIG_I2C_RETRY
+#define MAX_RETRY_TIME			5
+#endif
+
 enum pmic_subtype {
 	PM8008_SUBTYPE,
 	PM8010_SUBTYPE,
@@ -185,10 +189,21 @@ static int pm8008_read(struct regmap *regmap,  u16 reg, u8 *val, int count)
 {
 	int rc;
 
+#ifdef CONFIG_I2C_RETRY
+	int retry = 0;
+	do{
+		rc = regmap_bulk_read(regmap, reg, val, count);
+	}while (rc < 0 && retry++ < MAX_RETRY_TIME);
+	if (retry > 0)
+		pr_err("failed to read 0x%04x retry time %d.%d success\n", reg, MAX_RETRY_TIME, retry);
+	if (rc < 0)
+		pr_err("failed to read 0x%04x\n", reg);
+#else
 	rc = regmap_bulk_read(regmap, reg, val, count);
 	if (rc < 0)
 		pr_err("failed to read 0x%04x\n", reg);
 
+#endif
 	return rc;
 }
 
@@ -197,27 +212,56 @@ static int pm8008_write(struct regmap *regmap, u16 reg, const u8 *val,
 {
 	int rc;
 
+#ifdef CONFIG_I2C_RETRY
+	int retry = 0;
+	pr_debug("Writing 0x%02x to 0x%04x\n", val, reg);
+	do{
+		rc = regmap_bulk_write(regmap, reg, val, count);
+	}while (rc < 0 && retry++ < MAX_RETRY_TIME);
+	if (retry > 0)
+		pr_err("failed to write 0x%04x retry time %d.%d success\n", reg, MAX_RETRY_TIME, retry);
+	if (rc < 0)
+		pr_err("failed to write 0x%04x\n", reg);
+#else
 	pr_debug("Writing 0x%02x to 0x%04x\n", val, reg);
 	rc = regmap_bulk_write(regmap, reg, val, count);
 	if (rc < 0)
 		pr_err("failed to write 0x%04x\n", reg);
 
+#endif
 	return rc;
 }
+
+
 
 static int pm8008_masked_write(struct regmap *regmap, u16 reg, u8 mask,
 				u8 val)
 {
 	int rc;
 
+#ifdef CONFIG_I2C_RETRY
+	int retry = 0;
+	pr_debug("Writing 0x%02x to 0x%04x with mask 0x%02x\n", val, reg, mask);
+	do{
+		rc = regmap_update_bits(regmap, reg, mask, val);
+	}while (rc < 0 && retry++ < MAX_RETRY_TIME);
+	if (retry > 0)
+		pr_err("failed to write 0x%02x to 0x%04x with mask 0x%02x %d.%d success\n", val, reg, mask, MAX_RETRY_TIME, retry);
+	if (rc < 0)
+	pr_err("failed to write 0x%02x to 0x%04x with mask 0x%02x\n",
+				val, reg, mask);
+#else
 	pr_debug("Writing 0x%02x to 0x%04x with mask 0x%02x\n", val, reg, mask);
 	rc = regmap_update_bits(regmap, reg, mask, val);
 	if (rc < 0)
 		pr_err("failed to write 0x%02x to 0x%04x with mask 0x%02x\n",
 				val, reg, mask);
 
+#endif
 	return rc;
 }
+
+
 
 static int pm8008_chip_aggregate(struct pm8008_chip *chip)
 {
@@ -401,8 +445,11 @@ static int pm8008_regulator_enable(struct regulator_dev *rdev)
 			+ DIV_ROUND_UP(current_uv, pm8008_reg->step_rate);
 	delay_ms = DIV_ROUND_UP(delay_us, 1000);
 
+	
 	/* Retry 10 times for VREG_READY before bailing out */
 	while (retry_count--) {
+		pm8008_debug(pm8008_reg,
+					"delay_ms[%d], delay_us[%d], retry_count = [%d]\n", delay_ms, delay_us, retry_count);
 		if (delay_ms > 20)
 			msleep(delay_ms);
 		else
@@ -1007,6 +1054,8 @@ static int _pm8008_chip_is_enabled(struct pm8008_chip *chip)
 	if (rc < 0) {
 		pm8008_err(chip, "failed to get chip state rc=%d\n", rc);
 		return rc;
+	} else {
+		pm8008_err(chip, "succeed to get chip state rc=%d\n", rc);
 	}
 
 	return !!(reg & CHIP_ENABLE_BIT);

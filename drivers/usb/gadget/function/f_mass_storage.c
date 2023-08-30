@@ -2347,6 +2347,10 @@ static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 static void fsg_disable(struct usb_function *f)
 {
 	struct fsg_dev *fsg = fsg_from_func(f);
+	struct fsg_common *common = fsg->common;
+
+	do_set_interface(fsg->common, NULL);
+	wait_event(common->fsg_wait, common->fsg != fsg);
 
 	/* Disable the endpoints */
 	if (fsg->bulk_in_enabled) {

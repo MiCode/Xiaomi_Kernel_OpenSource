@@ -7,6 +7,7 @@
 
 #include <linux/highmem.h>
 #include <linux/mem-buf-exporter.h>
+#include <linux/dma-buf-ref.h>
 #include "mem-buf-dev.h"
 #include "mem-buf-ids.h"
 
@@ -299,6 +300,7 @@ mem_buf_dma_buf_export(struct dma_buf_export_info *exp_info,
 	struct mem_buf_vmperm *vmperm;
 	struct dma_buf *dmabuf;
 	struct dma_buf_ops *dma_ops = &ops->dma_ops;
+	struct msm_dma_buf *m_dmabuf;
 
 	if (dma_ops->attach != mem_buf_dma_buf_attach) {
 		if (!dma_ops->attach) {
@@ -313,6 +315,11 @@ mem_buf_dma_buf_export(struct dma_buf_export_info *exp_info,
 	dmabuf = dma_buf_export(exp_info);
 	if (IS_ERR(dmabuf))
 		return dmabuf;
+
+	m_dmabuf = msm_dma_buf_create(dmabuf);
+	if (!IS_ERR(m_dmabuf)) {
+		dma_buf_ref_mod(m_dmabuf, 1);
+	}
 
 	vmperm = to_mem_buf_vmperm(dmabuf);
 	if (WARN_ON(IS_ERR(vmperm))) {

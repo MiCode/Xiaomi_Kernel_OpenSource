@@ -39,6 +39,17 @@ config UDMABUF
 	  A driver to let userspace turn memfd regions into dma-bufs.
 	  Qemu can use this to create host dmabufs for guest framebuffers.
 
+config DEBUG_DMA_BUF_REF
+	tristate "DEBUG Reference Count"
+	default n
+	depends on STACKDEPOT
+	depends on DMA_SHARED_BUFFER
+	help
+	  Save stack traces for every call to qcom heap alloc and release, to
+	  help debug memory leaks. Potential leaks may be found by manually
+	  matching the call stacks.  This feature consumes extra memory
+	  in order to save the stack traces using STACKDEPOT.
+
 config DMABUF_MOVE_NOTIFY
 	bool "Move notify between drivers (EXPERIMENTAL)"
 	default n

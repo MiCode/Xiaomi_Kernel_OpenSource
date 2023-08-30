@@ -779,7 +779,6 @@ static int a6xx_hwsched_first_boot(struct adreno_device *adreno_dev)
 	 */
 	device->pwrscale.devfreq_enabled = true;
 
-	device->pwrctrl.last_stat_updated = ktime_get();
 	device->state = KGSL_STATE_ACTIVE;
 
 	trace_kgsl_pwr_set_state(device, KGSL_STATE_ACTIVE);
