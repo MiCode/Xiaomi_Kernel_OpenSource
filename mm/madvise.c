@@ -456,9 +456,6 @@ regular_page:
 		if (pageout_anon_only && !PageAnon(page))
 			continue;
 
-		if (pageout_anon_only && !PageAnon(page))
-			continue;
-
 		VM_BUG_ON_PAGE(PageTransCompound(page), page);
 
 		if (pte_young(ptent)) {
