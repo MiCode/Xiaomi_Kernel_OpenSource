@@ -98,7 +98,6 @@ int wil_set_capabilities(struct wil6210_priv *wil)
 		set_bit(hw_capa_no_flash, wil->hw_capa);
 		wil->use_enhanced_dma_hw = true;
 		wil->use_rx_hw_reordering = true;
-		wil->use_compressed_rx_status = true;
 		if (wil_ipa_offload())
 			/* IPA offload must use single MSI */
 			n_msi = 1;
