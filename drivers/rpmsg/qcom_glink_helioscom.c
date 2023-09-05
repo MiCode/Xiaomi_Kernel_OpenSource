@@ -2012,7 +2012,7 @@ static void glink_helioscom_handle_rx_done(struct glink_helioscom *glink,
 	mutex_unlock(&channel->intent_lock);
 }
 
-static void glink_helioscom_process_cmd(struct glink_helioscom *glink, void *rx_data,
+static int glink_helioscom_process_cmd(struct glink_helioscom *glink, void *rx_data,
 				  u32 rx_size)
 {
 	struct glink_helioscom_msg *msg;
@@ -2021,12 +2021,18 @@ static void glink_helioscom_process_cmd(struct glink_helioscom *glink, void *rx_
 	unsigned int param3;
 	unsigned int param4;
 	unsigned int cmd;
-	int offset = 0;
-	int ret;
+	u32 offset = 0;
+	int ret = 0;
 	u16 name_len;
 	char *name;
 
 	while (offset < rx_size) {
+		if (rx_size - offset < sizeof(struct glink_helioscom_msg)) {
+			ret = -EBADMSG;
+			GLINK_ERR(glink, "%s: Error %d process cmd\n", __func__, ret);
+			return ret;
+		}
+
 		msg = (struct glink_helioscom_msg *)(rx_data + offset);
 		offset += sizeof(*msg);
 
@@ -2109,6 +2115,7 @@ static void glink_helioscom_process_cmd(struct glink_helioscom *glink, void *rx_
 			break;
 		}
 	}
+	return ret;
 }
 
 /**
