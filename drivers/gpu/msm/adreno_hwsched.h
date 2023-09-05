@@ -106,6 +106,10 @@ struct adreno_hwsched {
 	 * dispatch queues
 	 */
 	atomic_t submission_seqnum;
+	/** @global_ctxtq: Memory descriptor for global context queue */
+	struct kgsl_memdesc global_ctxtq;
+	/** @global_ctxt_gmu_registered: Whether global context is registered with gmu */
+	bool global_ctxt_gmu_registered;
 };
 
 /*

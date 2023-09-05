@@ -167,9 +167,6 @@ struct a6xx_cp_smmu_info {
 /* Size of the CP_INIT pm4 stream in dwords */
 #define A6XX_CP_INIT_DWORDS 11
 
-/* Size of the perf counter enable pm4 stream in dwords */
-#define A6XX_PERF_COUNTER_ENABLE_DWORDS 3
-
 #define A6XX_INT_MASK \
 	((1 << A6XX_INT_CP_AHB_ERROR) |			\
 	 (1 << A6XX_INT_ATB_ASYNCFIFO_OVERFLOW) |	\

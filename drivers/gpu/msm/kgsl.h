@@ -62,6 +62,10 @@
 	((dev)->memstore->gpuaddr + \
 	 KGSL_MEMSTORE_OFFSET(((rb)->id + KGSL_MEMSTORE_MAX), field))
 
+#define KGSL_CONTEXT_PRIORITY_HIGH 0
+/* Last context id is reserved for global context */
+#define KGSL_GLOBAL_CTXT_ID (KGSL_MEMSTORE_MAX - 1)
+
 /*
  * SCRATCH MEMORY: The scratch memory is one page worth of data that
  * is mapped into the GPU. This allows for some 'shared' data between
