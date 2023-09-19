@@ -1104,6 +1104,11 @@ static int adc5_get_fw_channel_data(struct adc5_chip *adc,
 		prop->avg_samples = VADC_DEF_AVG_SAMPLES;
 	}
 
+	prop->scale_fn_type = -EINVAL;
+	ret = fwnode_property_read_u32(fwnode, "qcom,scale-fn-type", &value);
+	if (!ret && value < SCALE_HW_CALIB_INVALID)
+		prop->scale_fn_type = value;
+
 	if (fwnode_property_read_bool(fwnode, "qcom,ratiometric"))
 		prop->cal_method = ADC5_RATIOMETRIC_CAL;
 	else if (fwnode_property_read_bool(fwnode, "qcom,no-cal"))
@@ -1239,8 +1244,10 @@ static int adc5_get_fw_data(struct adc5_chip *adc)
 			return ret;
 		}
 
-		prop.scale_fn_type =
-			adc->data->adc_chans[prop.channel].scale_fn_type;
+		if (prop.scale_fn_type == -EINVAL)
+			prop.scale_fn_type =
+				adc->data->adc_chans[prop.channel].scale_fn_type;
+
 		*chan_props = prop;
 		adc_chan = &adc->data->adc_chans[prop.channel];
 
@@ -1332,6 +1339,7 @@ static int adc5_probe(struct platform_device *pdev)
 			return ret;
 	}
 
+	platform_set_drvdata(pdev, adc);
 	if (of_device_is_compatible(dev->of_node, "qcom,spmi-adc7-sw-calib")) {
 		ret = adc7_calib(adc);
 		if (ret)

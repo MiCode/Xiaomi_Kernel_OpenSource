@@ -120,6 +120,7 @@ void hab_ctx_free(struct kref *ref)
 	struct uhab_context *ctxdel, *ctxtmp;
 	struct hab_open_node *open_node;
 	struct export_desc *exp = NULL, *exp_tmp = NULL;
+	struct export_desc_super *exp_super = NULL;
 
 	/* garbage-collect exp/imp buffers */
 	write_lock_bh(&ctx->exp_lock);
@@ -142,7 +143,8 @@ void hab_ctx_free(struct kref *ref)
 			exp->export_id, exp->vcid_local,
 			ctx->import_total);
 		habmm_imp_hyp_unmap(ctx->import_ctx, exp, ctx->kernel);
-		kfree(exp);
+		exp_super = container_of(exp, struct export_desc_super, exp);
+		kfree(exp_super);
 	}
 	spin_unlock_bh(&ctx->imp_lock);
 
@@ -713,6 +715,11 @@ int hab_vchan_open(struct uhab_context *ctx,
 				hab_pchan_find_domid(dev,
 					HABCFG_VMID_DONT_CARE);
 			if (pchan) {
+				if (pchan->kernel_only && !ctx->kernel) {
+					pr_err("pchan only serves the kernel: mmid %d\n", mmid);
+					return -EPERM;
+				}
+
 				if (pchan->is_be)
 					vchan = backend_listen(ctx, mmid,
 							timeout);
@@ -810,7 +817,7 @@ int hab_vchan_close(struct uhab_context *ctx, int32_t vcid)
  * vmid (self)
  */
 static int hab_initialize_pchan_entry(struct hab_device *mmid_device,
-				int vmid_local, int vmid_remote, int is_be)
+				int vmid_local, int vmid_remote, int is_be, int kernel_only)
 {
 	char pchan_name[MAX_VMID_NAME_SIZE];
 	struct physical_channel *pchan = NULL;
@@ -836,10 +843,11 @@ static int hab_initialize_pchan_entry(struct hab_device *mmid_device,
 		/* local/remote id setting should be kept in lower level */
 		pchan->vmid_local = vmid_local;
 		pchan->vmid_remote = vmid_remote;
-		pr_debug("pchan %s mmid %s local %d remote %d role %d\n",
+		pchan->kernel_only = kernel_only;
+		pr_debug("pchan %s mmid %s local %d remote %d role %d, kernel only %d\n",
 				pchan_name, mmid_device->name,
 				pchan->vmid_local, pchan->vmid_remote,
-				pchan->dom_id);
+				pchan->dom_id, pchan->kernel_only);
 	}
 
 	return ret;
@@ -860,7 +868,8 @@ static int hab_generate_pchan_group(struct local_vmid *settings,
 				find_hab_device(k),
 				settings->self,
 				HABCFG_GET_VMID(settings, i),
-				HABCFG_GET_BE(settings, i, j));
+				HABCFG_GET_BE(settings, i, j),
+				HABCFG_GET_KERNEL(settings, i, j));
 	}
 
 	return ret;
