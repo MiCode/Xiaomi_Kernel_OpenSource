@@ -398,6 +398,7 @@ static kal_uint16 gain2reg(struct subdrv_ctx *ctx,const kal_uint16 gain)
 
 static kal_uint16 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
+
 	kal_uint16 reg_gain;
 
 	reg_gain = gain2reg(ctx,gain);
@@ -2101,19 +2102,22 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
 
 	if (mode != ctx->test_pattern)
-		pr_debug("mode %d -> %d\n", ctx->test_pattern, mode);
-	//1:Solid Color 2:Color bar 5:Black
-	if (mode == 5)
-		write_cmos_sensor(ctx, 0x5080, 0x80);
-	else if (mode)
-		write_cmos_sensor(ctx, 0x5080, 0x80);
+		pr_info("mode %d -> %d\n", ctx->test_pattern, mode);
 
+	if (mode == 5) { //black Color
+		write_cmos_sensor(ctx,0x3508, 0);
+		write_cmos_sensor(ctx,0x3509, 0);
+		write_cmos_sensor(ctx,0x350A, 0);
+		write_cmos_sensor(ctx,0x350B, 0);
+		write_cmos_sensor(ctx,0x350C, 0);
+	} else if(mode == 2) {
+		write_cmos_sensor(ctx, 0x5080, 0x80);
+	}
 	if ((ctx->test_pattern) && (mode != ctx->test_pattern)) {
-		if (ctx->test_pattern == 5)
-			write_cmos_sensor(ctx, 0x5080, 0x81);
-		else if (mode == 0)
+		if (mode == 0)
 			write_cmos_sensor(ctx, 0x5080, 0x00);
 	}
+
 	ctx->test_pattern = mode;
 	return ERROR_NONE;
 }

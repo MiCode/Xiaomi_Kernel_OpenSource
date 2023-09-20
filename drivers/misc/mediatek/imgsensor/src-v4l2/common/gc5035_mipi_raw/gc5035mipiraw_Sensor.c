@@ -771,6 +771,7 @@ static kal_uint32 gain2reg(struct subdrv_ctx *ctx, const kal_uint32 gain)
  *************************************************************************/
 __attribute__((unused)) static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_uint32 gain)
 {
+
 	kal_uint32 reg_gain;
     kal_uint32 temp_gain;
     kal_int16 gain_index;
@@ -801,7 +802,7 @@ __attribute__((unused)) static kal_uint32 set_gain(struct subdrv_ctx *ctx, kal_u
         if (reg_gain >= GC5035_AGC_Param[gain_index][0])
             break;
 
-    write_cmos_sensor(0xfe, 0x00);
+    //write_cmos_sensor(0xfe, 0x00);
     write_cmos_sensor(0xb6, GC5035_AGC_Param[gain_index][1]);
     temp_gain = reg_gain * Dgain_ratio / GC5035_AGC_Param[gain_index][0];
     write_cmos_sensor(0xb1, (temp_gain >> 8) & 0x0f);
@@ -2267,20 +2268,25 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 {
 	if (mode != ctx->test_pattern)
 		pr_debug("mode %d -> %d\n", ctx->test_pattern, mode);
+
 	//1:Solid Color 2:Color bar 5:Black
-	if (mode == 5)
-		write_cmos_sensor(0x8c, 0x11);//Dgain = 0
-	else if (mode) {
+	if (mode == 5) {
+		write_cmos_sensor(0xfe, 0x01);
+		write_cmos_sensor(0x8c, 0x11);
+		write_cmos_sensor(0x8d, 0x0c);
+	} else if (mode == 2) {
 		write_cmos_sensor(0xfe, 0x01);
 		write_cmos_sensor(0x8c, 0x11);
 	}
 
 	if ((ctx->test_pattern) && (mode != ctx->test_pattern)) {
-		if (ctx->test_pattern == 5)
+		if (mode == 0) {
+			write_cmos_sensor(0xfe, 0x01);
 			write_cmos_sensor(0x8c, 0x11);
-		else if (mode == 0)
-			write_cmos_sensor(0xfe, 0x00);
+			write_cmos_sensor(0xfe, 0x00); /*No pattern*/
+		}
 	}
+
 	ctx->test_pattern = mode;
 	return ERROR_NONE;
 }
@@ -2381,8 +2387,8 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
     case SENSOR_FEATURE_SET_ISP_MASTER_CLOCK_FREQ:
         break;
     case SENSOR_FEATURE_SET_REGISTER:
-        write_cmos_sensor_8(ctx, sensor_reg_data->RegAddr,
-            sensor_reg_data->RegData);
+	write_cmos_sensor(sensor_reg_data->RegAddr,
+		sensor_reg_data->RegData);
         break;
     case SENSOR_FEATURE_GET_REGISTER:
         sensor_reg_data->RegData =
