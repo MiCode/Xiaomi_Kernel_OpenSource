@@ -3206,6 +3206,24 @@ void mt_gpufreq_set_gpu_wrap_fp(int (*gpu_wrap_fp)(void))
 }
 EXPORT_SYMBOL(mt_gpufreq_set_gpu_wrap_fp);
 
+/*
+ * API : get current segment max opp index
+ */
+unsigned int mt_gpufreq_get_seg_max_opp_index(void)
+{
+	return g_gpu.segment_upbound;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_seg_max_opp_index);
+
+/* API : get OPP table index number */
+/* need to sub g_segment_max_opp_idx to map to real idx */
+unsigned int mt_gpufreq_get_dvfs_table_num(void)
+{
+	return  g_gpu.segment_lowbound - g_gpu.segment_upbound + 1;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_dvfs_table_num);
+
+
 /* power calculation for power table */
 static void __mt_gpufreq_calculate_power(unsigned int idx, unsigned int freq,
 			unsigned int volt, unsigned int temp)
