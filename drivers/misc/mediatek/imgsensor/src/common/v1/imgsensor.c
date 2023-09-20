@@ -2819,54 +2819,17 @@ CAMERA_HW_Ioctl_EXIT:
 
 static int imgsensor_open(struct inode *a_pstInode, struct file *a_pstFile)
 {
-	mutex_lock(&imgsensor_mutex);
-
-#ifdef IMGSENSOR_USE_RPM
-	// pr_info("%s %s 0x%x\n", __func__, "pm_runtime_get_sync", pgimgsensor->dev);
+	pr_info("[%s] +\n", __func__);
 	pm_runtime_get_sync(pgimgsensor->dev);
-#endif
-
-	if (atomic_read(&pgimgsensor->imgsensor_open_cnt) == 0)
-		imgsensor_clk_enable_all(&pgimgsensor->clk);
-
-	atomic_inc(&pgimgsensor->imgsensor_open_cnt);
-	pr_info(
-	    "%s %d\n",
-	    __func__,
-	    atomic_read(&pgimgsensor->imgsensor_open_cnt));
-
-	mutex_unlock(&imgsensor_mutex);
-
+	pr_info("[%s] -\n", __func__);
 	return 0;
 }
 
 static int imgsensor_release(struct inode *a_pstInode, struct file *a_pstFile)
 {
-	enum IMGSENSOR_SENSOR_IDX i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
-
-	mutex_lock(&imgsensor_mutex);
-
-	atomic_dec(&pgimgsensor->imgsensor_open_cnt);
-	if (atomic_read(&pgimgsensor->imgsensor_open_cnt) == 0) {
-		imgsensor_clk_disable_all(&pgimgsensor->clk);
-
-		if (pgimgsensor->imgsensor_oc_irq_enable != NULL) {
-			for (; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++)
-				pgimgsensor->imgsensor_oc_irq_enable(i, false);
-		}
-
-		imgsensor_hw_release_all(&pgimgsensor->hw);
-	}
-	pr_info(
-	    "%s %d\n",
-	    __func__,
-	    atomic_read(&pgimgsensor->imgsensor_open_cnt));
-
-	mutex_unlock(&imgsensor_mutex);
-#ifdef IMGSENSOR_USE_RPM
+	pr_info("[%s] +\n", __func__);
 	pm_runtime_put_sync(pgimgsensor->dev);
-#endif
-
+	pr_info("[%s] -\n", __func__);
 	return 0;
 }
 
@@ -2966,8 +2929,10 @@ static int imgsensor_probe(struct platform_device *pdev)
 #ifdef IMGSENSOR_USE_RPM
 	// PK_DBG("[imgsensor_probe] devnode = %s,
 		// &pdev->dev = 0x%x\n", pdev->dev.of_node->name, &pdev->dev);
+	pr_info("[%s]pm_runtime_enable  +\n", __func__);
 	pgimgsensor->dev = &pdev->dev;
 	pm_runtime_enable(pgimgsensor->dev);
+	pr_info("[%s]pm_runtime_enable  -\n", __func__);
 	// pgimgsensor->clk.pplatform_device = pdev;
 	// imgsensor_clk_init(&pgimgsensor->clk);
 #endif
@@ -3016,6 +2981,58 @@ static int imgsensor_resume(struct platform_device *pdev)
 	return 0;
 }
 
+int imgsensor_runtime_suspend(struct device *pDev)
+{
+	enum IMGSENSOR_SENSOR_IDX i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
+
+	pr_info("[%s] +\n", __func__);
+	mutex_lock(&imgsensor_mutex);
+
+	atomic_dec(&pgimgsensor->imgsensor_open_cnt);
+	if (atomic_read(&pgimgsensor->imgsensor_open_cnt) == 0) {
+		imgsensor_clk_disable_all(&pgimgsensor->clk);
+
+		if (pgimgsensor->imgsensor_oc_irq_enable != NULL) {
+			for (; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++)
+				pgimgsensor->imgsensor_oc_irq_enable(i, false);
+		}
+
+		imgsensor_hw_release_all(&pgimgsensor->hw);
+	}
+	pr_info(
+	    "%s %d\n",
+	    __func__,
+	    atomic_read(&pgimgsensor->imgsensor_open_cnt));
+
+	mutex_unlock(&imgsensor_mutex);
+	pr_info("[%s] -\n", __func__);
+	return 0;
+}
+
+int imgsensor_runtime_resume(struct device *pDev)
+{
+	pr_info("[%s] +\n", __func__);
+	mutex_lock(&imgsensor_mutex);
+	if (atomic_read(&pgimgsensor->imgsensor_open_cnt) == 0)
+		imgsensor_clk_enable_all(&pgimgsensor->clk);
+
+	atomic_inc(&pgimgsensor->imgsensor_open_cnt);
+	pr_info(
+	    "%s %d\n",
+	    __func__,
+	    atomic_read(&pgimgsensor->imgsensor_open_cnt));
+
+	mutex_unlock(&imgsensor_mutex);
+	pr_info("[%s] -\n", __func__);
+
+
+	return 0;
+}
+
+static const struct dev_pm_ops pm_ops = {
+	SET_RUNTIME_PM_OPS(imgsensor_runtime_suspend, imgsensor_runtime_resume, NULL)
+};
+
 /*
  * platform driver
  */
@@ -3035,6 +3052,7 @@ static struct platform_driver gimgsensor_platform_driver = {
 	.driver     = {
 		.name   = "image_sensor",
 		.owner  = THIS_MODULE,
+		.pm  = &pm_ops,
 #if IS_ENABLED(CONFIG_OF)
 		.of_match_table = gimgsensor_of_device_id,
 #endif
