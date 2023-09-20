@@ -3113,6 +3113,31 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 		mtk_crtc->force_high_enabled = 0;
 	}
 
+	if (priv->data->mmsys_id == MMSYS_MT6879 && lyeblob_ids) {
+		ovl0_2l_no_compress_num = HRT_GET_NO_COMPRESS_FLAG(lyeblob_ids->hrt_num);
+
+		if (crtc_idx == 0 && frame_weight <= 400 * 2 && ovl0_2l_no_compress_num > 0) {
+			output_comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+			if (output_comp && ((output_comp->id == DDP_COMPONENT_DSI0) ||
+					(output_comp->id == DDP_COMPONENT_DSI1))
+					&& !(mtk_dsi_is_cmd_mode(output_comp)))
+				mtk_ddp_comp_io_cmd(output_comp, NULL,
+					DSI_GET_MODE_BY_MAX_VREFRESH, &mode);
+			if (mode)
+				max_fps = drm_mode_vrefresh(mode);
+
+		if (max_fps >= 120) {
+			/* Avoid bw limit of no compress layer with video in one channal */
+			frame_weight = frame_weight < 800 ? 800 : frame_weight;
+			bw = overlap_to_bw(crtc, frame_weight + 400);
+			DDPINFO("%s recalcute bw:%d, weight:%d max_fps:%d no_compr:%d\n",
+						__func__, bw, frame_weight, max_fps,
+						ovl0_2l_no_compress_num);
+			}
+		}
+	}
+
 	if (priv->data->has_smi_limitation && lyeblob_ids) {
 		output_comp = mtk_ddp_comp_request_output(mtk_crtc);
 
