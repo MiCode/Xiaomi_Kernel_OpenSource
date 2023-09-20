@@ -820,6 +820,7 @@ enum ISP_ED_BUF_STATE_ENUM {
 
 #define _MAGIC_NUM_ERR_HANDLING_
 
+#define _imgo_fbc_wrkarnd_
 
 #if defined(_rtbc_use_cq0c_)
 /*  */

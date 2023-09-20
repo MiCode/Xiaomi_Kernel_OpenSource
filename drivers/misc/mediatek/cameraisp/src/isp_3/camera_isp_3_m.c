@@ -7155,6 +7155,18 @@ static signed int ISP_DONE_Buf_Time(enum eISPIrq irqT, union CQ_RTBC_FBC *pFbc,
 	/* dynamic dma port     ctrl */
 	if (pstRTBuf->ring_buf[ch_imgo].active &&
 		pstRTBuf->ring_buf[ch_rrzo].active) {
+		#ifdef _imgo_fbc_wrkarnd_
+		// work around for imgo WCNT do not update
+		// take rrzo wcnt as ref instead
+		_dma_cur_fbc = rrzo_fbc;
+		_working_dma = ch_rrzo;
+		if (rrzo_fbc.Bits.WCNT != imgo_fbc.Bits.WCNT)
+			IRQ_LOG_KEEPER(
+				irqT, m_CurrentPPB, _LOG_INF,
+				"[rtbc_%d]:wcnt mismatch(%d,%d)!\n", irqT,
+				imgo_fbc.Bits.WCNT,
+				rrzo_fbc.Bits.WCNT);
+		#else
 		/* if P1_DON ISR is coming at */
 		/* output 2 imgo frames, */
 		/* but 1 rrzo frame */
@@ -7169,6 +7181,7 @@ static signed int ISP_DONE_Buf_Time(enum eISPIrq irqT, union CQ_RTBC_FBC *pFbc,
 			_dma_cur_fbc = imgo_fbc;
 			_working_dma = ch_imgo;
 		}
+		#endif
 	} else if (pstRTBuf->ring_buf[ch_imgo].active) {
 		_dma_cur_fbc = imgo_fbc;
 		_working_dma = ch_imgo;
