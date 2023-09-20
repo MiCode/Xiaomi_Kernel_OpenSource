@@ -244,6 +244,10 @@ static const struct resource mt6366_gauge_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6366_IRQ_BAT_TEMP_L, "BAT_TMP_L"),
 };
 
+static const struct resource mt6359p_regulators_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_VIBR_OC, "VIBR"),
+};
+
 static const struct resource mt6359p_gauge_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_BAT_H, "COULOMB_H"),
 	DEFINE_RES_IRQ_NAMED(MT6359P_IRQ_FG_BAT_L, "COULOMB_L"),
@@ -541,7 +545,9 @@ static const struct mfd_cell mt6359p_devs[] = {
 		.of_compatible = "mediatek,mt6359p-efuse",
 	}, {
 		.name = "mt6359p-regulator",
-		.of_compatible = "mediatek,mt6359p-regulator"
+		.of_compatible = "mediatek,mt6359p-regulator",
+		.num_resources = ARRAY_SIZE(mt6359p_regulators_resources),
+		.resources = mt6359p_regulators_resources,
 	}, {
 		.name = "mt6359p-rtc",
 		.num_resources = ARRAY_SIZE(mt6359p_rtc_resources),
