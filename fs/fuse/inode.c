@@ -24,6 +24,11 @@
 #include <linux/posix_acl.h>
 #include <linux/pid_namespace.h>
 
+#ifdef CONFIG_MTK_FUSE_DEBUG
+#define CREATE_TRACE_POINTS
+#include <trace/events/fuse.h>
+#endif
+
 MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
 MODULE_DESCRIPTION("Filesystem in Userspace");
 MODULE_LICENSE("GPL");
@@ -1086,6 +1091,11 @@ static void process_init_reply(struct fuse_mount *fm, struct fuse_args *args,
 		fc->max_write = max_t(unsigned, 4096, fc->max_write);
 		fc->conn_init = 1;
 	}
+
+#ifdef CONFIG_MTK_FUSE_DEBUG
+	trace_fuse_init_reply(fm, (&ia->in), arg, error);
+#endif
+
 	kfree(ia);
 
 	if (!ok) {
