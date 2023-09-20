@@ -10796,7 +10796,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					__pm_stay_awake(isp_wake_lock);
 #endif
 					g_bWaitLock = 1;
-					log_dbg("wakelock enable!!\n");
+					log_inf("wakelock enable!!\n");
 				}
 			} else { /* Disable wakelock */
 				if (g_bWaitLock == 1) {
@@ -10804,7 +10804,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					__pm_relax(isp_wake_lock);
 #endif
 					g_bWaitLock = 0;
-					log_dbg("wakelock disable!!\n");
+					log_inf("wakelock disable!!\n");
 				}
 			}
 		}
@@ -12472,6 +12472,7 @@ static signed int ISP_release(struct inode *pInode, struct file *pFile)
 		__pm_relax(isp_wake_lock);
 #endif
 		g_bWaitLock = 0;
+		log_inf("release wakelock disable!!\n");
 	}
 	/* reset */
 	/*      */
