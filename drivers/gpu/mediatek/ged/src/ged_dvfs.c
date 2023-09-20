@@ -1117,13 +1117,12 @@ static int _slide_window_loading(unsigned int ui32loading)
 
 	if (slide_count == 0)
 		slide_count = 1;
+	else if (slide_count > MAX_SLIDE_WINDOW_SIZE)
+		slide_count = MAX_SLIDE_WINDOW_SIZE;
 
 	int cidx = ++idx % slide_count;
 
 	data[cidx] = ui32loading;
-
-	if (slide_count > MAX_SLIDE_WINDOW_SIZE)
-		slide_count = MAX_SLIDE_WINDOW_SIZE;
 
 	for (i = 0; i <= slide_count-1; i++)
 		sum_slide += data[i];
