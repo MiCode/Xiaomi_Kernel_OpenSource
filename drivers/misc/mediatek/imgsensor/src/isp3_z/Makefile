@@ -25,7 +25,7 @@ endif
 subdir-ccflags-y += \
     -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION) \
 	-I$(srctree)/drivers/i2c/busses/ \
-	-DNO_I2C_MTK -DNO_CLK_METER -DSENINF_USE_WAKE_LOCK
+	-DNO_I2C_MTK -DNO_CLK_METER -DSENINF_USE_WAKE_LOCK -DIMGSENSOR_USE_RPM
 
 define add_subdrv
 $(eval subdrv-rpath = $1)
