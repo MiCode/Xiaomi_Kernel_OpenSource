@@ -821,6 +821,15 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		goto done;
 	}
 
+	if (MDP_DPFRAMEWORK_CMD_FLAG != (user_job.engine_flag & MDP_DPFRAMEWORK_CMD_FLAG_MASK)) {
+		CMDQ_ERR("mdp_submit is invalid, engine_flag:%#llx!\n", user_job.engine_flag);
+		kfree(mapping_job);
+		status = -EINVAL;
+		goto done;
+	}
+
+	user_job.engine_flag = user_job.engine_flag & ~MDP_DPFRAMEWORK_CMD_FLAG;
+
 	if (user_job.read_count_v1 > CMDQ_MAX_DUMP_REG_COUNT ||
 		!user_job.meta_count ||
 		user_job.meta_count > CMDQ_MAX_META_COUNT ||
