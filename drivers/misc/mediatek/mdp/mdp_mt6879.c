@@ -934,46 +934,46 @@ struct MODULE_BASE {
 
 int32_t cmdqMdpDumpInfo(uint64_t engineFlag, int logLevel)
 {
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA0))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_RDMA0)) && MDP_RDMA0_BASE)
 		cmdq_mdp_dump_rdma(MDP_RDMA0_BASE, "RDMA0");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_RDMA1))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_RDMA1)) && MDP_RDMA1_BASE)
 		cmdq_mdp_dump_rdma(MDP_RDMA1_BASE, "RDMA1");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_RSZ0))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_RSZ0)) && MDP_RSZ0_BASE)
 		cmdq_mdp_get_func()->mdpDumpRsz(MDP_RSZ0_BASE, "RSZ0");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_RSZ1))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_RSZ1)) && MDP_RSZ1_BASE)
 		cmdq_mdp_get_func()->mdpDumpRsz(MDP_RSZ1_BASE, "RSZ1");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP0))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP0)) && MDP_TDSHP0_BASE)
 		cmdq_mdp_get_func()->mdpDumpTdshp(MDP_TDSHP0_BASE, "TDSHP0");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP1))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP1)) && MDP_TDSHP1_BASE)
 		cmdq_mdp_get_func()->mdpDumpTdshp(MDP_TDSHP1_BASE, "TDSHP1");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_COLOR0))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_COLOR0)) && MDP_COLOR0_BASE)
 		cmdq_mdp_dump_color(MDP_COLOR0_BASE, "COLOR0");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_COLOR1))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_COLOR1)) && MDP_COLOR1_BASE)
 		cmdq_mdp_dump_color(MDP_COLOR1_BASE, "COLOR1");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_WROT0))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_WROT0)) && MDP_WROT0_BASE)
 		cmdq_mdp_dump_rot(MDP_WROT0_BASE, "WROT0");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_WROT1))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_WROT1)) && MDP_WROT1_BASE)
 		cmdq_mdp_dump_rot(MDP_WROT1_BASE, "WROT1");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_HDR0))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_HDR0)) && MDP_HDR0_BASE)
 		cmdq_mdp_dump_hdr(MDP_HDR0_BASE, "HDR0");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_HDR1))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_HDR1)) && MDP_HDR1_BASE)
 		cmdq_mdp_dump_hdr(MDP_HDR1_BASE, "HDR1");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_AAL0))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_AAL0)) && MDP_AAL0_BASE)
 		cmdq_mdp_dump_aal(MDP_AAL0_BASE, "AAL0");
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_AAL1))
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_AAL1)) && MDP_AAL1_BASE)
 		cmdq_mdp_dump_aal(MDP_AAL1_BASE, "AAL1");
 
 	/* verbose case, dump entire 1KB HW register region */
@@ -1059,7 +1059,7 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP0)) {
-		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TDSHP0)) {
+		if ((cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TDSHP0)) && MDP_TDSHP0_BASE) {
 			CMDQ_REG_SET32(MDP_TDSHP0_BASE + 0x100, 0x0);
 			CMDQ_REG_SET32(MDP_TDSHP0_BASE + 0x100, 0x2);
 			CMDQ_REG_SET32(MDP_TDSHP0_BASE + 0x100, 0x0);
@@ -1067,14 +1067,14 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 	}
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP1)) {
-		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TDSHP1)) {
+		if ((cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TDSHP1)) && MDP_TDSHP1_BASE) {
 			CMDQ_REG_SET32(MDP_TDSHP1_BASE + 0x100, 0x0);
 			CMDQ_REG_SET32(MDP_TDSHP1_BASE + 0x100, 0x2);
 			CMDQ_REG_SET32(MDP_TDSHP1_BASE + 0x100, 0x0);
 		}
 	}
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_WROT0)) {
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_WROT0)) && MDP_WROT0_BASE) {
 		status = cmdq_mdp_loop_reset(CMDQ_ENG_MDP_WROT0,
 			MDP_WROT0_BASE + 0x010, MDP_WROT0_BASE + 0x014,
 			0x1, 0x1, true);
@@ -1082,7 +1082,7 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 			engineToResetAgain |= (1LL << CMDQ_ENG_MDP_WROT0);
 	}
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_WROT1)) {
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_WROT1)) && MDP_WROT1_BASE) {
 		status = cmdq_mdp_loop_reset(CMDQ_ENG_MDP_WROT1,
 			MDP_WROT1_BASE + 0x010, MDP_WROT1_BASE + 0x014,
 			0x1, 0x1, true);
@@ -1136,19 +1136,19 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 #ifdef CMDQ_PWR_AWARE
 
 	CMDQ_MSG("%s: Disable MDP(0x%llx) clock begin\n", __func__, engineFlag);
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_WROT0)) {
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_WROT0)) && MDP_WROT0_BASE) {
 		cmdq_mdp_loop_off(CMDQ_ENG_MDP_WROT0,
 			MDP_WROT0_BASE + 0X010, MDP_WROT0_BASE + 0X014,
 			0x1, 0x1, true);
 	}
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_WROT1)) {
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_WROT1)) && MDP_WROT1_BASE) {
 		cmdq_mdp_loop_off(CMDQ_ENG_MDP_WROT1,
 			MDP_WROT1_BASE + 0X010, MDP_WROT1_BASE + 0X014,
 			0x1, 0x1, true);
 	}
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP0)) {
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP0)) && MDP_TDSHP0_BASE) {
 		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TDSHP0)) {
 			CMDQ_REG_SET32(MDP_TDSHP0_BASE + 0x100, 0x0);
 			CMDQ_REG_SET32(MDP_TDSHP0_BASE + 0x100, 0x2);
@@ -1159,7 +1159,7 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 		}
 	}
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP1)) {
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP1)) && MDP_TDSHP1_BASE) {
 		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TDSHP1)) {
 			CMDQ_REG_SET32(MDP_TDSHP1_BASE + 0x100, 0x0);
 			CMDQ_REG_SET32(MDP_TDSHP1_BASE + 0x100, 0x2);
@@ -1170,7 +1170,7 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 		}
 	}
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_RSZ0)) {
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_RSZ0)) && MDP_RSZ0_BASE) {
 		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_RSZ0)) {
 			CMDQ_REG_SET32(MDP_RSZ0_BASE, 0x0);
 			CMDQ_REG_SET32(MDP_RSZ0_BASE, 0x10000);
@@ -1183,7 +1183,7 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 		}
 	}
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_RSZ1)) {
+	if ((engineFlag & (1LL << CMDQ_ENG_MDP_RSZ1)) && MDP_RSZ1_BASE) {
 		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_RSZ1)) {
 			CMDQ_REG_SET32(MDP_RSZ1_BASE, 0x0);
 			CMDQ_REG_SET32(MDP_RSZ1_BASE, 0x10000);
