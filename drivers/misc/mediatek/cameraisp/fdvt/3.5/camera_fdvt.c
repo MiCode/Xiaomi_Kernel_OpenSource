@@ -93,7 +93,6 @@ static struct class *FDVT_class;
 static wait_queue_head_t g_FDVTWQ;
 static u32 g_FDVTIRQ = 0, g_FDVTIRQMSK = 0x00000001;
 static DEFINE_SPINLOCK(g_spinLock);
-static DEFINE_SPINLOCK(g_clkDumpCnt);
 static unsigned int g_drvOpened;
 static unsigned int g_isSuspend;
 
@@ -408,7 +407,6 @@ static inline void FD_Disable_Unprepare_ccf_clock(void)
 
 static int mt_fdvt_clk_ctrl(int en)
 {
-	spin_lock(&g_clkDumpCnt);
 #if LDVT_EARLY_PORTING_NO_CCF
 	if (en) {
 		unsigned int setReg = 0xFFFFFFFF;
@@ -425,7 +423,6 @@ static int mt_fdvt_clk_ctrl(int en)
 	else
 		FD_Disable_Unprepare_ccf_clock();
 #endif
-	spin_unlock(&g_clkDumpCnt);
 	return 0;
 }
 
