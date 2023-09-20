@@ -5257,8 +5257,16 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 				cmdq_pkt_wait_te(cmdq_handle, mtk_crtc);
 				if (cur_fps != 60 && mtk_drm_helper_get_opt(priv->helper_opt,
 						MTK_DRM_OPT_PRE_TE)) {
-					mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
-					mtk_crtc->gce_obj.base);
+					/* Condition for avoiding screen mess in kpoc for secondary
+					 * screen in dual display
+					 */
+					if ((priv->data->mmsys_id == MMSYS_MT6983) &&
+						(crtc_id == 1))
+						mtk_disp_mutex_enable_cmdq_r(mtk_crtc->mutex[0],
+							cmdq_handle,mtk_crtc->gce_obj.base);
+					else
+						mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0],
+							cmdq_handle,mtk_crtc->gce_obj.base);
 				}
 			} else {
 				if (cur_fps != 60 && mtk_drm_helper_get_opt(priv->helper_opt,
@@ -5267,8 +5275,16 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 						mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_PRETE]);
 					cmdq_pkt_wfe(cmdq_handle,
 						mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_PRETE]);
-					mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
-						mtk_crtc->gce_obj.base);
+					/* Condition for avoiding screen mess in kpoc for secondary
+					 * screen in dual display
+					 */
+					if ((priv->data->mmsys_id == MMSYS_MT6983) &&
+						(crtc_id == 1))
+						mtk_disp_mutex_enable_cmdq_r(mtk_crtc->mutex[0],
+							cmdq_handle,mtk_crtc->gce_obj.base);
+					else
+						mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0],
+							cmdq_handle,mtk_crtc->gce_obj.base);
 				} else {
 					cmdq_pkt_clear_event(cmdq_handle,
 						mtk_crtc->gce_obj.event[EVENT_TE]);
@@ -5286,9 +5302,29 @@ void mtk_crtc_start_trig_loop(struct drm_crtc *crtc)
 					mtk_crtc->gce_obj.event[EVENT_SYNC_TOKEN_TE]);
 		} else {
 			mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,
-					      MTK_TRIG_FLAG_PRE_TRIGGER);
-			mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
-						   mtk_crtc->gce_obj.base);
+					MTK_TRIG_FLAG_PRE_TRIGGER);
+			/* Condition for avoiding screen mess in kpoc for secondary
+			 * screen in dual display
+			 */
+			if ((priv->data->mmsys_id == MMSYS_MT6983) && (crtc_id == 1))
+				mtk_disp_mutex_enable_cmdq_r(mtk_crtc->mutex[0], cmdq_handle,
+					mtk_crtc->gce_obj.base);
+			else if ((priv->data->mmsys_id == MMSYS_MT6983) && (crtc_id == 0) &&
+				(mtk_crtc->ddp_mode == 1)) {
+				/* reset DISP0/DISP1 topsys DLI0/DLO0 */
+				cmdq_pkt_write(cmdq_handle, NULL, priv->config_regs_pa +
+					0x160, 0, (BIT(11) | BIT(14)));
+				cmdq_pkt_write(cmdq_handle, NULL, priv->config_regs_pa +
+					0x160, (BIT(11) | BIT(14)), (BIT(11) | BIT(14)));
+				cmdq_pkt_write(cmdq_handle, NULL, priv->side_config_regs_pa +
+					0x160, 0, (BIT(11) | BIT(14)));
+				cmdq_pkt_write(cmdq_handle, NULL, priv->side_config_regs_pa +
+					0x160, (BIT(11) | BIT(14)), (BIT(11) | BIT(14)));
+				mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
+					mtk_crtc->gce_obj.base);
+			} else
+				mtk_disp_mutex_enable_cmdq(mtk_crtc->mutex[0], cmdq_handle,
+					mtk_crtc->gce_obj.base);
 		}
 
 		mtk_crtc_comp_trigger(mtk_crtc, cmdq_handle,

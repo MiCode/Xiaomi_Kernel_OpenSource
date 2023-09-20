@@ -14695,6 +14695,39 @@ void mtk_disp_mutex_enable_cmdq(struct mtk_disp_mutex *mutex,
 	mtk_disp_mutex_inten_enable_cmdq(mutex, cmdq_handle);
 }
 
+//Adding for avoiding screen mess in kpoc for secondary screen in dual display
+void mtk_disp_mutex_enable_cmdq_r(struct mtk_disp_mutex *mutex,
+				struct cmdq_pkt *cmdq_handle,
+				struct cmdq_base *cmdq_base)
+{
+	struct mtk_ddp *ddp =
+		container_of(mutex, struct mtk_ddp, mutex[mutex->id]);
+
+	if (&ddp->mutex[mutex->id] != mutex)
+		DDPAEE("%s:%d, invalid mutex:(%p,%p) id:%d\n",
+			__func__, __LINE__,
+			&ddp->mutex[mutex->id], mutex, mutex->id);
+
+	if (ddp->data->dispsys_map && ddp->side_regs_pa) {
+		cmdq_pkt_write(cmdq_handle, cmdq_base,
+		       ddp->side_regs_pa + DISP_REG_MUTEX_CFG, 0, ~0);
+		cmdq_pkt_write(cmdq_handle, cmdq_base,
+		       ddp->side_regs_pa + DISP_REG_MUTEX_EN(mutex->id), 0, ~0);
+		cmdq_pkt_write(cmdq_handle, cmdq_base,
+		       ddp->side_regs_pa + DISP_REG_MUTEX_EN(mutex->id), 1, ~0);
+	}
+
+	cmdq_pkt_write(cmdq_handle, cmdq_base,
+		       ddp->regs_pa + DISP_REG_MUTEX_CFG, 0, ~0);
+	cmdq_pkt_write(cmdq_handle, cmdq_base,
+		       ddp->regs_pa + DISP_REG_MUTEX_EN(mutex->id), 0, ~0);
+	cmdq_pkt_write(cmdq_handle, cmdq_base,
+		       ddp->regs_pa + DISP_REG_MUTEX_EN(mutex->id), 1, ~0);
+
+	mtk_disp_mutex_inten_enable_cmdq(mutex, cmdq_handle);
+}
+//end
+
 void mtk_disp_mutex_disable(struct mtk_disp_mutex *mutex)
 {
 	struct mtk_ddp *ddp =

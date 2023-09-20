@@ -166,6 +166,12 @@ void mtk_disp_mutex_acquire(struct mtk_disp_mutex *mutex);
 void mtk_disp_mutex_release(struct mtk_disp_mutex *mutex);
 void mtk_disp_mutex_trigger(struct mtk_disp_mutex *mutex, void *handle);
 
+//Adding for avoiding screen mess in kpoc for secondary screen in dual display
+void mtk_disp_mutex_enable_cmdq_r(struct mtk_disp_mutex *mutex,
+				struct cmdq_pkt *cmdq_handle,
+				struct cmdq_base *cmdq_base);
+//end
+
 void mtk_disp_mutex_enable_cmdq(struct mtk_disp_mutex *mutex,
 				struct cmdq_pkt *cmdq_handle,
 				struct cmdq_base *cmdq_base);
