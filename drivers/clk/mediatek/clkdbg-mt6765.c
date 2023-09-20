@@ -249,7 +249,7 @@ static const char * const *get_all_clk_names(void)
 		"syspll_d7",
 		"syspll4_d2",
 		"syspll4_d4",
-		"syspll4_d8"
+		"syspll4_d8",
 		"usb20_192m_ck",
 		"usb20_192m_d2",
 		"usb20_192m_d4",
