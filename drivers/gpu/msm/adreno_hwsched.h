@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _ADRENO_HWSCHED_H_
@@ -101,7 +101,11 @@ struct adreno_hwsched {
 	struct list_head hw_fence_list;
 	/** @hw_fence_count: Number of hardware fences that haven't yet been sent to Tx Queue */
 	u32 hw_fence_count;
-
+	/**
+	 * @submission_seqnum: Sequence number for sending submissions to GMU context queues or
+	 * dispatch queues
+	 */
+	atomic_t submission_seqnum;
 };
 
 /*
