@@ -433,7 +433,7 @@ static int venc_set_param(unsigned long handle,
 	struct venc_inst *inst = (struct venc_inst *)handle;
 	unsigned int fmt = 0;
 
-	if (inst == NULL)
+	if (inst == NULL || inst->ctx == NULL)
 		return -EINVAL;
 
 	mtk_vcodec_debug(inst, "->type=%d", type);

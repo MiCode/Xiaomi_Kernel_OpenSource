@@ -589,7 +589,8 @@ static int venc_vcp_backup(struct venc_inst *inst)
 	int err = 0;
 
 	mtk_vcodec_debug_enter(inst);
-
+	if( inst == NULL)
+		return -EINVAL;
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_ENC_BACKUP;
 	msg.venc_inst = inst->vcu_inst.inst_addr;

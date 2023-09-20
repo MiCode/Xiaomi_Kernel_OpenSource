@@ -189,6 +189,8 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		return -EINVAL;
 
 	ctx = vcu->ctx;
+	if (ctx == NULL)
+		return -EINVAL;
 	switch (msg->msg_id) {
 	case VCU_IPIMSG_ENC_INIT_DONE:
 		handle_enc_init_msg(vcu, data);
@@ -298,7 +300,8 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 
 	if (vcu->abort)
 		return -EIO;
-
+	if (vcu->ctx == NULL)
+		return -EINVAL;
 	while (vcu->ctx->dev->is_codec_suspending == 1) {
 		suspend_block_cnt++;
 		if (suspend_block_cnt > SUSPEND_TIMEOUT_CNT) {
@@ -439,6 +442,8 @@ int vcu_enc_query_cap(struct venc_vcu_inst *vcu, unsigned int id, void *out)
 	}
 
 	mtk_vcodec_debug(vcu, "+ id=%X", AP_IPIMSG_ENC_QUERY_CAP);
+	if(vcu == NULL || vcu->ctx == NULL)
+		return -EINVAL;
 	vcu->dev = VCU_FPTR(vcu_get_plat_device)(vcu->ctx->dev->plat_dev);
 	if (vcu->dev  == NULL) {
 		mtk_vcodec_err(vcu, "vcu device in not ready");
@@ -711,7 +716,8 @@ int vcu_enc_deinit(struct venc_vcu_inst *vcu)
 	int ret = 0;
 
 	mtk_vcodec_debug_enter(vcu);
-
+	if(vcu == NULL)
+		return -EINVAL;
 	if (sizeof(out) > SHARE_BUF_SIZE) {
 		mtk_vcodec_err(vcu, "venc_ap_ipi_msg_deint cannot be large than %d",
 					   SHARE_BUF_SIZE);
