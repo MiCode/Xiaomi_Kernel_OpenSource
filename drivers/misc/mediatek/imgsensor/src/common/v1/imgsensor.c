@@ -2817,19 +2817,66 @@ CAMERA_HW_Ioctl_EXIT:
 	return i4RetValue;
 }
 
+static int do_imgsensor_suspend(void)
+{
+	enum IMGSENSOR_SENSOR_IDX i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
+
+	mutex_lock(&imgsensor_mutex);
+
+	atomic_dec(&pgimgsensor->imgsensor_open_cnt);
+	if (atomic_read(&pgimgsensor->imgsensor_open_cnt) == 0) {
+		imgsensor_clk_disable_all(&pgimgsensor->clk);
+
+		if (pgimgsensor->imgsensor_oc_irq_enable != NULL) {
+			for (; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++)
+				pgimgsensor->imgsensor_oc_irq_enable(i, false);
+		}
+
+		imgsensor_hw_release_all(&pgimgsensor->hw);
+	}
+	pr_info(
+	    "%s %d\n",
+	    __func__,
+	    atomic_read(&pgimgsensor->imgsensor_open_cnt));
+
+	mutex_unlock(&imgsensor_mutex);
+	return 0;
+}
+
+static int do_imgsensor_resume(void)
+{
+	mutex_lock(&imgsensor_mutex);
+	if (atomic_read(&pgimgsensor->imgsensor_open_cnt) == 0)
+		imgsensor_clk_enable_all(&pgimgsensor->clk);
+
+	atomic_inc(&pgimgsensor->imgsensor_open_cnt);
+	pr_info(
+	    "%s %d\n",
+	    __func__,
+	    atomic_read(&pgimgsensor->imgsensor_open_cnt));
+
+	mutex_unlock(&imgsensor_mutex);
+	return 0;
+}
+
 static int imgsensor_open(struct inode *a_pstInode, struct file *a_pstFile)
 {
-	pr_info("[%s] +\n", __func__);
+
+#ifdef IMGSENSOR_USE_RPM
 	pm_runtime_get_sync(pgimgsensor->dev);
-	pr_info("[%s] -\n", __func__);
+#else
+	do_imgsensor_resume();
+#endif
 	return 0;
 }
 
 static int imgsensor_release(struct inode *a_pstInode, struct file *a_pstFile)
 {
-	pr_info("[%s] +\n", __func__);
+#ifdef IMGSENSOR_USE_RPM
 	pm_runtime_put_sync(pgimgsensor->dev);
-	pr_info("[%s] -\n", __func__);
+#else
+	do_imgsensor_suspend();
+#endif
 	return 0;
 }
 
@@ -2983,48 +3030,18 @@ static int imgsensor_resume(struct platform_device *pdev)
 
 int imgsensor_runtime_suspend(struct device *pDev)
 {
-	enum IMGSENSOR_SENSOR_IDX i = IMGSENSOR_SENSOR_IDX_MIN_NUM;
-
 	pr_info("[%s] +\n", __func__);
-	mutex_lock(&imgsensor_mutex);
-
-	atomic_dec(&pgimgsensor->imgsensor_open_cnt);
-	if (atomic_read(&pgimgsensor->imgsensor_open_cnt) == 0) {
-		imgsensor_clk_disable_all(&pgimgsensor->clk);
-
-		if (pgimgsensor->imgsensor_oc_irq_enable != NULL) {
-			for (; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++)
-				pgimgsensor->imgsensor_oc_irq_enable(i, false);
-		}
-
-		imgsensor_hw_release_all(&pgimgsensor->hw);
-	}
-	pr_info(
-	    "%s %d\n",
-	    __func__,
-	    atomic_read(&pgimgsensor->imgsensor_open_cnt));
-
-	mutex_unlock(&imgsensor_mutex);
+	do_imgsensor_suspend();
 	pr_info("[%s] -\n", __func__);
+
 	return 0;
 }
 
 int imgsensor_runtime_resume(struct device *pDev)
 {
 	pr_info("[%s] +\n", __func__);
-	mutex_lock(&imgsensor_mutex);
-	if (atomic_read(&pgimgsensor->imgsensor_open_cnt) == 0)
-		imgsensor_clk_enable_all(&pgimgsensor->clk);
-
-	atomic_inc(&pgimgsensor->imgsensor_open_cnt);
-	pr_info(
-	    "%s %d\n",
-	    __func__,
-	    atomic_read(&pgimgsensor->imgsensor_open_cnt));
-
-	mutex_unlock(&imgsensor_mutex);
+	do_imgsensor_resume();
 	pr_info("[%s] -\n", __func__);
-
 
 	return 0;
 }
