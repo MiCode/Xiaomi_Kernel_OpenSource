@@ -211,6 +211,13 @@ void fg_daemon_send_data(struct mtk_battery *gm,
 				struct fgd_cmd_param_t_custom),
 				prcv->total_size);
 			}
+			if ((prcv->idx + prcv->size) >
+				sizeof(struct fgd_cmd_param_t_custom)) {
+				bm_err("size is different %d size %d idx %d\n",
+					(int)sizeof(struct fgd_cmd_param_t_custom),
+					prcv->size, prcv->idx);
+				return;
+			}
 
 			ptr = (char *)&gm->fg_data;
 			memcpy(&ptr[prcv->idx],
@@ -313,6 +320,16 @@ void fg_daemon_get_data(int cmd,
 	{
 		char *ptr;
 
+		if (prcv->idx + prcv->size >
+			sizeof(struct fuel_gauge_custom_data)) {
+			bm_err("%s size is different %d %d %d\n",
+			__func__,
+			(int)sizeof(
+			struct fuel_gauge_custom_data),
+			prcv->idx, prcv->size);
+			return;
+		}
+
 		if (sizeof(struct fuel_gauge_custom_data)
 			!= prcv->total_size) {
 			bm_err("%s size is different %d %d\n",
@@ -340,6 +357,16 @@ void fg_daemon_get_data(int cmd,
 	case FG_DAEMON_CMD_GET_CUSTOM_TABLE:
 		{
 			char *ptr;
+
+			if (prcv->idx + prcv->size >
+				sizeof(struct fuel_gauge_table_custom_data)) {
+				bm_err("%s size is different %d %d %d\n",
+				__func__,
+				(int)sizeof(
+				struct fuel_gauge_table_custom_data),
+				prcv->idx, prcv->size);
+				return;
+			}
 
 			if (sizeof(struct fuel_gauge_table_custom_data)
 				!= prcv->total_size) {
@@ -2887,6 +2914,10 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 
 		fg_coulomb = gauge_get_int_property(GAUGE_PROP_COULOMB);
 
+		if (((int)sizeof(msg->fgd_data[0])) == 0) {
+			bm_err("[fr] FG_DAEMON_CMD_SET_FG_BAT_INT1_GAP is not filled\n");
+			break;
+		}
 		memcpy(&gm->coulomb_int_gap,
 			&msg->fgd_data[0], sizeof(gm->coulomb_int_gap));
 
