@@ -209,6 +209,10 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 		return -EINVAL;
 	}
 
+	if (vcu->ctx == NULL) {
+		return -EINVAL;
+	}
+
 	if (msg->msg_id == VCU_IPIMSG_DEC_CHECK_CODEC_ID) {
 
 		if (check_codec_id(msg, vcu->ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc,
@@ -403,7 +407,7 @@ static int vcodec_vcu_send_msg(struct vdec_vcu_inst *vcu, void *msg, int len)
 	unsigned int suspend_block_cnt = 0;
 
 	mtk_vcodec_debug(vcu, "id=%X", *(uint32_t *)msg);
-	if(vcu == NULL)
+	if(vcu == NULL || vcu->ctx == NULL)
 		return -EINVAL;
 	if (vcu->abort)
 		return -EIO;
@@ -454,7 +458,7 @@ static int vcodec_send_ap_ipi(struct vdec_vcu_inst *vcu, unsigned int msg_id)
 	int err = 0;
 
 	mtk_vcodec_debug(vcu, "+ id=%X", msg_id);
-	if(vcu == NULL)
+	if(vcu == NULL || vcu->ctx == NULL)
 		return -EINVAL;
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = msg_id;
@@ -518,7 +522,7 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 	struct vdec_ap_ipi_init msg;
 	int err=0;
 	mtk_vcodec_debug_enter(vcu);
-	if(vcu == NULL)
+	if(vcu == NULL || vcu->ctx == NULL)
 		return -EINVAL;
 	vcu->signaled = 0;
 	vcu->failure = 0;
@@ -561,7 +565,7 @@ int vcu_dec_start(struct vdec_vcu_inst *vcu,
 	int err = 0;
 
 	mtk_vcodec_debug_enter(vcu);
-	if(vcu == NULL)
+	if(vcu == NULL || vcu->ctx == NULL)
 		return -EINVAL;
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_START;
@@ -604,7 +608,7 @@ int vcu_dec_reset(struct vdec_vcu_inst *vcu, enum vdec_reset_type drain_type)
 
 	mtk_vcodec_debug_enter(vcu);
 	mtk_vcodec_debug(vcu, "drain_type %d", drain_type);
-	if(vcu == NULL)
+	if(vcu == NULL || vcu->ctx == NULL)
 		return -EINVAL;
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_RESET;
@@ -624,7 +628,7 @@ int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out)
 	int err = 0;
 
 	mtk_vcodec_debug(vcu, "+ id=%X", AP_IPIMSG_DEC_QUERY_CAP);
-	if(vcu == NULL)
+	if(vcu == NULL || vcu->ctx == NULL)
 		return -EINVAL;
 	vcu->dev = VCU_FPTR(vcu_get_plat_device)(vcu->ctx->dev->plat_dev);
 	if (vcu->dev  == NULL) {
@@ -662,7 +666,7 @@ int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id, void *param,
 	int i = 0;
 
 	mtk_vcodec_debug(vcu, "+ id=%X", AP_IPIMSG_DEC_SET_PARAM);
-	if(vcu == NULL)
+	if(vcu == NULL || vcu->ctx == NULL)
 		return -EINVAL;
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_SET_PARAM;
@@ -693,7 +697,7 @@ int vcu_dec_set_frame_buffer(struct vdec_vcu_inst *vcu, void *fb)
 	int ret = 0;
 
 	mtk_vcodec_debug(vcu, "+ id=%X", AP_IPIMSG_DEC_FRAME_BUFFER);
-	if(vcu == NULL)
+	if(vcu == NULL || vcu->ctx == NULL)
 		return -EINVAL;
 	memset(&msg, 0, sizeof(msg));
 	memset(&ipi_fb, 0, sizeof(ipi_fb));
