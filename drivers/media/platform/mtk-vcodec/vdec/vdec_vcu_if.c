@@ -154,8 +154,6 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	struct mtk_vcodec_dev *dev = (struct mtk_vcodec_dev *)priv;
 	struct vdec_inst *inst = NULL;
 	int msg_valid = 0;
-	if(vcu == NULL)
-		return -EINVAL;
 	BUILD_BUG_ON(sizeof(struct vdec_ap_ipi_cmd) > SHARE_BUF_SIZE);
 	BUILD_BUG_ON(sizeof(struct vdec_ap_ipi_init) > SHARE_BUF_SIZE);
 	BUILD_BUG_ON(sizeof(struct vdec_ap_ipi_dec_start) > SHARE_BUF_SIZE);
