@@ -45,7 +45,14 @@ static bool _mtk_fh_set_rate(const char *pll_name, unsigned long dds, int postdi
 	int i;
 	struct fh_hdlr *hdlr = NULL;
 	struct pll_dts *array = get_dts_array();
-	int num_pll = array->num_pll;
+	int num_pll = 0;
+
+	if (!array) {
+		FHDBG("!array\n");
+		return false;
+	}
+
+	num_pll = array->num_pll;
 
 	if (!_inited) {
 		FHDBG("!_inited\n");
@@ -167,8 +174,6 @@ static int fh_plt_drv_probe(struct platform_device *pdev)
 
 	FHDBG("in\n");
 
-	mtk_fh_set_rate = _mtk_fh_set_rate;
-
 	/* convert dt to data */
 	array = parse_dt(pdev);
 
@@ -195,7 +200,7 @@ static int fh_plt_drv_probe(struct platform_device *pdev)
 	/* set _inited is the last step */
 	mb();
 	_inited = true;
-
+	mtk_fh_set_rate = _mtk_fh_set_rate;
 	return 0;
 }
 
