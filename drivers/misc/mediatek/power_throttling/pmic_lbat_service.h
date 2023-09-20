@@ -17,6 +17,10 @@ struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 				     unsigned int lv1_thd_volt,
 				     unsigned int lv2_thd_volt,
 				     void (*callback)(unsigned int thd_volt));
+int lbat_user_modify_thd(struct lbat_user *user, unsigned int hv_thd_volt,
+			 unsigned int lv1_thd_volt, unsigned int lv2_thd_volt);
+int lbat_user_modify_thd_locked(struct lbat_user *user, unsigned int hv_thd_volt,
+				unsigned int lv1_thd_volt, unsigned int lv2_thd_volt);
 int lbat_user_set_debounce(struct lbat_user *user,
 			   unsigned int hv_deb_prd, unsigned int hv_deb_times,
 			   unsigned int lv_deb_prd, unsigned int lv_deb_times);
