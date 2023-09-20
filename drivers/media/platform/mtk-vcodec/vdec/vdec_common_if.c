@@ -140,7 +140,8 @@ error_free_inst:
 static void vdec_deinit(unsigned long h_vdec)
 {
 	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
-
+	if(inst == NULL)
+		return;
 	mtk_vcodec_debug_enter(inst);
 
 	vcu_dec_deinit(&inst->vcu);
