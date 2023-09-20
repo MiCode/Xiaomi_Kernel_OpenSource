@@ -114,8 +114,6 @@ int gen7_hfi_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
 
 	queue = HOST_QUEUE_START_ADDR(gmu->hfi.hfi_mem, queue_idx);
 
-	trace_kgsl_hfi_send(id, size_dwords, MSG_HDR_GET_SEQNUM(*msg));
-
 	write_idx = hdr->write_index;
 	read_idx = hdr->read_index;
 
@@ -138,6 +136,8 @@ int gen7_hfi_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
 		queue[write_idx] = 0xfafafafa;
 		write_idx = (write_idx + 1) % hdr->queue_size;
 	}
+
+	trace_kgsl_hfi_send(id, size_dwords, MSG_HDR_GET_SEQNUM(*msg));
 
 	hfi_update_write_idx(&hdr->write_index, write_idx);
 
