@@ -5043,6 +5043,8 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 					}
 				}
 				if (i == ISP_RT_BUF_SIZE) {
+					spin_unlock_irqrestore(&(IspInfo.SpinLockIrq
+						[irqT_Lock]), flags);
 					for (x = 0; x < ISP_RT_BUF_SIZE; x++)
 						LOG_DBG("[rtbc]dma(%d),idx(%d) PA(0x%x) VA(0x%llx)",
 						rt_dma, x, pstRTBuf->ring_buf[rt_dma].data[x].base_pAddr,

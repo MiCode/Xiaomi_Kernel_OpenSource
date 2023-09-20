@@ -5099,6 +5099,9 @@ for (i = 0; i < ISP_RT_BUF_SIZE; i++) {
 			}
 }
 		if (i == ISP_RT_BUF_SIZE) {
+			spin_unlock_irqrestore(
+						&(IspInfo.SpinLockIrq
+							[irqT_Lock]),flags);
 			for (x = 0; x < ISP_RT_BUF_SIZE; x++)
 				log_dbg("[rtbc]dma(%d),idx(%d) PA(0x%x) VA(0x%llx)",
 					rt_dma,
