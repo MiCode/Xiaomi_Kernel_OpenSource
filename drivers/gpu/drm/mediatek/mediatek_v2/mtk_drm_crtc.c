@@ -1302,10 +1302,11 @@ bool mtk_crtc_is_dual_pipe(struct drm_crtc *crtc)
 		panel_ext->dsc_params.slice_mode == 1 &&
 		mtk_crtc->path_data->dual_path_len[0] != 0) {
 		/* dual_path should exist */
-		if ((priv->data->mmsys_id == MMSYS_MT6983) && (drm_crtc_index(crtc) == 1) &&
-				(crtc->state->adjusted_mode.vdisplay > 2548))
-			return false;
-
+		//Enabling dual pipe for secondary screen in kpoc
+		/* if ((priv->data->mmsys_id == MMSYS_MT6983) && (drm_crtc_index(crtc) == 1) &&
+		 * (crtc->state->adjusted_mode.vdisplay > 2548))
+		 * return false;
+		 */
 		return true;
 	}
 
