@@ -962,7 +962,7 @@ static void hdr_task_done_readback(struct mml_comp *comp, struct mml_task *task,
 		kfree(task->pq_task->hdr_hist[pipe]);
 		task->pq_task->hdr_hist[pipe] = NULL;
 	} else
-		mml_pq_put_readback_buffer(task, pipe, task->pq_task->hdr_hist[pipe]);
+		mml_pq_put_readback_buffer(task, pipe, &(task->pq_task->hdr_hist[pipe]));
 exit:
 	mml_pq_trace_ex_end();
 }
