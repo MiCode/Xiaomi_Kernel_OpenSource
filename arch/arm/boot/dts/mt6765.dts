@@ -467,6 +467,7 @@ initcall_debug=1 pelt=8 clk_ignore_unused=1";
 
 	regulator_vibrator: regulator_vibrator {
 		compatible = "regulator-vibrator";
+		label = "vibrator";
 		min-volt = <2300000>;
 		max-volt = <3200000>;
 		min-limit = <15>;
