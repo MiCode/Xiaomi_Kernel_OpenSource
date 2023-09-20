@@ -2969,8 +2969,10 @@ static inline void Prepare_Enable_ccf_clock(void)
 	ret = pm_runtime_get_sync(cam_isp_devs->dev);
 	if (ret < 0)
 		log_err("cannot pm runtime get ISP_IMGSYS_CONFIG_IDX mtcmos\n");
-	else
-		log_inf("+ pm_runtime_get_sync\n");
+	else{
+		if (G_u4EnableClockCount == 1)
+			log_inf("+ pm_runtime_get_sync\n");
+	}
 
 	ret = clk_prepare_enable(isp_clk.CG_CAM_LARB2);
 	if (ret)
@@ -3000,7 +3002,8 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		log_err("cannot get CG_CAMSV1 clock\n");
 
-	log_inf("- pm_runtime_get_sync\n");
+	if (G_u4EnableClockCount == 1)
+		log_inf("- pm_runtime_get_sync\n");
 }
 
 static inline void Disable_Unprepare_ccf_clock(void)
@@ -3009,7 +3012,8 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order: CG_SCP_SYS_CAM ->
 	 * CG_SCP_SYS_DIS
 	 */
-	log_inf("+ pm_runtime_put_sync\n");
+	if (G_u4EnableClockCount == 0)
+		log_inf("+ pm_runtime_put_sync\n");
 
 	clk_disable_unprepare(isp_clk.CG_CAMSV1);
 	clk_disable_unprepare(isp_clk.CG_CAMSV0);
@@ -3021,8 +3025,10 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	ret = pm_runtime_put_sync(cam_isp_devs->dev);
 	if (ret < 0)
 		log_err("cannot pm runtime put ISP_IMGSYS_CONFIG_IDX mtcmos\n");
-	else
-		log_inf("- pm_runtime_put_sync\n");
+	else{
+		if (G_u4EnableClockCount == 0)
+			log_inf("- pm_runtime_put_sync\n");
+}
 }
 
 /******************************************************************************
@@ -3039,12 +3045,12 @@ static void ISP_EnableClock(bool En)
 		spin_unlock(&(IspInfo.SpinLockClock));
 		Prepare_Enable_ccf_clock();
 		if (G_u4EnableClockCount == 1) {
+			log_inf("enable_irq\n");
 			for (module = ISP_CAM0_IRQ_IDX; module < ISP_CAM_IRQ_IDX_NUM; module++) {
 				if (module == ISP_CAM0_IRQ_IDX ||
 					module == ISP_CAMSV0_IRQ_IDX ||
 					module == ISP_CAMSV1_IRQ_IDX) {
 					enable_irq(cam_isp_devs->irq[module]);
-					log_inf("enable_irq cam %d\n", module);
 				}
 			}
 		}
@@ -3053,12 +3059,12 @@ static void ISP_EnableClock(bool En)
 		G_u4EnableClockCount--;
 		spin_unlock(&(IspInfo.SpinLockClock));
 		if (G_u4EnableClockCount == 0) {
+			log_inf("disable_irq\n");
 			for (module = ISP_CAM0_IRQ_IDX; module < ISP_CAM_IRQ_IDX_NUM; module++) {
 				if (module == ISP_CAM0_IRQ_IDX ||
 					module == ISP_CAMSV0_IRQ_IDX ||
 					module == ISP_CAMSV1_IRQ_IDX) {
 					disable_irq(cam_isp_devs->irq[module]);
-					log_inf("disable_irq cam %d\n", module);
 				}
 			}
 		}
@@ -3081,7 +3087,7 @@ static inline void ISP_Reset(signed int rst_path)
 	/*      */
 	log_dbg("- E.");
 
-	log_dbg("isp gate clk(0x%x),rst_path(%d)", ISP_RD32(ISP_ADDR_CAMINF),
+	log_inf("isp gate clk(0x%x),rst_path(%d)", ISP_RD32(ISP_ADDR_CAMINF),
 		rst_path);
 
 	if (rst_path == ISP_REG_SW_CTL_RST_CAM_P1) {
@@ -12438,6 +12444,8 @@ static signed int ISP_release(struct inode *pInode, struct file *pFile)
 	Reg &= 0xfffffffE; /* close Vfinder */
 	ISP_WR32(ISP_REG_ADDR_TG2_VF_CON, Reg);
 
+	for ( i = 0; i < ISP_REG_SW_CTL_RST_CAMSV2; i++)
+		ISP_Reset(i + 1);
 	/* why i add this wake_unlock here, because     the     Ap is not
 	 * expected to be dead.
 	 * The driver must releae the wakelock, otherwise the system will not
