@@ -2792,6 +2792,24 @@ static void dpmaif_irq_cb(struct hif_dpmaif_ctrl *hif_ctrl)
 			"DPMAIF IRQ L2(%x/%x)(%x/%x)!\n",
 			L2TISAR0, L2RISAR0, L2TIMR0, L2RIMR0);
 
+	/* check UL&DL mask status register */
+	if (((L2TIMR0 & AP_UL_L2INTR_Msk_Check) != AP_UL_L2INTR_Msk_Check) ||
+		((L2RIMR0 & AP_DL_L2INTR_Msk_Check) != AP_DL_L2INTR_Msk_Check)) {
+		/* if has error bit, set mask */
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, ~(AP_UL_L2INTR_En_Msk));
+		/* use msk to clear dummy interrupt */
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, ~(AP_UL_L2INTR_En_Msk));
+
+		/* if has error bit, set mask */
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, ~(AP_DL_L2INTR_En_Msk));
+		/* use msk to clear dummy interrupt */
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, ~(AP_DL_L2INTR_En_Msk));
+		CCCI_NORMAL_LOG(0, TAG, "[%s]mask:dl=0x%x(0x%x) ul=0x%x(0x%x)\n",
+			__func__,
+			DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0), L2RIMR0,
+			DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0), L2TIMR0);
+	}
+
 	/* TX interrupt */
 	if (L2TISAR0) {
 		L2TISAR0 &= ~(L2TIMR0);
@@ -3886,6 +3904,21 @@ static int dpmaif_resume(unsigned char hif_id)
 	/*IP don't power down before*/
 	if (drv3_dpmaif_check_power_down() == false) {
 		CCCI_DEBUG_LOG(0, TAG, "sys_resume no need restore\n");
+	} else {
+		/* DL set mask */
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMSR0, ~(AP_DL_L2INTR_En_Msk));
+		/* use msk to clear dummy interrupt */
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_DL_L2TISAR0, ~(AP_DL_L2INTR_En_Msk));
+
+		/* UL set mask */
+		DPMA_WRITE_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMSR0, ~(AP_UL_L2INTR_En_Msk));
+		/* use msk to clear dummy interrupt */
+		DPMA_WRITE_PD_MISC(DPMAIF_PD_AP_UL_L2TISAR0, ~(AP_UL_L2INTR_En_Msk));
+
+		CCCI_NORMAL_LOG(0, TAG, "[%s]mask:dl=0x%x ul=0x%x\n",
+			__func__,
+			DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_APDL_L2TIMR0),
+			DPMA_READ_AO_UL(NRL2_DPMAIF_AO_UL_AP_L2TIMR0));
 	}
 
 	return 0;
