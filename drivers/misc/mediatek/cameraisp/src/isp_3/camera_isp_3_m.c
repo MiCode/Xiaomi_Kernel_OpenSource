@@ -12494,13 +12494,16 @@ EXIT:
 /* log_dbg("Before spm_enable_sodi()."); */
 /* Enable sodi (Multi-Core Deep Idle). */
 
+	/*disable CMOS */
+	ISP_WR32(ISP_REG_ADDR_TG_SEN_MODE,
+		ISP_RD32(ISP_REG_ADDR_TG_SEN_MODE)&0xFFFFFFFE);
 	/* Disable clock.
 	 *  1. clkmgr: G_u4EnableClockCount=0, call clk_enable/disable
 	 *  2. CCF: call clk_enable/disable every time
 	 */
 	ISP_EnableClock(MFALSE);
 	log_inf("isp release G_u4EnableClockCount: %d\n", G_u4EnableClockCount);
-	/*  */
+
 	log_inf("- X. UserCount: %d.", IspInfo.UserCount);
 	mutex_unlock(&open_isp_mutex);
 	return 0;
