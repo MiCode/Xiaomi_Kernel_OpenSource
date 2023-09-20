@@ -49,6 +49,9 @@
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
 #include "blocktag-pm-trace.h"
 #endif
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+#include "blocktag-fuse.h"
+#endif
 
 /*
  * snprintf may return a value of size or "more" to indicate
@@ -1866,6 +1869,20 @@ static struct tracepoints_table interests[] = {
 		.func = fscmd_trace_f2fs_gc_end
 	},
 #endif
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	{
+		.name = "fuse_init_reply",
+		.func = mtk_fuse_init_reply
+	},
+	{
+		.name = "fuse_simple_request",
+		.func = mtk_fuse_simple_request
+	},
+	{
+		.name = "fuse_simple_background",
+		.func = mtk_fuse_simple_background
+	}
+#endif
 };
 
 #define FOR_EACH_INTEREST(i) \
@@ -1933,6 +1950,10 @@ static int __init mtk_btag_init(void)
 #if IS_ENABLED(CONFIG_MTK_BLOCK_IO_PM_DEBUG)
 	mtk_btag_blk_pm_init();
 #endif
+
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	mtk_fuse_init();
+#endif
 	mtk_btag_install_tracepoints();
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_BLOCKIO, mtk_btag_get_aee_buffer);
 
@@ -1944,6 +1965,9 @@ static void __exit mtk_btag_exit(void)
 	mrdump_set_extra_dump(AEE_EXTRA_FILE_BLOCKIO, NULL);
 	proc_remove(btag_proc_root);
 	mtk_btag_uninstall_tracepoints();
+#if IS_ENABLED(CONFIG_MTK_FUSE_DEBUG)
+	mtk_fuse_deinit();
+#endif
 }
 
 fs_initcall(mtk_btag_init);
