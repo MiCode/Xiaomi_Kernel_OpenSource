@@ -48,3 +48,10 @@ config MTK_IOMMU_DEBUG
 	  Select this to see the detailed log message that shows what
 	  happens in the IOMMU driver.
 	  If unsure, say N.
+
+config MTK_IOMMU_VIOLATION_DBG
+	bool "Debugging log for Mediatek IOMMU violation"
+	help
+	  Select this to see the detailed log message that shows what
+	  happens in the IOMMU driver.
+	  If unsure, say N.
