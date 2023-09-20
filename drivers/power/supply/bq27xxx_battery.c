@@ -2005,6 +2005,7 @@ static void bq27xxx_external_power_changed(struct power_supply *psy)
 
 	cancel_delayed_work_sync(&di->work);
 	schedule_delayed_work(&di->work, 0);
+	power_supply_changed(di->bat);
 }
 
 int bq27xxx_battery_setup(struct bq27xxx_device_info *di)
