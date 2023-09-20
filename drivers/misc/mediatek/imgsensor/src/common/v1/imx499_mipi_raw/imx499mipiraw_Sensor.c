@@ -789,9 +789,10 @@ static void imx499_apply_LRC(void)
 
 static void set_dummy(void)
 {
-	pr_debug("frame_length = %d, line_length = %d\n",
+	/*pr_debug("frame_length = %d, line_length = %d\n",
 	    imgsensor.frame_length,
 	    imgsensor.line_length);
+	*/
 
 	write_cmos_sensor(0x0104, 0x01);
 
@@ -833,9 +834,10 @@ static void set_max_framerate(UINT16 framerate, kal_bool min_framelength_en)
 	kal_uint32 frame_length = imgsensor.frame_length;
 	/* unsigned long flags; */
 
-	pr_debug("framerate = %d, min framelength should enable %d\n",
+	/*pr_debug("framerate = %d, min framelength should enable %d\n",
 			framerate,
 			min_framelength_en);
+	*/
 
 	frame_length = imgsensor.pclk / framerate * 10 / imgsensor.line_length;
 	spin_lock(&imgsensor_drv_lock);
@@ -888,9 +890,10 @@ static void set_shutter(kal_uint32 shutter)
 	kal_uint16 realtime_fps = 0;
 	kal_uint16 l_shift = 1;
 
-	pr_debug("Enter! shutter =%d, framelength =%d\n",
+	/*pr_debug("Enter! shutter =%d, framelength =%d\n",
 		shutter,
 		imgsensor.frame_length);
+	*/
 
 	spin_lock_irqsave(&imgsensor_drv_lock, flags);
 	imgsensor.shutter = shutter;
@@ -974,10 +977,11 @@ static void set_shutter(kal_uint32 shutter)
 	write_cmos_sensor(0x0202, (shutter >> 8) & 0xFF);
 	write_cmos_sensor(0x0203, shutter & 0xFF);
 	write_cmos_sensor(0x0104, 0x00);
-	pr_debug(
+	/*pr_debug(
 	    "Exit! shutter =%d, framelength =%d\n",
 	    shutter,
 	    imgsensor.frame_length);
+	*/
 
 } /* set_shutter */
 
@@ -987,7 +991,7 @@ static kal_uint16 gain2reg(const kal_uint16 gain)
 {
 	kal_uint16 iI;
 
-	pr_debug("[IMX499MIPI]enter IMX499MIPIGain2Reg function\n");
+	/*pr_debug("[IMX499MIPI]enter IMX499MIPIGain2Reg function\n");*/
 	for (iI = 0; iI < IMX499MIPI_MaxGainIndex; iI++) {
 		if (gain <= IMX499MIPI_sensorGainMapping[iI][0])
 			return IMX499MIPI_sensorGainMapping[iI][1];
@@ -1032,7 +1036,7 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	spin_lock(&imgsensor_drv_lock);
 	imgsensor.gain = reg_gain;
 	spin_unlock(&imgsensor_drv_lock);
-	pr_debug("gain = %d , reg_gain = 0x%x\n ", gain, reg_gain);
+	/*pr_debug("gain = %d , reg_gain = 0x%x\n ", gain, reg_gain);*/
 
 	write_cmos_sensor(0x0104, 0x01);
 	/* Global analog Gain for Long expo */
