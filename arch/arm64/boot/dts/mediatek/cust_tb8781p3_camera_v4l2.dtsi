@@ -2,9 +2,14 @@
 /* Copyright (c) 2020 MediaTek Inc. */
 
 &i2c4 {
-	aw36518:aw36518@63 {
-		compatible = "mediatek,aw36518";
+	lm3644:lm3644@63 {
+		compatible = "mediatek,lm3644";
 		reg = <0x63>;
+		#cooling-cells = <2>;
+		pinctrl-names = "default", "hwen_high", "hwen_low";
+		pinctrl-0 = <&lm3644_pins_default>;
+		pinctrl-1 = <&lm3644_pins_hwen_high>;
+		pinctrl-2 = <&lm3644_pins_hwen_low>;
 		status = "okay";
 		flash@0{
 			reg = <0>;
@@ -27,6 +32,27 @@
 					remote-endpoint = <&flashlight_1>;
 				};
 			};
+		};
+	};
+};
+
+&pio {
+	lm3644_pins_default: default {
+	};
+
+	lm3644_pins_hwen_high: hwen_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO22__FUNC_GPIO22>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+
+	lm3644_pins_hwen_low: hwen_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO22__FUNC_GPIO22>;
+			slew-rate = <1>;
+			output-low;
 		};
 	};
 };

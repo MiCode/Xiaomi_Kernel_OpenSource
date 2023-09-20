@@ -213,13 +213,6 @@
 };
 /* CAMERA EEPROM end */
 
-&i2c4{
-	aw36518@63 {
-	compatible = "awinic,aw36518";
-	reg = <0x63>;
-	status = "okay";
-	};
-};
 
 /* CAMERA TZ config */
 &thermal_zones {
