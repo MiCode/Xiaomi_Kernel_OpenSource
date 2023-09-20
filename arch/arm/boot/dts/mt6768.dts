@@ -1310,6 +1310,14 @@ transparent_hugepage=never clk_ignore_unused=1";
 		};
 	};
 
+	clkchk {
+		compatible = "mediatek,mt6768-clkchk";
+	};
+
+	pdchk {
+		compatible = "mediatek,mt6768-pdchk";
+	};
+
 	clocks {
 		clk26m: clk26m {
 			compatible = "fixed-clock";
