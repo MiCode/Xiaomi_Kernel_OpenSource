@@ -155,10 +155,10 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.framelength = 3776,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 4656,
-		.grabwindow_height = 2608,
+		.grabwindow_width = 4000,
+		.grabwindow_height = 2250,
 		.mipi_data_lp2hs_settle_dc = 85,
-		.mipi_pixel_rate = 734400000,
+		.mipi_pixel_rate = 736000000,
 		.max_framerate = 300,
 	},
 	.hs_video = {/*data rate 1840 Mbps/lane */
@@ -251,7 +251,7 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	{4656, 3496, 0, 0, 4656, 3496, 4656, 3496,
 	0000, 0000, 4656, 3496, 0, 0, 4656, 3496},	/*Capture*/
 	{4656, 3496, 0, 444, 4656, 2608, 4656, 2608,
-	0000, 0000, 4656, 2608, 0, 0, 4656, 2608},	/*Video*/
+	328, 179, 4000, 2250, 0, 0, 4000, 2250},	/*Video*/
 	{4656, 3496, 0, 664, 4656, 2160, 2328, 1080,
 	204, 0000, 1920, 1080, 0, 0, 1920, 1080},	/*hs-video*/
 	{4656, 3496, 0, 440, 4656, 2608, 2328, 1304,
@@ -1033,12 +1033,12 @@ kal_uint16 addr_data_pair_video_imx481[] = {
 	/* ROI Setting */
 	0x0344, 0x00,
 	0x0345, 0x00,
-	0x0346, 0x00,
-	0x0347, 0x00,
+	0x0346, 0x01,
+	0x0347, 0xBC,
 	0x0348, 0x12,
 	0x0349, 0x2F,
-	0x034A, 0x0D,
-	0x034B, 0xA7,
+	0x034A, 0x0B,
+	0x034B, 0xEB,
 	/* Mode Setting */
 	0x0381, 0x01,
 	0x0383, 0x01,
