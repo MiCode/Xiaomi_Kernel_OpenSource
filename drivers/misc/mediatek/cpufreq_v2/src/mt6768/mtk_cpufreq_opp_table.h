@@ -80,10 +80,10 @@
 #define CPU_DVFS_VOLT15_VPROC1_6768	 65000		/* 10uV */
 
 /* for DVFS OPP table B */
-#define CPU_DVFS_VOLT0_VPROC2_6768	108750		/* 10uV */
-#define CPU_DVFS_VOLT1_VPROC2_6768	107500		/* 10uV */
-#define CPU_DVFS_VOLT2_VPROC2_6768	106250		/* 10uV */
-#define CPU_DVFS_VOLT3_VPROC2_6768	105000		/* 10uV */
+#define CPU_DVFS_VOLT0_VPROC2_6768	111875		/* 10uV (Increase OPP voltage 31.25 mv) */
+#define CPU_DVFS_VOLT1_VPROC2_6768	110000		/* 10uV (Increase OPP voltage 25.00 mv) */
+#define CPU_DVFS_VOLT2_VPROC2_6768	107500		/* 10uV (Increase OPP voltage 12.50 mv) */
+#define CPU_DVFS_VOLT3_VPROC2_6768	105625		/* 10uV (Increase OPP voltage 6.25 mv) */
 #define CPU_DVFS_VOLT4_VPROC2_6768	103125		/* 10uV */
 #define CPU_DVFS_VOLT5_VPROC2_6768	100000		/* 10uV */
 #define CPU_DVFS_VOLT6_VPROC2_6768	 96875		/* 10uV */
