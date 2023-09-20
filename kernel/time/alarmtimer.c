@@ -41,6 +41,8 @@
 #include <asm/current.h>
 #endif
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/wakeupbypass.h>
 
 /**
  * struct alarm_base - Alarm timer bases
@@ -298,6 +300,7 @@ static int alarmtimer_suspend(struct device *dev)
 #ifdef CONFIG_ALARMTIMER_DEBUG
 	struct rtc_time time;
 #endif
+	int wakeup_bypass_enabled = 0;
 
 	spin_lock_irqsave(&freezer_delta_lock, flags);
 	min = freezer_delta;
@@ -305,6 +308,10 @@ static int alarmtimer_suspend(struct device *dev)
 	type = freezer_alarmtype;
 	freezer_delta = 0;
 	spin_unlock_irqrestore(&freezer_delta_lock, flags);
+
+	trace_android_vh_wakeup_bypass(&wakeup_bypass_enabled);
+	if (wakeup_bypass_enabled)
+		return 0;
 
 	rtc = alarmtimer_get_rtcdev();
 	/* If we have no rtcdev, just return */
