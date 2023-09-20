@@ -385,7 +385,7 @@ static int venc_get_param(unsigned long handle,
 	int ret = 0;
 	struct venc_inst *inst = (struct venc_inst *)handle;
 
-	if (inst == NULL)
+	if (inst == NULL || inst->ctx == NULL)
 		return -EINVAL;
 
 	mtk_vcodec_debug(inst, "%s: %d", __func__, type);

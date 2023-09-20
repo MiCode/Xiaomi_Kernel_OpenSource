@@ -655,8 +655,8 @@ static int vcp_venc_notify_callback(struct notifier_block *this,
 		mutex_lock(&dev->ctx_mutex);
 		list_for_each_safe(p, q, &dev->ctx_list) {
 			ctx = list_entry(p, struct mtk_vcodec_ctx, list);
-			if (ctx != NULL && ctx->state < MTK_STATE_ABORT
-					&& ctx->state > MTK_STATE_FREE) {
+			if (ctx != NULL && ctx->drv_handle != 0 &&
+				ctx->state < MTK_STATE_ABORT && ctx->state > MTK_STATE_FREE) {
 				mutex_unlock(&dev->ctx_mutex);
 				backup = true;
 				venc_vcp_backup((struct venc_inst *)ctx->drv_handle);

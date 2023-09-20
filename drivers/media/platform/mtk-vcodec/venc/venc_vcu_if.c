@@ -185,7 +185,7 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	mtk_vcodec_debug(vcu, "msg_id %x inst %p status %d",
 					 msg->msg_id, vcu, msg->status);
 
-	if (vcu->abort)
+	if (vcu->abort || vcu->ctx == NULL)
 		return -EINVAL;
 
 	ctx = vcu->ctx;
@@ -293,7 +293,7 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 
 	mtk_vcodec_debug_enter(vcu);
 
-	if (!vcu->dev) {
+	if (!vcu->dev || !vcu->ctx) {
 		mtk_vcodec_err(vcu, "inst dev is NULL");
 		return -EINVAL;
 	}
