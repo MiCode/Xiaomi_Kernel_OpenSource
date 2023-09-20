@@ -637,6 +637,23 @@ void mtk_disp_mipi_ccci_callback(unsigned int en, unsigned int usrdata)
 }
 EXPORT_SYMBOL(mtk_disp_mipi_ccci_callback);
 
+void mtk_disp_mipi_clk_change(int msg, unsigned int en)
+{
+	struct mtk_drm_private *priv;
+
+	priv = drm_dev->dev_private;
+	if (IS_ERR_OR_NULL(priv)) {
+		DDPMSG("%s, priv is null!\n", __func__);
+		return;
+	}
+
+	if (priv->data->mmsys_id == MMSYS_MT6768 || priv->data->mmsys_id == MMSYS_MT6765) {
+		DDPMSG("%s, msg:%d, en:%d\n", __func__, msg, en);
+		mtk_disp_mipi_ccci_callback(en, (unsigned int)msg);
+	}
+}
+EXPORT_SYMBOL(mtk_disp_mipi_clk_change);
+
 void mtk_disp_osc_ccci_callback(unsigned int en, unsigned int usrdata)
 {
 	struct drm_crtc *crtc;
