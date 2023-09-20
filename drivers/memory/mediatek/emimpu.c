@@ -23,6 +23,10 @@
 #include <mt-plat/aee.h>
 #include <soc/mediatek/emi.h>
 
+#if IS_ENABLED(CONFIG_MTK_IOMMU_VIOLATION_DBG)
+#include "mtk_iommu.h"
+#endif
+
 #define EMI_MPUS_OFFSET	(0x1F0)
 #define EMI_MPUT_OFFSET	(0x1F8)
 #define EMI_MPUT_2ND_OFFSET	(0x1FC)
@@ -701,6 +705,11 @@ static void emimpu_dump_msg(struct work_struct *work)
 
 	pr_info("%s: call aee\n", __func__);
 	aee_kernel_exception("EMIMPU", emimpu_dev_ptr->violation_msg);
+#if IS_ENABLED(CONFIG_MTK_IOMMU_VIOLATION_DBG)
+	//add iommu reg dump
+	mtk_iommu_dbg_hang_detect(MM_IOMMU, DISP_IOMMU);
+	mtk_iommu_dbg_hang_detect(MM_IOMMU, MDP_IOMMU);
+#endif
 	emimpu_dev_ptr->in_msg_dump = 0;
 }
 static DECLARE_WORK(emimpu_dump_msg_wq, emimpu_dump_msg);
