@@ -36,6 +36,7 @@
 #include "inc/cam_qos.h"
 
 #include "inc/camera_isp.h"
+#include <linux/suspend.h>
 
 struct ISP_PM_QOS_STRUCT G_PM_QOS[ISP_PASS1_PATH_TYPE_AMOUNT];
 
@@ -10788,7 +10789,6 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	struct ISP_ED_BUFQUE_STRUCT edQueBuf;
 	unsigned int regScenInfo_value = 0xa5a5a5a5;
 	signed int burstQNum;
-	unsigned int wakelock_ctrl;
 	unsigned long flags;
 	/* old: unsigned int flags;*/ /* FIX to avoid build warning */
 	int userKey = -1;
@@ -10804,30 +10804,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	/*      */
 	switch (Cmd) {
 	case ISP_WAKELOCK_CTRL: {
-		if (copy_from_user(&wakelock_ctrl, (void *)Param,
-				   sizeof(unsigned int)) != 0) {
-			log_err("get ISP_WAKELOCK_CTRL from	user fail");
-			Ret = -EFAULT;
-		} else {
-			if (wakelock_ctrl == 1) { /* Enable     wakelock */
-				if (g_bWaitLock == 0) {
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-					__pm_stay_awake(isp_wake_lock);
-#endif
-					g_bWaitLock = 1;
-					log_inf("wakelock enable!!\n");
-				}
-			} else { /* Disable wakelock */
-				if (g_bWaitLock == 1) {
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-					__pm_relax(isp_wake_lock);
-#endif
-					g_bWaitLock = 0;
-					log_inf("wakelock disable!!\n");
-				}
-			}
-		}
-
+		log_wrn("K510 control wake lock by kernel!\n");
 	} break;
 	case ISP_GET_DROP_FRAME:
 		if (copy_from_user(&DebugFlag[0], (void *)Param,
@@ -12425,6 +12402,15 @@ EXIT:
 			G_u4EnableClockCount);
 	}
 
+	/* The driver need to hold wakelock, when camera is open */
+	if (IspInfo.UserCount == 1) {
+	#if IS_ENABLED(CONFIG_PM_SLEEP)
+		__pm_stay_awake(isp_wake_lock);
+	#endif
+		g_bWaitLock = 1;
+		log_inf("- get wake_lock: %d.", g_bWaitLock);
+	}
+
 	log_inf("- X. Ret: %d. UserCount: %d.", Ret, IspInfo.UserCount);
 	mutex_unlock(&open_isp_mutex);
 	return Ret;
@@ -12480,19 +12466,6 @@ static signed int ISP_release(struct inode *pInode, struct file *pFile)
 
 	for ( i = 0; i < ISP_REG_SW_CTL_RST_CAMSV2; i++)
 		ISP_Reset(i + 1);
-	/* why i add this wake_unlock here, because     the     Ap is not
-	 * expected to be dead.
-	 * The driver must releae the wakelock, otherwise the system will not
-	 * enter
-	 * the power-saving mode
-	 */
-	if (g_bWaitLock == 1) {
-#if IS_ENABLED(CONFIG_PM_SLEEP)
-		__pm_relax(isp_wake_lock);
-#endif
-		g_bWaitLock = 0;
-		log_inf("release wakelock disable!!\n");
-	}
 	/* reset */
 	/*      */
 	for (i = 0; i < IRQ_USER_NUM_MAX; i++) {
@@ -12538,6 +12511,17 @@ EXIT:
 	 */
 	ISP_EnableClock(MFALSE);
 	log_inf("isp release G_u4EnableClockCount: %d\n", G_u4EnableClockCount);
+
+	/* The driver must releae the wakelock, otherwise the system will not
+	 * enter the power-saving mode
+	 */
+	if (IspInfo.UserCount == 0 && g_bWaitLock == 1) {
+	#if IS_ENABLED(CONFIG_PM_SLEEP)
+		__pm_relax(isp_wake_lock);
+	#endif
+		g_bWaitLock = 0;
+		log_inf("- pm_relax wake_lock: %d.", g_bWaitLock);
+	}
 
 	log_inf("- X. UserCount: %d.", IspInfo.UserCount);
 	mutex_unlock(&open_isp_mutex);
@@ -13140,46 +13124,6 @@ static signed int bPass1_On_In_Resume_TG1;
 static signed int bPass1_On_In_Resume_TG2;
 static signed int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
 {
-	unsigned int regTG1Val, regTG2Val;
-	unsigned int loopcnt = 0;
-
-	if (IspInfo.UserCount == 0) {
-		log_dbg("ISP UserCount=0");
-		return 0;
-	}
-
-	/* TG_VF_CON[0] (0x15004414[0]): VFDATA_EN.     TG1     Take Picture
-	 * Request.
-	 */
-	regTG1Val = ISP_RD32(ISP_ADDR + 0x414);
-	/* TG2_VF_CON[0] (0x150044B4[0]): VFDATA_EN. TG2 Take Picture Request.
-	 */
-	regTG2Val = ISP_RD32(ISP_ADDR + 0x4B4);
-
-	log_dbg("bPass1_On_In_Resume_TG1(%d). bPass1_On_In_Resume_TG2(%d). regTG1Val(0x%08x). regTG2Val(0x%08x)\n",
-		bPass1_On_In_Resume_TG1, bPass1_On_In_Resume_TG2,
-		regTG1Val, regTG2Val);
-
-	bPass1_On_In_Resume_TG1 = 0;
-	if (regTG1Val & 0x01) { /* For TG1 Main sensor. */
-		bPass1_On_In_Resume_TG1 = 1;
-		ISP_WR32(ISP_ADDR + 0x414, (regTG1Val & (~0x01)));
-	}
-
-	bPass1_On_In_Resume_TG2 = 0;
-	if (regTG2Val & 0x01) { /* For TG2 Sub sensor. */
-		bPass1_On_In_Resume_TG2 = 1;
-		ISP_WR32(ISP_ADDR + 0x4B4, (regTG2Val & (~0x01)));
-	}
-	spin_lock(&(IspInfo.SpinLockClock));
-	loopcnt = G_u4EnableClockCount; //"G_u4EnableClockCount" times
-	spin_unlock(&(IspInfo.SpinLockClock));
-	while (loopcnt) {//make sure G_u4EnableClockCount dec to 0
-		ISP_EnableClock(MFALSE);
-		log_inf("isp suspend G_u4EnableClockCount: %d", G_u4EnableClockCount);
-		loopcnt--;
-	}
-
 	return 0;
 }
 
@@ -13188,40 +13132,6 @@ static signed int ISP_suspend(struct platform_device *pDev, pm_message_t Mesg)
  ******************************************************************************/
 static signed int ISP_resume(struct platform_device *pDev)
 {
-	unsigned int regTG1Val, regTG2Val;
-
-	if (IspInfo.UserCount == 0) {
-		log_dbg("ISP UserCount=0");
-		return 0;
-	}
-	//enable clock
-	ISP_EnableClock(MTRUE);
-	log_inf("isp resume G_u4EnableClockCount: %d\n", G_u4EnableClockCount);
-
-	/* TG_VF_CON[0] (0x15004414[0]): VFDATA_EN.     TG1     Take Picture
-	 * Request.
-	 */
-	regTG1Val = ISP_RD32(ISP_ADDR + 0x414);
-	/* TG2_VF_CON[0] (0x150044B4[0]): VFDATA_EN. TG2 Take Picture Request.
-	 */
-	regTG2Val = ISP_RD32(ISP_ADDR + 0x4B4);
-
-	log_dbg("bPass1_On_In_Resume_TG1(%d). bPass1_On_In_Resume_TG2(%d). regTG1Val(0x%x) regTG2Val(0x%x)\n",
-		bPass1_On_In_Resume_TG1, bPass1_On_In_Resume_TG2,
-		regTG1Val, regTG2Val);
-
-	if (bPass1_On_In_Resume_TG1) {
-		bPass1_On_In_Resume_TG1 = 0;
-		ISP_WR32(ISP_ADDR + 0x414,
-			 (regTG1Val | 0x01)); /* For TG1 Main sensor. */
-	}
-
-	if (bPass1_On_In_Resume_TG2) {
-		bPass1_On_In_Resume_TG2 = 0;
-		ISP_WR32(ISP_ADDR + 0x4B4,
-			 (regTG2Val | 0x01)); /* For TG2 Sub sensor. */
-	}
-
 	return 0;
 }
 
@@ -13270,6 +13180,90 @@ int ISP_pm_restore_noirq(struct device *device)
 /*---------------------------------------------------------------------------*/
 #endif /*CONFIG_PM */
 /*---------------------------------------------------------------------------*/
+#if IS_ENABLED(CONFIG_PM)
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int ISP_pm_event_suspend(void)
+{
+	unsigned int regTG1Val, regTG2Val;
+	unsigned int loopcnt = 0;
+
+	if (IspInfo.UserCount == 0) {
+		log_dbg("ISP UserCount=0");
+		return 0;
+	}
+
+	/* TG_VF_CON[0] (0x15004414[0]): VFDATA_EN.     TG1     Take Picture
+	 * Request.
+	 */
+	regTG1Val = ISP_RD32(ISP_ADDR + 0x414);
+	/* TG2_VF_CON[0] (0x150044B4[0]): VFDATA_EN. TG2 Take Picture Request.
+	 */
+	regTG2Val = ISP_RD32(ISP_ADDR + 0x4B4);
+
+	log_dbg("bPass1_On_In_Resume_TG1(%d). bPass1_On_In_Resume_TG2(%d). regTG1Val(0x%08x). regTG2Val(0x%08x)\n",
+		bPass1_On_In_Resume_TG1, bPass1_On_In_Resume_TG2,
+		regTG1Val, regTG2Val);
+
+	bPass1_On_In_Resume_TG1 = 0;
+	if (regTG1Val & 0x01) { /* For TG1 Main sensor. */
+		bPass1_On_In_Resume_TG1 = 1;
+		ISP_WR32(ISP_ADDR + 0x414, (regTG1Val & (~0x01)));
+	}
+
+	bPass1_On_In_Resume_TG2 = 0;
+	if (regTG2Val & 0x01) { /* For TG2 Sub sensor. */
+		bPass1_On_In_Resume_TG2 = 1;
+		ISP_WR32(ISP_ADDR + 0x4B4, (regTG2Val & (~0x01)));
+	}
+	spin_lock(&(IspInfo.SpinLockClock));
+	loopcnt = G_u4EnableClockCount; //"G_u4EnableClockCount" times
+	spin_unlock(&(IspInfo.SpinLockClock));
+	while (loopcnt) {//make sure G_u4EnableClockCount dec to 0
+		ISP_EnableClock(MFALSE);
+		log_inf("isp suspend G_u4EnableClockCount: %d", G_u4EnableClockCount);
+		loopcnt--;
+	}
+
+	return 0;
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static void ISP_pm_event_resume(void)
+{
+}
+
+/*******************************************************************************
+ *
+ ******************************************************************************/
+static int ISP_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /* before enter suspend */
+		ISP_pm_event_suspend();
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND: /* after resume */
+		ISP_pm_event_resume();
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block ISP_suspend_pm_notifier_func = {
+	.notifier_call = ISP_suspend_pm_event,
+	.priority = 0,
+};
+#endif
 
 #if IS_ENABLED(CONFIG_OF)
 static const struct of_device_id isp_of_ids[] = {
@@ -13591,6 +13585,13 @@ static signed int __init ISP_Init(void)
 	for (i = 0; i < _rt_dma_max_; i++)
 		m_LastMNum[i] = 0;
 
+#endif
+#if IS_ENABLED(CONFIG_PM)
+	Ret = register_pm_notifier(&ISP_suspend_pm_notifier_func);
+	if (Ret) {
+		log_err ("Failed to register PM notifier.\n");
+		return Ret;
+	}
 #endif
 
 	log_inf("- Ret: %d.", Ret);
