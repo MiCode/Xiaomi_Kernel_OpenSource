@@ -366,10 +366,13 @@ struct hfi_queue_header {
 #define HFI_V1_MSG_POST 1 /* V1 only */
 #define HFI_V1_MSG_ACK 2/* V1 only */
 
-/* Size is converted from Bytes to DWords */
-#define CREATE_MSG_HDR(id, size, type) \
-	(((type) << 16) | ((((size) >> 2) & 0xFF) << 8) | ((id) & 0xFF))
-#define ACK_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_ACK)
+#define MSG_HDR_SET_SIZE(hdr, size) \
+	(((size & 0xFF) << 8) | hdr)
+
+#define CREATE_MSG_HDR(id, type) \
+	(((type) << 16) | ((id) & 0xFF))
+
+#define ACK_MSG_HDR(id) CREATE_MSG_HDR(id, HFI_MSG_ACK)
 
 #define HFI_QUEUE_DEFAULT_CNT 3
 #define HFI_QUEUE_DISPATCH_MAX_CNT 14
@@ -891,7 +894,7 @@ static inline int _CMD_MSG_HDR(u32 *hdr, int id, size_t size)
 	if (WARN_ON(size > HFI_MAX_MSG_SIZE))
 		return -EMSGSIZE;
 
-	*hdr = CREATE_MSG_HDR(id, size, HFI_MSG_CMD);
+	*hdr = CREATE_MSG_HDR(id, HFI_MSG_CMD);
 	return 0;
 }
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef __ADRENO_A6XX_HFI_H
 #define __ADRENO_A6XX_HFI_H
@@ -66,11 +67,12 @@ struct a6xx_hfi *to_a6xx_hfi(struct adreno_device *adreno_dev);
  * @adreno_dev: Pointer to the adreno device
  * @queue_idx: destination queue id
  * @msg: Data to be written to the queue
+ * @size_bytes: Size of the command in bytes
  *
  * Return: 0 on success or negative error on failure
  */
 int a6xx_hfi_queue_write(struct adreno_device *adreno_dev, u32 queue_idx,
-	u32 *msg);
+	u32 *msg, u32 size_bytes);
 
 /**
  * a6xx_hfi_queue_read - Read data from hfi queue
@@ -147,10 +149,11 @@ int a6xx_hfi_send_lm_feature_ctrl(struct adreno_device *adreno_dev);
  * a6xx_hfi_send_generic_req -  Send a generic hfi packet
  * @adreno_dev: Pointer to the adreno device
  * @cmd: Pointer to the hfi packet header and data
+ * @size_bytes: Size of the command in bytes
  *
  * Return: 0 on success or negative error on failure
  */
-int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev, void *cmd);
+int a6xx_hfi_send_generic_req(struct adreno_device *adreno_dev, void *cmd, u32 size_bytes);
 
 /**
  * a6xx_hfi_send_bcl_feature_ctrl -  Send the bcl feature hfi packet
@@ -175,10 +178,11 @@ int a6xx_hfi_process_queue(struct a6xx_gmu_device *gmu,
  * a6xx_hfi_cmdq_write - Write a command to command queue
  * @adreno_dev: Pointer to the adreno device
  * @msg: Data to be written to the queue
+ * @size_bytes: Size of the command in bytes
  *
  * Return: 0 on success or negative error on failure
  */
-int a6xx_hfi_cmdq_write(struct adreno_device *adreno_dev, u32 *msg);
+int a6xx_hfi_cmdq_write(struct adreno_device *adreno_dev, u32 *msg, u32 size_bytes);
 void adreno_a6xx_receive_err_req(struct a6xx_gmu_device *gmu, void *rcvd);
 void adreno_a6xx_receive_debug_req(struct a6xx_gmu_device *gmu, void *rcvd);
 #endif

@@ -529,7 +529,7 @@ static int a6xx_hwsched_notify_slumber(struct adreno_device *adreno_dev)
 	/* Disable the power counter so that the GMU is not busy */
 	gmu_core_regwrite(device, A6XX_GMU_CX_GMU_POWER_COUNTER_ENABLE, 0);
 
-	return a6xx_hfi_send_cmd_async(adreno_dev, &req);
+	return a6xx_hfi_send_cmd_async(adreno_dev, &req, sizeof(req));
 
 }
 static int a6xx_hwsched_gmu_power_off(struct adreno_device *adreno_dev)
@@ -1000,7 +1000,7 @@ static int a6xx_hwsched_dcvs_set(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
-	ret = a6xx_hfi_send_cmd_async(adreno_dev, &req);
+	ret = a6xx_hfi_send_cmd_async(adreno_dev, &req, sizeof(req));
 
 	if (ret) {
 		dev_err_ratelimited(&gmu->pdev->dev,
