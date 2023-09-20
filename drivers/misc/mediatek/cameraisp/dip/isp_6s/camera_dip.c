@@ -7350,6 +7350,8 @@ static signed int DIP_probe(struct platform_device *pDev)
 			nr_dip_devs, pDev->dev.of_node->name, dip_dev->irq);
 	}
 
+	spin_lock_init(&(IspInfo.SpinLockClock));
+
 	/*   */
 	spin_lock(&(IspInfo.SpinLockClock));
 	if (nr_dip_devs == 6) {
@@ -7406,7 +7408,6 @@ static signed int DIP_probe(struct platform_device *pDev)
 			spin_lock_init(&(IspInfo.SpinLockIrqCnt[n]));
 		}
 		spin_lock_init(&(IspInfo.SpinLockRTBC));
-		spin_lock_init(&(IspInfo.SpinLockClock));
 
 		spin_lock_init(&(SpinLock_P2FrameList));
 		spin_lock_init(&(SpinLockRegScen));
