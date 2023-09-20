@@ -813,24 +813,30 @@ static int fmt_gce_wait_callback(unsigned long arg)
 	ktime_get_real_ts64(&fmt->fmt_active_time);
 	mutex_unlock(&fmt->mux_active_time);
 
+	mutex_lock(fmt->mux_gce_th[identifier]);
 	identifier = fmt->gce_task[taskid].identifier;
 	if (identifier >= fmt->gce_th_num) {
 		fmt_err("invalid identifier %u",
 			identifier);
-		return -EINVAL;
-	}
-
-	if (IS_ERR_OR_NULL(fmt->gce_task[taskid].pkt_ptr)) {
-		fmt_err("invalid pkt_prt %p", fmt->gce_task[taskid].pkt_ptr);
+		mutex_unlock(fmt->mux_gce_th[identifier]);
 		return -EINVAL;
 	}
 
 	if (atomic_read(&fmt->gce_task_wait_cnt[taskid]) > 0) {
 		fmt_err("GCE taskid %d is already waiting, wait task cnt %d", taskid,
 			atomic_read(&fmt->gce_task_wait_cnt[taskid]));
+		mutex_unlock(fmt->mux_gce_th[identifier]);
 		return -EINVAL;
 	}
+
 	atomic_inc(&fmt->gce_task_wait_cnt[taskid]);
+	if (IS_ERR_OR_NULL(fmt->gce_task[taskid].pkt_ptr)) {
+		fmt_err("invalid pkt_prt %p", fmt->gce_task[taskid].pkt_ptr);
+		atomic_dec(&fmt->gce_task_wait_cnt[taskid]);
+		mutex_unlock(fmt->mux_gce_th[identifier]);
+		return -EINVAL;
+	}
+
 	ret = cmdq_pkt_wait_complete(fmt->gce_task[taskid].pkt_ptr);
 
 	if (ret != 0L) {
@@ -838,6 +844,7 @@ static int fmt_gce_wait_callback(unsigned long arg)
 			fmt_debug(0, "wait before flush, id %d taskid %d pkt_ptr %p",
 			identifier, taskid, fmt->gce_task[taskid].pkt_ptr);
 			atomic_dec(&fmt->gce_task_wait_cnt[taskid]);
+			mutex_unlock(fmt->mux_gce_th[identifier]);
 			return -EINVAL;
 		} else if (ret == -ETIMEDOUT)
 			fmt_debug(0, "wait timeout, id %d taskid %d pkt_ptr %p",
@@ -846,8 +853,6 @@ static int fmt_gce_wait_callback(unsigned long arg)
 
 	if (fmt_dbg_level == 4)
 		fmt_dump_addr_reg();
-
-	mutex_lock(fmt->mux_gce_th[identifier]);
 
 	mutex_lock(&fmt->mux_fmt);
 	atomic_dec(&fmt->gce_job_cnt[identifier]);
@@ -863,6 +868,8 @@ static int fmt_gce_wait_callback(unsigned long arg)
 				fmt_err("fmt_clock_off failed!%d",
 				ret);
 				atomic_dec(&fmt->gce_task_wait_cnt[taskid]);
+				mutex_unlock(&fmt->mux_fmt);
+				mutex_unlock(fmt->mux_gce_th[identifier]);
 				return -EINVAL;
 			}
 	}
@@ -870,11 +877,10 @@ static int fmt_gce_wait_callback(unsigned long arg)
 	if (atomic_read(&fmt->gce_job_cnt[identifier]) == 0)
 		fmt_unlock(identifier);
 
-	mutex_unlock(fmt->mux_gce_th[identifier]);
-
 	cmdq_pkt_destroy(fmt->gce_task[taskid].pkt_ptr);
 	atomic_dec(&fmt->gce_task_wait_cnt[taskid]);
 	fmt_clear_gce_task(taskid);
+	mutex_unlock(fmt->mux_gce_th[identifier]);
 
 	return ret;
 }
