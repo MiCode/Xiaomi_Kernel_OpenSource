@@ -36,7 +36,7 @@ static const struct mtk_gate_regs mdp1_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &mdp0_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 #define GATE_MDP1(_id, _name, _parent, _shift) {	\
@@ -45,7 +45,7 @@ static const struct mtk_gate_regs mdp1_cg_regs = {
 		.parent_name = _parent,			\
 		.regs = &mdp1_cg_regs,			\
 		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_no_setclr,	\
+		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
 static const struct mtk_gate mdp_clks[] = {
