@@ -38,10 +38,18 @@ enum IMGSENSOR_CCF {
 struct IMGSENSOR_CLK {
 	struct clk *imgsensor_ccf[IMGSENSOR_CCF_MAX_NUM];
 	atomic_t    enable_cnt[IMGSENSOR_CCF_MAX_NUM];
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	struct wakeup_source *seninf_wake_lock;
+#endif
 };
 
 extern unsigned int mt_get_ckgen_freq(int ID);
 enum IMGSENSOR_RETURN imgsensor_clk_init(struct IMGSENSOR_CLK *pclk);
+#ifdef SENINF_USE_WAKE_LOCK
+enum IMGSENSOR_RETURN imgsensor_clk_exit(struct IMGSENSOR_CLK *pclk);
+enum IMGSENSOR_RETURN seninf_wake_lock_get(struct IMGSENSOR_CLK *pclk);
+enum IMGSENSOR_RETURN seninf_wake_lock_put(struct IMGSENSOR_CLK *pclk);
+#endif
 int imgsensor_clk_set(struct IMGSENSOR_CLK *pclk,
 	struct ACDK_SENSOR_MCLK_STRUCT *pmclk);
 void imgsensor_clk_enable_all(struct IMGSENSOR_CLK *pclk);

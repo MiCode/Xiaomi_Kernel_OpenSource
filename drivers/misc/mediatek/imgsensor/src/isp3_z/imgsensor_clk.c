@@ -68,13 +68,63 @@ enum IMGSENSOR_RETURN imgsensor_clk_init(struct IMGSENSOR_CLK *pclk)
 	}
 	/* get all possible using clocks */
 	for (i = 0; i < IMGSENSOR_CCF_MAX_NUM; i++)
-		pclk->imgsensor_ccf[i] = devm_clk_get(&pplatform_dev->dev, gimgsensor_mclk_name[i]);
+		pclk->imgsensor_ccf[i] =
+		    devm_clk_get(&pplatform_dev->dev, gimgsensor_mclk_name[i]);
+
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	pclk->seninf_wake_lock = wakeup_source_register(
+			NULL, "seninf_lock_wakelock");
+	if (!pclk->seninf_wake_lock) {
+		pr_info("[%s] failed to get seninf_wake_lock\n", __func__);
+		return IMGSENSOR_RETURN_ERROR;
+	}
+	pr_info("[%s] seninf_wake_lock register done\n", __func__);
+#endif
 
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 
-int imgsensor_clk_set(struct IMGSENSOR_CLK *pclk,
-	struct ACDK_SENSOR_MCLK_STRUCT *pmclk)
+enum IMGSENSOR_RETURN imgsensor_clk_exit(struct IMGSENSOR_CLK *pclk)
+{
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	if (!pclk->seninf_wake_lock) {
+		pr_info("[%s] seninf_wake_lock is NULL\n", __func__);
+	} else {
+		wakeup_source_unregister(pclk->seninf_wake_lock);
+		pr_info("[%s] seninf_wake_lock unregister done\n", __func__);
+	}
+#endif
+	return IMGSENSOR_RETURN_SUCCESS;
+}
+
+enum IMGSENSOR_RETURN seninf_wake_lock_get(struct IMGSENSOR_CLK *pclk)
+{
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	if (!pclk->seninf_wake_lock) {
+		pr_info("[%s] seninf_wake_lock is NULL\n", __func__);
+	} else {
+		__pm_stay_awake(pclk->seninf_wake_lock);
+		pr_info("[%s] seninf_wake_lock stay_awake\n", __func__);
+	}
+#endif
+	return IMGSENSOR_RETURN_SUCCESS;
+}
+
+enum IMGSENSOR_RETURN seninf_wake_lock_put(struct IMGSENSOR_CLK *pclk)
+{
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+	if (!pclk->seninf_wake_lock) {
+		pr_info("[%s] seninf_wake_lock is NULL\n", __func__);
+	} else {
+		__pm_relax(pclk->seninf_wake_lock);
+		pr_info("[%s] seninf_wake_lock relax\n", __func__);
+	}
+#endif
+	return IMGSENSOR_RETURN_SUCCESS;
+}
+
+int imgsensor_clk_set(
+	struct IMGSENSOR_CLK *pclk, struct ACDK_SENSOR_MCLK_STRUCT *pmclk)
 {
 	int ret = 0;
 	int mclk_index = MCLK_ENU_START;

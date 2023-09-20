@@ -2833,7 +2833,11 @@ static int do_imgsensor_suspend(void)
 		}
 
 		imgsensor_hw_release_all(&pgimgsensor->hw);
+#ifdef SENINF_USE_WAKE_LOCK
+		seninf_wake_lock_put(&pgimgsensor->clk);
+#endif
 	}
+
 	pr_info(
 	    "%s %d\n",
 	    __func__,
@@ -2846,6 +2850,11 @@ static int do_imgsensor_suspend(void)
 static int do_imgsensor_resume(void)
 {
 	mutex_lock(&imgsensor_mutex);
+
+#ifdef SENINF_USE_WAKE_LOCK
+	seninf_wake_lock_get(&pgimgsensor->clk);
+#endif
+
 	if (atomic_read(&pgimgsensor->imgsensor_open_cnt) == 0)
 		imgsensor_clk_enable_all(&pgimgsensor->clk);
 
@@ -2862,21 +2871,13 @@ static int do_imgsensor_resume(void)
 static int imgsensor_open(struct inode *a_pstInode, struct file *a_pstFile)
 {
 
-#ifdef IMGSENSOR_USE_RPM
-	pm_runtime_get_sync(pgimgsensor->dev);
-#else
 	do_imgsensor_resume();
-#endif
 	return 0;
 }
 
 static int imgsensor_release(struct inode *a_pstInode, struct file *a_pstFile)
 {
-#ifdef IMGSENSOR_USE_RPM
-	pm_runtime_put_sync(pgimgsensor->dev);
-#else
 	do_imgsensor_suspend();
-#endif
 	return 0;
 }
 
@@ -3015,6 +3016,9 @@ static int imgsensor_remove(struct platform_device *pdev)
 	imgsensor_i2c_delete();
 	imgsensor_driver_unregister();
 
+#ifdef SENINF_USE_WAKE_LOCK
+	imgsensor_clk_exit(&pgimgsensor->clk);
+#endif
 	return 0;
 }
 
@@ -3027,28 +3031,6 @@ static int imgsensor_resume(struct platform_device *pdev)
 {
 	return 0;
 }
-
-int imgsensor_runtime_suspend(struct device *pDev)
-{
-	pr_info("[%s] +\n", __func__);
-	do_imgsensor_suspend();
-	pr_info("[%s] -\n", __func__);
-
-	return 0;
-}
-
-int imgsensor_runtime_resume(struct device *pDev)
-{
-	pr_info("[%s] +\n", __func__);
-	do_imgsensor_resume();
-	pr_info("[%s] -\n", __func__);
-
-	return 0;
-}
-
-static const struct dev_pm_ops pm_ops = {
-	SET_RUNTIME_PM_OPS(imgsensor_runtime_suspend, imgsensor_runtime_resume, NULL)
-};
 
 /*
  * platform driver
@@ -3069,7 +3051,6 @@ static struct platform_driver gimgsensor_platform_driver = {
 	.driver     = {
 		.name   = "image_sensor",
 		.owner  = THIS_MODULE,
-		.pm  = &pm_ops,
 #if IS_ENABLED(CONFIG_OF)
 		.of_match_table = gimgsensor_of_device_id,
 #endif
