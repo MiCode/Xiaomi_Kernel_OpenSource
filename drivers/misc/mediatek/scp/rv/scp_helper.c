@@ -2698,17 +2698,28 @@ static int __init scp_init(void)
 		scp_resource_req(SCP_REQ_26M);
 	}
 #endif /* SCP_DVFS_INIT_ENABLE */
-	ret = platform_driver_register(&mtk_scp_device);
-	if (ret) {
-		pr_notice("[SCP] scp probe fail %d\n", ret);
-		BUG_ON(1);
-		goto err_without_unregister;
-	}
 
 	ret = platform_driver_register(&mtk_scpsys_device);
 	if (ret) {
 		pr_notice("[SCP] scpsys probe fail %d\n", ret);
-		BUG_ON(1);
+		WARN_ON(1);
+		goto err_without_unregister;
+	}
+
+	if(scpreg.scpsys == 0) {
+		pr_notice("[SCP] skip the scpsys probe\n");
+		goto err_without_unregister;
+	}
+
+	ret = platform_driver_register(&mtk_scp_device);
+	if (ret) {
+		pr_notice("[SCP] scp probe fail %d\n", ret);
+		WARN_ON(1);
+		goto err;
+	}
+
+	if(scpreg.sram == 0) {
+		pr_notice("[SCP] skip the scp probe\n");
 		goto err;
 	}
 
@@ -2814,7 +2825,7 @@ static int __init scp_init(void)
 
 	return ret;
 err:
-	platform_driver_unregister(&mtk_scp_device);
+	platform_driver_unregister(&mtk_scpsys_device);
 err_without_unregister:
 #if SCP_DVFS_INIT_ENABLE
 	/* remember to release scp_dvfs resource */
