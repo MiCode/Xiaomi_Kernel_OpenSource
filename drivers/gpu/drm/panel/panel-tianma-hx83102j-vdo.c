@@ -402,7 +402,7 @@ static int tianma_enable(struct drm_panel *panel)
 }
 
 static const struct drm_display_mode default_mode = {
-	.clock = 370506,
+	.clock = 350776,
 	.hdisplay = 1200,
 	.hsync_start = 1200 + 52,//HFP
 	.hsync_end = 1200 + 52 + 20,//HSA
@@ -415,7 +415,7 @@ static const struct drm_display_mode default_mode = {
 
 #if CHANGE_FPS_EN
 static const struct drm_display_mode performance_mode_30hz = {
-	.clock = 370431,
+	.clock = 350776,
 	.hdisplay = 1200,
 	.hsync_start = 1200 + 52,//HFP
 	.hsync_end = 1200 + 52 + 20,//HSA
@@ -427,7 +427,7 @@ static const struct drm_display_mode performance_mode_30hz = {
 };
 
 static const struct drm_display_mode performance_mode_60hz = {
-	.clock = 370506,
+	.clock = 350776,
 	.hdisplay = 1200,
 	.hsync_start = 1200 + 52,//HFP
 	.hsync_end = 1200 + 52 + 20,//HSA
