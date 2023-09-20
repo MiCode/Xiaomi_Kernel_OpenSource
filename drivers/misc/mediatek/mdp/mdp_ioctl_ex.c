@@ -39,8 +39,8 @@
 
 #define RDMA_CPR_PREBUILT(mod, pipe, index) \
 	((index) < CMDQ_CPR_PREBUILT_REG_CNT ? \
-	CMDQ_CPR_PREBUILT(mod, pipe, index) : \
-	CMDQ_CPR_PREBUILT_EXT(mod, pipe, (index) - CMDQ_CPR_PREBUILT_REG_CNT))
+	CMDQ_CPR_PREBUILT(mod, (pipe & 0x1), index) : \
+	CMDQ_CPR_PREBUILT_EXT(mod, (pipe & 0x1), (index) - CMDQ_CPR_PREBUILT_REG_CNT))
 
 struct mdpsys_con_context {
 	struct device *dev;
@@ -114,13 +114,13 @@ static dma_addr_t translate_read_id(u32 read_id)
 		+ slot_offset * sizeof(u32);
 }
 
-static u32 translate_engine_rdma(u32 engine)
+static s32 translate_engine_rdma(u32 engine)
 {
 	s32 rdma_idx = cmdq_mdp_get_rdma_idx(engine);
 
 	if (rdma_idx < 0) {
 		CMDQ_ERR("invalia rdma idx, set rdma0 as default\n");
-		rdma_idx = 0;
+		return -EINVAL;
 	}
 	return rdma_idx;
 }
@@ -392,10 +392,10 @@ static s32 translate_meta(struct op_meta *meta,
 	}
 	case CMDQ_MOP_WRITE_FD_RDMA:
 	{
-		u32 rdma_idx, src_base_lsb, src_base_msb;
+		u32 src_base_lsb, src_base_msb;
 		unsigned long mva = translate_fd(meta, mapping_job);
 
-		rdma_idx = translate_engine_rdma(meta->engine);
+		s32 rdma_idx = translate_engine_rdma(meta->engine);
 
 		if (!mva) {
 			CMDQ_ERR("%s: op:%u, get mva fail, engine %d, fd 0x%x, fd_offset 0x%x\n",
@@ -440,7 +440,7 @@ static s32 translate_meta(struct op_meta *meta,
 	case CMDQ_MOP_WRITE_RDMA:
 	{
 		u32 src_base_lsb, src_base_msb;
-		u32 rdma_idx = translate_engine_rdma(meta->engine);
+		s32 rdma_idx = translate_engine_rdma(meta->engine);
 
 		if ((rdma_idx != 0) && (rdma_idx != 1)) {
 			CMDQ_ERR("%s: op:%u, engine %d, rdma_idx %d invalid\n",
@@ -705,6 +705,11 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 	handle->engineFlag = user_job->engine_flag;
 	handle->pkt->priority = user_job->priority;
 	handle->user_debug_str = NULL;
+
+	if (!handle->engineFlag) {
+		CMDQ_ERR("%s: engineFlag %#llx\n", __func__, handle->engineFlag);
+		return -EINVAL;
+	}
 
 	if (desc_private)
 		handle->node_private = desc_private->node_private_data;
@@ -1019,6 +1024,7 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 		if (status < 0) {
 			CMDQ_ERR("wait task result failed:%d handle:0x%p\n",
 				status, handle);
+			handle = NULL;
 			break;
 		}
 
@@ -1054,10 +1060,12 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 			mapping_job->attaches[i], mapping_job->sgts[i]);
 
 	kfree(mapping_job);
-	CMDQ_SYSTRACE_BEGIN("%s destroy\n", __func__);
-	/* task now can release */
-	cmdq_task_destroy(handle);
-	CMDQ_SYSTRACE_END();
+	if (handle) {
+		CMDQ_SYSTRACE_BEGIN("%s destroy\n", __func__);
+		/* task now can release */
+		cmdq_task_destroy(handle);
+		CMDQ_SYSTRACE_END();
+	}
 
 done:
 	CMDQ_TRACE_FORCE_END();

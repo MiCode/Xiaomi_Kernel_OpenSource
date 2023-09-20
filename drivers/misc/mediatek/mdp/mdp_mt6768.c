@@ -1189,12 +1189,13 @@ static void mdp_enable_larb(bool enable, struct device *larb)
 #endif
 }
 
-static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
+static s32 cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
 {
 	CMDQ_LOG_CLOCK("%s enable:%d, engine_flag:%llx\n", __func__, enable, engine_flag);
 
 	if (engine_flag & MDP_ENG_LARB0)
 		mdp_enable_larb(enable, larb0);
+	return 0;
 }
 
 static void cmdq_mdp_check_hw_status(struct cmdqRecStruct *handle)

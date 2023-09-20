@@ -2822,8 +2822,11 @@ static void cmdq_core_attach_cmdq_error(
 	CMDQ_ERR("============== [CMDQ] Begin of Error %d =============\n",
 		cmdq_ctx.errNum);
 
-	cmdq_core_dump_handle_summary(handle, thread, &nghandle, nginfo_out);
-	cmdq_core_dump_error_handle(handle, thread, pc_out);
+	if (!handle->secData.is_secure) {
+		cmdq_core_dump_handle_summary(handle, thread, &nghandle, nginfo_out);
+		cmdq_core_dump_error_handle(handle, thread, pc_out);
+	} else
+		CMDQ_ERR("No dump info for secure path\n");
 
 
 	CMDQ_ERR("============== [CMDQ] End of Error %d =============\n",

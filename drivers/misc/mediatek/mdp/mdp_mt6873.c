@@ -1718,7 +1718,7 @@ u64 cmdq_mdp_get_engine_group_bits(u32 engine_group)
 	return gCmdqEngineGroupBits[engine_group];
 }
 
-static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
+static s32 cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
 {
 #if IS_ENABLED(CONFIG_MTK_SMI)
 	struct device *larb = mdp_larb_dev_get();
@@ -1743,6 +1743,7 @@ static void cmdq_mdp_enable_common_clock(bool enable, u64 engine_flag)
 		mtk_smi_larb_put(larb);
 	}
 #endif
+	return 0;
 }
 
 
