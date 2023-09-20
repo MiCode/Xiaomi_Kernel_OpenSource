@@ -549,7 +549,7 @@
 
 		mt6358rtc: mt6358rtc {
 			compatible = "mediatek,mt6358-rtc";
-
+			skip-lpsd-solution;
 			#address-cells = <1>;
 			#size-cells = <1>;
 
