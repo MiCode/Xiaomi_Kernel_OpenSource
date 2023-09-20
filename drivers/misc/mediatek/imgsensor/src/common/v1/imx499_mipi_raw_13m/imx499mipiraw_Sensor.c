@@ -148,10 +148,10 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.pclk = 420000000,
 		.linelength = 5120,
 		.framelength = 2734,
-		.startx = 0,
-		.starty = 0,
-		.grabwindow_width = 4656,
-		.grabwindow_height = 2608,
+		.startx = 248,
+		.starty = 134,
+		.grabwindow_width = 4160,
+		.grabwindow_height = 2340,
 		.mipi_data_lp2hs_settle_dc = 85,	/* unit , ns */
 		.mipi_pixel_rate = 504000000,
 		.max_framerate = 300,
@@ -277,7 +277,7 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	0000, 0000, 4656, 3496, 0, 2, 4656, 3492},	/*Capture*/
 #endif
 	{4656, 3496, 0, 444, 4656, 2608, 4656, 2608,
-	0000, 0000, 4656, 2608, 0, 0, 4656, 2608},	/*Video*/
+	0000, 0000, 4656, 2608, 248, 134, 4160, 2340},	/*Video*/
 	{4656, 3496, 1048, 1028, 2560, 1440, 1280, 720,
 	0000, 0000, 1280, 720, 0, 0, 1280, 720},		/*hs-video*/
 	{4656, 3496, 1048, 1028, 2560, 1440, 1280, 720,
