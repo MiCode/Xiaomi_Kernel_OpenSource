@@ -3902,21 +3902,16 @@ static kal_uint32 set_test_pattern_mode(struct subdrv_ctx *ctx, kal_uint32 mode)
 	//1:Solid Color 2:Color bar 5:Black
 
 	if (mode == 5) { //black Color
-		write_cmos_sensor(ctx, 0x0B04, 0x0010);
-		write_cmos_sensor(ctx, 0x0212, 0x0000);
-		write_cmos_sensor(ctx, 0x0214, 0x0000);
-		write_cmos_sensor(ctx, 0x0216, 0x0000);
-		write_cmos_sensor(ctx, 0x0218, 0x0000);
-		write_cmos_sensor(ctx, 0x021A, 0x0000);
+		write_cmos_sensor(ctx, 0x0B04, 0x00DD);
+		write_cmos_sensor(ctx, 0x0C0A, 0x0100);
 	} else if (mode == 2) {
-		write_cmos_sensor(ctx, 0x0B04, 0x8001);
-		write_cmos_sensor(ctx, 0x0C0A, 0x0202);
+		write_cmos_sensor(ctx, 0x0B04, 0x00DD);
+		write_cmos_sensor(ctx, 0x0C0A, 0x0200);
 	}
 
 	if ((ctx->test_pattern) && (mode != ctx->test_pattern)) {
 		if (mode == 0) {
-			write_cmos_sensor(ctx, 0x0B04, 0x8000);
-			write_cmos_sensor(ctx, 0x0C0A, 0x0202);
+			write_cmos_sensor(ctx, 0x0B04, 0x00DC);
 		}/*No pattern*/
 	}
 
@@ -4351,8 +4346,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0fa0,
-			.vsize = 0x0bb8,
+			.hsize = 4208,
+			.vsize = 3120,
 		},
 	},
 };
@@ -4362,8 +4357,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0fa0,
-			.vsize = 0x0bb8,
+			.hsize = 4208,
+			.vsize = 3120,
 		},
 	},
 	{
@@ -4421,8 +4416,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0fa0,
-			.vsize = 0x08ca,
+			.hsize = 4208,//0x0fa0,
+			.vsize = 3120,//0x08ca,
 		},
 	},
 };
