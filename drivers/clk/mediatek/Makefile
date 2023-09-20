@@ -66,7 +66,8 @@ ifneq ($(wildcard $(srctree)/$(src)/clk-mt6768.c),)
 obj-$(CONFIG_COMMON_CLK_MT6768) += clk-mt6768.o
 obj-$(CONFIG_COMMON_CLK_MT6768) += clk-mt6768-pg.o
 obj-$(CONFIG_COMMON_CLK_MT6768) += clkchk-mt6768.o
-clk-chk-mt6768-$(CONFIG_COMMON_CLK_MT6768) += clkchk-mt6768.o
+obj-$(CONFIG_COMMON_CLK_MT6768) += pd-chk-mt6768.o
+pd-chk-mt6768-$(CONFIG_COMMON_CLK_MT6768) += mtk-pd-chk-mt6768.o
 obj-$(CONFIG_COMMON_CLK_MT6768) += mt6768_clkmgr.o
 clk-clkmgr-mt6768-$(CONFIG_COMMON_CLK_MT6768) += mt6768_clkmgr.o
 obj-$(CONFIG_COMMON_CLK_MT6768) += clk-fmeter-mt6768.o

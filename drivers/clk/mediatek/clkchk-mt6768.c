@@ -300,17 +300,14 @@ static int get_vcore_opp(void)
 static struct pvd_msk pvd_pwr_mask[] = {
 
 	{"topckgen", PWR_STA, 0x00000000},
-	{"infracfg", PWR_STA, BIT(3)},
-	{"apmixedsys", PWR_STA, 0x00000000},
-	{"mfg", PWR_STA, BIT(11)},
-	{"mfgcore0", PWR_STA, BIT(12)},
-	{"mfgcore1", PWR_STA, BIT(13)},
-	{"mfgasync", PWR_STA, BIT(14)},
-	{"mmsys", PWR_STA, BIT(5)},
+	{"infracfg_ao", PWR_STA, 0x00000000},
+	{"apmixed", PWR_STA, 0x00000000},
+	{"mfg_cfg", PWR_STA, BIT(11) | BIT(12) | BIT(13) | BIT(14)},
+	{"mmsys_config", PWR_STA, BIT(5)},
 	{"imgsys", PWR_STA, BIT(6)},
 	{"camsys", PWR_STA, BIT(7)},
-	{"vencsys", PWR_STA, BIT(9)},
-	{"vdecsys", PWR_STA, BIT(8)},
+	{"venc_gcon", PWR_STA, BIT(9)},
+	{"vdec_gcon", PWR_STA, BIT(8)},
 	{},
 };
 
@@ -395,12 +392,21 @@ static int clk_chk_mt6768_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id of_match_clkchk_mt6768[] = {
+	{
+		.compatible = "mediatek,mt6768-clkchk",
+	}, {
+		/* sentinel */
+	}
+};
+
 static struct platform_driver clk_chk_mt6768_drv = {
 	.probe = clk_chk_mt6768_probe,
 	.driver = {
 		.name = "clk-chk-mt6768",
 		.owner = THIS_MODULE,
 		.pm = &clk_chk_dev_pm_ops,
+		.of_match_table = of_match_clkchk_mt6768,
 	},
 };
 
@@ -410,12 +416,6 @@ static struct platform_driver clk_chk_mt6768_drv = {
 
 static int __init clkchk_mt6768_init(void)
 {
-	static struct platform_device *clk_chk_dev;
-
-	clk_chk_dev = platform_device_register_simple("clk-chk-mt6768", -1, NULL, 0);
-	if (IS_ERR(clk_chk_dev))
-		pr_warn("unable to register clk-chk device");
-
 	return platform_driver_register(&clk_chk_mt6768_drv);
 }
 
@@ -424,7 +424,7 @@ static void __exit clkchk_mt6768_exit(void)
 	platform_driver_unregister(&clk_chk_mt6768_drv);
 }
 
-subsys_initcall(clkchk_mt6768_init);
+late_initcall(clkchk_mt6768_init);
 module_exit(clkchk_mt6768_exit);
 MODULE_LICENSE("GPL");
 
