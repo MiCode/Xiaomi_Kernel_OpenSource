@@ -3101,13 +3101,7 @@ exit:
 
 static int VowDrv_flush(struct file *flip, fl_owner_t id)
 {
-	bool ret = false;
-
-	VOWDRV_DEBUG("%s(), Send VOW_FLUSH ipi\n", __func__);
-
-	ret = vow_ipi_send(IPIMSG_VOW_FLUSH, 0, NULL, VOW_IPI_BYPASS_ACK);
-	if (ret == 0)
-		VOWDRV_DEBUG("IPIMSG_VOW_FLUSH ipi send error\n\r");
+	VOWDRV_DEBUG("%s()\n", __func__);
 	return 0;
 }
 

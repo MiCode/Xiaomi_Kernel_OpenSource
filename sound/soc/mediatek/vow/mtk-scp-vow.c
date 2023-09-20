@@ -16,6 +16,7 @@
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SCP_SUPPORT)
 #include "scp.h"
 #endif
+#include "vow.h"
 
 int mtk_scp_vow_barge_in_allocate_mem(struct snd_pcm_substream *substream,
 			     dma_addr_t *phys_addr,
@@ -44,6 +45,26 @@ int mtk_scp_vow_barge_in_allocate_mem(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+int notify_vow_ipi_send_event(struct notifier_block *nb, unsigned long event, void *v)
+{
+	int status = NOTIFY_STOP;//NOTIFY_DONE; //default don't care it.
+
+	if (event == NOTIFIER_VOW_IPI_SEND) {
+		struct vow_sound_soc_ipi_send_info *vow_ipi_info;
+
+		vow_ipi_info = (struct vow_sound_soc_ipi_send_info *)v;
+		pr_debug("%s(), vow received notify ipi send event.\n", __func__);
+		if (vow_ipi_send(vow_ipi_info->msg_id,
+				 vow_ipi_info->payload_len,
+				 vow_ipi_info->payload,
+				 vow_ipi_info->need_ack))
+			status = NOTIFY_STOP;
+		else
+			status = NOTIFY_BAD;
+	}
+	return status;
+}
+
 int notify_vow_init_event(struct notifier_block *nb, unsigned long event, void *v)
 {
 	int status = NOTIFY_DONE; //default don't care it.
@@ -70,15 +91,21 @@ static struct notifier_block vow_scp_init_notifier = {
 	.notifier_call = notify_vow_init_event,
 };
 
+static struct notifier_block vow_ipi_send_notifier = {
+	.notifier_call = notify_vow_ipi_send_event,
+};
+
 static int __init mtk_scp_vow_init(void)
 {
 	register_afe_allocate_mem_notifier(&vow_scp_init_notifier);
+	register_vow_ipi_send_notifier(&vow_ipi_send_notifier);
 	return 0;
 }
 
 static void __exit mtk_scp_vow_exit(void)
 {
 	unregister_afe_allocate_mem_notifier(&vow_scp_init_notifier);
+	unregister_vow_ipi_send_notifier(&vow_ipi_send_notifier);
 }
 
 module_init(mtk_scp_vow_init);

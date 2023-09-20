@@ -8,6 +8,7 @@
 
 static RAW_NOTIFIER_HEAD(afe_mem_init_noitify_chain);
 static ATOMIC_NOTIFIER_HEAD(semaphore_noitify_chain);
+static RAW_NOTIFIER_HEAD(vow_ipi_send_noitify_chain);
 
 /* memory allocate */
 int register_afe_allocate_mem_notifier(struct notifier_block *nb)
@@ -52,6 +53,31 @@ int notify_3way_semaphore_control(unsigned long module, void *v)
 	return atomic_notifier_call_chain(&semaphore_noitify_chain, module, v);
 }
 EXPORT_SYMBOL_GPL(notify_3way_semaphore_control);
+
+/* vow send ipi */
+int register_vow_ipi_send_notifier(struct notifier_block *nb)
+{
+	int status;
+
+	status = raw_notifier_chain_register(&vow_ipi_send_noitify_chain, nb);
+	return status;
+}
+EXPORT_SYMBOL_GPL(register_vow_ipi_send_notifier);
+
+int unregister_vow_ipi_send_notifier(struct notifier_block *nb)
+{
+	int status;
+
+	status = raw_notifier_chain_unregister(&vow_ipi_send_noitify_chain, nb);
+	return status;
+}
+EXPORT_SYMBOL_GPL(unregister_vow_ipi_send_notifier);
+
+int notify_vow_ipi_send(unsigned long module, void *v)
+{
+	return raw_notifier_call_chain(&vow_ipi_send_noitify_chain, module, v);
+}
+EXPORT_SYMBOL_GPL(notify_vow_ipi_send);
 
 MODULE_DESCRIPTION("Mediatek afe external");
 MODULE_AUTHOR("Shane Chien <shane.chien@mediatek.com>");
