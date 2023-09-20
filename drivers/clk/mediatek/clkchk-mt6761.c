@@ -28,6 +28,8 @@
 #define CHECK_VCORE_FREQ		0
 #define TAG	"[clkchk] "
 
+static unsigned int suspend_cnt;
+
 #define clk_warn(fmt, args...)	pr_notice(TAG fmt, ##args)
 
 #if !CLKDBG_CCF_API_4_4
@@ -347,6 +349,22 @@ static struct pvd_msk *get_pvd_pwr_mask(void)
  * init functions
  */
 
+static bool suspend_retry(bool reset_cnt)
+{
+	if (reset_cnt == true) {
+		suspend_cnt = 0;
+		return true;
+	}
+
+	suspend_cnt++;
+	pr_notice("%s: suspend cnt: %d\n", __func__, suspend_cnt);
+
+	if (suspend_cnt < 2)
+		return false;
+
+	return true;
+}
+
 static struct clkchk_ops clkchk_mt6761_ops = {
 	.get_all_regnames = get_all_regnames,
 	.get_spm_pwr_status_array = get_spm_pwr_status_array,
@@ -359,10 +377,13 @@ static struct clkchk_ops clkchk_mt6761_ops = {
 #if IS_ENABLED(CONFIG_MTK_DEVAPC)
 	.devapc_dump = devapc_dump,
 #endif
+	.suspend_retry = suspend_retry,
 };
 
 static int clk_chk_mt6761_probe(struct platform_device *pdev)
 {
+	suspend_cnt = 0;
+
 	init_regbase();
 
 	set_clkchk_notify();
