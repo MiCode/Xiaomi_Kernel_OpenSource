@@ -12,6 +12,8 @@ f fs/coredump.c
 f fs/f2fs/f2fs.h
 f fs/f2fs/node.c
 f fs/f2fs/super.c
+f fs/fuse/dev.c
+f fs/fuse/inode.c
 f include/linux/dev_printk.h
 f include/linux/dynamic_debug.h
 f include/linux/hrtimer.h
