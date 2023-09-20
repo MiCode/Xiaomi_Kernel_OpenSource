@@ -813,15 +813,14 @@ static int fmt_gce_wait_callback(unsigned long arg)
 	ktime_get_real_ts64(&fmt->fmt_active_time);
 	mutex_unlock(&fmt->mux_active_time);
 
-	mutex_lock(fmt->mux_gce_th[identifier]);
 	identifier = fmt->gce_task[taskid].identifier;
 	if (identifier >= fmt->gce_th_num) {
 		fmt_err("invalid identifier %u",
 			identifier);
-		mutex_unlock(fmt->mux_gce_th[identifier]);
 		return -EINVAL;
 	}
 
+	mutex_lock(fmt->mux_gce_th[identifier]);
 	if (atomic_read(&fmt->gce_task_wait_cnt[taskid]) > 0) {
 		fmt_err("GCE taskid %d is already waiting, wait task cnt %d", taskid,
 			atomic_read(&fmt->gce_task_wait_cnt[taskid]));
