@@ -891,6 +891,11 @@
 		};
 	};
 
+	security_ao@1001a000 {
+		compatible = "mediatek,security_ao";
+		reg = <0 0x1001a000 0 0x1000>;
+	};
+
 	sleep_sram@1001e000 {
 		compatible = "mediatek,sleep_sram";
 		reg = <0 0x1001e000 0 0x4000>;
