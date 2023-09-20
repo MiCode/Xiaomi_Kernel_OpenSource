@@ -9,9 +9,6 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 
-#define MDP_DPFRAMEWORK_CMD_FLAG ((uint64_t)(0xAA << 24))
-#define MDP_DPFRAMEWORK_CMD_FLAG_MASK ((uint64_t)(0xFF << 24))
-
 extern int gMdpRegMSBSupport;
 
 s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param);
