@@ -273,7 +273,10 @@ static unsigned int g_log_def_constraint;
 #endif
 
 #define ISP_REG_ADDR_EN1 (ISP_ADDR + 0x4)
+#define ISP_REG_ADDR_DMA_EN (ISP_ADDR + 0x8) //CAM_REG_CTL_EN_P1_DMA
+#define ISP_REG_ADDR_DMA_EN_D (ISP_ADDR + 0x14) //CAM_REG_CTL_EN_P1_DMA_D
 #define ISP_REG_CTL_SEL_GLOBAL (ISP_ADDR + 0x20)
+#define ISP_REG_ADDR_INT_P1_EN (ISP_ADDR + 0x48) //CAM_REG_CTL_INT_P1_EN
 #define ISP_REG_ADDR_INT_P1_ST (ISP_ADDR + 0x4C)
 #define ISP_REG_ADDR_INT_P1_ST2 (ISP_ADDR + 0x54)
 #define ISP_REG_ADDR_INT_P1_ST_D (ISP_ADDR + 0x5C)
@@ -9549,7 +9552,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 				IrqStatus_CAMSV2);
 
 	if (IspInfo.DebugMask & ISP_DBG_INT)
-		IRQ_LOG_KEEPER(_CAMSV_D_IRQ, m_CurrentPPB, _LOG_INF, CAMSV2_TAG
+		IRQ_LOG_KEEPER(_CAMSV_D_IRQ, m_CurrentPPB, _LOG_DBG, CAMSV2_TAG
 			       "Type(%d), IrqStatus(0x%x | 0x%08x)\n",
 			       ISP_IRQ_TYPE_INT_CAMSV2,
 			       IspInfo.IrqInfo.Status[ISP_IRQ_USER_ISPDRV]
@@ -9558,13 +9561,13 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 
 	if (IrqStatus_CAMSV2 & ISP_IRQ_CAMSV2_STATUS_PASS1_DON_ST) {
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
-			IRQ_LOG_KEEPER(_CAMSV_D_IRQ, m_CurrentPPB, _LOG_INF,
+			IRQ_LOG_KEEPER(_CAMSV_D_IRQ, m_CurrentPPB, _LOG_DBG,
 				       CAMSV2_TAG "fbc(0x%x)",
 				       (unsigned int)(fbc.Reg_val));
 
 			IRQ_LOG_KEEPER(
 				_CAMSV_D_IRQ, m_CurrentPPB,
-				_LOG_INF, CAMSV2_TAG
+				_LOG_DBG, CAMSV2_TAG
 				"P1_DON_%d_%d(0x%x,0x%x,0x%x,0x%x,camsv support no	inner addr)\n",
 				(sof_count[_CAMSV_D])
 					? (sof_count[_CAMSV_D] - 1)
@@ -9587,7 +9590,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 		/* chk this     frame have EOF or not */
 		if (fbc.Bits.FB_NUM == fbc.Bits.FBC_CNT) {
 			gSof_camsvdone[1] = 1;
-			IRQ_LOG_KEEPER(_CAMSV_D_IRQ, m_CurrentPPB, _LOG_INF,
+			IRQ_LOG_KEEPER(_CAMSV_D_IRQ, m_CurrentPPB, _LOG_DBG,
 				       CAMSV2_TAG "Lost done %d",
 				       sof_count[_CAMSV_D]);
 
@@ -9622,7 +9625,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 				ISP_WR32(ISP_REG_ADDR_CAMSV2_IMGO_FBC,
 					 fbc.Reg_val);
 				IRQ_LOG_KEEPER(_CAMSV_D_IRQ, m_CurrentPPB,
-					       _LOG_INF,
+					       _LOG_DBG,
 					       CAMSV2_TAG "RCNT_INC\n");
 			} else {
 				mFwRcnt.curIdx[_CAMSV_D_IRQ] = 0;
@@ -9640,7 +9643,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAMSV2(signed int Irq, void *DeviceId)
 
 			IRQ_LOG_KEEPER(
 				_CAMSV_D_IRQ, m_CurrentPPB,
-				_LOG_INF, CAMSV2_TAG
+				_LOG_DBG, CAMSV2_TAG
 				"P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,camsv	support	no inner addr)\n",
 				sof_count[_CAMSV_D],
 				((ISP_RD32(ISP_REG_ADDR_CAMSV_TG2_INTER_ST) &
@@ -10172,7 +10175,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 					 p1_fbc[1].Reg_val);
 				if (IspInfo.DebugMask & ISP_DBG_INT)
 					IRQ_LOG_KEEPER(_IRQ, m_CurrentPPB,
-						       _LOG_INF,
+						       _LOG_DBG,
 						       " p1:RCNT_INC:	");
 			} else {
 				mFwRcnt.curIdx[_IRQ] = 0;
@@ -10192,18 +10195,17 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 			_fbc_chk[1].Reg_val = ISP_RD32(ISP_REG_ADDR_RRZO_FBC);
 			IRQ_LOG_KEEPER(
 				_IRQ, m_CurrentPPB, _LOG_INF,
-				"P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x, D_%d(%d/%d)_Filled(%d_%d_%d),D_%d(%d/%d)_Filled(%d_%d_%d) )\n",
+				"P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x, D_%d(%d/%d)_Filled(%d_%d_%d),D_%d(%d/%d)_Filled(%d_%d_%d) )\n",
 				sof_count[_PASS1], cur_v_cnt,
 				(unsigned int)(_fbc_chk[0].Reg_val),
 				(unsigned int)(_fbc_chk[1].Reg_val),
+				ISP_RD32(ISP_REG_ADDR_DMA_EN),
+				ISP_RD32(ISP_REG_ADDR_DMA_EN_D),
+				ISP_RD32(ISP_REG_ADDR_INT_P1_EN),
 				ISP_RD32(ISP_REG_ADDR_IMGO_BASE_ADDR),
 				ISP_RD32(ISP_REG_ADDR_RRZO_BASE_ADDR),
 				ISP_RD32(ISP_INNER_REG_ADDR_IMGO_YSIZE),
 				ISP_RD32(ISP_INNER_REG_ADDR_RRZO_YSIZE),
-				ISP_RD32(ISP_REG_ADDR_AFO_XSIZE),
-				ISP_RD32(ISP_REG_ADDR_AFO_YSIZE),
-				ISP_RD32(ISP_INNER_REG_ADDR_AFO_XSIZE),
-				ISP_RD32(ISP_INNER_REG_ADDR_AFO_YSIZE),
 				ISP_RD32(ISP_REG_ADDR_TG_MAGIC_0),
 				ISP_RD32(ISP_REG_ADDR_DMA_DCM_STATUS),
 				_imgo_,
