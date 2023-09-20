@@ -302,8 +302,10 @@ static unsigned int g_log_def_constraint;
 #define ISP_REG_ADDR_RRZO_BASE_ADDR (ISP_ADDR + 0x3320)
 #define ISP_REG_ADDR_AFO_XSIZE (ISP_ADDR + 0x3488)
 #define ISP_REG_ADDR_AFO_YSIZE (ISP_ADDR + 0x348C)
+#define ISP_REG_ADDR_AAO_BASE_ADDR (ISP_ADDR + 0x3388)
+#define ISP_REG_ADDR_AAO_XSIZE (ISP_ADDR + 0x3390)
+#define ISP_REG_ADDR_AAO_YSIZE (ISP_ADDR + 0x3394)
 #define ISP_REG_ADDR_DMA_DCM_STATUS (ISP_ADDR + 0x1A8)
-
 #define ISP_REG_ADDR_DMA_REQ_STATUS (ISP_ADDR + 0x1C0)
 #define ISP_REG_ADDR_DMA_RDY_STATUS (ISP_ADDR + 0x1D4)
 #define ISP_REG_ADDR_DBG_SET (ISP_ADDR + 0x160)
@@ -10085,6 +10087,19 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 
 		G_PM_QOS[ISP_PASS1_PATH_TYPE_RAW].sof_flag = MTRUE;
 
+		#ifdef _imgo_fbc_wrkarnd_
+		// work around for imgo WCNT do not update
+		// take rrzo wcnt as ref first
+		if (pstRTBuf->ring_buf[_rrzo_].active) {
+			_dmaport = 1;
+			rt_dma = _rrzo_;
+		} else if (pstRTBuf->ring_buf[_imgo_].active) {
+			_dmaport = 0;
+			rt_dma = _imgo_;
+		} else {
+			log_err("no main dma port opened at	SOF\n");
+		}
+		#else
 		if (pstRTBuf->ring_buf[_imgo_].active) {
 			_dmaport = 0;
 			rt_dma = _imgo_;
@@ -10094,6 +10109,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 		} else {
 			log_err("no main dma port opened at	SOF\n");
 		}
+		#endif
 		/* chk this     frame have EOF or not, dynimic dma port chk */
 		if (p1_fbc[_dmaport].Bits.FB_NUM ==
 		    p1_fbc[_dmaport].Bits.FBC_CNT) {
@@ -10208,7 +10224,7 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 			_fbc_chk[1].Reg_val = ISP_RD32(ISP_REG_ADDR_RRZO_FBC);
 			IRQ_LOG_KEEPER(
 				_IRQ, m_CurrentPPB, _LOG_INF,
-				"P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x, D_%d(%d/%d)_Filled(%d_%d_%d),D_%d(%d/%d)_Filled(%d_%d_%d) )\n",
+				"P1_SOF_%d_%d(0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,AAO(0x%x,0x%x,0x%x),D_%d(%d/%d)_Filled(%d_%d_%d),D_%d(%d/%d)_Filled(%d_%d_%d) )\n",
 				sof_count[_PASS1], cur_v_cnt,
 				(unsigned int)(_fbc_chk[0].Reg_val),
 				(unsigned int)(_fbc_chk[1].Reg_val),
@@ -10221,6 +10237,9 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 				ISP_RD32(ISP_INNER_REG_ADDR_RRZO_YSIZE),
 				ISP_RD32(ISP_REG_ADDR_TG_MAGIC_0),
 				ISP_RD32(ISP_REG_ADDR_DMA_DCM_STATUS),
+				ISP_RD32(ISP_REG_ADDR_AAO_BASE_ADDR),
+				ISP_RD32(ISP_REG_ADDR_AAO_XSIZE),
+				ISP_RD32(ISP_REG_ADDR_AAO_YSIZE),
 				_imgo_,
 				pstRTBuf->ring_buf[_imgo_].start,
 				pstRTBuf->ring_buf[_imgo_].read_idx,
