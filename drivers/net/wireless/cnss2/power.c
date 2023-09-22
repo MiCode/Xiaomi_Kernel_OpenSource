@@ -23,21 +23,22 @@
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
 static struct cnss_vreg_cfg cnss_vreg_list[] = {
-	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0},
-	{"vdd-wlan-io", 1800000, 1800000, 0, 0, 0},
-	{"vdd-wlan-xtal-aon", 0, 0, 0, 0, 0},
-	{"vdd-wlan-xtal", 1800000, 1800000, 0, 2, 0},
-	{"vdd-wlan", 0, 0, 0, 0, 0},
-	{"vdd-wlan-ctrl1", 0, 0, 0, 0, 0},
-	{"vdd-wlan-ctrl2", 0, 0, 0, 0, 0},
-	{"vdd-wlan-sp2t", 2700000, 2700000, 0, 0, 0},
-	{"wlan-ant-switch", 1800000, 1800000, 0, 0, 0},
-	{"wlan-soc-swreg", 1200000, 1200000, 0, 0, 0},
-	{"vdd-wlan-aon", 950000, 950000, 0, 0, 0},
-	{"vdd-wlan-dig", 950000, 952000, 0, 0, 0},
-	{"vdd-wlan-rfa1", 1900000, 1900000, 0, 0, 0},
-	{"vdd-wlan-rfa2", 1350000, 1350000, 0, 0, 0},
-	{"vdd-wlan-en", 0, 0, 0, 10, 0},
+	{"vdd-wlan-core", 1300000, 1300000, 0, 0, 0, 1},
+	{"vdd-wlan-io", 1800000, 1800000, 0, 0, 0, 1},
+	{"vdd-wlan-xtal-aon", 0, 0, 0, 0, 0, 1},
+	{"vdd-wlan-xtal", 1800000, 1800000, 0, 2, 0, 1},
+	{"vdd-wlan", 0, 0, 0, 0, 0, 1},
+	{"vdd-wlan-ctrl1", 0, 0, 0, 0, 0, 1},
+	{"vdd-wlan-ctrl2", 0, 0, 0, 0, 0, 1},
+	{"vdd-wlan-sp2t", 2700000, 2700000, 0, 0, 0, 1},
+	{"wlan-ant-switch", 1800000, 1800000, 0, 0, 0, 1},
+	{"wlan-soc-swreg", 1200000, 1200000, 0, 0, 0, 1},
+	{"vdd-wlan-aon", 950000, 950000, 0, 0, 0, 1},
+	{"vdd-wlan-dig", 950000, 952000, 0, 0, 0, 1},
+	{"vdd-wlan-rfa1", 1900000, 1900000, 0, 0, 0, 1},
+	{"vdd-wlan-rfa2", 1350000, 1350000, 0, 0, 0, 1},
+	{"vdd-wlan-en", 0, 0, 0, 10, 0, 1},
+	{"vdd-wlan-ipa", 2200000, 2200000, 0, 0, 0, 0},
 };
 
 static struct cnss_clk_cfg cnss_clk_list[] = {
@@ -66,6 +67,8 @@ static struct cnss_clk_cfg cnss_clk_list[] = {
 #define SW_CTRL_GPIO			"qcom,sw-ctrl-gpio"
 #define WLAN_EN_ACTIVE			"wlan_en_active"
 #define WLAN_EN_SLEEP			"wlan_en_sleep"
+
+#define CNSS_IPA_REGULATOR		"vdd-wlan-ipa"
 
 #define BOOTSTRAP_DELAY			1000
 #define WLAN_ENABLE_DELAY		1000
@@ -161,10 +164,11 @@ static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 		vreg->cfg.need_unvote = be32_to_cpup(&prop[4]);
 	}
 
-	cnss_pr_dbg("Got regulator: %s, min_uv: %u, max_uv: %u, load_ua: %u, delay_us: %u, need_unvote: %u\n",
+	cnss_pr_dbg("Got regulator: %s, min_uv: %u, max_uv: %u, load_ua: %u, delay_us: %u, need_unvote: %u, is_supported: %u\n",
 		    vreg->cfg.name, vreg->cfg.min_uv,
 		    vreg->cfg.max_uv, vreg->cfg.load_ua,
-		    vreg->cfg.delay_us, vreg->cfg.need_unvote);
+		    vreg->cfg.delay_us, vreg->cfg.need_unvote,
+		    vreg->cfg.is_supported);
 
 	return 0;
 }
@@ -371,8 +375,9 @@ static int cnss_vreg_on(struct cnss_plat_data *plat_priv,
 	int ret = 0;
 
 	list_for_each_entry(vreg, vreg_list, list) {
-		if (IS_ERR_OR_NULL(vreg->reg))
+		if (IS_ERR_OR_NULL(vreg->reg) || !vreg->cfg.is_supported)
 			continue;
+
 		ret = cnss_vreg_on_single(vreg);
 		if (ret)
 			break;
@@ -1629,6 +1634,8 @@ int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv)
 	void __iomem *tcs_cmd;
 	int ret;
 	static bool config_done;
+	struct cnss_vreg_info *vreg;
+	struct list_head *vreg_list = &plat_priv->vreg_list;
 
 	if (plat_priv->device_id != QCA6490_DEVICE_ID)
 		return -EINVAL;
@@ -1637,6 +1644,20 @@ int cnss_enable_int_pow_amp_vreg(struct cnss_plat_data *plat_priv)
 		cnss_pr_dbg("IPA Vreg already configured\n");
 		return 0;
 	}
+
+	list_for_each_entry(vreg, vreg_list, list) {
+		if (IS_ERR_OR_NULL(vreg->reg))
+			continue;
+		if (!strcmp(CNSS_IPA_REGULATOR, vreg->cfg.name)) {
+			config_done = true;
+			vreg->cfg.is_supported = 1;
+			cnss_pr_dbg("IPA Vreg will be enabled during next power cycle\n");
+			break;
+		}
+	}
+
+	if (!config_done)
+		cnss_pr_dbg("Failed to get IPA Vreg, not voting from APPS\n");
 
 	if (!plat_priv->vreg_ipa || !plat_priv->mbox_chan) {
 		cnss_pr_dbg("Mbox channel / IPA Vreg not configured\n");

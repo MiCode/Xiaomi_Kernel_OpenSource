@@ -1295,7 +1295,10 @@ size_t adreno_snapshot_registers_v2(struct kgsl_device *device, u8 *buf,
 			*data++ = cnt;
 		}
 		for (k = ptr[0]; k <= ptr[1]; k++) {
-			kgsl_regread(device, k, data);
+			if (adreno_is_cx_dbgc_register(device, k))
+				adreno_cx_dbgc_regread(device, k, data);
+			else
+				kgsl_regread(device, k, data);
 			data++;
 		}
 	}

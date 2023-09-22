@@ -98,7 +98,6 @@ int wil_set_capabilities(struct wil6210_priv *wil)
 		set_bit(hw_capa_no_flash, wil->hw_capa);
 		wil->use_enhanced_dma_hw = true;
 		wil->use_rx_hw_reordering = true;
-		wil->use_compressed_rx_status = true;
 		if (wil_ipa_offload())
 			/* IPA offload must use single MSI */
 			n_msi = 1;
@@ -386,6 +385,13 @@ static int wil_platform_rop_notify(void *wil_handle,
 		clear_bit(wil_status_fwready, wil->status);
 		set_bit(wil_status_resetting, wil->status);
 		set_bit(wil_status_pci_linkdown, wil->status);
+
+		if (wil->fw_state == WIL_FW_STATE_READY)
+			wil_nl_60g_fw_state_change(wil,
+						   WIL_FW_STATE_ERROR);
+		else
+			wil_nl_60g_fw_state_change(wil,
+					WIL_FW_STATE_ERROR_BEFORE_READY);
 
 		schedule_work(&wil->pci_linkdown_recovery_worker);
 		break;

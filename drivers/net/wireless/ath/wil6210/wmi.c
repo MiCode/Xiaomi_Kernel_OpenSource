@@ -474,6 +474,8 @@ static const char *cmdid2name(u16 cmdid)
 		return "WMI_RBUFCAP_CFG_CMD";
 	case WMI_TEMP_SENSE_ALL_CMDID:
 		return "WMI_TEMP_SENSE_ALL_CMDID";
+	case WMI_FST_CONFIG_CMDID:
+		return "WMI_FST_CONFIG_CMD";
 	case WMI_SET_LINK_MONITOR_CMDID:
 		return "WMI_SET_LINK_MONITOR_CMD";
 	case WMI_SET_VR_PROFILE_CMDID:
@@ -628,6 +630,8 @@ static const char *eventid2name(u16 eventid)
 		return "WMI_RBUFCAP_CFG_EVENT";
 	case WMI_TEMP_SENSE_ALL_DONE_EVENTID:
 		return "WMI_TEMP_SENSE_ALL_DONE_EVENTID";
+	case WMI_FST_CONFIG_EVENTID:
+		return "WMI_FST_CONFIG_EVENT";
 	case WMI_SET_LINK_MONITOR_EVENTID:
 		return "WMI_SET_LINK_MONITOR_EVENT";
 	case WMI_LINK_MONITOR_EVENTID:
@@ -4349,6 +4353,101 @@ int wmi_set_cqm_rssi_config(struct wil6210_priv *wil,
 	return 0;
 }
 
+static u32 wmi_ucode_addr_remap(u32 x)
+{
+	uint i;
+
+	for (i = 0; i < ARRAY_SIZE(fw_mapping); i++) {
+		if (!fw_mapping[i].fw &&
+		    (x >= fw_mapping[i].from && x < fw_mapping[i].to))
+			return x + fw_mapping[i].host - fw_mapping[i].from;
+	}
+
+	return 0;
+}
+
+int wmi_ut_update_txlatency_base(struct wil6210_priv *wil)
+{
+	int rc;
+	struct net_device *ndev = wil->main_ndev;
+	struct wil6210_vif *vif = ndev_to_vif(ndev);
+	struct wmi_dma_ut_cmd {
+		u16 ut_module;
+		u16 ut_cmd;
+	} __packed cmd = {
+		.ut_module = 0xa, /* system_api */
+		.ut_cmd = 0x85, /* hw_sysapi_get_tx_latency_dbg_addr */
+	};
+
+	struct wmi_tx_latency_dbg_addr {
+		__le32 status; /* SUCCESS=1, other values == FAILURE */
+		__le32 host2fw_address; /* host2fw debug block start */
+		__le32 host2fw_size; /* size of the debug block in bytes */
+		__le32 fw2host_address; /* fw2host debug block start */
+		__le32 fw2host_size; /* size of the debug block in bytes */
+	} __packed;
+
+	struct wmi_tx_latency_dbg_addr_done_event {
+		struct wmi_cmd_hdr hdr;
+		__le16 module_if; /* will be set to 0xa */
+		__le16 ut_subtype_id; /* will be set 0x85 */
+		struct wmi_tx_latency_dbg_addr dbg_addr_info;
+	} __packed reply;
+
+	wil->tx_latency_threshold_base = 0;
+
+	wil_info(wil, "sending get_tx_latency_dbg_addr command\n");
+	rc = wmi_call(wil, WMI_UNIT_TEST_CMDID, vif->mid, &cmd, sizeof(cmd),
+		      WMI_UNIT_TEST_EVENTID, &reply, sizeof(reply),
+		      WIL_WMI_CALL_GENERAL_TO_MS);
+	if (rc) {
+		wil_err(wil,
+			"sending get_tx_latency_dbg_addr command failed %d\n",
+			rc);
+		return rc;
+	}
+
+	wil_dbg_wmi(wil,
+		    "Reply: module_if: 0x%x, ut_subtype_id: 0x%x, reply.dbg_addr_info.status: %d\n",
+		    le16_to_cpu(reply.module_if),
+		    le16_to_cpu(reply.ut_subtype_id),
+		    le32_to_cpu(reply.dbg_addr_info.status));
+	wil_info(wil,
+		 "host2fw_addr: 0x%x, host2fw_size: %d\n",
+		 le32_to_cpu(reply.dbg_addr_info.host2fw_address),
+		 le32_to_cpu(reply.dbg_addr_info.host2fw_size));
+
+	/* validate the returned structure */
+	if (le16_to_cpu(reply.module_if) == 0xa &&
+	    le16_to_cpu(reply.ut_subtype_id) == 0x85 &&
+	    le32_to_cpu(reply.dbg_addr_info.status) == 1) {
+		u32 addr = le32_to_cpu(reply.dbg_addr_info.host2fw_address);
+		u32 size = le32_to_cpu(reply.dbg_addr_info.host2fw_size);
+		u32 mapped_addr;
+
+		if (size < sizeof(struct wil_tx_latency_threshold_info)) {
+			wil_err(wil, "host2fw size (%d) smaller than expected (%ld)\n",
+				size,
+				sizeof(struct wil_tx_latency_threshold_info));
+			return -EINVAL;
+		}
+
+		mapped_addr = wmi_ucode_addr_remap(addr);
+		wil_info(wil,
+			 "host2fw_addr: 0x%x, wmi_addr_ucode_remap returned 0x%x\n",
+			 addr, mapped_addr);
+		if (!mapped_addr) {
+			wil_err(wil, "Invalid host2fw addr (%u), size (%u)\n",
+				addr, size);
+			return -EINVAL;
+		}
+
+		wil->tx_latency_threshold_base = mapped_addr;
+	}
+
+	return rc;
+}
+
 const char *
 wil_get_vr_profile_name(enum wmi_vr_profile profile)
 {
@@ -4359,6 +4458,8 @@ wil_get_vr_profile_name(enum wmi_vr_profile profile)
 		return "COMMON_AP";
 	case WMI_VR_PROFILE_COMMON_STA:
 		return "COMMON_STA";
+	case WMI_VR_PROFILE_COMMON_STA_PS:
+		return "COMMON_STA_PS";
 	default:
 		return "unknown";
 	}
@@ -4378,7 +4479,9 @@ int wmi_set_vr_profile(struct wil6210_priv *wil, u8 profile)
 	};
 
 	cmd.profile = profile;
-	wil_info(wil, "sending set vr config command, profile=%d\n", profile);
+	cmd.max_mcs = wil->max_mcs;
+	wil_info(wil, "sending set vr config command, profile=%d, max_mcs=%d\n",
+		 profile, wil->max_mcs);
 	rc = wmi_call(wil, WMI_SET_VR_PROFILE_CMDID, vif->mid, &cmd,
 		      sizeof(cmd), WMI_SET_VR_PROFILE_EVENTID,
 		      &reply, sizeof(reply), WIL_WMI_CALL_GENERAL_TO_MS);
@@ -4423,6 +4526,44 @@ int wmi_reset_spi_slave(struct wil6210_priv *wil)
 
 	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
 		wil_err(wil, "spi slave reset failed, status %d\n",
+			reply.evt.status);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+int wmi_set_fst_config(struct wil6210_priv *wil, const u8 *bssid, u8 enabled,
+		       u8 entry_mcs, u8 exit_mcs, u8 slevel)
+{
+	struct net_device *ndev = wil->main_ndev;
+	struct wil6210_vif *vif = ndev_to_vif(ndev);
+	int rc;
+	struct wmi_fst_config_cmd cmd = {
+		.fst_en = enabled,
+		.fst_entry_mcs = entry_mcs,
+		.fst_exit_mcs = exit_mcs,
+		.sensitivity_level = slevel,
+	};
+	struct {
+		struct wmi_cmd_hdr hdr;
+		struct wmi_fst_config_event evt;
+	} __packed reply = {
+		.evt = {.status = WMI_FW_STATUS_FAILURE},
+	};
+
+	ether_addr_copy(cmd.fst_ap_bssid, bssid);
+
+	rc = wmi_call(wil, WMI_FST_CONFIG_CMDID, vif->mid, &cmd,
+		      sizeof(cmd), WMI_FST_CONFIG_EVENTID,
+		      &reply, sizeof(reply), WIL_WMI_CALL_GENERAL_TO_MS);
+	if (rc) {
+		wil_err(wil, "WMI_FST_CONFIG_CMDID failed, rc %d\n", rc);
+		return rc;
+	}
+
+	if (reply.evt.status != WMI_FW_STATUS_SUCCESS) {
+		wil_err(wil, "WMI_FST_CONFIG_CMDID failed, status %d\n",
 			reply.evt.status);
 		return -EINVAL;
 	}
