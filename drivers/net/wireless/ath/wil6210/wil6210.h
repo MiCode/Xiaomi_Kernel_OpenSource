@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __WIL6210_H__
@@ -1166,6 +1167,10 @@ struct wil6210_priv {
 	u32 tx_latency_threshold_high;
 	struct wil_tx_latency_threshold_info tx_latency_threshold_info;
 	u32 tx_latency_threshold_base;
+	bool config_arc_enable;
+	u16 config_arc_monitoring_period;
+	u16 config_arc_rate_limit_frac;
+
 };
 
 #define wil_to_wiphy(i) (i->wiphy)
@@ -1631,4 +1636,9 @@ void wil_sta_info_amsdu_init(struct wil_sta_info *sta);
 int wmi_set_fst_config(struct wil6210_priv *wil, const u8 *bssid, u8 enabled,
 		       u8 entry_mcs, u8 exit_mcs, u8 slevel);
 int wmi_ut_update_txlatency_base(struct wil6210_priv *wil);
+int wmi_set_arc_config(struct wil6210_priv *wil, bool config_arc_enable,
+		       u16 config_arc_monitoring_period,
+		       u16 config_arc_rate_limit_frac);
+void wil_nl_60g_fw_arc_update(struct wil6210_priv *wil,
+			      struct wmi_arc_update_event *fw_arc_evt);
 #endif /* __WIL6210_H__ */

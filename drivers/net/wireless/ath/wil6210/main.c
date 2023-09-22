@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/moduleparam.h>
@@ -813,6 +814,9 @@ int wil_priv_init(struct wil6210_priv *wil)
 	wil->amsdu_en = true;
 	wil->fw_state = WIL_FW_STATE_DOWN;
 	wil->max_mcs = 0;
+	wil->config_arc_enable = false;
+	wil->config_arc_monitoring_period = 0;
+	wil->config_arc_rate_limit_frac = 0;
 
 	return 0;
 

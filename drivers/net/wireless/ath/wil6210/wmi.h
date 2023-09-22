@@ -3,6 +3,7 @@
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  * Copyright (c) 2012-2017 Qualcomm Atheros, Inc.
  * Copyright (c) 2006-2012 Wilocity
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -297,6 +298,8 @@ enum wmi_command_id {
 	WMI_SET_VRING_PRIORITY_CMDID			= 0xA11,
 	WMI_RBUFCAP_CFG_CMDID				= 0xA12,
 	WMI_TEMP_SENSE_ALL_CMDID			= 0xA13,
+	/* ARC Configuration Commands */
+	WMI_ARC_CFG_CMDID				= 0xA21,
 	WMI_SET_MAC_ADDRESS_CMDID			= 0xF003,
 	WMI_ABORT_SCAN_CMDID				= 0xF007,
 	WMI_SET_PROMISCUOUS_MODE_CMDID			= 0xF041,
@@ -1468,6 +1471,14 @@ enum wmi_aoa_meas_type {
 	WMI_AOA_PHASE_AMP_MEAS	= 0x01,
 };
 
+/* WMI_ARC_CFG_CMDID */
+struct wmi_arc_cfg_cmd {
+	u8 enable;
+	u8 reserved[3];
+	__le16 arc_monitoring_period;
+	__le16 arc_rate_limit_frac;
+} __packed;
+
 /* WMI_AOA_MEAS_CMDID */
 struct wmi_aoa_meas_cmd {
 	u8 mac_addr[WMI_MAC_LEN];
@@ -2142,6 +2153,9 @@ enum wmi_event_id {
 	WMI_SET_VRING_PRIORITY_EVENTID			= 0x1A11,
 	WMI_RBUFCAP_CFG_EVENTID				= 0x1A12,
 	WMI_TEMP_SENSE_ALL_DONE_EVENTID			= 0x1A13,
+	/* ARC Configuration Events */
+	WMI_ARC_CFG_EVENTID				= 0x1A21,
+	WMI_ARC_UPDATE_EVENTID				= 0x1A22,
 	WMI_SET_CHANNEL_EVENTID				= 0x9000,
 	WMI_ASSOC_REQ_EVENTID				= 0x9001,
 	WMI_EAPOL_RX_EVENTID				= 0x9002,
@@ -2185,6 +2199,19 @@ struct wmi_get_status_done_event {
 	u8 ssid[WMI_MAX_SSID_LEN];
 	__le32 rf_status;
 	__le32 is_secured;
+} __packed;
+
+/* WMI_ARC_CFG_EVENTID */
+struct wmi_arc_cfg_event {
+	u8 status;
+	u8 reserved[3];
+} __packed;
+
+/* WMI_ARC_UPDATE_EVENTID */
+struct wmi_arc_update_event {
+	u8 rampup;
+	u8 reserved;
+	__le16 target_rate;
 } __packed;
 
 /* WMI_FW_VER_EVENTID */
