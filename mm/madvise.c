@@ -322,8 +322,10 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 	struct page *page = NULL;
 	LIST_HEAD(page_list);
 	bool allow_shared = false;
+	bool abort_madvise = false;
 
-	if (fatal_signal_pending(current))
+	trace_android_vh_madvise_cold_or_pageout_abort(vma, &abort_madvise);
+	if (fatal_signal_pending(current) || abort_madvise)
 		return -EINTR;
 
 	trace_android_vh_madvise_cold_or_pageout(vma, &allow_shared);
@@ -451,9 +453,6 @@ regular_page:
 		 * non-LRU page.
 		 */
 		if (!allow_shared && (!PageLRU(page) || page_mapcount(page) != 1))
-			continue;
-
-		if (pageout_anon_only && !PageAnon(page))
 			continue;
 
 		if (pageout_anon_only && !PageAnon(page))
