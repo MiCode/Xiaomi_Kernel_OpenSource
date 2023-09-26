@@ -10,21 +10,6 @@
 #include "cmdq_helper_ext.h"
 #include <linux/types.h>
 #ifdef CONFIG_MTK_SMI_EXT
-
-enum MEM_TYPE {
-	MEM_SVP = 0,
-	MEM_SEC = MEM_SVP,
-	MEM_PROT = 1,
-	MEM_WFD = 2,
-	MEM_2D_FR = 3,
-	MEM_SDSP_SHARED = 4,
-	MEM_SDSP_FIRMWARE = 5,
-	MEM_HAPP_ELF = 6,
-	MEM_HAPP_EXTRA = 7,
-
-	MEM_TYPE_MAX
-};
-
 /* translate port */
 typedef uint32_t (*CmdqTranslatePort) (uint32_t engineId);
 
@@ -39,6 +24,20 @@ typedef void (*CmdqInitPmqosMdp) (s32 index, struct plist_head *owner_list);
 typedef void (*CmdqInitPmqosIsp) (s32 index, struct plist_head *owner_list);
 
 #endif	/* CONFIG_MTK_SMI_EXT */
+
+enum MEM_TYPE {
+	MEM_SVP = 0,
+	MEM_SEC = MEM_SVP,
+	MEM_PROT = 1,
+	MEM_WFD = 2,
+	MEM_2D_FR = 3,
+	MEM_SDSP_SHARED = 4,
+	MEM_SDSP_FIRMWARE = 5,
+	MEM_HAPP_ELF = 6,
+	MEM_HAPP_EXTRA = 7,
+
+	MEM_TYPE_MAX
+};
 
 enum mtk_iommu_sec_id {
 	SEC_ID_SEC_CAM = 0,

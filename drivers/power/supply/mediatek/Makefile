@@ -20,12 +20,28 @@ subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/pmic/include
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
 ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
+ifeq ($(CONFIG_AGATE_CHARGER),y)
+	obj-y += battery_agate/
+else ifeq ($(CONFIG_ARES_CHARGER),y)
+	obj-y += battery_ares/
+else ifeq ($(CONFIG_PISSARRO_CHARGER),y)
+	obj-y += battery_pissarro/
+else
 	obj-y += battery/
+endif
 endif
 endif
 
 ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
+ifeq ($(CONFIG_AGATE_CHARGER),y)
+	obj-$(CONFIG_MTK_CHARGER) += charger_agate/
+else ifeq ($(CONFIG_ARES_CHARGER),y)
+	obj-$(CONFIG_MTK_CHARGER) += charger_ares/
+else ifeq ($(CONFIG_PISSARRO_CHARGER),y)
+	obj-$(CONFIG_MTK_CHARGER) += charger_pissarro/
+else
 	obj-$(CONFIG_MTK_CHARGER) += charger/
+endif
 else ifeq ($(CONFIG_MTK_GAUGE_VERSION),20)
 	obj-$(CONFIG_MTK_SMART_BATTERY) += battery_meter_fg_20.o battery_common_fg_20.o
 	obj-$(CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT) += mtk_pep_intf.o

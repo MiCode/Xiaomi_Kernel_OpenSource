@@ -989,7 +989,7 @@ page_owner=on loop.max_part=7";
 			<0 0x1022C000 0 0x1000>, /*PD_MD_MISC*/
 			<0 0x1022E000 0 0x1000>; /*SRAM*/
 		interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>; /*209+32=241*/
-		mediatek,dpmaif_capability = <6>;
+		mediatek,dpmaif_capability = <14>;
 		/*clocks = ; clock-names = ; set in mddriver node */
 	};
 
@@ -997,7 +997,7 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,mddriver";
 		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
 		mediatek,md_id = <0>;
-		mediatek,cldma_capability = <6>;
+		mediatek,cldma_capability = <14>;
 		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
 		interrupts = <GIC_SPI 78 IRQ_TYPE_EDGE_RISING>,
@@ -2930,7 +2930,7 @@ page_owner=on loop.max_part=7";
 		mtk_dsp_capture1 = <0x1 0xffffffff 0xd 0x13 0x20000>;
 		mtk_dsp_a2dp = <0x0 0xffffffff 0xffffffff 0xffffffff 0x40000>;
 		mtk_dsp_dataprovider = <0x0 0xffffffff 0xf 0xffffffff 0x30000>;
-		mtk_dsp_call_final = <0x5 0x0 0x10 0x14 0x18000>;
+		mtk_dsp_call_final = <0x5 0x4 0x10 0x14 0x18000>;
 		mtk_dsp_fast = <0x5 0xffffffff 0xffffffff 0xffffffff 0x5000>;
 		mtk_dsp_ktv = <0x1 0x8 0x12 0xffffffff 0x10000>;
 		mtk_dsp_capture_raw = <0x1 0xffffffff 0xffffffff 0xffffffff 0x20000>;
@@ -3406,10 +3406,10 @@ page_owner=on loop.max_part=7";
 			<0>, /*MTK_DRM_OPT_GAME_PQ*/
 			<0>, /*MTK_DRM_OPT_MMPATH*/
 			<0>, /*MTK_DRM_OPT_HBM*/
-			<1>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
+			<0>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
 			<0>, /*MTK_DRM_OPT_LAYER_REC*/
 			<1>, /*MTK_DRM_OPT_CLEAR_LAYER*/
-			<0>, /*MTK_DRM_OPT_LFR*/
+			<1>, /*MTK_DRM_OPT_LFR*/
 			<1>; /*MTK_DRM_OPT_SF_PF*/
 	};
 
@@ -3944,6 +3944,11 @@ page_owner=on loop.max_part=7";
 		mediatek,smi-id = <1>;
 		iommus = <&iommu0 M4U_PORT_L1_DISP_WDMA0>;
 	};
+
+	iommu_test {
+		compatible = "mediatek,ktf-iommu-test";
+		iommus = <&iommu0 M4U_PORT_L0_OVL_RDMA0>;
+		};
 
 	reserved@14015000 {
 		compatible = "mediatek,reserved";
@@ -5234,13 +5239,13 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x1a078000 0 0x8000>;
 	};
 
-	cam1@1a030000 {
+	cam1: cam1@1a030000 {
 		compatible = "mediatek,cam1";
 		reg = <0 0x1a030000 0 0x8000>;
 		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	cam2@1a050000 {
+	cam2: cam2@1a050000 {
 		compatible = "mediatek,cam2";
 		reg = <0 0x1a050000 0 0x8000>;
 		interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;

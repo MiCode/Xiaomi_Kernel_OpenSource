@@ -126,7 +126,7 @@
 &pio {
 	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
+			pinmux = <PINMUX_GPIO126__FUNC_GPIO126>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -134,7 +134,7 @@
 
 	mtkfb_pins_lcd_bias_enp0: lcd_bias_enp0_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
+			pinmux = <PINMUX_GPIO126__FUNC_GPIO126>;
 			slew-rate = <1>;
 			output-low;
 		};
@@ -142,7 +142,7 @@
 
 	mtkfb_pins_lcd_bias_enn1: lcd_bias_enn1_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO29__FUNC_GPIO29>;
+			pinmux = <PINMUX_GPIO148__FUNC_GPIO148>;
 			slew-rate = <1>;
 			output-high;
 		};
@@ -150,7 +150,7 @@
 
 	mtkfb_pins_lcd_bias_enn0: lcd_bias_enn0_gpio {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO29__FUNC_GPIO29>;
+			pinmux = <PINMUX_GPIO148__FUNC_GPIO148>;
 			slew-rate = <1>;
 			output-low;
 		};
@@ -237,15 +237,15 @@
 
 /* IRTX GPIO Start */
 &irtx_pwm {
-	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
+	/*pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
 	pinctrl-0 = <&irtx_gpio_led_default>;
 	pinctrl-1 = <&irtx_gpio_led_set>;
-	status = "okay";
+	status = "okay";*/
 };
 &pio {
 	/* IRTX GPIO Settings -Start */
 	/* default: GPIO0, output, high */
-	irtx_gpio_led_default:irtx_gpio_led_def@gpio127 {
+	/*irtx_gpio_led_default:irtx_gpio_led_def@gpio127 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO127__FUNC_GPIO127>;
 			slew-rate = <1>;
@@ -261,13 +261,14 @@
 			slew-rate = <1>;
 			output-high;
 		};
-	};
+	};*/
 }; /* IRTX GPIO Settings -End */
 
 /* FINGERPRINT start */
 &spi1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	tee-only;
 	fingerprint@0 {
 		compatible = "goodix,goodix-fp";
 		reg = <0>;
@@ -332,7 +333,7 @@
 	mt6360pd,intr_gpio = <&pio 25 0x0>;
 };
 
-/* USB SWITCH GPIO start */
+/* USB SWITCH GPIO start
 &pio {
 	usb_default: usb_default {
 	};
@@ -465,7 +466,7 @@
 		c2_pin_val = <1>;
 	};
 };
-/* USB SWITCH GPIO end */
+USB SWITCH GPIO end */
 
 /* GPS GPIO standardization start */
 &pio {
@@ -533,12 +534,11 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	panel1@0 {
-		compatible = "truly,td4330,vdo";
+		compatible = "k10a_36_02_0a_dsc_vdo,lcm";
 		reg = <0>;
-		pm-enable-gpios = <&pio 41 0>;
 		reset-gpios = <&pio 42 0>;
-		bias-gpios = <&pio 28 0>,
-			<&pio 29 0>;
+		bias-gpios = <&pio 126 0>,
+			<&pio 148 0>;
 		pinctrl-names = "default";
 		port {
 			panel_in: endpoint {
@@ -569,14 +569,79 @@
 	};
 };
 
-/* CAMERA specify sensor */
-&kd_camera_hw1 {
-	cam2_enable_sensor = "imx586_mipi_raw s5k3m5sx_mipi_raw";
-	cam4_enable_sensor = "imx586_mipi_raw imx481_mipi_raw";
+/* AW8697 Haptic start */
+&pio {
+	aw8697_reset_high: aw8697_reset_reset {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO129__FUNC_GPIO129>;
+			drive-strength = <2>;
+			bias-disable;
+			output-high;
+		};
+	};
+	aw8697_reset_low: aw8697_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO129__FUNC_GPIO129>;
+			drive-strength = <2>;
+			bias-disable;
+			output-low;
+		};
+	};
+	aw8697_interrupt: aw8697_interrupt_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO22__FUNC_GPIO22>;
+			drive-strength = <2>;
+			bias-pull-up;
+			input-enable;
+		};
+	};
 };
-/* CAMERA specify sensor end */
 
+
+&pio {
+	uart_gpio_enable: uart_gpio_enable@gpio101 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO101__FUNC_GPIO101>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	uart_gpio_disable: uart_gpio_disable@gpio101 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO101__FUNC_GPIO101>;
+			slew-rate = <1>;
+			bias-disable;
+			output-high;
+		};
+	};
+};
+
+
+&i2c9 {
+	et7480: et7480@42 {
+		status = "ok";
+		compatible = "mediatek,et7480-audioswitch";
+		reg = <0x42>;
+		pinctrl-names = "uart_enable", "uart_disable";
+		pinctrl-0 = <&uart_gpio_enable>;
+		pinctrl-1 = <&uart_gpio_disable>;
+	};
+};
+
+&accdet {
+	/* accdet micbias voltage: 0x09:2.85v 0x08:2.8v 0x07,
+	 * 2.7v;0x05,2.5v;0x02,1.9v
+	 */
+	accdet-mic-vol = <5>;
+
+	/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
+	accdet-mic-mode = <2>;
+
+	et7480-i2c-handle = <&et7480>;
+};
 #include "mediatek/cust_mt6893_touch.dtsi"
-#include "mediatek/cust_mt6885_camera.dtsi"
+#include "mediatek/cust_mt6891_camera.dtsi"
 #include <k6891v1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/

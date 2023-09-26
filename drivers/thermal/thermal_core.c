@@ -31,6 +31,14 @@
 
 #include "thermal_core.h"
 #include "thermal_hwmon.h"
+#include "../misc/mediatek/base/power/include/ppm_v3/mtk_ppm_api.h"
+
+#ifdef CONFIG_FB
+#include <linux/fb.h>
+#include <linux/notifier.h>
+#endif
+
+#include <linux/power_supply.h>
 
 MODULE_AUTHOR("Zhang Rui");
 MODULE_DESCRIPTION("Generic thermal management sysfs support");
@@ -47,10 +55,38 @@ static DEFINE_MUTEX(thermal_list_lock);
 static DEFINE_MUTEX(thermal_governor_lock);
 static DEFINE_MUTEX(poweroff_lock);
 
+#ifdef CONFIG_FB
+struct screen_monitor {
+        struct notifier_block thermal_notifier;
+        int screen_state;
+};
+struct screen_monitor sm;
+#endif
+
+struct usb_monitor  {
+	struct notifier_block psy_nb;
+	int usb_online;
+};
+static struct usb_monitor usb_state;
+
 static atomic_t in_suspend;
 static bool power_off_triggered;
 
 static struct thermal_governor *def_governor;
+
+static struct device thermal_message_dev;
+static atomic_t switch_mode = ATOMIC_INIT(-1);
+static atomic_t balance_mode = ATOMIC_INIT(0);
+static atomic_t temp_state = ATOMIC_INIT(0);
+static atomic_t voice_receiver_state = ATOMIC_INIT(0);
+static atomic_t charger_mode = ATOMIC_INIT(-1);
+static char boost_buf[128];
+const char *board_sensor;
+static char board_sensor_temp[128];
+
+static int charge_control;
+
+#define CPU_LIMITS_PARAM_NUM	2
 
 /*
  * Governor section: set of functions to handle thermal governors
@@ -644,6 +680,12 @@ void thermal_zone_device_unbind_exception(struct thermal_zone_device *tz,
 	}
 	mutex_unlock(&thermal_list_lock);
 }
+
+int get_thermal_charge_ctrl_scene(void)
+{
+	return charge_control;
+}
+EXPORT_SYMBOL_GPL(get_thermal_charge_ctrl_scene);
 
 /*
  * Device management section: cooling devices, zones devices, and binding
@@ -1514,6 +1556,7 @@ static int thermal_pm_notify(struct notifier_block *nb,
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
 		atomic_set(&in_suspend, 0);
+		#if 0
 		mutex_lock(&thermal_list_lock);
 		list_for_each_entry(tz, &thermal_tz_list, node) {
 			thermal_zone_device_init(tz);
@@ -1521,6 +1564,7 @@ static int thermal_pm_notify(struct notifier_block *nb,
 						   THERMAL_EVENT_UNSPECIFIED);
 		}
 		mutex_unlock(&thermal_list_lock);
+		#endif
 		break;
 	default:
 		break;
@@ -1532,9 +1576,408 @@ static struct notifier_block thermal_pm_nb = {
 	.notifier_call = thermal_pm_notify,
 };
 
+static ssize_t
+thermal_sconfig_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_read(&switch_mode));
+}
+
+static ssize_t
+thermal_sconfig_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t len)
+{
+	int val = -1;
+
+	val = simple_strtol(buf, NULL, 10);
+
+	atomic_set(&switch_mode, val);
+
+	return len;
+}
+
+static DEVICE_ATTR(sconfig, 0664,
+		   thermal_sconfig_show, thermal_sconfig_store);
+
+static ssize_t
+thermal_balance_mode_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_read(&balance_mode));
+}
+
+static ssize_t
+thermal_balance_mode_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t len)
+{
+	int val = -1;
+
+	val = simple_strtol(buf, NULL, 10);
+
+	atomic_set(&balance_mode, val);
+
+	return len;
+}
+
+static DEVICE_ATTR(balance_mode, 0664,
+		   thermal_balance_mode_show, thermal_balance_mode_store);
+
+static ssize_t
+thermal_charger_temp_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_read(&charger_mode));
+}
+
+static ssize_t
+thermal_charger_temp_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t len)
+{
+	int val = -1;
+
+	val = simple_strtol(buf, NULL, 10);
+
+	atomic_set(&charger_mode, val);
+
+	return len;
+}
+
+static DEVICE_ATTR(charger_temp, 0664,
+		   thermal_charger_temp_show, thermal_charger_temp_store);
+
+static ssize_t
+thermal_boost_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, boost_buf);
+}
+
+static ssize_t
+thermal_boost_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t len)
+{
+	int ret;
+	ret = snprintf(boost_buf, PAGE_SIZE, buf);
+	return len;
+}
+
+static DEVICE_ATTR(boost, 0644,
+		   thermal_boost_show, thermal_boost_store);
+
+static ssize_t
+thermal_temp_state_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_read(&temp_state));
+}
+
+static ssize_t
+thermal_temp_state_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t len)
+{
+	int val = -1;
+
+	val = simple_strtol(buf, NULL, 10);
+
+	atomic_set(&temp_state, val);
+
+	return len;
+}
+
+static DEVICE_ATTR(temp_state, 0664,
+		   thermal_temp_state_show, thermal_temp_state_store);
+
+static ssize_t
+thermal_voice_receiver_state_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_read(&voice_receiver_state));
+}
+
+static ssize_t
+thermal_voice_receiver_state_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t len)
+{
+	int val = -1;
+
+	val = simple_strtol(buf, NULL, 10);
+
+	atomic_set(&voice_receiver_state, val);
+
+	return len;
+}
+
+static DEVICE_ATTR(voice_receiver_state, 0664,
+		   thermal_voice_receiver_state_show, thermal_voice_receiver_state_store);
+
+static ssize_t
+cpu_limits_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	return 0;
+}
+
+static ssize_t
+cpu_limits_store(struct device *dev,
+				      struct device_attribute *attr, const char *buf, size_t len)
+{
+	unsigned int cpu;
+	unsigned int max;
+
+	if (sscanf(buf, "cpu%u %u", &cpu, &max) != CPU_LIMITS_PARAM_NUM) {
+		pr_err("input param error, can not prase param\n");
+		return -EINVAL;
+	}
+  	//mt6877: cluster 0: 0-5, cluster 1: 6-7
+	if (cpu >= 0 && cpu <= 5)
+		cpu = 0;
+	else if (cpu >= 6 && cpu <= 7)
+		cpu = 1;
+
+	mt_ppm_sysboost_set_freq_limit(BOOST_BY_XM_THERMAL, cpu, -1, max);
+
+	return len;
+
+}
+
+static DEVICE_ATTR(cpu_limits, 0664,
+		   cpu_limits_show, cpu_limits_store);
+
+#ifdef CONFIG_FB
+static ssize_t
+thermal_screen_state_show(struct device *dev,
+						struct device_attribute *attr, char *buf)
+{
+        return snprintf(buf, PAGE_SIZE, "%d\n", sm.screen_state);
+}
+
+static DEVICE_ATTR(screen_state, 0664,
+                thermal_screen_state_show, NULL);
+#endif
+
+static ssize_t
+thermal_board_sensor_show(struct device *dev,
+						struct device_attribute *attr, char *buf)
+{
+        if (!board_sensor)
+                board_sensor = "invalid";
+
+        return snprintf(buf, PAGE_SIZE, "%s", board_sensor);
+}
+
+static DEVICE_ATTR(board_sensor, 0664,
+						thermal_board_sensor_show, NULL);
+
+static ssize_t
+thermal_board_sensor_temp_show(struct device *dev,
+                                struct device_attribute *attr, char *buf)
+{
+       return snprintf(buf, PAGE_SIZE, board_sensor_temp);
+}
+
+static ssize_t
+thermal_board_sensor_temp_store(struct device *dev,
+                struct device_attribute *attr, const char *buf, size_t len)
+{
+       snprintf(board_sensor_temp, PAGE_SIZE, buf);
+
+       return len;
+}
+
+static DEVICE_ATTR(board_sensor_temp, 0664,
+            thermal_board_sensor_temp_show, thermal_board_sensor_temp_store);
+
+static ssize_t thermal_usb_online_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", usb_state.usb_online);
+}
+static DEVICE_ATTR(usb_online, 0664,
+			thermal_usb_online_show, NULL);
+
+//ruanbanmao add,begin
+static ssize_t
+thermal_charge_control_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", charge_control);
+}
+
+static ssize_t
+thermal_charge_control_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	charge_control = simple_strtol(buf, NULL, 10);
+	return len;
+}
+
+static DEVICE_ATTR(charge_control, 0644,
+		thermal_charge_control_show, thermal_charge_control_store);
+//ruanbanmao add end
+
+int get_charge_mode(void)
+{
+	return atomic_read(&charger_mode);
+}
+EXPORT_SYMBOL(get_charge_mode);
+
+static int create_thermal_message_node(void)
+{
+	int ret = 0;
+
+	thermal_message_dev.class = &thermal_class;
+
+	dev_set_name(&thermal_message_dev, "thermal_message");
+	ret = device_register(&thermal_message_dev);
+	if (!ret) {
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_sconfig.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create sconfig node failed\n");
+
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_balance_mode.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create balance mode node failed\n");
+
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_boost.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create boost node failed\n");
+
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_charge_control.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create charge_control node failed\n");
+
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_temp_state.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create temp state node failed\n");
+
+        ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_voice_receiver_state.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create voice receiver state node failed\n");
+
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_cpu_limits.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create cpu limits node failed\n");
+
+#ifdef CONFIG_FB
+                ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_screen_state.attr);
+                if (ret < 0)
+                        pr_warn("Thermal: create screen state node failed\n");
+#endif
+
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_board_sensor.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create board sensor node failed\n");
+
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_board_sensor_temp.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create board sensor temp node failed\n");
+
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_charger_temp.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create charger temp node failed\n");
+
+		ret = sysfs_create_file(&thermal_message_dev.kobj, &dev_attr_usb_online.attr);
+		if (ret < 0)
+			pr_warn("Thermal: create usb_online node failed\n");
+	}
+	return ret;
+}
+
+static void destroy_thermal_message_node(void)
+{
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_charger_temp.attr);
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_board_sensor_temp.attr);
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_board_sensor.attr);
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_cpu_limits.attr);
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_temp_state.attr);
+  	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_voice_receiver_state.attr);
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_boost.attr);
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_balance_mode.attr);
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_charge_control.attr);
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_sconfig.attr);
+	sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_usb_online.attr);
+
+#ifdef CONFIG_FB
+       sysfs_remove_file(&thermal_message_dev.kobj, &dev_attr_screen_state.attr);
+#endif
+
+	device_unregister(&thermal_message_dev);
+}
+
+#ifdef CONFIG_FB
+static int screen_state_for_thermal_callback(struct notifier_block *nb, unsigned long val, void *data)
+{
+        struct fb_event *evdata = data;
+        unsigned int blank;
+
+        if (val != FB_EARLY_EVENT_BLANK || !evdata || !evdata->data)
+                return 0;
+
+        blank = *(int *)(evdata->data);
+        switch (blank) {
+        case FB_BLANK_POWERDOWN:
+                sm.screen_state = 0;
+                pr_warn("%s: FB_BLANK_POWERDOWN\n", __func__);
+                break;
+        case FB_BLANK_UNBLANK:
+                sm.screen_state = 1;
+                pr_warn("%s: FB_BLANK_UNBLANK\n", __func__);
+                break;
+        default:
+                break;
+        }
+
+        sysfs_notify(&thermal_message_dev.kobj, NULL, "screen_state");
+
+        return NOTIFY_OK;
+}
+#endif
+
+static int usb_online_callback(struct notifier_block *nb,
+		unsigned long val, void *data)
+{
+	static struct power_supply *charger_psy;
+	struct power_supply *psy = data;
+	union power_supply_propval ret = {0,};
+	int err = 0;
+
+	if (strcmp(psy->desc->name, "usb"))
+		return NOTIFY_OK;
+	if (!charger_psy)
+		charger_psy = power_supply_get_by_name("charger");
+	if (charger_psy) {
+		err = power_supply_get_property(charger_psy,
+				POWER_SUPPLY_PROP_ONLINE, &ret);
+		if (err) {
+			pr_err("usb online read error:%d\n",err);
+			return err;
+		}
+		usb_state.usb_online = ret.intval;
+		sysfs_notify(&thermal_message_dev.kobj, NULL, "usb_online");
+	}
+	return NOTIFY_OK;
+}
+
+static int of_parse_thermal_message(void)
+{
+        struct device_node *np;
+
+        np = of_find_node_by_name(NULL, "thermal-message");
+        if (!np)
+                return -EINVAL;
+
+        if (of_property_read_string(np, "board-sensor", &board_sensor))
+                return -EINVAL;
+
+        pr_info("%s board sensor: %s\n", __func__, board_sensor);
+
+        return 0;
+}
+
 static int __init thermal_init(void)
 {
 	int result;
+	int ret = 0;
 
 	mutex_init(&poweroff_lock);
 	result = thermal_register_governors();
@@ -1545,6 +1988,21 @@ static int __init thermal_init(void)
 	if (result)
 		goto unregister_governors;
 
+#ifdef CONFIG_FB
+        sm.thermal_notifier.notifier_call = screen_state_for_thermal_callback;
+        if (fb_register_client(&sm.thermal_notifier) < 0) {
+                pr_warn("Thermal: register screen state callback failed\n");
+        }
+#endif
+
+	usb_state.psy_nb.notifier_call=usb_online_callback;
+	ret = power_supply_reg_notifier(&usb_state.psy_nb);
+	if (ret < 0) {
+		pr_err("usb online notifier registration error. defer. err:%d\n",
+			ret);
+		ret = -EPROBE_DEFER;
+	}
+	
 	result = genetlink_init();
 	if (result)
 		goto unregister_class;
@@ -1558,6 +2016,15 @@ static int __init thermal_init(void)
 		pr_warn("Thermal: Can not register suspend notifier, return %d\n",
 			result);
 
+    result = of_parse_thermal_message();
+    if (result)
+            pr_warn("Thermal: Can not parse thermal message node, return %d\n",
+                result);
+
+	result = create_thermal_message_node();
+	if (result)
+		pr_warn("Thermal: create thermal message node failed, return %d\n",
+			result);
 	return 0;
 
 exit_netlink:
@@ -1580,6 +2047,12 @@ static void __exit thermal_exit(void)
 	unregister_pm_notifier(&thermal_pm_nb);
 	of_thermal_destroy_zones();
 	genetlink_exit();
+	destroy_thermal_message_node();
+
+#ifdef CONFIG_FB
+        fb_unregister_client(&sm.thermal_notifier);
+#endif
+
 	class_unregister(&thermal_class);
 	thermal_unregister_governors();
 	ida_destroy(&thermal_tz_ida);

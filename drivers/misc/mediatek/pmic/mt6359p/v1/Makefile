@@ -6,11 +6,23 @@ endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic_wrap/$(CONFIG_MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery
-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/misc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb_c/tcpc/inc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/subpmic
+
+ifeq ($(CONFIG_AGATE_CHARGER),y)
+ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery_agate
+ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger_agate
+else ifeq ($(CONFIG_ARES_CHARGER),y)
+ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery_ares
+ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger_ares
+else ifeq ($(CONFIG_PISSARRO_CHARGER),y)
+ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery_pissarro
+ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger_pissarro
+else
+ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery
+ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger
+endif
 
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/pmic/include
 

@@ -254,6 +254,11 @@ union kbase_pm_policy_data {
  *                     variable should be protected by: both the hwaccess_lock
  *                     spinlock and the pm.lock mutex for writes; or at least
  *                     one of either lock for reads.
+ * @gpu_ready:         Indicates whether the GPU is in a state in which it is
+ *                     safe to perform PM changes. When false, the PM state
+ *                     machine needs to wait before making changes to the GPU
+ *                     power policy, DevFreq or core_mask, so as to avoid these
+ *                     changing while implicit GPU resets are ongoing.
  * @pm_shaders_core_mask: Shader PM state synchronised shaders core mask. It
  *                     holds the cores enabled in a hardware counters dump,
  *                     and may differ from @shaders_avail when under different
@@ -373,6 +378,7 @@ struct kbase_pm_backend_data {
 	wait_queue_head_t gpu_in_desired_state_wait;
 
 	bool gpu_powered;
+	bool gpu_ready;
 
 	u64 pm_shaders_core_mask;
 

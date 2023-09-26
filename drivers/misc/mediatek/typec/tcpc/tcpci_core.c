@@ -33,7 +33,7 @@
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#define TCPC_CORE_VERSION		"2.0.13_MTK"
+#define TCPC_CORE_VERSION		"2.0.17_MTK"
 
 static ssize_t tcpc_show_property(struct device *dev,
 				  struct device_attribute *attr, char *buf);
@@ -84,6 +84,7 @@ static const struct attribute_group *tcpc_attr_groups[] = {
 };
 
 static const char * const role_text[] = {
+	"Unknown",
 	"SNK Only",
 	"SRC Only",
 	"DRP",
@@ -175,15 +176,15 @@ static ssize_t tcpc_show_property(struct device *dev,
 			break;
 		break;
 	case TCPC_DESC_RP_LEVEL:
-		if (tcpc->typec_local_rp_level == TYPEC_CC_RP_DFT) {
+		if (tcpc->typec_local_rp_level == TYPEC_RP_DFT) {
 			ret = snprintf(buf, 256, "%s\n", "Default");
 			if (ret < 0)
 				break;
-		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_1_5) {
+		} else if (tcpc->typec_local_rp_level == TYPEC_RP_1_5) {
 			ret = snprintf(buf, 256, "%s\n", "1.5");
 			if (ret < 0)
 				break;
-		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_3_0) {
+		} else if (tcpc->typec_local_rp_level == TYPEC_RP_3_0) {
 			ret = snprintf(buf, 256, "%s\n", "3.0");
 			if (ret < 0)
 				break;
@@ -196,7 +197,7 @@ static ssize_t tcpc_show_property(struct device *dev,
 				"6: get_src_cap", "7: get_sink_cap",
 				"8: discover_id", "9: discover_cable");
 		if (ret < 0)
-			break;
+			dev_dbg(dev, "%s: ret=%d\n", __func__, ret);
 		break;
 	case TCPC_DESC_INFO:
 		i += snprintf(buf + i,
@@ -207,15 +208,15 @@ static ssize_t tcpc_show_property(struct device *dev,
 			256, "role = %s\n", role_text[tcpc->desc.role_def]);
 		if (i < 0)
 			break;
-		if (tcpc->typec_local_rp_level == TYPEC_CC_RP_DFT) {
+		if (tcpc->typec_local_rp_level == TYPEC_RP_DFT) {
 			i += snprintf(buf + i, 256, "rplvl = %s\n", "Default");
 			if (i < 0)
 				break;
-		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_1_5) {
+		} else if (tcpc->typec_local_rp_level == TYPEC_RP_1_5) {
 			i += snprintf(buf + i, 256, "rplvl = %s\n", "1.5");
 			if (i < 0)
 				break;
-		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_3_0) {
+		} else if (tcpc->typec_local_rp_level == TYPEC_RP_3_0) {
 			i += snprintf(buf + i, 256, "rplvl = %s\n", "3.0");
 			if (i < 0)
 				break;
@@ -241,28 +242,21 @@ static ssize_t tcpc_show_property(struct device *dev,
 	return strlen(buf);
 }
 
-static int get_parameters(char *buf, long int *param1, int num_of_par)
+static int get_parameters(char *buf, unsigned long *param, int num_of_par)
 {
-	char *token;
-	int base, cnt;
-
-	token = strsep(&buf, " ");
+	int cnt = 0;
+	char *token = strsep(&buf, " ");
 
 	for (cnt = 0; cnt < num_of_par; cnt++) {
-		if (token != NULL) {
-			if ((token[1] == 'x') || (token[1] == 'X'))
-				base = 16;
-			else
-				base = 10;
-
-			if (kstrtoul(token, base, &param1[cnt]) != 0)
+		if (token) {
+			if (kstrtoul(token, 0, &param[cnt]) != 0)
 				return -EINVAL;
 
 			token = strsep(&buf, " ");
-			}
-		else
+		} else
 			return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -453,19 +447,15 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 	/* If system support "WAKE_LOCK_IDLE",
 	 * please use it instead of "WAKE_LOCK_SUSPEND"
 	 */
-	wakeup_source_init(&tcpc->attach_wake_lock,
-		"tcpc_attach_wakelock");
-	wakeup_source_init(&tcpc->dettach_temp_wake_lock,
-		"tcpc_detach_wakelock");
+	tcpc->attach_wake_lock =
+		wakeup_source_register(&tcpc->dev, "tcpc_attach_wake_lock");
+	tcpc->detach_wake_lock =
+		wakeup_source_register(&tcpc->dev, "tcpc_detach_wake_lock");
 
 	tcpci_timer_init(tcpc);
 #ifdef CONFIG_USB_POWER_DELIVERY
 	pd_core_init(tcpc);
 #endif /* CONFIG_USB_POWER_DELIVERY */
-
-	ret = tcpc_dual_role_phy_init(tcpc);
-	if (ret < 0)
-		dev_err(&tcpc->dev, "dual role usb init fail\n");
 
 	return tcpc;
 }
@@ -489,7 +479,7 @@ static int tcpc_device_irq_enable(struct tcpc_device *tcpc)
 		return ret;
 	}
 
-	ret = tcpc_typec_init(tcpc, tcpc->desc.role_def + 1);
+	ret = tcpc_typec_init(tcpc, tcpc->desc.role_def);
 	tcpci_unlock_typec(tcpc);
 	if (ret < 0) {
 		pr_err("%s : tcpc typec init fail\n", __func__);
@@ -827,10 +817,10 @@ void tcpc_device_unregister(struct device *dev, struct tcpc_device *tcpc)
 	tcpc_typec_deinit(tcpc);
 
 #ifdef CONFIG_USB_PD_REV30
-	wakeup_source_trash(&tcpc->pd_port.pps_request_wake_lock);
+	wakeup_source_unregister(tcpc->pd_port.pps_request_wake_lock);
 #endif /* CONFIG_USB_PD_REV30 */
-	wakeup_source_trash(&tcpc->dettach_temp_wake_lock);
-	wakeup_source_trash(&tcpc->attach_wake_lock);
+	wakeup_source_unregister(tcpc->detach_wake_lock);
+	wakeup_source_unregister(tcpc->attach_wake_lock);
 
 	device_unregister(&tcpc->dev);
 
@@ -970,6 +960,50 @@ MODULE_VERSION(TCPC_CORE_VERSION);
 MODULE_LICENSE("GPL");
 
 /* Release Version
+ * 2.0.17_MTK
+ * (1) Add CONFIG_TYPEC_LEGACY3_ALWAYS_LOCAL_RP
+ * (2) Fix a synchronization/locking problem in pd_notify_pe_error_recovery()
+ * (3) Add USB_VID_MQP
+ * (4) Revise the return value checking of tcpc_device_register()
+ *
+ * 2.0.16_MTK
+ * (1) Check the return value of wait_event_interruptible()
+ * (2) Revise *_get_cc()
+ * (3) Revise role_def
+ * (4) Fix COMMON.CHECK.PD.10
+ *
+ * 2.0.15_MTK
+ * (1) undef CONFIG_COMPATIBLE_APPLE_TA
+ * (2) Fix TEST.PD.PROT.ALL.5 Unrecognized Message (PD2)
+ * (3) Fix TEST.PD.PROT.ALL3.3 Invalid Manufacturer Info Target
+ * (4) Fix TEST.PD.PROT.ALL3.4 Invalid Manufacturer Info Ref
+ * (5) Fix TEST.PD.PROT.SRC.11 Unexpected Message Received in Ready State (PD2)
+ * (6) Fix TEST.PD.PROT.SRC.13 PR_Swap - GoodCRC not sent in Response to PS_RDY
+ * (7) Fix TEST.PD.VDM.SRC.2 Invalid Fields - Discover Identity (PD2)
+ * (8) Revise the usages of PD_TIMER_NO_RESPONSE
+ * (9) Retry to send Source_Capabilities after PR_Swap
+ * (10) Fix tcpm_get_remote_power_cap() and __tcpm_inquire_select_source_cap()
+ * (11) Increase the threshold to enter PE_ERROR_RECOVERY_ONCE from 2 to 4
+ * (12) Change wait_event() back to wait_event_interruptible() for not being
+ *	detected as hung tasks
+ *
+ * 2.0.14_MTK
+ * (1) Move out typec_port registration and operation to rt_pd_manager.c
+ * (2) Rename CONFIG_TYPEC_WAIT_BC12 to CONFIG_USB_PD_WAIT_BC12
+ * (3) Not to set power/data/vconn role repeatedly
+ * (4) Revise vconn highV protection
+ * (5) Revise tcpc timer
+ * (6) Reduce IBUS Iq for MT6371, MT6372 and MT6360
+ * (7) Decrease VBUS present threshold (VBUS_CAL) by 60mV (2LSBs) for RT171x
+ * (8) Replace \r\n with \n for resolving logs without newlines
+ * (9) Remove the member time_stamp from struct pd_msg
+ * (10) Remove NoResponseTimer as Sink for new PD spec
+ * (11) Revise responses of Reject and Not_Supported
+ * (12) Revise the usages of pd_traffic_control and typec_power_ctrl
+ * (13) Revise the usages of wait_event_*()
+ * (14) Add PD capability for TYPEC_ATTACHED_DBGACC_SNK
+ * (15) Utilize rt-regmap to reduce I2C accesses
+ *
  * 2.0.13_MTK
  * (1) Add TCPC flags for VCONN_SAFE5V_ONLY
  * (2) Add boolean property attemp_discover_svid in dts/dtsi

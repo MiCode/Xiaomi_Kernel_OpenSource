@@ -8,14 +8,20 @@
 
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
+#include <linux/platform_device.h>
+#include <linux/kernel.h>
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
+#include <sound/jack.h>
 
 #include "mt6877-afe-common.h"
 #include "mt6877-afe-clk.h"
 #include "mt6877-afe-gpio.h"
 #include "../../codecs/mt6359.h"
 #include "../common/mtk-sp-spk-amp.h"
+#include "../../../../drivers/misc/mediatek/typec/tcpc/inc/tcpci_core.h"
+#include "../../../../drivers/misc/mediatek/typec/tcpc/inc/tcpm.h"
+
 
 #ifdef CONFIG_SND_SOC_AW87339
 #include "aw87339.h"
@@ -28,11 +34,37 @@
  */
 #define EXT_SPK_AMP_W_NAME "Ext_Speaker_Amp"
 
+#ifdef CONFIG_SND_SOC_CS35L41
+#define CS35L41_SPEAKER_NAME "speaker_amp.7-0040"
+#define CS35L41_RECEIVER_NAME "speaker_amp.7-0042"
+
+static struct snd_soc_codec_conf cs35l41_codec_conf[] = {
+	{
+		.dev_name	= CS35L41_RECEIVER_NAME,
+		.name_prefix	= "RCV",
+	},
+};
+
+static struct snd_soc_dai_link_component cs35l41_dai_link_component[] =
+{
+	{
+		.name= CS35L41_SPEAKER_NAME,
+		.dai_name="cs35l41-pcm",
+	},
+	{
+		.name= CS35L41_RECEIVER_NAME,
+		.dai_name="cs35l41-pcm",
+	},
+};
+#endif
+
+
 static const char *const mt6877_spk_type_str[] = {MTK_SPK_NOT_SMARTPA_STR,
 						  MTK_SPK_RICHTEK_RT5509_STR,
 						  MTK_SPK_MEDIATEK_MT6660_STR,
 						  MTK_SPK_NXP_TFA98XX_STR,
-						  MTK_SPK_MEDIATEK_RT5512_STR
+						  MTK_SPK_MEDIATEK_RT5512_STR,
+						  MTK_SPK_CS_CS35L41_STR
 						  };
 static const char *const
 	mt6877_spk_i2s_type_str[] = {MTK_SPK_I2S_0_STR,
@@ -53,6 +85,88 @@ static const struct soc_enum mt6877_spk_type_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6877_spk_i2s_type_str),
 			    mt6877_spk_i2s_type_str),
 };
+
+struct snd_soc_jack g_usb_3_5_jack;
+struct usb_priv *g_usbc_priv = NULL;
+struct usb_priv {
+	struct device *dev;
+	struct notifier_block psy_nb;
+	struct tcpc_device *tcpc_dev;
+};
+
+static int analog_usb_typec_event_changed(struct notifier_block *nb,
+					unsigned long evt, void *ptr)
+{
+	int ret = 0;
+	struct tcp_notify *noti = ptr;
+	struct usb_priv *usbc_priv = container_of(nb, struct usb_priv, psy_nb);
+
+	if (NULL == noti) {
+		pr_err("%s:data is NULL. \n", __func__);
+		return 0;
+	}
+
+	if (!usbc_priv || (usbc_priv != g_usbc_priv))
+		return -EINVAL;
+
+	pr_info("%s:USB change event received, evt %d, expected %d, ole state %d, new state %d\n",
+		__func__, evt, TCP_NOTIFY_TYPEC_STATE, noti->typec_state.old_state, noti->typec_state.new_state);
+	switch (evt) {
+	case TCP_NOTIFY_TYPEC_STATE:
+		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+			noti->typec_state.new_state == TYPEC_ATTACHED_AUDIO) {
+			/* Audio Plug in */
+			snd_soc_jack_report(&g_usb_3_5_jack, (SND_JACK_HEADSET | SND_JACK_UNSUPPORTED),
+			(SND_JACK_HEADSET | SND_JACK_UNSUPPORTED));
+		} else if (noti->typec_state.old_state == TYPEC_ATTACHED_AUDIO &&
+			noti->typec_state.new_state == TYPEC_UNATTACHED) {
+			/* Audio Plug out */
+			snd_soc_jack_report(&g_usb_3_5_jack, 0, (SND_JACK_HEADSET | SND_JACK_UNSUPPORTED));
+		}
+		break;
+	}
+
+	return ret;
+}
+
+static int analog_usb_typec_event_setup(struct platform_device *platform_device)
+{
+	int rc = 0;
+
+	if (NULL != g_usbc_priv) {
+		pr_info("%s: had done! \n", __func__);
+		return 0;
+	}
+
+	g_usbc_priv = devm_kzalloc(&platform_device->dev, sizeof(*g_usbc_priv),
+				GFP_KERNEL);
+	if (!g_usbc_priv)
+		return -ENOMEM;
+
+	g_usbc_priv->dev = &platform_device->dev;
+
+	g_usbc_priv->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
+	if (!g_usbc_priv->tcpc_dev) {
+		rc = -EPROBE_DEFER;
+		pr_err("%s get tcpc device type_c_port0 fail \n", __func__);
+		goto err_data;
+	}
+
+	/* register tcpc_event */
+	g_usbc_priv->psy_nb.notifier_call = analog_usb_typec_event_changed;
+	g_usbc_priv->psy_nb.priority = 0;
+	rc = register_tcp_dev_notifier(g_usbc_priv->tcpc_dev, &g_usbc_priv->psy_nb, TCP_NOTIFY_TYPE_USB);
+	if (rc)
+	{
+		pr_err("%s: register_tcp_dev_notifier failed\n", __func__);
+	}
+
+	return 0;
+
+err_data:
+	devm_kfree(&platform_device->dev, g_usbc_priv);
+	return rc;
+}
 
 static int mt6877_spk_type_get(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
@@ -794,8 +908,6 @@ static struct snd_soc_dai_link mt6877_mt6359_dai_links[] = {
 	{
 		.name = "I2S3",
 		.cpu_dai_name = "I2S3",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.ignore_suspend = 1,
@@ -804,8 +916,6 @@ static struct snd_soc_dai_link mt6877_mt6359_dai_links[] = {
 	{
 		.name = "I2S0",
 		.cpu_dai_name = "I2S0",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.ignore_suspend = 1,
@@ -1131,6 +1241,16 @@ static struct snd_soc_dai_link mt6877_mt6359_dai_links[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
 #endif
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	{
+		.name = "SCP_ULTRA_Playback",
+		.stream_name = "SCP_ULTRA_Playback",
+		.cpu_dai_name = "snd-soc-dummy-dai",
+		.platform_name = "snd_scp_ultra",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+#endif
 };
 
 static struct snd_soc_card mt6877_mt6359_soc_card = {
@@ -1138,6 +1258,11 @@ static struct snd_soc_card mt6877_mt6359_soc_card = {
 	.owner = THIS_MODULE,
 	.dai_link = mt6877_mt6359_dai_links,
 	.num_links = ARRAY_SIZE(mt6877_mt6359_dai_links),
+#ifdef CONFIG_SND_SOC_CS35L41
+	.codec_conf = cs35l41_codec_conf,
+	.num_configs = ARRAY_SIZE(cs35l41_codec_conf),
+#endif
+
 
 	.controls = mt6877_mt6359_controls,
 	.num_controls = ARRAY_SIZE(mt6877_mt6359_controls),
@@ -1150,9 +1275,9 @@ static struct snd_soc_card mt6877_mt6359_soc_card = {
 static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6877_mt6359_soc_card;
-	struct device_node *platform_node, *codec_node, *spk_node, *dsp_node;
+	struct device_node *platform_node, *codec_node, __attribute__((unused)) *spk_node, *dsp_node;
 	struct snd_soc_dai_link *spk_out_dai_link, *spk_iv_dai_link;
-	int ret, i;
+	int ret, i, status = 0;
 	int spk_out_dai_link_idx, spk_iv_dai_link_idx;
 	const char *name;
 
@@ -1173,6 +1298,12 @@ static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 	spk_iv_dai_link = &mt6877_mt6359_dai_links[spk_iv_dai_link_idx];
 	if (!spk_out_dai_link->codec_dai_name &&
 	    !spk_iv_dai_link->codec_dai_name) {
+#ifdef CONFIG_SND_SOC_CS35L41
+		spk_out_dai_link->codecs = cs35l41_dai_link_component;
+		spk_out_dai_link->num_codecs = ARRAY_SIZE(cs35l41_dai_link_component);
+		spk_iv_dai_link->codecs = cs35l41_dai_link_component;
+		spk_iv_dai_link->num_codecs = ARRAY_SIZE(cs35l41_dai_link_component);
+#else
 		spk_node = of_get_child_by_name(pdev->dev.of_node,
 					"mediatek,speaker-codec");
 		if (!spk_node) {
@@ -1194,6 +1325,7 @@ static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 				"i2s in get_dai_link_codecs fail\n");
 			return -EINVAL;
 		}
+#endif
 	}
 
 	dev_info(&pdev->dev, "%s(), update platform dai\n", __func__);
@@ -1237,6 +1369,8 @@ static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 		    i == spk_out_dai_link_idx ||
 		    i == spk_iv_dai_link_idx)
 			continue;
+		if (mt6877_mt6359_dai_links[i].codecs)
+			continue;
 		mt6877_mt6359_dai_links[i].codec_of_node = codec_node;
 	}
 
@@ -1248,6 +1382,13 @@ static int mt6877_mt6359_dev_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "%s snd_soc_register_card fail %d\n",
 			__func__, ret);
+
+	if (!ret) {
+		status = analog_usb_typec_event_setup(pdev);
+		if (status) {
+			pr_notice("%s analog usb typeC event setup fail.ret:%d\n", __func__, ret);
+		}
+	}
 	return ret;
 }
 

@@ -109,7 +109,7 @@ struct ion_handle *jpg_ion_alloc_handle(size_t size, size_t align, unsigned int 
 
 int jpg_ion_share_handle(struct ion_handle *handle)
 {
-	int fd;
+	int fd = -1;
 
 #if defined(CONFIG_MTK_IOMMU_V2)
 	if (!g_jpg_ion_client) {
@@ -130,7 +130,7 @@ int jpg_ion_share_handle(struct ion_handle *handle)
 
 void *jpg_ion_map_handle(struct ion_handle *handle)
 {
-	void *ptr;
+	void *ptr = NULL;
 
 #if defined(CONFIG_MTK_IOMMU_V2)
 	if (!g_jpg_ion_client) {
@@ -240,6 +240,7 @@ u64 jpg_translate_fd(u64 fd, u32 offset, u32 port)
 
 	iova += offset;
 
+	jpg_ion_free_handle(ion_h);
 	JPEG_LOG(1, "iova 0x%x", iova);
 
 	return iova;

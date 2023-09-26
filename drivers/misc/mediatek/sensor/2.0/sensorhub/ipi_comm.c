@@ -53,9 +53,28 @@ static DEFINE_SPINLOCK(hw_transfer_lock);
 static uint8_t ctrl_payload[PIN_IN_SIZE_SENSOR_CTRL * MBOX_SLOT_SIZE];
 static uint8_t notify_payload[PIN_IN_SIZE_SENSOR_NOTIFY * MBOX_SLOT_SIZE];
 
-static int ipi_transfer_buffer(struct ipi_transfer *t)
+static inline int ipi_retry_transfer(int id, void *tx, int tx_len)
 {
 	int ret = 0, retry = 0;
+
+	do {
+		ret = mtk_ipi_send(&scp_ipidev, id, 0, tx, ipi_len(tx_len), 0);
+		if (ret < 0 && ret != IPI_PIN_BUSY)
+			return -EIO;
+		if (ret == IPI_PIN_BUSY) {
+			if (retry++ >= 1000)
+				return -EBUSY;
+			if (retry % 100 == 0)
+				usleep_range(1000, 2000);
+		}
+	} while (ret == IPI_PIN_BUSY);
+
+	return 0;
+}
+
+static int ipi_transfer_buffer(struct ipi_transfer *t)
+{
+	int ret = 0;
 	int timeout;
 	unsigned long flags;
 	struct ipi_hw_transfer *hw = &hw_transfer;
@@ -70,24 +89,20 @@ static int ipi_transfer_buffer(struct ipi_transfer *t)
 	reinit_completion(&hw->done);
 	hw->context = &hw->done;
 	spin_unlock_irqrestore(&hw_transfer_lock, flags);
-	do {
-		ret = mtk_ipi_send(&scp_ipidev, hw->id, 0,
-			(unsigned char *)hw->tx, ipi_len(hw->tx_len), 0);
-		if (ret < 0 && ret != IPI_PIN_BUSY)
-			return -EIO;
-		if (ret == IPI_PIN_BUSY) {
-			if (retry++ == 1000)
-				return -EBUSY;
-			if (retry % 100 == 0)
-				usleep_range(1000, 2000);
-		}
-	} while (ret == IPI_PIN_BUSY);
+
+	ret = ipi_retry_transfer(hw->id, (void *)hw->tx, hw->tx_len);
+	if (ret < 0)
+		return ret;
 
 	timeout = wait_for_completion_timeout(&hw->done,
-			msecs_to_jiffies(500));
+			msecs_to_jiffies(100));
 	spin_lock_irqsave(&hw_transfer_lock, flags);
-	if (!timeout)
+	if (!timeout) {
 		hw->count = -ETIMEDOUT;
+		pr_err_ratelimited("timeout %u %u %u %u %u\n",
+			hw->tx[0], hw->tx[1], hw->tx[2],
+			hw->tx[3], hw->tx[4]);
+	}
 	hw->context = NULL;
 	spin_unlock_irqrestore(&hw_transfer_lock, flags);
 	return hw->count;
@@ -216,21 +231,7 @@ int ipi_comm_async(struct ipi_message *m)
 
 int ipi_comm_noack(int id, unsigned char *tx, unsigned int n_tx)
 {
-	int ret = 0, retry = 0;
-
-	do {
-		ret = mtk_ipi_send(&scp_ipidev, id, 0, tx, ipi_len(n_tx), 0);
-		if (ret < 0 && ret != IPI_PIN_BUSY)
-			return -EIO;
-		if (ret == IPI_PIN_BUSY) {
-			if (retry++ == 1000)
-				return -EBUSY;
-			if (retry % 100 == 0)
-				usleep_range(1000, 2000);
-		}
-	} while (ret == IPI_PIN_BUSY);
-
-	return 0;
+	return ipi_retry_transfer(id, tx, n_tx);
 }
 
 static void ipi_comm_complete(unsigned char *buffer, unsigned int len)

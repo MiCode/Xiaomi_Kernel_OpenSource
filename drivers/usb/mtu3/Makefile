@@ -5,7 +5,15 @@ ccflags-$(CONFIG_USB_MTU3_DEBUG)	+= -DDEBUG
 ifneq ($(CONFIG_USB_MTU3_PLAT_PHONE),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/misc/
+ifeq ($(CONFIG_AGATE_CHARGER),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc_agate/
+else ifeq ($(CONFIG_ARES_CHARGER),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc_ares/
+else ifeq ($(CONFIG_PISSARRO_CHARGER),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc_pissarro
+else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/
+endif
 ifeq ($(CONFIG_MACH_MT6877),y)
 ccflags-y += -I$(srctree)/drivers/usb/mtu3/mt6877/
 else
@@ -60,7 +68,11 @@ ifneq ($(filter y,$(CONFIG_USB_MTU3_GADGET) $(CONFIG_USB_MTU3_DUAL_ROLE)),)
 endif
 
 ifneq ($(CONFIG_USB_MTU3_DUAL_ROLE),)
+ifeq ($(CONFIG_AGATE_CHARGER),y)
+	mtu3-y	+= mtu3_dr_agate.o
+else
 	mtu3-y	+= mtu3_dr.o
+endif
 endif
 
 endif

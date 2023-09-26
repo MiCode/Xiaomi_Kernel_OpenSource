@@ -15,6 +15,8 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/vpu/vp6/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule_$(MTK_PLATFORM)/
 ccflags-$(CONFIG_MTK_PSEUDO_M4U) += -I$(srctree)/drivers/misc/mediatek/pseudo_m4u/
 
 ifeq ($(CONFIG_MTK_QOS_SUPPORT), y)

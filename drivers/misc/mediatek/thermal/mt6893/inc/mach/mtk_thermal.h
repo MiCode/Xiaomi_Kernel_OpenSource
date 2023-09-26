@@ -42,6 +42,7 @@ struct mt_gpufreq_power_table_info {
  * LVTS SW Configs
  *=============================================================
  */
+#define CFG_THERM_SUSPEND_RESUME_NOIRQ
 #define CFG_THERM_LVTS				(1)
 #define CFG_THERM_NO_AUXADC			(1)
 

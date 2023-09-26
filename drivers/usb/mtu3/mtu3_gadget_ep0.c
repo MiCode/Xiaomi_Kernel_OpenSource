@@ -647,6 +647,7 @@ __acquires(mtu->lock)
 	void __iomem *mbase = mtu->mac_base;
 	int handled = 0;
 
+	memset(&setup, 0, sizeof(setup));
 	ep0_read_setup(mtu, &setup);
 
 	if ((setup.bRequestType & USB_TYPE_MASK) == USB_TYPE_STANDARD)

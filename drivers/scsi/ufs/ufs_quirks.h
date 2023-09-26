@@ -133,6 +133,15 @@ struct ufs_dev_fix {
 #define UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME	(1 << 8)
 
 /*
+ * Few samsung UFS device models advertise PA_HIBERN8TIME as
+ * 200us during handshaking in link establishment b/w host and device but
+ * which may not be enough for the UFS device.
+ * To workaround this issue, host should set its PA_HIBERN8TIME time to
+ * 300us even if device advertises PA_HIBERN8TIME of 200us.
+ */
+#define UFS_DEVICE_QUIRK_PA_HIBER8TIME (1 << 12)
+
+/*
  * MTK PATCH
  * Some UFS device need 5ms delay in VCC off. In order to wait VCC discharged
  * to 0V. Some device may have issue when VCC is not discharged to 0V

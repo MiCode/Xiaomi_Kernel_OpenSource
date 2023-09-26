@@ -292,6 +292,35 @@ bool is_fg_disabled(void)
 }
 
 
+bool set_charge_power_sel(enum CHARGE_SEL select)
+{
+	/* select gm.charge_power_sel to CHARGE_NORMAL ,CHARGE_R1,CHARGE_R2 */
+	/* example: gm.charge_power_sel = CHARGE_NORMAL */
+
+	gm.charge_power_sel = select;
+
+	wakeup_fg_algo_cmd(FG_INTR_KERNEL_CMD,
+		FG_KERNEL_CMD_FORCE_BAT_TEMP, select);
+
+	return 0;
+}
+
+int dump_pseudo100(enum CHARGE_SEL select)
+{
+	int i = 0;
+
+	bm_err("%s:select=%d\n", __func__, select);
+
+	if (select > MAX_CHARGE_RDC || select < 0)
+		return 0;
+
+	for (i = 0; i < MAX_TABLE; i++) {
+		bm_err("%6d\n",
+			fg_table_cust_data.fg_profile[i].r_pseudo100.pseudo[select]);
+	}
+
+	return 0;
+}
 
 int register_battery_notifier(struct notifier_block *nb)
 {
@@ -980,7 +1009,7 @@ static void dump_daemon_table(struct seq_file *m)
 				ptr[i].mah,
 				ptr[i].voltage,
 				ptr[i].resistance,
-				ptr[i].resistance2,
+				ptr[i].charge_r.rdc[0],
 				ptr[i].percentage);
 		}
 	}
@@ -995,7 +1024,7 @@ static void dump_daemon_table(struct seq_file *m)
 			ptr[i].mah,
 			ptr[i].voltage,
 			ptr[i].resistance,
-			ptr[i].resistance2,
+			ptr[i].charge_r.rdc[0],
 			ptr[i].percentage);
 
 	}
@@ -1010,7 +1039,7 @@ static void dump_daemon_table(struct seq_file *m)
 			ptr[i].mah,
 			ptr[i].voltage,
 			ptr[i].resistance,
-			ptr[i].resistance2,
+			ptr[i].charge_r.rdc[0],
 			ptr[i].percentage);
 	}
 
@@ -1058,7 +1087,7 @@ static void dump_kernel_table(struct seq_file *m)
 				ptr[i].mah,
 				ptr[i].voltage,
 				ptr[i].resistance,
-				ptr[i].resistance2,
+				ptr[i].charge_r.rdc[0],
 				ptr[i].percentage);
 		}
 	}
@@ -1077,7 +1106,7 @@ static void dump_kernel_table(struct seq_file *m)
 				ptr[i].mah,
 				ptr[i].voltage,
 				ptr[i].resistance,
-				ptr[i].resistance2,
+				ptr[i].charge_r.rdc[0],
 				ptr[i].percentage);
 		}
 	}
@@ -1680,8 +1709,8 @@ int force_get_tbat_internal(bool update)
 
 int force_get_tbat(bool update)
 {
-	int bat_temperature_val = 0;
-	int counts = 0;
+	//int bat_temperature_val = 0;
+	//int counts = 0;
 
 	if (is_fg_disabled()) {
 		bm_debug("[%s] fixed TBAT=25 t\n",
@@ -1690,7 +1719,8 @@ int force_get_tbat(bool update)
 		return 25;
 	}
 
-#if defined(FIXED_TBAT_25)
+//#if defined(FIXED_TBAT_25)
+#if 1
 	bm_debug("[%s] fixed TBAT=25 t\n", __func__);
 	gm.tbat_precise = 250;
 	return 25;
@@ -2282,7 +2312,128 @@ void exec_BAT_EC(int cmd, int param)
 			}
 		}
 		break;
+	case 600:
+		{
+			fg_cust_data.aging_diff_max_threshold = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, aging_diff_max_threshold:%d\n",
+				cmd, param);
+		}
+		break;
+	case 601:
+		{
+			fg_cust_data.aging_diff_max_level = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, aging_diff_max_level:%d\n",
+				cmd, param);
+		}
+		break;
+	case 602:
+		{
+			fg_cust_data.aging_factor_t_min = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, aging_factor_t_min:%d\n",
+				cmd, param);
+		}
+		break;
+	case 603:
+		{
+			fg_cust_data.cycle_diff = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, cycle_diff:%d\n",
+				cmd, param);
+		}
+		break;
+	case 604:
+		{
+			fg_cust_data.aging_count_min = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, aging_count_min:%d\n",
+				cmd, param);
+		}
+		break;
+	case 605:
+		{
+			fg_cust_data.default_score = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, default_score:%d\n",
+				cmd, param);
+		}
+		break;
+	case 606:
+		{
+			fg_cust_data.default_score_quantity = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, default_score_quantity:%d\n",
+				cmd, param);
+		}
+		break;
+	case 607:
+		{
+			fg_cust_data.fast_cycle_set = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fast_cycle_set:%d\n",
+				cmd, param);
+		}
+		break;
+	case 608:
+		{
+			fg_cust_data.level_max_change_bat = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, level_max_change_bat:%d\n",
+				cmd, param);
+		}
+		break;
+	case 609:
+		{
+			fg_cust_data.diff_max_change_bat = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, diff_max_change_bat:%d\n",
+				cmd, param);
+		}
+		break;
+	case 610:
+		{
+			fg_cust_data.aging_tracking_start = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, aging_tracking_start:%d\n",
+				cmd, param);
+		}
+		break;
+	case 611:
+		{
+			fg_cust_data.max_aging_data = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, max_aging_data:%d\n",
+				cmd, param);
+		}
+		break;
+	case 612:
+		{
+			fg_cust_data.max_fast_data = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, max_fast_data:%d\n",
+				cmd, param);
+		}
+		break;
+	case 613:
+		{
+			fg_cust_data.fast_data_threshold_score = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fast_data_threshold_score:%d\n",
+				cmd, param);
+		}
+		break;
+	case 614:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d,FG_KERNEL_CMD_AG_LOG_TEST=%d\n",
+				cmd, param);
 
+			fg_test_ag_cmd(99);
+
+		}
+		break;
 	case 701:
 		{
 			fg_cust_data.pseudo1_en = param;
@@ -3098,6 +3249,43 @@ void exec_BAT_EC(int cmd, int param)
 			wakeup_fg_algo(FG_INTR_CHR_FULL);
 		}
 		break;
+	case 800:
+		{
+
+			bm_err(
+				"exe_BAT_EC cmd %d, charge_power_sel =%d\n",
+				cmd, param);
+
+			set_charge_power_sel(param);
+		}
+		break;
+	case 801:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d, charge_power_sel =%d\n",
+				cmd, param);
+
+			dump_pseudo100(param);
+		}
+		break;
+	case 802:
+		{
+			fg_cust_data.zcv_com_vol_limit = param;
+
+			bm_err(
+				"exe_BAT_EC cmd %d,zcv_com_vol_limit =%d\n",
+				cmd, param);
+		}
+		break;
+	case 803:
+		{
+			fg_cust_data.sleep_current_avg = param;
+
+			bm_err(
+				"exe_BAT_EC cmd %d,sleep_current_avg =%d\n",
+				cmd, param);
+		}
+		break;
 
 
 	default:
@@ -3585,6 +3773,89 @@ static ssize_t store_BAT_EC(
 	return size;
 }
 static DEVICE_ATTR(BAT_EC, 0664, show_BAT_EC, store_BAT_EC);
+
+
+
+static ssize_t show_BAT_HEALTH(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	bm_err("%s\n", __func__);
+
+	return 0;
+}
+
+
+static ssize_t store_BAT_HEALTH(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	char copy_str[7], buf_str[350];
+	char *s = buf_str, *pch;
+	/* char *ori = buf_str; */
+	int chr_size = 0;
+	int i = 0, count = 0, value[50];
+
+
+	bm_err("%s, size =%d, str=%s\n", __func__, size, buf);
+
+	strncpy(buf_str, buf, size);
+	/* bm_err("%s, copy str=%s\n", __func__, buf_str); */
+
+	if (size > 350) {
+		bm_err("%s error, size mismatch\n", __func__);
+		return -1;
+	}
+
+	if (buf != NULL && size != 0) {
+
+		pch = strchr(s, ',');
+		while (pch != NULL) {
+			memset(copy_str, 0, 7);
+			copy_str[6] = '\0';
+
+			chr_size = pch - s;
+			if (count == 0)
+				strncpy(copy_str, s, chr_size);
+			else
+				strncpy(copy_str, s+1, chr_size-1);
+
+			kstrtoint(copy_str, 10, &value[count]);
+			/* bm_err("::%s::count:%d,%d\n", copy_str, count, value[count]); */
+			s = pch;
+			pch = strchr(pch + 1, ',');
+			count++;
+		}
+	}
+
+	if (count == 46) {
+		for (i = 0; i < 43; i++)
+			gm.bh_data.data[i] = value[i];
+
+		for (i = 0; i < 3; i++)
+			gm.bh_data.times[i].tv_sec = value[i+43];
+
+	bm_err("%s count=%d,serial=%d,source=%d,42:%d, value43:[%d, %ld],value45[%d %ld]\n",
+		__func__,
+		count, gm.bh_data.data[0], gm.bh_data.data[1],
+		gm.bh_data.data[42],
+		value[43], gm.bh_data.times[0].tv_sec,
+		value[45], gm.bh_data.times[2].tv_sec);
+
+		wakeup_fg_algo_cmd(
+			FG_INTR_KERNEL_CMD,
+			FG_KERNEL_CMD_SEND_BH_DATA, 0);
+
+		mdelay(4);
+		bm_err("%s wakeup DONE~~~\n", __func__);
+	} else
+		bm_err("%s count=%d, number not match\n", __func__, count);
+
+
+	return size;
+
+}
+
+static DEVICE_ATTR(BAT_HEALTH, 0664, show_BAT_HEALTH, store_BAT_HEALTH);
 
 static ssize_t show_FG_Battery_CurrentConsumption(
 struct device *dev, struct device_attribute *attr,
@@ -4149,6 +4420,8 @@ static int __init battery_probe(struct platform_device *dev)
 		&dev_attr_FG_daemon_disable);
 	ret_device_file = device_create_file(&(dev->dev),
 		&dev_attr_BAT_EC);
+	ret_device_file = device_create_file(&(dev->dev),
+		&dev_attr_BAT_HEALTH);
 	ret_device_file = device_create_file(&(dev->dev),
 		&dev_attr_FG_Battery_CurrentConsumption);
 	ret_device_file = device_create_file(&(dev->dev),

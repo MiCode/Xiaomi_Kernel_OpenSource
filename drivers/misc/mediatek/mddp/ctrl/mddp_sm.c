@@ -6,6 +6,7 @@
  */
 
 #include <linux/slab.h>
+#include <linux/mutex.h>
 
 #include "mddp_ctrl.h"
 #include "mddp_debug.h"
@@ -41,6 +42,7 @@ static const mddp_sm_init_func_t mddp_sm_init_func_list_s[] = {
 // Private variables.
 //------------------------------------------------------------------------------
 static struct mddp_app_t mddp_app_inst_s[MDDP_APP_TYPE_CNT];
+static struct mutex mddp_state_handler_mtx;
 
 //------------------------------------------------------------------------------
 // Private functions.
@@ -63,7 +65,6 @@ void mddp_check_feature(void)
 	if (unlikely(!md_msg)) {
 		MDDP_F_LOG(MDDP_LL_NOTICE,
 			"%s: failed to alloc md_msg bug!\n", __func__);
-		WARN_ON(1);
 		return;
 	}
 
@@ -93,17 +94,6 @@ static int32_t mddp_sm_ctrl_msg_hdlr(
 	int32_t                 ret = 0;
 
 	switch (msg_id) {
-	case IPC_MSG_ID_MDFPM_SUSPEND_TAG_IND:
-		MDDP_S_LOG(MDDP_LL_NOTICE,
-				"%s: MDDP suspend indication.\n", __func__);
-		ret = mddp_f_suspend_tag();
-		break;
-
-	case IPC_MSG_ID_MDFPM_RESUME_TAG_IND:
-		MDDP_S_LOG(MDDP_LL_NOTICE,
-				"%s: MDDP resume indication.\n", __func__);
-		ret = mddp_f_resume_tag();
-		break;
 	case IPC_MSG_ID_MDFPM_CHECK_FEATURE_RSP:
 		mddp_handshake_done(*(uint32_t *)buf);
 		break;
@@ -140,6 +130,7 @@ int32_t mddp_sm_init(void)
 		mddp_sm_init_func_list_s[idx](app);
 		atomic_set(&app->feature, 0);
 	}
+	mutex_init(&mddp_state_handler_mtx);
 
 	return 0;
 }
@@ -186,6 +177,7 @@ enum mddp_state_e mddp_sm_set_state_by_md_rsp(struct mddp_app_t *app,
 	enum mddp_state_e       new_state = MDDP_STATE_DUMMY;
 	enum mddp_event_e       event;
 
+	complete(&app->md_resp_comp);
 	curr_state = mddp_get_state(app);
 	event = (md_rsp_result) ? MDDP_EVT_MD_RSP_OK : MDDP_EVT_MD_RSP_FAIL;
 
@@ -207,7 +199,7 @@ enum mddp_state_e mddp_sm_set_state_by_md_rsp(struct mddp_app_t *app,
 	 * There are interrupt events from upper module
 	 * when MD handles this request.
 	 */
-	MDDP_S_LOG(MDDP_LL_NOTICE,
+	MDDP_S_LOG(MDDP_LL_WARN,
 			"%s: DC. event(%d), prev_state(%d) -> new_state(%d).\n",
 			__func__, event, prev_state, new_state);
 
@@ -255,6 +247,8 @@ enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
 	struct mddp_sm_entry_t         *state_machine;
 	struct mddp_sm_entry_t         *entry;
 
+	mutex_lock(&mddp_state_handler_mtx);
+
 	new_state = old_state = mddp_get_state(app);
 	state_machine = app->state_machines[old_state];
 
@@ -270,7 +264,7 @@ enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
 				_mddp_set_state(app, new_state);
 
 			mddp_dump_sm_table(app);
-			MDDP_S_LOG(MDDP_LL_NOTICE,
+			MDDP_S_LOG(MDDP_LL_WARN,
 					"%s: event(%d), old_state(%d) -> new_state(%d).\n",
 					__func__, event, old_state, new_state);
 
@@ -282,7 +276,7 @@ enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
 			/*
 			 * NG. Unexpected event for this state!
 			 */
-			MDDP_S_LOG(MDDP_LL_NOTICE,
+			MDDP_S_LOG(MDDP_LL_WARN,
 					"%s: Invalid event(%d) for current state(%d)!\n",
 					__func__, event, old_state);
 
@@ -290,7 +284,27 @@ enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
 		}
 	}
 
+	mutex_unlock(&mddp_state_handler_mtx);
 	return new_state;
+}
+
+void mddp_sm_wait_pre(struct mddp_app_t *app)
+{
+	init_completion(&app->md_resp_comp);
+}
+
+void mddp_sm_wait(struct mddp_app_t *app, enum mddp_event_e event)
+{
+	enum mddp_state_e state;
+
+	state = mddp_get_state(app);
+	if ((state == MDDP_STATE_DISABLED) && (event != MDDP_EVT_FUNC_ENABLE))
+		return;
+	if ((state ==  MDDP_STATE_DEACTIVATED) && (event == MDDP_EVT_FUNC_DEACT))
+		return;
+
+	if (wait_for_completion_timeout(&app->md_resp_comp, msecs_to_jiffies(150)) == 0)
+		mddp_sm_on_event(app, MDDP_EVT_MD_RSP_TIMEOUT);
 }
 
 int32_t mddp_sm_msg_hdlr(

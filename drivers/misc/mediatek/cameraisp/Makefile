@@ -20,3 +20,4 @@ obj-y += dpe/
 obj-y += tsf/
 obj-y += mfb/
 obj-y += fdvt/
+obj-y += pda/

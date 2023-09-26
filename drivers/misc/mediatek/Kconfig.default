@@ -43,6 +43,7 @@ config ANDROID_DEFAULT_SETTING
 	select CRYPTO_SHA256
 	select CRYPTO_SHA512
 	select CRYPTO_XCBC
+	select CRYPTO_CHACHA20POLY1305
 	select DEBUG_KINFO if ARM64
 	select DEBUG_LIST
 	select DEBUG_RODATA
@@ -68,6 +69,7 @@ config ANDROID_DEFAULT_SETTING
 	select HID_NINTENDO
 	select HID_MULTITOUCH
 	select HID_PLANTRONICS
+	select HID_PLAYSTATION
 	select HID_SONY if INPUT && HID && USB_HID && NEW_LEDS && LEDS_CLASS
 	select HIGH_RES_TIMERS
 	select IKCONFIG
@@ -204,6 +206,7 @@ config ANDROID_DEFAULT_SETTING
 	select NF_SOCKET_IPV6
 	select NO_HZ
 	select PACKET
+	select PLAYSTATION_FF
 	select PM_WAKELOCKS
 	select POSIX_TIMERS
 	select PPP
@@ -287,6 +290,7 @@ config MTK_ANDROID_DEFAULT_SETTING
 	select PGTABLE_MAPPING if ZSMALLOC && (ARM || ARM64)
 	select PSI
 	select SPECULATIVE_PAGE_FAULT if (ARCH_SUPPORTS_SPECULATIVE_PAGE_FAULT && ARCH_HAS_PTE_SPECIAL && MMU && SMP)
+	select MTK_SOCINFO
 	help
 	  Select the MTK android config by default
 	  to avoid missing basic or common setting

@@ -401,6 +401,8 @@
 	cam4_vcamd-supply = <&rt5133_gpio3>;
 	cam4_vcamio-supply = <&rt5133_ldo1>;
 
+	cam1_enable_sensor = "imx576_mipi_raw";
+
 	status = "okay";
 };
 /* CAMERA GPIO end */

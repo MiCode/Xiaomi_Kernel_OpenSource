@@ -165,6 +165,10 @@ enum adsp_ipi_status adsp_send_message(enum adsp_ipi_id id, void *buf,
 		return ADSP_IPI_ERROR;
 	}
 
+	if (id == ADSP_IPI_DVFS_SUSPEND) {
+		set_adsp_state(pdata, ADSP_SUSPENDING);
+	}
+
 	if (len > (SHARE_BUF_SIZE - 16) || buf == NULL) {
 		pr_info("%s(), %s buffer error", __func__, "adsp");
 		return ADSP_IPI_ERROR;

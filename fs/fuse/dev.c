@@ -772,7 +772,7 @@ static int fuse_copy_fill(struct fuse_copy_state *cs)
 			if (cs->nr_segs == cs->pipe->buffers)
 				return -EIO;
 
-			page = alloc_page(GFP_HIGHUSER);
+			page = alloc_page(GFP_HIGHUSER & ~__GFP_FS);
 			if (!page)
 				return -ENOMEM;
 

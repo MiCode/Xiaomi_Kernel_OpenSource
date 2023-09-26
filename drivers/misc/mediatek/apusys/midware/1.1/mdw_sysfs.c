@@ -172,7 +172,7 @@ int mdw_sysfs_init(struct device *kdev)
 	int ret = 0;
 	g_sched_plcy_show = 0;
 
-	/* create /sys/devices/platform/apusys/device/xxx */
+	/* create /sys/class/misc/apusys/xxx */
 	mdw_dev = kdev;
 	ret = sysfs_create_group(&mdw_dev->kobj, &mdw_devinfo_attr_group);
 	if (ret)
@@ -190,8 +190,10 @@ int mdw_sysfs_init(struct device *kdev)
 
 void mdw_sysfs_exit(void)
 {
-	if (mdw_dev)
+	if (mdw_dev) {
+		sysfs_remove_group(&mdw_dev->kobj, &mdw_mem_attr_group);
+		sysfs_remove_group(&mdw_dev->kobj, &mdw_sched_attr_group);
 		sysfs_remove_group(&mdw_dev->kobj, &mdw_devinfo_attr_group);
-
+	}
 	mdw_dev = NULL;
 }

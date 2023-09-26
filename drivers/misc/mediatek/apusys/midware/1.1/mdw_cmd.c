@@ -247,6 +247,17 @@ static void mdw_cmd_hdr_set_status(struct mdw_apu_cmd *c, int status)
 		| status << HDR_FLAG_MASK_STATUS_OFS;
 }
 
+static void mdw_cmd_hdr_update_time(struct mdw_apu_cmd *c)
+{
+	uint64_t us = 0;
+
+	if (c->uf_hdr) {
+		us = (c->end_ts.tv_sec - c->start_ts.tv_sec) * 1000000;
+		us += ((c->end_ts.tv_nsec - c->start_ts.tv_nsec) / 1000);
+		c->uf_hdr->total_time = us;
+	}
+}
+
 static void mdw_cmd_set_sc_hdr(struct mdw_apu_sc *sc)
 {
 	/* execution time */
@@ -425,6 +436,8 @@ static struct mdw_apu_cmd *mdw_cmd_create_cmd(int fd,
 	mutex_init(&c->mtx);
 	getnstimeofday(&c->ts_create);
 
+	ktime_get_ts64(&c->start_ts);
+
 	/* init sc state bmp */
 	c->sc_status_bmp = (1ULL << c->hdr->num_sc) - 1;
 	mdw_drv_debug("cmd(0x%llx/0x%llx) create\n", c->hdr->uid, c->kid);
@@ -458,6 +471,9 @@ static int mdw_cmd_delete_cmd(struct mdw_apu_cmd *c)
 	mdw_drv_debug("cmd(0x%llx/0x%llx) destroy\n", c->hdr->uid, c->kid);
 
 	getnstimeofday(&c->ts_delete);
+
+	ktime_get_ts64(&c->end_ts);
+	mdw_cmd_hdr_update_time(c);
 	mdw_cmd_show_cmd_perf(c);
 
 	mdw_mem_unmap_kva(c->cmdbuf);

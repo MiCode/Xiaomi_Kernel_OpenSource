@@ -45,6 +45,7 @@ struct ccu_device_s {
 	unsigned long camsys_base;
 	unsigned long bin_base;
 	unsigned long dmem_base;
+	unsigned long pmem_base;
 	unsigned long n3d_a_base;
 	unsigned int irq_num;
 	struct mutex user_mutex;
@@ -161,6 +162,11 @@ int ccu_power(struct ccu_power_s *power);
 int ccu_force_powerdown(void);
 
 /**
+ * ccu_load_bin - load ccu dm/pm binary.
+ */
+int ccu_load_bin(struct ccu_device_s *device);
+
+/**
  * ccu_run - start running ccu .
  */
 int ccu_run(void);
@@ -194,6 +200,10 @@ int32_t ccu_get_current_fps(void);
 void ccu_get_sensor_i2c_info(struct ccu_i2c_info *sensor_info);
 
 void ccu_get_sensor_name(char **sensor_name);
+
+void ccu_print_reg(uint32_t *Reg);
+
+void ccu_print_sram_log(char *sram_log);
 
 int ccu_query_power_status(void);
 
@@ -262,6 +272,7 @@ void ccu_clock_disable(void);
 	pr_info(CCU_TAG "[%s] " format, __func__, ##args)
 
 #define LOG_DBG(format, args...)
+
 #define LOG_INF(format, args...)
 
 #define LOG_WARN(format, args...) \

@@ -455,7 +455,7 @@ static int rt5133_of_parse_cb(struct device_node *node,
 
 	for (i = 0; i < props_size; i++) {
 		int shift = ffs(props[i].mask) - 1, ret;
-		unsigned int val;
+		unsigned int val = 0;
 
 		ret = of_property_read_u32(node, props[i].prop_name, &val);
 		if (ret)
@@ -799,7 +799,7 @@ static int rt5133_regulator_notify(struct notifier_block *nb,
 	}
 
 	idx = *(int *)data;
-	pr_info("%s, ldo(%d), event = %d\n", __func__, idx, event);
+	pr_info("%s, ldo(%d), event = %d\n", __func__, idx, (int)event);
 
 	idx = idx - 1;
 	if (idx < 0)

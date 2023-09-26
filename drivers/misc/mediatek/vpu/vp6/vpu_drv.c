@@ -1952,25 +1952,26 @@ static int vpu_initialize(struct platform_device *pdev,
 	/* get physical address of binary data loaded by LK */
 	if (of_property_read_u32(node, "bin-phy-addr", &phy_addr) ||
 		of_property_read_u32(node, "bin-size", &phy_size)) {
-		LOG_INF("fail to get phy address of vpu binary!\n");
 		vpu_device->vpu_load_image_state = VPU_LOAD_IMAGE_UNLOAD;
-	} else {
-		/* bin_base for cpu read/write */
-		vpu_device->bin_base =
-			(unsigned long)ioremap_wc(phy_addr, phy_size);
-		vpu_device->bin_pa = phy_addr;
-		vpu_device->bin_size = phy_size;
 
-		vpu_device->image_header =
-			(struct vpu_image_header *)
-			((uintptr_t)vpu_device->bin_base +
-			(VPU_OFFSET_IMAGE_HEADERS));
-
-		LOG_INF("probe, %s=0x%lx %s=0x%x, %s=0x%x\n",
-			"bin_base", (unsigned long)vpu_device->bin_base,
-			"phy_addr", phy_addr,
-			"phy_size", phy_size);
+		//get reserved addr for kernel load vpu
+		if (of_property_read_u32(node, "vpu-reserved-addr", &phy_addr) ||
+			of_property_read_u32(node, "vpu-reserved-size", &phy_size)) {
+			LOG_ERR("%s get vpu reserved memory failed.", __func__);
+			goto return_err;
+		}
 	}
+
+	/* bin_base for cpu read/write */
+	vpu_device->bin_base =
+			(unsigned long)ioremap_wc(phy_addr, phy_size);
+	vpu_device->bin_pa = phy_addr;
+	vpu_device->bin_size = phy_size;
+
+	LOG_INF("probe, %s=0x%lx %s=0x%x, %s=0x%x\n",
+		"bin_base", (unsigned long)vpu_device->bin_base,
+		"phy_addr", phy_addr,
+		"phy_size", phy_size);
 
 	/* get smi common register */
 #ifdef MTK_VPU_SMI_DEBUG_ON

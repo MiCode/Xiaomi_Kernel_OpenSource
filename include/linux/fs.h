@@ -2029,6 +2029,8 @@ static inline void init_sync_kiocb(struct kiocb *kiocb, struct file *filp)
  *
  * I_OVL_INUSE		Used by overlayfs to get exclusive ownership on upper
  *			and work dirs among overlayfs mounts.
+ * I_CREATING		New object's inode in the middle of setting up.
+ *
  *
  * I_SYNC_QUEUED	Inode is queued in b_io or b_more_io writeback lists.
  *			Used to detect that mark_inode_dirty() should not move

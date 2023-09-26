@@ -70,7 +70,7 @@ static inline void typec_wait_ps_change(struct tcpc_device *tcpc,
 	uint8_t new_state = (uint8_t) state;
 
 	if (new_state != old_state)
-		TYPEC_INFO2("wait_ps=%s\r\n", typec_wait_ps_name[new_state]);
+		TYPEC_INFO2("wait_ps=%s\n", typec_wait_ps_name[new_state]);
 #endif	/* TYPEC_INFO2_ENABLE */
 
 #ifdef CONFIG_TYPEC_ATTACHED_SRC_SAFE0V_TIMEOUT
@@ -95,13 +95,6 @@ static inline void typec_wait_ps_change(struct tcpc_device *tcpc,
 
 static inline int typec_enable_low_power_mode(
 	struct tcpc_device *tcpc, uint8_t pull);
-
-#define typec_get_cc1()		\
-	tcpc->typec_remote_cc[0]
-#define typec_get_cc2()		\
-	tcpc->typec_remote_cc[1]
-#define typec_get_cc_res()	\
-	(tcpc->typec_polarity ? typec_get_cc2() : typec_get_cc1())
 
 #define typec_check_cc1(cc)	\
 	(typec_get_cc1() == cc)
@@ -291,7 +284,7 @@ static inline void typec_transfer_state(struct tcpc_device *tcpc,
 {
 #if TYPEC_INFO_ENABLE
 	if (state >= 0 && state < ARRAY_SIZE(typec_state_name))
-		TYPEC_INFO("** %s\r\n", typec_state_name[state]);
+		TYPEC_INFO("** %s\n", typec_state_name[state]);
 #endif /* TYPEC_INFO_ENABLE */
 	tcpc->typec_state = (uint8_t) state;
 }
@@ -329,12 +322,12 @@ static int typec_alert_attach_state_change(struct tcpc_device *tcpc)
 #endif	/* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
 
 	if (tcpc->typec_attach_old == tcpc->typec_attach_new) {
-		TYPEC_DBG("Attached-> %s(repeat)\r\n",
+		TYPEC_DBG("Attached-> %s(repeat)\n",
 			typec_attach_name[tcpc->typec_attach_new]);
 		return 0;
 	}
 
-	TYPEC_INFO("Attached-> %s\r\n",
+	TYPEC_INFO("Attached-> %s\n",
 		   typec_attach_name[tcpc->typec_attach_new]);
 
 	/*Report function */
@@ -384,7 +377,7 @@ static bool typec_try_enter_norp_src(struct tcpc_device *tcpc)
 	if (tcpci_check_vbus_valid_from_ic(tcpc) &&
 	    typec_is_cc_no_res() &&
 	    tcpc->typec_state == typec_unattached_snk) {
-		TYPEC_INFO("norp_src=1\r\n");
+		TYPEC_INFO("norp_src=1\n");
 		tcpc_enable_timer(tcpc, TYPEC_TIMER_NORP_SRC);
 		return true;
 	}
@@ -398,7 +391,7 @@ static bool typec_try_exit_norp_src(struct tcpc_device *tcpc)
 	if ((!tcpci_check_vbus_valid_from_ic(tcpc) ||
 	     !typec_is_cc_no_res()) &&
 	    tcpc->typec_state == typec_attached_norp_src) {
-		TYPEC_INFO("norp_src=0\r\n");
+		TYPEC_INFO("norp_src=0\n");
 		typec_unattach_wait_pe_idle_entry(tcpc);
 		typec_alert_attach_state_change(tcpc);
 		return true;
@@ -459,12 +452,12 @@ static inline int typec_try_low_power_mode(struct tcpc_device *tcpc)
 		return 0;
 
 	if (tcpc->typec_lpm_retry == 0) {
-		TYPEC_INFO("TryLPM Failed\r\n");
+		TYPEC_INFO("TryLPM Failed\n");
 		return 0;
 	}
 
 	tcpc->typec_lpm_retry--;
-	TYPEC_DBG("RetryLPM : %d\r\n", tcpc->typec_lpm_retry);
+	TYPEC_DBG("RetryLPM : %d\n", tcpc->typec_lpm_retry);
 	tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_LOW_POWER_MODE);
 #endif	/* CONFIG_TCPC_LPM_CONFIRM */
 
@@ -491,13 +484,13 @@ static inline int typec_enable_low_power_mode(
 
 #ifdef CONFIG_TYPEC_CHECK_LEGACY_CABLE
 	if (tcpc->typec_legacy_cable) {
-		TYPEC_DBG("LPM_LCOnly\r\n");
+		TYPEC_DBG("LPM_LCOnly\n");
 		return 0;
 	}
 #endif	/* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
 
 	if (tcpc->typec_cable_only) {
-		TYPEC_DBG("LPM_RaOnly\r\n");
+		TYPEC_DBG("LPM_RaOnly\n");
 
 #ifdef CONFIG_TYPEC_CAP_LPM_WAKEUP_WATCHDOG
 		if (tcpc->tcpc_flags & TCPC_FLAGS_LPM_WAKEUP_WATCHDOG)
@@ -586,7 +579,7 @@ static inline void typec_unattached_cc_entry(struct tcpc_device *tcpc)
 	case TYPEC_ROLE_SRC:
 #ifdef CONFIG_TYPEC_CHECK_SRC_UNATTACH_OPEN
 		if (typec_check_cc_any(TYPEC_CC_VOLT_RD)) {
-			TYPEC_DBG("typec_src_unattach not open\r\n");
+			TYPEC_DBG("typec_src_unattach not open\n");
 			tcpci_set_cc(tcpc, TYPEC_CC_OPEN);
 			usleep_rnage(5000, 6000);
 		}
@@ -627,11 +620,6 @@ static void typec_unattached_entry(struct tcpc_device *tcpc)
 
 	tcpc->typec_usb_sink_curr = CONFIG_TYPEC_SNK_CURR_DFT;
 
-	if (tcpc->partner)
-		typec_unregister_partner(tcpc->partner);
-	tcpc->pd_capable = false;
-	tcpc->partner = NULL;
-
 	if (tcpc->typec_power_ctrl)
 		tcpci_set_vconn(tcpc, false);
 	typec_unattached_cc_entry(tcpc);
@@ -654,7 +642,7 @@ static void typec_unattach_wait_pe_idle_entry(struct tcpc_device *tcpc)
 
 static void typec_postpone_state_change(struct tcpc_device *tcpc)
 {
-	TYPEC_DBG("Postpone AlertChange\r\n");
+	TYPEC_DBG("Postpone AlertChange\n");
 	tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_STATE_CHANGE);
 }
 
@@ -695,14 +683,14 @@ static inline int typec_set_polarity(struct tcpc_device *tcpc,
 }
 
 static inline int typec_set_plug_orient(struct tcpc_device *tcpc,
-				uint8_t res, bool polarity)
+				uint8_t pull, bool polarity)
 {
 	int rv = typec_set_polarity(tcpc, polarity);
 
 	if (rv)
 		return rv;
 
-	return tcpci_set_cc(tcpc, res);
+	return tcpci_set_cc(tcpc, pull);
 }
 
 static void typec_source_attached_with_vbus_entry(struct tcpc_device *tcpc)
@@ -727,15 +715,13 @@ static inline void typec_source_attached_entry(struct tcpc_device *tcpc)
 #endif	/* CONFIG_TYPEC_CAP_ROLE_SWAP */
 
 	typec_set_plug_orient(tcpc,
-		tcpc->typec_local_rp_level,
+		TYPEC_CC_PULL(tcpc->typec_local_rp_level, TYPEC_CC_RP),
 		typec_check_cc2(TYPEC_CC_VOLT_RD));
 
 	tcpci_report_power_control(tcpc, true);
 	typec_enable_vconn(tcpc);
 	tcpci_source_vbus(tcpc,
 			TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SOURCE_5V, -1);
-	tcpc->pd_capable = false;
-	tcpc->partner_desc.accessory = TYPEC_ACCESSORY_NONE;
 }
 
 static inline void typec_sink_attached_entry(struct tcpc_device *tcpc)
@@ -763,17 +749,15 @@ static inline void typec_sink_attached_entry(struct tcpc_device *tcpc)
 
 	tcpci_report_power_control(tcpc, true);
 	tcpci_sink_vbus(tcpc, TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SINK_5V, -1);
-	tcpc->pd_capable = false;
-	tcpc->partner_desc.accessory = TYPEC_ACCESSORY_NONE;
 }
 
 static inline void typec_custom_src_attached_entry(
 	struct tcpc_device *tcpc)
 {
 #ifdef CONFIG_TYPEC_CAP_DBGACC_SNK
-	TYPEC_DBG("[Warning] Same Rp (%d)\r\n", typec_get_cc1());
+	TYPEC_DBG("[Warning] Same Rp (%d)\n", typec_get_cc1());
 #else
-	TYPEC_DBG("[Warning] CC Both Rp\r\n");
+	TYPEC_DBG("[Warning] CC Both Rp\n");
 #endif
 
 #ifdef CONFIG_TYPEC_CAP_CUSTOM_SRC
@@ -1092,7 +1076,7 @@ static inline bool typec_legacy_charge(
 {
 	int i, vbus_level = 0;
 
-	TYPEC_INFO("LC->Charge\r\n");
+	TYPEC_INFO("LC->Charge\n");
 	tcpci_source_vbus(tcpc,
 		TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SOURCE_5V, 100);
 
@@ -1103,7 +1087,7 @@ static inline bool typec_legacy_charge(
 		msleep(50);
 	}
 
-	TYPEC_INFO("LC->Charge Failed\r\n");
+	TYPEC_INFO("LC->Charge Failed\n");
 	return false;
 }
 
@@ -1112,7 +1096,7 @@ static inline bool typec_legacy_discharge(
 {
 	int i, vbus_level = 0;
 
-	TYPEC_INFO("LC->Discharge\r\n");
+	TYPEC_INFO("LC->Discharge\n");
 	tcpci_source_vbus(tcpc,
 		TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SOURCE_0V, 0);
 
@@ -1123,7 +1107,7 @@ static inline bool typec_legacy_discharge(
 		msleep(50);
 	}
 
-	TYPEC_INFO("LC->Discharge Failed\r\n");
+	TYPEC_INFO("LC->Discharge Failed\n");
 	return false;
 }
 
@@ -1131,7 +1115,7 @@ static inline bool typec_legacy_suspect(struct tcpc_device *tcpc)
 {
 	int i = 0, vbus_level = 0;
 
-	TYPEC_INFO("LC->Suspect\r\n");
+	TYPEC_INFO("LC->Suspect\n");
 	typec_legacy_reset_cable_suspect(tcpc);
 
 	while (1) {
@@ -1141,7 +1125,7 @@ static inline bool typec_legacy_suspect(struct tcpc_device *tcpc)
 
 		i++;
 		if (i > 3)	{ /* 150 ms */
-			TYPEC_INFO("LC->TAIn\r\n");
+			TYPEC_INFO("LC->TAIn\n");
 			return false;
 		}
 
@@ -1158,7 +1142,7 @@ static inline bool typec_legacy_stable1(struct tcpc_device *tcpc)
 {
 	typec_legacy_charge(tcpc);
 	typec_legacy_discharge(tcpc);
-	TYPEC_INFO("LC->Stable\r\n");
+	TYPEC_INFO("LC->Stable\n");
 	tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_LEGACY_STABLE);
 
 	return true;
@@ -1173,7 +1157,7 @@ static inline bool typec_is_run_legacy_stable2(struct tcpc_device *tcpc)
 
 	run_legacy2 = tcpc->tcpc_flags & TCPC_FLAGS_PREFER_LEGACY2;
 
-	TYPEC_INFO("LC->Retry%d\r\n", tcpc->typec_legacy_retry_wk++);
+	TYPEC_INFO("LC->Retry%d\n", tcpc->typec_legacy_retry_wk++);
 
 	if (tcpc->typec_legacy_retry_wk <= retry_max)
 		return run_legacy2;
@@ -1187,7 +1171,7 @@ static inline bool typec_is_run_legacy_stable2(struct tcpc_device *tcpc)
 static inline bool typec_legacy_stable2(struct tcpc_device *tcpc)
 {
 	tcpc->typec_legacy_cable = 2;
-	TYPEC_INFO("LC->Stable2\r\n");
+	TYPEC_INFO("LC->Stable2\n");
 	typec_legacy_keep_default_rp(tcpc, true);
 
 	tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_LEGACY_STABLE);
@@ -1202,7 +1186,7 @@ static inline bool typec_legacy_stable2(struct tcpc_device *tcpc)
 
 static inline bool typec_legacy_confirm(struct tcpc_device *tcpc)
 {
-	TYPEC_INFO("LC->Confirm\r\n");
+	TYPEC_INFO("LC->Confirm\n");
 	tcpc->typec_legacy_cable = 1;
 	tcpc_disable_timer(tcpc, TYPEC_RT_TIMER_NOT_LEGACY);
 
@@ -1223,8 +1207,7 @@ static inline bool typec_legacy_check_cable(struct tcpc_device *tcpc)
 
 #ifdef CONFIG_TYPEC_CHECK_LEGACY_CABLE2
 	if (tcpc->typec_legacy_cable == 2) {
-		TYPEC_NEW_STATE(typec_unattached_src);
-		tcpc_enable_timer(tcpc, TYPEC_TIMER_DRP_SRC_TOGGLE);
+		typec_unattached_src_and_drp_entry(tcpc);
 		return true;
 	}
 #endif	/* CONFIG_TYPEC_CHECK_LEGACY_CABLE2 */
@@ -1264,7 +1247,7 @@ static inline void typec_legacy_reset_timer(struct tcpc_device *tcpc)
 
 static inline void typec_legacy_reach_vsafe5v(struct tcpc_device *tcpc)
 {
-	TYPEC_INFO("LC->Attached\r\n");
+	TYPEC_INFO("LC->Attached\n");
 	tcpc->typec_legacy_cable = false;
 	tcpci_set_cc(tcpc, TYPEC_CC_RD);
 	typec_legacy_reset_timer(tcpc);
@@ -1272,7 +1255,7 @@ static inline void typec_legacy_reach_vsafe5v(struct tcpc_device *tcpc)
 
 static inline void typec_legacy_reach_vsafe0v(struct tcpc_device *tcpc)
 {
-	TYPEC_INFO("LC->Detached (PS)\r\n");
+	TYPEC_INFO("LC->Detached (PS)\n");
 	tcpc->typec_legacy_cable = false;
 	typec_set_drp_toggling(tcpc);
 	tcpc_disable_timer(tcpc, TYPEC_RT_TIMER_LEGACY_STABLE);
@@ -1306,7 +1289,7 @@ static inline void typec_legacy_handle_detach(struct tcpc_device *tcpc)
 
 	if (suspect_legacy) {
 		tcpc->typec_legacy_cable_suspect++;
-		TYPEC_INFO2("LC->Suspect: %d\r\n",
+		TYPEC_INFO2("LC->Suspect: %d\n",
 			tcpc->typec_legacy_cable_suspect);
 	}
 #endif	/* TCPC_LEGACY_CABLE_SUSPECT_THD != 0 */
@@ -1345,7 +1328,7 @@ static inline int typec_legacy_handle_cc_change(struct tcpc_device *tcpc)
 	if (ret == 0)
 		return 0;
 
-	TYPEC_INFO("LC->Detached (CC)\r\n");
+	TYPEC_INFO("LC->Detached (CC)\n");
 
 	tcpc->typec_legacy_cable = false;
 	typec_set_drp_toggling(tcpc);
@@ -1372,14 +1355,12 @@ static inline void typec_debug_acc_attached_entry(struct tcpc_device *tcpc)
 {
 #ifdef CONFIG_TYPEC_CAP_DBGACC
 	TYPEC_NEW_STATE(typec_debugaccessory);
-	TYPEC_DBG("[Debug] CC1&2 Both Rd\r\n");
+	TYPEC_DBG("[Debug] CC1&2 Both Rd\n");
 	typec_wait_ps_change(tcpc, TYPEC_WAIT_PS_DBG_VSAFE5V);
 
 	tcpci_report_power_control(tcpc, true);
 	tcpci_source_vbus(tcpc,
 			TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SOURCE_5V, -1);
-	tcpc->pd_capable = false;
-	tcpc->partner_desc.accessory = TYPEC_ACCESSORY_DEBUG;
 #endif	/* CONFIG_TYPEC_CAP_DBGACC */
 }
 
@@ -1403,9 +1384,8 @@ static inline bool typec_audio_acc_sink_vbus(
 
 static bool typec_is_fake_ra_rp30(struct tcpc_device *tcpc)
 {
-	if (tcpc->typec_local_cc == TYPEC_CC_RP_3_0
-		|| tcpc->typec_local_cc == TYPEC_CC_DRP_3_0) {
-		tcpci_set_cc(tcpc, TYPEC_CC_RP_DFT);
+	if (TYPEC_CC_PULL_GET_RP_LVL(tcpc->typec_local_cc) == TYPEC_RP_3_0) {
+		__tcpci_set_cc(tcpc, TYPEC_CC_RP_DFT);
 		usleep_range(1000, 2000);
 		return tcpci_get_cc(tcpc) != 0;
 	}
@@ -1417,7 +1397,7 @@ static inline bool typec_audio_acc_attached_entry(struct tcpc_device *tcpc)
 {
 #ifdef RICHTEK_PD_COMPLIANCE_FAKE_AUDIO_ACC
 	if (typec_is_fake_ra_rp30(tcpc)) {
-		TYPEC_DBG("[Audio] Fake Both Ra\r\n");
+		TYPEC_DBG("[Audio] Fake Both Ra\n");
 		if (typec_check_cc_any(TYPEC_CC_VOLT_RD))
 			typec_cc_src_detect_entry(tcpc);
 		else
@@ -1427,7 +1407,7 @@ static inline bool typec_audio_acc_attached_entry(struct tcpc_device *tcpc)
 #endif	/* RICHTEK_PD_COMPLIANCE_FAKE_AUDIO_ACC */
 
 	TYPEC_NEW_STATE(typec_audioaccessory);
-	TYPEC_DBG("[Audio] CC1&2 Both Ra\r\n");
+	TYPEC_DBG("[Audio] CC1&2 Both Ra\n");
 	tcpc->typec_attach_new = TYPEC_ATTACHED_AUDIO;
 
 #ifdef CONFIG_TYPEC_CAP_AUDIO_ACC_SINK_VBUS
@@ -1435,8 +1415,6 @@ static inline bool typec_audio_acc_attached_entry(struct tcpc_device *tcpc)
 		typec_audio_acc_sink_vbus(tcpc, true);
 #endif	/* CONFIG_TYPEC_CAP_AUDIO_ACC_SINK_VBUS */
 
-	tcpc->pd_capable = false;
-	tcpc->partner_desc.accessory = TYPEC_ACCESSORY_AUDIO;
 	return true;
 }
 
@@ -1482,7 +1460,7 @@ static inline bool typec_attached_snk_cc_change(struct tcpc_device *tcpc)
 	uint8_t cc_res = typec_get_cc_res();
 
 	if (cc_res != tcpc->typec_remote_rp_level) {
-		TYPEC_INFO("RpLvl Change\r\n");
+		TYPEC_INFO("RpLvl Change\n");
 		tcpc->typec_remote_rp_level = cc_res;
 
 #ifdef CONFIG_TYPEC_CAP_CUSTOM_HV
@@ -1513,6 +1491,8 @@ static inline bool typec_cc_change_sink_entry(struct tcpc_device *tcpc)
 	case typec_attached_dbgacc_snk:
 		if (typec_get_cc_res() == TYPEC_CC_VOLT_OPEN)
 			snk_remove = true;
+		else
+			typec_attached_snk_cc_change(tcpc);
 		break;
 #endif	/* CONFIG_TYPEC_CAP_DBGACC_SNK */
 
@@ -1536,13 +1516,12 @@ static inline bool typec_cc_change_sink_entry(struct tcpc_device *tcpc)
 	return true;
 }
 
-static inline bool typec_is_act_as_sink_role(
-	struct tcpc_device *tcpc)
+bool tcpc_typec_is_act_as_sink_role(struct tcpc_device *tcpc)
 {
 	bool as_sink = true;
 	uint8_t cc_sum;
 
-	switch (tcpc->typec_local_cc & 0x07) {
+	switch (TYPEC_CC_PULL_GET_RES(tcpc->typec_local_cc)) {
 	case TYPEC_CC_RP:
 		as_sink = false;
 		break;
@@ -1560,11 +1539,11 @@ static inline bool typec_is_act_as_sink_role(
 
 static inline bool typec_handle_cc_changed_entry(struct tcpc_device *tcpc)
 {
-	TYPEC_INFO("[CC_Change] %d/%d\r\n", typec_get_cc1(), typec_get_cc2());
+	TYPEC_INFO("[CC_Change] %d/%d\n", typec_get_cc1(), typec_get_cc2());
 
 	tcpc->typec_attach_new = tcpc->typec_attach_old;
 
-	if (typec_is_act_as_sink_role(tcpc))
+	if (tcpc_typec_is_act_as_sink_role(tcpc))
 		typec_cc_change_sink_entry(tcpc);
 	else
 		typec_cc_change_source_entry(tcpc);
@@ -1584,20 +1563,21 @@ static inline void typec_attach_wait_entry(struct tcpc_device *tcpc)
 	struct pd_port *pd_port = &tcpc->pd_port;
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
-	if (tcpc->typec_attach_old == TYPEC_ATTACHED_SNK) {
+	if (tcpc->typec_attach_old == TYPEC_ATTACHED_SNK ||
+	    tcpc->typec_attach_old == TYPEC_ATTACHED_DBGACC_SNK) {
 #ifdef CONFIG_USB_POWER_DELIVERY
 		if (pd_port->pe_data.pd_connected && pd_check_rev30(pd_port))
 			pd_put_sink_tx_event(tcpc, typec_get_cc_res());
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 		tcpc_enable_timer(tcpc, TYPEC_TIMER_PDDEBOUNCE);
-		TYPEC_DBG("RpLvl Alert\r\n");
+		TYPEC_DBG("RpLvl Alert\n");
 		return;
 	}
 
 	if (tcpc->typec_attach_old ||
 		tcpc->typec_state == typec_attached_src) {
 		tcpc_reset_typec_debounce_timer(tcpc);
-		TYPEC_DBG("Attached, Ignore cc_attach\r\n");
+		TYPEC_DBG("Attached, Ignore cc_attach\n");
 #ifndef CONFIG_USB_POWER_DELIVERY
 		typec_enable_vconn(tcpc);
 #endif /* CONFIG_USB_POWER_DELIVERY */
@@ -1628,7 +1608,7 @@ static inline void typec_attach_wait_entry(struct tcpc_device *tcpc)
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 	case typec_unattachwait_pe:
-		TYPEC_INFO("Force PE Idle\r\n");
+		TYPEC_INFO("Force PE Idle\n");
 		tcpc->pd_wait_pe_idle = false;
 		tcpc_disable_timer(tcpc, TYPEC_RT_TIMER_PE_IDLE);
 		typec_unattached_power_entry(tcpc);
@@ -1638,7 +1618,7 @@ static inline void typec_attach_wait_entry(struct tcpc_device *tcpc)
 		break;
 	}
 
-	as_sink = typec_is_act_as_sink_role(tcpc);
+	as_sink = tcpc_typec_is_act_as_sink_role(tcpc);
 
 #ifdef CONFIG_TYPEC_CHECK_LEGACY_CABLE
 	if (!as_sink && typec_legacy_check_cable(tcpc))
@@ -1653,7 +1633,8 @@ static inline void typec_attach_wait_entry(struct tcpc_device *tcpc)
 		TYPEC_NEW_STATE(typec_attachwait_snk);
 	else {
 		/* Advertise Rp level before Attached.SRC Ellisys 3.1.6359 */
-		tcpci_set_cc(tcpc, tcpc->typec_local_rp_level);
+		tcpci_set_cc(tcpc,
+			TYPEC_CC_PULL(tcpc->typec_local_rp_level, TYPEC_CC_RP));
 		TYPEC_NEW_STATE(typec_attachwait_src);
 	}
 
@@ -1671,14 +1652,14 @@ static inline int typec_attached_snk_cc_detach(struct tcpc_device *tcpc)
 	 */
 	if (tcpc->pd_wait_hard_reset_complete) {
 #ifdef CONFIG_COMPATIBLE_APPLE_TA
-		TYPEC_INFO2("Detach_CC (HardReset), compatible apple TA\r\n");
+		TYPEC_INFO2("Detach_CC (HardReset), compatible apple TA\n");
 		tcpc_enable_timer(tcpc, TYPEC_TIMER_APPLE_CC_OPEN);
 #else
-		TYPEC_INFO2("Detach_CC (HardReset)\r\n");
+		TYPEC_INFO2("Detach_CC (HardReset)\n");
 		tcpc_enable_timer(tcpc, TYPEC_TIMER_PDDEBOUNCE);
 #endif /* CONFIG_COMPATIBLE_APPLE_TA */
 	} else if (tcpc->pd_port.pe_data.pd_prev_connected) {
-		TYPEC_INFO2("Detach_CC (PD)\r\n");
+		TYPEC_INFO2("Detach_CC (PD)\n");
 		tcpc_enable_timer(tcpc, TYPEC_TIMER_PDDEBOUNCE);
 	}
 #endif	/* CONFIG_USB_POWER_DELIVERY */
@@ -1695,6 +1676,9 @@ static inline void typec_detach_wait_entry(struct tcpc_device *tcpc)
 	switch (tcpc->typec_state) {
 #ifdef TYPEC_EXIT_ATTACHED_SNK_VIA_VBUS
 	case typec_attached_snk:
+#ifdef CONFIG_TYPEC_CAP_DBGACC_SNK
+	case typec_attached_dbgacc_snk:
+#endif	/* CONFIG_TYPEC_CAP_DBGACC_SNK */
 		typec_attached_snk_cc_detach(tcpc);
 		break;
 #endif /* TYPEC_EXIT_ATTACHED_SNK_VIA_VBUS */
@@ -1709,7 +1693,7 @@ static inline void typec_detach_wait_entry(struct tcpc_device *tcpc)
 
 #ifdef TYPEC_EXIT_ATTACHED_SRC_NO_DEBOUNCE
 	case typec_attached_src:
-		TYPEC_INFO("Exit Attached.SRC immediately\r\n");
+		TYPEC_INFO("Exit Attached.SRC immediately\n");
 		tcpc_reset_typec_debounce_timer(tcpc);
 
 		/* force to terminate TX */
@@ -1726,7 +1710,7 @@ static inline void typec_detach_wait_entry(struct tcpc_device *tcpc)
 			tcpc_enable_timer(tcpc, TYPEC_TIMER_PDDEBOUNCE);
 		else {
 			tcpc_reset_typec_debounce_timer(tcpc);
-			TYPEC_DBG("[Try] Ignore cc_detach\r\n");
+			TYPEC_DBG("[Try] Ignore cc_detach\n");
 		}
 		break;
 #endif	/* CONFIG_TYPEC_CAP_TRY_SOURCE */
@@ -1737,7 +1721,7 @@ static inline void typec_detach_wait_entry(struct tcpc_device *tcpc)
 			tcpc_enable_timer(tcpc, TYPEC_TIMER_TRYCCDEBOUNCE);
 		else {
 			tcpc_reset_typec_debounce_timer(tcpc);
-			TYPEC_DBG("[Try] Ignore cc_detach\r\n");
+			TYPEC_DBG("[Try] Ignore cc_detach\n");
 		}
 		break;
 #endif	/* CONFIG_TYPEC_CAP_TRY_SINK */
@@ -1765,7 +1749,7 @@ static inline bool typec_is_cc_attach(struct tcpc_device *tcpc)
 		usleep_range(1000, 2000);
 
 		if (tcpci_get_cc(tcpc)) {
-			TYPEC_DBG("[Detach] Fake Ra\r\n");
+			TYPEC_DBG("[Detach] Fake Ra\n");
 			cc1 = typec_get_cc1();
 			cc2 = typec_get_cc2();
 			cc_res = typec_get_cc_res();
@@ -1816,7 +1800,7 @@ static inline bool typec_is_cc_attach(struct tcpc_device *tcpc)
 		if ((cc1+cc2) == TYPEC_CC_VOLT_RA) {
 #ifdef RICHTEK_PD_COMPLIANCE_FAKE_EMRAK_ONLY
 			if (typec_is_fake_ra_rp30(tcpc)) {
-				TYPEC_DBG("[Cable] Fake Ra\r\n");
+				TYPEC_DBG("[Cable] Fake Ra\n");
 				if ((cc1+cc2) == TYPEC_CC_VOLT_RD)
 					cc_attach = true;
 				break;
@@ -1824,7 +1808,7 @@ static inline bool typec_is_cc_attach(struct tcpc_device *tcpc)
 #endif	/* RICHTEK_PD_COMPLIANCE_FAKE_EMRAK_ONLY */
 			cc_attach = false;
 			tcpc->typec_cable_only = true;
-			TYPEC_DBG("[Cable] Ra Only\r\n");
+			TYPEC_DBG("[Cable] Ra Only\n");
 		}
 		break;
 	}
@@ -1861,7 +1845,7 @@ static inline bool typec_check_false_ra_detach(struct tcpc_device *tcpc)
 		tcpci_get_cc(tcpc);
 
 		if (!typec_is_drp_toggling()) {
-			TYPEC_DBG("False_RaDetach1 (%d, %d)\r\n",
+			TYPEC_DBG("False_RaDetach1 (%d, %d)\n",
 				typec_get_cc1(), typec_get_cc2());
 			return true;
 		}
@@ -1887,10 +1871,10 @@ static inline bool typec_check_false_ra_detach(struct tcpc_device *tcpc)
 		tcpc->typec_cable_only = false;
 	else if (typec_get_cc1() + typec_get_cc2() == TYPEC_CC_VOLT_RA) {
 		tcpc->typec_cable_only = true;
-		TYPEC_DBG("False_RaDetach2 (eMark)\r\n");
+		TYPEC_DBG("False_RaDetach2 (eMark)\n");
 	} else {
 		tcpc->typec_cable_only = false;
-		TYPEC_DBG("False_RaDetach3 (%d, %d)\r\n",
+		TYPEC_DBG("False_RaDetach3 (%d, %d)\n",
 			typec_get_cc1(), typec_get_cc2());
 		return true;
 	}
@@ -1932,7 +1916,7 @@ int tcpc_typec_enter_lpm_again(struct tcpc_device *tcpc)
 	if (check_ra && typec_check_false_ra_detach(tcpc))
 		return 0;
 
-	TYPEC_DBG("RetryLPM\r\n");
+	TYPEC_DBG("RetryLPM\n");
 
 	tcpc->typec_lpm = true;
 
@@ -1953,7 +1937,7 @@ static inline int typec_handle_try_sink_cc_change(
 	 */
 
 	if (!tcpc->typec_drp_try_timeout) {
-		TYPEC_DBG("[Try.SNK] Ignore CC_Alert\r\n");
+		TYPEC_DBG("[Try.SNK] Ignore CC_Alert\n");
 		return 1;
 	}
 
@@ -2015,12 +1999,12 @@ static inline bool typec_is_ignore_cc_change(
 #ifdef CONFIG_USB_POWER_DELIVERY
 	if (tcpc->typec_state == typec_attachwait_snk &&
 		typec_get_rp_present_flag(tcpc) == rp_present) {
-		TYPEC_DBG("[AttachWait] Ignore RpLvl Alert\r\n");
+		TYPEC_DBG("[AttachWait] Ignore RpLvl Alert\n");
 		return true;
 	}
 
 	if (tcpc->pd_wait_pr_swap_complete) {
-		TYPEC_DBG("[PR.Swap] Ignore CC_Alert\r\n");
+		TYPEC_DBG("[PR.Swap] Ignore CC_Alert\n");
 		return true;
 	}
 #endif /* CONFIG_USB_POWER_DELIVERY */
@@ -2032,14 +2016,14 @@ static inline bool typec_is_ignore_cc_change(
 	}
 
 	if (tcpc->typec_state == typec_trywait_src_pe) {
-		TYPEC_DBG("[Try.PE] Ignore CC_Alert\r\n");
+		TYPEC_DBG("[Try.PE] Ignore CC_Alert\n");
 		return true;
 	}
 #endif	/* CONFIG_TYPEC_CAP_TRY_SINK */
 
 #ifdef CONFIG_TYPEC_CAP_TRY_SOURCE
 	if (tcpc->typec_state == typec_trywait_snk_pe) {
-		TYPEC_DBG("[Try.PE] Ignore CC_Alert\r\n");
+		TYPEC_DBG("[Try.PE] Ignore CC_Alert\n");
 		return true;
 	}
 #endif	/* CONFIG_TYPEC_CAP_TRY_SOURCE */
@@ -2063,10 +2047,10 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc)
 	if (ret < 0)
 		return ret;
 
-	TYPEC_INFO("[CC_Alert] %d/%d\r\n", typec_get_cc1(), typec_get_cc2());
+	TYPEC_INFO("[CC_Alert] %d/%d\n", typec_get_cc1(), typec_get_cc2());
 
 	if (typec_is_cc_no_res()) {
-		TYPEC_DBG("[Warning] CC No Res\r\n");
+		TYPEC_DBG("[Warning] CC No Res\n");
 		if (tcpc->typec_lpm && !tcpc->typec_cable_only)
 			typec_enter_low_power_mode(tcpc);
 		if (typec_is_drp_toggling())
@@ -2119,7 +2103,7 @@ static inline int typec_handle_drp_try_timeout(struct tcpc_device *tcpc)
 	tcpc_disable_timer(tcpc, TYPEC_TRY_TIMER_DRP_TRY);
 
 	if (typec_is_drp_toggling()) {
-		TYPEC_DBG("[Warning] DRP Toggling\r\n");
+		TYPEC_DBG("[Warning] DRP Toggling\n");
 		return 0;
 	}
 
@@ -2165,7 +2149,7 @@ static inline int typec_handle_debounce_timeout(struct tcpc_device *tcpc)
 #endif
 
 	if (typec_is_drp_toggling()) {
-		TYPEC_DBG("[Warning] DRP Toggling\r\n");
+		TYPEC_DBG("[Warning] DRP Toggling\n");
 		return 0;
 	}
 
@@ -2205,46 +2189,46 @@ static inline int typec_handle_pe_idle(struct tcpc_device *tcpc)
 		break;
 
 	default:
-		TYPEC_DBG("Dummy pe_idle\r\n");
+		TYPEC_DBG("Dummy pe_idle\n");
 		break;
 	}
 
 	return 0;
 }
 
-#ifdef CONFIG_TYPEC_WAIT_BC12
-static inline void typec_handle_sink_wait_bc12(struct tcpc_device *tcpc)
+#ifdef CONFIG_USB_PD_WAIT_BC12
+static inline void typec_handle_pd_wait_bc12(struct tcpc_device *tcpc)
 {
-	uint8_t type;
-	enum charger_type chg_type;
+	uint8_t type = TYPEC_UNATTACHED;
+	enum charger_type chg_type = CHARGER_UNKNOWN;
 
 	mutex_lock(&tcpc->access_lock);
 
 	type = tcpc->typec_attach_new;
 	chg_type = mt_get_charger_type();
-	TYPEC_INFO("type=%d, chg_type=%d, count=%d\r\n", type, chg_type,
-		tcpc->sink_wait_bc12_count);
+	TYPEC_INFO("type=%d, chg_type=%d, count=%d\n", type, chg_type,
+		tcpc->pd_wait_bc12_count);
 
-	if (type != TYPEC_ATTACHED_SNK)
+	if (type != TYPEC_ATTACHED_SNK && type != TYPEC_ATTACHED_DBGACC_SNK)
 		goto out;
 
 	if (chg_type != CHARGER_UNKNOWN ||
-		tcpc->sink_wait_bc12_count >= 20) {
+		tcpc->pd_wait_bc12_count >= 20) {
 		__pd_put_cc_attached_event(tcpc, type);
 	} else {
-		tcpc->sink_wait_bc12_count++;
-		tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_SINK_WAIT_BC12);
+		tcpc->pd_wait_bc12_count++;
+		tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_PD_WAIT_BC12);
 	}
 out:
 	mutex_unlock(&tcpc->access_lock);
 }
-#endif /* CONFIG_TYPEC_WAIT_BC12 */
+#endif /* CONFIG_USB_PD_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
 static inline int typec_handle_src_reach_vsafe0v(struct tcpc_device *tcpc)
 {
 	if (typec_is_drp_toggling()) {
-		TYPEC_DBG("[Warning] DRP Toggling\r\n");
+		TYPEC_DBG("[Warning] DRP Toggling\n");
 		return 0;
 	}
 
@@ -2278,11 +2262,11 @@ static inline int typec_handle_role_swap_start(struct tcpc_device *tcpc)
 	uint8_t role_swap = tcpc->typec_during_role_swap;
 
 	if (role_swap == TYPEC_ROLE_SWAP_TO_SNK) {
-		TYPEC_INFO("Role Swap to Sink\r\n");
+		TYPEC_INFO("Role Swap to Sink\n");
 		tcpci_set_cc(tcpc, TYPEC_CC_RD);
 		tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_ROLE_SWAP_STOP);
 	} else if (role_swap == TYPEC_ROLE_SWAP_TO_SRC) {
-		TYPEC_INFO("Role Swap to Source\r\n");
+		TYPEC_INFO("Role Swap to Source\n");
 		tcpci_set_cc(tcpc, TYPEC_CC_RP);
 		tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_ROLE_SWAP_STOP);
 	}
@@ -2293,7 +2277,7 @@ static inline int typec_handle_role_swap_start(struct tcpc_device *tcpc)
 static inline int typec_handle_role_swap_stop(struct tcpc_device *tcpc)
 {
 	if (tcpc->typec_during_role_swap) {
-		TYPEC_INFO("TypeC Role Swap Failed\r\n");
+		TYPEC_INFO("TypeC Role Swap Failed\n");
 		tcpc->typec_during_role_swap = TYPEC_ROLE_SWAP_NONE;
 		tcpc_enable_timer(tcpc, TYPEC_TIMER_PDDEBOUNCE);
 	}
@@ -2314,7 +2298,7 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 #ifdef CONFIG_TYPEC_CHECK_LEGACY_CABLE
 	if (timer_id == TYPEC_TIMER_DRP_SRC_TOGGLE &&
 		(tcpc->typec_state != typec_unattached_src)) {
-		TCPC_DBG("Dummy SRC_TOGGLE\r\n");
+		TCPC_DBG("Dummy SRC_TOGGLE\n");
 		return 0;
 	}
 #endif /* CONFIG_TYPEC_CHECK_LEGACY_CABLE */
@@ -2329,13 +2313,13 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 	else if (timer_id == TYPEC_RT_TIMER_STATE_CHANGE)
 		return typec_alert_attach_state_change(tcpc);
 	else if (typec_is_cc_open_state(tcpc)) {
-		TYPEC_DBG("[Open] Ignore timer_evt\r\n");
+		TYPEC_DBG("[Open] Ignore timer_evt\n");
 		return 0;
 	}
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 	if (tcpc->pd_wait_pr_swap_complete) {
-		TYPEC_DBG("[PR.Swap] Ignore timer_evt\r\n");
+		TYPEC_DBG("[PR.Swap] Ignore timer_evt\n");
 		return 0;
 	}
 #endif	/* CONFIG_USB_POWER_DELIVERY */
@@ -2361,11 +2345,11 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 	case TYPEC_RT_TIMER_PE_IDLE:
 		ret = typec_handle_pe_idle(tcpc);
 		break;
-#ifdef CONFIG_TYPEC_WAIT_BC12
-	case TYPEC_RT_TIMER_SINK_WAIT_BC12:
-		typec_handle_sink_wait_bc12(tcpc);
+#ifdef CONFIG_USB_PD_WAIT_BC12
+	case TYPEC_RT_TIMER_PD_WAIT_BC12:
+		typec_handle_pd_wait_bc12(tcpc);
 		break;
-#endif /* CONFIG_TYPEC_WAIT_BC12 */
+#endif /* CONFIG_USB_PD_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
 #ifdef CONFIG_TYPEC_ATTACHED_SRC_SAFE0V_DELAY
@@ -2381,7 +2365,7 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 
 #ifdef CONFIG_TYPEC_ATTACHED_SRC_SAFE0V_TIMEOUT
 	case TYPEC_RT_TIMER_SAFE0V_TOUT:
-		TCPC_INFO("VSafe0V TOUT (%d)\r\n", tcpc->vbus_level);
+		TCPC_INFO("VSafe0V TOUT (%d)\n", tcpc->vbus_level);
 
 		if (!tcpci_check_vbus_valid_from_ic(tcpc))
 			ret = tcpc_typec_handle_vsafe0v(tcpc);
@@ -2402,16 +2386,14 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 		break;
 #endif	/* CONFIG_TYPEC_CAP_ROLE_SWAP */
 
-#ifdef CONFIG_TYPEC_CAP_AUTO_DISCHARGE
-	case TYPEC_RT_TIMER_AUTO_DISCHARGE:
+	case TYPEC_RT_TIMER_DISCHARGE:
 		if (!tcpc->typec_power_ctrl) {
 			mutex_lock(&tcpc->access_lock);
-			tcpci_enable_ext_discharge(tcpc, false);
 			tcpci_enable_auto_discharge(tcpc, false);
+			tcpci_enable_force_discharge(tcpc, false, 0);
 			mutex_unlock(&tcpc->access_lock);
 		}
 		break;
-#endif	/* CONFIG_TYPEC_CAP_AUTO_DISCHARGE */
 
 #ifdef CONFIG_TYPEC_CHECK_LEGACY_CABLE
 	case TYPEC_RT_TIMER_NOT_LEGACY:
@@ -2429,7 +2411,7 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc, uint32_t timer_id)
 #ifdef CONFIG_TYPEC_LEGACY2_AUTO_RECYCLE
 	case TYPEC_RT_TIMER_LEGACY_RECYCLE:
 		if (tcpc->typec_legacy_cable == 2) {
-			TYPEC_INFO("LC->Recycle\r\n");
+			TYPEC_INFO("LC->Recycle\n");
 			tcpc->typec_legacy_cable = false;
 			typec_legacy_keep_default_rp(tcpc, false);
 			typec_set_drp_toggling(tcpc);
@@ -2484,19 +2466,19 @@ static inline int typec_attached_snk_vbus_absent(struct tcpc_device *tcpc)
 #ifdef CONFIG_USB_PD_DIRECT_CHARGE
 	if (tcpc->pd_during_direct_charge &&
 		!tcpci_check_vsafe0v(tcpc, true)) {
-		TYPEC_DBG("Ignore vbus_absent(snk), DirectCharge\r\n");
+		TYPEC_DBG("Ignore vbus_absent(snk), DirectCharge\n");
 		return 0;
 	}
 #endif	/* CONFIG_USB_PD_DIRECT_CHARGE */
 
 	if (tcpc->pd_wait_hard_reset_complete) {
 #ifdef CONFIG_COMPATIBLE_APPLE_TA
-		TYPEC_DBG("Ignore vbus_absent(snk) and CC, HReset(apple)\r\n");
+		TYPEC_DBG("Ignore vbus_absent(snk) and CC, HReset(apple)\n");
 		return 0;
 #else
 		if (typec_get_cc_res() != TYPEC_CC_VOLT_OPEN) {
 			TYPEC_DBG(
-				 "Ignore vbus_absent(snk), HReset & CC!=0\r\n");
+				 "Ignore vbus_absent(snk), HReset & CC!=0\n");
 			return 0;
 		}
 #endif /* CONFIG_COMPATIBLE_APPLE_TA */
@@ -2515,13 +2497,21 @@ static inline int typec_handle_vbus_absent(struct tcpc_device *tcpc)
 {
 #ifdef CONFIG_USB_POWER_DELIVERY
 	if (tcpc->pd_wait_pr_swap_complete) {
-		TYPEC_DBG("[PR.Swap] Ignore vbus_absent\r\n");
+		TYPEC_DBG("[PR.Swap] Ignore vbus_absent\n");
 		return 0;
 	}
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 
-	if (tcpc->typec_state == typec_attached_snk)
+	switch (tcpc->typec_state) {
+	case typec_attached_snk:
+#ifdef CONFIG_TYPEC_CAP_DBGACC_SNK
+	case typec_attached_dbgacc_snk:
+#endif	/* CONFIG_TYPEC_CAP_DBGACC_SNK */
 		typec_attached_snk_vbus_absent(tcpc);
+		break;
+	default:
+		break;
+	}
 
 #ifndef CONFIG_TCPC_VSAFE0V_DETECT
 	tcpc_typec_handle_vsafe0v(tcpc);
@@ -2548,7 +2538,7 @@ int tcpc_typec_handle_ps_change(struct tcpc_device *tcpc, int vbus_level)
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 
 	if (typec_is_cc_no_res()) {
-		TYPEC_DBG("[Warning] CC No Res\r\n");
+		TYPEC_DBG("[Warning] CC No Res\n");
 		if (tcpc->typec_lpm && !tcpc->typec_cable_only)
 			typec_enter_low_power_mode(tcpc);
 		if (typec_is_drp_toggling())
@@ -2584,7 +2574,8 @@ int tcpc_typec_handle_pe_pr_swap(struct tcpc_device *tcpc)
 		TYPEC_NEW_STATE(typec_attached_src);
 		tcpc->typec_is_attached_src = true;
 		tcpc->typec_attach_new = TYPEC_ATTACHED_SRC;
-		tcpci_set_cc(tcpc, tcpc->typec_local_rp_level);
+		tcpci_set_cc(tcpc,
+			TYPEC_CC_PULL(tcpc->typec_local_rp_level, TYPEC_CC_RP));
 		break;
 	case typec_attached_src:
 		TYPEC_NEW_STATE(typec_attached_snk);
@@ -2663,7 +2654,7 @@ int tcpc_typec_swap_role(struct tcpc_device *tcpc)
 	}
 
 	if (tcpc->typec_during_role_swap) {
-		TYPEC_INFO("TypeC Role Swap Start\r\n");
+		TYPEC_INFO("TypeC Role Swap Start\n");
 		tcpci_set_cc(tcpc, TYPEC_CC_OPEN);
 		tcpc_enable_timer(tcpc, TYPEC_RT_TIMER_ROLE_SWAP_START);
 		return TCPM_SUCCESS;
@@ -2673,29 +2664,19 @@ int tcpc_typec_swap_role(struct tcpc_device *tcpc)
 }
 #endif /* CONFIG_TYPEC_CAP_ROLE_SWAP */
 
-int tcpc_typec_set_rp_level(struct tcpc_device *tcpc, uint8_t res)
+int tcpc_typec_set_rp_level(struct tcpc_device *tcpc, uint8_t rp_lvl)
 {
-	switch (res) {
-	case TYPEC_CC_RP_DFT:
-	case TYPEC_CC_RP_1_5:
-	case TYPEC_CC_RP_3_0:
-		TYPEC_INFO("TypeC-Rp: %d\r\n", res);
-		tcpc->typec_local_rp_level = res;
+	switch (rp_lvl) {
+	case TYPEC_RP_DFT:
+	case TYPEC_RP_1_5:
+	case TYPEC_RP_3_0:
+		TYPEC_INFO("TypeC-Rp: %d\n", rp_lvl);
+		tcpc->typec_local_rp_level = rp_lvl;
 		break;
-
 	default:
-		TYPEC_INFO("TypeC-Unknown-Rp (%d)\r\n", res);
+		TYPEC_INFO("TypeC-Unknown-Rp (%d)\n", rp_lvl);
 		return -EINVAL;
 	}
-
-#ifdef CONFIG_USB_PD_DBG_ALWAYS_LOCAL_RP
-	tcpci_set_cc(tcpc, tcpc->typec_local_rp_level);
-#else
-	if ((tcpc->typec_attach_old != TYPEC_UNATTACHED) &&
-		(tcpc->typec_attach_new != TYPEC_UNATTACHED)) {
-		return tcpci_set_cc(tcpc, res);
-	}
-#endif
 
 	return 0;
 }
@@ -2729,18 +2710,18 @@ int tcpc_typec_change_role(
 {
 	if (typec_role == TYPEC_ROLE_UNKNOWN ||
 		typec_role >= TYPEC_ROLE_NR) {
-		TYPEC_INFO("Wrong TypeC-Role: %d\r\n", typec_role);
+		TYPEC_INFO("Wrong TypeC-Role: %d\n", typec_role);
 		return -EINVAL;
 	}
 
 	if (tcpc->typec_role_new == typec_role) {
-		TYPEC_INFO("typec_new_role: %s is the same\r\n",
+		TYPEC_INFO("typec_new_role: %s is the same\n",
 			typec_role_name[typec_role]);
 		return 0;
 	}
 	tcpc->typec_role_new = typec_role;
 
-	TYPEC_INFO("typec_new_role: %s\r\n", typec_role_name[typec_role]);
+	TYPEC_INFO("typec_new_role: %s\n", typec_role_name[typec_role]);
 
 	if (!postpone || tcpc->typec_attach_old == TYPEC_UNATTACHED)
 		return tcpc_typec_error_recovery(tcpc);
@@ -2770,7 +2751,7 @@ static int typec_init_power_off_charge(struct tcpc_device *tcpc)
 	if (!tcpci_check_vbus_valid(tcpc))
 		return 0;
 
-	TYPEC_INFO2("PowerOffCharge\r\n");
+	TYPEC_INFO2("PowerOffCharge\n");
 
 	TYPEC_NEW_STATE(typec_unattached_snk);
 	typec_wait_ps_change(tcpc, TYPEC_WAIT_PS_DISABLE);
@@ -2798,11 +2779,11 @@ int tcpc_typec_init(struct tcpc_device *tcpc, uint8_t typec_role)
 
 	if (typec_role == TYPEC_ROLE_UNKNOWN ||
 		typec_role >= TYPEC_ROLE_NR) {
-		TYPEC_INFO("Wrong TypeC-Role: %d\r\n", typec_role);
+		TYPEC_INFO("Wrong TypeC-Role: %d\n", typec_role);
 		return -EINVAL;
 	}
 
-	TYPEC_INFO("typec_init: %s\r\n", typec_role_name[typec_role]);
+	TYPEC_INFO("typec_init: %s\n", typec_role_name[typec_role]);
 
 	tcpc->typec_role = typec_role;
 	tcpc->typec_role_new = typec_role;
@@ -2855,7 +2836,7 @@ int tcpc_typec_handle_wd(struct tcpc_device *tcpc, bool wd)
 	if (!(tcpc->tcpc_flags & TCPC_FLAGS_WATER_DETECTION))
 		return 0;
 
-	TYPEC_INFO("%s %d\r\n", __func__, wd);
+	TYPEC_INFO("%s %d\n", __func__, wd);
 	if (!wd) {
 		tcpci_set_water_protection(tcpc, false);
 		tcpc_typec_error_recovery(tcpc);
@@ -2866,7 +2847,7 @@ int tcpc_typec_handle_wd(struct tcpc_device *tcpc, bool wd)
 	ret = get_boot_mode();
 	if (ret == KERNEL_POWER_OFF_CHARGING_BOOT ||
 	    ret == LOW_POWER_OFF_CHARGING_BOOT) {
-		TYPEC_INFO("KPOC does not enter water protection\r\n");
+		TYPEC_INFO("KPOC does not enter water protection\n");
 		goto out;
 	}
 #endif /* CONFIG_MTK_KERNEL_POWER_OFF_CHARGING */

@@ -222,7 +222,10 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 
 	if (hw_id == MTK_VDEC_CORE) {
 		ctx = dev->curr_dec_ctx[hw_id];
-		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		if (ctx)
+			fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		else
+			fourcc = 0;
 		if (readl(vdec_gcon_addr) == 0) {
 			mtk_v4l2_debug(0, "VDEC not HW break since clk off. codec:0x%08x(%c%c%c%c)",
 			    fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
@@ -698,7 +701,6 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 		break;
 	case V4L2_PIX_FMT_MPEG4:
 	case V4L2_PIX_FMT_H263:
-	case V4L2_PIX_FMT_S263:
 	case V4L2_PIX_FMT_MPEG1:
 	case V4L2_PIX_FMT_MPEG2:
 		emi_bw = emi_bw * mp24_frm_scale[f_type] / (2 * STD_VDEC_FREQ);

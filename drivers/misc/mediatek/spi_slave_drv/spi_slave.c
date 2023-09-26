@@ -83,34 +83,21 @@ struct mtk_spi_slave_data {
 	struct spi_device *spi;
 	u32 tx_speed_hz;
 	u32 rx_speed_hz;
-	u32 addr;
-	u32 len;
-	void *buffer;
 	u8 slave_drive_strength;
 	u8 high_speed_tick_delay;
 	u8 low_speed_tick_delay;
 	u8 high_speed_early_trans;
 	u8 low_speed_early_trans;
+	/* mutex for SPI Slave IO */
+	struct mutex	spislv_mutex;
 	u8 tx_nbits:3;
 	u8 rx_nbits:3;
-	bool is_read:1;
 };
-
-static u8 cmd_trans_type_4byte_single[2] = {CMD_CT, 0x04};
-static u8 tx_cmd_read_sta[2] = {CMD_RS, 0x00};
-static u8 rx_cmd_read_sta[2] = {0x00, 0x00};
-
-static struct spi_transfer CT_TRANSFER = {0};
-static struct spi_transfer RS_TRANSFER = {0};
 
 static struct mtk_spi_slave_data slv_data = {
 	.spi = NULL,
 	.tx_speed_hz = SPI_TX_LOW_SPEED_HZ,
 	.rx_speed_hz = SPI_RX_LOW_SPEED_HZ,
-	.addr = 0,
-	.len = 0,
-	.buffer = NULL,
-	.is_read = 0,
 	.slave_drive_strength = 0,
 	.high_speed_tick_delay = 0,
 	.low_speed_tick_delay = 0,
@@ -134,28 +121,33 @@ static struct mtk_chip_config spislv_chip_info = {
 	.tick_delay = 0,
 };
 
-static int spislv_sync_sub(void)
+static u8 cmd_trans_type_4byte_single[2] = {CMD_CT, 0x04};
+static u8 tx_cmd_read_sta[2] = {CMD_RS, 0x00};
+static u8 rx_cmd_read_sta[2] = {0x00, 0x00};
+static struct spi_transfer CT_TRANSFER = {0};
+static struct spi_transfer RS_TRANSFER = {0};
+
+static int spislv_sync_sub(u32 addr, void *val, u32 len, bool is_read)
 {
 	int ret = 0, i = 0;
 	struct spi_message msg;
-	struct spi_transfer x[2] = {0};
+	struct spi_transfer x[3] = {0}; /* CW/CR, WD/RD, WS */
 	void *local_buf = NULL;
 	u8 mtk_spi_buffer[MTK_SPI_BUFSIZ];
 	u8 cmd_write_sta[2] = {CMD_WS, 0xff};
 	u8 status = 0;
 	u32 retry = 0;
-	u8 cmd_config[] = {
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	u8 cmd_config[9] = {0};
 
 	/* CR or CW */
-	if (slv_data.is_read)
+	if (is_read)
 		cmd_config[0] = CMD_CR;
 	else
 		cmd_config[0] = CMD_CW;
 
 	for (i = 0; i < 4; i++) {
-		cmd_config[1 + i] = (slv_data.addr & (0xff << (i * 8))) >> (i * 8);
-		cmd_config[5 + i] = ((slv_data.len - 1) & (0xff << (i * 8))) >> (i * 8);
+		cmd_config[1 + i] = (addr & (0xff << (i * 8))) >> (i * 8);
+		cmd_config[5 + i] = ((len - 1) & (0xff << (i * 8))) >> (i * 8);
 	}
 
 	x[0].tx_buf	= cmd_config;
@@ -176,17 +168,19 @@ static int spislv_sync_sub(void)
 		goto tail;
 
 	status = rx_cmd_read_sta[1];
+	/* ignore status for set early transfer bit */
+	if (addr == SPISLV_CTRL && !is_read)
+		status = 0x6;
 	if ((status & CONFIG_READY) != CONFIG_READY) {
-
-		pr_notice("SPI config %s status error: 0x%x, err addr: 0x%x\n",
-				slv_data.is_read ? "read" : "write", status, slv_data.addr);
+		pr_notice("SPI config %s but status error: 0x%x, latched by %dHZ, err addr: 0x%x\n",
+				is_read ? "read" : "write", status, slv_data.rx_speed_hz, addr);
 		ret = SPI_READ_STA_ERR_RET;
 		goto tail;
 	}
 
 	/* RD or WD */
-	if (slv_data.len > MTK_SPI_BUFSIZ - 1) {
-		local_buf = kzalloc(slv_data.len + 1, GFP_KERNEL);
+	if (len > MTK_SPI_BUFSIZ - 1) {
+		local_buf = kzalloc(len + 1, GFP_KERNEL);
 		if (!local_buf) {
 			ret = -ENOMEM;
 			goto tail;
@@ -196,20 +190,20 @@ static int spislv_sync_sub(void)
 		memset(local_buf, 0, MTK_SPI_BUFSIZ);
 	}
 
-	if (slv_data.is_read) {
+	if (is_read) {
 		*((u8 *)local_buf) = CMD_RD;
 		x[1].tx_buf = local_buf;
 		x[1].rx_buf = local_buf;
 		x[1].speed_hz = slv_data.rx_speed_hz;
 	} else {
 		*((u8 *)local_buf) = CMD_WD;
-		memcpy((u8 *)local_buf + 1, slv_data.buffer, slv_data.len);
+		memcpy((u8 *)local_buf + 1, val, len);
 		x[1].tx_buf = local_buf;
 		x[1].speed_hz = slv_data.tx_speed_hz;
 	}
 	x[1].tx_nbits = slv_data.tx_nbits;
 	x[1].rx_nbits = slv_data.rx_nbits;
-	x[1].len = slv_data.len + 1;
+	x[1].len = len + 1;
 	x[1].cs_change = 1;
 
 	spi_message_init(&msg);
@@ -224,15 +218,14 @@ static int spislv_sync_sub(void)
 
 	status = rx_cmd_read_sta[1];
 	/* ignore status for set early transfer bit */
-	if (slv_data.addr == SPISLV_CTRL)
+	if (addr == SPISLV_CTRL && !is_read)
 		status = 0x26;
-
 	if (((status & SR_RD_ERR) == SR_RD_ERR) ||
 		((status & SR_WR_ERR) == SR_WR_ERR) ||
 		((status & SR_TIMEOUT_ERR) == SR_TIMEOUT_ERR)) {
 
-		pr_notice("SPI %s error: 0x%x, err addr: 0x%x\n",
-				slv_data.is_read ? "read" : "write", status, slv_data.addr);
+		pr_notice("SPI %s error, status: 0x%x, latched by %dHZ, err addr: 0x%x\n",
+				is_read ? "read" : "write", status, slv_data.rx_speed_hz, addr);
 
 		/* WS */
 		x[2].tx_buf	= cmd_write_sta;
@@ -249,9 +242,9 @@ static int spislv_sync_sub(void)
 		ret = SPI_READ_STA_ERR_RET;
 	} else {
 		while (((status & SR_RDWR_FINISH) != SR_RDWR_FINISH)) {
-			pr_notice("SPI %s not finish: 0x%x latched by %dHZ, err addr: 0x%x, polling: %d\n",
-				slv_data.is_read ? "read" : "write",
-				status, RS_TRANSFER.speed_hz, slv_data.addr, retry);
+			pr_notice("SPI %s not finish, status: 0x%x, latched by %dHZ, err addr: 0x%x, polling: %d\n",
+				is_read ? "read" : "write",
+				status, slv_data.rx_speed_hz, addr, retry);
 			if (retry++ >= MAX_SPI_TRY_CNT) {
 				ret = SPI_READ_STA_ERR_RET;
 				goto tail;
@@ -271,54 +264,55 @@ static int spislv_sync_sub(void)
 
 tail:
 	/* Only for successful read */
-	if (slv_data.is_read && !ret)
-		memcpy(slv_data.buffer, ((u8 *)x[1].rx_buf + 1), slv_data.len);
+	if (is_read && !ret)
+		memcpy(val, ((u8 *)x[1].rx_buf + 1), len);
 
 	if (local_buf != mtk_spi_buffer)
 		kfree(local_buf);
 	return ret;
 }
 
-static int spislv_sync(void)
+static int spislv_sync(u32 addr, void *val, u32 len, bool is_read)
 {
 	int ret = 0;
-	int once_addr = MAX_SPI_XFER_SIZE_ONCE / 4;
-	u32 len = 0;
+	u32 addr_local = addr;
+	void *val_local = val;
+	u32 len_local = len;
 	u32 try = 0;
 
-	if (slv_data.len < MAX_SPI_XFER_SIZE_ONCE)
+	mutex_lock(&slv_data.spislv_mutex);
+
+	if (len_local < MAX_SPI_XFER_SIZE_ONCE)
 		goto transfer_drect;
 
-	len = slv_data.len;
-	while (len > MAX_SPI_XFER_SIZE_ONCE) {
-		slv_data.len = MAX_SPI_XFER_SIZE_ONCE;
-		ret = spislv_sync_sub();
+	while (len_local > MAX_SPI_XFER_SIZE_ONCE) {
+		ret = spislv_sync_sub(addr_local, val_local, MAX_SPI_XFER_SIZE_ONCE, is_read);
 		while (ret) {
 			pr_notice("spi slave error, addr: 0x%x, ret(%d), retry: %d\n",
-				slv_data.addr, ret, try);
+				addr_local, ret, try);
 			if (try++ == MAX_SPI_TRY_CNT)
 				goto tail;
-			ret = spislv_sync_sub();
+			ret = spislv_sync_sub(addr_local, val_local,
+				MAX_SPI_XFER_SIZE_ONCE, is_read);
 		}
-		slv_data.addr = slv_data.addr + once_addr;
-		slv_data.buffer = (u8 *)slv_data.buffer + MAX_SPI_XFER_SIZE_ONCE;
-		len = len - MAX_SPI_XFER_SIZE_ONCE;
+		addr_local = addr_local + MAX_SPI_XFER_SIZE_ONCE;
+		val_local = (u8 *)val_local + MAX_SPI_XFER_SIZE_ONCE;
+		len_local = len_local - MAX_SPI_XFER_SIZE_ONCE;
 	}
 
-	slv_data.len = len;
-
 transfer_drect:
-	ret = spislv_sync_sub();
+	try = 0;
+	ret = spislv_sync_sub(addr_local, val_local, len_local, is_read);
 	while (ret) {
 		pr_notice("spi slave error, addr: 0x%x, ret(%d), retry: %d\n",
-			slv_data.addr, ret, try);
+			addr_local, ret, try);
 		if (try++ == MAX_SPI_TRY_CNT)
 			goto tail;
-		ret = spislv_sync_sub();
+		ret = spislv_sync_sub(addr_local, val_local, len_local, is_read);
 	}
 
 tail:
-	/* slv_data's transfer info will not be original if split. */
+	mutex_unlock(&slv_data.spislv_mutex);
 	return ret;
 }
 
@@ -328,20 +322,23 @@ int spislv_init(void)
 	int ret = 0;
 
 	spislv_chip_info.tick_delay = slv_data.low_speed_tick_delay;
+	slv_data.tx_speed_hz = SPI_TX_LOW_SPEED_HZ;
+	slv_data.rx_speed_hz = SPI_RX_LOW_SPEED_HZ;
+	RS_TRANSFER.speed_hz = slv_data.rx_speed_hz;
 
 	spi_message_init(&msg);
 	spi_message_add_tail(&CT_TRANSFER, &msg);
-
 	ret = spi_sync(slv_data.spi, &msg);
 	if (ret)
 		return ret;
-	ret = spislv_write_register_mask(SPISLV_CTRL,
-		slv_data.low_speed_early_trans << 16, EARLY_TRANS_MASK);
+
+	ret = spislv_write_register(SPISLV_CTRL, (0x40 & (~(EARLY_TRANS_MASK)))
+		| ((slv_data.low_speed_early_trans << 16) & (EARLY_TRANS_MASK)));
 	if (ret)
 		return ret;
 
-	if (slv_data.slave_drive_strength)
-		ret = spislv_write_register_mask(DRV_CFG0, (0x7 << 21), SPIS_SLVO_MASK);
+	ret = spislv_write_register_mask(DRV_CFG0,
+		(slv_data.slave_drive_strength << 21), SPIS_SLVO_MASK);
 	return ret;
 }
 
@@ -349,41 +346,32 @@ int spislv_switch_speed_hz(u32 tx_speed_hz, u32 rx_speed_hz)
 {
 	int ret = 0;
 
-	slv_data.tx_speed_hz =
-	(tx_speed_hz > SPI_TX_MAX_SPEED_HZ ? SPI_TX_MAX_SPEED_HZ : tx_speed_hz);
-	slv_data.rx_speed_hz =
-	(rx_speed_hz > SPI_RX_MAX_SPEED_HZ ? SPI_RX_MAX_SPEED_HZ : rx_speed_hz);
-	RS_TRANSFER.speed_hz = slv_data.rx_speed_hz;
-
-	if (slv_data.rx_speed_hz == SPI_RX_MAX_SPEED_HZ) {
+	if (rx_speed_hz >= SPI_RX_MAX_SPEED_HZ) {
+		ret = spislv_write_register(SPISLV_CTRL, (0x40 & (~(EARLY_TRANS_MASK)))
+			| ((slv_data.high_speed_early_trans << 16) & (EARLY_TRANS_MASK)));
 		spislv_chip_info.tick_delay = slv_data.high_speed_tick_delay;
-		ret = spislv_write_register_mask(SPISLV_CTRL,
-			slv_data.high_speed_early_trans << 16, EARLY_TRANS_MASK);
 	} else {
+		ret = spislv_write_register(SPISLV_CTRL, (0x40 & (~(EARLY_TRANS_MASK)))
+			| ((slv_data.low_speed_early_trans << 16) & (EARLY_TRANS_MASK)));
 		spislv_chip_info.tick_delay = slv_data.low_speed_tick_delay;
-		ret = spislv_write_register_mask(SPISLV_CTRL,
-			slv_data.low_speed_early_trans << 16, EARLY_TRANS_MASK);
 	}
+	slv_data.tx_speed_hz =
+		(tx_speed_hz > SPI_TX_MAX_SPEED_HZ ? SPI_TX_MAX_SPEED_HZ : tx_speed_hz);
+	slv_data.rx_speed_hz =
+		(rx_speed_hz > SPI_RX_MAX_SPEED_HZ ? SPI_RX_MAX_SPEED_HZ : rx_speed_hz);
+	RS_TRANSFER.speed_hz = slv_data.rx_speed_hz;
 
 	return ret;
 }
 
-int spislv_write(u32 addr, void *val, int len)
+int spislv_write(u32 addr, void *val, u32 len)
 {
-	slv_data.buffer = val;
-	slv_data.addr = addr;
-	slv_data.len = len;
-	slv_data.is_read = 0;
-	return spislv_sync();
+	return spislv_sync(addr, val, len, 0);
 }
 
-int spislv_read(u32 addr, void *val, int len)
+int spislv_read(u32 addr, void *val, u32 len)
 {
-	slv_data.buffer = val;
-	slv_data.addr = addr;
-	slv_data.len = len;
-	slv_data.is_read = 1;
-	return spislv_sync();
+	return spislv_sync(addr, val, len, 1);
 }
 
 int spislv_read_register(u32 addr, u32 *val)
@@ -394,31 +382,6 @@ int spislv_read_register(u32 addr, u32 *val)
 int spislv_write_register(u32 addr, u32 val)
 {
 	return spislv_write(addr, (u8 *)&val, 4);
-}
-
-int spislv_set_register32(u32 addr, u32 val)
-{
-	u32 ret = 0;
-	u32 read_val;
-
-	ret = spislv_read_register(addr, &read_val);
-	if (ret)
-		return ret;
-	ret = spislv_write_register(addr, read_val | val);
-
-	return ret;
-}
-
-int spislv_clr_register32(u32 addr, u32 val)
-{
-	u32 ret = 0;
-	u32 read_val;
-
-	ret = spislv_read_register(addr, &read_val);
-	if (ret)
-		return ret;
-	ret = spislv_write_register(addr, read_val & (~val));
-	return ret;
 }
 
 int spislv_write_register_mask(u32 addr, u32 val, u32 msk)
@@ -506,7 +469,6 @@ static int spi_slave_probe(struct spi_device *spi)
 	CT_TRANSFER.tx_nbits = slv_data.tx_nbits;
 	CT_TRANSFER.rx_nbits = slv_data.rx_nbits;
 	CT_TRANSFER.speed_hz = slv_data.tx_speed_hz;
-
 	RS_TRANSFER.tx_buf = tx_cmd_read_sta;
 	RS_TRANSFER.rx_buf = rx_cmd_read_sta;
 	RS_TRANSFER.len = ARRAY_SIZE(tx_cmd_read_sta);
@@ -516,6 +478,8 @@ static int spi_slave_probe(struct spi_device *spi)
 
 	spi->bits_per_word = 8;
 	spi->controller_data = (void *)&spislv_chip_info;
+	spislv_chip_info.tick_delay = slv_data.low_speed_tick_delay;
+	mutex_init(&slv_data.spislv_mutex);
 
 	return 0;
 }

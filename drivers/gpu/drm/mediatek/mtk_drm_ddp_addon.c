@@ -576,7 +576,7 @@ void mtk_addon_connect_after(struct drm_crtc *crtc, unsigned int ddp_mode,
 
 	prev_attach_comp_id =
 		mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
-	if (prev_attach_comp_id == -1) {
+	if (prev_attach_comp_id < 0) {
 		comp = priv->ddp_comp[module_data->attach_comp];
 		DDPMSG("[ERR]Attach module:%s is not in path mode %d\n",
 			  mtk_dump_comp_str(comp), ddp_mode);
@@ -660,7 +660,8 @@ void mtk_addon_disconnect_after(
 	prev_attach_comp_id =
 		mtk_crtc_find_comp(crtc, ddp_mode, module_data->attach_comp);
 	if (prev_attach_comp_id == -1) {
-		comp = priv->ddp_comp[module_data->attach_comp];
+		comp = priv->ddp_comp[(module_data->attach_comp > 0) ?
+				module_data->attach_comp : 0];
 		DDPMSG("[ERR]Attach module:%s is not in path mode %d\n",
 			  mtk_dump_comp_str(comp), ddp_mode);
 		return;

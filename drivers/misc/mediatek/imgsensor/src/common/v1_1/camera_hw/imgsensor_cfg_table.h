@@ -34,6 +34,9 @@ enum IMGSENSOR_HW_PIN {
 #endif
 	IMGSENSOR_HW_PIN_DVDD,
 	IMGSENSOR_HW_PIN_DOVDD,
+#ifdef _XIAOMI_
+	IMGSENSOR_HW_PIN_AFVDD,
+#endif
 #ifdef MIPI_SWITCH
 	IMGSENSOR_HW_PIN_MIPI_SWITCH_EN,
 	IMGSENSOR_HW_PIN_MIPI_SWITCH_SEL,
@@ -74,8 +77,11 @@ enum IMGSENSOR_HW_PIN_STATE {
 #define VDD_None    IMGSENSOR_HW_PIN_NONE
 
 	/* For backward compatible */
+#ifdef _XIAOMI_
+#define AFVDD       IMGSENSOR_HW_PIN_AFVDD
+#else
 #define AFVDD       IMGSENSOR_HW_PIN_UNDEF
-
+#endif
 
 /* Voltage */
 #define Vol_Low   IMGSENSOR_HW_PIN_STATE_LEVEL_0

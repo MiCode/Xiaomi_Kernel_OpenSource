@@ -340,7 +340,12 @@ imgsensor_sensor_feature_control(
 	    psensor_inst) {
 
 		imgsensor_mutex_lock(psensor_inst);
-
+		if (FeatureId == SENSOR_FEATURE_GET_TEMPERATURE_VALUE &&
+		    psensor_inst->state == IMGSENSOR_STATE_CLOSE){
+			//should do nothing in close stage
+			imgsensor_mutex_unlock(psensor_inst);
+			return ret;
+		}
 		psensor_func->psensor_inst = psensor_inst;
 #if defined(CONFIG_MTK_CAM_SECURE_I2C)
 	PK_INFO("%s secure state %d", __func__,
@@ -533,6 +538,9 @@ static inline int imgsensor_check_is_alive(struct IMGSENSOR_SENSOR *psensor)
 	struct IMGSENSOR_SENSOR_INST *psensor_inst = &psensor->inst;
 
 	IMGSENSOR_PROFILE_INIT(&psensor_inst->profile_time);
+#ifdef _XIAOMI_AGATE_
+	psensor->mutil_camera = 0;
+#endif
 	ret = imgsensor_hw_power(&pimgsensor->hw,
 			psensor,
 			IMGSENSOR_HW_POWER_STATUS_ON);
@@ -1043,6 +1051,9 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 		break;
 
 	case SENSOR_FEATURE_OPEN:
+#ifdef _XIAOMI_AGATE_
+		psensor->mutil_camera = (*(MUINT32 *)pFeaturePara);
+#endif
 		ret = imgsensor_sensor_open(psensor);
 		break;
 
@@ -2068,7 +2079,6 @@ static long imgsensor_ioctl(
 		if (_IOC_WRITE & _IOC_DIR(a_u4Command)) {
 			if (copy_from_user(pBuff, (void *)a_u4Param,
 			_IOC_SIZE(a_u4Command))) {
-				kfree(pBuff);
 				PK_DBG(
 			"[CAMERA SENSOR] ioctl copy from user failed\n");
 				i4RetValue = -EFAULT;
@@ -2096,20 +2106,24 @@ static long imgsensor_ioctl(
 	default:
 		PK_DBG("No such command %d\n", a_u4Command);
 		i4RetValue = -EPERM;
+		goto CAMERA_HW_Ioctl_EXIT;
 		break;
 	}
 
 	if ((_IOC_READ & _IOC_DIR(a_u4Command)) &&
 	    copy_to_user((void __user *)a_u4Param, pBuff,
 			_IOC_SIZE(a_u4Command))) {
-		kfree(pBuff);
 		PK_DBG("[CAMERA SENSOR] ioctl copy to user failed\n");
 		i4RetValue = -EFAULT;
 		goto CAMERA_HW_Ioctl_EXIT;
 	}
 
-	kfree(pBuff);
 CAMERA_HW_Ioctl_EXIT:
+	if (pBuff != NULL) {
+		kfree(pBuff);
+		pBuff = NULL;
+	}
+
 	return i4RetValue;
 }
 
@@ -2297,6 +2311,7 @@ static void __exit imgsensor_exit(void)
 {
 	platform_driver_unregister(&gimgsensor_platform_driver);
 }
+#define NEED_LATER_INITCALL
 #ifdef NEED_LATE_INITCALL
 	late_initcall(imgsensor_init);
 #else

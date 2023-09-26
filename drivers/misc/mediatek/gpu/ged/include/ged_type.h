@@ -60,7 +60,6 @@
 #define GED_INFO_SIZE            20
 #define GED_INFO                 int
 
-
 #define GED_DVFS_VSYNC_OFFSET_DEBUG_CLEAR_EVENT	         0
 #define GED_DVFS_VSYNC_OFFSET_FORCE_ON                   1
 #define GED_DVFS_VSYNC_OFFSET_FORCE_OFF                  2

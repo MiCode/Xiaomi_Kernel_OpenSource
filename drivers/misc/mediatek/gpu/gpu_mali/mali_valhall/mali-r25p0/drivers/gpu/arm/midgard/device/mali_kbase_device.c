@@ -81,7 +81,8 @@ static int kbase_device_as_init(struct kbase_device *kbdev, int i)
 	kbdev->as[i].bf_data.addr = 0ULL;
 	kbdev->as[i].pf_data.addr = 0ULL;
 
-	kbdev->as[i].pf_wq = alloc_workqueue("mali_mmu%d", 0, 1, i);
+	//kbdev->as[i].pf_wq = alloc_workqueue("mali_mmu%d", 0, 1, i);
+	kbdev->as[i].pf_wq = alloc_workqueue("mali_mmu%d", WQ_HIGHPRI | WQ_UNBOUND, WQ_UNBOUND_MAX_ACTIVE, i);
 	if (!kbdev->as[i].pf_wq)
 		return -EINVAL;
 

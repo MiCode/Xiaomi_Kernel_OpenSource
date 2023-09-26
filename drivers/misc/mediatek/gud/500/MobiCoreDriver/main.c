@@ -37,6 +37,10 @@
 #include "client.h"
 #include "build_tag.h"
 
+#ifdef MC_TEE_HOTPLUG
+#include <linux/cpuhotplug.h>
+#endif
+
 /* Default entry for our driver in device tree */
 #ifndef MC_DEVICE_PROPNAME
 #define MC_DEVICE_PROPNAME "trustonic,mobicore"
@@ -425,6 +429,10 @@ static int mobicore_start(void)
 		mc_dev_err(ret, "PM notifier register failed");
 		goto err_pm_notif;
 	}
+#endif
+#ifdef MC_TEE_HOTPLUG
+	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "Trustonic",
+				nq_cpu_on, nq_cpu_off);
 #endif
 
 	ret = protocol_start();

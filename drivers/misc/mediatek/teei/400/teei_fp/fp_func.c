@@ -139,15 +139,11 @@ static long fp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		}
 
-#ifdef DYNAMIC_SET_PRIORITY
 		teei_cpus_write_lock();
-#endif
 
 		ret  = send_fp_command((void *)arg, args_len + 16);
 
-#ifdef DYNAMIC_SET_PRIORITY
 		teei_cpus_write_unlock();
-#endif
 
 		if (ret) {
 			IMSG_ERROR("transfer data to ta failed.\n");
@@ -220,10 +216,14 @@ static void fp_setup_cdev(struct fp_dev *dev, int index)
 		IMSG_ERROR("Error %d adding fp %d.\n", err, index);
 }
 
+extern int is_teei_boot(void);
 int fp_init(void)
 {
 	int result = 0;
 	struct device *class_dev = NULL;
+
+	if (is_teei_boot() == 0)
+		return 0;
 
 	devno = MKDEV(fp_major, 0);
 	result = alloc_chrdev_region(&devno, 0, 1, DEV_NAME);

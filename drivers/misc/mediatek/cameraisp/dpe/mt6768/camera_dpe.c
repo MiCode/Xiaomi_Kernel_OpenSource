@@ -140,7 +140,7 @@ struct DPE_CLK_STRUCT dpe_clk;
 #define log_dbg(format, args...)
 #endif
 #define LOG_ERR(format, args...)    pr_info(MyTag format,  ##args)
-#define LOG_INF(format, args...)    pr_debug(MyTag format,  ##args)
+#define LOG_INF(format, args...)    pr_info(MyTag format,  ##args)
 #define LOG_NOTICE(format, args...) pr_notice(MyTag format,  ##args)
 
 /* For other projects. */
@@ -2928,7 +2928,7 @@ return -EFAULT;
 			IrqInfo.Clear,
 			IrqInfo.Type,
 			IrqInfo.UserKey);
-			LOG_INF("timeout(%d),status(%d)\n",
+			log_dbg("timeout(%d),status(%d)\n",
 			IrqInfo.Timeout,
 			IrqInfo.Status);
 
@@ -3073,7 +3073,7 @@ return -EFAULT;
 			if (bDveFound == MTRUE)
 				ConfigDVEFrameByReqIdx(DveWriteIdx);
 
-			LOG_INF("DVE enq done!,widx(%d),cfgcnt(%d)\n",
+			log_dbg("DVE enq done!,widx(%d),cfgcnt(%d)\n",
 				g_DVE_RequestRing.WriteIdx, gDveCnt);
 		mutex_unlock(&gDpeDveMutex);
 	} else {
@@ -3138,7 +3138,7 @@ LOG_INF("DEQ_NUM No Buf!,ReadIdx(%d),ReqSta(%d),FrameRDIdx(%d),enqReqNum(%d)\n",
 		g_DVE_RequestRing.DVEReq_Struct[ReadIdx].enqueReqNum = 0;
 		g_DVE_RequestRing.ReadIdx =
 			(ReadIdx + 1) % _SUPPORT_MAX_DPE_REQUEST_RING_SIZE_;
-		LOG_INF("DVE Request ReadIdx(%d)\n",
+		log_dbg("DVE Request ReadIdx(%d)\n",
 			g_DVE_RequestRing.ReadIdx);
 
 		spin_unlock_irqrestore(
@@ -3248,7 +3248,7 @@ for (idx = 0; idx < dpe_WmfeReq.m_ReqNum; idx++) {
 	if (bWMFEFound == MTRUE)
 		ConfigWMFEFrameByReqIdx(WmfeWriteIdx);
 
-	LOG_INF("WMFE enq done!,widx(%d),cfgcnt(%d)\n",
+	log_dbg("WMFE enq done!,widx(%d),cfgcnt(%d)\n",
 		g_WMFE_ReqRing.WriteIdx, gWfmeCnt);
 	mutex_unlock(&gDpeWmfeMutex);
 	} else {
@@ -4786,10 +4786,10 @@ if (bResulst == MTRUE) {
 	if (bResulst == MFALSE)
 		ConfigDVEFrameByReqIdx(g_DVE_RequestRing.HWProcessIdx);
 
-		LOG_INF("DVE:bFound:%d, DveWriteIdx:%d, WriteIdx:%d\n",
+		log_dbg("DVE:bFound:%d, DveWriteIdx:%d, WriteIdx:%d\n",
 		bFound, DveWriteIdx,
 		g_DVE_RequestRing.WriteIdx);
-		LOG_INF("DVE:gDveCnt:%d,RequestState:%d,HWIdx:%d\n",
+		log_dbg("DVE:gDveCnt:%d,RequestState:%d,HWIdx:%d\n",
 		gDveCnt,
 		g_DVE_RequestRing.DVEReq_Struct[DveWriteIdx].RequestState,
 		g_DVE_RequestRing.HWProcessIdx);
@@ -4852,10 +4852,10 @@ if (bResulst == MTRUE) {
 	if (bResulst == MFALSE)
 		ConfigWMFEFrameByReqIdx(g_WMFE_ReqRing.HWProcessIdx);
 
-	LOG_INF("WMFE:bFound:%d, WmfeWriteIdx:%d, WriteIdx:%d\n",
+	log_dbg("WMFE:bFound:%d, WmfeWriteIdx:%d, WriteIdx:%d\n",
 	bFound, WmfeWriteIdx,
 	g_WMFE_ReqRing.WriteIdx);
-	LOG_INF("WMFE:gWfmeCnt:%d, RequestState:%d, HWIdx:%d\n",
+	log_dbg("WMFE:gWfmeCnt:%d, RequestState:%d, HWIdx:%d\n",
 	gWfmeCnt,
 	g_WMFE_ReqRing.WMFEReq_Struct[WmfeWriteIdx].RequestState,
 	g_WMFE_ReqRing.HWProcessIdx);

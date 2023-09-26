@@ -600,6 +600,19 @@ unsigned long kbase_mem_evictable_reclaim_count_objects(struct shrinker *s,
 	struct kbase_mem_phy_alloc *alloc;
 	unsigned long pages = 0;
 
+	WARN((sc->gfp_mask & __GFP_ATOMIC),
+        "Shrinkers cannot be called for GFP_ATOMIC allocations. Check kernel mm for problems. gfp_mask==%x\n", sc->gfp_mask);
+	WARN(in_atomic(),
+        "Shrinker called whilst in atomic context. The caller must switch to using GFP_ATOMIC or similar. gfp_mask==%x\n", sc->gfp_mask);
+	WARN(in_interrupt (),
+        "Shrinker called whilst in interrupt context. The caller must switch to using GFP_ATOMIC or similar. gfp_mask==%x\n", sc->gfp_mask);
+	/*
+	 * [GPUCORE-27200] WA for scheduling while atomic avoidance
+	 * return 0 while callback is called with GFP_ATOMIC or atomic/interrupt context
+	 */
+	if (unlikely(in_atomic() || in_interrupt() || (sc->gfp_mask & __GFP_ATOMIC))) {
+		return 0;
+	}
 	kctx = container_of(s, struct kbase_context, reclaim);
         /*
 	 * [GPUCORE-27200] WA for scheduling while atomic avoidance
@@ -610,6 +623,9 @@ unsigned long kbase_mem_evictable_reclaim_count_objects(struct shrinker *s,
 
 	// MTK add to prevent false alarm
 	lockdep_off();
+
+	if(mutex_is_locked(&kctx->jit_evict_lock))
+		return 0;
 
 	mutex_lock(&kctx->jit_evict_lock);
 
@@ -652,10 +668,27 @@ unsigned long kbase_mem_evictable_reclaim_scan_objects(struct shrinker *s,
 	struct kbase_mem_phy_alloc *tmp;
 	unsigned long freed = 0;
 
+	WARN((sc->gfp_mask & __GFP_ATOMIC),
+	"Shrinkers cannot be called for GFP_ATOMIC allocations. Check kernel mm for problems. gfp_mask==%x\n", sc->gfp_mask);
+	WARN(in_atomic(),
+	"Shrinker called whilst in atomic context. The caller must switch to using GFP_ATOMIC or similar. gfp_mask==%x\n", sc->gfp_mask);
+	WARN(in_interrupt (),
+	"Shrinker called whilst in interrupt context. The caller must switch to using GFP_ATOMIC or similar. gfp_mask==%x\n", sc->gfp_mask);
+	/*
+	 * [GPUCORE-27200] WA for scheduling while atomic avoidance
+	 * return 0 while callback is called with GFP_ATOMIC or atomic/interrupt context
+	 */
+	if (unlikely(in_atomic() || in_interrupt() || (sc->gfp_mask & __GFP_ATOMIC))) {
+		return 0;
+	}
+
 	kctx = container_of(s, struct kbase_context, reclaim);
 
 	// MTK add to prevent false alarm
 	lockdep_off();
+
+	if(mutex_is_locked(&kctx->jit_evict_lock))
+		return SHRINK_STOP;
 
 	mutex_lock(&kctx->jit_evict_lock);
 

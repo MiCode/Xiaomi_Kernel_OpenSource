@@ -1,0 +1,120 @@
+
+//NFCC for Mediateckstart
+&i2c3 {
+    status = "okay";
+    nxp@28 {
+        compatible = "qcom,nq-nci";
+        reg = <0x28>;
+        qcom,nq-irq         = <&pio 11 0x00>;
+        interrupt-parent    = <&pio>;
+        interrupts          = <11 IRQ_TYPE_LEVEL_HIGH 11 0>;
+        qcom,nq-ven         = <&pio 8 0x0>;
+        qcom,nq-firm        = <&pio 10 0x0>;
+        qcom,nq-clkreq      = <&pio 115 0x0>;
+        interrupt-names = "nfc_irq";
+        pinctrl-names   = "default", "nfc_active", "nfc_suspend";
+        pinctrl-0 = <&nfc_default>;
+        pinctrl-1 = <&nfc_int_active &nfc_enable_active
+                    &nfc_clk_req_active &nfc_firmwaredownload_active>;
+        pinctrl-2 = <&nfc_int_suspend &nfc_enable_suspend
+                    &nfc_clk_req_suspend &nfc_firmwaredownload_suspend>;
+    };
+};
+&pio {
+    nfc_default: nfc_default {
+    };
+    nfc_int_active: nfc_int_active {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO11__FUNC_GPIO11>;
+            slew-rate = <0>;
+            drive-strength = <MTK_DRIVE_2mA>;
+            bias-pull-up;
+        };
+    };
+    nfc_int_suspend: nfc_int_suspend {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO11__FUNC_GPIO11>;
+            slew-rate = <0>;
+            drive-strength = <MTK_DRIVE_2mA>;
+            bias-pull-up;
+        };
+    };
+    nfc_enable_active: nfc_enable_active {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+            slew-rate = <1>;
+            output-high;
+            drive-strength = <MTK_DRIVE_2mA>;
+            bias-pull-up=<MTK_PUPD_SET_R1R0_11>;
+        };
+    };
+    nfc_enable_suspend: nfc_enable_suspend {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO8__FUNC_GPIO8>;
+            slew-rate = <1>;
+            drive-strength = <MTK_DRIVE_2mA>;
+            bias-disable;
+        };
+    };
+    nfc_firmwaredownload_active: nfc_firmwaredownload_active {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO10__FUNC_GPIO10>;
+            slew-rate = <1>;
+            drive-strength = <MTK_DRIVE_2mA>;
+            bias-pull-up;
+        };
+    };
+    nfc_firmwaredownload_suspend: nfc_firmwaredownload_suspend {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO10__FUNC_GPIO10>;
+            slew-rate = <1>;
+            drive-strength = <MTK_DRIVE_2mA>;
+            bias-disable;
+        };
+    };
+    nfc_clk_req_active: nfc_clk_req_active {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO115__FUNC_SRCLKENAI0>;
+            slew-rate = <0>;
+            input-enable;
+            drive-strength = <MTK_DRIVE_2mA>;
+            bias-pull-up;
+        };
+    };
+    nfc_clk_req_suspend: nfc_clk_req_suspend {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO115__FUNC_SRCLKENAI0>;
+            slew-rate = <0>;
+            input-enable;
+            drive-strength = <MTK_DRIVE_2mA>;
+            bias-pull-down;
+        };
+    };
+};
+//NFCC end 
+/* eSE SPI configuration */
+&spi1 {
+    #address-cells = <1>;
+    #size-cells = <0>;
+    p61@31 {
+        compatible = "nxp,p61";
+        reg = <0>;
+        spi-max-frequency = <8000000>;
+        status = "okay";
+        pinctrl-names = "nxp_ese_spi_mode";
+        pinctrl-0 = <&nxp_ese_spi_mode>;
+    };
+};
+&pio {
+    nxp_ese_spi_mode: nxp_ese_spi_mode {
+        pins_cmd_dat {
+            pinmux = <PINMUX_GPIO184__FUNC_SPI1_MI>,
+                    <PINMUX_GPIO185__FUNC_SPI1_MO>,
+                    <PINMUX_GPIO182__FUNC_SPI1_CLK>,
+                    <PINMUX_GPIO183__FUNC_SPI1_CSB>;
+            drive-strength = <4>;
+        };
+    };
+};
+/* eSE SPI configuration -- end */
+

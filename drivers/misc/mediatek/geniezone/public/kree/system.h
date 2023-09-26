@@ -25,6 +25,8 @@
 #include <tz_cross/trustzone.h>
 #include <gz-trusty/trusty.h>
 
+#define MAX_UUID_LEN (40)
+
 void KREE_SESSION_LOCK(int32_t handle);
 void KREE_SESSION_UNLOCK(int32_t handle);
 

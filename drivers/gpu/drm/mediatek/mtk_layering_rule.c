@@ -431,8 +431,7 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 			tmp_map = layer_mapping_table[addon_data->hrt_type];
 			if (mtk_drm_helper_get_opt(priv->helper_opt,
 				MTK_DRM_OPT_VDS_PATH_SWITCH) &&
-				priv->need_vds_path_switch &&
-				(disp_idx == HRT_PRIMARY))
+				priv->need_vds_path_switch)
 				tmp_map = layer_mapping_table_vds_switch[
 					addon_data->hrt_type];
 

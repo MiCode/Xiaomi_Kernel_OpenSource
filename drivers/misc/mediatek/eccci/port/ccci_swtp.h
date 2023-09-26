@@ -30,6 +30,7 @@
 
 struct swtp_t {
 	unsigned int	md_id;
+	unsigned int	curr_mode;
 	unsigned int	irq[MAX_PIN_NUM];
 	unsigned int	gpiopin[MAX_PIN_NUM];
 	unsigned int	setdebounce[MAX_PIN_NUM];
@@ -38,9 +39,11 @@ struct swtp_t {
 	int	tx_power_mode;
 	spinlock_t		spinlock;
 	struct delayed_work delayed_work;
+	struct delayed_work init_delayed_work;
 };
 /*****************************************************************************/
 /* External API Region called by ccci_swtp object */
 /*****************************************************************************/
 extern int swtp_init(int md_id);
+extern void inject_pin_status_event(int pin_value, const char pin_name[]);
 #endif				/* __SWTP_H__ */

@@ -971,10 +971,14 @@ void dma_free_coherent_fix_iova(struct device *dev, void *cpu_addr,
 
 	size = PAGE_ALIGN(size);
 
-	if (WARN_ON(!area || !area->pages))
+	if (area && area->pages) {
+		iommu_dma_free_from_reserved_range(dev, area->pages,
+			iosize, &dma_addr);
+		dma_common_free_remap(cpu_addr, size, VM_USERMAP);
+	} else {
+		pr_info("find vm area fail!\n");
 		return;
-	iommu_dma_free_from_reserved_range(dev, area->pages, iosize, &dma_addr);
-	dma_common_free_remap(cpu_addr, size, VM_USERMAP);
+	}
 }
 EXPORT_SYMBOL(dma_free_coherent_fix_iova);
 

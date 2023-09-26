@@ -31,10 +31,24 @@
 #include "mtk_log.h"
 #include "mtk_drm_mmp.h"
 
+#include <linux/kref.h>
+
 #define to_drm_private(x) container_of(x, struct mtk_drm_private, fb_helper)
 #define ALIGN_TO_32(x) ALIGN_TO(x, 32)
 
 struct fb_info *debug_info;
+
+static inline int try_use_fb_buf(struct drm_device *dev)
+{
+	struct mtk_drm_private *priv = dev->dev_private;
+
+	if (priv == NULL) {
+		DDPPR_ERR("%s: priv is NULL\n", __func__);
+		return 0;
+	}
+
+	return kref_get_unless_zero(&priv->kref_fb_buf);
+}
 
 unsigned int mtk_drm_fb_fm_auto_test(struct fb_info *info)
 {
@@ -214,6 +228,7 @@ int pan_display_test(int frame_num, int bpp)
 
 #define MTK_LEGACY_FB_MAP
 #ifndef MTK_LEGACY_FB_MAP
+
 static int mtk_drm_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
 {
 	struct drm_fb_helper *helper = info->par;
@@ -222,6 +237,84 @@ static int mtk_drm_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	debug_info = info;
 	return mtk_drm_gem_mmap_buf(private->fbdev_bo, vma);
 }
+
+#else
+
+static void mtk_drm_fbdev_vm_close(struct vm_area_struct *vma)
+{
+	struct fb_info *info = vma->vm_file->private_data;
+	struct drm_fb_helper *fb_helper = info->par;
+	struct drm_device *drm_dev = fb_helper->dev;
+
+	DDPMSG("%s: munmap done\n", __func__);
+	try_free_fb_buf(drm_dev);
+}
+
+static int mtk_drm_fbdev_vm_split(struct vm_area_struct *area, unsigned long addr)
+{
+	/* don't support split */
+	DDPPR_ERR("split not support\n");
+	return -EFAULT;
+}
+
+static const struct vm_operations_struct mtk_drm_fbdev_vm_ops = {
+	.split = mtk_drm_fbdev_vm_split,
+	.close = mtk_drm_fbdev_vm_close,
+};
+
+static int mtk_drm_fbdev_mmap(struct fb_info *info, struct vm_area_struct *vma)
+{
+	/* copy from fbmem.c */
+
+	unsigned long mmio_pgoff;
+	unsigned long start;
+	u32 len;
+	int ret;
+
+	struct drm_fb_helper *fb_helper = info->par;
+	struct drm_device *drm_dev = fb_helper->dev;
+
+	if (!try_use_fb_buf(drm_dev)) {
+		DDPPR_ERR("%s: fb has been freed!\n", __func__);
+		return -ENOMEM;
+	}
+
+	/*
+	 * Ugh. This can be either the frame buffer mapping, or
+	 * if pgoff points past it, the mmio mapping.
+	 */
+	start = info->fix.smem_start;
+	len = info->fix.smem_len;
+	mmio_pgoff = PAGE_ALIGN((start & ~PAGE_MASK) + len) >> PAGE_SHIFT;
+	if (vma->vm_pgoff >= mmio_pgoff) {
+		if (info->var.accel_flags) {
+			mutex_unlock(&info->mm_lock);
+			return -EINVAL;
+		}
+
+		vma->vm_pgoff -= mmio_pgoff;
+		start = info->fix.mmio_start;
+		len = info->fix.mmio_len;
+	}
+
+	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
+	/*
+	 * The framebuffer needs to be accessed decrypted, be sure
+	 * SME protection is removed
+	 */
+	vma->vm_page_prot = pgprot_decrypted(vma->vm_page_prot);
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+
+	ret = vm_iomap_memory(vma, start, len);
+	if (ret)
+		return ret;
+
+	/* blow is our action */
+	vma->vm_ops = &mtk_drm_fbdev_vm_ops;
+
+	return ret;
+}
+
 #endif
 
 static struct fb_ops mtk_fbdev_ops = {
@@ -234,9 +327,7 @@ static struct fb_ops mtk_fbdev_ops = {
 	.fb_blank = drm_fb_helper_blank,
 	.fb_pan_display = mtk_drm_fb_pan_display,
 	.fb_setcmap = drm_fb_helper_setcmap,
-#ifndef MTK_LEGACY_FB_MAP
 	.fb_mmap = mtk_drm_fbdev_mmap,
-#endif
 	.fb_ioctl = mtk_drm_fb_ioctl,
 };
 
@@ -305,7 +396,7 @@ found:
 #endif
 }
 
-int free_fb_buf(void)
+static void free_fb_buf(struct kref *kref)
 {
 	unsigned long va_start = 0;
 	unsigned long va_end = 0;
@@ -315,8 +406,8 @@ int free_fb_buf(void)
 	_parse_tag_videolfb(&vramsize, &fb_base, &fps);
 
 	if (!fb_base) {
-		DDPINFO("%s:get fb pa error\n", __func__);
-		return -1;
+		DDPPR_ERR("%s:get fb pa error\n", __func__);
+		return;
 	}
 
 	va_start = (unsigned long)__va(fb_base);
@@ -326,8 +417,19 @@ int free_fb_buf(void)
 				   (void *)va_end, 0xff, "fbmem");
 	else
 		DDPINFO("%s:va invalid\n", __func__);
+}
 
-	return 0;
+int try_free_fb_buf(struct drm_device *dev)
+{
+	struct mtk_drm_private *priv = dev->dev_private;
+
+	DDPFUNC();
+
+	if (priv == NULL) {
+		DDPPR_ERR("%s: priv is NULL\n", __func__);
+		return -1;
+	}
+	return kref_put(&priv->kref_fb_buf, free_fb_buf);
 }
 
 static int mtk_fbdev_probe(struct drm_fb_helper *helper,
@@ -403,8 +505,9 @@ static int mtk_fbdev_probe(struct drm_fb_helper *helper,
 	drm_fb_helper_fill_var(info, helper, sizes->fb_width, sizes->fb_height);
 
 	dev->mode_config.fb_base = fb_base;
-	info->screen_base = mtk_gem->kvaddr;
-	info->screen_size = size;
+	// not need to read and write for fbdev
+	info->screen_base = NULL;//mtk_gem->kvaddr;
+	info->screen_size = 0;//size;
 	info->fix.smem_len = size;
 	info->fix.smem_start = fb_base;
 	debug_info = info;
@@ -466,8 +569,11 @@ int mtk_fbdev_init(struct drm_device *dev)
 	int ret;
 
 	DDPMSG("%s+\n", __func__);
-	if (!dev->mode_config.num_crtc || !dev->mode_config.num_connector)
+	if (!dev->mode_config.num_crtc || !dev->mode_config.num_connector
+									|| (priv == NULL))
 		return -EINVAL;
+
+	kref_init(&priv->kref_fb_buf);
 
 	drm_fb_helper_prepare(dev, helper, &mtk_drm_fb_helper_funcs);
 

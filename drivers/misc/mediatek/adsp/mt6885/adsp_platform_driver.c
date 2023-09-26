@@ -232,15 +232,19 @@ int adsp_core0_suspend(void)
 
 	if (get_adsp_state(pdata) == ADSP_RUNNING) {
 		reinit_completion(&pdata->done);
-		if (adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
-				      sizeof(status), 2000, pdata->id)) {
+		ret = adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
+					sizeof(status), 2000, pdata->id);
+		if (ret != ADSP_IPI_DONE) {
 			ret = -EPIPE;
 			goto ERROR;
 		}
-		set_adsp_state(pdata, ADSP_SUSPENDING);
 
 		/* wait core suspend ack timeout 2s */
 		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
+		if (!ret) {
+			ret = -ETIMEDOUT;
+			goto ERROR;
+		}
 
 		while (--retry && !is_adsp_core_suspend(pdata))
 			usleep_range(100, 200);
@@ -315,15 +319,19 @@ int adsp_core1_suspend(void)
 
 	if (get_adsp_state(pdata) == ADSP_RUNNING) {
 		reinit_completion(&pdata->done);
-		if (adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
-				      sizeof(status), 2000, pdata->id)) {
+		ret = adsp_push_message(ADSP_IPI_DVFS_SUSPEND, &status,
+					sizeof(status), 2000, pdata->id);
+		if (ret != ADSP_IPI_DONE) {
 			ret = -EPIPE;
 			goto ERROR;
 		}
-		set_adsp_state(pdata, ADSP_SUSPENDING);
 
 		/* wait core suspend ack timeout 2s */
 		ret = wait_for_completion_timeout(&pdata->done, 2 * HZ);
+		if (!ret) {
+			ret = -ETIMEDOUT;
+			goto ERROR;
+		}
 
 		while (--retry && !is_adsp_core_suspend(pdata))
 			usleep_range(100, 200);

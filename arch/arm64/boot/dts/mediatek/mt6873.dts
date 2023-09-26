@@ -926,7 +926,7 @@ page_owner=on loop.max_part=7";
 			<0 0x1022C000 0 0x1000>, /*PD_MD_MISC*/
 			<0 0x1022E000 0 0x1000>; /*SRAM*/
 		interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>; /*209+32=241*/
-		mediatek,dpmaif_capability = <6>;
+		mediatek,dpmaif_capability = <14>;
 		/*clocks = ; clock-names = ; set in mddriver node */
 	};
 
@@ -934,7 +934,7 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,mddriver";
 		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
 		mediatek,md_id = <0>;
-		mediatek,cldma_capability = <6>;
+		mediatek,cldma_capability = <14>;
 		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
 		interrupts = <GIC_SPI 78 IRQ_TYPE_EDGE_RISING>,
@@ -1503,7 +1503,7 @@ page_owner=on loop.max_part=7";
 		domain_cnt = <16>;
 		addr_align = <16>;
 		ap_region = <31>;
-		ap_apc = <0 5 5 5 0 0 6 5>,
+		ap_apc = <0 5 5 5 2 0 6 5>,
 			 <0 0 5 0 0 0 5 5>;
 		dump = <0x1f0 0x1f8 0x1fc>;
 		clear = <0x160 0xffffffff 16>,
@@ -1617,6 +1617,27 @@ page_owner=on loop.max_part=7";
 		mboxes = <&gce_mbox 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 		clock-names = "gce";
 		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>;
+	};
+
+	ktf-cmdq-test {
+		compatible = "mediatek,ktf-cmdq-test";
+		mediatek,gce = <&gce_mbox>;
+		mmsys_config = <&mmsys_config>;
+		mboxes = <&gce_mbox 8 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 9 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
+			<&gce_mbox 10 0 CMDQ_THR_PRIO_1>;
+		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
+		gce-subsys = <&gce_mbox 0x14000000 SUBSYS_1400XXXX>,
+			<&gce_mbox 0x14010000 SUBSYS_1401XXXX>,
+			<&gce_mbox 0x14020000 SUBSYS_1402XXXX>;
+		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
+		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
+		gce-event-names = "disp_rdma0_sof",
+			"disp_rdsz0_sof",
+			"mdp_rdma0_sof";
+		gce-events = <&gce_mbox CMDQ_EVENT_DISP_RDMA0_SOF>,
+			<&gce_mbox CMDQ_EVENT_DISP_RSZ0_SOF>,
+			<&gce_mbox CMDQ_EVENT_MDP_RDMA0_SOF>;
 	};
 
 	cmdq-test {
@@ -1831,6 +1852,7 @@ page_owner=on loop.max_part=7";
 
 	extcon_usb: extcon_usb {
 		compatible = "mediatek,extcon-usb";
+		support_u3;
 	};
 
 	usb_boost_manager {
@@ -2862,7 +2884,7 @@ page_owner=on loop.max_part=7";
 		mtk_dsp_capture1 = <0x1 0xffffffff 0xd 0x13 0x20000>;
 		mtk_dsp_a2dp = <0x0 0xffffffff 0xffffffff 0xffffffff 0x40000>;
 		mtk_dsp_dataprovider = <0x0 0xffffffff 0xf 0xffffffff 0x30000>;
-		mtk_dsp_call_final = <0x5 0x0 0x10 0x14 0x18000>;
+		mtk_dsp_call_final = <0x5 0x4 0x10 0x14 0x18000>;
 		mtk_dsp_fast = <0x5 0xffffffff 0xffffffff 0xffffffff 0x5000>;
 		mtk_dsp_ktv = <0x1 0x8 0x12 0xffffffff 0x10000>;
 		mtk_dsp_capture_raw = <0x1 0xffffffff 0xffffffff 0xffffffff 0x20000>;
@@ -3407,19 +3429,19 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x1a078000 0 0x8000>;
 	};
 
-	cam1@1a030000 {
+	cam1: cam1@1a030000 {
 		compatible = "mediatek,cam1";
 		reg = <0 0x1a030000 0 0x8000>;
 		interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	cam2@1a050000 {
+	cam2: cam2@1a050000 {
 		compatible = "mediatek,cam2";
 		reg = <0 0x1a050000 0 0x8000>;
 		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	cam3@1a070000 {
+	cam3: cam3@1a070000 {
 		compatible = "mediatek,cam3";
 		reg = <0 0x1a070000 0 0x8000>;
 		interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
@@ -3538,7 +3560,8 @@ page_owner=on loop.max_part=7";
 		mediatek,dec_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
 		mediatek,enc_gce_th_num = <1>; /* VDEC GCE HW THREAD NUM*/
 		mboxes = <&gce_mbox 7 0 CMDQ_THR_PRIO_1>,
-			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>;
+			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox_sec 12 0 CMDQ_THR_PRIO_1>;
 		gce-event-names = "venc_eof",
 			"venc_wp_2nd_done", "venc_wp_3nd_done",
 			"vdec_pic_start", "vdec_decode_done", "vdec_pause",
@@ -3785,7 +3808,9 @@ page_owner=on loop.max_part=7";
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 6 0 CMDQ_THR_PRIO_3>,
-			<&gce_mbox_sec 8 0 CMDQ_THR_PRIO_3>;
+			<&gce_mbox_sec 8 0 CMDQ_THR_PRIO_3>,
+			<&gce_mbox_sec 9 0 CMDQ_THR_PRIO_3>,
+			<&gce_mbox_sec 9 0 CMDQ_THR_PRIO_3>;
 #else
 			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 6 0 CMDQ_THR_PRIO_3>;
@@ -3799,7 +3824,9 @@ page_owner=on loop.max_part=7";
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 			"CLIENT_SUB_CFG0",
 			"CLIENT_DSI_CFG0",
-			"CLIENT_SEC_CFG0";
+			"CLIENT_SEC_CFG0",
+			"CLIENT_SEC_CFG1",
+			"CLIENT_SEC_CFG2";
 #else
 			"CLIENT_SUB_CFG0",
 			"CLIENT_DSI_CFG0";
@@ -5673,6 +5700,7 @@ page_owner=on loop.max_part=7";
 		svp-region-based-size = <0 0x18000000>;
 		2d_fr-size = <0 0>;
 		tui-size = <0 0x4000000>;
+		wfd-size = <0 0x4000000>;
 		prot-region-based-size = <0 0x8000000>;
 		ta-elf-size = <0 0x1000000>;
 		ta-stack-heap-size = <0 0x6000000>;

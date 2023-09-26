@@ -80,7 +80,9 @@ static int md_buck_oc_notify(struct notifier_block *nb, unsigned long event,
 	if (event != REGULATOR_EVENT_OVER_CURRENT)
 		return NOTIFY_OK;
 
-	snprintf(oc_str, 30, "PMIC OC:%s", oc_info->name);
+	ret = snprintf(oc_str, 30, "PMIC OC:%s", oc_info->name);
+	if (ret < 0)
+		return NOTIFY_OK;
 	aee_kernel_warning(oc_str, "\nCRDISPATCH_KEY:MD OC\nOC Interrupt: %s",
 			   oc_info->name);
 	/* notify MD by ccci */

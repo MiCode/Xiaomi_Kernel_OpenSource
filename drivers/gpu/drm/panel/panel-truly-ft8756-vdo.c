@@ -816,9 +816,9 @@ static struct mtk_panel_params ext_params = {
 	},
 	.dyn = {
 		.switch_en = 1,
-		.pll_clk = 550,
+		.pll_clk = 535,
 		.hfp = 32,
-		.vfp = 148,
+		.vfp = 93,
 	},
 };
 

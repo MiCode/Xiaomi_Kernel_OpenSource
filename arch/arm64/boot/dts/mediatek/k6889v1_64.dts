@@ -268,6 +268,7 @@
 &spi1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
+	tee-only;
 	fingerprint@0 {
 		compatible = "goodix,goodix-fp";
 		reg = <0>;

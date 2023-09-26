@@ -17,6 +17,9 @@
 #include "mtk_qos_sram.h"
 #include "smi_pmqos.h"
 #if IS_ENABLED(CONFIG_MACH_MT6877)
+#if defined(USE_MEDIATEK_EMI)
+#include <memory/mediatek/dramc.h>
+#endif
 #include <dt-bindings/memory/mt6877-larb-port.h>
 #else
 #include <dt-bindings/memory/mt6853-larb-port.h>
@@ -140,6 +143,10 @@ s32 dram_write_weight(s32 val)
 s32 emi_occ_ratio(void)
 {
 #if IS_ENABLED(CONFIG_MACH_MT6877)
+#if defined(USE_MEDIATEK_EMI)
+	if (mtk_dramc_get_ddr_type() == TYPE_LPDDR5)
+		return 680;
+#endif
 	return 740;
 #else
 	return 500;
@@ -149,6 +156,10 @@ s32 emi_occ_ratio(void)
 s32 emi_occ_ui_only(void)
 {
 #if IS_ENABLED(CONFIG_MACH_MT6877)
+#if defined(USE_MEDIATEK_EMI)
+	if (mtk_dramc_get_ddr_type() == TYPE_LPDDR5)
+		return 680;
+#endif
 	return 745;
 #else
 	return 500;
@@ -159,6 +170,10 @@ s32 emi_occ_ui_only(void)
 s32 cam_occ_ratio(void)
 {
 #if IS_ENABLED(CONFIG_MACH_MT6877)
+#if defined(USE_MEDIATEK_EMI)
+	if (mtk_dramc_get_ddr_type() == TYPE_LPDDR5)
+		return 860;
+#endif
 	return 880;
 #else
 	return 1000;
@@ -168,6 +183,10 @@ s32 cam_occ_ratio(void)
 s32 disp_occ_ratio(void)
 {
 #if IS_ENABLED(CONFIG_MACH_MT6877)
+#if defined(USE_MEDIATEK_EMI)
+	if (mtk_dramc_get_ddr_type() == TYPE_LPDDR5)
+		return 880;
+#endif
 	return 900;
 #else
 	return 1000;

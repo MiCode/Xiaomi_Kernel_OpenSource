@@ -414,7 +414,7 @@ static enum DSI_STATUS DSI_SetMode(enum DISP_MODULE_ENUM module,
 void DSI_clk_HS_mode(enum DISP_MODULE_ENUM module,
 		     struct cmdqRecStruct *cmdq, bool enter)
 {
-	int i = 0;
+	unsigned int i = 0;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		if (enter) {
@@ -617,7 +617,7 @@ static int _is_lcm_cmd_mode(enum DISP_MODULE_ENUM module)
 static void dsi_wait_not_busy(enum DISP_MODULE_ENUM module,
 			      struct cmdqRecStruct *cmdq)
 {
-	int i = 0;
+	unsigned int i = 0;
 	int ret = 0;
 
 	if (module == DISP_MODULE_DSI0)
@@ -654,7 +654,7 @@ enum DSI_STATUS DSI_BIST_Pattern_Test(enum DISP_MODULE_ENUM module,
 				      struct cmdqRecStruct *cmdq, bool enable,
 				      unsigned int color)
 {
-	int i = 0;
+	unsigned int i = 0;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		if (enable) {
@@ -1538,6 +1538,11 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	}
 
 #define NS_TO_CYCLE(n, c)	((n) / (c))
+	if (cycle_time == 0) {
+		DISPERR("[dsi_dsi.c] cycle_time not be 0!!!\n");
+		ASSERT(0);
+		return;
+	}
 
 	hs_trail_m = 1;
 	hs_trail_n = (dsi_params->HS_TRAIL == 0) ?
@@ -2129,7 +2134,7 @@ void DSI_set_cmdq_V2(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 				t2.CONFG = 2;
 				t2.Data_ID = DSI_DCS_LONG_PACKET_ID;
 				t2.WC16 = count + 1;
-
+				t2.pdata = NULL;
 				DSI_OUTREG32(cmdq, &cmdq_reg[0],
 					     AS_UINT32(&t2));
 
@@ -2177,6 +2182,7 @@ void DSI_set_cmdq_V2(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 				t2.CONFG = 2;
 				t2.Data_ID = DSI_GERNERIC_LONG_PACKET_ID;
 				t2.WC16 = count + 1;
+				t2.pdata = NULL;
 				DSI_OUTREG32(cmdq, &cmdq_reg[0],
 					     AS_UINT32(&t2));
 				goto_addr = (unsigned long)(&cmdq_reg[1].byte0);
@@ -2331,6 +2337,7 @@ void DSI_set_cmdq_V3(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 				t2.CONFG = 2;
 				t2.Data_ID = data_id;
 				t2.WC16 = count + 1;
+				t2.pdata = NULL;
 
 				DSI_OUTREG32(cmdq, &dsi_data[0].byte0,
 					     AS_UINT32(&t2));
@@ -2719,7 +2726,7 @@ void DSI_ChangeClk(DISP_MODULE_ENUM module, UINT32 clk)
 static void _init_dsi_sw(enum DISP_MODULE_ENUM module,
 			 struct LCM_DSI_PARAMS *plcm)
 {
-	int i = 0;
+	unsigned int i = 0;
 
 	DISPFUNC();
 	if (disp_helper_get_option(DISP_OPT_USE_CMDQ))
@@ -3145,7 +3152,7 @@ int _ddp_dsi_start_dual(enum DISP_MODULE_ENUM module, void *cmdq)
  */
 int ddp_dsi_start(enum DISP_MODULE_ENUM module, void *cmdq)
 {
-	int i = 0;
+	unsigned int i = 0;
 	int g_lcm_x = disp_helper_get_option(DISP_OPT_FAKE_LCM_X);
 	int g_lcm_y = disp_helper_get_option(DISP_OPT_FAKE_LCM_Y);
 

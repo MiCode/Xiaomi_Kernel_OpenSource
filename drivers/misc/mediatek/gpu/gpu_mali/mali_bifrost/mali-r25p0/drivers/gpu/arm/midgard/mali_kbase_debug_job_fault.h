@@ -54,8 +54,9 @@ void kbase_debug_job_fault_dev_term(struct kbase_device *kbdev);
  * kbase_debug_job_fault_context_init - Initialize the relevant
  *		data structure per context
  * @kctx: KBase context pointer
+ * @return 0 on success
  */
-void kbase_debug_job_fault_context_init(struct kbase_context *kctx);
+int kbase_debug_job_fault_context_init(struct kbase_context *kctx);
 
 /**
  * kbase_debug_job_fault_context_term - Release the relevant

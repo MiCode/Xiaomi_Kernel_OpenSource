@@ -45,12 +45,17 @@
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_driver.h>
 
+#if defined(CONFIG_HPB_ERR_INJECTION)
+#include <linux/random.h>
+#endif
+
 #include "../../../block/blk.h"
 #include "../scsi_priv.h"
 
 /* Version info*/
-#define UFSHPB_VER				0x0200
-#define UFSHPB_DD_VER				0x0208
+#define UFSHPB_VER				0x0221
+#define UFSHPB_DD_VER				0x020900
+#define UFSHPB_DD_VER_POST			UFSFEATURE_DD_VER_POST
 
 /* Constant value*/
 #define MAX_ACTIVE_NUM				2
@@ -79,6 +84,7 @@
 
 #define UFSHPB_GROUP_NUMBER			0x11
 #define UFSHPB_READ_BUFFER_ID			0x01
+#define UFSHPB_WB_ID_UNSET_HCM_ALL		0x03
 #define UFSHPB_WRITE_BUFFER_ID			0x02
 #define TRANSFER_LEN				0x01
 
@@ -87,62 +93,69 @@
 #define DEV_DES_TYPE				0x80
 #define DEV_ADDITIONAL_LEN			0x10
 
-/* For read10 debug */
-#define READ10_DEBUG_LUN			0x7F
-#define READ10_DEBUG_LBA			0x48504230
-
+#define PINNED_NOT_SET				(-1)
 /*
  * UFSHPB DEBUG
  */
 
+#if defined(CONFIG_HPB_DEBUG)
 #define HPB_DEBUG(hpb, msg, args...)			\
-	do { if (hpb->debug)				\
+	do { if (hpb && hpb->debug)			\
 		printk(KERN_ERR "%s:%d " msg "\n",	\
 		       __func__, __LINE__, ##args);	\
 	} while (0)
 
-#define TMSG_CMD(hpb, msg, rq, rgn, srgn)				\
-	do { if (hpb->ufsf->sdev_ufs_lu[hpb->lun] &&			\
-		 hpb->ufsf->sdev_ufs_lu[hpb->lun]->request_queue)	\
-			blk_add_trace_msg(				\
-			hpb->ufsf->sdev_ufs_lu[hpb->lun]->request_queue,\
-			"%llu + %u " msg " %d - %d",			\
-			(unsigned long long) blk_rq_pos(rq),		\
-			(unsigned int) blk_rq_sectors(rq), rgn, srgn);	\
+#define HPB_FTRACE(hpb, msg, args...)			\
+	do { if (hpb && hpb->debug)			\
+		trace_printk("%04d\t " msg "\n",	\
+			     __LINE__, ##args);		\
 	} while (0)
+#else
+#define HPB_DEBUG(hpb, msg, args...)	do { } while (0)
+#define HPB_FTRACE(hpb, msg, args...)	do { } while (0)
+#endif
 
 enum UFSHPB_STATE {
 	HPB_PRESENT = 1,
-	HPB_NOT_SUPPORTED = -1,
+	HPB_SUSPEND = 2,
 	HPB_FAILED = -2,
 	HPB_NEED_INIT = 0,
 	HPB_RESET = -3,
 };
 
-enum HPBREGION_STATE {
-	HPBREGION_INACTIVE, HPBREGION_ACTIVE, HPBREGION_PINNED,
+enum HPB_RGN_STATE {
+	HPB_RGN_INACTIVE,
+	HPB_RGN_ACTIVE,
+	HPB_RGN_PINNED,
 };
 
-enum HPBSUBREGION_STATE {
-	HPBSUBREGION_UNUSED,
-	HPBSUBREGION_DIRTY,
-	HPBSUBREGION_CLEAN,
-	HPBSUBREGION_ISSUED,
+enum HPB_SRGN_STATE {
+	HPB_SRGN_UNUSED,
+	HPB_SRGN_DIRTY,
+	HPB_SRGN_CLEAN,
+	HPB_SRGN_ISSUED,
 };
+
+#if defined(CONFIG_HPB_ERR_INJECTION)
+enum HPB_ERR_INJECTION_SELECT {
+	HPB_ERR_INJECTION_DISABLE,
+	HPB_ERR_INJECTION_BITFLIP,
+	HPB_ERR_INJECTION_OFFSET,
+	HPB_ERR_INJECTION_RANDOM,
+};
+#endif
 
 struct ufshpb_dev_info {
-	bool hpb_device;
-	int hpb_number_lu;
-	int hpb_ver;
-	int hpb_rgn_size;
-	int hpb_srgn_size;
-	int hpb_device_max_active_rgns;
+	int num_lu;
+	int version;
+	int rgn_size;
+	int srgn_size;
 };
 
 struct ufshpb_active_field {
 	__be16 active_rgn;
 	__be16 active_srgn;
-};
+} __packed;
 
 struct ufshpb_rsp_field {
 	__be16 sense_data_len;
@@ -154,7 +167,7 @@ struct ufshpb_rsp_field {
 	u8 inactive_rgn_cnt;
 	struct ufshpb_active_field hpb_active_field[2];
 	__be16 hpb_inactive_field[2];
-};
+} __packed;
 
 struct ufshpb_map_ctx {
 	struct page **m_page;
@@ -165,7 +178,7 @@ struct ufshpb_map_ctx {
 
 struct ufshpb_subregion {
 	struct ufshpb_map_ctx *mctx;
-	enum HPBSUBREGION_STATE srgn_state;
+	enum HPB_SRGN_STATE srgn_state;
 	int rgn_idx;
 	int srgn_idx;
 
@@ -175,7 +188,7 @@ struct ufshpb_subregion {
 
 struct ufshpb_region {
 	struct ufshpb_subregion *srgn_tbl;
-	enum HPBREGION_STATE rgn_state;
+	enum HPB_RGN_STATE rgn_state;
 	int rgn_idx;
 	int srgn_cnt;
 
@@ -223,11 +236,12 @@ struct victim_select_info {
 
 struct ufshpb_lu {
 	struct ufsf_feature *ufsf;
-	u8 lun;
+	int lun;
 	int qd;
 	struct ufshpb_region *rgn_tbl;
 
 	spinlock_t hpb_lock;
+	spinlock_t retry_list_lock;
 
 	struct ufshpb_req *map_req;
 	int num_inflight_map_req;
@@ -254,18 +268,16 @@ struct ufshpb_lu {
 	int pre_req_min_tr_len;
 	int pre_req_max_tr_len;
 
-	struct work_struct ufshpb_work;
-	struct delayed_work ufshpb_retry_work;
-	struct work_struct ufshpb_task_workq;
+	struct work_struct pinned_work;
+	struct delayed_work retry_work;
+	struct work_struct task_work;
 
 	/* for selecting victim */
 	struct victim_select_info lru_info;
 
-	int hpb_ver;
 	int lu_max_active_rgns;
 	int lu_pinned_rgn_startidx;
 	int lu_pinned_end_offset;
-	int lu_num_pinned_rgns;
 	int srgns_per_lu;
 	int rgns_per_lu;
 	int srgns_per_rgn;
@@ -284,6 +296,7 @@ struct ufshpb_lu {
 	/* for debug */
 	int alloc_mctx;
 	int debug_free_table;
+	bool hcm_disable;
 	bool force_disable;
 	bool force_map_req_disable;
 	bool debug;
@@ -293,7 +306,14 @@ struct ufshpb_lu {
 	atomic64_t rb_active_cnt;
 	atomic64_t rb_inactive_cnt;
 	atomic64_t map_req_cnt;
+	atomic64_t map_compl_cnt;
 	atomic64_t pre_req_cnt;
+#if defined(CONFIG_HPB_ERR_INJECTION)
+	enum HPB_ERR_INJECTION_SELECT err_injection_select;
+	u64 err_injection_bitflip;
+	u64 err_injection_offset;
+	int err_injection_random;
+#endif
 };
 
 struct ufshpb_sysfs_entry {
@@ -305,20 +325,23 @@ struct ufshpb_sysfs_entry {
 struct ufs_hba;
 struct ufshcd_lrb;
 
+int ufshpb_get_state(struct ufsf_feature *ufsf);
+void ufshpb_set_state(struct ufsf_feature *ufsf, int state);
 int ufshpb_prepare_pre_req(struct ufsf_feature *ufsf, struct scsi_cmnd *cmd,
-			   u8 lun);
+			   int lun);
 int ufshpb_prepare_add_lrbp(struct ufsf_feature *ufsf, int add_tag);
 void ufshpb_end_pre_req(struct ufsf_feature *ufsf, struct request *req);
-void ufshpb_get_dev_info(struct ufshpb_dev_info *hpb_dev_info, u8 *desc_buf);
-void ufshpb_get_geo_info(struct ufshpb_dev_info *hpb_dev_info, u8 *geo_buf);
-int ufshpb_get_lu_info(struct ufsf_feature *ufsf, u8 lun, u8 *unit_buf);
+void ufshpb_get_dev_info(struct ufsf_feature *ufsf, u8 *desc_buf);
+void ufshpb_get_geo_info(struct ufsf_feature *ufsf, u8 *geo_buf);
+void ufshpb_get_lu_info(struct ufsf_feature *ufsf, int lun, u8 *unit_buf);
 void ufshpb_init_handler(struct work_struct *work);
-void ufshpb_reset_handler(struct work_struct *work);
-void ufshpb_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
 void ufshpb_rsp_upiu(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
-void ufshpb_release(struct ufsf_feature *ufsf, int state);
 int ufshpb_issue_req_dev_ctx(struct ufshpb_lu *hpb, unsigned char *buf,
 			     int buf_length);
 void ufshpb_resume(struct ufsf_feature *ufsf);
 void ufshpb_suspend(struct ufsf_feature *ufsf);
+void ufshpb_reset_host(struct ufsf_feature *ufsf);
+void ufshpb_reset(struct ufsf_feature *ufsf);
+void ufshpb_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
+void ufshpb_remove(struct ufsf_feature *ufsf, int state);
 #endif /* End of Header */

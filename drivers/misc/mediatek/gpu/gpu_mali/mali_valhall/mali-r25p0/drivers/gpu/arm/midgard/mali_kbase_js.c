@@ -2515,8 +2515,6 @@ struct kbase_jd_atom *kbase_js_pull(struct kbase_context *kctx, int js)
 
 	kbase_ctx_sched_retain_ctx_refcount(kctx);
 
-	katom->atom_flags |= KBASE_KATOM_FLAG_HOLDING_CTX_REF;
-
 	katom->ticks = 0;
 
 	dev_dbg(kbdev->dev, "JS: successfully pulled atom %p from kctx %p (s:%d)\n",
@@ -2853,7 +2851,6 @@ static void js_return_worker(struct work_struct *data)
 		mutex_unlock(&kctx->jctx.lock);
 	}
 
-	katom->atom_flags &= ~KBASE_KATOM_FLAG_HOLDING_CTX_REF;
 	dev_dbg(kbdev->dev, "JS: retained state %s finished",
 		kbasep_js_has_atom_finished(&retained_state) ?
 		"has" : "hasn't");

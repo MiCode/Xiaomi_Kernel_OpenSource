@@ -28,6 +28,7 @@
 #ifdef CONFIG_VIDEO_MEDIATEK_VCU
 #include "mtk_vcu.h"
 const struct venc_common_if *get_enc_common_if(void);
+const struct venc_common_if *get_enc_log_if(void);
 #endif
 
 #ifdef CONFIG_VIDEO_MEDIATEK_VPU
@@ -53,6 +54,9 @@ int venc_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 		ctx->enc_if = get_enc_common_if();
 		ctx->oal_vcodec = 0;
 		break;
+	case V4L2_CID_MPEG_MTK_LOG:
+		ctx->enc_if = get_enc_log_if();
+		return 0;
 	default:
 		return -EINVAL;
 	}

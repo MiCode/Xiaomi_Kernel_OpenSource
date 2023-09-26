@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2013-2017 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2017,2020 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or

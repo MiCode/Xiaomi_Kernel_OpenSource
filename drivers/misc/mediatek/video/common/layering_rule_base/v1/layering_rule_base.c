@@ -385,7 +385,7 @@ static void dump_disp_info(struct disp_layer_info *disp_info,
 	struct layer_config *layer_info;
 
 #define _HRT_FMT \
-	"HRT hrt_num:0x%x/fps:%d/dal:%d/p:%d/r:%s/l_tb:%d/bd_tb:%d/dc:%d/i:%d\n"
+	"HRT hrt_num:0x%x/fps:%d/dal:%d/p:%d/r:%s/l_tb:%d/bd_tb:%d/dc:%d/\n"
 #define _L_FMT \
 	"L%d->%d/of(%d,%d)/swh(%d,%d)/dwh(%d,%d)/fmt:0x%x/ext:%d/caps:0x%x\n"
 
@@ -1973,6 +1973,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 	bool is_end = false, is_test_pass = false;
 	int tmp_hrt_num, tmp;
 
+	disp_id = 0;
 	pos = 0;
 	test_case = -1;
 	oldfs = get_fs();
@@ -2026,6 +2027,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 		} else if (strncmp(line_buf, "[set_layer]", 11) == 0) {
 			unsigned long int tmp_info;
 
+			tmp_info = 0;
 			tok = strchr(line_buf, ']');
 			if (!tok)
 				goto end;

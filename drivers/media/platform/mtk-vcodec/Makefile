@@ -24,6 +24,7 @@ mtk-vcodec-dec-y := mtk_vcodec_dec_drv.o \
 
 ifdef CONFIG_VIDEO_MEDIATEK_VCU
 	mtk-vcodec-dec-y += vdec/vdec_common_if.o \
+		vdec/vdec_log_if.o \
 		vdec_vcu_if.o
 endif
 ifdef CONFIG_VIDEO_MEDIATEK_VPU
@@ -40,6 +41,7 @@ mtk-vcodec-enc-y := mtk_vcodec_enc.o \
 
 ifdef CONFIG_VIDEO_MEDIATEK_VCU
 	mtk-vcodec-enc-y += venc/venc_common_if.o \
+		venc/venc_log_if.o \
 		venc_vcu_if.o
 endif
 ifdef CONFIG_VIDEO_MEDIATEK_VPU

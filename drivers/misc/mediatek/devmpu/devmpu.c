@@ -202,20 +202,19 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 		vio_id = vio.id;
 		vio_addr = vio.addr;
 		vio_domain = vio.domain;
+		vio_addr += devmpu_ctx->prot_base;
 
 		/*
 		 * use 0b01/0b10 to specify write/read violation
 		 * to be consistent with EMI MPU violation handling
 		 */
 		vio_rw = (vio.is_write) ? 1 : 2;
-
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
-		if (vio_rw == 2 && vio_domain == 0)
-			return 0;
-#endif
 	}
 
-	vio_addr += devmpu_ctx->prot_base;
+#ifdef CONFIG_MTK_ENABLE_GENIEZONE
+	if (vio_rw == 2 && vio_domain == 0)
+		return 0;
+#endif
 
 	vio_axi_id = (vio_id >> 3) & 0x1FFF;
 	vio_port_id = vio_id & 0x7;
@@ -244,7 +243,7 @@ int devmpu_print_violation(uint64_t vio_addr, uint32_t vio_id,
 
 		temp = page;
 
-		pr_info("Page#%llx RD/WR : %08zx/%08zx (%lld)\n",
+		pr_info("Page#%llx RD/WR : %08zx/%08zx (%u)\n",
 			page,
 			switchValue(rd_perm),
 			switchValue(wr_perm),

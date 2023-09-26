@@ -40,6 +40,10 @@
 #include "../scp_spk/mtk-scp-spk-common.h"
 #endif
 
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+#include "../scp_ultra/mtk-scp-ultra-common.h"
+#endif
+
 /* FORCE_FPGA_ENABLE_IRQ use irq in fpga */
 /* #define FORCE_FPGA_ENABLE_IRQ */
 
@@ -134,7 +138,7 @@ int mt6873_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	unsigned int counter = runtime->period_size;
 	unsigned int rate = runtime->rate;
 	int fs;
-	int ret;
+	int ret = 0;
 
 	dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d\n",
 		 __func__, memif->data->name, cmd, irq_id);
@@ -1510,6 +1514,8 @@ static const struct snd_kcontrol_new memif_ul2_ch1_mix[] = {
 				    I_DL5_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL6_CH1", AFE_CONN5_1,
 				    I_DL6_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("DL7_CH1", AFE_CONN5_1,
+				    I_DL7_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN5,
 				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN5,
@@ -1539,6 +1545,8 @@ static const struct snd_kcontrol_new memif_ul2_ch2_mix[] = {
 				    I_DL5_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL6_CH2", AFE_CONN6_1,
 				    I_DL6_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("DL7_CH2", AFE_CONN6_1,
+				    I_DL7_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_1_CAP_CH1", AFE_CONN6,
 				    I_PCM_1_CAP_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("PCM_2_CAP_CH1", AFE_CONN6,
@@ -1853,6 +1861,8 @@ static const struct snd_soc_dapm_route mt6873_memif_routes[] = {
 	{"UL2_CH2", "DL4_CH2", "Hostless_UL2 UL"},
 	{"UL2_CH1", "DL5_CH1", "Hostless_UL2 UL"},
 	{"UL2_CH2", "DL5_CH2", "Hostless_UL2 UL"},
+	{"UL2_CH1", "DL7_CH1", "Hostless_UL2 UL"},
+	{"UL2_CH2", "DL7_CH2", "Hostless_UL2 UL"},
 
 	{"Hostless_UL2 UL", NULL, "UL2_VIRTUAL_INPUT"},
 
@@ -6204,6 +6214,10 @@ static int mt6873_afe_pcm_dev_probe(struct platform_device *pdev)
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
 	defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 	audio_set_dsp_afe(afe);
+#endif
+
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	ultra_set_afe_base(afe);
 #endif
 
 	return 0;

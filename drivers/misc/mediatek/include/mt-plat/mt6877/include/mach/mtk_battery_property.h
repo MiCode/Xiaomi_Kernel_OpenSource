@@ -174,6 +174,7 @@
 /* ZCV INTR */
 #define ZCV_SUSPEND_TIME 7
 #define SLEEP_CURRENT_AVG 200 /*0.1mA*/
+#define ZCV_COM_VOL_LIMIT 201 /* 50mv */
 #define ZCV_CAR_GAP_PERCENTAGE 1
 
 /* Additional battery table */

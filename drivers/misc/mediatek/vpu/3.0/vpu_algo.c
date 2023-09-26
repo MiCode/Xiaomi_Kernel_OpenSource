@@ -483,6 +483,7 @@ int vpu_dump_algo(struct seq_file *s)
 	char line_buffer[24 + 1] = {0};
 	unsigned char *info_data;
 	int debug_core = 0;
+	int ret = 0;
 
 	if (vpu_get_name_of_algo(debug_core, debug_algo_id,
 						&debug_algo_name)) {
@@ -548,8 +549,10 @@ int vpu_dump_algo(struct seq_file *s)
 					  "  |%-5s|%-15s|%-7s|%-7s|%04XH ",
 					  "", "", "", "", j);
 				}
-				sprintf(line_buffer + pos * 3, "%02X",
+				ret = sprintf(line_buffer + pos * 3, "%02X",
 						*info_data);
+				if (ret < 0)
+					break;
 
 				line_buffer[pos * 3 + 2] = ' ';
 				if (pos == 7 || j + 1 == data_length)

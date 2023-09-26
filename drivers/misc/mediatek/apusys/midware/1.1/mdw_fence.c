@@ -106,7 +106,6 @@ int apu_sync_file_create(struct mdw_apu_cmd *c)
 	desc->u = c->usr;
 	c->file = anon_inode_getfile("apu_file", &apu_sync_file_fops, desc, 0);
 
-
 	if (c->file == NULL) {
 		put_unused_fd(fd);
 		ret = -EINVAL;

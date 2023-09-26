@@ -351,7 +351,7 @@ int lbat_user_register_ext(struct lbat_user *user, const char *name,
 	lbat_user_init_timer(user);
 	INIT_WORK(&user->deb_work, lbat_deb_handler);
 	pr_info("[%s] name=%s, thd_volt_max=%d, thd_volt_min=%d\n", __func__,
-		user, thd_volt_arr[0], thd_volt_arr[thd_volt_size - 1]);
+		user->name, thd_volt_arr[0], thd_volt_arr[thd_volt_size - 1]);
 	ret = lbat_user_update(user);
 	if (ret)
 		pr_notice("[%s] error ret=%d\n", __func__, ret);

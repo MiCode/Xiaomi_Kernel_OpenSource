@@ -65,4 +65,22 @@ config MTK_TYPEC_WATER_DETECT_BY_PCB
 	  Say Yes to let PCB decides enabling water detection or not.
 	  If unsure, say N.
 
+config AGATE_CHARGER
+	bool "MTK charger for AGATE"
+	help
+	  Say yes In MTK charger AGATE.
+
+config ARES_CHARGER
+	bool "MTK charger for ARES"
+	help
+	  Say yes In MTK charger ARES.
+
+config PISSARRO_CHARGER
+	bool "MTK charger for PISSARRO"
+	help
+	  Say yes In MTK charger PISSARRO.
+
 source "drivers/misc/mediatek/typec/tcpc/Kconfig"
+source "drivers/misc/mediatek/typec/tcpc_agate/Kconfig"
+source "drivers/misc/mediatek/typec/tcpc_ares/Kconfig"
+source "drivers/misc/mediatek/typec/tcpc_pissarro/Kconfig"

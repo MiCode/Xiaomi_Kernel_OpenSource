@@ -328,10 +328,10 @@ static void pbm_allocate_budget_manager(void)
 cpu, gpu, dlpt, leakage, md1, flash, tocpu, togpu,
 multiple, cpu_lower_bound);
 	} else {
-		if (((abs(pre_tocpu - tocpu) >= 10) && cpu > tocpu) ||
-			((abs(pre_togpu - togpu) >= 10) && gpu > togpu)) {
+		if (((abs(pre_tocpu - tocpu) >= 100) && cpu > tocpu) ||
+			((abs(pre_togpu - togpu) >= 30) && gpu > togpu)) {
 			pr_info
-("(C/G)=%d,%d=>(D/L/M1/F/C/G)=%d,%d,%d,%d,%d,%d(Multi:%d),%d\n",
+("(C/G)=%d,%d=> (D/L/M1/F/C/G)=%d,%d,%d,%d,%d,%d(Multi:%d),%d\n",
 cpu, gpu, dlpt, leakage, md1, flash, tocpu, togpu,
 multiple, cpu_lower_bound);
 			pre_tocpu = tocpu;

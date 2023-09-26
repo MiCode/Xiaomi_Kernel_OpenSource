@@ -390,17 +390,23 @@ reg_done:
 	usb_enable_clock(phy_drv, false);
 }
 
-#define VAL_MAX_WIDTH_2	0x3
-#define VAL_MAX_WIDTH_3	0x7
+#define MAX_VRT_VREF	0x7
+#define MAX_TERM_VREF	0x7
+#define MAX_ENHANCEMENT	0x3
+#define MAX_DISCTH	0xF
+#define MAX_INTRCAL	0x1F
 static void usb_phy_tuning(struct mtk_phy_instance *instance)
 {
-	s32 u2_vrt_ref, u2_term_ref, u2_enhance;
+	s32 u2_vrt_ref, u2_term_ref, u2_enhance, u2_intr_cal, u2_discth;
 	struct device_node *of_node;
 
 	if (!instance->phy_tuning.inited) {
 		instance->phy_tuning.u2_vrt_ref = 6;
 		instance->phy_tuning.u2_term_ref = 6;
 		instance->phy_tuning.u2_enhance = 1;
+		instance->phy_tuning.u2_intr_cal = 14;
+		instance->phy_tuning.u2_discth = 7;
+
 		of_node = of_find_compatible_node(NULL, NULL,
 			instance->phycfg->tuning_node_name);
 		if (of_node) {
@@ -411,34 +417,31 @@ static void usb_phy_tuning(struct mtk_phy_instance *instance)
 				(u32 *) &instance->phy_tuning.u2_term_ref);
 			of_property_read_u32(of_node, "u2_enhance",
 				(u32 *) &instance->phy_tuning.u2_enhance);
+			of_property_read_u32(of_node, "u2_intr_cal",
+				(u32 *) &instance->phy_tuning.u2_intr_cal);
+			of_property_read_u32(of_node, "u2_discth",
+				(u32 *) &instance->phy_tuning.u2_discth);
 		}
 		instance->phy_tuning.inited = true;
 	}
 	u2_vrt_ref = instance->phy_tuning.u2_vrt_ref;
 	u2_term_ref = instance->phy_tuning.u2_term_ref;
 	u2_enhance = instance->phy_tuning.u2_enhance;
+	u2_intr_cal = instance->phy_tuning.u2_intr_cal;
+	u2_discth = instance->phy_tuning.u2_discth;
+	phy_printk(K_ERR, "%s [vrt_ref term_ref enhance intr_cal discth] = [%d %d %d %d %d]\n",
+			__func__, u2_vrt_ref, u2_term_ref, u2_enhance, u2_intr_cal, u2_discth);
 
-	if (u2_vrt_ref != -1) {
-		if (u2_vrt_ref <= VAL_MAX_WIDTH_3) {
-			u3phywrite32(U3D_USBPHYACR1,
-				RG_USB20_VRT_VREF_SEL_OFST,
-				RG_USB20_VRT_VREF_SEL, u2_vrt_ref);
-		}
-	}
-	if (u2_term_ref != -1) {
-		if (u2_term_ref <= VAL_MAX_WIDTH_3) {
-			u3phywrite32(U3D_USBPHYACR1,
-				RG_USB20_TERM_VREF_SEL_OFST,
-				RG_USB20_TERM_VREF_SEL, u2_term_ref);
-		}
-	}
-	if (u2_enhance != -1) {
-		if (u2_enhance <= VAL_MAX_WIDTH_2) {
-			u3phywrite32(U3D_USBPHYACR6,
-				RG_USB20_PHY_REV_6_OFST,
-				RG_USB20_PHY_REV_6, u2_enhance);
-		}
-	}
+	if (u2_vrt_ref >= 0 && u2_vrt_ref <= MAX_VRT_VREF)
+		u3phywrite32(U3D_USBPHYACR1, RG_USB20_VRT_VREF_SEL_OFST, RG_USB20_VRT_VREF_SEL, u2_vrt_ref);
+	if (u2_term_ref >= 0 && u2_term_ref <= MAX_TERM_VREF)
+		u3phywrite32(U3D_USBPHYACR1, RG_USB20_TERM_VREF_SEL_OFST, RG_USB20_TERM_VREF_SEL, u2_term_ref);
+	if (u2_enhance >= 0 && u2_enhance <= MAX_ENHANCEMENT)
+		u3phywrite32(U3D_USBPHYACR6, RG_USB20_PHY_REV_6_OFST, RG_USB20_PHY_REV_6, u2_enhance);
+	if (u2_intr_cal >= 0 && u2_intr_cal <= MAX_INTRCAL)
+		u3phywrite32(U3D_USBPHYACR1, RG_USB20_INTR_CAL_OFST, RG_USB20_INTR_CAL, u2_intr_cal);
+	if (u2_discth >= 0 && u2_discth <= MAX_DISCTH)
+		u3phywrite32(U3D_USBPHYACR6, RG_USB20_DISCTH_OFST, RG_USB20_DISCTH, u2_discth);
 
 	phy_printk(K_INFO, "%s - SSUSB TX EYE Tuning\n", __func__);
 	u3phywrite32(U3D_PHYD_MIX6, RG_SSUSB_IDRVSEL_OFST,

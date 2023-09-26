@@ -318,6 +318,11 @@ int update_cpu_core_limit(int kicker, int cid, int min, int max)
 {
 	int i, final_min, final_max;
 
+	if (kicker < 0 || cid < 0) {
+		pr_debug("kicker: %d, cid: %d errro\n", kicker, cid);
+		return -1;
+	}
+
 	perfmgr_trace_count(kicker,
 		"update_cpu_core_limit_%d_%d_%d_%d", kicker, cid, min, max);
 	mutex_lock(&boost_freq);

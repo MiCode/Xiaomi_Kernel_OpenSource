@@ -128,3 +128,9 @@ config MTK_QOS_V2
 	  It supports BW prediction, BW bound detection, and BW limiter.
 	  It is also mapped with sspm qos v2.
 	  If unsure, say N.
+
+config MTK_NFC_CLKBUF_ENABLE
+        bool "MTK NFC clock enable"
+	default y
+	---help---
+	  This version support MTK NFC clock enable

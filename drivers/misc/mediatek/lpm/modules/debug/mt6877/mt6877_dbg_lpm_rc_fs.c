@@ -187,6 +187,36 @@ int mt6877_lpm_rc_cond_ctrl(int rc_id, unsigned int act,
 	return res;
 }
 
+static void mt6877_lpm_dram_rc_block_dump(unsigned long long dram_ratio,
+					unsigned long long syspll_ratio,
+					unsigned long long bus26m_ratio)
+{
+	uint32_t block, b;
+	int i;
+
+	if (dram_ratio == 0 && syspll_ratio == 0 && bus26m_ratio == 0) {
+		block = (uint32_t)MT6877_DBG_SMC(MT_SPM_DBG_SMC_UID_COND_BLOCK,
+						MT_LPM_SMC_ACT_GET, MT_RM_CONSTRAINT_ID_DRAM, 0);
+		b = (uint32_t)MT6877_DBG_SMC(MT_SPM_DBG_SMC_UID_COND_CHECK,
+						MT_LPM_SMC_ACT_GET, MT_RM_CONSTRAINT_ID_DRAM, 0);
+
+		for (i = 0, b = block >> SPM_COND_BLOCKED_CG_IDX;
+		    i < PLAT_SPM_COND_MAX; i++) {
+			if ((b >> i) & 0x1)
+				pr_info("%8s=0x%08lx\n",
+					mt6877_spm_cond_cg_str[i],
+					MT6877_DBG_SMC(	MT_SPM_DBG_SMC_UID_BLOCK_DETAIL,
+							MT_LPM_SMC_ACT_GET,
+							MT_RM_CONSTRAINT_ID_DRAM, i));
+		}
+		for (i = 0, b = block >> SPM_COND_BLOCKED_PLL_IDX;
+		    i < PLAT_SPM_COND_PLL_MAX; i++) {
+			if ((b >> i) & 0x1)
+				pr_info("%8s is on\n", mt6877_spm_cond_pll_str[i]);
+		}
+	}
+}
+
 int mt6877_lpm_rc_ratio_timer_func(unsigned long long dur, void *priv)
 {
 	/* spm tick to ms: tick/32 (ms) */
@@ -215,6 +245,11 @@ int mt6877_lpm_rc_ratio_timer_func(unsigned long long dur, void *priv)
 			dur, RC_COVERT_RATIO(dur, rc_dram_t),
 			RC_COVERT_RATIO(dur, rc_syspll_t),
 			RC_COVERT_RATIO(dur, rc_bus26m_t));
+
+	mt6877_lpm_dram_rc_block_dump(RC_COVERT_RATIO(dur, rc_dram_t),
+					RC_COVERT_RATIO(dur, rc_syspll_t),
+					RC_COVERT_RATIO(dur, rc_bus26m_t));
+
 	return 0;
 }
 
@@ -603,6 +638,14 @@ int mt6877_dbg_lpm_fs_init(void)
 			MT_LPM_SMC_ACT_SET, MT_RM_CONSTRAINT_ID_SYSPLL, 0);
 	MT6877_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_TRACE,
 			MT_LPM_SMC_ACT_SET, MT_RM_CONSTRAINT_ID_DRAM, 0);
+
+        MT6877_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_RES_CTRL,
+                MT_LPM_SMC_ACT_SET, MT_RM_CONSTRAINT_ID_DRAM, 0);
+        MT6877_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_RES_CTRL,
+                MT_LPM_SMC_ACT_SET, MT_RM_CONSTRAINT_ID_SYSPLL, 0);
+        MT6877_DBG_SMC(MT_SPM_DBG_SMC_UID_RC_RES_CTRL,
+                MT_LPM_SMC_ACT_SET, MT_RM_CONSTRAINT_ID_BUS26M, 0);
+        mtk_lpm_timer_start(&rc_ratio_timer);
 
 	return 0;
 }

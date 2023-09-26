@@ -1,0 +1,228 @@
+/*
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
+
+#ifndef __MTK_CHARGER_INIT_H__
+#define __MTK_CHARGER_INIT_H__
+
+/* 67w project */
+#define BATTERY_CV_LOW 4350000
+#define V_CHARGER_MAX_LOW 6500000 /* 6.5 V */
+#define V_CHARGER_MIN_LOW 4600000 /* 4.6 V */
+/* 120W project */
+#define BATTERY_CV 8900000
+#define V_CHARGER_MAX 23000000 /* 23 V */
+#define V_CHARGER_MIN 9200000 /* 9.2 V */
+
+#define USB_CHARGER_CURRENT_SUSPEND		0 /* def CONFIG_USB_IF */
+#define USB_CHARGER_CURRENT_UNCONFIGURED	70000 /* 70mA */
+#define USB_CHARGER_CURRENT_CONFIGURED		500000 /* 500mA */
+#define USB_CHARGER_CURRENT			500000 /* 500mA */
+#define AC_CHARGER_CURRENT			2050000
+#define AC_CHARGER_INPUT_CURRENT		3200000
+#define NON_STD_AC_CHARGER_CURRENT		500000
+#define CHARGING_HOST_CHARGER_CURRENT		650000
+#define APPLE_1_0A_CHARGER_CURRENT		650000
+#define APPLE_2_1A_CHARGER_CURRENT		800000
+#define TA_AC_CHARGING_CURRENT	3000000
+#define USB_UNLIMITED_CURRENT	2000000
+
+/* dynamic mivr */
+/* 67w project */
+#define V_CHARGER_MIN_1_LOW 4400000 /* 4.4 V */
+#define V_CHARGER_MIN_2_LOW 4200000 /* 4.2 V */
+#define MAX_DMIVR_CHARGER_CURRENT 1400000 /* 1.4 A */
+/* 120W project */
+#define V_CHARGER_MIN_1 8800000 /* 8.8 V */
+#define V_CHARGER_MIN_2 8400000 /* 8.4 V */
+#define MAX_DMIVR_CHARGER_CURRENT 1400000 /* 1.4 A */
+
+/* sw jeita */
+/* 67w project */
+#define JEITA_TEMP_ABOVE_T4_CV_LOW	4100000
+#define JEITA_TEMP_T3_TO_T4_CV_LOW	4100000
+#define JEITA_TEMP_T2_TO_T3_CV_LOW	4450000
+#define JEITA_TEMP_T1P5_TO_T2_CV_LOW	4450000
+#define JEITA_TEMP_T1_TO_T1P5_CV_LOW	4450000
+#define JEITA_TEMP_T0_TO_T1_CV_LOW	4450000
+#define JEITA_TEMP_TN1_TO_T0_CV_A_LOW	4200000
+#define JEITA_TEMP_TN1_TO_T0_CV_B_LOW	4450000
+#define JEITA_TEMP_BELOW_T0_CV_LOW	4200000
+/* 120W project */
+#define JEITA_TEMP_ABOVE_T4_CV	8200000
+#define JEITA_TEMP_T3_TO_T4_CV	8200000
+#define JEITA_TEMP_T2_TO_T3_CV	8900000
+#define JEITA_TEMP_T1P5_TO_T2_CV	8900000
+#define JEITA_TEMP_T1_TO_T1P5_CV	8900000
+#define JEITA_TEMP_T0_TO_T1_CV	8900000
+#define JEITA_TEMP_TN1_TO_T0_CV_A	8300000
+#define JEITA_TEMP_TN1_TO_T0_CV_B	8900000
+#define JEITA_TEMP_BELOW_T0_CV	8300000
+#define TEMP_T4_THRES  55
+#define TEMP_T4_THRES_MINUS_X_DEGREE 53
+#define TEMP_T3_THRES  45
+#define TEMP_T3_THRES_MINUS_X_DEGREE 43
+#define TEMP_T2_THRES  15
+#define TEMP_T2_THRES_PLUS_X_DEGREE 17
+#define TEMP_T1P5_THRES  10
+#define TEMP_T1P5_THRES_PLUS_X_DEGREE 11
+#define TEMP_T1_THRES  5
+#define TEMP_T1_THRES_PLUS_X_DEGREE 6
+#define TEMP_T0_THRES  0
+#define TEMP_T0_THRES_PLUS_X_DEGREE  1
+#define TEMP_TN1_THRES  -10
+#define TEMP_TN1_THRES_PLUS_X_DEGREE  -9
+#define TEMP_NEG_10_THRES -10
+/* 67w project */
+#define TEMP_TN1_TO_T0_FCC_A_LOW  744750
+#define TEMP_TN1_TO_T0_FCC_B_LOW  100000
+#define TEMP_T0_TO_T1_FCC_LOW   2482500
+#define TEMP_T1_TO_T1P5_FCC_LOW 3475500
+#define TEMP_T1P5_TO_T2_FCC_LOW 5958000
+#define TEMP_T2_TO_T3_FCC_LOW   12400000
+#define TEMP_T3_TO_T4_FCC_LOW   5958000
+/* 120w project */
+#define TEMP_TN1_TO_T0_FCC_A  1220000
+#define TEMP_TN1_TO_T0_FCC_B  490000
+#define TEMP_T0_TO_T1_FCC   1700000
+#define TEMP_T1_TO_T1P5_FCC 2920000
+#define TEMP_T1P5_TO_T2_FCC 4860000
+#define TEMP_T2_TO_T3_FCC   12000000
+#define TEMP_T3_TO_T4_FCC   1220000
+
+
+/* Battery Temperature Protection */
+#define MIN_CHARGE_TEMP  0
+#define MIN_CHARGE_TEMP_PLUS_X_DEGREE	6
+#define MAX_CHARGE_TEMP  50
+#define MAX_CHARGE_TEMP_MINUS_X_DEGREE	47
+
+/* pe */
+#define PE_ICHG_LEAVE_THRESHOLD 1000000 /* uA */
+#define TA_AC_12V_INPUT_CURRENT 3200000
+#define TA_AC_9V_INPUT_CURRENT	3200000
+#define TA_AC_7V_INPUT_CURRENT	3200000
+#define TA_9V_SUPPORT
+#define TA_12V_SUPPORT
+
+/* pe2.0 */
+#define PE20_ICHG_LEAVE_THRESHOLD 1000000 /* uA */
+#define TA_START_BATTERY_SOC	0
+#define TA_STOP_BATTERY_SOC	85
+
+/* dual charger */
+#define TA_AC_MASTER_CHARGING_CURRENT 1500000
+#define TA_AC_SLAVE_CHARGING_CURRENT 1500000
+#define SLAVE_MIVR_DIFF 100000
+
+/* slave charger */
+#define CHG2_EFF 90
+
+/* cable measurement impedance */
+#define CABLE_IMP_THRESHOLD 699
+#define VBAT_CABLE_IMP_THRESHOLD 3900000 /* uV */
+
+/* bif */
+/* 67W project */
+#define BIF_THRESHOLD1_LOW 4250000	/* UV */
+#define BIF_THRESHOLD2_LOW 4300000	/* UV */
+#define BIF_CV_UNDER_THRESHOLD2_LOW 4450000	/* UV */
+/* 120W project */
+#define BIF_THRESHOLD1 8300000	/* UV */
+#define BIF_THRESHOLD2 8600000	/* UV */
+#define BIF_CV_UNDER_THRESHOLD2 8900000	/* UV */
+#define BIF_CV BATTERY_CV /* UV */
+
+#define R_SENSE 56 /* mohm */
+
+#define MAX_CHARGING_TIME (12 * 60 * 60) /* 12 hours */
+
+#define DEFAULT_BC12_CHARGER 0 /* MAIN_CHARGER */
+
+/* battery warning */
+#define BATTERY_NOTIFY_CASE_0001_VCHARGER
+#define BATTERY_NOTIFY_CASE_0002_VBATTEMP
+
+/* pe4 */
+#define PE40_MAX_VBUS 11000
+#define PE40_MAX_IBUS 3000
+#define HIGH_TEMP_TO_LEAVE_PE40 46
+#define HIGH_TEMP_TO_ENTER_PE40 39
+#define LOW_TEMP_TO_LEAVE_PE40 10
+#define LOW_TEMP_TO_ENTER_PE40 16
+
+/* pd */
+#define PD_VBUS_UPPER_BOUND 10000000	/* uv */
+#define PD_VBUS_LOW_BOUND 5000000	/* uv */
+#define PD_ICHG_LEAVE_THRESHOLD 1000000 /* uA */
+#define PD_STOP_BATTERY_SOC 80
+
+#define VSYS_WATT 5000000
+#define IBUS_ERR 14
+
+#define SC_BATTERY_SIZE 3000
+#define SC_CV_TIME 3600
+#define SC_CURRENT_LIMIT 2000
+
+/* vote */
+/* 67W project */
+#define STEP_A_LOW 4200000
+#define STEP_B_LOW 4300000
+#define STEP_C_LOW 4400000
+#define STEP_D_LOW 4400000
+#define CURRENT_A_LOW 8937000
+#define CURRENT_B_LOW 7747500
+#define CURRENT_C_LOW 5958000
+#define CURRENT_D_LOW 5958000
+#define CURRENT_MAX_LOW 12400000
+/* 120W project */
+#define STEP_A 8260000
+#define STEP_B 8300000
+#define STEP_C 8700000
+#define STEP_D 8900000
+#define CURRENT_A 10000000
+#define CURRENT_B 8000000
+#define CURRENT_C 7290000
+#define CURRENT_D 4860000
+#define CURRENT_MAX 12000000
+#define STEP_HY_DOWN_A 150000
+#define STEP_HY_DOWN_B 150000
+#define STEP_HY_DOWN_C 150000
+#define STEP_HY_DOWN_D 150000
+
+/* ffc */
+/* 67W project */
+#define NON_FFC_IEOC_LOW 200000
+#define NON_FFC_CV_LOW 4450000
+#define FFC_IEOC_LOW 744000
+#define FFC_IEOC_B_LOW 744000
+#define FFC_CV_LOW 4480000
+/* 120W project */
+#define NON_FFC_IEOC 120000
+#define NON_FFC_CV 8900000
+#define FFC_IEOC 729000
+#define FFC_IEOC_B 972000
+#define FFC_CV 8960000
+
+/* qc */
+#define HVDCP2P0_VOLATGE 7000
+
+#define INVALID_VBUS_THRE 3000
+
+/* defined for charger type recheck */
+#define CHARGER_RECHECK_DELAY_MS	30000
+#define TYPE_RECHECK_TIME_5S	5000
+#define TYPE_RECHECK_COUNT	3
+
+#define CHARGER_CONFIRM_DCP_DELAY_MS	4500
+
+#endif /*__MTK_CHARGER_INIT_H__*/

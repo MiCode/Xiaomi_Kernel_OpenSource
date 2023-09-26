@@ -172,7 +172,7 @@ static inline bool mcp_session_isrunning(struct mcp_session *session)
  */
 int mcp_wait(struct mcp_session *session, s32 timeout)
 {
-	s32 err;
+	s32 err = 0;
 	int ret = 0;
 
 	mutex_lock(&session->notif_wait_lock);
@@ -781,7 +781,7 @@ static int debug_sessions(struct kasnprintf_buf *buf)
 	list_for_each_entry(session, &l_ctx.sessions, list) {
 		const char *state_str;
 		u64 cpu_clk;
-		s32 err;
+		s32 err = 0;
 
 		state_str = nq_session_state(&session->nq_session, &cpu_clk);
 		mcp_get_err(session, &err);

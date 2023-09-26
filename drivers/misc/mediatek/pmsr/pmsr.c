@@ -217,6 +217,9 @@ static ssize_t local_ipi_write(struct file *fp, const char __user *userbuf,
 {
 	unsigned int *v = PDE_DATA(file_inode(fp));
 
+	if (v == NULL)
+		return -EFAULT;
+
 	if (kstrtou32_from_user(userbuf, count, 10, v))
 		return -EFAULT;
 
@@ -240,7 +243,7 @@ static int pmsr_procfs_init(void)
 
 	pmsr_droot = proc_mkdir("pmsr", NULL);
 	if (pmsr_droot) {
-		proc_create("state", 0644, pmsr_droot, &local_ipi_fops);
+		proc_create("state", 0444, pmsr_droot, &local_ipi_fops);
 		proc_create_data("speed_mode", 0644, pmsr_droot, &local_ipi_fops,
 				 (void *) &(cfg.pmsr_speed_mode));
 		proc_create_data("window_len", 0644, pmsr_droot, &local_ipi_fops,

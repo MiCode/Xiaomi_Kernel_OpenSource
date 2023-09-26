@@ -31,6 +31,7 @@ obj-y += dram_ctrl.o
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/include/memory/mediatek/
 
 #if PM_DEVFREQ
 ccflags-y += -I$(srctree)/drivers/devfreq/

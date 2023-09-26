@@ -293,6 +293,7 @@ static void mtk8250_enable_intrs(struct uart_8250_port *up, int mask)
 static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 {
 	struct uart_port *port = &up->port;
+	int lcr = serial_in(up, UART_LCR);
 
 	serial_out(up, MTK_UART_FEATURE_SEL, 0x1);
 	serial_out(up, MTK_UART_EFR, UART_EFR_ECB);
@@ -305,35 +306,33 @@ static void mtk8250_set_flow_ctrl(struct uart_8250_port *up, int mode)
 			(~(MTK_UART_EFR_HW_FC | MTK_UART_EFR_SW_FC_MASK)));
 		mtk8250_disable_intrs(up, MTK_UART_IER_XOFFI |
 			MTK_UART_IER_RTSI | MTK_UART_IER_CTSI);
+		serial_out(up, MTK_UART_FEATURE_SEL, 0x0);
 		break;
 
 	case MTK_UART_FC_HW:
 		serial_out(up, MTK_UART_ESCAPE_DAT, MTK_UART_ESCAPE_CHAR);
 		serial_out(up, MTK_UART_ESCAPE_EN, 0x00);
 		serial_out(up, UART_MCR, UART_MCR_RTS);
-
+		serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
 		/*enable hw flow control*/
-		serial_out(up, MTK_UART_EFR, MTK_UART_EFR_HW_FC |
-			(serial_in(up, MTK_UART_EFR) &
+		serial_out(up, UART_EFR, MTK_UART_EFR_HW_FC |
+			(serial_in(up, UART_EFR) &
 			(~(MTK_UART_EFR_HW_FC | MTK_UART_EFR_SW_FC_MASK))));
-
+		serial_out(up, UART_LCR, lcr);
 		mtk8250_disable_intrs(up, MTK_UART_IER_XOFFI);
 		mtk8250_enable_intrs(up, MTK_UART_IER_CTSI | MTK_UART_IER_RTSI);
 		break;
-
 	case MTK_UART_FC_SW:	/*MTK software flow control */
 		serial_out(up, MTK_UART_ESCAPE_DAT, MTK_UART_ESCAPE_CHAR);
 		serial_out(up, MTK_UART_ESCAPE_EN, 0x01);
-
+		serial_out(up, UART_LCR, UART_LCR_CONF_MODE_B);
 		/*enable sw flow control */
-		serial_out(up, MTK_UART_EFR, MTK_UART_EFR_XON1_XOFF1 |
-			(serial_in(up, MTK_UART_EFR) &
+		serial_out(up, UART_EFR, MTK_UART_EFR_XON1_XOFF1 |
+			(serial_in(up, UART_EFR) &
 			(~(MTK_UART_EFR_HW_FC | MTK_UART_EFR_SW_FC_MASK))));
-
 		serial_out(up, UART_XON1, START_CHAR(port->state->port.tty));
 		serial_out(up, UART_XOFF1, STOP_CHAR(port->state->port.tty));
-
-		serial_out(up, MTK_UART_FEATURE_SEL, 0x0);
+		serial_out(up, UART_LCR, lcr);
 		mtk8250_disable_intrs(up, MTK_UART_IER_CTSI|MTK_UART_IER_RTSI);
 		mtk8250_enable_intrs(up, MTK_UART_IER_XOFFI);
 		break;

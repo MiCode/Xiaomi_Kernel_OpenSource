@@ -63,6 +63,10 @@ struct charger_consumer {
 extern struct charger_consumer *charger_manager_get_by_name(
 	struct device *dev,
 	const char *supply_name);
+extern int charger_manager_get_input_current_limit(
+	struct charger_consumer *consumer,
+	int idx,
+	int *input_current_uA);
 extern int charger_manager_set_input_current_limit(
 	struct charger_consumer *consumer,
 	int idx,
@@ -116,9 +120,46 @@ extern int charger_manager_get_zcv(
 extern int charger_manager_enable_chg_type_det(
 	struct charger_consumer *consumer,
 	bool en);
+extern int charger_manager_pd_is_online(void);
+extern int charger_manager_get_ibus(int* ibus);
+extern int charger_manager_set_input_suspend(int suspend);
+extern int mtk_get_prop_input_suspend(void);
+extern int mtk_set_prop_input_suspend(int suspend);
+extern int charger_manager_is_input_suspend(void);
+extern int charger_manager_get_prop_system_brightness(void);
+extern int charger_manager_get_prop_system_temp_scene(void);
+extern int charger_manager_get_prop_system_temp_level(void);
+extern int charger_manager_get_prop_system_temp_level_max(void);
+extern void charger_manager_set_prop_system_temp_level(int temp_level);
 extern int mtk_chr_is_charger_exist(unsigned char *exist);
 extern bool is_power_path_supported(void);
 extern int charger_get_vbus(void);
 extern bool mt_charger_plugin(void);
+extern int get_thermal_charge_ctrl_scene(void);
+extern int mt_leds_brightness_get(void);
+
+/* K16 */
+extern int charger_manager_get_thermal_limit_fcc(void);
+extern void charger_manager_set_thermal_limit_fcc(int thermal_limit_fcc);
+extern int charger_manager_get_sic_current(void);
+extern void charger_manager_set_sic_current(int sic_current);
+extern int charger_manager_get_input_suspend(void);
+extern void charger_manager_set_input_suspend_pissarro(bool input_suspend);
+extern int charger_manager_get_thermal_level(void);
+extern int charger_manager_get_max_thermal_level(void);
+extern void charger_manager_set_thermal_level(int thermal_level);
+extern int charger_manager_get_charge_status(void);
+extern int charger_manager_get_battery_health(void);
+
+/* weak function for other module */
+int __attribute__((weak)) get_thermal_charge_ctrl_scene(void)
+{
+	return 0;
+}
+
+int __attribute__((weak)) mt_leds_brightness_get(void)
+{
+	return 0;
+}
 
 #endif /* __MTK_CHARGER_H__ */

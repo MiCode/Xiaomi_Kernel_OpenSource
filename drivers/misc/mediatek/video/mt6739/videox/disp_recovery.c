@@ -528,6 +528,10 @@ int primary_display_esd_recovery(void)
 	lcm_param = disp_lcm_get_params(primary_get_lcm());
 
 	data_config = dpmgr_path_get_last_config(primary_get_dpmgr_handle());
+	if (lcm_param == NULL) {
+		DISPERR("[dsi_recovery.c] lcm_param is null!!!\n");
+		goto done;
+	}
 	memcpy(&(data_config->dispif_config), lcm_param,
 	       sizeof(struct LCM_PARAMS));
 

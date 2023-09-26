@@ -1083,6 +1083,34 @@ int reviser_set_default_iova(void *drvinfo)
 	return ret;
 }
 
+int reviser_init_ip(void)
+{
+	int ret = 0;
+
+#if APUSYS_SECURE
+	ret = mt_secure_call(MTK_SIP_APUSYS_CONTROL,
+			MTK_APUSYS_KERNEL_OP_REVISER_INIT_IP,
+			0, 0, 0);
+
+	if (ret) {
+		if (ret == -EIO)
+			LOG_ERR("Unsupported secure monitor call\n");
+		else
+			LOG_ERR("Init IP fail\n");
+
+		return -1;
+	}
+
+#else
+	LOG_ERR("APUSYS_SECURE is not enable\n");
+	return -1;
+#endif
+
+	LOG_DEBUG("Init IP\n");
+
+	return ret;
+}
+
 bool reviser_is_power(void *drvinfo)
 {
 	struct reviser_dev_info *reviser_device = NULL;

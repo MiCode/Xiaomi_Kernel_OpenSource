@@ -25,6 +25,7 @@
 #ifdef CONFIG_VIDEO_MEDIATEK_VCU
 #include "mtk_vcu.h"
 const struct vdec_common_if *get_dec_common_if(void);
+const struct vdec_common_if *get_dec_log_if(void);
 #endif
 
 #ifdef CONFIG_VIDEO_MEDIATEK_VPU
@@ -48,7 +49,6 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 	case V4L2_PIX_FMT_MPEG2:
 	case V4L2_PIX_FMT_MPEG4:
 	case V4L2_PIX_FMT_H263:
-	case V4L2_PIX_FMT_S263:
 	case V4L2_PIX_FMT_VP8:
 	case V4L2_PIX_FMT_VP9:
 	case V4L2_PIX_FMT_WMV1:
@@ -61,6 +61,9 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 	case V4L2_PIX_FMT_AV1:
 		ctx->dec_if = get_dec_common_if();
 		break;
+	case V4L2_CID_MPEG_MTK_LOG:
+		ctx->dec_if = get_dec_log_if();
+		return 0;
 	default:
 		return -EINVAL;
 	}
@@ -148,7 +151,7 @@ int vdec_if_set_param(struct mtk_vcodec_ctx *ctx, enum vdec_set_param_type type,
 {
 	int ret = 0;
 
-	if (ctx->drv_handle == 0)
+	if (ctx->drv_handle == 0 && type != SET_PARAM_DEC_LOG)
 		return -EIO;
 
 	ret = ctx->dec_if->set_param(ctx->drv_handle, type, in);

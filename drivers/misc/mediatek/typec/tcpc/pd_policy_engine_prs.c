@@ -50,7 +50,6 @@ void pe_prs_src_snk_assert_rd_entry(struct pd_port *pd_port)
 
 void pe_prs_src_snk_wait_source_on_entry(struct pd_port *pd_port)
 {
-	PE_STATE_HRESET_IF_TX_FAILED(pd_port);
 	pd_send_sop_ctrl_msg(pd_port, PD_CTRL_PS_RDY);
 }
 
@@ -105,7 +104,6 @@ void pe_prs_snk_src_source_on_entry(struct pd_port *pd_port)
 	dpm_reaction_set(pd_port, DPM_REACTION_CAP_RESET_CABLE);
 #endif	/* CONFIG_USB_PD_RESET_CABLE */
 
-	PE_STATE_HRESET_IF_TX_FAILED(pd_port);
 	pd_dpm_dynamic_enable_vconn(pd_port);
 	pd_dpm_prs_enable_power_source(pd_port, true);
 

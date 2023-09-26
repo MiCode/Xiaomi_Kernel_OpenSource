@@ -386,11 +386,6 @@ static int pidlist_array_load(struct cgroup *cgrp, enum cgroup_filetype type,
 		if (unlikely(n == length))
 			break;
 
-		/* mtk: don't get pid when proc/task killed */
-		if ((SIGNAL_GROUP_EXIT & tsk->signal->flags) ||
-			(PF_EXITING & tsk->flags))
-			continue;
-
 		/* get tgid or pid for procs or tasks file respectively */
 		if (type == CGROUP_FILE_PROCS)
 			pid = task_tgid_vnr(tsk);

@@ -28,6 +28,9 @@ enum LCM_DSI_MODE_CON lcm_dsi_mode;
 #define LCD_HW_ID_STATUS_ERROR  0x03
 
 struct LCM_DRIVER *lcm_driver_list[] = {
+#if defined(HX83102P_WXGA_VDO_INCELL_BOE)
+	&hx83102p_wxga_vdo_incell_boe_lcm_drv,
+#endif
 #if defined(ES6311_ANX6585_ZIGZAG_WXGA)
 	&es6311_anx6585_zigzag_wxga_lcm_drv,
 #endif
@@ -1316,6 +1319,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 
 #if defined(NT36672C_FHDP_DSI_VDO_90HZ_SHENCHAO_6382)
 	&nt36672c_fhdp_dsi_vdo_90hz_shenchao_6382_lcm_drv,
+#endif
+
+#if defined(NT36672C_FHDP_DSI_VDO_120HZ_SHENCHAO_6382)
+	&nt36672c_fhdp_dsi_vdo_120hz_shenchao_6382_lcm_drv,
 #endif
 
 #if defined(R66451_FHDP_DSI_CMD_TIANMA)

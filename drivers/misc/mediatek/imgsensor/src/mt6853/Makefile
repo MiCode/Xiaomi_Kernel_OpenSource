@@ -23,15 +23,7 @@ ifeq ($(CONFIG_MACH_MT6833),y)
 MTK_DERIVED_PLATFORM := mt6833
 endif
 
-ifeq ($(CONFIG_MACH_MT6781),y)
-MTK_DERIVED_PLATFORM := mt6781
-endif
-
-ifeq ($(CONFIG_MACH_MT6781),y)
-CONFIG_MTK_PLATFORM_SENSOR := mt6853
-else
 CONFIG_MTK_PLATFORM_SENSOR := $(subst ",,$(CONFIG_MTK_PLATFORM))
-endif
 
 ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
 IMGSENSOR_DRIVER_PATH  := $(srctree)/drivers/misc/mediatek/imgsensor/src
@@ -51,14 +43,10 @@ obj-y				+= ../common/$(COMMON_VERSION)/imgsensor_proc.o
 obj-y				+= ../common/$(COMMON_VERSION)/imgsensor_sensor_list.o
 obj-y				+= ../common/$(COMMON_VERSION)/seninf.o
 ifneq ($(ARCH_MTK_PROJECT), k6833v1_64_mt6317)
-ifneq ($(CONFIG_MACH_MT6781),y)
+ifneq ($(ARCH_MTK_PROJECT), k6877v1_64)
 obj-y				+= ../common/$(COMMON_VERSION)/imgsensor_pwr_seq.o
 endif
 endif
-ifeq ($(CONFIG_MACH_MT6781),y)
-obj-y				+= ../common/v1_1/n3d_fsync/
-endif
-
 define FILTER_DRV
 ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(CONFIG_MTK_PLATFORM_SENSOR)/camera_project/$(ARCH_MTK_PROJECT)/$(1)),)
 ifeq ($(wildcard $(IMGSENSOR_DRIVER_PATH)/$(CONFIG_MTK_PLATFORM_SENSOR)/$(1)),)
@@ -108,12 +96,6 @@ subdir-ccflags-y		+= -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION)/camera_
 # Enable parallelism
 subdir-ccflags-y += -DSENSOR_PARALLEISM
 
-ifeq ($(CONFIG_MACH_MT6781),y)
-# Seninf N3D support
-subdir-ccflags-y += -DSENINF_N3D_SUPPORT
-endif
-
-
 ifneq (,$(wildcard $(IMGSENSOR_DRIVER_PATH)/$(CONFIG_MTK_PLATFORM_SENSOR)/seninf_$(MTK_DERIVED_PLATFORM)))
 subdir-ccflags-y += -I$(IMGSENSOR_DRIVER_PATH)/$(CONFIG_MTK_PLATFORM_SENSOR)/seninf_$(MTK_DERIVED_PLATFORM)/
 obj-y += seninf_$(MTK_DERIVED_PLATFORM)/
@@ -128,10 +110,6 @@ $(info imgsensor subdir-ccflags-y = $(subdir-ccflags-y))
 
 
 ifeq ($(ARCH_MTK_PROJECT), k6853v1_64_6360_alpha)
-subdir-ccflags-y += -DNEED_LATE_INITCALL
-endif
-
-ifeq ($(CONFIG_MACH_MT6781),y)
 subdir-ccflags-y += -DNEED_LATE_INITCALL
 endif
 

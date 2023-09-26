@@ -31,7 +31,7 @@ void (*fpsgo_notify_connect_fp)(int pid,
 void (*fpsgo_notify_bqid_fp)(int pid, unsigned long long bufID,
 		int queue_SF, unsigned long long identifier, int create);
 void (*fpsgo_notify_vsync_fp)(void);
-int (*fpsgo_get_fps_fp)(void);
+void (*fpsgo_get_fps_fp)(int *pid, int *fps);
 void (*gbe_get_cmd_fp)(int *cmd, int *value1, int *value2);
 void (*fpsgo_notify_nn_job_begin_fp)(unsigned int tid, unsigned long long mid);
 void (*fpsgo_notify_nn_job_end_fp)(int pid, int tid, unsigned long long mid,
@@ -69,84 +69,6 @@ static unsigned long perfctl_copy_to_user(void __user *pvTo,
 
 	return ulBytes;
 }
-
-/*--------------------EARA THERMAL------------------------*/
-
-/*--------------------DEV OP------------------------*/
-static int eara_thrm_show(struct seq_file *m, void *v)
-{
-	return 0;
-}
-
-static int eara_thrm_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, eara_thrm_show, inode->i_private);
-}
-
-static int eara_thrm_release(struct inode *inode, struct file *file)
-{
-	return single_release(inode, file);
-}
-
-static long eara_thrm_ioctl(struct file *filp,
-		unsigned int cmd, unsigned long arg)
-{
-	ssize_t ret = 0;
-	struct _EARA_THRM_PACKAGE *msgKM = NULL,
-			*msgUM = (struct _EARA_THRM_PACKAGE *)arg;
-	struct _EARA_THRM_PACKAGE smsgKM;
-
-	msgKM = &smsgKM;
-
-	if (perfctl_copy_from_user(msgKM, msgUM,
-				sizeof(struct _EARA_THRM_PACKAGE))) {
-		ret = -EFAULT;
-		goto ret_ioctl;
-	}
-
-	switch (cmd) {
-	case EARA_ENABLE:
-		if (eara_enable_fp)
-			eara_enable_fp(msgKM->request);
-		else
-			ret = -1;
-		break;
-	case EARA_GETINFO:
-		if (eara_get_tfps_pair_fp)
-			eara_get_tfps_pair_fp(EARA_MAX_COUNT, msgKM->pair_pid,
-					msgKM->pair_bufid, msgKM->pair_tfps);
-		else
-			ret = -1;
-
-		perfctl_copy_to_user(msgUM, msgKM,
-				sizeof(struct _EARA_THRM_PACKAGE));
-		break;
-	case EARA_TDIFF:
-		if (eara_set_tfps_diff_fp)
-			eara_set_tfps_diff_fp(EARA_MAX_COUNT, msgKM->pair_pid,
-					msgKM->pair_bufid, msgKM->pair_diff);
-		else
-			ret = -1;
-		break;
-	default:
-		pr_debug(TAG "%s %d: unknown cmd %x\n",
-			__FILE__, __LINE__, cmd);
-		ret = -1;
-		goto ret_ioctl;
-	}
-
-ret_ioctl:
-	return ret;
-}
-
-static const struct file_operations eara_thrm_Fops = {
-	.unlocked_ioctl = eara_thrm_ioctl,
-	.compat_ioctl = eara_thrm_ioctl,
-	.open = eara_thrm_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = eara_thrm_release,
-};
 
 /*--------------------EARA------------------------*/
 static void perfctl_notify_fpsgo_nn_begin(
@@ -463,7 +385,7 @@ static long device_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
 {
 	ssize_t ret = 0;
-	int pwr_cmd = -1, value1 = -1, value2 = -1;
+	int pwr_cmd = -1, value1 = -1, value2 = -1, pwr_pid = -1, pwr_fps = -1;
 	struct _FPSGO_PACKAGE *msgKM = NULL,
 			*msgUM = (struct _FPSGO_PACKAGE *)arg;
 	struct _FPSGO_PACKAGE smsgKM;
@@ -513,9 +435,11 @@ static long device_ioctl(struct file *filp,
 			fpsgo_notify_swap_buffer_fp(msgKM->tid);
 		break;
 	case FPSGO_GET_FPS:
-		if (fpsgo_get_fps_fp)
-			msgKM->fps = fpsgo_get_fps_fp();
-		else
+		if (fpsgo_get_fps_fp) {
+			fpsgo_get_fps_fp(&pwr_pid, &pwr_fps);
+			msgKM->tid = pwr_pid;
+			msgKM->value1 = pwr_fps;
+		} else
 			ret = -1;
 		perfctl_copy_to_user(msgUM, msgKM,
 				sizeof(struct _FPSGO_PACKAGE));
@@ -552,6 +476,8 @@ static long device_ioctl(struct file *filp,
 		/* FALLTHROUGH */
 	case FPSGO_GET_FPS:
 		ret = -1;
+		pwr_pid = -1;
+		pwr_fps = -1;
 		break;
 	case FPSGO_GET_CMD:
 		ret = -1;
@@ -615,15 +541,6 @@ int init_perfctl(struct proc_dir_entry *parent)
 	}
 
 	pe = proc_create("eara_sys_ioctl", 0664, parent, &earasys_Fops);
-	if (!pe) {
-		pr_debug(TAG"%s failed with %d\n",
-				"Creating file node ",
-				ret_val);
-		ret_val = -ENOMEM;
-		goto out_wq;
-	}
-
-	pe = proc_create("eara_thrm_ioctl", 0664, parent, &eara_thrm_Fops);
 	if (!pe) {
 		pr_debug(TAG"%s failed with %d\n",
 				"Creating file node ",

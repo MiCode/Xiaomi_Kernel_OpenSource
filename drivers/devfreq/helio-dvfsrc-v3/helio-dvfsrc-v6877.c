@@ -37,6 +37,8 @@
 	dvfsrc_write(offset, (dvfsrc_read(offset) & ~(mask << shift)) \
 			| (val << shift))
 
+#define V_OPP_TYPE_SHIFT 20
+
 #ifdef	CONFIG_MTK_DVFSRC_MT6877_PRETEST
 static struct reg_config dvfsrc_init_configs[][128] = {
 	{
@@ -199,11 +201,11 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_HRT1_REQ_MD_BW_10,  0x00069400 },
 		{ DVFSRC_95MD_SCEN_BW0_T,    0x20222220 },
 		{ DVFSRC_95MD_SCEN_BW1_T,    0x22222222 },
-		{ DVFSRC_95MD_SCEN_BW2_T,    0x00400444 },
+		{ DVFSRC_95MD_SCEN_BW2_T,    0x04300444 },
 		{ DVFSRC_95MD_SCEN_BW3_T,    0x60000000 },
 		{ DVFSRC_95MD_SCEN_BW0,      0x00000000 },
 		{ DVFSRC_95MD_SCEN_BW1,      0x00000000 },
-		{ DVFSRC_95MD_SCEN_BW2,      0x00200222 },
+		{ DVFSRC_95MD_SCEN_BW2,      0x02200222 },
 		{ DVFSRC_95MD_SCEN_BW3,      0x60000000 },
 		{ DVFSRC_95MD_SCEN_BW4,      0x00000006 },
 		{ DVFSRC_RSRV_5,             0x00000001 },
@@ -344,22 +346,43 @@ static u32 dvfsrc_calc_hrt_opp(int data)
 		return DDR_OPP_0;
 
 #else
-	if (data < 0x780)
-		return DDR_OPP_7;
-	else if (data < 0xB40)
-		return DDR_OPP_6;
-	else if (data < 0xF00)
-		return DDR_OPP_5;
-	else if (data < 0x117E)
-		return DDR_OPP_4;
-	else if (data < 0x1900)
-		return DDR_OPP_3;
-	else if (data < 0x28D4)
-		return DDR_OPP_2;
-	else if (data < 0x3153)
-		return DDR_OPP_1;
-	else
-		return DDR_OPP_0;
+	int dvfsrc_rsrv;
+
+	if ((dvfsrc_rsrv >> V_OPP_TYPE_SHIFT) & 0x3) {
+		if (data < 0x780)
+			return DDR_OPP_7;
+		else if (data < 0xB40)
+			return DDR_OPP_6;
+		else if (data < 0xF00)
+			return DDR_OPP_5;
+		else if (data < 0x117E)
+			return DDR_OPP_4;
+		else if (data < 0x1900)
+			return DDR_OPP_3;
+		else if (data < 0x24BF)
+			return DDR_OPP_2;
+		else if (data < 0x2CA8)
+			return DDR_OPP_1;
+		else
+			return DDR_OPP_0;
+	} else {
+		if (data < 0x780)
+			return DDR_OPP_7;
+		else if (data < 0xB40)
+			return DDR_OPP_6;
+		else if (data < 0xF00)
+			return DDR_OPP_5;
+		else if (data < 0x117E)
+			return DDR_OPP_4;
+		else if (data < 0x1900)
+			return DDR_OPP_3;
+		else if (data < 0x28D4)
+			return DDR_OPP_2;
+		else if (data < 0x3153)
+			return DDR_OPP_1;
+		else
+			return DDR_OPP_0;
+	}
 #endif
 }
 
@@ -460,7 +483,6 @@ static void dvfsrc_autok_manager(void)
 }
 #endif
 
-#define V_OPP_TYPE_SHIFT 20
 void helio_dvfsrc_platform_pre_init(struct helio_dvfsrc *dvfsrc)
 {
 	struct platform_device *pdev = to_platform_device(dvfsrc->dev);
@@ -517,15 +539,27 @@ void helio_dvfsrc_platform_init(struct helio_dvfsrc *dvfsrc)
 	int spmfw_idx = 0;
 	struct reg_config *config;
 	int idx = 0;
+	int dvfsrc_rsrv;
 
 	sysfs_merge_group(&dvfsrc->dev->kobj, &mt6877_helio_dvfsrc_attr_group);
+	dvfsrc_rsrv = readl(dvfsrc->regs + DVFSRC_RSRV_4);
+	if ((dvfsrc_rsrv >> V_OPP_TYPE_SHIFT) & 0x3)
+		writel(0x7000, dvfsrc->regs + DVFSRC_SW_REQ6);
 
 	config = dvfsrc_init_configs[spmfw_idx];
-
 	while (config[idx].offset != -1) {
 		dvfsrc_write(config[idx].offset, config[idx].val);
 		idx++;
 	}
+
+	if ((dvfsrc_rsrv >> V_OPP_TYPE_SHIFT) & 0x3) {
+		writel(0x2CA82CA8, dvfsrc->regs + DVFSRC_HRT_HIGH_3);
+		writel(0x24BF1900, dvfsrc->regs + DVFSRC_HRT_HIGH_2);
+		writel(0x2CA72CA7, dvfsrc->regs + DVFSRC_HRT_LOW_3);
+		writel(0x24BE18FF, dvfsrc->regs + DVFSRC_HRT_LOW_2);
+		writel(0x0000, dvfsrc->regs + DVFSRC_SW_REQ6);
+	}
+
 #ifdef AUTOK_ENABLE
 	dvfsrc_autok_manager();
 #endif

@@ -410,7 +410,7 @@ int set_task_attr(int dsp_id, int task_enum, int param)
 	case ADSP_TASK_ATTR_MEMREF:
 		task_attr->afe_memif_ref = param;
 		break;
-	case ADSP_TASK_ATTR_RUMTIME:
+	case ADSP_TASK_ATTR_RUNTIME:
 		task_attr->runtime_enable = param;
 		break;
 	case ADSP_TASK_ATTR_REF_RUNTIME:
@@ -450,7 +450,7 @@ int get_task_attr(int dsp_id, int task_enum)
 		return task_attr->afe_memif_ul;
 	case ADSP_TASK_ATTR_MEMREF:
 		return task_attr->afe_memif_ref;
-	case ADSP_TASK_ATTR_RUMTIME:
+	case ADSP_TASK_ATTR_RUNTIME:
 		return task_attr->runtime_enable;
 	case ADSP_TASK_ATTR_REF_RUNTIME:
 		return task_attr->ref_runtime_enable;

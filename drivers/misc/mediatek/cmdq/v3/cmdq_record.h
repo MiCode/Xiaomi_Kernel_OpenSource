@@ -187,10 +187,14 @@ void cmdq_task_set_mtee(struct cmdqRecStruct *handle, const bool enable);
 void cmdq_task_set_secure_id(struct cmdqRecStruct *handle, s32 sec_id);
 s32 cmdq_op_write_reg_secure(struct cmdqRecStruct *handle, u32 addr,
 	enum CMDQ_SEC_ADDR_METADATA_TYPE type, u64 baseHandle,
-	u32 offset, u32 size, u32 port);
+	u32 offset, u32 size, u32 port, uint32_t sec_id);
 s32 cmdqRecWriteSecure(struct cmdqRecStruct *handle,
 	u32 addr, enum CMDQ_SEC_ADDR_METADATA_TYPE type,
 	u64 baseHandle, u32 offset, u32 size, u32 port);
+
+s32 cmdqRecWriteSecureMetaData(struct cmdqRecStruct *handle,
+	u32 addr, enum CMDQ_SEC_ADDR_METADATA_TYPE type,
+	u64 baseHandle, u32 offset, u32 size, u32 port, uint32_t sec_id);
 
 /* Append poll command to the recorder
  * Parameter:

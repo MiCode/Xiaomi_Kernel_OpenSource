@@ -49,12 +49,12 @@ static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
 	if (data == NULL)
 		return;
 	switch (msg->id) {
-	case GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
+	case VENC_GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
 		size = sizeof(struct mtk_video_fmt);
 		memcpy((void *)msg->ap_data_addr, data,
 			size * MTK_MAX_ENC_CODECS_SUPPORT);
 		break;
-	case GET_PARAM_CAPABILITY_FRAME_SIZES:
+	case VENC_GET_PARAM_CAPABILITY_FRAME_SIZES:
 		size = sizeof(struct mtk_codec_framesizes);
 		memcpy((void *)msg->ap_data_addr, data,
 			size * MTK_MAX_ENC_CODECS_SUPPORT);
@@ -501,6 +501,10 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 	case VENC_SET_PARAM_REFP_FRMNUM:
 		out.data_item = 1;
 		out.data[0] = enc_param->refpfrmnum;
+		break;
+	case VENC_SET_PARAM_ENABLE_DUMMY_NAL:
+		out.data_item = 1;
+		out.data[0] = enc_param->dummynal;
 		break;
 	default:
 		mtk_vcodec_err(vcu, "id %d not supported", id);

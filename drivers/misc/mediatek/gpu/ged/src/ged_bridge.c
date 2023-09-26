@@ -237,18 +237,15 @@ int ged_bridge_query_gpu_dvfs_info(
 
 	/* GiFT hint status to GED */
 	if (QueryGPUDVFSInfoIn->hint) {
-		QueryGPUDVFSInfoOut->eError =
-			ged_kpi_set_gift_status(QueryGPUDVFSInfoIn->hint);
+		if (QueryGPUDVFSInfoIn->gift_ratio)
+			QueryGPUDVFSInfoOut->eError =
+				ged_kpi_set_gift_status(QueryGPUDVFSInfoIn->gift_ratio);
+		else
+			QueryGPUDVFSInfoOut->eError =
+				ged_kpi_set_gift_status(QueryGPUDVFSInfoIn->hint);
 	}
-	/* GiFT query gpu_freq info from GED */
-	else {
-		QueryGPUDVFSInfoOut->eError = ged_kpi_query_gpu_dvfs_info(
-			&QueryGPUDVFSInfoOut->gpu_freq_cur,
-			&QueryGPUDVFSInfoOut->gpu_freq_max,
-			&QueryGPUDVFSInfoOut->gpu_freq_dvfs_pred,
-			&QueryGPUDVFSInfoOut->target_fps,
-			&QueryGPUDVFSInfoOut->gpu_time);
-	}
+	QueryGPUDVFSInfoOut->eError = ged_kpi_query_gpu_dvfs_info(
+			QueryGPUDVFSInfoOut);
 	return 0;
 }
 

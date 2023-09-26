@@ -40,6 +40,14 @@
 #define CALC_DELTA		(1000)
 #define MAX_C_NUM		(4)
 
+struct spd_ds_ref {
+	int cx_freq[MAX_C_NUM]; /* Cluster 0 ~ 4 */
+	int dram_frq_lvl;
+	u32 irq_affinity;
+	u32 task_affinity;
+	u32 rps;
+};
+
 static struct ppm_limit_data *s_pld;
 static int s_cluster_num;
 static struct dvfs_ref const *s_dl_dvfs_tbl;
@@ -55,11 +63,6 @@ static struct speed_mon s_dl_mon, s_ul_mon;
 
 static int s_speed_mon_on;
 static wait_queue_head_t s_mon_wq;
-
-struct common_cfg_para {
-	int c_frq[MAX_C_NUM];
-	int dram_frq_lvl;
-};
 
 void mtk_ccci_add_dl_pkt_size(int size)
 {
@@ -156,7 +159,7 @@ static void dram_freq_rta_action(int lvl)
 	}
 }
 
-static int dl_speed_hint(u64 speed, int *in_idx, struct common_cfg_para *cfg)
+static int dl_speed_hint(u64 speed, int *in_idx, struct spd_ds_ref *cfg)
 {
 	int i;
 	int new_idx, idx;
@@ -187,23 +190,24 @@ static int dl_speed_hint(u64 speed, int *in_idx, struct common_cfg_para *cfg)
 	}
 
 	/* CPU freq hint*/
-	cfg->c_frq[0] = s_dl_dvfs_tbl[new_idx].c0_freq;
-	cfg->c_frq[1] = s_dl_dvfs_tbl[new_idx].c1_freq;
-	cfg->c_frq[2] = s_dl_dvfs_tbl[new_idx].c2_freq;
-	cfg->c_frq[3] = s_dl_dvfs_tbl[new_idx].c3_freq;
+	cfg->cx_freq[0] = s_dl_dvfs_tbl[new_idx].c0_freq;
+	cfg->cx_freq[1] = s_dl_dvfs_tbl[new_idx].c1_freq;
+	cfg->cx_freq[2] = s_dl_dvfs_tbl[new_idx].c2_freq;
+	cfg->cx_freq[3] = s_dl_dvfs_tbl[new_idx].c3_freq;
 	/* DRAM freq hint*/
 	cfg->dram_frq_lvl = s_dl_dvfs_tbl[new_idx].dram_lvl;
-	/* CPU affinity */
-	mtk_ccci_affinity_rta(s_dl_dvfs_tbl[new_idx].irq_affinity,
-				s_dl_dvfs_tbl[new_idx].task_affinity, 8);
-	/* RPS */
-	set_ccmni_rps(s_dl_dvfs_tbl[new_idx].rps);
+	/* irq affinity */
+	cfg->irq_affinity = s_dl_dvfs_tbl[new_idx].irq_affinity;
+	/* task affinity */
+	cfg->task_affinity = s_dl_dvfs_tbl[new_idx].task_affinity;
+	/* rps */
+	cfg->rps = s_dl_dvfs_tbl[new_idx].rps;
 
 	*in_idx = new_idx;
 	return 1;
 }
 
-static int ul_speed_hint(u64 speed, int *in_idx, struct common_cfg_para *cfg)
+static int ul_speed_hint(u64 speed, int *in_idx, struct spd_ds_ref *cfg)
 {
 	int i;
 	int new_idx, idx;
@@ -234,12 +238,18 @@ static int ul_speed_hint(u64 speed, int *in_idx, struct common_cfg_para *cfg)
 	}
 
 	/* CPU freq hint*/
-	cfg->c_frq[0] = s_ul_dvfs_tbl[new_idx].c0_freq;
-	cfg->c_frq[1] = s_ul_dvfs_tbl[new_idx].c1_freq;
-	cfg->c_frq[2] = s_ul_dvfs_tbl[new_idx].c2_freq;
-	cfg->c_frq[3] = s_ul_dvfs_tbl[new_idx].c3_freq;
+	cfg->cx_freq[0] = s_ul_dvfs_tbl[new_idx].c0_freq;
+	cfg->cx_freq[1] = s_ul_dvfs_tbl[new_idx].c1_freq;
+	cfg->cx_freq[2] = s_ul_dvfs_tbl[new_idx].c2_freq;
+	cfg->cx_freq[3] = s_ul_dvfs_tbl[new_idx].c3_freq;
 	/* DRAM freq hint*/
 	cfg->dram_frq_lvl = s_ul_dvfs_tbl[new_idx].dram_lvl;
+	/* irq affinity */
+	cfg->irq_affinity = s_ul_dvfs_tbl[new_idx].irq_affinity;
+	/* task affinity */
+	cfg->task_affinity = s_ul_dvfs_tbl[new_idx].task_affinity;
+	/* rps */
+	cfg->rps = s_ul_dvfs_tbl[new_idx].rps;
 
 	*in_idx = new_idx;
 
@@ -308,45 +318,34 @@ struct dvfs_ref * __weak mtk_ccci_get_dvfs_table(int is_ul, int *tbl_num)
 }
 
 static char s_dl_speed_str[32], s_ul_speed_str[32];
-static int s_dl_cpu_freq[MAX_C_NUM], s_ul_cpu_freq[MAX_C_NUM];
 static int s_final_cpu_freq[MAX_C_NUM];
 static int s_dl_dram_lvl, s_ul_dram_lvl, s_dram_lvl;
+static int s_dram_lvl;
+static struct spd_ds_ref s_dl_ref, s_ul_ref;
+unsigned int s_isr_affinity, s_task_affinity, s_rps;
+
 static void dvfs_cal_for_md_net(u64 dl_speed, u64 ul_speed)
 {
 	static int dl_idx, ul_idx;
 	int dl_change, ul_change;
-	struct common_cfg_para cfg;
 	int i;
 
-	for (i = 0; i < MAX_C_NUM; i++)
-		cfg.c_frq[i] = -1;
-	cfg.dram_frq_lvl = -1;
-	ul_change = ul_speed_hint(ul_speed, &ul_idx, &cfg);
-	if (ul_change > 0) {
-		for (i = 0; i < MAX_C_NUM; i++)
-			s_ul_cpu_freq[i] = cfg.c_frq[i];
-		s_ul_dram_lvl = cfg.dram_frq_lvl;
-	}
-
-	for (i = 0; i < MAX_C_NUM; i++)
-		cfg.c_frq[i] = -1;
-	cfg.dram_frq_lvl = -1;
-	dl_change = dl_speed_hint(dl_speed, &dl_idx, &cfg);
-	if (dl_change > 0) {
-		for (i = 0; i < MAX_C_NUM; i++)
-			s_dl_cpu_freq[i] = cfg.c_frq[i];
-		s_dl_dram_lvl = cfg.dram_frq_lvl;
-	}
+	ul_change = ul_speed_hint(ul_speed, &ul_idx, &s_ul_ref);
+	dl_change = dl_speed_hint(dl_speed, &dl_idx, &s_dl_ref);
 
 	if ((dl_change > 0) || (ul_change > 0)) {
+		/* CPU cluster frequency setting */
 		for (i = 0; i < MAX_C_NUM; i++) {
-			if (s_dl_cpu_freq[i] <= s_ul_cpu_freq[i])
-				s_final_cpu_freq[i] = s_ul_cpu_freq[i];
+			if (s_ul_ref.cx_freq[i] <= s_dl_ref.cx_freq[i])
+				s_final_cpu_freq[i] = s_dl_ref.cx_freq[i];
 			else
-				s_final_cpu_freq[i] = s_dl_cpu_freq[i];
+				s_final_cpu_freq[i] = s_ul_ref.cx_freq[i];
 		}
 		cpu_freq_rta_action(1, s_final_cpu_freq, MAX_C_NUM);
 
+		/* DRAM frequency setting */
+		s_dl_dram_lvl = s_dl_ref.dram_frq_lvl;
+		s_ul_dram_lvl = s_ul_ref.dram_frq_lvl;
 		if ((s_dl_dram_lvl >= 0) && (s_ul_dram_lvl >= 0)) {
 			if (s_dl_dram_lvl < s_ul_dram_lvl)
 				s_dram_lvl = s_dl_dram_lvl;
@@ -359,16 +358,41 @@ static void dvfs_cal_for_md_net(u64 dl_speed, u64 ul_speed)
 		else
 			s_dram_lvl = -1;
 		dram_freq_rta_action(s_dram_lvl);
+
+		/* CPU affinity setting */
+		s_isr_affinity = s_ul_ref.irq_affinity & s_dl_ref.irq_affinity;
+		if (!s_isr_affinity) {
+			pr_info("[SPD]ISR affinity: [ul:%x|dl:%x]\r\n",
+				s_ul_ref.irq_affinity,
+				s_dl_ref.irq_affinity);
+			s_isr_affinity = 0xFF;
+		}
+		s_task_affinity =
+			s_ul_ref.task_affinity & s_dl_ref.task_affinity;
+		if (!s_task_affinity) {
+			pr_info("[SPD]Task affinity: [ul:%x|dl:%x]\r\n",
+				s_ul_ref.task_affinity,
+				s_dl_ref.task_affinity);
+			s_task_affinity = 0xFF;
+		}
+		mtk_ccci_affinity_rta(s_isr_affinity, s_task_affinity, 8);
+
+		/* RPS setting */
+		s_rps = s_dl_ref.rps;
+		if (s_ul_ref.rps & 0xC0)
+			s_rps = s_ul_ref.rps;
+		set_ccmni_rps(s_rps);
 	}
 
 	if (s_show_speed_inf) {
 		get_speed_str(dl_speed, s_dl_speed_str, 32);
 		get_speed_str(ul_speed, s_ul_speed_str, 32);
-		pr_info("[SPD]UL[%d:%s], DL[%d:%s]{c0:%d|c1:%d|c2:%d|c3:%d|d:%d}\r\n",
+		pr_info("[SPD]UL[%d:%s], DL[%d:%s]{c0:%d|c1:%d|c2:%d|c3:%d|d:%d|i:0x%x|p:0x%x|r:0x%x}\r\n",
 				ul_idx, s_ul_speed_str, dl_idx, s_dl_speed_str,
 				s_final_cpu_freq[0], s_final_cpu_freq[1],
 				s_final_cpu_freq[2], s_final_cpu_freq[3],
-				s_dram_lvl);
+				s_dram_lvl, s_isr_affinity, s_task_affinity,
+				s_rps);
 	}
 }
 
@@ -430,11 +454,7 @@ int mtk_ccci_speed_monitor_init(void)
 			s_pld[i].max = -1;
 		}
 	}
-	for (i = 0; i < MAX_C_NUM; i++) {
-		s_dl_cpu_freq[i] = -1;
-		s_ul_cpu_freq[i] = -1;
-		s_final_cpu_freq[i] = -1;
-	}
+
 	s_dl_dram_lvl = -1;
 	s_ul_dram_lvl = -1;
 	s_dram_lvl = -1;

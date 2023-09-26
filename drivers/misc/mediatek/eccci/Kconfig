@@ -1,7 +1,7 @@
 config MTK_ECCCI_DRIVER
 	tristate "Enable Evolved CCCI Driver as interface for modem"
 	depends on MTK_CCCI_DEVICES
-	default n
+	default y
 	select MTK_NET_CCMNI
 	help
 	  This option enables ECCCI device driver support,

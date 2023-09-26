@@ -58,6 +58,9 @@ static int g_color_bypass[DISP_COLOR_TOTAL];
 static DEFINE_MUTEX(g_color_reg_lock);
 static struct DISPLAY_COLOR_REG g_color_reg;
 static int g_color_reg_valid;
+#if !defined(CONFIG_DRM_PANEL_K10A_36_02_0A_DSC_VDO) && !defined(CONFIG_DRM_PANEL_K10A_42_02_0B_DSC_VDO) && !defined(CONFIG_DRM_PANEL_K11T_42_02_0A_DSC_CMD)
+static atomic_t g_color_initiated = ATOMIC_INIT(0);
+#endif
 
 #define C1_OFFSET (0)
 #define color_get_offset(module) (0)
@@ -2164,6 +2167,25 @@ static bool color_get_TDSHP0_REG(struct resource *res)
 	return true;
 }
 
+static bool color_get_DISP_DRV_REG(struct resource *res, const char *compat)
+{
+	int rc = 0;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL, compat);
+	rc = of_address_to_resource(node, 0, res);
+
+	// check if fail to get reg.
+	if (rc) {
+		DDPINFO("Fail to get %s REG\n", compat);
+		return false;
+	}
+
+	DDPDBG("%s REG: 0x%llx ~ 0x%llx\n", compat, res->start, res->end);
+
+	return true;
+}
+
 #if defined(SUPPORT_ULTRA_RESOLUTION)
 static bool color_get_MDP_RSZ0_REG(struct resource *res)
 {
@@ -2472,6 +2494,223 @@ static int color_is_reg_addr_valid(struct mtk_ddp_comp *comp,
 	if (color_get_TDSHP0_REG(&res) &&
 		addr >= res.start && addr < res.end) {
 		DDPDBG("addr=0x%lx, module=TDSHP0\n", addr);
+		return 2;
+	}
+
+	/*Check if Display driver base address*/
+	if (color_get_DISP_DRV_REG(&res, "mediatek,dispsys_config") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_pwm0") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_ovl0") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_ovl0_2l") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_ovl2_2l") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_rdma0") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_rdma4") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_wdma0") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_rsz0") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,dsi0") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_merge0") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_ovl1") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_ovl1_2l") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_ovl3_2l") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_rdma1") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_rdma5") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_wdma1") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,dsi1") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_mutex0") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_dsc_wrap") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,mipi_tx_config0") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,mipi_tx_config1") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_common") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_smi_subcom") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,disp_smi_subcom1") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb0") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb1") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb2") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb3") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb4") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb5") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb6") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb7") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb8") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb9") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
+		return 2;
+	}
+
+	if (color_get_DISP_DRV_REG(&res, "mediatek,smi_larb10") &&
+		addr >= res.start && addr < res.end) {
+		DDPDBG("addr=0x%lx, module=DISP DRV\n", addr);
 		return 2;
 	}
 
@@ -3126,8 +3365,8 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 
 			cmdq_pkt_write(handle, comp->cmdq_base,
 				pa, wParams->val, wParams->mask);
-			DDPINFO("dual pipe pa:0x%x(va:0x%lx) = 0x%x (0x%x) comp->reg_pa:(0x%x)\n",
-					pa, (long)va, wParams->val, wParams->mask);
+			DDPINFO("dual pipe pa:0x%x(va:0x%lx) = 0x%x (0x%x) comp->regs_pa:(0x%x)\n",
+					pa, (long)va, wParams->val, wParams->mask, comp->regs_pa);
 		}
 	}
 	break;
@@ -3163,18 +3402,24 @@ static int mtk_color_user_cmd(struct mtk_ddp_comp *comp,
 struct color_backup {
 	unsigned int COLOR_CFG_MAIN;
 };
+
+#if !defined(CONFIG_DRM_PANEL_K10A_36_02_0A_DSC_VDO) && !defined(CONFIG_DRM_PANEL_K10A_42_02_0B_DSC_VDO) && !defined(CONFIG_DRM_PANEL_K11T_42_02_0A_DSC_CMD)
 static struct color_backup g_color_backup;
 
 static void ddp_color_backup(struct mtk_ddp_comp *comp)
 {
 	g_color_backup.COLOR_CFG_MAIN =
 		readl(comp->regs + DISP_COLOR_CFG_MAIN);
+	atomic_set(&g_color_initiated, 1);
 }
 
 static void ddp_color_restore(struct mtk_ddp_comp *comp)
 {
+	if (atomic_read(&g_color_initiated) != 1)
+		return;
 	writel(g_color_backup.COLOR_CFG_MAIN, comp->regs + DISP_COLOR_CFG_MAIN);
 }
+#endif
 
 static void mtk_color_prepare(struct mtk_ddp_comp *comp)
 {
@@ -3204,8 +3449,10 @@ static void mtk_color_prepare(struct mtk_ddp_comp *comp)
 		DISP_COLOR_SHADOW_CTRL, COLOR_BYPASS_SHADOW);
 #endif
 #endif
+#if !defined(CONFIG_DRM_PANEL_K10A_36_02_0A_DSC_VDO) && !defined(CONFIG_DRM_PANEL_K10A_42_02_0B_DSC_VDO) && !defined(CONFIG_DRM_PANEL_K11T_42_02_0A_DSC_CMD)
 	// restore DISP_COLOR_CFG_MAIN register
 	ddp_color_restore(comp);
+#endif
 }
 
 static void mtk_color_unprepare(struct mtk_ddp_comp *comp)
@@ -3218,8 +3465,10 @@ static void mtk_color_unprepare(struct mtk_ddp_comp *comp)
 	atomic_set(&g_color_is_clock_on[index_of_color(comp->id)], 0);
 	spin_unlock_irqrestore(&g_color_clock_lock, flags);
 	DDPINFO("%s @ %d......... spin_unlock_irqrestore ", __func__, __LINE__);
+#if !defined(CONFIG_DRM_PANEL_K10A_36_02_0A_DSC_VDO) && !defined(CONFIG_DRM_PANEL_K10A_42_02_0B_DSC_VDO) && !defined(CONFIG_DRM_PANEL_K11T_42_02_0A_DSC_CMD)
 	// backup DISP_COLOR_CFG_MAIN register
 	ddp_color_backup(comp);
+#endif
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 

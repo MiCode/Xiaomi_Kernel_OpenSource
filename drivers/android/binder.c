@@ -3902,7 +3902,8 @@ static void binder_transaction(struct binder_proc *proc,
 #endif
 	t->buffer = binder_alloc_new_buf(&target_proc->alloc, tr->data_size,
 		tr->offsets_size, extra_buffers_size,
-		!reply && (t->flags & TF_ONE_WAY));
+		!reply && (t->flags & TF_ONE_WAY),
+		current->tgid);
 	if (IS_ERR(t->buffer)) {
 		/*
 		 * -ESRCH indicates VMA cleared. The target is dying.
@@ -4860,6 +4861,7 @@ static int binder_wait_for_work(struct binder_thread *thread,
 		prepare_to_wait(&thread->wait, &wait, TASK_INTERRUPTIBLE);
 		if (binder_has_work_ilocked(thread, do_proc_work))
 			break;
+
 		if (do_proc_work)
 			list_add(&thread->waiting_thread_node,
 				 &proc->waiting_threads);
@@ -7039,6 +7041,7 @@ err_alloc_device_names_failed:
 }
 
 device_initcall(binder_init);
+
 
 #define CREATE_TRACE_POINTS
 #include "binder_trace.h"

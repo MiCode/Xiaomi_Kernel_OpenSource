@@ -114,8 +114,8 @@ void adsp_set_emimpu_shared_region(void)
 int adsp_mem_device_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	int i;
-	uint32_t size;
+	int i = 0;
+	uint32_t size = 0;
 	struct device *dev = &pdev->dev;
 
 	for (i = 0; i < ADSP_NUMS_MEM_ID; i++) {
@@ -149,7 +149,7 @@ void adsp_init_reserve_memory(void)
 	for (id = 0; id < ADSP_NUMS_MEM_ID; id++) {
 		adsp_reserve_mblocks[id].phys_addr = mem->phys_addr + acc_size;
 		adsp_reserve_mblocks[id].virt_addr = mem->virt_addr + acc_size;
-		acc_size += adsp_reserve_mblocks[id].size;
+		acc_size += ALIGN(adsp_reserve_mblocks[id].size, RSV_BLOCK_ALIGN);
 #ifdef MEM_DEBUG
 		pr_info("adsp_reserve_mblocks[%d] phys_addr:%llx, size:0x%zx\n",
 			id,

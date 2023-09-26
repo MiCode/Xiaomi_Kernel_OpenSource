@@ -1,0 +1,33 @@
+#ifndef __MTK_CHARGER_INTF_MI_H__
+#define __MTK_CHARGER_INTF_MI_H__
+
+enum {
+	STEPCHG_FCC,
+	JEITA_FCC,
+	THERMAL_FCC,
+	BQ_FCC,
+	BAT_VERIFY_FCC,
+	COOL_MODE_FCC,
+	NIGHT_CHG_FCC,
+	CHG_MAX,
+};
+
+/* thermal scene */
+enum thermal_scene {
+	NORMAL_CHG_SCENE = 0,
+	GAME_CHG_SCENE,
+	GAME_HIGHLOAD_CHG_SCENE,
+	SCREENON_CHG_SCENE,
+	CAMERA_CHG_SCENE,
+	VEDIO_CHG_SCENE,
+	OTHER_CHG_SCENE,
+};
+
+enum thermal_backlight {
+	SCREEN_OFF	= 0,
+	SCREEN_ON	= 1,
+	SCREEN_HIGHLIGHT= 1900,
+	SCREEN_FULL	= 2047,
+};
+
+#endif /* __MTK_CHARGER_INTF_MI_H__ */

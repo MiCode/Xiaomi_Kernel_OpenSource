@@ -1342,11 +1342,11 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			size = buf_size;
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_EL_ADDR(id);
-			if (state->pending.is_sec && pending->addr) {
+			if (state->pending.is_sec && pending->addr && (dst_h >= 1) ) {
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type,
-					offset, size, 0);
+					offset, size, 0, pending->sec_id);
 #ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
@@ -1437,11 +1437,11 @@ static void _ovl_common_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			size = buf_size;
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
-			if (state->pending.is_sec && pending->addr) {
+			if (state->pending.is_sec && pending->addr && (dst_h >= 1)) {
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type,
-					offset, size, 0);
+					offset, size, 0, pending->sec_id);
 
 #ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1573,8 +1573,8 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		ext_lye_idx = state->comp_state.ext_lye_id;
 	} else
 		lye_idx = idx;
-	DDPINFO("%s+ idx:%d, enable:%d, fmt:0x%x\n", __func__, idx,
-		pending->enable, pending->format);
+	DDPINFO("%s+ idx:%d lye_idx:%d, enable:%d, fmt:0x%x\n", __func__, idx,
+		lye_idx, pending->enable, pending->format);
 	if (!pending->enable)
 		mtk_ovl_layer_off(comp, lye_idx, ext_lye_idx, handle);
 
@@ -1684,6 +1684,17 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			__func__, vrefresh, ratio_tmp);
 		DDPDBG("%s, vtotal=%d, vact=%d\n",
 			__func__, vtotal, vact);
+
+		if (drm_crtc_index(&comp->mtk_crtc->base) == 2 &&
+			(fmt == DRM_FORMAT_RGBA8888 || fmt == DRM_FORMAT_BGRA8888 ||
+			fmt == DRM_FORMAT_ARGB8888 || fmt == DRM_FORMAT_ABGR8888))
+			cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_OVL_ROI_BGCLR, 0x0,
+		       ~0);
+		else
+			cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_OVL_ROI_BGCLR, OVL_ROI_BGCLR,
+		       ~0);
 
 		mtk_ovl_layer_on(comp, lye_idx, ext_lye_idx, handle);
 		/*constant color :non RDMA source*/
@@ -1872,11 +1883,11 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_EL_ADDR(id);
-			if (state->pending.is_sec && pending->addr) {
+			if (state->pending.is_sec && pending->addr && (dst_h >= 1)) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
-					pending->addr, meta_type, 0, size, 0);
+					pending->addr, meta_type, 0, size, 0, pending->sec_id);
 #ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
@@ -1969,11 +1980,11 @@ static bool compr_l_config_PVRIC_V3_1(struct mtk_ddp_comp *comp,
 
 			regs_addr = comp->regs_pa +
 				DISP_REG_OVL_ADDR(ovl, lye_idx);
-			if (state->pending.is_sec && pending->addr) {
+			if (state->pending.is_sec && pending->addr && (dst_h >= 1)) {
 				size = buf_size;
 				meta_type = CMDQ_IWC_H_2_MVA;
 				cmdq_sec_pkt_write_reg(handle, regs_addr,
-					pending->addr, meta_type, 0, size, 0);
+					pending->addr, meta_type, 0, size, 0, pending->sec_id);
 #ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,
@@ -2147,6 +2158,11 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 		return 0;
 	}
 
+	if (Bpp == 0) {
+		DDPDBG("%s fail, no Bpp info\n", __func__);
+		return 0;
+	}
+
 	/* 2. pre-calculation */
 	src_buf_tile_num = ALIGN_TO(pitch / Bpp, tile_w) *
 	    ALIGN_TO(vpitch, tile_h);
@@ -2263,12 +2279,12 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 				tile_body_size;
 			cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type, addr_offset,
-					size, 0);
+					size, 0, pending->sec_id);
 			addr_offset = tile_offset *
 				AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
 			cmdq_sec_pkt_write_reg(handle, hdr_addr,
 					pending->addr, meta_type, addr_offset,
-					size, 0);
+					size, 0, pending->sec_id);
 
 #ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -2355,12 +2371,12 @@ static bool compr_l_config_AFBC_V1_2(struct mtk_ddp_comp *comp,
 				tile_body_size;
 			cmdq_sec_pkt_write_reg(handle, regs_addr,
 					pending->addr, meta_type, addr_offset,
-					size, 0);
+					size, 0, pending->sec_id);
 			addr_offset = tile_offset *
 				AFBC_V1_2_HEADER_SIZE_PER_TILE_BYTES;
 			cmdq_sec_pkt_write_reg(handle, hdr_addr,
 					pending->addr, meta_type, addr_offset,
-					size, 0);
+					size, 0, pending->sec_id);
 #ifndef CONFIG_MTK_SVP_ON_MTEE_SUPPORT
 			cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa + OVL_SECURE,

@@ -73,14 +73,17 @@ void eara_pass_perf_first_hint(int enable)
 static unsigned int get_idx_in_pwr_tbl(enum ppm_cluster cluster)
 {
 	unsigned int idx = 0;
+	unsigned int cl = 0;
 
 	if (cluster >= NR_PPM_CLUSTERS) {
 		ppm_err("%s: Invalid input: cluster=%d\n", __func__, cluster);
 		WARN_ON(1);
 	}
 
-	while (cluster)
-		idx += get_cluster_max_cpu_core(--cluster);
+	cl = cluster;
+
+	while (cl)
+		idx += get_cluster_max_cpu_core(--cl);
 
 	return idx;
 }

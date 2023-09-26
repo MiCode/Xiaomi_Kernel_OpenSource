@@ -51,6 +51,13 @@
 #include "ccci_fsm.h"
 #include "ccci_port.h"
 
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/ipv6.h>
+#include <net/ipv6.h>
+#define IPV4_VERSION (0x40)
+#define IPV6_VERSION (0x60)
+
 
 #ifdef PIT_USING_CACHE_MEM
 #include <asm/cacheflush.h>
@@ -801,7 +808,6 @@ static void dump_drb_record(void)
  *
  * ========================================================
  */
-
 static int dpmaif_queue_broadcast_state(struct hif_dpmaif_ctrl *hif_ctrl,
 	enum HIF_STATE state, enum DIRECTION dir, unsigned char index)
 {
@@ -929,6 +935,7 @@ static int dpmaif_net_rx_push_thread(void *arg)
 			ret = wait_event_interruptible(queue->rx_wq,
 				(!skb_queue_empty(&queue->skb_list.skb_list) ||
 				kthread_should_stop()));
+			ccmni_clr_flush_timer();
 			if (ret == -ERESTARTSYS)
 				continue;
 		}
@@ -2652,7 +2659,7 @@ static void dpmaif_tx_done(struct work_struct *work)
 
 static void set_drb_msg(unsigned char q_num, unsigned short cur_idx,
 	unsigned int pkt_len, unsigned short count_l, unsigned char channel_id,
-	unsigned short network_type)
+	unsigned short network_type, unsigned short ipv4, unsigned short l4)
 {
 	struct dpmaif_drb_msg *drb =
 		((struct dpmaif_drb_msg *)dpmaif_ctrl->txq[q_num].drb_base +
@@ -2660,32 +2667,38 @@ static void set_drb_msg(unsigned char q_num, unsigned short cur_idx,
 #ifdef DPMAIF_DEBUG_LOG
 	unsigned int *temp = NULL;
 #endif
+	struct dpmaif_drb_msg msg;
 
-	drb->dtyp = DES_DTYP_MSG;
-	drb->c_bit = 1;
-	drb->packet_len = pkt_len;
-	drb->count_l = count_l;
-	drb->channel_id = channel_id;
+	msg.dtyp = DES_DTYP_MSG;
+	msg.reserved = 0;
+	msg.c_bit = 1;
+	msg.r = 0;
+	msg.rsv = 0;
+	msg.packet_len = pkt_len;
+	msg.count_l = count_l;
+	msg.channel_id = channel_id;
 	switch (network_type) {
 	/*case htons(ETH_P_IP):
-	 * drb->network_type = 4;
+	 * msg.network_type = 4;
 	 * break;
 	 *
 	 * case htons(ETH_P_IPV6):
-	 * drb->network_type = 6;
+	 * msg.network_type = 6;
 	 * break;
 	 */
 	default:
-		drb->network_type = 0;
+		msg.network_type = 0;
 		break;
 	}
+	msg.ipv4 = ipv4;
+	msg.l4 = l4;
 #ifdef DPMAIF_DEBUG_LOG
 	temp = (unsigned int *)drb;
 	CCCI_HISTORY_LOG(dpmaif_ctrl->md_id, TAG,
 		"txq(%d)0x%p: drb message(%d): 0x%x, 0x%x\n",
 		q_num, drb, cur_idx, temp[0], temp[1]);
 #endif
-
+	memcpy(drb, &msg, sizeof(msg));
 }
 
 static void set_drb_payload(unsigned char q_num, unsigned short cur_idx,
@@ -2697,22 +2710,24 @@ static void set_drb_payload(unsigned char q_num, unsigned short cur_idx,
 #ifdef DPMAIF_DEBUG_LOG
 	unsigned int *temp = NULL;
 #endif
+	struct dpmaif_drb_pd payload;
 
-	drb->dtyp = DES_DTYP_PD;
+	payload.dtyp = DES_DTYP_PD;
 	if (last_one)
-		drb->c_bit = 0;
+		payload.c_bit = 0;
 	else
-		drb->c_bit = 1;
-	drb->data_len = pkt_size;
-	drb->p_data_addr = data_addr&0xFFFFFFFF;
-	drb->data_addr_ext = (data_addr>>32)&0xFF;
+		payload.c_bit = 1;
+	payload.data_len = pkt_size;
+	payload.p_data_addr = data_addr&0xFFFFFFFF;
+	payload.reserved = 0;
+	payload.data_addr_ext = (data_addr>>32)&0xFF;
 #ifdef DPMAIF_DEBUG_LOG
 	temp = (unsigned int *)drb;
 	CCCI_HISTORY_LOG(dpmaif_ctrl->md_id, TAG,
 		"txq(%d)0x%p: drb payload(%d): 0x%x, 0x%x\n",
 		q_num, drb, cur_idx, temp[0], temp[1]);
 #endif
-
+	memcpy(drb, &payload, sizeof(payload));
 }
 
 static void record_drb_skb(unsigned char q_num, unsigned short cur_idx,
@@ -2753,6 +2768,40 @@ static void tx_force_md_assert(char buf[])
 	}
 }
 
+static inline int cs_type(struct sk_buff *skb)
+{
+	u32 packet_type = 0;
+	struct iphdr *iph = (struct iphdr *)skb->data;
+
+	packet_type = skb->data[0] & 0xF0;
+	if (packet_type == IPV6_VERSION) {
+		if (skb->ip_summed == CHECKSUM_NONE ||
+			skb->ip_summed == CHECKSUM_UNNECESSARY ||
+			skb->ip_summed == CHECKSUM_COMPLETE)
+			return 0;
+		else if (skb->ip_summed == CHECKSUM_PARTIAL)
+			return 2;
+		CCCI_ERROR_LOG(-1, TAG, "IPV6:invalid ip_summed:%u\n",
+			skb->ip_summed);
+		return 0;
+	} else if (packet_type == IPV4_VERSION) {
+		if (iph->check == 0)
+			return 0; /* No HW check sum */
+		if (skb->ip_summed == CHECKSUM_NONE ||
+			skb->ip_summed == CHECKSUM_UNNECESSARY ||
+			skb->ip_summed == CHECKSUM_COMPLETE)
+			return 0;
+		else if (skb->ip_summed == CHECKSUM_PARTIAL)
+			return 1;
+		CCCI_ERROR_LOG(-1, TAG, "IPV4:invalid checksum flags ipid:%x\n",
+			ntohs(iph->id));
+		return 0;
+	}
+
+	CCCI_ERROR_LOG(-1, TAG, "%s:invalid packet_type:%u\n",
+		__func__, packet_type);
+	return 0;
+}
 
 static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	struct sk_buff *skb, int skb_from_pool, int blocking)
@@ -2774,6 +2823,7 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 #ifdef MT6297
 	int total_size = 0;
 #endif
+	short cs_ipv4 = 0, cs_l4 = 0;
 
 	/* 1. parameters check*/
 	if (!skb)
@@ -2934,8 +2984,13 @@ retry:
 	skb_pull(skb, sizeof(struct ccci_header));
 
 	/* 3.1 a msg drb first, then payload drb. */
+	if (cs_type(skb) == 1) {
+		cs_ipv4 = 1;
+		cs_l4 = 1;
+	} else if (cs_type(skb) == 2)
+		cs_l4 = 1;
 	set_drb_msg(txq->index, cur_idx, skb->len, prio_count,
-				ccci_h.data[0], skb->protocol);
+		ccci_h.data[0], skb->protocol, cs_ipv4, cs_l4);
 	record_drb_skb(txq->index, cur_idx, skb, 1, 0, 0, 0, 0);
 	/* for debug */
 	/*

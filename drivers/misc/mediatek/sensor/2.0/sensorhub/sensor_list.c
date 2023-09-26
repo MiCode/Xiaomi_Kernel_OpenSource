@@ -63,7 +63,7 @@ static int sensor_list_seq_get_list(struct sensor_info *list,
 	 * sensor_comm_notify ---> reinit_completion -> wait_for_completion
 	 *                     |
 	 *                  complete
-	 * complete before reinit_completion, lose this complete
+	 * if complete before reinit_completion, will lose this complete
 	 * right sequence:
 	 * reinit_completion -> sensor_comm_notify -> wait_for_completion
 	 */
@@ -81,7 +81,7 @@ static int sensor_list_seq_get_list(struct sensor_info *list,
 	}
 
 	timeout = wait_for_completion_timeout(&sensor_list_done,
-		msecs_to_jiffies(500));
+		msecs_to_jiffies(100));
 	if (!timeout) {
 		pr_err("wait completion timeout\n");
 		return -ETIMEDOUT;
@@ -130,7 +130,7 @@ static int sensor_list_seq_get_list(struct sensor_info *list,
 int sensor_list_get_list(struct sensor_info *list, unsigned int num)
 {
 	int retry = 0, ret = 0;
-	const int max_retry = 10;
+	const int max_retry = 3;
 
 	mutex_lock(&bus_user_lock);
 	do {
@@ -163,7 +163,7 @@ int sensor_list_init(void)
 
 	sensor_comm_notify_handler_register(SENS_COMM_NOTIFY_LIST_CMD,
 		sensor_list_notify_handler, NULL);
-	share_mem_config_handler_register(SENS_COMM_NOTIFY_LIST_CMD,
+	share_mem_config_handler_register(SHARE_MEM_LIST_PAYLOAD_TYPE,
 		sensor_list_share_mem_cfg, NULL);
 	return 0;
 }
@@ -171,5 +171,5 @@ int sensor_list_init(void)
 void sensor_list_exit(void)
 {
 	sensor_comm_notify_handler_unregister(SENS_COMM_NOTIFY_LIST_CMD);
-	share_mem_config_handler_unregister(SENS_COMM_NOTIFY_LIST_CMD);
+	share_mem_config_handler_unregister(SHARE_MEM_LIST_PAYLOAD_TYPE);
 }

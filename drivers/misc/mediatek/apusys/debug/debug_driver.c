@@ -313,7 +313,11 @@ static int debug_probe(struct platform_device *pdev)
 	}
 
 	pr_notice("debug probe done, dbglog_buf= 0x%p\n", dbglog_buf);
-
+	ret = apusys_dump_init(&pdev->dev);
+	if (ret) {
+		DBG_LOG_ERR("failed to create debug dump attr node(devinfo).\n");
+		goto out;
+	}
 	return 0;
 
 out:
@@ -324,6 +328,7 @@ out:
 
 static int debug_remove(struct platform_device *pdev)
 {
+	apusys_dump_exit(&pdev->dev);
 	return 0;
 }
 

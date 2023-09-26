@@ -51,7 +51,7 @@ struct DDP_IRQ_EVENT_MAPPING {
 
 struct ddp_path_handle {
 	struct cmdqRecStruct *cmdqhandle;
-	int hwmutexid;
+	unsigned int hwmutexid;
 	/* no need power_state now*/
 	/* int power_state; */
 	enum DDP_MODE mode;
@@ -306,7 +306,7 @@ disp_path_handle dpmgr_create_path(enum DDP_SCENARIO_ENUM scenario,
 				   struct cmdqRecStruct *cmdq_handle)
 {
 	int i = 0;
-	int m;
+	unsigned int m;
 	struct ddp_path_handle *path_handle = NULL;
 	int *list = ddp_get_scenario_list(scenario);
 	int m_num = ddp_get_module_num(scenario);
@@ -444,7 +444,7 @@ int dpmgr_modify_path(disp_path_handle dp_handle,
 int dpmgr_destroy_path_handle(disp_path_handle dp_handle)
 {
 	int i = 0;
-	int m;
+	unsigned int m;
 	struct ddp_path_handle *phandle;
 	int *list;
 	int m_num;

@@ -24,3 +24,6 @@ endif
 endif
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/
 
+ifeq ($(CONFIG_MEDIATEK_EMI),y)
+ccflags-y += -DUSE_MEDIATEK_EMI
+endif

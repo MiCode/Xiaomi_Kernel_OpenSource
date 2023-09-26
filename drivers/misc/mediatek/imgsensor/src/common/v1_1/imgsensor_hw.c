@@ -14,11 +14,20 @@
 #include <linux/delay.h>
 #include <linux/string.h>
 
+#ifdef _XIAOMI_AGATE_
+#include <linux/semaphore.h>
+#include <linux/platform_device.h>
+#endif
+
 #include "kd_camera_typedef.h"
 #include "kd_camera_feature.h"
 
 #include "imgsensor_sensor.h"
 #include "imgsensor_hw.h"
+
+#ifdef _XIAOMI_AGATE_
+static struct semaphore sema_poweron;
+#endif
 
 /*the index is consistent with enum IMGSENSOR_HW_PIN*/
 char * const imgsensor_hw_pin_names[] = {
@@ -55,6 +64,9 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 	const char *pin_hw_id_name;
 	struct device_node *of_node
 		= of_find_compatible_node(NULL, NULL, "mediatek,imgsensor");
+#ifdef _XIAOMI_AGATE_
+	sema_init(&sema_poweron, 0);
+#endif
 
 	mutex_init(&phw->common.pinctrl_mutex);
 
@@ -294,11 +306,32 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 			platform_power_sequence,
 			str_index);
 
+#ifdef _XIAOMI_AGATE_
+	if (psensor->mutil_camera && (pwr_status == IMGSENSOR_HW_POWER_STATUS_ON) &&
+		(sensor_idx == 3)) {
+		PK_DBG("wait wide poweron +");
+		while(down_interruptible(&sema_poweron) != 0)
+			usleep_range(1000,2000);
+		PK_DBG("wait wide poweron -");
+	}
+
+	PK_DBG("sensor(%d) power(%d) start", sensor_idx, pwr_status);
+#endif
+
 	imgsensor_hw_power_sequence(
 			phw,
 			sensor_idx,
 			pwr_status, sensor_power_sequence, curr_sensor_name);
 
+#ifdef _XIAOMI_AGATE_
+	PK_DBG("sensor(%d) power(%d) end", sensor_idx, pwr_status);
+
+	if (psensor->mutil_camera && (pwr_status == IMGSENSOR_HW_POWER_STATUS_ON) &&
+		(sensor_idx == 0)) {
+		up(&sema_poweron);
+		PK_DBG("release sema_poweron");
+	}
+#endif
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 

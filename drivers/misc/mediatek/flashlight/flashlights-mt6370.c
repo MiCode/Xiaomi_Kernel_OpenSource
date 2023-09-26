@@ -355,19 +355,15 @@ static int mt6370_set_scenario(int scenario)
 	if (scenario & FLASHLIGHT_SCENARIO_CAMERA_MASK) {
 		if (!is_decrease_voltage) {
 			pr_info("Decrease voltage level.\n");
-#ifdef CONFIG_MTK_CHARGER
 			charger_manager_enable_high_voltage_charging(
 					flashlight_charger_consumer, false);
-#endif
 			is_decrease_voltage = 1;
 		}
 	} else {
 		if (is_decrease_voltage) {
 			pr_info("Increase voltage level.\n");
-#ifdef CONFIG_MTK_CHARGER
 			charger_manager_enable_high_voltage_charging(
 					flashlight_charger_consumer, true);
-#endif
 			is_decrease_voltage = 0;
 		}
 	}
@@ -841,10 +837,8 @@ static int mt6370_probe(struct platform_device *pdev)
 		pr_err("Failed to set strobe timeout.\n");
 
 	/* get charger consumer manager */
-#ifdef CONFIG_MTK_CHARGER
 	flashlight_charger_consumer = charger_manager_get_by_name(
 			&flashlight_dev_ch1->dev, CHARGER_SUPPLY_NAME);
-#endif
 	if (!flashlight_charger_consumer) {
 		pr_err("Failed to get charger manager.\n");
 		return -EFAULT;

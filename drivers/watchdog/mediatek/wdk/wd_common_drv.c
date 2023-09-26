@@ -350,21 +350,23 @@ void wk_start_kick_cpu(int cpu)
 
 void dump_wdk_bind_info(void)
 {
-	int i = 0;
+	int i = 0, ret = -1;
 
 #ifdef CONFIG_MTK_AEE_IPANIC
 	aee_sram_fiq_log("\n");
 #endif
-	snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
+	ret = snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
 		"[wdk] dump at %lld\n", sched_clock());
 #ifdef CONFIG_MTK_AEE_IPANIC
-	aee_sram_fiq_log(wk_tsk_buf);
+	if (ret >= 0)
+		aee_sram_fiq_log(wk_tsk_buf);
 #endif
-	snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
+	ret = snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
 		"[wdk]kick_bits: 0x%x, check_bits: 0x%x\n",
 		get_kick_bit(), get_check_bit());
 #ifdef CONFIG_MTK_AEE_IPANIC
-	aee_sram_fiq_log(wk_tsk_buf);
+	if (ret >= 0)
+		aee_sram_fiq_log(wk_tsk_buf);
 #endif
 	for (i = 0; i < CPU_NR; i++) {
 		if (wk_tsk[i] != NULL) {
@@ -375,14 +377,15 @@ void dump_wdk_bind_info(void)
 			 *	wk_tsk[i]->on_rq, wk_tsk[i]->state);
 			 */
 			memset(wk_tsk_buf, 0, sizeof(wk_tsk_buf));
-			snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
+			ret = snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
 				"[wdk]CPU %d, %d, %lld, %lu, %d, %ld, %lld\n",
 				i, wk_tsk_bind[i], wk_tsk_bind_time[i],
 				wk_tsk[i]->cpus_allowed.bits[0],
 				wk_tsk[i]->on_rq, wk_tsk[i]->state,
 				wk_tsk_kick_time[i]);
 #ifdef CONFIG_MTK_AEE_IPANIC
-			aee_sram_fiq_log(wk_tsk_buf);
+			if (ret >= 0)
+				aee_sram_fiq_log(wk_tsk_buf);
 #endif
 		}
 	}
@@ -487,20 +490,21 @@ void wk_proc_exit(void)
 
 }
 
-static void kwdt_print_utc(char *msg_buf, int msg_buf_size)
+static int kwdt_print_utc(char *msg_buf, int msg_buf_size)
 {
 	struct rtc_time tm;
 	struct timeval tv = { 0 };
 	/* android time */
 	struct rtc_time tm_android;
 	struct timeval tv_android = { 0 };
+	int ret = -1;
 
 	do_gettimeofday(&tv);
 	tv_android = tv;
 	rtc_time_to_tm(tv.tv_sec, &tm);
 	tv_android.tv_sec -= sys_tz.tz_minuteswest * 60;
 	rtc_time_to_tm(tv_android.tv_sec, &tm_android);
-	snprintf(msg_buf, msg_buf_size,
+	ret = snprintf(msg_buf, msg_buf_size,
 		"[thread:%d][RT:%lld] %d-%02d-%02d %02d:%02d:%02d.%u UTC;"
 		"android time %d-%02d-%02d %02d:%02d:%02d.%03d\n",
 		current->pid, sched_clock(), tm.tm_year + 1900, tm.tm_mon + 1,
@@ -509,12 +513,15 @@ static void kwdt_print_utc(char *msg_buf, int msg_buf_size)
 		tm_android.tm_mon + 1, tm_android.tm_mday, tm_android.tm_hour,
 		tm_android.tm_min, tm_android.tm_sec,
 		(unsigned int)tv_android.tv_usec);
+
+	return ret;
 }
 static void kwdt_process_kick(int local_bit, int cpu,
 				unsigned long curInterval, char msg_buf[])
 {
 	unsigned int dump_timeout = 0, tmp = 0;
 	void __iomem *apxgpt_base = 0;
+	int ret = -1;
 
 	local_bit = kick_bit;
 	if ((local_bit & (1 << cpu)) == 0) {
@@ -531,7 +538,7 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	 *  avoid bulk of delayed printk happens here
 	 */
 	wk_tsk_kick_time[cpu] = sched_clock();
-	snprintf(msg_buf, WK_MAX_MSG_SIZE,
+	ret = snprintf(msg_buf, WK_MAX_MSG_SIZE,
 	 "[wdk-c] cpu=%d,lbit=0x%x,cbit=0x%x,%d,%d,%lld,%lld,%lld,[%lld,%ld]\n",
 	 cpu, local_bit, wk_check_kick_bit(), lasthpg_cpu, lasthpg_act,
 	 lasthpg_t, lastsuspend_t, lastresume_t, wk_tsk_kick_time[cpu],
@@ -567,10 +574,8 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	 * [wdt-k]: kick watchdog actaully, this log is more important thus
 	 *	    using printk_deferred to ensure being printed.
 	 */
-	if (msg_buf[5] != 'k')
+	if (ret >= 0)
 		pr_info("%s", msg_buf);
-	else
-		printk_deferred("%s", msg_buf);
 
 	if (dump_timeout)
 		dump_wdk_bind_info();
@@ -675,6 +680,7 @@ static int kwdt_thread(void *arg)
 		/* to avoid wk_tsk[cpu] had not created out */
 		if (wk_tsk[cpu] != 0) {
 			if (wk_tsk[cpu]->pid == current->pid) {
+				int ret = -1;
 #if (DEBUG_WDK == 1)
 				msleep_interruptible(debug_sleep * 1000);
 				pr_debug("[wdk] wdk woke up %d\n",
@@ -685,7 +691,7 @@ static int kwdt_thread(void *arg)
 				msg_buf[0] = '\0';
 				if (time_after(jiffies, rtc_update)) {
 					rtc_update = jiffies + (1 * HZ);
-					kwdt_print_utc(msg_buf,
+					ret = kwdt_print_utc(msg_buf,
 						WK_MAX_MSG_SIZE);
 				}
 				spin_unlock(&lock);
@@ -694,7 +700,7 @@ static int kwdt_thread(void *arg)
 				 * do not print message with spinlock held to
 				 * avoid bulk of delayed printk happens here
 				 */
-				if (msg_buf[0] != '\0')
+				if (msg_buf[0] != '\0' && (ret >= 0))
 					pr_info("%s", msg_buf);
 			}
 		}

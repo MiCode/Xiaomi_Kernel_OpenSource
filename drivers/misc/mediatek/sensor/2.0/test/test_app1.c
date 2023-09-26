@@ -19,6 +19,11 @@
 
 #include "hf_manager.h"
 
+enum {
+	CUST_CMD_CALI,
+	MAX_CUST_CMD,
+};
+
 #define test_app_attr(_name) \
 static struct kobj_attribute _name##_attr = {	\
 	.attr	= {				\
@@ -93,7 +98,9 @@ static ssize_t test_app1_cust(char *buf, int sensor_type,
 		goto out;
 	}
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.data[0] = action;
+	cmd.command = action;
+	cmd.tx_len = 0;
+	cmd.rx_len = 48;
 	ret = hf_client_custom_cmd(client, sensor_type, &cmd);
 	if (ret >= 0)
 		ret = sprintf(buf, "[%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d]\n",

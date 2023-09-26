@@ -1795,7 +1795,7 @@ int pmic_throttling_dlpt_init(struct platform_device *pdev)
 {
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 	struct device_node *np;
-	u32 val;
+	u32 val = 0;
 	char *path;
 
 	path = "/bat_gm30";

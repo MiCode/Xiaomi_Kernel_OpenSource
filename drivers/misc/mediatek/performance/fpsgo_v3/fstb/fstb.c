@@ -77,8 +77,7 @@ static int margin_mode_gpu_dbnc_a = 9;
 static int margin_mode_gpu_dbnc_b = 1;
 static int JUMP_CHECK_NUM = DEFAULT_JUMP_CHECK_NUM;
 static int JUMP_CHECK_Q_PCT = DEFAULT_JUMP_CHECK_Q_PCT;
-static int adopt_low_fps;
-static int powerhal_fps = -1;
+static int adopt_low_fps = 1;
 static int condition_get_fps;
 
 DECLARE_WAIT_QUEUE_HEAD(queue);
@@ -155,17 +154,50 @@ int is_fstb_active(long long time_diff)
 	return active;
 }
 
-int fpsgo_ctrl2fstb_get_fps(void)
+struct k_list {
+	struct list_head queue_list;
+	int fpsgo2pwr_pid;
+	int fpsgo2pwr_fps;
+};
+static LIST_HEAD(head);
+static DEFINE_MUTEX(fpsgo2pwr_lock);
+static DECLARE_WAIT_QUEUE_HEAD(pwr_queue);
+static void fstb_sentcmd(int pid, int fps)
 {
-	int fps = -1;
+	static struct k_list *node;
 
-	wait_event_interruptible(queue, condition_get_fps);
-	mutex_lock(&fstb_lock);
-	fps = powerhal_fps;
-	condition_get_fps = 0;
-	mutex_unlock(&fstb_lock);
-	return fps;
+	mutex_lock(&fpsgo2pwr_lock);
+	node = kmalloc(sizeof(*node), GFP_KERNEL);
+	if (node == NULL)
+		goto out;
+	node->fpsgo2pwr_pid = pid;
+	node->fpsgo2pwr_fps = fps;
+	list_add_tail(&node->queue_list, &head);
+	condition_get_fps = 1;
+out:
+	mutex_unlock(&fpsgo2pwr_lock);
+	wake_up_interruptible(&pwr_queue);
 }
+
+void fpsgo_ctrl2fstb_get_fps(int *pid, int *fps)
+{
+	static struct k_list *node;
+
+	wait_event_interruptible(pwr_queue, condition_get_fps);
+	mutex_lock(&fpsgo2pwr_lock);
+	if (!list_empty(&head)) {
+		node = list_first_entry(&head, struct k_list, queue_list);
+		*pid = node->fpsgo2pwr_pid;
+		*fps = node->fpsgo2pwr_fps;
+		list_del(&node->queue_list);
+		kfree(node);
+	}
+	if (list_empty(&head))
+		condition_get_fps = 0;
+	mutex_unlock(&fpsgo2pwr_lock);
+}
+
+
 
 int fpsgo_ctrl2fstb_gblock(int tid, int start)
 {
@@ -224,8 +256,7 @@ int fpsgo_ctrl2fstb_switch_fstb(int enable)
 	mtk_fstb_dprintk_always("%s %d\n", __func__, fstb_enable);
 	if (!fstb_enable) {
 		syslimiter_update_dfrc_fps(-1);
-		powerhal_fps = -1;
-		condition_get_fps = 1;
+		dram_ctl_update_dfrc_fps(dfps_ceiling);
 		hlist_for_each_entry_safe(iter, t,
 				&fstb_frame_infos, hlist) {
 			hlist_del(&iter->hlist);
@@ -387,6 +418,69 @@ int switch_fps_range(int nr_level, struct fps_level *level)
 		return 0;
 	else
 		return 1;
+}
+
+int switch_thread_max_fps(int pid, int set_max)
+{
+	struct FSTB_FRAME_INFO *iter;
+	int ret = 0;
+
+	mutex_lock(&fstb_lock);
+	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
+		if (iter->pid != pid)
+			continue;
+
+		switch (iter->sbe_state) {
+		case -1:
+			ret = -1;
+			break;
+		case 0:
+		case 1:
+			iter->sbe_state = set_max;
+			break;
+		default:
+			break;
+		}
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+				set_max, "sbe_set_max_fps");
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+				iter->sbe_state, "sbe_state");
+	}
+
+	mutex_unlock(&fstb_lock);
+
+	return ret;
+}
+
+int switch_thread_no_ctrl(int pid, int set_no_ctrl)
+{
+	struct FSTB_FRAME_INFO *iter;
+	int ret = 0;
+
+	mutex_lock(&fstb_lock);
+	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
+		if (iter->pid != pid)
+			continue;
+		switch (iter->sbe_state) {
+		case -1:
+		case 0:
+			iter->sbe_state = set_no_ctrl ? -1 : 0;
+			break;
+		case 1:
+			iter->sbe_state = set_no_ctrl ? -1 : 1;
+			break;
+		default:
+			break;
+		}
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+				set_no_ctrl, "sbe_set_no_ctrl");
+		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid,
+				iter->sbe_state, "sbe_state");
+	}
+
+	mutex_unlock(&fstb_lock);
+
+	return ret;
 }
 
 static int switch_redner_fps_range(char *proc_name,
@@ -759,7 +853,7 @@ int fpsgo_fbt2fstb_update_cpu_frame_info(
 	unsigned long long wct = 0, wvt = 0, wmt = 0;
 	long long vpu_time_ns = 0, mdla_time_ns = 0;
 	int vpu_boost = 0, mdla_boost = 0;
-	int eara_fps;
+	int eara_fps, tolerence_fps;
 
 	struct FSTB_FRAME_INFO *iter;
 
@@ -910,14 +1004,29 @@ out:
 
 	/* parse cpu time of each frame to ged_kpi */
 	iter->cpu_time = cpu_time_ns;
+
 	eara_fps = iter->target_fps;
 	if (iter->target_fps && iter->target_fps != -1 && iter->target_fps_diff) {
 		eara_fps = iter->target_fps * 1000 + iter->target_fps_diff;
 		eara_fps /= 1000;
 		eara_fps = clamp(eara_fps, min_fps_limit, max_fps_limit);
 	}
-	ged_kpi_set_target_FPS_margin(iter->bufid,
-		eara_fps, iter->target_fps_margin_gpu, iter->cpu_time);
+	tolerence_fps = iter->target_fps_margin_gpu;
+
+	switch (iter->sbe_state) {
+	case -1:
+	case 0:
+		break;
+	case 1:
+		eara_fps = max_fps_limit;
+		tolerence_fps = 0;
+		break;
+	default:
+		break;
+	}
+
+	ged_kpi_set_target_FPS_margin(iter->bufid, eara_fps, tolerence_fps,
+		iter->cpu_time);
 
 	fpsgo_systrace_c_fstb_man(pid, iter->bufid, (int)cpu_time_ns, "t_cpu");
 	fpsgo_systrace_c_fstb(pid, iter->bufid, (int)max_current_cap,
@@ -1175,6 +1284,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		new_frame_info->target_fps_margin_gpu_dbnc_a = margin_mode_gpu_dbnc_a;
 		new_frame_info->target_fps_margin_gpu_dbnc_b = margin_mode_gpu_dbnc_b;
 		new_frame_info->target_fps_diff = 0;
+		new_frame_info->sbe_state = 0;
 		new_frame_info->queue_fps = max_fps_limit;
 		new_frame_info->bufid = bufID;
 		new_frame_info->queue_time_begin = 0;
@@ -1212,9 +1322,11 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		if (gtsk) {
 			strncpy(new_frame_info->proc_name, gtsk->comm, 16);
 			new_frame_info->proc_name[15] = '\0';
+			new_frame_info->proc_id = gtsk->pid;
 			put_task_struct(gtsk);
 		} else {
 			new_frame_info->proc_name[0] = '\0';
+			new_frame_info->proc_id = 0;
 		}
 
 		iter = new_frame_info;
@@ -1666,8 +1778,24 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 				max_mlimit : (eara_fps + tolerence_fps));
 
 		} else {
-			*target_fps = iter->target_fps;
-			tolerence_fps = iter->target_fps_margin;
+			switch (iter->sbe_state) {
+			case -1:
+				*target_fps = -1;
+				tolerence_fps = 0;
+				break;
+			case 0:
+				*target_fps = iter->target_fps;
+				tolerence_fps = iter->target_fps_margin;
+				break;
+			case 1:
+				*target_fps = max_fps_limit;
+				tolerence_fps = 0;
+				break;
+			default:
+				*target_fps = iter->target_fps;
+				tolerence_fps = iter->target_fps_margin;
+				break;
+			}
 			total_time = (int)FSTB_SEC_DIVIDER;
 			total_time =
 				div64_u64(total_time,
@@ -1707,6 +1835,53 @@ void fpsgo_fbt2fstb_query_fps(int pid, unsigned long long bufID,
 	*fps_margin = tolerence_fps;
 
 	mutex_unlock(&fstb_lock);
+}
+
+static int cmp_powerfps(const void *x1, const void *x2)
+{
+	const struct FSTB_POWERFPS_LIST *r1 = x1;
+	const struct FSTB_POWERFPS_LIST *r2 = x2;
+
+	if (r1->pid == 0)
+		return 1;
+	else if (r1->pid == -1)
+		return 1;
+	else if (r1->pid < r2->pid)
+		return -1;
+	else if (r1->pid == r2->pid && r1->fps < r2->fps)
+		return -1;
+	else if (r1->pid == r2->pid && r1->fps == r2->fps)
+		return 0;
+	return 1;
+}
+struct FSTB_POWERFPS_LIST powerfps_arrray[64];
+void fstb_cal_powerhal_fps(void)
+{
+	struct FSTB_FRAME_INFO *iter;
+	int i = 0, j = 0;
+
+	memset(powerfps_arrray, 0, 64 * sizeof(struct FSTB_POWERFPS_LIST));
+	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
+		powerfps_arrray[i].pid = iter->proc_id;
+		powerfps_arrray[i].fps = iter->queue_fps > 0 ? iter->queue_fps : -1;
+		i++;
+		if (i >= 64) {
+			i = 63;
+			break;
+		}
+	}
+	powerfps_arrray[i].pid = -1;
+
+	sort(powerfps_arrray, i, sizeof(struct FSTB_POWERFPS_LIST), cmp_powerfps, NULL);
+
+	for (j = 0; j < i; j++) {
+		if (powerfps_arrray[j].pid != powerfps_arrray[j + 1].pid) {
+			mtk_fstb_dprintk_always("%s %d %d %d\n",
+				__func__, j, powerfps_arrray[j].pid, powerfps_arrray[j].fps);
+			fstb_sentcmd(powerfps_arrray[j].pid, powerfps_arrray[j].fps);
+		}
+	}
+
 }
 
 void (*eara_pre_active_fp)(int is_active);
@@ -1800,8 +1975,8 @@ static void fstb_fps_stats(struct work_struct *work)
 	}
 
 	syslimiter_update_dfrc_fps(max_target_fps);
-	powerhal_fps = max_target_fps;
-	condition_get_fps = 1;
+	fstb_cal_powerhal_fps();
+	dram_ctl_update_dfrc_fps(max_target_fps);
 
 	/* check idle twice to avoid fstb_active ping-pong */
 	if (idle)
@@ -1842,7 +2017,6 @@ static void fstb_fps_stats(struct work_struct *work)
 
 	if (eara_pre_active_fp)
 		eara_pre_active_fp(fstb_active2xgf);
-	wake_up_interruptible(&queue);
 }
 
 static int set_soft_fps_level(int nr_level, struct fps_level *level)
@@ -1879,6 +2053,41 @@ static void reset_fps_level(void)
 	set_soft_fps_level(1, level);
 }
 
+static ssize_t set_render_no_ctrl_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return 0;
+}
+
+static ssize_t set_render_no_ctrl_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+	int ret = 0;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) != 0)
+				goto out;
+			mtk_fstb_dprintk_always("%s %d\n", __func__, arg);
+			fpsgo_systrace_c_fstb_man(arg > 0 ? arg : -arg,
+				0, arg > 0, "force_no_ctrl");
+			if (arg > 0)
+				ret = switch_thread_no_ctrl(arg, 1);
+			else
+				ret = switch_thread_no_ctrl(-arg, 0);
+		}
+	}
+
+out:
+	return count;
+}
+
+static KOBJ_ATTR_RW(set_render_no_ctrl);
+
 static ssize_t set_render_max_fps_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -1893,21 +2102,18 @@ static ssize_t set_render_max_fps_store(struct kobject *kobj,
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 	int ret = 0;
-	struct fps_level level[1];
-
-	level[0].start = dfps_ceiling;
-	level[0].end = dfps_ceiling;
 
 	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			if (kstrtoint(acBuffer, 0, &arg) != 0)
 				goto out;
 			mtk_fstb_dprintk_always("%s %d\n", __func__, arg);
-			fpsgo_systrace_c_fstb(arg > 0 ? arg : -arg, 0, arg > 0, "force_max_fps");
+			fpsgo_systrace_c_fstb_man(arg > 0 ? arg : -arg,
+				0, arg > 0, "force_max_fps");
 			if (arg > 0)
-				ret = switch_thread_fps_range(arg, 1, level);
+				ret = switch_thread_max_fps(arg, 1);
 			else
-				ret = switch_thread_fps_range(-arg, 0, NULL);
+				ret = switch_thread_max_fps(-arg, 0);
 		}
 	}
 
@@ -2505,12 +2711,12 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 	}
 
 	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-	"tid\tbufID\t\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tFPS_margin_GPU\tFPS_margin_thrs\n");
+	"tid\tbufID\t\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tFPS_margin_GPU\tFPS_margin_thrs\tsbe_state\n");
 	pos += length;
 
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
 		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
-				"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n",
+				"%d\t0x%llx\t%s\t%d\t\t%d\t\t%d\t\t%d\t\t%d\t\t%d\n",
 				iter->pid,
 				iter->bufid,
 				iter->proc_name,
@@ -2519,7 +2725,8 @@ static ssize_t fpsgo_status_show(struct kobject *kobj,
 				iter->target_fps,
 				iter->target_fps_margin,
 				iter->target_fps_margin_gpu,
-				iter->target_fps_margin2);
+				iter->target_fps_margin2,
+				iter->sbe_state);
 		pos += length;
 
 	}
@@ -2584,6 +2791,8 @@ int mtk_fstb_init(void)
 		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_set_render_max_fps);
 		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_set_render_no_ctrl);
+		fpsgo_sysfs_create_file(fstb_kobj,
 				&kobj_attr_adopt_low_fps);
 	}
 
@@ -2642,6 +2851,8 @@ int __exit mtk_fstb_exit(void)
 			&kobj_attr_jump_check_q_pct);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_set_render_max_fps);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_set_render_no_ctrl);
 	fpsgo_sysfs_remove_file(fstb_kobj,
 			&kobj_attr_adopt_low_fps);
 

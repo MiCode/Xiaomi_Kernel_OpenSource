@@ -19,6 +19,13 @@
 
 #define CLK_TO_TIME_IN_US(x) ((x) / N3D_CLK_FREQ)
 #define ONE_MIN_SEC (1000 * N3D_CLK_FREQ)
+#define THRESH_TS_REC_AMEND 500 /* us */
+#define THRESH_TRUST_PERIOD_DIFF 100 /* us */
+
+#define THRESH_CNT_TS_REC_AMEND (THRESH_TS_REC_AMEND * N3D_CLK_FREQ)
+#define THRESH_CNT_TRUST_PERIOD_DIFF (THRESH_TRUST_PERIOD_DIFF * N3D_CLK_FREQ)
+
+#define AUTO_CORRECTION_TS 1
 
 struct Vtimestamp {
 	int cammux_id;
@@ -29,7 +36,9 @@ struct Vtimestamp {
 
 static DEFINE_SPINLOCK(global_lock);
 static unsigned int global_time;
-static int first_time_diff;
+static unsigned int latest_vs1_period;
+static unsigned int latest_vs2_period;
+static unsigned int vs2_diff_cnt_correction;
 static struct Vtimestamp records[MAX_RECORD_SENSOR];
 
 int reset_recorder(int cammux_id1, int cammux_id2)
@@ -40,7 +49,9 @@ int reset_recorder(int cammux_id1, int cammux_id2)
 	spin_lock_irqsave(&global_lock, flags);
 
 	global_time = 0;
-	first_time_diff = 2;
+	latest_vs1_period = 0;
+	latest_vs2_period = 0;
+	vs2_diff_cnt_correction = 0;
 
 	for (i = 0; i < ARRAY_SIZE(records); i++) {
 		records[i].cammux_id = -1;
@@ -78,28 +89,121 @@ static int record_vs(unsigned int idx, unsigned int tclk)
 	return 0;
 }
 
+static int is_period_closely(unsigned int period_vs1, unsigned int period_vs2)
+{
+	unsigned int diff_period = 0;
+
+	if ((period_vs1 == 0) || (period_vs2 == 0))
+		return 0;
+
+	if (period_vs1 > period_vs2)
+		diff_period = period_vs1 - period_vs2;
+	else
+		diff_period = period_vs2 - period_vs1;
+
+	return (diff_period <= THRESH_CNT_TRUST_PERIOD_DIFF);
+}
+
+#if AUTO_CORRECTION_TS
+static int update_vs1_rec(unsigned int d_tclk)
+{
+	int vs1_pos, vs2_pos;
+	int vs1_idx = 0;
+	int vs2_idx = 1;
+	unsigned int diff_ts = CLK_TO_TIME_IN_US(d_tclk);
+	unsigned int vs2_latest_ts;
+
+	if (global_time != 0) {
+		vs1_pos = records[vs1_idx].w_cur_pos;
+		vs2_pos = records[vs2_idx].w_cur_pos;
+
+		vs2_latest_ts = records[vs2_idx].timestamps[vs2_pos];
+
+		if (records[vs1_idx].timestamps[vs1_pos] > vs2_latest_ts) {
+			records[vs1_idx].timestamps[vs1_pos] =
+				vs2_latest_ts + diff_ts;
+			/*
+			 * LOG_D("amend vs1 ts to %u\n",
+			 *   records[vs1_idx].timestamps[vs1_pos]);
+			 */
+		}
+	}
+
+	return 0;
+}
+
+static int update_vs2_rec(unsigned int d_tclk)
+{
+	int vs1_pos, vs2_pos;
+	int vs1_idx = 0;
+	int vs2_idx = 1;
+	unsigned int diff_ts = CLK_TO_TIME_IN_US(d_tclk);
+	unsigned int vs1_latest_ts;
+
+	if (global_time != 0) {
+		vs1_pos = records[vs1_idx].w_cur_pos;
+		vs2_pos = records[vs2_idx].w_cur_pos;
+
+		vs1_latest_ts = records[vs1_idx].timestamps[vs1_pos];
+
+		if (records[vs2_idx].timestamps[vs2_pos] > vs1_latest_ts) {
+			records[vs2_idx].timestamps[vs2_pos] =
+				vs1_latest_ts + diff_ts;
+			/*
+			 * LOG_D("amend vs2 ts to %u\n",
+			 *    records[vs2_idx].timestamps[vs2_pos]);
+			 */
+		} else {
+			/* Need to correction vs2 when vs2 recorded */
+			vs2_diff_cnt_correction = d_tclk;
+		}
+	}
+
+	return 0;
+}
+
+static int try_update_vs2_rec(unsigned int d_tclk)
+{
+	/* prevent out of date ts diff info */
+	if (is_period_closely(latest_vs1_period, latest_vs2_period))
+		update_vs2_rec(d_tclk);
+
+	return 0;
+}
+#endif
+
 /* ISR */
-int record_vs_diff(int vflag, unsigned int diff)
+int record_vs_diff(int vflag, unsigned int diff_cnt)
 {
 	spin_lock(&global_lock);
 
-	if (first_time_diff) {
-		first_time_diff--;
-		// skip first time diff record
-		LOG_D("skip first time diff\n");
+	if (!is_period_closely(latest_vs1_period, latest_vs2_period)) {
+		/* skip recording untrust ts */
 	} else if (global_time == 0) {
+		/*LOG_D("start recording, diff_cnt = %u\n", diff_cnt);*/
 		/* default global time starts from 1 ms */
 		global_time = ONE_MIN_SEC;
 		if (vflag) {
 			/* vs2 after vs1 */
 			record_vs(0, 0);
-			global_time += CLK_TO_TIME_IN_US(diff);
+			global_time += CLK_TO_TIME_IN_US(diff_cnt);
 		} else {
 			/* vs1 after vs2 */
 			record_vs(1, 0);
-			global_time += CLK_TO_TIME_IN_US(diff);
+			global_time += CLK_TO_TIME_IN_US(diff_cnt);
 			record_vs(0, 0);
 		}
+#if AUTO_CORRECTION_TS
+	} else if (diff_cnt > THRESH_CNT_TS_REC_AMEND) {
+		/* diff correction */
+		if (vflag) {
+			/* vs2 after vs1 */
+			update_vs2_rec(diff_cnt);
+		} else {
+			/* vs1 after vs2 */
+			update_vs1_rec(diff_cnt);
+		}
+#endif
 	}
 
 	spin_unlock(&global_lock);
@@ -111,6 +215,8 @@ int record_vs_diff(int vflag, unsigned int diff)
 int record_vs1(unsigned int tclk)
 {
 	spin_lock(&global_lock);
+
+	latest_vs1_period = tclk;
 
 	if (records[0].w_cur_pos == -1)
 		tclk = 0;
@@ -127,10 +233,20 @@ int record_vs2(unsigned int tclk)
 {
 	spin_lock(&global_lock);
 
+	latest_vs2_period = tclk;
+
 	if (records[1].w_cur_pos == -1)
 		tclk = 0;
 
 	record_vs(1, tclk);
+
+#if AUTO_CORRECTION_TS
+	if (vs2_diff_cnt_correction) {
+		/* try amend vs2 ts */
+		try_update_vs2_rec(vs2_diff_cnt_correction);
+		vs2_diff_cnt_correction = 0;
+	}
+#endif
 
 	spin_unlock(&global_lock);
 

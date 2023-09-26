@@ -43,16 +43,19 @@ static struct adsp_feature_tb feature_table[ADSP_NUM_FEATURE_ID] = {
 int adsp_get_feature_index(const char *str)
 {
 	int i = 0;
+	size_t len;
 	struct adsp_feature_tb *unit;
 
 	if (!str)
 		return -EINVAL;
 
+	len = strlen(str);
+
 	for (i = 0; i < ADSP_NUM_FEATURE_ID; i++) {
 		unit = &feature_table[i];
-		if (!unit->name)
+		if (!unit->name || strlen(unit->name) != len)
 			continue;
-		if (strncmp(unit->name, str, strlen(unit->name)) == 0)
+		if (strncmp(unit->name, str, len) == 0)
 			break;
 	}
 
@@ -95,6 +98,7 @@ bool is_adsp_feature_in_active(void)
 	// ADSP_A is the master.
 	return adsp_feature_is_active(ADSP_A_ID);
 }
+EXPORT_SYMBOL(is_adsp_feature_in_active);
 
 int _adsp_register_feature(u32 cid, u32 fid, u32 opt)
 {

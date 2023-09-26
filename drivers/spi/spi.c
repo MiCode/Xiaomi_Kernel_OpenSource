@@ -1300,7 +1300,7 @@ static void spi_pump_messages(struct kthread_work *work)
 
 static int spi_init_queue(struct spi_controller *ctlr)
 {
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO - 1 };
+	struct sched_param param = { .sched_priority = 48 };
 
 	ctlr->running = false;
 	ctlr->busy = false;

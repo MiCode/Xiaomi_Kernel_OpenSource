@@ -490,6 +490,7 @@ static void thermal_mdla_init(void)
 static int init_cooler(void)
 {
 	int i;
+	int ret = -1;
 	int num = CPU_COOLER_NUM;	/* 700~4000, 92 */
 
 	cl_dev_state = kzalloc((num) * sizeof(unsigned int), GFP_KERNEL);
@@ -508,7 +509,11 @@ static int init_cooler(void)
 
 	for (i = 0; i < num; i++) {
 		/* using index=>0=700,1=800 ~ 33=4000 */
-		sprintf(cooler_name + (i * 20), "cpu%02d", i);
+		ret = sprintf(cooler_name + (i * 20), "cpu%02d", i);
+		if (ret < 0) {
+			tscpu_dprintk("%s sprintf failed\n", __func__);
+			return -EINVAL;
+		}
 	}
 
 	Num_of_OPP = num;	/* CPU COOLER COUNT, not CPU OPP count */

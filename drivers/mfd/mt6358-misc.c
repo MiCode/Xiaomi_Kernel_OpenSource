@@ -162,6 +162,7 @@ enum rtc_spare_enum {
 	RTC_PWRON_LOGO,
 	RTC_32K_LESS,
 	RTC_LP_DET,
+	RTC_FFU_FLAG,
 	RTC_FG_INIT,
 	RTC_SPAR_NUM
 };
@@ -187,6 +188,7 @@ u16 rtc_spare_reg[RTC_SPAR_NUM][3] = {
 	{RTC_PDN2, 0x1, 15},
 	{RTC_SPAR0, 0x1, 6},
 	{RTC_SPAR0, 0x1, 7},
+	{RTC_SPAR0, 0x1, 8},
 	{RTC_AL_HOU, 0xff, 8}
 };
 
@@ -671,6 +673,35 @@ void rtc_mark_recovery(void)
 	mtk_rtc_clear_alarm();
 	spin_unlock_irqrestore(&rtc_misc->lock, flags);
 }
+
+int ffu_get_flag(void)
+{
+	u16 temp;
+	unsigned long flags;
+
+	pr_notice("%s\n", __func__);
+	spin_lock_irqsave(&rtc_misc->lock, flags);
+	temp = mtk_rtc_get_spare_register(RTC_FFU_FLAG);
+	spin_unlock_irqrestore(&rtc_misc->lock, flags);
+
+	return temp;
+}
+EXPORT_SYMBOL(ffu_get_flag);
+
+void ffu_set_flag(int val)
+{
+	unsigned long flags;
+
+	pr_notice("%s\n", __func__);
+	spin_lock_irqsave(&rtc_misc->lock, flags);
+	if (val)
+		mtk_rtc_set_spare_register(RTC_FFU_FLAG, 0x1);
+	else
+		mtk_rtc_set_spare_register(RTC_FFU_FLAG, 0x0);
+
+	spin_unlock_irqrestore(&rtc_misc->lock, flags);
+}
+EXPORT_SYMBOL(ffu_set_flag);
 
 void rtc_mark_kpoc(void)
 {

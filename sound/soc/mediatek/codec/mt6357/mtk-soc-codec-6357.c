@@ -6155,7 +6155,7 @@ static int mt6357_codec_probe(struct snd_soc_codec *codec)
 
 	/* create analog debug file */
 	mt_sco_audio_debugfs = debugfs_create_file(
-		DEBUG_ANA_FS_NAME, S_IFREG | 0777, NULL,
+		DEBUG_ANA_FS_NAME, S_IFREG | 0770, NULL,
 		(void *)DEBUG_ANA_FS_NAME, &mtaudio_ana_debug_ops);
 
 	return 0;

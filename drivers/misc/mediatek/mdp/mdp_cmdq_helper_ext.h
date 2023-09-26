@@ -40,7 +40,7 @@ enum TASK_STATE_ENUM {
 	TASK_STATE_ERR_IRQ,	/* task execution invalid instruction */
 	TASK_STATE_DONE,	/* task finished */
 	TASK_STATE_WAITING,	/* allocated but waiting for available thread */
-	TASK_STATE_TIMEOUT,     /* task timeout */
+	TASK_STATE_TIMEOUT,	/* task timeout */
 };
 
 
@@ -757,6 +757,9 @@ struct cmdqRecStruct {
 	void *sec_client_meta;
 	enum cmdq_sec_rec_meta_type sec_meta_type;
 	u32 sec_meta_size;
+
+	/* Readback slot protection */
+	s32 slot_ids[8];
 };
 
 /* TODO: add controller support */

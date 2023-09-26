@@ -288,7 +288,7 @@ static inline
 void set_not_preferred_locked(struct cluster_data *cluster, int cpu, bool enable)
 {
 	struct cpu_data *c;
-	bool changed;
+	bool changed = false;
 
 	c = &per_cpu(cpu_state, cpu);
 	if (enable) {
@@ -316,7 +316,7 @@ static void set_btask_up_thresh(struct cluster_data *cluster, unsigned int val)
 
 	spin_lock_irqsave(&state_lock, flags);
 	old_thresh = cluster->btask_up_thresh;
-	cluster->btask_up_thresh = cluster->btask_up_thresh;
+	cluster->btask_up_thresh = val;
 
 	if (old_thresh != cluster->btask_up_thresh) {
 		update_next_cluster_down_thresh(
@@ -334,7 +334,7 @@ void set_cpu_tj_degree(struct cluster_data *cluster, int degree)
 	unsigned long flags;
 
 	spin_lock_irqsave(&state_lock, flags);
-	cluster->cpu_tj_degree = cluster->cpu_tj_degree;
+	cluster->cpu_tj_degree = degree;
 	spin_unlock_irqrestore(&state_lock, flags);
 }
 
@@ -440,7 +440,7 @@ EXPORT_SYMBOL(core_ctl_set_offline_throttle_ms);
  */
 int core_ctl_set_boost(bool boost)
 {
-	int ret;
+	int ret = 0;
 	unsigned int index = 0;
 	unsigned long flags;
 	struct cluster_data *cluster;
@@ -605,7 +605,7 @@ static ssize_t store_offline_throttle_ms(struct cluster_data *state,
 static ssize_t show_offline_throttle_ms(const struct cluster_data *state,
 		char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%u\n", state->offline_throttle_ms);
+	return snprintf(buf, PAGE_SIZE, "%lld\n", state->offline_throttle_ms);
 }
 
 static ssize_t store_btask_up_thresh(struct cluster_data *state,

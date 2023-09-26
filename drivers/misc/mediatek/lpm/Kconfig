@@ -92,3 +92,8 @@ config MTK_LPM_MT6781
 	  for power management.
 	  Set Y to select this feature for specific platform-mt6781.
 	  If unsure, set N to disable.
+
+config XM_LPM_STATE_RECORDS
+	bool "Record LPM state ,include modem,connectivity,subsys"
+	help
+	  Print more suspend info.

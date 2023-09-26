@@ -95,7 +95,7 @@ enum AVG_LOAD_ID {
 #ifdef CONFIG_MTK_CORE_CTL
 unsigned int get_overutil_threshold(int index)
 {
-	if (index >= 0 || index <= OVERUTIL_THRESHOLD_SIZE)
+	if (index >= 0 && index < OVERUTIL_THRESHOLD_SIZE)
 		return overutil_thres[index];
 	return 100;
 }

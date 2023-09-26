@@ -471,9 +471,12 @@ int msdc_clk_stable(struct msdc_host *host, u32 mode, u32 div,
 		if (retry == 0) {
 			pr_info("msdc%d on clock failed ===> retry twice\n",
 				host->id);
-
+			if (lock)
+				spin_unlock(&host->lock);
 			msdc_clk_disable_unprepare(host);
 			msdc_clk_prepare_enable(host);
+			if (lock)
+				spin_lock(&host->lock);
 			msdc_dump_info(NULL, 0, NULL, host->id);
 			host->prev_cmd_cause_dump = 0;
 		}
@@ -2240,10 +2243,10 @@ int msdc_pio_read(struct msdc_host *host, struct mmc_data *data)
 
 		for (i = 0; i < totalpages; i++) {
 			kaddr[i] = (ulong) kmap(hmpage + i);
-			if ((i > 0) && ((kaddr[i] - kaddr[i - 1]) != PAGE_SIZE))
-				flag = 1;
 			if (!kaddr[i])
 				ERR_MSG("msdc0:kmap failed %lx", kaddr[i]);
+			if ((i > 0) && ((kaddr[i] - kaddr[i - 1]) != PAGE_SIZE))
+				flag = 1;
 		}
 
 		ptr = sg_virt(sg);
@@ -2441,10 +2444,10 @@ int msdc_pio_write(struct msdc_host *host, struct mmc_data *data)
 		/* Kmap all need pages, */
 		for (i = 0; i < totalpages; i++) {
 			kaddr[i] = (ulong) kmap(hmpage + i);
-			if ((i > 0) && ((kaddr[i] - kaddr[i - 1]) != PAGE_SIZE))
-				flag = 1;
 			if (!kaddr[i])
 				ERR_MSG("msdc0:kmap failed %lx\n", kaddr[i]);
+			if ((i > 0) && ((kaddr[i] - kaddr[i - 1]) != PAGE_SIZE))
+				flag = 1;
 		}
 
 		ptr = sg_virt(sg);
@@ -3159,6 +3162,7 @@ int msdc_do_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	unsigned int left = 0;
 	int ret = 0;
 	unsigned long pio_tmo;
+	int lock = spin_is_locked(&host->lock);
 
 	#ifndef SDIO_EARLY_SETTING_RESTORE
 	if (is_card_sdio(host) || (host->hw->flags & MSDC_SDIO_IRQ))
@@ -3273,8 +3277,12 @@ int msdc_do_request(struct mmc_host *mmc, struct mmc_request *mrq)
 			pr_debug("[%s]: start pio read\n", __func__);
 #endif
 			if (msdc_pio_read(host, data)) {
+				if (lock)
+					spin_unlock(&host->lock);
 				msdc_clk_disable_unprepare(host);
 				msdc_clk_enable_and_stable(host);
+				if (lock)
+					spin_lock(&host->lock);
 				goto stop;      /* need cmd12 */
 			}
 		} else {
@@ -3282,8 +3290,12 @@ int msdc_do_request(struct mmc_host *mmc, struct mmc_request *mrq)
 			pr_debug("[%s]: start pio write\n", __func__);
 #endif
 			if (msdc_pio_write(host, data)) {
+				if (lock)
+					spin_unlock(&host->lock);
 				msdc_clk_disable_unprepare(host);
 				msdc_clk_enable_and_stable(host);
+				if (lock)
+					spin_lock(&host->lock);
 				goto stop;
 			}
 
@@ -5239,13 +5251,15 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (!mmc)
 		return -ENOMEM;
 
+	host = mmc_priv(mmc);
+	/* Initialize vcore opp to leave vcore unchanged by default */
+	host->vcore_opp = -1;
 	ret = msdc_dt_init(pdev, mmc);
 	if (ret) {
 		mmc_free_host(mmc);
 		return ret;
 	}
 
-	host = mmc_priv(mmc);
 	base = host->base;
 	hw = host->hw;
 
@@ -5512,6 +5526,8 @@ static int msdc_drv_remove(struct platform_device *pdev)
 		clk_disable_unprepare(host->new_rx_clk_ctl);
 #endif
 	pm_qos_remove_request(&host->msdc_pm_qos_req);
+	if (host->vcore_opp != -1)
+		pm_qos_remove_request(host->req_vcore);
 	pm_runtime_disable(&pdev->dev);
 	mmc_remove_host(host->mmc);
 
@@ -5554,6 +5570,9 @@ static int msdc_runtime_suspend(struct device *dev)
 
 	pm_qos_update_request(&host->msdc_pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
+	if (host->vcore_opp != -1)
+		pm_qos_update_request(host->req_vcore,
+			PM_QOS_VCORE_OPP_DEFAULT_VALUE);
 
 	return 0;
 }
@@ -5565,6 +5584,8 @@ static int msdc_runtime_resume(struct device *dev)
 	void __iomem *base = host->base;
 
 	pm_qos_update_request(&host->msdc_pm_qos_req, 0);
+	if (host->vcore_opp != -1)
+		pm_qos_update_request(host->req_vcore, host->vcore_opp);
 
 	if (host->new_rx_clk_ctl)
 		(void)clk_prepare_enable(host->new_rx_clk_ctl);

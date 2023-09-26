@@ -19,8 +19,8 @@ config NFC_ST54_SPI
 	  interface to ST54. If configures to be n, means devices doesn't
 	  support SPI interface (eSE still usable).
 
-config MTK_NFC_CLKBUF_ENABLE
-	tristate "Enable clock buffer for NFC"
-	help
-          Enable clock buffer from PMIC for NFC.
+#config MTK_NFC_CLKBUF_ENABLE
+#	tristate "Enable clock buffer for NFC"
+#	help
+#          Enable clock buffer from PMIC for NFC.
 

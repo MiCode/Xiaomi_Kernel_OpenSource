@@ -76,4 +76,8 @@ void nq_stop(void);
 int nq_init(void);
 void nq_exit(void);
 
+/* CPU hotplug */
+int nq_cpu_on(unsigned int cpu);
+int nq_cpu_off(unsigned int cpu);
+
 #endif /* _MC_NQ_H_ */

@@ -595,6 +595,10 @@ static int m4u_debug_set(void *data, u64 val)
 		unsigned long size = page_num * PAGE_SIZE;
 
 		page = alloc_pages(GFP_KERNEL, get_order(page_num));
+		if (!page) {
+			M4U_MSG("alloc_pages failed.\n");
+			break;
+		}
 		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i)
 			sg_set_page(sg, page + i, PAGE_SIZE, 0);
@@ -718,6 +722,10 @@ static int m4u_debug_set(void *data, u64 val)
 		unsigned long size = page_num * PAGE_SIZE;
 
 		page = alloc_pages(GFP_KERNEL, get_order(page_num));
+		if (!page) {
+			M4U_MSG("alloc_pages failed.\n");
+			break;
+		}
 		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i)
 			sg_set_page(sg, page + i, PAGE_SIZE, 0);
@@ -740,6 +748,10 @@ static int m4u_debug_set(void *data, u64 val)
 		unsigned long size = page_num * PAGE_SIZE;
 
 		page = alloc_pages(GFP_KERNEL, get_order(page_num));
+		if (!page) {
+			M4U_MSG("alloc_pages failed.\n");
+			break;
+		}
 		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i)
 			sg_set_page(sg, page + i, PAGE_SIZE, 0);

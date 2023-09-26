@@ -73,8 +73,11 @@ static void mtk_drm_vdo_mode_enter_idle(struct drm_crtc *crtc)
 
 static void mtk_drm_cmd_mode_enter_idle(struct drm_crtc *crtc)
 {
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	mtk_drm_idlemgr_disable_crtc(crtc);
 	lcm_fps_ctx_reset(crtc);
+	if (mtk_crtc->esd_ctx)
+		atomic_set(&mtk_crtc->esd_ctx->target_time, 1);
 }
 
 static void mtk_drm_vdo_mode_leave_idle(struct drm_crtc *crtc)
@@ -342,10 +345,12 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 	int crtc_id = drm_crtc_index(crtc);
 
 	msleep(16000);
-	while (1) {
+	do {
 		ret = wait_event_interruptible(
 			idlemgr->idlemgr_wq,
 			atomic_read(&idlemgr->idlemgr_task_active));
+		if (ret < 0)
+			DDPMSG("wait %s fail, ret=%d\n", __func__, ret);
 
 		t_idle = local_clock() - idlemgr_ctx->idlemgr_last_kick_time;
 		if (idlemgr_ctx->idle_vblank_check_internal)
@@ -438,9 +443,7 @@ static int mtk_drm_idlemgr_monitor_thread(void *data)
 		wait_event_interruptible(idlemgr->idlemgr_wq,
 					 !idlemgr_ctx->is_idle);
 
-		if (kthread_should_stop())
-			break;
-	}
+	} while (!kthread_should_stop());
 
 	return 0;
 }
@@ -457,13 +460,13 @@ int mtk_drm_idlemgr_init(struct drm_crtc *crtc, int index)
 
 	if (!idlemgr) {
 		DDPPR_ERR("struct mtk_drm_idlemgr allocate fail\n");
+		kfree(idlemgr_ctx);
 		return -ENOMEM;
-		;
 	}
 
 	if (!idlemgr_ctx) {
-
 		DDPPR_ERR("struct mtk_drm_idlemgr_context allocate fail\n");
+		kfree(idlemgr);
 		return -ENOMEM;
 	}
 

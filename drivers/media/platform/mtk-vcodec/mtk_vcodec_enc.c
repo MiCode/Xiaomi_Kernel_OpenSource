@@ -62,7 +62,7 @@ static void get_supported_format(struct mtk_vcodec_ctx *ctx)
 
 	if (mtk_video_formats[0].fourcc == 0) {
 		if (venc_if_get_param(ctx,
-			GET_PARAM_CAPABILITY_SUPPORTED_FORMATS,
+			VENC_GET_PARAM_CAPABILITY_SUPPORTED_FORMATS,
 			&mtk_video_formats) != 0) {
 			mtk_v4l2_err("Error!! Cannot get supported format");
 			return;
@@ -89,7 +89,7 @@ static void get_supported_framesizes(struct mtk_vcodec_ctx *ctx)
 	unsigned int i;
 
 	if (mtk_venc_framesizes[0].fourcc == 0) {
-		if (venc_if_get_param(ctx, GET_PARAM_CAPABILITY_FRAME_SIZES,
+		if (venc_if_get_param(ctx, VENC_GET_PARAM_CAPABILITY_FRAME_SIZES,
 				      &mtk_venc_framesizes) != 0) {
 			mtk_v4l2_err("[%d] Error!! Cannot get frame size",
 				ctx->id);
@@ -116,7 +116,7 @@ static void get_free_buffers(struct mtk_vcodec_ctx *ctx,
 				struct venc_done_result *pResult)
 {
 	venc_if_get_param(ctx,
-		GET_PARAM_FREE_BUFFERS,
+		VENC_GET_PARAM_FREE_BUFFERS,
 		pResult);
 }
 
@@ -461,8 +461,11 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->b_qp = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_ENABLE_TSVC:
-		mtk_v4l2_debug(0, "V4L2_CID_MPEG_VIDEO_ENABLE_TSVC");
-		p->tsvc = ctrl->val;
+		mtk_v4l2_debug(0,
+			"V4L2_CID_MPEG_VIDEO_ENABLE_TSVC layer: %d, type: %d\n",
+			ctrl->p_new.p_u32[0], ctrl->p_new.p_u32[1]);
+		if (ctrl->p_new.p_u32[0] == 3)
+			p->tsvc = 1;
 		ctx->param_change |= MTK_ENCODE_PARAM_TSVC;
 		break;
 	case V4L2_CID_MPEG_MTK_ENCODE_RC_MAX_QP:
@@ -521,6 +524,16 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 		p->refpfrmnum = ctrl->val;
 		ctx->param_change |= MTK_ENCODE_PARAM_REFP_FRMNUM;
 		break;
+	case V4L2_CID_MPEG_MTK_LOG:
+		mtk_vcodec_set_log(ctx, ctrl->p_new.p_char);
+		break;
+	case V4L2_CID_MPEG_MTK_ENCODE_ENABLE_DUMMY_NAL:
+		mtk_v4l2_debug(2,
+			"V4L2_CID_MPEG_MTK_ENCODE_ENABLE_DUMMY_NAL: %d",
+			ctrl->val);
+		p->dummynal = ctrl->val;
+		ctx->param_change |= MTK_ENCODE_PARAM_DUMMY_NAL;
+		break;
 	default:
 		mtk_v4l2_err("ctrl-id=%d not support!", ctrl->id);
 		ret = -EINVAL;
@@ -540,19 +553,19 @@ static int vidioc_venc_g_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_MTK_ENCODE_ROI_RC_QP:
 		venc_if_get_param(ctx,
-			GET_PARAM_ROI_RC_QP,
+			VENC_GET_PARAM_ROI_RC_QP,
 			&value);
 		ctrl->val = value;
 		break;
 	case V4L2_CID_MPEG_MTK_RESOLUTION_CHANGE:
 		reschange = (struct venc_resolution_change *)ctrl->p_new.p_u32;
 		venc_if_get_param(ctx,
-			GET_PARAM_RESOLUTION_CHANGE,
+			VENC_GET_PARAM_RESOLUTION_CHANGE,
 			reschange);
 		break;
 	case V4L2_CID_MPEG_MTK_ENCODE_REFP_MAX_FRAME_NUM:
 		venc_if_get_param(ctx,
-			GET_PARAM_REFBUF_FRAME_NUM,
+			VENC_GET_PARAM_REFBUF_FRAME_NUM,
 			&value);
 		ctrl->val = value;
 		break;
@@ -1098,6 +1111,7 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	param->b_qp = enc_params->b_qp;
 	param->svp_mode = enc_params->svp_mode;
 	param->tsvc = enc_params->tsvc;
+	param->dummynal = enc_params->dummynal;
 	param->max_qp = enc_params->max_qp;
 	param->min_qp = enc_params->min_qp;
 	param->i_p_qp_delta = enc_params->i_p_qp_delta;
@@ -1576,9 +1590,14 @@ static int vidioc_encoder_cmd(struct file *file, void *priv,
 			mtk_v4l2_debug(1, "Capture stream is off. No need to flush.");
 			return 0;
 		}
-		ctx->enc_flush_buf->lastframe = EOS;
-		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
-		v4l2_m2m_try_schedule(ctx->m2m_ctx);
+		if (ctx->enc_flush_buf->lastframe == NON_EOS) {
+			ctx->enc_flush_buf->lastframe = EOS;
+			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
+			v4l2_m2m_try_schedule(ctx->m2m_ctx);
+		} else {
+			mtk_v4l2_debug(1, "Stopping no need to queue cmd enc_flush_buf.");
+			return 0;
+		}
 		break;
 
 	case V4L2_ENC_CMD_START:
@@ -1925,6 +1944,7 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 				v4l2_m2m_buf_done(to_vb2_v4l2_buffer(src_buf),
 					  VB2_BUF_STATE_ERROR);
 		}
+		ctx->enc_flush_buf->lastframe = NON_EOS;
 	}
 
 	if ((q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
@@ -2305,6 +2325,17 @@ static int mtk_venc_param_change(struct mtk_vcodec_ctx *ctx)
 					&enc_prm);
 	}
 
+	if (!ret &&
+	mtk_buf->param_change & MTK_ENCODE_PARAM_DUMMY_NAL) {
+		enc_prm.dummynal = mtk_buf->enc_params.dummynal;
+		mtk_v4l2_debug(1, "[%d] idx=%d, tsvc=%d",
+				ctx->id,
+				mtk_buf->vb.vb2_buf.index,
+				mtk_buf->enc_params.dummynal);
+		ret |= venc_if_set_param(ctx,
+					VENC_SET_PARAM_ENABLE_DUMMY_NAL,
+					&enc_prm);
+	}
 
 	mtk_buf->param_change = MTK_ENCODE_PARAM_NONE;
 
@@ -2404,6 +2435,7 @@ static void mtk_venc_worker(struct work_struct *work)
 	pbs_buf->dmabuf = dst_buf->planes[0].dbuf;
 
 	if (src_buf_info->lastframe == EOS) {
+		src_buf_info->lastframe = NON_EOS;
 		if (ctx->oal_vcodec == 1) {
 			ret = venc_if_encode(ctx,
 					 VENC_START_OPT_ENCODE_FRAME_FINAL,
@@ -2487,10 +2519,14 @@ static void mtk_venc_worker(struct work_struct *work)
 		 */
 		mtk_v4l2_debug(0, "[%d] EarlyEos: encode last frame %d",
 			ctx->id, src_buf->planes[0].bytesused);
-		src_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
-		dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
-		ctx->enc_flush_buf->lastframe = EOS;
-		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
+		if (ctx->enc_flush_buf->lastframe == NON_EOS) {
+			ctx->enc_flush_buf->lastframe = EOS;
+			src_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
+			dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
+			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->enc_flush_buf->vb);
+		} else {
+			mtk_v4l2_debug(1, "Stopping no need to queue enc_flush_buf.");
+		}
 	}
 
 	for (i = 0; i < src_buf->num_planes ; i++) {
@@ -2929,13 +2965,14 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_VIDEO_ENABLE_TSVC;
-	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.type = V4L2_CTRL_TYPE_U32;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
-	cfg.name = "Video encode tsvc switch";
+	cfg.name = "Video encode tsvc";
 	cfg.min = 0;
-	cfg.max = 8;
+	cfg.max = 15;
 	cfg.step = 1;
 	cfg.def = 0;
+	cfg.dims[0] = 2;
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
@@ -2944,10 +2981,10 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video Encoder Max QP";
-	cfg.min = 0;
+	cfg.min = -1;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = 0;
+	cfg.def = -1;
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
@@ -2956,10 +2993,10 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video Encoder Min QP";
-	cfg.min = 0;
+	cfg.min = -1;
 	cfg.max = 51;
 	cfg.step = 1;
-	cfg.def = 0;
+	cfg.def = -1;
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
@@ -2968,10 +3005,10 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video Encoder I-P frame QP Delta";
-	cfg.min = 0;
+	cfg.min = -1;
 	cfg.max = 50;
 	cfg.step = 1;
-	cfg.def = 0;
+	cfg.def = -1;
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
@@ -2980,10 +3017,10 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
 	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
 	cfg.name = "Video Encoder QP control mode";
-	cfg.min = 0;
+	cfg.min = -1;
 	cfg.max = 10;
 	cfg.step = 1;
-	cfg.def = 0;
+	cfg.def = -1;
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
@@ -3042,6 +3079,23 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.name = "Video encode refp max frame num";
 	cfg.min = 0;
 	cfg.max = 0x7ffffff;
+	cfg.step = 1;
+	cfg.def = 0;
+	cfg.ops = ops;
+	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+				&mtk_vcodec_enc_ctrl_ops,
+				V4L2_CID_MPEG_MTK_LOG,
+				0, 255, 1, 0);
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_ENABLE_DUMMY_NAL;
+	cfg.type = V4L2_CTRL_TYPE_INTEGER;
+	cfg.flags = V4L2_CTRL_FLAG_WRITE_ONLY;
+	cfg.name = "Video encode enable dummynal";
+	cfg.min = 0;
+	cfg.max = 1;
 	cfg.step = 1;
 	cfg.def = 0;
 	cfg.ops = ops;

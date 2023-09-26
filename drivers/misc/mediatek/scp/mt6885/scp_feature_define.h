@@ -18,8 +18,14 @@
 /* scp platform configs*/
 #define SCP_BOOT_TIME_OUT_MONITOR	(1)
 #define SCP_LOGGER_ENABLE		(1)
+#define SCP_LOGGER_OVERWRITE		(1)
 #define SCP_DVFS_INIT_ENABLE		(1)
 #define SCP_VOW_LOW_POWER_MODE		(1)
+
+#ifdef SCP_LOGGER_OVERWRITE
+#define HW_SEM_LOGGER		        (1)
+#endif
+
 #define SCP_RESERVED_MEM		(1)
 /* scp rescovery feature option*/
 #define SCP_RECOVERY_SUPPORT		(1)
@@ -59,6 +65,7 @@ enum feature_id {
 	VOW_DUAL_MIC_FEATURE_ID,
 	VOW_DUAL_MIC_BARGE_IN_FEATURE_ID,
 	ULTRA_FEATURE_ID,
+	FUSION_FEATURE_ID,
 	NUM_FEATURE_ID,
 };
 

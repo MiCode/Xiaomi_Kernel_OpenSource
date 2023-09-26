@@ -245,7 +245,7 @@ bool dcm_stall_is_on(void)
 
 int dcm_stall(int on)
 {
-	dcm_mp_cpusys_top_core_stall_dcm(on);
+	// dcm_mp_cpusys_top_core_stall_dcm(on);
 	dcm_mp_cpusys_top_fcm_stall_dcm(on);
 
 	return 0;

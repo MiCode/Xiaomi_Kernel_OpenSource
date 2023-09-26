@@ -64,7 +64,7 @@
 
 struct ccmni_ctl_block *ccmni_ctl_blk[MAX_MD_NUM];
 
-/* Time in nano seconds. This number must be less than a second. */
+/* Time in ns. This number must be less than 500ms. */
 #ifdef ENABLE_WQ_GRO
 long int gro_flush_timer __read_mostly = 2000000L;
 #else
@@ -249,6 +249,22 @@ static int is_skb_gro(struct sk_buff *skb)
 		return 0;
 }
 
+void ccmni_clr_flush_timer(void)
+{
+	int i = 0;
+	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[0];
+
+	if (ctlb == NULL)
+		return;
+
+	for (i = 0; i < ctlb->ccci_ops->ccmni_num; i++)
+		if (ctlb->ccmni_inst[i] && ctlb->ccmni_inst[i]->dev)
+			if (ctlb->ccmni_inst[i]->dev->flags & IFF_UP)
+				getnstimeofday(&ctlb->ccmni_inst[i]->flush_time);
+
+}
+EXPORT_SYMBOL(ccmni_clr_flush_timer);
+
 static void ccmni_gro_flush(struct ccmni_instance *ccmni)
 {
 	struct timespec curr_time, diff;
@@ -256,16 +272,12 @@ static void ccmni_gro_flush(struct ccmni_instance *ccmni)
 	if (!gro_flush_timer)
 		return;
 
-	if (unlikely(ccmni->flush_time.tv_sec == 0)) {
+	getnstimeofday(&curr_time);
+	diff = timespec_sub(curr_time, ccmni->flush_time);
+	if ((diff.tv_sec > 0) || (diff.tv_nsec > gro_flush_timer)) {
+		napi_gro_flush(ccmni->napi, false);
+		timeout_flush_num++;
 		getnstimeofday(&ccmni->flush_time);
-	} else {
-		getnstimeofday(&(curr_time));
-		diff = timespec_sub(curr_time, ccmni->flush_time);
-		if ((diff.tv_sec > 0) || (diff.tv_nsec > gro_flush_timer)) {
-			napi_gro_flush(ccmni->napi, false);
-			timeout_flush_num++;
-			getnstimeofday(&ccmni->flush_time);
-		}
 	}
 }
 #endif
@@ -396,7 +408,7 @@ static u16 ccmni_select_queue(struct net_device *dev, struct sk_buff *skb,
 		return CCMNI_TXQ_NORMAL;
 	}
 	if (ctlb->ccci_ops->md_ability & MODEM_CAP_DATA_ACK_DVD) {
-		if (skb->mark == APP_VIP_MARK)
+		if (skb->mark & APP_VIP_MARK)
 			return CCMNI_TXQ_FAST;
 
 		if (ccmni->ack_prio_en && is_ack_skb(ccmni->md_id, skb))
@@ -427,6 +439,9 @@ static int ccmni_open(struct net_device *dev)
 			dev->name, ccmni->md_id);
 		return -1;
 	}
+
+	if (gro_flush_timer)
+		getnstimeofday(&ccmni->flush_time);
 
 	netif_carrier_on(dev);
 
@@ -611,7 +626,7 @@ static netdev_tx_t ccmni_start_xmit(struct sk_buff *skb, struct net_device *dev)
 #endif
 	if (ctlb->ccci_ops->md_ability & MODEM_CAP_DATA_ACK_DVD) {
 		iph = (struct iphdr *)skb_network_header(skb);
-		if (skb->mark == APP_VIP_MARK)
+		if (skb->mark & APP_VIP_MARK)
 			is_ack = 1;
 		else if (ccmni->ack_prio_en)
 			is_ack = is_ack_skb(ccmni->md_id, skb);
@@ -979,6 +994,16 @@ static int ccmni_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			ctlb->ccmni_inst[i]->ack_prio_en);
 		break;
 
+	case SIOPUSHPENDING:
+		CCMNI_INF_MSG(ccmni->md_id, "%s SIOPUSHPENDING called\n", ccmni->dev->name);
+		cancel_delayed_work(&ccmni->pkt_queue_work);
+		flush_delayed_work(&ccmni->pkt_queue_work);
+		if (mtk_ccci_handle_port_list(DEV_OPEN, ccmni->dev->name))
+			CCMNI_INF_MSG(ccmni->md_id,
+				"%s is failed to handle port list\n",
+				ccmni->dev->name);
+		break;
+
 	default:
 		CCMNI_DBG_MSG(ccmni->md_id,
 			"%s: unknown ioctl cmd=%x\n", dev->name, cmd);
@@ -1138,6 +1163,8 @@ static inline void ccmni_dev_init(int md_id, struct net_device *dev)
 			(~IFF_BROADCAST & ~IFF_MULTICAST);
 	/* not support VLAN */
 	dev->features = NETIF_F_VLAN_CHALLENGED;
+	if (ctlb->ccci_ops->md_ability & MODEM_CAP_HWTXCSUM)
+		dev->features |= NETIF_F_HW_CSUM;
 	if (ctlb->ccci_ops->md_ability & MODEM_CAP_SGIO) {
 		dev->features |= NETIF_F_SG;
 		dev->hw_features |= NETIF_F_SG;

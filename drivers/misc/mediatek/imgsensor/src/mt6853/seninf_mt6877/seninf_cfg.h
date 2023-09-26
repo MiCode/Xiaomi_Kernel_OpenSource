@@ -15,6 +15,7 @@
 #define __SENINF_CFG_H__
 #define SENINF_IRQ
 
+#define _CAM_MUX_SWITCH
 #define SENINF_MAX_NUM 6
 
 #define SENINF_MAP_BASE_REG  0x1A004000

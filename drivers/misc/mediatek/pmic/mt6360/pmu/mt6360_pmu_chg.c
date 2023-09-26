@@ -40,7 +40,7 @@
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_boot.h>
 
-#define MT6360_PMU_CHG_DRV_VERSION	"1.0.7_MTK"
+#define MT6360_PMU_CHG_DRV_VERSION	"1.0.8_MTK"
 
 void __attribute__ ((weak)) Charger_Detect_Init(void)
 {
@@ -165,6 +165,7 @@ static const struct mt6360_chg_platform_data def_platform_data = {
 	.aicc_once = true,
 	.post_aicc = true,
 	.batoc_notify = false,
+	.en_eoc = true,
 	.chg_name = "primary_chg",
 };
 
@@ -357,6 +358,7 @@ static int mt6360_enable_wdt(struct mt6360_pmu_chg_info *mpci, bool en)
 					  en ? 0xff : 0);
 }
 
+/*
 static int mt6360_enable_otg_wdt(struct mt6360_pmu_chg_info *mpci, bool en)
 {
 	struct mt6360_chg_platform_data *pdata = dev_get_platdata(mpci->dev);
@@ -369,6 +371,7 @@ static int mt6360_enable_otg_wdt(struct mt6360_pmu_chg_info *mpci, bool en)
 					  MT6360_MASK_CHG_WDT_EN,
 					  en ? 0xff : 0);
 }
+*/
 
 static inline int mt6360_get_chrdet_ext_stat(struct mt6360_pmu_chg_info *mpci,
 					  bool *pwr_rdy)
@@ -378,7 +381,7 @@ static inline int mt6360_get_chrdet_ext_stat(struct mt6360_pmu_chg_info *mpci,
 	ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_CHRDET_STAT);
 	if (ret < 0)
 		return ret;
-	*pwr_rdy = ((u8)ret & BIT(4)) ? true : false;
+	*pwr_rdy = !!((u8)ret & BIT(4));
 	return 0;
 }
 
@@ -803,6 +806,9 @@ out:
 	ret = mt6360_pmu_reg_update_bits(mpci->mpi,
 					 MT6360_PMU_CHG_CTRL2,
 					 MT6360_MASK_CHG_EN, en ? 0xff : 0);
+	ret = mt6360_pmu_reg_update_bits(mpci->mpi,
+					MT6360_PMU_CHG_CTRL2,
+					MT6360_MASK_BYPASS_MODE, 0x0);
 	if (ret < 0)
 		dev_notice(mpci->dev, "%s: fail, en = %d\n", __func__, en);
 vsys_wkard_fail:
@@ -1430,14 +1436,9 @@ static int mt6360_set_otg_current_limit(struct charger_device *chg_dev,
 static int mt6360_enable_otg(struct charger_device *chg_dev, bool en)
 {
 	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
-	int ret = 0;
 
 	dev_dbg(mpci->dev, "%s: en = %d\n", __func__, en);
-	ret = mt6360_enable_otg_wdt(mpci, en ? true : false);
-	if (ret < 0) {
-		dev_err(mpci->dev, "%s: set wdt fail, en = %d\n", __func__, en);
-		return ret;
-	}
+
 	return mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_CHG_CTRL1,
 					  MT6360_MASK_OPA_MODE, en ? 0xff : 0);
 }
@@ -1780,7 +1781,6 @@ static int mt6360_do_event(struct charger_device *chg_dev, u32 event,
 static int mt6360_plug_in(struct charger_device *chg_dev)
 {
 	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
-	union power_supply_propval propval;
 	int ret = 0;
 
 	dev_dbg(mpci->dev, "%s\n", __func__);
@@ -1793,27 +1793,9 @@ static int mt6360_plug_in(struct charger_device *chg_dev)
 	/* Replace CHG_EN by TE for avoid CV level too low trigger ieoc */
 	/* TODO: First select cv, then chg_en, no need ? */
 	ret = mt6360_enable_te(chg_dev, true);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(mpci->dev, "%s: en te failed\n", __func__);
-		return ret;
-	}
 
-	/* Workaround for ibus stuck in pe/pe20 pattern */
-	if (!mpci->psy)
-		mpci->psy = power_supply_get_by_name("charger");
-	if (!mpci->psy) {
-		dev_notice(mpci->dev,
-			"%s: get power supply failed\n", __func__);
-		return -EINVAL;
-	}
-
-	ret = power_supply_get_property(mpci->psy,
-					POWER_SUPPLY_PROP_CHARGE_TYPE,
-					&propval);
-	if (ret < 0) {
-		dev_err(mpci->dev, "%s: get chg_type fail\n", __func__);
-		return ret;
-	}
 	return ret;
 }
 
@@ -1823,6 +1805,7 @@ static int mt6360_plug_out(struct charger_device *chg_dev)
 	int ret = 0;
 
 	dev_dbg(mpci->dev, "%s\n", __func__);
+
 	ret = mt6360_enable_wdt(mpci, false);
 	if (ret < 0) {
 		dev_err(mpci->dev, "%s: disable wdt failed\n", __func__);
@@ -1831,6 +1814,7 @@ static int mt6360_plug_out(struct charger_device *chg_dev)
 	ret = mt6360_enable_te(chg_dev, false);
 	if (ret < 0)
 		dev_err(mpci->dev, "%s: disable te failed\n", __func__);
+
 	return ret;
 }
 
@@ -2058,7 +2042,7 @@ static irqreturn_t mt6360_pmu_chg_vbusov_evt_handler(int irq, void *data)
 	ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_CHG_STAT2);
 	if (ret < 0)
 		goto out;
-	vbusov_stat = ((u8)ret & BIT(7));
+	vbusov_stat = !!((u8)ret & BIT(7));
 	noti->vbusov_stat = vbusov_stat;
 	dev_info(mpci->dev, "%s: stat = %d\n", __func__, vbusov_stat);
 out:
@@ -2183,10 +2167,10 @@ static irqreturn_t mt6360_pmu_chg_ieoci_handler(int irq, void *data)
 	int ret = 0;
 
 	dev_dbg(mpci->dev, "%s\n", __func__);
-	ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_CHG_STAT4);
+	ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_CHG_STAT5);
 	if (ret < 0)
 		goto out;
-	ieoc_stat = ((u8)ret & BIT(7));
+	ieoc_stat = !!((u8)ret & BIT(7));
 	if (!ieoc_stat)
 		goto out;
 
@@ -2543,14 +2527,16 @@ static const struct mt6360_pdata_prop mt6360_pdata_props[] = {
 	MT6360_PDATA_VALPROP(ircmp_vclamp, struct mt6360_chg_platform_data,
 			     MT6360_PMU_CHG_CTRL18, 0, 0x07,
 			     mt6360_trans_ircmp_vclamp_sel, 0),
-#if 0
 	MT6360_PDATA_VALPROP(en_te, struct mt6360_chg_platform_data,
 			     MT6360_PMU_CHG_CTRL2, 4, 0x10, NULL, 0),
+#if 0
 	MT6360_PDATA_VALPROP(en_wdt, struct mt6360_chg_platform_data,
 			     MT6360_PMU_CHG_CTRL13, 7, 0x80, NULL, 0),
 #endif
 	MT6360_PDATA_VALPROP(aicc_once, struct mt6360_chg_platform_data,
 			     MT6360_PMU_CHG_CTRL14, 0, 0x04, NULL, 0),
+	MT6360_PDATA_VALPROP(en_eoc, struct mt6360_chg_platform_data,
+			     MT6360_PMU_CHG_CTRL9, 3, 0x08, NULL, 0),
 };
 
 static int mt6360_chg_apply_pdata(struct mt6360_pmu_chg_info *mpci,
@@ -2582,6 +2568,7 @@ static const struct mt6360_val_prop mt6360_val_props[] = {
 	MT6360_DT_VALPROP(aicc_once, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(post_aicc, struct mt6360_chg_platform_data),
 	MT6360_DT_VALPROP(batoc_notify, struct mt6360_chg_platform_data),
+	MT6360_DT_VALPROP(en_eoc, struct mt6360_chg_platform_data),
 };
 
 static int mt6360_chg_parse_dt_data(struct device *dev,
@@ -2699,6 +2686,16 @@ static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 		if (ret < 0)
 			dev_err(mpci->dev,
 				"%s: clear BATSYSUV fail\n", __func__);
+	}
+
+	/* K16U add: close mt6360 QONB pwrkey reset*/
+	if (strnstr(saved_command_line, "pissarropro", strlen(saved_command_line)) ||
+		strnstr(saved_command_line, "pissarroinpro", strlen(saved_command_line))) {
+		ret = mt6360_pmu_reg_set_bits(mpci->mpi, MT6360_PMU_CHG_PUMP, 0x80);
+		if (ret < 0)
+			dev_err(mpci->dev,  "%s: close QON Failed!\n", __func__);
+		else
+			dev_err(mpci->dev,  "%s: close QON OK!\n", __func__);
 	}
 
 	/* USBID ID_TD = 32T */
@@ -3003,6 +3000,9 @@ MODULE_VERSION(MT6360_PMU_CHG_DRV_VERSION);
 
 /*
  * Version Note
+ * 1.0.8_MTK
+ * (1) Fix mt6360_pmu_chg_ieoci_handler()
+ *
  * 1.0.7_MTK
  * (1) Fix Unbalanced enable for MIVR IRQ
  * (2) Sleep 200ms before do another iteration in mt6360_chg_mivr_task_threadfn

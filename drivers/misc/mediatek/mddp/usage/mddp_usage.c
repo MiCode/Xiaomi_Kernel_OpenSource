@@ -7,6 +7,7 @@
 
 #include <linux/types.h>
 
+#include "mddp_ctrl.h"
 #include "mddp_debug.h"
 #include "mddp_dev.h"
 #include "mddp_filter.h"
@@ -48,16 +49,6 @@ static int8_t wan_id;
 //------------------------------------------------------------------------------
 // Public functions.
 //------------------------------------------------------------------------------
-int32_t mddp_usage_init(void)
-{
-	return 0;
-}
-
-void mddp_usage_uninit(void)
-{
-
-}
-
 void mddp_u_get_data_stats(void *buf, uint32_t *buf_len)
 {
 	static struct mddp_u_data_stats_t       cur_stats = {0};
@@ -106,12 +97,12 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	struct mddp_dev_req_set_data_limit_t   *in_req;
 	struct mddp_u_data_limit_t              limit;
 	int8_t                                  id;
+	struct mddp_app_t *app;
 
 	if (buf_len != sizeof(struct mddp_dev_req_set_data_limit_t)) {
 		MDDP_U_LOG(MDDP_LL_ERR,
 				"%s: Invalid parameter, buf_len(%d)!\n",
 				__func__, buf_len);
-		WARN_ON(1);
 		return -EINVAL;
 	}
 
@@ -127,7 +118,6 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(limit),
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		WARN_ON(1);
 		return -EAGAIN;
 	}
 
@@ -137,7 +127,7 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 		MDDP_U_LOG(MDDP_LL_ERR,
 				"%s: Invalid dev_name, dev_name(%s)!\n",
 				__func__, in_req->ul_dev_name);
-		WARN_ON(1);
+		kfree(md_msg);
 		return -EINVAL;
 	}
 
@@ -154,7 +144,69 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	md_msg->msg_id = IPC_MSG_ID_DPFM_DATA_USAGE_CMD;
 	md_msg->data_len = sizeof(limit);
 	memcpy(md_msg->data, &limit, sizeof(limit));
-	mddp_ipc_send_md(NULL, md_msg, MDFPM_USER_ID_DPFM);
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_DPFM);
+
+	return 0;
+}
+
+int32_t mddp_u_set_warning_and_data_limit(uint8_t *buf, uint32_t buf_len)
+{
+	uint32_t                                md_status;
+	struct mddp_md_msg_t                   *md_msg;
+	struct mddp_dev_req_set_warning_and_data_limit_t   *in_req;
+	struct mddp_u_warning_and_data_limit_t  limit;
+	int8_t                                  id;
+	struct mddp_app_t *app;
+
+	if (buf_len != sizeof(struct mddp_dev_req_set_warning_and_data_limit_t)) {
+		MDDP_U_LOG(MDDP_LL_ERR,
+				"%s: Invalid parameter, buf_len(%d)!\n",
+				__func__, buf_len);
+		return -EINVAL;
+	}
+
+	md_status = exec_ccci_kern_func_by_md_id(0, ID_GET_MD_STATE, NULL, 0);
+
+	if (md_status != MD_STATE_READY) {
+		MDDP_U_LOG(MDDP_LL_NOTICE,
+				"%s: Invalid state, md_status(%d)!\n",
+				__func__, md_status);
+		return -ENODEV;
+	}
+
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(limit),
+			GFP_ATOMIC);
+	if (unlikely(!md_msg)) {
+		return -EAGAIN;
+	}
+
+	in_req = (struct mddp_dev_req_set_warning_and_data_limit_t *)buf;
+	id = mddp_f_data_usage_wan_dev_name_to_id(in_req->ul_dev_name);
+	if (unlikely(id < 0)) {
+		MDDP_U_LOG(MDDP_LL_ERR,
+				"%s: Invalid dev_name, dev_name(%s)!\n",
+				__func__, in_req->ul_dev_name);
+		kfree(md_msg);
+		return -EINVAL;
+	}
+
+	memset(&limit, 0, sizeof(limit));
+	limit.cmd = MSG_ID_DPFM_SET_IQUOTA_V2_REQ;
+	limit.trans_id = MDDP_U_GET_IQ_TRANS_ID();
+	limit.limit_buffer_size = in_req->limit_size;
+	limit.warning_buffer_size = in_req->warning_size;
+	limit.id = id;
+	MDDP_U_LOG(MDDP_LL_NOTICE,
+			"%s: Send cmd(%d)/id(%d)/name(%s) limit(%lld) warning(%lld) to MD.\n",
+			__func__, limit.cmd, limit.id, in_req->ul_dev_name,
+			limit.limit_buffer_size, limit.warning_buffer_size);
+
+	md_msg->msg_id = IPC_MSG_ID_DPFM_DATA_USAGE_CMD;
+	md_msg->data_len = sizeof(limit);
+	memcpy(md_msg->data, &limit, sizeof(limit));
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_DPFM);
 
 	return 0;
 }
@@ -170,6 +222,11 @@ int32_t mddp_u_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 		case MSG_ID_DPFM_ALERT_IQUOTA_IND:
 			mddp_dev_response(MDDP_APP_TYPE_ALL,
 				MDDP_CMCMD_LIMIT_IND, true, NULL, 0);
+			ret = 0;
+			break;
+		case MSG_ID_DPFM_ALERT_IQUOTA_WARNING_IND:
+			mddp_dev_response(MDDP_APP_TYPE_ALL,
+				MDDP_CMCMD_WARNING_IND, true, NULL, 0);
 			ret = 0;
 			break;
 		default:

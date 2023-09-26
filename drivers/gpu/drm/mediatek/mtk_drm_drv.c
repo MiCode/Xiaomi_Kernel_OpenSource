@@ -69,11 +69,16 @@
 #include "include/pmic_api_buck.h"
 #endif
 
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_disp_log.h"
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
 #define DRIVER_DATE "20150513"
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
+
+atomic_t resume_pending;
+wait_queue_head_t resume_wait_q;
 
 static atomic_t top_isr_ref; /* irq power status protection */
 static atomic_t top_clk_ref; /* top clk status protection*/
@@ -121,20 +126,23 @@ void disp_drm_debug(const char *opt)
 {
 	pr_notice("[debug] opt=%s\n", opt);
 	if (strncmp(opt, "shift:", 6) == 0) {
-
 		int len = strlen(opt);
-		char buf[100];
+		#define BUF_LEN 100
 
-		strcpy(buf, opt + 6);
-		buf[len - 6] = '\0';
+		if (len < BUF_LEN) {
+			char buf[BUF_LEN];
 
-		pr_notice("[debug] buf=%s\n",
-			buf);
+			strcpy(buf, opt + 6);
+			buf[len - 6] = '\0';
 
-		manual_shift = mtk_atoi(buf);
+			pr_notice("[debug] buf=%s\n",
+				buf);
 
-		pr_notice("[debug] manual_shift=%d\n",
-			manual_shift);
+			manual_shift = mtk_atoi(buf);
+
+			pr_notice("[debug] manual_shift=%d\n",
+				manual_shift);
+		}
 	} else if (strncmp(opt, "no_shift:", 9) == 0) {
 		no_shift = strncmp(opt + 9, "1", 1) == 0;
 		pr_notice("[debug] no_shift=%d\n",
@@ -255,7 +263,7 @@ static void mtk_atomic_rsz_calc_dual_params(
 	u32 tile_in_len[2] = {0};
 	u32 tile_out_len[2] = {0};
 	u32 out_x[2] = {0};
-	bool is_dual = true;
+	bool is_dual = false;
 	int width = crtc->state->adjusted_mode.hdisplay;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *output_comp;
@@ -273,8 +281,8 @@ static void mtk_atomic_rsz_calc_dual_params(
 	else
 		is_dual = true;
 
-	DDPINFO("%s :loss:%d,idx:%d,width:%d,src_w:%d,dst_w:%d,src_x:%d\n", __func__,
-	       tile_loss, tile_idx, width, src_roi->width, dst_roi->width, src_roi->x);
+	DDPINFO("%s,%d: tile_loss = %d, tile_idx = %d, width = %d, src_roi->width = %d, dst_roi->width = %d, left = %d, right = %d, src_roi->x = %d \n", __func__,
+		__LINE__, tile_loss, tile_idx, width, src_roi->width, dst_roi->width, left, right, src_roi->x);
 	step = (UNIT * (src_roi->width - 1) + (dst_roi->width - 2)) /
 			(dst_roi->width - 1); /* for ceil */
 	offset[0] = (step * (dst_roi->width - 1) -
@@ -322,8 +330,6 @@ static void mtk_atomic_rsz_calc_dual_params(
 	       param[0].out_len,
 	       param[0].out_x);
 
-	if (!is_dual)
-		return;
 
 	/* right half */
 	tile_out_len[1] = dst_roi->width - tile_out_len[0];
@@ -615,8 +621,11 @@ static void mtk_atomic_force_doze_switch(struct drm_device *dev,
 		cmdq_pkt_flush(handle);
 		cmdq_pkt_destroy(handle);
 
+#ifndef DRM_CMDQ_DISABLE
 		cmdq_mbox_enable(client->chan); /* GCE clk refcnt + 1 */
 		mtk_crtc_stop_trig_loop(crtc);
+#endif
+
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
 	|| defined(CONFIG_MACH_MT6833)
 		if (!mtk_crtc_is_frame_trigger_mode(crtc))
@@ -676,7 +685,7 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 	struct mtk_crtc_state *mtk_state;
 
 	mtk_state = to_mtk_crtc_state(crtc->state);
-	DDPINFO("%s doze_changed:%d, needs_modeset:%d, doze_active:%d\n",
+	pr_info("%s doze_changed:%d, needs_modeset:%d, doze_active:%d\n",
 		__func__, mtk_state->doze_changed,
 		drm_atomic_crtc_needs_modeset(crtc->state),
 		mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
@@ -709,6 +718,107 @@ static void mtk_atomic_doze_update_dsi_state(struct drm_device *dev,
 			mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]);
 }
 
+static void pq_bypass_cmdq_cb(struct cmdq_cb_data data)
+{
+	struct mtk_cmdq_cb_data *cb_data = data.data;
+#ifndef DRM_CMDQ_DISABLE
+	struct cmdq_client *client = to_mtk_crtc(cb_data->crtc)->gce_obj.client[CLIENT_DSI_CFG];
+
+	cmdq_mbox_disable(client->chan); /* GCE clk refcnt - 1 */
+#endif
+	cmdq_pkt_destroy(cb_data->cmdq_handle);
+	kfree(cb_data);
+}
+
+static void mtk_atomit_doze_update_pq(struct drm_crtc *crtc, unsigned int stage, bool old_state)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_crtc_state *mtk_state;
+	struct mtk_ddp_comp *comp;
+	struct cmdq_pkt *cmdq_handle;
+	struct mtk_cmdq_cb_data *cb_data;
+	int i, j;
+	unsigned int bypass = 0;
+
+#ifndef DRM_CMDQ_DISABLE
+	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
+#endif
+
+	DDPINFO("%s+: new crtc state = %d, old crtc state = %d, stage = %d\n", __func__,
+		crtc->state->active, old_state, stage);
+	mtk_state = to_mtk_crtc_state(crtc->state);
+
+	if (!crtc->state->active) {
+		if (mtk_state->doze_changed &&
+			!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+			DDPINFO("%s: doze switch to suspend, need enable pq first\n", __func__);
+		} else {
+			DDPINFO("%s: crtc is not active\n", __func__);
+			return;
+		}
+	}
+	if (mtk_state->doze_changed) {
+		if (!mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+			if (!crtc->state->active && stage == 1)
+				return;
+			else if (crtc->state->active && stage == 0)
+				return;
+			bypass = 0;
+		} else {
+			if (!old_state && stage == 0)
+				return;
+			else if (old_state && stage == 1)
+				return;
+			bypass = 1;
+		}
+	} else {
+		DDPINFO("%s: doze not change, skip update pq\n", __func__);
+		return;
+	}
+	cb_data = kmalloc(sizeof(*cb_data), GFP_KERNEL);
+	if (!cb_data) {
+		DDPPR_ERR("cb data creation failed\n");
+		return;
+	}
+
+	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
+		mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
+	cb_data->crtc = crtc;
+	cb_data->cmdq_handle = cmdq_handle;
+
+#ifndef DRM_CMDQ_DISABLE
+	cmdq_mbox_enable(client->chan); /* GCE clk refcnt + 1 */
+#endif
+	if (mtk_crtc_is_frame_trigger_mode(crtc))
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
+	else
+		cmdq_pkt_wait_no_clear(cmdq_handle,
+			mtk_crtc->gce_obj.event[EVENT_CMD_EOF]);
+
+	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j) {
+		if (comp && (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_AAL ||
+				mtk_ddp_comp_get_type(comp->id) == MTK_DISP_CCORR)) {
+			if (comp->funcs && comp->funcs->bypass)
+				mtk_ddp_comp_bypass(comp, bypass, cmdq_handle);
+		}
+	}
+
+	if (mtk_crtc->is_dual_pipe) {
+		for_each_comp_in_dual_pipe(comp, mtk_crtc, i, j) {
+			if (comp && (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_AAL ||
+				mtk_ddp_comp_get_type(comp->id) == MTK_DISP_CCORR)) {
+				if (comp->funcs && comp->funcs->bypass)
+					mtk_ddp_comp_bypass(comp, bypass, cmdq_handle);
+			}
+		}
+
+	}
+
+	if (cmdq_pkt_flush_threaded(cmdq_handle, pq_bypass_cmdq_cb, cb_data) < 0)
+		DDPPR_ERR("failed to flush user_cmd\n");
+}
+
 static void mtk_atomic_doze_preparation(struct drm_device *dev,
 					 struct drm_atomic_state *old_state)
 {
@@ -725,6 +835,9 @@ static void mtk_atomic_doze_preparation(struct drm_device *dev,
 			DDPPR_ERR("%s connector has no crtc\n", __func__);
 			continue;
 		}
+
+		if (i == 0)
+			mtk_atomit_doze_update_pq(crtc, 0, old_state->crtcs[i].old_state->active);
 
 		mtk_atomic_doze_update_dsi_state(dev, crtc, 1);
 
@@ -751,6 +864,9 @@ static void mtk_atomic_doze_finish(struct drm_device *dev,
 		}
 
 		mtk_atomic_doze_update_dsi_state(dev, crtc, 0);
+
+		if (i == 0)
+			mtk_atomit_doze_update_pq(crtc, 1, old_state->crtcs[i].old_state->active);
 	}
 
 }
@@ -1744,8 +1860,8 @@ static const struct mtk_crtc_path_data mt6873_mtk_main_path_data = {
 	.path_req_hrt[DDP_MAJOR][0] = true,
 	.wb_path[DDP_MAJOR] = mt6873_mtk_ddp_main_wb_path,
 	.wb_path_len[DDP_MAJOR] = ARRAY_SIZE(mt6873_mtk_ddp_main_wb_path),
-	.path[DDP_MINOR][0] = mt6873_mtk_ddp_main_minor,
-	.path_len[DDP_MINOR][0] = ARRAY_SIZE(mt6873_mtk_ddp_main_minor),
+	.path[DDP_MINOR][0] = NULL,
+	.path_len[DDP_MINOR][0] = 0,
 	.path_req_hrt[DDP_MINOR][0] = false,
 	.path[DDP_MINOR][1] = mt6873_mtk_ddp_main_minor_sub,
 	.path_len[DDP_MINOR][1] = ARRAY_SIZE(mt6873_mtk_ddp_main_minor_sub),
@@ -2182,7 +2298,7 @@ void mtk_drm_suspend_release_present_fence(struct device *dev,
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
 
 	mtk_release_present_fence(private->session_id[index],
-				  atomic_read(&private->crtc_present[index]));
+				  atomic_read(&private->crtc_present[index]), 0);
 }
 
 void mtk_drm_suspend_release_sf_present_fence(struct device *dev,
@@ -2529,7 +2645,7 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	caps_info->lcm_degree = 180;
 #endif
 
-	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_NATIVE;
+	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3;
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_WCG)) {
 		if (params)
 			caps_info->lcm_color_mode = params->lcm_color_mode;
@@ -2568,9 +2684,12 @@ int lcm_fps_ctx_init(struct drm_crtc *crtc)
 	struct mtk_ddp_comp *output_comp;
 	unsigned int index;
 
-	if (!crtc || crtc->index >= MAX_CRTC) {
+	if (!crtc) {
+		DDPMSG("%s:invalid crtc\n", __func__);
+		return -EINVAL;
+	} else if (crtc->index >= MAX_CRTC) {
 		DDPPR_ERR("%s:invalid crtc:%d\n",
-			  __func__, crtc->base.id);
+				__func__, crtc->base.id);
 		return -EINVAL;
 	}
 	index = crtc->index;
@@ -2647,7 +2766,7 @@ int lcm_fps_ctx_update(unsigned long long cur_ns,
 	unsigned long long delta;
 	unsigned long flags = 0;
 
-	if (index > MAX_CRTC)
+	if (index >= MAX_CRTC)
 		return -EINVAL;
 
 	if (!atomic_read(&lcm_fps_ctx[index].is_inited))
@@ -3016,7 +3135,10 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MTK_GET_MASTER_INFO, mtk_drm_get_master_info_ioctl,
 			  DRM_UNLOCKED),
-	DRM_IOCTL_DEF_DRV(MTK_PQ_DEBUG, mtk_drm_ioctl_pq_debug_set_bypass,
+	DRM_IOCTL_DEF_DRV(MTK_PQ_PERSIST_PROPERTY,
+				mtk_drm_ioctl_pq_get_persist_property,
+				DRM_UNLOCKED),
+	DRM_IOCTL_DEF_DRV(MTK_BYPASS_AAL, mtk_drm_ioctl_bypass_aal,
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SET_CCORR, mtk_drm_ioctl_set_ccorr,
 			  DRM_UNLOCKED),
@@ -3075,6 +3197,8 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_HDMI_GET_CAPABILITY, mtk_drm_dp_get_cap,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 #endif
+	DRM_IOCTL_DEF_DRV(MTK_DEBUG_LOG, mtk_disp_ioctl_debug_log_switch,
+					DRM_UNLOCKED),
 };
 
 #if IS_ENABLED(CONFIG_COMPAT)
@@ -3822,6 +3946,20 @@ static int mtk_drm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_SLEEP
+
+static int mtk_drm_sys_prepare(struct device *dev)
+{
+	atomic_inc(&resume_pending);
+	return 0;
+}
+
+static void mtk_drm_sys_complete(struct device *dev)
+{
+	atomic_set(&resume_pending, 0);
+	wake_up_all(&resume_wait_q);
+	return;
+}
+
 static int mtk_drm_sys_suspend(struct device *dev)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
@@ -3864,8 +4002,12 @@ static int mtk_drm_sys_resume(struct device *dev)
 }
 #endif
 
-static SIMPLE_DEV_PM_OPS(mtk_drm_pm_ops, mtk_drm_sys_suspend,
-			 mtk_drm_sys_resume);
+static const struct dev_pm_ops mtk_drm_pm_ops = {
+	.prepare = mtk_drm_sys_prepare,
+	.complete = mtk_drm_sys_complete,
+	.suspend = mtk_drm_sys_suspend,
+	.resume = mtk_drm_sys_resume,
+};
 
 static const struct of_device_id mtk_drm_of_ids[] = {
 	{.compatible = "mediatek,mt2701-mmsys",
@@ -3937,7 +4079,8 @@ static int __init mtk_drm_init(void)
 {
 	int ret;
 	int i;
-
+	mi_disp_feature_init();
+	mi_disp_log_init();
 	DDPINFO("%s+\n", __func__);
 	for (i = 0; i < ARRAY_SIZE(mtk_drm_drivers); i++) {
 		ret = platform_driver_register(mtk_drm_drivers[i]);

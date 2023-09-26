@@ -289,6 +289,11 @@ int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 		goto out;
 
 	rq->cmd_len = COMMAND_SIZE(cmd[0]);
+
+	if (cmd[0] == 0xc0 || cmd[0] == 0xD0) {
+		rq->cmd_len = 16;
+	}
+
 	memcpy(rq->cmd, cmd, rq->cmd_len);
 	rq->retries = retries;
 	req->timeout = timeout;
@@ -319,6 +324,7 @@ int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
  out:
 	blk_put_request(req);
 
+	pr_err("ghr: scsi_execute exit ret = 0x%x\n",ret);
 	return ret;
 }
 EXPORT_SYMBOL(scsi_execute);

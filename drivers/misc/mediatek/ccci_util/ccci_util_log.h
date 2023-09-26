@@ -14,6 +14,9 @@
 #ifndef __CCCI_UTIL_LOG_H__
 #define __CCCI_UTIL_LOG_H__
 
+extern void mrdump_mini_add_misc(unsigned long addr, unsigned long size,
+	unsigned long start, char *name);
+
 /* #define BRING_UP_LOG_MODE */
 #ifndef BRING_UP_LOG_MODE
 /* ------------------------------------------------------------------------- */

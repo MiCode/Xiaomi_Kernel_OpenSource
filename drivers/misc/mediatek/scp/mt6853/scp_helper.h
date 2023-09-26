@@ -115,6 +115,8 @@ enum scp_reserve_mem_id_t {
 	SENS_SUPER_MEM_ID,
 	SENS_LIST_MEM_ID,
 	SENS_DEBUG_MEM_ID,
+	SENS_CUSTOM_W_MEM_ID,
+	SENS_CUSTOM_R_MEM_ID,
 #endif
 	SCP_A_LOGGER_MEM_ID,
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA) || \
@@ -129,6 +131,7 @@ enum scp_reserve_mem_id_t {
 #endif
 #ifdef CONFIG_MTK_ULTRASND_PROXIMITY
 	ULTRA_MEM_ID,
+	SCP_ELLIPTIC_DEBUG_MEM,
 #endif
 	NUMS_MEM_ID,
 };

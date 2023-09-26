@@ -357,7 +357,7 @@ static void gt9896s_debugfs_exit(void)
 	gt9896s_dbg.dentry = NULL;
 	pr_info("Debugfs module exit\n");
 }
-
+#ifdef GT_SYSFS_ATTR
 /* show external module infomation */
 static ssize_t gt9896s_ts_extmod_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -876,6 +876,7 @@ static int gt9896s_ts_sysfs_init(struct gt9896s_ts_core *core_data)
 {
 	int ret;
 
+	ts_info("GT_SYSFS_ATTR start");
 	ret = sysfs_create_bin_file(&core_data->pdev->dev.kobj,
 				    &gt9896s_config_bin_attr);
 	if (ret) {
@@ -900,7 +901,7 @@ static void gt9896s_ts_sysfs_exit(struct gt9896s_ts_core *core_data)
 			      &gt9896s_config_bin_attr);
 	sysfs_remove_group(&core_data->pdev->dev.kobj, &sysfs_group);
 }
-
+#endif
 /* event notifier */
 static BLOCKING_NOTIFIER_HEAD(ts_notifier_list);
 /**
@@ -1591,6 +1592,11 @@ static void gt9896s_ts_esd_work(struct work_struct *work)
 	u8 data = GOODIX_ESD_TICK_WRITE_DATA;
 	int r = 0;
 
+	if (!hw_ops) {
+		ts_info("hw_ops is NULL");
+		return;
+	}
+
 	if (!atomic_read(&ts_esd->esd_on))
 		return;
 
@@ -2013,6 +2019,11 @@ static int gt9896s_generic_noti_callback(struct notifier_block *self,
 	const struct gt9896s_ts_hw_ops *hw_ops = ts_hw_ops(ts_core);
 	int r;
 
+	if (!hw_ops) {
+		ts_info("hw_ops is NULL");
+		return -1;
+	}
+
 	ts_info("notify event type 0x%x", (unsigned int)action);
 	switch (action) {
 	case NOTIFY_FWUPDATE_SUCCESS:
@@ -2075,9 +2086,10 @@ int gt9896s_ts_stage2_init(struct gt9896s_ts_core *core_data)
 	core_data->early_suspend.suspend = gt9896s_ts_earlysuspend;
 	register_early_suspend(&core_data->early_suspend);
 #endif
+#ifdef GT_SYSFS_ATTR
 	/*create sysfs files*/
 	gt9896s_ts_sysfs_init(core_data);
-
+#endif
 	/* esd protector */
 	gt9896s_ts_esd_init(core_data);
 	return 0;
@@ -2209,7 +2221,9 @@ int gt9896s_ts_remove(struct platform_device *pdev)
 	gt9896s_remove_all_ext_modules();
 	gt9896s_ts_power_off(core_data);
 	gt9896s_debugfs_exit();
+#ifdef GT_SYSFS_ATTR
 	gt9896s_ts_sysfs_exit(core_data);
+#endif
 	// can't free the memory for tools or gesture module
 	//kfree(core_data);
 	return 0;

@@ -22,7 +22,7 @@
 #define CMDQ_NO_TIMEOUT			0xffffffff
 #define CMDQ_TIMEOUT_DEFAULT		1000
 
-#if IS_ENABLED(CONFIG_MACH_MT6768)
+#if IS_ENABLED(CONFIG_MACH_MT6768) || IS_ENABLED(CONFIG_MACH_MT8168)
 #define CMDQ_THR_MAX_COUNT		16
 #else
 #define CMDQ_THR_MAX_COUNT		24
@@ -148,6 +148,7 @@ struct cmdq_pkt {
 	void			*bdg_data;
 	bool			reuse;
 #endif
+	bool			task_alive;
 };
 
 struct cmdq_thread {

@@ -41,6 +41,10 @@
 #include "../scp_spk/mtk-scp-spk-common.h"
 #endif
 
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+#include "../scp_ultra/mtk-scp-ultra-common.h"
+#endif
+
 /* FORCE_FPGA_ENABLE_IRQ use irq in fpga */
 /* #define FORCE_FPGA_ENABLE_IRQ */
 
@@ -135,7 +139,7 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	unsigned int counter = runtime->period_size;
 	unsigned int rate = runtime->rate;
 	int fs;
-	int ret;
+	int ret = 0;
 
 	dev_info(afe->dev, "%s(), %s cmd %d, irq_id %d\n",
 		 __func__, memif->data->name, cmd, irq_id);
@@ -222,19 +226,15 @@ int mt6885_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		}
 
 		/* set memif disable */
-		if (runtime->stop_threshold != ~(0U))
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-			if ((!is_adsp_system_running()) || mtk_audio_get_adsp_reset_status())
-				/* only when adsp enable using hw semaphore to set memif */
-				ret = mtk_dsp_memif_set_disable(afe, id);
-			else
-				ret = 0;
+		if (runtime->stop_threshold != ~(0U) || (!is_adsp_system_running()) ||
+		    mtk_audio_get_adsp_reset_status())
+			ret = mtk_dsp_memif_set_disable(afe, id);
 #else
+		/* barge-in set stop_threshold == ~(0U), memif is set by scp */
+		if (runtime->stop_threshold != ~(0U))
 			ret = mtk_memif_set_disable(afe, id);
 #endif
-		else
-			/* barge-in set stop_threshold == ~(0U), memif is set by scp */
-			ret = 0;
 
 		if (ret) {
 			dev_err(afe->dev, "%s(), error, id %d, memif enable, ret %d\n",
@@ -6216,6 +6216,10 @@ static int mt6885_afe_pcm_dev_probe(struct platform_device *pdev)
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
 	defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 	audio_set_dsp_afe(afe);
+#endif
+
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	ultra_set_afe_base(afe);
 #endif
 
 	return 0;

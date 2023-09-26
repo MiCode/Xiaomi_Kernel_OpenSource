@@ -289,7 +289,6 @@ static int usb_gpio_procfs_show(struct seq_file *s, void *unused)
 
 	return 0;
 }
-
 static int usb_gpio_procfs_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, usb_gpio_procfs_show, PDE_DATA(inode));
@@ -353,33 +352,54 @@ static const struct file_operations usb_gpio_procfs_fops = {
 	.release = single_release,
 };
 
-static int usb_switch_set(void *data, u64 val)
+static int usb_switch_procfs_show(struct seq_file *s, void *unused)
 {
-	struct usbtypc *typec = data;
-	int sel = val;
-
-	usbc_dbg(K_INFO, "%s %d\n", __func__, sel);
-
-	if (sel == 0) {
-		usb3_switch_en(typec, DISABLE);
-	} else {
-		usb3_switch_en(typec, ENABLE);
-
-		if (sel == 1)
-			usb3_switch_sel(typec, CC1_SIDE);
-		else
-			usb3_switch_sel(typec, CC2_SIDE);
-	}
-
 	return 0;
 }
-DEFINE_SIMPLE_ATTRIBUTE(usb_procfs_fops, NULL, usb_switch_set, "%llu\n");
+static int usb_switch_procfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, usb_switch_procfs_show, PDE_DATA(inode));
+}
+static ssize_t usb_switch_procfs_write(struct file *file,
+	const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct usbtypc *typec = s->private;
+	char buf[20];
+	unsigned int val;
+
+	memset(buf, 0x00, sizeof(buf));
+	if (copy_from_user(buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
+		return -EFAULT;
+
+	if (kstrtouint(buf, 10, &val) == 0) {
+		if (val == 0)
+			usb3_switch_en(typec, DISABLE);
+		else {
+			usb3_switch_en(typec, ENABLE);
+			if (val == 1)
+				usb3_switch_sel(typec, CC1_SIDE);
+			else
+				usb3_switch_sel(typec, CC2_SIDE);
+		}
+		return count;
+	} else
+		return -EINVAL;
+}
+static const struct file_operations usb_switch_procfs_fops = {
+	.open = usb_switch_procfs_open,
+	.write = usb_switch_procfs_write,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 
 #ifdef CONFIG_TCPC_CLASS
-static int usb_cc_smt_status(void *data, u64 *val)
+static int usb_cc_smt_procfs_show(struct seq_file *s, void *unused)
 {
 	struct tcpc_device *tcpc_dev;
 	uint8_t cc1, cc2;
+	char buf[2];
 
 	tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
 	if (!tcpc_dev) {
@@ -391,21 +411,31 @@ static int usb_cc_smt_status(void *data, u64 *val)
 	pr_info("[TYPEC] cc1=%d, cc2=%d\n", cc1, cc2);
 
 	if (cc1 == TYPEC_CC_VOLT_OPEN || cc1 == TYPEC_CC_DRP_TOGGLING)
-		*val = 0;
+		seq_puts(s, "0\n");
 	else if (cc2 == TYPEC_CC_VOLT_OPEN || cc2 == TYPEC_CC_DRP_TOGGLING)
-		*val = 0;
+		seq_puts(s, "0\n");
 	else
-		*val = 1;
+		seq_puts(s, "1\n");
+	buf[1] = '\0';
 
 	return 0;
 }
 #else
-static int usb_cc_smt_status(void *data, u64 *val)
+static int usb_cc_smt_procfs_show(struct seq_file *s, void *input)
 {
 	return 0;
 }
 #endif
-DEFINE_SIMPLE_ATTRIBUTE(usb_cc_smt_fops, usb_cc_smt_status, NULL, "%llu\n");
+static int usb_cc_smt_procfs_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, usb_cc_smt_procfs_show, PDE_DATA(inode));
+}
+static const struct file_operations usb_cc_smt_procfs_fops = {
+	.open = usb_cc_smt_procfs_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 
 static int usb_typec_pinctrl_procfs(struct usbtypc *typec)
 {
@@ -416,9 +446,9 @@ static int usb_typec_pinctrl_procfs(struct usbtypc *typec)
 	file = proc_create_data(FILE_GPIO, 0644, NULL,
 			&usb_gpio_procfs_fops, typec);
 	file = proc_create_data(FILE_SMT, 0200, NULL,
-			&usb_procfs_fops, typec);
+			&usb_switch_procfs_fops, typec);
 	file = proc_create_data(FILE_SMT_U2_CC_MODE, 0400, NULL,
-			&usb_cc_smt_fops, typec);
+			&usb_cc_smt_procfs_fops, typec);
 
 	return 0;
 }

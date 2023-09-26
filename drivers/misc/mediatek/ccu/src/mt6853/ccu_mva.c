@@ -173,6 +173,7 @@ int ccu_config_m4u_port(void)
 int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 {
 	int ret = 0;
+	uint32_t idx = cached ? 1 : 0;
 
 	LOG_DBG_MUST("_ccuAllocMem+\n");
 	LOG_DBG_MUST("size(%d) cached(%d) memHandle->ionHandleKd(%d)\n",
@@ -183,9 +184,9 @@ int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 		return -EINVAL;
 	}
 
-	if (ccu_buffer_handle[cached].ionHandleKd != NULL) {
+	if (ccu_buffer_handle[idx].ionHandleKd != NULL) {
 		LOG_ERR("idx %d handle %p is not empty\n", cached,
-		ccu_buffer_handle[cached].ionHandleKd);
+		ccu_buffer_handle[idx].ionHandleKd);
 		return -EINVAL;
 	}
 
@@ -208,7 +209,7 @@ int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 		memHandle->ionHandleKd);
 	if (memHandle->meminfo.va == NULL) {
 		LOG_ERR("fail to get buffer kernel virtual address");
-		return false;
+		return -EINVAL;
 	}
 	LOG_DBG_MUST("memHandle->va(0x%lx)\n", memHandle->meminfo.va);
 
@@ -222,7 +223,7 @@ int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 
 	LOG_DBG_MUST("_ccuAllocMem-\n");
 
-	ccu_buffer_handle[memHandle->meminfo.cached] = *memHandle;
+	ccu_buffer_handle[idx] = *memHandle;
 	return (memHandle->ionHandleKd != NULL) ? 0 : -1;
 
 }
@@ -231,14 +232,21 @@ int ccu_deallocate_mem(struct CcuMemHandle *memHandle)
 {
 	uint32_t idx = (memHandle->meminfo.cached != 0) ? 1 : 0;
 
-	LOG_DBG_MUST("free idx(%d) mva(0x%x) fd(0x%x)\n", idx,
+	LOG_DBG_MUST("free idx(%d) mva(0x%x) fd(0x%x) cached(0x%x)\n", idx,
 		ccu_buffer_handle[idx].meminfo.mva,
-		ccu_buffer_handle[idx].meminfo.shareFd);
+		ccu_buffer_handle[idx].meminfo.shareFd,
+		memHandle->meminfo.cached);
+
+	if (_ccu_ion_client == NULL) {
+		LOG_ERR("%s: _ccu_ion_client is null!\n", __func__);
+		return -EINVAL;
+	}
 	if (ccu_buffer_handle[idx].ionHandleKd == 0) {
 		LOG_ERR("idx %d handle %d is empty\n", idx,
 			ccu_buffer_handle[idx].ionHandleKd);
 		return -EINVAL;
 	}
+
 	ion_unmap_kernel(_ccu_ion_client,
 		ccu_buffer_handle[idx].ionHandleKd);
 	ion_free(_ccu_ion_client,

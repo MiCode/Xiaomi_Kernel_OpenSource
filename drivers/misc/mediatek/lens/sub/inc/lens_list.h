@@ -135,6 +135,4 @@ extern long WV511AAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			   unsigned long a_u4Param);
 extern int WV511AAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int WV511AAF_GetFileName(unsigned char *pFileName);
-
-extern void AFRegulatorCtrl(int Stage);
 #endif

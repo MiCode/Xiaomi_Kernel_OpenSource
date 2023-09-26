@@ -70,7 +70,7 @@ static kgid_t gid = KGIDT_INIT(1000);
 static DEFINE_SEMAPHORE(sem_mutex);
 
 static unsigned int interval = 1;	/* seconds, 0 : no auto polling */
-static int trip_temp[10] = { 120000, 110000, 100000, 90000, 80000,
+static int trip_temp[10] = { 100000, 96000, 95000, 90000, 80000,
 				70000, 65000, 60000, 55000, 50000 };
 
 static struct thermal_zone_device *thz_dev;
@@ -78,8 +78,8 @@ static int mtkts_bts_debug_log;
 static int kernelmode;
 static int g_THERMAL_TRIP[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-static int num_trip;
-static char g_bind0[20] = {"mtktsAP-sysrst"};
+static int num_trip = 1;
+static char g_bind0[20] = "mtktsAP-sysrst";
 static char g_bind1[20] = { 0 };
 static char g_bind2[20] = { 0 };
 static char g_bind3[20] = { 0 };
@@ -604,7 +604,16 @@ static __s32 mtk_ts_bts_volt_to_temp(__u32 dwVolt)
 	dwVCriAP2 = (g_TAP_over_critical_low + g_RAP_pull_up_R);
 	do_div(dwVCriAP, dwVCriAP2);
 
-
+#ifdef APPLY_PRECISE_BTS_TEMP
+	if ((dwVolt / 100) > ((__u32)dwVCriAP)) {
+		TRes = g_TAP_over_critical_low;
+	} else {
+		/* TRes = (39000*dwVolt) / (1800-dwVolt); */
+		/* TRes = (RAP_PULL_UP_R*dwVolt) / (RAP_PULL_UP_VOLT-dwVolt); */
+		TRes = ((long long)g_RAP_pull_up_R * dwVolt) /
+					(g_RAP_pull_up_voltage * 100 - dwVolt);
+	}
+#else
 	if (dwVolt > ((__u32)dwVCriAP)) {
 		TRes = g_TAP_over_critical_low;
 	} else {
@@ -613,6 +622,7 @@ static __s32 mtk_ts_bts_volt_to_temp(__u32 dwVolt)
 		TRes = (g_RAP_pull_up_R * dwVolt) /
 					(g_RAP_pull_up_voltage - dwVolt);
 	}
+#endif
 	/* ------------------------------------------------------------------ */
 	g_AP_TemperatureR = TRes;
 
@@ -642,8 +652,13 @@ static int get_hw_bts_temp(void)
 		return ret;
 	}
 
+#ifdef APPLY_PRECISE_BTS_TEMP
+	/*val * 1500 * 100 / 4096 = (val * 9375) >>  8 */
+	ret = (val * 9375) >> 8;
+#else
 	/*val * 1500 / 4096*/
 	ret = (val * 1500) >> 12;
+#endif
 #else
 #if defined(APPLY_AUXADC_CALI_DATA)
 	int auxadc_cali_temp;
@@ -703,7 +718,11 @@ static int get_hw_bts_temp(void)
 	/* #define AUXADC_PRECISE      4096 // 12 bits */
 #if defined(APPLY_AUXADC_CALI_DATA)
 #else
+#ifdef APPLY_PRECISE_BTS_TEMP
+	ret = ret * 9375 >> 8;
+#else
 	ret = ret * 1500 / 4096;
+#endif
 #endif
 #endif /*CONFIG_MEDIATEK_MT6577_AUXADC*/
 

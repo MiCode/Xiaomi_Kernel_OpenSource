@@ -631,9 +631,13 @@ void mt_gpufreq_set_timestamp(void)
 {
 	gpufreq_pr_debug("@%s\n", __func__);
 
-	/* write 1 into 0x13fb_f130 bit 0 to enable timestamp register */
-	/* timestamp will be used by clGetEventProfilingInfo*/
-	writel(0x00000001, g_mfg_base + 0x130);
+	/* timestamp will be used by clGetEventProfilingInfo
+	 * 0x13fb_f130
+	 * [0] : write 1 to enable timestamp register
+	 * [1] : 0: timer from internal module
+	 *     : 1: timer from soc
+	 */
+	writel(0x00000003, g_mfg_base + 0x130);
 }
 
 void mt_gpufreq_check_bus_idle(void)

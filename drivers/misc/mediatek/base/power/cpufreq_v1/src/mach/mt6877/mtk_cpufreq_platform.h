@@ -74,6 +74,8 @@
 #define DVFS_LOG_NUM		150
 #define ENTRY_EACH_LOG		5
 #define REG_LEN                 4
+/* Enable dsu dvfs */
+#define DSU_DVFS_ENABLE 1
 
 
 extern struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS];

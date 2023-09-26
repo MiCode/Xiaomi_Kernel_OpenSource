@@ -581,12 +581,28 @@ static long ion_sys_ioctl(struct ion_client *client, unsigned int cmd,
 	ion_phys_addr_t phy_addr;
 
 	ION_FUNC_ENTER;
-	if (from_kernel)
+	if (!arg) {
+		IONMSG("%s:err arg = NULL. %s(%s),%d, k:%d\n",
+		       __func__, client->name, client->dbg_name,
+		       client->pid, from_kernel);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	if (from_kernel) {
 		param = *(struct ion_sys_data *)arg;
-	else
+	} else {
 		ret_copy =
 		    copy_from_user(&param, (void __user *)arg,
 				   sizeof(struct ion_sys_data));
+		if (ret_copy != 0) {
+			IONMSG("%s:err arg copy failed, ret_copy = %lu. %s(%s),%d, k:%d\n",
+			       __func__, ret_copy, client->name, client->dbg_name,
+			       client->pid, from_kernel);
+			ret = -EFAULT;
+			goto err;
+		}
+	}
 
 	switch (param.sys_cmd) {
 	case ION_SYS_CACHE_SYNC:
@@ -627,8 +643,8 @@ static long ion_sys_ioctl(struct ion_client *client, unsigned int cmd,
 		}
 		break;
 	case ION_SYS_SET_CLIENT_NAME:
-		ion_sys_copy_client_name(param.client_name_param.name,
-					 client->dbg_name);
+		ret = ion_sys_copy_client_name(param.client_name_param.name,
+					       client->dbg_name);
 		break;
 	default:
 		IONMSG(
@@ -637,12 +653,22 @@ static long ion_sys_ioctl(struct ion_client *client, unsigned int cmd,
 		ret = -EFAULT;
 		break;
 	}
+
+	if (ret) {
+		IONMSG("[%s]:failed to finish io-cmd(%d). %s(%s),%d, k:%d\n",
+		       __func__, param.sys_cmd,
+		       client->name, client->dbg_name,
+		       client->pid, from_kernel);
+		goto err;
+	}
+
 	if (from_kernel)
 		*(struct ion_sys_data *)arg = param;
 	else
 		ret_copy =
 		    copy_to_user((void __user *)arg, &param,
 				 sizeof(struct ion_sys_data));
+err:
 	ION_FUNC_LEAVE;
 	return ret;
 }
@@ -895,6 +921,10 @@ static int ion_drv_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 	}
 	pdata = (struct ion_platform_data *)of_device_get_match_data(dev);
+	if (!pdata) {
+		IONMSG("get match data fail\n");
+		return EPROBE_DEFER;
+	}
 #else
 
 	pdata = pdev->dev.platform_data;

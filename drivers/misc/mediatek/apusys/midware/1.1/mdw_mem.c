@@ -334,10 +334,13 @@ uint64_t apusys_mem_query_kva(uint32_t iova)
 	mutex_lock(&m_mgr.mtx);
 	list_for_each_safe(list_ptr, tmp, &m_mgr.list) {
 		m = list_entry(list_ptr, struct mdw_mem, m_item);
+		mdw_mem_debug("m(0x%llx/0x%x)(0x%x/0x%x)\n",
+			m->kmem.kva, m->kmem.size,
+			m->kmem.iova, m->kmem.iova_size);
 		if (iova >= m->kmem.iova &&
-			iova < m->kmem.iova + m->kmem.iova_size) {
-			if (!m->kmem.kva)
-				break;
+			(uint64_t)iova < (uint64_t)m->kmem.iova +
+			(uint64_t)m->kmem.iova_size &&
+			m->kmem.kva) {
 			kva = m->kmem.kva + (uint64_t)(iova - m->kmem.iova);
 			mdw_mem_debug("query kva (0x%x->0x%llx)\n", iova, kva);
 		}
@@ -358,10 +361,12 @@ uint32_t apusys_mem_query_iova(uint64_t kva)
 	mutex_lock(&m_mgr.mtx);
 	list_for_each_safe(list_ptr, tmp, &m_mgr.list) {
 		m = list_entry(list_ptr, struct mdw_mem, m_item);
+		mdw_mem_debug("m(0x%llx/0x%x)(0x%x/0x%x)\n",
+			m->kmem.kva, m->kmem.size,
+			m->kmem.iova, m->kmem.iova_size);
 		if (m->kmem.kva >= kva &&
-			m->kmem.kva + m->kmem.size < kva) {
-			if (!m->kmem.iova)
-				break;
+			m->kmem.kva + m->kmem.size < kva &&
+			m->kmem.iova) {
 			iova = m->kmem.iova + (uint32_t)(kva - m->kmem.kva);
 			mdw_mem_debug("query iova (0x%llx->0x%x)\n", kva, iova);
 		}

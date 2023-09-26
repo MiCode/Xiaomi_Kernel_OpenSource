@@ -1,0 +1,605 @@
+/*
+this file is only for attribution of ares
+*/
+#include "mediatek/xiaomi-mt6893-common.dtsi"
+
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio = <&pio 43 0>;
+	};
+};
+
+&odm {
+	thermal_message: thermal-message {
+		board-sensor = "VIRTUAL-SENSOR";
+	};
+};
+
+&lk_charger {
+	max_charger_voltage = <14500000>;
+
+	/* charging current */
+	usb_charger_current = <500000>;
+	ac_charger_current = <1500000>;
+	ac_charger_input_current = <1500000>;
+	non_std_ac_charger_current = <1000000>;
+	charging_host_charger_current = <1500000>;
+	ta_ac_charger_current = <1500000>;
+	pd_charger_current = <1500000>;
+
+	/* battery temperature protection */
+	temp_t4_threshold = <60>;
+	temp_t3_threshold = <0>;
+	temp_t1_threshold = <(-10)>;
+};
+
+&charger {
+	algorithm_name = "SwitchCharging2";
+
+	battery_cv = <4460000>;
+
+	/* vote */
+	enable_vote;
+	enable_cv_step;
+	step_a = <4200000>;
+	step_b = <4300000>;
+	step_c = <4400000>;
+	current_a = <8937000>;
+	current_b = <7447500>;
+	current_c = <5958000>;
+	current_max = <12400000>;
+	step_hy_down_a = <150000>;
+	step_hy_down_b = <150000>;
+	step_hy_down_c = <150000>;
+
+	/* ffc */
+	enable_ffc;
+	non_ffc_ieoc = <150000>;
+	non_ffc_cv = <4450000>;
+	ffc_ieoc = <700000>;
+	ffc_cv = <4490000>;
+
+	enable_sw_jeita;
+	/* sw jeita */
+	jeita_temp_above_t4_cv = <4100000>;
+	jeita_temp_t3_to_t4_cv = <4100000>;
+	jeita_temp_t2_to_t3_cv = <4450000>;
+	jeita_temp_t1p5_to_t2_cv = <4450000>;
+	jeita_temp_t1_to_t1p5_cv = <4450000>;
+	jeita_temp_t0_to_t1_cv = <4450000>;
+	jeita_temp_tn1_to_t0_cv_a = <4200000>;
+	jeita_temp_tn1_to_t0_cv_b = <4450000>;
+	jeita_temp_below_t0_cv = <4200000>;
+	temp_t4_thres = <60>;
+	temp_t4_thres_minus_x_degree = <58>;
+	temp_t3_thres = <48>;
+	temp_t3_thres_minus_x_degree = <47>;
+	temp_t2_thres = <15>;
+	temp_t2_thres_plus_x_degree = <17>;
+	temp_t1p5_thres = <10>;
+	temp_t1p5_thres_plus_x_degree = <11>;
+	temp_t1_thres = <5>;
+	temp_t1_thres_plus_x_degree = <6>;
+	temp_t0_thres = <0>;
+	temp_t0_thres_plus_x_degree = <1>;
+	temp_tn1_thres = <(-10)>;
+	temp_tn1_thres_plus_x_degree = <(-9)>;
+	temp_neg_10_thres = <(-10)>;
+	temp_t3_to_t4_fcc = <2482500>;
+	temp_t2_to_t3_fcc = <12400000>;
+	temp_t1p5_to_t2_fcc = <5958000>;
+	temp_t1_to_t1p5_fcc = <3475500>;
+	temp_t0_to_t1_fcc = <2482500>;
+	temp_tn1_to_t0_fcc_a = <1000000>;
+	temp_tn1_to_t0_fcc_b = <744750>;
+	/* battery temperature protection */
+	enable_min_charge_temp;
+	min_charge_temp = <0>;
+	min_charge_temp_plus_x_degree = <2>;
+	max_charge_temp = <60>;
+	max_charge_temp_minus_x_degree = <58>;
+
+	qcom,thermal-mitigation-dcp
+		= <1600000 1600000 1600000 1600000 1600000 1600000 1600000
+		1600000 1600000 1600000 1600000 1600000 1500000 1400000
+		1200000 1000000>;
+	qcom,thermal-mitigation-qc3p5
+		= <4500000 4200000 4000000 3800000 3600000 3400000 3200000
+		3100000 3000000 2800000 2600000 2400000 2200000 2000000
+		1000000 700000>;
+	qcom,thermal-mitigation-qc3
+		= <3600000 3600000 3600000 3500000 3400000 3300000 3200000
+		3100000 3000000 2800000 2600000 2400000 2200000 2000000
+		1000000 700000>;
+	qcom,thermal-mitigation-qc3-classb
+		= <5100000 4700000 4300000 4000000 3600000 3500000 3400000
+		3400000 3400000 3200000 2500000 2200000 2000000 1300000
+		1000000 700000>;
+	qcom,thermal-mitigation-qc2
+		= <1500000 1500000 1500000 1500000 1500000 1500000 1400000
+		1300000 1200000 1100000 1000000 900000 800000 700000
+		600000 500000>;
+	qcom,thermal-mitigation-pd-base
+		= <12400000 11000000 10000000 8000000 7000000 6000000 5500000
+		5000000 4000000 3000000 3000000 2000000 1000000 800000
+		500000 400000>;
+
+	/* enable_pe_plus; */
+	/* enable_pe_2; */
+	bc12_charger = <1>;
+
+	charging_host_charger_current = <1500000>;
+	/* common */
+	max_charger_voltage = <14500000>;
+
+	/* xiaomi pps */
+	xm_pps_single_charger_input_current = <3000000>;
+	xm_pps_single_charger_current = <6000000>;
+	xm_pps_dual_charger_input_current = <3000000>;
+	xm_pps_dual_charger_chg1_current = <500000>;
+	xm_pps_dual_charger_chg2_current = <2500000>;
+	xm_pps_max_vbus = <12000000>;
+	xm_pps_max_ibus = <3000000>;
+	xm_pps_single_charger_current_non_verified_pps = <4800000>;
+
+	/* PD */
+	pd_vbus_upper_bound = <9000000>;
+	ac_charger_input_current = <1500000>;
+	/* float charger */
+	non_std_ac_charger_current = <1000000>;
+	/* default ac charger charge current */
+	ac_charger_current = <2000000>;
+
+	use_xmusb350_do_apsd;
+};
+
+&mt6360_pmu {
+	chg {
+		cv = <4450000>;			/* uA */
+		ieoc = <200000>;		/* uA */
+		ircmp_resistor = <0>;		/* uohm */
+		ircmp_vclamp = <0>;		/* uV */
+		en_te = <0>;
+		en_eoc = <0>;
+	};
+};
+
+&bat_gm30 {
+	DISABLE_MTKBATTERY = <(1)>;
+	use-ti-gauge;
+};
+
+&pio {
+	/* bq25970-master */
+	bq2597x_master_int_default: bq2597x_master_int_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO16__FUNC_GPIO16>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	bq2597x_master_int_suspend: bq2597x_master_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO16__FUNC_GPIO16>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	/* bq25970-slave */
+	bq2597x_slave_int_default: bq2597x_slave_int_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO19__FUNC_GPIO19>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	bq2597x_slave_int_suspend: bq2597x_slave_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO19__FUNC_GPIO19>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+
+	/* xmusb350 */
+	xmusb350_int_normal: xmusb350_int_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_int_isp: xmusb350_int_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO110__FUNC_GPIO110>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_rst_normal: xmusb350_rst_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_rst_isp: xmusb350_rst_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO28__FUNC_GPIO28>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_sda_normal: xmusb350_sda_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO205__FUNC_SDA0>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_sda_isp: xmusb350_sda_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO205__FUNC_GPIO205>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+
+	xmusb350_scl_normal: xmusb350_scl_normal {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO204__FUNC_SCL0>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+			input-enable;
+		};
+	};
+
+	xmusb350_scl_isp: xmusb350_scl_isp {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO204__FUNC_GPIO204>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+		};
+	};
+};
+
+&i2c0 {
+	/* before p1.1 lot1 */
+	bq27z561_i2c0@55 {
+		compatible = "ti,bq27z561_i2c0";
+		reg = <0x55>;
+		bq,ignore-digest-debug;
+		bq,charge-full-design = <5065000>;
+		bq,recharge-voltage   = <4380>;
+		bq,shutdown-delay-enable;
+		bq,soc_decimal_rate = <
+			0  38
+			10 35
+			20 33
+			30 33
+			40 33
+			50 33
+			60 33
+			70 30
+			80 25
+			90 20
+			95 10 >;
+		bq,cold_thermal_seq = <
+			1      0  100 1700
+			2  (-300)   0 1000 >;
+	};
+	xmusb350-charger@35 {
+		compatible = "xm,xmusb350-charger";
+		reg = <0x35>;
+		interrupt-parent = <&pio>;
+		interrupts = <110 IRQ_TYPE_EDGE_FALLING 110 0>;
+		pinctrl-names = "xmusb350_normal", "xmusb350_isp";
+		pinctrl-0 = <&xmusb350_rst_normal &xmusb350_sda_normal &xmusb350_scl_normal>;
+		pinctrl-1 = <&xmusb350_rst_isp &xmusb350_sda_isp &xmusb350_scl_isp>;
+		xm,xmusb350_rst_gpio = <&pio 28 0x00>;
+		xm,xmusb350_sda_gpio = <&pio 205 0x00>;
+		xm,xmusb350_scl_gpio = <&pio 204 0x00>;
+		mi,connect_therm = <&pio 29 0x00>;
+
+		charger_name = "secondary_chg";
+		alias_name  = "xmusb350";
+		en_bc12;
+		en_hvdcp;
+		en_intb;
+		en_sleep;
+	};
+};
+
+&i2c9 {
+	clock-frequency = <400000>;
+	/* after p1.1 lot1 */
+	bq27z561_i2c9@55 {
+		compatible = "ti,bq27z561_i2c9";
+		reg = <0x55>;
+		bq,ignore-digest-debug;
+		bq,charge-full-design = <5065000>;
+		bq,recharge-voltage   = <4380>;
+		bq,shutdown-delay-enable;
+		bq,soc_decimal_rate = <
+			0  38
+			10 35
+			20 33
+			30 33
+			40 33
+			50 33
+			60 33
+			70 30
+			80 25
+			90 20
+			95 10 >;
+		bq,cold_thermal_seq = <
+			1      0  100 1700
+			2  (-300)   0 1000 >;
+	};
+	bq2597x-master@65 {
+		compatible = "ti,bq2597x-master";
+		reg = <0x65>;
+		interrupt-parent = <&pio>;
+		interrupts = <16 IRQ_TYPE_EDGE_FALLING 16 0>;
+		pinctrl-names = "bq2597x_master_irq";
+		pinctrl-0 = <&bq2597x_master_int_default &bq2597x_master_int_suspend>;
+
+		charger_name = "tertiary_chg";
+
+		/*ti,bq2597x,bat-ovp-disable;*/
+		ti,bq2597x,bat-ovp-alarm-disable;
+		//ti,bq2597x,bat-ocp-disable;
+		//ti,bq2597x,bat-ocp-alarm-disable;
+		ti,bq2597x,bat-ucp-alarm-disable;
+		ti,bq2597x,bat-ucp-disable;
+
+		/*ti,bq2597x,bus-ovp-alarm-disable;
+		ti,bq2597x,bus-ocp-disable;
+		ti,bq2597x,bus-ocp-alarm-disable;*/
+		ti,bq2597x,bat-therm-disable;
+		ti,bq2597x,bus-therm-disable;
+		ti,bq2597x,die-therm-disable;
+
+		ti,bq2597x,bat-ovp-threshold = <4600>;
+		ti,bq2597x,bat-ovp-alarm-threshold = <4575>;
+		ti,bq2597x,bat-ocp-threshold = <7000>;
+		ti,bq2597x,bat-ocp-alarm-threshold = <6000>;
+
+		ti,bq2597x,bus-ovp-threshold = <12000>;
+		ti,bq2597x,bus-ovp-alarm-threshold = <11000>;
+		//ti,bq2597x,bus-ocp-threshold = <2200>;
+		//ti,bq2597x,bus-ocp-alarm-threshold = <2000>;
+		ti,bq2597x,bus-ocp-threshold = <3750>;
+		ti,bq2597x,bus-ocp-alarm-threshold = <3500>;
+
+		//ti,bq2597x,bat-ucp-alarm-threshold = <2000>;
+
+		ti,bq2597x,bat-therm-threshold = <0x15>;/*4.1%*/
+		ti,bq2597x,bus-therm-threshold = <0x15>;/*4.1%*/
+		ti,bq2597x,die-therm-threshold = <145>;
+
+		ti,bq2597x,ac-ovp-threshold = <14>;
+		sc8551,ac-ovp-threshold = <13>;
+
+		//ti,bq2597x,sense-resistor-mohm = <5>;
+	};
+};
+
+&i2c11 {
+	clock-frequency = <400000>;
+	bq2597x-slave@66 {
+		compatible = "ti,bq2597x-slave";
+		reg = <0x66>;
+		interrupt-parent = <&pio>;
+		interrupts = <19 IRQ_TYPE_EDGE_FALLING 19 0>;
+		pinctrl-names = "bq2597x_slave_irq";
+		pinctrl-0 = <&bq2597x_slave_int_default &bq2597x_slave_int_suspend>;
+
+		charger_name = "quaternary_chg";
+
+		/*ti,bq2597x,bat-ovp-disable;*/
+		ti,bq2597x,bat-ovp-alarm-disable;
+		//ti,bq2597x,bat-ocp-disable;
+		//ti,bq2597x,bat-ocp-alarm-disable;
+		ti,bq2597x,bat-ucp-alarm-disable;
+		ti,bq2597x,bat-ucp-disable;
+
+		/*ti,bq2597x,bus-ovp-alarm-disable;
+		ti,bq2597x,bus-ocp-disable;
+		ti,bq2597x,bus-ocp-alarm-disable;*/
+		ti,bq2597x,bat-therm-disable;
+		ti,bq2597x,bus-therm-disable;
+		ti,bq2597x,die-therm-disable;
+
+		ti,bq2597x,bat-ovp-threshold = <4600>;
+		ti,bq2597x,bat-ovp-alarm-threshold = <4575>;
+		ti,bq2597x,bat-ocp-threshold = <7000>;
+		ti,bq2597x,bat-ocp-alarm-threshold = <6000>;
+
+		ti,bq2597x,bus-ovp-threshold = <12000>;
+		ti,bq2597x,bus-ovp-alarm-threshold = <11000>;
+		//ti,bq2597x,bus-ocp-threshold = <2200>;
+		//ti,bq2597x,bus-ocp-alarm-threshold = <2000>;
+		ti,bq2597x,bus-ocp-threshold = <3750>;
+		ti,bq2597x,bus-ocp-alarm-threshold = <3500>;
+
+		//ti,bq2597x,bat-ucp-alarm-threshold = <2000>;
+
+		ti,bq2597x,bat-therm-threshold = <0x15>;/*4.1%*/
+		ti,bq2597x,bus-therm-threshold = <0x15>;/*4.1%*/
+		ti,bq2597x,die-therm-threshold = <145>;
+
+		ti,bq2597x,ac-ovp-threshold = <14>;
+		sc8551,ac-ovp-threshold = <13>;
+
+		//ti,bq2597x,sense-resistor-mohm = <5>;
+	};
+};
+
+&cp_qc30 {
+	compatible = "xiaomi,cp-qc30";
+	status = "okay";
+	mi,qc3-bat-volt-max = <4480>;
+	mi,qc3-bat-curr-max = <3600>;
+	mi,qc3-bus-volt-max = <12000>;
+	mi,qc3-bus-curr-max = <2100>;
+	mi,qc3-non-ffc-bat-volt-max = <4450>;
+
+	mi,qc3-27w-bat-curr-max = <5400>;
+	mi,qc3-27w-bus-curr-max = <2700>;
+	mi,qc3p-bat-curr-max = <4500>;
+	mi,qc3p-bus-curr-max = <2300>;
+	mi,cp-sec-enable;
+};
+
+&usbpd_pm {
+	compatible = "xiaomi,usbpd-pm";
+	status = "okay";
+	mi,pd-bat-volt-max = <4480>;
+	mi,pd-bat-curr-max = <12400>;
+	mi,pd-bus-volt-max = <12000>;
+	mi,pd-bus-curr-max = <6200>;
+	mi,pd-non-ffc-bat-volt-max = <4450>;
+	mi,cp-sec-enable;
+};
+
+&usb0phy {
+	usb_phy_tuning {
+		compatible = "mediatek,phy_tuning";
+		u2_enhance  = <2>;
+	};
+};
+
+//WL2866D start
+&i2c4 {
+	wl2866d1_pm:willsemi,ldo@28 {
+		compatible = "willsemi,wl2866d1";
+		reg = <0x28>;/*slave address*/
+		index = <0>;
+
+		wl2866d1_dvdd1:on,wl2866d1@0{
+			offset = /bits/ 16 <0x0000>;
+			regulator-name ="wl2866d-dvdd1";
+			regulator-min-microvolt = <600000>;
+			regulator-max-microvolt = <1800000>;
+			min-dropout-voltage = <80000>;
+			iout_ua = <500000>;
+			init-voltage = <1050000>;
+		};
+
+		wl2866d1_dvdd2:on,wl2866d1@1{
+			offset = /bits/ 16 <0x0001>;
+			regulator-name ="wl2866d-dvdd2";
+			regulator-min-microvolt = <600000>;
+			regulator-max-microvolt = <1800000>;
+			min-dropout-voltage = <80000>;
+			iout_ua = <500000>;
+			init-voltage = <1260000>;
+		};
+
+		wl2866d1_avdd1:on,wl2866d1@2{
+			offset = /bits/ 16 <0x0002>;
+			regulator-name ="wl2866d-avdd1";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <4300000>;
+			min-dropout-voltage = <90000>;
+			iout_ua = <300000>;
+			init-voltage = <2800000>;
+		};
+
+		wl2866d1_avdd2:on,wl2866d1@3{
+			offset = /bits/ 16 <0x0003>;
+			regulator-name ="wl2866d-avdd2";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <4300000>;
+			min-dropout-voltage = <90000>;
+			iout_ua = <300000>;
+			init-voltage = <2800000>;
+		};
+	};
+};
+
+&i2c7 {
+	wl2866d2_pm:willsemi,ldo@28 {
+		compatible = "willsemi,wl2866d2";
+		reg = <0x28>;/*slave address*/
+		index = <1>;
+
+		wl2866d2_dvdd1:on,wl2866d2@0{
+			offset = /bits/ 16 <0x0000>;
+			regulator-name ="wl2866d-dvdd1";
+			regulator-min-microvolt = <600000>;
+			regulator-max-microvolt = <1800000>;
+			min-dropout-voltage = <80000>;
+			iout_ua = <500000>;
+			init-voltage = <1050000>;
+		};
+
+		wl2866d2_dvdd2:on,wl2866d2@1{
+			offset = /bits/ 16 <0x0001>;
+			regulator-name ="wl2866d-dvdd2";
+			regulator-min-microvolt = <600000>;
+			regulator-max-microvolt = <1800000>;
+			min-dropout-voltage = <80000>;
+			iout_ua = <500000>;
+			init-voltage = <1200000>;
+		};
+
+		wl2866d2_avdd1:on,wl2866d2@2{
+			offset = /bits/ 16 <0x0002>;
+			regulator-name ="wl2866d-avdd1";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <4300000>;
+			min-dropout-voltage = <90000>;
+			iout_ua = <300000>;
+			init-voltage = <2800000>;
+		};
+
+		wl2866d2_avdd2:on,wl2866d2@3{
+			offset = /bits/ 16 <0x0003>;
+			regulator-name ="wl2866d-avdd2";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <4300000>;
+			min-dropout-voltage = <90000>;
+			iout_ua = <300000>;
+			init-voltage = <2700000>;
+		};
+	};
+};
+//WL2866D end
+
+&mt6315_6_regulator {
+	interrupts = <18 IRQ_TYPE_LEVEL_HIGH 1 0>;
+};
+
+&mt6315_3_regulator {
+	interrupts = <23 IRQ_TYPE_LEVEL_HIGH 2 0>;
+};
+
+&tboard_thermistor6 {
+        thermal_rename = "xx_therm";
+};
+
+&msdc0 {
+	status = "disabled";
+};
+
+&msdc1 {
+	status = "disabled";
+};

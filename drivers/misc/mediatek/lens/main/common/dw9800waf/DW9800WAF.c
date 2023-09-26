@@ -227,7 +227,7 @@ static inline int setAFMacro(unsigned long a_u4Position)
 }
 
 /* ////////////////////////////////////////////////////////////// */
-long DW9800WAF_Ioctl_Main(struct file *a_pstFile,
+long DW9800WAF_Ioctl(struct file *a_pstFile,
 		unsigned int a_u4Command, unsigned long a_u4Param)
 {
 	long i4RetValue = 0;
@@ -264,7 +264,7 @@ long DW9800WAF_Ioctl_Main(struct file *a_pstFile,
 /* 2.Shut down the device on last close. */
 /* 3.Only called once on last time. */
 /* Q1 : Try release multiple times. */
-int DW9800WAF_Release_Main(struct inode *a_pstInode, struct file *a_pstFile)
+int DW9800WAF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	LOG_INF("Start\n");
 
@@ -284,7 +284,7 @@ int DW9800WAF_Release_Main(struct inode *a_pstInode, struct file *a_pstFile)
 	return 0;
 }
 
-int DW9800WAF_SetI2Cclient_Main(struct i2c_client *pstAF_I2Cclient,
+int DW9800WAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
 		spinlock_t *pAF_SpinLock, int *pAF_Opened)
 {
 	g_pstAF_I2Cclient = pstAF_I2Cclient;
@@ -294,7 +294,7 @@ int DW9800WAF_SetI2Cclient_Main(struct i2c_client *pstAF_I2Cclient,
 	return 1;
 }
 
-int DW9800WAF_GetFileName_Main(unsigned char *pFileName)
+int DW9800WAF_GetFileName(unsigned char *pFileName)
 {
 	#if SUPPORT_GETTING_LENS_FOLDER_NAME
 	char FilePath[256];

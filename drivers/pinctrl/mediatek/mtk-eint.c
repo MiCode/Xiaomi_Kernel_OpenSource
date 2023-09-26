@@ -407,6 +407,9 @@ static void mtk_eint_irq_handler(struct irq_desc *desc)
 								 index);
 			}
 
+			if (irq_get_irq_data(virq) == NULL) {
+				continue;
+			}
 			if (eint->eint_sw_debounce_en[index]) {
 				mtk_eint_mask(irq_get_irq_data(virq));
 				mtk_eint_sw_debounce_start(eint,

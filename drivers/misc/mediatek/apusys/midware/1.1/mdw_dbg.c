@@ -38,10 +38,6 @@ struct dentry *mdw_dbg_device;
 struct dentry *mdw_dbg_trace;
 struct dentry *mdw_dbg_test;
 struct dentry *mdw_dbg_log;
-struct dentry *mdw_dbg_boost;
-
-struct dentry *mdw_dbg_debug_root;
-struct dentry *mdw_dbg_debug_log;
 
 u32 g_mdw_klog;
 u32 g_dbg_prop[MDW_DBG_PROP_MAX];
@@ -77,26 +73,6 @@ void mdw_dbg_aee(char *name)
 	mdw_drv_info("not support aee\n");
 #endif
 }
-
-//----------------------------------------------
-// tags log dump
-static int mdw_dbg_dump_log(struct seq_file *s, void *unused)
-{
-	mdw_tag_show(s);
-	return 0;
-}
-
-static int mdw_dbg_open_log(struct inode *inode, struct file *file)
-{
-	return single_open(file, mdw_dbg_dump_log, inode->i_private);
-}
-
-static const struct file_operations mdw_dbg_fops_log = {
-	.open = mdw_dbg_open_log,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
 
 //----------------------------------------------
 // user table dump
@@ -390,10 +366,6 @@ int mdw_dbg_init(void)
 	mdw_dbg_trace = debugfs_create_u8("trace_en", 0644,
 		mdw_dbg_root, &cfg_apusys_trace);
 
-	/* tmp log dump node */
-	mdw_dbg_debug_root =  debugfs_create_dir("apusys_debug", NULL);
-	mdw_dbg_debug_log = debugfs_create_file("log", 0444,
-		mdw_dbg_debug_root, NULL, &mdw_dbg_fops_log);
 
 	mdw_flw_debug("-\n");
 	return ret;

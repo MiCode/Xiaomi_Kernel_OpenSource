@@ -102,13 +102,14 @@ void mtk_sync_timeline_destroy(struct sync_timeline *obj);
  * mtk_sync_timeline_inc() - increases timeline
  * @obj:    sync_timeline obj
  * @value:  the increment to a sync object
+ * @time:   siganl at the time if not 0
  *
  * The mtk_sync_timeline_inc() function increase the counter of @obj by @value
  * Each sync point contains a value. A sync point on a parent timeline transits
  * from active to signaled status when the counter of a timeline reaches
  * to that of a sync point.
  */
-void mtk_sync_timeline_inc(struct sync_timeline *obj, u32 value);
+void mtk_sync_timeline_inc(struct sync_timeline *obj, u32 value, ktime_t time);
 
 /**
  * mtk_sync_fence_create() - create a fence

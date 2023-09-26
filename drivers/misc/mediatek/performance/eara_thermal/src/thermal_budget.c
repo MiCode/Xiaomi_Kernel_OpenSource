@@ -1050,10 +1050,10 @@ static unsigned int get_idx_in_pwr_tbl(enum ppm_cluster cluster)
 	if (cluster >= g_cluster_num) {
 		EARA_THRM_LOGI("%s: Invalid input: cluster=%d\n",
 			__func__, cluster);
-		cluster = 0;
+		cluster = PPM_CLUSTER_L;
 	}
 
-	while (cluster)
+	while (cluster > PPM_CLUSTER_L)
 		idx += get_cluster_max_cpu_core(--cluster);
 
 	return idx;

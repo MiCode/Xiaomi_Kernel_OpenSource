@@ -90,8 +90,6 @@
 #define KBASE_KATOM_FLAG_FAIL_BLOCKER (1<<8)
 /* Atom is currently in the list of atoms blocked on cross-slot dependencies */
 #define KBASE_KATOM_FLAG_JSCTX_IN_X_DEP_LIST (1<<9)
-/* Atom is currently holding a context reference */
-#define KBASE_KATOM_FLAG_HOLDING_CTX_REF (1<<10)
 /* Atom requires GPU to be in protected mode */
 #define KBASE_KATOM_FLAG_PROTECTED (1<<11)
 /* Atom has been stored in runnable_tree */

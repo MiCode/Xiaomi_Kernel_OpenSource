@@ -914,7 +914,7 @@ static unsigned int wdma_fmt_convert(unsigned int fmt)
 static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 			      uint32_t fmt, unsigned int dstPitch,
 			      unsigned int Height, unsigned long dstAddress,
-			      uint32_t sec, void *handle)
+			      uint32_t sec, void *handle, int sec_id)
 {
 	/* size_t size; */
 	unsigned int u_off = 0;
@@ -956,12 +956,12 @@ static int wdma_config_yuv420(struct mtk_ddp_comp *comp,
 		cmdq_sec_pkt_write_reg(handle,
 			comp->regs_pa + DISP_REG_WDMA_DST_ADDR1,
 			dstAddress, CMDQ_IWC_H_2_MVA,
-			u_off, u_size, 0);
+			u_off, u_size, 0, sec_id);
 		if (has_v)
 			cmdq_sec_pkt_write_reg(handle,
 				comp->regs_pa + DISP_REG_WDMA_DST_ADDR2,
 				dstAddress, CMDQ_IWC_H_2_MVA,
-				v_off, u_size, 0);
+				v_off, u_size, 0, sec_id);
 #endif
 	}
 	mtk_ddp_write_mask(comp, u_stride,
@@ -1000,6 +1000,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	int clip_w, clip_h;
 	struct golden_setting_context *gsc;
 	u32 sec, buffer_size;
+	int sec_id;
 
 	if (!comp->fb) {
 		if (crtc_idx != 2)
@@ -1016,6 +1017,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 		return;
 	}
 	sec = mtk_drm_fb_is_secure(comp->fb);
+	sec_id = mtk_fb_get_sec_id(comp->fb);
 
 	addr += comp->fb->offsets[0];
 	if (!(comp->fb->format &&
@@ -1054,7 +1056,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	if (is_yuv(comp->fb->format->format)) {
 		wdma_config_yuv420(comp, comp->fb->format->format,
 				comp->fb->pitches[0], cfg->h,
-				addr, sec, handle);
+				addr, sec, handle, sec_id);
 		mtk_ddp_write_mask(comp, 0,
 				DISP_REG_WDMA_CFG, WDMA_UFO_DCP_ENABLE, handle);
 		mtk_ddp_write_mask(comp, WDMA_CT_EN,
@@ -1079,7 +1081,7 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 		cmdq_sec_pkt_write_reg(handle,
 				comp->regs_pa + DISP_REG_WDMA_DST_ADDR0,
 				addr & 0xFFFFFFFFU, CMDQ_IWC_H_2_MVA,
-				0, buffer_size, 0);
+				0, buffer_size, 0, sec_id);
 #endif
 	}
 
@@ -1167,10 +1169,12 @@ void mtk_wdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 	int i;
 
 	DDPDUMP("-- %s Golden Setting --\n", mtk_dump_comp_str(comp));
-	if (comp->mtk_crtc->sec_on) {
+
+	if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
 		DDPDUMP("Skip dump secure wdma!\n");
 		return;
 	}
+
 	DDPDUMP("0x%03x:0x%08x 0x%03x:0x%08x\n",
 		0x10, readl(DISP_REG_WDMA_SMI_CON + baddr),
 		0x38, readl(DISP_REG_WDMA_BUF_CON1 + baddr));
@@ -1319,10 +1323,12 @@ int mtk_wdma_dump(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
-	if (comp->mtk_crtc->sec_on) {
+
+	if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
 		DDPDUMP("Skip dump secure wdma!\n");
 		return 0;
 	}
+
 	if (mtk_ddp_comp_helper_get_opt(comp,
 					MTK_DRM_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned int i = 0;
@@ -1406,10 +1412,12 @@ int mtk_wdma_analysis(struct mtk_ddp_comp *comp)
 	void __iomem *baddr = comp->regs;
 
 	DDPDUMP("== DISP %s ANALYSIS ==\n", mtk_dump_comp_str(comp));
-	if (comp->mtk_crtc->sec_on) {
+
+	if (comp->mtk_crtc && comp->mtk_crtc->sec_on) {
 		DDPDUMP("Skip dump secure wdma!\n");
 		return 0;
 	}
+
 	DDPDUMP("en=%d,src(%dx%d),clip=(%d,%d,%dx%d)\n",
 		readl(baddr + DISP_REG_WDMA_EN) & 0x01,
 		readl(baddr + DISP_REG_WDMA_SRC_SIZE) & 0x3fff,

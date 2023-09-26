@@ -33,7 +33,7 @@
 #include "inc/mt6370_pmu_charger.h"
 #include "inc/mt6370_pmu.h"
 
-#define MT6370_PMU_CHARGER_DRV_VERSION	"1.1.29_MTK"
+#define MT6370_PMU_CHARGER_DRV_VERSION	"1.1.30_MTK"
 
 static bool dbg_log_en;
 module_param(dbg_log_en, bool, 0644);
@@ -1915,6 +1915,10 @@ static int mt6370_enable_power_path(struct charger_device *chg_dev, bool en)
 				__func__, en, chg_data->pp_en);
 	if (en == chg_data->pp_en)
 		goto out;
+
+	ret = (en ? mt6370_pmu_reg_clr_bit : mt6370_pmu_reg_set_bit)
+		(chg_data->chip, MT6370_PMU_REG_CHGCTRL1,
+		 MT6370_MASK_FORCE_SLEEP);
 	/*
 	 * enable power path -> unmask mivr irq
 	 * mask mivr irq -> disable power path
@@ -2679,10 +2683,10 @@ static int mt6370_plug_out(struct charger_device *chg_dev)
 	/* Reset AICR limit */
 	chg_data->aicr_limit = -1;
 
-	/* Disable charger */
-	ret = mt6370_enable_charging(chg_dev, false);
+	/* Enable charger */
+	ret = mt6370_enable_charging(chg_dev, true);
 	if (ret < 0) {
-		dev_err(chg_data->dev, "%s: disable chg failed\n", __func__);
+		dev_notice(chg_data->dev, "%s: en chg failed\n", __func__);
 		return ret;
 	}
 
@@ -4253,6 +4257,9 @@ MODULE_VERSION(MT6370_PMU_CHARGER_DRV_VERSION);
 
 /*
  * Release Note
+ * 1.1.30_MTK
+ * (1) Reduce IBUS Iq when pp is off for MT6371 and MT6372
+ *
  * 1.1.29_MTK
  * (1) Masks mivr irq for 500ms after mivr irq gets handled
  *

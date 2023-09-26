@@ -29,6 +29,7 @@
 struct usbotg_boost {
 	struct platform_device *pdev;
 	struct charger_device *primary_charger;
+	struct charger_device *secondary_charger;
 #if CONFIG_MTK_GAUGE_VERSION == 30
 	struct alarm otg_timer;
 	struct timespec endtime;
@@ -116,6 +117,7 @@ int usb_otg_set_vbus(int is_on)
 
 #if CONFIG_MTK_GAUGE_VERSION == 30
 	if (is_on) {
+		charger_dev_enable_otg(g_info->secondary_charger, true);
 		charger_dev_enable_otg(g_info->primary_charger, true);
 		charger_dev_set_boost_current_limit(g_info->primary_charger,
 			1500000);
@@ -125,6 +127,7 @@ int usb_otg_set_vbus(int is_on)
 		}
 	} else {
 		charger_dev_enable_otg(g_info->primary_charger, false);
+		charger_dev_enable_otg(g_info->secondary_charger, false);
 		if (g_info->polling_interval)
 			enable_boost_polling(false);
 	}
@@ -173,6 +176,11 @@ static int usbotg_boost_probe(struct platform_device *pdev)
 	info->primary_charger = get_charger_by_name("primary_chg");
 	if (!info->primary_charger) {
 		pr_info("%s: get primary charger device failed\n", __func__);
+		return -ENODEV;
+	}
+	info->secondary_charger = get_charger_by_name("secondary_chg");
+	if (!info->secondary_charger) {
+		pr_info("%s: get secondary charger device failed\n", __func__);
 		return -ENODEV;
 	}
 

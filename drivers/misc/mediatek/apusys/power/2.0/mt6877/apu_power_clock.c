@@ -177,7 +177,7 @@ static int _enable_acc(enum DVFS_VOLTAGE_DOMAIN domain, bool enable)
 	ret = mt_secure_call_ret2(MTK_SIP_APUPWR_CONTROL,
 			MTK_APUPWR_SMC_OP_ACC_TOGGLE,
 			(size_t)domain, (size_t)enable, 0, &value);
-	LOG_DBG("[%s] domain@%d, enable(%d) ACC: 0x%x\n", __func__, domain, enable, value);
+	LOG_DBG("[%s] domain@%d, enable(%d) ACC: 0x%lx\n", __func__, domain, enable, value);
 
 	if (ret) {
 		LOG_ERR("[%s] domain@%d, enable(%d) Fail: %d\n", __func__, domain, enable, ret);
@@ -274,7 +274,7 @@ static void _init_acc(enum DVFS_VOLTAGE_DOMAIN domain)
 			(size_t)domain, 0, 0);
 
 	if (ret)
-		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, ret);
+		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, domain, ret);
 
 #else
 	bool inverse = false;
@@ -472,7 +472,7 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 			(size_t)freq, (size_t)domain, 0);
 
 	if (ret) {
-		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, ret);
+		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, domain, ret);
 		return -1;
 	}
 
@@ -609,7 +609,7 @@ int config_apupll_freq(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 			(size_t)freq, (size_t)div2, (size_t)domain);
 
 	if (ret) {
-		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, ret);
+		LOG_ERR("[%s] domain:%d, ret:%d\n", __func__, domain, ret);
 		return -1;
 	}
 

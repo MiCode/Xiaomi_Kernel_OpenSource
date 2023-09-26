@@ -52,11 +52,12 @@
 #define MAX_VOW_SPEAKER_MODEL          (VOW_GOOGLE_MODEL + VOW_AMAZON_MODEL)
 #endif
 #define VOW_WAITCHECK_INTERVAL_MS      1
-#define MAX_VOW_INFO_LEN               6
+#define MAX_VOW_INFO_LEN               7
 #define VOW_VOICE_RECORD_THRESHOLD     2560 /* 80ms */
 #define VOW_VOICE_RECORD_BIG_THRESHOLD 8320 /* 260ms */
 #define VOW_IPI_SEND_CNT_TIMEOUT       500 /* 500ms */
 /* UBM_V1:0xA000, UBM_V2:0xDC00, UBM_V3: 2*0x11000 */
+#define VOW_MODEL_SIZE_THRES           0x2800
 #define VOW_MODEL_SIZE                 0x11000
 #define VOW_VOICEDATA_OFFSET           (VOW_MODEL_SIZE * MAX_VOW_SPEAKER_MODEL)
 #define VOW_VOICEDATA_SIZE             0x12500 /* 74880, need over 2.3sec */
@@ -88,7 +89,7 @@
 
 #define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
 #define VOW_EXTRA_DATA_SIZE            0x100 /* 256 */
-#define VOW_ENGINE_INFO_LENGTH_BYTE    40
+#define VOW_ENGINE_INFO_LENGTH_BYTE    64
 
 /* below is control message */
 #define VOW_SET_CONTROL               _IOW(VOW_IOC_MAGIC, 0x03, unsigned int)
@@ -106,6 +107,7 @@
 #define VOW_GET_GOOGLE_ENGINE_VER     _IOW(VOW_IOC_MAGIC, 0x12, unsigned int)
 #define VOW_GET_GOOGLE_ARCH           _IOW(VOW_IOC_MAGIC, 0x13, unsigned int)
 #define VOW_READ_VOICE_DATA           _IOW(VOW_IOC_MAGIC, 0x17, unsigned int)
+#define VOW_READ_VOW_DUMP_DATA        _IOW(VOW_IOC_MAGIC, 0x18, unsigned int)
 
 #ifdef VOW_ECHO_SW_SRC
 #define VOW_BARGEIN_DUMP_OFFSET 0x1E00

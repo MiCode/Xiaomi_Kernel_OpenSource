@@ -435,6 +435,7 @@ enum {
 	MODEM_CAP_NAPI = (1<<0),
 	MODEM_CAP_TXBUSY_STOP = (1<<1),
 	MODEM_CAP_SGIO = (1<<2),
+	MODEM_CAP_HWTXCSUM = (1<<3),
 	/*bit16-bit31:
 	 *for modem capability only
 	 *related with ccmni driver
@@ -727,6 +728,8 @@ unsigned int get_md_bin_capability(int md_id);
 int set_soc_md_rt_rat_str(int md_id, char str[]);
 unsigned int get_soc_md_rt_rat(int md_id);
 int check_rat_at_rt_setting(int md_id, char str[]);
+unsigned int get_soc_md_rt_rat_idx(int md_id);
+int set_soc_md_rt_rat_by_idx(int md_id, unsigned int wm_idx);
 
 int get_nc_smem_region_info(unsigned int id, unsigned int *ap_off,
 				unsigned int *md_off, unsigned int *size);

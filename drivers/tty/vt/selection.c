@@ -348,6 +348,7 @@ int set_selection(const struct tiocl_selection __user *v, struct tty_struct *tty
 	return ret;
 }
 
+/*
 int set_selection(const struct tiocl_selection __user *v,
 	struct tty_struct *tty)
 {
@@ -359,6 +360,7 @@ int set_selection(const struct tiocl_selection __user *v,
 
 	return ret;
 }
+*/
 
 /* Insert the contents of the selection buffer into the
  * queue of the tty associated with the current console.

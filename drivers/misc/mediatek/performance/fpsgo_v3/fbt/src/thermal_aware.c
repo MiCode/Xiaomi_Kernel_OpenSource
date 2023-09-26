@@ -240,7 +240,7 @@ void thrm_aware_switch(int enable)
 		fpsgo_systrace_c_fbt_gm(-100, 0, cur_state, "thrm_aware_state");
 
 		if (limit_cpu != -1)
-			thrm_set_isolation(THRM_AWARE_CORE_RESET, limit_cpu);
+			thrm_set_isolation(THRM_AWARE_CORE_DEISO, limit_cpu);
 
 		if (sub_cpu != -1)
 			thrm_set_isolation(THRM_AWARE_CORE_ISO, sub_cpu);

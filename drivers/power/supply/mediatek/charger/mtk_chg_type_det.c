@@ -368,11 +368,14 @@ static void charger_in_work_handler(struct work_struct *work)
 static void plug_in_out_handler(struct chg_type_info *cti, bool en, bool ignore)
 {
 	mutex_lock(&cti->chgdet_lock);
+	if (cti->chgdet_en == en)
+		goto skip;
 	cti->chgdet_en = en;
 	cti->ignore_usb = ignore;
 	cti->plugin = en;
 	atomic_inc(&cti->chgdet_cnt);
 	wake_up_interruptible(&cti->waitq);
+skip:
 	mutex_unlock(&cti->chgdet_lock);
 }
 

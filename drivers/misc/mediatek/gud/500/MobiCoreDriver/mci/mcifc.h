@@ -38,6 +38,7 @@
 #define MC_FC_INIT	MC_FC_STD32(1)  /**< Initializing FastCall. */
 #define MC_FC_INFO	MC_FC_STD32(2)  /**< Info FastCall. */
 #define MC_FC_MEM_TRACE	MC_FC_STD32(10)  /**< Enable SWd tracing via memory */
+#define MC_FC_CPU_OFF   MC_FC_STD32(60)  /**< CPU is removed from system */
 
 #else
 

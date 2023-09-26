@@ -179,6 +179,13 @@ static int debug_mem_zone_open(struct rb_root *rbtree,
 			/* Empty region - ignore */
 			continue;
 
+		if (reg->flags & KBASE_REG_PROTECTED) {
+			/* CPU access to protected memory is forbidden - so
+			 * skip this GPU virtual region.
+			 */
+			continue;
+		}
+
 		mapping = kmalloc(sizeof(*mapping), GFP_KERNEL);
 		if (!mapping) {
 			ret = -ENOMEM;

@@ -54,6 +54,9 @@ struct mdw_apu_cmd {
 	uint8_t pack_cnt[MDW_CMD_SC_MAX]; // pack count
 	struct list_head di_list; //for dispr item
 
+	struct timespec64 start_ts;
+	struct timespec64 end_ts;
+
 	int state;
 
 	struct mdw_usr *usr; // usr

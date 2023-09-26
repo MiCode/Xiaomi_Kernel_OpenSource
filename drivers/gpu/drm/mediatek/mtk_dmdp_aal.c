@@ -314,7 +314,7 @@ static void mtk_dmdp_aal_prepare(struct mtk_ddp_comp *comp)
 	struct mtk_dmdp_aal *dmdp_aal = comp_to_dmdp_aal(comp);
 #endif
 
-	pr_notice("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	mtk_ddp_comp_clk_prepare(comp);
 
 #if defined(CONFIG_DRM_MTK_SHADOW_REGISTER_SUPPORT)
@@ -340,7 +340,7 @@ static void mtk_dmdp_aal_prepare(struct mtk_ddp_comp *comp)
 
 static void mtk_dmdp_aal_unprepare(struct mtk_ddp_comp *comp)
 {
-	pr_notice("%s\n", __func__);
+	pr_debug("%s\n", __func__);
 	mtk_dmdp_aal_backup(comp);
 	mtk_ddp_comp_clk_unprepare(comp);
 }

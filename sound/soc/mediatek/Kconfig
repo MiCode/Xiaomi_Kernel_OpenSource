@@ -421,6 +421,7 @@ config SND_SOC_MTK_AUDIO_DSP
 
 config MTK_ULTRASND_PROXIMITY
 	bool "MTK ultra sound proximity support"
+	select MTK_AUDIO_IPI
 	help
 	  For ultra sound proximity kernel driver config.
 	  This ultra sound proximity kernel driver

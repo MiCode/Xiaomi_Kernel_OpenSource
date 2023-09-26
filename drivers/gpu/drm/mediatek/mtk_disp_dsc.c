@@ -22,6 +22,7 @@
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
 #include "mtk_drm_crtc.h"
+#include "mtk_drm_drv.h"
 #include "mtk_drm_ddp_comp.h"
 #include "mtk_dump.h"
 #include "mtk_drm_mmp.h"
@@ -134,6 +135,11 @@ static irqreturn_t mtk_dsc_irq_handler(int irq, void *dev_id)
 	unsigned int val = 0;
 	unsigned int ret = 0;
 
+	if (mtk_drm_top_clk_isr_get("dsc_irq") == false) {
+		DDPIRQ("%s, top clk off\n", __func__);
+		return IRQ_NONE;
+	}
+
 	val = readl(dsc->regs + DISP_REG_DSC_INTSTA);
 	if (!val) {
 		ret = IRQ_NONE;
@@ -169,6 +175,8 @@ static irqreturn_t mtk_dsc_irq_handler(int irq, void *dev_id)
 
 	ret = IRQ_HANDLED;
 out:
+	mtk_drm_top_clk_isr_put("dsc_irq");
+
 	return ret;
 }
 
@@ -321,7 +329,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	unsigned int init_delay_height;
 	struct mtk_panel_dsc_params *dsc_params;
 
-	DDPFUNC();
+	DDPDBG("[%s line:%d]\n", __func__, __LINE__);
 	if (!comp->mtk_crtc || (!comp->mtk_crtc->panel_ext
 				&& !comp->mtk_crtc->is_dual_pipe))
 		return;
@@ -332,7 +340,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	mtk_dsc_default_setting();
 #endif
 	if (dsc_params->enable == 1) {
-		DDPMSG("%s, w:%d, h:%d, slice_mode:%d,slice(%d,%d),bpp:%d\n",
+		DDPDBG("%s, w:%d, h:%d, slice_mode:%d,slice(%d,%d),bpp:%d\n",
 			mtk_dump_comp_str(comp), cfg->w, cfg->h,
 			dsc_params->slice_mode,	dsc_params->slice_width,
 			dsc_params->slice_height, dsc_params->bit_per_pixel);
@@ -391,7 +399,10 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			dsc_params->slice_width-1) / dsc_params->slice_width;
 		init_delay_height_min =
 			(init_delay_limit > 15) ? 15 : init_delay_limit;
-		init_delay_height = 4;
+		if (!mtk_crtc_is_frame_trigger_mode(&comp->mtk_crtc->base))
+			init_delay_height = 1;
+		else
+			init_delay_height = 4;
 
 		reg_val = (!!dsc_params->slice_mode) |
 					(!!dsc_params->rgb_swap << 2) |
@@ -399,7 +410,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_mask(comp, reg_val,
 					DISP_REG_DSC_MODE, 0xFFFF, handle);
 
-		DDPMSG("%s, init delay:%d\n",
+		DDPDBG("%s, init delay:%d\n",
 			mtk_dump_comp_str(comp), reg_val);
 
 		mtk_ddp_write_relaxed(comp,

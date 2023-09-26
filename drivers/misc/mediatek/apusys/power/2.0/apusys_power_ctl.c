@@ -717,11 +717,16 @@ void apusys_dvfs_info(void)
 	int ret, ret_v, ret_f = 0;
 
 	ret = sprintf(log_str, "(u_op,T,min,max)");
-	ret_v = sprintf(logv_str, "v[");
-	ret_f = sprintf(logf_str, "f[");
+	if (ret < 0)
+		LOG_ERR("%s sprintf fail (%d)\n", __func__, ret);
 
-	if (ret < 0 || ret_v < 0 || ret_f < 0)
-		LOG_ERR("%s sprintf fail\n", __func__);
+	ret_v = sprintf(logv_str, "v[");
+	if (ret_v < 0)
+		LOG_ERR("%s sprintf fail (%d)\n", __func__, ret_v);
+
+	ret_f = sprintf(logf_str, "f[");
+	if (ret_f < 0)
+		LOG_ERR("%s sprintf fail (%d)\n", __func__, ret_f);
 
 	for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
 		if (dvfs_user_support(user) == false)
@@ -751,25 +756,32 @@ void apusys_dvfs_info(void)
 		ret_v = sprintf(logv_str + strlen(logv_str), ",(%d,%d)",
 			apusys_opps.opps[c_opp_index][domain].voltage / div,
 			apusys_opps.opps[n_opp_index][domain].voltage / div);
+		if (ret_v < 0)
+			LOG_ERR("%s sprintf fail (%d)\n", __func__, ret_v);
 
 		ret_f = sprintf(logf_str + strlen(logf_str), ",(%d,%d)",
 			apusys_opps.opps[c_opp_index][domain].freq / div,
 			apusys_opps.opps[n_opp_index][domain].freq / div);
-
-		if (ret_v < 0 || ret_f < 0)
-			LOG_ERR("%s sprintf fail\n", __func__);
+		if (ret_f < 0)
+			LOG_ERR("%s sprintf fail (%d)\n", __func__, ret_f);
 	}
 
 	rem_nsec = do_div(apusys_opps.id, 1000000000);
 	ret = sprintf(log_str + strlen(log_str), "] [%5lu.%06lu]",
 		(unsigned long)apusys_opps.id, rem_nsec / 1000);
+	if (ret < 0)
+		LOG_ERR("%s sprintf fail (%d)\n", __func__, ret);
+
 	ret_v = sprintf(logv_str + strlen(logv_str), "] [%5lu.%06lu]",
 		(unsigned long)apusys_opps.id, rem_nsec / 1000);
+	if (ret_v < 0)
+		LOG_ERR("%s sprintf fail (%d)\n", __func__, ret_v);
+
 	ret_f = sprintf(logf_str + strlen(logf_str), "] [%5lu.%06lu]",
 		(unsigned long)apusys_opps.id, rem_nsec / 1000);
+	if (ret_f < 0)
+		LOG_ERR("%s sprintf fail (%d)\n", __func__, ret_f);
 
-	if (ret < 0 || ret_v < 0 || ret_f < 0)
-		LOG_ERR("%s sprintf fail\n", __func__);
 
 	PWR_LOG_PM("APUPWR DVFS %s\n", log_str);
 	PWR_LOG_PM("APUPWR DVFS %s\n", logv_str);

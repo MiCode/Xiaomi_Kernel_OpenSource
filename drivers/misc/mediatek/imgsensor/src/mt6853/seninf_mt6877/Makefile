@@ -12,4 +12,4 @@
 #
 
 obj-y				+= ../../common/v1_1/seninf_clk.o
-obj-y				+= seninf_irq.o
+obj-y				+= seninf_impl.o

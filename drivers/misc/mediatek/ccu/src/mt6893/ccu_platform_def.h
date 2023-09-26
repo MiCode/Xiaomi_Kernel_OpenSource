@@ -52,5 +52,8 @@
 #define CCU_IPC_IBUF_CAPACITY (1024*5) //4k
 #define CCU_IPC_OBUF_CAPACITY (1024*2) //1k
 
+#define CCU_HEADER_NUM (20)
+#define CCU_STRUCT_SIZE_CAPACITY (6)
+
 #define MMU_ENABLE_BIT           0x33//ccu Cache to EMI enable
 #endif

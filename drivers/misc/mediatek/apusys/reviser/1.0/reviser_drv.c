@@ -147,6 +147,10 @@ static void reviser_power_on_cb(void *para)
 		LOG_ERR("Set Default IOVA Fail\n");
 		return;
 	}
+	if (reviser_init_ip()) {
+		LOG_ERR("Init IP Fail\n");
+		return;
+	}
 
 }
 

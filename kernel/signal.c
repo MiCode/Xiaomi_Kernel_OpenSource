@@ -42,7 +42,6 @@
 #include <linux/cn_proc.h>
 #include <linux/compiler.h>
 #include <linux/posix-timers.h>
-
 #define CREATE_TRACE_POINTS
 #include <trace/events/signal.h>
 

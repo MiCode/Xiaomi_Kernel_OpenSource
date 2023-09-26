@@ -1,0 +1,176 @@
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/pinctrl/mt6885-pinfunc.h>
+
+
+&pio {
+	ts_reset_active: ts_reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			output-high;
+		};
+	 };
+	ts_int_active: ts_int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			input-enable;
+		};
+	 };
+	ts_reset_suspend: ts_reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+	 };
+	ts_int_suspend: ts_int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			slew-rate = <1>;
+			bias-pull-down;
+		};
+	 };
+	ts_release: ts_release {
+		pins_cmd0_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			slew-rate = <1>;
+			bias-pull-up;
+		};
+		pins_cmd1_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			slew-rate = <1>;
+			bias-disable;
+		};
+	};
+	ts_spi_mode: ts_spimode {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO0__FUNC_SPI6_CLK>,
+					 <PINMUX_GPIO1__FUNC_SPI6_CSB>,
+					 <PINMUX_GPIO2__FUNC_SPI6_MI>,
+					 <PINMUX_GPIO3__FUNC_SPI6_MO>;
+			drive-strength = <7>;
+		};
+	 };
+
+	//DVDD enable gpio
+	ts_dvdd_enable: ts_dvddenable {
+                pins_cmd_dat {
+                        pinmux = <PINMUX_GPIO27__FUNC_GPIO27>;
+                        output-high;
+                };
+         };
+
+	ts_dvdd_disable: ts_dvdddisable {
+                pins_cmd_dat {
+                        pinmux = <PINMUX_GPIO27__FUNC_GPIO27>;
+                        output-low;
+                };
+         };
+
+
+};
+
+&mt_pmic_vmch_ldo_reg {
+	regulator-boot-on;
+	regulator-min-microvolt = <3300000>;
+	regulator-max-microvolt = <3300000>;
+};
+
+&spi6 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	// DVDD 1P8, which is provided by external 6359 LDO
+	// AVDD 3P3, which is provided by mt6360
+        fts@0 {
+                status = "ok";
+                compatible = "st,spi";
+                reg = <0x0>;
+                interrupt-parent = <&pio>;
+		interrupts = <21 IRQ_TYPE_EDGE_FALLING 21 0>;
+                pinctrl-names = "pmx_ts_active", "pmx_ts_suspend", "pmx_ts_spi_mode", "pmx_ts_dvdd_enable", "pmx_ts_dvdd_disable";
+                pinctrl-0 = <&ts_reset_active &ts_int_active>;
+                pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_spi_mode>;
+		pinctrl-3 = <&ts_dvdd_enable>;
+		pinctrl-4 = <&ts_dvdd_disable>;
+                avdd-supply = <&mt_pmic_vmch_ldo_reg>;
+                //avddold-supply = <&L3C>;
+                // vdd-supply = <&mt6359regulator>;
+                fts,pwr-reg-name = "avdd";
+                // fts,bus-reg-name = "touch_avdd_spi_vreg";
+                //fts,avddold-name = "avddold";
+                fts,irq-gpio = <&pio 21 0x2008>;
+                fts,irq-gpio-name = "fts_irq";
+                fts,reset-gpio-enable;
+                fts,reset-gpio =  <&pio 20 0x00>;
+                fts,reset-gpio-name = "fts_rst";
+		fts,spi-speed = "7000000";
+                fts,irq-flags = <0x2008>;
+                fts,x-max = <10800>;
+                fts,y-max = <24000>;
+                spi-max-frequency = <6000000>;
+                fts,default-fw-name = "st_fts_k11st.ftb";
+                fts,htp-fw-name = "st_fts_k11st_htp.ftb";
+		// 1 is non curved-display, 0 is curved-display
+		fts,non-curved-display = <1>;
+                fts,config-array-size = <1>;
+                fts,touch-follow-performance-def = <3>;
+                fts,touch-tap-sensitivity-def = <4>;
+                fts,touch-aim-sensitivity-def = <3>;
+                fts,touch-tap-stability-def = <3>;
+                fts,cornerfilter-area-step1 = <100>;
+                fts,cornerfilter-area-step2 = <170>;
+                fts,cornerfilter-area-step3 = <250>;
+		fts,touch-edgezone-filter-ver = <1 0 0 0 0 0 0 0
+						 1 1 0 0 0 0 0 0
+						 1 2 0 0 40 2399 0 0
+						 1 3 1039 0 1079 2399 0 0>;
+		fts,touch-edgezone-filter-hor = <1 0 0 0 1079 40 0 0
+						 1 1 0 2359 1079 2399 0 0
+						 1 2 0 0 40 2399 0 0
+						 1 3 1039 0 1079 2399 0 0>;
+		fts,touch-cornerzone-filter-ver = <0 0 0 0 0 0 0 0
+						 0 1 0 0 0 0 0 0
+						 0 2 0 2099 150 2399 0 0
+						 0 3 929 2099 1079 2399 0 0>;
+		fts,touch-cornerzone-filter-hor1 = <0 0 0 0 150 150 0 0
+						 0 1 0 0 0 0 0 0
+						 0 2 0 2249 150 2399 0 0
+						 0 3 0 0 0 0 0 0>;
+		fts,touch-cornerzone-filter-hor2 = <0 0 0 0 0 0 0 0
+						 0 1 929 0 1079 150 0 0
+						 0 2 0 0 0 0 0 0
+						 0 3 929 2249 1079 2399 0 0>;
+		fts,touch-normal-edgezone-filter-hor = <1 0 0 0 1079 30 0 0
+						 1 1 0 2369 1079 2399 0 0
+						 1 2 0 0 30 2399 0 0
+						 1 3 1049 0 1079 2399 0 0>;
+		fts,touch-normal-cornerzone-filter-hor1 = <0 0 0 0 170 170 0 0
+						 0 1 0 0 0 0 0 0
+						 0 2 0 2229 170 2399 0 0
+						 0 3 0 0 0 0 0 0>;
+		fts,touch-normal-cornerzone-filter-hor2 = <0 0 0 0 0 0 0 0
+						 0 1 909 0 1079 170 0 0
+						 0 2 0 0 0 0 0 0
+						 0 3 909 2229 1079 2399 0 0>;
+                fts,touch-follow-performance = <10 15 1
+                                                                                8 15 1
+                                                                                6 15 1
+                                                                                4 15 1
+                                                                                2 15 1>;
+                fts,touch-tap-sensitivity = <160 150 140 120 100>;
+                fts,touch-aim-sensitivity = <10 8 6 4 2>;
+                fts,touch-tap-stability = <8 12 15 18 25>;
+                fts,touch-expert-array = <6 15 1 120 6 15
+                                                                  2 15 1 120 4 15
+                                                                  4 15 1 120 2 15>;
+		 fts,cfg_0 {
+			fts,tp-vendor = <0x42>;
+                        fts,fw-name = "st_fts_k11st.ftb";
+                        fts,limit-name = "stm_fts_production_limits_k11st.csv";
+                };
+        };
+};
+

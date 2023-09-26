@@ -162,6 +162,7 @@ struct mtk_drm_private {
 	struct drm_property *crtc_property[MAX_CRTC][CRTC_PROP_MAX];
 
 	struct drm_fb_helper fb_helper;
+	struct kref kref_fb_buf;
 	struct drm_gem_object *fbdev_bo;
 	struct list_head lyeblob_head;
 	struct mutex lyeblob_list_mutex;
@@ -271,6 +272,9 @@ extern struct platform_driver mtk_disp_merge_driver;
 extern struct platform_driver mtk_dp_tx_driver;
 extern struct platform_driver mtk_dp_intf_driver;
 #endif
+
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
 
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);

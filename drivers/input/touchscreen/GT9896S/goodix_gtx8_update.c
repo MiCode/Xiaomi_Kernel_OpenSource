@@ -1368,7 +1368,7 @@ static ssize_t gt9896s_sysfs_fwimage_store(struct file *file,
 			attr_fwimage);
 	fw_data = &fw_ctrl->fw_data;
 
-	if (!fw_data->firmware) {
+	if ((!fw_data->firmware) || (!buf)) {
 		ts_err("Need set fw image size first");
 		return -ENOMEM;
 	}

@@ -129,7 +129,6 @@ enum ipi_id {
 	IPI_VDEC_VP9,
 	IPI_VDEC_MPEG4,
 	IPI_VDEC_H263,
-	IPI_VDEC_S263,
 	IPI_VDEC_MPEG12,
 	IPI_VDEC_WMV,
 	IPI_VDEC_RV30,
@@ -299,5 +298,6 @@ extern void venc_encode_pmqos_gce_end(void *ctx_end,
 		unsigned int core_id, int job_cnt);
 extern void vdec_check_release_lock(void *ctx_check);
 extern void mtk_vcodec_gce_timeout_dump(void *ctx);
+int vcu_set_log(const char *val);
 
 #endif /* _MTK_VCU_H */

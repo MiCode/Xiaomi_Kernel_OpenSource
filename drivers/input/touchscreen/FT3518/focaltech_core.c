@@ -1149,7 +1149,7 @@ err_power_init:
 	kfree_safe(ts_data->point_buf);
 	kfree_safe(ts_data->events);
 err_report_buffer:
-    input_unregister_device(ts_data->input_dev);
+   // input_unregister_device(ts_data->input_dev);
 err_input_init:
 	if (ts_data->ts_workqueue)
 		destroy_workqueue(ts_data->ts_workqueue);

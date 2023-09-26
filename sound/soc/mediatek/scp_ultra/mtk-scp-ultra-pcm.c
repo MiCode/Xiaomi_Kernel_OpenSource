@@ -14,7 +14,6 @@
 #include "mtk-scp-ultra-mem-control.h"
 #include "mtk-scp-ultra-platform-driver.h"
 #include "ultra_ipi.h"
-#include "audio_buf.h"
 
 #define MTK_PCM_RATES (SNDRV_PCM_RATE_8000_48000 |\
 			SNDRV_PCM_RATE_88200 |\
@@ -57,13 +56,6 @@ static int scp_ultra_pcm_dev_probe(struct platform_device *pdev)
 	if (!scp_ultra)
 		return -ENOMEM;
 
-	scp_ultra->ultra_dump.dump_ops =
-			devm_kzalloc(&pdev->dev,
-					sizeof(struct scp_ultra_dump_ops),
-					GFP_KERNEL);
-	if (!scp_ultra->ultra_dump.dump_ops)
-		return -ENOMEM;
-
 	ret = of_property_read_u32(pdev->dev.of_node, "scp_ultra_dl_memif_id",
 				   &scp_ultra->scp_ultra_dl_memif_id);
 	if (ret != 0) {
@@ -100,8 +92,6 @@ static int scp_ultra_pcm_dev_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "err_platform\n");
 		goto err_platform;
 	}
-
-	set_ipi_recv_private((void *)scp_ultra);
 	set_scp_ultra_base((void *)scp_ultra);
 
 	return 0;

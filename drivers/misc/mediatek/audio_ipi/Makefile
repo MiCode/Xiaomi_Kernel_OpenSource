@@ -28,6 +28,14 @@ endif
 endif
 
 ifneq ($(filter y,$(CONFIG_MTK_TINYSYS_SCP_SUPPORT)),)
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6785" "mt6781"))
+ifneq ($(filter y, $(CONFIG_MTK_ULTRASND_PROXIMITY)),)
+subdir-ccflags-y += -DCONFIG_MTK_AUDIO_CM4_SUPPORT
+CONFIG_MTK_AUDIO_CM4_SUPPORT := y
+endif
+endif
+
 ifneq ($(filter y,$(CONFIG_MTK_VOW_IPI_SUPPORT) $(CONFIG_SND_SOC_MTK_SCP_SMARTPA)),)
 subdir-ccflags-y += -DCONFIG_MTK_AUDIO_CM4_SUPPORT
 CONFIG_MTK_AUDIO_CM4_SUPPORT := y

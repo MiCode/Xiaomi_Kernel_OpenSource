@@ -18,6 +18,7 @@ extern void mt_vbus_off(void);
 extern int usb_otg_set_vbus(int is_on);
 extern void mt_usb_connect(void);
 extern void mt_usb_disconnect(void);
+bool tcpc_is_support_u3(void);
 #ifndef CONFIG_TCPC_CLASS
 #ifdef CONFIG_DUAL_ROLE_USB_INTF
 extern void mt_usb_dual_role_to_none(void);

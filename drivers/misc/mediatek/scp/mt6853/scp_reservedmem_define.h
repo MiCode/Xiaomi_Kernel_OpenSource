@@ -48,6 +48,18 @@ static struct scp_reserve_mblock scp_reserve_mblock[] = {
 		.start_virt = 0x0,
 		.size = 0x2000,  /* 8 KB */
 	},
+	{
+		.num = SENS_CUSTOM_W_MEM_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.size = 0x100,  /* 256 bytes */
+	},
+	{
+		.num = SENS_CUSTOM_R_MEM_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.size = 0x100,  /* 256 bytes */
+	},
 #endif
 	{
 		.num = SCP_A_LOGGER_MEM_ID,
@@ -86,6 +98,12 @@ static struct scp_reserve_mblock scp_reserve_mblock[] = {
 		.start_phys = 0,
 		.start_virt = 0,
 		.size = 0x19000,
+	},
+	{
+		.num = SCP_ELLIPTIC_DEBUG_MEM,
+		.start_phys = 0,
+		.start_virt = 0,
+		.size = 0x8000,
 	},
 #endif
 };

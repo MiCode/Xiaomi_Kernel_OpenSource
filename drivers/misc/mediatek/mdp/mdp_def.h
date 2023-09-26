@@ -348,6 +348,7 @@ struct cmdqSecAddrMetadataStruct {
 	uint32_t port;		/* hw port id (i.e. M4U port id) */
 	uint32_t sec_id;	/* sec_id 0/1/3: secure camera/SVP/WFD */
 	uint32_t useSecIdinMeta;
+	int32_t ionFd;
 };
 
 struct cmdqMetaBuf {

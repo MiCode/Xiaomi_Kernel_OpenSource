@@ -71,3 +71,11 @@ subdir-ccflags-y		+= -I$(IMGSENSOR_DRIVER_PATH)/common/$(COMMON_VERSION)/camera_
 subdir-ccflags-y += -DSENSOR_PARALLEISM
 
 obj-y += seninf/
+
+ifeq ($(ARCH_MTK_PROJECT), k6893v1_64)
+subdir-ccflags-y += -DNEED_LATE_INITCALL
+endif
+
+ifeq ($(ARCH_MTK_PROJECT), k6891v1_64)
+subdir-ccflags-y += -DNEED_LATE_INITCALL
+endif

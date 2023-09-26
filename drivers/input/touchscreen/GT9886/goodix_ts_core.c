@@ -1167,7 +1167,7 @@ static int goodix_ts_power_init(struct goodix_ts_core *core_data)
 			core_data->avdd = NULL;
 			return r;
 		}
-		r = regulator_set_voltage(core_data->avdd, 3000000, 3000000);
+		r = regulator_set_voltage(core_data->avdd, 2800000, 2800000);
 		if (r) {
 			ts_err("regulator_set_voltage failed %d\n", r);
 			return r;

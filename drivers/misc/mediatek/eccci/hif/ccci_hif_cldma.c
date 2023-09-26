@@ -590,10 +590,8 @@ static int cldma_gpd_rx_collect(struct md_cd_queue *queue,
 	int over_budget = 0, skb_handled = 0, retry = 0;
 	unsigned long long skb_bytes = 0;
 	unsigned long flags;
-	char is_net_queue = IS_NET_QUE(md_ctrl->md_id, queue->index);
-	char using_napi = is_net_queue ?
-		(ccci_md_get_cap_by_id(md_ctrl->md_id) & MODEM_CAP_NAPI)
-		: 0;
+	char using_napi = (ccci_md_get_cap_by_id(md_ctrl->md_id) & MODEM_CAP_NAPI);
+
 	unsigned int L2RISAR0 = 0;
 	unsigned long time_limit = jiffies + 2;
 	unsigned int l2qe_s_offset = CLDMA_RX_QE_OFFSET;
@@ -631,8 +629,7 @@ again:
 			break;
 		}
 
-		new_skb = ccci_alloc_skb(queue->tr_ring->pkt_size,
-		!is_net_queue, blocking);
+		new_skb = ccci_alloc_skb(queue->tr_ring->pkt_size, 0, blocking);
 		if (unlikely(!new_skb)) {
 			CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 				"alloc skb fail on q%d, retry!\n",
@@ -658,9 +655,7 @@ again:
 		skb_put(skb, rgpd->data_buff_len);
 		skb_bytes = skb->len;
 #ifdef ENABLE_FAST_HEADER
-		if (!is_net_queue) {
-			ccci_h = *((struct ccci_header *)skb->data);
-		} else if (queue->fast_hdr.gpd_count == 0) {
+		if (queue->fast_hdr.gpd_count == 0) {
 			ccci_h = *((struct ccci_header *)skb->data);
 			queue->fast_hdr =
 				*((struct ccci_fast_header *)skb->data);
@@ -705,10 +700,7 @@ again:
 			ccci_h.reserved, queue->index,
 			rgpd->data_buff_len);
 		/* upload skb */
-		if (!is_net_queue) {
-			ret = ccci_md_recv_skb(md_ctrl->md_id,
-					md_ctrl->hif_id, skb);
-		} else if (using_napi) {
+		if (using_napi) {
 			ccci_md_recv_skb(md_ctrl->md_id,
 					md_ctrl->hif_id, skb);
 			ret = 0;

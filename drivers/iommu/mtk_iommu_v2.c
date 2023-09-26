@@ -391,7 +391,7 @@ int mtk_iommu_set_sec_larb(int larb, int port,
 
 	if (larb >= SMI_LARB_NR ||
 	    port >= ONE_SMI_PORT_NR) {
-		pr_notice("%s, %d, invalid larb:%d, port:%d\n",
+		pr_notice("%s, invalid larb:%d, port:%d\n",
 			  __func__, larb, port);
 		return -1;
 	}
@@ -4225,7 +4225,7 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 		mtk_irq_bank[m4u_id][i] = irq_of_parse_and_map(node, 0);
 
 		pr_notice("%s, bank:%d, of_iomap: 0x%lx, irq_num: %d, m4u_id:%d\n",
-				__func__, i + 1, data->base_bank[i],
+				__func__, i + 1, (uintptr_t)data->base_bank[i],
 				mtk_irq_bank[m4u_id][i], m4u_id);
 
 		if (request_irq(mtk_irq_bank[m4u_id][i], mtk_iommu_isr,
@@ -4501,6 +4501,10 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 	spin_lock_init(&data->reg_lock);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		pr_info("%s, get resource is NULL\n", __func__);
+		return -EINVAL;
+	}
 	data->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(data->base)) {
 		pr_notice("mtk_iommu base is null\n");
@@ -4599,7 +4603,7 @@ static int mtk_iommu_probe(struct platform_device *pdev)
 
 	pr_notice("%s-, %d,total=%d,m4u%d,base=0x%lx,protect=0x%pa\n",
 		  __func__, __LINE__, total_iommu_cnt, data->m4uid,
-		  (unsigned long)data->base, &data->protect_base);
+		  (uintptr_t)data->base, &data->protect_base);
 	return ret;
 }
 

@@ -219,7 +219,10 @@ static int fbconfig_open(struct inode *inode, struct file *file)
 	PanelMaster_set_PM_enable(1);
 	pm_params->pLcm_drv = DISP_GetLcmDrv();
 	pm_params->pLcm_params = DISP_GetLcmPara();
-
+	if (pm_params->pLcm_params == NULL) {
+		DISPERR("[fbconfig_kdebug.c] pm_params->pLcm_params is null!!!\n");
+		return -EFAULT;
+	}
 	if (pm_params->pLcm_params->lcm_if == LCM_INTERFACE_DSI_DUAL)
 		pm_params->dsi_id = PM_DSI_DUAL;
 	else if (pm_params->pLcm_params->lcm_if == LCM_INTERFACE_DSI1)

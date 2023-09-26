@@ -93,6 +93,8 @@ static bool prop_request(char *kbuf,
 	n = sscanf(kbuf, "%s %31s %x", prop, pll_name, &arg);
 		FHDBG("prop<%s>, pll_name<%s>, arg<%x>\n",
 				prop, pll_name, arg);
+	if (n == -1)
+		FHDBG("error input format\n");
 
 	/* get entry by pll_name */
 	for (i = 0; i < num_pll; i++, array++) {
@@ -267,6 +269,13 @@ static int fh_dumpregs_read(struct seq_file *m, void *v)
 		pll_id = array->pll_id;
 		pll_name = array->pll_name;
 		domain = get_fh_domain(array->domain);
+
+		if (domain == NULL) {
+			FHDBG("domain is null!");
+			WARN_ON(1);
+			return 0;
+		}
+
 		regs = &domain->regs[fh_id];
 		data = &domain->data[fh_id];
 

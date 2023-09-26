@@ -72,7 +72,7 @@ static inline unsigned long history_rec_test_busy(struct history_record
 						  unsigned int index)
 {
 	unsigned long *p = history_record->bitmap_busy + index / BITS_PER_LONG;
-	int bit_mask = 1UL << (index % BITS_PER_LONG);
+	unsigned int bit_mask = 1UL << (index % BITS_PER_LONG);
 
 	return *p & bit_mask;
 }
@@ -81,7 +81,8 @@ static inline void history_rec_set_busy(struct history_record
 					*history_record, unsigned int index)
 {
 	unsigned long *p = history_record->bitmap_busy + index / BITS_PER_LONG;
-	int bit_mask = 1UL << (index % BITS_PER_LONG);
+	unsigned int bit_mask = 1UL << (index % BITS_PER_LONG);
+
 	*p |= bit_mask;
 }
 
@@ -333,6 +334,11 @@ struct history_record *history_rec_create(unsigned int record_num,
 
 	size_align = record_num * record_size;
 	size_align = ALIGN(size_align, PAGE_SIZE);
+	if (!record_size) {
+		IONMSG("warning! record_size is 0\n");
+		return ERR_PTR(-EINVAL);
+	}
+
 	num_align = size_align / record_size;
 
 	bitmap_bytes = BITS_TO_LONGS(num_align) * sizeof(unsigned long);
@@ -435,7 +441,7 @@ static struct hlist_head ion_str_hash[STR_HASH_BUCKET_NUM];
 DEFINE_SPINLOCK(ion_str_hash_lock);
 
 /* as tested, simple add hash is better than RS_hash & BKDR_hash ! */
-static unsigned int add_hash(char *str, unsigned int len)
+static unsigned int add_hash(const char *str, unsigned int len)
 {
 	unsigned int hash = 0, i;
 

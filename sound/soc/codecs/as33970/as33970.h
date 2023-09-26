@@ -1,0 +1,151 @@
+/*
+ * cx2092x.h -- CX20921 and CX20924 Audio driver
+ *
+ * Copyright:   (C) 2017 Conexant Systems, Inc.
+ *
+ * This is based on Alexander Sverdlin's CS4271 driver code.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ */
+
+#ifndef __CX33970_PRIV_H__
+#define __CX33970_PRIV_H__
+
+#define CX33970_REG_MAX 0x2000
+
+enum {
+	CONTROL_APP_VERSION = 3,
+	CONTROL_APP_EXEC_FILE = 4,
+	CONTROL_APP_FW_UPGD = 33,
+	SOS_RESOURCE = 47,
+	CONTROL_MGR_TUNED_MODES = 85,
+	CONTROL_MGR_PARAMETER_VALUE = 90,
+	CONTROL_APP_GET_MODE = 0x12f,
+} control_app_command_code;
+
+enum {
+	FAC_STOP_RECORD = 0,
+	FAC_MIC1_RECORD,
+	FAC_MIC2_RECORD,
+	FAC_ECHO_REF,
+} fac_test_cmd;
+
+enum {
+	SYS_CMD_VERSION                       = 1,
+	SYS_CMD_SOFTRESET                     = 3,
+	SYS_CMD_EXEC_FILE                     = 9,
+	SYS_CMD_PARAMETER_VALUE               = 14,
+
+	SYS_CMD_EVENT_PARAM                   = 15,
+	SYS_CMD_MODE_ID                       = 19,
+	SYS_CMD_SCRIPT_DATA                   = 20,
+	SYS_CMD_BL_VERSION                    = 26,
+	SYS_CMD_CURRENT_SYS_PARTITION         = 28,
+	SYS_CMD_IPC_CMD                       = 37,
+	SYS_CMD_IPC_MSG                       = 38
+} SysCmdCode;
+
+enum {
+	EVENT_PAR_I2S_IDX            = 29,
+	PAR_INDEX_EVENT_ARG0         = 32
+} ParProcessIndex;
+
+enum {
+	EVENT_PAR_RATE_MAIN_INPUT             = PAR_INDEX_EVENT_ARG0,
+	EVENT_PAR_RATE_EC_REF                 = PAR_INDEX_EVENT_ARG0 + 5,
+	//Used by Freeman3 on tahiti, careful when modify its value.
+	EVENT_PAR_RATE_HOST_RECORD            = PAR_INDEX_EVENT_ARG0 + 6,
+	EVENT_PAR_RATE_INDX_EC_REF            = PAR_INDEX_EVENT_ARG0 + 7,
+	EVENT_PAR_RATE_INDX_HOST_RECORD       = PAR_INDEX_EVENT_ARG0 + 8,
+	EVENT_PAR_RATE_INDX_USB_HOST_RECORD   = PAR_INDEX_EVENT_ARG0 + 9,
+	EVENT_PAR_RATE_INDX_USB_HOST_PLAYBACK = PAR_INDEX_EVENT_ARG0 + 10,
+	EVENT_PAR_USB_RECORD_STATE            = PAR_INDEX_EVENT_ARG0 + 11,
+	EVENT_PAR_VOL_USB_RECORD_CH0          = PAR_INDEX_EVENT_ARG0 + 12,
+	EVENT_PAR_VOL_USB_RECORD_CH1          = PAR_INDEX_EVENT_ARG0 + 13,
+	EVENT_PAR_USB_PLAYBACK_STATE          = PAR_INDEX_EVENT_ARG0 + 18,
+	EVENT_PAR_VOL_USB_PLAYBACK_CH0        = PAR_INDEX_EVENT_ARG0 + 19,
+	EVENT_PAR_VOL_USB_PLAYBACK_CH1        = PAR_INDEX_EVENT_ARG0 + 20,
+	EVENT_PAR_ANC_FF_CALIB_GAIN           = PAR_INDEX_EVENT_ARG0 + 21,
+	EVENT_PAR_ANC_FB_CALIB_GAIN           = PAR_INDEX_EVENT_ARG0 + 22,
+	EVENT_PAR_ANC_PLBK_CANC_CALIB_GAIN    = PAR_INDEX_EVENT_ARG0 + 23,
+	EVENT_PAR_AMB_INCL_CALIB_GAIN         = PAR_INDEX_EVENT_ARG0 + 24,
+	EVENT_PAR_PLBK_CALIB_GAIN             = PAR_INDEX_EVENT_ARG0 + 25,
+	EVENT_PAR_PSAP_CALIB_GAIN             = PAR_INDEX_EVENT_ARG0 + 26,
+	EVENT_PAR_TRIG_DETECTED_INDEX         = PAR_INDEX_EVENT_ARG0 + 40,
+	EVENT_PAR_ANC_PROFILE_LEFT            = PAR_INDEX_EVENT_ARG0 + 48, //
+	EVENT_PAR_ANC_PROFILE_RIGHT           = PAR_INDEX_EVENT_ARG0 + 49, //
+	EVENT_PAR_EAR_ROLE                    = PAR_INDEX_EVENT_ARG0 + 50, //
+} EventParIndex;
+
+enum {
+	EVENT_SAMPLE_RATE_CHANGE              = 1 << 0,  //used by software caf
+	EVENT_USB_RECORD_STARTSTOP            = 1 << 1,
+	EVENT_USB_RECORD_SAMPLE_RATE_CHANGE   = 1 << 2,
+	EVENT_VOLUME_CHANGE_MUTE_USB_RECORD   = 1 << 3,
+	EVENT_VOLUME_CHANGE_USB_RECORD        = 1 << 4,
+	EVENT_USB_PLAYBACK_STARTSTOP          = 1 << 5,
+	EVENT_USB_PLAYBACK_SAMPLE_RATE_CHANGE = 1 << 6,
+	EVENT_VOLUME_CHANGE_USB_PLAYBACK      = 1 << 7,
+	EVENT_TRIG_DETECTED                   = 1 << 8,
+	EVENT_CMND_DETECTED                   = 1 << 9,
+	EVENT_CADENCE_END                     = 1 << 10,
+	EVENT_CUSTOM_0                        = 1 << 11,
+	EVENT_GPIO0_INPUT_SERVICE             = 1 << 12,
+	EVENT_GPIO1_INPUT_SERVICE             = 1 << 13,
+	EVENT_GPIO2_INPUT_SERVICE             = 1 << 14,
+	EVENT_GPIO3_INPUT_SERVICE             = 1 << 15,
+	EVENT_GPIO4_INPUT_SERVICE             = 1 << 16,
+	EVENT_MIC_MUTE_STATE                  = 1 << 17,
+	EVENT_AVAD_DETECTED                   = 1 << 18,
+	EVENT_ANC_CONTROL                     = 1 << 19,
+	EVENT_DYNAMIC_MIC_CHANGE              = 1 << 20,
+	EVENT_ANC_PROFILE                     = 1 << 21,
+	EVENT_AF_CONTROL                      = 1 << 22,
+	EVENT_TRIG_VAD_HANGOVER               = 1 << 23,
+	EVENT_LP_TRIG_DETECTED                = 1 << 24,
+} EventId;
+
+enum {
+	PAR_INDEX_I2S_RX_WIDTH = 14,
+	PAR_INDEX_I2S_RX_DELAY = 15,
+	PAR_INDEX_I2S_RX_JUSTIFY = 16,
+	PAR_INDEX_I2S_RX_LR_POLARITY = 17,
+	PAR_INDEX_I2S_RX_NUM_OF_BITS = 18,
+	PAR_INDEX_I2S_TX_WIDTH = 19,
+	PAR_INDEX_I2S_TX_DELAY = 20,
+	PAR_INDEX_I2S_TX_JUSTIFY = 21,
+	PAR_INDEX_I2S_TX_LR_POLARITY = 22,
+	PAR_INDEX_I2S_TX_NUM_OF_BITS = 23,
+	PAR_INDEX_OUTPUT_MCLK_FREQ   = 24,
+} i2s_fmt;
+
+enum {
+	MCLK_DISABLE = 0,
+	MCLK_FREQ_24_5760,
+	MCLK_FREQ_12_2880,
+	MCLK_FREQ_8_1920,
+	MCLK_FREQ_6_1440,
+	MCLK_FREQ_4_9152,
+	MCLK_FREQ_4_0960,
+	MCLK_FREQ_3_5109,
+	MCLK_FREQ_3_0720,
+	MCLK_FREQ_2_7307,
+	MCLK_FREQ_2_4576,
+	MCLK_FREQ_2_2342,
+	MCLK_FREQ_2_0480,
+	MCLK_FREQ_1_8905,
+	MCLK_FREQ_1_7554,
+	MCLK_FREQ_1_6384,
+	MCLK_FREQ_1_5360,
+	MAX_NUM_MCLK_FREQS
+} mclk_freqs;
+
+#define EVENT_PAR_RATE_INDX_EXTRA_INPUT (61)
+#define EVENT_PAR_RATE_INDX_MAIN_OUTPUT (62)
+
+#define CHANNEL_MIXER_CMD_CONFIG        0x0040
+
+#endif

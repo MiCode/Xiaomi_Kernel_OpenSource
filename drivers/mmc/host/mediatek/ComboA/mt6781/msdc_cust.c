@@ -623,7 +623,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	}
 #endif
 
-	pr_info("[msdc%d] src_hclk_ctl:%p, hclk:%p, clk_ctl:%p, hclk_ctl:%p\n",
+	pr_info("[msdc%d] src_hclk_ctl:%p, hclk:%u, clk_ctl:%p, hclk_ctl:%p\n",
 		pdev->id, host->src_hclk_ctl, host->hclk,
 		host->clk_ctl, host->hclk_ctl);
 
@@ -1371,7 +1371,7 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 	struct msdc_host *host = mmc_priv(mmc);
 	int ret = 0;
 	int len = 0;
-	u8 id;
+	u8 id = 0;
 	const char *dup_name; /*use to solve UAF issue :ALPS04094268*/
 	int boot_type;
 

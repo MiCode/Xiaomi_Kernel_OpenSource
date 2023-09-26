@@ -183,6 +183,7 @@ static int mtk_mux_set_parent_setclr(struct clk_hw *hw, u8 index)
 	u32 mask = GENMASK(mux->mux_width - 1, 0);
 	u32 val = 0, orig = 0;
 	unsigned long flags = 0;
+	const char *name;
 
 	if (mux->lock)
 		spin_lock_irqsave(mux->lock, flags);
@@ -204,8 +205,12 @@ static int mtk_mux_set_parent_setclr(struct clk_hw *hw, u8 index)
 		 * Workaround for mm dvfs. Poll mm rdma reg before
 		 * clkmux switching.
 		 */
-		if (!strcmp(__clk_get_name(hw->clk), "mm_sel"))
-			mm_polling(hw);
+
+		if (hw && hw->clk) {
+			name = __clk_get_name(hw->clk);
+			if (name && !strcmp(name, "mm_sel"))
+				mm_polling(hw);
+		}
 #endif
 
 		if (mux->upd_shift >= 0)

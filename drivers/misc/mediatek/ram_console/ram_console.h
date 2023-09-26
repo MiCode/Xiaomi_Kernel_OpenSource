@@ -17,6 +17,7 @@
 #define RAM_CONSOLE_EXP_TYPE_DEC(exp_type) \
 	((exp_type ^ RAM_CONSOLE_EXP_TYPE_MAGIC) < 16 ? \
 	 exp_type ^ RAM_CONSOLE_EXP_TYPE_MAGIC : exp_type)
+#define RAM_CONSOLE_DRAM_OFF 0X1000
 #ifdef CONFIG_MTPROF
 extern int boot_finish;
 #endif

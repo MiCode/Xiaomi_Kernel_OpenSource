@@ -357,6 +357,7 @@ void fpsgo_ctrl2comp_enqueue_end(int pid,
 			"pid[%d] type[%d] enqueue_e:%llu enqueue_l:%llu",
 			pid, f_render->frame_type,
 			enqueue_end_time, f_render->enqueue_length);
+
 		xgf_ret =
 			fpsgo_comp2xgf_qudeq_notify(pid, f_render->buffer_id,
 					XGF_QUEUE_END, &running_time, &mid,

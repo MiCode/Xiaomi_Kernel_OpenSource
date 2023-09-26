@@ -50,6 +50,7 @@ struct mtk_drm_gem_obj {
 #endif
 	bool sec;
 	bool is_dumb;
+	int sec_id;
 };
 
 #define to_mtk_gem_obj(x) container_of(x, struct mtk_drm_gem_obj, base)

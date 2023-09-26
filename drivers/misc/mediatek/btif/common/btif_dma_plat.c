@@ -1348,7 +1348,7 @@ int hal_dma_dump_reg(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 
 void hal_dma_dump_vfifo(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 {
-	struct _DMA_VFIFO_ *p_vfifo = p_dma_info->p_vfifo;
+	struct _DMA_VFIFO_ *p_vfifo;
 
 	if (!p_dma_info)
 		return;

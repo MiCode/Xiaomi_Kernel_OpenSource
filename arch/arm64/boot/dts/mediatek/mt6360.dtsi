@@ -92,8 +92,8 @@
 		};
 		rgbled {
 			compatible = "mediatek,mt6360_pmu_rgbled";
-			mt,led_name = "mt6360_pmu_led1", "mt6360_pmu_led2",
-				      "mt6360_pmu_led3", "mt6360_pmu_led4";
+			mt,led_name = "red", "green",
+				      "blue", "mt6360_pmu_led4";
 			mt,led_default_trigger = "cc_mode", "cc_mode",
 						 "cc_mode", "none";
 		};
@@ -170,11 +170,12 @@
 				  "ldo3_oc_evt", "ldo5_oc_evt",
 				  "ldo1_pgb_evt", "ldo2_pgb_evt",
 				  "ldo3_pgb_evt", "ldo5_pgb_evt";
-		mt_pmic_vfp_ldo_reg: ldo1 {
+		mt_pmic_vmc_ldo_reg: ldo1 {
 			regulator-compatible = "LDO1";
-			regulator-name = "VFP";
+			regulator-name = "VMC";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <3600000>;
+			regulator-always-on;
 		};
 		mt_pmic_vtp_ldo_reg: ldo2 {
 			regulator-compatible = "LDO2";
@@ -182,9 +183,9 @@
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <3600000>;
 		};
-		mt_pmic_vmc_ldo_reg: ldo3 {
+		mt_pmic_vfp_ldo_reg: ldo3 {
 			regulator-compatible = "LDO3";
-			regulator-name = "VMC";
+			regulator-name = "VFP";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <3600000>;
 		};

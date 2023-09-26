@@ -93,7 +93,7 @@ bool is_valid_reg(void __iomem *addr)
 #if IS_ENABLED(CONFIG_MTK_DEVAPC) && !IS_ENABLED(CONFIG_DEVAPC_LEGACY)
 static void devapc_dump_regs(void)
 {
-	if (!clkchk_cfg || !clkchk_cfg || !clkchk_cfg->get_devapc_dump)
+	if (!clkchk_cfg || !clkchk_cfg->get_devapc_dump)
 		return;
 	clkchk_cfg->get_devapc_dump();
 }
@@ -107,7 +107,7 @@ static struct devapc_vio_callbacks devapc_vio_handle = {
 /******************* TOPCKGEN Subsys *******************************/
 static int get_vcore_opp(void)
 {
-	if (!clkchk_cfg || !clkchk_cfg || !clkchk_cfg->get_vcore_opp)
+	if (!clkchk_cfg || !clkchk_cfg->get_vcore_opp)
 		return VCORE_NULL;
 
 	return clkchk_cfg->get_vcore_opp();

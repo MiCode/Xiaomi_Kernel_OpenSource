@@ -124,7 +124,9 @@ enum scp_reserve_mem_id_t {
 #endif
 #ifdef CONFIG_MTK_ULTRASND_PROXIMITY
 	ULTRA_MEM_ID,
+	SCP_ELLIPTIC_DEBUG_MEM,
 #endif
+	SENS_ALS_CALI_MEM_ID,
 	NUMS_MEM_ID,
 };
 

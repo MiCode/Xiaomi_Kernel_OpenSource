@@ -103,6 +103,7 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_MAX_REFP_NUM = (1 << 23),
 	MTK_ENCODE_PARAM_REFP_DISTANCE = (1 << 24),
 	MTK_ENCODE_PARAM_REFP_FRMNUM = (1 << 25),
+	MTK_ENCODE_PARAM_DUMMY_NAL = (1 << 26),
 };
 
 /*
@@ -259,6 +260,7 @@ struct mtk_enc_params {
 	unsigned int    maxrefpnum;
 	unsigned int    refpdistance;
 	unsigned int    refpfrmnum;
+	unsigned int	dummynal;
 };
 
 /*
@@ -320,6 +322,8 @@ struct venc_enc_param {
 	unsigned int maxrefpnum;
 	unsigned int refpdistance;
 	unsigned int refpfrmnum;
+	char *log;
+	unsigned int dummynal;
 };
 
 /*

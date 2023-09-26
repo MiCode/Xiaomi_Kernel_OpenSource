@@ -888,7 +888,7 @@ int rawbulk_start_transactions(int transfer_id, int nups, int ndowns, int upsz,
 	C2K_NOTE("%s\n", __func__);
 
 	transfer = id_to_transfer(transfer_id);
-	if (!transfer)
+	if ((!transfer) || (transfer_id >= ARRAY_SIZE(transfer_name)))
 		return -ENODEV;
 
 	memset(name, 0, 20);

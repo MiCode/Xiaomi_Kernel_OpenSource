@@ -103,7 +103,6 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #define FALSE 0
 #endif
 
-#define DSC_ENABLE
 /* i2c control start */
 
 #define LCM_I2C_ADDR 0x3E
@@ -351,7 +350,11 @@ static struct LCM_setting_table init_setting_vdo[] = {
 	{0x51, 1, {0x00} },
 	{0x35, 1, {0x00} },
 	{0x53, 1, {0x24} },
-
+#ifdef DSC_ENABLE
+	{0xC0, 1, {0x03} },
+#else
+	{0xC0, 1, {0x00} },
+#endif
 	{0x53, 1, {0x24} },
 	{0x55, 1, {0x00} },
 	{0xFF, 1, {0x10} },

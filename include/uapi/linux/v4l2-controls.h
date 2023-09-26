@@ -170,6 +170,12 @@ enum v4l2_mpeg_video_qp_control_mode {
 #define V4L2_CID_MPEG_MTK_ENCODE_REFP_FRAME_NUM \
 	(V4L2_CID_MPEG_MTK_BASE+44)
 
+#define V4L2_CID_MPEG_MTK_LOG \
+	(V4L2_CID_MPEG_MTK_BASE+46)
+
+#define V4L2_CID_MPEG_MTK_ENCODE_ENABLE_DUMMY_NAL \
+	(V4L2_CID_MPEG_MTK_BASE+47)
+
 /* User-class control IDs */
 
 #define V4L2_CID_BASE			(V4L2_CTRL_CLASS_USER | 0x900)

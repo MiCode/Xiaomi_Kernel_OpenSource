@@ -301,6 +301,7 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	void __iomem *vdec_ufo_addr = dev->dec_reg_base[VDEC_BASE] + 0x800;
 	void __iomem *vdec_lat_misc_addr = dev->dec_reg_base[VDEC_LAT_MISC];
 	void __iomem *vdec_lat_vld_addr = dev->dec_reg_base[VDEC_LAT_VLD];
+	void __iomem *vdec_soc_gcon_addr = dev->dec_reg_base[VDEC_SOC_GCON];
 	struct mtk_vcodec_ctx *ctx = NULL;
 	int misc_offset[4] = {64, 66, 67, 65};
 
@@ -314,9 +315,12 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 
 	if (hw_id == MTK_VDEC_CORE) {
 		ctx = dev->curr_dec_ctx[hw_id];
-		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		if (ctx)
+			fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		else
+			fourcc = 0;
 		if (readl(vdec_gcon_addr) == 0) {
-			mtk_v4l2_debug(0, "VDEC not HW break since clk off. codec:0x%08x(%c%c%c%c)",
+			mtk_v4l2_debug(0, "VDEC CORE not HW break since clk off. codec:0x%08x(%c%c%c%c)",
 			    fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
 			    (fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF);
 			return;
@@ -395,7 +399,16 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 		writel(0x0, vdec_vld_addr + 0x0108);
 	} else if (hw_id == MTK_VDEC_LAT) {
 		ctx = dev->curr_dec_ctx[hw_id];
-		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		if (ctx)
+			fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
+		else
+			fourcc = 0;
+		if (readl(vdec_soc_gcon_addr+0x200) == 0) {
+			mtk_v4l2_debug(0, "VDEC LAT not HW break since clk off. codec:0x%08x(%c%c%c%c)",
+			    fourcc, fourcc & 0xFF, (fourcc >> 8) & 0xFF,
+			    (fourcc >> 16) & 0xFF, (fourcc >> 24) & 0xFF);
+			return;
+		}
 		/* hw break */
 		writel((readl(vdec_lat_misc_addr + 0x0100) | 0x1),
 			vdec_lat_misc_addr + 0x0100);
@@ -842,6 +855,7 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 #if DEC_DVFS
 	long long op_rate_to_freq = 0;
 	u64 target_freq_64 = 0;
+	struct mtk_vcodec_dev *dev = ctx->dev;
 
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 	if ((ctx->q_data[MTK_Q_DATA_DST].coded_width *
@@ -850,19 +864,6 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		vdec_req_freq[hw_id] = 416;
 	} else {
 		vdec_req_freq[hw_id] = STD_VDEC_FREQ;
-	}
-
-	if (ctx->dec_params.operating_rate > 0) {
-		op_rate_to_freq = 416LL *
-				ctx->q_data[MTK_Q_DATA_DST].coded_width *
-				ctx->q_data[MTK_Q_DATA_DST].coded_height *
-				ctx->dec_params.operating_rate /
-				3840LL / 2160LL / 60LL;
-		target_freq_64 = match_freq((int)op_rate_to_freq,
-					&vdec_freq_steps[0],
-					vdec_freq_step_size);
-
-		vdec_req_freq[hw_id] = target_freq_64;
 	}
 
 	if (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG1 ||
@@ -875,6 +876,28 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		vdec_req_freq[hw_id] = 416;
 
 	if (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_HEIF)
+		vdec_req_freq[hw_id] = 546;
+
+	if ((ctx->dec_params.operating_rate > 121 || ctx->dec_params.operating_rate <= 0) &&
+	(ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H264 ||
+	ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H265 ||
+	ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_VP9 ||
+	ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_AV1)) {
+		vdec_req_freq[hw_id] = 546;
+	} else if (ctx->dec_params.operating_rate > 0) {
+		op_rate_to_freq = 416LL *
+				ctx->q_data[MTK_Q_DATA_DST].coded_width *
+				ctx->q_data[MTK_Q_DATA_DST].coded_height *
+				ctx->dec_params.operating_rate /
+				3840LL / 2160LL / 60LL;
+		target_freq_64 = match_freq((int)op_rate_to_freq,
+					&vdec_freq_steps[0],
+					vdec_freq_step_size);
+
+		vdec_req_freq[hw_id] = target_freq_64;
+	}
+
+	if (dev->dec_cnt > 2)
 		vdec_req_freq[hw_id] = 546;
 
 	vdec_freq = vdec_req_freq[0] > vdec_req_freq[1] ?
@@ -908,11 +931,20 @@ void mtk_vdec_dvfs_end(struct mtk_vcodec_ctx *ctx, int hw_id)
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 #endif
 #if DEC_DVFS
+	struct mtk_vcodec_dev *dev = ctx->dev;
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 
 	vdec_req_freq[hw_id] = 0;
 	vdec_freq = vdec_req_freq[0] > vdec_req_freq[1] ?
 			vdec_req_freq[0] : vdec_req_freq[1];
+
+	if ((ctx->dec_params.operating_rate > 121 || ctx->dec_params.operating_rate <= 0) &&
+	(ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_AV1)) {
+		vdec_req_freq[hw_id] = 546;
+	}
+
+	if (dev->dec_cnt > 2)
+		vdec_req_freq[hw_id] = 546;
 
 	pm_qos_update_request(&vdec_qos_req_f, vdec_freq);
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
@@ -951,7 +983,6 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 		break;
 	case V4L2_PIX_FMT_MPEG4:
 	case V4L2_PIX_FMT_H263:
-	case V4L2_PIX_FMT_S263:
 	case V4L2_PIX_FMT_MPEG1:
 	case V4L2_PIX_FMT_MPEG2:
 		emi_bw = emi_bw * mp24_frm_scale[f_type] / (2 * STD_VDEC_FREQ);
@@ -1041,7 +1072,6 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 			break;
 		case V4L2_PIX_FMT_MPEG4:
 		case V4L2_PIX_FMT_H263:
-		case V4L2_PIX_FMT_S263:
 		case V4L2_PIX_FMT_MPEG1:
 		case V4L2_PIX_FMT_MPEG2:
 			emi_bw_input = 15 * vdec_freq / STD_VDEC_FREQ;

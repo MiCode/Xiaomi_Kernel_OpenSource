@@ -177,7 +177,7 @@ struct cmdq_client *cmdq_mbox_create(struct device *dev, int index)
 	client->client.tx_block = false;
 	client->chan = mbox_request_channel(&client->client, index);
 	if (IS_ERR(client->chan)) {
-		cmdq_err("channel request fail:%d, idx:%d",
+		cmdq_err("channel request fail:%ld, idx:%d",
 			PTR_ERR(client->chan), index);
 		dump_stack();
 		kfree(client);
@@ -430,7 +430,7 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 					buf->va_base, buf->pa_base,
 					pkt->cur_pool.cnt);
 			else {
-				cmdq_err("free pool:%s dev:%#lx pa:%pa cl:%#lx",
+				cmdq_err("free pool:%s dev:%#lx pa:%pa cl:%p",
 					buf->use_pool ? "true" : "false",
 					(unsigned long)pkt->dev,
 					&buf->pa_base,
@@ -515,7 +515,7 @@ struct cmdq_pkt *cmdq_pkt_create(struct cmdq_client *client)
 	if (client && cmdq_util_is_feature_en(CMDQ_LOG_FEAT_PERF))
 		cmdq_pkt_perf_begin(pkt);
 #endif
-
+	pkt->task_alive = true;
 	return pkt;
 }
 EXPORT_SYMBOL(cmdq_pkt_create);
@@ -526,6 +526,7 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 
 	if (client)
 		mutex_lock(&client->chan_mutex);
+	pkt->task_alive = false;
 	cmdq_pkt_free_buf(pkt);
 	kfree(pkt->flush_item);
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
@@ -1647,7 +1648,7 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 		len = snprintf(text_gpr, ARRAY_SIZE(text_gpr),
 			" GPR R%u:%#x", gprid, val);
 		if (len >= ARRAY_SIZE(text_gpr))
-			cmdq_log("len:%d over text_gpr size:%d",
+			cmdq_log("len:%d over text_gpr size:%lu",
 				len, ARRAY_SIZE(text_gpr));
 	}
 
@@ -2207,7 +2208,7 @@ static void cmdq_buf_print_move(char *text, u32 txt_sz,
 			"%#06x %#010x [Move ] mask %#018llx",
 			offset, *((u32 *)cmdq_inst), ~val);
 	if (len >= txt_sz)
-		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
+		cmdq_log("len:%llu over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_logic(char *text, u32 txt_sz,
@@ -2381,10 +2382,20 @@ void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
 
 s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 {
-	struct cmdq_client *client = (struct cmdq_client *)pkt->cl;
+	struct cmdq_client *client;
 	struct cmdq_pkt_buffer *buf;
 	u32 size, cnt = 0;
 
+	if (!pkt) {
+		cmdq_err("%s pkt is empty",__func__);
+		return -EINVAL;
+	}
+	if (!pkt->task_alive) {
+		cmdq_err("%s task_alive:%d",__func__,pkt->task_alive);
+		return -EINVAL;
+	}
+
+	client = (struct cmdq_client *)pkt->cl;
 	list_for_each_entry(buf, &pkt->buf, list_entry) {
 		if (list_is_last(&buf->list_entry, &pkt->buf)) {
 			size = CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
@@ -2403,8 +2414,10 @@ s32 cmdq_pkt_dump_buf(struct cmdq_pkt *pkt, dma_addr_t curr_pa)
 		}
 		cmdq_util_user_msg(client->chan, "buffer %u va:0x%p pa:%pa",
 			cnt, buf->va_base, &buf->pa_base);
-		cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
-			buf->pa_base, curr_pa, NULL, client->chan);
+		if(buf->va_base) {
+			cmdq_buf_cmd_parse(buf->va_base, CMDQ_NUM_CMD(size),
+				buf->pa_base, curr_pa, NULL, client->chan);
+		}
 		cnt++;
 	}
 
@@ -2416,8 +2429,14 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt, dma_addr_t pc, bool dump_ist)
 {
 	struct cmdq_client *client;
 
-	if (!pkt)
+	if (!pkt) {
+		cmdq_err("%s pkt is empty",__func__);
 		return -EINVAL;
+	}
+	if (!pkt->task_alive) {
+		cmdq_err("%s task_alive:%d",__func__,pkt->task_alive);
+		return -EINVAL;
+	}
 
 	client = (struct cmdq_client *)pkt->cl;
 	cmdq_util_user_msg(client->chan,

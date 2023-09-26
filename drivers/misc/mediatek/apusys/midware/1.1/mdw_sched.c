@@ -511,6 +511,8 @@ int mdw_sched_pause(void)
 fail_sched_pause:
 	for (idx -= 1; idx >= 0; idx--) {
 		d = mdw_rsc_get_dinfo(type, idx);
+		if (!d)
+			continue;
 		if (d->resume(d)) {
 			mdw_drv_err("dev(%s%d) resume fail(%d)\n",
 				d->name, d->idx, ret);

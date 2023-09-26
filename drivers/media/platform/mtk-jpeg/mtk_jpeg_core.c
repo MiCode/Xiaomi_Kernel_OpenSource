@@ -372,7 +372,7 @@ int mtk_jpeg_ctrls_setup(struct mtk_jpeg_ctx *ctx)
 		return handler->error;
 	}
 	v4l2_ctrl_new_std(handler, ops, V4L2_CID_JPEG_COMPRESSION_QUALITY,
-			48, 100, 1, 90);
+			0, 100, 1, 90);
 	if (handler->error) {
 		v4l2_err(&jpeg->v4l2_dev, "V4L2_CID_JPEG_COMPRESSION_QUALITY Init control handler fail %d\n",
 		handler->error);
@@ -1156,24 +1156,24 @@ static void mtk_jpeg_set_param(struct mtk_jpeg_ctx *ctx,
 		param->enc_quality = JPEG_ENCODE_QUALITY_Q97;
 	else if (jpeg_params->enc_quality >= 95)
 		param->enc_quality = JPEG_ENCODE_QUALITY_Q95;
-	else if (jpeg_params->enc_quality >= 92)
-		param->enc_quality = JPEG_ENCODE_QUALITY_Q92;
 	else if (jpeg_params->enc_quality >= 90)
 		param->enc_quality = JPEG_ENCODE_QUALITY_Q90;
-	else if (jpeg_params->enc_quality >= 87)
-		param->enc_quality = JPEG_ENCODE_QUALITY_Q87;
-	else if (jpeg_params->enc_quality >= 84)
-		param->enc_quality = JPEG_ENCODE_QUALITY_Q84;
-	else if (jpeg_params->enc_quality >= 80)
-		param->enc_quality = JPEG_ENCODE_QUALITY_Q80;
-	else if (jpeg_params->enc_quality >= 74)
-		param->enc_quality = JPEG_ENCODE_QUALITY_Q74;
-	else if (jpeg_params->enc_quality >= 64)
-		param->enc_quality = JPEG_ENCODE_QUALITY_Q64;
+	else if (jpeg_params->enc_quality >= 85)
+		param->enc_quality = JPEG_ENCODE_QUALITY_Q85;
+	else if (jpeg_params->enc_quality >= 78)
+		param->enc_quality = JPEG_ENCODE_QUALITY_Q78;
+	else if (jpeg_params->enc_quality >= 72)
+		param->enc_quality = JPEG_ENCODE_QUALITY_Q72;
 	else if (jpeg_params->enc_quality >= 60)
 		param->enc_quality = JPEG_ENCODE_QUALITY_Q60;
+	else if (jpeg_params->enc_quality >= 52)
+		param->enc_quality = JPEG_ENCODE_QUALITY_Q52;
+	else if (jpeg_params->enc_quality >= 44)
+		param->enc_quality = JPEG_ENCODE_QUALITY_Q44;
+	else if (jpeg_params->enc_quality >= 38)
+		param->enc_quality = JPEG_ENCODE_QUALITY_Q38;
 	else
-		param->enc_quality = JPEG_ENCODE_QUALITY_Q48;
+		param->enc_quality = JPEG_ENCODE_QUALITY_Q30;
 	param->enable_exif = jpeg_params->enable_exif;
 	param->restart_interval = jpeg_params->restart_interval;
 	width_even = ((param->enc_w + 1) >> 1) << 1;

@@ -26,6 +26,7 @@
 #include "mtk_drm_mmp.h"
 #include "ion_drv.h"
 #include "ion_priv.h"
+#include "ion_sec_heap.h"
 #include <soc/mediatek/smi.h>
 #if defined(CONFIG_MTK_IOMMU_V2)
 #include "mt_iommu.h"
@@ -89,6 +90,7 @@ static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
 	sgt = kzalloc(sizeof(*sgt), GFP_KERNEL);
 	if (!sgt) {
 		DDPPR_ERR("sgt creation failed\n");
+		kfree(pages);
 		return NULL;
 	}
 
@@ -497,21 +499,19 @@ void mtk_drm_gem_ion_destroy_client(struct ion_client *client)
 void mtk_drm_gem_ion_free_handle(struct ion_client *client,
 	struct ion_handle *handle, const char *name, int line)
 {
-	DRM_MMP_EVENT_START(ion_import_free,
-			    (unsigned long)handle->buffer, line);
-
 	if (!client) {
 		DDPPR_ERR("invalid ion client!\n");
 		DRM_MMP_MARK(ion_import_free, 0, 1);
-		DRM_MMP_EVENT_END(ion_import_free, (unsigned long)client, line);
 		return;
 	}
 	if (!handle) {
 		DDPPR_ERR("invalid ion handle!\n");
 		DRM_MMP_MARK(ion_import_free, 0, 2);
-		DRM_MMP_EVENT_END(ion_import_free, (unsigned long)client, line);
 		return;
 	}
+
+	DRM_MMP_EVENT_START(ion_import_free,
+			    (unsigned long)handle->buffer, line);
 
 	ion_free(client, handle);
 
@@ -827,6 +827,7 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 {
 	struct drm_mtk_sec_gem_hnd *args = data;
 	struct mtk_drm_gem_obj *mtk_gem_obj;
+	int sec_buffer = 0;
 
 	DDPDBG("%s:%d dev:0x%p, data:0x%p, priv:0x%p +\n",
 		  __func__, __LINE__,
@@ -842,15 +843,20 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 		return -ENOMEM;
 
 	mtk_gem_obj->sec = true;
-	mtk_gem_obj->dma_addr = args->sec_hnd;
+	ion_fd2sec_type(args->sec_hnd/*ion_fd*/, &sec_buffer,
+			&mtk_gem_obj->sec_id, (ion_phys_addr_t *)&mtk_gem_obj->dma_addr);
+
 	drm_gem_private_object_init(dev, &mtk_gem_obj->base, 0);
 	drm_gem_handle_create(file_priv, &mtk_gem_obj->base, &args->gem_hnd);
 
-	DDPDBG("%s:%d obj:0x%p, sec:%d, addr:0x%llx -\n",
+	DDPDBG("%s:%d obj:0x%p, sec_hnd:%d, sec:%d, addr:0x%llx, sec_id:%d, gem_hnd:%d-\n",
 		  __func__, __LINE__,
 		  mtk_gem_obj,
+		  args->sec_hnd,
 		  mtk_gem_obj->sec,
-		  mtk_gem_obj->dma_addr);
+		  mtk_gem_obj->dma_addr,
+		  mtk_gem_obj->sec_id,
+		  args->gem_hnd);
 
 	return 0;
 }

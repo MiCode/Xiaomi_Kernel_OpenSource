@@ -1594,11 +1594,14 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 		else
 			return DDP_COMPONENT_OVL0;
 	}
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
+	else
+		return DDP_COMPONENT_OVL2_2L;
+#elif defined(CONFIG_MACH_MT6877)
 	else if (disp_idx == 1)
 		return DDP_COMPONENT_OVL2_2L;
 	else
-		return DDP_COMPONENT_OVL2_2L;
+		return DDP_COMPONENT_OVL1_2L;
 #else
 	/* When open VDS path switch feature, vds OVL is OVL0_2L */
 	else if (mtk_drm_helper_get_opt(priv->helper_opt,
@@ -1666,14 +1669,15 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 			disp_info->gles_tail[di]--;
 		else
 			c->layer_caps |= MTK_DISP_CLIENT_CLEAR_LAYER;
-
+/*
 		if ((c->src_width < c->dst_width &&
 		     c->src_height < c->dst_height) &&
 		     get_layering_opt(LYE_OPT_RPO) &&
 		    top < disp_info->gles_tail[di]) {
 			c->layer_caps |= MTK_DISP_RSZ_LAYER;
 			l_rule_info->addon_scn[di] = ONE_SCALING;
-		} else {
+		} else */
+		{
 			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
 			l_rule_info->addon_scn[di] = NONE;
 
@@ -1681,6 +1685,7 @@ static void clear_layer(struct drm_mtk_layering_info *disp_info)
 			     c->src_height != c->dst_height) &&
 			    !mtk_has_layer_cap(c, MTK_MDP_RSZ_LAYER)) {
 				c->layer_caps &= ~MTK_DISP_CLIENT_CLEAR_LAYER;
+				mtk_rollback_layer_to_GPU(disp_info, di, top);
 				DDPMSG("%s:remove clear(rsz), caps:0x%08x\n",
 				       __func__, c->layer_caps);
 			}
@@ -2437,6 +2442,9 @@ static int RPO_rule(struct drm_crtc *crtc,
 			break;
 		}
 
+		//if (c->layer_caps & MTK_LAYERING_OVL_ONLY)
+			//break;
+
 		if (!is_layer_across_each_pipe(crtc, c))
 			break;
 
@@ -3163,6 +3171,7 @@ struct drm_mtk_layering_info_32 {
 	int res_idx;
 	uint32_t hrt_weight;
 	uint32_t hrt_idx;
+	compat_uptr_t mml_frame_info[3];
 };
 
 int mtk_layering_rule_ioctl_compat(struct file *file, unsigned int cmd,

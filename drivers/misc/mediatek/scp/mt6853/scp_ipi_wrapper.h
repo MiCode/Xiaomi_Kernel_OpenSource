@@ -30,6 +30,7 @@ enum ipi_id {
 	IPI_CHRE,
 	IPI_CHREX,
 	IPI_SENSOR,
+	IPI_ELLIPTIC,
 	SCP_NR_IPI,
 };
 

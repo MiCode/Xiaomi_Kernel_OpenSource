@@ -71,7 +71,7 @@ static int otg_tcp_notifier_call(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
 	struct tcp_notify *noti = data;
-	bool otg_power_enable, otg_on;
+	bool otg_power_enable, otg_on, support_u3;
 
 	mutex_lock(&tcpc_otg_lock);
 	otg_on = usbc_otg_attached;
@@ -115,10 +115,18 @@ static int otg_tcp_notifier_call(struct notifier_block *nb,
 				usb3_switch_ctrl_sel(CC2_SIDE);
 		} else if (noti->typec_state.new_state == TYPEC_ATTACHED_SRC) {
 			usb3_switch_dps_en(false);
-			if (noti->typec_state.polarity == 0)
-				usb3_switch_ctrl_sel(CC2_SIDE);
-			else
-				usb3_switch_ctrl_sel(CC1_SIDE);
+			support_u3 = tcpc_is_support_u3();
+			if (support_u3) {
+				if (noti->typec_state.polarity == 0)
+					usb3_switch_ctrl_sel(CC1_SIDE);
+				else
+					usb3_switch_ctrl_sel(CC2_SIDE);
+			} else {
+				if (noti->typec_state.polarity == 0)
+					usb3_switch_ctrl_sel(CC2_SIDE);
+				else
+					usb3_switch_ctrl_sel(CC1_SIDE);
+			}
 		} else if (noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			usb3_switch_dps_en(true);
 		}

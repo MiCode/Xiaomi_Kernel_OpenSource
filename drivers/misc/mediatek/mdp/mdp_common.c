@@ -46,6 +46,7 @@
 #include <linux/dmapool.h>
 #include <linux/mailbox_controller.h>
 #include <linux/module.h>
+#include "ion_sec_heap.h"
 
 #if IS_ENABLED(CONFIG_MTK_SVP_ON_MTEE_SUPPORT) || IS_ENABLED(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)
 #include "tz_m4u.h"
@@ -1269,7 +1270,8 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 
 	CMDQ_MSG("%s start:%d, %d\n", __func__,
 		secData->is_secure, secData->addrMetadataCount);
-	if (!secData->addrMetadataCount) {
+	if ((!secData->addrMetadataCount) ||
+		(secData->addrMetadataCount > MDP_MAX_METADATA_COUNT_SIZE)) {
 		CMDQ_ERR(
 			"[secData]mismatch is_secure %d and addrMetadataCount %d\n",
 			secData->is_secure,
@@ -1331,6 +1333,8 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 		kfree(addr_meta);
 		return -EFAULT;
 	}
+
+	cmdq_mdp_init_secure_id(addr_meta, secData->addrMetadataCount);
 	cmdq_sec_pkt_assign_metadata(handle->pkt,
 		secData->addrMetadataCount,
 		addr_meta);
@@ -1371,6 +1375,41 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 #endif
 }
 
+void cmdq_mdp_init_secure_id(void *meta_array, u32 count)
+{
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	u32 i;
+	uint32_t trustmem_type = 0;
+	int sec = 0;
+	int iommu_sec_id = 0;
+	ion_phys_addr_t sec_handle;
+	struct cmdqSecAddrMetadataStruct *secMetadatas =
+			(struct cmdqSecAddrMetadataStruct *)meta_array;
+
+	for (i = 0; i < count; i++) {
+		secMetadatas[i].useSecIdinMeta = 1;
+		if (secMetadatas[i].ionFd <= 0) {
+			secMetadatas[i].sec_id = 0;
+			continue;
+		}
+
+		trustmem_type = ion_fd2sec_type(secMetadatas[i].ionFd, &sec,
+			&iommu_sec_id, &sec_handle);
+		secMetadatas[i].baseHandle = (uint64_t)sec_handle;
+#ifdef CONFIG_MTK_CMDQ_MBOX_EXT
+		secMetadatas[i].sec_id = iommu_sec_id;
+#else
+		secMetadatas[i].sec_id = trustmem_type;
+#endif
+		CMDQ_LOG("%s,port:%d,ionFd:%d,sec_id:%d,sec_handle:0x%#llx",
+				__func__, secMetadatas[i].port,
+				secMetadatas[i].ionFd,
+				secMetadatas[i].sec_id,
+				secMetadatas[i].baseHandle);
+	}
+#endif
+}
+
 s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
 	u32 sec_handle, u32 index, u32 instr_index)
 {
@@ -1398,6 +1437,11 @@ s32 cmdq_mdp_update_sec_addr_index(struct cmdqRecStruct *handle,
 
 u32 cmdq_mdp_handle_get_instr_count(struct cmdqRecStruct *handle)
 {
+	/* check boundary size and append at first before append metadata */
+	if (unlikely(!handle->pkt->avail_buf_size)) {
+		if (cmdq_pkt_add_cmd_buffer(handle->pkt) < 0)
+			return -ENOMEM;
+	}
 	return handle->pkt->cmd_buf_size / CMDQ_INST_SIZE;
 }
 
@@ -1466,8 +1510,6 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 
 	CMDQ_TRACE_FORCE_BEGIN("%s %llx\n", __func__, handle->engineFlag);
 	CMDQ_MSG("%s %llx\n", __func__, handle->engineFlag);
-	if (handle->profile_exec)
-		cmdq_pkt_perf_end(handle->pkt);
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	if (handle->secData.is_secure) {
@@ -1994,10 +2036,15 @@ static void cmdq_mdp_init_pmqos(void)
 		  PM_QOS_MDP_FREQ, PM_QOS_DEFAULT_VALUE);
 		pm_qos_add_request(&isp_clk_qos_request[i],
 		  PM_QOS_IMG_FREQ, PM_QOS_DEFAULT_VALUE);
-		snprintf(mdp_clk_qos_request[i].owner,
+		result = snprintf(mdp_clk_qos_request[i].owner,
 		  sizeof(mdp_clk_qos_request[i].owner) - 1, "mdp_clk_%d", i);
-		snprintf(isp_clk_qos_request[i].owner,
+		if (result < 0)
+			CMDQ_ERR("get mdp_clk_qos_request[i].owner failed, err: %d\n", result);
+
+		result = snprintf(isp_clk_qos_request[i].owner,
 		  sizeof(isp_clk_qos_request[i].owner) - 1, "isp_clk_%d", i);
+		if (result < 0)
+			CMDQ_ERR("get isp_clk_qos_request[i].owner failed, err: %d\n", result);
 	}
 	/* Call mmdvfs_qos_get_freq_steps to get supported frequency */
 	result = mmdvfs_qos_get_freq_steps(PM_QOS_MDP_FREQ, &g_freq_steps[0],
@@ -3687,6 +3734,10 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 		value[35] & 0xFFF, (value[35] >> 16) & 0xFFF);
 
 	CMDQ_ERR("RDMA grep:%d => suggest to ask SMI help:%d\n", grep, grep);
+#ifdef CONFIG_MTK_SMI_EXT
+	if (grep)
+		smi_debug_bus_hang_detect(false, "mdp");
+#endif
 }
 
 const char *cmdq_mdp_get_rsz_state(const u32 state)

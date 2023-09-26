@@ -14,6 +14,18 @@ struct mtk_spk_i2c_ctrl {
 	const char *stream_name;
 	const char *codec_dai_name;
 	const char *codec_name;
+#ifdef CONFIG_SND_SOC_CS35L41_ARES
+	struct snd_soc_dai_link_component *codecs;
+	unsigned int num_codecs;
+#endif
+#ifdef CONFIG_SND_SOC_CS35L41_CHOPIN
+	struct snd_soc_dai_link_component *codecs;
+	unsigned int num_codecs;
+#endif
+#ifdef CONFIG_SND_SOC_CS35L41_AGATE
+	struct snd_soc_dai_link_component *codecs;
+	unsigned int num_codecs;
+#endif
 };
 
 #define MTK_SPK_NOT_SMARTPA_STR "MTK_SPK_NOT_SMARTPA"
@@ -21,6 +33,7 @@ struct mtk_spk_i2c_ctrl {
 #define MTK_SPK_MEDIATEK_MT6660_STR "MTK_SPK_MEDIATEK_MT6660"
 #define MTK_SPK_MEDIATEK_RT5512_STR "MTK_SPK_MEDIATEK_RT5512"
 #define MTK_SPK_NXP_TFA98XX_STR "MTK_SPK_NXP_TFAXXXX"
+#define MTK_SPK_CS_CS35L41_STR "MTK_SPK_CS_CS35L41"
 
 #define MTK_SPK_I2S_0_STR "MTK_SPK_I2S_0"
 #define MTK_SPK_I2S_1_STR "MTK_SPK_I2S_1"
@@ -39,6 +52,18 @@ enum mtk_spk_type {
 	MTK_SPK_MEDIATEK_MT6660,
 	MTK_SPK_NXP_TFA98XX,
 	MTK_SPK_MEDIATEK_RT5512,
+#ifdef CONFIG_SND_SOC_CS35L41_ARES
+	MTK_SPK_CS_CS35L41,
+#endif
+#ifdef CONFIG_SND_SOC_CS35L41_CHOPIN
+	MTK_SPK_CS_CS35L41,
+#endif
+#ifdef CONFIG_SND_SOC_CS35L41_AGATE
+	MTK_SPK_CS_CS35L41,
+#endif
+#ifdef CONFIG_SND_SOC_CS35L41_PISSARRO
+	MTK_SPK_CS_CS35L41,
+#endif
 	MTK_SPK_TYPE_NUM
 };
 

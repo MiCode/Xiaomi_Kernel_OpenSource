@@ -2815,6 +2815,11 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			/* 2nd layer behavoir of copy from user
 			 * is implemented in ISP_WriteReg(...)
 			 */
+			if (RegIo.Count * sizeof(struct ISP_REG_STRUCT) > 0xFFFFF000) {
+				LOG_NOTICE("RegIo.Count error");
+				Ret = -EFAULT;
+				goto EXIT;
+			}
 			Ret = ISP_WriteReg(&RegIo);
 		} else {
 			LOG_NOTICE("copy_from_user failed\n");

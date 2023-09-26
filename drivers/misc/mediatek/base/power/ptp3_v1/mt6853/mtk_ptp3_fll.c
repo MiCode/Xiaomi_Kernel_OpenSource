@@ -240,6 +240,7 @@ static unsigned int fll_smc_handle(
 /************************************************
  * IPI between kernel and mcupm/cpu_eb
  ************************************************/
+#if 0
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 static void fll_ipi_handle(unsigned int cpu, unsigned int group,
 	unsigned int bits, unsigned int shift, unsigned int val)
@@ -253,7 +254,6 @@ static void fll_ipi_handle(unsigned int cpu, unsigned int group,
 	fll_msg("[%s]:cpu(%d) group(%d) shift(%d) bits(%d) val(%d)\n",
 		__func__, cpu, group, shift, bits, val);
 
-	/* update mcupm or cpueb via ipi */
 	while (ptp3_ipi_handle(&fll_data) != 0)
 		udelay(500);
 }
@@ -263,6 +263,7 @@ static void fll_ipi_handle(unsigned int cpu, unsigned int group,
 {
 	fll_msg("IPI from kernel to MCUPM not exist\n");
 }
+#endif
 #endif
 
 /************************************************
@@ -280,10 +281,11 @@ static void mtk_fll_pllclken(unsigned int fll_pllclken)
 		fll_smc_handle(
 			FLL_RW_WRITE, cpu, group, bits, shift,
 			(fll_pllclken >> cpu) & 1);
-		/* update via mcupm or cpu_eb */
+#if 0
 		fll_ipi_handle(
 			cpu, group, bits, shift,
 			(fll_pllclken >> cpu) & 1);
+#endif
 	}
 }
 
@@ -299,10 +301,11 @@ static void mtk_fll_bren(unsigned int fll_bren)
 		fll_smc_handle(
 			FLL_RW_WRITE, cpu, group, bits, shift,
 			(fll_bren >> cpu) & 1);
-		/* update via mcupm or cpu_eb */
+#if 0
 		fll_ipi_handle(
 			cpu, group, bits, shift,
 			(fll_bren >> cpu) & 1);
+#endif
 	}
 }
 
@@ -325,9 +328,10 @@ static void mtk_fll_kpki(unsigned int cpu, unsigned int fll_kp_online,
 	/* update via atf */
 	fll_smc_handle(
 		FLL_RW_WRITE, cpu, group, bits, shift, fll_kpki);
-	/* update via mcupm or cpu_eb */
+#if 0
 	fll_ipi_handle(
 		cpu, group, bits, shift, fll_kpki);
+#endif
 }
 
 static void mtk_fll(unsigned int cpu, unsigned int fll_group,
@@ -336,9 +340,10 @@ static void mtk_fll(unsigned int cpu, unsigned int fll_group,
 	/* update via atf */
 	fll_smc_handle(
 		FLL_RW_WRITE, cpu, fll_group, bits, shift, value);
-	/* update via mcupm or cpu_eb */
+#if 0
 	fll_ipi_handle(
 		cpu, fll_group, bits, shift, value);
+#endif
 }
 
 /************************************************

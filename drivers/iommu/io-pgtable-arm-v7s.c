@@ -778,7 +778,7 @@ static int arm_v7s_split_blk_unmap(struct arm_v7s_io_pgtable *data,
 		tablep = iopte_deref(pte, 1);
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
 		pr_notice("%s, %d, unmap when install failed, iova=0x%lx, ptep=0x%lx, size=0x%lx, level=2\n",
-			__func__, __LINE__, iova, (unsigned long)tablep, size);
+			__func__, __LINE__, iova, (uintptr_t)tablep, size);
 #endif
 		return __arm_v7s_unmap(data, iova, size, 2, tablep);
 	}
@@ -1208,7 +1208,7 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
 #ifdef MTK_PGTABLE_DEBUG_ENABLED
 	phys_addr = virt_to_phys(data->pgd);
 	pr_notice("%s, %d, pgd=0x%lx, cf.ttbr=0x%x,pgd_pa=0x%lx\n",
-		  __func__, __LINE__, (unsigned long)data->pgd,
+		  __func__, __LINE__, (uintptr_t)data->pgd,
 		cfg->arm_v7s_cfg.ttbr[0], phys_addr);
 #endif
 	return &data->iop;

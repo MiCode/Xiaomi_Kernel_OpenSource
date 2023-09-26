@@ -31,7 +31,11 @@ module_param(dbg_log_en, bool, 0644);
 
 static const struct mt6360_ldo_platform_data def_platform_data = {
 	.sdcard_det_en = true,
+#ifdef CONFIG_SD_PISSARRO
+	.sdcard_hlact = false,
+#else
 	.sdcard_hlact = true,
+#endif
 };
 
 struct mt6360_regulator_desc {
@@ -319,21 +323,9 @@ static int mt6360_ldo_enable(struct regulator_dev *rdev)
 	int id = rdev_get_id(rdev), ret;
 
 	mt_dbg(&rdev->dev, "%s, id = %d\n", __func__, id);
-	ret = mt6360_ldo_reg_update_bits(mli, desc->enable_reg,
-					 desc->enable_mask, 0xff);
-	if (ret < 0) {
-		dev_err(&rdev->dev, "%s: fail (%d)\n", __func__, ret);
-		return ret;
-	}
-	/* when LDO5 enable, enable SDCARD_DET */
+
+	/* Enable SDCARD_DET before LDO5 enables. */
 	if (id == MT6360_LDO_LDO5 && pdata->sdcard_det_en) {
-		ret = mt6360_ldo_reg_update_bits(mli, MT6360_LDO_LDO5_CTRL0,
-						 0x40, 0xff);
-		if (ret < 0) {
-			dev_err(&rdev->dev,
-				"%s: en sdcard_det fail (%d)\n", __func__, ret);
-			return ret;
-		}
 		ret = mt6360_ldo_reg_update_bits(mli, MT6360_LDO_LDO5_CTRL0,
 						 0x80, pdata->sdcard_hlact ? 0xff : 0);
 		if (ret < 0) {
@@ -341,7 +333,22 @@ static int mt6360_ldo_enable(struct regulator_dev *rdev)
 				"%s: sdcard_hlact fail (%d)\n", __func__, ret);
 			return ret;
 		}
+		ret = mt6360_ldo_reg_update_bits(mli, MT6360_LDO_LDO5_CTRL0,
+						 0x40, 0xff);
+		if (ret < 0) {
+			dev_info(&rdev->dev,
+				"%s: en sdcard_det fail (%d)\n", __func__, ret);
+			return ret;
+		}
 	}
+
+	ret = mt6360_ldo_reg_update_bits(mli, desc->enable_reg,
+					 desc->enable_mask, 0xff);
+	if (ret < 0) {
+		dev_info(&rdev->dev, "%s: fail (%d)\n", __func__, ret);
+		return ret;
+	}
+
 	return 0;
 }
 

@@ -574,7 +574,7 @@ struct tick_broadcast_dump_buf bc_dump_buf;
 
 void tick_broadcast_mtk_aee_dump(void)
 {
-	int i;
+	int i, ret = -1;
 
 	/*
 	 * Notice: printk cannot be used during AEE flow to avoid lock issues.
@@ -584,31 +584,34 @@ void tick_broadcast_mtk_aee_dump(void)
 
 	memset(tick_broadcast_mtk_aee_dump_buf, 0,
 		sizeof(tick_broadcast_mtk_aee_dump_buf));
-	snprintf(tick_broadcast_mtk_aee_dump_buf,
+	ret = snprintf(tick_broadcast_mtk_aee_dump_buf,
 		sizeof(tick_broadcast_mtk_aee_dump_buf),
 		"[TICK] oneshot_mask: %*pbl\n",
 		cpumask_pr_args(tick_broadcast_oneshot_mask));
-	aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+	if (ret >= 0)
+		aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
 
 	/* tick_broadcast_pending_mask */
 
 	memset(tick_broadcast_mtk_aee_dump_buf, 0,
 		sizeof(tick_broadcast_mtk_aee_dump_buf));
-	snprintf(tick_broadcast_mtk_aee_dump_buf,
+	ret = snprintf(tick_broadcast_mtk_aee_dump_buf,
 		sizeof(tick_broadcast_mtk_aee_dump_buf),
 		"[TICK] pending_mask: %*pbl\n",
 		cpumask_pr_args(tick_broadcast_pending_mask));
-	aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+	if (ret >= 0)
+		aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
 
 	/* tick_broadcast_force_mask */
 
 	memset(tick_broadcast_mtk_aee_dump_buf, 0,
 		sizeof(tick_broadcast_mtk_aee_dump_buf));
-	snprintf(tick_broadcast_mtk_aee_dump_buf,
+	ret = snprintf(tick_broadcast_mtk_aee_dump_buf,
 		sizeof(tick_broadcast_mtk_aee_dump_buf),
 		"[TICK] force_mask: %*pbl\n",
 		cpumask_pr_args(tick_broadcast_force_mask));
-	aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+	if (ret >= 0)
+		aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
 
 	for_each_possible_cpu(i) {
 		/* to avoid unexpected overrun */
@@ -616,13 +619,14 @@ void tick_broadcast_mtk_aee_dump(void)
 			break;
 		memset(tick_broadcast_mtk_aee_dump_buf, 0,
 			sizeof(tick_broadcast_mtk_aee_dump_buf));
-		snprintf(tick_broadcast_mtk_aee_dump_buf,
+		ret = snprintf(tick_broadcast_mtk_aee_dump_buf,
 			sizeof(tick_broadcast_mtk_aee_dump_buf),
 			"[TICK] cpu %d, %llu, %d, %llu\n",
 			i, tick_broadcast_history[i].time_enter,
 			tick_broadcast_history[i].ret_enter,
 			tick_broadcast_history[i].time_exit);
-		aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
+		if (ret >= 0)
+			aee_sram_fiq_log(tick_broadcast_mtk_aee_dump_buf);
 	}
 }
 #endif

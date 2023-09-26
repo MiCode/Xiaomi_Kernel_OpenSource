@@ -152,6 +152,7 @@ struct pedometer_event_t {
 
 struct pressure_vec_t {
 	int32_t pressure;	/* Pa, i.e. hPa * 100 */
+	int32_t pressure_raw;
 	int32_t temperature;
 	uint32_t status;
 };
@@ -270,6 +271,11 @@ struct sensor_fifo {
 	uint32_t fifo_size;
 	uint32_t reserve;
 	struct data_unit_t data[0];
+};
+
+struct als_cali_fifo {
+	uint32_t magic_num;
+	int32_t data[20][12];
 };
 
 struct SCP_SENSOR_HUB_REQ {

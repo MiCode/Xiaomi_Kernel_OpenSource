@@ -12,7 +12,12 @@
 #
 subdir-ccflags-y += -Werror
 
-# scp smartpa related code
+ifeq ($(TARGET_PRODUCT),chopin)
+CDEFINES += -DCHOPIN
+KBUILD_CPPFLAGS += $(CDEFINES)
+endif
+
+#scp smartpa related code
 obj-$(CONFIG_SND_SOC_MTK_SCP_SMARTPA) += scp_spk/
 obj-$(CONFIG_SND_SOC_MTK_SCP_SMARTPA) += utility/
 

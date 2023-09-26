@@ -449,6 +449,16 @@ config USB_SWITCH_FSA9480
 	  stereo and mono audio, video, microphone and UART data to use
 	  a common connector port.
 
+config USB_SWITCH_ET7480
+	bool "Fairchild ET7480 chip"
+	select REGMAP_I2C
+	depends on I2C
+	help
+	  Support for the Fairchild ET7480 IC switch chip controlled
+	  using I2C. This driver provides common support
+	  for accessing the device, switching between USB and Audio
+	  modes, changing orientation.
+
 config LATTICE_ECP3_CONFIG
 	tristate "Lattice ECP3 FPGA bitstream configuration via SPI"
 	depends on SPI && SYSFS
@@ -536,6 +546,24 @@ config MEMORY_STATE_TIME
 	depends on PROFILING
 	help
 	  Memory time statistics exported to /sys/kernel/memory_state_time
+
+config FACTORY_BUILD
+	bool "distiguish factory version from dev version"
+	default n
+	help
+	  This macro will be defined when build factory version. It is used to
+	  distinguish factory and dev codes in kernel.
+
+config MI_GAMEKEY
+	tristate "xiaomi physical game key"
+	help
+	  xiaomi physical game key, can detect press on the key and key whether pop.
+
+config GPIO_TESTING_MODE
+	tristate "A simple GPIO testing mode driver"
+	default n
+	help
+	  Enable driver for a simple testing mode detection
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

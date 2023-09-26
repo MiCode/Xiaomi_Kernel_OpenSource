@@ -23,7 +23,8 @@ enum GBE_KICKER {
 };
 void gbe_boost(enum GBE_KICKER kicker, int boost);
 void gbe_trace_printk(int pid, char *module, char *string);
-void gbe_trace_count(int tid, int val, const char *fmt, ...);
+void gbe_trace_count(int tid, unsigned long long bufID,
+	int val, const char *fmt, ...);
 extern void (*gbe_get_cmd_fp)(int *cmd, int *value1, int *value2);
 
 extern struct dentry *gbe_debugfs_dir;

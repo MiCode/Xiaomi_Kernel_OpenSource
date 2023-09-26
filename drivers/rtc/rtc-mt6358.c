@@ -120,16 +120,19 @@
 #define RTC_PWRON_DOM_MASK      (RTC_AL_DOM_MASK << RTC_PWRON_DOM_SHIFT)
 #define RTC_PWRON_MTH_MASK      (RTC_AL_MTH_MASK << RTC_PWRON_MTH_SHIFT)
 #define RTC_PWRON_YEA_MASK      (RTC_AL_YEA_MASK << RTC_PWRON_YEA_SHIFT)
-
+/* Common */
 #define RTC_BBPU_KEY			0x4300
 #define RTC_BBPU_CBUSY			BIT(6)
 #define RTC_BBPU_RELOAD			BIT(5)
+#define RTC_BBPU_PWREN			BIT(0)
+/* MT6357,MT6358 */
 #define RTC_BBPU_AUTO			BIT(3)
 #define RTC_BBPU_CLR			BIT(1)
-#define RTC_BBPU_PWREN			BIT(0)
+/* MT6359, MT6359p*/
 #define RTC_BBPU_AL_STA			BIT(7)
 #define RTC_BBPU_RESET_AL		BIT(3)
 #define RTC_BBPU_RESET_SPAR		BIT(2)
+
 
 #define RTC_AL_MASK_DOW			BIT(4)
 
@@ -692,7 +695,7 @@ exit:
 
 static void mtk_rtc_reset_bbpu_alarm_status(void)
 {
-	u32 bbpu;
+	u32 bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN;
 	int ret;
 
 
@@ -701,7 +704,15 @@ static void mtk_rtc_reset_bbpu_alarm_status(void)
 		return;
 	}
 
-	bbpu = RTC_BBPU_KEY | RTC_BBPU_PWREN | RTC_BBPU_RESET_AL;
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6358) || \
+defined(CONFIG_MTK_PMIC_CHIP_MT6357)
+	bbpu |= RTC_BBPU_CLR;
+#endif
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359) || \
+defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
+	bbpu |= RTC_BBPU_RESET_AL;
+#endif
+
 	rtc_write(RTC_BBPU, bbpu);
 	ret = rtc_write_trigger();
 	if (ret < 0)

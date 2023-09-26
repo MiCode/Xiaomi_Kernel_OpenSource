@@ -27,6 +27,7 @@
 #include "mdp_cmdq_helper_ext.h"
 #include "mdp_cmdq_record.h"
 #include "mdp_cmdq_device.h"
+#include "mdp_pmqos.h"
 #else
 #include "cmdq_def.h"
 #include "cmdq_mdp_common.h"
@@ -34,6 +35,7 @@
 #include "cmdq_record.h"
 #ifndef MDP_META_IN_LEGACY_V2
 #include "cmdq_helper_ext.h"
+#include "cmdq_mdp_pmqos.h"
 #else
 #include "cmdq_core.h"
 #endif
@@ -43,6 +45,7 @@
 #include "mdp_ioctl_ex.h"
 #include "cmdq_struct.h"
 #include "mdp_m4u.h"
+#include "ion_sec_heap.h"
 
 #define MDP_TASK_PAENDING_TIME_MAX	100000000
 
@@ -59,10 +62,6 @@ static atomic_t m4u_init = ATOMIC_INIT(0);
 #endif
 #if defined(MDP_M4U_MTEE_SEC_CAM_SUPPORT)
 static atomic_t m4u_gz_init_sec_cam = ATOMIC_INIT(0);
-#endif
-#if defined(MDP_M4U_MTEE_SVP_SUPPORT)
-static atomic_t m4u_gz_init_svp = ATOMIC_INIT(0);
-static atomic_t m4u_gz_init_wfd = ATOMIC_INIT(0);
 #endif
 
 static int mdp_limit_open(struct inode *pInode, struct file *pFile)
@@ -150,11 +149,13 @@ static DEFINE_MUTEX(mdp_job_mapping_list_mutex);
 #define MAX_COUNT_IN_RB_SLOT 0x1000 /* 4KB */
 #define SLOT_ID_SHIFT 16
 #define SLOT_OFFSET_MASK 0xFFFF
+#define MAX_REF_COUNT 100000
 
 struct mdp_readback_slot {
 	u32 count;
 	dma_addr_t pa_start;
 	void *fp;
+	u32 ref_cnt;
 };
 
 static struct mdp_readback_slot rb_slot[MAX_RB_SLOT_NUM];
@@ -226,7 +227,7 @@ static s32 mdp_process_read_request(struct mdp_read_readback *req_user)
 		}
 
 		addrs = kcalloc(count, sizeof(u32), GFP_KERNEL);
-		if (!ids) {
+		if (!addrs) {
 			CMDQ_ERR("[READ_PA] fail to alloc addr buf\n");
 			status = -ENOMEM;
 			break;
@@ -318,6 +319,10 @@ static unsigned long translate_fd(struct op_meta *meta,
 	} else {
 		mva = mapping_job->mvas[i];
 	}
+
+	if (meta->fd_offset >= U32_MAX)
+		return 0;
+
 	mva += meta->fd_offset;
 
 	return mva;
@@ -448,7 +453,7 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 {
 	struct op_meta *metas;
 	s32 status = 0;
-	u32 i, copy_size, copy_count, remain_count;
+	u32 i, copy_size, copy_count, remain_count, slot_id, j;
 	void *cur_src = CMDQ_U32_PTR(user_job->metas);
 	const u32 meta_count_in_page = PAGE_SIZE / sizeof(struct op_meta);
 
@@ -485,6 +490,33 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 					metas[i].value, metas[i].mask);
 				break;
 			}
+			mutex_lock(&rb_slot_list_mutex);
+			if (metas[i].op == CMDQ_MOP_READ || metas[i].op == CMDQ_MOP_READBACK) {
+				slot_id = metas[i].readback_id >> SLOT_ID_SHIFT;
+				if (unlikely(slot_id >= MAX_RB_SLOT_NUM)) {
+					mutex_unlock(&rb_slot_list_mutex);
+					continue;
+				}
+				if (rb_slot[slot_id].ref_cnt == MAX_REF_COUNT) {
+					CMDQ_ERR("readback slot [%d] reach maximum ref_cnt\n",
+						slot_id);
+					mutex_unlock(&rb_slot_list_mutex);
+					kfree(metas);
+					return -EINVAL;
+				}
+				for (j = 0; j < ARRAY_SIZE(handle->slot_ids); j++) {
+					if (slot_id == handle->slot_ids[j])
+						break;
+					if (handle->slot_ids[j] == -1) {
+						handle->slot_ids[j] = slot_id;
+						rb_slot[slot_id].ref_cnt++;
+						CMDQ_MSG("slot id %d, count++ > %d\n", slot_id,
+							rb_slot[slot_id].ref_cnt);
+						break;
+					}
+				}
+			}
+			mutex_unlock(&rb_slot_list_mutex);
 		}
 		remain_count -= copy_count;
 		cur_src += copy_size;
@@ -500,6 +532,7 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 {
 #ifndef MDP_META_IN_LEGACY_V2
 	const u64 inorder_mask = 1ll << CMDQ_ENG_INORDER;
+	u32 iprop_size = sizeof(struct mdp_pmqos);
 
 	handle->engineFlag = user_job->engine_flag & ~inorder_mask;
 	handle->pkt->priority = user_job->priority;
@@ -513,11 +546,11 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 
 	if (user_job->prop_size && user_job->prop_addr &&
 		user_job->prop_size < CMDQ_MAX_USER_PROP_SIZE) {
-		handle->prop_addr = kzalloc(user_job->prop_size, GFP_KERNEL);
-		handle->prop_size = user_job->prop_size;
+		handle->prop_addr = kzalloc(iprop_size, GFP_KERNEL);
+		handle->prop_size = iprop_size;
 		if (copy_from_user(handle->prop_addr,
 				CMDQ_U32_PTR(user_job->prop_addr),
-				user_job->prop_size)) {
+				iprop_size)) {
 			CMDQ_ERR("copy prop_addr from user fail\n");
 			return -EINVAL;
 		}
@@ -531,6 +564,79 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 #endif
 	return 0;
 }
+
+static s32 mdp_init_secure_id(struct cmdqRecStruct *handle)
+{
+#ifdef CMDQ_SECURE_PATH_SUPPORT
+	u32 i;
+	uint32_t trustmem_type = 0;
+	int sec = 0;
+	int iommu_sec_id = 0;
+	ion_phys_addr_t sec_handle;
+	struct cmdqSecAddrMetadataStruct *secMetadatas = NULL;
+
+	if (!handle->secData.is_secure)
+		return 0;
+	secMetadatas = (struct cmdqSecAddrMetadataStruct *)handle->secData.addrMetadatas;
+
+	for (i = 0; i < handle->secData.addrMetadataCount; i++) {
+		secMetadatas[i].useSecIdinMeta = 1;
+		if (secMetadatas[i].ionFd <= 0) {
+			secMetadatas[i].sec_id = 0;
+			continue;
+		}
+
+		trustmem_type = ion_fd2sec_type(secMetadatas[i].ionFd, &sec,
+			&iommu_sec_id, &sec_handle);
+		secMetadatas[i].baseHandle = (uint64_t)sec_handle;
+#ifdef CONFIG_MTK_CMDQ_MBOX_EXT
+		secMetadatas[i].sec_id = iommu_sec_id;
+#else
+		secMetadatas[i].sec_id = trustmem_type;
+#endif
+		CMDQ_MSG("%s,port:%d,ionFd:%d,sec_id:%d,sec_handle:0x%#llx",
+				__func__, secMetadatas[i].port,
+				secMetadatas[i].ionFd,
+				secMetadatas[i].sec_id,
+				secMetadatas[i].baseHandle);
+	}
+	return 1;
+#else
+	return 0;
+#endif
+}
+
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+static s32 mdp_init_secure_id_in_house(struct cmdqRecStruct *handle)
+{
+	u32 i;
+	ion_phys_addr_t sec_handle;
+	struct cmdqSecAddrMetadataStruct *secMetadatas = NULL;
+
+	if (!handle->secData.is_secure)
+		return 0;
+	secMetadatas = (struct cmdqSecAddrMetadataStruct *)handle->secData.addrMetadatas;
+
+	for (i = 0; i < handle->secData.addrMetadataCount; i++) {
+		secMetadatas[i].useSecIdinMeta = 1;
+		if (secMetadatas[i].ionFd <= 0) {
+			secMetadatas[i].sec_id = 0;
+			continue;
+		}
+
+		mdp_ion_import_sec_handle(secMetadatas[i].ionFd, &sec_handle);
+		secMetadatas[i].baseHandle = (uint64_t)sec_handle;
+
+		CMDQ_MSG("%s,port:%d,ionFd:%d,sec_id:%d,sec_handle:0x%#llx",
+				__func__, secMetadatas[i].port,
+				secMetadatas[i].ionFd,
+				secMetadatas[i].sec_id,
+				secMetadatas[i].baseHandle);
+	}
+	return 1;
+}
+#endif
+
 
 static int mdp_implement_read_v1(struct mdp_submit *user_job,
 				struct cmdqRecStruct *handle,
@@ -671,20 +777,6 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		CMDQ_LOG("[SEC] m4u_gz_sec_init SEC_ID_SEC_CAM is called\n");
 	}
 #endif
-#ifdef MDP_M4U_MTEE_SVP_SUPPORT
-	if (user_job.secData.extension & 0x1) {
-		/* using 2nd display scenario */
-		if (atomic_cmpxchg(&m4u_gz_init_wfd, 0, 1) == 0) {
-			m4u_gz_sec_init(3);
-			CMDQ_LOG("[SEC] m4u_gz_sec_init SEC_ID_WFD(3) is called\n");
-		}
-	} else {
-		if (atomic_cmpxchg(&m4u_gz_init_svp, 0, 1) == 0) {
-			m4u_gz_sec_init(1);
-			CMDQ_LOG("[SEC] m4u_gz_sec_init SEC_ID_SVP(1) is called\n");
-		}
-	}
-#endif
 
 	/* setup secure data */
 	status = cmdq_mdp_handle_sec_setup(&user_job.secData, handle);
@@ -695,6 +787,12 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		kfree(cmd_buf.va_base);
 		goto done;
 	}
+
+	mdp_init_secure_id(handle);
+
+#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+	mdp_init_secure_id_in_house(handle);
+#endif
 
 	/* Make command from user job */
 	CMDQ_TRACE_FORCE_BEGIN("mdp_translate_user_job\n");
@@ -873,6 +971,16 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 
 		/* copy read result to user space */
 		status = mdp_process_read_request(&job_result.read_result);
+		mutex_lock(&rb_slot_list_mutex);
+		/* reference count for slot */
+		for (i = 0; i < ARRAY_SIZE(handle->slot_ids); i++) {
+			if (handle->slot_ids[i] != -1) {
+				rb_slot[handle->slot_ids[i]].ref_cnt--;
+				CMDQ_MSG("slot id %d, count-- by read > %d\n", handle->slot_ids[i],
+					rb_slot[handle->slot_ids[i]].ref_cnt);
+			}
+		}
+		mutex_unlock(&rb_slot_list_mutex);
 	} while (0);
 	exec_cost = div_u64(sched_clock() - exec_cost, 1000);
 	if (exec_cost > 150000)
@@ -941,6 +1049,12 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 		alloc_slot_group |= 1LL << free_slot_group;
 
 	alloc_slot_index = free_slot + free_slot_group * 64;
+	if (rb_slot[alloc_slot_index].ref_cnt) {
+		CMDQ_ERR("%s alloc slot which is being used, slot id: %d\n",
+			__func__, alloc_slot_index);
+		mutex_unlock(&rb_slot_list_mutex);
+		return -ENOMEM;
+	}
 	rb_slot[alloc_slot_index].count = rb_req.count;
 	rb_slot[alloc_slot_index].pa_start = paStart;
 	rb_slot[alloc_slot_index].fp = fp;
@@ -1005,6 +1119,12 @@ s32 mdp_ioctl_free_readback_slots(void *fp, unsigned long param)
 		mutex_unlock(&rb_slot_list_mutex);
 		CMDQ_ERR("%s fp %p different:%p\n", __func__,
 			fp, rb_slot[free_slot_index].fp);
+		return -EINVAL;
+	}
+	if (rb_slot[free_slot_index].ref_cnt) {
+		CMDQ_ERR("%s slot id[%d] is in use, using slot count : %d\n", __func__,
+			free_slot_index, rb_slot[free_slot_index].ref_cnt);
+		mutex_unlock(&rb_slot_list_mutex);
 		return -EINVAL;
 	}
 	alloc_slot[free_slot_group] &= ~(1LL << free_slot);
@@ -1190,7 +1310,7 @@ void mdp_ioctl_free_readback_slots_by_node(void *fp)
 
 	mutex_lock(&rb_slot_list_mutex);
 	for (i = 0; i < ARRAY_SIZE(rb_slot); i++) {
-		if (rb_slot[i].fp != fp)
+		if (rb_slot[i].fp != fp || rb_slot[i].ref_cnt)
 			continue;
 
 		free_slot_group = i >> 6;

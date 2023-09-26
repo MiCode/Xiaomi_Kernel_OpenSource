@@ -17,13 +17,14 @@
 #include "kd_imgsensor.h"
 
 #define IMX586_MAX_EEPROM_SIZE 0x24D0
+#define OV8856_MAX_EEPROM_SIZE 0x8000
+#define S5K4H7_MAX_EEPROM_SIZE 0x8000
 
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	/*Below is commom sensor */
 	{IMX519_SENSOR_ID, 0xA0, Common_read_region},
 	{S5K2T7SP_SENSOR_ID, 0xA4, Common_read_region},
 	{S5K2LQSX_SENSOR_ID, 0xA0, Common_read_region},
-	{S5K4H7_SENSOR_ID, 0xA2, Common_read_region},
 	{S5KHM2SP_SENSOR_ID, 0xA0, Common_read_region},
 	{IMX386_SENSOR_ID, 0xA0, Common_read_region},
 	{S5K2L7_SENSOR_ID, 0xA0, Common_read_region},
@@ -32,6 +33,8 @@ struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	{IMX386_MONO_SENSOR_ID, 0xA0, Common_read_region},
 	{IMX586_SENSOR_ID, 0xA0, Common_read_region, IMX586_MAX_EEPROM_SIZE},
 	{IMX499_SENSOR_ID, 0xA0, Common_read_region},
+	{OV8856_SENSOR_ID, 0x6C, Common_read_region, OV8856_MAX_EEPROM_SIZE},
+	{S5K4H7_SENSOR_ID, 0x20, Common_read_region, S5K4H7_MAX_EEPROM_SIZE},
 	/*  ADD before this line */
 	{0, 0, 0}       /*end of list */
 };

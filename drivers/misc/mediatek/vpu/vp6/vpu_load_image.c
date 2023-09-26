@@ -14,6 +14,7 @@
 
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <mt_emi_api.h>  /* for emi mpu */
 
 #include "vpu_load_image.h"
 
@@ -25,6 +26,8 @@
 #define VPU_IMAGE_MTK_ALGO_INDEX	(1)
 #define VPU_IMAGE_CUST_ALGO_INDEX	(2)
 #define VPU_IMAGE_ALGO_BASE_INDEX	(VPU_IMAGE_MTK_ALGO_INDEX)
+
+#define MPU_REGION_ID_VPU			(5)
 
 struct iram_desc {
 	uint32_t bin_offset;
@@ -93,15 +96,29 @@ static int vpu_load_firmware(struct vpu_device *vpu_device)
 	uint32_t dst_addr_mask = 0;
 	int i, core, len;
 	int ret = 0;
+	uint32_t mva_reset_vector;
+	uint32_t mva_main_program;
+	uint64_t binpa_reset_vector;
+	uint64_t binpa_main_program;
+	uint64_t binpa_iram_data;
 
 	for (i = 0; i < vpu_device->core_num; i++) {
 		vpu_core = vpu_device->vpu_core[i];
+		mva_reset_vector = g_vpu_mva_reset_vector[i];
+		mva_main_program = g_vpu_mva_main_program[i];
+		binpa_reset_vector = vpu_device->bin_pa + VPU_DDR_SHIFT_RESET_VECTOR * i;
+		binpa_main_program = binpa_reset_vector + VPU_OFFSET_MAIN_PROGRAM;
+		binpa_iram_data = vpu_device->bin_pa + VPU_OFFSET_MAIN_PROGRAM_IMEM +
+					VPU_DDR_SHIFT_IRAM_DATA * i;
 
 		/* Reset vector */
 		memset(&mem_param, 0x0, sizeof(mem_param));
-		mem_param.require_pa = true;
 		mem_param.size = VPU_SIZE_RESET_VECTOR;
-		mem_param.fixed_addr = g_vpu_mva_reset_vector[i];
+		mem_param.fixed_addr = mva_reset_vector;
+		mem_param.phy_addr = binpa_reset_vector;
+		mem_param.kva_addr = vpu_device->bin_base +
+					VPU_OFFSET_RESET_VECTOR +
+					VPU_DDR_SHIFT_RESET_VECTOR * i;
 		ret = vpu_alloc_shared_memory(vpu_device,
 						&vpu_core->reset_vector,
 						&mem_param);
@@ -112,9 +129,12 @@ static int vpu_load_firmware(struct vpu_device *vpu_device)
 
 		/* Main program */
 		memset(&mem_param, 0x0, sizeof(mem_param));
-		mem_param.require_pa = true;
 		mem_param.size = VPU_SIZE_MAIN_PROGRAM;
-		mem_param.fixed_addr = g_vpu_mva_main_program[i];
+		mem_param.fixed_addr = mva_main_program;
+		mem_param.phy_addr = binpa_main_program;
+		mem_param.kva_addr = vpu_device->bin_base +
+					VPU_OFFSET_MAIN_PROGRAM +
+					VPU_DDR_SHIFT_RESET_VECTOR * i;
 		ret = vpu_alloc_shared_memory(vpu_device,
 						&vpu_core->main_program,
 						&mem_param);
@@ -125,8 +145,11 @@ static int vpu_load_firmware(struct vpu_device *vpu_device)
 
 		/* Iram data */
 		memset(&mem_param, 0x0, sizeof(mem_param));
-		mem_param.require_pa = true;
 		mem_param.size = VPU_SIZE_MAIN_PROGRAM_IMEM;
+		mem_param.phy_addr = binpa_iram_data;
+		mem_param.kva_addr = vpu_device->bin_base +
+					VPU_OFFSET_MAIN_PROGRAM_IMEM +
+					VPU_DDR_SHIFT_IRAM_DATA * i;
 		ret = vpu_alloc_shared_memory(vpu_device, &vpu_core->iram_data,
 						&mem_param);
 		if (ret) {
@@ -296,8 +319,9 @@ static int vpu_load_algo(struct vpu_device *vpu_device)
 	LOG_INF("total algo len = %d, num algo = %d\n", size_algos, algos);
 
 	memset(&mem_param, 0x0, sizeof(mem_param));
-	mem_param.require_pa = true;
 	mem_param.size = size_algos;
+	mem_param.phy_addr = vpu_device->bin_pa + VPU_OFFSET_ALGO_AREA;
+	mem_param.kva_addr = vpu_device->bin_base + VPU_OFFSET_ALGO_AREA;
 
 	ret = vpu_alloc_shared_memory(vpu_device,
 				      &vpu_device->algo_binary_data,
@@ -409,6 +433,21 @@ static void vpu_unload_algo(struct vpu_device *vpu_device)
 	}
 }
 
+static void vpu_emi_mpu_set(unsigned long start, unsigned long size)
+{
+	struct emi_region_info_t region_info;
+
+	region_info.start = start;
+	region_info.end = start + size - 0x1;
+	region_info.region = MPU_REGION_ID_VPU;
+	SET_ACCESS_PERMISSION(region_info.apc, LOCK,
+		FORBIDDEN,     FORBIDDEN, FORBIDDEN, FORBIDDEN,
+		NO_PROTECTION, FORBIDDEN, FORBIDDEN, FORBIDDEN,
+		FORBIDDEN,     FORBIDDEN, NO_PROTECTION, FORBIDDEN,
+		FORBIDDEN,     FORBIDDEN, FORBIDDEN, SEC_RW_NSEC_R);
+	emi_mpu_set_protection(&region_info);
+}
+
 static void vpu_request_firmware_cbk(const struct firmware *fw, void *context)
 {
 	struct vpu_device *vpu_device = NULL;
@@ -472,6 +511,8 @@ exit:
 				VPU_LOAD_IMAGE_LOADED;
 			LOG_INF("[%s][%d] vpu load image done!\n",
 				__func__, __LINE__);
+
+			vpu_emi_mpu_set(vpu_device->bin_pa, vpu_device->bin_size);
 		} else {
 			_vpu_unload_image(vpu_device);
 			LOG_INF("[%s][%d] vpu load image failed! state: %d\n",

@@ -67,7 +67,19 @@ static struct scp_reserve_mblock scp_reserve_mblock[] = {
 		.start_virt = 0,
 		.size = 0x19000,
 	},
+	{
+		.num = SCP_ELLIPTIC_DEBUG_MEM,
+		.start_phys = 0,
+		.start_virt = 0,
+		.size = 0x8000,
+	},
 #endif
+	{
+		.num = SENS_ALS_CALI_MEM_ID,
+		.start_phys = 0x0,
+		.start_virt = 0x0,
+		.size = 0x400,  /* 1 KB */
+	},
 };
 
 

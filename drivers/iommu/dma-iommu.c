@@ -1256,9 +1256,16 @@ EXPORT_SYMBOL(iommu_dma_dump_iovad);
 int iommu_dma_get_iovad_info(struct device *dev,
 	unsigned long *base, unsigned long *max)
 {
-	struct iommu_domain *domain = iommu_get_domain_for_dev(dev);
-	struct iommu_dma_cookie *cookie = domain->iova_cookie;
-	struct iova_domain *iovad = &cookie->iovad;
+	struct iommu_domain *domain;
+	struct iommu_dma_cookie *cookie;
+	struct iova_domain *iovad;
+
+	domain = iommu_get_domain_for_dev(dev);
+
+	if (!domain)
+		return -EINVAL;
+	cookie = domain->iova_cookie;
+	iovad = &cookie->iovad;
 
 	*base = iovad->start_pfn << iova_shift(iovad);
 	*max = domain->geometry.aperture_end;

@@ -18,6 +18,7 @@
 #include <linux/printk.h>
 #include <linux/atomic.h>
 #include <linux/string.h>
+#include <linux/timekeeping.h>
 
 #include "tiny_crc8.h"
 #include "sensor_comm.h"
@@ -93,7 +94,10 @@ int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size)
 {
 	int retry = 0, ret = 0;
 	const int max_retry = 10;
+	const int64_t timeout = 2000000000LL;
+	int64_t start_time = 0, duration = 0;
 
+	start_time = ktime_get_boot_ns();
 	if (!READ_ONCE(scp_status)) {
 		pr_err_ratelimited("dropped comm %u %u\n",
 			ctrl->sensor_type, ctrl->command);
@@ -104,6 +108,11 @@ int sensor_comm_ctrl_send(struct sensor_comm_ctrl *ctrl, unsigned int size)
 		ret = sensor_comm_ctrl_seq_send(ctrl, size);
 	} while (retry++ < max_retry && ret < 0);
 
+	duration = ktime_get_boot_ns() - start_time;
+	if (duration > timeout) {
+		pr_notice("running time %lld\n", duration);
+		WARN_ON(1);
+	}
 	return ret;
 }
 

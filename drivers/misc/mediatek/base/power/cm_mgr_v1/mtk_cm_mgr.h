@@ -61,7 +61,9 @@ struct cm_mgr_data {
 #define IPI_CM_MGR_DSU_L_PWR_RATIO_SET 32
 #define IPI_CM_MGR_DSU_B_PWR_RATIO_SET 33
 #define IPI_CM_MGR_DSU_BB_PWR_RATIO_SET 34
-
+#define IPI_CM_MGR_BCPU_MIN_OPP_WEIGHT_SET 35
+#define IPI_CM_MGR_BCPU_LOW_OPP_WEIGHT_SET 36
+#define IPI_CM_MGR_BCPU_LOW_OPP_BOUND_SET 37
 
 extern spinlock_t cm_mgr_lock;
 extern int cm_mgr_disable_fb;

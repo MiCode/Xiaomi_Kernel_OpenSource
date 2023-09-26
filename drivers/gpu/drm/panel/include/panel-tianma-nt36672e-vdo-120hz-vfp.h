@@ -41,7 +41,7 @@
 #define MODE_2_DATA_RATE            1200
 /*Parameter setting for mode 2 End*/
 
-#define LFR_EN                      0
+#define LFR_EN                      1
 /* DSC RELATED */
 
 

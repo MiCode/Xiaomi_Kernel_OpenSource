@@ -35,6 +35,7 @@ struct mt6360_chg_platform_data {
 	u32 aicc_once;
 	u32 post_aicc;
 	u32 batoc_notify;
+	u32 en_eoc;
 	const char *chg_name;
 };
 
@@ -53,6 +54,7 @@ struct mt6360_chg_platform_data {
 #define MT6360_MASK_SHIP_MODE	BIT(7)
 #define MT6360_MASK_IINLMTSEL	(0x0C)
 #define MT6360_SHFT_IINLMTSEL	(2)
+#define MT6360_MASK_BYPASS_MODE	BIT(5)
 #define MT6360_MASK_TE_EN	BIT(4)
 #define MT6360_SHFT_TE_EN	(4)
 #define MT6360_MASK_CFO_EN	BIT(1)
@@ -85,6 +87,8 @@ struct mt6360_chg_platform_data {
 #define MT6360_MASK_IEOC	(0xF0)
 #define MT6360_SHFT_IEOC	(4)
 #define MT6360_IEOC_MAXVAL	(0x0F)
+#define MT6360_MASK_EOC_EN	BIT(3)
+
 
 /* MT6360_PMU_CHG_AICC_RESULT : 0x21 */
 #define MT6360_MASK_RG_AICC_RESULT	(0xFC)
@@ -94,6 +98,9 @@ struct mt6360_chg_platform_data {
 #define MT6360_MASK_OTG_OC	(0x07)
 #define MT6360_SHFT_OTG_OC	(0)
 #define MT6360_OTG_OC_MAXVAL	(0x07)
+
+/* MT6360_PMU_CHG_CTRL11 : 0x1B */
+#define MT6360_MASK_VRECH	(0x03)
 
 /* MT6360_PMU_CHG_CTRL12 : 0x1C */
 #define MT6360_MASK_TMR_EN	BIT(1)

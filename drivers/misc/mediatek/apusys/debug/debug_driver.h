@@ -41,6 +41,7 @@
 #define APU_LOG_SIZE (512*1024)
 
 void apu_dbg_print(const char *fmt, ...);
-
+int apusys_dump_init(struct device *dev);
+void apusys_dump_exit(struct device *dev);
 
 #endif /* __DEBUG_DRIVER_H__ */

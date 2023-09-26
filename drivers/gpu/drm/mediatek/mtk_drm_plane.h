@@ -119,6 +119,8 @@ enum MTK_PLANE_PROP {
 	PLANE_PROP_VPITCH,
 	PLANE_PROP_COMPRESS,
 	PLANE_PROP_DIM_COLOR,
+	PLANE_PROP_IS_MML,
+	PLANE_PROP_MML_SUBMIT,
 	PLANE_PROP_MAX,
 };
 
@@ -145,6 +147,7 @@ struct mtk_plane_pending_state {
 	unsigned int height;
 	bool dirty;
 	bool is_sec;
+	int sec_id;
 	unsigned int prop_val[PLANE_PROP_MAX];
 };
 

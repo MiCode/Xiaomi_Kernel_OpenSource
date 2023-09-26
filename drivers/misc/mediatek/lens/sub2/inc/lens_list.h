@@ -31,5 +31,4 @@ extern int AK7371AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
 extern int AK7371AF_GetFileName(unsigned char *pFileName);
 #endif
 
-extern void AFRegulatorCtrl(int Stage);
 #endif

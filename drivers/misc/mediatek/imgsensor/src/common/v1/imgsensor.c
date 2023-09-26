@@ -2438,6 +2438,8 @@ static long imgsensor_ioctl(
 			    _IOC_SIZE(a_u4Command))) {
 
 				kfree(pBuff);
+				//0825
+				pBuff = NULL;
 				pr_debug(
 				    "[CAMERA SENSOR] ioctl copy from user failed\n");
 				i4RetValue =  -EFAULT;
@@ -2523,6 +2525,8 @@ static long imgsensor_ioctl(
 	default:
 		pr_debug("No such command %d\n", a_u4Command);
 		i4RetValue = -EPERM;
+		kfree(pBuff);
+		goto CAMERA_HW_Ioctl_EXIT;
 		break;
 	}
 
@@ -2531,11 +2535,12 @@ static long imgsensor_ioctl(
 						  pBuff,
 						_IOC_SIZE(a_u4Command))) {
 		kfree(pBuff);
+		//0825
+		pBuff = NULL;
 		pr_debug("[CAMERA SENSOR] ioctl copy to user failed\n");
 		i4RetValue =  -EFAULT;
 		goto CAMERA_HW_Ioctl_EXIT;
 	}
-
 	kfree(pBuff);
 CAMERA_HW_Ioctl_EXIT:
 	return i4RetValue;

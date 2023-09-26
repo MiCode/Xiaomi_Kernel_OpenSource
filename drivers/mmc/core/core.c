@@ -1738,6 +1738,9 @@ EXPORT_SYMBOL(mmc_start_areq);
  */
 void mmc_wait_for_req(struct mmc_host *host, struct mmc_request *mrq)
 {
+	if (mrq->cmd->retries == 0)
+		mrq->cmd->retries = 3;
+
 	__mmc_start_req(host, mrq);
 
 	if (!mrq->cap_cmd_during_tfr)

@@ -42,6 +42,7 @@ ccci_util_lib-y += ccci_util_lib_time.o
 ccci_util_lib-y += ccci_util_lib_main.o
 ccci_util_lib-y += ccci_util_ld_md_errno.o
 ccci_util_lib-y += ccci_util_broadcast.o
+ccci_util_lib-y += ccci_util_pin_broadcast.o
 ccci_util_lib-y += ccci_util_sib.o
 ccci_util_lib-y += ccci_util_md_rat.o
 endif

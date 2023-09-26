@@ -197,7 +197,7 @@ static int mt6362_spmi_reg_read(void *context,
 {
 	struct mt6362_data *data = context;
 	ktime_t current_time, avail_access_time;
-	u8 regval;
+	u8 regval = 0;
 	int ret;
 
 	if (reg == data->last_access_reg) {

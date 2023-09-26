@@ -75,6 +75,8 @@ struct wakeup_source vpu_wake_lock[MTK_VPU_CORE];
 #include <linux/pm_qos.h>
 #include <mt-plat/mtk_secure_api.h>
 #include <mt_emi_api.h>  /* for emi mpu */
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 /* opp, mW */
 struct VPU_OPP_INFO vpu_power_table[VPU_OPP_NUM] = {
@@ -2658,6 +2660,11 @@ static int vpu_service_routine(void *arg)
 	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 
 	for (; !kthread_should_stop();) {
+		if (service_core >= MTK_VPU_CORE) {
+			LOG_ERR("invalid core %d\n",
+				service_core);
+			break;
+		}
 		/* wait for requests if there is no one in user's queue */
 		add_wait_queue(&vpu_dev->req_wait, &wait);
 		while (1) {
@@ -2683,10 +2690,15 @@ static int vpu_service_routine(void *arg)
 		req = vpu_pool_dequeue(&vpu_dev->pool_multiproc, NULL);
 
 		/* 2. self pool */
-		if (!req)
+		if (!req) {
+			if (i >= VPU_REQ_MAX_NUM_PRIORITY || i < 0) {
+				LOG_ERR("invalid priority %d\n", i);
+				break;
+			}
 			req = vpu_pool_dequeue(
 				&vpu_dev->pool[service_core],
 				&vpu_dev->priority_list[service_core][i]);
+		}
 
 		/* 3. common pool */
 		if (!req)
@@ -2947,23 +2959,6 @@ out:
 
 
 #ifndef MTK_VPU_EMULATOR
-
-#define MPU_REGION_ID_VPU (21)
-
-static void vpu_emi_mpu_set(unsigned long start, unsigned long size)
-{
-	struct emi_region_info_t region_info;
-
-	region_info.start = start;
-	region_info.end = start + size - 0x1;
-	region_info.region = MPU_REGION_ID_VPU;
-	SET_ACCESS_PERMISSION(region_info.apc, UNLOCK,
-		FORBIDDEN,     FORBIDDEN, FORBIDDEN, FORBIDDEN,
-		NO_PROTECTION, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-		FORBIDDEN,     FORBIDDEN, FORBIDDEN, FORBIDDEN,
-		FORBIDDEN,     FORBIDDEN, FORBIDDEN, NO_PROTECTION);
-	emi_mpu_set_protection(&region_info);
-}
 
 static int vpu_map_mva_of_bin(int core_s, uint64_t bin_pa)
 {
@@ -3625,10 +3620,6 @@ int vpu_init_hw(int core_s, struct vpu_device *device)
 	int param;
 	unsigned int core = (unsigned int)core_s;
 	struct vpu_shared_memory_param mem_param;
-
-	/* setup emi mpu protection */
-	if (core == 0)
-		vpu_emi_mpu_set(device->bin_pa, device->bin_size);
 
 	vpu_dump_exception = 0;
 
@@ -4611,10 +4602,16 @@ int vpu_debug_func_core_state(int core_s, enum VpuCoreState state)
 	return 0;
 }
 
+enum MTK_APUSYS_KERNEL_OP {
+	MTK_VPU_SMC_INIT = 0,
+	MTK_APUSYS_KERNEL_OP_NUM
+};
+
 int vpu_boot_up(int core_s, bool secure)
 {
 	int ret = 0;
 	unsigned int core = (unsigned int)core_s;
+	struct arm_smccc_res res;
 
 	/*secure flag is for sdsp force shut down*/
 
@@ -4654,6 +4651,10 @@ int vpu_boot_up(int core_s, bool secure)
 	}
 
 	if (!secure) {
+		arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
+				MTK_VPU_SMC_INIT,
+				0, 0, 0, 0, 0, 0, &res);
+
 		ret = vpu_hw_boot_sequence(core);
 		if (ret) {
 			LOG_ERR("[vpu_%d]fail to do boot sequence\n", core);

@@ -14,6 +14,8 @@
 #include <net/udp.h>
 #include <net/protocol.h>
 
+#define UDP_GRO_DISABLED 5
+
 static struct sk_buff *__skb_udp_tunnel_segment(struct sk_buff *skb,
 	netdev_features_t features,
 	struct sk_buff *(*gso_inner_segment)(struct sk_buff *skb,
@@ -398,6 +400,18 @@ struct sk_buff *udp_gro_receive(struct list_head *head, struct sk_buff *skb,
 	struct udphdr *uh2;
 	unsigned int off = skb_gro_offset(skb);
 	int flush = 1;
+	struct sock *sk_gro;
+
+	if (unlikely(!uh))
+		goto out;
+
+	if (!NAPI_GRO_CB(skb)->is_ipv6)
+		sk_gro = udp4_lib_lookup_skb(skb, uh->source, uh->dest);
+	else
+		sk_gro = udp6_lib_lookup_skb(skb, uh->source, uh->dest);
+
+	if (sk_gro && (udp_sk(sk_gro)->gro_disabled == UDP_GRO_DISABLED))
+		goto out;
 
 	if (!sk || !udp_sk(sk)->gro_receive) {
 		pp = call_gro_receive(udp_gro_receive_segment, head, skb);

@@ -1468,8 +1468,11 @@ static ssize_t usb_udc_softconn_store(struct device *dev,
 {
 	struct usb_udc		*udc = container_of(dev, struct usb_udc, dev);
 
+	mutex_lock(&udc_lock);
+
 	if (!udc->driver) {
 		dev_err(dev, "soft-connect without a gadget driver\n");
+		mutex_unlock(&udc_lock);
 		return -EOPNOTSUPP;
 	}
 
@@ -1482,8 +1485,11 @@ static ssize_t usb_udc_softconn_store(struct device *dev,
 		usb_gadget_udc_stop(udc);
 	} else {
 		dev_err(dev, "unsupported command '%s'\n", buf);
+		mutex_unlock(&udc_lock);
 		return -EINVAL;
 	}
+
+	mutex_unlock(&udc_lock);
 
 	return n;
 }

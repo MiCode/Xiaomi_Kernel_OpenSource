@@ -14,6 +14,7 @@
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 #include "audio_task.h"
 #include "../audio_dsp/mtk-dsp-common_define.h"
+#include "../audio_dsp/mtk-dsp-mem-control.h"
 #include "audio_messenger_ipi.h"
 #endif
 
@@ -32,6 +33,61 @@
 #ifdef CONFIG_SND_SOC_TFA9874
 #include "../../codecs/tfa98xx/inc/tfa98xx_ext.h"
 #endif
+#ifdef CONFIG_SND_SOC_CS35L41_PISSARRO
+#include "../../codecs/cs35l41/cs35l41_ext.h"
+#endif
+
+
+#ifdef CONFIG_SND_SOC_CS35L41_CHOPIN
+#include "../../codecs/cs35l41/cs35l41_ext.h"
+#define CS35L41_SPEAKER_NAME "speaker_amp.6-0040"
+#define CS35L41_RECEIVER_NAME "speaker_amp.6-0042"
+static struct snd_soc_dai_link_component cs35l41_dai_link_component[] =
+{
+	{
+		.name= CS35L41_SPEAKER_NAME,
+		.dai_name="cs35l41-pcm",
+	},
+	{
+		.name= CS35L41_RECEIVER_NAME,
+		.dai_name="cs35l41-pcm",
+	},
+};
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_ARES
+#include "../../codecs/cs35l41/cs35l41_ext.h"
+#define CS35L41_SPEAKER_NAME "speaker_amp.7-0040"
+#define CS35L41_RECEIVER_NAME "speaker_amp.7-0042"
+static struct snd_soc_dai_link_component cs35l41_dai_link_component[] =
+{
+	{
+		.name= CS35L41_SPEAKER_NAME,
+		.dai_name="cs35l41-pcm",
+	},
+	{
+		.name= CS35L41_RECEIVER_NAME,
+		.dai_name="cs35l41-pcm",
+	},
+};
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_AGATE
+#include "../../codecs/cs35l41/cs35l41_ext.h"
+#define CS35L41_SPEAKER_NAME "speaker_amp.7-0040"
+#define CS35L41_RECEIVER_NAME "speaker_amp.7-0042"
+static struct snd_soc_dai_link_component cs35l41_dai_link_component[] =
+{
+	{
+		.name= CS35L41_SPEAKER_NAME,
+		.dai_name="cs35l41-pcm",
+	},
+	{
+		.name= CS35L41_RECEIVER_NAME,
+		.dai_name="cs35l41-pcm",
+	},
+};
+#endif
 
 #ifdef CONFIG_SND_SOC_AW87339
 #include "aw87339.h"
@@ -39,7 +95,26 @@
 
 #define MTK_SPK_NAME "Speaker Codec"
 #define MTK_SPK_REF_NAME "Speaker Codec Ref"
+
+#ifdef CONFIG_SND_SOC_CS35L41_ARES
+static unsigned int mtk_spk_type=MTK_SPK_NOT_SMARTPA;
+static unsigned int mtk_spk_cnt=0;
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_CHOPIN
+static unsigned int mtk_spk_type=MTK_SPK_NOT_SMARTPA;
+static unsigned int mtk_spk_cnt=0;
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_AGATE
+static unsigned int mtk_spk_type=MTK_SPK_NOT_SMARTPA;
+static unsigned int mtk_spk_cnt=0;
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_PISSARRO
 static unsigned int mtk_spk_type;
+#endif
+
 static int mtk_spk_i2s_out, mtk_spk_i2s_in;
 static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 	[MTK_SPK_NOT_SMARTPA] = {
@@ -80,6 +155,48 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_name = "tfa98xx",
 	},
 #endif /* CONFIG_SND_SOC_TFA9874 */
+
+#ifdef CONFIG_SND_SOC_CS35L41_PISSARRO
+	[MTK_SPK_CS_CS35L41] = {
+		.i2c_probe = cs35l41_i2c_probe,
+		.i2c_remove = cs35l41_i2c_remove,
+		.codec_dai_name = "cs35l41-pcm",
+		.codec_name = "cs35l41",
+	},
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_ARES
+	[MTK_SPK_CS_CS35L41] = {
+		.i2c_probe = cs35l41_i2c_probe,
+		.i2c_remove = cs35l41_i2c_remove,
+		.codec_dai_name = "cs35l41-pcm",
+		.codec_name = "cs35l41",
+		.codecs = cs35l41_dai_link_component,
+		.num_codecs = ARRAY_SIZE(cs35l41_dai_link_component),
+	},
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_CHOPIN
+	[MTK_SPK_CS_CS35L41] = {
+		.i2c_probe = cs35l41_i2c_probe,
+		.i2c_remove = cs35l41_i2c_remove,
+		.codec_dai_name = "cs35l41-pcm",
+		.codec_name = "cs35l41",
+		.codecs = cs35l41_dai_link_component,
+		.num_codecs = ARRAY_SIZE(cs35l41_dai_link_component),
+	},
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_AGATE
+	[MTK_SPK_CS_CS35L41] = {
+		.i2c_probe = cs35l41_i2c_probe,
+		.i2c_remove = cs35l41_i2c_remove,
+		.codec_dai_name = "cs35l41-pcm",
+		.codec_name = "cs35l41",
+		.codecs = cs35l41_dai_link_component,
+		.num_codecs = ARRAY_SIZE(cs35l41_dai_link_component),
+	},
+#endif
 };
 
 static int mtk_spk_i2c_probe(struct i2c_client *client,
@@ -89,7 +206,10 @@ static int mtk_spk_i2c_probe(struct i2c_client *client,
 
 	dev_info(&client->dev, "%s()\n", __func__);
 
+#ifdef CONFIG_SND_SOC_CS35L41_PISSARRO
 	mtk_spk_type = MTK_SPK_NOT_SMARTPA;
+#endif
+
 	for (i = 0; i < MTK_SPK_TYPE_NUM; i++) {
 		if (!mtk_spk_list[i].i2c_probe)
 			continue;
@@ -97,8 +217,51 @@ static int mtk_spk_i2c_probe(struct i2c_client *client,
 		ret = mtk_spk_list[i].i2c_probe(client, id);
 		if (ret)
 			continue;
+#ifdef CONFIG_SND_SOC_CS35L41_ARES
+		mtk_spk_cnt++;
+		if (mtk_spk_cnt > 1)
+		{
+			if (mtk_spk_type != i)
+				pr_err("%s cnt: %d, type: %d, i:%d\n", __func__, mtk_spk_cnt, mtk_spk_type, i);
+			else
+				pr_info("%s cnt: %d, type: %d\n", __func__, mtk_spk_cnt, mtk_spk_type);
+		}
 
 		mtk_spk_type = i;
+		dev_info(&client->dev, "mtk_spk_type is %d\n", mtk_spk_type);
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_CHOPIN
+		mtk_spk_cnt++;
+		if (mtk_spk_cnt > 1)
+		{
+			if (mtk_spk_type != i)
+				pr_err("%s cnt: %d, type: %d, i:%d\n", __func__, mtk_spk_cnt, mtk_spk_type, i);
+			else
+				pr_info("%s cnt: %d, type: %d\n", __func__, mtk_spk_cnt, mtk_spk_type);
+		}
+
+		mtk_spk_type = i;
+		dev_info(&client->dev, "mtk_spk_type is %d\n", mtk_spk_type);
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_AGATE
+		mtk_spk_cnt++;
+		if (mtk_spk_cnt > 1)
+		{
+			if (mtk_spk_type != i)
+				pr_err("%s cnt: %d, type: %d, i:%d\n", __func__, mtk_spk_cnt, mtk_spk_type, i);
+			else
+				pr_info("%s cnt: %d, type: %d\n", __func__, mtk_spk_cnt, mtk_spk_type);
+		}
+
+		mtk_spk_type = i;
+		dev_info(&client->dev, "mtk_spk_type is %d\n", mtk_spk_type);
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_PISSARRO
+		mtk_spk_type = i;
+#endif
 		break;
 	}
 
@@ -376,10 +539,65 @@ int mtk_spk_update_dai_link(struct snd_soc_card *card,
 	/* update spk codec dai name and codec name */
 	dai_link = &card->dai_link[spk_dai_link_idx];
 	dai_link->name = MTK_SPK_NAME;
+
+#ifdef CONFIG_SND_SOC_CS35L41_ARES
+	if (mtk_spk_cnt > 1)
+	{
+		dai_link->codecs =
+			mtk_spk_list[mtk_spk_type].codecs;
+		dai_link->num_codecs =
+			mtk_spk_list[mtk_spk_type].num_codecs;
+	}
+	else
+	{
+		dai_link->codec_dai_name =
+			mtk_spk_list[mtk_spk_type].codec_dai_name;
+		dai_link->codec_name =
+			mtk_spk_list[mtk_spk_type].codec_name;
+	}
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_CHOPIN
+	if (mtk_spk_cnt > 1)
+	{
+		dai_link->codecs =
+			mtk_spk_list[mtk_spk_type].codecs;
+		dai_link->num_codecs =
+			mtk_spk_list[mtk_spk_type].num_codecs;
+	}
+	else
+	{
+		dai_link->codec_dai_name =
+			mtk_spk_list[mtk_spk_type].codec_dai_name;
+		dai_link->codec_name =
+			mtk_spk_list[mtk_spk_type].codec_name;
+	}
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_AGATE
+	if (mtk_spk_cnt > 1)
+	{
+		dai_link->codecs =
+			mtk_spk_list[mtk_spk_type].codecs;
+		dai_link->num_codecs =
+			mtk_spk_list[mtk_spk_type].num_codecs;
+	}
+	else
+	{
+		dai_link->codec_dai_name =
+			mtk_spk_list[mtk_spk_type].codec_dai_name;
+		dai_link->codec_name =
+			mtk_spk_list[mtk_spk_type].codec_name;
+	}
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_PISSARRO
 	dai_link->codec_dai_name =
 		mtk_spk_list[mtk_spk_type].codec_dai_name;
 	dai_link->codec_name =
 		mtk_spk_list[mtk_spk_type].codec_name;
+#endif
+
 	dai_link->ignore_pmdown_time = 1;
 	if (i2s_mck == mtk_spk_i2s_out)
 		dai_link->ops = i2s_ops;
@@ -393,10 +611,64 @@ int mtk_spk_update_dai_link(struct snd_soc_card *card,
 
 	dai_link = &card->dai_link[spk_ref_dai_link_idx];
 	dai_link->name = MTK_SPK_REF_NAME;
+
+#ifdef CONFIG_SND_SOC_CS35L41_ARES
+	if (mtk_spk_cnt > 1)
+	{
+		dai_link->codecs =
+			mtk_spk_list[mtk_spk_type].codecs;
+		dai_link->num_codecs =
+			mtk_spk_list[mtk_spk_type].num_codecs;
+	}
+	else
+	{
+		dai_link->codec_dai_name =
+			mtk_spk_list[mtk_spk_type].codec_dai_name;
+		dai_link->codec_name =
+			mtk_spk_list[mtk_spk_type].codec_name;
+	}
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_CHOPIN
+	if (mtk_spk_cnt > 1)
+	{
+		dai_link->codecs =
+			mtk_spk_list[mtk_spk_type].codecs;
+		dai_link->num_codecs =
+			mtk_spk_list[mtk_spk_type].num_codecs;
+	}
+	else
+	{
+		dai_link->codec_dai_name =
+			mtk_spk_list[mtk_spk_type].codec_dai_name;
+		dai_link->codec_name =
+			mtk_spk_list[mtk_spk_type].codec_name;
+	}
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_AGATE
+	if (mtk_spk_cnt > 1)
+	{
+		dai_link->codecs =
+			mtk_spk_list[mtk_spk_type].codecs;
+		dai_link->num_codecs =
+			mtk_spk_list[mtk_spk_type].num_codecs;
+	}
+	else
+	{
+		dai_link->codec_dai_name =
+			mtk_spk_list[mtk_spk_type].codec_dai_name;
+		dai_link->codec_name =
+			mtk_spk_list[mtk_spk_type].codec_name;
+	}
+#endif
+
+#ifdef CONFIG_SND_SOC_CS35L41_PISSARRO
 	dai_link->codec_dai_name =
 		mtk_spk_list[mtk_spk_type].codec_dai_name;
 	dai_link->codec_name =
 		mtk_spk_list[mtk_spk_type].codec_name;
+#endif
 	dai_link->ignore_pmdown_time = 1;
 	if (i2s_mck == mtk_spk_i2s_in)
 		dai_link->ops = i2s_ops;
@@ -421,8 +693,16 @@ int mtk_spk_send_ipi_buf_to_dsp(void *data_buffer, uint32_t data_size)
 	int task_scene;
 
 	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
-	task_scene = mtk_get_speech_status() ?
-		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
+	if (get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
+			ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_CALL_FINAL;
+	else if (get_task_attr(AUDIO_TASK_PLAYBACK_ID,
+			ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_AUDPLAYBACK;
+	else {
+		pr_info("%s(), callfinal and playback are not enable\n", __func__);
+		return result;
+	}
 
 	result = audio_send_ipi_buf_to_dsp(&ipi_msg, task_scene,
 					   AUDIO_DSP_TASK_AURISYS_SET_BUF,
@@ -442,8 +722,16 @@ int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 	int task_scene;
 
 	memset((void *)&ipi_msg, 0, sizeof(struct ipi_msg_t));
-	task_scene = mtk_get_speech_status() ?
-		     TASK_SCENE_CALL_FINAL : TASK_SCENE_AUDPLAYBACK;
+	if (get_task_attr(AUDIO_TASK_CALL_FINAL_ID,
+			ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_CALL_FINAL;
+	else if (get_task_attr(AUDIO_TASK_PLAYBACK_ID,
+			ADSP_TASK_ATTR_RUNTIME) > 0)
+		task_scene = TASK_SCENE_AUDPLAYBACK;
+	else {
+		pr_info("%s(), callfinal and playback are not enable\n", __func__);
+		return result;
+	}
 
 	result = audio_recv_ipi_buf_from_dsp(&ipi_msg,
 					     task_scene,
@@ -455,16 +743,18 @@ int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 EXPORT_SYMBOL(mtk_spk_recv_ipi_buf_from_dsp);
 
 static const struct i2c_device_id mtk_spk_i2c_id[] = {
-	{ "tfa98xx", 0},
-	{ "speaker_amp", 0},
+	/*{ "tfa98xx", 0},*/
+	{ "cs35l41", 0},
+	/*{ "speaker_amp", 0},*/
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, mtk_spk_i2c_id);
 
 #ifdef CONFIG_OF
 static const struct of_device_id mtk_spk_match_table[] = {
-	{.compatible = "nxp,tfa98xx",},
-	{.compatible = "mediatek,speaker_amp",},
+	/*{.compatible = "nxp,tfa98xx",},*/
+	{.compatible = "cirrus,cs35l41",},
+	/*{.compatible = "mediatek,speaker_amp",},*/
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_spk_match_table);

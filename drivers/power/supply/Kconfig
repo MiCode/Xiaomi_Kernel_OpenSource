@@ -618,7 +618,32 @@ config CUSTOM_BATTERY_EXTERNAL_CHANNEL
 	  Say Y to enable support for Customer external gauge.
 	  if unsure ,choose n.
 
+config AGATE_CHARGER
+	bool "MTK charger for AGATE"
+	help
+	  Say yes In MTK charger AGATE.
+
+config ARES_CHARGER
+	bool "MTK charger for ARES"
+	help
+	  Say yes In MTK charger ARES.
+
+config PISSARRO_CHARGER
+	bool "MTK charger for PISSARRO"
+	help
+	  Say yes In MTK charger PISSARRO.
+
 source "drivers/power/supply/mediatek/battery/Kconfig"
+source "drivers/power/supply/mediatek/battery_agate/Kconfig"
+source "drivers/power/supply/mediatek/battery_ares/Kconfig"
+source "drivers/power/supply/mediatek/battery_pissarro/Kconfig"
+
 source "drivers/power/supply/mediatek/charger/Kconfig"
+source "drivers/power/supply/mediatek/charger_agate/Kconfig"
+source "drivers/power/supply/mediatek/charger_ares/Kconfig"
+source "drivers/power/supply/mediatek/charger_pissarro/Kconfig"
+
+source "drivers/power/supply/ti_ares/Kconfig"
+source "drivers/power/supply/ti_agate/Kconfig"
 
 endif # POWER_SUPPLY

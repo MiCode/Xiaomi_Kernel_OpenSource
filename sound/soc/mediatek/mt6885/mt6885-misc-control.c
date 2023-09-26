@@ -21,6 +21,10 @@
 #define SGEN_MUTE_CH1_KCONTROL_NAME "Audio_SineGen_Mute_Ch1"
 #define SGEN_MUTE_CH2_KCONTROL_NAME "Audio_SineGen_Mute_Ch2"
 
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+extern unsigned int elliptic_add_platform_controls(void *platform);
+#endif
+
 static const char * const mt6885_sgen_mode_str[] = {
 	"I0I1",   "I2",     "I3I4",   "I5I6",
 	"I7I8",   "I9",     "I10I11", "I12I13",
@@ -2023,6 +2027,8 @@ static void *get_sph_property_by_name(struct mt6885_afe_private *afe_priv,
 		return &(afe_priv->speech_md_version);
 	else if (strcmp(name, "Speech_Cust_Param_Init") == 0)
 		return &(afe_priv->speech_cust_param_init);
+	else if (strcmp(name, "Speech_Dynamic_DL_Mute") == 0)
+		return &afe_priv->speech_dynamic_dl_mute;
 	else
 		return NULL;
 }
@@ -2117,6 +2123,9 @@ static const struct snd_kcontrol_new mt6885_afe_speech_controls[] = {
 	SOC_SINGLE_EXT("Speech_Cust_Param_Init",
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_Dynamic_DL_Mute",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
 };
 
 /* VOW barge in control */
@@ -2181,6 +2190,10 @@ int mt6885_add_misc_control(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 				      mt6885_afe_bargein_controls,
 				      ARRAY_SIZE(mt6885_afe_bargein_controls));
+	//for ellipitc mixer control
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	elliptic_add_platform_controls(platform);
+#endif
 
 	return 0;
 }

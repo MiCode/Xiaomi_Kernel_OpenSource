@@ -29,6 +29,11 @@
 #include <linux/compat.h>
 #endif
 
+/* kernel standard for PMIC*/
+#if !defined(CONFIG_MTK_LEGACY)
+#include <linux/regulator/consumer.h>
+#endif
+
 /* OIS/EIS Timer & Workqueue */
 #include <linux/hrtimer.h>
 #include <linux/init.h>
@@ -101,6 +106,132 @@ static struct cdev *g_pAF_CharDrv;
 static struct class *actuator_class;
 static struct device *lens_device;
 
+/* PMIC */
+#if !defined(CONFIG_MTK_LEGACY)
+static struct regulator *regVCAMAF;
+static int g_regVCAMAFEn;
+
+static void AFRegulatorCtrl(int Stage)
+{
+	LOG_INF("AFIOC_S_SETPOWERCTRL regulator_put %p\n", regVCAMAF);
+
+	if (Stage == 0) {
+		if (regVCAMAF == NULL) {
+			struct device_node *node, *kd_node;
+
+			/* check if customer camera node defined */
+			node = of_find_compatible_node(
+				NULL, NULL, "mediatek,CAMERA_MAIN_AF");
+
+			if (node) {
+				kd_node = lens_device->of_node;
+				lens_device->of_node = node;
+
+				#if defined(CONFIG_MACH_MT6765)
+				regVCAMAF =
+					regulator_get(lens_device, "vldo28");
+				#elif defined(CONFIG_MACH_MT6768)
+				regVCAMAF =
+					regulator_get(lens_device, "vldo28");
+				#elif defined(CONFIG_MACH_MT6771)
+				regVCAMAF =
+					regulator_get(lens_device, "vldo28");
+				#elif defined(CONFIG_MACH_MT6833)
+				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+					"k6833v1_64_6360_alpha", 20) == 0) {
+					regVCAMAF =
+					regulator_get(lens_device, "vmch");
+				} else {
+					regVCAMAF =
+					regulator_get(lens_device, "vcamio");
+				}
+				#elif defined(CONFIG_MACH_MT6853)
+				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+					"k6853v1_64_6360_alpha", 20) == 0) {
+					regVCAMAF =
+					regulator_get(lens_device, "vmch");
+				} else {
+					regVCAMAF =
+					regulator_get(lens_device, "vcamio");
+				}
+				#elif defined(CONFIG_MACH_MT6873)
+				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+					"k6873v1_64_alpha", 16) == 0) {
+					regVCAMAF =
+					regulator_get(lens_device, "vmch");
+				} else {
+					regVCAMAF =
+					regulator_get(lens_device, "vcamio");
+				}
+				#elif defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
+				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+					"k6885v1_64_alpha", 16) == 0) {
+					regVCAMAF =
+					regulator_get(lens_device, "vmc");
+				} else {
+					regVCAMAF =
+					regulator_get(lens_device, "vcamio");
+				}
+				#else
+				regVCAMAF =
+					regulator_get(lens_device, "vcamaf");
+				#endif
+
+				LOG_INF("[Init] regulator_get %p\n", regVCAMAF);
+
+				lens_device->of_node = kd_node;
+			}
+		}
+	} else if (Stage == 1) {
+		if (regVCAMAF != NULL && g_regVCAMAFEn == 0) {
+			int Status = regulator_is_enabled(regVCAMAF);
+
+			LOG_INF("regulator_is_enabled %d\n", Status);
+
+			if (!Status) {
+				Status = regulator_set_voltage(
+					regVCAMAF, 2800000, 2800000);
+
+				LOG_INF("regulator_set_voltage %d\n", Status);
+
+				if (Status != 0)
+					LOG_INF("regulator_set_voltage fail\n");
+
+				Status = regulator_enable(regVCAMAF);
+				LOG_INF("regulator_enable %d\n", Status);
+
+				if (Status != 0)
+					LOG_INF("regulator_enable fail\n");
+
+				g_regVCAMAFEn = 1;
+				usleep_range(5000, 5500);
+			} else {
+				LOG_INF("AF Power on\n");
+			}
+		}
+	} else {
+		if (regVCAMAF != NULL && g_regVCAMAFEn == 1) {
+			int Status = regulator_is_enabled(regVCAMAF);
+
+			LOG_INF("regulator_is_enabled %d\n", Status);
+
+			if (Status) {
+				LOG_INF("Camera Power enable\n");
+
+				Status = regulator_disable(regVCAMAF);
+				LOG_INF("regulator_disable %d\n", Status);
+				if (Status != 0)
+					LOG_INF("Fail to regulator_disable\n");
+			}
+			/* regulator_put(regVCAMAF); */
+			LOG_INF("AFIOC_S_SETPOWERCTRL regulator_put %p\n",
+				regVCAMAF);
+			/* regVCAMAF = NULL; */
+			g_regVCAMAFEn = 0;
+		}
+	}
+}
+#endif
 
 void SUB2AF_PowerDown(void)
 {
@@ -335,12 +466,13 @@ static int AF_Open(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	LOG_INF("Start\n");
 
+	spin_lock(&g_AF_SpinLock);
 	if (g_s4AF_Opened) {
+		spin_unlock(&g_AF_SpinLock);
 		LOG_INF("The device is opened\n");
 		return -EBUSY;
 	}
 
-	spin_lock(&g_AF_SpinLock);
 	g_s4AF_Opened = 1;
 	spin_unlock(&g_AF_SpinLock);
 

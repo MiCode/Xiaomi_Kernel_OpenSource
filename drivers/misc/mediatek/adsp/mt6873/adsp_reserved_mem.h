@@ -10,10 +10,13 @@
 
 //#define MEM_DEBUG
 
-/* emi mpu define*/
+/* emi mpu define */
 #define MPU_PROCT_REGION_ADSP_SHARED      30
 #define MPU_PROCT_D0_AP                   0
 #define MPU_PROCT_D10_ADSP                10
+
+/* adsp mpu alignment = 4KB */
+#define RSV_BLOCK_ALIGN                   0x1000
 
 /* adsp reserve memory ID definition*/
 enum adsp_reserve_mem_id_t {

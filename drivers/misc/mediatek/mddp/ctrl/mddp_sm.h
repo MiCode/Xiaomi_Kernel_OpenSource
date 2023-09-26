@@ -8,6 +8,7 @@
 #ifndef __MDDP_SM_H
 #define __MDDP_SM_H
 
+#include <linux/completion.h>
 #include <linux/workqueue.h>
 
 #include "mddp_export.h"
@@ -30,6 +31,7 @@ enum mddp_event_e {
 
 	MDDP_EVT_MD_RSP_OK,  /**< MD Response OK. */
 	MDDP_EVT_MD_RSP_FAIL,  /**< MD Response FAIL. */
+	MDDP_EVT_MD_RSP_TIMEOUT,  /**<MD Response timeout. */
 
 	MDDP_EVT_MD_RESET,  /**<MD send RESET. */
 
@@ -101,6 +103,7 @@ struct mddp_app_t {
 	atomic_t                    feature;
 	uint32_t                    abnormal_flags;
 	uint32_t                    reset_cnt;
+	struct completion           md_resp_comp;
 };
 
 
@@ -141,8 +144,9 @@ void mddp_dump_sm_table(struct mddp_app_t *app);
 #else
 #define mddp_dump_sm_table(...)
 #endif
-enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
-		enum mddp_event_e event);
+enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app, enum mddp_event_e event);
+void mddp_sm_wait_pre(struct mddp_app_t *app);
+void mddp_sm_wait(struct mddp_app_t *app, enum mddp_event_e event);
 
 void mddp_check_feature(void);
 
@@ -154,4 +158,5 @@ int32_t mddp_sm_reg_callback(
 void mddp_sm_dereg_callback(
 	struct mddp_drv_conf_t *conf,
 	struct mddp_drv_handle_t *handle);
+void mddp_netdev_notifier_exit(void);
 #endif /* __MDDP_SM_H */

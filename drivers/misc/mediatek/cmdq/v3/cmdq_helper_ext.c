@@ -5343,7 +5343,11 @@ s32 cmdq_helper_mbox_register(struct device *dev)
 		clt = cmdq_mbox_create(dev, i);
 		if (!clt || IS_ERR(clt)) {
 			CMDQ_LOG("register mbox stop:0x%p idx:%u\n", clt, i);
+#if IS_ENABLED(CONFIG_MTK_MT6382_DBG)
 			break;
+#else
+			continue;
+#endif
 		}
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT

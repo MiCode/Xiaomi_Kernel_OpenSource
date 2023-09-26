@@ -804,11 +804,11 @@ _err:
 					tag = 0;
 				else
 					tag = uffs(task_mask) - 1;
-				pr_notice("%s: cmd%lu err tag: %lu\n",
+				pr_notice("%s: cmd%lu err tag: %u\n",
 					__func__, cmd_idx, tag);
 			} else {
 				tag = GET_CMD_ERR_TAG(err_info);
-				pr_notice("%s: cmd err tag: %lu\n",
+				pr_notice("%s: cmd err tag: %u\n",
 					__func__, tag);
 			}
 			mrq = get_req_by_tag(cq_host, tag);
@@ -819,7 +819,7 @@ _err:
 				mrq->data->error = err;
 		} else if (err_info & CQ_DTEFV) {
 			tag = GET_DAT_ERR_TAG(err_info);
-			pr_notice("%s: dat err  tag: %lu\n", __func__, tag);
+			pr_notice("%s: dat err  tag: %u\n", __func__, tag);
 
 			mrq = get_req_by_tag(cq_host, tag);
 			mrq->data->error = err;
@@ -843,7 +843,7 @@ _err:
 			}
 
 			tag = uffs(task_mask) - 1;
-			pr_notice("%s: error tag selected: tag = %lu\n",
+			pr_notice("%s: error tag selected: tag = %u\n",
 					mmc_hostname(mmc), tag);
 			mrq = get_req_by_tag(cq_host, tag);
 			if (mrq->data)

@@ -423,7 +423,7 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 			mtk_fence_session_mode_spy(session_id),
 			layer_id, fence);
 
-		mtk_sync_timeline_inc(layer_info->timeline, num_fence);
+		mtk_sync_timeline_inc(layer_info->timeline, num_fence, 0);
 		layer_info->timeline_idx = fence;
 
 		if (num_fence >= 2)
@@ -527,7 +527,7 @@ void mtk_release_layer_fence(unsigned int session_id, unsigned int layer_id)
 	mtk_release_fence(session_id, layer_id, fence);
 }
 
-int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
+int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx, ktime_t time)
 {
 	struct mtk_fence_info *layer_info = NULL;
 	unsigned int timeline_id = 0;
@@ -545,8 +545,14 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 
 	fence_increment = fence_idx - layer_info->timeline->value;
 
-	if (fence_increment <= 0)
+	if (fence_increment <= 0) {
+		DDPFENCE("Warning, fence_increment=%d:R/%s%d/L%d/timeline idx:%d/fence:%d\n",
+			fence_increment,
+			 mtk_fence_session_mode_spy(session_id),
+			 MTK_SESSION_DEV(session_id), timeline_id,
+			 layer_info->timeline->value, fence_idx);
 		goto done;
+	}
 
 	if (fence_increment >= 2)
 		DDPFENCE("Warning, R/%s%d/L%d/timeline idx:%d/fence:%d\n",
@@ -563,7 +569,7 @@ int mtk_release_present_fence(unsigned int session_id, unsigned int fence_idx)
 			mtk_fence_session_mode_spy(session_id),
 			fence_idx);
 
-	mtk_sync_timeline_inc(layer_info->timeline, fence_increment);
+	mtk_sync_timeline_inc(layer_info->timeline, fence_increment, time);
 	DDPFENCE("RL+/%s%d/T%d/id%d\n",
 		 mtk_fence_session_mode_spy(session_id),
 		 MTK_SESSION_DEV(session_id), timeline_id, fence_idx);
@@ -637,7 +643,7 @@ int mtk_release_sf_present_fence(unsigned int session_id,
 			fence_idx);
 
 
-	mtk_sync_timeline_inc(layer_info->timeline, fence_increment);
+	mtk_sync_timeline_inc(layer_info->timeline, fence_increment, 0);
 	DDPFENCE("RL+/%s%d/T%d/id%d\n",
 		 mtk_fence_session_mode_spy(session_id),
 		 MTK_SESSION_DEV(session_id), timeline_id, fence_idx);

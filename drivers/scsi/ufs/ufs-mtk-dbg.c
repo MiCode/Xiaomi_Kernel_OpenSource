@@ -83,7 +83,7 @@ void ufs_mtk_dbg_start_trace(struct ufs_hba *hba)
 {
 #ifdef CONFIG_MTK_UFS_DEBUG
 	atomic_set(&cmd_hist_enabled, 1);
-	dev_info(hba->dev, "cmd history on\n");
+	//dev_info(hba->dev, "cmd history on\n");
 #endif
 }
 

@@ -329,7 +329,7 @@ int tmem_query_gz_handle_to_pa(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 	}
 
 	*phy_addr = (uint64_t)p[1].value.a << SECMEM_64BIT_PHYS_SHIFT;
-	pr_info("[%s] handle=0x%x, ok(pa=0x%lx)\n", __func__, *gz_handle, *phy_addr);
+	pr_debug("[%s] handle=0x%x, ok(pa=0x%lx)\n", __func__, *gz_handle, *phy_addr);
 
 	KREE_CloseSession(session);
 

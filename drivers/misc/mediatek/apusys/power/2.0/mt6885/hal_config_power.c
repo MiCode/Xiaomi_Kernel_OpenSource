@@ -420,6 +420,9 @@ static void update_clk_path_max_vol(enum DVFS_USER user, enum DVFS_VOLTAGE volt)
 {
 	// CAUTION: have to ensure VPU0 has already run the func before MDLA0/1
 
+	if (user < 0)
+		return;
+
 	if (user == MDLA0 || user == MDLA1) {
 		dvfs_clk_path_max_vol[user][0] = volt;
 		// CONN & IOMMU & VPU share vvpu buck, so the max volt
@@ -720,6 +723,9 @@ static void change_opp_voltage(enum DVFS_VOLTAGE_DOMAIN bk_domain,
 	enum DVFS_VOLTAGE check2 = DVFS_VOLT_00_750000_V;
 	enum DVFS_VOLTAGE check3 = DVFS_VOLT_00_700000_V;
 	enum DVFS_VOLTAGE check_cmp = DVFS_VOLT_00_650000_V;
+
+	if (bk_domain < 0)
+		return;
 
 	// config raise volt first no matter binning or not
 	apusys_opps.opps[APUSYS_MAX_NUM_OPPS - 1][bk_domain].voltage =

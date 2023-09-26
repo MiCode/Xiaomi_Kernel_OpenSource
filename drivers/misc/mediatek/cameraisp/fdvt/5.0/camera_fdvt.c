@@ -1124,7 +1124,7 @@ static inline void FDVT_Reset_Every_Frame(void)
  *
  *****************************************************************************/
 
-static bool ConfigFDVTRequest(signed int ReqIdx)
+static bool ConfigFDVTRequest(unsigned int ReqIdx)
 {
 #ifdef FDVT_USE_GCE
 	unsigned int j;
@@ -2756,7 +2756,7 @@ static long FDVT_ioctl(struct file *pFile,
 	FDVT_CLEAR_IRQ_STRUCT ClearIrq;
 	FDVT_Config fdvt_FdvtConfig;
 	FDVT_Request fdvt_FdvtReq;
-	signed int FdvtWriteIdx = 0;
+	unsigned int FdvtWriteIdx = 0;
 	int idx;
 	struct FDVT_USER_INFO_STRUCT *pUserInfo;
 	int enqueNum;

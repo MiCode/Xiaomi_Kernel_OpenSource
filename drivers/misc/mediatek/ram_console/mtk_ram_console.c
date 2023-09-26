@@ -794,8 +794,8 @@ static int __init ram_console_early_init(void)
 		} else if (sram.def_type == RAM_CONSOLE_DEF_DRAM) {
 			pr_info("ram_console: using dram:0x%x\n",
 					memory_info_data.dram_addr);
-			start = memory_info_data.dram_addr;
-			size = memory_info_data.dram_size;
+			start = memory_info_data.dram_addr + RAM_CONSOLE_DRAM_OFF;
+			size = memory_info_data.dram_size - RAM_CONSOLE_DRAM_OFF;
 			bufp = remap_lowmem(start, size);
 		} else {
 			pr_err("ram_console: unknown def type:%d\n",

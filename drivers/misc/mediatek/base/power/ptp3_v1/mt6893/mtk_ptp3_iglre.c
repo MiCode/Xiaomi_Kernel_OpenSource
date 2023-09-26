@@ -329,7 +329,7 @@ int iglre_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 
 	for (i = 0; i < ARRAY_SIZE(iglre_entries); i++) {
 		if (!proc_create(iglre_entries[i].name,
-			0664,
+			0660,
 			iglre_dir,
 			iglre_entries[i].fops)) {
 			iglre_debug("[%s]: create /proc/%s/iglre/%s failed\n",

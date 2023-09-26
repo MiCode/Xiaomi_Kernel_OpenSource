@@ -665,11 +665,12 @@
 
 #define PD_DP_CFG_PIN(x) (((x) >> 8) & 0xff)
 
-/* USB-IF SIDs */
+/* USB-IF SVIDs */
 #define USB_SID_PD		0xff00	/* power delivery */
 #define USB_SID_DISPLAYPORT	0xff01	/* display port */
-#define USB_SID_RICHTEK	0x29cf  /* demo uvdm */
-#define USB_SID_DIRECTCHARGE	0x29cf  /* direct charge */
+#define USB_VID_RICHTEK		0x29cf  /* demo uvdm */
+#define USB_VID_DIRECTCHARGE	0x29cf  /* direct charge */
+#define USB_VID_MQP		0x1748
 
 /* PD counter definitions */
 #define PD_MESSAGE_ID_COUNT	7
@@ -748,6 +749,7 @@ struct pe_data {		/* reset after detached */
 
 #ifdef CONFIG_USB_PD_VCONN_SAFE5V_ONLY
 	bool vconn_highv_prot;
+	uint8_t vconn_highv_prot_role;
 #endif	/* CONFIG_USB_PD_VCONN_SAFE5V_ONLY */
 
 	uint8_t cap_counter;
@@ -772,8 +774,8 @@ struct pe_data {		/* reset after detached */
 	uint8_t pe_state_flags;
 	uint8_t pe_state_flags2;
 	uint8_t vdm_state_flags;
-	uint8_t pe_state_timer;
-	uint8_t vdm_state_timer;
+	uint32_t pe_state_timer;
+	uint32_t vdm_state_timer;
 
 #ifdef CONFIG_USB_PD_RECV_HRESET_COUNTER
 	uint8_t recv_hard_reset_count;
@@ -881,11 +883,10 @@ struct pd_port {
 #endif	/* CONFIG_USB_PD_ERROR_RECOVERY_ONCE */
 
 #ifdef CONFIG_USB_PD_REV30
-	wait_queue_head_t pps_request_event_queue;
-	atomic_t pps_request_event;
+	struct wakeup_source *pps_request_wake_lock;
+	wait_queue_head_t pps_request_wait_que;
+	atomic_t pps_request;
 	struct task_struct *pps_request_task;
-	struct wakeup_source pps_request_wake_lock;
-	bool pps_request_stop;
 #ifdef CONFIG_USB_PD_REV30_SYNC_SPEC_REV
 	uint8_t pd_revision[2];
 #endif	/* CONFIG_USB_PD_REV30_SYNC_SPEC_REV */
@@ -1293,12 +1294,19 @@ static inline void pd_enable_vdm_state_timer(
 	struct pd_port *pd_port, uint32_t timer_id)
 {
 	pd_port->pe_data.vdm_state_timer = timer_id;
-	return pd_enable_timer(pd_port, timer_id);
 }
 
 static inline void pd_disable_timer(struct pd_port *pd_port, uint32_t timer_id)
 {
 	return tcpc_disable_timer(pd_port->tcpc, timer_id);
+}
+
+static inline void pd_disable_pe_state_timer(struct pd_port *pd_port)
+{
+	struct pe_data *pe_data = &pd_port->pe_data;
+
+	pd_disable_timer(pd_port, pe_data->pe_state_timer);
+	pe_data->pe_state_timer = 0;
 }
 
 void pd_reset_pe_timer(struct pd_port *pd_port);

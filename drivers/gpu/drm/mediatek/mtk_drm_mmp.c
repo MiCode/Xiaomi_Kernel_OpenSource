@@ -466,6 +466,11 @@ int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 	struct mmp_metadata_bitmap_t bitmap;
 	mmp_event event_base = 0;
 
+	if (crtc_idx < 0) {
+		DDPINFO("%s fail, crtc_idx = %d\n", __func__, crtc_idx);
+		return 0;
+	}
+
 	memset(&bitmap, 0, sizeof(struct mmp_metadata_bitmap_t));
 	bitmap.data1 = buf_idx;
 	bitmap.width = cwb_info->copy_w;
@@ -490,7 +495,8 @@ int mtk_drm_mmp_cwb_buffer(struct drm_crtc *crtc,
 		bitmap.p_data = (void *)tmp->data.image;
 	}
 
-	event_base = g_CRTC_MMP_Events[crtc_idx].cwb_dump;
+	if (crtc_idx >= 0 && crtc_idx < MMP_CRTC_NUM)
+		event_base = g_CRTC_MMP_Events[crtc_idx].cwb_dump;
 	if (event_base)
 		mmprofile_log_meta_bitmap(
 			event_base,

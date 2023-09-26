@@ -17,7 +17,11 @@
 #include "mcupm_ipi_id.h"
 
 #define FHCTL_TARGET FHCTL_MCUPM
-#define IPI_TIMEOUT_MS 10
+#if defined(CONFIG_MACH_MT6873)
+	#define IPI_TIMEOUT_MS 2000
+#else
+	#define IPI_TIMEOUT_MS 10
+#endif
 
 struct match {
 	char *name;

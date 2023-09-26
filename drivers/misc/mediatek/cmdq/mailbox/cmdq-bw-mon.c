@@ -59,6 +59,7 @@ enum mon_enable_command {
 #define SMI_MON_AXI_CON_0		0x55440
 #define SMI_MON_AXI_CON_1		0x55440
 
+#if IS_ENABLED(CMDQ_BWMON_SUPPORT)
 static int cmdq_bwmon_enable_monitor(struct cmdq_pkt *pkt, u8 id)
 {
 	phys_addr_t base = bw_mon.smi[id].base;
@@ -270,11 +271,14 @@ static int cmdq_bwmon_stop(void)
 
 	return 0;
 }
+#endif
 
 static int cmdq_bwmon_set(const char *val, const struct kernel_param *kp)
 {
+#if IS_ENABLED(CMDQ_BWMON_SUPPORT)
 	int result, enable;
 
+	cmdq_msg("%s [bwmon] in", __func__);
 	result = kstrtoint(val, 0, &enable);
 	if (result) {
 		cmdq_err("[bwmon] monitor enable failed:%d", result);
@@ -289,6 +293,10 @@ static int cmdq_bwmon_set(const char *val, const struct kernel_param *kp)
 	}
 
 	return cmdq_bwmon_stop();
+#else
+	cmdq_msg("%s [bwmon] not support", __func__);
+	return 0;
+#endif
 }
 
 static struct kernel_param_ops bw_monitor_ops = {.set = cmdq_bwmon_set};

@@ -72,11 +72,17 @@ static enum IMGSENSOR_RETURN gpio_init(
 			gpio_pinctrl_list_cam[i].ppinctrl_lookup_names;
 
 			if (lookup_names) {
-				snprintf(str_pinctrl_name,
+				ret = snprintf(str_pinctrl_name,
 				sizeof(str_pinctrl_name),
 				"cam%d_%s",
 				j,
 				lookup_names);
+				if (ret < 0)
+					pr_info(
+						"ERROR:%s, snprintf err, %d\n",
+						__func__,
+						ret);
+
 				pgpio->ppinctrl_state_cam[j][i] =
 					pinctrl_lookup_state(
 						pgpio->ppinctrl,
@@ -177,9 +183,11 @@ static enum IMGSENSOR_RETURN gpio_set(
 
 static enum IMGSENSOR_RETURN gpio_dump(void *pintance)
 {
+#ifdef DUMP_GPIO
 	PK_DBG("[sensor_dump][gpio]\n");
 	gpio_dump_regs();
 	PK_DBG("[sensor_dump][gpio] finish\n");
+#endif
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 

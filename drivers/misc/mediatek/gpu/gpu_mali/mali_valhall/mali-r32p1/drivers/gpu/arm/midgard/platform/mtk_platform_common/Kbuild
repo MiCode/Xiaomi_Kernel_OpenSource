@@ -1,0 +1,16 @@
+include $(src)/Kbuild-mtk-custom-env
+
+curr := platform/mtk_platform_common
+
+obj-y += $(curr)/mtk_platform_common.o
+obj-y += $(curr)/mtk_gpu_dvfs.o
+obj-y += $(curr)/mtk_mfg_counter.o
+obj-y += $(curr)/mtk_gpu_power_sspm_ipi.o
+
+ccflags-y += -I$(srctree)/drivers/devfreq/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/swpm_v1/
+
+ifeq ($(CONFIG_MTK_PERF_TRACKER),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/perf/
+endif
+

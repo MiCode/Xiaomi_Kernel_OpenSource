@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2013-2019 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2020 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -334,6 +334,7 @@ struct tee_session *session_create(struct tee_client *client,
 	struct tee_session *session;
 	struct identity mcp_identity;
 
+	memset(&mcp_identity, 0, sizeof(mcp_identity));
 	if (!IS_ERR_OR_NULL(identity)) {
 		/* Check identity method and data. */
 		int ret;
@@ -341,8 +342,7 @@ struct tee_session *session_create(struct tee_client *client,
 		ret = check_prepare_identity(identity, &mcp_identity, current);
 		if (ret)
 			return ERR_PTR(ret);
-	} else
-		memset(&mcp_identity, 0, sizeof(mcp_identity));
+	}
 
 	/* Allocate session object */
 	session = kzalloc(sizeof(*session), GFP_KERNEL);
@@ -941,7 +941,7 @@ int session_debug_structs(struct kasnprintf_buf *buf,
 {
 	const char *type;
 	u32 session_id;
-	s32 err;
+	s32 err = 0;
 	int i, ret;
 
 	if (session->is_gp) {

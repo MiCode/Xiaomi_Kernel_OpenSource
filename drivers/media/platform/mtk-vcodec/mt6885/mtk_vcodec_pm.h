@@ -77,6 +77,7 @@ enum mtk_dec_dtsi_reg_idx {
 	VDEC_LAT_MISC,
 	VDEC_LAT_VLD,
 	VDEC_RACING_CTRL,
+	VDEC_SOC_GCON,
 	NUM_MAX_VDEC_REG_BASE,
 };
 

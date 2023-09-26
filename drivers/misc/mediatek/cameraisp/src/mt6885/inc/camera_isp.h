@@ -137,6 +137,20 @@ enum ISP_IRQ_TYPE_ENUM {
 	ISP_IRQ_TYPE_AMOUNT
 };
 
+enum RAW_IDX {
+	CAM_A = 0,
+	CAM_B,
+	CAM_C,
+	CAM_MAX,
+};
+
+enum EXP_NUM {
+	EXP_NONE  = 0,
+	EXP_ONE   = 1,
+	EXP_TWO   = 2,
+	EXP_THREE = 3
+};
+
 enum ISP_ST_ENUM {
 	SIGNAL_INT = 0, DMA_INT, ISP_IRQ_ST_AMOUNT
 };
@@ -597,6 +611,12 @@ struct ISP_RAW_INT_STATUS {
 	unsigned int ispInt3Err;
 	unsigned int ispInt4Err;
 	unsigned int ispInt5Err;
+};
+
+struct ISP_CQ0_NOTE_INFO {
+	unsigned int cq0_data[ISP_IRQ_TYPE_INT_CAMSV_0_ST][3];
+	unsigned int exposureNum;
+	unsigned int cqCnt;
 };
 
 /*******************************************************************************

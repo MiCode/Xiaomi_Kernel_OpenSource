@@ -129,6 +129,9 @@ static inline ssize_t suspend_cmd_store(struct device *dev,
 
 	fid = adsp_get_feature_index(token2);
 
+	if (!is_feature_in_set(pdata->id, fid))
+		goto EXIT;
+
 	if ((strcmp(token1, "regi") == 0) && (fid >= 0))
 		_adsp_register_feature(pdata->id, fid, 0);
 

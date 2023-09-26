@@ -1,0 +1,6 @@
+#include "mediatek/pissarro-mt6877.dtsi"
+
+/ {
+        model = "PISSARRO";
+        compatible = "mediatek,MT6877";
+};

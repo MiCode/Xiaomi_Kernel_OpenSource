@@ -28,6 +28,7 @@
 #include <mt-plat/mtk_perfobserver.h>
 #endif
 
+#include <linux/arm-smccc.h>
 #include <mt-plat/mtk_secure_api.h>
 
 #define VPU_TRACE_ENABLED
@@ -1631,6 +1632,10 @@ int vpu_init_device(struct vpu_device *vpu_device)
 	vbuf_init_phy_iova(vpu_device);
 
 	if (vpu_device->vpu_load_image_state == VPU_LOAD_IMAGE_NONE) {
+		// set vpu image header for lk load vpu image
+		vpu_device->image_header = (struct vpu_image_header *)
+			((uintptr_t)vpu_device->bin_base + (VPU_OFFSET_IMAGE_HEADERS));
+
 		/* map all algo binary data(src addr for dps to copy) */
 		/* no need reserved mva, use SG_READY*/
 		memset(&mem_param, 0x0, sizeof(mem_param));
@@ -2473,11 +2478,18 @@ int vpu_debug_func_core_state(struct vpu_core *vpu_core,
 	return 0;
 }
 
+enum MTK_APUSYS_KERNEL_OP {
+	MTK_VPU_SMC_INIT = 0,
+	MTK_APUSYS_KERNEL_OP_NUM
+};
+
 int vpu_boot_up(struct vpu_core *vpu_core, bool secure)
 {
 	struct vpu_device *vpu_device = vpu_core->vpu_device;
 	int ret = 0;
 	int core;
+	struct arm_smccc_res res;
+
 	/*secure flag is for sdsp force shut down*/
 
 	core = vpu_core->core;
@@ -2521,6 +2533,10 @@ int vpu_boot_up(struct vpu_core *vpu_core, bool secure)
 	LOG_DBG("[vpu_%d] init_reg done\n", core);
 
 	if (!secure) {
+		arm_smccc_smc(MTK_SIP_APUSYS_CONTROL,
+						MTK_VPU_SMC_INIT,
+						0, 0, 0, 0, 0, 0, &res);
+
 		ret = vpu_hw_boot_sequence(vpu_core);
 		if (ret) {
 			LOG_ERR("[vpu_%d]fail to do boot sequence\n", core);

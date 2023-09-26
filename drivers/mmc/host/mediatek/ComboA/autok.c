@@ -5002,6 +5002,7 @@ void autok_low_speed_switch_edge(struct msdc_host *host,
 			MSDC_GET_FIELD(MSDC_IOCON,
 				MSDC_IOCON_RSPL,
 				cur_resp_edge);
+			host->hw->cmd_edge = cur_resp_edge;
 			AUTOK_RAWPRINT("[AUTOK][CMD err]edge %d->%d\r\n",
 				orig_resp_edge, cur_resp_edge);
 			break;
@@ -5047,6 +5048,7 @@ void autok_low_speed_switch_edge(struct msdc_host *host,
 					cur_read_fifo_edge);
 				AUTOK_RAWPRINT("[AUTOK][RD err]edge = %d",
 				    cur_read_edge);
+				host->hw->rdata_edge = cur_read_fifo_edge;
 				AUTOK_RAWPRINT("fifo_edge %d->%d\r\n",
 				    orig_read_fifo_edge, cur_read_fifo_edge);
 			}
@@ -5078,6 +5080,7 @@ void autok_low_speed_switch_edge(struct msdc_host *host,
 			MSDC_GET_FIELD(MSDC_PATCH_BIT2,
 				MSDC_PB2_CFGCRCSTSEDGE,
 				cur_crc_fifo_edge);
+			host->hw->wdata_edge = cur_crc_fifo_edge;
 			AUTOK_RAWPRINT("[AUTOK][WR err]edge %d->%d\r\n"
 				, orig_crc_fifo_edge, cur_crc_fifo_edge);
 			break;

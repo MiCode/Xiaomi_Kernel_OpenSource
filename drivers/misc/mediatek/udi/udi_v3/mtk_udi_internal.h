@@ -57,22 +57,8 @@
 	udi_reg_write(addr, (udi_reg_read(addr) & ~(BITMASK_UDI(range)))\
 					| BITS_UDI(range, val))
 
-/* receive string for temp  */
-/* #define UDI_FIFOSIZE 16384  */
-#define UDI_FIFOSIZE 256
-
 extern unsigned int udi_reg_read(unsigned int addr);
 extern void udi_reg_write(unsigned int addr,
 				unsigned int val);
-extern unsigned int udi_jtag_clock(unsigned int sw_tck,
-				unsigned int i_trst,
-				unsigned int i_tms,
-				unsigned int i_tdi,
-				unsigned int count);
-extern unsigned int udi_bit_ctrl(unsigned int sw_tck,
-				unsigned int i_tdi,
-				unsigned int i_tms,
-				unsigned int i_trst);
-
 
 #endif /* __MTK_UDI_INTERNAL_H__ */

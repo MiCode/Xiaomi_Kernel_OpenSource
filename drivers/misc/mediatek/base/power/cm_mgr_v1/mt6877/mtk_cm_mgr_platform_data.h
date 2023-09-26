@@ -58,10 +58,50 @@ static int cm_mgr_loop_count;
 static int cm_mgr_dram_level;
 static int cm_mgr_loop;
 static int total_bw_value;
+#ifdef USE_CM_USER_MODE
+unsigned int cm_user_mode;
+unsigned int cm_user_active;
+#endif
 #ifdef USE_BCPU_WEIGHT
 int cpu_power_bcpu_weight_max = 350;
 int cpu_power_bcpu_weight_min = 100;
+
+int cpu_power_bcpu_weight_max0 = 350;
+int cpu_power_bcpu_weight_min0 = 100;
+
+int cpu_power_bcpu_weight_max1 = 480;
+int cpu_power_bcpu_weight_min1 = 100;
+
 #endif /* USE_BCPU_WEIGHT */
+
+#ifdef CM_BCPU_MIN_OPP_WEIGHT
+unsigned int cm_mgr_bcpu_min_opp_weight;
+unsigned int cm_mgr_bcpu_low_opp_weight;
+unsigned int cm_mgr_bcpu_low_opp_bound = 15;
+
+unsigned int cm_mgr_bcpu_min_opp_weight0;
+unsigned int cm_mgr_bcpu_low_opp_weight0;
+unsigned int cm_mgr_bcpu_low_opp_bound0 = 15;
+
+unsigned int cm_mgr_bcpu_min_opp_weight1 = 30;
+unsigned int cm_mgr_bcpu_low_opp_weight1 = 60;
+unsigned int cm_mgr_bcpu_low_opp_bound1 = 10;
+#endif
+
+#ifdef CM_TRIGEAR
+int cpu_power_bbcpu_weight_max = 100;
+int cpu_power_bbcpu_weight_min = 100;
+#endif
+#ifdef DSU_DVFS_ENABLE
+unsigned int dsu_debounce_up = 5;
+unsigned int dsu_debounce_down;
+unsigned int dsu_diff_pwr_up = 10;
+unsigned int dsu_diff_pwr_down;
+unsigned int dsu_l_pwr_ratio = 100;
+unsigned int dsu_b_pwr_ratio = 100;
+unsigned int dsu_bb_pwr_ratio = 100;
+
+#endif
 unsigned int cpu_power_ratio_up[CM_MGR_EMI_OPP] = {100, 120, 140, 100, 100, 0};
 unsigned int cpu_power_ratio_down[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100, 0};
 unsigned int vcore_power_ratio_up[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100, 100};
@@ -74,12 +114,12 @@ unsigned int cpu_power_ratio_down0[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100, 0
 unsigned int debounce_times_up_adb0[CM_MGR_EMI_OPP] = {0, 0, 0, 0, 0, 0};
 unsigned int debounce_times_down_adb0[CM_MGR_EMI_OPP] = {3, 0, 0, 0, 0, 0};
 
-unsigned int cpu_power_ratio_up1[CM_MGR_EMI_OPP] = {100, 120, 140, 100, 100, 100};
-unsigned int cpu_power_ratio_down1[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100, 100};
+unsigned int cpu_power_ratio_up1[CM_MGR_EMI_OPP] = {100, 120, 140, 70, 180, 140};
+unsigned int cpu_power_ratio_down1[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 160, 100};
 unsigned int debounce_times_up_adb1[CM_MGR_EMI_OPP] = {0, 0, 0, 0, 0, 0};
-unsigned int debounce_times_down_adb1[CM_MGR_EMI_OPP] = {3, 0, 0, 0, 0, 0};
+unsigned int debounce_times_down_adb1[CM_MGR_EMI_OPP] = {3, 0, 0, 0, 3, 3};
 
-int debounce_times_reset_adb;
+int debounce_times_reset_adb = 1;
 int debounce_times_perf_down = 5;
 int debounce_times_perf_force_down = 100;
 static int update;
@@ -108,6 +148,13 @@ int cm_mgr_cpu_map_dram_enable = 1;
 int cm_mgr_cpu_map_emi_opp = 1;
 int cm_mgr_cpu_map_skip_cpu_opp = 2;
 #endif /* USE_CPU_TO_DRAM_MAP_NEW */
+
+
+int x_ratio_enable = 1;
+int cm_mgr_camera_enable;
+unsigned int cpu_power_ratio_up_x_camera[CM_MGR_EMI_OPP] = {0, 0, 0, 0, 60, 60};
+unsigned int cpu_power_ratio_up_x[CM_MGR_EMI_OPP] = {0, 0, 0, 0, 0, 0};
+
 
 static int vcore_power_gain_0[][VCORE_ARRAY_SIZE] = {
 	{42, 80, 10, 120, 210},

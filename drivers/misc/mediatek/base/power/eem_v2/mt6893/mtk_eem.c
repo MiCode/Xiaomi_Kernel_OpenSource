@@ -209,7 +209,7 @@ static int eem_printf(int id, char *writebuf, int len)
 		return 0;
 
 	/* fill data to aee_log_buf */
-	if ((len > 0) && (len < AEE_PER_ENTRY_LEN)) {
+	if ((len > 0) && (len < AEE_PER_ENTRY_LEN) && id >= 0 && id < NR_EEM_DET) {
 		memcpy(
 		aee_volt->aee_v_det[id].volt_entry[aee_volt->aee_v_det[id].cur_entry],
 		writebuf, len + 1);
@@ -238,17 +238,20 @@ static int eem_aee_log_cur_volt(struct eem_det *det)
 			PTP_MEM_SIZE - str_len,
 			"\n===========id:%d, isTempInv:%d, eem_aging:%d\n",
 			det->ctrl_id, det->isTempInv, eem_aging);
-		for (i = 0; i < det->num_freq_tbl; i++)
-			str_len += snprintf(aee_log_buf + str_len,
-			PTP_MEM_SIZE - str_len,
-			"[%d],eem = [%x], pmic = [%x], volt = [%d]\n",
-			i, det->volt_tbl[i], det->volt_tbl_pmic[i],
-			det->ops->pmic_2_volt(det, det->volt_tbl_pmic[i]));
+			if (str_len >= 0) {
+				for (i = 0; i < det->num_freq_tbl; i++)
+					str_len += snprintf(aee_log_buf + str_len,
+					PTP_MEM_SIZE - str_len,
+					"[%d],eem = [%x], pmic = [%x], volt = [%d]\n",
+					i, det->volt_tbl[i], det->volt_tbl_pmic[i],
+					det->ops->pmic_2_volt(det, det->volt_tbl_pmic[i]));
+			}
 	}
 
 	/* fill data to aee_log_buf */
 	if ((str_len > 0) &&
-		((cur_oft + str_len) < PTP_MEM_SIZE)) {
+		((cur_oft + str_len) < PTP_MEM_SIZE) &&
+		det->ctrl_id >= 0 && det->ctrl_id < NR_EEM_DET) {
 		memcpy(aee_volt->aee_v_det[det->ctrl_id].dumpbuf +
 			cur_oft, aee_log_buf, str_len + 1);
 		cur_oft += str_len;
@@ -259,7 +262,8 @@ static int eem_aee_log_cur_volt(struct eem_det *det)
 		str_len = snprintf(aee_log_buf + str_len,
 		PTP_MEM_SIZE - str_len,
 		"Bank_number = %d\n", det->ctrl_id);
-
+		if (str_len <= 0)
+			continue;
 		str_len += snprintf(aee_log_buf + str_len,
 		PTP_MEM_SIZE - str_len,
 		"mode = init2%d\n", i);
@@ -281,7 +285,8 @@ static int eem_aee_log_cur_volt(struct eem_det *det)
 
 		/* fill data to aee_log_buf */
 		if ((str_len > 0) &&
-			((cur_oft + str_len) < PTP_MEM_SIZE)) {
+			((cur_oft + str_len) < PTP_MEM_SIZE) &&
+			det->ctrl_id >= 0 && det->ctrl_id < NR_EEM_DET) {
 			memcpy(aee_volt->aee_v_det[det->ctrl_id].dumpbuf +
 			cur_oft, aee_log_buf, str_len + 1);
 			cur_oft += str_len;
@@ -1527,13 +1532,15 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				ndet->temp,
 				ndet->volt_tbl_pmic[0],
 				ktime_to_us(start));
-			eem_printf(ndet->ctrl_id, tempstr, str_len);
+			if (str_len > 0) {
+				eem_printf(ndet->ctrl_id, tempstr, str_len);
 #if 0
-			eem_error(
-				"id:%d, nsec:%lld, oopp0:0x%x, pmic[0]:0x%x, len:%d\n",
-				ndet->ctrl_id, ktime_to_us(start),
-				org_opp0, ndet->volt_tbl_pmic[0], str_len);
+				eem_error(
+					"id:%d, nsec:%lld, oopp0:0x%x, pmic[0]:0x%x, len:%d\n",
+					ndet->ctrl_id, ktime_to_us(start),
+					org_opp0, ndet->volt_tbl_pmic[0], str_len);
 #endif
+			}
 		}
 #endif
 	/* Check volt */
@@ -1699,7 +1706,7 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 	FUNC_ENTER(FUNC_LV_HELP);
 	inherit_base_det(det);
 #if EN_PI_VOLT_LOG
-	if (aee_volt)
+	if (aee_volt && det_id >= 0 && det_id < NR_EEM_DET)
 		aee_volt->aee_v_det[det_id].cur_entry = 0;
 #endif
 	eem_debug("IN init_det %s\n", det->name);
@@ -1969,6 +1976,9 @@ static void eem_set_eem_volt(struct eem_det *det)
 {
 #if SET_PMIC_VOLT
 	struct eem_ctrl *ctrl = id_to_eem_ctrl(det->ctrl_id);
+
+	if (ctrl == NULL)
+		return;
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	ctrl->volt_update |= EEM_VOLT_UPDATE;

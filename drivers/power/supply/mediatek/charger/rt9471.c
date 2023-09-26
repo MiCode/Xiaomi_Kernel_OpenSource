@@ -36,7 +36,7 @@
 
 #include "mtk_charger_intf.h"
 #include "rt9471.h"
-#define RT9471_DRV_VERSION	"1.0.15_MTK"
+#define RT9471_DRV_VERSION	"1.0.16_MTK"
 
 enum rt9471_stat_idx {
 	RT9471_STATIDX_STAT0 = 0,
@@ -179,7 +179,7 @@ static const u8 rt9471_val_en_hidden_mode[] = {
 };
 
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
-static const char *rt9471_port_name[RT9471_PORTSTAT_MAX] = {
+static const char * const rt9471_port_names[RT9471_PORTSTAT_MAX] = {
 	"NOINFO",
 	"RESERVED", "RESERVED", "RESERVED", "RESERVED",
 	"RESERVED", "RESERVED", "RESERVED",
@@ -1462,7 +1462,7 @@ static void rt9471_bc12_done_handler(struct rt9471_chip *chip)
 		mutex_lock(&chip->bc12_lock);
 		rt9471_bc12_postprocess(chip);
 		dev_info(chip->dev, "%s %d %s\n", __func__, chip->port,
-				    rt9471_port_name[chip->port]);
+				    rt9471_port_names[chip->port]);
 		mutex_unlock(&chip->bc12_lock);
 	}
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
@@ -3017,7 +3017,7 @@ static int rt9471_probe(struct i2c_client *client,
 
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	if (chip->dev_id == RT9470D_DEVID || chip->dev_id == RT9471D_DEVID) {
-		atomic_set(&chip->vbus_gd, 0);
+		atomic_set(&chip->vbus_gd, false);
 		chip->attach = false;
 		chip->port = RT9471_PORTSTAT_NOINFO;
 		chip->chg_type = CHARGER_UNKNOWN;
@@ -3093,7 +3093,6 @@ err_init_irq:
 err_check_chg:
 err_register_irq:
 	charger_device_unregister(chip->chg_dev);
-	cancel_delayed_work_sync(&chip->buck_dwork);
 err_register_chg_dev:
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	if (chip->dev_id == RT9470D_DEVID || chip->dev_id == RT9471D_DEVID) {
@@ -3105,6 +3104,7 @@ err_register_chg_dev:
 	}
 err_kthread_run:
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
+	cancel_delayed_work_sync(&chip->buck_dwork);
 err_init:
 	rt9471_reset_register(chip);
 #ifdef CONFIG_RT_REGMAP
@@ -3132,7 +3132,6 @@ static int rt9471_remove(struct i2c_client *client)
 	device_remove_file(chip->dev, &dev_attr_shipping_mode);
 	disable_irq(chip->irq);
 	charger_device_unregister(chip->chg_dev);
-	cancel_delayed_work_sync(&chip->buck_dwork);
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	if (chip->dev_id == RT9470D_DEVID || chip->dev_id == RT9471D_DEVID) {
 		kthread_stop(chip->bc12_en_kthread);
@@ -3142,6 +3141,7 @@ static int rt9471_remove(struct i2c_client *client)
 			power_supply_put(chip->psy);
 	}
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
+	cancel_delayed_work_sync(&chip->buck_dwork);
 	rt9471_reset_register(chip);
 #ifdef CONFIG_RT_REGMAP
 	rt_regmap_device_unregister(chip->rm_dev);
@@ -3165,11 +3165,11 @@ static void rt9471_shutdown(struct i2c_client *client)
 
 	disable_irq(chip->irq);
 	charger_device_unregister(chip->chg_dev);
-	cancel_delayed_work_sync(&chip->buck_dwork);
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	if (chip->dev_id == RT9470D_DEVID || chip->dev_id == RT9471D_DEVID)
 		kthread_stop(chip->bc12_en_kthread);
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
+	cancel_delayed_work_sync(&chip->buck_dwork);
 	rt9471_reset_register(chip);
 	if (chip->enter_shipping_mode)
 		__rt9471_enable_shipmode(chip);
@@ -3238,6 +3238,9 @@ MODULE_VERSION(RT9471_DRV_VERSION);
 
 /*
  * Release Note
+ * 1.0.16
+ * (1) Rearrange the resources alloc and free in driver probing/removing
+ *
  * 1.0.15
  * (1) Reset EOC state at initial setting
  * (2) Revise HZ usage

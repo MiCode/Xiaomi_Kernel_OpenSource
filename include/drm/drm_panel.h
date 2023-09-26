@@ -93,6 +93,8 @@ struct drm_panel {
 	const struct drm_panel_funcs *funcs;
 
 	struct list_head list;
+
+	bool panel_initialized;
 };
 
 /**

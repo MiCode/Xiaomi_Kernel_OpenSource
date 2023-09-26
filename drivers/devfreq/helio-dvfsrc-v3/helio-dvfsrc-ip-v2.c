@@ -514,8 +514,8 @@ int helio_dvfsrc_config(struct helio_dvfsrc *dvfsrc)
 	dvfsrc_latch_register(1);
 #endif
 	helio_dvfsrc_enable(1);
-	helio_dvfsrc_qos_init_done();
 	helio_dvfsrc_platform_init(dvfsrc);
+	helio_dvfsrc_qos_init_done();
 
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_enable(1);

@@ -29,11 +29,11 @@
 
 #define CMDQ_INVALID_THREAD		(-1)
 
-// #if IS_ENABLED(CONFIG_MTK_MT6382_DBG)
+#if IS_ENABLED(CONFIG_MTK_MT6382_DBG)
 #define CMDQ_MAX_THREAD_COUNT		(BIT(5) | 24)
-// #else
-// #define CMDQ_MAX_THREAD_COUNT		(24)
-// #endif
+#else
+#define CMDQ_MAX_THREAD_COUNT		(24)
+#endif
 #define CMDQ_MAX_TASK_IN_THREAD		(16)
 #define CMDQ_MAX_READ_SLOT_COUNT	(4)
 #define CMDQ_INIT_FREE_TASK_COUNT	(8)
@@ -402,6 +402,7 @@ struct cmdqSecAddrMetadataStruct {
 	uint32_t port;		/* hw port id (i.e. M4U port id) */
 	uint32_t sec_id;
 	uint32_t useSecIdinMeta;
+	int32_t ionFd;
 };
 
 struct cmdqMetaBuf {

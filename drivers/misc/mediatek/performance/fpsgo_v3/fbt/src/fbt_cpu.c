@@ -2965,12 +2965,14 @@ static int fbt_boost_policy(
 			if (boost_info->quota_mod > 0) { /* qr_quota, unit: 1us */
 				/* qr_t2wnt_y_p: percentage */
 				qr_quota_adj = (qr_t2wnt_y_p != 100) ?
-					boost_info->quota_mod * 10 * qr_t2wnt_y_p :
-					boost_info->quota_mod * 1000;
+					(long long)(boost_info->quota_mod) * 10 *
+					(long long)qr_t2wnt_y_p :
+					(long long)(boost_info->quota_mod) * 1000;
 			} else {
 				 /* qr_t2wnt_y_n: percentage */
 				qr_quota_adj = (qr_t2wnt_y_n != 0) ?
-					boost_info->quota_mod * 10 * qr_t2wnt_y_n :
+					(long long)(boost_info->quota_mod) * 10 *
+					(long long)qr_t2wnt_y_n :
 					0;
 			}
 			t2wnt = (rescue_target_t + qr_quota_adj > 0)
@@ -3004,6 +3006,8 @@ static int fbt_boost_policy(
 			}
 
 			if (t2wnt > FBTCPU_SEC_DIVIDER) {
+				fpsgo_main_trace("%s t2wnt:%lld > FBTCPU_SEC_DIVIDER",
+					__func__, t2wnt);
 				t2wnt = FBTCPU_SEC_DIVIDER;
 				fpsgo_systrace_c_fbt_gm(pid, buffer_id, t2wnt,
 					"t2wnt");
@@ -3954,6 +3958,17 @@ int fpsgo_base2fbt_is_finished(struct render_info *thr)
 	}
 
 	return 1;
+}
+
+void fpsgo_base2fbt_stop_boost(struct render_info *thr)
+{
+	if (!thr)
+		return;
+
+	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 1, "stop_boost");
+	fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id, 0, "stop_boost");
+
+	fbt_reset_boost(thr);
 }
 
 static int fbt_get_opp_by_freq(int cluster, unsigned int freq)

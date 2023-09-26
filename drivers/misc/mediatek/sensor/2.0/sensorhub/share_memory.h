@@ -16,6 +16,16 @@
 
 #include "scp_helper.h"
 
+enum share_mem_payload_type {
+	SHARE_MEM_DATA_PAYLOAD_TYPE,
+	SHARE_MEM_SUPER_DATA_PAYLOAD_TYPE,
+	SHARE_MEM_LIST_PAYLOAD_TYPE,
+	SHARE_MEM_DEBUG_PAYLOAD_TYPE,
+	SHARE_MEM_CUSTOM_W_PAYLOAD_TYPE,
+	SHARE_MEM_CUSTOM_R_PAYLOAD_TYPE,
+	MAX_SHARE_MEM_PAYLOAD_TYPE,
+};
+
 struct share_mem_data {
 	uint8_t sensor_type;
 	uint8_t action;
@@ -47,6 +57,14 @@ struct share_mem_info {
 	uint32_t gain;
 	uint8_t name[16];
 	uint8_t vendor[16];
+} __packed __aligned(4);
+
+struct share_mem_cmd {
+	uint8_t command;
+	uint8_t tx_len;
+	uint8_t rx_len;
+	uint8_t padding[1];
+	int32_t data[15] __aligned(4);
 } __packed __aligned(4);
 
 struct share_mem_base {
@@ -81,7 +99,7 @@ struct share_mem_notify {
 };
 
 struct share_mem_config {
-	uint8_t notify_cmd;
+	uint8_t payload_type;
 	struct share_mem_base *base;
 	uint32_t buffer_size;
 };
@@ -94,9 +112,9 @@ int share_mem_write(struct share_mem *shm, void *buf, uint32_t count);
 int share_mem_flush(struct share_mem *shm, struct share_mem_notify *notify);
 int share_mem_init(struct share_mem *shm, struct share_mem_config *cfg);
 int share_mem_config(void);
-void share_mem_config_handler_register(uint8_t notify_cmd,
+void share_mem_config_handler_register(uint8_t payload_type,
 	int (*f)(struct share_mem_config *cfg, void *private_data),
 	void *private_data);
-void share_mem_config_handler_unregister(uint8_t notify_cmd);
+void share_mem_config_handler_unregister(uint8_t payload_type);
 
 #endif

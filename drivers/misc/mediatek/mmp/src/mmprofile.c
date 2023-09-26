@@ -1963,7 +1963,7 @@ static long mmprofile_ioctl(struct file *file, unsigned int cmd,
 		if (arg > MMPROFILE_MAX_META_BUFFER_SIZE) {
 			arg = MMPROFILE_MAX_META_BUFFER_SIZE;
 			ret = -EINVAL;
-		} else if (arg < MMPROFILE_MIN_META_BUFFER_SIZE)
+		} else if (arg <= MMPROFILE_MIN_META_BUFFER_SIZE)
 			arg = MMPROFILE_MIN_META_BUFFER_SIZE;
 		mmprofile_globals.new_meta_buffer_size = arg;
 		break;

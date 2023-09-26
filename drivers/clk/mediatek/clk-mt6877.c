@@ -2048,6 +2048,8 @@ static const struct mtk_gate ifrao_clks[] = {
 			"msdc30_1_ck"/* parent */, 16),
 	GATE_IFRAO1(CLK_IFRAO_MSDC0_AES, "ifrao_msdc0_aes_clk",
 			"msdc50_0_ck"/* parent */, 17),
+	GATE_IFRAO1(CLK_IFRAO_DEVICE_APC, "ifrao_dapc",
+			"axi_ck"/* parent */, 20),
 	GATE_IFRAO1(CLK_IFRAO_CCIF_AP, "ifrao_ccif_ap",
 			"axi_ck"/* parent */, 23),
 	GATE_IFRAO1(CLK_IFRAO_AUDIO, "ifrao_audio",

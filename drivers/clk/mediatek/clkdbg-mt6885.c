@@ -664,9 +664,6 @@ void print_subsys_reg(enum dbg_sys_id id)
 	const struct regname *rns = &rn[0];
 	int i;
 
-	if (rns == NULL)
-		return;
-
 	if (id >= dbg_sys_num || id < 0) {
 		pr_info("wrong id:%d\n", id);
 		return;

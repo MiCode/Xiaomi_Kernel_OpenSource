@@ -87,10 +87,7 @@ enum {
 	MD_CFG_RAT_STR3,
 	MD_CFG_RAT_STR4,
 	MD_CFG_RAT_STR5,
-};
-
-enum MD_RAT_CHK_FLAG {
-	MD_RAT_FLAG_C2K_DEP = 0,
+	MD_CFG_WM_IDX,
 };
 
 enum {

@@ -785,6 +785,17 @@ static int mtk_switch_chr_cc(struct charger_manager *info)
 			chr_err("enter PE5.0\n");
 			swchgalg->state = CHR_PE50;
 			info->pe5.online = true;
+			if (mtk_pe20_get_is_enable(info)) {
+				mtk_pe20_set_is_enable(info, false);
+				if (mtk_pe20_get_is_connect(info))
+					mtk_pe20_reset_ta_vchr(info);
+			}
+
+			if (mtk_pe_get_is_enable(info)) {
+				mtk_pe_set_is_enable(info, false);
+				if (mtk_pe_get_is_connect(info))
+					mtk_pe_reset_ta_vchr(info);
+			}
 			return 1;
 		}
 	}
@@ -797,6 +808,17 @@ static int mtk_switch_chr_cc(struct charger_manager *info)
 			info->chg1_data.thermal_input_current_limit == -1) {
 			chr_err("enter PE4.0!\n");
 			swchgalg->state = CHR_PE40;
+			if (mtk_pe20_get_is_enable(info)) {
+				mtk_pe20_set_is_enable(info, false);
+				if (mtk_pe20_get_is_connect(info))
+					mtk_pe20_reset_ta_vchr(info);
+			}
+
+			if (mtk_pe_get_is_enable(info)) {
+				mtk_pe_set_is_enable(info, false);
+				if (mtk_pe_get_is_connect(info))
+					mtk_pe_reset_ta_vchr(info);
+			}
 			return 1;
 		}
 	}
@@ -806,6 +828,17 @@ static int mtk_switch_chr_cc(struct charger_manager *info)
 		if (info->enable_hv_charging == true) {
 			chr_err("enter PDC!\n");
 			swchgalg->state = CHR_PDC;
+			if (mtk_pe20_get_is_enable(info)) {
+				mtk_pe20_set_is_enable(info, false);
+				if (mtk_pe20_get_is_connect(info))
+					mtk_pe20_reset_ta_vchr(info);
+			}
+
+			if (mtk_pe_get_is_enable(info)) {
+				mtk_pe_set_is_enable(info, false);
+				if (mtk_pe_get_is_connect(info))
+					mtk_pe_reset_ta_vchr(info);
+			}
 			return 1;
 		}
 	}

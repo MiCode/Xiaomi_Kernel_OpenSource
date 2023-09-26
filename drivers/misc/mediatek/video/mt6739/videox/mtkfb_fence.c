@@ -118,7 +118,7 @@ _get_session_sync_info(unsigned int session)
 	    DISP_SESSION_TYPE(session) != DISP_SESSION_MEMORY &&
 	    DISP_SESSION_TYPE(session) != DISP_SESSION_EXTERNAL) {
 		DISPERR("invalid session id:0x%08x\n", session);
-		return NULL;
+		ASSERT(0);
 	}
 
 	mutex_lock(&_disp_fence_mutex);
@@ -240,8 +240,10 @@ _get_session_sync_info(unsigned int session)
 	}
 done:
 
-	if (s_info == NULL)
+	if (s_info == NULL) {
 		DISPERR("wrong session_id:%d, 0x%08x\n", session, session);
+		ASSERT(0);
+	}
 
 	mutex_unlock(&_disp_fence_mutex);
 	return s_info;
@@ -374,7 +376,7 @@ static size_t mtkfb_ion_phys_mmu_addr(struct ion_client *client,
 				      unsigned int *mva,
 					  int type)
 {
-	size_t size;
+	size_t size = 0;
 	ion_phys_addr_t phy_addr = 0;
 	struct ion_mm_data mm_data;
 
@@ -488,6 +490,8 @@ unsigned int mtkfb_query_buf_va(unsigned int session_id, unsigned int layer_id,
 	ASSERT(layer_id < DISP_SESSION_TIMELINE_COUNT);
 
 	session_info = _get_session_sync_info(session_id);
+	if (session_info == 0)
+		return 0;
 	layer_info = &(session_info->session_layer_info[layer_id]);
 	if (layer_id != layer_info->layer_id) {
 		MTKFB_FENCE_ERR("wrong layer id %d(rt), %d(in)!\n",
@@ -525,6 +529,8 @@ unsigned int mtkfb_query_release_idx(unsigned int session_id,
 	struct disp_sync_info *l_info;
 
 	s_info = _get_session_sync_info(session_id);
+	if (s_info == 0)
+		return 0;
 	l_info = &(s_info->session_layer_info[layer_id]);
 
 	if (layer_id != l_info->layer_id) {
@@ -589,6 +595,8 @@ unsigned int mtkfb_update_buf_ticket(unsigned int session_id,
 	}
 
 	session_info = _get_session_sync_info(session_id);
+	if (session_info == 0)
+		return 0;
 	layer_info = &(session_info->session_layer_info[layer_id]);
 
 	if (layer_id != layer_info->layer_id) {
@@ -619,6 +627,8 @@ unsigned int mtkfb_query_idx_by_ticket(unsigned int session_id,
 	struct disp_sync_info *l_info;
 
 	s_info = _get_session_sync_info(session_id);
+	if (s_info == 0)
+		return 0;
 	l_info = &(s_info->session_layer_info[layer_id]);
 
 	if (layer_id != l_info->layer_id) {
@@ -651,6 +661,8 @@ bool mtkfb_update_buf_info_new(unsigned int session_id, unsigned int mva_offset,
 	}
 
 	s_info = _get_session_sync_info(session_id);
+	if (s_info == 0)
+		return 0;
 	l_info = &(s_info->session_layer_info[buf_info->layer_id]);
 	if (buf_info->layer_id != l_info->layer_id) {
 		DISPERR("wrong layer id %d(rt), %d(in)!\n",
@@ -685,6 +697,8 @@ unsigned int mtkfb_query_buf_info(unsigned int session_id,
 	int query_info = 0;
 
 	session_info = _get_session_sync_info(session_id);
+	if (session_info == 0)
+		return 0;
 	layer_info = &(session_info->session_layer_info[layer_id]);
 	if (layer_id != layer_info->layer_id) {
 		DISPERR("wrong layer id %d(rt), %d(in)!\n",

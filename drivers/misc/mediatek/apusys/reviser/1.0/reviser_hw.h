@@ -57,4 +57,5 @@ int reviser_free_tcm(void *drvinfo, void *usr);
 int reviser_power_on(void *drvinfo);
 int reviser_power_off(void *drvinfo);
 int reviser_check_int_valid(void *drvinfo);
+int reviser_init_ip(void);
 #endif

@@ -267,9 +267,11 @@ void RingBuf_writeDataValue(struct RingBuf *RingBuf1, const char value,
 void RingBuf_update_writeptr(struct RingBuf *RingBuf1, unsigned int count)
 {
 	if (count == 0 || count > RingBuf1->bufLen) {
+#ifdef RINGBUF_COUNT_CHECK
 		AUD_LOG_W("%s count[%u] datacount[%d] Len[%d]\n",
 			  __func__, count,
 			  RingBuf1->datacount, RingBuf1->bufLen);
+#endif
 		return;
 	}
 
@@ -337,10 +339,11 @@ void RingBuf_update_readptr(struct RingBuf *RingBuf1, unsigned int count)
 
 	/* handle buffer underflow*/
 	if (count > RingBuf1->datacount) {
+#ifdef RINGBUF_COUNT_CHECK
 		AUD_LOG_W("%s underflow count %u datacount %d Len %d\n",
 			   __func__, count,
 			   RingBuf1->datacount, RingBuf1->bufLen);
-
+#endif
 		if (RingBuf1->pWrite >= RingBuf1->pRead)
 			RingBuf1->datacount =
 			RingBuf1->pWrite - RingBuf1->pRead;
@@ -995,10 +998,12 @@ int sync_ringbuf_readidx(struct RingBuf *task_ring_buf,
 		datacount = task_ring_buf->bufLen -
 			    (task_ring_buf->pRead - readidx);
 
+#ifdef RINGBUF_COUNT_CHECK
 	if (datacount == 0 || datacount == task_ring_buf->bufLen) {
 		dump_rbuf_s(__func__, task_ring_buf);
 		dump_rbuf_bridge_s(__func__, buf_bridge);
 	}
+#endif
 
 	RingBuf_update_readptr(task_ring_buf, datacount);
 

@@ -18,11 +18,14 @@ static const char * const ddp_comp_str[] = {DECLARE_DDP_COMP(DECLARE_STR)};
 
 const char *mtk_dump_comp_str(struct mtk_ddp_comp *comp)
 {
-	if (comp && (comp->id < 0 || comp->id >= DDP_COMPONENT_ID_MAX)) {
-		DDPPR_ERR("%s: Invalid ddp comp id:%d\n", __func__, comp->id);
-		comp->id = 0;
-	}
-	return ddp_comp_str[comp->id];
+	if (comp) {
+		if (comp->id < 0 || comp->id >= DDP_COMPONENT_ID_MAX) {
+			DDPPR_ERR("%s: Invalid ddp comp id:%d\n", __func__, comp->id);
+			comp->id = 0;
+		}
+		return ddp_comp_str[comp->id];
+	} else
+		return "invalid";
 }
 
 const char *mtk_dump_comp_str_id(unsigned int id)

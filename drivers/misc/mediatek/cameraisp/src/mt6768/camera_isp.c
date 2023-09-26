@@ -5449,6 +5449,12 @@ static signed int ISP_P2_BufQue_Update_ListCIdx(
 	switch (listTag) {
 	case ISP_P2_BUFQUE_LIST_TAG_UNIT:
 		/* [1] check global pointer current sts */
+		//0831-s
+		if ((property < 0) || (P2_FrameUnit_List_Idx[property].curr < 0)) {
+			LOG_NOTICE("property(%d) || curr < 0", property);
+			return -EFAULT;
+		}
+		///0831-e
 		cIdxSts = P2_FrameUnit_List[property]
 				[P2_FrameUnit_List_Idx[property].curr].bufSts;
 		/* ///////////////////////////////////////////////////////// */
@@ -5554,9 +5560,21 @@ enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idx)
 	signed int cnt = 0;
 	int tmpIdx = 0;
 
+	//0831-s
+	if (property < ISP_P2_BUFQUE_PROPERTY_DIP) {
+		LOG_NOTICE("property < ISP_P2_BUFQUE_PROPERTY_DIP");
+		return ret;
+	}
+	//0831-e
 	switch (listTag) {
 	case ISP_P2_BUFQUE_LIST_TAG_PACKAGE:
 		tmpIdx = P2_FramePack_List_Idx[property].start;
+		//0831-s
+		if ((tmpIdx < 0) || (idx < 0)) {
+			LOG_NOTICE("LIST_TAG_PACKAGE:tmpIdx(%d) or idx(%d) < 0\n", tmpIdx, idx);
+			return ret;
+		}
+		//0831-e
 		/* [1] clear buffer status */
 		P2_FramePackage_List[property][idx].processID = 0x0;
 		P2_FramePackage_List[property][idx].callerID = 0x0;
@@ -5604,6 +5622,12 @@ enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idx)
 		break;
 	case ISP_P2_BUFQUE_LIST_TAG_UNIT:
 		tmpIdx = P2_FrameUnit_List_Idx[property].start;
+		//0831-s
+		if ((tmpIdx < 0) || (idx < 0)) {
+			LOG_NOTICE("LIST_TAG_UNIT:tmpIdx(%d) or idx(%d) < 0\n", tmpIdx, idx);
+			return ret;
+		}
+		//0831-e
 		/* [1] clear buffer status */
 		P2_FrameUnit_List[property][idx].processID = 0x0;
 		P2_FrameUnit_List[property][idx].callerID = 0x0;
@@ -5671,7 +5695,9 @@ static signed int ISP_P2_BufQue_GetMatchIdx(struct ISP_P2_BUFQUE_STRUCT param,
 {
 	int idx = -1;
 	int i = 0;
-	int property;
+	//0831-s
+	enum ISP_P2_BUFQUE_PROPERTY property;
+	//0831-e
 
 	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
 		LOG_NOTICE("property err(%d)\n", param.property);
@@ -5888,11 +5914,24 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 		LOG_NOTICE("property err(%d)\n", param.property);
 		return ret;
 	}
+
+	//0831-s
+	if (idx == NULL) {
+		LOG_NOTICE("idx is NULL\n");
+		return ret;
+	}
+	//0831-e
 	property = param.property;
 	/*  */
 	switch (type) {
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITDQ:
 		index = *idx;
+		//0831-s
+		if (index < 0) {
+			LOG_NOTICE("*idx err(%d) in WAITDQ\n", *idx);
+			return ret;
+		}
+		//0831-e
 		spin_lock(&(SpinLock_P2FrameList));
 		if (P2_FrameUnit_List[property][index].bufSts ==
 		    ISP_P2_BUF_STATE_RUNNING)
@@ -5902,6 +5941,12 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 		break;
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITFM:
 		index = *idx;
+		//0831-s
+		if (index < 0) {
+			LOG_NOTICE("*idx err(%d) in WAITFM\n", *idx);
+			return ret;
+		}
+		//0831-e
 		spin_lock(&(SpinLock_P2FrameList));
 		if (P2_FramePackage_List[property][index].dequedNum ==
 		    P2_FramePackage_List[property][index].frameNum)
@@ -5951,7 +5996,9 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 	int i = 0, q = 0;
 	int idx =  -1, idx2 =  -1;
 	signed int restTime = 0;
-	int property;
+	//0831-s
+	enum ISP_P2_BUFQUE_PROPERTY property;
+	//0831-e
 
 	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
 		LOG_NOTICE("property err(%d)\n", param.property);
@@ -7419,6 +7466,11 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			/* 2nd layer behavoir of copy from user is implemented
 			 * in ISP_ReadReg(...)
 			 */
+			if ((RegIo.Count * sizeof(struct ISP_REG_STRUCT)) > 0xFFFFF000) {
+				Ret = -EFAULT;
+				LOG_NOTICE("RegIo.Count error\n");
+				goto EXIT;
+			}
 			Ret = ISP_ReadReg(&RegIo);
 		} else {
 			LOG_NOTICE("copy_from_user failed\n");
@@ -7432,6 +7484,13 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			/* 2nd layer behavoir of copy from user is implemented
 			 * in ISP_WriteReg(...)
 			 */
+			//0831-s
+			if ((RegIo.Count * sizeof(struct ISP_REG_STRUCT)) > 0xFFFFF000) {
+				Ret = -EFAULT;
+				LOG_NOTICE("RegIo.Count error\n");
+				goto EXIT;
+			}
+			//0831-e
 			Ret = ISP_WriteReg(&RegIo);
 		} else {
 			LOG_NOTICE("copy_from_user failed\n");

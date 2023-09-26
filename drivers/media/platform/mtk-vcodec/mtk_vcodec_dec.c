@@ -497,8 +497,6 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type)
 		return 0;
 
 	if (src_buf_info->lastframe == EOS) {
-		src_buf_info->lastframe = NON_EOS;
-
 		clean_display_buffer(ctx, src_buf->planes[0].bytesused != 0U);
 		clean_free_fm_buffer(ctx);
 
@@ -665,6 +663,7 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 		mtk_vdec_put_fb(ctx, -1);
 		v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+		src_buf_info->lastframe = NON_EOS;
 		clean_free_bs_buffer(ctx, NULL);
 
 		v4l2_m2m_job_finish(dev->m2m_dev_dec, ctx->m2m_ctx);
@@ -774,9 +773,13 @@ static void mtk_vdec_worker(struct work_struct *work)
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		src_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
 		clean_free_bs_buffer(ctx, NULL);
-		ctx->dec_flush_buf->lastframe = EOS;
-		ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 1;
-		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
+		if (ctx->dec_flush_buf->lastframe == NON_EOS) {
+			ctx->dec_flush_buf->lastframe = EOS;
+			ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 1;
+			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
+		} else {
+			mtk_v4l2_debug(1, "Stopping no need to queue dec_flush_buf.");
+		}
 	} else if ((ret == 0) && ((fourcc == V4L2_PIX_FMT_RV40) ||
 		(fourcc == V4L2_PIX_FMT_RV30) ||
 		(res_chg == false && need_more_output == false))) {
@@ -899,10 +902,14 @@ static int vidioc_decoder_cmd(struct file *file, void *priv,
 			mtk_v4l2_debug(1, "Capture stream is off. No need to flush.");
 			return 0;
 		}
-		ctx->dec_flush_buf->lastframe = EOS;
-		ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 0;
-		v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
-		v4l2_m2m_try_schedule(ctx->m2m_ctx);
+		if (ctx->dec_flush_buf->lastframe == NON_EOS) {
+			ctx->dec_flush_buf->lastframe = EOS;
+			ctx->dec_flush_buf->vb.vb2_buf.planes[0].bytesused = 0;
+			v4l2_m2m_buf_queue_check(ctx->m2m_ctx, &ctx->dec_flush_buf->vb);
+			v4l2_m2m_try_schedule(ctx->m2m_ctx);
+		} else {
+			mtk_v4l2_debug(1, "Stopping no need to queue cmd dec_flush_buf.");
+		}
 		break;
 
 	case V4L2_DEC_CMD_START:
@@ -1402,6 +1409,12 @@ static int vidioc_vdec_g_crop(struct file *file, void *priv,
 {
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
 
+	if (!V4L2_TYPE_IS_VALID_CROP(cr->type)) {
+		mtk_v4l2_debug(2, "[%d]Error!! Crop Buf type not allowed ERR",
+					cr->type);
+		return -EINVAL;
+	}
+
 	if (ctx->state < MTK_STATE_HEADER) {
 		struct mtk_q_data *q_data;
 
@@ -1423,7 +1436,6 @@ static int vidioc_vdec_g_crop(struct file *file, void *priv,
 	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG2) ||
 	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_MPEG4) ||
 	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H263) ||
-	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_S263) ||
 	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMV1) ||
 	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMV2) ||
 	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_WMV3) ||
@@ -2220,6 +2232,9 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		buf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
 		last_frame_type = buf->lastframe;
 
+		if (need_seq_header)
+			vb2_v4l2->flags |= V4L2_BUF_FLAG_OUTPUT_NOT_GENERATED;
+
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 		if (!src_buf) {
 			mtk_v4l2_err("[%d]Error!!src_buf is NULL!");
@@ -2503,6 +2518,8 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 	mtk_v4l2_debug(4, "[%d] (%d) state=(%x) ctx->decoded_frame_cnt=%d",
 		ctx->id, q->type, ctx->state, ctx->decoded_frame_cnt);
 
+	ctx->input_max_ts = 0;
+
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		if (ctx->state >= MTK_STATE_HEADER) {
 			src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
@@ -2529,6 +2546,7 @@ static void vb2ops_vdec_stop_streaming(struct vb2_queue *q)
 				v4l2_m2m_buf_done(vb2_v4l2,
 					VB2_BUF_STATE_ERROR);
 			}
+		ctx->dec_flush_buf->lastframe = NON_EOS;
 		return;
 	}
 
@@ -2755,6 +2773,9 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_MTK_QUEUED_FRAMEBUF_COUNT:
 		ctx->dec_params.queued_frame_buf_count = ctrl->val;
 		break;
+	case V4L2_CID_MPEG_MTK_LOG:
+		mtk_vcodec_set_log(ctx, ctrl->p_new.p_char);
+		break;
 	default:
 		mtk_v4l2_err("ctrl-id=%x not support!", ctrl->id);
 		return -EINVAL;
@@ -2902,6 +2923,11 @@ int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 				&mtk_vcodec_dec_ctrl_ops,
 				V4L2_CID_MPEG_MTK_QUEUED_FRAMEBUF_COUNT,
 				0, 64, 1, 0);
+
+	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
+				&mtk_vcodec_dec_ctrl_ops,
+				V4L2_CID_MPEG_MTK_LOG,
+				0, 255, 1, 0);
 
 	if (ctx->ctrl_hdl.error) {
 		mtk_v4l2_err("Adding control failed %d",

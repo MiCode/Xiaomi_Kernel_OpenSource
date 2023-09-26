@@ -745,6 +745,27 @@ int fpsgo_update_swap_buffer(int pid)
 	return 0;
 }
 
+static void fpsgo_stop_boost(int pid)
+{
+	struct rb_node *n;
+	struct render_info *iter;
+
+	if (pid <= 1)
+		return;
+
+	fpsgo_render_tree_lock(__func__);
+
+	for (n = rb_first(&render_pid_tree); n != NULL; n = rb_next(n)) {
+		iter = rb_entry(n, struct render_info, render_key_node);
+		fpsgo_thread_lock(&iter->thr_mlock);
+		if (iter->pid == pid)
+			fpsgo_base2fbt_stop_boost(iter);
+		fpsgo_thread_unlock(&iter->thr_mlock);
+	}
+
+	fpsgo_render_tree_unlock(__func__);
+}
+
 static struct BQ_id *fpsgo_get_BQid_by_key(unsigned long long key,
 		int add, int pid, long long identifier)
 {
@@ -1167,6 +1188,40 @@ static ssize_t gpu_block_boost_store(struct kobject *kobj,
 static KOBJ_ATTR_RW(gpu_block_boost);
 
 
+static ssize_t stop_boost_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "0\n");
+}
+
+static ssize_t stop_boost_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int val = -1;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
+
+	if (val <= 1)
+		return count;
+
+	fpsgo_stop_boost(val);
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(stop_boost);
+
 int init_fpsgo_common(void)
 {
 	render_pid_tree = RB_ROOT;
@@ -1182,6 +1237,7 @@ int init_fpsgo_common(void)
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_render_info);
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_BQid);
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_gpu_block_boost);
+		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_stop_boost);
 	}
 
 	fpsgo_update_tracemark();

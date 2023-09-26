@@ -467,6 +467,11 @@ int mtk_mipi_tx_dphy_lane_config(struct phy *phy,
 		PAD_D0P_T0C, PAD_D1P_T2A, PAD_D2P_T0A,
 		PAD_D3P_T2C, PAD_CKP_T1B, PAD_CKP_T1B};
 
+#ifdef CONFIG_DRM_PANEL_K11T_42_02_0A_DSC_CMD
+	//change MIPITX_VOLTAGE_SEL 0x44441204 to 0x44441344
+	writel(0x44441344, mipi_tx->regs + MIPITX_VOLTAGE_SEL);
+#endif
+
 	if (!mtk_panel->params->lane_swap_en) {
 		mtk_mipi_tx_update_bits(mipi_tx, MIPITX_CK_CKMODE_EN,
 				0x1, 0x1);

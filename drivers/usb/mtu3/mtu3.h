@@ -329,6 +329,9 @@ struct ssusb_mtk {
 	struct dual_role_phy_instance *drp_inst;
 	enum mtu3_dr_force_mode drp_state;
 	struct charger_device *chg_dev;
+#ifdef CONFIG_AGATE_CHARGER
+	struct charger_device *chg5_dev;
+#endif
 	void *priv_data;
 	enum fpga_phy_version fpga_phy_ver;
 };

@@ -187,4 +187,21 @@ obj-y += subpmic/
 obj-$(CONFIG_MTK_GATE_IC) += gate_ic/
 obj-$(CONFIG_MTK_OTP) += otp/
 obj-$(CONFIG_MTK_SDA) += sda/
-obj-$(CONFIG_MTK_MT6382_BDG) += hifi4dsp_spi/
+obj-$(CONFIG_MTK_ULTRASND_PROXIMITY) += elliptic/
+subdir-ccflags-y += -D_XIAOMI_
+
+ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES),"mediatek/ares")
+subdir-ccflags-y += -D_XIAOMI_ARES_
+endif
+
+ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES),"mediatek/chopin")
+subdir-ccflags-y += -D_XIAOMI_CHOPIN_
+endif
+
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"mediatek/agate")
+subdir-ccflags-y += -D_XIAOMI_AGATE_
+endif
+
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"mediatek/pissarro")
+subdir-ccflags-y += -D_XIAOMI_PISSARRO_
+endif

@@ -30,7 +30,9 @@
 /* #define USE_CPU_TO_DRAM_MAP */
 /* #define USE_CPU_TO_DRAM_MAP_NEW */
 #define USE_BCPU_WEIGHT
+#define USE_CM_USER_MODE /* POWER_HAL setting */
 
+#define CM_BCPU_MIN_OPP_WEIGHT
 #define CM_MGR_EMI_OPP 6
 #define CM_MGR_LOWER_OPP 7
 #define CM_MGR_CPU_CLUSTER 2
@@ -56,6 +58,34 @@ enum {
 	CM_MGR_LP5,
 	CM_MGR_MAX,
 };
+
+#ifdef USE_BCPU_WEIGHT
+extern int cpu_power_bcpu_weight_max;
+extern int cpu_power_bcpu_weight_min;
+extern int cpu_power_bcpu_weight_max0;
+extern int cpu_power_bcpu_weight_min0;
+extern int cpu_power_bcpu_weight_max1;
+extern int cpu_power_bcpu_weight_min1;
+#endif /* USE_BCPU_WEIGHT */
+
+#ifdef CM_BCPU_MIN_OPP_WEIGHT
+extern unsigned int cm_mgr_bcpu_min_opp_weight;
+extern unsigned int cm_mgr_bcpu_low_opp_weight;
+extern unsigned int cm_mgr_bcpu_low_opp_bound;
+extern unsigned int cm_mgr_bcpu_min_opp_weight0;
+extern unsigned int cm_mgr_bcpu_low_opp_weight0;
+extern unsigned int cm_mgr_bcpu_low_opp_bound0;
+extern unsigned int cm_mgr_bcpu_min_opp_weight1;
+extern unsigned int cm_mgr_bcpu_low_opp_weight1;
+extern unsigned int cm_mgr_bcpu_low_opp_bound1;
+#endif /* CM_BCPU_MIN_OPP_WEIGHT */
+
+#ifdef USE_CM_USER_MODE
+extern unsigned int cm_user_mode;
+extern unsigned int cm_user_active;
+extern void cm_mgr_user_mode_set(unsigned int mode);
+extern void cm_mgr_user_mode_cmd(int reset, char *cmd, unsigned int val_1, unsigned int val_2);
+#endif
 
 extern void __iomem *mcucfg_mp0_counter_base;
 
@@ -120,4 +150,12 @@ extern int cm_mgr_get_dram_opp(void);
 extern int cm_mgr_check_bw_status(void);
 extern int cm_mgr_get_bw(void);
 extern void cm_mgr_ddr_setting_init(void);
+extern void dbg_cm_mgr_platform_show(struct seq_file *m);
+extern void dbg_cm_mgr_platform_write(int len, const char *cmd, u32 val_1,
+	u32 val_2);
+extern int x_ratio_enable;
+extern int cm_mgr_camera_enable;
+extern unsigned int cpu_power_ratio_up_x_camera[CM_MGR_EMI_OPP];
+extern unsigned int cpu_power_ratio_up_x[CM_MGR_EMI_OPP];
+
 #endif	/* __MTK_CM_MGR_PLATFORM_H__ */

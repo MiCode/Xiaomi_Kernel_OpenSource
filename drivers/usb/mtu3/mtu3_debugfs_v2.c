@@ -40,8 +40,11 @@ static u32 ippc_value, ippc_addr;
 
 static int smt_err_count_get(void *data, u64 *val)
 {
-	struct ssusb_mtk *ssusb = data;
+	struct ssusb_mtk *ssusb = NULL;
 
+	if (IS_ERR_OR_NULL(data))
+		return -EFAULT;
+	ssusb = data;
 	*val = ssusb_u3loop_back_test(ssusb);
 
 	mtu3_printk(K_INFO, "%s %llu\n", __func__, *val);
@@ -60,7 +63,7 @@ static void mac_write32(struct ssusb_mtk *ssusb, int offset,
 	struct platform_device *pdev = to_platform_device(ssusb->dev);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mac");
-	if (!res || offset >= resource_size(res)) {
+	if (IS_ERR_OR_NULL(res) || offset >= resource_size(res)) {
 		pr_info("%s error range\n", __func__);
 		return;
 	}
@@ -79,7 +82,7 @@ static void ippc_write32(struct ssusb_mtk *ssusb, int offset,
 	struct platform_device *pdev = to_platform_device(ssusb->dev);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ippc");
-	if (!res || offset >= resource_size(res)) {
+	if (IS_ERR_OR_NULL(res) || offset >= resource_size(res)) {
 		pr_info("%s error range\n", __func__);
 		return;
 	}

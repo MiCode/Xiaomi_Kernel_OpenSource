@@ -11,7 +11,6 @@
 # GNU General Public License for more details.
 #
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/pmic/include
-subdir-ccflags-y += -Werror -I$(srctree)/drivers/power/supply/mediatek/charger
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/flashlight/inc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/spm_v2/
@@ -21,7 +20,14 @@ subdir-ccflags-$(CONFIG_USB_MTK_HDRC) += -I$(srctree)/drivers/misc/mediatek/usb2
 subdir-ccflags-$(CONFIG_USB_C_SWITCH_U3_MUX) += -I$(srctree)/drivers/misc/mediatek/usb_c/u3_switch
 subdir-ccflags-$(CONFIG_USB_C_SWITCH_U3_MUX) += -I$(srctree)/drivers/misc/mediatek/usb_c/inc
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/
+
+ifeq ($(CONFIG_PISSARRO_CHARGER),y)
+ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery_pissarro
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/power/supply/mediatek/charger_pissarro
+else
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/power/supply/mediatek/charger
+endif
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
 obj-y += mtk_battery_intf.o

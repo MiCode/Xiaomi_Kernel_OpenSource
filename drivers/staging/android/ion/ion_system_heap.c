@@ -31,7 +31,7 @@
 static gfp_t high_order_gfp_flags = (GFP_HIGHUSER | __GFP_ZERO | __GFP_NOWARN |
 				     __GFP_NORETRY) & ~__GFP_RECLAIM;
 static gfp_t low_order_gfp_flags  = (GFP_HIGHUSER | __GFP_ZERO);
-static const unsigned int orders[] = {8, 4, 0};
+static const unsigned int orders[] = { 8, 4, 0};
 
 #define ION_DUMP(seq_files, fmt, args...)                    \
 do {                                                         \
@@ -102,7 +102,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 	if (buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE) {
 		__free_pages(page, order);
 		if (atomic64_sub_return((1 << order), &page_sz_cnt) < 0) {
-			ION_DUMP(NULL, "underflow!, total[%ld]free[%lu]\n",
+			ION_DUMP(NULL, "[ION] underflow!, total[%ld]free[%lu]\n",
 				 atomic64_read(&page_sz_cnt),
 				 (unsigned long)(1 << order));
 			atomic64_set(&page_sz_cnt, 0);

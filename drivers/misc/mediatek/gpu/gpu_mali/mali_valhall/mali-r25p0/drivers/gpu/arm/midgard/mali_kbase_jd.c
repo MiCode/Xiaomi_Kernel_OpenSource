@@ -1462,7 +1462,6 @@ void kbase_jd_done_worker(struct work_struct *data)
 	kbasep_js_remove_job(kbdev, kctx, katom);
 	mutex_unlock(&js_kctx_info->ctx.jsctx_mutex);
 	mutex_unlock(&js_devdata->queue_mutex);
-	katom->atom_flags &= ~KBASE_KATOM_FLAG_HOLDING_CTX_REF;
 	/* jd_done_nolock() requires the jsctx_mutex lock to be dropped */
 	jd_done_nolock(katom, &kctx->completed_jobs);
 

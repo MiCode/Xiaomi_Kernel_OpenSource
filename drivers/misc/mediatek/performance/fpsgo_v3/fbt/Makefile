@@ -32,7 +32,10 @@ else
 obj-y += platform/$(MTK_PLATFORM)/fbt_cpu_platform.o
 endif
 
-ifneq ($(MTK_PLATFORM),mt6739)
+ifeq ($(CONFIG_MACH_MT6893),y)
+CONFIG_FPSGO_THERMAL_SUPPORT := y
+ccflags-y += -DCONFIG_FPSGO_THERMAL_SUPPORT
+else
 CONFIG_FPSGO_THERMAL_SUPPORT := n
 endif
 
@@ -57,5 +60,6 @@ ccflags-y += \
 	-I$(EARA_TOP)/include/ \
 	-I$(srctree)/kernel/ \
 	-I$(MTK_TOP)/thermal/$(MTK_PLATFORM)/inc/ \
+	-I$(MTK_TOP)/thermal/$(MTK_PLATFORM)/inc/mach \
 	-I$(MTK_TOP)/include/mt-plat \
 	-I$(MTK_TOP)/include/mt-plat/$(MTK_PLATFORM)/include/mach

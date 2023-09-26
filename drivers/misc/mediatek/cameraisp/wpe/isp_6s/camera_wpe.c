@@ -4716,7 +4716,7 @@ static long WPE_ioctl_compat(
 
 			err = compat_put_WPE_deque_req_data(data32, data);
 			if (err) {
-				LOG_INF("COMPAT_WPE_WPE_DEQUE_REQ error!!!\n");
+				LOG_INF("COMPAT_WPE_WPE_DEQUE_DONE error!!!\n");
 				return err;
 			}
 			return ret;

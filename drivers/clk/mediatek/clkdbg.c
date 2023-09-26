@@ -415,6 +415,18 @@ static s32 *read_spm_pwr_status_array(void)
 	return clkdbg_ops->get_spm_pwr_status_array();
 }
 
+static bool clk_hw_pwr_sta_is_on(struct clk_hw *c_hw,
+			u32 spm_pwr_status, struct provider_clk *pvdck)
+{
+	if (!pvdck || !pvdck->pwr_mask)
+		return 0;
+
+	if ((spm_pwr_status & pvdck->pwr_mask) != pvdck->pwr_mask)
+		return false;
+
+	return clk_hw_is_on(c_hw);
+}
+
 static int clk_hw_pwr_is_on(struct clk_hw *c_hw, u32 *spm_pwr_status,
 		struct provider_clk *pvdck)
 {
@@ -449,10 +461,13 @@ static int clk_hw_pwr_is_on(struct clk_hw *c_hw, u32 *spm_pwr_status,
 	return clk_hw_is_on(c_hw);
 }
 
-static bool pvdck_pwr_is_on(struct provider_clk *pvdck, u32 *spm_pwr_status)
+static bool pvdck_pwr_is_on(struct provider_clk *pvdck, u32 *spm_pwr_status, int array_size)
 {
 	struct clk *c = pvdck->ck;
 	struct clk_hw *c_hw = __clk_get_hw(c);
+
+	if (array_size == 1)
+		return clk_hw_pwr_sta_is_on(c_hw, spm_pwr_status, pvdck);
 
 	return clk_hw_pwr_is_on(c_hw, spm_pwr_status, pvdck);
 }
@@ -469,9 +484,9 @@ static bool pvdck_is_on(struct provider_clk *pvdck)
 		pval = read_spm_pwr_status_array();
 		if (IS_ERR_OR_NULL(pval)) {
 			val = read_spm_pwr_status();
-			return pvdck_pwr_is_on(pvdck, &val);
+			return pvdck_pwr_is_on(pvdck, &val, 1);
 		} else
-			return pvdck_pwr_is_on(pvdck, pval);
+			return pvdck_pwr_is_on(pvdck, pval, 2);
 	}
 
 	val = clkdbg_ops->is_pwr_on(pvdck);

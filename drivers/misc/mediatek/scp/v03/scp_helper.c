@@ -1384,6 +1384,14 @@ void print_clk_registers(void)
 		pr_notice("[SCP] cfg_core0[0x%04x]: 0x%08x\n", offset, value);
 	}
 
+#if defined(CONFIG_MACH_MT6833)
+	pr_notice("[SCP] dumping core0_intc\n");
+	// 0x32000 ~ 0x3225C (inclusive)
+	for (offset = 0x2000; offset <= 0x225C; offset += 4) {
+		value = (unsigned int)readl(cfg_core0 + offset);
+		pr_notice("[SCP] core0_intc[0x%04x]: 0x%08x\n", offset, value);
+	}
+#endif
 }
 
 void scp_reset_wait_timeout(void)

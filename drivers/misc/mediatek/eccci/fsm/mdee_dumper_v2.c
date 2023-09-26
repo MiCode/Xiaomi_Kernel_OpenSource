@@ -125,7 +125,7 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 static void mdee_output_debug_info_to_buf(struct ccci_fsm_ee *mdee,
 	struct debug_info_t *debug_info, char *ex_info)
 {
-	int md_id = mdee->md_id;
+	int md_id = 0;
 	struct ccci_mem_layout *mem_layout;
 	char *ex_info_temp = NULL;
 	int ret = 0;
@@ -254,7 +254,7 @@ static void mdee_output_debug_info_to_buf(struct ccci_fsm_ee *mdee,
 
 static void mdee_info_dump_v2(struct ccci_fsm_ee *mdee)
 {
-	char *ex_info;		/*[EE_BUF_LEN] = ""; */
+	char *ex_info = NULL;		/*[EE_BUF_LEN] = ""; */
 	/*[EE_BUF_LEN] = "\n[Others] May I-Bit dis too long\n";*/
 	char *i_bit_ex_info = NULL;
 	char buf_fail[] = "Fail alloc mem for exception\n";
@@ -285,13 +285,13 @@ static void mdee_info_dump_v2(struct ccci_fsm_ee *mdee)
 	int ret = 0;
 	int val = 0;
 
-	ex_info = kmalloc(EE_BUF_LEN_UMOLY, GFP_ATOMIC);
+	ex_info = kzalloc(EE_BUF_LEN_UMOLY, GFP_ATOMIC);
 	if (ex_info == NULL) {
 		CCCI_ERROR_LOG(md_id, FSM,
 			"Fail alloc Mem for ex_info!\n");
 		goto err_exit;
 	}
-	ex_info_temp = kmalloc(EE_BUF_LEN_UMOLY, GFP_ATOMIC);
+	ex_info_temp = kzalloc(EE_BUF_LEN_UMOLY, GFP_ATOMIC);
 	if (ex_info_temp == NULL) {
 		CCCI_ERROR_LOG(md_id, FSM,
 			"Fail alloc Mem for ex_info_temp!\n");

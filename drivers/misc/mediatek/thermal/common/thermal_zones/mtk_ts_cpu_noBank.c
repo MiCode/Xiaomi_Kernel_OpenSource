@@ -431,7 +431,6 @@ int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num)
 {
 	int i = 0;
 
-	tscpu_dprintk("%s\n", __func__);
 
 	mtk_gpu_power =
 		kzalloc((num) *
@@ -444,7 +443,7 @@ int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num)
 		mtk_gpu_power[i].gpufreq_khz = freqs[i].gpufreq_khz;
 		mtk_gpu_power[i].gpufreq_power = freqs[i].gpufreq_power;
 
-		tscpu_dprintk("[%d].gpufreq_khz=%u, .gpufreq_power=%u\n",
+		tscpu_printk("[%d].gpufreq_khz=%u, .gpufreq_power=%u\n",
 			i, freqs[i].gpufreq_khz, freqs[i].gpufreq_power);
 	}
 
@@ -1657,8 +1656,13 @@ static void tscpu_thermal_shutdown(struct platform_device *dev)
 
 
 /*tscpu_thermal_suspend spend 1000us~1310us*/
+#if defined(CFG_THERM_SUSPEND_RESUME_NOIRQ)
+static int tscpu_thermal_suspend_noirq(struct device *dev)
+#else
 static int tscpu_thermal_suspend
 (struct platform_device *dev, pm_message_t state)
+
+#endif
 {
 #if !defined(CFG_THERM_NO_AUXADC)
 	int cnt = 0;
@@ -1752,7 +1756,11 @@ static int tscpu_thermal_suspend
 }
 
 /*tscpu_thermal_suspend spend 3000us~4000us*/
+#if defined(CFG_THERM_SUSPEND_RESUME_NOIRQ)
+static int tscpu_thermal_resume_noirq(struct device *dev)
+#else
 static int tscpu_thermal_resume(struct platform_device *dev)
+#endif
 {
 #if !defined(CFG_THERM_NO_AUXADC)
 	int temp = 0;
@@ -1890,16 +1898,28 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 	return 0;
 }
 
+#if defined(CFG_THERM_SUSPEND_RESUME_NOIRQ)
+static const struct dev_pm_ops lvts_pm_ops = {
+	.suspend_noirq = tscpu_thermal_suspend_noirq,
+	.resume_noirq = tscpu_thermal_resume_noirq,
+};
+#endif
+
 static struct platform_driver mtk_thermal_driver = {
 	.remove = NULL,
 	.shutdown = tscpu_thermal_shutdown,
 	.probe = tscpu_thermal_probe,
+#if !defined(CFG_THERM_SUSPEND_RESUME_NOIRQ)
 	.suspend = tscpu_thermal_suspend,
 	.resume = tscpu_thermal_resume,
+#endif
 	.driver = {
 		.name = THERMAL_NAME,
 #ifdef CONFIG_OF
 		.of_match_table = mt_thermal_of_match,
+#endif
+#if defined(CFG_THERM_SUSPEND_RESUME_NOIRQ)
+		.pm = &lvts_pm_ops,
 #endif
 	},
 };

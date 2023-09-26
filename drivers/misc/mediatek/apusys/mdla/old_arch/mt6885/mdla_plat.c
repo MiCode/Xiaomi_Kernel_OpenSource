@@ -709,17 +709,26 @@ struct command_entry *mdla_dequeue_ce_2_1(unsigned int core_id)
 void mdla_preempt_ce_2_1(unsigned int core_id, struct command_entry *high_ce)
 {
 	struct mdla_scheduler *sched = mdla_get_scheduler(core_id);
-	struct command_entry *low_ce = sched->pro_ce;
+	struct command_entry *low_ce;
 	uint64_t deadline =
 		get_jiffies_64() + msecs_to_jiffies(mdla_timeout);
 
-	sched->pro_ce->req_end_t = sched_clock();
-	sched->pro_ce->state |= (1 << CE_PREEMPTED);
-	mdla_preemption_times++;
-	sched->enqueue_ce(core_id, low_ce, 1);
-	low_ce->deadline_t = deadline;
-	high_ce->state |= (1 << CE_PREEMPTING);
-	sched->pro_ce = high_ce;
+	if (unlikely(sched == NULL))
+		return;
+	low_ce = sched->pro_ce;
+
+	if (likely(sched->pro_ce != NULL)) {
+		sched->pro_ce->req_end_t = sched_clock();
+		sched->pro_ce->state |= (1 << CE_PREEMPTED);
+		mdla_preemption_times++;
+		sched->enqueue_ce(core_id, low_ce, 1);
+		low_ce->deadline_t = deadline;
+	}
+
+	if (likely(high_ce != NULL)) {
+		high_ce->state |= (1 << CE_PREEMPTING);
+		sched->pro_ce = high_ce;
+	}
 }
 
 /*

@@ -279,10 +279,14 @@ static void vfs_setup_cdev(struct vfs_dev *dev, int index)
 		IMSG_ERROR("Error %d adding socket %d.\n", err, index);
 }
 
+extern int is_teei_boot(void);
+
 static int vfs_init(void)
 {
 	int result = 0;
 	struct device *class_dev = NULL;
+	if (is_teei_boot() == 0)
+		return 0;
 
 	devno = MKDEV(vfs_major, 0);
 

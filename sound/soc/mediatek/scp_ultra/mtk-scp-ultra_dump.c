@@ -41,15 +41,11 @@
 #include <linux/wait.h>
 #include <linux/time.h>
 
-#include "audio_log.h"
-#include "audio_assert.h"
-#include "audio_wakelock.h"
-
-//#include "audio_task_manager.h"
-#include <audio_ipi_dma.h>
 #include "audio_ultra_msg_id.h"
 #include <scp_helper.h>
 #include "mtk-scp-ultra_dump.h"
+#include "mtk-scp-ultra-common.h"
+
 
 #define DUMP_ULTRA_PCM_DATA_PATH "/data/vendor/audiohal/audio_dump"
 #define FRAME_BUF_SIZE (8192)
@@ -156,7 +152,7 @@ void ultra_stop_engine_thread(void)
 	kfree(dump_queue);
 	dump_queue = NULL;
 	ultra_close_dump_file();
-	//aud_wake_unlock(&wakelock_ultra_dump_lock);
+	aud_wake_unlock(&wakelock_ultra_dump_lock);
 }
 
 int ultra_open_dump_file(void)
@@ -446,24 +442,26 @@ void audio_ipi_client_ultra_init(void)
 		(char *)scp_get_reserve_mem_virt(ULTRA_MEM_ID);
 
 	pr_info("%s()", __func__);
-	// if (NULL == ultra_dump_mem.start_virt) {
+	if (ultra_dump_mem.start_virt == NULL) {
 		pr_info("%s() ultra_dump_mem.start_virt:%p", __func__,
-				ultra_dump_mem.start_virt);
-	// }
+			ultra_dump_mem.start_virt);
+	}
 	aud_wake_lock_init(&wakelock_ultra_dump_lock, "ultradump lock");
 
 	dump_workqueue[DUMP_PCM_IN] = create_workqueue("dump_ultra_pcm_in");
-	if (dump_workqueue[DUMP_PCM_IN] == NULL)
+	if (dump_workqueue[DUMP_PCM_IN] == NULL) {
 		pr_notice("dump_workqueue[DUMP_PCM_IN] = %p\n",
-				dump_workqueue[DUMP_PCM_IN]);
-	AUD_ASSERT(dump_workqueue[DUMP_PCM_IN] != NULL);
+			  dump_workqueue[DUMP_PCM_IN]);
+		AUDIO_AEE("dump_workqueue[DUMP_PCM_IN] == NULL");
+	}
 
 	dump_workqueue[DUMP_PCM_OUT] =
 			create_workqueue("dump_ultra_pcm_out");
-	if (dump_workqueue[DUMP_PCM_OUT] == NULL)
+	if (dump_workqueue[DUMP_PCM_OUT] == NULL) {
 		pr_notice("dump_workqueue[DUMP_PCM_OUT] = %p\n",
-				dump_workqueue[DUMP_PCM_OUT]);
-	AUD_ASSERT(dump_workqueue[DUMP_PCM_OUT] != NULL);
+			  dump_workqueue[DUMP_PCM_OUT]);
+		AUDIO_AEE("dump_workqueue[DUMP_PCM_OUT] == NULL");
+	}
 
 	INIT_WORK(&dump_work[DUMP_PCM_IN].work, ultra_dump_in_data_routine);
 	INIT_WORK(&dump_work[DUMP_PCM_OUT].work, ultra_dump_out_data_routine);

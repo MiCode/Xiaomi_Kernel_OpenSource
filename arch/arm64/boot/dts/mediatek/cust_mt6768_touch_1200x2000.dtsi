@@ -1,0 +1,44 @@
+/*
+ * Copyright (c) 2017 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+/* TOUCH start */
+&pio {
+	ctp_pins_spi_mode: spimode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO17__FUNC_SPI4_MI>,
+				<PINMUX_GPIO18__FUNC_SPI4_CSB>,
+				<PINMUX_GPIO19__FUNC_SPI4_MO>,
+				<PINMUX_GPIO20__FUNC_SPI4_CLK>;
+			drive-strength=<4>;
+		};
+	};
+};
+
+&spi4 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&ctp_pins_spi_mode>;
+	himax_ts@0 {
+		compatible = "himax,hxcommon";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		spi-cpha = <1>;
+		spi-cpol = <1>;
+		interrupt-parent = <&pio>;
+		himax,panel-coords = <0 1200 0 2000>;
+		himax,display-cords = <0 1200 0 2000>;
+		himax,irq-gpio = <&pio 1 0>;
+		himax,rst-gpio = <&pio 23 0>;
+		report_type = <1>;
+		};
+};
+

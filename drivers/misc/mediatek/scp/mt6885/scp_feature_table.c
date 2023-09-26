@@ -32,6 +32,12 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 		.sys_id		= SCPSYS_CORE0,
 	},
 	{
+		.feature	= FUSION_FEATURE_ID,
+		.freq		= 250,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE0,
+	},
+	{
 		.feature	= FLP_FEATURE_ID,
 		.freq		= 26,
 		.enable		= 0,
@@ -57,7 +63,7 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	},
 	{
 		.feature        = VOW_BARGEIN_FEATURE_ID,
-		.freq           = 100,
+		.freq           = 200,
 		.enable         = 0,
 		.sys_id         = SCPSYS_CORE1,
 	},

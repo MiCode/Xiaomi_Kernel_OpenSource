@@ -161,6 +161,18 @@ extern int DW9800WAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int DW9800WAF_GetFileName(unsigned char *pFileName);
 /* extern struct regulator *regulator_get_regVCAMAF(void); */
 
+#define DW9800VAF_SetI2Cclient DW9800VAF_SetI2Cclient_Main
+#define DW9800VAF_Ioctl DW9800VAF_Ioctl_Main
+#define DW9800VAF_Release DW9800VAF_Release_Main
+#define DW9800VAF_GetFileName DW9800VAF_GetFileName_Main
+extern int DW9800VAF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				 spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long DW9800VAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+			   unsigned long a_u4Param);
+extern int DW9800VAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int DW9800VAF_GetFileName(unsigned char *pFileName);
+
+
 #define DW9718AF_SetI2Cclient DW9718AF_SetI2Cclient_Main
 #define DW9718AF_Ioctl DW9718AF_Ioctl_Main
 #define DW9718AF_Release DW9718AF_Release_Main
@@ -339,15 +351,6 @@ extern int LC898217AFA_PowerDown(struct i2c_client *pstAF_I2Cclient,
 				int *pAF_Opened);
 extern int LC898217AFA_GetFileName(unsigned char *pFileName);
 
-#define OV5645AF_SetI2Cclient OV5645AF_SetI2Cclient_Main
-#define OV5645AF_Ioctl OV5645AF_Ioctl_Main
-#define OV5645AF_Release OV5645AF_Release_Main
-extern int OV5645AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
-			spinlock_t *pAF_SpinLock, int *pAF_Opened);
-extern long OV5645AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
-			unsigned long a_u4Param);
-extern int OV5645AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
-
 #define LC898217AFB_SetI2Cclient LC898217AFB_SetI2Cclient_Main
 #define LC898217AFB_Ioctl LC898217AFB_Ioctl_Main
 #define LC898217AFB_Release LC898217AFB_Release_Main
@@ -416,4 +419,17 @@ extern long WV511AAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int WV511AAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int WV511AAF_GetFileName(unsigned char *pFileName);
 
+#define GT9772AF_SetI2Cclient GT9772AF_SetI2Cclient_Main
+#define GT9772AF_Ioctl GT9772AF_Ioctl_Main
+#define GT9772AF_Release GT9772AF_Release_Main
+#define GT9772AF_PowerDown GT9772AF_PowerDown_Main
+#define GT9772AF_GetFileName GT9772AF_GetFileName_Main
+extern int GT9772AF_SetI2Cclient(struct i2c_client *pstAF_I2Cclient,
+				spinlock_t *pAF_SpinLock, int *pAF_Opened);
+extern long GT9772AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
+				unsigned long a_u4Param);
+extern int GT9772AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
+extern int GT9772AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+				int *pAF_Opened);
+extern int GT9772AF_GetFileName(unsigned char *pFileName);
 #endif

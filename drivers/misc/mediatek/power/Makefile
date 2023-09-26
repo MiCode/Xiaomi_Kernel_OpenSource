@@ -10,10 +10,24 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+ifeq ($(CONFIG_AGATE_CHARGER),y)
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery_agate
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger_agate
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc_agate/inc
+else ifeq ($(CONFIG_ARES_CHARGER),y)
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery_ares
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger_ares
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc_ares/inc
+else ifeq ($(CONFIG_PISSARRO_CHARGER),y)
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery_pissarro
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger_pissarro
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc_pissarro/inc
+else
 subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery
 subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
+endif
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/power/supply/mediatek
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/power/supply/mediatek/misc
 
@@ -50,5 +64,3 @@ ifeq ($(CONFIG_MTK_BQ24296_SUPPORT),y)
      obj-$(CONFIG_MTK_SMART_BATTERY) += bq24296.o
 endif
 endif
-
-obj-$(CONFIG_TCPC_CLASS) += rt_pd_manager.o

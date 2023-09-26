@@ -4921,6 +4921,10 @@ static unsigned int pmic_buck_get_mode(struct regulator_dev *rdev)
 	struct mtk_regulator *mreg = rdev_get_drvdata(rdev);
 	unsigned int mode;
 
+	if (mreg == NULL) {
+		pr_notice("regulator info null pointer\n");
+		return -EINVAL;
+	}
 	if (pmic_get_register_value(mreg->modeset_reg) == 1)
 		mode = REGULATOR_MODE_FAST;
 	else if (pmic_get_register_value(mreg->lp_mode_reg) == 1)
@@ -4935,6 +4939,10 @@ static int pmic_buck_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	struct mtk_regulator *mreg = rdev_get_drvdata(rdev);
 	int curr_mode;
 
+	if (mreg == NULL) {
+		pr_notice("regulator info null pointer\n");
+		return -EINVAL;
+	}
 	curr_mode = pmic_buck_get_mode(rdev);
 	switch (mode) {
 	case REGULATOR_MODE_FAST:

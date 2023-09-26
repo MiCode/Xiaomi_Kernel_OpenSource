@@ -458,7 +458,7 @@ bool start_turbo_inherit(struct task_struct *task,
 			int type,
 			int cnt)
 {
-	if (type <= START_INHERIT && type >= END_INHERIT)
+	if (type <= START_INHERIT || type >= END_INHERIT)
 		return false;
 
 	add_inherit_types(task, type);
@@ -476,7 +476,7 @@ bool stop_turbo_inherit(struct task_struct *task,
 	unsigned int inherit_types;
 	bool ret = false;
 
-	if (type <= START_INHERIT && type >= END_INHERIT)
+	if (type <= START_INHERIT || type >= END_INHERIT)
 		goto done;
 
 	inherit_types = atomic_read(&task->inherit_types);

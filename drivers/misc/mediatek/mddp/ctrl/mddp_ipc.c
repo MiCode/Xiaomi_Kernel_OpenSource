@@ -184,8 +184,10 @@ int32_t mddp_ipc_send_md(
 	else
 		app = (struct mddp_app_t *) in_app;
 
-	if (app->state == MDDP_STATE_UNINIT)
+	if (app->state == MDDP_STATE_UNINIT) {
+		kfree(msg);
 		return -ENODEV;
+	}
 
 	ctrl_msg.dest_user_id = (dest_user == MDFPM_USER_ID_NULL)
 		? (app->md_cfg.ipc_md_user_id) : (dest_user);
@@ -258,6 +260,7 @@ int32_t mddp_ipc_init(void)
 
 		rx_task = NULL;
 		ret = -ECHILD;
+		mtk_ccci_release_port(mddp_ipc_tty_port_s);
 	}
 
 	return ret;

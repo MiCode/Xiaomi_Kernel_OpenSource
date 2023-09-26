@@ -27,9 +27,14 @@
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
+#include <linux/sched/task.h>
 #include <linux/list_lru.h>
 #include <linux/uaccess.h>
 #include <linux/highmem.h>
+#include <linux/sched/signal.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#include <mt-plat/aee.h>
+#endif
 #include "binder_alloc.h"
 #include "binder_trace.h"
 
@@ -41,8 +46,9 @@ enum {
 	BINDER_DEBUG_OPEN_CLOSE             = 1U << 1,
 	BINDER_DEBUG_BUFFER_ALLOC           = 1U << 2,
 	BINDER_DEBUG_BUFFER_ALLOC_ASYNC     = 1U << 3,
+	BINDER_DEBUG_USER_ERROR             = 1U << 4,
 };
-static uint32_t binder_alloc_debug_mask;
+static uint32_t binder_alloc_debug_mask = 0x10;
 
 module_param_named(debug_mask, binder_alloc_debug_mask,
 		   uint, 0644);
@@ -343,12 +349,82 @@ static inline struct vm_area_struct *binder_alloc_get_vma(
 	return vma;
 }
 
+static void debug_low_async_space_locked(struct binder_alloc *alloc, int pid)
+{
+	/*
+	 * Find the amount and size of buffers allocated by the current caller;
+	 * The idea is that once we cross the threshold, whoever is responsible
+	 * for the low async space is likely to try to send another async txn,
+	 * and at some point we'll catch them in the act. This is more efficient
+	 * than keeping a map per pid.
+	 */
+	struct rb_node *n = alloc->free_buffers.rb_node;
+	struct binder_buffer *buffer;
+	size_t total_alloc_size = 0;
+	size_t num_buffers = 0;
+	struct task_struct *debug_task;
+
+	for (n = rb_first(&alloc->allocated_buffers); n != NULL;
+		 n = rb_next(n)) {
+		buffer = rb_entry(n, struct binder_buffer, rb_node);
+		if (buffer->pid != pid)
+			continue;
+		if (!buffer->async_transaction)
+			continue;
+		total_alloc_size += binder_alloc_buffer_size(alloc, buffer)
+			+ sizeof(struct binder_buffer);
+		num_buffers++;
+	}
+
+	/*
+	 * Warn if this pid has more than 100 transactions, or more than 50% of
+	 * async space (which is 25% of total buffer size).
+	 */
+	if (num_buffers > 100 || total_alloc_size > alloc->buffer_size / 4) {
+
+		/* trigger aee kernel exception and get native backtrace */
+		debug_task = get_pid_task(find_vpid(pid), PIDTYPE_PID);
+		if (debug_task) {
+			bool is_netd = false;
+			struct task_struct *t;
+
+			/* trigger aee exception for netd only */
+			if (strstr(debug_task->comm, "Binder:")) {
+				for_each_thread(debug_task, t)
+					if (strcmp(t->comm, "netd") == 0) {
+						is_netd = true;
+						break;
+					}
+			}
+
+			if (!is_netd) {
+				put_task_struct(debug_task);
+				return;
+			}
+
+			binder_alloc_debug(BINDER_DEBUG_USER_ERROR,
+			     "%d: pid %d comm %s spamming oneway? %zd buffers allocated for a total size of %zd\n",
+			      alloc->pid, pid, debug_task->comm, num_buffers, total_alloc_size);
+
+/* #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+ *			aee_kernel_exception_api(__FILE__, __LINE__,
+ *				DB_OPT_DEFAULT | DB_OPT_NATIVE_BACKTRACE,
+ *				"[binder_low_async]",
+ *				"\nCRDISPATCH_KEY:netd binder issue");
+ * #endif
+ */
+			put_task_struct(debug_task);
+		}
+	}
+}
+
 static struct binder_buffer *binder_alloc_new_buf_locked(
 				struct binder_alloc *alloc,
 				size_t data_size,
 				size_t offsets_size,
 				size_t extra_buffers_size,
-				int is_async)
+				int is_async,
+				int pid)
 {
 	struct rb_node *n = alloc->free_buffers.rb_node;
 	struct binder_buffer *buffer;
@@ -487,11 +563,21 @@ static struct binder_buffer *binder_alloc_new_buf_locked(
 	buffer->offsets_size = offsets_size;
 	buffer->async_transaction = is_async;
 	buffer->extra_buffers_size = extra_buffers_size;
+	buffer->pid = pid;
 	if (is_async) {
 		alloc->free_async_space -= size + sizeof(struct binder_buffer);
 		binder_alloc_debug(BINDER_DEBUG_BUFFER_ALLOC_ASYNC,
 			     "%d: binder_alloc_buf size %zd async free %zd\n",
 			      alloc->pid, size, alloc->free_async_space);
+
+		if (alloc->free_async_space < alloc->buffer_size / 10) {
+			/*
+			 * Start detecting spammers once we have less than 20%
+			 * of async space left (which is less than 10% of total
+			 * buffer size).
+			 */
+			debug_low_async_space_locked(alloc, pid);
+		}
 	}
 	return buffer;
 
@@ -509,6 +595,7 @@ err_alloc_buf_struct_failed:
  * @offsets_size:       user specified buffer offset
  * @extra_buffers_size: size of extra space for meta-data (eg, security context)
  * @is_async:           buffer for async transaction
+ * @pid:				pid to attribute allocation to (used for debugging)
  *
  * Allocate a new buffer given the requested sizes. Returns
  * the kernel version of the buffer pointer. The size allocated
@@ -521,13 +608,14 @@ struct binder_buffer *binder_alloc_new_buf(struct binder_alloc *alloc,
 					   size_t data_size,
 					   size_t offsets_size,
 					   size_t extra_buffers_size,
-					   int is_async)
+					   int is_async,
+					   int pid)
 {
 	struct binder_buffer *buffer;
 
 	mutex_lock(&alloc->mutex);
 	buffer = binder_alloc_new_buf_locked(alloc, data_size, offsets_size,
-					     extra_buffers_size, is_async);
+					     extra_buffers_size, is_async, pid);
 	mutex_unlock(&alloc->mutex);
 	return buffer;
 }

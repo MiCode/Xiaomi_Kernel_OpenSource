@@ -575,7 +575,7 @@ static int ITG1010_ReadChipInfo(struct i2c_client *client, char *buf,
 				int bufsize)
 {
 	u8 databuf[10];
-
+	int ret;
 	memset(databuf, 0, sizeof(u8) * 10);
 
 	if ((buf == NULL) || (bufsize <= 30))
@@ -586,7 +586,9 @@ static int ITG1010_ReadChipInfo(struct i2c_client *client, char *buf,
 		return -2;
 	}
 
-	sprintf(buf, "ITG1010 Chip");
+	ret = sprintf(buf, "ITG1010 Chip");
+	if (ret < 0)
+		pr_debug("%s:sprintf buf failed:%d\n", __func__, ret);
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
@@ -730,6 +732,8 @@ static ssize_t show_power_status(struct device_driver *ddri, char *buf)
 	ITG1010_i2c_read_block(obj->client, ITG1010_REG_PWR_CTL, &uData, 1);
 
 	res = snprintf(buf, PAGE_SIZE, "0x%04X\n", uData);
+	if (res < 0)
+		pr_debug("%s:PAGE_SIZE snprintf fail:%d\n", __func__, res);
 	return res;
 }
 
@@ -1082,6 +1086,8 @@ static int ITG1010_get_data(int *x, int *y, int *z, int *status)
 	ITG1010_ReadGyroData(obj_i2c_data->client, buff, ITG1010_BUFSIZE);
 
 	ret = sscanf(buff, "%x %x %x", x, y, z);
+	if (ret < 0)
+		pr_info("%s:ITG1010_ReadGyroData sscanf err:%d\n", __func__, ret);
 	*status = SENSOR_STATUS_ACCURACY_MEDIUM;
 
 	return 0;

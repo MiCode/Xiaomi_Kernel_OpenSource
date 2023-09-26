@@ -162,7 +162,7 @@ void config_partition(int gid)
 }
 
 #if IS_ENABLED(CONFIG_SCHED_TUNE)
-static bool group_active(int idx, struct boost_groups *bg)
+static bool group_active(unsigned int idx, struct boost_groups *bg)
 {
 	if (bg->group[idx].tasks)
 		return true;
@@ -172,7 +172,7 @@ static bool group_active(int idx, struct boost_groups *bg)
 static bool important_group_active(int cpu)
 {
 	struct boost_groups *bg;
-	int idx;
+	unsigned int idx;
 
 	bg = &per_cpu(cpu_boost_groups, cpu);
 	for (idx = 1; idx < BOOSTGROUPS_COUNT; ++idx) {

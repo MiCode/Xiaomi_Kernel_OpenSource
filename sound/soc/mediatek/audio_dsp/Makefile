@@ -13,13 +13,14 @@
 
 # MTK Platform Support
 ifeq ($(CONFIG_MACH_MT6893),y)
+SCP_PLATFORM := mt6885
 MTK_PLATFORM := mt6885
-else
-ifeq ($(CONFIG_MACH_MT6781),y)
+else ifeq ($(CONFIG_MACH_MT6781),y)
+SCP_PLATFORM := mt6785
 MTK_PLATFORM := mt6781
 else
+SCP_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-endif
 endif
 
 # adsp include path
@@ -37,7 +38,7 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)
 endif
 
 ifeq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),y)
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(MTK_PLATFORM)
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(SCP_PLATFORM)
 endif
 
 # platform code

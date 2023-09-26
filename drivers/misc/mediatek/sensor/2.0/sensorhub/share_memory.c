@@ -23,7 +23,6 @@
 #include "share_memory.h"
 #include "hf_sensor_type.h"
 
-#define SHARE_MEM_FULL_THRESHOLD_SCALE 0.8
 
 struct share_mem_config_handle {
 	int (*handler)(struct share_mem_config *cfg, void *private_data);
@@ -31,29 +30,37 @@ struct share_mem_config_handle {
 };
 
 struct share_mem_usage {
-	uint8_t notify_cmd;
+	uint8_t payload_type;
 	bool init_status;
 	int id;
 };
 
-static struct share_mem_config_handle shm_handle[MAX_SENS_COMM_NOTIFY_CMD];
+static struct share_mem_config_handle shm_handle[MAX_SHARE_MEM_PAYLOAD_TYPE];
 
 static struct share_mem_usage shm_usage_table[] = {
 	{
-		.notify_cmd = SENS_COMM_NOTIFY_DATA_CMD,
+		.payload_type = SHARE_MEM_DATA_PAYLOAD_TYPE,
 		.id = SENS_MEM_ID,
 	},
 	{
-		.notify_cmd = SENS_COMM_NOTIFY_SUPER_DATA_CMD,
+		.payload_type = SHARE_MEM_SUPER_DATA_PAYLOAD_TYPE,
 		.id = SENS_SUPER_MEM_ID,
 	},
 	{
-		.notify_cmd = SENS_COMM_NOTIFY_LIST_CMD,
+		.payload_type = SHARE_MEM_LIST_PAYLOAD_TYPE,
 		.id = SENS_LIST_MEM_ID,
 	},
 	{
-		.notify_cmd = SENS_COMM_NOTIFY_DEBUG_CMD,
+		.payload_type = SHARE_MEM_DEBUG_PAYLOAD_TYPE,
 		.id = SENS_DEBUG_MEM_ID,
+	},
+	{
+		.payload_type = SHARE_MEM_CUSTOM_W_PAYLOAD_TYPE,
+		.id = SENS_CUSTOM_W_MEM_ID,
+	},
+	{
+		.payload_type = SHARE_MEM_CUSTOM_R_PAYLOAD_TYPE,
+		.id = SENS_CUSTOM_R_MEM_ID,
 	},
 };
 
@@ -300,7 +307,7 @@ int share_mem_init(struct share_mem *shm, struct share_mem_config *cfg)
 		shm->buffer_full_written = 0;
 		shm->buffer_full_threshold =
 			((uint32_t)(((cfg->base->buffer_size - shm->item_size) /
-			shm->item_size) * SHARE_MEM_FULL_THRESHOLD_SCALE)) *
+			shm->item_size) * 8 / 10)) *
 			shm->item_size;
 		if (shm->buffer_full_threshold <= shm->item_size) {
 			ret = -EINVAL;
@@ -333,16 +340,16 @@ static int share_mem_send_config(void)
 	memset(comm_shm, 0, sizeof(*comm_shm));
 	for (i = 0; i < ARRAY_SIZE(shm_usage_table); i++) {
 		usage = &shm_usage_table[i];
-		if (usage->notify_cmd >= MAX_SENS_COMM_NOTIFY_CMD)
+		if (usage->payload_type >= MAX_SHARE_MEM_PAYLOAD_TYPE)
 			continue;
 		/* host init share mem ready we can send share mem to scp */
 		if (usage->init_status) {
-			comm_shm->base_info[index].notify_cmd =
-				usage->notify_cmd;
-			comm_shm->base_info[index].buffer_base =
+			comm_shm->base_info[index].payload_type =
+				usage->payload_type;
+			comm_shm->base_info[index].payload_base =
 				(uint32_t)scp_get_reserve_mem_phys(usage->id);
-			WARN_ON(!comm_shm->base_info[index].buffer_base);
-			++index;
+			WARN_ON(!comm_shm->base_info[index].payload_base);
+			comm_shm->available_num = ++index;
 		}
 		if (index == ARRAY_SIZE(comm_shm->base_info) ||
 		    (i == (ARRAY_SIZE(shm_usage_table) - 1) && index)) {
@@ -370,18 +377,24 @@ int share_mem_config(void)
 		usage = &shm_usage_table[i];
 		/* must reset init_status to false scp reset each times */
 		usage->init_status = false;
-		if (usage->notify_cmd >= MAX_SENS_COMM_NOTIFY_CMD)
-			continue;
-		handle = &shm_handle[usage->notify_cmd];
-		if (!handle->handler)
-			continue;
+		if (usage->payload_type >= MAX_SHARE_MEM_PAYLOAD_TYPE) {
+			pr_err("payload type %u invalid index %u\n",
+				usage->payload_type, i);
+			BUG_ON(1);
+		}
+		handle = &shm_handle[usage->payload_type];
+		if (!handle->handler) {
+			pr_err("payload type %u handler NULL index %u\n",
+				usage->payload_type, i);
+			BUG_ON(1);
+		}
 		memset(&cfg, 0, sizeof(cfg));
-		cfg.notify_cmd = usage->notify_cmd;
+		cfg.payload_type = usage->payload_type;
 		cfg.base =
 			(void *)(long)scp_get_reserve_mem_virt(usage->id);
 		cfg.buffer_size =
 			(uint32_t)scp_get_reserve_mem_size(usage->id);
-		WARN_ON(!cfg.base);
+		BUG_ON(!cfg.base);
 		ret = handle->handler(&cfg, handle->private_data);
 		if (ret < 0)
 			continue;
@@ -391,22 +404,22 @@ int share_mem_config(void)
 	return share_mem_send_config();
 }
 
-void share_mem_config_handler_register(uint8_t notify_cmd,
+void share_mem_config_handler_register(uint8_t payload_type,
 		int (*f)(struct share_mem_config *cfg, void *private_data),
 		void *private_data)
 {
-	if (notify_cmd >= MAX_SENS_COMM_NOTIFY_CMD)
+	if (payload_type >= MAX_SHARE_MEM_PAYLOAD_TYPE)
 		return;
 
-	shm_handle[notify_cmd].private_data = private_data;
-	shm_handle[notify_cmd].handler = f;
+	shm_handle[payload_type].private_data = private_data;
+	shm_handle[payload_type].handler = f;
 }
 
-void share_mem_config_handler_unregister(uint8_t notify_cmd)
+void share_mem_config_handler_unregister(uint8_t payload_type)
 {
-	if (notify_cmd >= MAX_SENS_COMM_NOTIFY_CMD)
+	if (payload_type >= MAX_SHARE_MEM_PAYLOAD_TYPE)
 		return;
 
-	shm_handle[notify_cmd].handler = NULL;
-	shm_handle[notify_cmd].private_data = NULL;
+	shm_handle[payload_type].handler = NULL;
+	shm_handle[payload_type].private_data = NULL;
 }

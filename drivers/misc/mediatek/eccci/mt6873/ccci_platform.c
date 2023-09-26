@@ -74,16 +74,6 @@ unsigned int ccci_get_md_debug_mode(struct ccci_modem *md)
 }
 EXPORT_SYMBOL(ccci_get_md_debug_mode);
 
-void ccci_get_platform_version(char *ver)
-{
-#ifdef ENABLE_CHIP_VER_CHECK
-	sprintf(ver, "MT%04x_S%02x",
-		get_chip_hw_ver_code(), (get_chip_hw_subcode() & 0xFF));
-#else
-	sprintf(ver, "MT6735_S00");
-#endif
-}
-
 #ifdef FEATURE_LOW_BATTERY_SUPPORT
 static int ccci_md_low_power_notify(
 	struct ccci_modem *md, enum LOW_POEWR_NOTIFY_TYPE type, int level)

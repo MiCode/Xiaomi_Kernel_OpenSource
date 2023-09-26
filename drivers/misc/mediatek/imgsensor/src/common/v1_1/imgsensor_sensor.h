@@ -41,6 +41,9 @@ struct IMGSENSOR_SENSOR_INST {
 struct IMGSENSOR_SENSOR {
 	struct IMGSENSOR_SENSOR_INST  inst;
 	struct SENSOR_FUNCTION_STRUCT *pfunc;
+#ifdef _XIAOMI_AGATE_
+	u32 mutil_camera;
+#endif
 };
 
 #endif

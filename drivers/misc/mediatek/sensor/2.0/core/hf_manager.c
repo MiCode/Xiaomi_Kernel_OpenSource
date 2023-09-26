@@ -883,6 +883,10 @@ static int hf_manager_custom_cmd(struct hf_client *client,
 	struct hf_device *device = NULL;
 	int ret = 0;
 
+	if (cust_cmd->tx_len > sizeof(cust_cmd->data) ||
+		cust_cmd->rx_len > sizeof(cust_cmd->data))
+		return -EINVAL;
+
 	mutex_lock(&client->core->manager_lock);
 	manager = hf_manager_find_manager(client->core, sensor_type);
 	if (!manager) {
@@ -1256,7 +1260,7 @@ static long hf_manager_ioctl(struct file *filp,
 	uint8_t sensor_type = 0;
 	struct ioctl_packet packet;
 	struct sensor_info info;
-	struct custom_cmd cust_cmd;
+	struct custom_cmd *cust_cmd = NULL;
 	struct hf_device *device = NULL;
 
 	memset(&packet, 0, sizeof(packet));
@@ -1302,13 +1306,11 @@ static long hf_manager_ioctl(struct file *filp,
 	case HF_MANAGER_REQUEST_CUST_DATA:
 		if (!test_bit(sensor_type, sensor_list_bitmap))
 			return -EINVAL;
-		memset(&cust_cmd, 0, sizeof(cust_cmd));
-		memcpy(cust_cmd.data, packet.byte, sizeof(cust_cmd.data));
-		if (hf_manager_custom_cmd(client, sensor_type, &cust_cmd))
+		if (sizeof(packet.byte) < sizeof(*cust_cmd))
 			return -EINVAL;
-		if (sizeof(packet.byte) < sizeof(cust_cmd))
+		cust_cmd = (struct custom_cmd *)packet.byte;
+		if (hf_manager_custom_cmd(client, sensor_type, cust_cmd))
 			return -EINVAL;
-		memcpy(packet.byte, &cust_cmd, sizeof(cust_cmd));
 		if (copy_to_user(ubuf, &packet, sizeof(packet)))
 			return -EFAULT;
 		break;

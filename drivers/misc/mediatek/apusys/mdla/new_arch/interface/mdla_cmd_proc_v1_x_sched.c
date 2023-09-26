@@ -32,7 +32,7 @@
 
 static void mdla_cmd_prepare_v1_x_sched(struct mdla_run_cmd *cd,
 	struct apusys_cmd_hnd *apusys_hd,
-	struct command_entry *ce, int priority)
+	struct command_entry *ce, uint32_t priority)
 {
 	ce->mva = cd->mva + cd->offset;
 

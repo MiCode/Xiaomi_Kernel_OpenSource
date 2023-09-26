@@ -10,9 +10,6 @@
 #ifndef _MTK_SCP_ULTRA_BASE_H_
 #define _MTK_SCP_ULTRA_BASE_H_
 
-#include "audio_buf.h"
-#include <audio_messenger_ipi.h>
-#include "audio_task.h"
 #include <sound/soc.h>
 
 
@@ -22,14 +19,16 @@ struct snd_dma_buffer;
 
 #define MAX_PAYLOAD_SIZE (32)
 
-struct scp_ultra_dump_ops {
-	void (*ultra_dump_callback)(struct ipi_msg_t *ipi_msg);
+struct audio_ultra_dram {
+	unsigned long long phy_addr;
+	unsigned long long va_addr;
+	unsigned long long size;
+	unsigned char *vir_addr;
 };
 
 struct mtk_base_scp_ultra_dump {
 	bool dump_flag;
-	struct audio_dsp_dram dump_resv_mem;
-	struct scp_ultra_dump_ops *dump_ops;
+	struct audio_ultra_dram dump_resv_mem;
 };
 
 struct mtk_base_scp_ultra_mem {
@@ -45,7 +44,7 @@ struct mtk_base_scp_ultra {
 	const struct snd_soc_component_driver *component_driver;
 	struct mtk_base_scp_ultra_mem ultra_mem;
 	struct mtk_base_scp_ultra_dump ultra_dump;
-	struct audio_dsp_dram ultra_reserve_dram;
+	struct audio_ultra_dram ultra_reserve_dram;
 	unsigned int usnd_state;
 	unsigned int scp_ultra_dl_memif_id;
 	unsigned int scp_ultra_ul_memif_id;
@@ -67,7 +66,6 @@ struct ultra_gain_config {
 	int mic_gain;
 	int receiver_gain;
 };
-
 
 #endif
 

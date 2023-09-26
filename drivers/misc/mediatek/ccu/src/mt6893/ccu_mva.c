@@ -175,6 +175,7 @@ int ccu_config_m4u_port(void)
 int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 {
 	int ret = 0;
+	uint32_t idx = cached ? 1 : 0;
 
 	LOG_DBG_MUST("_ccuAllocMem+\n");
 	LOG_DBG_MUST("size(%d) cached(%d) memHandle->ionHandleKd(%d)\n",
@@ -185,9 +186,9 @@ int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 		return -EINVAL;
 	}
 
-	if (ccu_buffer_handle[cached].ionHandleKd != NULL) {
+	if (ccu_buffer_handle[idx].ionHandleKd != NULL) {
 		LOG_ERR("idx %d handle %p is not empty\n", cached,
-		ccu_buffer_handle[cached].ionHandleKd);
+		ccu_buffer_handle[idx].ionHandleKd);
 		return -EINVAL;
 	}
 
@@ -224,7 +225,7 @@ int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 
 	LOG_DBG_MUST("_ccuAllocMem-\n");
 
-	ccu_buffer_handle[memHandle->meminfo.cached] = *memHandle;
+	ccu_buffer_handle[idx] = *memHandle;
 	return (memHandle->ionHandleKd != NULL) ? 0 : -1;
 
 }

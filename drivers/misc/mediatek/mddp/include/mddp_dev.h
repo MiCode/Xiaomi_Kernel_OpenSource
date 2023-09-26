@@ -15,7 +15,7 @@
 // -----------------------------------------------------------------------------
 #define MDDP_DETAILED_STATE_ENABLE 19283746
 #define MDDP_DETAILED_STATE_DISABLE 0
-#define MDDP_EM_SUPPORT	0                   /**< Engineer mode support */
+#define MDDP_EM_SUPPORT	1                   /**< Engineer mode support */
 
 //------------------------------------------------------------------------------
 // Public functions.

@@ -75,6 +75,8 @@ static struct i2c_board_info kd_lens_dev __initdata = {
 #define LOG_INF(format, args...)
 #endif
 
+extern int camera_power;
+
 /* OIS/EIS Timer & Workqueue */
 static struct workqueue_struct *ois_workqueue;
 static struct work_struct ois_work;
@@ -90,6 +92,8 @@ static struct stAF_OisPosInfo OisPosInfo;
 static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	{1, AFDRV_DW9718TAF, DW9718TAF_SetI2Cclient, DW9718TAF_Ioctl,
 	 DW9718TAF_Release, DW9718TAF_GetFileName, NULL},
+	{1, AFDRV_GT9772AF, GT9772AF_SetI2Cclient, GT9772AF_Ioctl,
+	 GT9772AF_Release, GT9772AF_GetFileName, NULL},
 	{1, AFDRV_AK7371AF, AK7371AF_SetI2Cclient, AK7371AF_Ioctl,
 	 AK7371AF_Release, AK7371AF_GetFileName, NULL},
 	{1, AFDRV_BU6424AF, BU6424AF_SetI2Cclient, BU6424AF_Ioctl,
@@ -121,6 +125,8 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 LC898212XDAF_Release, LC898212XDAF_GetFileName, NULL},
 	{1, AFDRV_DW9800WAF, DW9800WAF_SetI2Cclient, DW9800WAF_Ioctl,
 	DW9800WAF_Release, DW9800WAF_GetFileName, NULL},
+	{1, AFDRV_DW9800VAF, DW9800VAF_SetI2Cclient, DW9800VAF_Ioctl,
+	DW9800VAF_Release, DW9800VAF_GetFileName, NULL},
 	{1, AFDRV_DW9814AF, DW9814AF_SetI2Cclient, DW9814AF_Ioctl,
 	 DW9814AF_Release, DW9814AF_GetFileName, NULL},
 	{1, AFDRV_DW9839AF, DW9839AF_SetI2Cclient, DW9839AF_Ioctl,
@@ -145,8 +151,6 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 LC898217AFC_Release, LC898217AFC_GetFileName, NULL},
 	{1, AFDRV_LC898229AF, LC898229AF_SetI2Cclient, LC898229AF_Ioctl,
 	 LC898229AF_Release, LC898229AF_GetFileName, NULL},
-	 {1, AFDRV_OV5645AF, OV5645AF_SetI2Cclient,
-	OV5645AF_Ioctl, OV5645AF_Release, NULL},
 	{1, AFDRV_LC898122AF, LC898122AF_SetI2Cclient, LC898122AF_Ioctl,
 	 LC898122AF_Release, LC898122AF_GetFileName, NULL},
 	{1, AFDRV_WV511AAF, WV511AAF_SetI2Cclient, WV511AAF_Ioctl,
@@ -271,8 +275,13 @@ void AFRegulatorCtrl(int Stage)
 			struct device_node *node, *kd_node;
 
 			/* check if customer camera node defined */
-			node = of_find_compatible_node(
-				NULL, NULL, "mediatek,CAMERA_MAIN_AF");
+			#if defined(CONFIG_MACH_MT6877)
+				node = of_find_compatible_node(
+					NULL, NULL, "mediatek,CAMERA_MAIN_AF");
+			#else
+				node = of_find_compatible_node(
+					NULL, NULL, "mediatek,camera_af_lens");
+			#endif
 
 			if (node) {
 				kd_node = lens_device->of_node;
@@ -305,9 +314,20 @@ void AFRegulatorCtrl(int Stage)
 					regVCAMAF =
 					regulator_get(lens_device, "vcamio");
 				}
-				#elif defined(CONFIG_MACH_MT6877)
-				regVCAMAF =
+				#elif defined(CONFIG_MACH_MT6877) || defined(CONFIG_MACH_MT6781)
+				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+					"k6877v1_64", 10) == 0) {
+					regVCAMAF =
+					regulator_get(lens_device, "cam0_vcamaf");
+					LOG_INF("%s :camera_power= %d\n",__func__,camera_power);
+					if(camera_power == 2){
+					regVCAMAF =
+						regulator_get(lens_device, "cam0_vcamafw");
+					}
+				} else {
+					regVCAMAF =
 					regulator_get(lens_device, "rt5133-ldo3");
+				}
 				#elif defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
 					"k6885v1_64_alpha", 16) == 0) {
@@ -317,6 +337,10 @@ void AFRegulatorCtrl(int Stage)
 					regVCAMAF =
 					regulator_get(lens_device, "vcamio");
 				}
+				/*XIAOMI: add for getting vcamaf from fan53870_L7 --start*/
+				regVCAMAF =
+					regulator_get(lens_device, "vcamwaf");
+				/*XIAOMI: add for getting vcamaf from fan53870_L7 --end*/
 				#else
 				regVCAMAF =
 					regulator_get(lens_device, "vcamaf");

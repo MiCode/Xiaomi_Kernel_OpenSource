@@ -32,7 +32,6 @@ void pd_dpm_dynamic_disable_vconn(struct pd_port *pd_port);
 /* ---- SNK ---- */
 
 #ifdef CONFIG_USB_PD_REV30_PPS_SINK
-void dpm_repeat_pps_request(struct pd_port *pd_port);
 void pd_dpm_start_pps_request_thread(struct pd_port *pd_port, bool en);
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
@@ -99,6 +98,8 @@ void pd_dpm_dfp_send_uvdm(struct pd_port *pd_port);
 void pd_dpm_dfp_inform_uvdm(struct pd_port *pd_port, bool ack);
 
 #endif     /* CONFIG_USB_PD_CUSTOM_VDM */
+
+void pd_dpm_ufp_send_svdm_nak(struct pd_port *pd_port);
 
 /* ---- DRP : Inform PowerCap ---- */
 

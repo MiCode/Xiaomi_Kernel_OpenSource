@@ -1927,10 +1927,16 @@ static int mt6362_init_irq(struct mt6362_tcpc_data *tdata,
 
 static int mt6362_register_tcpcdev(struct mt6362_tcpc_data *tdata)
 {
+	struct device_node *np = tdata->dev->of_node;
+
 	tdata->tcpc = tcpc_device_register(tdata->dev, tdata->desc,
 					  &mt6362_tcpc_ops, tdata);
-	if (IS_ERR(tdata->tcpc))
+	if (IS_ERR_OR_NULL(tdata->tcpc))
 		return -EINVAL;
+
+#ifdef CONFIG_USB_PD_DISABLE_PE
+	tdata->tcpc->disable_pe = of_property_read_bool(np, "tcpc,disable_pe");
+#endif	/* CONFIG_USB_PD_DISABLE_PE */
 
 	/* Init tcpc_flags */
 #ifdef CONFIG_CABLE_TYPE_DETECTION
@@ -1970,7 +1976,7 @@ static int mt6362_parse_dt(struct mt6362_tcpc_data *tdata)
 	/* default setting */
 	desc->role_def = TYPEC_ROLE_DRP;
 	desc->notifier_supply_num = 0;
-	desc->rp_lvl = TYPEC_CC_RP_DFT;
+	desc->rp_lvl = TYPEC_RP_DFT;
 	desc->vconn_supply = TCPC_VCONN_SUPPLY_ALWAYS;
 
 	if (of_property_read_u32(np, "tcpc,role_def", &val) >= 0) {
@@ -1989,14 +1995,10 @@ static int mt6362_parse_dt(struct mt6362_tcpc_data *tdata)
 
 	if (of_property_read_u32(np, "tcpc,rp_level", &val) >= 0) {
 		switch (val) {
-		case 0: /* RP Default */
-			desc->rp_lvl = TYPEC_CC_RP_DFT;
-			break;
-		case 1: /* RP 1.5V */
-			desc->rp_lvl = TYPEC_CC_RP_1_5;
-			break;
-		case 2: /* RP 3.0V */
-			desc->rp_lvl = TYPEC_CC_RP_3_0;
+		case TYPEC_RP_DFT:
+		case TYPEC_RP_1_5:
+		case TYPEC_RP_3_0:
+			desc->rp_lvl = val;
 			break;
 		default:
 			break;

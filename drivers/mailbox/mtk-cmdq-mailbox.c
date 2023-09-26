@@ -29,6 +29,7 @@
 #define CMDQ_OP_CODE_MASK		(0xff << CMDQ_OP_CODE_SHIFT)
 #define CMDQ_IRQ_MASK			GENMASK(CMDQ_THR_MAX_COUNT - 1, 0)
 
+#define CMDQ_CORE_REST			0x0
 #define CMDQ_CURR_IRQ_STATUS		0x10
 #define CMDQ_CURR_LOADED_THR		0x18
 #define CMDQ_THR_SLOT_CYCLES		0x30
@@ -70,6 +71,7 @@
 #define CMDQ_THR_RESUME			0x0
 #define CMDQ_THR_STATUS_SUSPENDED	BIT(1)
 #define CMDQ_THR_DO_WARM_RESET		BIT(0)
+#define CMDQ_THR_DO_HARD_RESET		BIT(16)
 #define CMDQ_THR_ACTIVE_SLOT_CYCLES	0x3200
 #define CMDQ_INST_CYCLE_TIMEOUT		0x0
 #define CMDQ_THR_IRQ_DONE		0x1
@@ -376,6 +378,14 @@ void cmdq_thread_set_spr(struct mbox_chan *chan, u8 id, u32 val)
 	writel(val, thread->base + CMDQ_THR_SPR + id * 4);
 }
 
+static int cmdq_core_reset(struct cmdq *cmdq)
+{
+	cmdq_msg("%s hwid:%d", __func__, cmdq->hwid);
+	writel(CMDQ_THR_DO_HARD_RESET, cmdq->base + CMDQ_CORE_REST);
+	writel(0, cmdq->base + CMDQ_CORE_REST);
+	return 0;
+}
+
 static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
 	u32 status;
@@ -394,6 +404,10 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 			status, status & CMDQ_THR_STATUS_SUSPENDED, 0, 100)) {
 		cmdq_err("suspend GCE thread 0x%x failed",
 			(u32)(thread->base - cmdq->base));
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		if (thread->chan)
+			cmdq_util_dump_dbg_reg(thread->chan);
+#endif
 		return -EFAULT;
 	}
 
@@ -423,6 +437,10 @@ int cmdq_thread_reset(struct cmdq *cmdq, struct cmdq_thread *thread)
 			warm_reset, !(warm_reset & CMDQ_THR_DO_WARM_RESET),
 			0, 10)) {
 		cmdq_err("reset GCE thread %u failed", thread->idx);
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		if (thread->chan)
+			cmdq_util_dump_dbg_reg(thread->chan);
+#endif
 		return -EFAULT;
 	}
 	writel(CMDQ_THR_ACTIVE_SLOT_CYCLES, cmdq->base + CMDQ_THR_SLOT_CYCLES);
@@ -608,6 +626,7 @@ void cmdq_init_cmds(void *dev_cmdq)
 	struct cmdq_thread *thread = &cmdq->thread[0];
 	dma_addr_t pc, end;
 	int i;
+	u32 status;
 
 	cmdq_trace_ex_begin("%s", __func__);
 
@@ -634,7 +653,15 @@ void cmdq_init_cmds(void *dev_cmdq)
 #endif
 				break;
 			}
+		writel(CMDQ_THR_SUSPEND, thread->base + CMDQ_THR_SUSPEND_TASK);
+		if (readl_poll_timeout_atomic(thread->base + CMDQ_THR_CURR_STATUS,
+				status, status & CMDQ_THR_STATUS_SUSPENDED, 0, 1000)) {
+			cmdq_err("suspend GCE thread 0x%x failed",
+				(u32)(thread->base - cmdq->base));
+		}
+		cmdq_core_reset(cmdq);
 		cmdq_thread_reset(cmdq, thread);
+		cmdq_init_cpu(cmdq);
 	}
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
 
@@ -1341,7 +1368,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	spin_lock_irqsave(&chan->lock, flags);
 
 	if (atomic_read(&cmdq->usage) <= 0) {
-		cmdq_err("%s gce off cmdq:%lx thread:%u",
+		cmdq_err("%s gce off cmdq:%p thread:%u",
 			__func__, cmdq, thread->idx);
 		dump_stack();
 		spin_unlock_irqrestore(&chan->lock, flags);
@@ -1388,7 +1415,6 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 		break;
 	}
 	spin_unlock_irqrestore(&chan->lock, flags);
-
 	cmdq_util_user_msg(chan,
 		"thd:%u pc:%#010x(%p) inst:%#018llx end:%#010x cnt:%#x token:%#010x",
 		thread->idx, curr_pa, curr_va, inst, end_pa, cnt, wait_token);

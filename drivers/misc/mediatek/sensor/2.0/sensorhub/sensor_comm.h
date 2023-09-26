@@ -41,7 +41,8 @@ enum sensor_comm_notify_cmd {
 	SENS_COMM_NOTIFY_READY_CMD,
 	SENS_COMM_NOTIFY_LIST_CMD,
 	SENS_COMM_NOTIFY_DEBUG_CMD,
-	SENS_COMM_NOTIFY_TEST_CMD,
+	SENS_COMM_NOTIFY_CUSTOM_CMD,
+	SENS_COMM_NOTIFY_FAST_CUST_CMD,
 	MAX_SENS_COMM_NOTIFY_CMD,
 };
 
@@ -56,9 +57,10 @@ struct sensor_comm_timesync {
 } __packed __aligned(4);
 
 struct sensor_comm_share_mem {
+	uint8_t available_num;
 	struct {
-		uint8_t notify_cmd;
-		uint32_t buffer_base;
+		uint8_t payload_type;
+		uint32_t payload_base;
 	} __aligned(4) base_info[4];
 } __packed __aligned(4);
 

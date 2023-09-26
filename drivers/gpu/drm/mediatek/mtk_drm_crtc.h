@@ -30,7 +30,7 @@
 #include "mtk_drm_ddp_addon.h"
 #include <linux/pm_wakeup.h>
 #include "mtk_disp_pmqos.h"
-
+#include "mi_disp/mi_disp_esd_check.h"
 
 #define MAX_CRTC 3
 #define OVL_LAYER_NR 12L
@@ -51,6 +51,7 @@
 
 #define PRIMARY_OVL_EXT_LAYER_NR 6L
 
+#define MTK_HDR10P_PROPERTY_FLAG 2
 
 #define pgc	_get_context()
 
@@ -80,8 +81,10 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_CUR_CONFIG_FENCE_BASE 0x0000
 #define DISP_SLOT_CUR_CONFIG_FENCE(n)                                          \
 	(DISP_SLOT_CUR_CONFIG_FENCE_BASE + (0x4 * (n)))
-#define DISP_SLOT_PRESENT_FENCE(n)                                          \
+#define DISP_SLOT_OVL_DSI_SEQ(n)                                          \
 	(DISP_SLOT_CUR_CONFIG_FENCE(OVL_LAYER_NR) + (0x4 * (n)))
+#define DISP_SLOT_PRESENT_FENCE(n)                                          \
+	(DISP_SLOT_OVL_DSI_SEQ(MAX_CRTC) + (0x4 * (n)))
 #define DISP_SLOT_SF_PRESENT_FENCE(n)                                          \
 	(DISP_SLOT_PRESENT_FENCE(MAX_CRTC) + (0x4 * (n)))
 #define DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE                                    \
@@ -367,6 +370,10 @@ enum MTK_CRTC_PROP {
 	CRTC_PROP_COLOR_TRANSFORM,
 	CRTC_PROP_USER_SCEN,
 	CRTC_PROP_HDR_ENABLE,
+	CRTC_PROP_OVL_DSI_SEQ,
+#if defined (CONFIG_DRM_PANEL_K16_38_0C_0A_DSC_VDO) || defined (CONFIG_DRM_PANEL_K16_38_0E_0B_DSC_VDO)
+	CRTC_PROP_MI_FOD_SYNC_INFO,
+#endif
 	CRTC_PROP_MAX,
 };
 
@@ -668,6 +675,9 @@ struct mtk_drm_crtc {
 	wait_queue_head_t crtc_status_wq;
 	struct mtk_panel_ext *panel_ext;
 	struct mtk_drm_esd_ctx *esd_ctx;
+#ifdef CONFIG_MI_ESD_CHECK
+	struct mi_esd_ctx *mi_esd_ctx;
+#endif
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	struct mtk_drm_gem_obj *round_corner_gem;
 	struct mtk_drm_gem_obj *round_corner_gem_l;
@@ -732,6 +742,12 @@ struct mtk_drm_crtc {
 	struct task_struct *cwb_task;
 	wait_queue_head_t cwb_wq;
 	atomic_t cwb_task_active;
+
+	ktime_t eof_time;
+	struct task_struct *signal_present_fece_task;
+	struct cmdq_cb_data cb_data;
+	atomic_t cmdq_done;
+	wait_queue_head_t signal_fence_task_wq;
 };
 
 struct mtk_crtc_state {
@@ -889,6 +905,12 @@ void mtk_drm_layer_dispatch_to_dual_pipe(
 	struct mtk_plane_state *plane_state_l,
 	struct mtk_plane_state *plane_state_r,
 	unsigned int w);
+void mtk_crtc_dual_layer_config(struct mtk_drm_crtc *mtk_crtc,
+		struct mtk_ddp_comp *comp, unsigned int idx,
+		struct mtk_plane_state *plane_state, struct cmdq_pkt *cmdq_handle);
+unsigned int dual_pipe_comp_mapping(unsigned int comp_id);
+int mtk_drm_crtc_set_panel_hbm(struct drm_crtc *crtc, bool en);
+int mtk_drm_crtc_hbm_wait(struct drm_crtc *crtc, bool en);
 /* ********************* Legacy DISP API *************************** */
 unsigned int DISP_GetScreenWidth(void);
 unsigned int DISP_GetScreenHeight(void);

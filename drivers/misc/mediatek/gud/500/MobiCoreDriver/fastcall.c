@@ -24,6 +24,7 @@
 #include "platform.h"	/* MC_SMC_FASTCALL */
 #include "main.h"
 #include "fastcall.h"
+#include "nq.h"
 
 /* Use the arch_extension sec pseudo op before switching to secure world */
 #ifndef CONFIG_ARM64
@@ -127,6 +128,21 @@ union fc_yield {
 		u32 code;
 	} out;
 };
+
+#ifdef MC_TEE_HOTPLUG
+union fc_cpu_off {
+	union fc_common common;
+
+	struct {
+		u32 cmd;
+	} in;
+
+	struct {
+		u32 resp;
+		u32 ret;
+	} out;
+};
+#endif
 
 /* Structure to log SMC calls */
 struct smc_log_entry {
@@ -361,6 +377,26 @@ int fc_yield(u32 session_id, u32 payload, struct fc_s_yield *resp)
 
 	return 0;
 }
+
+#ifdef MC_TEE_HOTPLUG
+int fc_cpu_off(void)
+{
+	int ret;
+	union fc_cpu_off fc;
+
+	memset(&fc, 0, sizeof(fc));
+	fc.in.cmd = MC_FC_CPU_OFF;
+	/* Notice smc macro always returns zero if !MC_SMC_FASTCALL */
+	ret = smc(&fc);
+	if (ret)
+		return ret;
+
+	/* SWd return status must always be zero */
+	if (fc.out.ret)
+		return -EIO;
+	return 0;
+}
+#endif
 
 static int show_smc_log_entry(struct kasnprintf_buf *buf,
 			      struct smc_log_entry *entry)

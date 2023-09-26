@@ -172,8 +172,9 @@
 #define DIFF_IAVG_TH 3000
 
 /* ZCV INTR */
-#define ZCV_SUSPEND_TIME 3
+#define ZCV_SUSPEND_TIME 7
 #define SLEEP_CURRENT_AVG 200 /*0.1mA*/
+#define ZCV_COM_VOL_LIMIT 50 /* 50mv */
 #define ZCV_CAR_GAP_PERCENTAGE 1
 
 /* Additional battery table */
@@ -241,6 +242,20 @@
 
 #define UI_FULL_LIMIT_TIME 99999
 
+#define UI_FULL_LIMIT_FC_SOC0 9900
+#define UI_FULL_LIMIT_FC_ITH0 3000
+
+#define UI_FULL_LIMIT_FC_SOC1 9900
+#define UI_FULL_LIMIT_FC_ITH1 3100
+
+#define UI_FULL_LIMIT_FC_SOC2 9900
+#define UI_FULL_LIMIT_FC_ITH2 3200
+
+#define UI_FULL_LIMIT_FC_SOC3 9900
+#define UI_FULL_LIMIT_FC_ITH3 3300
+
+#define UI_FULL_LIMIT_FC_SOC4 9900
+#define UI_FULL_LIMIT_FC_ITH4 3400
 
 /* using voltage to limit uisoc in 1% case */
 /* UI_LOW_LIMIT_VTH0=36000 means 3.6v */

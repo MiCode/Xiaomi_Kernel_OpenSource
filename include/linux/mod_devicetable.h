@@ -293,7 +293,7 @@ struct pcmcia_device_id {
 #define INPUT_DEVICE_ID_LED_MAX		0x0f
 #define INPUT_DEVICE_ID_SND_MAX		0x07
 #define INPUT_DEVICE_ID_FF_MAX		0x7f
-#define INPUT_DEVICE_ID_SW_MAX		0x0f
+#define INPUT_DEVICE_ID_SW_MAX		0x20
 #define INPUT_DEVICE_ID_PROP_MAX	0x1f
 
 #define INPUT_DEVICE_ID_MATCH_BUS	1
@@ -692,6 +692,17 @@ struct fsl_mc_device_id {
 	__u16 vendor;
 	const char obj_type[16];
 };
+
+#ifdef __KERNEL__
+/**
+ * struct tee_client_device_id - tee based device identifier
+ * @uuid: For TEE based client devices we use the device uuid as
+ *        the identifier.
+ */
+struct tee_client_device_id {
+	uuid_t uuid;
+};
+#endif
 
 
 #endif /* LINUX_MOD_DEVICETABLE_H */

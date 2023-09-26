@@ -11,5 +11,6 @@ obj-y += transceiver.o
 obj-y += share_memory.o
 obj-y += timesync.o
 obj-y += debug.o
+obj-y += custom_cmd.o
 
 #obj-y += test/

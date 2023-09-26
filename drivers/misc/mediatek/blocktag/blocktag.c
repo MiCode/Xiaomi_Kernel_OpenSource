@@ -1682,7 +1682,7 @@ int mtk_btag_mictx_get_data(
 		iostat->q_depth = ctx->q_depth;
 
 	if (mtk_btag_mictx_self_test || mtk_btag_mictx_data_dump) {
-		pr_info("[BLOCK_TAG] Mictx: sz:%llu,%llu, sz-top:%llu,%llu,%u, fuse-top: %d,%d, qd:%u, wl:%u\n",
+		pr_info("[BLOCK_TAG] Mictx: sz:%llu,%llu, sz-top:%llu,%llu,%llu, fuse-top: %u,%u, qd:%hu, wl:%hu\n",
 			ctx->req.r.size, ctx->req.w.size,
 			ctx->req.r.size_top, ctx->req.w.size_top, top,
 			ctx->top_r_pages, ctx->top_w_pages,

@@ -174,9 +174,9 @@ static void gbe_ctrl2comp_fstb_poll(struct hlist_head *list)
 #endif
 
 		if (gbe_list_iter->runtime_percent)
-			gbe_trace_count(gbe_list_iter->tid,
-					gbe_list_iter->runtime_percent,
-					"runtime_percent");
+			gbe_trace_count(gbe_list_iter->tid, 0,
+				gbe_list_iter->runtime_percent,
+				"runtime_percent");
 
 		gbe_list_iter->last_task_runtime =
 			gbe_list_iter->now_task_runtime;
@@ -186,7 +186,7 @@ static void gbe_ctrl2comp_fstb_poll(struct hlist_head *list)
 				gbe_list_iter->runtime_thrs) {
 			boost = 1;
 			gbe_list_iter->boost_cnt++;
-			gbe_trace_count(gbe_list_iter->tid, 1, "gbe_boost");
+			gbe_trace_count(gbe_list_iter->tid, 0, 1, "gbe_boost");
 		}
 	}
 

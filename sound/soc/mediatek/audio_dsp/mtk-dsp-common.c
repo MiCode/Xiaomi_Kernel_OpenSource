@@ -360,7 +360,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM)
 		return -1;
 
-	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUMTIME) <= 0 ||
+	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUNTIME) <= 0 ||
 	    get_task_attr(task_id, ADSP_TASK_ATTR_DEFAULT) <= 0)
 		return -1;
 

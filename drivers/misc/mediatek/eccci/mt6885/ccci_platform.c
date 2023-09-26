@@ -74,16 +74,6 @@ unsigned int ccci_get_md_debug_mode(struct ccci_modem *md)
 }
 EXPORT_SYMBOL(ccci_get_md_debug_mode);
 
-void ccci_get_platform_version(char *ver)
-{
-#ifdef ENABLE_CHIP_VER_CHECK
-	sprintf(ver, "MT%04x_S%02x",
-		get_chip_hw_ver_code(), (get_chip_hw_subcode() & 0xFF));
-#else
-	sprintf(ver, "MT6735_S00");
-#endif
-}
-
 #ifdef FEATURE_LOW_BATTERY_SUPPORT
 static int ccci_md_low_power_notify(
 	struct ccci_modem *md, enum LOW_POEWR_NOTIFY_TYPE type, int level)
@@ -373,7 +363,9 @@ static  struct dvfs_ref s_dl_dvfs_tbl[] = {
 
 static  struct dvfs_ref s_ul_dvfs_tbl[] = {
 	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps*/
+	{600000000LL, 2700000, 2706000, -1, -1, 0, 0x02, 0x70, 0x70},
 	{500000000LL, 1700000, 1706000, -1, -1, 0, 0x02, 0x70, 0x70},
+	{300000000LL, 1500000, 1500000, -1, -1, 1, 0x02, 0x70, 0x70},
 	{250000000LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x0D},
 	/* normal */
 	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x0D},

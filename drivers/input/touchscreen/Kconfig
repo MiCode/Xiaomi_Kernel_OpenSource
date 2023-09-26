@@ -11,7 +11,14 @@ menuconfig INPUT_TOUCHSCREEN
 
 source "drivers/input/touchscreen/mediatek/Kconfig"
 
+source "drivers/input/touchscreen/NT36672C/Kconfig"
+
 if INPUT_TOUCHSCREEN
+
+source "drivers/input/touchscreen/focaltech_spi/Kconfig"
+source "drivers/input/touchscreen/xiaomi/Kconfig"
+source "drivers/input/touchscreen/NVT36672c/Kconfig"
+source "drivers/input/touchscreen/fts_spi/Kconfig"
 
 config TOUCHSCREEN_PROPERTIES
 	def_tristate INPUT
@@ -28,6 +35,17 @@ config TOUCHSCREEN_88PM860X
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called 88pm860x-ts.
+
+config TOUCHSCREEN_HIMAX_CHIPSET
+	bool "Himax touchpanel CHIPSET"
+	depends on I2C
+	help
+	Say Y here if you have a Himax CHIPSET touchscreen.
+	HIMAX controllers are multi touch controllers which can
+	report 10 touches at a time.
+
+	If unsure, say N.
+source "drivers/input/touchscreen/hxchipset/Kconfig"
 
 config TOUCHSCREEN_ADS7846
 	tristate "ADS7846/TSC2046/AD7873 and AD(S)7843 based touchscreens"
@@ -1254,5 +1272,7 @@ config TOUCHSCREEN_MTK_TOUCH
          Set touch IC name if you have touch panel.
 
          To compile this dirver for used touch IC.
+
+source "drivers/input/touchscreen/goodix_gt9896/Kconfig"
 
 endif

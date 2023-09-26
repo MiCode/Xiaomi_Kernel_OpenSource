@@ -280,6 +280,7 @@ struct ufs_desc_size {
 	int interc_desc;
 	int unit_desc;
 	int conf_desc;
+	int health_desc;
 };
 
 /**
@@ -573,6 +574,14 @@ struct ufs_event_hist {
 struct ufs_stats {
 	u32 hibern8_exit_cnt;
 	ktime_t last_hibern8_exit_tstamp;
+
+        u32 pa_err_cnt_total;
+        u32 pa_err_cnt[UFS_EC_PA_MAX];
+        u32 dl_err_cnt_total;
+        u32 dl_err_cnt[UFS_EC_DL_MAX];
+        u32 dme_err_cnt;
+        u32 power_mode_change_cnt;
+
 	struct ufs_event_hist event[UFS_EVT_CNT];
 };
 
@@ -609,6 +618,14 @@ enum ufs_crypto_state {
 	UFS_CRYPTO_HW_FBE             = (1 << 2),
 	UFS_CRYPTO_HW_FBE_ENCRYPTED   = (1 << 3),
 };
+
+#if defined(CONFIG_UFS_CHECK) && defined(CONFIG_FACTORY_BUILD)
+typedef struct {
+	int total_gb;
+	int hpb_gb;
+	int wb_gb;
+} check_wb_hpb_t;
+#endif
 
 /**
  * struct ufs_hba - per adapter private structure
@@ -960,6 +977,9 @@ struct ufs_hba {
 #if defined(CONFIG_SCSI_SKHPB)
 	struct scsi_device *sdev_ufs_lu[UFS_UPIU_MAX_GENERAL_LUN];
 #endif
+#if defined(CONFIG_UFS_CHECK) && defined(CONFIG_FACTORY_BUILD)
+	check_wb_hpb_t check;
+#endif
 
 #ifdef CONFIG_SCSI_UFS_CRYPTO
 	/* crypto */
@@ -972,6 +992,7 @@ struct ufs_hba {
 
 	u32 ufs_mtk_qcmd_r_cmd_cnt;
 	u32 ufs_mtk_qcmd_w_cmd_cnt;
+
 };
 
 /* MTK PATCH */
@@ -1144,7 +1165,6 @@ extern int ufshcd_dme_set_attr(struct ufs_hba *hba, u32 attr_sel,
 			       u8 attr_set, u32 mib_val, u8 peer);
 extern int ufshcd_dme_get_attr(struct ufs_hba *hba, u32 attr_sel,
 			       u32 *mib_val, u8 peer);
-extern void ufshcd_hba_stop(struct ufs_hba *hba, bool can_sleep);
 
 /* UIC command interfaces for DME primitives */
 #define DME_LOCAL	0
@@ -1217,6 +1237,13 @@ int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 			enum dev_cmd_type cmd_type, int timeout);
 int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
 int ufshcd_map_sg(struct ufs_hba *hba, struct ufshcd_lrb *lrbp);
+void ufshcd_scsi_block_requests(struct ufs_hba *hba);
+void ufshcd_scsi_unblock_requests(struct ufs_hba *hba);
+int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba,
+				u64 wait_timeout_us,
+				bool ignore_state,
+				int tr_allowed,
+				int tm_allowed);
 #endif
 
 #if defined(CONFIG_SCSI_SKHPB)
@@ -1431,4 +1458,15 @@ static inline void ufshcd_vops_device_reset(struct ufs_hba *hba)
 		ufshcd_update_evt_hist(hba, UFS_EVT_DEV_RESET, 0);
 	}
 }
+
+int ufshcd_query_flag_sel(struct ufs_hba *hba, enum query_opcode opcode,
+		enum flag_idn idn, u8 index, u8 selector, bool *flag_res);
+
+int ufshcd_read_desc_param_sel(struct ufs_hba *hba,\
+		enum desc_idn desc_id,
+		int desc_index,
+		u8 selector,
+		u8 param_offset,
+		u8 *param_read_buf,
+		u8 param_size);
 #endif /* End of Header */

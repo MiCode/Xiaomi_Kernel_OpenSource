@@ -26,6 +26,15 @@ config DRM_MEDIATEK_HDMI
 	help
 	  DRM/KMS HDMI driver for Mediatek SoCs
 
+config MTK_HDR_COLOR_GAIN_RGB
+	hex "Config CCORR parameters for HDR layers"
+	default 0
+	help
+	  This control color gain for hdr screen.
+	  0~11 bit for blue gain.
+	  12~23 bit for green gain.
+	  24~63 bit for red gain.
+
 config MTK_PQ_COLOR_MODE
 	string "Config PQ_COLOR_MODE (MDP & DISP COLOR on/off)"
 	default "DISP"
@@ -57,3 +66,10 @@ config DRM_MTK_DISABLE_AEE_LAYER
 	  if this value is y, will not produce AEE.
 	  if this value is n, will produce AEE.
 	  If you do not produce AEE, please set it to Y in xxx_defconfig.
+
+config MI_ESD_CHECK
+	bool "use xiaomi esd check thread"
+	help
+	  Use xiaomi esd check instead of MTK comes with esd check.
+	  if this value is y, will use xiaomi esd check.
+	  if this value is n, will use MTK comes with esd check.

@@ -118,7 +118,7 @@ static void set_cfp_ppm(struct ppm_limit_data *desired_freq, int headroom_opp)
 #endif
 }
 
-static void cfp_lt_callback(int loading)
+static void cfp_lt_callback(int mask_loading, int loading)
 {
 	cfp_lock(__func__);
 
@@ -174,7 +174,7 @@ static void start_cfp(void)
 	pr_debug("%s\n", __func__);
 
 	cfp_unlock(__func__);
-	reg_ret = reg_loading_tracking(cfp_lt_callback, poll_ms);
+	reg_ret = reg_loading_tracking(cfp_lt_callback, poll_ms, cpu_possible_mask);
 	if (reg_ret)
 		pr_debug("%s reg_ret=%d\n", __func__, reg_ret);
 	cfp_lock(__func__);

@@ -159,9 +159,11 @@ static void mtk_wdt_mark_stage(unsigned int stage)
 
 static void mtk_wdt_update_last_restart(void *last, int cpu_id)
 {
-	wdt_kick_info[wdt_kick_info_idx].restart_time = sched_clock();
-	wdt_kick_info[wdt_kick_info_idx].restart_caller = last;
-	wdt_kick_info[wdt_kick_info_idx].cpu = cpu_id;
+	if (wdt_kick_info_idx < MTK_WDT_KEEP_LAST_INFO) {
+		wdt_kick_info[wdt_kick_info_idx].restart_time = sched_clock();
+		wdt_kick_info[wdt_kick_info_idx].restart_caller = last;
+		wdt_kick_info[wdt_kick_info_idx].cpu = cpu_id;
+	}
 	wdt_kick_info_idx = (wdt_kick_info_idx + 1) % MTK_WDT_KEEP_LAST_INFO;
 }
 

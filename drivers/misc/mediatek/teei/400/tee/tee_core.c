@@ -93,6 +93,25 @@ static void teedev_close_context(struct tee_context *ctx)
 	kfree(ctx);
 }
 
+int tee_k_open(struct file *filp)
+{
+	struct tee_context *ctx;
+	struct tee_device *teedev = NULL;
+
+	teedev = isee_get_teedev();
+	if (teedev == NULL) {
+		IMSG_ERROR("Failed to get the teedev!\n");
+		return -EINVAL;
+	}
+
+	ctx = teedev_open(teedev);
+	if (IS_ERR(ctx))
+		return PTR_ERR(ctx);
+
+	filp->private_data = ctx;
+	return 0;
+}
+
 static int tee_open(struct inode *inode, struct file *filp)
 {
 	struct tee_context *ctx;
@@ -104,6 +123,12 @@ static int tee_open(struct inode *inode, struct file *filp)
 	filp->private_data = ctx;
 	return 0;
 }
+int tee_k_release(struct file *filp)
+{
+	teedev_close_context(filp->private_data);
+	return 0;
+}
+
 
 static int tee_release(struct inode *inode, struct file *filp)
 {
@@ -672,7 +697,7 @@ static int tee_ioctl_set_hostname(struct tee_context *ctx,
 	return 0;
 }
 
-static long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+long tee_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct tee_context *ctx = filp->private_data;
 	void __user *uarg = (void __user *)arg;

@@ -42,13 +42,18 @@ int jpeg_drv_hybrid_dec_start(unsigned int data[],
 										unsigned int id,
 										int *index_buf_fd)
 {
-	u64 buf_index_iova;
+	u64 buf_index_iova = 0;
 	struct ion_handle *index_buf_hdl;
 	int ret;
 	void *ptr;
 
 	ret = 0;
 	index_buf_hdl = jpg_ion_alloc_handle(data[20], 128, 0);
+	if (!index_buf_hdl) {
+		JPEG_WRN("%s jpg ion handle failed!", __func__);
+		*index_buf_fd = -1;
+		return -1;
+	}
 	*index_buf_fd = jpg_ion_share_handle(index_buf_hdl);
 	ret = jpg_ion_get_iova(index_buf_hdl, &buf_index_iova, 235);
 	ptr = jpg_ion_map_handle(index_buf_hdl);

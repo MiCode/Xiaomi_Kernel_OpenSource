@@ -93,7 +93,7 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	},
 	{
 		.feature        = VOW_DUAL_MIC_BARGE_IN_FEATURE_ID,
-		.freq           = 100,
+		.freq           = 135,
 		.enable         = 0,
 		.sys_id         = SCPSYS_CORE1,
 	},

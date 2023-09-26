@@ -23,7 +23,12 @@
 static void set_dbg_sel(int val, int offset, int shift, int mask)
 {
 	void *target = apu_top + offset;
-	u32 tmp = ioread32(target);
+	u32 tmp;
+
+	if (apu_top == NULL) /* Skip if apu_top is not valid */
+		return;
+	
+	tmp = ioread32(target);
 
 	tmp = (tmp & ~(mask << shift)) | (val << shift);
 	iowrite32(tmp, target);
@@ -39,6 +44,9 @@ u32 dbg_read(struct dbg_mux_sel_value sel)
 	int mask;
 	void *addr = apu_top + sel.status_reg_offset;
 	struct dbg_mux_sel_info info;
+
+	if (apu_top == NULL) /* Skip if apu_top is not valid */
+		return 0;
 
 	for (i = 0; i < DBG_MUX_SEL_COUNT; ++i) {
 		if (sel.dbg_sel[i] >= 0) {
@@ -71,6 +79,9 @@ void apusys_reg_dump(void)
 	int i;
 	u32 offset, size;
 	char *tmp = reg_all_mem;
+
+	if (apu_top == NULL) /* Skip if apu_top is not valid */
+		return;
 
 	dump_gals_reg(false);
 
@@ -194,7 +205,7 @@ static struct attribute_group mdw_reg_dump_attr_group = {
 	.bin_attrs = reg_dump_bin_attrs,
 };
 
-void apusys_dump_init(struct device *dev)
+int apusys_dump_init(struct device *dev)
 {
 	int ret;
 	int reg_mem_size = 0;
@@ -204,12 +215,17 @@ void apusys_dump_init(struct device *dev)
 	apu_top = ioremap_nocache(APUSYS_BASE, APUSYS_REG_SIZE);
 	apu_to_infra_top = ioremap_nocache(INFRA_BASE, INFRA_SIZE);
 
+	if (apu_top == NULL || apu_to_infra_top == NULL)
+		return -EIO;
+
 	/*Pre-allocate dump buffer size*/
 	for (i = 0; i < SEGMENT_COUNT; i++)
 		reg_mem_size += range_table[i].size;
 
 	reg_all_mem = vzalloc(reg_mem_size);
 	apusys_dump_force = false;
+
+	return 0;
 }
 
 

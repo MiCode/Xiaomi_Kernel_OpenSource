@@ -330,6 +330,8 @@ int _blocking_flush(void)
 #endif
 	return ret;
 }
+
+#ifndef CONFIG_MTK_MT6382_BDG
 static int _vfp_chg_callback(unsigned long userdata);
 
 int _vfp_chg_callback(unsigned long userdata)
@@ -342,6 +344,7 @@ int _vfp_chg_callback(unsigned long userdata)
 	cmdqBackupReadSlot(hSlot, 1, &apply_vfp);
 	fps = primary_display_get_dyn_fps(apply_vfp);
 	DISPMSG("%s,state=%d, fps=%d\n", __func__, state, fps);
+
 
 	if (state == 1) {
 		/*enter idle*/
@@ -356,6 +359,8 @@ int _vfp_chg_callback(unsigned long userdata)
 	}
 	return 0;
 }
+#endif
+
 static int primary_display_dsi_vfp_change(int state)
 {
 	int ret = 0;
@@ -365,7 +370,7 @@ static int primary_display_dsi_vfp_change(int state)
 	unsigned int last_req_dfps;
 	unsigned int min_dfps;
 
-	cmdqRecCreate(CMDQ_SCENARIO_DISP_VFP_CHANGE, &qhandle);
+	cmdqRecCreate(CMDQ_SCENARIO_DISP_ESD_CHECK, &qhandle);
 	cmdqRecReset(qhandle);
 
 	/* make sure token RDMA_SOF is clear */
@@ -395,9 +400,6 @@ static int primary_display_dsi_vfp_change(int state)
 				__func__, apply_vfp);
 		}
 #endif
-		dpmgr_path_ioctl(primary_get_dpmgr_handle(), qhandle,
-				DDP_DSI_PORCH_CHANGE,
-				&apply_vfp);
 	} else if (state == 0) {
 		apply_vfp = params->dsi.vertical_frontporch;
 
@@ -413,11 +415,33 @@ static int primary_display_dsi_vfp_change(int state)
 				__func__, apply_vfp);
 		}
 #endif
-		dpmgr_path_ioctl(primary_get_dpmgr_handle(), qhandle,
+	}
+	if (state == 1 || state == 0) {
+#ifdef CONFIG_MTK_MT6382_BDG
+
+		cmdqRecWait(qhandle, CMDQ_EVENT_MUTEX0_STREAM_EOF);
+
+		/* stop dsi vdo mode */
+		dpmgr_path_build_cmdq(primary_get_dpmgr_handle(),
+			qhandle, CMDQ_STOP_VDO_MODE, 0);
+#endif
+	}
+	dpmgr_path_ioctl(primary_get_dpmgr_handle(), qhandle,
 				 DDP_DSI_PORCH_CHANGE,
 				 &apply_vfp);
-	}
 
+#ifdef CONFIG_MTK_MT6382_BDG
+
+		dpmgr_path_build_cmdq(primary_get_dpmgr_handle(), qhandle,
+				CMDQ_START_VDO_MODE, 0);
+		dpmgr_path_trigger(primary_get_dpmgr_handle(),
+				qhandle, CMDQ_ENABLE);
+
+		ddp_mutex_set_sof_wait(dpmgr_path_get_mutex(
+				primary_get_dpmgr_handle()), qhandle, 0);
+
+		cmdqRecFlush(qhandle);
+#else
 	if (primary_display_is_support_ARR() && apply_vfp != 0) {
 		cmdqRecBackupUpdateSlot(qhandle, hSlot, 0, state);
 		cmdqRecBackupUpdateSlot(qhandle, hSlot, 1, apply_vfp);
@@ -426,6 +450,7 @@ static int primary_display_dsi_vfp_change(int state)
 	} else {
 		cmdqRecFlushAsync(qhandle);
 	}
+#endif
 	cmdqRecDestroy(qhandle);
 
 	/*ToDo: ARR, send cmd to DDIC, tell DDIC FPS changed*/
@@ -1031,8 +1056,8 @@ static void _cmd_mode_enter_idle(void)
 {
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long bandwidth;
-#endif
 	unsigned int cfg_id = 0;
+#endif
 
 	DISPDBG("[LP]%s\n", __func__);
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
@@ -1059,8 +1084,8 @@ static void _cmd_mode_enter_idle(void)
 
 static void _cmd_mode_leave_idle(void)
 {
-	unsigned int cfg_id = 0;
 #ifdef MTK_FB_MMDVFS_SUPPORT
+	unsigned int cfg_id = 0;
 	unsigned long long bandwidth;
 	unsigned int in_fps = 60;
 	unsigned int out_fps = 60;
@@ -1194,6 +1219,14 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 		t_idle = local_clock() - idlemgr_pgc->idlemgr_last_kick_time;
 		if (t_idle < idle_check_interval * 1000 * 1000) {
 			/* kicked in idle_check_interval msec, it's not idle */
+			primary_display_manual_unlock();
+			continue;
+		}
+
+		if (esd_checking == 1) {
+			/*if esd checking, delay dl->dc*/
+			DISPINFO(
+				"[disp_lowpower]esd checking,delay enter idle\n");
 			primary_display_manual_unlock();
 			continue;
 		}

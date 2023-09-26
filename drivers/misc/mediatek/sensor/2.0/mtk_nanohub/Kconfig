@@ -1,0 +1,20 @@
+config CUSTOM_KERNEL_ALS_MULTI_CALI_SUPPORT
+	bool "multi_cali for MediaTek package"
+	help
+	  It support multi_cali.
+	  If this option is set,
+	  it will support
+	  multi_cali.
+
+config CUSTOM_KERNEL_SCP_BUMP_UP
+	bool "set scp in a higher mips for ARES"
+	help
+	  It support ares set scp to a higher mips.
+
+config CUSTOM_KERNEL_CCT
+	bool "cct_cali for MediaTek package"
+	help
+	  It support cct_cali.
+	  If this option is set,
+	  it will support
+	  cct_cali.

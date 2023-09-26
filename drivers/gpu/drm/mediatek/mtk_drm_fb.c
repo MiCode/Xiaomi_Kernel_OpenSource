@@ -73,6 +73,21 @@ dma_addr_t mtk_fb_get_dma(struct drm_framebuffer *fb)
 	return mtk_gem->dma_addr;
 }
 
+int mtk_fb_get_sec_id(struct drm_framebuffer *fb)
+{
+	struct mtk_drm_fb *mtk_fb = to_mtk_fb(fb);
+	struct mtk_drm_gem_obj *mtk_gem = NULL;
+
+	if (!mtk_fb->gem_obj)
+		return -1;
+
+	mtk_gem = to_mtk_gem_obj(mtk_fb->gem_obj);
+	if (!mtk_gem)
+		return -1;
+
+	return mtk_gem->sec_id;
+}
+
 bool mtk_drm_fb_is_secure(struct drm_framebuffer *fb)
 {
 	struct drm_gem_object *gem = NULL;

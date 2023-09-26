@@ -580,10 +580,11 @@ struct vsync_trigger_time {
 enum DynFPS_LEVEL {
 	DFPS_LEVEL0 = 0,
 	DFPS_LEVEL1,
+	DFPS_LEVEL2,
 	DFPS_LEVELNUM,
 };
 
-#define DFPS_LEVELS 2
+#define DFPS_LEVELS 3
 enum FPS_CHANGE_INDEX {
 	DYNFPS_NOT_DEFINED = 0,
 	DYNFPS_DSI_VFP = 1,
@@ -603,7 +604,6 @@ struct dfps_info {
 	unsigned int horizontal_sync_active;
 	unsigned int horizontal_backporch;
 	unsigned int horizontal_frontporch;
-
 	unsigned int PLL_CLOCK;
 	/* data_rate = PLL_CLOCK x 2 */
 	unsigned int data_rate;
@@ -707,6 +707,7 @@ struct LCM_DSI_PARAMS {
 	/* PLL_CLOCK = (int) PLL_CLOCK */
 	unsigned int PLL_CLOCK;
 	/* data_rate = PLL_CLOCK x 2 */
+	unsigned int ap_data_rate;
 	unsigned int data_rate;
 	unsigned int PLL_CK_VDO;
 	unsigned int PLL_CK_CMD;
@@ -1010,13 +1011,11 @@ struct LCM_UTIL_FUNCS {
 	void (*mipi_dsi_cmds_tx)(void *cmdq, struct dsi_cmd_desc *cmds);
 	unsigned int (*mipi_dsi_cmds_rx)(char *out,
 		struct dsi_cmd_desc *cmds, unsigned int len);
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	/*Dynfps*/
 	void (*dsi_dynfps_send_cmd)(
 		void *cmdq, unsigned int cmd,
 		unsigned char count, unsigned char *para_list,
 		unsigned char force_update, enum LCM_Send_Cmd_Mode sendmode);
-#endif
 };
 enum LCM_DRV_IOCTL_CMD {
 	LCM_DRV_IOCTL_ENABLE_CMD_MODE = 0x100,

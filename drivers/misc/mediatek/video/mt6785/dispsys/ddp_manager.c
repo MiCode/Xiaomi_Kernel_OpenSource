@@ -33,6 +33,10 @@
 
 #include "ddp_log.h"
 #include "disp_drv_platform.h"
+#include "ddp_dsi.h"
+#ifdef CONFIG_MTK_MT6382_BDG
+#include "ddp_disp_bdg.h"
+#endif
 
 /* #define __GED_NOTIFICATION_SUPPORT__ */
 #ifdef __GED_NOTIFICATION_SUPPORT__
@@ -1302,6 +1306,15 @@ int dpmgr_path_trigger(disp_path_handle dp_handle, void *trigger_loop_handle,
 	int *list;
 	int m_num, m;
 	int i;
+#ifdef CONFIG_MTK_MT6382_BDG
+	char para[7] = {0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
+	char para1[7] = {0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00};
+	char para2[7] = {0x50, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00};
+	char para3[7] = {0x50, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00};
+	char para4[7] = {0x10, 0x02, 0x00, 0x3c, 0x00, 0x00, 0x00};
+	char para5[7] = {0x1d, 0x02, 0x00, 0x09, 0x39, 0x2c, 0x00};
+	char para6[7] = {0x10, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00};
+#endif
 	struct DDP_MODULE_DRIVER *m_drv;
 
 	ASSERT(dp_handle);
@@ -1313,7 +1326,27 @@ int dpmgr_path_trigger(disp_path_handle dp_handle, void *trigger_loop_handle,
 		   ddp_get_scenario_name(phandle->scenario));
 	list = ddp_get_scenario_list(phandle->scenario);
 	m_num = ddp_get_module_num(phandle->scenario);
-
+#ifdef CONFIG_MTK_MT6382_BDG
+	if (phandle->scenario != DDP_SCENARIO_PRIMARY_OVL_MEMOUT &&
+		phandle->scenario != DDP_SCENARIO_SUB_OVL_MEMOUT) {
+		if (get_mt6382_init() && (get_bdg_tx_mode() == CMD_MODE)) {
+			DSI_send_cmdq_to_bdg(DISP_MODULE_DSI0, trigger_loop_handle,
+						0x90, 7, para4, 1);
+			DSI_send_cmdq_to_bdg(DISP_MODULE_DSI0, trigger_loop_handle,
+						0x00, 7, para5, 1);
+			DSI_send_cmdq_to_bdg(DISP_MODULE_DSI0, trigger_loop_handle,
+						0x60, 7, para6, 1);
+			DSI_send_cmdq_to_bdg(DISP_MODULE_DSI0, trigger_loop_handle,
+						0x00, 7, para, 1);
+			DSI_send_cmdq_to_bdg(DISP_MODULE_DSI0, trigger_loop_handle,
+						0x00, 7, para1, 1);
+			DSI_send_cmdq_to_bdg(DISP_MODULE_DSI0, trigger_loop_handle,
+						0x20, 7, para2, 1);
+			DSI_send_cmdq_to_bdg(DISP_MODULE_DSI0, trigger_loop_handle,
+						0x20, 7, para3, 1);
+		}
+	}
+#endif
 	ddp_mutex_enable(phandle->hwmutexid, phandle->scenario, phandle->mode,
 			 trigger_loop_handle);
 	for (i = 0; i < m_num; i++) {

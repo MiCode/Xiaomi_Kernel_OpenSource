@@ -1257,12 +1257,6 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	handle->secData.addrMetadatas =
 		(cmdqU32Ptr_t)(unsigned long)p_metadatas;
 
-	CMDQ_LOG("%s extension:%#llx\n", __func__, secData->extension);
-	if (secData->extension & 0x1)
-		cmdq_task_set_secure_id(handle, MEM_WFD);
-	else
-		cmdq_task_set_secure_id(handle, MEM_SVP);
-
 	return 0;
 #else
 	return 0;
@@ -1340,6 +1334,7 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 	if (handle->profile_exec)
 		cmdq_pkt_perf_end(handle->pkt);
 
+#ifndef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	if (handle->secData.is_secure) {
@@ -1349,6 +1344,7 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 		/* prevent flush directly since engine conflict with normal */
 		handle->thread = CMDQ_INVALID_THREAD;
 	}
+#endif
 #endif
 
 	/* finalize it */

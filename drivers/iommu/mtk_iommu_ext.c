@@ -410,7 +410,7 @@ int mtk_iommu_iova_to_va(struct device *dev,
 		pr_notice("func %s map iova(0x%lx) fail to null\n",
 		       __func__, (unsigned long)iova);
 #endif
-	*map_va = (unsigned long)va;
+	*map_va = (uintptr_t)va;
 
 	kfree(pages);
 	return 0;

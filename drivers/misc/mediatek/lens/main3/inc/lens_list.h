@@ -42,6 +42,4 @@ extern int GT9772AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int GT9772AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
 				int *pAF_Opened);
 extern int GT9772AF_GetFileName(unsigned char *pFileName);
-
-extern void AFRegulatorCtrl(int Stage);
 #endif

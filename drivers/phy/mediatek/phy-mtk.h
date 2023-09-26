@@ -21,6 +21,8 @@ struct mtk_phy_tuning {
 	s32 u2_vrt_ref;
 	s32 u2_term_ref;
 	s32 u2_enhance;
+	s32 u2_intr_cal;
+	s32 u2_discth;
 	bool inited;
 };
 
@@ -95,6 +97,12 @@ struct mtk_phy_drv {
 	struct clk *clk;
 	struct regulator *vusb33;
 	struct regulator *vusb10;
+	struct dentry *debug_root;
+	s32 u2_vrt_ref;
+	s32 u2_term_ref;
+	s32 u2_enhance;
+	s32 u2_intr_cal;
+	s32 u2_discth;
 };
 
 /*Set the debug level for phy driver*/

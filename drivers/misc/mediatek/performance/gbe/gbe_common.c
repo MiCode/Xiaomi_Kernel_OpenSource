@@ -75,12 +75,12 @@ void gbe_trace_printk(int pid, char *module, char *string)
 	preempt_enable();
 }
 
-void gbe_trace_count(int tid, int val, const char *fmt, ...)
+void gbe_trace_count(int tid, unsigned long long bufID,
+	int val, const char *fmt, ...)
 {
 	char log[32];
 	va_list args;
 	int len;
-
 
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
@@ -96,8 +96,12 @@ void gbe_trace_count(int tid, int val, const char *fmt, ...)
 	preempt_disable();
 
 	if (!strstr(CONFIG_MTK_PLATFORM, "mt8")) {
-		event_trace_printk(tracing_mark_write_addr, "C|%d|%s|%d\n",
+		if (!bufID)
+			event_trace_printk(tracing_mark_write_addr, "C|%d|%s|%d\n",
 				tid, log, val);
+		else
+			event_trace_printk(tracing_mark_write_addr, "C|%d|%s|%d|0x%llx\n",
+					tid, log, val, bufID);
 	} else {
 		event_trace_printk(tracing_mark_write_addr, "C|%s|%d\n",
 				log, val);

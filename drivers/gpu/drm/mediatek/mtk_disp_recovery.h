@@ -14,6 +14,8 @@
 #ifndef _MTK_DRM_RECOVERY_H
 #define _MTK_DRM_RECOVERY_H
 
+#define ESD_CHECK_NUM 3
+
 struct mtk_drm_private;
 
 enum mtk_esd_chk_mode {
@@ -32,9 +34,15 @@ struct mtk_drm_esd_ctx {
 	u32 chk_active;
 	u32 chk_mode;
 	u32 chk_sta;
+#ifdef CONFIG_MI_ESD_CHECK
+	struct task_struct *mi_disp_esd_chk_task;
+	bool panel_init;
+	char esd_read_result [ESD_CHECK_NUM][10];
+#endif
 };
 
 void mtk_disp_esd_check_switch(struct drm_crtc *crtc, bool enable);
+void mi_disp_err_flag_esd_check_switch(struct drm_crtc *crtc, bool enable);
 void mtk_disp_chk_recover_init(struct drm_crtc *crtc);
 long disp_dts_gpio_init(struct device *dev, struct mtk_drm_private *private);
 

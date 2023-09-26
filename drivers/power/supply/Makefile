@@ -82,10 +82,25 @@ obj-$(CONFIG_CHARGER_TPS65090)	+= tps65090-charger.o
 obj-$(CONFIG_CHARGER_TPS65217)	+= tps65217_charger.o
 obj-$(CONFIG_AXP288_FUEL_GAUGE) += axp288_fuel_gauge.o
 obj-$(CONFIG_AXP288_CHARGER)	+= axp288_charger.o
+obj-$(CONFIG_AGATE_CHARGER)	+= pmic-voter.o
+obj-$(CONFIG_AGATE_CHARGER) 	+= battery.o
+obj-$(CONFIG_PISSARRO_CHARGER)	+= pmic_voter.o
 
 ifeq ($(CONFIG_MACH_MT8173),y)
 else
 	obj-y += mediatek/
+ifeq ($(CONFIG_AGATE_CHARGER),y)
+	obj-y += ti_agate/
+else ifeq ($(CONFIG_ARES_CHARGER),y)
+	obj-y += ti_ares/
+else ifeq ($(CONFIG_PISSARRO_CHARGER),y)
+	obj-y += ti_pissarro/
+	obj-y += mps_pissarro/
+	obj-y += southchip_pissarro/
+	obj-y += ln_pissarro/
+	obj-y += xiaomi_pissarro/
+	obj-y += maxim_pissarro/
+endif
 endif
 
 ifeq ($(CONFIG_CUSTOM_BATTERY_EXTERNAL_CHANNEL),y)
