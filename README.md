@@ -188,3 +188,4 @@
 | viva-r-oss | Redmi Note 11 Pro | Android R | alps-mp-r0.mp8.tc8sp1-mt6781-V1.5.1_wingtech.xm.r0mp8.k6781v1.64_P60 |[viva-r-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/viva-r-oss) |
 | pearl-s-oss | Redmi Note 12T Pro | Android S | alps-mp-s0.mp1.tc8sp2-mt6983-V1.0.13_P189 |[pearl-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pearl-s-oss) |
 | diting-s-oss | Redmi K50 Ultra | Android S | qcom-S-LA.VENDOR.1.0.r1-13100-r1.0.r1_00037.0 |[diting-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/bsp-diting-s-oss) |
+| pissarro-s-oss | Redmi Note 11 Pro | Android S | bsp-s-t-alps-release-s0.bsp-pre10.2 | [pissarro-s-oss](https://github.com/MiCode/Xiaomi_Kernel_OpenSource/tree/pissarro-s-oss) |
