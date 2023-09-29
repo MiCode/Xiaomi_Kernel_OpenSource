@@ -12,6 +12,7 @@
 #include <linux/usb/typec_mux.h>
 
 #include "inc/tcpci_typec.h"
+#include "../../../hwid/hwid.h"
 #if IS_ENABLED(CONFIG_MTK_CHARGER)
 #include <charger_class.h>
 #endif /* CONFIG_MTK_CHARGER */
@@ -377,8 +378,8 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 	case TCP_NOTIFY_WD0_STATE:
 		if (rpmd->wd0_enable) {
 			if (noti->wd0_state.wd0)
-				tcpm_typec_change_role(rpmd->tcpc,
-						       rpmd->role_def);
+				tcpm_typec_change_role_postpone(rpmd->tcpc,
+						       rpmd->role_def, true);
 			else
 				tcpm_typec_change_role_postpone(rpmd->tcpc,
 								TYPEC_ROLE_SNK,
@@ -551,7 +552,7 @@ static int tcpc_typec_port_type_set(struct typec_port *port, enum typec_port_typ
 			typec_role = TYPEC_ROLE_TRY_SNK;
 		else
 			typec_role = TYPEC_ROLE_DRP;
-		return tcpm_typec_change_role(rpmd->tcpc, typec_role);
+		return tcpm_typec_change_role_postpone(rpmd->tcpc, typec_role, true);
 	default:
 		return 0;
 	}
@@ -664,7 +665,6 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 				      __func__, ret);
 		goto err_init_typec;
 	}
-
 	if (of_property_read_bool(pdev->dev.of_node, "wd0_enable"))
 		rpmd->wd0_enable = true;
 	else

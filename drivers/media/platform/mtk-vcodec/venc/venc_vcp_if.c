@@ -855,34 +855,34 @@ static unsigned int venc_h265_get_level(struct venc_inst *inst,
 {
 	switch (level) {
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_1:
-		return 1;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 2 : 3;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_2:
-		return 7;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 8 : 9;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_2_1:
-		return 8;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 10 : 11;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_3:
-		return 10;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 13 : 14;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_3_1:
-		return 11;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 15 : 16;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_4:
-		return 13;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 18 : 19;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_4_1:
-		return 14;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 20 : 21;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5:
-		return 16;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 23 : 24;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1:
-		return 17;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 25 : 26;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_2:
-		return 18;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 27 : 28;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6:
-		return 19;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 29 : 30;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6_1:
-		return 20;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 31 : 32;
 	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2:
-		return 21;
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 33 : 34;
 	default:
 		mtk_vcodec_debug(inst, "unsupported level %d", level);
-		return 21;
+		return 25;
 	}
 }
 
@@ -1347,6 +1347,7 @@ static void venc_get_free_buffers(struct venc_inst *inst,
 	pResult->bs_va = list->venc_bs_va_list[list->read_idx];
 	pResult->frm_va = list->venc_fb_va_list[list->read_idx];
 	pResult->is_last_slc = list->is_last_slice[list->read_idx];
+	pResult->flags = list->flags[list->read_idx];
 
 	mtk_vcodec_debug(inst, "bsva %lx frva %lx bssize %d iskey %d is_last_slc=%d",
 		pResult->bs_va,

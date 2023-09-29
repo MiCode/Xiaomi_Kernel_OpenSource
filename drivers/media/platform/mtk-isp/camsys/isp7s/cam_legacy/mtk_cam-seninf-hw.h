@@ -125,7 +125,12 @@ struct mtk_cam_seninf_ops {
 	int (*_enable_cam_mux_vsync_irq)(struct seninf_ctx *ctx, bool enable, int cam_mux);
 	int (*_set_all_cam_mux_vsync_irq)(struct seninf_ctx *ctx, bool enable);
 	int (*_debug)(struct seninf_ctx *ctx);
+#ifdef __XIAOMI_CAMERA__
+	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u64 val);
+	int (*_enable_stream_err_detect)(struct seninf_ctx *ctx);
+#else
 	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u32 val);
+#endif
 	ssize_t (*_show_err_status)(struct device *dev, struct device_attribute *attr, char *buf);
 	unsigned int seninf_num;
 	unsigned int mux_num;

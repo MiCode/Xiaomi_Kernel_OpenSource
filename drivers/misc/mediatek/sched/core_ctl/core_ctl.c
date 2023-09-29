@@ -29,6 +29,7 @@
 #include <eas/eas_plus.h>
 #include "core_ctl.h"
 
+
 #define TAG "core_ctl"
 
 struct ppm_table {
@@ -138,6 +139,7 @@ enum {
 	DEBUG_DETAIL,
 	DEBUG_CNT
 };
+
 
 static int set_core_ctl_debug_level(const char *buf,
 			       const struct kernel_param *kp)

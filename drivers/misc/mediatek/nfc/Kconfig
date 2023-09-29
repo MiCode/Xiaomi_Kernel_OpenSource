@@ -36,3 +36,6 @@ config NFC_DEBUG
 	  This option is for debug only, if configures to be y, it the nfc
 	  controller driver and nfc spi controller driver will dump more
 	  log for debug.
+
+source "drivers/misc/mediatek/nfc/nxp-i2c/Kconfig"
+source "drivers/misc/mediatek/nfc/p73-spi/Kconfig"

@@ -18,6 +18,7 @@
 #include <thermal_interface.h>
 #endif
 
+
 MODULE_LICENSE("GPL");
 
 #define CORE_PAUSE_OUT		0
@@ -994,7 +995,6 @@ void mtk_select_task_rq_rt(void *data, struct task_struct *p, int source_cpu,
 
 	ts[0] = sched_clock();
 #endif
-
 	*target_cpu = -1;
 	/* For anything but wake ups, just return the task_cpu */
 	if (!(flags & (WF_TTWU | WF_FORK))) {

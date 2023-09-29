@@ -92,3 +92,4 @@ obj-y					+= mtk-isp/
 obj-$(CONFIG_MTK_CAMERA_FD_ISP7S)	+= mtk-aie/
 
 obj-$(CONFIG_VIDEO_MESON_GE2D)		+= meson/ge2d/
+subdir-ccflags-y += -D__XIAOMI_CAMERA__

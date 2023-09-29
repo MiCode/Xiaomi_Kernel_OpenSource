@@ -50,6 +50,9 @@ static unsigned long g_color_dst_h[DISP_COLOR_TOTAL];
 
 static atomic_t g_color_is_clock_on[DISP_COLOR_TOTAL] = { ATOMIC_INIT(0),
 	ATOMIC_INIT(0)};
+// g_force_delay_check_trig: 0: non-delay 1: delay 2: default setting
+//                           3: not check trigger
+static atomic_t g_force_delay_check_trig = ATOMIC_INIT(2);
 
 static DEFINE_SPINLOCK(g_color_clock_lock);
 
@@ -1295,9 +1298,6 @@ void DpEngine_COLORonConfig(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x01, 0x01);
 	} else {
 		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(0x1 << 29), 0x20000000);
-		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_START(color), 0x1, 0x1);
 	}
 
@@ -1680,22 +1680,13 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 
 	if (g_color_bypass == 0) {
 		if (color->data->support_color21 == true) {
-			if (g_legacy_color_cust)
-				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + DISP_COLOR_CFG_MAIN,
-					(1 << 21)
-					| (g_Color_Index.LSP_EN << 20)
-					| (g_Color_Index.S_GAIN_BY_Y_EN << 15)
-					| (wide_gamut_en << 8)
-					| (0 << 7), 0x003081FF);
-			else
-				cmdq_pkt_write(handle, comp->cmdq_base,
-					comp->regs_pa + DISP_COLOR_CFG_MAIN,
-					(1 << 21)
-					| (color_reg->LSP_EN << 20)
-					| (color_reg->S_GAIN_BY_Y_EN << 15)
-					| (wide_gamut_en << 8)
-					| (0 << 7), 0x003081FF);
+			cmdq_pkt_write(handle, comp->cmdq_base,
+				comp->regs_pa + DISP_COLOR_CFG_MAIN,
+				(1 << 21)
+				| (color_reg->LSP_EN << 20)
+				| (color_reg->S_GAIN_BY_Y_EN << 15)
+				| (wide_gamut_en << 8)
+				| (0 << 7), 0x003081FF);
 		} else {
 			/* disable wide_gamut */
 			cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1725,9 +1716,6 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_CM2_EN(color), 0x01, 0x01);
 	} else {
-		cmdq_pkt_write(handle, comp->cmdq_base,
-			comp->regs_pa + DISP_COLOR_CFG_MAIN,
-			(0x1 << 29), 0x20000000);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_COLOR_START(color), 0x1, 0x1);
 	}
@@ -1982,22 +1970,13 @@ static void color_write_hw_reg(struct mtk_ddp_comp *comp,
 		reg_index = 0;
 		for (i = 0; i < S_GAIN_BY_Y_CONTROL_CNT; i++) {
 			for (j = 0; j < S_GAIN_BY_Y_HUE_PHASE_CNT; j += 4) {
-				if (g_legacy_color_cust)
-					u4Temp = (g_Color_Index.S_GAIN_BY_Y[i][j]) +
-						(g_Color_Index.S_GAIN_BY_Y[i][j + 1]
-						<< 8) +
-						(g_Color_Index.S_GAIN_BY_Y[i][j + 2]
-						<< 16) +
-						(g_Color_Index.S_GAIN_BY_Y[i][j + 3]
-						<< 24);
-				else
-					u4Temp = (color_reg->S_GAIN_BY_Y[i][j]) +
-						(color_reg->S_GAIN_BY_Y[i][j + 1]
-						<< 8) +
-						(color_reg->S_GAIN_BY_Y[i][j + 2]
-						<< 16) +
-						(color_reg->S_GAIN_BY_Y[i][j + 3]
-						<< 24);
+				u4Temp = (color_reg->S_GAIN_BY_Y[i][j]) +
+					(color_reg->S_GAIN_BY_Y[i][j + 1]
+					<< 8) +
+					(color_reg->S_GAIN_BY_Y[i][j + 2]
+					<< 16) +
+					(color_reg->S_GAIN_BY_Y[i][j + 3]
+					<< 24);
 
 				cmdq_pkt_write(handle, comp->cmdq_base,
 					comp->regs_pa +
@@ -2752,7 +2731,16 @@ int mtk_drm_ioctl_set_pqparam(struct drm_device *dev, void *data,
 	if (ncs_tuning_mode == 0) {
 		/* normal mode */
 		ret = mtk_crtc_user_cmd(crtc, comp, SET_PQPARAM, data);
-		mtk_crtc_check_trigger(mtk_crtc, true, true);
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
 
 		DDPINFO("SET_PQ_PARAM\n");
 	} else {
@@ -2789,7 +2777,17 @@ int mtk_drm_ioctl_set_color_reg(struct drm_device *dev, void *data,
 	int ret;
 
 	ret = mtk_crtc_user_cmd(crtc, comp, SET_COLOR_REG, data);
-	mtk_crtc_check_trigger(mtk_crtc, true, true);
+
+	if (atomic_read(&g_force_delay_check_trig) == 0)
+	        mtk_crtc_check_trigger(mtk_crtc, false, true);
+	else if (atomic_read(&g_force_delay_check_trig) == 1)
+	        mtk_crtc_check_trigger(mtk_crtc, true, true);
+	else if (atomic_read(&g_force_delay_check_trig) == 2)
+		mtk_crtc_check_trigger(mtk_crtc, true, true);
+	else if (atomic_read(&g_force_delay_check_trig) == 3)
+		DDPINFO("%s: not check trigger\n", __func__);
+	else
+		DDPINFO("%s: value is not support!\n", __func__);
 
 	return ret;
 }
@@ -2810,11 +2808,19 @@ int mtk_drm_ioctl_mutex_control(struct drm_device *dev, void *data,
 		ncs_tuning_mode = 1;
 		DDPINFO("ncs_tuning_mode = 1\n");
 	} else if (*value == 2) {
-
 		ncs_tuning_mode = 0;
 		DDPINFO("ncs_tuning_mode = 0\n");
 
-		mtk_crtc_check_trigger(mtk_crtc, true, true);
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
 	} else {
 		DDPPR_ERR("DISP_IOCTL_MUTEX_CONTROL invalid control\n");
 		return -EFAULT;
@@ -3208,7 +3214,17 @@ int mtk_drm_ioctl_bypass_color(struct drm_device *dev, void *data,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
 	ret = mtk_crtc_user_cmd(crtc, comp, BYPASS_COLOR, data);
-	mtk_crtc_check_trigger(mtk_crtc, true, true);
+
+	if (atomic_read(&g_force_delay_check_trig) == 0)
+	        mtk_crtc_check_trigger(mtk_crtc, false, true);
+	else if (atomic_read(&g_force_delay_check_trig) == 1)
+	        mtk_crtc_check_trigger(mtk_crtc, true, true);
+	else if (atomic_read(&g_force_delay_check_trig) == 2)
+		mtk_crtc_check_trigger(mtk_crtc, true, true);
+	else if (atomic_read(&g_force_delay_check_trig) == 3)
+		DDPINFO("%s: not check trigger\n", __func__);
+	else
+		DDPINFO("%s: value is not support!\n", __func__);;
 
 	return ret;
 }
@@ -3269,7 +3285,17 @@ int mtk_drm_ioctl_pq_set_window(struct drm_device *dev, void *data,
 			((g_split_window_x_end << 16) | g_split_window_x_start),
 			((g_split_window_y_end << 16) | g_split_window_y_start));
 	}
-	mtk_crtc_check_trigger(mtk_crtc, true, true);
+
+	if (atomic_read(&g_force_delay_check_trig) == 0)
+	        mtk_crtc_check_trigger(mtk_crtc, false, true);
+	else if (atomic_read(&g_force_delay_check_trig) == 1)
+	        mtk_crtc_check_trigger(mtk_crtc, true, true);
+	else if (atomic_read(&g_force_delay_check_trig) == 2)
+		mtk_crtc_check_trigger(mtk_crtc, true, true);
+	else if (atomic_read(&g_force_delay_check_trig) == 3)
+		DDPINFO("%s: not check trigger\n", __func__);
+	else
+		DDPINFO("%s: value is not support!\n", __func__);
 
 	return ret;
 }
@@ -3306,26 +3332,24 @@ static void mtk_color_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 static void mtk_color_bypass(struct mtk_ddp_comp *comp, int bypass,
 	struct cmdq_pkt *handle)
 {
-	struct mtk_disp_color *color = comp_to_color(comp);
+	if (comp == NULL) {
+		DDPPR_ERR("%s, null pointer!", __func__);
+		return;
+	}
 
 	DDPINFO("%s: bypass: %d\n", __func__, bypass);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_COLOR_CFG_MAIN,
-		       COLOR_BYPASS_ALL | COLOR_SEQ_SEL, ~0);
 
-	/* disable R2Y/Y2R in Color Wrapper */
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_COLOR_CM1_EN(color), 0, 0x1);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_COLOR_CM2_EN(color), 0, 0x1);
-	cmdq_pkt_write(handle, comp->cmdq_base,
-		comp->regs_pa + DISP_COLOR_START(color), 0x3, 0x3);
+	g_color_bypass = bypass;
 
-	/*
-	 * writel(0, comp->regs + DISP_COLOR_CM1_EN);
-	 * writel(0, comp->regs + DISP_COLOR_CM2_EN);
-	 * writel(0x1, comp->regs + DISP_COLOR_START(color));
-	 */
+	if (bypass) {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_COLOR_CFG_MAIN,
+			(1 << 7), 0xFF); /* bypass all */
+	} else {
+		cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_COLOR_CFG_MAIN,
+			(0 << 7), 0xFF); /* resume all */
+	}
 }
 
 void disp_color_write_pos_main_for_dual_pipe(struct mtk_ddp_comp *comp,
@@ -3578,6 +3602,25 @@ void mtk_color_first_cfg(struct mtk_ddp_comp *comp,
 	mtk_color_config(comp, cfg, handle);
 }
 
+int mtk_color_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+	      enum mtk_ddp_io_cmd cmd, void *params)
+{
+	uint32_t force_delay_trigger;
+
+	switch (cmd) {
+	case FORCE_TRIG_CTL:
+	{
+		force_delay_trigger = *(uint32_t *)params;
+		atomic_set(&g_force_delay_check_trig, force_delay_trigger);
+	}
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_color_funcs = {
 	.config = mtk_color_config,
 	.first_cfg = mtk_color_first_cfg,
@@ -3585,6 +3628,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_color_funcs = {
 	.stop = mtk_color_stop,
 	.bypass = mtk_color_bypass,
 	.user_cmd = mtk_color_user_cmd,
+	.io_cmd = mtk_color_io_cmd,
 	.prepare = mtk_color_prepare,
 	.unprepare = mtk_color_unprepare,
 	.config_overhead = mtk_disp_color_config_overhead,
@@ -3909,11 +3953,12 @@ struct platform_driver mtk_disp_color_driver = {
 		},
 };
 
-void disp_color_set_bypass(struct drm_crtc *crtc, int bypass)
+int disp_color_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret;
+	int ret = 0;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_COLOR, &bypass);
-
 	DDPINFO("%s : ret = %d", __func__, ret);
+
+	return ret;
 }

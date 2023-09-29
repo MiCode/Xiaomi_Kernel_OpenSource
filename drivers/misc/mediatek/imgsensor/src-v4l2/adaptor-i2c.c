@@ -488,3 +488,319 @@ int adaptor_i2c_wr_regs_u16(struct i2c_client *i2c_client,
 	return 0;
 }
 
+#ifdef __XIAOMI_CAMERA__
+int adaptor_i2c_rd_u8_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 *val)
+{
+	int ret;
+	u8 buf[1];
+	struct i2c_msg msg[2];
+
+	buf[0] = reg & 0xff;
+
+	msg[0].addr = addr;
+	msg[0].flags = i2c_client->flags;
+	msg[0].buf = buf;
+	msg[0].len = sizeof(buf);
+
+	msg[1].addr = addr;
+	msg[1].flags = i2c_client->flags | I2C_M_RD;
+	msg[1].buf = buf;
+	msg[1].len = 1;
+
+	ret = i2c_transfer(i2c_client->adapter, msg, 2);
+	if (ret < 0) {
+		dev_info(&i2c_client->dev, "i2c transfer failed (%d)\n", ret);
+		return ret;
+	}
+
+	*val = buf[0];
+
+	return 0;
+}
+
+int adaptor_i2c_wr_u8_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 val)
+{
+	int ret;
+	u8 buf[2];
+	struct i2c_msg msg;
+
+	buf[0] = reg & 0xff;
+	buf[1] = val;
+
+	msg.addr = addr;
+	msg.flags = i2c_client->flags;
+	msg.buf = buf;
+	msg.len = sizeof(buf);
+
+	ret = i2c_transfer(i2c_client->adapter, &msg, 1);
+	if (ret < 0)
+		dev_err(&i2c_client->dev, "i2c transfer failed (%d)\n", ret);
+
+	return ret;
+}
+
+int adaptor_i2c_wr_regs_u8_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 *list, u32 len)
+{
+	struct cache_wr_regs_u8 *pmem;
+	struct i2c_msg *pmsg;
+	u8 *pbuf;
+	u16 *plist;
+	int i, ret, sent, total, cnt;
+
+	pmem = kmalloc(sizeof(*pmem), GFP_KERNEL);
+	if (!pmem)
+		return -ENOMEM;
+
+	/* each msg contains 3 bytes: addr(u16) + val(u8) */
+	sent = 0;
+	total = len >> 1;
+	plist = list;
+
+	while (sent < total) {
+
+		cnt = total - sent;
+		if (cnt > ARRAY_SIZE(pmem->msg))
+			cnt = ARRAY_SIZE(pmem->msg);
+
+		pbuf = pmem->buf;
+		pmsg = pmem->msg;
+
+		for (i = 0; i < cnt; i++) {
+
+			pbuf[0] = plist[0] & 0xff;
+			pbuf[1] = plist[1] & 0xff;
+
+			pmsg->addr = addr;
+			pmsg->flags = i2c_client->flags;
+			pmsg->len = 2;
+			pmsg->buf = pbuf;
+
+			plist += 2;
+			pbuf += 2;
+			pmsg++;
+		}
+
+		ret = i2c_transfer(i2c_client->adapter, pmem->msg, cnt);
+		if (ret != cnt) {
+			dev_err(&i2c_client->dev,
+				"i2c transfer failed (%d)\n", ret);
+			kfree(pmem);
+			return -EIO;
+		}
+
+		sent += cnt;
+	}
+
+	kfree(pmem);
+
+	return 0;
+}
+
+#define BURST_MAX_BUF_SIZE 1020 // 255 * 4
+#define BURST_MAX_MSG_NUM_U16 (BURST_MAX_BUF_SIZE / 4)
+#define BURST_MAX_MSG_NUM_U8  (BURST_MAX_BUF_SIZE / 3)
+struct cache_burst_wr_regs_u16 {
+	u8 buf[BURST_MAX_BUF_SIZE];
+	struct i2c_msg msg[BURST_MAX_MSG_NUM_U16];
+};
+
+struct cache_burst_wr_regs_u8 {
+	u8 buf[BURST_MAX_BUF_SIZE];
+	struct i2c_msg msg[BURST_MAX_MSG_NUM_U8];
+};
+
+int adaptor_i2c_wr_regs_u16_burst_for_addr_same(struct i2c_client *i2c_client,
+		u16 addr, u16 *list, u32 len)
+{
+	struct cache_burst_wr_regs_u16 *pmem;
+	struct i2c_msg *pmsg;
+	u8 *pbuf;
+	u16 *plist;
+	int ret;
+	u32 tosend  = 0;
+	u16 regAddr = 0;
+	u16 regVal  = 0;
+	u32 idx     = 0;
+
+	pmem = kmalloc(sizeof(*pmem), GFP_KERNEL);
+	if (!pmem)
+		return -ENOMEM;
+
+	/* each msg contains 4 bytes: addr(u16) + val(u16) */
+	plist = list;
+
+	pbuf = pmem->buf;
+	pmsg = pmem->msg;
+
+	while (idx < len) {
+
+		regAddr = plist[idx];
+		regVal  = plist[idx + 1];
+		idx    += 2;
+
+		if (tosend == 0) {
+			pbuf[tosend++] = regAddr >> 8;
+			pbuf[tosend++] = regAddr & 0xFF;
+			pbuf[tosend++] = regVal >> 8;
+			pbuf[tosend++] = regVal & 0xFF;
+		} else {
+			pbuf[tosend++] = regVal >> 8;
+			pbuf[tosend++] = regVal & 0xFF;
+		}
+
+		if ((idx >= len) || (tosend >= BURST_MAX_BUF_SIZE) || (regAddr != plist[idx])) {
+			pmsg->addr  = addr;
+			pmsg->flags = i2c_client->flags;
+			pmsg->len   = tosend;
+			pmsg->buf   = pbuf;
+
+			ret = i2c_transfer(i2c_client->adapter, pmem->msg, 1);
+			if (ret != 1) {
+				dev_info(&i2c_client->dev,
+					"i2c transfer failed (%d)\n", ret);
+				kfree(pmem);
+				return -EIO;
+			}
+			tosend = 0;
+
+			pbuf = pmem->buf;
+			pmsg = pmem->msg;
+		}
+	}
+
+	kfree(pmem);
+
+	return 0;
+}
+
+int adaptor_i2c_wr_regs_u8_burst(struct i2c_client *i2c_client,
+		u16 addr, u16 *list, u32 len)
+{
+	struct cache_burst_wr_regs_u8 *pmem;
+	struct i2c_msg *pmsg;
+	u8 *pbuf;
+	u16 *plist;
+	int ret;
+	u32 tosend  = 0;
+	u16 regAddr = 0;
+	u16 regVal  = 0;
+	u32 idx     = 0;
+
+	pmem = kmalloc(sizeof(*pmem), GFP_KERNEL);
+	if (!pmem)
+		return -ENOMEM;
+
+	/* each msg contains 4 bytes: addr(u16) + val(u16) */
+	plist = list;
+
+	pbuf = pmem->buf;
+	pmsg = pmem->msg;
+
+	while (idx < len) {
+
+		regAddr = plist[idx];
+		regVal  = plist[idx + 1];
+		idx    += 2;
+
+		if (tosend == 0) {
+			pbuf[tosend++] = regAddr >> 8;
+			pbuf[tosend++] = regAddr & 0xFF;
+			pbuf[tosend++] = regVal  & 0xFF;
+		} else {
+			pbuf[tosend++] = regVal & 0xFF;
+		}
+
+		if ((idx >= len) || (tosend >= BURST_MAX_BUF_SIZE)) {
+			pmsg->addr  = addr;
+			pmsg->flags = i2c_client->flags;
+			pmsg->len   = tosend;
+			pmsg->buf   = pbuf;
+
+			ret = i2c_transfer(i2c_client->adapter, pmem->msg, 1);
+			if (ret != 1) {
+				dev_info(&i2c_client->dev,
+					"i2c transfer failed (%d)\n", ret);
+				kfree(pmem);
+				return -EIO;
+			}
+			tosend = 0;
+
+			pbuf = pmem->buf;
+			pmsg = pmem->msg;
+		}
+	}
+
+	kfree(pmem);
+
+	return 0;
+}
+
+int adaptor_i2c_wr_regs_u16_burst(struct i2c_client *i2c_client,
+		u16 addr, u16 *list, u32 len)
+{
+	struct cache_burst_wr_regs_u16 *pmem;
+	struct i2c_msg *pmsg;
+	u8 *pbuf;
+	u16 *plist;
+	int ret;
+	u32 tosend  = 0;
+	u16 regAddr = 0;
+	u16 regVal  = 0;
+	u32 idx     = 0;
+
+	pmem = kmalloc(sizeof(*pmem), GFP_KERNEL);
+	if (!pmem)
+		return -ENOMEM;
+
+	/* each msg contains 4 bytes: addr(u16) + val(u16) */
+	plist = list;
+
+	pbuf = pmem->buf;
+	pmsg = pmem->msg;
+
+	while (idx < len) {
+
+		regAddr = plist[idx];
+		regVal  = plist[idx + 1];
+		idx    += 2;
+
+		if (tosend == 0) {
+			pbuf[tosend++] = regAddr >> 8;
+			pbuf[tosend++] = regAddr & 0xFF;
+			pbuf[tosend++] = regVal >> 8;
+			pbuf[tosend++] = regVal & 0xFF;
+		} else {
+			pbuf[tosend++] = regVal >> 8;
+			pbuf[tosend++] = regVal & 0xFF;
+		}
+
+		if ((idx >= len) || (tosend >= BURST_MAX_BUF_SIZE)) {
+			pmsg->addr  = addr;
+			pmsg->flags = i2c_client->flags;
+			pmsg->len   = tosend;
+			pmsg->buf   = pbuf;
+
+			ret = i2c_transfer(i2c_client->adapter, pmem->msg, 1);
+			if (ret != 1) {
+				dev_info(&i2c_client->dev,
+					"i2c transfer failed (%d)\n", ret);
+				kfree(pmem);
+				return -EIO;
+			}
+			tosend = 0;
+
+			pbuf = pmem->buf;
+			pmsg = pmem->msg;
+		}
+	}
+
+	kfree(pmem);
+
+	return 0;
+}
+
+#endif
+

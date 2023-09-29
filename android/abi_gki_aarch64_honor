@@ -8,6 +8,7 @@
   __traceiter_android_vh_mutex_unlock_slowpath
   __traceiter_android_vh_mutex_wait_start
   __traceiter_android_vh_mutex_wait_finish
+  __traceiter_android_rvh_dma_buf_stats_teardown
   __tracepoint_android_vh_rwsem_init
   __tracepoint_android_vh_rwsem_wake
   __tracepoint_android_vh_rwsem_write_finished
@@ -17,3 +18,4 @@
   __tracepoint_android_vh_mutex_unlock_slowpath
   __tracepoint_android_vh_mutex_wait_start
   __tracepoint_android_vh_mutex_wait_finish
+  __tracepoint_android_rvh_dma_buf_stats_teardown

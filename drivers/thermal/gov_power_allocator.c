@@ -725,22 +725,22 @@ static int power_allocator_throttle(struct thermal_zone_device *tz, int trip)
 		return 0;
 
 	/*
-	 * Enable or disable IPA control by temperature and user power budget.
+	 * Control the IPA by user.
 	 * About enable:
-	 *	true: enable IPA control when temperature >= swtich_on_temp.
-	 *	false: disable IPA control when temperature < switch_on_temp.
+	 *	true: enable IPA control.
+	 *	false: disable IPA control.
 	 * About override:
 	 *	true: power budget is overridden by user power budget.
 	 *	false: power budget is not overridden, there's no other thermal
 	 *	requirement.
 	 */
 	trace_android_vh_enable_thermal_power_throttle(&enable, &override);
-	if (enable)
-		ret = tz->ops->get_trip_temp(tz, params->trip_switch_on,
+	ret = tz->ops->get_trip_temp(tz, params->trip_switch_on,
 					     &switch_on_temp);
 	if (!enable || (!ret && (tz->temperature < switch_on_temp) &&
 			!override)) {
 		update = (tz->last_temperature >= switch_on_temp);
+		trace_android_vh_modify_thermal_throttle_update(tz, &update);
 		tz->passive = 0;
 		reset_pid_controller(params);
 		allow_maximum_power(tz, update);

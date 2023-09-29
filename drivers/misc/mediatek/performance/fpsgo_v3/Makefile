@@ -41,8 +41,8 @@ subdir-ccflags-y += \
         -I$(GBE_TOP)/ \
 
 
-#fpsgo_main
 MTK_FPSGO_MAIN += fpsgo_main.o
+
 
 #base
 include $(FPSGO_TOP)/base/build.mk

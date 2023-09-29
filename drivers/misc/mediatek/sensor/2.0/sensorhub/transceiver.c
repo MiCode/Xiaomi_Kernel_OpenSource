@@ -150,7 +150,10 @@ static bool transceiver_wakeup_check(uint8_t action, uint8_t sensor_type)
 			sensor_type == SENSOR_TYPE_MOTION_DETECT ||
 			sensor_type == SENSOR_TYPE_IN_POCKET ||
 			sensor_type == SENSOR_TYPE_ANSWER_CALL ||
-			sensor_type == SENSOR_TYPE_FLAT))
+			sensor_type == SENSOR_TYPE_FLAT ||
+			sensor_type == SENSOR_TYPE_FOD ||
+			sensor_type == SENSOR_TYPE_AOD ||
+			sensor_type == SENSOR_TYPE_NONUI))
 		return true;
 
 	return false;
@@ -798,6 +801,9 @@ static int transceiver_pm_notifier_call(struct notifier_block *notifier,
 	case PM_POST_SUSPEND:
 		transceiver_comm_with(SENSOR_TYPE_INVALID,
 			SENS_COMM_CTRL_UNMASK_NOTIFY_CMD, NULL, 0);
+		//Added to send flush command to light sensor
+		transceiver_comm_with(SENSOR_TYPE_LIGHT,
+			SENS_COMM_CTRL_FLUSH_CMD, NULL, 0);
 		timesync_resume();
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:

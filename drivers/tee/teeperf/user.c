@@ -11,7 +11,7 @@
 
 #include "user.h"
 
-static void teeperf_set_cpu_to_high_freq(int target_cpu, u32 high_freq,
+void teeperf_set_cpu_to_high_freq(int target_cpu, u32 high_freq,
 	unsigned int freq_level_index)
 {
 	struct cpufreq_policy *policy;
@@ -45,8 +45,9 @@ static void teeperf_set_cpu_to_high_freq(int target_cpu, u32 high_freq,
 	cpufreq_cpu_put(policy);
 	cpufreq_update_limits(target_cpu);
 }
+EXPORT_SYMBOL(teeperf_set_cpu_to_high_freq);
 
-static void teeperf_set_cpu_group_to_high_freq(enum teeperf_cpu_group group,
+void teeperf_set_cpu_group_to_high_freq(enum teeperf_cpu_group group,
 	u32 high_freq)
 {
 	enum teeperf_cpu_map map = cpu_map;
@@ -98,6 +99,7 @@ static void teeperf_set_cpu_group_to_high_freq(enum teeperf_cpu_group group,
 			teeperf_set_cpu_to_high_freq(cpu, high_freq, 0);
 	}
 }
+EXPORT_SYMBOL(teeperf_set_cpu_group_to_high_freq);
 
 static void teeperf_high_freq(enum teeperf_cpu_type type, u32 high_freq)
 {

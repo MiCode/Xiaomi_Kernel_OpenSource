@@ -266,7 +266,12 @@ struct tcp_sock {
 	u32	packets_out;	/* Packets which are "in flight"	*/
 	u32	retrans_out;	/* Retransmitted packets out		*/
 	u32	max_packets_out;  /* max packets_out in last window */
-	u32	max_packets_seq;  /* right edge of max_packets_out flight */
+	/* ANDROID:
+	 * max_packets_seq is really cwnd_usage_seq upstream, old name kept
+	 * to preserve ABI due to changes in commit 49d429760df7 ("tcp: fix
+	 * tcp_cwnd_validate() to not forget is_cwnd_limited")
+	 */
+	u32	max_packets_seq; /* right edge of cwnd usage tracking flight */
 
 	u16	urg_data;	/* Saved octet of OOB data and control flags */
 	u8	ecn_flags;	/* ECN status bits.			*/

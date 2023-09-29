@@ -572,9 +572,15 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 			mtk_ddp_write(comp, 0xE967F167, DISP_REG_DSC_PPS14, handle);
 			mtk_ddp_write(comp, 0xE187E167, DISP_REG_DSC_PPS15, handle);
 			mtk_ddp_write(comp, 0xD9C7E1A7, DISP_REG_DSC_PPS16, handle);
+#ifdef CONFIG_MI_DISP_DSC2712
+			mtk_ddp_write(comp, 0xD209D9E9, DISP_REG_DSC_PPS17, handle);
+			mtk_ddp_write(comp, 0xD22BD229, DISP_REG_DSC_PPS18, handle);
+			mtk_ddp_write(comp, 0x0000D271, DISP_REG_DSC_PPS19, handle);
+#else
 			mtk_ddp_write(comp, 0xD1E9D9C9, DISP_REG_DSC_PPS17, handle);
 			mtk_ddp_write(comp, 0xD20DD1E9, DISP_REG_DSC_PPS18, handle);
 			mtk_ddp_write(comp, 0x0000D230, DISP_REG_DSC_PPS19, handle);
+#endif
 		} else {
 			//8bpc_to_8bpp_20_slice_h
 			mtk_ddp_write(comp, 0x20000c03, DISP_REG_DSC_PPS6, handle);
@@ -635,6 +641,10 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 						reg_val += (*(range_bpg_ofs+i*2+1))<<26;
 					else
 						reg_val += (64 - (*(range_bpg_ofs+i*2+1))*(-1))<<26;
+					if(i == 0){
+						reg_val = reg_val >> 4;
+						DDPMSG("%s reg_val >> 4 = %x\n", __func__, reg_val);
+					}
 					mtk_ddp_write(comp, reg_val,
 						DISP_REG_DSC_PPS12+i*4, handle);
 				}

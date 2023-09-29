@@ -36,6 +36,7 @@
 #include "mtk_drm_assert.h"
 #include "mtk_log.h"
 #include "mtk_drm_mmp.h"
+#include "mtk_drm_graphics_base.h"
 #define CREATE_TRACE_POINTS
 #include "mtk_layer_layout_trace.h"
 #include "mtk_drm_gem.h"
@@ -3422,6 +3423,8 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 		}
 	}
 	lye_state.lc_tgt_layer = 0;
+	lye_state.need_repaint = l_rule_info->need_repaint;
+	l_rule_info->need_repaint = false;
 
 	if (get_layering_opt(LYE_OPT_SPHRT))
 		disp_idx = l_info->disp_idx;
@@ -3658,6 +3661,18 @@ static int check_cross_pipe_rpo(
 		   param[1].in_len,
 		   param[1].out_len,
 		   param[1].out_x);
+
+	if (int_offset[0] < -1 || int_offset[1] < -1) {
+		DDPINFO("HRT %s: skip due to offset[%d][%d]\n",
+			__func__, int_offset[0], int_offset[1]);
+		return -1;
+	}
+
+	if (tile_out_len[1] >= dst_w) {
+		DDPINFO("HRT %s: skip due to out_len[%d] larger than dst_w[%d]\n",
+			__func__, tile_out_len[1], dst_w);
+		return -1;
+	}
 
 	if (param[1].in_len == param[1].out_len) {
 		DDPDBG("skip_pipe1_no_scale\n");
@@ -4004,7 +4019,6 @@ static void check_is_mml_layer(const int disp_idx,
 	struct drm_mtk_layer_config *c = NULL;
 	int i = 0;
 	enum MTK_LAYERING_CAPS mml_capacity = DISP_MML_CAPS_MASK;
-	bool transition = false;
 
 	if (!dev || !disp_info || !scn_decision_flag)
 		return;
@@ -4021,9 +4035,6 @@ static void check_is_mml_layer(const int disp_idx,
 
 		c->layer_caps |= query_MML(dev, crtc, &(disp_info->mml_cfg[disp_idx][i]));
 
-		if (MTK_MML_DISP_MDP_LAYER & c->layer_caps)
-			transition = true;
-
 		if (MML_FMT_IS_YUV(disp_info->mml_cfg[disp_idx][i].src.format))
 			c->layer_caps |= MTK_DISP_SRC_YUV_LAYER;
 
@@ -4037,7 +4048,7 @@ static void check_is_mml_layer(const int disp_idx,
 					    disp_info->layer_num[disp_idx] - 1;
 				} else {
 					c->layer_caps &= ~MTK_MML_DISP_DIRECT_DECOUPLE_LAYER;
-					c->layer_caps |= MTK_MML_DISP_NOT_SUPPORT;
+					c->layer_caps |= MTK_MML_DISP_MDP_LAYER;
 				}
 			}
 		}
@@ -4078,7 +4089,7 @@ static void check_is_mml_layer(const int disp_idx,
 		     mtk_crtc->mml_ir_state == MML_IR_IDLE)) {
 			c->layer_caps &= ~MTK_MML_DISP_DECOUPLE_LAYER;
 			c->layer_caps |= MTK_MML_DISP_MDP_LAYER;
-			transition = true;
+			l_rule_info->need_repaint = true;
 			DDPINFO("Use MDP for IR-DC transition\n");
 			DRM_MMP_MARK(layering, 0x331, 4);
 		}
@@ -4104,9 +4115,6 @@ static void check_is_mml_layer(const int disp_idx,
 				disp_info->gles_tail[disp_idx] = i;
 		}
 	}
-
-	if (transition == true)
-		drm_trigger_repaint(DRM_REPAINT_FOR_SWITCH_DECOUPLE_MIRROR, dev);
 
 	if (disp_info->gles_head[disp_idx] != -1) {
 		int adjusted_gles_head = -1;
@@ -4215,6 +4223,31 @@ static int get_crtc_num(
 	return crtc_num;
 }
 
+#ifdef CONFIG_MI_DYNAMIC_OVL_WCG_ENABLE
+static void mtk_ovl_wcg_enable(struct drm_mtk_layering_info *disp_info,
+				struct drm_device *dev)
+{
+	int i = 0, j = 0, enable = 0;
+	struct drm_mtk_layer_config *layer_info;
+	struct mtk_drm_private *priv = dev->dev_private;
+
+	for (i = 0; i < HRT_DISP_TYPE_NUM; i++) {
+		if (disp_info->layer_num[i] <= 0)
+			continue;
+		for (j = 0; j < disp_info->layer_num[i]; j++) {
+			layer_info = &disp_info->input_config[i][j];
+			DDPINFO("%s:%d dataspace:%d\n", __func__, __LINE__, layer_info->dataspace);
+			if(layer_info->dataspace == MTK_DRM_DATASPACE_DISPLAY_P3)
+				enable = 1;
+		}
+	}
+	mtk_drm_helper_set_opt_by_name(priv->helper_opt,
+					"MTK_DRM_OPT_OVL_WCG", enable);
+
+	DDPINFO("%s:%d enable:%d\n", __func__, __LINE__, enable);
+}
+#endif
+
 static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 			       int debug_mode, struct drm_device *dev)
 {
@@ -4258,6 +4291,10 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 #ifdef HRT_DEBUG_LEVEL1
 	DDPMSG("[Input data]\n");
 	dump_disp_info(&layering_info, DISP_DEBUG_LEVEL_INFO);
+#endif
+
+#ifdef CONFIG_MI_DYNAMIC_OVL_WCG_ENABLE
+	mtk_ovl_wcg_enable(&layering_info, dev);
 #endif
 
 	if (get_layering_opt(LYE_OPT_SPHRT))

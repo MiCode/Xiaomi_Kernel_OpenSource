@@ -858,7 +858,6 @@ static void vdec_vcp_mmdvfs_resume(struct mtk_vcodec_ctx *ctx)
 	if (!inst)
 		return;
 
-
 	memset(&msg, 0, sizeof(msg));
 	msg.msg_id = AP_IPIMSG_DEC_SET_PARAM;
 	msg.id = SET_PARAM_MMDVFS;
@@ -866,7 +865,6 @@ static void vdec_vcp_mmdvfs_resume(struct mtk_vcodec_ctx *ctx)
 	msg.vcu_inst_addr = inst->vcu.inst_addr;
 	msg.data[0] = MTK_INST_RESUME;
 	err = vdec_vcp_ipi_send(inst, &msg, sizeof(msg), false, false, true);
-
 
 	mtk_vcodec_debug(inst, "- ret=%d", err);
 }

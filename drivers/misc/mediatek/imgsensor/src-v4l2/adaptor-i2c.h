@@ -34,4 +34,19 @@ int adaptor_i2c_wr_regs_u8(struct i2c_client *i2c_client,
 int adaptor_i2c_wr_regs_u16(struct i2c_client *i2c_client,
 		u16 addr, u16 *list, u32 len);
 
+#ifdef __XIAOMI_CAMERA__
+int adaptor_i2c_rd_u8_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 *val);
+int adaptor_i2c_wr_u8_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 val);
+int adaptor_i2c_wr_regs_u8_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 *list, u32 len);
+int adaptor_i2c_wr_regs_u16_burst_for_addr_same(struct i2c_client *i2c_client,
+		u16 addr, u16 *list, u32 len);
+int adaptor_i2c_wr_regs_u8_burst(struct i2c_client *i2c_client,
+		u16 addr, u16 *list, u32 len);
+int adaptor_i2c_wr_regs_u16_burst(struct i2c_client *i2c_client,
+		u16 addr, u16 *list, u32 len);
+#endif
+
 #endif

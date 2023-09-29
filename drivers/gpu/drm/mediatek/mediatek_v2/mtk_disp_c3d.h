@@ -88,7 +88,7 @@ int mtk_drm_ioctl_bypass_c3d(struct drm_device *dev, void *data,
 void disp_c3d_on_start_of_frame(void);
 void disp_c3d_on_end_of_frame_mutex(void);
 void mtk_disp_c3d_debug(const char *opt);
-void disp_c3d_set_bypass(struct drm_crtc *crtc, int bypass);
+int disp_c3d_set_bypass(struct drm_crtc *crtc, int bypass);
 
 
 #endif

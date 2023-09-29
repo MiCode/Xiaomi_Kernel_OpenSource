@@ -377,6 +377,7 @@ static int search_sensor(struct adaptor_ctx *ctx)
 	for (i = 0; i < subdrvs_cnt; i++) {
 		u32 sensor_id;
 
+
 		ctx->subdrv = subdrvs[i];
 		ctx->subctx.i2c_client = ctx->i2c_client;
 		adaptor_hw_power_on(ctx);

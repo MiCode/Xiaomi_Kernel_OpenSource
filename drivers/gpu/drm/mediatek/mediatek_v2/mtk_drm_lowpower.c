@@ -637,6 +637,9 @@ static void mtk_drm_idlemgr_enable_crtc(struct drm_crtc *crtc)
 
 	/* 1. power on mtcmos & init apsrc*/
 	mtk_drm_top_clk_prepare_enable(crtc->dev);
+
+	mtk_crtc_rst_module(crtc);
+
 	mtk_crtc_v_idle_apsrc_control(crtc, NULL, true, true,
 		MTK_APSRC_CRTC_DEFAULT, false);
 

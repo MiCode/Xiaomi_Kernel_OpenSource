@@ -311,8 +311,14 @@ void init_crtc_mmp_event(void)
 		/*Gamma MMP MARK*/
 		g_CRTC_MMP_Events[i].gamma_ioctl = mmprofile_register_event(
 			crtc_mmp_root, "gamma_ioctl");
+		g_CRTC_MMP_Events[i].gammawithbacklight = mmprofile_register_event(
+			crtc_mmp_root, "gammawithbacklight");
 		g_CRTC_MMP_Events[i].gamma_sof = mmprofile_register_event(
 			crtc_mmp_root, "gamma_sof");
+		g_CRTC_MMP_Events[i].gamma_gain = mmprofile_register_event(
+			crtc_mmp_root, "gamma_gain");
+		g_CRTC_MMP_Events[i].gamma_backlight = mmprofile_register_event(
+			crtc_mmp_root, "gamma_backlight");
 		g_CRTC_MMP_Events[i].mml_dbg = mmprofile_register_event(
 			crtc_mmp_root, "mml_dbg");
 		g_CRTC_MMP_Events[i].aal_ess20_elvss = mmprofile_register_event(
@@ -331,6 +337,9 @@ void init_crtc_mmp_event(void)
 			crtc_mmp_root, "oddmr_ctl");
 		g_CRTC_MMP_Events[i].dsi_underrun_irq = mmprofile_register_event(
 			crtc_mmp_root, "dsi_underrun_irq");
+		g_CRTC_MMP_Events[i].notify_backlight = mmprofile_register_event(
+			crtc_mmp_root, "notify_backlight");
+
 	}
 }
 void drm_mmp_init(void)

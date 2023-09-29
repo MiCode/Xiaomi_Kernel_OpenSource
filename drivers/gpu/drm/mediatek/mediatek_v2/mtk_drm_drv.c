@@ -78,10 +78,18 @@
 #define CLKBUF_COMMON_H
 #include <mtk_clkbuf_ctl.h>
 
+#ifdef CONFIG_MI_DISP
+#include "mi_disp/mi_disp_feature.h"
+#include "mi_disp/mi_disp_log.h"
+#endif
 #if IS_ENABLED(CONFIG_MTK_DEVINFO)
 #include <linux/nvmem-consumer.h>
 #endif
 
+#if defined(CONFIG_PXLW_IRIS)
+#include "dsi_iris_uapi.h"
+#include "dsi_iris_mtk_api.h"
+#endif
 #include "mtk_disp_bdg.h"
 
 #define DRIVER_NAME "mediatek"
@@ -1556,8 +1564,19 @@ static int mtk_atomic_check(struct drm_device *dev,
 		old_state = to_mtk_crtc_state(crtc->state);
 		new_state = to_mtk_crtc_state(crtc_state);
 
-		if (drm_crtc_index(crtc) == 0)
+#if defined(CONFIG_PXLW_IRIS)
+		/* Support mode switch in 2nd DSI display */
+	if (is_mi_dev_support_iris()) {
+		if (drm_crtc_index(crtc) == 0 || drm_crtc_index(crtc) == 3)
 			mtk_drm_crtc_mode_check(crtc, crtc->state, crtc_state);
+	} else {
+ 		if (drm_crtc_index(crtc) == 0)
+ 			mtk_drm_crtc_mode_check(crtc, crtc->state, crtc_state);
+	}
+#else
+ 		if (drm_crtc_index(crtc) == 0)
+ 			mtk_drm_crtc_mode_check(crtc, crtc->state, crtc_state);
+#endif
 
 		if (old_state->prop_val[CRTC_PROP_DOZE_ACTIVE] ==
 		    new_state->prop_val[CRTC_PROP_DOZE_ACTIVE])
@@ -2427,10 +2446,16 @@ static const enum mtk_ddp_comp_id mt6985_mtk_ddp_mem_dp_wo_tdshp[] = {
 /* CRTC3 */
 static const enum mtk_ddp_comp_id mt6985_mtk_ddp_secondary_dp[] = {
 	DDP_COMPONENT_OVL7_2L,
+#if defined(CONFIG_PXLW_IRIS)
+	DDP_COMPONENT_OVLSYS_DLO_ASYNC12,
+	DDP_COMPONENT_DLI_ASYNC8,
+	DDP_COMPONENT_PQ1_OUT_CB4,
+#else
 	DDP_COMPONENT_OVLSYS_DLO_ASYNC11,
 	DDP_COMPONENT_DLI_ASYNC7,
 	DDP_COMPONENT_TDSHP3,
 	DDP_COMPONENT_PQ1_OUT_CB2,
+#endif
 	DDP_COMPONENT_PANEL1_COMP_OUT_CB3,
 	DDP_COMPONENT_COMP1_OUT_CB5,
 	DDP_COMPONENT_MERGE1_OUT_CB3,
@@ -4876,7 +4901,7 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 	caps_info->lcm_degree = 180;
 #endif
 
-	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_NATIVE;
+	caps_info->lcm_color_mode = MTK_DRM_COLOR_MODE_DISPLAY_P3;
 	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_OVL_WCG)) {
 		if (params)
 			caps_info->lcm_color_mode = params->lcm_color_mode;
@@ -4950,6 +4975,10 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 			caps_info->max_bin = chist_data->data->max_bin;
 		}
 	}
+#if defined(CONFIG_PXLW_IRIS)
+	if (is_mi_dev_support_iris())
+		iris_prepare();
+#endif
 	return ret;
 }
 
@@ -5861,6 +5890,48 @@ static void mtk_drm_init_dummy_table(struct mtk_drm_private *priv)
 	}
 }
 
+#if defined(CONFIG_PXLW_IRIS)
+int mtk_drm_ioctl_iris_operate_conf(struct drm_device *dev, void *data,
+		struct drm_file *file_priv)
+{
+	int ret = 0;
+	int index = 0;
+	struct mtk_drm_private *private = dev->dev_private;
+	struct drm_crtc *crtc = private->crtc[0];
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+
+	if (!is_mi_dev_support_iris())
+		return -1;
+
+	if (!private) {
+		DDPPR_ERR("%s:%d,IRIS: invalid arg:0x%p\n",
+				__func__, __LINE__,
+				private);
+		return -1;
+	}
+	if ((!crtc) || (!mtk_crtc)) {
+		DDPPR_ERR("%s:%d, IRIS:invalid crtc:(0x%p,0x%p)\n",
+				__func__, __LINE__, crtc, mtk_crtc);
+		return -1;
+	}
+
+	index = drm_crtc_index(crtc);
+	if (index) {
+		DDPPR_ERR("%s:%d, IRIS:invalid crtc:0x%p, index:%d\n",
+				__func__, __LINE__, crtc, index);
+		return -1;
+	}
+	if (!(mtk_crtc->enabled)) {
+		DDPINFO("%s:%d, IRIS:slepted\n", __func__, __LINE__);
+		return 0;
+	}
+
+	ret = iris_operate_conf(data);
+
+	return ret;
+}
+#endif
+
 static int mtk_drm_kms_init(struct drm_device *drm)
 {
 	struct mtk_drm_private *private = drm->dev_private;
@@ -5947,10 +6018,21 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 		if (private->data->fourth_path_data_secondary
 			|| private->data->fourth_path_data_discrete) {
 			DDPMSG("CRTC3 Path\n");
+#if defined(CONFIG_PXLW_IRIS)
+			if (of_property_read_bool(private->mmsys_dev->of_node,
+				"enable-secondary-path") && (is_mi_dev_support_iris())) {
+				DDPMSG("enable-secondary-path");
+				ret = mtk_drm_crtc_create(drm,
+					private->data->fourth_path_data_secondary);
+			} else {
+				dev_info(drm->dev, "%s: Iris: not support iris, skip enable-secondary-path\n", __func__);
+			}
+#else
 			if (of_property_read_bool(private->mmsys_dev->of_node,
 				"enable-secondary-path"))
 				ret = mtk_drm_crtc_create(drm,
 					private->data->fourth_path_data_secondary);
+#endif
 			if (ret < 0)
 				goto err_component_unbind;
 
@@ -6040,6 +6122,10 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 
 	mtk_drm_first_enable(drm);
 
+#if defined(CONFIG_PXLW_IRIS)
+	if (is_mi_dev_support_iris())
+		iris_parse_param(drm);
+#endif
 	/* power off mtcmos*/
 	/* Because of align lk hw power status,
 	 * we power on mtcmos at the beginning of the display initialization.
@@ -6298,6 +6384,10 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 				  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_KICK_IDLE, mtk_drm_ioctl_kick_idle,
 				  DRM_UNLOCKED),
+#if defined(CONFIG_PXLW_IRIS)
+	DRM_IOCTL_DEF_DRV(MSM_IRIS_OPERATE_CONF, mtk_drm_ioctl_iris_operate_conf,
+			  DRM_UNLOCKED | DRM_RENDER_ALLOW),
+#endif
 };
 
 #if IS_ENABLED(CONFIG_COMPAT)
@@ -7434,7 +7524,12 @@ SKIP_OVLSYS_CONFIG:
 				node->full_name);
 			continue;
 		}
-
+#if defined(CONFIG_PXLW_IRIS)
+		if(!is_mi_dev_support_iris() && !strcmp(node->full_name, "dsi1@1420d000")) {
+			dev_info(dev, "IRIS:Not support Iris,skip adding component %s\n", node->full_name);
+			continue;
+		}
+#endif
 		comp_type = (enum mtk_ddp_comp_type)of_id->data;
 
 		if (comp_type == MTK_DISP_MUTEX) {
@@ -7767,6 +7862,11 @@ static int __init mtk_drm_init(void)
 	int i;
 
 	DDPINFO("%s+\n", __func__);
+
+#ifdef CONFIG_MI_DISP
+	mi_disp_feature_init();
+#endif
+
 	for (i = 0; i < ARRAY_SIZE(mtk_drm_drivers); i++) {
 		DDPINFO("%s register %s driver\n",
 			__func__, mtk_drm_drivers[i]->driver.name);

@@ -31,7 +31,7 @@ do { \
 	if (evt) \
 		seq_printf(evt, fmt, ##args); \
 	if (!buff && !evt) { \
-		pr_info(fmt, ##args); \
+		pr_err(fmt, ##args); \
 	} \
 } while (0)
 
@@ -148,6 +148,7 @@ struct cmd_hist_struct {
 	pid_t pid;
 	u64 time;
 	u64 duration;
+	u64 seq_no;
 	union {
 		struct tm_cmd_struct tm;
 		struct dev_cmd_struct dev;

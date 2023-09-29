@@ -1114,7 +1114,7 @@ static void hp_main_output_ramp(struct mt6338_priv *priv, bool up)
 static void hp_ln_gain_ramp(struct mt6338_priv *priv, bool up)
 {
 	int i = 0, stage = 0;
-	int target = 7;
+	int target = 3;
 
 	/*Set HP LN gain step by step */
 	for (i = 2; i <= target; i++) {
@@ -2257,9 +2257,9 @@ static void mtk_hp_enable(struct mt6338_priv *priv)
 			0x0 << DA_AUDHPLNEGR_EN_VAUDP18_SFT);
 	}
 	if (priv->hp_hifi_mode == 2) {
-		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H, 0x81);
+		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H, 0x80);
 		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_M, 0x17);
-		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_L, 0x81);
+		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_L, 0x80);
 		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG, 0x17);
 		regmap_write(priv->regmap, MT6338_AFE_NLE_CFG, 0x1);
 		regmap_write(priv->regmap, MT6338_AFE_NLE_D2A_DEBUG_H, 0x81);
@@ -4701,26 +4701,27 @@ static int mt_sdm_fifo_event(struct snd_soc_dapm_widget *w,
 		/* scrambler enable */
 		regmap_write(priv->regmap, MT6338_AFUNC_AUD_CON2_H, 0x70);
 		regmap_write(priv->regmap, MT6338_AFUNC_AUD_CON2_L, 0xb);
-
-		/* 2ND DL sdm audio fifo clock power on */
-		regmap_write(priv->regmap, MT6338_AFUNC_AUD_CON11_L, 0x6);
-		/* 2ND DL scrambler clock on enable */
-		regmap_write(priv->regmap, MT6338_AFUNC_AUD_CON9_H, 0xcb);
-		/* 2ND DL scrambler clock on enable */
-		regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON9_L,
-			CCI_SPLT_SCRMB_ON_2ND_MASK_SFT,
-			0x1 << CCI_SPLT_SCRMB_ON_2ND_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON9_L,
-			CCI_ZERO_PAD_DISABLE_2ND_MASK_SFT,
-			0x1 << CCI_ZERO_PAD_DISABLE_2ND_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON9_L,
-			CCI_AUD_SDM_7BIT_SEL_2ND_MASK_SFT,
-			0x0 << CCI_AUD_SDM_7BIT_SEL_2ND_SFT);
-		regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON9_L,
-			CCI_SCRAMBLER_EN_2ND_MASK_SFT,
-			0x1 << CCI_SCRAMBLER_EN_2ND_SFT);
-		/* 2ND DL sdm power on2ND DL sdm power on */
-		regmap_write(priv->regmap, MT6338_AFUNC_AUD_CON11_L, 0xb);
+		if (priv->hp_hifi_mode == 0) {
+			/* 2ND DL sdm audio fifo clock power on */
+			regmap_write(priv->regmap, MT6338_AFUNC_AUD_CON11_L, 0x6);
+			/* 2ND DL scrambler clock on enable */
+			regmap_write(priv->regmap, MT6338_AFUNC_AUD_CON9_H, 0xcb);
+			/* 2ND DL scrambler clock on enable */
+			regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON9_L,
+				CCI_SPLT_SCRMB_ON_2ND_MASK_SFT,
+				0x1 << CCI_SPLT_SCRMB_ON_2ND_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON9_L,
+				CCI_ZERO_PAD_DISABLE_2ND_MASK_SFT,
+				0x1 << CCI_ZERO_PAD_DISABLE_2ND_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON9_L,
+				CCI_AUD_SDM_7BIT_SEL_2ND_MASK_SFT,
+				0x0 << CCI_AUD_SDM_7BIT_SEL_2ND_SFT);
+			regmap_update_bits(priv->regmap, MT6338_AFUNC_AUD_CON9_L,
+				CCI_SCRAMBLER_EN_2ND_MASK_SFT,
+				0x1 << CCI_SCRAMBLER_EN_2ND_SFT);
+			/* 2ND DL sdm power on2ND DL sdm power on */
+			regmap_write(priv->regmap, MT6338_AFUNC_AUD_CON11_L, 0xb);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 			/* scrambler disable */
@@ -6937,39 +6938,39 @@ static int mt_nle_event(struct snd_soc_dapm_widget *w,
 				BYPASS_DELAY_MASK_SFT, 0x0);
 			regmap_write(priv->regmap, MT6338_AFE_NLE_PRE_BUF_CFG_M, 0x3b);
 			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_PRE_BUF_CFG_L,
-				POINT_END_H_MASK_SFT, 0x3);
+				POINT_END_H_MASK_SFT, 0x4);
 			regmap_write(priv->regmap, MT6338_AFE_NLE_PRE_BUF_CFG, 0xb0);
 			/* NLE hold time 22ms must larger than preview window */
-			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG_H, 0x1c);
-			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG_H, 0x1c);
+			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG_H, 0x1F);
+			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG_H, 0x1F);
 
 			/* power detect -45dB */
 			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG_M, 0x0);
-			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG_L, 0xb8);
-			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG, 0x45);
+			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG_L, 0x20);
+			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_LCH_CFG, 0xc5);
 			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG_M, 0x0);
-			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG_L, 0xb8);
-			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG, 0x45);
+			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG_L, 0x20);
+			regmap_write(priv->regmap, MT6338_AFE_NLE_PWR_DET_RCH_CFG, 0xc5);
 
 			/* ZCD detect HW check */
 			regmap_write(priv->regmap, MT6338_AFE_NLE_ZCD_LCH_CFG, 0x2);
 			regmap_write(priv->regmap, MT6338_AFE_NLE_ZCD_RCH_CFG, 0x2);
 			/* NLE gain setting time out 22ms */
-			regmap_write(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0_H, 0x16);
-			regmap_write(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0_H, 0x16);
+			regmap_write(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0_H, 0x1e);
+			regmap_write(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0_H, 0x1e);
 			/* Set AG gain min & max */
 			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0,
 				RG_AG_MAX_LCH_MASK_SFT,
 				0x0 << RG_AG_MAX_LCH_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_LCH_CFG0,
 				RG_AG_MIN_LCH_MASK_SFT,
-				0x7 << RG_AG_MIN_LCH_SFT);
+				0x3 << RG_AG_MIN_LCH_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0,
 				RG_AG_MAX_RCH_MASK_SFT,
 				0x0 << RG_AG_MAX_RCH_SFT);
 			regmap_update_bits(priv->regmap, MT6338_AFE_NLE_GAIN_ADJ_RCH_CFG0,
 				RG_AG_MIN_RCH_MASK_SFT,
-				0x7 << RG_AG_MIN_RCH_SFT);
+				0x3 << RG_AG_MIN_RCH_SFT);
 
 			/* AG delay time to analog domain 19T */
 			regmap_write(priv->regmap, MT6338_AFE_NLE_GAIN_IMP_LCH_CFG0_M, 0x13);
@@ -10705,9 +10706,9 @@ static int mt6338_codec_init_reg(struct mt6338_priv *priv)
 	hp_gain_ctl_select(priv, priv->hp_gain_ctl);
 #endif
 	/* hp hifi mode, default normal mode */
-	priv->hp_hifi_mode = 0;
+	priv->hp_hifi_mode = 2;
 	/* mic hifi mode, default hifi mode */
-	priv->mic_hifi_mode = 0;
+	priv->mic_hifi_mode = 1;
 	/* mic type setting */
 	mic_type_default_init(priv);
 

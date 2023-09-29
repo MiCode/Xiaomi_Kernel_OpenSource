@@ -4,3 +4,5 @@ obj-m += mtk-hcp/
 obj-m += mtk-aov/
 obj-m += imgsys/
 obj-m += mtk-ipesys-me/
+
+subdir-ccflags-y += -D__XIAOMI_CAMERA__

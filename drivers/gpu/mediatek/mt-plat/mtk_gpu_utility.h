@@ -85,6 +85,8 @@ bool mtk_get_fastdvfs_mode(unsigned int *pui32Mode);
 bool mtk_set_gpu_idle(unsigned int val);
 bool mtk_get_gpu_reclaim_policy(unsigned int *pReclaim);
 bool mtk_set_gpu_reclaim_policy(unsigned int val);
+bool mtk_get_mem_allocate_policy(unsigned int *pAllocatePolicy);
+bool mtk_set_mem_allocate_policy(unsigned int val);
 
 
 

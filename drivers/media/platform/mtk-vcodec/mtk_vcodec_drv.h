@@ -57,10 +57,10 @@
 #define MTK_VENC_PORT_NUM	128
 #define MTK_VDEC_LARB_NUM	8
 #define MTK_VENC_LARB_NUM	8
-#define MTK_MAX_METADATA_NUM    8
+#define MTK_MAX_METADATA_NUM	8
 
-#define MAX_GEN_BUF_CNT		32
-#define MAX_META_BUF_CNT		32
+#define MAX_GEN_BUF_CNT		64
+#define MAX_META_BUF_CNT	32
 
 #define DEBUG_GKI 1
 
@@ -656,6 +656,7 @@ struct mtk_vcodec_ctx {
 	int init_cnt;
 	int decoded_frame_cnt;
 	int last_decoded_frame_cnt; // used for timer to check active state of decoded ctx
+
 	struct mutex buf_lock;
 	struct mutex worker_lock;
 	struct slbc_data sram_data;
@@ -670,7 +671,8 @@ struct mtk_vcodec_ctx {
 	int fence_idx;
 	struct dma_gen_buf dma_buf_list[MAX_GEN_BUF_CNT];
 	struct dma_meta_buf dma_meta_list[MAX_META_BUF_CNT];
-	struct mutex gen_buf_va_lock;
+	struct mutex gen_buf_list_lock;
+	struct mutex meta_buf_lock;
 	/*
 	 * need resched or not
 	 * core want to re-schedule m2m ctx if disp/free list is not empty

@@ -2814,6 +2814,21 @@ static int scp_device_probe(struct platform_device *pdev)
 
 static void scp_device_shutdown(struct platform_device *dev)
 {
+	int ret;
+	struct scpctl_cmd_s cmd;
+
+	cmd.type = 5; // AP_SHUTDOWN
+	cmd.op = 1;
+
+	pr_info("%s enter\n", __func__);
+
+	ret = mtk_ipi_send(&scp_ipidev, IPI_OUT_SCPCTL_1, 0, &cmd,
+			PIN_OUT_SIZE_SCPCTL_1, 0);
+	if (ret != IPI_ACTION_DONE)
+		pr_notice("%s failed, %d\n", __func__, ret);
+
+	mdelay(10);
+
 	system_shutdown = true;
 }
 

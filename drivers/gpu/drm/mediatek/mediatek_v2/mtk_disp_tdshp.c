@@ -27,6 +27,10 @@ static struct DISP_TDSHP_REG *g_disp_tdshp_regs;
 static atomic_t g_tdshp_is_clock_on[DISP_TDSHP_HW_ENGINE_NUM] = { ATOMIC_INIT(0),
 	ATOMIC_INIT(0), ATOMIC_INIT(0), ATOMIC_INIT(0)};
 
+// g_force_delay_check_trig: 0: non-delay 1: delay 2: default setting
+//                           3: not check trigger
+static atomic_t g_force_delay_check_trig = ATOMIC_INIT(2);
+
 enum TDSHP_IOCTL_CMD {
 	SET_TDSHP_REG,
 	BYPASS_TDSHP,
@@ -647,7 +651,16 @@ static int mtk_disp_tdshp_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *h
 			}
 		}
 
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
 	}
 	break;
 	case BYPASS_TDSHP:
@@ -726,6 +739,25 @@ void mtk_disp_tdshp_first_cfg(struct mtk_ddp_comp *comp,
 	mtk_disp_tdshp_config(comp, cfg, handle);
 }
 
+static int mtk_tdshp_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
+	      enum mtk_ddp_io_cmd cmd, void *params)
+{
+	uint32_t force_delay_trigger;
+
+	switch (cmd) {
+	case FORCE_TRIG_CTL:
+	{
+		force_delay_trigger = *(uint32_t *)params;
+		atomic_set(&g_force_delay_check_trig, force_delay_trigger);
+	}
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static const struct mtk_ddp_comp_funcs mtk_disp_tdshp_funcs = {
 	.config = mtk_disp_tdshp_config,
 	.first_cfg = mtk_disp_tdshp_first_cfg,
@@ -733,6 +765,7 @@ static const struct mtk_ddp_comp_funcs mtk_disp_tdshp_funcs = {
 	.stop = mtk_disp_tdshp_stop,
 	.bypass = mtk_disp_tdshp_bypass,
 	.user_cmd = mtk_disp_tdshp_user_cmd,
+	.io_cmd = mtk_tdshp_io_cmd,
 	.prepare = mtk_disp_tdshp_prepare,
 	.unprepare = mtk_disp_tdshp_unprepare,
 	.config_overhead = mtk_disp_tdshp_config_overhead,
@@ -950,11 +983,11 @@ struct platform_driver mtk_disp_tdshp_driver = {
 		},
 };
 
-void disp_tdshp_set_bypass(struct drm_crtc *crtc, int bypass)
+int disp_tdshp_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret;
+	int ret = 0;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_TDSHP, &bypass);
-
 	DDPINFO("%s : ret = %d", __func__, ret);
+	return ret;
 }

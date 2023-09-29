@@ -3695,7 +3695,7 @@ static int mtk_ovl_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	if (!(comp->mtk_crtc && comp->mtk_crtc->base.dev)) {
 		DDPINFO("%s %s %u has invalid CRTC or device\n",
 				__func__, mtk_dump_comp_str(comp), io_cmd);
-		return -INVALID;
+		return -INVALID_TYPE;
 	}
 
 	priv = comp->mtk_crtc->base.dev->dev_private;

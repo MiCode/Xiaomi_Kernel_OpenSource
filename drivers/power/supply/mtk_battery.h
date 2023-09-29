@@ -121,6 +121,20 @@ enum battery_property {
 	BAT_PROP_INIT_DONE,
 	BAT_PROP_FG_RESET,
 	BAT_PROP_LOG_LEVEL,
+	BAT_PROP_NIGHT_CHARGING,
+	BAT_PROP_INPUT_SUSPEND,
+	BAT_PROP_SMART_BATT,
+	BAT_PROP_SHIPMODE_COUNT_RESET,
+#if defined(CONFIG_RUST_DETECTION)
+	BAT_PROP_OTG_UI_SUPPORT,
+	BAT_PROP_CID_STATUS,
+	BAT_PROP_CC_TOGGLE,
+	BAT_PROP_LPD_DP_RES,
+	BAT_PROP_LPD_DM_RES,
+	BAT_PROP_LPD_SBU1_RES,
+	BAT_PROP_LPD_SBU2_RES,
+	BAT_PROP_LPD_UPDATE_EN,
+#endif
 };
 
 enum property_control_data {
@@ -167,6 +181,7 @@ struct battery_data {
 	/* Add for Battery Service */
 	int bat_batt_vol;
 	int bat_batt_temp;
+	int bat_current;
 };
 
 struct VersionControl {
@@ -942,6 +957,7 @@ struct mtk_battery {
 	struct sock *mtk_battery_sk;
 
 	struct mtk_battery_algo algo;
+	struct power_supply *ti_bms_psy;
 
 	u_int fgd_pid;
 
@@ -1119,6 +1135,15 @@ struct mtk_battery {
 	int (*resume)(struct mtk_battery *gm);
 
 	int log_level;
+	int thermal_level;
+	int diff_fv_val;
+
+	/* Add for pmic shipmode */
+	bool shipmode_count_reset;
+#if defined(CONFIG_RUST_DETECTION)
+	bool control_cc_toggle;
+	int lpd_update_en;
+#endif
 };
 
 struct mtk_battery_sysfs_field_info {
@@ -1150,7 +1175,7 @@ extern void disable_gauge_irq(struct mtk_gauge *gauge,
 	enum gauge_irq irq);
 extern int bat_get_debug_level(void);
 extern int force_get_tbat(struct mtk_battery *gm, bool update);
-extern int force_get_tbat_internal(struct mtk_battery *gm);
+extern int force_get_tbat_internal(struct mtk_battery *gm, bool update);
 extern int wakeup_fg_algo_cmd(struct mtk_battery *gm,
 	unsigned int flow_state, int cmd, int para1);
 extern int wakeup_fg_algo(struct mtk_battery *gm, unsigned int flow_state);
@@ -1158,8 +1183,6 @@ extern int wakeup_fg_algo(struct mtk_battery *gm, unsigned int flow_state);
 extern int gauge_get_int_property(enum gauge_property gp);
 extern int gauge_get_property(enum gauge_property gp,
 			    int *val);
-extern int gauge_get_property_control(struct mtk_battery *gm,
-	enum gauge_property gp, int *val, int mode);
 extern int gauge_set_property(enum gauge_property gp,
 			    int val);
 extern void gp_number_to_name(char *gp_name, unsigned int gp_no);

@@ -1820,9 +1820,12 @@ void mml_core_deinit_config(struct mml_frame_config *cfg)
 
 	/* make command, engine allocated private data */
 	for (pipe = 0; pipe < MML_PIPE_CNT; pipe++) {
-		for (i = 0; i < cfg->path[pipe]->node_cnt; i++)
-			kfree(cfg->cache[pipe].cfg[i].data);
-		destroy_tile_output(cfg->tile_output[pipe]);
+		if (cfg->path[pipe]) {
+			for (i = 0; i < cfg->path[pipe]->node_cnt; i++)
+				kfree(cfg->cache[pipe].cfg[i].data);
+		}
+		if (cfg->tile_output[pipe])
+			destroy_tile_output(cfg->tile_output[pipe]);
 	}
 	core_destroy_wq(&cfg->wq_done);
 }

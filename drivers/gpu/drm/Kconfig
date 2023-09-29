@@ -62,6 +62,14 @@ config DRM_DEBUG_MM
 
 	  If in doubt, say "N".
 
+#if defined(CONFIG_PXLW_IRIS)
+config PXLW_IRIS
+	bool "Insert PXLW Iris"
+	default n
+	depends on DRM=y
+	depends on STACKTRACE_SUPPORT
+#endif
+
 config DRM_DEBUG_SELFTEST
 	tristate "kselftests for DRM"
 	depends on DRM

@@ -749,6 +749,39 @@ bool mtk_get_gpu_reclaim_policy(unsigned int *pReclaim)
 }
 EXPORT_SYMBOL(mtk_get_gpu_reclaim_policy);
 
+/* -----------------------------set gpu memory allocate policy--------------------------------- */
+
+void (*mtk_set_mem_allocate_policy_fp)(unsigned int val) = NULL;
+EXPORT_SYMBOL(mtk_set_mem_allocate_policy_fp);
+
+bool mtk_set_mem_allocate_policy(unsigned int val)
+{
+	if (mtk_set_mem_allocate_policy_fp != NULL) {
+		mtk_set_mem_allocate_policy_fp(val);
+		return true;
+	}
+	return false;
+
+}
+EXPORT_SYMBOL(mtk_set_mem_allocate_policy);
+
+/* -----------------------------get gpu memory allocate policy--------------------------------- */
+
+unsigned int (*mtk_get_mem_allocate_policy_fp)(void) = NULL;
+EXPORT_SYMBOL(mtk_get_mem_allocate_policy_fp);
+
+bool mtk_get_mem_allocate_policy(unsigned int *pAllocatePolicy)
+{
+	if (mtk_get_mem_allocate_policy_fp != NULL) {
+		if (pAllocatePolicy) {
+			*pAllocatePolicy = mtk_get_mem_allocate_policy_fp();
+			return true;
+		}
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_get_mem_allocate_policy);
+
 static int mtk_gpu_hal_init(void)
 {
 	/*Do Nothing*/

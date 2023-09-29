@@ -340,6 +340,15 @@ uint8_t tcpm_inquire_pd_power_role(struct tcpc_device *tcpc)
 }
 EXPORT_SYMBOL(tcpm_inquire_pd_power_role);
 
+uint8_t tcpm_inquire_pd_state_curr(
+	struct tcpc_device *tcpc_dev)
+{
+	struct pd_port *pd_port = &tcpc_dev->pd_port;
+	return pd_port->pe_state_curr;
+}
+EXPORT_SYMBOL(tcpm_inquire_pd_state_curr);
+
+
 uint8_t tcpm_inquire_pd_vconn_role(struct tcpc_device *tcpc)
 {
 	struct pd_port *pd_port = &tcpc->pd_port;

@@ -73,6 +73,9 @@ static bool g_prim_ccorr_force_linear;
 static bool g_prim_ccorr_pq_nonlinear;
 static bool g_is_aibld_cv_mode;
 static atomic_t g_ccorr_irq_en = ATOMIC_INIT(0);
+// g_force_delay_check_trig: 0: non-delay 1: delay 2: default setting
+//                           3: not check trigger
+static atomic_t g_force_delay_check_trig = ATOMIC_INIT(2);
 
 #define index_of_ccorr(module) ((module == DDP_COMPONENT_CCORR0) ? 0 : \
 		((module == DDP_COMPONENT_CCORR1) ? 1 : \
@@ -669,11 +672,18 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 			disp_ccorr_set_interrupt(default_comp, 1);
 
 			if (default_comp != NULL &&
-					default_comp->mtk_crtc != NULL)
-				mtk_crtc_check_trigger(default_comp->mtk_crtc, true,
-					true);
-
-			DDPINFO("%s: trigger refresh when backlight changed", __func__);
+					default_comp->mtk_crtc != NULL) {
+				if (atomic_read(&g_force_delay_check_trig) == 0)
+				        mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 1)
+				        mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 2)
+					mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 3)
+					DDPINFO("%s: not check trigger\n", __func__);
+				else
+					DDPINFO("%s: value is not support!\n", __func__);
+			}
 		}
 	} else {
 		if (default_comp != NULL && (g_old_pq_backlight == 0 || bl_1024 == 0)) {
@@ -681,9 +691,18 @@ void disp_pq_notify_backlight_changed(int bl_1024)
 			disp_ccorr_set_interrupt(default_comp, 1);
 
 			if (default_comp != NULL &&
-					default_comp->mtk_crtc != NULL)
-				mtk_crtc_check_trigger(default_comp->mtk_crtc, true,
-					true);
+					default_comp->mtk_crtc != NULL) {
+				if (atomic_read(&g_force_delay_check_trig) == 0)
+				        mtk_crtc_check_trigger(default_comp->mtk_crtc, false, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 1)
+				        mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 2)
+					mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+				else if (atomic_read(&g_force_delay_check_trig) == 3)
+					DDPINFO("%s: not check trigger\n", __func__);
+				else
+					DDPINFO("%s: value is not support!\n", __func__);
+			}
 
 			DDPINFO("%s: trigger refresh when backlight ON/Off", __func__);
 		}
@@ -972,8 +991,18 @@ int disp_ccorr_set_color_matrix(struct mtk_ddp_comp *comp, struct cmdq_pkt *hand
 
 	mutex_unlock(&g_ccorr_global_lock);
 
-	if (need_refresh == true && comp->mtk_crtc != NULL)
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+	if (need_refresh == true && comp->mtk_crtc != NULL) {
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, false, false);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(comp->mtk_crtc, true, false);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
+	}
 
 	return ret;
 }
@@ -1035,13 +1064,31 @@ int mtk_drm_ioctl_set_ccorr(struct drm_device *dev, void *data,
 				ccorr_config->FinalBacklight, 0, (0X01<<SET_BACKLIGHT_LEVEL));
 		}
 
-		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
 
 		return ret;
 	} else {
 		ret = mtk_crtc_user_cmd(crtc, comp, SET_CCORR, data);
 
-		mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
 
 		return ret;
 	}
@@ -1115,8 +1162,18 @@ int mtk_drm_ioctl_ccorr_eventctl(struct drm_device *dev, void *data,
 	/* TODO: dual pipe */
 	int *enabled = data;
 
-	if (enabled || g_old_pq_backlight != g_pq_backlight)
-		mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+	if (enabled || g_old_pq_backlight != g_pq_backlight) {
+		if (atomic_read(&g_force_delay_check_trig) == 0)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, false, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 1)
+		        mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 2)
+			mtk_crtc_check_trigger(comp->mtk_crtc, true, true);
+		else if (atomic_read(&g_force_delay_check_trig) == 3)
+			DDPINFO("%s: not check trigger\n", __func__);
+		else
+			DDPINFO("%s: value is not support!\n", __func__);
+	}
 
 	//mtk_crtc_user_cmd(crtc, comp, EVENTCTL, data);
 	DDPINFO("ccorr_eventctl, enabled = %d\n", *enabled);
@@ -1531,6 +1588,7 @@ static int mtk_ccorr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 							enum mtk_ddp_io_cmd cmd, void *params)
 {
 	int enable = 1;
+	uint32_t force_delay_trigger;
 
 	if (comp->id != DDP_COMPONENT_CCORR0 || !g_is_aibld_cv_mode)
 		return 0;
@@ -1538,6 +1596,9 @@ static int mtk_ccorr_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	if (cmd == FRAME_DIRTY) {
 		DDPDBG("%s FRAME_DIRTY comp id:%d\n", __func__, comp->id);
 		mtk_disp_ccorr_set_interrupt(comp, &enable);
+	} else if (cmd == FORCE_TRIG_CTL) {
+		force_delay_trigger = *(uint32_t *)params;
+		atomic_set(&g_force_delay_check_trig, force_delay_trigger);
 	}
 	return 0;
 }
@@ -1866,16 +1927,16 @@ struct platform_driver mtk_disp_ccorr_driver = {
 		},
 };
 
-void disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
+int disp_ccorr_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret;
+	int ret = 0;
 
 	if (g_ccorr_relay_value[index_of_ccorr(default_comp->id)] == bypass &&
 		g_ccorr_relay_value[index_of_ccorr(ccorr1_default_comp->id)] == bypass)
-		return;
+		return ret;
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_CCORR, &bypass);
-
 	DDPINFO("%s : ret = %d", __func__, ret);
+	return ret;
 }
 
 void mtk_ccorr_regdump(void)

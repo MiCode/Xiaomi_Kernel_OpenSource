@@ -284,7 +284,7 @@ bool is_charger_exist(struct mtk_charger *info)
 
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
 		chr_err("%s retry to get chg_psy\n", __func__);
-		chg_psy = power_supply_get_by_name("primary_chg");
+		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev, "charger");
 		info->chg_psy = chg_psy;
 	}
 
@@ -304,33 +304,31 @@ bool is_charger_exist(struct mtk_charger *info)
 
 int get_charger_type(struct mtk_charger *info)
 {
-	union power_supply_propval prop = {0};
-	union power_supply_propval prop2 = {0};
-	union power_supply_propval prop3 = {0};
-	static struct power_supply *bc12_psy;
+	union power_supply_propval prop, prop2, prop3;
+	static struct power_supply *chg_psy;
 	int ret;
 
-	bc12_psy = info->bc12_psy;
+	chg_psy = info->chg_psy;
 
-	if (bc12_psy == NULL || IS_ERR(bc12_psy)) {
-		chr_err("%s retry to get bc12_psy\n", __func__);
-		bc12_psy = power_supply_get_by_name("primary_chg");
-		info->bc12_psy = bc12_psy;
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		chr_err("%s retry to get chg_psy\n", __func__);
+		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev, "charger");
+		info->chg_psy = chg_psy;
 	}
 
-	if (bc12_psy == NULL || IS_ERR(bc12_psy)) {
-		chr_err("%s Couldn't get bc12_psy\n", __func__);
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 	} else {
-		ret = power_supply_get_property(bc12_psy,
+		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
 
-		ret = power_supply_get_property(bc12_psy,
+		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_TYPE, &prop2);
 
-		ret = power_supply_get_property(bc12_psy,
+		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_USB_TYPE, &prop3);
 
-		if (prop.intval == 0 ||
+		if ((prop.intval == 0 && info->input_suspend == 0 ) ||
 		    (prop2.intval == POWER_SUPPLY_TYPE_USB &&
 		    prop3.intval == POWER_SUPPLY_USB_TYPE_UNKNOWN))
 			prop2.intval = POWER_SUPPLY_TYPE_UNKNOWN;
@@ -346,25 +344,24 @@ int get_charger_type(struct mtk_charger *info)
 
 int get_usb_type(struct mtk_charger *info)
 {
-	union power_supply_propval prop = {0};
-	union power_supply_propval prop2 = {0};
-	static struct power_supply *bc12_psy;
-
+	union power_supply_propval prop, prop2;
+	static struct power_supply *chg_psy;
 	int ret;
 
-	bc12_psy = info->bc12_psy;
+	chg_psy = info->chg_psy;
 
-	if (bc12_psy == NULL || IS_ERR(bc12_psy)) {
-		chr_err("%s retry to get bc12_psy\n", __func__);
-		bc12_psy = power_supply_get_by_name("primary_chg");
-		info->bc12_psy = bc12_psy;
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		chr_err("%s retry to get chg_psy\n", __func__);
+		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
+						       "charger");
+		info->chg_psy = chg_psy;
 	}
-	if (bc12_psy == NULL || IS_ERR(bc12_psy)) {
-		chr_err("%s Couldn't get bc12_psy\n", __func__);
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		chr_err("%s Couldn't get chg_psy\n", __func__);
 	} else {
-		ret = power_supply_get_property(bc12_psy,
+		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
-		ret = power_supply_get_property(bc12_psy,
+		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_USB_TYPE, &prop2);
 	}
 	chr_debug("%s online:%d usb_type:%d\n", __func__,

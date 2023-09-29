@@ -656,6 +656,7 @@ static int mtk_chist_user_cmd(struct mtk_ddp_comp *comp,
 		spin_lock_irqsave(&g_chist_global_lock, flags);
 		memset(&(g_chist_config[index][channel_id]), 0,
 			sizeof(struct drm_mtk_channel_config));
+		g_chist_config[index][channel_id].channel_id = channel_id;
 		memset(&(g_chist_block_config[index][channel_id]), 0,
 			sizeof(struct mtk_disp_block_config));
 		spin_unlock_irqrestore(&g_chist_global_lock, flags);
@@ -1055,6 +1056,7 @@ static void mtk_get_chist(struct mtk_ddp_comp *comp)
 	}
 	spin_lock_irqsave(&g_chist_global_lock, flags);
 	for (; i < DISP_CHIST_CHANNEL_COUNT; i++) {
+		g_chist_config[index][i].channel_id = i;
 		if (g_chist_config[index][i].enabled) {
 			g_disp_hist[index][i].bin_count = g_chist_config[index][i].bin_count;
 			g_disp_hist[index][i].color_format = g_chist_config[index][i].color_format;

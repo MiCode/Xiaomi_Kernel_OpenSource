@@ -794,7 +794,8 @@ static int mtk_pcie_init_irq_domains(struct mtk_pcie_port *port)
 						  &intx_domain_ops, port);
 	if (!port->intx_domain) {
 		dev_err(dev, "failed to create INTx IRQ domain\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto out_put_node;
 	}
 
 	/* Setup MSI */
@@ -817,6 +818,7 @@ static int mtk_pcie_init_irq_domains(struct mtk_pcie_port *port)
 		goto err_msi_domain;
 	}
 
+	of_node_put(intc_node);
 	return 0;
 
 err_msi_domain:
@@ -824,6 +826,8 @@ err_msi_domain:
 err_msi_bottom_domain:
 	irq_domain_remove(port->intx_domain);
 
+out_put_node:
+	of_node_put(intc_node);
 	return ret;
 }
 
@@ -1299,7 +1303,7 @@ int mtk_pcie_remove_port(int port)
 }
 EXPORT_SYMBOL(mtk_pcie_remove_port);
 
-#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
+//#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
 static void pcie_android_rvh_do_serror(void *data, struct pt_regs *regs,
 				       unsigned int esr, int *ret)
 {
@@ -1342,7 +1346,7 @@ static void pcie_android_rvh_do_serror(void *data, struct pt_regs *regs,
 	if (val & PCIE_AXI_READ_ERR)
 		*ret = 1;
 }
-#endif
+//#endif
 
 /**
  * mtk_pcie_dump_link_info() - Dump PCIe RC information
@@ -1834,14 +1838,14 @@ static struct platform_driver mtk_pcie_driver = {
 
 static int mtk_pcie_init_func(void *pvdev)
 {
-#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
+//#if IS_ENABLED(CONFIG_ANDROID_FIX_PCIE_SLAVE_ERROR)
 	int err = 0;
 
 	err = register_trace_android_rvh_do_serror(
 			pcie_android_rvh_do_serror, NULL);
 	if (err)
 		pr_info("register pcie android_rvh_do_serror failed!\n");
-#endif
+//#endif
 
 	return platform_driver_register(&mtk_pcie_driver);
 }

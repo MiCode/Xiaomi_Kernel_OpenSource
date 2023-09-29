@@ -217,6 +217,9 @@ struct mtk_hdr_ae {
 
 struct mtk_seamless_switch_param {
 	struct mtk_hdr_ae ae_ctrl[2];
+#ifdef __XIAOMI_CAMERA__
+	struct mtk_awb_gain awb_gain;
+#endif
 	__u32 frame_length[2];
 	__u32 target_scenario_id;
 };

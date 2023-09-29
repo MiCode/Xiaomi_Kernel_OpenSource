@@ -24,6 +24,7 @@
 #define MTK_SIP_VCOREFS_FB_ACTION 8
 #define MTK_SIP_VCOREFS_QOS_MODE 32
 #define MTK_SIP_VCOREFS_EMI_MON_POLICY 33
+#define MTK_SIP_VCOREFS_MASK_OPP0_POLICY 34
 
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 extern void register_dvfsrc_opp_handler(int (*handler)(u32 id));
@@ -47,4 +48,15 @@ static inline int unregister_dvfsrc_debug_notifier(struct notifier_block *nb)
 
 extern int __init mtk_dvfsrc_met_init(void);
 extern void __exit mtk_dvfsrc_met_exit(void);
+
+/* For vcore opp0 operation */
+enum {
+	VCOREOPP_CAMERA,
+	VCOREOPP_UFS,
+	VCOREOPP_PCIE,
+	VCOREOPP_GPS,
+	VCOREOPP_MAX
+};
+extern void mtk_dvfsrc_dynamic_opp0(u8 user, bool in_use);
+extern unsigned long mtk_dvfsrc_get_box(void);
 

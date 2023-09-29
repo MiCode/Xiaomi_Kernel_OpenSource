@@ -1507,6 +1507,27 @@ static int mtk_i2c_transfer(struct i2c_adapter *adap,
 	if (ret)
 		return ret;
 
+	//M12GL ov50d & M12CN imx355 share the i2c9, but ov50d supports 1M i2c speed, imx355 only supports 400k i2c speed
+	//ov50d i2c speed need be improved to 1M for reducing poweron time
+	if (i2c->adap.nr == 9 && i2c->speed_hz != I2C_MAX_FAST_MODE_PLUS_FREQ && 
+		(msgs[0].addr == (0x44 >> 1) || msgs[0].addr == (0x18 >> 1) || msgs[0].addr == (0xA8 >> 1)) ) {
+		//0x44 is ov50d sensor address, 0x18 is ov50d af address, 0xA8 is ov50d eeprom address
+		i2c->speed_hz = I2C_MAX_FAST_MODE_PLUS_FREQ;
+		if (i2c->ch_offset_i2c == I2C_OFFSET_SCP) {
+			if (i2c->clk_src_in_hz)
+				ret = mtk_i2c_set_speed(i2c, i2c->clk_src_in_hz);
+			else
+				ret = -EINVAL;
+		} else {
+			ret = mtk_i2c_set_speed(i2c, clk_get_rate(i2c->clk_main));
+		}
+		if (ret) {
+			dev_err(i2c->dev, "fail to set ov50d i2c speed to 1M\n");
+			return ret;
+		}
+		dev_info(i2c->dev, "success to set ov50d i2c speed to 1M\n");
+	}
+
 	i2c->master_code_sended = false;
 	i2c->auto_restart = i2c->dev_comp->auto_restart;
 

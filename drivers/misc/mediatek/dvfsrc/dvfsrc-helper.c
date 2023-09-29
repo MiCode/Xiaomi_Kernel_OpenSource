@@ -465,6 +465,60 @@ static void mtk_dvfsrc_get_perf_bw(struct mtk_dvfsrc *dvfsrc,
 	}
 }
 
+static int mtk_dvfsrc_mask_opp0_policy(unsigned int enable)
+{
+	struct arm_smccc_res ares;
+
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_VCOREFS_MASK_OPP0_POLICY,
+		enable, 0, 0, 0, 0, 0, &ares);
+
+	if (enable)
+		udelay(1000);
+
+	return 0;
+}
+
+static DEFINE_MUTEX(vcore_opp_mutex);
+static unsigned long ballot_box;
+static bool dis_opp0;
+
+unsigned long mtk_dvfsrc_get_box(void)
+{
+	return (dis_opp0 << 8) | ballot_box;
+}
+EXPORT_SYMBOL(mtk_dvfsrc_get_box);
+
+void mtk_dvfsrc_dynamic_opp0(u8 user, bool in_use)
+{
+
+	if (user != VCOREOPP_GPS)
+		return;
+
+	pr_err("%s: user: %d, in_use: %d\n", __func__, user, in_use);
+	mutex_lock(&vcore_opp_mutex);
+
+	if (in_use)
+		set_bit(user, &ballot_box);
+	else
+		clear_bit(user, &ballot_box);
+
+	if (test_bit(VCOREOPP_GPS, &ballot_box)) {
+		if (!dis_opp0) {
+			mtk_dvfsrc_mask_opp0_policy(1);
+			dis_opp0 = true;
+		}
+	} else {
+		if (dis_opp0) {
+			mtk_dvfsrc_mask_opp0_policy(0);
+			dis_opp0 = false;
+		}
+	}
+
+	mutex_unlock(&vcore_opp_mutex);
+	pr_err("%s: ballot_box: 0x%lx\n", __func__, ballot_box);
+}
+EXPORT_SYMBOL(mtk_dvfsrc_dynamic_opp0);
+
 static int mtk_dvfsrc_debug_setting(struct mtk_dvfsrc *dvfsrc)
 {
 	struct device_node *np = dvfsrc->dev->of_node;

@@ -1195,19 +1195,23 @@ void dither_test(const char *cmd, char *debug_output, struct mtk_ddp_comp *comp)
 	}
 }
 
-void disp_dither_set_bypass(struct drm_crtc *crtc, int bypass)
+int disp_dither_set_bypass(struct drm_crtc *crtc, int bypass)
 {
-	int ret;
+	int ret = 0;
 
 	ret = mtk_crtc_user_cmd(crtc, default_comp, BYPASS_DITHER, &bypass);
 	mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
-
 	DDPINFO("%s : ret = %d", __func__, ret);
+	return ret;
 }
 
-void disp_dither_set_color_detect(struct drm_crtc *crtc, int enable)
+int disp_dither_set_color_detect(struct drm_crtc *crtc, int enable)
 {
-	mtk_crtc_user_cmd(crtc, default_comp, SET_COLOR_DETECT, &enable);
-	mtk_crtc_user_cmd(crtc, default_comp, SET_INTERRUPT, &enable);
+	int ret = 0;
+	ret |= mtk_crtc_user_cmd(crtc, default_comp, SET_COLOR_DETECT, &enable);
+	ret |= mtk_crtc_user_cmd(crtc, default_comp, SET_INTERRUPT, &enable);
 	mtk_crtc_check_trigger(default_comp->mtk_crtc, true, true);
+	DDPINFO("%s : ret = %d", __func__, ret);
+
+	return ret;
 }

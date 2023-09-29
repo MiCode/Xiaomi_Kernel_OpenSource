@@ -1,0 +1,6 @@
+&odm {
+	simtray {
+		compatible = "xiaomi,simtray-status";
+		status-gpio =	<&pio 87 0>;
+	};
+};

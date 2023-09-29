@@ -140,6 +140,7 @@ struct layering_rule_info_t {
 	unsigned int rpo_scale_num;
 	unsigned int rpo_tile_length;
 	unsigned int rpo_in_max_height;
+	bool need_repaint;
 };
 
 enum SCN_FACTOR {

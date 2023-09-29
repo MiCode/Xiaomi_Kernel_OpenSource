@@ -467,7 +467,7 @@ static int dlpt_notify_handler(void *unused)
 		}
 		pre_ui_soc = cur_ui_soc;
 
-		if (cur_ui_soc == 1) {
+		if (0) {
 			if (dlpt_check_power_off()) {
 				/* notify battery driver to power off by SOC=0 */
 				dlpt_set_shutdown_condition();

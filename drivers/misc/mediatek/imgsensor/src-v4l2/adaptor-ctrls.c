@@ -1210,6 +1210,14 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 				/1000);
 			u64 time_boot = ktime_get_boottime_ns();
 			u64 time_mono = ktime_get_ns();
+#ifdef __XIAOMI_CAMERA__
+			struct SET_SENSOR_AWB_GAIN awb_gain = {
+				.ABS_GAIN_GR = info->awb_gain.abs_gain_gr,
+				.ABS_GAIN_R  = info->awb_gain.abs_gain_r,
+				.ABS_GAIN_B  = info->awb_gain.abs_gain_b,
+				.ABS_GAIN_GB = info->awb_gain.abs_gain_gb,
+			};
+#endif
 
 			/* copy original input data for fsync using */
 			memcpy(fsync_exp, &info->ae_ctrl[0].exposure.arr, sizeof(fsync_exp));
@@ -1217,6 +1225,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u64[0] = info->target_scenario_id;
 			para.u64[1] = (uintptr_t)&info->ae_ctrl[0];
 			para.u64[2] = (uintptr_t)&info->ae_ctrl[1];
+#ifdef __XIAOMI_CAMERA__
+			para.u64[3] = (uintptr_t)&awb_gain;
+#endif
 
 			dev_info(dev,
 				    "seamless scen(%u => %u) s[%u %u %u %u %u] g[%u %u %u %u %u] s1[%u %u %u %u %u] g1[%u %u %u %u %u] %llu|%llu\n",
@@ -1288,7 +1299,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 #endif
 	case V4L2_CID_MTK_SENSOR_POWER:
-		dev_dbg(dev, "V4L2_CID_MTK_SENSOR_POWER val = %d\n", ctrl->val);
+		dev_dbg(dev, "V4L2_CID_MTK_SENSOR_POWER %s val = %d\n", ctx->subdrv->name, ctrl->val);
 		if (ctrl->val)
 			adaptor_hw_power_on(ctx);
 		else

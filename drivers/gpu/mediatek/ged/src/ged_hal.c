@@ -804,6 +804,48 @@ static ssize_t reclaim_policy_store(struct kobject *kobj,
 static KOBJ_ATTR_RW(reclaim_policy);
 //-----------------------------------------------------------------------------
 
+static ssize_t mem_allocate_from_tail_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int flag = 0;
+	int enable = 0;
+	int pos = 0;
+
+	enable = mtk_get_mem_allocate_policy(&flag);
+
+	if (enable) {
+		pos += scnprintf(buf + pos, PAGE_SIZE - pos,
+					"%d\n", flag);
+	} else {
+		pos = scnprintf(buf + pos, PAGE_SIZE - pos,
+					"memory allocate policy is disabled\n");
+	}
+
+	return pos;
+}
+
+static ssize_t mem_allocate_from_tail_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE];
+	u32 i32Value;
+	int mode = 0;
+	int enable = 0;
+
+	if ((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GED_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0)
+				mtk_set_mem_allocate_policy(i32Value);
+		}
+	}
+
+	return count;
+}
+static KOBJ_ATTR_RW(mem_allocate_from_tail);
+//-----------------------------------------------------------------------------
+
 
 unsigned int g_loading_stride_size = GED_DEFAULT_SLIDE_STRIDE_SIZE;
 unsigned int g_loading_target_mode;
@@ -1209,6 +1251,12 @@ GED_ERROR ged_hal_init(void)
 		goto ERROR;
 	}
 
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_mem_allocate_from_tail);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("Failed to create mem_allocate_policy entry!\n");
+		goto ERROR;
+	}
+
 	return err;
 
 ERROR:
@@ -1244,6 +1292,7 @@ void ged_hal_exit(void)
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_window_size);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_fallback_frequency_adjust);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_reclaim_policy);
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_mem_allocate_from_tail);
 #ifdef GED_DCS_POLICY
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dcs_mode);
 #endif

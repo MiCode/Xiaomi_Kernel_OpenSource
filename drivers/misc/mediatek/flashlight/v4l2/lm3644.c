@@ -24,6 +24,7 @@
 
 #define LM3644_NAME	"lm3644"
 #define LM3644_I2C_ADDR	(0x63)
+#define REG_DEVICEID (0x0C)
 
 /* registers definitions */
 #define REG_ENABLE		0x01
@@ -46,7 +47,7 @@
  */
 #define LM3644_FLASH_BRT_MIN 10900
 #define LM3644_FLASH_BRT_STEP 11725
-#define LM3644_FLASH_BRT_MAX 1499975
+#define LM3644_FLASH_BRT_MAX 1500000
 #define LM3644_FLASH_BRT_uA_TO_REG(a)	\
 	((a) < LM3644_FLASH_BRT_MIN ? 0 :	\
 	 (((a) - LM3644_FLASH_BRT_MIN) / LM3644_FLASH_BRT_STEP))
@@ -54,18 +55,20 @@
 	((a) * LM3644_FLASH_BRT_STEP + LM3644_FLASH_BRT_MIN)
 
 /*  FLASH TIMEOUT DURATION
- *	min 32ms, step 32ms, max 1024ms
+ *	min 100ms, step1  10ms, step2  50ms, max 400ms
  */
-#define LM3644_FLASH_TOUT_MIN 200
-#define LM3644_FLASH_TOUT_STEP 200
-#define LM3644_FLASH_TOUT_MAX 1600
+#define LM3644_FLASH_TOUT_MIN 100
+#define LM3644_FLASH_TOUT_STEP_1 10
+#define LM3644_FLASH_TOUT_STEP_2 50
+#define LM3644_FLASH_TOUT_STEP 50
+#define LM3644_FLASH_TOUT_MAX 400
 
 /*  TORCH BRT
- *	min 1954uA, step 2800uA, max 357554uA
+ *	min 977uA, step1400uA, max 179000uA
  */
-#define LM3644_TORCH_BRT_MIN 1964
-#define LM3644_TORCH_BRT_STEP 2800
-#define LM3644_TORCH_BRT_MAX 357554
+#define LM3644_TORCH_BRT_MIN 977
+#define LM3644_TORCH_BRT_STEP 1400
+#define LM3644_TORCH_BRT_MAX 179000
 #define LM3644_TORCH_BRT_uA_TO_REG(a)	\
 	((a) < LM3644_TORCH_BRT_MIN ? 0 :	\
 	 (((a) - LM3644_TORCH_BRT_MIN) / LM3644_TORCH_BRT_STEP))
@@ -76,6 +79,43 @@
 static const int flash_state_to_current_limit[LM3644_COOLER_MAX_STATE] = {
 	200000, 150000, 100000, 50000, 25000
 };
+
+// flash info for OCP81373
+/*  FLASH TIMEOUT DURATION
+ *	min 40, step1  40ms, step2  200ms, max 1600ms
+ */
+#define OCP8137_FLASH_TOUT_MIN 40
+#define OCP8137_FLASH_TOUT_STEP_1 40
+#define OCP8137_FLASH_TOUT_STEP_2 200
+#define OCP8137_FLASH_TOUT_STEP 50
+#define OCP8137_FLASH_TOUT_MAX 400
+
+/*  FLASH Brightness
+ *	min 11720uA, step 11725uA, max 1500000uA
+ */
+#define OCP8137_FLASH_BRT_MIN 11720
+#define OCP8137_FLASH_BRT_STEP 11720
+#define OCP8137_FLASH_BRT_MAX 1500000
+#define OCP8137_FLASH_BRT_uA_TO_REG(a)	\
+	((a) < OCP8137_FLASH_BRT_MIN ? 0 :	\
+	 (((a) - OCP8137_FLASH_BRT_MIN) / OCP8137_FLASH_BRT_STEP))
+#define OCP8137_FLASH_BRT_REG_TO_uA(a)		\
+	((a) * OCP8137_FLASH_BRT_STEP + OCP8137_FLASH_BRT_MIN)
+/*  TORCH BRT
+ *	min 2920uA, step2920uA, max 374000uA
+ */
+#define OCP8137_TORCH_BRT_MIN 2920
+#define OCP8137_TORCH_BRT_STEP 2920
+#define OCP8137_TORCH_BRT_MAX 374000
+#define OCP8137_TORCH_BRT_uA_TO_REG(a)	\
+	((a) < OCP8137_TORCH_BRT_MIN ? 0 :	\
+	 (((a) - OCP8137_TORCH_BRT_MIN) / OCP8137_TORCH_BRT_STEP))
+#define OCP8137_TORCH_BRT_REG_TO_uA(a)		\
+	((a) * OCP8137_TORCH_BRT_STEP + OCP8137_TORCH_BRT_MIN)
+
+static u8 is_ocp8137_enable = 0;
+static u8 is_lm3644_enable= 0;
+
 
 enum lm3644_led_id {
 	LM3644_LED0 = 0,
@@ -149,8 +189,8 @@ static struct lm3644_flash *lm3644_flash_data;
 #define LM3644_PINCTRL_PIN_HWEN 0
 #define LM3644_PINCTRL_PINSTATE_LOW 0
 #define LM3644_PINCTRL_PINSTATE_HIGH 1
-#define LM3644_PINCTRL_STATE_HWEN_HIGH "hwen-high"
-#define LM3644_PINCTRL_STATE_HWEN_LOW  "hwen-low"
+#define LM3644_PINCTRL_STATE_HWEN_HIGH "hwen_high"
+#define LM3644_PINCTRL_STATE_HWEN_LOW  "hwen_low"
 /******************************************************************************
  * Pinctrl configuration
  *****************************************************************************/
@@ -257,21 +297,13 @@ static int lm3644_enable_ctrl(struct lm3644_flash *flash,
 		return 0;
 	}
 
-	if (led_no == LM3644_LED0) {
-		if (on)
-			rval = regmap_update_bits(flash->regmap,
-						  REG_ENABLE, 0x01, 0x01);
-		else
-			rval = regmap_update_bits(flash->regmap,
-						  REG_ENABLE, 0x01, 0x00);
-	} else {
-		if (on)
-			rval = regmap_update_bits(flash->regmap,
-						  REG_ENABLE, 0x02, 0x02);
-		else
-			rval = regmap_update_bits(flash->regmap,
-						  REG_ENABLE, 0x02, 0x00);
-	}
+	if (on)
+		rval = regmap_update_bits(flash->regmap,
+					  REG_ENABLE, 0x03, 0x03);
+	else
+		rval = regmap_update_bits(flash->regmap,
+					  REG_ENABLE, 0x03, 0x00);
+
 	return rval;
 }
 
@@ -281,13 +313,15 @@ static int lm3644_torch_brt_ctrl(struct lm3644_flash *flash,
 {
 	int rval;
 	u8 br_bits;
+	int torch_cur_avg = 0;
 
 	if (led_no < 0 || led_no >= LM3644_LED_MAX) {
 		pr_info("led_no error\n");
 		return -1;
 	}
 	pr_info_ratelimited("%s %d brt:%u\n", __func__, led_no, brt);
-	if (brt < LM3644_TORCH_BRT_MIN)
+	torch_cur_avg = brt / 2;
+	if (torch_cur_avg < LM3644_TORCH_BRT_MIN)
 		return lm3644_enable_ctrl(flash, led_no, false);
 
 	if (flash->need_cooler == 0) {
@@ -299,13 +333,19 @@ static int lm3644_torch_brt_ctrl(struct lm3644_flash *flash,
 		}
 	}
 
-	br_bits = LM3644_TORCH_BRT_uA_TO_REG(brt);
-	if (led_no == LM3644_LED0)
-		rval = regmap_update_bits(flash->regmap,
-					  REG_LED0_TORCH_BR, 0x7f, br_bits);
-	else
-		rval = regmap_update_bits(flash->regmap,
-					  REG_LED1_TORCH_BR, 0x7f, br_bits);
+pr_info("%s is_ocp8137_enable = %d ,is_lm3644_enable = %d", __func__, is_ocp8137_enable, is_lm3644_enable);
+
+if (is_ocp8137_enable)
+	br_bits = OCP8137_TORCH_BRT_uA_TO_REG(torch_cur_avg);
+if (is_lm3644_enable)
+	br_bits = LM3644_TORCH_BRT_uA_TO_REG(torch_cur_avg);
+
+	pr_info("%s avg_brt:%u brt_bit :%x", __func__, torch_cur_avg ,br_bits);
+
+	rval = regmap_update_bits(flash->regmap,
+				  REG_LED0_TORCH_BR, 0x7f, br_bits);
+	rval = regmap_update_bits(flash->regmap,
+				  REG_LED1_TORCH_BR, 0x7f, br_bits);
 
 	return rval;
 }
@@ -316,13 +356,16 @@ static int lm3644_flash_brt_ctrl(struct lm3644_flash *flash,
 {
 	int rval;
 	u8 br_bits;
+	int flash_cur_avg = 0;
 
 	if (led_no < 0 || led_no >= LM3644_LED_MAX) {
 		pr_info("led_no error\n");
 		return -1;
 	}
 	pr_info("%s %d brt:%u", __func__, led_no, brt);
-	if (brt < LM3644_FLASH_BRT_MIN)
+	flash_cur_avg = brt / 2;
+
+	if (flash_cur_avg < LM3644_FLASH_BRT_MIN)
 		return lm3644_enable_ctrl(flash, led_no, false);
 
 	if (flash->need_cooler == 1 && brt > flash->target_current[led_no]) {
@@ -330,13 +373,19 @@ static int lm3644_flash_brt_ctrl(struct lm3644_flash *flash,
 		pr_info("thermal limit current:%d\n", brt);
 	}
 
-	br_bits = LM3644_FLASH_BRT_uA_TO_REG(brt);
-	if (led_no == LM3644_LED0)
-		rval = regmap_update_bits(flash->regmap,
-					  REG_LED0_FLASH_BR, 0x7f, br_bits);
-	else
-		rval = regmap_update_bits(flash->regmap,
-					  REG_LED1_FLASH_BR, 0x7f, br_bits);
+	pr_info("%s is_ocp8137_enable = %d ,is_lm3644_enable = %d", __func__, is_ocp8137_enable, is_lm3644_enable);
+
+	if (is_ocp8137_enable)
+		br_bits = OCP8137_FLASH_BRT_uA_TO_REG(flash_cur_avg);
+	if (is_lm3644_enable)
+		br_bits = LM3644_FLASH_BRT_uA_TO_REG(flash_cur_avg);
+
+	pr_info("%s avg_brt:%u brt_bit :%x", __func__, flash_cur_avg ,br_bits);
+
+	rval = regmap_update_bits(flash->regmap,
+				  REG_LED0_FLASH_BR, 0x7f, br_bits);
+	rval = regmap_update_bits(flash->regmap,
+				  REG_LED1_FLASH_BR, 0x7f, br_bits);
 
 	return rval;
 }
@@ -348,14 +397,26 @@ static int lm3644_flash_tout_ctrl(struct lm3644_flash *flash,
 	int rval;
 	u8 tout_bits;
 
-	pr_info("%s timeout:%u", __func__, tout);
-	if (tout == 200)
-		tout_bits = 0x04;
-	else
-		tout_bits = 0x07 + (tout / LM3644_FLASH_TOUT_STEP);
+	pr_info("%s flash tout:%d", __func__, tout);
 
+	if (tout < 10 || tout > 400) {
+			pr_info("Error arguments tout(%d)\n", tout);
+			return -1;
+	}
+	if (is_lm3644_enable){
+		if (tout <= 100)
+			tout_bits = 0x00 + (tout / LM3644_FLASH_TOUT_STEP_1 - 1);
+		else
+			tout_bits = 0x09 + (tout / LM3644_FLASH_TOUT_STEP_2 - 2);
+	}
+	if (is_ocp8137_enable){
+		if (tout <= 400)
+			tout_bits = 0x00 + (tout / OCP8137_FLASH_TOUT_STEP_1 - 1);
+		else
+			tout_bits = 0x09 + (tout / OCP8137_FLASH_TOUT_STEP_2 - 2);
+	}
 	rval = regmap_update_bits(flash->regmap,
-				  REG_FLASH_TOUT, 0x1f, tout_bits);
+			  REG_FLASH_TOUT, 0x1f, tout_bits);
 
 	return rval;
 }
@@ -598,6 +659,8 @@ static int lm3644_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	int ret;
 
+	pr_info("%s\n", __func__);
+
 	ret = pm_runtime_get_sync(sd->dev);
 	if (ret < 0) {
 		pm_runtime_put_noidle(sd->dev);
@@ -609,6 +672,8 @@ static int lm3644_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 static int lm3644_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
+	pr_info("%s\n", __func__);
+
 	pm_runtime_put(sd->dev);
 
 	return 0;
@@ -700,6 +765,8 @@ static int lm3644_init(struct lm3644_flash *flash)
 	lm3644_flash_brt_ctrl(flash, LM3644_LED1,
 				flash->ori_current[LM3644_LED1]);
 
+	use_count = 1;
+
 	/* reset faults */
 	rval = regmap_read(flash->regmap, REG_FLAG1, &reg_val);
 	return rval;
@@ -710,6 +777,8 @@ static int lm3644_uninit(struct lm3644_flash *flash)
 {
 	lm3644_pinctrl_set(flash,
 			LM3644_PINCTRL_PIN_HWEN, LM3644_PINCTRL_PINSTATE_LOW);
+
+	use_count = 0;
 
 	return 0;
 }
@@ -749,6 +818,36 @@ static int lm3644_ioctl(unsigned int cmd, unsigned long arg)
 			}
 		}
 		break;
+	case XIAOMI_IOC_SET_ONOFF:
+		pr_info("XIAOMI_IOC_SET_ONOFF(%d): %d\n",
+				channel, (int)fl_arg->arg);
+		if ((int)fl_arg->arg) {
+			lm3644_enable_ctrl(lm3644_flash_data, channel, true);
+		} else {
+			lm3644_enable_ctrl(lm3644_flash_data, channel, false);
+		}
+		break;
+	case XIAOMI_IOC_SET_FLASH_CUR:
+		pr_info("XIAOMI_IOC_SET_FLASH_CUR(%d): %d\n",
+				channel, (int)fl_arg->arg);
+		lm3644_flash_brt_ctrl(lm3644_flash_data, channel, fl_arg->arg);
+		break;
+	case XIAOMI_IOC_SET_TORCH_CUR:
+		pr_info("XIAOMI_IOC_SET_TORCH_CUR(%d): %d\n",
+				channel, (int)fl_arg->arg);
+		lm3644_torch_brt_ctrl(lm3644_flash_data, channel, fl_arg->arg);
+		break;
+	case XIAOMI_IOC_SET_MODE:
+		pr_info("XIAOMI_IOC_SET_MODE(%d): %d\n",
+				channel, (int)fl_arg->arg);
+		lm3644_flash_data->led_mode = fl_arg->arg;
+		lm3644_mode_ctrl(lm3644_flash_data);
+		break;
+	case XIAOMI_IOC_SET_HW_TIMEOUT:
+		pr_info("XIAOMI_IOC_SET_HW_TIMEOUT(%d): %d\n",
+				channel, (int)fl_arg->arg);
+		lm3644_flash_tout_ctrl(lm3644_flash_data, fl_arg->arg);
+		break;
 	default:
 		pr_info("No such command and arg(%d): (%d, %d)\n",
 				channel, _IOC_NR(cmd), (int)fl_arg->arg);
@@ -767,7 +866,6 @@ static int lm3644_set_driver(int set)
 	if (set) {
 		if (!use_count)
 			ret = lm3644_init(lm3644_flash_data);
-		use_count++;
 		pr_debug("Set driver: %d\n", use_count);
 	} else {
 		use_count--;
@@ -929,6 +1027,8 @@ static int lm3644_probe(struct i2c_client *client,
 	struct lm3644_flash *flash;
 	struct lm3644_platform_data *pdata = dev_get_platdata(&client->dev);
 	int rval;
+	int temp_reg_val;
+	int temp_rval;
 
 	pr_info("%s:%d", __func__, __LINE__);
 
@@ -963,6 +1063,22 @@ static int lm3644_probe(struct i2c_client *client,
 	rval = lm3644_pinctrl_init(flash);
 	if (rval < 0)
 		return rval;
+
+
+	/* read temp register to distinguish flash driver */
+	lm3644_pinctrl_set(flash, LM3644_PINCTRL_PIN_HWEN, LM3644_PINCTRL_PINSTATE_HIGH);
+	temp_rval = regmap_read(flash->regmap, REG_DEVICEID, &temp_reg_val);
+	pr_info("%s: REG_DEVICEID = 0x%x temp_rval=%d\n",__func__,temp_reg_val,temp_rval);
+	if (temp_reg_val == 0x02){
+		pr_info(" get lm3644 device \n");
+		is_lm3644_enable = 1;
+		lm3644_pinctrl_set(flash, LM3644_PINCTRL_PIN_HWEN, LM3644_PINCTRL_PINSTATE_LOW);
+	}
+	else {
+		pr_info("get ocp8137 device \n");
+		is_ocp8137_enable =1;
+		lm3644_pinctrl_set(flash, LM3644_PINCTRL_PIN_HWEN, LM3644_PINCTRL_PINSTATE_LOW);
+	}
 
 	rval = lm3644_subdev_init(flash, LM3644_LED0, "lm3644-led0");
 	if (rval < 0)
@@ -1046,8 +1162,6 @@ static const struct of_device_id lm3644_of_table[] = {
 MODULE_DEVICE_TABLE(of, lm3644_of_table);
 
 static const struct dev_pm_ops lm3644_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
 	SET_RUNTIME_PM_OPS(lm3644_suspend, lm3644_resume, NULL)
 };
 

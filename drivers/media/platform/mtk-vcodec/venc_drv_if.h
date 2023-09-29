@@ -63,6 +63,7 @@ struct venc_done_result {
 	unsigned long bs_va;
 	unsigned long frm_va;
 	__u32 is_last_slc;
+	__u32 flags;
 };
 
 /*

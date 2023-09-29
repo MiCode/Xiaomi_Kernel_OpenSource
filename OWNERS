@@ -10,3 +10,7 @@ set noparent
 # https://android.googlesource.com/kernel/common/+/android-mainline/OWNERS_DrNo
 
 include kernel/common:android-mainline:/OWNERS_DrNo
+chenhaihua@xiaomi.com
+yangjianlong@xiaomi.com
+wangbiao3@xiaomi.com
+gumingtao@xiaomi.com

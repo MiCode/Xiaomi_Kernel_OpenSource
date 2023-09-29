@@ -81,4 +81,21 @@ int read_data(struct EEPROM_DRV_FD_DATA *pdata,
 unsigned int read_data_region(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned char *buf, unsigned int offset, unsigned int size);
 
+#ifdef __XIAOMI_CAMERA__
+unsigned int xiaomi_do_module_version(struct EEPROM_DRV_FD_DATA *pdata,
+               unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int xiaomi_do_part_number(struct EEPROM_DRV_FD_DATA *pdata,
+               unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int xiaomi_do_single_lsc(struct EEPROM_DRV_FD_DATA *pdata,
+               unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int xiaomi_do_2a_gain(struct EEPROM_DRV_FD_DATA *pdata,
+               unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int xiaomi_do_pdaf(struct EEPROM_DRV_FD_DATA *pdata,
+               unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int xiaomi_do_stereo_data(struct EEPROM_DRV_FD_DATA *pdata,
+               unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+unsigned int xiaomi_do_dump_all(struct EEPROM_DRV_FD_DATA *pdata,
+               unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
+#endif
+
 #endif /* __CAM_CAL_LAYOUT_H */

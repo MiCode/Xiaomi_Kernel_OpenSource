@@ -93,6 +93,7 @@ struct mtk_dvfsrc {
 	u32 vcore_range_min_uV;
 	u32 qos_mode;
 	u32 emi_mon_policy;
+	u32 gps_mask_opp0;
 	bool vchk_enable;
 };
 
