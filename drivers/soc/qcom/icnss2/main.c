@@ -2898,10 +2898,11 @@ static struct icnss_msi_config msi_config_wcn6750 = {
 };
 
 static struct icnss_msi_config msi_config_wcn6450 = {
-	.total_vectors = 12,
-	.total_users = 1,
+	.total_vectors = 14,
+	.total_users = 2,
 	.users = (struct icnss_msi_user[]) {
 		{ .name = "CE", .num_vectors = 12, .base_vector = 0 },
+		{ .name = "DP", .num_vectors = 2, .base_vector = 12 },
 	},
 };
 
