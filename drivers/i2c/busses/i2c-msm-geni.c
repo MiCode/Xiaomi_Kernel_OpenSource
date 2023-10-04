@@ -26,6 +26,9 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/slab.h>
 
+#define SE_GENI_TEST_BUS_CTRL	0x44
+#define SE_NUM_FOR_TEST_BUS	5
+
 #define SE_GENI_CFG_REG68		(0x210)
 #define SE_I2C_TX_TRANS_LEN		(0x26C)
 #define SE_I2C_RX_TRANS_LEN		(0x270)
@@ -213,6 +216,7 @@ struct geni_i2c_dev {
 	bool skip_bw_vote; /* Used for PMIC over i2c use case to skip the BW vote */
 	atomic_t is_xfer_in_progress; /* Used to maintain xfer inprogress status */
 	bool bus_recovery_enable; /* To be enabled by client if needed */
+	bool i2c_test_dev; /* Set this DT flag to enable test bus dump for an SE */
 };
 
 static struct geni_i2c_dev *gi2c_dev_dbg[MAX_SE];
@@ -412,6 +416,21 @@ static inline void qcom_geni_i2c_calc_timeout(struct geni_i2c_dev *gi2c)
 		    __func__, xfer_max_usec, gi2c->xfer_timeout);
 }
 
+/*
+ * geni_se_select_test_bus: Selects the test bus as required
+ *
+ * @gi2c_dev: Geni I2C device handle
+ * test_bus_num: Test bus number to select (1 to 16)
+ *
+ * Return: Nogeni_se_select_test_busne
+ */
+static void geni_se_select_test_bus(struct geni_i2c_dev *gi2c, u8 test_bus_num)
+{
+	I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
+		    "%s: test_bus:%d\n", __func__, test_bus_num);
+	writel_relaxed(test_bus_num, gi2c->base + SE_GENI_TEST_BUS_CTRL);
+}
+
 static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
 {
 	if (err == I2C_DATA_NACK || err == I2C_ADDR_NACK
@@ -426,6 +445,33 @@ static void geni_i2c_err(struct geni_i2c_dev *gi2c, int err)
 	geni_i2c_se_dump_dbg_regs(&gi2c->i2c_rsc, gi2c->base, gi2c->ipcl);
 err_ret:
 	gi2c->err = gi2c_log[err].err;
+}
+
+/*
+ * geni_i2c_test_bus_dump(): Dumps or reads test bus for selected SE test bus.
+ *
+ * @gi2c_i2c_dev: Handle to SE device
+ * @se_num: SE number, which start from 0.
+ *
+ * Return: None
+ *
+ * Note: This function has added extra test buses for refrences.
+ */
+static void geni_i2c_test_bus_dump(struct geni_i2c_dev *gi2c, u8 se_num)
+{
+	/* Select test bus number and test bus, then read test bus.*/
+
+	/* geni_m_comp_sig_test_bus */
+	geni_se_select_test_bus(gi2c, 8);
+	test_bus_select_per_qupv3(gi2c->wrapper_dev, se_num, gi2c->ipcl);
+	test_bus_read_per_qupv3(gi2c->wrapper_dev, gi2c->ipcl);
+
+	/* geni_m_branch_cond_1_test_bus */
+	geni_se_select_test_bus(gi2c, 5);
+	test_bus_select_per_qupv3(gi2c->wrapper_dev, se_num, gi2c->ipcl);
+	test_bus_read_per_qupv3(gi2c->wrapper_dev, gi2c->ipcl);
+
+	/* Can Add more here based on debug ask. */
 }
 
 static void do_reg68_war_for_rtl_se(struct geni_i2c_dev *gi2c)
@@ -468,6 +514,11 @@ static void do_reg68_war_for_rtl_se(struct geni_i2c_dev *gi2c)
 static int geni_i2c_stop_with_cancel(struct geni_i2c_dev *gi2c)
 {
 	int timeout = 0;
+
+	/* Issue point for e.g.: dump test bus/read test bus */
+	if (gi2c->i2c_test_dev)
+		/* For se4, its 5 as SE num starts from 0 */
+		geni_i2c_test_bus_dump(gi2c, SE_NUM_FOR_TEST_BUS);
 
 	reinit_completion(&gi2c->m_cancel_cmd);
 	geni_se_cancel_m_cmd(&gi2c->i2c_rsc);
@@ -669,7 +720,7 @@ static int geni_i2c_prepare(struct geni_i2c_dev *gi2c)
 
 		if (gi2c->pm_ctrl_client)
 			I2C_LOG_DBG(gi2c->ipcl, false, gi2c->dev,
-				    "SMP: %s: pm_runtime_get_sync bypassed\n", __func__);
+				"%s: pm_runtime_get_sync bypassed\n", __func__);
 	}
 	return 0;
 }
@@ -2143,6 +2194,114 @@ static int get_geni_se_i2c_hub(struct geni_i2c_dev *gi2c)
 }
 #endif
 
+/**
+ * geni_i2c_resources_init: initialize clk, icc vote, read dt property
+ * @pdev: Platform driver handle
+ * @gi2c: geni i2c structure as a pointer
+ *
+ * Function to initialize clock and icc vote configuration and read require
+ * DTSI property.
+ *
+ * Return: 0 on success OR negative error code for failure.
+ */
+static int geni_i2c_resources_init(struct platform_device *pdev, struct geni_i2c_dev *gi2c)
+{
+	int ret;
+
+	/*
+	 * For LE, clocks, gpio and icb voting will be provided by
+	 * LA. The I2C operates in GSI mode only for LE usecase,
+	 * se irq not required. Below properties will not be present
+	 * in I2C LE dt.
+	 */
+	if (gi2c->is_le_vm)
+		return 0;
+
+	gi2c->i2c_rsc.clk = devm_clk_get(&pdev->dev, "se-clk");
+	if (IS_ERR(gi2c->i2c_rsc.clk)) {
+		ret = PTR_ERR(gi2c->i2c_rsc.clk);
+		dev_err(&pdev->dev, "Err getting SE Core clk %d\n",
+			ret);
+		return ret;
+	}
+
+	gi2c->m_ahb_clk = devm_clk_get(gi2c->dev->parent, "m-ahb");
+	if (IS_ERR(gi2c->m_ahb_clk)) {
+		ret = PTR_ERR(gi2c->m_ahb_clk);
+		dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
+		return ret;
+	}
+
+	gi2c->s_ahb_clk = devm_clk_get(gi2c->dev->parent, "s-ahb");
+	if (IS_ERR(gi2c->s_ahb_clk)) {
+		ret = PTR_ERR(gi2c->s_ahb_clk);
+		dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
+		return ret;
+	}
+
+	gi2c->is_i2c_hub = of_property_read_bool(pdev->dev.of_node,
+						 "qcom,i2c-hub");
+
+	gi2c->is_high_perf = of_property_read_bool(pdev->dev.of_node,
+						   "qcom,high-perf");
+	/*
+	 * For I2C_HUB, qup-ddr voting not required and
+	 * core clk should be voted explicitly.
+	 */
+	if (gi2c->is_i2c_hub) {
+		gi2c->core_clk = devm_clk_get(&pdev->dev, "core-clk");
+		if (IS_ERR(gi2c->core_clk)) {
+			ret = PTR_ERR(gi2c->core_clk);
+			dev_err(&pdev->dev, "Err getting core-clk %d\n", ret);
+			return ret;
+		}
+		ret = geni_icc_get(&gi2c->i2c_rsc, NULL);
+		if (ret) {
+			dev_err(&pdev->dev, "%s: Error - geni_icc_get ret:%d\n",
+				__func__, ret);
+			return ret;
+		}
+		gi2c->i2c_rsc.icc_paths[GENI_TO_CORE].avg_bw = GENI_DEFAULT_BW;
+		gi2c->i2c_rsc.icc_paths[CPU_TO_GENI].avg_bw = GENI_DEFAULT_BW;
+
+		/* For I2C HUB, we don't have HW reg to identify RTL/SW base SE.
+		 * Hence setting flag for all I2C HUB instances.
+		 */
+		gi2c->is_i2c_rtl_based  = true;
+		dev_info(gi2c->dev, "%s: RTL based SE\n", __func__);
+	} else {
+		if (gi2c->is_high_perf)
+			ret =
+			geni_se_common_resources_init(&gi2c->i2c_rsc,
+						      I2C_CORE2X_VOTE, GENI_DEFAULT_BW,
+						      (DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
+		else
+			ret =
+			geni_se_common_resources_init(&gi2c->i2c_rsc,
+						      GENI_DEFAULT_BW, GENI_DEFAULT_BW,
+						      Bps_to_icc(gi2c->clk_freq_out));
+		if (ret) {
+			dev_err(&pdev->dev, "%s: Error - resources_init ret:%d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+
+	gi2c->irq = platform_get_irq(pdev, 0);
+	if (gi2c->irq < 0)
+		return gi2c->irq;
+
+	irq_set_status_flags(gi2c->irq, IRQ_NOAUTOEN);
+	ret = devm_request_irq(gi2c->dev, gi2c->irq, geni_i2c_irq,
+			       0, "i2c_geni", gi2c);
+	if (ret) {
+		dev_err(gi2c->dev, "Request_irq failed:%d: err:%d\n",
+			gi2c->irq, ret);
+		return ret;
+	}
+
+	return 0;
+}
 static int geni_i2c_probe(struct platform_device *pdev)
 {
 	struct geni_i2c_dev *gi2c;
@@ -2182,6 +2341,12 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,leica-used-i2c"))
 		gi2c->skip_bw_vote = true;
 
+	gi2c->i2c_test_dev = false;
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,i2c-test-dev")) {
+		gi2c->i2c_test_dev = true;
+		dev_info(&pdev->dev, "%s: This is I2C device under test\n", __func__);
+	}
+
 	gi2c->i2c_rsc.dev = dev;
 	gi2c->i2c_rsc.wrapper = dev_get_drvdata(dev->parent);
 	gi2c->i2c_rsc.base = gi2c->base;
@@ -2212,88 +2377,9 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	 * se irq not required. Below properties will not be present
 	 * in I2C LE dt.
 	 */
-	if (!gi2c->is_le_vm) {
-		gi2c->i2c_rsc.clk = devm_clk_get(&pdev->dev, "se-clk");
-		if (IS_ERR(gi2c->i2c_rsc.clk)) {
-			ret = PTR_ERR(gi2c->i2c_rsc.clk);
-			dev_err(&pdev->dev, "Err getting SE Core clk %d\n",
-				ret);
-			return ret;
-		}
-
-		gi2c->m_ahb_clk = devm_clk_get(dev->parent, "m-ahb");
-		if (IS_ERR(gi2c->m_ahb_clk)) {
-			ret = PTR_ERR(gi2c->m_ahb_clk);
-			dev_err(&pdev->dev, "Err getting M AHB clk %d\n", ret);
-			return ret;
-		}
-
-		gi2c->s_ahb_clk = devm_clk_get(dev->parent, "s-ahb");
-		if (IS_ERR(gi2c->s_ahb_clk)) {
-			ret = PTR_ERR(gi2c->s_ahb_clk);
-			dev_err(&pdev->dev, "Err getting S AHB clk %d\n", ret);
-			return ret;
-		}
-
-		gi2c->is_i2c_hub = of_property_read_bool(pdev->dev.of_node,
-					"qcom,i2c-hub");
-
-		gi2c->is_high_perf = of_property_read_bool(pdev->dev.of_node,
-					"qcom,high-perf");
-		/*
-		 * For I2C_HUB, qup-ddr voting not required and
-		 * core clk should be voted explicitly.
-		 */
-		if (gi2c->is_i2c_hub) {
-			gi2c->core_clk = devm_clk_get(&pdev->dev, "core-clk");
-			if (IS_ERR(gi2c->core_clk)) {
-				ret = PTR_ERR(gi2c->core_clk);
-				dev_err(&pdev->dev, "Err getting core-clk %d\n", ret);
-				return ret;
-			}
-			ret = geni_icc_get(&gi2c->i2c_rsc, NULL);
-			if (ret) {
-				dev_err(&pdev->dev, "%s: Error - geni_icc_get ret:%d\n",
-							__func__, ret);
-				return ret;
-			}
-			gi2c->i2c_rsc.icc_paths[GENI_TO_CORE].avg_bw = GENI_DEFAULT_BW;
-			gi2c->i2c_rsc.icc_paths[CPU_TO_GENI].avg_bw = GENI_DEFAULT_BW;
-
-			/* For I2C HUB, we don't have HW reg to identify RTL/SW base SE.
-			 * Hence setting flag for all I2C HUB instances.
-			 */
-			gi2c->is_i2c_rtl_based  = true;
-			dev_info(gi2c->dev, "%s: RTL based SE\n", __func__);
-		} else {
-			if (gi2c->is_high_perf)
-				ret = geni_se_common_resources_init(&gi2c->i2c_rsc,
-						I2C_CORE2X_VOTE, GENI_DEFAULT_BW,
-						(DEFAULT_SE_CLK * DEFAULT_BUS_WIDTH));
-			else
-				ret = geni_se_common_resources_init(&gi2c->i2c_rsc,
-						GENI_DEFAULT_BW, GENI_DEFAULT_BW,
-						Bps_to_icc(gi2c->clk_freq_out));
-			if (ret) {
-				dev_err(&pdev->dev, "%s: Error - resources_init ret:%d\n",
-							__func__, ret);
-				return ret;
-			}
-		}
-
-		gi2c->irq = platform_get_irq(pdev, 0);
-		if (gi2c->irq < 0)
-			return gi2c->irq;
-
-		irq_set_status_flags(gi2c->irq, IRQ_NOAUTOEN);
-		ret = devm_request_irq(gi2c->dev, gi2c->irq, geni_i2c_irq,
-					0, "i2c_geni", gi2c);
-		if (ret) {
-			dev_err(gi2c->dev, "Request_irq failed:%d: err:%d\n",
-					   gi2c->irq, ret);
-			return ret;
-		}
-	}
+	ret = geni_i2c_resources_init(pdev, gi2c);
+	if (ret)
+		return ret;
 
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,shared")) {
 		gi2c->is_shared = true;
@@ -2353,6 +2439,11 @@ static int geni_i2c_probe(struct platform_device *pdev)
 	}
 
 	atomic_set(&gi2c->is_xfer_in_progress, 0);
+	if (gi2c->i2c_test_dev) {
+		/* configure Test bus to dump test bus later, only once */
+		test_bus_enable_per_qupv3(gi2c->wrapper_dev, gi2c->ipcl);
+	}
+
 	dev_info(gi2c->dev, "I2C probed\n");
 	return 0;
 }

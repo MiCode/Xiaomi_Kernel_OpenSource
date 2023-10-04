@@ -10,6 +10,7 @@
 #include <linux/dma-direction.h>
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
+#include <linux/ipc_logging.h>
 
 #ifdef CONFIG_ARM64
 #define GENI_SE_DMA_PTR_L(ptr) ((u32)ptr)
@@ -18,6 +19,10 @@
 #define GENI_SE_DMA_PTR_L(ptr) ((u32)ptr)
 #define GENI_SE_DMA_PTR_H(ptr) 0
 #endif
+
+#define QUPV3_TEST_BUS_EN      0x204 //write 0x11
+#define QUPV3_TEST_BUS_SEL     0x200 //write 0x5  [for SE index 4)
+#define QUPV3_TEST_BUS_REG     0x208 //Read only reg, to be read as part of dump
 
 #define GENI_SE_ERR(log_ctx, print, dev, x...) do { \
 ipc_log_string(log_ctx, x); \
@@ -44,6 +49,7 @@ if (print) { \
 /* In KHz */
 #define DEFAULT_SE_CLK	19200
 #define SPI_CORE2X_VOTE	51000
+#define Q2SPI_CORE2X_VOTE	100000
 #define I2C_CORE2X_VOTE	50000
 #define I3C_CORE2X_VOTE	19200
 #define APPS_PROC_TO_QUP_VOTE	140000
@@ -52,9 +58,11 @@ if (print) { \
 
 #define SE_DMA_TX_PTR_L			(0xC30)
 #define SE_DMA_TX_PTR_H			(0xC34)
+#define SE_DMA_TX_ATTR			(0xC38)
 #define SE_DMA_TX_LEN                   (0xC3C)
 #define SE_DMA_TX_IRQ_EN                (0xC48)
 #define SE_DMA_TX_LEN_IN                (0xC54)
+#define GENI_SE_DMA_EOT_BUF		(BIT(0))
 
 #define SE_DMA_RX_PTR_L			(0xD30)
 #define SE_DMA_RX_PTR_H			(0xD34)
@@ -382,5 +390,64 @@ static inline void geni_se_common_get_major_minor_num(u32 hw_version,
 	*minor = (hw_version & HW_VER_MINOR_MASK) >> HW_VER_MINOR_SHFT;
 	*step = hw_version & HW_VER_STEP_MASK;
 }
+
+/*
+ * test_bus_enable_per_qupv3: enables particular test bus number.
+ * @wrapper_dev: QUPV3 common driver handle from SE driver
+ *
+ * Note: Need to call only once.
+ *
+ * Return: none
+ */
+static inline void test_bus_enable_per_qupv3(struct device *wrapper_dev, void *ipc)
+{
+	struct geni_se *geni_se_dev;
+
+	geni_se_dev = dev_get_drvdata(wrapper_dev);
+	//Enablement of test bus is required only once.
+	//TEST_BUS_EN:4, TEST_BUS_REG_EN:0
+	geni_write_reg(0x11, geni_se_dev->base, QUPV3_TEST_BUS_EN);
+	GENI_SE_ERR(ipc, false, geni_se_dev->dev,
+		    "%s: TEST_BUS_EN: 0x%x @address:0x%x\n",
+		    __func__, geni_read_reg(geni_se_dev->base, QUPV3_TEST_BUS_EN),
+		    (geni_se_dev->base + QUPV3_TEST_BUS_EN));
+}
+
+/*
+ * test_bus_select_per_qupv3: Selects the test bus as required
+ * @wrapper_dev: QUPV3 common driver handle from SE driver
+ * @test_bus_num: GENI SE number from QUPV3 core. E.g. SE0 should pass value 1.
+ *
+ * @Return: None
+ */
+static inline void test_bus_select_per_qupv3(struct device *wrapper_dev, u8 test_bus_num, void *ipc)
+{
+	struct geni_se *geni_se_dev;
+
+	geni_se_dev = dev_get_drvdata(wrapper_dev);
+
+	geni_write_reg(test_bus_num, geni_se_dev->base, QUPV3_TEST_BUS_SEL);
+	GENI_SE_ERR(ipc, false, geni_se_dev->dev,
+		    "%s: readback TEST_BUS_SEL: 0x%x @address:0x%x\n",
+		    __func__, geni_read_reg(geni_se_dev->base, QUPV3_TEST_BUS_SEL),
+		    (geni_se_dev->base + QUPV3_TEST_BUS_SEL));
+}
+
+/*
+ * test_bus_read_per_qupv3: Selects the test bus as required
+ * @wrapper_dev: QUPV3 common driver handle from SE driver
+ *
+ * Return: None
+ */
+static inline void test_bus_read_per_qupv3(struct device *wrapper_dev, void *ipc)
+{
+	struct geni_se *geni_se_dev;
+
+	geni_se_dev = dev_get_drvdata(wrapper_dev);
+	GENI_SE_ERR(ipc, false, geni_se_dev->dev,
+		    "%s: dump QUPV3_TEST_BUS_REG:0x%x\n",
+		    __func__, geni_read_reg(geni_se_dev->base, QUPV3_TEST_BUS_REG));
+}
+
 #endif
 

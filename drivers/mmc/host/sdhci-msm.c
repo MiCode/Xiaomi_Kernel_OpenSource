@@ -30,6 +30,10 @@
 #include <linux/ipc_logging.h>
 #include <linux/pinctrl/qcom-pinctrl.h>
 
+#include <trace/hooks/mmc.h>
+#include "../core/mmc_ops.h"
+#include "../core/host.h"
+#include "../core/core.h"
 #include "sdhci-pltfm.h"
 #include "cqhci.h"
 #include "../core/core.h"
@@ -37,6 +41,11 @@
 #if IS_ENABLED(CONFIG_MMC_CRYPTO_QTI)
 #include <linux/crypto-qti-common.h>
 #endif
+
+#if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
+#include "sdhci-msm-scaling.h"
+#endif
+#include "sdhci-msm.h"
 
 #define CORE_MCI_VERSION		0x50
 #define CORE_VERSION_MAJOR_SHIFT	28
@@ -210,39 +219,6 @@
 
 #define SDHCI_CMD_FLAGS_MASK	0xff
 
-struct sdhci_msm_offset {
-	u32 core_hc_mode;
-	u32 core_mci_data_cnt;
-	u32 core_mci_status;
-	u32 core_mci_fifo_cnt;
-	u32 core_mci_version;
-	u32 core_generics;
-	u32 core_testbus_config;
-	u32 core_testbus_sel2_bit;
-	u32 core_testbus_ena;
-	u32 core_testbus_sel2;
-	u32 core_pwrctl_status;
-	u32 core_pwrctl_mask;
-	u32 core_pwrctl_clear;
-	u32 core_pwrctl_ctl;
-	u32 core_sdcc_debug_reg;
-	u32 core_dll_config;
-	u32 core_dll_status;
-	u32 core_vendor_spec;
-	u32 core_vendor_spec_adma_err_addr0;
-	u32 core_vendor_spec_adma_err_addr1;
-	u32 core_vendor_spec_func2;
-	u32 core_vendor_spec_capabilities0;
-	u32 core_vendor_spec_capabilities1;
-	u32 core_ddr_200_cfg;
-	u32 core_vendor_spec3;
-	u32 core_dll_config_2;
-	u32 core_dll_config_3;
-	u32 core_ddr_config_old; /* Applicable to sdcc minor ver < 0x49 */
-	u32 core_ddr_config;
-	u32 core_dll_usr_ctl; /* Present on SDCC5.1 onwards */
-};
-
 static const struct sdhci_msm_offset sdhci_msm_v5_offset = {
 	.core_mci_data_cnt = 0x35c,
 	.core_mci_status = 0x324,
@@ -305,12 +281,6 @@ static const struct sdhci_msm_offset sdhci_msm_mci_offset = {
 	.core_ddr_config = 0x1bc,
 };
 
-struct sdhci_msm_variant_ops {
-	u32 (*msm_readl_relaxed)(struct sdhci_host *host, u32 offset);
-	void (*msm_writel_relaxed)(u32 val, struct sdhci_host *host,
-			u32 offset);
-};
-
 /*
  * From V5, register spaces have changed. Wrap this info in a structure
  * and choose the data_structure based on version info mentioned in DT.
@@ -357,33 +327,6 @@ struct sdhci_msm_dll_hsr {
 	u32 dll_config_3;
 	u32 dll_usr_ctl;
 	u32 ddr_config;
-};
-
-struct cqe_regs_restore {
-	u32 cqe_vendor_cfg1;
-};
-
-struct sdhci_msm_regs_restore {
-	bool is_supported;
-	bool is_valid;
-	u32 vendor_pwrctl_mask;
-	u32 vendor_pwrctl_ctl;
-	u32 vendor_caps_0;
-	u32 vendor_func;
-	u32 vendor_func2;
-	u32 vendor_func3;
-	u32 hc_2c_2e;
-	u32 hc_28_2a;
-	u32 hc_34_36;
-	u32 hc_38_3a;
-	u32 hc_3c_3e;
-	u32 hc_caps_1;
-	u32 testbus_config;
-	u32 dll_config;
-	u32 dll_config2;
-	u32 dll_config3;
-	u32 dll_usr_ctl;
-	u32 ext_fb_clk;
 };
 
 enum vdd_io_level {
@@ -459,81 +402,6 @@ enum constraint {
 	QOS_PERF,
 	QOS_POWER,
 	QOS_MAX,
-};
-
-struct sdhci_msm_host {
-	struct platform_device *pdev;
-	void __iomem *core_mem;	/* MSM SDCC mapped address */
-#ifdef CONFIG_MMC_CRYPTO
-	void __iomem *ice_mem;	/* MSM ICE mapped address (if available) */
-#endif
-#if (IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER) || IS_ENABLED(CONFIG_QTI_HW_KEY_MANAGER_V1))
-	void __iomem *ice_hwkm_mem;
-#endif
-	int pwr_irq;		/* power irq */
-	struct clk *bus_clk;	/* SDHC bus voter clock */
-	struct clk *xo_clk;	/* TCXO clk needed for FLL feature of cm_dll*/
-	/* core, iface, ice, cal, sleep clocks */
-	struct clk_bulk_data bulk_clks[5];
-	unsigned long clk_rate;
-	struct sdhci_msm_vreg_data *vreg_data;
-	struct mmc_host *mmc;
-	int opp_token;
-	bool has_opp_table;
-	struct cqhci_host *cq_host;
-	bool use_14lpp_dll_reset;
-	bool tuning_done;
-	bool calibration_done;
-	u8 saved_tuning_phase;
-	bool use_cdclp533;
-	u32 curr_pwr_state;
-	u32 curr_io_level;
-	wait_queue_head_t pwr_irq_wait;
-	bool pwr_irq_flag;
-	u32 caps_0;
-	bool mci_removed;
-	bool restore_dll_config;
-	const struct sdhci_msm_variant_ops *var_ops;
-	const struct sdhci_msm_offset *offset;
-	bool use_cdr;
-	u32 transfer_mode;
-	bool updated_ddr_cfg;
-	bool skip_bus_bw_voting;
-	struct sdhci_msm_bus_vote_data *bus_vote_data;
-	struct delayed_work bus_vote_work;
-	struct delayed_work clk_gating_work;
-	struct workqueue_struct *workq;	/* QoS work queue */
-	struct sdhci_msm_qos_req *sdhci_qos;
-	struct irq_affinity_notify affinity_notify;
-	struct device_attribute clk_gating;
-	struct device_attribute pm_qos;
-	u32 clk_gating_delay;
-	u32 pm_qos_delay;
-	bool cqhci_offset_changed;
-	bool reg_store;
-	bool vbias_skip_wa;
-	struct reset_control *core_reset;
-	bool pltfm_init_done;
-	bool fake_core_3_0v_support;
-	bool use_7nm_dll;
-	struct sdhci_msm_dll_hsr *dll_hsr;
-	struct sdhci_msm_regs_restore regs_restore;
-	struct cqe_regs_restore cqe_regs;
-	u32 *sup_ice_clk_table;
-	unsigned char sup_ice_clk_cnt;
-	u32 ice_clk_max;
-	u32 ice_clk_min;
-	u32 ice_clk_rate;
-	bool uses_tassadar_dll;
-	bool uses_level_shifter;
-	bool dll_lock_bist_fail_wa;
-	u32 dll_config;
-	u32 ddr_config;
-	u16 last_cmd;
-	bool vqmmc_enabled;
-	void *sdhci_msm_ipc_log_ctx;
-	bool dbg_en;
-	bool enable_ext_fb_clk;
 };
 
 static struct sdhci_msm_host *sdhci_slot[2];
@@ -1013,8 +881,6 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 				| CORE_LOW_FREQ_MODE), host->ioaddr +
 				msm_offset->core_dll_config_2);
 		}
-		/* wait for 5us before enabling DLL clock */
-		udelay(5);
 	}
 
 	/*
@@ -1026,18 +892,6 @@ static int msm_init_cm_dll(struct sdhci_host *host,
 			msm_offset->core_dll_config) |
 			(msm_host->dll_hsr->dll_config & 0xffff)),
 			host->ioaddr + msm_offset->core_dll_config);
-	}
-
-	/*
-	 * Configure DLL user control register to enable DLL status.
-	 * This setting is applicable to SDCC v5.1 onwards only.
-	 */
-	if (msm_host->uses_tassadar_dll) {
-		u32 config;
-		config = DLL_USR_CTL_POR_VAL | FINE_TUNE_MODE_EN |
-			ENABLE_DLL_LOCK_STATUS | BIAS_OK_SIGNAL;
-		writel_relaxed(config, host->ioaddr +
-				msm_offset->core_dll_usr_ctl);
 	}
 
 	/* Step 11 - Wait for 52us */
@@ -2024,6 +1878,10 @@ static bool sdhci_msm_populate_pdata(struct device *dev,
 		of_property_read_bool(np, "qcom,vbias-skip-wa");
 
 	sdhci_msm_parse_reset_data(dev, msm_host);
+
+#if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
+	sdhci_msm_scale_parse_dt(dev, msm_host);
+#endif
 
 	return false;
 out:
@@ -3319,6 +3177,9 @@ static int sdhci_msm_cqe_add_host(struct sdhci_host *host,
 	}
 
 	msm_host->mmc->caps2 |= MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD;
+#if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
+	msm_host->scale_caps |= MMC_CAP2_CLK_SCALE;
+#endif
 	cq_host->ops = &sdhci_msm_cqhci_ops;
 	msm_host->cq_host = cq_host;
 	cq_host->offset_changed = msm_host->cqhci_offset_changed;
@@ -4243,6 +4104,18 @@ static const struct sdhci_ops sdhci_msm_ops = {
 	.set_timeout = sdhci_msm_set_timeout,
 };
 
+#if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
+void sdhci_msm_disable_scaling(struct mmc_host *mhost)
+{
+	struct sdhci_host *shost = mmc_priv(mhost);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(shost);
+	struct sdhci_msm_host *host = sdhci_pltfm_priv(pltfm_host);
+
+	sdhci_msm_mmc_suspend_clk_scaling(mhost);
+	host->scaling_suspended = 1;
+}
+#endif
+
 static const struct sdhci_pltfm_data sdhci_msm_pdata = {
 	.quirks = SDHCI_QUIRK_BROKEN_CARD_DETECTION |
 		  SDHCI_QUIRK_SINGLE_POWER_WRITE |
@@ -4325,6 +4198,218 @@ static inline void sdhci_msm_get_of_property(struct platform_device *pdev,
 		msm_host->ddr_config = DDR_CONFIG_POR_VAL;
 
 	of_property_read_u32(node, "qcom,dll-config", &msm_host->dll_config);
+}
+
+static int mmc_sleep_busy_cb(void *cb_data, bool *busy)
+{
+	struct mmc_host *host = cb_data;
+	*busy = host->ops->card_busy(host);
+	return 0;
+}
+static int mmc_sleepawake(struct mmc_host *host)
+{
+	struct mmc_command cmd = {};
+	struct mmc_card *card = host->card;
+	unsigned int timeout_ms = DIV_ROUND_UP(card->ext_csd.sa_timeout, 10000);
+	bool use_r1b_resp;
+	int err;
+
+	/* Re-tuning can't be done once the card is deselected */
+	mmc_retune_hold(host);
+
+	cmd.opcode = MMC_SLEEP_AWAKE;
+	cmd.arg = card->rca << 16;
+	use_r1b_resp = mmc_prepare_busy_cmd(host, &cmd, timeout_ms);
+
+	err = mmc_wait_for_cmd(host, &cmd, 0);
+	if (err)
+		goto out_release;
+
+	/*
+	 * If the host does not wait while the card signals busy, then we can
+	 * try to poll, but only if the host supports HW polling, as the
+	 * SEND_STATUS cmd is not allowed. If we can't poll, then we simply need
+	 * to wait the sleep/awake timeout.
+	 */
+	if (host->caps & MMC_CAP_WAIT_WHILE_BUSY && use_r1b_resp) {
+		err = mmc_select_card(card);
+		goto out_release;
+	}
+
+	if (!host->ops->card_busy) {
+		mmc_delay(timeout_ms);
+		goto out_release;
+	}
+
+	err = __mmc_poll_for_busy(host, 0, timeout_ms, &mmc_sleep_busy_cb, host);
+
+out_release:
+	mmc_retune_release(host);
+	return err;
+}
+
+static int mmc_test_awake_ext_csd(struct mmc_host *mmc)
+{
+	int err;
+	u8 *ext_csd;
+	struct mmc_card *card = mmc->card;
+	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	err = mmc_get_ext_csd(card, &ext_csd);
+	if (err) {
+		pr_err("%s: %s: mmc_get_ext_csd failed (%d)\n",
+			mmc_hostname(mmc), __func__, err);
+		return err;
+	}
+
+	/* only compare read/write fields that the sw changes */
+	pr_debug("%s: %s: type(cached:current) cmdq(%d:%d) cache_ctrl(%d:%d) bus_width (%d:%d) timing(%d:%d)\n",
+		mmc_hostname(mmc), __func__,
+		msm_host->raw_ext_csd_cmdq,
+		ext_csd[EXT_CSD_CMDQ_MODE_EN],
+		msm_host->raw_ext_csd_cache_ctrl,
+		ext_csd[EXT_CSD_CACHE_CTRL],
+		msm_host->raw_ext_csd_bus_width,
+		ext_csd[EXT_CSD_BUS_WIDTH],
+		msm_host->raw_ext_csd_hs_timing,
+		ext_csd[EXT_CSD_HS_TIMING]);
+
+	err = !((msm_host->raw_ext_csd_cmdq ==
+			ext_csd[EXT_CSD_CMDQ_MODE_EN]) &&
+		(msm_host->raw_ext_csd_cache_ctrl ==
+			ext_csd[EXT_CSD_CACHE_CTRL]) &&
+		(msm_host->raw_ext_csd_bus_width ==
+			ext_csd[EXT_CSD_BUS_WIDTH]) &&
+		(msm_host->raw_ext_csd_hs_timing ==
+			ext_csd[EXT_CSD_HS_TIMING]));
+
+	kfree(ext_csd);
+
+	return err;
+}
+static int mmc_cache_card_ext_csd(struct mmc_host *mmc)
+{
+	int err;
+	u8 *ext_csd;
+	struct mmc_card *card = mmc->card;
+	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	err = mmc_get_ext_csd(card, &ext_csd);
+	if (err || !ext_csd) {
+		pr_err("%s: %s: mmc_get_ext_csd failed (%d)\n",
+			mmc_hostname(mmc), __func__, err);
+		return err;
+	}
+
+	/* only cache read/write fields that the sw changes */
+	msm_host->raw_ext_csd_cmdq = ext_csd[EXT_CSD_CMDQ_MODE_EN];
+	msm_host->raw_ext_csd_cache_ctrl = ext_csd[EXT_CSD_CACHE_CTRL];
+	msm_host->raw_ext_csd_bus_width = ext_csd[EXT_CSD_BUS_WIDTH];
+	msm_host->raw_ext_csd_hs_timing = ext_csd[EXT_CSD_HS_TIMING];
+
+	kfree(ext_csd);
+
+	return 0;
+}
+
+static int _mmc_partial_init(struct mmc_host *mmc)
+{
+	int err = 0;
+	struct mmc_card *card = mmc->card;
+	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	mmc_set_bus_width(mmc, msm_host->cached_ios.bus_width);
+	mmc_set_timing(mmc, msm_host->cached_ios.timing);
+	if (msm_host->cached_ios.enhanced_strobe) {
+		mmc->ios.enhanced_strobe = true;
+		if (mmc->ops->hs400_enhanced_strobe)
+			mmc->ops->hs400_enhanced_strobe(mmc, &mmc->ios);
+	}
+	mmc_set_clock(mmc, msm_host->cached_ios.clock);
+	mmc_set_bus_mode(mmc, msm_host->cached_ios.bus_mode);
+
+	if (!mmc_card_hs400es(card) &&
+			(mmc_card_hs200(card) || mmc_card_hs400(card))) {
+		err = mmc_execute_tuning(card);
+		if (err) {
+			pr_err("%s: tuning execution failed: %d\n",
+				mmc_hostname(mmc), err);
+			goto out;
+		}
+	}
+
+	/*
+	 * The ext_csd is read to make sure the card did not went through
+	 * Power-failure during sleep period.
+	 * A subset of the W/E_P, W/C_P register will be tested. In case
+	 * these registers values are different from the values that were
+	 * cached during suspend, we will conclude that a Power-failure occurred
+	 * and will do full initialization sequence.
+	 */
+	err = mmc_test_awake_ext_csd(mmc);
+	if (err) {
+		pr_debug("%s: %s: fail on ext_csd read (%d)\n",
+			mmc_hostname(mmc), __func__, err);
+	}
+out:
+	return err;
+}
+
+static void mmc_cache_card(struct mmc_host *mmc)
+{
+
+	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = sdhci_pltfm_priv(pltfm_host);
+
+	memcpy(&msm_host->cached_ios, &mmc->ios, sizeof(msm_host->cached_ios));
+	mmc_cache_card_ext_csd(mmc);
+}
+
+static int mmc_can_sleep(struct mmc_card *card)
+{
+	return card->ext_csd.rev >= 3;
+}
+
+static int mmc_partial_init(struct mmc_host *mmc)
+{
+	int err = 0;
+
+	if (mmc_can_sleep(mmc->card)) {
+		err = mmc_sleepawake(mmc);
+		if (!err)
+			err = _mmc_partial_init(mmc);
+	}
+	return err;
+}
+
+static void sdhci_msm_mmc_suspend(void *unused, struct mmc_host *mmc)
+{
+	mmc_cache_card(mmc);
+
+#if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
+	sdhci_msm_disable_scaling(mmc);
+#endif
+}
+
+static void sdhci_msm_mmc_resume(void *unused, struct mmc_host *mmc, bool *resume_success)
+{
+	int err;
+
+	err = mmc_partial_init(mmc);
+	if (err)
+		*resume_success = false;
+	else
+		*resume_success = true;
+#if IS_ENABLED(CONFIG_MMC_SDHCI_MSM_SCALING)
+	sdhci_msm_cqe_scaling_resume(mmc);
+#endif
 }
 
 static void sdhci_msm_clkgate_bus_delayed_work(struct work_struct *work)
@@ -5364,6 +5449,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);
 
+	if (host->mmc->caps & MMC_CAP_NONREMOVABLE) {
+		register_trace_android_rvh_mmc_suspend(sdhci_msm_mmc_suspend, NULL);
+		register_trace_android_rvh_mmc_resume(sdhci_msm_mmc_resume, NULL);
+	}
 	return 0;
 
 pm_runtime_disable:
