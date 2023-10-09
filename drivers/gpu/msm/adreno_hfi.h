@@ -366,10 +366,13 @@ struct hfi_queue_header {
 #define HFI_V1_MSG_POST 1 /* V1 only */
 #define HFI_V1_MSG_ACK 2/* V1 only */
 
-/* Size is converted from Bytes to DWords */
-#define CREATE_MSG_HDR(id, size, type) \
-	(((type) << 16) | ((((size) >> 2) & 0xFF) << 8) | ((id) & 0xFF))
-#define ACK_MSG_HDR(id, size) CREATE_MSG_HDR(id, size, HFI_MSG_ACK)
+#define MSG_HDR_SET_SIZE(hdr, size) \
+	(((size & 0xFF) << 8) | hdr)
+
+#define CREATE_MSG_HDR(id, type) \
+	(((type) << 16) | ((id) & 0xFF))
+
+#define ACK_MSG_HDR(id) CREATE_MSG_HDR(id, HFI_MSG_ACK)
 
 #define HFI_QUEUE_DEFAULT_CNT 3
 #define HFI_QUEUE_DISPATCH_MAX_CNT 14
@@ -395,11 +398,13 @@ struct hfi_queue_table {
 #define MSG_HDR_GET_TYPE(hdr) (((hdr) >> 16) & 0xF)
 #define MSG_HDR_GET_SEQNUM(hdr) (((hdr) >> 20) & 0xFFF)
 
-#define HDR_CMP_SEQNUM(out_hdr, in_hdr) \
-	(MSG_HDR_GET_SEQNUM(out_hdr) == MSG_HDR_GET_SEQNUM(in_hdr))
+#define CMP_HFI_ACK_HDR(sent, rcvd) (sent == rcvd)
 
 #define MSG_HDR_SET_SEQNUM(hdr, num) \
 	(((hdr) & 0xFFFFF) | ((num) << 20))
+
+#define MSG_HDR_SET_SEQNUM_SIZE(hdr, seqnum, sizedwords) \
+	(FIELD_PREP(GENMASK(31, 20), seqnum) | FIELD_PREP(GENMASK(15, 8), sizedwords) | hdr)
 
 #define QUEUE_HDR_TYPE(id, prio, rtype, stype) \
 	(((id) & 0xFF) | (((prio) & 0xFF) << 8) | \
@@ -891,7 +896,7 @@ static inline int _CMD_MSG_HDR(u32 *hdr, int id, size_t size)
 	if (WARN_ON(size > HFI_MAX_MSG_SIZE))
 		return -EMSGSIZE;
 
-	*hdr = CREATE_MSG_HDR(id, size, HFI_MSG_CMD);
+	*hdr = CREATE_MSG_HDR(id, HFI_MSG_CMD);
 	return 0;
 }
 

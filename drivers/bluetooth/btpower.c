@@ -1455,6 +1455,7 @@ int btpower_aop_mbox_init(struct btpower_platform_data *pdata)
 {
 	struct mbox_client *mbox = &pdata->mbox_client_data;
 	struct mbox_chan *chan;
+	struct bt_power_vreg_data *vreg_ipa_info;
 	int ret = 0;
 
 	mbox->dev = &pdata->pdev->dev;
@@ -1475,9 +1476,34 @@ int btpower_aop_mbox_init(struct btpower_platform_data *pdata)
 				      &pdata->vreg_ipa);
 	if (ret)
 		pr_info("%s: vreg for iPA not configured\n", __func__);
-	else
+	else {
 		pr_info("%s: Mbox channel initialized\n", __func__);
+		vreg_ipa_info = devm_kzalloc(&pdata->pdev->dev,
+					sizeof(*vreg_ipa_info),
+					GFP_KERNEL);
+		if (!vreg_ipa_info)
+			return -ENOMEM;
 
+		vreg_ipa_info->name = devm_kzalloc(&pdata->pdev->dev,
+						20,
+						GFP_KERNEL);
+		if (!vreg_ipa_info->name)
+			return -ENOMEM;
+
+		strlcpy((char *)vreg_ipa_info->name, "qcom,vreg_ipa", MAX_PROP_SIZE);
+		vreg_ipa_info->min_vol = 0;
+		vreg_ipa_info->max_vol = 0;
+		vreg_ipa_info->load_curr = 0;
+		ret = bt_dt_parse_vreg_info(&pdata->pdev->dev, vreg_ipa_info);
+		if (!ret && vreg_ipa_info->reg) {
+			pr_info("%s: obtained IPA reg handler\n", __func__);
+			pdata->vreg_ipa_info = vreg_ipa_info;
+		} else {
+			pr_warn("%s: failed to obtain IPA reg handler\n",
+				__func__);
+		}
+		return ret;
+	}
 	return 0;
 }
 
@@ -1490,6 +1516,7 @@ static int btpower_aop_set_vreg_param(struct btpower_platform_data *pdata,
 	char mbox_msg[BTPOWER_MBOX_MSG_MAX_LEN];
 	static const char * const vreg_param_str[] = {"v", "m", "e"};
 	static const char *const tcs_seq_str[] = {"upval", "dwnval", "enable"};
+	struct bt_power_vreg_data *vreg_ipa_info = pdata->vreg_ipa_info;
 	int ret = 0;
 
 	if (param > BTPOWER_VREG_ENABLE || seq > BTPOWER_TCS_ALL_SEQ || !vreg_name)
@@ -1508,6 +1535,16 @@ static int btpower_aop_set_vreg_param(struct btpower_platform_data *pdata,
 		pr_err("%s:Failed to send AOP mbox msg(%s), err(%d)\n",
 					__func__, mbox_msg, ret);
 
+	if (!vreg_ipa_info) {
+		pr_warn("%s: IPA regulator entry is missing in dts\n", __func__);
+		return -EINVAL;
+	}
+
+	if (vreg_ipa_info->reg) {
+		ret = bt_vreg_enable(vreg_ipa_info);
+		if (ret < 0)
+			pr_err("%s: Failed to enable IPA vreg\n", __func__);
+	}
 	return ret;
 }
 

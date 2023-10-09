@@ -628,7 +628,7 @@ static int gen7_gmu_hfi_start_msg(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	return gen7_hfi_send_generic_req(adreno_dev, &req);
+	return gen7_hfi_send_generic_req(adreno_dev, &req, sizeof(req));
 }
 
 static int gen7_complete_rpmh_votes(struct gen7_gmu_device *gmu,
@@ -1442,7 +1442,7 @@ static int gen7_gmu_notify_slumber(struct adreno_device *adreno_dev)
 	if (ret)
 		return ret;
 
-	ret = gen7_hfi_send_generic_req(adreno_dev, &req);
+	ret = gen7_hfi_send_generic_req(adreno_dev, &req, sizeof(req));
 
 	/* Make sure the fence is in ALLOW mode */
 	gmu_core_regwrite(device, GEN7_GMU_AO_AHB_FENCE_CTRL, 0);
@@ -1505,7 +1505,7 @@ static int gen7_gmu_dcvs_set(struct adreno_device *adreno_dev,
 	if (ret)
 		return ret;
 
-	ret = gen7_hfi_send_generic_req(adreno_dev, &req);
+	ret = gen7_hfi_send_generic_req(adreno_dev, &req, sizeof(req));
 	if (ret) {
 		dev_err_ratelimited(&gmu->pdev->dev,
 			"Failed to set GPU perf idx %d, bw idx %d\n",
@@ -2115,7 +2115,7 @@ static void gen7_gmu_acd_probe(struct kgsl_device *device,
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_ACD))
 		return;
 
-	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ACD_TBL, sizeof(*cmd), HFI_MSG_CMD);
+	cmd->hdr = CREATE_MSG_HDR(H2F_MSG_ACD_TBL, HFI_MSG_CMD);
 
 	cmd->version = 1;
 	cmd->stride = 1;
