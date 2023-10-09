@@ -3158,6 +3158,7 @@
   strchrnul
   strcmp
   strcpy
+  strcspn
   stream_open
   strim
   string_get_size
@@ -3268,6 +3269,7 @@
   topology_update_thermal_pressure
   _totalram_pages
   _trace_android_vh_record_pcpu_rwsem_starttime
+  _trace_android_vh_record_pcpu_rwsem_time_early
   trace_array_put
   __trace_bprintk
   trace_clock_local
@@ -3986,6 +3988,7 @@
   wait_for_completion_interruptible_timeout
   wait_for_completion_killable
   wait_for_completion_timeout
+  wait_for_device_probe
   __wait_rcu_gp
   wait_woken
   __wake_up
