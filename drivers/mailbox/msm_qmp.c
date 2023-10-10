@@ -855,7 +855,7 @@ static int qmp_shim_send_data(struct mbox_chan *chan, void *data)
 	defer_pkt->size = pkt->size;
 	memcpy(defer_pkt->data, pkt->data, pkt->size);
 	QMP_INFO(mdev->ilc, "scheduling worker to send msg:%s\n", pkt->data);
-	schedule_work(&mbox->tx_work);
+	queue_work(system_highpri_wq, &mbox->tx_work);
 	spin_unlock_irqrestore(&mbox->tx_lock, flags);
 	return 0;
 }
