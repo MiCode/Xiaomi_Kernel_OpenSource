@@ -7,8 +7,12 @@
 #define _QCOM_BWPROF_H
 
 #define HW_HZ				19200000
-#define HW_SAMPLE_MS			50
-#define HW_SAMPLE_TICKS			mult_frac(HW_SAMPLE_MS, HW_HZ, \
+#define DEFAULT_SAMPLE_MS			50U
+#define BYTE_COUNT_MASK			0xFFFF
+#define BYTE_COUNT_SHIFT			16
+#define CNTR_RESET_TIMER_HEADROOM		14
+#define MAX_HW_SAMPLE_MS			54U
+#define MAX_HW_SAMPLE_TICKS			mult_frac(MAX_HW_SAMPLE_MS, HW_HZ, \
 							MSEC_PER_SEC)
 
 #define BWMON_EN(m)			((m)->base + 0x10)

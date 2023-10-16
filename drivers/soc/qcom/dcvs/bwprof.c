@@ -15,6 +15,7 @@
 #include <linux/ktime.h>
 #include "bwprof.h"
 #include "trace-dcvs.h"
+#include <linux/slab.h>
 
 static LIST_HEAD(bwprof_list);
 static DEFINE_MUTEX(bwprof_lock);
@@ -25,6 +26,11 @@ enum bwprof_type {
 	NUM_BWPROF_TYPES
 };
 
+enum read_mode {
+	ZONE_CNT_READ,
+	BYTE_CNT_READ
+};
+
 struct bwprof_spec {
 	enum bwprof_type type;
 };
@@ -33,18 +39,24 @@ struct bwprof_sample {
 	ktime_t			ts;
 	u32			meas_mbps;
 	u32			max_mbps;
-	u32			mem_freq;
-};
+	u16			mem_freq;
+} __packed;
 
 struct bwmon_node {
+	bool			enabled;
+	u16			prev_count;
+	u16			unread_samples;
+	u16			iterator;
+	int			timer_count;
+	u64			curr_sample_bytes;
+	ktime_t			last_sample_ts;
+	ktime_t			curr_sample_ts;
+	const char		*client;
+	void __iomem		*base;
 	struct device		*dev;
 	struct kobject		kobj;
-	void __iomem		*base;
+	struct bwprof_sample	*buffer_data;
 	struct list_head	list;
-	bool			enabled;
-	struct bwprof_sample	last_sample;
-	u64			curr_sample_bytes;
-	const char		*client;
 };
 
 struct bwprof_dev_data {
@@ -56,6 +68,12 @@ struct bwprof_dev_data {
 	u32			sample_ms;
 	u32			sample_cnt;
 	struct hrtimer		bwprof_hrtimer;
+	u32			sw_sample_ms;
+	u32			hw_sample_ticks;
+	u16			max_samples;
+	u16			size_of_line;
+	u16			read_mode;
+	u16			reset_count;
 	u32			mon_count;
 	u32			bus_width;
 };
@@ -85,7 +103,7 @@ struct qcom_bwprof_attr _name =						\
 __ATTR(_name, 0444, show_##_name, NULL)					\
 
 
-#define SAMPLE_MIN_MS	100U
+#define SAMPLE_MIN_MS	1U
 #define SAMPLE_MAX_MS	2000U
 static ssize_t store_sample_ms(struct kobject *kobj,
 			struct attribute *attr, const char *buf,
@@ -100,9 +118,23 @@ static ssize_t store_sample_ms(struct kobject *kobj,
 
 	val = max(val, SAMPLE_MIN_MS);
 	val = min(val, SAMPLE_MAX_MS);
-
+	mutex_lock(&bwprof_lock);
 	bwprof_data->sample_ms = val;
-
+	/*sample_ms greater than DEFAULT_SAMPLE_MS supported in multiple of DEFAULT_SAMPLE_MS*/
+	if (bwprof_data->sample_ms > DEFAULT_SAMPLE_MS)
+		bwprof_data->sample_ms = roundup(bwprof_data->sample_ms, DEFAULT_SAMPLE_MS);
+	bwprof_data->sw_sample_ms = min(bwprof_data->sample_ms, DEFAULT_SAMPLE_MS);
+	if (bwprof_data->sample_ms <= (MAX_HW_SAMPLE_MS - CNTR_RESET_TIMER_HEADROOM)) {
+		bwprof_data->hw_sample_ticks = MAX_HW_SAMPLE_TICKS;
+		bwprof_data->read_mode = BYTE_CNT_READ;
+	} else {
+		bwprof_data->hw_sample_ticks = mult_frac(bwprof_data->sw_sample_ms,
+					HW_HZ, MSEC_PER_SEC);
+		bwprof_data->read_mode = ZONE_CNT_READ;
+	}
+	bwprof_data->reset_count = (MAX_HW_SAMPLE_MS - CNTR_RESET_TIMER_HEADROOM) /
+			bwprof_data->sample_ms;
+	mutex_unlock(&bwprof_lock);
 	return count;
 }
 
@@ -149,11 +181,29 @@ static ssize_t show_mon_enabled(struct kobject *kobj,
 static ssize_t show_last_sample(struct kobject *kobj,
 			struct attribute *attr, char *buf)
 {
+	int size = 0, i = 0, index = 0;
 	struct bwmon_node *bw_node = to_bwmon_node(kobj);
-	struct bwprof_sample *sample = &bw_node->last_sample;
 
-	return scnprintf(buf, PAGE_SIZE, "%llu\t%u\t%u\t%u\n",
-			sample->ts, sample->meas_mbps, sample->max_mbps, sample->mem_freq);
+	mutex_lock(&bwprof_lock);
+	index = (bw_node->iterator - bw_node->unread_samples +
+				bwprof_data->max_samples) % bwprof_data->max_samples;
+	if (bw_node->enabled) {
+		for (i = 0; i < bw_node->unread_samples; i++) {
+			size += scnprintf(buf + size, PAGE_SIZE - size,
+			"%llx\t%x\t%x\t%x\n", bw_node->buffer_data[index].ts,
+			bw_node->buffer_data[index].meas_mbps,
+			bw_node->buffer_data[index].max_mbps,
+			bw_node->buffer_data[index].mem_freq);
+			index = (index + 1) % bwprof_data->max_samples;
+		}
+	} else {
+
+		dev_err(bw_node->dev, "mon is not enabled.\n");
+		size = 0;
+	}
+	bw_node->unread_samples = 0;
+	mutex_unlock(&bwprof_lock);
+	return size;
 }
 
 static ssize_t show_client(struct kobject *kobj,
@@ -247,7 +297,7 @@ static inline void bwmon_node_clear(struct bwmon_node *bw_node, bool clear_all)
 	 */
 	wmb();
 	writel_relaxed(0, BWMON_CLEAR(bw_node));
-	writel_relaxed(HW_SAMPLE_TICKS, BWMON_SW(bw_node));
+	writel_relaxed(bwprof_data->hw_sample_ticks, BWMON_SW(bw_node));
 }
 
 #define ZONE_THRES_LIM		0xFFFF
@@ -255,24 +305,26 @@ static inline void bwmon_node_clear(struct bwmon_node *bw_node, bool clear_all)
 static void configure_bwmon_node(struct bwmon_node *bw_node)
 {
 	bwmon_node_pause(bw_node);
-	bwmon_node_clear(bw_node, false);
+	bwmon_node_clear(bw_node, true);
 
 	writel_relaxed(ZONE_THRES_LIM, BWMON_THRES_HI(bw_node));
 	writel_relaxed(ZONE_THRES_LIM, BWMON_THRES_MED(bw_node));
 	writel_relaxed(0, BWMON_THRES_LO(bw_node));
 	writel_relaxed(ZONE_CNT_THRES_LIM, BWMON_ZONE_CNT_THRES(bw_node));
 	writel_relaxed(0, BWMON_ZONE_ACTIONS(bw_node));
-	writel_relaxed(HW_SAMPLE_TICKS, BWMON_SW(bw_node));
+	writel_relaxed(bwprof_data->hw_sample_ticks, BWMON_SW(bw_node));
 }
 
 /* Note: bwprof_lock must be held before calling this function */
 static void start_bwmon_node(struct bwmon_node *bw_node)
 {
 	configure_bwmon_node(bw_node);
+	bw_node->prev_count = 0;
+	bw_node->last_sample_ts = ktime_get();
 	bwmon_node_resume(bw_node);
 	if (!hrtimer_active(&bwprof_data->bwprof_hrtimer))
 		hrtimer_start(&bwprof_data->bwprof_hrtimer,
-			ms_to_ktime(HW_SAMPLE_MS), HRTIMER_MODE_REL_PINNED);
+			ms_to_ktime(bwprof_data->sw_sample_ms), HRTIMER_MODE_REL_PINNED);
 }
 
 /* Note: bwprof_lock must be held before calling this function */
@@ -283,7 +335,6 @@ static void stop_bwmon_node(struct bwmon_node *bw_node)
 
 	bwmon_node_pause(bw_node);
 	bwmon_node_clear(bw_node, true);
-	memset(&bw_node->last_sample, 0, sizeof(bw_node->last_sample));
 
 	list_for_each_entry(itr, &bwprof_list, list) {
 		if (itr->enabled) {
@@ -308,31 +359,57 @@ static inline u32 get_memfreq(void)
 	return memfreq;
 }
 
-#define MAX_BYTE_COUNT_MASK	0xFFFF
-#define MAX_BYTE_COUNT_SHIFT	16
-static void get_bw_and_update_last_sample(struct bwmon_node *bw_node)
+static bool get_bw_and_update_last_sample(struct bwmon_node *bw_node, bool update_last_sample)
 {
+	u32 count_diff;
+	bool cntr_auto_reset = false;
 	unsigned long count;
 
 	bwmon_node_pause(bw_node);
-	count = readl_relaxed(BWMON_ZONE1_MAX_BYTE_COUNT(bw_node)) &
-				MAX_BYTE_COUNT_MASK;
-	count <<= MAX_BYTE_COUNT_SHIFT;
-	bw_node->curr_sample_bytes += count;
-	bwmon_node_clear(bw_node, false);
+	if (bwprof_data->read_mode == BYTE_CNT_READ)
+		count = readl_relaxed(BWMON_BYTE_CNT(bw_node)) &
+				BYTE_COUNT_MASK;
+	else
+		count = readl_relaxed(BWMON_ZONE1_MAX_BYTE_COUNT(bw_node)) &
+				BYTE_COUNT_MASK;
+
+	if (count < bw_node->prev_count)
+		cntr_auto_reset = true;
+	bw_node->timer_count++;
+	if (bw_node->timer_count >= bwprof_data->reset_count) {
+		bw_node->timer_count = 0;
+		if (bwprof_data->read_mode == BYTE_CNT_READ)
+			bw_node->curr_sample_bytes += (count - bw_node->prev_count);
+		else
+			bw_node->curr_sample_bytes += count;
+		bw_node->prev_count =  0;
+		bwmon_node_clear(bw_node, true);
+		count = 0;
+	}
+
+	if (update_last_sample) {
+		bw_node->curr_sample_ts = ktime_get();
+		count_diff = count + bw_node->curr_sample_bytes
+						- bw_node->prev_count;
+		bw_node->curr_sample_bytes = count_diff;
+		bw_node->curr_sample_bytes <<= BYTE_COUNT_SHIFT;
+		bw_node->prev_count = count;
+	}
 	bwmon_node_resume(bw_node);
+	return cntr_auto_reset;
 }
 
 static void bwprof_update_work(struct work_struct *work)
 {
-	struct bwmon_node *bw_node;
-	ktime_t now = ktime_get();
+	bool update_last_sample = false, cntr_auto_reset = false;
+	u16 last_sample_idx;
 	u32 mem_freq, max_mbps;
-	bool update_last_sample = false;
+	s64 sample_time;
+	struct bwmon_node *bw_node;
 
 	mutex_lock(&bwprof_lock);
 	bwprof_data->sample_cnt++;
-	if (bwprof_data->sample_cnt * HW_SAMPLE_MS >= bwprof_data->sample_ms) {
+	if (bwprof_data->sample_cnt * DEFAULT_SAMPLE_MS >= bwprof_data->sample_ms) {
 		update_last_sample = true;
 		bwprof_data->sample_cnt = 0;
 		mem_freq = get_memfreq();
@@ -342,25 +419,44 @@ static void bwprof_update_work(struct work_struct *work)
 	list_for_each_entry(bw_node, &bwprof_list, list) {
 		if (!bw_node->enabled)
 			continue;
-
-		get_bw_and_update_last_sample(bw_node);
-		if (update_last_sample) {
-			bw_node->last_sample.ts = now;
-			do_div(bw_node->curr_sample_bytes,
-							bwprof_data->sample_ms * USEC_PER_MSEC);
-			bw_node->last_sample.meas_mbps =  bw_node->curr_sample_bytes;
-			bw_node->last_sample.mem_freq = mem_freq;
-			bw_node->last_sample.max_mbps = max_mbps;
-			trace_bwprof_last_sample(
-				dev_name(bw_node->dev),
-				bw_node->client,
-				bw_node->last_sample.ts,
-				bw_node->last_sample.meas_mbps,
-				bw_node->last_sample.max_mbps,
-				bw_node->last_sample.mem_freq
-			);
-			bw_node->curr_sample_bytes = 0;
+		cntr_auto_reset = get_bw_and_update_last_sample(bw_node, update_last_sample);
+		if (!update_last_sample)
+			continue;
+		if (likely(!cntr_auto_reset)) {
+			if (bwprof_data->read_mode == BYTE_CNT_READ) {
+				sample_time = ktime_us_delta(bw_node->curr_sample_ts,
+						bw_node->last_sample_ts);
+				do_div(bw_node->curr_sample_bytes,
+							sample_time);
+			} else {
+				do_div(bw_node->curr_sample_bytes,
+						bwprof_data->sample_ms * USEC_PER_MSEC);
+			}
+			bw_node->buffer_data[bw_node->iterator].meas_mbps =
+						bw_node->curr_sample_bytes;
+		} else {
+			 /* Error in reading current sample, hence copy previous one */
+			last_sample_idx = bw_node->iterator ?  bw_node->iterator - 1 :
+				bwprof_data->max_samples - 1;
+			bw_node->buffer_data[bw_node->iterator].meas_mbps =
+				bw_node->buffer_data[last_sample_idx].meas_mbps;
 		}
+		bw_node->buffer_data[bw_node->iterator].ts = bw_node->curr_sample_ts;
+		bw_node->buffer_data[bw_node->iterator].max_mbps = max_mbps;
+		bw_node->buffer_data[bw_node->iterator].mem_freq = mem_freq;
+		bw_node->unread_samples = min(++bw_node->unread_samples,
+			bwprof_data->max_samples);
+		trace_bwprof_last_sample(
+			dev_name(bw_node->dev),
+			bw_node->client,
+			bw_node->buffer_data[bw_node->iterator].ts,
+			bw_node->buffer_data[bw_node->iterator].meas_mbps,
+			bw_node->buffer_data[bw_node->iterator].max_mbps,
+			bw_node->buffer_data[bw_node->iterator].mem_freq
+		);
+		bw_node->curr_sample_bytes = 0;
+		bw_node->last_sample_ts = bw_node->curr_sample_ts;
+		bw_node->iterator = (bw_node->iterator + 1) % bwprof_data->max_samples;
 	}
 	mutex_unlock(&bwprof_lock);
 }
@@ -403,6 +499,11 @@ static int bwprof_mon_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	bw_node->buffer_data = devm_kzalloc(dev,
+		bwprof_data->max_samples * bwprof_data->size_of_line, GFP_KERNEL);
+	if (!bw_node->buffer_data)
+		return -ENOMEM;
+
 	snprintf(name, MAX_NAME_LEN, "bwmon%d", bwprof_data->mon_count);
 	ret = kobject_init_and_add(&bw_node->kobj, &mon_ktype,
 			&bwprof_data->kobj, name);
@@ -428,7 +529,7 @@ static enum hrtimer_restart bwprof_hrtimer_handler(struct hrtimer *timer)
 	ktime_t now = ktime_get();
 
 	queue_work(bwprof_data->bwprof_wq, &bwprof_data->work);
-	hrtimer_forward(timer, now, ms_to_ktime(HW_SAMPLE_MS));
+	hrtimer_forward(timer, now, ms_to_ktime(bwprof_data->sw_sample_ms));
 
 	return HRTIMER_RESTART;
 }
@@ -444,7 +545,7 @@ static int bwprof_dev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	bwprof_data->dev = dev;
-	bwprof_data->sample_ms = 100;
+	bwprof_data->sample_ms =  DEFAULT_SAMPLE_MS;
 	bwprof_data->mon_count = 0;
 
 	ret = of_property_read_u32(dev->of_node, "qcom,bus-width",
@@ -475,7 +576,18 @@ static int bwprof_dev_probe(struct platform_device *pdev)
 		dev_err(dev, "Couldn't create bwprof workqueue.\n");
 		return -ENOMEM;
 	}
-
+	/*
+	 * to get no of hex char in a line multiplying size of struct bwprof_sample by 2
+	 * and adding 4 for tabs.
+	 */
+	bwprof_data->size_of_line = sizeof(struct bwprof_sample) * 2 + 4;
+	bwprof_data->max_samples = PAGE_SIZE / bwprof_data->size_of_line;
+	bwprof_data->sw_sample_ms = DEFAULT_SAMPLE_MS;
+	bwprof_data->hw_sample_ticks = mult_frac(bwprof_data->sw_sample_ms, HW_HZ,
+				MSEC_PER_SEC);
+	bwprof_data->read_mode = ZONE_CNT_READ;
+	bwprof_data->reset_count = (MAX_HW_SAMPLE_MS - CNTR_RESET_TIMER_HEADROOM) /
+			bwprof_data->sample_ms;
 	INIT_WORK(&bwprof_data->work, &bwprof_update_work);
 
 	ret = kobject_init_and_add(&bwprof_data->kobj, &bwprof_ktype,
@@ -505,6 +617,7 @@ static int qcom_bwprof_driver_probe(struct platform_device *pdev)
 		if (bwprof_data) {
 			dev_err(dev, "only one bwprof device allowed\n");
 			ret = -ENODEV;
+			break;
 		}
 		ret = bwprof_dev_probe(pdev);
 		if (!ret && of_get_available_child_count(dev->of_node))
