@@ -36,7 +36,7 @@ struct bwprof_spec {
 };
 
 struct bwprof_sample {
-	ktime_t			ts;
+	u64			ts;
 	u32			meas_mbps;
 	u32			max_mbps;
 	u16			mem_freq;
@@ -51,6 +51,7 @@ struct bwmon_node {
 	u64			curr_sample_bytes;
 	ktime_t			last_sample_ts;
 	ktime_t			curr_sample_ts;
+	u64			curr_sample_qtimer_cnt;
 	const char		*client;
 	void __iomem		*base;
 	struct device		*dev;
@@ -389,6 +390,7 @@ static bool get_bw_and_update_last_sample(struct bwmon_node *bw_node, bool updat
 
 	if (update_last_sample) {
 		bw_node->curr_sample_ts = ktime_get();
+		bw_node->curr_sample_qtimer_cnt = __arch_counter_get_cntvct_stable();
 		count_diff = count + bw_node->curr_sample_bytes
 						- bw_node->prev_count;
 		bw_node->curr_sample_bytes = count_diff;
@@ -441,7 +443,7 @@ static void bwprof_update_work(struct work_struct *work)
 			bw_node->buffer_data[bw_node->iterator].meas_mbps =
 				bw_node->buffer_data[last_sample_idx].meas_mbps;
 		}
-		bw_node->buffer_data[bw_node->iterator].ts = bw_node->curr_sample_ts;
+		bw_node->buffer_data[bw_node->iterator].ts = bw_node->curr_sample_qtimer_cnt;
 		bw_node->buffer_data[bw_node->iterator].max_mbps = max_mbps;
 		bw_node->buffer_data[bw_node->iterator].mem_freq = mem_freq;
 		bw_node->unread_samples = min(++bw_node->unread_samples,
@@ -449,7 +451,7 @@ static void bwprof_update_work(struct work_struct *work)
 		trace_bwprof_last_sample(
 			dev_name(bw_node->dev),
 			bw_node->client,
-			bw_node->buffer_data[bw_node->iterator].ts,
+			bw_node->curr_sample_ts,
 			bw_node->buffer_data[bw_node->iterator].meas_mbps,
 			bw_node->buffer_data[bw_node->iterator].max_mbps,
 			bw_node->buffer_data[bw_node->iterator].mem_freq
