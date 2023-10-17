@@ -181,6 +181,7 @@ static int hdcp1_app_load(struct hdcp1_qsee_handle *handle)
 	if (rc) {
 		pr_warn("%s app load failed (%d)\n", HDCP1OPS_APP_NAME, rc);
 		handle->hdcpops_handle = NULL;
+		rc = 0;
 	}
 
 	handle->hdcp_state |= HDCP_STATE_APP_LOADED;
