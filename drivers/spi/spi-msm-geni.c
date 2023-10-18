@@ -260,7 +260,7 @@ static void spi_master_setup(struct spi_geni_master *mas)
 {
 	geni_write_reg(OTHER_IO_OE | IO2_DATA_IN_SEL | RX_DATA_IN_SEL |
 		IO_MACRO_IO3_SEL | IO_MACRO_IO2_SEL | IO_MACRO_IO0_SEL,
-					mas->base, GENI_CFG_REG80);
+					mas->base, SE_GENI_CFG_REG80);
 	geni_write_reg(START_TRIGGER, mas->base, SE_GENI_CFG_SEQ_START);
 
 	/* ensure data is written to hardware register */
@@ -274,7 +274,7 @@ static void spi_slv_setup(struct spi_geni_master *mas)
 	if (mas->slave_cross_connected) {
 		geni_write_reg(GENI_IO_MUX_1_EN, mas->base, GENI_OUTPUT_CTRL);
 		geni_write_reg(IO1_SEL_TX | IO2_DATA_IN_SEL_PAD2 |
-			IO3_DATA_IN_SEL_PAD2, mas->base, GENI_CFG_REG80);
+			IO3_DATA_IN_SEL_PAD2, mas->base, SE_GENI_CFG_REG80);
 	} else {
 		geni_write_reg(GENI_IO_MUX_0_EN, mas->base, GENI_OUTPUT_CTRL);
 	}
